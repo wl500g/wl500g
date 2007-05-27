@@ -117,6 +117,11 @@ int sysctl_tcp_abc __read_mostly;
 
 #define IsSackFrto() (sysctl_tcp_frto == 0x2)
 
+static inline void tcp_reset_reno_sack(struct tcp_sock *tp)
+{
+	tp->sacked_out = 0;
+}
+
 #define TCP_REMNANT (TCP_FLAG_FIN|TCP_FLAG_URG|TCP_FLAG_SYN|TCP_FLAG_PSH)
 
 /* Adapt the MSS value used to make delayed ack decision to the
@@ -1388,17 +1393,15 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct sk_buff *skb;
-	int cnt = 0;
 
-	tp->sacked_out = 0;
 	tp->lost_out = 0;
-	tp->fackets_out = 0;
 	tp->retrans_out = 0;
+	if (IsReno(tp))
+		tcp_reset_reno_sack(tp);
 
 	tcp_for_write_queue(skb, sk) {
 		if (skb == tcp_send_head(sk))
 			break;
-		cnt += tcp_skb_pcount(skb);
 		TCP_SKB_CB(skb)->sacked &= ~TCPCB_LOST;
 		/*
 		 * Count the retransmission made on RTO correctly (only when
@@ -1413,19 +1416,12 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 		} else {
 			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_SACKED_RETRANS);
 		}
-		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED)) {
 
-			/* Do not mark those segments lost that were
-			 * forward transmitted after RTO
-			 */
-			if (!after(TCP_SKB_CB(skb)->end_seq,
-				   tp->frto_highmark)) {
-				TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
-				tp->lost_out += tcp_skb_pcount(skb);
-			}
-		} else {
-			tp->sacked_out += tcp_skb_pcount(skb);
-			tp->fackets_out = cnt;
+		/* Don't lost mark skbs that were fwd transmitted after RTO */
+		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED) &&
+		    !after(TCP_SKB_CB(skb)->end_seq, tp->frto_highmark)) {
+			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+			tp->lost_out += tcp_skb_pcount(skb);
 		}
 	}
 	tcp_verify_left_out(tp);
@@ -1734,11 +1730,6 @@ static void tcp_remove_reno_sacks(struct sock *sk, int acked)
 	}
 	tcp_check_reno_reordering(sk, acked);
 	tcp_verify_left_out(tp);
-}
-
-static inline void tcp_reset_reno_sack(struct tcp_sock *tp)
-{
-	tp->sacked_out = 0;
 }
 
 /* Mark head of queue up as lost. */
