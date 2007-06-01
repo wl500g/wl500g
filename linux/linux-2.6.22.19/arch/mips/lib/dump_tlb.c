@@ -19,25 +19,16 @@
 static inline const char *msk2str(unsigned int mask)
 {
 	switch (mask) {
-	case PM_4K:
-		return "4kb";
-	case PM_16K:
-		return "16kb";
-	case PM_64K:
-		return "64kb";
-	case PM_256K:
-		return "256kb";
+	case PM_4K:	return "4kb";
+	case PM_16K:	return "16kb";
+	case PM_64K:	return "64kb";
+	case PM_256K:	return "256kb";
 #ifndef CONFIG_CPU_VR41XX
-	case PM_1M:
-		return "1Mb";
-	case PM_4M:
-		return "4Mb";
-	case PM_16M:
-		return "16Mb";
-	case PM_64M:
-		return "64Mb";
-	case PM_256M:
-		return "256Mb";
+	case PM_1M:	return "1Mb";
+	case PM_4M:	return "4Mb";
+	case PM_16M:	return "16Mb";
+	case PM_64M:	return "64Mb";
+	case PM_256M:	return "256Mb";
 #endif
 	}
 
@@ -52,27 +43,32 @@ static inline const char *msk2str(unsigned int mask)
 
 void dump_tlb(int first, int last)
 {
-	unsigned int pagemask, c0, c1, asid;
+	unsigned long s_entryhi, entryhi, asid;
 	unsigned long long entrylo0, entrylo1;
-	unsigned long entryhi;
-	int i;
+	unsigned int s_index, pagemask, c0, c1, i;
 
-	asid = read_c0_entryhi() & 0xff;
+	s_entryhi = read_c0_entryhi();
+	s_index = read_c0_index();
+	asid = s_entryhi & 0xff;
 
-	printk("\n");
 	for (i = first; i <= last; i++) {
 		write_c0_index(i);
 		BARRIER();
 		tlb_read();
 		BARRIER();
 		pagemask = read_c0_pagemask();
-		entryhi = read_c0_entryhi();
+		entryhi  = read_c0_entryhi();
 		entrylo0 = read_c0_entrylo0();
 		entrylo1 = read_c0_entrylo1();
 
-		/* Unused entries have a virtual address in KSEG0.  */
-		if ((entryhi & 0xf0000000) != 0x80000000
+		/* Unused entries have a virtual address of CKSEG0.  */
+		if ((entryhi & ~0x1ffffUL) != CKSEG0
 		    && (entryhi & 0xff) == asid) {
+#ifdef CONFIG_32BIT
+			int width = 8;
+#else
+			int width = 11;
+#endif
 			/*
 			 * Only print entries in use
 			 */
@@ -81,21 +77,27 @@ void dump_tlb(int first, int last)
 			c0 = (entrylo0 >> 3) & 7;
 			c1 = (entrylo1 >> 3) & 7;
 
-			printk("va=%08lx asid=%02lx\n",
-			       (entryhi & 0xffffe000), (entryhi & 0xff));
-			printk("\t\t\t[pa=%08Lx c=%d d=%d v=%d g=%Ld]\n",
+			printk("va=%0*lx asid=%02lx\n",
+			       width, (entryhi & ~0x1fffUL),
+			       entryhi & 0xff);
+			printk("\t[pa=%0*llx c=%d d=%d v=%d g=%d] ",
+			       width,
 			       (entrylo0 << 6) & PAGE_MASK, c0,
 			       (entrylo0 & 4) ? 1 : 0,
-			       (entrylo0 & 2) ? 1 : 0, (entrylo0 & 1));
-			printk("\t\t\t[pa=%08Lx c=%d d=%d v=%d g=%Ld]\n",
+			       (entrylo0 & 2) ? 1 : 0,
+			       (entrylo0 & 1) ? 1 : 0);
+			printk("[pa=%0*llx c=%d d=%d v=%d g=%d]\n",
+			       width,
 			       (entrylo1 << 6) & PAGE_MASK, c1,
 			       (entrylo1 & 4) ? 1 : 0,
-			       (entrylo1 & 2) ? 1 : 0, (entrylo1 & 1));
-			printk("\n");
+			       (entrylo1 & 2) ? 1 : 0,
+			       (entrylo1 & 1) ? 1 : 0);
 		}
 	}
+	printk("\n");
 
-	write_c0_entryhi(asid);
+	write_c0_entryhi(s_entryhi);
+	write_c0_index(s_index);
 }
 
 void dump_tlb_all(void)
@@ -105,7 +107,7 @@ void dump_tlb_all(void)
 
 void dump_tlb_wired(void)
 {
-	int wired;
+	int	wired;
 
 	wired = read_c0_wired();
 	printk("Wired: %d", wired);
@@ -144,19 +146,24 @@ void dump_tlb_nonwired(void)
 
 void dump_list_process(struct task_struct *t, void *address)
 {
-	pgd_t *page_dir, *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	pte_t *pte, page;
+	pgd_t	*page_dir, *pgd;
+	pud_t	*pud;
+	pmd_t	*pmd;
+	pte_t	*pte, page;
 	unsigned long addr, val;
+	int width = sizeof(long) * 2;
 
 	addr = (unsigned long) address;
 
 	printk("Addr                 == %08lx\n", addr);
-	printk("task                 == %8p\n", t);
-	printk("task->mm             == %8p\n", t->mm);
-	//printk("tasks->mm.pgd        == %08x\n", (unsigned int) t->mm->pgd);
+#ifdef CONFIG_64BIT
+	printk("tasks->mm.pgd        == %08lx\n", (unsigned long) t->mm->pgd);
+#endif
 
+#ifdef CONFIG_64BIT
+	page_dir = pgd_offset(t->mm, 0UL);
+	pgd = pgd_offset(t->mm, addr);
+#else
 	if (addr > KSEG0) {
 		page_dir = pgd_offset_k(0);
 		pgd = pgd_offset_k(addr);
@@ -167,41 +174,35 @@ void dump_list_process(struct task_struct *t, void *address)
 		printk("Current thread has no mm\n");
 		return;
 	}
-	printk("page_dir == %08x\n", (unsigned int) page_dir);
-	printk("pgd == %08x, ", (unsigned int) pgd);
+#endif
+	printk("page_dir == %0*lx\n", width, (unsigned long) page_dir);
+	printk("pgd == %0*lx\n", width, (unsigned long) pgd);
+
 	pud = pud_offset(pgd, addr);
-	printk("pud == %08x, ", (unsigned int) pud);
+	printk("pud == %0*lx\n", width, (unsigned long) pud);
 
 	pmd = pmd_offset(pud, addr);
-	printk("pmd == %08x, ", (unsigned int) pmd);
+	printk("pmd == %0*lx\n", width, (unsigned long) pmd);
 
 	pte = pte_offset(pmd, addr);
-	printk("pte == %08x, ", (unsigned int) pte);
+	printk("pte == %0*lx\n", width, (unsigned long) pte);
 
 	page = *pte;
 #ifdef CONFIG_64BIT_PHYS_ADDR
 	printk("page == %08Lx\n", pte_val(page));
 #else
-	printk("page == %08lx\n", pte_val(page));
+	printk("page == %0*lx\n", width, pte_val(page));
 #endif
 
 	val = pte_val(page);
-	if (val & _PAGE_PRESENT)
-		printk("present ");
-	if (val & _PAGE_READ)
-		printk("read ");
-	if (val & _PAGE_WRITE)
-		printk("write ");
-	if (val & _PAGE_ACCESSED)
-		printk("accessed ");
-	if (val & _PAGE_MODIFIED)
-		printk("modified ");
-	if (val & _PAGE_R4KBUG)
-		printk("r4kbug ");
-	if (val & _PAGE_GLOBAL)
-		printk("global ");
-	if (val & _PAGE_VALID)
-		printk("valid ");
+	if (val & _PAGE_PRESENT) printk("present ");
+	if (val & _PAGE_READ) printk("read ");
+	if (val & _PAGE_WRITE) printk("write ");
+	if (val & _PAGE_ACCESSED) printk("accessed ");
+	if (val & _PAGE_MODIFIED) printk("modified ");
+	if (val & _PAGE_R4KBUG) printk("r4kbug ");
+	if (val & _PAGE_GLOBAL) printk("global ");
+	if (val & _PAGE_VALID) printk("valid ");
 	printk("\n");
 }
 
@@ -210,20 +211,20 @@ void dump_list_current(void *address)
 	dump_list_process(current, address);
 }
 
-unsigned int vtop(void *address)
+unsigned long vtop(void *address)
 {
-	pgd_t *pgd;
-	pud_t *pud;
-	pmd_t *pmd;
-	pte_t *pte;
-	unsigned int addr, paddr;
+	pgd_t	*pgd;
+	pud_t	*pud;
+	pmd_t	*pmd;
+	pte_t	*pte;
+	unsigned long addr, paddr;
 
 	addr = (unsigned long) address;
 	pgd = pgd_offset(current->mm, addr);
 	pud = pud_offset(pgd, addr);
 	pmd = pmd_offset(pud, addr);
 	pte = pte_offset(pmd, addr);
-	paddr = (KSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
+	paddr = (CKSEG1 | (unsigned int) pte_val(*pte)) & PAGE_MASK;
 	paddr |= (addr & ~PAGE_MASK);
 
 	return paddr;
@@ -234,9 +235,9 @@ void dump16(unsigned long *p)
 	int i;
 
 	for (i = 0; i < 8; i++) {
-		printk("*%08lx == %08lx, ", (unsigned long) p, *p);
+		printk("*%08lx == %08lx, ", (unsigned long)p, *p);
 		p++;
-		printk("*%08lx == %08lx\n", (unsigned long) p, *p);
+		printk("*%08lx == %08lx\n", (unsigned long)p, *p);
 		p++;
 	}
 }
