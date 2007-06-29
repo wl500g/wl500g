@@ -20,6 +20,7 @@
 #include <linux/highmem.h>
 #include <linux/console.h>
 #include <linux/pfn.h>
+#include <linux/debugfs.h>
 
 #include <asm/addrspace.h>
 #include <asm/bootinfo.h>
