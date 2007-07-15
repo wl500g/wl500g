@@ -393,14 +393,17 @@ static int atm_tc_enqueue(struct sk_buff *skb,struct Qdisc *sch)
 	D2PRINTK("atm_tc_enqueue(skb %p,sch %p,[qdisc %p])\n",skb,sch,p);
 	result = TC_POLICE_OK; /* be nice to gcc */
 	if (TC_H_MAJ(skb->priority) != sch->handle ||
-	    !(flow = (struct atm_flow_data *) atm_tc_get(sch,skb->priority)))
+	    !(flow = (struct atm_flow_data *)atm_tc_get(sch, skb->priority)))
 		for (flow = p->flows; flow; flow = flow->next)
 			if (flow->filter_list) {
-				result = tc_classify(skb,flow->filter_list,
-				    &res);
-				if (result < 0) continue;
+				result = tc_classify_compat(skb,
+							    flow->filter_list,
+							    &res);
+				if (result < 0)
+					continue;
 				flow = (struct atm_flow_data *) res.class;
-				if (!flow) flow = lookup_flow(sch,res.classid);
+				if (!flow)
+					flow = lookup_flow(sch,res.classid);
 				break;
 			}
 	if (!flow) flow = &p->link;
@@ -408,33 +411,30 @@ static int atm_tc_enqueue(struct sk_buff *skb,struct Qdisc *sch)
 		if (flow->vcc)
 			ATM_SKB(skb)->atm_options = flow->vcc->atm_options;
 			/*@@@ looks good ... but it's not supposed to work :-)*/
-#ifdef CONFIG_NET_CLS_POLICE
+#ifdef CONFIG_NET_CLS_ACT
 		switch (result) {
-			case TC_POLICE_SHOT:
-				kfree_skb(skb);
-				break;
-			case TC_POLICE_RECLASSIFY:
-				if (flow->excess) flow = flow->excess;
-				else {
-					ATM_SKB(skb)->atm_options |=
-					    ATM_ATMOPT_CLP;
-					break;
-				}
-				/* fall through */
-			case TC_POLICE_OK:
-				/* fall through */
-			default:
-				break;
+		case TC_ACT_QUEUED:
+		case TC_ACT_STOLEN:
+			kfree_skb(skb);
+			return NET_XMIT_SUCCESS;
+		case TC_ACT_SHOT:
+			kfree_skb(skb);
+			goto drop;
+		case TC_POLICE_RECLASSIFY:
+			if (flow->excess)
+				flow = flow->excess;
+			else
+				ATM_SKB(skb)->atm_options |= ATM_ATMOPT_CLP;
+			break;
 		}
 #endif
 	}
-	if (
-#ifdef CONFIG_NET_CLS_POLICE
-	    result == TC_POLICE_SHOT ||
-#endif
-	    (ret = flow->q->enqueue(skb,flow->q)) != 0) {
+
+	if ((ret = flow->q->enqueue(skb, flow->q)) != 0) {
+drop: __maybe_unused
 		sch->qstats.drops++;
-		if (flow) flow->qstats.drops++;
+		if (flow)
+			flow->qstats.drops++;
 		return ret;
 	}
 	sch->bstats.bytes += skb->len;
