@@ -669,7 +669,7 @@ einval:	li	v0, -ENOSYS
 	sys	sys_signalfd		3
 	sys	sys_ni_syscall		0
 	sys	sys_eventfd		1
-	sys	sys_ni_syscall		0	/* 4320 */
+	sys	sys_fallocate		6	/* 4320 */
 	sys	sys_timerfd_create	2
 	sys	sys_timerfd_gettime	2
 	sys	sys_timerfd_settime	4

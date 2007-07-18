@@ -524,7 +524,7 @@ sys_call_table:
 	PTR	compat_sys_signalfd
 	PTR	sys_ni_syscall
 	PTR	sys_eventfd
-	PTR	sys_ni_syscall			/* 4320 */
+	PTR	sys32_fallocate			/* 4320 */
 	PTR	sys_timerfd_create
 	PTR	compat_sys_timerfd_gettime
 	PTR	compat_sys_timerfd_settime

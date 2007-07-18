@@ -340,7 +340,7 @@
 #define __NR_signalfd			(__NR_Linux + 317)
 #define __NR_timerfd			(__NR_Linux + 318)
 #define __NR_eventfd			(__NR_Linux + 319)
-/* #define __NR_fallocate		(__NR_Linux + 320) */
+#define __NR_fallocate			(__NR_Linux + 320)
 #define __NR_timerfd_create		(__NR_Linux + 321)
 #define __NR_timerfd_gettime		(__NR_Linux + 322)
 #define __NR_timerfd_settime		(__NR_Linux + 323)
@@ -640,7 +640,7 @@
 #define __NR_signalfd			(__NR_Linux + 276)
 #define __NR_timerfd			(__NR_Linux + 277)
 #define __NR_eventfd			(__NR_Linux + 278)
-/* #define __NR_fallocate		(__NR_Linux + 279) */
+#define __NR_fallocate			(__NR_Linux + 279)
 #define __NR_timerfd_create		(__NR_Linux + 280)
 #define __NR_timerfd_gettime		(__NR_Linux + 281)
 #define __NR_timerfd_settime		(__NR_Linux + 282)
@@ -944,7 +944,7 @@
 #define __NR_signalfd			(__NR_Linux + 280)
 #define __NR_timerfd			(__NR_Linux + 281)
 #define __NR_eventfd			(__NR_Linux + 282)
-/* #define __NR_fallocate		(__NR_Linux + 283) */
+#define __NR_fallocate			(__NR_Linux + 283)
 #define __NR_timerfd_create		(__NR_Linux + 284)
 #define __NR_timerfd_gettime		(__NR_Linux + 285)
 #define __NR_timerfd_settime		(__NR_Linux + 286)

@@ -26,6 +26,7 @@
 #include <linux/syscalls.h>
 #include <linux/rcupdate.h>
 #include <linux/audit.h>
+#include <linux/falloc.h>
 
 int vfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
@@ -353,6 +354,62 @@ asmlinkage long sys_ftruncate64(unsigned int fd, loff_t length)
 	return ret;
 }
 #endif
+
+static int do_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
+{
+	struct inode *inode = file->f_path.dentry->d_inode;
+	long ret;
+
+	if (offset < 0 || len <= 0)
+		return -EINVAL;
+
+	/* Return error if mode is not supported */
+	if (mode && !(mode & FALLOC_FL_KEEP_SIZE))
+		return -EOPNOTSUPP;
+
+	if (!(file->f_mode & FMODE_WRITE))
+		return -EBADF;
+	/*
+	 * Revalidate the write permissions, in case security policy has
+	 * changed since the files were opened.
+	 */
+	ret = security_file_permission(file, MAY_WRITE);
+	if (ret)
+		return ret;
+
+	if (S_ISFIFO(inode->i_mode))
+		return -ESPIPE;
+
+	/*
+	 * Let individual file system decide if it supports preallocation
+	 * for directories or not.
+	 */
+	if (!S_ISREG(inode->i_mode) && !S_ISDIR(inode->i_mode))
+		return -ENODEV;
+
+	/* Check for wrap through zero too */
+	if (((offset + len) > inode->i_sb->s_maxbytes) || ((offset + len) < 0))
+		return -EFBIG;
+
+	if (!inode->i_op || !inode->i_op->fallocate)
+		return -EOPNOTSUPP;
+
+	return inode->i_op->fallocate(inode, mode, offset, len);
+}
+
+asmlinkage long sys_fallocate(int fd, int mode, loff_t offset, loff_t len)
+{
+	struct file *file;
+	int error = -EBADF;
+
+	file = fget(fd);
+	if (file) {
+		error = do_fallocate(file, mode, offset, len);
+		fput(file);
+	}
+
+	return error;
+}
 
 /*
  * access() needs to use the real uid/gid, not the effective uid/gid.

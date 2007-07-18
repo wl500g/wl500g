@@ -405,7 +405,7 @@ EXPORT(sysn32_call_table)
 	PTR	compat_sys_signalfd		/* 6280 */
 	PTR	sys_ni_syscall
 	PTR	sys_eventfd
-	PTR	sys_ni_syscall			/* sys_fallocate */
+	PTR	sys_fallocate
 	PTR	sys_timerfd_create
 	PTR	compat_sys_timerfd_gettime	/* 6285 */
 	PTR	compat_sys_timerfd_settime
