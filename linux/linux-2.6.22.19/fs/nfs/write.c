@@ -241,10 +241,7 @@ static void nfs_end_page_writeback(struct page *page)
 
 /*
  * Find an associated nfs write request, and prepare to flush it out
- * Returns 1 if there was no write request, or if the request was
- * already tagged by nfs_set_page_dirty.Returns 0 if the request
- * was not tagged.
- * May also return an error if the user signalled nfs_wait_on_request().
+ * May return an error if the user signalled nfs_wait_on_request().
  */
 static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
 				struct page *page)
@@ -259,7 +256,7 @@ static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
 		req = nfs_page_find_request_locked(page);
 		if (req == NULL) {
 			spin_unlock(&inode->i_lock);
-			return 1;
+			return 0;
 		}
 		if (nfs_lock_request_dontget(req))
 			break;
@@ -280,7 +277,7 @@ static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
 		spin_unlock(&inode->i_lock);
 		nfs_unlock_request(req);
 		nfs_pageio_complete(pgio);
-		return 1;
+		return 0;
 	}
 	if (nfs_set_page_writeback(page) != 0) {
 		spin_unlock(&inode->i_lock);
@@ -288,10 +285,20 @@ static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
 	}
 	radix_tree_tag_set(&nfsi->nfs_page_tree, req->wb_index,
 			NFS_PAGE_TAG_LOCKED);
-	ret = test_bit(PG_NEED_FLUSH, &req->wb_flags);
 	spin_unlock(&inode->i_lock);
 	nfs_pageio_add_request(pgio, req);
-	return ret;
+	return 0;
+}
+
+static int nfs_do_writepage(struct page *page, struct writeback_control *wbc, struct nfs_pageio_descriptor *pgio)
+{
+	struct inode *inode = page->mapping->host;
+
+	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGE);
+	nfs_add_stats(inode, NFSIOS_WRITEPAGES, 1);
+
+	nfs_pageio_cond_complete(pgio, page->index);
+	return nfs_page_async_flush(pgio, page);
 }
 
 /*
@@ -299,59 +306,35 @@ static int nfs_page_async_flush(struct nfs_pageio_descriptor *pgio,
  */
 static int nfs_writepage_locked(struct page *page, struct writeback_control *wbc)
 {
-	struct nfs_pageio_descriptor mypgio, *pgio;
-	struct nfs_open_context *ctx;
-	struct inode *inode = page->mapping->host;
-	unsigned offset;
+	struct nfs_pageio_descriptor pgio;
 	int err;
 
-	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGE);
-	nfs_add_stats(inode, NFSIOS_WRITEPAGES, 1);
-
-	if (wbc->for_writepages)
-		pgio = wbc->fs_private;
-	else {
-		nfs_pageio_init_write(&mypgio, inode, wb_priority(wbc));
-		pgio = &mypgio;
-	}
-
-	nfs_pageio_cond_complete(pgio, page->index);
-
-	err = nfs_page_async_flush(pgio, page);
-	if (err <= 0)
-		goto out;
-	err = 0;
-	offset = nfs_page_length(page);
-	if (!offset)
-		goto out;
-
-	nfs_pageio_cond_complete(pgio, page->index);
-
-	ctx = nfs_find_open_context(inode, NULL, FMODE_WRITE);
-	if (ctx == NULL) {
-		err = -EBADF;
-		goto out;
-	}
-	err = nfs_writepage_setup(ctx, page, 0, offset);
-	put_nfs_open_context(ctx);
-	if (err != 0)
-		goto out;
-	err = nfs_page_async_flush(pgio, page);
-	if (err > 0)
-		err = 0;
-out:
-	if (!wbc->for_writepages)
-		nfs_pageio_complete(pgio);
-	return err;
+	nfs_pageio_init_write(&pgio, page->mapping->host, wb_priority(wbc));
+	err = nfs_do_writepage(page, wbc, &pgio);
+	nfs_pageio_complete(&pgio);
+	if (err < 0)
+		return err;
+	if (pgio.pg_error < 0)
+		return pgio.pg_error;
+	return 0;
 }
 
 int nfs_writepage(struct page *page, struct writeback_control *wbc)
 {
-	int err;
+	int ret;
 
-	err = nfs_writepage_locked(page, wbc);
+	ret = nfs_writepage_locked(page, wbc);
 	unlock_page(page);
-	return err; 
+	return ret;
+}
+
+static int nfs_writepages_callback(struct page *page, struct writeback_control *wbc, void *data)
+{
+	int ret;
+
+	ret = nfs_do_writepage(page, wbc, data);
+	unlock_page(page);
+	return ret;
 }
 
 int nfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
@@ -363,12 +346,11 @@ int nfs_writepages(struct address_space *mapping, struct writeback_control *wbc)
 	nfs_inc_stats(inode, NFSIOS_VFSWRITEPAGES);
 
 	nfs_pageio_init_write(&pgio, inode, wb_priority(wbc));
-	wbc->fs_private = &pgio;
-	err = generic_writepages(mapping, wbc);
+	err = write_cache_pages(mapping, wbc, nfs_writepages_callback, &pgio);
 	nfs_pageio_complete(&pgio);
-	if (err)
+	if (err < 0)
 		return err;
-	if (pgio.pg_error)
+	if (pgio.pg_error < 0)
 		return pgio.pg_error;
 	return 0;
 }
@@ -391,8 +373,6 @@ static void nfs_inode_add_request(struct inode *inode, struct nfs_page *req)
 	}
 	SetPagePrivate(req->wb_page);
 	set_page_private(req->wb_page, (unsigned long)req);
-	if (PageDirty(req->wb_page))
-		set_bit(PG_NEED_FLUSH, &req->wb_flags);
 	nfsi->npages++;
 	kref_get(&req->wb_kref);
 	radix_tree_tag_set(&nfsi->nfs_page_tree, req->wb_index,
@@ -413,8 +393,6 @@ static void nfs_inode_remove_request(struct nfs_page *req)
 	set_page_private(req->wb_page, 0);
 	ClearPagePrivate(req->wb_page);
 	radix_tree_delete(&nfsi->nfs_page_tree, req->wb_index);
-	if (test_and_clear_bit(PG_NEED_FLUSH, &req->wb_flags))
-		__set_page_dirty_nobuffers(req->wb_page);
 	nfsi->npages--;
 	if (!nfsi->npages) {
 		spin_unlock(&inode->i_lock);
@@ -1368,52 +1346,51 @@ long nfs_sync_mapping_wait(struct address_space *mapping, struct writeback_contr
 	return ret;
 }
 
-/*
- * flush the inode to disk.
- */
-int nfs_wb_all(struct inode *inode)
+static int __nfs_write_mapping(struct address_space *mapping, struct writeback_control *wbc, int how)
 {
-	struct address_space *mapping = inode->i_mapping;
-	struct writeback_control wbc = {
-		.bdi = mapping->backing_dev_info,
-		.sync_mode = WB_SYNC_ALL,
-		.nr_to_write = LONG_MAX,
-		.range_cyclic = 1,
-	};
 	int ret;
 
-	ret = nfs_writepages(mapping, &wbc);
+	ret = nfs_writepages(mapping, wbc);
 	if (ret < 0)
 		goto out;
-	ret = nfs_sync_mapping_wait(mapping, &wbc, 0);
-	if (ret >= 0)
-		return 0;
+	ret = nfs_sync_mapping_wait(mapping, wbc, how);
+	if (ret < 0)
+		goto out;
+	return 0;
 out:
 	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
 	return ret;
 }
 
-int nfs_sync_mapping_range(struct address_space *mapping, loff_t range_start, loff_t range_end, int how)
+/* Two pass sync: first using WB_SYNC_NONE, then WB_SYNC_ALL */
+static int nfs_write_mapping(struct address_space *mapping, int how)
 {
 	struct writeback_control wbc = {
 		.bdi = mapping->backing_dev_info,
-		.sync_mode = WB_SYNC_ALL,
+		.sync_mode = WB_SYNC_NONE,
 		.nr_to_write = LONG_MAX,
-		.range_start = range_start,
-		.range_end = range_end,
-		.for_writepages = 1,
+		.range_cyclic = 1,
 	};
 	int ret;
 
-	ret = nfs_writepages(mapping, &wbc);
+	ret = __nfs_write_mapping(mapping, &wbc, how);
 	if (ret < 0)
-		goto out;
-	ret = nfs_sync_mapping_wait(mapping, &wbc, how);
-	if (ret >= 0)
-		return 0;
-out:
-	__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
-	return ret;
+		return ret;
+	wbc.sync_mode = WB_SYNC_ALL;
+	return __nfs_write_mapping(mapping, &wbc, how);
+}
+
+/*
+ * flush the inode to disk.
+ */
+int nfs_wb_all(struct inode *inode)
+{
+	return nfs_write_mapping(inode->i_mapping, 0);
+}
+
+int nfs_wb_nocommit(struct inode *inode)
+{
+	return nfs_write_mapping(inode->i_mapping, FLUSH_NOCOMMIT);
 }
 
 int nfs_wb_page_priority(struct inode *inode, struct page *page, int how)
@@ -1452,35 +1429,6 @@ int nfs_wb_page(struct inode *inode, struct page* page)
 {
 	return nfs_wb_page_priority(inode, page, FLUSH_STABLE);
 }
-
-int nfs_set_page_dirty(struct page *page)
-{
-	struct address_space *mapping = page->mapping;
-	struct inode *inode;
-	struct nfs_page *req;
-	int ret;
-
-	if (!mapping)
-		goto out_raced;
-	inode = mapping->host;
-	if (!inode)
-		goto out_raced;
-	spin_lock(&inode->i_lock);
-	req = nfs_page_find_request_locked(page);
-	if (req != NULL) {
-		/* Mark any existing write requests for flushing */
-		ret = !test_and_set_bit(PG_NEED_FLUSH, &req->wb_flags);
-		spin_unlock(&inode->i_lock);
-		nfs_release_request(req);
-		return ret;
-	}
-	ret = __set_page_dirty_nobuffers(page);
-	spin_unlock(&inode->i_lock);
-	return ret;
-out_raced:
-	return !TestSetPageDirty(page);
-}
-
 
 int __init nfs_init_writepagecache(void)
 {

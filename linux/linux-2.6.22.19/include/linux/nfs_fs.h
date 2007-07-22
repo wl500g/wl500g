@@ -420,15 +420,14 @@ extern int  nfs_flush_incompatible(struct file *file, struct page *page);
 extern int  nfs_updatepage(struct file *, struct page *, unsigned int, unsigned int);
 extern int nfs_writeback_done(struct rpc_task *, struct nfs_write_data *);
 extern void nfs_writedata_release(void *);
-extern int nfs_set_page_dirty(struct page *);
 
 /*
  * Try to write back everything synchronously (but check the
  * return value!)
  */
 extern long nfs_sync_mapping_wait(struct address_space *, struct writeback_control *, int);
-extern int nfs_sync_mapping_range(struct address_space *, loff_t, loff_t, int);
 extern int nfs_wb_all(struct inode *inode);
+extern int nfs_wb_nocommit(struct inode *inode);
 extern int nfs_wb_page(struct inode *inode, struct page* page);
 extern int nfs_wb_page_priority(struct inode *inode, struct page* page, int how);
 #if defined(CONFIG_NFS_V3) || defined(CONFIG_NFS_V4)
