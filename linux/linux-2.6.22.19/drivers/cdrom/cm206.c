@@ -839,7 +839,7 @@ static int try_adapter(int sector)
 /* This is not a very smart implementation. We could optimize for 
    consecutive block numbers. I'm not convinced this would really
    bring down the processor load. */
-static void do_cm206_request(request_queue_t * q)
+static void do_cm206_request(struct request_queue * q)
 {
 	long int i, cd_sec_no;
 	int quarter, error;

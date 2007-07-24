@@ -242,7 +242,7 @@ static void gscd_transfer(struct request *req)
  * I/O request routine called from Linux kernel.
  */
 
-static void do_gscd_request(request_queue_t * q)
+static void do_gscd_request(struct request_queue * q)
 {
 	__do_gscd_request(0);
 }

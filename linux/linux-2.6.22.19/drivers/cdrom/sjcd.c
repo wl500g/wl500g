@@ -1480,7 +1480,7 @@ static void sjcd_poll(void)
 	SJCD_SET_TIMER(sjcd_poll, 1);
 }
 
-static void do_sjcd_request(request_queue_t * q)
+static void do_sjcd_request(struct request_queue * q)
 {
 #if defined( SJCD_TRACE )
 	printk("SJCD: do_sjcd_request(%ld+%ld)\n",

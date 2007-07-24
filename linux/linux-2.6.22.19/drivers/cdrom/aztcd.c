@@ -1557,7 +1557,7 @@ static void azt_transfer(void)
 	}
 }
 
-static void do_aztcd_request(request_queue_t * q)
+static void do_aztcd_request(struct request_queue * q)
 {
 #ifdef AZT_TEST
 	printk(" do_aztcd_request(%ld+%ld) Time:%li\n", CURRENT->sector,

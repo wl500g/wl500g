@@ -175,7 +175,7 @@ static void bounce_end_io_read_isa(struct bio *bio, int err)
 	__bounce_end_io_read(bio, isa_page_pool, err);
 }
 
-static void __blk_queue_bounce(request_queue_t *q, struct bio **bio_orig,
+static void __blk_queue_bounce(struct request_queue *q, struct bio **bio_orig,
 			       mempool_t *pool)
 {
 	struct page *page;
@@ -260,7 +260,7 @@ static void __blk_queue_bounce(request_queue_t *q, struct bio **bio_orig,
 	*bio_orig = bio;
 }
 
-void blk_queue_bounce(request_queue_t *q, struct bio **bio_orig)
+void blk_queue_bounce(struct request_queue *q, struct bio **bio_orig)
 {
 	mempool_t *pool;
 

@@ -354,7 +354,7 @@ static void acsi_times_out( unsigned long dummy );
 static void copy_to_acsibuffer( void );
 static void copy_from_acsibuffer( void );
 static void do_end_requests( void );
-static void do_acsi_request( request_queue_t * );
+static void do_acsi_request( struct request_queue * );
 static void redo_acsi_request( void );
 static int acsi_ioctl( struct inode *inode, struct file *file, unsigned int
                        cmd, unsigned long arg );
@@ -931,7 +931,7 @@ static void do_end_requests( void )
  *
  ***********************************************************************/
 
-static void do_acsi_request( request_queue_t * q )
+static void do_acsi_request( struct request_queue * q )
 
 {
 	stdma_lock( acsi_interrupt, NULL );

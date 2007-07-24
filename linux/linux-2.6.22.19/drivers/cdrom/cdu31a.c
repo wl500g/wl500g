@@ -1290,7 +1290,7 @@ read_data_block(char *buffer,
  * uses 1024 byte blocks and the drive uses 2048 byte blocks.  Since most
  * data access on a CD is done sequentially, this saves a lot of operations.
  */
-static void do_cdu31a_request(request_queue_t * q)
+static void do_cdu31a_request(struct request_queue * q)
 {
 	struct request *req;
 	int block, nblock, num_retries;

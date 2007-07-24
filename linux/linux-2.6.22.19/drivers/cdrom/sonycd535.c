@@ -793,7 +793,7 @@ size_to_buf(unsigned int size, Byte *buf)
  * data access on a CD is done sequentially, this saves a lot of operations.
  */
 static void
-do_cdu535_request(request_queue_t * q)
+do_cdu535_request(struct request_queue * q)
 {
 	struct request *req;
 	unsigned int read_size;

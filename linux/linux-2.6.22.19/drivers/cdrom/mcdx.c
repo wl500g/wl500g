@@ -566,7 +566,7 @@ static int mcdx_audio_ioctl(struct cdrom_device_info *cdi,
 	}
 }
 
-static void do_mcdx_request(request_queue_t * q)
+static void do_mcdx_request(struct request_queue * q)
 {
 	struct s_drive_stuff *stuffp;
 	struct request *req;

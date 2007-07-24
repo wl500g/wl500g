@@ -4510,7 +4510,7 @@ static void sbp_transfer(struct request *req)
 /*
  *  I/O request routine, called from Linux kernel.
  */
-static void do_sbpcd_request(request_queue_t * q)
+static void do_sbpcd_request(struct request_queue * q)
 {
 	u_int block;
 	u_int nsect;

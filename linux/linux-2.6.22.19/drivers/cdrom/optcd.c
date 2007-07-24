@@ -1358,7 +1358,7 @@ static void poll(unsigned long data)
 }
 
 
-static void do_optcd_request(request_queue_t * q)
+static void do_optcd_request(struct request_queue * q)
 {
 	DEBUG((DEBUG_REQUEST, "do_optcd_request(%ld+%ld)",
 	       CURRENT -> sector, CURRENT -> nr_sectors));

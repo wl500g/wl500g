@@ -122,7 +122,7 @@ struct cardinfo {
 	int		current_idx;
 	sector_t	current_sector;
 
-	request_queue_t *queue;
+	struct request_queue *queue;
 
 	struct mm_page {
 		dma_addr_t		page_dma;
@@ -366,7 +366,7 @@ static inline void reset_page(struct mm_page *page)
 	page->biotail = & page->bio;
 }
 
-static void mm_unplug_device(request_queue_t *q)
+static void mm_unplug_device(struct request_queue *q)
 {
 	struct cardinfo *card = q->queuedata;
 	unsigned long flags;
@@ -560,7 +560,7 @@ static void process_page(unsigned long data)
 --                              mm_make_request
 -----------------------------------------------------------------------------------
 */
-static int mm_make_request(request_queue_t *q, struct bio *bio)
+static int mm_make_request(struct request_queue *q, struct bio *bio)
 {
 	struct cardinfo *card = q->queuedata;
 	pr_debug("mm_make_request %llu %u\n",
