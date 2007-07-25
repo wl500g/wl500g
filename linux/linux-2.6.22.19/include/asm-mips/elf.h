@@ -266,7 +266,7 @@ do {									\
 #ifdef CONFIG_MIPS32_N32
 #define __SET_PERSONALITY32_N32()					\
 	do {								\
-		current->thread.mflags |= MF_N32;			\
+		set_thread_flag(TIF_32BIT_ADDR);			\
 		current->thread.abi = &mips_abi_n32;			\
 	} while (0)
 #else
@@ -277,7 +277,8 @@ do {									\
 #ifdef CONFIG_MIPS32_O32
 #define __SET_PERSONALITY32_O32()					\
 	do {								\
-		current->thread.mflags |= MF_O32;			\
+		set_thread_flag(TIF_32BIT_REGS);			\
+		set_thread_flag(TIF_32BIT_ADDR);			\
 		current->thread.abi = &mips_abi_32;			\
 	} while (0)
 #else
@@ -300,13 +301,13 @@ do {									\
 
 #define SET_PERSONALITY(ex, ibcs2)					\
 do {									\
-	current->thread.mflags &= ~MF_ABI_MASK;				\
+	clear_thread_flag(TIF_32BIT_REGS);				\
+	clear_thread_flag(TIF_32BIT_ADDR);				\
+									\
 	if ((ex).e_ident[EI_CLASS] == ELFCLASS32)			\
 		__SET_PERSONALITY32(ex);				\
-	else {								\
-		current->thread.mflags |= MF_N64;			\
+	else								\
 		current->thread.abi = &mips_abi;			\
-	}								\
 									\
 	if (ibcs2)							\
 		set_personality(PER_SVR4);				\

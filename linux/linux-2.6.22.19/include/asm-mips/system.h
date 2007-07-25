@@ -49,11 +49,12 @@ struct task_struct;
 #define switch_to(prev,next,last)					\
 do {									\
 	u32 __usedfpu;							\
+	struct thread_info *__prev_ti = task_thread_info(prev);		\
 									\
 	if (cpu_has_fpu &&						\
-	    (prev->thread.mflags & MF_FPUBOUND) &&			\
-	     (!(KSTK_STATUS(prev) & ST0_CU1))) {			\
-		prev->thread.mflags &= ~MF_FPUBOUND;			\
+	    test_ti_thread_flag(__prev_ti, TIF_FPUBOUND) &&		\
+	    (!(KSTK_STATUS(prev) & ST0_CU1))) {				\
+		clear_ti_thread_flag(__prev_ti, TIF_FPUBOUND);		\
 		prev->cpus_allowed = prev->thread.user_cpus_allowed;	\
 	}								\
 	if (cpu_has_dsp)						\

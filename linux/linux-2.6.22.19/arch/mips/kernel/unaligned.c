@@ -500,7 +500,7 @@ asmlinkage void do_ade(struct pt_regs *regs)
 		goto sigbus;
 
 	pc = (unsigned int __user *) exception_epc(regs);
-	if (user_mode(regs) && (current->thread.mflags & MF_FIXADE) == 0)
+	if (user_mode(regs) && !test_thread_flag(TIF_FIXADE))
 		goto sigbus;
 
 	/*

@@ -181,7 +181,7 @@ static inline int cop1_64bit(struct pt_regs *xcp)
 #if defined(CONFIG_64BIT) && !defined(CONFIG_MIPS32_O32)
 	return 1;
 #elif defined(CONFIG_64BIT) && defined(CONFIG_MIPS32_O32)
-	return !(current->thread.mflags & MF_32BIT_REGS);
+	return !test_thread_flag(TIF_32BIT_REGS);
 #else
 	return 0;
 #endif

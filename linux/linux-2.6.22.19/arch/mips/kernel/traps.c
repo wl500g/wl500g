@@ -894,7 +894,7 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 						 current->thread.user_cpus_allowed,
 						mt_fpu_cpumask);
 					set_cpus_allowed(current, tmask);
-					current->thread.mflags |= MF_FPUBOUND;
+					set_thread_flag(TIF_FPUBOUND);
 			 	 }
 				}
 #endif /* CONFIG_MIPS_MT_FPAFF */
