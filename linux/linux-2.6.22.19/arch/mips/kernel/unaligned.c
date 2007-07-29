@@ -91,15 +91,14 @@
 unsigned long unaligned_instructions;
 #endif
 
-static inline int emulate_load_store_insn(struct pt_regs *regs,
-	void __user *addr, unsigned int __user *pc,
-	unsigned long **regptr, unsigned long *newvalue)
+static void emulate_load_store_insn(struct pt_regs *regs,
+	void __user *addr, unsigned int __user *pc)
 {
 	union mips_instruction insn;
 	unsigned long value;
 	unsigned int res;
 
-	*regptr=NULL;
+	regs->regs[0] = 0;
 
 	/*
 	 * This load never faults.
@@ -168,8 +167,8 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
-		*newvalue = value;
-		*regptr = &regs->regs[insn.i_format.rt];
+		compute_return_epc(regs);
+		regs->regs[insn.i_format.rt] = value;
 		break;
 
 	case lw_op:
@@ -198,8 +197,8 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
-		*newvalue = value;
-		*regptr = &regs->regs[insn.i_format.rt];
+		compute_return_epc(regs);
+		regs->regs[insn.i_format.rt] = value;
 		break;
 
 	case lhu_op:
@@ -232,8 +231,8 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
-		*newvalue = value;
-		*regptr = &regs->regs[insn.i_format.rt];
+		compute_return_epc(regs);
+		regs->regs[insn.i_format.rt] = value;
 		break;
 
 	case lwu_op:
@@ -272,8 +271,8 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
-		*newvalue = value;
-		*regptr = &regs->regs[insn.i_format.rt];
+		compute_return_epc(regs);
+		regs->regs[insn.i_format.rt] = value;
 		break;
 #endif /* CONFIG_64BIT */
 
@@ -314,8 +313,8 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
-		*newvalue = value;
-		*regptr = &regs->regs[insn.i_format.rt];
+		compute_return_epc(regs);
+		regs->regs[insn.i_format.rt] = value;
 		break;
 #endif /* CONFIG_64BIT */
 
@@ -356,6 +355,7 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 			: "r" (value), "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
+		compute_return_epc(regs);
 		break;
 
 	case sw_op:
@@ -386,6 +386,7 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 		: "r" (value), "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
+		compute_return_epc(regs);
 		break;
 
 	case sd_op:
@@ -424,6 +425,7 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 		: "r" (value), "r" (addr), "i" (-EFAULT));
 		if (res)
 			goto fault;
+		compute_return_epc(regs);
 		break;
 #endif /* CONFIG_64BIT */
 
@@ -462,34 +464,31 @@ static inline int emulate_load_store_insn(struct pt_regs *regs,
 	unaligned_instructions++;
 #endif
 
-	return 0;
+	return;
 
 fault:
 	/* Did we have an exception handler installed? */
 	if (fixup_exception(regs))
-		return 1;
+		return;
 
 	die_if_kernel ("Unhandled kernel unaligned access", regs);
 	force_sig(SIGSEGV, current);
 
-	return 0;
+	return;
 
 sigbus:
 	die_if_kernel("Unhandled kernel unaligned access", regs);
 	force_sig(SIGBUS, current);
 
-	return 0;
+	return;
 
 sigill:
 	die_if_kernel("Unhandled kernel unaligned access or invalid instruction", regs);
 	force_sig(SIGILL, current);
-
-	return 0;
 }
 
 asmlinkage void do_ade(struct pt_regs *regs)
 {
-	unsigned long *regptr, newval;
 	unsigned int __user *pc;
 	mm_segment_t seg;
 
@@ -511,16 +510,7 @@ asmlinkage void do_ade(struct pt_regs *regs)
 	seg = get_fs();
 	if (!user_mode(regs))
 		set_fs(KERNEL_DS);
-	if (!emulate_load_store_insn(regs, (void __user *)regs->cp0_badvaddr, pc,
-	                             &regptr, &newval)) {
-		compute_return_epc(regs);
-		/*
-		 * Now that branch is evaluated, update the dest
-		 * register if necessary
-		 */
-		if (regptr)
-			*regptr = newval;
-	}
+	emulate_load_store_insn(regs, (void __user *)regs->cp0_badvaddr, pc);
 	set_fs(seg);
 
 	return;
