@@ -96,8 +96,6 @@ static int sd_suspend(struct device *dev, pm_message_t state);
 static int sd_resume(struct device *dev);
 static void sd_rescan(struct device *);
 static int  sd_init_command(struct scsi_cmnd *);
-static int  sd_issue_flush(struct device *, sector_t *);
-static void sd_prepare_flush(struct request_queue *, struct request *);
 static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
 static void scsi_disk_release(struct device *cdev);
 static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
@@ -268,7 +266,6 @@ static struct scsi_driver sd_template = {
 	},
 	.rescan			= sd_rescan,
 	.init_command		= sd_init_command,
-	.issue_flush		= sd_issue_flush,
 };
 
 /*
@@ -841,10 +838,17 @@ static int sd_sync_cache(struct scsi_disk *sdkp)
 	return 0;
 }
 
-static int sd_issue_flush(struct device *dev, sector_t *error_sector)
+static int sd_issue_flush(struct request_queue *q, struct gendisk *disk,
+			  sector_t *error_sector)
 {
 	int ret = 0;
-	struct scsi_disk *sdkp = scsi_disk_get_from_dev(dev);
+	struct scsi_device *sdp = q->queuedata;
+	struct scsi_disk *sdkp;
+
+	if (sdp->sdev_state != SDEV_RUNNING)
+		return -ENXIO;
+
+	sdkp = scsi_disk_get_from_dev(&sdp->sdev_gendev);
 
 	if (!sdkp)
                return -ENODEV;
@@ -1726,6 +1730,8 @@ static int sd_probe(struct device *dev)
 	sdkp->first_scan = 1;
 
 	sd_revalidate_disk(gd);
+
+	blk_queue_issue_flush_fn(sdp->request_queue, sd_issue_flush);
 
 	gd->driverfs_dev = &sdp->sdev_gendev;
 	gd->flags = GENHD_FL_DRIVERFS;
