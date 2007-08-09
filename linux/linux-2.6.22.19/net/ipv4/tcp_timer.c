@@ -316,12 +316,12 @@ static void tcp_retransmit_timer(struct sock *sk)
 		int mib_idx;
 
 		if (icsk->icsk_ca_state == TCP_CA_Disorder) {
-			if (tp->rx_opt.sack_ok)
+			if (tcp_is_sack(tp))
 				mib_idx = LINUX_MIB_TCPSACKFAILURES;
 			else
 				mib_idx = LINUX_MIB_TCPRENOFAILURES;
 		} else if (icsk->icsk_ca_state == TCP_CA_Recovery) {
-			if (tp->rx_opt.sack_ok)
+			if (tcp_is_sack(tp))
 				mib_idx = LINUX_MIB_TCPSACKRECOVERYFAIL;
 			else
 				mib_idx = LINUX_MIB_TCPRENORECOVERYFAIL;
