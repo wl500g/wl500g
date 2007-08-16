@@ -659,7 +659,8 @@ extern int sg_scsi_ioctl(struct file *, struct request_queue *,
 /*
  * Temporary export, until SCSI gets fixed up.
  */
-extern int ll_back_merge_fn(request_queue_t *, struct request *, struct bio *);
+extern int blk_rq_append_bio(request_queue_t *q, struct request *rq,
+			     struct bio *bio);
 
 /*
  * A queue has just exitted congestion.  Note this in the global counter of
@@ -807,7 +808,6 @@ static inline struct request *blk_map_queue_find_tag(struct blk_queue_tag *bqt,
 	return bqt->tag_index[tag];
 }
 
-extern void blk_rq_bio_prep(request_queue_t *, struct request *, struct bio *);
 extern int blkdev_issue_flush(struct block_device *, sector_t *);
 
 #define MAX_PHYS_SEGMENTS 128
