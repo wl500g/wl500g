@@ -952,7 +952,9 @@ static int __init setup_slub_debug(char *str)
 
 __setup("slub_debug", setup_slub_debug);
 
-static void kmem_cache_open_debug_check(struct kmem_cache *s)
+static unsigned long kmem_cache_flags(unsigned long objsize,
+	unsigned long flags, const char *name,
+	void (*ctor)(void *))
 {
 	/*
 	 * The page->offset field is only 16 bit wide. This is an offset
@@ -966,19 +968,21 @@ static void kmem_cache_open_debug_check(struct kmem_cache *s)
 	 * Debugging or ctor may create a need to move the free
 	 * pointer. Fail if this happens.
 	 */
-	if (s->objsize >= 65535 * sizeof(void *)) {
-		BUG_ON(s->flags & (SLAB_RED_ZONE | SLAB_POISON |
+	if (objsize >= 65535 * sizeof(void *)) {
+		BUG_ON(flags & (SLAB_RED_ZONE | SLAB_POISON |
 				SLAB_STORE_USER | SLAB_DESTROY_BY_RCU));
-		BUG_ON(s->ctor);
-	}
-	else
+		BUG_ON(ctor);
+	} else {
 		/*
 		 * Enable debugging if selected on the kernel commandline.
 		 */
 		if (slub_debug && (!slub_debug_slabs ||
-		    strncmp(slub_debug_slabs, s->name,
+		    strncmp(slub_debug_slabs, name,
 		    	strlen(slub_debug_slabs)) == 0))
-				s->flags |= slub_debug;
+				flags |= slub_debug;
+	}
+
+	return flags;
 }
 #else
 static inline void setup_object_debug(struct kmem_cache *s,
@@ -995,7 +999,12 @@ static inline int slab_pad_check(struct kmem_cache *s, struct page *page)
 static inline int check_object(struct kmem_cache *s, struct page *page,
 			void *object, int active) { return 1; }
 static inline void add_full(struct kmem_cache_node *n, struct page *page) {}
-static inline void kmem_cache_open_debug_check(struct kmem_cache *s) {}
+static inline unsigned long kmem_cache_flags(unsigned long objsize,
+	unsigned long flags, const char *name,
+	void (*ctor)(void *))
+{
+	return flags;
+}
 #define slub_debug 0
 #endif
 /*
@@ -2232,9 +2241,8 @@ static int kmem_cache_open(struct kmem_cache *s, gfp_t gfpflags,
 	s->name = name;
 	s->ctor = ctor;
 	s->objsize = size;
-	s->flags = flags;
 	s->align = align;
-	kmem_cache_open_debug_check(s);
+	s->flags = kmem_cache_flags(size, flags, name, ctor);
 
 	if (!calculate_sizes(s))
 		goto error;
@@ -2837,7 +2845,7 @@ static int slab_unmergeable(struct kmem_cache *s)
 }
 
 static struct kmem_cache *find_mergeable(size_t size,
-		size_t align, unsigned long flags,
+		size_t align, unsigned long flags, const char *name,
 		void (*ctor)(void *))
 {
 	struct kmem_cache *s;
@@ -2851,6 +2859,7 @@ static struct kmem_cache *find_mergeable(size_t size,
 	size = ALIGN(size, sizeof(void *));
 	align = calculate_alignment(flags, align, size);
 	size = ALIGN(size, align);
+	flags = kmem_cache_flags(size, flags, name, NULL);
 
 	list_for_each_entry(s, &slab_caches, list) {
 		if (slab_unmergeable(s))
@@ -2859,8 +2868,7 @@ static struct kmem_cache *find_mergeable(size_t size,
 		if (size > s->size)
 			continue;
 
-		if (((flags | slub_debug) & SLUB_MERGE_SAME) !=
-			(s->flags & SLUB_MERGE_SAME))
+		if ((flags & SLUB_MERGE_SAME) != (s->flags & SLUB_MERGE_SAME))
 				continue;
 		/*
 		 * Check if alignment is compatible.
@@ -2884,7 +2892,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 	struct kmem_cache *s;
 
 	down_write(&slub_lock);
-	s = find_mergeable(size, align, flags, ctor);
+	s = find_mergeable(size, align, flags, name, ctor);
 	if (s) {
 		int cpu;
 
