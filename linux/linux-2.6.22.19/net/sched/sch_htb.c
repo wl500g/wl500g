@@ -137,16 +137,11 @@ struct htb_class {
 				/* of un.leaf originals should be done. */
 };
 
-/* TODO: maybe compute rate when size is too large .. or drop ? */
 static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
 			   int size)
 {
-	int slot = size >> rate->rate.cell_log;
-	if (slot > 255) {
-		cl->xstats.giants++;
-		slot = 255;
-	}
-	return rate->data[slot];
+	long result = qdisc_l2t(rate, size);
+	return result;
 }
 
 struct htb_sched {
@@ -615,13 +610,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		cl->qstats.drops++;
 		return ret;
 	} else {
-		cl->bstats.packets++;
+		cl->bstats.packets +=
+			skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
 		cl->bstats.bytes += skb->len;
 		htb_activate(q, cl);
 	}
 
 	sch->q.qlen++;
-	sch->bstats.packets++;
+	sch->bstats.packets += skb_is_gso(skb)?skb_shinfo(skb)->gso_segs:1;
 	sch->bstats.bytes += skb->len;
 	return NET_XMIT_SUCCESS;
 }
@@ -705,8 +701,9 @@ static void htb_rate_timer(unsigned long arg)
  * In such case we remove class from event queue first.
  */
 static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
-			     int level, int bytes)
+			     int level, struct sk_buff *skb)
 {
+	int bytes = skb->len;
 	long toks, diff;
 	enum htb_cmode old_mode;
 
@@ -747,7 +744,8 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
 		/* update byte stats except for leaves which are already updated */
 		if (cl->level) {
 			cl->bstats.bytes += bytes;
-			cl->bstats.packets++;
+			cl->bstats.packets += skb_is_gso(skb)?
+					skb_shinfo(skb)->gso_segs:1;
 		}
 		cl = cl->parent;
 	}
@@ -931,7 +929,7 @@ next:
 		   gives us slightly better performance */
 		if (!cl->un.leaf.q->q.qlen)
 			htb_deactivate(q, cl);
-		htb_charge_class(q, cl, level, skb->len);
+		htb_charge_class(q, cl, level, skb);
 	}
 	return skb;
 }
