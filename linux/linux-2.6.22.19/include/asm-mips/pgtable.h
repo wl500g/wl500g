@@ -82,7 +82,7 @@ extern void paging_init(void);
 extern void set_pte_at(struct mm_struct *mm, unsigned long addr, pte_t *ptep,
 	pte_t pteval);
 
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
 
 #define pte_none(pte)		(!(((pte).pte_low | (pte).pte_high) & ~_PAGE_GLOBAL))
 #define pte_present(pte)	((pte).pte_low & _PAGE_PRESENT)
@@ -180,7 +180,7 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
  * Undefined behaviour if not..
  */
 static inline int pte_user(pte_t pte)	{ BUG(); return 0; }
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
 static inline int pte_read(pte_t pte)	{ return pte.pte_low & _PAGE_READ; }
 static inline int pte_write(pte_t pte)	{ return pte.pte_low & _PAGE_WRITE; }
 static inline int pte_dirty(pte_t pte)	{ return pte.pte_low & _PAGE_MODIFIED; }
@@ -341,7 +341,7 @@ static inline pgprot_t pgprot_noncached(pgprot_t _prot)
  */
 #define mk_pte(page, pgprot)	pfn_pte(page_to_pfn(page), (pgprot))
 
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32_R1)
+#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
 static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
 {
 	pte.pte_low  &= _PAGE_CHG_MASK;
