@@ -272,6 +272,7 @@ implemented */
 #define ERRlock 33 /* Lock request conflicts with existing lock */
 #define ERRunsup 50 /* Request unsupported, returned by Win 95, RJS 20Jun98 */
 #define ERRfilexists 80 /* File in operation already exists */
+#define ERRinvalidparam 87
 #define ERRcannotopen 110 /* Cannot open the file specified */
 #define ERRunknownlevel 124
 #define ERRrename 183
@@ -1911,4 +1912,7 @@ struct nmb_name {
 
 #define SAFE_NETBIOS_CHARS ". -_"
 
+#ifndef SAFE_FREE
+#define SAFE_FREE(x) do { if ((x) != NULL) {free((x)); (x)=NULL;} } while(0)
+#endif
 #endif /* _SMB_H */
