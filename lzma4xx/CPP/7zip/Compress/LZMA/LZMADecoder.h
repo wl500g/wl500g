@@ -235,6 +235,7 @@ public:
       ICompressProgressInfo *progress);
 
   STDMETHOD(SetDecoderProperties2)(const Byte *data, UInt32 size);
+  STDMETHOD(SetDecoderPropertiesRaw)(int lc, int lp, int pb, UInt32 dictionarySize);
 
   STDMETHOD(GetInStreamProcessedSize)(UInt64 *value);
 
