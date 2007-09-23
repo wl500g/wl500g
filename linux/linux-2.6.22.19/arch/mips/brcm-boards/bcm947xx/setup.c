@@ -262,6 +262,14 @@ static struct mtd_partition bcm947xx_parts[] =
 		.name = "nvram",
 		.size = 0,
 		.offset = 0
+	},
+	{
+		.name = "flashfs",
+		.size = 0,
+		.offset = 0
+	},
+	{
+		.name = NULL
 	}
 };
 
@@ -280,6 +288,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	} u;
 	int off;
 	size_t len;
+	size_t trx_len = 0;
 
 	u.buf = kmalloc(bufsz, GFP_KERNEL);
 	if (!u.buf)
@@ -299,6 +308,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		/* Try looking at TRX header for rootfs offset */
 		if (le32_to_cpu(u.trx->magic) == TRX_MAGIC) {
 			bcm947xx_parts[1].offset = off;
+			trx_len = u.trx->len;
 //			if (le32_to_cpu(u.trx->offsets[1]) > off)
 				if (le32_to_cpu(u.trx->offsets[2]) > off)
 					off = le32_to_cpu(u.trx->offsets[2]);
@@ -387,6 +397,22 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 
 	/* Size pmon */
 	bcm947xx_parts[0].size = bcm947xx_parts[1].offset - bcm947xx_parts[0].offset;
+
+	/* Find and size flashfs -- nvram reserved + pmon */
+	bcm947xx_parts[4].size = (128*1024 - bcm947xx_parts[3].size) +
+		(256*1024 - bcm947xx_parts[0].size);
+	/* ... add unused space above 4MB */
+	if (size > 0x400000) {
+		if (trx_len <= 0x3a0000) // Small firmware - fixed amount
+			bcm947xx_parts[4].size += size - 0x400000;
+		else {
+			bcm947xx_parts[4].size += size - (trx_len + 128*1024 + 256*1024);
+			bcm947xx_parts[4].size &= (~0x3FFFFUL); // Round down 256K
+		}
+	}
+	bcm947xx_parts[4].offset = bcm947xx_parts[3].offset - bcm947xx_parts[4].size;
+	if (bcm947xx_parts[4].size == 0)
+		bcm947xx_parts[4].name = NULL;
 
 	kfree(u.buf);
 	return bcm947xx_parts;
