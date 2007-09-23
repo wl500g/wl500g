@@ -74,7 +74,7 @@ static __inline__ int ide_default_irq(unsigned long base)
 
 static __inline__ unsigned long ide_default_io_base(int index)
 {
-	if (!ide_probe_legacy())
+//	if (!ide_probe_legacy())
 		return 0;
 	/*
 	 *      If PCI is present then it is not safe to poke around

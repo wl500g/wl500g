@@ -1180,6 +1180,22 @@ int ide_taskfile_ioctl(ide_drive_t *, unsigned int, unsigned long);
 int ide_cmd_ioctl(ide_drive_t *, unsigned int, unsigned long);
 int ide_task_ioctl(ide_drive_t *, unsigned int, unsigned long);
 
+#include <linux/delay.h>
+/*
+ * Delay for *at least* 50ms.  As we don't know how much time is left
+ * until the next tick occurs, we wait an extra tick to be safe.
+ * This is used only during the probing/polling for drives at boot time.
+ *
+ */
+static inline void ide_delay_50ms(void)
+{
+#ifdef CONFIG_BCM947XX
+        msleep(500);
+#else /* CONFIG_BCM947XX */
+        msleep(50);
+#endif
+}
+
 extern int system_bus_clock(void);
 
 extern int ide_driveid_update(ide_drive_t *);
