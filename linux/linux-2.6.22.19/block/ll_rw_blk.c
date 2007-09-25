@@ -1254,8 +1254,7 @@ static void blk_recalc_rq_segments(struct request *rq)
 	int seg_size;
 	int hw_seg_size;
 	int cluster;
-	struct bio *bio;
-	int i;
+	struct req_iterator iter;
 	int high, highprv = 1;
 	request_queue_t *q = rq->q;
 
@@ -1265,8 +1264,7 @@ static void blk_recalc_rq_segments(struct request *rq)
 	cluster = q->queue_flags & (1 << QUEUE_FLAG_CLUSTER);
 	hw_seg_size = seg_size = 0;
 	phys_size = hw_size = nr_phys_segs = nr_hw_segs = 0;
-	rq_for_each_bio(bio, rq)
-	    bio_for_each_segment(bv, bio, i) {
+	rq_for_each_segment(bv, rq, iter) {
 		/*
 		 * the trick here is making sure that a high page is never
 		 * considered part of another segment, since that might
@@ -1362,8 +1360,8 @@ static int blk_hw_contig_segment(request_queue_t *q, struct bio *bio,
 int blk_rq_map_sg(request_queue_t *q, struct request *rq, struct scatterlist *sg)
 {
 	struct bio_vec *bvec, *bvprv;
-	struct bio *bio;
-	int nsegs, i, cluster;
+	struct req_iterator iter;
+	int nsegs, cluster;
 
 	nsegs = 0;
 	cluster = q->queue_flags & (1 << QUEUE_FLAG_CLUSTER);
@@ -1372,35 +1370,30 @@ int blk_rq_map_sg(request_queue_t *q, struct request *rq, struct scatterlist *sg
 	 * for each bio in rq
 	 */
 	bvprv = NULL;
-	rq_for_each_bio(bio, rq) {
-		/*
-		 * for each segment in bio
-		 */
-		bio_for_each_segment(bvec, bio, i) {
-			int nbytes = bvec->bv_len;
+	rq_for_each_segment(bvec, rq, iter) {
+		int nbytes = bvec->bv_len;
 
-			if (bvprv && cluster) {
-				if (sg[nsegs - 1].length + nbytes > q->max_segment_size)
-					goto new_segment;
+		if (bvprv && cluster) {
+			if (sg[nsegs - 1].length + nbytes > q->max_segment_size)
+				goto new_segment;
 
-				if (!BIOVEC_PHYS_MERGEABLE(bvprv, bvec))
-					goto new_segment;
-				if (!BIOVEC_SEG_BOUNDARY(q, bvprv, bvec))
-					goto new_segment;
+			if (!BIOVEC_PHYS_MERGEABLE(bvprv, bvec))
+				goto new_segment;
+			if (!BIOVEC_SEG_BOUNDARY(q, bvprv, bvec))
+				goto new_segment;
 
-				sg[nsegs - 1].length += nbytes;
-			} else {
+			sg[nsegs - 1].length += nbytes;
+		} else {
 new_segment:
-				memset(&sg[nsegs],0,sizeof(struct scatterlist));
-				sg[nsegs].page = bvec->bv_page;
-				sg[nsegs].length = nbytes;
-				sg[nsegs].offset = bvec->bv_offset;
+			memset(&sg[nsegs],0,sizeof(struct scatterlist));
+			sg[nsegs].page = bvec->bv_page;
+			sg[nsegs].length = nbytes;
+			sg[nsegs].offset = bvec->bv_offset;
 
-				nsegs++;
-			}
-			bvprv = bvec;
-		} /* segments in bio */
-	} /* bios in rq */
+			nsegs++;
+		}
+		bvprv = bvec;
+	} /* segments in rq */
 
 	return nsegs;
 }
