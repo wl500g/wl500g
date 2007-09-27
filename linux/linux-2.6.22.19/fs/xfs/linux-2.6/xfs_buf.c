@@ -1102,18 +1102,14 @@ _xfs_buf_ioend(
 	}
 }
 
-STATIC int
+STATIC void
 xfs_buf_bio_end_io(
 	struct bio		*bio,
-	unsigned int		bytes_done,
 	int			error)
 {
 	xfs_buf_t		*bp = (xfs_buf_t *)bio->bi_private;
 	unsigned int		blocksize = bp->b_target->bt_bsize;
 	struct bio_vec		*bvec = bio->bi_io_vec + bio->bi_vcnt - 1;
-
-	if (bio->bi_size)
-		return 1;
 
 	xfs_buf_ioerror(bp, -error);
 
@@ -1140,7 +1136,6 @@ xfs_buf_bio_end_io(
 
 	_xfs_buf_ioend(bp, 1);
 	bio_put(bio);
-	return 0;
 }
 
 STATIC void

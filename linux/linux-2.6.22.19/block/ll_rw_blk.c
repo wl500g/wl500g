@@ -427,7 +427,6 @@ static void queue_flush(request_queue_t *q, unsigned which)
 static inline struct request *start_ordered(request_queue_t *q,
 					    struct request *rq)
 {
-	q->bi_size = 0;
 	q->orderr = 0;
 	q->ordered = q->next_ordered;
 	q->ordseq |= QUEUE_ORDSEQ_STARTED;
@@ -524,65 +523,36 @@ int blk_do_ordered(request_queue_t *q, struct request **rqp)
 	return 1;
 }
 
-static int flush_dry_bio_endio(struct bio *bio, unsigned int bytes, int error)
-{
-	request_queue_t *q = bio->bi_private;
-	struct bio_vec *bvec;
-	int i;
-
-	/*
-	 * This is dry run, restore bio_sector and size.  We'll finish
-	 * this request again with the original bi_end_io after an
-	 * error occurs or post flush is complete.
-	 */
-	q->bi_size += bytes;
-
-	if (bio->bi_size)
-		return 1;
-
-	/* Rewind bvec's */
-	bio->bi_idx = 0;
-	bio_for_each_segment(bvec, bio, i) {
-		bvec->bv_len += bvec->bv_offset;
-		bvec->bv_offset = 0;
-	}
-
-	/* Reset bio */
-	set_bit(BIO_UPTODATE, &bio->bi_flags);
-	bio->bi_size = q->bi_size;
-	bio->bi_sector -= (q->bi_size >> 9);
-	q->bi_size = 0;
-
-	return 0;
-}
-
-static int ordered_bio_endio(struct request *rq, struct bio *bio,
-			     unsigned int nbytes, int error)
+static void req_bio_endio(struct request *rq, struct bio *bio,
+			  unsigned int nbytes, int error)
 {
 	request_queue_t *q = rq->q;
-	bio_end_io_t *endio;
-	void *private;
 
-	if (&q->bar_rq != rq)
-		return 0;
+	if (&q->bar_rq != rq) {
+		if (error)
+			clear_bit(BIO_UPTODATE, &bio->bi_flags);
+		else if (!test_bit(BIO_UPTODATE, &bio->bi_flags))
+			error = -EIO;
 
-	/*
-	 * Okay, this is the barrier request in progress, dry finish it.
-	 */
-	if (error && !q->orderr)
-		q->orderr = error;
+		if (unlikely(nbytes > bio->bi_size)) {
+			printk("%s: want %u bytes done, only %u left\n",
+			       __FUNCTION__, nbytes, bio->bi_size);
+			nbytes = bio->bi_size;
+		}
 
-	endio = bio->bi_end_io;
-	private = bio->bi_private;
-	bio->bi_end_io = flush_dry_bio_endio;
-	bio->bi_private = q;
+		bio->bi_size -= nbytes;
+		bio->bi_sector += (nbytes >> 9);
+		if (bio->bi_size == 0)
+			bio_endio(bio, error);
+	} else {
 
-	bio_endio(bio, nbytes, error);
-
-	bio->bi_end_io = endio;
-	bio->bi_private = private;
-
-	return 1;
+		/*
+		 * Okay, this is the barrier request in progress, just
+		 * record the error;
+		 */
+		if (error && !q->orderr)
+			q->orderr = error;
+	}
 }
 
 /**
@@ -2436,7 +2406,7 @@ static int __blk_rq_map_user(request_queue_t *q, struct request *rq,
 		return bio->bi_size;
 
 	/* if it was boucned we must call the end io function */
-	bio_endio(bio, bio->bi_size, 0);
+	bio_endio(bio, 0);
 	__blk_rq_unmap_user(orig_bio);
 	bio_put(bio);
 	return ret;
@@ -2545,7 +2515,7 @@ int blk_rq_map_user_iov(request_queue_t *q, struct request *rq,
 		return PTR_ERR(bio);
 
 	if (bio->bi_size != len) {
-		bio_endio(bio, bio->bi_size, 0);
+		bio_endio(bio, 0);
 		bio_unmap_user(bio);
 		return -EINVAL;
 	}
@@ -3099,7 +3069,7 @@ out:
 	return 0;
 
 end_io:
-	bio_endio(bio, nr_sectors << 9, err);
+	bio_endio(bio, err);
 	return 0;
 }
 
@@ -3258,7 +3228,7 @@ static inline void __generic_make_request(struct bio *bio)
 				bdevname(bio->bi_bdev, b),
 				(long long) bio->bi_sector);
 end_io:
-			bio_endio(bio, bio->bi_size, -EIO);
+			bio_endio(bio, -EIO);
 			break;
 		}
 
@@ -3468,8 +3438,7 @@ static int __end_that_request_first(struct request *req, int error,
 		if (nr_bytes >= bio->bi_size) {
 			req->bio = bio->bi_next;
 			nbytes = bio->bi_size;
-			if (!ordered_bio_endio(req, bio, nbytes, error))
-				bio_endio(bio, nbytes, error);
+			req_bio_endio(req, bio, nbytes, error);
 			next_idx = 0;
 			bio_nbytes = 0;
 		} else {
@@ -3524,8 +3493,7 @@ static int __end_that_request_first(struct request *req, int error,
 	 * if the request wasn't completed, update state
 	 */
 	if (bio_nbytes) {
-		if (!ordered_bio_endio(req, bio, bio_nbytes, error))
-			bio_endio(bio, bio_nbytes, error);
+		req_bio_endio(req, bio, bio_nbytes, error);
 		bio->bi_idx += next_idx;
 		bio_iovec(bio)->bv_offset += nr_bytes;
 		bio_iovec(bio)->bv_len -= nr_bytes;

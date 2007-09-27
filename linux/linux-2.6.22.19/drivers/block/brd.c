@@ -304,7 +304,7 @@ static int brd_make_request(struct request_queue *q, struct bio *bio)
 	}
 
 out:
-	bio_endio(bio, bio->bi_size, err);
+	bio_endio(bio, err);
 
 	return 0;
 }

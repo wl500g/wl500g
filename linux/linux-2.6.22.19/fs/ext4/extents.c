@@ -2351,10 +2351,9 @@ void ext4_ext_release(struct super_block *sb)
 #endif
 }
 
-static int bi_complete(struct bio *bio, unsigned int bytes_done, int error)
+static void bi_complete(struct bio *bio, int error)
 {
 	complete((struct completion *)bio->bi_private);
-	return 0;
 }
 
 /* FIXME!! we need to try to merge to left or right after zero-out  */
