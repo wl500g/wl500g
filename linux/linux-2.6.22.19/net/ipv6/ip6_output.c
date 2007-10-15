@@ -96,7 +96,7 @@ int ip6_local_out(struct sk_buff *skb)
 }
 EXPORT_SYMBOL_GPL(ip6_local_out);
 
-static inline int ip6_output_finish(struct sk_buff *skb)
+static int ip6_output_finish(struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb->dst;
 
