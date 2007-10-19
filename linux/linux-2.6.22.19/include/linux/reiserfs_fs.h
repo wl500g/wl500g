@@ -1734,8 +1734,6 @@ static inline int reiserfs_transaction_free_space(struct reiserfs_transaction_ha
 	return th->t_blocks_allocated - th->t_blocks_logged;
 }
 
-int reiserfs_async_progress_wait(struct super_block *s);
-
 struct reiserfs_transaction_handle *reiserfs_persistent_transaction(struct
 								    super_block
 								    *,
@@ -1767,8 +1765,8 @@ int journal_end_sync(struct reiserfs_transaction_handle *, struct super_block *,
 int journal_mark_freed(struct reiserfs_transaction_handle *,
 		       struct super_block *, b_blocknr_t blocknr);
 int journal_transaction_should_end(struct reiserfs_transaction_handle *, int);
-int reiserfs_in_journal(struct super_block *p_s_sb, int bmap_nr, int bit_nr,
-			int searchall, b_blocknr_t * next);
+int reiserfs_in_journal(struct super_block *p_s_sb, unsigned int bmap_nr,
+			int bit_nr, int searchall, b_blocknr_t *next);
 int journal_begin(struct reiserfs_transaction_handle *,
 		  struct super_block *p_s_sb, unsigned long);
 int journal_join_abort(struct reiserfs_transaction_handle *,
@@ -1776,7 +1774,7 @@ int journal_join_abort(struct reiserfs_transaction_handle *,
 void reiserfs_journal_abort(struct super_block *sb, int errno);
 void reiserfs_abort(struct super_block *sb, int errno, const char *fmt, ...);
 int reiserfs_allocate_list_bitmaps(struct super_block *s,
-				   struct reiserfs_list_bitmap *, int);
+				   struct reiserfs_list_bitmap *, unsigned int);
 
 void add_save_link(struct reiserfs_transaction_handle *th,
 		   struct inode *inode, int truncate);
@@ -1890,8 +1888,6 @@ void padd_item(char *item, int total_length, int length);
 #define GET_BLOCK_NO_IMUX     8	/* i_mutex is not held, don't preallocate */
 #define GET_BLOCK_NO_DANGLE   16	/* don't leave any transactions running */
 
-int restart_transaction(struct reiserfs_transaction_handle *th,
-			struct inode *inode, struct treepath *path);
 void reiserfs_read_locked_inode(struct inode *inode,
 				struct reiserfs_iget_args *args);
 int reiserfs_find_actor(struct inode *inode, void *p);
@@ -2074,7 +2070,7 @@ struct buffer_head *get_FEB(struct tree_balance *);
  * arguments, such as node, search path, transaction_handle, etc. */
 struct __reiserfs_blocknr_hint {
 	struct inode *inode;	/* inode passed to allocator, if we allocate unf. nodes */
-	long block;		/* file offset, in blocks */
+	sector_t block;		/* file offset, in blocks */
 	struct in_core_key key;
 	struct treepath *path;	/* search path, used by allocator to deternine search_start by
 				 * various ways */
@@ -2132,7 +2128,8 @@ static inline int reiserfs_new_form_blocknrs(struct tree_balance *tb,
 static inline int reiserfs_new_unf_blocknrs(struct reiserfs_transaction_handle
 					    *th, struct inode *inode,
 					    b_blocknr_t * new_blocknrs,
-					    struct treepath *path, long block)
+					    struct treepath *path,
+					    sector_t block)
 {
 	reiserfs_blocknr_hint_t hint = {
 		.th = th,
@@ -2149,7 +2146,8 @@ static inline int reiserfs_new_unf_blocknrs(struct reiserfs_transaction_handle
 static inline int reiserfs_new_unf_blocknrs2(struct reiserfs_transaction_handle
 					     *th, struct inode *inode,
 					     b_blocknr_t * new_blocknrs,
-					     struct treepath *path, long block)
+					     struct treepath *path,
+					     sector_t block)
 {
 	reiserfs_blocknr_hint_t hint = {
 		.th = th,
@@ -2166,9 +2164,6 @@ void reiserfs_discard_prealloc(struct reiserfs_transaction_handle *th,
 			       struct inode *inode);
 void reiserfs_discard_all_prealloc(struct reiserfs_transaction_handle *th);
 #endif
-void reiserfs_claim_blocks_to_be_allocated(struct super_block *sb, int blocks);
-void reiserfs_release_claimed_blocks(struct super_block *sb, int blocks);
-int reiserfs_can_fit_pages(struct super_block *sb);
 
 /* hashes.c */
 __u32 keyed_hash(const signed char *msg, int len);

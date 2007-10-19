@@ -199,7 +199,7 @@ static inline void set_block_dev_mapped(struct buffer_head *bh,
 // files which were created in the earlier version can not be longer,
 // than 2 gb
 //
-static int file_capable(struct inode *inode, long block)
+static int file_capable(struct inode *inode, sector_t block)
 {
 	if (get_inode_item_key_version(inode) != KEY_FORMAT_3_5 ||	// it is new file.
 	    block < (1 << (31 - inode->i_sb->s_blocksize_bits)))	// old file, but 'block' is inside of 2gb
@@ -208,8 +208,8 @@ static int file_capable(struct inode *inode, long block)
 	return 0;
 }
 
-/*static*/ int restart_transaction(struct reiserfs_transaction_handle *th,
-				   struct inode *inode, struct treepath *path)
+static int restart_transaction(struct reiserfs_transaction_handle *th,
+			       struct inode *inode, struct treepath *path)
 {
 	struct super_block *s = th->t_super;
 	int len = th->t_blocks_allocated;
@@ -242,7 +242,7 @@ static int file_capable(struct inode *inode, long block)
 // Please improve the english/clarity in the comment above, as it is
 // hard to understand.
 
-static int _get_block_create_0(struct inode *inode, long block,
+static int _get_block_create_0(struct inode *inode, sector_t block,
 			       struct buffer_head *bh_result, int args)
 {
 	INITIALIZE_PATH(path);
@@ -250,7 +250,7 @@ static int _get_block_create_0(struct inode *inode, long block,
 	struct buffer_head *bh;
 	struct item_head *ih, tmp_ih;
 	int fs_gen;
-	int blocknr;
+	b_blocknr_t blocknr;
 	char *p = NULL;
 	int chars;
 	int ret;
@@ -569,7 +569,7 @@ static int convert_tail_for_hole(struct inode *inode,
 }
 
 static inline int _allocate_block(struct reiserfs_transaction_handle *th,
-				  long block,
+				  sector_t block,
 				  struct inode *inode,
 				  b_blocknr_t * allocated_block_nr,
 				  struct treepath *path, int flags)
@@ -3044,7 +3044,11 @@ int reiserfs_setattr(struct dentry *dentry, struct iattr *attr)
 {
 	struct inode *inode = dentry->d_inode;
 	int error;
-	unsigned int ia_valid = attr->ia_valid;
+	unsigned int ia_valid;
+
+	/* must be turned off for recursive notify_change calls */
+	ia_valid = attr->ia_valid &= ~(ATTR_KILL_SUID|ATTR_KILL_SGID);
+
 	reiserfs_write_lock(inode->i_sb);
 	if (attr->ia_valid & ATTR_SIZE) {
 		/* version 2 items will be caught by the s_maxbytes check
