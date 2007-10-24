@@ -1112,12 +1112,16 @@ void blk_queue_end_tag(request_queue_t *q, struct request *rq)
 
 	bqt->tag_index[tag] = NULL;
 
-	if (unlikely(!test_and_clear_bit(tag, bqt->tag_map))) {
+	if (unlikely(!test_bit(tag, bqt->tag_map))) {
 		printk(KERN_ERR "%s: attempt to clear non-busy tag (%d)\n",
 		       __FUNCTION__, tag);
 		return;
 	}
-
+	/*
+	 * The tag_map bit acts as a lock for tag_index[bit], so we need
+	 * unlock memory barrier semantics.
+	 */
+	clear_bit_unlock(tag, bqt->tag_map);
 	bqt->busy--;
 }
 
@@ -1163,7 +1167,11 @@ int blk_queue_start_tag(request_queue_t *q, struct request *rq)
 		if (tag >= bqt->max_depth)
 			return 1;
 
-	} while (test_and_set_bit(tag, bqt->tag_map));
+	} while (test_and_set_bit_lock(tag, bqt->tag_map));
+	/*
+	 * We need lock ordering semantics given by test_and_set_bit_lock.
+	 * See blk_queue_end_tag for details.
+	 */
 
 	rq->cmd_flags |= REQ_QUEUED;
 	rq->tag = tag;
