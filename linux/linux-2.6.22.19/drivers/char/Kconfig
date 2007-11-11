@@ -912,6 +912,11 @@ config GPIO_TB0219
 	depends on TANBAC_TB022X
 	select GPIO_VR41XX
 
+config GPIO_RTC
+	tristate "Ricoh RV5C386A RTC Support"
+	depends on BCM947XX
+
+
 source "drivers/char/agp/Kconfig"
 
 source "drivers/char/drm/Kconfig"
