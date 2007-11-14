@@ -13,29 +13,12 @@
  */
 
 #include <linux/module.h>
-#include <asm/uaccess.h>
-#include <asm/system.h>
-#include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/jiffies.h>
 #include <linux/string.h>
-#include <linux/mm.h>
-#include <linux/socket.h>
-#include <linux/sockios.h>
-#include <linux/in.h>
 #include <linux/errno.h>
-#include <linux/interrupt.h>
-#include <linux/if_ether.h>
-#include <linux/inet.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <linux/notifier.h>
-#include <net/ip.h>
-#include <net/netlink.h>
-#include <net/route.h>
 #include <linux/skbuff.h>
-#include <net/sock.h>
+#include <net/netlink.h>
 #include <net/pkt_sched.h>
 
 
@@ -455,7 +438,7 @@ static struct tcf_proto **tbf_find_tcf(struct Qdisc *sch, unsigned long cl)
 	return NULL;
 }
 
-static struct Qdisc_class_ops tbf_class_ops =
+static const struct Qdisc_class_ops tbf_class_ops =
 {
 	.graft		=	tbf_graft,
 	.leaf		=	tbf_leaf,
@@ -468,7 +451,7 @@ static struct Qdisc_class_ops tbf_class_ops =
 	.dump		=	tbf_dump_class,
 };
 
-static struct Qdisc_ops tbf_qdisc_ops = {
+static struct Qdisc_ops tbf_qdisc_ops __read_mostly = {
 	.next		=	NULL,
 	.cl_ops		=	&tbf_class_ops,
 	.id		=	"tbf",

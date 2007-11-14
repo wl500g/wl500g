@@ -9,7 +9,6 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/skbuff.h>
-#include <linux/netdevice.h> /* for pkt_sched */
 #include <linux/rtnetlink.h>
 #include <net/pkt_sched.h>
 #include <net/dsfield.h>
@@ -464,7 +463,7 @@ rtattr_failure:
 	return RTA_NEST_CANCEL(skb, opts);
 }
 
-static struct Qdisc_class_ops dsmark_class_ops = {
+static const struct Qdisc_class_ops dsmark_class_ops = {
 	.graft		=	dsmark_graft,
 	.leaf		=	dsmark_leaf,
 	.get		=	dsmark_get,
@@ -478,7 +477,7 @@ static struct Qdisc_class_ops dsmark_class_ops = {
 	.dump		=	dsmark_dump_class,
 };
 
-static struct Qdisc_ops dsmark_qdisc_ops = {
+static struct Qdisc_ops dsmark_qdisc_ops __read_mostly = {
 	.next		=	NULL,
 	.cl_ops		=	&dsmark_class_ops,
 	.id		=	"dsmark",

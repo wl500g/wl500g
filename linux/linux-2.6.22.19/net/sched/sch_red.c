@@ -17,7 +17,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <net/pkt_sched.h>
 #include <net/inet_ecn.h>
@@ -333,7 +332,7 @@ static struct tcf_proto **red_find_tcf(struct Qdisc *sch, unsigned long cl)
 	return NULL;
 }
 
-static struct Qdisc_class_ops red_class_ops = {
+static const struct Qdisc_class_ops red_class_ops = {
 	.graft		=	red_graft,
 	.leaf		=	red_leaf,
 	.get		=	red_get,
@@ -345,7 +344,7 @@ static struct Qdisc_class_ops red_class_ops = {
 	.dump		=	red_dump_class,
 };
 
-static struct Qdisc_ops red_qdisc_ops = {
+static struct Qdisc_ops red_qdisc_ops __read_mostly = {
 	.id		=	"red",
 	.priv_size	=	sizeof(struct red_sched_data),
 	.cl_ops		=	&red_class_ops,

@@ -53,7 +53,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/errno.h>
-#include <linux/jiffies.h>
 #include <linux/compiler.h>
 #include <linux/spinlock.h>
 #include <linux/skbuff.h>
@@ -62,13 +61,11 @@
 #include <linux/list.h>
 #include <linux/rbtree.h>
 #include <linux/init.h>
-#include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/pkt_sched.h>
 #include <net/netlink.h>
 #include <net/pkt_sched.h>
 #include <net/pkt_cls.h>
-#include <asm/system.h>
 #include <asm/div64.h>
 
 /*
@@ -1716,7 +1713,7 @@ hfsc_drop(struct Qdisc *sch)
 	return 0;
 }
 
-static struct Qdisc_class_ops hfsc_class_ops = {
+static const struct Qdisc_class_ops hfsc_class_ops = {
 	.change		= hfsc_change_class,
 	.delete		= hfsc_delete_class,
 	.graft		= hfsc_graft_class,
@@ -1732,7 +1729,7 @@ static struct Qdisc_class_ops hfsc_class_ops = {
 	.walk		= hfsc_walk
 };
 
-static struct Qdisc_ops hfsc_qdisc_ops = {
+static struct Qdisc_ops hfsc_qdisc_ops __read_mostly = {
 	.id		= "hfsc",
 	.init		= hfsc_init_qdisc,
 	.change		= hfsc_change_qdisc,

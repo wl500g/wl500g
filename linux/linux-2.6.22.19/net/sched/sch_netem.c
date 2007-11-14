@@ -14,11 +14,9 @@
  */
 
 #include <linux/module.h>
-#include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
-#include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <linux/rtnetlink.h>
 
@@ -533,7 +531,7 @@ rtattr_failure:
 	return -1;
 }
 
-static struct Qdisc_ops tfifo_qdisc_ops = {
+static struct Qdisc_ops tfifo_qdisc_ops __read_mostly = {
 	.id		=	"tfifo",
 	.priv_size	=	sizeof(struct fifo_sched_data),
 	.enqueue	=	tfifo_enqueue,
@@ -694,7 +692,7 @@ static struct tcf_proto **netem_find_tcf(struct Qdisc *sch, unsigned long cl)
 	return NULL;
 }
 
-static struct Qdisc_class_ops netem_class_ops = {
+static const struct Qdisc_class_ops netem_class_ops = {
 	.graft		=	netem_graft,
 	.leaf		=	netem_leaf,
 	.get		=	netem_get,
@@ -706,7 +704,7 @@ static struct Qdisc_class_ops netem_class_ops = {
 	.dump		=	netem_dump_class,
 };
 
-static struct Qdisc_ops netem_qdisc_ops = {
+static struct Qdisc_ops netem_qdisc_ops __read_mostly = {
 	.id		=	"netem",
 	.cl_ops		=	&netem_class_ops,
 	.priv_size	=	sizeof(struct netem_sched_data),

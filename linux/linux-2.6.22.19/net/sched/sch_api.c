@@ -19,29 +19,17 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
-#include <linux/mm.h>
-#include <linux/socket.h>
-#include <linux/sockios.h>
-#include <linux/in.h>
 #include <linux/errno.h>
-#include <linux/interrupt.h>
-#include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/kmod.h>
 #include <linux/list.h>
-#include <linux/bitops.h>
 #include <linux/hrtimer.h>
 
 #include <net/netlink.h>
-#include <net/sock.h>
 #include <net/pkt_sched.h>
-
-#include <asm/processor.h>
-#include <asm/uaccess.h>
-#include <asm/system.h>
 
 static int qdisc_notify(struct sk_buff *oskb, struct nlmsghdr *n, u32 clid,
 			struct Qdisc *old, struct Qdisc *new);
@@ -206,7 +194,7 @@ static struct Qdisc *qdisc_leaf(struct Qdisc *p, u32 classid)
 {
 	unsigned long cl;
 	struct Qdisc *leaf;
-	struct Qdisc_class_ops *cops = p->ops->cl_ops;
+	const struct Qdisc_class_ops *cops = p->ops->cl_ops;
 
 	if (cops == NULL)
 		return NULL;
@@ -388,7 +376,7 @@ dev_graft_qdisc(struct net_device *dev, struct Qdisc *qdisc)
 
 void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
 {
-	struct Qdisc_class_ops *cops;
+	const struct Qdisc_class_ops *cops;
 	unsigned long cl;
 	u32 parentid;
 
@@ -435,7 +423,7 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
 			*old = dev_graft_qdisc(dev, new);
 		}
 	} else {
-		struct Qdisc_class_ops *cops = parent->ops->cl_ops;
+		const struct Qdisc_class_ops *cops = parent->ops->cl_ops;
 
 		err = -EINVAL;
 
@@ -603,7 +591,7 @@ static int
 check_loop_fn(struct Qdisc *q, unsigned long cl, struct qdisc_walker *w)
 {
 	struct Qdisc *leaf;
-	struct Qdisc_class_ops *cops = q->ops->cl_ops;
+	const struct Qdisc_class_ops *cops = q->ops->cl_ops;
 	struct check_loop_arg *arg = (struct check_loop_arg *)w;
 
 	leaf = cops->leaf(q, cl);
@@ -949,7 +937,7 @@ static int tc_ctl_tclass(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
 	struct rtattr **tca = arg;
 	struct net_device *dev;
 	struct Qdisc *q = NULL;
-	struct Qdisc_class_ops *cops;
+	const struct Qdisc_class_ops *cops;
 	unsigned long cl = 0;
 	unsigned long new_cl;
 	u32 pid = tcm->tcm_parent;
@@ -1064,7 +1052,7 @@ static int tc_fill_tclass(struct sk_buff *skb, struct Qdisc *q,
 	struct nlmsghdr  *nlh;
 	unsigned char *b = skb_tail_pointer(skb);
 	struct gnet_dump d;
-	struct Qdisc_class_ops *cl_ops = q->ops->cl_ops;
+	const struct Qdisc_class_ops *cl_ops = q->ops->cl_ops;
 
 	cond_resched();
 	nlh = NLMSG_NEW(skb, pid, seq, event, sizeof(*tcm), flags);

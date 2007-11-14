@@ -21,7 +21,6 @@
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
-#include <linux/netdevice.h>
 #include <linux/skbuff.h>
 #include <net/pkt_sched.h>
 #include <net/red.h>
@@ -578,7 +577,7 @@ static void gred_destroy(struct Qdisc *sch)
 	}
 }
 
-static struct Qdisc_ops gred_qdisc_ops = {
+static struct Qdisc_ops gred_qdisc_ops __read_mostly = {
 	.id		=	"gred",
 	.priv_size	=	sizeof(struct gred_sched),
 	.enqueue	=	gred_enqueue,

@@ -9,21 +9,14 @@
 
 #include <linux/module.h>
 #include <linux/types.h>
+#include <linux/list.h>
 #include <linux/skbuff.h>
-#include <linux/netdevice.h>
 #include <linux/rtnetlink.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/netfilter_ipv6.h>
 #include <linux/netfilter.h>
-#include <linux/smp.h>
 #include <net/netlink.h>
 #include <net/pkt_sched.h>
-#include <asm/byteorder.h>
-#include <asm/uaccess.h>
-#include <linux/kmod.h>
-#include <linux/stat.h>
-#include <linux/interrupt.h>
-#include <linux/list.h>
 
 
 #undef DEBUG_INGRESS
@@ -359,7 +352,7 @@ rtattr_failure:
 	return -1;
 }
 
-static struct Qdisc_class_ops ingress_class_ops = {
+static const struct Qdisc_class_ops ingress_class_ops = {
 	.graft		=	ingress_graft,
 	.leaf		=	ingress_leaf,
 	.get		=	ingress_get,
@@ -373,7 +366,7 @@ static struct Qdisc_class_ops ingress_class_ops = {
 	.dump		=	NULL,
 };
 
-static struct Qdisc_ops ingress_qdisc_ops = {
+static struct Qdisc_ops ingress_qdisc_ops __read_mostly = {
 	.next		=	NULL,
 	.cl_ops		=	&ingress_class_ops,
 	.id		=	"ingress",
