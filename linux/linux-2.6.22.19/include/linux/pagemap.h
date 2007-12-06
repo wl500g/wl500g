@@ -158,6 +158,7 @@ static inline pgoff_t linear_page_index(struct vm_area_struct *vma,
 }
 
 extern void __lock_page(struct page *page);
+extern int __lock_page_killable(struct page *page);
 extern void __lock_page_nosync(struct page *page);
 extern void unlock_page(struct page *page);
 
@@ -169,6 +170,19 @@ static inline void lock_page(struct page *page)
 	might_sleep();
 	if (TestSetPageLocked(page))
 		__lock_page(page);
+}
+
+/*
+ * lock_page_killable is like lock_page but can be interrupted by fatal
+ * signals.  It returns 0 if it locked the page and -EINTR if it was
+ * killed while waiting.
+ */
+static inline int lock_page_killable(struct page *page)
+{
+	might_sleep();
+	if (TestSetPageLocked(page))
+		return __lock_page_killable(page);
+	return 0;
 }
 
 /*
