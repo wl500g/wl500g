@@ -379,8 +379,8 @@ nf_checksum(struct sk_buff *skb, unsigned int hook, unsigned int dataoff,
 	return csum;
 }
 
-extern int nf_register_afinfo(struct nf_afinfo *afinfo);
-extern void nf_unregister_afinfo(struct nf_afinfo *afinfo);
+extern int nf_register_afinfo(const struct nf_afinfo *afinfo);
+extern void nf_unregister_afinfo(const struct nf_afinfo *afinfo);
 
 #define nf_info_reroute(x) ((void *)x + sizeof(struct nf_info))
 
