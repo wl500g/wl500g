@@ -433,7 +433,7 @@ static int map_share_mode( BOOL *pstat_open_only, char *fname,
 	if(desired_access == WRITE_DAC_ACCESS || desired_access == READ_CONTROL_ACCESS)
 		*pstat_open_only = True;
 
-    if(desired_access & (DELETE_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS|
+    if(desired_access & (DELETE_ACCESS|WRITE_DAC_ACCESS|WRITE_OWNER_ACCESS|SYNCHRONIZE_ACCESS|
                               FILE_EXECUTE|FILE_READ_ATTRIBUTES|
                               FILE_READ_EA|FILE_WRITE_EA|SYSTEM_SECURITY_ACCESS|
                               FILE_WRITE_ATTRIBUTES|READ_CONTROL_ACCESS))
