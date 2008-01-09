@@ -29,28 +29,3 @@
 #include <linux/if_tr.h>
 #endif
 
-struct ctl_table net_table[] = {
-	{
-		.ctl_name	= NET_CORE,
-		.procname	= "core",
-		.mode		= 0555,
-		.child		= core_table,
-	},
-#ifdef CONFIG_INET
-	{
-		.ctl_name	= NET_IPV4,
-		.procname	= "ipv4",
-		.mode		= 0555,
-		.child		= ipv4_table
-	},
-#endif
-#ifdef CONFIG_TR
-	{
-		.ctl_name	= NET_TR,
-		.procname	= "token-ring",
-		.mode		= 0555,
-		.child		= tr_table,
-	},
-#endif
-	{ 0 },
-};

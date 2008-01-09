@@ -35,6 +35,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/init.h>
+#include <linux/sysctl.h>
 #include <net/arp.h>
 
 static void tr_add_rif_info(struct trh_hdr *trh, struct net_device *dev);
@@ -626,6 +627,26 @@ struct net_device *alloc_trdev(int sizeof_priv)
 	return alloc_netdev(sizeof_priv, "tr%d", tr_setup);
 }
 
+#ifdef CONFIG_SYSCTL
+static struct ctl_table tr_table[] = {
+	{
+		.ctl_name	= NET_TR_RIF_TIMEOUT,
+		.procname	= "rif_timeout",
+		.data		= &sysctl_tr_rif_timeout,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec
+	},
+	{ 0 },
+};
+
+static __initdata struct ctl_path tr_path[] = {
+	{ .procname = "net", .ctl_name = CTL_NET, },
+	{ .procname = "token-ring", .ctl_name = NET_TR, },
+	{ }
+};
+#endif
+
 /*
  *	Called during bootup.  We don't actually have to initialise
  *	too much for this.
@@ -638,7 +659,9 @@ static int __init rif_init(void)
 	rif_timer.data     = 0L;
 	rif_timer.function = rif_check_expire;
 	add_timer(&rif_timer);
-
+#ifdef CONFIG_SYSCTL
+	register_sysctl_paths(tr_path, tr_table);
+#endif
 	proc_net_fops_create("tr_rif", S_IRUGO, &rif_seq_fops);
 	return 0;
 }

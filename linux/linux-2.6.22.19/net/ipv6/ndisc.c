@@ -1618,6 +1618,7 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, void __user *bu
 	return ret;
 }
 
+#ifdef CONFIG_SYSCTL_SYSCALL
 int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl,
 				 void __user *oldval, size_t __user *oldlenp,
 				 void __user *newval, size_t newlen)
@@ -1654,8 +1655,16 @@ int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl,
 
 	return ret;
 }
-
+#else
+int ndisc_ifinfo_sysctl_strategy(ctl_table *ctl,
+				 void __user *oldval, size_t __user *oldlenp,
+				 void __user *newval, size_t newlen)
+{
+	return -ENOSYS;
+}
 #endif
+
+#endif	/* CONFIG_SYSCTL */
 
 int __init ndisc_init(struct net_proto_family *ops)
 {

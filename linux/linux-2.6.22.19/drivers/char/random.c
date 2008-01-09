@@ -1198,6 +1198,7 @@ static int proc_do_uuid(ctl_table *table, int write,
 	return proc_dostring(&fake_table, write, buffer, lenp, ppos);
 }
 
+#ifdef CONFIG_SYSCTL_SYSCALL
 static int uuid_strategy(ctl_table *table,
 			 void __user *oldval, size_t __user *oldlenp,
 			 void __user *newval, size_t newlen)
@@ -1227,6 +1228,9 @@ static int uuid_strategy(ctl_table *table,
 	}
 	return 1;
 }
+#else
+#define uuid_strategy	NULL
+#endif
 
 static int sysctl_poolsize = INPUT_POOL_WORDS * 32;
 ctl_table random_table[] = {
@@ -1275,7 +1279,7 @@ ctl_table random_table[] = {
 		.maxlen		= 16,
 		.mode		= 0444,
 		.proc_handler	= &proc_do_uuid,
-		.strategy	= &uuid_strategy,
+		.strategy	= uuid_strategy,
 	},
 	{
 		.ctl_name	= RANDOM_UUID,
@@ -1283,7 +1287,7 @@ ctl_table random_table[] = {
 		.maxlen		= 16,
 		.mode		= 0444,
 		.proc_handler	= &proc_do_uuid,
-		.strategy	= &uuid_strategy,
+		.strategy	= uuid_strategy,
 	},
 	{ .ctl_name = 0 }
 };

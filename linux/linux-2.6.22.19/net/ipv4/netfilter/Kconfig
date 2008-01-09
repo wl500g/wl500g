@@ -32,6 +32,7 @@ config NF_CONNTRACK_PROC_COMPAT
 
 config IP_NF_QUEUE
 	tristate "IP Userspace queueing via NETLINK (OBSOLETE)"
+	depends on NETFILTER_ADVANCED
 	help
 	  Netfilter has the ability to queue packets to user space: the
 	  netlink device can be used to access them using this driver.

@@ -3072,6 +3072,7 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *ctl, int write,
 	return -EINVAL;
 }
 
+#ifdef CONFIG_SYSCTL_SYSCALL
 static int ipv4_sysctl_rtcache_flush_strategy(ctl_table *table,
 						void __user *oldval,
 						size_t __user *oldlenp,
@@ -3086,6 +3087,9 @@ static int ipv4_sysctl_rtcache_flush_strategy(ctl_table *table,
 	rt_cache_flush(delay);
 	return 0;
 }
+#else
+#define ipv4_sysctl_rtcache_flush_strategy	NULL
+#endif
 
 ctl_table ipv4_route_table[] = {
 	{
@@ -3095,7 +3099,7 @@ ctl_table ipv4_route_table[] = {
 		.maxlen		= sizeof(int),
 		.mode		= 0200,
 		.proc_handler	= &ipv4_sysctl_rtcache_flush,
-		.strategy	= &ipv4_sysctl_rtcache_flush_strategy,
+		.strategy	= ipv4_sysctl_rtcache_flush_strategy,
 	},
 	{
 		.ctl_name	= NET_IPV4_ROUTE_GC_THRESH,

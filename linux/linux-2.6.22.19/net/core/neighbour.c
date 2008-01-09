@@ -2474,11 +2474,8 @@ static void neigh_app_notify(struct neighbour *n)
 
 static struct neigh_sysctl_table {
 	struct ctl_table_header *sysctl_header;
-	ctl_table		neigh_vars[__NET_NEIGH_MAX];
-	ctl_table		neigh_dev[2];
-	ctl_table		neigh_neigh_dir[2];
-	ctl_table		neigh_proto_dir[2];
-	ctl_table		neigh_root_dir[2];
+	struct ctl_table neigh_vars[__NET_NEIGH_MAX];
+	char *dev_name;
 } neigh_sysctl_template __read_mostly = {
 	.neigh_vars = {
 		{
@@ -2609,32 +2606,7 @@ static struct neigh_sysctl_table {
 			.mode		= 0644,
 			.proc_handler	= &proc_dointvec,
 		},
-		{}
-	},
-	.neigh_dev = {
-		{
-			.ctl_name	= NET_PROTO_CONF_DEFAULT,
-			.procname	= "default",
-			.mode		= 0555,
-		},
-	},
-	.neigh_neigh_dir = {
-		{
-			.procname	= "neigh",
-			.mode		= 0555,
-		},
-	},
-	.neigh_proto_dir = {
-		{
-			.mode		= 0555,
-		},
-	},
-	.neigh_root_dir = {
-		{
-			.ctl_name	= CTL_NET,
-			.procname	= "net",
-			.mode		= 0555,
-		},
+		{},
 	},
 };
 
@@ -2642,14 +2614,26 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
 			  int p_id, int pdev_id, char *p_name,
 			  proc_handler *handler, ctl_handler *strategy)
 {
-	struct neigh_sysctl_table *t = kmemdup(&neigh_sysctl_template,
-					       sizeof(*t), GFP_KERNEL);
+	struct neigh_sysctl_table *t;
 	const char *dev_name_source = NULL;
-	char *dev_name = NULL;
-	int err = 0;
 
+#define NEIGH_CTL_PATH_ROOT	0
+#define NEIGH_CTL_PATH_PROTO	1
+#define NEIGH_CTL_PATH_NEIGH	2
+#define NEIGH_CTL_PATH_DEV	3
+
+	struct ctl_path neigh_path[] = {
+		{ .procname = "net",	 .ctl_name = CTL_NET, },
+		{ .procname = "proto",	 .ctl_name = 0, },
+		{ .procname = "neigh",	 .ctl_name = 0, },
+		{ .procname = "default", .ctl_name = NET_PROTO_CONF_DEFAULT, },
+		{ },
+	};
+
+	t = kmemdup(&neigh_sysctl_template, sizeof(*t), GFP_KERNEL);
 	if (!t)
-		return -ENOBUFS;
+		goto err;
+
 	t->neigh_vars[0].data  = &p->mcast_probes;
 	t->neigh_vars[1].data  = &p->ucast_probes;
 	t->neigh_vars[2].data  = &p->app_probes;
@@ -2667,11 +2651,11 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
 
 	if (dev) {
 		dev_name_source = dev->name;
-		t->neigh_dev[0].ctl_name = dev->ifindex;
+		neigh_path[NEIGH_CTL_PATH_DEV].ctl_name = dev->ifindex;
 		/* Terminate the table early */
 		memset(&t->neigh_vars[14], 0, sizeof(t->neigh_vars[14]));
 	} else {
-		dev_name_source = t->neigh_dev[0].procname;
+		dev_name_source = neigh_path[NEIGH_CTL_PATH_DEV].procname;
 		t->neigh_vars[14].data = (int *)(p + 1);
 		t->neigh_vars[15].data = (int *)(p + 1) + 1;
 		t->neigh_vars[16].data = (int *)(p + 1) + 2;
@@ -2706,39 +2690,28 @@ int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
 			t->neigh_vars[13].ctl_name = CTL_UNNUMBERED;
 	}
 
-	dev_name = kstrdup(dev_name_source, GFP_KERNEL);
-	if (!dev_name) {
-		err = -ENOBUFS;
+	t->dev_name = kstrdup(dev_name_source, GFP_KERNEL);
+	if (!t->dev_name)
 		goto free;
-	}
 
-	t->neigh_dev[0].procname = dev_name;
+	neigh_path[NEIGH_CTL_PATH_DEV].procname = t->dev_name;
+	neigh_path[NEIGH_CTL_PATH_NEIGH].ctl_name = pdev_id;
+	neigh_path[NEIGH_CTL_PATH_PROTO].procname = p_name;
+	neigh_path[NEIGH_CTL_PATH_PROTO].ctl_name = p_id;
 
-	t->neigh_neigh_dir[0].ctl_name = pdev_id;
-
-	t->neigh_proto_dir[0].procname = p_name;
-	t->neigh_proto_dir[0].ctl_name = p_id;
-
-	t->neigh_dev[0].child	       = t->neigh_vars;
-	t->neigh_neigh_dir[0].child    = t->neigh_dev;
-	t->neigh_proto_dir[0].child    = t->neigh_neigh_dir;
-	t->neigh_root_dir[0].child     = t->neigh_proto_dir;
-
-	t->sysctl_header = register_sysctl_table(t->neigh_root_dir);
-	if (!t->sysctl_header) {
-		err = -ENOBUFS;
+	t->sysctl_header = register_sysctl_paths(neigh_path, t->neigh_vars);
+	if (!t->sysctl_header)
 		goto free_procname;
-	}
+
 	p->sysctl_table = t;
 	return 0;
 
-	/* error path */
- free_procname:
-	kfree(dev_name);
- free:
+free_procname:
+	kfree(t->dev_name);
+free:
 	kfree(t);
-
-	return err;
+err:
+	return -ENOBUFS;
 }
 
 void neigh_sysctl_unregister(struct neigh_parms *p)
@@ -2747,7 +2720,7 @@ void neigh_sysctl_unregister(struct neigh_parms *p)
 		struct neigh_sysctl_table *t = p->sysctl_table;
 		p->sysctl_table = NULL;
 		unregister_sysctl_table(t->sysctl_header);
-		kfree(t->neigh_dev[0].procname);
+		kfree(t->dev_name);
 		kfree(t);
 	}
 }

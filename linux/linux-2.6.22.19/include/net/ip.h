@@ -183,6 +183,8 @@ extern int sysctl_local_port_range[2];
 extern int sysctl_ip_default_ttl;
 extern int sysctl_ip_nonlocal_bind;
 
+extern struct ctl_path net_ipv4_ctl_path[];
+
 /* From ip_fragment.c */
 struct inet_frags_ctl;
 extern struct inet_frags_ctl ip4_frags_ctl;
@@ -412,7 +414,5 @@ int ipv4_doint_and_flush_strategy(ctl_table *table,
 #ifdef CONFIG_PROC_FS
 extern int ip_misc_proc_init(void);
 #endif
-
-extern struct ctl_table ipv4_table[];
 
 #endif	/* _IP_H */

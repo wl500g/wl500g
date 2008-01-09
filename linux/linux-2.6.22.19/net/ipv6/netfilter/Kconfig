@@ -21,7 +21,8 @@ config NF_CONNTRACK_IPV6
 
 config IP6_NF_QUEUE
 	tristate "IP6 Userspace queueing via NETLINK (OBSOLETE)"
-	depends on INET && IPV6 && NETFILTER && EXPERIMENTAL
+	depends on INET && IPV6 && NETFILTER
+	depends on NETFILTER_ADVANCED
 	---help---
 
 	  This option adds a queue handler to the kernel for IPv6

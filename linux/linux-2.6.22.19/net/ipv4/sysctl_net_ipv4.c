@@ -12,6 +12,7 @@
 #include <linux/sysctl.h>
 #include <linux/igmp.h>
 #include <linux/inetdevice.h>
+#include <linux/init.h>
 #include <net/snmp.h>
 #include <net/icmp.h>
 #include <net/ip.h>
@@ -20,74 +21,10 @@
 #include <net/cipso_ipv4.h>
 #include <net/inet_frag.h>
 
-/* From af_inet.c */
-extern int sysctl_ip_nonlocal_bind;
-
-#ifdef CONFIG_SYSCTL
 static int zero;
 static int tcp_retr1_max = 255;
 static int ip_local_port_range_min[] = { 1, 1 };
 static int ip_local_port_range_max[] = { 65535, 65535 };
-#endif
-
-struct ipv4_config ipv4_config;
-
-#ifdef CONFIG_SYSCTL
-
-static
-int ipv4_sysctl_forward(ctl_table *ctl, int write,
-			void __user *buffer, size_t *lenp, loff_t *ppos)
-{
-	int val = IPV4_DEVCONF_ALL(FORWARDING);
-	int ret;
-
-	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
-
-	if (write && IPV4_DEVCONF_ALL(FORWARDING) != val)
-		inet_forward_change();
-
-	return ret;
-}
-
-static int ipv4_sysctl_forward_strategy(ctl_table *table,
-			 void __user *oldval, size_t __user *oldlenp,
-			 void __user *newval, size_t newlen)
-{
-	int *valp = table->data;
-	int new;
-
-	if (!newval || !newlen)
-		return 0;
-
-	if (newlen != sizeof(int))
-		return -EINVAL;
-
-	if (get_user(new, (int __user *)newval))
-		return -EFAULT;
-
-	if (new == *valp)
-		return 0;
-
-	if (oldval && oldlenp) {
-		size_t len;
-
-		if (get_user(len, oldlenp))
-			return -EFAULT;
-
-		if (len) {
-			if (len > table->maxlen)
-				len = table->maxlen;
-			if (copy_to_user(oldval, valp, len))
-				return -EFAULT;
-			if (put_user(len, oldlenp))
-				return -EFAULT;
-		}
-	}
-
-	*valp = new;
-	inet_forward_change();
-	return 1;
-}
 
 static int proc_tcp_congestion_control(ctl_table *ctl, int write,
 				       void __user *buffer, size_t *lenp, loff_t *ppos)
@@ -163,6 +100,7 @@ static int proc_allowed_congestion_control(ctl_table *ctl,
 	return ret;
 }
 
+#ifdef CONFIG_SYSCTL_SYSCALL
 static int strategy_allowed_congestion_control(ctl_table *table,
 					       void __user *oldval,
 					       size_t __user *oldlenp,
@@ -185,8 +123,11 @@ static int strategy_allowed_congestion_control(ctl_table *table,
 	return ret;
 
 }
+#else
+#define strategy_allowed_congestion_control	NULL
+#endif
 
-ctl_table ipv4_table[] = {
+static struct ctl_table ipv4_table[] = {
 	{
 		.ctl_name	= NET_IPV4_TCP_TIMESTAMPS,
 		.procname	= "tcp_timestamps",
@@ -220,22 +161,13 @@ ctl_table ipv4_table[] = {
 		.proc_handler	= &proc_dointvec
 	},
 	{
-		.ctl_name	= NET_IPV4_FORWARD,
-		.procname	= "ip_forward",
-		.data		= &IPV4_DEVCONF_ALL(FORWARDING),
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= &ipv4_sysctl_forward,
-		.strategy	= &ipv4_sysctl_forward_strategy
-	},
-	{
 		.ctl_name	= NET_IPV4_DEFAULT_TTL,
 		.procname	= "ip_default_ttl",
 		.data		= &sysctl_ip_default_ttl,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &ipv4_doint_and_flush,
-		.strategy	= &ipv4_doint_and_flush_strategy,
+		.strategy	= ipv4_doint_and_flush_strategy,
 	},
 	{
 		.ctl_name	= NET_IPV4_NO_PMTU_DISC,
@@ -709,7 +641,7 @@ ctl_table ipv4_table[] = {
 		.mode		= 0644,
 		.maxlen		= TCP_CA_NAME_MAX,
 		.proc_handler	= &proc_tcp_congestion_control,
-		.strategy	= &sysctl_tcp_congestion_control,
+		.strategy	= sysctl_tcp_congestion_control,
 	},
 	{
 		.ctl_name	= NET_TCP_ABC,
@@ -807,7 +739,7 @@ ctl_table ipv4_table[] = {
 		.maxlen		= TCP_CA_BUF_MAX,
 		.mode		= 0644,
 		.proc_handler   = &proc_allowed_congestion_control,
-		.strategy	= &strategy_allowed_congestion_control,
+		.strategy	= strategy_allowed_congestion_control,
 	},
 	{
 		.ctl_name	= NET_TCP_MAX_SSTHRESH,
@@ -820,6 +752,19 @@ ctl_table ipv4_table[] = {
 	{ .ctl_name = 0 }
 };
 
-#endif /* CONFIG_SYSCTL */
+struct ctl_path net_ipv4_ctl_path[] = {
+	{ .procname = "net", .ctl_name = CTL_NET, },
+	{ .procname = "ipv4", .ctl_name = NET_IPV4, },
+	{ },
+};
+EXPORT_SYMBOL_GPL(net_ipv4_ctl_path);
 
-EXPORT_SYMBOL(ipv4_config);
+static __init int sysctl_ipv4_init(void)
+{
+	struct ctl_table_header *hdr;
+
+	hdr = register_sysctl_paths(net_ipv4_ctl_path, ipv4_table);
+	return hdr == NULL ? -ENOMEM : 0;
+}
+
+__initcall(sysctl_ipv4_init);
