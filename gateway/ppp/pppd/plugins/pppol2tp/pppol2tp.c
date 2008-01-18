@@ -117,14 +117,8 @@ static option_t pppol2tp_options[] = {
 
 static int setdevname_pppol2tp(char **argv)
 {
-	union {
-		char buffer[128];
-		struct sockaddr pppol2tp;
-	} s;
-	int len = sizeof(s);
-	char **a;
-	int tmp;
-	int tmp_len = sizeof(tmp);
+	struct sockaddr_pppol2tp sax;
+	int len = sizeof(sax);
 
 	if (device_got_set)
 		return 0;
@@ -132,21 +126,21 @@ static int setdevname_pppol2tp(char **argv)
 	if (!int_option(*argv, &pppol2tp_fd))
 		return 0;
 
-	if(getsockname(pppol2tp_fd, (struct sockaddr *)&s, &len) < 0) {
+	if(getsockname(pppol2tp_fd, (struct sockaddr *)&sax, &len) < 0) {
 		fatal("Given FD for PPPoL2TP socket invalid (%s)",
 		      strerror(errno));
 	}
-	if(s.pppol2tp.sa_family != AF_PPPOX) {
-		fatal("Socket of not a PPPoX socket");
+	if(sax.sa_family != AF_PPPOX || sax.sa_protocol != PX_PROTO_OL2TP) {
+		fatal("Socket is not a PPPoL2TP socket");
 	}
 
 	/* Do a test getsockopt() to ensure that the kernel has the necessary
 	 * feature available.
-	 */
+	 * driver returns -ENOTCONN until session established!
 	if (getsockopt(pppol2tp_fd, SOL_PPPOL2TP, PPPOL2TP_SO_DEBUG,
 		       &tmp, &tmp_len) < 0) {
 		fatal("PPPoL2TP kernel driver not installed");
-	}
+	} */
 
 	/* Setup option defaults. Compression options are disabled! */
 
@@ -175,9 +169,15 @@ static int setdevname_pppol2tp(char **argv)
 
 static int connect_pppol2tp(void)
 {
+	struct sockaddr_pppol2tp sax;
+	int len = sizeof(sax);
+
 	if(pppol2tp_fd == -1) {
 		fatal("No PPPoL2TP FD specified");
 	}
+
+	getsockname(pppol2tp_fd, (struct sockaddr *)&sax, &len);
+	sprintf(ppp_devnam, "l2tp (%s)", inet_ntoa(sax.pppol2tp.addr.sin_addr));
 
 	return pppol2tp_fd;
 }
