@@ -51,6 +51,7 @@ struct fib_node {
 	struct hlist_node	fn_hash;
 	struct list_head	fn_alias;
 	__be32			fn_key;
+	struct fib_alias        fn_embedded_alias;
 };
 
 struct fn_zone {
@@ -193,10 +194,13 @@ static inline void fn_free_node(struct fib_node * f)
 	kmem_cache_free(fn_hash_kmem, f);
 }
 
-static inline void fn_free_alias(struct fib_alias *fa)
+static inline void fn_free_alias(struct fib_alias *fa, struct fib_node *f)
 {
 	fib_release_info(fa->fa_info);
-	kmem_cache_free(fn_alias_kmem, fa);
+	if (fa == &f->fn_embedded_alias)
+		fa->fa_info = NULL;
+	else
+		kmem_cache_free(fn_alias_kmem, fa);
 }
 
 static struct fn_zone *
@@ -504,15 +508,12 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		goto out;
 
 	err = -ENOBUFS;
-	new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
-	if (new_fa == NULL)
-		goto out;
 
 	new_f = NULL;
 	if (!f) {
-		new_f = kmem_cache_alloc(fn_hash_kmem, GFP_KERNEL);
+		new_f = kmem_cache_zalloc(fn_hash_kmem, GFP_KERNEL);
 		if (new_f == NULL)
-			goto out_free_new_fa;
+			goto out;
 
 		INIT_HLIST_NODE(&new_f->fn_hash);
 		INIT_LIST_HEAD(&new_f->fn_alias);
@@ -520,6 +521,12 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		f = new_f;
 	}
 
+	new_fa = &f->fn_embedded_alias;
+	if (new_fa->fa_info != NULL) {
+		new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+		if (new_fa == NULL)
+			goto out_free_new_f;
+	}
 	new_fa->fa_info = fi;
 	new_fa->fa_tos = tos;
 	new_fa->fa_type = cfg->fc_type;
@@ -546,8 +553,8 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
 		  &cfg->fc_nlinfo, 0);
 	return 0;
 
-out_free_new_fa:
-	kmem_cache_free(fn_alias_kmem, new_fa);
+out_free_new_f:
+	kmem_cache_free(fn_hash_kmem, new_f);
 out:
 	fib_release_info(fi);
 	return err;
@@ -623,7 +630,7 @@ static int fn_hash_delete(struct fib_table *tb, struct fib_config *cfg)
 
 		if (fa->fa_state & FA_S_ACCESSED)
 			rt_cache_flush(-1);
-		fn_free_alias(fa);
+		fn_free_alias(fa, f);
 		if (kill_fn) {
 			fn_free_node(f);
 			fz->fz_nent--;
@@ -659,7 +666,7 @@ static int fn_flush_list(struct fn_zone *fz, int idx)
 				fib_hash_genid++;
 				write_unlock_bh(&fib_hash_lock);
 
-				fn_free_alias(fa);
+				fn_free_alias(fa, f);
 				found++;
 			}
 		}
@@ -788,14 +795,14 @@ struct fib_table * __init fib_hash_init(u32 id)
 	if (fn_hash_kmem == NULL)
 		fn_hash_kmem = kmem_cache_create("ip_fib_hash",
 						 sizeof(struct fib_node),
-						 0, SLAB_HWCACHE_ALIGN,
-						 NULL, NULL);
+						 0, SLAB_PANIC,
+						 NULL);
 
 	if (fn_alias_kmem == NULL)
 		fn_alias_kmem = kmem_cache_create("ip_fib_alias",
 						  sizeof(struct fib_alias),
-						  0, SLAB_HWCACHE_ALIGN,
-						  NULL, NULL);
+						  0, SLAB_PANIC,
+						  NULL);
 
 	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct fn_hash),
 		     GFP_KERNEL);
