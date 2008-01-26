@@ -1270,6 +1270,52 @@ static void setenv1(const char *name, const char *value)
 	setenv(name, value ? value : "", 1);
 }
 
+/****************************************************************************
+ *
+ > $Function: addEnvCgi
+ *
+ * $Description: Create environment variables given a URL encoded arg list.
+ *   For each variable setting the URL encoded arg list, create a corresponding
+ *   environment variable.  URL encoded arguments have the form
+ *      name1=value1&name2=value2&name3=value3
+ *
+ * $Parameters:
+ *      (char *) pargs . . . . A pointer to the URL encoded arguments.
+ *
+ * $Return: None
+ *
+ * $Errors: None
+ *
+ ****************************************************************************/
+static void addEnvCgi(const char *pargs)
+{
+    char *args;
+    char *var;
+
+    if (pargs == NULL) return;
+
+    /* args are a list of name=value&name2=value2 sequences */
+    args = strdup(pargs);
+    while (args && *args) {
+	char *sep;
+	char *name = args;
+	char *value = strchr(args,'=');
+
+	if (!value) break; /* no more */
+        *value++ = '\0';
+	sep = strchr(value, '&');
+	if (sep) {
+	    *sep = '\0';
+    	    args = sep + 1;
+	} else {
+    	    sep = value + strlen(value);
+    	    args = 0; /* no more */
+	}
+	var = xasprintf("%s%s=%s", "CGI_", percent_decode_in_place(name, /*strict:*/ 0), percent_decode_in_place(value, /*strict:*/ 0));
+	putenv(var);
+    }
+}
+
 /*
  * Spawn CGI script, forward CGI's stdin/out <=> network
  *
@@ -1375,6 +1421,7 @@ static void send_cgi_and_exit(
 #endif
 		}
 	}
+	addEnvCgi(g_query);
 	setenv1("HTTP_USER_AGENT", user_agent);
 	if (http_accept)
 		setenv1("HTTP_ACCEPT", http_accept);
