@@ -33,7 +33,7 @@ static DEFINE_RWLOCK(sctp_lock);
 
    And so for me for SCTP :D -Kiran */
 
-static const char *sctp_conntrack_names[] = {
+static const char *const sctp_conntrack_names[] = {
 	"NONE",
 	"CLOSED",
 	"COOKIE_WAIT",
@@ -110,7 +110,7 @@ cookie echoed to closed.
 */
 
 /* SCTP conntrack state transitions */
-static enum sctp_conntrack sctp_conntracks[2][9][SCTP_CONNTRACK_MAX] = {
+static const enum sctp_conntrack sctp_conntracks[2][9][SCTP_CONNTRACK_MAX] = {
 	{
 /*	ORIGINAL	*/
 /*                  sNO, sCL, sCW, sCE, sES, sSS, sSR, sSA */
@@ -143,7 +143,8 @@ static int sctp_pkt_to_tuple(const struct sk_buff *skb,
 			     unsigned int dataoff,
 			     struct nf_conntrack_tuple *tuple)
 {
-	sctp_sctphdr_t _hdr, *hp;
+	const struct sctphdr *hp;
+	struct sctphdr _hdr;
 
 	/* Actually only need first 8 bytes. */
 	hp = skb_header_pointer(skb, dataoff, 8, &_hdr);
@@ -294,8 +295,10 @@ static int sctp_packet(struct nf_conn *conntrack,
 		       unsigned int hooknum)
 {
 	enum sctp_conntrack newconntrack, oldsctpstate;
-	sctp_sctphdr_t _sctph, *sh;
-	sctp_chunkhdr_t _sch, *sch;
+	const struct sctphdr *sh;
+	struct sctphdr _sctph;
+	const struct sctp_chunkhdr *sch;
+	struct sctp_chunkhdr _sch;
 	u_int32_t offset, count;
 	char map[256 / sizeof (char)] = {0};
 
@@ -404,8 +407,10 @@ static int sctp_new(struct nf_conn *conntrack, const struct sk_buff *skb,
 		    unsigned int dataoff)
 {
 	enum sctp_conntrack newconntrack;
-	sctp_sctphdr_t _sctph, *sh;
-	sctp_chunkhdr_t _sch, *sch;
+	const struct sctphdr *sh;
+	struct sctphdr _sctph;
+	const struct sctp_chunkhdr *sch;
+	struct sctp_chunkhdr _sch;
 	u_int32_t offset, count;
 	char map[256 / sizeof (char)] = {0};
 
