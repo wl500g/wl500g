@@ -248,6 +248,8 @@ extern void kclist_add(struct kcore_list *, void *, size_t);
 union proc_op {
 	int (*proc_get_link)(struct inode *, struct path *);
 	int (*proc_read)(struct task_struct *task, char *page);
+	int (*proc_show)(struct seq_file *m, struct pid *pid,
+		struct task_struct *task);
 };
 
 struct proc_inode {
