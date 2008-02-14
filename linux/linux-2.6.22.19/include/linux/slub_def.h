@@ -68,7 +68,7 @@ struct kmem_cache {
  * We keep the general caches in an array of slab caches that are used for
  * 2^x bytes of allocations.
  */
-extern struct kmem_cache kmalloc_caches[PAGE_SHIFT];
+extern struct kmem_cache kmalloc_caches[PAGE_SHIFT + 1];
 
 /*
  * Sorry that the following has to be that ugly but some versions of GCC
@@ -149,7 +149,7 @@ void *__kmalloc(size_t size, gfp_t flags);
 static inline void *kmalloc(size_t size, gfp_t flags)
 {
 	if (__builtin_constant_p(size)) {
-		if (size > PAGE_SIZE / 2)
+		if (size > PAGE_SIZE)
 			return (void *)__get_free_pages(flags | __GFP_COMP,
 							get_order(size));
 
@@ -172,7 +172,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
 static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
 {
 	if (__builtin_constant_p(size) &&
-		size <= PAGE_SIZE / 2 && !(flags & SLUB_DMA)) {
+		size <= PAGE_SIZE && !(flags & SLUB_DMA)) {
 			struct kmem_cache *s = kmalloc_slab(size);
 
 		if (!s)
