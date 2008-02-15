@@ -3,19 +3,12 @@
 
 #include <linux/dcache.h>
 #include <linux/linkage.h>
-#include <linux/mount.h>
-
-struct vfsmount;
+#include <linux/path.h>
 
 struct open_intent {
 	int	flags;
 	int	create_mode;
 	struct file *file;
-};
-
-struct path {
-	struct vfsmount *mnt;
-	struct dentry *dentry;
 };
 
 enum { MAX_NESTED_LINKS = 8 };
@@ -73,8 +66,6 @@ extern int vfs_path_lookup(struct dentry *, struct vfsmount *,
 			   const char *, unsigned int, struct nameidata *);
 extern int FASTCALL(path_walk(const char *, struct nameidata *));
 extern int FASTCALL(link_path_walk(const char *, struct nameidata *));
-extern void path_get(struct path *);
-extern void path_put(struct path *);
 
 extern int __user_path_lookup_open(const char __user *, unsigned lookup_flags, struct nameidata *nd, int open_flags);
 extern int path_lookup_open(int dfd, const char *name, unsigned lookup_flags, struct nameidata *, int open_flags);
@@ -105,18 +96,6 @@ static inline char *nd_get_link(struct nameidata *nd)
 static inline void nd_terminate_link(void *name, size_t len, size_t maxlen)
 {
 	((char *) name)[min(len, maxlen)] = '\0';
-}
-
-static inline void pathget(struct path *path)
-{
-	mntget(path->mnt);
-	dget(path->dentry);
-}
-
-static inline void pathput(struct path *path)
-{
-	dput(path->dentry);
-	mntput(path->mnt);
 }
 
 #endif /* _LINUX_NAMEI_H */
