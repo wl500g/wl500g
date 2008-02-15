@@ -229,8 +229,8 @@ static noinline_for_stack int do_remount_mode_option(
 		goto out;
 	}
 	for (idx = 0; idx < cur_branches; idx++)
-		if (nd.mnt == new_lower_paths[idx].mnt &&
-		    nd.dentry == new_lower_paths[idx].dentry)
+		if (nd.path.mnt == new_lower_paths[idx].mnt &&
+		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
 	path_release(&nd);	/* no longer needed */
 	if (idx == cur_branches) {
@@ -273,8 +273,8 @@ static noinline_for_stack int do_remount_del_option(
 		goto out;
 	}
 	for (idx = 0; idx < cur_branches; idx++)
-		if (nd.mnt == new_lower_paths[idx].mnt &&
-		    nd.dentry == new_lower_paths[idx].dentry)
+		if (nd.path.mnt == new_lower_paths[idx].mnt &&
+		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
 	path_release(&nd);	/* no longer needed */
 	if (idx == cur_branches) {
@@ -358,8 +358,8 @@ static noinline_for_stack int do_remount_add_option(
 		goto out;
 	}
 	for (idx = 0; idx < cur_branches; idx++)
-		if (nd.mnt == new_lower_paths[idx].mnt &&
-		    nd.dentry == new_lower_paths[idx].dentry)
+		if (nd.path.mnt == new_lower_paths[idx].mnt &&
+		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
 	path_release(&nd);	/* no longer needed */
 	if (idx == cur_branches) {
@@ -425,10 +425,10 @@ found_insertion_point:
 		memmove(&new_lower_paths[idx+1], &new_lower_paths[idx],
 			(cur_branches - idx) * sizeof(struct path));
 	}
-	new_lower_paths[idx].dentry = nd.dentry;
-	new_lower_paths[idx].mnt = nd.mnt;
+	new_lower_paths[idx].dentry = nd.path.dentry;
+	new_lower_paths[idx].mnt = nd.path.mnt;
 
-	new_data[idx].sb = nd.dentry->d_sb;
+	new_data[idx].sb = nd.path.dentry->d_sb;
 	atomic_set(&new_data[idx].open_files, 0);
 	new_data[idx].branchperms = perms;
 	new_data[idx].branch_id = ++*high_branch_id; /* assign new branch ID */

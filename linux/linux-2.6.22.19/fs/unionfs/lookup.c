@@ -38,9 +38,9 @@ struct dentry *__lookup_one(struct dentry *base, struct vfsmount *mnt,
 
 	switch (err) {
 	case 0: /* no error */
-		dentry = lower_nd.dentry;
+		dentry = lower_nd.path.dentry;
 		if (new_mnt)
-			*new_mnt = lower_nd.mnt; /* rc already inc'ed */
+			*new_mnt = lower_nd.path.mnt; /* rc already inc'ed */
 		break;
 	case -ENOENT:
 		 /*
@@ -52,7 +52,7 @@ struct dentry *__lookup_one(struct dentry *base, struct vfsmount *mnt,
 		  */
 		dentry = lookup_one_len(name, base, strlen(name));
 		if (new_mnt)
-			*new_mnt = mntget(lower_nd.mnt);
+			*new_mnt = mntget(lower_nd.path.mnt);
 		break;
 	default: /* all other real errors */
 		dentry = ERR_PTR(err);

@@ -70,7 +70,7 @@ long do_utimes(int dfd, char __user *filename, struct timespec *times, int flags
 		if (error)
 			goto out;
 
-		dentry = nd.dentry;
+		dentry = nd.path.dentry;
 	}
 
 	inode = dentry->d_inode;

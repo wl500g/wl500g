@@ -13,11 +13,15 @@ struct open_intent {
 	struct file *file;
 };
 
+struct path {
+	struct vfsmount *mnt;
+	struct dentry *dentry;
+};
+
 enum { MAX_NESTED_LINKS = 8 };
 
 struct nameidata {
-	struct dentry	*dentry;
-	struct vfsmount *mnt;
+	struct path	path;
 	struct qstr	last;
 	unsigned int	flags;
 	int		last_type;
@@ -28,11 +32,6 @@ struct nameidata {
 	union {
 		struct open_intent open;
 	} intent;
-};
-
-struct path {
-	struct vfsmount *mnt;
-	struct dentry *dentry;
 };
 
 /*

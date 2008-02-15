@@ -792,7 +792,7 @@ static int unionfs_permission(struct inode *inode, int mask,
 	struct inode *inode_grabbed = igrab(inode);
 
 	if (nd)
-		unionfs_lock_dentry(nd->dentry, UNIONFS_DMUTEX_CHILD);
+		unionfs_lock_dentry(nd->path.dentry, UNIONFS_DMUTEX_CHILD);
 
 	if (!UNIONFS_I(inode)->lower_inodes) {
 		if (is_file)	/* dirs can be unlinked but chdir'ed to */
@@ -807,7 +807,7 @@ static int unionfs_permission(struct inode *inode, int mask,
 		 * If so, we return ESTALE back to link_path_walk, which
 		 * would discard the dcache entry and re-lookup the
 		 * dentry+inode.  This should be equivalent to issuing
-		 * __unionfs_d_revalidate_chain on nd.dentry here.
+		 * __unionfs_d_revalidate_chain on nd.path.dentry here.
 		 */
 		if (is_file)	/* dirs can be unlinked but chdir'ed to */
 			err = -ESTALE;	/* force revalidate */
@@ -883,7 +883,7 @@ out:
 	unionfs_check_inode(inode);
 	unionfs_check_nd(nd);
 	if (nd)
-		unionfs_unlock_dentry(nd->dentry);
+		unionfs_unlock_dentry(nd->path.dentry);
 	iput(inode_grabbed);
 	return err;
 }

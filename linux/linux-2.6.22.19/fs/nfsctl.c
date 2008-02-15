@@ -25,12 +25,12 @@ static struct file *do_open(char *name, int flags)
 	struct nameidata nd;
 	int error;
 
-	nd.mnt = do_kern_mount("nfsd", 0, "nfsd", NULL);
+	nd.path.mnt = do_kern_mount("nfsd", 0, "nfsd", NULL);
 
-	if (IS_ERR(nd.mnt))
-		return (struct file *)nd.mnt;
+	if (IS_ERR(nd.path.mnt))
+		return (struct file *)nd.path.mnt;
 
-	nd.dentry = dget(nd.mnt->mnt_root);
+	nd.path.dentry = dget(nd.path.mnt->mnt_root);
 	nd.last_type = LAST_ROOT;
 	nd.flags = 0;
 	nd.depth = 0;
@@ -45,7 +45,7 @@ static struct file *do_open(char *name, int flags)
 		error = may_open(&nd, MAY_WRITE, FMODE_WRITE);
 
 	if (!error)
-		return dentry_open(nd.dentry, nd.mnt, flags);
+		return dentry_open(nd.path.dentry, nd.path.mnt, flags);
 
 	path_release(&nd);
 	return ERR_PTR(error);

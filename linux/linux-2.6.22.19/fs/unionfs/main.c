@@ -219,11 +219,11 @@ void unionfs_reinterpose(struct dentry *dentry)
 int check_branch(struct nameidata *nd)
 {
 	/* XXX: remove in ODF code -- stacking unions allowed there */
-	if (!strcmp(nd->dentry->d_sb->s_type->name, UNIONFS_NAME))
+	if (!strcmp(nd->path.dentry->d_sb->s_type->name, UNIONFS_NAME))
 		return -EINVAL;
-	if (!nd->dentry->d_inode)
+	if (!nd->path.dentry->d_inode)
 		return -ENOENT;
-	if (!S_ISDIR(nd->dentry->d_inode->i_mode))
+	if (!S_ISDIR(nd->path.dentry->d_inode->i_mode))
 		return -ENOTDIR;
 	return 0;
 }
@@ -367,8 +367,8 @@ static int parse_dirs_option(struct super_block *sb, struct unionfs_dentry_info
 			goto out;
 		}
 
-		lower_root_info->lower_paths[bindex].dentry = nd.dentry;
-		lower_root_info->lower_paths[bindex].mnt = nd.mnt;
+		lower_root_info->lower_paths[bindex].dentry = nd.path.dentry;
+		lower_root_info->lower_paths[bindex].mnt = nd.path.mnt;
 
 		set_branchperms(sb, bindex, perms);
 		set_branch_count(sb, bindex, 0);
