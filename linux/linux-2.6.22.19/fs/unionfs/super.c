@@ -1007,9 +1007,10 @@ static int unionfs_show_options(struct seq_file *m, struct vfsmount *mnt)
 
 	seq_printf(m, ",dirs=");
 	for (bindex = bstart; bindex <= bend; bindex++) {
-		path = d_path(unionfs_lower_dentry_idx(sb->s_root, bindex),
-			      unionfs_lower_mnt_idx(sb->s_root, bindex),
-			      tmp_page, PAGE_SIZE);
+		struct path p;
+		p.dentry = unionfs_lower_dentry_idx(sb->s_root, bindex);
+		p.mnt = unionfs_lower_mnt_idx(sb->s_root, bindex);
+		path = d_path(&p, tmp_page, PAGE_SIZE);
 		if (IS_ERR(path)) {
 			ret = PTR_ERR(path);
 			goto out;

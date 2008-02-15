@@ -102,6 +102,7 @@ static int ext4_file_open(struct inode * inode, struct file * filp)
 	struct super_block *sb = inode->i_sb;
 	struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
 	struct vfsmount *mnt = filp->f_path.mnt;
+	struct path path;
 	char buf[64], *cp;
 
 	if (unlikely(!(sbi->s_mount_flags & EXT4_MF_MNTDIR_SAMPLED) &&
@@ -113,7 +114,10 @@ static int ext4_file_open(struct inode * inode, struct file * filp)
 		 * when trying to sort through large numbers of block
 		 * devices or filesystem images.
 		 */
-		cp = d_path(mnt->mnt_mountpoint, mnt->mnt_parent, buf, sizeof(buf));
+		memset(buf, 0, sizeof(buf));
+		path.mnt = mnt;
+		path.dentry = mnt->mnt_root;
+		cp = d_path(&path, buf, sizeof(buf));
 		if (!IS_ERR(cp)) {
 			memcpy(sbi->s_es->s_last_mounted, cp,
 			       sizeof(sbi->s_es->s_last_mounted));

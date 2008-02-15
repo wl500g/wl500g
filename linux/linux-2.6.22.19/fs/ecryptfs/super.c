@@ -146,8 +146,7 @@ static void ecryptfs_clear_inode(struct inode *inode)
 static int ecryptfs_show_options(struct seq_file *m, struct vfsmount *mnt)
 {
 	struct super_block *sb = mnt->mnt_sb;
-	struct dentry *lower_root_dentry = ecryptfs_dentry_to_lower(sb->s_root);
-	struct vfsmount *lower_mnt = ecryptfs_dentry_to_lower_mnt(sb->s_root);
+	struct path p;
 	char *tmp_page;
 	char *path;
 	int rc = 0;
@@ -157,7 +156,9 @@ static int ecryptfs_show_options(struct seq_file *m, struct vfsmount *mnt)
 		rc = -ENOMEM;
 		goto out;
 	}
-	path = d_path(lower_root_dentry, lower_mnt, tmp_page, PAGE_SIZE);
+	p.dentry = ecryptfs_dentry_to_lower(sb->s_root);
+	p.mnt = ecryptfs_dentry_to_lower_mnt(sb->s_root);
+	path = d_path(&p, tmp_page, PAGE_SIZE);
 	if (IS_ERR(path)) {
 		rc = PTR_ERR(path);
 		goto out;
