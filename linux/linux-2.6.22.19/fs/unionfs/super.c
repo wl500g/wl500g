@@ -232,7 +232,7 @@ static noinline_for_stack int do_remount_mode_option(
 		if (nd.path.mnt == new_lower_paths[idx].mnt &&
 		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
-	path_release(&nd);	/* no longer needed */
+	path_put(&nd.path);	/* no longer needed */
 	if (idx == cur_branches) {
 		err = -ENOENT;	/* err may have been reset above */
 		printk(KERN_ERR "unionfs: branch \"%s\" "
@@ -276,7 +276,7 @@ static noinline_for_stack int do_remount_del_option(
 		if (nd.path.mnt == new_lower_paths[idx].mnt &&
 		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
-	path_release(&nd);	/* no longer needed */
+	path_put(&nd.path);	/* no longer needed */
 	if (idx == cur_branches) {
 		printk(KERN_ERR "unionfs: branch \"%s\" "
 		       "not found\n", optarg);
@@ -361,7 +361,7 @@ static noinline_for_stack int do_remount_add_option(
 		if (nd.path.mnt == new_lower_paths[idx].mnt &&
 		    nd.path.dentry == new_lower_paths[idx].dentry)
 			break;
-	path_release(&nd);	/* no longer needed */
+	path_put(&nd.path);	/* no longer needed */
 	if (idx == cur_branches) {
 		printk(KERN_ERR "unionfs: branch \"%s\" "
 		       "not found\n", optarg);
@@ -408,7 +408,7 @@ found_insertion_point:
 	if (err) {
 		printk(KERN_ERR "unionfs: lower directory "
 		       "\"%s\" is not a valid branch\n", optarg);
-		path_release(&nd);
+		path_put(&nd.path);
 		goto out;
 	}
 

@@ -3609,7 +3609,7 @@ static int ext4_quota_on(struct super_block *sb, int type, int format_id,
 
 	/* Quotafile not on the same filesystem? */
 	if (nd.path.mnt->mnt_sb != sb) {
-		path_release(&nd);
+		path_put(&nd.path);
 		return -EXDEV;
 	}
 	/* Journaling quota? */
@@ -3635,13 +3635,13 @@ static int ext4_quota_on(struct super_block *sb, int type, int format_id,
 		err = jbd2_journal_flush(EXT4_SB(sb)->s_journal);
 		jbd2_journal_unlock_updates(EXT4_SB(sb)->s_journal);
 		if (err) {
-			path_release(&nd);
+			path_put(&nd.path);
 			return err;
 		}
 	}
 
 	err = vfs_quota_on_path(sb, type, format_id, &nd.path);
-	path_release(&nd);
+	path_put(&nd.path);
 	return err;
 }
 

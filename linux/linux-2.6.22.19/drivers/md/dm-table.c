@@ -370,7 +370,7 @@ static int lookup_device(const char *path, dev_t *dev)
 	*dev = inode->i_rdev;
 
  out:
-	path_release(&nd);
+	path_put(&nd.path);
 	return r;
 }
 

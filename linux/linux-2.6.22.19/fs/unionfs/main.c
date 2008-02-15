@@ -363,7 +363,7 @@ static int parse_dirs_option(struct super_block *sb, struct unionfs_dentry_info
 		if (err) {
 			printk(KERN_ERR "unionfs: lower directory "
 			       "'%s' is not a valid branch\n", name);
-			path_release(&nd);
+			path_put(&nd.path);
 			goto out;
 		}
 

@@ -91,7 +91,7 @@ asmlinkage long sys_spu_create(const char __user *pathname,
 				LOOKUP_OPEN|LOOKUP_CREATE, &nd);
 		if (!ret) {
 			ret = spufs_create(&nd, flags, mode);
-			path_release(&nd);
+			path_put(&nd.path);
 		}
 		putname(tmp);
 	}

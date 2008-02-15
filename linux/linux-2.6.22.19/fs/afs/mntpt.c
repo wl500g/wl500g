@@ -227,7 +227,7 @@ static void *afs_mntpt_follow_link(struct dentry *dentry, struct nameidata *nd)
 
 	newmnt = afs_mntpt_do_automount(nd->path.dentry);
 	if (IS_ERR(newmnt)) {
-		path_release(nd);
+		path_put(&nd->path);
 		return (void *)newmnt;
 	}
 
@@ -235,8 +235,7 @@ static void *afs_mntpt_follow_link(struct dentry *dentry, struct nameidata *nd)
 	err = do_add_mount(newmnt, nd, MNT_SHRINKABLE, &afs_vfsmounts);
 	switch (err) {
 	case 0:
-		dput(nd->path.dentry);
-		mntput(nd->path.mnt);
+		path_put(&nd->path);
 		nd->path.mnt = newmnt;
 		nd->path.dentry = dget(newmnt->mnt_root);
 		schedule_delayed_work(&afs_mntpt_expiry_timer,
