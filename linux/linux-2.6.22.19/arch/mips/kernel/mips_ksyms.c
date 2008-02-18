@@ -34,6 +34,12 @@ EXPORT_SYMBOL(memmove);
 EXPORT_SYMBOL(kernel_thread);
 
 /*
+ * Functions that operate on entire pages.  Mostly used by memory management.
+ */
+EXPORT_SYMBOL(clear_page);
+EXPORT_SYMBOL(copy_page);
+
+/*
  * Userspace access stuff.
  */
 EXPORT_SYMBOL(__copy_user);

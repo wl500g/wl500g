@@ -15,14 +15,14 @@ enum opcode {
 	insn_invalid,
 	insn_addu, insn_addiu, insn_and, insn_andi, insn_beq,
 	insn_beql, insn_bgez, insn_bgezl, insn_bltz, insn_bltzl,
-	insn_bne, insn_daddu, insn_daddiu, insn_dmfc0, insn_dmtc0,
-	insn_dsll, insn_dsll32, insn_dsra, insn_dsrl, insn_dsrl32,
-	insn_dsubu, insn_eret, insn_ext, insn_ins,
+	insn_bne, insn_cache, insn_daddu, insn_daddiu, insn_dmfc0,
+	insn_dmtc0, insn_dsll, insn_dsll32, insn_dsra, insn_dsrl,
+	insn_dsrl32, insn_dsubu, insn_eret, insn_ext, insn_ins,
 	insn_j, insn_jal, insn_jr, insn_ld,
 	insn_ll, insn_lld, insn_lui, insn_lw, insn_mfc0, insn_mtc0,
-	insn_or, insn_ori, insn_rfe, insn_sc, insn_scd, insn_sd, insn_sll,
-	insn_sra, insn_srl, insn_subu, insn_sw, insn_tlbp, insn_tlbwi,
-	insn_tlbwr, insn_xor, insn_xori,
+	insn_or, insn_ori, insn_pref, insn_rfe, insn_sc, insn_scd,
+	insn_sd, insn_sll, insn_sra, insn_srl, insn_subu, insn_sw,
+	insn_tlbp, insn_tlbwi, insn_tlbwr, insn_xor, insn_xori,
 	insn_syscall
 };
 
@@ -159,6 +159,7 @@ I_u1s2(_bgezl)
 I_u1s2(_bltz)
 I_u1s2(_bltzl)
 I_u1u2s3(_bne)
+I_u2s3u1(_cache)
 I_u1u2u3(_dmfc0)
 I_u1u2u3(_dmtc0)
 I_u2u1s3(_daddiu)
@@ -184,6 +185,7 @@ I_u1u2u3(_mfc0)
 I_u1u2u3(_mtc0)
 I_u2u1u3(_ori)
 I_u3u1u2(_or)
+I_u2s3u1(_pref)
 I_0(_rfe)
 I_u2s3u1(_sc)
 I_u2s3u1(_scd)
@@ -329,6 +331,8 @@ void uasm_il_bltz(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
 void uasm_il_b(u32 **p, struct uasm_reloc **r, int lid);
 void uasm_il_beqz(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
 void uasm_il_beqzl(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
+void uasm_il_bne(u32 **p, struct uasm_reloc **r, unsigned int reg1,
+		 unsigned int reg2, int lid);
 void uasm_il_bnez(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
 void uasm_il_bgezl(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
 void uasm_il_bgez(u32 **p, struct uasm_reloc **r, unsigned int reg, int lid);
