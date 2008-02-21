@@ -42,8 +42,8 @@ static int fc_queue_work(struct Scsi_Host *, struct work_struct *);
  * Redefine so that we can have same named attributes in the
  * sdev/starget/host objects.
  */
-#define FC_CLASS_DEVICE_ATTR(_prefix,_name,_mode,_show,_store)		\
-struct class_device_attribute class_device_attr_##_prefix##_##_name = 	\
+#define FC_DEVICE_ATTR(_prefix,_name,_mode,_show,_store)		\
+struct device_attribute device_attr_##_prefix##_##_name = 	\
 	__ATTR(_name,_mode,_show,_store)
 
 #define fc_enum_name_search(title, table_type, table)			\
@@ -268,22 +268,22 @@ struct fc_internal {
 	 * part of the midlayer. As the remote port is specific to the
 	 * fc transport, we must provide the attribute container.
 	 */
-	struct class_device_attribute private_starget_attrs[
+	struct device_attribute private_starget_attrs[
 							FC_STARGET_NUM_ATTRS];
-	struct class_device_attribute *starget_attrs[FC_STARGET_NUM_ATTRS + 1];
+	struct device_attribute *starget_attrs[FC_STARGET_NUM_ATTRS + 1];
 
-	struct class_device_attribute private_host_attrs[FC_HOST_NUM_ATTRS];
-	struct class_device_attribute *host_attrs[FC_HOST_NUM_ATTRS + 1];
+	struct device_attribute private_host_attrs[FC_HOST_NUM_ATTRS];
+	struct device_attribute *host_attrs[FC_HOST_NUM_ATTRS + 1];
 
 	struct transport_container rport_attr_cont;
-	struct class_device_attribute private_rport_attrs[FC_RPORT_NUM_ATTRS];
-	struct class_device_attribute *rport_attrs[FC_RPORT_NUM_ATTRS + 1];
+	struct device_attribute private_rport_attrs[FC_RPORT_NUM_ATTRS];
+	struct device_attribute *rport_attrs[FC_RPORT_NUM_ATTRS + 1];
 };
 
 #define to_fc_internal(tmpl)	container_of(tmpl, struct fc_internal, t)
 
 static int fc_target_setup(struct transport_container *tc, struct device *dev,
-			   struct class_device *cdev)
+			   struct device *cdev)
 {
 	struct scsi_target *starget = to_scsi_target(dev);
 	struct fc_rport *rport = starget_to_rport(starget);
@@ -313,7 +313,7 @@ static DECLARE_TRANSPORT_CLASS(fc_transport_class,
 			       NULL);
 
 static int fc_host_setup(struct transport_container *tc, struct device *dev,
-			 struct class_device *cdev)
+			 struct device *cdev)
 {
 	struct Scsi_Host *shost = dev_to_shost(dev);
 	struct fc_host_attrs *fc_host = shost_to_fc_host(shost);
@@ -604,9 +604,10 @@ static void __exit fc_transport_exit(void)
 
 #define fc_rport_show_function(field, format_string, sz, cast)		\
 static ssize_t								\
-show_fc_rport_##field (struct class_device *cdev, char *buf)		\
+show_fc_rport_##field (struct device *dev, 				\
+		       struct device_attribute *attr, char *buf)	\
 {									\
-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
+	struct fc_rport *rport = transport_class_to_rport(dev);		\
 	struct Scsi_Host *shost = rport_to_shost(rport);		\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	if ((i->f->get_rport_##field) &&				\
@@ -619,11 +620,12 @@ show_fc_rport_##field (struct class_device *cdev, char *buf)		\
 
 #define fc_rport_store_function(field)					\
 static ssize_t								\
-store_fc_rport_##field(struct class_device *cdev, const char *buf,	\
-			   size_t count)				\
+store_fc_rport_##field(struct device *dev,				\
+		       struct device_attribute *attr,			\
+		       const char *buf,	size_t count)			\
 {									\
 	int val;							\
-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
+	struct fc_rport *rport = transport_class_to_rport(dev);		\
 	struct Scsi_Host *shost = rport_to_shost(rport);		\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	char *cp;							\
@@ -640,58 +642,60 @@ store_fc_rport_##field(struct class_device *cdev, const char *buf,	\
 
 #define fc_rport_rd_attr(field, format_string, sz)			\
 	fc_rport_show_function(field, format_string, sz, )		\
-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
 			 show_fc_rport_##field, NULL)
 
 #define fc_rport_rd_attr_cast(field, format_string, sz, cast)		\
 	fc_rport_show_function(field, format_string, sz, (cast))	\
-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
 			  show_fc_rport_##field, NULL)
 
 #define fc_rport_rw_attr(field, format_string, sz)			\
 	fc_rport_show_function(field, format_string, sz, )		\
 	fc_rport_store_function(field)					\
-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO | S_IWUSR,		\
+static FC_DEVICE_ATTR(rport, field, S_IRUGO | S_IWUSR,		\
 			show_fc_rport_##field,				\
 			store_fc_rport_##field)
 
 
 #define fc_private_rport_show_function(field, format_string, sz, cast)	\
 static ssize_t								\
-show_fc_rport_##field (struct class_device *cdev, char *buf)		\
+show_fc_rport_##field (struct device *dev, 				\
+		       struct device_attribute *attr, char *buf)	\
 {									\
-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
+	struct fc_rport *rport = transport_class_to_rport(dev);		\
 	return snprintf(buf, sz, format_string, cast rport->field); 	\
 }
 
 #define fc_private_rport_rd_attr(field, format_string, sz)		\
 	fc_private_rport_show_function(field, format_string, sz, )	\
-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
 			 show_fc_rport_##field, NULL)
 
 #define fc_private_rport_rd_attr_cast(field, format_string, sz, cast)	\
 	fc_private_rport_show_function(field, format_string, sz, (cast)) \
-static FC_CLASS_DEVICE_ATTR(rport, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(rport, field, S_IRUGO,			\
 			  show_fc_rport_##field, NULL)
 
 
 #define fc_private_rport_rd_enum_attr(title, maxlen)			\
 static ssize_t								\
-show_fc_rport_##title (struct class_device *cdev, char *buf)		\
+show_fc_rport_##title (struct device *dev,				\
+		       struct device_attribute *attr, char *buf)	\
 {									\
-	struct fc_rport *rport = transport_class_to_rport(cdev);	\
+	struct fc_rport *rport = transport_class_to_rport(dev);		\
 	const char *name;						\
 	name = get_fc_##title##_name(rport->title);			\
 	if (!name)							\
 		return -EINVAL;						\
 	return snprintf(buf, maxlen, "%s\n", name);			\
 }									\
-static FC_CLASS_DEVICE_ATTR(rport, title, S_IRUGO,			\
+static FC_DEVICE_ATTR(rport, title, S_IRUGO,			\
 			show_fc_rport_##title, NULL)
 
 
 #define SETUP_RPORT_ATTRIBUTE_RD(field)					\
-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
+	i->private_rport_attrs[count] = device_attr_rport_##field; \
 	i->private_rport_attrs[count].attr.mode = S_IRUGO;		\
 	i->private_rport_attrs[count].store = NULL;			\
 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
@@ -699,14 +703,14 @@ static FC_CLASS_DEVICE_ATTR(rport, title, S_IRUGO,			\
 		count++
 
 #define SETUP_PRIVATE_RPORT_ATTRIBUTE_RD(field)				\
-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
+	i->private_rport_attrs[count] = device_attr_rport_##field; \
 	i->private_rport_attrs[count].attr.mode = S_IRUGO;		\
 	i->private_rport_attrs[count].store = NULL;			\
 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
 	count++
 
 #define SETUP_RPORT_ATTRIBUTE_RW(field)					\
-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
+	i->private_rport_attrs[count] = device_attr_rport_##field; \
 	if (!i->f->set_rport_##field) {					\
 		i->private_rport_attrs[count].attr.mode = S_IRUGO;	\
 		i->private_rport_attrs[count].store = NULL;		\
@@ -717,7 +721,7 @@ static FC_CLASS_DEVICE_ATTR(rport, title, S_IRUGO,			\
 
 #define SETUP_PRIVATE_RPORT_ATTRIBUTE_RW(field)				\
 {									\
-	i->private_rport_attrs[count] = class_device_attr_rport_##field; \
+	i->private_rport_attrs[count] = device_attr_rport_##field; \
 	i->rport_attrs[count] = &i->private_rport_attrs[count];		\
 	count++;							\
 }
@@ -730,14 +734,15 @@ static FC_CLASS_DEVICE_ATTR(rport, title, S_IRUGO,			\
 fc_private_rport_rd_attr(maxframe_size, "%u bytes\n", 20);
 
 static ssize_t
-show_fc_rport_supported_classes (struct class_device *cdev, char *buf)
+show_fc_rport_supported_classes (struct device *dev,
+				 struct device_attribute *attr, char *buf)
 {
-	struct fc_rport *rport = transport_class_to_rport(cdev);
+	struct fc_rport *rport = transport_class_to_rport(dev);
 	if (rport->supported_classes == FC_COS_UNSPECIFIED)
 		return snprintf(buf, 20, "unspecified\n");
 	return get_fc_cos_names(rport->supported_classes, buf);
 }
-static FC_CLASS_DEVICE_ATTR(rport, supported_classes, S_IRUGO,
+static FC_DEVICE_ATTR(rport, supported_classes, S_IRUGO,
 		show_fc_rport_supported_classes, NULL);
 
 /* Dynamic Remote Port Attributes */
@@ -747,11 +752,11 @@ static FC_CLASS_DEVICE_ATTR(rport, supported_classes, S_IRUGO,
  */
 fc_rport_show_function(dev_loss_tmo, "%d\n", 20, )
 static ssize_t
-store_fc_rport_dev_loss_tmo(struct class_device *cdev, const char *buf,
-			   size_t count)
+store_fc_rport_dev_loss_tmo(struct device *dev, struct device_attribute *attr,
+			    const char *buf, size_t count)
 {
 	int val;
-	struct fc_rport *rport = transport_class_to_rport(cdev);
+	struct fc_rport *rport = transport_class_to_rport(dev);
 	struct Scsi_Host *shost = rport_to_shost(rport);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 	char *cp;
@@ -766,7 +771,7 @@ store_fc_rport_dev_loss_tmo(struct class_device *cdev, const char *buf,
 	i->f->set_rport_dev_loss_tmo(rport, val);
 	return count;
 }
-static FC_CLASS_DEVICE_ATTR(rport, dev_loss_tmo, S_IRUGO | S_IWUSR,
+static FC_DEVICE_ATTR(rport, dev_loss_tmo, S_IRUGO | S_IWUSR,
 		show_fc_rport_dev_loss_tmo, store_fc_rport_dev_loss_tmo);
 
 
@@ -777,9 +782,10 @@ fc_private_rport_rd_attr_cast(port_name, "0x%llx\n", 20, unsigned long long);
 fc_private_rport_rd_attr(port_id, "0x%06x\n", 20);
 
 static ssize_t
-show_fc_rport_roles (struct class_device *cdev, char *buf)
+show_fc_rport_roles (struct device *dev, struct device_attribute *attr,
+		     char *buf)
 {
-	struct fc_rport *rport = transport_class_to_rport(cdev);
+	struct fc_rport *rport = transport_class_to_rport(dev);
 
 	/* identify any roles that are port_id specific */
 	if ((rport->port_id != -1) &&
@@ -805,7 +811,7 @@ show_fc_rport_roles (struct class_device *cdev, char *buf)
 		return get_fc_remote_port_roles_names(rport->roles, buf);
 	}
 }
-static FC_CLASS_DEVICE_ATTR(rport, roles, S_IRUGO,
+static FC_DEVICE_ATTR(rport, roles, S_IRUGO,
 		show_fc_rport_roles, NULL);
 
 fc_private_rport_rd_enum_attr(port_state, FC_PORTSTATE_MAX_NAMELEN);
@@ -815,9 +821,10 @@ fc_private_rport_rd_attr(scsi_target_id, "%d\n", 20);
  * fast_io_fail_tmo attribute
  */
 static ssize_t
-show_fc_rport_fast_io_fail_tmo (struct class_device *cdev, char *buf)
+show_fc_rport_fast_io_fail_tmo (struct device *dev,
+				struct device_attribute *attr, char *buf)
 {
-	struct fc_rport *rport = transport_class_to_rport(cdev);
+	struct fc_rport *rport = transport_class_to_rport(dev);
 
 	if (rport->fast_io_fail_tmo == -1)
 		return snprintf(buf, 5, "off\n");
@@ -825,12 +832,13 @@ show_fc_rport_fast_io_fail_tmo (struct class_device *cdev, char *buf)
 }
 
 static ssize_t
-store_fc_rport_fast_io_fail_tmo(struct class_device *cdev, const char *buf,
-			   size_t count)
+store_fc_rport_fast_io_fail_tmo(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
 {
 	int val;
 	char *cp;
-	struct fc_rport *rport = transport_class_to_rport(cdev);
+	struct fc_rport *rport = transport_class_to_rport(dev);
 
 	if ((rport->port_state == FC_PORTSTATE_BLOCKED) ||
 	    (rport->port_state == FC_PORTSTATE_DELETED) ||
@@ -847,7 +855,7 @@ store_fc_rport_fast_io_fail_tmo(struct class_device *cdev, const char *buf,
 	}
 	return count;
 }
-static FC_CLASS_DEVICE_ATTR(rport, fast_io_fail_tmo, S_IRUGO | S_IWUSR,
+static FC_DEVICE_ATTR(rport, fast_io_fail_tmo, S_IRUGO | S_IWUSR,
 	show_fc_rport_fast_io_fail_tmo, store_fc_rport_fast_io_fail_tmo);
 
 
@@ -863,9 +871,10 @@ static FC_CLASS_DEVICE_ATTR(rport, fast_io_fail_tmo, S_IRUGO | S_IWUSR,
  */
 #define fc_starget_show_function(field, format_string, sz, cast)	\
 static ssize_t								\
-show_fc_starget_##field (struct class_device *cdev, char *buf)		\
+show_fc_starget_##field (struct device *dev, 				\
+			 struct device_attribute *attr, char *buf)	\
 {									\
-	struct scsi_target *starget = transport_class_to_starget(cdev);	\
+	struct scsi_target *starget = transport_class_to_starget(dev);	\
 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);	\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	struct fc_rport *rport = starget_to_rport(starget);		\
@@ -879,16 +888,16 @@ show_fc_starget_##field (struct class_device *cdev, char *buf)		\
 
 #define fc_starget_rd_attr(field, format_string, sz)			\
 	fc_starget_show_function(field, format_string, sz, )		\
-static FC_CLASS_DEVICE_ATTR(starget, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(starget, field, S_IRUGO,			\
 			 show_fc_starget_##field, NULL)
 
 #define fc_starget_rd_attr_cast(field, format_string, sz, cast)		\
 	fc_starget_show_function(field, format_string, sz, (cast))	\
-static FC_CLASS_DEVICE_ATTR(starget, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(starget, field, S_IRUGO,			\
 			  show_fc_starget_##field, NULL)
 
 #define SETUP_STARGET_ATTRIBUTE_RD(field)				\
-	i->private_starget_attrs[count] = class_device_attr_starget_##field; \
+	i->private_starget_attrs[count] = device_attr_starget_##field; \
 	i->private_starget_attrs[count].attr.mode = S_IRUGO;		\
 	i->private_starget_attrs[count].store = NULL;			\
 	i->starget_attrs[count] = &i->private_starget_attrs[count];	\
@@ -896,7 +905,7 @@ static FC_CLASS_DEVICE_ATTR(starget, field, S_IRUGO,			\
 		count++
 
 #define SETUP_STARGET_ATTRIBUTE_RW(field)				\
-	i->private_starget_attrs[count] = class_device_attr_starget_##field; \
+	i->private_starget_attrs[count] = device_attr_starget_##field; \
 	if (!i->f->set_starget_##field) {				\
 		i->private_starget_attrs[count].attr.mode = S_IRUGO;	\
 		i->private_starget_attrs[count].store = NULL;		\
@@ -917,9 +926,10 @@ fc_starget_rd_attr(port_id, "0x%06x\n", 20);
 
 #define fc_host_show_function(field, format_string, sz, cast)		\
 static ssize_t								\
-show_fc_host_##field (struct class_device *cdev, char *buf)		\
+show_fc_host_##field (struct device *dev,				\
+		      struct device_attribute *attr, char *buf)		\
 {									\
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
+	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	if (i->f->get_host_##field)					\
 		i->f->get_host_##field(shost);				\
@@ -928,11 +938,12 @@ show_fc_host_##field (struct class_device *cdev, char *buf)		\
 
 #define fc_host_store_function(field)					\
 static ssize_t								\
-store_fc_host_##field(struct class_device *cdev, const char *buf,	\
-			   size_t count)				\
+store_fc_host_##field(struct device *dev, 				\
+		      struct device_attribute *attr,			\
+		      const char *buf,	size_t count)			\
 {									\
 	int val;							\
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
+	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	char *cp;							\
 									\
@@ -945,10 +956,11 @@ store_fc_host_##field(struct class_device *cdev, const char *buf,	\
 
 #define fc_host_store_str_function(field, slen)				\
 static ssize_t								\
-store_fc_host_##field(struct class_device *cdev, const char *buf,	\
-			   size_t count)				\
+store_fc_host_##field(struct device *dev,				\
+		      struct device_attribute *attr,			\
+		      const char *buf, size_t count)			\
 {									\
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
+	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	unsigned int cnt=count;						\
 									\
@@ -964,26 +976,27 @@ store_fc_host_##field(struct class_device *cdev, const char *buf,	\
 
 #define fc_host_rd_attr(field, format_string, sz)			\
 	fc_host_show_function(field, format_string, sz, )		\
-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
 			 show_fc_host_##field, NULL)
 
 #define fc_host_rd_attr_cast(field, format_string, sz, cast)		\
 	fc_host_show_function(field, format_string, sz, (cast))		\
-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
 			  show_fc_host_##field, NULL)
 
 #define fc_host_rw_attr(field, format_string, sz)			\
 	fc_host_show_function(field, format_string, sz, )		\
 	fc_host_store_function(field)					\
-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO | S_IWUSR,		\
+static FC_DEVICE_ATTR(host, field, S_IRUGO | S_IWUSR,		\
 			show_fc_host_##field,				\
 			store_fc_host_##field)
 
 #define fc_host_rd_enum_attr(title, maxlen)				\
 static ssize_t								\
-show_fc_host_##title (struct class_device *cdev, char *buf)		\
+show_fc_host_##title (struct device *dev,				\
+		      struct device_attribute *attr, char *buf)		\
 {									\
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
+	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
 	struct fc_internal *i = to_fc_internal(shost->transportt);	\
 	const char *name;						\
 	if (i->f->get_host_##title)					\
@@ -993,10 +1006,10 @@ show_fc_host_##title (struct class_device *cdev, char *buf)		\
 		return -EINVAL;						\
 	return snprintf(buf, maxlen, "%s\n", name);			\
 }									\
-static FC_CLASS_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
+static FC_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
 
 #define SETUP_HOST_ATTRIBUTE_RD(field)					\
-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
+	i->private_host_attrs[count] = device_attr_host_##field;	\
 	i->private_host_attrs[count].attr.mode = S_IRUGO;		\
 	i->private_host_attrs[count].store = NULL;			\
 	i->host_attrs[count] = &i->private_host_attrs[count];		\
@@ -1004,7 +1017,7 @@ static FC_CLASS_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
 		count++
 
 #define SETUP_HOST_ATTRIBUTE_RW(field)					\
-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
+	i->private_host_attrs[count] = device_attr_host_##field;	\
 	if (!i->f->set_host_##field) {					\
 		i->private_host_attrs[count].attr.mode = S_IRUGO;	\
 		i->private_host_attrs[count].store = NULL;		\
@@ -1016,24 +1029,25 @@ static FC_CLASS_DEVICE_ATTR(host, title, S_IRUGO, show_fc_host_##title, NULL)
 
 #define fc_private_host_show_function(field, format_string, sz, cast)	\
 static ssize_t								\
-show_fc_host_##field (struct class_device *cdev, char *buf)		\
+show_fc_host_##field (struct device *dev,				\
+		      struct device_attribute *attr, char *buf)		\
 {									\
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);	\
+	struct Scsi_Host *shost = transport_class_to_shost(dev);	\
 	return snprintf(buf, sz, format_string, cast fc_host_##field(shost)); \
 }
 
 #define fc_private_host_rd_attr(field, format_string, sz)		\
 	fc_private_host_show_function(field, format_string, sz, )	\
-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
 			 show_fc_host_##field, NULL)
 
 #define fc_private_host_rd_attr_cast(field, format_string, sz, cast)	\
 	fc_private_host_show_function(field, format_string, sz, (cast)) \
-static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
+static FC_DEVICE_ATTR(host, field, S_IRUGO,			\
 			  show_fc_host_##field, NULL)
 
 #define SETUP_PRIVATE_HOST_ATTRIBUTE_RD(field)			\
-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
+	i->private_host_attrs[count] = device_attr_host_##field;	\
 	i->private_host_attrs[count].attr.mode = S_IRUGO;		\
 	i->private_host_attrs[count].store = NULL;			\
 	i->host_attrs[count] = &i->private_host_attrs[count];		\
@@ -1041,7 +1055,7 @@ static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
 
 #define SETUP_PRIVATE_HOST_ATTRIBUTE_RW(field)			\
 {									\
-	i->private_host_attrs[count] = class_device_attr_host_##field;	\
+	i->private_host_attrs[count] = device_attr_host_##field;	\
 	i->host_attrs[count] = &i->private_host_attrs[count];		\
 	count++;							\
 }
@@ -1050,38 +1064,41 @@ static FC_CLASS_DEVICE_ATTR(host, field, S_IRUGO,			\
 /* Fixed Host Attributes */
 
 static ssize_t
-show_fc_host_supported_classes (struct class_device *cdev, char *buf)
+show_fc_host_supported_classes (struct device *dev,
+			        struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 
 	if (fc_host_supported_classes(shost) == FC_COS_UNSPECIFIED)
 		return snprintf(buf, 20, "unspecified\n");
 
 	return get_fc_cos_names(fc_host_supported_classes(shost), buf);
 }
-static FC_CLASS_DEVICE_ATTR(host, supported_classes, S_IRUGO,
+static FC_DEVICE_ATTR(host, supported_classes, S_IRUGO,
 		show_fc_host_supported_classes, NULL);
 
 static ssize_t
-show_fc_host_supported_fc4s (struct class_device *cdev, char *buf)
+show_fc_host_supported_fc4s (struct device *dev,
+			     struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	return (ssize_t)show_fc_fc4s(buf, fc_host_supported_fc4s(shost));
 }
-static FC_CLASS_DEVICE_ATTR(host, supported_fc4s, S_IRUGO,
+static FC_DEVICE_ATTR(host, supported_fc4s, S_IRUGO,
 		show_fc_host_supported_fc4s, NULL);
 
 static ssize_t
-show_fc_host_supported_speeds (struct class_device *cdev, char *buf)
+show_fc_host_supported_speeds (struct device *dev,
+			       struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 
 	if (fc_host_supported_speeds(shost) == FC_PORTSPEED_UNKNOWN)
 		return snprintf(buf, 20, "unknown\n");
 
 	return get_fc_port_speed_names(fc_host_supported_speeds(shost), buf);
 }
-static FC_CLASS_DEVICE_ATTR(host, supported_speeds, S_IRUGO,
+static FC_DEVICE_ATTR(host, supported_speeds, S_IRUGO,
 		show_fc_host_supported_speeds, NULL);
 
 
@@ -1096,9 +1113,10 @@ fc_private_host_rd_attr(serial_number, "%s\n", (FC_SERIAL_NUMBER_SIZE +1));
 /* Dynamic Host Attributes */
 
 static ssize_t
-show_fc_host_active_fc4s (struct class_device *cdev, char *buf)
+show_fc_host_active_fc4s (struct device *dev,
+			  struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 
 	if (i->f->get_host_active_fc4s)
@@ -1106,13 +1124,14 @@ show_fc_host_active_fc4s (struct class_device *cdev, char *buf)
 
 	return (ssize_t)show_fc_fc4s(buf, fc_host_active_fc4s(shost));
 }
-static FC_CLASS_DEVICE_ATTR(host, active_fc4s, S_IRUGO,
+static FC_DEVICE_ATTR(host, active_fc4s, S_IRUGO,
 		show_fc_host_active_fc4s, NULL);
 
 static ssize_t
-show_fc_host_speed (struct class_device *cdev, char *buf)
+show_fc_host_speed (struct device *dev,
+		    struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 
 	if (i->f->get_host_speed)
@@ -1123,7 +1142,7 @@ show_fc_host_speed (struct class_device *cdev, char *buf)
 
 	return get_fc_port_speed_names(fc_host_speed(shost), buf);
 }
-static FC_CLASS_DEVICE_ATTR(host, speed, S_IRUGO,
+static FC_DEVICE_ATTR(host, speed, S_IRUGO,
 		show_fc_host_speed, NULL);
 
 
@@ -1136,16 +1155,17 @@ fc_host_rd_attr(symbolic_name, "%s\n", FC_SYMBOLIC_NAME_SIZE + 1);
 fc_private_host_show_function(system_hostname, "%s\n",
 		FC_SYMBOLIC_NAME_SIZE + 1, )
 fc_host_store_str_function(system_hostname, FC_SYMBOLIC_NAME_SIZE)
-static FC_CLASS_DEVICE_ATTR(host, system_hostname, S_IRUGO | S_IWUSR,
+static FC_DEVICE_ATTR(host, system_hostname, S_IRUGO | S_IWUSR,
 		show_fc_host_system_hostname, store_fc_host_system_hostname);
 
 
 /* Private Host Attributes */
 
 static ssize_t
-show_fc_private_host_tgtid_bind_type(struct class_device *cdev, char *buf)
+show_fc_private_host_tgtid_bind_type(struct device *dev,
+				     struct device_attribute *attr, char *buf)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	const char *name;
 
 	name = get_fc_tgtid_bind_type_name(fc_host_tgtid_bind_type(shost));
@@ -1158,10 +1178,10 @@ show_fc_private_host_tgtid_bind_type(struct class_device *cdev, char *buf)
 	pos = list_entry((head)->next, typeof(*pos), member)
 
 static ssize_t
-store_fc_private_host_tgtid_bind_type(struct class_device *cdev,
-	const char *buf, size_t count)
+store_fc_private_host_tgtid_bind_type(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_rport *rport;
  	enum fc_tgtid_binding_type val;
 	unsigned long flags;
@@ -1186,15 +1206,15 @@ store_fc_private_host_tgtid_bind_type(struct class_device *cdev,
 	return count;
 }
 
-static FC_CLASS_DEVICE_ATTR(host, tgtid_bind_type, S_IRUGO | S_IWUSR,
+static FC_DEVICE_ATTR(host, tgtid_bind_type, S_IRUGO | S_IWUSR,
 			show_fc_private_host_tgtid_bind_type,
 			store_fc_private_host_tgtid_bind_type);
 
 static ssize_t
-store_fc_private_host_issue_lip(struct class_device *cdev,
-	const char *buf, size_t count)
+store_fc_private_host_issue_lip(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 	int ret;
 
@@ -1207,7 +1227,7 @@ store_fc_private_host_issue_lip(struct class_device *cdev,
 	return -ENOENT;
 }
 
-static FC_CLASS_DEVICE_ATTR(host, issue_lip, S_IWUSR, NULL,
+static FC_DEVICE_ATTR(host, issue_lip, S_IWUSR, NULL,
 			store_fc_private_host_issue_lip);
 
 /*
@@ -1216,9 +1236,9 @@ static FC_CLASS_DEVICE_ATTR(host, issue_lip, S_IWUSR, NULL,
 
 /* Show a given an attribute in the statistics group */
 static ssize_t
-fc_stat_show(const struct class_device *cdev, char *buf, unsigned long offset)
+fc_stat_show(const struct device *dev, char *buf, unsigned long offset)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 	struct fc_host_statistics *stats;
 	ssize_t ret = -ENOENT;
@@ -1239,12 +1259,14 @@ fc_stat_show(const struct class_device *cdev, char *buf, unsigned long offset)
 
 /* generate a read-only statistics attribute */
 #define fc_host_statistic(name)						\
-static ssize_t show_fcstat_##name(struct class_device *cd, char *buf) 	\
+static ssize_t show_fcstat_##name(struct device *cd,			\
+				  struct device_attribute *attr,	\
+				  char *buf)				\
 {									\
 	return fc_stat_show(cd, buf, 					\
 			    offsetof(struct fc_host_statistics, name));	\
 }									\
-static FC_CLASS_DEVICE_ATTR(host, name, S_IRUGO, show_fcstat_##name, NULL)
+static FC_DEVICE_ATTR(host, name, S_IRUGO, show_fcstat_##name, NULL)
 
 fc_host_statistic(seconds_since_last_reset);
 fc_host_statistic(tx_frames);
@@ -1268,10 +1290,10 @@ fc_host_statistic(fcp_input_megabytes);
 fc_host_statistic(fcp_output_megabytes);
 
 static ssize_t
-fc_reset_statistics(struct class_device *cdev, const char *buf,
-			   size_t count)
+fc_reset_statistics(struct device *dev, struct device_attribute *attr,
+		    const char *buf, size_t count)
 {
-	struct Scsi_Host *shost = transport_class_to_shost(cdev);
+	struct Scsi_Host *shost = transport_class_to_shost(dev);
 	struct fc_internal *i = to_fc_internal(shost->transportt);
 
 	/* ignore any data value written to the attribute */
@@ -1282,32 +1304,31 @@ fc_reset_statistics(struct class_device *cdev, const char *buf,
 
 	return -ENOENT;
 }
-static FC_CLASS_DEVICE_ATTR(host, reset_statistics, S_IWUSR, NULL,
+static FC_DEVICE_ATTR(host, reset_statistics, S_IWUSR, NULL,
 				fc_reset_statistics);
 
-
 static struct attribute *fc_statistics_attrs[] = {
-	&class_device_attr_host_seconds_since_last_reset.attr,
-	&class_device_attr_host_tx_frames.attr,
-	&class_device_attr_host_tx_words.attr,
-	&class_device_attr_host_rx_frames.attr,
-	&class_device_attr_host_rx_words.attr,
-	&class_device_attr_host_lip_count.attr,
-	&class_device_attr_host_nos_count.attr,
-	&class_device_attr_host_error_frames.attr,
-	&class_device_attr_host_dumped_frames.attr,
-	&class_device_attr_host_link_failure_count.attr,
-	&class_device_attr_host_loss_of_sync_count.attr,
-	&class_device_attr_host_loss_of_signal_count.attr,
-	&class_device_attr_host_prim_seq_protocol_err_count.attr,
-	&class_device_attr_host_invalid_tx_word_count.attr,
-	&class_device_attr_host_invalid_crc_count.attr,
-	&class_device_attr_host_fcp_input_requests.attr,
-	&class_device_attr_host_fcp_output_requests.attr,
-	&class_device_attr_host_fcp_control_requests.attr,
-	&class_device_attr_host_fcp_input_megabytes.attr,
-	&class_device_attr_host_fcp_output_megabytes.attr,
-	&class_device_attr_host_reset_statistics.attr,
+	&device_attr_host_seconds_since_last_reset.attr,
+	&device_attr_host_tx_frames.attr,
+	&device_attr_host_tx_words.attr,
+	&device_attr_host_rx_frames.attr,
+	&device_attr_host_rx_words.attr,
+	&device_attr_host_lip_count.attr,
+	&device_attr_host_nos_count.attr,
+	&device_attr_host_error_frames.attr,
+	&device_attr_host_dumped_frames.attr,
+	&device_attr_host_link_failure_count.attr,
+	&device_attr_host_loss_of_sync_count.attr,
+	&device_attr_host_loss_of_signal_count.attr,
+	&device_attr_host_prim_seq_protocol_err_count.attr,
+	&device_attr_host_invalid_tx_word_count.attr,
+	&device_attr_host_invalid_crc_count.attr,
+	&device_attr_host_fcp_input_requests.attr,
+	&device_attr_host_fcp_output_requests.attr,
+	&device_attr_host_fcp_control_requests.attr,
+	&device_attr_host_fcp_input_megabytes.attr,
+	&device_attr_host_fcp_output_megabytes.attr,
+	&device_attr_host_reset_statistics.attr,
 	NULL
 };
 

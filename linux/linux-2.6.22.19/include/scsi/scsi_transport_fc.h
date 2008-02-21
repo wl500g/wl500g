@@ -151,7 +151,7 @@ struct fc_rport_identifiers {
 
 /* Macro for use in defining Remote Port attributes */
 #define FC_RPORT_ATTR(_name,_mode,_show,_store)				\
-struct class_device_attribute class_device_attr_rport_##_name = 	\
+struct device_attribute dev_attr_rport_##_name = 	\
 	__ATTR(_name,_mode,_show,_store)
 
 
@@ -221,8 +221,8 @@ struct fc_rport {	/* aka fc_starget_attrs */
 
 #define	dev_to_rport(d)				\
 	container_of(d, struct fc_rport, dev)
-#define transport_class_to_rport(classdev)	\
-	dev_to_rport(classdev->dev)
+#define transport_class_to_rport(dev)	\
+	dev_to_rport(dev->parent)
 #define rport_to_shost(r)			\
 	dev_to_shost(r->dev.parent)
 

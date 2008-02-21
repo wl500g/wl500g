@@ -43,14 +43,14 @@
 static atomic_t scsi_host_next_hn;	/* host_no for next new host */
 
 
-static void scsi_host_cls_release(struct class_device *class_dev)
+static void scsi_host_cls_release(struct device *dev)
 {
-	put_device(&class_to_shost(class_dev)->shost_gendev);
+	put_device(&class_to_shost(dev)->shost_gendev);
 }
 
 static struct class shost_class = {
 	.name		= "scsi_host",
-	.release	= scsi_host_cls_release,
+	.dev_release	= scsi_host_cls_release,
 };
 
 /**
@@ -175,7 +175,7 @@ void scsi_remove_host(struct Scsi_Host *shost)
 	spin_unlock_irqrestore(shost->host_lock, flags);
 
 	transport_unregister_device(&shost->shost_gendev);
-	class_device_unregister(&shost->shost_classdev);
+	device_unregister(&shost->shost_dev);
 	device_del(&shost->shost_gendev);
 }
 EXPORT_SYMBOL(scsi_remove_host);
@@ -216,7 +216,7 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 	scsi_host_set_state(shost, SHOST_RUNNING);
 	get_device(shost->shost_gendev.parent);
 
-	error = class_device_add(&shost->shost_classdev);
+	error = device_add(&shost->shost_dev);
 	if (error)
 		goto out_del_gendev;
 
@@ -227,7 +227,7 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 					 GFP_KERNEL);
 		if (shost->shost_data == NULL) {
 			error = -ENOMEM;
-			goto out_del_classdev;
+			goto out_del_dev;
 		}
 	}
 
@@ -254,8 +254,8 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 		destroy_workqueue(shost->work_q);
  out_free_shost_data:
 	kfree(shost->shost_data);
- out_del_classdev:
-	class_device_del(&shost->shost_classdev);
+ out_del_dev:
+	device_del(&shost->shost_dev);
  out_del_gendev:
 	device_del(&shost->shost_gendev);
  out:
@@ -386,11 +386,11 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 		shost->host_no);
 	shost->shost_gendev.release = scsi_host_dev_release;
 
-	class_device_initialize(&shost->shost_classdev);
-	shost->shost_classdev.dev = &shost->shost_gendev;
-	shost->shost_classdev.class = &shost_class;
-	snprintf(shost->shost_classdev.class_id, BUS_ID_SIZE, "host%d",
-		  shost->host_no);
+	device_initialize(&shost->shost_dev);
+	shost->shost_dev.parent = &shost->shost_gendev;
+	shost->shost_dev.class = &shost_class;
+	snprintf(shost->shost_dev.bus_id, BUS_ID_SIZE, "host%d",
+		 shost->host_no);
 
 	shost->ehandler = kthread_run(scsi_error_handler, shost,
 			"scsi_eh_%d", shost->host_no);
@@ -432,6 +432,15 @@ void scsi_unregister(struct Scsi_Host *shost)
 }
 EXPORT_SYMBOL(scsi_unregister);
 
+static int __scsi_host_match(struct device *dev, void *data)
+{
+	struct Scsi_Host *p;
+	unsigned short *hostnum = (unsigned short *)data;
+
+	p = class_to_shost(dev);
+	return p->host_no == *hostnum;
+}
+
 /**
  * scsi_host_lookup - get a reference to a Scsi_Host by host no
  *
@@ -442,19 +451,12 @@ EXPORT_SYMBOL(scsi_unregister);
  **/
 struct Scsi_Host *scsi_host_lookup(unsigned short hostnum)
 {
-	struct class *class = &shost_class;
-	struct class_device *cdev;
-	struct Scsi_Host *shost = NULL, *p;
+	struct device *cdev;
+	struct Scsi_Host *shost = NULL;
 
-	down(&class->sem);
-	list_for_each_entry(cdev, &class->children, node) {
-		p = class_to_shost(cdev);
-		if (p->host_no == hostnum) {
-			shost = scsi_host_get(p);
-			break;
-		}
-	}
-	up(&class->sem);
+	cdev = class_find_device(&shost_class, &hostnum, __scsi_host_match);
+	if (cdev)
+		shost = scsi_host_get(class_to_shost(cdev));
 
 	return shost;
 }

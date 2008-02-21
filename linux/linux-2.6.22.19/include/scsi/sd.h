@@ -40,7 +40,7 @@
 struct scsi_disk {
 	struct scsi_driver *driver;	/* always &sd_template */
 	struct scsi_device *device;
-	struct class_device cdev;
+	struct device	dev;
 	struct gendisk	*disk;
 	unsigned int	openers;	/* protected by BKL for now, yuck */
 	sector_t	capacity;	/* size in 512-byte sectors */
@@ -52,7 +52,7 @@ struct scsi_disk {
 	unsigned	DPOFUA : 1;	/* state of disk DPOFUA bit */
 	unsigned	first_scan : 1;
 };
-#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,cdev)
+#define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
 
 static int  sd_revalidate_disk(struct gendisk *disk);
 static void sd_rw_intr(struct scsi_cmnd * SCpnt);
@@ -66,7 +66,7 @@ static int  sd_init_command(struct scsi_cmnd *);
 static int  sd_issue_flush(struct device *, sector_t *);
 static void sd_prepare_flush(request_queue_t *, struct request *);
 static void sd_read_capacity(struct scsi_disk *sdkp, unsigned char *buffer);
-static void scsi_disk_release(struct class_device *cdev);
+static void scsi_disk_release(struct device *cdev);
 static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 static void sd_print_result(struct scsi_disk *, int);
 
