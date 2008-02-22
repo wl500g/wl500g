@@ -115,6 +115,22 @@ BOOL dbgtext();
  *               Usage:
  *                 DEBUGADD( 2, ("Some additional text.\n") );
  */
+ 
+#ifdef NDEBUG
+
+#define DEBUGLVL( level ) \
+  ( (0 == (level)) \
+   && dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) ) )
+
+#define DEBUG( level, body ) \
+  (void)( (0 == (level)) \
+       && (dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) )) \
+       && (dbgtext body) )
+
+#define DEBUGADD( level, body )	\
+  (void)( (0 == (level)) && (dbgtext body) )
+
+#else
 #define DEBUGLVL( level ) \
   ( (DEBUGLEVEL >= (level)) \
    && dbghdr( level, FILE_MACRO, FUNCTION_MACRO, (__LINE__) ) )
@@ -140,7 +156,7 @@ BOOL dbgtext();
   (void)( (DEBUGLEVEL >= (level)) && (dbgtext body) )
 
 #endif
-
+#endif
 /* End Debugging code section.
  * -------------------------------------------------------------------------- **
  */
@@ -1612,7 +1628,9 @@ char *strdup(char *s);
 #define CAP_LOCK_AND_READ    0x0100
 #define CAP_NT_FIND          0x0200
 #define CAP_DFS              0x1000
+#define CAP_W2K_SMBS         0x2000
 #define CAP_LARGE_READX      0x4000
+#define CAP_LARGE_WRITEX     0x8000
 #define CAP_EXTENDED_SECURITY 0x80000000
 
 /* protocol types. It assumes that higher protocols include lower protocols

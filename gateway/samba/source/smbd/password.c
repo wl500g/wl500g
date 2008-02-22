@@ -1149,7 +1149,7 @@ use this machine as the password server.\n"));
 
   return(True);
 }
-
+#ifdef RPCCLIENT
 /***********************************************************************
  Connect to a remote machine for domain security authentication
  given a name or IP address.
@@ -1504,3 +1504,4 @@ BOOL domain_client_validate( char *user, char *domain,
   cli_shutdown(&cli);
   return True;
 }
+#endif

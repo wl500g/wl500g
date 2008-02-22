@@ -597,12 +597,12 @@ static BOOL check_domain_security(char *orig_user, char *domain, char *unix_user
 
   if (!check_domain_match(orig_user, domain))
      return False;
-
+#ifdef RPCCLIENT
   ret = domain_client_validate(orig_user, domain,
                                 smb_apasswd, smb_apasslen,
                                 smb_ntpasswd, smb_ntpasslen,
                                 &user_exists);
-
+#endif
   if(ret) {
     /*
      * User validated ok against Domain controller.
@@ -2991,7 +2991,7 @@ int reply_echo(connection_struct *conn,
 	return -1;
 }
 
-
+#ifdef PRINTING
 /****************************************************************************
   reply to a printopen
 ****************************************************************************/
@@ -3176,7 +3176,7 @@ int reply_printwrite(connection_struct *conn, char *inbuf,char *outbuf, int dum_
   
   return(outsize);
 }
-
+#endif
 
 /****************************************************************************
   reply to a mkdir

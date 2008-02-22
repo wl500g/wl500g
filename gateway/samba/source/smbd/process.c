@@ -343,10 +343,12 @@ struct smb_message_struct
    {SMBlseek,"SMBlseek",reply_lseek,AS_USER},
    {SMBflush,"SMBflush",reply_flush,AS_USER},
    {SMBctemp,"SMBctemp",reply_ctemp,AS_USER | QUEUE_IN_OPLOCK },
+#ifdef PRINTING
    {SMBsplopen,"SMBsplopen",reply_printopen,AS_USER | QUEUE_IN_OPLOCK },
    {SMBsplclose,"SMBsplclose",reply_printclose,AS_USER},
    {SMBsplretq,"SMBsplretq",reply_printqueue,AS_USER},
    {SMBsplwr,"SMBsplwr",reply_printwrite,AS_USER},
+#endif
    {SMBlock,"SMBlock",reply_lock,AS_USER},
    {SMBunlock,"SMBunlock",reply_unlock,AS_USER},
    
@@ -908,7 +910,7 @@ static BOOL timeout_processing(int deadtime, int *select_timeout, time_t *last_t
     DEBUG(2,("Closing idle connection 2.\n"));
     return False;
   }
-
+#ifdef RPCLIENT
   if(global_machine_password_needs_changing)
   {
     unsigned char trust_passwd_hash[16];
@@ -954,7 +956,7 @@ machine %s in domain %s.\n", global_myname, global_myworkgroup ));
     trust_password_unlock();
     global_machine_password_needs_changing = False;
   }
-
+#endif
   /*
    * Check to see if we have any blocking locks
    * outstanding on the queue.

@@ -472,7 +472,7 @@ static void PACKS(struct pack_desc* desc,char *t,char *v)
   PACK(desc,t,v);
 }
 
-
+#ifdef PRINTING
 /****************************************************************************
   get a print queue
   ****************************************************************************/
@@ -1004,7 +1004,7 @@ static BOOL api_DosPrintQEnum(connection_struct *conn, uint16 vuid, char* param,
   
   return True;
 }
-
+#endif
 /****************************************************************************
   get info level for a server list query
   ****************************************************************************/
@@ -1834,7 +1834,7 @@ static BOOL api_SamOEMChangePassword(connection_struct *conn,uint16 vuid, char *
 
   return(True);
 }
-
+#ifdef PRINTING
 /****************************************************************************
   delete a print job
   Form: <W> <> 
@@ -2091,7 +2091,7 @@ static BOOL api_PrintJobInfo(connection_struct *conn,uint16 vuid,char *param,cha
 	
 	return(True);
 }
-
+#endif
 
 /****************************************************************************
   get info about the server
@@ -2756,7 +2756,7 @@ static BOOL api_WAccessGetUserPerms(connection_struct *conn,uint16 vuid, char *p
 
   return(True);
 }
-
+#ifdef PRINTING
 /****************************************************************************
   api_WPrintJobEnumerate
   ****************************************************************************/
@@ -3189,7 +3189,7 @@ static BOOL api_WPrintPortEnum(connection_struct *conn,uint16 vuid, char *param,
   DEBUG(4,("WPrintPortEnum: errorcode %d\n",desc.errcode));
   return(True);
 }
-
+#endif
 /****************************************************************************
  Start the first part of an RPC reply which began with an SMBtrans request.
 ****************************************************************************/
@@ -3407,6 +3407,7 @@ struct
   {"RNetUserGetInfo",	56,	api_RNetUserGetInfo,0},
   {"NetUserGetGroups",	59,	api_NetUserGetGroups,0},
   {"NetWkstaGetInfo",	63,	api_NetWkstaGetInfo,0},
+#ifdef PRINTING
   {"DosPrintQEnum",	69,	api_DosPrintQEnum,0},
   {"DosPrintQGetInfo",	70,	api_DosPrintQGetInfo,0},
   {"WPrintQueuePause",  74, api_WPrintQueuePurge,0},
@@ -3418,16 +3419,21 @@ struct
   {"RDosPrintJobResume",83,	api_RDosPrintJobDel,0},
   {"WPrintDestEnum",	84,	api_WPrintDestEnum,0},
   {"WPrintDestGetInfo",	85,	api_WPrintDestGetInfo,0},
+#endif
   {"NetRemoteTOD",	91,	api_NetRemoteTOD,0},
+#ifdef PRINTING
   {"WPrintQueuePurge",	103,	api_WPrintQueuePurge,0},
+#endif
   {"NetServerEnum",	104,	api_RNetServerEnum,0},
   {"WAccessGetUserPerms",105,	api_WAccessGetUserPerms,0},
   {"SetUserPassword",	115,	api_SetUserPassword,0},
   {"WWkstaUserLogon",	132,	api_WWkstaUserLogon,0},
+#ifdef PRINTING
   {"PrintJobInfo",	147,	api_PrintJobInfo,0},
   {"WPrintDriverEnum",	205,	api_WPrintDriverEnum,0},
   {"WPrintQProcEnum",	206,	api_WPrintQProcEnum,0},
   {"WPrintPortEnum",	207,	api_WPrintPortEnum,0},
+#endif
   {"SamOEMChangePassword", 214, api_SamOEMChangePassword,0},
   {NULL,		-1,	api_Unsupported,0}};
 
