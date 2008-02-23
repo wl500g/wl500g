@@ -106,6 +106,8 @@
  * any extra contention...
  */
 
+static int __link_path_walk(const char *name, struct nameidata *nd);
+
 /* In order to reduce some races, while at the same time doing additional
  * checking and hopefully speeding things up, we copy filenames to the
  * kernel data space before using them..
@@ -545,6 +547,35 @@ walk_init_root(const char *name, struct nameidata *nd)
 	nd->path = fs->root;
 	path_get(&fs->root);
 	read_unlock(&fs->lock);
+}
+
+/*
+ * Wrapper to retry pathname resolution whenever the underlying
+ * file system returns an ESTALE.
+ *
+ * Retry the whole path once, forcing real lookup requests
+ * instead of relying on the dcache.
+ */
+static __always_inline int link_path_walk(const char *name, struct nameidata *nd)
+{
+	struct path save = nd->path;
+	int result;
+
+	/* make sure the stuff we saved doesn't go away */
+	path_get(&save);
+
+	result = __link_path_walk(name, nd);
+	if (result == -ESTALE) {
+		/* nd->path had been dropped */
+		nd->path = save;
+		path_get(&nd->path);
+		nd->flags |= LOOKUP_REVAL;
+		result = __link_path_walk(name, nd);
+	}
+
+	path_put(&save);
+
+	return result;
 }
 
 static __always_inline int __vfs_follow_link(struct nameidata *nd, const char *link)
@@ -999,34 +1030,6 @@ out_dput:
 	path_put(&nd->path);
 return_err:
 	return err;
-}
-
-/*
- * Wrapper to retry pathname resolution whenever the underlying
- * file system returns an ESTALE.
- *
- * Retry the whole path once, forcing real lookup requests
- * instead of relying on the dcache.
- */
-int fastcall link_path_walk(const char *name, struct nameidata *nd)
-{
-	struct nameidata save = *nd;
-	int result;
-
-	/* make sure the stuff we saved doesn't go away */
-	path_get(&save.path);
-
-	result = __link_path_walk(name, nd);
-	if (result == -ESTALE) {
-		*nd = save;
-		path_get(&nd->path);
-		nd->flags |= LOOKUP_REVAL;
-		result = __link_path_walk(name, nd);
-	}
-
-	path_put(&save.path);
-
-	return result;
 }
 
 int fastcall path_walk(const char * name, struct nameidata *nd)
