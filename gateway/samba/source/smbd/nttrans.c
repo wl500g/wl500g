@@ -2513,7 +2513,7 @@ static int call_nt_transact_ioctl(connection_struct *conn,
   static BOOL logged_message = False;
 
   if(!logged_message) {
-    DEBUG(0,("call_nt_transact_ioctl: Currently not implemented.\n"));
+    DEBUG(3,("call_nt_transact_ioctl: Currently not implemented.\n"));
     logged_message = True; /* Only print this once... */
   }
   return(ERROR(ERRSRV,ERRnosupport));
