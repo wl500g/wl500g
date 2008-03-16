@@ -1288,6 +1288,10 @@ BCMINITFN(si_clock)(si_t *sih)
 	if (sih->chip == BCM5365_CHIP_ID)
 	{
 		rate = 200000000; /* PLL_TYPE3 */
+	} else if (sih->chip == BCM5354_CHIP_ID)
+	{
+		/* 5354 has a constant sb clock of 120MHz */
+		rate = 120000000;
 	} else {
 	/* calculate rate */
 	rate = si_clock_rate(pll_type, n, m);
