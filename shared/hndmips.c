@@ -243,10 +243,12 @@ BCMINITFN(si_mips_init)(si_t *sih, uint shirqmap)
 	tmp = CEIL(10, ns) << FW_W3_SHIFT;	/* W3 = 10nS */
 	tmp |= CEIL(10, ns) << FW_W1_SHIFT;	/* W1 = 10nS */
 	tmp |= CEIL(120, ns);			/* W0 = 120nS */
-	if (sih->ccrev < 9)
+	if ((sih->ccrev < 9) ||
+	    (sih->chip == BCM5365_CHIP_ID))
 		W_REG(osh, &cc->flash_waitcount, tmp);
 
 	if ((sih->ccrev < 9) ||
+	    (sih->chip == BCM5365_CHIP_ID) ||
 	    ((sih->chip == BCM5350_CHIP_ID) && sih->chiprev == 0)) {
 		W_REG(osh, &cc->pcmcia_memwait, tmp);
 	}

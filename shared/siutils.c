@@ -1285,8 +1285,13 @@ BCMINITFN(si_clock)(si_t *sih)
 	else
 		m = R_REG(sii->osh, &cc->clockcontrol_sb);
 
+	if (sih->chip == BCM5365_CHIP_ID)
+	{
+		rate = 200000000; /* PLL_TYPE3 */
+	} else {
 	/* calculate rate */
 	rate = si_clock_rate(pll_type, n, m);
+	}
 
 	if (pll_type == PLL_TYPE3)
 		rate = rate / 2;
