@@ -64,6 +64,40 @@ static inline void *load_pointer(struct sk_buff *skb, int k,
 }
 
 /**
+ *	sk_filter - run a packet through a socket filter
+ *	@sk: sock associated with &sk_buff
+ *	@skb: buffer to filter
+ *
+ * Run the filter code and then cut skb->data to correct size returned by
+ * sk_run_filter. If pkt_len is 0 we toss packet. If skb->len is smaller
+ * than pkt_len we keep whole skb->data. This is the socket level
+ * wrapper to sk_run_filter. It returns 0 if the packet should
+ * be accepted or -EPERM if the packet should be tossed.
+ *
+ */
+int sk_filter(struct sock *sk, struct sk_buff *skb)
+{
+	int err;
+	struct sk_filter *filter;
+
+	err = security_sock_rcv_skb(sk, skb);
+	if (err)
+		return err;
+
+	rcu_read_lock_bh();
+	filter = rcu_dereference_bh(sk->sk_filter);
+	if (filter) {
+		unsigned int pkt_len = sk_run_filter(skb, filter->insns,
+				filter->len);
+		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
+	}
+	rcu_read_unlock_bh();
+
+	return err;
+}
+EXPORT_SYMBOL(sk_filter);
+
+/**
  *	sk_run_filter - run a filter on a socket
  *	@skb: buffer to run the filter on
  *	@filter: filter to apply
@@ -275,6 +309,7 @@ load_b:
 
 	return 0;
 }
+EXPORT_SYMBOL(sk_run_filter);
 
 /**
  *	sk_chk_filter - verify socket filter code
@@ -495,6 +530,7 @@ int sk_chk_filter(struct sock_filter *filter, int flen)
 			return -EINVAL;
 		}
 }
+EXPORT_SYMBOL(sk_chk_filter);
 
 /**
  * 	sk_filter_release_rcu - Release a socket filter by rcu_head
@@ -570,6 +606,3 @@ int sk_detach_filter(struct sock *sk)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(sk_detach_filter);
-
-EXPORT_SYMBOL(sk_chk_filter);
-EXPORT_SYMBOL(sk_run_filter);
