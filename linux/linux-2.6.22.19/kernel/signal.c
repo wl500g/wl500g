@@ -39,11 +39,19 @@
 
 static struct kmem_cache *sigqueue_cachep;
 
+static int __sig_ignored(struct task_struct *t, int sig)
+{
+	void __user *handler;
+
+	/* Is it explicitly or implicitly ignored? */
+
+	handler = t->sighand->action[sig - 1].sa.sa_handler;
+	return handler == SIG_IGN ||
+		(handler == SIG_DFL && sig_kernel_ignore(sig));
+}
 
 static int sig_ignored(struct task_struct *t, int sig)
 {
-	void __user * handler;
-
 	/*
 	 * Tracers always want to know about signals..
 	 */
@@ -58,10 +66,7 @@ static int sig_ignored(struct task_struct *t, int sig)
 	if (sigismember(&t->blocked, sig) || sigismember(&t->real_blocked, sig))
 		return 0;
 
-	/* Is it explicitly or implicitly ignored? */
-	handler = t->sighand->action[sig-1].sa.sa_handler;
-	return   handler == SIG_IGN ||
-		(handler == SIG_DFL && sig_kernel_ignore(sig));
+	return __sig_ignored(t, sig);
 }
 
 /*
@@ -363,7 +368,7 @@ static int __dequeue_signal(struct sigpending *pending, sigset_t *mask,
  */
 int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 {
-	int signr = 0;
+	int signr;
 
 	/* We only dequeue private signals from ourselves, we don't let
 	 * signalfd steal them
@@ -396,8 +401,12 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 			}
 		}
 	}
+
 	recalc_sigpending();
-	if (signr && unlikely(sig_kernel_stop(signr))) {
+	if (!signr)
+		return 0;
+
+	if (unlikely(sig_kernel_stop(signr))) {
 		/*
 		 * Set a marker that we have dequeued a stop signal.  Our
 		 * caller might release the siglock and then the pending
@@ -412,9 +421,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)
 		 */
 		tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
 	}
-	if (signr &&
-	     ((info->si_code & __SI_MASK) == __SI_TIMER) &&
-	     info->si_sys_private){
+	if ((info->si_code & __SI_MASK) == __SI_TIMER && info->si_sys_private) {
 		/*
 		 * Release the siglock to ensure proper locking order
 		 * of timer locks outside of siglocks.  Note, we leave
@@ -647,11 +654,23 @@ static void handle_stop_signal(int sig, struct task_struct *p)
 	}
 }
 
+static inline int legacy_queue(struct sigpending *signals, int sig)
+{
+	return (sig < SIGRTMIN) && sigismember(&signals->signal, sig);
+}
+
 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			struct sigpending *signals)
 {
 	struct sigqueue * q = NULL;
-	int ret = 0;
+
+	/*
+	 * Short-circuit ignored signals and support queuing
+	 * exactly one non-rt signal, so that we can get more
+	 * detailed information about the cause of the signal.
+	 */
+	if (sig_ignored(t, sig) || legacy_queue(signals, sig))
+		return 0;
 
 	/*
 	 * Deliver the signal to listening signalfds. This must be called
@@ -709,36 +728,25 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 
 out_set:
 	sigaddset(&signals->signal, sig);
-	return ret;
+	return 1;
 }
-
-#define LEGACY_QUEUE(sigptr, sig) \
-	(((sig) < SIGRTMIN) && sigismember(&(sigptr)->signal, (sig)))
 
 
 static int
 specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
-	int ret = 0;
+	int ret;
 
 	BUG_ON(!irqs_disabled());
 	assert_spin_locked(&t->sighand->siglock);
 
-	/* Short-circuit ignored signals.  */
-	if (sig_ignored(t, sig))
-		goto out;
-
-	/* Support queueing exactly one non-rt signal, so that we
-	   can get more detailed information about the cause of
-	   the signal. */
-	if (LEGACY_QUEUE(&t->pending, sig))
-		goto out;
-
 	ret = send_signal(sig, info, t, &t->pending);
-	if (!ret && !sigismember(&t->blocked, sig))
+	if (ret <= 0)
+		return ret;
+
+	if (!sigismember(&t->blocked, sig))
 		signal_wake_up(t, sig == SIGKILL);
-out:
-	return ret;
+	return 0;
 }
 
 /*
@@ -907,18 +915,10 @@ __group_complete_signal(int sig, struct task_struct *p)
 int
 __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 {
-	int ret = 0;
+	int ret;
 
 	assert_spin_locked(&p->sighand->siglock);
 	handle_stop_signal(sig, p);
-
-	/* Short-circuit ignored signals.  */
-	if (sig_ignored(p, sig))
-		return ret;
-
-	if (LEGACY_QUEUE(&p->signal->shared_pending, sig))
-		/* This is a non-RT signal and we already have one queued.  */
-		return ret;
 
 	/*
 	 * Put this signal on the shared-pending queue, or fail with EAGAIN.
@@ -926,7 +926,7 @@ __group_send_sig_info(int sig, struct siginfo *info, struct task_struct *p)
 	 * to avoid several races.
 	 */
 	ret = send_signal(sig, info, p, &p->signal->shared_pending);
-	if (unlikely(ret))
+	if (ret <= 0)
 		return ret;
 
 	__group_complete_signal(sig, p);
@@ -1286,10 +1286,33 @@ void sigqueue_free(struct sigqueue *q)
 	__sigqueue_free(q);
 }
 
+static int do_send_sigqueue(int sig, struct sigqueue *q, struct task_struct *t,
+		struct sigpending *pending)
+{
+	if (unlikely(!list_empty(&q->list))) {
+		/*
+		 * If an SI_TIMER entry is already queue just increment
+		 * the overrun count.
+		 */
+
+		BUG_ON(q->info.si_code != SI_TIMER);
+		q->info.si_overrun++;
+		return 0;
+	}
+
+	if (sig_ignored(t, sig))
+		return 1;
+
+	signalfd_notify(t, sig);
+	list_add_tail(&q->list, &pending->list);
+	sigaddset(&pending->signal, sig);
+	return 0;
+}
+
 int send_sigqueue(int sig, struct sigqueue *q, struct task_struct *p)
 {
 	unsigned long flags;
-	int ret = 0;
+	int ret = -1;
 
 	BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
 
@@ -1303,37 +1326,14 @@ int send_sigqueue(int sig, struct sigqueue *q, struct task_struct *p)
 	 */
 	rcu_read_lock();
 
-	if (!likely(lock_task_sighand(p, &flags))) {
-		ret = -1;
+	if (!likely(lock_task_sighand(p, &flags)))
 		goto out_err;
-	}
 
-	if (unlikely(!list_empty(&q->list))) {
-		/*
-		 * If an SI_TIMER entry is already queue just increment
-		 * the overrun count.
-		 */
-		BUG_ON(q->info.si_code != SI_TIMER);
-		q->info.si_overrun++;
-		goto out;
-	}
-	/* Short-circuit ignored signals.  */
-	if (sig_ignored(p, sig)) {
-		ret = 1;
-		goto out;
-	}
-	/*
-	 * Deliver the signal to listening signalfds. This must be called
-	 * with the sighand lock held.
-	 */
-	signalfd_notify(p, sig);
+	ret = do_send_sigqueue(sig, q, p, &p->pending);
 
-	list_add_tail(&q->list, &p->pending.list);
-	sigaddset(&p->pending.signal, sig);
 	if (!sigismember(&p->blocked, sig))
 		signal_wake_up(p, sig == SIGKILL);
 
-out:
 	unlock_task_sighand(p, &flags);
 out_err:
 	rcu_read_unlock();
@@ -1345,7 +1345,7 @@ int
 send_group_sigqueue(int sig, struct sigqueue *q, struct task_struct *p)
 {
 	unsigned long flags;
-	int ret = 0;
+	int ret;
 
 	BUG_ON(!(q->flags & SIGQUEUE_PREALLOC));
 
@@ -1354,38 +1354,10 @@ send_group_sigqueue(int sig, struct sigqueue *q, struct task_struct *p)
 	spin_lock_irqsave(&p->sighand->siglock, flags);
 	handle_stop_signal(sig, p);
 
-	/* Short-circuit ignored signals.  */
-	if (sig_ignored(p, sig)) {
-		ret = 1;
-		goto out;
-	}
-
-	if (unlikely(!list_empty(&q->list))) {
-		/*
-		 * If an SI_TIMER entry is already queue just increment
-		 * the overrun count.  Other uses should not try to
-		 * send the signal multiple times.
-		 */
-		BUG_ON(q->info.si_code != SI_TIMER);
-		q->info.si_overrun++;
-		goto out;
-	} 
-	/*
-	 * Deliver the signal to listening signalfds. This must be called
-	 * with the sighand lock held.
-	 */
-	signalfd_notify(p, sig);
-
-	/*
-	 * Put this signal on the shared-pending queue.
-	 * We always use the shared queue for process-wide signals,
-	 * to avoid several races.
-	 */
-	list_add_tail(&q->list, &p->signal->shared_pending.list);
-	sigaddset(&p->signal->shared_pending.signal, sig);
+	ret = do_send_sigqueue(sig, q, p, &p->signal->shared_pending);
 
 	__group_complete_signal(sig, p);
-out:
+
 	spin_unlock_irqrestore(&p->sighand->siglock, flags);
 	read_unlock(&tasklist_lock);
 	return ret;
@@ -2265,13 +2237,14 @@ sys_rt_sigqueueinfo(int pid, int sig, siginfo_t __user *uinfo)
 
 int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 {
+	struct task_struct *t = current;
 	struct k_sigaction *k;
 	sigset_t mask;
 
 	if (!valid_signal(sig) || sig < 1 || (act && sig_kernel_only(sig)))
 		return -EINVAL;
 
-	k = &current->sighand->action[sig-1];
+	k = &t->sighand->action[sig-1];
 
 	spin_lock_irq(&current->sighand->siglock);
 	if (oact)
@@ -2292,9 +2265,7 @@ int do_sigaction(int sig, struct k_sigaction *act, struct k_sigaction *oact)
 		 *   (for example, SIGCHLD), shall cause the pending signal to
 		 *   be discarded, whether or not it is blocked"
 		 */
-		if (act->sa.sa_handler == SIG_IGN ||
-		   (act->sa.sa_handler == SIG_DFL && sig_kernel_ignore(sig))) {
-			struct task_struct *t = current;
+		if (__sig_ignored(t, sig)) {
 			sigemptyset(&mask);
 			sigaddset(&mask, sig);
 			rm_from_queue_full(&mask, &t->signal->shared_pending);
