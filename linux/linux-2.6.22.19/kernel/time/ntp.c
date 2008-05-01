@@ -194,7 +194,7 @@ void __attribute__ ((weak)) notify_arch_cmos_timer(void)
  */
 int do_adjtimex(struct timex *txc)
 {
-	long mtemp, save_adjust, rem;
+	long mtemp, save_adjust;
 	s64 freq_adj;
 	int result;
 
@@ -303,9 +303,7 @@ int do_adjtimex(struct timex *txc)
 		    freq_adj += time_freq;
 		    freq_adj = min(freq_adj, (s64)MAXFREQ_NSEC);
 		    time_freq = max(freq_adj, (s64)-MAXFREQ_NSEC);
-		    time_offset = div_long_long_rem_signed(time_offset,
-							   NTP_INTERVAL_FREQ,
-							   &rem);
+		    time_offset = div_s64(time_offset, NTP_INTERVAL_FREQ);
 		    time_offset <<= SHIFT_UPDATE;
 		} /* STA_PLL */
 	    } /* txc->modes & ADJ_OFFSET */
