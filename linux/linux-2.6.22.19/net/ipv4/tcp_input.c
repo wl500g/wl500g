@@ -2952,7 +2952,7 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 				switch (opcode) {
 				case TCPOPT_MSS:
 					if (opsize==TCPOLEN_MSS && th->syn && !estab) {
-						u16 in_mss = ntohs(get_unaligned((__be16 *)ptr));
+						u16 in_mss = get_unaligned_be16(ptr);
 						if (in_mss) {
 							if (opt_rx->user_mss && opt_rx->user_mss < in_mss)
 								in_mss = opt_rx->user_mss;
@@ -2980,8 +2980,8 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 						if ((estab && opt_rx->tstamp_ok) ||
 						    (!estab && sysctl_tcp_timestamps)) {
 							opt_rx->saw_tstamp = 1;
-							opt_rx->rcv_tsval = ntohl(get_unaligned((__be32 *)ptr));
-							opt_rx->rcv_tsecr = ntohl(get_unaligned((__be32 *)(ptr+4)));
+							opt_rx->rcv_tsval = get_unaligned_be32(ptr);
+							opt_rx->rcv_tsecr = get_unaligned_be32(ptr + 4);
 						}
 					}
 					break;
