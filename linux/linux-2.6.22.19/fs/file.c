@@ -116,8 +116,6 @@ static void copy_fdtable(struct fdtable *nfdt, struct fdtable *ofdt)
 	unsigned int cpy, set;
 
 	BUG_ON(nfdt->max_fds < ofdt->max_fds);
-	if (ofdt->max_fds == 0)
-		return;
 
 	cpy = ofdt->max_fds * sizeof(struct file *);
 	set = (nfdt->max_fds - ofdt->max_fds) * sizeof(struct file *);
@@ -238,6 +236,139 @@ int expand_files(struct files_struct *files, int nr)
 
 	/* All good, so we try */
 	return expand_fdtable(files, nr);
+}
+
+static int count_open_files(struct fdtable *fdt)
+{
+	int size = fdt->max_fds;
+	int i;
+
+	/* Find the last open fd */
+	for (i = size/(8*sizeof(long)); i > 0; ) {
+		if (fdt->open_fds->fds_bits[--i])
+			break;
+	}
+	i = (i+1) * 8 * sizeof(long);
+	return i;
+}
+
+/*
+ * Allocate a new files structure and copy contents from the
+ * passed in files structure.
+ * errorp will be valid only when the returned files_struct is NULL.
+ */
+struct files_struct *dup_fd(struct files_struct *oldf, int *errorp)
+{
+	struct files_struct *newf;
+	struct file **old_fds, **new_fds;
+	int open_files, size, i;
+	struct fdtable *old_fdt, *new_fdt;
+
+	*errorp = -ENOMEM;
+	newf = kmem_cache_alloc(files_cachep, GFP_KERNEL);
+	if (!newf)
+		goto out;
+
+	atomic_set(&newf->count, 1);
+
+	spin_lock_init(&newf->file_lock);
+	newf->next_fd = 0;
+	new_fdt = &newf->fdtab;
+	new_fdt->max_fds = NR_OPEN_DEFAULT;
+	new_fdt->close_on_exec = (fd_set *)&newf->close_on_exec_init;
+	new_fdt->open_fds = (fd_set *)&newf->open_fds_init;
+	new_fdt->fd = &newf->fd_array[0];
+	INIT_RCU_HEAD(&new_fdt->rcu);
+	new_fdt->next = NULL;
+
+	spin_lock(&oldf->file_lock);
+	old_fdt = files_fdtable(oldf);
+	open_files = count_open_files(old_fdt);
+
+	/*
+	 * Check whether we need to allocate a larger fd array and fd set.
+	 */
+	while (unlikely(open_files > new_fdt->max_fds)) {
+		spin_unlock(&oldf->file_lock);
+
+		if (new_fdt != &newf->fdtab) {
+			free_fdarr(new_fdt);
+			free_fdset(new_fdt);
+			kfree(new_fdt);
+		}
+
+		new_fdt = alloc_fdtable(open_files - 1);
+		if (!new_fdt) {
+			*errorp = -ENOMEM;
+			goto out_release;
+		}
+
+		/* beyond sysctl_nr_open; nothing to do */
+		if (unlikely(new_fdt->max_fds < open_files)) {
+			free_fdarr(new_fdt);
+			free_fdset(new_fdt);
+			kfree(new_fdt);
+			*errorp = -EMFILE;
+			goto out_release;
+		}
+
+		/*
+		 * Reacquire the oldf lock and a pointer to its fd table
+		 * who knows it may have a new bigger fd table. We need
+		 * the latest pointer.
+		 */
+		spin_lock(&oldf->file_lock);
+		old_fdt = files_fdtable(oldf);
+		open_files = count_open_files(old_fdt);
+	}
+
+	old_fds = old_fdt->fd;
+	new_fds = new_fdt->fd;
+
+	memcpy(new_fdt->open_fds->fds_bits,
+		old_fdt->open_fds->fds_bits, open_files/8);
+	memcpy(new_fdt->close_on_exec->fds_bits,
+		old_fdt->close_on_exec->fds_bits, open_files/8);
+
+	for (i = open_files; i != 0; i--) {
+		struct file *f = *old_fds++;
+		if (f) {
+			get_file(f);
+		} else {
+			/*
+			 * The fd may be claimed in the fd bitmap but not yet
+			 * instantiated in the files array if a sibling thread
+			 * is partway through open().  So make sure that this
+			 * fd is available to the new process.
+			 */
+			FD_CLR(open_files - i, new_fdt->open_fds);
+		}
+		rcu_assign_pointer(*new_fds++, f);
+	}
+	spin_unlock(&oldf->file_lock);
+
+	/* compute the remainder to be cleared */
+	size = (new_fdt->max_fds - open_files) * sizeof(struct file *);
+
+	/* This is long word aligned thus could use a optimized version */
+	memset(new_fds, 0, size);
+
+	if (new_fdt->max_fds > open_files) {
+		int left = (new_fdt->max_fds-open_files)/8;
+		int start = open_files / (8 * sizeof(unsigned long));
+
+		memset(&new_fdt->open_fds->fds_bits[start], 0, left);
+		memset(&new_fdt->close_on_exec->fds_bits[start], 0, left);
+	}
+
+	rcu_assign_pointer(newf->fdt, new_fdt);
+
+	return newf;
+
+out_release:
+	kmem_cache_free(files_cachep, newf);
+out:
+	return NULL;
 }
 
 static void __devinit fdtable_defer_list_init(int cpu)
