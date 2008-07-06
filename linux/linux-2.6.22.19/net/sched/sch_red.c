@@ -175,33 +175,6 @@ static void red_destroy(struct Qdisc *sch)
 	qdisc_destroy(q->qdisc);
 }
 
-static struct Qdisc *red_create_dflt(struct Qdisc *sch, u32 limit)
-{
-	struct Qdisc *q;
-	struct rtattr *rta;
-	int ret;
-
-	q = qdisc_create_dflt(sch->dev, &bfifo_qdisc_ops,
-			      TC_H_MAKE(sch->handle, 1));
-	if (q) {
-		rta = kmalloc(RTA_LENGTH(sizeof(struct tc_fifo_qopt)),
-			      GFP_KERNEL);
-		if (rta) {
-			rta->rta_type = RTM_NEWQDISC;
-			rta->rta_len = RTA_LENGTH(sizeof(struct tc_fifo_qopt));
-			((struct tc_fifo_qopt *)RTA_DATA(rta))->limit = limit;
-
-			ret = q->ops->change(q, rta);
-			kfree(rta);
-
-			if (ret == 0)
-				return q;
-		}
-		qdisc_destroy(q);
-	}
-	return NULL;
-}
-
 static int red_change(struct Qdisc *sch, struct rtattr *opt)
 {
 	struct red_sched_data *q = qdisc_priv(sch);
@@ -221,9 +194,9 @@ static int red_change(struct Qdisc *sch, struct rtattr *opt)
 	ctl = RTA_DATA(tb[TCA_RED_PARMS-1]);
 
 	if (ctl->limit > 0) {
-		child = red_create_dflt(sch, ctl->limit);
-		if (child == NULL)
-			return -ENOMEM;
+		child = fifo_create_dflt(sch, &bfifo_qdisc_ops, ctl->limit);
+		if (IS_ERR(child))
+			return PTR_ERR(child);
 	}
 
 	sch_tree_lock(sch);
