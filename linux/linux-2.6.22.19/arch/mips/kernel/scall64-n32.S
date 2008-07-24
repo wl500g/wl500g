@@ -414,7 +414,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys_ni_syscall			/* sys_epoll_create1 */
 	PTR	sys_ni_syscall			/* 6290, sys_dup3 */
 	PTR	sys_ni_syscall			/* sys_pipe2 */
-	PTR	sys_ni_syscall			/* sys_inotify_init1 */
+	PTR	sys_inotify_init1
 	PTR	sys_ni_syscall			/* sys_preadv */
 	PTR	sys_ni_syscall			/* sys_pwritev */
 	PTR	sys_ni_syscall		/* 6295, compat_sys_rt_tgsigqueueinfo */
