@@ -27,6 +27,7 @@ struct eventfd_ctx {
 	 * issue a wakeup.
 	 */
 	__u64 count;
+	unsigned int flags;
 };
 
 /*
@@ -86,22 +87,20 @@ static ssize_t eventfd_read(struct file *file, char __user *buf, size_t count,
 {
 	struct eventfd_ctx *ctx = file->private_data;
 	ssize_t res;
-	__u64 ucnt;
+	__u64 ucnt = 0;
 	DECLARE_WAITQUEUE(wait, current);
 
 	if (count < sizeof(ucnt))
 		return -EINVAL;
 	spin_lock_irq(&ctx->wqh.lock);
 	res = -EAGAIN;
-	ucnt = ctx->count;
-	if (ucnt > 0)
+	if (ctx->count > 0)
 		res = sizeof(ucnt);
 	else if (!(file->f_flags & O_NONBLOCK)) {
 		__add_wait_queue(&ctx->wqh, &wait);
 		for (res = 0;;) {
 			set_current_state(TASK_INTERRUPTIBLE);
 			if (ctx->count > 0) {
-				ucnt = ctx->count;
 				res = sizeof(ucnt);
 				break;
 			}
@@ -116,8 +115,9 @@ static ssize_t eventfd_read(struct file *file, char __user *buf, size_t count,
 		__remove_wait_queue(&ctx->wqh, &wait);
 		__set_current_state(TASK_RUNNING);
 	}
-	if (res > 0) {
-		ctx->count = 0;
+	if (likely(res > 0)) {
+		ucnt = (ctx->flags & EFD_SEMAPHORE) ? 1 : ctx->count;
+		ctx->count -= ucnt;
 		if (waitqueue_active(&ctx->wqh))
 			wake_up_locked(&ctx->wqh);
 	}
@@ -165,7 +165,7 @@ static ssize_t eventfd_write(struct file *file, const char __user *buf, size_t c
 		__remove_wait_queue(&ctx->wqh, &wait);
 		__set_current_state(TASK_RUNNING);
 	}
-	if (res > 0) {
+	if (likely(res > 0)) {
 		ctx->count += ucnt;
 		if (waitqueue_active(&ctx->wqh))
 			wake_up_locked(&ctx->wqh);
@@ -197,10 +197,13 @@ struct file *eventfd_fget(int fd)
 	return file;
 }
 
-asmlinkage long sys_eventfd(unsigned int count)
+asmlinkage long sys_eventfd2(unsigned int count, int flags)
 {
 	int fd;
 	struct eventfd_ctx *ctx;
+
+	if (flags & ~EFD_FLAGS_SET)
+		return -EINVAL;
 
 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -208,14 +211,21 @@ asmlinkage long sys_eventfd(unsigned int count)
 
 	init_waitqueue_head(&ctx->wqh);
 	ctx->count = count;
+	ctx->flags = flags;
 
 	/*
 	 * When we call this, the initialization must be complete, since
 	 * anon_inode_getfd() will install the fd.
 	 */
-	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, 0);
+	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx,
+			      flags & EFD_SHARED_FCNTL_FLAGS);
 	if (fd < 0)
 		kfree(ctx);
 	return fd;
+}
+
+asmlinkage long sys_eventfd(unsigned int count)
+{
+	return sys_eventfd2(count, 0);
 }
 

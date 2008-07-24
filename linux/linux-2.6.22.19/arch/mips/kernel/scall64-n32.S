@@ -410,7 +410,7 @@ EXPORT(sysn32_call_table)
 	PTR	compat_sys_timerfd_gettime	/* 6285 */
 	PTR	compat_sys_timerfd_settime
 	PTR	sys_ni_syscall			/* sys_signalfd4 */
-	PTR	sys_ni_syscall			/* sys_eventfd2 */
+	PTR	sys_eventfd2
 	PTR	sys_ni_syscall			/* sys_epoll_create1 */
 	PTR	sys_ni_syscall			/* 6290, sys_dup3 */
 	PTR	sys_ni_syscall			/* sys_pipe2 */
