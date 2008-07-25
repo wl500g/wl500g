@@ -75,6 +75,11 @@ config USB_DEVICE_CLASS
 	    SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", \
 	    NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
+config USB_DEVPATH
+	bool "Add support for /proc/bus/usb/devpath"
+	depends on USB_DEVICEFS
+	default n
+
 config USB_DYNAMIC_MINORS
 	bool "Dynamic USB minor allocation (EXPERIMENTAL)"
 	depends on USB && EXPERIMENTAL

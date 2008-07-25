@@ -1075,6 +1075,13 @@ skip_countries:
 	usb_get_intf(control_interface);
 	tty_register_device(acm_tty_driver, minor, &control_interface->dev);
 
+#ifdef CONFIG_USB_DEVPATH
+	{
+		int ifnum = control_interface->cur_altsetting->desc.bInterfaceNumber;
+		usb_register_devpath(usb_dev, ifnum, acm_tty_driver->name, minor);
+	}
+#endif
+
 	acm_table[minor] = acm;
 
 	return 0;

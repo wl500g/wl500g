@@ -1401,6 +1401,10 @@ outpan:
 	// End PaN 
 #endif // U2EC
 
+#ifdef CONFIG_USB_DEVPATH
+	usb_register_devpath(dev, usblp->ifnum, "lp", usblp->minor);
+#endif
+
 	return 0;
 
 abort_intfdata:

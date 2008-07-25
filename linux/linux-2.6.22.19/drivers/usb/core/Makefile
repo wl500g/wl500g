@@ -13,6 +13,9 @@ endif
 ifeq ($(CONFIG_USB_DEVICEFS),y)
 	usbcore-objs	+= inode.o devices.o
 endif
+ifeq ($(CONFIG_USB_DEVPATH),y)
+	usbcore-objs	+= devpath.o
+endif
 
 obj-$(CONFIG_USB)	+= usbcore.o
 

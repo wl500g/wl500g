@@ -82,6 +82,13 @@ static int usb_serial_device_probe (struct device *dev)
 		 "%s converter now attached to ttyUSB%d\n",
 		 driver->description, minor);
 
+#ifdef CONFIG_USB_DEVPATH
+	{
+		int ifnum = port->serial->interface->cur_altsetting->desc.bInterfaceNumber;
+		usb_register_devpath(port->serial->dev, ifnum, usb_serial_tty_driver->name, minor);
+	}
+#endif
+
 exit:
 	return retval;
 }

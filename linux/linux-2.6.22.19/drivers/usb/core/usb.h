@@ -153,6 +153,7 @@ extern struct attribute_group *usb_interface_groups[];
 extern struct mutex usbfs_mutex;
 extern struct usb_driver usbfs_driver;
 extern const struct file_operations usbfs_devices_fops;
+extern const struct file_operations usbfs_devpath_fops;
 extern const struct file_operations usbdev_file_operations;
 extern void usbfs_conn_disc_event(void);
 
@@ -165,3 +166,5 @@ extern void usb_notify_remove_device(struct usb_device *udev);
 extern void usb_notify_add_bus(struct usb_bus *ubus);
 extern void usb_notify_remove_bus(struct usb_bus *ubus);
 
+/* devpath */
+extern struct mutex usb_devpath_list_lock;

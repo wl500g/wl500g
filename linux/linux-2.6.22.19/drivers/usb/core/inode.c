@@ -49,6 +49,9 @@ static int usbfs_mount_count;	/* = 0 */
 static int ignore_mount = 0;
 
 static struct dentry *devices_usbfs_dentry;
+#ifdef CONFIG_USB_DEVPATH
+static struct dentry *devpath_usbfs_dentry;
+#endif
 static int num_buses;	/* = 0 */
 
 static uid_t devuid;	/* = 0 */
@@ -586,6 +589,12 @@ static int create_special_files (void)
 		goto error_clean_mounts;
 	}
 
+#ifdef CONFIG_USB_DEVPATH
+	devpath_usbfs_dentry = fs_create_file ("devpath",
+					       listmode | S_IFREG, parent,
+					       NULL, &usbfs_devpath_fops,
+					       listuid, listgid);
+#endif
 	goto exit;
 	
 error_clean_mounts:
@@ -599,6 +608,11 @@ static void remove_special_files (void)
 	if (devices_usbfs_dentry)
 		fs_remove_file (devices_usbfs_dentry);
 	devices_usbfs_dentry = NULL;
+#ifdef CONFIG_USB_DEVPATH
+	if (devpath_usbfs_dentry)
+		fs_remove_file (devpath_usbfs_dentry);
+	devpath_usbfs_dentry = NULL;
+#endif
 	simple_release_fs(&usbfs_mount, &usbfs_mount_count);
 }
 
@@ -686,6 +700,9 @@ static void usbfs_remove_device(struct usb_device *dev)
 		fs_remove_file (dev->usbfs_dentry);
 		dev->usbfs_dentry = NULL;
 	}
+#ifdef CONFIG_USB_DEVPATH
+	usb_deregister_devpath(dev);
+#endif
 }
 
 static int usbfs_notify(struct notifier_block *self, unsigned long action, void *dev)
