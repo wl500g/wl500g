@@ -558,7 +558,7 @@ htb_change_class_mode(struct htb_sched *q, struct htb_class *cl, long *diff)
  */
 static inline void htb_activate(struct htb_sched *q, struct htb_class *cl)
 {
-	BUG_TRAP(!cl->level && cl->un.leaf.q && cl->un.leaf.q->q.qlen);
+	WARN_ON(cl->level || !cl->un.leaf.q || !cl->un.leaf.q->q.qlen);
 
 	if (!cl->prio_activity) {
 		cl->prio_activity = 1 << (cl->un.leaf.aprio = cl->un.leaf.prio);
@@ -576,7 +576,7 @@ static inline void htb_activate(struct htb_sched *q, struct htb_class *cl)
  */
 static inline void htb_deactivate(struct htb_sched *q, struct htb_class *cl)
 {
-	BUG_TRAP(cl->prio_activity);
+	WARN_ON(!cl->prio_activity);
 
 	htb_deactivate_prios(q, cl);
 	cl->prio_activity = 0;
@@ -824,7 +824,7 @@ static struct htb_class *htb_lookup_leaf(struct rb_root *tree, int prio,
 		u32 *pid;
 	} stk[TC_HTB_MAXDEPTH], *sp = stk;
 
-	BUG_TRAP(tree->rb_node);
+	WARN_ON(!tree->rb_node);
 	sp->root = tree->rb_node;
 	sp->pptr = pptr;
 	sp->pid = pid;
@@ -844,7 +844,7 @@ static struct htb_class *htb_lookup_leaf(struct rb_root *tree, int prio,
 				*sp->pptr = (*sp->pptr)->rb_left;
 			if (sp > stk) {
 				sp--;
-				BUG_TRAP(*sp->pptr);
+				WARN_ON(!*sp->pptr);
 				if (!*sp->pptr)
 					return NULL;
 				htb_next_rb_node(sp->pptr);
@@ -859,7 +859,7 @@ static struct htb_class *htb_lookup_leaf(struct rb_root *tree, int prio,
 			sp->pid = cl->un.inner.last_ptr_id + prio;
 		}
 	}
-	BUG_TRAP(0);
+	WARN_ON(1);
 	return NULL;
 }
 
@@ -877,7 +877,7 @@ static struct sk_buff *htb_dequeue_tree(struct htb_sched *q, int prio,
 
 	do {
 next:
-		BUG_TRAP(cl);
+		WARN_ON(!cl);
 		if (!cl)
 			return NULL;
 
@@ -1246,7 +1246,7 @@ static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
 {
 	struct htb_class *parent = cl->parent;
 
-	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
+	WARN_ON(cl->level || !cl->un.leaf.q || cl->prio_activity);
 
 	if (parent->cmode != HTB_CAN_SEND)
 		htb_safe_rb_erase(&parent->pq_node, q->wait_pq + parent->level);
@@ -1268,7 +1268,7 @@ static void htb_destroy_class(struct Qdisc *sch, struct htb_class *cl)
 	struct htb_sched *q = qdisc_priv(sch);
 
 	if (!cl->level) {
-		BUG_TRAP(cl->un.leaf.q);
+		WARN_ON(!cl->un.leaf.q);
 		qdisc_destroy(cl->un.leaf.q);
 	}
 	qdisc_put_rtab(cl->rate);

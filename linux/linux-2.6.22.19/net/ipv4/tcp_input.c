@@ -1279,10 +1279,10 @@ tcp_sacktag_write_queue(struct sock *sk, struct sk_buff *ack_skb, u32 prior_snd_
 out:
 
 #if FASTRETRANS_DEBUG > 0
-	BUG_TRAP((int)tp->sacked_out >= 0);
-	BUG_TRAP((int)tp->lost_out >= 0);
-	BUG_TRAP((int)tp->retrans_out >= 0);
-	BUG_TRAP((int)tcp_packets_in_flight(tp) >= 0);
+	WARN_ON((int)tp->sacked_out < 0);
+	WARN_ON((int)tp->lost_out < 0);
+	WARN_ON((int)tp->retrans_out < 0);
+	WARN_ON((int)tcp_packets_in_flight(tp) < 0);
 #endif
 	return flag;
 }
@@ -1755,7 +1755,7 @@ static void tcp_mark_head_lost(struct sock *sk,
 	if (packets == 0)
 		return;
 
-	BUG_TRAP(packets <= tp->packets_out);
+	WARN_ON(packets > tp->packets_out);
 	if (tp->lost_skb_hint) {
 		skb = tp->lost_skb_hint;
 		cnt = tp->lost_cnt_hint;
@@ -2187,7 +2187,7 @@ tcp_fastretrans_alert(struct sock *sk, u32 prior_snd_una,
 	/* E. Check state exit conditions. State can be terminated
 	 *    when high_seq is ACKed. */
 	if (icsk->icsk_ca_state == TCP_CA_Open) {
-		BUG_TRAP(tp->retrans_out == 0);
+		WARN_ON(tp->retrans_out != 0);
 		tp->retrans_stamp = 0;
 	} else if (!before(tp->snd_una, tp->high_seq)) {
 		switch (icsk->icsk_ca_state) {
@@ -2554,9 +2554,9 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
 	}
 
 #if FASTRETRANS_DEBUG > 0
-	BUG_TRAP((int)tp->sacked_out >= 0);
-	BUG_TRAP((int)tp->lost_out >= 0);
-	BUG_TRAP((int)tp->retrans_out >= 0);
+	WARN_ON((int)tp->sacked_out < 0);
+	WARN_ON((int)tp->lost_out < 0);
+	WARN_ON((int)tp->retrans_out < 0);
 	if (!tp->packets_out && tcp_is_sack(tp)) {
 		const struct inet_connection_sock *icsk = inet_csk(sk);
 		if (tp->lost_out) {
@@ -3451,7 +3451,7 @@ static void tcp_sack_remove(struct tcp_sock *tp)
 			int i;
 
 			/* RCV.NXT must cover all the block! */
-			BUG_TRAP(!before(tp->rcv_nxt, sp->end_seq));
+			WARN_ON(before(tp->rcv_nxt, sp->end_seq));
 
 			/* Zap this SACK, by moving forward any other SACKS. */
 			for (i=this_sack+1; i < num_sacks; i++)

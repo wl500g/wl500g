@@ -352,7 +352,7 @@ static int u32_delete_key(struct tcf_proto *tp, struct tc_u_knode* key)
 			}
 		}
 	}
-	BUG_TRAP(0);
+	WARN_ON(1);
 	return 0;
 }
 
@@ -375,7 +375,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
 	struct tc_u_common *tp_c = tp->data;
 	struct tc_u_hnode **hn;
 
-	BUG_TRAP(!ht->refcnt);
+	WARN_ON(ht->refcnt);
 
 	u32_clear_hnode(tp, ht);
 
@@ -387,7 +387,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
 		}
 	}
 
-	BUG_TRAP(0);
+	WARN_ON(1);
 	return -ENOENT;
 }
 
@@ -396,7 +396,7 @@ static void u32_destroy(struct tcf_proto *tp)
 	struct tc_u_common *tp_c = tp->data;
 	struct tc_u_hnode *root_ht = tp->root;
 
-	BUG_TRAP(root_ht != NULL);
+	WARN_ON(root_ht == NULL);
 
 	if (root_ht && --root_ht->refcnt == 0)
 		u32_destroy_hnode(tp, root_ht);
@@ -420,7 +420,7 @@ static void u32_destroy(struct tcf_proto *tp)
 		while ((ht = tp_c->hlist) != NULL) {
 			tp_c->hlist = ht->next;
 
-			BUG_TRAP(ht->refcnt == 0);
+			WARN_ON(ht->refcnt != 0);
 
 			kfree(ht);
 		}
