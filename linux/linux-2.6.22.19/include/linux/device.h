@@ -369,7 +369,7 @@ static inline const char *dev_name(const struct device *dev)
 }
 
 #ifdef CONFIG_NUMA
-static inline int dev_to_node(struct device *dev)
+static inline int dev_to_node(const struct device *dev)
 {
 	return dev->numa_node;
 }
@@ -378,7 +378,7 @@ static inline void set_dev_node(struct device *dev, int node)
 	dev->numa_node = node;
 }
 #else
-static inline int dev_to_node(struct device *dev)
+static inline int dev_to_node(const struct device *dev)
 {
 	return -1;
 }
@@ -388,7 +388,7 @@ static inline void set_dev_node(struct device *dev, int node)
 #endif
 
 static inline void *
-dev_get_drvdata (struct device *dev)
+dev_get_drvdata (const struct device *dev)
 {
 	return dev->driver_data;
 }
@@ -399,7 +399,7 @@ dev_set_drvdata (struct device *dev, void *data)
 	dev->driver_data = data;
 }
 
-static inline int device_is_registered(struct device *dev)
+static inline int device_is_registered(const struct device *dev)
 {
 	return dev->is_registered;
 }
@@ -467,7 +467,7 @@ extern int __must_check firmware_register(struct kset *);
 extern void firmware_unregister(struct kset *);
 
 /* debugging and troubleshooting/diagnostic helpers. */
-extern const char *dev_driver_string(struct device *dev);
+extern const char *dev_driver_string(const struct device *dev);
 #define dev_printk(level, dev, format, arg...)	\
 	printk(level "%s %s: " format , dev_driver_string(dev) , (dev)->bus_id , ## arg)
 
@@ -476,7 +476,7 @@ extern const char *dev_driver_string(struct device *dev);
 	dev_printk(KERN_DEBUG , dev , format , ## arg)
 #else
 static inline int __attribute__ ((format (printf, 2, 3)))
-dev_dbg(struct device * dev, const char * fmt, ...)
+dev_dbg(const struct device * dev, const char * fmt, ...)
 {
 	return 0;
 }

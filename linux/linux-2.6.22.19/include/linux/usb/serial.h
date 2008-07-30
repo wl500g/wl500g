@@ -310,7 +310,7 @@ extern struct bus_type usb_serial_bus_type;
 extern struct tty_driver *usb_serial_tty_driver;
 
 static inline void usb_serial_debug_data(int debug,
-					 struct device *dev,
+					 const struct device *dev,
 					 const char *function, int size,
 					 const unsigned char *data)
 {
