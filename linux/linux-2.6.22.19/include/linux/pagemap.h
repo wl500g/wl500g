@@ -162,13 +162,28 @@ extern int __lock_page_killable(struct page *page);
 extern void __lock_page_nosync(struct page *page);
 extern void unlock_page(struct page *page);
 
+static inline void set_page_locked(struct page *page)
+{
+	set_bit(PG_locked, &page->flags);
+}
+
+static inline void clear_page_locked(struct page *page)
+{
+	clear_bit(PG_locked, &page->flags);
+}
+
+static inline int trylock_page(struct page *page)
+{
+	return !test_and_set_bit(PG_locked, &page->flags);
+}
+
 /*
  * lock_page may only be called if we have the page's inode pinned.
  */
 static inline void lock_page(struct page *page)
 {
 	might_sleep();
-	if (TestSetPageLocked(page))
+	if (!trylock_page(page))
 		__lock_page(page);
 }
 
@@ -180,7 +195,7 @@ static inline void lock_page(struct page *page)
 static inline int lock_page_killable(struct page *page)
 {
 	might_sleep();
-	if (TestSetPageLocked(page))
+	if (!trylock_page(page))
 		return __lock_page_killable(page);
 	return 0;
 }
@@ -192,7 +207,7 @@ static inline int lock_page_killable(struct page *page)
 static inline void lock_page_nosync(struct page *page)
 {
 	might_sleep();
-	if (TestSetPageLocked(page))
+	if (!trylock_page(page))
 		__lock_page_nosync(page);
 }
 	

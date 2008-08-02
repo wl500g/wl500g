@@ -114,8 +114,6 @@
 		test_bit(PG_locked, &(page)->flags)
 #define SetPageLocked(page)		\
 		set_bit(PG_locked, &(page)->flags)
-#define TestSetPageLocked(page)		\
-		test_and_set_bit(PG_locked, &(page)->flags)
 #define ClearPageLocked(page)		\
 		clear_bit(PG_locked, &(page)->flags)
 #define TestClearPageLocked(page)	\
