@@ -158,8 +158,10 @@
  * during second ld run in second ld pass when generating System.map */
 #define TEXT_TEXT							\
 		ALIGN_FUNCTION();					\
+		*(.text.hot)						\
 		*(.text)						\
-		*(.text.init.refok)
+		*(.text.init.refok)				\
+		*(.text.unlikely)
 
 /* sched.text is aling to function alignment to secure we have same
  * address even at second ld pass when generating System.map */
