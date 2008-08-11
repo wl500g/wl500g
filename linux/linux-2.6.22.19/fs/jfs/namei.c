@@ -1479,28 +1479,12 @@ static struct dentry *jfs_lookup(struct inode *dip, struct dentry *dentry, struc
 
 struct dentry *jfs_get_parent(struct dentry *dentry)
 {
-	struct super_block *sb = dentry->d_inode->i_sb;
-	struct dentry *parent = ERR_PTR(-ENOENT);
-	struct inode *inode;
 	unsigned long parent_ino;
 
 	parent_ino =
 		le32_to_cpu(JFS_IP(dentry->d_inode)->i_dtroot.header.idotdot);
-	inode = iget(sb, parent_ino);
-	if (inode) {
-		if (is_bad_inode(inode)) {
-			iput(inode);
-			parent = ERR_PTR(-EACCES);
-		} else {
-			parent = d_alloc_anon(inode);
-			if (!parent) {
-				parent = ERR_PTR(-ENOMEM);
-				iput(inode);
-			}
-		}
-	}
 
-	return parent;
+	return d_obtain_alias(jfs_iget(dentry->d_inode->i_sb, parent_ino));
 }
 
 const struct inode_operations jfs_dir_inode_operations = {

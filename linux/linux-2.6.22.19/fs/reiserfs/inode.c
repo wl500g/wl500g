@@ -1518,7 +1518,6 @@ struct dentry *reiserfs_get_dentry(struct super_block *sb, void *vobjp)
 {
 	__u32 *data = vobjp;
 	struct cpu_key key;
-	struct dentry *result;
 	struct inode *inode;
 
 	key.on_disk_key.k_objectid = data[0];
@@ -1531,16 +1530,8 @@ struct dentry *reiserfs_get_dentry(struct super_block *sb, void *vobjp)
 		inode = NULL;
 	}
 	reiserfs_write_unlock(sb);
-	if (!inode)
-		inode = ERR_PTR(-ESTALE);
-	if (IS_ERR(inode))
-		return ERR_PTR(PTR_ERR(inode));
-	result = d_alloc_anon(inode);
-	if (!result) {
-		iput(inode);
-		return ERR_PTR(-ENOMEM);
-	}
-	return result;
+
+	return d_obtain_alias(inode);
 }
 
 struct dentry *reiserfs_decode_fh(struct super_block *sb, __u32 * data,

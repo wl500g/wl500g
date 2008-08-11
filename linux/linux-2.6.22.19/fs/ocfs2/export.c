@@ -68,14 +68,9 @@ static struct dentry *ocfs2_get_dentry(struct super_block *sb, void *vobjp)
 		return ERR_PTR(-ESTALE);
 	}
 
-	result = d_alloc_anon(inode);
-
-	if (!result) {
-		iput(inode);
-		mlog_errno(-ENOMEM);
-		return ERR_PTR(-ENOMEM);
-	}
-	result->d_op = &ocfs2_dentry_ops;
+	result = d_obtain_alias(inode);
+	if (!IS_ERR(result))
+		result->d_op = &ocfs2_dentry_ops;
 
 	mlog_exit_ptr(result);
 	return result;
@@ -86,7 +81,6 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 	int status;
 	u64 blkno;
 	struct dentry *parent;
-	struct inode *inode;
 	struct inode *dir = child->d_inode;
 	struct buffer_head *dirent_bh = NULL;
 	struct ocfs2_dir_entry *dirent;
@@ -112,21 +106,9 @@ static struct dentry *ocfs2_get_parent(struct dentry *child)
 		goto bail_unlock;
 	}
 
-	inode = ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0);
-	if (IS_ERR(inode)) {
-		mlog(ML_ERROR, "Unable to create inode %llu\n",
-		     (unsigned long long)blkno);
-		parent = ERR_PTR(-EACCES);
-		goto bail_unlock;
-	}
-
-	parent = d_alloc_anon(inode);
-	if (!parent) {
-		iput(inode);
-		parent = ERR_PTR(-ENOMEM);
-	}
-
-	parent->d_op = &ocfs2_dentry_ops;
+	parent = d_obtain_alias(ocfs2_iget(OCFS2_SB(dir->i_sb), blkno, 0, 0));
+	if (!IS_ERR(parent))
+		parent->d_op = &ocfs2_dentry_ops;
 
 bail_unlock:
 	ocfs2_meta_unlock(dir, 0);

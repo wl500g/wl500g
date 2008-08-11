@@ -77,34 +77,14 @@ struct dentry *efs_lookup(struct inode *dir, struct dentry *dentry, struct namei
 
 struct dentry *efs_get_parent(struct dentry *child)
 {
-	struct dentry *parent;
-	struct inode *inode;
+	struct dentry *parent = ERR_PTR(-ENOENT);
 	efs_ino_t ino;
-	int error;
 
 	lock_kernel();
-
-	error = -ENOENT;
 	ino = efs_find_entry(child->d_inode, "..", 2);
-	if (!ino)
-		goto fail;
-
-	error = -EACCES;
-	inode = iget(child->d_inode->i_sb, ino);
-	if (!inode)
-		goto fail;
-
-	error = -ENOMEM;
-	parent = d_alloc_anon(inode);
-	if (!parent)
-		goto fail_iput;
-
+	if (ino)
+		parent = d_obtain_alias(efs_iget(child->d_inode->i_sb, ino));
 	unlock_kernel();
+
 	return parent;
-
- fail_iput:
-	iput(inode);
- fail:
-	unlock_kernel();
-	return ERR_PTR(error);
 }
