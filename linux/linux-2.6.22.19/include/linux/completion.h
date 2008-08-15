@@ -48,6 +48,8 @@ extern unsigned long FASTCALL(wait_for_completion_timeout(struct completion *x,
 						   unsigned long timeout));
 extern unsigned long FASTCALL(wait_for_completion_interruptible_timeout(
 			struct completion *x, unsigned long timeout));
+extern bool FASTCALL(try_wait_for_completion(struct completion *x));
+extern bool FASTCALL(completion_done(struct completion *x));
 
 extern void FASTCALL(complete(struct completion *));
 extern void FASTCALL(complete_all(struct completion *));
