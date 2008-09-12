@@ -16,6 +16,7 @@
 #include <linux/skbuff.h>
 #include <linux/string.h>
 #include <linux/types.h>
+#include <linux/sched.h>
 
 #include <net/dst.h>
 
@@ -78,6 +79,7 @@ loop:
 	while ((dst = next) != NULL) {
 		next = dst->next;
 		prefetch(&next->next);
+		cond_resched();
 		if (likely(atomic_read(&dst->__refcnt))) {
 			last->next = dst;
 			last = dst;
@@ -201,6 +203,7 @@ void __dst_free(struct dst_entry * dst)
 	if (dst_garbage.timer_inc > DST_GC_INC) {
 		dst_garbage.timer_inc = DST_GC_INC;
 		dst_garbage.timer_expires = DST_GC_MIN;
+		cancel_delayed_work(&dst_gc_work);
 		schedule_delayed_work(&dst_gc_work, dst_garbage.timer_expires);
 	}
 	spin_unlock_bh(&dst_garbage.lock);
