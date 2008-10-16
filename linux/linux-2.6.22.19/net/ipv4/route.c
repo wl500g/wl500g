@@ -3073,8 +3073,6 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *ctl, int write,
 }
 
 static int ipv4_sysctl_rtcache_flush_strategy(ctl_table *table,
-						int __user *name,
-						int nlen,
 						void __user *oldval,
 						size_t __user *oldlenp,
 						void __user *newval,

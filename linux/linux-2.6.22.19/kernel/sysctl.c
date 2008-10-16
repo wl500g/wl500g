@@ -1269,7 +1269,7 @@ repeat:
 				table = table->child;
 				goto repeat;
 			}
-			error = do_sysctl_strategy(table, name, nlen,
+			error = do_sysctl_strategy(table,
 						   oldval, oldlenp,
 						   newval, newlen);
 			return error;
@@ -1280,7 +1280,6 @@ repeat:
 
 /* Perform the actual read/write of a sysctl table entry. */
 int do_sysctl_strategy (struct ctl_table *table,
-			int __user *name, int nlen,
 			void __user *oldval, size_t __user *oldlenp,
 			void __user *newval, size_t newlen)
 {
@@ -1294,8 +1293,7 @@ int do_sysctl_strategy (struct ctl_table *table,
 		return -EPERM;
 
 	if (table->strategy) {
-		rc = table->strategy(table, name, nlen, oldval, oldlenp,
-				     newval, newlen);
+		rc = table->strategy(table, oldval, oldlenp, newval, newlen);
 		if (rc < 0)
 			return rc;
 		if (rc > 0)
@@ -1305,8 +1303,7 @@ int do_sysctl_strategy (struct ctl_table *table,
 	/* If there is no strategy routine, or if the strategy returns
 	 * zero, proceed with automatic r/w */
 	if (table->data && table->maxlen) {
-		rc = sysctl_data(table, name, nlen, oldval, oldlenp,
-				 newval, newlen);
+		rc = sysctl_data(table, oldval, oldlenp, newval, newlen);
 		if (rc < 0)
 			return rc;
 	}
@@ -2214,7 +2211,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
  */
 
 /* The generic sysctl data routine (used if no strategy routine supplied) */
-int sysctl_data(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_data(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
@@ -2248,7 +2245,7 @@ int sysctl_data(struct ctl_table *table, int __user *name, int nlen,
 }
 
 /* The generic string strategy routine: */
-int sysctl_string(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_string(struct ctl_table *table,
 		  void __user *oldval, size_t __user *oldlenp,
 		  void __user *newval, size_t newlen)
 {
@@ -2294,7 +2291,7 @@ int sysctl_string(struct ctl_table *table, int __user *name, int nlen,
  * are between the minimum and maximum values given in the arrays
  * table->extra1 and table->extra2, respectively.
  */
-int sysctl_intvec(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_intvec(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
@@ -2330,7 +2327,7 @@ int sysctl_intvec(struct ctl_table *table, int __user *name, int nlen,
 }
 
 /* Strategy function to convert jiffies to seconds */ 
-int sysctl_jiffies(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_jiffies(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
@@ -2364,7 +2361,7 @@ int sysctl_jiffies(struct ctl_table *table, int __user *name, int nlen,
 }
 
 /* Strategy function to convert jiffies to seconds */ 
-int sysctl_ms_jiffies(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_ms_jiffies(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
@@ -2435,35 +2432,35 @@ out:
 	return -ENOSYS;
 }
 
-int sysctl_data(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_data(struct ctl_table *table,
 		  void __user *oldval, size_t __user *oldlenp,
 		  void __user *newval, size_t newlen)
 {
 	return -ENOSYS;
 }
 
-int sysctl_string(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_string(struct ctl_table *table,
 		  void __user *oldval, size_t __user *oldlenp,
 		  void __user *newval, size_t newlen)
 {
 	return -ENOSYS;
 }
 
-int sysctl_intvec(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_intvec(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
 	return -ENOSYS;
 }
 
-int sysctl_jiffies(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_jiffies(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
 	return -ENOSYS;
 }
 
-int sysctl_ms_jiffies(struct ctl_table *table, int __user *name, int nlen,
+int sysctl_ms_jiffies(struct ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {

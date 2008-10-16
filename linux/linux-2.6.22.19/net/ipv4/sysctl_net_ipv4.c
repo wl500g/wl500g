@@ -50,7 +50,6 @@ int ipv4_sysctl_forward(ctl_table *ctl, int write, struct file * filp,
 }
 
 static int ipv4_sysctl_forward_strategy(ctl_table *table,
-			 int __user *name, int nlen,
 			 void __user *oldval, size_t __user *oldlenp,
 			 void __user *newval, size_t newlen)
 {
@@ -108,8 +107,8 @@ static int proc_tcp_congestion_control(ctl_table *ctl, int write, struct file * 
 	return ret;
 }
 
-static int sysctl_tcp_congestion_control(ctl_table *table, int __user *name,
-					 int nlen, void __user *oldval,
+static int sysctl_tcp_congestion_control(ctl_table *table,
+					 void __user *oldval,
 					 size_t __user *oldlenp,
 					 void __user *newval, size_t newlen)
 {
@@ -121,7 +120,7 @@ static int sysctl_tcp_congestion_control(ctl_table *table, int __user *name,
 	int ret;
 
 	tcp_get_default_congestion_control(val);
-	ret = sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, newlen);
+	ret = sysctl_string(&tbl, oldval, oldlenp, newval, newlen);
 	if (ret == 1 && newval && newlen)
 		ret = tcp_set_default_congestion_control(val);
 	return ret;
@@ -164,8 +163,8 @@ static int proc_allowed_congestion_control(ctl_table *ctl,
 	return ret;
 }
 
-static int strategy_allowed_congestion_control(ctl_table *table, int __user *name,
-					       int nlen, void __user *oldval,
+static int strategy_allowed_congestion_control(ctl_table *table,
+					       void __user *oldval,
 					       size_t __user *oldlenp,
 					       void __user *newval,
 					       size_t newlen)
@@ -178,7 +177,7 @@ static int strategy_allowed_congestion_control(ctl_table *table, int __user *nam
 		return -ENOMEM;
 
 	tcp_get_available_congestion_control(tbl.data, tbl.maxlen);
-	ret = sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, newlen);
+	ret = sysctl_string(&tbl, oldval, oldlenp, newval, newlen);
 	if (ret == 1 && newval && newlen)
 		ret = tcp_set_allowed_congestion_control(tbl.data);
 	kfree(tbl.data);

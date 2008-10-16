@@ -56,7 +56,7 @@ static int proc_ipc_doulongvec_minmax(ctl_table *table, int write,
 
 #ifdef CONFIG_SYSCTL_SYSCALL
 /* The generic sysctl ipc data routine. */
-static int sysctl_ipc_data(ctl_table *table, int __user *name, int nlen,
+static int sysctl_ipc_data(ctl_table *table,
 		void __user *oldval, size_t __user *oldlenp,
 		void __user *newval, size_t newlen)
 {
