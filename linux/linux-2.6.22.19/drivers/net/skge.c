@@ -3071,7 +3071,6 @@ static int skge_poll(struct net_device *dev, int *budget)
 
 		skb = skge_rx_get(dev, e, control, rd->status, rd->csum2);
 		if (likely(skb)) {
-			dev->last_rx = jiffies;
 			netif_receive_skb(skb);
 
 			++work_done;

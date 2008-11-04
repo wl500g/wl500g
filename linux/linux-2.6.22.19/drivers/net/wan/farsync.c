@@ -901,7 +901,6 @@ fst_rx_dma_complete(struct fst_card_info *card, struct fst_port_info *port,
 	fst_process_rx_status(rx_status, port_to_dev(port)->name);
 	if (rx_status == NET_RX_DROP)
 		stats->rx_dropped++;
-	dev->last_rx = jiffies;
 }
 
 /*
@@ -1330,7 +1329,6 @@ fst_intr_rx(struct fst_card_info *card, struct fst_port_info *port)
 		if (rx_status == NET_RX_DROP) {
 			stats->rx_dropped++;
 		}
-		dev->last_rx = jiffies;
 	} else {
 		card->dma_skb_rx = skb;
 		card->dma_port_rx = port;

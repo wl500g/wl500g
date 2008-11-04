@@ -7009,7 +7009,6 @@ static int rx_osm_handler(struct ring_info *ring_data, struct RxD_t * rxdp)
 send_up:
 		queue_rx_frame(skb);
 	}
-	dev->last_rx = jiffies;
 aggregate:
 	atomic_dec(&sp->rx_bufs_left[ring_no]);
 	return SUCCESS;

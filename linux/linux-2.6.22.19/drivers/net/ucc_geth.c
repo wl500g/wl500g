@@ -3454,8 +3454,6 @@ static int ucc_geth_rx(struct ucc_geth_private *ugeth, u8 rxQ, int rx_work_limit
 #endif				/* CONFIG_UGETH_NAPI */
 		}
 
-		ugeth->dev->last_rx = jiffies;
-
 		skb = get_new_skb(ugeth, bd);
 		if (!skb) {
 			ugeth_warn("%s: No Rx Data Buffer", __FUNCTION__);

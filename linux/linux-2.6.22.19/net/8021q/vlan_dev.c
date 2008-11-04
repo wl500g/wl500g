@@ -166,8 +166,6 @@ int vlan_skb_recv(struct sk_buff *skb, struct net_device *dev,
 		return -1;
 	}
 
-	skb->dev->last_rx = jiffies;
-
 	/* Bump the rx counters for the VLAN device. */
 	stats = vlan_dev_get_stats(skb->dev);
 	stats->rx_packets++;

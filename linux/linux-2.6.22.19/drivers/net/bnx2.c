@@ -2220,7 +2220,6 @@ reuse_rx:
 #endif
 			netif_receive_skb(skb);
 
-		bp->dev->last_rx = jiffies;
 		rx_pkt++;
 
 next_rx:

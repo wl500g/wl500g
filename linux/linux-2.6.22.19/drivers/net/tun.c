@@ -276,7 +276,6 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
 	netif_rx_ni(skb);
-	tun->dev->last_rx = jiffies;
 
 	tun->stats.rx_packets++;
 	tun->stats.rx_bytes += len;

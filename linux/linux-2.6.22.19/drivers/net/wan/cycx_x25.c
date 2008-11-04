@@ -836,7 +836,6 @@ static void cycx_x25_irq_rx(struct cycx_device *card, struct cycx_x25_cmd *cmd)
 
 	skb_reset_mac_header(skb);
 	netif_rx(skb);
-	dev->last_rx = jiffies;		/* timestamp */
 }
 
 /* Connect interrupt handler. */
@@ -1487,7 +1486,6 @@ static void cycx_x25_chan_send_event(struct net_device *dev, u8 event)
 
 	skb->protocol = x25_type_trans(skb, dev);
 	netif_rx(skb);
-	dev->last_rx = jiffies;		/* timestamp */
 }
 
 /* Convert line speed in bps to a number used by cyclom 2x code. */

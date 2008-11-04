@@ -68,7 +68,6 @@ static void sealevel_input(struct z8530_channel *c, struct sk_buff *skb)
 	 *	it right now.
 	 */
 	netif_rx(skb);
-	c->netdevice->last_rx = jiffies;
 }
  
 /*
