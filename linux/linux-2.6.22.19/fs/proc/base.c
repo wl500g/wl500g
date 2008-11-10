@@ -63,6 +63,7 @@
 #include <linux/mm.h>
 #include <linux/rcupdate.h>
 #include <linux/kallsyms.h>
+#include <linux/stacktrace.h>
 #include <linux/module.h>
 #include <linux/mount.h>
 #include <linux/security.h>
@@ -289,6 +290,38 @@ static int proc_pid_wchan(struct task_struct *task, char *buffer)
 		return sprintf(buffer, "%s", symname);
 }
 #endif /* CONFIG_KALLSYMS */
+
+#ifdef CONFIG_STACKTRACE
+
+#define MAX_STACK_TRACE_DEPTH	64
+
+static int proc_pid_stack(struct task_struct *task, char *buffer)
+{
+	struct stack_trace trace;
+	unsigned long *entries;
+	int i, len;
+
+	entries = kmalloc(MAX_STACK_TRACE_DEPTH * sizeof(*entries), GFP_KERNEL);
+	if (!entries)
+		return -ENOMEM;
+
+	trace.nr_entries	= 0;
+	trace.max_entries	= MAX_STACK_TRACE_DEPTH;
+	trace.entries		= entries;
+	trace.skip		= 0;
+	save_stack_trace_tsk(task, &trace);
+
+	for (i = 0, len = 0; i < trace.nr_entries; i++) {
+		len += snprintf(buffer+len, PAGE_SIZE-len, "[<%p>] %pS\n",
+			   (void *)entries[i], (void *)entries[i]);
+		if (len >= PAGE_SIZE)
+			break;
+	}
+	kfree(entries);
+
+	return len;
+}
+#endif
 
 #ifdef CONFIG_SCHEDSTATS
 /*
@@ -1998,6 +2031,9 @@ static const struct pid_entry tgid_base_stuff[] = {
 #ifdef CONFIG_KALLSYMS
 	INF("wchan",      S_IRUGO, pid_wchan),
 #endif
+#ifdef CONFIG_STACKTRACE
+	INF("stack",      S_IRUSR, pid_stack),
+#endif
 #ifdef CONFIG_SCHEDSTATS
 	INF("schedstat",  S_IRUGO, pid_schedstat),
 #endif
@@ -2280,6 +2316,9 @@ static const struct pid_entry tid_base_stuff[] = {
 #endif
 #ifdef CONFIG_KALLSYMS
 	INF("wchan",     S_IRUGO, pid_wchan),
+#endif
+#ifdef CONFIG_STACKTRACE
+	INF("stack",      S_IRUSR, pid_stack),
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	INF("schedstat", S_IRUGO, pid_schedstat),
