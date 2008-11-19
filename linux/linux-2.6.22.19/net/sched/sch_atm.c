@@ -118,10 +118,14 @@ static int atm_tc_graft(struct Qdisc *sch,unsigned long arg,
 
 	DPRINTK("atm_tc_graft(sch %p,[qdisc %p],flow %p,new %p,old %p)\n",sch,
 	    p,flow,new,old);
-	if (!find_flow(p,flow)) return -EINVAL;
-	if (!new) new = &noop_qdisc;
-	*old = xchg(&flow->q,new);
-	if (*old) qdisc_reset(*old);
+	if (!find_flow(p,flow))
+		return -EINVAL;
+	if (!new)
+		new = &noop_qdisc;
+	*old = flow->q;
+	flow->q = new;
+	if (*old)
+		qdisc_reset(*old);
 	return 0;
 }
 

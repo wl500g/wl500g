@@ -394,7 +394,7 @@ static int u32_destroy_hnode(struct tcf_proto *tp, struct tc_u_hnode *ht)
 static void u32_destroy(struct tcf_proto *tp)
 {
 	struct tc_u_common *tp_c = tp->data;
-	struct tc_u_hnode *root_ht = xchg(&tp->root, NULL);
+	struct tc_u_hnode *root_ht = tp->root;
 
 	BUG_TRAP(root_ht != NULL);
 
@@ -490,7 +490,7 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
 	err = -EINVAL;
 	if (tb[TCA_U32_LINK-1]) {
 		u32 handle = *(u32*)RTA_DATA(tb[TCA_U32_LINK-1]);
-		struct tc_u_hnode *ht_down = NULL;
+		struct tc_u_hnode *ht_down = NULL, *ht_old;
 
 		if (TC_U32_KEY(handle))
 			goto errout;
@@ -504,11 +504,12 @@ static int u32_set_parms(struct tcf_proto *tp, unsigned long base,
 		}
 
 		tcf_tree_lock(tp);
-		ht_down = xchg(&n->ht_down, ht_down);
+		ht_old = n->ht_down;
+		n->ht_down = ht_down;
 		tcf_tree_unlock(tp);
 
-		if (ht_down)
-			ht_down->refcnt--;
+		if (ht_old)
+			ht_old->refcnt--;
 	}
 	if (tb[TCA_U32_CLASSID-1]) {
 		n->res.classid = *(u32*)RTA_DATA(tb[TCA_U32_CLASSID-1]);
