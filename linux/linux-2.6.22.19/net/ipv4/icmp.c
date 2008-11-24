@@ -345,7 +345,7 @@ static int icmp_glue_bits(void *from, char *to, int offset, int len, int odd,
 }
 
 static void icmp_push_reply(struct icmp_bxm *icmp_param,
-			    struct ipcm_cookie *ipc, struct rtable *rt)
+			    struct ipcm_cookie *ipc, struct rtable **rt)
 {
 	struct sk_buff *skb;
 
@@ -412,7 +412,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
 	}
 	if (icmpv4_xrlim_allow(rt, icmp_param->data.icmph.type,
 			       icmp_param->data.icmph.code))
-		icmp_push_reply(icmp_param, &ipc, rt);
+		icmp_push_reply(icmp_param, &ipc, &rt);
 	ip_rt_put(rt);
 out_unlock:
 	icmp_xmit_unlock();
@@ -589,7 +589,7 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
 		icmp_param.data_len = room;
 	icmp_param.head_len = sizeof(struct icmphdr);
 
-	icmp_push_reply(&icmp_param, &ipc, rt);
+	icmp_push_reply(&icmp_param, &ipc, &rt);
 ende:
 	ip_rt_put(rt);
 out_unlock:
