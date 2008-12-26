@@ -485,10 +485,15 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it, 
 	th->check		= 0;
 	th->urg_ptr		= 0;
 
-	if (unlikely(tp->urg_mode &&
-		     between(tp->snd_up, tcb->seq+1, tcb->seq+0xFFFF))) {
-		th->urg_ptr		= htons(tp->snd_up-tcb->seq);
-		th->urg			= 1;
+	/* The urg_mode check is necessary during a below snd_una win probe */
+	if (unlikely(tp->urg_mode)) {
+		if (between(tp->snd_up, tcb->seq + 1, tcb->seq + 0xFFFF)) {
+			th->urg_ptr = htons(tp->snd_up - tcb->seq);
+			th->urg = 1;
+		} else if (after(tcb->seq + 0xFFFF, tp->snd_nxt)) {
+			th->urg_ptr = 0xFFFF;
+			th->urg = 1;
+		}
 	}
 
 	if (unlikely(tcb->flags & TCPCB_FLAG_SYN)) {
