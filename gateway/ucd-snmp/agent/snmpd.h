@@ -20,4 +20,6 @@ void snmpd_parse_config_trap2sink (char *, char *);
 void snmpd_free_trapsinks (void);
 void snmpd_parse_config_trapcommunity (char *, char *);
 void snmpd_free_trapcommunity (void);
+void snmpd_parse_config_community (char *, char *);
+void snmpd_free_community (void);
 void agentBoots_conf (char *, char *);

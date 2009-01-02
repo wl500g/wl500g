@@ -1,13 +1,7 @@
 /* module to include the various ucd-snmp specific extension modules. */
 config_require(ucd-snmp/proc)
 config_require(ucd-snmp/versioninfo)
-config_require(ucd-snmp/pass)
-config_require(ucd-snmp/disk)
 config_require(ucd-snmp/loadave)
-config_require(ucd-snmp/extensible)
-config_require(ucd-snmp/errormib)
-config_require(ucd-snmp/registry)
-config_require(ucd-snmp/file)
 config_arch_require(linux, ucd-snmp/memory)
 config_arch_require(hpux9, ucd-snmp/memory)
 config_arch_require(hpux10, ucd-snmp/memory)

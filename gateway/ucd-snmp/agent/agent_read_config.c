@@ -72,6 +72,12 @@ void init_agent_read_config (void)
                           snmpd_parse_config_trapcommunity,
                           snmpd_free_trapcommunity,
                           "community-string");
+#ifndef USING_MIBII_VACM_VARS_MODULE
+  register_config_handler("snmpd","community",
+                          snmpd_parse_config_community,
+                          snmpd_free_community,
+                          "community-string");
+#endif
 #include "mibgroup/mib_module_dot_conf.h"
 #ifdef TESTING
   print_config_handlers();

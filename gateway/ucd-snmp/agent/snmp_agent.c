@@ -46,6 +46,9 @@ SOFTWARE.
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#if HAVE_STRING_H
+#include <string.h>
+#endif
 
 #include "asn1.h"
 #include "snmp_api.h"
@@ -87,6 +90,7 @@ static void dump_var (oid *var_name,
 		      void *statP,
 		      int statLen)
 {
+#if 0
     char buf [SPRINT_MAX_LEN];
     struct variable_list temp_var;
 
@@ -95,6 +99,7 @@ static void dump_var (oid *var_name,
     temp_var.val_len = statLen;
     sprint_variable (buf, var_name, var_name_len, &temp_var);
     fprintf (stdout, "    >> %s\n", buf);
+#endif
 }
 
 int

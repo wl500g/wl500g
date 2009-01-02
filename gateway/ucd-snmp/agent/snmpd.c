@@ -563,7 +563,9 @@ main(int argc, char *argv[])
                     break;
                 case 'H':
                     init_agent();            /* register our .conf handlers */
+#ifdef HAVE_MIB
                     register_mib_handlers(); /* snmplib .conf handlers */
+#endif
                     fprintf(stderr, "Configuration directives understood:\n");
                     read_config_print_usage("  ");
                     break;
@@ -625,22 +627,28 @@ main(int argc, char *argv[])
     if (!dont_fork && fork() != 0)   /* detach from shell */
       exit(0);
     init_agent();            /* register our .conf handlers */
+#ifdef HAVE_MIB
     register_mib_handlers(); /* snmplib .conf handlers */
     read_premib_configs();   /* read pre-mib-reading .conf handlers */
     init_mib();              /* initialize the mib structures */
+#endif
     update_config(0);        /* read in config files and register HUP */
 #ifdef PERSISTENTFILE
     /* read in the persistent information cache */
     read_config_with_type(PERSISTENTFILE, "snmpd");
     unlink(PERSISTENTFILE);  /* nuke it now that we've read it */
 #endif
+#ifdef HAVE_SNMP2P
     init_snmp2p( dest_port );
+#endif
     
     printf("Opening port(s): "); 
     fflush(stdout);
     if (( ret = open_port( dest_port )) > 0 )
         sd_handlers[ret-1] = snmp_read_packet;   /* Save pointer to function */
+#ifdef HAVE_SNMP2P
     open_ports_snmp2p( );
+#endif
     printf("\n");
     fflush(stdout);
 

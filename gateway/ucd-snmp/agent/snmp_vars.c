@@ -358,6 +358,23 @@ free_subtree(struct subtree *st)
   return ret;
 }
 
+char *snmp_community = NULL;
+
+void snmpd_parse_config_community(char *token, char *cptr)
+{
+	if (snmp_community) free(snmp_community);
+	snmp_community = malloc (strlen(cptr));
+	copy_word(cptr, snmp_community);
+}
+
+void snmpd_free_community (void)
+{
+	if (snmp_community) {
+		free(snmp_community);
+		snmp_community = NULL;
+	}
+}
+
 /* in_a_view: determines if a given packet_info is allowed to see a
    given name/namelen OID pointer
    name         IN - name of var, OUT - name matched
@@ -381,6 +398,12 @@ in_a_view(oid *name,
 #ifdef USING_MIBII_VACM_VARS_MODULE
     return vacm_in_view(pi, name, *namelen);
 #else
+    if (snmp_community == NULL)
+	snmp_community = strdup("public");
+	
+    if (strcmp(snmp_community, (char *)pi->community))
+	return 0;
+	
     return 1;
 #endif
   case SNMP_VERSION_2p:

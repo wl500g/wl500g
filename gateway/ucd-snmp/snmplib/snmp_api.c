@@ -391,7 +391,9 @@ snmp_sess_init(struct snmp_session *session)
 extern int init_mib_internals(void);
 
     init_snmp_session();
+#ifdef HAVE_MIBS
     init_mib_internals();
+#endif
 
     /* initialize session to default values */
  
@@ -421,9 +423,11 @@ init_snmp (void) {
 #endif
 
   init_snmp_session();
+#ifdef HAVE_MIBS
   register_mib_handlers();
   read_premib_configs();
   init_mib();
+#endif
   read_configs();
 }
 

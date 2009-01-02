@@ -14,6 +14,9 @@
 #if HAVE_MALLOC_H
 #include <malloc.h>
 #endif
+#if HAVE_STRING_H
+#include <string.h>
+#endif
 #include <math.h>
 #include <ctype.h>
 #include <sys/types.h>

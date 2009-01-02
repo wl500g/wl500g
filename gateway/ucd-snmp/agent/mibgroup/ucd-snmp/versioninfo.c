@@ -14,6 +14,9 @@
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
+#if HAVE_STRING_H
+#include <string.h>
+#endif
 
 #include "mibincl.h"
 #include "struct.h"
