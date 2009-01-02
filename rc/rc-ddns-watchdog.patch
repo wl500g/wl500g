@@ -1,6 +1,6 @@
 diff -BurpN gateway/rc/common_ex.c gateway.my/rc/common_ex.c
 --- gateway/rc/common_ex.c	2008-12-31 00:45:07.000000000 +0500
-+++ gateway.my/rc/common_ex.c	2008-12-30 23:31:55.000000000 +0500
++++ gateway.my/rc/common_ex.c	2009-01-02 21:40:22.000000000 +0500
 @@ -556,6 +556,8 @@ void convert_asus_values()
  
  	update_lan_status(1);
@@ -12,46 +12,94 @@ diff -BurpN gateway/rc/common_ex.c gateway.my/rc/common_ex.c
  
 diff -BurpN gateway/rc/services_ex.c gateway.my/rc/services_ex.c
 --- gateway/rc/services_ex.c	2008-12-31 00:45:07.000000000 +0500
-+++ gateway.my/rc/services_ex.c	2008-12-31 00:58:29.000000000 +0500
-@@ -550,7 +550,9 @@ ddns_updated_main(int argc, char *argv[]
++++ gateway.my/rc/services_ex.c	2009-01-03 00:39:59.000000000 +0500
+@@ -540,12 +540,12 @@ ddns_updated_main(int argc, char *argv[]
+ 	FILE *fp;
+ 	char buf[64], *ip;
+ 
+-	if (!(fp=fopen("/tmp/ddns.cache", "r"))) return 0;
++	if (!(fp=fopen("/tmp/ddns.cache", "r"))) return -1;
+ 	
+ 	fgets(buf, sizeof(buf), fp);
+ 	fclose(fp);
+ 
+-	if (!(ip=strchr(buf, ','))) return 0;
++	if (!(ip=strchr(buf, ','))) return -1;
+ 	
  	nvram_set("ddns_cache", buf);
  	nvram_set("ddns_ipaddr", ip+1);
- 	nvram_set("ddns_status", "1");
-+	nvram_unset("ddns_updated");
- 	nvram_commit();
-+	nvram_set("ddns_updated", "1");
+@@ -574,17 +574,29 @@ start_ddns(void)
+ 	char usrstr[64];
+ 	char wan_ifname[16];
+ 	int  wild=nvram_match("ddns_wildcard_x", "1");
++	int ret;
  
- 	logmessage("ddns", "ddns update ok");
  
-@@ -581,10 +583,15 @@ start_ddns(void)
+ 	if (nvram_match("router_disable", "1")) return -1;
+ 	
  	if (nvram_invmatch("ddns_enable_x", "1")) return -1;
  	
++	//if ((wan_ip = nvram_get("wan_ipaddr_t"))==NULL || nvram_match("wan_ipaddr_t", "")) return -1;
  	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
  
 -	if (nvram_match("ddns_ipaddr", wan_ip)) return -1;
-+	if ( nvram_match("ddns_ipaddr", wan_ip) ||
-+	    inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr")) )
++	if (nvram_match("ddns_ipaddr", wan_ip))
 +	{
 +		nvram_set("ddns_updated", "1");
-+		logmessage("ddns", "IP address has not changed since the last update");
-+		return -1;
++		//logmessage("ddns", "IP address has not changed since the last update");
++		return 0;
 +	}
  
 -	if (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr"))) return -1;
++	if (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr")))
++	{
++		nvram_set("ddns_updated", "1");
++		//logmessage("ddns", "IP address has not changed since the last update");
++		return 0;
++	}
  
  	// TODO : Check /tmp/ddns.cache to see current IP in DDNS
  	// update when,
-@@ -674,6 +688,7 @@ start_ddns(void)
- 		nvram_unset("ddns_cache");
- 		nvram_unset("ddns_ipaddr");
+@@ -628,8 +640,9 @@ start_ddns(void)
+ 			
+ 	sprintf(usrstr, "%s:%s", user, passwd);
+ 	
+-	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
+-		nvram_match("wan_proto", "l2tp"))
++	if (nvram_match("wan_proto", "pppoe") ||
++	    nvram_match("wan_proto", "pptp")  ||
++	    nvram_match("wan_proto", "l2tp"))
+ 	{
+ 		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
+ 	}
+@@ -653,7 +666,8 @@ start_ddns(void)
+ 	fappend("/usr/local/etc/ddns.conf", fp);
+ 	fclose(fp);
+ #endif
+-	if (strlen(service)>0)
++	ret = strlen(service);
++	if (ret)
+ 	{
+ 		char *ddns_argv[] = {"ez-ipupdate", 
+ #ifdef DDNSCONF
+@@ -676,9 +690,12 @@ start_ddns(void)
  		nvram_unset("ddns_status");
-+		nvram_set("ddns_updated", "0");
  
  		eval("killall", "ez-ipupdate");
- 		_eval(ddns_argv, NULL, 0, &pid);
+-		_eval(ddns_argv, NULL, 0, &pid);
++		
++		nvram_set("ddns_updated", "1");
++		if (!(ret = _eval(ddns_argv, NULL, 0, &pid)))
++			nvram_set("ddns_updated", "0");
+ 	}
+-	return 0;
++	return ret;
+ }
+ 
+ int 
 diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
 --- gateway/rc/watchdog.c	2008-12-31 00:45:07.000000000 +0500
-+++ gateway.my/rc/watchdog.c	2008-12-30 23:45:07.000000000 +0500
++++ gateway.my/rc/watchdog.c	2009-01-02 23:52:42.000000000 +0500
 @@ -145,6 +145,7 @@ static int power_value = 0;
  
  static struct itimerval itv; 
@@ -60,7 +108,21 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  long sync_interval=-1; // every 30 seconds a unit
  int sync_flag=0;
  long timestamp_g=0;
-@@ -763,12 +764,23 @@ void watchdog(int signum)
+@@ -697,6 +698,13 @@ static void catch_sig(int sig)
+ 	}	
+ }
+ 
++static void reap_child(int sig)
++{
++	pid_t pid;
++	while ((pid = waitpid(-1, NULL, WNOHANG)) > 0)
++		dprintf("Reaped %d\n", pid);
++}
++
+ void sta_check(void)
+ {
+ 	int ret, i;
+@@ -763,12 +771,24 @@ void watchdog(int signum)
  	watchdog_period = (watchdog_period+1) %10;
  	if (watchdog_period) return;
  
@@ -74,6 +136,7 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  
 +	if (nvram_invmatch("router_disable", "1") &&
 +		nvram_match("ddns_enable_x", "1") &&
++		//(nvram_get("wan_ipaddr_t")!=NULL && nvram_invmatch("wan_ipaddr_t", "")) &&
 +		(nvram_safe_get("wan_ipaddr_t")!=NULL) &&
 +		(nvram_match("ddns_updated", "0")||ddns_timer==0))
 +	{
@@ -84,3 +147,11 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  	/* check for time-dependent services */
  	svc_timecheck();
  
+@@ -867,6 +888,7 @@ watchdog_main(int argc, char *argv[])
+ 	signal(SIGUSR2, catch_sig);
+ 	signal(SIGALRM, watchdog);
+ 	signal(SIGTERM, readyoff);
++	signal(SIGCHLD, reap_child);
+ 
+ 	/* Start GPIO function */
+ 	gpio_init();
