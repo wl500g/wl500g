@@ -1,0 +1,28 @@
+--- busybox/examples/depmod.pl.orig	2008-02-25 21:24:55.000000000 +0300
++++ busybox/examples/depmod.pl	2008-02-25 22:00:40.000000000 +0300
+@@ -100,6 +100,8 @@
+ foreach my $obj ( @liblist ){
+     # turn the input file name into a target tag name
+     my ($tgtname) = $obj =~ m-(/lib/modules/.*)$-;
++    
++    $tgtname = "/opt" . $tgtname;
+ 
+     warn "\nMODULE = $tgtname\n" if $verbose;
+ 
+--- busybox/modutils/modprobe.c.orig	2008-02-25 21:27:15.000000000 +0300
++++ busybox/modutils/modprobe.c	2008-02-25 21:37:52.000000000 +0300
+@@ -289,12 +289,12 @@
+ 		k_version = un.release[2] - '0';
+ 	}
+ 
+-	filename = bb_xasprintf("/lib/modules/%s/modules.dep", un.release );
++	filename = bb_xasprintf("/opt/lib/modules/%s/modules.dep", un.release );
+ 
+ 	if (( fd = open ( filename, O_RDONLY )) < 0 ) {
+ 
+ 		/* Ok, that didn't work.  Fall back to looking in /lib/modules */
+-		if (( fd = open ( "/lib/modules/modules.dep", O_RDONLY )) < 0 ) {
++		if (( fd = open ( "/opt/lib/modules/modules.dep", O_RDONLY )) < 0 ) {
+ 			return 0;
+ 		}
+ 	}

@@ -1,0 +1,285 @@
+diff -BurN tools/upnp/igd/igd.c gateway/upnp/igd/igd.c
+--- tools/upnp/igd/igd.c	2004-11-19 16:34:33.000000000 +0300
++++ gateway/upnp/igd/igd.c	2008-02-22 21:12:07.000000000 +0300
+@@ -93,7 +93,7 @@
+ 	if (ifname) {
+ 	    pdata = (PWANDevicePrivateData) malloc(sizeof(WANDevicePrivateData));
+ 	    if (pdata) {
+-		strcpy(pdata->ifname, nvram_safe_get("wan_ifname"));
++		strcpy(pdata->ifname, ifname);
+ 		pdev->opaque = (void *) pdata;
+ 	    }
+ 	}
+diff -BurN tools/upnp/igd/igd_desc.c gateway/upnp/igd/igd_desc.c
+--- tools/upnp/igd/igd_desc.c	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/igd_desc.c	2008-02-22 21:14:48.000000000 +0300
+@@ -23,9 +23,7 @@
+ 
+ #define INCLUDE_LAYER3
+ #define INCLUDE_IPCONNECTION
+-#define INCLUDE_PPPCONNECTION
+-
+-
++/* #define INCLUDE_PPPCONNECTION -- really broken */
+ 
+ extern int WANDevice_Init(PDevice pdev, device_state_t state, va_list ap);
+ extern int LANDevice_Init(PDevice pdev, device_state_t state, va_list ap);
+diff -BurN tools/upnp/igd/ipt.c gateway/upnp/igd/ipt.c
+--- tools/upnp/igd/ipt.c	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/ipt.c	2008-02-22 22:35:14.000000000 +0300
+@@ -126,7 +126,6 @@
+     bool found_match;
+     netconf_nat_t e;
+     mapping_t mapping;
+-    char *wan_ip;
+ 
+     // bypass port mapping when NAT is disabled
+     if (nvram_invmatch("wan_nat_x", "1")) return 0;
+@@ -137,15 +136,9 @@
+ 	    continue;
+ 	} 
+ 
+-	if (nvram_invmatch("wan_ipaddr_t", ""))
+-	{
+-	     wan_ip = nvram_safe_get("wan_ipaddr_t");
+-	}
+-	else wan_ip = ac->params[0].value;
+-    
+ 	parse_status = (int) parse_dnat(&e, 
+ 					ac->params[2].value, /* NewProtocol */
+-					wan_ip, //ac->params[0].value, /* NewRemoteHost */
++					ac->params[0].value, /* NewRemoteHost */
+ 					ac->params[1].value, NULL, /* NewExternalPort */
+ 					ac->params[4].value, /* NewInternalClient */
+ 					ac->params[3].value, NULL /* NewInternalPort */
+@@ -312,8 +305,6 @@
+     static char Enabled[2];
+     static char Description[60];
+ 
+-printf("Get Port: [%s]\n", ac->params[0].value);
+-
+     parse_status = (int) parse_dnat(&e, 
+ 			       ac->params[2].value,	/* NewProtocol */
+ 			       ac->params[0].value,	/* NewRemoteHost */
+@@ -400,18 +391,10 @@
+     entry->match.src.ports[1] = htons(0xffff);
+ 
+     // parse the external ip address
+-    // 2004/07/12 by Joey, change to src ip match
+     if (strlen(RemoteHost)) 
+     {
+-	inet_aton("255.255.255.255", &entry->match.dst.netmask);
+-	inet_aton(RemoteHost , &entry->match.dst.ipaddr);
+-    }
+-    else if (nvram_invmatch("wan_ipaddr_t", ""))
+-    {
+-    	// set the destination ip address
+-    	// 2004/07/12, by Joey, set dst ip 
+-	inet_aton("255.255.255.255", &entry->match.dst.netmask);
+-	inet_aton(nvram_safe_get("wan_ipaddr_t"), &entry->match.dst.ipaddr);
++	inet_aton("255.255.255.255", &entry->match.src.netmask);
++	inet_aton(RemoteHost, &entry->match.src.ipaddr);
+     }
+ 
+     // parse the external ports
+diff -BurN tools/upnp/igd/linux/linux_igd.c gateway/upnp/igd/linux/linux_igd.c
+--- tools/upnp/igd/linux/linux_igd.c	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/linux/linux_igd.c	2008-02-22 21:12:06.000000000 +0300
+@@ -378,32 +378,14 @@
+ {
+     struct in_addr inaddr = {0};
+     bool status = FALSE;
+-	char tmp[100];
+ 
+-    if (strcasecmp(nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "proto")), "disabled") != 0) {
+-#ifdef REMOVE
+-	if (osl_ifaddr(nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "ifname")), &inaddr)) 
++	if (osl_ifaddr(devname, &inaddr)) 
+ 	{
+ 	    if (inaddr.s_addr != 0) {
+ 		status = TRUE;
+ 	    }
+ 	}
+-#else
+-	char *wan_if;
+ 
+-	if (nvram_match(tmp, "pppoe") || nvram_match(tmp, "pptp"))
+-		wan_if = nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "pppoe_ifname"));
+-	else
+-		wan_if = nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "ifname"));
+-
+-	if (osl_ifaddr(wan_if, &inaddr)) 
+-	{
+-		if (inaddr.s_addr != 0) {
+-			status = TRUE;
+-	    	}		
+-	}
+-#endif 
+-    }
+     return status;
+ }
+ 
+diff -BurN tools/upnp/igd/linux/linux_main.c gateway/upnp/igd/linux/linux_main.c
+--- tools/upnp/igd/linux/linux_main.c	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/linux/linux_main.c	2008-02-22 22:36:04.000000000 +0300
+@@ -56,7 +56,6 @@
+ int main(int argc, char *argv[])
+ {
+     extern char g_wandevs[];
+-    extern char g_landevs[];
+     extern DeviceTemplate IGDeviceTemplate;
+     char **argp = &argv[1];
+     char *wanif = NULL;
+@@ -96,7 +95,7 @@
+ 	   a SIGTERM after sending SIGUSR1 to the dhcp process (to
+ 	   renew a lease).  Ignore SIGTERM to avoid being killed when
+ 	   this happens.  */
+-	//	signal(SIGTERM, SIG_IGN);
++	signal(SIGTERM, SIG_IGN);
+ 	signal(SIGUSR1, SIG_IGN);
+ 
+ 	fprintf(stderr, "calling upnp_main\n");
+diff -BurN tools/upnp/igd/linux/Makefile gateway/upnp/igd/linux/Makefile
+--- tools/upnp/igd/linux/Makefile	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/linux/Makefile	2008-02-22 21:12:06.000000000 +0300
+@@ -32,7 +32,7 @@
+ STRIP = $(TARGET_PREFIX)strip
+ SIZE = $(TARGET_PREFIX)size
+ 
+-VPATH.h = .:..:../../include:$(SRCBASE)/include:$(SRCBASE)/router/shared
++VPATH.h = .:..:../../include:$(SRCBASE)/include:$(TOP)/shared
+ 
+ vpath %.c .:..:$(SRCBASE)/shared/netconf
+ vpath %.h $(VPATH.h)
+@@ -65,8 +65,8 @@
+ SOURCES.OBJ := $(patsubst %.c,$(OBJDIR)/%.o,$(SOURCES.OBJ))
+ 
+ TARGET = upnp
+-LIBS = -L../../upnp/linux -L$(SRCBASE)/router/netconf \
+-	-L$(SRCBASE)/router/nvram -L$(SRCBASE)/router/shared -lupnp -lnetconf -lnvram -lshared
++LIBS = -L../../upnp/linux -L$(TOP)/netconf \
++	-L$(TOP)/nvram -L$(TOP)/shared -lupnp -lnetconf -lnvram -lshared
+ 
+ all : $(OBJDIR) $(TARGET)
+ 
+@@ -89,20 +89,20 @@
+ 
+ $(TARGET) :: libnetconf.so
+ 
+-$(TARGET) :: $(SRCBASE)/router/iptables/libiptables.a 
++$(TARGET) :: $(TOP)/iptables/libiptables.a 
+ 
+-$(TARGET) :: $(SRCBASE)/router/nvram/libnvram.a 
++$(TARGET) :: $(TOP)/nvram/libnvram.a 
+ 
+-$(SRCBASE)/router/iptables/libiptables.a : FORCE
+-	$(MAKE) -C $(SRCBASE)/router/iptables PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+-$(SRCBASE)/router/nvram/libnvram.a : FORCE
+-	$(MAKE) -C $(SRCBASE)/router/nvram PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
++$(TOP)/iptables/libiptables.a : FORCE
++	$(MAKE) -C $(TOP)/iptables PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
++$(TOP)/nvram/libnvram.a : FORCE
++	$(MAKE) -C $(TOP)/nvram PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+ 
+-$(SRCBASE)/router/netconf/libnetconf.so : $(SRCBASE)/router/iptables/libiptables.a FORCE
+-	$(MAKE) -C $(SRCBASE)/router/netconf DEBUG=1 PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
++$(TOP)/netconf/libnetconf.so : $(TOP)/iptables/libiptables.a FORCE
++	$(MAKE) -C $(TOP)/netconf DEBUG=1 PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+ 
+-libnetconf.so : $(SRCBASE)/router/netconf/libnetconf.so
+-	#	cp $(SRCBASE)/router/netconf/libnetconf.so /router/usr/lib/
++libnetconf.so : $(TOP)/netconf/libnetconf.so
++	#	cp $(TOP)/netconf/libnetconf.so /router/usr/lib/
+ 
+ endif
+ 
+@@ -122,9 +122,9 @@
+ 	rm -f upnp
+ 	$(MAKE) -C ../../upnp/linux clean
+ ifneq ($(BUILD_LIBS),)
+-	$(MAKE) -C $(SRCBASE)/router/netconf clean
+-	$(MAKE) -C $(SRCBASE)/router/iptables clean
+-	$(MAKE) -C $(SRCBASE)/router/nvram clean
++	$(MAKE) -C $(TOP)/netconf clean
++	$(MAKE) -C $(TOP)/iptables clean
++	$(MAKE) -C $(TOP)/nvram clean
+ endif
+ 
+ fptest: fptest.o
+diff -BurN tools/upnp/Makefile gateway/upnp/Makefile
+--- tools/upnp/Makefile	1970-01-01 03:00:00.000000000 +0300
++++ gateway/upnp/Makefile	2008-02-23 10:44:22.000000000 +0300
+@@ -0,0 +1,33 @@
++#
++# Linux upnp Makefile
++#
++# Copyright 2004, Broadcom Corporation
++# All Rights Reserved.
++# 
++# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++#
++# $Id$
++#
++
++UPNP	:= igd/linux
++CFLAGS	+= -s -O2
++#DEBUG	:= 1
++
++all: upnp
++
++install: all
++	install -d $(INSTALLDIR)/usr/sbin
++	install -m 755 $(UPNP)/upnp $(INSTALLDIR)/usr/sbin
++	$(STRIP) $(INSTALLDIR)/usr/sbin/upnp
++
++clean:
++	$(MAKE) -C $(UPNP) clean
++	rm -f $(UPNP)/upnp
++
++upnp: FORCE
++	$(MAKE) -C $(UPNP) DEBUG=$(DEBUG) SRCBASE=$(SRCBASE) TOP=$(TOP) TARGET_PREFIX=$(CROSS_COMPILE)
++
++FORCE:
+diff -BurN tools/upnp/upnp/linux/Makefile gateway/upnp/upnp/linux/Makefile
+--- tools/upnp/upnp/linux/Makefile	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/upnp/linux/Makefile	2008-02-22 21:12:08.000000000 +0300
+@@ -25,9 +25,9 @@
+ SIZE = $(TARGET_PREFIX)size
+ RANLIB = $(TARGET_PREFIX)ranlib
+ 
+-VPATH.h=.:..:../../include:$(SRCBASE)/include:$(SRCBASE)/router/shared
++VPATH.h=.:..:../../include:$(SRCBASE)/include:$(TOP)/shared
+ 
+-vpath %.c .:..:$(SRCBASE)/router/shared:$(SRCBASE)/shared/netconf
++vpath %.c .:..:$(TOP)/shared:$(SRCBASE)/shared/netconf
+ vpath %.h $(VPATH.h)
+ 
+ ifeq ($(DEBUG),1)
+diff -BurN tools/upnp/upnp/upnp.c gateway/upnp/upnp/upnp.c
+--- tools/upnp/upnp/upnp.c	2004-11-11 13:29:40.000000000 +0300
++++ gateway/upnp/upnp/upnp.c	2008-02-22 21:12:07.000000000 +0300
+@@ -95,6 +95,9 @@
+ 
+     signal(SIGINT, interrupt_handler);
+     signal(SIGTERM, interrupt_handler);
++    
++    /* prevent socket errors to cause termination */
++    signal(SIGPIPE, SIG_IGN);
+ 
+     memset(&timer, 0, sizeof(timer));
+     timer.it_interval.tv_sec = 30;
+diff -BurN tools/upnp/igd/igd.h gateway/upnp/igd/igd.h
+--- tools/upnp/igd/igd.h	2004-11-11 13:29:39.000000000 +0300
++++ gateway/upnp/igd/igd.h	2008-07-01 12:49:04.000000000 +0400
+@@ -83,6 +83,8 @@
+ 
+ #if defined(linux)
+ 
++#include <signal.h>
++
+ /* Allow some time for the page to reload before killing ourselves */
+ static int
+ kill_after(pid_t pid, int sig, unsigned int after)

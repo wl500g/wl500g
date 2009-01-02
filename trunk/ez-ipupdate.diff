@@ -1,0 +1,213 @@
+ 
+ 1. string.h detection
+ 2. broken configure fix
+ 3. URL for zoneedit changed to http://dynamic.zoneedit.com
+ 4. HTTP/301 redirect support by theMIROn <themiron@mail.ru>
+ 
+diff -BurN router/ez-ipupdate/config.h.in gateway/ez-ipupdate/config.h.in
+--- router/ez-ipupdate/config.h.in	2004-11-11 10:26:51.000000000 +0300
++++ gateway/ez-ipupdate/config.h.in	2008-12-20 10:14:17.000000000 +0300
+@@ -132,6 +132,9 @@
+ /* Define if you have the <stdarg.h> header file.  */
+ #undef HAVE_STDARG_H
+ 
++/* Define if you have the <string.h> header file.  */
++#undef HAVE_STRING_H
++
+ /* Define if you have the <sys/socket.h> header file.  */
+ #undef HAVE_SYS_SOCKET_H
+ 
+diff -BurN router/ez-ipupdate/configure gateway/ez-ipupdate/configure
+--- router/ez-ipupdate/configure	2004-11-11 10:26:51.000000000 +0300
++++ gateway/ez-ipupdate/configure	2008-12-20 10:16:10.000000000 +0300
+@@ -1505,6 +1505,7 @@
+ 		  syslog.h \
+ 		  pwd.h \
+ 		  stdarg.h \
++		  string.h \
+ 		  grp.h \
+ 		  errno.h \
+ 		  sys/sockio.h \
+@@ -1521,6 +1522,8 @@
+ #line 1522 "configure"
+ #include "confdefs.h"
+ #include <$ac_hdr>
++
++int main() { return 0; }
+ EOF
+ ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
+ { (eval echo configure:1527: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+@@ -1565,6 +1568,8 @@
+ #line 1566 "configure"
+ #include "confdefs.h"
+ #include <$ac_hdr>
++
++int main() { return 0; }
+ EOF
+ ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
+ { (eval echo configure:1571: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+diff -BurN router/ez-ipupdate/configure.in gateway/ez-ipupdate/configure.in
+--- router/ez-ipupdate/configure.in	2004-11-11 10:26:51.000000000 +0300
++++ gateway/ez-ipupdate/configure.in	2008-12-20 10:14:17.000000000 +0300
+@@ -65,6 +65,7 @@
+ 		  syslog.h \
+ 		  pwd.h \
+ 		  stdarg.h \
++		  string.h \
+ 		  grp.h \
+ 		  errno.h \
+ 		  sys/sockio.h \
+diff -BurN router/ez-ipupdate/Makefile.in gateway/ez-ipupdate/Makefile.in
+--- router/ez-ipupdate/Makefile.in	2004-11-11 10:26:51.000000000 +0300
++++ gateway/ez-ipupdate/Makefile.in	2008-12-20 10:14:17.000000000 +0300
+@@ -115,7 +115,7 @@
+ 	cd $(top_builddir) \
+ 	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+ 
+-$(ACLOCAL_M4):  configure.in 
++$(ACLOCAL_M4):
+ 	cd $(srcdir) && $(ACLOCAL)
+ 
+ config.status: $(srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
+@@ -123,11 +123,6 @@
+ $(srcdir)/configure: $(srcdir)/configure.in $(ACLOCAL_M4) $(CONFIGURE_DEPENDENCIES)
+ 	cd $(srcdir) && $(AUTOCONF)
+ 
+-config.h: stamp-h
+-	@if test ! -f $@; then \
+-		rm -f stamp-h; \
+-		$(MAKE) stamp-h; \
+-	else :; fi
+ stamp-h: $(srcdir)/config.h.in $(top_builddir)/config.status
+ 	cd $(top_builddir) \
+ 	  && CONFIG_FILES= CONFIG_HEADERS=config.h \
+@@ -306,7 +301,7 @@
+ uninstall-am: uninstall-binPROGRAMS
+ uninstall: uninstall-am
+ all-am: Makefile $(PROGRAMS) config.h
+-all-redirect: all-am
++all-redirect: $(PROGRAMS)
+ install-strip:
+ 	$(MAKE) $(AM_MAKEFLAGS) AM_INSTALL_PROGRAM_FLAGS=-s install
+ installdirs:
+--- router/ez-ipupdate/ez-ipupdate.c	2004-11-11 10:26:51.000000000 +0300
++++ gateway/ez-ipupdate/ez-ipupdate.c	2008-12-22 17:28:45.000000000 +0300
+@@ -44,6 +44,9 @@
+ #define SEND_EMAIL_CMD "mail"
+ #endif
+ 
++#undef HAS_REDIRECT
++// support of HTTP/301 - redirect command
++
+ #define EZIP_DEFAULT_SERVER "www.EZ-IP.Net"
+ #define EZIP_DEFAULT_PORT "80"
+ #define EZIP_REQUEST "/members/update/"
+@@ -102,7 +102,7 @@
+ #define HN_DEFAULT_PORT "80"
+ #define HN_REQUEST "/vanity/update"
+ 
+-#define ZONEEDIT_DEFAULT_SERVER "www.zoneedit.com"
++#define ZONEEDIT_DEFAULT_SERVER "dynamic.zoneedit.com"
+ #define ZONEEDIT_DEFAULT_PORT "80"
+ #define ZONEEDIT_REQUEST "/auth/dynamic.html"
+ 
+@@ -4057,19 +4057,28 @@
+   int bytes;
+   int btot;
+   int ret;
+-
++#ifdef HAS_REDIRECT
++  char bserver[128];
++  char brequest[128];
++  int redir_count = 0;
++#endif
++  char *lserver = server;
++  char *lrequest = request;
++
++  redirect_loop:
++
+   buf[BUFFER_SIZE] = '\0';
+ 
+-  if(do_connect((int*)&client_sockfd, server, port) != 0)
++  if(do_connect((int*)&client_sockfd, lserver, port) != 0)
+   {
+     if(!(options & OPT_QUIET))
+     {
+-      show_message("error connecting to %s:%s\n", server, port);
++      show_message("error connecting to %s:%s\n", lserver, port);
+     }
+     return(UPDATERES_ERROR);
+   }
+ 
+-  snprintf(buf, BUFFER_SIZE, "GET %s?", request);
++  snprintf(buf, BUFFER_SIZE, "GET %s?", lrequest);
+   output(buf);
+   snprintf(buf, BUFFER_SIZE, "%s=%s&", "host", host);
+   output(buf);
+@@ -4086,7 +4097,7 @@
+   snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s (%s)\015\012", 
+       "zoneedit", VERSION, OS, "by Angus Mackay");
+   output(buf);
+-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
++  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", lserver);
+   output(buf);
+   snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
+   output(buf);
+@@ -4141,6 +4152,35 @@
+       }
+       break;
+ 
++#ifdef HAS_REDIRECT
++    case 301:
++      *bserver = '\0';
++      *brequest = '\0';
++      if(((bp=strstr(buf, "Location: ")) != NULL) &&      
++	 ((ret=sscanf(bp,"Location: http://%127[^/\r\n]%127[^?\r\n]", bserver, brequest)) > 0) &&
++	 (redir_count++ <= 5))
++      {
++	if(ret==1) snprintf(brequest, 127, "/");
++	lserver = bserver;
++	lrequest = brequest;
++	if(!(options & OPT_QUIET))
++	{
++	  show_message("trying location %u: %s%s\n", redir_count, lserver, lrequest);
++	}
++	goto redirect_loop;
++      }
++      else
++      {	
++	show_message("error processing redirect\n");
++	if(!(options & OPT_QUIET))
++	{
++	  fprintf(stderr, "server output: %s\n", buf);
++        }
++      }
++      return(UPDATERES_ERROR);
++      break;
++#endif
++
+     case 401:
+       if(!(options & OPT_QUIET))
+       {
+http://bugs.gentoo.org/show_bug.cgi?id=69658 - Format string vulnerability in syslog handling
+
+--- router/ez-ipupdate/ez-ipupdate.c	2008-12-22 23:44:45.000000000 +0500
++++ gateway/ez-ipupdate/ez-ipupdate.c	2008-12-27 21:22:09.000000000 +0500
+@@ -859,7 +859,7 @@
+     sprintf(buf, "message incomplete because your OS sucks: %s\n", fmt);
+ #endif
+ 
+-    syslog(LOG_NOTICE, buf);
++    syslog(LOG_NOTICE, "%s", buf);
+   }
+   else
+   {
+@@ -885,7 +885,7 @@
+   va_start(args, fmt);
+   vsnprintf(buf, sizeof(buf), fmt, args);
+   openlog("ddns update", 0, 0);
+-  syslog(0, buf);
++  syslog(0, "%s", buf);
+   closelog();
+   va_end(args);
+ }

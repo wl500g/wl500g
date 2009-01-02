@@ -1,0 +1,53 @@
+diff -ur radvd-0.7.2/Makefile.in radvd/Makefile.in
+--- radvd-0.7.2/Makefile.in	2002-10-28 20:42:32.000000000 +0300
++++ radvd/Makefile.in	2005-03-03 21:11:59.598065344 +0300
+@@ -113,7 +113,7 @@
+ radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
+ 	device.c device-common.c gram.y gram.h scanner.l
+ 
+-radvd_LDADD = -lfl
++#radvd_LDADD = -lfl
+ EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c
+ YFLAGS = -d
+ 
+diff -ur radvd-0.7.2/radvd.c radvd/radvd.c
+--- radvd-0.7.2/radvd.c	2001-12-28 11:39:54.000000000 +0300
++++ radvd/radvd.c	2005-03-03 21:09:31.937513160 +0300
+@@ -424,6 +424,7 @@
+ int
+ check_conffile_perm(const char *username, const char *conf_file)
+ {
++#if CHECK_PERM
+ 	struct stat *st = NULL;
+ 	struct passwd *pw = NULL;
+ 	FILE *fp = fopen(conf_file, "r");
+@@ -460,11 +461,13 @@
+         }
+ 
+ 	free(st);
++#endif
+         return 0;
+-
++#if CHECK_PERM
+ errorout:
+ 	free(st);
+ 	return(-1);
++#endif
+ }
+ 
+ int
+diff -ur radvd-0.7.2/scanner.c radvd/scanner.c
+--- radvd-0.7.2/scanner.c	2002-10-28 20:01:54.000000000 +0300
++++ radvd/scanner.c	2005-03-03 21:09:31.960509664 +0300
+@@ -707,6 +707,11 @@
+ #endif
+ #endif
+ 
++int yywrap YY_PROTO(( void ))
++{
++	return 1;
++}
++
+ #ifndef YY_NO_UNPUT
+ static void yyunput YY_PROTO(( int c, char *buf_ptr ));
+ #endif

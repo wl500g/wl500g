@@ -1,0 +1,69 @@
+diff -BurN router/infosvr/infosvr.c gateway/infosvr/infosvr.c
+--- router/infosvr/infosvr.c	2004-09-22 17:29:12.000000000 +0400
++++ gateway/infosvr/infosvr.c	2008-12-19 14:32:02.000000000 +0300
+@@ -1,6 +1,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <stdlib.h>
+ #include <signal.h>
+ #include <sys/types.h>
+ #include <sys/time.h>
+@@ -20,7 +21,7 @@
+ #include "lp.h"
+ 
+ #define SRV_PORT 9999
+-#define PRINT(fmt, args...) printf(stderr, fmt, ## args)
++#define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+ #define TRUE     1
+ 
+ //#define WLANCFG "/etc/thttpd/www/cgi-bin/wlan.cfg"
+@@ -208,6 +209,7 @@
+     
+     processPacket(sockfd, hdr);	
+     closesocket(sockfd);
++    return( 0);
+ }
+ 
+ /************************************/
+@@ -220,7 +222,7 @@
+     if( waitsock(sockfd , timeout , 0) == 0)
+     {
+         //timeout
+-        PRINT("RECV timeout %d\n",timeout);
++        PRINT("RECV timeout %ld\n",timeout);
+         return -1;
+     }
+ 
+@@ -312,7 +314,7 @@
+ 	len = strlen(str);
+ 	for (i=0; i<len; i++)
+ 	{
+-		if (*(str+i) == '\r' || *(str+i) == '\n', *(str+i) == '"')
++		if (*(str+i) == '\r' || *(str+i) == '\n' || *(str+i) == '"')
+ 		{
+ 			*(str+i) = 0;
+ 			break;
+diff -BurN router/infosvr/Makefile gateway/infosvr/Makefile
+--- router/infosvr/Makefile	2004-09-22 17:29:12.000000000 +0400
++++ gateway/infosvr/Makefile	2008-12-19 12:10:19.000000000 +0300
+@@ -9,7 +9,7 @@
+  
+ #CFLAGS	+= -g -DDEBUG
+ CFLAGS	+= -s -O2
+-LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf -lnvram -lshared -lnetconf
++LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -lnvram -lshared
+ 
+ vpath %.c $(TOP)/shared
+ 
+diff -BurN router/infosvr/packet.c gateway/infosvr/packet.c
+--- router/infosvr/packet.c	2004-09-22 17:29:12.000000000 +0400
++++ gateway/infosvr/packet.c	2008-12-19 15:07:21.000000000 +0300
+@@ -1,4 +1,7 @@
+ /* Revision Date: 2004.04.07      */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
+ #include "iboxcom.h"
+ #include "packet.h"
+ 

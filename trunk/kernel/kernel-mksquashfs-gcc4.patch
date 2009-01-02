@@ -1,0 +1,22 @@
+--- linuz/scripts/squashfs/mksquashfs.c.orig	2006-12-13 17:22:50.000000000 +0300
++++ linux/scripts/squashfs/mksquashfs.c	2006-12-13 17:23:44.000000000 +0300
+@@ -485,8 +485,8 @@
+ 		int i;
+ 		squashfs_reg_inode_header *reg = &inode_header.reg, *inodep;
+ 
+-		inodep = (squashfs_reg_inode_header *) inode = get_inode(sizeof(*reg) +
+-			offset * sizeof(unsigned int));
++		inodep = (squashfs_reg_inode_header *) (inode = get_inode(sizeof(*reg) +
++			offset * sizeof(unsigned int)));
+ 		reg->mtime = buf.st_mtime;
+ 		reg->file_size = byte_size;
+ 		reg->start_block = start_block;
+@@ -546,7 +546,7 @@
+ 			return SQUASHFS_INVALID;
+ 		}
+ 
+-		inodep = (squashfs_symlink_inode_header *) inode = get_inode(sizeof(*symlink) + byte);
++		inodep = (squashfs_symlink_inode_header *) (inode = get_inode(sizeof(*symlink) + byte));
+ 		symlink->symlink_size = byte;
+ 		if(!swap)
+ 			memcpy((void *) inode, symlink, sizeof(*symlink));

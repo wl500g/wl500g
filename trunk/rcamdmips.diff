@@ -1,0 +1,161 @@
+diff -BurN router/rcamdmips/Makefile gateway/rcamdmips/Makefile
+--- router/rcamdmips/Makefile	2004-11-11 16:42:18.000000000 +0300
++++ gateway/rcamdmips/Makefile	2008-03-19 20:07:24.000000000 +0300
+@@ -6,14 +6,14 @@
+ 
+ PROG = rcamd
+ 
+-LINUXKERNELSRC	= /root/broadcom/src/linux/linux/
++#LINUXKERNELSRC	= /root/broadcom/src/linux/linux/
+ LINUXKERNELINCLUDEDIR	= $(LINUXKERNELSRC)/include
+ #TARGETDIR = /root/broadcom/src/router/mipsel/target
+ 
+ # add -DANYCAM for general video4linux devices
+ # remove it for Backpaq cameras
+ #CFLAGS = `gtk-config --cflags` -O -g -g -I$(LINUXKERNELINCLUDEDIR) -Wall 
+-CFLAGS = -O -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK 
++CFLAGS = -O2 -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK $(EXTRACFLAGS)
+ LDFLAGS = -L/opt/brcm/hndtools-mipsel-uclibc/lib/ -lpthread 
+ 
+ SRCS = rcamd.c text.c glist.c gtimer.c gslist.c gmutex.c gmem.c garray.c gtree.c ccvt_c.c #djpeg.c
+diff -BurN router/rcamdmips/rcamd.c gateway/rcamdmips/rcamd.c
+--- router/rcamdmips/rcamd.c	2004-11-21 18:51:50.000000000 +0300
++++ gateway/rcamdmips/rcamd.c	2008-06-14 20:02:08.000000000 +0400
+@@ -402,7 +402,8 @@
+ 
+ 			// mark this node for deletion
+ 			del = g_list_append(del, cur);
+-finish:
++finish:
++			;
+ 		}
+ 	}
+     	i++;
+@@ -790,6 +791,9 @@
+  * Write image buffer to timestamp named jpeg file.
+  */
+ 
++
++#if 0
++
+ void
+ put_image_jpeg (char *filename, char *image, int width, int height, int quality)
+ {
+@@ -894,6 +898,92 @@
+   fclose (fd);
+ }
+ 
++
++#else
++
++/*
++ * Write image buffer to timestamp named jpeg file( w/ color support).
++ *
++ * Ben Lau <benlau@linux.org.hk>
++ *
++ */
++
++void
++put_image_jpeg (char *filename, char *image, int width, int height, int quality)
++{
++  int y, x, line_width;
++  JSAMPROW row_ptr[1];
++  struct jpeg_compress_struct cjpeg;
++  struct jpeg_error_mgr jerr;
++  char *imageptr;
++  int index;
++  FILE *fd;
++  JSAMPROW yp[16],cb[16],cr[16]; // y[2][5] = color sample of row 2 and pixel column 5; (one plane)
++  JSAMPARRAY data[3]; // t[0][2][5] = color sample 0 of row 2 and column 5
++  int i,j;
++
++  if ((fd = fopen (filename, "w+")) == NULL) {
++    fprintf (stderr, "Error: Can't Create File %s\n", filename);
++    exit (-2);
++  }
++
++  data[0] = yp;
++  data[1] = cb;
++  data[2] = cr;
++
++  /* Add by Joey to handle OV519 frame */
++  if (cameratype==2)
++  {
++	unsigned short *len;
++
++	len  = (unsigned short *)(&image[0]);
++	*len = (*len)<<3;
++	printf("OV519 : len: %x\n", *len);
++	fwrite(image + 2, sizeof(unsigned char), *len, fd);
++	close(fd);
++	return;
++  }
++	 
++  cjpeg.err = jpeg_std_error (&jerr);
++  jpeg_create_compress (&cjpeg);
++  cjpeg.image_width = width;
++  cjpeg.image_height = height;
++  cjpeg.input_components = 3;
++  jpeg_set_defaults (&cjpeg);
++  jpeg_set_colorspace(&cjpeg, JCS_YCbCr);
++  
++  cjpeg.raw_data_in = TRUE; // supply downsampled data
++  cjpeg.comp_info[0].h_samp_factor = 2;
++  cjpeg.comp_info[0].v_samp_factor = 2;
++  cjpeg.comp_info[1].h_samp_factor = 1;
++  cjpeg.comp_info[1].v_samp_factor = 1;
++  cjpeg.comp_info[2].h_samp_factor = 1;
++  cjpeg.comp_info[2].v_samp_factor = 1;
++
++  jpeg_set_quality (&cjpeg, quality, TRUE);
++  cjpeg.dct_method = JDCT_FASTEST;
++  jpeg_stdio_dest (&cjpeg, fd);
++
++  jpeg_start_compress (&cjpeg, TRUE);
++
++  for (j=0;j<height;j+=16) {
++            for (i=0;i<16;i++) {
++              yp[i] = image + width*(i+j);
++               if (i%2 == 0) {
++                       cb[i/2] = image + width*height + width/2*((i+j)/2);
++                        cr[i/2] = image + width*height + width*height/4 + width/2*((i+j)/2);
++		                          }
++                 }
++                jpeg_write_raw_data (&cjpeg, data, 16);
++      }
++
++  jpeg_finish_compress (&cjpeg);
++  jpeg_destroy_compress (&cjpeg);
++  fclose (fd);
++}
++
++#endif
++
+ void sig_usr(int sig)
+ {
+   //printf("Signal %d\n", sig);
+@@ -962,11 +1052,11 @@
+ 	FILE *fp;
+ 
+ 	// parse cmdline args
+-	while((i = getopt(argc, argv, "t:d:m:s:f:p:hg:b:
+-#ifdef WL600
+-    r:a:c:z:
+-#endif
+-    ")) != EOF) {
++	while((i = getopt(argc, argv, "t:d:m:s:f:p:hg:b:"
++#ifdef WL600
++    "r:a:c:z:"
++#endif
++    "")) != EOF) {
+ 
+ 	  switch(i) {
+ 	  case 't':
+diff -BurN router/rcamdmips/rcamd.h gateway/rcamdmips/rcamd.h
+--- router/rcamdmips/rcamd.h	2004-11-11 16:42:18.000000000 +0300
++++ gateway/rcamdmips/rcamd.h	2008-06-14 19:58:23.000000000 +0400
+@@ -87,3 +87,4 @@
+ unsigned int compare_images(unsigned char *last, unsigned char *current,
+ 				   int width, int height);
+ 
++void put_image_jpeg (char *filename, char *image, int width, int height, int quality);

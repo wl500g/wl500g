@@ -1,0 +1,100 @@
+diff -urbB ntpclient-2007_365/Makefile ntpclient/Makefile
+--- ntpclient-2007_365/Makefile	2007-12-31 20:13:56.000000000 +0300
++++ ntpclient/Makefile	2008-12-24 20:20:13.000000000 +0300
+@@ -10,11 +10,11 @@
+ 
+ CFLAGS += -O2
+ # CFLAGS += -DPRECISION_SIOCGSTAMP
+-CFLAGS += -DENABLE_DEBUG
++#CFLAGS += -DENABLE_DEBUG
+ CFLAGS += -DENABLE_REPLAY
+ # CFLAGS += -DUSE_OBSOLETE_GETTIMEOFDAY
+ 
+-LDFLAGS += -lrt
++#LDFLAGS += -lrt
+ 
+ all: ntpclient
+ 
+diff -urbB ntpclient-2007_365/ntpclient.c ntpclient/ntpclient.c
+--- ntpclient-2007_365/ntpclient.c	2008-01-01 05:16:10.000000000 +0300
++++ ntpclient/ntpclient.c	2008-12-24 22:17:40.000000000 +0300
+@@ -482,7 +482,7 @@
+ 		{perror("connect");exit(1);}
+ }
+ 
+-static void primary_loop(int usd, struct ntp_control *ntpc)
++static int primary_loop(int usd, struct ntp_control *ntpc)
+ {
+ 	fd_set fds;
+ 	struct sockaddr sa_xmit;
+@@ -509,7 +509,7 @@
+ 				if (errno != EINTR) perror("select");
+ 				continue;
+ 			}
+-			if (to.tv_sec == 0) {
++			if ((to.tv_sec == 0) || (to.tv_sec == ntpc->cycle_time)) {
+ 				if (probes_sent >= ntpc->probe_count &&
+ 					ntpc->probe_count != 0) break;
+ 				send_packet(usd,ntpc->time_of_send);
+@@ -542,6 +542,7 @@
+ 			if (!ntpc->live) break;
+ 		}
+ 	}
++	return -1;
+ #undef incoming
+ #undef sizeof_incoming
+ }
+@@ -597,6 +598,20 @@
+ 	argv0);
+ }
+ 
++/* Copy each token in wordlist delimited by space into word */ 
++#define foreach(word, wordlist, next) \
++	for (next = &wordlist[strspn(wordlist, " ")], \
++		strncpy(word, next, sizeof(word)), \
++		word[strcspn(word, " ")] = '\0', \
++		word[sizeof(word) - 1] = '\0', \
++		next = strchr(next, ' '); \
++		strlen(word); \
++		next = next ? &next[strspn(next, " ")] : "", \
++		strncpy(word, next, sizeof(word)), \
++		word[strcspn(word, " ")] = '\0', \
++		word[sizeof(word) - 1] = '\0', \
++		next = strchr(next, ' '))
++
+ int main(int argc, char *argv[]) {
+ 	int usd;  /* socket */
+ 	int c;
+@@ -606,6 +621,8 @@
+ 	char *hostname=NULL;          /* must be set */
+ 	int initial_freq;             /* initial freq value to use */
+ 	struct ntp_control ntpc;
++	char ntps[32], *next;
++
+ 	ntpc.live=0;
+ 	ntpc.set_clock=0;
+ 	ntpc.probe_count=0;           /* default of 0 means loop forever */
+@@ -699,16 +716,21 @@
+ 		ntpc.set_clock, ntpc.cross_check );
+ 	}
+ 
++    foreach(ntps, hostname, next) {
+ 	/* Startup sequence */
+ 	if ((usd=socket(AF_INET,SOCK_DGRAM,IPPROTO_UDP))==-1)
+ 		{perror ("socket");exit(1);}
+ 
+ 	setup_receive(usd, INADDR_ANY, udp_local_port);
+ 
+-	setup_transmit(usd, hostname, NTP_PORT, &ntpc);
++	setup_transmit(usd, ntps, NTP_PORT, &ntpc);
+ 
+-	primary_loop(usd, &ntpc);
++	if (!primary_loop(usd, &ntpc)) {
++		close(usd);
++		break;
++	}
+ 
+ 	close(usd);
++    }
+ 	return 0;
+ }

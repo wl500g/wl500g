@@ -1,0 +1,74 @@
+--- rp-l2tp-0.4/handlers/sync-pppd.c	2004-07-01 18:58:56.000000000 +0400
++++ rp-l2tp/handlers/sync-pppd.c	2007-04-23 19:04:49.019264064 +0400
+@@ -183,7 +183,8 @@
+     sl->event = NULL;
+ 
+     /* Re-establish session if desired */
+-    if (may_reestablish && tunnel->peer->persist && tunnel->peer->fail < tunnel->peer->maxfail) {
++    if (may_reestablish && tunnel->peer->persist && 
++        (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) {
+         struct timeval t;
+ 
+         t.tv_sec = tunnel->peer->holdoff;
+@@ -214,8 +215,21 @@
+ 
+     if (sl->fd >= 0) close(sl->fd);
+     if (sl->event) Event_DelHandler(sl->es, sl->event);
++    sl->fd = -1;
++    sl->event = NULL;
+ 
+     if (ses) {
++        l2tp_tunnel *tunnel = ses->tunnel;
++        
++        /* Re-establish session if desired */
++        if (tunnel->peer->persist) {
++            struct timeval t;
++
++            t.tv_sec = tunnel->peer->holdoff;
++            t.tv_usec = 0;
++            Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
++        }
++        
+ 	ses->private = NULL;
+ 	l2tp_session_send_CDN(ses, RESULT_GENERAL_REQUEST, 0,
+ 			      "pppd process exited");
+--- rp-l2tp-0.4/session.c	2004-07-01 18:58:55.000000000 +0400
++++ rp-l2tp/session.c	2007-04-08 01:01:18.000000000 +0400
+@@ -473,7 +473,7 @@
+     val = l2tp_dgram_search_avp(dgram, ses->tunnel, NULL, NULL, &len,
+ 				VENDOR_IETF, AVP_RESULT_CODE);
+     if (!val || len < 4) {
+-	l2tp_tunnel_delete_session(ses, "Received CDN", 0);
++	l2tp_tunnel_delete_session(ses, "Received CDN", 1);
+     } else {
+ 	uint16_t result_code, error_code;
+ 	char *msg;
+@@ -486,7 +486,7 @@
+ 	}
+ 	snprintf(buf, sizeof(buf), "Received CDN: result-code = %d, error-code = %d, message = '%.*s'", result_code, error_code, (int) len-4, msg);
+ 	buf[1023] = 0;
+-	l2tp_tunnel_delete_session(ses, buf, 0);
++	l2tp_tunnel_delete_session(ses, buf, 1);
+     }
+ }
+ 
+--- rp-l2tp-0.4/tunnel.c	2004-07-01 18:58:56.000000000 +0400
++++ rp-l2tp/tunnel.c	2007-04-23 19:14:11.299784432 +0400
+@@ -966,6 +966,17 @@
+     if (tunnel->retransmissions >= MAX_RETRANSMISSIONS) {
+ 	l2tp_set_errmsg("Too many retransmissions on tunnel (%s); closing down",
+ 		   l2tp_debug_tunnel_to_str(tunnel));
++		   
++	if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
++	    (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
++	{
++	    struct timeval t;
++
++	    t.tv_sec = tunnel->peer->holdoff;
++	    t.tv_usec = 0;
++	    Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
++	}
++	
+ 	/* Close tunnel... */
+ 	tunnel_free(tunnel);
+ 	return;

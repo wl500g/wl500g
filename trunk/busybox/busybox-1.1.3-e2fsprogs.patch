@@ -1,0 +1,23 @@
+--- a/e2fsprogs/ext2fs/ismounted.c	2003-12-07 20:11:38.000000000 +0300
++++ b/e2fsprogs/ext2fs/ismounted.c	2004-11-11 23:56:32.601399984 +0300
+@@ -175,8 +175,7 @@
+ #ifdef __linux__
+ 	retval = check_mntent_file("/proc/mounts", file, mount_flags,
+ 				   mtpt, mtlen);
+-	if (retval == 0 && (*mount_flags != 0))
+-		return 0;
++	return retval;
+ #endif /* __linux__ */
+ #if defined(MOUNTED) || defined(_PATH_MOUNTED)
+ #ifndef MOUNTED
+--- busybox/e2fsprogs/e2fsbb.h.orig	2006-06-17 01:29:50.782087320 +0400
++++ busybox/e2fsprogs/e2fsbb.h	2006-06-17 01:34:10.534598936 +0400
+@@ -27,7 +27,7 @@
+ #define error_message(code) strerror((int) (code & ((1<<ERRCODE_RANGE)-1)))
+ 
+ /* misc crap */
+-#define fatal_error(err, msg) bb_error_msg_and_die(msg)
++#define fatal_error(err, msg) (msg ? bb_error_msg_and_die(msg) : exit(bb_default_error_retval))
+ #define usage() bb_show_usage()
+ 
+ /* header defines */

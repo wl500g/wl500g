@@ -1,0 +1,68 @@
+--- vsftpd-2.0.6/parseconf.c	2006-07-02 03:05:10.000000000 +0400
++++ vsftpd/parseconf.c	2008-01-08 00:15:23.000000000 +0300
+@@ -168,6 +169,7 @@
+   { "rsa_private_key_file", &tunable_rsa_private_key_file },
+   { "dsa_private_key_file", &tunable_dsa_private_key_file },
+   { "ca_certs_file", &tunable_ca_certs_file },
++  { "passwd_file", &tunable_passwd_file },
+   { 0, 0 }
+ };
+ 
+--- vsftpd-2.0.6/sysutil.c	2006-07-03 20:26:40.000000000 +0400
++++ vsftpd/sysutil.c	2008-01-08 00:18:42.000000000 +0300
+@@ -2212,6 +2212,36 @@
+   return (struct vsf_sysutil_user*) getpwuid((unsigned int) uid);
+ }
+ 
++/* hack to reload getpwnam -- uClibc implementation alike */
++struct passwd *getpwnam(const char *name)
++{
++    FILE *f;
++    static char line_buff[256 /*PWD_BUFFER_SIZE*/];
++    static struct passwd pwd;
++
++    if (tunable_passwd_file == NULL)
++    {
++        if (getpwnam_r(name, &pwd, line_buff, sizeof(line_buff), NULL) != -1) {
++            return &pwd;
++        }
++        return NULL;
++    }
++
++    f = fopen(tunable_passwd_file, "r");
++    if (f != NULL)
++    {
++        while (fgetpwent_r(f, &pwd, line_buff, sizeof(line_buff), NULL) != -1)
++            if (!strcmp(pwd.pw_name, name)) {
++                fclose(f);
++                return &pwd;
++            }
++    
++        fclose(f);
++    }
++
++    return NULL;
++}
++
+ struct vsf_sysutil_user*
+ vsf_sysutil_getpwnam(const char* p_user)
+ {
+--- vsftpd-2.0.6/tunables.c	2006-07-02 03:06:56.000000000 +0400
++++ vsftpd/tunables.c	2008-01-08 01:06:48.000000000 +0300
+ unsigned int tunable_connect_timeout = 60;
+@@ -125,4 +126,5 @@
+ const char* tunable_rsa_private_key_file = 0;
+ const char* tunable_dsa_private_key_file = 0;
+ const char* tunable_ca_certs_file = 0;
++const char* tunable_passwd_file = 0;
+ 
+--- vsftpd-2.0.6/tunables.h	2006-07-02 03:07:00.000000000 +0400
++++ vsftpd/tunables.h	2008-01-07 22:55:01.000000000 +0300
+@@ -120,6 +121,7 @@
+ extern const char* tunable_rsa_private_key_file;
+ extern const char* tunable_dsa_private_key_file;
+ extern const char* tunable_ca_certs_file;
++extern const char* tunable_passwd_file;
+ 
+ #endif /* VSF_TUNABLES_H */
+ 
