@@ -1,0 +1,72 @@
+--- busybox/networking/httpd.c.orig	2008-01-26 22:52:58.000000000 +0300
++++ busybox/networking/httpd.c	2008-01-26 23:39:43.000000000 +0300
+@@ -818,7 +818,7 @@
+ 	*string++ = '%';
+       } else {
+ 	value1 = value1 * 16 + value2;
+-	if(value1 == '/' || value1 == 0)
++	if(!flag_plus_to_space && (value1 == '/' || value1 == 0))
+ 		return orig+1;
+ 	*string++ = value1;
+ 	ptr += 2;
+@@ -865,6 +865,52 @@
+   }
+ }
+ 
++/****************************************************************************
++ *
++ > $Function: addEnvCgi
++ *
++ * $Description: Create environment variables given a URL encoded arg list.
++ *   For each variable setting the URL encoded arg list, create a corresponding
++ *   environment variable.  URL encoded arguments have the form
++ *      name1=value1&name2=value2&name3=value3
++ *
++ * $Parameters:
++ *      (char *) pargs . . . . A pointer to the URL encoded arguments.
++ *
++ * $Return: None
++ *
++ * $Errors: None
++ *
++ ****************************************************************************/
++static void addEnvCgi(const char *pargs)
++{
++  char *args;
++  if (pargs==0) return;
++  
++  /* args are a list of name=value&name2=value2 sequences */
++  args = strdup(pargs);
++  while (args && *args)
++  {
++    char *sep;
++    char *name=args;
++    char *value=strchr(args,'=');
++    if (!value) break;
++    *value++=0;
++    sep=strchr(value,'&');
++    if (sep)
++    {
++      *sep=0;
++      args=sep+1;
++    }
++    else
++    {
++      sep = value + strlen(value);
++      args = 0; /* no more */
++    }
++    addEnv("CGI",decodeString(name,1),decodeString(value,1));
++  }
++}
++
+ #if defined(CONFIG_FEATURE_HTTPD_SET_REMOTE_PORT_TO_ENV) || !defined(CONFIG_FEATURE_HTTPD_USAGE_FROM_INETD_ONLY)
+ /* set environs SERVER_PORT and REMOTE_PORT */
+ static void addEnvPort(const char *port_name)
+@@ -1206,6 +1252,7 @@
+ #ifdef CONFIG_FEATURE_HTTPD_SET_REMOTE_PORT_TO_ENV
+       addEnvPort("REMOTE");
+ #endif
++      addEnvCgi(config->query);
+       if(bodyLen) {
+ 	char sbl[32];
+ 

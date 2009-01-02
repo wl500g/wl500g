@@ -1,0 +1,41 @@
+diff -urbB dnsmasq-2.46/Makefile dnsmasq/Makefile
+--- dnsmasq-2.46/Makefile	2008-11-03 19:29:41.000000000 +0300
++++ dnsmasq/Makefile	2008-11-17 11:26:48.000000000 +0300
+@@ -23,7 +23,7 @@
+ MAN = man
+ 
+ PKG_CONFIG = pkg-config
+-AWK = nawk
++AWK = awk
+ INSTALL = install
+ 
+ DBUS_MINOR=" `echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --modversion dbus-1 | $(AWK) -F . -- '{ if ($$(NF-1)) print \"-DDBUS_MINOR=\"$$(NF-1) }'`" 
+diff -urbB dnsmasq-2.46/src/config.h dnsmasq/src/config.h
+--- dnsmasq-2.46/src/config.h	2008-11-11 00:47:46.000000000 +0300
++++ dnsmasq/src/config.h	2008-11-17 11:27:12.000000000 +0300
+@@ -157,8 +157,8 @@
+ */
+ 
+ /* platform independent options- uncomment to enable */
+-#define HAVE_TFTP
+-/* #define HAVE_BROKEN_RTC */
++/* #define HAVE_TFTP */
++#define HAVE_BROKEN_RTC
+ /* #define HAVE_DBUS */
+ 
+ /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
+diff -urbB dnsmasq.orig/src/dhcp.c dnsmasq/src/dhcp.c
+--- dnsmasq.orig/src/dhcp.c	2008-11-03 19:26:57.000000000 +0300
++++ dnsmasq/src/dhcp.c	2008-12-30 15:24:01.000000000 +0300
+@@ -750,7 +750,10 @@
+       for (ip = buff; *ip && !isspace((int)*ip); ip++);
+       for(; *ip && isspace((int)*ip); ip++)
+ 	*ip = 0;
+-      if (!*ip || parse_hex(buff, hwaddr, ETHER_ADDR_LEN, NULL, NULL) != ETHER_ADDR_LEN)
++      /* no reason to grump about blank lines */
++      if (!*ip)
++	  continue;
++      if (parse_hex(buff, hwaddr, ETHER_ADDR_LEN, NULL, NULL) != ETHER_ADDR_LEN)
+ 	{
+ 	  my_syslog(LOG_ERR, _("bad line at %s line %d"), ETHERSFILE, lineno); 
+ 	  continue;

@@ -1,0 +1,18 @@
+--- busybox/networking/udhcp/options.c.orig	2007-04-16 21:49:24.907107200 +0400
++++ busybox/networking/udhcp/options.c	2007-04-16 21:54:33.062260496 +0400
+@@ -32,6 +32,7 @@
+ 	{"ipttl",	OPTION_U8,				0x17},
+ 	{"mtu",		OPTION_U16,				0x1a},
+ 	{"broadcast",	OPTION_IP | OPTION_REQ,			0x1c},
++	{"routes",	OPTION_IP | OPTION_LIST | OPTION_REQ,	0x21},
+ 	{"nisdomain",	OPTION_STRING | OPTION_REQ,		0x28},
+ 	{"nissrv",	OPTION_IP | OPTION_LIST | OPTION_REQ,	0x29},
+ 	{"ntpsrv",	OPTION_IP | OPTION_LIST | OPTION_REQ,	0x2a},
+@@ -43,6 +44,7 @@
+ 	{"message",	OPTION_STRING,				0x38},
+ 	{"tftp",	OPTION_STRING,				0x42},
+ 	{"bootfile",	OPTION_STRING,				0x43},
++	{"msroutes",	OPTION_U8 | OPTION_LIST | OPTION_REQ,	0xF9},
+ 	{"",		0x00,				0x00}
+ };
+ 

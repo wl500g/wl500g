@@ -1,0 +1,62 @@
+--- linuz/drivers/ide/ide.c	2004-12-03 05:56:49.000000000 +0300
++++ linux/drivers/ide/ide.c	2007-04-22 15:35:47.409102272 +0400
+@@ -2008,7 +2062,11 @@
+ 	minor = drive->select.b.unit << PARTN_BITS;
+ 	hwgroup = HWGROUP(drive);
+ 	spin_lock_irqsave(&io_request_lock, flags);
++#if 0 /* NASoC */
+ 	if (drive->busy || (drive->usage > 1)) {
++#else
++	if (drive->busy) {
++#endif
+ 		spin_unlock_irqrestore(&io_request_lock, flags);
+ 		return -EBUSY;
+ 	};
+@@ -2712,6 +2774,14 @@
+ {
+ #ifndef CONFIG_BLK_DEV_IDECS
+ 	mdelay(50);
++#ifdef CONFIG_BCM4780
++{
++	int i;
++	for (i = 0; i < 10; i++) {
++	    mdelay(50);
++	}
++}
++#endif
+ #else
+ 	__set_current_state(TASK_UNINTERRUPTIBLE);
+ 	schedule_timeout(HZ/20);
+--- linuz/drivers/ide/ide-probe.c	2007-04-07 22:58:01.000000000 +0400
++++ linux/drivers/ide/ide-probe.c	2007-04-22 15:35:46.371260048 +0400
+@@ -454,10 +454,26 @@
+ 		(cmd == WIN_IDENTIFY) ? "ATA" : "ATAPI");
+ #endif
+ 
+-	/* needed for some systems
+-	 * (e.g. crw9624 as drive0 with disk as slave)
+-	 */
+-	ide_delay_50ms();
++	if ((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) {
++		unsigned long timeout;
++		timeout = jiffies;
++		printk("IDE: While probing, found an IDE channel that is "
++			"busy (%s).\n", drive->name);
++		printk("IDE: Probably, this means the drive hasn't spun up "
++			"yet.\n");
++		printk("IDE: We'll wait for it to spin up (but no more than 30"
++			" seconds).\n");
++		do {
++			ide_delay_50ms();
++		} while (((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) &&
++			 time_before(jiffies, timeout + WAIT_WORSTCASE));
++		if (!time_before(jiffies, timeout + WAIT_WORSTCASE)) {
++		    printk("IDE: Timed out waiting for drive %s to spin up.\n", drive->name);
++		} else {
++		    printk("IDE: The IDE channel is not busy any more, so we can "
++			    "continue probing.\n");
++		}
++	}
+ 	SELECT_DRIVE(drive);
+ 	ide_delay_50ms();
+ 	if (hwif->INB(IDE_SELECT_REG) != drive->select.all && !drive->present) {

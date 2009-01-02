@@ -1,0 +1,30 @@
+--- busybox/networking/udhcp/clientpacket.c.orig	2007-12-14 21:50:20.265760524 +0300
++++ busybox/networking/udhcp/clientpacket.c	2007-12-14 21:51:45.366774027 +0300
+@@ -75,7 +75,7 @@
+ 	    add_option_string(packet->options, client_config.clientid);
+ 	if (client_config.hostname) add_option_string(packet->options, client_config.hostname);
+ 	if (client_config.fqdn) add_option_string(packet->options, client_config.fqdn);
+-	add_option_string(packet->options, client_config.vendorclass);
++	if (client_config.vendorclass) add_option_string(packet->options, client_config.vendorclass);
+ }
+ 
+ 
+--- busybox/networking/udhcp/dhcpc.c.orig	2007-12-14 21:50:43.203466253 +0300
++++ busybox/networking/udhcp/dhcpc.c	2007-12-14 21:51:27.087297322 +0300
+@@ -321,16 +321,6 @@
+ 		memcpy(client_config.clientid + 3, client_config.arp, 6);
+ 	}
+ 
+-	if (!client_config.vendorclass) {
+-		client_config.vendorclass = xmalloc(sizeof("udhcp "VERSION) + 2);
+-		client_config.vendorclass[OPT_CODE] = DHCP_VENDOR;
+-		client_config.vendorclass[OPT_LEN] = sizeof("udhcp "VERSION) - 1;
+-		client_config.vendorclass[OPT_DATA] = 1;
+-		memcpy(&client_config.vendorclass[OPT_DATA],
+-			"udhcp "VERSION, sizeof("udhcp "VERSION) - 1);
+-	}
+-
+-
+ 	/* setup the signal pipe */
+ 	udhcp_sp_setup();
+ 

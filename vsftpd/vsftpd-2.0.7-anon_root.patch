@@ -1,0 +1,41 @@
+--- vsftpd.orig/parseconf.c	2008-01-08 13:23:50.000000000 +0300
++++ vsftpd/parseconf.c	2008-01-08 17:54:55.000000000 +0300
+@@ -44,6 +44,7 @@
+   { "anon_upload_enable", &tunable_anon_upload_enable },
+   { "anon_mkdir_write_enable", &tunable_anon_mkdir_write_enable },
+   { "anon_other_write_enable", &tunable_anon_other_write_enable },
++  { "anon_allow_writable_root", &tunable_anon_allow_writable_root },
+   { "chown_uploads", &tunable_chown_uploads },
+   { "connect_from_port_20", &tunable_connect_from_port_20 },
+   { "xferlog_enable", &tunable_xferlog_enable },
+--- vsftpd.orig/tunables.c	2008-01-08 13:23:50.000000000 +0300
++++ vsftpd/tunables.c	2008-01-08 17:54:52.000000000 +0300
+@@ -16,6 +16,7 @@
+ int tunable_anon_upload_enable = 0;
+ int tunable_anon_mkdir_write_enable = 0;
+ int tunable_anon_other_write_enable = 0;
++int tunable_anon_allow_writable_root = 0;
+ int tunable_chown_uploads = 0;
+ int tunable_connect_from_port_20 = 0;
+ int tunable_xferlog_enable = 0;
+--- vsftpd.orig/tunables.h	2008-01-08 13:23:50.000000000 +0300
++++ vsftpd/tunables.h	2008-01-08 17:55:28.000000000 +0300
+@@ -12,6 +12,7 @@
+ extern int tunable_anon_upload_enable;        /* Enable STOR for anon users */
+ extern int tunable_anon_mkdir_write_enable;   /* MKD for anon */
+ extern int tunable_anon_other_write_enable;   /* APPE DELE RMD RNFR for anon */
++extern int tunable_anon_allow_writable_root;  /* allow writable / for anon */
+ extern int tunable_chown_uploads;             /* chown() anon uploaded files */
+ extern int tunable_connect_from_port_20;      /* PORT connects from port 20 */
+ extern int tunable_xferlog_enable;            /* Log transfers to a file */
+--- vsftpd.orig/twoprocess.c	2005-03-18 22:04:13.000000000 +0300
++++ vsftpd/twoprocess.c	2008-01-08 17:56:22.000000000 +0300
+@@ -377,7 +377,7 @@
+     /* Guard against the config error of having the anonymous ftp tree owned
+      * by the user we are running as
+      */
+-    if (was_anon && vsf_sysutil_write_access("/"))
++    if (!tunable_anon_allow_writable_root && was_anon && vsf_sysutil_write_access("/"))
+     {
+       die("vsftpd: refusing to run with writable anonymous root");
+     }

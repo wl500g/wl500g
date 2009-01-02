@@ -1,0 +1,60 @@
+--- vsftpd-2.0.6/features.c	2006-06-14 14:27:26.000000000 +0400
++++ vsftpd/features.c	2008-01-07 22:47:25.000000000 +0300
+@@ -43,5 +43,8 @@
+   vsf_cmdio_write_raw(p_sess, " SIZE\r\n");
+   vsf_cmdio_write_raw(p_sess, " TVFS\r\n");
+-  vsf_cmdio_write_raw(p_sess, " UTF8\r\n");
++  if (tunable_utf8)
++  {
++    vsf_cmdio_write_raw(p_sess, " UTF8\r\n");
++  }
+   vsf_cmdio_write(p_sess, FTP_FEAT, "End");
+ }
+--- vsftpd-2.0.6/parseconf.c	2006-07-02 03:05:10.000000000 +0400
++++ vsftpd/parseconf.c	2008-01-08 00:15:23.000000000 +0300
+@@ -99,6 +99,7 @@
+   { "mdtm_write", &tunable_mdtm_write },
+   { "lock_upload_files", &tunable_lock_upload_files },
+   { "pasv_addr_resolve", &tunable_pasv_addr_resolve },
++  { "utf8", &tunable_utf8 },
+   { "debug_ssl", &tunable_debug_ssl },
+   { "require_cert", &tunable_require_cert },
+   { "validate_cert", &tunable_validate_cert },
+--- vsftpd-2.0.6/opts.c	2006-06-12 02:45:25.000000000 +0400
++++ vsftpd/opts.c	2008-01-07 23:40:58.000000000 +0300
+@@ -10,12 +10,13 @@
+ #include "ftpcodes.h"
+ #include "ftpcmdio.h"
+ #include "session.h"
++#include "tunables.h"
+ 
+ void
+ handle_opts(struct vsf_session* p_sess)
+ {
+   str_upper(&p_sess->ftp_arg_str);
+-  if (str_equal_text(&p_sess->ftp_arg_str, "UTF8 ON"))
++   if (tunable_utf8 && str_equal_text(&p_sess->ftp_arg_str, "UTF8 ON"))
+   {
+     vsf_cmdio_write(p_sess, FTP_OPTSOK, "Always in UTF8 mode.");
+   }
+--- vsftpd-2.0.6/tunables.c	2006-07-02 03:06:56.000000000 +0400
++++ vsftpd/tunables.c	2008-01-08 01:06:48.000000000 +0300
+@@ -71,6 +71,7 @@
+ int tunable_mdtm_write = 1;
+ int tunable_lock_upload_files = 1;
+ int tunable_pasv_addr_resolve = 0;
++int tunable_utf8 = 0;
+ int tunable_debug_ssl = 0;
+ int tunable_require_cert = 0;
+ int tunable_validate_cert = 0;
+--- vsftpd-2.0.6/tunables.h	2006-07-02 03:07:00.000000000 +0400
++++ vsftpd/tunables.h	2008-01-07 22:55:01.000000000 +0300
+@@ -67,6 +67,7 @@
+ extern int tunable_mdtm_write;                /* Allow MDTM to set timestamps */
+ extern int tunable_lock_upload_files;         /* Lock uploading files */
+ extern int tunable_pasv_addr_resolve;         /* DNS resolve pasv_addr */
++extern int tunable_utf8;                      /* Report UTF8 support */
+ extern int tunable_debug_ssl;                 /* Verbose SSL logging */
+ extern int tunable_require_cert;              /* SSL client cert required */
+ extern int tunable_validate_cert;             /* SSL certs must be valid */
+

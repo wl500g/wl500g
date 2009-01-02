@@ -1,0 +1,18 @@
+diff -urbB busybox-1.1.3/networking/ether-wake.c busybox/networking/ether-wake.c
+--- busybox-1.1.3/networking/ether-wake.c	2006-03-23 00:16:19.000000000 +0300
++++ busybox/networking/ether-wake.c	2008-12-20 10:57:32.000000000 +0300
+@@ -240,11 +240,12 @@
+ 	if (eap) {
+ 		*eaddr = *eap;
+ 		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eaddr));
+-#if !defined(__UCLIBC__)
++#if !defined(__UCLIBC__) || (__UCLIBC_MAJOR__ > 0) \
++    || (__UCLIBC_MAJOR__ == 0 && __UCLIBC_MINOR__ >= 9 && __UCLIBC_SUBLEVEL__ >= 30)
+ 	} else if (ether_hostton(hostid, eaddr) == 0) {
+ 		bb_debug_msg("Station address for hostname %s is %s\n\n", hostid, ether_ntoa(eaddr));
+ #else
+-# warning Need to implement ether_hostton() for uClibc
++# warning ether_hostton() is not exists for this uClibc version
+ #endif
+ 	} else
+ 		bb_show_usage();

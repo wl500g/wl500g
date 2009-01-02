@@ -1,0 +1,42 @@
+ Fix endless loop in local getpwnam() realization.
+ 
+ Signed-off-by: Leonid Lisovskiy <lly@sf.net>
+ 
+diff -urbB vsftpd.orig/sysutil.c vsftpd/sysutil.c
+--- vsftpd.orig/sysutil.c	2008-12-26 21:14:43.000000000 +0300
++++ vsftpd/sysutil.c	2008-12-26 21:16:15.000000000 +0300
+@@ -2227,12 +2231,14 @@
+ {
+     FILE *f;
+     static char line_buff[256 /*PWD_BUFFER_SIZE*/];
+-    static struct passwd pwd;
++    static struct passwd pwdbuf;
++    struct passwd *result;
++
+ 
+     if (tunable_passwd_file == NULL)
+     {
+-        if (getpwnam_r(name, &pwd, line_buff, sizeof(line_buff), NULL) != -1) {
+-            return &pwd;
++        if (getpwnam_r(name, &pwdbuf, line_buff, sizeof(line_buff), &result) == 0) {
++            return result;
+         }
+         return NULL;
+     }
+@@ -2240,12 +2246,12 @@
+     f = fopen(tunable_passwd_file, "r");
+     if (f != NULL)
+     {
+-        while (fgetpwent_r(f, &pwd, line_buff, sizeof(line_buff), NULL) != -1)
+-            if (!strcmp(pwd.pw_name, name)) {
++        while (fgetpwent_r(f, &pwdbuf, line_buff, sizeof(line_buff), &result) == 0) {
++            if (!strncmp(result->pw_name, name, 256)) {
+                 fclose(f);
+-                return &pwd;
++                return result;
++            }
+             }
+-    
+         fclose(f);
+     }
+ 

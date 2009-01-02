@@ -1,0 +1,38 @@
+--- busybox/networking/httpd.c.orig	2008-01-29 16:31:29.000000000 +0300
++++ busybox/networking/httpd.c	2008-01-29 16:32:22.000000000 +0300
+@@ -246,6 +246,7 @@
+   const char *query;
+ 
+   USE_FEATURE_HTTPD_CGI(char *referer;)
++  USE_FEATURE_HTTPD_CGI(char *host;)
+ 
+   const char *configFile;
+ 
+@@ -1224,6 +1225,8 @@
+ #endif
+       if(config->referer)
+ 	addEnv("HTTP", "REFERER", config->referer);
++      if(config->host)
++	addEnv("HTTP", "HOST", config->host);
+ 
+ 	/* set execve argp[0] without path */
+       argp[0] = strrchr( purl, '/' ) + 1;
+@@ -1752,6 +1755,10 @@
+ 		  for(test = buf + 8; isspace(*test); test++)
+ 			  ;
+ 		  config->referer = strdup(test);
++	} else if ((strncasecmp(buf, "Host:", 5) == 0)) {
++		  for(test = buf + 5; isspace(*test); test++)
++			  ;
++		  config->host = strdup(test);
+ 	}
+ #endif
+ 
+@@ -1848,6 +1855,7 @@
+   free(cookie);
+   free(content_type);
+   free(config->referer);
++  free(config->host);
+ #ifdef CONFIG_FEATURE_HTTPD_BASIC_AUTH
+   free(config->remoteuser);
+ #endif

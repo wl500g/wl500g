@@ -1,0 +1,12 @@
+--- busybox/e2fsprogs/e2fsck.c.orig	2008-03-26 22:33:18.000000000 +0300
++++ busybox/e2fsprogs/e2fsck.c	2008-03-29 13:07:56.000000000 +0300
+@@ -14836,7 +14836,8 @@
+ 		if (batt && (fs->super->s_mnt_count <
+ 			     (unsigned) fs->super->s_max_mnt_count*2))
+ 			reason = 0;
+-	} else if (fs->super->s_checkinterval &&
++	} else if (!(ctx->options & E2F_OPT_PREEN) &&
++		   fs->super->s_checkinterval &&
+ 		   ((now - fs->super->s_lastcheck) >=
+ 		    fs->super->s_checkinterval)) {
+ 		reason = _(" has gone %u days without being checked");

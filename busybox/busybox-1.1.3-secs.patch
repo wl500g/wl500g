@@ -1,0 +1,133 @@
+--- busybox/networking/udhcp/clientpacket.c.orig	2008-02-10 11:30:11.000000000 +0300
++++ busybox/networking/udhcp/clientpacket.c	2008-02-10 11:41:50.000000000 +0300
+@@ -98,12 +98,13 @@
+ 
+ 
+ /* Broadcast a DHCP discover packet to the network, with an optionally requested IP */
+-int send_discover(unsigned long xid, unsigned long requested)
++int send_discover(unsigned long xid, unsigned short secs, unsigned long requested)
+ {
+ 	struct dhcpMessage packet;
+ 
+ 	init_packet(&packet, DHCPDISCOVER);
+ 	packet.xid = xid;
++	packet.secs = htons(secs);
+ 	if (requested)
+ 		add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
+ 
+@@ -115,13 +116,14 @@
+ 
+ 
+ /* Broadcasts a DHCP request message */
+-int send_selecting(unsigned long xid, unsigned long server, unsigned long requested)
++int send_selecting(unsigned long xid, unsigned short secs, unsigned long server, unsigned long requested)
+ {
+ 	struct dhcpMessage packet;
+ 	struct in_addr addr;
+ 
+ 	init_packet(&packet, DHCPREQUEST);
+ 	packet.xid = xid;
++	packet.secs = htons(secs);
+ 
+ 	add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
+ 	add_simple_option(packet.options, DHCP_SERVER_ID, server);
+@@ -135,13 +137,14 @@
+ 
+ 
+ /* Unicasts or broadcasts a DHCP renew message */
+-int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr)
++int send_renew(unsigned long xid, unsigned short secs, unsigned long server, unsigned long ciaddr)
+ {
+ 	struct dhcpMessage packet;
+ 	int ret = 0;
+ 
+ 	init_packet(&packet, DHCPREQUEST);
+ 	packet.xid = xid;
++	packet.secs = htons(secs);
+ 	packet.ciaddr = ciaddr;
+ 
+ 	add_requests(&packet);
+--- busybox/networking/udhcp/clientpacket.h.orig	2008-02-10 11:40:07.000000000 +0300
++++ busybox/networking/udhcp/clientpacket.h	2008-02-10 11:40:47.000000000 +0300
+@@ -4,10 +4,10 @@
+ #include "packet.h"
+ 
+ unsigned long random_xid(void);
+-int send_discover(unsigned long xid, unsigned long requested);
+-int send_selecting(unsigned long xid, unsigned long server, unsigned long requested);
+-int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr);
+-int send_renew(unsigned long xid, unsigned long server, unsigned long ciaddr);
++int send_discover(unsigned long xid, unsigned short secs, unsigned long requested);
++int send_selecting(unsigned long xid, unsigned short secs, unsigned long server, unsigned long requested);
++int send_renew(unsigned long xid, unsigned short secs, unsigned long server, unsigned long ciaddr);
++int send_renew(unsigned long xid, unsigned short secs, unsigned long server, unsigned long ciaddr);
+ int send_release(unsigned long server, unsigned long ciaddr);
+ int get_raw_packet(struct dhcpMessage *payload, int fd);
+ 
+--- busybox/networking/udhcp/dhcpc.c.orig	2008-02-10 11:43:14.000000000 +0300
++++ busybox/networking/udhcp/dhcpc.c	2008-02-10 12:16:49.000000000 +0300
+@@ -44,6 +44,8 @@
+ #define LISTEN_RAW 2
+ static int listen_mode;
+ 
++#define SECS 3	/* lame attempt to add secs field */
++
+ struct client_config_t client_config = {
+ 	/* Default options. */
+ 	.abort_if_no_lease = 0,
+@@ -58,7 +60,7 @@
+ 	.hostname = NULL,
+ 	.fqdn = NULL,
+ 	.ifindex = 0,
+-	.retries = 3,
++	.retries = 5,
+ 	.timeout = 3,
+ 	.arp = "\0\0\0\0\0\0",		/* appease gcc-3.0 */
+ };
+@@ -360,7 +362,7 @@
+ 						xid = random_xid();
+ 
+ 					/* send discover packet */
+-					send_discover(xid, requested_ip); /* broadcast */
++					send_discover(xid, SECS, requested_ip); /* broadcast */
+ 
+ 					timeout = now + client_config.timeout;
+ 					packet_num++;
+@@ -375,7 +377,7 @@
+ 					}
+ 					/* wait to try again */
+ 					packet_num = 0;
+-					timeout = now + 60;
++					timeout = now + client_config.timeout * client_config.retries;
+ 				}
+ 				break;
+ 			case RENEW_REQUESTED:
+@@ -383,8 +385,8 @@
+ 				if (packet_num < client_config.retries) {
+ 					/* send request packet */
+ 					if (state == RENEW_REQUESTED)
+-						send_renew(xid, server_addr, requested_ip); /* unicast */
+-					else send_selecting(xid, server_addr, requested_ip); /* broadcast */
++						send_renew(xid, SECS, server_addr, requested_ip); /* unicast */
++					else send_selecting(xid, SECS, server_addr, requested_ip); /* broadcast */
+ 
+ 					timeout = now + ((packet_num == 2) ? 10 : 2);
+ 					packet_num++;
+@@ -412,7 +414,7 @@
+ 					DEBUG(LOG_INFO, "Entering rebinding state");
+ 				} else {
+ 					/* send a request packet */
+-					send_renew(xid, server_addr, requested_ip); /* unicast */
++					send_renew(xid, SECS, server_addr, requested_ip); /* unicast */
+ 
+ 					t1 = (t2 - t1) / 2 + t1;
+ 					timeout = t1 + start;
+@@ -430,7 +432,7 @@
+ 					change_mode(LISTEN_RAW);
+ 				} else {
+ 					/* send a request packet */
+-					send_renew(xid, 0, requested_ip); /* broadcast */
++					send_renew(xid, SECS, 0, requested_ip); /* broadcast */
+ 
+ 					t2 = (lease - t2) / 2 + t2;
+ 					timeout = t2 + start;

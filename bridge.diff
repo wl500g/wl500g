@@ -1,0 +1,12 @@
+diff -BurN router/bridge/brctl/Makefile gateway/bridge/brctl/Makefile
+--- router/bridge/brctl/Makefile	2004-10-14 23:11:18.000000000 +0400
++++ gateway/bridge/brctl/Makefile	2008-12-24 14:38:13.000000000 +0300
+@@ -1,7 +1,7 @@
+ #
+ # $Id$
+ 
+-CFLAGS = -Wall -g -O2 -I../libbridge
++CFLAGS = -Wall -g -O2 -I../libbridge $(EXTRACFLAGS)
+ LDFLAGS = -g
+ ifeq ($(strip $(DOSTATIC)),true)
+     LDFLAGS += --static

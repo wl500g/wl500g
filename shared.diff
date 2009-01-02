@@ -1,0 +1,1409 @@
+diff -BurN router/shared/bcmconfig.h gateway/shared/bcmconfig.h
+--- router/shared/bcmconfig.h	2004-12-10 04:03:45.000000000 +0300
++++ gateway/shared/bcmconfig.h	2008-03-17 20:52:25.000000000 +0300
+@@ -1,7 +1,6 @@
+ /*
+  * Automatically generated C config: don't edit
+  */
+-#define __CONFIG_NAT__ 1
+ 
+ /*
+  * Base Features
+@@ -9,31 +8,30 @@
+ #define __CONFIG_RC__ 1
+ #define __CONFIG_NVRAM__ 1
+ #define __CONFIG_SHARED__ 1
+-#define __CONFIG_LIBBCM__ 1
++#undef __CONFIG_LIBBCM__
+ #define __CONFIG_BUSYBOX__ 1
+-#define __CONFIG_BUSYBOX_CONFIG__ "router"
++#define __CONFIG_BUSYBOX_CONFIG__ "defconfig"
+ #define __CONFIG_WLCONF__ 1
+ #define __CONFIG_BRIDGE__ 1
+-#define __CONFIG_VLAN__ 1
++#undef __CONFIG_VLAN__
+ #define __CONFIG_HTTPD__ 1
+ #define __CONFIG_WWW__ 1
++#define __CONFIG_NAT__ 1
+ #define __CONFIG_NETCONF__ 1
+-#undef __CONFIG_IPTABLES__
+-#define __CONFIG_LIBIPT__ 1
++#define __CONFIG_IPTABLES__ 1
++#undef __CONFIG_LIBIPT__
+ #undef __CONFIG_GLIBC__
+ #define __CONFIG_UCLIBC__ 1
+-#define __CONFIG_LIBOPT__ 1
++#undef __CONFIG_LIBOPT__
+ 
+ /*
+  * Options
+  */
+ #define __CONFIG_VENDOR__ "asus"
+-#define __CONFIG_UDHCPD__ 1
+ #define __CONFIG_PPP__ 1
+ #define __CONFIG_UPNP__ 1
+ #define __CONFIG_NAS__ 1
+-#define __CONFIG_SES__ 1
+-#define __CONFIG_EZC__ 1
++#undef __CONFIG_EZC__
+ #define __CONFIG_NTP__ 1
+ #define __CONFIG_DNSMASQ__ 1
+ #define __CONFIG_UTILS__ 1
+@@ -42,6 +40,38 @@
+ #undef __CONFIG_WCN__
+ 
+ /*
++ * Asus stuff
++ */
++#define __CONFIG_PPTP__ 1
++#define __CONFIG_PPPOERELAY__ 1
++#define __CONFIG_INFOSVR__ 1
++#define __CONFIG_EZIPUPDATE__ 1
++#define __CONFIG_STUPIDFTPD__ 1
++#define __CONFIG_JPEG6B__ 1
++#define __CONFIG_RCAMD__ 1
++#define __CONFIG_SENDMAIL__ 1
++#define __CONFIG_LPRNG__ 1
++#define __CONFIG_OTHERS__ 1
++#undef __CONFIG_TEST__
++#define __CONFIG_BPALOGIN__ 1
++#define __CONFIG_WAVESERVER__ 1
++
++/*
++ * Custom firmware features
++ */
++#define __CONFIG_LOADER__ 1
++#define __CONFIG_SSHD__ 1
++#define __CONFIG_JETDIRECT__ 1
++#define __CONFIG_SAMBA__ 1
++#define __CONFIG_NFSD__ 1
++#define __CONFIG_NFS__ 1
++#define __CONFIG_IPROUTE2__ 1
++#define __CONFIG_IPV6__ 1
++#define __CONFIG_SNMP__ 1
++#define __CONFIG_L2TP__ 1
++#define __CONFIG_IGMPPROXY__ 1
++
++/*
+  * Additional C libraries
+  */
+ #define __CONFIG_LIBCRYPT__ 1
+@@ -49,8 +79,8 @@
+ #define __CONFIG_LIBM__ 1
+ #define __CONFIG_LIBNSL__ 1
+ #define __CONFIG_LIBPTHREAD__ 1
+-#undef __CONFIG_LIBRESOLV__
+-#undef __CONFIG_LIBUTIL__
++#define __CONFIG_LIBRESOLV__ 1
++#define __CONFIG_LIBUTIL__ 1
+ 
+ /*
+  * Environment
+@@ -63,3 +93,5 @@
+ /*
+  * Internal Options
+  */
++#undef __CONFIG_SENTRY5__
++#undef __CONFIG_ROBO__
+diff -BurN router/shared/defaults.c gateway/shared/defaults.c
+--- router/shared/defaults.c	2004-12-01 04:28:13.000000000 +0300
++++ gateway/shared/defaults.c	2008-03-17 20:52:17.000000000 +0300
+@@ -122,7 +122,7 @@
+ #endif	/* __CONFIG_NAT__ */
+ 
+ 	/* Web server parameters */
+-	{ "http_username", "", 0 },		/* Username */
++	{ "http_username", "admin", 0 },	/* Username */
+ 	{ "http_passwd", "admin", 0 },		/* Password */
+ 	{ "http_wanport", "", 0 },		/* WAN port to listen on */
+ 	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
+diff -BurN router/shared/flash.default gateway/shared/flash.default
+--- router/shared/flash.default	2004-11-19 14:37:16.000000000 +0300
++++ gateway/shared/flash.default	2008-03-17 20:52:17.000000000 +0300
+@@ -29,7 +29,7 @@
+ 
+ {"dmz_ip", "", 0},
+ 
+-{"sp_battle_ips", "1", 0},
++{"sp_battle_ips", "0", 0},
+ 
+ {"vts_enable_x", "1", 0},
+ 
+@@ -69,6 +69,10 @@
+ 
+ {"wan_pppoe_txonly_x", "0", 0},
+ 
++{"wan_pppoe_options_x", "", 0},
++
++{"wan_pptp_options_x", "", 0},
++
+ {"wan_pppoe_mtu", "1492", 0},
+ 
+ {"wan_pppoe_mru", "1492", 0},
+@@ -101,6 +105,8 @@
+ 
+ {"fw_enable_x", "1", 0},
+ 
++{"fw_dos_x", "0", 0},
++
+ {"fw_log_x", "none", 0},
+ 
+ {"misc_natlog_x", "0", 0},
+@@ -113,13 +119,17 @@
+ 
+ {"misc_ping_x", "0", 0},
+ 
+-{"fw_wl_enable_x", "0", 0},
++{"misc_conntrack_x", "4096", 0},
++
++{"fw_wl_enable_x", "1", 0},
+ 
+ {"filter_wl_date_x", "1111111", 0},
+ 
+ {"filter_wl_time_x", "00002359", 0},
+ 
+-{"filter_wl_default_x", "ACCEPT", 0},
++{"filter_wl_default_x", "DROP", 0},
++
++{"filter_vs_default_x", "ACCEPT", 0},
+ 
+ {"filter_wl_icmp_x", "", 0},
+ 
+@@ -129,7 +139,7 @@
+ 
+ {"filter_lw_time_x", "00002359", 0},
+ 
+-{"filter_lw_default_x", "ACCEPT", 0},
++{"filter_lw_default_x", "DROP", 0},
+ 
+ {"filter_lw_icmp_x", "", 0},
+ 
+@@ -173,6 +183,10 @@
+ 
+ {"macfilter_list_x", "", 0},
+ 
++{"dr_enable_x", "1", 0},
++
++{"mr_enable_x", "0", 0},
++
+ {"sr_enable_x", "0", 0},
+ 
+ {"sr_rip_x", "0", 0},
+@@ -241,7 +255,9 @@
+ 
+ {"dhcp_staticnum_x", "0", 0},
+ 
+-{"upnp_enable", "1", 0},
++{"upnp_enable", "1", 0},
++
++{"udpxy_enable_x", "0", 0},
+ 
+ {"log_ipaddr", "", 0},
+ 
+@@ -253,6 +269,8 @@
+ 
+ {"ntp_server1", "", 0},
+ 
++{"ntp_interval_x", "2", 0},
++
+ {"ddns_enable_x", "0", 0},
+ 
+ {"ddns_server_x", "", 0},
+@@ -264,6 +282,11 @@
+ {"ddns_hostname_x", "", 0},
+ 
+ {"ddns_wildcard_x", "0", 0},
++
++{"snmp_enable", "0", 0},
++{"snmp_community", "public", 0},
++{"snmp_contact", "Administrator", 0},
++{"snmp_location", "Unknown", 0},
+ 
+ {"dhcp_staticmac_x", "", 0},
+ 
+@@ -427,6 +450,24 @@
+ 
+ {"usb_webremote6_x", "", 0},
+ 
++{"usb_storage_x", "1", 0},
++
++{"usb_smbenable_x", "0", 0},
++
++{"usb_smbhidden_x", "1", 0},
++
++{"usb_smbwrkgrp_x", "WORKGROUP", 0},
++
++{"usb_smbcpage_x", "866", 0},
++
++{"usb_smbcset_x", "utf8", 0},
++
++{"usb_smbnum_x", "0", 0},
++
++{"usb_nfsenable_x", "0", 0},
++
++{"usb_nfsnum_x", "0", 0},
++
+ {"usb_ftpenable_x", "1", 0},
+ 
+ {"usb_ftpanonymous_x", "1", 0},
+@@ -435,12 +476,26 @@
+ 
+ {"usb_ftpport_x", "21", 0},
+ 
++{"usb_ftppubroot_x", "ftp_pub", 0},
++
++{"usb_ftppvtroot_x", "ftp_pvt", 0},
++
++{"usb_ftpanonroot", "", 0},
++
++{"usb_ftpdirlist_x", "0", 0},
++
+ {"usb_ftpmax_x", "12", 0},
+ 
++{"usb_ftpipmax_x", "1", 0},
++
+ {"usb_ftptimeout_x", "120", 0},
+ 
+ {"usb_ftpstaytimeout_x", "240", 0},
+ 
++{"usb_ftprate_x", "0", 0},
++
++{"usb_ftpanonrate_x", "0", 0},
++
+ {"usb_ftpscript_x", "", 0},
+ 
+ {"usb_ftpnum_x", "0", 0},
+@@ -476,3 +531,21 @@
+ {"qos_umaxbw_x", "", 0},
+ 
+ {"qos_uminbw_x", "", 0},
++
++{"telnet_enable", "1", 0},
++{"infosvr_enable", "1", 0},
++{"lpr_enable", "1", 0},
++{"raw_enable", "1", 0},
++{"audio_enable", "1", 0},
++
++{"wl_nbw","40",0},
++{"wl_nctrlsb","lower",0},
++{"wl_nband","2",0},
++{"wl_nmcsidx","-1",0},
++{"wl_nmode","-1",0},
++{"wl_leddc","0x640000",0},
++{"wl_wme_apsd","on",0},
++{"wl_sta_retry_time","5",0},
++{"wl_reg_mode", "d", 0},
++{"wl_wpa_mode", "0", 0},
++
+diff -BurN router/shared/Makefile gateway/shared/Makefile
+--- router/shared/Makefile	2004-12-05 22:54:17.000000000 +0300
++++ gateway/shared/Makefile	2008-12-24 20:52:17.000000000 +0300
+@@ -12,8 +12,9 @@
+ # $Id$
+ #
+ 
++include $(TOP)/.config
+ 
+-CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall
++CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
+ #CFLAGS	+= -g -DDEBUG
+ CFLAGS	+= -s -O2
+ LDFLAGS += -L.
+@@ -26,6 +27,8 @@
+ 
+ all: libshared.so
+ 
++defaults.o: defaults.c flash.default
++
+ install: all
+ 	install -d $(INSTALLDIR)/usr/lib
+ 	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
+diff -BurN router/shared/netconf.h gateway/shared/netconf.h
+--- router/shared/netconf.h	2004-10-14 23:11:32.000000000 +0400
++++ gateway/shared/netconf.h	2008-03-17 20:52:17.000000000 +0300
+@@ -64,7 +64,7 @@
+ } netconf_match_t;
+ 
+ #define netconf_valid_ipproto(ipproto) \
+-	((ipproto == 0) || (ipproto) == IPPROTO_TCP || (ipproto) == IPPROTO_UDP)
++	((ipproto == 0) || (ipproto) == IPPROTO_IGMP || (ipproto) == IPPROTO_TCP || (ipproto) == IPPROTO_UDP)
+ 
+ /* Supported firewall target types */
+ enum netconf_target {
+diff -BurN router/shared/shutils.c gateway/shared/shutils.c
+--- router/shared/shutils.c	2004-11-15 06:34:17.000000000 +0300
++++ gateway/shared/shutils.c	2008-03-17 20:52:17.000000000 +0300
+@@ -1,7 +1,7 @@
+ /*
+  * Shell-like utility functions
+  *
+- * Copyright 2004, Broadcom Corporation
++ * Copyright 2005, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -16,7 +16,6 @@
+ #include <stdlib.h>
+ #include <stdarg.h>
+ #include <errno.h>
+-#include <error.h>
+ #include <fcntl.h>
+ #include <limits.h>
+ #include <unistd.h>
+@@ -25,12 +24,31 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <sys/wait.h>
+-#include <termios.h>
+ #include <sys/ioctl.h>
++
++#include <bcmnvram.h>
++#include <shutils.h>
++
++/* Linux specific headers */
++#ifdef linux
++#include <error.h>
++#include <termios.h>
+ #include <sys/time.h>
+ #include <net/ethernet.h>
++#endif /* linux */
++
++#define MAX_NVPARSE 255
++
++#ifdef linux
++
++mode_t 
++exists(const char *path)
++{
++	struct stat buf;
++	
++	return stat(path, &buf) ? 0 : buf.st_mode;
++}
+ 
+-#include <shutils.h>
+ 
+ /*
+  * Reads file and returns contents
+@@ -106,6 +124,7 @@
+ int
+ _eval(char *const argv[], char *path, int timeout, int *ppid)
+ {
++	sigset_t set;
+ 	pid_t pid;
+ 	int status;
+ 	int fd;
+@@ -121,11 +140,17 @@
+ 		for (sig = 0; sig < (_NSIG-1); sig++)
+ 			signal(sig, SIG_DFL);
+ 
++		/* Unblock signals if called from signal handler */
++		sigemptyset(&set);
++		sigprocmask(SIG_SETMASK, &set, NULL);
++		
+ 		/* Clean up */
+ 		ioctl(0, TIOCNOTTY, 0);
+ 		close(STDIN_FILENO);
+ 		setsid();
+ 
++		fd = open("/dev/null", O_RDWR); /* stdin */
++		
+ 		/* Redirect stdout to <path> */
+ 		if (path) {
+ 			flags = O_WRONLY | O_CREAT;
+@@ -145,11 +170,14 @@
+ 				dup2(fd, STDERR_FILENO);
+ 				close(fd);
+ 			}
++		} else {
++			dup2(fd, STDOUT_FILENO);
++			dup2(fd, STDERR_FILENO);
+ 		}
+ 
+ 		/* execute command */
+ 		dprintf("%s\n", argv[0]);
+-		setenv("PATH", "/sbin:/bin:/usr/sbin:/usr/bin", 1);
++		setenv("PATH", "/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin", 1);
+ 		alarm(timeout);
+ 		execvp(argv[0], argv);
+ 		perror(argv[0]);
+@@ -159,7 +187,10 @@
+ 			*ppid = pid;
+ 			return 0;
+ 		} else {
+-			waitpid(pid, &status, 0);
++			if (waitpid(pid, &status, 0) == -1) {
++				perror("waitpid");
++				return errno;
++			}
+ 			if (WIFEXITED(status))
+ 				return WEXITSTATUS(status);
+ 			else
+@@ -269,6 +300,7 @@
+ 	return ret;
+ }
+ 
++#endif /* linux */
+ /*
+  * Convert Ethernet address string representation to binary data
+  * @param	a	string in xx:xx:xx:xx:xx:xx notation
+@@ -309,3 +341,455 @@
+ 	}
+ 	return a;
+ }
++
++/*
++ * Get the ip configuration index if it exists given the 
++ * eth name.
++ * 
++ * @param	wl_ifname 	pointer to eth interface name
++ * @return	index or -1 if not found
++ */ 
++int 
++get_ipconfig_index(char *eth_ifname)
++{
++	char varname[64];
++	char varval[64];
++	char *ptr;
++	char wl_ifname[64];
++	int index;
++	
++	/* Bail if we get a NULL or empty string */
++	
++	if (!eth_ifname) return -1;
++	if (!*eth_ifname) return -1;
++	
++	/* Look up wl name from the eth name */
++	if( osifname_to_nvifname( eth_ifname, wl_ifname, sizeof(wl_ifname)) != 0 )
++		return -1;
++		
++	snprintf(varname,sizeof(varname),"%s_ipconfig_index",wl_ifname);
++
++	ptr = nvram_get(varname);
++	
++	if (ptr){
++	/* Check ipconfig_index pointer to see if it is still pointing 
++	   the correct lan config block */
++		if (*ptr) {
++			int index;
++			char *ifname;
++			char buf[64];
++			index = atoi(ptr);
++			
++			snprintf(buf,sizeof(buf),"lan%d_ifname",index);
++			
++			ifname = nvram_get(buf);
++			
++			if (ifname) {
++				if  (!(strcmp(ifname,wl_ifname)))
++					return index;
++			}
++			nvram_unset(varname);
++		}
++	}
++	
++	/* The index pointer may not have been configured if the
++	 * user enters the variables manually. Do a brute force search 
++	 *  of the lanXX_ifname variables
++	 */
++	for (index=0 ; index < MAX_NVPARSE; index++){
++		snprintf(varname,sizeof(varname),"lan%d_ifname",index);
++		if ( nvram_match(varname,wl_ifname)){
++			/* if a match is found set up a corresponding index pointer for wlXX */
++			snprintf(varname,sizeof(varname),"%s_ipconfig_index",wl_ifname);
++			snprintf(varval,sizeof(varval),"%d",index);
++			nvram_set(varname,varval);
++			nvram_commit();
++			return index;
++		};
++	}
++	return -1;
++}
++	
++/*
++ * Set the ip configuration index given the eth name
++ * Updates both wlXX_ipconfig_index and lanYY_ifname.
++ * 
++ * @param	eth_ifname 	pointer to eth interface name
++ * @return	0 if successful -1 if not.
++ */
++int 
++set_ipconfig_index(char *eth_ifname,int index)
++{
++	char varname[255];
++	char varval[16];
++	char wl_ifname[64];
++	
++	/* Bail if we get a NULL or empty string */
++	
++	if (!eth_ifname) return -1;
++	if (!*eth_ifname) return -1;
++	
++	if (index >= MAX_NVPARSE) return -1;
++	
++	/* Look up wl name from the eth name only if the name contains
++	   eth
++	*/
++
++	if( osifname_to_nvifname( eth_ifname, wl_ifname, sizeof(wl_ifname)) != 0 )
++		return -1;
++	
++	snprintf(varname,sizeof(varname),"%s_ipconfig_index",wl_ifname);
++	snprintf(varval,sizeof(varval),"%d",index);
++	nvram_set(varname,varval);
++	
++	snprintf(varname,sizeof(varname),"lan%d_ifname",index);
++	nvram_set(varname,wl_ifname);
++	
++	nvram_commit();
++	
++	return 0;
++}
++	
++/*
++ * Get interfaces belonging to a specific bridge.
++ * 
++ * @param	bridge_name 	pointer to bridge interface name
++ * @return	list of interfaces belonging to the bridge or NULL
++ *              if not found/empty
++ */	
++char *
++get_bridged_interfaces(char *bridge_name)
++{
++	static char interfaces[255] ;	
++	char *ifnames=NULL;
++	char bridge[64];
++	
++	if (!bridge_name) return NULL;
++	
++	memset(interfaces,0,sizeof(interfaces));
++	snprintf(bridge,sizeof(bridge),"%s_ifnames",bridge_name);
++	
++	ifnames=nvram_get(bridge);
++	
++	if (ifnames) 
++		strncpy(interfaces,ifnames,sizeof(interfaces));
++	else
++		return NULL;
++		
++	return  interfaces;
++		
++}
++
++/*
++ * Search a string backwards for a set of characters
++ * This is the reverse version of strspn()
++ *
++ * @param	s	string to search backwards
++ * @param	accept	set of chars for which to search
++ * @return	number of characters in the trailing segment of s 
++ *		which consist only of characters from accept.
++ */
++static size_t
++sh_strrspn(const char *s, const char *accept)
++{
++	const char *p;
++	size_t accept_len = strlen(accept);
++	int i;
++
++	
++	if (s[0] == '\0')
++		return 0;
++	
++	p = s + (strlen(s) - 1);
++	i = 0;
++	
++	do {
++		if (memchr(accept, *p, accept_len) == NULL)
++			break;
++		p--; i++;
++	} while (p != s);
++
++	return i;
++}
++
++/*
++ * Parse the unit and subunit from an interface string such as wlXX or wlXX.YY
++ *
++ * @param	ifname	interface string to parse
++ * @param	unit	pointer to return the unit number, may pass NULL
++ * @param	subunit	pointer to return the subunit number, may pass NULL
++ * @return	Returns 0 if the string ends with digits or digits.digits, -1 otherwise.
++ *		If ifname ends in digits.digits, then unit and subuint are set
++ *		to the first and second values respectively. If ifname ends 
++ *		in just digits, unit is set to the value, and subunit is set
++ *		to -1. On error both unit and subunit are -1. NULL may be passed
++ *		for unit and/or subuint to ignore the value.
++ */
++int
++get_ifname_unit(const char* ifname, int *unit, int *subunit)
++{
++	const char digits[] = "0123456789";
++	char str[64];
++	char *p;
++	size_t ifname_len = strlen(ifname);
++	size_t len;
++	long val;
++
++	if (unit)
++		*unit = -1;
++	if (subunit)
++		*subunit = -1;
++	
++	if (ifname_len + 1 > sizeof(str)) 
++		return -1;
++
++	strcpy(str, ifname);
++
++	/* find the trailing digit chars */
++	len = sh_strrspn(str, digits);
++	
++	/* fail if there were no trailing digits */
++	if (len == 0)
++		return -1;
++
++	/* point to the beginning of the last integer and convert */
++	p = str + (ifname_len - len);
++	val = strtol(p, NULL, 10);
++	
++	/* if we are at the beginning of the string, or the previous
++	 * character is not a '.', then we have the unit number and
++	 * we are done parsing
++	 */
++	if (p == str || p[-1] != '.') {
++		if (unit)
++			*unit = val;
++		return 0;
++	} else {
++		if (subunit)
++			*subunit = val;
++	}
++
++	/* chop off the '.NNN' and get the unit number */
++	p--;
++	p[0] = '\0';
++	
++	/* find the trailing digit chars */
++	len = sh_strrspn(str, digits);
++
++	/* fail if there were no trailing digits */
++	if (len == 0)
++		return -1;
++
++	/* point to the beginning of the last integer and convert */
++	p = p - len;
++	val = strtol(p, NULL, 10);
++
++	/* save the unit number */
++	if (unit)
++		*unit = val;
++
++	return 0;
++}
++
++/** 
++		remove_from_list
++		Remove the specified word from the list.
++
++		@param name word to be removed from the list
++		@param list Space separated list to modify
++		@param listsize Max size the list can occupy
++
++		@return	error code
++*/
++int remove_from_list( char *name, char *list, int listsize )
++{
++	int listlen = 0;
++	int namelen = 0;
++	char *occurrence = list;
++	
++	if( !list || !name || (listsize <= 0) )
++		return EINVAL;
++
++	listlen = strlen( list );
++	namelen = strlen( name );
++
++	while( occurrence != NULL && ( occurrence - list < listlen ))
++	{
++		occurrence = strstr( occurrence, name );
++		
++		if( !occurrence )
++			return EINVAL;
++		
++		/* last item in list? */
++		if( occurrence[namelen] == 0 )
++		{
++			/* only item in list? */
++			if( occurrence != list )
++				occurrence--;
++			occurrence[0] = 0;
++			break;
++		}
++		else if( occurrence[namelen] == ' ' )
++		{
++			strncpy( occurrence, &occurrence[namelen+1/*space*/], 
++							 strlen( &occurrence[namelen+1/*space*/]) +1/*terminate*/ );
++			break;
++		}
++		occurrence++;
++	}
++
++	return 0;
++}
++
++/** 
++		add_to_list
++		Add the specified interface(string) to the list as long as
++		it will fit in the space left in the list.
++
++		NOTE: If item is already in list, it won't be added again.
++
++		@param name Name of interface to be added to the list
++		@param list List to modify
++		@param listsize Max size the list can occupy
++
++		@return	error code
++*/
++int add_to_list( char *name, char *list, int listsize )
++{
++	int listlen = 0;
++	int namelen = 0;
++	char *temp = NULL;
++
++	if( !list || !name || (listsize <= 0) )
++		return EINVAL;
++
++	listlen = strlen( list );
++	namelen = strlen( name );
++
++	/* is the item already in the list? */
++	temp = strstr( list, name );
++	if( temp && ( temp[namelen] == ' ' || temp[namelen] == 0))
++		return 0;
++
++
++	if( listsize <= listlen + namelen + 1/*space*/ )
++		return EMSGSIZE;
++
++	/* add a space if the list isn't empty */
++	if( list[0] != 0 )
++	{
++		list[listlen++] = 0x20;
++	}
++	
++	listlen += strncpy( &list[listlen], name, namelen+1/*terminate*/ );
++
++	return 0;
++}
++
++
++#define WLMBSS_DEV_NAME	"wlmbss"
++#define WL_DEV_NAME "wl"
++#define WDS_DEV_NAME	"wds"
++
++#if defined(linux)
++/**
++	 nvifname_to_osifname() 
++	 The intent here is to provide a conversion between the OS interface name
++	 and the device name that we keep in NVRAM.  
++	 This should eventually be placed in a Linux specific file with other 
++	 OS abstraction functions.
++
++	 @param nvifname pointer to ifname to be converted
++	 @param osifname_buf storage for the converted osifname
++	 @param osifname_buf_len length of storage for osifname_buf
++*/
++int 
++nvifname_to_osifname( const char *nvifname, char *osifname_buf, 
++											int osifname_buf_len )
++{
++	char varname[NVRAM_MAX_PARAM_LEN];
++	char *ptr;
++	
++	memset( osifname_buf, 0, osifname_buf_len );
++
++	/* Bail if we get a NULL or empty string */
++	if((!nvifname) || (!*nvifname) || (!osifname_buf)){
++		return -1;
++	}
++	
++	if (strstr(nvifname,"eth") || strstr(nvifname,".")){
++		strncpy( osifname_buf, nvifname, osifname_buf_len);
++		return 0;
++	}	
++	
++	snprintf( varname, sizeof(varname), "%s_ifname", nvifname);
++	ptr = nvram_get(varname);
++	if (ptr){
++		/* Bail if the string is empty */
++		if (!*ptr) return -1;
++		strncpy( osifname_buf, ptr, osifname_buf_len);
++		return 0;
++	}
++
++	return -1;
++}
++
++
++/* osifname_to_nvifname()
++
++   Convert the OS interface name to the name we use internally(NVRAM,GUI,etc.)
++
++	 This is the Linux version of this function 
++
++	 @param osifname pointer to osifname to be converted
++	 @param nvifname_buf storage for the converted ifname
++	 @param nvifname_buf_len length of storage for nvifname_buf
++*/
++
++int
++osifname_to_nvifname( const char *osifname, char *nvifname_buf, 
++											int nvifname_buf_len )
++{
++	char varname[NVRAM_MAX_PARAM_LEN];
++	int pri,sec;
++	
++	/* Bail if we get a NULL or empty string */
++	
++	if((!osifname) || (!*osifname) || (!nvifname_buf))
++	{
++		return -1;
++	}
++	
++	memset(nvifname_buf,nvifname_buf_len,0);
++	
++	if (strstr(osifname,"wl")){
++		strncpy(nvifname_buf,osifname,nvifname_buf_len);
++		return 0;
++	}	
++	
++	/* look for interface name on the primary interfaces first */
++	for (pri=0;pri < MAX_NVPARSE; pri++){
++		snprintf(varname,sizeof(varname),
++					"wl%d_ifname",pri);
++		if (nvram_match(varname,(char *)osifname)){
++					snprintf(nvifname_buf,nvifname_buf_len,"wl%d",pri);
++					return 0;
++				}
++	}
++	
++	/* look for interface name on the multi-instance interfaces */
++	for (pri=0;pri < MAX_NVPARSE; pri++)
++		for (sec=0;sec< MAX_NVPARSE; sec++){
++			snprintf(varname,sizeof(varname),
++					"wl%d.%d_ifname",pri,sec);
++			if (nvram_match(varname,(char *)osifname)){
++					snprintf(nvifname_buf,nvifname_buf_len,"wl%d.%d",pri,sec);
++					return 0;
++				}
++		}
++	
++	return -1;
++
++}
++
++#endif
+diff -BurN router/shared/shutils.h gateway/shared/shutils.h
+--- router/shared/shutils.h	2004-11-15 06:34:19.000000000 +0300
++++ gateway/shared/shutils.h	2008-03-17 20:52:17.000000000 +0300
+@@ -1,7 +1,7 @@
+ /*
+  * Shell-like utility functions
+  *
+- * Copyright 2004, Broadcom Corporation
++ * Copyright 2005, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -16,6 +16,15 @@
+ #define _shutils_h_
+ 
++#include <string.h>
++
+ /*
++ * Checks if file exists
++ * @param	fd	file descriptor
++ * @return	return st_mode field (0 if not exists)
++ */
++extern mode_t exists(const char *path);
++
++/*
+  * Reads file and returns contents
+  * @param	fd	file descriptor
+  * @return	contents of file or NULL if an error occurred
+@@ -113,6 +120,78 @@
+ 	return buf;
+ }	
+ 
++/*
++ * Parse the unit and subunit from an interface string such as wlXX or wlXX.YY
++ *
++ * @param	ifname	interface string to parse
++ * @param	unit	pointer to return the unit number, may pass NULL
++ * @param	subunit	pointer to return the subunit number, may pass NULL
++ * @return	Returns 0 if the string ends with digits or digits.digits, -1 otherwise.
++ *		If ifname ends in digits.digits, then unit and subuint are set
++ *		to the first and second values respectively. If ifname ends 
++ *		in just digits, unit is set to the value, and subunit is set
++ *		to -1. On error both unit and subunit are -1. NULL may be passed
++ *		for unit and/or subuint to ignore the value.
++ */
++extern int get_ifname_unit(const char* ifname, int *unit, int *subunit);
++
++/*
++ * Set the ip configuration index given the eth name
++ * Updates both wlXX_ipconfig_index and lanYY_ifname.
++ * 
++ * @param	eth_ifname 	pointer to eth interface name
++ * @return	0 if successful -1 if not.
++ */
++ extern int set_ipconfig_index(char *eth_ifname,int index);
++
++/*
++ * Get the ip configuration index if it exists given the 
++ * eth name.
++ * 
++ * @param	wl_ifname 	pointer to eth interface name
++ * @return	index or -1 if not found
++ */
++extern int get_ipconfig_index(char *eth_ifname);
++
++/*
++ * Get interfaces belonging to a specific bridge.
++ * 
++ * @param	bridge_name 	pointer to bridge interface name
++ * @return	list on interfaces beloging to the bridge
++ */	
++extern char *
++get_bridged_interfaces(char *bridge_name);
++
++/* 
++		remove_from_list
++		Remove the specified word from the list.
++
++		@param name word to be removed from the list
++		@param list List to modify
++		@param listsize Max size the list can occupy
++
++		@return	error code
++*/
++extern int remove_from_list( char *name, char *list, int listsize );
++
++/*
++		add_to_list
++		Add the specified interface(string) to the list as long as
++		it will fit in the space left in the list.  
++
++		@param name Name of interface to be added to the list
++		@param list List to modify
++		@param listsize Max size the list can occupy
++
++		@return	error code
++*/
++extern int add_to_list( char *name, char *list, int listsize );
++
++extern int nvifname_to_osifname( const char *nvifname, char *osifname_buf, 
++								int osifname_buf_len );
++extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf, 
++								int nvifname_buf_len );
++
+ /* Check for a blank character; that is, a space or a tab */
+ #define isblank(c) ((c) == ' ' || (c) == '\t')
+ 
+@@ -130,20 +209,11 @@
+ 	_backtick(argv); \
+ })
+ 
+-// Modified by Joey to dump message to /dev/null
+-#ifdef REMOVE
+-/* Simple version of _eval() (no timeout and wait for child termination) */
+-#define eval(cmd, args...) ({ \
+-	char *argv[] = { cmd, ## args, NULL }; \
+-	_eval(argv, ">/dev/console", 0, NULL); \
+-})
+-#else
+ /* Simple version of _eval() (no timeout and wait for child termination) */
+ #define eval(cmd, args...) ({ \
+ 	char *argv[] = { cmd, ## args, NULL }; \
+ 	_eval(argv, ">/dev/null", 0, NULL); \
+ })
+-#endif
+ 
+ /* Copy each token in wordlist delimited by space into word */
+ #define foreach(word, wordlist, next) \
+@@ -162,17 +232,16 @@
+ /* Return NUL instead of NULL if undefined */
+ #define safe_getenv(s) (getenv(s) ? : "")
+ 
+-#ifdef REMOVE
++#ifdef linux
+ /* Print directly to the console */
++
+ #define cprintf(fmt, args...) do { \
+-	FILE *fp = fopen("/dev/console", "w"); \
++	FILE *fp = fopen("/dev/null", "w"); \
+ 	if (fp) { \
+ 		fprintf(fp, fmt, ## args); \
+ 		fclose(fp); \
+ 	} \
+ } while (0)
+-#else
+-#define cprintf(fmt, args...) 
+ #endif
+ 
+ /* Debug print */
+@@ -180,7 +249,7 @@
+ #define dprintf(fmt, args...) cprintf("%s: " fmt, __FUNCTION__, ## args)
+ #else
+ #define dprintf(fmt, args...)
+-#endif
++#endif /*DEBUG*/
+ 
+ 
+ #endif /* _shutils_h_ */
+diff -BurN router/shared/wl.c gateway/shared/wl.c
+--- router/shared/wl.c	2004-10-14 23:11:32.000000000 +0400
++++ gateway/shared/wl.c	2008-03-17 20:52:17.000000000 +0300
+@@ -1,7 +1,7 @@
+ /*
+  * Wireless network adapter utilities
+  *
+- * Copyright 2004, Broadcom Corporation
++ * Copyright 2005, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -19,6 +19,7 @@
+ #include <net/if.h>
+ 
+ #include <typedefs.h>
++#include <bcmutils.h>
+ #include <wlutils.h>
+ 
+ int
+@@ -46,53 +47,223 @@
+ 	return ret;
+ }
+ 
+-int
+-wl_set_val(char *name, char *var, void *val, int len)
++int 
++wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
+ {
+-	char buf[WLC_IOCTL_SMLEN];
+-	int buf_len;
++	int err;
++	uint namelen;
++	uint iolen;
++
++	namelen = strlen(iovar) + 1;	 /* length of iovar name plus null */
++	iolen = namelen + paramlen;
+ 
+ 	/* check for overflow */
+-	if ((buf_len = strlen(var)) + 1 + len > sizeof(buf))
+-		return -1;
++	if (iolen > buflen) 
++		return (BCME_BUFTOOSHORT);
++
++	memcpy(bufptr, iovar, namelen);	/* copy iovar name including null */
++	memcpy((int8*)bufptr + namelen, param, paramlen);
++
++	err = wl_ioctl(ifname, WLC_GET_VAR, bufptr, buflen);
+ 	
+-	strcpy(buf, var);
+-	buf_len += 1;
++	return (err);
++}
++
++int 
++wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen)
++{
++	uint namelen;
++	uint iolen;
+ 
+-	/* append int value onto the end of the name string */
+-	memcpy(&buf[buf_len], val, len);
+-	buf_len += len;
++	namelen = strlen(iovar) + 1;	 /* length of iovar name plus null */
++	iolen = namelen + paramlen;
++
++	/* check for overflow */
++	if (iolen > buflen) 
++		return (BCME_BUFTOOSHORT);
++
++	memcpy(bufptr, iovar, namelen);	/* copy iovar name including null */
++	memcpy((int8*)bufptr + namelen, param, paramlen);
++
++	return wl_ioctl(ifname, WLC_SET_VAR, bufptr, iolen);
++}
++
++int
++wl_iovar_set(char *ifname, char *iovar, void *param, int paramlen)
++{
++	char smbuf[WLC_IOCTL_SMLEN];
+ 
+-	return wl_ioctl(name, WLC_SET_VAR, buf, buf_len);
++	return wl_iovar_setbuf(ifname, iovar, param, paramlen, smbuf, sizeof(smbuf));
+ }
+ 
+ int
+-wl_get_val(char *name, char *var, void *val, int len)
++wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen)
+ {
+-	char buf[WLC_IOCTL_SMLEN];
++	char smbuf[WLC_IOCTL_SMLEN];
+ 	int ret;
+ 
++	/* use the return buffer if it is bigger than what we have on the stack */
++	if (buflen > sizeof(smbuf)) {
++		ret = wl_iovar_getbuf(ifname, iovar, NULL, 0, bufptr, buflen);
++	} else {
++		ret = wl_iovar_getbuf(ifname, iovar, NULL, 0, smbuf, sizeof(smbuf));
++		if (ret == 0)
++			memcpy(bufptr, smbuf, buflen);
++	}
++
++	return ret;
++}
++
++/* 
++ * set named driver variable to int value
++ * calling example: wl_iovar_setint(ifname, "arate", rate) 
++*/
++int
++wl_iovar_setint(char *ifname, char *iovar, int val)
++{
++	return wl_iovar_set(ifname, iovar, &val, sizeof(val));
++}
++
++/* 
++ * get named driver variable to int value and return error indication 
++ * calling example: wl_iovar_getint(ifname, "arate", &rate) 
++ */
++int
++wl_iovar_getint(char *ifname, char *iovar, int *val)
++{
++	return wl_iovar_get(ifname, iovar, val, sizeof(int));
++}
++
++/* 
++ * format a bsscfg indexed iovar buffer
++ */
++static int
++wl_bssiovar_mkbuf(char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen, int *plen)
++{
++	char *prefix = "bsscfg:";
++	int8* p;
++	uint prefixlen;
++	uint namelen;
++	uint iolen;
++
++	prefixlen = strlen(prefix);	/* length of bsscfg prefix */
++	namelen = strlen(iovar) + 1;	/* length of iovar name + null */
++	iolen = prefixlen + namelen + sizeof(int) + paramlen;
++
+ 	/* check for overflow */
+-	if (strlen(var) + 1 > sizeof(buf) || len > sizeof(buf))
+-		return -1;
++	if (buflen < 0 || iolen > (uint)buflen) {
++		*plen = 0;
++		return BCME_BUFTOOSHORT;
++	}
++
++	p = (int8*)bufptr;
++
++	/* copy prefix, no null */
++	memcpy(p, prefix, prefixlen);	
++	p += prefixlen;
++
++	/* copy iovar name including null */
++	memcpy(p, iovar, namelen);	
++	p += namelen;
++
++	/* bss config index as first param */
++	memcpy(p, &bssidx, sizeof(int32));
++	p += sizeof(int32);
+ 	
+-	strcpy(buf, var);
+-	if ((ret = wl_ioctl(name, WLC_GET_VAR, buf, sizeof(buf))))
+-		return ret;
++	/* parameter buffer follows */
++	if (paramlen)
++		memcpy(p, param, paramlen);
+ 
+-	memcpy(val, buf, len);
++	*plen = iolen;
+ 	return 0;
+ }
+ 
++/* 
++ * set named & bss indexed driver variable to buffer value
++ */
++int
++wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
++{
++	int err;
++	uint iolen;
++
++	err = wl_bssiovar_mkbuf(iovar, bssidx, param, paramlen, bufptr, buflen, &iolen);
++	if (err)
++		return err;
++	
++	return wl_ioctl(ifname, WLC_SET_VAR, bufptr, iolen);
++}
++
++/* 
++ * get named & bss indexed driver variable buffer value
++ */
+ int
+-wl_set_int(char *name, char *var, int val)
++wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen)
+ {
+-	return wl_set_val(name, var, &val, sizeof(val));
++	int err;
++	uint iolen;
++
++	err = wl_bssiovar_mkbuf(iovar, bssidx, param, paramlen, bufptr, buflen, &iolen);
++	if (err)
++		return err;
++	
++	return wl_ioctl(ifname, WLC_GET_VAR, bufptr, buflen);
+ }
+ 
++/* 
++ * set named & bss indexed driver variable to buffer value
++ */
+ int
+-wl_get_int(char *name, char *var, int *val)
++wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen)
+ {
+-	return wl_get_val(name, var, val, sizeof(*val));
++	char smbuf[WLC_IOCTL_SMLEN];
++
++	return wl_bssiovar_setbuf(ifname, iovar, bssidx, param, paramlen, smbuf, sizeof(smbuf));
++}
++
++/* 
++ * get named & bss indexed driver variable buffer value
++ */
++int
++wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len)
++{
++	char smbuf[WLC_IOCTL_SMLEN];
++	int err;
++
++	/* use the return buffer if it is bigger than what we have on the stack */
++	if (len > (int)sizeof(smbuf)) {
++		err = wl_bssiovar_getbuf(ifname, iovar, bssidx, NULL, 0, outbuf, len);
++	} else {
++		memset(smbuf, 0, sizeof(smbuf));
++		err = wl_bssiovar_getbuf(ifname, iovar, bssidx, NULL, 0, smbuf, sizeof(smbuf));
++		if (err == 0)
++			memcpy(outbuf, smbuf, len);
++	}
++
++	return err;
++}
++
++/* 
++ * set named & bss indexed driver variable to int value
++ */
++int
++wl_bssiovar_setint(char *ifname, char *iovar, int bssidx, int val)
++{
++	return wl_bssiovar_set(ifname, iovar, bssidx, &val, sizeof(int));
++}
++
++/*
++void 
++wl_printlasterror(char *name)
++{
++	char err_buf[WLC_IOCTL_SMLEN];
++	strcpy(err_buf, "bcmerrstr");
++	
++	fprintf(stderr, "Error: ");
++	if ( wl_ioctl(name, WLC_GET_VAR, err_buf, sizeof (err_buf)) != 0)
++		fprintf(stderr, "Error getting the Errorstring from driver\n");
++	else
++		fprintf(stderr, err_buf);
+ }
++*/
+ 
+diff -BurN router/shared/wl_linux.c gateway/shared/wl_linux.c
+--- router/shared/wl_linux.c	2004-10-14 23:11:32.000000000 +0400
++++ gateway/shared/wl_linux.c	2008-03-17 20:52:17.000000000 +0300
+@@ -1,7 +1,7 @@
+ /*
+  * Wireless network adapter utilities (linux-specific)
+  *
+- * Copyright 2004, Broadcom Corporation
++ * Copyright 2005, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -18,6 +18,7 @@
+ #include <errno.h>
+ #include <sys/ioctl.h>
+ #include <net/if.h>
++#include <linux/types.h>
+ 
+ typedef u_int64_t u64;
+ typedef u_int32_t u32;
+diff -BurN router/shared/wlutils.h gateway/shared/wlutils.h
+--- router/shared/wlutils.h	2004-10-14 23:11:32.000000000 +0400
++++ gateway/shared/wlutils.h	2008-03-17 20:52:17.000000000 +0300
+@@ -1,7 +1,7 @@
+ /*
+  * Broadcom wireless network adapter utility functions
+  *
+- * Copyright 2004, Broadcom Corporation
++ * Copyright 2005, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -55,15 +55,38 @@
+ 
+ /*
+  * Set/Get named variable.
+- * @param	name	interface name
+- * @param	var	variable name
+- * @param	val	variable value/buffer
+- * @param	len	variable value/buffer length
++ * @param	ifname		interface name
++ * @param	iovar		variable name
++ * @param	param		input param value/buffer
++ * @param	paramlen	input param value/buffer length
++ * @param	bufptr		io buffer
++ * @param	buflen		io buffer length
++ * @param	val		val or val pointer for int routines
++ * @return	success == 0, failure != 0
++ */
++extern int wl_iovar_setbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen);
++extern int wl_iovar_getbuf(char *ifname, char *iovar, void *param, int paramlen, void *bufptr, int buflen);
++extern int wl_iovar_set(char *ifname, char *iovar, void *param, int paramlen);
++extern int wl_iovar_get(char *ifname, char *iovar, void *bufptr, int buflen);
++extern int wl_iovar_setint(char *ifname, char *iovar, int val);
++extern int wl_iovar_getint(char *ifname, char *iovar, int *val);
++
++/*
++ * Set/Get named variable indexed by BSS Configuration
++ * @param	ifname		interface name
++ * @param	iovar		variable name
++ * @param	bssidx		bsscfg index
++ * @param	param		input param value/buffer
++ * @param	paramlen	input param value/buffer length
++ * @param	bufptr		io buffer
++ * @param	buflen		io buffer length
++ * @param	val		val or val pointer for int routines
+  * @return	success == 0, failure != 0
+  */
+-extern int wl_set_val(char *name, char *var, void *val, int len);
+-extern int wl_get_val(char *name, char *var, void *val, int len);
+-extern int wl_set_int(char *name, char *var, int val);
+-extern int wl_get_int(char *name, char *var, int *val);
++extern int wl_bssiovar_setbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen);
++extern int wl_bssiovar_getbuf(char *ifname, char *iovar, int bssidx, void *param, int paramlen, void *bufptr, int buflen);
++extern int wl_bssiovar_get(char *ifname, char *iovar, int bssidx, void *outbuf, int len);
++extern int wl_bssiovar_set(char *ifname, char *iovar, int bssidx, void *param, int paramlen);
++extern int wl_bssiovar_setint(char *ifname, char *iovar, int bssidx, int val);
+ 
+ #endif /* _wlutils_h_ */

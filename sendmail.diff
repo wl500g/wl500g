@@ -1,0 +1,48 @@
+diff -BurN router/sendmail/mini_sendmail.c gateway/sendmail/mini_sendmail.c
+--- router/sendmail/mini_sendmail.c	2004-11-11 10:32:18.000000000 +0300
++++ gateway/sendmail/mini_sendmail.c	2006-10-21 22:59:06.430636008 +0400
+@@ -134,12 +134,7 @@
+ 	++argn;
+ 	}
+ 
+-#ifndef WL600
+     username = getlogin();
+-#else
+-    username = "WL600";
+-    //fprintf(stderr, "%s\n", username);
+-#endif
+     if ( username == (char*) 0 )
+ 	{
+ #ifdef DO_GETPWUID
+@@ -156,15 +151,15 @@
+ #endif /* DO_GETPWUID */
+ 	}
+ 
+-#ifndef WL600
+     if ( gethostname( hostname, sizeof(hostname) - 1 ) < 0 )
+ 	show_error( "gethostname" );
+-#else
+-	strcpy(hostname,"MAILER");
+-#endif
+ 
+     if ( fake_from == (char*) 0 )
++#ifdef WL600
++	(void) snprintf( from, sizeof(from), "%s", argv[argn]);
++#else
+ 	(void) snprintf( from, sizeof(from), "%s@%s", username, hostname );
++#endif
+     else
+ 	if ( strchr( fake_from, '@' ) == (char*) 0 )
+ 	    (void) snprintf( from, sizeof(from), "%s@%s", fake_from, hostname );
+@@ -212,11 +207,7 @@
+ 	exit( 1 );
+ 	}
+ 
+-#ifdef WL600
+-	(void) snprintf( buf, sizeof(buf), "MAIL FROM:<%s>", argv[argn]);
+-#else
+     (void) snprintf( buf, sizeof(buf), "MAIL FROM:<%s>", from );
+-#endif
+     send_command( buf );
+     status = read_response();
+     if ( status != 250 )

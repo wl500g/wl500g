@@ -1,0 +1,262 @@
+ 2008-03-18 Netconf modifications due to changes in iptables-1.3.x branch
+ 2008-12-12 gcc4 compilation fixes
+ 
+diff -BurN router/netconf/Makefile gateway/netconf/Makefile
+--- router/netconf/Makefile	2004-10-14 23:11:28.000000000 +0400
++++ gateway/netconf/Makefile	2008-12-24 16:34:10.000000000 +0300
+@@ -12,7 +12,7 @@
+ # $Id$
+ #
+ 
+-CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -I$(LINUXDIR)/include -Wall
++CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -Wall $(EXTRACFLAGS)
+ #CFLAGS	+= -g -DDEBUG
+ CFLAGS	+= -s -O2
+ LDFLAGS += -L. -L$(TOP)/iptables/libiptc
+diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
+--- router/netconf/netconf_linux.c	2004-10-14 23:11:28.000000000 +0400
++++ gateway/netconf/netconf_linux.c	2008-12-12 20:36:48.000000000 +0300
+@@ -116,6 +116,18 @@
+ }
+ 
+ /*
++ * get NAT chain name taking in account
++ * wildcard DNAT (virtual servers)
++ */
++static const char *
++get_nat_chain_name(const netconf_fw_t *fw)
++{
++	return (fw->target == NETCONF_DNAT && 
++			fw->match.dst.ipaddr.s_addr == INADDR_ANY) ? 
++		"VSERVER" : ipt_nat_chain_name[fw->target];
++}
++
++/*
+  * Get a list of the current firewall entries
+  * @param	fw_list	list of firewall entries
+  * @return	0 on success and errno on failure
+@@ -146,7 +158,7 @@
+ 		for (chain = iptc_first_chain(&handle); chain; chain = iptc_next_chain(&handle)) {
+ 
+ 			if (strcmp(chain, "INPUT") && strcmp(chain, "FORWARD") && strcmp(chain, "OUTPUT") &&
+-			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING"))
++			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING") && strcmp(chain, "VSERVER"))
+ 				continue;		
+ 
+ 			/* Search all entries */
+@@ -174,11 +186,11 @@
+ 
+ 				/* Only know about specified target types */
+ 				if (netconf_valid_filter(num))
+-					fw = (netconf_fw_t *) filter = calloc(1, sizeof(netconf_filter_t));
++					fw = (netconf_fw_t *) (filter = calloc(1, sizeof(netconf_filter_t)));
+ 				else if (netconf_valid_nat(num))
+-					fw = (netconf_fw_t *) nat = calloc(1, sizeof(netconf_nat_t));
++					fw = (netconf_fw_t *) (nat = calloc(1, sizeof(netconf_nat_t)));
+ 				else if (num == NETCONF_APP)
+-					fw = (netconf_fw_t *) app = calloc(1, sizeof(netconf_app_t));
++					fw = (netconf_fw_t *) (app = calloc(1, sizeof(netconf_app_t)));
+ 				else
+ 					continue;
+ 
+@@ -250,6 +262,11 @@
+ 					}
+ 				}
+ 				
++				/* Simple protocol match */
++				else if (entry->ip.proto != IPPROTO_IP) {
++					fw->match.ipproto = entry->ip.proto;
++				}
++
+ 				/* Get source MAC address */
+ 				for_each_ipt_match(match, entry) {
+ 					if (strncmp(match->u.user.name, "mac", IPT_FUNCTION_MAXNAMELEN) != 0)
+@@ -346,7 +363,6 @@
+ 
+ 		if (!iptc_commit(&handle)) {
+ 			fprintf(stderr, "%s\n", iptc_strerror(errno));
+-			handle = NULL;
+ 			goto err;
+ 		}
+ 	}
+@@ -355,7 +371,7 @@
+ 
+  err:
+ 	if (handle)
+-		iptc_commit(&handle);
++		iptc_free(&handle);
+ 	netconf_list_free(fw_list);
+ 	return errno;	
+ }
+@@ -420,7 +436,7 @@
+ 			/* Only consider specified chains */
+ 			if (filter && strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0)
+ 				continue;
+-			else if (nat && strncmp(chain, ipt_nat_chain_name[nat->target], sizeof(ipt_chainlabel)) != 0)
++			else if (nat && strncmp(chain, get_nat_chain_name(fw), sizeof(ipt_chainlabel)) != 0)
+ 				continue;
+ 			else if (app && strncmp(chain, "PREROUTING", sizeof(ipt_chainlabel)) != 0)
+ 				continue;
+@@ -623,6 +639,8 @@
+ 			break;
+ 	}
+ 
++	if (handle)
++		iptc_free(&handle);
+ 	return (entry ? ret : -ENOENT);
+ }
+ 
+@@ -705,6 +723,24 @@
+ }
+ 
+ /*
++ * Seek for a target name as in iptables 1.2.x branch behaviour
++ *  i.e. either in not applied yet entries
++ */
++static const char *
++netconf_get_target(const struct ipt_entry *ce, iptc_handle_t *h)
++{
++        const char *user_name = ipt_get_target((struct ipt_entry *)ce)->u.user.name;
++
++        if (strncmp(user_name, IPT_STANDARD_TARGET, IPT_FUNCTION_MAXNAMELEN) != 0)
++                return user_name;
++
++	if ((user_name=iptc_get_target(ce, h)) == NULL)
++		return "";
++	else
++                return user_name;
++}
++
++/*
+  * Insert an entry into a reasonable location in the chain
+  * @param	chain	chain name
+  * @param	entry	iptables entry
+@@ -717,9 +753,7 @@
+ 	int i;
+ 	struct ipt_ip blank;
+ 	const struct ipt_entry *rule;
+-	struct ipt_entry_target *target;
+ 
+-	target = (struct ipt_entry_target *) ((int) entry + entry->target_offset);
+ 	memset(&blank, 0, sizeof(struct ipt_ip));
+ 
+ 	/* If this is a default policy (no match) insert at the end of the chain */
+@@ -728,16 +762,16 @@
+ 		return iptc_append_entry(chain, entry, handle);
+ 
+ 	/* If dropping insert at the beginning of the chain */
+-	if (!strcmp(iptc_get_target(entry, handle), "DROP") ||
+-	    !strcmp(iptc_get_target(entry, handle), "logdrop"))
++	if (!strcmp(netconf_get_target(entry, handle), "DROP") ||
++	    !strcmp(netconf_get_target(entry, handle), "logdrop"))
+ 		return iptc_insert_entry(chain, entry, 0, handle);
+ 
+ 	/* If accepting insert after the last drop but before the first default policy */
+-	else if (!strcmp(iptc_get_target(entry, handle), "ACCEPT") ||
+-		 !strcmp(iptc_get_target(entry, handle), "logaccept")) {
++	else if (!strcmp(netconf_get_target(entry, handle), "ACCEPT") ||
++		 !strcmp(netconf_get_target(entry, handle), "logaccept")) {
+ 		for (i = 0, rule = iptc_first_rule(chain, handle); rule; i++, rule = iptc_next_rule(rule, handle)) {
+-			if ((strcmp(iptc_get_target(rule, handle), "DROP") &&
+-			     strcmp(iptc_get_target(rule, handle), "logdrop")) ||
++			if ((strcmp(netconf_get_target(rule, handle), "DROP") &&
++			     strcmp(netconf_get_target(rule, handle), "logdrop")) ||
+ 			    (rule->target_offset == sizeof(struct ipt_entry) &&
+ 			     !memcmp(&rule->ip, &blank, sizeof(struct ipt_ip))))
+ 				break;
+@@ -875,6 +909,12 @@
+ 		entry->nfcache |= (udp->dpts[0] != 0 || udp->dpts[1] != 0xffff) ? NFC_IP_DST_PT : 0;
+ 	}
+ 	
++	/* Simple protocol match */
++	else if (fw->match.ipproto != IPPROTO_IP) {
++		entry->ip.proto = fw->match.ipproto;
++		entry->nfcache |= NFC_IP_PROTO;
++	}
++
+ 	/* Match by source MAC address */
+ 	if (!ETHER_ISNULLADDR(fw->match.mac.octet)) {
+ 		struct ipt_mac_info *mac;
+@@ -978,7 +1018,8 @@
+ 			range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
+ 		}
+ 
+-		if (!insert_entry(ipt_nat_chain_name[fw->target], entry, &handle)) {
++		if (!insert_entry(get_nat_chain_name(fw), entry, &handle)) 
++		{
+ 			fprintf(stderr, "%s\n", iptc_strerror(errno));
+ 			goto err;
+ 		}
+@@ -1004,12 +1045,11 @@
+ 		goto err;
+ 	}
+ 
+-	free(entry);
+-	return 0;
++	errno = 0;
+ 
+  err:
+ 	if (handle)
+-		iptc_commit(&handle);
++		iptc_free(&handle);
+ 	free(entry);
+ 	return errno;
+ }
+@@ -1024,7 +1064,7 @@
+ {
+ 	int num;
+ 	const char *chain;
+-	iptc_handle_t handle;
++	iptc_handle_t handle = NULL;
+ 
+ 	/* netconf_fw_index() sanity checks fw */
+ 	if ((num = netconf_fw_index(fw)) < 0)
+@@ -1034,7 +1074,7 @@
+ 	if (netconf_valid_filter(fw->target))
+ 		chain = ipt_filter_chain_name[((netconf_filter_t *) fw)->dir];
+ 	else if (netconf_valid_nat(fw->target))
+-		chain = ipt_nat_chain_name[fw->target];
++		chain = get_nat_chain_name(fw);
+ 	else if (fw->target == NETCONF_APP)
+ 		chain = "PREROUTING";
+ 	else
+@@ -1250,9 +1290,9 @@
+ 	return 0;
+ 
+  err:
+-	if (handle)
+-		iptc_commit(&handle);
+ 	fprintf(stderr, "%s\n", iptc_strerror(errno));
++	if (handle)
++		iptc_free(&handle);
+ 	return errno;
+ }
+ 
+@@ -1280,7 +1320,8 @@
+ 
+ 	/* Reset custom chains */
+ 	if ((ret = netconf_reset_chain("filter", "logdrop")) ||
+-	    (ret = netconf_reset_chain("filter", "logaccept")))
++	    (ret = netconf_reset_chain("filter", "logaccept")) ||
++	    (ret = netconf_reset_chain("nat", "VSERVER")))
+ 		goto err;
+ 
+ 	/* Log only when a connection is attempted */
+@@ -1339,6 +1380,8 @@
+  err:
+ 	if (entry)
+ 		free(entry);
++	if (handle)
++		iptc_free(&handle);
+ 	fprintf(stderr, "%s\n", iptc_strerror(errno));
+ 	return errno;
+ }
+@@ -1356,7 +1399,7 @@
+ netconf_clamp_mss_to_pmtu(void)
+ {
+ 	struct ipt_entry *entry;
+-	iptc_handle_t handle;
++	iptc_handle_t handle = NULL;
+ 	struct ipt_tcp tcp;
+ 	struct ipt_tcpmss_info tcpmss;
+ 
