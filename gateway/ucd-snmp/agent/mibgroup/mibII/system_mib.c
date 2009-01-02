@@ -238,6 +238,7 @@ var_system(struct variable *vp,
             *var_len = version_id_len*sizeof(version_id[0]);
             return (u_char *)version_id;
         case UPTIME:
+#if 0
             gettimeofday(&now, NULL);
             now.tv_sec--;
             now.tv_usec += 1000000L;
@@ -248,6 +249,9 @@ var_system(struct variable *vp,
                 diff.tv_sec++;
             }
             long_return = ((diff.tv_sec * 100) + (diff.tv_usec / 10000));
+#else
+            long_return = get_uptime();
+#endif
             return ((u_char *) &long_return);
         case SYSCONTACT:
             *var_len = strlen(sysContact);
