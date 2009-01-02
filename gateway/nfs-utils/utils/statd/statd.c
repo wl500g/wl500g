@@ -33,6 +33,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#include <sys/stat.h>
+
 /* Added to enable specification of state directory path at run-time
  * j_carlos_gomez@yahoo.com
  */

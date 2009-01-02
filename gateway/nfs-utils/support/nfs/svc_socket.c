@@ -40,9 +40,14 @@ svc_socket (u_long number, int type, int protocol, int reuse)
 {
   struct sockaddr_in addr;
   socklen_t len = sizeof (struct sockaddr_in);
+#ifdef __UCLIBC_HAS_REENTRANT_RPC__
   char rpcdata [1024], servdata [1024];
   struct rpcent rpcbuf, *rpcp;
   struct servent servbuf, *servp = NULL;
+#else
+  struct rpcent *rpcp;
+  struct servent *servp;
+#endif
   int sock, ret;
   const char *proto = protocol == IPPROTO_TCP ? "tcp" : "udp";
 
@@ -67,13 +72,21 @@ svc_socket (u_long number, int type, int protocol, int reuse)
   memset (&addr, 0, sizeof (addr));
   addr.sin_family = AF_INET;
 
+#ifdef __UCLIBC_HAS_REENTRANT_RPC__
   ret = getrpcbynumber_r (number, &rpcbuf, rpcdata, sizeof rpcdata,
 			  &rpcp);
+#else
+  ret = ((rpcp = getrpcbynumber(number)) == NULL);
+#endif
   if (ret == 0 && rpcp != NULL)
     {
       /* First try name.  */
+#ifdef __UCLIBC_HAS_REENTRANT_RPC__
       ret = getservbyname_r (rpcp->r_name, proto, &servbuf, servdata,
 			     sizeof servdata, &servp);
+#else
+      ret = ((servp = getservbyname(rpcp->r_name, proto)) == NULL);
+#endif
       if ((ret != 0 || servp == NULL) && rpcp->r_aliases)
 	{
 	  const char **a;
@@ -81,8 +94,12 @@ svc_socket (u_long number, int type, int protocol, int reuse)
 	  /* Then we try aliases.  */
 	  for (a = (const char **) rpcp->r_aliases; *a != NULL; a++) 
 	    {
+#ifdef __UCLIBC_HAS_REENTRANT_RPC__
 	      ret = getservbyname_r (*a, proto, &servbuf, servdata,
 				     sizeof servdata, &servp);
+#else
+	      ret = ((servp = getservbyname(*a, proto)) == NULL);
+#endif
 	      if (ret == 0 && servp != NULL)
 		break;
 	    }
