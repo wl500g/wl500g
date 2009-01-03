@@ -12,7 +12,7 @@ diff -BurpN gateway/rc/common_ex.c gateway.my/rc/common_ex.c
  
 diff -BurpN gateway/rc/services_ex.c gateway.my/rc/services_ex.c
 --- gateway/rc/services_ex.c	2008-12-31 00:45:07.000000000 +0500
-+++ gateway.my/rc/services_ex.c	2009-01-03 00:58:17.000000000 +0500
++++ gateway.my/rc/services_ex.c	2009-01-03 23:01:18.000000000 +0500
 @@ -540,12 +540,12 @@ ddns_updated_main(int argc, char *argv[]
  	FILE *fp;
  	char buf[64], *ip;
@@ -77,15 +77,14 @@ diff -BurpN gateway/rc/services_ex.c gateway.my/rc/services_ex.c
  	{
  		char *ddns_argv[] = {"ez-ipupdate", 
  #ifdef DDNSCONF
-@@ -676,9 +684,12 @@ start_ddns(void)
+@@ -676,9 +684,11 @@ start_ddns(void)
  		nvram_unset("ddns_status");
  
  		eval("killall", "ez-ipupdate");
 -		_eval(ddns_argv, NULL, 0, &pid);
 +		
 +		nvram_set("ddns_updated", "1");
-+		if (!(ret = _eval(ddns_argv, NULL, 0, &pid)))
-+			nvram_set("ddns_updated", "0");
++		ret = _eval(ddns_argv, NULL, 0, &pid);
  	}
 -	return 0;
 +	return ret;
@@ -94,8 +93,16 @@ diff -BurpN gateway/rc/services_ex.c gateway.my/rc/services_ex.c
  int 
 diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
 --- gateway/rc/watchdog.c	2008-12-31 00:45:07.000000000 +0500
-+++ gateway.my/rc/watchdog.c	2009-01-02 23:52:42.000000000 +0500
-@@ -145,6 +145,7 @@ static int power_value = 0;
++++ gateway.my/rc/watchdog.c	2009-01-03 23:00:34.000000000 +0500
+@@ -20,6 +20,7 @@
+ #include <string.h>
+ #include <sys/types.h>
+ #include <fcntl.h>
++#include <sys/wait.h>
+ 
+ #include <bcmnvram.h>
+ #include <shutils.h>
+@@ -145,6 +146,7 @@ static int power_value = 0;
  
  static struct itimerval itv; 
  int watchdog_period=0;
@@ -103,7 +110,7 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  long sync_interval=-1; // every 30 seconds a unit
  int sync_flag=0;
  long timestamp_g=0;
-@@ -697,6 +698,13 @@ static void catch_sig(int sig)
+@@ -697,6 +699,13 @@ static void catch_sig(int sig)
  	}	
  }
  
@@ -117,7 +124,7 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  void sta_check(void)
  {
  	int ret, i;
-@@ -763,12 +771,24 @@ void watchdog(int signum)
+@@ -763,12 +772,24 @@ void watchdog(int signum)
  	watchdog_period = (watchdog_period+1) %10;
  	if (watchdog_period) return;
  
@@ -142,7 +149,7 @@ diff -BurpN gateway/rc/watchdog.c gateway.my/rc/watchdog.c
  	/* check for time-dependent services */
  	svc_timecheck();
  
-@@ -867,6 +888,7 @@ watchdog_main(int argc, char *argv[])
+@@ -867,6 +889,7 @@ watchdog_main(int argc, char *argv[])
  	signal(SIGUSR2, catch_sig);
  	signal(SIGALRM, watchdog);
  	signal(SIGTERM, readyoff);
