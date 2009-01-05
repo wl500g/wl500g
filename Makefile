@@ -352,7 +352,7 @@ radvd: $(TOP)/radvd/Makefile
 
 $(TOP)/rc/Makefile:
 	tar -C $(SRC) -cf - rc | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) rc/rc-common.patch rc/rc-ddns-watchdog.patch 
+	$(PATCHER) -Z $(TOP) rc/rc-common.patch rc/rc-ddns-daemon.patch 
 	$(MAKE) -C $(TOP)/rc clean
 
 rc: $(TOP)/rc/Makefile
