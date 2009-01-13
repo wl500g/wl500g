@@ -540,7 +540,7 @@
 +	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
 +	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 +
-+iproute2:
++iproute2: .config
 +	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)"
 +
 +iproute2-install:
