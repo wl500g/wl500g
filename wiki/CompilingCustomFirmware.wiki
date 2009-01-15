@@ -1,0 +1,21 @@
+#summary HowTo Compile Custom Firmware
+#sidebar TOC
+
+= Самостоятельная сборка прошивки =
+
+== 1. Необходимый софт ==
+
+  * Linux с установленными пакетами
+    * standard compilation software
+    * libncurses-dev
+    * gawk
+    * g++
+    * flex
+    * zlib development files
+
+== 2. Скачать и распаковать исходники ==
+  * Первоисточник от ASUS http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip
+  * Toolchain hndtools-mipsel-uclibc-4.1.2.tar.bz2
+  * wl500g-1.9.2.7-d.tar.bz2
+
+{{{tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2}}}
