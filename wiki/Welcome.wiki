@@ -1,5 +1,5 @@
 #summary Welcome
 
-= HowTo =
+==HowTo articles==
 
 [CompilingCustomFirmware Firmware compiling]
