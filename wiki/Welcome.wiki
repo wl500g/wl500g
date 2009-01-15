@@ -1,5 +1,5 @@
 #summary Welcome
 
-= HowTo*'s =
+= HowTo`'`s =
 
 [CompilingCustomFirmware Firmware compiling]
