@@ -1,0 +1,54 @@
+#summary History of Changes
+
+===wl500g-1.9.2.7-d===
+  * Based on Oleg 1.9.2.7-10
+
+  * kernel 2.4.37
+    * epoll kernel interface
+    * drivers/usb/acm.c, ppp_filter, ip_conntrack_clear, /proc/bus/usb/devpath patches from Jiri Engelthaler http://koppel.cz/cdmawifi
+    * Workaround for USB 1.1 devices via USB 2.0 hub
+    * Backport SigmaTel 4200 IRDA/USB driver
+
+  * updated toolchain (gcc 4.1.2, uClibc fixes)
+
+  * wl 4.150.10.29
+
+  * pptp-1.7.1
+
+  * dropbear 0.52
+
+  * dnsmasq 2.46
+
+  * udpxy-1.0_Chipmunk-7
+
+  * ntpclient-2007_365
+
+  * ez-ipupdate fixes by theMIROn
+
+  * bugfixes
+
+===wl500g-1.9.2.7-c===
+  * uClibc 0.9.29 (new toolchain: gcc-3.4.6, binutils 2.17, uClibc 0.9.29)
+
+  * kernel 2.4.36.6
+
+  * dropbear 0.51
+
+  * dnsmasq 2.42
+
+  * bugfixes
+
+===wl500g-1.9.2.7-b===
+  * Based on Oleg 1.9.2.7-9
+
+  * kernel 2.4.36.2
+
+  * dropbear 0.50
+
+
+===wl500g-1.9.2.7-a===
+  * Based on Oleg 1.9.2.7-8
+
+  * kernel 2.4.36 (baseline patches from OpenWRT kamikadze 7.09)
+
+  * iptables 1.3.8
