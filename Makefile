@@ -142,7 +142,7 @@ kernel: lzma et wl brcm-shared
 	@echo Patching kernel...
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
-	@cd kernel && $(PATCHER) -dZ $(KERNEL_DIR) kernel-brcm-src.patch kernel-squashfs.patch kernel-squashfs-lzma.patch \
+	@cd kernel && $(PATCHER) -Z $(KERNEL_DIR) kernel-brcm-src.patch kernel-squashfs.patch kernel-squashfs-lzma.patch \
 		kernel-printer-asus.patch kernel-printer-undo.patch kernel-printer-channel.patch \
 		kernel-printer-undo-status.patch kernel-printer-bug.patch kernel-printer-id-fix.patch \
 		kernel-pl2303.patch kernel-usb-scsiglue.patch kernel-usb-hid-bugs.patch \
@@ -152,6 +152,7 @@ kernel: lzma et wl brcm-shared
 		kernel-ide-nasoc.patch kernel-flash-id.patch kernel-ftdi.patch \
 		kernel-conntrack-tcp.patch kernel-netfilter-extras.patch \
 		kernel-mcast-vlan-silent.patch kernel-usb-hub11.patch \
+		kernel-usb-tt-ehci.patch kernel-irda-stir4200.patch \
 		kernel-mips-bcm-pkg.patch kernel-bcm5354.patch kernel-gpiortc.patch \
 		kernel-pppol2tp.patch kernel-bt-2.4.31-mh1.patch kernel-epoll.patch \
 		kernel-usb-acm.patch kernel-usb-devpath.patch kernel-ppp_filter.patch \
