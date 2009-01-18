@@ -1,3 +1,4 @@
   * [Welcome ↑ Home]
+  * [NEWS History of Changes]
   * [Articles HOWTO articles]
     * [CompilingCustomFirmware Firmware compiling (ru)]
