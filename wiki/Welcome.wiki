@@ -2,4 +2,5 @@
 
 ==HowTo articles==
 
-[CompilingCustomFirmware Firmware compiling]
+[CompilingCustomFirmware Firmware compiling (ru)]
+[CompilingCustomFirmware.en Firmware compiling (en)]
