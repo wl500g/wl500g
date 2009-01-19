@@ -1,0 +1,57 @@
+#summary HowTo Compile Custom Firmware
+#sidebar TOC
+
+= Building of the custom firmware =
+
+== 1. Required software ==
+
+  * Linux with the following packages installed
+    * standard compilation software
+    * libncurses-dev
+    * gawk
+    * g++
+    * flex
+    * zlib development
+
+== 2. Download the sources ==
+  * ASUS original sources [http://dlsvr01.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927] [http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927]
+  * Toolchain [http://wl500g.googlecode.com/files/hndtools-mipsel-uclibc-4.1.2.tar.bz2 hndtools-mipsel-uclibc-4.1.2.tar.bz2]
+  * Firmware sources wl500g-1.9.2.7-d.tar.bz2
+  * Linux kernel http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.tar.bz2
+
+== 3. Unpack the archives and prepare the building tree ==
+
+  * Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located) 
+{{{
+$ tar -C /whatever-you-want -zxvf /home/user/tt/GPL_1927.ZIP
+$ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
+$ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
+$ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
+$ rm -rf /whatever-you-want/broadcom/src/linux/linux
+$ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
+$ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37 /whatever-you-want/broadcom/src/linux/linux
+}}}
+  * The old toolchain ASUS/Broadcom can be removed
+{{{
+rm -rf /whatever-you-want/broadcom/opt
+}}}
+  * Add the path to the toolchain (it can be introduced to the personal ~/.profile for convenience)
+{{{
+$ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
+}}}
+
+== 4. Building ==
+
+  * Preparation of the sources
+{{{
+$ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
+$ make kernel
+$ make
+$ cd /whatever-you-want/broadcom/src/gateway
+}}}
+  * Edit /whatever-you-want/broadcom/src/gateway/Makefile and set MODEL=wl500gp or whichever fits your expectance better.
+  * Compiling
+{{{
+$ make
+$ make install
+}}}
