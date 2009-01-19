@@ -2,4 +2,4 @@
   * [NEWS History of Changes]
   * [Articles HOWTO articles]
     * [CompilingCustomFirmware Firmware compiling (ru)]
-    * [CompilingCustomFirmware-en Firmware compiling (en)]
+    * [CompilingCustomFirmware_en Firmware compiling (en)]
