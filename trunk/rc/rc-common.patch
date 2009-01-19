@@ -1,4 +1,4 @@
-diff -BurpN '-x*.o' router/rc/bigpond.c gateway/rc/bigpond.c
+diff -BurpN -x'*.o' router/rc/bigpond.c gateway/rc/bigpond.c
 --- router/rc/bigpond.c	2004-11-11 10:32:06.000000000 +0300
 +++ gateway/rc/bigpond.c	2008-03-19 20:07:24.000000000 +0300
 @@ -38,7 +38,7 @@ start_bpalogin(void)
@@ -59,7 +59,7 @@ diff -BurpN '-x*.o' router/rc/bigpond.c gateway/rc/bigpond.c
 +#endif
  	return TRUE;
  }
-diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
+diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
 --- router/rc/common_ex.c	2004-12-10 04:03:12.000000000 +0300
 +++ gateway/rc/common_ex.c	2008-12-28 11:27:07.000000000 +0300
 @@ -13,6 +13,7 @@
@@ -80,7 +80,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  
  #define XSTR(s) STR(s)
  #define STR(s) #s
-@@ -56,13 +61,9 @@ char *mac_conv(char *mac_name, int idx,
+@@ -56,13 +60,9 @@ char *mac_conv(char *mac_name, int idx, 
  
  	mac = nvram_safe_get(name);
  
@@ -96,7 +96,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  		for(i=0; i<12; i++)
  		{		
  			if (i!=0&&i%2==0) buf[j++] = ':';
-@@ -117,55 +118,6 @@ write_ver:
+@@ -117,55 +117,6 @@ write_ver:
  	nvram_set("firmver", trim_r(fwver));
  }
  
@@ -152,7 +152,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  /* This function is used to map nvram value from asus to Broadcom */
  void convert_asus_values()
  {	
-@@ -198,23 +150,33 @@ void convert_asus_values()
+@@ -198,23 +149,33 @@ void convert_asus_values()
  	cprintf("read from nvram\n");
  
  	/* Wireless Section */
@@ -186,7 +186,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	}	
  
  	if (nvram_match("wl_wep_x", "0"))
-@@ -229,21 +191,54 @@ void convert_asus_values()
+@@ -229,21 +190,54 @@ void convert_asus_values()
  #ifdef WPA2_WMM
  	if (nvram_match("wl_auth_mode", "wpa"))
  	{
@@ -247,7 +247,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	nvram_set("wl0_preauth", nvram_safe_get("wl_preauth"));
  	nvram_set("wl0_net_reauth", nvram_safe_get("wl_net_reauth"));
  	nvram_set("wl0_wme", nvram_safe_get("wl_wme"));
-@@ -258,12 +253,47 @@ void convert_asus_values()
+@@ -258,12 +252,47 @@ void convert_asus_values()
  	nvram_set("wl0_wme_ap_vo", nvram_safe_get("wl_wme_ap_vo"));
  #else
  	nvram_set("wl0_auth_mode", nvram_safe_get("wl_auth_mode"));
@@ -295,7 +295,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	nvram_set("wl0_rateset", nvram_safe_get("wl_rateset"));
  	nvram_set("wl0_frag", nvram_safe_get("wl_frag"));
  	nvram_set("wl0_rts", nvram_safe_get("wl_rts"));
-@@ -293,7 +323,7 @@ void convert_asus_values()
+@@ -293,7 +322,7 @@ void convert_asus_values()
  		int wepidx=atoi(nvram_safe_get("wl0_key"));
  		char wepkey[64], wepname[16];
  
@@ -304,7 +304,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  
  		// key ??
  		if (nvram_match("wl0_auth_mode", "psk"))
-@@ -308,7 +338,9 @@ void convert_asus_values()
+@@ -308,7 +337,9 @@ void convert_asus_values()
  		
  		sprintf(sbuf, "%s imode bss", sbuf);
  		
@@ -315,7 +315,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  			sprintf(sbuf, "%s amode shared", sbuf);
  		else sprintf(sbuf, "%s amode open", sbuf);
  
-@@ -398,6 +430,7 @@ void convert_asus_values()
+@@ -398,6 +429,7 @@ void convert_asus_values()
  
  	nvram_set("wan0_proto", nvram_safe_get("wan_proto"));
  	nvram_set("wan0_ipaddr", nvram_safe_get("wan_ipaddr"));
@@ -323,7 +323,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	nvram_set("wan0_gateway", nvram_safe_get("wan_gateway"));
  
  	nvram_set("wan_ipaddr_t", "");
-@@ -406,30 +439,46 @@ void convert_asus_values()
+@@ -406,30 +438,46 @@ void convert_asus_values()
  	nvram_set("wan_dns_t", "");
  	nvram_set("wan_status_t", "Disconnected");
  
@@ -377,7 +377,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  
  	convert_routes();
  
-@@ -445,22 +494,40 @@ void convert_asus_values()
+@@ -445,22 +493,40 @@ void convert_asus_values()
  	if (nvram_match("wan_nat_x", "0") && nvram_match("wan_route_x", "IP_Bridged"))
  	{
  		sprintf(ifnames, "%s", nvram_safe_get("lan_ifnames"));
@@ -422,7 +422,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	nvram_set("usb_web_device", "");
  	nvram_set("usb_audio_device", "");
  	nvram_set("usb_webdriver_x", "");
-@@ -473,6 +540,21 @@ void convert_asus_values()
+@@ -473,6 +539,21 @@ void convert_asus_values()
  		eval("insmod", "ipt_NETMAP.o");
  	}
  
@@ -444,7 +444,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	update_lan_status(1);
  
  	dprintf("end map\n");
-@@ -536,6 +618,7 @@ void update_wan_status(int isup)
+@@ -536,6 +617,7 @@ void update_wan_status(int isup)
  	else if (!strcmp(proto, "dhcp")) nvram_set("wan_proto_t", "Automatic IP");
  	else if (!strcmp(proto, "pppoe")) nvram_set("wan_proto_t", "PPPoE");	
  	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
@@ -452,7 +452,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
  
  
-@@ -559,8 +642,8 @@ void update_wan_status(int isup)
+@@ -559,8 +641,8 @@ void update_wan_status(int isup)
  		{		
  			if (nvram_invmatch("wan_dns1_x",""))
  				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));		
@@ -463,7 +463,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  			nvram_set("wan_dns_t", dns_str);
  		}
  		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
-@@ -620,6 +703,7 @@ char *pppstatus(char *buf)
+@@ -620,6 +702,7 @@ char *pppstatus(char *buf)
     {
  	strcpy(buf, "unknown reason");
     }	
@@ -471,7 +471,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  }
  
  
-@@ -633,7 +717,6 @@ kill_pidfile_s(char *pidfile, int sig)
+@@ -633,7 +716,6 @@ kill_pidfile_s(char *pidfile, int sig)
  {
  	FILE *fp = fopen(pidfile, "r");
  	char buf[256];
@@ -479,7 +479,7 @@ diff -BurpN '-x*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  
  	if (fp && fgets(buf, sizeof(buf), fp)) {
  		pid_t pid = strtoul(buf, NULL, 0);
-diff -BurpN '-x*.o' router/rc/dns.c gateway/rc/dns.c
+diff -BurpN -x'*.o' router/rc/dns.c gateway/rc/dns.c
 --- router/rc/dns.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/dns.c	2008-12-28 11:56:00.000000000 +0300
 @@ -16,10 +16,13 @@
@@ -496,7 +496,7 @@ diff -BurpN '-x*.o' router/rc/dns.c gateway/rc/dns.c
  static int 
  waitsock(int sockfd, int sec, int usec)
  {
-diff -BurpN '-x*.o' router/rc/dns_decode.c gateway/rc/dns_decode.c
+diff -BurpN -x'*.o' router/rc/dns_decode.c gateway/rc/dns_decode.c
 --- router/rc/dns_decode.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/dns_decode.c	2008-12-28 12:01:27.000000000 +0300
 @@ -3,6 +3,7 @@
@@ -507,7 +507,7 @@ diff -BurpN '-x*.o' router/rc/dns_decode.c gateway/rc/dns_decode.c
  #include "dns_decode.h"
  
  /*
-diff -BurpN '-x*.o' router/rc/dns_decode.h gateway/rc/dns_decode.h
+diff -BurpN -x'*.o' router/rc/dns_decode.h gateway/rc/dns_decode.h
 --- router/rc/dns_decode.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/dns_decode.h	2008-12-28 12:01:17.000000000 +0300
 @@ -1,4 +1,3 @@
@@ -515,7 +515,7 @@ diff -BurpN '-x*.o' router/rc/dns_decode.h gateway/rc/dns_decode.h
  
  /*
   * Queries are encoded such that there is and integer specifying how long 
-diff -BurpN '-x*.o' router/rc/firewall.c gateway/rc/firewall.c
+diff -BurpN -x'*.o' router/rc/firewall.c gateway/rc/firewall.c
 --- router/rc/firewall.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall.c	2008-12-28 11:57:52.000000000 +0300
 @@ -28,6 +28,8 @@
@@ -527,7 +527,7 @@ diff -BurpN '-x*.o' router/rc/firewall.c gateway/rc/firewall.c
  /* Add filter to specified table */
  static void
  add_filter(netconf_filter_t *filter, int dir)
-diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
+diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall_ex.c	2008-12-28 11:56:49.000000000 +0300
 @@ -1,4 +1,3 @@
@@ -607,7 +607,7 @@ diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  {
  	char name[] = "forward_portXXXXXXXXXX", value[512];
          char *wan_port0, *wan_port1, *lan_ipaddr, *lan_port0, *lan_port1, *proto;
-@@ -499,21 +499,14 @@ write_upnp_forward(FILE *fp, FILE *fp1,
+@@ -499,21 +499,14 @@ write_upnp_forward(FILE *fp, FILE *fp1, 
  		                 --to-destination 192.168.1.88:23  */
  		if( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
  		{
@@ -695,7 +695,7 @@ diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  	}
  
  	// Port forwarding or Virtual Server
-@@ -601,45 +600,37 @@ nat_setting(char *wan_if, char *wan_ip,
+@@ -601,45 +600,37 @@ nat_setting(char *wan_if, char *wan_ip, 
  			{
  				if (lport!=NULL && strlen(lport)!=0) 
  				{
@@ -752,7 +752,7 @@ diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  	{
  		#define BASEPORT 6112
  		#define BASEPORT_NEW 10000
-@@ -650,34 +641,35 @@ nat_setting(char *wan_if, char *wan_ip,
+@@ -650,34 +641,35 @@ nat_setting(char *wan_if, char *wan_ip, 
  		fprintf(fp, "-A PREROUTING -p udp -d %s --sport %d -j NETMAP --to %s\n", wan_ip, BASEPORT, lan_class);
  
  		fprintf(fp, "-A POSTROUTING -p udp -s %s --dport %d -j NETMAP --to %s\n", lan_class, BASEPORT, wan_ip);
@@ -1318,7 +1318,7 @@ diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  }
  
  #ifdef USB_SUPPORT	
-diff -BurpN '-x*.o' router/rc/init.c gateway/rc/init.c
+diff -BurpN -x'*.o' router/rc/init.c gateway/rc/init.c
 --- router/rc/init.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/init.c	2008-03-19 20:07:24.000000000 +0300
 @@ -31,6 +31,7 @@
@@ -1443,7 +1443,7 @@ diff -BurpN '-x*.o' router/rc/init.c gateway/rc/init.c
  	loop_forever();
  }
  
-diff -BurpN '-x*.o' router/rc/interface.c gateway/rc/interface.c
+diff -BurpN -x'*.o' router/rc/interface.c gateway/rc/interface.c
 --- router/rc/interface.c	2004-12-01 21:53:30.000000000 +0300
 +++ gateway/rc/interface.c	2008-03-19 20:07:24.000000000 +0300
 @@ -34,6 +34,17 @@
@@ -1527,7 +1527,7 @@ diff -BurpN '-x*.o' router/rc/interface.c gateway/rc/interface.c
  		eval("vconfig", "rem", vlan_id);
  	}
  
-diff -BurpN '-x*.o' router/rc/Makefile gateway/rc/Makefile
+diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 --- router/rc/Makefile	2004-12-02 08:39:03.000000000 +0300
 +++ gateway/rc/Makefile	2008-12-27 20:07:24.000000000 +0300
 @@ -16,8 +16,8 @@ include $(TOP)/.config
@@ -1564,7 +1564,7 @@ diff -BurpN '-x*.o' router/rc/Makefile gateway/rc/Makefile
  
  	# Added by ASUS
  	cd $(INSTALLDIR)/sbin && ln -sf rc stopservice
-diff -BurpN '-x*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
+diff -BurpN -x'*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
 --- router/rc/manu_ex.c	2004-12-07 16:02:14.000000000 +0300
 +++ gateway/rc/manu_ex.c	2008-03-19 20:07:24.000000000 +0300
 @@ -724,7 +724,7 @@ void sync_mac(char *devname, char *mac)
@@ -1587,7 +1587,7 @@ diff -BurpN '-x*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
  		wsrom_main("eth2", 114, 0x0249);
  	}
  	else if(nvram_match("productid", "WL500g.Deluxe"))
-diff -BurpN '-x*.o' router/rc/mtd.c gateway/rc/mtd.c
+diff -BurpN -x'*.o' router/rc/mtd.c gateway/rc/mtd.c
 --- router/rc/mtd.c	2004-11-19 20:46:19.000000000 +0300
 +++ gateway/rc/mtd.c	2008-03-19 20:07:24.000000000 +0300
 @@ -102,6 +102,96 @@ mtd_erase(const char *mtd)
@@ -1696,7 +1696,7 @@ diff -BurpN '-x*.o' router/rc/mtd.c gateway/rc/mtd.c
  	    trx.len < sizeof(struct trx_header)) {
  		fprintf(stderr, "%s: Bad trx header\n", path);
  		goto fail;
-diff -BurpN '-x*.o' router/rc/mtd.h gateway/rc/mtd.h
+diff -BurpN -x'*.o' router/rc/mtd.h gateway/rc/mtd.h
 --- router/rc/mtd.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/mtd.h	2008-03-19 20:07:24.000000000 +0300
 @@ -38,4 +38,12 @@ extern int mtd_erase(const char *mtd);
@@ -1712,7 +1712,7 @@ diff -BurpN '-x*.o' router/rc/mtd.h gateway/rc/mtd.h
 +extern int mtd_write(const char *path, const char *mtd);
 +
  #endif /* _mtd_h_ */
-diff -BurpN '-x*.o' router/rc/network.c gateway/rc/network.c
+diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 --- router/rc/network.c	2004-11-18 18:50:49.000000000 +0300
 +++ gateway/rc/network.c	2008-12-28 11:12:51.000000000 +0300
 @@ -15,7 +15,7 @@
@@ -2628,7 +2628,7 @@ diff -BurpN '-x*.o' router/rc/network.c gateway/rc/network.c
  		/* passphrase */
  		argv[7] = nvram_safe_get(strcat_r(prefix, "wpa_psk", tmp));
  		/* ssid */
-diff -BurpN '-x*.o' router/rc/network_ex.c gateway/rc/network_ex.c
+diff -BurpN -x'*.o' router/rc/network_ex.c gateway/rc/network_ex.c
 --- router/rc/network_ex.c	2004-11-19 22:16:33.000000000 +0300
 +++ gateway/rc/network_ex.c	2008-03-19 20:07:24.000000000 +0300
 @@ -13,7 +13,7 @@
@@ -2907,7 +2907,7 @@ diff -BurpN '-x*.o' router/rc/network_ex.c gateway/rc/network_ex.c
 +		else eval("et", "-i", wan_if, "speed", speed);	
  	}	
  } 
-diff -BurpN '-x*.o' router/rc/ntp.c gateway/rc/ntp.c
+diff -BurpN -x'*.o' router/rc/ntp.c gateway/rc/ntp.c
 --- router/rc/ntp.c	2004-11-15 14:55:13.000000000 +0300
 +++ gateway/rc/ntp.c	2008-12-28 10:27:34.000000000 +0300
 @@ -16,6 +16,7 @@
@@ -2927,7 +2927,7 @@ diff -BurpN '-x*.o' router/rc/ntp.c gateway/rc/ntp.c
  		pause();
  	}	
  }
-diff -BurpN '-x*.o' router/rc/ppp.c gateway/rc/ppp.c
+diff -BurpN -x'*.o' router/rc/ppp.c gateway/rc/ppp.c
 --- router/rc/ppp.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/ppp.c	2008-03-19 20:07:24.000000000 +0300
 @@ -56,6 +56,8 @@ ipup_main(int argc, char **argv)
@@ -2972,10 +2972,10 @@ diff -BurpN '-x*.o' router/rc/ppp.c gateway/rc/ppp.c
  	preset_wan_routes(wan_ifname);
  
  	logmessage(nvram_safe_get("wan_proto_t"), "Disconnected");
-diff -BurpN '-x*.o' router/rc/qos.c gateway/rc/qos.c
+diff -BurpN -x'*.o' router/rc/qos.c gateway/rc/qos.c
 --- router/rc/qos.c	2004-11-11 10:32:06.000000000 +0300
 +++ gateway/rc/qos.c	2008-03-19 20:07:24.000000000 +0300
-@@ -73,8 +73,8 @@ void tc_class(char *network, char *idx,
+@@ -73,8 +73,8 @@ void tc_class(char *network, char *idx, 
  		minBW=maxBW;
  	}
  	sprintf(flowid, "%s%s", "1:1", idx);
@@ -2986,7 +2986,7 @@ diff -BurpN '-x*.o' router/rc/qos.c gateway/rc/qos.c
  	eval("tc","class","add","dev",network,"parent","1:1","classid",flowid,"htb","rate",min_bw,"ceil",max_bw);
  }
  
-diff -BurpN '-x*.o' router/rc/rcamd.c gateway/rc/rcamd.c
+diff -BurpN -x'*.o' router/rc/rcamd.c gateway/rc/rcamd.c
 --- router/rc/rcamd.c	2004-11-15 15:08:00.000000000 +0300
 +++ gateway/rc/rcamd.c	2008-12-28 10:27:47.000000000 +0300
 @@ -16,6 +16,7 @@
@@ -2997,9 +2997,9 @@ diff -BurpN '-x*.o' router/rc/rcamd.c gateway/rc/rcamd.c
  #include <sys/types.h>
  
  #include <bcmnvram.h>
-diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
+diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 --- router/rc/rc.c	2004-12-03 05:16:28.000000000 +0300
-+++ gateway/rc/rc.c	2008-12-28 11:48:16.000000000 +0300
++++ gateway/rc/rc.c	2009-01-19 12:52:01.000000000 +0300
 @@ -31,6 +31,9 @@
  #include <sys/socket.h>
  #include <net/if_arp.h>
@@ -3029,7 +3029,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  		}
  	}
  	
-@@ -134,6 +140,112 @@ build_ifnames(char *type, char *names, i
+@@ -134,6 +140,125 @@ build_ifnames(char *type, char *names, i
  }	
  
  static void
@@ -3069,6 +3069,19 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
 +			nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
 +	}
 +	
++	/* fix DLINK DIR-320 vlans */
++	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45") &&
++		 !nvram_get("vlan2hwname"))
++	{
++		nvram_set("vlan2hwname", "et0");
++		nvram_set("wan0_ifnames", "vlan2");
++		nvram_set("wan0_ifname", "vlan2");
++		nvram_set("wan_ifnames", "vlan2");
++		nvram_set("wan_ifname_t", "vlan2");
++		nvram_set("wan_ifname", "vlan2");
++		nvram_set("wandevs", "vlan2");
++	}
++
 +	/* wl550ge -- missing wl0gpio values */
 +	if (nvram_match("boardtype", "0x467") && nvram_match("boardnum", "45") &&
 +		!nvram_get("wl0gpio0"))
@@ -3142,7 +3155,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  restore_defaults(void)
  {
  	struct nvram_tuple generic[] = {
-@@ -155,6 +267,9 @@ restore_defaults(void)
+@@ -155,6 +280,9 @@ restore_defaults(void)
  		{ "lan_ifnames", "", 0 },
  		{ "wan_ifname", "", 0 },
  		{ "wan_ifnames", "", 0 },
@@ -3152,7 +3165,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  		{ 0, 0, 0 }
  	};
  
-@@ -162,7 +277,7 @@ restore_defaults(void)
+@@ -162,7 +290,7 @@ restore_defaults(void)
  #ifdef CONFIG_WL300G
  	struct nvram_tuple wl300g[] = {
  		{ "lan_ifname", "br0", 0 },
@@ -3161,7 +3174,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  		{ "wan_ifname", "eth0", 0 },
  		{ "wan_ifnames", "eth0", 0 },
  		{ "wan_nat_x", "0", 0},
-@@ -196,6 +311,18 @@ restore_defaults(void)
+@@ -196,6 +324,18 @@ restore_defaults(void)
  #endif
  
  
@@ -3180,7 +3193,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  #ifdef CONFIG_SENTRY5
  #include "rcs5.h"
  #else
-@@ -266,6 +393,11 @@ restore_defaults(void)
+@@ -266,6 +406,11 @@ restore_defaults(void)
  		}
  		else
  			ap = 1;
@@ -3192,7 +3205,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  		linux_overrides = dyna;
  	}
  	/* override lan i/f name list and wan i/f name list with default values */
-@@ -292,6 +424,14 @@ canned_config:
+@@ -292,6 +437,14 @@ canned_config:
  #ifdef CONFIG_WL331G
  	linux_overrides = wl331g;
  #endif
@@ -3207,7 +3220,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  	/* Restore defaults */
  	for (t = router_defaults; t->name; t++) {
  		if (restore_defaults || !nvram_get(t->name)) {
-@@ -357,6 +497,56 @@ set_wan0_vars(void)
+@@ -357,6 +510,56 @@ set_wan0_vars(void)
  		nvram_set(strcat_r(prefix, "desc", tmp), "Default Connection");
  		nvram_set(strcat_r(prefix, "primary", tmp), "1");
  	}
@@ -3264,7 +3277,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  }
  
  static int noconsole = 0;
-@@ -367,7 +557,11 @@ sysinit(void)
+@@ -367,7 +570,11 @@ sysinit(void)
  	char buf[PATH_MAX];
  	struct utsname name;
  	struct stat tmp_stat;
@@ -3277,7 +3290,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  	/* /proc */
  	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
-@@ -381,13 +575,24 @@ sysinit(void)
+@@ -381,13 +588,24 @@ sysinit(void)
  	mkdir("/var/log", 0777);
  	mkdir("/var/run", 0777);
  	mkdir("/var/tmp", 0777);
@@ -3304,7 +3317,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
  
-@@ -397,26 +602,31 @@ sysinit(void)
+@@ -397,26 +615,31 @@ sysinit(void)
  	if (stat("/proc/modules", &tmp_stat) == 0 &&
  	    stat(buf, &tmp_stat) == 0) {
  		char module[80], *modules, *next;
@@ -3349,7 +3362,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  	dprintf("done\n");
  }
-@@ -514,6 +724,9 @@ main_loop(void)
+@@ -514,6 +737,9 @@ main_loop(void)
  	pid_t shell_pid = 0;
  	uint boardflags;
  
@@ -3359,7 +3372,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  	/* Basic initialization */
  	sysinit();
  
-@@ -531,18 +744,9 @@ main_loop(void)
+@@ -531,18 +757,9 @@ main_loop(void)
  	if (!noconsole)
  		run_shell(1, 0);
  
@@ -3380,7 +3393,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  	/* Add loopback */
  	config_loopback();
-@@ -559,8 +763,7 @@ main_loop(void)
+@@ -559,8 +776,7 @@ main_loop(void)
  
  	/* Setup wan0 variables if necessary */
  	set_wan0_vars();
@@ -3390,7 +3403,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  	/* Loop forever */
  	for (;;) {
  		switch (state) {
-@@ -582,12 +785,8 @@ main_loop(void)
+@@ -582,12 +798,8 @@ main_loop(void)
  			stop_wan();
  			stop_lan();
  
@@ -3403,7 +3416,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  			if (state == STOP) {
  				state = IDLE;
-@@ -597,12 +796,8 @@ main_loop(void)
+@@ -597,12 +809,8 @@ main_loop(void)
  		case START:
  			dprintf("START\n");
  
@@ -3416,7 +3429,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  
  			start_lan();
  			//if (restore_defaults_g) 
-@@ -615,6 +810,9 @@ main_loop(void)
+@@ -615,6 +823,9 @@ main_loop(void)
  
  #ifdef ASUS_EXT
  			start_misc();
@@ -3426,7 +3439,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  			sleep(5);
  			diag_PaN();
  #endif
-@@ -711,6 +909,16 @@ main(int argc, char **argv)
+@@ -711,6 +922,16 @@ main(int argc, char **argv)
  		}
  	}
  
@@ -3443,7 +3456,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
  	/* hotplug [event] */
  	else if (strstr(base, "hotplug")) {
  		if (argc >= 2) {
-@@ -842,7 +1050,13 @@ main(int argc, char **argv)
+@@ -842,7 +1063,13 @@ main(int argc, char **argv)
  			fprintf(stderr, "usage: rc [start|stop|restart]\n");
  			return EINVAL;
  		}
@@ -3458,7 +3471,7 @@ diff -BurpN '-x*.o' router/rc/rc.c gateway/rc/rc.c
 +	
  	return EINVAL;
  }
-diff -BurpN '-x*.o' router/rc/rc.h gateway/rc/rc.h
+diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 --- router/rc/rc.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/rc.h	2008-12-28 11:59:11.000000000 +0300
 @@ -22,61 +22,108 @@
@@ -3617,7 +3630,7 @@ diff -BurpN '-x*.o' router/rc/rc.h gateway/rc/rc.h
 +int preset_wan_routes(char *ifname);
  
  #endif /* _rc_h_ */
-diff -BurpN '-x*.o' router/rc/sendalarm.c gateway/rc/sendalarm.c
+diff -BurpN -x'*.o' router/rc/sendalarm.c gateway/rc/sendalarm.c
 --- router/rc/sendalarm.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/sendalarm.c	2008-03-19 20:07:24.000000000 +0300
 @@ -130,7 +130,9 @@ sendalarm_main(int argc, char *argv[])
@@ -3631,7 +3644,7 @@ diff -BurpN '-x*.o' router/rc/sendalarm.c gateway/rc/sendalarm.c
  			
  			fprintf(fp, "--%s\n", boundry);
  			fprintf(fp, "Content-Type: application/unknown\n");
-diff -BurpN '-x*.o' router/rc/services.c gateway/rc/services.c
+diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
 --- router/rc/services.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/services.c	2008-03-19 20:07:24.000000000 +0300
 @@ -18,6 +18,7 @@
@@ -3776,7 +3789,7 @@ diff -BurpN '-x*.o' router/rc/services.c gateway/rc/services.c
  
  	dprintf("done\n");
  	return 0;
-diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
+diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 --- router/rc/services_ex.c	2004-11-21 17:45:24.000000000 +0300
 +++ gateway/rc/services_ex.c	2008-12-28 11:47:40.000000000 +0300
 @@ -10,6 +10,9 @@
@@ -3998,7 +4011,7 @@ diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  int
  ddns_updated_main(int argc, char *argv[])
  {
-@@ -373,7 +564,7 @@ int
+@@ -373,7 +564,7 @@ int 
  start_ddns(void)
  {
  	FILE *fp;
@@ -5169,7 +5182,7 @@ diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		if (strncmp(interface, "1/1", 3)==0)
  		{
  			// if the audio device is the same with web cam,
-@@ -1277,10 +1874,7 @@ usbhandler:
+@@ -1277,10 +1874,7 @@ usbhandler:	
  		nvram_set("usb_device", "1");
  		if (isweb==WEB_NONE)
  		{
@@ -5181,7 +5194,7 @@ diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		}
  		else if (isweb==WEB_AUDIO)
  		{
-@@ -1304,7 +1898,7 @@ usbhandler:
+@@ -1304,7 +1898,7 @@ usbhandler:	
  	{
  		if (isweb==WEB_NONE) // Treat it as USB Storage
  		{
@@ -5190,7 +5203,7 @@ diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		}
  		else if(isweb==WEB_AUDIO)
  		{
-@@ -1330,11 +1924,13 @@ usbhandler:
+@@ -1330,11 +1924,13 @@ usbhandler:	
  int
  stop_service_main(int argc, char *argv[])
  {
@@ -5273,7 +5286,7 @@ diff -BurpN '-x*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  }
  
  
-diff -BurpN '-x*.o' router/rc/udhcpc.c gateway/rc/udhcpc.c
+diff -BurpN -x'*.o' router/rc/udhcpc.c gateway/rc/udhcpc.c
 --- router/rc/udhcpc.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/udhcpc.c	2008-03-19 20:07:24.000000000 +0300
 @@ -88,10 +88,10 @@ bound(void)
@@ -5323,7 +5336,7 @@ diff -BurpN '-x*.o' router/rc/udhcpc.c gateway/rc/udhcpc.c
 +		return 0;
  	else return deconfig();
  }
-diff -BurpN '-x*.o' router/rc/udhcpc_ex.c gateway/rc/udhcpc_ex.c
+diff -BurpN -x'*.o' router/rc/udhcpc_ex.c gateway/rc/udhcpc_ex.c
 --- router/rc/udhcpc_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/udhcpc_ex.c	2008-03-19 20:07:24.000000000 +0300
 @@ -98,8 +98,10 @@ bound(void)
@@ -5345,7 +5358,7 @@ diff -BurpN '-x*.o' router/rc/udhcpc_ex.c gateway/rc/udhcpc_ex.c
 +		return 0;
  	else return deconfig();
  }
-diff -BurpN '-x*.o' router/rc/vlan.c gateway/rc/vlan.c
+diff -BurpN -x'*.o' router/rc/vlan.c gateway/rc/vlan.c
 --- router/rc/vlan.c	2004-12-01 21:53:06.000000000 +0300
 +++ gateway/rc/vlan.c	2008-03-19 20:07:24.000000000 +0300
 @@ -81,6 +81,20 @@ int vlan_configured = 0;
@@ -5416,9 +5429,9 @@ diff -BurpN '-x*.o' router/rc/vlan.c gateway/rc/vlan.c
  	    return -1;
  	if (nvram_unset("restore_wan_hwaddr"))
  	    return -1;
-diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
+diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
 --- router/rc/watchdog.c	2004-11-21 19:55:46.000000000 +0300
-+++ gateway/rc/watchdog.c	2008-12-28 12:04:37.000000000 +0300
++++ gateway/rc/watchdog.c	2009-01-19 12:55:48.000000000 +0300
 @@ -17,7 +17,9 @@
  #include <sys/time.h>
  #include <unistd.h>
@@ -5442,7 +5455,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  
  #define NORMAL_PERIOD		1		/* second */
  #define URGENT_PERIOD		100 * 1000	/* microsecond */	
-@@ -49,68 +55,187 @@
+@@ -49,68 +55,195 @@
  #define GPIO5 0x0020
  #define GPIO6 0x0040
  #define GPIO7 0x0080
@@ -5662,6 +5675,14 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
 +		ready_mask = GPIO0, ready_value = 0;
 +		setup_mask = GPIO3, setup_value = 0;
 +	}
++	// DLINK DIR-320
++	if (nvram_match("boardtype", "0x048e") &&
++		!nvram_match("boardnum", "45"))
++	{
++		reset_mask = GPIO7, reset_value = 0;
++		ready_mask = GPIO1, ready_value = 0;
++		setup_mask = GPIO6, setup_value = 0;
++	}
 +	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
 +		reset_mask | setup_mask, ready_mask | power_mask);
 +	gpio_write("/dev/gpio/control", ready_mask | power_mask |
@@ -5669,7 +5690,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  }
  
  static void
-@@ -124,48 +249,94 @@ alarmtimer(unsigned long sec,unsigned lo
+@@ -124,48 +257,94 @@ alarmtimer(unsigned long sec,unsigned lo
  
  void btn_check(void)
  {
@@ -5796,7 +5817,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  	}
  }
  
-@@ -202,8 +373,8 @@ int ntp_timesync(void)
+@@ -202,8 +381,8 @@ int ntp_timesync(void)
  
  		   	if (tm.tm_year>100) // More than 2000 
  		   	{	 
@@ -5807,7 +5828,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  
  				stop_upnp();
  				start_upnp();
-@@ -213,6 +384,7 @@ int ntp_timesync(void)
+@@ -213,6 +392,7 @@ int ntp_timesync(void)
  			refresh_ntpc();	
  		}
  	}	
@@ -5815,7 +5836,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  }
  
  enum 
-@@ -226,7 +398,7 @@ enum
+@@ -226,7 +406,7 @@ enum 
  int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
  int extStatus[ACTIVEITEMS] = { 0, 0, 0};
  char svcDate[ACTIVEITEMS][10];
@@ -5824,7 +5845,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  
  int timecheck_item(char *activeDate, char *activeTime)
  {
-@@ -303,8 +475,8 @@ int svc_timecheck(void)
+@@ -303,8 +483,8 @@ int svc_timecheck(void)
  		{
  			//printf("url time change: %d\n", activeNow);
  			svcStatus[URLACTIVE] = activeNow;
@@ -5835,7 +5856,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  		}
  	}
  
-@@ -359,7 +531,7 @@ int http_processcheck(void)
+@@ -359,7 +539,7 @@ int http_processcheck(void)
  	char buf[256];
  
  	//printf("http check\n");
@@ -5844,7 +5865,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  	if (!http_check(http_cmd, buf, sizeof(buf), 0))
  	{
  		dprintf("http rerun\n");
-@@ -403,11 +575,7 @@ int rcamd_processcheck()
+@@ -403,11 +583,7 @@ int rcamd_processcheck()
  	{
  		while(fgets(buf, sizeof(buf), fp))
  		{
@@ -5857,7 +5878,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  			{
  				//logmessage("web camera", buf);
  
-@@ -581,12 +749,14 @@ void sta_check(void)
+@@ -581,12 +757,14 @@ void sta_check(void)
   *      3. http-process
   *      4. usb hotplug status
   */
@@ -5875,7 +5896,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  	/* if timer is set to less than 1 sec, then bypass the following */
  	if (itv.it_value.tv_sec==0) return;
  
-@@ -641,6 +811,30 @@ void watchdog(void)
+@@ -641,6 +819,30 @@ void watchdog(void)
  }
  
  int 
@@ -5906,7 +5927,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  watchdog_main(int argc, char *argv[])
  {
  	FILE *fp;
-@@ -672,22 +866,24 @@ watchdog_main(int argc, char *argv[])
+@@ -672,22 +874,24 @@ watchdog_main(int argc, char *argv[])
  	signal(SIGUSR1, catch_sig);
  	signal(SIGUSR2, catch_sig);
  	signal(SIGALRM, watchdog);
@@ -5937,7 +5958,7 @@ diff -BurpN '-x*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  	{
  		pause();
  	}
-diff -BurpN '-x*.o' router/rc/waveserver.c gateway/rc/waveserver.c
+diff -BurpN -x'*.o' router/rc/waveserver.c gateway/rc/waveserver.c
 --- router/rc/waveserver.c	2004-11-16 15:54:35.000000000 +0300
 +++ gateway/rc/waveserver.c	2008-12-28 10:28:04.000000000 +0300
 @@ -16,6 +16,7 @@
