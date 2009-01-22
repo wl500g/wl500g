@@ -2,16 +2,16 @@ Index: linux-2.4.35.4/drivers/usb/serial/usbserial.c
 ===================================================================
 --- linux-2.4.35.4.orig/drivers/usb/serial/usbserial.c
 +++ linux-2.4.35.4/drivers/usb/serial/usbserial.c
-@@ -333,7 +333,7 @@ static __u16	vendor	= 0x05f9;
+@@ -333,7 +333,7 @@
  static __u16	product	= 0xffff;
  static int	maxSize = 0;
  
 -static struct usb_device_id generic_device_ids[2]; /* Initially all zeroes. */
-+static struct usb_device_id generic_device_ids[10]; /* Initially all zeroes. */
++static struct usb_device_id generic_device_ids[11]; /* Initially all zeroes. */
  
  /* All of the device info needed for the Generic Serial Converter */
  static struct usb_serial_device_type generic_device = {
-@@ -1836,6 +1836,34 @@ static int __init usb_serial_init(void)
+@@ -1836,6 +1836,42 @@ static int __init usb_serial_init(void)
  	generic_device_ids[0].idVendor = vendor;
  	generic_device_ids[0].idProduct = product;
  	generic_device_ids[0].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
@@ -39,10 +39,82 @@ Index: linux-2.4.35.4/drivers/usb/serial/usbserial.c
 +	generic_device_ids[6].idVendor = 0x12d1;
 +	generic_device_ids[6].idProduct = 0x1001;
 +	generic_device_ids[6].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
++	/* Huawei E226 *////--fmay
++	generic_device_ids[8].idVendor = 0x12d1;
++	generic_device_ids[8].idProduct = 0x1003;
++	generic_device_ids[8].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
 +	/* Merlin XU870 */
 +	generic_device_ids[7].idVendor = 0x1410;
 +	generic_device_ids[7].idProduct = 0x1430;
 +	generic_device_ids[7].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
++	/* ZTExx MF622 *////--fmay
++	generic_device_ids[9].idVendor = 0x19d2;
++	generic_device_ids[9].idProduct = 0x0001;
++	generic_device_ids[9].match_flags = USB_DEVICE_ID_MATCH_VENDOR | USB_DEVICE_ID_MATCH_PRODUCT;
  	/* register our generic driver with ourselves */
  	usb_serial_register (&generic_device);
  #endif
+diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/storage/initializers.c drivers/usb/storage/initializers.c
+--- a/drivers/usb/storage/initializers.c	2008-05-06 19:00:29.000000000 -0400
++++ b/drivers/usb/storage/initializers.c	2008-05-19 17:01:18.000000000 -0400
+@@ -41,6 +41,27 @@
+ #include "debug.h"
+ #include "transport.h"
+
++
++/* This places the HSDPA with storage devices in multi-port mode *///--fmay
++int usb_stor_hsdpa_init(struct us_data *us)
++{
++	int result = 0;
++	unsigned char data = 0x1;
++	unsigned long flags;
++
++	printk("HSDPA storage init performing...\n");
++
++	result = usb_stor_control_msg(us, usb_sndctrlpipe(us->pusb_dev, 0),
++					USB_REQ_SET_FEATURE, USB_TYPE_STANDARD | USB_RECIP_DEVICE,
++					0x01, 0x0, &data, 0x1);
++
++
++
++	US_DEBUGP("HSDPA storage init performing result is %d\n", result);
++
++	return (result ? 0 : -1);
++}
++
+ /* This places the Shuttle/SCM USB<->SCSI bridge devices in multi-target
+  * mode */
+ int usb_stor_euscsi_init(struct us_data *us)
+diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/storage/initializers.h drivers/usb/storage/initializers.h
+--- a/drivers/usb/storage/initializers.h	2008-05-06 19:00:29.000000000 -0400
++++ b/drivers/usb/storage/initializers.h	2008-05-21 16:03:32.000000000 -0400
+@@ -53,3 +53,7 @@
+ /* This function is required to activate all four slots on the UCR-61S2B
+  * flash reader */
+ int usb_stor_ucr61s2b_init(struct us_data *us);
++
++/* This places the HSDPA devices in multi-port mode --fmay*/
++int usb_stor_hsdpa_init(struct us_data *us);
++
+diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/storage/unusual_devs.h drivers/usb/storage/unusual_devs.h
+--- a/drivers/usb/storage/unusual_devs.h	2008-05-06 19:00:29.000000000 -0400
++++ b/drivers/usb/storage/unusual_devs.h	2008-05-19 09:45:35.000000000 -0400
+@@ -1012,3 +1012,18 @@
+ 		"Finecam L3",
+ 		US_SC_SCSI, US_PR_BULK, NULL,
+ 		US_FL_FIX_INQUIRY),
++
++/*HUAWEI HSDPA with storage device support --fmay*/
++UNUSUAL_DEV( 0x12d1, 0x1003, 0x0000, 0x0000,
++		"HSDPA Support",
++                "HSDPA Mass Storage",
++                US_SC_DEVICE, US_PR_DEVICE, usb_stor_hsdpa_init,
++                0),
++
++/*ZTExx HSDPA with storage device support --fmay*/
++UNUSUAL_DEV( 0x19d2, 0x2000, 0x0000, 0x0000,
++                "HSDPA Support",
++                "HSDPA Mass Storage",
++                US_SC_DEVICE, US_PR_DEVICE,
++		usb_stor_hsdpa_init, 0),
++
