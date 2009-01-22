@@ -153,6 +153,7 @@ kernel: lzma et wl brcm-shared
 		kernel-conntrack-tcp.patch kernel-netfilter-extras.patch \
 		kernel-mcast-vlan-silent.patch kernel-usb-hub11.patch \
 		kernel-usb-tt-ehci.patch kernel-irda-stir4200.patch \
+		kernel-usb-backports26.patch \
 		kernel-mips-bcm-pkg.patch kernel-bcm5354.patch kernel-gpiortc.patch \
 		kernel-pppol2tp.patch kernel-bt-2.4.31-mh1.patch kernel-epoll.patch \
 		kernel-usb-acm.patch kernel-usb-devpath.patch kernel-ppp_filter.patch \
