@@ -39,8 +39,10 @@ Backported from 2.6.27 to 2.4 branch by: Lisovskiy Leonid <lly@sf.net>
  drivers/usb/host/ehci-q.c     |    7 
  drivers/usb/host/ehci-sched.c |  518 ++++++++++++++++++++++++++++++++++--------
  drivers/usb/host/ehci.h       |   41 ++-
+ drivers/usb/hub.c             |   32 +-
+ drivers/usb/hub.h             |    6 
  include/linux/usb.h           |    1 
- 6 files changed, 483 insertions(+), 100 deletions(-)
+ 8 files changed, 512 insertions(+), 109 deletions(-)
 
 ---
 diff -urbB linux-2.4.37.orig/Documentation/Configure.help linux/Documentation/Configure.help
@@ -89,6 +91,68 @@ diff -urbB linux-2.4.37.orig/include/linux/usb.h linux/include/linux/usb.h
 +	unsigned		think_time;	/* think time in ns */
  };
  
+ 
+diff -uBp linux-2.4.37.orig/drivers/usb/hub.h linux/drivers/usb/hub.h
+--- linux-2.4.37.orig/drivers/usb/hub.h	2008-12-15 16:35:51.000000000 +0300
++++ linux/drivers/usb/hub.h	2009-01-22 10:19:27.000000000 +0300
+@@ -120,6 +120,12 @@
+ 
+ struct usb_device;
+ 
++/* Transaction Translator Think Times, in bits */
++#define HUB_TTTT_8_BITS         0x00
++#define HUB_TTTT_16_BITS        0x20
++#define HUB_TTTT_24_BITS        0x40
++#define HUB_TTTT_32_BITS        0x60
++
+ struct usb_hub {
+ 	struct usb_device *dev;
+ 
+diff -uBp linux-2.4.37.orig/drivers/usb/hub.c linux/drivers/usb/hub.c
+--- linux-2.4.37.orig/drivers/usb/hub.c	2009-01-22 10:14:54.000000000 +0300
++++ linux/drivers/usb/hub.c	2009-01-22 10:26:03.000000000 +0300
+@@ -230,19 +230,33 @@ static int usb_hub_configure(struct usb_
+ 			break;
+ 	}
+ 
++	/* Note 8 FS bit times == (8 bits / 12000000 bps) ~= 666ns */
+ 	switch (hub->descriptor->wHubCharacteristics & HUB_CHAR_TTTT) {
+-		case 0x00:
+-			if (dev->descriptor.bDeviceProtocol != 0)
+-				dbg("TT requires at most 8 FS bit times");
++		case HUB_TTTT_8_BITS:
++			if (dev->descriptor.bDeviceProtocol != 0) {
++				hub->tt.think_time = 666;
++				dbg("TT requires at most %d "
++						"FS bit times (%d ns)\n",
++					8, hub->tt.think_time);
++			}
+ 			break;
+-		case 0x20:
+-			dbg("TT requires at most 16 FS bit times");
++		case HUB_TTTT_16_BITS:
++			hub->tt.think_time = 666 * 2;
++			dbg("TT requires at most %d "
++					"FS bit times (%d ns)\n",
++				16, hub->tt.think_time);
+ 			break;
+-		case 0x40:
+-			dbg("TT requires at most 24 FS bit times");
++		case HUB_TTTT_24_BITS:
++			hub->tt.think_time = 666 * 3;
++			dbg("TT requires at most %d "
++					"FS bit times (%d ns)\n",
++				24, hub->tt.think_time);
+ 			break;
+-		case 0x60:
+-			dbg("TT requires at most 32 FS bit times");
++		case HUB_TTTT_32_BITS:
++			hub->tt.think_time = 666 * 4;
++			dbg("TT requires at most %d "
++					"FS bit times (%d ns)\n",
++				32, hub->tt.think_time);
+ 			break;
+ 	}
  
 diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci.h
 --- linux-2.4.37.orig/drivers/usb/host/ehci.h	2008-12-02 11:01:34.000000000 +0300
