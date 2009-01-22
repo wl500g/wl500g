@@ -277,24 +277,6 @@ diff -urN linux.old/arch/mips/kernel/traps.c linux.dev/arch/mips/kernel/traps.c
 diff -urN linux.old/arch/mips/Makefile linux.dev/arch/mips/Makefile
 --- linux.old/arch/mips/Makefile	2006-10-02 21:23:10.000000000 +0200
 +++ linux.dev/arch/mips/Makefile	2006-10-02 21:19:59.000000000 +0200
-@@ -103,7 +103,7 @@
- 		-xc /dev/null > /dev/null 2>&1 && \
- 		gcc_isa=; \
- fi; \
--echo $$gcc_abi $$gcc_opt$$gcc_cpu $$gcc_isa $$gas_abi $$gas_opt$$gas_cpu $$gas_isa)
-+echo $$gcc_abi $$gcc_isa $$gas_abi $$gas_isa)
- 
- #
- # CPU-dependent compiler/assembler options for optimization.
-@@ -135,7 +135,7 @@
- 		   -Wa,--trap
- endif
- ifdef CONFIG_CPU_MIPS32
--GCCFLAGS	+= $(call set_gccflags,mips32,mips32,r4600,mips3,mips2) \
-+GCCFLAGS	+= $(call set_gccflags,mips32,mips32,r4600,mips2,mips2) \
- 		   -Wa,--trap
- endif
- ifdef CONFIG_CPU_MIPS64
 @@ -726,6 +726,19 @@
  endif
  
