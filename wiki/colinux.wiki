@@ -26,3 +26,4 @@ http://slackware.com/getslack/
 *ссылки:*
 
 http://www.ibm.com/developerworks/ru/library/l-virtualization-colinux/
+http://flora.org.ru/2007/07/03/colinux-veshh-v-vende-zamechaniya-i-pervichnaya-nastrojka/
