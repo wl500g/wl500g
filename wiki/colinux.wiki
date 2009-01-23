@@ -19,6 +19,27 @@ http://slackware.com/getslack/
 Т.к. я пользуюсь Slackware то далее будет рассказано о установке именно этого дистрибутива.
 Далее необходимо создать пустые файлы для подключения их в качестве дисков.
 
+*slak.conf*
+
+{{{
+kernel=vmlinux
+
+kernel=vmlinux
+
+hda=c:\coLinux\linux\root_fs.iso
+hdb=c:\coLinux\linux\hdb.img
+hdc=c:\coLinux\linux\hdc.img
+hdd=c:\coLinux\linux\slack12.iso
+
+hde=c:\coLinux\linux\swap.img
+root=/dev/hda ro
+initrd=initrd.gz
+mem=128
+cocon=120x40
+eth0=tuntap
+
+}}}
+{{{colinux-daemon.exe --install-service colinux @slak.conf}}}
 
 == Настройка системы ==
 
