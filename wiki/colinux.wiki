@@ -13,11 +13,31 @@ coLinux — это порт ядра Linux, работающий как служ
 http://sourceforge.net/projects/colinux/files
 можно попробовать воспользоваться девелоперской версией
 http://colinux.org/snapshots/
-далее потребуется образ дистрибутива линукс 
-http://slackware.com/getslack/ 
-по одному из рабочих "зеркал" необходимо скачать dvd образ Slackware версии 12.2.
+Во время установки coLinux нужно будет убрать галку *Root Filesystem image (Download)*, так как нужный образ мы скачаем позже.
+colinux необходимо установить в c:\colinux
+Далее потребуется образ дистрибутива Linux Slackware 12.2
+Его можно взять по одному из рабочих "зеркал" (http://slackware.com/getslack/), необходимо скачать dvd образ и поместить его в директорию c:\colinux\linux\ задав имя файла *slack12.iso*
 Т.к. я пользуюсь Slackware то далее будет рассказано о установке именно этого дистрибутива.
+
 Далее необходимо создать пустые файлы для подключения их в качестве дисков.
+{{{
+c:\>fsutil.exe file createnew c:\colinux\linux\root_fs.img 3000000000
+c:\>fsutil.exe file createnew c:\colinux\linux\hdb.img 3000000000
+c:\>fsutil.exe file createnew c:\colinux\linux\hdc.img 2000000000
+c:\>fsutil.exe file createnew c:\colinux\linux\swap.img 300000000
+}}}
+
+{{{
+kernel=vmlinux
+hda=c:\coLinux\linux\root_fs.img
+hdb=c:\coLinux\linux\hdb.img
+hdc=c:\coLinux\linux\hdc.img
+hdd=c:\coLinux\linux\slack12.iso
+root=/dev/ram load_ramdisk=1 prompt_ramdisk=0 ramdisk_size=10000
+initrd=initrd.img
+mem=256
+cocon=120x40
+}}}
 
 *slak.conf*
 
