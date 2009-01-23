@@ -4,10 +4,14 @@
   * Based on Oleg 1.9.2.7-10
 
   * kernel 2.4.37
-    * epoll kernel interface
+    * [http://www.xmailserver.org/linux-patches/nio-improve.html epoll] kernel interface
     * drivers/usb/acm.c, ppp_filter, ip_conntrack_clear, /proc/bus/usb/devpath patches from Jiri Engelthaler http://koppel.cz/cdmawifi
     * Workaround for USB 1.1 devices via USB 2.0 hub
-    * Backport SigmaTel 4200 IRDA/USB driver
+    * Backport [http://www.sigmatel.com/ SigmaTel] 4200 IRDA/USB driver
+    * ftdi FT232R chip support
+    * OpenWRT patches:
+      * netfilter IMQ target
+      * Sierra wireless driver
 
   * updated toolchain
     * gcc 4.1.2
@@ -15,15 +19,15 @@
 
   * wl 4.150.10.29
 
-  * pptp-1.7.1 (New option "--no-host-route")
+  * pptp 1.7.1 (New option "--no-host-route")
 
   * dropbear 0.52
 
   * dnsmasq 2.46
 
-  * vsftpd-2.0.7
+  * vsftpd 2.0.7
 
-  * udpxy-1.0_Chipmunk-7
+  * udpxy 1.0_Chipmunk-7
 
   * p910nd 0.92
 
@@ -40,6 +44,9 @@
   * uClibc 0.9.29 (new toolchain: gcc-3.4.6, binutils 2.17, uClibc 0.9.29)
 
   * kernel 2.4.36.6
+    * OpenWRT patches:
+      * netfilter patches
+      * USB serial 3g cards
 
   * dropbear 0.51
 
@@ -60,9 +67,17 @@
 
 ===wl500g-1.9.2.7-a (2008-01-08)===
 
-  * Based on Oleg 1.9.2.7-8
+  * Based on [http://oleg.wl500g.info/ Oleg] 1.9.2.7-8
 
-  * kernel 2.4.36 (baseline patches from OpenWRT kamikadze 7.09)
+  * kernel 2.4.36 (baseline patches from [http://openwrt.org/ OpenWRT] kamikaze 7.09)
+    * [http://www.linux-mips.org/ Linux-mips] patches
+    * build fixes
+    * netfilter patches
+    * wl Broadcom operability
+    * wireless extensions V18
+    * ESFQ scheduler
+    * HTB scheduler fixes
+    * USB VIA6212 fixes
 
   * iptables 1.3.8
 
