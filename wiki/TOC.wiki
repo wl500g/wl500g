@@ -3,3 +3,4 @@
   * [Articles HOWTO articles]
     * [CompilingCustomFirmware Firmware compiling (ru)]
     * [CompilingCustomFirmware_en Firmware compiling (en)]
+    * [colinux CoLinux Firmware compiling (ru)]
