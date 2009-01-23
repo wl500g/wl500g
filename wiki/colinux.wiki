@@ -27,6 +27,8 @@ c:\>fsutil.exe file createnew c:\colinux\linux\hdc.img 2000000000
 c:\>fsutil.exe file createnew c:\colinux\linux\swap.img 300000000
 }}}
 
+теперь нужно создать файл с опциями запуска colinux
+*install.conf*
 {{{
 kernel=vmlinux
 hda=c:\coLinux\linux\root_fs.img
@@ -38,6 +40,32 @@ initrd=initrd.img
 mem=256
 cocon=120x40
 }}}
+
+Для инсталляции Slackware, во время первого запуска colinux потребуется файл initrd.img, он находится на скаченном диске дистрибутива. Чтобы его от туда извлечь можно подключить dvd образ, например через программу alcohol, я воспользовался плагином к Total Commander 
+
+после того как все подготовлено можно запустить установку linux 
+{{{colinux-daemon.exe -t nt @install.conf}}}
+
+появится предложение ввести пароль, можно нажать enter
+далее
+{{{
+mount /dev/hdd /cdrom
+cd /cdrom/slackware/a
+installpkg *.tgz
+cd /cdrom/slackware/ap
+installpkg *.tgz
+cd /cdrom/slackware/d
+installpkg *.tgz
+cd /cdrom/slackware/f
+installpkg *.tgz
+cd /cdrom/slackware/l
+installpkg *.tgz
+cd /cdrom/slackware/n
+installpkg *.tgz
+poweroff
+}}}
+
+
 
 *slak.conf*
 
