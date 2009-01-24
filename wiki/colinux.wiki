@@ -71,9 +71,6 @@ poweroff
 
 {{{
 kernel=vmlinux
-
-kernel=vmlinux
-
 hda=c:\coLinux\linux\root_fs.iso
 hdb=c:\coLinux\linux\hdb.img
 hdc=c:\coLinux\linux\hdc.img
@@ -91,10 +88,81 @@ eth0=tuntap
 
 == Настройка системы ==
 
+*/etc/fstab*
+{{{
+/dev/hda        /               ext2      noatime         2     2
+/dev/hdb        /home           ext3      noatime         2     2
+/dev/hdc        /wl500g         ext3      noatime         2     2
+/dev/hdd        /dvd            iso9660   noauto          0     0
+/dev/hde        swap            swap      defaults        0     0
+proc            /proc           proc      defaults        0     0
+devpts          /dev/pts        devpts    gid=5,mode=620  0     0
+}}}
+
+добавить в конец файла
+*/etc/profile*
+{{{
+export OPTWARE_TARGET="oleg"
+export LANG="ru_RU.UTF-8"
+export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
+}}}
 == Компиляция ==
+
+*install.sh*
+{{{
+#!/bin/sh
+inst=`pwd -P`
+mkdir $inst/broadcom/src/linux -p
+mkdir /opt/brcm -p
+tar -C $inst -zxvf GPL_1927.zip
+tar -C $inst/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2-1.tar.bz2
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
+rm -rf $inst/broadcom/src/linux/linux
+tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
+ln -sf linux-2.4.37 $inst/broadcom/src/linux/linux
+}}}
+
+
+cd /etc/rc.d
+rc.bluetooth.conf  
+rc.httpd       
+rc.local                 
+rc.nfsd       
+rc.sendmail  
+rc.udev           
+rc.acpid      
+rc.cups            
+rc.messagebus            
+rc.ntpd       
+rc.serial    
+rc.wireless       
+rc.alsa       
+rc.dnsmasq         
+rc.pcmcia     
+rc.snmpd     
+rc.wireless.conf  
+rc.atalk      
+rc.modules-2.6.27.7      
+rc.rpc        
+rc.sshd      
+rc.yp             
+rc.bind       
+rc.fuse            
+rc.inetd       
+rc.modules-2.6.27.7-smp  
+rc.samba      
+rc.syslog    
+rc.bluetooth  
+rc.hald            
+rc.ip_forward  
+rc.mysqld                
+rc.saslauthd  
+rc.sysvinit  
 
 
 *ссылки:*
 
-http://www.ibm.com/developerworks/ru/library/l-virtualization-colinux/
-http://flora.org.ru/2007/07/03/colinux-veshh-v-vende-zamechaniya-i-pervichnaya-nastrojka/
+  * http://www.ibm.com/developerworks/ru/library/l-virtualization-colinux/
+  * http://flora.org.ru/2007/07/03/colinux-veshh-v-vende-zamechaniya-i-pervichnaya-nastrojka/
+  * http://str.lug.ru/articles/colinux.shtml
