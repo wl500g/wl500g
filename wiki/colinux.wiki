@@ -106,6 +106,19 @@ export OPTWARE_TARGET="oleg"
 export LANG="ru_RU.UTF-8"
 export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
+
+
+
+{{{
+cd /etc/rc.d
+chmod -x rc.bluetooth.conf rc.httpd rc.local rc.nfsd rc.sendmail rc.udev rc.acpid 
+chmod -x rc.cups rc.messagebus rc.ntpd rc.serial rc.wireless rc.alsa rc.dnsmasq rc.pcmcia
+chmod -x rc.snmpd rc.wireless.conf rc.atalk rc.modules-2.6.27.7 rc.rpc rc.sshd rc.yp 
+chmod -x rc.bind rc.fuse rc.inetd rc.modules-2.6.27.7-smp rc.samba rc.syslog rc.bluetooth 
+chmod -x rc.hald rc.ip_forward rc.mysqld rc.saslauthd rc.sysvinit
+}}}
+
+
 == Компиляция ==
 
 *install.sh*
@@ -121,12 +134,6 @@ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
 ln -sf linux-2.4.37 $inst/broadcom/src/linux/linux
-}}}
-
-
-{{{
-cd /etc/rc.d
-chmod -x rc.bluetooth.conf rc.httpd rc.local rc.nfsd rc.sendmail rc.udev rc.acpid rc.cups rc.messagebus rc.ntpd rc.serial rc.wireless rc.alsa rc.dnsmasq rc.pcmcia rc.snmpd rc.wireless.conf rc.atalk rc.modules-2.6.27.7 rc.rpc rc.sshd rc.yp rc.bind rc.fuse rc.inetd rc.modules-2.6.27.7-smp rc.samba rc.syslog rc.bluetooth rc.hald rc.ip_forward rc.mysqld rc.saslauthd rc.sysvinit
 }}}
 
 *ссылки:*
