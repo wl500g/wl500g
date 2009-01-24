@@ -124,42 +124,10 @@ ln -sf linux-2.4.37 $inst/broadcom/src/linux/linux
 }}}
 
 
+{{{
 cd /etc/rc.d
-rc.bluetooth.conf  
-rc.httpd       
-rc.local                 
-rc.nfsd       
-rc.sendmail  
-rc.udev           
-rc.acpid      
-rc.cups            
-rc.messagebus            
-rc.ntpd       
-rc.serial    
-rc.wireless       
-rc.alsa       
-rc.dnsmasq         
-rc.pcmcia     
-rc.snmpd     
-rc.wireless.conf  
-rc.atalk      
-rc.modules-2.6.27.7      
-rc.rpc        
-rc.sshd      
-rc.yp             
-rc.bind       
-rc.fuse            
-rc.inetd       
-rc.modules-2.6.27.7-smp  
-rc.samba      
-rc.syslog    
-rc.bluetooth  
-rc.hald            
-rc.ip_forward  
-rc.mysqld                
-rc.saslauthd  
-rc.sysvinit  
-
+chmod -x rc.bluetooth.conf rc.httpd rc.local rc.nfsd rc.sendmail rc.udev rc.acpid rc.cups rc.messagebus rc.ntpd rc.serial rc.wireless rc.alsa rc.dnsmasq rc.pcmcia rc.snmpd rc.wireless.conf rc.atalk rc.modules-2.6.27.7 rc.rpc rc.sshd rc.yp rc.bind rc.fuse rc.inetd rc.modules-2.6.27.7-smp rc.samba rc.syslog rc.bluetooth rc.hald rc.ip_forward rc.mysqld rc.saslauthd rc.sysvinit
+}}}
 
 *ссылки:*
 
