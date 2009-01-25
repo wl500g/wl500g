@@ -32,8 +32,6 @@ c:\>fsutil.exe file createnew c:\colinux\linux\swap.img 300000000
 {{{
 kernel=vmlinux
 hda=c:\coLinux\linux\root_fs.img
-hdb=c:\coLinux\linux\hdb.img
-hdc=c:\coLinux\linux\hdc.img
 hdd=c:\coLinux\linux\slack12.iso
 root=/dev/ram load_ramdisk=1 prompt_ramdisk=0 ramdisk_size=10000
 initrd=initrd.img
@@ -49,9 +47,10 @@ c:\> cd c:\colinux
 c:\> colinux-daemon.exe -t nt @install.conf
 }}}
 
-появится предложение ввести имя пользователя и пароль, можно нажать 2 раза enter
+появится предложение выбрать раскладку клавиатуры и ввести имя пользователя, можно нажать 2 раза enter.
 далее подключаем диск с дистрибутивом linux 
 {{{
+mkfs.ext2 -j /dev/hda
 mount /dev/hdd /cdrom
 cd /cdrom/slackware/a
 installpkg -root /mnt *.tgz
