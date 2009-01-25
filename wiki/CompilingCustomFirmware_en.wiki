@@ -15,9 +15,9 @@
 
 == 2. Download the sources ==
   * ASUS original sources [http://dlsvr01.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror])
-  * Toolchain [http://wl500g.googlecode.com/files/hndtools-mipsel-uclibc-4.1.2-1.tar.bz2 hndtools-mipsel-uclibc-4.1.2-1.tar.bz2]
   * Linux kernel [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.tar.bz2 linux-2.4.37.tar.bz2]
-  * Firmware sources wl500g-1.9.2.7-d.tar.bz2
+  * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc hndtools-mipsel-uclibc-4.1.2]
+  * Firmware sources [http://code.google.com/p/wl500g/downloads/list?can=2&q=firmware+sources wl500g-1.9.2.7-d]
 
 == 3. Unpack the archives and prepare the building tree ==
 
