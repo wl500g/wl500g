@@ -43,72 +43,80 @@ cocon=120x40
 
 Для инсталляции Slackware, во время первого запуска colinux потребуется файл initrd.img, он находится на скаченном диске дистрибутива. Чтобы его от туда извлечь можно подключить dvd образ, например через программу alcohol, я воспользовался плагином к Total Commander 
 
-после того как все подготовлено можно запустить установку linux 
-{{{colinux-daemon.exe -t nt @install.conf}}}
+После того как все подготовлено необходимо запустить установку linux  
+{{{
+c:\> cd c:\colinux
+c:\> colinux-daemon.exe -t nt @install.conf
+}}}
 
-появится предложение ввести пароль, можно нажать enter
-далее
+появится предложение ввести имя пользователя и пароль, можно нажать 2 раза enter
+далее подключаем диск с дистрибутивом linux 
 {{{
 mount /dev/hdd /cdrom
 cd /cdrom/slackware/a
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 cd /cdrom/slackware/ap
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 cd /cdrom/slackware/d
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 cd /cdrom/slackware/f
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 cd /cdrom/slackware/l
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 cd /cdrom/slackware/n
-installpkg *.tgz
+installpkg -root /mnt *.tgz
 poweroff
 }}}
 
-
+теперь нужно создать файл с опциями стандартного запуска colinux 
 
 *slak.conf*
-
 {{{
 kernel=vmlinux
 hda=c:\coLinux\linux\root_fs.iso
 hdb=c:\coLinux\linux\hdb.img
 hdc=c:\coLinux\linux\hdc.img
 hdd=c:\coLinux\linux\slack12.iso
-
 hde=c:\coLinux\linux\swap.img
 root=/dev/hda ro
 initrd=initrd.gz
 mem=128
 cocon=120x40
 eth0=tuntap
-
 }}}
-{{{colinux-daemon.exe --install-service colinux @slak.conf}}}
+
+далее запускаем установленную Slackware 
+
+{{{
+c:\> cd c:\colinux
+c:\> colinux-daemon.exe --install-service colinux @slak.conf
+}}}
 
 == Настройка системы ==
+
+После того как все нужные пакеты установлены необходимо подготовить рабочее окружение.
+Необходимо настроить автомонтирование дисков в файле
 
 */etc/fstab*
 {{{
 /dev/hda        /               ext2      noatime         2     2
 /dev/hdb        /home           ext3      noatime         2     2
 /dev/hdc        /wl500g         ext3      noatime         2     2
-/dev/hdd        /dvd            iso9660   noauto          0     0
+/dev/hdd        /dvd            iso9660                   0     0
 /dev/hde        swap            swap      defaults        0     0
 proc            /proc           proc      defaults        0     0
 devpts          /dev/pts        devpts    gid=5,mode=620  0     0
 }}}
 
-добавить в конец файла
-*/etc/profile*
+После этого необходимо добавить в профиль переменные среды и необходимые для сборки прошивки пути.
+Поместите в конец файла */etc/profile* следующие переменные строки.
 {{{
 export OPTWARE_TARGET="oleg"
 export LANG="ru_RU.UTF-8"
 export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
 
-
-
+Теперь необходимо убрать автозапуск лишних сервисов, выполнив команды
 {{{
 cd /etc/rc.d
 chmod -x rc.bluetooth.conf rc.httpd rc.local rc.nfsd rc.sendmail rc.udev rc.acpid 
@@ -118,6 +126,31 @@ chmod -x rc.bind rc.fuse rc.inetd rc.modules-2.6.27.7-smp rc.samba rc.syslog rc.
 chmod -x rc.hald rc.ip_forward rc.mysqld rc.saslauthd rc.sysvinit
 }}}
 
+в файле */etc/rc.d/rc.inet1.conf* необходимо настроить IP адрес, маску и шлюз по умолчанию.
+{{{
+IPADDR[0]="192.168.0.2"
+NETMASK[0]="255.255.255.0"
+GATEWAY="192.168.0.1"
+}}}
+
+Далее перезагрузка системы и проверка того что все работает нормально.
+
+{{{
+reboot
+}}}
+
+Если все нормально то можно добавить виртуальную машину colinux в список служб windows командой 
+
+{{{
+colinux-daemon.exe --install-service "colinux" @slack.conf
+}}}
+
+После этого можно запускать или останавливать службу coLinux через панель управления служб, или из командной строки.
+
+{{{
+net start colinux
+net stop colinux
+}}}
 
 == Компиляция ==
 
@@ -135,6 +168,7 @@ rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
 ln -sf linux-2.4.37 $inst/broadcom/src/linux/linux
 }}}
+
 
 *ссылки:*
 
