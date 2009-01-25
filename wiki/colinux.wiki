@@ -50,8 +50,16 @@ c:\> colinux-daemon.exe -t nt @install.conf
 появится предложение выбрать раскладку клавиатуры и ввести имя пользователя, можно нажать 2 раза enter.
 далее подключаем диск с дистрибутивом linux 
 {{{
-mkfs.ext2 -j /dev/hda
 mount /dev/hdd /cdrom
+}}}
+форматируем раздел hda
+{{{
+mkfs.ext2 -j /dev/hda
+}}}
+на вопрос *Proceed anyway? (y,n)* необходимо ответить *y*
+
+далее необходимо установить нужные пакеты 
+{{{
 cd /cdrom/slackware/a
 installpkg -root /mnt *.tgz
 cd /cdrom/slackware/ap
@@ -64,6 +72,9 @@ cd /cdrom/slackware/l
 installpkg -root /mnt *.tgz
 cd /cdrom/slackware/n
 installpkg -root /mnt *.tgz
+}}}
+после установки выключаем виртуальную машину.
+{{{
 poweroff
 }}}
 
@@ -101,7 +112,7 @@ c:\> colinux-daemon.exe --install-service colinux @slak.conf
 /dev/hda        /               ext2      noatime         2     2
 /dev/hdb        /home           ext3      noatime         2     2
 /dev/hdc        /wl500g         ext3      noatime         2     2
-/dev/hdd        /dvd            iso9660                   0     0
+/dev/hdd        /dvd            iso9660   defaults        0     0
 /dev/hde        swap            swap      defaults        0     0
 proc            /proc           proc      defaults        0     0
 devpts          /dev/pts        devpts    gid=5,mode=620  0     0
@@ -132,16 +143,15 @@ NETMASK[0]="255.255.255.0"
 GATEWAY="192.168.0.1"
 }}}
 
-Далее перезагрузка системы и проверка того что все работает нормально.
+Далее перезагрузка системы.
 
 {{{
 reboot
 }}}
 
-Если все нормально то можно добавить виртуальную машину colinux в список служб windows командой 
-
+Если все нормально загрузка прошла штатно, то можно добавить виртуальную машину colinux в список служб windows командой:
 {{{
-colinux-daemon.exe --install-service "colinux" @slack.conf
+c:\> colinux-daemon.exe --install-service "colinux" @slack.conf
 }}}
 
 После этого можно запускать или останавливать службу coLinux через панель управления служб, или из командной строки.
