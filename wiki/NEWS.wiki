@@ -1,6 +1,6 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d (Current)===
+===wl500g-1.9.2.7-d7 (2009-01-24)===
   * Based on Oleg 1.9.2.7-10
 
   * kernel 2.4.37
