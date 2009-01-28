@@ -1,6 +1,6 @@
   * [Welcome ↑ Home]
   * [NEWS History of Changes]
-  * [Articles HOWTO articles]
+  * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling (ru)]
     * [CompilingCustomFirmware_en Firmware compiling (en)]
     * [colinux Firmware compiling on CoLinux (ru)]
