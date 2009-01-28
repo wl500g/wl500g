@@ -84,7 +84,7 @@ diff -urbBp linux-2.4.37.orig/drivers/usb/host/Config.in linux/drivers/usb/host/
 diff -urbB linux-2.4.37.orig/include/linux/usb.h linux/include/linux/usb.h
 --- linux-2.4.37.orig/include/linux/usb.h	2008-12-02 11:01:34.000000000 +0300
 +++ linux/include/linux/usb.h	2009-01-16 13:29:35.000000000 +0300
-@@ -804,6 +806,7 @@
+@@ -806,6 +806,7 @@
  struct usb_tt {
  	struct usb_device	*hub;	/* upstream highspeed hub */
  	int			multi;	/* true means one TT per port */
@@ -177,10 +177,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
  	unsigned short		period;		/* polling interval */
  	unsigned short		start;		/* where polling starts */
  #define NO_FRAME ((unsigned short)~0)			/* pick new start */
-@@ -423,10 +434,12 @@ struct ehci_iso_stream {
- 	/* the rest is derived from the endpoint descriptor,
- 	 * trusting urb->interval == (1 << (epdesc->bInterval - 1)),
- 	 * including the extra info for hw_bufp[0..2]
+@@ -430,7 +436,9 @@ struct ehci_iso_stream {
  	 */
  	u8			interval;
  	u8			usecs;		
@@ -190,7 +187,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
  	unsigned		bandwidth;
  
  	/* This is used to initialize iTD's hw_bufp fields */
-@@ -512,6 +512,7 @@ struct ehci_sitd {
+@@ -504,6 +512,7 @@ struct ehci_sitd {
  	dma_addr_t		sitd_dma;
  	union ehci_shadow	sitd_next;	/* ptr to periodic q entry */
  	struct urb		*urb;
