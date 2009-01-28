@@ -23,13 +23,15 @@
 
   * Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located) 
 {{{
-$ tar -C /whatever-you-want -zxvf /home/user/tt/GPL_1927.ZIP
-$ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
-$ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
-$ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
+$ mkdir -p /whatever-you-want
+$ mkdir -p /opt/brcm
+$ tar -C /whatever-you-want -zxvf GPL_1927.ZIP
 $ rm -rf /whatever-you-want/broadcom/src/linux/linux
 $ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
 $ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37 /whatever-you-want/broadcom/src/linux/linux
+$ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
+$ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
+$ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 }}}
   * The old toolchain ASUS/Broadcom can be removed
 {{{
