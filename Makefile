@@ -124,16 +124,15 @@ wl:
 	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
 	tar -C $(ROOT) -xjf $(WL).tar.bz2
 
-kernel-mrproper:
-#	$(MAKE) -C $(KERNEL_DIR) mrproper
-#	$(MAKE) -C $(KERNEL_DIR)/arch/mips/bcm947xx/compressed/ clean
-
 brcm-shared:
 	@cd brcm-src && $(PATCHER) -Z $(ROOT) brcm-src-shared.patch brcm-src-include.patch \
 		brcm-src-5365.patch brcm-src-5365-robo.patch brcm-src-5354.patch \
 		brcm-src-robo-tag.patch 
 
-kernel: lzma et wl brcm-shared
+kernel-mrproper:
+	$(MAKE) -C $(KERNEL_DIR) mrproper
+
+kernel-patch:
 	@echo Preparing kernel ...
 	[ -d $(KERNEL_DIR)/arch/mips/bcm947xx ] || tar -C $(KERNEL_DIR) -xvjf brcm-boards.tar.bz2
 	$(MAKE) -C $(KERNEL_DIR)/arch/mips/bcm947xx/compressed/ clean
@@ -161,6 +160,9 @@ kernel: lzma et wl brcm-shared
 	tar -C $(KERNEL_DIR) -xvjf ov51x-1.65-1.12.tar.bz2
 	tar -C $(KERNEL_DIR) -xvjf pwc-9.0.2.tar.bz2
 	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
+
+kernel: lzma et wl brcm-shared kernel-patch
+	@true
 
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
