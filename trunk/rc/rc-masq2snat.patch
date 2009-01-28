@@ -1,0 +1,42 @@
+diff -BurpN '-x*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
+--- router/rc/firewall_ex.c	2008-12-28 13:56:49.000000000 +0500
++++ gateway/rc/firewall_ex.c	2009-01-29 00:21:29.000000000 +0500
+@@ -28,6 +28,9 @@
+ 
+ #define foreach_x(x)	for(i=0; i<atoi(nvram_safe_get(x)); i++)
+ 
++/* change MASQUERADE to SNAT action to speed up routing*/
++#define MASQ2SNAT
++
+ char *g_buf;
+ char g_buf_pool[1024];
+ 
+@@ -651,6 +654,20 @@ void nat_setting(char *wan_if, char *wan
+ 
+ 	if (nvram_match("wan_nat_x", "1"))
+ 	{
++#ifdef MASQ2SNAT
++		/* snat WAN port (ppp/pppoe/l2tp) connection */
++		if (inet_addr_(wan_ip))
++			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j SNAT --to-source %s\n", wan_if, wan_ip, wan_ip);
++
++   		/* snat physical WAN port connection */
++		if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
++			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j SNAT --to-source %s\n", 
++	   			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"), nvram_get("wanx_ipaddr"));
++
++		// snat lan to lan
++		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
++		fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j SNAT --to-source %s\n", lan_if, lan_class, lan_class, lan_ip);
++#else
+ 		if (inet_addr_(wan_ip))
+    			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
+ 
+@@ -662,6 +679,7 @@ void nat_setting(char *wan_if, char *wan
+ 		// masquerade lan to lan
+ 		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
+ 		fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j MASQUERADE\n", lan_if, lan_class, lan_class);
++#endif
+ 	}
+ 
+ 	/* Trigger port setting */
