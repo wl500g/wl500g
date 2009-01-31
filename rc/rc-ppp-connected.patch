@@ -1,0 +1,12 @@
+diff -BurpN '-x*.o' router/rc/ppp.c gateway/rc/ppp.c
+--- router/rc/ppp.c	2008-03-19 22:07:24.000000000 +0500
++++ gateway/rc/ppp.c	2009-02-01 01:18:24.000000000 +0500
+@@ -92,7 +92,7 @@
+ 
+ 	wan_up(wan_ifname);
+ 
+-	logmessage(nvram_safe_get("wan_proto_t"), "connect to ISP");
++	logmessage(nvram_safe_get("wan_proto_t"), "connected to ISP");
+ 	wanmessage("");
+ 
+ 	dprintf("done\n");
