@@ -61,8 +61,9 @@ EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
 PATCHER := $(shell pwd)/patch.sh
 
-OPENWRT_Kernel_Patches=$(shell ls -1 kernel/openwrt/???-*.patch)
-OPENWRT_Brcm_Patches=$(shell ls -1 kernel/openwrt/brcm/???-*.patch)
+OPENWRT_Kernel_Patches=$(shell ls -1 kernel/openwrt/[0-9][0-9][0-9]-*.patch)
+OPENWRT_Brcm_Patches=$(shell ls -1 kernel/openwrt/brcm/[0-9][0-9][0-9]-*.patch)
+OUR_Kernel_Patches=$(shell ls -1 kernel/[0-9][0-9][0-9]-*.patch)
 
 all: prep custom
 	@true
@@ -136,27 +137,12 @@ kernel-patch:
 	@echo Preparing kernel ...
 	[ -d $(KERNEL_DIR)/arch/mips/bcm947xx ] || tar -C $(KERNEL_DIR) -xvjf brcm-boards.tar.bz2
 	$(MAKE) -C $(KERNEL_DIR)/arch/mips/bcm947xx/compressed/ clean
-	@$(PATCHER) -Z $(KERNEL_DIR) kernel/kernel-buildhost.patch
+	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
-	@cd kernel && $(PATCHER) -Z $(KERNEL_DIR) kernel-brcm-src.patch kernel-squashfs.patch kernel-squashfs-lzma.patch \
-		kernel-printer-asus.patch kernel-printer-undo.patch kernel-printer-channel.patch \
-		kernel-printer-undo-status.patch kernel-printer-bug.patch kernel-printer-id-fix.patch \
-		kernel-pl2303.patch kernel-usb-scsiglue.patch kernel-usb-hid-bugs.patch \
-		kernel-pwcx.patch kernel-ov51x.patch kernel-nvram-valid.patch \
-		kernel-flash-partitions.patch kernel-flash-mirrorbit.patch kernel-mvista-mem.patch \
-		kernel-mksquashfs.patch kernel-mksquashfs-gcc4.patch kernel-mksquashfs-lzma.patch \
-		kernel-ide-nasoc.patch kernel-flash-id.patch kernel-ftdi.patch \
-		kernel-conntrack-tcp.patch kernel-netfilter-extras.patch \
-		kernel-mcast-vlan-silent.patch kernel-usb-hub11.patch \
-		kernel-usb-tt-ehci.patch kernel-irda-stir4200.patch \
-		kernel-usb-backports26.patch \
-		kernel-mips-bcm-pkg.patch kernel-bcm5354.patch kernel-gpiortc.patch \
-		kernel-pppol2tp.patch kernel-bt-2.4.31-mh1.patch kernel-epoll.patch \
-		kernel-usb-acm.patch kernel-usb-devpath.patch kernel-ppp_filter.patch \
-		kernel-conntrack_clear.patch kernel-gcc4.patch 
+	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 	tar -C $(KERNEL_DIR) -xvjf ov51x-1.65-1.12.tar.bz2
 	tar -C $(KERNEL_DIR) -xvjf pwc-9.0.2.tar.bz2
 	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
