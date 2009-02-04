@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-01-22 15:57:59.000000000 +0300
++++ gateway/Makefile	2009-02-04 20:54:41.000000000 +0300
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -166,7 +166,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +183,177 @@ clean: $(obj-clean) config-clean
+@@ -155,39 +183,179 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -183,12 +183,14 @@
 +	    $(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc-3.4.6; \
 +	fi )
 +
-+kernel: $(LINUXDIR)/.config kernel-modules
-+        # Also build kernel
++kernel-image: $(LINUXDIR)/.config
 +	( . $(LINUXDIR)/.config ; \
 +	if [ "$${CONFIG_EMBEDDED_RAMDISK}" = "" ] ; then \
 +	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc-3.4.6; \
 +	fi )
++
++kernel: kernel-image kernel-modules
++	@true
 +
 +kernel-clean:
 +	$(MAKE) -C $(LINUXDIR) clean
@@ -368,7 +370,7 @@
  #
  # Configuration rules
  #
-@@ -232,9 +398,9 @@ $(LINUXDIR)/.config:
+@@ -232,9 +400,9 @@ $(LINUXDIR)/.config:
  # Overrides
  #
  
@@ -380,7 +382,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +408,56 @@ www www-%:
+@@ -242,43 +410,56 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -453,7 +455,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +473,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +475,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -463,7 +465,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +488,232 @@ vlan:
+@@ -312,195 +490,232 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -832,7 +834,7 @@
  image-R100:
  	make rc-clean
  	make infosvr-clean
-@@ -512,15 +725,15 @@ image-R100:
+@@ -512,15 +727,15 @@ image-R100:
  	echo $(LANGUAGE)
  	make wwwmt-install-R100 
  	make install
@@ -851,7 +853,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +741,9 @@ image-R100:
+@@ -528,6 +743,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
