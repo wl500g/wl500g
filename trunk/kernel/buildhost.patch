@@ -41,8 +41,12 @@
  kbuild_2_4_nostdinc	:= -nostdinc -iwithprefix include
  export kbuild_2_4_nostdinc
  
-@@ -350,12 +350,12 @@
- 	@LANG=C echo ' '`date` >> .ver1
+@@ -347,15 +350,15 @@
+ 	@echo -n \#`cat .version` > .ver1
+ 	@if [ -n "$(CONFIG_SMP)" ] ; then echo -n " SMP" >> .ver1; fi
+ 	@if [ -f .name ]; then  echo -n \-`cat .name` >> .ver1; fi
+-	@LANG=C echo ' '`date` >> .ver1
++	@LANG=C echo ' '`date +%F' '%T' '%Z` >> .ver1
  	@echo \#define UTS_VERSION \"`cat .ver1 | $(uts_truncate)`\" > .ver
  	@LANG=C echo \#define LINUX_COMPILE_TIME \"`date +%T`\" >> .ver
 -	@echo \#define LINUX_COMPILE_BY \"`whoami`\" >> .ver
