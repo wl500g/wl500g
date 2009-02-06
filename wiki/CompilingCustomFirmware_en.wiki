@@ -34,7 +34,7 @@ $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
 }}}
   * Checking out wl500g-1.9.2.7-d firmware sources
 {{{
-$ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/srcwl500g-1.9.2.7-d
+$ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 }}}
   * The old toolchain ASUS/Broadcom can be removed
 {{{
