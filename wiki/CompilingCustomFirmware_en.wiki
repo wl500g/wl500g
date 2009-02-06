@@ -12,6 +12,7 @@
     * g++
     * flex
     * zlib development
+    * subversion
 
 == 2. Download the sources ==
   * ASUS original sources [http://dlsvr01.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror])
