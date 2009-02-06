@@ -12,6 +12,7 @@
     * g++
     * flex
     * zlib development
+    * subversion
 
 == 2. Скачать исходники ==
   * Первоисточник от ASUS [http://dlsvr01.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало])
@@ -35,8 +36,7 @@ $ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 }}}
   * Получение исходников прошивки wl500g-1.9.2.7-d
 {{{
-$ cd /whatever-you-want/broadcom/src
-$ svn checkout http://wl500g.googlecode.com/svn/trunk/ wl500g-1.9.2.7-d
+$ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 }}}
   * Можно удалить старый тулчейн от ASUS/Broadcom
 {{{
