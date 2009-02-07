@@ -171,7 +171,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 		busybox/modprobe.patch busybox/e2fsck-checkinterval.patch \
 		busybox/ether-wake.patch busybox/install.patch 
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
-	cp busybox/$(BUSYBOX).config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
+	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	mv $(TOP)/$(BUSYBOX) $(TOP)/busybox
 
 busybox: $(TOP)/busybox
