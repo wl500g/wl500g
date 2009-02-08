@@ -1,204 +1,71 @@
-diff -ur busybox-1.1.3/editors/awk.c busybox/editors/awk.c
---- busybox-1.1.3/editors/awk.c	2006-03-23 00:16:25.000000000 +0300
-+++ busybox/editors/awk.c	2006-06-16 20:41:43.815636056 +0400
-@@ -257,7 +257,7 @@
+diff -urBp busybox-1.13.2/Makefile busybox/Makefile
+--- busybox-1.13.2/Makefile	2008-12-31 06:32:54.000000000 +0300
++++ busybox/Makefile	2009-02-07 14:27:30.000000000 +0300
+@@ -314,7 +314,7 @@
  
- /* builtins */
- enum {
--	B_a2=0,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,	B_lo,	B_up,
-+	B_a2=0,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,	B_mt,	B_lo,	B_up,
- 	B_ge,	B_gs,	B_su
- };
+ # Use LINUXINCLUDE when you must reference the include/ directory.
+ # Needed to be compatible with the O= option
+-CFLAGS		:= $(CFLAGS)
++CFLAGS		:= $(CFLAGS) $(EXTRA_CFLAGS)
+ # Added only to final link stage of busybox binary
+ CFLAGS_busybox	:= $(CFLAGS_busybox)
+ CPPFLAGS	:= $(CPPFLAGS)
+diff -urBp busybox-1.13.2/include/applets.h busybox/include/applets.h
+--- busybox-1.13.2/include/applets.h	2009-02-06 13:58:50.000000000 +0300
++++ busybox/include/applets.h	2009-02-07 20:33:24.000000000 +0300
+@@ -178,7 +178,7 @@
+ USE_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hexdump))
+ USE_HOSTID(APPLET_NOFORK(hostid, hostid, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hostid))
+ USE_HOSTNAME(APPLET(hostname, _BB_DIR_BIN, _BB_SUID_NEVER))
+-USE_HTTPD(APPLET(httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
++USE_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER, httpd))
+ USE_HUSH(APPLET(hush, _BB_DIR_BIN, _BB_SUID_NEVER))
+ USE_HWCLOCK(APPLET(hwclock, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_ID(APPLET(id, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+diff -urBp busybox-1.13.2/include/libbb.h busybox/include/libbb.h
+--- busybox-1.13.2/include/libbb.h	2008-12-31 06:06:45.000000000 +0300
++++ busybox/include/libbb.h	2009-02-07 20:45:25.000000000 +0300
+@@ -1366,9 +1366,9 @@
+ extern const char bb_busybox_exec_path[];
+ /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
+  * but I want to save a few bytes here */
+-extern const char bb_PATH_root_path[]; /* "PATH=/sbin:/usr/sbin:/bin:/usr/bin" */
++extern const char bb_PATH_root_path[]; /* "PATH=/opt/sbin:/sbin:/usr/sbin:/opt/bin:/usr/local/bin:/bin:/usr/bin" */
+ #define bb_default_root_path (bb_PATH_root_path + sizeof("PATH"))
+-#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/sbin:/usr/sbin"))
++#define bb_default_path      (bb_PATH_root_path + sizeof("PATH=/opt/sbin:/sbin:/usr/sbin"))
  
-@@ -303,7 +303,7 @@
- 	"\4rand"	"\3sin"		"\4sqrt"	"\5srand"
- 	"\6gensub"	"\4gsub"	"\5index"	"\6length"
- 	"\5match"	"\5split"	"\7sprintf"	"\3sub"
--	"\6substr"	"\7systime"	"\10strftime"
-+	"\6substr"	"\7systime"	"\10strftime"   "\6mktime"
- 	"\7tolower"	"\7toupper"	NTC
- 	"\7getline"	NTC
- 	"\4func"	"\10function"	NTC
-@@ -356,7 +356,7 @@
- 	OC_FBLTIN|F_rn,    OC_FBLTIN|Nx|F_si, OC_FBLTIN|Nx|F_sq, OC_FBLTIN|Nx|F_sr,
- 	OC_B|B_ge|P(0xd6), OC_B|B_gs|P(0xb6), OC_B|B_ix|P(0x9b), OC_FBLTIN|Sx|F_le,
- 	OC_B|B_ma|P(0x89), OC_B|B_sp|P(0x8b), OC_SPRINTF,        OC_B|B_su|P(0xb6),
--	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b),
-+	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b), OC_B|B_mt|P(0x0b),
- 	OC_B|B_lo|P(0x49), OC_B|B_up|P(0x49),
- 	OC_GETLINE|SV|P(0),
- 	0,	0,
-@@ -1861,6 +1861,35 @@
- 	return i;
- }
+ extern const int const_int_0;
+ extern const int const_int_1;
+diff -urBp busybox-1.13.2/libbb/messages.c busybox/libbb/messages.c
+--- busybox-1.13.2/libbb/messages.c	2008-11-09 20:28:09.000000000 +0300
++++ busybox/libbb/messages.c	2009-02-07 20:45:15.000000000 +0300
+@@ -48,7 +48,7 @@
+ /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
+  * but I want to save a few bytes here. Check libbb.h before changing! */
+ const char bb_PATH_root_path[] ALIGN1 =
+-	"PATH=/sbin:/usr/sbin:/bin:/usr/bin" BB_ADDITIONAL_PATH;
++	"PATH=/opt/sbin:/sbin:/usr/sbin:/opt/bin:/usr/local/bin:/bin:/usr/bin" BB_ADDITIONAL_PATH;
  
-+int do_mktime(char * ds)
-+{
-+	struct tm then;
-+	long year;
-+	int month, day, hour, minute, second, count;
-+	int dst = -1; /* default is unknown */
-+
-+	count = sscanf(ds, "%ld %d %d %d %d %d %d",
-+		        & year, & month, & day,
-+			& hour, & minute, & second,
-+		        & dst);
-+
-+	if (count < 6
-+	    || month < month - 1
-+	    || year < year - 1900 || year - 1900 != (int) (year - 1900))
-+		return -1;
-+
-+	memset(& then, '\0', sizeof(then));
-+	then.tm_sec = second;
-+	then.tm_min = minute;
-+	then.tm_hour = hour;
-+	then.tm_mday = day;
-+	then.tm_mon = month - 1;
-+	then.tm_year = year - 1900;
-+	then.tm_isdst = dst;
-+
-+	return mktime(& then);
-+}
-+
- static var *exec_builtin(node *op, var *res)
+ 
+ const int const_int_1 = 1;
+diff -urBp busybox-1.13.2/libbb/procps.c busybox/libbb/procps.c
+--- busybox-1.13.2/libbb/procps.c	2008-11-09 20:28:09.000000000 +0300
++++ busybox/libbb/procps.c	2009-02-07 20:47:51.000000000 +0300
+@@ -166,7 +166,7 @@
+ procps_status_t* FAST_FUNC procps_scan(procps_status_t* sp, int flags)
  {
- 	int (*to_xxx)(int);
-@@ -1981,6 +2010,10 @@
- 		buf[i] = '\0';
- 		setvar_s(res, buf);
- 		break;
-+		
-+	  case B_mt:
-+	  	setvar_i(res, do_mktime(as[0]));
-+	  	break;
- 
- 	  case B_ma:
- 		re = as_regex(an[1], &sreg);
-diff -ur busybox-1.1.3/include/applets.h busybox/include/applets.h
---- busybox-1.1.3/include/applets.h	2006-03-23 00:16:24.000000000 +0300
-+++ busybox/include/applets.h	2006-06-16 20:41:43.640662656 +0400
-@@ -61,6 +61,7 @@
- USE_BUNZIP2(APPLET(bunzip2, bunzip2_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- /* Always enabled. */
- APPLET_NOUSAGE(busybox, busybox_main, _BB_DIR_BIN, _BB_SUID_MAYBE)
-+USE_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd_main, _BB_DIR_USR_SBIN, _BB_SUID_NEVER, httpd))
- USE_BUNZIP2(APPLET(bzcat, bunzip2_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- USE_CAL(APPLET(cal, cal_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- USE_CAT(APPLET(cat, cat_main, _BB_DIR_BIN, _BB_SUID_NEVER))
-@@ -133,7 +134,6 @@
- USE_HEXDUMP(APPLET(hexdump, hexdump_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- USE_HOSTID(APPLET(hostid, hostid_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- USE_HOSTNAME(APPLET(hostname, hostname_main, _BB_DIR_BIN, _BB_SUID_NEVER))
--USE_HTTPD(APPLET(httpd, httpd_main, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
- USE_HUSH(APPLET_NOUSAGE(hush, hush_main, _BB_DIR_BIN, _BB_SUID_NEVER))
- USE_HWCLOCK(APPLET(hwclock, hwclock_main, _BB_DIR_SBIN, _BB_SUID_NEVER))
- USE_ID(APPLET(id, id_main, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
-diff -ur busybox-1.1.3/include/usage.h busybox/include/usage.h
---- busybox-1.1.3/include/usage.h	2006-03-23 00:16:24.000000000 +0300
-+++ busybox/include/usage.h	2006-06-16 20:41:43.683656120 +0400
-@@ -2947,6 +2947,7 @@
- 	"\t-m MIN\t\tMinutes between MARK lines (default=20, 0=off)\n" \
- 	"\t-n\t\tRun as a foreground process\n" \
- 	"\t-O FILE\t\tUse an alternate log file (default=/var/log/messages)\n" \
-+	"\t-l n\tSets the local log level of messages to n.\n" \
- 	"\t-S\t\tMake logging output smaller." \
- 	USAGE_ROTATE_LOGFILE( \
- 	"\n\t-s SIZE\t\tMax size (KB) before rotate (default=200KB, 0=off)\n" \
-diff -ur busybox-1.1.3/shell/ash.c busybox/shell/ash.c
---- busybox-1.1.3/shell/ash.c	2006-03-23 00:16:21.000000000 +0300
-+++ busybox/shell/ash.c	2006-06-16 20:41:43.751645784 +0400
-@@ -1482,7 +1482,7 @@
- 
- #define VTABSIZE 39
- 
--static const char defpathvar[] = "PATH=/usr/local/bin:/usr/bin:/sbin:/bin";
-+static const char defpathvar[] = "PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
- #ifdef IFS_BROKEN
- static const char defifsvar[] = "IFS= \t\n";
- #define defifs (defifsvar + 4)
-diff -ur busybox-1.1.3/sysklogd/syslogd.c busybox/sysklogd/syslogd.c
---- busybox-1.1.3/sysklogd/syslogd.c	2006-03-23 00:16:20.000000000 +0300
-+++ busybox/sysklogd/syslogd.c	2006-06-16 20:41:43.774642288 +0400
-@@ -58,6 +58,9 @@
- /* interval between marks in seconds */
- static int MarkInterval = 20 * 60;
- 
-+/* level of messages to be locally logged */
-+static int logLevel = 8;
-+
- /* localhost's name */
- static char LocalHostName[64];
- 
-@@ -444,11 +447,13 @@
- 	if (local_logging == TRUE)
- #endif
- 	{
--		/* now spew out the message to wherever it is supposed to go */
--		if (small)
--			message("%s %s\n", timestamp, msg);
--		else
--			message("%s %s %s %s\n", timestamp, LocalHostName, res, msg);
-+		if (pri == 0 || LOG_PRI(pri) < logLevel) {
-+			/* now spew out the message to wherever it is supposed to go */
-+			if (small)
-+				message("%s %s\n", timestamp, msg);
-+			else
-+				message("%s %s %s %s\n", timestamp, LocalHostName, res, msg);
-+		}
- 	}
- }
- 
-@@ -611,7 +616,7 @@
- 	char *p;
- 
- 	/* do normal option parsing */
--	while ((opt = getopt(argc, argv, "m:nO:s:Sb:R:LC::")) > 0) {
-+	while ((opt = getopt(argc, argv, "m:nO:l:s:Sb:R:LC::")) > 0) {
- 		switch (opt) {
- 		case 'm':
- 			MarkInterval = atoi(optarg) * 60;
-@@ -622,6 +627,13 @@
- 		case 'O':
- 			logFilePath = optarg;
- 			break;
-+		case 'l':
-+			logLevel = atoi(optarg);
-+			/* Valid levels are between 1 and 8 */
-+			if (logLevel < 1 || logLevel > 8) {
-+				bb_show_usage();
-+			}
-+			break;
- #ifdef CONFIG_FEATURE_ROTATE_LOGFILE
- 		case 's':
- 			logFileSize = atoi(optarg) * 1024;
---- busybox/applets/applets.c.orig	2006-06-17 01:01:52.084112216 +0400
-+++ busybox/applets/applets.c	2006-06-17 01:02:03.670350840 +0400
-@@ -446,7 +446,7 @@
- {
- 	if(ENABLE_FEATURE_SUID_CONFIG) parse_config_file ();
- 
--	if(!strncmp(name, "busybox", 7)) busybox_main(argc, argv);
-+	if(!strcmp(name, "busybox")) busybox_main(argc, argv);
- 	/* Do a binary search to find the applet entry given the name. */
- 	applet_using = find_applet_by_name(name);
- 	if(applet_using) {
---- busybox/libbb/procps.c.orig	2006-06-17 17:19:02.997003776 +0400
-+++ busybox/libbb/procps.c	2006-06-17 17:19:37.875701408 +0400
-@@ -43,7 +43,7 @@
- 	int n;
- 	char status[32];
- 	char *status_tail;
+ 	struct dirent *entry;
 -	char buf[PROCPS_BUFSIZE];
-+	char buf[PROCPS_BUFSIZE + 1];
- 	procps_status_t curstatus;
- 	int pid;
++	char buf[PROCPS_BUFSIZE+1];
+ 	char filename[sizeof("/proc//cmdline") + sizeof(int)*3];
+ 	char *filename_tail;
  	long tasknice;
-@@ -77,6 +77,7 @@
- 		n = read_to_buf(status, buf);
- 		if(n < 0)
- 			continue;
-+		buf[n] = 0;
- 		name = strrchr(buf, ')'); /* split into "PID (cmd" and "<rest>" */
- 		if(name == 0 || name[1] != ' ')
- 			continue;
+@@ -224,6 +224,7 @@ procps_status_t* FAST_FUNC procps_scan(p
+ 			n = read_to_buf(filename, buf);
+ 			if (n < 0)
+ 				break;
++			buf[n] = '\0';
+ 			cp = strrchr(buf, ')'); /* split into "PID (cmd" and "<rest>" */
+ 			/*if (!cp || cp[1] != ' ')
+ 				break;*/

@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-02-04 20:54:41.000000000 +0300
++++ gateway/Makefile	2009-02-08 01:06:18.000000000 +0300
 @@ -13,9 +13,21 @@
  #
  
@@ -424,12 +424,12 @@
 -busybox-install: busybox
 -	$(MAKE) -C busybox STRIPTOOL=$(STRIP) PREFIX=$(INSTALLDIR)/busybox install
 +busybox: busybox/.config
-+	$(MAKE) -C $@ all STRIP=$(STRIP)
++	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)"
  
 -dproxy:
 -	$(MAKE) -C dproxy
 +busybox-install: busybox
-+	$(MAKE) -C busybox STRIP=$(STRIP) PREFIX=$(INSTALLDIR)/busybox install
++	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)"
  
  dproxy-install: dproxy
  	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
