@@ -1,6 +1,6 @@
 diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/hosts.h linux/drivers/scsi/hosts.h
 --- linux-2.4.37.orig/drivers/scsi/hosts.h	2008-12-02 13:01:34.000000000 +0500
-+++ linux/drivers/scsi/hosts.h	2009-02-02 20:54:53.000000000 +0500
++++ linux/drivers/scsi/hosts.h	2009-02-08 03:12:16.000000000 +0500
 @@ -300,6 +300,19 @@ typedef struct	SHT
       * Name of proc directory
       */
@@ -23,7 +23,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/hosts.h linux/drivers/scsi/h
  
 diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/scsi/scsi_error.c
 --- linux-2.4.37.orig/drivers/scsi/scsi_error.c	2008-12-02 13:01:34.000000000 +0500
-+++ linux/drivers/scsi/scsi_error.c	2009-02-02 23:30:01.000000000 +0500
++++ linux/drivers/scsi/scsi_error.c	2009-02-08 05:02:15.000000000 +0500
 @@ -57,6 +57,7 @@
  #define SENSE_TIMEOUT (10*HZ)
  #define RESET_TIMEOUT (2*HZ)
@@ -104,7 +104,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
   * This would normally need to get the IO request lock,
   * but as it doesn't actually touch anything that needs
   * to be locked we can avoid the lock here..
-@@ -780,6 +839,36 @@ STATIC int scsi_try_to_abort_command(Scs
+@@ -780,6 +839,32 @@ STATIC int scsi_try_to_abort_command(Scs
  }
  
  /*
@@ -125,11 +125,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
 +	if (SCpnt->device->allow_restart == 0)
 +		return FAILED;
 +
-+	SCpnt->eh_state = FAILED;	/* Until we come up with something better */
-+
-+	spin_lock_irqsave(&io_request_lock, flags);
 +	rtn = scsi_send_stu(SCpnt);
-+	spin_unlock_irqrestore(&io_request_lock, flags);
 +
 +	if (rtn == SUCCESS)
 +		SCpnt->eh_state = SUCCESS;
@@ -141,7 +137,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
   * Function:  scsi_try_bus_device_reset
   *
   * Purpose:     Ask host adapter to perform a bus device reset for a given
-@@ -1195,6 +1284,15 @@ STATIC int scsi_check_sense(Scsi_Cmnd * 
+@@ -1195,6 +1280,15 @@ STATIC int scsi_check_sense(Scsi_Cmnd * 
  			(SCpnt->sense_buffer[13] == 0x01)) {
  			return NEEDS_RETRY;
  		}
@@ -157,7 +153,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
  		return SUCCESS;
  
  		/* these three are not supported */
-@@ -1204,12 +1302,20 @@ STATIC int scsi_check_sense(Scsi_Cmnd * 
+@@ -1204,12 +1298,20 @@ STATIC int scsi_check_sense(Scsi_Cmnd * 
  		return SUCCESS;
  
  	case MEDIUM_ERROR:
@@ -179,7 +175,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
  	default:
  		return SUCCESS;
  	}
-@@ -1494,6 +1600,45 @@ STATIC int scsi_unjam_host(struct Scsi_H
+@@ -1494,6 +1596,45 @@ STATIC int scsi_unjam_host(struct Scsi_H
  		ourrtn = TRUE;
  		goto leave;
  	}
@@ -200,7 +196,7 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
 +		if (SCloop == NULL) {
 +			continue;
 +		}
-+		
++
 +		rtn = scsi_try_start_unit(SCloop);
 +
 +		if (rtn == SUCCESS) {
@@ -225,17 +221,23 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
  	/*
  	 * Either the abort wasn't appropriate, or it didn't succeed.
  	 * Now try a bus device reset.  Still, look to see whether we have
-@@ -1714,6 +1859,7 @@ STATIC int scsi_unjam_host(struct Scsi_H
+@@ -1714,7 +1855,12 @@ STATIC int scsi_unjam_host(struct Scsi_H
  						    && SCloop->state != SCSI_STATE_TIMEOUT) {
  							continue;
  						}
-+						scsi_try_start_unit(SCloop);
- 						rtn = scsi_test_unit_ready(SCloop);
+-						rtn = scsi_test_unit_ready(SCloop);
++
++						if ((scsi_try_start_unit(SCloop) == SUCCESS &&
++						     scsi_test_unit_ready(SCloop) == SUCCESS))
++							rtn = SUCCESS;
++						else
++							rtn = scsi_test_unit_ready(SCloop);
  
  						if (rtn == SUCCESS && scsi_unit_is_ready(SCloop)) {
+ 							rtn = scsi_eh_retry_command(SCloop);
 diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi.h linux/drivers/scsi/scsi.h
 --- linux-2.4.37.orig/drivers/scsi/scsi.h	2008-12-02 13:01:34.000000000 +0500
-+++ linux/drivers/scsi/scsi.h	2009-02-02 23:19:27.000000000 +0500
++++ linux/drivers/scsi/scsi.h	2009-02-08 03:12:16.000000000 +0500
 @@ -609,6 +609,8 @@ struct scsi_device {
  	unsigned starved:1;	/* unable to process commands because
  				   host busy */
