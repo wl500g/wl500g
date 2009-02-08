@@ -22,7 +22,7 @@ SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux
 
-BUSYBOX=busybox-1.1.3
+BUSYBOX=busybox-1.13.2
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.46
 P910ND=p910nd-0.92
@@ -164,12 +164,16 @@ loader: $(TOP)/loader
 $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	@rm -rf $(TOP)/$(BUSYBOX) $(TOP)/busybox
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
-	$(PATCHER) $(TOP)/$(BUSYBOX) busybox/busybox.patch \
+	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
+	$(PATCHER) $(TOP)/$(BUSYBOX) busybox/$(BUSYBOX)-init.patch \
+		busybox/$(BUSYBOX)-depmod.patch busybox/$(BUSYBOX)-tar.patch \
+		busybox/$(BUSYBOX)-modprobe.patch \
+		busybox/busybox.patch busybox/awk.patch \
 		busybox/e2fsprogs.patch busybox/udhcp-options.patch \
 		busybox/udhcp-vci.patch busybox/udhcp-secs.patch \
 		busybox/cgi-env.patch busybox/http-host.patch \
-		busybox/modprobe.patch busybox/e2fsck-checkinterval.patch \
-		busybox/ether-wake.patch busybox/install.patch 
+		busybox/insmod.patch busybox/e2fsck-checkinterval.patch \
+		busybox/ether-wake.patch 
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	mv $(TOP)/$(BUSYBOX) $(TOP)/busybox

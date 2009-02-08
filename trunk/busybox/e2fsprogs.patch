@@ -1,5 +1,103 @@
---- a/e2fsprogs/ext2fs/ismounted.c	2003-12-07 20:11:38.000000000 +0300
-+++ b/e2fsprogs/ext2fs/ismounted.c	2004-11-11 23:56:32.601399984 +0300
+--- busybox-1.13.2/include/applets.h.orig	2008-11-09 20:28:17.000000000 +0300
++++ busybox-1.13.2/include/applets.h	2009-02-06 13:58:50.000000000 +0300
+@@ -132,8 +132,8 @@
+ USE_DU(APPLET(du, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_DUMPKMAP(APPLET(dumpkmap, _BB_DIR_BIN, _BB_SUID_NEVER))
+ USE_APP_DUMPLEASES(APPLET(dumpleases, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+-//USE_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER))
+-//USE_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, e2label))
++USE_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER))
++USE_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, e2label))
+ USE_ECHO(APPLET_NOFORK(echo, echo, _BB_DIR_BIN, _BB_SUID_NEVER, echo))
+ USE_ED(APPLET(ed, _BB_DIR_BIN, _BB_SUID_NEVER))
+ USE_FEATURE_GREP_EGREP_ALIAS(APPLET_ODDNAME(egrep, grep, _BB_DIR_BIN, _BB_SUID_NEVER, egrep))
+@@ -158,8 +158,8 @@
+ USE_FREE(APPLET(free, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_FREERAMDISK(APPLET(freeramdisk, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_FSCK(APPLET(fsck, _BB_DIR_SBIN, _BB_SUID_NEVER))
+-//USE_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER, fsck_ext2))
+-//USE_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER, fsck_ext3))
++USE_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER, fsck_ext2))
++USE_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, _BB_DIR_SBIN, _BB_SUID_NEVER, fsck_ext3))
+ USE_FSCK_MINIX(APPLET_ODDNAME(fsck.minix, fsck_minix, _BB_DIR_SBIN, _BB_SUID_NEVER, fsck_minix))
+ USE_FTPGET(APPLET_ODDNAME(ftpget, ftpgetput, _BB_DIR_USR_BIN, _BB_SUID_NEVER, ftpget))
+ USE_FTPPUT(APPLET_ODDNAME(ftpput, ftpgetput, _BB_DIR_USR_BIN, _BB_SUID_NEVER, ftpput))
+@@ -245,10 +245,10 @@
+ USE_MESG(APPLET(mesg, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_MICROCOM(APPLET(microcom, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_MKDIR(APPLET_NOFORK(mkdir, mkdir, _BB_DIR_BIN, _BB_SUID_NEVER, mkdir))
+-//USE_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER))
++USE_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_MKFIFO(APPLET(mkfifo, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+-//USE_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, mkfs_ext2))
+-//USE_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, mkfs_ext3))
++USE_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, mkfs_ext2))
++USE_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_NEVER, mkfs_ext3))
+ USE_MKFS_MINIX(APPLET_ODDNAME(mkfs.minix, mkfs_minix, _BB_DIR_SBIN, _BB_SUID_NEVER, mkfs_minix))
+ USE_MKNOD(APPLET(mknod, _BB_DIR_BIN, _BB_SUID_NEVER))
+ USE_MKSWAP(APPLET(mkswap, _BB_DIR_SBIN, _BB_SUID_NEVER))
+@@ -377,7 +377,7 @@
+ USE_TRUE(APPLET_NOFORK(true, true, _BB_DIR_BIN, _BB_SUID_NEVER, true))
+ USE_TTY(APPLET(tty, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_TTYSIZE(APPLET(ttysize, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+-//USE_TUNE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_NEVER))
++USE_TUNE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_APP_UDHCPC(APPLET(udhcpc, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_APP_UDHCPD(APPLET(udhcpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
+ USE_UDPSVD(APPLET_ODDNAME(udpsvd, tcpudpsvd, _BB_DIR_USR_BIN, _BB_SUID_NEVER, udpsvd))
+diff -urN busybox-1.13.2/e2fsprogs/e2fsck.c gateway/busybox/e2fsprogs/e2fsck.c
+--- busybox-1.13.2/e2fsprogs/e2fsck.c	2008-11-09 20:28:16.000000000 +0300
++++ gateway/busybox/e2fsprogs/e2fsck.c	2009-02-06 13:39:20.000000000 +0300
+@@ -45,7 +45,7 @@
+ static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
+ 
+ /* pass1.c */
+-static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool);
++static void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool);
+ 
+ /* pass2.c */
+ static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
+@@ -4560,11 +4560,11 @@
+ 	return 0;
+ }
+ 
+-void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int bool)
++void e2fsck_use_inode_shortcuts(e2fsck_t ctx, int fl_bool)
+ {
+ 	ext2_filsys fs = ctx->fs;
+ 
+-	if (bool) {
++	if (fl_bool) {
+ 		fs->get_blocks = pass1_get_blocks;
+ 		fs->check_directory = pass1_check_directory;
+ 		fs->read_inode = pass1_read_inode;
+diff -urN busybox-1.13.2/e2fsprogs/e2p/e2p.h gateway/busybox/e2fsprogs/e2p/e2p.h
+--- busybox-1.13.2/e2fsprogs/e2p/e2p.h	2008-11-09 20:28:10.000000000 +0300
++++ gateway/busybox/e2fsprogs/e2p/e2p.h	2009-02-06 13:36:50.000000000 +0300
+@@ -38,7 +38,7 @@
+ void list_super2(struct ext2_super_block * s, FILE *f);
+ #define list_super(s) list_super2(s, stdout)
+ void print_fs_errors (FILE *f, unsigned short errors);
+-void print_flags (FILE *f, unsigned long flags, unsigned options);
++void print_e2flags (FILE *f, unsigned long flags, unsigned options);
+ void print_fs_state (FILE *f, unsigned short state);
+ int setflags (int fd, unsigned long flags);
+ int setversion (int fd, unsigned long version);
+diff -urN busybox-1.13.2/e2fsprogs/e2p/pf.c gateway/busybox/e2fsprogs/e2p/pf.c
+--- busybox-1.13.2/e2fsprogs/e2p/pf.c	2008-11-09 20:28:10.000000000 +0300
++++ gateway/busybox/e2fsprogs/e2p/pf.c	2009-02-06 13:36:42.000000000 +0300
+@@ -48,7 +48,7 @@
+ 	{ 0, NULL, NULL }
+ };
+ 
+-void print_flags (FILE *f, unsigned long flags, unsigned options)
++void print_e2flags (FILE *f, unsigned long flags, unsigned options)
+ {
+ 	int long_opt = (options & PFOPT_LONG);
+ 	const struct flags_name *fp;
+diff -urN new/gateway/busybox/miscutils/watchdog.c busybox-1.13.2/miscutils/watchdog.c
+--- busybox-1.13.2/e2fsprogs/ext2fs/ismounted.c	2003-12-07 20:11:38.000000000 +0300
++++ gateway/busybox/e2fsprogs/ext2fs/ismounted.c	2004-11-11 23:56:32.601399984 +0300
 @@ -175,8 +175,7 @@
  #ifdef __linux__
  	retval = check_mntent_file("/proc/mounts", file, mount_flags,
@@ -10,14 +108,67 @@
  #endif /* __linux__ */
  #if defined(MOUNTED) || defined(_PATH_MOUNTED)
  #ifndef MOUNTED
---- busybox/e2fsprogs/e2fsbb.h.orig	2006-06-17 01:29:50.782087320 +0400
-+++ busybox/e2fsprogs/e2fsbb.h	2006-06-17 01:34:10.534598936 +0400
-@@ -27,7 +27,7 @@
- #define error_message(code) strerror((int) (code & ((1<<ERRCODE_RANGE)-1)))
+diff -urN new/gateway/busybox/Makefile busybox-1.13.2/Makefile
+--- new/gateway/busybox/Makefile	2008-12-31 06:32:54.000000000 +0300
++++ busybox-1.13.2/Makefile	2009-02-05 12:36:02.000000000 +0300
+@@ -450,6 +450,10 @@
+ 		coreutils/libcoreutils/ \
+ 		debianutils/ \
+ 		e2fsprogs/ \
++		e2fsprogs/blkid/ \
++		e2fsprogs/e2p/ \
++		e2fsprogs/ext2fs/ \
++		e2fsprogs/uuid/ \
+ 		editors/ \
+ 		findutils/ \
+ 		init/ \
+--- busybox-1.13.2/include/usage.h.orig	2008-11-09 20:28:17.000000000 +0300
++++ busybox-1.13.2/include/usage.h	2009-02-07 06:38:49.000000000 +0300
+@@ -922,6 +922,10 @@
+      "\n	-l file		Add to badblocks list" \
+      "\n	-L file		Set badblocks list" \
  
- /* misc crap */
--#define fatal_error(err, msg) bb_error_msg_and_die(msg)
-+#define fatal_error(err, msg) (msg ? bb_error_msg_and_die(msg) : exit(bb_default_error_retval))
- #define usage() bb_show_usage()
++
++#define e2label_trivial_usage NOUSAGE_STR
++#define e2label_full_usage ""
++
+ #define echo_trivial_usage \
+ 	USE_FEATURE_FANCY_ECHO("[-neE] ") "[ARG...]"
+ #define echo_full_usage "\n\n" \
+@@ -1211,6 +1215,12 @@
+      "\n	-C n	Write status information to specified filedescriptor" \
+      "\n	-t type	List of filesystem types to check" \
  
- /* header defines */
++#define fsck_ext2_trivial_usage NOUSAGE_STR
++#define fsck_ext2_full_usage ""
++
++#define fsck_ext3_trivial_usage NOUSAGE_STR
++#define fsck_ext3_full_usage ""
++
+ #define fsck_minix_trivial_usage \
+        "[-larvsmf] /dev/name"
+ #define fsck_minix_full_usage "\n\n" \
+@@ -2524,6 +2534,12 @@
+      "\n	-Z	Set security context" \
+ 	)
+ 
++#define mkfs_ext2_trivial_usage NOUSAGE_STR
++#define mkfs_ext2_full_usage ""
++
++#define mkfs_ext3_trivial_usage NOUSAGE_STR
++#define mkfs_ext3_full_usage ""
++
+ #define mkfs_minix_trivial_usage \
+        "[-c | -l filename] [-nXX] [-iXX] /dev/name [blocks]"
+ #define mkfs_minix_full_usage "\n\n" \
+diff -urN new/gateway/busybox/miscutils/watchdog.c busybox-1.13.2/miscutils/watchdog.c
+--- new/gateway/busybox/miscutils/watchdog.c	2008-11-09 20:28:16.000000000 +0300
++++ busybox-1.13.2/miscutils/watchdog.c	2009-02-05 11:27:40.000000000 +0300
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include "libbb.h"
++#include "linux/types.h"
+ #include "linux/watchdog.h"
+ 
+ #define OPT_FOREGROUND  (1 << 0)
