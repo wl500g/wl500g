@@ -227,8 +227,8 @@ diff -BurpN -x'*.o*' linux-2.4.37.orig/drivers/scsi/scsi_error.c linux/drivers/s
  						}
 -						rtn = scsi_test_unit_ready(SCloop);
 +
-+						if ((scsi_try_start_unit(SCloop) == SUCCESS &&
-+						     scsi_test_unit_ready(SCloop) == SUCCESS))
++						if (scsi_try_start_unit(SCloop) == SUCCESS &&
++						    scsi_test_unit_ready(SCloop) == SUCCESS)
 +							rtn = SUCCESS;
 +						else
 +							rtn = scsi_test_unit_ready(SCloop);
