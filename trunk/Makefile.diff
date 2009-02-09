@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-02-08 01:06:18.000000000 +0300
++++ gateway/Makefile	2009-02-09 20:48:50.000000000 +0300
 @@ -13,9 +13,21 @@
  #
  
@@ -481,7 +481,7 @@
 +	install -D ppp/chat/chat $(INSTALLDIR)/ppp/usr/sbin/chat
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/sbin/chat
 +	install -D ppp/pppd/plugins/rp-pppoe/rp-pppoe.so $(INSTALLDIR)/ppp/usr/lib/pppd/rp-pppoe.so
-+	install -D ppp/pppd/plugins/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
++	install -D ppp/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
 +
 +dnsmasq:

@@ -1,0 +1,187 @@
+ 
+ Upgrade rp-pppoe plugin to 3.10
+ 
+diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/discovery.c ppp/pppd/plugins/rp-pppoe/discovery.c
+--- ppp-2.4.5-pre/pppd/plugins/rp-pppoe/discovery.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/rp-pppoe/discovery.c	2009-02-09 17:20:11.000000000 +0300
+@@ -22,6 +22,7 @@ static char const RCSID[] =
+ #ifdef HAVE_SYS_TIME_H
+ #include <sys/time.h>
+ #endif
++#include <time.h>
+ 
+ #ifdef HAVE_SYS_UIO_H
+ #include <sys/uio.h>
+@@ -280,6 +281,9 @@ waitForPADO(PPPoEConnection *conn, int t
+     fd_set readable;
+     int r;
+     struct timeval tv;
++    struct timeval expire_at;
++    struct timeval now;
++
+     PPPoEPacket packet;
+     int len;
+ 
+@@ -291,10 +295,31 @@ waitForPADO(PPPoEConnection *conn, int t
+     pc.seenServiceName = 0;
+     conn->error = 0;
+ 
++    if (gettimeofday(&expire_at, NULL) < 0) {
++	fatalSys("gettimeofday (waitForPADO)");
++    }
++    expire_at.tv_sec += timeout;
++
+     do {
+ 	if (BPF_BUFFER_IS_EMPTY) {
+-	    tv.tv_sec = timeout;
+-	    tv.tv_usec = 0;
++	    if (gettimeofday(&now, NULL) < 0) {
++		fatalSys("gettimeofday (waitForPADO)");
++	    }
++	    tv.tv_sec = expire_at.tv_sec - now.tv_sec;
++	    tv.tv_usec = expire_at.tv_usec - now.tv_usec;
++	    if (tv.tv_usec < 0) {
++		tv.tv_usec += 1000000;
++		if (tv.tv_sec) {
++		    tv.tv_sec--;
++		} else {
++		    /* Timed out */
++		    return;
++		}
++	    }
++	    if (tv.tv_sec <= 0 && tv.tv_usec <= 0) {
++		/* Timed out */
++		return;
++	    }
+ 
+ 	    FD_ZERO(&readable);
+ 	    FD_SET(conn->discoverySocket, &readable);
+@@ -307,7 +332,10 @@ waitForPADO(PPPoEConnection *conn, int t
+ 		error("select (waitForPADO): %m");
+ 		return;
+ 	    }
+-	    if (r == 0) return;        /* Timed out */
++	    if (r == 0) {
++		/* Timed out */
++		return;
++	    }
+ 	}
+ 
+ 	/* Get the packet */
+@@ -449,15 +477,39 @@ waitForPADS(PPPoEConnection *conn, int t
+ {
+     fd_set readable;
+     int r;
+     struct timeval tv;
++    struct timeval expire_at;
++    struct timeval now;
++
+     PPPoEPacket packet;
+     int len;
+ 
++    if (gettimeofday(&expire_at, NULL) < 0) {
++	fatalSys("gettimeofday (waitForPADS)");
++    }
++    expire_at.tv_sec += timeout;
++
+     conn->error = 0;
+     do {
+ 	if (BPF_BUFFER_IS_EMPTY) {
+-	    tv.tv_sec = timeout;
+-	    tv.tv_usec = 0;
++	    if (gettimeofday(&now, NULL) < 0) {
++		fatalSys("gettimeofday (waitForPADS)");
++	    }
++	    tv.tv_sec = expire_at.tv_sec - now.tv_sec;
++	    tv.tv_usec = expire_at.tv_usec - now.tv_usec;
++	    if (tv.tv_usec < 0) {
++		tv.tv_usec += 1000000;
++		if (tv.tv_sec) {
++		    tv.tv_sec--;
++		} else {
++		    /* Timed out */
++		    return;
++		}
++	    }
++	    if (tv.tv_sec <= 0 && tv.tv_usec <= 0) {
++		/* Timed out */
++		return;
++	    }
+ 
+ 	    FD_ZERO(&readable);
+ 	    FD_SET(conn->discoverySocket, &readable);
+@@ -470,7 +520,10 @@ waitForPADS(PPPoEConnection *conn, int t
+ 		error("select (waitForPADS): %m");
+ 		return;
+ 	    }
+-	    if (r == 0) return;
++	    if (r == 0) {
++		/* Timed out */
++		return;
++	    }
+ 	}
+ 
+ 	/* Get the packet */
+diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/Makefile.linux ppp/pppd/plugins/rp-pppoe/Makefile.linux
+--- ppp-2.4.5-pre/pppd/plugins/rp-pppoe/Makefile.linux	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/rp-pppoe/Makefile.linux	2009-02-09 17:22:47.000000000 +0300
+@@ -23,7 +23,7 @@ PPPDVERSION = $(shell awk -F '"' '/VERSI
+ INSTALL	= install
+ 
+ # Version is set ONLY IN THE MAKEFILE!  Don't delete this!
+-RP_VERSION=3.8p
++RP_VERSION=3.10p
+ 
+ COPTS=-O2 -g
+ CFLAGS=$(COPTS) -I../../../include '-DRP_VERSION="$(RP_VERSION)"'
+diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppoe/plugin.c
+--- ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/rp-pppoe/plugin.c	2009-02-09 17:16:52.000000000 +0300
+@@ -49,7 +49,6 @@ static char const RCSID[] =
+ #include <net/ethernet.h>
+ #include <net/if_arp.h>
+ #include <linux/ppp_defs.h>
+-#include <linux/if_ppp.h>
+ #include <linux/if_pppox.h>
+ 
+ #ifndef _ROOT_PATH
+@@ -133,6 +132,17 @@ PPPOEConnectDevice(void)
+ {
+     struct sockaddr_pppox sp;
+ 
++    /* Open session socket before discovery phase, to avoid losing session */
++    /* packets sent by peer just after PADS packet (noted on some Cisco    */
++    /* server equipment).                                                  */
++    /* Opening this socket just before waitForPADS in the discovery()      */
++    /* function would be more appropriate, but it would mess-up the code   */
++    conn->sessionSocket = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
++    if (conn->sessionSocket < 0) {
++	error("Failed to create PPPoE socket: %m");
++	return -1;
++    }
++
+     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
+     if (existingSession) {
+ 	unsigned int mac[ETH_ALEN];
+@@ -147,6 +157,8 @@ PPPOEConnectDevice(void)
+ 	    conn->peerEth[i] = (unsigned char) mac[i];
+ 	}
+     } else {
++        conn->discoverySocket =
++            openInterface(conn->ifName, Eth_PPPOE_Discovery, conn->myEth);
+ 	discovery(conn);
+ 	if (conn->discoveryState != STATE_SESSION) {
+ 	    error("Unable to complete PPPoE Discovery");
+@@ -157,12 +169,6 @@ PPPOEConnectDevice(void)
+     /* Set PPPoE session-number for further consumption */
+     ppp_session_number = ntohs(conn->session);
+ 
+-    /* Make the session socket */
+-    conn->sessionSocket = socket(AF_PPPOX, SOCK_STREAM, PX_PROTO_OE);
+-    if (conn->sessionSocket < 0) {
+-	error("Failed to create PPPoE socket: %m");
+-	goto errout;
+-    }
+     sp.sa_family = AF_PPPOX;
+     sp.sa_protocol = PX_PROTO_OE;
+     sp.sa_addr.pppoe.sid = conn->session;
