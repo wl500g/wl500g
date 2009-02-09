@@ -12,6 +12,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>	//!!TB
 #include <sys/param.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -861,7 +862,8 @@ Process_upnphttp(struct upnphttp * h)
 		}
 		else if(n==0)
 		{
-			syslog(LOG_WARNING, "HTTP Connection closed unexpectedly");
+			syslog(LOG_WARNING, "HTTP Connection from %s closed unexpectedly",
+				inet_ntoa(h->clientaddr));	//!!TB - added client address
 			h->state = EToDelete;
 		}
 		else
@@ -931,7 +933,8 @@ Process_upnphttp(struct upnphttp * h)
 		}
 		else if(n==0)
 		{
-			syslog(LOG_WARNING, "HTTP Connection closed inexpectedly");
+			syslog(LOG_WARNING, "HTTP Connection from %s closed unexpectedly",
+				inet_ntoa(h->clientaddr));	//!!TB - added client address
 			h->state = EToDelete;
 		}
 		else
