@@ -1,0 +1,171 @@
+diff -urB ppp.orig/chat/Makefile.linux ppp/chat/Makefile.linux
+--- ppp.orig/chat/Makefile.linux	2008-11-26 13:02:29.000000000 +0300
++++ ppp/chat/Makefile.linux	2009-02-09 18:08:34.000000000 +0300
+@@ -11,7 +11,7 @@
+ CDEFS=	$(CDEF1) $(CDEF2) $(CDEF3) $(CDEF4)
+ 
+ COPTS=	-O2 -g -pipe
+-CFLAGS=	$(COPTS) $(CDEFS)
++CFLAGS=	$(COPTS) $(CDEFS) $(EXTRACFLAGS)
+ 
+ INSTALL= install
+ 
+diff -urB ppp.orig/pppd/Makefile.linux ppp/pppd/Makefile.linux
+--- ppp.orig/pppd/Makefile.linux	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/Makefile.linux	2009-02-09 18:10:19.000000000 +0300
+@@ -48,19 +48,19 @@
+ # Uncomment the next line to include support for PPP packet filtering.
+ # This requires that the libpcap library and headers be installed
+ # and that the kernel driver support PPP packet filtering.
+-FILTER=y
++#FILTER=y
+ 
+ # Uncomment the next line to enable multilink PPP (enabled by default)
+ # Linux distributions: Please leave multilink ENABLED in your builds
+ # of pppd!
+-HAVE_MULTILINK=y
++#HAVE_MULTILINK=y
+ 
+ # Uncomment the next line to enable the TDB database (enabled by default.)
+ # If you enable multilink, then TDB is automatically enabled also.
+ # Linux distributions: Please leave TDB ENABLED in your builds.
+-USE_TDB=y
++#USE_TDB=y
+ 
+-HAS_SHADOW=y
++#HAS_SHADOW=y
+ #USE_PAM=y
+ #HAVE_INET6=y
+ 
+@@ -73,13 +73,13 @@
+ # Enable EAP SRP-SHA1 authentication (requires libsrp)
+ #USE_SRP=y
+ 
+-MAXOCTETS=y
++#MAXOCTETS=y
+ 
+ INCLUDE_DIRS= -I../include
+ 
+-COMPILE_FLAGS= -DHAVE_PATHS_H -DIPX_CHANGE -DHAVE_MMAP
++COMPILE_FLAGS= #-DHAVE_PATHS_H -DIPX_CHANGE -DHAVE_MMAP
+ 
+-CFLAGS= $(COPTS) $(COMPILE_FLAGS) $(INCLUDE_DIRS) '-DDESTDIR="@DESTDIR@"'
++CFLAGS= $(COPTS) $(COMPILE_FLAGS) $(EXTRACFLAGS) $(INCLUDE_DIRS) '-DDESTDIR="@DESTDIR@"'
+ 
+ ifdef CHAPMS
+ CFLAGS   += -DCHAPMS=1
+@@ -117,10 +117,10 @@
+ #LIBS     += -lshadow $(LIBS)
+ endif
+ 
+-ifneq ($(wildcard /usr/include/crypt.h),)
++#ifneq ($(wildcard /usr/include/crypt.h),)
+ CFLAGS  += -DHAVE_CRYPT_H=1
+ LIBS	+= -lcrypt
+-endif
++#endif
+ 
+ ifdef NEEDDES
+ ifndef USE_CRYPT
+diff -urB ppp.orig/pppd/pathnames.h ppp/pppd/pathnames.h
+--- ppp.orig/pppd/pathnames.h	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/pathnames.h	2009-02-09 18:08:09.000000000 +0300
+@@ -9,40 +9,40 @@
+ 
+ #else /* HAVE_PATHS_H */
+ #ifndef _PATH_VARRUN
+-#define _PATH_VARRUN 	"/etc/ppp/"
++#define _PATH_VARRUN 	"/var/run/"
+ #endif
+ #define _PATH_DEVNULL	"/dev/null"
+ #endif /* HAVE_PATHS_H */
+ 
+ #ifndef _ROOT_PATH
+-#define _ROOT_PATH
++#define _ROOT_PATH	"/tmp"
+ #endif
+ 
+-#define _PATH_UPAPFILE 	 _ROOT_PATH "/etc/ppp/pap-secrets"
+-#define _PATH_CHAPFILE 	 _ROOT_PATH "/etc/ppp/chap-secrets"
+-#define _PATH_SRPFILE 	 _ROOT_PATH "/etc/ppp/srp-secrets"
+-#define _PATH_SYSOPTIONS _ROOT_PATH "/etc/ppp/options"
+-#define _PATH_IPUP	 _ROOT_PATH "/etc/ppp/ip-up"
+-#define _PATH_IPDOWN	 _ROOT_PATH "/etc/ppp/ip-down"
+-#define _PATH_IPPREUP	 _ROOT_PATH "/etc/ppp/ip-pre-up"
+-#define _PATH_AUTHUP	 _ROOT_PATH "/etc/ppp/auth-up"
+-#define _PATH_AUTHDOWN	 _ROOT_PATH "/etc/ppp/auth-down"
+-#define _PATH_TTYOPT	 _ROOT_PATH "/etc/ppp/options."
+-#define _PATH_CONNERRS	 _ROOT_PATH "/etc/ppp/connect-errors"
+-#define _PATH_PEERFILES	 _ROOT_PATH "/etc/ppp/peers/"
+-#define _PATH_RESOLV	 _ROOT_PATH "/etc/ppp/resolv.conf"
++#define _PATH_UPAPFILE 	 _ROOT_PATH "/ppp/pap-secrets"
++#define _PATH_CHAPFILE 	 _ROOT_PATH "/ppp/chap-secrets"
++#define _PATH_SRPFILE 	 _ROOT_PATH "/ppp/srp-secrets"
++#define _PATH_SYSOPTIONS _ROOT_PATH "/ppp/options"
++#define _PATH_IPUP	 _ROOT_PATH "/ppp/ip-up"
++#define _PATH_IPDOWN	 _ROOT_PATH "/ppp/ip-down"
++#define _PATH_IPPREUP	 _ROOT_PATH "/ppp/ip-pre-up"
++#define _PATH_AUTHUP	 _ROOT_PATH "/ppp/auth-up"
++#define _PATH_AUTHDOWN	 _ROOT_PATH "/ppp/auth-down"
++#define _PATH_TTYOPT	 _ROOT_PATH "/ppp/options."
++#define _PATH_CONNERRS	 _ROOT_PATH "/var/log/ppp-connect-errors"
++#define _PATH_PEERFILES	 _ROOT_PATH "/ppp/peers/"
++#define _PATH_RESOLV	 _ROOT_PATH "/ppp/resolv.conf"
+ 
+ #define _PATH_USEROPT	 ".ppprc"
+ #define	_PATH_PSEUDONYM	 ".ppp_pseudonym"
+ 
+ #ifdef INET6
+-#define _PATH_IPV6UP     _ROOT_PATH "/etc/ppp/ipv6-up"
+-#define _PATH_IPV6DOWN   _ROOT_PATH "/etc/ppp/ipv6-down"
++#define _PATH_IPV6UP     _ROOT_PATH "/ppp/ipv6-up"
++#define _PATH_IPV6DOWN   _ROOT_PATH "/ppp/ipv6-down"
+ #endif
+ 
+ #ifdef IPX_CHANGE
+-#define _PATH_IPXUP	 _ROOT_PATH "/etc/ppp/ipx-up"
+-#define _PATH_IPXDOWN	 _ROOT_PATH "/etc/ppp/ipx-down"
++#define _PATH_IPXUP	 _ROOT_PATH "/ppp/ipx-up"
++#define _PATH_IPXDOWN	 _ROOT_PATH "/ppp/ipx-down"
+ #endif /* IPX_CHANGE */
+ 
+ #ifdef __STDC__
+@@ -51,13 +51,13 @@
+ #ifdef HAVE_PATHS_H
+ #define _PATH_PPPDB	"/var/run/pppd2.tdb"
+ #else
+-#define _PATH_PPPDB	"/etc/ppp/pppd2.tdb"
++#define _PATH_PPPDB	"/var/run/pppd2.tdb"
+ #endif
+ #endif /* __STDC__ */
+ 
+ #ifdef PLUGIN
+ #ifdef __STDC__
+-#define _PATH_PLUGIN	DESTDIR "/lib/pppd/" VERSION
++#define _PATH_PLUGIN	"/usr/lib/pppd/"
+ #else /* __STDC__ */
+ #define _PATH_PLUGIN	"/usr/lib/pppd"
+ #endif /* __STDC__ */
+diff -urB ppp.orig/pppd/plugins/Makefile.linux ppp/pppd/plugins/Makefile.linux
+--- ppp.orig/pppd/plugins/Makefile.linux	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/Makefile.linux	2009-02-09 18:10:50.000000000 +0300
+@@ -1,6 +1,6 @@
+ #CC	= gcc
+ COPTS	= -O2 -g
+-CFLAGS	= $(COPTS) -I.. -I../../include -fPIC
++CFLAGS	= $(COPTS) -I.. -I../../include -fPIC $(EXTRACFLAGS)
+ LDFLAGS	= -shared
+ INSTALL	= install
+ 
+diff -urB ppp.orig/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppoe/plugin.c
+--- ppp.orig/pppd/plugins/rp-pppoe/plugin.c	2009-02-09 17:16:52.000000000 +0300
++++ ppp/pppd/plugins/rp-pppoe/plugin.c	2009-02-09 18:04:49.000000000 +0300
+@@ -55,7 +55,7 @@
+ #define _ROOT_PATH ""
+ #endif
+ 
+-#define _PATH_ETHOPT         _ROOT_PATH "/etc/ppp/options."
++#define _PATH_ETHOPT         _ROOT_PATH "/ppp/options."
+ 
+ char pppd_version[] = VERSION;
+ 

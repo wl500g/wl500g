@@ -31,7 +31,7 @@ IPROUTE2=iproute2-2.4.7-now-ss010824
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
-PPP=ppp-2.4.2
+PPP=ppp-2.4.5-pre
 PPTP=pptp-1.7.1
 LZMA=lzma406
 LOADER=loader-0.05
@@ -61,9 +61,13 @@ EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
 PATCHER := $(shell pwd)/patch.sh
 
-OPENWRT_Kernel_Patches=$(shell ls -1 kernel/openwrt/[0-9][0-9][0-9]-*.patch)
-OPENWRT_Brcm_Patches=$(shell ls -1 kernel/openwrt/brcm/[0-9][0-9][0-9]-*.patch)
-OUR_Kernel_Patches=$(shell ls -1 kernel/[0-9][0-9][0-9]-*.patch)
+define patches_list
+    $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch)
+endef
+
+OPENWRT_Kernel_Patches:=$(call patches_list,kernel/openwrt)
+OPENWRT_Brcm_Patches:=$(call patches_list,kernel/openwrt/brcm)
+OUR_Kernel_Patches:=$(call patches_list, kernel)
 
 all: prep custom
 	@true
@@ -368,12 +372,12 @@ $(TOP)/rp-l2tp/Makefile:
 rp-l2tp: $(TOP)/rp-l2tp/Makefile
 	@true
 
-$(TOP)/ppp: ppp/$(PPP).tar.gz
+ppp_Patches := $(call patches_list,ppp)
+
+$(TOP)/ppp: ppp/$(PPP).tar.bz2
 	@rm -rf $(TOP)/$(PPP) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(PPP) ppp/$(PPP)-fix.patch ppp/$(PPP).patch \
-	ppp/$(PPP)-mppe.patch ppp/$(PPP)-ip-up.patch \
-	ppp/$(PPP)-signal.patch ppp/$(PPP)-pppol2tp.patch 
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) $(TOP)/$(PPP) $(ppp_Patches)
 	mv $(TOP)/$(PPP) $@ && touch $@
 
 $(TOP)/ppp/Makefile: $(TOP)/ppp

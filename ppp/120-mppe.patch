@@ -1,6 +1,6 @@
-diff -ruN ppp-2.4.2.orig/include/linux/ppp-comp.h ppp-2.4.2-stdopt/include/linux/ppp-comp.h
---- ppp-2.4.2.orig/include/linux/ppp-comp.h	2002-12-06 10:49:15.000000000 +0100
-+++ ppp-2.4.2-stdopt/include/linux/ppp-comp.h	2004-01-21 06:51:09.000000000 +0100
+diff -urBp ppp-2.4.5-pre/include/linux/ppp-comp.h ppp/include/linux/ppp-comp.h
+--- ppp-2.4.5-pre/include/linux/ppp-comp.h	2008-11-26 13:02:29.000000000 +0300
++++ ppp/include/linux/ppp-comp.h	2009-02-09 18:55:02.000000000 +0300
 @@ -36,7 +36,7 @@
   */
  
@@ -10,27 +10,9 @@ diff -ruN ppp-2.4.2.orig/include/linux/ppp-comp.h ppp-2.4.2-stdopt/include/linux
   *
   *  NOTE TO MAINTAINERS:
   *     If you modify this file at all, please set the above date.
-@@ -86,7 +86,7 @@
- 
- 	/* Compress a packet */
- 	int     (*compress) (void *state, unsigned char *rptr,
--			      unsigned char *obuf, int isize, int osize);
-+			     unsigned char *obuf, int isize, int osize);
- 
- 	/* Return compression statistics */
- 	void	(*comp_stat) (void *state, struct compstat *stats);
-@@ -107,7 +107,7 @@
- 
- 	/* Decompress a packet. */
- 	int	(*decompress) (void *state, unsigned char *ibuf, int isize,
--				unsigned char *obuf, int osize);
-+			       unsigned char *obuf, int osize);
- 
- 	/* Update state for an incompressible packet received */
- 	void	(*incomp) (void *state, unsigned char *ibuf, int icnt);
-@@ -288,6 +288,33 @@
- 	    opts |= MPPE_OPT_UNKNOWN;		\
-     } while (/* CONSTCOND */ 0)
+@@ -201,6 +201,33 @@ struct compressor {
+ #define CI_MPPE			18	/* config option for MPPE */
+ #define CILEN_MPPE		6	/* length of config option */
  
 +/* MPPE/MPPC definitions by J.D.*/
 +#define MPPE_STATELESS          MPPE_H_BIT	/* configuration bit H */
@@ -62,12 +44,12 @@ diff -ruN ppp-2.4.2.orig/include/linux/ppp-comp.h ppp-2.4.2-stdopt/include/linux
  /*
   * Definitions for other, as yet unsupported, compression methods.
   */
-diff -ruN ppp-2.4.2.orig/include/net/ppp-comp.h ppp-2.4.2-stdopt/include/net/ppp-comp.h
---- ppp-2.4.2.orig/include/net/ppp-comp.h	2002-12-06 10:49:15.000000000 +0100
-+++ ppp-2.4.2-stdopt/include/net/ppp-comp.h	2004-01-21 06:51:09.000000000 +0100
-@@ -255,6 +255,33 @@
- 	    opts |= MPPE_OPT_UNKNOWN;		\
-     } while (/* CONSTCOND */ 0)
+diff -urBp ppp-2.4.5-pre/include/net/ppp-comp.h ppp/include/net/ppp-comp.h
+--- ppp-2.4.5-pre/include/net/ppp-comp.h	2008-11-26 13:02:29.000000000 +0300
++++ ppp/include/net/ppp-comp.h	2009-02-09 18:55:02.000000000 +0300
+@@ -168,6 +168,33 @@ struct compressor {
+ #define CI_MPPE			18	/* config option for MPPE */
+ #define CILEN_MPPE		6	/* length of config option */
  
 +/* MPPE/MPPC definitions by J.D.*/
 +#define MPPE_STATELESS          MPPE_H_BIT	/* configuration bit H */
@@ -99,10 +81,10 @@ diff -ruN ppp-2.4.2.orig/include/net/ppp-comp.h ppp-2.4.2-stdopt/include/net/ppp
  /*
   * Definitions for other, as yet unsupported, compression methods.
   */
-diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
---- ppp-2.4.2.orig/pppd/ccp.c	2003-05-01 14:30:28.000000000 +0200
-+++ ppp-2.4.2-stdopt/pppd/ccp.c	2004-05-02 14:10:04.000000000 +0200
-@@ -67,13 +67,6 @@
+diff -urBp ppp-2.4.5-pre/pppd/ccp.c ppp/pppd/ccp.c
+--- ppp-2.4.5-pre/pppd/ccp.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/ccp.c	2009-02-09 18:09:48.000000000 +0300
+@@ -62,13 +62,6 @@ static int setdeflate __P((char **));
  static char bsd_value[8];
  static char deflate_value[8];
  
@@ -116,7 +98,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  static option_t ccp_option_list[] = {
      { "noccp", o_bool, &ccp_protent.enabled_flag,
        "Disable CCP negotiation" },
-@@ -113,54 +106,87 @@
+@@ -108,54 +101,87 @@ static option_t ccp_option_list[] = {
        "don't allow Predictor-1", OPT_ALIAS | OPT_PRIOSUB | OPT_A2CLR,
        &ccp_allowoptions[0].predictor_1 },
  
@@ -246,7 +228,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  #endif /* MPPE */
  
      { NULL }
-@@ -246,7 +272,7 @@
+@@ -241,7 +267,7 @@ static fsm_callbacks ccp_callbacks = {
   */
  #define ANY_COMPRESS(opt)	((opt).deflate || (opt).bsd_compress \
  				 || (opt).predictor_1 || (opt).predictor_2 \
@@ -255,7 +237,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  
  /*
   * Local state (mainly for handling reset-reqs and reset-acks).
-@@ -383,6 +409,30 @@
+@@ -378,6 +404,30 @@ ccp_init(unit)
      ccp_allowoptions[0].bsd_bits = BSD_MAX_BITS;
  
      ccp_allowoptions[0].predictor_1 = 1;
@@ -286,7 +268,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  }
  
  /*
-@@ -460,11 +510,11 @@
+@@ -455,11 +505,11 @@ ccp_input(unit, p, len)
      if (oldstate == OPENED && p[0] == TERMREQ && f->state != OPENED) {
  	notice("Compression disabled by peer.");
  #ifdef MPPE
@@ -300,7 +282,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      }
  
      /*
-@@ -492,6 +542,15 @@
+@@ -487,6 +537,15 @@ ccp_extcode(f, code, id, p, len)
  	    break;
  	/* send a reset-ack, which the transmitter will see and
  	   reset its compression state. */
@@ -316,7 +298,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	fsm_sdata(f, CCP_RESETACK, id, NULL, 0);
  	break;
  
-@@ -520,12 +579,11 @@
+@@ -515,12 +574,11 @@ ccp_protrej(unit)
      fsm_lowerdown(&ccp_fsm[unit]);
  
  #ifdef MPPE
@@ -331,7 +313,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  }
  
  /*
-@@ -542,7 +600,7 @@
+@@ -537,7 +595,7 @@ ccp_resetci(f)
      all_rejected[f->unit] = 0;
  
  #ifdef MPPE
@@ -340,7 +322,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	ccp_options *ao = &ccp_allowoptions[f->unit];
  	int auth_mschap_bits = auth_done[f->unit];
  	int numbits;
-@@ -556,80 +614,109 @@
+@@ -551,80 +609,109 @@ ccp_resetci(f)
  	 * NB: If MPPE is required, all other compression opts are invalid.
  	 *     So, we return right away if we can't do it.
  	 */
@@ -516,7 +498,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      if (go->bsd_compress) {
  	opt_buf[0] = CI_BSD_COMPRESS;
  	opt_buf[1] = CILEN_BSD_COMPRESS;
-@@ -684,7 +771,8 @@
+@@ -679,7 +766,8 @@ ccp_cilen(f)
  	+ (go->deflate? CILEN_DEFLATE: 0)
  	+ (go->predictor_1? CILEN_PREDICTOR_1: 0)
  	+ (go->predictor_2? CILEN_PREDICTOR_2: 0)
@@ -526,7 +508,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  }
  
  /*
-@@ -698,6 +786,8 @@
+@@ -693,6 +781,8 @@ ccp_addci(f, p, lenp)
  {
      int res;
      ccp_options *go = &ccp_gotoptions[f->unit];
@@ -535,7 +517,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      u_char *p0 = p;
  
      /*
-@@ -706,22 +796,43 @@
+@@ -701,22 +791,43 @@ ccp_addci(f, p, lenp)
       * in case it gets Acked.
       */
  #ifdef MPPE
@@ -588,7 +570,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      if (go->deflate) {
  	p[0] = go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT;
  	p[1] = CILEN_DEFLATE;
-@@ -807,7 +918,7 @@
+@@ -802,7 +913,7 @@ ccp_addci(f, p, lenp)
  
  /*
   * ccp_ackci - process a received configure-ack, and return
@@ -597,7 +579,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
   */
  static int
  ccp_ackci(f, p, len)
-@@ -816,24 +927,44 @@
+@@ -811,24 +922,44 @@ ccp_ackci(f, p, len)
      int len;
  {
      ccp_options *go = &ccp_gotoptions[f->unit];
@@ -651,7 +633,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      if (go->deflate) {
  	if (len < CILEN_DEFLATE
  	    || p[0] != (go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT)
-@@ -896,7 +1027,7 @@
+@@ -891,7 +1022,7 @@ ccp_ackci(f, p, len)
  
  /*
   * ccp_nakci - process received configure-nak.
@@ -659,9 +641,9 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
 + * Returns 1 if the nak was OK.
   */
  static int
- ccp_nakci(f, p, len)
-@@ -905,6 +1036,8 @@
-     int len;
+ ccp_nakci(f, p, len, treat_as_reject)
+@@ -901,6 +1032,8 @@ ccp_nakci(f, p, len, treat_as_reject)
+     int treat_as_reject;
  {
      ccp_options *go = &ccp_gotoptions[f->unit];
 +    ccp_options *ao = &ccp_allowoptions[f->unit];
@@ -669,7 +651,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      ccp_options no;		/* options we've seen already */
      ccp_options try;		/* options to ask for next time */
  
-@@ -912,28 +1045,100 @@
+@@ -908,28 +1041,100 @@ ccp_nakci(f, p, len, treat_as_reject)
      try = *go;
  
  #ifdef MPPE
@@ -788,7 +770,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      if (go->deflate && len >= CILEN_DEFLATE
  	&& p[0] == (go->deflate_correct? CI_DEFLATE: CI_DEFLATE_DRAFT)
  	&& p[1] == CILEN_DEFLATE) {
-@@ -1006,14 +1211,50 @@
+@@ -1002,14 +1207,50 @@ ccp_rejci(f, p, len)
  	return -1;
  
  #ifdef MPPE
@@ -843,7 +825,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      if (go->deflate_correct && len >= CILEN_DEFLATE
  	&& p[0] == CI_DEFLATE && p[1] == CILEN_DEFLATE) {
  	if (p[2] != DEFLATE_MAKE_OPT(go->deflate_size)
-@@ -1077,14 +1318,15 @@
+@@ -1073,14 +1314,15 @@ ccp_reqci(f, p, lenp, dont_nak)
      int dont_nak;
  {
      int ret, newret, res;
@@ -863,7 +845,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  
      ret = CONFACK;
      retp = p0 = p;
-@@ -1107,103 +1349,305 @@
+@@ -1103,106 +1345,299 @@ ccp_reqci(f, p, lenp, dont_nak)
  	    switch (type) {
  #ifdef MPPE
  	    case CI_MPPE:
@@ -873,7 +855,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  		    break;
  		}
 -		MPPE_CI_TO_OPTS(&p[2], ho->mppe);
- 
+-
 -		/* Nak if anything unsupported or unknown are set. */
 -		if (ho->mppe & MPPE_OPT_UNSUPPORTED) {
 -		    newret = CONFNAK;
@@ -889,14 +871,6 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
 +		    (p[2] == 0 && p[3] == 0 && p[4] == 0 &&  p[5] == 0)) {
  		    newret = CONFNAK;
 -		    ho->mppe &= ~MPPE_OPT_UNKNOWN;
-+		    p[2] = (wo->mppe_stateless ? MPPE_STATELESS : 0);
-+		    p[3] = 0;
-+		    p[4] = 0;
-+		    p[5] = (wo->mppe_40 ? MPPE_40BIT : 0) |
-+			(wo->mppe_56 ? MPPE_56BIT : 0) |
-+			(wo->mppe_128 ? MPPE_128BIT : 0) |
-+			(wo->mppc ? MPPE_MPPC : 0);
-+		    break;
  		}
  
 -		/* Check state opt */
@@ -1137,8 +1111,12 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
 +		if ((!ho->mppc || !ao->mppc) && !ho->mppe) {
 +		    p[2] = p2;
 +		    p[5] = p5;
- 		    newret = CONFREJ;
- 		    break;
+ 		    /* We cannot accept this.  */
+-		    newret = CONFNAK;
++		    newret = CONFREJ;
+ 		    /* Give the peer our idea of what can be used,
+ 		       so it can choose and confirm */
+ 		    ho->mppe = ao->mppe;
  		}
  
 -		/* rebuild the opts */
@@ -1241,7 +1219,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	    case CI_DEFLATE:
  	    case CI_DEFLATE_DRAFT:
  		if (!ao->deflate || clen != CILEN_DEFLATE
-@@ -1345,12 +1789,6 @@
+@@ -1344,12 +1779,6 @@ ccp_reqci(f, p, lenp, dont_nak)
  	else
  	    *lenp = retp - p0;
      }
@@ -1254,7 +1232,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      return ret;
  }
  
-@@ -1372,24 +1810,35 @@
+@@ -1371,24 +1800,35 @@ method_name(opt, opt2)
  	char *p = result;
  	char *q = result + sizeof(result); /* 1 past result */
  
@@ -1306,7 +1284,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
      case CI_DEFLATE:
      case CI_DEFLATE_DRAFT:
  	if (opt2 != NULL && opt2->deflate_size != opt->deflate_size)
-@@ -1445,12 +1894,12 @@
+@@ -1444,12 +1884,12 @@ ccp_up(f)
      } else if (ANY_COMPRESS(*ho))
  	notice("%s transmit compression enabled", method_name(ho, NULL));
  #ifdef MPPE
@@ -1321,7 +1299,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  }
  
  /*
-@@ -1473,7 +1922,7 @@
+@@ -1472,7 +1912,7 @@ ccp_down(f)
  	    lcp_close(f->unit, "MPPE disabled");
  	}
      }
@@ -1330,7 +1308,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  }
  
  /*
-@@ -1533,24 +1982,28 @@
+@@ -1532,24 +1972,28 @@ ccp_printpkt(p, plen, printer, arg)
  #ifdef MPPE
  	    case CI_MPPE:
  		if (optlen >= CILEN_MPPE) {
@@ -1371,7 +1349,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	    case CI_DEFLATE:
  	    case CI_DEFLATE_DRAFT:
  		if (optlen >= CILEN_DEFLATE) {
-@@ -1636,6 +2089,7 @@
+@@ -1635,6 +2079,7 @@ ccp_datainput(unit, pkt, len)
  	    error("Lost compression sync: disabling compression");
  	    ccp_close(unit, "Lost compression sync");
  #ifdef MPPE
@@ -1379,7 +1357,7 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	    /*
  	     * If we were doing MPPE, we must also take the link down.
  	     */
-@@ -1643,9 +2097,18 @@
+@@ -1642,9 +2087,18 @@ ccp_datainput(unit, pkt, len)
  		error("Too many MPPE errors, closing LCP");
  		lcp_close(unit, "Too many MPPE errors");
  	    }
@@ -1399,15 +1377,10 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.c ppp-2.4.2-stdopt/pppd/ccp.c
  	     * Send a reset-request to reset the peer's compressor.
  	     * We don't do that if we are still waiting for an
  	     * acknowledgement to a previous reset-request.
-@@ -1676,4 +2139,3 @@
-     } else
- 	ccp_localstate[f->unit] &= ~RACK_PENDING;
- }
--
-diff -ruN ppp-2.4.2.orig/pppd/ccp.h ppp-2.4.2-stdopt/pppd/ccp.h
---- ppp-2.4.2.orig/pppd/ccp.h	2002-12-05 00:03:32.000000000 +0100
-+++ ppp-2.4.2-stdopt/pppd/ccp.h	2004-01-21 06:51:09.000000000 +0100
-@@ -42,9 +42,17 @@
+diff -urBp ppp-2.4.5-pre/pppd/ccp.h ppp/pppd/ccp.h
+--- ppp-2.4.5-pre/pppd/ccp.h	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/ccp.h	2009-02-09 18:55:02.000000000 +0300
+@@ -37,9 +37,17 @@ typedef struct ccp_options {
      bool predictor_2;		/* do Predictor-2? */
      bool deflate_correct;	/* use correct code for deflate? */
      bool deflate_draft;		/* use draft RFC code for deflate? */
@@ -1425,10 +1398,10 @@ diff -ruN ppp-2.4.2.orig/pppd/ccp.h ppp-2.4.2-stdopt/pppd/ccp.h
      short method;		/* code for chosen compression method */
  } ccp_options;
  
-diff -ruN ppp-2.4.2.orig/pppd/chap_ms.c ppp-2.4.2-stdopt/pppd/chap_ms.c
---- ppp-2.4.2.orig/pppd/chap_ms.c	2003-11-18 11:42:56.000000000 +0100
-+++ ppp-2.4.2-stdopt/pppd/chap_ms.c	2004-01-21 06:51:09.000000000 +0100
-@@ -870,13 +870,17 @@
+diff -urBp ppp-2.4.5-pre/pppd/chap_ms.c ppp/pppd/chap_ms.c
+--- ppp-2.4.5-pre/pppd/chap_ms.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/chap_ms.c	2009-02-09 18:55:02.000000000 +0300
+@@ -898,13 +898,17 @@ set_mppe_enc_types(int policy, int types
      /*
       * Disable undesirable encryption types.  Note that we don't ENABLE
       * any encryption types, to avoid overriding manual configuration.
@@ -1448,74 +1421,73 @@ diff -ruN ppp-2.4.2.orig/pppd/chap_ms.c ppp-2.4.2-stdopt/pppd/chap_ms.c
  	    break;
  	default:
  	    break;
-diff -ruN ppp-2.4.2.orig/pppd/pppd.8 ppp-2.4.2-stdopt/pppd/pppd.8
---- ppp-2.4.2.orig/pppd/pppd.8	2004-01-15 06:09:00.000000000 +0100
-+++ ppp-2.4.2-stdopt/pppd/pppd.8	2004-01-21 06:51:09.000000000 +0100
-@@ -614,6 +614,9 @@
+diff -urBp ppp-2.4.5-pre/pppd/pppd.8 ppp/pppd/pppd.8
+--- ppp-2.4.5-pre/pppd/pppd.8	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/pppd.8	2009-02-09 19:01:09.000000000 +0300
+@@ -638,6 +638,9 @@ control, as for the \fIcrtscts\fR option
  Enables the use of PPP multilink; this is an alias for the `multilink'
  option.  This option is currently only available under Linux.
  .TP
 +.B mppc
 +Enables MPPC (Microsoft Point to Point Compression).  This is the default.
 +.TP
- .B mppe-stateful
+ .B mppe\-stateful
  Allow MPPE to use stateful mode.  Stateless mode is still attempted first.
  The default is to disallow stateful mode.  
-@@ -749,12 +752,18 @@
+@@ -778,12 +781,18 @@ peer is buggy.
  Disables the use of PPP multilink.  This option is currently only
  available under Linux.
  .TP
 +.B nomppc
-+Diasables MPPC (Microsoft Point to Point Compression).
++Disables MPPC (Microsoft Point to Point Compression).
 +.TP
  .B nomppe
  Disables MPPE (Microsoft Point to Point Encryption).  This is the default.
  .TP
- .B nomppe-40
- Disable 40\-bit encryption with MPPE.
+ .B nomppe\-40
+ Disable 40-bit encryption with MPPE.
  .TP
-+.B nomppe-56
++.B nomppe\-56
 +Disable 56\-bit encryption with MPPE.
 +.TP
- .B nomppe-128
- Disable 128\-bit encryption with MPPE.
+ .B nomppe\-128
+ Disable 128-bit encryption with MPPE.
  .TP
-@@ -951,6 +960,9 @@
- .B require-mppe-40
- Require the use of MPPE, with 40\-bit encryption.
+@@ -991,6 +1000,9 @@ kernel has been configured to include MP
+ .B require\-mppe\-40
+ Require the use of MPPE, with 40-bit encryption.
  .TP
-+.B require-mppe-56
++.B require\-mppe\-56
 +Require the use of MPPE, with 56\-bit encryption.
 +.TP
- .B require-mppe-128
- Require the use of MPPE, with 128\-bit encryption.
+ .B require\-mppe\-128
+ Require the use of MPPE, with 128-bit encryption.
  .TP
-diff -ruN ppp-2.4.2.orig/pppd/sha1.c ppp-2.4.2-stdopt/pppd/sha1.c
---- ppp-2.4.2.orig/pppd/sha1.c	2002-04-02 15:54:59.000000000 +0200
-+++ ppp-2.4.2-stdopt/pppd/sha1.c	2004-08-15 15:00:55.000000000 +0200
-@@ -21,7 +21,7 @@
+diff -urBp ppp-2.4.5-pre/pppd/sha1.c ppp/pppd/sha1.c
+--- ppp-2.4.5-pre/pppd/sha1.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/sha1.c	2009-02-09 19:33:06.000000000 +0300
+@@ -21,9 +21,6 @@
+ #include <net/ppp_defs.h>
  #include "sha1.h"
  
- static void
--SHA1_Transform(unsigned long[5], const unsigned char[64]);
-+SHA1_Transform(u_int32_t state[5], const u_int8_t buffer[64]);
- 
+-static void
+-SHA1_Transform(u_int32_t[5], const unsigned char[64]);
+-
  #define rol(value, bits) (((value) << (bits)) | ((value) >> (32 - (bits))))
  
-@@ -42,17 +42,17 @@
+ /* blk0() and blk() perform the initial expand. */
+@@ -43,17 +40,17 @@ SHA1_Transform(u_int32_t[5], const unsig
  /* Hash a single 512-bit block. This is the core of the algorithm. */
  
  static void
--SHA1_Transform(unsigned long state[5], const unsigned char buffer[64])
-+SHA1_Transform(u_int32_t state[5], const u_int8_t buffer[64])
+-SHA1_Transform(u_int32_t state[5], const unsigned char buffer[64])
++SHA1_Transform(u_int32_t state[5], u_int8_t buffer[64])
  {
--    unsigned long a, b, c, d, e;
-+    u_int32_t a, b, c, d, e;
+     u_int32_t a, b, c, d, e;
      typedef union {
 -	unsigned char c[64];
--	unsigned long l[16];
 +	u_int8_t c[64];
-+	u_int32_t l[16];
+ 	u_int32_t l[16];
      } CHAR64LONG16;
      CHAR64LONG16 *block;
  
@@ -1525,7 +1497,7 @@ diff -ruN ppp-2.4.2.orig/pppd/sha1.c ppp-2.4.2-stdopt/pppd/sha1.c
      block = (CHAR64LONG16 *) workspace;
      memcpy(block, buffer, 64);
  #else
-@@ -114,9 +114,9 @@
+@@ -115,9 +112,9 @@ SHA1_Init(SHA1_CTX *context)
  /* Run your data through this. */
  
  void
@@ -1537,21 +1509,20 @@ diff -ruN ppp-2.4.2.orig/pppd/sha1.c ppp-2.4.2-stdopt/pppd/sha1.c
  
      j = (context->count[0] >> 3) & 63;
      if ((context->count[0] += len << 3) < (len << 3)) context->count[1]++;
-@@ -139,22 +139,24 @@
+@@ -139,22 +136,22 @@ SHA1_Update(SHA1_CTX *context, const uns
  /* Add padding and return the message digest. */
  
  void
 -SHA1_Final(unsigned char digest[20], SHA1_CTX *context)
-+SHA1_Final(u_int8_t digest[SHA1_SIGNATURE_SIZE], SHA1_CTX *context)
++SHA1_Final(u_int8_t digest[20], SHA1_CTX *context)
  {
--    unsigned long i, j;
+     u_int32_t i, j;
 -    unsigned char finalcount[8];
-+    u_int32_t i, j;
 +    u_int8_t finalcount[8];
  
      for (i = 0; i < 8; i++) {
 -        finalcount[i] = (unsigned char)((context->count[(i >= 4 ? 0 : 1)]
-+        finalcount[i] = (u_int8_t) ((context->count[(i >= 4 ? 0 : 1)]
++        finalcount[i] = (u_int8_t)((context->count[(i >= 4 ? 0 : 1)]
           >> ((3-(i & 3)) * 8) ) & 255);  /* Endian independent */
      }
 -    SHA1_Update(context, (unsigned char *) "\200", 1);
@@ -1560,23 +1531,16 @@ diff -ruN ppp-2.4.2.orig/pppd/sha1.c ppp-2.4.2-stdopt/pppd/sha1.c
 -	SHA1_Update(context, (unsigned char *) "\0", 1);
 +	SHA1_Update(context, (u_int8_t *) "\0", 1);
      }
-+	
      SHA1_Update(context, finalcount, 8);  /* Should cause a SHA1Transform() */
-+	
      for (i = 0; i < 20; i++) {
 -	digest[i] = (unsigned char)
 +	digest[i] = (u_int8_t)
  		     ((context->state[i>>2] >> ((3-(i & 3)) * 8) ) & 255);
      }
      /* Wipe variables */
-@@ -167,4 +169,3 @@
-     SHA1Transform(context->state, context->buffer);
- #endif
- }
--
-diff -ruN ppp-2.4.2.orig/pppd/sha1.h ppp-2.4.2-stdopt/pppd/sha1.h
---- ppp-2.4.2.orig/pppd/sha1.h	2002-11-09 12:24:42.000000000 +0100
-+++ ppp-2.4.2-stdopt/pppd/sha1.h	2004-08-15 15:00:55.000000000 +0200
+diff -urBp ppp-2.4.5-pre/pppd/sha1.h ppp/pppd/sha1.h
+--- ppp-2.4.5-pre/pppd/sha1.h	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/sha1.h	2009-02-09 18:57:28.000000000 +0300
 @@ -8,6 +8,8 @@
  
  #ifndef __SHA1_INCLUDE_
@@ -1586,15 +1550,11 @@ diff -ruN ppp-2.4.2.orig/pppd/sha1.h ppp-2.4.2-stdopt/pppd/sha1.h
  #ifndef SHA1_SIGNATURE_SIZE
  #ifdef SHA_DIGESTSIZE
  #define SHA1_SIGNATURE_SIZE SHA_DIGESTSIZE
-@@ -17,14 +19,14 @@
- #endif
- 
+@@ -19,12 +21,12 @@
  typedef struct {
--    unsigned long state[5];
--    unsigned long count[2];
+     u_int32_t state[5];
+     u_int32_t count[2];
 -    unsigned char buffer[64];
-+    u_int32_t state[5];
-+    u_int32_t count[2];
 +    u_int8_t buffer[64];
  } SHA1_CTX;
  
