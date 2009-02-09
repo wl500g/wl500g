@@ -1679,7 +1679,7 @@ device_script(program, in, out, dont_wait)
     if (log_to_fd >= 0)
 	errfd = log_to_fd;
     else
-	errfd = open(_PATH_CONNERRS, O_WRONLY | O_APPEND | O_CREAT, 0600);
+	errfd = open(_PATH_CONNERRS, O_WRONLY | O_APPEND | O_CREAT, 0644);
 
     ++conn_running;
     pid = safe_fork(in, out, errfd);
