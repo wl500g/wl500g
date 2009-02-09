@@ -210,6 +210,7 @@ struct notifier {
 /*
  * Global variables.
  */
+extern bool tx_only;			/* JYWeng 20031216: idle time counting on tx traffic */
 
 extern int	hungup;		/* Physical layer has disconnected */
 extern int	ifunit;		/* Interface unit number */

@@ -78,6 +78,7 @@
 #if defined(ultrix) || defined(NeXT)
 char *strdup __P((char *));
 #endif
+bool tx_only;			/* JYWeng 20031216: idle time counting on tx traffic */
 
 static const char rcsid[] = RCSID;
 
@@ -338,6 +339,10 @@ option_t general_options[] = {
     { "mo-timeout", o_int, &maxoctets_timeout,
       "Check for traffic limit every N seconds", OPT_PRIO | OPT_LLIMIT | 1 },
 #endif
+
+/* JYWeng 20031216: add for tx_only option*/
+    { "tx_only", o_bool, &tx_only,
+      "set idle time counting on tx_only or not", 1 },
 
     { NULL }
 };

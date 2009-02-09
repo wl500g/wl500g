@@ -1192,6 +1192,10 @@ check_idle(arg)
     if (idle_time_hook != 0) {
 	tlim = idle_time_hook(&idle);
     } else {
+/* JYWeng 20031216: replace itime with idle.xmit_idle for only outgoing traffic is counted*/
+	if(tx_only) 
+		itime = idle.xmit_idle;
+	else
 	itime = MIN(idle.xmit_idle, idle.recv_idle);
 	tlim = idle_time_limit - itime;
     }
