@@ -32,6 +32,7 @@ IPROUTE2=iproute2-2.4.7-now-ss010824
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
 PPP=ppp-2.4.5-pre
+RP-PPPOE=rp-pppoe-3.10
 PPTP=pptp-1.7.1
 LZMA=lzma406
 LOADER=loader-0.05
@@ -92,7 +93,7 @@ endif
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables ppp pptp \
 	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
-	misc netconf nvram others pppoe-relay rc rcamdmips sendmail \
+	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	cp iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
 	cp iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
@@ -384,6 +385,21 @@ $(TOP)/ppp/Makefile: $(TOP)/ppp
 	cd $^ && ./configure --prefix=/usr --sysconfdir=/tmp
 
 ppp: $(TOP)/ppp/Makefile
+	@true
+
+$(TOP)/rp-pppoe: $(RP-PPPOE).tar.gz
+	@rm -rf $(TOP)/$(RP-PPPOE) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) $(TOP)/$(RP-PPPOE) rp-pppoe.patch
+	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
+
+$(TOP)/rp-pppoe/src/Makefile: $(TOP)/rp-pppoe
+	cd $(TOP)/rp-pppoe/src && \
+		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+		./configure --host=mipsel-linux --prefix=/usr \
+		 ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev 
+
+rp-pppoe: $(TOP)/rp-pppoe/src/Makefile
 	@true
 
 $(TOP)/igmpproxy/src/Makefile:
