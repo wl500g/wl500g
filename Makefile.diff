@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-02-09 20:48:50.000000000 +0300
++++ gateway/Makefile	2009-02-10 15:10:36.000000000 +0300
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -100,8 +100,9 @@
  # Added by Joey for ASUS application
 -obj-$(CONFIG_PPPD) += pppd
 -obj-$(CONFIG_PPTP) += pptp-client
+-obj-$(CONFIG_PPPOERELAY) += pppoe-relay
 +obj-$(CONFIG_PPTP) += pptp
- obj-$(CONFIG_PPPOERELAY) += pppoe-relay
++obj-$(CONFIG_PPPOERELAY) += rp-pppoe
  obj-$(CONFIG_INFOSVR) += infosvr
  obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
 -obj-$(CONFIG_STUPIDFTPD) += stupid-ftpdmips
@@ -465,7 +466,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +490,232 @@ vlan:
+@@ -312,195 +490,239 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -483,6 +484,13 @@
 +	install -D ppp/pppd/plugins/rp-pppoe/rp-pppoe.so $(INSTALLDIR)/ppp/usr/lib/pppd/rp-pppoe.so
 +	install -D ppp/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
++
++rp-pppoe:
++	$(MAKE) -C $@/src pppoe-relay
++
++rp-pppoe-install: rp-pppoe
++	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
++	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 +
 +dnsmasq:
 +	$(MAKE) -C $@ CFLAGS="-Os -DNO_IPV6 $(EXTRACFLAGS)"
@@ -834,7 +842,7 @@
  image-R100:
  	make rc-clean
  	make infosvr-clean
-@@ -512,15 +727,15 @@ image-R100:
+@@ -512,15 +734,15 @@ image-R100:
  	echo $(LANGUAGE)
  	make wwwmt-install-R100 
  	make install
@@ -853,7 +861,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +743,9 @@ image-R100:
+@@ -528,6 +750,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
