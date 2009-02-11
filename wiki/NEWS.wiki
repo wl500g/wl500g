@@ -1,12 +1,20 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d(Current) ===
+===wl500g-1.9.2.7-d (Current) ===
   * kernel
     * Support spin-up usb hdd drives (scsi allow_restart from 2.6)
     * Backport of IPWireless driver
 
   * iptable/firewall
     * Changed MASQUERADE action to SNAT to speed up nat.
+
+  * busybox 1.13.2
+
+  * dnsmasq 2.47
+
+  * udpxy 1.0_Chipmunk-8
+
+  * p910nd 0.93
 
 ===wl500g-1.9.2.7-d7 (2009-01-24)===
   * Based on Oleg 1.9.2.7-10
