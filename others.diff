@@ -1,7 +1,7 @@
 diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 --- router/others/flashfs.sh	1970-01-01 03:00:00.000000000 +0300
 +++ gateway/others/flashfs.sh	2008-01-06 14:27:07.000000000 +0300
-@@ -0,0 +1,73 @@
+@@ -0,0 +1,75 @@
 +#!/bin/sh
 +#
 +# Copyright (C) 2004 by Oleg I. Vdovikin <oleg@cs.msu.su>
@@ -39,8 +39,10 @@ diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 +		fi
 +		;;
 +	enable)
-+		nvram set boot_local="$VERSION"
-+		nvram commit
++		if [ "$(nvram get boot_local)" != "enabled" ]; then
++			nvram set boot_local="$VERSION"
++			nvram commit
++		fi
 +		;;
 +	enabled)
 +		if [ "$(nvram get boot_local)" != "enabled" ]; then
@@ -72,7 +74,7 @@ diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 +		echo "Committed."
 +		;;
 +	*)
-+		echo "Usage: $0 status|enable|disable|clear|load|list|save|commit"
++		echo "Usage: $0 status|start|enable|enabled|disable|clear|load|list|save|commit"
 +		;;
 +esac
 diff -BurN router/others/ipkg.conf gateway/others/ipkg.conf
