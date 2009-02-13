@@ -10,11 +10,15 @@
 
   * busybox 1.13.2
 
+  * ppp 2.4.5-pre (snapshot 2008-11-26) including rp-pppoe 3.10
+
   * dnsmasq 2.47
 
   * udpxy 1.0_Chipmunk-8
 
   * p910nd 0.93
+
+  * bugfixes
 
 ===wl500g-1.9.2.7-d7 (2009-01-24)===
   * Based on Oleg 1.9.2.7-10
