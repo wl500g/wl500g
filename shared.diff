@@ -273,12 +273,14 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
  {"usb_ftpscript_x", "", 0},
  
  {"usb_ftpnum_x", "0", 0},
-@@ -476,3 +531,21 @@
+@@ -476,3 +531,23 @@
  {"qos_umaxbw_x", "", 0},
  
  {"qos_uminbw_x", "", 0},
 +
 +{"telnet_enable", "1", 0},
++{"ssh_enable", "0", 0},
++{"ssh_port", "22", 0},
 +{"infosvr_enable", "1", 0},
 +{"lpr_enable", "1", 0},
 +{"raw_enable", "1", 0},

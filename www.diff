@@ -1157,7 +1157,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Samba_Content.asp gateway/www/as
 diff -BurN router/www/asus/web_asus_en/Advanced_Services_Content.asp gateway/www/asus/web_asus_en/Advanced_Services_Content.asp
 --- router/www/asus/web_asus_en/Advanced_Services_Content.asp	1970-01-01 03:00:00.000000000 +0300
 +++ gateway/www/asus/web_asus_en/Advanced_Services_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -0,0 +1,131 @@
+@@ -0,0 +1,143 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
 +<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
@@ -1195,12 +1195,24 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Services_Content.asp gateway/www
 +<td>
 +<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 +<tr class="content_section_header_tr">
-+<td class="content_section_header_td" colspan="2">Telnet</td>
++<td class="content_section_header_td" colspan="2">Telnet/SSH</td>
 +</tr>
 +<tr>
 +<td class="content_header_td" onMouseOver="return overlib('Enables Telnet daemon.', LEFT);" onMouseOut="return nd();">Enable telnet access:</td>
 +<td class="content_input_td"><input type="radio" value="1" name="telnet_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'telnet_enable', '1')" <% nvram_match_x("PrinterStatus","telnet_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="telnet_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'telnet_enable', '0')" <% nvram_match_x("PrinterStatus","telnet_enable", "0", "checked"); %>>No</input></td>
 +</tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Enables SSH daemon.', LEFT);" onMouseOut="return nd();">Enable SSH Server:</td>
++<td class="content_input_td"><select name="ssh_enable" class="content_input_fd">
++<option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","ssh_enable","0","selected"); %>>No</option>
++<option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","ssh_enable","1","selected"); %>>Yes</option>
++<option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","ssh_enable","2","selected"); %>>Yes, LAN Only</option>
++</select></td>^
++</tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by SSH protocol.', LEFT);" onMouseOut="return nd();">SSH Port:</td>
++<td class="content_input_td"><input type="text" maxlength="5" size="5" name="ssh_port" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "ssh_port"); %>" onBlur="validate_range(this,+</tr>
++<tr>
 +</table>
 +</td>
 +</tr>

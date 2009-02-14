@@ -622,7 +622,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                   	
                {"", "", validate_choice, ARGV(              
                
-@@ -2296,14 +2443,24 @@
+@@ -2296,14 +2443,26 @@
                                               
                         {"qos_urulenum_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                       
@@ -644,6 +644,8 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
 +      {"x_UQRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_UQRuleList, "32", "28", "qos_urulenum_x"), FALSE, FALSE},     
                          
 +	{"telnet_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
++	{"ssh_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
++	{"ssh_port", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
 +	{"infosvr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 +	{"lpr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 +	{"raw_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
