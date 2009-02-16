@@ -172,7 +172,8 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) $(TOP)/$(BUSYBOX) busybox/$(BUSYBOX)-init.patch \
 		busybox/$(BUSYBOX)-depmod.patch busybox/$(BUSYBOX)-tar.patch \
-		busybox/$(BUSYBOX)-modprobe.patch \
+		busybox/$(BUSYBOX)-modprobe.patch busybox/$(BUSYBOX)-killall.patch \
+		busybox/$(BUSYBOX)-mdev.patch \
 		busybox/busybox.patch busybox/awk.patch \
 		busybox/e2fsprogs.patch busybox/udhcp-options.patch \
 		busybox/udhcp-vci.patch busybox/udhcp-secs.patch \
