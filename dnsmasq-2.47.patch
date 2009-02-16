@@ -24,3 +24,15 @@ diff -urbB dnsmasq-2.46/src/config.h dnsmasq/src/config.h
  /* #define HAVE_DBUS */
  
  /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
+diff -ruNp org/dnsmasq-2.47/src/network.c dnsmasq-2.47/src/network.c
+--- org/dnsmasq-2.47/src/network.c	2009-02-02 01:00:58.000000000 +0900
++++ dnsmasq-2.47/src/network.c	2009-02-14 21:36:29.000000000 +0900
+@@ -529,7 +529,7 @@ int local_bind(int fd, union mysockaddr 
+     
+ #if defined(SO_BINDTODEVICE)
+   if (intname[0] != 0 &&
+-      setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, intname, sizeof(intname)) == -1)
++      setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, intname, strlen(intname)) == -1)
+     return 0;
+ #endif
+ 
