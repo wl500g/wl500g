@@ -352,7 +352,7 @@ radvd: $(TOP)/radvd/Makefile
 
 $(TOP)/rc/Makefile:
 	tar -C $(SRC) -cf - rc | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) rc/rc-common.patch \
+	$(PATCHER) -Z $(TOP) rc/rc-common.patch rc/rc-asus.patch \
 	    rc/rc-ddns-daemon.patch rc/rc-masq2snat.patch \
 	    rc/rc-ppp-connected.patch
 	$(MAKE) -C $(TOP)/rc clean

@@ -1,0 +1,152 @@
+diff -uBp Wl500gP-1977/rc/services_ex.c rc/services_ex.c
+--- Wl500gP-1977/rc/services_ex.c	2009-01-05 21:26:40.000000000 +0300
++++ rc/services_ex.c	2009-02-15 19:54:40.000000000 +0300
+@@ -1959,6 +1959,7 @@ int service_handle(void)
+ 	char tmp[100], *str;
+ 	int unit;
+ 	int pid;
++	char *ping_argv[] = { "ping", "-c", "3", "140.113.1.1", NULL};
+ 	FILE *fp;
+ 
+ 	service = nvram_get("rc_service");
+@@ -2005,11 +2006,21 @@ int service_handle(void)
+ 		}
+ 		else 
+ 		{
+-			stop_wan();
+-			sleep(5);
+-			start_wan();
++			// pppoe or ppptp, check if /tmp/ppp exist
++			if (nvram_invmatch("wan0_proto", "static") &&
++			     (fp=fopen("/tmp/ppp/ip-up", "r"))!=NULL)
++			{
++				fclose(fp);                                     
++			}
++			else
++			{
++				stop_wan();
++				sleep(3);
++	    			start_wan();
++				sleep(2);
++			}
+ 			/* trigger connect */
+-			eval("nslookup", "localhost");
++			_eval(ping_argv, NULL, 0, &pid);
+ 		}
+ 	}
+ 	nvram_unset("rc_service");
+diff -ubBp Wl500gP-1977/rc/vlan.c rc/vlan.c
+--- Wl500gP-1977/rc/vlan.c	2008-03-19 20:07:24.000000000 +0300
++++ rc/vlan.c	2007-05-25 16:40:34.000000000 +0400
+@@ -655,7 +657,7 @@ vlan_deconfigure(void)
+ 	    return -1;
+     }
+     if (strlen(restore_wan_hwaddr)) {
+-	if (nvram_set(strcat_r(prefix, "hwaddr", tmp), restore_wan_hwaddr))
++	if (nvram_set(strcat_r(prefix, "wan_hwaddr", tmp), restore_wan_hwaddr))
+ 	    return -1;
+ 	if (nvram_unset("restore_wan_hwaddr"))
+ 	    return -1;
+diff -ubBp Wl500gP-1977/rc/rc.c rc/rc.c
+--- Wl500gP-1977/rc/rc.c	2009-01-19 12:52:01.000000000 +0300
++++ rc/rc.c	2008-05-14 07:18:23.000000000 +0400
+@@ -117,6 +116,11 @@ build_ifnames(char *type, char *names, i
+ 				if (!(mac = nvram_get(var)) || !ether_atoe(mac, ea) ||
+ 				    bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
+ 					continue;
++
++				// add by Chen-I to filter out wl interface here
++				if (!wl_probe(ifr.ifr_name))
++					continue;
++
+ 			}
+ 			/* mac address: compare value */
+ 			else if (ether_atoe(name, ea) && !bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
+@@ -127,9 +131,6 @@ build_ifnames(char *type, char *names, i
+ 
+ 			/* append interface name to list */
+ 			len += snprintf(&names[len], *size - len, "%s ", ifr.ifr_name);
+-			
+-			/* first match only (et and wl macs are the same */
+-			break;
+ 		}
+ 	}
+ 	
+diff -ubBp Wl500gP-1977/rc/common_ex.c rc/common_ex.c
+--- Wl500gP-1977/rc/common_ex.c	2008-12-28 11:27:07.000000000 +0300
++++ rc/common_ex.c	2008-05-12 13:44:47.000000000 +0400
+@@ -79,13 +82,11 @@ char *mac_conv(char *mac_name, int idx,
+ void getsyspara(void)
+ {
+ 	FILE *fp;
+-	char buf[1];
+ 	unsigned long *imagelen;
+ 	char dataPtr[4];
+ 	char verPtr[64];
+ 	char productid[13];
+ 	char fwver[12];
+-	int i;
+ 
+ 	strcpy(productid, "WLHDD");
+ 	strcpy(fwver, "0.1.0.1");
+@@ -118,7 +118,7 @@
+ /* This function is used to map nvram value from asus to Broadcom */
+ void convert_asus_values()
+ {	
+-	char tmpstr[32], tmpstr1[32], macbuf[36];
++	char macbuf[36];
+ 	char servers[64];
+ 	char ifnames[36];
+ 	char sbuf[64];
+@@ -392,7 +477,7 @@ void convert_asus_values()
+ 	/* Mac filter */
+ 	nvram_set("wl0_macmode", nvram_safe_get("wl_macmode"));
+ 
+-	if (strcmp(tmpstr, "disabled"))
++	if (nvram_invmatch("wl_macmode", "disabled"))
+ 	{
+ 		num = atoi(nvram_safe_get("wl_macnum_x"));
+ 		list[0]=0;
+diff -ubBp Wl500gP-1977/rc/firewall_ex.c rc/firewall_ex.c
+--- Wl500gP-1977/rc/firewall_ex.c	2009-01-28 22:21:29.000000000 +0300
++++ rc/firewall_ex.c	2008-05-09 11:31:37.000000000 +0400
+@@ -876,9 +1036,10 @@ filter_setting(char *wan_if, char *wan_i
+ 		}
+ 			
+ 		// LAN/WAN filter		
++		g_buf_init();
++
+        		foreach_x("filter_lw_num_x")
+        		{	               			
+-			g_buf_init();
+             		proto = protoflag_conv("filter_lw_proto_x", i, 0);
+             		flag = protoflag_conv("filter_lw_proto_x", i, 1);
+ 			srcip = iprange_ex_conv("filter_lw_srcip_x", i);
+@@ -907,6 +1073,7 @@ filter_setting(char *wan_if, char *wan_i
+ 		char *dtype, *ftype;
+ 
+ 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
++		g_buf_init();
+ 	
+ 		if (nvram_match("filter_wl_default_x", "DROP"))
+ 		{
+@@ -921,7 +1088,6 @@ filter_setting(char *wan_if, char *wan_i
+ 			
+        		foreach_x("filter_wl_num_x")
+        		{	               			
+-			g_buf_init();
+             		proto = protoflag_conv("filter_wl_proto_x", i, 0);
+             		flag = protoflag_conv("filter_wl_proto_x", i, 1);
+ 			srcip = iprange_ex_conv("filter_wl_srcip_x", i);
+diff -uBp Wl500gP-1977/rc/network.c rc/network.c
+--- Wl500gP-1977/rc/network.c	2009-02-17 21:02:22.000000000 +0300
++++ rc/network.c	2009-02-17 21:15:16.000000000 +0300
+@@ -843,6 +843,8 @@
+ 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
+ 			/* Start dhcp daemon */
+ 			_eval(dhcp_argv, NULL, 0, &pid);
++			/* Update wan information for null DNS server */
++			update_wan_status(1);
+ #ifdef ASUS_EXT
+ 			wanmessage("Can not get IP from server");
+ 			nvram_set("wan_ifname_t", wan_ifname);
