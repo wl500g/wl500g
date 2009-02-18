@@ -2121,7 +2121,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  			
  			/* Pretend that the WAN interface is up */
 -			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) {
-+			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) 
++			if (demand) 
 +			{
 +				int timeout = 5;
  				/* Wait for pppx to be created */
