@@ -190,9 +190,8 @@ busybox: $(TOP)/busybox
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	@rm -rf $(TOP)/$(VSFTPD) $(TOP)/vsftpd
 	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(VSFTPD) vsftpd/$(VSFTPD).patch \
-	vsftpd/$(VSFTPD)-passwd_file.patch vsftpd/$(VSFTPD)-utf8.patch \
-	vsftpd/$(VSFTPD)-anon_root.patch vsftpd/$(VSFTPD)-log.patch 
+	$(PATCHER) $(TOP)/$(VSFTPD) vsftpd/build.patch vsftpd/passwd_file.patch \
+	vsftpd/utf8.patch vsftpd/anon_root.patch vsftpd/log.patch 
 	mv $(TOP)/$(VSFTPD) $(TOP)/vsftpd
 
 vsftpd: $(TOP)/vsftpd
