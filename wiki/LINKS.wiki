@@ -1,0 +1,10 @@
+#summary External links.
+
+=== External Links ===
+
+  * [http://www.linux-mips.org LinuxMIPS]
+  * [http://openwrt.org/ OpenWRT firmware]
+  * [http://www.dd-wrt.com DD-WRT firmware]
+  * [http://koppel.cz/cdmawifi/ CDMA@wifi firmware]
+  * [http://www.polarcloud.com/tomato Tomato firmware]
+  * [http://wl500g.info AsusForum.NET -- WL500g]
