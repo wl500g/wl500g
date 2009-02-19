@@ -1,3 +1,70 @@
+diff -BurN router/others/dropbearstart.sh gateway/others/dropbearstart.sh
+--- router/others/dropbearstart.sh	1970-01-01 03:00:00.000000000 +0300
++++ gateway/others/dropbearstart.sh	2009-02-18 13:49:38.000000000 +0300
+@@ -0,0 +1,63 @@
++#! /bin/sh
++#
++# Copyright (C) 2009 by Alexander I. Buzin <al37919@gmail.com>
++#
++# This program is free software; you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation; either version 2 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
++# General Public License for more details.
++#
++# You should have received a copy of the GNU General Public License
++# along with this program; if not, write to the Free Software
++# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++
++
++# This script is intended to be run automatically during boot up.
++# It ensures that dropbear keys are in the right place either by
++# extracting them from flashfs if it is disabled or by by generating
++# them and saving in flashfs if they are absent at all.
++# IMPORTANT: This script does not change the state of flashfs!
++
++#check if the key files are in the right place
++if ! [ -s /tmp/local/etc/dropbear/dropbear_rsa_host_key -a \
++       -s /tmp/local/etc/dropbear/dropbear_dss_host_key ]; then
++	mkdir -p /tmp/local/etc/dropbear
++	#check if the key files are stored in flashfs
++	if [ -n "$(/bin/tar -tzf /dev/mtdblock/4 2> /dev/null | \
++	     grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
++		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear
++	else
++		#generate new key files
++		if [ ! -s /tmp/local/etc/dropbear/dropbear_rsa_host_key ]; then
++			dropbearkey -t rsa -f /tmp/local/etc/dropbear/dropbear_rsa_host_key \
++			  | grep "ssh-rsa" > /tmp/local/etc/dropbear/dropbear_rsa_host_key.pub
++		fi
++		if [ ! -s /tmp/local/etc/dropbear/dropbear_dss_host_key ]; then
++			dropbearkey -t dss -f /tmp/local/etc/dropbear/dropbear_dss_host_key \
++			  | grep "ssh-dss" > /tmp/local/etc/dropbear/dropbear_dss_host_key.pub
++		fi
++
++		#store generated keys in the flashfs for future use
++		mkdir -p /tmp/_tmp/tmp/local/etc
++		/bin/tar -C /tmp/_tmp/ -xzf /dev/mtdblock/4 2> /dev/null
++		cp -r /tmp/local/etc/dropbear /tmp/_tmp/tmp/local/etc
++		/bin/tar -C /tmp/_tmp/ -czf /tmp/_flash.tar.gz etc tmp
++
++		/sbin/flash /tmp/_flash.tar.gz /dev/mtd/4
++		rm -r /tmp/_tmp /tmp/_flash.tar.gz
++	fi
++fi
++
++port="$(nvram get ssh_port)"
++if [ "${port}" -ne "22" ]; then
++	args="-p ${port}"
++fi
++
++dropbear ${args}
++
++exit 0
 diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 --- router/others/flashfs.sh	1970-01-01 03:00:00.000000000 +0300
 +++ gateway/others/flashfs.sh	2008-01-06 14:27:07.000000000 +0300
@@ -1361,7 +1428,7 @@ diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 diff -BurN router/others/Makefile gateway/others/Makefile
 --- router/others/Makefile	2004-11-15 11:51:39.000000000 +0300
 +++ gateway/others/Makefile	2008-08-25 12:46:06.000000000 +0400
-@@ -3,34 +3,51 @@
+@@ -3,34 +3,52 @@
  endif
  
  all :
@@ -1423,6 +1490,7 @@ diff -BurN router/others/Makefile gateway/others/Makefile
 +	install -m 755 flashfs.sh $(INSTALLDIR)/sbin/flashfs
 +	install -m 755 wshaper.sh $(INSTALLDIR)/sbin/wshaper
 +	install -m 755 ipkg.sh $(INSTALLDIR)/usr/bin/ipkg.sh
++	install -m 755 dropbearstart.sh $(INSTALLDIR)/usr/sbin/dropbearstart
 +
  clean:
  

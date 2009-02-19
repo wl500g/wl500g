@@ -799,7 +799,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  	eval("iptables-restore", "/tmp/nat_rules");
  }
-@@ -703,156 +695,151 @@ int
+@@ -703,156 +695,149 @@ int
  filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
  {
  
@@ -921,8 +921,6 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 -		else
 +
 +		// Firewall between WAN and Local
-+		if (nvram_match("ssh_enable", "1"))
-+			fprintf(fp, "-A INPUT -p tcp --syn --dport %s -j %s\n", nvram_safe_get("ssh_port"), logaccept);
 +		if (nvram_invmatch("http_lanport", "80"))
 +			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
 +		if (nvram_match("misc_http_x", "1"))
@@ -3657,7 +3655,7 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  
  #include <bcmnvram.h>
  #include <netconf.h>
-@@ -142,6 +143,102 @@ stop_dns(void)
+@@ -142,6 +143,74 @@ stop_dns(void)
  #endif
  
  int
@@ -3687,34 +3685,6 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
 +	return ret;
 +}
 +
-+int
-+start_dropbear(void)
-+{
-+       int ret;
-+
-+       if (nvram_match("ssh_enable", "0"))
-+               return 0;
-+
-+	char *argv[] = {"dropbear", "-p", nvram_safe_get("ssh_port"), NULL};
-+	if (nvram_match("ssh_port", "22"))
-+		argv[1] = NULL;
-+
-+       pid_t pid;
-+
-+       ret = _eval(argv, NULL, 0, &pid);
-+
-+       dprintf("done\n");
-+       return ret;
-+}
-+
-+int
-+stop_dropbear(void)
-+{
-+       int ret = eval("killall", "dropbear");
-+
-+       dprintf("done\n");
-+       return ret;
-+}
 +
 +int
 +start_snmpd(void)
@@ -3760,7 +3730,7 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  start_httpd(void)
  {
  	int ret;
-@@ -172,7 +266,7 @@ stop_httpd(void)
+@@ -172,7 +241,7 @@ stop_httpd(void)
  int
  start_upnp(void)
  {
@@ -3769,7 +3739,7 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  	int ret;
  	char var[100], prefix[] = "wanXXXXXXXXXX_";
  
-@@ -182,7 +276,9 @@ start_upnp(void)
+@@ -182,7 +251,9 @@ start_upnp(void)
  	ret = eval("killall", "-SIGUSR1", "upnp");
  	if (ret != 0) {
  	    snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
@@ -3780,7 +3750,7 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  					nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
  					nvram_safe_get(strcat_r(prefix, "ifname", var));
  	    ret = eval("upnp", "-D",
-@@ -246,7 +342,7 @@ start_ntpc(void)
+@@ -246,7 +317,7 @@ start_ntpc(void)
  	char *servers = nvram_safe_get("ntp_server");
  	
  	if (strlen(servers)) {
@@ -3789,12 +3759,11 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  		_eval(nas_argv, NULL, 0, NULL);
  	}
  	
-@@ -271,12 +367,15 @@ stop_ntpc(void)
+@@ -271,12 +342,14 @@ stop_ntpc(void)
  int
  start_services(void)
  {
 +	start_telnetd();
-+	start_dropbear();
  	start_httpd();
  	start_dns();
  	start_dhcpd();
@@ -3805,7 +3774,7 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  	start_upnp();
  	start_nas("lan");
  
-@@ -296,12 +395,15 @@ stop_services(void)
+@@ -296,12 +369,14 @@ stop_services(void)
  #endif
  	stop_nas();
  	stop_upnp();
@@ -3816,7 +3785,6 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  	stop_dhcpd();
  	stop_dns();
  	stop_httpd();
-+	stop_dropbear();
 +	stop_telnetd();
  
  	dprintf("done\n");

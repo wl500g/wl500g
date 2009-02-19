@@ -1,7 +1,7 @@
 diff -uBp Wl500gP-1977/rc/services_ex.c rc/services_ex.c
 --- Wl500gP-1977/rc/services_ex.c	2009-01-05 21:26:40.000000000 +0300
 +++ rc/services_ex.c	2009-02-15 19:54:40.000000000 +0300
-@@ -1959,6 +1959,7 @@ int service_handle(void)
+@@ -1945,6 +1945,7 @@ int service_handle(void)
  	char tmp[100], *str;
  	int unit;
  	int pid;
@@ -9,7 +9,7 @@ diff -uBp Wl500gP-1977/rc/services_ex.c rc/services_ex.c
  	FILE *fp;
  
  	service = nvram_get("rc_service");
-@@ -2005,11 +2006,21 @@ int service_handle(void)
+@@ -1991,11 +1992,21 @@ int service_handle(void)
  		}
  		else 
  		{
@@ -89,7 +89,7 @@ diff -ubBp Wl500gP-1977/rc/common_ex.c rc/common_ex.c
  
  	strcpy(productid, "WLHDD");
  	strcpy(fwver, "0.1.0.1");
-@@ -118,7 +118,7 @@
+@@ -120,7 +120,7 @@
  /* This function is used to map nvram value from asus to Broadcom */
  void convert_asus_values()
  {	
@@ -110,7 +110,7 @@ diff -ubBp Wl500gP-1977/rc/common_ex.c rc/common_ex.c
 diff -ubBp Wl500gP-1977/rc/firewall_ex.c rc/firewall_ex.c
 --- Wl500gP-1977/rc/firewall_ex.c	2009-01-28 22:21:29.000000000 +0300
 +++ rc/firewall_ex.c	2008-05-09 11:31:37.000000000 +0400
-@@ -876,9 +1036,10 @@ filter_setting(char *wan_if, char *wan_i
+@@ -858,9 +1018,10 @@ filter_setting(char *wan_if, char *wan_i
  		}
  			
  		// LAN/WAN filter		
@@ -122,7 +122,7 @@ diff -ubBp Wl500gP-1977/rc/firewall_ex.c rc/firewall_ex.c
              		proto = protoflag_conv("filter_lw_proto_x", i, 0);
              		flag = protoflag_conv("filter_lw_proto_x", i, 1);
  			srcip = iprange_ex_conv("filter_lw_srcip_x", i);
-@@ -907,6 +1073,7 @@ filter_setting(char *wan_if, char *wan_i
+@@ -889,6 +1055,7 @@ filter_setting(char *wan_if, char *wan_i
  		char *dtype, *ftype;
  
  		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
@@ -130,7 +130,7 @@ diff -ubBp Wl500gP-1977/rc/firewall_ex.c rc/firewall_ex.c
  	
  		if (nvram_match("filter_wl_default_x", "DROP"))
  		{
-@@ -921,7 +1088,6 @@ filter_setting(char *wan_if, char *wan_i
+@@ -903,7 +1070,6 @@ filter_setting(char *wan_if, char *wan_i
  			
         		foreach_x("filter_wl_num_x")
         		{	               			
