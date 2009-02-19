@@ -192,8 +192,7 @@ $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
 	$(PATCHER) $(TOP)/$(VSFTPD) vsftpd/$(VSFTPD).patch \
 	vsftpd/$(VSFTPD)-passwd_file.patch vsftpd/$(VSFTPD)-utf8.patch \
-	vsftpd/$(VSFTPD)-anon_root.patch vsftpd/$(VSFTPD)-log.patch \
-	vsftpd/$(VSFTPD)-getpwnam.patch 
+	vsftpd/$(VSFTPD)-anon_root.patch vsftpd/$(VSFTPD)-log.patch 
 	mv $(TOP)/$(VSFTPD) $(TOP)/vsftpd
 
 vsftpd: $(TOP)/vsftpd
