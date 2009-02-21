@@ -1,15 +1,15 @@
 diff -uBp Wl500gP-1977/rc/services_ex.c rc/services_ex.c
 --- Wl500gP-1977/rc/services_ex.c	2009-01-05 21:26:40.000000000 +0300
-+++ rc/services_ex.c	2009-02-15 19:54:40.000000000 +0300
++++ rc/services_ex.c	2009-02-21 23:45:40.000000000 +0300
 @@ -1945,6 +1945,7 @@ int service_handle(void)
  	char tmp[100], *str;
  	int unit;
  	int pid;
-+	char *ping_argv[] = { "ping", "-c", "3", "140.113.1.1", NULL};
++	char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
  	FILE *fp;
  
  	service = nvram_get("rc_service");
-@@ -1991,11 +1992,21 @@ int service_handle(void)
+@@ -1991,11 +1992,24 @@ int service_handle(void)
  		}
  		else 
  		{
@@ -31,6 +31,9 @@ diff -uBp Wl500gP-1977/rc/services_ex.c rc/services_ex.c
 +			}
  			/* trigger connect */
 -			eval("nslookup", "localhost");
++			str = nvram_get("wan0_gateway");
++			if (str)
++				ping_argv[2] = str;
 +			_eval(ping_argv, NULL, 0, &pid);
  		}
  	}
