@@ -1,6 +1,6 @@
 diff -BurN router/shared/bcmconfig.h gateway/shared/bcmconfig.h
---- router/shared/bcmconfig.h	2004-12-10 04:03:45.000000000 +0300
-+++ gateway/shared/bcmconfig.h	2008-03-17 20:52:25.000000000 +0300
+--- router/shared/bcmconfig.h	2004-12-10 06:03:45.000000000 +0500
++++ gateway/shared/bcmconfig.h	2008-03-17 22:52:25.000000000 +0500
 @@ -1,7 +1,6 @@
  /*
   * Automatically generated C config: don't edit
@@ -106,8 +106,8 @@ diff -BurN router/shared/bcmconfig.h gateway/shared/bcmconfig.h
 +#undef __CONFIG_SENTRY5__
 +#undef __CONFIG_ROBO__
 diff -BurN router/shared/defaults.c gateway/shared/defaults.c
---- router/shared/defaults.c	2004-12-01 04:28:13.000000000 +0300
-+++ gateway/shared/defaults.c	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/defaults.c	2004-12-01 06:28:13.000000000 +0500
++++ gateway/shared/defaults.c	2008-03-17 22:52:17.000000000 +0500
 @@ -122,7 +122,7 @@
  #endif	/* __CONFIG_NAT__ */
  
@@ -118,8 +118,8 @@ diff -BurN router/shared/defaults.c gateway/shared/defaults.c
  	{ "http_wanport", "", 0 },		/* WAN port to listen on */
  	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
 diff -BurN router/shared/flash.default gateway/shared/flash.default
---- router/shared/flash.default	2004-11-19 14:37:16.000000000 +0300
-+++ gateway/shared/flash.default	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/flash.default	2004-11-19 16:37:16.000000000 +0500
++++ gateway/shared/flash.default	2009-02-22 18:18:23.000000000 +0500
 @@ -29,7 +29,7 @@
  
  {"dmz_ip", "", 0},
@@ -273,7 +273,7 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
  {"usb_ftpscript_x", "", 0},
  
  {"usb_ftpnum_x", "0", 0},
-@@ -476,3 +531,23 @@
+@@ -476,3 +531,24 @@
  {"qos_umaxbw_x", "", 0},
  
  {"qos_uminbw_x", "", 0},
@@ -285,6 +285,7 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
 +{"lpr_enable", "1", 0},
 +{"raw_enable", "1", 0},
 +{"audio_enable", "1", 0},
++{"usb20_disable_x", "0", 0},
 +
 +{"wl_nbw","40",0},
 +{"wl_nctrlsb","lower",0},
@@ -298,8 +299,8 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
 +{"wl_wpa_mode", "0", 0},
 +
 diff -BurN router/shared/Makefile gateway/shared/Makefile
---- router/shared/Makefile	2004-12-05 22:54:17.000000000 +0300
-+++ gateway/shared/Makefile	2008-12-24 20:52:17.000000000 +0300
+--- router/shared/Makefile	2004-12-06 00:54:17.000000000 +0500
++++ gateway/shared/Makefile	2008-12-24 22:52:17.000000000 +0500
 @@ -12,8 +12,9 @@
  # $Id$
  #
@@ -321,8 +322,8 @@ diff -BurN router/shared/Makefile gateway/shared/Makefile
  	install -d $(INSTALLDIR)/usr/lib
  	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
 diff -BurN router/shared/netconf.h gateway/shared/netconf.h
---- router/shared/netconf.h	2004-10-14 23:11:32.000000000 +0400
-+++ gateway/shared/netconf.h	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/netconf.h	2004-10-15 01:11:32.000000000 +0600
++++ gateway/shared/netconf.h	2008-03-17 22:52:17.000000000 +0500
 @@ -64,7 +64,7 @@
  } netconf_match_t;
  
@@ -333,8 +334,8 @@ diff -BurN router/shared/netconf.h gateway/shared/netconf.h
  /* Supported firewall target types */
  enum netconf_target {
 diff -BurN router/shared/shutils.c gateway/shared/shutils.c
---- router/shared/shutils.c	2004-11-15 06:34:17.000000000 +0300
-+++ gateway/shared/shutils.c	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/shutils.c	2004-11-15 08:34:17.000000000 +0500
++++ gateway/shared/shutils.c	2008-03-17 22:52:17.000000000 +0500
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -905,8 +906,8 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
 +
 +#endif
 diff -BurN router/shared/shutils.h gateway/shared/shutils.h
---- router/shared/shutils.h	2004-11-15 06:34:19.000000000 +0300
-+++ gateway/shared/shutils.h	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/shutils.h	2004-11-15 08:34:19.000000000 +0500
++++ gateway/shared/shutils.h	2008-03-17 22:52:17.000000000 +0500
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -916,23 +917,23 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
   * All Rights Reserved.
   * 
   * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-@@ -16,6 +16,15 @@
+@@ -15,6 +15,15 @@
+ #ifndef _shutils_h_
  #define _shutils_h_
  
 +#include <string.h>
 +
- /*
++/*
 + * Checks if file exists
 + * @param	fd	file descriptor
 + * @return	return st_mode field (0 if not exists)
 + */
 +extern mode_t exists(const char *path);
 +
-+/*
+ /*
   * Reads file and returns contents
   * @param	fd	file descriptor
-  * @return	contents of file or NULL if an error occurred
-@@ -113,6 +120,78 @@
+@@ -113,6 +122,78 @@
  	return buf;
  }	
  
@@ -1011,7 +1012,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  /* Check for a blank character; that is, a space or a tab */
  #define isblank(c) ((c) == ' ' || (c) == '\t')
  
-@@ -130,20 +209,11 @@
+@@ -130,20 +211,11 @@
  	_backtick(argv); \
  })
  
@@ -1032,7 +1033,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  
  /* Copy each token in wordlist delimited by space into word */
  #define foreach(word, wordlist, next) \
-@@ -162,17 +232,16 @@
+@@ -162,17 +234,16 @@
  /* Return NUL instead of NULL if undefined */
  #define safe_getenv(s) (getenv(s) ? : "")
  
@@ -1053,7 +1054,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  #endif
  
  /* Debug print */
-@@ -180,7 +249,7 @@
+@@ -180,7 +251,7 @@
  #define dprintf(fmt, args...) cprintf("%s: " fmt, __FUNCTION__, ## args)
  #else
  #define dprintf(fmt, args...)
@@ -1063,8 +1064,8 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  
  #endif /* _shutils_h_ */
 diff -BurN router/shared/wl.c gateway/shared/wl.c
---- router/shared/wl.c	2004-10-14 23:11:32.000000000 +0400
-+++ gateway/shared/wl.c	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/wl.c	2004-10-15 01:11:32.000000000 +0600
++++ gateway/shared/wl.c	2008-03-17 22:52:17.000000000 +0500
 @@ -1,7 +1,7 @@
  /*
   * Wireless network adapter utilities
@@ -1331,8 +1332,8 @@ diff -BurN router/shared/wl.c gateway/shared/wl.c
 +*/
  
 diff -BurN router/shared/wl_linux.c gateway/shared/wl_linux.c
---- router/shared/wl_linux.c	2004-10-14 23:11:32.000000000 +0400
-+++ gateway/shared/wl_linux.c	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/wl_linux.c	2004-10-15 01:11:32.000000000 +0600
++++ gateway/shared/wl_linux.c	2008-03-17 22:52:17.000000000 +0500
 @@ -1,7 +1,7 @@
  /*
   * Wireless network adapter utilities (linux-specific)
@@ -1351,8 +1352,8 @@ diff -BurN router/shared/wl_linux.c gateway/shared/wl_linux.c
  typedef u_int64_t u64;
  typedef u_int32_t u32;
 diff -BurN router/shared/wlutils.h gateway/shared/wlutils.h
---- router/shared/wlutils.h	2004-10-14 23:11:32.000000000 +0400
-+++ gateway/shared/wlutils.h	2008-03-17 20:52:17.000000000 +0300
+--- router/shared/wlutils.h	2004-10-15 01:11:32.000000000 +0600
++++ gateway/shared/wlutils.h	2008-03-17 22:52:17.000000000 +0500
 @@ -1,7 +1,7 @@
  /*
   * Broadcom wireless network adapter utility functions
