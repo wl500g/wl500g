@@ -1,0 +1,11 @@
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -437,7 +437,7 @@ int wget_main(int argc ATTRIBUTE_UNUSED,
+ 		"directory-prefix\0" Required_argument "P"
+ 		"proxy\0"            Required_argument "Y"
+ 		"user-agent\0"       Required_argument "U"
+-		"passive-ftp\0"      No_argument       "\xff"
++		"passive-ftp\0"      No_argument       "\xfd"
+ 		"header\0"           Required_argument "\xfe"
+ 		;
+ #endif

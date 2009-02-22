@@ -166,20 +166,13 @@ $(TOP)/loader: $(LOADER).tar.bz2
 loader: $(TOP)/loader
 	@true
 
+busybox_Patches := $(call patches_list,busybox)
+
 $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	@rm -rf $(TOP)/$(BUSYBOX) $(TOP)/busybox
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
-	$(PATCHER) $(TOP)/$(BUSYBOX) busybox/$(BUSYBOX)-init.patch \
-		busybox/$(BUSYBOX)-depmod.patch busybox/$(BUSYBOX)-tar.patch \
-		busybox/$(BUSYBOX)-modprobe.patch busybox/$(BUSYBOX)-killall.patch \
-		busybox/$(BUSYBOX)-mdev.patch \
-		busybox/busybox.patch busybox/awk.patch \
-		busybox/e2fsprogs.patch busybox/udhcp-options.patch \
-		busybox/udhcp-vci.patch busybox/udhcp-secs.patch \
-		busybox/cgi-env.patch busybox/http-host.patch \
-		busybox/insmod.patch busybox/e2fsck-checkinterval.patch \
-		busybox/ether-wake.patch 
+	$(PATCHER) $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	mv $(TOP)/$(BUSYBOX) $(TOP)/busybox
