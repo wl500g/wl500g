@@ -1,13 +1,6 @@
 --- vsftpd.orig/sysutil.c	2008-01-08 13:23:50.000000000 +0300
 +++ vsftpd/sysutil.c	2008-01-08 22:30:53.000000000 +0300
-@@ -2613,17 +2613,21 @@
- #ifdef LOG_FTP
-   facility = LOG_FTP;
- #endif
--  openlog("vsftpd", LOG_NDELAY, facility);
-+  openlog("vsftpd", LOG_NDELAY | LOG_PID, facility);
- }
- 
+@@ -2700,12 +2700,16 @@
  void
  vsf_sysutil_syslog(const char* p_text, int severe)
  {

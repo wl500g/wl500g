@@ -8,16 +8,24 @@
    { "chown_uploads", &tunable_chown_uploads },
    { "connect_from_port_20", &tunable_connect_from_port_20 },
    { "xferlog_enable", &tunable_xferlog_enable },
---- vsftpd.orig/tunables.c	2008-01-08 13:23:50.000000000 +0300
-+++ vsftpd/tunables.c	2008-01-08 17:54:52.000000000 +0300
-@@ -16,6 +16,7 @@
- int tunable_anon_upload_enable = 0;
- int tunable_anon_mkdir_write_enable = 0;
- int tunable_anon_other_write_enable = 0;
-+int tunable_anon_allow_writable_root = 0;
- int tunable_chown_uploads = 0;
- int tunable_connect_from_port_20 = 0;
- int tunable_xferlog_enable = 0;
+--- vsftpd-2.1.0/tunables.c	2009-02-22 11:00:15.000000000 +0300
++++ vsftpd/tunables.c	2009-02-22 11:01:35.000000000 +0300
+@@ -17,6 +17,7 @@
+ int tunable_anon_upload_enable;
+ int tunable_anon_mkdir_write_enable;
+ int tunable_anon_other_write_enable;
++int tunable_anon_allow_writable_root;
+ int tunable_chown_uploads;
+ int tunable_connect_from_port_20;
+ int tunable_xferlog_enable;
+@@ -153,6 +154,7 @@
+   tunable_anon_upload_enable = 0;
+   tunable_anon_mkdir_write_enable = 0;
+   tunable_anon_other_write_enable = 0;
++  tunable_anon_allow_writable_root = 0;
+   tunable_chown_uploads = 0;
+   tunable_connect_from_port_20 = 0;
+   tunable_xferlog_enable = 0;
 --- vsftpd.orig/tunables.h	2008-01-08 13:23:50.000000000 +0300
 +++ vsftpd/tunables.h	2008-01-08 17:55:28.000000000 +0300
 @@ -12,6 +12,7 @@
