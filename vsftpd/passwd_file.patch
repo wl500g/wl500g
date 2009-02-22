@@ -1,16 +1,18 @@
---- vsftpd-2.0.6/parseconf.c	2006-07-02 03:05:10.000000000 +0400
-+++ vsftpd/parseconf.c	2008-01-08 00:15:23.000000000 +0300
-@@ -168,6 +169,7 @@
+diff -uB vsftpd-2.1.0/parseconf.c vsftpd/parseconf.c
+--- vsftpd-2.1.0/parseconf.c	2008-12-18 09:21:41.000000000 +0300
++++ vsftpd/parseconf.c	2009-02-22 10:52:02.000000000 +0300
+@@ -177,6 +177,7 @@
    { "rsa_private_key_file", &tunable_rsa_private_key_file },
    { "dsa_private_key_file", &tunable_dsa_private_key_file },
    { "ca_certs_file", &tunable_ca_certs_file },
 +  { "passwd_file", &tunable_passwd_file },
+   { "cmds_denied", &tunable_cmds_denied },
    { 0, 0 }
  };
- 
---- vsftpd-2.0.6/sysutil.c	2006-07-03 20:26:40.000000000 +0400
-+++ vsftpd/sysutil.c	2008-01-08 00:18:42.000000000 +0300
-@@ -2212,6 +2212,37 @@
+diff -uB vsftpd-2.1.0/sysutil.c vsftpd/sysutil.c
+--- vsftpd-2.1.0/sysutil.c	2009-01-22 02:43:48.000000000 +0300
++++ vsftpd/sysutil.c	2009-02-22 10:41:15.000000000 +0300
+@@ -2259,6 +2259,37 @@
    return (struct vsf_sysutil_user*) getpwuid((unsigned int) uid);
  }
  
@@ -48,22 +50,33 @@
  struct vsf_sysutil_user*
  vsf_sysutil_getpwnam(const char* p_user)
  {
---- vsftpd-2.0.6/tunables.c	2006-07-02 03:06:56.000000000 +0400
-+++ vsftpd/tunables.c	2008-01-08 01:06:48.000000000 +0300
- unsigned int tunable_connect_timeout = 60;
-@@ -125,4 +126,5 @@
- const char* tunable_rsa_private_key_file = 0;
- const char* tunable_dsa_private_key_file = 0;
- const char* tunable_ca_certs_file = 0;
-+const char* tunable_passwd_file = 0;
+diff -uB vsftpd-2.1.0/tunables.c vsftpd/tunables.c
+--- vsftpd-2.1.0/tunables.c	2008-12-18 04:42:45.000000000 +0300
++++ vsftpd/tunables.c	2009-02-22 10:52:52.000000000 +0300
+@@ -136,6 +136,7 @@
+ const char* tunable_rsa_private_key_file;
+ const char* tunable_dsa_private_key_file;
+ const char* tunable_ca_certs_file;
++const char* tunable_passwd_file;
  
---- vsftpd-2.0.6/tunables.h	2006-07-02 03:07:00.000000000 +0400
-+++ vsftpd/tunables.h	2008-01-07 22:55:01.000000000 +0300
-@@ -120,6 +121,7 @@
+ static void install_str_setting(const char* p_value, const char** p_storage);
+ 
+@@ -277,6 +277,7 @@
+   install_str_setting(0, &tunable_rsa_private_key_file);
+   install_str_setting(0, &tunable_dsa_private_key_file);
+   install_str_setting(0, &tunable_ca_certs_file);
++  install_str_setting(0, &tunable_passwd_file);
+ }
+ 
+ void
+diff -uB vsftpd-2.1.0/tunables.h vsftpd/tunables.h
+--- vsftpd-2.1.0/tunables.h	2008-12-17 08:47:11.000000000 +0300
++++ vsftpd/tunables.h	2009-02-22 10:52:23.000000000 +0300
+@@ -138,6 +138,7 @@
  extern const char* tunable_rsa_private_key_file;
  extern const char* tunable_dsa_private_key_file;
  extern const char* tunable_ca_certs_file;
 +extern const char* tunable_passwd_file;
+ extern const char* tunable_cmds_denied;
  
  #endif /* VSF_TUNABLES_H */
- 
