@@ -4,6 +4,9 @@
   * kernel
     * Support spin-up usb hdd drives (scsi allow_restart from 2.6)
     * Backport of IPWireless driver
+    * netfilter:
+      * increase size of route & conntrack hash tables (originally Tomato SpeedMOD)
+      * drop SNATed connections on iface down or ip renew.
 
   * iptable/firewall
     * Changed MASQUERADE action to SNAT to speed up nat.
@@ -17,6 +20,8 @@
   * udpxy 1.0_Chipmunk-8
 
   * p910nd 0.93
+
+  * vsftpd 2.1.0
 
   * bugfixes
 
