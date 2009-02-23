@@ -1,5 +1,5 @@
 --- linux-2.4.37/net/ipv4/netfilter/ip_nat_rule.c	2008-12-02 13:01:34.000000000 +0500
-+++ linux/net/ipv4/netfilter/ip_nat_rule.c	2009-02-21 01:48:59.000000000 +0500
++++ linux/net/ipv4/netfilter/ip_nat_rule.c	2009-02-23 16:52:33.000000000 +0500
 @@ -28,6 +28,13 @@
  
  #define NAT_VALID_HOOKS ((1<<NF_IP_PRE_ROUTING) | (1<<NF_IP_POST_ROUTING) | (1<<NF_IP_LOCAL_OUT))
@@ -27,7 +27,7 @@
  	return ip_nat_setup_info(ct, targinfo, hooknum);
  }
  
-@@ -281,6 +294,65 @@ int ip_nat_rule_find(struct sk_buff **ps
+@@ -281,6 +294,58 @@ int ip_nat_rule_find(struct sk_buff **ps
  	return ret;
  }
  
@@ -54,6 +54,9 @@
 +		/* Device was downed.  Search entire table for
 +		   conntracks which were associated with that device,
 +		   and forget them. */
++		/* IP address was deleted.  Search entire table for
++		   conntracks which were associated with that device,
++		   and forget them. */
 +		IP_NF_ASSERT(dev->ifindex != 0);
 + 
 +		ip_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
@@ -68,17 +71,7 @@
 +			   void *ptr)
 +{
 +	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
-+
-+	if (event == NETDEV_DOWN) {
-+		/* IP address was deleted.  Search entire table for
-+		   conntracks which were associated with that device,
-+		   and forget them. */
-+		IP_NF_ASSERT(dev->ifindex != 0);
-+
-+		ip_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
-+	}
-+
-+	return NOTIFY_DONE;
++	return snat_device_event(this, event, dev);
 +}
 +
 +static struct notifier_block snat_dev_notifier = {
@@ -93,7 +86,7 @@
  static struct ipt_target ipt_snat_reg
  = { { NULL, NULL }, "SNAT", ipt_snat_target, ipt_snat_checkentry, NULL };
  static struct ipt_target ipt_dnat_reg
-@@ -301,6 +373,13 @@ int __init ip_nat_rule_init(void)
+@@ -301,6 +366,13 @@ int __init ip_nat_rule_init(void)
  	if (ret != 0)
  		goto unregister_snat;
  
@@ -107,7 +100,7 @@
  	return ret;
  
   unregister_snat:
-@@ -316,4 +395,9 @@ void ip_nat_rule_cleanup(void)
+@@ -316,4 +388,9 @@ void ip_nat_rule_cleanup(void)
  	ipt_unregister_target(&ipt_dnat_reg);
  	ipt_unregister_target(&ipt_snat_reg);
  	ipt_unregister_table(&nat_table);
