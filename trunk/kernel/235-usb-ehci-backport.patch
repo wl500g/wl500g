@@ -1,0 +1,39 @@
+ Early draft backport of EHCI driver from 2.6.27 (due to applied include backports)
+ 
+diff -urBp -x'*.o' -x'.*' linux-2.4.37.orig/drivers/usb/host/ehci-dbg.c linux/drivers/usb/host/ehci-dbg.c
+--- linux-2.4.37.orig/drivers/usb/host/ehci-dbg.c	2008-12-02 11:01:34.000000000 +0300
++++ linux/drivers/usb/host/ehci-dbg.c	2009-01-26 16:06:58.000000000 +0300
+@@ -180,6 +180,21 @@ dbg_itd (const char *label, struct ehci_
+ 		itd->index[6], itd->index[7]);
+ }
+ 
++static void __attribute__((__unused__))
++dbg_sitd (const char *label, struct ehci_hcd *ehci, struct ehci_sitd *sitd)
++{
++	ehci_dbg (ehci, "%s [%d] sitd %p, next %08x, urb %p\n",
++		label, sitd->frame, sitd, le32_to_cpu(sitd->hw_next),
++		sitd->urb);
++	ehci_dbg (ehci,
++		"  addr %08x sched %04x result %08x buf %08x %08x\n",
++		le32_to_cpu(sitd->hw_fullspeed_ep),
++		le32_to_cpu(sitd->hw_uframe),
++		le32_to_cpu(sitd->hw_results),
++		le32_to_cpu(sitd->hw_buf[0]),
++		le32_to_cpu(sitd->hw_buf[1]));
++}
++
+ static int __attribute__((__unused__))
+ dbg_status_buf (char *buf, unsigned len, char *label, u32 status)
+ {
+diff -urBp -x'*.o' -x'.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/host/ehci-q.c
+--- linux-2.4.37.orig/drivers/usb/host/ehci-q.c	2009-01-16 13:35:28.000000000 +0300
++++ linux/drivers/usb/host/ehci-q.c	2009-01-29 13:46:21.000000000 +0300
+@@ -927,7 +967,7 @@ static struct ehci_qh *qh_append_tds (
+ 
+ 			list_del (&qtd->qtd_list);
+ 			list_add (&dummy->qtd_list, qtd_list);
+-			__list_splice (qtd_list, qh->qtd_list.prev);
++			list_splice_tail (qtd_list, &qh->qtd_list);
+ 
+ 			ehci_qtd_init (qtd, qtd->qtd_dma);
+ 			qh->dummy = qtd;
