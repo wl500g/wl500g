@@ -2,20 +2,16 @@
 
 ===wl500g-1.9.2.7-d (Current) ===
   * kernel
-    * Support spin-up usb hdd drives (scsi allow_restart from 2.6)
-    * Backport of IPWireless (3G UMTS TDD) driver
-    * Backport of Option (GSM modem) driver
+    * support spin-up usb hdd drives (scsi allow_restart from 2.6)
+    * backport of IPWireless (3G UMTS TDD) driver
+    * backport of Option (GSM modem) driver
     * netfilter:
       * increase size of route & conntrack hash tables (originally Tomato SpeedMOD)
-      * drop SNATed connections on iface down or ip renew.
 
   * web-interface improvements
     * SSH(dropbear) server control
     * ability to disable USB 2.0 controller
     * brute force protection for ssh and ftp servers (ipt_recent)
-
-  * iptable/firewall
-    * Changed MASQUERADE action to SNAT to speed up nat.
 
   * busybox 1.13.2
 
