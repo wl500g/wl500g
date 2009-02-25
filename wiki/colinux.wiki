@@ -58,6 +58,16 @@ mkfs.ext2 -j /dev/hda
 }}}
 на вопрос *Proceed anyway? (y,n)* необходимо ответить *y*
 
+подключаем раздел
+{{{
+mount /dev/hda /mnt
+}}}
+
+создаем swap
+{{{
+mkswap /dev/hde
+}}}
+
 далее необходимо установить нужные пакеты 
 {{{
 cd /cdrom/slackware/a
@@ -80,10 +90,10 @@ poweroff
 
 теперь нужно создать файл с опциями стандартного запуска colinux 
 
-*slak.conf*
+*slack.conf*
 {{{
 kernel=vmlinux
-hda=c:\coLinux\linux\root_fs.iso
+hda=c:\coLinux\linux\root_fs.img
 hdb=c:\coLinux\linux\hdb.img
 hdc=c:\coLinux\linux\hdc.img
 hdd=c:\coLinux\linux\slack12.iso
@@ -99,7 +109,7 @@ eth0=tuntap
 
 {{{
 c:\> cd c:\colinux
-c:\> colinux-daemon.exe --install-service colinux @slak.conf
+c:\> colinux-daemon.exe --install-service colinux @slack.conf
 }}}
 
 == Настройка системы ==
