@@ -1,7 +1,7 @@
 diff -BurN router/others/dropbearstart.sh gateway/others/dropbearstart.sh
 --- router/others/dropbearstart.sh	1970-01-01 03:00:00.000000000 +0300
 +++ gateway/others/dropbearstart.sh	2009-02-18 13:49:38.000000000 +0300
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,59 @@
 +#! /bin/sh
 +#
 +# Copyright (C) 2009 by Alexander I. Buzin <al37919@gmail.com>
@@ -34,17 +34,13 @@ diff -BurN router/others/dropbearstart.sh gateway/others/dropbearstart.sh
 +	#check if the key files are stored in flashfs
 +	if [ -n "$(/bin/tar -tzf /dev/mtdblock/4 2> /dev/null | \
 +	     grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
-+		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear
++		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear tmp/local/etc/ssh.*
 +	else
 +		#generate new key files
-+		if [ ! -s /tmp/local/etc/dropbear/dropbear_rsa_host_key ]; then
-+			dropbearkey -t rsa -f /tmp/local/etc/dropbear/dropbear_rsa_host_key \
-+			  | grep "ssh-rsa" > /tmp/local/etc/dropbear/dropbear_rsa_host_key.pub
-+		fi
-+		if [ ! -s /tmp/local/etc/dropbear/dropbear_dss_host_key ]; then
-+			dropbearkey -t dss -f /tmp/local/etc/dropbear/dropbear_dss_host_key \
-+			  | grep "ssh-dss" > /tmp/local/etc/dropbear/dropbear_dss_host_key.pub
-+		fi
++		dropbearkey -t rsa -f /tmp/local/etc/dropbear/dropbear_rsa_host_key \
++		  | grep "ssh-rsa" > /tmp/local/etc/dropbear/dropbear_rsa_host_key.pub
++		dropbearkey -t dss -f /tmp/local/etc/dropbear/dropbear_dss_host_key \
++		  | grep "ssh-dss" > /tmp/local/etc/dropbear/dropbear_dss_host_key.pub
 +
 +		#store generated keys in the flashfs for future use
 +		mkdir -p /tmp/_tmp/tmp/local/etc
