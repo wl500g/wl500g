@@ -346,7 +346,8 @@ $(TOP)/rc/Makefile:
 	$(PATCHER) -Z $(TOP) rc/rc-common.patch rc/rc-asus.patch \
 		rc/rc-ddns-daemon.patch rc/rc-masq2snat.patch \
 		rc/rc-ppp-connected.patch rc/rc-dropbear.patch \
-		rc/rc-usb20-disable.patch rc/rc-recent.patch
+		rc/rc-usb20-disable.patch rc/rc-recent.patch \
+		rc/rc-ddns-dnsomatic.patch
 	$(MAKE) -C $(TOP)/rc clean
 
 rc: $(TOP)/rc/Makefile

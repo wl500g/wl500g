@@ -265,7 +265,7 @@ diff -BurN router/httpd/shutils.c gateway/httpd/shutils.c
  			flags = O_WRONLY | O_CREAT;
 diff -BurN router/httpd/variables.c gateway/httpd/variables.c
 --- router/httpd/variables.c	2004-11-15 13:06:01.000000000 +0500
-+++ gateway/httpd/variables.c	2009-02-22 18:18:44.000000000 +0500
++++ gateway/httpd/variables.c	2009-02-27 01:36:02.000000000 +0500
 @@ -455,6 +455,8 @@
                  {"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
              
@@ -465,7 +465,16 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                                    
                   {"", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                
-@@ -1677,7 +1739,12 @@
+@@ -1665,6 +1727,8 @@
+               
+                    "WWW.ZONEEDIT.COM",
+               
++                   "WWW.DNSOMATIC.COM",
++              
+               0), FALSE, FALSE},
+                                                    
+                     {"ddns_username_x", "", validate_string, ARGV("32"), FALSE, FALSE},                                                                                                                   
+@@ -1677,7 +1741,12 @@
                
        {"x_DDNSStatus", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
   
@@ -479,7 +488,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
         
        {"DmzManualDHCPList", "Group", validate_group, ARGV(variables_LANHostConfig_DmzManualDHCPList, "8", "29", "DmzManualDHCPCount"), FALSE, FALSE},     
         
-@@ -1793,7 +1860,7 @@
+@@ -1793,7 +1862,7 @@
                      
                  {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
               
@@ -488,7 +497,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
         
        {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11a_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                          
-@@ -1869,9 +1936,11 @@
+@@ -1869,9 +1938,11 @@
                
                     "1:Auto",
                
@@ -501,7 +510,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                
                0), FALSE, FALSE},
             
-@@ -1890,6 +1955,16 @@
+@@ -1890,6 +1961,16 @@
                     "radius:Radius with 802.1x",
                
                0), FALSE, FALSE},
@@ -518,7 +527,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
             	
                {"wl_crypto", "", validate_choice, ARGV(              
                
-@@ -1980,6 +2059,36 @@
+@@ -1980,6 +2061,36 @@
                     "54000000:54",
                
                0), FALSE, FALSE},
@@ -555,7 +564,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
             	
                {"wl_rateset", "", validate_choice, ARGV(              
                
-@@ -1990,6 +2099,16 @@
+@@ -1990,6 +2101,16 @@
                     "12:1, 2 Mbps",
                
                0), FALSE, FALSE},
@@ -572,7 +581,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                          
               {"wl_frag", "", validate_range, ARGV("256", "2346", ""), FALSE, FALSE},
                       
-@@ -2064,6 +2183,16 @@
+@@ -2064,6 +2185,16 @@
                   {"wl_preauth", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                                        
                      {"wl_net_reauth", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
@@ -589,7 +598,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                    
        {"RBRList", "Group", validate_group, ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x"), FALSE, FALSE},     
                          
-@@ -2100,7 +2229,7 @@
+@@ -2100,7 +2231,7 @@
                      
                  {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
               
@@ -598,7 +607,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
         
        {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11b_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                          
-@@ -2256,21 +2385,44 @@
+@@ -2256,21 +2387,44 @@
              
        {"x_FEject", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
                   
@@ -646,7 +655,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                   	
                {"", "", validate_choice, ARGV(              
                
-@@ -2296,14 +2448,27 @@
+@@ -2296,14 +2450,27 @@
                                               
                         {"qos_urulenum_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                       
@@ -679,7 +688,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
        { 0, 0, 0, 0, 0, 0}
        };
        
-@@ -4221,6 +4386,25 @@
+@@ -4221,6 +4388,25 @@
  struct action actions_PrinterStatus[];
  struct variable variables_WLANAuthentication11b[];
  
@@ -705,7 +714,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
  
  struct svcLink svcLinks[] = {            
             {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
-@@ -4239,6 +4423,7 @@
+@@ -4239,6 +4425,7 @@
             {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, actions_DeviceSecurity},
             {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, actions_WLANAuthentication},         
             {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, actions_PrinterStatus},
