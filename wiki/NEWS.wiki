@@ -9,9 +9,10 @@
       * increase size of route & conntrack hash tables (originally Tomato SpeedMOD)
 
   * web-interface improvements
-    * SSH(dropbear) server control
+    * ssh (dropbear) server control
     * ability to disable USB 2.0 controller
     * brute force protection for ssh and ftp servers (ipt_recent)
+    * dnsomatic.com dynamic dns service support
 
   * busybox 1.13.2
 
