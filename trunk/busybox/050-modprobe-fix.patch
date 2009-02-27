@@ -1,0 +1,29 @@
+Index: busybox/modutils/modutils.c
+===================================================================
+--- busybox/modutils/modutils.c	(revision 25448)
++++ busybox/modutils/modutils.c	(working copy)
+@@ -71,7 +71,7 @@
+ 	if (modname == NULL)
+ 		modname = xmalloc(MODULE_NAME_LEN);
+ 	from = bb_get_last_path_component_nostrip(filename);
+-	for (i = 0; i < MODULE_NAME_LEN && from[i] != '\0' && from[i] != '.'; i++)
++	for (i = 0; i < (MODULE_NAME_LEN-1) && from[i] != '\0' && from[i] != '.'; i++)
+ 		modname[i] = (from[i] == '-') ? '_' : from[i];
+ 	modname[i] = 0;
+ 
+Index: busybox/modutils/modutils.h
+===================================================================
+--- busybox/modutils/modutils.h	(revision 25448)
++++ busybox/modutils/modutils.h	(working copy)
+@@ -15,8 +15,9 @@
+ # pragma GCC visibility push(hidden)
+ #endif
+ 
+-/* As defined in linux/include/linux/module.h */
+-#define MODULE_NAME_LEN 64
++/* linux/include/linux/module.h has 64, but this is also used
++ * internally for the maximum alias name length, which can be quite long */
++#define MODULE_NAME_LEN 256
+ 
+ const char *moderror(int err) FAST_FUNC;
+ llist_t *llist_find(llist_t *first, const char *str) FAST_FUNC;
