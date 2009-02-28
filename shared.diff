@@ -221,6 +221,15 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
  
  {"dhcp_staticmac_x", "", 0},
  
+@@ -389,7 +412,7 @@
+ 
+ {"usb_webrectime_x", "0", 0},
+ 
+-{"usb_webfresh_x", "1", 0},
++{"usb_webfresh_x", "0", 0},
+ 
+ {"usb_webcaption_x", "Web Camera Live Demo!!!", 0},
+ 
 @@ -427,6 +450,24 @@
  
  {"usb_webremote6_x", "", 0},
