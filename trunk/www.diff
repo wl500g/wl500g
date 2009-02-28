@@ -122,8 +122,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp gatewa
  <tr>
  <td>
 diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp
---- router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2004-11-19 15:45:54.000000000 +0500
-+++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2009-02-27 01:18:34.000000000 +0500
+--- router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2004-11-19 13:45:54.000000000 +0300
++++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2009-02-26 23:18:34.000000000 +0300
 @@ -30,13 +30,17 @@
  </tr>
  <tr>
@@ -153,8 +153,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp gateway/ww
  </tr>
  <tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp
---- router/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2004-11-19 15:45:54.000000000 +0500
-+++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2009-02-27 01:18:10.000000000 +0500
+--- router/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2004-11-19 13:45:54.000000000 +0300
++++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2009-02-26 23:18:10.000000000 +0300
 @@ -21,8 +21,16 @@
  <td class="content_header_td_title" colspan="2">IP Config - Miscellaneous</td>
  </tr>
@@ -1915,7 +1915,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp gateway/ww
  <td class="content_header_td">Fragmentation Threshold:
 diff -BurN router/www/asus/web_asus_en/Advanced_WebCam_Content.asp gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp
 --- router/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2008-03-17 20:52:23.000000000 +0300
++++ gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2009-02-28 19:58:36.000000000 +0300
 @@ -30,7 +30,7 @@
  </tr>
  <tr>
@@ -1925,6 +1925,17 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WebCam_Content.asp gateway/www/a
  </tr>
  <tr>
  <td class="content_header_td" onMouseOver="return overlib('This field indicates the size of image.', LEFT);" onMouseOut="return nd();">Image Size:
+@@ -42,8 +42,8 @@
+            </td><td class="content_input_td"><select name="usb_websense_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_websense_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_websense_x", "0","selected"); %>>Low</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_websense_x", "1","selected"); %>>Medium</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_websense_x", "2","selected"); %>>High</option></select></td>
+ </tr>
+ <tr>
+-<td class="content_header_td" onMouseOver="return overlib('This field indicates the time interval in seconds that system reloads image. The range of value is 1~65535.', LEFT);" onMouseOut="return nd();">Refresh Time in seconds:
+-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(this)"></td>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates the time interval in seconds that system reloads image. The range of value is 0~65535.', LEFT);" onMouseOut="return nd();">Refresh Time in seconds:
++           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td" onMouseOver="return overlib('This field indicates the string that will be the title displayed on your Webcam page.', LEFT);" onMouseOut="return nd();">Caption String:
 diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp
 --- router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2004-11-19 13:45:54.000000000 +0300
 +++ gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2008-03-17 20:52:23.000000000 +0300
@@ -2712,6 +2723,9 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  }
  
  function masq_wepkey()
+Files router/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg differ
+Files router/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg differ
+Files router/www/asus/web_asus_en/graph/iBox_title_all.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all.jpg differ
 diff -BurN router/www/asus/web_asus_en/index_501b.asp gateway/www/asus/web_asus_en/index_501b.asp
 --- router/www/asus/web_asus_en/index_501b.asp	2004-11-19 13:45:55.000000000 +0300
 +++ gateway/www/asus/web_asus_en/index_501b.asp	2008-03-17 20:52:23.000000000 +0300
@@ -3230,7 +3244,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  
  	rm -rf web
  	rm -rf web_$*
- 
++
 +pages-%:
 +	echo $(LANGUAGE)
 +	./mkweb $* "$(LANGUAGE)"	
@@ -3246,7 +3260,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +
 +	rm -rf web
 +	rm -rf web_$*
-+
+ 
  clean:
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb

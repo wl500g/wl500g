@@ -4668,7 +4668,16 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  
  int
  hotplug_usb_webcam(char *product, int webflag)
-@@ -779,12 +1305,13 @@ hotplug_usb_webcam(char *product, int we
+@@ -766,7 +1309,7 @@ hotplug_usb_webcam(char *product, int we
+ {
+ 	char *rcamd_argv[]={"rcamd", 
+ 				"-p", nvram_safe_get("usb_webactivex_x"),
+-				"-s", "0",
++				"-s", nvram_safe_get("usb_webfresh_x"),
+ 				"-z", nvram_safe_get("time_zone"),
+ 				"-a", nvram_safe_get("usb_websecurity_x"),
+ 				NULL, NULL,	// Model -t
+@@ -779,12 +1322,13 @@ hotplug_usb_webcam(char *product, int we
  	char **arg;
  	pid_t pid;
  
