@@ -1500,7 +1500,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_SNMP_Content.asp gateway/www/asu
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp
 --- router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2008-03-17 20:52:23.000000000 +0300
++++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2009-03-02 23:11:24.000000000 +0300
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -1616,7 +1616,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/w
 +	<td></td>
 +	<td class="content_list_input_td" colspan=""><input type="text" maxlength="16" size="16" name="usb_ftpusername_x_0" class="content_input_list_fd" onKeyPress="return is_string(this)"></td>
 +	<td class="content_list_input_td" colspan=""><input type="text" maxlength="16" size="16" name="usb_ftppasswd_x_0" class="content_input_list_fd" onKeyPress="return is_string(this)"></td>
-+	<td class="content_list_input_td" colspan=""><select name="usb_ftprights_x_0" class="content_input_list_fd"><option value="Read/Write/Erase" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Read/Write/Erase","selected", 0); %>>Read/Write/Erase</option><option value="Read/Write" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Read/Write","selected", 0); %>>Read/Write</option><option value="Read Only" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Read Only","selected", 0); %>>Read Only</option><option value="View Only" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "View Only","selected", 0); %>>View Only</option><option value="Private" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Private","selected", 0); %>>Private</option><option value="Private(WO)" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Private(WO)","selected", 0); %>>Private(WO)</option></select></td>
++	<td class="content_list_input_td" colspan=""><select name="usb_ftprights_x_0" class="content_input_list_fd"><option value="Read/Write" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Read/Write","selected", 0); %>>Read/Write</option><option value="Read Only" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Read Only","selected", 0); %>>Read Only</option><option value="Write Only" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Write Only","selected", 0); %>>Write Only</option><option value="View Only" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "View Only","selected", 0); %>>View Only</option><option value="Private" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Private","selected", 0); %>>Private</option><option value="Private(WO)" <% nvram_match_list_x("PrinterStatus","usb_ftprights_x", "Private(WO)","selected", 0); %>>Private(WO)</option></select></td>
  </tr>
  <tr>
  <td></td><td colspan="10"><select size="8" name="x_FUserList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
@@ -2723,9 +2723,6 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  }
  
  function masq_wepkey()
-Files router/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg differ
-Files router/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg differ
-Files router/www/asus/web_asus_en/graph/iBox_title_all.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all.jpg differ
 diff -BurN router/www/asus/web_asus_en/index_501b.asp gateway/www/asus/web_asus_en/index_501b.asp
 --- router/www/asus/web_asus_en/index_501b.asp	2004-11-19 13:45:55.000000000 +0300
 +++ gateway/www/asus/web_asus_en/index_501b.asp	2008-03-17 20:52:23.000000000 +0300
@@ -3244,7 +3241,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  
  	rm -rf web
  	rm -rf web_$*
-+
+ 
 +pages-%:
 +	echo $(LANGUAGE)
 +	./mkweb $* "$(LANGUAGE)"	
@@ -3260,7 +3257,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +
 +	rm -rf web
 +	rm -rf web_$*
- 
++
  clean:
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb

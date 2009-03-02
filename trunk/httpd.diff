@@ -1,6 +1,6 @@
 diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
---- router/httpd/broadcom.c	2004-11-11 12:27:09.000000000 +0500
-+++ gateway/httpd/broadcom.c	2008-01-06 16:26:57.000000000 +0500
+--- router/httpd/broadcom.c	2004-11-11 10:27:09.000000000 +0300
++++ gateway/httpd/broadcom.c	2008-01-06 14:26:57.000000000 +0300
 @@ -592,6 +592,7 @@
  #endif
  
@@ -83,8 +83,8 @@ diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
  		}
  		nl++;
 diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
---- router/httpd/httpd.c	2004-11-11 12:27:08.000000000 +0500
-+++ gateway/httpd/httpd.c	2008-01-06 16:26:57.000000000 +0500
+--- router/httpd/httpd.c	2004-11-11 10:27:08.000000000 +0300
++++ gateway/httpd/httpd.c	2008-01-06 14:26:57.000000000 +0300
 @@ -97,6 +97,7 @@
  int redirect = 1;
  char wan_if[16];
@@ -213,8 +213,8 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	else sprintf(pidfile, "/var/run/httpd-%d.pid", http_port);
  
 diff -BurN router/httpd/Makefile gateway/httpd/Makefile
---- router/httpd/Makefile	2004-11-11 12:27:08.000000000 +0500
-+++ gateway/httpd/Makefile	2008-01-06 16:26:57.000000000 +0500
+--- router/httpd/Makefile	2004-11-11 10:27:08.000000000 +0300
++++ gateway/httpd/Makefile	2008-01-06 14:26:57.000000000 +0300
 @@ -8,7 +8,7 @@
  
  CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
@@ -233,8 +233,8 @@ diff -BurN router/httpd/Makefile gateway/httpd/Makefile
  httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
  	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
 diff -BurN router/httpd/nvmap.c gateway/httpd/nvmap.c
---- router/httpd/nvmap.c	2004-11-11 12:27:09.000000000 +0500
-+++ gateway/httpd/nvmap.c	2008-06-14 21:30:09.000000000 +0600
+--- router/httpd/nvmap.c	2004-11-11 10:27:09.000000000 +0300
++++ gateway/httpd/nvmap.c	2008-06-14 19:30:09.000000000 +0400
 @@ -1,5 +1,6 @@
  #include <stdio.h>
  #include <stdlib.h>
@@ -252,8 +252,8 @@ diff -BurN router/httpd/nvmap.c gateway/httpd/nvmap.c
  void readFromNvram()
  {	
 diff -BurN router/httpd/shutils.c gateway/httpd/shutils.c
---- router/httpd/shutils.c	2004-11-11 12:27:08.000000000 +0500
-+++ gateway/httpd/shutils.c	2008-01-06 16:26:57.000000000 +0500
+--- router/httpd/shutils.c	2004-11-11 10:27:08.000000000 +0300
++++ gateway/httpd/shutils.c	2008-01-06 14:26:57.000000000 +0300
 @@ -125,6 +125,8 @@
  		close(STDIN_FILENO);
  		setsid();
@@ -264,8 +264,8 @@ diff -BurN router/httpd/shutils.c gateway/httpd/shutils.c
  		if (path) {
  			flags = O_WRONLY | O_CREAT;
 diff -BurN router/httpd/variables.c gateway/httpd/variables.c
---- router/httpd/variables.c	2004-11-15 13:06:01.000000000 +0500
-+++ gateway/httpd/variables.c	2009-02-27 01:36:02.000000000 +0500
+--- router/httpd/variables.c	2004-11-15 11:06:01.000000000 +0300
++++ gateway/httpd/variables.c	2009-03-02 23:09:19.000000000 +0300
 @@ -455,6 +455,8 @@
                  {"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
              
@@ -297,7 +297,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
                              
        {0,0,0,0,0}
        };      
-@@ -588,8 +594,6 @@
+@@ -588,11 +594,9 @@
                                                           
                      {"usb_ftppasswd_x", "18", validate_string, ARGV("16"), FALSE, 0x0},                                                                                                                     
                                
@@ -305,7 +305,11 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
 -        	              
                {"usb_ftprights_x", "16", validate_choice, ARGV(                
                
-                    "Read/Write/Erase",
+-                   "Read/Write/Erase",
++                   "Write Only",
+               
+                    "Read/Write",
+               
 @@ -616,6 +620,26 @@
        {0,0,0,0,0}
        };      
@@ -723,8 +727,8 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
        };
  	
 diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
---- router/httpd/web_ex.c	2004-12-01 18:58:17.000000000 +0500
-+++ gateway/httpd/web_ex.c	2008-12-12 22:49:45.000000000 +0500
+--- router/httpd/web_ex.c	2004-12-01 16:58:17.000000000 +0300
++++ gateway/httpd/web_ex.c	2008-12-12 20:49:45.000000000 +0300
 @@ -78,6 +78,8 @@
  static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
  
