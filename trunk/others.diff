@@ -1383,7 +1383,7 @@ diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 +if [ ! -b "$boot_dev" ]; then
 +	insmod usbcore
 +	insmod usb-ohci
-+	insmod ehci-hcd && insmod usb-uhci && sleep 2s
++	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd && insmod usb-uhci && sleep 2s
 +	insmod scsi_mod && insmod sd_mod && insmod usb-storage
 +	# wait for initialization to complete
 +	sleep 2s
