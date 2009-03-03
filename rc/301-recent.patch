@@ -1,0 +1,97 @@
+diff -Bup gateway/rc/firewall_ex.c.orig gateway/rc/firewall_ex.c
+--- gateway/rc/firewall_ex.c.orig	2009-02-19 16:51:11.000000000 +0300
++++ gateway/rc/firewall_ex.c	2009-02-25 10:05:20.000000000 +0300
+@@ -695,14 +695,14 @@ int
+ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+ {
+ 
+-	FILE *fp;
++	FILE *fp, *fp1;
+         char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
+-        char *setting, line[256];
++	char *setting, line[256], s[64];
+ 	int i;
+ 	
+ 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
+ 
+-	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
++	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:BRUTE - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
+ 
+ 	// FILTER from LAN to WAN Source MAC
+ 	if(nvram_invmatch("macfilter_enable_x", "0") && 
+@@ -735,6 +735,25 @@ filter_setting(char *wan_if, char *wan_i
+ 	// drop attacks!!!
+ 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
+ 
++	// ssh and ftp servers bruteforce protection through ipt_recent module
++	// Evaluate incoming connections through white&blacklists stored in flashfs
++	if ((fp1 = fopen("/tmp/local/etc/ssh.allow", "r")) != NULL) {
++		while (fgets(line, sizeof(line), fp1))
++			if ((sscanf(line, "%s", s) == 1) && (s[0] != '#'))
++				fprintf(fp, "-A BRUTE -s %s -j %s\n", s, logaccept);
++		fclose(fp1);
++	}
++	if ((fp1 = fopen("/tmp/local/etc/ssh.deny", "r")) != NULL) {
++		while (fgets(line, sizeof(line), fp1))
++			if ((sscanf(line, "%s", s) == 1) && (s[0] != '#'))
++				fprintf(fp, "-A BRUTE -s %s -j %s\n", s, logdrop);
++		fclose(fp1);
++	}
++	// Block annoying intruder's connection attemtps
++	// Remember, that both successful and unsuccessful attempts are counted
++	fprintf(fp, "-A BRUTE -m recent --name BRUTE --update --hitcount %s --seconds %s -j %s\n", nvram_safe_get("recent_hitcount"), nvram_safe_get("recent_seconds"), logdrop);
++	fprintf(fp, "-A BRUTE -m recent --name BRUTE --set -j %s\n", logaccept);
++
+ 	/* Drop the wrong state, INVALID, packets */
+ 	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
+ 	/* Accept related connections, skip rest of checks */
+@@ -764,8 +783,21 @@ filter_setting(char *wan_if, char *wan_i
+ 		}
+ 
+ 		// Firewall between WAN and Local
+-		if (nvram_match("ssh_enable", "1"))
+-			fprintf(fp, "-A INPUT -p tcp --syn --dport %s -j %s\n", nvram_safe_get("ssh_port"), logaccept);
++
++		if (nvram_match("ssh_enable", "1")) {
++			if (nvram_invmatch("recent_ssh_enable", "0"))
++				fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j BRUTE\n", nvram_safe_get("ssh_port"));
++			else
++				fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("ssh_port"), logaccept);
++		}
++
++		if (nvram_match("usb_ftpenable_x", "1")) {
++			if (nvram_invmatch("recent_ftp_enable", "0"))
++				fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j BRUTE\n", nvram_safe_get("usb_ftpport_x"));
++			else
++				fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("usb_ftpport_x"), logaccept);
++		}
++
+ 		if (nvram_invmatch("http_lanport", "80"))
+ 			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
+ 		if (nvram_match("misc_http_x", "1"))
+@@ -780,11 +812,6 @@ filter_setting(char *wan_if, char *wan_i
+ 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webactivex_x"), logaccept);
+ 		}
+ 
+-		if (nvram_match("usb_ftpenable_x", "1"))
+-		{	
+-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_ftpport_x"), logaccept);
+-		}
+-
+ 		if (nvram_invmatch("misc_ping_x", "0"))
+ 		{
+ 			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
+diff -Bup gateway/rc/common_ex.c.orig gateway/rc/common_ex.c
+--- gateway/rc/common_ex.c.orig	2008-05-12 13:44:47.000000000 +0400
++++ gateway/rc/common_ex.c	2009-02-20 10:18:33.000000000 +0300
+@@ -552,6 +552,10 @@ void convert_asus_values()
+                 eval("insmod", "ip_nat_ftp.o");
+         }
+ 
++	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
++	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
++		eval("insmod", "ipt_recent.o");
++
+ 	update_lan_status(1);
+ 
+ 	dprintf("end map\n");

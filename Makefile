@@ -341,13 +341,11 @@ $(TOP)/radvd/Makefile:
 radvd: $(TOP)/radvd/Makefile
 	@true
 
+rc_Patches := $(call patches_list,rc)
+
 $(TOP)/rc/Makefile:
 	tar -C $(SRC) -cf - rc | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) rc/rc-common.patch rc/rc-asus.patch \
-		rc/rc-ddns-daemon.patch rc/rc-masq2snat.patch \
-		rc/rc-ppp-connected.patch rc/rc-dropbear.patch \
-		rc/rc-usb20-disable.patch rc/rc-recent.patch \
-		rc/rc-ddns-dnsomatic.patch rc/rc-disable-upnp-restart.patch
+	$(PATCHER) -Z $(TOP) $(rc_Patches)
 	$(MAKE) -C $(TOP)/rc clean
 
 rc: $(TOP)/rc/Makefile
