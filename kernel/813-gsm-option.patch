@@ -982,7 +982,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +				__FUNCTION__, err);
 +	}
 +	usb_serial_debug_data (__FILE__, __FUNCTION__, urb->actual_length, urb->transfer_buffer);
-+	wake_up_interruptible(&priv->delta_msr_wait);
++	wake_up_interruptible(&portdata->delta_msr_wait);
 +}
 +
 +static int option_write_room(struct usb_serial_port *port)
