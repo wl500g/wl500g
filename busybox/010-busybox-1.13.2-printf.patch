@@ -1,0 +1,21 @@
+diff -urpN busybox-1.13.2/coreutils/printf.c busybox-1.13.2-printf/coreutils/printf.c
+--- busybox-1.13.2/coreutils/printf.c	2008-12-31 04:06:45.000000000 +0100
++++ busybox-1.13.2-printf/coreutils/printf.c	2009-03-03 15:13:12.000000000 +0100
+@@ -139,14 +139,14 @@ static void print_direc(char *format, un
+ 	char saved;
+ 	char *have_prec, *have_width;
+ 
++	saved = format[fmt_length];
++	format[fmt_length] = '\0';
++
+ 	have_prec = strstr(format, ".*");
+ 	have_width = strchr(format, '*');
+ 	if (have_width - 1 == have_prec)
+ 		have_width = NULL;
+ 
+-	saved = format[fmt_length];
+-	format[fmt_length] = '\0';
+-
+ 	switch (format[fmt_length - 1]) {
+ 	case 'c':
+ 		printf(format, *argument);
