@@ -20,9 +20,10 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
  
  # Objects that export symbols.
  export-objs	:= usbserial.o
+diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb/serial/option.c
 --- linux-2.4.37.orig/drivers/usb/serial/option.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux/drivers/usb/serial/option.c	2009-02-25 19:32:49.000000000 +0300
-@@ -0,0 +1,1273 @@
++++ linux/drivers/usb/serial/option.c	2009-03-03 13:19:42.000000000 +0300
+@@ -0,0 +1,1282 @@
 +/*
 +  USB Driver for GSM modems
 +
@@ -52,8 +53,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +  on the USB bus. This is not a bug, these ports are used for different
 +  device features.
 +
-+  Initial port of 0.7.1 to kernel 2.4.36.4, Felipe Maya <felipe.maya at vexcorp.com>
-+  Backport to kernel 2.4.37 from 2.6.28.7 (0.7.2), Leonid Lisovskiy <lly at sf.net>
++  Backport to kernel 2.4.37 from 2.6.28.7, Leonid Lisovskiy <lly at sf.net>
 +
 +*/
 +
@@ -90,6 +90,8 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +static void option_shutdown(struct usb_serial *serial);
 +static int  option_write_room(struct usb_serial_port *port);
 +
++static void option_indat_callback(struct urb *urb);
++static void option_outdat_callback(struct urb *urb);
 +static void option_instat_callback(struct urb *urb);
 +
 +static int option_write(struct usb_serial_port *port, int from_user,
@@ -551,25 +553,27 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 + */
 +
 +static struct usb_serial_device_type option_1port_device = {
-+	.owner =	THIS_MODULE,
-+	.name              = "Option GSM modem",
-+	.id_table          = option_ids,
-+	.num_interrupt_in  = NUM_DONT_CARE,
-+	.num_bulk_in       = NUM_DONT_CARE,
-+	.num_bulk_out      = NUM_DONT_CARE,
-+	.num_ports         = 1,
-+	.open              = option_open,
-+	.close             = option_close,
-+	.write             = option_write,
-+	.write_room        = option_write_room,
-+	.chars_in_buffer   = option_chars_in_buffer,
-+	.ioctl             = option_ioctl,
-+	.set_termios       = option_set_termios,
-+//2.6	.tiocmget          = option_tiocmget,
-+//2.6	.tiocmset          = option_tiocmset,
-+	.startup           = option_startup,
-+	.shutdown          = option_shutdown,
-+	.read_int_callback = option_instat_callback,
++	.owner               = THIS_MODULE,
++	.name                = "Option GSM modem",
++	.id_table            = option_ids,
++	.num_interrupt_in    = NUM_DONT_CARE,
++	.num_bulk_in         = NUM_DONT_CARE,
++	.num_bulk_out        = NUM_DONT_CARE,
++	.num_ports           = 1,
++	.open                = option_open,
++	.close               = option_close,
++	.write               = option_write,
++	.write_room          = option_write_room,
++	.chars_in_buffer     = option_chars_in_buffer,
++	.read_bulk_callback  = option_indat_callback,
++	.write_bulk_callback = option_outdat_callback,
++	.ioctl               = option_ioctl,
++	.set_termios         = option_set_termios,
++//2.6	.tiocmget            = option_tiocmget,
++//2.6	.tiocmset            = option_tiocmset,
++	.startup             = option_startup,
++	.shutdown            = option_shutdown,
++	.read_int_callback   = option_instat_callback,
 +};
 +
 +static int debug;
@@ -650,9 +654,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +static int option_tiocmget(struct usb_serial_port *port, struct file *file)
 +{
 +	unsigned int value;
-+	struct option_port_private *portdata;
-+
-+	portdata = usb_get_serial_port_data(port);
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +
 +	value = ((portdata->rts_state) ? TIOCM_RTS : 0) |
 +		((portdata->dtr_state) ? TIOCM_DTR : 0) |
@@ -667,9 +669,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +static int option_tiocmset(struct usb_serial_port *port, struct file *file,
 +			unsigned int set, unsigned int clear)
 +{
-+	struct option_port_private *portdata;
-+
-+	portdata = usb_get_serial_port_data(port);
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +
 +	/* FIXME: what locks portdata fields ? */
 +	if (set & TIOCM_RTS)
@@ -754,18 +754,18 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +static int option_write(struct usb_serial_port *port, int from_user, 
 +			const unsigned char *buf, int count)
 +{
-+	struct option_port_private *portdata;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
++	unsigned long flags;
 +	int i;
 +	int left, todo;
 +	struct urb *this_urb = NULL; /* spurious */
 +	int err;
 +
-+	portdata = usb_get_serial_port_data(port);
-+
 +	dbg("%s: write (%d chars)", __FUNCTION__, count);
 +
 +	i = 0;
 +	left = count;
++	spin_lock_irqsave(&portdata->lock, flags);
 +	for (i = 0; left > 0 && i < N_OUT_URB; i++) {
 +		todo = left;
 +		if (todo > OUT_BUFLEN)
@@ -787,7 +787,13 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +			usb_pipeendpoint(this_urb->pipe), i);
 +
 +		/* send the data */
-+		memcpy(this_urb->transfer_buffer, buf, todo);
++                if (from_user) {
++                        if (copy_from_user(this_urb->transfer_buffer, buf, todo))
++                                return -EFAULT;
++                }
++                else {
++			memcpy(this_urb->transfer_buffer, buf, todo);
++                }
 +		this_urb->transfer_buffer_length = todo;
 +
 +		this_urb->dev = port->serial->dev;
@@ -804,6 +810,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +		left -= todo;
 +	}
 +
++	spin_unlock_irqrestore(&portdata->lock, flags);
 +	count -= left;
 +	dbg("%s: wrote (did %d)", __FUNCTION__, count);
 +	return count;
@@ -878,6 +885,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +
 +	/* Resubmit urb so we continue receiving */
 +	if (port->open_count && status != -ESHUTDOWN) {
++		urb->dev = port->serial->dev;
 +		err = usb_submit_urb(urb);
 +		if (err)
 +			printk(KERN_ERR "%s: resubmit read urb failed. "
@@ -899,17 +907,18 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +
 +static void option_outdat_callback(struct urb *urb)
 +{
-+	struct usb_serial_port *port;
-+	struct option_port_private *portdata;
++	struct usb_serial_port *port = urb->context;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +	int i;
 +
 +	dbg("%s", __FUNCTION__);
 +
-+	port =  urb->context;
++//2.6	usb_serial_port_softint(port);
++ 	if (port->open_count) {
++		queue_task(&port->tqueue, &tq_immediate);
++		mark_bh(IMMEDIATE_BH);
++	}
 +
-+//	usb_serial_port_softint(port);
-+
-+	portdata = usb_get_serial_port_data(port);
 +	for (i = 0; i < N_OUT_URB; ++i) {
 +		if (portdata->out_urbs[i] == urb) {
 +			smp_mb__before_clear_bit();
@@ -965,30 +974,32 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +		dbg("%s: error %d", __FUNCTION__, status);
 +
 +	/* Resubmit urb so we continue receiving IRQ data */
-+	if (status != -ESHUTDOWN) {
++	if (port->open_count && status != -ESHUTDOWN) {
 +		urb->dev = serial->dev;
 +		err = usb_submit_urb(urb);
 +		if (err)
 +			dbg("%s: resubmit intr urb failed. (%d)",
 +				__FUNCTION__, err);
 +	}
++	usb_serial_debug_data (__FILE__, __FUNCTION__, urb->actual_length, urb->transfer_buffer);
++	wake_up_interruptible(&priv->delta_msr_wait);
 +}
 +
 +static int option_write_room(struct usb_serial_port *port)
 +{
-+	struct option_port_private *portdata;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +	int i;
 +	int data_len = 0;
 +	struct urb *this_urb;
++	unsigned long flags;
 +
-+	portdata = usb_get_serial_port_data(port);
-+
-+
++	spin_lock_irqsave(&portdata->lock, flags);
 +	for (i = 0; i < N_OUT_URB; i++) {
 +		this_urb = portdata->out_urbs[i];
 +		if (this_urb && !test_bit(i, &portdata->out_busy))
 +			data_len += OUT_BUFLEN;
 +	}
++	spin_unlock_irqrestore(&portdata->lock, flags);
 +
 +	dbg("%s: %d", __FUNCTION__, data_len);
 +	return data_len;
@@ -996,13 +1007,13 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +
 +static int option_chars_in_buffer(struct usb_serial_port *port)
 +{
-+	struct option_port_private *portdata;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +	int i;
 +	int data_len = 0;
 +	struct urb *this_urb;
++	unsigned long flags;
 +
-+	portdata = usb_get_serial_port_data(port);
-+
++	spin_lock_irqsave(&portdata->lock, flags);
 +	for (i = 0; i < N_OUT_URB; i++) {
 +		this_urb = portdata->out_urbs[i];
 +		/* FIXME: This locking is insufficient as this_urb may
@@ -1010,18 +1021,18 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +		if (this_urb && test_bit(i, &portdata->out_busy))
 +			data_len += this_urb->transfer_buffer_length;
 +	}
-+	dbg("%s: %d", __FUNCTION__, data_len);
++	spin_unlock_irqrestore(&portdata->lock, flags);
++
++	dbg("%s: returns %d", __FUNCTION__, data_len);
 +	return data_len;
 +}
 +
 +static int option_open(struct usb_serial_port *port, struct file *filp)
 +{
-+	struct option_port_private *portdata;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +	struct usb_serial *serial = port->serial;
 +	int i, err;
 +	struct urb *urb;
-+
-+	portdata = usb_get_serial_port_data(port);
 +
 +	dbg("%s", __FUNCTION__);
 +
@@ -1076,10 +1087,9 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +{
 +	int i;
 +	struct usb_serial *serial = port->serial;
-+	struct option_port_private *portdata;
++	struct option_port_private *portdata = usb_get_serial_port_data(port);
 +
 +	dbg("%s", __FUNCTION__);
-+	portdata = usb_get_serial_port_data(port);
 +
 +	portdata->rts_state = 0;
 +	portdata->dtr_state = 0;
@@ -1114,7 +1124,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 +
 +		/* Fill URB using supplied data. */
 +	usb_fill_bulk_urb(urb, serial->dev,
-+		      usb_sndbulkpipe(serial->dev, endpoint) | dir,
++		      (dir == USB_DIR_IN) ? usb_rcvbulkpipe(serial->dev, endpoint) : usb_sndbulkpipe(serial->dev, endpoint),
 +		      buf, len, callback, ctx);
 +
 +	return urb;
