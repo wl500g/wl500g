@@ -799,7 +799,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  	eval("iptables-restore", "/tmp/nat_rules");
  }
-@@ -703,156 +695,149 @@ int
+@@ -703,156 +695,143 @@ int
  filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
  {
  
@@ -966,12 +966,6 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 -	{	
 -		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", wan_ip, nvram_safe_get("usb_ftpport_x"), logaccept);
 -	}
-+	#ifdef CONFIG_IPV6
-+		if (nvram_match("ipv6_sit_enable", "1"))
-+		{
-+			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
-+		}
-+	#endif
  
 -	if (nvram_invmatch("misc_ping_x", "0"))
 -	{
@@ -1541,16 +1535,6 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
  
  OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o ntp.o bigpond.o qos.o rcamd.o waveserver.o
  
-@@ -26,6 +26,9 @@ OBJS += firewall.o
- LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
- endif
- 
-+ifeq ($(CONFIG_IPV6),y)
-+CFLAGS += -DCONFIG_IPV6
-+endif
- 
- ifeq ($(CONFIG_SENTRY5),y)
- include $(TOP)/rc/Makefiles5.mk
 @@ -45,8 +48,12 @@ install: all
  	cd $(INSTALLDIR)/sbin && ln -sf rc init
  	cd $(INSTALLDIR)/sbin && ln -sf rc erase
@@ -1907,33 +1891,6 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  #endif
  
  #ifdef ASUS_EXT
-@@ -354,6 +473,26 @@ start_lan(void)
- 	dprintf("%s %s\n",
- 		nvram_safe_get("lan_ipaddr"),
- 		nvram_safe_get("lan_netmask"));
-+
-+#ifdef CONFIG_IPV6
-+	/* IPv6 address config */
-+	{
-+		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
-+		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
-+		if( ip6_addr && *ip6_addr && ip6_size && *ip6_size )
-+		{
-+			char *ip6_net = (char*) malloc(45);
-+			strcpy( ip6_net, ip6_addr );
-+			strcat( ip6_net, "/" );
-+			strcat( ip6_net, ip6_size );
-+
-+			eval( "ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("lan_ifname") );
-+		
-+			free( ip6_net );
-+		}
-+	}
-+#endif
-+
- }
- 
- void
 @@ -437,6 +576,11 @@ wan_valid(char *ifname)
  	foreach(name, nvram_safe_get("wan_ifnames"), next)
  		if (ifname && !strcmp(ifname, name))
@@ -1977,7 +1934,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  
  
  			/* Enable Forwarding */
-@@ -569,90 +717,78 @@ start_wan(void)
+@@ -569,90 +717,68 @@ start_wan(void)
  			{	
  				perror("/proc/sys/net/ipv4/ip_forward");
  			}
@@ -1988,16 +1945,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 -			start_pptp(prefix);
 -#ifdef ASUS_EXT
 -			nvram_set("wan_ifname_t", "ppp0");
-+#ifdef CONFIG_IPV6
-+			/* Enable IPv6 Forwarding */
-+			if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+"))) 			{
-+				fputc('1', fp);
-+				fclose(fp);
-+			} else
-+			{	
-+				perror("/proc/sys/net/ipv6/conf/all/forwarding");
-+			}
- #endif
+-#endif
  		}
 -		else
 +
@@ -2134,110 +2082,6 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  			/* Start dhcp daemon */
  			_eval(dhcp_argv, NULL, 0, &pid);
  #ifdef ASUS_EXT
-@@ -737,6 +875,103 @@ start_wan(void)
- 		char *stats_argv[] = { "stats", nvram_get("stats_server"), NULL };
- 		_eval(stats_argv, NULL, 5, NULL);
- 	}
-+
-+#ifdef CONFIG_IPV6
-+	/* IPv6 address config */
-+	{
-+		char *ip6_addr = nvram_safe_get("ipv6_wan_addr");
-+		char *ip6_size = nvram_safe_get("ipv6_wan_netsize");
-+		char *ip6_router = nvram_safe_get("ipv6_wan_router");
-+		
-+		if (ip6_addr && *ip6_addr && ip6_size && *ip6_size)
-+		{
-+			char ip6_net[64];
-+			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
-+
-+			eval("ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("wan0_ifname"));
-+		}
-+
-+		/* Configurate remote IPv6 address (default gateway) */
-+		if (ip6_router && *ip6_router)
-+			eval("ip", "-6", "ro", "add", "default", "via", ip6_router, "dev", nvram_safe_get("wan0_ifname"));
-+
-+	}
-+
-+	/* IPv6 tunnel config */
-+	if (nvram_match("ipv6_sit_enable", "1"))
-+	{
-+		char *ip6_addrL = nvram_safe_get("ipv6_sit_localaddr");
-+		char *ip6_sizeL = nvram_safe_get("ipv6_sit_netsize");
-+		char *ip6_addrR = nvram_safe_get("ipv6_sit_remoteaddr");
-+		
-+		/* Instantiate tunnel */
-+		eval("ip", "tunnel", "add", "sixtun", "mode", "sit",
-+			"local", "0.0.0.0",
-+			"remote", nvram_safe_get("ipv6_sit_remote"));
-+
-+		/* Enable tunnel */
-+		eval("ip", "link", "set", "sixtun", "up");
-+
-+		/* Set MTU value */
-+		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", "sixtun");
-+
-+		/* Set TTL value */
-+		eval("ip", "tunnel", "change", "sixtun", "ttl", nvram_safe_get("ipv6_sit_ttl"));
-+
-+		/* Configure local IPv6 address */
-+		if (ip6_addrL && *ip6_addrL && ip6_sizeL && *ip6_sizeL)
-+		{
-+			char ip6_net[64];
-+			sprintf(ip6_net, "%s/%s", ip6_addrL, ip6_sizeL);
-+			
-+			eval("ip", "-6", "addr", "add", ip6_net, "dev", "sixtun");
-+
-+		}
-+
-+		/* Configurate remote IPv6 address (default gateway) */
-+		if (ip6_addrR && *ip6_addrR)
-+			eval("ip", "-6", "ro", "add", "default", "via", ip6_addrR, "dev", "sixtun");
-+	}
-+
-+	/* IPv6 router advertisement daemon */
-+	if (nvram_match("ipv6_radvd_enable", "1"))
-+	{
-+		FILE *radvdconf = fopen( "/etc/radvd.conf", "w" );
-+		if (radvdconf != NULL)
-+		{
-+			int netsize = atoi(nvram_safe_get("ipv6_lan_netsize")), i = 15, n = netsize;
-+			struct in6_addr addr;
-+			char final[INET6_ADDRSTRLEN];
-+					
-+			/* Convert for easy manipulation */
-+			inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-+
-+			/* Clean complete bytes, starting from the end */
-+			while (n >= 8)
-+			{
-+				addr.s6_addr[i--] = 0;
-+				n -= 8;
-+			}
-+
-+			/* Clear remaining bits */
-+			if (i > 0)
-+				addr.s6_addr[i] &= (255 << n);
-+
-+			/* Convert back to string representation */
-+			inet_ntop(AF_INET6, &addr, final, INET6_ADDRSTRLEN);
-+	
-+			/* And write out to config file */
-+			fprintf( radvdconf,
-+				"interface %s { AdvSendAdvert on; prefix %s/%d { AdvOnLink on; AdvAutonomous on; }; };",
-+				nvram_safe_get("lan_ifname"), final, netsize);
-+	
-+			fclose(radvdconf);
-+
-+			/* Then start the radvd */
-+			eval("radvd");
-+		}
-+	}
-+#endif
- }
- 
- void
 @@ -750,14 +985,13 @@ stop_wan(void)
  	/* Shutdown and kill all possible tasks */
  	eval("killall", "ip-up");
