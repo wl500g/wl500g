@@ -1338,8 +1338,8 @@ diff -BurN router/others/ipkg.sh gateway/others/ipkg.sh
 +done
 diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 --- router/others/linuxrc.sh	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/others/linuxrc.sh	2008-01-06 14:27:07.000000000 +0300
-@@ -0,0 +1,81 @@
++++ gateway/others/linuxrc.sh	2009-03-04 19:29:17.000000000 +0300
+@@ -0,0 +1,84 @@
 +#!/bin/sh
 +#
 +# Copyright (C) 2004, 2005 by Oleg I. Vdovikin <oleg@cs.msu.su>
@@ -1383,7 +1383,9 @@ diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 +if [ ! -b "$boot_dev" ]; then
 +	insmod usbcore
 +	insmod usb-ohci
-+	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd && insmod usb-uhci && sleep 2s
++	insmod usb-uhci
++	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd
++	sleep 2s
 +	insmod scsi_mod && insmod sd_mod && insmod usb-storage
 +	# wait for initialization to complete
 +	sleep 2s
@@ -1412,7 +1414,8 @@ diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 +
 +# remove modules
 +rmmod usb-storage && rmmod sd_mod && rmmod scsi_mod
-+rmmod usb-uhci && rmmod ehci-hcd
++rmmod ehci-hcd
++rmmod usb-uhci
 +rmmod usb-ohci
 +rmmod usbcore
 +rmmod ide-disk && rmmod ide-probe-mod && rmmod ide-mod
