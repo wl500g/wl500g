@@ -97,7 +97,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp gatewa
 +</tr>
 +<tr>
 +<td class="content_desc_td" colspan="2">Blocks attempts to login more than hitcount times within a period of time.
-+Remember: all attempts are counted, not only unsuccessful.
++Remember: all attempts are counted, not only unsuccessful.</td>
 +</tr>
 +<tr>
 +<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against Brute Force Attacks for SSH Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for SSH Server:</td>
