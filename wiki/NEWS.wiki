@@ -4,7 +4,7 @@
   * kernel
     * support spin-up usb hdd drives (scsi allow_restart from 2.6)
     * backport of IPWireless (3G UMTS TDD) driver
-    * backport of Option (GSM modem) driver (NOT worked yet!)
+    * backport of Option (GSM modem) driver
     * netfilter:
       * increase size of route & conntrack hash tables (originally Tomato SpeedMOD)
 
