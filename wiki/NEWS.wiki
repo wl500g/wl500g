@@ -1,6 +1,6 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d-r160 (2009-03-05)===
+===wl500g-1.9.2.7-d-`r160` (2009-03-05)===
   * kernel
     * support spin-up usb hdd drives (scsi allow_restart from 2.6)
     * backport of IPWireless (3G UMTS TDD) driver
