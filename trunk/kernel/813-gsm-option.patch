@@ -22,7 +22,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
  export-objs	:= usbserial.o
 diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb/serial/option.c
 --- linux-2.4.37.orig/drivers/usb/serial/option.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux/drivers/usb/serial/option.c	2009-03-05 17:22:22.000000000 +0300
++++ linux/drivers/usb/serial/option.c	2009-03-05 22:04:28.000000000 +0300
 @@ -0,0 +1,1292 @@
 +/*
 +  USB Driver for GSM modems
@@ -57,7 +57,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +
 +*/
 +
-+#define DRIVER_VERSION "v0.7.2"
++#define DRIVER_VERSION "v0.7.2a"
 +#define DRIVER_AUTHOR "Matthias Urlichs <smurf@smurf.noris.de>"
 +#define DRIVER_DESC "USB Driver for GSM modems"
 +
@@ -580,12 +580,16 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +
 +/* per port private data */
 +
-+#define N_IN_URB 4
-+#define N_OUT_URB 1
-+#define IN_BUFLEN 4096
-+#define OUT_BUFLEN 512
++#define N_IN_URB	4
++#define N_OUT_URB	1
++#define IN_BUFLEN	4096		/* Must be equal to sizeof kernel page */
++#define OUT_BUFLEN	1024
 +
-+#define UART_STATE_TRANSIENT_MASK	0x74
++/* bitmap for set_line_state */
++#define UART_DTR			0x01
++#define UART_RTS			0x02
++
++/* bitmap for update_line_state */
 +#define UART_DCD			0x01
 +#define UART_DSR			0x02
 +#define UART_BREAK_ERROR		0x04
@@ -594,6 +598,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define UART_PARITY_ERROR		0x20
 +#define UART_OVERRUN_ERROR		0x40
 +#define UART_CTS			0x80
++#define UART_STATE_TRANSIENT_MASK	(~(UART_CTS|UART_RING|UART_DSR|UART_DCD))
 +
 +struct option_port_private {
 +	spinlock_t lock;
@@ -617,30 +622,8 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	unsigned  ri_state:1;
 +};
 +
++
 +/* Functions used by new usb-serial code. */
-+static int __init option_init(void)
-+{
-+	int retval;
-+	retval = usb_serial_register(&option_1port_device);
-+	if (retval)
-+		goto failed_1port_device_register;
-+
-+	info(DRIVER_DESC ": " DRIVER_VERSION );
-+
-+	return 0;
-+
-+failed_1port_device_register:
-+	return retval;
-+}
-+
-+static void __exit option_exit(void)
-+{
-+	usb_serial_deregister(&option_1port_device);
-+}
-+
-+module_init(option_init);
-+module_exit(option_exit);
-+
 +static void option_set_termios(struct usb_serial_port *port, struct termios *old_termios)
 +{
 +	dbg("%s", __FUNCTION__);
@@ -723,18 +706,17 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +			unsigned int cmd, unsigned long arg)
 +{
 +	int value;
++
 +	dbg("%s: port %d cmd = 0x%04x", __FUNCTION__, port->number, cmd);
 +
 +	switch (cmd) {
 +		case TIOCMGET:
-+			dbg("%s (%d) TIOCMGET", __FUNCTION__, port->number);
 +			value = option_tiocmget(port, file);
 +			if (copy_to_user((unsigned int *)arg, &value, sizeof(int)))
 +				return -EFAULT;
 +			return 0;
 +
 +		case TIOCMSET:
-+			dbg("%s (%d) TIOCMSET", __FUNCTION__,  port->number);
 +			if (copy_from_user(&value, (unsigned int *)arg, sizeof(int)))
 +				return -EFAULT;
 +			/* turn off RTS and DTR and then only turn
@@ -742,19 +724,16 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +			return option_tiocmset(port, file, value, value^(TIOCM_RTS|TIOCM_DTR));
 +
 +		case TIOCMBIS:
-+			dbg("%s (%d) TIOCMBIS", __FUNCTION__,  port->number);
 +			if (copy_from_user(&value, (unsigned int *)arg, sizeof(int)))
 +				return -EFAULT;
 +			return option_tiocmset(port, file, value, 0);
 +
 +		case TIOCMBIC:
-+			dbg("%s (%d) TIOCMBIC", __FUNCTION__,  port->number);
 +			if (copy_from_user(&value, (unsigned int *)arg, sizeof(int)))
 +				return -EFAULT;
 +			return option_tiocmset(port, file, 0, value);
 +
 +		case TIOCMIWAIT:
-+			dbg("%s (%d) TIOCMIWAIT", __FUNCTION__,  port->number);
 +			return wait_modem_info(port, arg);
 +
 +		default:
@@ -926,7 +905,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	default:
 +		/* error in the urb, so we have to resubmit it */
 +		dbg("%s - Overflow in write", __FUNCTION__);
-+		dbg("%s - nonzero write bulk status received: %d", __FUNCTION__,
++		dbg("%s - nonzero urb status received: %d", __FUNCTION__,
 +		    status);
 +		urb->transfer_buffer_length = 1;
 +		urb->dev = port->serial->dev;
@@ -1134,7 +1113,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +}
 +
 +/* Helper functions used by option_setup_urbs */
-+static struct urb *option_setup_urb(struct usb_serial *serial, int endpoint,
++static struct urb *option_setup_urb(struct usb_device *dev, int endpoint,
 +		int dir, void *ctx, char *buf, int len,
 +		void (*callback)(struct urb *))
 +{
@@ -1150,8 +1129,8 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	}
 +
 +		/* Fill URB using supplied data. */
-+	usb_fill_bulk_urb(urb, serial->dev,
-+		      (dir == USB_DIR_IN) ? usb_rcvbulkpipe(serial->dev, endpoint) : usb_sndbulkpipe(serial->dev, endpoint),
++	usb_fill_bulk_urb(urb, dev,
++		      (dir == USB_DIR_IN) ? usb_rcvbulkpipe(dev, endpoint) : usb_sndbulkpipe(dev, endpoint),
 +		      buf, len, callback, ctx);
 +
 +	return urb;
@@ -1172,7 +1151,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +
 +		/* Do indat endpoints first */
 +		for (j = 0; j < N_IN_URB; ++j) {
-+			portdata->in_urbs[j] = option_setup_urb(serial,
++			portdata->in_urbs[j] = option_setup_urb(serial->dev,
 +					port->bulk_in_endpointAddress,
 +					USB_DIR_IN, port,
 +					portdata->in_buffer[j],
@@ -1181,7 +1160,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +
 +		/* outdat endpoints */
 +		for (j = 0; j < N_OUT_URB; ++j) {
-+			portdata->out_urbs[j] = option_setup_urb(serial,
++			portdata->out_urbs[j] = option_setup_urb(serial->dev,
 +					port->bulk_out_endpointAddress,
 +					USB_DIR_OUT, port,
 +					portdata->out_buffer[j],
@@ -1210,9 +1189,9 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	if (port->tty) {
 +		int val = 0;
 +		if (portdata->dtr_state)
-+			val |= 0x01;
++			val |= UART_DTR;
 +		if (portdata->rts_state)
-+			val |= 0x02;
++			val |= UART_RTS;
 +
 +		return usb_control_msg(serial->dev,
 +			usb_rcvctrlpipe(serial->dev, 0),
@@ -1309,6 +1288,27 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +		kfree(portdata);
 +	}
 +}
++
++static int __init option_init(void)
++{
++	int retval;
++
++	retval = usb_serial_register(&option_1port_device);
++	if (retval)
++		return retval;
++
++	info(DRIVER_DESC ": " DRIVER_VERSION );
++
++	return 0;
++}
++
++static void __exit option_exit(void)
++{
++	usb_serial_deregister(&option_1port_device);
++}
++
++module_init(option_init);
++module_exit(option_exit);
 +
 +MODULE_AUTHOR(DRIVER_AUTHOR);
 +MODULE_DESCRIPTION(DRIVER_DESC);
