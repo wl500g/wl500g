@@ -2857,15 +2857,18 @@ Index: linux-2.4.27-l2tp/include/linux/if_pppox.h
 ===================================================================
 --- linux-2.4.27-l2tp.orig/include/linux/if_pppox.h
 +++ linux-2.4.27-l2tp/include/linux/if_pppox.h
-@@ -1,6 +1,6 @@
- /***************************************************************************
-  * Linux PPP over X - Generic PPP transport layer sockets
-- * Linux PPP over Ethernet (PPPoE) Socket Implementation (RFC 2516) 
-+ * Linux PPP over Ethernet (PPPoE) Socket Implementation (RFC 2516)
-  *
-  * This file supplies definitions required by the PPP over Ethernet driver
-  * (pppox.c).  All version information wrt this file is located in pppox.c
-@@ -28,6 +28,7 @@
+@@ -19,15 +19,18 @@
+ 
+ #include <asm/types.h>
+ #include <asm/byteorder.h>
++#include <linux/version.h>
+ 
+ #ifdef  __KERNEL__
++#include <linux/in.h>
+ #include <linux/if_ether.h>
+ #include <linux/if.h>
+ #include <linux/netdevice.h>
+ #include <linux/sched.h>
  #include <asm/semaphore.h>
  #include <linux/ppp_channel.h>
  #endif /* __KERNEL__ */
@@ -2873,36 +2876,10 @@ Index: linux-2.4.27-l2tp/include/linux/if_pppox.h
  
  /* For user-space programs to pick up these definitions
   * which they wouldn't get otherwise without defining __KERNEL__
-@@ -37,30 +38,48 @@
- #define PF_PPPOX	AF_PPPOX
- #endif /* !(AF_PPPOX) */
- 
--/************************************************************************ 
-- * PPPoE addressing definition 
-- */ 
--typedef __u16 sid_t; 
--struct pppoe_addr{ 
--       sid_t           sid;                    /* Session identifier */ 
--       unsigned char   remote[ETH_ALEN];       /* Remote address */ 
--       char            dev[IFNAMSIZ];          /* Local device to use */ 
--}; 
-- 
--/************************************************************************ 
-- * Protocols supported by AF_PPPOX 
-- */ 
-+/************************************************************************
-+ * PPPoE addressing definition
-+ */
-+typedef __u16 sid_t;
-+struct pppoe_addr{
-+       sid_t           sid;                    /* Session identifier */
-+       unsigned char   remote[ETH_ALEN];       /* Remote address */
-+       char            dev[IFNAMSIZ];          /* Local device to use */
-+};
-+
-+/************************************************************************
-+ * Protocols supported by AF_PPPOX
-+ */
+@@ -50,17 +51,36 @@
+ /************************************************************************ 
+  * Protocols supported by AF_PPPOX 
+  */ 
  #define PX_PROTO_OE    0 /* Currently just PPPoE */
 -#define PX_MAX_PROTO   1	
 - 
