@@ -22,7 +22,7 @@ SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux
 
-BUSYBOX=busybox-1.13.2
+BUSYBOX=busybox-1.13.3
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.47
 P910ND=p910nd-0.93
