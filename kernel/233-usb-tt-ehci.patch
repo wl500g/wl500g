@@ -198,6 +198,41 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
 diff -urbBp linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/host/ehci-q.c
 --- linux-2.4.37.orig/drivers/usb/host/ehci-q.c	2008-12-15 11:27:43.000000000 +0300
 +++ linux/drivers/usb/host/ehci-q.c	2009-01-16 13:35:28.000000000 +0300
+@@ -280,6 +280,9 @@ ehci_urb_done (struct ehci_hcd *ehci, st
+ static void start_unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
+ static void unlink_async (struct ehci_hcd *ehci, struct ehci_qh *qh);
+ 
++static void intr_deschedule (struct ehci_hcd *ehci, struct ehci_qh *qh, int wait0);
++static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh); 
++
+ /*
+  * Process and free completed qtds for a qh, returning URBs to drivers.
+  * Chases up to qh->hw_current.  Returns number of completions called,
+@@ -429,7 +432,23 @@ qh_completions(
+ 			qh_refresh(ehci, qh);
+ 			break;
+ 		case QH_STATE_LINKED:
+-			unlink_async (ehci, qh);
++			/* We won't refresh a QH that's linked (after the HC
++			 * stopped the queue).  That avoids a race:
++			 *  - HC reads first part of QH;
++			 *  - CPU updates that first part and the token;
++			 *  - HC reads rest of that QH, including token
++			 * Result:  HC gets an inconsistent image, and then
++			 * DMAs to/from the wrong memory (corrupting it).
++			 *
++			 * That should be rare for interrupt transfers,
++			 * except maybe high bandwidth ...
++			 */
++			if ((cpu_to_le32(QH_SMASK)
++					& qh->hw_info2) != 0) {
++				intr_deschedule (ehci, qh, 0);
++				(void) qh_schedule (ehci, qh);
++			} else
++				unlink_async (ehci, qh);
+ 			break;
+ 		/* otherwise, unlink already started */
+ 		}
 @@ -646,6 +646,7 @@ qh_make (
  	u32			info1 = 0, info2 = 0;
  	int			is_input, type;
@@ -432,7 +467,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
  /*-------------------------------------------------------------------------*/
  
  static int enable_periodic (struct ehci_hcd *ehci)
-@@ -219,61 +415,141 @@ static int disable_periodic (struct ehci
+@@ -219,61 +415,145 @@ static int disable_periodic (struct ehci
  
  /*-------------------------------------------------------------------------*/
  
@@ -455,6 +490,10 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 -) {
 -	int		status;
 -	unsigned	frame = qh->start;
++	ehci_vdbg (ehci, "link qh %d-%04x/%p start %d [%d/%d us]\n",
++		period, le32_to_cpup(&qh->hw_info2) & (QH_CMASK | QH_SMASK),
++		qh, qh->start, qh->usecs, qh->c_usecs);
++
 +	/* high bandwidth, or otherwise every microframe */
 +	if (period == 0)
 +		period = 1;
@@ -468,7 +507,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 +		/* skip the iso nodes at list head */
 +		while (here.ptr) {
 +			type = Q_NEXT_TYPE(*hw_p);
-+			if (type == cpu_to_le32(Q_TYPE_QH))
++			if (type == Q_TYPE_QH)
 +				break;
 +			prev = periodic_next_shadow(prev, type);
 +			hw_p = &here.qh->hw_next;
