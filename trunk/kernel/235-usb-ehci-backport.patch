@@ -70,7 +70,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
  
  	/* irq statistics */
  #ifdef EHCI_STATS
-@@ -100,9 +114,22 @@ struct ehci_hcd {			/* one per controlle
+@@ -100,6 +114,19 @@ struct ehci_hcd {			/* one per controlle
  /* NOTE:  urb->transfer_flags expected to not use this bit !!! */
  #define EHCI_STATE_UNLINK	0x8000		/* urb being unlinked */
  
@@ -90,10 +90,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
  enum ehci_timer_action {
  	TIMER_IO_WATCHDOG,
  	TIMER_IAA_WATCHDOG,
- 	TIMER_ASYNC_SHRINK,
- 	TIMER_ASYNC_OFF,
- };
-@@ -116,13 +142,22 @@ timer_action_done (struct ehci_hcd *ehci
+@@ -116,6 +142,15 @@ timer_action_done (struct ehci_hcd *ehci
  static inline void
  timer_action (struct ehci_hcd *ehci, enum ehci_timer_action action)
  {
@@ -109,13 +106,6 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci.h linux/drivers/usb/host/ehci
  	if (!test_and_set_bit (action, &ehci->actions)) {
  		unsigned long t;
  
- 		switch (action) {
- 		case TIMER_IAA_WATCHDOG:
- 			t = EHCI_IAA_JIFFIES;
- 			break;
- 		case TIMER_IO_WATCHDOG:
- 			t = EHCI_IO_JIFFIES;
- 			break;
 @@ -131,7 +163,10 @@ timer_action (struct ehci_hcd *ehci, enu
  			break;
  		// case TIMER_ASYNC_SHRINK:
