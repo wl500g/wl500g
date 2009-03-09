@@ -22,7 +22,7 @@
 
 == 3. Распаковать архивы и подготовить дерево сборки ==
 
-  * Распаковка (путь _/whatever-you-want_ заменить на тот, где будет храниться дерево сборки) 
+  # Распаковка (путь _/whatever-you-want_ заменить на тот, где будет храниться дерево сборки) 
 {{{
 $ mkdir -p /whatever-you-want
 $ mkdir -p /opt/brcm
@@ -34,31 +34,51 @@ $ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
 $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
 $ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 }}}
-  * Получение исходников прошивки wl500g-1.9.2.7-d
+  # Получение исходников прошивки wl500g-1.9.2.7-d
 {{{
 $ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 }}}
-  * Можно удалить старый тулчейн от ASUS/Broadcom
+  # Можно удалить старый тулчейн от ASUS/Broadcom
 {{{
 rm -rf /whatever-you-want/broadcom/opt
 }}}
-  * Добавить путь к Toolchain (можно внести в личный .profile для удобства)
+  # Добавить путь к Toolchain (можно внести в личный .profile для удобства)
 {{{
 $ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
 
 == 4. Сборка и компиляция ==
 
-  * Сборка
+  # Сборка
 {{{
 $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ make kernel
 $ make
 }}}
-  * Изменить MODEL=wl500gp в /whatever-you-want/broadcom/src/gateway/Makefile на желаемую
-  * Компиляция
+  # Изменить MODEL=wl500gp в /whatever-you-want/broadcom/src/gateway/Makefile на желаемую
+  # Компиляция
 {{{
 $ cd /whatever-you-want/broadcom/src/gateway
 $ make
 $ make install
 }}}
+
+== 5. Обновление из SVN ==
+   * Если вы обновили дерево исходников из SVN, и хотите пересобрать только измененную часть, то алгоритм усложняется:
+     * Если обновились патчи к ядру, то необходимо
+       * переразвернуть оригинальное ядро из архива (см. пункт 3.1)
+       * перенакат патчей и обновление конфига
+{{{
+$ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
+$ make kernel
+$ cd /whatever-you-want/broadcom/src/gateway
+$ make koldconf
+}}}
+     * Если обновились только пакеты, то достаточно следующего
+{{{
+$ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
+$ rm -rf /whatever-you-want/broadcom/src/gateway
+$ make
+}}}
+   * Далее перейти на пункт 4.2 данного HowTo.
+   * Более прицельное обновление также возможно, но требует знания работы patch, make и других средств разработки, а обучение работы с ними выходит за рамки этого HowTo.
