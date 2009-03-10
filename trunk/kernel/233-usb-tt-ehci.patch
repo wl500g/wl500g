@@ -224,7 +224,7 @@ diff -urbBp linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/host/e
 +			 * That should be rare for interrupt transfers,
 +			 * except maybe high bandwidth ...
 +			 */
-+			if ((cpu_to_le32(QH_SMASK)
++			if ((__constant_cpu_to_le32(QH_SMASK)
 +					& qh->hw_info2) != 0) {
 +				intr_deschedule (ehci, qh, 0);
 +				(void) qh_schedule (ehci, qh);
@@ -633,7 +633,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 -	} else
 -		qh->hw_next = EHCI_LIST_END;
 +	if (list_empty (&qh->qtd_list)
-+			|| (cpu_to_le32(QH_CMASK)
++			|| (__constant_cpu_to_le32(QH_CMASK)
 +					& qh->hw_info2) != 0)
 +		wait = 2;
 +	else
@@ -801,7 +801,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 -		qh->hw_info2 |= cpu_to_le32 (1 << uframe) | c_mask;
 +		qh->hw_info2 |= qh->period
 +                        ? cpu_to_le32(1 << uframe)
-+                        : cpu_to_le32(QH_SMASK);
++                        : __constant_cpu_to_le32(QH_SMASK);
 +		qh->hw_info2 |= c_mask;
  	} else
  		dbg ("reused previous qh %p schedule", qh);
