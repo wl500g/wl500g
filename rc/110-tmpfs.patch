@@ -1,0 +1,14 @@
+Replace ramfs with tmpfs.
+
+diff -BurpN gateway.orig/rc/rc.c gateway/rc/rc.c
+--- gateway.orig/rc/rc.c	2009-03-09 12:27:24.000000000 +0300
++++ gateway/rc/rc.c	2009-03-10 20:31:58.000000000 +0300
+@@ -582,7 +582,7 @@ sysinit(void)
+ 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
+ 
+ 	/* /tmp */
+-	mount("ramfs", "/tmp", "ramfs", MS_MGC_VAL, NULL);
++	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL, NULL);
+ 
+ 	/* /var */
+ 	mkdir("/tmp/var", 0777);
