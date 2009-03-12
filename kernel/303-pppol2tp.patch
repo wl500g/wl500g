@@ -2876,7 +2876,7 @@ Index: linux-2.4.27-l2tp/include/linux/if_pppox.h
  
  /* For user-space programs to pick up these definitions
   * which they wouldn't get otherwise without defining __KERNEL__
-@@ -50,17 +51,35 @@
+@@ -50,17 +51,36 @@
  /************************************************************************ 
   * Protocols supported by AF_PPPOX 
   */ 
@@ -2903,6 +2903,7 @@ Index: linux-2.4.27-l2tp/include/linux/if_pppox.h
 +       unsigned int    sa_protocol;          /* protocol identifier */
 +       union{
 +               struct pppoe_addr       pppoe;
++		struct pppol2tp_addr    pppol2tp;
 +       }sa_addr;
 +}__attribute__ ((packed)); /* deprecated */
 +
