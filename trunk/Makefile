@@ -108,6 +108,7 @@ prep:
 	[ -f $(TOP)/Makefile ] || cp $(SRC)/Makefile $(TOP) && $(PATCHER) $(TOP) Makefile.diff
 
 $(TOP)/.config: config
+	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
 	$(MAKE) -C $(TOP) .config
 
 $(ROOT)/lzma/SRC/7zip/Compress:
