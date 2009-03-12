@@ -1,6 +1,6 @@
 --- linux-2.4.37/include/linux/if_pppox.h	2009-03-06 22:39:46.000000000 +0300
 +++ linux/include/linux/if_pppox.h	2009-03-06 22:32:55.000000000 +0300
-@@ -50,12 +47,17 @@
+@@ -50,12 +50,17 @@
         char            dev[IFNAMSIZ];          /* Local device to use */ 
  }; 
   
@@ -19,7 +19,15 @@
  
  /* The use of a union isn't viable because the size of this struct
   * must stay fixed over time -- applications use sizeof(struct
-@@ -138,8 +138,22 @@
+@@ -68,6 +73,7 @@
+        union{
+                struct pppoe_addr       pppoe;
+ 		struct pppol2tp_addr    pppol2tp;
++		struct pptp_addr        pptp;
+        }sa_addr;
+ }__attribute__ ((packed)); /* deprecated */
+ 
+@@ -134,8 +140,22 @@
  	struct pppoe_tag tag[0];
  } __attribute__ ((packed));
  
@@ -42,3 +50,46 @@
  struct pppox_proto {
  	int (*create)(struct socket *sock);
  	int (*ioctl)(struct socket *sock, unsigned int cmd,
+--- linux-2.4.37/include/net/sock.h	2008-12-02 11:01:34.000000000 +0300
++++ linux/include/net/sock.h	2009-03-11 23:05:53.000000000 +0300
+@@ -73,7 +73,9 @@
+ #endif
+ #endif
+ 
+-#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
++#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
++ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
++ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+ #include <linux/if_pppox.h>
+ #include <linux/ppp_channel.h>   /* struct ppp_channel */
+ #endif
+@@ -227,7 +229,9 @@
+ };
+ #endif
+ 
+-#if defined(CONFIG_PPPOE) || defined (CONFIG_PPPOE_MODULE)
++#if defined(CONFIG_PPPOE) || defined (CONFIG_PPPOE_MODULE) \
++ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
++ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+ struct pppoe_opt
+ {
+ 	struct net_device      *dev;	  /* device associated with socket*/
+@@ -243,6 +247,7 @@
+ 	struct pppox_opt	*next;	  /* for hash table */
+ 	union {
+ 		struct pppoe_opt pppoe;
++    		struct pptp_opt  pptp;
+ 	} proto;
+ };
+ #define pppoe_dev	proto.pppoe.dev
+@@ -720,7 +726,9 @@
+ #if defined(CONFIG_ROSE) || defined(CONFIG_ROSE_MODULE)
+ 		rose_cb			*rose;
+ #endif
+-#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE)
++#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
++ || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
++ || defined(CONFIG_PPTP) || defined(CONFIG_PPTP_MODULE)
+ 		struct pppox_opt	*pppox;
+ #endif
+ 		struct netlink_opt	*af_netlink;
