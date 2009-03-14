@@ -13,12 +13,18 @@ diff -urBp busybox-1.13.2/Makefile busybox/Makefile
 diff -urBp busybox-1.13.2/include/applets.h busybox/include/applets.h
 --- busybox-1.13.2/include/applets.h	2009-02-06 13:58:50.000000000 +0300
 +++ busybox/include/applets.h	2009-02-07 20:33:24.000000000 +0300
-@@ -178,7 +178,7 @@
+ USE_BLKID(APPLET(blkid, _BB_DIR_SBIN, _BB_SUID_NEVER))
+ USE_BRCTL(APPLET(brctl, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
+ USE_BUNZIP2(APPLET(bunzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
++USE_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER, httpd))
+ USE_BUNZIP2(APPLET_ODDNAME(bzcat, bunzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER, bzcat))
+ USE_BZIP2(APPLET(bzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+ USE_CAL(APPLET(cal, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+@@ -178,7 +179,6 @@
  USE_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hexdump))
  USE_HOSTID(APPLET_NOFORK(hostid, hostid, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hostid))
  USE_HOSTNAME(APPLET(hostname, _BB_DIR_BIN, _BB_SUID_NEVER))
 -USE_HTTPD(APPLET(httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
-+USE_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER, httpd))
  USE_HUSH(APPLET(hush, _BB_DIR_BIN, _BB_SUID_NEVER))
  USE_HWCLOCK(APPLET(hwclock, _BB_DIR_SBIN, _BB_SUID_NEVER))
  USE_ID(APPLET(id, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
