@@ -35,7 +35,6 @@ PPP=ppp-2.4.5-pre
 RP-PPPOE=rp-pppoe-3.10
 PPTP=pptp-1.7.1
 LZMA=lzma406
-LOADER=loader-0.05
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.2
@@ -159,10 +158,9 @@ kernel: lzma et wl brcm-shared kernel-patch
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
 
-$(TOP)/loader: $(LOADER).tar.bz2
-	@rm -rf $(TOP)/$(LOADER) $(TOP)/loader
-	tar -xjf $^ -C $(TOP)
-	mv $(TOP)/$(LOADER) $(TOP)/loader
+$(TOP)/loader: loader/Makefile
+	@rm -rf $(TOP)/loader
+	tar -C . -cf - --exclude-vcs loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
