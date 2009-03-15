@@ -13,6 +13,7 @@ diff -urBp busybox-1.13.2/Makefile busybox/Makefile
 diff -urBp busybox-1.13.2/include/applets.h busybox/include/applets.h
 --- busybox-1.13.2/include/applets.h	2009-02-06 13:58:50.000000000 +0300
 +++ busybox/include/applets.h	2009-02-07 20:33:24.000000000 +0300
+@@ -83,6 +83,7 @@
  USE_BLKID(APPLET(blkid, _BB_DIR_SBIN, _BB_SUID_NEVER))
  USE_BRCTL(APPLET(brctl, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
  USE_BUNZIP2(APPLET(bunzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
