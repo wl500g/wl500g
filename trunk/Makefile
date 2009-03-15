@@ -160,7 +160,7 @@ asustrx:
 
 $(TOP)/loader: loader/Makefile
 	@rm -rf $(TOP)/loader
-	tar -C . -cf - --exclude-vcs loader | tar -C $(TOP) -xf -
+	tar -C . -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
