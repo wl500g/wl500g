@@ -24,7 +24,7 @@ OBJCOPY		:= $(CROSS_COMPILE)objcopy -O binary -R .reginfo -R .note -R .comment -
 
 CFLAGS		= -D__KERNEL__ -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 		  -fno-strict-aliasing -fno-common -fomit-frame-pointer -G 0 -mno-abicalls -fno-pic \
-		  -ffunction-sections -pipe -mcpu=r4600 -mips2 -Wa,--trap  -m4710a0kern
+		  -ffunction-sections -pipe -mips32 -mips2 -Wa,--trap  -m4710a0kern
 CFLAGS		+= -DLOADADDR=$(TEXT_START) -D_LZMA_IN_CB
 
 ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
