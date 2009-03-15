@@ -1,5 +1,15 @@
 #summary History of Changes
 
+===wl500g-1.9.2.7-d (Current)===
+  * kernel
+    * EHCI backport - support of split ISO transfers
+
+  * Use tmpfs filesystem for /tmp instead of ramfs
+
+  * bugfixes
+    * busybox 1.13.3
+    * crash on some USB1.1 devices removal
+
 ===wl500g-1.9.2.7-d-`r160` (2009-03-05)===
   * kernel
     * support spin-up usb hdd drives (scsi allow_restart from 2.6)
@@ -39,6 +49,7 @@
     * [http://www.xmailserver.org/linux-patches/nio-improve.html epoll] kernel interface
     * drivers/usb/acm.c, ppp_filter, ip_conntrack_clear, /proc/bus/usb/devpath patches from Jiri Engelthaler http://koppel.cz/cdmawifi
     * Workaround for USB 1.1 devices via USB 2.0 hub
+    * Backport support of TT transactions into EHCI driver
     * Backport [http://www.sigmatel.com/ SigmaTel] 4200 IRDA/USB driver
     * ftdi FT232R chip support
     * OpenWRT patches:
