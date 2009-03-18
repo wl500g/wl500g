@@ -1253,7 +1253,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-hub.c linux/drivers/us
  }
 diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/host/ehci-q.c
 --- linux-2.4.37.orig/drivers/usb/host/ehci-q.c	2009-01-16 13:35:28.000000000 +0300
-+++ linux/drivers/usb/host/ehci-q.c	2009-03-15 09:53:11.000000000 +0300
++++ linux/drivers/usb/host/ehci-q.c	2009-03-17 21:53:49.000000000 +0300
 @@ -96,6 +96,10 @@ qh_update (struct ehci_hcd *ehci, struct
  	qh->hw_token &= __constant_cpu_to_le32 (QTD_TOGGLE | QTD_STS_PING);
  }
@@ -1354,7 +1354,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		}
  
  		/* ignore urbs submitted during completions we reported */
-@@ -346,10 +351,21 @@ qh_completions (struct ehci_hcd *ehci, s
+@@ -346,13 +351,24 @@ qh_completions (struct ehci_hcd *ehci, s
  		/* always clean up qtds the hc de-activated */
  		if ((token & QTD_STS_ACTIVE) == 0) {
  
@@ -1375,8 +1375,13 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
 +			 * the urbs could clean it up.
 +			 */
  			} else if (IS_SHORT_READ (token)
- 					&& (qh->hw_alt_next & QTD_MASK)
- 						== ehci->async->hw_alt_next) {
+-					&& (qh->hw_alt_next & QTD_MASK)
+-						== ehci->async->hw_alt_next) {
++					&& !(qtd->hw_alt_next
++						& EHCI_LIST_END)) {
+ 				stopped = 1;
+ 				goto halt;
+ 			}
 @@ -379,7 +395,7 @@ qh_completions (struct ehci_hcd *ehci, s
  				continue;
  			}
@@ -1430,6 +1435,30 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  	list_add_tail (&qtd->qtd_list, head);
  	qtd->urb = urb;
  
+@@ -529,18 +550,18 @@ qh_urb_transaction (
+ 		qtd->urb = urb;
+ 		qtd_prev->hw_next = QTD_NEXT (qtd->qtd_dma);
+ 		list_add_tail (&qtd->qtd_list, head);
++
++		/* for zero length DATA stages, STATUS is always IN */
++		if (len == 0)
++			token |= (1 /* "in" */ << 8);
+ 	} 
+ 
+ 	/*
+ 	 * data transfer stage:  buffer setup
+ 	 */
+-	if (likely (len > 0))
+ 		buf = urb->transfer_dma;
+-	else
+-		buf = 0;
+ 
+-	// FIXME this 'buf' check break some zlps...
+-	if (!buf || is_input)
++	if (is_input)
+ 		token |= (1 /* "in" */ << 8);
+ 	/* else it's already initted to "out" pid (0 << 8) */
+ 
 @@ -557,6 +578,12 @@ qh_urb_transaction (
  		this_qtd_len = qtd_fill (qtd, buf, len, token, maxpacket);
  		len -= this_qtd_len;
@@ -1456,6 +1485,15 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  	 */
  	if (likely ((urb->transfer_flags & URB_SHORT_NOT_OK) == 0
  				|| usb_pipecontrol (urb->pipe)))
+@@ -587,7 +616,7 @@ qh_urb_transaction (
+ 	 * control requests may need a terminating data "status" ack;
+ 	 * bulk ones may need a terminating short packet (zero length).
+ 	 */
+-	if (likely (buf != 0)) {
++	if (likely (urb->transfer_buffer_length != 0)) {
+ 		int	one_more = 0;
+ 
+ 		if (usb_pipecontrol (urb->pipe)) {
 @@ -620,7 +649,7 @@ qh_urb_transaction (
  
  cleanup:
@@ -1620,7 +1658,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		qtd_list_free (ehci, urb, qtd_list);
  		return -ENOMEM;
  	}
-@@ -1019,25 +1061,25 @@ submit_async (
+@@ -1019,25 +1061,24 @@ submit_async (
  
  /* the async qh for the qtds being reclaimed are now unlinked from the HC */
  
@@ -1644,7 +1682,6 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  	ehci->reclaim = next;
 -	ehci->reclaim_ready = 0;
 -	qh->reclaim = 0;
-+	ehci->scanning = 0;
 +	qh->reclaim = NULL;
  
 -	qh_completions (ehci, qh, regs);
@@ -1652,7 +1689,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  
  	if (!list_empty (&qh->qtd_list)
  			&& HCD_IS_RUNNING (ehci->hcd.state))
-@@ -1049,12 +1091,12 @@ static void end_unlink_async (struct ehc
+@@ -1049,12 +1090,12 @@ static void end_unlink_async (struct ehc
  		 * active but idle for a while once it empties.
  		 */
  		if (HCD_IS_RUNNING (ehci->hcd.state)
@@ -1667,7 +1704,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		start_unlink_async (ehci, next);
  	}
  }
-@@ -1082,12 +1124,14 @@ static void start_unlink_async (struct e
+@@ -1082,12 +1123,14 @@ static void start_unlink_async (struct e
  	/* stop async schedule right now? */
  	if (unlikely (qh == ehci->async)) {
  		/* can't get here without STS_ASS set */
@@ -1684,7 +1721,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		return;
  	} 
  
-@@ -1106,21 +1150,21 @@ static void start_unlink_async (struct e
+@@ -1106,31 +1149,29 @@ static void start_unlink_async (struct e
  		/* if (unlikely (qh->reclaim != 0))
  		 * 	this will recurse, probably not much
  		 */
@@ -1694,7 +1731,6 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  	}
  
 -	ehci->reclaim_ready = 0;
-+	ehci->scanning = 0;
  	cmd |= CMD_IAAD;
  	writel (cmd, &ehci->regs->command);
  	(void) readl (&ehci->regs->command);
@@ -1710,7 +1746,10 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  {
  	struct ehci_qh		*qh;
  	enum ehci_timer_action	action = TIMER_IO_WATCHDOG;
-@@ -1130,7 +1174,7 @@ scan_async (struct ehci_hcd *ehci, struc
+ 
+-	if (!++(ehci->stamp))
+-		ehci->stamp++;
++	ehci->stamp = readl(&ehci->regs->frame_index);
  	timer_action_done (ehci, TIMER_ASYNC_SHRINK);
  rescan:
  	qh = ehci->async->qh_next.qh;
@@ -1719,7 +1758,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		do {
  			/* clean any finished work for this qh */
  			if (!list_empty (&qh->qtd_list)
-@@ -1144,7 +1188,7 @@ rescan:
+@@ -1144,7 +1185,7 @@ rescan:
  				 */
  				qh = qh_get (qh);
  				qh->stamp = ehci->stamp;
@@ -1728,9 +1767,29 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  				qh_put (ehci, qh);
  				if (temp != 0) {
  					goto rescan;
+@@ -1157,12 +1198,14 @@ rescan:
+ 			 * doesn't stay idle for long.
+ 			 * (plus, avoids some kind of re-activation race.)
+ 			 */
+-			if (list_empty (&qh->qtd_list)) {
+-				if (qh->stamp == ehci->stamp)
++			if (list_empty (&qh->qtd_list)
++					&& qh->qh_state == QH_STATE_LINKED) {
++				if (!ehci->reclaim
++					&& ((ehci->stamp - qh->stamp) & 0x1fff)
++						>= (EHCI_SHRINK_FRAMES * 8))
++					start_unlink_async(ehci, qh);
++				else
+ 					action = TIMER_ASYNC_SHRINK;
+-				else if (!ehci->reclaim
+-					    && qh->qh_state == QH_STATE_LINKED)
+-					start_unlink_async (ehci, qh);
+ 			}
+ 
+ 			qh = qh->qh_next.qh;
 diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/host/ehci-sched.c
 --- linux-2.4.37.orig/drivers/usb/host/ehci-sched.c	2009-01-18 13:09:26.000000000 +0300
-+++ linux/drivers/usb/host/ehci-sched.c	2009-03-15 10:11:05.000000000 +0300
++++ linux/drivers/usb/host/ehci-sched.c	2009-03-17 22:10:14.000000000 +0300
 @@ -44,7 +44,7 @@ static int ehci_get_frame (struct usb_hc
   * @tag: hardware tag for type of this record
   */
@@ -1740,7 +1799,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  {
  	switch (tag) {
  	case Q_TYPE_QH:
-@@ -53,14 +53,11 @@ periodic_next_shadow (union ehci_shadow
+@@ -53,49 +53,37 @@ periodic_next_shadow (union ehci_shadow
  		return &periodic->fstn->fstn_next;
  	case Q_TYPE_ITD:
  		return &periodic->itd->itd_next;
@@ -1755,8 +1814,50 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 +	return NULL;
  }
  
- /* returns true after successful unlink */
-@@ -115,60 +112,57 @@ periodic_usecs (struct ehci_hcd *ehci, u
+-/* returns true after successful unlink */
+ /* caller must hold ehci->lock */
+-static int periodic_unlink (struct ehci_hcd *ehci, unsigned frame, void *ptr)
++static void periodic_unlink (struct ehci_hcd *ehci, unsigned frame, void *ptr)
+ {
+ 	union ehci_shadow	*prev_p = &ehci->pshadow [frame];
+ 	u32			*hw_p = &ehci->periodic [frame];
+ 	union ehci_shadow	here = *prev_p;
+-	union ehci_shadow	*next_p;
+ 
+ 	/* find predecessor of "ptr"; hw and shadow lists are in sync */
+ 	while (here.ptr && here.ptr != ptr) {
+ 		prev_p = periodic_next_shadow (prev_p, Q_NEXT_TYPE (*hw_p));
+-		hw_p = &here.qh->hw_next;
++		hw_p = here.hw_next;
+ 		here = *prev_p;
+ 	}
+ 	/* an interrupt entry (at list end) could have been shared */
+ 	if (!here.ptr) {
+ 		dbg ("entry %p no longer on frame [%d]", ptr, frame);
+-		return 0;
++		return;
+ 	}
+-	// vdbg ("periodic unlink %p from frame %d", ptr, frame);
+ 
+-	/* update hardware list ... HC may still know the old structure, so
+-	 * don't change hw_next until it'll have purged its cache
++	/* update shadow and hardware lists ... the old "next" pointers
++	 * from ptr may still be in use, the caller updates them.
+ 	 */
+-	next_p = periodic_next_shadow (&here, Q_NEXT_TYPE (*hw_p));
+-	*hw_p = here.qh->hw_next;
+-
+-	/* unlink from shadow list; HCD won't see old structure again */
+-	*prev_p = *next_p;
+-	next_p->ptr = 0;
+-
+-	return 1;
++	*prev_p = *periodic_next_shadow(&here, Q_NEXT_TYPE(*hw_p));
++	*hw_p = *here.hw_next;
+ }
+ 
+ /* how many of the uframe's 125 usecs are allocated? */
+@@ -115,60 +103,57 @@ periodic_usecs (struct ehci_hcd *ehci, u
  			/* ... or C-mask? */
  			if (q->qh->hw_info2 & cpu_to_le32 (1 << (8 + uframe)))
  				usecs += q->qh->c_usecs;
@@ -1836,7 +1937,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  static int same_tt (struct usb_device *dev1, struct usb_device *dev2)
  {
-@@ -182,6 +176,8 @@ static int same_tt (struct usb_device *d
+@@ -182,6 +167,8 @@ static int same_tt (struct usb_device *d
  		return 1;
  }
  
@@ -1845,7 +1946,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  /* Which uframe does the low/fullspeed transfer start in?
   *
   * The parameter is the mask of ssplits in "H-frame" terms
-@@ -362,6 +358,81 @@ static int tt_available (
+@@ -362,6 +349,81 @@ static int tt_available (
  	return 1;
  }
  
@@ -1927,7 +2028,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  #endif /* CONFIG_USB_EHCI_TT_NEWSCHED */
  
  /*-------------------------------------------------------------------------*/
-@@ -371,14 +442,16 @@ static int enable_periodic (struct ehci_
+@@ -371,14 +433,16 @@ static int enable_periodic (struct ehci_
  	u32	cmd;
  	int	status;
  
@@ -1948,7 +2049,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	cmd = readl (&ehci->regs->command) | CMD_PSE;
  	writel (cmd, &ehci->regs->command);
-@@ -396,14 +469,16 @@ static int disable_periodic (struct ehci
+@@ -396,14 +460,16 @@ static int disable_periodic (struct ehci
  	u32	cmd;
  	int	status;
  
@@ -1969,7 +2070,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	cmd = readl (&ehci->regs->command) & ~CMD_PSE;
  	writel (cmd, &ehci->regs->command);
-@@ -426,8 +501,8 @@ static int qh_link_periodic (struct ehci
+@@ -426,8 +492,8 @@ static int qh_link_periodic (struct ehci
  	unsigned	i;
  	unsigned	period = qh->period;
  
@@ -1980,7 +2081,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		qh, qh->start, qh->usecs, qh->c_usecs);
  
  	/* high bandwidth, or otherwise every microframe */
-@@ -479,10 +554,7 @@ static int qh_link_periodic (struct ehci
+@@ -479,10 +545,7 @@ static int qh_link_periodic (struct ehci
  		: (qh->usecs * 8);
  
  	/* maybe enable periodic schedule processing */
@@ -1992,7 +2093,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  }
  
  static int qh_unlink_periodic(struct ehci_hcd *ehci, struct ehci_qh *qh)
-@@ -504,36 +576,32 @@ static int qh_unlink_periodic(struct ehc
+@@ -504,36 +567,32 @@ static int qh_unlink_periodic(struct ehc
  	for (i = qh->start; i < ehci->periodic_size; i += period)
  		periodic_unlink (ehci, i, qh);
  
@@ -2039,7 +2140,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	/* simple/paranoid:  always delay, expecting the HC needs to read
  	 * qh->hw_next or finish a writeback after SPLIT/CSPLIT ... and
-@@ -557,6 +625,7 @@ static void intr_deschedule (
+@@ -557,6 +616,7 @@ static void intr_deschedule (
  		atomic_read (&qh->refcount), ehci->periodic_sched);
  }
  
@@ -2047,7 +2148,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  static int check_period (
  	struct ehci_hcd *ehci, 
  	unsigned	frame,
-@@ -620,7 +689,7 @@ static int check_intr_schedule (
+@@ -620,7 +680,7 @@ static int check_intr_schedule (
  		goto done;
  	if (!qh->c_usecs) {
  		retval = 0;
@@ -2056,7 +2157,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		goto done;
  	}
  #ifdef CONFIG_USB_EHCI_TT_NEWSCHED
-@@ -642,36 +711,35 @@ static int check_intr_schedule (
+@@ -642,36 +702,35 @@ static int check_intr_schedule (
  		*c_maskp = cpu_to_le32 (mask << 8);
  	}
  #else
@@ -2067,15 +2168,15 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 -	 * vice versa.  Difference can be almost two uframe times, but we
 -	 * reserve unnecessary bandwidth (waste it) this way.  (Actually
 -	 * even better cases exist, like immediate device NAK.)
-+	/* Make sure this tt's buffer is also available for CSPLITs.
-+	 * We pessimize a bit; probably the typical full speed case
-+	 * doesn't need the second CSPLIT.
- 	 *
+-	 *
 -	 * FIXME don't even bother unless we know this TT is idle in that
 -	 * range of uframes ... for now, check_period() allows only one
 -	 * interrupt transfer per frame, so needn't check "TT busy" status
 -	 * when scheduling a split (QH, SITD, or FSTN).
--	 *
++	/* Make sure this tt's buffer is also available for CSPLITs.
++	 * We pessimize a bit; probably the typical full speed case
++	 * doesn't need the second CSPLIT.
+ 	 *
 -	 * FIXME ehci 0.96 and above can use FSTNs
 +	 * NOTE:  both SPLIT and CSPLIT could be checked in just
 +	 * one smart pass...
@@ -2107,7 +2208,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  static int qh_schedule (struct ehci_hcd *ehci, struct ehci_qh *qh)
  {
  	int 		status;
-@@ -679,6 +747,7 @@ static int qh_schedule (struct ehci_hcd
+@@ -679,6 +738,7 @@ static int qh_schedule (struct ehci_hcd
  	u32		c_mask;
  	unsigned	frame;		/* 0..(qh->period - 1), or NO_FRAME */
  
@@ -2115,7 +2216,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	qh->hw_next = EHCI_LIST_END;
  	frame = qh->start;
  
-@@ -720,13 +789,13 @@ static int qh_schedule (struct ehci_hcd
+@@ -720,13 +780,13 @@ static int qh_schedule (struct ehci_hcd
  		qh->start = frame;
  
  		/* reset S-frame and (maybe) C-frame masks */
@@ -2131,7 +2232,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	/* stuff into the periodic schedule */
  	status = qh_link_periodic (ehci, qh);
-@@ -749,23 +818,21 @@ static int intr_submit (
+@@ -749,23 +809,21 @@ static int intr_submit (
  	unsigned long		flags;
  	struct ehci_qh		*qh;
  	struct hcd_dev		*dev;
@@ -2158,7 +2259,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		status = -ENOMEM;
  		goto done;
  	}
-@@ -776,7 +843,7 @@ static int intr_submit (
+@@ -776,7 +834,7 @@ static int intr_submit (
  
  	/* then queue the urb's tds to the qh */
  	qh = qh_append_tds (ehci, urb, qtd_list, epnum, &dev->ep [epnum]);
@@ -2167,7 +2268,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	/* ... update usbfs periodic stats */
  	hcd_to_bus (&ehci->hcd)->bandwidth_int_reqs++;
-@@ -791,24 +858,27 @@ done:
+@@ -791,24 +849,27 @@ done:
  
  /*-------------------------------------------------------------------------*/
  
@@ -2199,7 +2300,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	struct ehci_iso_stream	*stream,
  	struct usb_device	*dev,
  	int			pipe,
-@@ -818,7 +888,7 @@ iso_stream_init (
+@@ -818,7 +879,7 @@ iso_stream_init (
  	static const u8 smask_out [] = { 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f };
  
  	u32			buf1;
@@ -2208,7 +2309,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	int			is_input;
  	long			bandwidth;
  
-@@ -828,28 +898,23 @@ iso_stream_init (
+@@ -828,28 +889,23 @@ iso_stream_init (
  	 */
  	epnum = usb_pipeendpoint (pipe);
  	is_input = usb_pipein (pipe) ? USB_DIR_IN : 0;
@@ -2244,7 +2345,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	stream->buf0 = cpu_to_le32 ((epnum << 8) | dev->devnum);
  	stream->buf1 = cpu_to_le32 (buf1);
  	stream->buf2 = cpu_to_le32 (multi);
-@@ -857,12 +922,23 @@ iso_stream_init (
+@@ -857,12 +913,23 @@ iso_stream_init (
  	/* usbfs wants to report the average usecs per frame tied up
  	 * when transfers on this endpoint are scheduled ...
  	 */
@@ -2269,7 +2370,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		think_time = dev->tt ? dev->tt->think_time : 0;
  		stream->tt_usecs = NS_TO_US (think_time + usb_calc_bus_time (
  				dev->speed, is_input, 1, maxp));
-@@ -870,6 +946,9 @@ iso_stream_init (
+@@ -870,6 +937,9 @@ iso_stream_init (
  		if (is_input) {
  			u32	tmp;
  
@@ -2279,7 +2380,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  			stream->raw_mask = 1;
  
  			/* c-mask as specified in USB 2.0 11.18.4 3.c */
-@@ -877,11 +956,19 @@ iso_stream_init (
+@@ -877,11 +947,19 @@ iso_stream_init (
  			stream->raw_mask |= tmp << (8 + 2);
  		} else
  			stream->raw_mask = smask_out [hs_transfers - 1];
@@ -2301,7 +2402,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  }
  
  static void
-@@ -895,20 +982,36 @@ iso_stream_put(struct ehci_hcd *ehci, st
+@@ -895,20 +973,36 @@ iso_stream_put(struct ehci_hcd *ehci, st
  	if (stream->refcount == 1) {
  		int is_in;
  
@@ -2310,11 +2411,11 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 +
 +		while (!list_empty (&stream->free_list)) {
 +			struct list_head	*entry;
- 
--		while (!list_empty (&stream->free_itd_list)) {
++
 +			entry = stream->free_list.next;
 +			list_del (entry);
-+
+ 
+-		while (!list_empty (&stream->free_itd_list)) {
 +			/* knows about ITD vs SITD */
 +			if (stream->highspeed) {
  			struct ehci_itd	*itd;
@@ -2345,7 +2446,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  		if (stream->rescheduled) {
  			ehci_info (ehci, "ep%d%s-iso rescheduled "
-@@ -926,7 +1029,7 @@ iso_stream_put(struct ehci_hcd *ehci, st
+@@ -926,7 +1020,7 @@ iso_stream_put(struct ehci_hcd *ehci, st
  static inline struct ehci_iso_stream *
  iso_stream_get (struct ehci_iso_stream *stream)
  {
@@ -2354,7 +2455,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		stream->refcount++;
  	return stream;
  }
-@@ -948,12 +1051,12 @@ iso_stream_find (struct ehci_hcd *ehci,
+@@ -948,12 +1042,12 @@ iso_stream_find (struct ehci_hcd *ehci,
  	dev = (struct hcd_dev *)urb->dev->hcpriv;
  	stream = dev->ep [epnum];
  
@@ -2370,7 +2471,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  					urb->interval);
  		}
  
-@@ -962,7 +1065,7 @@ iso_stream_find (struct ehci_hcd *ehci,
+@@ -962,7 +1056,7 @@ iso_stream_find (struct ehci_hcd *ehci,
  		ehci_dbg (ehci, "dev %s ep%d%s, not iso??\n",
  			urb->dev->devpath, epnum & 0x0f,
  			(epnum & 0x10) ? "in" : "out");
@@ -2379,7 +2480,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	}
  
  	/* caller guarantees an eventual matching iso_stream_put */
-@@ -974,24 +1077,27 @@ iso_stream_find (struct ehci_hcd *ehci,
+@@ -974,24 +1068,27 @@ iso_stream_find (struct ehci_hcd *ehci,
  
  /*-------------------------------------------------------------------------*/
  
@@ -2419,7 +2520,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	struct ehci_iso_stream	*stream,
  	struct urb		*urb
  )
-@@ -1000,13 +1106,13 @@ itd_sched_init (
+@@ -1000,13 +1097,13 @@ itd_sched_init (
  	dma_addr_t	dma = urb->transfer_dma;
  
  	/* how many uframes are needed for these transfers */
@@ -2435,7 +2536,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		unsigned		length;
  		dma_addr_t		buf;
  		u32			trans;
-@@ -1022,23 +1128,25 @@ itd_sched_init (
+@@ -1022,23 +1119,25 @@ itd_sched_init (
  		trans |= length << 16;
  		uframe->transaction = cpu_to_le32 (trans);
  
@@ -2467,7 +2568,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  }
  
  static int
-@@ -1050,59 +1158,161 @@ itd_urb_transaction (
+@@ -1050,59 +1149,161 @@ itd_urb_transaction (
  )
  {
  	struct ehci_itd		*itd;
@@ -2648,7 +2749,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  /*
   * This scheduler plans almost as far into the future as it has actual
   * periodic schedule slots.  (Affected by TUNE_FLS, which defaults to
-@@ -1117,46 +1327,56 @@ itd_urb_transaction (
+@@ -1117,46 +1318,56 @@ itd_urb_transaction (
  #define SCHEDULE_SLOP	10	/* frames */
  
  static int
@@ -2722,7 +2823,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	}
  
  	/* need to schedule; when's the next (u)frame we could start?
-@@ -1166,90 +1386,53 @@ itd_stream_schedule (
+@@ -1166,90 +1377,53 @@ itd_stream_schedule (
  	 * jump until after the queue is primed.
  	 */
  	start = SCHEDULE_SLOP * 8 + (now & ~0x07);
@@ -2841,7 +2942,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	return 0;
  }
  
-@@ -1260,6 +1443,7 @@ itd_init (struct ehci_iso_stream *stream
+@@ -1260,6 +1434,7 @@ itd_init (struct ehci_iso_stream *stream
  {
  	int i;
  
@@ -2849,7 +2950,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	itd->hw_next = EHCI_LIST_END;
  	itd->hw_bufp [0] = stream->buf0;
  	itd->hw_bufp [1] = stream->buf1;
-@@ -1274,13 +1458,12 @@ itd_init (struct ehci_iso_stream *stream
+@@ -1274,13 +1449,12 @@ itd_init (struct ehci_iso_stream *stream
  static inline void
  itd_patch (
  	struct ehci_itd		*itd,
@@ -2866,7 +2967,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	unsigned		pg = itd->pg;
  
  	// BUG_ON (pg == 6 && uf->cross);
-@@ -1294,8 +1477,9 @@ itd_patch (
+@@ -1294,8 +1468,9 @@ itd_patch (
  	itd->hw_bufp_hi [pg] |= cpu_to_le32 ((u32)(uf->bufp >> 32));
  
  	/* iso_frame_desc[].offset must be strictly increasing */
@@ -2877,7 +2978,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		itd->pg = ++pg;
  		itd->hw_bufp [pg] |= cpu_to_le32 (bufp & ~(u32)0);
  		itd->hw_bufp_hi [pg] |= cpu_to_le32 ((u32)(bufp >> 32));
-@@ -1323,14 +1507,14 @@ itd_link_urb (
+@@ -1323,14 +1498,14 @@ itd_link_urb (
  	struct ehci_iso_stream	*stream
  )
  {
@@ -2895,7 +2996,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		hcd_to_bus (&ehci->hcd)->bandwidth_allocated
  				+= stream->bandwidth;
  		ehci_vdbg (ehci,
-@@ -1344,30 +1528,28 @@ itd_link_urb (
+@@ -1344,30 +1519,28 @@ itd_link_urb (
  	hcd_to_bus (&ehci->hcd)->bandwidth_isoc_reqs++;
  
  	/* fill iTDs uframe by uframe */
@@ -2933,7 +3034,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		next_uframe %= mod;
  		packet++;
  
-@@ -1375,27 +1557,35 @@ itd_link_urb (
+@@ -1375,27 +1548,35 @@ itd_link_urb (
  		if (((next_uframe >> 3) != frame)
  				|| packet == urb->number_of_packets) {
  			itd_link (ehci, frame % ehci->periodic_size, itd);
@@ -2977,7 +3078,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  ) {
  	struct urb				*urb = itd->urb;
  	struct usb_iso_packet_descriptor	*desc;
-@@ -1404,6 +1594,7 @@ itd_complete (
+@@ -1404,6 +1585,7 @@ itd_complete (
  	int					urb_index = -1;
  	struct ehci_iso_stream			*stream = itd->stream;
  	struct usb_device			*dev;
@@ -2985,7 +3086,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  	/* for each uframe with a packet */
  	for (uframe = 0; uframe < 8; uframe++) {
-@@ -1414,6 +1605,7 @@ itd_complete (
+@@ -1414,6 +1596,7 @@ itd_complete (
  
  		t = le32_to_cpup (&itd->hw_transaction [uframe]);
  		itd->hw_transaction [uframe] = 0;
@@ -2993,7 +3094,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  		/* report transfer status */
  		if (unlikely (t & ISO_ERRS)) {
-@@ -1433,37 +1625,31 @@ itd_complete (
+@@ -1433,37 +1616,31 @@ itd_complete (
  		} else if (likely ((t & EHCI_ISOC_ACTIVE) == 0)) {
  			desc->status = 0;
  			desc->actual_length = EHCI_ITD_LENGTH (t);
@@ -3042,7 +3143,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		hcd_to_bus (&ehci->hcd)->bandwidth_allocated
  				-= stream->bandwidth;
  		ehci_vdbg (ehci,
-@@ -1472,9 +1658,15 @@ itd_complete (
+@@ -1472,9 +1649,15 @@ itd_complete (
  			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out");
  	}
  	iso_stream_put (ehci, stream);
@@ -3060,7 +3161,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  }
  
  /*-------------------------------------------------------------------------*/
-@@ -1487,7 +1679,7 @@ static int itd_submit (struct ehci_hcd *
+@@ -1487,7 +1670,7 @@ static int itd_submit (struct ehci_hcd *
  
  	/* Get iso_stream head */
  	stream = iso_stream_find (ehci, urb);
@@ -3069,7 +3170,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  		ehci_dbg (ehci, "can't get iso stream\n");
  		return -ENOMEM;
  	}
-@@ -1517,7 +1709,7 @@ static int itd_submit (struct ehci_hcd *
+@@ -1517,7 +1700,7 @@ static int itd_submit (struct ehci_hcd *
  
  	/* schedule ... need to lock */
  	spin_lock_irqsave (&ehci->lock, flags);
@@ -3078,7 +3179,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
   	if (likely (status == 0))
  		itd_link_urb (ehci, urb, ehci->periodic_size << 3, stream);
  	spin_unlock_irqrestore (&ehci->lock, flags);
-@@ -1528,25 +1720,372 @@ done:
+@@ -1528,25 +1711,372 @@ done:
  	return status;
  }
  
@@ -3326,7 +3427,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 + * assuming (a) no more than two urbs per frame on this endpoint, and also
 + * (b) only this endpoint's completions submit URBs.  It seems some silicon
 + * corrupts things if you reuse completed descriptors very quickly...
-  */
++ */
 +static unsigned
 +sitd_complete (
 +	struct ehci_hcd		*ehci,
@@ -3368,8 +3469,9 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 +	/* ASSERT: it's really the last sitd for this urb
 +	list_for_each_entry (sitd, &stream->td_list, sitd_list)
 +		BUG_ON (sitd->urb == urb);
-+ */
-+
+  */
+ 
+-#endif /* have_split_iso */
 +	/* give urb back to the driver; completion often (re)submits */
 +	dev = urb->dev;
 +	ehci_urb_done(ehci, urb);
@@ -3405,8 +3507,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 +	int			status = -EINVAL;
 +	unsigned long		flags;
 +	struct ehci_iso_stream	*stream;
- 
--#endif /* have_split_iso */
++
 +	/* Get iso_stream head */
 +	stream = iso_stream_find (ehci, urb);
 +	if (stream == NULL) {
@@ -3459,7 +3560,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  	unsigned	modified;
  
  	mod = ehci->periodic_size << 3;
-@@ -1562,21 +2101,14 @@ scan_periodic (struct ehci_hcd *ehci, st
+@@ -1562,21 +2092,14 @@ scan_periodic (struct ehci_hcd *ehci, st
  	else
  		clock = now_uframe + mod - 1;
  	clock %= mod;
@@ -3483,7 +3584,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  restart:
  		/* scan each element in frame's queue for completions */
-@@ -1586,19 +2118,21 @@ restart:
+@@ -1586,19 +2109,21 @@ restart:
  		type = Q_NEXT_TYPE (*hw_p);
  		modified = 0;
  
@@ -3508,7 +3609,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  				qh_put (ehci, temp.qh);
  				break;
  			case Q_TYPE_FSTN:
-@@ -1612,48 +2146,93 @@ restart:
+@@ -1612,48 +2137,93 @@ restart:
  				q = q.fstn->fstn_next;
  				break;
  			case Q_TYPE_ITD:
@@ -3619,7 +3720,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  
  		// FIXME:  this assumes we won't get lapped when
  		// latencies climb; that should be rare, but...
-@@ -1666,7 +2245,8 @@ restart:
+@@ -1666,7 +2236,8 @@ restart:
  		if (now_uframe == clock) {
  			unsigned	now;
  
@@ -3629,7 +3730,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
  				break;
  			ehci->next_uframe = now_uframe;
  			now = readl (&ehci->regs->frame_index) % mod;
-@@ -1675,6 +2255,7 @@ restart:
+@@ -1675,6 +2246,7 @@ restart:
  
  			/* rescan the rest of this frame, then ... */
  			clock = now;
