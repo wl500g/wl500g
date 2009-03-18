@@ -2915,7 +2915,7 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 +	
 +	/* fix DLINK DIR-320 vlans */
 +	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45") &&
-+		 !nvram_get("vlan2hwname"))
++		 !nvram_get("wan_ifname"))
 +	{
 +		nvram_set("vlan2hwname", "et0");
 +		nvram_set("wan0_ifnames", "vlan2");
@@ -5533,7 +5533,7 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
 +		!nvram_match("boardnum", "45"))
 +	{
 +		reset_mask = GPIO7, reset_value = 0;
-+		ready_mask = GPIO1, ready_value = 0;
++		ready_mask = GPIO1, ready_value = GPIO1;
 +		setup_mask = GPIO6, setup_value = 0;
 +	}
 +	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
