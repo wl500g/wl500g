@@ -1,6 +1,6 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d-`r191`===
+===wl500g-1.9.2.7-d-`r191` (2009-03-15)===
   * kernel
     * EHCI backport - support of split ISO transfers
 
