@@ -1,6 +1,6 @@
-diff -BurpN rc.orig/init.c rc/init.c
---- rc.orig/init.c	2008-03-19 20:07:24.000000000 +0300
-+++ rc/init.c	2009-03-22 16:04:43.000000000 +0300
+diff -BurpN router/rc/init.c gateway/rc/init.c
+--- router/rc/init.c	2008-03-19 20:07:24.000000000 +0300
++++ gateway/rc/init.c	2009-03-22 16:04:43.000000000 +0300
 @@ -35,6 +35,7 @@
  
  #define loop_forever() do { sleep(1); } while (1)
