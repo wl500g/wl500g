@@ -1,0 +1,73 @@
+diff -BurpN rc.orig/init.c rc/init.c
+--- rc.orig/init.c	2008-03-19 20:07:24.000000000 +0300
++++ rc/init.c	2009-03-22 16:04:43.000000000 +0300
+@@ -35,6 +35,7 @@
+ 
+ #define loop_forever() do { sleep(1); } while (1)
+ #define SHELL "/bin/sh"
++#define SIGUSR3 (SIGRTMIN+4)
+ 
+ /* Set terminal settings to reasonable defaults */
+ static void set_term(int fd)
+@@ -160,20 +161,33 @@ run_shell(int timeout, int nowait)
+ }
+ 
+ static void
+-shutdown_system(void)
++preshutdown(int sig)
+ {
+-	int sig, fd;
++	signal(sig, SIG_DFL);
++	eval("/usr/local/sbin/pre-shutdown");
++	sleep(2);
++}
++
++static void
++shutdown_system(int fatal_sig)
++{
++	int sig;
+ 
+ 	/* Disable signal handlers */
+ 	for (sig = 0; sig < (_NSIG-1); sig++)
+ 		signal(sig, SIG_DFL);
+ 
++	/* Perform pre-shutdown script only with common signals */
++	switch (fatal_sig) {
++	case SIGQUIT:
++	case SIGTERM:
++		preshutdown(SIGUSR3);
++		break;
++	}
++
+ 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
+ 	eval("killall", "pppd");
+ 
+-	eval("/usr/local/sbin/pre-shutdown");
+-	sleep(2);
+-	
+ 	if (exists("/dev/misc/rtc"))
+ 		eval("/sbin/hwclock", "-w");
+ 
+@@ -226,7 +240,6 @@ fatal_signal(int sig)
+ 	case SIGTRAP: message = "Trace trap"; break;
+ 	case SIGPWR: message = "Power failure"; break;
+ 	case SIGTERM: message = "Terminated"; break;
+-	case SIGUSR1: message = "User-defined signal 1"; break;
+ 	}
+ 
+ 	if (message)
+@@ -234,7 +247,7 @@ fatal_signal(int sig)
+ 	else
+ 		cprintf("Caught signal %d\n", sig);
+ 
+-	shutdown_system();
++	shutdown_system(sig);
+ 	sleep(2);
+ 
+ 	/* Halt on SIGQUIT */
+@@ -261,4 +273,5 @@ signal_init(void)
+ 		signal(fatal_signals[i], fatal_signal);
+ 
+ 	signal(SIGCHLD, reap);
++	signal(SIGUSR3, preshutdown);
+ }
