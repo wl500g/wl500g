@@ -1,6 +1,6 @@
-diff -BurN router/bridge/brctl/Makefile gateway/bridge/brctl/Makefile
+diff -BurpN -x'*.o' router/bridge/brctl/Makefile gateway/bridge/brctl/Makefile
 --- router/bridge/brctl/Makefile	2004-10-14 23:11:18.000000000 +0400
-+++ gateway/bridge/brctl/Makefile	2008-12-24 14:38:13.000000000 +0300
++++ gateway/bridge/brctl/Makefile	2009-03-24 14:29:28.000000000 +0300
 @@ -1,7 +1,7 @@
  #
  # $Id$
@@ -10,3 +10,53 @@ diff -BurN router/bridge/brctl/Makefile gateway/bridge/brctl/Makefile
  LDFLAGS = -g
  ifeq ($(strip $(DOSTATIC)),true)
      LDFLAGS += --static
+@@ -16,7 +16,6 @@
+ 			$(CC) $(LDFLAGS) -o brctld brctld.o brctl_cmd.o brctl_disp.o ../libbridge/libbridge.a
+ 
+ clean:
+-			rcsclean *
+ 			rm -f *~
+ 			rm -f *.o
+ 			rm -f brctl
+diff -BurpN -x'*.o' router/bridge/doc/Makefile gateway/bridge/doc/Makefile
+--- router/bridge/doc/Makefile	2004-10-14 23:11:18.000000000 +0400
++++ gateway/bridge/doc/Makefile	2009-03-24 14:29:35.000000000 +0300
+@@ -1,5 +1,4 @@
+ all:			FAQ HOWTO PROJECTS RPM-GPG-KEY TODO
+ 
+ clean:
+-			rcsclean *
+ 			rm -f *~
+diff -BurpN -x'*.o' router/bridge/libbridge/Makefile gateway/bridge/libbridge/Makefile
+--- router/bridge/libbridge/Makefile	2004-10-14 23:11:18.000000000 +0400
++++ gateway/bridge/libbridge/Makefile	2009-03-24 14:29:17.000000000 +0300
+@@ -3,7 +3,6 @@
+ all:			libbridge.a
+ 
+ clean:
+-			rcsclean *
+ 			rm -f *~
+ 			rm -f *.o
+ 			rm -f libbridge.a
+diff -BurpN -x'*.o' router/bridge/Makefile gateway/bridge/Makefile
+--- router/bridge/Makefile	2004-10-14 23:11:18.000000000 +0400
++++ gateway/bridge/Makefile	2009-03-24 14:29:01.000000000 +0300
+@@ -7,7 +7,6 @@
+ 				$(MAKE) -C doc clean
+ 				$(MAKE) -C libbridge clean
+ 				$(MAKE) -C misc clean
+-				rcsclean *
+ 				rm -f *~
+ 
+ brctl/brctl:			brctl/brctl.c brctl/brctl.h brctl/brctl_cmd.c brctl/brctl_disp.c libbridge/libbridge.a libbridge/libbridge.h
+diff -BurpN -x'*.o' router/bridge/misc/Makefile gateway/bridge/misc/Makefile
+--- router/bridge/misc/Makefile	2004-10-14 23:11:18.000000000 +0400
++++ gateway/bridge/misc/Makefile	2009-03-24 14:29:32.000000000 +0300
+@@ -9,7 +9,6 @@
+ all:		bidi tap
+ 
+ clean:
+-		rcsclean *
+ 		rm -f *~
+ 		rm -f bidi
+ 		rm -f tap
