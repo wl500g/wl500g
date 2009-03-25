@@ -25,8 +25,8 @@
     * dnsomatic.com dynamic dns service support
 
   * rc (startup) procedures changes
-    * Disable upnp restart after ntp timesync
-    * Change Read/Write/Erase ftp rights to Write Only.
+    * disable upnp restart after ntp timesync
+    * change Read/Write/Erase ftp rights to Write Only.
 
   * busybox 1.13.2
 
