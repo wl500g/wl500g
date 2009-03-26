@@ -41,7 +41,7 @@ RADVD=radvd-0.7.2
 L2TP=rp-l2tp-0.4
 IGMPPROXY=igmpproxy-src-0.1-beta2
 VSFTPD=vsftpd-2.1.0
-UDPXY=udpxy-1.0_Chipmunk-8
+UDPXY=udpxy-1.0-Chipmunk-11
 NTPCLIENT=ntpclient-2007_365
 
 UCLIBC=uClibc-0.9.29
