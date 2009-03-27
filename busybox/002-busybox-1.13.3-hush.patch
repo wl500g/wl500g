@@ -1,18 +1,20 @@
 diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
 --- busybox-1.13.3/shell/hush.c	2009-02-26 12:46:55.000000000 +0100
-+++ busybox-1.13.3-hush/shell/hush.c	2009-03-20 13:01:52.000000000 +0100
-@@ -458,8 +458,9 @@ struct globals {
++++ busybox-1.13.3-hush/shell/hush.c	2009-03-22 12:46:42.000000000 +0100
+@@ -458,8 +458,11 @@ struct globals {
  	smallint fake_mode;
  	/* these three support $?, $#, and $1 */
  	smalluint last_return_code;
+-	char **global_argv;
++	/* is global_argv and global_argv[1..n] malloced? (note: not [0]) */
 +	smalluint global_args_malloced;
-+	int global_argc; /* NB: $# + 1 */
- 	char **global_argv;
--	int global_argc;
++	/* how many non-NULL argv's we have. NB: $# + 1 */
+ 	int global_argc;
++	char **global_argv;
  #if ENABLE_HUSH_LOOPS
  	unsigned depth_break_continue;
  	unsigned depth_of_loop;
-@@ -633,7 +634,7 @@ static char *unbackslash(char *src)
+@@ -633,7 +636,7 @@ static char *unbackslash(char *src)
  	return dst;
  }
  
@@ -21,7 +23,7 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  {
  	int i;
  	unsigned count1;
-@@ -658,7 +659,7 @@ static char **add_strings_to_strings(cha
+@@ -658,7 +661,7 @@ static char **add_strings_to_strings(cha
  	v[count1 + count2] = NULL;
  	i = count2;
  	while (--i >= 0)
@@ -30,7 +32,7 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  	return v;
  }
  
-@@ -667,7 +668,7 @@ static char **add_string_to_strings(char
+@@ -667,7 +670,7 @@ static char **add_string_to_strings(char
  	char *v[2];
  	v[0] = add;
  	v[1] = NULL;
@@ -39,7 +41,7 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  }
  
  static void putenv_all(char **strings)
-@@ -1213,8 +1214,13 @@ static int o_glob(o_string *o, int n)
+@@ -1213,8 +1216,13 @@ static int o_glob(o_string *o, int n)
   * Otherwise, just finish current list[] and start new */
  static int o_save_ptr(o_string *o, int n)
  {
@@ -55,7 +57,7 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  	return o_save_ptr_helper(o, n);
  }
  
-@@ -4279,6 +4285,11 @@ int hush_main(int argc, char **argv)
+@@ -4279,6 +4287,11 @@ int hush_main(int argc, char **argv)
  		switch (opt) {
  		case 'c':
  			G.global_argv = argv + optind;
@@ -67,7 +69,7 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  			G.global_argc = argc - optind;
  			opt = parse_and_run_string(optarg, 0 /* parse_flag */);
  			goto final_return;
-@@ -4639,17 +4650,68 @@ static int builtin_read(char **argv)
+@@ -4639,17 +4652,68 @@ static int builtin_read(char **argv)
  	return set_local_var(string, 0);
  }
  
@@ -141,16 +143,33 @@ diff -urpN busybox-1.13.3/shell/hush.c busybox-1.13.3-hush/shell/hush.c
  
  	return EXIT_SUCCESS;
  }
+@@ -4661,9 +4725,14 @@ static int builtin_shift(char **argv)
+ 		n = atoi(argv[1]);
+ 	}
+ 	if (n >= 0 && n < G.global_argc) {
+-		G.global_argv[n] = G.global_argv[0];
++		if (G.global_args_malloced) {
++			int m = 1;
++			while (m <= n)
++				free(G.global_argv[m++]);
++		}
+ 		G.global_argc -= n;
+-		G.global_argv += n;
++		memmove(&G.global_argv[1], &G.global_argv[n+1],
++				G.global_argc * sizeof(G.global_argv[0]));
+ 		return EXIT_SUCCESS;
+ 	}
+ 	return EXIT_FAILURE;
 diff -urpN busybox-1.13.3/shell/hush_test/hush-parsing/starquoted2.right busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.right
 --- busybox-1.13.3/shell/hush_test/hush-parsing/starquoted2.right	2009-02-26 12:46:52.000000000 +0100
-+++ busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.right	2009-03-20 12:32:30.000000000 +0100
++++ busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.right	2009-03-22 12:46:20.000000000 +0100
 @@ -1,2 +1,3 @@
  Should be printed
  Should be printed
 +Empty:
 diff -urpN busybox-1.13.3/shell/hush_test/hush-parsing/starquoted2.tests busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.tests
 --- busybox-1.13.3/shell/hush_test/hush-parsing/starquoted2.tests	2009-02-26 12:46:52.000000000 +0100
-+++ busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.tests	2009-03-20 12:32:30.000000000 +0100
++++ busybox-1.13.3-hush/shell/hush_test/hush-parsing/starquoted2.tests	2009-03-22 12:46:20.000000000 +0100
 @@ -12,3 +12,6 @@ for a in "$@"""; do echo Should not be p
  for a in """$@"; do echo Should not be printed; done
  for a in """$@"''"$@"''; do echo Should not be printed; done
