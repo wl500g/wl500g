@@ -101,7 +101,7 @@ static void chipdumpregs(struct bcm4xxx *ch, bcmenetregs_t *regs, struct bcmstrb
 #endif /* BCMDBG */
 
 /* chip interrupt bit error summary */
-#define	I_ERRORS	(I_PC | I_PD | I_DE | I_RU | I_RO | I_XU)
+#define	I_ERRORS	(I_PC | I_PD | I_DE | I_RU | I_RO | I_XU | I_TO)
 #define	DEF_INTMASK	(I_XI | I_RI | I_ERRORS)
 
 struct chops bcm47xx_et_chops = {
@@ -133,6 +133,8 @@ struct chops bcm47xx_et_chops = {
 
 static uint devices[] = {
 	BCM47XX_ENET_ID,
+	BCM4402_ENET_ID,
+	BCM4401_ENET_ID,
 	0x0000 };
 
 static bool
@@ -205,6 +207,10 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 	etc->nicmode = !(ch->sih->bustype == SI_BUS);
 	etc->coreunit = si_coreunit(ch->sih);
 	etc->boardflags = getintvar(ch->vars, "boardflags");
+
+	/* set boardflags for 5365 and 5350 */
+	if (etc->chip == BCM5365_CHIP_ID || etc->chip == BCM5350_CHIP_ID)
+		etc->boardflags |= BFL_ENETROBO | BFL_ENETVLAN;
 
 	boardflags = etc->boardflags;
 	boardtype = ch->sih->boardtype;
@@ -412,13 +418,16 @@ chiplongname(struct bcm4xxx *ch, char *buf, uint bufsize)
 	char *s;
 
 	switch (ch->etc->deviceid) {
+	case BCM4402_ENET_ID:
+		s = "BCM4402";
+		break;
 	case BCM47XX_ENET_ID:
 	default:
-		s = "Broadcom BCM47xx 10/100 Mbps Ethernet Controller";
+		s = "BCM47xx";
 		break;
 	}
 
-	strncpy(buf, s, bufsize);
+	snprintf(buf, bufsize, "Broadcom %s 10/100 Mbps Ethernet Controller", s);
 	buf[bufsize - 1] = '\0';
 }
 
@@ -626,6 +635,9 @@ chipinreset:
 			          "using 100Mhz\n",
 			          ch->etc->unit));
 		}
+	} else if (ch->etc->deviceid == BCM4402_ENET_ID) {
+		/* 4402 has 62.5Mhz SB clock and internal phy */
+		W_REG(ch->osh, &regs->mdiocontrol, 0x8d);
 	}
 
 	/* some chips have internal phy, some don't */
@@ -698,6 +710,9 @@ chipinit(struct bcm4xxx *ch, uint options)
 	/* set tx watermark */
 	W_REG(ch->osh, &regs->txwatermark, 56);
 
+	/* set tx duplex */
+	W_REG(ch->osh, &regs->txcontrol, etc->duplex ? EXC_FD : 0);
+
 	/*
 	 * Optionally, disable phy autonegotiation and force our speed/duplex
 	 * or constrain our advertised capabilities.
@@ -714,6 +729,9 @@ chipinit(struct bcm4xxx *ch, uint options)
 
 		/* post dma receive buffers */
 		dma_rxfill(ch->di);
+
+		/* setup timer interrupt */
+		W_REG(ch->osh, &regs->gptimer, 0);
 
 		/* lastly, enable interrupts */
 		if (options & ET_INIT_INTRON)
@@ -827,6 +845,15 @@ chipgetintrevents(struct bcm4xxx *ch, bool in_isr)
 	if (intstatus & I_TO)
 		events |= INTR_TO;
 
+	/* check for rx after tx for 3 seconds on the unit 1, */
+	/* schedule reset if it's missing - possible rx stuck */
+	if (ch->etc->chip == BCM4710_CHIP_ID && ch->etc->unit == 1) {
+		if (intstatus & I_RI)
+			W_REG(ch->osh, &regs->gptimer, 0);
+		else if (!R_REG(ch->osh, &regs->gptimer))
+			W_REG(ch->osh, &regs->gptimer, 3 * 125000000);
+	}
+
 	return (events);
 }
 
@@ -886,6 +913,10 @@ chiperrors(struct bcm4xxx *ch)
 	if (intstatus & I_RO) {
 		ET_ERROR(("et%d: receive fifo overflow\n", etc->unit));
 		etc->rxoflo++;
+	}
+
+	if (intstatus & I_TO) {
+                ET_ERROR(("et%d: rx stuck suspected\n", etc->unit));
 	}
 
 	if (intstatus & I_XU) {
@@ -1213,9 +1244,17 @@ chipphyinit(struct bcm4xxx *ch, uint phyaddr)
 
 	phyid = chipphyrd(ch, phyaddr, 0x2);
 	phyid |=  chipphyrd(ch, phyaddr, 0x3) << 16;
+
 	if (phyid == 0x55210022) {
+		chipphywr(ch, phyaddr, 28, (uint16) (chipphyrd(ch, phyaddr, 28) & 0x0fff));
 		chipphywr(ch, phyaddr, 30, (uint16) (chipphyrd(ch, phyaddr, 30) | 0x3000));
 		chipphywr(ch, phyaddr, 22, (uint16) (chipphyrd(ch, phyaddr, 22) & 0xffdf));
+
+		chipphywr(ch, phyaddr, 28, (uint16) ((chipphyrd(ch, phyaddr, 28) & 0x0fff) | 0x1000));
+		chipphywr(ch, phyaddr, 29, 1);
+		chipphywr(ch, phyaddr, 30, 4);
+
+		chipphywr(ch, phyaddr, 28, (uint16) (chipphyrd( ch, phyaddr, 28) & 0x0fff));
 	}
 }
 
@@ -1256,6 +1295,13 @@ chipphyforce(struct bcm4xxx *ch, uint phyaddr)
 	}
 
 	chipphywr(ch, phyaddr, 0, ctl);
+
+	/* force Auto MDI-X for the AC101L phy */
+	if (chipphyrd(ch, phyaddr, 2) == 0x0022 && 
+		chipphyrd(ch, phyaddr, 3) == 0x5521)
+	{
+		chipphywr(ch, phyaddr, 23, 0x8000);
+	}
 }
 
 /* set selected capability bits in autonegotiation advertisement */

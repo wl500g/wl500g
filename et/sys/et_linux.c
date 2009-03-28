@@ -1378,6 +1378,26 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 		return;
 #endif /* HNDCTF */
 
+	/* check for invalid data on the unit 1, workaround hw bug */
+	if (etc->chip == BCM4710_CHIP_ID && etc->unit == 1) 
+	{
+		uint8 *ether_dhost = ((struct ether_header*)skb->data)->ether_dhost;
+		if (	!(flags & (RXF_MULT | RXF_BRDCAST)) != !ETHER_ISMULTI(ether_dhost) ||
+			!(flags & RXF_BRDCAST) != !ETHER_ISBCAST(ether_dhost) ||
+			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
+				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
+		{
+			uchar eabuf[ETHER_ADDR_STR_LEN];
+			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
+			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
+				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
+				(flags & RXF_BRDCAST) ? 'B' : ' ', (flags & RXF_MISS) ? 'P' : ' '));
+			/* schedule reset */
+			et->events |= INTR_ERROR;
+			goto err;
+		}
+	}
+
 	/* extract priority from payload and store it out-of-band
 	 * in skb->priority
 	 */
