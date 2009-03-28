@@ -137,7 +137,7 @@ diff -urB et-4.108.9/sys/etc.c et/sys/etc.c
 +					robo->ops->read_reg(etc->robo, 0x05, 0x24, res_reg, 8);
 +					port_id = -1;
 +					port_id = (int)res_reg[6];
-+					if(port_id < 0 || port_id > 7)
++					if(port_id < 0 || port_id > 8)
 +						continue;
 +					size = sprintf(buff+offset, "%02x:%02x:%02x:%02x:%02x:%02x  %02x  %02x  %02x\n", res_reg[5], res_reg[4], res_reg[3], res_reg[2], res_reg[1], res_reg[0], res_reg[6], res_reg[7], res_ext_reg);
 +					//printk("rreg: %s\n", buff+offset);
