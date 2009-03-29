@@ -1,5 +1,14 @@
 #summary History of Changes
 
+===wl500g-1.9.2.7-d (Current)===
+
+  * rc (startup) procedures changes
+    * perform pre-shutdown before firmware upgrade
+
+  * pppd chat - support of HEX clause, patch from koppel.cz.
+
+  * udpxy 1.0 Chipmunk-11
+
 ===wl500g-1.9.2.7-d-`r191` (2009-03-15)===
   * kernel
     * EHCI backport - support of split ISO transfers
