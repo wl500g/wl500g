@@ -24,9 +24,6 @@
 #define NFSDDBG_FACILITY		NFSDDBG_FH
 
 
-static int nfsd_nr_verified;
-static int nfsd_nr_put;
-
 extern struct export_operations export_op_default;
 
 #define	CALL(ops,fun) ((ops->fun)?(ops->fun):export_op_default.fun)
@@ -233,7 +230,6 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
 
 		fhp->fh_dentry = dentry;
 		fhp->fh_export = exp;
-		nfsd_nr_verified++;
 	} else {
 		/* just rechecking permissions
 		 * (e.g. nfsproc_create calls fh_verify, then nfsd_create does as well)
@@ -466,7 +462,6 @@ fh_compose(struct svc_fh *fhp, struct svc_export *exp, struct dentry *dentry,
 			return nfserr_opnotsupp;
 	}
 
-	nfsd_nr_verified++;
 	return 0;
 }
 
@@ -529,7 +524,6 @@ fh_put(struct svc_fh *fhp)
 		fhp->fh_pre_saved = 0;
 		fhp->fh_post_saved = 0;
 #endif
-		nfsd_nr_put++;
 	}
 	if (exp) {
 		cache_put(&exp->h, &svc_export_cache);
