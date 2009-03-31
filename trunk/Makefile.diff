@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-02-10 15:10:36.000000000 +0300
++++ gateway/Makefile	2009-03-31 23:17:59.000000000 +0400
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -466,7 +466,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +490,239 @@ vlan:
+@@ -312,195 +490,242 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -513,7 +513,7 @@
 +	ln -sf ../sbin/dropbear $(INSTALLDIR)/dropbear/usr/bin/scp
 +
 +p910nd:
-+	$(MAKE) -C $@ p910nd CROSS=$(CROSS_COMPILE) CFLAGS="-DLOCKFILE_DIR=\\\"/var/lock\\\""
++	$(MAKE) -C $@ p910nd CROSS=$(CROSS_COMPILE) CFLAGS="-DLOCKFILE_DIR=\\\"/var/lock\\\" -O2 $(EXTRACFLAGS)"
 +
 +p910nd-install:
 +	install -D p910nd/p910nd $(INSTALLDIR)/p910nd/usr/sbin/p910nd
@@ -537,6 +537,9 @@
 +	
 +samba-clean:
 +	$(MAKE) -C samba/source clean
++
++nfs-utils:
++	$(MAKE) -C $@ CCOPTS="$(EXTRACFLAGS)"
 +
 +nfs-utils-install:
 +	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
@@ -842,7 +845,7 @@
  image-R100:
  	make rc-clean
  	make infosvr-clean
-@@ -512,15 +734,15 @@ image-R100:
+@@ -512,15 +737,15 @@ image-R100:
  	echo $(LANGUAGE)
  	make wwwmt-install-R100 
  	make install
@@ -861,7 +864,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +750,9 @@ image-R100:
+@@ -528,6 +753,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  

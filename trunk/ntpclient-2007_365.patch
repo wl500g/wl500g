@@ -1,7 +1,7 @@
 diff -urbB ntpclient-2007_365/Makefile ntpclient/Makefile
 --- ntpclient-2007_365/Makefile	2007-12-31 20:13:56.000000000 +0300
 +++ ntpclient/Makefile	2008-12-24 20:20:13.000000000 +0300
-@@ -10,11 +10,11 @@
+@@ -10,11 +10,12 @@
  
  CFLAGS += -O2
  # CFLAGS += -DPRECISION_SIOCGSTAMP
@@ -9,6 +9,7 @@ diff -urbB ntpclient-2007_365/Makefile ntpclient/Makefile
 +#CFLAGS += -DENABLE_DEBUG
  CFLAGS += -DENABLE_REPLAY
  # CFLAGS += -DUSE_OBSOLETE_GETTIMEOFDAY
++CFLAGS += $(EXTRACFLAGS)
  
 -LDFLAGS += -lrt
 +#LDFLAGS += -lrt
