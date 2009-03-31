@@ -1369,7 +1369,16 @@ diff -BurN router/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp gatewa
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp
 --- router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2008-03-17 20:52:23.000000000 +0300
++++ gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2009-03-28 12:15:04.000000000 +0300
+@@ -75,7 +75,7 @@
+    window.status = "Connecting to Server...";
+    //document.body.style.cursor = "default";
+    //if (document.form.imageidx.value=="0")
+-   the_timeout = setTimeout("redirect1()",document.form.RefreshTime.value*1000)
++   the_timeout = setTimeout("redirect1()",((document.form.RefreshTime.value==0)?1:document.form.RefreshTime.value)*1000)
+    //else
+    //   clearTimeout(the_timeout);   
+ }
 @@ -125,16 +125,8 @@
  
  if ( document.form.ImageSize.value == "0") // 640 X 480
@@ -3127,7 +3136,16 @@ diff -BurN router/www/asus/web_asus_en/quick.js gateway/www/asus/web_asus_en/qui
  	       {
 diff -BurN router/www/asus/web_asus_en/ShowWebCam.asp gateway/www/asus/web_asus_en/ShowWebCam.asp
 --- router/www/asus/web_asus_en/ShowWebCam.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/ShowWebCam.asp	2008-03-17 20:52:23.000000000 +0300
++++ gateway/www/asus/web_asus_en/ShowWebCam.asp	2009-03-28 12:14:41.000000000 +0300
+@@ -72,7 +72,7 @@
+    window.status = "Connecting to Server...";
+    //document.body.style.cursor = "default";
+    //if (document.form.imageidx.value=="0")
+-   the_timeout = setTimeout("redirect1()",document.form.RefreshTime.value*1000)
++   the_timeout = setTimeout("redirect1()",((document.form.RefreshTime.value==0)?1:document.form.RefreshTime.value)*1000)
+    //else
+    //clearTimeout(the_timeout);   
+ }
 @@ -120,16 +120,8 @@
  <script language="JavaScript">
  if ( document.form.ImageSize.value == "0") // 640 X 480
@@ -3240,7 +3258,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  
  	rm -rf web
  	rm -rf web_$*
- 
++
 +pages-%:
 +	echo $(LANGUAGE)
 +	./mkweb $* "$(LANGUAGE)"	
@@ -3256,7 +3274,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +
 +	rm -rf web
 +	rm -rf web_$*
-+
+ 
  clean:
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
