@@ -1,0 +1,22 @@
+--- igmpproxy/src/ifvc.c.orig	2007-11-08 15:21:09.000000000 +0300
++++ igmpproxy/src/ifvc.c	2007-11-08 15:21:58.000000000 +0300
+@@ -137,7 +137,7 @@
+             IfDescEp->allowednets->subnet_addr = subnet;
+ 
+             // Set the default params for the IF...
+-            IfDescEp->state         = IF_STATE_DOWNSTREAM;
++            IfDescEp->state         = IF_STATE_DISABLED;
+             IfDescEp->robustness    = DEFAULT_ROBUSTNESS;
+             IfDescEp->threshold     = DEFAULT_THRESHOLD;   /* ttl limit */
+             IfDescEp->ratelimit     = DEFAULT_RATELIMIT; 
+--- igmpproxy/src/igmpproxy.c.orig	2007-11-08 22:38:06.000000000 +0300
++++ igmpproxy/src/igmpproxy.c	2007-11-08 22:38:45.000000000 +0300
+@@ -220,7 +220,7 @@
+ 
+         for ( Ix = 0; Dp = getIfByIx( Ix ); Ix++ ) {
+ 
+-            if ( Dp->InAdr.s_addr && ! (Dp->Flags & IFF_LOOPBACK) ) {
++            if ( Dp->InAdr.s_addr && ! (Dp->Flags & IFF_LOOPBACK) && Dp->state != IF_STATE_DISABLED ) {
+                 if(Dp->state == IF_STATE_UPSTREAM) {
+                     if(upStreamVif == -1) {
+                         upStreamVif = Ix;
