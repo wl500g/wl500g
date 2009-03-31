@@ -1,0 +1,12 @@
+diff -BurpN '-x*.o' router/bpalogin/Makefile gateway/bpalogin/Makefile
+--- router/bpalogin/Makefile	2004-11-11 10:49:51.000000000 +0300
++++ gateway/bpalogin/Makefile	2009-03-31 22:43:26.000000000 +0400
+@@ -18,7 +18,7 @@
+ 
+ ##
+ #
+-CFLAGS=-g -O2 -Wall 
++CFLAGS=-g -O2 -Wall $(EXTRACFLAGS)
+ LIBS=-lnsl 
+ LDFLAGS=
+ 
