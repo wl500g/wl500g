@@ -1,0 +1,12 @@
+--- igmpproxy/src/syslog.c.orig	2006-11-24 21:12:44.619966176 +0300
++++ igmpproxy/src/syslog.c	2006-11-24 21:14:15.510148768 +0300
+@@ -86,7 +86,8 @@
+     fprintf( stderr, "%s\n", LogLastMsg );
+ 
+   // always to syslog
+-  syslog( Serverity, "%s", LogLastMsg );
++  if( Serverity < LOG_WARNING )
++    syslog( Serverity, "%s", LogLastMsg );
+ 
+   if( Serverity <= LOG_ERR )
+     exit( -1 );

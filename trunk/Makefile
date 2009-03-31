@@ -396,9 +396,9 @@ rp-pppoe: $(TOP)/rp-pppoe/src/Makefile
 $(TOP)/igmpproxy/src/Makefile:
 	@rm -rf $(TOP)/igmpproxy
 	tar -xzf igmpproxy/$(IGMPPROXY).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/igmpproxy igmpproxy/$(IGMPPROXY)-zeroaltnet.patch \
-	igmpproxy/$(IGMPPROXY)-timer.patch igmpproxy/$(IGMPPROXY)-syslog.patch \
-	igmpproxy/$(IGMPPROXY)-local.patch igmpproxy/$(IGMPPROXY)-disabled.patch 
+	$(PATCHER) $(TOP)/igmpproxy igmpproxy/zeroaltnet.patch \
+	igmpproxy/timer.patch igmpproxy/syslog.patch \
+	igmpproxy/local.patch igmpproxy/disabled.patch igmpproxy/build.patch 
 
 igmpproxy: $(TOP)/igmpproxy/src/Makefile
 	@true
