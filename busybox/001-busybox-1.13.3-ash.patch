@@ -1,6 +1,6 @@
 diff -urpN busybox-1.13.3/shell/ash.c busybox-1.13.3-ash/shell/ash.c
 --- busybox-1.13.3/shell/ash.c	2009-02-26 12:46:55.000000000 +0100
-+++ busybox-1.13.3-ash/shell/ash.c	2009-03-22 12:48:40.000000000 +0100
++++ busybox-1.13.3-ash/shell/ash.c	2009-04-01 01:16:44.000000000 +0200
 @@ -30,7 +30,7 @@
   */
  
@@ -342,7 +342,80 @@ diff -urpN busybox-1.13.3/shell/ash.c busybox-1.13.3-ash/shell/ash.c
  				break;
  			}
  			FORCE_INT_ON;
-@@ -13640,7 +13702,7 @@ int ash_main(int argc UNUSED_PARAM, char
+@@ -12391,7 +12453,7 @@ readcmd(int argc UNUSED_PARAM, char **ar
+ #endif
+ 
+ 	status = 0;
+-	startword = 1;
++	startword = 2;
+ 	backslash = 0;
+ #if ENABLE_ASH_READ_TIMEOUT
+ 	if (timeout) /* NB: ensuring end_ms is nonzero */
+@@ -12399,6 +12461,8 @@ readcmd(int argc UNUSED_PARAM, char **ar
+ #endif
+ 	STARTSTACKSTR(p);
+ 	do {
++		const char *is_ifs;
++
+ #if ENABLE_ASH_READ_TIMEOUT
+ 		if (end_ms) {
+ 			struct pollfd pfd[1];
+@@ -12428,25 +12492,34 @@ readcmd(int argc UNUSED_PARAM, char **ar
+ 			continue;
+ 		}
+ 		if (!rflag && c == '\\') {
+-			backslash++;
++			backslash = 1;
+ 			continue;
+ 		}
+ 		if (c == '\n')
+ 			break;
+-		if (startword && *ifs == ' ' && strchr(ifs, c)) {
+-			continue;
++		is_ifs = strchr(ifs, c);
++		if (startword && is_ifs) {
++			if (isspace(c))
++				continue;
++			/* non-space ifs char */
++			startword--;
++			if (startword == 1) /* first one? */
++				continue;
+ 		}
+ 		startword = 0;
+-		if (ap[1] != NULL && strchr(ifs, c) != NULL) {
++		if (ap[1] != NULL && is_ifs) {
++			const char *beg;
+ 			STACKSTRNUL(p);
+-			setvar(*ap, stackblock(), 0);
++			beg = stackblock();
++			setvar(*ap, beg, 0);
+ 			ap++;
+-			startword = 1;
++			/* can we skip one non-space ifs? (2: yes) */
++			startword = isspace(c) ? 2 : 1;
+ 			STARTSTACKSTR(p);
+-		} else {
+- put:
+-			STPUTC(c, p);
++			continue;
+ 		}
++ put:
++		STPUTC(c, p);
+ 	}
+ /* end of do {} while: */
+ #if ENABLE_ASH_READ_NCHARS
+@@ -12460,8 +12533,8 @@ readcmd(int argc UNUSED_PARAM, char **ar
+ #endif
+ 
+ 	STACKSTRNUL(p);
+-	/* Remove trailing blanks */
+-	while ((char *)stackblock() <= --p && strchr(ifs, *p) != NULL)
++	/* Remove trailing space ifs chars */
++	while ((char *)stackblock() <= --p && isspace(*p) && strchr(ifs, *p) != NULL)
+ 		*p = '\0';
+ 	setvar(*ap, stackblock(), 0);
+ 	while (*++ap != NULL)
+@@ -13640,7 +13713,7 @@ int ash_main(int argc UNUSED_PARAM, char
  	exception_handler = &jmploc;
  #if DEBUG
  	opentrace();
@@ -351,7 +424,7 @@ diff -urpN busybox-1.13.3/shell/ash.c busybox-1.13.3-ash/shell/ash.c
  	trace_puts_args(argv);
  #endif
  	rootpid = getpid();
-@@ -13692,8 +13754,14 @@ int ash_main(int argc UNUSED_PARAM, char
+@@ -13692,8 +13765,14 @@ int ash_main(int argc UNUSED_PARAM, char
  	}
   state3:
  	state = 4;
@@ -367,7 +440,7 @@ diff -urpN busybox-1.13.3/shell/ash.c busybox-1.13.3-ash/shell/ash.c
  
  	if (sflag || minusc == NULL) {
  #if ENABLE_FEATURE_EDITING_SAVEHISTORY
-@@ -13720,14 +13788,6 @@ int ash_main(int argc UNUSED_PARAM, char
+@@ -13720,14 +13799,6 @@ int ash_main(int argc UNUSED_PARAM, char
  	/* NOTREACHED */
  }
  
@@ -382,3 +455,25 @@ diff -urpN busybox-1.13.3/shell/ash.c busybox-1.13.3-ash/shell/ash.c
  
  /*-
   * Copyright (c) 1989, 1991, 1993, 1994
+diff -urpN busybox-1.13.3/shell/ash_test/ash-read/read_ifs.right busybox-1.13.3-ash/shell/ash_test/ash-read/read_ifs.right
+--- busybox-1.13.3/shell/ash_test/ash-read/read_ifs.right	1970-01-01 01:00:00.000000000 +0100
++++ busybox-1.13.3-ash/shell/ash_test/ash-read/read_ifs.right	2009-04-01 01:16:44.000000000 +0200
+@@ -0,0 +1,7 @@
++.a. .b. .c.
++.a. .b. .c.
++.a. .. .b,c.
++.a. .. .b,c.
++.a. .. .c.
++.a. .. .c. .d.
++.a. .. .b,c,d  ,  ,.
+diff -urpN busybox-1.13.3/shell/ash_test/ash-read/read_ifs.tests busybox-1.13.3-ash/shell/ash_test/ash-read/read_ifs.tests
+--- busybox-1.13.3/shell/ash_test/ash-read/read_ifs.tests	1970-01-01 01:00:00.000000000 +0100
++++ busybox-1.13.3-ash/shell/ash_test/ash-read/read_ifs.tests	2009-04-01 01:16:44.000000000 +0200
+@@ -0,0 +1,7 @@
++printf 'a\t\tb\tc\n' | ( IFS=$(printf "\t") read a b c; echo ".$a. .$b. .$c." )
++printf 'a\t\tb\tc\n' | ( IFS=$(printf " \t") read a b c; echo ".$a. .$b. .$c." )
++printf 'a,,b,c\n'    | ( IFS="," read a b c; echo ".$a. .$b. .$c." )
++printf 'a,,b,c\n'    | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
++printf 'a ,, c\n'    | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
++printf 'a ,, c d\n'  | ( IFS=" ," read a b c d; echo ".$a. .$b. .$c. .$d." )
++printf ' a,,b,c,d  ,  ,\n' | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
