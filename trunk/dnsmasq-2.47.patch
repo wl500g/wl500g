@@ -10,6 +10,18 @@ diff -urbB dnsmasq-2.46/Makefile dnsmasq/Makefile
  INSTALL = install
  
  DBUS_MINOR=" `echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --modversion dbus-1 | $(AWK) -F . -- '{ if ($$(NF-1)) print \"-DDBUS_MINOR=\"$$(NF-1) }'`" 
+@@ -32,6 +32,11 @@
+ SUNOS_VER="  `if uname | grep SunOS 2>&1 >/dev/null; then uname -r | $(AWK) -F . -- '{ print \"-DSUNOS_VER=\"$$2 }'; fi`"
+ SUNOS_LIBS=" `if uname | grep SunOS 2>&1 >/dev/null; then echo -lsocket -lnsl -lposix4; fi `"
+ 
++ifeq ($(CONFIG_IPV6),y)
++ COPTS += -DUSE_IPV6
++endif
++export COPTS
++
+ all :   dnsmasq
+ 
+ dnsmasq :
 diff -urbB dnsmasq-2.46/src/config.h dnsmasq/src/config.h
 --- dnsmasq-2.46/src/config.h	2008-11-11 00:47:46.000000000 +0300
 +++ dnsmasq/src/config.h	2008-11-17 11:27:12.000000000 +0300
@@ -29,7 +41,7 @@ diff -urbB dnsmasq-2.46/src/config.h dnsmasq/src/config.h
  #  define NO_FORK
  #endif
 -#if defined(__UCLIBC_HAS_IPV6__)
-+#if defined(__UCLIBC_HAS_IPV6__) && defined(CONFIG_IPV6)
++#if defined(__UCLIBC_HAS_IPV6__) && defined(USE_IPV6)
  #  ifndef IPV6_V6ONLY
  #    define IPV6_V6ONLY 26
  #  endif
