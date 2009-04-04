@@ -493,7 +493,7 @@
 +	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 +
 +dnsmasq:
-+	$(MAKE) -C $@ CFLAGS="-Os -DNO_IPV6 $(EXTRACFLAGS)"
++	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)"
 +	
 +dnsmasq-install:
 +	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
