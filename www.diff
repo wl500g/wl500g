@@ -3167,8 +3167,33 @@ diff -BurN router/www/asus/web_asus_en/ShowWebCam.asp gateway/www/asus/web_asus_
  {    
 diff -BurN router/www/asus/web_asus_en/ShowWebCamPic.asp gateway/www/asus/web_asus_en/ShowWebCamPic.asp
 --- router/www/asus/web_asus_en/ShowWebCamPic.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/ShowWebCamPic.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -40,16 +40,8 @@
++++ gateway/www/asus/web_asus_en/ShowWebCamPic.asp	2009-04-04 20:33:15.000000000 +0400
+@@ -1,6 +1,5 @@
+ <html>
+ <head>
+-<meta http-equiv="refresh" content="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
+ <title>ZVMODELVZ Web Camera Page</title>
+ <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+ <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+@@ -8,7 +7,8 @@
+ <link rel="stylesheet" type="text/css" href="style.css" media="screen">
+ <SCRIPT LANGUAGE="JavaScript">
+ 
+-
++var the_timeout = <% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>;
++setTimeout("location.reload(true)", (the_timeout == 0 ? 1 : the_timeout) * 1000);
+ 
+ function onClose()
+ {
+@@ -24,7 +24,6 @@
+ </head>
+ <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
+ <form method="GET" name="form" action="webcam.cgi">  
+-<input type="hidden" name="RefreshTime" value="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
+ <input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
+ <input type="hidden" name="CaptionString" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>">
+ <input type="hidden" name="CameraMode" value="<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>">
+@@ -40,16 +39,8 @@
  <script language="JavaScript">
  if ( document.form.ImageSize.value == "0") // 640 X 480
  {
@@ -3533,19 +3558,3 @@ diff -BuN router/www/asus/pages.mk gateway/www/asus/pages.mk
 +++ gateway/www/asus/pages.mk	2008-03-17 21:24:15.000000000 +0300
 @@ -0,0 +1 @@
 +PAGES := *
-Common subdirectories: router/www/asus/web_asus_cn and gateway/www/asus/web_asus_cn
-Common subdirectories: router/www/asus/web_asus_en and gateway/www/asus/web_asus_en
-Common subdirectories: router/www/asus/web_asus_kr and gateway/www/asus/web_asus_kr
-Common subdirectories: router/www/asus/web_asus_tw and gateway/www/asus/web_asus_tw
-Common subdirectories: router/www/asus/www_WL300g and gateway/www/asus/www_WL300g
-Common subdirectories: router/www/asus/www_WL300g2 and gateway/www/asus/www_WL300g2
-Common subdirectories: router/www/asus/www_WL331g and gateway/www/asus/www_WL331g
-Common subdirectories: router/www/asus/www_WL331gl and gateway/www/asus/www_WL331gl
-Common subdirectories: router/www/asus/www_WL500b and gateway/www/asus/www_WL500b
-Common subdirectories: router/www/asus/www_WL500bl and gateway/www/asus/www_WL500bl
-Common subdirectories: router/www/asus/www_WL500bv2 and gateway/www/asus/www_WL500bv2
-Common subdirectories: router/www/asus/www_WL500g and gateway/www/asus/www_WL500g
-Common subdirectories: router/www/asus/www_WL500gl and gateway/www/asus/www_WL500gl
-Common subdirectories: router/www/asus/www_WL500gx and gateway/www/asus/www_WL500gx
-Common subdirectories: router/www/asus/www_WL520g and gateway/www/asus/www_WL520g
-Common subdirectories: router/www/asus/www_WL530g and gateway/www/asus/www_WL530g

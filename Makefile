@@ -456,7 +456,7 @@ upnp-diff:
 
 www-diff:
 	(cd .. && diff -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
-	(cd .. && diff -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$) >> www.diff
+	(cd .. && diff -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
 	diffstat www.diff
 
 %-diff:
