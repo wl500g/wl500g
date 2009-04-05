@@ -1,6 +1,8 @@
 #summary History of Changes
 
 ===wl500g-1.9.2.7-d (Current)===
+  * kernel
+    * EHCI driver backport from 2.6.29
 
   * rc (startup) procedures changes
     * perform pre-shutdown before firmware upgrade
@@ -8,6 +10,11 @@
   * pppd chat - support of HEX clause, patch from koppel.cz.
 
   * udpxy 1.0 Chipmunk-11
+
+  * radvd 0.7.3
+
+  * bugfixes
+    * busybox fixes (ash, hush, tail, tar, rmmod)
 
 ===wl500g-1.9.2.7-d-`r191` (2009-03-15)===
   * kernel
