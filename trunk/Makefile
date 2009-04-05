@@ -37,7 +37,7 @@ PPTP=pptp-1.7.1
 LZMA=lzma406
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
-RADVD=radvd-0.7.2
+RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
 IGMPPROXY=igmpproxy-src-0.1-beta2
 VSFTPD=vsftpd-2.1.0
@@ -334,8 +334,8 @@ $(TOP)/radvd/Makefile:
 	$(PATCHER) $(TOP)/$(RADVD) $(RADVD).patch
 	mv $(TOP)/$(RADVD) $(TOP)/radvd
 	cd $(TOP)/radvd && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) ./configure --host=mipsel-linux \
-		--prefix=""
+		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CPPFLAGS="$(EXTRACFLAGS)" \
+		./configure --host=mipsel-linux --prefix=""
 
 radvd: $(TOP)/radvd/Makefile
 	@true

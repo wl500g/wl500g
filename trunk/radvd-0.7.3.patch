@@ -1,0 +1,47 @@
+diff -urBp radvd-0.7.3/Makefile.in radvd/Makefile.in
+--- radvd-0.7.3/Makefile.in	2005-02-19 12:29:14.000000000 +0300
++++ radvd/Makefile.in	2009-04-04 21:41:10.000000000 +0400
+@@ -113,7 +113,7 @@
+ radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
+ 	device.c device-common.c gram.y gram.h scanner.l
+ 
+-radvd_LDADD = -lfl
++#radvd_LDADD = -lfl
+ EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c
+ YFLAGS = -d
+ 
+diff -urBp radvd-0.7.3/radvd.c radvd/radvd.c
+--- radvd-0.7.3/radvd.c	2005-02-21 10:42:50.000000000 +0300
++++ radvd/radvd.c	2009-04-04 21:41:10.000000000 +0400
+@@ -462,6 +462,7 @@ drop_root_privileges(const char *usernam
+ int
+ check_conffile_perm(const char *username, const char *conf_file)
+ {
++#if CHECK_PERM
+ 	struct stat *st = NULL;
+ 	struct passwd *pw = NULL;
+ 	FILE *fp = fopen(conf_file, "r");
+@@ -498,11 +499,13 @@ check_conffile_perm(const char *username
+         }
+ 
+ 	free(st);
++#endif
+         return 0;
+-
++#if CHECK_PERM
+ errorout:
+ 	free(st);
+ 	return(-1);
++#endif
+ }
+ 
+ int
+diff -urBp radvd-0.7.3/scanner.l radvd/scanner.l
+--- radvd-0.7.3/scanner.l	2004-10-26 09:30:34.000000000 +0400
++++ radvd/scanner.l	2009-04-04 21:55:48.000000000 +0400
+@@ -134,3 +134,5 @@
+ 
+ .		{ return T_BAD_TOKEN; }
+ %%
++
++yywrap() { return(1); }
