@@ -135,6 +135,7 @@ static int xfrm6_output_finish(struct sk_buff *skb)
 		return xfrm6_output_finish2(skb);
 
 	skb->protocol = htons(ETH_P_IPV6);
+	skb->local_df = 1;
 	segs = skb_gso_segment(skb, 0);
 	kfree_skb(skb);
 	if (unlikely(IS_ERR(segs)))
