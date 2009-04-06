@@ -787,7 +787,7 @@ EXPORT_SYMBOL(__splice_from_pipe);
  * @actor:	handler that splices the data
  *
  * Description:
- *    See __splice_from_pipe. This function locks the input and output inodes,
+ *    See __splice_from_pipe. This function locks the pipe inode,
  *    otherwise it's identical to __splice_from_pipe().
  *
  */
@@ -796,7 +796,6 @@ ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
 			 splice_actor *actor)
 {
 	ssize_t ret;
-	struct inode *inode = out->f_mapping->host;
 	struct splice_desc sd = {
 		.total_len = len,
 		.flags = flags,
@@ -804,77 +803,14 @@ ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
 		.u.file = out,
 	};
 
-	/*
-	 * The actor worker might be calling ->write_begin and
-	 * ->write_end. Most of the time, these expect i_mutex to
-	 * be held. Since this may result in an ABBA deadlock with
-	 * pipe->inode, we have to order lock acquiry here.
-	 */
-	inode_double_lock(inode, pipe->inode);
+	if (pipe->inode)
+		mutex_lock(&pipe->inode->i_mutex);
 	ret = __splice_from_pipe(pipe, &sd, actor);
-	inode_double_unlock(inode, pipe->inode);
+	if (pipe->inode)
+		mutex_unlock(&pipe->inode->i_mutex);
 
 	return ret;
 }
-
-/**
- * generic_file_splice_write_nolock - generic_file_splice_write without mutexes
- * @pipe:	pipe info
- * @out:	file to write to
- * @ppos:	position in @out
- * @len:	number of bytes to splice
- * @flags:	splice modifier flags
- *
- * Description:
- *    Will either move or copy pages (determined by @flags options) from
- *    the given pipe inode to the given file. The caller is responsible
- *    for acquiring i_mutex on both inodes.
- *
- */
-ssize_t
-generic_file_splice_write_nolock(struct pipe_inode_info *pipe, struct file *out,
-				 loff_t *ppos, size_t len, unsigned int flags)
-{
-	struct address_space *mapping = out->f_mapping;
-	struct inode *inode = mapping->host;
-	struct splice_desc sd = {
-		.total_len = len,
-		.flags = flags,
-		.pos = *ppos,
-		.u.file = out,
-	};
-	ssize_t ret;
-	int err;
-
-	err = remove_suid(out->f_path.dentry);
-	if (unlikely(err))
-		return err;
-
-	ret = __splice_from_pipe(pipe, &sd, pipe_to_file);
-	if (ret > 0) {
-		unsigned long nr_pages;
-
-		*ppos += ret;
-		nr_pages = (ret + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
-
-		/*
-		 * If file or inode is SYNC and we actually wrote some data,
-		 * sync it.
-		 */
-		if (unlikely((out->f_flags & O_SYNC) || IS_SYNC(inode))) {
-			err = generic_osync_inode(inode, mapping,
-						  OSYNC_METADATA|OSYNC_DATA);
-
-			if (err)
-				ret = err;
-		}
-		balance_dirty_pages_ratelimited_nr(mapping, nr_pages);
-	}
-
-	return ret;
-}
-
-EXPORT_SYMBOL(generic_file_splice_write_nolock);
 
 /**
  * generic_file_splice_write - splice data from a pipe to a file
@@ -895,19 +831,37 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 {
 	struct address_space *mapping = out->f_mapping;
 	struct inode *inode = mapping->host;
+	struct splice_desc sd = {
+		.total_len = len,
+		.flags = flags,
+		.pos = *ppos,
+		.u.file = out,
+	};
 	ssize_t ret;
-	int err;
 
-	err = should_remove_suid(out->f_path.dentry);
-	if (unlikely(err)) {
-		mutex_lock(&inode->i_mutex);
-		err = __remove_suid(out->f_path.dentry, err);
+	if (pipe->inode)
+		mutex_lock_nested(&pipe->inode->i_mutex, I_MUTEX_PARENT);
+
+	splice_from_pipe_begin(&sd);
+	do {
+		ret = splice_from_pipe_next(pipe, &sd);
+		if (ret <= 0)
+			break;
+
+		mutex_lock_nested(&inode->i_mutex, I_MUTEX_CHILD);
+		ret = remove_suid(out->f_path.dentry);
+		if (!ret)
+			ret = splice_from_pipe_feed(pipe, &sd, pipe_to_file);
 		mutex_unlock(&inode->i_mutex);
-		if (err)
-			return err;
-	}
+	} while (ret > 0);
+	splice_from_pipe_end(pipe, &sd);
 
-	ret = splice_from_pipe(pipe, out, ppos, len, flags, pipe_to_file);
+	if (pipe->inode)
+		mutex_unlock(&pipe->inode->i_mutex);
+
+	if (sd.num_spliced)
+		ret = sd.num_spliced;
+
 	if (ret > 0) {
 		unsigned long nr_pages;
 
@@ -919,6 +873,8 @@ generic_file_splice_write(struct pipe_inode_info *pipe, struct file *out,
 		 * sync it.
 		 */
 		if (unlikely((out->f_flags & O_SYNC) || IS_SYNC(inode))) {
+			int err;
+
 			mutex_lock(&inode->i_mutex);
 			err = generic_osync_inode(inode, mapping,
 						  OSYNC_METADATA|OSYNC_DATA);
