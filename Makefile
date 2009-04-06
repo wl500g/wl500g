@@ -94,9 +94,6 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
-	cp iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
 	tar -C $(TOP) -xjf others-parport.tar.bz2
 	@echo
 	@echo Sources prepared for compilation
@@ -447,17 +444,27 @@ upnp-diff:
 	(cd .. && diff -BurN tools/upnp gateway/upnp | grep -v ^Binary.*differ$$) > upnp.diff
 	diffstat upnp.diff
 
+$(TOP)/www:
+	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
+		tar -C $(SRC) -cf - www/asus | tar -C $(TOP) -xf -
+
+www: $(TOP)/www
+	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
+	cp iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
+	cp iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
+	cp iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
+
+www-diff:
+	(cd .. && diff -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
+	(cd .. && diff -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
+	diffstat www.diff
+
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
 		tar -C $(SRC) -cf - $* | tar -C $(TOP) -xf -
 	[ ! -f $*.diff ] || $(PATCHER) -Z $(TOP) $*.diff
 	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
-
-www-diff:
-	(cd .. && diff -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
-	(cd .. && diff -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
-	diffstat www.diff
 
 %-diff:
 	(cd .. && diff -BurpN -x*.o router/$* gateway/$* | grep -v "^Files .* differ$$") > $*.diff
