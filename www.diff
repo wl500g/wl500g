@@ -2307,7 +2307,7 @@ diff -BurN router/www/asus/web_asus_en/general_501b.js gateway/www/asus/web_asus
 +}
 diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/general.js
 --- router/www/asus/web_asus_en/general.js	2004-11-19 13:45:58.000000000 +0300
-+++ gateway/www/asus/web_asus_en/general.js	2008-03-17 20:52:23.000000000 +0300
++++ gateway/www/asus/web_asus_en/general.js	2009-04-08 00:21:16.000000000 +0400
 @@ -83,7 +83,7 @@
  
  function str2val(v)
@@ -2498,7 +2498,28 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      	}	  	
    }      
    else if (s=='FirewallConfig' && v=='DmzEnable')
-@@ -3405,7 +3415,8 @@
+@@ -3266,12 +3276,15 @@
+    if (s=='x_DDNSServer')
+    {   
+    	if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
+-   	    	//tourl = "https://members.dyndns.org/policy.shtml"
+-   	    	tourl = "https://www.dyndns.org/account/create.html"
++   	    	tourl = "https://www.dyndns.com/account/create.html"
++    	else if (document.form.ddns_server_x.value == 'WWW.TZO.COM')
++    		tourl = "http://signup.tzo.com"
+     	else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
+-    		tourl = "https://www.zoneedit.com/signup.html"   	       	
+-    	else    	
+-   	    	tourl = "https://controlpanel.tzo.com/cgi-bin/tzopanel.exe"   	       	
++    		tourl = "https://www.zoneedit.com/signup.html?"
++    	else if (document.form.ddns_server_x.value == 'WWW.DNSOMATIC.COM')
++    		tourl = "https://www.dnsomatic.com/create/"
++    	else
++    		return;
+    	    
+    		link = window.open(tourl, "DDNSLink",
+                "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=480");    
+@@ -3405,7 +3418,8 @@
          inputCtrl(document.form.wl_key,  1);    	                   
          inputCtrl(document.form.wl_wpa_gtk_rekey,  0);         
      }
@@ -2508,7 +2529,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      {
      	inputCtrl(document.form.wl_crypto,  0);
          inputCtrl(document.form.wl_wpa_psk,  0);         
-@@ -3589,7 +3600,7 @@
+@@ -3589,7 +3603,7 @@
  	
  	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=="ralink")
  	{
@@ -2517,7 +2538,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		{
  			inputCtrl(document.form.wl_crypto,  1);
          		inputCtrl(document.form.wl_wpa_psk,  1);
-@@ -3633,7 +3644,8 @@
+@@ -3633,7 +3647,8 @@
  	{
  		/* enable/disable network key 1 to 4 */
  		if (wep != "0") {
@@ -2527,7 +2548,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  				inputCtrl(document.form.wl_key1,  0); 	
  				inputCtrl(document.form.wl_key4,  0); 	
  			
-@@ -3646,6 +3658,7 @@
+@@ -3646,6 +3661,7 @@
  			inputCtrl(document.form.wl_key3,  1); 	
  		} else 
  		{
@@ -2535,7 +2556,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  			inputCtrl(document.form.wl_key1,  0); 	
  			inputCtrl(document.form.wl_key2,  0); 	
  			inputCtrl(document.form.wl_key3,  0); 	
-@@ -3662,7 +3675,7 @@
+@@ -3662,7 +3678,7 @@
  		if (wep != "0")
  			inputCtrl(document.form.wl_wpa_gtk_rekey,  0); 	
  		else {
@@ -2544,7 +2565,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  1); 	
  			else
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  0);
-@@ -3698,7 +3711,8 @@
+@@ -3698,7 +3714,8 @@
  function wl_auth_mode_reconf()
  {
  	if (document.form.wl_auth_mode.value=="radius" ||
@@ -2554,7 +2575,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		document.form.wl_auth_mode.value="open";
  		
  	document.form.wl_auth_mode.options[3].value = null;
-@@ -3715,7 +3729,7 @@
+@@ -3715,7 +3732,7 @@
  	inputCtrl(document.form.wl_wep_x,  1);
  	
  	/* enable/disable crypto algorithm */
@@ -2563,7 +2584,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		inputCtrl(document.form.wl_crypto,  1);
  	else
  		inputCtrl(document.form.wl_crypto,  0);
-@@ -3727,7 +3741,7 @@
+@@ -3727,7 +3744,7 @@
  		inputCtrl(document.form.wl_wpa_psk,  0); 	
  
  	/* update wl_crypto */
@@ -2572,7 +2593,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		/* Save current crypto algorithm */
  		for (i = 0; i < document.form.wl_crypto.length; i++) {
  			if (document.form.wl_crypto[i].selected) {
-@@ -3762,7 +3776,7 @@
+@@ -3762,7 +3779,7 @@
  	}
  
  	/* Define new network key indices */
@@ -2581,7 +2602,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		algos = new Array("2", "3");
  	else
  	{			
-@@ -3781,7 +3795,7 @@
+@@ -3781,7 +3798,7 @@
  	}
  	wl_wep_change();
  		
@@ -2590,7 +2611,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  	{
  		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isBand()=='b' )
  		{	
-@@ -3847,14 +3861,18 @@
+@@ -3847,14 +3864,18 @@
    	   inputCtrl(document.form.wan_pppoe_idletime_check, 0); 
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
@@ -2612,7 +2633,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	   inputCtrl(document.form.wan_pppoe_username, 1); 
    	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
    	   inputCtrl(document.form.wan_pppoe_idletime, 1);
-@@ -3864,8 +3882,12 @@
+@@ -3864,8 +3885,12 @@
    	   inputCtrl(document.form.wan_pppoe_service, 1);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 1);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	   
@@ -2625,7 +2646,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	}
    	else if(v == "pptp")
    	{
-@@ -3875,14 +3897,38 @@
+@@ -3875,14 +3900,38 @@
    	   inputCtrl(document.form.wan_pppoe_username, 1); 
    	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
    	   inputCtrl(document.form.wan_pppoe_idletime, 1);
@@ -2664,7 +2685,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	}  	
    	else if (v == "bigpond")
    	{
-@@ -3898,8 +3944,12 @@
+@@ -3898,8 +3947,12 @@
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
@@ -2677,7 +2698,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  	}
  	else
    	{
-@@ -3915,9 +3965,53 @@
+@@ -3915,9 +3968,53 @@
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
@@ -3283,7 +3304,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  
  	rm -rf web
  	rm -rf web_$*
-+
+ 
 +pages-%:
 +	echo $(LANGUAGE)
 +	./mkweb $* "$(LANGUAGE)"	
@@ -3299,7 +3320,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +
 +	rm -rf web
 +	rm -rf web_$*
- 
++
  clean:
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
