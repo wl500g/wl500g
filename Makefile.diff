@@ -167,7 +167,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +183,179 @@ clean: $(obj-clean) config-clean
+@@ -155,39 +183,180 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -309,6 +309,7 @@
 -	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
 +	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 +	echo $(RELEASE) > $(TARGETDIR)/.version
++	[ ! -s $(TOP)/.svnrev ] || install -m 644 $(TOP)/.svnrev $(TARGETDIR)
 +	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) $(INSTALLDIR)/www ; do \
  	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
  	done
@@ -371,7 +372,7 @@
  #
  # Configuration rules
  #
-@@ -232,9 +400,9 @@ $(LINUXDIR)/.config:
+@@ -232,9 +401,9 @@ $(LINUXDIR)/.config:
  # Overrides
  #
  
@@ -383,7 +384,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +410,56 @@ www www-%:
+@@ -242,43 +411,56 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -456,7 +457,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +475,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +476,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -466,7 +467,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +490,242 @@ vlan:
+@@ -312,195 +491,242 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -845,7 +846,7 @@
  image-R100:
  	make rc-clean
  	make infosvr-clean
-@@ -512,15 +737,15 @@ image-R100:
+@@ -512,15 +738,15 @@ image-R100:
  	echo $(LANGUAGE)
  	make wwwmt-install-R100 
  	make install
