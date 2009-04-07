@@ -101,7 +101,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 
 prep:
 	@mkdir -p $(TOP)
-	svn info 2> /dev/null | awk '/Revision/{ORS=""; print $$2}' > $(TOP)/.svnrev
+	svnversion 2> /dev/null > $(TOP)/.svnrev
 	[ -f $(TOP)/Makefile ] || cp $(SRC)/Makefile $(TOP) && $(PATCHER) $(TOP) Makefile.diff
 
 $(TOP)/.config: config
