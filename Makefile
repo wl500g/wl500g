@@ -72,23 +72,6 @@ OUR_Kernel_Patches:=$(call patches_list, kernel)
 all: prep custom
 	@true
 
-$(ROOT)/uClibc: uClibc/$(UCLIBC).tar.bz2
-	@rm -rf $(ROOT)/$(UCLIBC) $@
-	tar -xjf $^ -C $(ROOT)
-	@cd uClibc && $(PATCHER) $(ROOT)/$(UCLIBC) $(UCLIBC).diff \
-		$(UCLIBC)-scalar_t.patch
-	cp uClibc/$(UCLIBC).config $(ROOT)/$(UCLIBC)/.config
-	mv $(ROOT)/$(UCLIBC) $@
-
-uClibc: $(ROOT)/uClibc
-	make -C $^ all install CROSS=$(CROSS) HOSTCC="gcc -m32"
-	rm -f /opt/brcm/hndtools-mipsel-uclibc
-ifeq ($(strip $(UCLIBC)),uClibc-0.9.19)
-	ln -s hndtools-mipsel-uclibc-3.2.3-full /opt/brcm/hndtools-mipsel-uclibc
-else
-	ln -s hndtools-mipsel-uclibc-0.9.29 /opt/brcm/hndtools-mipsel-uclibc
-endif
-
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables ppp pptp \
 	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
@@ -99,10 +82,16 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	@echo Sources prepared for compilation
 	@echo
 
-prep:
+
+$(TOP):
 	@mkdir -p $(TOP)
-	svnversion 2> /dev/null > $(TOP)/.svnrev
-	[ -f $(TOP)/Makefile ] || cp $(SRC)/Makefile $(TOP) && $(PATCHER) $(TOP) Makefile.diff
+
+$(TOP)/Makefile: Makefile.diff
+	cp $(SRC)/Makefile $(TOP)
+	$(PATCHER) $(TOP) Makefile.diff
+
+prep: $(TOP) $(TOP)/Makefile
+	-svnversion 2> /dev/null > $(TOP)/.svnrev
 
 $(TOP)/.config: config
 	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
@@ -237,7 +226,7 @@ $(TOP)/dnsmasq: $(DNSMASQ).tar.gz
 dnsmasq-diff: $(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ)
 	tar -xzf $^ -C $(TOP)
-	-make -C $(TOP)/dnsmasq clean
+	-$(MAKE) -C $(TOP)/dnsmasq clean
 	-(cd $(TOP) && diff -BurN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
 
 dnsmasq: $(TOP)/dnsmasq
