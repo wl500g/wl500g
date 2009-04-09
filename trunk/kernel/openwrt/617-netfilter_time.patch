@@ -95,7 +95,7 @@ diff -urN linux-2.4.32.orig/net/ipv4/netfilter/ipt_time.c linux-2.4.32/net/ipv4/
 +		return 0; /* the day doesn't match */
 +
 +	/* ... check the time now */
-+	packet_time = (currenttime.tm_hour * 60) + currenttime.tm_min;
++	packet_time = ((currenttime.tm_hour * 60) + currenttime.tm_min) * 60 + currenttime.tm_sec;
 +	if ((packet_time < info->time_start) || (packet_time > info->time_stop))
 +		return 0;
 +
@@ -129,8 +129,8 @@ diff -urN linux-2.4.32.orig/net/ipv4/netfilter/ipt_time.c linux-2.4.32/net/ipv4/
 +	if (matchsize != IPT_ALIGN(sizeof(struct ipt_time_info)))
 +		return 0;
 +	/* Now check the coherence of the data ... */
-+	if ((info->time_start > 1439) ||        /* 23*60+59 = 1439*/
-+	    (info->time_stop  > 1439))
++	if ((info->time_start > 86399) ||        /* 23*60*60+59*60+59 = 86399 */
++	    (info->time_stop  > 86399))
 +	{
 +		printk(KERN_WARNING "ipt_time: invalid argument\n");
 +		return 0;
@@ -227,8 +227,8 @@ diff -urN linux-2.4.32.orig/include/linux/netfilter_ipv4/ipt_time.h linux-2.4.32
 +
 +struct ipt_time_info {
 +	u_int8_t  days_match;   /* 1 bit per day. -SMTWTFS                      */
-+	u_int16_t time_start;   /* 0 < time_start < 23*60+59 = 1439             */
-+	u_int16_t time_stop;    /* 0:0 < time_stat < 23:59                      */
++	u_int32_t time_start;   /* 0 <= time_start <= 23*60*60+59*60+59 = 86399 */
++	u_int32_t time_stop;    /* 0:0:0 <= time <= 23:59:59                    */
 +	u_int8_t  kerneltime;   /* ignore skb time (and use kerneltime) or not. */
 +	time_t    date_start;
 +	time_t    date_stop;
