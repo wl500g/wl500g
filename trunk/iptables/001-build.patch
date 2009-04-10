@@ -1,0 +1,52 @@
+diff -BurN iptables-1.2.7a/extensions/Makefile iptables/extensions/Makefile
+--- iptables-1.2.7a/extensions/Makefile	2002-08-09 11:44:10.000000000 +0400
++++ iptables/extensions/Makefile	2004-11-11 10:28:20.000000000 +0300
+@@ -5,7 +5,8 @@
+ # header files are present in the include/linux directory of this iptables
+ # package (HW)
+ #
+-PF_EXT_SLIB:=ah addrtype comment connmark conntrack dscp ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TCPMSS TOS TTL ULOG
++#PF_EXT_SLIB:=ah addrtype comment connmark conntrack dscp ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TCPMSS TOS TTL ULOG
++PF_EXT_SLIB:=tcp udp mac standard state SNAT DNAT REDIRECT REJECT MASQUERADE TCPMSS LOG autofw mark MARK limit tcpmss icmp TTL TARPIT MIRROR conntrack connmark multiport CONNMARK NETMAP time POOL pool iplimit nth psd random quota
+ PF6_EXT_SLIB:=connmark eui64 hl icmp6 length limit mac mark multiport owner physdev policy standard state tcp udp CONNMARK HL LOG NFQUEUE MARK TCPMSS
+ 
+ ifeq ($(DO_SELINUX), 1)
+@@ -44,7 +45,6 @@
+ PF6_EXT_SLIB+=$(PF6_EXT_SLIB_OPTS)
+ 
+ OPTIONALS+=$(patsubst %,IPv4:%,$(PF_EXT_SLIB_OPTS))
+-OPTIONALS+=$(patsubst %,IPv6:%,$(PF6_EXT_SLIB_OPTS))
+ 
+ ifndef NO_SHARED_LIBS
+ SHARED_LIBS+=$(foreach T,$(PF_EXT_SLIB),extensions/libipt_$(T).so)
+@@ -53,6 +53,7 @@
+ EXTRA_INSTALLS+=$(foreach T, $(PF_EXT_SE_SLIB), $(DESTDIR)$(LIBDIR)/iptables/libipt_$(T).so)
+ 
+ ifeq ($(DO_IPV6), 1)
++OPTIONALS+=$(patsubst %,IPv6:%,$(PF6_EXT_SLIB_OPTS))
+ SHARED_LIBS+=$(foreach T,$(PF6_EXT_SLIB),extensions/libip6t_$(T).so)
+ SHARED_SE_LIBS+=$(foreach T,$(PF6_EXT_SE_SLIB),extensions/libip6t_$(T).so)
+ EXTRA_INSTALLS+=$(foreach T, $(PF6_EXT_SLIB), $(DESTDIR)$(LIBDIR)/iptables/libip6t_$(T).so)
+diff -BurN iptables-1.2.7a/Makefile iptables/Makefile
+--- iptables-1.2.7a/Makefile	2002-08-26 17:04:39.000000000 +0400
++++ iptables/Makefile	2004-11-11 10:28:22.000000000 +0300
+@@ -27,7 +27,7 @@
+ RELEASE_DIR:=/tmp
+ 
+ # Need libc6 for this.  FIXME: Should covert to autoconf.
+-ifeq ($(shell [ -f /usr/include/netinet/ip6.h ] && echo YES), YES)
++ifeq ($(CONFIG_IPV6),y)
+ DO_IPV6:=1
+ endif
+ 
+@@ -123,7 +123,9 @@
+ 
+ .PHONY: print-extensions
+ print-extensions:
+-	@[ -n "$(OPTIONALS)" ] && echo Extensions found: $(OPTIONALS)
++ifneq ($(OPTIONALS),)
++	echo Extensions found: $(OPTIONALS)
++endif
+ 
+ iptables.o: iptables.c
+ 	$(CC) $(CFLAGS) -DIPT_LIB_DIR=\"$(IPT_LIBDIR)\" -c -o $@ $<
