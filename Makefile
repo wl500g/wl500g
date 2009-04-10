@@ -285,10 +285,13 @@ $(TOP)/samba/source/Makefile: samba/$(SAMBA).tar.bz2
 samba: $(TOP)/samba/source/Makefile
 	@true
 
-$(TOP)/iptables: $(IPTABLES).tar.bz2
+iptables_Patches := $(call patches_list,iptables)
+
+$(TOP)/iptables: iptables/$(IPTABLES).tar.bz2
 	@rm -rf $(TOP)/$(IPTABLES) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(IPTABLES) $(IPTABLES).patch
+	$(PATCHER) $(TOP)/$(IPTABLES) $(iptables_Patches)
+	chmod a+x $(TOP)/$(IPTABLES)/extensions/.*-test $(TOP)/$(IPTABLES)/extensions/.*-test6
 	mv $(TOP)/$(IPTABLES) $@ && touch $@
 
 iptables: $(TOP)/iptables
