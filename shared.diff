@@ -195,8 +195,8 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
  
 -{"upnp_enable", "1", 0},
 +{"upnp_enable", "1", 0},
-+
 +{"udpxy_enable_x", "0", 0},
++{"udpxy_wan_x", "0", 0},
  
  {"log_ipaddr", "", 0},
  

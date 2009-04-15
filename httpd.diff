@@ -420,9 +420,10 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
        {"DmzDHCPLog", "Status", NULL, ARGV("dleases.log",""), FALSE, FALSE},
                   
 -                 {"upnp_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+-              
 +                 {"upnp_enable", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
 +		{"udpxy_enable_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
-               
++		{"udpxy_wan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
                  {"log_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
              	
 -              {"time_zone", "", validate_choice, ARGV(              
