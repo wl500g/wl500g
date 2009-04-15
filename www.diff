@@ -158,7 +158,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp gateway/ww
 diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp
 --- router/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2004-11-19 13:45:54.000000000 +0300
 +++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2009-04-14 15:02:48.000000000 +0400
-@@ -21,8 +21,19 @@
+@@ -21,8 +21,20 @@
  <td class="content_header_td_title" colspan="2">IP Config - Miscellaneous</td>
  </tr>
  <tr>
@@ -175,12 +175,13 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asu
 +<td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by IPTV proxy. Set to 0 to disable', LEFT);" onMouseOut="return nd();">IPTV UDP Multicast to HTTP Proxy Port:</td>
 +<td class="content_input_td">
 +	<input type="text" maxlength="5" size="5" name="udpxy_enable_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "udpxy_enable_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"> (0 - disabled)</input>
-+	<input type="checkbox" style="margin-left:30" name="udpxy_wan_x" value="" onClick="return change_common_radio(this, 'LANHostConfig', 'udpxy_wan_x', '1')">Enable access from WAN</input>
++	<input type="checkbox" style="margin-left:30" name="udpxy_wan_check" value="" onClick="return change_common_radio(this, 'LANHostConfig', 'udpxy_wan', '1')">Enable access from WAN</input>
++	<input type="hidden" name="udpxy_wan_x" value="<% nvram_get_x("LANHostConfig","udpxy_wan_x"); %>">
 +</td>
  </tr>
  <tr>
  <td class="content_header_td" onMouseOver="return overlib('This feature allows you to assign a remote server to record log messages of ZVMODELVZ. If you leave it blank, system will record up to 1024 mesages on ZVMODELVZ only.', LEFT);" onMouseOut="return nd();">Remote Log Server:
-@@ -30,13 +41,21 @@
+@@ -30,13 +42,21 @@
  </tr>
  <tr>
  <td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone:
@@ -203,7 +204,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asu
  <tr class="content_section_header_tr">
  <td class="content_section_header_td" colspan="2">DDNS Setting
              </td>
-@@ -51,7 +70,7 @@
+@@ -51,7 +71,7 @@
  </tr>
  <tr>
  <td class="content_header_td">Server:
@@ -2474,7 +2475,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  function setDateCheck(d1, d2, d3, d4, d5, d6, d7)
  {
     str = "";
-@@ -1830,10 +1923,11 @@
+@@ -1830,10 +1923,15 @@
     {   	
     	//checkDmzSubnet();
     }   
@@ -2484,10 +2485,14 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
     	//if (document.form.LANHostConfig_x_DDNSStatus.value != "1")
     	//    document.form.LANHostConfig_x_DDNSStatus_button.disabled = true;
 +    	TimeZoneList();
++	if (document.form.udpxy_wan_x.value == "1")
++		document.form.udpxy_wan_check.checked = true;
++	else
++		document.form.udpxy_wan_check.checked = false;
     }
     else if (document.form.current_page.value == "Advanced_APLAN_Content.asp")
     {
-@@ -1862,15 +1956,6 @@
+@@ -1862,15 +1960,6 @@
  		document.form.usb_webenable_x.options[2] = null;
     	 }
     	 
@@ -2503,7 +2508,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
           document.form.usb_websecurity_date_x_Sun.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 0);
           document.form.usb_websecurity_date_x_Mon.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 1);
           document.form.usb_websecurity_date_x_Tue.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 2);
-@@ -1923,6 +2008,10 @@
+@@ -1923,6 +2012,10 @@
     	//	document.form.PPPConnection_x_WANAction_button1.disabled = 1;
     	//}	   
     }          
@@ -2514,7 +2519,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
     change = 0;
  }
  
-@@ -1946,14 +2035,14 @@
+@@ -1946,14 +2039,14 @@
  {
      if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isFlash() != '2MB')
      {	
@@ -2537,7 +2542,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      }	       
  }
  
-@@ -2046,25 +2135,25 @@
+@@ -2046,25 +2139,25 @@
          inputRCtrl1(document.form.wl_lazywds, 1);
  
          if (m == "1")	
@@ -2580,7 +2585,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		  	
  	if (document.form.wl_channel.value == "0") 
  	{
-@@ -2083,8 +2172,8 @@
+@@ -2083,8 +2176,8 @@
      }	    	  	       	   
      wdsimage = "graph/" + wdsimage + ".gif";
      
@@ -2591,7 +2596,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  }
  
  function change_wireless_bridge2(m, a, r, mflag)
-@@ -2153,8 +2242,8 @@
+@@ -2153,8 +2246,8 @@
      }	    	  	       	   
      wdsimage = "graph/" + wdsimage + ".gif";
      
@@ -2602,7 +2607,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  }
  
  function onSubmit()
-@@ -2182,6 +2271,9 @@
+@@ -2182,6 +2275,9 @@
    	    }   
    	}  
    	checkSubnet();
@@ -2612,7 +2617,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
     } 	
     else if (document.form.current_page.value == "Advanced_RLANWAN_Content.asp")
     {
-@@ -2363,10 +2455,19 @@
+@@ -2363,10 +2459,19 @@
    {     	         	            	       	 
        wl_auth_mode_change(0);                                                   	
        
@@ -2636,7 +2641,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    }  
    else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
    {     	         	            	       	 
-@@ -2432,6 +2533,17 @@
+@@ -2432,6 +2537,17 @@
  	     document.form.WLANConfig11b_Channel.options[1].selected = 1;
    	}
    }
@@ -2654,7 +2659,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    return true;   	
  }
  
-@@ -2550,12 +2662,14 @@
+@@ -2550,12 +2666,14 @@
      		inputCtrl(document.form.lan_ipaddr, 0);  
      		inputCtrl(document.form.lan_netmask, 0);   
      		inputCtrl(document.form.lan_gateway, 0);     
@@ -2669,7 +2674,21 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      	}	  	
    }      
    else if (s=='FirewallConfig' && v=='DmzEnable')
-@@ -3266,12 +3380,15 @@
+@@ -2639,6 +2643,13 @@ function change_common_radio(o, s, v, r)
+   	inputCtrl(document.form.PPPConnection_x_ServiceName2, flag);  	  	   
+   	inputCtrl(document.form.PPPConnection_x_AccessConcentrator2, flag);  	  	     	  	  	  		  	  
+   }
++  else if (s=="LANHostConfig" && v=="udpxy_wan")
++  {
++	if (document.form.udpxy_wan_check.checked)
++		document.form.udpxy_wan_x.value = "1";
++	else
++		document.form.udpxy_wan_x.value = "0";
++  }
+   return true; 	
+ }
+ 
+@@ -3266,12 +3391,15 @@
     if (s=='x_DDNSServer')
     {   
     	if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
@@ -2690,7 +2709,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
     	    
     		link = window.open(tourl, "DDNSLink",
                 "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=480");    
-@@ -3405,7 +3522,8 @@
+@@ -3405,7 +3533,8 @@
          inputCtrl(document.form.wl_key,  1);    	                   
          inputCtrl(document.form.wl_wpa_gtk_rekey,  0);         
      }
@@ -2700,7 +2719,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      {
      	inputCtrl(document.form.wl_crypto,  0);
          inputCtrl(document.form.wl_wpa_psk,  0);         
-@@ -3589,7 +3707,7 @@
+@@ -3589,7 +3718,7 @@
  	
  	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=="ralink")
  	{
@@ -2709,7 +2728,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		{
  			inputCtrl(document.form.wl_crypto,  1);
          		inputCtrl(document.form.wl_wpa_psk,  1);
-@@ -3633,7 +3751,8 @@
+@@ -3633,7 +3762,8 @@
  	{
  		/* enable/disable network key 1 to 4 */
  		if (wep != "0") {
@@ -2719,7 +2738,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  				inputCtrl(document.form.wl_key1,  0); 	
  				inputCtrl(document.form.wl_key4,  0); 	
  			
-@@ -3646,6 +3765,7 @@
+@@ -3646,6 +3776,7 @@
  			inputCtrl(document.form.wl_key3,  1); 	
  		} else 
  		{
@@ -2727,7 +2746,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  			inputCtrl(document.form.wl_key1,  0); 	
  			inputCtrl(document.form.wl_key2,  0); 	
  			inputCtrl(document.form.wl_key3,  0); 	
-@@ -3662,7 +3782,7 @@
+@@ -3662,7 +3793,7 @@
  		if (wep != "0")
  			inputCtrl(document.form.wl_wpa_gtk_rekey,  0); 	
  		else {
@@ -2736,7 +2755,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  1); 	
  			else
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  0);
-@@ -3698,7 +3818,8 @@
+@@ -3698,7 +3831,8 @@
  function wl_auth_mode_reconf()
  {
  	if (document.form.wl_auth_mode.value=="radius" ||
@@ -2746,7 +2765,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		document.form.wl_auth_mode.value="open";
  		
  	document.form.wl_auth_mode.options[3].value = null;
-@@ -3715,7 +3836,7 @@
+@@ -3715,7 +3847,7 @@
  	inputCtrl(document.form.wl_wep_x,  1);
  	
  	/* enable/disable crypto algorithm */
@@ -2755,7 +2774,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		inputCtrl(document.form.wl_crypto,  1);
  	else
  		inputCtrl(document.form.wl_crypto,  0);
-@@ -3727,7 +3848,7 @@
+@@ -3727,7 +3859,7 @@
  		inputCtrl(document.form.wl_wpa_psk,  0); 	
  
  	/* update wl_crypto */
@@ -2764,7 +2783,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		/* Save current crypto algorithm */
  		for (i = 0; i < document.form.wl_crypto.length; i++) {
  			if (document.form.wl_crypto[i].selected) {
-@@ -3762,7 +3883,7 @@
+@@ -3762,7 +3894,7 @@
  	}
  
  	/* Define new network key indices */
@@ -2773,7 +2792,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  		algos = new Array("2", "3");
  	else
  	{			
-@@ -3781,7 +3902,7 @@
+@@ -3781,7 +3913,7 @@
  	}
  	wl_wep_change();
  		
@@ -2782,7 +2801,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  	{
  		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isBand()=='b' )
  		{	
-@@ -3847,14 +3968,18 @@
+@@ -3847,14 +3979,18 @@
    	   inputCtrl(document.form.wan_pppoe_idletime_check, 0); 
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
@@ -2804,7 +2823,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	   inputCtrl(document.form.wan_pppoe_username, 1); 
    	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
    	   inputCtrl(document.form.wan_pppoe_idletime, 1);
-@@ -3864,8 +3989,12 @@
+@@ -3864,8 +4000,12 @@
    	   inputCtrl(document.form.wan_pppoe_service, 1);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 1);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	   
@@ -2817,7 +2836,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	}
    	else if(v == "pptp")
    	{
-@@ -3875,14 +4004,38 @@
+@@ -3875,14 +4015,38 @@
    	   inputCtrl(document.form.wan_pppoe_username, 1); 
    	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
    	   inputCtrl(document.form.wan_pppoe_idletime, 1);
@@ -2856,7 +2875,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
    	}  	
    	else if (v == "bigpond")
    	{
-@@ -3898,8 +4051,12 @@
+@@ -3898,8 +4062,12 @@
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
@@ -2869,7 +2888,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  	}
  	else
    	{
-@@ -3915,9 +4072,53 @@
+@@ -3915,9 +4083,53 @@
    	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
    	   inputCtrl(document.form.wan_pppoe_ac, 0);
    	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
