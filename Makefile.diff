@@ -74,7 +74,7 @@
  
  #
  # Configuration
-@@ -84,18 +106,14 @@ obj-$(CONFIG_RC) += rc
+@@ -84,18 +106,14 @@
  obj-$(CONFIG_LIBBCM) += libbcm
  obj-$(CONFIG_SHARED) += shared
  obj-$(CONFIG_WWW) += www
@@ -94,7 +94,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +125,54 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +125,59 @@
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -146,6 +146,11 @@
 +endif
 +
 +LZMADIR=$(SRCBASE)/lzma/SRC/7zip/Compress
++
++SVNREVISION:=$(shell cat $(TOP)/.svnrev 2>/dev/null)
++ifneq (0,$(words $(SVNREVISION)))
++  RELEASE:=$(RELEASE)-r$(firstword $(SVNREVISION))
++endif
  
  #
  # Basic rules
@@ -167,7 +172,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +183,180 @@ clean: $(obj-clean) config-clean
+@@ -155,39 +183,179 @@
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -309,7 +314,6 @@
 -	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) ; do \
 +	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 +	echo $(RELEASE) > $(TARGETDIR)/.version
-+	[ ! -s $(TOP)/.svnrev ] || install -m 644 $(TOP)/.svnrev $(TARGETDIR)
 +	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) $(INSTALLDIR)/www ; do \
  	    (cd $${dir} && tar cpf - .) | (cd $(TARGETDIR) && tar xpf -) \
  	done

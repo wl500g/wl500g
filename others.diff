@@ -84,7 +84,7 @@ diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 +# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 +#
 +
-+VERSION="$(cat /.version)"
++VERSION="$(cat /.version)"; VERSION=${VERSION%-r[0-9]*}
 +
 +case "$1" in
 +	status)
