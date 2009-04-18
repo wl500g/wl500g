@@ -61,6 +61,8 @@ EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
 PATCHER := $(shell pwd)/patch.sh
 
+DIFF := TZ=UTC0 diff
+
 define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch)
 endef
@@ -227,7 +229,7 @@ dnsmasq-diff: $(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ)
 	tar -xzf $^ -C $(TOP)
 	-$(MAKE) -C $(TOP)/dnsmasq clean
-	-(cd $(TOP) && diff -BurN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
+	-(cd $(TOP) && $(DIFF) -BurpN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
 
 dnsmasq: $(TOP)/dnsmasq
 	@true
@@ -242,7 +244,7 @@ p910nd-diff:
 	@rm -rf $(TOP)/$(P910ND)
 	tar -xjf $(P910ND).tar.bz2 -C $(TOP)
 	-rm -f $(TOP)/p910nd/p910nd
-	-cd $(TOP) && diff -BurN $(P910ND) p910nd > $(P910ND).patch
+	-cd $(TOP) && $(DIFF) -BurpN $(P910ND) p910nd > $(P910ND).patch
 
 p910nd: $(TOP)/p910nd
 	@true
@@ -433,23 +435,19 @@ upnp:
 		tar -C $(SRC)/../tools -cf - $@ | tar -C $(TOP) -xf -
 	[ ! -f $@.diff ] || $(PATCHER) $(TOP) $@.diff
 
-upnp-diff:
-	(cd .. && diff -BurN tools/upnp gateway/upnp | grep -v ^Binary.*differ$$) > upnp.diff
-	diffstat upnp.diff
-
 $(TOP)/www:
 	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
 		tar -C $(SRC) -cf - www/asus | tar -C $(TOP) -xf -
 
-www: $(TOP)/www
-	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
+www: $(TOP)/www $@.diff
+	$(PATCHER) -Z $(TOP) $@.diff
 	cp iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
 	cp iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
 	cp iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
 
 www-diff:
-	(cd .. && diff -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
-	(cd .. && diff -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
+	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
+	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
 	diffstat www.diff
 
 %:
@@ -460,7 +458,7 @@ www-diff:
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
 
 %-diff:
-	(cd .. && diff -BurpN -x*.o router/$* gateway/$* | grep -v "^Files .* differ$$") > $*.diff
+	(cd .. && $(DIFF) -BurpN -x*.o router/$* gateway/$* | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $*.diff
 	diffstat $*.diff
 
 
