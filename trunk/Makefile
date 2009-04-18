@@ -65,7 +65,7 @@ define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch)
 endef
 
-DIFF := TZ=UTC0 diff
+DIFF := LC_ALL=C TZ=UTC0 diff
 
 define make_diff
     (cd .. && $(DIFF) $(1) -x*.o $(2)/$(4) $(3)/$(4) | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $(4).diff
