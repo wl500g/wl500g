@@ -61,10 +61,15 @@ EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
 PATCHER := $(shell pwd)/patch.sh
 
-DIFF := TZ=UTC0 diff
-
 define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch)
+endef
+
+DIFF := TZ=UTC0 diff
+
+define make_diff
+    (cd .. && $(DIFF) $(1) -x*.o $(2)/$(4) $(3)/$(4) | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $(4).diff
+    diffstat $(4).diff
 endef
 
 OPENWRT_Kernel_Patches:=$(call patches_list,kernel/openwrt)
@@ -435,6 +440,9 @@ upnp:
 		tar -C $(SRC)/../tools -cf - $@ | tar -C $(TOP) -xf -
 	[ ! -f $@.diff ] || $(PATCHER) $(TOP) $@.diff
 
+upnp-diff:
+	$(call make_diff,-BurpN,tools,gateway,upnp)
+
 $(TOP)/www:
 	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
 		tar -C $(SRC) -cf - www/asus | tar -C $(TOP) -xf -
@@ -458,7 +466,4 @@ www-diff:
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
 
 %-diff:
-	(cd .. && $(DIFF) -BurpN -x*.o router/$* gateway/$* | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $*.diff
-	diffstat $*.diff
-
-
+	$(call make_diff,-BurpN,router,gateway,$*)
