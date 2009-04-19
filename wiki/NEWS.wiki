@@ -1,5 +1,12 @@
 #summary History of Changes
 
+===wl500g-1.9.2.7-d (Current)===
+  * kernel
+    * fix usbaudio driver work via USB 2.0 hub
+
+  * web-interface improvements
+    * add udpxy wan access
+
 ===wl500g-1.9.2.7-d-`r240` (2009-04-11)===
   * kernel
     * EHCI driver backport from 2.6.29
