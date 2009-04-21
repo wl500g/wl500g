@@ -1,5 +1,6 @@
---- linux/drivers/usb/audio24.c	2008-12-02 11:01:34.000000000 +0300
-+++ linux/drivers/usb/audio.c	2009-04-18 12:22:31.000000000 +0400
+diff -uBp linux-2.4.37.orig/drivers/usb/audio.c linux/drivers/usb/audio.c
+--- linux-2.4.37.orig/drivers/usb/audio.c	2008-12-02 11:01:34.000000000 +0300
++++ linux/drivers/usb/audio.c	2009-04-20 19:28:23.000000000 +0400
 @@ -207,15 +207,19 @@
  /*
   * Version Information
@@ -94,11 +95,11 @@
 +	
 +	/* soundcore stuff */
 +	int dev_audio;
-+
+ 
 +	/* wave stuff */
 +	mode_t open_mode;
 +	spinlock_t lock;         /* DMA buffer access spinlock */
- 
++
 +	struct snd_usb_substream usbin;
 +	struct snd_usb_substream usbout;
  
@@ -714,19 +715,6 @@
         	u->flags |= FLG_RUNNING;
 -	if (!(u->flags & FLG_URB0RUNNING)) {
 -		urb = &u->durb[0].urb;
--		urb->dev = dev;
--		urb->pipe = u->datapipe;
--		urb->transfer_flags = USB_ISO_ASAP;
--		urb->number_of_packets = DESCFRAMES;
--		urb->context = as;
--		urb->complete = usbout_completed;
--		if (!usbout_prepare_desc(u, urb) && !usb_submit_urb(urb))
--			u->flags |= FLG_URB0RUNNING;
--		else
--			u->flags &= ~FLG_RUNNING;
--	}
--	if (u->flags & FLG_RUNNING && !(u->flags & FLG_URB1RUNNING)) {
--		urb = &u->durb[1].urb;
 +	for (i=0; i < MAX_URBS; i++) {
 +	    if (!(u->flags & (FLG_URB0RUNNING << i))) {
 +		urb = &u->durb[i].urb;
@@ -738,7 +726,7 @@
  		urb->context = as;
 -		urb->complete = usbout_completed;
 -		if (!usbout_prepare_desc(u, urb) && !usb_submit_urb(urb))
--			u->flags |= FLG_URB1RUNNING;
+-			u->flags |= FLG_URB0RUNNING;
 -		else
 +		urb->complete = audio_urb_ops[is_out].complete;
 +		if (!(*audio_urb_ops[is_out].prepare)(u, urb) &&
@@ -747,6 +735,19 @@
 +		else {
 +			printk(KERN_ERR "submit_urb[%d] failed %d\n", i, err);
  			u->flags &= ~FLG_RUNNING;
+-	}
+-	if (u->flags & FLG_RUNNING && !(u->flags & FLG_URB1RUNNING)) {
+-		urb = &u->durb[1].urb;
+-		urb->dev = dev;
+-		urb->pipe = u->datapipe;
+-		urb->transfer_flags = USB_ISO_ASAP;
+-		urb->number_of_packets = DESCFRAMES;
+-		urb->context = as;
+-		urb->complete = usbout_completed;
+-		if (!usbout_prepare_desc(u, urb) && !usb_submit_urb(urb))
+-			u->flags |= FLG_URB1RUNNING;
+-		else
+-			u->flags &= ~FLG_RUNNING;
 -	}
 -	if (u->syncpipe) {
 -		if (u->flags & FLG_RUNNING && !(u->flags & FLG_SYNC0RUNNING)) {
@@ -925,7 +926,41 @@
  #endif
  	switch (cmd) {
  	case OSS_GETVERSION:
-@@ -3950,7 +3777,7 @@ static void *usb_audio_probe(struct usb_
+@@ -3580,10 +3407,8 @@ static void usb_audio_featureunit(struct
+ {
+ 	struct mixerchannel *ch;
+ 	unsigned short chftr, mchftr;
+-#if 0
+ 	struct usb_device *dev = state->s->usbdev;
+ 	unsigned char data[1];
+-#endif
+ 	unsigned char nr_logical_channels, i;
+ 
+ 	usb_audio_recurseunit(state, ftr[4]);
+@@ -3686,17 +3511,17 @@ static void usb_audio_featureunit(struct
+ 			prepmixch(state);
+ 		}
+ 	}
+-#if 0
++
+ 	/* if there are mute controls, unmute them */
+-	/* does not seem to be necessary, and the Dallas chip does not seem to support the "all" channel (255) */
+-	if ((chftr & 1) || (mchftr & 1)) {
++	/* this is necessary for the Audigy 2 NX, which is muted by default */
++	if (((chftr & 1) || (mchftr & 1)) && dev->descriptor.idVendor==0x041e &&
++		(dev->descriptor.idProduct==0x3020 || dev->descriptor.idProduct==0x3048)) {
+ 		printk(KERN_DEBUG "usbaudio: unmuting feature unit %u interface %u\n", ftr[3], state->ctrlif);
+ 		data[0] = 0;
+ 		if (usb_control_msg(dev, usb_sndctrlpipe(dev, 0), SET_CUR, USB_RECIP_INTERFACE | USB_TYPE_CLASS | USB_DIR_OUT,
+-				    (MUTE_CONTROL << 8) | 0xff, state->ctrlif | (ftr[3] << 8), data, 1, HZ) < 0)
++				    (MUTE_CONTROL << 8) | 0, state->ctrlif | (ftr[3] << 8), data, 1, HZ) < 0)
+ 			printk(KERN_WARNING "usbaudio: failure to unmute feature unit %u interface %u\n", ftr[3], state->ctrlif);
+  	}
+-#endif
+ }
+ 
+ static void usb_audio_recurseunit(struct consmixstate *state, unsigned char unitid)
+@@ -3950,7 +3775,7 @@ static void *usb_audio_probe(struct usb_
  	unsigned int i, buflen;
  	int ret;
  
