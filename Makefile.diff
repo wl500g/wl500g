@@ -1,5 +1,5 @@
---- router/Makefile	2004-12-10 04:00:51.000000000 +0300
-+++ gateway/Makefile	2009-03-31 23:17:59.000000000 +0400
+--- router/Makefile	2004-12-10 01:00:51.000000000 +0000
++++ gateway/Makefile	2009-04-26 17:05:41.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -32,7 +32,7 @@
  
  # uClibc wrapper
  ifeq ($(CONFIG_UCLIBC),y)
-@@ -41,18 +54,22 @@ endif
+@@ -41,18 +54,24 @@ endif
  
  ifeq ($(PLATFORM),mipsel)
  export CROSS_COMPILE := mipsel-linux-
@@ -55,10 +55,12 @@
 +
 +ifeq ($(CONFIG_IPV6),y)
 +export CONFIG_IPV6 := y
++else
++CONFIG_IPV6:=
  endif
  
  export CC := $(CROSS_COMPILE)gcc
-@@ -72,8 +89,13 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
+@@ -72,8 +91,13 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
  export INSTALLDIR := $(PLATFORMDIR)/install
  export TARGETDIR := $(PLATFORMDIR)/target
  
@@ -74,7 +76,7 @@
  
  #
  # Configuration
-@@ -84,18 +106,14 @@
+@@ -84,18 +108,14 @@ obj-$(CONFIG_RC) += rc
  obj-$(CONFIG_LIBBCM) += libbcm
  obj-$(CONFIG_SHARED) += shared
  obj-$(CONFIG_WWW) += www
@@ -94,7 +96,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +125,59 @@
+@@ -107,44 +127,73 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -151,6 +153,20 @@
 +ifneq (0,$(words $(SVNREVISION)))
 +  RELEASE:=$(RELEASE)-r$(firstword $(SVNREVISION))
 +endif
++
++define SwitchConfParam
++	@( ORIG_STR=`grep "$(2)" $(1) 2>/dev/null`; \
++	if [ "$(3)" = "n" ]; then \
++	    TEST_PATTERN="# $(2) is not set"; \
++	else \
++	    TEST_PATTERN="$(2)=$(3)"; \
++	fi; \
++	IS_SAME_VALUE=`echo $${ORIG_STR} | grep "$${TEST_PATTERN}" 2>/dev/null`; \
++	if [ "$${IS_SAME_VALUE}" = "" ]; then \
++	    sed "s/$${ORIG_STR}/$${TEST_PATTERN}/" $(1) >$(1).sed; \
++	    mv $(1).sed $(1); \
++	fi )
++endef
  
  #
  # Basic rules
@@ -172,7 +188,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +183,179 @@
+@@ -155,39 +204,179 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -376,7 +392,16 @@
  #
  # Configuration rules
  #
-@@ -232,9 +401,9 @@ $(LINUXDIR)/.config:
+@@ -225,16 +414,17 @@ oldconfig: oldconf
+ 	cp config/defconfig $@
+ 	$(MAKE) oldconfig
+ 
+-$(LINUXDIR)/.config:
++$(LINUXDIR)/.config: .config
+ 	cp $(LINUXDIR)/arch/mips/defconfig-bcm947xx $@
++	$(call SwitchConfParam,$@,CONFIG_IPV6,$(if $(CONFIG_IPV6),y,n))
+ 
+ #
  # Overrides
  #
  
@@ -388,7 +413,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +411,56 @@ www www-%:
+@@ -242,43 +432,57 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -423,8 +448,9 @@
 +	install -D ez-ipupdate/ez-ipupdate $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 +	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 +
-+busybox/.config:
-+	cd busybox && rm -f .config && ln -sf sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) .config
++busybox/.config: .config
++	cd busybox && cp -fp sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) .config
++	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6,$(if $(CONFIG_IPV6),y,n))
 +	$(MAKE) -C busybox oldconfig
  
 -busybox-install: busybox
@@ -461,7 +487,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +476,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +498,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -471,7 +497,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +491,242 @@ vlan:
+@@ -312,195 +513,242 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -757,7 +783,7 @@
  		make rc GLOBAL_OPTIONS="-DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
  		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
 -		make LPRng GLOBAL_OPTIONS=""; \
--	fi )
+ 	fi )
 -	echo $(LANGUAGE)
 -	make www-install-$*
 - 
@@ -767,12 +793,12 @@
 -		make install CONFIG_SENTRY5=y CONFIG_ROBO=y; \
 -	else \
 -		make install; \
- 	fi )
- 
+-	fi )
+-
 -ifeq ($(CONFIG_BPLAY),y)
 -	cp others/waveserver $(PLATFORMDIR)/target/usr/sbin/. -f
 -endif
--
+ 
 -	# replace et.o for non-5365
 -	( if [ "$*" = "WL500gx" ]; then \
 -		cp et.SENTRY5/*.o $(PLATFORMDIR)/target/lib/modules/2.4.20/kernel/drivers/net/et/. -f; \
@@ -850,7 +876,7 @@
  image-R100:
  	make rc-clean
  	make infosvr-clean
-@@ -512,15 +738,15 @@ image-R100:
+@@ -512,15 +760,15 @@ image-R100:
  	echo $(LANGUAGE)
  	make wwwmt-install-R100 
  	make install
@@ -869,7 +895,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +753,9 @@ image-R100:
+@@ -528,6 +776,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
