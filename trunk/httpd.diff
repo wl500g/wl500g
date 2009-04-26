@@ -1,7 +1,27 @@
-diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
---- router/httpd/broadcom.c	2004-11-11 10:27:09.000000000 +0300
-+++ gateway/httpd/broadcom.c	2008-01-06 14:26:57.000000000 +0300
-@@ -592,6 +592,7 @@
+diff -BurpN -x'*.o' router/httpd/Makefile gateway/httpd/Makefile
+--- router/httpd/Makefile	2004-11-11 07:27:08.000000000 +0000
++++ gateway/httpd/Makefile	2008-01-06 11:26:57.000000000 +0000
+@@ -8,7 +8,7 @@
+ 
+ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
+ #CFLAGS	+= -g -DDEBUG
+-CFLAGS	+= -s -O2
++CFLAGS	+= -s -O2 $(EXTRACFLAGS)
+ LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
+ 
+ vpath %.c $(TOP)/shared
+@@ -24,5 +24,7 @@ install: all
+ 	install -D httpd $(INSTALLDIR)/usr/sbin/httpd
+ 	$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
+ 
++common.o: common.c variables.c
++
+ httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
+ 	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
+diff -BurpN -x'*.o' router/httpd/broadcom.c gateway/httpd/broadcom.c
+--- router/httpd/broadcom.c	2004-11-11 07:27:09.000000000 +0000
++++ gateway/httpd/broadcom.c	2008-01-06 11:26:57.000000000 +0000
+@@ -592,6 +592,7 @@ ej_wan_iflist(int eid, webs_t wp, int ar
  #endif
  
  
@@ -9,7 +29,7 @@ diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
  static int
  ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv) 
  {
-@@ -624,25 +625,30 @@
+@@ -624,25 +625,30 @@ ej_wl_parse_str(int eid, webs_t wp, int 
  
  	return websWrite(wp, "%u", val);
  }
@@ -51,7 +71,7 @@ diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
  	}
  	return(websWrite(wp, "Status	: Connecting to %s\n", nvram_safe_get("wl0_ssid")));
  }
-@@ -693,7 +699,7 @@
+@@ -693,7 +699,7 @@ ej_wl_status(int eid, webs_t wp, int arg
  	}
  	else if (nvram_match(strcat_r(prefix, "mode", tmp), "sta"))
  	{
@@ -60,7 +80,7 @@ diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
  		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
  		ret+=ej_wl_sta_status(eid, wp, name);
  		return ret;
-@@ -891,17 +897,17 @@
+@@ -891,17 +897,17 @@ ej_route_table(int eid, webs_t wp, int a
  
  			if (strstr(buff, "br0"))
  			{
@@ -82,10 +102,10 @@ diff -BurN router/httpd/broadcom.c gateway/httpd/broadcom.c
  			}
  		}
  		nl++;
-diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
---- router/httpd/httpd.c	2004-11-11 10:27:08.000000000 +0300
-+++ gateway/httpd/httpd.c	2008-01-06 14:26:57.000000000 +0300
-@@ -97,6 +97,7 @@
+diff -BurpN -x'*.o' router/httpd/httpd.c gateway/httpd/httpd.c
+--- router/httpd/httpd.c	2004-11-11 07:27:08.000000000 +0000
++++ gateway/httpd/httpd.c	2008-01-06 11:26:57.000000000 +0000
+@@ -97,6 +97,7 @@ static void handle_request(void);
  int redirect = 1;
  char wan_if[16];
  int http_port=SERVER_PORT;
@@ -93,7 +113,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  
  /* Added by Joey for handle one people at the same time */
  unsigned int login_ip=0;
-@@ -413,10 +414,10 @@
+@@ -413,10 +414,10 @@ handle_request(void)
  
      method = path = line;
      strsep(&path, " ");
@@ -106,7 +126,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
      cp = protocol;
      strsep(&cp, " ");
      if ( !method || !path || !protocol ) {
-@@ -474,7 +475,7 @@
+@@ -474,7 +475,7 @@ handle_request(void)
  
      //printf("File: %s\n", file);
  
@@ -115,7 +135,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
      {
  	sprintf(line, "Please log out user, %s, first or wait for session timeout(60 seconds).", inet_ntoa(login_ip));
  
-@@ -485,7 +486,7 @@
+@@ -485,7 +486,7 @@ handle_request(void)
  	
      if ( (file[0] == '\0' || file[len-1] == '/'))
      {
@@ -124,7 +144,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	{
  		redirect=1;
  		file="WizardDetect.asp";
-@@ -560,7 +561,7 @@
+@@ -560,7 +561,7 @@ http_login_cache(usockaddr *u)
  http_login(unsigned int ip)
  {
  
@@ -133,7 +153,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  
  	login_ip = ip;
  	login_try = 0;
-@@ -571,7 +572,7 @@
+@@ -571,7 +572,7 @@ int http_login_check(void)
  {
  	time_t now;
  	
@@ -142,7 +162,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  
  	http_login_timeout(login_ip_tmp);
  
-@@ -593,7 +594,7 @@
+@@ -593,7 +594,7 @@ http_login_timeout(unsigned int ip)
  
  	//printf("login : %x %x\n", now, login_timestamp);
  
@@ -151,7 +171,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	{
  		http_logout(login_ip);
  	}
-@@ -613,7 +614,7 @@
+@@ -613,7 +614,7 @@ http_logout(unsigned int ip)
  
  int is_auth(void)
  {
@@ -160,7 +180,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  		strcmp(nvram_get_x("PrinterStatus", "usb_webhttpcheck_x"), "1")==0) return 1;
  	else return 0;
  }
-@@ -623,6 +624,9 @@
+@@ -623,6 +624,9 @@ int is_phyconnected(void)
  	int fd, err;
  	struct ifreq ifr;
  	struct ethtool_cmd ecmd;
@@ -170,7 +190,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  
  	memset(&ifr, 0, sizeof(ifr));
  
-@@ -671,7 +675,7 @@
+@@ -671,7 +675,7 @@ int is_connected(void)
  	char line[128], *reason;
  
  	/* check if physical connection exist */
@@ -179,7 +199,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	
  	/* check if connection static is CONNECTED */
  	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0)
-@@ -705,6 +709,14 @@
+@@ -705,6 +709,14 @@ int main(int argc, char **argv)
  	socklen_t sz = sizeof(usa);
  	char pidfile[32];
  
@@ -194,7 +214,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	// Added by Joey for handling WAN Interface 
  	// usage: httpd [wan interface] [port]
  	if (argc>2) http_port=atoi(argv[2]);
-@@ -727,7 +739,7 @@
+@@ -727,7 +739,7 @@ int main(int argc, char **argv)
  	{
  	FILE *pid_fp;
  	/* Daemonize and log PID */
@@ -203,7 +223,7 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  	//{
  		if (daemon(1, 1) == -1) 
  		{
-@@ -735,7 +747,7 @@
+@@ -735,7 +747,7 @@ int main(int argc, char **argv)
  			exit(errno);
  		}
  	//}
@@ -212,29 +232,9 @@ diff -BurN router/httpd/httpd.c gateway/httpd/httpd.c
  		strcpy(pidfile, "/var/run/httpd.pid");
  	else sprintf(pidfile, "/var/run/httpd-%d.pid", http_port);
  
-diff -BurN router/httpd/Makefile gateway/httpd/Makefile
---- router/httpd/Makefile	2004-11-11 10:27:08.000000000 +0300
-+++ gateway/httpd/Makefile	2008-01-06 14:26:57.000000000 +0300
-@@ -8,7 +8,7 @@
- 
- CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
- #CFLAGS	+= -g -DDEBUG
--CFLAGS	+= -s -O2
-+CFLAGS	+= -s -O2 $(EXTRACFLAGS)
- LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
- 
- vpath %.c $(TOP)/shared
-@@ -24,5 +24,7 @@
- 	install -D httpd $(INSTALLDIR)/usr/sbin/httpd
- 	$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
- 
-+common.o: common.c variables.c
-+
- httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
- 	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
-diff -BurN router/httpd/nvmap.c gateway/httpd/nvmap.c
---- router/httpd/nvmap.c	2004-11-11 10:27:09.000000000 +0300
-+++ gateway/httpd/nvmap.c	2008-06-14 19:30:09.000000000 +0400
+diff -BurpN -x'*.o' router/httpd/nvmap.c gateway/httpd/nvmap.c
+--- router/httpd/nvmap.c	2004-11-11 07:27:09.000000000 +0000
++++ gateway/httpd/nvmap.c	2008-06-14 15:30:09.000000000 +0000
 @@ -1,5 +1,6 @@
  #include <stdio.h>
  #include <stdlib.h>
@@ -242,7 +242,7 @@ diff -BurN router/httpd/nvmap.c gateway/httpd/nvmap.c
  #include <bcmnvram.h>
  
  
-@@ -99,6 +100,8 @@
+@@ -99,6 +100,8 @@ struct nvmap maps[] = {
  { "Storage", "x_AccUser6_Write", "sh_accuser_write_x6"},
  { NULL, NULL, NULL }};
  
@@ -251,10 +251,10 @@ diff -BurN router/httpd/nvmap.c gateway/httpd/nvmap.c
  /* This function is used to map nvram value from asus to Broadcom */
  void readFromNvram()
  {	
-diff -BurN router/httpd/shutils.c gateway/httpd/shutils.c
---- router/httpd/shutils.c	2004-11-11 10:27:08.000000000 +0300
-+++ gateway/httpd/shutils.c	2008-01-06 14:26:57.000000000 +0300
-@@ -125,6 +125,8 @@
+diff -BurpN -x'*.o' router/httpd/shutils.c gateway/httpd/shutils.c
+--- router/httpd/shutils.c	2004-11-11 07:27:08.000000000 +0000
++++ gateway/httpd/shutils.c	2008-01-06 11:26:57.000000000 +0000
+@@ -125,6 +125,8 @@ _eval(char *const argv[], char *path, in
  		close(STDIN_FILENO);
  		setsid();
  
@@ -263,9 +263,9 @@ diff -BurN router/httpd/shutils.c gateway/httpd/shutils.c
  		/* Redirect stdout to <path> */
  		if (path) {
  			flags = O_WRONLY | O_CREAT;
-diff -BurN router/httpd/variables.c gateway/httpd/variables.c
---- router/httpd/variables.c	2004-11-15 11:06:01.000000000 +0300
-+++ gateway/httpd/variables.c	2009-04-09 01:01:03.000000000 +0400
+diff -BurpN -x'*.o' router/httpd/variables.c gateway/httpd/variables.c
+--- router/httpd/variables.c	2004-11-15 08:06:01.000000000 +0000
++++ gateway/httpd/variables.c	2009-04-08 21:01:03.000000000 +0000
 @@ -455,6 +455,8 @@
                  {"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
              
@@ -742,7 +742,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
        { 0, 0, 0, 0, 0, 0}
        };
        
-@@ -4221,6 +4300,25 @@
+@@ -4221,6 +4300,25 @@ struct action actions_WLANAuthentication
  struct action actions_PrinterStatus[];
  struct variable variables_WLANAuthentication11b[];
  
@@ -768,7 +768,7 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
  
  struct svcLink svcLinks[] = {            
             {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
-@@ -4239,6 +4337,7 @@
+@@ -4239,6 +4337,7 @@ struct svcLink svcLinks[] = {           
             {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, actions_DeviceSecurity},
             {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, actions_WLANAuthentication},         
             {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, actions_PrinterStatus},
@@ -776,9 +776,9 @@ diff -BurN router/httpd/variables.c gateway/httpd/variables.c
             {0, 0, 0}
        };
  	
-diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
---- router/httpd/web_ex.c	2004-12-01 16:58:17.000000000 +0300
-+++ gateway/httpd/web_ex.c	2009-03-22 14:56:57.000000000 +0300
+diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
+--- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
++++ gateway/httpd/web_ex.c	2009-03-22 11:56:57.000000000 +0000
 @@ -48,6 +48,10 @@
  
  #define sys_restart() kill(1, SIGHUP)
@@ -790,7 +790,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  
  #ifdef WEBS
  #define init_cgi(query)
-@@ -78,6 +82,8 @@
+@@ -78,6 +82,8 @@ static int apply_cgi_group(webs_t wp, in
  static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
  
  static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
@@ -799,7 +799,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  
  char ibuf[8192];
  char ibuf2[8192];
-@@ -124,7 +130,7 @@
+@@ -124,7 +130,7 @@ reltime(unsigned int seconds)
  	static char s[] = "XXXXX days, XX hours, XX minutes, XX seconds";
  	char *c = s;
  
@@ -808,7 +808,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  	if (seconds > 60*60*24) {
  		c += sprintf(c, "%d days, ", seconds / (60*60*24));
  		seconds %= 60*60*24;
-@@ -170,7 +176,10 @@
+@@ -170,7 +176,10 @@ void websRedirect(webs_t wp, char_t *url
  {	
  	//printf("Redirect to : %s\n", url);	
  	websWrite(wp, T("<html><head>\r\n"));
@@ -820,7 +820,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
          websWrite(wp, T("<meta http-equiv=\"Content-Type\" content=\"text/html\">\r\n"));
          websWrite(wp, T("</head></html>\r\n"));      
  	
-@@ -205,7 +214,7 @@
+@@ -205,7 +214,7 @@ void sys_script(char *name)
       {
  	   if (strcmp(SystemCmd, "")!=0)
  	   {
@@ -829,7 +829,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  	   	system(SystemCmd);
  	   }	
  	   else
-@@ -229,6 +238,7 @@
+@@ -229,6 +238,7 @@ void sys_script(char *name)
       else if (strcmp(name, "lpr_remove")==0)
       {
  	   kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
@@ -837,7 +837,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
       }
       else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0)
       {
-@@ -238,6 +248,11 @@
+@@ -238,6 +248,11 @@ void sys_script(char *name)
       {
  		sys_refresh_lease();	
       }
@@ -849,7 +849,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
       else if (strcmp(name,"iptable.sh")==0) 
       {
  		// TODO	
-@@ -474,6 +489,25 @@
+@@ -474,6 +489,25 @@ ej_nvram_match_x(int eid, webs_t wp, int
  	return 0;
  }	
  
@@ -875,7 +875,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  /*
   * Example: 
   * wan_proto=dhcp
-@@ -1035,7 +1069,7 @@
+@@ -1035,7 +1069,7 @@ static int dump_file(webs_t wp, char *fi
  	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL)
  	{	 	
  	    //printf("Read time: %s\n", buf);	    	    	    	   
@@ -884,7 +884,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  	}		    	                             		
  	 
  	fclose(fp);		
-@@ -1444,14 +1478,15 @@
+@@ -1444,14 +1478,15 @@ apply_cgi(webs_t wp, char_t *urlPrefix, 
  	   	sys_script(script);
  	}   
  	
@@ -905,7 +905,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
          } 
          
      	else if(!strcmp(value, " Finish ")) websRedirect(wp, "SaveRestart.asp");
-@@ -2115,8 +2150,9 @@
+@@ -2115,8 +2150,9 @@ do_upgrade_cgi(char *url, FILE *stream)
  	if (ret == 0)
  	{
                  websApply(stream, "Updating.asp"); 
@@ -916,7 +916,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  	}	
  	else    
  	{
-@@ -2294,11 +2330,112 @@
+@@ -2294,11 +2330,112 @@ do_prf_file(char *url, FILE *stream)
  {
  	sys_commit(NULL);
  	sys_download("/tmp/settings");
@@ -1030,7 +1030,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
  #elif defined(vxworks)
  
  static void
-@@ -2345,6 +2482,7 @@
+@@ -2345,6 +2482,7 @@ initHandlers(void)
  	websAspDefine("nvram_get_buf_x", ej_nvram_get_buf_x);	
  	websAspDefine("nvram_get_table_x", ej_nvram_get_table_x);	
  	websAspDefine("nvram_match_x", ej_nvram_match_x);
@@ -1038,7 +1038,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
      	websAspDefine("nvram_match_both_x", ej_nvram_match_both_x);	
  	websAspDefine("nvram_match_list_x", ej_nvram_match_list_x);
  	websAspDefine("select_channel", ej_select_channel);
-@@ -2370,9 +2508,11 @@
+@@ -2370,9 +2508,11 @@ struct mime_handler mime_handlers[] = {
  	{ "**.js",  "text/javascript", NULL, NULL, do_file, do_auth },
  	{ "**.cab", "text/txt", NULL, NULL, do_file, do_auth },
  	{ "**.CFG", "text/txt", NULL, NULL, do_prf_file, do_auth },
@@ -1050,7 +1050,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
   	{ "syslog.cgi*", "text/txt", no_cache, NULL, do_log_cgi, do_auth },
  	{ "webcam.cgi*", "text/html", no_cache, NULL, do_webcam_cgi, do_auth },
  	{ NULL, NULL, NULL, NULL, NULL, NULL }
-@@ -2510,6 +2650,7 @@
+@@ -2510,6 +2650,7 @@ struct ej_handler ej_handlers[] = {
  	{ "nvram_get_buf_x", ej_nvram_get_buf_x},
  	{ "nvram_get_table_x", ej_nvram_get_table_x},
  	{ "nvram_match_x", ej_nvram_match_x},
@@ -1058,7 +1058,7 @@ diff -BurN router/httpd/web_ex.c gateway/httpd/web_ex.c
          { "nvram_match_both_x", ej_nvram_match_both_x},
  	{ "nvram_match_list_x", ej_nvram_match_list_x},
  	{ "select_channel", ej_select_channel},
-@@ -2895,7 +3036,7 @@
+@@ -2895,7 +3036,7 @@ wl_channels_in_country(char *abbrev, int
  
  	cic->buflen = sizeof(ibuf2);
  	strcpy(cic->country_abbrev, abbrev);
