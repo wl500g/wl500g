@@ -844,7 +844,7 @@ static int pwc_isoc_init(struct pwc_device *pdev)
 	for (i = 0; i < MAX_ISO_BUFS; i++) {
 		urb = pdev->sbuf[i].urb;
 
-		urb->next = pdev->sbuf[(i + 1) % MAX_ISO_BUFS].urb;
+		urb->interval = 1;
 		urb->dev = udev;
 	        urb->pipe = usb_rcvisocpipe(udev, pdev->vendpoint);
 		urb->transfer_flags = USB_ISO_ASAP;
