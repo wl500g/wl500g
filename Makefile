@@ -142,11 +142,13 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
-	tar -C $(KERNEL_DIR) -xvjf ov51x-1.65-1.12.tar.bz2
-	tar -C $(KERNEL_DIR) -xvjf pwc-9.0.2.tar.bz2
 	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
-kernel: lzma et wl brcm-shared kernel-patch
+kernel-extra-drivers:
+	tar -C $(KERNEL_DIR) -xvjf kernel/drivers/ov51x-1.65-1.12.tar.bz2
+	tar -C kernel/drivers/pwc-9.0.2 -cf - . --exclude .svn | tar -C $(KERNEL_DIR)/drivers/usb -xf -
+
+kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
 	@true
 
 asustrx:
@@ -154,7 +156,7 @@ asustrx:
 
 $(TOP)/loader: loader/Makefile
 	@rm -rf $(TOP)/loader
-	tar -C . -cf - loader | tar -C $(TOP) -xf -
+	tar -C . -cf - loader --exclude .svn | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
