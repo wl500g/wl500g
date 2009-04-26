@@ -1,44 +1,21 @@
 diff -BurpN router/rc/init.c gateway/rc/init.c
---- router/rc/init.c	2008-03-19 20:07:24.000000000 +0300
-+++ gateway/rc/init.c	2009-03-22 16:04:43.000000000 +0300
-@@ -35,6 +35,7 @@
- 
- #define loop_forever() do { sleep(1); } while (1)
- #define SHELL "/bin/sh"
-+#define SIGUSR3 (SIGRTMIN+4)
- 
- /* Set terminal settings to reasonable defaults */
- static void set_term(int fd)
-@@ -160,20 +161,33 @@ run_shell(int timeout, int nowait)
+--- router/rc/init.c	2008-03-19 17:07:24.000000000 +0000
++++ gateway/rc/init.c	2009-04-26 14:09:49.000000000 +0000
+@@ -159,6 +159,13 @@ run_shell(int timeout, int nowait)
+ 	}
  }
  
- static void
--shutdown_system(void)
-+preshutdown(int sig)
- {
--	int sig, fd;
-+	signal(sig, SIG_DFL);
++void
++preshutdown_system(void)
++{
 +	eval("/usr/local/sbin/pre-shutdown");
 +	sleep(2);
 +}
 +
-+static void
-+shutdown_system(int fatal_sig)
-+{
-+	int sig;
- 
- 	/* Disable signal handlers */
- 	for (sig = 0; sig < (_NSIG-1); sig++)
- 		signal(sig, SIG_DFL);
- 
-+	/* Perform pre-shutdown script only with common signals */
-+	switch (fatal_sig) {
-+	case SIGQUIT:
-+	case SIGTERM:
-+		preshutdown(SIGUSR3);
-+		break;
-+	}
-+
+ static void
+ shutdown_system(void)
+ {
+@@ -171,9 +178,6 @@ shutdown_system(void)
  	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
  	eval("killall", "pppd");
  
@@ -48,7 +25,7 @@ diff -BurpN router/rc/init.c gateway/rc/init.c
  	if (exists("/dev/misc/rtc"))
  		eval("/sbin/hwclock", "-w");
  
-@@ -226,7 +240,6 @@ fatal_signal(int sig)
+@@ -226,7 +230,6 @@ fatal_signal(int sig)
  	case SIGTRAP: message = "Trace trap"; break;
  	case SIGPWR: message = "Power failure"; break;
  	case SIGTERM: message = "Terminated"; break;
@@ -56,18 +33,29 @@ diff -BurpN router/rc/init.c gateway/rc/init.c
  	}
  
  	if (message)
-@@ -234,7 +247,7 @@ fatal_signal(int sig)
+@@ -234,6 +237,14 @@ fatal_signal(int sig)
  	else
  		cprintf("Caught signal %d\n", sig);
  
--	shutdown_system();
-+	shutdown_system(sig);
++	/* Perform pre-shutdown script only with common signals */
++	switch (sig) {
++	case SIGQUIT:
++	case SIGTERM:
++		preshutdown_system();
++		break;
++	}
++
+ 	shutdown_system();
  	sleep(2);
  
- 	/* Halt on SIGQUIT */
-@@ -261,4 +273,5 @@ signal_init(void)
- 		signal(fatal_signals[i], fatal_signal);
+diff -BurpN router/rc/rc.h gateway/rc/rc.h
+--- router/rc/rc.h	2008-12-28 08:59:11.000000000 +0000
++++ gateway/rc/rc.h	2009-04-26 13:47:24.000000000 +0000
+@@ -56,6 +56,7 @@ int console_init(void);
+ pid_t run_shell(int timeout, int nowait);
+ void signal_init(void);
+ void fatal_signal(int sig);
++void preshutdown_system(void);
  
- 	signal(SIGCHLD, reap);
-+	signal(SIGUSR3, preshutdown);
- }
+ /* interface */
+ int ifconfig(char *ifname, int flags, char *addr, char *netmask);
