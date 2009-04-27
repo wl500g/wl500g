@@ -706,9 +706,11 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
  
  	// success!
  	return 1;
-@@ -327,6 +609,9 @@ static int check_intr_schedule (
+@@ -327,7 +609,11 @@ static int check_intr_schedule (
+ )
  {
      	int		retval = -ENOSPC;
++	u8		mask = 0;
  
 +	if (qh->c_usecs && uframe >= 6)		/* FSTN territory? */
 +		goto done;
@@ -716,12 +718,11 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
  	if (!check_period (ehci, frame, uframe, qh->period, qh->usecs))
  		goto done;
  	if (!qh->c_usecs) {
-@@ -334,6 +619,25 @@ static int check_intr_schedule (
+@@ -334,6 +619,24 @@ static int check_intr_schedule (
  		*c_maskp = cpu_to_le32 (0);
  		goto done;
  	}
 +#ifdef CONFIG_USB_EHCI_TT_NEWSCHED
-+	u8		mask = 0;
 +	if (tt_available (ehci, qh->period, qh->dev, frame, uframe,
 +				qh->tt_usecs)) {
 +		unsigned i;
