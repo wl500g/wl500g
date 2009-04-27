@@ -59,6 +59,9 @@ RANLIB=$(CROSS)ranlib
 
 EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
+# tar has --exclude parameter ?
+TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
+
 PATCHER := $(shell pwd)/patch.sh
 
 define patches_list
@@ -142,21 +145,20 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
-	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 kernel-extra-drivers:
 	tar -C $(KERNEL_DIR) -xvjf kernel/drivers/ov51x-1.65-1.12.tar.bz2
-	tar -C kernel/drivers/pwc-9.0.2 -cf - . --exclude .svn | tar -C $(KERNEL_DIR)/drivers/usb -xf -
+	tar -C kernel/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
 kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
-	@true
+	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
 
 $(TOP)/loader: loader/Makefile
 	@rm -rf $(TOP)/loader
-	tar -C . -cf - loader --exclude .svn | tar -C $(TOP) -xf -
+	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
@@ -469,3 +471,6 @@ www-diff:
 
 %-diff:
 	$(call make_diff,-BurpN,router,gateway,$*)
+
+
+.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared 
