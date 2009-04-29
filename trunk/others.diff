@@ -1427,14 +1427,11 @@ diff -BurN router/others/linuxrc.sh gateway/others/linuxrc.sh
 diff -BurN router/others/Makefile gateway/others/Makefile
 --- router/others/Makefile	2004-11-15 11:51:39.000000000 +0300
 +++ gateway/others/Makefile	2008-08-25 12:46:06.000000000 +0400
-@@ -3,34 +3,52 @@
+@@ -3,34 +3,43 @@
  endif
  
  all :
 +	rm -rf $(INSTALLDIR)
-+ifneq ($(findstring PARPORT_SUPPORT, $(GLOBAL_OPTIONS)),)
-+	make -C parport
-+endif
  
  install: all
 -	install -d $(INSTALLDIR)/etc
@@ -1457,12 +1454,6 @@ diff -BurN router/others/Makefile gateway/others/Makefile
 -	install lp.o $(INSTALLDIR)/lib/modules/2.4.20/parport
 -	install parport.o $(INSTALLDIR)/lib/modules/2.4.20/parport
 -	install parport_splink.o $(INSTALLDIR)/lib/modules/2.4.20/parport
-+ifneq ($(findstring PARPORT_SUPPORT, $(GLOBAL_OPTIONS)),)
-+	install -d $(INSTALLDIR)/lib/modules/$(LINUX_KERNEL)/parport
-+	install lp.o $(INSTALLDIR)/lib/modules/$(LINUX_KERNEL)/parport
-+	install parport.o $(INSTALLDIR)/lib/modules/$(LINUX_KERNEL)/parport
-+	install parport_splink.o $(INSTALLDIR)/lib/modules/$(LINUX_KERNEL)/parport
-+endif
  	#install waveserver $(INSTALLDIR)/usr/sbin/waveserver
  	
 -	ln -sf /tmp/resolv.conf $(INSTALLDIR)/etc/resolv.conf

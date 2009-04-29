@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-04-26 17:05:41.000000000 +0000
++++ gateway/Makefile	2009-04-29 18:43:43.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -96,7 +96,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +127,73 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +127,69 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -143,10 +143,6 @@
  export LANGUAGE := "EN"
 +export GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DPRNINFO -DNO_PARALLEL -DUSBONLY
 +
-+ifeq ($(MODEL),WL500g)
-+export GLOBAL_OPTIONS := -DUSB_SUPPORT -DPARPORT_SUPPORT -DPRNINFO -DQOS -DWPA2_WMM
-+endif
-+
 +LZMADIR=$(SRCBASE)/lzma/SRC/7zip/Compress
 +
 +SVNREVISION:=$(shell cat $(TOP)/.svnrev 2>/dev/null)
@@ -188,7 +184,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +204,179 @@ clean: $(obj-clean) config-clean
+@@ -155,39 +200,179 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -392,7 +388,7 @@
  #
  # Configuration rules
  #
-@@ -225,16 +414,17 @@ oldconfig: oldconf
+@@ -225,16 +410,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -413,7 +409,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +432,57 @@ www www-%:
+@@ -242,43 +428,57 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -487,7 +483,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +498,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +494,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -497,7 +493,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,195 +513,242 @@ vlan:
+@@ -312,215 +509,228 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -738,34 +734,34 @@
 +		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 +	elif [ "$*" = "WL500W" ]; then \
 +		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500W -DQOS -DWPA2_WMM"; \
- 		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
--		make LPRng GLOBAL_OPTIONS="-DUSBONLY"; \
- 	elif [ "$*" = "WL500g" ]; then \
- 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DQOS -DWPA2_WMM"; \
- 		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
--		make LPRng GLOBAL_OPTIONS=""; \
- 	elif [ "$*" = "WL500b" ]; then \
- 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DQOS"; \
- 		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
--		make LPRng GLOBAL_OPTIONS=""; \
- 	elif [ "$*" = "WL500bv2" ]; then \
- 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DRT2400_SUPPORT -DQOS"; \
- 		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
--		make LPRng GLOBAL_OPTIONS=""; \
- 	elif [ "$*" = "WL500gl" ]; then \
- 		make rc GLOBAL_OPTIONS="-DWPA2_WMM"; \
- 		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
--		make LPRng GLOBAL_OPTIONS=""; \
- 	elif [ "$*" = "WL500bl" ]; then \
- 		make rc GLOBAL_OPTIONS=""; \
- 		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
--		make LPRng GLOBAL_OPTIONS=""; \
++		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 +	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
 +		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM"; \
 +		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 +	elif [ "$*" = "WLHDD" ]; then \
 +		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WLHDD -DQOS -DWPA2_WMM"; \
-+		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+ 		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+-		make LPRng GLOBAL_OPTIONS="-DUSBONLY"; \
+-	elif [ "$*" = "WL500g" ]; then \
+-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DQOS -DWPA2_WMM"; \
+-		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
+-		make LPRng GLOBAL_OPTIONS=""; \
+-	elif [ "$*" = "WL500b" ]; then \
+-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DQOS"; \
+-		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
+-		make LPRng GLOBAL_OPTIONS=""; \
+-	elif [ "$*" = "WL500bv2" ]; then \
+-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT -DRT2400_SUPPORT -DQOS"; \
+-		make infosvr GLOBAL_OPTIONS="-DPRNINFO"; \
+-		make LPRng GLOBAL_OPTIONS=""; \
+-	elif [ "$*" = "WL500gl" ]; then \
+-		make rc GLOBAL_OPTIONS="-DWPA2_WMM"; \
+-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
+-		make LPRng GLOBAL_OPTIONS=""; \
+-	elif [ "$*" = "WL500bl" ]; then \
+-		make rc GLOBAL_OPTIONS=""; \
+-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
+-		make LPRng GLOBAL_OPTIONS=""; \
  	elif [ "$*" = "WL300g" ]; then \
  		make rc GLOBAL_OPTIONS="-DCONFIG_WL300G -DWPA2_WMM"; \
  		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
@@ -788,7 +784,7 @@
 -	make www-install-$*
 - 
 -	rm $(PLATFORMDIR)/target/usr/sbin/waveserver -f
--
+ 
 -	( if [ "$*" = "WL500gx" ]; then \
 -		make install CONFIG_SENTRY5=y CONFIG_ROBO=y; \
 -	else \
@@ -798,7 +794,7 @@
 -ifeq ($(CONFIG_BPLAY),y)
 -	cp others/waveserver $(PLATFORMDIR)/target/usr/sbin/. -f
 -endif
- 
+-
 -	# replace et.o for non-5365
 -	( if [ "$*" = "WL500gx" ]; then \
 -		cp et.SENTRY5/*.o $(PLATFORMDIR)/target/lib/modules/2.4.20/kernel/drivers/net/et/. -f; \
@@ -840,9 +836,8 @@
  images:
  	make images-WL500gx
 -	make images-WL500g
-+	#make images-WL500g
- 	#make images-WL500b
- 	#make images-WL500bv2
+-	#make images-WL500b
+-	#make images-WL500bv2
  	#make images-WL300g
 +	#make images-WLHDD
 +	make images-WL550gE
@@ -856,9 +851,22 @@
 +	#make images-WL700g
  	#make images-WL331g
  	#make images-WL331gl
- 	#make images-WL500gl
- 	#make images-WL500bl
+-	#make images-WL500gl
+-	#make images-WL500bl
  
+-image-R100:
+-	make rc-clean
+-	make infosvr-clean
+-	make LPRng-clean
+-	make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DPARPORT_SUPPORT"; 
+-	make infosvr GLOBAL_OPTIONS="-DPRNINFO"; 
+-	make LPRng GLOBAL_OPTIONS="";
+-	LANGUAGE="EN" 
+-	echo $(LANGUAGE)
+-	make wwwmt-install-R100 
+-	make install
+-	cp et.4702/et.o $(PLATFORMDIR)/target/lib/modules/2.4.20/kernel/drivers/net/et/. -f
+-	cd $(PLATFORMDIR) && make R100 && cd ..
 +fast:
 +	# vlan/usb
 +	make images-WL500gx
@@ -872,18 +880,6 @@
 +	#make images-WL500bv2
 +	#make images-WL300g
 +	#make images-WLHDD
-+
- image-R100:
- 	make rc-clean
- 	make infosvr-clean
-@@ -512,15 +760,15 @@ image-R100:
- 	echo $(LANGUAGE)
- 	make wwwmt-install-R100 
- 	make install
--	cp et.4702/et.o $(PLATFORMDIR)/target/lib/modules/2.4.20/kernel/drivers/net/et/. -f
--	cd $(PLATFORMDIR) && make R100 && cd ..
-+	#cp et.4702/et.o $(PLATFORMDIR)/target/lib/modules/2.4.20/kernel/drivers/net/et/. -f
-+	make -C $(PLATFORMDIR) R100 MKCRAMFS=$(LINUXDIR)/scripts/squashfs/mksquashfs
  
  #
  # Generic rules
@@ -895,7 +891,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +776,9 @@ image-R100:
+@@ -528,6 +738,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
