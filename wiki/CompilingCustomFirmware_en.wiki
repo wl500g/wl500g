@@ -16,7 +16,7 @@
 
 == 2. Download the sources ==
   * ASUS original sources [http://dlsvr01.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://www.asus.com.cn/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror])
-  * Linux kernel [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.tar.bz2 linux-2.4.37.tar.bz2]
+  * Linux kernel [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.1.tar.bz2 linux-2.4.37.1.tar.bz2]
   * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc hndtools-mipsel-uclibc-4.1.2]
   * Firmware sources [http://code.google.com/p/wl500g/source/checkout wl500g-1.9.2.7-d]
 
@@ -28,8 +28,8 @@ $ mkdir -p /whatever-you-want
 $ mkdir -p /opt/brcm
 $ tar -C /whatever-you-want -zxvf GPL_1927.ZIP
 $ rm -rf /whatever-you-want/broadcom/src/linux/linux
-$ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.tar.bz2
-$ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37 /whatever-you-want/broadcom/src/linux/linux
+$ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.1.tar.bz2
+$ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37.1 /whatever-you-want/broadcom/src/linux/linux
 $ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
 $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
 }}}
