@@ -3456,7 +3456,7 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
   	if (likely (status == 0))
  		itd_link_urb (ehci, urb, ehci->periodic_size << 3, stream);
  	spin_unlock_irqrestore (&ehci->lock, flags);
-@@ -1528,25 +1711,372 @@ done:
+@@ -1528,25 +1711,374 @@ done:
  	return status;
  }
  
@@ -3799,11 +3799,13 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/
 +
 +#ifdef EHCI_URB_TRACE
 +	ehci_dbg (ehci,
-+		"submit %p dev%s ep%d%s-iso len %d\n",
++		"submit %p dev%s ep%d%s-iso len %d pkts %d [%p]\n",
 +		urb, urb->dev->devpath,
 +		usb_pipeendpoint (urb->pipe),
 +		usb_pipein (urb->pipe) ? "in" : "out",
-+		urb->transfer_buffer_length);
++		urb->transfer_buffer_length,
++		urb->number_of_packets,
++		stream);
 +#endif
 +
 +	/* allocate SITDs */
