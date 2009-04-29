@@ -338,7 +338,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 +	union ehci_shadow	*q = &ehci->pshadow [frame];
 +	unsigned char		uf;
 +
-+	memset(tt_usecs, 0, 16);
++	memset(tt_usecs, 0, sizeof(unsigned short)*8);
 +
 +	while (q->ptr) {
 +		switch (Q_NEXT_TYPE(*hw_p)) {
@@ -454,7 +454,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 +		if (max_tt_usecs[7] < tt_usecs[7]) {
 +			ehci_vdbg(ehci,
 +				"tt unavailable usecs %d frame %d uframe %d\n",
-+				usecs, frame, uframe);
++				tt_usecs[7], frame, uframe);
 +			return 0;
 +		}
 +	}
