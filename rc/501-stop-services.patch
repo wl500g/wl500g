@@ -1,0 +1,24 @@
+diff -BurpN router/rc/services.c gateway/rc/services.c
+--- router/rc/services.c	2009-02-19 14:01:53.000000000 +0000
++++ gateway/rc/services.c	2009-04-30 08:00:57.000000000 +0000
+@@ -385,6 +385,8 @@ start_services(void)
+ int
+ stop_services(void)
+ {
++	preshutdown_system();
++
+ #ifdef ASUS_EXT
+ 	stop_usb();
+ #endif
+diff -BurpN router/rc/services_ex.c gateway/rc/services_ex.c
+--- router/rc/services_ex.c	2009-02-25 20:18:31.000000000 +0000
++++ gateway/rc/services_ex.c	2009-04-30 08:01:32.000000000 +0000
+@@ -1939,6 +1939,8 @@ usbhandler:	
+ int
+ stop_service_main(int argc, char *argv[])
+ {
++	preshutdown_system();
++
+ 	stop_snmpd();
+ 	stop_misc();
+ 	stop_logger();
