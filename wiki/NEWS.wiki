@@ -1,13 +1,19 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d (Current)===
+===wl500g-1.9.2.7-d-`r273` (2009-04-30)===
   * kernel 2.4.37.1
     * fix usbaudio driver work via USB 2.0 hub
+    * make pwc webcam driver EHCI compatible
+    * USB 2.0 fixes
+
+  * rc (startup) procedures changes
+    * improve pre-shutdown before firmware upgrade
 
   * web-interface improvements
     * add udpxy wan access
 
   * busybox 1.13.4
+    * fix "df -h" command
 
 ===wl500g-1.9.2.7-d-`r240` (2009-04-11)===
   * kernel
