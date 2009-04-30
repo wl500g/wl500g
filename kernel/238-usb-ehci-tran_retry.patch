@@ -1,10 +1,7 @@
-From: Alan Stern <stern@rowland.harvard.edu>
-Date: Thu, 26 Mar 2009 18:25:05 +0000 (+0000)
-Subject: USB: EHCI: add software retry for transaction errors
+USB: EHCI: add software retry for transaction errors
+
 X-Git-Tag: v2.6.29.1~39
 X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fstable%2Flinux-2.6.29.y.git;a=commitdiff_plain;h=39f8c8a3ef3864bb8ed42c5d2159d6a9b0f0b36c
-
-USB: EHCI: add software retry for transaction errors
 
 This patch (as1204) adds a software retry mechanism to ehci-hcd.  It
 gets invoked when the driver encounters transaction errors on an

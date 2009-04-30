@@ -1,12 +1,7 @@
-From: Karsten Wiese <fzu@wemgehoertderstaat.de>
-Date: Mon, 9 Feb 2009 00:07:58 +0000 (-0800)
-Subject: USB: EHCI: slow down ITD reuse
-X-Git-Tag: v2.6.28.8~86
-X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fstable%2Flinux-2.6.28.y.git;a=commitdiff_plain;h=6d21e78dd40d9a292c837b34b3cbcea02f8c7ae1
-
 USB: EHCI: slow down ITD reuse
 
-commit 9aa09d2f8f4bc440d6db1c3414d4009642875240 upstream.
+X-Git-Tag: v2.6.28.8~86
+X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Fstable%2Flinux-2.6.28.y.git;a=commitdiff_plain;h=6d21e78dd40d9a292c837b34b3cbcea02f8c7ae1
 
 Currently ITDs are immediately recycled whenever their URB completes.
 However, EHCI hardware can sometimes remember some ITD state.  This

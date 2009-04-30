@@ -1,12 +1,5 @@
-From david-b@pacbell.net Wed May 24 09:39:26 2006
-From: Dan Streetman <ddstreet@ieee.org>
-To: Greg KH <greg@kroah.com>
-Subject: [patch 2.6.17-rc4-git] improved TT scheduling for EHCI
+[patch 2.6.17-rc4-git] improved TT scheduling for EHCI
 Date: Wed, 24 May 2006 09:39:16 -0700
-Cc: Dan Streetman <ddstreet@ieee.org>, Christopher Montgomery <xiphmont@gmail.com>
-Message-Id: <200605240939.19296.david-b@pacbell.net>
-
-From: Dan Streetman <ddstreet@ieee.org>
 
 This updates the EHCI driver by adding an improved scheduler for the
 transaction translators, found in USB 2.0 hubs and used for low and
