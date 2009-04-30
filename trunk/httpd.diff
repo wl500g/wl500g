@@ -778,8 +778,8 @@ diff -BurpN -x'*.o' router/httpd/variables.c gateway/httpd/variables.c
  	
 diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
 --- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
-+++ gateway/httpd/web_ex.c	2009-04-26 16:44:42.000000000 +0000
-@@ -48,13 +48,14 @@
++++ gateway/httpd/web_ex.c	2009-04-30 08:17:20.000000000 +0000
+@@ -48,6 +48,7 @@
  
  #define sys_restart() kill(1, SIGHUP)
  #define sys_reboot() kill(1, SIGTERM)
@@ -787,14 +787,6 @@ diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
  
  #ifdef WEBS
  #define init_cgi(query)
- #define do_file(webs, file)
- #endif
- 
--#define sys_upgrade(image) eval("write", image, "/dev/mtd/1")
-+#define sys_upgrade(image) eval("write", image, "/dev/mtd/1", "-r")
- #define sys_upload(image) eval("nvram", "restore", image)
- #define sys_download(file) eval("nvram", "save", file)
- #define sys_stats(url) eval("stats", (url))
 @@ -78,6 +79,8 @@ static int apply_cgi_group(webs_t wp, in
  static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
  
