@@ -58,7 +58,7 @@ static char const RCSID[] =
 #define _ROOT_PATH ""
 #endif
 
-#define _PATH_ETHOPT         _ROOT_PATH "/etc/ppp/options."
+#define _PATH_ETHOPT         _ROOT_PATH "/ppp/options."
 
 char pppd_version[] = VERSION;
 
