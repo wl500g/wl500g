@@ -384,10 +384,11 @@ $(TOP)/rp-pppoe: $(RP-PPPOE).tar.gz
 	$(PATCHER) $(TOP)/$(RP-PPPOE) rp-pppoe.patch
 	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
 
-$(TOP)/rp-pppoe/src/Makefile: $(TOP)/rp-pppoe
+$(TOP)/rp-pppoe/src/Makefile: $(TOP)/ppp $(TOP)/rp-pppoe
 	cd $(TOP)/rp-pppoe/src && \
 		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 		./configure --host=mipsel-linux --prefix=/usr \
+		 --enable-plugin=$(TOP)/ppp \
 		 ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev 
 
 rp-pppoe: $(TOP)/rp-pppoe/src/Makefile
