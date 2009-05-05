@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-04-29 18:43:43.000000000 +0000
++++ gateway/Makefile	2009-05-05 16:03:31.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -493,7 +493,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +509,228 @@ vlan:
+@@ -312,215 +509,229 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -508,16 +508,17 @@
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/sbin/pppd
 +	install -D ppp/chat/chat $(INSTALLDIR)/ppp/usr/sbin/chat
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/sbin/chat
-+	install -D ppp/pppd/plugins/rp-pppoe/rp-pppoe.so $(INSTALLDIR)/ppp/usr/lib/pppd/rp-pppoe.so
 +	install -D ppp/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
 +
 +rp-pppoe:
-+	$(MAKE) -C $@/src pppoe-relay
++	$(MAKE) -C $@/src pppoe-relay rp-pppoe.so
 +
 +rp-pppoe-install: rp-pppoe
 +	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 +	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
++	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
++	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 +
 +dnsmasq:
 +	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)"
@@ -891,7 +892,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +738,9 @@ image-R100:
+@@ -528,6 +739,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
