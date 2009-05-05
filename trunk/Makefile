@@ -378,10 +378,12 @@ $(TOP)/ppp/Makefile: $(TOP)/ppp
 ppp: $(TOP)/ppp/Makefile
 	@true
 
-$(TOP)/rp-pppoe: $(RP-PPPOE).tar.gz
+rp-pppoe_Patches := $(call patches_list,rp-pppoe)
+
+$(TOP)/rp-pppoe: rp-pppoe/$(RP-PPPOE).tar.gz
 	@rm -rf $(TOP)/$(RP-PPPOE) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(RP-PPPOE) rp-pppoe.patch
+	$(PATCHER) $(TOP)/$(RP-PPPOE) $(rp-pppoe_Patches)
 	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
 
 $(TOP)/rp-pppoe/src/Makefile: $(TOP)/ppp $(TOP)/rp-pppoe
