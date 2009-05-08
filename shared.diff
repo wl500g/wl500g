@@ -1,6 +1,29 @@
-diff -BurN router/shared/bcmconfig.h gateway/shared/bcmconfig.h
---- router/shared/bcmconfig.h	2004-12-10 06:03:45.000000000 +0500
-+++ gateway/shared/bcmconfig.h	2008-03-17 22:52:25.000000000 +0500
+diff -BurpN -x'*.o' router/shared/Makefile gateway/shared/Makefile
+--- router/shared/Makefile	2004-12-05 19:54:17.000000000 +0000
++++ gateway/shared/Makefile	2008-12-24 17:52:17.000000000 +0000
+@@ -12,8 +12,9 @@
+ # $Id$
+ #
+ 
++include $(TOP)/.config
+ 
+-CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall
++CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
+ #CFLAGS	+= -g -DDEBUG
+ CFLAGS	+= -s -O2
+ LDFLAGS += -L.
+@@ -26,6 +27,8 @@ endif
+ 
+ all: libshared.so
+ 
++defaults.o: defaults.c flash.default
++
+ install: all
+ 	install -d $(INSTALLDIR)/usr/lib
+ 	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
+diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
+--- router/shared/bcmconfig.h	2004-12-10 01:03:45.000000000 +0000
++++ gateway/shared/bcmconfig.h	2008-03-17 17:52:25.000000000 +0000
 @@ -1,7 +1,6 @@
  /*
   * Automatically generated C config: don't edit
@@ -105,10 +128,10 @@ diff -BurN router/shared/bcmconfig.h gateway/shared/bcmconfig.h
   */
 +#undef __CONFIG_SENTRY5__
 +#undef __CONFIG_ROBO__
-diff -BurN router/shared/defaults.c gateway/shared/defaults.c
---- router/shared/defaults.c	2004-12-01 06:28:13.000000000 +0500
-+++ gateway/shared/defaults.c	2008-03-17 22:52:17.000000000 +0500
-@@ -122,7 +122,7 @@
+diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
+--- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
++++ gateway/shared/defaults.c	2008-03-17 17:52:17.000000000 +0000
+@@ -122,7 +122,7 @@ struct nvram_tuple router_defaults[] = {
  #endif	/* __CONFIG_NAT__ */
  
  	/* Web server parameters */
@@ -117,9 +140,9 @@ diff -BurN router/shared/defaults.c gateway/shared/defaults.c
  	{ "http_passwd", "admin", 0 },		/* Password */
  	{ "http_wanport", "", 0 },		/* WAN port to listen on */
  	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
-diff -BurN router/shared/flash.default gateway/shared/flash.default
---- router/shared/flash.default	2004-11-19 16:37:16.000000000 +0500
-+++ gateway/shared/flash.default	2009-02-22 18:18:23.000000000 +0500
+diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
+--- router/shared/flash.default	2004-11-19 11:37:16.000000000 +0000
++++ gateway/shared/flash.default	2009-02-22 13:18:23.000000000 +0000
 @@ -29,7 +29,7 @@
  
  {"dmz_ip", "", 0},
@@ -302,33 +325,10 @@ diff -BurN router/shared/flash.default gateway/shared/flash.default
 +{"wl_reg_mode", "d", 0},
 +{"wl_wpa_mode", "0", 0},
 +
-diff -BurN router/shared/Makefile gateway/shared/Makefile
---- router/shared/Makefile	2004-12-06 00:54:17.000000000 +0500
-+++ gateway/shared/Makefile	2008-12-24 22:52:17.000000000 +0500
-@@ -12,8 +12,9 @@
- # $Id$
- #
- 
-+include $(TOP)/.config
- 
--CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall
-+CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
- #CFLAGS	+= -g -DDEBUG
- CFLAGS	+= -s -O2
- LDFLAGS += -L.
-@@ -26,6 +27,8 @@
- 
- all: libshared.so
- 
-+defaults.o: defaults.c flash.default
-+
- install: all
- 	install -d $(INSTALLDIR)/usr/lib
- 	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
-diff -BurN router/shared/netconf.h gateway/shared/netconf.h
---- router/shared/netconf.h	2004-10-15 01:11:32.000000000 +0600
-+++ gateway/shared/netconf.h	2008-03-17 22:52:17.000000000 +0500
-@@ -64,7 +64,7 @@
+diff -BurpN -x'*.o' router/shared/netconf.h gateway/shared/netconf.h
+--- router/shared/netconf.h	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/netconf.h	2008-03-17 17:52:17.000000000 +0000
+@@ -64,7 +64,7 @@ typedef struct _netconf_match_t {
  } netconf_match_t;
  
  #define netconf_valid_ipproto(ipproto) \
@@ -337,9 +337,9 @@ diff -BurN router/shared/netconf.h gateway/shared/netconf.h
  
  /* Supported firewall target types */
  enum netconf_target {
-diff -BurN router/shared/shutils.c gateway/shared/shutils.c
---- router/shared/shutils.c	2004-11-15 08:34:17.000000000 +0500
-+++ gateway/shared/shutils.c	2008-03-17 22:52:17.000000000 +0500
+diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
+--- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
++++ gateway/shared/shutils.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -391,7 +391,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  
  /*
   * Reads file and returns contents
-@@ -106,6 +124,7 @@
+@@ -106,6 +124,7 @@ waitfor(int fd, int timeout)
  int
  _eval(char *const argv[], char *path, int timeout, int *ppid)
  {
@@ -399,7 +399,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  	pid_t pid;
  	int status;
  	int fd;
-@@ -121,11 +140,17 @@
+@@ -121,11 +140,17 @@ _eval(char *const argv[], char *path, in
  		for (sig = 0; sig < (_NSIG-1); sig++)
  			signal(sig, SIG_DFL);
  
@@ -417,7 +417,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  		/* Redirect stdout to <path> */
  		if (path) {
  			flags = O_WRONLY | O_CREAT;
-@@ -145,11 +170,14 @@
+@@ -145,11 +170,14 @@ _eval(char *const argv[], char *path, in
  				dup2(fd, STDERR_FILENO);
  				close(fd);
  			}
@@ -433,7 +433,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  		alarm(timeout);
  		execvp(argv[0], argv);
  		perror(argv[0]);
-@@ -159,7 +187,10 @@
+@@ -159,7 +187,10 @@ _eval(char *const argv[], char *path, in
  			*ppid = pid;
  			return 0;
  		} else {
@@ -445,7 +445,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  			if (WIFEXITED(status))
  				return WEXITSTATUS(status);
  			else
-@@ -269,6 +300,7 @@
+@@ -269,6 +300,7 @@ safe_fwrite(const void *ptr, size_t size
  	return ret;
  }
  
@@ -453,7 +453,7 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
  /*
   * Convert Ethernet address string representation to binary data
   * @param	a	string in xx:xx:xx:xx:xx:xx notation
-@@ -309,3 +341,455 @@
+@@ -309,3 +341,455 @@ ether_etoa(const unsigned char *e, char 
  	}
  	return a;
  }
@@ -909,9 +909,9 @@ diff -BurN router/shared/shutils.c gateway/shared/shutils.c
 +}
 +
 +#endif
-diff -BurN router/shared/shutils.h gateway/shared/shutils.h
---- router/shared/shutils.h	2004-11-15 08:34:19.000000000 +0500
-+++ gateway/shared/shutils.h	2008-03-17 22:52:17.000000000 +0500
+diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
+--- router/shared/shutils.h	2004-11-15 03:34:19.000000000 +0000
++++ gateway/shared/shutils.h	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -937,7 +937,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  /*
   * Reads file and returns contents
   * @param	fd	file descriptor
-@@ -113,6 +122,78 @@
+@@ -113,6 +122,78 @@ static inline char * strcat_r(const char
  	return buf;
  }	
  
@@ -1016,7 +1016,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  /* Check for a blank character; that is, a space or a tab */
  #define isblank(c) ((c) == ' ' || (c) == '\t')
  
-@@ -130,20 +211,11 @@
+@@ -130,20 +211,11 @@ static inline char * strcat_r(const char
  	_backtick(argv); \
  })
  
@@ -1037,7 +1037,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  
  /* Copy each token in wordlist delimited by space into word */
  #define foreach(word, wordlist, next) \
-@@ -162,17 +234,16 @@
+@@ -162,17 +234,16 @@ static inline char * strcat_r(const char
  /* Return NUL instead of NULL if undefined */
  #define safe_getenv(s) (getenv(s) ? : "")
  
@@ -1058,7 +1058,7 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  #endif
  
  /* Debug print */
-@@ -180,7 +251,7 @@
+@@ -180,7 +251,7 @@ static inline char * strcat_r(const char
  #define dprintf(fmt, args...) cprintf("%s: " fmt, __FUNCTION__, ## args)
  #else
  #define dprintf(fmt, args...)
@@ -1067,9 +1067,9 @@ diff -BurN router/shared/shutils.h gateway/shared/shutils.h
  
  
  #endif /* _shutils_h_ */
-diff -BurN router/shared/wl.c gateway/shared/wl.c
---- router/shared/wl.c	2004-10-15 01:11:32.000000000 +0600
-+++ gateway/shared/wl.c	2008-03-17 22:52:17.000000000 +0500
+diff -BurpN -x'*.o' router/shared/wl.c gateway/shared/wl.c
+--- router/shared/wl.c	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/wl.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Wireless network adapter utilities
@@ -1087,7 +1087,7 @@ diff -BurN router/shared/wl.c gateway/shared/wl.c
  #include <wlutils.h>
  
  int
-@@ -46,53 +47,223 @@
+@@ -46,53 +47,223 @@ wl_probe(char *name)
  	return ret;
  }
  
@@ -1335,9 +1335,9 @@ diff -BurN router/shared/wl.c gateway/shared/wl.c
  }
 +*/
  
-diff -BurN router/shared/wl_linux.c gateway/shared/wl_linux.c
---- router/shared/wl_linux.c	2004-10-15 01:11:32.000000000 +0600
-+++ gateway/shared/wl_linux.c	2008-03-17 22:52:17.000000000 +0500
+diff -BurpN -x'*.o' router/shared/wl_linux.c gateway/shared/wl_linux.c
+--- router/shared/wl_linux.c	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/wl_linux.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Wireless network adapter utilities (linux-specific)
@@ -1355,9 +1355,9 @@ diff -BurN router/shared/wl_linux.c gateway/shared/wl_linux.c
  
  typedef u_int64_t u64;
  typedef u_int32_t u32;
-diff -BurN router/shared/wlutils.h gateway/shared/wlutils.h
---- router/shared/wlutils.h	2004-10-15 01:11:32.000000000 +0600
-+++ gateway/shared/wlutils.h	2008-03-17 22:52:17.000000000 +0500
+diff -BurpN -x'*.o' router/shared/wlutils.h gateway/shared/wlutils.h
+--- router/shared/wlutils.h	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/wlutils.h	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Broadcom wireless network adapter utility functions
@@ -1367,7 +1367,7 @@ diff -BurN router/shared/wlutils.h gateway/shared/wlutils.h
   * All Rights Reserved.
   * 
   * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-@@ -55,15 +55,38 @@
+@@ -55,15 +55,38 @@ extern int wl_probe(char *name);
  
  /*
   * Set/Get named variable.
