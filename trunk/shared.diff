@@ -142,7 +142,7 @@ diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
  	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
 diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
 --- router/shared/flash.default	2004-11-19 11:37:16.000000000 +0000
-+++ gateway/shared/flash.default	2009-02-22 13:18:23.000000000 +0000
++++ gateway/shared/flash.default	2009-05-08 06:09:17.000000000 +0000
 @@ -29,7 +29,7 @@
  
  {"dmz_ip", "", 0},
@@ -232,19 +232,38 @@ diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
  {"ddns_enable_x", "0", 0},
  
  {"ddns_server_x", "", 0},
-@@ -264,6 +282,11 @@
+@@ -264,18 +282,23 @@
  {"ddns_hostname_x", "", 0},
  
  {"ddns_wildcard_x", "0", 0},
+-
+-{"dhcp_staticmac_x", "", 0},
+-
+-{"dhcp_staticip_x", "", 0},
 +
 +{"snmp_enable", "0", 0},
 +{"snmp_community", "public", 0},
 +{"snmp_contact", "Administrator", 0},
 +{"snmp_location", "Unknown", 0},
++
++{"dhcp_staticmac_x", "", 0},
++{"dhcp_staticip_x", "", 0},
++{"dhcp_staticname_x", "", 0},
  
- {"dhcp_staticmac_x", "", 0},
+ {"wl_macmode", "disabled", 0},
  
-@@ -427,6 +450,24 @@
+ {"wl_macapply_x", "Both", 0},
+ 
+-{"wl_macnum_x", "0", 0},
+-
+-{"wl_maclist_x", "", 0},
++{"wl_macnum_x", "0", 0},
++{"wl_maclist_x", "", 0},
++{"wl_macdesc_x", "", 0},
+ 
+ {"wl_radius_ipaddr", "", 0},
+ 
+@@ -427,6 +450,28 @@
  
  {"usb_webremote6_x", "", 0},
  
@@ -261,15 +280,19 @@ diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
 +{"usb_smbcset_x", "utf8", 0},
 +
 +{"usb_smbnum_x", "0", 0},
++{"usb_smbdir_x", "", 0},
++{"usb_smbshare_x", "", 0},
++{"usb_smblevel_x", "", 0},
++{"usb_smbdesc_x", "", 0},
 +
 +{"usb_nfsenable_x", "0", 0},
-+
 +{"usb_nfsnum_x", "0", 0},
++{"usb_nfslist_x", "", 0},
 +
  {"usb_ftpenable_x", "1", 0},
  
  {"usb_ftpanonymous_x", "1", 0},
-@@ -435,12 +476,26 @@
+@@ -435,12 +480,26 @@
  
  {"usb_ftpport_x", "21", 0},
  
@@ -296,7 +319,7 @@ diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
  {"usb_ftpscript_x", "", 0},
  
  {"usb_ftpnum_x", "0", 0},
-@@ -476,3 +531,28 @@
+@@ -476,3 +535,28 @@
  {"qos_umaxbw_x", "", 0},
  
  {"qos_uminbw_x", "", 0},
