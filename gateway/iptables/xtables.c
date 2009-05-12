@@ -1510,6 +1510,9 @@ xtables_parse_protocol(const char *s)
 		else {
 			unsigned int i;
 			for (i = 0; i < ARRAY_SIZE(xtables_chain_protos); ++i) {
+				if (xtables_chain_protos[i].name == NULL)
+					continue;
+
 				if (strcmp(s, xtables_chain_protos[i].name) == 0) {
 					proto = xtables_chain_protos[i].num;
 					break;
