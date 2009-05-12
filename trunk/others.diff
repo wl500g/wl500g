@@ -64,7 +64,7 @@ diff -BurN router/others/dropbearstart.sh gateway/others/dropbearstart.sh
 diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 --- router/others/flashfs.sh	1970-01-01 03:00:00.000000000 +0300
 +++ gateway/others/flashfs.sh	2008-01-06 14:27:07.000000000 +0300
-@@ -0,0 +1,75 @@
+@@ -0,0 +1,76 @@
 +#!/bin/sh
 +#
 +# Copyright (C) 2004 by Oleg I. Vdovikin <oleg@cs.msu.su>
@@ -134,6 +134,7 @@ diff -BurN router/others/flashfs.sh gateway/others/flashfs.sh
 +		;;
 +	commit)
 +		/sbin/flash /tmp/flash.tar.gz /dev/mtd/4 &&
++		rm -f /tmp/flash.tar.gz &&
 +		echo "Committed."
 +		;;
 +	*)
