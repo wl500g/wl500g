@@ -773,7 +773,11 @@ static void pwc_isoc_handler(struct urb *urb)
 handler_end:
 	if (awake)
 		wake_up_interruptible(&pdev->frameq);
-	/* No URB resubmitting in this kernel */
+
+	urb->dev = pdev->udev;
+	i = usb_submit_urb(urb);
+	if (i != 0)
+		Err("Error (%d) re-submitting urb in pwc_isoc_handler.\n", i);
 }
 
 
