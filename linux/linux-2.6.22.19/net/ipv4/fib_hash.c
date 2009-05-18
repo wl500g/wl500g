@@ -257,7 +257,6 @@ int fib_table_lookup(struct fib_table *tb,
 
 			err = fib_semantic_match(&f->fn_alias,
 						 flp, res,
-						 f->fn_key, fz->fz_mask,
 						 fz->fz_order);
 			if (err <= 0)
 				goto out;
