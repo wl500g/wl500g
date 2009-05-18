@@ -132,7 +132,7 @@ static int nfs_bind(const int sock, const sa_family_t family)
 	return -1;
 }
 
-#ifdef IPV6_SUPPORT
+#ifdef IPV6_SUPPORTED
 
 /*
  * Bind a socket using an unused privileged source port.
@@ -153,18 +153,16 @@ static int nfs_bindresvport(const int sock, const sa_family_t family)
 
 	switch (family) {
 	case AF_INET:
-		return bindresvport_sa(sock, (struct sockaddr *)&sin,
-					(socklen_t)sizeof(sin));
+		return bindresvport_sa(sock, (struct sockaddr *)&sin);
 	case AF_INET6:
-		return bindresvport_sa(sock, (struct sockaddr *)&sin6,
-					(socklen_t)sizeof(sin6));
+		return bindresvport_sa(sock, (struct sockaddr *)&sin6);
 	}
 
 	errno = EAFNOSUPPORT;
 	return -1;
 }
 
-#else	/* !IPV6_SUPPORT */
+#else	/* !IPV6_SUPPORTED */
 
 /*
  * Bind a socket using an unused privileged source port.
@@ -182,7 +180,7 @@ static int nfs_bindresvport(const int sock, const sa_family_t family)
 	return bindresvport(sock, NULL);
 }
 
-#endif	/* !IPV6_SUPPORT */
+#endif	/* !IPV6_SUPPORTED */
 
 /*
  * Perform a non-blocking connect on the socket fd.
