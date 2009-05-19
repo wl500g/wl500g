@@ -453,16 +453,17 @@ $(TOP)/www:
 	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
 		tar -C $(SRC) -cf - www/asus | tar -C $(TOP) -xf -
 
-www: $(TOP)/www $@.diff
-	$(PATCHER) -Z $(TOP) $@.diff
-	cp iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
+www: $(TOP)/www www/pages.diff www/common.diff
+	$(PATCHER) -Z $(TOP) www/pages.diff www/common.diff
+	chmod a+x $(TOP)/www/asus/remccoms2.sh
+	cp www/iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
+	cp www/iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
+	cp www/iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
 
 www-diff:
-	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www.diff
-	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") >> www.diff
-	diffstat www.diff
+	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www/pages.diff
+	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") > www/common.diff
+	diffstat www/pages.diff
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
@@ -475,4 +476,4 @@ www-diff:
 	$(call make_diff,-BurpN,router,gateway,$*)
 
 
-.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared 
+.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www
