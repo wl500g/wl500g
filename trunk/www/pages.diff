@@ -1,6 +1,6 @@
 diff -BurN router/www/asus/web_asus_en/Advanced_ACL11g_Content.asp gateway/www/asus/web_asus_en/Advanced_ACL11g_Content.asp
---- router/www/asus/web_asus_en/Advanced_ACL11g_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_ACL11g_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_ACL11g_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_ACL11g_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -55,11 +55,15 @@
  <div align="center">
  <table class="content_list_value_table" border="1" cellspacing="0" cellpadding="0">
@@ -21,8 +21,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_ACL11g_Content.asp gateway/www/a
  <tr>
  <td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
 diff -BurN router/www/asus/web_asus_en/Advanced_APLAN_Content.asp gateway/www/asus/web_asus_en/Advanced_APLAN_Content.asp
---- router/www/asus/web_asus_en/Advanced_APLAN_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_APLAN_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_APLAN_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_APLAN_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -25,6 +25,10 @@
              </td>
  </tr>
@@ -49,23 +49,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_APLAN_Content.asp gateway/www/as
  </table>
  </td>
  </tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp
---- router/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -40,6 +40,10 @@
- <td class="content_header_td" onMouseOver="return overlib('This field allows you to specify the port used to access Web server from Internet.', LEFT);" onMouseOut="return nd();">Port of Web Access from WAN:
-            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="misc_httpport_x" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "misc_httpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"></td>
- </tr>
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (1024-16384).', LEFT);" onMouseOut="return nd();">Number of connections to track:
-+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1024, 16384)"></td>
-+</tr>
- </table>
- </td>
- </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp
---- router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -29,6 +29,10 @@
             </td><td class="content_input_td"><input type="radio" value="1" name="fw_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_enable_x', '1')" <% nvram_match_x("FirewallConfig","fw_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="fw_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_enable_x', '0')" <% nvram_match_x("FirewallConfig","fw_enable_x", "0", "checked"); %>>No</input></td>
  </tr>
@@ -120,44 +106,23 @@ diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content.asp gatewa
  </tr>
  <tr>
  <td>
-diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp
---- router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2009-04-08 23:54:24.000000000 +0400
-@@ -30,13 +30,21 @@
- </tr>
- <tr>
- <td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone:
--           </td><td class="content_input_td"><select name="time_zone" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'time_zone')"><option class="content_input_fd" value="UCT11" <% nvram_match_x("LANHostConfig","time_zone", "UCT11","selected"); %>>(GMT-11:00) Midway Island, Samoa</option><option class="content_input_fd" value="UCT10" <% nvram_match_x("LANHostConfig","time_zone", "UCT10","selected"); %>>(GMT-10:00) Hawaii</option><option class="content_input_fd" value="NAST9NADT" <% nvram_match_x("LANHostConfig","time_zone", "NAST9NADT","selected"); %>>(GMT-09:00) Alaska</option><option class="content_input_fd" value="PST8PDT" <% nvram_match_x("LANHostConfig","time_zone", "PST8PDT","selected"); %>>(GMT-08:00) Pacific Time</option><option class="content_input_fd" value="MST7MDT" <% nvram_match_x("LANHostConfig","time_zone", "MST7MDT","selected"); %>>(GMT-07:00) Mountain Time</option><option class="content_input_fd" value="MST7" <% nvram_match_x("LANHostConfig","time_zone", "MST7","selected"); %>>(GMT-07:00) Arizona</option><option class="content_input_fd" value="CST6CDT" <% nvram_match_x("LANHostConfig","time_zone", "CST6CDT","selected"); %>>(GMT-06:00) Central Time</option><option class="content_input_fd" value="UCT6" <% nvram_match_x("LANHostConfig","time_zone", "UCT6","selected"); %>>(GMT-06:00) Middle America</option><option class="content_input_fd" value="UCT5" <% nvram_match_x("LANHostConfig","time_zone", "UCT5","selected"); %>>(GMT-05:00) Indiana East, Colombia</option><option class="content_input_fd" value="EST5EDT" <% nvram_match_x("LANHostConfig","time_zone", "EST5EDT","selected"); %>>(GMT-05:00) Eastern Time</option><option class="content_input_fd" value="AST4ADT" <% nvram_match_x("LANHostConfig","time_zone", "AST4ADT","selected"); %>>(GMT-04:00) Atlantic Time, Brazil West</option><option class="content_input_fd" value="UCT4" <% nvram_match_x("LANHostConfig","time_zone", "UCT4","selected"); %>>(GMT-04:00) Bolivia, Venezuela</option><option class="content_input_fd" value="UCT3" <% nvram_match_x("LANHostConfig","time_zone", "UCT3","selected"); %>>(GMT-03:00) Guyana</option><option class="content_input_fd" value="EBST3EBDT" <% nvram_match_x("LANHostConfig","time_zone", "EBST3EBDT","selected"); %>>(GMT-03:00) Brazil East, Greenland</option><option class="content_input_fd" value="NORO2" <% nvram_match_x("LANHostConfig","time_zone", "NORO2","selected"); %>>(GMT-02:00) Mid-Atlantic</option><option class="content_input_fd" value="UCT0" <% nvram_match_x("LANHostConfig","time_zone", "UCT0","selected"); %>>(GMT) Gambia, Liberia, Morocco</option><option class="content_input_fd" value="GMT0BST" <% nvram_match_x("LANHostConfig","time_zone", "GMT0BST","selected"); %>>(GMT) England</option><option class="content_input_fd" value="MET-1METDST" <% nvram_match_x("LANHostConfig","time_zone", "MET-1METDST","selected"); %>>(GMT+01:00) Netherland, France, Italy</option><option class="content_input_fd" value="MEZ-1MESZ" <% nvram_match_x("LANHostConfig","time_zone", "MEZ-1MESZ","selected"); %>>(GMT+01:00) Germany</option><option class="content_input_fd" value="UCT-1" <% nvram_match_x("LANHostConfig","time_zone", "UCT-1","selected"); %>>(GMT+01:00) Tunisia</option><option class="content_input_fd" value="EET-2EETDST" <% nvram_match_x("LANHostConfig","time_zone", "EET-2EETDST","selected"); %>>(GMT+02:00) Greece, Ukraine, Turkey</option><option class="content_input_fd" value="SAST-2" <% nvram_match_x("LANHostConfig","time_zone", "SAST-2","selected"); %>>(GMT+02:00) South Africa</option><option class="content_input_fd" value="IST-3IDT" <% nvram_match_x("LANHostConfig","time_zone", "IST-3IDT","selected"); %>>(GMT+03:00) Iraq, Jordan, Kuwait</option><option class="content_input_fd" value="MSK-3MSD" <% nvram_match_x("LANHostConfig","time_zone", "MSK-3MSD","selected"); %>>(GMT+03:00) Moscow Winter Time</option><option class="content_input_fd" value="UCT-4" <% nvram_match_x("LANHostConfig","time_zone", "UCT-4","selected"); %>>(GMT+04:00) Armenia</option><option class="content_input_fd" value="UCT-5" <% nvram_match_x("LANHostConfig","time_zone", "UCT-5","selected"); %>>(GMT+05:00) Pakistan, Russia</option><option class="content_input_fd" value="UCT-6" <% nvram_match_x("LANHostConfig","time_zone", "UCT-6","selected"); %>>(GMT+06:00) Bangladesh, Russia</option><option class="content_input_fd" value="UCT-7" <% nvram_match_x("LANHostConfig","time_zone", "UCT-7","selected"); %>>(GMT+07:00) Thailand, Russia</option><option class="content_input_fd" value="CST-8" <% nvram_match_x("LANHostConfig","time_zone", "CST-8","selected"); %>>(GMT+08:00) China Coast, Hong Kong</option><option class="content_input_fd" value="CCT-8" <% nvram_match_x("LANHostConfig","time_zone", "CCT-8","selected"); %>>(GMT+08:00) Taipei</option><option class="content_input_fd" value="SST-8" <% nvram_match_x("LANHostConfig","time_zone", "SST-8","selected"); %>>(GMT+08:00) Singapore</option><option class="content_input_fd" value="WAS-8WAD" <% nvram_match_x("LANHostConfig","time_zone", "WAS-8WAD","selected"); %>>(GMT+08:00) Australia West</option><option class="content_input_fd" value="JST-9" <% nvram_match_x("LANHostConfig","time_zone", "JST-9","selected"); %>>(GMT+09:00) Japan, Korea</option><option class="content_input_fd" value="KST-9KDT" <% nvram_match_x("LANHostConfig","time_zone", "KST-9KDT","selected"); %>>(GMT+09:00) Korean</option><option class="content_input_fd" value="UCT-10" <% nvram_match_x("LANHostConfig","time_zone", "UCT-10","selected"); %>>(GMT+10:00) Guam, Russia</option><option class="content_input_fd" value="EST-10EDT" <% nvram_match_x("LANHostConfig","time_zone", "EST-10EDT","selected"); %>>(GMT+10:00) Australia</option><option class="content_input_fd" value="UCT-11" <% nvram_match_x("LANHostConfig","time_zone", "UCT-11","selected"); %>>(GMT+11:00) Solomon Islands</option><option class="content_input_fd" value="UCT-12" <% nvram_match_x("LANHostConfig","time_zone", "UCT-12","selected"); %>>(GMT+12:00) Fiji</option><option class="content_input_fd" value="NZST-12NZDT" <% nvram_match_x("LANHostConfig","time_zone", "NZST-12NZDT","selected"); %>>(GMT+12:00) New Zealand</option></select></td>
-+           </td><td class="content_input_td"><select name="TimeZoneList" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'time_zone')"><option class="content_input_fd" value="manual">Manual</option></select></td>
-+</tr>
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone Abbreviation:
-+	   </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="time_zone" value="<% nvram_get_x("LANHostConfig","time_zone"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
- </tr>
- <tr>
- <td class="content_header_td" onMouseOver="return overlib('The NTP Server used to synchronize your system time.', LEFT);" onMouseOut="return nd();">NTP Server
-            </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="ntp_server0" value="<% nvram_get_x("LANHostConfig","ntp_server0"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"><a href="javascript:openLink('x_NTPServer1')" class="content_input_link" name="x_NTPServer1_link">NTP Link
-              </a></td>
+diff -BurN router/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp
+--- router/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_BasicFirewall_Content_520g.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -40,6 +40,10 @@
+ <td class="content_header_td" onMouseOver="return overlib('This field allows you to specify the port used to access Web server from Internet.', LEFT);" onMouseOut="return nd();">Port of Web Access from WAN:
+            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="misc_httpport_x" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "misc_httpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"></td>
  </tr>
 +<tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field specifies interval between time synchronization requests.', LEFT);" onMouseOut="return nd();">NTP synchronization interval (hours):
-+           </td><td class="content_input_td"><input type="text" maxlength="3" size="3" name="ntp_interval_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "ntp_interval_x"); %>" onBlur="validate_range(this, 1, 144)" onKeyPress="return is_number(this)"></td>
++<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (1024-16384).', LEFT);" onMouseOut="return nd();">Number of connections to track:
++           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1024, 16384)"></td>
 +</tr>
- <tr class="content_section_header_tr">
- <td class="content_section_header_td" colspan="2">DDNS Setting
-             </td>
-@@ -51,7 +59,7 @@
+ </table>
+ </td>
  </tr>
- <tr>
- <td class="content_header_td">Server:
--           </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')"><option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option><option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option><option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option></select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial
-+           </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')"><option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option><option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option><option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option><option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option></select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial
-              </a></td>
- </tr>
- <tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp
---- router/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2009-04-14 15:02:48.000000000 +0400
+--- router/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content.asp	2009-04-14 11:02:48.000000000 +0000
 @@ -21,8 +21,20 @@
  <td class="content_header_td_title" colspan="2">IP Config - Miscellaneous</td>
  </tr>
@@ -213,9 +178,44 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content.asp gateway/www/asu
               </a></td>
  </tr>
  <tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp
+--- router/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_DDNS_Content_300g.asp	2009-04-08 19:54:24.000000000 +0000
+@@ -30,13 +30,21 @@
+ </tr>
+ <tr>
+ <td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone:
+-           </td><td class="content_input_td"><select name="time_zone" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'time_zone')"><option class="content_input_fd" value="UCT11" <% nvram_match_x("LANHostConfig","time_zone", "UCT11","selected"); %>>(GMT-11:00) Midway Island, Samoa</option><option class="content_input_fd" value="UCT10" <% nvram_match_x("LANHostConfig","time_zone", "UCT10","selected"); %>>(GMT-10:00) Hawaii</option><option class="content_input_fd" value="NAST9NADT" <% nvram_match_x("LANHostConfig","time_zone", "NAST9NADT","selected"); %>>(GMT-09:00) Alaska</option><option class="content_input_fd" value="PST8PDT" <% nvram_match_x("LANHostConfig","time_zone", "PST8PDT","selected"); %>>(GMT-08:00) Pacific Time</option><option class="content_input_fd" value="MST7MDT" <% nvram_match_x("LANHostConfig","time_zone", "MST7MDT","selected"); %>>(GMT-07:00) Mountain Time</option><option class="content_input_fd" value="MST7" <% nvram_match_x("LANHostConfig","time_zone", "MST7","selected"); %>>(GMT-07:00) Arizona</option><option class="content_input_fd" value="CST6CDT" <% nvram_match_x("LANHostConfig","time_zone", "CST6CDT","selected"); %>>(GMT-06:00) Central Time</option><option class="content_input_fd" value="UCT6" <% nvram_match_x("LANHostConfig","time_zone", "UCT6","selected"); %>>(GMT-06:00) Middle America</option><option class="content_input_fd" value="UCT5" <% nvram_match_x("LANHostConfig","time_zone", "UCT5","selected"); %>>(GMT-05:00) Indiana East, Colombia</option><option class="content_input_fd" value="EST5EDT" <% nvram_match_x("LANHostConfig","time_zone", "EST5EDT","selected"); %>>(GMT-05:00) Eastern Time</option><option class="content_input_fd" value="AST4ADT" <% nvram_match_x("LANHostConfig","time_zone", "AST4ADT","selected"); %>>(GMT-04:00) Atlantic Time, Brazil West</option><option class="content_input_fd" value="UCT4" <% nvram_match_x("LANHostConfig","time_zone", "UCT4","selected"); %>>(GMT-04:00) Bolivia, Venezuela</option><option class="content_input_fd" value="UCT3" <% nvram_match_x("LANHostConfig","time_zone", "UCT3","selected"); %>>(GMT-03:00) Guyana</option><option class="content_input_fd" value="EBST3EBDT" <% nvram_match_x("LANHostConfig","time_zone", "EBST3EBDT","selected"); %>>(GMT-03:00) Brazil East, Greenland</option><option class="content_input_fd" value="NORO2" <% nvram_match_x("LANHostConfig","time_zone", "NORO2","selected"); %>>(GMT-02:00) Mid-Atlantic</option><option class="content_input_fd" value="UCT0" <% nvram_match_x("LANHostConfig","time_zone", "UCT0","selected"); %>>(GMT) Gambia, Liberia, Morocco</option><option class="content_input_fd" value="GMT0BST" <% nvram_match_x("LANHostConfig","time_zone", "GMT0BST","selected"); %>>(GMT) England</option><option class="content_input_fd" value="MET-1METDST" <% nvram_match_x("LANHostConfig","time_zone", "MET-1METDST","selected"); %>>(GMT+01:00) Netherland, France, Italy</option><option class="content_input_fd" value="MEZ-1MESZ" <% nvram_match_x("LANHostConfig","time_zone", "MEZ-1MESZ","selected"); %>>(GMT+01:00) Germany</option><option class="content_input_fd" value="UCT-1" <% nvram_match_x("LANHostConfig","time_zone", "UCT-1","selected"); %>>(GMT+01:00) Tunisia</option><option class="content_input_fd" value="EET-2EETDST" <% nvram_match_x("LANHostConfig","time_zone", "EET-2EETDST","selected"); %>>(GMT+02:00) Greece, Ukraine, Turkey</option><option class="content_input_fd" value="SAST-2" <% nvram_match_x("LANHostConfig","time_zone", "SAST-2","selected"); %>>(GMT+02:00) South Africa</option><option class="content_input_fd" value="IST-3IDT" <% nvram_match_x("LANHostConfig","time_zone", "IST-3IDT","selected"); %>>(GMT+03:00) Iraq, Jordan, Kuwait</option><option class="content_input_fd" value="MSK-3MSD" <% nvram_match_x("LANHostConfig","time_zone", "MSK-3MSD","selected"); %>>(GMT+03:00) Moscow Winter Time</option><option class="content_input_fd" value="UCT-4" <% nvram_match_x("LANHostConfig","time_zone", "UCT-4","selected"); %>>(GMT+04:00) Armenia</option><option class="content_input_fd" value="UCT-5" <% nvram_match_x("LANHostConfig","time_zone", "UCT-5","selected"); %>>(GMT+05:00) Pakistan, Russia</option><option class="content_input_fd" value="UCT-6" <% nvram_match_x("LANHostConfig","time_zone", "UCT-6","selected"); %>>(GMT+06:00) Bangladesh, Russia</option><option class="content_input_fd" value="UCT-7" <% nvram_match_x("LANHostConfig","time_zone", "UCT-7","selected"); %>>(GMT+07:00) Thailand, Russia</option><option class="content_input_fd" value="CST-8" <% nvram_match_x("LANHostConfig","time_zone", "CST-8","selected"); %>>(GMT+08:00) China Coast, Hong Kong</option><option class="content_input_fd" value="CCT-8" <% nvram_match_x("LANHostConfig","time_zone", "CCT-8","selected"); %>>(GMT+08:00) Taipei</option><option class="content_input_fd" value="SST-8" <% nvram_match_x("LANHostConfig","time_zone", "SST-8","selected"); %>>(GMT+08:00) Singapore</option><option class="content_input_fd" value="WAS-8WAD" <% nvram_match_x("LANHostConfig","time_zone", "WAS-8WAD","selected"); %>>(GMT+08:00) Australia West</option><option class="content_input_fd" value="JST-9" <% nvram_match_x("LANHostConfig","time_zone", "JST-9","selected"); %>>(GMT+09:00) Japan, Korea</option><option class="content_input_fd" value="KST-9KDT" <% nvram_match_x("LANHostConfig","time_zone", "KST-9KDT","selected"); %>>(GMT+09:00) Korean</option><option class="content_input_fd" value="UCT-10" <% nvram_match_x("LANHostConfig","time_zone", "UCT-10","selected"); %>>(GMT+10:00) Guam, Russia</option><option class="content_input_fd" value="EST-10EDT" <% nvram_match_x("LANHostConfig","time_zone", "EST-10EDT","selected"); %>>(GMT+10:00) Australia</option><option class="content_input_fd" value="UCT-11" <% nvram_match_x("LANHostConfig","time_zone", "UCT-11","selected"); %>>(GMT+11:00) Solomon Islands</option><option class="content_input_fd" value="UCT-12" <% nvram_match_x("LANHostConfig","time_zone", "UCT-12","selected"); %>>(GMT+12:00) Fiji</option><option class="content_input_fd" value="NZST-12NZDT" <% nvram_match_x("LANHostConfig","time_zone", "NZST-12NZDT","selected"); %>>(GMT+12:00) New Zealand</option></select></td>
++           </td><td class="content_input_td"><select name="TimeZoneList" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'time_zone')"><option class="content_input_fd" value="manual">Manual</option></select></td>
++</tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates time zone where you are locating in.', LEFT);" onMouseOut="return nd();">Time Zone Abbreviation:
++	   </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="time_zone" value="<% nvram_get_x("LANHostConfig","time_zone"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td" onMouseOver="return overlib('The NTP Server used to synchronize your system time.', LEFT);" onMouseOut="return nd();">NTP Server
+            </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="ntp_server0" value="<% nvram_get_x("LANHostConfig","ntp_server0"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"><a href="javascript:openLink('x_NTPServer1')" class="content_input_link" name="x_NTPServer1_link">NTP Link
+              </a></td>
+ </tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('This field specifies interval between time synchronization requests.', LEFT);" onMouseOut="return nd();">NTP synchronization interval (hours):
++           </td><td class="content_input_td"><input type="text" maxlength="3" size="3" name="ntp_interval_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "ntp_interval_x"); %>" onBlur="validate_range(this, 1, 144)" onKeyPress="return is_number(this)"></td>
++</tr>
+ <tr class="content_section_header_tr">
+ <td class="content_section_header_td" colspan="2">DDNS Setting
+             </td>
+@@ -51,7 +59,7 @@
+ </tr>
+ <tr>
+ <td class="content_header_td">Server:
+-           </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')"><option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option><option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option><option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option></select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial
++           </td><td class="content_input_td"><select name="ddns_server_x" class="content_input_fd" onChange="return change_common(this, 'LANHostConfig', 'ddns_server_x')"><option class="content_input_fd" value="WWW.DYNDNS.ORG" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG","selected"); %>>WWW.DYNDNS.ORG</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(CUSTOM)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(CUSTOM)","selected"); %>>WWW.DYNDNS.ORG(CUSTOM)</option><option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option><option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option><option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option><option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option></select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial
+              </a></td>
+ </tr>
+ <tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_DHCP_Content.asp gateway/www/asus/web_asus_en/Advanced_DHCP_Content.asp
---- router/www/asus/web_asus_en/Advanced_DHCP_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_DHCP_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_DHCP_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_DHCP_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -82,11 +82,11 @@
  <td class="content_list_header_td" width="60%" id="ManualDHCPList">Manually Assigned IP List
           <input type="hidden" name="dhcp_staticnum_x_0" value="<% nvram_get_x("LANHostConfig", "dhcp_staticnum_x"); %>" readonly="1"></td><td width="10%">
@@ -253,8 +253,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DHCP_Content.asp gateway/www/asu
  <tr>
  <td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
 diff -BurN router/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp gateway/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp
---- router/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -83,11 +83,11 @@
  <td class="content_list_header_td" width="60%" id="DmzManualDHCPList">Manually Assigned IP List
           <input type="hidden" name="DmzManualDHCPCount_0" value="<% nvram_get_x("LANHostConfig", "DmzManualDHCPCount"); %>" readonly="1"></td><td width="10%">
@@ -269,21 +269,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp gateway/www/
  </div>
  </td><td width="5%"></td>
  </tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp
---- router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -13,7 +13,7 @@
- <!-- Table for the conntent page -->	    
- <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-     	
--<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_URLFilter_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-+<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
- <tr>
- <td>
- <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content.asp
---- router/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -313,9 +301,21 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content.asp gateway/www
  <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WAN to LAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WAN to LAN) packet types:
             </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_wl_icmp_x" value="<% nvram_get_x("FirewallConfig","filter_wl_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_wl_icmp_x')" onKeyPress="return is_portlist(this)"></td>
  </tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp
+--- router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -13,7 +13,7 @@
+ <!-- Table for the conntent page -->	    
+ <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
+     	
+-<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_URLFilter_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
++<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
+ <tr>
+ <td>
+ <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp
---- router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -326,8 +326,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp gatewa
  <td>
  <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 diff -BurN router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp
---- router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -61,6 +61,9 @@
  		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","firmver"); %>" readonly="1"></td>
  </tr>
@@ -339,8 +339,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp gate
                    <input class="inputSubmit" name="file" size="20" type="file" ></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp gateway/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp
---- router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,67 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -410,8 +410,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp gatewa
 +</form>
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp gateway/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp
---- router/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -25,7 +25,14 @@
           </td>
  </tr>
@@ -462,8 +462,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_GWStaticRoute_Content.asp gatewa
  </select></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_IPV6_Content.asp gateway/www/asus/web_asus_en/Advanced_IPV6_Content.asp
---- router/www/asus/web_asus_en/Advanced_IPV6_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_IPV6_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_IPV6_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_IPV6_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,160 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -625,34 +625,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_IPV6_Content.asp gateway/www/asu
 +</table>
 +</form>
 +</body>
-diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp
---- router/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -130,6 +130,10 @@
-            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_ac" value="<% nvram_get_x("PPPConnection","wan_pppoe_ac"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
- </tr>
- <tr>
-+<td class="content_header_td" onMouseOver="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required.', LEFT);" onMouseOut="return nd();">Additional pppd options:
-+           </td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="wan_pppoe_options_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_options_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
-+</tr>
-+<tr>
- <td class="content_header_td" onMouseOver="return overlib('Enable PPPoE relay allows stations in LAN to setup individual PPPoE connections that are passthrough NAT.', LEFT);" onMouseOut="return nd();">Enable PPPoE Relay?
-            </td><td class="content_input_td"><input type="radio" value="1" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '1')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '0')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "0", "checked"); %>>No</input></td>
- </tr>
-@@ -165,6 +169,10 @@
-             </td>
- </tr>
- <tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
-+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
-+</tr>
-+<tr>
- <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:
-            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
- </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content.asp gateway/www/asus/web_asus_en/Advanced_LANWAN_Content.asp
---- router/www/asus/web_asus_en/Advanced_LANWAN_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_LANWAN_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -26,7 +26,7 @@
  </tr>
  <tr>
@@ -718,9 +693,34 @@ diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content.asp gateway/www/a
  <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:
             </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
  </tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp
+--- router/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_520g.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -130,6 +130,10 @@
+            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_ac" value="<% nvram_get_x("PPPConnection","wan_pppoe_ac"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+ </tr>
+ <tr>
++<td class="content_header_td" onMouseOver="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required.', LEFT);" onMouseOut="return nd();">Additional pppd options:
++           </td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="wan_pppoe_options_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_options_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
++</tr>
++<tr>
+ <td class="content_header_td" onMouseOver="return overlib('Enable PPPoE relay allows stations in LAN to setup individual PPPoE connections that are passthrough NAT.', LEFT);" onMouseOut="return nd();">Enable PPPoE Relay?
+            </td><td class="content_input_td"><input type="radio" value="1" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '1')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '0')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "0", "checked"); %>>No</input></td>
+ </tr>
+@@ -165,6 +169,10 @@
+             </td>
+ </tr>
+ <tr>
++<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
++           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
++</tr>
++<tr>
+ <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:
+            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+ </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp
---- router/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -165,6 +165,10 @@
              </td>
  </tr>
@@ -732,64 +732,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_LANWAN_Content_JP.asp gateway/ww
  <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:
             </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
  </tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_Name_Content.asp gateway/www/asus/web_asus_en/Advanced_Name_Content.asp
---- router/www/asus/web_asus_en/Advanced_Name_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Name_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -0,0 +1,51 @@
-+<head>
-+<title>ZVMODELVZ Web Manager</title>
-+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
-+<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-+<script language="JavaScript" type="text/javascript" src="general.js"></script>
-+
-+</head>  
-+<body bgcolor="#FFFFFF"  onLoad="load_body()">
-+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
-+<form method="GET" name="form" action="apply.cgi">
-+<input type="hidden" name="action_mode" value="">
-+<!-- Table for the conntent page -->	    
-+<table width="660" border="0" cellpadding="1" cellspacing="0">     	      
-+    	
-+<tr>
-+<td>
-+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
-+<tr class="content_header_tr">
-+<td class="content_header_td_title" colspan="2">System Setup - Change Name</td>
-+<input type="hidden" name="current_page" value="Advanced_Name_Content.asp">
-+<input type="hidden" name="next_page" value="SaveRestart.asp">
-+<input type="hidden" name="next_host" value="">
-+<input type="hidden" name="sid_list" value="General;">
-+<input type="hidden" name="group_id" value="">
-+<input type="hidden" name="modified" value="0">
-+</tr>
-+<tr>
-+		<td class="content_header_td" width="344" colspan="2"></td>
-+</tr>
-+<tr>
-+		<td class="content_header_td" width="34">New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" size="16" name="http_username" value="<% nvram_get_x("", "http_username"); %>"></td>
-+</tr>
-+<tr>
-+		<td class="content_header_td" width="34">Retype New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" size="16" name="v_username"></td>
-+</tr>
-+<tr>
-+<td class="content_input_td_less" height="60" colspan="2">
-+  <p align="right"> 
-+                  <input class="inputSubmit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value="Save" name="action" onClick="return checkPass(this, document.form.http_username, document.form.v_username);">&nbsp;<input class="inputSubmit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="reset" value="Clear" name="reset">
-+  </p>
-+</td>
-+</tr>
-+</table>
-+</td>
-+</tr>
-+</table>
-+</form>
-+</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_NFS_Content.asp gateway/www/asus/web_asus_en/Advanced_NFS_Content.asp
---- router/www/asus/web_asus_en/Advanced_NFS_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_NFS_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_NFS_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_NFS_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,142 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -933,9 +878,64 @@ diff -BurN router/www/asus/web_asus_en/Advanced_NFS_Content.asp gateway/www/asus
 +</table>
 +</form>
 +</body>
+diff -BurN router/www/asus/web_asus_en/Advanced_Name_Content.asp gateway/www/asus/web_asus_en/Advanced_Name_Content.asp
+--- router/www/asus/web_asus_en/Advanced_Name_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Name_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -0,0 +1,51 @@
++<head>
++<title>ZVMODELVZ Web Manager</title>
++<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
++<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
++<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
++<link rel="stylesheet" type="text/css" href="style.css" media="screen">
++<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
++<script language="JavaScript" type="text/javascript" src="general.js"></script>
++
++</head>  
++<body bgcolor="#FFFFFF"  onLoad="load_body()">
++<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
++<form method="GET" name="form" action="apply.cgi">
++<input type="hidden" name="action_mode" value="">
++<!-- Table for the conntent page -->	    
++<table width="660" border="0" cellpadding="1" cellspacing="0">     	      
++    	
++<tr>
++<td>
++<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
++<tr class="content_header_tr">
++<td class="content_header_td_title" colspan="2">System Setup - Change Name</td>
++<input type="hidden" name="current_page" value="Advanced_Name_Content.asp">
++<input type="hidden" name="next_page" value="SaveRestart.asp">
++<input type="hidden" name="next_host" value="">
++<input type="hidden" name="sid_list" value="General;">
++<input type="hidden" name="group_id" value="">
++<input type="hidden" name="modified" value="0">
++</tr>
++<tr>
++		<td class="content_header_td" width="344" colspan="2"></td>
++</tr>
++<tr>
++		<td class="content_header_td" width="34">New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" size="16" name="http_username" value="<% nvram_get_x("", "http_username"); %>"></td>
++</tr>
++<tr>
++		<td class="content_header_td" width="34">Retype New Name:</td><td class="content_input_td" width="310"><input type="text" maxlength="16" size="16" name="v_username"></td>
++</tr>
++<tr>
++<td class="content_input_td_less" height="60" colspan="2">
++  <p align="right"> 
++                  <input class="inputSubmit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value="Save" name="action" onClick="return checkPass(this, document.form.http_username, document.form.v_username);">&nbsp;<input class="inputSubmit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="reset" value="Clear" name="reset">
++  </p>
++</td>
++</tr>
++</table>
++</td>
++</tr>
++</table>
++</form>
++</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_QOS_Content.asp gateway/www/asus/web_asus_en/Advanced_QOS_Content.asp
---- router/www/asus/web_asus_en/Advanced_QOS_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_QOS_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_QOS_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_QOS_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -18,7 +18,7 @@
  <td>
  <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
@@ -974,8 +974,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_QOS_Content.asp gateway/www/asus
  </td><td width="5%"></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_RDHCP_Content.asp gateway/www/asus/web_asus_en/Advanced_RDHCP_Content.asp
---- router/www/asus/web_asus_en/Advanced_RDHCP_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_RDHCP_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_RDHCP_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_RDHCP_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -82,11 +82,11 @@
  <td class="content_list_header_td" width="60%" id="ManualDHCPList">Manually Assigned IP List
           <input type="hidden" name="dhcp_staticnum_x_0" value="<% nvram_get_x("LANHostConfig", "dhcp_staticnum_x"); %>" readonly="1"></td><td width="10%">
@@ -991,8 +991,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_RDHCP_Content.asp gateway/www/as
  </td><td width="5%"></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp gateway/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp
---- router/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -67,6 +67,10 @@
              </td>
  </tr>
@@ -1005,8 +1005,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_RLANWAN_Content.asp gateway/www/
             </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_RMISC_Content.asp gateway/www/asus/web_asus_en/Advanced_RMISC_Content.asp
---- router/www/asus/web_asus_en/Advanced_RMISC_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_RMISC_Content.asp	2009-04-08 23:53:46.000000000 +0400
+--- router/www/asus/web_asus_en/Advanced_RMISC_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_RMISC_Content.asp	2009-04-08 19:53:46.000000000 +0000
 @@ -26,13 +26,21 @@
  </tr>
  <tr>
@@ -1030,9 +1030,117 @@ diff -BurN router/www/asus/web_asus_en/Advanced_RMISC_Content.asp gateway/www/as
  </table>
  </td>
  </tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_SNMP_Content.asp gateway/www/asus/web_asus_en/Advanced_SNMP_Content.asp
+--- router/www/asus/web_asus_en/Advanced_SNMP_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_SNMP_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -0,0 +1,104 @@
++<head>
++<title>ZVMODELVZ Web Manager</title>
++<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
++<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
++<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
++<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
++<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
++<script language="JavaScript" type="text/javascript" src="general.js"></script>
++</head>  
++<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
++<body onLoad="load_body()" onunLoad="return unload_body();">
++<form method="GET" name="form" action="apply.cgi">
++<!-- Table for the conntent page -->	    
++<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
++    	
++<input type="hidden" name="current_page" value="Advanced_SNMP_Content.asp"><input type="hidden" name="next_page" value="Advanced_SNMP_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="LANHostConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
++<tr>
++<td>
++<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
++<tr class="content_header_tr">
++<td class="content_header_td_title" colspan="2">IP Config - SNMP</td>
++</tr>
++
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables SNMP.', LEFT);" onMouseOut="return nd();">Enable SNMP? </td><td class="content_input_td"><input type="radio" value="1" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '1')" <% nvram_match_x("LANHostConfig","snmp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '0')" <% nvram_match_x("LANHostConfig","snmp_enable", "0", "checked"); %>>No</input></td>
++</tr>
++
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP community name, which will be used to check for authorization', LEFT);" onMouseOut="return nd();">Community name:</td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="snmp_community" value="<% nvram_get_x("LANHostConfig","snmp_community"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
++</tr>
++
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system location', LEFT);" onMouseOut="return nd();">System location:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_location" value="<% nvram_get_x("LANHostConfig","snmp_location"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
++</tr>
++
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system contact person (e.g. e-mail address)', LEFT);" onMouseOut="return nd();">System contact:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_contact" value="<% nvram_get_x("LANHostConfig","snmp_contact"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
++</tr>
++
++</table>
++</td>
++</tr>
++
++<tr>
++<td colspan="3" height="10"></td>
++</tr>
++</table>
++</table>
++</td>
++</tr>
++<tr>
++<td>
++<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
++</td>
++</tr>
++<tr>
++<td>
++<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
++</td>
++</tr>
++<tr>
++<td>		
++<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
++<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
++<tr bgcolor="#FFFFFF">  
++   <td id ="Confirm" height="25" width="34%">  
++   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
++   </td>  
++   <td height="25" width="33%">  
++   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
++   </td>
++   <td height="25" width="33%">  
++   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
++   </td>    
++</tr>
++</table>
++</td>
++</tr>
++
++<tr>
++<td>
++<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
++<tr>
++    <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
++</tr>                   
++<tr bgcolor="#FFFFFF">
++    <td class="content_header_td_15" align="left">Restore: </td>
++    <td class="content_input_td_padding" align="left">Clear the above settings and restore the settings in effect.</td>
++</tr>
++<tr bgcolor="#FFFFFF">
++    <td class="content_header_td_15" align="left">Finish: </td>
++    <td class="content_input_td_padding" align="left">Confirm all settings and restart ZVMODELVZ now.</td>
++</tr>
++<tr bgcolor="#FFFFFF">
++    <td class="content_header_td_15" align="left">Apply: </td>
++    <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
++</tr>
++</table>
++</td>
++</tr>
++
++</table>
++</form>
++</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_Samba_Content.asp gateway/www/asus/web_asus_en/Advanced_Samba_Content.asp
---- router/www/asus/web_asus_en/Advanced_Samba_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Samba_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Samba_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Samba_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,186 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -1221,8 +1329,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Samba_Content.asp gateway/www/as
 +</form>
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_Services_Content.asp gateway/www/asus/web_asus_en/Advanced_Services_Content.asp
---- router/www/asus/web_asus_en/Advanced_Services_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Services_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Services_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Services_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,147 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -1372,8 +1480,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Services_Content.asp gateway/www
 +</form>
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp gateway/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp
---- router/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -20,7 +20,7 @@
  <td>
  <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
@@ -1384,8 +1492,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_SettingBackup_Content.asp gatewa
  <input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp
---- router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2009-03-28 12:15:04.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp	2009-03-28 09:15:04.000000000 +0000
 @@ -75,7 +75,7 @@
     window.status = "Connecting to Server...";
     //document.body.style.cursor = "default";
@@ -1414,117 +1522,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp gateway/www
  }
  else if ( document.form.ImageSize.value == "1") // 320 X 240
  {    
-diff -BurN router/www/asus/web_asus_en/Advanced_SNMP_Content.asp gateway/www/asus/web_asus_en/Advanced_SNMP_Content.asp
---- router/www/asus/web_asus_en/Advanced_SNMP_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_SNMP_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -0,0 +1,104 @@
-+<head>
-+<title>ZVMODELVZ Web Manager</title>
-+<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
-+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-+<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-+<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-+<script language="JavaScript" type="text/javascript" src="general.js"></script>
-+</head>  
-+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
-+<body onLoad="load_body()" onunLoad="return unload_body();">
-+<form method="GET" name="form" action="apply.cgi">
-+<!-- Table for the conntent page -->	    
-+<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-+    	
-+<input type="hidden" name="current_page" value="Advanced_SNMP_Content.asp"><input type="hidden" name="next_page" value="Advanced_SNMP_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="LANHostConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-+<tr>
-+<td>
-+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
-+<tr class="content_header_tr">
-+<td class="content_header_td_title" colspan="2">IP Config - SNMP</td>
-+</tr>
-+
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Selecting Yes enables SNMP.', LEFT);" onMouseOut="return nd();">Enable SNMP? </td><td class="content_input_td"><input type="radio" value="1" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '1')" <% nvram_match_x("LANHostConfig","snmp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="snmp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'snmp_enable', '0')" <% nvram_match_x("LANHostConfig","snmp_enable", "0", "checked"); %>>No</input></td>
-+</tr>
-+
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP community name, which will be used to check for authorization', LEFT);" onMouseOut="return nd();">Community name:</td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="snmp_community" value="<% nvram_get_x("LANHostConfig","snmp_community"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
-+</tr>
-+
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system location', LEFT);" onMouseOut="return nd();">System location:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_location" value="<% nvram_get_x("LANHostConfig","snmp_location"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
-+</tr>
-+
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system contact person (e.g. e-mail address)', LEFT);" onMouseOut="return nd();">System contact:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_contact" value="<% nvram_get_x("LANHostConfig","snmp_contact"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
-+</tr>
-+
-+</table>
-+</td>
-+</tr>
-+
-+<tr>
-+<td colspan="3" height="10"></td>
-+</tr>
-+</table>
-+</table>
-+</td>
-+</tr>
-+<tr>
-+<td>
-+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-+</td>
-+</tr>
-+<tr>
-+<td>
-+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-+</td>
-+</tr>
-+<tr>
-+<td>		
-+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
-+<tr bgcolor="#FFFFFF">  
-+   <td id ="Confirm" height="25" width="34%">  
-+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
-+   </td>  
-+   <td height="25" width="33%">  
-+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
-+   </td>
-+   <td height="25" width="33%">  
-+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
-+   </td>    
-+</tr>
-+</table>
-+</td>
-+</tr>
-+
-+<tr>
-+<td>
-+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-+<tr>
-+    <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
-+</tr>                   
-+<tr bgcolor="#FFFFFF">
-+    <td class="content_header_td_15" align="left">Restore: </td>
-+    <td class="content_input_td_padding" align="left">Clear the above settings and restore the settings in effect.</td>
-+</tr>
-+<tr bgcolor="#FFFFFF">
-+    <td class="content_header_td_15" align="left">Finish: </td>
-+    <td class="content_input_td_padding" align="left">Confirm all settings and restart ZVMODELVZ now.</td>
-+</tr>
-+<tr bgcolor="#FFFFFF">
-+    <td class="content_header_td_15" align="left">Apply: </td>
-+    <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
-+</tr>
-+</table>
-+</td>
-+</tr>
-+
-+</table>
-+</form>
-+</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp
---- router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2009-03-02 23:11:24.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2009-03-02 20:11:24.000000000 +0000
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -1664,9 +1664,29 @@ diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/w
  <tr>
  <td colspan="3" height="10"></td>
  </tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp
+--- router/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp	2004-12-07 13:01:03.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -42,8 +42,16 @@
+            </td><td class="content_input_td"><select name="wl_rate" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rate')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_rate", "0","selected"); %>>Auto</option><option class="content_input_fd" value="1000000" <% nvram_match_x("WLANConfig11b","wl_rate", "1000000","selected"); %>>1</option><option class="content_input_fd" value="2000000" <% nvram_match_x("WLANConfig11b","wl_rate", "2000000","selected"); %>>2</option><option class="content_input_fd" value="5500000" <% nvram_match_x("WLANConfig11b","wl_rate", "5500000","selected"); %>>5.5</option><option class="content_input_fd" value="6000000" <% nvram_match_x("WLANConfig11b","wl_rate", "6000000","selected"); %>>6</option><option class="content_input_fd" value="9000000" <% nvram_match_x("WLANConfig11b","wl_rate", "9000000","selected"); %>>9</option><option class="content_input_fd" value="11000000" <% nvram_match_x("WLANConfig11b","wl_rate", "11000000","selected"); %>>11</option><option class="content_input_fd" value="12000000" <% nvram_match_x("WLANConfig11b","wl_rate", "12000000","selected"); %>>12</option><option class="content_input_fd" value="18000000" <% nvram_match_x("WLANConfig11b","wl_rate", "18000000","selected"); %>>18</option><option class="content_input_fd" value="24000000" <% nvram_match_x("WLANConfig11b","wl_rate", "24000000","selected"); %>>24</option><option class="content_input_fd" value="36000000" <% nvram_match_x("WLANConfig11b","wl_rate", "36000000","selected"); %>>36</option><option class="content_input_fd" value="48000000" <% nvram_match_x("WLANConfig11b","wl_rate", "48000000","selected"); %>>48</option><option class="content_input_fd" value="54000000" <% nvram_match_x("WLANConfig11b","wl_rate", "54000000","selected"); %>>54</option></select></td>
+ </tr>
+ <tr>
++<td class="content_header_td" onMouseOver="return overlib('Select the multicast transmission rate. You are recommended to select Auto for maximum compatibility.', LEFT);" onMouseOut="return nd();">Multicast Rate(Mbps):
++           </td><td class="content_input_td"><select name="wl_mrate" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_mrate')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_mrate", "0","selected"); %>>Auto</option><option class="content_input_fd" value="1000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "1000000","selected"); %>>1</option><option class="content_input_fd" value="2000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "2000000","selected"); %>>2</option><option class="content_input_fd" value="5500000" <% nvram_match_x("WLANConfig11b","wl_mrate", "5500000","selected"); %>>5.5</option><option class="content_input_fd" value="6000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "6000000","selected"); %>>6</option><option class="content_input_fd" value="9000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "9000000","selected"); %>>9</option><option class="content_input_fd" value="11000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "11000000","selected"); %>>11</option><option class="content_input_fd" value="12000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "12000000","selected"); %>>12</option><option class="content_input_fd" value="18000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "18000000","selected"); %>>18</option><option class="content_input_fd" value="24000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "24000000","selected"); %>>24</option><option class="content_input_fd" value="36000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "36000000","selected"); %>>36</option><option class="content_input_fd" value="48000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "48000000","selected"); %>>48</option><option class="content_input_fd" value="54000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "54000000","selected"); %>>54</option></select></td>
++</tr>
++<tr>
+ <td class="content_header_td" onMouseOver="return overlib('This field indicates the basic rates that wireless client must support.', LEFT);" onMouseOut="return nd();">Basic Rate Set:
+            </td><td class="content_input_td"><select name="wl_rateset" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rateset')"><option class="content_input_fd" value="default" <% nvram_match_x("WLANConfig11b","wl_rateset", "default","selected"); %>>Default</option><option class="content_input_fd" value="all" <% nvram_match_x("WLANConfig11b","wl_rateset", "all","selected"); %>>All</option><option class="content_input_fd" value="12" <% nvram_match_x("WLANConfig11b","wl_rateset", "12","selected"); %>>1, 2 Mbps</option></select></td>
++</tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('Selects a regulatory mode to use.', LEFT);" onMouseOut="return nd();">Regulatory Mode:
++           </td><td class="content_input_td"><select name="wl_reg_mode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_reg_mode')"><option class="content_input_fd" value="off" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "off","selected"); %>>Off</option><option class="content_input_fd" value="d" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "d","selected"); %>>802.11d</option><option class="content_input_fd" value="h" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "h","selected"); %>>802.11h</option></select></td>
+ </tr>
+ <tr>
+ <td class="content_header_td">Fragmentation Threshold:
 diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp
---- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,199 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -1868,8 +1888,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_11n.asp gatewa
 +</form>
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp
---- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -26,6 +26,10 @@
           </td>
  </tr>
@@ -1893,8 +1913,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_300g.asp gatew
             </td><td class="content_input_td"><select name="wl_rateset" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rateset')"><option class="content_input_fd" value="default" <% nvram_match_x("WLANConfig11b","wl_rateset", "default","selected"); %>>Default</option><option class="content_input_fd" value="all" <% nvram_match_x("WLANConfig11b","wl_rateset", "all","selected"); %>>All</option><option class="content_input_fd" value="12" <% nvram_match_x("WLANConfig11b","wl_rateset", "12","selected"); %>>1, 2 Mbps</option></select></td>
  </tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp
---- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -26,6 +26,10 @@
           </td>
  </tr>
@@ -1917,29 +1937,33 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content_500g.asp gatew
  <td class="content_header_td" onMouseOver="return overlib('This field indicates the basic rates that wireless client must support.', LEFT);" onMouseOut="return nd();">Basic Rate Set:
             </td><td class="content_input_td"><select name="wl_rateset" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rateset')"><option class="content_input_fd" value="default" <% nvram_match_x("WLANConfig11b","wl_rateset", "default","selected"); %>>Default</option><option class="content_input_fd" value="all" <% nvram_match_x("WLANConfig11b","wl_rateset", "all","selected"); %>>All</option><option class="content_input_fd" value="12" <% nvram_match_x("WLANConfig11b","wl_rateset", "12","selected"); %>>1, 2 Mbps</option></select></td>
  </tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp
---- router/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp	2004-12-07 16:01:03.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WAdvanced_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -42,8 +42,16 @@
-            </td><td class="content_input_td"><select name="wl_rate" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rate')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_rate", "0","selected"); %>>Auto</option><option class="content_input_fd" value="1000000" <% nvram_match_x("WLANConfig11b","wl_rate", "1000000","selected"); %>>1</option><option class="content_input_fd" value="2000000" <% nvram_match_x("WLANConfig11b","wl_rate", "2000000","selected"); %>>2</option><option class="content_input_fd" value="5500000" <% nvram_match_x("WLANConfig11b","wl_rate", "5500000","selected"); %>>5.5</option><option class="content_input_fd" value="6000000" <% nvram_match_x("WLANConfig11b","wl_rate", "6000000","selected"); %>>6</option><option class="content_input_fd" value="9000000" <% nvram_match_x("WLANConfig11b","wl_rate", "9000000","selected"); %>>9</option><option class="content_input_fd" value="11000000" <% nvram_match_x("WLANConfig11b","wl_rate", "11000000","selected"); %>>11</option><option class="content_input_fd" value="12000000" <% nvram_match_x("WLANConfig11b","wl_rate", "12000000","selected"); %>>12</option><option class="content_input_fd" value="18000000" <% nvram_match_x("WLANConfig11b","wl_rate", "18000000","selected"); %>>18</option><option class="content_input_fd" value="24000000" <% nvram_match_x("WLANConfig11b","wl_rate", "24000000","selected"); %>>24</option><option class="content_input_fd" value="36000000" <% nvram_match_x("WLANConfig11b","wl_rate", "36000000","selected"); %>>36</option><option class="content_input_fd" value="48000000" <% nvram_match_x("WLANConfig11b","wl_rate", "48000000","selected"); %>>48</option><option class="content_input_fd" value="54000000" <% nvram_match_x("WLANConfig11b","wl_rate", "54000000","selected"); %>>54</option></select></td>
+diff -BurN router/www/asus/web_asus_en/Advanced_WMode_Content.asp gateway/www/asus/web_asus_en/Advanced_WMode_Content.asp
+--- router/www/asus/web_asus_en/Advanced_WMode_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WMode_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -29,7 +29,7 @@
+ <tr>
+ <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
+          <div align="center">
+-<img name="WirelessBridge_img" src="graph/wds_ap.gif"></div>
++</div>
+ </td>
  </tr>
  <tr>
-+<td class="content_header_td" onMouseOver="return overlib('Select the multicast transmission rate. You are recommended to select Auto for maximum compatibility.', LEFT);" onMouseOut="return nd();">Multicast Rate(Mbps):
-+           </td><td class="content_input_td"><select name="wl_mrate" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_mrate')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_mrate", "0","selected"); %>>Auto</option><option class="content_input_fd" value="1000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "1000000","selected"); %>>1</option><option class="content_input_fd" value="2000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "2000000","selected"); %>>2</option><option class="content_input_fd" value="5500000" <% nvram_match_x("WLANConfig11b","wl_mrate", "5500000","selected"); %>>5.5</option><option class="content_input_fd" value="6000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "6000000","selected"); %>>6</option><option class="content_input_fd" value="9000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "9000000","selected"); %>>9</option><option class="content_input_fd" value="11000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "11000000","selected"); %>>11</option><option class="content_input_fd" value="12000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "12000000","selected"); %>>12</option><option class="content_input_fd" value="18000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "18000000","selected"); %>>18</option><option class="content_input_fd" value="24000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "24000000","selected"); %>>24</option><option class="content_input_fd" value="36000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "36000000","selected"); %>>36</option><option class="content_input_fd" value="48000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "48000000","selected"); %>>48</option><option class="content_input_fd" value="54000000" <% nvram_match_x("WLANConfig11b","wl_mrate", "54000000","selected"); %>>54</option></select></td>
-+</tr>
-+<tr>
- <td class="content_header_td" onMouseOver="return overlib('This field indicates the basic rates that wireless client must support.', LEFT);" onMouseOut="return nd();">Basic Rate Set:
-            </td><td class="content_input_td"><select name="wl_rateset" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_rateset')"><option class="content_input_fd" value="default" <% nvram_match_x("WLANConfig11b","wl_rateset", "default","selected"); %>>Default</option><option class="content_input_fd" value="all" <% nvram_match_x("WLANConfig11b","wl_rateset", "all","selected"); %>>All</option><option class="content_input_fd" value="12" <% nvram_match_x("WLANConfig11b","wl_rateset", "12","selected"); %>>1, 2 Mbps</option></select></td>
-+</tr>
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('Selects a regulatory mode to use.', LEFT);" onMouseOut="return nd();">Regulatory Mode:
-+           </td><td class="content_input_td"><select name="wl_reg_mode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_reg_mode')"><option class="content_input_fd" value="off" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "off","selected"); %>>Off</option><option class="content_input_fd" value="d" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "d","selected"); %>>802.11d</option><option class="content_input_fd" value="h" <% nvram_match_x("WLANConfig11b","wl_reg_mode", "h","selected"); %>>802.11h</option></select></td>
+diff -BurN router/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp gateway/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp
+--- router/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -23,7 +23,7 @@
+ <tr>
+ <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
+          <div align="center">
+-<img name="WirelessBridge_img" src="graph/wds_ap.gif"></div>
++</div>
+ </td>
  </tr>
  <tr>
- <td class="content_header_td">Fragmentation Threshold:
 diff -BurN router/www/asus/web_asus_en/Advanced_WebCam_Content.asp gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp
---- router/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2009-02-28 19:58:36.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WebCam_Content.asp	2009-02-28 16:58:36.000000000 +0000
 @@ -30,7 +30,7 @@
  </tr>
  <tr>
@@ -1960,21 +1984,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WebCam_Content.asp gateway/www/a
  </tr>
  <tr>
  <td class="content_header_td" onMouseOver="return overlib('This field indicates the string that will be the title displayed on your Webcam page.', LEFT);" onMouseOut="return nd();">Caption String:
-diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp
---- router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -32,7 +32,7 @@
- </tr>
- <tr>
- <td class="content_header_td" onMouseOver="return overlib('This field indicates the mode of 802.11g interface. Selecting Auto allows 802.11g and 802.11b to connect to your device. Selecting 54g Only maximizes performace, but 802.11b client is not allowed to connect to your device. If 54g Protection is checked, G-Mode protection of 11g traffic is enabled automatically in the presence of 11b traffic.', LEFT);" onMouseOut="return nd();">Wireless Mode:
--           </td><td class="content_input_td"><select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>54G Only</option><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11B Only</option></select><input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
-+           </td><td class="content_input_td"><select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>Performance</option><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11B Only</option><option class="content_input_fd" value="5" <% nvram_match_x("WLANConfig11b","wl_gmode", "5","selected"); %>>54G LRS</option></select><input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
- </tr>
- <input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get_x("WLANConfig11b","wl_gmode_protection_x"); %>">
- <tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp
---- router/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -2011,9 +2023,21 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11g_Content.asp gateway/
  </tr>
  <tr>
  <td class="content_header_td" onMouseOver="return overlib('This field indicates the encryption method used to encrypt data while WPA encryption is enabled.', LEFT);" onMouseOut="return nd();">WPA Encryption:
+diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp
+--- router/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Wireless11g_Content_520g.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -32,7 +32,7 @@
+ </tr>
+ <tr>
+ <td class="content_header_td" onMouseOver="return overlib('This field indicates the mode of 802.11g interface. Selecting Auto allows 802.11g and 802.11b to connect to your device. Selecting 54g Only maximizes performace, but 802.11b client is not allowed to connect to your device. If 54g Protection is checked, G-Mode protection of 11g traffic is enabled automatically in the presence of 11b traffic.', LEFT);" onMouseOut="return nd();">Wireless Mode:
+-           </td><td class="content_input_td"><select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>54G Only</option><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11B Only</option></select><input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
++           </td><td class="content_input_td"><select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>Performance</option><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11B Only</option><option class="content_input_fd" value="5" <% nvram_match_x("WLANConfig11b","wl_gmode", "5","selected"); %>>54G LRS</option></select><input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
+ </tr>
+ <input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get_x("WLANConfig11b","wl_gmode_protection_x"); %>">
+ <tr>
 diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp gateway/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp
---- router/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp	1970-01-01 00:00:00.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -0,0 +1,148 @@
 +<head>
 +<title>ZVMODELVZ Web Manager</title>
@@ -2164,8 +2188,8 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Wireless11n_Content.asp gateway/
 +</form>
 +</body>
 diff -BurN router/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp gateway/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp
---- router/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp	2004-11-19 13:45:54.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -108,7 +108,7 @@
  </tr>
  <tr>
@@ -2175,33 +2199,9 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp gate
  </tr>
  <input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get_x("WLANConfig11b","wl_gmode_protection_x"); %>">
  <tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp gateway/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp
---- router/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WMode_Content_501b.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -23,7 +23,7 @@
- <tr>
- <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
-          <div align="center">
--<img name="WirelessBridge_img" src="graph/wds_ap.gif"></div>
-+</div>
- </td>
- </tr>
- <tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_WMode_Content.asp gateway/www/asus/web_asus_en/Advanced_WMode_Content.asp
---- router/www/asus/web_asus_en/Advanced_WMode_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Advanced_WMode_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -29,7 +29,7 @@
- <tr>
- <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
-          <div align="center">
--<img name="WirelessBridge_img" src="graph/wds_ap.gif"></div>
-+</div>
- </td>
- </tr>
- <tr>
 diff -BurN router/www/asus/web_asus_en/Basic_GOperation_Content.asp gateway/www/asus/web_asus_en/Basic_GOperation_Content.asp
---- router/www/asus/web_asus_en/Basic_GOperation_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Basic_GOperation_Content.asp	2009-04-08 23:53:26.000000000 +0400
+--- router/www/asus/web_asus_en/Basic_GOperation_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Basic_GOperation_Content.asp	2009-04-08 19:53:26.000000000 +0000
 @@ -41,7 +41,12 @@
  Please choose the time zone where you are locating in.</td>
  </tr>
@@ -2261,8 +2261,8 @@ diff -BurN router/www/asus/web_asus_en/Basic_GOperation_Content.asp gateway/www/
  <tr>
  <td class="content_header_td_less">Subnet Mask:</td><td class="content_input_td"><input type="text" maxlength="15" size="15" name="wan_netmask" class="content_input_fd" value="<% nvram_get_x("IPConnection","wan_netmask"); %>" onBlur="return validate_ipaddr(this)" onKeyPress="return is_ipaddr(this)"></td>
 diff -BurN router/www/asus/web_asus_en/Basic_ROperation_Content.asp gateway/www/asus/web_asus_en/Basic_ROperation_Content.asp
---- router/www/asus/web_asus_en/Basic_ROperation_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Basic_ROperation_Content.asp	2009-04-08 23:54:57.000000000 +0400
+--- router/www/asus/web_asus_en/Basic_ROperation_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Basic_ROperation_Content.asp	2009-04-08 19:54:57.000000000 +0000
 @@ -41,7 +41,12 @@
  Please choose the time zone where you are locating in.</td>
  </tr>
@@ -2312,28 +2312,142 @@ diff -BurN router/www/asus/web_asus_en/Basic_ROperation_Content.asp gateway/www/
  </tr>
  <tr>
  <td class="content_input_td_less" colspan="2">
-diff -BurN router/www/asus/web_asus_en/general_501b.js gateway/www/asus/web_asus_en/general_501b.js
---- router/www/asus/web_asus_en/general_501b.js	2004-11-19 13:45:58.000000000 +0300
-+++ gateway/www/asus/web_asus_en/general_501b.js	2008-03-17 20:52:23.000000000 +0300
-@@ -2083,7 +2083,7 @@
- 	   
-     }	    	  	       	   
-     wdsimage = "graph/" + wdsimage + ".gif";
--    document.form.WirelessBridge_img.src = wdsimage;
-+//    document.form.WirelessBridge_img.src = wdsimage;
+diff -BurN router/www/asus/web_asus_en/Main_AdmStatus_Content.asp gateway/www/asus/web_asus_en/Main_AdmStatus_Content.asp
+--- router/www/asus/web_asus_en/Main_AdmStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_AdmStatus_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -21,7 +21,7 @@
+ <td class="content_header_td_title" colspan="2">System Command</td>
+ </tr>
+ <tr class="content_header_tr">
+-<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="64" size="32" name="SystemCmd" value=""></td>
++<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="1024" size="32" name="SystemCmd" onkeydown="onSubmitCtrl(this, ' Refresh ')" value=""></td>
+ </tr>
+ <tr class="content_header_tr">
+ <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
+diff -BurN router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp gateway/www/asus/web_asus_en/Main_DHCPStatus_Content.asp
+--- router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_DHCPStatus_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -22,7 +22,7 @@
+ </tr>
+ <tr class="content_header_tr">
+ <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
+-<% nvram_dump("leases.log","leases.sh"); %>              
++<% nvram_dump("dnsmasq.log","dnsmasq.sh"); %>              
+             </textarea></td>
+ </tr>
+ </table>
+diff -BurN router/www/asus/web_asus_en/Main_LogStatus_Content.asp gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp
+--- router/www/asus/web_asus_en/Main_LogStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -21,7 +21,7 @@
+ <td class="content_header_td_title" colspan="2">Status & Log - System Log</td>
+ </tr>
+ <tr class="content_header_tr">
+-<td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
++<td colspan="2"><textarea class="content_log_td" cols="63" rows="25" wrap="off" readonly="1">
+ <% nvram_dump("syslog.log","syslog.sh"); %>              
+             </textarea></td>
+ </tr>
+diff -BurN router/www/asus/web_asus_en/ShowWebCam.asp gateway/www/asus/web_asus_en/ShowWebCam.asp
+--- router/www/asus/web_asus_en/ShowWebCam.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/ShowWebCam.asp	2009-03-28 09:14:41.000000000 +0000
+@@ -72,7 +72,7 @@
+    window.status = "Connecting to Server...";
+    //document.body.style.cursor = "default";
+    //if (document.form.imageidx.value=="0")
+-   the_timeout = setTimeout("redirect1()",document.form.RefreshTime.value*1000)
++   the_timeout = setTimeout("redirect1()",((document.form.RefreshTime.value==0)?1:document.form.RefreshTime.value)*1000)
+    //else
+    //clearTimeout(the_timeout);   
  }
+@@ -120,16 +120,8 @@
+ <script language="JavaScript">
+ if ( document.form.ImageSize.value == "0") // 640 X 480
+ {
+-     if (document.form.CameraModel.value == "0" ) //PWC
+-     {	
+-     	width = 320;
+-     	height = 240;
+-     }
+-     else
+-     {
+-     	width = 640;
+-     	height = 480;
+-     }			
++     width = 640;
++     height = 480;
+ }
+ else if ( document.form.ImageSize.value == "1") // 320 X 240
+ {    
+diff -BurN router/www/asus/web_asus_en/ShowWebCamPic.asp gateway/www/asus/web_asus_en/ShowWebCamPic.asp
+--- router/www/asus/web_asus_en/ShowWebCamPic.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/ShowWebCamPic.asp	2009-04-04 16:33:15.000000000 +0000
+@@ -1,6 +1,5 @@
+ <html>
+ <head>
+-<meta http-equiv="refresh" content="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
+ <title>ZVMODELVZ Web Camera Page</title>
+ <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+ <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+@@ -8,7 +7,8 @@
+ <link rel="stylesheet" type="text/css" href="style.css" media="screen">
+ <SCRIPT LANGUAGE="JavaScript">
  
- function onSubmit()
-@@ -3716,4 +3716,4 @@
-     }    
-        
-     // End handling WPA option
--}
+-
++var the_timeout = <% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>;
++setTimeout("location.reload(true)", (the_timeout == 0 ? 1 : the_timeout) * 1000);
+ 
+ function onClose()
+ {
+@@ -24,7 +24,6 @@
+ </head>
+ <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
+ <form method="GET" name="form" action="webcam.cgi">  
+-<input type="hidden" name="RefreshTime" value="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
+ <input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
+ <input type="hidden" name="CaptionString" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>">
+ <input type="hidden" name="CameraMode" value="<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>">
+@@ -40,16 +39,8 @@
+ <script language="JavaScript">
+ if ( document.form.ImageSize.value == "0") // 640 X 480
+ {
+-     if (document.form.CameraModel.value == "0" ) //PWC
+-     {	
+-     	width = 320;
+-     	height = 240;
+-     }
+-     else
+-     {
+-     	width = 640;
+-     	height = 480;
+-     }			
++     width = 640;
++     height = 480;
+ }
+ else if ( document.form.ImageSize.value == "1") // 320 X 240
+ {    
+diff -BurN router/www/asus/web_asus_en/Updating.asp gateway/www/asus/web_asus_en/Updating.asp
+--- router/www/asus/web_asus_en/Updating.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Updating.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -42,7 +42,7 @@
+         </tr>
+         <tr> 
+           <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial"> 
+-            <font color="#FF0000"><b>Note: It takes about 80 seconds.</b></font></font></td>
++            <font color="#FF0000"><b>Note: It takes up to several minutes depending on the flash speed.</b></font></font></td>
+         </tr>
+         </tbody> 
+       </table>
+@@ -50,4 +50,4 @@
+   </tr>
+ </table>
+ </body>
+-</html>
 \ No newline at end of file
-+}
++</html>
 diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/general.js
---- router/www/asus/web_asus_en/general.js	2004-11-19 13:45:58.000000000 +0300
-+++ gateway/www/asus/web_asus_en/general.js	2009-04-09 20:41:28.000000000 +0400
+--- router/www/asus/web_asus_en/general.js	2004-11-19 10:45:58.000000000 +0000
++++ gateway/www/asus/web_asus_en/general.js	2009-04-09 16:41:28.000000000 +0000
 @@ -81,9 +81,23 @@
      }   
  }
@@ -2674,7 +2788,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
      	}	  	
    }      
    else if (s=='FirewallConfig' && v=='DmzEnable')
-@@ -2639,6 +2643,13 @@ function change_common_radio(o, s, v, r)
+@@ -2639,6 +2757,13 @@
    	inputCtrl(document.form.PPPConnection_x_ServiceName2, flag);  	  	   
    	inputCtrl(document.form.PPPConnection_x_AccessConcentrator2, flag);  	  	     	  	  	  		  	  
    }
@@ -2755,7 +2869,7 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  1); 	
  			else
  				inputCtrl(document.form.wl_wpa_gtk_rekey,  0);
-@@ -3698,7 +3831,8 @@
+@@ -3698,7 +3829,8 @@
  function wl_auth_mode_reconf()
  {
  	if (document.form.wl_auth_mode.value=="radius" ||
@@ -2942,30 +3056,31 @@ diff -BurN router/www/asus/web_asus_en/general.js gateway/www/asus/web_asus_en/g
  }
  
  function masq_wepkey()
-diff -BurN router/www/asus/web_asus_en/index_501b.asp gateway/www/asus/web_asus_en/index_501b.asp
---- router/www/asus/web_asus_en/index_501b.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/index_501b.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -202,7 +202,7 @@
-      	appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
-      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
-      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
--     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
-+     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
-      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
-      }	
-      else
-@@ -210,7 +210,7 @@
-      	//appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
-      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
-      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
--     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
-+     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
-      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
-      }
-      //appendChild(aux1, generateDocEntry(0, "Printer Setup", "Advanced_PrinterSetup_Content.asp", ""))
+diff -BurN router/www/asus/web_asus_en/general_501b.js gateway/www/asus/web_asus_en/general_501b.js
+--- router/www/asus/web_asus_en/general_501b.js	2004-11-19 10:45:58.000000000 +0000
++++ gateway/www/asus/web_asus_en/general_501b.js	2008-03-17 17:52:23.000000000 +0000
+@@ -2083,7 +2083,7 @@
+ 	   
+     }	    	  	       	   
+     wdsimage = "graph/" + wdsimage + ".gif";
+-    document.form.WirelessBridge_img.src = wdsimage;
++//    document.form.WirelessBridge_img.src = wdsimage;
+ }
+ 
+ function onSubmit()
+@@ -3716,4 +3716,4 @@
+     }    
+        
+     // End handling WPA option
+-}
+\ No newline at end of file
++}
+Files router/www/asus/web_asus_en/graph/iBox_title_all.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all.jpg differ
+Files router/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg differ
+Files router/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg differ
 diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/index.asp
---- router/www/asus/web_asus_en/index.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/index.asp	2008-03-19 20:41:37.000000000 +0300
+--- router/www/asus/web_asus_en/index.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/index.asp	2008-03-19 17:41:37.000000000 +0000
 @@ -38,14 +38,17 @@
  {
     model = 'WL600';
@@ -3080,9 +3195,30 @@ diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/in
 -my file
 \ No newline at end of file
 +my file
+diff -BurN router/www/asus/web_asus_en/index_501b.asp gateway/www/asus/web_asus_en/index_501b.asp
+--- router/www/asus/web_asus_en/index_501b.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/index_501b.asp	2008-03-17 17:52:23.000000000 +0000
+@@ -202,7 +202,7 @@
+      	appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
+      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
+      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
+-     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
++     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
+      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
+      }	
+      else
+@@ -210,7 +210,7 @@
+      	//appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
+      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
+      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
+-     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
++     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
+      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
+      }
+      //appendChild(aux1, generateDocEntry(0, "Printer Setup", "Advanced_PrinterSetup_Content.asp", ""))
 diff -BurN router/www/asus/web_asus_en/index_JP.asp gateway/www/asus/web_asus_en/index_JP.asp
---- router/www/asus/web_asus_en/index_JP.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/index_JP.asp	2008-03-17 20:52:23.000000000 +0300
+--- router/www/asus/web_asus_en/index_JP.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/index_JP.asp	2008-03-17 17:52:23.000000000 +0000
 @@ -170,7 +170,7 @@
       appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
       appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
@@ -3092,45 +3228,9 @@ diff -BurN router/www/asus/web_asus_en/index_JP.asp gateway/www/asus/web_asus_en
       appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
       //appendChild(aux1, generateDocEntry(0, "Printer Setup", "Advanced_PrinterSetup_Content.asp", ""))
      
-diff -BurN router/www/asus/web_asus_en/Main_AdmStatus_Content.asp gateway/www/asus/web_asus_en/Main_AdmStatus_Content.asp
---- router/www/asus/web_asus_en/Main_AdmStatus_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Main_AdmStatus_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -21,7 +21,7 @@
- <td class="content_header_td_title" colspan="2">System Command</td>
- </tr>
- <tr class="content_header_tr">
--<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="64" size="32" name="SystemCmd" value=""></td>
-+<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="1024" size="32" name="SystemCmd" onkeydown="onSubmitCtrl(this, ' Refresh ')" value=""></td>
- </tr>
- <tr class="content_header_tr">
- <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
-diff -BurN router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp gateway/www/asus/web_asus_en/Main_DHCPStatus_Content.asp
---- router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Main_DHCPStatus_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -22,7 +22,7 @@
- </tr>
- <tr class="content_header_tr">
- <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
--<% nvram_dump("leases.log","leases.sh"); %>              
-+<% nvram_dump("dnsmasq.log","dnsmasq.sh"); %>              
-             </textarea></td>
- </tr>
- </table>
-diff -BurN router/www/asus/web_asus_en/Main_LogStatus_Content.asp gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp
---- router/www/asus/web_asus_en/Main_LogStatus_Content.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -21,7 +21,7 @@
- <td class="content_header_td_title" colspan="2">Status & Log - System Log</td>
- </tr>
- <tr class="content_header_tr">
--<td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
-+<td colspan="2"><textarea class="content_log_td" cols="63" rows="25" wrap="off" readonly="1">
- <% nvram_dump("syslog.log","syslog.sh"); %>              
-             </textarea></td>
- </tr>
 diff -BurN router/www/asus/web_asus_en/quick.js gateway/www/asus/web_asus_en/quick.js
---- router/www/asus/web_asus_en/quick.js	2004-11-19 13:45:58.000000000 +0300
-+++ gateway/www/asus/web_asus_en/quick.js	2009-04-09 00:16:18.000000000 +0400
+--- router/www/asus/web_asus_en/quick.js	2004-11-19 10:45:58.000000000 +0000
++++ gateway/www/asus/web_asus_en/quick.js	2009-04-08 20:16:18.000000000 +0000
 @@ -67,6 +67,7 @@
      o[2].checked = false;        
      o[3].checked = false;
@@ -3353,427 +3453,3 @@ diff -BurN router/www/asus/web_asus_en/quick.js gateway/www/asus/web_asus_en/qui
  	       }   
  	       else
  	       {
-diff -BurN router/www/asus/web_asus_en/ShowWebCam.asp gateway/www/asus/web_asus_en/ShowWebCam.asp
---- router/www/asus/web_asus_en/ShowWebCam.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/ShowWebCam.asp	2009-03-28 12:14:41.000000000 +0300
-@@ -72,7 +72,7 @@
-    window.status = "Connecting to Server...";
-    //document.body.style.cursor = "default";
-    //if (document.form.imageidx.value=="0")
--   the_timeout = setTimeout("redirect1()",document.form.RefreshTime.value*1000)
-+   the_timeout = setTimeout("redirect1()",((document.form.RefreshTime.value==0)?1:document.form.RefreshTime.value)*1000)
-    //else
-    //clearTimeout(the_timeout);   
- }
-@@ -120,16 +120,8 @@
- <script language="JavaScript">
- if ( document.form.ImageSize.value == "0") // 640 X 480
- {
--     if (document.form.CameraModel.value == "0" ) //PWC
--     {	
--     	width = 320;
--     	height = 240;
--     }
--     else
--     {
--     	width = 640;
--     	height = 480;
--     }			
-+     width = 640;
-+     height = 480;
- }
- else if ( document.form.ImageSize.value == "1") // 320 X 240
- {    
-diff -BurN router/www/asus/web_asus_en/ShowWebCamPic.asp gateway/www/asus/web_asus_en/ShowWebCamPic.asp
---- router/www/asus/web_asus_en/ShowWebCamPic.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/ShowWebCamPic.asp	2009-04-04 20:33:15.000000000 +0400
-@@ -1,6 +1,5 @@
- <html>
- <head>
--<meta http-equiv="refresh" content="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
- <title>ZVMODELVZ Web Camera Page</title>
- <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
- <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-@@ -8,7 +7,8 @@
- <link rel="stylesheet" type="text/css" href="style.css" media="screen">
- <SCRIPT LANGUAGE="JavaScript">
- 
--
-+var the_timeout = <% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>;
-+setTimeout("location.reload(true)", (the_timeout == 0 ? 1 : the_timeout) * 1000);
- 
- function onClose()
- {
-@@ -24,7 +24,6 @@
- </head>
- <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
- <form method="GET" name="form" action="webcam.cgi">  
--<input type="hidden" name="RefreshTime" value="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
- <input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
- <input type="hidden" name="CaptionString" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>">
- <input type="hidden" name="CameraMode" value="<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>">
-@@ -40,16 +39,8 @@
- <script language="JavaScript">
- if ( document.form.ImageSize.value == "0") // 640 X 480
- {
--     if (document.form.CameraModel.value == "0" ) //PWC
--     {	
--     	width = 320;
--     	height = 240;
--     }
--     else
--     {
--     	width = 640;
--     	height = 480;
--     }			
-+     width = 640;
-+     height = 480;
- }
- else if ( document.form.ImageSize.value == "1") // 320 X 240
- {    
-diff -BurN router/www/asus/web_asus_en/Updating.asp gateway/www/asus/web_asus_en/Updating.asp
---- router/www/asus/web_asus_en/Updating.asp	2004-11-19 13:45:55.000000000 +0300
-+++ gateway/www/asus/web_asus_en/Updating.asp	2008-03-17 20:52:23.000000000 +0300
-@@ -42,7 +42,7 @@
-         </tr>
-         <tr> 
-           <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial"> 
--            <font color="#FF0000"><b>Note: It takes about 80 seconds.</b></font></font></td>
-+            <font color="#FF0000"><b>Note: It takes up to several minutes depending on the flash speed.</b></font></font></td>
-         </tr>
-         </tbody> 
-       </table>
-@@ -50,4 +50,4 @@
-   </tr>
- </table>
- </body>
--</html>
-\ No newline at end of file
-+</html>
-diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
---- router/www/asus/Makefile	2004-11-18 21:33:33.000000000 +0300
-+++ gateway/www/asus/Makefile	2008-03-18 21:17:22.000000000 +0300
-@@ -14,6 +14,8 @@
- 
- PAGES := *
- PAGES_DIR := graph/*
-+MODEL := WL500g
-+LANGUAGE := EN
- 
- all: pages.mk
- 
-@@ -21,15 +23,15 @@
- 	echo "PAGES := $(PAGES)" > $@
- 
- install:
--	./mkweb WL500gx "EN"	
--	install -d $(INSTALLDIR)/www
--	install -m 644 web_WL500gx/*.asp $(INSTALLDIR)/www
--	install -m 644 web_WL500gx/*.js $(INSTALLDIR)/www
--	install -m 644 web_WL500gx/*.css $(INSTALLDIR)/www
-+	./mkweb $(MODEL) "EN"	
-+	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
-+	install -m 644 web_$(MODEL)/*.asp $(INSTALLDIR)/www
-+	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
-+	install -m 644 web_$(MODEL)/*.css $(INSTALLDIR)/www
- 	install -d $(INSTALLDIR)/www/graph
--	install -m 644 web_WL500gx/$(PAGES_DIR) $(INSTALLDIR)/www/graph
-+	install -m 644 web_$(MODEL)/$(PAGES_DIR) $(INSTALLDIR)/www/graph
- 	rm -rf web
--	rm -rf web_WL500gx
-+	rm -rf web_$(MODEL)
- 
- install-%:
- 	echo $(LANGUAGE)
-@@ -45,19 +47,26 @@
- 	install -d www_$*/graph
- 	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
- 
--	ln -sf /tmp/settings www_$*/WL500g.Deluxe.CFG
--	ln -sf /tmp/settings www_$*/WL500gl.CFG
--	ln -sf /tmp/settings www_$*/WL500bl.CFG
--	ln -sf /tmp/settings www_$*/WL500g.CFG
--	ln -sf /tmp/settings www_$*/WL500b.CFG
--	ln -sf /tmp/settings www_$*/WL500bv2.CFG
--	ln -sf /tmp/settings www_$*/WL300g.CFG
--	ln -sf /tmp/settings www_$*/WL331g.CFG
--	ln -sf /tmp/settings www_$*/WL331gl.CFG
- 	ln -sf /var/tmp/display.jpg www_$*/display.jpg
- 
- 	rm -rf web
- 	rm -rf web_$*
- 
-+pages-%:
-+	echo $(LANGUAGE)
-+	./mkweb $* "$(LANGUAGE)"	
-+	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
-+	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
-+	install -m 644 web_$*/*.js $(INSTALLDIR)/www
-+	install -m 644 web_$*/*.css $(INSTALLDIR)/www
-+	install -m 644 web_$*/*.cab $(INSTALLDIR)/www
-+	install -d $(INSTALLDIR)/www/graph
-+	install -m 644 web_$*/$(PAGES_DIR) $(INSTALLDIR)/www/graph
-+
-+	ln -sf /var/tmp/display.jpg $(INSTALLDIR)/www/display.jpg
-+
-+	rm -rf web
-+	rm -rf web_$*
-+
- clean:
- 	rm -f pages.mk
-diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
---- router/www/asus/mkweb	2004-11-19 07:11:13.000000000 +0300
-+++ gateway/www/asus/mkweb	2008-03-20 22:35:45.000000000 +0300
-@@ -1,5 +1,11 @@
- #!/bin/sh
- 
-+### CHUPA REVISION 1 29-10-2004 01:56
-+### CHUPA REVISION 2 22-11-2004 23:35
-+#+remove some unused files from www/graph and www/
-+#+changed /web_asus_en/index.asp to support SystemLog in AP mode
-+#+changed behaviour of menu, some things were selected wrongly in the previous revision
-+#
- # In the following directories, files of WL300g/WL500g/WL600/WL600g will be different
- # /init/
- # /web
-@@ -73,6 +79,12 @@
- 	if [ "$MODELID" = "WL500gx" ]; then
- 		MODEL_STR="WL500g.Deluxe"
- 	fi
-+	if [ "$MODELID" = "WL500gp" ]; then
-+		MODEL_STR="WL500g.Premium"
-+	fi
-+	if [ "$MODELID" = "WL500gpv2" ]; then
-+		MODEL_STR="WL500g.PremiumV2"
-+	fi
- 	echo $MODEL_STR
- 
- 	### 1. copy all files to tempdir ###
-@@ -104,11 +116,11 @@
-     ### 3. Replace ProductID in *.xml ###
- 
- 	PATTERN="s/WL600/$MODEL/g"
--	cat igdevicedesc.xml | sed "$PATTERN" > ../web_$MODEL/igdevicedesc.xml
-+# CHUPA	cat igdevicedesc.xml | sed "$PATTERN" > ../web_$MODEL/igdevicedesc.xml
- 
- 	### 4. Copy different files for different Model ###
- 	
--	if [ "$MODEL" = "WL300g" ] || [ "$MODEL" = "WL300g2" ]; then
-+	if [ "$MODEL" = "WL300g" ] || [ "$MODEL" = "WL300g2" ] || [ "$MODEL" = "WL330gE" ] || [ "$MODEL" = "WL320gE" ] || [ "$MODEL" = "WL320gP" ]; then
- 		### 4.1 default value ###
- 		
- 		if [ "$MODEL" = "WL300g" ]; then
-@@ -145,7 +157,9 @@
- 		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
- 		
- 		### 4.3 web graph ###		
--		cp -f ../web_$MODEL/graph/iBox_title_all_300g.jpg ../web_$MODEL/graph/iBox_title_all.jpg
-+		if [ "$MODEL" = "WL300g" ]; then
-+			cp -f ../web_$MODEL/graph/iBox_title_all_300g.jpg ../web_$MODEL/graph/iBox_title_all.jpg
-+		fi
- 		cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
- 		cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
- 		cp -f ../web_$MODEL/graph/internet_some_300.gif ../web_$MODEL/graph/internet_some.gif			
-@@ -259,7 +273,7 @@
- 			cp -f ../target/init/httpserver_501b ../target/init/httpserver
- 			cp -f ../target/web/script/wlan11b.sh_501b ../target/web/script/wlan11b.sh
- 		fi	
--	elif [ "$MODEL" = "WL500g" ] || [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500b" ] || [ "$MODEL" = "WL500bv2" ] || [ "$MODEL" = "WL500gl" ] || [ "$MODEL" = "WL500bl" ] || [ "$MODEL" = "WL331gl" ]; then
-+	elif [ "$MODEL" = "WL500g" ] || [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] || [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] || [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL500b" ] || [ "$MODEL" = "WL500bv2" ] || [ "$MODEL" = "WL500gl" ] || [ "$MODEL" = "WL500bl" ] || [ "$MODEL" = "WL331gl" ] || [ "$MODEL" = "WL520gu" ]; then
- 		### 4.1 default value ###
- 		cat ../web_$MODEL/flash.default \
- 		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-@@ -267,7 +281,12 @@
- 		cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
- 				
- 		### 4.2 web page ###							
--		cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-+		if [ "$MODEL" = "WL500W" ]; then
-+			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-+			cp -f ../web_$MODEL/Advanced_WAdvanced_Content_11n.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
-+		else
-+			cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-+		fi
-     		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
- 		cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
- 		cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp	
-@@ -277,6 +296,8 @@
- 		### 4.3 web graph ###
- 		if [ "$MODEL" = "WL500gx" ]; then
- 			cp -f ../web_$MODEL/graph/iBox_title_all_500gx.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
-+		elif [ "$MODEL" = "WL550gE" ]; then
-+			cp -f ../web_$MODEL/graph/iBox_title_all_550g.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
- 		elif [ "$MODEL" = "WL500b" ]; then
- 			cp -f ../web_$MODEL/graph/iBox_title_all_500b.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
- 
-@@ -306,7 +327,7 @@
- 			cp -f ../web_$MODEL/Main_WStatus11b_Content_501b.asp ../web_$MODEL/Main_WStatus_Content.asp
- 			cp -f ../web_$MODEL/Advanced_BasicFirewall_Content_lite.asp ../web_$MODEL/Advanced_BasicFirewall_Content.asp
- 			cp -f ../web_$MODEL/Advanced_Firewall_Content_lite.asp ../web_$MODEL/Advanced_Firewall_Content.asp	
--		else
-+		elif [ "$MODEL" = "WL500g" ]; then
- 			cp -f ../web_$MODEL/graph/iBox_title_all_500g.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
- 			cp -f ../web_$MODEL/Main_Index_AccessPoint11g_500g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
- 			cp -f ../web_$MODEL/Main_Index_HomeGateway11g_500g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
-@@ -427,11 +448,62 @@
- 		cp -f ../target/lib/modules/2.4.5/parport/lp.o_600g ../target/lib/modules/2.4.5/parport/lp.o
- 		cp -f ../target/usr/sbin/upnp_600g ../target/usr/sbin/upnp
- 		cp -f ../target/sbin/lpd_600g ../target/sbin/lpd
--		cp -f ../target/sbin/infosvr_600g ../target/sbin/infosvr
-+	    	cp -f ../target/sbin/infosvr_600g ../target/sbin/infosvr
-+
-+#################################################################### WLHDD
-+        elif [ "$MODEL" = "WLHDD" ]; then
-+                ### 4.1 default value ###
-+		
-+### CHUPA: Obsolete, left out..
-+
-+                ### 4.2 web page ###
-+                cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-+                cp -f ../web_$MODEL/Advanced_WAdvanced_Content.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
-+# for afterburner (wl500gx/wlhdd function)
-+                cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
-+                cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
-+
-+                cp -f ../web_$MODEL/Advanced_OperationMode_Content_300g.asp ../web_$MODEL/Advanced_OperationMode_Content.asp
-+
-+                cp -f ../web_$MODEL/Advanced_DDNS_Content.asp ../web_$MODEL/Advanced_DDNS_Content.asp
-+# DDNS shit has some custom adds as it seems, something for misc_conntrack but named for ntp?
-+#		cp -f ../web_$MODEL/Advanced_NTP_Content.asp ../web_$MODEL/Advanced_NTP_Content.asp
-+#	advanced_ntp_content should be added so this can be used in AP mode as well, as AP mode needs time too
-+                cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp
-+                cp -f ../web_$MODEL/Main_Index_AccessPoint11g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
-+                cp -f ../web_$MODEL/Main_Index_HomeGateway11g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
-+# those 3 above are the pages shown at login, not really usefull IMHO
-+                cp -f ../web_$MODEL/Main_Index_Router11g.asp ../web_$MODEL/Main_Index_Router.asp
-+#                cp -f ../web_$MODEL/Main_AStatus11g_Content.asp ../web_$MODEL/Main_AStatus_Content.asp
-+# disabled because now it did use WL300g stuff, while wl-hdd supports USB Printer, but did not show up in AP mode
-+#                cp -f ../web_$MODEL/Main_GStatus11g_Content.asp ../web_$MODEL/Main_GStatus_Content.asp
-+#                cp -f ../web_$MODEL/Main_RStatus11g_Content.asp ../web_$MODEL/Main_RStatus_Content.asp
-+# router mode is not even used at WL-HDD nor WL300g
-+                cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
-+# exposed_content seems to be obsolete as exposed_SP vervangen replaces it..?
-+
-+                ### 4.3 web graph ###
-+                cp -f ../web_$MODEL/graph/iBox_title_all_HDD.jpg ../web_$MODEL/graph/iBox_title_all.jpg
-+# need new image, present at http://www.chupa.nl/www/asus etc..
-+                cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
-+                cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
-+                cp -f ../web_$MODEL/graph/internet_some_300.gif ../web_$MODEL/graph/internet_some.gif
-+                cp -f ../web_$MODEL/graph/wds_ap_300.gif ../web_$MODEL/graph/wds_ap.gif
-+                cp -f ../web_$MODEL/graph/wds_mixed_connect_300.gif ../web_$MODEL/graph/wds_mixed_connect.gif
-+                cp -f ../web_$MODEL/graph/wds_mixed_anony_300.gif ../web_$MODEL/graph/wds_mixed_anony.gif
-+                cp -f ../web_$MODEL/graph/wds_mixed_both_300.gif ../web_$MODEL/graph/wds_mixed_both.gif
-+                cp -f ../web_$MODEL/graph/wds_wds_connect_300.gif ../web_$MODEL/graph/wds_wds_connect.gif
-+                cp -f ../web_$MODEL/graph/wds_wds_anony_300.gif ../web_$MODEL/graph/wds_wds_anony.gif
-+                cp -f ../web_$MODEL/graph/wds_wds_both_300.gif ../web_$MODEL/graph/wds_wds_both.gif
-+                cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif
-+                cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif
-+# graphs zouden 'klaar' moeten zijn voor draft versie, future: verkleinen en aanpassen voor wlhdd plaatjes
-+#################################################################### WLHDD /
- 	fi
- 
- 	### 6. Remove useless files in ./target/web/* ###
- 	rm -rf ../web_$MODEL/flash.default*
-+	rm -rf ../web_$MODEL/*11n*.asp
- 	rm -rf ../web_$MODEL/*11g*.asp
- 	rm -rf ../web_$MODEL/*11b*.asp
- 	rm -rf ../web_$MODEL/*_300g.asp	
-@@ -457,6 +529,92 @@
- 	rm -rf ../web_$MODEL/graph/*_500gx.*	
- 	rm -rf ../web_$MODEL/graph/*_520g.*
- 	rm -rf ../web_$MODEL/graph/*_331g.*
-+# CHUPA
-+	rm -rf ../web_$MODEL/graph/*_HDD.*
-+	rm -rf ../web_$MODEL/graph/*_550g.*
-+	rm -rf ../web_$MODEL/graph/*_500gp.*	
-+	rm -rf ../web_$MODEL/graph/!.gif
-+	rm -rf ../web_$MODEL/graph/AP.gif
-+	rm -rf ../web_$MODEL/graph/Connecting.gif
-+	rm -rf ../web_$MODEL/graph/Corner.gif
-+	rm -rf ../web_$MODEL/graph/Disconnect.gif
-+	rm -rf ../web_$MODEL/graph/Firewall.gif
-+	rm -rf ../web_$MODEL/graph/List_backgroup.gif
-+	rm -rf ../web_$MODEL/graph/Notebook.gif
-+	rm -rf ../web_$MODEL/graph/PC.gif
-+	rm -rf ../web_$MODEL/graph/Upload.gif
-+	rm -rf ../web_$MODEL/graph/Upload_BAD.gif
-+	rm -rf ../web_$MODEL/graph/Upload_OK.gif
-+	rm -rf ../web_$MODEL/graph/V.gif
-+	rm -rf ../web_$MODEL/graph/apicon.gif
-+	rm -rf ../web_$MODEL/graph/apply.gif
-+	rm -rf ../web_$MODEL/graph/asusLogo.jpg
-+	rm -rf ../web_$MODEL/graph/delthisentry.gif
-+	rm -rf ../web_$MODEL/graph/firewall1.gif
-+	rm -rf ../web_$MODEL/graph/firewall2.gif
-+	rm -rf ../web_$MODEL/graph/firewall3.gif
-+	rm -rf ../web_$MODEL/graph/gatewayLogo.gif
-+	rm -rf ../web_$MODEL/graph/iBox.gif
-+	rm -rf ../web_$MODEL/graph/internet.gif
-+	rm -rf ../web_$MODEL/graph/restore.gif
-+	rm -rf ../web_$MODEL/graph/sArrow.gif
-+	rm -rf ../web_$MODEL/graph/save.gif
-+	rm -rf ../web_$MODEL/graph/showroutingtable.gif
-+	rm -rf ../web_$MODEL/graph/start.gif
-+	rm -rf ../web_$MODEL/graph/sumhorsd.gif
-+	rm -rf ../web_$MODEL/graph/sumtextb.jpg
-+	rm -rf ../web_$MODEL/graph/x.gif
-+
-+	rm -rf ../web_$MODEL/index_JP.asp
-+	rm -rf ../web_$MODEL/firmware.asp
-+
-+	rm -f ../web_$MODEL/graph/internet_*.gif
-+	rm -f ../web_$MODEL/graph/wf_both.gif
-+	rm -f ../web_$MODEL/graph/wf_none.gif
-+	rm -f ../web_$MODEL/graph/wf_[ag].gif
-+	
-+	rm -f ../web_$MODEL/graph/wds_*.gif 
-+
-+	rm -f ../web_$MODEL/graph/many.gif
-+	
-+	rm -f ../web_$MODEL/Advanced_Authentication_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZDHCP_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZDLFilter_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZDWFilter_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZIP_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZLAN_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DMZWAN_Content.asp
-+	rm -f ../web_$MODEL/Advanced_DynamicRoute_Content.asp
-+	rm -f ../web_$MODEL/Advanced_FilterHelp_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_GRouterHelp_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_Help_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_LANWAN_Content_JP.asp
-+	rm -f ../web_$MODEL/Advanced_LFirewall_Content.asp
-+	rm -f ../web_$MODEL/Advanced_MultiPPPoE_Content.asp
-+	rm -f ../web_$MODEL/Advanced_NAT_Content_JP.asp
-+	rm -f ../web_$MODEL/Advanced_PortForwarding_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_PortMapping_Content.asp
-+	rm -f ../web_$MODEL/Advanced_PrinterSetup_Content.asp
-+	rm -f ../web_$MODEL/Advanced_PrinterSetup_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_RDHCP_Content.asp
-+	rm -f ../web_$MODEL/Advanced_RouterHelp_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_URLFilter_Content.asp
-+	rm -f ../web_$MODEL/Advanced_VirtualServer_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_WMMADV_Content.asp
-+	rm -f ../web_$MODEL/Basic_AOperation_Content.asp
-+	rm -f ../web_$MODEL/Basic_Operation_Content.asp
-+	rm -f ../web_$MODEL/Checking.asp
-+	rm -f ../web_$MODEL/EMITest.asp
-+	rm -f ../web_$MODEL/Main_Content.asp
-+	rm -f ../web_$MODEL/Main_FWStatus_Content.asp
-+	rm -f ../web_$MODEL/Main_Index.asp
-+	rm -f ../web_$MODEL/Main_Index_Content.asp
-+	rm -f ../web_$MODEL/Main_Password_Content.asp
-+	rm -f ../web_$MODEL/Main_Status_Content.asp
-+	rm -f ../web_$MODEL/WizardFirst.asp
-+	rm -f ../web_$MODEL/WlanUpdate.asp
-+			
-+# /CHUPA
- 
- 
- 	if [ "$MODEL" = "WL500gl" ] || [ "$MODEL" = "WL500bl" ] || [ "$MODEL" = "WL331gl" ]; then		
-diff -BuN router/www/asus/pages.mk gateway/www/asus/pages.mk
---- router/www/asus/pages.mk	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/www/asus/pages.mk	2008-03-17 21:24:15.000000000 +0300
-@@ -0,0 +1 @@
-+PAGES := *
