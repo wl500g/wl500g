@@ -89,7 +89,7 @@ diff -BurN linuz/Documentation/Configure.help linux/Documentation/Configure.help
  
  
 +Connections/IP limit match support
-+CONFIG_IP_NF_MATCH_IPLIMIT
++CONFIG_IP_NF_MATCH_CONNLIMIT
 +  This match allows you to restrict the number of parallel TCP
 +  connections to a server per client IP address (or address block).
 +
@@ -163,7 +163,7 @@ diff -BurN linuz/Documentation/Configure.help linux/Documentation/Configure.help
      dep_tristate '  Connection tracking match support' CONFIG_IP_NF_MATCH_CONNTRACK $CONFIG_IP_NF_CONNTRACK $CONFIG_IP_NF_IPTABLES 
  	if [ "$CONFIG_IP_NF_CONNTRACK_MARK" != "n" ]; then
  	  dep_tristate '  Connection mark match support' CONFIG_IP_NF_MATCH_CONNMARK $CONFIG_IP_NF_IPTABLES
-+          dep_tristate '  Connections/IP limit match support' CONFIG_IP_NF_MATCH_IPLIMIT $CONFIG_IP_NF_IPTABLES
++          dep_tristate '  Connections/IP limit match support' CONFIG_IP_NF_MATCH_CONNLIMIT $CONFIG_IP_NF_IPTABLES
  	fi
    fi
    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
@@ -229,22 +229,22 @@ diff -BurN linuz/Documentation/Configure.help linux/Documentation/Configure.help
      fi
    fi
  
-diff -BurN linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_iplimit.h linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_iplimit.h
---- linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_iplimit.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_iplimit.h	2007-12-20 16:26:12.581384000 +0300
+diff -BurN linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_connlimit.h linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_connlimit.h
+--- linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_connlimit.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_connlimit.h	2007-12-20 16:26:12.581384000 +0300
 @@ -0,0 +1,12 @@
-+#ifndef _IPT_IPLIMIT_H
-+#define _IPT_IPLIMIT_H
++#ifndef _IPT_CONNLIMIT_H
++#define _IPT_CONNLIMIT_H
 +
-+struct ipt_iplimit_data;
++struct ipt_connlimit_data;
 +
-+struct ipt_iplimit_info {
++struct ipt_connlimit_info {
 +	int limit;
 +	int inverse;
 +	u_int32_t mask;
-+	struct ipt_iplimit_data *data;
++	struct ipt_connlimit_data *data;
 +};
-+#endif /* _IPT_IPLIMIT_H */
++#endif /* _IPT_CONNLIMIT_H */
 diff -BurN linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_nth.h linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_nth.h
 --- linux-2.4.35.5.orig/include/linux/netfilter_ipv4/ipt_nth.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.4.35.5/include/linux/netfilter_ipv4/ipt_nth.h	2007-12-20 16:26:12.921860000 +0300
@@ -582,7 +582,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/Makefile linux-2.4.35.5/net/ip
  
  obj-$(CONFIG_IP_NF_MATCH_TTL) += ipt_ttl.o
  obj-$(CONFIG_IP_NF_MATCH_STATE) += ipt_state.o
-+obj-$(CONFIG_IP_NF_MATCH_IPLIMIT) += ipt_iplimit.o
++obj-$(CONFIG_IP_NF_MATCH_CONNLIMIT) += ipt_connlimit.o
  obj-$(CONFIG_IP_NF_MATCH_CONNMARK) += ipt_connmark.o
  obj-$(CONFIG_IP_NF_MATCH_CONNBYTES) += ipt_connbytes.o
  obj-$(CONFIG_IP_NF_MATCH_CONNTRACK) += ipt_conntrack.o
@@ -890,14 +890,16 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_TARPIT.c linux-2.4.35.5/ne
 +module_init(init);
 +module_exit(fini);
 +MODULE_LICENSE("GPL");
-diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/net/ipv4/netfilter/ipt_iplimit.c
---- linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.35.5/net/ipv4/netfilter/ipt_iplimit.c	2007-12-20 16:26:15.725780000 +0300
-@@ -0,0 +1,225 @@
+diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_connlimit.c linux-2.4.35.5/net/ipv4/netfilter/ipt_connlimit.c
+--- linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_connlimit.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.4.35.5/net/ipv4/netfilter/ipt_connlimit.c	2007-12-20 16:26:15.725780000 +0300
+@@ -0,0 +1,229 @@
 +/*
 + * netfilter module to limit the number of parallel tcp
 + * connections per IP address.
 + *   (c) 2000 Gerd Knorr <kraxel@bytesex.org>
++ *   Nov 2002: Martin Bene <martin.bene@icomedias.com>:
++ *             only ignore TIME_WAIT or gone connections
 + *
 + * based on ...
 + *
@@ -911,20 +913,20 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +#include <linux/netfilter_ipv4/ip_conntrack_core.h>
 +#include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
 +#include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/netfilter_ipv4/ipt_iplimit.h>
++#include <linux/netfilter_ipv4/ipt_connlimit.h>
 +
 +#define DEBUG 0
 +
 +MODULE_LICENSE("GPL");
 +
 +/* we'll save the tuples of all connections we care about */
-+struct ipt_iplimit_conn
++struct ipt_connlimit_conn
 +{
 +        struct list_head list;
 +	struct ip_conntrack_tuple tuple;
 +};
 +
-+struct ipt_iplimit_data {
++struct ipt_connlimit_data {
 +	spinlock_t lock;
 +	struct list_head iphash[256];
 +};
@@ -940,7 +942,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +	return hash;
 +}
 +
-+static int count_them(struct ipt_iplimit_data *data,
++static int count_them(struct ipt_connlimit_data *data,
 +		      u_int32_t addr, u_int32_t mask,
 +		      struct ip_conntrack *ct)
 +{
@@ -952,7 +954,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +	int addit = 1, matches = 0;
 +	struct ip_conntrack_tuple tuple;
 +	struct ip_conntrack_tuple_hash *found;
-+	struct ipt_iplimit_conn *conn;
++	struct ipt_connlimit_conn *conn;
 +	struct list_head *hash,*lh;
 +
 +	spin_lock(&data->lock);
@@ -961,16 +963,18 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +
 +	/* check the saved connections */
 +	for (lh = hash->next; lh != hash; lh = lh->next) {
-+		conn = list_entry(lh,struct ipt_iplimit_conn,list);
-+		if (0 == memcmp(&conn->tuple,&tuple,sizeof(tuple))) {
++		conn = list_entry(lh,struct ipt_connlimit_conn,list);
++               found = ip_conntrack_find_get(&conn->tuple,ct);
++               if (0 == memcmp(&conn->tuple,&tuple,sizeof(tuple)) &&
++                   found != NULL &&
++                   found->ctrack->proto.tcp.state != TCP_CONNTRACK_TIME_WAIT) {
 +			/* Just to be sure we have it only once in the list.
 +			   We should'nt see tuples twice unless someone hooks this
 +			   into a table without "-p tcp --syn" */
 +			addit = 0;
 +		}
-+		found = ip_conntrack_find_get(&conn->tuple,ct);
 +#if DEBUG
-+		printk("ipt_iplimit [%d]: src=%u.%u.%u.%u:%d dst=%u.%u.%u.%u:%d %s\n",
++		printk("ipt_connlimit [%d]: src=%u.%u.%u.%u:%d dst=%u.%u.%u.%u:%d %s\n",
 +		       ipt_iphash(addr & mask),
 +		       NIPQUAD(conn->tuple.src.ip), ntohs(conn->tuple.src.u.tcp.port),
 +		       NIPQUAD(conn->tuple.dst.ip), ntohs(conn->tuple.dst.u.tcp.port),
@@ -1003,7 +1007,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +	if (addit) {
 +		/* save the new connection in our list */
 +#if DEBUG
-+		printk("ipt_iplimit [%d]: src=%u.%u.%u.%u:%d dst=%u.%u.%u.%u:%d new\n",
++		printk("ipt_connlimit [%d]: src=%u.%u.%u.%u:%d dst=%u.%u.%u.%u:%d new\n",
 +		       ipt_iphash(addr & mask),
 +		       NIPQUAD(tuple.src.ip), ntohs(tuple.src.u.tcp.port),
 +		       NIPQUAD(tuple.dst.ip), ntohs(tuple.dst.u.tcp.port));
@@ -1031,26 +1035,26 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +      u_int16_t datalen,
 +      int *hotdrop)
 +{
-+	const struct ipt_iplimit_info *info = matchinfo;
++	const struct ipt_connlimit_info *info = matchinfo;
 +	int connections, match;
 +	struct ip_conntrack *ct;
 +	enum ip_conntrack_info ctinfo;
 +
 +	ct = ip_conntrack_get((struct sk_buff *)skb, &ctinfo);
 +	if (NULL == ct) {
-+		printk("ipt_iplimit: Oops: invalid ct state ?\n");
++		printk("ipt_connlimit: Oops: invalid ct state ?\n");
 +		*hotdrop = 1;
 +		return 0;
 +	}
 +	connections = count_them(info->data,skb->nh.iph->saddr,info->mask,ct);
 +	if (-1 == connections) {
-+		printk("ipt_iplimit: Hmm, kmalloc failed :-(\n");
++		printk("ipt_connlimit: Hmm, kmalloc failed :-(\n");
 +		*hotdrop = 1; /* let's free some memory :-) */
 +		return 0;
 +	}
 +        match = (info->inverse) ? (connections <= info->limit) : (connections > info->limit);
 +#if DEBUG
-+	printk("ipt_iplimit: src=%u.%u.%u.%u mask=%u.%u.%u.%u "
++	printk("ipt_connlimit: src=%u.%u.%u.%u mask=%u.%u.%u.%u "
 +	       "connections=%d limit=%d match=%s\n",
 +	       NIPQUAD(skb->nh.iph->saddr), NIPQUAD(info->mask),
 +	       connections, info->limit, match ? "yes" : "no");
@@ -1065,11 +1069,11 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +		 unsigned int matchsize,
 +		 unsigned int hook_mask)
 +{
-+	struct ipt_iplimit_info *info = matchinfo;
++	struct ipt_connlimit_info *info = matchinfo;
 +	int i;
 +
 +	/* verify size */
-+	if (matchsize != IPT_ALIGN(sizeof(struct ipt_iplimit_info)))
++	if (matchsize != IPT_ALIGN(sizeof(struct ipt_connlimit_info)))
 +		return 0;
 +
 +	/* refuse anything but tcp */
@@ -1077,7 +1081,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +		return 0;
 +
 +	/* init private data */
-+	info->data = kmalloc(sizeof(struct ipt_iplimit_data),GFP_KERNEL);
++	info->data = kmalloc(sizeof(struct ipt_connlimit_data),GFP_KERNEL);
 +	spin_lock_init(&(info->data->lock));
 +	for (i = 0; i < 256; i++)
 +		INIT_LIST_HEAD(&(info->data->iphash[i]));
@@ -1087,8 +1091,8 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +
 +static void destroy(void *matchinfo, unsigned int matchinfosize)
 +{
-+	struct ipt_iplimit_info *info = matchinfo;
-+	struct ipt_iplimit_conn *conn;
++	struct ipt_connlimit_info *info = matchinfo;
++	struct ipt_connlimit_conn *conn;
 +	struct list_head *hash;
 +	int i;
 +
@@ -1096,7 +1100,7 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +	for (i = 0; i < 256; i++) {
 +		hash = &(info->data->iphash[i]);
 +		while (hash != hash->next) {
-+			conn = list_entry(hash->next,struct ipt_iplimit_conn,list);
++			conn = list_entry(hash->next,struct ipt_connlimit_conn,list);
 +			list_del(hash->next);
 +			kfree(conn);
 +		}
@@ -1104,17 +1108,17 @@ diff -BurN linux-2.4.35.5.orig/net/ipv4/netfilter/ipt_iplimit.c linux-2.4.35.5/n
 +	kfree(info->data);
 +}
 +
-+static struct ipt_match iplimit_match
-+= { { NULL, NULL }, "iplimit", &match, &check, &destroy, THIS_MODULE };
++static struct ipt_match connlimit_match
++= { { NULL, NULL }, "connlimit", &match, &check, &destroy, THIS_MODULE };
 +
 +static int __init init(void)
 +{
-+	return ipt_register_match(&iplimit_match);
++	return ipt_register_match(&connlimit_match);
 +}
 +
 +static void __exit fini(void)
 +{
-+	ipt_unregister_match(&iplimit_match);
++	ipt_unregister_match(&connlimit_match);
 +}
 +
 +module_init(init);
