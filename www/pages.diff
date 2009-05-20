@@ -1524,7 +1524,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_ShowTime_Widzard.asp gateway/www
  {    
 diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp
 --- router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2004-11-19 10:45:54.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2009-03-02 20:11:24.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_USBStorage_Content.asp	2009-05-19 20:45:28.000000000 +0000
 @@ -13,7 +13,7 @@
  <!-- Table for the conntent page -->	    
  <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -1597,24 +1597,24 @@ diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/w
  <td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum number of users allowed to log in FTP server at the same time.', LEFT);" onMouseOut="return nd();">Maximum Users Allowed to Log in:
 -           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpmax_x"); %>" onBlur="validate_range(this, 1, 12)" onKeyPress="return is_number(this)"></td>
 +           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
-+</tr>
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum number of users allowed to log in FTP server at the same time from the same IP.', LEFT);" onMouseOut="return nd();">Maximum Connections from same IP:
-+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpipmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpipmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
-+</tr>
-+<tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for anonymous clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Anonymous Users (KBytes/sec):
-+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpanonrate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpanonrate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
  </tr>
  <tr>
 -<td class="content_header_td" onMouseOver="return overlib('This field allows you to terminate user connection after users enter login name for a specified period of time.', LEFT);" onMouseOut="return nd();">Login Timeout in Seconds:
 -           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="usb_ftptimeout_x" value="<% nvram_get_x("PrinterStatus","usb_ftptimeout_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
-+<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for authenticated clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Authenticated Users (KBytes/sec):
-+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftprate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftprate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum number of users allowed to log in FTP server at the same time from the same IP.', LEFT);" onMouseOut="return nd();">Maximum Connections from same IP:
++           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpipmax_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpipmax_x"); %>" onBlur="validate_range(this, 0, 12)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
  </tr>
  <tr>
 -<td class="content_header_td" onMouseOver="return overlib('This field allows you to terminate user connection after users login but stay idle for a specified period of time.', LEFT);" onMouseOut="return nd();">Stay Timeout in Seconds:
 -           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="usb_ftpstaytimeout_x" value="<% nvram_get_x("PrinterStatus","usb_ftpstaytimeout_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for anonymous clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Anonymous Users (KBytes/sec):
++           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftpanonrate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftpanonrate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
++</tr>
++<tr>
++<td class="content_header_td" onMouseOver="return overlib('This field indicates the maximum  data transfer rate permitted for authenticated clients', LEFT);" onMouseOut="return nd();">Maximum Bandwidth for Authenticated Users (KBytes/sec):
++           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_ftprate_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_ftprate_x"); %>" onBlur="validate_range(this, 0, 99999)" onKeyPress="return is_number(this)"> (0 - unlimited)</td>
++</tr>
++<tr>
 +<td class="content_header_td" onMouseOver="return overlib('This field allows you to terminate user connection after users login but stay idle for a specified period of time.', LEFT);" onMouseOut="return nd();">Idle Timeout in Seconds:
 +           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="usb_ftpstaytimeout_x" value="<% nvram_get_x("PrinterStatus","usb_ftpstaytimeout_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"> (0 - no timeout)</td>
  </tr>
@@ -1644,23 +1644,51 @@ diff -BurN router/www/asus/web_asus_en/Advanced_USBStorage_Content.asp gateway/w
  </tr>
  <tr>
  <td></td><td colspan="10"><select size="8" name="x_FUserList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
-@@ -109,7 +151,8 @@
+@@ -109,46 +151,7 @@
  </table>
  </table>
  </td>
 -</tr>
-+</tr>
-+<!--
- <tr>
- <td>
- <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
-@@ -148,7 +191,8 @@
- </table>
- </div>
- </td>
+-<tr>
+-<td>
+-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+-<tr class="content_list_header_tr">
+-<td class="content_list_header_td" width="60%" id="x_FBanIPList">Banned IP List
+-         <input type="hidden" name="usb_bannum_x_0" value="<% nvram_get_x("PrinterStatus", "usb_bannum_x"); %>" readonly="1"></td><td width="10%">
+-<div align="center">
+-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_FBanIPList', 16, ' Add ');" name="x_FBanIPList" value="Add" size="12">
+-</div>
+-</td><td width="10%">
+-<div align="center">
+-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_FBanIPList', 16, ' Del ');" name="x_FBanIPList" value="Del" size="12">
+-</div>
+-</td><td width="5%"></td>
+-</tr>
+-<table class="content_list_table" width="640" border="0" cellspacing="0" cellpadding="0">
+-<tr>
+-<td colspan="3" height="10"></td>
+-</tr>
+-<tr>
+-<td colspan="3">
+-<div align="center">
+-<table class="content_list_value_table" border="1" cellspacing="0" cellpadding="0">
+-<tr>
+-<td></td><td class="content_list_field_header_td" colspan="">IP Address	                
+-           	        </td><td></td>
+-</tr>
+-<tr>
+-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="24" name="usb_ftpbanip_x_0" onKeyPress="return is_iprange(this)" onKeyUp="change_iprange(this)"></td>
+-</tr>
+-<tr>
+-<td></td><td colspan="10"><select size="8" name="x_FBanIPList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
+-<% nvram_get_table_x("PrinterStatus","x_FBanIPList"); %>
+-</select></td>
+-</tr>
+-</table>
+-</div>
+-</td>
 -</tr>
 +</tr>
-+-->
  <tr>
  <td colspan="3" height="10"></td>
  </tr>
@@ -2336,6 +2364,485 @@ diff -BurN router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp gateway/www/a
              </textarea></td>
  </tr>
  </table>
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2009-05-20 05:11:45.000000000 +0000
+@@ -39,14 +39,12 @@
+       <p align="center">
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Dual Band Access Point</b>
+       <ul>
+-        <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
+-          allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">Dual Band</a> &nbsp;</b>supports 802.11a and 802.11g 
+-          simultaneously.</li>  
+-        <li> <b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a> &nbsp;</b>all computers share the same printer.</li> 
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
+-          log status of system in details.</li><p> 
++        <li><p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
++        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
++        <p>  
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp	2009-05-20 05:46:20.000000000 +0000
+@@ -39,10 +39,10 @@
+       <p align="center">
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
+       <ul>
+-        <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a> &nbsp;</b>supports up to 11Mbps transmission rate and interoperable security enhancement.</li>          
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b>log status of system in details.</li><p> 
++        <li><p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a></b> supports up to 11Mbps transmission rate and interoperable security enhancement.</li>          
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp	2009-05-20 05:46:27.000000000 +0000
+@@ -40,11 +40,10 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
+-          allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li><p> 
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp	2009-05-20 05:46:35.000000000 +0000
+@@ -40,11 +40,10 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
+-          allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li><p> 
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp	2009-05-20 05:46:43.000000000 +0000
+@@ -40,11 +40,10 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
+-          allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li><p> 
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp
+--- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp	2009-05-20 05:46:49.000000000 +0000
+@@ -40,11 +40,10 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
+-          allows users to complete basic setting by just answering several questions.</li>
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li><p> 
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_Content.asp gateway/www/asus/web_asus_en/Main_Index_Content.asp
+--- router/www/asus/web_asus_en/Main_Index_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Content.asp	2009-05-20 05:51:54.000000000 +0000
+@@ -14,7 +14,6 @@
+ </head>
+ 
+ <body bgcolor="#FFFFFF" >
+-<p>¡@</p>
+ <table border="0" width="68%" cellpadding="0" cellspacing="0">
+   <tr>
+     <td width="100%"></td>
+@@ -29,24 +28,14 @@
+   <table width="568" cellspacing="0" cellpadding="0" bordercolor="#C0C0C0" border="1">
+   <tr bgcolor="#FFFFFF"> 
+     <td width="644" bordercolor="#FFFFFF" bordercolorlight="#FFFFFF" bordercolordark="#FFFFFF" bgcolor="#FFFFFF"> 
+-      ¡@ 
+       <ul>
+-        <li> <b><a href="Basic_Operation_Content.asp">Quick Setup</a></b> guides you to install the  
+-          WL600 quickly. </li>  
+-        <li> <b><a href="Advanced_Wireless_Content.asp">Wireless</a> </b>provides wireless device 
+-          related options for power users. </li>  
+-        <li><b><a href="Advanced_LAN_Content.asp">LAN&amp;WAN</a> </b>provides&nbsp;  
+-          LAN and WAN&nbsp; related options for power users.</li>     
+-        <li> <b><a href="Advanced_WAN_Content.asp">Firewall</a> </b>provides 
+-          Firewall related options for power users. </li>   
+-        <li> <b><a href="Advanced_WAN_Content.asp">Router</a> </b>provides 
+-          Router related options for power users. </li>   
+-        <li> <b><a href="Main_Password_Content.asp">System Setup</a> </b> provides system related  
+-          setting such as password change, firmware upgrade and reset to  
+-          default. </li>
+-        <li> <b><a href="Main_Status_Content.asp">Status&amp;Log</a> </b>reports the current state of each    
+-          port.</li>
+-        ¡@
++        <li><b><a href="Basic_Operation_Content.asp">Quick Setup</a></b> guides you to install the WL600 quickly. </li>  
++        <li><b><a href="Advanced_Wireless_Content.asp">Wireless</a></b> provides wireless device related options for power users. </li>  
++        <li><b><a href="Advanced_LAN_Content.asp">LAN&amp;WAN</a></b> provides&nbsp; LAN and WAN&nbsp; related options for power users.</li>     
++        <li><b><a href="Advanced_WAN_Content.asp">Firewall</a></b> provides Firewall related options for power users. </li>   
++        <li><b><a href="Advanced_WAN_Content.asp">Router</a></b> provides Router related options for power users. </li>   
++        <li><b><a href="Main_Password_Content.asp">System Setup</a></b> provides system related setting such as password change, firmware upgrade and reset to default. </li>
++        <li><b><a href="Main_Status_Content.asp">Status&amp;Log</a></b> reports the current state of each port.</li>
+         <p>
+       <i><FONT color="#0000ff" size="2">This site is best viewed with IE 5.0 or above.</FONT>      
+       </i>
+@@ -54,7 +43,6 @@
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
+         <font size="2"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type=submit name="action" value="NEXT" >   
+         </p>
+-        <p>¡@</p>
+       </ul>
+     </td>
+   </tr>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2009-05-20 05:52:09.000000000 +0000
+@@ -40,20 +40,15 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">Dual Band</a> &nbsp;</b>supports 802.11a and 802.11g 
+-          simultaneously.</li>  
+-        <li> <b><a href="javascript:top.openBranch('Wireless Firewall')">Wireless Firewall</a>  
+-          </b>protect LAN environment from wireless access.</li> 
+-        <li> <b><a href="javascript:top.openBranch('Web Camera')">Web Camera</a>  
+-          </b>real-time monitor with an add-on Web Camera.</li>  
+-        <li> <b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a> &nbsp;</b>all computers share the same printer.</li> 
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.&nbsp; </li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect 
+-          LAN or Wireless environment through flexible filter rule setting. </li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
++        <li><b><a href="javascript:top.openBranch('Wireless Firewall')">Wireless Firewall</a></b> protect LAN environment from wireless access.</li> 
++        <li><b><a href="javascript:top.openBranch('Web Camera')">Web Camera</a></b> real-time monitor with an add-on Web Camera.</li>  
++        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.&nbsp; </li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting. </li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp	2009-05-20 05:52:27.000000000 +0000
+@@ -41,15 +41,13 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a> &nbsp;</b>supports up to 11Mbps transmission rate and interoperable security enhancement.</li>        
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a></b> supports up to 11Mbps transmission rate and interoperable security enhancement.</li>        
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp	2009-05-20 05:52:37.000000000 +0000
+@@ -41,15 +41,13 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                  
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                  
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp	2009-05-20 05:52:46.000000000 +0000
+@@ -41,13 +41,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp	2009-05-20 05:53:08.000000000 +0000
+@@ -41,15 +41,13 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                  
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                  
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp
+--- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp	2009-05-20 05:53:16.000000000 +0000
+@@ -41,13 +41,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
+-        <li> <b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
++        <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router.asp gateway/www/asus/web_asus_en/Main_Index_Router.asp
+--- router/www/asus/web_asus_en/Main_Index_Router.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router.asp	2009-05-20 05:53:27.000000000 +0000
+@@ -40,20 +40,15 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">Dual Band</a> &nbsp;</b>supports 802.11a and 802.11g 
+-          simultaneously.</li>  
+-        <li> <b><a href="javascript:top.openBranch('Wireless Firewall')">Wireless Firewall</a>  
+-          </b>protect LAN environment from wireless access.</li> 
+-       <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>plug a USB storage to be a FTP server or plug a USB web camera to monitor your home environment.</li>      
+-        <li> <b><a href="javascript:openWidzardNone('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a> &nbsp;</b>all computers share the same printer.</li> 
+-        <li> <b><a href="javascript:top.openBranch('Router')">Routing Protocol</a></b> support static and RIP2 dynamic routing protocol.&nbsp; </li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect 
+-          LAN or Wireless environment through flexible filter rule setting. </li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
+-          log status of system in details.</li><p> 
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
++        <li><b><a href="javascript:top.openBranch('Wireless Firewall')">Wireless Firewall</a></b> protect LAN environment from wireless access.</li> 
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> plug a USB storage to be a FTP server or plug a USB web camera to monitor your home environment.</li>      
++        <li><b><a href="javascript:openWidzardNone('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
++        <li><b><a href="javascript:top.openBranch('Router')">Routing Protocol</a></b> support static and RIP2 dynamic routing protocol.&nbsp; </li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting. </li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li><p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router11b.asp gateway/www/asus/web_asus_en/Main_Index_Router11b.asp
+--- router/www/asus/web_asus_en/Main_Index_Router11b.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router11b.asp	2009-05-20 05:53:34.000000000 +0000
+@@ -40,14 +40,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a> &nbsp;</b>supports up to 11Mbps transmission rate and interoperable security enhancement.</li>                  
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                 
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a></b> supports up to 11Mbps transmission rate and interoperable security enhancement.</li>                  
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                 
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g.asp
+--- router/www/asus/web_asus_en/Main_Index_Router11g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g.asp	2009-05-20 05:53:44.000000000 +0000
+@@ -40,15 +40,13 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
+-        <li> <b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>        
++        <li><b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_300g.asp
+--- router/www/asus/web_asus_en/Main_Index_Router11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_300g.asp	2009-05-20 05:53:52.000000000 +0000
+@@ -40,13 +40,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">HP_wpa_desc1</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
+-        <li> <b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">HP_wpa_desc1</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
++        <li><b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_500g.asp
+--- router/www/asus/web_asus_en/Main_Index_Router11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_500g.asp	2009-05-20 05:54:15.000000000 +0000
+@@ -40,14 +40,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
+-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
+-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                  
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
++        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                  
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
+diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_520g.asp
+--- router/www/asus/web_asus_en/Main_Index_Router11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_520g.asp	2009-05-20 05:54:23.000000000 +0000
+@@ -40,13 +40,12 @@
+       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
+       <ul>
+         <li> 
+-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
+-          allows users to complete basic setting by just answering several questions.</li>     
+-        <li> <b><a href="javascript:top.openBranch('Wireless')">HP_wpa_desc1</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
+-        <li> <b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
+-          log status of system in details.</li>
++          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
++            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
++        <li><b><a href="javascript:top.openBranch('Wireless')">HP_wpa_desc1</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
++        <li><b><a href="javascript:top.openBranch('Routerr')">Routing Protocol</a></b> support static routing protocol.</li>    
++        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
++        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+         <p> 
+          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+         </p>
 diff -BurN router/www/asus/web_asus_en/Main_LogStatus_Content.asp gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp
 --- router/www/asus/web_asus_en/Main_LogStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp	2008-03-17 17:52:23.000000000 +0000
@@ -3075,9 +3582,6 @@ diff -BurN router/www/asus/web_asus_en/general_501b.js gateway/www/asus/web_asus
 -}
 \ No newline at end of file
 +}
-Files router/www/asus/web_asus_en/graph/iBox_title_all.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all.jpg differ
-Files router/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_550g.jpg differ
-Files router/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg and gateway/www/asus/web_asus_en/graph/iBox_title_all_HDD.jpg differ
 diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/index.asp
 --- router/www/asus/web_asus_en/index.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/index.asp	2008-03-19 17:41:37.000000000 +0000
