@@ -2366,8 +2366,8 @@ diff -BurN router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp gateway/www/a
  </table>
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2009-05-20 05:11:45.000000000 +0000
-@@ -39,14 +39,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2009-05-20 17:36:35.000000000 +0000
+@@ -39,15 +39,12 @@
        <p align="center">
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Dual Band Access Point</b>
        <ul>
@@ -2379,19 +2379,20 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint.asp gateway/www/as
 -        <li> <b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a> &nbsp;</b>all computers share the same printer.</li> 
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +        <li><p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
 +        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
 +        <p>  
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp	2009-05-20 05:46:20.000000000 +0000
-@@ -39,10 +39,10 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp	2009-05-20 17:36:11.000000000 +0000
+@@ -39,11 +39,10 @@
        <p align="center">
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
        <ul>
@@ -2399,17 +2400,18 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11b.asp gateway/www
 -          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>allows users to complete basic setting by just answering several questions.</li>
 -        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a> &nbsp;</b>supports up to 11Mbps transmission rate and interoperable security enhancement.</li>          
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b>log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +        <li><p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">802.11b and WPA</a></b> supports up to 11Mbps transmission rate and interoperable security enhancement.</li>          
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp	2009-05-20 05:46:27.000000000 +0000
-@@ -40,11 +40,10 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp	2009-05-20 17:36:15.000000000 +0000
+@@ -40,12 +40,10 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
        <ul>
          <li> 
@@ -2418,17 +2420,18 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g.asp gateway/www
 -        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp	2009-05-20 05:46:35.000000000 +0000
-@@ -40,11 +40,10 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp	2009-05-20 17:36:20.000000000 +0000
+@@ -40,12 +40,10 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
        <ul>
          <li> 
@@ -2437,17 +2440,18 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_300g.asp gatewa
 -        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp	2009-05-20 05:46:43.000000000 +0000
-@@ -40,11 +40,10 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp	2009-05-20 17:36:32.000000000 +0000
+@@ -40,12 +40,10 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
        <ul>
          <li> 
@@ -2456,17 +2460,18 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_500g.asp gatewa
 -        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp	2009-05-20 05:46:49.000000000 +0000
-@@ -40,11 +40,10 @@
++++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp	2009-05-20 17:36:57.000000000 +0000
+@@ -40,12 +40,10 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Access Point</b>
        <ul>
          <li> 
@@ -2475,17 +2480,29 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp gatewa
 -        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
 +        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
+diff -BurN router/www/asus/web_asus_en/Main_Index_Content.asp gateway/www/asus/web_asus_en/Main_Index_Content.asp
+--- router/www/asus/web_asus_en/Main_Index_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_Index_Content.asp	2009-05-20 17:36:28.000000000 +0000
+@@ -48,7 +48,6 @@
+           port.</li>
+         ¡@
+         <p>
+-      <i><FONT color="#0000ff" size="2">This site is best viewed with IE 5.0 or above.</FONT>      
+       </i>
+         </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2009-05-20 05:52:09.000000000 +0000
-@@ -40,20 +40,15 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2009-05-20 17:37:12.000000000 +0000
+@@ -40,22 +40,16 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2513,12 +2530,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway.asp gateway/www/as
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting. </li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp	2009-05-20 05:52:27.000000000 +0000
-@@ -41,15 +41,13 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp	2009-05-20 17:36:50.000000000 +0000
+@@ -41,17 +41,14 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2539,12 +2558,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11b.asp gateway/www
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp	2009-05-20 05:52:37.000000000 +0000
-@@ -41,15 +41,13 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp	2009-05-20 17:36:54.000000000 +0000
+@@ -41,17 +41,14 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2565,12 +2586,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g.asp gateway/www
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp	2009-05-20 05:52:46.000000000 +0000
-@@ -41,13 +41,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp	2009-05-20 17:36:46.000000000 +0000
+@@ -41,15 +41,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2588,12 +2611,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_300g.asp gatewa
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp	2009-05-20 05:53:08.000000000 +0000
-@@ -41,15 +41,13 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp	2009-05-20 17:37:05.000000000 +0000
+@@ -41,17 +41,14 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2614,12 +2639,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_500g.asp gatewa
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp	2009-05-20 05:53:16.000000000 +0000
-@@ -41,13 +41,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp	2009-05-20 17:37:18.000000000 +0000
+@@ -41,15 +41,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2637,12 +2664,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway11g_520g.asp gatewa
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router.asp gateway/www/asus/web_asus_en/Main_Index_Router.asp
 --- router/www/asus/web_asus_en/Main_Index_Router.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router.asp	2009-05-20 05:53:27.000000000 +0000
-@@ -40,20 +40,15 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router.asp	2009-05-20 17:37:01.000000000 +0000
+@@ -40,21 +40,15 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
        <ul>
          <li> 
@@ -2660,6 +2689,7 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router.asp gateway/www/asus/we
 -          LAN or Wireless environment through flexible filter rule setting. </li>    
 -        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
 -          log status of system in details.</li><p> 
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
 +          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
 +            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
 +        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
@@ -2669,13 +2699,13 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router.asp gateway/www/asus/we
 +        <li><b><a href="javascript:top.openBranch('Router')">Routing Protocol</a></b> support static and RIP2 dynamic routing protocol.&nbsp; </li>    
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting. </li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li><p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router11b.asp gateway/www/asus/web_asus_en/Main_Index_Router11b.asp
 --- router/www/asus/web_asus_en/Main_Index_Router11b.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router11b.asp	2009-05-20 05:53:34.000000000 +0000
-@@ -40,14 +40,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router11b.asp	2009-05-20 17:36:39.000000000 +0000
+@@ -40,16 +40,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
        <ul>
          <li> 
@@ -2694,12 +2724,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router11b.asp gateway/www/asus
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g.asp
 --- router/www/asus/web_asus_en/Main_Index_Router11g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router11g.asp	2009-05-20 05:53:44.000000000 +0000
-@@ -40,15 +40,13 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g.asp	2009-05-20 17:36:42.000000000 +0000
+@@ -40,17 +40,14 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
        <ul>
          <li> 
@@ -2720,12 +2752,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g.asp gateway/www/asus
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_300g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_300g.asp
 --- router/www/asus/web_asus_en/Main_Index_Router11g_300g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router11g_300g.asp	2009-05-20 05:53:52.000000000 +0000
-@@ -40,13 +40,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_300g.asp	2009-05-20 17:37:08.000000000 +0000
+@@ -40,15 +40,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
        <ul>
          <li> 
@@ -2743,12 +2777,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_300g.asp gateway/www
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_500g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_500g.asp
 --- router/www/asus/web_asus_en/Main_Index_Router11g_500g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router11g_500g.asp	2009-05-20 05:54:15.000000000 +0000
-@@ -40,14 +40,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_500g.asp	2009-05-20 17:37:15.000000000 +0000
+@@ -40,16 +40,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
        <ul>
          <li> 
@@ -2767,12 +2803,14 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_500g.asp gateway/www
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_520g.asp gateway/www/asus/web_asus_en/Main_Index_Router11g_520g.asp
 --- router/www/asus/web_asus_en/Main_Index_Router11g_520g.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Router11g_520g.asp	2009-05-20 05:54:23.000000000 +0000
-@@ -40,13 +40,12 @@
++++ gateway/www/asus/web_asus_en/Main_Index_Router11g_520g.asp	2009-05-20 17:36:25.000000000 +0000
+@@ -40,15 +40,13 @@
        <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Home Gateway</b>    
        <ul>
          <li> 
@@ -2790,8 +2828,10 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_Router11g_520g.asp gateway/www
 +        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
 +        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
          <p> 
-          <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
+-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
+         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+         &nbsp;&nbsp;      
 diff -BurN router/www/asus/web_asus_en/Main_LogStatus_Content.asp gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp
 --- router/www/asus/web_asus_en/Main_LogStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Main_LogStatus_Content.asp	2008-03-17 17:52:23.000000000 +0000
