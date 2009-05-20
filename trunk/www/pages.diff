@@ -2482,57 +2482,6 @@ diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint11g_520g.asp gatewa
           <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
          </p>
          <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-diff -BurN router/www/asus/web_asus_en/Main_Index_Content.asp gateway/www/asus/web_asus_en/Main_Index_Content.asp
---- router/www/asus/web_asus_en/Main_Index_Content.asp	2004-11-19 10:45:55.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Main_Index_Content.asp	2009-05-20 05:51:54.000000000 +0000
-@@ -14,7 +14,6 @@
- </head>
- 
- <body bgcolor="#FFFFFF" >
--<p>¡@</p>
- <table border="0" width="68%" cellpadding="0" cellspacing="0">
-   <tr>
-     <td width="100%"></td>
-@@ -29,24 +28,14 @@
-   <table width="568" cellspacing="0" cellpadding="0" bordercolor="#C0C0C0" border="1">
-   <tr bgcolor="#FFFFFF"> 
-     <td width="644" bordercolor="#FFFFFF" bordercolorlight="#FFFFFF" bordercolordark="#FFFFFF" bgcolor="#FFFFFF"> 
--      ¡@ 
-       <ul>
--        <li> <b><a href="Basic_Operation_Content.asp">Quick Setup</a></b> guides you to install the  
--          WL600 quickly. </li>  
--        <li> <b><a href="Advanced_Wireless_Content.asp">Wireless</a> </b>provides wireless device 
--          related options for power users. </li>  
--        <li><b><a href="Advanced_LAN_Content.asp">LAN&amp;WAN</a> </b>provides&nbsp;  
--          LAN and WAN&nbsp; related options for power users.</li>     
--        <li> <b><a href="Advanced_WAN_Content.asp">Firewall</a> </b>provides 
--          Firewall related options for power users. </li>   
--        <li> <b><a href="Advanced_WAN_Content.asp">Router</a> </b>provides 
--          Router related options for power users. </li>   
--        <li> <b><a href="Main_Password_Content.asp">System Setup</a> </b> provides system related  
--          setting such as password change, firmware upgrade and reset to  
--          default. </li>
--        <li> <b><a href="Main_Status_Content.asp">Status&amp;Log</a> </b>reports the current state of each    
--          port.</li>
--        ¡@
-+        <li><b><a href="Basic_Operation_Content.asp">Quick Setup</a></b> guides you to install the WL600 quickly. </li>  
-+        <li><b><a href="Advanced_Wireless_Content.asp">Wireless</a></b> provides wireless device related options for power users. </li>  
-+        <li><b><a href="Advanced_LAN_Content.asp">LAN&amp;WAN</a></b> provides&nbsp; LAN and WAN&nbsp; related options for power users.</li>     
-+        <li><b><a href="Advanced_WAN_Content.asp">Firewall</a></b> provides Firewall related options for power users. </li>   
-+        <li><b><a href="Advanced_WAN_Content.asp">Router</a></b> provides Router related options for power users. </li>   
-+        <li><b><a href="Main_Password_Content.asp">System Setup</a></b> provides system related setting such as password change, firmware upgrade and reset to default. </li>
-+        <li><b><a href="Main_Status_Content.asp">Status&amp;Log</a></b> reports the current state of each port.</li>
-         <p>
-       <i><FONT color="#0000ff" size="2">This site is best viewed with IE 5.0 or above.</FONT>      
-       </i>
-@@ -54,7 +43,6 @@
-         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
-         <font size="2"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type=submit name="action" value="NEXT" >   
-         </p>
--        <p>¡@</p>
-       </ul>
-     </td>
-   </tr>
 diff -BurN router/www/asus/web_asus_en/Main_Index_HomeGateway.asp gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp
 --- router/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Main_Index_HomeGateway.asp	2009-05-20 05:52:09.000000000 +0000
