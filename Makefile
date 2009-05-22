@@ -456,6 +456,7 @@ $(TOP)/www:
 www: $(TOP)/www www/pages.diff www/common.diff
 	$(PATCHER) -Z $(TOP) www/pages.diff www/common.diff
 	chmod a+x $(TOP)/www/asus/remccoms2.sh
+	cp www/netcam_mfc_activeX.cab $(TOP)/www/asus/web_asus_en/
 	cp www/iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
 	cp www/iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
 	cp www/iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
