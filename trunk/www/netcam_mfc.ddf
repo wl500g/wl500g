@@ -1,0 +1,7 @@
+.Set Cabinet=on
+.Set Compress=on
+.Set CompressionType=LZX
+.Set CompressionMemory=16
+.Set CabinetName1=netcam_mfc_activeX.cab
+netcam_mfc_activeX.ocx
+netcam_mfc_activeX.inf
