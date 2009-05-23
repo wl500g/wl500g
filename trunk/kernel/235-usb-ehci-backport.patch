@@ -662,6 +662,14 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-hcd.c linux/drivers/us
  /* EHCI 0.96 (and later) section 5.1 says how to kick BIOS/SMM/...
   * off the controller (maybe it can boot from highspeed USB disks).
   */
+@@ -359,7 +470,6 @@ static int ehci_start (struct usb_hcd *h
+ 				return -EOPNOTSUPP;
+ 			break;
+ 		case 0:			/* illegal reserved capability */
+-			ehci_warn (ehci, "illegal capability!\n");
+ 			cap = 0;
+ 			/* FALLTHROUGH */
+ 		default:		/* unknown */
 @@ -389,11 +500,14 @@ static int ehci_start (struct usb_hcd *h
  	else					// N microframes cached
  		ehci->i_thresh = 2 + HCC_ISOC_THRES (hcc_params);
