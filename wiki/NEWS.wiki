@@ -1,5 +1,22 @@
 #summary History of Changes
 
+===wl500g-1.9.2.7-d (Current)===
+  * kernel
+    * speedup NFS - increase max block size up to 32kB
+
+  * ppp
+    * finally update rp-pppoe plugin from 3.08 to 3.10
+    * incorporate external patches
+      * Debian - "bogus DNS servers during PPP negotiation"
+      * OpenWRT - "compensate time change"
+
+  * netfilter/iptables
+    * iplimit target replaced with connlimit (like in 2.6 kernels)
+    * CLASSIFY, TOS targets included in firmware
+    * layer7 filter enabled
+
+  * bugfixes
+
 ===wl500g-1.9.2.7-d-`r273` (2009-04-30)===
   * kernel 2.4.37.1
     * fix usbaudio driver work via USB 2.0 hub
