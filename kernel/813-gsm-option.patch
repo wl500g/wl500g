@@ -23,7 +23,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb/serial/option.c
 --- linux-2.4.37.orig/drivers/usb/serial/option.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/drivers/usb/serial/option.c	2009-03-05 22:04:28.000000000 +0300
-@@ -0,0 +1,1292 @@
+@@ -0,0 +1,1317 @@
 +/*
 +  USB Driver for GSM modems
 +
@@ -133,6 +133,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define OPTION_PRODUCT_ETNA_MODEM_GT		0x7041
 +#define OPTION_PRODUCT_ETNA_MODEM_EX		0x7061
 +#define OPTION_PRODUCT_ETNA_KOI_MODEM		0x7100
++#define OPTION_PRODUCT_GTM380_MODEM            0x7201
 +
 +#define HUAWEI_VENDOR_ID			0x12D1
 +#define HUAWEI_PRODUCT_E600			0x1001
@@ -202,6 +203,13 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define HUAWEI_PRODUCT_E143E			0x143E
 +#define HUAWEI_PRODUCT_E143F			0x143F
 +
++#define QUANTA_VENDOR_ID                        0x0408
++#define QUANTA_PRODUCT_Q101                     0xEA02
++#define QUANTA_PRODUCT_Q111                     0xEA03
++#define QUANTA_PRODUCT_GLX                      0xEA04
++#define QUANTA_PRODUCT_GKE                      0xEA05
++#define QUANTA_PRODUCT_GLE                      0xEA06
++
 +#define NOVATELWIRELESS_VENDOR_ID		0x1410
 +
 +/* YISO PRODUCTS */
@@ -234,6 +242,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +/* OVATION PRODUCTS */
 +#define NOVATELWIRELESS_PRODUCT_MC727		0x4100
 +#define NOVATELWIRELESS_PRODUCT_MC950D		0x4400
++#define NOVATELWIRELESS_PRODUCT_U727            0x5010
 +
 +/* FUTURE NOVATEL PRODUCTS */
 +#define NOVATELWIRELESS_PRODUCT_EVDO_FULLSPEED	0X6000
@@ -285,16 +294,16 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define ANYDATA_PRODUCT_ADU_500A		0x6502
 +
 +#define AXESSTEL_VENDOR_ID			0x1726
-+#define AXESSTEL_PRODUCT_MV110H			0x1000
++#define AXESSTEL_PRODUCT_MV110H		0x1000
 +
 +#define ONDA_VENDOR_ID				0x19d2
 +#define ONDA_PRODUCT_MSA501HS			0x0001
 +#define ONDA_PRODUCT_ET502HS			0x0002
-+#define ONDA_PRODUCT_MT503HS			0x0200
++#define ONDA_PRODUCT_MT503HS			0x2000
 +
 +#define BANDRICH_VENDOR_ID			0x1A8D
-+#define BANDRICH_PRODUCT_C100_1			0x1002
-+#define BANDRICH_PRODUCT_C100_2			0x1003
++#define BANDRICH_PRODUCT_C100_1		0x1002
++#define BANDRICH_PRODUCT_C100_2		0x1003
 +#define BANDRICH_PRODUCT_1004			0x1004
 +#define BANDRICH_PRODUCT_1005			0x1005
 +#define BANDRICH_PRODUCT_1006			0x1006
@@ -313,14 +322,14 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define BANDRICH_PRODUCT_1011			0x1011
 +#define BANDRICH_PRODUCT_1012			0x1012
 +
-+#define AMOI_VENDOR_ID			0x1614
++#define AMOI_VENDOR_ID				0x1614
 +#define AMOI_PRODUCT_9508			0x0800
 +
 +#define QUALCOMM_VENDOR_ID			0x05C6
 +
-+#define MAXON_VENDOR_ID				0x16d8
++#define MAXON_VENDOR_ID			0x16d8
 +
-+#define TELIT_VENDOR_ID				0x1bc7
++#define TELIT_VENDOR_ID			0x1bc7
 +#define TELIT_PRODUCT_UC864E			0x1003
 +
 +/* ZTE PRODUCTS */
@@ -330,9 +339,15 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define ZTE_PRODUCT_MF626			0x0031
 +#define ZTE_PRODUCT_CDMA_TECH			0xfffe
 +
++#define BENQ_VENDOR_ID                          0x04a5
++#define BENQ_PRODUCT_H10                        0x4068
++ 
++#define DLINK_VENDOR_ID                         0x1186
++#define DLINK_PRODUCT_DWM_652                   0x3e04 
++
 +/* Ericsson products */
 +#define ERICSSON_VENDOR_ID			0x0bdb
-+#define ERICSSON_PRODUCT_F3507G			0x1900
++#define ERICSSON_PRODUCT_F3507G		0x1900
 +
 +static struct usb_device_id option_ids[] = {
 +	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
@@ -359,6 +374,12 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_MODEM_GT) },
 +	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_MODEM_EX) },
 +	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_ETNA_KOI_MODEM) },
++       { USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_GTM380_MODEM) },
++       { USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_Q101) },
++       { USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_Q111) },
++       { USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLX) },
++       { USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GKE) },
++       { USB_DEVICE(QUANTA_VENDOR_ID, QUANTA_PRODUCT_GLE) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E600, 0xff, 0xff, 0xff) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220, 0xff, 0xff, 0xff) },
 +	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220BIS, 0xff, 0xff, 0xff) },
@@ -444,6 +465,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_EU870D) }, /* Novatel EU850D/EU860D/EU870D */
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_MC950D) }, /* Novatel MC930D/MC950D */
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_MC727) }, /* Novatel MC727/U727/USB727 */
++       { USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_U727) }, /* Novatel MC727/U727/USB727 */
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_EVDO_FULLSPEED) }, /* Novatel EVDO product */
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_HSPA_FULLSPEED) }, /* Novatel HSPA product */
 +	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_EVDO_EMBEDDED_FULLSPEED) }, /* Novatel EVDO Embedded product */
@@ -539,10 +561,13 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6613)}, /* Onda H600/ZTE MF330 */
 +	{ USB_DEVICE(MAXON_VENDOR_ID, 0x6280) }, /* BP3-USB & BP3-EXT HSDPA */
 +	{ USB_DEVICE(TELIT_VENDOR_ID, TELIT_PRODUCT_UC864E) },
++       { USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_MF622) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_MF626) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_MF628) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_CDMA_TECH) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(ZTE_VENDOR_ID, ZTE_PRODUCT_MF622, 0xff, 0xff, 0xff) },
++       { USB_DEVICE(BENQ_VENDOR_ID, BENQ_PRODUCT_H10) },
++       { USB_DEVICE(DLINK_VENDOR_ID, DLINK_PRODUCT_DWM_652) },
++       { USB_DEVICE(0x1da5, 0x4515) }, /* BenQ H20 */
 +	{ USB_DEVICE(ERICSSON_VENDOR_ID, ERICSSON_PRODUCT_F3507G) },
 +	{ } /* Terminating entry */
 +};
@@ -581,9 +606,9 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +/* per port private data */
 +
 +#define N_IN_URB	4
-+#define N_OUT_URB	1
++#define N_OUT_URB	4
 +#define IN_BUFLEN	4096		/* Must be equal to sizeof kernel page */
-+#define OUT_BUFLEN	1024
++#define OUT_BUFLEN	4096
 +
 +/* bitmap for set_line_state */
 +#define UART_DTR			0x01
