@@ -295,7 +295,7 @@ diff -urBp linux-2.4.37.orig/drivers/usb/host/ehci-sched.c linux/drivers/usb/hos
 +}
 +
 +static const unsigned char
-+max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 30, 0 };
++max_tt_usecs[] = { 125, 125, 125, 125, 125, 125, 58, 0 };
 +
 +/* carryover low/fullspeed bandwidth that crosses uframe boundries */
 +static inline void carryover_tt_bandwidth(unsigned short tt_usecs[8])
