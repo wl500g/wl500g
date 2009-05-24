@@ -1,0 +1,12 @@
+diff -Bup gateway/rc/services_ex.c.orig gateway/rc/services_ex.c
+--- gateway/rc/services_ex.c.orig	2009-02-25 23:18:31.000000000 +0300
++++ gateway/rc/services_ex.c	2009-05-23 21:50:18.000000000 +0400
+@@ -828,7 +828,7 @@ int start_nfsd(void)
+ 				fprintf(fp, "%s\n", nvram_safe_get(tmp));
+ 			else	fprintf(fp, "/tmp/harddisk/%s\n", nvram_safe_get(tmp));
+ 		}
+-		
++		fappend("/usr/local/etc/exports", fp);
+ 		fclose(fp);
+ 	}
+ 
