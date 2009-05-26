@@ -1,3 +1,21 @@
+diff -BurN linuz/Documentation/Configure.help linux/Documentation/Configure.help
+--- linuz/Documentation/Configure.help	2005-05-05 20:15:47.000000000 +0000
++++ linux/Documentation/Configure.help	2005-05-05 20:23:25.000000000 +0000
+@@ -2768,6 +2845,14 @@
+   If you want to compile it as a module, say M here and read
+   <file:Documentation/modules.txt>.  If unsure, say `N'.
+ 
++String match support (EXPERIMENTAL)
++CONFIG_IP_NF_MATCH_STRING
++  String matching alows you to match packets which contain a
++  specified string of characters.
++
++  If you want to compile it as a module, say M here and read
++  Documentation/modules.txt.  If unsure, say `N'.
++
+ Unclean match support
+ CONFIG_IP_NF_MATCH_UNCLEAN
+   Unclean packet matching matches any strange or invalid packets, by
 diff -urN linux.old/include/linux/netfilter_ipv4/ipt_string.h linux.dev/include/linux/netfilter_ipv4/ipt_string.h
 --- linux.old/include/linux/netfilter_ipv4/ipt_string.h	1970-01-01 01:00:00.000000000 +0100
 +++ linux.dev/include/linux/netfilter_ipv4/ipt_string.h	2006-11-13 23:33:31.000000000 +0100
