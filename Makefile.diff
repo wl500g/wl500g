@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-05-22 12:49:03.000000000 +0000
++++ gateway/Makefile	2009-05-26 17:22:30.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -96,7 +96,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +127,72 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +127,76 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -137,7 +137,11 @@
 +obj-y += kernel
 +
 +# Netfilter modules NOT to include in main FW
-+netfilter_external_modules := ipt_layer7.o
++netfilter_external_modules := ipt_layer7.o \
++ ip_set_ipmap.o ip_set_iptree.o ip_set_iptreemap.o ip_set_macipmap.o \
++ ip_set_nethash.o ip_set_iphash.o \
++ ip_set_portmap.o ip_set_ipporthash.o ip_set_ipportiphash.o \
++ ip_set_ipportnethash.o ip_set_setlist.o ipt_SET.o ipt_set.o
  
  obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
  obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -187,7 +191,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +203,181 @@ clean: $(obj-clean) config-clean
+@@ -155,39 +207,181 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -393,7 +397,7 @@
  #
  # Configuration rules
  #
-@@ -225,16 +415,17 @@ oldconfig: oldconf
+@@ -225,16 +419,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -414,7 +418,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +433,57 @@ www www-%:
+@@ -242,43 +437,57 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -488,7 +492,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +499,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +503,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -498,7 +502,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +514,229 @@ vlan:
+@@ -312,215 +518,229 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -785,18 +789,18 @@
  		make rc GLOBAL_OPTIONS="-DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
  		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
 -		make LPRng GLOBAL_OPTIONS=""; \
- 	fi )
+-	fi )
 -	echo $(LANGUAGE)
 -	make www-install-$*
 - 
 -	rm $(PLATFORMDIR)/target/usr/sbin/waveserver -f
- 
+-
 -	( if [ "$*" = "WL500gx" ]; then \
 -		make install CONFIG_SENTRY5=y CONFIG_ROBO=y; \
 -	else \
 -		make install; \
--	fi )
--
+ 	fi )
+ 
 -ifeq ($(CONFIG_BPLAY),y)
 -	cp others/waveserver $(PLATFORMDIR)/target/usr/sbin/. -f
 -endif
@@ -897,7 +901,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +744,9 @@ image-R100:
+@@ -528,6 +748,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
