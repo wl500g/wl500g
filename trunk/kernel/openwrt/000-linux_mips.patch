@@ -27833,3 +27833,15 @@ diff -Nur linux-2.4.32-rc1/Makefile linux-2.4.32-rc1.mips/Makefile
  
  dep-files: scripts/mkdep archdep include/linux/version.h
  	rm -f .depend .hdepend
+diff -Nur linux-2.4.37-rc1/include/asm-mips/keyboard.h linux-2.4.37-rc1.mips/include/asm-mips/keyboard.h
+--- a/include/asm-mips/keyboard.h
++++ b/include/asm-mips/keyboard.h
+@@ -85,7 +85,7 @@ extern int kbd_translate(unsigned char scancode, unsigned char *keycode,
+ extern char kbd_unexpected_up(unsigned char keycode);
+ extern void kbd_leds(unsigned char leds);
+ extern void kbd_init_hw(void);
+-extern unsigned char *kbd_sysrq_xlate;
++extern unsigned char kbd_sysrq_xlate[];
+ 
+ extern unsigned char kbd_sysrq_key;
+ #define SYSRQ_KEY kbd_sysrq_key
