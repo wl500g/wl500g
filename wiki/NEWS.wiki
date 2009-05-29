@@ -1,8 +1,9 @@
 #summary History of Changes
 
-===wl500g-1.9.2.7-d (Current)===
+===wl500g-1.9.2.7-d-`r308` (2009-05-29)===
   * kernel
     * speedup NFS - increase max block size up to 32kB
+    * Option driver updated
 
   * ppp
     * finally update rp-pppoe plugin from 3.08 to 3.10
@@ -11,11 +12,14 @@
       * OpenWRT - "compensate time change"
 
   * netfilter/iptables
-    * iplimit target replaced with connlimit (like in 2.6 kernels)
+    * iplimit match replaced with connlimit (like in 2.6 kernels)
     * CLASSIFY, TOS targets included in firmware
-    * layer7 filter enabled
+    * layer7 filter enabled (external module)
+    * ipset 3.0 modules added (external)
+    * multiport match fixed
 
   * bugfixes
+    * upnp daemon will write to nvram not more than 1 per minute
 
 ===wl500g-1.9.2.7-d-`r273` (2009-04-30)===
   * kernel 2.4.37.1
