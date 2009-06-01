@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-05-26 17:22:30.000000000 +0000
++++ gateway/Makefile	2009-06-01 12:58:42.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -191,7 +191,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,39 +207,181 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +207,206 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -391,13 +391,38 @@
 +	@echo
 +	@echo "Finished building $* firmware version $(KERNEL_VER).$(FS_VER) ($(RELEASE))"
 +	@echo
- 
++
++manpages-install:
++	@mkdir -p $(PLATFORMDIR)/manpages/man/man8 \
++	    $(PLATFORMDIR)/manpages/man/man1 $(PLATFORMDIR)/manpages/man/man5
++	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
++	    LPRng/man/lpd.8 bridge/doc/brctl.8 dnsmasq/man/dnsmasq.8 \
++	    dropbear/dropbear.8 dropbear/dropbearkey.8 igmpproxy/doc/igmpproxy.8 \
++	    iptables/iptables.8 iptables/iptables-restore.8 iptables/iptables-save.8 \
++	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 pptp/pptp.8 \
++	    sendmail/mini_sendmail.8 vsftpd/vsftpd.8 \
++	    samba/docs/manpages/smbpasswd.8 samba/docs/manpages/nmbd.8 samba/docs/manpages/smbd.8 
++	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man1 \
++	    busybox/docs/BusyBox.1 dropbear/dbclient.1 ntpclient/ntpclient.1 \
++	    ucdsnmp/man/snmpd.1 
++	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man5 \
++	    igmpproxy/doc/igmpproxy.conf.5 vsftpd/vsftpd.conf.5 samba/docs/manpages/smb.conf.5 \
++	    ucdsnmp/man/snmpd.conf.5
++ifeq ($(CONFIG_IPV6),y)
++	make -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
++	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
++	    iptables/ip6tables.8 iptables/ip6tables-restore.8 iptables/ip6tables-save.8 
++endif
++
 +modules: kernel-install
-+	tar -C $(PLATFORMDIR)/modules -czf $(PLATFORMDIR)/modules-$(RELEASE).tgz .
++	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
++
++manpages: manpages-install
++	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
+ 
  #
  # Configuration rules
- #
-@@ -225,16 +419,17 @@ oldconfig: oldconf
+@@ -225,16 +445,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -418,7 +443,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +437,57 @@ www www-%:
+@@ -242,43 +463,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -479,20 +504,29 @@
  iptables-install: iptables
  ifeq ($(CONFIG_IPTABLES),y)
  	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
- 	install iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables
- 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
+-	install iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables
+-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/*.so
 -	#install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
 -	#$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 -	install -D iptables/iptables-restore $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
 -	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
++	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
 +	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
 +	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 +	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
 +	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-save
++ifeq ($(CONFIG_IPV6),y)
++	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
++	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
++	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
++	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-restore
++	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-save
++endif
++	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +503,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +536,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -502,7 +536,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +518,229 @@ vlan:
+@@ -312,215 +551,229 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -789,18 +823,18 @@
  		make rc GLOBAL_OPTIONS="-DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
  		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
 -		make LPRng GLOBAL_OPTIONS=""; \
--	fi )
+ 	fi )
 -	echo $(LANGUAGE)
 -	make www-install-$*
 - 
 -	rm $(PLATFORMDIR)/target/usr/sbin/waveserver -f
--
+ 
 -	( if [ "$*" = "WL500gx" ]; then \
 -		make install CONFIG_SENTRY5=y CONFIG_ROBO=y; \
 -	else \
 -		make install; \
- 	fi )
- 
+-	fi )
+-
 -ifeq ($(CONFIG_BPLAY),y)
 -	cp others/waveserver $(PLATFORMDIR)/target/usr/sbin/. -f
 -endif
@@ -901,7 +935,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +748,9 @@ image-R100:
+@@ -528,6 +781,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
