@@ -1,4 +1,5 @@
 #summary History of Changes
+#labels Featured
 
 ===wl500g-1.9.2.7-d-`r308` (2009-05-29)===
   * kernel
