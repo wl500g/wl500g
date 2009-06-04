@@ -27,7 +27,8 @@ diff -urN linux.old/arch/mips/mm/Makefile linux.dev/arch/mips/mm/Makefile
 diff -urN linux.old/arch/mips/mm/c-r4k.c linux.dev/arch/mips/mm/c-r4k.c
 --- linux.old/arch/mips/mm/c-r4k.c	2005-07-05 16:46:49.000000000 +0200
 +++ linux.dev/arch/mips/mm/c-r4k.c	2005-07-06 11:23:55.000000000 +0200
-@@ -14,6 +14,13 @@
+@@ -13,7 +13,14 @@
+ #include <linux/sched.h>
  #include <linux/mm.h>
  #include <linux/bitops.h>
 +#include <linux/module.h>
