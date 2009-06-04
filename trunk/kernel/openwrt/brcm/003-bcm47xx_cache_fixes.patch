@@ -12,12 +12,25 @@ diff -urN linux.old/arch/mips/kernel/entry.S linux.dev/arch/mips/kernel/entry.S
  #if R5432_CP0_INTERRUPT_WAR
  		mfc0	k0, CP0_INDEX
  #endif
+diff -urN linux.old/arch/mips/mm/Makefile linux.dev/arch/mips/mm/Makefile
+--- linux.old/arch/mips/mm/Makefile	2007-11-17 19:23:15.000000000 +0200
++++ linux.dev/arch/mips/mm/Makefile	2008-10-21 13:02:00.000000000 +0300
+@@ -11,7 +11,7 @@
+ O_TARGET := mm.o
+ 
+ export-objs			:= cache.o ioremap.o loadmmu.o remap.o \
+-				   tlb-r4k.o tlb-sb1.o
++				   tlb-r4k.o tlb-sb1.o c-r4k.o
+ obj-y				+= cache.o extable.o init.o ioremap.o fault.o \
+ 				   loadmmu.o
+ 
 diff -urN linux.old/arch/mips/mm/c-r4k.c linux.dev/arch/mips/mm/c-r4k.c
 --- linux.old/arch/mips/mm/c-r4k.c	2005-07-05 16:46:49.000000000 +0200
 +++ linux.dev/arch/mips/mm/c-r4k.c	2005-07-06 11:23:55.000000000 +0200
-@@ -14,6 +14,12 @@
+@@ -14,6 +14,13 @@
  #include <linux/mm.h>
  #include <linux/bitops.h>
++#include <linux/module.h>
  
 +#ifdef CONFIG_BCM4710
 +#include <typedefs.h>
@@ -92,6 +105,23 @@ diff -urN linux.old/arch/mips/mm/c-r4k.c linux.dev/arch/mips/mm/c-r4k.c
  		r4k_blast_scache();
  }
  
+@@ -310,7 +325,7 @@
+ 		r4k_blast_scache();
+ }
+ 
+-static void r4k_flush_cache_page(struct vm_area_struct *vma,
++void r4k_flush_cache_page(struct vm_area_struct *vma,
+ 					unsigned long page)
+ {
+ 	int exec = vma->vm_flags & VM_EXEC;
+@@ -370,6 +385,7 @@
+ 			r4k_blast_icache_page_indexed(page);
+ 	}
+ }
++EXPORT_SYMBOL(r4k_flush_cache_page); 
+ 
+ static void r4k_flush_data_cache_page(unsigned long addr)
+ {
 @@ -383,12 +398,15 @@
  	unsigned long ic_lsize = current_cpu_data.icache.linesz;
  	unsigned long addr, aend;
