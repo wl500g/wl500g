@@ -43,6 +43,7 @@ IGMPPROXY=igmpproxy-src-0.1-beta2
 VSFTPD=vsftpd-2.1.2
 UDPXY=udpxy-1.0-Chipmunk-11
 NTPCLIENT=ntpclient-2007_365
+SCSIIDLE=scsi-idle-2.4.23
 
 UCLIBC=uClibc-0.9.29
 
@@ -86,11 +87,11 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
+	scsi-idle \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
 	@echo
-
 
 $(TOP):
 	@mkdir -p $(TOP)
@@ -434,6 +435,15 @@ $(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
 ntpclient: $(TOP)/ntpclient
 	@true
 
+$(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
+	@rm -rf $(TOP)/$(SCSIIDLE) $@
+	tar -xzf $^ -C $(TOP)
+	[ ! -f $(SCSIIDLE).patch ] || $(PATCHER) $(TOP)/$(SCSIIDLE) $(SCSIIDLE).patch
+	mv $(TOP)/$(SCSIIDLE) $@ && touch $@
+
+scsi-idle: $(TOP)/scsi-idle
+	@true
+
 libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
@@ -475,6 +485,5 @@ www-diff:
 
 %-diff:
 	$(call make_diff,-BurpN,router,gateway,$*)
-
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www

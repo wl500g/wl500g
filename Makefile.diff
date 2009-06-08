@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-01 12:58:42.000000000 +0000
++++ gateway/Makefile	2009-06-08 17:42:27.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -96,7 +96,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +127,76 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +127,77 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -132,6 +132,7 @@
 +obj-$(CONFIG_L2TP) += rp-l2tp
 +obj-$(CONFIG_IGMPPROXY) += igmpproxy
 +obj-$(CONFIG_STUPIDFTPD) += vsftpd
++obj-$(CONFIG_SCSIIDLE) += scsi-idle
 +obj-y += udpxy
 +
 +obj-y += kernel
@@ -191,7 +192,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +207,206 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +208,206 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -422,7 +423,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +445,17 @@ oldconfig: oldconf
+@@ -225,16 +446,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -443,7 +444,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +463,64 @@ www www-%:
+@@ -242,43 +464,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -526,7 +527,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +536,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +537,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -536,7 +537,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +551,229 @@ vlan:
+@@ -312,215 +552,234 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -669,6 +670,11 @@
 +	install -D udpxy/udpxy $(INSTALLDIR)/udpxy/usr/sbin/udpxy
 +	$(STRIP) $(INSTALLDIR)/udpxy/usr/sbin/udpxy
 +	ln -sf udpxy $(INSTALLDIR)/udpxy/usr/sbin/udpxrec
++
++scsi-idle-install:
++	install -D scsi-idle/scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
++	$(STRIP) $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
++	ln -sf scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-stop
  
 -pptp-client-install: pptp-client
 -	install -D pptp-client/pptp $(INSTALLDIR)/pptp-client/usr/sbin/pptp
@@ -935,7 +941,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +781,9 @@ image-R100:
+@@ -528,6 +787,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
