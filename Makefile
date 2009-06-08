@@ -44,6 +44,8 @@ VSFTPD=vsftpd-2.1.2
 UDPXY=udpxy-1.0-Chipmunk-11
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
+LIBUSB=libusb-0.1.12
+USBMODESWITCH=usb_modeswitch-0.9.7
 
 UCLIBC=uClibc-0.9.29
 
@@ -87,7 +89,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
-	scsi-idle \
+	scsi-idle libusb usb_modeswitch \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
@@ -444,6 +446,32 @@ $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 scsi-idle: $(TOP)/scsi-idle
 	@true
 
+$(TOP)/libusb: $(LIBUSB).tar.gz
+	@rm -rf $(TOP)/$(LIBUSB) $@
+	tar -zxf $^ -C $(TOP)
+	[ ! -f $(LIBUSB).patch ] || $(PATCHER) $(TOP)/$(LIBUSB) $(LIBUSB).patch
+	mv $(TOP)/$(LIBUSB) $@ && touch $@
+
+$(TOP)/libusb/Makefile: $(TOP)/libusb
+	cd $^ && \
+	CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-O2 $(EXTRACFLAGS)" \
+	./configure --host=mipsel-linux --prefix=/usr
+
+libusb: $(TOP)/libusb/Makefile
+	@true
+
+$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
+	rm -rf $(TOP)/$(USBMODESWITCH) $@
+	tar -jxf $^ -C $(TOP)
+	rm -f $(TOP)/$(USBMODESWITCH)/usb_modeswitch
+#	cp -p usb_modeswitch/*.conf $(TOP)/$(USBMODESWITCH)/
+	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
+		$(PATCHER) $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
+	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
+
+usb_modeswitch: $(TOP)/usb_modeswitch
+	@true
+
 libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
@@ -485,5 +513,8 @@ www-diff:
 
 %-diff:
 	$(call make_diff,-BurpN,router,gateway,$*)
+
+%-diff-simple:
+	$(call make_diff,-BurN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www
