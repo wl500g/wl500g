@@ -2,6 +2,6 @@
 
 ==!HowTo articles==
 
- * [en/CompilingCustomFirmware How to compile custom firmware (en)]
- * [ru/CompilingCustomFirmware Самостоятельная сборка прошивки (ru)]
- * [ru/colinux Сборка прошивки под windows (ru)]
+ * [CompilingCustomFirmware_en How to compile custom firmware (en)]
+ * [CompilingCustomFirmware Самостоятельная сборка прошивки (ru)]
+ * [colinux Сборка прошивки под windows (ru)]
