@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-08 21:12:40.000000000 +0000
++++ gateway/Makefile	2009-06-08 21:57:15.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -546,7 +546,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +561,250 @@ vlan:
+@@ -312,215 +561,253 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -565,7 +565,10 @@
 +	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
 +
 +rp-pppoe:
-+	$(MAKE) -C $@/src pppoe-relay rp-pppoe.so
++	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
++
++rp-pppoe-clean:
++	$(MAKE) -C rp-pppoe/src clean
 +
 +rp-pppoe-install: rp-pppoe
 +	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
@@ -966,7 +969,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +812,9 @@ image-R100:
+@@ -528,6 +815,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
