@@ -341,7 +341,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +#define ZTE_PRODUCT_MF638			0x0037
 +#define ZTE_PRODUCT_AC8710V1			0xffff
 +#define ZTE_PRODUCT_AC8710V2			0xfff1
-+#define ZTE_PRODUCT_6535-Z			0x0052
++#define ZTE_PRODUCT_6535_Z			0x0052
 +#define ZTE_PRODUCT_CDMA_TECH			0xfffe
 +
 +#define BENQ_VENDOR_ID                         0x04a5
@@ -575,7 +575,7 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_MF638) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_AC8710V1) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_AC8710V2) },
-+	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_6535-Z) },
++	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_6535_Z) },
 +	{ USB_DEVICE(ZTE_VENDOR_ID, ZTE_PRODUCT_CDMA_TECH) },
 +       { USB_DEVICE(BENQ_VENDOR_ID, BENQ_PRODUCT_H10) },
 +       { USB_DEVICE(DLINK_VENDOR_ID, DLINK_PRODUCT_DWM_652) },
