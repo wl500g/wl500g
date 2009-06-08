@@ -1,6 +1,6 @@
 diff -BurN -x'*.o' router/config/Config gateway/config/Config
 --- router/config/Config	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/Config	2009-06-08 17:45:49.000000000 +0000
++++ gateway/config/Config	2009-06-08 19:05:53.000000000 +0000
 @@ -13,12 +13,6 @@
  
  mainmenu "Router Configuration"
@@ -67,7 +67,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  config CONFIG_PPP
         bool "PPPoE client"
         depends on CONFIG_NAT
-@@ -223,6 +218,140 @@
+@@ -223,6 +218,147 @@
  
  endmenu
  
@@ -201,14 +201,34 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +       bool "SCSI start & stop"
 +       default y
 +       help
-+       Small programs to start and stop SCSI disks
++       Small programs to start and stop SCSI disks.
++
++config CONFIG_USBMODESWITCH
++       bool "USB_Modeswitch"
++       depends on CONFIG_LIBUSB
++       default y
++       help
++       Mode switching tool for controlling "flip flop" (multiple device) USB gear.
 +
 +endmenu
 +
  menu "Additional C libraries"
  
  config CONFIG_LIBCRYPT
-@@ -297,10 +426,26 @@
+@@ -269,6 +405,12 @@
+        Contains code for "standard" functions used in many different
+        Unix utilities.
+ 
++config CONFIG_LIBUSB
++       bool "libusb"
++       default n
++       help
++       Library for interfacing to the USB subsystem.
++
+ endmenu
+ 
+ menu "Environment"
+@@ -297,10 +439,26 @@
         help
         Specify the location of the target /usr/lib directory.
  
@@ -237,7 +257,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  endmenu
 diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 --- router/config/defconfig	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/defconfig	2009-06-08 17:46:02.000000000 +0000
++++ gateway/config/defconfig	2009-06-08 19:06:43.000000000 +0000
 @@ -1,7 +1,6 @@
  #
  # Automatically generated make config: don't edit
@@ -287,7 +307,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  CONFIG_NTP=y
  CONFIG_DNSMASQ=y
  CONFIG_UTILS=y
-@@ -42,15 +40,48 @@
+@@ -42,15 +40,50 @@
  # CONFIG_WCN is not set
  
  #
@@ -322,6 +342,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 +CONFIG_L2TP=y
 +CONFIG_IGMPPROXY=y
 +CONFIG_SCSIIDLE=y
++CONFIG_USBMODESWITCH=y
 +
 +#
  # Additional C libraries
@@ -340,10 +361,11 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 +CONFIG_LIBPTHREAD=y
 +CONFIG_LIBRESOLV=y
 +CONFIG_LIBUTIL=y
++CONFIG_LIBUSB=y
  
  #
  # Environment
-@@ -59,7 +90,10 @@
+@@ -59,7 +92,10 @@
  LINUXDIR=$(SRCBASE)/linux/linux
  LIBDIR=$(TOOLCHAIN)/lib
  USRLIBDIR=$(TOOLCHAIN)/usr/lib

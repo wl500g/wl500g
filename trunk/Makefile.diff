@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-08 17:42:27.000000000 +0000
++++ gateway/Makefile	2009-06-08 21:12:40.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -56,11 +56,11 @@
 +ifeq ($(CONFIG_IPV6),y)
 +export CONFIG_IPV6 := y
 +else
-+CONFIG_IPV6:=
++CONFIG_IPV6 :=
  endif
  
  export CC := $(CROSS_COMPILE)gcc
-@@ -72,8 +91,13 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
+@@ -72,8 +91,21 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
  export INSTALLDIR := $(PLATFORMDIR)/install
  export TARGETDIR := $(PLATFORMDIR)/target
  
@@ -73,10 +73,18 @@
 +
 +# always build libbcmcrypto, required by nas
 +obj-y += libbcmcrypto 
++
++# always build libusb, only if required by usb_modeswitch
++ifeq ($(CONFIG_USBMODESWITCH),y)
++export CONFIG_LIBUSB := y
++obj-$(CONFIG_LIBUSB) += libusb
++else
++CONFIG_LIBUSB :=
++endif
  
  #
  # Configuration
-@@ -84,18 +108,14 @@ obj-$(CONFIG_RC) += rc
+@@ -84,18 +116,14 @@ obj-$(CONFIG_RC) += rc
  obj-$(CONFIG_LIBBCM) += libbcm
  obj-$(CONFIG_SHARED) += shared
  obj-$(CONFIG_WWW) += www
@@ -96,7 +104,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +127,77 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +135,78 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -133,6 +141,7 @@
 +obj-$(CONFIG_IGMPPROXY) += igmpproxy
 +obj-$(CONFIG_STUPIDFTPD) += vsftpd
 +obj-$(CONFIG_SCSIIDLE) += scsi-idle
++obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 +obj-y += udpxy
 +
 +obj-y += kernel
@@ -192,7 +201,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +208,206 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +217,206 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -423,7 +432,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +446,17 @@ oldconfig: oldconf
+@@ -225,16 +455,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -444,7 +453,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +464,64 @@ www www-%:
+@@ -242,43 +473,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -527,7 +536,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +537,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +546,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -537,7 +546,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +552,234 @@ vlan:
+@@ -312,215 +561,250 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -675,6 +684,22 @@
 +	install -D scsi-idle/scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
 +	$(STRIP) $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
 +	ln -sf scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-stop
++
++libusb-install:
++	install -D libusb/.libs/libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4.4.4
++	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so.*
++	ln -sf libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4
++	ln -sf libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb.so
++
++usb_modeswitch:
++	cd usb_modeswitch && \
++	$(CC) -Wall -I../libusb -L../libusb/.libs -O2 $(EXTRACFLAGS) \
++		-o usb_modeswitch usb_modeswitch.c -lusb
++
++usb_modeswitch-install:
++	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
++	$(STRIP) $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
++#	install -D -m 0644 usb_modeswitch/usb_modeswitch.conf $(INSTALLDIR)/usb_modeswitch/usr/etc/usb_modeswitch.conf
  
 -pptp-client-install: pptp-client
 -	install -D pptp-client/pptp $(INSTALLDIR)/pptp-client/usr/sbin/pptp
@@ -829,18 +854,18 @@
  		make rc GLOBAL_OPTIONS="-DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
  		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
 -		make LPRng GLOBAL_OPTIONS=""; \
- 	fi )
+-	fi )
 -	echo $(LANGUAGE)
 -	make www-install-$*
 - 
 -	rm $(PLATFORMDIR)/target/usr/sbin/waveserver -f
- 
+-
 -	( if [ "$*" = "WL500gx" ]; then \
 -		make install CONFIG_SENTRY5=y CONFIG_ROBO=y; \
 -	else \
 -		make install; \
--	fi )
--
+ 	fi )
+ 
 -ifeq ($(CONFIG_BPLAY),y)
 -	cp others/waveserver $(PLATFORMDIR)/target/usr/sbin/. -f
 -endif
@@ -941,7 +966,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +787,9 @@ image-R100:
+@@ -528,6 +812,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
