@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-08 21:57:15.000000000 +0000
++++ gateway/Makefile	2009-06-09 18:30:30.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -201,7 +201,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +217,206 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +217,214 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -224,7 +224,14 @@
 +	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc-3.4.6; \
 +	fi )
 +
-+kernel: kernel-image kernel-modules
++$(LINUXDIR)/fs/fuse/Makefile:
++	cd $(LINUXDIR)/fs/fuse && \
++	$(CONFIGURE) --enable-kernel-module --with-kernel=$(LINUXDIR) CC=$(CROSS_COMPILE)gcc-3.4.6
++
++fuse-driver: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
++	cd $(LINUXDIR)/fs/fuse && $(MAKE)
++
++kernel: kernel-image kernel-modules fuse-kernel-driver
 +	@true
 +
 +kernel-clean:
@@ -240,6 +247,7 @@
 +	( . $(LINUXDIR)/.config ; \
 +	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
 +	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules ; \
++	    cd $(LINUXDIR)/fs/fuse && $(MAKE) install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules; \
 +	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/* -F $(LINUXDIR)/System.map; \
 +	fi )
 +	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
@@ -288,7 +296,7 @@
 +		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
 +	rm -rf $(MODULESDIR)/parport
 +
-+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o))
++NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
 +
 +modules_install: .config
 +	install -d $(MODULESDIR)
@@ -432,7 +440,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +455,17 @@ oldconfig: oldconf
+@@ -225,16 +463,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -453,7 +461,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +473,64 @@ www www-%:
+@@ -242,43 +481,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -536,7 +544,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +546,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +554,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -546,7 +554,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +561,253 @@ vlan:
+@@ -312,215 +569,253 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -969,7 +977,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +815,9 @@ image-R100:
+@@ -528,6 +823,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
