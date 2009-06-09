@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-09 18:30:30.000000000 +0000
++++ gateway/Makefile	2009-06-09 18:39:18.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -231,7 +231,7 @@
 +fuse-driver: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
 +	cd $(LINUXDIR)/fs/fuse && $(MAKE)
 +
-+kernel: kernel-image kernel-modules fuse-kernel-driver
++kernel: kernel-image kernel-modules fuse-driver
 +	@true
 +
 +kernel-clean:
