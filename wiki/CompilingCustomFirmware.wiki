@@ -1,4 +1,4 @@
-﻿#summary HowTo Compile Custom Firmware
+#summary Самостоятельная сборка прошивки
 #sidebar TOC
 
 = Самостоятельная сборка прошивки =

@@ -1,4 +1,5 @@
-#Сборка прошивки под windows
+#summary Сборка прошивки под windows
+#sidebar TOC
 
 = Сборка прошивки под windows =
 
