@@ -28,13 +28,13 @@ static void SET_help(void)
 	       " --del-set name flags\n"
 	       "		add/del src/dst IP/port from/to named sets,\n"
 	       "		where flags are the comma separated list of\n"
-	       "		'src' and 'dst'.\n");
+	       "		'src' and 'dst' specifications.\n");
 }
 
 static const struct option SET_opts[] = {
-	{"add-set",   1, NULL, '1'},
-	{"del-set",   1, NULL, '2'},
-	{ }
+	{ .name = "add-set", .has_arg = true, .val = '1'},
+	{ .name = "del-set", .has_arg = true, .val = '2'},
+	{ .name = NULL }
 };
 
 static void SET_init(struct xt_entry_target *target)

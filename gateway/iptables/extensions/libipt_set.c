@@ -24,15 +24,16 @@
 static void set_help(void)
 {
 	printf("set match options:\n"
-	       " [!] --set     name flags\n"
-	       "		'name' is the set name from to match,\n" 
-	       "		'flags' are the comma separated list of\n"
-	       "		'src' and 'dst'.\n");
+	       " [!] --match-set name flags\n"
+	       "		 'name' is the set name from to match,\n" 
+	       "		 'flags' are the comma separated list of\n"
+	       "		 'src' and 'dst' specifications.\n");
 }
 
 static const struct option set_opts[] = {
-	{"set", 1, NULL, '1'},
-	{ }
+	{ .name = "match-set", .has_arg = true, .val = '1'},
+	{ .name = "set",       .has_arg = true, .val = '2'},
+	{ .name = NULL }
 };
 
 static void set_init(struct xt_entry_match *match)
@@ -53,10 +54,15 @@ static int set_parse(int c, char **argv, int invert, unsigned int *flags,
 	struct ipt_set_info *info = &myinfo->match_set;
 
 	switch (c) {
-	case '1':		/* --set <set> <flag>[,<flag> */
+	case '2':
+#if 0
+		fprintf(stderr,
+			"--set option deprecated, please use --match-set\n");
+#endif
+	case '1':		/* --match-set <set> <flag>[,<flag> */
 		if (info->flags[0])
 			xtables_error(PARAMETER_PROBLEM,
-				   "--set can be specified only once");
+				   "--match-set can be specified only once");
 
 		xtables_check_inverse(optarg, &invert, &optind, 0);
 		if (invert)
@@ -66,7 +72,7 @@ static int set_parse(int c, char **argv, int invert, unsigned int *flags,
 		    || argv[optind][0] == '-'
 		    || argv[optind][0] == '!')
 			xtables_error(PARAMETER_PROBLEM,
-				   "--set requires two args.");
+				   "--match-set requires two args.");
 
 		if (strlen(argv[optind-1]) > IP_SET_MAXNAMELEN - 1)
 			xtables_error(PARAMETER_PROBLEM,
@@ -92,7 +98,7 @@ static void set_check(unsigned int flags)
 {
 	if (!flags)
 		xtables_error(PARAMETER_PROBLEM,
-			   "You must specify `--set' with proper arguments");
+			   "You must specify `--match-set' with proper arguments");
 	DEBUGP("final check OK\n");
 }
 
@@ -121,18 +127,16 @@ print_match(const char *prefix, const struct ipt_set_info *info)
 static void set_print(const void *ip, const struct xt_entry_match *match,
                       int numeric)
 {
-	struct ipt_set_info_match *info = 
-		(struct ipt_set_info_match *) match->data;
+	const struct ipt_set_info_match *info = (const void *)match->data;
 
-	print_match("set", &info->match_set);
+	print_match("match-set", &info->match_set);
 }
 
 static void set_save(const void *ip, const struct xt_entry_match *match)
 {
-	struct ipt_set_info_match *info = 
-		(struct ipt_set_info_match *) match->data;
+	const struct ipt_set_info_match *info = (const void *)match->data;
 
-	print_match("--set", &info->match_set);
+	print_match("--match-set", &info->match_set);
 }
 
 static struct xtables_match set_mt_reg = {
