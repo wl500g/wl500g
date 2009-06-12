@@ -468,8 +468,7 @@ libusb: $(TOP)/libusb/Makefile
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
 	tar -jxf $^ -C $(TOP)
-	rm -f $(TOP)/$(USBMODESWITCH)/usb_modeswitch
-#	cp -p usb_modeswitch/*.conf $(TOP)/$(USBMODESWITCH)/
+	cp -pf usb_modeswitch/usb_modeswitch.conf $(TOP)/$(USBMODESWITCH)/
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
 		$(PATCHER) $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
