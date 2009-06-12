@@ -154,8 +154,8 @@ kernel-extra-drivers:
 	if [ ! -d $(KERNEL_DIR)/fs/fuse ]; then \
 	  tar -C $(KERNEL_DIR)/fs -xvjf kernel/drivers/fuse-2.5.3.tar.bz2 fuse-2.5.3/kernel/ \
 	   && mv $(KERNEL_DIR)/fs/fuse-2.5.3/kernel $(KERNEL_DIR)/fs/fuse && rmdir $(KERNEL_DIR)/fs/fuse-2.5.3; \
+	  $(PATCHER) -Z $(KERNEL_DIR)/fs/fuse kernel/drivers/fuse-2.5.3.patch; \
 	fi
-	@$(PATCHER) -Z $(KERNEL_DIR)/fs/fuse kernel/drivers/fuse-2.5.3.patch
 
 kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
 	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
