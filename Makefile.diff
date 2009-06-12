@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-12 06:48:22.000000000 +0000
++++ gateway/Makefile	2009-06-12 08:33:16.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -147,7 +147,7 @@
 +obj-y += kernel
 +
 +# Netfilter modules NOT to include in main FW
-+netfilter_external_modules := ipt_layer7.o \
++netfilter_external_modules := ipt_layer7.o ip_set.o \
 + ip_set_ipmap.o ip_set_iptree.o ip_set_iptreemap.o ip_set_macipmap.o \
 + ip_set_nethash.o ip_set_iphash.o \
 + ip_set_portmap.o ip_set_ipporthash.o ip_set_ipportiphash.o \
