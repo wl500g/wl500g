@@ -1,6 +1,0 @@
-  * [Welcome ↑ Home EN]
-  * [NEWS History of Changes]
-  * !HowTo articles
-    * [CompilingCustomFirmware Firmware compiling]
-    * [colinux Firmware compiling on MS Widnows]
-  * [LINKS Links]
