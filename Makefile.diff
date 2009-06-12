@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-12 08:33:16.000000000 +0000
++++ gateway/Makefile	2009-06-12 08:43:38.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -201,7 +201,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +217,214 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +217,215 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -319,7 +319,8 @@
 +	install -t $(MODULESDIR) \
 +		$(SRCMODULESDIR)/drivers/usb/serial/usbserial.o \
 +		$(SRCMODULESDIR)/drivers/usb/serial/pl2303.o \
-+		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio.o
++		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio.o \
++		$(SRCMODULESDIR)/drivers/usb/serial/option.o
 +	# usb webcams
 +	install -t $(MODULESDIR) \
 +		$(SRCMODULESDIR)/drivers/media/video/videodev.o \
@@ -440,7 +441,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +463,17 @@ oldconfig: oldconf
+@@ -225,16 +464,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -461,7 +462,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +481,64 @@ www www-%:
+@@ -242,43 +482,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -544,7 +545,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +554,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +555,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -554,7 +555,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +569,251 @@ vlan:
+@@ -312,215 +570,251 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -975,7 +976,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +821,9 @@ image-R100:
+@@ -528,6 +822,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
