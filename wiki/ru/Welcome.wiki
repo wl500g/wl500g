@@ -1,6 +1,6 @@
 #summary Добро пожаловать
 
-==!HowTo articles==
+==Статьи !HowTo==
 
  * [CompilingCustomFirmware Самостоятельная сборка прошивки]
  * [colinux Сборка прошивки под MS Windows]
