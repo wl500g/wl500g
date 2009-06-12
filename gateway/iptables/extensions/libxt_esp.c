@@ -149,21 +149,7 @@ static void esp_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match esp_match = {
-	.family		= NFPROTO_IPV4,
-	.name 		= "esp",
-	.version 	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_esp)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_esp)),
-	.help		= esp_help,
-	.init		= esp_init,
-	.parse		= esp_parse,
-	.print		= esp_print,
-	.save		= esp_save,
-	.extra_opts	= esp_opts,
-};
-
-static struct xtables_match esp_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name 		= "esp",
 	.version 	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_esp)),
@@ -180,5 +166,4 @@ void
 _init(void)
 {
 	xtables_register_match(&esp_match);
-	xtables_register_match(&esp_match6);
 }

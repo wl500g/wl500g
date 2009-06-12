@@ -510,21 +510,7 @@ static void sctp_save(const void *ip, const struct xt_entry_match *match)
 
 static struct xtables_match sctp_match = {
 	.name		= "sctp",
-	.family		= NFPROTO_IPV4,
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_sctp_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_sctp_info)),
-	.help		= sctp_help,
-	.init		= sctp_init,
-	.parse		= sctp_parse,
-	.print		= sctp_print,
-	.save		= sctp_save,
-	.extra_opts	= sctp_opts,
-};
-
-static struct xtables_match sctp_match6 = {
-	.name		= "sctp",
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_sctp_info)),
 	.userspacesize	= XT_ALIGN(sizeof(struct xt_sctp_info)),
@@ -539,5 +525,4 @@ static struct xtables_match sctp_match6 = {
 void _init(void)
 {
 	xtables_register_match(&sctp_match);
-	xtables_register_match(&sctp_match6);
 }

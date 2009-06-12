@@ -139,21 +139,7 @@ static void state_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match state_match = { 
-	.family		= NFPROTO_IPV4,
-	.name		= "state",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_state_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_state_info)),
-	.help		= state_help,
-	.parse		= state_parse,
-	.final_check	= state_final_check,
-	.print		= state_print,
-	.save		= state_save,
-	.extra_opts	= state_opts,
-};
-
-static struct xtables_match state_match6 = { 
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "state",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_state_info)),
@@ -169,5 +155,4 @@ static struct xtables_match state_match6 = {
 void _init(void)
 {
 	xtables_register_match(&state_match);
-	xtables_register_match(&state_match6);
 }

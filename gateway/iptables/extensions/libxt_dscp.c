@@ -131,21 +131,7 @@ static void dscp_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match dscp_match = {
-	.family		= NFPROTO_IPV4,
-	.name 		= "dscp",
-	.version 	= XTABLES_VERSION,
-	.size 		= XT_ALIGN(sizeof(struct xt_dscp_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_dscp_info)),
-	.help		= dscp_help,
-	.parse		= dscp_parse,
-	.final_check	= dscp_check,
-	.print		= dscp_print,
-	.save		= dscp_save,
-	.extra_opts	= dscp_opts,
-};
-
-static struct xtables_match dscp_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name 		= "dscp",
 	.version 	= XTABLES_VERSION,
 	.size 		= XT_ALIGN(sizeof(struct xt_dscp_info)),
@@ -161,5 +147,4 @@ static struct xtables_match dscp_match6 = {
 void _init(void)
 {
 	xtables_register_match(&dscp_match);
-	xtables_register_match(&dscp_match6);
 }

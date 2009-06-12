@@ -112,21 +112,7 @@ static void mac_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match mac_match = {
-	.family		= NFPROTO_IPV4,
- 	.name		= "mac",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_mac_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_mac_info)),
-	.help		= mac_help,
-	.parse		= mac_parse,
-	.final_check	= mac_check,
-	.print		= mac_print,
-	.save		= mac_save,
-	.extra_opts	= mac_opts,
-};
-
-static struct xtables_match mac_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
  	.name		= "mac",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_mac_info)),
@@ -142,5 +128,4 @@ static struct xtables_match mac_match6 = {
 void _init(void)
 {
 	xtables_register_match(&mac_match);
-	xtables_register_match(&mac_match6);
 }

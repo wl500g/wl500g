@@ -20,17 +20,7 @@ NOTRACK_parse(int c, char **argv, int invert, unsigned int *flags,
 }
 
 static struct xtables_target notrack_target = {
-	.family		= NFPROTO_IPV4,
-	.name		= "NOTRACK",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(0),
-	.userspacesize	= XT_ALIGN(0),
-	.help		= NOTRACK_help,
-	.parse		= NOTRACK_parse,
-};
-
-static struct xtables_target notrack_target6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "NOTRACK",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(0),
@@ -42,5 +32,4 @@ static struct xtables_target notrack_target6 = {
 void _init(void)
 {
 	xtables_register_target(&notrack_target);
-	xtables_register_target(&notrack_target6);
 }

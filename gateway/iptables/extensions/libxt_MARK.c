@@ -278,7 +278,7 @@ static void mark_tg_save(const void *ip, const struct xt_entry_target *target)
 }
 
 static struct xtables_target mark_target_v0 = {
-	.family		= NFPROTO_IPV4,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "MARK",
 	.version	= XTABLES_VERSION,
 	.revision	= 0,
@@ -307,21 +307,6 @@ static struct xtables_target mark_target_v1 = {
 	.extra_opts	= MARK_opts,
 };
 
-static struct xtables_target mark_target6_v0 = {
-	.family		= NFPROTO_IPV6,
-	.name		= "MARK",
-	.version	= XTABLES_VERSION,
-	.revision	= 0,
-	.size		= XT_ALIGN(sizeof(struct xt_mark_target_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_mark_target_info)),
-	.help		= MARK_help,
-	.parse		= MARK_parse_v0,
-	.final_check	= MARK_check,
-	.print		= MARK_print_v0,
-	.save		= MARK_save_v0,
-	.extra_opts	= MARK_opts,
-};
-
 static struct xtables_target mark_tg_reg_v2 = {
 	.version       = XTABLES_VERSION,
 	.name          = "MARK",
@@ -341,6 +326,5 @@ void _init(void)
 {
 	xtables_register_target(&mark_target_v0);
 	xtables_register_target(&mark_target_v1);
-	xtables_register_target(&mark_target6_v0);
 	xtables_register_target(&mark_tg_reg_v2);
 }

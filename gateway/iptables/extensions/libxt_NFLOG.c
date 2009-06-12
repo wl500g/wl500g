@@ -139,21 +139,7 @@ static void NFLOG_save(const void *ip, const struct xt_entry_target *target)
 }
 
 static struct xtables_target nflog_target = {
-	.family		= NFPROTO_IPV4,
-	.name		= "NFLOG",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_nflog_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_nflog_info)),
-	.help		= NFLOG_help,
-	.init		= NFLOG_init,
-	.parse		= NFLOG_parse,
-	.print		= NFLOG_print,
-	.save		= NFLOG_save,
-	.extra_opts	= NFLOG_opts,
-};
-
-static struct xtables_target nflog_target6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "NFLOG",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_nflog_info)),
@@ -169,5 +155,4 @@ static struct xtables_target nflog_target6 = {
 void _init(void)
 {
 	xtables_register_target(&nflog_target);
-	xtables_register_target(&nflog_target6);
 }

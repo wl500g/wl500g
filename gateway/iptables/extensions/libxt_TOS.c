@@ -224,22 +224,7 @@ static struct xtables_target tos_tg_reg = {
 	.version       = XTABLES_VERSION,
 	.name          = "TOS",
 	.revision      = 1,
-	.family        = NFPROTO_IPV4,
-	.size          = XT_ALIGN(sizeof(struct xt_tos_target_info)),
-	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_target_info)),
-	.help          = tos_tg_help,
-	.parse         = tos_tg_parse,
-	.final_check   = tos_tg_check,
-	.print         = tos_tg_print,
-	.save          = tos_tg_save,
-	.extra_opts    = tos_tg_opts,
-};
-
-static struct xtables_target tos_tg6_reg = {
-	.version       = XTABLES_VERSION,
-	.name          = "TOS",
-	.family        = NFPROTO_IPV6,
-	.revision      = 1,
+	.family        = NFPROTO_UNSPEC,
 	.size          = XT_ALIGN(sizeof(struct xt_tos_target_info)),
 	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_target_info)),
 	.help          = tos_tg_help,
@@ -254,5 +239,4 @@ void _init(void)
 {
 	xtables_register_target(&tos_tg_reg_v0);
 	xtables_register_target(&tos_tg_reg);
-	xtables_register_target(&tos_tg6_reg);
 }

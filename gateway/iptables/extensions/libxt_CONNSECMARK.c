@@ -107,22 +107,7 @@ CONNSECMARK_save(const void *ip, const struct xt_entry_target *target)
 }
 
 static struct xtables_target connsecmark_target = {
-	.family		= NFPROTO_IPV4,
-	.name		= "CONNSECMARK",
-	.version	= XTABLES_VERSION,
-	.revision	= 0,
-	.size		= XT_ALIGN(sizeof(struct xt_connsecmark_target_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_connsecmark_target_info)),
-	.parse		= CONNSECMARK_parse,
-	.help		= CONNSECMARK_help,
-	.final_check	= CONNSECMARK_check,
-	.print		= CONNSECMARK_print,
-	.save		= CONNSECMARK_save,
-	.extra_opts	= CONNSECMARK_opts,
-};
-
-static struct xtables_target connsecmark_target6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "CONNSECMARK",
 	.version	= XTABLES_VERSION,
 	.revision	= 0,
@@ -139,5 +124,4 @@ static struct xtables_target connsecmark_target6 = {
 void _init(void)
 {
 	xtables_register_target(&connsecmark_target);
-	xtables_register_target(&connsecmark_target6);
 }

@@ -109,21 +109,7 @@ static void tcpmss_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match tcpmss_match = {
-	.family		= NFPROTO_IPV4,
-	.name		= "tcpmss",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_tcpmss_match_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_tcpmss_match_info)),
-	.help		= tcpmss_help,
-	.parse		= tcpmss_parse,
-	.final_check	= tcpmss_check,
-	.print		= tcpmss_print,
-	.save		= tcpmss_save,
-	.extra_opts	= tcpmss_opts,
-};
-
-static struct xtables_match tcpmss_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "tcpmss",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_tcpmss_match_info)),
@@ -139,5 +125,4 @@ static struct xtables_match tcpmss_match6 = {
 void _init(void)
 {
 	xtables_register_match(&tcpmss_match);
-	xtables_register_match(&tcpmss_match6);
 }

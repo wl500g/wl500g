@@ -89,21 +89,7 @@ comment_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match comment_match = {
-	.family		= NFPROTO_IPV4,
-	.name		= "comment",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_comment_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_comment_info)),
-	.help		= comment_help,
-	.parse		= comment_parse,
-	.final_check	= comment_check,
-	.print 		= comment_print,
-	.save 		= comment_save,
-	.extra_opts	= comment_opts,
-};
-
-static struct xtables_match comment_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "comment",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_comment_info)),
@@ -119,5 +105,4 @@ static struct xtables_match comment_match6 = {
 void _init(void)
 {
 	xtables_register_match(&comment_match);
-	xtables_register_match(&comment_match6);
 }

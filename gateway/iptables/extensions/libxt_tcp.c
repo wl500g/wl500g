@@ -378,21 +378,7 @@ static void tcp_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match tcp_match = {
-	.family		= NFPROTO_IPV4,
-	.name		= "tcp",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_tcp)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_tcp)),
-	.help		= tcp_help,
-	.init		= tcp_init,
-	.parse		= tcp_parse,
-	.print		= tcp_print,
-	.save		= tcp_save,
-	.extra_opts	= tcp_opts,
-};
-
-static struct xtables_match tcp_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "tcp",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_tcp)),
@@ -409,5 +395,4 @@ void
 _init(void)
 {
 	xtables_register_match(&tcp_match);
-	xtables_register_match(&tcp_match6);
 }

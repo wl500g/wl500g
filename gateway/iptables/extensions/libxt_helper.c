@@ -69,20 +69,7 @@ static void helper_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match helper_match = {
-	.family		= NFPROTO_IPV4,
-	.name		= "helper",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_helper_info)),
-	.help		= helper_help,
-	.parse		= helper_parse,
-	.final_check	= helper_check,
-	.print		= helper_print,
-	.save		= helper_save,
-	.extra_opts	= helper_opts,
-};
-
-static struct xtables_match helper_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "helper",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_helper_info)),
@@ -97,5 +84,4 @@ static struct xtables_match helper_match6 = {
 void _init(void)
 {
 	xtables_register_match(&helper_match);
-	xtables_register_match(&helper_match6);
 }

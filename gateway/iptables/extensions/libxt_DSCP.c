@@ -130,21 +130,7 @@ static void DSCP_save(const void *ip, const struct xt_entry_target *target)
 }
 
 static struct xtables_target dscp_target = {
-	.family		= NFPROTO_IPV4,
-	.name		= "DSCP",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_DSCP_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_DSCP_info)),
-	.help		= DSCP_help,
-	.parse		= DSCP_parse,
-	.final_check	= DSCP_check,
-	.print		= DSCP_print,
-	.save		= DSCP_save,
-	.extra_opts	= DSCP_opts,
-};
-
-static struct xtables_target dscp_target6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "DSCP",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_DSCP_info)),
@@ -160,5 +146,4 @@ static struct xtables_target dscp_target6 = {
 void _init(void)
 {
 	xtables_register_target(&dscp_target);
-	xtables_register_target(&dscp_target6);
 }

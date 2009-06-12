@@ -567,22 +567,7 @@ static struct xtables_match owner_mt_reg = {
 	.version       = XTABLES_VERSION,
 	.name          = "owner",
 	.revision      = 1,
-	.family        = NFPROTO_IPV4,
-	.size          = XT_ALIGN(sizeof(struct xt_owner_match_info)),
-	.userspacesize = XT_ALIGN(sizeof(struct xt_owner_match_info)),
-	.help          = owner_mt_help,
-	.parse         = owner_mt_parse,
-	.final_check   = owner_mt_check,
-	.print         = owner_mt_print,
-	.save          = owner_mt_save,
-	.extra_opts    = owner_mt_opts,
-};
-
-static struct xtables_match owner_mt6_reg = {
-	.version       = XTABLES_VERSION,
-	.name          = "owner",
-	.revision      = 1,
-	.family        = NFPROTO_IPV6,
+	.family        = NFPROTO_UNSPEC,
 	.size          = XT_ALIGN(sizeof(struct xt_owner_match_info)),
 	.userspacesize = XT_ALIGN(sizeof(struct xt_owner_match_info)),
 	.help          = owner_mt_help,
@@ -598,5 +583,4 @@ void _init(void)
 	xtables_register_match(&owner_mt_reg_v0);
 	xtables_register_match(&owner_mt6_reg_v0);
 	xtables_register_match(&owner_mt_reg);
-	xtables_register_match(&owner_mt6_reg);
 }

@@ -155,22 +155,7 @@ static struct xtables_match tos_mt_reg_v0 = {
 static struct xtables_match tos_mt_reg = {
 	.version       = XTABLES_VERSION,
 	.name          = "tos",
-	.family        = NFPROTO_IPV4,
-	.revision      = 1,
-	.size          = XT_ALIGN(sizeof(struct xt_tos_match_info)),
-	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_match_info)),
-	.help          = tos_mt_help,
-	.parse         = tos_mt_parse,
-	.final_check   = tos_mt_check,
-	.print         = tos_mt_print,
-	.save          = tos_mt_save,
-	.extra_opts    = tos_mt_opts,
-};
-
-static struct xtables_match tos_mt6_reg = {
-	.version       = XTABLES_VERSION,
-	.name          = "tos",
-	.family        = NFPROTO_IPV6,
+	.family        = NFPROTO_UNSPEC,
 	.revision      = 1,
 	.size          = XT_ALIGN(sizeof(struct xt_tos_match_info)),
 	.userspacesize = XT_ALIGN(sizeof(struct xt_tos_match_info)),
@@ -186,5 +171,4 @@ void _init(void)
 {
 	xtables_register_match(&tos_mt_reg_v0);
 	xtables_register_match(&tos_mt_reg);
-	xtables_register_match(&tos_mt6_reg);
 }

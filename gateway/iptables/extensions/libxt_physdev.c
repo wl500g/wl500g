@@ -163,21 +163,7 @@ static void physdev_save(const void *ip, const struct xt_entry_match *match)
 }
 
 static struct xtables_match physdev_match = {
-	.family		= NFPROTO_IPV4,
-	.name		= "physdev",
-	.version	= XTABLES_VERSION,
-	.size		= XT_ALIGN(sizeof(struct xt_physdev_info)),
-	.userspacesize	= XT_ALIGN(sizeof(struct xt_physdev_info)),
-	.help		= physdev_help,
-	.parse		= physdev_parse,
-	.final_check	= physdev_check,
-	.print		= physdev_print,
-	.save		= physdev_save,
-	.extra_opts	= physdev_opts,
-};
-
-static struct xtables_match physdev_match6 = {
-	.family		= NFPROTO_IPV6,
+	.family		= NFPROTO_UNSPEC,
 	.name		= "physdev",
 	.version	= XTABLES_VERSION,
 	.size		= XT_ALIGN(sizeof(struct xt_physdev_info)),
@@ -193,5 +179,4 @@ static struct xtables_match physdev_match6 = {
 void _init(void)
 {
 	xtables_register_match(&physdev_match);
-	xtables_register_match(&physdev_match6);
 }
