@@ -190,7 +190,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/include/linux/usb.h b/
 
  /* All standard descriptors have these 2 fields in common */
  struct usb_descriptor_header {
-@@ -320,7 +320,95 @@ struct usb_string_descriptor {
+@@ -320,7 +320,94 @@ struct usb_string_descriptor {
  	__u16 wData[1];
  } __attribute__ ((packed));
  
