@@ -1,11 +1,11 @@
-#summary Самостоятельная сборка прошивки
+#summary HowTo Compile Custom Firmware
 #sidebar TOC
 
-= Самостоятельная сборка прошивки =
+= Building of the custom firmware =
 
-== 1. Необходимый софт ==
+== 1. Required software ==
 
-  * Linux с установленными пакетами
+  * Linux with the following packages installed
     * standard compilation software
     * libncurses-dev
     * gawk
@@ -14,15 +14,15 @@
     * zlib development
     * subversion
 
-== 2. Скачать исходники ==
-  * Первоисточник от ASUS [ftp://ftp.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://dlsvr02.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало1] [http://dlsvr03.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало2] [http://dlsvr04.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало3] [http://dlsvr05.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало4])
+== 2. Download the sources ==
+  * ASUS original sources [ftp://ftp.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://dlsvr02.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror1] [http://dlsvr03.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror2] [http://dlsvr04.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror3] [http://dlsvr05.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Mirror4])
   * Linux kernel [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.2.tar.bz2 linux-2.4.37.2.tar.bz2]
   * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc hndtools-mipsel-uclibc-4.1.2]
-  * Исходники прошивки [http://code.google.com/p/wl500g/source/checkout wl500g-1.9.2.7-d]
+  * Firmware sources [http://code.google.com/p/wl500g/source/checkout wl500g-1.9.2.7-d]
 
-== 3. Распаковать архивы и подготовить дерево сборки ==
+== 3. Unpack the archives and prepare the building tree ==
 
-  # Распаковка (путь _/whatever-you-want_ заменить на тот, где будет храниться дерево сборки) 
+  # Unpacking (replace the path _/whatever-you-want_ with the one, where your building tree will be located) 
 {{{
 $ mkdir -p /whatever-you-want
 $ mkdir -p /opt/brcm
@@ -32,53 +32,52 @@ $ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.2.tar.bz2
 $ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37.2 /whatever-you-want/broadcom/src/linux/linux
 $ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
 $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
-$ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 }}}
-  # Получение исходников прошивки wl500g-1.9.2.7-d
+  # Checking out wl500g-1.9.2.7-d firmware sources
 {{{
 $ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 }}}
-  # Можно удалить старый тулчейн от ASUS/Broadcom
+  # The old toolchain ASUS/Broadcom can be removed
 {{{
 rm -rf /whatever-you-want/broadcom/opt
 }}}
-  # Добавить путь к Toolchain (можно внести в личный .profile для удобства)
+  # Add the path to the toolchain (it can be introduced to the personal ~/.profile for convenience)
 {{{
 $ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
 
-== 4. Сборка и компиляция ==
+== 4. Building ==
 
-  # Сборка
+  # Preparation of the sources
 {{{
 $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ make kernel
 $ make
-}}}
-  # Изменить MODEL=wl500gp в /whatever-you-want/broadcom/src/gateway/Makefile на желаемую
-  # Компиляция
-{{{
 $ cd /whatever-you-want/broadcom/src/gateway
+}}}
+  # Edit /whatever-you-want/broadcom/src/gateway/Makefile and set MODEL=wl500gp or whichever fits your expectance better.
+  # Compiling
+{{{
 $ make
 $ make install
 }}}
 
-== 5. Обновление из SVN ==
-   * Если вы обновили дерево исходников из SVN, и хотите пересобрать только измененную часть, то алгоритм усложняется:
-     * Если обновились патчи к ядру, то необходимо
-       * переразвернуть оригинальное ядро из архива (см. пункт 3.1)
-       * перенакат патчей и обновление конфига
+== 5. Sources update from SVN ==
+   * In case of you want to refresh sources SVN, and don't want to rebuild an all tree, update algorithm will be complicated:
+     * If kernel patches updated/added, you should
+       * unarchive entire kernel sources (see. paragraph 3.1)
+       * reapply patches & refresh kernel config
 {{{
 $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ make kernel
 $ cd /whatever-you-want/broadcom/src/gateway
 $ make koldconf
 }}}
-     * Если обновились только пакеты, то достаточно следующего
+     * If packages only updated, then following is enough
 {{{
 $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ rm -rf /whatever-you-want/broadcom/src/gateway
 $ make
 }}}
-   * Далее перейти на пункт 4.2 данного HowTo.
-   * Более прицельное обновление также возможно, но требует знания работы patch, make и других средств разработки, а обучение работы с ними выходит за рамки этого HowTo.
+   * Follow paragraph 4.2 of HowTo.
+   * Mostly precision update also possible, but it requires knowledge of development tools such as patch, make etc., and they cannot be described in this HowTo.
