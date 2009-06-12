@@ -1,6 +1,6 @@
   * [Welcome ↑ Главная]
   * [NEWS История изменений]
-  * !Статьи HowTo
+  * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки]
     * [colinux Сборка прошивки под MS Windows]
   * [LINKS Ссылки]
