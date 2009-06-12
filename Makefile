@@ -472,6 +472,7 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 #	cp -p usb_modeswitch/*.conf $(TOP)/$(USBMODESWITCH)/
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
 		$(PATCHER) $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
+	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
 
 usb_modeswitch: $(TOP)/usb_modeswitch
