@@ -1,6 +1,6 @@
-#summary Welcome
+#summary Добро пожаловать
 
 ==!HowTo articles==
 
- * [CompilingCustomFirmware How to compile custom firmware]
- * [colinux How to compile custom firmware on Microsoft Windows]
+ * [CompilingCustomFirmware Самостоятельная сборка прошивки]
+ * [colinux Сборка прошивки под MS Windows]

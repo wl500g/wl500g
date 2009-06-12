@@ -3,4 +3,4 @@
 ==!HowTo articles==
 
  * [CompilingCustomFirmware How to compile custom firmware]
- * [colinux How to compile custom firmware on Microsoft Windows]
+ * [colinux How to compile custom firmware on MS Windows]
