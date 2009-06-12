@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-06-09 18:39:18.000000000 +0000
++++ gateway/Makefile	2009-06-12 06:48:22.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -554,7 +554,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +569,253 @@ vlan:
+@@ -312,215 +569,251 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -703,9 +703,7 @@
 +	ln -sf libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb.so
 +
 +usb_modeswitch:
-+	cd usb_modeswitch && \
-+	$(CC) -Wall -I../libusb -L../libusb/.libs -O2 $(EXTRACFLAGS) \
-+		-o usb_modeswitch usb_modeswitch.c -lusb
++	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -I../libusb -L../libusb/.libs -lusb -O2 $(EXTRACFLAGS)"
 +
 +usb_modeswitch-install:
 +	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
@@ -977,7 +975,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +823,9 @@ image-R100:
+@@ -528,6 +821,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
