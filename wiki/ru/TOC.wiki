@@ -1,6 +1,6 @@
-  * [Welcome ↑ Home]
-  * [NEWS History of Changes]
-  * !HowTo articles
-    * [CompilingCustomFirmware Firmware compiling]
-    * [colinux Firmware compiling on CoLinux (ru)]
-  * [LINKS Links]
+  * [Welcome ↑ Главная]
+  * [NEWS История изменений]
+  * !Статьи HowTo
+    * [CompilingCustomFirmware Сборка прошивки]
+    * [colinux Сборка прошивки под MS Windows]
+  * [LINKS Ссылки]
