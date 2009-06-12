@@ -79,5 +79,5 @@ $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ rm -rf /whatever-you-want/broadcom/src/gateway
 $ make
 }}}
-   * Follow paragraph 4.2 of HowTo.
-   * Mostly precision update also possible, but it requires knowledge of development tools such as patch, make etc., and they cannot be described in this HowTo.
+   * Follow paragraph 4.2 of !HowTo.
+   * Mostly precision update also possible, but it requires knowledge of development tools such as patch, make etc., and they cannot be described in this !HowTo.
