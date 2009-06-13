@@ -5,20 +5,21 @@
 
 == Введение ==
 
-Для того чтобы иметь возможность собирать пакеты и прошивку не перезагружаясь в linux необходимо установить colinux. 
-coLinux — это порт ядра Linux, работающий как служба Microsoft Windows. Что на порядок быстрее чем запуск отдельной виртуальной машины такой как vmware, boch или Qemu (где используется полная эмуляция процессора).
+If you wand compile packages under windows without rebooting you need instal colinux.
+CoLinux is a port of the Linux kernel that allows it to run cooperatively alongside another operating system on a single machine, and work as service on Microsoft Windows. 
+For instance, it allows one to freely run Linux on Windows 2000/XP, without using a commercial PC virtualization software such as VMware, in a way which is much more optimal than using any general purpose PC virtualization software. 
 
-== Установка Cooperative Linux ==
+== Installing Cooperative Linux ==
 
-Для начала потребуется скачать последнюю стабильную версию colinux 
+First step - get colinux installation. 
+Download colinux-x.y.z.exe from sourceforge onto the Windows machine. 
 http://sourceforge.net/projects/colinux/files
-можно попробовать воспользоваться девелоперской версией
+or develop snapshot
 http://colinux.org/snapshots/
-Во время установки coLinux нужно будет убрать галку *Root Filesystem image (Download)*, так как нужный образ мы скачаем позже.
-colinux необходимо установить в c:\colinux
-Далее потребуется образ дистрибутива Linux Slackware 12.2
-Его можно взять по одному из рабочих "зеркал" (http://slackware.com/getslack/), необходимо скачать dvd образ и поместить его в директорию c:\colinux\linux\ задав имя файла *slack12.iso*
-Т.к. я пользуюсь Slackware то далее будет рассказано о установке именно этого дистрибутива.
+Next step run colinux-x.y.z.exe on the Windows machine
+Switch off flag *Root Filesystem image (Download)*, leter you neen download image manual.
+colinux prefer it to be installed in c:\coLinux.
+Next download image of Linux Slackware 12.2 from (http://slackware.com/getslack/), it's dvd image, after download move this into c:\colinux\linux\ as *slack12.iso*
 
 Далее необходимо создать пустые файлы для подключения их в качестве дисков.
 {{{
