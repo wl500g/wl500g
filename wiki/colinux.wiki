@@ -21,7 +21,8 @@ Switch off flag *Root Filesystem image (Download)*, leter you neen download imag
 colinux prefer it to be installed in c:\coLinux.
 Next download image of Linux Slackware 12.2 from (http://slackware.com/getslack/), it's dvd image, after download move this into c:\colinux\linux\ as *slack12.iso*
 
-Далее необходимо создать пустые файлы для подключения их в качестве дисков.
+== Prepare local files ==
+
 {{{
 c:\>fsutil.exe file createnew c:\colinux\linux\root_fs.img 3000000000
 c:\>fsutil.exe file createnew c:\colinux\linux\hdb.img 3000000000
@@ -29,7 +30,7 @@ c:\>fsutil.exe file createnew c:\colinux\linux\hdc.img 2000000000
 c:\>fsutil.exe file createnew c:\colinux\linux\swap.img 300000000
 }}}
 
-теперь нужно создать файл с опциями запуска colinux
+configure colinux installation
 *install.conf*
 {{{
 kernel=vmlinux
@@ -43,7 +44,7 @@ cocon=120x40
 
 Для инсталляции Slackware, во время первого запуска colinux потребуется файл initrd.img, он находится на скаченном диске дистрибутива. Чтобы его от туда извлечь можно подключить dvd образ, например через программу alcohol, я воспользовался плагином к Total Commander 
 
-После того как все подготовлено, необходимо запустить установку linux  
+Installing linux   
 {{{
 c:\> cd c:\colinux
 c:\> colinux-daemon.exe -t nt @install.conf
@@ -70,7 +71,7 @@ mount /dev/hda /mnt
 mkswap /dev/hde
 }}}
 
-далее необходимо установить нужные пакеты 
+installing packages
 {{{
 cd /cdrom/slackware/a
 installpkg -root /mnt *.tgz
@@ -85,12 +86,12 @@ installpkg -root /mnt *.tgz
 cd /cdrom/slackware/n
 installpkg -root /mnt *.tgz
 }}}
-после установки выключаем виртуальную машину.
+rebooting after installation.
 {{{
 poweroff
 }}}
 
-теперь нужно создать файл с опциями стандартного запуска colinux 
+configure colinux service 
 
 *slack.conf*
 {{{
@@ -107,18 +108,16 @@ cocon=120x40
 eth0=tuntap
 }}}
 
-далее запускаем установленную Slackware 
+run Slackware 
 
 {{{
 c:\> cd c:\colinux
 c:\> colinux-daemon.exe --install-service colinux @slack.conf
 }}}
 
-== Настройка системы ==
+== Configure linux for compilling firmware ==
 
-После того как все нужные пакеты установлены необходимо подготовить рабочее окружение.
-Необходимо настроить автомонтирование дисков в файле
-
+Configure fstab for mount images
 */etc/fstab*
 {{{
 /dev/hda        /               ext2      noatime         2     2
@@ -130,15 +129,16 @@ proc            /proc           proc      defaults        0     0
 devpts          /dev/pts        devpts    gid=5,mode=620  0     0
 }}}
 
-После этого необходимо добавить в профиль переменные среды и необходимые для сборки прошивки пути.
-Поместите в конец файла */etc/profile* следующие переменные строки.
+configure enviroment 
+
+ */etc/profile* следующие переменные строки.
 {{{
 export OPTWARE_TARGET="oleg"
-export LANG="ru_RU.UTF-8"
+export LANG="ru_RU.UTF-8" (or your locale)
 export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 }}}
 
-Теперь необходимо убрать автозапуск лишних сервисов, выполнив команды
+swich off daemons
 {{{
 cd /etc/rc.d
 chmod -x rc.bluetooth.conf rc.httpd rc.local rc.nfsd rc.sendmail rc.udev rc.acpid 
@@ -155,25 +155,26 @@ NETMASK[0]="255.255.255.0"
 GATEWAY="192.168.0.1"
 }}}
 
-Далее перезагрузка системы.
+Reboot and check.
 
 {{{
 reboot
 }}}
 
-Если все нормально загрузка прошла штатно, то можно добавить виртуальную машину colinux в список служб windows командой:
+If all work correct add colinux as service
 {{{
 c:\> colinux-daemon.exe --install-service "colinux" @slack.conf
 }}}
 
-После этого можно запускать или останавливать службу coLinux через панель управления служб, или из командной строки.
-
+after you can start/stop colinux in commant line.
 {{{
 net start colinux
 net stop colinux
 }}}
 
-== Компиляция ==
+== Compilling firmware ==
+
+creale file install.sh
 
 *install.sh*
 {{{
@@ -189,10 +190,3 @@ rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.2.tar.bz2
 ln -sf linux-2.4.37.2 $inst/broadcom/src/linux/linux
 }}}
-
-
-*ссылки:*
-
-  * http://www.ibm.com/developerworks/ru/library/l-virtualization-colinux/
-  * http://flora.org.ru/2007/07/03/colinux-veshh-v-vende-zamechaniya-i-pervichnaya-nastrojka/
-  * http://str.lug.ru/articles/colinux.shtml
