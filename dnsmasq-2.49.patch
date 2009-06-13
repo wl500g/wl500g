@@ -1,0 +1,44 @@
+diff -BurpN dnsmasq-2.49/Makefile dnsmasq/Makefile
+--- dnsmasq-2.49/Makefile	2009-06-08 21:05:30.000000000 +0000
++++ dnsmasq/Makefile	2009-06-13 08:32:36.000000000 +0000
+@@ -29,6 +29,11 @@ DBUS_CFLAGS="`echo $(COPTS) | ../bld/pkg
+ DBUS_LIBS="  `echo $(COPTS) | ../bld/pkg-wrapper $(PKG_CONFIG) --libs dbus-1`" 
+ SUNOS_LIBS=" `if uname | grep SunOS 2>&1 >/dev/null; then echo -lsocket -lnsl -lposix4; fi `"
+ 
++ifeq ($(CONFIG_IPV6),y)
++ COPTS += -DUSE_IPV6
++endif
++export COPTS
++
+ all :   dnsmasq
+ 
+ dnsmasq :
+diff -BurpN dnsmasq-2.49/src/config.h dnsmasq/src/config.h
+--- dnsmasq-2.49/src/config.h	2009-06-10 13:03:45.000000000 +0000
++++ dnsmasq/src/config.h	2009-06-13 08:36:43.000000000 +0000
+@@ -161,8 +161,8 @@ NOTES:
+ 
+ /* platform independent options- uncomment to enable */
+ #define HAVE_DHCP
+-#define HAVE_TFTP
+-/* #define HAVE_BROKEN_RTC */
++/* #define HAVE_TFTP */
++#define HAVE_BROKEN_RTC
+ /* #define HAVE_DBUS */
+ 
+ /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
+@@ -200,10 +200,13 @@ NOTES:
+ #if !defined(__ARCH_HAS_MMU__) && !defined(__UCLIBC_HAS_MMU__)
+ #  define NO_FORK
+ #endif
+-#if defined(__UCLIBC_HAS_IPV6__)
++#if defined(__UCLIBC_HAS_IPV6__) && defined(USE_IPV6)
+ #  ifndef IPV6_V6ONLY
+ #    define IPV6_V6ONLY 26
+ #  endif
++#else
++#  undef HAVE_IPV6
++#  define NO_IPV6
+ #endif
+ 
+ /* This is for glibc 2.x */
