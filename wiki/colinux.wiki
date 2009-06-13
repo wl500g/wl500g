@@ -51,17 +51,17 @@ c:\> colinux-daemon.exe -t nt @install.conf
 }}}
 
 появится предложение выбрать раскладку клавиатуры и ввести имя пользователя, можно нажать 2 раза enter.
-далее подключаем диск с дистрибутивом linux 
+mount linux boot dist image as /cdrom 
 {{{
 mount /dev/hdd /cdrom
 }}}
-форматируем раздел hda
+formating hda
 {{{
 mkfs.ext2 -j /dev/hda
 }}}
-на вопрос *Proceed anyway? (y,n)* необходимо ответить *y*
+on qustion *Proceed anyway? (y,n)* say *y*
 
-подключаем раздел
+mount main 
 {{{
 mount /dev/hda /mnt
 }}}
