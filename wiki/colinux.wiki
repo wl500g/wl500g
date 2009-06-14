@@ -5,7 +5,7 @@
 
 == Introduction ==
 
-If you want to compile packages under windows without rebooting you need instal CoLinux.
+If you want to compile packages under windows without rebooting you need instal !CoLinux.
 !CoLinux is a port of the Linux kernel that allows it to run cooperatively alongside another operating system on a single machine, and work as service on Microsoft Windows. 
 For instance, it allows one to freely run Linux on Windows 2000/XP, without using a commercial PC virtualization software such as VMware, in a way which is much more optimal than using any general purpose PC virtualization software. 
 
