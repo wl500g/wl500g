@@ -243,10 +243,20 @@ diff -urbBN linux-2.4.37/drivers/usb/Makefile linux.cdma/drivers/usb/Makefile
  endif
  
  ifeq ($(CONFIG_USB_HIDDEV),y)
-diff -urbBN linux-2.4.37/drivers/usb/printer.c linux.cdma/drivers/usb/printer.c
---- linux-2.4.37/drivers/usb/printer.c	2008-12-04 19:13:37.000000000 +0300
-+++ linux.cdma/drivers/usb/printer.c	2008-12-04 19:16:06.000000000 +0300
-@@ -1275,6 +1275,9 @@
+diff -BurpN linux-2.4.37.2/drivers/usb/printer.c linux/drivers/usb/printer.c
+--- linux-2.4.37.2/drivers/usb/printer.c	2009-06-17 16:53:19.000000000 +0000
++++ linux/drivers/usb/printer.c	2009-06-17 16:52:29.000000000 +0000
+@@ -628,6 +628,9 @@ static void usblp_cleanup (struct usblp 
+ {
+ 	devfs_unregister (usblp->devfs);
+ 	usblp_table [usblp->minor] = NULL;
++#ifdef CONFIG_USB_DEVPATH
++	usb_deregister_devpath(usblp->dev);
++#endif
+ 	info("usblp%d: removed", usblp->minor);
+ 
+ 	kfree (usblp->writebuf);
+@@ -1275,6 +1278,9 @@ static void *usblp_probe(struct usb_devi
  	struct usblp *usblp = 0;
  	int protocol;
  	char name[6];
@@ -256,27 +266,18 @@ diff -urbBN linux-2.4.37/drivers/usb/printer.c linux.cdma/drivers/usb/printer.c
  
  	/* Malloc and start initializing usblp structure so we can use it
  	 * directly. */
-@@ -1369,6 +1370,10 @@
+@@ -1369,6 +1375,10 @@ static void *usblp_probe(struct usb_devi
  				      USBLP_MINOR_BASE + usblp->minor,
  				      S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP |
  				      S_IWGRP, &usblp_fops, NULL);
 +#ifdef CONFIG_USB_DEVPATH
-+	sprintf(devfsname, "usb/lp%d", usblp->minor);
-+	usb_register_devpath(dev, 0, devfsname);
++	sprintf(devfsname, "usb/%s", name);
++	usb_register_devpath(dev, ifnum, devfsname);
 +#endif
  
  	info("usblp%d: USB %sdirectional printer dev %d "
  		"if %d alt %d proto %d vid 0x%4.4X pid 0x%4.4X",
-@@ -1598,6 +1601,9 @@
- 
- 	if (!usblp->used)
- 		usblp_cleanup (usblp);
-+#ifdef CONFIG_USB_DEVPATH
-+	usb_deregister_devpath(dev);
-+#endif
- 	up (&usblp_sem);
- }
- 
+
 diff -urbBN linux-2.4.37/drivers/usb/serial/usbserial.c linux.cdma/drivers/usb/serial/usbserial.c
 --- linux-2.4.37/drivers/usb/serial/usbserial.c	2008-12-04 19:13:37.000000000 +0300
 +++ linux.cdma/drivers/usb/serial/usbserial.c	2008-12-04 19:16:55.000000000 +0300
@@ -356,3 +357,38 @@ diff -urbBN linux-2.4.37/include/linux/usb.h linux.cdma/include/linux/usb.h
  
  /*
   * USB device fs stuff
+diff -BurpN linux-2.4.37.2/drivers/usb/scanner.c linux/drivers/usb/scanner.c
+--- linux-2.4.37.2/drivers/usb/scanner.c	2009-06-07 19:50:24.000000000 +0000
++++ linux/drivers/usb/scanner.c	2009-06-17 16:35:44.000000000 +0000
+@@ -878,6 +878,9 @@ probe_scanner(struct usb_device *dev, un
+ 	char valid_device = 0;
+ 	char have_bulk_in, have_bulk_out, have_intr;
+ 	char name[10];
++#ifdef CONFIG_USB_DEVPATH
++	char devfsname[16];
++#endif
+ 
+ 	dbg("probe_scanner: USB dev address:%p", dev);
+ 	dbg("probe_scanner: ifnum:%u", ifnum);
+@@ -1110,6 +1113,11 @@ probe_scanner(struct usb_device *dev, un
+ 	if (scn->devfs == NULL)
+ 		dbg("scanner%d: device node registration failed", scn_minor);
+ 
++#ifdef CONFIG_USB_DEVPATH
++	sprintf(devfsname, "usb/%s", name);
++	usb_register_devpath(dev, ifnum, devfsname);
++#endif
++
+ 	info ("USB scanner device (0x%04x/0x%04x) now attached to %s",
+ 	      dev->descriptor.idVendor, dev->descriptor.idProduct, name);
+ 	p_scn_table[scn_minor] = scn;
+@@ -1145,6 +1153,9 @@ disconnect_scanner(struct usb_device *de
+ 	dbg("disconnect_scanner: De-allocating minor:%d", scn->scn_minor);
+ 	devfs_unregister(scn->devfs);
+ 	p_scn_table[scn->scn_minor] = NULL;
++#ifdef CONFIG_USB_DEVPATH
++	usb_deregister_devpath(scn->scn_dev);
++#endif
+ 
+ 	if (scn->isopen) {
+ 		/* The device is still open - cleanup must be delayed */
