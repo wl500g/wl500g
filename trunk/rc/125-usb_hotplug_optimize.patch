@@ -18,7 +18,7 @@ diff -urBp rc.old/services_ex.c rc/services_ex.c
  
  usbhandler:	
 -	if (strstr(action, "add"))
-+	if (strncasecmp(action, "add", 3))
++	if (!strncasecmp(action, "add", 3))
  	{		
  		nvram_set("usb_device", "1");
  		if (isweb==WEB_NONE)
