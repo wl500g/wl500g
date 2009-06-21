@@ -90,7 +90,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
-	scsi-idle libusb10 libusb usb_modeswitch \
+	scsi-idle libusb usb_modeswitch \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
@@ -465,7 +465,7 @@ $(TOP)/libusb/Makefile: $(TOP)/libusb
 	    LIBUSB_1_0_CFLAGS=" " \
 	    LIBUSB_1_0_LIBS=" "
 
-libusb: $(TOP)/libusb/Makefile $(TOP)/libusb-compat/Makefile
+libusb: $(TOP)/libusb10/Makefile $(TOP)/libusb/Makefile
 	@true
 
 $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
@@ -478,9 +478,6 @@ $(TOP)/libusb10/Makefile: $(TOP)/libusb10
 	cd $^ && \
 	CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-O2 $(EXTRACFLAGS)" \
 	./configure --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
-
-libusb10: $(TOP)/libusb10/Makefile
-	@true
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
