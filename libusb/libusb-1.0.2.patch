@@ -1,0 +1,31 @@
+diff -urBp libusb-1.0.2/libusb/os/linux_usbfs.c libusb10/libusb/os/linux_usbfs.c
+--- libusb-1.0.2/libusb/os/linux_usbfs.c	2009-06-11 00:41:26.000000000 +0400
++++ libusb10/libusb/os/linux_usbfs.c	2009-06-21 13:10:38.000000000 +0400
+@@ -2008,7 +2008,9 @@ static int op_clock_gettime(int clk_id,
+ {
+ 	switch (clk_id) {
+ 	case USBI_CLOCK_MONOTONIC:
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+ 		return clock_gettime(CLOCK_MONOTONIC, tp);
++#endif
+ 	case USBI_CLOCK_REALTIME:
+ 		return clock_gettime(CLOCK_REALTIME, tp);
+ 	default:
+diff -urBp libusb-1.0.2/libusb/os/linux_usbfs.h libusb10/libusb/os/linux_usbfs.h
+--- libusb-1.0.2/libusb/os/linux_usbfs.h	2008-07-16 18:17:57.000000000 +0400
++++ libusb10/libusb/os/linux_usbfs.h	2009-06-05 21:31:31.000000000 +0400
+@@ -21,7 +21,13 @@
+ #ifndef __LIBUSB_USBFS_H__
+ #define __LIBUSB_USBFS_H__
+ 
+-#define SYSFS_DEVICE_PATH "/sys/bus/usb/devices"
++#include <linux/version.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
++ #define SYSFS_DEVICE_PATH "/sys/bus/usb/devices"
++#else
++ #define SYSFS_DEVICE_PATH "/proc/bus/usb/devices"
++#endif
+ 
+ struct usbfs_ctrltransfer {
+ 	/* keep in sync with usbdevice_fs.h:usbdevfs_ctrltransfer */
