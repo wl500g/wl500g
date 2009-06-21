@@ -1,6 +1,19 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d-`r381` (2009-06-21)===
+  * kernel 2.4.37.2
+    * FUSE driver included as ext. module
+    * Option driver updated
+    * usbdevfs backports
+    * netfilter: ipt_MASQUERADE - remove redundant rwlock (backport from 2.6)
+
+  * added libusb 1.0.2 & usb_modeswitch tools
+
+  * vsftpd 2.1.2
+
+  * bugfixes
+
 ===wl500g-1.9.2.7-d-`r308` (2009-05-29)===
   * kernel
     * speedup NFS - increase max block size up to 32kB
