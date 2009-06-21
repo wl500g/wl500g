@@ -4,11 +4,12 @@
 ===wl500g-1.9.2.7-d-`r381` (2009-06-21)===
   * kernel 2.4.37.2
     * FUSE driver included as ext. module
-    * Option driver updated
+    * option driver updated
     * usbdevfs backports
     * netfilter: ipt_MASQUERADE - remove redundant rwlock (backport from 2.6)
+    * USB 2.0 fixes
 
-  * added libusb 1.0.2 & usb_modeswitch tools
+  * added libusb 1.0.2, 0.1.2 & usb_modeswitch tools
 
   * vsftpd 2.1.2
 
