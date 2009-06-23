@@ -2873,7 +2873,7 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
  		}
  	}
  	
-@@ -134,6 +140,134 @@ build_ifnames(char *type, char *names, i
+@@ -134,6 +140,136 @@ build_ifnames(char *type, char *names, i
  }	
  
  static void
@@ -2918,13 +2918,15 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 +	{
 +		if (!nvram_get("wan_ifname"))
 +		{
-+//			nvram_set("vlan2hwname", "et0");
-+			nvram_set("wan0_ifnames", "vlan2");
-+			nvram_set("wan0_ifname", "vlan2");
-+			nvram_set("wan_ifnames", "vlan2");
-+//			nvram_set("wan_ifname_t", "vlan2");
-+			nvram_set("wan_ifname", "vlan2");
-+			nvram_set("wandevs", "vlan2");
++        		nvram_unset( "vlan2ports" );
++          		nvram_unset( "vlan2hwname" );
++			nvram_set("vlan1hwname", "et0");
++			nvram_set("vlan1ports", "0 5");
++			nvram_set("wandevs", "vlan1");
++			nvram_set("wan_ifname", "vlan1");
++			nvram_set("wan_ifnames", "vlan1");
++			nvram_set("wan0_ifname", "vlan1");
++			nvram_set("wan0_ifnames", "vlan1");
 +		}
 +		if (nvram_match("wl0gpio0", "255"))
 +		{
