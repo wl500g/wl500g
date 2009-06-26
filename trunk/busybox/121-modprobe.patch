@@ -1,0 +1,12 @@
+diff -urBp busybox-1.13.4/modutils/modprobe.c busybox/modutils/modprobe.c
+--- busybox-1.13.4/modutils/modprobe.c	2008-11-09 20:28:03.000000000 +0300
++++ busybox/modutils/modprobe.c	2009-06-26 20:39:16.000000000 +0400
+@@ -161,7 +161,7 @@ static int do_modprobe(struct modprobe_c
+ 	colon[0] = '\0';
+ 	llist_add_to(&deps, xstrdup(tokens[0]));
+ 	if (tokens[1])
+-		string_to_llist(tokens[1], &deps, " ");
++		string_to_llist(tokens[1], &deps, " \t");
+ 
+ 	if (!(option_mask32 & MODPROBE_OPT_REMOVE))
+ 		deps = llist_rev(deps);
