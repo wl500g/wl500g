@@ -2082,7 +2082,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  			/* Start dhcp daemon */
  			_eval(dhcp_argv, NULL, 0, &pid);
  #ifdef ASUS_EXT
-@@ -750,14 +985,13 @@ stop_wan(void)
+@@ -750,14 +985,14 @@ stop_wan(void)
  	/* Shutdown and kill all possible tasks */
  	eval("killall", "ip-up");
  	eval("killall", "ip-down");
@@ -2097,10 +2097,11 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  	eval("killall", "udhcpc");
 +	eval("killall", "igmpproxy");
 +	eval("killall", "udpxy");
++	eval("killall", "pppoe-relay");
  
  	/* Bring down WAN interfaces */
  	foreach(name, nvram_safe_get("wan_ifnames"), next)
-@@ -790,15 +1024,14 @@ stop_wan2(void)
+@@ -790,15 +1024,15 @@ stop_wan2(void)
  	/* Shutdown and kill all possible tasks */
  	eval("killall", "ip-up");
  	eval("killall", "ip-down");
@@ -2116,6 +2117,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  	eval("killall", "udhcpc");
 +	eval("killall", "igmpproxy");
 +	eval("killall", "udpxy");
++	eval("killall", "pppoe-relay");
  
  	/* Remove dynamically created links */
  	unlink("/tmp/udhcpc");
