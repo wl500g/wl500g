@@ -23,7 +23,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb/serial/option.c
 --- linux-2.4.37.orig/drivers/usb/serial/option.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux/drivers/usb/serial/option.c	2009-06-27 19:11:03.000000000 +0000
-@@ -0,0 +1,1361 @@
+@@ -0,0 +1,1340 @@
 +/*
 +  USB Driver for GSM modems
 +
@@ -1115,22 +1115,11 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +	portdata->rts_state = 1;
 +	portdata->dtr_state = 1;
 +
-+	/* Reset low level data toggle and start reading from endpoints */
++	/* Start reading from the IN endpoint */
 +	for (i = 0; i < N_IN_URB; i++) {
 +		urb = portdata->in_urbs[i];
 +		if (!urb)
 +			continue;
-+		if (urb->dev != serial->dev) {
-+			dbg("%s: dev %p != %p", __FUNCTION__,
-+				urb->dev, serial->dev);
-+			continue;
-+		}
-+
-+		/*
-+		 * make sure endpoint data toggle is synchronized with the
-+		 * device
-+		 */
-+		usb_clear_halt(urb->dev, urb->pipe);
 +
 +		err = usb_submit_urb(urb);
 +		if (err) {
@@ -1138,16 +1127,6 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +				__FUNCTION__, i, err,
 +				urb->transfer_buffer_length);
 +		}
-+	}
-+
-+	/* Reset low level data toggle on out endpoints */
-+	for (i = 0; i < N_OUT_URB; i++) {
-+		urb = portdata->out_urbs[i];
-+		if (!urb)
-+			continue;
-+		urb->dev = serial->dev;
-+		/* usb_settoggle(urb->dev, usb_pipeendpoint(urb->pipe),
-+				usb_pipeout(urb->pipe), 0); */
 +	}
 +
 +	if (port->tty)
