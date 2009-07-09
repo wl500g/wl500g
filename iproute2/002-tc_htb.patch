@@ -1,67 +1,3 @@
-diff -BurN iproute2.orig/lib/Makefile iproute2/lib/Makefile
---- iproute2.orig/lib/Makefile	2000-04-16 21:42:52.000000000 +0400
-+++ iproute2/lib/Makefile	2004-10-02 20:59:16.216534808 +0400
-@@ -6,10 +6,10 @@
- all: libnetlink.a libutil.a
- 
- libnetlink.a: $(NLOBJ)
--	ar rcs $@ $(NLOBJ)
-+	$(AR) rcs $@ $(NLOBJ)
- 
- libutil.a: $(UTILOBJ) $(ADDLIB)
--	ar rcs $@ $(UTILOBJ) $(ADDLIB)
-+	$(AR) rcs $@ $(UTILOBJ) $(ADDLIB)
- 
- clean:
- 	rm -f $(NLOBJ) $(UTILOBJ) $(ADDLIB) libnetlink.a libutil.a
-diff -BurN iproute2.orig/Makefile iproute2/Makefile
---- iproute2.orig/Makefile	2001-08-02 10:37:03.000000000 +0400
-+++ iproute2/Makefile	2004-09-01 18:26:44.000000000 +0400
-@@ -1,15 +1,14 @@
- # Path to parent kernel include files directory
--KERNEL_INCLUDE=/usr/src/linux/include
--LIBC_INCLUDE=/usr/include
-+#KERNEL_INCLUDE=/usr/src/linux/include
- 
- DEFINES= -DRESOLVE_HOSTNAMES
- 
- #options if you have a bind>=4.9.4 libresolv (or, maybe, glibc)
--LDLIBS=-lresolv
-+#LDLIBS=-lresolv
- ADDLIB=
- 
- #options if you compile with libc5, and without a bind>=4.9.4 libresolv
--#LDLIBS=
-+LDLIBS=
- #ADDLIB=inet_ntop.o inet_pton.o
- 
- #options for decnet
-@@ -18,18 +17,15 @@
- #options for ipx
- ADDLIB+=ipx_ntop.o ipx_pton.o
- 
--ifeq ($(LIBC_INCLUDE)/socketbits.h,$(wildcard $(LIBC_INCLUDE)/socketbits.h))
--  ifeq ($(LIBC_INCLUDE)/net/if_packet.h,$(wildcard $(LIBC_INCLUDE)/net/if_packet.h))
--    GLIBCFIX=-I../include-glibc -include ../include-glibc/glibc-bugs.h
--  endif
--endif
--ifeq ($(LIBC_INCLUDE)/bits/socket.h,$(wildcard $(LIBC_INCLUDE)/bits/socket.h))
--  GLIBCFIX=-I../include-glibc -include ../include-glibc/glibc-bugs.h
--endif
-+GLIBCFIX=-I../include-glibc -include ../include-glibc/glibc-bugs.h
- 
-+check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
-+
--CC = gcc
-+#CC = gcc
- CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -Werror -g
-+# disable pointer signedness warnings in gcc 4.x
-+CCOPTS += $(call check_gcc,-Wno-pointer-sign,)
--CFLAGS = $(CCOPTS) $(GLIBCFIX) -I$(KERNEL_INCLUDE) -I../include $(DEFINES)
-+CFLAGS = $(CCOPTS) $(GLIBCFIX) -I$(KERNEL_INCLUDE) -I../include $(DEFINES) $(EXTRACFLAGS)
- 
- LDLIBS += -L../lib -lnetlink -lutil
- 
 diff -BurN iproute2.orig/tc/Makefile iproute2/tc/Makefile
 --- iproute2.orig/tc/Makefile	2000-04-16 21:42:53.000000000 +0400
 +++ iproute2/tc/Makefile	2004-10-02 20:59:39.226036832 +0400
@@ -73,15 +9,6 @@ diff -BurN iproute2.orig/tc/Makefile iproute2/tc/Makefile
  #TCMODULES += q_hpfq.o
  #TCMODULES += q_hfsc.o
  
-@@ -43,7 +44,7 @@
- tc: $(TCOBJ) $(LIBNETLINK) $(LIBUTIL) $(TCLIB)
- 
- libtc.a: $(TCLIB)
--	ar rcs $@ $(TCLIB)
-+	$(AR) rcs $@ $(TCLIB)
- 
- clean:
- 	rm -f $(TCOBJ) $(TCLIB) libtc.a tc
 diff -BurN iproute2.orig/tc/q_htb.c iproute2/tc/q_htb.c
 --- iproute2.orig/tc/q_htb.c	1970-01-01 03:00:00.000000000 +0300
 +++ iproute2/tc/q_htb.c	2004-09-01 18:26:45.000000000 +0400
