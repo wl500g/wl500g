@@ -1,0 +1,37 @@
+Remove extra debug output
+
+diff -BurpN '-x*.o' router/rc/http_ex.c gateway/rc/http_ex.c
+--- router/rc/http_ex.c	2004-11-11 07:32:05.000000000 +0000
++++ gateway/rc/http_ex.c	2009-06-30 18:03:30.000000000 +0000
+@@ -122,7 +122,7 @@ wget(int method, const char *server, cha
+ 	sin.sin_family = AF_INET;
+ 	sin.sin_port = htons(port);
+ 
+-	dprintf("Connecting to %s:%u...\n", host, port);
++//	dprintf("Connecting to %s:%u...\n", host, port);
+ 	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
+ 	    connect(fd, (struct sockaddr *) &sin, sizeof(sin)) < 0
+ #ifdef REMOVE
+@@ -136,7 +136,7 @@ wget(int method, const char *server, cha
+ 		return 0;
+ 	}
+ 
+-	dprintf("connected!\n");
++//	dprintf("connected!\n");
+ 
+ 	/* Send HTTP request */
+ 	sprintf(line, "%s /%s HTTP/1.1\r\n", method == METHOD_POST ? "POST" : "GET", path);
+@@ -155,12 +155,11 @@ wget(int method, const char *server, cha
+ 		sprintf(line,"%sConnection: close\r\n\r\n", line);
+ 
+ 	/* Check HTTP response */
+-	dprintf("HTTP request sent, awaiting response..\n");
++//	dprintf("HTTP request sent, awaiting response..\n");
+ 	write(fd, line, strlen(line));
+ 
+ 	if (waitsock(fd, 2, 0) && read(fd, line, sizeof(line))) 
+ 	{
+-		dprintf("%s", line);
+ 		// get message anyway
+ 		close(fd);
+ 		return 1;
