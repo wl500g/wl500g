@@ -27,7 +27,7 @@ DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.49
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
-IPROUTE2=iproute2-2.4.7-now-ss010824
+IPROUTE2=iproute2-2.4.7-now-ss020116-try
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
@@ -228,10 +228,12 @@ $(TOP)/ucdsnmp/Makefile:
 ucdsnmp: $(TOP)/ucdsnmp $(TOP)/ucdsnmp/Makefile
 	@true
 
-$(TOP)/iproute2: iproute2/$(IPROUTE2).tar.gz
+iproute2_Patches := $(call patches_list,iproute2)
+
+$(TOP)/iproute2: iproute2/$(IPROUTE2).tar.bz2
 	@rm -rf $(TOP)/$@
-	tar -xzf $^ -C $(TOP)
-	patch -d $@ -p1 <iproute2/$(IPROUTE2).patch && touch $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/iproute2 $(iproute2_Patches) && touch $@
 
 iproute2: $(TOP)/iproute2
 	@true
