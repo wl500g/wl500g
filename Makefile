@@ -228,10 +228,10 @@ $(TOP)/ucdsnmp/Makefile:
 ucdsnmp: $(TOP)/ucdsnmp $(TOP)/ucdsnmp/Makefile
 	@true
 
-$(TOP)/iproute2: $(IPROUTE2).tar.gz
+$(TOP)/iproute2: iproute2/$(IPROUTE2).tar.gz
 	@rm -rf $(TOP)/$@
 	tar -xzf $^ -C $(TOP)
-	patch -d $@ -p1 <$(IPROUTE2).patch && touch $@
+	patch -d $@ -p1 <iproute2/$(IPROUTE2).patch && touch $@
 
 iproute2: $(TOP)/iproute2
 	@true
