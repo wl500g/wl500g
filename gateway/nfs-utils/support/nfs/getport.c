@@ -450,6 +450,10 @@ static int nfs_gp_ping(CLIENT *client, struct timeval timeout)
 			   (xdrproc_t)xdr_void, NULL,
 			   timeout);
 
+	if (status != RPC_SUCCESS) {
+		rpc_createerr.cf_stat = status;
+		CLNT_GETERR(client, &rpc_createerr.cf_error);
+	}
 	return (int)(status == RPC_SUCCESS);
 }
 
@@ -587,7 +591,7 @@ static unsigned long nfs_gp_pmap_getport(CLIENT *client,
 
 	if (status != RPC_SUCCESS) {
 		rpc_createerr.cf_stat = status;
-		clnt_geterr(client, &rpc_createerr.cf_error);
+		CLNT_GETERR(client, &rpc_createerr.cf_error);
 		port = 0;
 	} else if (port == 0)
 		rpc_createerr.cf_stat = RPC_PROGNOTREGISTERED;

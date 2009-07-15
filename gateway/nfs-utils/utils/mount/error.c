@@ -70,9 +70,15 @@ static int rpc_strerror(int spos)
 			pos = snprintf(tmp, (erreob - tmp),
 					_("System Error: %s"),
 						strerror(cf_errno));
-		else
-			pos = snprintf(tmp, (erreob - tmp),
-					_("RPC Error:%s"), estr);
+		else {
+			if (cf_errno) 
+				pos = snprintf(tmp, (erreob - tmp),
+					_("RPC Error:%s; errno = %s"), 
+					estr, strerror(cf_errno));
+			else
+				pos = snprintf(tmp, (erreob - tmp),
+						_("RPC Error:%s"), estr);
+		}
 	}
 	return pos;
 }
