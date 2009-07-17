@@ -1,6 +1,16 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d-`r396` (2009-07-17)===
+  * kernel
+    * option driver updated
+
+  * iproute2 2.4.7-now-ss020116-try
+
+  * bugfixes
+    * modprobe fix
+    * ddns fixes
+
 ===wl500g-1.9.2.7-d-`r381` (2009-06-21)===
   * kernel 2.4.37.2
     * FUSE driver included as ext. module
