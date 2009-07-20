@@ -18,7 +18,7 @@
  
  HPATH   	= $(TOPDIR)/include
  FINDHPATH	= $(HPATH)/asm $(HPATH)/linux $(HPATH)/scsi $(HPATH)/net $(HPATH)/math-emu
-@@ -100,10 +100,7 @@
+@@ -100,13 +100,7 @@
  AFLAGS := -D__ASSEMBLY__ $(CPPFLAGS)
  
  check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
@@ -26,15 +26,21 @@
 -
 -# disable pointer signedness warnings in gcc 4.0
 -CFLAGS += $(call check_gcc,-Wno-pointer-sign,)
+-
+-# disable stupid and dangerous "optimization" in gcc 3.2+
+-CFLAGS += $(call check_gcc,-fno-delete-null-pointer-checks,)
  
  #
  # ROOT_DEV specifies the default root-device when making the image.
-@@ -274,6 +272,11 @@
+@@ -274,6 +272,14 @@
  # 'kbuild_2_4_nostdinc :=' or -I/usr/include for kernel code and you are not UML
  # then your code is broken!  KAO.
  
 +# disable pointer signedness warnings in gcc 4.x
 +CFLAGS += $(call check_gcc,-Wno-pointer-sign,)
++
++# disable stupid and dangerous "optimization" in gcc 3.2+
++CFLAGS += $(call check_gcc,-fno-delete-null-pointer-checks,)
 +
 +CFLAGS += -I$(SRCBASE)/include -DBCMDRIVER
 +
