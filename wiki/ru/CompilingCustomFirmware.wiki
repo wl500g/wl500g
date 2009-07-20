@@ -11,6 +11,7 @@
     * gawk
     * g++
     * flex
+    * bison
     * zlib development
     * subversion
 
@@ -18,7 +19,6 @@
   * Первоисточник от ASUS [ftp://ftp.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip GPL_1927.zip] ([http://dlsvr02.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало1] [http://dlsvr03.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало2] [http://dlsvr04.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало3] [http://dlsvr05.asus.com/pub/ASUS/wireless/WL-500g-03/GPL_1927.zip Зеркало4])
   * Linux kernel [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.2.tar.bz2 linux-2.4.37.2.tar.bz2]
   * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc hndtools-mipsel-uclibc-4.1.2]
-  * Исходники прошивки [http://code.google.com/p/wl500g/source/checkout wl500g-1.9.2.7-d]
 
 == 3. Распаковать архивы и подготовить дерево сборки ==
 
