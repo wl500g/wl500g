@@ -53,11 +53,11 @@ $ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
 $ cd /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 $ make kernel
 $ make
-$ cd /whatever-you-want/broadcom/src/gateway
 }}}
   # Edit /whatever-you-want/broadcom/src/gateway/Makefile and set MODEL=wl500gp or whichever fits your expectance better.
   # Compiling
 {{{
+$ cd /whatever-you-want/broadcom/src/gateway
 $ make
 $ make install
 }}}
