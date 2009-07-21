@@ -32,7 +32,6 @@ $ tar -C /whatever-you-want/broadcom/src/linux -jxvf linux-2.4.37.3.tar.bz2
 $ ln -sf /whatever-you-want/broadcom/src/linux/linux-2.4.37.3 /whatever-you-want/broadcom/src/linux/linux
 $ tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2.tar.bz2
 $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
-$ tar -C /whatever-you-want/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 }}}
   # Получение исходников прошивки wl500g-1.9.2.7-d
 {{{
