@@ -1,0 +1,117 @@
+udhcpc: support option 0x79 (static routes) (part of bb bug 341)
+
+ backport of http://git.busybox.net/busybox/commit/?id=97ef65483a40f8622aaa73408dc0909f01ebd118
+
+diff --git a/networking/udhcp/options.c b/networking/udhcp/options.c
+--- a/networking/udhcp/options.c
++++ b/networking/udhcp/options.c
+@@ -47,7 +47,8 @@ const struct dhcp_option dhcp_options[] = {
+ #if ENABLE_FEATURE_UDHCP_RFC3397
+ 	{ OPTION_STR1035 | OPTION_LIST            , 0x77 }, /* search             */
+ #endif
++	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
+ 	{ OPTION_U8 | OPTION_LIST     | OPTION_REQ, 0xF9 }, /* msroutes           */
+ 	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
+ 	{ OPTION_STRING                           , 0xfc }, /* wpad               */
+ 
+@@ -98,7 +98,8 @@ const char dhcp_option_strings[] ALIGN1 =
+ #if ENABLE_FEATURE_UDHCP_RFC3397
+ 	"search" "\0"
+ #endif
++	"staticroutes" "\0" /* DHCP_STATIC_ROUTES  */
+ 	"msroutes" "\0"
+ 	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
+ 	"wpad" "\0"
+ 	;
+@@ -118,6 +118,8 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
+ 	[OPTION_S16] =     2,
+ 	[OPTION_U32] =     4,
+-	[OPTION_S32] =     4
++	[OPTION_S32] =     4,
++	/* Just like OPTION_STRING, we use minimum length here */
++	[OPTION_STATIC_ROUTES] = 5,
+ };
+ 
+ 
+diff --git a/networking/udhcp/options.h b/networking/udhcp/options.h
+--- a/networking/udhcp/options.h
++++ b/networking/udhcp/options.h
+@@ -22,6 +22,7 @@ enum {
+ 	OPTION_S16,
+ 	OPTION_U32,
+-	OPTION_S32
++	OPTION_S32,
++	OPTION_STATIC_ROUTES,
+ };
+ 
+ #define OPTION_REQ	0x10 /* have the client request this option */
+@@ -69,6 +69,7 @@ enum {
+ #define DHCP_VENDOR		0x3c
+ #define DHCP_CLIENT_ID		0x3d
+ #define DHCP_FQDN		0x51
++#define DHCP_STATIC_ROUTES	0x79
+ #define DHCP_END		0xFF
+ 
+ 
+diff --git a/networking/udhcp/script.c b/networking/udhcp/script.c
+--- a/networking/udhcp/script.c
++++ b/networking/udhcp/script.c
+@@ -17,6 +17,7 @@
+ static const uint8_t max_option_length[] = {
+ 	[OPTION_IP] =		sizeof("255.255.255.255 "),
+ 	[OPTION_IP_PAIR] =	sizeof("255.255.255.255 ") * 2,
++ 	[OPTION_STATIC_ROUTES]= sizeof("255.255.255.255/32 255.255.255.255 "),
+ 	[OPTION_STRING] =	1,
+ #if ENABLE_FEATURE_UDHCP_RFC3397
+ 	[OPTION_STR1035] =	1,
+@@ -109,6 +109,50 @@ static char *alloc_fill_opts(uint8_t *option, const struct dhcp_option *
+ 			memcpy(dest, option, len);
+ 			dest[len] = '\0';
+ 			return ret;	 /* Short circuit this case */
++		case OPTION_STATIC_ROUTES: {
++			/* Option binary format:
++			 * mask [one byte, 0..32]
++			 * ip [big endian, 0..4 bytes depending on mask]
++			 * router [big endian, 4 bytes]
++			 * may be repeated
++			 *
++			 * We convert it to a string "IP/MASK ROUTER IP2/MASK2 ROUTER2"
++			 */
++			const char *pfx = "";
++
++			while (len >= 1 + 4) { /* mask + 0-byte ip + router */
++				uint32_t nip;
++				uint8_t *p;
++				unsigned mask;
++				int bytes;
++
++				mask = *option++;
++				if (mask > 32)
++					break;
++				len--;
++
++				nip = 0;
++				p = (void*) &nip;
++				bytes = (mask + 7) / 8; /* 0 -> 0, 1..8 -> 1, 9..16 -> 2 etc */
++				while (--bytes >= 0) {
++					*p++ = *option++;
++					len--;
++				}
++				if (len < 4)
++					break;
++
++				/* print ip/mask */
++				dest += sprintip(dest, pfx, (void*) &nip);
++				pfx = " ";
++				dest += sprintf(dest, "/%u ", mask);
++				/* print router */
++				dest += sprintip(dest, "", option);
++				option += 4;
++				len -= 4;
++			}
++
++			return ret;
++		}
+ #if ENABLE_FEATURE_UDHCP_RFC3397
+ 		case OPTION_STR1035:
+ 			/* unpack option into dest; use ret for prefix (i.e., "optname=") */
