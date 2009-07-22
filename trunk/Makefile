@@ -510,7 +510,9 @@ upnp-diff:
 
 $(TOP)/www:
 	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
-		tar -C $(SRC) -cf - www/asus | tar -C $(TOP) -xf -
+		tar -C $(SRC) -cf - www/asus/web_asus_en \
+		www/asus/Makefile www/asus/mkweb www/asus/pages.mk \
+		| tar -C $(TOP) -xf -
 
 www: $(TOP)/www www/pages.diff www/common.diff
 	$(PATCHER) -Z $(TOP) www/pages.diff www/common.diff
