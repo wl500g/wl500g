@@ -1,6 +1,7 @@
---- busybox/networking/udhcp/dhcpc.h.orig	2008-11-09 20:27:58.000000000 +0300
-+++ busybox/networking/udhcp/dhcpc.h	2009-02-07 12:51:24.000000000 +0300
-@@ -38,13 +38,12 @@ struct client_config_t {
+diff -BurpN busybox-1.14.2/networking/udhcp/dhcpc.h busybox/networking/udhcp/dhcpc.h
+--- busybox-1.14.2/networking/udhcp/dhcpc.h	2009-06-21 22:40:29.000000000 +0000
++++ busybox/networking/udhcp/dhcpc.h	2009-07-22 17:46:39.000000000 +0000
+@@ -35,13 +35,12 @@ struct client_config_t {
  /*** clientpacket.h ***/
  
  uint32_t random_xid(void) FAST_FUNC;
@@ -17,8 +18,9 @@
  int send_release(uint32_t server, uint32_t ciaddr) FAST_FUNC;
  
  int udhcp_recv_raw_packet(struct dhcpMessage *payload, int fd) FAST_FUNC;
---- busybox/networking/udhcp/clientpacket.c.orig	2009-02-07 11:38:33.000000000 +0300
-+++ busybox/networking/udhcp/clientpacket.c	2009-02-07 12:49:45.000000000 +0300
+diff -BurpN busybox-1.14.2/networking/udhcp/clientpacket.c busybox/networking/udhcp/clientpacket.c
+--- busybox-1.14.2/networking/udhcp/clientpacket.c	2009-06-21 22:40:29.000000000 +0000
++++ busybox/networking/udhcp/clientpacket.c	2009-07-22 17:46:39.000000000 +0000
 @@ -123,12 +123,13 @@ int FAST_FUNC send_decline(uint32_t xid,
  #endif
  
@@ -50,7 +52,7 @@
  
  	add_simple_option(packet.options, DHCP_REQUESTED_IP, requested);
  	add_simple_option(packet.options, DHCP_SERVER_ID, server);
-@@ -166,12 +168,13 @@ int FAST_FUNC send_select(uint32_t xid,
+@@ -166,12 +168,13 @@ int FAST_FUNC send_select(uint32_t xid, 
  
  
  /* Unicasts or broadcasts a DHCP renew message */
@@ -65,8 +67,9 @@
  	packet.ciaddr = ciaddr;
  
  	add_param_req_option(&packet);
---- busybox/networking/udhcp/dhcpc.c.orig	2008-11-09 20:27:58.000000000 +0300
-+++ busybox/networking/udhcp/dhcpc.c	2009-02-07 12:49:04.000000000 +0300
+diff -BurpN busybox-1.14.2/networking/udhcp/dhcpc.c busybox/networking/udhcp/dhcpc.c
+--- busybox-1.14.2/networking/udhcp/dhcpc.c	2009-06-21 22:40:29.000000000 +0000
++++ busybox/networking/udhcp/dhcpc.c	2009-07-22 17:48:46.000000000 +0000
 @@ -35,6 +35,8 @@ static smallint listen_mode;
  #define RELEASED        7
  static smallint state;
@@ -76,7 +79,7 @@
  /* struct client_config_t client_config is in bb_common_bufsiz1 */
  
  
-@@ -131,7 +133,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+@@ -137,7 +139,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  	llist_t *list_O = NULL;
  	int tryagain_timeout = 20;
  	int discover_timeout = 3;
@@ -85,7 +88,7 @@
  	uint32_t server_addr = server_addr; /* for compiler */
  	uint32_t requested_ip = 0;
  	uint32_t xid = 0;
-@@ -357,7 +359,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+@@ -367,7 +369,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  					if (packet_num == 0)
  						xid = random_xid();
  
@@ -94,7 +97,7 @@
  
  					timeout = discover_timeout;
  					packet_num++;
-@@ -387,9 +389,9 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+@@ -397,9 +399,9 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  				if (packet_num < discover_retries) {
  					/* send request packet */
  					if (state == RENEW_REQUESTED) /* unicast */
@@ -106,7 +109,7 @@
  
  					timeout = discover_timeout;
  					packet_num++;
-@@ -419,7 +421,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+@@ -429,7 +431,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  			case RENEWING:
  				if (timeout > 60) {
  					/* send a request packet */
@@ -115,11 +118,11 @@
  					timeout >>= 1;
  					continue;
  				}
-@@ -432,7 +434,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+@@ -442,7 +444,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  				 * try to find DHCP server using broadcast */
  				if (timeout > 0) {
  					/* send a request packet */
--					send_renew(xid, 0 /* INADDR_ANY*/, requested_ip); /* broadcast */
+-					send_renew(xid, 0 /*INADDR_ANY*/, requested_ip); /* broadcast */
 +					send_renew(xid, SECS, 0 /* INADDR_ANY*/, requested_ip); /* broadcast */
  					timeout >>= 1;
  					continue;

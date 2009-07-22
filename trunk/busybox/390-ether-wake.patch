@@ -1,7 +1,7 @@
-diff -urbB busybox-1.1.3/networking/ether-wake.c busybox/networking/ether-wake.c
---- busybox-1.1.3/networking/ether-wake.c	2006-03-23 00:16:19.000000000 +0300
-+++ busybox/networking/ether-wake.c	2008-12-20 10:57:32.000000000 +0300
-@@ -115,9 +115,10 @@
+diff -BurpN busybox-1.14.2/networking/ether-wake.c busybox/networking/ether-wake.c
+--- busybox-1.14.2/networking/ether-wake.c	2009-06-21 22:32:00.000000000 +0000
++++ busybox/networking/ether-wake.c	2009-07-22 18:17:58.000000000 +0000
+@@ -115,7 +115,8 @@ static void get_dest_addr(const char *ho
  	if (eap) {
  		*eaddr = *eap;
  		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eaddr));
@@ -11,5 +11,3 @@ diff -urbB busybox-1.1.3/networking/ether-wake.c busybox/networking/ether-wake.c
  	} else if (ether_hostton(hostid, eaddr) == 0) {
  		bb_debug_msg("Station address for hostname %s is %s\n\n", hostid, ether_ntoa(eaddr));
  #endif
- 	} else
- 		bb_show_usage();

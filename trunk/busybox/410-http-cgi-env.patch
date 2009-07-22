@@ -1,6 +1,7 @@
---- busybox/networking/httpd.c.orig	2009-02-07 13:25:13.000000000 +0300
-+++ busybox/networking/httpd.c	2009-02-07 13:23:19.000000000 +0300
-@@ -1288,6 +1288,52 @@ static void setenv1(const char *name, co
+diff -BurpN busybox-1.14.2/networking/httpd.c busybox/networking/httpd.c
+--- busybox-1.14.2/networking/httpd.c	2009-06-21 22:46:43.000000000 +0000
++++ busybox/networking/httpd.c	2009-07-22 18:26:12.000000000 +0000
+@@ -1277,6 +1277,52 @@ static void setenv1(const char *name, co
  	setenv(name, value ? value : "", 1);
  }
  
@@ -53,7 +54,7 @@
  /*
   * Spawn CGI script, forward CGI's stdin/out <=> network
   *
-@@ -1389,6 +1435,7 @@ static void send_cgi_and_exit(
+@@ -1378,6 +1424,7 @@ static void send_cgi_and_exit(
  #endif
  		}
  	}

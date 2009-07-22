@@ -1,6 +1,7 @@
---- busybox/networking/udhcp/options.c.orig	2008-11-09 20:27:58.000000000 +0300
-+++ busybox/networking/udhcp/options.c	2009-02-07 11:33:27.000000000 +0300
-@@ -29,6 +29,7 @@
+diff -BurpN busybox-1.14.2/networking/udhcp/options.c busybox/networking/udhcp/options.c
+--- busybox-1.14.2/networking/udhcp/options.c	2009-06-21 22:40:29.000000000 +0000
++++ busybox/networking/udhcp/options.c	2009-07-22 17:44:33.000000000 +0000
+@@ -31,6 +31,7 @@ const struct dhcp_option dhcp_options[] 
  	{ OPTION_U8                               , 0x17 }, /* DHCP_IP_TTL        */
  	{ OPTION_U16                              , 0x1a }, /* DHCP_MTU           */
  	{ OPTION_IP                   | OPTION_REQ, 0x1c }, /* DHCP_BROADCAST     */
@@ -8,7 +9,7 @@
  	{ OPTION_STRING                           , 0x28 }, /* nisdomain          */
  	{ OPTION_IP | OPTION_LIST                 , 0x29 }, /* nissrv             */
  	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x2a }, /* DHCP_NTP_SERVER    */
-@@ -46,6 +47,7 @@
+@@ -48,6 +49,7 @@ const struct dhcp_option dhcp_options[] 
  #if ENABLE_FEATURE_UDHCP_RFC3397
  	{ OPTION_STR1035 | OPTION_LIST            , 0x77 }, /* search             */
  #endif
@@ -16,7 +17,7 @@
  	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
  	{ OPTION_STRING                           , 0xfc }, /* wpad               */
  
-@@ -78,6 +80,7 @@
+@@ -80,6 +82,7 @@ const char dhcp_option_strings[] ALIGN1 
  	"ipttl" "\0"       /* DHCP_IP_TTL         */
  	"mtu" "\0"         /* DHCP_MTU            */
  	"broadcast" "\0"   /* DHCP_BROADCAST      */
@@ -24,7 +25,7 @@
  	"nisdomain" "\0"   /*                     */
  	"nissrv" "\0"      /*                     */
  	"ntpsrv" "\0"      /* DHCP_NTP_SERVER     */
-@@ -95,6 +98,7 @@
+@@ -97,6 +100,7 @@ const char dhcp_option_strings[] ALIGN1 
  #if ENABLE_FEATURE_UDHCP_RFC3397
  	"search" "\0"
  #endif

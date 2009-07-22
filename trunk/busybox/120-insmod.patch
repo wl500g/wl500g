@@ -1,6 +1,7 @@
---- busybox/examples/depmod.pl.orig	2008-02-25 21:24:55.000000000 +0300
-+++ busybox/examples/depmod.pl	2008-02-25 22:00:40.000000000 +0300
-@@ -100,6 +100,8 @@
+diff -BurpN busybox-1.14.2/examples/depmod.pl busybox/examples/depmod.pl
+--- busybox-1.14.2/examples/depmod.pl	2009-06-21 22:32:00.000000000 +0000
++++ busybox/examples/depmod.pl	2009-07-22 15:51:12.000000000 +0000
+@@ -118,6 +118,8 @@ warn "**** Finished locating modules\n" 
  foreach my $obj ( @liblist ){
      # turn the input file name into a target tag name
      my ($tgtname) = $obj =~ m-(/lib/modules/.*)$-;
@@ -9,9 +10,9 @@
  
      warn "\nMODULE = $tgtname\n" if $verbose;
  
-diff -urBp '-x*.o' '-x.*' busybox-1.13.2/modutils/insmod.c busybox/modutils/insmod.c
---- busybox-1.13.2/modutils/insmod.c	2008-11-09 20:28:03.000000000 +0300
-+++ busybox/modutils/insmod.c	2009-02-07 22:44:05.000000000 +0300
+diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
+--- busybox-1.14.2/modutils/insmod.c	2009-06-21 22:40:29.000000000 +0000
++++ busybox/modutils/insmod.c	2009-07-22 15:51:12.000000000 +0000
 @@ -9,12 +9,17 @@
  
  #include "libbb.h"
@@ -29,9 +30,9 @@ diff -urBp '-x*.o' '-x.*' busybox-1.13.2/modutils/insmod.c busybox/modutils/insm
 +	FILE *fp = NULL;
 +	int rc, len;
  
- 	USE_FEATURE_2_4_MODULES(
- 		getopt32(argv, INSMOD_OPTS INSMOD_ARGS);
-@@ -25,6 +30,26 @@ int insmod_main(int argc UNUSED_PARAM, c
+ 	/* Compat note:
+ 	 * 2.6 style insmod has no options and required filename
+@@ -33,6 +38,26 @@ int insmod_main(int argc UNUSED_PARAM, c
  	if (!filename)
  		bb_show_usage();
  
@@ -57,4 +58,4 @@ diff -urBp '-x*.o' '-x.*' busybox-1.13.2/modutils/insmod.c busybox/modutils/insm
 +
  	rc = bb_init_module(filename, parse_cmdline_module_options(argv));
  	if (rc)
- 		bb_error_msg("cannot insert '%s': %s", filename, moderror(rc));
+ 		bb_error_msg("can't insert '%s': %s", filename, moderror(rc));
