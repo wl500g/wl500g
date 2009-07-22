@@ -1,6 +1,7 @@
---- busybox/e2fsprogs/e2fsck.c.orig	2008-03-26 22:33:18.000000000 +0300
-+++ busybox/e2fsprogs/e2fsck.c	2008-03-29 13:07:56.000000000 +0300
-@@ -14836,7 +14836,8 @@
+diff -BurpN busybox-1.14.2/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
+--- busybox-1.14.2/e2fsprogs/e2fsck.c	2009-07-22 15:37:26.000000000 +0000
++++ busybox/e2fsprogs/e2fsck.c	2009-07-22 15:38:10.000000000 +0000
+@@ -12732,7 +12732,8 @@ static void check_if_skip(e2fsck_t ctx)
  		if (batt && (fs->super->s_mnt_count <
  			     (unsigned) fs->super->s_max_mnt_count*2))
  			reason = 0;
