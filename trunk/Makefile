@@ -511,7 +511,7 @@ upnp-diff:
 $(TOP)/www:
 	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
 		tar -C $(SRC) -cf - www/asus/web_asus_en \
-		www/asus/Makefile www/asus/mkweb www/asus/pages.mk \
+		www/asus/Makefile www/asus/mkweb www/asus/pages.mk www/asus/notin2MB \
 		| tar -C $(TOP) -xf -
 
 www: $(TOP)/www www/pages.diff www/common.diff
