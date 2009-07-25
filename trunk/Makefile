@@ -46,7 +46,7 @@ NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.2
-USBMODESWITCH=usb_modeswitch-0.9.7
+USBMODESWITCH=usb_modeswitch-1.0.2
 
 UCLIBC=uClibc-0.9.29
 
