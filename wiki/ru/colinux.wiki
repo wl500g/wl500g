@@ -185,8 +185,8 @@ tar -C $inst/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2-1.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux
-tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.3.tar.bz2
-ln -sf linux-2.4.37.3 $inst/broadcom/src/linux/linux
+tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.4.tar.bz2
+ln -sf linux-2.4.37.4 $inst/broadcom/src/linux/linux
 }}}
 
 
