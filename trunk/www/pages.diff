@@ -327,17 +327,23 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp gatewa
  <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 diff -BurN router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp
 --- router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2004-11-19 10:45:54.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2008-03-17 17:52:23.000000000 +0000
-@@ -61,6 +61,9 @@
- 		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","firmver"); %>" readonly="1"></td>
++++ gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2009-07-22 15:40:20.000000000 +0000
+@@ -55,10 +55,13 @@
+ </td>
  </tr>
  <tr>
-+		<td class="content_header_td" width="30">Firmware Release:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_dump("../.version",""); %>" readonly="1"></td>
+-		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","productid"); %>" readonly="1"></td>
++		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","productid"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+-		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","firmver"); %>" readonly="1"></td>
++		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","firmver"); %>" readonly="1"></td>
 +</tr>
 +<tr>
- <td class="content_header_td" width="30">New Firmware File:</td><td class="content_input_td">  
-                   <input class="inputSubmit" name="file" size="20" type="file" ></td>
++		<td class="content_header_td" width="30">Firmware Release:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_dump("../.version",""); %>" readonly="1"></td>
  </tr>
+ <tr>
+ <td class="content_header_td" width="30">New Firmware File:</td><td class="content_input_td">  
 diff -BurN router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp gateway/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp
 --- router/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	1970-01-01 00:00:00.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Advanced_FlashfsBackup_Content.asp	2008-03-17 17:52:23.000000000 +0000
@@ -2227,6 +2233,20 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WirelessDual11g_Content.asp gate
  </tr>
  <input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get_x("WLANConfig11b","wl_gmode_protection_x"); %>">
  <tr>
+diff -BurN router/www/asus/web_asus_en/Advanced_Wireless_Content.asp gateway/www/asus/web_asus_en/Advanced_Wireless_Content.asp
+--- router/www/asus/web_asus_en/Advanced_Wireless_Content.asp	2004-11-19 10:45:54.000000000 +0000
++++ gateway/www/asus/web_asus_en/Advanced_Wireless_Content.asp	2009-07-22 16:09:14.000000000 +0000
+@@ -93,6 +93,10 @@
+ <td>
+ <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+ <tr>
++<tr class="content_section_header_tr">
++<td class="content_section_header_td" colspan="2">802.11b Interface
++            </td>
++</tr>
+ <td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN.', LEFT);" onMouseOut="return nd();">SSID:
+            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wl_ssid" value="<% nvram_get_x("WLANConfig11b","wl_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+ </tr>
 diff -BurN router/www/asus/web_asus_en/Basic_GOperation_Content.asp gateway/www/asus/web_asus_en/Basic_GOperation_Content.asp
 --- router/www/asus/web_asus_en/Basic_GOperation_Content.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Basic_GOperation_Content.asp	2009-04-08 19:53:26.000000000 +0000
@@ -2364,6 +2384,102 @@ diff -BurN router/www/asus/web_asus_en/Main_DHCPStatus_Content.asp gateway/www/a
              </textarea></td>
  </tr>
  </table>
+diff -BurN router/www/asus/web_asus_en/Main_GStatus_Content.asp gateway/www/asus/web_asus_en/Main_GStatus_Content.asp
+--- router/www/asus/web_asus_en/Main_GStatus_Content.asp	2004-11-19 10:45:55.000000000 +0000
++++ gateway/www/asus/web_asus_en/Main_GStatus_Content.asp	2009-07-22 15:37:04.000000000 +0000
+@@ -22,7 +22,7 @@
+ </tr>
+ <tr>
+-<td class="content_header_td_less" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">Sytem Time:
+-           </td><td class="content_input_td"><input type="text" size="48" class="content_input_fd" value="<% uptime(); %>" readonly="1"></td>
++<td class="content_header_td_less" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">System Time:
++           </td><td class="content_input_td"><input type="text" size="88" class="content_input_fd_ro" value="<% uptime(); %>" readonly="1"></td>
+ </tr>
+ </table>
+ </td>
+@@ -35,31 +35,31 @@
+ </tr>
+ <tr>
+ <td class="content_header_td_less">WAN Type:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_proto_t" value="<% nvram_get_f("wan.log","wan_proto_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_proto_t" value="<% nvram_get_f("wan.log","wan_proto_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">IP Address:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_ipaddr_t" value="<% nvram_get_f("wan.log","wan_ipaddr_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_ipaddr_t" value="<% nvram_get_f("wan.log","wan_ipaddr_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Subnet Mask:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_netmask_t" value="<% nvram_get_f("wan.log","wan_netmask_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_netmask_t" value="<% nvram_get_f("wan.log","wan_netmask_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Gateway:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_gateway_t" value="<% nvram_get_f("wan.log","wan_gateway_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_gateway_t" value="<% nvram_get_f("wan.log","wan_gateway_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">DNS Servers:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_dns_t" value="<% nvram_get_f("wan.log","wan_dns_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_dns_t" value="<% nvram_get_f("wan.log","wan_dns_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Link Status:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="wan_status_t" value="<% nvram_get_f("wan.log","wan_status_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_status_t" value="<% nvram_get_f("wan.log","wan_status_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Action:
+-           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('dhcpc_release')" size="12" name="PPPConnection_x_WANAction_button" value="Disconnect"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('dhcpc_renew')" size="12" name="PPPConnection_x_WANAction_button1" value="Connect"></td>
++           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('dhcpc_release')" size="12" name="PPPConnection_x_WANAction_button" value="Disconnect"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('dhcpc_renew')" size="12" name="PPPConnection_x_WANAction_button1" value="Connect"></td>
+ </tr>
+ </table>
+ </td>
+@@ -77,19 +77,19 @@
+ </tr>
+ <tr>
+ <td class="content_header_td_less" onMouseOver="return overlib('Model of printer connect to ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Printer Model:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_f("printer_status.log","printer_model_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="" value="<% nvram_get_f("printer_status.log","printer_model_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less" onMouseOver="return overlib('Current status of printer', LEFT);" onMouseOut="return nd();">Printer Status:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_f("printer_status.log","printer_status_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="" value="<% nvram_get_f("printer_status.log","printer_status_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less" onMouseOver="return overlib('IP address of user using this printer.', LEFT);" onMouseOut="return nd();">User:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="" value="<% nvram_get_f("printer_status.log","printer_user_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="" value="<% nvram_get_f("printer_status.log","printer_user_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Action:
+-           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('lpr_remove')" size="12" name="PrinterStatus_x_PrinterAction_button" value="Remove"></td>
++           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('lpr_remove')" size="12" name="PrinterStatus_x_PrinterAction_button" value="Remove"></td>
+ </tr>
+ </table>
+ </td>
+@@ -122,15 +122,15 @@
+ </tr>
+ <tr>
+ <td class="content_header_td_less">IP Address:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_ipaddr_t" value="<% nvram_get_f("lan.log","lan_ipaddr_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="lan_ipaddr_t" value="<% nvram_get_f("lan.log","lan_ipaddr_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+ <td class="content_header_td_less">Subnet Mask:
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_netmask_t" value="<% nvram_get_f("lan.log","lan_netmask_t"); %>" readonly="1"></td>
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="lan_netmask_t" value="<% nvram_get_f("lan.log","lan_netmask_t"); %>" readonly="1"></td>
+ </tr>
+ <tr>
+-<td class="content_header_td_less">Default Gateway
+-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd" name="lan_gateway_t" value="<% nvram_get_f("lan.log","lan_gateway_t"); %>" readonly="1"></td>
++<td class="content_header_td_less">Default Gateway:
++           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="lan_gateway_t" value="<% nvram_get_f("lan.log","lan_gateway_t"); %>" readonly="1"></td>
+ </tr>
+ </table>
+ </td>
 diff -BurN router/www/asus/web_asus_en/Main_Index_AccessPoint.asp gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp
 --- router/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2004-11-19 10:45:55.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Main_Index_AccessPoint.asp	2009-05-20 19:24:58.000000000 +0000
