@@ -493,6 +493,13 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
 
+$(TOP)/others:
+	tar -C $(SRC) -cf - others | tar -C $(TOP) -xf -
+	tar -C . $(TAR_EXCL_SVN) -cf - others | tar -C $(TOP) -xf -
+	$(PATCHER) -Z $(TOP) others.diff
+
+others: $(TOP)/others
+
 libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
@@ -540,4 +547,5 @@ www-diff:
 %-diff-simple:
 	$(call make_diff,-BurN,router,gateway,$*)
 
-.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www
+.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
+	busybox dropbear iptables others

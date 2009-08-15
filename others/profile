@@ -1,0 +1,7 @@
+# /etc/profile
+
+export PATH=/opt/sbin:/opt/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PS1="[\u@\h \W]\$ "
+
+[ -x /usr/local/etc/profile ] && . /usr/local/etc/profile
+[ -x /opt/etc/profile ] && . /opt/etc/profile
