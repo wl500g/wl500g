@@ -1,0 +1,59 @@
+#! /bin/sh
+#
+# Copyright (C) 2009 by Alexander I. Buzin <al37919@gmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+
+
+# This script is intended to be run automatically during boot up.
+# It ensures that dropbear keys are in the right place either by
+# extracting them from flashfs if it is disabled or by by generating
+# them and saving in flashfs if they are absent at all.
+# IMPORTANT: This script does not change the state of flashfs!
+
+#check if the key files are in the right place
+if ! [ -s /tmp/local/etc/dropbear/dropbear_rsa_host_key -a \
+       -s /tmp/local/etc/dropbear/dropbear_dss_host_key ]; then
+	mkdir -p /tmp/local/etc/dropbear
+	#check if the key files are stored in flashfs
+	if [ -n "$(/bin/tar -tzf /dev/mtdblock/4 2> /dev/null | \
+	     grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
+		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear tmp/local/etc/ssh.*
+	else
+		#generate new key files
+		dropbearkey -t rsa -f /tmp/local/etc/dropbear/dropbear_rsa_host_key \
+		  | grep "ssh-rsa" > /tmp/local/etc/dropbear/dropbear_rsa_host_key.pub
+		dropbearkey -t dss -f /tmp/local/etc/dropbear/dropbear_dss_host_key \
+		  | grep "ssh-dss" > /tmp/local/etc/dropbear/dropbear_dss_host_key.pub
+
+		#store generated keys in the flashfs for future use
+		mkdir -p /tmp/_tmp/tmp/local/etc
+		/bin/tar -C /tmp/_tmp/ -xzf /dev/mtdblock/4 2> /dev/null
+		cp -r /tmp/local/etc/dropbear /tmp/_tmp/tmp/local/etc
+		/bin/tar -C /tmp/_tmp/ -czf /tmp/_flash.tar.gz etc tmp
+
+		/sbin/flash /tmp/_flash.tar.gz /dev/mtd/4
+		rm -r /tmp/_tmp /tmp/_flash.tar.gz
+	fi
+fi
+
+port="$(nvram get ssh_port)"
+if [ "${port}" -ne "22" ]; then
+	args="-p ${port}"
+fi
+
+dropbear ${args}
+
+exit 0
