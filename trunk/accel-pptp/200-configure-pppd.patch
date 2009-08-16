@@ -1,0 +1,56 @@
+diff -BurpN accel-pptp.orig/pppd_plugin/configure accel-pptp/pppd_plugin/configure
+--- accel-pptp.orig/pppd_plugin/configure	2009-08-16 08:55:28.000000000 +0000
++++ accel-pptp/pppd_plugin/configure	2009-08-16 09:15:21.000000000 +0000
+@@ -19464,25 +19464,38 @@ CFLAGS="${CFLAGS} -I. -I${header}"
+ 
+ { echo "$as_me:$LINENO: checking for pppd" >&5
+ echo $ECHO_N "checking for pppd... $ECHO_C" >&6; }
+-pppd=`which pppd 2>&1`
+-if test $? -eq 1; then
+-    pppd=""
+-    for path in /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin /sbin; do
+-	if test -x ${path}/pppd; then
+-	    pppd=${path}/pppd
+-	    break;
+-        fi
+-    done
+-fi
++if test -n "${PPPDIR}"; then
++    if test -f ${PPPDIR}/pppd/patchlevel.h; then
++	pppd=${PPPDIR}/pppd
++    else
++	{ echo "$as_me:$LINENO: result: not found" >&5
++echo "${ECHO_T}not found" >&6; }
++        { { echo "$as_me:$LINENO: error: Could not find pppd" >&5
++echo "$as_me: error: Could not find pppd" >&2;}
++   { (exit 1); exit 1; }; }
++    fi
++    pppd_ver=`cat ${pppd}/patchlevel.h | awk '/VERSION/ {gsub(/"/,"",$3);print $3}'`
++else
++    pppd=`which pppd 2>&1`
++    if test $? -eq 1; then
++	pppd=""
++	for path in /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin /sbin; do
++	    if test -x ${path}/pppd; then
++		pppd=${path}/pppd
++		break;
++	    fi
++	done
++    fi
+ 
+-if test -z "${pppd}"; then
+-    { echo "$as_me:$LINENO: result: not found" >&5
++    if test -z "${pppd}"; then
++	{ echo "$as_me:$LINENO: result: not found" >&5
+ echo "${ECHO_T}not found" >&6; }
+-    { { echo "$as_me:$LINENO: error: Could not find pppd" >&5
++	{ { echo "$as_me:$LINENO: error: Could not find pppd" >&5
+ echo "$as_me: error: Could not find pppd" >&2;}
+    { (exit 1); exit 1; }; }
++    fi
++    pppd_ver=`${pppd} --version 2>&1 | grep version | sed 's/pppd version //'`
+ fi
+-pppd_ver=`${pppd} --version 2>&1 | grep version | sed 's/pppd version //'`
+ { echo "$as_me:$LINENO: result: $pppd ($pppd_ver)" >&5
+ echo "${ECHO_T}$pppd ($pppd_ver)" >&6; }
+ cat >>confdefs.h <<_ACEOF
