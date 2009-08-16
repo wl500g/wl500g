@@ -3,8 +3,8 @@ Version: 0.99.163-2
 Section: base
 Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
-MD5Sum: 4fb044835224f472ebfb57ced6fb81ed
-Size: 73066
+MD5Sum: bcf5944797d8791d08ec55d6942d6ecd
+Size: 73111
 Filename: ipkg_0.99.163-2_mipsel.ipk
 Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
 Description: lightweight package management system
@@ -18,5 +18,34 @@ Description: lightweight package management system
  ipkg is intended to serve the same functions (and more) for
  Familiar that dpkg and apt serve for Debian, (while taking
  up much less space).
+
+
+Package: ipset
+Version: 3.0
+Section: net
+Architecture: mipsel
+Maintainer: http://ipset.netfilter.org/
+MD5Sum: fc0810bbb121c8a98970eff07e2715ef
+Size: 43805
+Filename: ipset_3.0_mipsel.ipk
+Source: http://ipset.netfilter.org/ipset-3.0.tar.bz2
+Description: ipset administration tool for IP sets.
+
+
+Package: ntfs-3g
+Version: 2009.4.4
+Section: system
+Architecture: mipsel
+Maintainer: http://forum.ntfs-3g.org/
+MD5Sum: 1cda3a78fc6e1c441d3fca81623abec2
+Size: 150024
+Filename: ntfs-3g_2009.4.4_mipsel.ipk
+Source: http://ntfs-3g.org/ntfs-3g-2009.4.4.tgz
+Description: The NTFS-3G driver is a freely and commercially available
+ and supported read/write NTFS driver
+ for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
+ operating systems. It provides safe and fast handling of the Windows XP,
+ Windows Server 2003, Windows 2000, Windows Vista, Windows Server 2008
+ and Windows 7 file systems.
 
 
