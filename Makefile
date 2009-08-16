@@ -32,6 +32,7 @@ IPROUTE2=iproute2-2.4.7-now-ss020116-try
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
 PPP=ppp-2.4.5-pre
+ACCEL-PPTP=accel-pptp-git-20090816
 RP-PPPOE=rp-pppoe-3.10
 PPTP=pptp-1.7.1
 LZMA=lzma406
@@ -86,10 +87,11 @@ OUR_Kernel_Patches:=$(call patches_list, kernel)
 all: prep custom
 	@true
 
-custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables ppp pptp \
-	nfs-utils portmap radvd ucdsnmp rp-l2tp igmpproxy vsftpd udpxy \
+custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
+	ppp pptp rp-l2tp rp-pppoe accel-pptp \
+	nfs-utils portmap radvd ucdsnmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
-	misc netconf nvram others rp-pppoe rc rcamdmips sendmail \
+	misc netconf nvram others rc rcamdmips sendmail \
 	scsi-idle libusb usb_modeswitch \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
@@ -405,6 +407,28 @@ $(TOP)/rp-pppoe/src/Makefile: $(TOP)/ppp $(TOP)/rp-pppoe
 		 ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev 
 
 rp-pppoe: $(TOP)/rp-pppoe/src/Makefile
+	@true
+
+accel-pptp_Patches := $(call patches_list,accel-pptp)
+
+$(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
+	@rm -rf $(TOP)/$(ACCEL-PPTP) $@
+	tar -xjf $^ -C $(TOP)
+	rm -f $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/if_pppox.h
+	ln -s $(KERNEL_DIR)/include/linux/if_pppox.h $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/if_pppox.h
+	rm -rf $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
+	ln -s $(TOP)/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
+	$(PATCHER) $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
+	mv $(TOP)/$(ACCEL-PPTP) $@ && touch $@
+	touch $@
+
+$(TOP)/accel-pptp/Makefile: $(TOP)/ppp $(TOP)/accel-pptp
+	cd $(TOP)/accel-pptp/pppd_plugin && \
+		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+		./configure --host=mipsel-linux --prefix=/usr \
+		KDIR=$(KERNEL_DIR) PPPDIR=$(TOP)/ppp
+
+accel-pptp: $(TOP)/accel-pptp/Makefile
 	@true
 
 $(TOP)/igmpproxy/src/Makefile:

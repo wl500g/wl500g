@@ -1,0 +1,33 @@
+diff -BurpN accel-pptp.orig/pppd_plugin/config.h.in accel-pptp/pppd_plugin/config.h.in
+--- accel-pptp.orig/pppd_plugin/config.h.in	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/config.h.in	2009-08-16 08:54:45.000000000 +0000
+@@ -58,4 +58,4 @@
+ #undef STDC_HEADERS
+ 
+ /* Version number of package */
+-#undef VERSION
++#undef PLUGINVERSION
+diff -BurpN accel-pptp.orig/pppd_plugin/configure accel-pptp/pppd_plugin/configure
+--- accel-pptp.orig/pppd_plugin/configure	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/configure	2009-08-16 08:50:22.000000000 +0000
+@@ -2245,7 +2245,7 @@ _ACEOF
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+-#define VERSION "$VERSION"
++#define PLUGINVERSION "$VERSION"
+ _ACEOF
+ 
+ # Some tools Automake needs.
+diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-16 08:50:22.000000000 +0000
+@@ -326,7 +326,7 @@ void plugin_init(void)
+     add_options(Options);
+ 
+     info("PPTP plugin version %s compiled for pppd-%s, linux-%s",
+-	 VERSION, PPPD_VERSION,KERNELVERSION);
++	 PLUGINVERSION, PPPD_VERSION, KERNELVERSION);
+ 
+     the_channel = &pptp_channel;
+     modem = 0;
