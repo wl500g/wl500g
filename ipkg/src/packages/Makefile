@@ -101,7 +101,7 @@ ipkg-ipk: ipkg
 	$(IPKG_BUILD) $(BUILD)/$@ $(PACKAGES)
 
 tarball:
-	tar -C .. -cjf packages.tar.bz2 --exclude=$(TARGET_ARCH) --exclude=packages.tar.bz2 packages
+	tar -C .. -cjf packages.tar.bz2 --exclude=$(TARGET_ARCH) --exclude=packages.tar.bz2 --exclude .svn packages
 	
 clean distclean:
 	rm -rf $(BUILD)
