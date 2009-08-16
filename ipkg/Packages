@@ -1,0 +1,22 @@
+Package: ipkg
+Version: 0.99.163-2
+Section: base
+Architecture: mipsel
+Maintainer: Pierluigi Frullani <pigi@frumar.it>
+MD5Sum: 4fb044835224f472ebfb57ced6fb81ed
+Size: 73066
+Filename: ipkg_0.99.163-2_mipsel.ipk
+Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
+Description: lightweight package management system
+ ipkg is the Itsy Package Management System, for handling
+ installation and removal of packages on a system. It can
+ recursively follow dependencies and download all packages
+ necessary to install a particular package.
+ .
+ ipkg knows how to install both .ipk and .deb packages.
+ .
+ ipkg is intended to serve the same functions (and more) for
+ Familiar that dpkg and apt serve for Debian, (while taking
+ up much less space).
+
+

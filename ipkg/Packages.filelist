@@ -1,0 +1,4 @@
+ipkg ipkg:mipsel:./opt/bin/ipkg
+ipkg.conf ipkg:mipsel:./opt/etc/ipkg.conf
+rc.unslung ipkg:mipsel:./opt/etc/init.d/rc.unslung
+update-alternatives ipkg:mipsel:./opt/bin/update-alternatives
