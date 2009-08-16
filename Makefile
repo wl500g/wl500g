@@ -142,7 +142,7 @@ kernel-mrproper:
 
 kernel-patch:
 	@echo Preparing kernel ...
-	[ -d $(KERNEL_DIR)/arch/mips/bcm947xx ] || tar -C $(KERNEL_DIR) -xvjf brcm-boards.tar.bz2
+	[ -d $(KERNEL_DIR)/arch/mips/bcm947xx ] || tar -C $(KERNEL_DIR) -xvjf kernel/brcm-boards.tar.bz2
 	$(MAKE) -C $(KERNEL_DIR)/arch/mips/bcm947xx/compressed/ clean
 	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
