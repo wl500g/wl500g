@@ -19419,6 +19419,11 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 
+cat >>confdefs.h <<_ACEOF
+#define PLUGINVERSION "$VERSION"
+_ACEOF
+
+
 CFLAGS="${CFLAGS:=}"
 
 { echo "$as_me:$LINENO: checking for linux kernel herders" >&5

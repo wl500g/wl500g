@@ -51,6 +51,9 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
+/* "Plugin version" */
+#undef PLUGINVERSION
+
 /* "PPPD version" */
 #undef PPPD_VERSION
 

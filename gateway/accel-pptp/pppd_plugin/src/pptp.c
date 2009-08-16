@@ -336,7 +336,7 @@ void plugin_init(void)
     add_options(Options);
 
     info("PPTP plugin version %s compiled for pppd-%s, linux-%s",
-	 VERSION, PPPD_VERSION,KERNELVERSION);
+	 PLUGINVERSION, PPPD_VERSION, KERNELVERSION);
 
     the_channel = &pptp_channel;
     modem = 0;
