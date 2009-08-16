@@ -19459,41 +19459,45 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-
-CFLAGS="${CFLAGS} -I. -I${header}"
-
-{ echo "$as_me:$LINENO: checking for pppd" >&5
-echo $ECHO_N "checking for pppd... $ECHO_C" >&6; }
-pppd=`which pppd 2>&1`
-if test $? -eq 1; then
-    pppd=""
-    for path in /usr/sbin /usr/local/sbin /usr/bin /usr/local/bin /sbin; do
-	if test -x ${path}/pppd; then
-	    pppd=${path}/pppd
-	    break;
-        fi
-    done
-fi
-
-if test -z "${pppd}"; then
-    { echo "$as_me:$LINENO: result: not found" >&5
+{ echo "$as_me:$LINENO: checking for pppd headers" >&5
+echo $ECHO_N "checking for pppd headers... $ECHO_C" >&6; }
+if test -n "${PPPDIR}"; then
+    if test -f ${PPPDIR}/pppd/pppd.h; then
+	pppd=${PPPDIR}/pppd
+    else
+	{ echo "$as_me:$LINENO: result: not found" >&5
 echo "${ECHO_T}not found" >&6; }
-    { { echo "$as_me:$LINENO: error: Could not find pppd" >&5
-echo "$as_me: error: Could not find pppd" >&2;}
+	{ { echo "$as_me:$LINENO: error: Could not find pppd headers" >&5
+echo "$as_me: error: Could not find pppd headers" >&2;}
    { (exit 1); exit 1; }; }
+    fi
+else
+    if test -f /usr/include/pppd/pppd.h; then
+	pppd=/usr/include/pppd
+    elif test -f /usr/local/include/pppd/pppd.h; then
+	pppd=/usr/local/include/pppd
+    else
+	{ echo "$as_me:$LINENO: result: not found" >&5
+echo "${ECHO_T}not found" >&6; }
+	{ { echo "$as_me:$LINENO: error: Could not find pppd headers" >&5
+echo "$as_me: error: Could not find pppd headers" >&2;}
+   { (exit 1); exit 1; }; }
+    fi
 fi
-pppd_ver=`${pppd} --version 2>&1 | grep version | sed 's/pppd version //'`
-{ echo "$as_me:$LINENO: result: $pppd ($pppd_ver)" >&5
-echo "${ECHO_T}$pppd ($pppd_ver)" >&6; }
+pppd_ver=$(cat ${pppd}/patchlevel.h | grep 'VERSION' | awk '{gsub(/"/,"",$3);print $3}')
+{ echo "$as_me:$LINENO: result: found ($pppd_ver at ${pppd})" >&5
+echo "${ECHO_T}found ($pppd_ver at ${pppd})" >&6; }
 cat >>confdefs.h <<_ACEOF
 #define PPPD_VERSION "${pppd_ver}"
 _ACEOF
 
 
+CFLAGS="${CFLAGS} -I. -I${header} -I${pppd}/.."
+
 echo '==============================================================================='
 
 echo 'Configuration chosen:'
-echo    '   PPPD:              '${pppd_ver}
+echo    '   PPPD:              '${pppd_ver} at ${pppd}
 echo    '   linux kernel :     '$KERNELVERSION at ${header/include}
 
 ac_config_files="$ac_config_files Makefile src/Makefile"
