@@ -1,7 +1,12 @@
 diff -BurpN accel-pptp.orig/pppd_plugin/configure accel-pptp/pppd_plugin/configure
---- accel-pptp.orig/pppd_plugin/configure	2009-08-16 08:55:28.000000000 +0000
-+++ accel-pptp/pppd_plugin/configure	2009-08-16 09:15:21.000000000 +0000
-@@ -19464,25 +19464,38 @@ CFLAGS="${CFLAGS} -I. -I${header}"
+--- accel-pptp.orig/pppd_plugin/configure	2009-08-17 19:41:44.000000000 +0000
++++ accel-pptp/pppd_plugin/configure	2009-08-17 19:42:17.000000000 +0000
+@@ -19460,29 +19460,42 @@ _ACEOF
+ 
+ 
+ 
+-CFLAGS="${CFLAGS} -I. -I${header}"
++CFLAGS="${CFLAGS} -I."
  
  { echo "$as_me:$LINENO: checking for pppd" >&5
  echo $ECHO_N "checking for pppd... $ECHO_C" >&6; }
