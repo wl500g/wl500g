@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-08-16 09:58:36.000000000 +0000
++++ gateway/Makefile	2009-08-17 15:15:59.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -203,7 +203,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +219,215 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +219,216 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -307,6 +307,7 @@
 +		$(SRCMODULESDIR)/drivers/net/et/et.o \
 +		$(SRCMODULESDIR)/drivers/net/wl/wl.o \
 +		$(SRCMODULESDIR)/drivers/net/tun.o \
++		$(SRCMODULESDIR)/drivers/net/imq.o \
 +		$(NETFILTER_MODS_LIST)
 +	# generic usb
 +	install -t $(MODULESDIR) \
@@ -443,7 +444,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +466,17 @@ oldconfig: oldconf
+@@ -225,16 +467,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -464,7 +465,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +484,64 @@ www www-%:
+@@ -242,43 +485,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -547,7 +548,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +557,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +558,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -557,7 +558,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +572,274 @@ vlan:
+@@ -312,215 +573,274 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -1001,7 +1002,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +847,9 @@ image-R100:
+@@ -528,6 +848,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
