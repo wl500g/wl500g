@@ -1,0 +1,17 @@
+Sync with /include/linux/if_pppox.h header
+
+diff -BurpN accel-pptp.orig/kernel/driver/if_pppox.h accel-pptp/kernel/driver/if_pppox.h
+--- accel-pptp.orig/kernel/driver/if_pppox.h	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/kernel/driver/if_pppox.h	2009-08-17 20:00:40.000000000 +0000
+@@ -56,8 +56,9 @@ struct pptp_addr{
+  */
+ #define PX_PROTO_OE    0 /* Currently just PPPoE */
+ #if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,22)
+-#define PX_PROTO_PPTP  1
+-#define PX_MAX_PROTO   2
++#define PX_PROTO_OL2TP 1 /* Now L2TP also */
++#define PX_PROTO_PPTP  2
++#define PX_MAX_PROTO   3
+ #else
+ #define PX_PROTO_PPTP  2
+ #define PX_MAX_PROTO   3

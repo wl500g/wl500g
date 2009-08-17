@@ -414,8 +414,6 @@ accel-pptp_Patches := $(call patches_list,accel-pptp)
 $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 	@rm -rf $(TOP)/$(ACCEL-PPTP) $@
 	tar -xjf $^ -C $(TOP)
-	rm -f $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/if_pppox.h
-	ln -s $(KERNEL_DIR)/include/linux/if_pppox.h $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/if_pppox.h
 	rm -rf $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
 	ln -s $(TOP)/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
 	$(PATCHER) $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
