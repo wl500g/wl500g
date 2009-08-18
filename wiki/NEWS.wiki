@@ -1,6 +1,29 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d-Current ===
+  * kernel 2.4.37.5
+    * accel-pptp driver (EXPERIMENTAL!!!)
+    * Include IMQ driver
+    * USB: fix infinite loop when unloading khubd
+    * USB: fix interrupt transfers for usbdevfs
+
+  * rc (startup) procedures changes
+    * set hard limit of open files to 16384
+
+  * busybox 1.14.3
+
+  * vsftpd 2.2.0
+
+  * udpxy 1.0-Chipmunk-14
+
+  * bugfixes
+    * busybox (udhcpc, test, sed, ash math operations)
+    * iproute2 (tc qdisc statistics, pfifo_fast)
+    * libusb-compat 0.1.3
+
+  * local ipkg repository created (ipkg, ipset, ntfs-3g)
+
 ===wl500g-1.9.2.7-d-`r396` (2009-07-17)===
   * kernel
     * option driver updated
