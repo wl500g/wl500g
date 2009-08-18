@@ -1,0 +1,521 @@
+======================================================================================
+ For newer changes - see SVN history log  http://code.google.com/p/wl500g/source/list
+======================================================================================
+
+
+2009-02-23	lly		wl500g-1.9.2.7-d8
+*******************************************************************************
+  busybox/107-top.patch			- Исправлен вывод ошибочных CPU% в top
+
+
+2009-02-22	theMIROn
+*******************************************************************************
+  kernel/320-netfilter-dynamic-snat.patch - drop SNATed connections on iface down or ip renew.
+  rc/rc-usb20-disable.patch		  - Запрет usb 2.0 из web-интерфейса.
+
+
+2009-02-22	lly
+*******************************************************************************
+  vsftpd 2.1.0
+
+  busybox/*				- Реорганизация патчей с нумерацией, добавлены патчи из OpenWRT.
+  rc/rc-ppp-connected.patch		\
+  rc/rc-asus.patch			/ Для принудительного поднятия demand линка в start_wan() используется ping -c1 <wanX_gateway>
+
+
+2009-02-19	lly
+*******************************************************************************
+  rc/rc-asus.patch			- Фиксы из фирменной прошивки ASUS 1.9.7.7
+  vsftpd/vsftpd-2.0.7-getpwnam.patch 	- Объединен с vsftpd-2.0.7-passwd_file.patch, т.к. исправляет не оригинальный vsftpd, a этот патч.
+  kernel/017-cpuinfo.patch		- Добавлен сбор и вывод информации о расширениях MIPS ASE в /proc/cpuinfo.
+
+
+2009-02-16	lly
+*******************************************************************************
+  busybox/busybox-1.13.2-killall.patch  \ Hotfix'ы с основной ветки.
+  busybox/busybox-1.13.2-mdev.patch     /
+  dnsmasq-2.47.patch			- Добавил hotfix из mail-list'а dnsmasq.
+
+
+2009-02-12	theMIROn
+*******************************************************************************
+  others.diff				- flashfs enable/enabled logics fix
+
+
+2009-02-11	lly
+*******************************************************************************
+  pppoe-relay 3.10
+
+
+2009-02-10	theMIROn
+*******************************************************************************
+  p910nd 0.93
+
+
+2009-02-09	lly
+*******************************************************************************
+  ppp 2.4.5-pre				- Обновил pppd до snapshot 2008-11-26 и rp-pppoe plugin 3.10.
+
+
+2009-02-08	lly
+*******************************************************************************
+  kernel/313-netfilter-hashtabsize.patch - Merge OpenWRT & Tomato SpeedMOD & own corrections of netfilter hash tables sizes.
+
+  busybox 1.13.2
+  dnsmasq 2.47
+
+
+2009-02-05	theMIROn
+*******************************************************************************
+  kernel/buildhost.patch		- Made kernel verison date format locale free.
+
+
+2009-02-04	lly
+*******************************************************************************
+  kernel/812-cdma-ipw.patch		- Backport of IPWireless driver (merge 2.6.27 tree with original 0.4 modifications) [UNTESTED!].
+  kernel/312-netfilter-jhash.patch	- Import parts of Tomato SpeedMOD.
+
+
+2009-02-02	theMIROn
+*******************************************************************************
+  kernel/240-scsi-usb-spinup.patch	- Support spin up usb hdd drives and other scsi enchancements from 2.6 (allow_restart).
+
+
+2009-02-02	lly
+*******************************************************************************
+  kernel/*.patch			- New naming scheme: 999-description.patch
+  kernel/kernel-include-backports.patch	- New helper functions from 2.6 tree for easier drivers backports.
+  kernel/kernel-usb-backports26.patch	- renamed to kernel-usb-ehci-backport.patch.
+
+
+2009-01-28	theMIROn
+*******************************************************************************
+  rc/rc-masq2snat.patch			- Changed iptables MASQUERADE action to SNAT to speed up nat.
+
+
+2009-01-27	lly
+*******************************************************************************
+  kernel/openwrt/brcm/005-bluetooth_sco_buffer_align.patch	- mtu can be greater than USB max packet size! Fixed. Also add extra fixes.
+  kernel/kernel-usb-tt-ehci.patch	- patches against ehci.h, not related to TT, moved to separate kernel-usb-ehci-backport.patch.
+  Makefile				- "kernel-patch" target to prepare/patch kernel tree only.
+  toolchain				- include/sys/inotify.h removed since 2.4 kernels don't support inotify_XXX syscalls. libiconv 1.12 added.
+
+
+2009-01-22	lly		wl500g-1.9.2.7-d7
+*******************************************************************************
+  kernel/openwrt/brcm/001-bcm47xx.patch	- Remove obsolete compiler flags patch against old 3.2.3 toolchain.
+  kernel/kernel-usb-tt-ehci.patch	- Add forgotten patches for hub.c.
+  kernel/kernel-usb-backports26.patch	- Misc backports from 2.6 on USB subsystem.
+  Makefile.diff				- Split build of kernel image & kernel modules.
+  kernel/openwrt/802-usb_serial_3g_cards.patch	- Add more patches against HSDPA 3G modems.
+
+
+2009-01-19	lly
+*******************************************************************************
+  kernel/kernel-usb-tt-ehci.patch	- Second attempt to repair USB 1.1 devices over USB 2.0 hub: backport of Greg Kroah-Hartman <gregkh@suse.de> patches on 2.6.27 trunk (ehci.h, ehci-q.c, ehci-sched.c). Bug was "failed submitting interrupt urb, error -28", -ENOSPC code returned from check_intr_schedule().
+  brcm-boards.tar.bz2			- arch/mips/bcm947xx/setup.c: Rollback OpenWRT division of "kernel_args" nvram variable to "kernel_args"+"kernel_cmdline".
+  rc/rc-common.patch			- Add defaults for DLINK DIR-320.
+
+
+2009-01-15	lly
+*******************************************************************************
+  kernel/kernel-irda-stir4200.patch	- Backport SigmaTel 4200 IRDA/USB driver.
+
+
+2009-01-14	lly
+*******************************************************************************
+  uClibc/uClibc-0.9.29-mempcpy.patch	- хак для возможности использования __mempcpy аналогично glibc.
+  toolchain				- Импортированы патчи 170-enable-getifaddrs.patch, 190-install_tls.patch, 200-libpthread_fix.patch, 210-trunc.patch из trunk OpenWRT.
+
+
+2009-01-06	theMIROn
+*******************************************************************************
+  rc/rc-ddns-watchdog.patch		- Deleted.
+  rc/rc-ddns-daemon.patch		- Start ddns as daemon till the first successful update.
+
+
+2008-12-31	lly
+*******************************************************************************
+  kernel/openwrt/brcm/014-sierra_support.patch	- Импорт патча для поддержки CDMA модема Sierra из trunk OpenWRT.
+  Makefile, config.diff			- В EXTRACFLAGS добавлены ключики "-mtune=mips32 -Wno-pointer-sign". Изменены правила для rc, lzma.
+  Makefiles5.diff			- Удалён, т.к. SENTRY5 давно заброшен.
+  Makefile.diff				- HOSTCXX=g++ т.к. некоторые gcc не умеют собирать cpp по дефолту.
+  dnsmasq-2.46.patch			- Патч из svn dnsmasq на пустые строки в /etc/ethers.
+  rc/rc-common.patch 			- В связи с увеличением количества правок в rc, патчи вынесены в отдельный каталог rc/.
+  rc/rc-ddns-watchdog.patch		- Бекпорт регулярного запуска обновления ddns в watchdog из оригинальной 1.9.7.7 от theMIROn.
+
+
+2008-12-28	lly
+*******************************************************************************
+  ez-ipupdate.diff			- Патч из Gentoo #69658 "Format string vulnerability in syslog handling". По просьбе автора theMIROn, HTTP redirect по умолчанию выключен.
+  rc.diff				- Патч от theMIROn для поддержки /etc/ddns.conf (#define DDNSCONF в services_ex.c). Еще один подход к расчистке завалов в rc.
+  patch.sh, Makefile			- Возможность передавать ключ -Z для patch и его использование.
+
+
+2008-12-26	lly
+*******************************************************************************
+  vsftpd-2.0.7
+  vsftpd/vsftpd-2.0.7-getpwnam.patch	- Починен бесконечный цикл в локальной реализации getpwnam(), по стандарту код ошибки не обязан быть -1.
+
+
+2008-12-25	lly
+*******************************************************************************
+  ntpclient-2007_365.patch, rc.diff	- Апгрейд на халяву не прошел - убрал линковку с librt и DEBUG, добавил старый патч от ASUS'а, а в вызовы из rc пришлось добавить "-c 1".
+  Makefile.diff				- Компилятор для хостовых утилит должен быть везде $(HOSTCC). Добавил переменную SRCMODULESDIR для сокращения путей к проинсталлированным модулям ядра.
+  busybox/busybox-1.1.3-install.patch	- Поправил неверное определение libdir в busybox/applets/install.sh при кросс-компиляции.
+
+  kernel.config				- CONFIG_MTD_CFI_B1=y для поддержки флэша в Dlink DIR320 (клон WL520GU) (+1.8Kb к ядру); CONFIG_UFS_FS=m по просьбам телезрителей.
+
+
+2008-12-24	lly
+*******************************************************************************
+  Makefile.diff, shared.diff, pppoe-relay.diff, portmap_4.patch, netconf.diff, bridge.diff, pptp-1.7.1.patch - Продолжил расстановку EXTRACFLAGS (-4Kb .trx).
+
+
+2008-12-23	lly
+*******************************************************************************
+  ntpclient-2007_365.tar.bz2		- Обновил версию ntpclient'а.
+  ez-ipupdate.diff			- Правка корректного запуска configure под новый тулчейн. Для Zoneedit новый хост - dynamic.zoneedit.com. Патч от theMIROn для поддержки HTTP/301 redirect.
+
+  Makefile, Makefile.diff		- Использование EXTRACFLAGS для сборки пакетов. Подправлен вызов configure.
+  rc.diff, rcamdmips.diff,		\
+  config.diff, httpd.diff,		 |
+  rp-l2tp/rp-l2tp-0.4.patch,	 	 | Проставил флаг -mips32 для компиляции больших пакетов, уменьшение размера кода минимум на 5% (-21Kb .trx).
+  busybox/busybox-1.1.3.config,		 |
+  ppp/ppp-2.4.2.patch,			 |
+  vsftpd/vsftpd-2.0.6.patch,		 |
+  iproute2-2.4.7-now-ss010824.patch,	 |
+  wlconf.tar.gz				/
+
+
+2008-12-20	lly		wl500g-1.9.2.7-d6
+*******************************************************************************
+  Makefile.diff				- Временное компромиссное решение - ядро собирается gcc 3.4.6, а всё остальное, gcc 4.1 (-4Kb .trx).
+  busybox-1.1.3-ether-wake.patch	- ether_hostton() есть в uClibc 0.9.30
+
+
+2008-12-19	lly
+*******************************************************************************
+  kernel/kernel-flash-partitions.patch	- Увеличение размера flashfs на всё свободное пространство для прошивок размером более 3800Kb, грануляция 64Kb.
+  kernel/kernel-squashfs.patch		- Суффикс ULL к большим константам SQUASHFS_INVALID и т.д.
+  iptables-1.3.8.patch			\
+  LPRng.diff				 | Избавление от warning'ов.
+  rc.diff				 |
+  infosvr.diff				/
+
+
+2008-12-16	lly
+*******************************************************************************
+  kernel/kernel-gcc4.patch		- Очередная попытка к миграции на gcc 4.1 (Исправление warning'ов, большой размер ядра из-за огромного finline-limit).
+  kernel/kernel-buildhost.patch		- Rollback ошибочных изменений макроса if_gcc4.
+
+
+2008-12-15	lly
+*******************************************************************************
+  kernel.config				- Выключен CONFIG_INPUT_KEYBDEV т.к. он требует включения в ядро(не модулем) CONFIG_VT, а это +2Kb (иначе вылезают unresolved handle_scancode, kbd_ledfunc, и т.д.).
+  kernel/openwrt/brcm/001-bcm47xx.patch			\
+  kernel/openwrt/brcm/003-bcm47xx_cache_fixes.patch      |
+  kernel/openwrt/brcm/002-wl_fix.patch                   | Избавление от моря warning'ов.
+  kernel/openwrt/618-netfilter_multiport_backport.patch  |
+  brcm-src/brcm-src-include.patch			 |
+  brcm-src/brcm-src-shared.patch			/
+  kernel/openwrt/225-string_lib_useful_exports.patch	- Исключен, т.к. все необходимые экспорты уже есть в arch/mips/kernel/mips_ksyms.c
+
+
+2008-12-14	lly
+*******************************************************************************
+  kernel/kernel-usb-acm.patch		- Условная компиляция CONFIG_USB_DEVPATH
+  kernel/kernel-usb-devpath.patch	- Добавлен патч /proc/bus/usb/devpath от Jiri Engelthaler <engy@centrum.cz> из CDMA 1.71. Но фича по умолчанию выключена - CONFIG_USB_DEVPATH=n в kernel.config
+
+
+2008-12-13	lly
+*******************************************************************************
+  kernel/kernel-netfilter-extras.patch	- Добавил забытые при переезде на новый тулчейн ip_pool.h ipt_pool.h ipt_mport.h
+
+  Правки для успешной компиляции прошивки при помощи GCC 4.1:
+   netconf.diff, httpd.diff, LPRng.diff, iproute2-2.4.7-now-ss010824.patch, 
+   kernel/kernel-ppp_filter.patch, kernel/kernel-squashfs.patch, kernel/kernel-buildhost.patch, 
+   kernel/openwrt/113-even_more_gcc4_stuff.patch (include/asm-mips/uaccess.h: __get_user_*)
+
+  toolchain				- Попытка переезда на GCC 4.1.2, неудачна - ядро падает, откатился. (В варианте ядро и модули компилится gcc 3.4.6, всё остальное gcc 4.1.2 - работает).
+
+  asustrx.tar.bz2			- Сделал include <trxhdr.h> вместо вбитых констант.
+
+
+2008-12-08	lly
+*******************************************************************************
+  kernel/kernel.config			- Включил модуль SCH_CBQ, убрал модуль ip_nat_starcraft.o, поставил CONFIG_IP_ROUTE_MULTIPATH=y  (+1.5Kb к ядру).
+
+
+2008-12-06	lly		wl500g-1.9.2.7-d5
+*******************************************************************************
+  kernel/kernel-usb-hub11.patch		- Workaround для USB 1.1 устройств, подсоединенных через USB 2.0 hub. Симптом - "usb.c: unable to get device descriptor (error=-32)", оригинальный код ошибки в usb_get_descriptor() при его _втором_ вызове из usb_new_device() уже с полным размером дескриптора в 18 байт, на самом деле USB_ST_DATAOVERRUN (-EOVERFLOW) он же "Babble". 
+
+
+2008-12-03	lly
+*******************************************************************************
+  kernel/kernel.config			- Включены модули: USB_ACM, NET_SCH_PRIO.
+  kernel/kernel-ftdi.patch		- Обновлен драйвер ftdi_sio.c
+  kernel/kernel-usb-acm.patch		- Добавлен патч на drivers/usb/acm.c \
+  kernel/kernel-ppp_filter.patch	- Добавлен патч ppp_filter            | от Jiri Engelthaler <engy@centrum.cz> из прошивки CDMA 1.71 c http://koppel.cz/cdmawifi
+  kernel/kernel-conntrack_clear.patch	- Добавлен патч ip_conntrack_clear   /
+
+
+2008-12-02	lly
+*******************************************************************************
+  Kernel 2.4.37
+
+  kernel/openwrt/622-netfilter_ipset_porthash.patch, 623-netfilter_ip6t_reject.patch - патчи из основной ветки OpenWRT, на будущее.
+  kernel/openwrt/616-netfilter_imq.patch	- обновлен для нового ядра.
+  kernel/openwrt/619-netfilter_classify.patch	- удален, т.к. уже включен в ядро.
+
+  nas, wl		- Бинарники заменены на объектники nas_exe.o , wl_exe.o из SDK Broadcom 4.150.10.5 (с сайта OpenWRT) с последующей линковкой с текущей uClibc. (удалены nas-4.150.10.5.gz, nas.diff; изменены wl-4.150.10.29.tar.bz2, utils.diff, Makefile, Makefile.diff)
+  pptp-1.7.1		- Апгрейд, добавлен ключик --no-host-route запрещающий добавление host маршрута к VPN серверу (изменен pptp/pptp-1.7.1-route.patch).
+
+
+2008-11-26	lly		wl500g-1.9.2.7-d4
+*******************************************************************************
+  Makefile.diff		- автоматическое определение версии ядра по include/linux/version.h
+  p910nd 0.92
+
+
+2008-11-25	lly
+*******************************************************************************
+  kernel/kernel-epoll.patch	- Имплантирован интерфейс epoll (+4Kb к ядру).
+
+  toolchain			- Добавлены патчи к uClibc (202-fuse-daemon-fork.patch)
+
+
+2008-11-22	lly
+*******************************************************************************
+  wl 4.150.10.29 из прошивки WL500gpV2 3.0.3.5 (wl_apsta.o, brcm-src-include.patch)
+
+
+2008-11-17	lly		wl500g-1.9.2.7-d3
+*******************************************************************************
+  dnsmasq 2.46
+  dropbear 0.52 (убраны неактуальные dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-missing-return.patch)
+
+
+2008-11-11	lly
+*******************************************************************************
+  Kernel 2.4.36.9
+
+
+2008-11-02	lly
+*******************************************************************************
+  Kernel 2.4.36.8
+
+
+2008-10-08 	lly		wl500g-1.9.2.7-d1
+*******************************************************************************
+  toolchain		- Добавлены патчи к uClibc (140-fix-endless-recursion-in-pthread.patch, 150-fix-ldso-text-realloc-segfault.patch, исправлен uClibc-0.9.29-mips-dl-debug.patch)
+
+  udpxy-1.0_Chipmunk-7
+
+
+2008-09-08	lly
+*******************************************************************************
+  Kernel 2.4.36.7
+
+
+2008-09-03	lly
+*******************************************************************************
+  kernel/openwrt/brcm/801-bcm4785.patch - Добавлен патч из OpenWRT (SVN Changeset 11470)
+
+
+2008-08-25	lly		wl500g-1.9.2.7-d
+*******************************************************************************
+  Переезд на baseline 1.9.2.7-10 (www.diff, httpd.diff, rc.diff, shared.diff, others.diff, Makefile.diff, brcm-src/brcm-src-5365.patch, kernel/kernel-bcm5354.patch)
+
+  brcm-src/brcm-src-include.patch \ if defined(BCM5xxx) заменено на if defined(CONFIG_BCM5xxx)
+  brcm-src/brcm-src-shared.patch  /  для автоматического выставления в опциях ядра
+
+  brcm-src/brcm-src-parkid.patch уже учтено в OpenWRT патчах - выкинут.
+
+  brcm-boards.tar.bz2	- В arch/mips/bcm947xx/compressed/Makefile добавлен hndpmu.c
+
+  kernel/openwrt/brcm/001-bcm47xx.patch
+
+  patch.sh		- Если патч не найден, теперь вываливаемся по exit 1
+  Makefile		- Починен после разгрома 2008-07-04 (samba, зависимости lib и т.д. от .config)
+
+
+2008-08-20	lly
+*******************************************************************************
+  udpxy-1.0_Chipmunk-6
+
+
+2008-07-30	lly
+*******************************************************************************
+  dnsmasq 2.45
+
+
+2008-07-08	lly
+*******************************************************************************
+  uClibc/uClibc-0.9.29-start_main.patch		- Добавлена функция-переходник __uClibc_start_main для бинарников версии uClibc старше чем 0.9.28 (т.к. nas и wl собраны под uClibc 0.9.19). Но версии старше 0.9.15 бинарно несовместимы совсем.
+  uClibc/uClibc-0.9.29-mips-dl-debug.patch	- Исправлен Segfault в _dl_reltypes() при включенном LD_DEBUG=reloc на платформе mips (дырки при инициализации массива _dl_reltypes_tab).
+  uClibc/uClibc-0.9.29-gethostent_r-failure-retval.patch	\ патчи из текущего trunk'а uClibc
+  uClibc/uClibc-0.9.29-conditional-sched_affinity.patch		/
+
+
+2008-07-04	lly
+*******************************************************************************
+  Makefile		- все патчевание переведено на использование patch.sh
+			  добавлен вызов make clean для пакетов из router/ т.к. там могут оказаться старые бинарники (например, в nvram)
+
+  kernel/openwrt/050-build_flags.patch	- возвращен флаг -funit-at-a-time т.к. поддерживается новым toolchain'ом
+
+  dropbear/*.patch	- hot-fix патчи из mailing-list'а Dropbear (dropbear-0.51-charo-io.patch, dropbear-0.51-missing-return.patch, dropbear-0.51-pipe.patch, dropbear-0.51-scp-no-mmu.patch, dropbear-0.51-uninit-defect.patch)
+
+  udpxy-1.0_Chipmunk-2
+
+
+2008-07-01	lly
+*******************************************************************************
+  kernel/openwrt/		- добавлены патчи из OpenWRT SVN 2008-06-14
+    116-bridge_ioctls.patch
+    801-usb_serial_endpoint_size.patch
+
+  shared.diff		- в shutils.h включен <string.h> для прототипов strcpy(), strcat()
+  upnp.diff		- в igd.h включен <signal.h> в вариант linux
+
+
+2008-06-30	lly
+*******************************************************************************
+  busybox/busybox-1.1.3-e2fsck-checkinterval.patch	\
+  others.diff						 | из версии Олега -10
+  udpxy 0.1-37                                          /
+
+  samba/samba-2.0.10-gcc34.patch - фикс, определение аргументов 2,3 в dbghdr() как const char *
+  kernel/openwrt/206-gcc_3.4_fixes.patch - добавлен фикс __attribute_used__ в linux/compiler.h
+
+  loader-0.05.tar.bz2	- добавлена обработка аргументов от CFE из OpenWRT (SVN Changesets 11275, 11340)
+
+
+2008-06-28	lly		wl500g-1.9.2.7-c
+*******************************************************************************
+  !!! Пересобран toolchain (gcc-3.4.6, binutils 2.17, uClibc 0.9.29) по шаблону OpenWRT SVN 2008-06-14
+  !!!  добавлены патчи binutils-2.17-m4710a0.patch, gcc-3.4.6-m4710a0.patch, uClibc-0.9.29-scalar_t.patch, binutils-bfd-elfxx-mips-opt.patch
+  !!!
+  !!!  P.S. binutils 2.18 не встал - сломан strip для архитектуры mips
+
+  uClibc 0.9.29		- Ура!!
+  lib.diff		- В список Extra-библиотек добавлена libgcc_s так как она теперь не линкуется с основной :( И ключ ADD_LIBGCC_FUNCTIONS удалён из конфига uClibc
+
+  httpd.diff,		\
+  LPRng.diff,            | Исправления для совместимости с новой версией gcc 3.4 (прототипы функций)
+  rcamdmips.diff,        |
+  rc.diff		/
+  kernel/openwrt/609-netfilter_string.patch
+
+  loader-0.04.tar.bz2	- Флаг компиляции -mcpu=r4600 заменен на -mips32
+
+  kernel-flash-mirrorbit.patch - пофиксена проблема скорости записи во flash в 2.4.36 (убрано отладочное сообщение об установке DQ5 во время записи)
+  kernel/kernel-brcm-src.patch - поправлен drivers/mtd/mtdblock_ro.c на совместимость с gcc 3.4
+
+
+2008-06-15	lly
+*******************************************************************************
+  Kernel 2.4.36.6
+
+  kernel/kernel-pl2303.patch - глобальная подчистка патча т.к. в ядре 2.4.36.3 сделан бэкпорт с 2.6.24.1
+
+  dropbear 0.51
+  dnsmasq 2.42		- для uClibc 0.9.19 пришлось добавлять библиотечный файл prctl.c из 0.9.29 (т.к. этот вызов sysctl есть в любом ядре 2.4 - всё работает)
+
+  utils.diff		- Обновление mii-tool
+
+
+2008-03-18	lly		wl500g-1.9.2.7-b
+*******************************************************************************
+  Переезд на baseline 1.9.2.7-9 (www.diff, shared.diff, kernel/kernel-printer-undo-status.patch, kernel/kernel-gpiortc.patch, kernel/kernel-bt-2.4.31-mh1.patch)
+
+  Kernel 2.4.36.2
+
+  kernel/openwrt/110-netdev_random_core.patch - адаптация к последнему ядру
+
+
+2008-02-23	lly
+*******************************************************************************
+  dropbear 0.50
+  dnsmasq 2.27		- в dnsmasq-2.27.patch добавлены crash fixes из 2.30 
+
+  upnp.diff		- починен метод clean
+
+  kernel/kernel-usb-hid-bugs.patch	- вычищены устаревшие куски
+
+
+2008-02-08	lly
+*******************************************************************************
+  others/parport	- down_interruptible(), up() стали static inline; сделана перелинковка модулей с "довеском" (ksyms.c)
+  Makefile		- почти все патчевание переведено на использование patch.sh
+  Makefile.diff		- 1) сборка ядра(modules, zImage) разбита на две фазы для диагностики ошибок сборки ядра
+			  2) починено правило igmpproxy-clean
+  config.diff		- убрал IPv6
+  busybox-1.1.3.config	- убрал IPv6, добавил CONFIG_FEATURE_CHECK_TAINTED_MODULE=y для поддержки GPLONLY модулей
+  others.diff		- копирование модулей ядра не в каталог 2.4.20, а задаваемый переменной $(LINUX_KERNEL)
+			  модули параллельного порта (parport) принтера копируются только для моделей с ieee1284 портом
+
+  kernel/kernel-printer-id-fix.patch	\ вычищены устаревшие куски
+  kernel/kernel-printer-bug.patch	/
+
+
+2008-01-08	lly		wl500g-1.9.2.7-a
+*******************************************************************************
+  iptables 1.3.8
+  netconf.diff		- исправления в связи с апгрейдом iptables на ветку 1.3 ( iptc_free(), конверт netconf_get_target() )
+
+
+2008-01-05	lly
+*******************************************************************************
+  brcm-src-include.patch	- добавлены файлики из openWRT
+  rc.diff		- починен в firewall_ex.c вывод dprintf(buf) в случае отладки
+  patch.sh		- расширена диагностика, добавлены ключи доп. логгирования (-d), реверса (-r)
+
+ * Патчи к ядру из OpenWRT kamikadze 7.09
+  kernel/openwrt/brcm/001-bcm47xx.patch	- в init/do_mounts.c добавлена поддержка mtdblock_ro, флаг сборки заменен на -mips2, 
+  kernel/openwrt/brcm/003-bcm47xx_cache_fixes.patch - typedefs.h и sbconfig.h берутся по стандартным путям
+  kernel/openwrt/brcm/004-flash.patch - убраны лишние опции в Makefile что мешало сборке devices/mtd/*
+  kernel/openwrt/050-build_flags.patch	- адаптация к toolchain'у 3.2.3 от Broadcom (добавлен флаг -m4710a0kern, убран -funit-at-a-time)
+  kernel/openwrt/607-netfilter_connmark.patch - добавлены недостающие .h заголовки, адаптация к последнему ядру
+  kernel/openwrt/005-mtd_flashtypes.patch	\
+  kernel/openwrt/212-htb_time_fix.patch		 | адаптация к последнему ядру
+  kernel/openwrt/228-more_usb_fixes.patch	 |
+  kernel/openwrt/616-netfilter_imq.patch	/
+
+ * Патчи к ядру 2.4.36:
+  brcm-boards.tar.bz2		- архив отсутствующих исходников к Broadcom'у в 2.4.36
+				 (arch/mips/bcm947xx, drivers/mtd/devices, drivers/mtd/maps, drivers/net/et, drivers/net/hnd, drivers/net/wl, drivers/pcmcia, scripts/cramfs)
+  kernel-netfilter-extras.patch	- переезд на новые iptables 1.3
+  kernel-brcm-src.patch		- добавлены патчи от Broadcom из 2.4.20
+				 ( drivers/mtd/mtdblock_ro.c, net/ipv4/ipconfig.c, drivers/pcmcia/bcm4710* )
+  kernel-printer-asus.patch	- добавлены патчи от Asus из 2.4.20
+  kernel-buildhost.patch		- определения htonl/ntohl из include/linux/byteorder/generic.h открыты для всех
+  kernel.patch			- разделен на kernel-squashfs.patch + kernel-ov51x.patch
+  kernel-lzma.patch		- переименован в kernel-squashfs-lzma.patch
+  kernel-pl2303.patch		- добавлены новые VID/PID переходников, вырезаны куски приводившие к downgrade'у до 2.4.20
+  kernel-flash-mirrorbit.patch	- переименован в kernel-flash-mirrorbit.patch и убраны устаревшие в 2.4.36 куски
+
+ * Удалены (включены в ядро/openWRT патчи):
+  kernel-2.4.20-ext3.patch
+  kernel-audigy.patch
+  kernel-2.4.20-ptrace.patch
+  kernel-nfs-maxblksize.patch
+  kernel-syn-recv.patch
+  kernel-printer-13.patch
+  kernel-usb.patch
+  kernel-usb-hiddev.patch
+  kernel-usb-host-2.4.33-pre2.patch
+  kernel-ide.patch
+  kernel-usb-via6212.patch
+  kernel-serial-irq.patch 
+  kernel-old-gpio.patch
+  kernel-netfilter-debug.patch
+  kernel-mppe-mppc-0.98.patch
+  kernel-iptables-connmark.patch
+
+
+2007-12-27	lly
+*******************************************************************************
+  Start of migration to latest 2.4.36 kernel & uClibc 0.9.29.
