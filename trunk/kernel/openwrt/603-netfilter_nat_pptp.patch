@@ -511,7 +511,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack_tuple.h lin
  
  	struct {
  		u_int16_t port;
-@@ -25,6 +25,9 @@
+@@ -25,6 +25,9 @@ union ip_conntrack_manip_proto
  	struct {
  		u_int16_t id;
  	} icmp;
@@ -521,7 +521,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack_tuple.h lin
  };
  
  /* The manipulable part of the tuple. */
-@@ -44,7 +47,7 @@
+@@ -44,7 +47,7 @@ struct ip_conntrack_tuple
  		u_int32_t ip;
  		union {
  			/* Add other protocols here. */
