@@ -17,6 +17,8 @@
 
   * udpxy 1.0-Chipmunk-14
 
+  * usb_modeswitch 1.0.2
+
   * bugfixes
     * busybox (udhcpc, test, sed, ash math operations)
     * iproute2 (tc qdisc statistics, pfifo_fast)
