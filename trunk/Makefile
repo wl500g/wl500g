@@ -182,6 +182,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	$(PATCHER) $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
+	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
 	mv $(TOP)/$(BUSYBOX) $(TOP)/busybox
 
 busybox: $(TOP)/busybox
