@@ -48,6 +48,7 @@ SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.2
 USBMODESWITCH=usb_modeswitch-1.0.2
+MADWIMAX=madwimax-0.1.1
 
 UCLIBC=uClibc-0.9.29
 
@@ -92,7 +93,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucdsnmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips sendmail \
-	scsi-idle libusb usb_modeswitch \
+	scsi-idle libusb usb_modeswitch wimax \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
@@ -514,6 +515,14 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
 
 usb_modeswitch: $(TOP)/usb_modeswitch
+	@true
+
+$(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
+	rm -rf $(TOP)/$(MADWIMAX) $@
+	tar -zxf $^ -C $(TOP)
+	mv $(TOP)/$(MADWIMAX) $@ && touch $@
+
+wimax: $(TOP)/madwimax
 	@true
 
 $(TOP)/others:

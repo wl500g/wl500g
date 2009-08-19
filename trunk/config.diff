@@ -67,7 +67,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  config CONFIG_PPP
         bool "PPPoE client"
         depends on CONFIG_NAT
-@@ -223,6 +218,147 @@
+@@ -223,6 +218,156 @@
  
  endmenu
  
@@ -212,6 +212,15 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +
 +endmenu
 +
++config CONFIG_MADWIMAX
++       bool "WiMAX modem support"
++       depends on CONFIG_LIBUSB
++       default y
++       help
++       Include driver for WiMAX modems (Yota).
++
++endmenu
++
  menu "Additional C libraries"
  
  config CONFIG_LIBCRYPT
@@ -307,7 +316,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  CONFIG_NTP=y
  CONFIG_DNSMASQ=y
  CONFIG_UTILS=y
-@@ -42,15 +40,50 @@
+@@ -42,15 +40,51 @@
  # CONFIG_WCN is not set
  
  #
@@ -343,6 +352,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 +CONFIG_IGMPPROXY=y
 +CONFIG_SCSIIDLE=y
 +CONFIG_USBMODESWITCH=y
++CONFIG_MADWIMAX=y
 +
 +#
  # Additional C libraries

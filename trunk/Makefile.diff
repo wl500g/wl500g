@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-08-17 15:15:59.000000000 +0000
++++ gateway/Makefile	2009-08-19 10:04:36.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -60,7 +60,7 @@
  endif
  
  export CC := $(CROSS_COMPILE)gcc
-@@ -72,8 +91,22 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
+@@ -72,8 +91,28 @@ export PLATFORMDIR := $(TOP)/$(PLATFORM)
  export INSTALLDIR := $(PLATFORMDIR)/install
  export TARGETDIR := $(PLATFORMDIR)/target
  
@@ -74,18 +74,24 @@
 +# always build libbcmcrypto, required by nas
 +obj-y += libbcmcrypto 
 +
-+# always build libusb, only if required by usb_modeswitch
++# always build libusb, if required by usb_modeswitch
 +ifeq ($(CONFIG_USBMODESWITCH),y)
 +export CONFIG_LIBUSB := y
-+obj-$(CONFIG_LIBUSB) += libusb10
 +obj-$(CONFIG_LIBUSB) += libusb
-+else
-+CONFIG_LIBUSB :=
++endif
++
++# always build libusb, if required by madwimax
++ifeq ($(CONFIG_MADWIMAX),y)
++export CONFIG_LIBUSB := y
++endif
++
++ifeq ($(CONFIG_LIBUSB),y)
++obj-$(CONFIG_LIBUSB) += libusb10
 +endif
  
  #
  # Configuration
-@@ -84,18 +117,14 @@ obj-$(CONFIG_RC) += rc
+@@ -84,18 +123,14 @@ obj-$(CONFIG_RC) += rc
  obj-$(CONFIG_LIBBCM) += libbcm
  obj-$(CONFIG_SHARED) += shared
  obj-$(CONFIG_WWW) += www
@@ -105,7 +111,7 @@
  obj-$(CONFIG_NETCONF) += netconf
  obj-$(CONFIG_NTP) += ntpclient
  obj-$(CONFIG_NVRAM) += nvram
-@@ -107,44 +136,79 @@ obj-$(CONFIG_ETC) += etc
+@@ -107,44 +142,80 @@ obj-$(CONFIG_ETC) += etc
  obj-$(CONFIG_VLAN) += vlan
  
  # Added by Joey for ASUS application
@@ -144,6 +150,7 @@
 +obj-$(CONFIG_STUPIDFTPD) += vsftpd
 +obj-$(CONFIG_SCSIIDLE) += scsi-idle
 +obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
++obj-$(CONFIG_MADWIMAX) += madwimax
 +obj-y += udpxy
 +
 +obj-y += kernel
@@ -203,7 +210,7 @@
  
  clean: $(obj-clean) config-clean
  	rm -rf $(TARGETDIR)
-@@ -155,38 +219,216 @@ clean: $(obj-clean) config-clean
+@@ -155,38 +226,216 @@ clean: $(obj-clean) config-clean
  distclean mrproper: clean
  	rm -f .config $(LINUXDIR)/.config
  
@@ -444,7 +451,7 @@
  
  #
  # Configuration rules
-@@ -225,16 +467,17 @@ oldconfig: oldconf
+@@ -225,16 +474,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -465,7 +472,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +485,64 @@ www www-%:
+@@ -242,43 +492,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -548,7 +555,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +558,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +565,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -558,7 +565,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +573,274 @@ vlan:
+@@ -312,215 +580,287 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -710,7 +717,7 @@
 +	$(STRIP) $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-start
 +	ln -sf scsi-start $(INSTALLDIR)/scsi-idle/usr/sbin/scsi-stop
 +
-+libusb:
++libusb: libusb10
 +	$(MAKE) -C libusb \
 +	    CFLAGS="-Wall -Os $(EXTRACFLAGS) -I$(TOP)/libusb10/libusb" \
 +	    LDFLAGS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
@@ -727,7 +734,7 @@
 +	ln -sf libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0
 +	ln -sf libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
 +
-+usb_modeswitch:
++usb_modeswitch: libusb
 +	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
 +	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 +	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
@@ -736,6 +743,19 @@
 +	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
 +	$(STRIP) $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
 +#	install -D -m 0644 usb_modeswitch/usb_modeswitch.conf $(INSTALLDIR)/usb_modeswitch/usr/etc/usb_modeswitch.conf
++
++madwimax/Makefile: madwimax/Makefile.in
++	cd madwimax && CPPFLAGS="$(EXTRACFLAGS)" \
++	    libusb1_CFLAGS="-I$(TOP)/libusb10/libusb" \
++	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
++	$(CONFIGURE) --prefix=/usr --without-man-pages --with-script=wl500g
++
++madwimax: madwimax/Makefile libusb10
++	$(MAKE) -C $@
++
++madwimax-install:
++	install -D madwimax/src/madwimax $(INSTALLDIR)/madwimax/usr/sbin/madwimax
++	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
  
 -pptp-client-install: pptp-client
 -	install -D pptp-client/pptp $(INSTALLDIR)/pptp-client/usr/sbin/pptp
@@ -1002,7 +1022,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +848,9 @@ image-R100:
+@@ -528,6 +868,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
