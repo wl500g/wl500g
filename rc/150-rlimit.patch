@@ -1,6 +1,6 @@
-diff -urBp rc.old/rc.c rc/rc.c
---- rc.old/rc.c	2009-04-26 17:54:12.000000000 +0400
-+++ rc/rc.c	2009-08-18 20:26:54.000000000 +0400
+diff -BurpN rc.orig/rc.c rc/rc.c
+--- gateway/rc.orig/rc.c	2009-03-10 17:31:58.000000000 +0000
++++ gateway/rc/rc.c	2009-08-19 14:51:15.000000000 +0000
 @@ -26,6 +26,7 @@
  #include <sys/stat.h>
  #include <sys/sysmacros.h>
@@ -9,22 +9,16 @@ diff -urBp rc.old/rc.c rc/rc.c
  #include <sys/utsname.h>
  #include <sys/wait.h>
  #include <sys/socket.h>
-@@ -588,6 +589,7 @@ sysinit(void)
+@@ -588,6 +589,12 @@ sysinit(void)
  	struct tm gm, local;
  	struct timezone tz;
  	struct timeval tv = { 0 };
 +	struct rlimit lim;
- 
- 	/* /proc */
- 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
-@@ -654,6 +656,10 @@ sysinit(void)
- 	if (exists("/dev/misc/rtc"))
- 		eval("/sbin/hwclock", "-s");
- 
++
++	/* set default hardlimit */
 +	getrlimit(RLIMIT_NOFILE, &lim);
 +	lim.rlim_max = 16384;
 +	setrlimit(RLIMIT_NOFILE, &lim);
-+
- 	dprintf("done\n");
- }
  
+ 	/* /proc */
+ 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
