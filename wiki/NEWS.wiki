@@ -1,10 +1,11 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d-Current ===
+===wl500g-1.9.2.7-d-`r461` (2009-08-20)===
   * kernel 2.4.37.5
     * accel-pptp driver (EXPERIMENTAL!!!)
-    * Include IMQ driver
+        it controlled by wan0_pptp_kernel nvram variable, for details see wl500g.info forum ([http://wl500g.info/showpost.php?p=156512&postcount=90 RUS thread] [http://wl500g.info/showpost.php?p=156860&postcount=239 ENG thread])
+    * include IMQ driver
     * USB: fix infinite loop when unloading khubd
     * USB: fix interrupt transfers for usbdevfs
 
@@ -19,8 +20,10 @@
 
   * usb_modeswitch 1.0.2
 
+  * madwimax driver 0.1.1
+
   * bugfixes
-    * busybox (udhcpc, test, sed, ash math operations)
+    * busybox (udhcpc, test, sed, tail, ash math operations)
     * iproute2 (tc qdisc statistics, pfifo_fast)
     * libusb-compat 0.1.3
 
