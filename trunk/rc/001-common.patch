@@ -5308,8 +5308,16 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  
  #include <bcmnvram.h>
  #include <shutils.h>
-@@ -33,7 +35,11 @@
+@@ -25,15 +27,13 @@
+ #include <stdarg.h>
+ #include <wlioctl.h>
  
+-#if 0 
+-#define DEBUG printf
+-#else
+-#define DEBUG(format, args...) 
+-#endif
+-
  #define BCM47XX_SOFTWARE_RESET  0x40		/* GPIO 6 */
  #define RESET_WAIT		3		/* seconds */
 -#define RESET_WAIT_COUNT	RESET_WAIT * 10 /* 10 times a second */

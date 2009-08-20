@@ -934,7 +934,7 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
 +#endif
 diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
 --- router/shared/shutils.h	2004-11-15 03:34:19.000000000 +0000
-+++ gateway/shared/shutils.h	2008-03-17 17:52:17.000000000 +0000
++++ gateway/shared/shutils.h	2009-08-20 10:21:34.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -960,7 +960,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  /*
   * Reads file and returns contents
   * @param	fd	file descriptor
-@@ -113,6 +122,78 @@ static inline char * strcat_r(const char
+@@ -113,6 +122,78 @@
  	return buf;
  }	
  
@@ -1039,7 +1039,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  /* Check for a blank character; that is, a space or a tab */
  #define isblank(c) ((c) == ' ' || (c) == '\t')
  
-@@ -130,20 +211,11 @@ static inline char * strcat_r(const char
+@@ -130,20 +211,11 @@
  	_backtick(argv); \
  })
  
@@ -1060,28 +1060,18 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  
  /* Copy each token in wordlist delimited by space into word */
  #define foreach(word, wordlist, next) \
-@@ -162,17 +234,16 @@ static inline char * strcat_r(const char
+@@ -162,8 +234,9 @@
  /* Return NUL instead of NULL if undefined */
  #define safe_getenv(s) (getenv(s) ? : "")
  
 -#ifdef REMOVE
-+#ifdef linux
++#if defined(linux) && defined(DEBUG)
  /* Print directly to the console */
 +
  #define cprintf(fmt, args...) do { \
--	FILE *fp = fopen("/dev/console", "w"); \
-+	FILE *fp = fopen("/dev/null", "w"); \
+ 	FILE *fp = fopen("/dev/console", "w"); \
  	if (fp) { \
- 		fprintf(fp, fmt, ## args); \
- 		fclose(fp); \
- 	} \
- } while (0)
--#else
--#define cprintf(fmt, args...) 
- #endif
- 
- /* Debug print */
-@@ -180,7 +251,7 @@ static inline char * strcat_r(const char
+@@ -180,7 +251,7 @@
  #define dprintf(fmt, args...) cprintf("%s: " fmt, __FUNCTION__, ## args)
  #else
  #define dprintf(fmt, args...)
