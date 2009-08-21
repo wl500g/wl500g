@@ -59,7 +59,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  static void pptp_disconnect(void)
  {
  	close(pptp_fd);
-+	route_del(&rt); // don't delete, as otherwise it would try to use pppX in demand mode
++	//route_del(&rt); // don't delete, as otherwise it would try to use pppX in demand mode
  }
  
  static int open_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
