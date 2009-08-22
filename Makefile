@@ -520,6 +520,8 @@ usb_modeswitch: $(TOP)/usb_modeswitch
 $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	rm -rf $(TOP)/$(MADWIMAX) $@
 	tar -zxf $^ -C $(TOP)
+	[ ! -f wimax/$(MADWIMAX).patch ] || \
+		$(PATCHER) $(TOP)/$(MADWIMAX) wimax/$(MADWIMAX).patch
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
