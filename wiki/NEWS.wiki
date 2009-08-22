@@ -1,7 +1,7 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d-`r461` (2009-08-20)===
+===wl500g-1.9.2.7-d-`r473` (2009-08-22)===
   * kernel 2.4.37.5
     * accel-pptp driver (EXPERIMENTAL!!!)
         it controlled by wan0_pptp_kernel nvram variable, for details see wl500g.info forum ([http://wl500g.info/showpost.php?p=156512&postcount=90 RUS thread] [http://wl500g.info/showpost.php?p=156860&postcount=239 ENG thread])
