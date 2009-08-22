@@ -1,0 +1,133 @@
+diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-22 04:58:23.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-22 04:52:53.000000000 +0000
+@@ -134,7 +134,7 @@ static int pptp_start_client(void)
+ 	hostinfo=gethostbyname(pptp_server);
+ 	if (!hostinfo)
+ 	{
+-		fatal("PPTP: Unknown host %s\n", pptp_server);
++		warn("PPTP: Unknown host %s\n", pptp_server);
+ 		return -1;
+ 	}
+ 	dst_addr.sa_addr.pptp.sin_addr=*(struct in_addr*)hostinfo->h_addr;
+@@ -152,7 +152,7 @@ static int pptp_start_client(void)
+ 		sock=socket(AF_INET,SOCK_DGRAM,0);
+ 		if (connect(sock,(struct sockaddr*)&addr,sizeof(addr)))
+ 		{
+-			fatal("PPTP: connect failed (%s)\n",strerror(errno));
++			warn("PPTP: connect failed (%s)\n",strerror(errno));
+ 			return -1;
+ 		}
+ 		getsockname(sock,(struct sockaddr*)&addr,&len);
+@@ -175,7 +175,7 @@ static int pptp_start_client(void)
+ 	pptp_fd=socket(AF_PPPOX,SOCK_STREAM,PX_PROTO_PPTP);
+ 	if (pptp_fd<0)
+ 	{
+-		fatal("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
++		warn("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 	/* obsolete from 0.7
+@@ -184,24 +184,31 @@ static int pptp_start_client(void)
+ 	*/
+ 	if (bind(pptp_fd,(struct sockaddr*)&src_addr,sizeof(src_addr)))
+ 	{
+-		fatal("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
++		close(pptp_fd);
++		warn("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 	len=sizeof(src_addr);
+ 	getsockname(pptp_fd,(struct sockaddr*)&src_addr,&len);
+ 	call_ID=src_addr.sa_addr.pptp.call_id;
+ 
+-  do {
+-        /*
+-         * Open connection to call manager (Launch call manager if necessary.)
+-         */
+-        callmgr_sock = open_callmgr(src_addr.sa_addr.pptp.call_id,dst_addr.sa_addr.pptp.sin_addr, pptp_phone,50);
+-        /* Exchange PIDs, get call ID */
+-    } while (get_call_id(callmgr_sock, getpid(), getpid(), &dst_addr.sa_addr.pptp.call_id) < 0);
++	do {
++    		/*
++		 * Open connection to call manager (Launch call manager if necessary.)
++		 */
++		callmgr_sock = open_callmgr(src_addr.sa_addr.pptp.call_id, dst_addr.sa_addr.pptp.sin_addr, pptp_phone, 50);
++		if (callmgr_sock<0)
++		{
++			close(pptp_fd);
++			return -1;
++		}
++	/* Exchange PIDs, get call ID */
++	} while (get_call_id(callmgr_sock, 0, 0, &dst_addr.sa_addr.pptp.call_id) < 0);
+ 
+ 	if (connect(pptp_fd,(struct sockaddr*)&dst_addr,sizeof(dst_addr)))
+ 	{
+-		fatal("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
++		close(pptp_fd);
++		warn("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 
+@@ -267,7 +274,11 @@ static int open_callmgr(int call_id,stru
+                 default: /* parent */
+                     waitpid(pid, &status, 0);
+                     if (status!= 0)
+-                       fatal("Call manager exited with error %d", status);
++		    {
++			close(fd);
++			warn("Call manager exited with error %d", status);
++			return -1;
++		    }
+                     break;
+             }
+             sleep(1);
+@@ -275,7 +286,7 @@ static int open_callmgr(int call_id,stru
+         else return fd;
+     }
+     close(fd);
+-    fatal("Could not launch call manager after %d tries.", i);
++    warn("Could not launch call manager after %d tries.", i);
+     return -1;   /* make gcc happy */
+ }
+ 
+diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp_callmgr.c accel-pptp/pppd_plugin/src/pptp_callmgr.c
+--- accel-pptp.orig/pppd_plugin/src/pptp_callmgr.c	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp_callmgr.c	2009-08-22 04:56:05.000000000 +0000
+@@ -84,8 +84,8 @@ void call_callback(PPTP_CONN *conn, PPTP
+                 vector_remove(conninfo->call_list, lci->unix_sock);
+                 close(lci->unix_sock);
+                 FD_CLR(lci->unix_sock, conninfo->call_set);
+-                if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
+-                if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
++                //if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
++                //if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
+             }
+             break;
+         default:
+@@ -243,8 +243,8 @@ skip_accept: /* Step 5c: Handle socket c
+                     struct local_callinfo *lci =
+                         pptp_call_closure_get(conn, call);
+                     log("Closing connection (unhandled)");
+-                    if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
+-                    if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
++                    //if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
++                    //if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
+                     free(lci);
+                     /* soft shutdown.  Callback will do hard shutdown later */
+                     pptp_call_close(conn, call);
+@@ -265,11 +265,11 @@ shutdown:
+         /* kill all open calls */
+         for (i = 0; i < vector_size(call_list); i++) {
+             PPTP_CALL *call = vector_get_Nth(call_list, i);
+-            struct local_callinfo *lci = pptp_call_closure_get(conn, call);
++            //struct local_callinfo *lci = pptp_call_closure_get(conn, call);
+             log("Closing connection (shutdown)");
+             pptp_call_close(conn, call);
+-            if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
+-            if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
++            //if(lci->pid[0] > 1) kill(lci->pid[0], SIGTERM);
++            //if(lci->pid[1] > 1) kill(lci->pid[1], SIGTERM);
+         }
+         /* attempt to dispatch these messages */
+         FD_ZERO(&read_set);
