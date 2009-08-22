@@ -5,9 +5,12 @@ Fix tail -n performance
 diff -d -urpN busybox.5/coreutils/tail.c busybox.6/coreutils/tail.c
 --- busybox.5/coreutils/tail.c	2009-08-09 22:08:35.858390456 +0200
 +++ busybox.6/coreutils/tail.c	2009-08-10 03:15:38.562426745 +0200
-@@ -53,9 +53,11 @@ static ssize_t tail_read(int fd, char *b
- 	/* (A good comment is missing here) */
- 	current = lseek(fd, 0, SEEK_CUR);
+@@ -50,12 +50,12 @@ static ssize_t tail_read(int fd, char *b
+ 	off_t current;
+ 	struct stat sbuf;
+ 
+-	/* (A good comment is missing here) */
+-	current = lseek(fd, 0, SEEK_CUR);
  	/* /proc files report zero st_size, don't lseek them. */
 -	if (fstat(fd, &sbuf) == 0 && sbuf.st_size)
 +	if (fstat(fd, &sbuf) == 0 && sbuf.st_size > 0) {
@@ -19,14 +22,7 @@ diff -d -urpN busybox.5/coreutils/tail.c busybox.6/coreutils/tail.c
  
  	r = full_read(fd, buf, count);
  	if (r < 0) {
-@@ -164,33 +166,51 @@ int tail_main(int argc, char **argv)
- 	fmt = header_fmt + 1;	/* Skip header leading newline on first output. */
- 	i = 0;
- 	do {
-+		int fd = fds[i];
-+
- 		if (nfiles > header_threshhold) {
- 			tail_xprint_header(fmt, argv[i]);
+@@ -169,20 +169,36 @@ int tail_main(int argc, char **argv)
  			fmt = header_fmt;
  		}
  
@@ -34,50 +30,41 @@ diff -d -urpN busybox.5/coreutils/tail.c busybox.6/coreutils/tail.c
 -		 * Beware of backing up too far.
 -		 * Also we exclude files with size 0 (because of /proc/xxx) */
 -		if (COUNT_BYTES && !from_top) {
--			off_t current = lseek(fds[i], 0, SEEK_END);
--			if (current > 0) {
 +		if (!from_top) {
-+			off_t current = lseek(fd, 0, SEEK_END);
+ 			off_t current = lseek(fds[i], 0, SEEK_END);
 +			unsigned off;
-+			if (COUNT_BYTES) {
-+			/* Optimizing count-bytes case if the file is seekable.
-+			 * Beware of backing up too far.
-+			 * Also we exclude files with size 0 (because of /proc/xxx) */
- 				if (count == 0)
+ 			if (current > 0) {
+-				if (count == 0)
 -					continue; /* showing zero lines is easy :) */
-+					continue; /* showing zero bytes is easy :) */
- 				current -= count;
+-				current -= count;
++				if (COUNT_BYTES) {
++				/* Optimizing count-bytes case if the file is seekable.
++				 * Beware of backing up too far.
++				 * Also we exclude files with size 0 (because of /proc/xxx) */
++					if (count == 0)
++						continue; /* showing zero bytes is easy :) */
++					current -= count;
++					if (current < 0)
++						current = 0;
++					xlseek(fds[i], current, SEEK_SET);
++					bb_copyfd_size(fds[i], STDOUT_FILENO, count);
++					continue;
++				}
++#if 1 /* This is technically incorrect for *LONG* strings, but very useful */
++				/* Optimizing count-lines case if the file is seekable.
++				 * We assume the lines are <64k.
++				 * (Users complain that tail takes too long
++				 * on multi-gigabyte files) */
++				off = (count | 0xf); /* for small counts, be more paranoid */
++				if (off > (INT_MAX / (64*1024)))
++					off = (INT_MAX / (64*1024));
++				current -= off * (64*1024);
  				if (current < 0)
  					current = 0;
--				xlseek(fds[i], current, SEEK_SET);
+ 				xlseek(fds[i], current, SEEK_SET);
 -				bb_copyfd_size(fds[i], STDOUT_FILENO, count);
-+				xlseek(fd, current, SEEK_SET);
-+				bb_copyfd_size(fd, STDOUT_FILENO, count);
- 				continue;
- 			}
-+#if 1 /* This is technically incorrect for *LONG* strings, but very useful */
-+			/* Optimizing count-lines case if the file is seekable.
-+			 * We assume the lines are <64k.
-+			 * (Users complain that tail takes too long
-+			 * on multi-gigabyte files) */
-+			off = (count | 0xf); /* for small counts, be more paranoid */
-+			if (off > (INT_MAX / (64*1024)))
-+				off = (INT_MAX / (64*1024));
-+			current -= off * (64*1024);
-+			if (current > 0) {
-+				if (current < 0)
-+					current = 0;
-+				xlseek(fd, current, SEEK_SET);
+-				continue;
 +#endif
-+			}
+ 			}
  		}
  
- 		buf = tailbuf;
- 		taillen = 0;
- 		seen = 1;
- 		newlines_seen = 0;
--		while ((nread = tail_read(fds[i], buf, tailbufsize-taillen)) > 0) {
-+		while ((nread = tail_read(fd, buf, tailbufsize-taillen)) > 0) {
- 			if (from_top) {
- 				nwrite = nread;
- 				if (seen < count) {
