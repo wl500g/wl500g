@@ -66,6 +66,7 @@ char *pptp_client = NULL;
 char *pptp_phone = NULL;
 int pptp_sock=-1;
 int pptp_timeout=100000;
+int log_level = 0;
 struct in_addr localbind = { INADDR_NONE };
 struct rtentry rt;
 
@@ -95,6 +96,8 @@ static option_t Options[] =
       "PPTP socket" },
     { "pptp_phone", o_string, &pptp_phone,
       "PPTP Phone number" },
+    { "loglevel", o_int, &log_level,
+      "debugging level (0=low, 1=default, 2=high)"},
     { NULL }
 };
 

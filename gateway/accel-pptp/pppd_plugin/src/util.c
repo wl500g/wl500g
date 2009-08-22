@@ -26,8 +26,7 @@ va_list ap;						\
 char buf[256], string[256];				\
 va_start(ap, format);					\
 vsnprintf(buf, sizeof(buf), format, ap);		\
-snprintf(string, sizeof(string), "%s %s[%s:%s:%d]: %s",	\
-	 log_string, label, func, file, line, buf);	\
+snprintf(string, sizeof(string), "%s",	buf);		\
 va_end(ap)
 
 /*** open log *****************************************************************/
@@ -44,20 +43,19 @@ static void close_log(void)
 /*** print a message to syslog ************************************************/
 void _log(const char *func, const char *file, int line, const char *format, ...)
 {
-    MAKE_STRING("log");
-    open_log();
-    syslog(LOG_NOTICE, "%s", string);
-    close_log();
+    if (log_level > 0)
+    {
+	MAKE_STRING("log");
+	syslog(LOG_NOTICE, "%s", string);
+    }
 }
 
 /*** print a warning to syslog ************************************************/
 void _warn(const char *func, const char *file, int line, const char *format, ...)
 {
     MAKE_STRING("warn");
-    open_log();
     fprintf(stderr, "%s\n", string);
     syslog(LOG_WARNING, "%s", string);
-    close_log();
 }
 
 /*** print a fatal warning to syslog and exit *********************************/
