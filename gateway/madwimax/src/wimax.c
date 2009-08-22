@@ -103,7 +103,7 @@ static int kernel_driver_active = 0;
 static unsigned char read_buffer[MAX_PACKET_LEN];
 
 static int tap_fd = -1;
-static char tap_dev[20] = "wimax%d";
+static char tap_dev[20] = "wmx%d";
 static int tap_if_up = 0;
 
 static nfds_t nfds;
