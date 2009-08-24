@@ -1,0 +1,29 @@
+Subject: wget: strip trailing whitespace from e.g. "Content-length: 120   "
+Date: Sat, 22 Aug 2009 18:19:48 +0000
+
+function                                             old     new   delta
+wget_main                                           2395    2427     +32
+
+Signed-off-by: Matthijs van de Water <matthijs.van.de.water@gmail.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/networking/wget.c b/networking/wget.c
+index 26b62cc..b8cd549 100644
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -711,7 +711,14 @@ However, in real world it was observed that some web servers
+ 			 */
+ 			while ((str = gethdr(buf, sizeof(buf), sfp /*, &n*/)) != NULL) {
+ 				/* gethdr did already convert the "FOO:" string to lowercase */
+-				smalluint key = index_in_strings(keywords, *&buf) + 1;
++				smalluint key;
++				/* strip trailing whitespace */
++				char *s = strchrnul(str, '\0') - 1;
++				while (s >= str && (*s == ' ' || *s == '\t')) {
++					*s = '\0';
++					s--;
++				}
++				key = index_in_strings(keywords, buf) + 1;
+ 				if (key == KEY_content_length) {
+ 					content_len = BB_STRTOOFF(str, NULL, 10);
+ 					if (errno || content_len < 0) {
