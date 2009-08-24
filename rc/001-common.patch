@@ -1524,7 +1524,7 @@ diff -BurpN -x'*.o' router/rc/interface.c gateway/rc/interface.c
 diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 --- router/rc/Makefile	2004-12-02 08:39:03.000000000 +0300
 +++ gateway/rc/Makefile	2008-12-27 20:07:24.000000000 +0300
-@@ -16,8 +16,8 @@ include $(TOP)/.config
+@@ -16,10 +16,13 @@
  
  CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPTIONS)
  #CFLAGS	+= -g -DDEBUG
@@ -1533,8 +1533,14 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 +CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 +LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared -lcrypt
  
- OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o ntp.o bigpond.o qos.o rcamd.o waveserver.o
+-OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o ntp.o bigpond.o qos.o rcamd.o waveserver.o
++OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o \
++    stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
++    manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o \
++    ntp.o bigpond.o qos.o rcamd.o waveserver.o
  
+ ifeq ($(CONFIG_NETCONF),y)
+ OBJS += firewall.o
 @@ -45,8 +48,12 @@ install: all
  	cd $(INSTALLDIR)/sbin && ln -sf rc init
  	cd $(INSTALLDIR)/sbin && ln -sf rc erase
@@ -5730,7 +5736,7 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  		}
  	}
  
-@@ -359,7 +539,7 @@ int http_processcheck(void)
+@@ -359,7 +537,7 @@ int http_processcheck(void)
  	char buf[256];
  
  	//printf("http check\n");
