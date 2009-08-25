@@ -452,14 +452,18 @@ diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
  
  
-@@ -559,8 +641,8 @@ void update_wan_status(int isup)
+@@ -559,11 +641,12 @@ void update_wan_status(int isup)
+ 
+ 
+ 		if (nvram_invmatch("wan_dnsenable_x", "1"))	
  		{		
++			dns_str[0] = '\0';
  			if (nvram_invmatch("wan_dns1_x",""))
  				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));		
 -			if (nvram_invmatch("wan_dns1_x",""))
 -				sprintf(dns_str, " %s", nvram_safe_get("wan_dns1_x"));		
 +			if (nvram_invmatch("wan_dns2_x",""))
-+				sprintf(dns_str, " %s", nvram_safe_get("wan_dns2_x"));		
++				sprintf(dns_str+strlen(dns_str), " %s", nvram_safe_get("wan_dns2_x"));
  			nvram_set("wan_dns_t", dns_str);
  		}
  		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
