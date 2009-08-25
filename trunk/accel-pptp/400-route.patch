@@ -47,7 +47,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  	{
  		int sock;
  		struct sockaddr_in addr;
-@@ -212,6 +222,7 @@ static int pptp_connect(void)
+@@ -214,6 +224,7 @@ static int pptp_connect(void)
  static void pptp_disconnect(void)
  {
  	close(pptp_fd);
@@ -55,7 +55,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  }
  
  static int open_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
-@@ -332,3 +343,96 @@ void plugin_init(void)
+@@ -334,3 +345,96 @@ void plugin_init(void)
      modem = 0;
  }
  
