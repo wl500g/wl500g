@@ -1,15 +1,7 @@
 diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
---- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-22 06:26:04.000000000 +0000
-+++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-22 06:24:56.000000000 +0000
-@@ -49,6 +49,7 @@
- #include <net/if.h>
- #include <net/ethernet.h>
- #include "if_pppox.h"
-+#include "util.h"
- 
- #include <stdio.h>
- #include <stdlib.h>
-@@ -133,7 +134,7 @@ static int pptp_start_client(void)
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-25 17:20:00.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-25 17:28:11.000000000 +0000
+@@ -136,7 +136,7 @@ static int pptp_start_client(void)
  	hostinfo=gethostbyname(pptp_server);
  	if (!hostinfo)
  	{
@@ -18,7 +10,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  		return -1;
  	}
  	dst_addr.sa_addr.pptp.sin_addr=*(struct in_addr*)hostinfo->h_addr;
-@@ -151,7 +152,8 @@ static int pptp_start_client(void)
+@@ -154,7 +154,8 @@ static int pptp_start_client(void)
  		sock=socket(AF_INET,SOCK_DGRAM,0);
  		if (connect(sock,(struct sockaddr*)&addr,sizeof(addr)))
  		{
@@ -28,7 +20,26 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  			return -1;
  		}
  		getsockname(sock,(struct sockaddr*)&addr,&len);
-@@ -195,8 +197,13 @@ static int pptp_start_client(void)
+@@ -177,7 +178,7 @@ static int pptp_start_client(void)
+ 	pptp_fd=socket(AF_PPPOX,SOCK_STREAM,PX_PROTO_PPTP);
+ 	if (pptp_fd<0)
+ 	{
+-		fatal("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
++		error("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 	/* obsolete from 0.7
+@@ -186,7 +187,8 @@ static int pptp_start_client(void)
+ 	*/
+ 	if (bind(pptp_fd,(struct sockaddr*)&src_addr,sizeof(src_addr)))
+ 	{
+-		fatal("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
++		close(pptp_fd);
++		error("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 	len=sizeof(src_addr);
+@@ -198,12 +200,18 @@ static int pptp_start_client(void)
           * Open connection to call manager (Launch call manager if necessary.)
           */
          callmgr_sock = open_callmgr(src_addr.sa_addr.pptp.call_id,dst_addr.sa_addr.pptp.sin_addr, pptp_phone,50);
@@ -38,12 +49,17 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
 +		return -1;
 +        }
          /* Exchange PIDs, get call ID */
--    } while (get_call_id(callmgr_sock, getpid(), getpid(), &dst_addr.sa_addr.pptp.call_id) < 0);
-+    } while (get_call_id(callmgr_sock, 0, 0, &dst_addr.sa_addr.pptp.call_id) < 0);
+     } while (get_call_id(callmgr_sock, getpid(), getpid(), &dst_addr.sa_addr.pptp.call_id) < 0);
  
  	if (connect(pptp_fd,(struct sockaddr*)&dst_addr,sizeof(dst_addr)))
  	{
-@@ -266,7 +273,11 @@ static int open_callmgr(int call_id,stru
+-		fatal("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
++		close(pptp_fd);
++		error("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
+ 		return -1;
+ 	}
+ 
+@@ -269,7 +277,11 @@ static int open_callmgr(int call_id,stru
                  default: /* parent */
                      waitpid(pid, &status, 0);
                      if (status!= 0)
@@ -56,7 +72,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
                      break;
              }
              sleep(1);
-@@ -274,7 +285,7 @@ static int open_callmgr(int call_id,stru
+@@ -277,7 +289,7 @@ static int open_callmgr(int call_id,stru
          else return fd;
      }
      close(fd);
@@ -67,7 +83,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  
 diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp_callmgr.c accel-pptp/pppd_plugin/src/pptp_callmgr.c
 --- accel-pptp.orig/pppd_plugin/src/pptp_callmgr.c	2009-08-16 08:36:25.000000000 +0000
-+++ accel-pptp/pppd_plugin/src/pptp_callmgr.c	2009-08-22 06:25:39.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp_callmgr.c	2009-08-25 17:22:55.000000000 +0000
 @@ -84,8 +84,8 @@ void call_callback(PPTP_CONN *conn, PPTP
                  vector_remove(conninfo->call_list, lci->unix_sock);
                  close(lci->unix_sock);
