@@ -58,6 +58,24 @@ diff -BurpN busybox-1.14.2/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
  
  /* pass2.c */
  static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
+@@ -2548,7 +2548,7 @@ static void expand_inode_expression(char
+ 		if (do_gmt == -1) {
+ 			time_str = getenv("TZ");
+ 			if (!time_str)
+-				time_str = "";
++				time_str = (char *)"";
+ 			do_gmt = !strcmp(time_str, "GMT");
+ 		}
+ 		t = inode->i_mtime;
+@@ -4422,7 +4422,7 @@ static int process_bad_block(ext2_filsys
+  * out, so we can try to allocate new block(s) to replace the bad
+  * blocks.
+  */
+-static void handle_fs_bad_blocks(e2fsck_t ctx)
++static void handle_fs_bad_blocks(e2fsck_t ctx EXT2FS_ATTR((unused)))
+ {
+ 	printf("Bad blocks detected on your filesystem\n"
+ 		"You should get your data off as the device will soon die\n");
 @@ -4560,11 +4560,11 @@ static errcode_t pass1_check_directory(e
  	return 0;
  }
@@ -72,6 +90,15 @@ diff -BurpN busybox-1.14.2/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
  		fs->get_blocks = pass1_get_blocks;
  		fs->check_directory = pass1_check_directory;
  		fs->read_inode = pass1_read_inode;
+@@ -12213,7 +12213,7 @@ static void swap_filesys(e2fsck_t ctx)
+  */
+ 
+ 
+-void *e2fsck_allocate_memory(e2fsck_t ctx, unsigned int size,
++void *e2fsck_allocate_memory(e2fsck_t ctx EXT2FS_ATTR((unused)), unsigned int size,
+ 			     const char *description)
+ {
+ 	void *ret;
 diff -BurpN busybox-1.14.2/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/e2p/e2p.h
 --- busybox-1.14.2/e2fsprogs/e2p/e2p.h	2009-06-21 22:31:59.000000000 +0000
 +++ busybox/e2fsprogs/e2p/e2p.h	2009-07-22 15:30:44.000000000 +0000
@@ -96,6 +123,18 @@ diff -BurpN busybox-1.14.2/e2fsprogs/e2p/pf.c busybox/e2fsprogs/e2p/pf.c
  {
  	int long_opt = (options & PFOPT_LONG);
  	const struct flags_name *fp;
+diff -urBp busybox.orig/e2fsprogs/e2p/pe.c busybox/e2fsprogs/e2p/pe.c
+--- busybox.orig/e2fsprogs/e2p/pe.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/e2p/pe.c	2009-08-25 16:01:58.000000000 +0400
+@@ -21,7 +21,7 @@
+ 
+ void print_fs_errors(FILE *f, unsigned short errors)
+ {
+-	char *disp = NULL;
++	const char *disp = NULL;
+ 	switch (errors) {
+ 	case EXT2_ERRORS_CONTINUE: disp = "Continue"; break;
+ 	case EXT2_ERRORS_RO:       disp = "Remount read-only"; break;
 diff -BurpN busybox-1.14.2/e2fsprogs/ext2fs/ismounted.c busybox/e2fsprogs/ext2fs/ismounted.c
 --- busybox-1.14.2/e2fsprogs/ext2fs/ismounted.c	2009-06-21 22:31:59.000000000 +0000
 +++ busybox/e2fsprogs/ext2fs/ismounted.c	2009-07-22 15:31:11.000000000 +0000
@@ -163,3 +202,118 @@ diff -BurpN busybox-1.14.2/include/usage.h busybox/include/usage.h
  #define mkfs_minix_trivial_usage \
         "[-c | -l filename] [-nXX] [-iXX] /dev/name [blocks]"
  #define mkfs_minix_full_usage "\n\n" \
+diff -urBp busybox.orig/e2fsprogs/blkid/cache.c busybox/e2fsprogs/blkid/cache.c
+--- busybox.orig/e2fsprogs/blkid/cache.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/blkid/cache.c	2009-08-25 15:32:54.000000000 +0400
+@@ -16,6 +16,8 @@
+ #include <unistd.h>
+ #include "blkidP.h"
+ 
++#include "libbb.h"
++
+ int blkid_debug_mask = 0;
+ 
+ int blkid_get_cache(blkid_cache *ret_cache, const char *filename)
+diff -urBp busybox.orig/e2fsprogs/ext2fs/bitops.c busybox/e2fsprogs/ext2fs/bitops.c
+--- busybox.orig/e2fsprogs/ext2fs/bitops.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/ext2fs/bitops.c	2009-08-25 15:22:22.000000000 +0400
+@@ -67,7 +67,8 @@ int ext2fs_test_bit(unsigned int nr, con
+ 
+ #endif	/* !_EXT2_HAVE_ASM_BITOPS_ */
+ 
+-void ext2fs_warn_bitmap(errcode_t errcode, unsigned long arg,
++void ext2fs_warn_bitmap(errcode_t errcode EXT2FS_ATTR((unused)),
++			unsigned long arg,
+ 			const char *description)
+ {
+ #ifndef OMIT_COM_ERR
+diff -urBp busybox.orig/e2fsprogs/ext2fs/ext2fs.h busybox/e2fsprogs/ext2fs/ext2fs.h
+--- busybox.orig/e2fsprogs/ext2fs/ext2fs.h	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/ext2fs/ext2fs.h	2009-08-25 15:17:11.000000000 +0400
+@@ -13,7 +13,11 @@
+ #define EXT2FS_EXT2FS_H 1
+ 
+ 
+-#define EXT2FS_ATTR(x)
++#ifdef __GNUC__
++# define EXT2FS_ATTR(x) __attribute__(x)
++#else
++# define EXT2FS_ATTR(x)
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff -urBp busybox.orig/e2fsprogs/ext2fs/unix_io.c busybox/e2fsprogs/ext2fs/unix_io.c
+--- busybox.orig/e2fsprogs/ext2fs/unix_io.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/ext2fs/unix_io.c	2009-08-25 15:44:06.000000000 +0400
+@@ -419,7 +419,7 @@ static errcode_t unix_open(const char *n
+ 
+ #ifdef __linux__
+ #undef RLIM_INFINITY
+-#if (defined(__alpha__) || ((defined(__sparc__) || defined(__mips__)) && (SIZEOF_LONG == 4)))
++#if (defined(__alpha__) || (defined(__sparc__) && (__WORDSIZE == 32)) || (defined(__mips__) && (_MIPS_SZLONG == 32)))
+ #define RLIM_INFINITY	((unsigned long)(~0UL>>1))
+ #else
+ #define RLIM_INFINITY  (~0UL)
+diff -urBp busybox.orig/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
+--- busybox.orig/e2fsprogs/mke2fs.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/mke2fs.c	2009-08-25 15:12:55.000000000 +0400
+@@ -201,8 +201,8 @@ static void mke2fs_verbose_done(void)
+ 	mke2fs_verbose("done\n");
+ }
+ 
+-static void mke2fs_warning_msg(int retval, char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
+-static void mke2fs_warning_msg(int retval, char *fmt, ... )
++static void mke2fs_warning_msg(int retval, const char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
++static void mke2fs_warning_msg(int retval, const char *fmt, ... )
+ {
+ 	va_list ap;
+ 
+@@ -485,7 +485,7 @@ static void create_lost_and_found(ext2_f
+ 	ext2_ino_t		ino;
+ 	const char		*name = "lost+found";
+ 	int			i = 1;
+-	char			*msg = "create";
++	const char		*msg = "create";
+ 	int			lpf_size = 0;
+ 
+ 	fs->umask = 077;
+@@ -542,7 +542,7 @@ static void reserve_inodes(ext2_filsys f
+ static void zap_sector(ext2_filsys fs, int sect, int nsect)
+ {
+ 	char *buf;
+-	char *fmt = "could not %s %d";
++	const char *fmt = "could not %s %d";
+ 	int retval;
+ 	unsigned int *magic;
+ 
+@@ -574,7 +574,7 @@ static void create_journal_dev(ext2_fils
+ 	struct progress_struct	progress;
+ 	errcode_t		retval;
+ 	char			*buf;
+-	char			*fmt = "%s journal superblock";
++	const char		*fmt = "%s journal superblock";
+ 	blk_t			blk;
+ 	int			count;
+ 
+diff -urBp busybox.orig/e2fsprogs/util.c busybox/e2fsprogs/util.c
+--- busybox.orig/e2fsprogs/util.c	2009-07-29 03:33:00.000000000 +0400
++++ busybox/e2fsprogs/util.c	2009-08-25 15:06:21.000000000 +0400
+@@ -72,7 +72,7 @@ void check_plausibility(const char *devi
+ #endif
+ }
+ 
+-void check_mount(const char *device, int force, const char *type)
++void check_mount(const char *device, int force, const char *type UNUSED_PARAM)
+ {
+ 	errcode_t retval;
+ 	int mount_flags;
+@@ -258,7 +258,7 @@ char *e2fs_set_sbin_path(void)
+ 	if (oldpath)
+ 		oldpath = xasprintf("%s:%s", PATH_SET, oldpath);
+ 	 else
+-		oldpath = PATH_SET;
++		oldpath = (char *)PATH_SET;
+ 	putenv(oldpath);
+ 	return oldpath;
+ }
