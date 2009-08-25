@@ -484,14 +484,7 @@ $(TOP)/libusb: libusb/$(LIBUSB).tar.bz2
 	[ ! -f libusb/$(LIBUSB).patch ] || $(PATCHER) $(TOP)/$(LIBUSB) libusb/$(LIBUSB).patch
 	mv $(TOP)/$(LIBUSB) $@ && touch $@
 
-$(TOP)/libusb/Makefile: $(TOP)/libusb
-	cd $^ && \
-	CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-O2 $(EXTRACFLAGS)" \
-	./configure --host=mipsel-linux --prefix=/usr \
-	    LIBUSB_1_0_CFLAGS=" " \
-	    LIBUSB_1_0_LIBS=" "
-
-libusb: $(TOP)/libusb10/Makefile $(TOP)/libusb/Makefile
+libusb: $(TOP)/libusb10 $(TOP)/libusb
 	@true
 
 $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
@@ -499,11 +492,6 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	tar -jxf $^ -C $(TOP)
 	[ ! -f libusb/$(LIBUSB10).patch ] || $(PATCHER) $(TOP)/$(LIBUSB10) libusb/$(LIBUSB10).patch
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
-
-$(TOP)/libusb10/Makefile: $(TOP)/libusb10
-	cd $^ && \
-	CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-O2 $(EXTRACFLAGS)" \
-	./configure --host=mipsel-linux --prefix=/usr ac_cv_lib_rt_clock_gettime=no
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
