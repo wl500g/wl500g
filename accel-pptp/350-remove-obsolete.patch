@@ -1,7 +1,7 @@
 diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
 --- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-21 14:35:08.000000000 +0000
 +++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-21 14:34:03.000000000 +0000
-@@ -178,8 +178,10 @@ static int pptp_start_client(void)
+@@ -168,8 +168,10 @@ static int pptp_start_client(void)
  		fatal("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
  		return -1;
  	}
