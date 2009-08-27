@@ -4311,7 +4311,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iphash.c linux/n
 +MODULE_PARM_DESC(limit, "maximal number of elements stored in the sets");
 +
 +REGISTER_MODULE(iphash)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iphash.o and linux/net/ipv4/netfilter/ip_set_iphash.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipmap.c linux/net/ipv4/netfilter/ip_set_ipmap.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipmap.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_ipmap.c	2009-07-23 18:32:35.000000000 +0400
@@ -4458,7 +4457,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipmap.c linux/ne
 +MODULE_DESCRIPTION("ipmap type of IP sets");
 +
 +REGISTER_MODULE(ipmap)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipmap.o and linux/net/ipv4/netfilter/ip_set_ipmap.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipporthash.c linux/net/ipv4/netfilter/ip_set_ipporthash.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipporthash.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_ipporthash.c	2009-07-23 18:32:35.000000000 +0400
@@ -4666,7 +4664,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipporthash.c lin
 +MODULE_PARM_DESC(limit, "maximal number of elements stored in the sets");
 +
 +REGISTER_MODULE(ipporthash)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipporthash.o and linux/net/ipv4/netfilter/ip_set_ipporthash.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportiphash.c linux/net/ipv4/netfilter/ip_set_ipportiphash.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportiphash.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_ipportiphash.c	2009-07-23 18:32:35.000000000 +0400
@@ -4887,7 +4884,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportiphash.c l
 +MODULE_PARM_DESC(limit, "maximal number of elements stored in the sets");
 +
 +REGISTER_MODULE(ipportiphash)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportiphash.o and linux/net/ipv4/netfilter/ip_set_ipportiphash.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportnethash.c linux/net/ipv4/netfilter/ip_set_ipportnethash.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportnethash.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_ipportnethash.c	2009-07-23 18:32:35.000000000 +0400
@@ -5196,7 +5192,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportnethash.c 
 +MODULE_PARM_DESC(limit, "maximal number of elements stored in the sets");
 +
 +REGISTER_MODULE(ipportnethash)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_ipportnethash.o and linux/net/ipv4/netfilter/ip_set_ipportnethash.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iptree.c linux/net/ipv4/netfilter/ip_set_iptree.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iptree.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_iptree.c	2009-08-21 17:48:55.000000000 +0400
@@ -6379,8 +6374,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iptreemap.c linu
 +
 +module_init(ip_set_iptreemap_init);
 +module_exit(ip_set_iptreemap_fini);
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iptreemap.o and linux/net/ipv4/netfilter/ip_set_iptreemap.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_iptree.o and linux/net/ipv4/netfilter/ip_set_iptree.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_macipmap.c linux/net/ipv4/netfilter/ip_set_macipmap.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_macipmap.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_macipmap.c	2009-07-23 18:32:35.000000000 +0400
@@ -6549,7 +6542,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_macipmap.c linux
 +MODULE_DESCRIPTION("macipmap type of IP sets");
 +
 +REGISTER_MODULE(macipmap)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_macipmap.o and linux/net/ipv4/netfilter/ip_set_macipmap.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_nethash.c linux/net/ipv4/netfilter/ip_set_nethash.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_nethash.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_nethash.c	2009-07-23 18:32:35.000000000 +0400
@@ -6779,8 +6771,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_nethash.c linux/
 +MODULE_PARM_DESC(limit, "maximal number of elements stored in the sets");
 +
 +REGISTER_MODULE(nethash)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_nethash.o and linux/net/ipv4/netfilter/ip_set_nethash.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set.o and linux/net/ipv4/netfilter/ip_set.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_portmap.c linux/net/ipv4/netfilter/ip_set_portmap.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_portmap.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_portmap.c	2009-07-23 18:32:35.000000000 +0400
@@ -6899,7 +6889,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_portmap.c linux/
 +MODULE_DESCRIPTION("portmap type of IP sets");
 +
 +REGISTER_MODULE(portmap)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_portmap.o and linux/net/ipv4/netfilter/ip_set_portmap.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_setlist.c linux/net/ipv4/netfilter/ip_set_setlist.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_setlist.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_set_setlist.c	2009-08-21 18:01:02.000000000 +0400
@@ -7234,36 +7223,6 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_setlist.c linux/
 +MODULE_DESCRIPTION("setlist type of IP sets");
 +
 +REGISTER_MODULE(setlist)
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_set_setlist.o and linux/net/ipv4/netfilter/ip_set_setlist.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/iptable_filter.o and linux/net/ipv4/netfilter/iptable_filter.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/iptable_mangle.o and linux/net/ipv4/netfilter/iptable_mangle.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/iptable_nat.o and linux/net/ipv4/netfilter/iptable_nat.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ip_tables.o and linux/net/ipv4/netfilter/ip_tables.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_CLASSIFY.o and linux/net/ipv4/netfilter/ipt_CLASSIFY.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_condition.o and linux/net/ipv4/netfilter/ipt_condition.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_connlimit.o and linux/net/ipv4/netfilter/ipt_connlimit.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_connmark.o and linux/net/ipv4/netfilter/ipt_connmark.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_CONNMARK.o and linux/net/ipv4/netfilter/ipt_CONNMARK.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_conntrack.o and linux/net/ipv4/netfilter/ipt_conntrack.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_IMQ.o and linux/net/ipv4/netfilter/ipt_IMQ.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_layer7.o and linux/net/ipv4/netfilter/ipt_layer7.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_length.o and linux/net/ipv4/netfilter/ipt_length.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_limit.o and linux/net/ipv4/netfilter/ipt_limit.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_LOG.o and linux/net/ipv4/netfilter/ipt_LOG.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_mac.o and linux/net/ipv4/netfilter/ipt_mac.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_mark.o and linux/net/ipv4/netfilter/ipt_mark.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_MARK.o and linux/net/ipv4/netfilter/ipt_MARK.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_MASQUERADE.o and linux/net/ipv4/netfilter/ipt_MASQUERADE.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_MIRROR.o and linux/net/ipv4/netfilter/ipt_MIRROR.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_multiport.o and linux/net/ipv4/netfilter/ipt_multiport.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_NETMAP.o and linux/net/ipv4/netfilter/ipt_NETMAP.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_nth.o and linux/net/ipv4/netfilter/ipt_nth.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_psd.o and linux/net/ipv4/netfilter/ipt_psd.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_quota.o and linux/net/ipv4/netfilter/ipt_quota.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_random.o and linux/net/ipv4/netfilter/ipt_random.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_recent.o and linux/net/ipv4/netfilter/ipt_recent.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_REDIRECT.o and linux/net/ipv4/netfilter/ipt_REDIRECT.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_REJECT.o and linux/net/ipv4/netfilter/ipt_REJECT.o differ
 diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_set.c linux/net/ipv4/netfilter/ipt_set.c
 --- linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_set.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ipt_set.c	2009-07-23 18:32:35.000000000 +0400
@@ -7752,16 +7711,3 @@ diff -urNB '-x.*' linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_SET.c linux/net/ipv
 +
 +module_init(ipt_SET_init);
 +module_exit(ipt_SET_fini);
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_set.o and linux/net/ipv4/netfilter/ipt_set.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_SET.o and linux/net/ipv4/netfilter/ipt_SET.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_state.o and linux/net/ipv4/netfilter/ipt_state.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_string.o and linux/net/ipv4/netfilter/ipt_string.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_TARPIT.o and linux/net/ipv4/netfilter/ipt_TARPIT.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_tcpmss.o and linux/net/ipv4/netfilter/ipt_tcpmss.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_TCPMSS.o and linux/net/ipv4/netfilter/ipt_TCPMSS.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_time.o and linux/net/ipv4/netfilter/ipt_time.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_tos.o and linux/net/ipv4/netfilter/ipt_tos.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_TOS.o and linux/net/ipv4/netfilter/ipt_TOS.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_ttl.o and linux/net/ipv4/netfilter/ipt_ttl.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/ipt_TTL.o and linux/net/ipv4/netfilter/ipt_TTL.o differ
-Files linux-2.4.37.5.orig/net/ipv4/netfilter/netfilter.o and linux/net/ipv4/netfilter/netfilter.o differ
