@@ -3,8 +3,8 @@ Version: 0.99.163-2
 Section: base
 Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
-MD5Sum: bcf5944797d8791d08ec55d6942d6ecd
-Size: 73111
+MD5Sum: 7473fe16e901dee30f3588d7e66bac6a
+Size: 73097
 Filename: ipkg_0.99.163-2_mipsel.ipk
 Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
 Description: lightweight package management system
@@ -21,14 +21,14 @@ Description: lightweight package management system
 
 
 Package: ipset
-Version: 3.0
+Version: 3.2
 Section: net
 Architecture: mipsel
 Maintainer: http://ipset.netfilter.org/
-MD5Sum: fc0810bbb121c8a98970eff07e2715ef
-Size: 43805
-Filename: ipset_3.0_mipsel.ipk
-Source: http://ipset.netfilter.org/ipset-3.0.tar.bz2
+MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
+Size: 49737
+Filename: ipset_3.2_mipsel.ipk
+Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
 Description: ipset administration tool for IP sets.
 
 
