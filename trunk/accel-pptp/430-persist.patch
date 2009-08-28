@@ -39,7 +39,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  		return -1;
  	}
  	len=sizeof(src_addr);
-@@ -198,12 +200,18 @@ static int pptp_start_client(void)
+@@ -198,12 +200,19 @@ static int pptp_start_client(void)
           * Open connection to call manager (Launch call manager if necessary.)
           */
          callmgr_sock = open_callmgr(src_addr.sa_addr.pptp.call_id,dst_addr.sa_addr.pptp.sin_addr, pptp_phone,50);
@@ -54,12 +54,30 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  	if (connect(pptp_fd,(struct sockaddr*)&dst_addr,sizeof(dst_addr)))
  	{
 -		fatal("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
++		close(callmgr_sock);
 +		close(pptp_fd);
 +		error("PPTP: failed to connect PPTP socket (%s)\n",strerror(errno));
  		return -1;
  	}
  
-@@ -269,7 +277,11 @@ static int open_callmgr(int call_id,stru
+@@ -225,6 +234,7 @@ static int pptp_connect(void)
+ 
+ static void pptp_disconnect(void)
+ {
++	if (pptp_server) close(callmgr_sock);
+ 	close(pptp_fd);
+ 	//route_del(&rt); // don't delete, as otherwise it would try to use pppX in demand mode
+ }
+@@ -260,7 +270,7 @@ static int open_callmgr(int call_id,stru
+                 case 0: /* child */
+                 {
+                     close (fd);
+-                    //close(pptp_fd);
++                    close(pptp_fd);
+                     /* close the pty and gre in the call manager */
+                    // close(pty_fd);
+                     //close(gre_fd);
+@@ -269,7 +279,11 @@ static int open_callmgr(int call_id,stru
                  default: /* parent */
                      waitpid(pid, &status, 0);
                      if (status!= 0)
@@ -72,7 +90,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
                      break;
              }
              sleep(1);
-@@ -277,7 +289,7 @@ static int open_callmgr(int call_id,stru
+@@ -277,7 +291,7 @@ static int open_callmgr(int call_id,stru
          else return fd;
      }
      close(fd);
