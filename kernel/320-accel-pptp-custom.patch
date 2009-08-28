@@ -1,0 +1,22 @@
+diff -BurpN linux-2.4.37.3/drivers/net/pptp.c linux/drivers/net/pptp.c
+--- linux-2.4.37.3/drivers/net/pptp.c	2009-08-28 20:49:41.000000000 +0000
++++ linux/drivers/net/pptp.c	2009-08-28 20:53:38.000000000 +0000
+@@ -21,7 +21,7 @@
+ #include <linux/init.h>
+ #include <linux/ppp_channel.h>
+ #include <linux/ppp_defs.h>
+-#include "if_pppox.h"
++#include <linux/if_pppox.h>
+ #include <linux/if_ppp.h>
+ #include <linux/notifier.h>
+ #include <linux/file.h>
+@@ -89,7 +89,9 @@ static inline void *kzalloc(size_t size,
+ 	memset(p,0,size);
+ 	return p;
+ }
++#endif
+ 
++#if 0 // already defined for mips32
+ /**
+  * __ffs - find first bit in word.
+  * @word: The word to search
