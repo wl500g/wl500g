@@ -1022,10 +1022,6 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 			   skb->dev->name);
 		return;
 	}
-	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra) {
-		in6_dev_put(in6_dev);
-		return;
-	}
 
 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
 		in6_dev_put(in6_dev);
@@ -1033,6 +1029,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
 			   "ICMP6 RA: invalid ND options\n");
 		return;
 	}
+
+	/* skip route and link configuration on routers */
+	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+		goto skip_linkparms;
 
 	if (in6_dev->if_flags & IF_RS_SENT) {
 		/*
@@ -1148,6 +1148,8 @@ skip_defrtr:
 		}
 	}
 
+skip_linkparms:
+
 	/*
 	 *	Process options.
 	 */
@@ -1172,6 +1174,10 @@ skip_defrtr:
 			     NEIGH_UPDATE_F_OVERRIDE_ISROUTER|
 			     NEIGH_UPDATE_F_ISROUTER);
 	}
+
+	/* skip route and link configuration on routers */
+	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
+		goto out;
 
 #ifdef CONFIG_IPV6_ROUTE_INFO
 	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
