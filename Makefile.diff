@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-08-29 06:42:48.000000000 +0000
++++ gateway/Makefile	2009-08-29 07:39:58.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -536,8 +536,9 @@
  	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
  	$(STRIP) $(INSTALLDIR)/dproxy/usr/sbin/dproxy
  
- iptables:
+-iptables:
 -	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR)
++iptables: $(LINUXDIR)/include/linux/version.h
 +	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" DO_MULTI=1
  
  iptables-install: iptables
@@ -605,10 +606,10 @@
 +	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 +	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 +
-+accel-pptp: accel-pptp/Makefile
++accel-pptp: accel-pptp/pppd_plugin/Makefile
 +	$(MAKE) -C accel-pptp/pppd_plugin
 +
-+accel-pptp/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/include/linux/version.h
++accel-pptp/pppd_plugin/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/include/linux/version.h
 +	cd accel-pptp/pppd_plugin && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 +	    $(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/ppp
 +
