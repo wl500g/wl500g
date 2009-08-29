@@ -3970,7 +3970,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -	{
 -		char *syslogd_argv[] = {"syslogd", "-m", "0", "-t", nvram_safe_get("time_zone"), "-O", "/tmp/syslog.log", NULL};
 +	char *syslogd_argv[] = {"syslogd", "-m", "0", "-O", "/tmp/syslog.log", "-S",
-+		"-l", "7", "-R", nvram_safe_get("log_ipaddr"), "-L", NULL};
++		"-l", "7", "-b", "2", "-R", nvram_safe_get("log_ipaddr"), "-L", NULL};
 +	char *klogd_argv[] = {"klogd", NULL};
  
 -#ifdef KERNEL_DBG
@@ -3983,8 +3983,8 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -		_eval(syslogd_argv, NULL, 0, &pid);
 -		_eval(klogd_argv, NULL, 0, &pid);
 -	}
-+	if (!*syslogd_argv[9])
-+		syslogd_argv[8] = NULL;
++	if (!*syslogd_argv[11])
++		syslogd_argv[10] = NULL;
 +		
 +	_eval(syslogd_argv, NULL, 0, &pid);
 +	_eval(klogd_argv, NULL, 0, &pid);
