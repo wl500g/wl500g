@@ -422,13 +422,7 @@ $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 	mv $(TOP)/$(ACCEL-PPTP) $@ && touch $@
 	touch $@
 
-$(TOP)/accel-pptp/Makefile: $(TOP)/ppp $(TOP)/accel-pptp
-	cd $(TOP)/accel-pptp/pppd_plugin && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-		./configure --host=mipsel-linux --prefix=/usr \
-		KDIR=$(KERNEL_DIR) PPPDIR=$(TOP)/ppp
-
-accel-pptp: $(TOP)/accel-pptp/Makefile
+accel-pptp: $(TOP)/accel-pptp
 	@true
 
 $(TOP)/igmpproxy/src/Makefile:
