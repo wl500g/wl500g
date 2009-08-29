@@ -1,5 +1,5 @@
 --- router/Makefile	2004-12-10 01:00:51.000000000 +0000
-+++ gateway/Makefile	2009-08-25 07:49:12.000000000 +0000
++++ gateway/Makefile	2009-08-29 06:42:48.000000000 +0000
 @@ -13,9 +13,21 @@
  #
  
@@ -24,7 +24,7 @@
  
  #
  # Paths
-@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. 
+@@ -33,6 +45,7 @@ export SRCBASE := $(shell (cd $(TOP)/..
  # Build platform
  export BUILD := i386-pc-linux-gnu
  export HOSTCC := gcc
@@ -451,7 +451,17 @@
  
  #
  # Configuration rules
-@@ -225,16 +474,17 @@ oldconfig: oldconf
+@@ -213,6 +462,9 @@ kmconf:
+ koldconf: $(LINUXDIR)/.config
+ 	$(MAKE) -C $(LINUXDIR) oldconfig
+ 
++$(LINUXDIR)/include/linux/version.h: $(LINUXDIR)/.config
++	$(MAKE) -C $(LINUXDIR) include/linux/version.h
++
+ # Convenience
+ config: conf
+ 
+@@ -225,16 +477,17 @@ oldconfig: oldconf
  	cp config/defconfig $@
  	$(MAKE) oldconfig
  
@@ -472,7 +482,7 @@
  
  www www-%:
  	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-@@ -242,43 +492,64 @@ www www-%:
+@@ -242,43 +495,64 @@ www www-%:
  wwwmt wwwmt-%:
  	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
  
@@ -555,7 +565,7 @@
  else
          # So that generic rule does not take precedence
  	@true
-@@ -294,9 +565,6 @@ ntpclient-install: ntpclient
+@@ -294,9 +568,6 @@ ntpclient-install: ntpclient
  	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
  
@@ -565,7 +575,7 @@
  udhcpd-install: udhcpd
  	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
  	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-@@ -312,215 +580,298 @@ vlan:
+@@ -312,215 +583,302 @@ vlan:
  vlan-install:
  	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
  
@@ -595,8 +605,12 @@
 +	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 +	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 +
-+accel-pptp:
++accel-pptp: accel-pptp/Makefile
 +	$(MAKE) -C accel-pptp/pppd_plugin
++
++accel-pptp/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/include/linux/version.h
++	cd accel-pptp/pppd_plugin && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
++	    $(CONFIGURE) --prefix=/usr KDIR=$(LINUXDIR) PPPDIR=$(TOP)/ppp
 +
 +accel-pptp-clean:
 +	$(MAKE) -C accel-pptp/pppd_plugin clean
@@ -1033,7 +1047,7 @@
  
  %-clean:
  	[ ! -d $* ] || $(MAKE) -C $* clean
-@@ -528,6 +879,9 @@ image-R100:
+@@ -528,6 +886,9 @@ image-R100:
  %-install:
  	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
  
