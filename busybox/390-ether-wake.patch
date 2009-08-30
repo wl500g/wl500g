@@ -1,13 +1,14 @@
 diff -BurpN busybox-1.14.2/networking/ether-wake.c busybox/networking/ether-wake.c
 --- busybox-1.14.2/networking/ether-wake.c	2009-06-21 22:32:00.000000000 +0000
 +++ busybox/networking/ether-wake.c	2009-07-22 18:17:58.000000000 +0000
-@@ -115,7 +115,8 @@ static void get_dest_addr(const char *ho
+@@ -115,7 +115,9 @@ static void get_dest_addr(const char *ho
  	if (eap) {
  		*eaddr = *eap;
  		bb_debug_msg("The target station address is %s\n\n", ether_ntoa(eaddr));
 -#if !defined(__UCLIBC__)
 +#if !defined(__UCLIBC__) || (__UCLIBC_MAJOR__ > 0) \
-+    || (__UCLIBC_MAJOR__ == 0 && __UCLIBC_MINOR__ >= 9 && __UCLIBC_SUBLEVEL__ >= 30)
++    || (__UCLIBC_MINOR__ > 9) \
++    || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 30)
  	} else if (ether_hostton(hostid, eaddr) == 0) {
  		bb_debug_msg("Station address for hostname %s is %s\n\n", hostid, ether_ntoa(eaddr));
  #endif
