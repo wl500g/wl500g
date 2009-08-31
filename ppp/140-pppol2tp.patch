@@ -1,0 +1,33 @@
+--- ppp.orig/pppd/plugins/pppol2tp/pppol2tp.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/pppol2tp/pppol2tp.c	2009-08-31 22:21:59.000000000 +0400
+@@ -147,7 +147,8 @@ static int setdevname_pppol2tp(char **ar
+ 	 */
+ 	if (getsockopt(pppol2tp_fd, SOL_PPPOL2TP, PPPOL2TP_SO_DEBUG,
+ 		       &tmp, &tmp_len) < 0) {
+-		fatal("PPPoL2TP kernel driver not installed");
++// driver returns -ENOTCONN until session established!
++//		fatal("PPPoL2TP kernel driver not installed");
+ 	}
+ 
+ 	/* Setup option defaults. Compression options are disabled! */
+@@ -479,13 +480,13 @@ static void pppol2tp_check_options(void)
+ 		snoop_send_hook = pppol2tp_lcp_snoop_send;
+ 	}
+ 
+-	/* Hook up ip up/down hooks to send indicator to openl2tpd
+-	 * that the link is up
+-	 */
+-	old_ip_up_hook = ip_up_hook;
+-	ip_up_hook = pppol2tp_ip_up_hook;
+-	old_ip_down_hook = ip_down_hook;
+-	ip_down_hook = pppol2tp_ip_down_hook;
++	/* If pppol2tp_ifname not supplied, use ip_up_hook to discover interface */
++	if (!pppol2tp_ifname[0]) {
++		old_ip_up_hook = ip_up_hook;
++		ip_up_hook = pppol2tp_ip_up_hook;
++		old_ip_down_hook = ip_down_hook;
++		ip_down_hook = pppol2tp_ip_down_hook;
++	}
+ }
+ 
+ /* Called just before pppd exits.
