@@ -1,0 +1,27 @@
+diff -BurpN gateway/rp-l2tp-0.4/main.c gateway/rp-l2tp/main.c
+--- gateway/rp-l2tp-0.4/main.c	2009-08-31 06:06:57.000000000 +0000
++++ gateway/rp-l2tp/main.c	2009-08-31 06:07:13.000000000 +0000
+@@ -39,6 +39,13 @@ usage(int argc, char *argv[], int exitco
+     exit(exitcode);
+ }
+ 
++static void
++sighandler(int signum)
++{
++    l2tp_cleanup();
++    exit(EXIT_FAILURE);
++}
++
+ int
+ main(int argc, char *argv[])
+ {
+@@ -114,6 +121,9 @@ main(int argc, char *argv[])
+ 	}
+     }
+ 
++    signal(SIGTERM, sighandler);
++    signal(SIGINT, sighandler);
++
+     while(1) {
+ 	i = Event_HandleEvent(es);
+ 	if (i < 0) {
