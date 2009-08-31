@@ -315,7 +315,7 @@ index 1690c46..5249109 100644
  	case '9':
 -// TODO: number() instead? It does error checking...
 -		num = atoi(name);
-+		num = atoi(name); /* number(name) fails on ${var#str} etc */
++		num = atoi(name); /* number(name) fails on ${N#str} etc */
  		if (num < 0 || num > shellparam.nparam)
  			return -1;
  		p = num ? shellparam.p[num - 1] : arg0;
