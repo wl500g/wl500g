@@ -495,8 +495,11 @@ www www-%:
 wwwmt wwwmt-%:
 	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
 
-radvd: radvd/radvd
-	$(MAKE) -C $@ radvd
+radvd/Makefile: radvd/Makefile.in
+	cd radvd && CPPFLAGS="$(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=""
+
+radvd: radvd/Makefile
 
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
@@ -587,6 +590,11 @@ pptp-install: pptp
 	install -D pptp/pptp $(INSTALLDIR)/pptp/usr/sbin/pptp
 	$(STRIP) $(INSTALLDIR)/pptp/usr/sbin/pptp
 
+ppp/Makefile: ppp/linux/Makefile.top
+	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
+
+ppp: ppp/Makefile
+
 ppp-install: ppp
 	install -D ppp/pppd/pppd $(INSTALLDIR)/ppp/usr/sbin/pppd
 	$(STRIP) $(INSTALLDIR)/ppp/usr/sbin/pppd
@@ -595,7 +603,12 @@ ppp-install: ppp
 	install -D ppp/pppd/plugins/pppol2tp/pppol2tp.so $(INSTALLDIR)/ppp/usr/lib/pppd/pppol2tp.so
 	$(STRIP) $(INSTALLDIR)/ppp/usr/lib/pppd/*.so
 
-rp-pppoe:
+rp-pppoe/src/Makefile: rp-pppoe/src/Makefile.in
+	cd rp-pppoe/src && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	    $(CONFIGURE) --prefix=/usr --enable-plugin=$(TOP)/ppp \
+	     ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev
+
+rp-pppoe: ppp rp-pppoe/src/Makefile
 	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
 
 rp-pppoe-clean:
@@ -607,7 +620,7 @@ rp-pppoe-install: rp-pppoe
 	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
 
-accel-pptp: accel-pptp/pppd_plugin/Makefile
+accel-pptp: ppp accel-pptp/pppd_plugin/Makefile
 	$(MAKE) -C accel-pptp/pppd_plugin
 
 accel-pptp/pppd_plugin/Makefile: accel-pptp/pppd_plugin/Makefile.in $(LINUXDIR)/include/linux/version.h
@@ -628,10 +641,15 @@ dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
-	
-dropbear:
+dropbear/config.h: dropbear/config.h.in
+	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" \
+	    $(CONFIGURE) --disable-zlib --disable-shadow \
+	    --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx \
+	    --disable-libutil --disable-loginfunc --disable-pututline --disable-pututxline
+
+dropbear: dropbear/config.h
 	$(MAKE) -C $@ PROGRAMS="dropbear dbclient scp dropbearkey dropbearconvert" MULTI=1 SCPPROGRESS=1
-	
+
 dropbear-install:
 	install -D dropbear/dropbearmulti $(INSTALLDIR)/dropbear/usr/sbin/dropbear
 	$(STRIP) $(INSTALLDIR)/dropbear/usr/sbin/dropbear
@@ -647,8 +665,32 @@ p910nd:
 p910nd-install:
 	install -D p910nd/p910nd $(INSTALLDIR)/p910nd/usr/sbin/p910nd
 	$(STRIP) $(INSTALLDIR)/p910nd/usr/sbin/p910nd
-	
-samba:
+
+samba/source/Makefile: samba/source/Makefile.in
+	cd samba/source && \
+	    CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" CFLAGS="-Os $(EXTRACFLAGS)" \
+	    ac_cv_sizeof_int=4 ac_cv_sizeof_long=4 ac_cv_sizeof_short=2 \
+	    samba_cv_FTRUNCATE_NEEDS_ROOT=no samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no \
+	    samba_cv_HAVE_BROKEN_GETGROUPS=no samba_cv_HAVE_BROKEN_READDIR=no \
+	    samba_cv_HAVE_FCNTL_LOCK=yes samba_cv_HAVE_FNMATCH=yes \
+	    samba_cv_HAVE_FTRUNCATE_EXTEND=no samba_cv_HAVE_IFACE_AIX=no \
+	    samba_cv_HAVE_IFACE_IFCONF=yes samba_cv_HAVE_IFACE_IFREQ=yes \
+	    samba_cv_HAVE_INO64_T=yes samba_cv_HAVE_IRIX_SPECIFIC_CAPABILITIES=no \
+	    samba_cv_HAVE_OFF64_T=yes samba_cv_HAVE_ROOT=yes \
+	    samba_cv_HAVE_SECURE_MKSTEMP=yes samba_cv_HAVE_SHARED_MMAP=yes \
+	    samba_cv_HAVE_STRUCT_FLOCK64=yes samba_cv_HAVE_SYSV_IPC=no \
+	    samba_cv_HAVE_TRUNCATED_SALT=no samba_cv_HAVE_UNION_SEMUN=no \
+	    samba_cv_HAVE_UNSIGNED_CHAR=yes samba_cv_NEED_SGI_SEMUN_HACK=no \
+	    samba_cv_REPLACE_INET_NTOA=no samba_cv_SIZEOF_INO_T=4 \
+	    samba_cv_SIZEOF_OFF_T=4 samba_cv_SYSCONF_SC_NGROUPS_MAX=yes \
+	    samba_cv_USE_SETRESUID=no samba_cv_USE_SETREUID=yes \
+	    samba_cv_USE_SETEUID=yes samba_cv_USE_SETUIDX=no \
+	    samba_cv_have_longlong=yes samba_cv_have_setresgid=no \
+	    samba_cv_have_setresuid=no samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
+	 $(CONFIGURE) --prefix=/usr --localstatedir=/var/log --libdir=/etc \
+	    --with-privatedir=/etc --with-lockdir=/var/lock --with-syslog
+
+samba: samba/source/Makefile
 	$(MAKE) -C samba/source shared
 
 samba-install:
@@ -667,7 +709,11 @@ samba-install:
 samba-clean:
 	$(MAKE) -C samba/source clean
 
-nfs-utils:
+nfs-utils/Makefile: nfs-utils/config.mk.in
+	cd nfs-utils && $(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
+	    --disable-gss --disable-rquotad
+
+nfs-utils: nfs-utils/Makefile
 	$(MAKE) -C $@ CCOPTS="$(EXTRACFLAGS)"
 
 nfs-utils-install:
@@ -693,9 +739,26 @@ iproute2-install:
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 
+ucdsnmp/Makefile: ucdsnmp/Makefile.in
+	cd ucdsnmp && \
+	    ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
+	    ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
+	 $(CONFIGURE) --with-cflags="-g -O2 $(EXTRACFLAGS)" \
+	    --disable-debugging --without-opaque-special-types \
+	    --with-out-mib-modules="v2party" --with-sys-location=Unknown --with-sys-contact=Administrator \
+	    --with-logfile=/var/log/snmpd.log
+
+ucdsnmp: ucdsnmp/Makefile
+
 ucdsnmp-install:
 	install -D ucdsnmp/agent/snmpd $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
+
+rp-l2tp/Makefile: rp-l2tp/Makefile.in
+	cd rp-l2tp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr
+
+rp-l2tp: ppp rp-l2tp/Makefile
 
 rp-l2tp-install:
 	install -D rp-l2tp/l2tpd $(INSTALLDIR)/rp-l2tp/usr/sbin/l2tpd
