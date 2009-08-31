@@ -1,6 +1,7 @@
---- rp-l2tp/tunnel.c.orig	2007-10-24 21:41:53.250600304 +0400
-+++ rp-l2tp/tunnel.c	2007-10-24 21:43:26.853370520 +0400
-@@ -665,8 +665,8 @@
+diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
+--- gateway/rp-l2tp-0.4/tunnel.c	2009-08-31 06:00:47.000000000 +0000
++++ gateway/rp-l2tp/tunnel.c	2009-08-31 06:01:57.000000000 +0000
+@@ -665,8 +665,8 @@ l2tp_tunnel_handle_received_control_data
  
      if (!tunnel) {
  	/* TODO: Send error message back? */
