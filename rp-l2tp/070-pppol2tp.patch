@@ -1,5 +1,18 @@
---- rp-l2tp.orig/handlers/linux/if_pppol2tp.h	1970-01-01 03:00:00.000000000 +0300
-+++ rp-l2tp/handlers/linux/if_pppol2tp.h	2008-01-17 23:08:25.000000000 +0300
+diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Makefile.in
+--- gateway/rp-l2tp-0.4/handlers/Makefile.in	2009-08-31 06:07:49.000000000 +0000
++++ gateway/rp-l2tp/handlers/Makefile.in	2009-08-31 06:08:17.000000000 +0000
+@@ -14,7 +14,7 @@ HANDLERS=sync-pppd.so cmd.so
+ 
+ OBJS=pty.o sync-pppd.o dstring.o
+ SRCS=$(OBJS:.o=.c)
+-CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -Wall
++CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -I. -Wall
+ 
+ all: $(HANDLERS) l2tp-control
+ 
+diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppol2tp.h gateway/rp-l2tp/handlers/linux/if_pppol2tp.h
+--- gateway/rp-l2tp-0.4/handlers/linux/if_pppol2tp.h	1970-01-01 00:00:00.000000000 +0000
++++ gateway/rp-l2tp/handlers/linux/if_pppol2tp.h	2009-08-31 06:08:17.000000000 +0000
 @@ -0,0 +1,67 @@
 +/***************************************************************************
 + * Linux PPP over L2TP (PPPoL2TP) Socket Implementation (RFC 2661)
@@ -68,9 +81,10 @@
 +
 +
 +#endif
---- rp-l2tp.orig/handlers/linux/if_pppox.h	1970-01-01 03:00:00.000000000 +0300
-+++ rp-l2tp/handlers/linux/if_pppox.h	2008-01-17 23:09:39.000000000 +0300
-@@ -0,0 +1,164 @@
+diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppox.h gateway/rp-l2tp/handlers/linux/if_pppox.h
+--- gateway/rp-l2tp-0.4/handlers/linux/if_pppox.h	1970-01-01 00:00:00.000000000 +0000
++++ gateway/rp-l2tp/handlers/linux/if_pppox.h	2009-08-31 05:05:14.000000000 +0000
+@@ -0,0 +1,165 @@
 +/***************************************************************************
 + * Linux PPP over X - Generic PPP transport layer sockets
 + * Linux PPP over Ethernet (PPPoE) Socket Implementation (RFC 2516)
@@ -126,7 +140,8 @@
 + */
 +#define PX_PROTO_OE    0 /* Currently just PPPoE */
 +#define PX_PROTO_OL2TP 1 /* Now L2TP also */
-+#define PX_MAX_PROTO   2
++#define PX_PROTO_PPTP  2
++#define PX_MAX_PROTO   3
 +
 +/* The use of a union isn't viable because the size of this struct
 + * must stay fixed over time -- applications use sizeof(struct
@@ -235,20 +250,10 @@
 +#endif /* __KERNEL__ */
 +
 +#endif /* !(__LINUX_IF_PPPOX_H) */
---- rp-l2tp.orig/handlers/Makefile.in	2008-01-06 14:26:55.000000000 +0300
-+++ rp-l2tp/handlers/Makefile.in	2008-01-17 23:15:39.000000000 +0300
-@@ -14,7 +14,7 @@
- 
- OBJS=pty.o sync-pppd.o dstring.o
- SRCS=$(OBJS:.o=.c)
--CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -Wall
-+CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -I. -Wall
- 
- all: $(HANDLERS) l2tp-control
- 
---- rp-l2tp.orig/handlers/sync-pppd.c	2008-01-06 14:26:55.000000000 +0300
-+++ rp-l2tp/handlers/sync-pppd.c	2008-01-18 21:29:39.000000000 +0300
-@@ -22,6 +22,10 @@
+diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sync-pppd.c
+--- gateway/rp-l2tp-0.4/handlers/sync-pppd.c	2009-08-31 06:07:49.000000000 +0000
++++ gateway/rp-l2tp/handlers/sync-pppd.c	2009-08-31 06:08:17.000000000 +0000
+@@ -22,6 +22,10 @@ static char const RCSID[] =
  #include <stdio.h>
  #include <string.h>
  #include <fcntl.h>
@@ -259,7 +264,7 @@
  
  #define HANDLER_NAME "sync-pppd"
  
-@@ -41,6 +45,7 @@
+@@ -41,6 +45,7 @@ static char *pppd_lac_options[MAX_OPTS+1
  static int num_pppd_lns_options = 0;
  static int num_pppd_lac_options = 0;
  static int use_unit_option = 0;
@@ -267,7 +272,7 @@
  static char *pppd_path = NULL;
  
  #define PUSH_LNS_OPT(x) pppd_lns_options[num_pppd_lns_options++] = (x)
-@@ -71,6 +76,7 @@
+@@ -71,6 +76,7 @@ static l2tp_opt_descriptor my_opts[] = {
      { "lac-pppd-opts",     OPT_TYPE_CALLFUNC,   (void *) handle_lac_opts},
      { "lns-pppd-opts",     OPT_TYPE_CALLFUNC,   (void *) handle_lns_opts},
      { "set-ppp-if-name",   OPT_TYPE_BOOL,       &use_unit_option},
@@ -275,7 +280,7 @@
      { "pppd-path",         OPT_TYPE_STRING,     &pppd_path},
      { NULL,                OPT_TYPE_BOOL,       NULL }
  };
-@@ -152,7 +158,9 @@
+@@ -152,7 +158,9 @@ handle_frame(l2tp_session *ses,
      len += 2;
  
      /* TODO: Add error checking */
@@ -286,7 +291,7 @@
  }
  
  /**********************************************************************
-@@ -176,10 +184,10 @@
+@@ -176,10 +184,10 @@ close_session(l2tp_session *ses, char co
      ses->private = NULL;
      sl->ses = NULL;
  
@@ -300,7 +305,7 @@
      sl->event = NULL;
  
      /* Re-establish session if desired */
-@@ -286,12 +294,13 @@
+@@ -286,12 +294,13 @@ readable(EventSelector *es, int fd, unsi
  static int
  establish_session(l2tp_session *ses)
  {
@@ -317,7 +322,7 @@
  
      ses->private = NULL;
      if (!sl) return -1;
-@@ -299,6 +308,37 @@
+@@ -299,6 +308,37 @@ establish_session(l2tp_session *ses)
      sl->es = es;
  
      /* Get pty */
@@ -355,7 +360,7 @@
      if (pty_get(&m_pty, &s_pty) < 0) {
  	free(sl);
  	return -1;
-@@ -312,8 +352,6 @@
+@@ -312,8 +352,6 @@ establish_session(l2tp_session *ses)
      }
  
      if (pid) {
@@ -364,7 +369,7 @@
  	/* In the parent */
  	sl->pid = pid;
  
-@@ -325,13 +363,16 @@
+@@ -325,13 +363,16 @@ establish_session(l2tp_session *ses)
  
  	sl->fd = m_pty;
  
@@ -386,7 +391,7 @@
  
  	ses->private = sl;
  	return 0;
-@@ -344,9 +385,11 @@
+@@ -344,9 +385,11 @@ establish_session(l2tp_session *ses)
      }
  
      /* Dup s_pty onto stdin and stdout */
@@ -401,7 +406,7 @@
  
      /* Create unit */
      sprintf(unit, "%d", (int) getpid());
-@@ -359,6 +402,13 @@
+@@ -359,6 +402,13 @@ establish_session(l2tp_session *ses)
  	    PUSH_LAC_OPT("unit");
  	    PUSH_LAC_OPT(unit);
  	}
@@ -415,7 +420,7 @@
          /* push peer specific options */
          lac_opt = ses->tunnel->peer->lac_options;
          while (*lac_opt) {
-@@ -382,6 +432,14 @@
+@@ -382,6 +432,14 @@ establish_session(l2tp_session *ses)
  	    PUSH_LNS_OPT("unit");
  	    PUSH_LNS_OPT(unit);
  	}
@@ -430,4 +435,3 @@
          /* push peer specific options */
          lns_opt = ses->tunnel->peer->lns_options;
          while (*lns_opt) {
-
