@@ -1,6 +1,7 @@
---- rp-l2tp.orig/tunnel.c	2007-10-15 23:04:23.000000000 +0400
-+++ rp-l2tp/tunnel.c	2007-10-22 23:25:02.475443272 +0400
-@@ -25,6 +25,7 @@
+diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
+--- gateway/rp-l2tp-0.4/tunnel.c	2009-08-31 05:54:41.000000000 +0000
++++ gateway/rp-l2tp/tunnel.c	2009-08-31 05:55:06.000000000 +0000
+@@ -25,6 +25,7 @@ static char const RCSID[] =
  #include <string.h>
  #include <errno.h>
  #include <sys/ioctl.h>
@@ -8,7 +9,7 @@
  
  /* Hash tables of all tunnels */
  static hash_table tunnels_by_my_id;
-@@ -511,12 +512,32 @@
+@@ -511,12 +512,32 @@ static l2tp_tunnel *
  tunnel_establish(l2tp_peer *peer, EventSelector *es)
  {
      l2tp_tunnel *tunnel;
@@ -42,7 +43,7 @@
  
      memset(&tunnel->rt, 0, sizeof(tunnel->rt));
      route_add(tunnel->peer_addr.sin_addr, &tunnel->rt);
-@@ -1372,7 +1393,8 @@
+@@ -1372,7 +1393,8 @@ tunnel_set_params(l2tp_tunnel *tunnel,
                             l2tp_debug_tunnel_to_str(tunnel), tunnel->peer_hostname));
  
      /* Find peer */
@@ -52,7 +53,7 @@
  
      /* Get assigned tunnel ID */
      val = l2tp_dgram_search_avp(dgram, tunnel, &mandatory, &hidden, &len,
-@@ -1643,7 +1665,18 @@
+@@ -1643,7 +1665,18 @@ l2tp_tunnel *
  l2tp_tunnel_find_for_peer(l2tp_peer *peer,
  		     EventSelector *es)
  {

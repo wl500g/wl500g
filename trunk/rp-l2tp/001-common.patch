@@ -1,0 +1,91 @@
+diff -BurpN gateway/rp-l2tp-0.4/Makefile.in gateway/rp-l2tp/Makefile.in
+--- gateway/rp-l2tp-0.4/Makefile.in	2004-07-01 15:17:11.000000000 +0000
++++ gateway/rp-l2tp/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+@@ -30,7 +30,7 @@ OBJS=auth.o debug.o dgram.o main.o md5.o
+ EXTRA_LIBS=@LIBEVENT@/*.o -ldl
+ 
+ SRCS=$(OBJS:.o=.c)
+-CFLAGS=-g -I.. -I@LIBEVENT@ -Wall -Wstrict-prototypes -ansi -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\"
++CFLAGS=@CFLAGS@ -I.. -I@LIBEVENT@ -Wall -Wstrict-prototypes -ansi -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\"
+ 
+ TARGETS=l2tpd libl2tp.a handlers
+ 
+@@ -38,8 +38,8 @@ all: $(TARGETS)
+ 
+ libl2tp.a: $(OBJS)
+ 	rm -f $@
+-	ar -rc $@ $^
+-	ranlib $@ || true
++	@AR@ -rc $@ $^
++	@RANLIB@ $@ || true
+ 
+ l2tpd: libl2tp.a libevent/libevent.a
+ 	$(MAKE) -C handlers
+diff -BurpN gateway/rp-l2tp-0.4/configure gateway/rp-l2tp/configure
+--- gateway/rp-l2tp-0.4/configure	2002-09-30 18:46:52.000000000 +0000
++++ gateway/rp-l2tp/configure	2009-08-31 05:46:52.000000000 +0000
+@@ -1766,6 +1766,7 @@ s%@oldincludedir@%$oldincludedir%g
+ s%@infodir@%$infodir%g
+ s%@mandir@%$mandir%g
+ s%@CC@%$CC%g
++s%@AR@%$AR%g
+ s%@INSTALL_PROGRAM@%$INSTALL_PROGRAM%g
+ s%@INSTALL_SCRIPT@%$INSTALL_SCRIPT%g
+ s%@INSTALL_DATA@%$INSTALL_DATA%g
+diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Makefile.in
+--- gateway/rp-l2tp-0.4/handlers/Makefile.in	2002-09-30 19:45:00.000000000 +0000
++++ gateway/rp-l2tp/handlers/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+@@ -19,19 +19,19 @@ CFLAGS=-g -O2 -I.. -I../libevent -I../..
+ all: $(HANDLERS) l2tp-control
+ 
+ l2tp-control: cmd-control.o
+-	gcc -o l2tp-control cmd-control.o
++	@CC@ -o l2tp-control cmd-control.o
+ 
+ cmd-control.o: cmd-control.c
+-	gcc -c -o $@ $^
++	@CC@ -c -o $@ $^
+ 
+ %.o: %.c
+-	gcc $(CFLAGS) -fPIC -c -o $@ $<
++	@CC@ $(CFLAGS) -fPIC -c -o $@ $<
+ 
+ sync-pppd.so: pty.o sync-pppd.o
+-	gcc -shared -o $@ $^
++	@CC@ -shared -o $@ $^
+ 
+ cmd.so: cmd.o dstring.o
+-	gcc -shared -o $@ $^
++	@CC@ -shared -o $@ $^
+ 
+ clean:
+ 	rm -f *.so *.o *~
+diff -BurpN gateway/rp-l2tp-0.4/libevent/Makefile.in gateway/rp-l2tp/libevent/Makefile.in
+--- gateway/rp-l2tp-0.4/libevent/Makefile.in	2002-09-30 19:45:00.000000000 +0000
++++ gateway/rp-l2tp/libevent/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+@@ -18,20 +18,20 @@ all: libevent.a
+ 
+ libevent.a: $(OBJS)
+ 	rm -f libevent.a
+-	ar -cq libevent.a $(OBJS)
++	@AR@ -cq libevent.a $(OBJS)
+ 	@RANLIB@ libevent.a
+ 
+ event.o: event.c $(HDRS)
+-	gcc $(CFLAGS) -c -o event.o event.c
++	@CC@ $(CFLAGS) -c -o event.o event.c
+ 
+ hash.o: hash.c $(HDRS)
+-	gcc $(CFLAGS) -c -o hash.o hash.c
++	@CC@ $(CFLAGS) -c -o hash.o hash.c
+ 
+ event_sig.o: event_sig.c $(HDRS)
+-	gcc $(CFLAGS) -c -o event_sig.o event_sig.c
++	@CC@ $(CFLAGS) -c -o event_sig.o event_sig.c
+ 
+ event_tcp.o: event_tcp.c $(HDRS)
+-	gcc $(CFLAGS) -c -o event_tcp.o event_tcp.c
++	@CC@ $(CFLAGS) -c -o event_tcp.o event_tcp.c
+ 
+ clean: FORCE
+ 	rm -f *.a *.o *~

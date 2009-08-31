@@ -1,6 +1,7 @@
---- rp-l2tp-0.4/handlers/sync-pppd.c	2004-07-01 18:58:56.000000000 +0400
-+++ rp-l2tp/handlers/sync-pppd.c	2007-04-23 19:04:49.019264064 +0400
-@@ -183,7 +183,8 @@
+diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sync-pppd.c
+--- gateway/rp-l2tp-0.4/handlers/sync-pppd.c	2004-07-01 14:58:56.000000000 +0000
++++ gateway/rp-l2tp/handlers/sync-pppd.c	2009-08-31 05:51:04.000000000 +0000
+@@ -183,7 +183,8 @@ close_session(l2tp_session *ses, char co
      sl->event = NULL;
  
      /* Re-establish session if desired */
@@ -10,7 +11,7 @@
          struct timeval t;
  
          t.tv_sec = tunnel->peer->holdoff;
-@@ -214,8 +215,21 @@
+@@ -214,8 +215,21 @@ slave_exited(pid_t pid, int status, void
  
      if (sl->fd >= 0) close(sl->fd);
      if (sl->event) Event_DelHandler(sl->es, sl->event);
@@ -32,9 +33,10 @@
  	ses->private = NULL;
  	l2tp_session_send_CDN(ses, RESULT_GENERAL_REQUEST, 0,
  			      "pppd process exited");
---- rp-l2tp-0.4/session.c	2004-07-01 18:58:55.000000000 +0400
-+++ rp-l2tp/session.c	2007-04-08 01:01:18.000000000 +0400
-@@ -473,7 +473,7 @@
+diff -BurpN gateway/rp-l2tp-0.4/session.c gateway/rp-l2tp/session.c
+--- gateway/rp-l2tp-0.4/session.c	2004-07-01 14:58:55.000000000 +0000
++++ gateway/rp-l2tp/session.c	2009-08-31 05:51:04.000000000 +0000
+@@ -473,7 +473,7 @@ l2tp_session_handle_CDN(l2tp_session *se
      val = l2tp_dgram_search_avp(dgram, ses->tunnel, NULL, NULL, &len,
  				VENDOR_IETF, AVP_RESULT_CODE);
      if (!val || len < 4) {
@@ -43,7 +45,7 @@
      } else {
  	uint16_t result_code, error_code;
  	char *msg;
-@@ -486,7 +486,7 @@
+@@ -486,7 +486,7 @@ l2tp_session_handle_CDN(l2tp_session *se
  	}
  	snprintf(buf, sizeof(buf), "Received CDN: result-code = %d, error-code = %d, message = '%.*s'", result_code, error_code, (int) len-4, msg);
  	buf[1023] = 0;
@@ -52,9 +54,10 @@
      }
  }
  
---- rp-l2tp-0.4/tunnel.c	2004-07-01 18:58:56.000000000 +0400
-+++ rp-l2tp/tunnel.c	2007-04-23 19:14:11.299784432 +0400
-@@ -966,6 +966,17 @@
+diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
+--- gateway/rp-l2tp-0.4/tunnel.c	2004-07-01 14:58:56.000000000 +0000
++++ gateway/rp-l2tp/tunnel.c	2009-08-31 05:51:05.000000000 +0000
+@@ -966,6 +966,17 @@ tunnel_handle_timeout(EventSelector *es,
      if (tunnel->retransmissions >= MAX_RETRANSMISSIONS) {
  	l2tp_set_errmsg("Too many retransmissions on tunnel (%s); closing down",
  		   l2tp_debug_tunnel_to_str(tunnel));

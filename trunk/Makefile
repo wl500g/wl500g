@@ -365,20 +365,6 @@ $(TOP)/rc/Makefile:
 rc: $(TOP)/rc/Makefile
 	@true
 
-$(TOP)/rp-l2tp/Makefile:
-	@rm -rf $(TOP)/$(L2TP) $(TOP)/rp-l2tp
-	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(L2TP) rp-l2tp/$(L2TP).patch rp-l2tp/$(L2TP)-persist.patch \
-		    rp-l2tp/$(L2TP)-route.patch rp-l2tp/$(L2TP)-log.patch \
-		    rp-l2tp/$(L2TP)-peername.patch rp-l2tp/$(L2TP)-debug.patch 
-	mv $(TOP)/$(L2TP) $(TOP)/rp-l2tp
-	cd $(TOP)/rp-l2tp && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-		./configure --host=mipsel-linux --prefix=/usr
-
-rp-l2tp: $(TOP)/rp-l2tp/Makefile
-	@true
-
 ppp_Patches := $(call patches_list,ppp)
 
 $(TOP)/ppp: ppp/$(PPP).tar.bz2
@@ -391,6 +377,20 @@ $(TOP)/ppp/Makefile: $(TOP)/ppp
 	cd $^ && ./configure --prefix=/usr --sysconfdir=/tmp
 
 ppp: $(TOP)/ppp/Makefile
+	@true
+
+rp-l2tp_Patches := $(call patches_list,rp-l2tp)
+
+$(TOP)/rp-l2tp/Makefile:
+	@rm -rf $(TOP)/$(L2TP) $(TOP)/rp-l2tp
+	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
+	$(PATCHER) $(TOP)/$($L2TP) $(rp-l2tp_Patches)
+	mv $(TOP)/$(L2TP) $(TOP)/rp-l2tp
+	cd $(TOP)/rp-l2tp && \
+		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+		./configure --host=mipsel-linux --prefix=/usr
+
+rp-l2tp: $(TOP)/rp-l2tp/Makefile
 	@true
 
 rp-pppoe_Patches := $(call patches_list,rp-pppoe)
