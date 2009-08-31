@@ -709,11 +709,11 @@ samba-install:
 samba-clean:
 	$(MAKE) -C samba/source clean
 
-nfs-utils/Makefile: nfs-utils/config.mk.in
+nfs-utils/config.mk: nfs-utils/config.mk.in
 	cd nfs-utils && $(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
 	    --disable-gss --disable-rquotad
 
-nfs-utils: nfs-utils/Makefile
+nfs-utils: nfs-utils/config.mk
 	$(MAKE) -C $@ CCOPTS="$(EXTRACFLAGS)"
 
 nfs-utils-install:
