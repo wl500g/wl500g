@@ -46,7 +46,7 @@ UDPXY=udpxy-1.0-Chipmunk-14
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
-LIBUSB10=libusb-1.0.2
+LIBUSB10=libusb-1.0.3
 USBMODESWITCH=usb_modeswitch-1.0.5
 MADWIMAX=madwimax-0.1.1
 
@@ -56,14 +56,6 @@ ET=et-4.108.9
 WL=wl-4.150.10.29
 LIBBCMCRYPTO=libbcmcrypto-3.130.20
 WLCONF=wlconf
-
-CROSS=mipsel-uclibc-
-CC=$(CROSS)gcc
-LD=$(CROSS)ld
-AR=$(CROSS)ar
-RANLIB=$(CROSS)ranlib
-
-EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign
 
 # tar has --exclude parameter ?
 TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
@@ -102,9 +94,8 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 $(TOP):
 	@mkdir -p $(TOP)
 
-$(TOP)/Makefile: Makefile.diff
-	cp $(SRC)/Makefile $(TOP)
-	$(PATCHER) $(TOP) Makefile.diff
+$(TOP)/Makefile: Makefile.top
+	cp $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
 	-svnversion 2> /dev/null > $(TOP)/.svnrev
@@ -177,59 +168,47 @@ loader: $(TOP)/loader
 busybox_Patches := $(call patches_list,busybox)
 
 $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
-	@rm -rf $(TOP)/$(BUSYBOX) $(TOP)/busybox
+	@rm -rf $(TOP)/$(BUSYBOX) $@
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
-	mv $(TOP)/$(BUSYBOX) $(TOP)/busybox
+	mv $(TOP)/$(BUSYBOX) $@
 
 busybox: $(TOP)/busybox
 	@true
 
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
-	@rm -rf $(TOP)/$(VSFTPD) $(TOP)/vsftpd
+	@rm -rf $(TOP)/$(VSFTPD) $@
 	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
 	$(PATCHER) $(TOP)/$(VSFTPD) vsftpd/build.patch vsftpd/passwd_file.patch \
 	vsftpd/utf8.patch vsftpd/anon_root.patch vsftpd/log.patch 
-	mv $(TOP)/$(VSFTPD) $(TOP)/vsftpd
+	mv $(TOP)/$(VSFTPD) $@
 
 vsftpd: $(TOP)/vsftpd
 	@true
 
-$(TOP)/dropbear/config.h: dropbear/$(DROPBEAR).tar.bz2
-	@rm -rf $(TOP)/$(DROPBEAR) $(TOP)/dropbear
+$(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
+	@rm -rf $(TOP)/$(DROPBEAR) $@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/$(DROPBEAR) dropbear/$(DROPBEAR).patch \
 	dropbear/$(DROPBEAR)-charo-io.patch \
 	dropbear/$(DROPBEAR)-pipe.patch dropbear/$(DROPBEAR)-uninit-defect.patch 
-	cd $(TOP)/$(DROPBEAR) && \
-		CC=$(CC) CPPFLAGS="$(EXTRACFLAGS)" ./configure --host=mipsel-linux --disable-zlib --disable-shadow \
-		--disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx \
-		--disable-libutil --disable-loginfunc --disable-pututline --disable-pututxline
-	mv $(TOP)/$(DROPBEAR) $(TOP)/dropbear
+	mv $(TOP)/$(DROPBEAR) $@
 
-dropbear: $(TOP)/dropbear/config.h
+dropbear: $(TOP)/dropbear
 	@true
 
 $(TOP)/ucdsnmp: ucd-snmp/$(UCDSNMP).tar.gz
-	@rm -rf $(TOP)/$(UCDSNMP) $(TOP)/ucdsnmp
+	@rm -rf $(TOP)/$(UCDSNMP) $@
 	tar -xzf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/$(UCDSNMP) ucd-snmp/$(UCDSNMP).patch \
 	ucd-snmp/ucd-snmp-3.6.2-interfaces.patch ucd-snmp/ucd-snmp-3.6.2-uptime.patch 
-	mv $(TOP)/$(UCDSNMP) $(TOP)/ucdsnmp
+	mv $(TOP)/$(UCDSNMP) $@
 
-$(TOP)/ucdsnmp/Makefile:
-	cd $(TOP)/ucdsnmp && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) \
-		ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
-		ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
-		./configure --host=mipsel-linux --with-cflags="-g -O2 $(EXTRACFLAGS)" \
-		--disable-debugging --without-opaque-special-types --with-out-mib-modules="v2party" \
-		--with-sys-location=Unknown --with-sys-contact=Administrator --with-logfile=/var/log/snmpd.log
-
-ucdsnmp: $(TOP)/ucdsnmp $(TOP)/ucdsnmp/Makefile
+ucdsnmp: $(TOP)/ucdsnmp
 	@true
 
 iproute2_Patches := $(call patches_list,iproute2)
@@ -246,7 +225,7 @@ $(TOP)/dnsmasq: $(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ) $@
 	tar -xzf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/$(DNSMASQ) $(DNSMASQ).patch
-	mv $(TOP)/$(DNSMASQ) $(TOP)/dnsmasq && touch $@
+	mv $(TOP)/$(DNSMASQ) $@ && touch $@
 
 dnsmasq-diff: $(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ)
@@ -272,7 +251,7 @@ p910nd-diff:
 p910nd: $(TOP)/p910nd
 	@true
 
-$(TOP)/samba/source/Makefile: samba/$(SAMBA).tar.bz2
+$(TOP)/samba: samba/$(SAMBA).tar.bz2
 	@rm -rf $(TOP)/$(SAMBA) $@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/$(SAMBA) samba/$(SAMBA).patch \
@@ -282,32 +261,9 @@ $(TOP)/samba/source/Makefile: samba/$(SAMBA).tar.bz2
 	samba/$(SAMBA)-nt-ioctl.patch samba/$(SAMBA)-mount.patch \
 	samba/$(SAMBA)-gcc34.patch 
 	tar xzvf samba/$(SAMBA)-codepages.tar.gz -C $(TOP)/$(SAMBA)
-	mv $(TOP)/$(SAMBA) $(TOP)/samba
-	cd $(TOP)/samba/source && \
-		ac_cv_sizeof_int=4 ac_cv_sizeof_long=4 ac_cv_sizeof_short=2 \
-		samba_cv_FTRUNCATE_NEEDS_ROOT=no samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no \
-		samba_cv_HAVE_BROKEN_GETGROUPS=no samba_cv_HAVE_BROKEN_READDIR=no \
-		samba_cv_HAVE_FCNTL_LOCK=yes samba_cv_HAVE_FNMATCH=yes \
-		samba_cv_HAVE_FTRUNCATE_EXTEND=no samba_cv_HAVE_IFACE_AIX=no \
-		samba_cv_HAVE_IFACE_IFCONF=yes samba_cv_HAVE_IFACE_IFREQ=yes \
-		samba_cv_HAVE_INO64_T=yes samba_cv_HAVE_IRIX_SPECIFIC_CAPABILITIES=no \
-		samba_cv_HAVE_OFF64_T=yes samba_cv_HAVE_ROOT=yes \
-		samba_cv_HAVE_SECURE_MKSTEMP=yes samba_cv_HAVE_SHARED_MMAP=yes \
-		samba_cv_HAVE_STRUCT_FLOCK64=yes samba_cv_HAVE_SYSV_IPC=no \
-		samba_cv_HAVE_TRUNCATED_SALT=no samba_cv_HAVE_UNION_SEMUN=no \
-		samba_cv_HAVE_UNSIGNED_CHAR=yes samba_cv_NEED_SGI_SEMUN_HACK=no \
-		samba_cv_REPLACE_INET_NTOA=no samba_cv_SIZEOF_INO_T=4 \
-		samba_cv_SIZEOF_OFF_T=4 samba_cv_SYSCONF_SC_NGROUPS_MAX=yes \
-		samba_cv_USE_SETRESUID=no samba_cv_USE_SETREUID=yes \
-		samba_cv_USE_SETEUID=yes samba_cv_USE_SETUIDX=no \
-		samba_cv_have_longlong=yes samba_cv_have_setresgid=no \
-		samba_cv_have_setresuid=no samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
-		CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" CFLAGS="-Os $(EXTRACFLAGS)" \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) ./configure --host=mipsel-linux \
-		--prefix=/usr --localstatedir=/var/log --libdir=/etc \
-		--with-privatedir=/etc --with-lockdir=/var/lock --with-syslog
+	mv $(TOP)/$(SAMBA) $@
 
-samba: $(TOP)/samba/source/Makefile
+samba: $(TOP)/samba
 	@true
 
 iptables_Patches := $(call patches_list,iptables)
@@ -322,37 +278,31 @@ $(TOP)/iptables: iptables/$(IPTABLES).tar.bz2
 iptables: $(TOP)/iptables
 	@true
 
-$(TOP)/nfs-utils/Makefile:
-	@rm -rf $(TOP)/$(NFSUTILS) $(TOP)/nfs-utils
+$(TOP)/nfs-utils:
+	@rm -rf $(TOP)/$(NFSUTILS) $@
 	tar -xzf $(NFSUTILS).tar.gz -C $(TOP)
 	$(PATCHER) $(TOP)/$(NFSUTILS) $(NFSUTILS).patch $(NFSUTILS)-libnfs.patch 
-	mv $(TOP)/$(NFSUTILS) $(TOP)/nfs-utils
-	cd $(TOP)/nfs-utils && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) ./configure --host=mipsel-linux \
-		--enable-nfsv3 --disable-nfsv4 --disable-gss --disable-rquotad
+	mv $(TOP)/$(NFSUTILS) $@
 
-nfs-utils: $(TOP)/nfs-utils/Makefile
+nfs-utils: $(TOP)/nfs-utils
 	@true
 
 $(TOP)/portmap: $(PORTMAP).tar.gz
-	@rm -rf $(TOP)/$(PORTMAP) $(TOP)/portmap
+	@rm -rf $(TOP)/$(PORTMAP) $@
 	tar -xzf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/$(PORTMAP) $(PORTMAP).patch
-	mv $(TOP)/$(PORTMAP) $(TOP)/portmap
+	mv $(TOP)/$(PORTMAP) $@
 
 portmap: $(TOP)/portmap
 	@true
 
-$(TOP)/radvd/Makefile:
-	@rm -rf $(TOP)/$(RADVD) $(TOP)/radvd
+$(TOP)/radvd:
+	@rm -rf $(TOP)/$(RADVD) $@
 	tar -xzf $(RADVD).tar.gz -C $(TOP)
 	$(PATCHER) $(TOP)/$(RADVD) $(RADVD).patch
-	mv $(TOP)/$(RADVD) $(TOP)/radvd
-	cd $(TOP)/radvd && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CPPFLAGS="$(EXTRACFLAGS)" \
-		./configure --host=mipsel-linux --prefix=""
+	mv $(TOP)/$(RADVD) $@
 
-radvd: $(TOP)/radvd/Makefile
+radvd: $(TOP)/radvd
 	@true
 
 rc_Patches := $(call patches_list,rc)
@@ -373,24 +323,18 @@ $(TOP)/ppp: ppp/$(PPP).tar.bz2
 	$(PATCHER) $(TOP)/$(PPP) $(ppp_Patches)
 	mv $(TOP)/$(PPP) $@ && touch $@
 
-$(TOP)/ppp/Makefile: $(TOP)/ppp
-	cd $^ && ./configure --prefix=/usr --sysconfdir=/tmp
-
-ppp: $(TOP)/ppp/Makefile
+ppp: $(TOP)/ppp
 	@true
 
 rp-l2tp_Patches := $(call patches_list,rp-l2tp)
 
-$(TOP)/rp-l2tp/Makefile:
-	@rm -rf $(TOP)/$(L2TP) $(TOP)/rp-l2tp
+$(TOP)/rp-l2tp:
+	@rm -rf $(TOP)/$(L2TP) $@
 	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
 	$(PATCHER) $(TOP)/$($L2TP) $(rp-l2tp_Patches)
-	mv $(TOP)/$(L2TP) $(TOP)/rp-l2tp
-	cd $(TOP)/rp-l2tp && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-		./configure --host=mipsel-linux --prefix=/usr
+	mv $(TOP)/$(L2TP) $@
 
-rp-l2tp: $(TOP)/rp-l2tp/Makefile
+rp-l2tp: $(TOP)/rp-l2tp
 	@true
 
 rp-pppoe_Patches := $(call patches_list,rp-pppoe)
@@ -401,14 +345,7 @@ $(TOP)/rp-pppoe: rp-pppoe/$(RP-PPPOE).tar.gz
 	$(PATCHER) $(TOP)/$(RP-PPPOE) $(rp-pppoe_Patches)
 	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
 
-$(TOP)/rp-pppoe/src/Makefile: $(TOP)/ppp $(TOP)/rp-pppoe
-	cd $(TOP)/rp-pppoe/src && \
-		CC=$(CC) LD=$(LD) AR=$(AR) RANLIB=$(RANLIB) CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-		./configure --host=mipsel-linux --prefix=/usr \
-		 --enable-plugin=$(TOP)/ppp \
-		 ac_cv_linux_kernel_pppoe=yes rpppoe_cv_pack_bitfields=rev 
-
-rp-pppoe: $(TOP)/rp-pppoe/src/Makefile
+rp-pppoe: $(TOP)/rp-pppoe
 	@true
 
 accel-pptp_Patches := $(call patches_list,accel-pptp)
