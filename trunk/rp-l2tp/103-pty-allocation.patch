@@ -1,0 +1,20 @@
+Fixed pty allocation - ID: 1103086
+krichy ( krichy ) - 2005-01-15 20:54
+http://sourceforge.net/tracker/?func=detail&aid=1103086&group_id=63352&atid=503661
+
+diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sync-pppd.c
+--- gateway/rp-l2tp-0.4/handlers/sync-pppd.c	2009-09-02 17:03:29.000000000 +0000
++++ gateway/rp-l2tp/handlers/sync-pppd.c	2009-09-02 17:03:51.000000000 +0000
+@@ -343,6 +343,12 @@ establish_session(l2tp_session *ses)
+ 	free(sl);
+ 	return -1;
+     }
++    if ( fcntl(m_pty,F_SETFD,FD_CLOEXEC) == -1 ) {
++	close(m_pty);
++	close(s_pty);
++	free(sl);
++	return -1;
++    }
+ 
+     /* Fork */
+     pid = fork();
