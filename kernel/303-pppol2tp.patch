@@ -21,11 +21,11 @@ Index: linux-2.4.27-l2tp/drivers/net/Makefile
  
  obj-$(CONFIG_SLIP) += slip.o
  ifeq ($(CONFIG_SLIP_COMPRESSED),y)
-Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
+Index: linux-2.4.37.5-l2tp/drivers/net/pppol2tp.c
 ===================================================================
 --- /dev/null
-+++ linux-2.4.27-l2tp/drivers/net/pppol2tp.c
-@@ -0,0 +1,2634 @@
++++ linux-2.4.37-l2tp/drivers/net/pppol2tp.c	2009-09-03 15:55:21.000000000 +0000
+@@ -0,0 +1,2638 @@
 +/** -*- linux-c -*- ***********************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -33,7 +33,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 + * PPPoL2TP --- PPP over L2TP (RFC 2661)
 + *
 + *
-+ * Version:    0.13.0
++ * Version:    0.17.0
 + *
 + * 251003 :	Copied from pppoe.c version 0.6.9.
 + *
@@ -123,7 +123,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +#include <asm/byteorder.h>
 +#include <asm/atomic.h>
 +
-+#define PPPOL2TP_DRV_VERSION	"V0.13 (oleg@cs.msu.su)"
++#define PPPOL2TP_DRV_VERSION	"V0.17 (oleg@cs.msu.su)"
 +
 +/* Developer debug code. */
 +#if 0
@@ -466,20 +466,22 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +		       "%s: recv %d byte data frame, passing to ppp\n",
 +		       session->name, length);
 +
++		/* We need to forget all info related to the L2TP packet
++		 * gathered in the skb as we are going to reuse the same
++		 * skb for the inner packet.
++		 * Namely we need to:
++		 * - reset xfrm (IPSec) information as it applies to
++		 *   the outer L2TP packet and not to the inner one
++		 * - release the dst to force a route lookup on the inner
++		 *   IP packet since skb->dst currently points to the dst
++		 *   of the UDP tunnel
++		 * - reset netfilter information as it doesn't apply
++		 *   to the inner packet either
++		 */
 +		dst_release(skb->dst);
 +		skb->dst = NULL;
++		nf_reset(skb);
 +
-+#ifdef CONFIG_NETFILTER
-+		/* We need to forget conntrack info as we reuse the same skb. */
-+		nf_conntrack_put(skb->nfct);
-+		skb->nfct = NULL;
-+#ifdef CONFIG_NETFILTER_DEBUG
-+		skb->nf_debug = 0;
-+#endif
-+#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
-+		/*skb->nf_bridge = NULL;*/
-+#endif
-+#endif /* CONFIG_NETFILTER */
 +		ppp_input(&session_sock->protinfo.pppox->chan, skb);
 +	} else {
 +		PRINTK(session->debug, PPPOL2TP_MSG_DATA, KERN_INFO,
@@ -810,14 +812,16 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +	       "%s: received %d bytes\n", tunnel->name, len);
 +
 +	skb = skb_dequeue(&sk->receive_queue);
-+	if (pppol2tp_recv_core(sk, skb)) {
-+		DPRINTK(tunnel->debug, "%s: packet passing to userspace\n",
-+		       tunnel->name);
-+		skb_queue_head(&sk->receive_queue, skb);
-+		tunnel->old_data_ready(sk, len);
-+	} else {
-+		DPRINTK(tunnel->debug, "%s: data packet received\n",
-+			tunnel->name);
++	if (skb != NULL) {
++		if (pppol2tp_recv_core(sk, skb)) {
++			DPRINTK(tunnel->debug, "%s: packet passing to userspace\n",
++				tunnel->name);
++			skb_queue_head(&sk->receive_queue, skb);
++			tunnel->old_data_ready(sk, len);
++		} else {
++			DPRINTK(tunnel->debug, "%s: data packet received\n",
++				tunnel->name);
++		}
 +	}
 +end:
 +	EXIT_FUNCTION;
@@ -932,6 +936,10 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +
 +	/* The actual sendmsg() call... */
 +	error = tunnel->old_proto->sendmsg(session->tunnel_sock, msg, total_len);
++
++	/* Back to kernel space */
++	set_fs(fs);
++
 +	if (error >= 0) {
 +		tunnel->stats.tx_packets++;
 +		tunnel->stats.tx_bytes += error;
@@ -941,9 +949,6 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +		tunnel->stats.tx_errors++;
 +		session->stats.tx_errors++;
 +	}
-+
-+	/* Back to kernel space */
-+	set_fs(fs);
 +
 +	DPRINTK(session->debug, "%s: %s: returning result %d\n", __FUNCTION__,
 +		session->name, error);
@@ -1108,7 +1113,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +	int error = 0;
 +	u8 hdr[PPPOL2TP_L2TP_HDR_SIZE_SEQ];
 +	int hdr_len;
-+	struct msghdr *msg;
++	struct msghdr *msg = NULL;
 +	struct pppol2tp_session *session;
 +	struct pppol2tp_tunnel *tunnel;
 +
@@ -1161,7 +1166,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +		goto end;
 +	}
 +
-+	msg->msg_iov = kmalloc(2 * sizeof(struct iovec), GFP_ATOMIC);
++	msg->msg_iov = kmalloc(3 * sizeof(struct iovec), GFP_ATOMIC);
 +	if (msg->msg_iov == NULL) {
 +		error = -ENOBUFS;
 +		tunnel->stats.tx_errors++;
@@ -1381,7 +1386,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +	if (!sk)
 +		return 0;
 +
-+	if (sk->dead != 0)
++	if (sk->dead)
 +		return -EBADF;
 +
 +	if (sk->user_data) {	    /* Was this socket actually connected? */
@@ -1411,8 +1416,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +
 +	lock_sock(sk);
 +
-+	if (sk->state & (PPPOX_CONNECTED | PPPOX_BOUND))
-+		pppox_unbind_sock(sk);
++	pppox_unbind_sock(sk);
 +
 +	/* Signal the death of the socket. */
 +	sk->state = PPPOX_DEAD;
@@ -2079,7 +2083,7 @@ Index: linux-2.4.27-l2tp/drivers/net/pppol2tp.c
 +	if (!sk)
 +		return 0;
 +
-+	if (sk->dead != 0)
++	if (sk->dead)
 +		return -EBADF;
 +
 +	if ((sk->user_data == NULL) ||
@@ -3098,13 +3102,13 @@ Index: linux-2.4.27-l2tp/include/linux/list.h
  #endif
 Index: linux-2.4.27-l2tp/include/linux/socket.h
 ===================================================================
---- linux-2.4.27-l2tp.orig/include/linux/socket.h
-+++ linux-2.4.27-l2tp/include/linux/socket.h
+--- linux-2.4.37.5-l2tp.orig/include/linux/socket.h
++++ linux-2.4.37.5-l2tp/include/linux/socket.h
 @@ -259,6 +259,7 @@ struct ucred {
  #define SOL_IRDA        266
  #define SOL_NETBEUI	267
  #define SOL_LLC		268
-+#define SOL_PPPOL2TP	269
++#define SOL_PPPOL2TP	273
  
  /* IPX options */
  #define IPX_TYPE	1
