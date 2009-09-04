@@ -1,0 +1,15 @@
+--- accel-pptp/pppd_plugin/src/pptp.c	2009-09-04 09:31:34.000000000 +0000
++++ accel-pptp.new/pppd_plugin/src/pptp.c	2009-09-04 09:30:29.000000000 +0000
+@@ -347,10 +347,8 @@ static int get_call_id(int sock, pid_t g
+ 
+ void plugin_init(void)
+ {
+-    /*if (!ppp_available() && !new_style_driver)
+-    {
+-				fatal("Linux kernel does not support PPP -- are you running 2.4.x?");
+-    }*/
++    if (!ppp_available() && !new_style_driver)
++	fatal("Kernel doesn't support ppp_generic - needed for PPTP");
+ 
+     add_options(Options);
+ 
