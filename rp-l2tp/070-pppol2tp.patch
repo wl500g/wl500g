@@ -322,7 +322,7 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sy
  
      ses->private = NULL;
      if (!sl) return -1;
-@@ -299,6 +308,37 @@ establish_session(l2tp_session *ses)
+@@ -299,10 +308,42 @@ establish_session(l2tp_session *ses)
      sl->es = es;
  
      /* Get pty */
@@ -356,10 +356,15 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sy
 +            return -1;
 +        }
 +	snprintf (fdstr, sizeof(fdstr), "%d", s_pty);
-+    } else
++    } else {
      if (pty_get(&m_pty, &s_pty) < 0) {
  	free(sl);
  	return -1;
+     }
++    }
+ 
+    /* Fork */
+    pid = fork();
 @@ -312,8 +352,6 @@ establish_session(l2tp_session *ses)
      }
  
