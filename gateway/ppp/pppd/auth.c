@@ -553,6 +553,9 @@ link_required(unit)
 void start_link(unit)
     int unit;
 {
+     /* we are called via link_terminated, must be ignored */
+    if (phase == PHASE_DISCONNECT)
+	return;
     status = EXIT_CONNECT_FAILED;
     new_phase(PHASE_SERIALCONN);
 
@@ -662,6 +665,7 @@ link_terminated(unit)
 	the_channel->disconnect();
 	devfd = -1;
     }
+    /* not only disconnect, cleanup should also be called to close the devices */
     if (the_channel->cleanup)
 	(*the_channel->cleanup)();
 
