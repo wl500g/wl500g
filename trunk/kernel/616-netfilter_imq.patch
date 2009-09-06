@@ -467,7 +467,6 @@ diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/n
 +		if (register_netdev(dev) < 0)
 +			goto err_register;
 +	}
-+        printk(KERN_INFO "IMQ starting with %u devices...\n", j);
 +	return 0;
 +
 +err_register:
