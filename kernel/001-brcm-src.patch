@@ -633,6 +633,17 @@ diff -Bur linux-2.4.35.5-orig/drivers/mtd/mtdblock_ro.c linux/drivers/mtd/mtdblo
 -MODULE_DESCRIPTION("Simple read-only block device emulation access to MTD devices");
 +MODULE_AUTHOR("Nicolas Pitre <nico@cam.org> et al.");
 +MODULE_DESCRIPTION("Caching read-only block device emulation access to MTD devices");
+diff -aur linux-2.4.37/drivers/net/Config.in linux/drivers/net/Config.in
+--- linux-2.4.37/drivers/net/Config.in	2008-12-02 21:01:04.000000000 +0300
++++ linux/drivers/net/Config.in	2008-12-02 21:04:03.000000000 +0300
+@@ -2,6 +2,7 @@
+ # Network device configuration
+ #
+ 
++source drivers/net/hnd/Config.in
+ source drivers/net/arcnet/Config.in
+ 
+ tristate 'Dummy net driver support' CONFIG_DUMMY
 --- linux.1927/drivers/net/et/Makefile	2004-12-03 05:57:07.000000000 +0300
 +++ linux.1985/drivers/net/et/Makefile	2007-03-20 15:21:03.000000000 +0300
 @@ -1,7 +1,7 @@
