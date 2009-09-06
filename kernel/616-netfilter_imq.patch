@@ -521,7 +521,7 @@ diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/n
 +module_exit(imq_cleanup_module);
 +
 +MODULE_PARM(numdevs, "i");
-+MODULE_PARM_DESC(numdevs, "number of IMQ devices (how many imq* devices will be created)");
++MODULE_PARM_DESC(numdevs, "number of IMQ devices");
 +MODULE_PARM(behaviour, "s");
 +MODULE_PARM_DESC(behaviour, "where to hook in PREROUTING and POSTROUTING - Before or After NAT (aa,ab,ba,bb)");
 +MODULE_AUTHOR("");
