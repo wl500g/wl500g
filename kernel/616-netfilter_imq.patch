@@ -129,7 +129,7 @@ diff -Naur linux-2.4.27/drivers/net/Config.in linux-2.4.27-behaviour_param/drive
 diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/net/imq.c
 --- linux-2.4.27/drivers/net/imq.c	1970-01-01 01:00:00.000000000 +0100
 +++ linux-2.4.27-behaviour_param/drivers/net/imq.c	2004-10-08 21:06:12.000000000 +0200
-@@ -0,0 +1,397 @@
+@@ -0,0 +1,391 @@
 +/*
 + *             Pseudo-driver for the intermediate queue device.
 + *
@@ -175,14 +175,16 @@ diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/n
 +       .list           = { NULL, NULL},
 +       .hook           = imq_nf_hook,
 +       .pf             = PF_INET,
-+       .hooknum        = NF_IP_PRE_ROUTING
++       .hooknum        = NF_IP_PRE_ROUTING,
++       .priority       = NF_IP_PRI_MANGLE + 1
 +};
 +
 +static struct nf_hook_ops imq_egress_ipv4 = {
 +       .list           = { NULL, NULL},
 +       .hook           = imq_nf_hook,
 +       .pf             = PF_INET,
-+       .hooknum        = NF_IP_POST_ROUTING
++       .hooknum        = NF_IP_POST_ROUTING,
++       .priority       = NF_IP_PRI_NAT_SRC - 1
 +};
 +
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
@@ -190,14 +192,16 @@ diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/n
 +       .list           = { NULL, NULL},
 +       .hook           = imq_nf_hook,
 +       .pf             = PF_INET6,
-+       .hooknum        = NF_IP6_PRE_ROUTING
++       .hooknum        = NF_IP6_PRE_ROUTING,
++       .priority       = NF_IP6_PRI_MANGLE + 1
 +};
 +
 +static struct nf_hook_ops imq_egress_ipv6 = {
 +       .list           = { NULL, NULL},
 +       .hook           = imq_nf_hook,
 +       .pf             = PF_INET6,
-+       .hooknum        = NF_IP6_POST_ROUTING
++       .hooknum        = NF_IP6_POST_ROUTING,
++       .priority       = NF_IP6_PRI_NAT_SRC - 1
 +};
 +#endif
 +
@@ -347,28 +351,18 @@ diff -Naur linux-2.4.27/drivers/net/imq.c linux-2.4.27-behaviour_param/drivers/n
 +			printk(KERN_ERR "IMQ: behaviour must be one of these: \"bb\", \"ba\", \"ab\", \"aa\".\n");
 +                       return -EINVAL;
 +		}
-+       }
++	}
 +
-+       if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) {
++	if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) {
 +	       imq_ingress_ipv4.priority = NF_IP_PRI_NAT_DST + 1;
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 +	       imq_ingress_ipv6.priority = NF_IP6_PRI_NAT_DST + 1;
 +#endif
-+       } else {
-+	       imq_ingress_ipv4.priority = NF_IP_PRI_MANGLE + 1;
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	       imq_ingress_ipv6.priority = NF_IP6_PRI_MANGLE + 1;
-+#endif
 +	}
-+       if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) {
++	if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) {
 +	       imq_egress_ipv4.priority = NF_IP_PRI_LAST;
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 +	       imq_egress_ipv6.priority = NF_IP6_PRI_LAST;
-+#endif
-+       } else {
-+	       imq_egress_ipv4.priority = NF_IP_PRI_NAT_SRC - 1;
-+#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
-+	       imq_egress_ipv6.priority = NF_IP6_PRI_NAT_SRC - 1;
 +#endif
 +	}
 +
