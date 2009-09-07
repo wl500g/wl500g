@@ -44,7 +44,7 @@
  	}
  }
  
-@@ -307,8 +339,26 @@
+@@ -307,8 +339,31 @@
  	 */
  	else if (sb_coreid(sbh) == SB_USB20H) {
  		if (!sb_iscoreup(sbh)) {
@@ -55,18 +55,23 @@
 -			writel(0x7FF, (ulong)regs + 0x200);
 +			writel(0x7ff, (uintptr)regs + 0x200);
 +
-+                        tmp = readl((uintptr)regs + 0x400);
-+                        tmp &= ~8;
-+                        writel(tmp, (uintptr)regs + 0x400);
++			/* Change Flush control reg */
++			tmp = readl((uintptr)regs + 0x400);
++			tmp &= ~8;
++			writel(tmp, (uintptr)regs + 0x400);
++
++			/* Change Shim control reg */
++			tmp = readl((uintptr)regs + 0x304);
++			tmp &= ~0x100;
++			writel(tmp, (uintptr)regs + 0x304);
 +                        
-+                        tmp = readl((uintptr)regs + 0x304);
-+                        tmp &= ~0x100;
-+                        writel(tmp, (uintptr)regs + 0x304);
-+                        
-+   			tmp = 0x00fe00fe;
++			/* Change Syn01 reg */
++			tmp = 0x00fe00fe;
 +   			writel(tmp, (uintptr)regs + 0x894);
 +
-+   			tmp = 0x1;
++			/* Change Syn03 reg */
++			tmp = readl((uintptr)regs + 0x304);
++			tmp |= 0x1;
 +  			writel(tmp, (uintptr)regs + 0x89c);
 +
  			udelay(1);
