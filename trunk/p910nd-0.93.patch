@@ -12,7 +12,22 @@ diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
  	}
  	return (lp);
  }
-@@ -398,7 +397,7 @@ int copy_stream(int fd, int lp)
+@@ -335,8 +335,12 @@ int copy_stream(int fd, int lp)
+ 				if ((now.tv_sec > then.tv_sec) || (now.tv_sec == then.tv_sec && now.tv_usec > then.tv_usec)) {
+ 					timer = 0;
+ 				} else {
+-					timeout.tv_sec = then.tv_sec;
+-					timeout.tv_usec = then.tv_usec;
++					timeout.tv_sec = then.tv_sec - now.tv_sec;
++					timeout.tv_usec = then.tv_usec - now.tv_usec;
++					if (timeout.tv_usec < 0) {
++						timeout.tv_usec += 1000000;
++						timeout.tv_sec--;
++					}
+ 					FD_CLR(lp, &readfds);
+ 				}
+ 			}
+@@ -398,7 +397,7 @@ void one_job(int lpnumber)
  
  void one_job(int lpnumber)
  {
