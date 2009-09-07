@@ -15,7 +15,7 @@ diff -urBp iproute2.orig/tc/q_fifo.c iproute2/tc/q_fifo.c
 +
 +extern int prio_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt);
 +extern int parse_noqopt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n);
-+struct qdisc_util pfifo_fast_qdisc_util = {
++struct qdisc_util pfifo_fast_util = {
 +	NULL,
 +	"pfifo_fast",
 +	fifo_parse_opt,
