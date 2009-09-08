@@ -1,15 +1,15 @@
 --- a/net/ipv4/netfilter/ip_conntrack_pptp.c
 +++ b/net/ipv4/netfilter/ip_conntrack_pptp.c
-@@ -134,12 +134,11 @@ static int pptp_expectfn(struct ip_connt
+@@ -134,12 +134,10 @@ static int pptp_expectfn(struct ip_connt
  }
  
  /* timeout GRE data connections */
 -static int pptp_timeout_related(struct ip_conntrack *ct)
-+static int pptp_timeout_related(struct ip_conntrack *ct, const struct iphdr *iph)
++static int pptp_timeout_related(struct ip_conntrack *ct, enum ip_conntrack_info ctinfo, const struct iphdr *iph)
  {
  	struct list_head *cur_item, *next;
  	struct ip_conntrack_expect *exp;
- 	enum ip_conntrack_info ctinfo;
+-	enum ip_conntrack_info ctinfo;
 -	struct iphdr *iph;
  
  	/* FIXME: do we have to lock something ? */
@@ -29,7 +29,7 @@
  
  		/* untrack this call id, unexpect GRE packets */
 -		pptp_timeout_related(ct);
-+		pptp_timeout_related(ct, iph);
++		pptp_timeout_related(ct, ctinfo, iph);
  		break;
  
  	case PPTP_WAN_ERROR_NOTIFY:
@@ -38,7 +38,7 @@
  
  		/* untrack this call id, unexpect GRE packets */
 -		pptp_timeout_related(ct);
-+		pptp_timeout_related(ct, iph);
++		pptp_timeout_related(ct, ctinfo, iph);
  	}
  
  
