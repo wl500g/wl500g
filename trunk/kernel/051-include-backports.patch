@@ -564,3 +564,32 @@ diff -uBN linux-2.4.37.orig/include/asm-mips/bitops.h linux/include/asm-mips/bit
  /*
   * hweightN - returns the hamming weight of a N-bit word
   * @x: the word to weigh
+diff -uBN linux-2.4.37.orig/include/linux/in.h linux/include/linux/in.h
+--- linux-2.4.37.orig/include/linux/in.h	2009-08-14 02:04:00.000000000 +0400
++++ linux/include/linux/in.h	2009-09-08 12:17:46.000000000 +0400
+@@ -32,6 +32,7 @@
+   IPPROTO_PUP = 12,		/* PUP protocol				*/
+   IPPROTO_UDP = 17,		/* User Datagram Protocol		*/
+   IPPROTO_IDP = 22,		/* XNS IDP protocol			*/
++  IPPROTO_DCCP = 33,		/* Datagram Congestion Control Protocol */
+   IPPROTO_RSVP = 46,		/* RSVP protocol			*/
+   IPPROTO_GRE = 47,		/* Cisco GRE tunnels (rfc 1701,1702)	*/
+ 
+@@ -43,6 +44,7 @@
+   IPPROTO_AH = 51,             /* Authentication Header protocol       */
+   IPPROTO_COMP   = 108,                /* Compression Header protocol */
+   IPPROTO_SCTP   = 132,		/* Stream Control Transport Protocol    */
++  IPPROTO_UDPLITE = 136,	/* UDP-Lite (RFC 3828)                  */
+ 
+   IPPROTO_RAW	 = 255,		/* Raw IP packets			*/
+   IPPROTO_MAX
+@@ -69,6 +71,9 @@
+ #define	IP_RECVTOS	13
+ #define IP_MTU		14
+ #define IP_FREEBIND	15
++#define IP_IPSEC_POLICY	16
++#define IP_XFRM_POLICY	17
++#define IP_PASSSEC	18
+ 
+ /* BSD compatibility */
+ #define IP_RECVRETOPTS	IP_RETOPTS
