@@ -9,10 +9,8 @@
  TCMODULES += q_prio.o
  TCMODULES += q_tbf.o
 --- iproute2-orig/tc/q_esfq.c	1970-01-01 00:00:00.000000000 +0000
-+++ iproute2/tc/q_esfq.c	2008-05-01 20:31:09.000000000 +0100
---- /dev/null	2008-12-03 13:29:15.000000000 +0300
-+++ q_esfq.c	2009-09-07 21:15:55.000000000 +0400
-@@ -0,0 +1,200 @@
++++ iproute2/tc/q_esfq.c	2009-09-07 21:15:55.000000000 +0400
+@@ -0,0 +1,206 @@
 +/*
 + * q_esfq.c		ESFQ.
 + *
@@ -47,7 +45,7 @@
 +{
 +	fprintf(stderr, "Usage: ... esfq [ perturb SECS ] [ quantum BYTES ] [ depth FLOWS ]\n\t[ divisor HASHBITS ] [ limit PKTS ] [ hash HASHTYPE]\n");
 +	fprintf(stderr,"Where: \n");
-+	fprintf(stderr,"HASHTYPE := { classic | src | dst | ctorigdst | ctorigsrc | ctrepldst | ctreplsrc | ctnatchg }\n");
++	fprintf(stderr,"HASHTYPE := { classic | src | dst | fwmark | ctorigdst | ctorigsrc | ctrepldst | ctreplsrc | ctnatchg }\n");
 +}
 +
 +static void explain1(char *arg)
@@ -114,6 +112,9 @@
 +			if(strcmp(*argv, "src") == 0) {
 +				opt.hash_kind= TCA_SFQ_HASH_SRC;
 +			} else
++			if(strcmp(*argv, "fwmark") == 0) {
++				opt.hash_kind= TCA_SFQ_HASH_FWMARK;
++			} else
 +			if(strcmp(*argv, "ctorigsrc") == 0) {
 +				opt.hash_kind= TCA_SFQ_HASH_CTORIGSRC;
 +			} else
@@ -178,6 +179,9 @@
 +		break;
 +	case TCA_SFQ_HASH_SRC:
 +		fprintf(f,"src");
++		break;
++	case TCA_SFQ_HASH_FWMARK:
++		fprintf(f,"fwmark");
 +		break;
 +	case TCA_SFQ_HASH_CTORIGSRC:
 +		fprintf(f,"ctorigsrc");
