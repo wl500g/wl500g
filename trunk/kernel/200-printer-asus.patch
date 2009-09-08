@@ -85,9 +85,9 @@
 +
 +static int proc_get_usblpid(struct usblp *usblp)
 +{
-+//JYWeng 20031212: set this as global	char *strtmp, *str_dev_id, *strunknown="unknown"; // Added by PaN
-+	char *strtmp, *str_dev_id; // Added by PaN: JYWeng 20031212: modified from the above
-+	int i, unk = 0; // Added by PaN
++//JYWeng 20031212: set this as global	char *strtmp, *strunknown="unknown"; // Added by PaN
++	char *str_dev_id; // Added by PaN: JYWeng 20031212: modified from the above
++	//int i, unk = 0; // Added by PaN
 +	int length, err;
 +	int retval = 0;
 +
@@ -258,16 +258,15 @@
  
  	kfree (usblp->writebuf);
  	kfree (usblp->readbuf);
-@@ -437,6 +639,12 @@
+@@ -437,6 +639,11 @@
  static int usblp_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
  {
  	struct usblp *usblp = file->private_data;
 +//JYWeng 20031212: set this as global	struct parport_splink_device_info prn_info_tmp, *prn_info; // Added by PaN
 +	struct print_buffer user_buf_tmp, *user_buf; // Added by PaN
-+//JYWeng 20031212: set this as global	char *strtmp, *str_dev_id, *strunknown="unknown"; // Added by PaN
-+	char *strtmp, *str_dev_id; // Added by PaN: JYWeng 20031212: modified from the above
++//JYWeng 20031212: set this as global	char *strtmp, *strunknown="unknown"; // Added by PaN
++	char *str_dev_id; // Added by PaN: JYWeng 20031212: modified from the above
 +	//int i, unk=0; // Added by PaN
-+	int unk=0; // Added by PaN ---remove declaration of i for i is declared below: JY
  	int length, err, i;
  	unsigned char newChannel;
  	int status;
