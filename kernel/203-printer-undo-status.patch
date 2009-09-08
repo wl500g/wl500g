@@ -1,5 +1,19 @@
 --- linuz/drivers/usb/printer.c	2008-01-25 19:31:47.000000000 +0300
 +++ linux/drivers/usb/printer.c	2008-01-25 19:36:57.000000000 +0300
+@@ -84,13 +84,6 @@
+ 	char model[MAX_MODEL];
+ 	char description[MAX_DESCRIPT];
+ };
+-static char *usblp_status_type[MAX_STATUS_TYPE]={ "Lexmark", "Canon", "Hp", "Epson", "EPSON", NULL};
+-static int usblp_status_maping[MAX_STATUS_TYPE][4]={ {0,0,0,0},
+-				       		     {0, LP_POUTPA, LP_PERRORP, LP_PBUSY},
+-				       		     {0,0,0,0},
+-				       		     {0,0,0,0},
+-				       		     {0,0,0,0},
+-				       		     {0,0,0,0}};
+ 			       	       	       
+ static struct parport_splink_device_info usblpid_info;
+ struct parport_splink_device_info prn_info_tmp, *prn_info; // Added by JYWeng 20031212:
 @@ -991,48 +991,16 @@
  				break;
  
