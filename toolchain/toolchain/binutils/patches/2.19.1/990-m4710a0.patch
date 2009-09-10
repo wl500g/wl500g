@@ -178,7 +178,7 @@ diff -urBp binutils-2.19.1/gas/config/tc-mips.c binutils/gas/config/tc-mips.c
 +		  goto skip_swap;
 +		}
 +		/* or if $at is not avaliable */
-+		if (mips_opts.at) {
++		if (!mips_opts.at) {
 +		  as_warn (_("bcm4710a0: .set noat in effect, cannot swap %s with %s"),
 +			   ip->insn_mo->name, history[0].insn_mo->name);
 +		  goto skip_swap;
