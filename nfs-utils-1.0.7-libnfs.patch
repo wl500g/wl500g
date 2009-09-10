@@ -26,7 +26,7 @@
  	ln -sf ../$*/$@ .
 +
 +libnfs.so: $(NFSOBJS) $(EXPOBJS) $(MSCOBJS)
-+	$(CC) -shared -o $@ $^
++	$(CC) -shared -nostdlib -o $@ $^
 --- nfs-utils/utils/exportfs/Makefile	2003-07-03 10:14:43.000000000 +0400
 +++ nfs-utils-libnfs/utils/exportfs/Makefile	2007-11-10 11:43:50.596623777 +0300
 @@ -4,8 +4,8 @@
