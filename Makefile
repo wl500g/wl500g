@@ -372,11 +372,12 @@ $(TOP)/igmpproxy/src/Makefile:
 igmpproxy: $(TOP)/igmpproxy/src/Makefile
 	@true
 
+pptp_Patches := $(call patches_list,pptp)
+
 $(TOP)/pptp: pptp/$(PPTP).tar.gz
 	@rm -rf $(TOP)/$(PPTP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(PPTP) pptp/$(PPTP).patch pptp/$(PPTP)-route.patch \
-	pptp/$(PPTP)-n_hdlc.patch pptp/$(PPTP)-writev.patch 
+	$(PATCHER) $(TOP)/$(PPTP) $(pptp_Patches)
 	mv $(TOP)/$(PPTP) $@ && touch $@
 
 pptp: $(TOP)/pptp
