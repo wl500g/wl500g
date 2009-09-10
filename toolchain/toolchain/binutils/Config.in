@@ -25,7 +25,7 @@ config BINUTILS_VERSION
 	string
 	prompt "Binutils Version" if (TOOLCHAINOPTS && NULL)
 	default "2.17"            if BINUTILS_VERSION_2_17
-	default "2.19"            if BINUTILS_VERSION_2_19_1
+	default "2.19.1"          if BINUTILS_VERSION_2_19_1
 	default "2.17"
 
 
