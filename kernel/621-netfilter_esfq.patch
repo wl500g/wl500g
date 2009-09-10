@@ -266,7 +266,7 @@ diff -urN linux-2.4.37/net/sched/sch_esfq.c linux/net/sched/sch_esfq.c
 +	}
 +
 +#ifdef CONFIG_NETFILTER
-+	info.mark = skb->fwmark;
++	info.mark = skb->nfmark;
 +#endif
 +
 +#ifdef CONFIG_IP_NF_CONNTRACK
