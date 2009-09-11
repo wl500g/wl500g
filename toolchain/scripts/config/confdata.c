@@ -428,7 +428,7 @@ int conf_write(const char *name)
 
 	fprintf(out, _("#\n"
 		       "# Automatically generated make config: don't edit\n"
-		       "# OpenWrt version: %s\n"
+		       "# toolchain version: %s\n"
 		       "%s%s"
 		       "#\n"),
 		     sym_get_string_value(sym),

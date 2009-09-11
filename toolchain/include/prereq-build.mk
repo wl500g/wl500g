@@ -34,7 +34,7 @@ define Require/case-sensitive-fs
 endef
 
 $(eval $(call Require,case-sensitive-fs, \
-	OpenWrt can only be built on a case-sensitive filesystem \
+	Toolchain can only be built on a case-sensitive filesystem \
 ))
 
 define Require/working-gcc

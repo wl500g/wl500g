@@ -6,7 +6,6 @@
 # See /LICENSE for more information.
 #
 
-RELEASE:=Kamikaze
 SHELL:=/usr/bin/env bash
 PREP_MK= OPENWRT_BUILD= QUIET=0
 
@@ -18,9 +17,7 @@ else
   REVISION:=$(shell $(TOPDIR)/scripts/getver.sh)
 endif
 
-OPENWRTVERSION:=$(RELEASE)$(if $(REVISION), ($(REVISION)))
-export RELEASE
-export REVISION
+OPENWRTVERSION:=$(if $(REVISION), ($(REVISION)))
 export OPENWRTVERSION
 export IS_TTY=$(shell tty -s && echo 1 || echo 0)
 
@@ -46,7 +43,7 @@ prepare-tmpinfo: FORCE
 
 .config: ./scripts/config/conf prepare-tmpinfo
 	@+if [ \! -f .config ]; then \
-		[ -e $(HOME)/.openwrt/defconfig ] && cp $(HOME)/.openwrt/defconfig .config; \
+		[ -e defconfig ] && cp defconfig .config; \
 		$(NO_TRACE_MAKE) menuconfig $(PREP_MK); \
 	fi
 
@@ -72,8 +69,8 @@ oldconfig: scripts/config/conf prepare-tmpinfo FORCE
 	$< -$(if $(CONFDEFAULT),$(CONFDEFAULT),o) Config.in
 
 menuconfig: scripts/config/mconf prepare-tmpinfo FORCE
-	if [ \! -f .config -a -e $(HOME)/.openwrt/defconfig ]; then \
-		cp $(HOME)/.openwrt/defconfig .config; \
+	if [ \! -f .config -a -e defconfig ]; then \
+		cp defconfig .config; \
 	fi
 	$< Config.in
 

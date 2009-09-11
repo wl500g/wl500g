@@ -1084,7 +1084,7 @@ int main(int ac, char **av)
 
 	sym = sym_lookup("OPENWRTVERSION", 0);
 	sym_calc_value(sym);
-	sprintf(menu_backtitle, _("OpenWrt %s Configuration"),
+	sprintf(menu_backtitle, _("Toolchain %s Configuration"),
 		sym_get_string_value(sym));
 
 	mode = getenv("MENUCONFIG_MODE");
@@ -1101,7 +1101,7 @@ int main(int ac, char **av)
 	do {
 		cprint_init();
 		cprint("--yesno");
-		cprint(_("Do you wish to save your new OpenWrt configuration?"));
+		cprint(_("Do you wish to save your new Toolchain configuration?"));
 		cprint("5");
 		cprint("60");
 		stat = exec_conf();
@@ -1110,14 +1110,14 @@ int main(int ac, char **av)
 	if (stat == 0) {
 		if (conf_write(NULL)) {
 			fprintf(stderr, _("\n\n"
-				"Error during writing of the OpenWrt configuration.\n"
+				"Error during writing of the Toolchain configuration.\n"
 				"Your configuration changes were NOT saved."
 				"\n\n"));
 			return 1;
 		}
 		printf(_("\n\n"
-			"*** End of OpenWrt configuration.\n"
-			"*** Execute 'make' to build the OpenWrt or try 'make help'."
+			"*** End of Toolchain configuration.\n"
+			"*** Execute 'make' to build the Toolchain or try 'make help'."
 			"\n\n"));
 	} else {
 		fprintf(stderr, _("\n\n"
