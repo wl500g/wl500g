@@ -1,0 +1,19 @@
+diff -uBp gateway/rc/network_ex.c gateway/rc/network_ex.c
+--- gateway/rc/network_ex.c	2009-08-17 18:45:09.000000000 +0400
++++ gateway/rc/network_ex.c	2009-09-11 20:21:48.000000000 +0400
+@@ -232,6 +232,7 @@ int start_pppd(char *prefix)
+ 			"load-handler \"sync-pppd.so\"\n"
+ 			"load-handler \"cmd.so\"\n\n"
+ 			"section sync-pppd\n\n"
++			"kernel-mode %s\n"
+ 			"lac-pppd-opts \"file %s\"\n\n"
+ 			"section peer\n"
+ 			"peername %s\n"
+@@ -240,6 +241,7 @@ int start_pppd(char *prefix)
+ 			"maxfail %s\n"
+ 			"holdoff %s\n"
+ 			"section cmd\n\n",
++			nvram_match("wan_l2tp_kernel", "0") ? "false" : "true",
+ 			options,
+ 			nvram_invmatch("wan_heartbeat_x", "") ?
+    				nvram_safe_get("wan_heartbeat_x") : 
