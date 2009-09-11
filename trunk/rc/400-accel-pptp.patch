@@ -8,7 +8,7 @@ diff -BurpN gateway/rc.orig/network_ex.c gateway/rc/network_ex.c
  		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
         	       	
 +	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp") &&
-+	    nvram_match(strcat_r(prefix, "pptp_kernel", tmp), "1"))
++	    nvram_invmatch(strcat_r(prefix, "pptp_kernel", tmp), "0"))
 +	{
 +		fprintf(fp, "plugin pptp.so\n");
 +		fprintf(fp, "pptp_server %s\n", 
