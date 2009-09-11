@@ -1,6 +1,33 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d (trunk)===
+  * accel-pptp
+    * persist connection support
+    * bugfixes
+
+  * l2tpd
+    * repair kernel mode (_incomplete_)
+    * bugfixes from mainstream
+
+  * pppd
+    * minunit option added
+    * bugfixes from Alt Linux distribution
+
+  * netfilter/iptables/iproute2
+    * IMQ driver with behavior
+    * "tc qdisc esfq" backport
+    * ESFQ scheduler updated to more recent version
+    * ipset 3.2
+
+  * dnsmasq 2.50test10 (speedup of DNS queries)
+
+  * libusb 1.0.3 & usb_modeswitch 1.0.5
+
+  * bugfixes
+    * busybox (ash, wget)
+    * libusb UHCI transfers
+
 ===wl500g-1.9.2.7-d-`r473` (2009-08-22)===
   * kernel 2.4.37.5
     * accel-pptp driver (EXPERIMENTAL!!!)
