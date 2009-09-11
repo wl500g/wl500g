@@ -13,7 +13,7 @@ diff -uBp gateway/rc/network_ex.c gateway/rc/network_ex.c
  			"maxfail %s\n"
  			"holdoff %s\n"
  			"section cmd\n\n",
-+			nvram_match("wan_l2tp_kernel", "0") ? "false" : "true",
++			nvram_match(strcat_r(prefix, "l2tp_kernel", tmp), "0") ? "false" : "true",
  			options,
  			nvram_invmatch("wan_heartbeat_x", "") ?
     				nvram_safe_get("wan_heartbeat_x") : 
