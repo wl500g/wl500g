@@ -1,6 +1,6 @@
 --- /dev/null	2009-09-12 06:42:08.620054456 +0000
-+++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 13:26:59.000000000 +0000
-@@ -0,0 +1,2650 @@
++++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 14:09:59.000000000 +0000
+@@ -0,0 +1,2654 @@
 +/** -*- linux-c -*- ***********************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -1112,8 +1112,8 @@
 +	SOCK_2_SESSION(sk, session, error, -EBADF, end, 0);
 +	SOCK_2_TUNNEL(session->tunnel_sock, tunnel, error, -EBADF, end, 0);
 +
-+	/* Setup L2TP header */
-+	hdr_len = pppol2tp_build_l2tp_header(session, &hdr);
++	/* What header length is configured for this session? */
++	hdr_len = pppol2tp_l2tp_header_len(session);
 +
 +	if (session->send_seq)
 +		PRINTK(session->debug, PPPOL2TP_MSG_DATA, KERN_DEBUG,
@@ -1157,6 +1157,10 @@
 +		kfree(msg);
 +		goto end;
 +	}
++	
++	/* Setup L2TP header */
++	pppol2tp_build_l2tp_header(session, &hdr);
++	
 +	msg->msg_iov[0].iov_base = &hdr;
 +	msg->msg_iov[0].iov_len	 = hdr_len;
 +	/* FIXME: do we need to handle skb fragments here? */
