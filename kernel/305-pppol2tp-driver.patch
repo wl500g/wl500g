@@ -1,6 +1,6 @@
---- /dev/null
-+++ linux-2.4.37-l2tp/drivers/net/pppol2tp.c	2009-09-03 15:55:21.000000000 +0000
-@@ -0,0 +1,2638 @@
+--- /dev/null	2009-09-12 06:42:08.620054456 +0000
++++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 13:10:43.000000000 +0000
+@@ -0,0 +1,2648 @@
 +/** -*- linux-c -*- ***********************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -934,9 +934,17 @@
 +	return error;
 +}
 +
++static inline int pppol2tp_l2tp_header_len(struct pppol2tp_session *session)
++{
++	if (session->send_seq)
++		return PPPOL2TP_L2TP_HDR_SIZE_SEQ;
++
++	return PPPOL2TP_L2TP_HDR_SIZE_NOSEQ;
++}
++
 +/* Build an L2TP header for the session into the buffer provided.
 + */
-+static int pppol2tp_build_l2tp_header(struct pppol2tp_session *session,
++static void pppol2tp_build_l2tp_header(struct pppol2tp_session *session,
 +				      void *buf)
 +{
 +	u16 *bufp = buf;
@@ -960,10 +968,6 @@
 +		PRINTK(session->debug, PPPOL2TP_MSG_SEQ, KERN_DEBUG,
 +		       "%s: updated ns to %hu\n", session->name, session->ns);
 +	}
-+	/* This is the PPP header really */
-+	*bufp = htons(0xff03);
-+
-+	return ((void *) bufp) - buf;
 +}
 +
 +/* This is the sendmsg for the PPPoL2TP pppol2tp_session socket.  We come here
@@ -994,7 +998,7 @@
 +	SOCK_2_TUNNEL(session->tunnel_sock, tunnel, error, -EBADF, end, 0);
 +
 +	/* Setup L2TP header */
-+	hdr_len = pppol2tp_build_l2tp_header(session, &hdr);
++	hdr_len = pppol2tp_l2tp_header_len(session);
 +
 +	if (session->send_seq)
 +		PRINTK(session->debug, PPPOL2TP_MSG_DATA, KERN_DEBUG,
@@ -1046,6 +1050,8 @@
 +		kfree(msg);
 +		goto end;
 +	}
++	
++	pppol2tp_build_l2tp_header(session, &hdr);
 +
 +	msg->msg_iov[0].iov_base = &hdr;
 +	msg->msg_iov[0].iov_len	 = hdr_len;
@@ -1764,21 +1770,7 @@
 +	DPRINTK(session->debug, "%s: allocated session=%p, sock=%p, owner=%d\n",
 +		session->name, session, sk, session->owner);
 +
-+	/* Add session to the tunnel's hash list */
 +	SOCK_2_TUNNEL(tunnel_sock, tunnel, error, -EBADF, end, 0);
-+	write_lock_bh(&tunnel->hlist_lock);
-+	hlist_add_head(&session->hlist,
-+		       pppol2tp_session_id_hash(tunnel,
-+						session->tunnel_addr.s_session));
-+	write_unlock_bh(&tunnel->hlist_lock);
-+
-+	/* This is how we get the session context from the socket. */
-+	sk->user_data = session;
-+
-+	/* We don't store any more options in the pppox_opt, everything is in
-+	 * user_data (struct pppol2tp_session)
-+	 */
-+	po->sk = sk;
 +
 +	/* Right now, because we don't have a way to push the incoming skb's
 +	 * straight through the UDP layer, the only header we need to worry
@@ -1793,13 +1785,31 @@
 +
 +	error = ppp_register_channel(&po->chan);
 +	if (error)
-+		goto end;
++		goto end_put_tun;
++
++	/* This is how we get the session context from the socket. */
++	sk->user_data = session;
++
++	/* We don't store any more options in the pppox_opt, everything is in
++	 * user_data (struct pppol2tp_session)
++	 */
++	po->sk = sk;
++
++	write_lock_bh(&tunnel->hlist_lock);
++	hlist_add_head(&session->hlist,
++		       pppol2tp_session_id_hash(tunnel,
++						session->tunnel_addr.s_session));
++	write_unlock_bh(&tunnel->hlist_lock);
++
++	atomic_inc(&tunnel->session_count);
 +
 +out_no_ppp:
-+	atomic_inc(&tunnel->session_count);
 +	sk->state = PPPOX_CONNECTED;
 +	PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 +	       "%s: created\n", session->name);
++
++end_put_tun:
++	sock_put(tunnel_sock);
 +
 +end:
 +	release_sock(sk);
@@ -2639,4 +2649,3 @@
 +MODULE_AUTHOR("Martijn van Oosterhout <kleptog@svana.org>");
 +MODULE_DESCRIPTION("PPP over L2TP over UDP, " PPPOL2TP_DRV_VERSION);
 +MODULE_LICENSE("GPL");
-
