@@ -2763,26 +2763,6 @@ diff -BurpN -x'*.o' router/rc/network_ex.c gateway/rc/network_ex.c
 +		else eval("et", "-i", wan_if, "speed", speed);	
  	}	
  } 
-diff -BurpN -x'*.o' router/rc/ntp.c gateway/rc/ntp.c
---- router/rc/ntp.c	2004-11-15 14:55:13.000000000 +0300
-+++ gateway/rc/ntp.c	2008-12-28 10:27:34.000000000 +0300
-@@ -16,6 +16,7 @@
- #include <sys/time.h>
- #include <unistd.h>
- #include <stdlib.h>
-+#include <string.h>
- #include <sys/types.h>
- 
- #include <bcmnvram.h>
-@@ -52,7 +53,7 @@ int ntp_main(void)
- 
- 	while(1)
- 	{
--		ret=eval("ntpclient", "-h", servers, "-i", "3", "-l", "-s");
-+		ret=eval("ntpclient", "-h", servers, "-i", "3", "-c", "1", "-l", "-s");
- 		pause();
- 	}	
- }
 diff -BurpN -x'*.o' router/rc/ppp.c gateway/rc/ppp.c
 --- router/rc/ppp.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/ppp.c	2008-03-19 20:07:24.000000000 +0300
@@ -3617,15 +3597,6 @@ diff -BurpN -x'*.o' router/rc/services.c gateway/rc/services.c
  					nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
  					nvram_safe_get(strcat_r(prefix, "ifname", var));
  	    ret = eval("upnp", "-D",
-@@ -246,7 +317,7 @@ start_ntpc(void)
- 	char *servers = nvram_safe_get("ntp_server");
- 	
- 	if (strlen(servers)) {
--		char *nas_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-l", "-s", NULL};
-+		char *nas_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-c", "1", "-l", "-s", NULL};
- 		_eval(nas_argv, NULL, 0, NULL);
- 	}
- 	
 @@ -271,12 +342,14 @@ stop_ntpc(void)
  int
  start_services(void)
@@ -5701,25 +5672,6 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  	}
  }
  
-@@ -202,8 +381,8 @@ int ntp_timesync(void)
- 
- 		   	if (tm.tm_year>100) // More than 2000 
- 		   	{	 
--		      		sync_interval=60*60/5;
--			  	logmessage("ntp client", "time is synchronized to %s", nvram_safe_get("ntp_servers"));
-+		      		sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
-+			  	logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
- 
- 				stop_upnp();
- 				start_upnp();
-@@ -213,6 +392,7 @@ int ntp_timesync(void)
- 			refresh_ntpc();	
- 		}
- 	}	
-+	return 0;
- }
- 
- enum 
 @@ -226,7 +406,7 @@ enum 
  int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
  int extStatus[ACTIVEITEMS] = { 0, 0, 0};
