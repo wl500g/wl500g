@@ -1,6 +1,6 @@
 --- /dev/null	2009-09-12 06:42:08.620054456 +0000
 +++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 14:09:59.000000000 +0000
-@@ -0,0 +1,2654 @@
+@@ -0,0 +1,2651 @@
 +/** -*- linux-c -*- ***********************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -1791,7 +1791,7 @@
 +
 +	error = ppp_register_channel(&po->chan);
 +	if (error)
-+		goto end_put_tun;
++		goto end;
 +
 +	/* This is how we get the session context from the socket. */
 +	sk->user_data = session;
@@ -1813,9 +1813,6 @@
 +	sk->state = PPPOX_CONNECTED;
 +	PRINTK(session->debug, PPPOL2TP_MSG_CONTROL, KERN_INFO,
 +	       "%s: created\n", session->name);
-+
-+end_put_tun:
-+	sock_put(tunnel_sock);
 +
 +end:
 +	release_sock(sk);
