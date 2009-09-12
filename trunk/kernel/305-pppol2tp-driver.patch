@@ -1,6 +1,6 @@
 --- /dev/null	2009-09-12 06:42:08.620054456 +0000
-+++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 13:10:43.000000000 +0000
-@@ -0,0 +1,2648 @@
++++ linux-2.4.37.5/drivers/net/pppol2tp.c	2009-09-12 13:26:59.000000000 +0000
+@@ -0,0 +1,2650 @@
 +/** -*- linux-c -*- ***********************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -8,7 +8,7 @@
 + * PPPoL2TP --- PPP over L2TP (RFC 2661)
 + *
 + *
-+ * Version:    0.17.0
++ * Version:    0.17.1
 + *
 + * 251003 :	Copied from pppoe.c version 0.6.9.
 + *
@@ -18,6 +18,8 @@
 + *		Arnaldo Carvalho de Melo <acme@xconectiva.com.br>
 + *		David S. Miller (davem@redhat.com)
 + *		James Chapman (jchapman@katalix.com)
++ *		Oleg I.Vdovikin <oleg@cs.msu.su>
++ *		Vladislav Grishenko <themiron@mail.ru>
 + *
 + * License:
 + *		This program is free software; you can redistribute it and/or
@@ -98,7 +100,7 @@
 +#include <asm/byteorder.h>
 +#include <asm/atomic.h>
 +
-+#define PPPOL2TP_DRV_VERSION	"V0.17 (oleg@cs.msu.su)"
++#define PPPOL2TP_DRV_VERSION	"V0.17.1"
 +
 +/* Developer debug code. */
 +#if 0
