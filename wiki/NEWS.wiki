@@ -1,13 +1,18 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d (trunk)===
-  * accel-pptp
+===wl500g-1.9.2.7-d-`r566` (2009-09-12)===
+  * kernel
+    * IMQ driver with behavior
+    * ESFQ scheduler updated to more recent version
+    * pppol2tp backports from 2.6 kernels
+
+  * accel-pptp (used by default)
     * persist connection support
     * bugfixes
 
   * l2tpd
-    * repair kernel mode (_incomplete_)
+    * repair kernel mode (controlled by wan0_l2tp_kernel nvram variable)
     * bugfixes from mainstream
 
   * pppd
@@ -15,10 +20,11 @@
     * bugfixes from Alt Linux distribution
 
   * netfilter/iptables/iproute2
-    * IMQ driver with behavior
     * "tc qdisc esfq" backport
-    * ESFQ scheduler updated to more recent version
     * ipset 3.2
+
+  * rc (startup) procedures changes
+    * Avoid ntp pseudo daemon, call ntpclient directly
 
   * dnsmasq 2.50test10 (speedup of DNS queries)
 
