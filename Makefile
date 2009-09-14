@@ -180,11 +180,12 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 busybox: $(TOP)/busybox
 	@true
 
+vsftpd_Patches := $(call patches_list,vsftpd)
+
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	@rm -rf $(TOP)/$(VSFTPD) $@
 	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(VSFTPD) vsftpd/build.patch vsftpd/passwd_file.patch \
-	vsftpd/utf8.patch vsftpd/anon_root.patch vsftpd/log.patch 
+	$(PATCHER) $(TOP)/$(VSFTPD) $(vsftpd_Patches)
 	mv $(TOP)/$(VSFTPD) $@
 
 vsftpd: $(TOP)/vsftpd
