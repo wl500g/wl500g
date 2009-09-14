@@ -1,5 +1,5 @@
-diff -BurpN busybox-1.14.2/networking/udhcp/options.c busybox/networking/udhcp/options.c
---- busybox-1.14.2/networking/udhcp/options.c	2009-06-21 22:40:29.000000000 +0000
+diff -BurpN busybox-1.15.1/networking/udhcp/options.c busybox/networking/udhcp/options.c
+--- busybox-1.15.1/networking/udhcp/options.c	2009-06-21 22:40:29.000000000 +0000
 +++ busybox/networking/udhcp/options.c	2009-07-22 17:44:33.000000000 +0000
 @@ -31,6 +31,7 @@ const struct dhcp_option dhcp_options[] 
  	{ OPTION_U8                               , 0x17 }, /* DHCP_IP_TTL        */
@@ -13,10 +13,10 @@ diff -BurpN busybox-1.14.2/networking/udhcp/options.c busybox/networking/udhcp/o
  #if ENABLE_FEATURE_UDHCP_RFC3397
  	{ OPTION_STR1035 | OPTION_LIST            , 0x77 }, /* search             */
  #endif
+ 	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
 +	{ OPTION_U8 | OPTION_LIST     | OPTION_REQ, 0xF9 }, /* msroutes           */
  	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
  	{ OPTION_STRING                           , 0xfc }, /* wpad               */
- 
 @@ -80,6 +82,7 @@ const char dhcp_option_strings[] ALIGN1 
  	"ipttl" "\0"       /* DHCP_IP_TTL         */
  	"mtu" "\0"         /* DHCP_MTU            */
@@ -29,7 +29,7 @@ diff -BurpN busybox-1.14.2/networking/udhcp/options.c busybox/networking/udhcp/o
  #if ENABLE_FEATURE_UDHCP_RFC3397
  	"search" "\0"
  #endif
+ 	"staticroutes" "\0" /* DHCP_STATIC_ROUTES  */
 +	"msroutes" "\0"
  	/* MSIE's "Web Proxy Autodiscovery Protocol" support */
  	"wpad" "\0"
- 	;

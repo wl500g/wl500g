@@ -1,23 +1,5 @@
-Subject: ash: fix handling of Unicode chars in redirects. Fixes bug 585
-Date: Sat, 29 Aug 2009 18:24:12 +0000
-
-Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
----
-diff --git a/shell/ash.c b/shell/ash.c
-index f9c89f1..1690c46 100644
---- a/shell/ash.c
-+++ b/shell/ash.c
-@@ -5817,7 +5817,7 @@ argstr(char *p, int flag, struct strlist *var_str_list)
- 	};
- 	const char *reject = spclchars;
- 	int c;
--	int quotes = flag & (EXP_FULL | EXP_CASE);      /* do CTLESC */
-+	int quotes = flag & (EXP_FULL | EXP_CASE | EXP_REDIR); /* do CTLESC */
- 	int breakall = flag & EXP_WORD;
- 	int inquotes;
- 	size_t length;
 Subject: ash: trivial simplifications and optimizations
-From b6c8434896788efa06919dc3ee73e52048805dd0 Mon Sep 17 00:00:00 2001
+From b6c8434896788efa06919dc3ee73e52048805dd0
 Date: Sat, 29 Aug 2009 18:23:20 +0000
 
 function                                             old     new   delta
