@@ -1,11 +1,11 @@
 # Makefile for systems with GNU tools
-CC 	=	gcc
+#CC 	=	gcc
 INSTALL	=	install
 IFLAGS  = -idirafter dummyinc
 #CFLAGS = -g
-CFLAGS	=	-O2 -Wall -W -Wshadow #-pedantic -Werror -Wconversion
+CFLAGS	=	-O2 -Wall -W -Wshadow $(EXTRACFLAGS) #-pedantic -Werror -Wconversion
 
-LIBS	=	`./vsf_findlibs.sh`
+LIBS	=	-lcrypt #`./vsf_findlibs.sh`
 LINK	=	-Wl,-s
 
 OBJS	=	main.o utility.o prelogin.o ftpcmdio.o postlogin.o privsock.o \
