@@ -2300,6 +2300,37 @@ vsf_sysutil_getpwuid(const int uid)
   return (struct vsf_sysutil_user*) getpwuid((unsigned int) uid);
 }
 
+/* hack to reload getpwnam -- uClibc implementation alike */
+struct passwd *getpwnam(const char *name)
+{
+    FILE *f;
+    static char line_buff[256 /*PWD_BUFFER_SIZE*/];
+    static struct passwd pwdbuf;
+    struct passwd *result;
+
+    if (tunable_passwd_file == NULL)
+    {
+        if (getpwnam_r(name, &pwdbuf, line_buff, sizeof(line_buff), &result) == 0) {
+            return result;
+        }
+        return NULL;
+    }
+
+    f = fopen(tunable_passwd_file, "r");
+    if (f != NULL)
+    {
+        while (fgetpwent_r(f, &pwdbuf, line_buff, sizeof(line_buff), &result) == 0) {
+            if (!strncmp(result->pw_name, name, 256)) {
+                fclose(f);
+                return result;
+            }
+        }
+        fclose(f);
+    }
+
+    return NULL;
+}
+
 struct vsf_sysutil_user*
 vsf_sysutil_getpwnam(const char* p_user)
 {
