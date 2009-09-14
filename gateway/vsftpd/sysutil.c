@@ -2748,11 +2748,15 @@ vsf_sysutil_closelog(void)
 void
 vsf_sysutil_syslog(const char* p_text, int severe)
 {
+  char *text;
   int prio = LOG_INFO;
   if (severe)
   {
     prio = LOG_WARNING;
   }
+  /* skip date & pid */
+  if ((text = strstr(p_text, "[pid ")) && (text = strchr(text, ']')) && (text[1] == ' '))
+    p_text = text + 2;
   syslog(prio, "%s", p_text);
 }
 
