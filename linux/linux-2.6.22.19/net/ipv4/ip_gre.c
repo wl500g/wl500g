@@ -1233,7 +1233,7 @@ static int __init ipgre_fb_tunnel_init(struct net_device *dev)
 #if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 static struct gre_protocol ipgre_protocol = {
 #else
-static struct net_protocol ipgre_protocol = {
+static const struct net_protocol ipgre_protocol = {
 #endif
 	.handler	=	ipgre_rcv,
 	.err_handler	=	ipgre_err,

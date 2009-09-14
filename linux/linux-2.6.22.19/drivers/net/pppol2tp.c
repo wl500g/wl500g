@@ -273,7 +273,7 @@ struct pppol2tp_skb_cb {
 static int pppol2tp_xmit(struct ppp_channel *chan, struct sk_buff *skb);
 
 static struct ppp_channel_ops pppol2tp_chan_ops = { pppol2tp_xmit , NULL };
-static struct proto_ops pppol2tp_ops;
+static const struct proto_ops pppol2tp_ops;
 static LIST_HEAD(pppol2tp_tunnel_list);
 
 /* Macros to derive session/tunnel context pointers from a socket. */
@@ -2637,7 +2637,7 @@ out:
  * Init and cleanup
  *****************************************************************************/
 
-static struct proto_ops pppol2tp_ops = {
+static const struct proto_ops pppol2tp_ops = {
 	.family		= AF_PPPOX,
 	.owner		= THIS_MODULE,
 	.release	= pppol2tp_release,

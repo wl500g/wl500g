@@ -82,7 +82,7 @@ static DEFINE_PER_CPU(struct socket *, __icmpv6_socket) = NULL;
 
 static int icmpv6_rcv(struct sk_buff *skb);
 
-static struct inet6_protocol icmpv6_protocol = {
+static const struct inet6_protocol icmpv6_protocol = {
 	.handler	=	icmpv6_rcv,
 	.flags		=	INET6_PROTO_FINAL,
 };
@@ -556,7 +556,7 @@ out:
 
 static void icmpv6_notify(struct sk_buff *skb, int type, int code, __be32 info)
 {
-	struct inet6_protocol *ipprot;
+	const struct inet6_protocol *ipprot;
 	int inner_offset;
 	int hash;
 	u8 nexthdr;

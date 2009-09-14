@@ -717,7 +717,7 @@ static struct proto pptp_sk_proto = {
 	.obj_size = sizeof(struct pppox_sock),
 };
 
-static struct proto_ops pptp_ops = {
+static const struct proto_ops pptp_ops = {
     .family		= AF_PPPOX,
     .owner		= THIS_MODULE,
     .release		= pptp_release,

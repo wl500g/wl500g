@@ -58,10 +58,10 @@
 
 DEFINE_SNMP_STAT(struct ipstats_mib, ipv6_statistics) __read_mostly;
 
-static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
+static const struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
 						    int proto)
 {
-	struct inet6_protocol *ops = NULL;
+	const struct inet6_protocol *ops = NULL;
 
 	for (;;) {
 		struct ipv6_opt_hdr *opth;
@@ -96,7 +96,7 @@ static struct inet6_protocol *ipv6_gso_pull_exthdrs(struct sk_buff *skb,
 static int ipv6_gso_send_check(struct sk_buff *skb)
 {
 	struct ipv6hdr *ipv6h;
-	struct inet6_protocol *ops;
+	const struct inet6_protocol *ops;
 	int err = -EINVAL;
 
 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
@@ -122,7 +122,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb, int features)
 {
 	struct sk_buff *segs = ERR_PTR(-EINVAL);
 	struct ipv6hdr *ipv6h;
-	struct inet6_protocol *ops;
+	const struct inet6_protocol *ops;
 
 	if (!(features & NETIF_F_HW_CSUM))
 		features &= ~NETIF_F_SG;

@@ -1128,7 +1128,7 @@ EXPORT_SYMBOL(inet_sk_rebuild_header);
 static int inet_gso_send_check(struct sk_buff *skb)
 {
 	struct iphdr *iph;
-	struct net_protocol *ops;
+	const struct net_protocol *ops;
 	int proto;
 	int ihl;
 	int err = -EINVAL;
@@ -1164,7 +1164,7 @@ static struct sk_buff *inet_gso_segment(struct sk_buff *skb, int features)
 {
 	struct sk_buff *segs = ERR_PTR(-EINVAL);
 	struct iphdr *iph;
-	struct net_protocol *ops;
+	const struct net_protocol *ops;
 	int proto;
 	int ihl;
 	int id;
@@ -1258,12 +1258,12 @@ void snmp_mib_free(void *ptr[2])
 EXPORT_SYMBOL_GPL(snmp_mib_free);
 
 #ifdef CONFIG_IP_MULTICAST
-static struct net_protocol igmp_protocol = {
+static const struct net_protocol igmp_protocol = {
 	.handler =	igmp_rcv,
 };
 #endif
 
-static struct net_protocol tcp_protocol = {
+static const struct net_protocol tcp_protocol = {
 	.handler =	tcp_v4_rcv,
 	.err_handler =	tcp_v4_err,
 	.gso_send_check = tcp_v4_gso_send_check,
@@ -1271,13 +1271,13 @@ static struct net_protocol tcp_protocol = {
 	.no_policy =	1,
 };
 
-static struct net_protocol udp_protocol = {
+static const struct net_protocol udp_protocol = {
 	.handler =	udp_rcv,
 	.err_handler =	udp_err,
 	.no_policy =	1,
 };
 
-static struct net_protocol icmp_protocol = {
+static const struct net_protocol icmp_protocol = {
 	.handler =	icmp_rcv,
 };
 

@@ -98,7 +98,7 @@ static int ip6mr_cache_report(struct sk_buff *pkt, mifi_t mifi, int assert);
 static int ip6mr_fill_mroute(struct sk_buff *skb, struct mfc6_cache *c, struct rtmsg *rtm);
 
 #ifdef CONFIG_IPV6_PIMSM_V2
-static struct inet6_protocol pim6_protocol;
+static const struct inet6_protocol pim6_protocol;
 #endif
 
 static struct timer_list ipmr_expire_timer;
@@ -401,7 +401,7 @@ static int pim6_rcv(struct sk_buff *skb)
 	return 0;
 }
 
-static struct inet6_protocol pim6_protocol = {
+static const struct inet6_protocol pim6_protocol = {
 	.handler	=	pim6_rcv,
 };
 

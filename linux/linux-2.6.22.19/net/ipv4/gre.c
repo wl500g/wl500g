@@ -112,7 +112,7 @@ drop_nolock:
 	kfree_skb(skb);
 }
 
-static struct net_protocol net_gre_protocol = {
+static const struct net_protocol net_gre_protocol = {
 	.handler	= gre_rcv,
 	.err_handler	= gre_err,
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24)

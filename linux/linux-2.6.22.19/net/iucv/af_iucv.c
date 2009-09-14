@@ -33,7 +33,7 @@
 
 static char iucv_userid[80];
 
-static struct proto_ops iucv_sock_ops;
+static const struct proto_ops iucv_sock_ops;
 
 static struct proto iucv_proto = {
 	.name		= "AF_IUCV",
@@ -1099,7 +1099,7 @@ static void iucv_callback_connrej(struct iucv_path *path, u8 ipuser[16])
 	sk->sk_state_change(sk);
 }
 
-static struct proto_ops iucv_sock_ops = {
+static const struct proto_ops iucv_sock_ops = {
 	.family		= PF_IUCV,
 	.owner		= THIS_MODULE,
 	.release	= iucv_sock_release,
