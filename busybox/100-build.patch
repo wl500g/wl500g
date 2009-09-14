@@ -11,24 +11,24 @@ diff -BurpN busybox-1.14.2/Makefile busybox/Makefile
  CFLAGS_busybox	:= $(CFLAGS_busybox)
  CPPFLAGS	:= $(CPPFLAGS)
 diff -BurpN busybox-1.14.2/include/applets.h busybox/include/applets.h
---- busybox-1.14.2/include/applets.h	2009-06-21 22:40:29.000000000 +0000
-+++ busybox/include/applets.h	2009-07-22 14:53:46.000000000 +0000
-@@ -84,6 +84,7 @@ USE_BBCONFIG(APPLET(bbconfig, _BB_DIR_BI
- USE_BLKID(APPLET(blkid, _BB_DIR_SBIN, _BB_SUID_NEVER))
- USE_BRCTL(APPLET(brctl, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
- USE_BUNZIP2(APPLET(bunzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
-+USE_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER, httpd))
- USE_BUNZIP2(APPLET_ODDNAME(bzcat, bunzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER, bzcat))
- USE_BZIP2(APPLET(bzip2, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
- USE_CAL(APPLET(cal, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
-@@ -182,7 +183,6 @@ USE_HEAD(APPLET(head, _BB_DIR_USR_BIN, _
- USE_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hexdump))
- USE_HOSTID(APPLET_NOFORK(hostid, hostid, _BB_DIR_USR_BIN, _BB_SUID_NEVER, hostid))
- USE_HOSTNAME(APPLET(hostname, _BB_DIR_BIN, _BB_SUID_NEVER))
--USE_HTTPD(APPLET(httpd, _BB_DIR_USR_SBIN, _BB_SUID_NEVER))
- USE_HUSH(APPLET(hush, _BB_DIR_BIN, _BB_SUID_NEVER))
- USE_HWCLOCK(APPLET(hwclock, _BB_DIR_SBIN, _BB_SUID_NEVER))
- USE_ID(APPLET(id, _BB_DIR_USR_BIN, _BB_SUID_NEVER))
+--- busybox-1.15.1/include/applets.h	2009-09-12 15:55:36.000000000 +0000
++++ busybox/include/applets.h	2009-09-14 10:53:46.000000000 +0000
+@@ -84,6 +84,7 @@
+ IF_BLKID(APPLET(blkid, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_BRCTL(APPLET(brctl, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
+ IF_BUNZIP2(APPLET(bunzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP))
++IF_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP, httpd))
+ IF_BUNZIP2(APPLET_ODDNAME(bzcat, bunzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP, bzcat))
+ IF_BZIP2(APPLET(bzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_CAL(APPLET(cal, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+@@ -182,7 +183,6 @@
+ IF_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, _BB_DIR_USR_BIN, _BB_SUID_DROP, hexdump))
+ IF_HOSTID(APPLET_NOFORK(hostid, hostid, _BB_DIR_USR_BIN, _BB_SUID_DROP, hostid))
+ IF_HOSTNAME(APPLET(hostname, _BB_DIR_BIN, _BB_SUID_DROP))
+-IF_HTTPD(APPLET(httpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
+ IF_HUSH(APPLET(hush, _BB_DIR_BIN, _BB_SUID_DROP))
+ IF_HWCLOCK(APPLET(hwclock, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_ID(APPLET(id, _BB_DIR_USR_BIN, _BB_SUID_DROP))
 diff -BurpN busybox-1.14.2/include/libbb.h busybox/include/libbb.h
 --- busybox-1.14.2/include/libbb.h	2009-06-21 22:46:43.000000000 +0000
 +++ busybox/include/libbb.h	2009-07-22 14:53:46.000000000 +0000

@@ -1,3 +1,12 @@
+From a9c9bf5055956b9578911c1d773acf6a16397b84
+Date: Sun, 30 Aug 2009 17:34:09 +0000
+Subject: uniq: plug memory leak (patch from OpenWRT project)
+
+function                                             old     new   delta
+uniq_main                                            371     389     +18
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+
 --- a/coreutils/uniq.c
 +++ b/coreutils/uniq.c
 @@ -82,6 +82,8 @@ int uniq_main(int argc ATTRIBUTE_UNUSED,
