@@ -362,12 +362,12 @@ $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 accel-pptp: $(TOP)/accel-pptp
 	@true
 
+igmpproxy_Patches := $(call patches_list,igmpproxy)
+
 $(TOP)/igmpproxy/src/Makefile:
 	@rm -rf $(TOP)/igmpproxy
 	tar -xzf igmpproxy/$(IGMPPROXY).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/igmpproxy igmpproxy/zeroaltnet.patch \
-	igmpproxy/timer.patch igmpproxy/syslog.patch \
-	igmpproxy/local.patch igmpproxy/disabled.patch igmpproxy/build.patch 
+	$(PATCHER) $(TOP)/igmpproxy $(igmpproxy_Patches)
 
 igmpproxy: $(TOP)/igmpproxy/src/Makefile
 	@true
