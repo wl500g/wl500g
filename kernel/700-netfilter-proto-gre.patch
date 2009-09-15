@@ -1,0 +1,81 @@
+--- linux-2.4.37.6/net/ipv4/netfilter/ip_nat_proto_gre.c	2005-04-02 17:15:10.000000000 +0000
++++ linux/net/ipv4/netfilter/ip_nat_proto_gre.c	2009-09-15 08:44:24.000000000 +0000
+@@ -70,6 +70,11 @@ gre_unique_tuple(struct ip_conntrack_tup
+ 	u_int32_t min, i, range_size;
+ 	u_int32_t key = 0, *keyptr;
+ 
++	/* If there is no master conntrack we are not PPTP,
++	   do not change tuples */
++	if (!conntrack->master)
++		return 0;
++
+ 	if (maniptype == IP_NAT_MANIP_SRC)
+ 		keyptr = &tuple->src.u.gre.key;
+ 	else
+@@ -113,19 +118,9 @@ gre_manip_pkt(struct iphdr *iph, size_t 
+ 	if (maniptype == IP_NAT_MANIP_DST) {
+ 		/* key manipulation is always dest */
+ 		switch (greh->version) {
+-		case 0:
+-			if (!greh->key) {
+-				DEBUGP("can't nat GRE w/o key\n");
+-				break;
+-			}
+-			if (greh->csum) {
+-				/* FIXME: Never tested this code... */
+-				*(gre_csum(greh)) = 
+-					ip_nat_cheat_check(~*(gre_key(greh)),
+-							manip->u.gre.key,
+-							*(gre_csum(greh)));
+-			}
+-			*(gre_key(greh)) = manip->u.gre.key;
++		case GRE_VERSION_1701:
++			/* We do not currently NAT any GREv0 packets.
++			 * Try to behave like "nf_nat_proto_unknown" */
+ 			break;
+ 		case GRE_VERSION_PPTP:
+ 			DEBUGP("call_id -> 0x%04x\n", 
+--- linux-2.4.37.6/net/ipv4/netfilter/ip_conntrack_proto_gre.c	2009-09-15 08:39:55.000000000 +0000
++++ linux/net/ipv4/netfilter/ip_conntrack_proto_gre.c	2009-09-15 08:32:34.000000000 +0000
+@@ -182,29 +182,20 @@ static int gre_pkt_to_tuple(const void *
+ 
+ 	/* core guarantees 8 protocol bytes, no need for size check */
+ 
+-	switch (grehdr->version) {
+-		case GRE_VERSION_1701:
+-			if (!grehdr->key) {
+-				DEBUGP("Can't track GRE without key\n");
+-				return 0;
+-			}
+-			tuple->dst.u.gre.key = *(gre_key(grehdr));
+-			break;
+-
+-		case GRE_VERSION_PPTP:
+-			if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
+-				DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
+-				return 0;
+-			}
+-			tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
+-			break;
+-
+-		default:
+-			printk(KERN_WARNING "unknown GRE version %hu\n",
+-				grehdr->version);
+-			return 0;
++	/* first only delinearize old RFC1701 GRE header */
++	if (grehdr->version != GRE_VERSION_PPTP) {
++		/* try to behave like "ip_conntrack_proto_generic" */
++		tuple->src.u.all = 0;
++		tuple->dst.u.all = 0;
++		return 1;
+ 	}
+ 
++	if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
++		DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
++		return 0;
++	}
++
++	tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
+ 	srckey = gre_keymap_lookup(tuple);
+ 
+ #if 0
