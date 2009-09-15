@@ -1,3 +1,6 @@
+Backport nat and conntrack of gre packets from 2.6.31 kernel
+Should fix "unknown GRE version" log flood, allowing only RFC 1702 packets
+
 --- linux-2.4.37.6/net/ipv4/netfilter/ip_nat_proto_gre.c	2005-04-02 17:15:10.000000000 +0000
 +++ linux/net/ipv4/netfilter/ip_nat_proto_gre.c	2009-09-15 08:44:24.000000000 +0000
 @@ -70,6 +70,11 @@ gre_unique_tuple(struct ip_conntrack_tup
