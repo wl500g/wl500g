@@ -1858,7 +1858,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +			"quickleave\n\n"
 +			"phyint %s upstream\n"
 +			"\taltnet %s\n\n"
-+			"phyint %s downstream\n\n", 
++			"phyint %s downstream ratelimit 0\n\n", 
 +			wan_ifname, 
 +			nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
 +			nvram_get("lan_ifname") ? : "br0");
@@ -1866,7 +1866,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +		fclose(fp);
 +	}
 +	
-+	eval("/usr/sbin/igmpproxy", "-c", igmpproxy_conf);
++	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 +}
 +
  void

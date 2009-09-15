@@ -40,7 +40,7 @@ NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
-IGMPPROXY=igmpproxy-src-0.1-beta2
+IGMPPROXY=igmpproxy-0.1_beta5
 VSFTPD=vsftpd-2.2.0
 UDPXY=udpxy-1.0-Chipmunk-14
 NTPCLIENT=ntpclient-2007_365
@@ -365,12 +365,13 @@ accel-pptp: $(TOP)/accel-pptp
 
 igmpproxy_Patches := $(call patches_list,igmpproxy)
 
-$(TOP)/igmpproxy/src/Makefile:
+$(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
 	@rm -rf $(TOP)/igmpproxy
 	tar -xzf igmpproxy/$(IGMPPROXY).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/igmpproxy $(igmpproxy_Patches)
+	$(PATCHER) $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
+	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
 
-igmpproxy: $(TOP)/igmpproxy/src/Makefile
+igmpproxy: $(TOP)/igmpproxy
 	@true
 
 pptp_Patches := $(call patches_list,pptp)

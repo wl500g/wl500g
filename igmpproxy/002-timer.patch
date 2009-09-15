@@ -1,6 +1,7 @@
---- igmpproxy/src/callout.c.orig	2006-11-22 00:54:14.000000000 +0300
-+++ igmpproxy/src/callout.c	2006-11-24 20:58:40.633271656 +0300
-@@ -76,22 +76,36 @@
+diff -urBp igmpproxy-0.1_beta5/src/callout.c igmpproxy/src/callout.c
+--- igmpproxy-0.1_beta5/src/callout.c	2009-05-13 23:43:18.000000000 +0400
++++ igmpproxy/src/callout.c	2009-09-15 11:23:19.000000000 +0400
+@@ -76,21 +76,34 @@ void free_all_callouts() {
   */
  void age_callout_queue(int elapsed_time) {
      struct timeOutQueue *ptr;
@@ -17,17 +18,18 @@
          } else {
              elapsed_time -= ptr->time;
 -            queue = queue->next;
--            IF_DEBUG log(LOG_DEBUG, 0, "About to call timeout %d (#%d)", ptr->id, i);
+-            my_log(LOG_DEBUG, 0, "About to call timeout %d (#%d)", ptr->id, i);
 -
 -            if (ptr->func)
 -                ptr->func(ptr->data);
 -            free(ptr);
+-        }
 +            if (_queue == NULL)
 +                _queue = ptr;
 +            last = ptr;
-         }
-     }
-+    
++         }
++    }
++
 +    queue = ptr;
 +    if (last) {
 +        last->next = NULL;
@@ -36,12 +38,10 @@
 +    /* process existing events */
 +    for (ptr = _queue; ptr; ptr = _queue, i++) {
 +        _queue = _queue->next;
-+        IF_DEBUG log(LOG_DEBUG, 0, "About to call timeout %d (#%d)", ptr->id, i);
-+
++        my_log(LOG_DEBUG, 0, "About to call timeout %d (#%d)", ptr->id, i);
 +        if (ptr->func)
 +             ptr->func(ptr->data);
 +        free(ptr);
-+    }
+     }
  }
  
- /**
