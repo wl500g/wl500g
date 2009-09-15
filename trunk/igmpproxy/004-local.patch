@@ -7,7 +7,7 @@
 +    /* filter local multicast 239.255.255.250 */
 +    if (dst == htonl(0xEFFFFFFA))
 +    {
-+        log(LOG_NOTICE, 0, "The IGMP message was local multicast. Ignoring.");
++        my_log(LOG_NOTICE, 0, "The IGMP message was local multicast. Ignoring.");
 +        return;
 +    }
 +

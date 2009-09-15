@@ -769,8 +769,12 @@ rp-l2tp-install:
 	install -D rp-l2tp/handlers/*.so $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins/*.so
 
-igmpproxy:
-	$(MAKE) -C igmpproxy/src CFLAGS="-O2 $(EXTRACFLAGS)"
+igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
+	cd igmpproxy && CPPFLAGS="$(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr
+
+igmpproxy: igmpproxy/src/Makefile
+	$(MAKE) -C igmpproxy/src
 
 igmpproxy-clean:
 	$(MAKE) -C igmpproxy/src clean

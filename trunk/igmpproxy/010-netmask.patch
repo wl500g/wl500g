@@ -1,0 +1,18 @@
+When having multiple IP addresses on an interface the netmask retrieved for
+each IP address is not correct. The reason is that ioctl for
+SIOCGIFNETMASK will just provide the first netmask when no IP address is
+provided in the call.
+
+diff --git a/src/ifvc.c b/src/ifvc.c
+index d1f0b30..545b3b4 100644
+--- a/src/ifvc.c
++++ b/src/ifvc.c
+@@ -106,6 +106,8 @@ void buildIfVc() {
+             addr = IfDescEp->InAdr.s_addr;
+ 
+             memcpy( IfReq.ifr_name, IfDescEp->Name, sizeof( IfReq.ifr_name ) );
++            IfReq.ifr_addr.sa_family = AF_INET;
++            ((struct sockaddr_in *)&IfReq.ifr_addr)->sin_addr.s_addr = addr;
+ 
+             // Get the subnet mask...
+             if (ioctl(Sock, SIOCGIFNETMASK, &IfReq ) < 0)

@@ -1,51 +1,25 @@
-diff -ur igmpproxy.orig/src/config.c igmpproxy/src/config.c
---- igmpproxy.orig/src/config.c	2005-05-24 19:49:29.000000000 +0400
-+++ igmpproxy/src/config.c	2006-11-18 23:32:09.948682424 +0300
-@@ -339,15 +339,16 @@
+diff -urBp igmpproxy-0.1_beta5/src/config.c igmpproxy/src/config.c
+--- igmpproxy-0.1_beta5/src/config.c	2009-08-16 19:46:04.000000000 +0400
++++ igmpproxy/src/config.c	2009-09-15 11:17:41.000000000 +0400
+@@ -336,15 +336,18 @@ struct SubnetList *parseSubnetAddress(ch
      tmpStr = strtok(NULL, "/");
      if(tmpStr != NULL) {
          int bitcnt = atoi(tmpStr);
 -        if(bitcnt <= 0 || bitcnt > 32) {
 +        if(bitcnt < 0 || bitcnt > 32) {
-             log(LOG_WARNING, 0, "The bits part of the address is invalid : %d.",tmpStr);
+             my_log(LOG_WARNING, 0, "The bits part of the address is invalid : %d.",tmpStr);
              return NULL;
          }
  
 -        mask <<= (32 - bitcnt);
-+	if (bitcnt == 0) mask = 0;
-+        else mask <<= (32 - bitcnt);
++	if (bitcnt == 0)
++	    mask = 0;
++	else
++    	    mask <<= (32 - bitcnt);
      }
  
 -    if(addr == -1 || addr == 0) {
 +    if(addr == -1) {
-         log(LOG_WARNING, 0, "Unable to parse address token '%s'.", addrstr);
+         my_log(LOG_WARNING, 0, "Unable to parse address token '%s'.", addrstr);
          return NULL;
      }
-diff -ur igmpproxy.orig/src/ifvc.c igmpproxy/src/ifvc.c
---- igmpproxy.orig/src/ifvc.c	2005-05-24 19:49:18.000000000 +0400
-+++ igmpproxy/src/ifvc.c	2006-11-18 23:46:17.361856040 +0300
-@@ -193,19 +193,22 @@
- */
- struct IfDesc *getIfByAddress( uint32 ipaddr ) {
- 
--    struct IfDesc       *Dp;
-+    struct IfDesc       *Dp, *_Dp = NULL;
-     struct SubnetList   *currsubnet;
- 
-     for ( Dp = IfDescVc; Dp < IfDescEp; Dp++ ) {
-         // Loop through all registered allowed nets of the VIF...
-         for(currsubnet = Dp->allowednets; currsubnet != NULL; currsubnet = currsubnet->next) {
-             // Check if the ip falls in under the subnet....
-+            if((currsubnet->subnet_addr & currsubnet->subnet_mask) == 0) {
-+                _Dp = Dp; // fallback to wildcard
-+            } else
-             if((ipaddr & currsubnet->subnet_mask) == currsubnet->subnet_addr) {
-                 return Dp;
-             }
-         }
-     }
--    return NULL;
-+    return _Dp;
- }
- 
- 
