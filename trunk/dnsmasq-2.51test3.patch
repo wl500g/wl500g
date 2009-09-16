@@ -1,4 +1,4 @@
-diff -BurpN dnsmasq-2.50/Makefile dnsmasq/Makefile
+diff -BurpN dnsmasq-2.51/Makefile dnsmasq/Makefile
 --- dnsmasq-2.50/Makefile	2009-08-18 15:28:01.000000000 +0000
 +++ dnsmasq/Makefile	2009-08-29 07:04:36.000000000 +0000
 @@ -34,6 +34,11 @@ DNSMASQ_CFLAGS=`echo $(COPTS) | ../bld/p
@@ -13,7 +13,7 @@ diff -BurpN dnsmasq-2.50/Makefile dnsmasq/Makefile
  all :   dnsmasq
  
  dnsmasq :
-diff -BurpN dnsmasq-2.50/src/config.h dnsmasq/src/config.h
+diff -BurpN dnsmasq-2.51/src/config.h dnsmasq/src/config.h
 --- dnsmasq-2.50/src/config.h	2009-08-18 15:28:01.000000000 +0000
 +++ dnsmasq/src/config.h	2009-08-29 07:09:19.000000000 +0000
 @@ -166,9 +166,9 @@ NOTES:
