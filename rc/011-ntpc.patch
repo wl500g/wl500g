@@ -92,7 +92,8 @@ diff -urBp router/rc/services.c gateway/rc/services.c
 -
 -	_eval(ntp_argv, NULL, 0, &pid);
 -#else
- 	char *servers = nvram_safe_get("ntp_server");
+-	char *servers = nvram_safe_get("ntp_server");
++	char *servers = nvram_safe_get("ntp_servers");
  	
  	if (strlen(servers)) {
 -		char *nas_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-l", "-s", NULL};
