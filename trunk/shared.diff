@@ -131,6 +131,15 @@ diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
 diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
 +++ gateway/shared/defaults.c	2008-03-17 17:52:17.000000000 +0000
+@@ -32,7 +32,7 @@
+ 
+ 	/* Miscellaneous parameters */
+ 	{ "timer_interval", "3600", 0 },	/* Timer interval in seconds */
+-	{ "ntp_server", "192.5.41.40 192.5.41.41 133.100.9.2", 0 },		/* NTP server */
++	{ "ntp_server0", "time.nist.gov", 0 },	/* NTP server */
+ 	{ "time_zone", "PST8PDT", 0 },		/* Time zone (GNU TZ format) */
+ 	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
+ 	{ "upnp_enable", "0", 0 },		/* Start UPnP */
 @@ -122,7 +122,7 @@ struct nvram_tuple router_defaults[] = {
  #endif	/* __CONFIG_NAT__ */
  
