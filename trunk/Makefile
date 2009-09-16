@@ -32,13 +32,14 @@ IPROUTE2=iproute2-2.4.7-now-ss020116-try
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
 PPP=ppp-2.4.5-pre
-ACCEL-PPTP=accel-pptp-git-20090829
 RP-PPPOE=rp-pppoe-3.10
+ACCEL-PPTP=accel-pptp-git-20090829
 PPTP=pptp-1.7.1
 LZMA=lzma406
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
+XL2TPD=xl2tpd-1.2.4
 L2TP=rp-l2tp-0.4
 IGMPPROXY=igmpproxy-0.1_beta5
 VSFTPD=vsftpd-2.2.0
@@ -81,7 +82,7 @@ all: prep custom
 	@true
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
-	ppp pptp rp-l2tp rp-pppoe accel-pptp \
+	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucdsnmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips sendmail \
@@ -336,6 +337,17 @@ $(TOP)/rp-l2tp:
 	mv $(TOP)/$(L2TP) $@
 
 rp-l2tp: $(TOP)/rp-l2tp
+	@true
+
+xl2tpd_Patches := $(call patches_list,xl2tpd)
+
+$(TOP)/xl2tpd:
+	@rm -rf $(TOP)/$(XL2TPD) $@
+	tar -xzf xl2tpd/$(XL2TPD).tar.gz -C $(TOP)
+	$(PATCHER) $(TOP)/$($XL2TPD) $(xl2tpd_Patches)
+	mv $(TOP)/$(XL2TPD) $@
+
+xl2tpd: $(TOP)/xl2tpd
 	@true
 
 rp-pppoe_Patches := $(call patches_list,rp-pppoe)
