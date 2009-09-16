@@ -7,12 +7,12 @@
     * ESFQ scheduler updated to more recent version
     * pppol2tp backports from 2.6 kernels
 
-  * accel-pptp (used by default)
+  * accel-pptp (PPTP speedup up to 2.5x, used by default)
     * persist connection support
     * bugfixes
 
   * l2tpd
-    * repair kernel mode (controlled by wan0_l2tp_kernel nvram variable)
+    * repair kernel mode
     * bugfixes from mainstream
 
   * pppd
