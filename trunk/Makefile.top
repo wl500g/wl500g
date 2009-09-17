@@ -771,7 +771,8 @@ rp-l2tp-install:
 	$(STRIP) $(INSTALLDIR)/rp-l2tp/usr/lib/l2tp/plugins/*.so
 
 xl2tpd: ppp
-	$(MAKE) -C $@ xl2tpd CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	CFLAGS="-g -O2 $(EXTRACFLAGS)" \
+	$(MAKE) -C $@ xl2tpd KERNELSRC="$(LINUXDIR)" PREFIX=/usr
 	    KERNELSRC="$(LINUXDIR)" PREFIX=/usr
 
 xl2tpd-install:
