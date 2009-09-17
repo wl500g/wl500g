@@ -1,0 +1,33 @@
+diff -BurpN gateway/xl2tpd-1.2.4/file.h gateway/xl2tpd/file.h
+--- gateway/xl2tpd-1.2.4/file.h	2009-03-08 23:25:30.000000000 +0000
++++ gateway/xl2tpd/file.h	2009-09-17 17:10:28.000000000 +0000
+@@ -50,13 +50,13 @@ struct host
+ #define SENSE_DENY 0
+ 
+ #ifndef DEFAULT_AUTH_FILE
+-#define DEFAULT_AUTH_FILE "/etc/xl2tpd/l2tp-secrets"
++#define DEFAULT_AUTH_FILE "/etc/l2tp-secrets"
+ #endif
+ #ifndef DEFAULT_CONFIG_FILE
+-#define DEFAULT_CONFIG_FILE "/etc/xl2tpd/xl2tpd.conf"
++#define DEFAULT_CONFIG_FILE "/etc/xl2tpd.conf"
+ #endif
+-#define ALT_DEFAULT_AUTH_FILE "/etc/l2tpd/l2tp-secrets"
+-#define ALT_DEFAULT_CONFIG_FILE "/etc/l2tp/l2tpd.conf"
++#define ALT_DEFAULT_AUTH_FILE ""
++#define ALT_DEFAULT_CONFIG_FILE ""
+ #define DEFAULT_PID_FILE "/var/run/xl2tpd.pid"
+ 
+ /* Definition of an LNS */
+diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
+--- gateway/xl2tpd-1.2.4/l2tp.h	2009-03-08 23:25:30.000000000 +0000
++++ gateway/xl2tpd/l2tp.h	2009-09-17 17:13:38.000000000 +0000
+@@ -37,7 +37,7 @@ typedef unsigned long long _u64;
+ #include "common.h"
+ #include "ipsecmast.h"
+ 
+-#define CONTROL_PIPE "/var/run/xl2tpd/l2tp-control"
++#define CONTROL_PIPE "/var/run/l2tp-control"
+ 
+ #define BINARY "xl2tpd"
+ #define SERVER_VERSION "xl2tpd-1.2.4"
