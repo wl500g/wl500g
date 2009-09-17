@@ -773,7 +773,6 @@ rp-l2tp-install:
 xl2tpd: ppp
 	CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 	$(MAKE) -C $@ xl2tpd KERNELSRC="$(LINUXDIR)" PREFIX=/usr
-	    KERNELSRC="$(LINUXDIR)" PREFIX=/usr
 
 xl2tpd-install:
 	install -D xl2tpd/xl2tpd $(INSTALLDIR)/xl2tpd/usr/sbin/xl2tpd
