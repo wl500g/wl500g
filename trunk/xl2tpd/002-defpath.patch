@@ -22,7 +22,7 @@ diff -BurpN gateway/xl2tpd-1.2.4/file.h gateway/xl2tpd/file.h
 diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
 --- gateway/xl2tpd-1.2.4/l2tp.h	2009-03-08 23:25:30.000000000 +0000
 +++ gateway/xl2tpd/l2tp.h	2009-09-17 20:56:30.000000000 +0000
-@@ -37,13 +37,13 @@ typedef unsigned long long _u64;
+@@ -37,7 +37,7 @@ typedef unsigned long long _u64;
  #include "common.h"
  #include "ipsecmast.h"
  
@@ -31,10 +31,3 @@ diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
  
  #define BINARY "xl2tpd"
  #define SERVER_VERSION "xl2tpd-1.2.4"
- #define VENDOR_NAME "xelerance.com"
- #ifndef PPPD
--#define PPPD		"/usr/sbin/pppd"
-+#define PPPD		"pppd"
- #endif
- #define CALL_PPP_OPTS "defaultroute"
- #define FIRMWARE_REV	0x0690  /* Revision of our firmware (software, in this case) */
