@@ -1,0 +1,15 @@
+diff -BurpN gateway/rc.orig/firewall_ex.c gateway/rc/firewall_ex.c
+--- gateway/rc.orig/firewall_ex.c	2009-04-12 19:09:13.000000000 +0000
++++ gateway/rc/firewall_ex.c	2009-09-18 20:31:57.000000000 +0000
+@@ -931,8 +931,9 @@ filter_setting(char *wan_if, char *wan_i
+        	}
+ 
+ 	/* Enable Virtual Servers */
+-	fprintf(fp, "-A FORWARD -m conntrack --ctstate DNAT -j %s\n", 
+-		nvram_match("filter_vs_default_x", "DROP") ? logdrop : logaccept);
++	fprintf(fp, "-A FORWARD -m conntrack --ctstate DNAT -j %s\n", (
++		nvram_match("fw_wl_enable_x", "1") ?
++		nvram_match("filter_vs_default_x", "DROP") : FALSE) ? logdrop : logaccept);
+ 
+ 	if(nvram_match("fw_wl_enable_x", "1"))
+ 	{   		
