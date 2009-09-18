@@ -1,0 +1,89 @@
+diff -BurpN gateway/rc.l2tp/init.c gateway/rc/init.c
+--- gateway/rc.l2tp/init.c	2009-04-26 14:09:49.000000000 +0000
++++ gateway/rc/init.c	2009-09-17 22:11:44.000000000 +0000
+@@ -176,6 +176,11 @@ shutdown_system(void)
+ 		signal(sig, SIG_DFL);
+ 
+ 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
++#ifdef	CONFIG_XL2TPD
++	eval("killall", "xl2tpd");
++#else
++	eval("killall", "l2tpd");
++#endif
+ 	eval("killall", "pppd");
+ 
+ 	if (exists("/dev/misc/rtc"))
+diff -BurpN gateway/rc.l2tp/network.c gateway/rc/network.c
+--- gateway/rc.l2tp/network.c	2009-04-12 19:14:12.000000000 +0000
++++ gateway/rc/network.c	2009-09-17 22:12:58.000000000 +0000
+@@ -998,7 +998,11 @@ stop_wan(void)
+ 	/* Shutdown and kill all possible tasks */
+ 	eval("killall", "ip-up");
+ 	eval("killall", "ip-down");
++#ifdef	CONFIG_XL2TPD
++	eval("killall", "xl2tpd");
++#else
+ 	eval("killall", "l2tpd");
++#endif
+ 	eval("killall", "pppd");
+ 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
+ 	eval("killall", signal, "udhcpc");
+@@ -1038,7 +1042,11 @@ stop_wan2(void)
+ 	/* Shutdown and kill all possible tasks */
+ 	eval("killall", "ip-up");
+ 	eval("killall", "ip-down");
++#ifdef	CONFIG_XL2TPD
++	eval("killall", "xl2tpd");
++#else
+ 	eval("killall", "l2tpd");
++#endif
+ 	eval("killall", "pppd");
+ 
+ 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
+diff -BurpN gateway/rc.l2tp/network_ex.c gateway/rc/network_ex.c
+--- gateway/rc.l2tp/network_ex.c	2009-08-17 14:45:09.000000000 +0000
++++ gateway/rc/network_ex.c	2009-09-17 22:20:51.000000000 +0000
+@@ -220,6 +220,35 @@ int start_pppd(char *prefix)
+ 
+        	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
+        	{
++#ifdef	CONFIG_XL2TPD
++		if (!(fp = fopen("/etc/xl2tp.conf", "w"))) {
++	       	        perror(options);
++	       	        return -1;
++		}
++
++		fprintf(fp,
++			"[global]\n"
++			"access control = yes\n\n"
++			"[lac default]\n"
++			"pppoptfile = %s\n"
++			"lns = %s\n"
++			"redial = yes\n"
++			"max redial = %s\n"
++			"redial timeout = %s\n"
++			"autodial = yes\n",
++			options,
++			nvram_invmatch("wan_heartbeat_x", "") ?
++				nvram_safe_get("wan_heartbeat_x") : 
++				nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)),
++			nvram_invmatch(strcat_r(prefix, "pppoe_maxfail", tmp), "") ?
++				nvram_safe_get(strcat_r(prefix, "pppoe_maxfail", tmp)) : "32767",
++			nvram_invmatch(strcat_r(prefix, "pppoe_holdoff", tmp), "") ?
++				nvram_safe_get(strcat_r(prefix, "pppoe_holdoff", tmp)) : "30");
++		fclose(fp);
++		
++		/* launch xl2tp */
++		ret = eval("xl2tpd");
++#else
+        		mkdir("/etc/l2tp", 0755);
+        		
+ 		if (!(fp = fopen("/etc/l2tp/l2tp.conf", "w"))) {
+@@ -258,6 +287,7 @@ int start_pppd(char *prefix)
+ 		
+ 		/* start-session */
+ 		ret = eval("l2tp-control", "start-session 0.0.0.0");
++#endif
+ 		
+ 		/* pppd sync nodetach noaccomp nobsdcomp nodeflate */
+ 		/* nopcomp novj novjccomp file /tmp/ppp/options.l2tp */
