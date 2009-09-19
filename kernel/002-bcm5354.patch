@@ -44,7 +44,7 @@
  	}
  }
  
-@@ -307,8 +339,31 @@
+@@ -307,8 +339,30 @@
  	 */
  	else if (sb_coreid(sbh) == SB_USB20H) {
  		if (!sb_iscoreup(sbh)) {
@@ -70,8 +70,7 @@
 +   			writel(tmp, (uintptr)regs + 0x894);
 +
 +			/* Change Syn03 reg */
-+			tmp = readl((uintptr)regs + 0x89c);
-+			tmp |= 0x1;
++			tmp = 0x1;
 +  			writel(tmp, (uintptr)regs + 0x89c);
 +
  			udelay(1);
