@@ -21,6 +21,15 @@ diff -BurpN gateway/rp-l2tp-0.4/Makefile.in gateway/rp-l2tp/Makefile.in
  
  l2tpd: libl2tp.a libevent/libevent.a
  	$(MAKE) -C handlers
+@@ -74,7 +74,7 @@
+ 	$(MAKE) -C handlers clean
+ 
+ distclean: clean
+-	rm -f Makefile config.cache
++	rm -f Makefile config.cache .depend
+ 	$(MAKE) -C handlers distclean
+ 
+ -include .depend
 diff -BurpN gateway/rp-l2tp-0.4/configure gateway/rp-l2tp/configure
 --- gateway/rp-l2tp-0.4/configure	2002-09-30 18:46:52.000000000 +0000
 +++ gateway/rp-l2tp/configure	2009-08-31 05:46:52.000000000 +0000
