@@ -949,11 +949,6 @@ prepare0: archprepare FORCE
 # All the preparing..
 prepare: prepare0
 
-# Leave this as default for preprocessing vmlinux.lds.S, which is now
-# done in arch/$(ARCH)/kernel/Makefile
-
-export CPPFLAGS_vmlinux.lds += -P -C -U$(ARCH)
-
 # FIXME: The asm symlink changes when $(ARCH) changes. That's
 # hard to detect, but I suppose "make mrproper" is a good idea
 # before switching between archs anyway.

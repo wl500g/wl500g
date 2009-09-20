@@ -12,7 +12,17 @@ PHDRS {
 	text PT_LOAD FLAGS(7);	/* RWX */
 	note PT_NOTE FLAGS(4);	/* R__ */
 }
-jiffies = JIFFIES;
+
+#ifdef CONFIG_32BIT
+	#ifdef CONFIG_CPU_LITTLE_ENDIAN
+		jiffies  = jiffies_64;
+	#else
+		jiffies  = jiffies_64 + 4;
+	#endif
+#else
+	jiffies  = jiffies_64;
+#endif
+
 SECTIONS
 {
 #ifdef CONFIG_BOOT_ELF64
@@ -30,7 +40,7 @@ SECTIONS
   /* . = 0xa800000000300000; */
   . = 0xffffffff80300000;
 #endif
-  . = LOADADDR;
+  . = VMLINUX_LOAD_ADDRESS;
   /* read-only */
   _text = .;			/* Text and read-only data */
   .text : {

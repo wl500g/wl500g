@@ -632,19 +632,11 @@ endif
 cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
-ifdef CONFIG_32BIT
-ifdef CONFIG_CPU_LITTLE_ENDIAN
-JIFFIES			= jiffies_64
-else
-JIFFIES			= jiffies_64 + 4
-endif
-else
-JIFFIES			= jiffies_64
-endif
-
 AFLAGS		+= $(cflags-y)
 ASFLAGS		+= $(cflags-y)
-CFLAGS		+= $(cflags-y)
+CFLAGS	+= $(cflags-y)
+CPPFLAGS += -D"VMLINUX_LOAD_ADDRESS=$(load-y)"
+CPPFLAGS += -D"DATAOFFSET=$(if $(dataoffset-y),$(dataoffset-y),0)"
 
 LDFLAGS			+= -m $(ld-emul)
 
@@ -658,18 +650,6 @@ endif
 endif
 
 OBJCOPYFLAGS		+= --remove-section=.reginfo
-
-#
-# Choosing incompatible machines durings configuration will result in
-# error messages during linking.  Select a default linkscript if
-# none has been choosen above.
-#
-
-CPPFLAGS_vmlinux.lds := \
-	$(CFLAGS) \
-	-D"LOADADDR=$(load-y)" \
-	-D"JIFFIES=$(JIFFIES)" \
-	-D"DATAOFFSET=$(if $(dataoffset-y),$(dataoffset-y),0)"
 
 head-y := arch/mips/kernel/head.o arch/mips/kernel/init_task.o
 
