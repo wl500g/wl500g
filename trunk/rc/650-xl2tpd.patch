@@ -48,7 +48,7 @@ diff -BurpN gateway/rc.l2tp/network_ex.c gateway/rc/network_ex.c
         	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
         	{
 +#ifdef	CONFIG_XL2TPD
-+		if (!(fp = fopen("/etc/xl2tp.conf", "w"))) {
++		if (!(fp = fopen("/etc/xl2tpd.conf", "w"))) {
 +	       	        perror(options);
 +	       	        return -1;
 +		}
