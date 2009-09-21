@@ -131,7 +131,7 @@ diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
 diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
 +++ gateway/shared/defaults.c	2008-03-17 17:52:17.000000000 +0000
-@@ -32,7 +32,7 @@
+@@ -32,7 +32,7 @@ struct nvram_tuple router_defaults[] = {
  
  	/* Miscellaneous parameters */
  	{ "timer_interval", "3600", 0 },	/* Timer interval in seconds */
@@ -371,7 +371,7 @@ diff -BurpN -x'*.o' router/shared/netconf.h gateway/shared/netconf.h
  enum netconf_target {
 diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
 --- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
-+++ gateway/shared/shutils.c	2008-03-17 17:52:17.000000000 +0000
++++ gateway/shared/shutils.c	2009-09-21 12:03:53.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -477,7 +477,45 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
  			if (WIFEXITED(status))
  				return WEXITSTATUS(status);
  			else
-@@ -269,6 +300,7 @@ safe_fwrite(const void *ptr, size_t size
+@@ -208,22 +239,31 @@ _backtick(char *const argv[])
+ 	return buf;
+ }
+ 
+-/* 
++/*
+  * Kills process whose PID is stored in plaintext in pidfile
+- * @param	pidfile	PID file
+- * @return	0 on success and errno on failure
++ * @param       pidfile PID file, signal
++ * @return      0 on success and errno on failure
+  */
+-int
++int inline 
+ kill_pidfile(char *pidfile)
+ {
++        return kill_pidfile_s(pidfile, SIGTERM);
++}
++
++int
++kill_pidfile_s(char *pidfile, int sig)
++{
+ 	FILE *fp = fopen(pidfile, "r");
+ 	char buf[256];
+ 
+ 	if (fp && fgets(buf, sizeof(buf), fp)) {
+ 		pid_t pid = strtoul(buf, NULL, 0);
+ 		fclose(fp);
+-		return kill(pid, SIGTERM);
+-  	} else
++		if (pid <= 0)
++			return -ESRCH;
++		else
++			return kill(pid, sig);
++	} else
+ 		return errno;
+ }
+ 
+@@ -269,6 +309,7 @@ safe_fwrite(const void *ptr, size_t size
  	return ret;
  }
  
@@ -485,7 +523,7 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
  /*
   * Convert Ethernet address string representation to binary data
   * @param	a	string in xx:xx:xx:xx:xx:xx notation
-@@ -309,3 +341,455 @@ ether_etoa(const unsigned char *e, char 
+@@ -309,3 +350,455 @@ ether_etoa(const unsigned char *e, char 
  	}
  	return a;
  }
@@ -943,7 +981,7 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
 +#endif
 diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
 --- router/shared/shutils.h	2004-11-15 03:34:19.000000000 +0000
-+++ gateway/shared/shutils.h	2009-08-20 10:21:34.000000000 +0000
++++ gateway/shared/shutils.h	2009-09-21 11:57:08.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -953,11 +991,12 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
   * All Rights Reserved.
   * 
   * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-@@ -15,6 +15,15 @@
+@@ -15,6 +15,16 @@
  #ifndef _shutils_h_
  #define _shutils_h_
  
 +#include <string.h>
++#include <signal.h>
 +
 +/*
 + * Checks if file exists
@@ -969,7 +1008,18 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  /*
   * Reads file and returns contents
   * @param	fd	file descriptor
-@@ -113,6 +122,78 @@
+@@ -61,7 +71,9 @@ extern char * _backtick(char *const argv
+  * @param	pidfile	PID file
+  * @return	0 on success and errno on failure
+  */
+-extern int kill_pidfile(char *pidfile);
++int kill_pidfile_s(char *pidfile, int sig);
++
++int kill_pidfile(char *pidfile);
+ 
+ /*
+  * fread() with automatic retry on syscall interrupt
+@@ -113,6 +125,78 @@ static inline char * strcat_r(const char
  	return buf;
  }	
  
@@ -1048,7 +1098,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  /* Check for a blank character; that is, a space or a tab */
  #define isblank(c) ((c) == ' ' || (c) == '\t')
  
-@@ -130,20 +211,11 @@
+@@ -130,20 +214,11 @@ static inline char * strcat_r(const char
  	_backtick(argv); \
  })
  
@@ -1069,7 +1119,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  
  /* Copy each token in wordlist delimited by space into word */
  #define foreach(word, wordlist, next) \
-@@ -162,8 +234,9 @@
+@@ -162,8 +237,9 @@ static inline char * strcat_r(const char
  /* Return NUL instead of NULL if undefined */
  #define safe_getenv(s) (getenv(s) ? : "")
  
@@ -1080,7 +1130,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  #define cprintf(fmt, args...) do { \
  	FILE *fp = fopen("/dev/console", "w"); \
  	if (fp) { \
-@@ -180,7 +251,7 @@
+@@ -180,7 +256,7 @@ static inline char * strcat_r(const char
  #define dprintf(fmt, args...) cprintf("%s: " fmt, __FUNCTION__, ## args)
  #else
  #define dprintf(fmt, args...)

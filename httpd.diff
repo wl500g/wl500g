@@ -1,6 +1,6 @@
 diff -BurpN -x'*.o' router/httpd/Makefile gateway/httpd/Makefile
 --- router/httpd/Makefile	2004-11-11 07:27:08.000000000 +0000
-+++ gateway/httpd/Makefile	2008-01-06 11:26:57.000000000 +0000
++++ gateway/httpd/Makefile	2009-09-21 11:48:17.000000000 +0000
 @@ -8,7 +8,7 @@
  
  CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
@@ -14,9 +14,10 @@ diff -BurpN -x'*.o' router/httpd/Makefile gateway/httpd/Makefile
  	install -D httpd $(INSTALLDIR)/usr/sbin/httpd
  	$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
  
+-httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
 +common.o: common.c variables.c
 +
- httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
++httpd: httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
  	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
 diff -BurpN -x'*.o' router/httpd/broadcom.c gateway/httpd/broadcom.c
 --- router/httpd/broadcom.c	2004-11-11 07:27:09.000000000 +0000
@@ -778,7 +779,7 @@ diff -BurpN -x'*.o' router/httpd/variables.c gateway/httpd/variables.c
  	
 diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
 --- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
-+++ gateway/httpd/web_ex.c	2009-04-30 08:17:20.000000000 +0000
++++ gateway/httpd/web_ex.c	2009-09-21 11:55:23.000000000 +0000
 @@ -48,6 +48,7 @@
  
  #define sys_restart() kill(1, SIGHUP)
@@ -1062,3 +1063,27 @@ diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
  	cic->count = 0;
  
  
+@@ -2913,23 +3050,3 @@ wl_channels_in_country(char *abbrev, int
+ 	return cic->count;
+ 
+ }
+-
+-/* 
+- * Kills process whose PID is stored in plaintext in pidfile
+- * @param	pidfile	PID file, signal
+- * @return	0 on success and errno on failure
+- */
+-int
+-kill_pidfile_s(char *pidfile, int sig)
+-{
+-	FILE *fp = fopen(pidfile, "r");
+-	char buf[256];
+-	extern errno;
+-
+-	if (fp && fgets(buf, sizeof(buf), fp)) {
+-		pid_t pid = strtoul(buf, NULL, 0);
+-		fclose(fp);
+-		return kill(pid, sig);
+-  	} else
+-		return errno;
+-}
