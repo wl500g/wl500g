@@ -1,3 +1,19 @@
+From 46a0be5304fb44e07e5066540f8e4061a3ecc438
+Subject: awk: implement mktime
+
+function                                             old     new   delta
+exec_builtin                                           -    1466   +1466
+do_mktime                                              -     116    +116
+tokenlist                                            441     448      +7
+tokeninfo                                            396     400      +4
+evaluate                                            5395    3755   -1640
+------------------------------------------------------------------------------
+(add/remove: 2/0 grow/shrink: 2/1 up/down: 1593/-1640)        Total: -47 bytes
+
+Signed-off-by: Leonid Lisovskiy <lly.dev@gmail.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+
 diff -BurpN busybox-1.14.2/editors/awk.c busybox/editors/awk.c
 --- busybox-1.14.2/editors/awk.c	2009-06-21 22:40:29.000000000 +0000
 +++ busybox/editors/awk.c	2009-07-22 18:23:41.000000000 +0000
@@ -28,37 +44,36 @@ diff -BurpN busybox-1.14.2/editors/awk.c busybox/editors/awk.c
  	OC_B|B_lo|P(0x49), OC_B|B_up|P(0x49),
  	OC_GETLINE|SV|P(0),
  	0,	0,
-@@ -2001,6 +2001,35 @@ static int awk_sub(node *rn, const char 
+@@ -2001,6 +2001,34 @@ static int awk_sub(node *rn, const char 
  	return i;
  }
  
-+static int do_mktime(const char * ds)
++static NOINLINE int do_mktime(const char *ds)
 +{
 +	struct tm then;
-+	long year;
-+	int month, day, hour, minute, second, count;
-+	int dst = -1; /* default is unknown */
++	int count;
 +
-+	count = sscanf(ds, "%ld %d %d %d %d %d %d",
-+		        & year, & month, & day,
-+			& hour, & minute, & second,
-+		        & dst);
++	/*memset(&then, 0, sizeof(then)); - not needed */
++	then.tm_isdst = -1; /* default is unknown */
++
++	/* manpage of mktime says these fields are ints,
++	 * so we can sscanf stuff directly into them */
++	count = sscanf(ds, "%u %u %u %u %u %u %d",
++		&then.tm_year, &then.tm_mon, &then.tm_mday,
++		&then.tm_hour, &then.tm_min, &then.tm_sec,
++		&then.tm_isdst);
 +
 +	if (count < 6
-+	    || month < month - 1
-+	    || year < year - 1900 || year - 1900 != (int) (year - 1900))
++	 || (unsigned)then.tm_mon < 1
++	 || (unsigned)then.tm_year < 1900
++	) {
 +		return -1;
++	}
 +
-+	memset(& then, '\0', sizeof(then));
-+	then.tm_sec = second;
-+	then.tm_min = minute;
-+	then.tm_hour = hour;
-+	then.tm_mday = day;
-+	then.tm_mon = month - 1;
-+	then.tm_year = year - 1900;
-+	then.tm_isdst = dst;
++	then.tm_mon -= 1;
++	then.tm_year -= 1900;
 +
-+	return mktime(& then);
++	return mktime(&then);
 +}
 +
  static var *exec_builtin(node *op, var *res)
