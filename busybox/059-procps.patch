@@ -1,0 +1,31 @@
+Fix incorrect procps_scan() behaviour in case of process has empty cmdline.
+
+diff -uBp a/libbb/procps.c  b/libbb/procps.c
+--- a/libbb/procps.c	2009-09-22 22:15:57.000000000 +0400
++++ b/libbb/procps.c	2009-09-22 22:17:22.000000000 +0400
+@@ -422,7 +422,7 @@ procps_status_t* FAST_FUNC procps_scan(p
+ 			 * then realloc it down to real size. */
+ 			n = read_to_buf(filename, buf);
+ 			if (n <= 0)
+-				break;
++				goto do_scanexe;
+ 			if (flags & PSSCAN_ARGV0)
+ 				sp->argv0 = xstrdup(buf);
+ 			if (flags & PSSCAN_CMD) {
+@@ -441,7 +441,7 @@ procps_status_t* FAST_FUNC procps_scan(p
+ 			strcpy(filename_tail, "cmdline");
+ 			n = read_to_buf(filename, buf);
+ 			if (n <= 0)
+-				break;
++				goto do_scanexe;
+ 			if (flags & PSSCAN_ARGVN) {
+ 				sp->argv_len = n;
+ 				sp->argv0 = xmalloc(n + 1);
+@@ -453,6 +453,7 @@ procps_status_t* FAST_FUNC procps_scan(p
+ 			}
+ 		}
+ #endif
++do_scanexe:
+ 		if (flags & PSSCAN_EXE) {
+ 			strcpy(filename_tail, "exe");
+ 			free(sp->exe);
