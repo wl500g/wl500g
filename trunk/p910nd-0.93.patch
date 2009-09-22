@@ -1,4 +1,3 @@
-Only in p910nd: p910nd
 diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
 --- p910nd-0.93/p910nd.c	2009-02-08 23:46:56.000000000 +0300
 +++ p910nd/p910nd.c	2009-08-27 20:05:01.000000000 +0400
@@ -50,3 +49,26 @@ diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
  	if (copy_stream(0, lp) < 0)
  		syslog(LOGOPTS, "copy_stream: %m\n");
  	close(lp);
+@@ -422,6 +422,7 @@ void server(int lpnumber)
+ 	struct protoent *proto;
+ #endif
+ 	int netfd, fd, lp, one = 1;
++	int open_sleep = 10;
+ 	socklen_t clientlen;
+ 	struct sockaddr_in netaddr, client;
+ 	char pidfilename[sizeof(PIDFILE)];
+@@ -521,8 +522,12 @@ void server(int lpnumber)
+ 		/*write(fd, "Printing", 8); */
+ 
+ 		/* Make sure lp device is open... */
+-		while ((lp = open_printer(lpnumber)) == -1)
+-			sleep(10);
++		while ((lp = open_printer(lpnumber)) == -1) {
++			sleep(open_sleep);
++			if (open_sleep < 320) /* ~5 min interval to avoid spam in syslog */
++				open_sleep *= 2;
++		}
++		open_sleep = 10;
+ 
+ 		if (copy_stream(fd, lp) < 0)
+ 			syslog(LOGOPTS, "copy_stream: %m\n");
