@@ -444,6 +444,15 @@ diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  	update_lan_status(1);
  
  	dprintf("end map\n");
+@@ -489,7 +562,7 @@
+ }
+ 
+ 
+-char *findpattern(char *target, char *pattern)
++static char *findpattern(char *target, char *pattern)
+ {
+ 	char *find;
+ 	int len;
 @@ -536,6 +617,7 @@ void update_wan_status(int isup)
  	else if (!strcmp(proto, "dhcp")) nvram_set("wan_proto_t", "Automatic IP");
  	else if (!strcmp(proto, "pppoe")) nvram_set("wan_proto_t", "PPPoE");	
@@ -467,10 +476,11 @@ diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  			nvram_set("wan_dns_t", dns_str);
  		}
  		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
-@@ -620,6 +702,7 @@ char *pppstatus(char *buf)
+@@ -620,6 +702,8 @@ char *pppstatus(char *buf)
     {
  	strcpy(buf, "unknown reason");
     }	
++   fclose(fp);
 +   return buf;
  }
  
@@ -539,6 +549,15 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  /*
   * Copyright 2004, ASUSTek Inc.
   * All Rights Reserved.
+@@ -97,7 +97,7 @@
+ 	return (g_buf_alloc(g_buf));
+ }
+ 
+-char *portrange_ex_conv(char *port_name, int idx)
++static char *portrange_ex_conv(char *port_name, int idx)
+ {
+ 	char *port, *strptr;
+ 	char itemname_arr[32];
 @@ -117,7 +116,7 @@ char *portrange_ex_conv(char *port_name,
  	else if(!strncmp(port, "<", 1)) {
  		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
@@ -575,6 +594,22 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  		*start=0;
  		*end=0;
  	}
+@@ -195,6 +195,7 @@
+ 	return(g_buf_alloc(g_buf));
+ }
+ 
++#ifdef REMOVE
+ char *iprange_conv(char *ip_name, int idx)
+ {
+ 	char *ip;
+@@ -236,6 +237,7 @@
+ 		sprintf(g_buf, "%s-%s", startip, endip);
+ 	return(g_buf_alloc(g_buf));
+ }
++#endif
+ 
+ char *iprange_ex_conv(char *ip_name, int idx)
+ {
 @@ -408,7 +407,7 @@ void timematch_conv(char *mstr, char *nv
  	return;
  	
@@ -1299,7 +1334,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  	{
  		ip = general_conv("sr_ipaddr_x", i);
  		netmask = general_conv("sr_netmask_x", i);
-@@ -1194,11 +1195,16 @@ void convert_routes(void)
+@@ -1194,14 +1195,19 @@ void convert_routes(void)
  		{
  			sprintf(lroutes, "%s %s:%s:%s:%d", lroutes, ip, netmask, gateway, atoi(matric)+1);
  		}	
@@ -1315,7 +1350,11 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 +	nvram_set("wan_route", mroutes);
  }
  
- #ifdef USB_SUPPORT	
+-#ifdef USB_SUPPORT	
++#ifdef CONFIG_STUPIDFTPD
+ void write_ftp_banip(FILE *fp)
+ {
+ 	char *ip;
 diff -BurpN -x'*.o' router/rc/init.c gateway/rc/init.c
 --- router/rc/init.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/init.c	2008-03-19 20:07:24.000000000 +0300
