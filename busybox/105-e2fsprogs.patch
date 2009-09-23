@@ -317,3 +317,14 @@ diff -urBp busybox.orig/e2fsprogs/util.c busybox/e2fsprogs/util.c
  	putenv(oldpath);
  	return oldpath;
  }
+diff -uBp busybox.orig/e2fsprogs/ext2fs/getsize.c busybox/e2fsprogs/ext2fs/getsize.c
+--- busybox.orig/e2fsprogs/ext2fs/getsize.c	2009-09-12 19:55:36.000000000 +0400
++++ busybox/e2fsprogs/ext2fs/getsize.c	2009-09-23 16:54:20.000000000 +0400
+@@ -212,6 +212,7 @@ errcode_t ext2fs_get_device_size(const c
+ 	    off_t ms;
+ 	    u_int bs;
+ 	    if (ioctl(fd, DIOCGMEDIASIZE, &ms) >= 0) {
++		close(fd);
+ 		*retblocks = ms / blocksize;
+ 		return 0;
+ 	    }
