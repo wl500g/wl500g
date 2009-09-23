@@ -312,6 +312,7 @@ struct vifconfig *parsePhyintToken() {
 
     // Clean up after a parseerror...
     if(parseError) {
+        free(tmpPtr->name);
         free(tmpPtr);
         tmpPtr = NULL;
     }
