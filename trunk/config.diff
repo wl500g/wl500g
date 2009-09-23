@@ -89,8 +89,8 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +	bool "CONFIG_EZIPUPDATE"
 +	default y
 +
-+config CONFIG_STUPIDFTPD
-+	bool "CONFIG_STUPIDFTPD"
++config CONFIG_VSFTPD
++	bool "CONFIG_VSFTPD"
 +	default y
 +
 +config CONFIG_JPEG6B
@@ -326,7 +326,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 +CONFIG_PPPOERELAY=y
 +CONFIG_INFOSVR=y
 +CONFIG_EZIPUPDATE=y
-+CONFIG_STUPIDFTPD=y
++CONFIG_VSFTPD=y
 +CONFIG_JPEG6B=y
 +CONFIG_RCAMD=y
 +CONFIG_SENDMAIL=y

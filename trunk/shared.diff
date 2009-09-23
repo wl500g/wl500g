@@ -82,7 +82,7 @@ diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
 +#define __CONFIG_PPPOERELAY__ 1
 +#define __CONFIG_INFOSVR__ 1
 +#define __CONFIG_EZIPUPDATE__ 1
-+#define __CONFIG_STUPIDFTPD__ 1
++#define __CONFIG_VSFTPD__ 1
 +#define __CONFIG_JPEG6B__ 1
 +#define __CONFIG_RCAMD__ 1
 +#define __CONFIG_SENDMAIL__ 1
