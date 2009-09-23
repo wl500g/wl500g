@@ -12,3 +12,13 @@
          switch (c) {
          case 'd':
              Log2Stderr = true;
+--- igmpproxy-0.1_beta5/src/config.c	2009-09-23 15:04:22.000000000 +0400
++++ igmpproxy/src/config.c	2009-09-23 15:04:05.000000000 +0400
+@@ -333,6 +333,7 @@ struct vifconfig *parsePhyintToken() {
+ 
+     // Clean up after a parseerror...
+     if(parseError) {
++        free(tmpPtr->name);
+         free(tmpPtr);
+         tmpPtr = NULL;
+     }
