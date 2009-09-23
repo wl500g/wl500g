@@ -1,12 +1,17 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d-`r599` (2009-09-19)===
+===wl500g-1.9.2.7-d-`r617` (2009-09-23)===
   * uClibc 0.9.30.1 (ATTENTION! possible old binaries incompatibility)
 
   * kernel 2.4.37.6
+    * khubd daemon can't be killed from user space anymore
+
+  * netfilter
+    * added webstr match to help URL filtering
 
   * busybox 1.15.1
+    * bugfixes of applets killall, ash, dd
 
   * igmpproxy 0.1_beta5
 
