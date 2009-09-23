@@ -3060,11 +3060,11 @@ void ip_rt_multicast_event(struct in_device *in_dev)
 static int flush_delay;
 
 static int ipv4_sysctl_rtcache_flush(ctl_table *ctl, int write,
-					struct file *filp, void __user *buffer,
+					void __user *buffer,
 					size_t *lenp, loff_t *ppos)
 {
 	if (write) {
-		proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+		proc_dointvec(ctl, write, buffer, lenp, ppos);
 		rt_cache_flush(flush_delay);
 		return 0;
 	}

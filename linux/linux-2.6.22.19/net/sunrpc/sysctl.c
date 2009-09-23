@@ -49,7 +49,7 @@ rpc_unregister_sysctl(void)
 }
 
 static int
-proc_dodebug(ctl_table *table, int write, struct file *file,
+proc_dodebug(ctl_table *table, int write,
 				void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	char		tmpbuf[20], c, *s;

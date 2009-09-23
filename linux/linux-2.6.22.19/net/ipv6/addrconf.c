@@ -3912,14 +3912,14 @@ static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
 #ifdef CONFIG_SYSCTL
 
 static
-int addrconf_sysctl_forward(ctl_table *ctl, int write, struct file * filp,
+int addrconf_sysctl_forward(ctl_table *ctl, int write,
 			   void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int *valp = ctl->data;
 	int val = *valp;
 	int ret;
 
-	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
 	if (write)
 		addrconf_fixup_forwarding(ctl, valp, val);
@@ -4007,7 +4007,7 @@ static int addrconf_disable_ipv6(struct ctl_table *table, int *valp, int old)
 	return 0;
 }
 
-static int addrconf_sysctl_disable(ctl_table *ctl, int write, struct file * filp,
+static int addrconf_sysctl_disable(ctl_table *ctl, int write,
 			   void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int *valp = ctl->data;
@@ -4015,7 +4015,7 @@ static int addrconf_sysctl_disable(ctl_table *ctl, int write, struct file * filp
 	loff_t pos = *ppos;
 	int ret;
 
-	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
 	if (write)
 		ret = addrconf_disable_ipv6(ctl, valp, val);

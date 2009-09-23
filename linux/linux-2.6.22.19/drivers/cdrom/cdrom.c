@@ -3289,7 +3289,7 @@ static struct cdrom_sysctl_settings {
 	int	check;			/* check media type */
 } cdrom_sysctl_settings;
 
-static int cdrom_sysctl_info(ctl_table *ctl, int write, struct file * filp,
+static int cdrom_sysctl_info(ctl_table *ctl, int write,
                            void __user *buffer, size_t *lenp, loff_t *ppos)
 {
         int pos;
@@ -3385,7 +3385,7 @@ static int cdrom_sysctl_info(ctl_table *ctl, int write, struct file * filp,
 
 	strcpy(info+pos,"\n\n");
 		
-        return proc_dostring(ctl, write, filp, buffer, lenp, ppos);
+        return proc_dostring(ctl, write, buffer, lenp, ppos);
 }
 
 /* Unfortunately, per device settings are not implemented through
@@ -3416,12 +3416,12 @@ static void cdrom_update_settings(void)
 	}
 }
 
-static int cdrom_sysctl_handler(ctl_table *ctl, int write, struct file * filp,
+static int cdrom_sysctl_handler(ctl_table *ctl, int write,
 				void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	int ret;
 	
-	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+	ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 
 	if (write) {
 	

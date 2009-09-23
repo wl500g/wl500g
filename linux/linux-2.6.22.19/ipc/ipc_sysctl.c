@@ -28,24 +28,24 @@ static void *get_ipc(ctl_table *table)
 #endif
 
 #ifdef CONFIG_PROC_FS
-static int proc_ipc_dointvec(ctl_table *table, int write, struct file *filp,
+static int proc_ipc_dointvec(ctl_table *table, int write,
 	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct ctl_table ipc_table;
 	memcpy(&ipc_table, table, sizeof(ipc_table));
 	ipc_table.data = get_ipc(table);
 
-	return proc_dointvec(&ipc_table, write, filp, buffer, lenp, ppos);
+	return proc_dointvec(&ipc_table, write, buffer, lenp, ppos);
 }
 
 static int proc_ipc_doulongvec_minmax(ctl_table *table, int write,
-	struct file *filp, void __user *buffer, size_t *lenp, loff_t *ppos)
+	void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct ctl_table ipc_table;
 	memcpy(&ipc_table, table, sizeof(ipc_table));
 	ipc_table.data = get_ipc(table);
 
-	return proc_doulongvec_minmax(&ipc_table, write, filp, buffer,
+	return proc_doulongvec_minmax(&ipc_table, write, buffer,
 					lenp, ppos);
 }
 

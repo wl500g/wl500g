@@ -1584,7 +1584,7 @@ static void ndisc_warn_deprecated_sysctl(struct ctl_table *ctl,
 	}
 }
 
-int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * filp, void __user *buffer, size_t *lenp, loff_t *ppos)
+int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct net_device *dev = ctl->extra1;
 	struct inet6_dev *idev;
@@ -1596,16 +1596,16 @@ int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * f
 
 	switch (ctl->ctl_name) {
 	case NET_NEIGH_RETRANS_TIME:
-		ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+		ret = proc_dointvec(ctl, write, buffer, lenp, ppos);
 		break;
 	case NET_NEIGH_REACHABLE_TIME:
 		ret = proc_dointvec_jiffies(ctl, write,
-					    filp, buffer, lenp, ppos);
+					    buffer, lenp, ppos);
 		break;
 	case NET_NEIGH_RETRANS_TIME_MS:
 	case NET_NEIGH_REACHABLE_TIME_MS:
 		ret = proc_dointvec_ms_jiffies(ctl, write,
-					       filp, buffer, lenp, ppos);
+					       buffer, lenp, ppos);
 		break;
 	default:
 		ret = -1;

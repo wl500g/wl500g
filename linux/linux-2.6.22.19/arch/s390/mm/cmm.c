@@ -260,7 +260,7 @@ cmm_skip_blanks(char *cp, char **endp)
 static struct ctl_table cmm_table[];
 
 static int
-cmm_pages_handler(ctl_table *ctl, int write, struct file *filp,
+cmm_pages_handler(ctl_table *ctl, int write,
 		  void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	char buf[16], *p;
@@ -301,7 +301,7 @@ cmm_pages_handler(ctl_table *ctl, int write, struct file *filp,
 }
 
 static int
-cmm_timeout_handler(ctl_table *ctl, int write, struct file *filp,
+cmm_timeout_handler(ctl_table *ctl, int write,
 		    void __user *buffer, size_t *lenp, loff_t *ppos)
 {
 	char buf[64], *p;
