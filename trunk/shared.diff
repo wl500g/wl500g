@@ -363,7 +363,7 @@ diff -BurpN '-x*.o' router/shared/flash.default gateway/shared/flash.default
 diff -BurpN '-x*.o' router/shared/netconf.h gateway/shared/netconf.h
 --- router/shared/netconf.h	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/netconf.h	2009-09-24 16:48:16.000000000 +0000
-@@ -60,11 +60,37 @@ typedef struct _netconf_match_t {
+@@ -60,11 +60,38 @@ typedef struct _netconf_match_t {
  	int flags;			/* Match flags */
  	uint days[2];			/* Match by day of the week (local time) (0 == Sunday) */
  	uint secs[2];			/* Match by time of day (local time) (0 == 12:00 AM) */
@@ -384,7 +384,8 @@ diff -BurpN '-x*.o' router/shared/netconf.h gateway/shared/netconf.h
  
 +enum netfilter_extra_modules
 +{
-+    WEBSTRFILTER_MODULE,
++    NETCONF_NONE_MODULE=0,
++    NETCONF_WEBSTRFILTER_MODULE,
 +};
 +
 +#ifdef WEBSTRFILTER
