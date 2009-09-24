@@ -197,7 +197,7 @@ diff -BurpN '-x*.o' router/netconf/netconf_linux.c gateway/netconf/netconf_linux
  
 +#ifdef WEBSTRFILTER
 +  /* Match by module name. Cherry Cho added in 2007/12/27. */
-+        if (fw->match.module_num == WEBSTRFILTER_MODULE) {
++        if (fw->match.module_num == NETCONF_WEBSTRFILTER_MODULE) {
 +                struct ipt_webstr_info *webstr_info;
 +
 +                if (!(match = netconf_append_match(&entry, "webstr", sizeof(struct ipt_webstr_info))))
