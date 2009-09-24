@@ -272,15 +272,6 @@ diff -BurN router/www/asus/web_asus_en/Advanced_DMZDHCP_Content.asp gateway/www/
 diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content.asp
 --- router/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2004-11-19 10:45:54.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content.asp	2008-03-17 17:52:23.000000000 +0000
-@@ -13,7 +13,7 @@
- <!-- Table for the conntent page -->	    
- <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-     	
--<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_URLFilter_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-+<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
- <tr>
- <td>
- <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 @@ -22,8 +22,6 @@
  </tr>
  <tr>
@@ -301,30 +292,6 @@ diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content.asp gateway/www
  <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WAN to LAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WAN to LAN) packet types:
             </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="filter_wl_icmp_x" value="<% nvram_get_x("FirewallConfig","filter_wl_icmp_x"); %>" onBlur="return validate_portlist(this, 'filter_wl_icmp_x')" onKeyPress="return is_portlist(this)"></td>
  </tr>
-diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp
---- router/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2004-11-19 10:45:54.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_520g.asp	2008-03-17 17:52:23.000000000 +0000
-@@ -13,7 +13,7 @@
- <!-- Table for the conntent page -->	    
- <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-     	
--<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_URLFilter_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-+<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
- <tr>
- <td>
- <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
-diff -BurN router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp gateway/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp
---- router/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2004-11-19 10:45:54.000000000 +0000
-+++ gateway/www/asus/web_asus_en/Advanced_Firewall_Content_lite.asp	2008-03-17 17:52:23.000000000 +0000
-@@ -13,7 +13,7 @@
- <!-- Table for the conntent page -->	    
- <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-     	
--<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_URLFilter_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-+<input type="hidden" name="current_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_page" value="Advanced_Firewall_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="FirewallConfig;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
- <tr>
- <td>
- <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 diff -BurN router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp
 --- router/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2004-11-19 10:45:54.000000000 +0000
 +++ gateway/www/asus/web_asus_en/Advanced_FirmwareUpgrade_Content.asp	2009-07-22 15:40:20.000000000 +0000
@@ -3759,18 +3726,6 @@ diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/in
             appendChild(aux1, generateDocEntry(0, "DHCP Server", "Advanced_DHCP_Content.asp", "")) 
             
             if (isModel()!='SnapAP')    
-@@ -195,8 +203,9 @@
-     	      aux1 = appendChild(foldersTree, leafNode("Internet Firewall"))    	
-     	      appendChild(aux1, generateDocEntry(0, "Basic Config",  "Advanced_BasicFirewall_Content.asp", ""))    
-               appendChild(aux1, generateDocEntry(0, "WAN & LAN Filter",  "Advanced_Firewall_Content.asp", ""))  
--              appendChild(aux1, generateDocEntry(0, " URL Filter",  "Advanced_URLFilter_Content.asp", ""))
--              //appendChild(aux1, generateDocEntry(0, "WAN & ZVMODELVZ Filter",  "Advanced_LFirewall_Content.asp", ""))      
-+              // appendChild(aux1, generateDocEntry(0, " URL Filter",  "Advanced_URLFilter_Content.asp", ""))
-+              // left out because custom firmware uses dnsmasq which doesnt support it
-+              // appendChild(aux1, generateDocEntry(0, "WAN & ZVMODELVZ Filter",  "Advanced_LFirewall_Content.asp", ""))      
-            }
-            
-     	   //if (isModel() != 'WL300' && isModel() != 'WL520' && isModel() != 'SnapAP')    
 @@ -207,7 +216,7 @@
      	   //	   appendChild(aux1, generateDocEntry(0, "WLAN & WAN Filter",  "Advanced_DMZDWFilter_Content.asp", ""))                                                                                          
      	   //       appendChild(aux1, generateDocEntry(0, "WLAN & LAN Filter",  "Advanced_DMZDLFilter_Content.asp", ""))                                                                                                                            

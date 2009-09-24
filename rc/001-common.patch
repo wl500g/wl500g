@@ -432,13 +432,13 @@ diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
 +                char ports[32];
 +
 +                sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
-+                eval("insmod", "ip_conntrack_ftp.o", ports);
-+                eval("insmod", "ip_nat_ftp.o", ports);
++                eval("insmod", "ip_conntrack_ftp", ports);
++                eval("insmod", "ip_nat_ftp", ports);
 +        }
 +        else
 +        {
-+                eval("insmod", "ip_conntrack_ftp.o");
-+                eval("insmod", "ip_nat_ftp.o");
++                eval("insmod", "ip_conntrack_ftp");
++                eval("insmod", "ip_nat_ftp");
 +        }
 +
  	update_lan_status(1);
@@ -4154,8 +4154,8 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -	eval("insmod", "soundcore.o");
 -	eval("insmod", "audio.o");
 -	start_audio();
-+		eval("insmod", "soundcore.o");
-+		eval("insmod", "audio.o");
++		eval("insmod", "soundcore");
++		eval("insmod", "audio");
 +		start_audio();
 +	}
  #endif
@@ -4178,9 +4178,9 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  #endif
 +	if (nvram_match("usb_nfsenable_x", "1"))
 +	{	
-+		eval("insmod", "sunrpc.o");
-+		eval("insmod", "lockd.o");
-+		eval("insmod", "nfsd.o");
++		eval("insmod", "sunrpc");
++		eval("insmod", "lockd");
++		eval("insmod", "nfsd");
 +		
 +		start_nfsd();
 +	}
@@ -4587,8 +4587,8 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  	if (webflag == WEB_PWCWEB)
  	{
 -		eval("insmod", "pwc.o", "power_save=0");
-+		eval("insmod", "pwc.o", "power_save=0", "size=vga");
-+		eval("insmod", "pwcx.o");
++		eval("insmod", "pwc", "power_save=0", "size=vga");
++		eval("insmod", "pwcx");
  		nvram_set("usb_webdriver_x", "0");
  
  		*arg++ = "-t";
