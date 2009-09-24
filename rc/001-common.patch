@@ -476,11 +476,16 @@ diff -BurpN -x'*.o' router/rc/common_ex.c gateway/rc/common_ex.c
  			nvram_set("wan_dns_t", dns_str);
  		}
  		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
-@@ -620,6 +702,8 @@ char *pppstatus(char *buf)
+@@ -615,11 +698,13 @@ char *pppstatus(char *buf)
+    {
+ 	p = strstr(sline, ",");
+ 	strcpy(buf, p+1);
++	fclose(fp);
+    }
+    else
     {
  	strcpy(buf, "unknown reason");
     }	
-+   fclose(fp);
 +   return buf;
  }
  
@@ -3519,6 +3524,23 @@ diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 diff -BurpN -x'*.o' router/rc/sendalarm.c gateway/rc/sendalarm.c
 --- router/rc/sendalarm.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/sendalarm.c	2008-03-19 20:07:24.000000000 +0300
+@@ -58,12 +58,13 @@ char *nslookup(char *name, char qtype, c
+ 
+ 	fp=fopen("/etc/resolv.conf", "r+");
+ 	
+-	if (fp!=NULL && 
+-		fgets(buf, MAX_LINE_SIZE, fp)!=NULL &&
++	if (fp!=NULL) {
++	    if (fgets(buf, MAX_LINE_SIZE, fp)!=NULL &&
+ 		strncmp(buf,"nameserver", 10)==0)
+ 	{
+ 		dns_query(&buf[11], name, qtype, ret);
+-		fclose(fp);
++	}
++	fclose(fp);
+ 	}
+ 	return ret;
+ }
 @@ -130,7 +130,9 @@ sendalarm_main(int argc, char *argv[])
  			if (!(imagebase=rindex(image, '/'))) imagebase = image;
  			else imagebase++;
