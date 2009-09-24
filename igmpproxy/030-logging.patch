@@ -1,0 +1,27 @@
+diff -urBp igmpproxy/src/igmpproxy.c igmpproxy.new/src/igmpproxy.c
+--- igmpproxy/src/igmpproxy.c	2009-09-23 21:20:25.000000000 +0400
++++ igmpproxy.new/src/igmpproxy.c	2009-09-23 21:20:12.000000000 +0400
+@@ -80,10 +80,7 @@ int main( int ArgCn, char *ArgVc[] ) {
+             Log2Stderr = true;
+             break;
+         case 'v':
+-            if (LogLevel == LOG_INFO)
+-                LogLevel = LOG_DEBUG;
+-            else
+-                LogLevel = LOG_INFO;
++            LogLevel++;
+             break;
+         case 'h':
+             fputs(Usage, stderr);
+diff -urBp igmpproxy/src/syslog.c igmpproxy.new/src/syslog.c
+--- igmpproxy/src/syslog.c	2009-05-13 23:43:18.000000000 +0400
++++ igmpproxy.new/src/syslog.c	2009-09-23 21:19:43.000000000 +0400
+@@ -33,7 +33,7 @@
+ 
+ #include "igmpproxy.h"
+ 
+-int LogLevel = LOG_WARNING;
++int LogLevel = LOG_ERR;
+ bool Log2Stderr = false;
+ 
+ void my_log( int Severity, int Errno, const char *FmtSt, ... )
