@@ -192,12 +192,12 @@ $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 vsftpd: $(TOP)/vsftpd
 	@true
 
+dropbear_Patches := $(call patches_list,dropbear)
+
 $(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
 	@rm -rf $(TOP)/$(DROPBEAR) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(DROPBEAR) dropbear/$(DROPBEAR).patch \
-	dropbear/$(DROPBEAR)-charo-io.patch \
-	dropbear/$(DROPBEAR)-pipe.patch dropbear/$(DROPBEAR)-uninit-defect.patch 
+	$(PATCHER) $(TOP)/$(DROPBEAR) $(dropbear_Patches)
 	mv $(TOP)/$(DROPBEAR) $@
 
 dropbear: $(TOP)/dropbear
