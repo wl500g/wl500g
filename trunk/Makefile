@@ -203,11 +203,12 @@ $(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
 dropbear: $(TOP)/dropbear
 	@true
 
+ucdsnmp_Patches := $(call patches_list,ucd-snmp)
+
 $(TOP)/ucdsnmp: ucd-snmp/$(UCDSNMP).tar.gz
 	@rm -rf $(TOP)/$(UCDSNMP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(UCDSNMP) ucd-snmp/$(UCDSNMP).patch \
-	ucd-snmp/ucd-snmp-3.6.2-interfaces.patch ucd-snmp/ucd-snmp-3.6.2-uptime.patch 
+	$(PATCHER) $(TOP)/$(UCDSNMP) $(ucdsnmp_Patches)
 	mv $(TOP)/$(UCDSNMP) $@
 
 ucdsnmp: $(TOP)/ucdsnmp
