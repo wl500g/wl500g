@@ -87,7 +87,7 @@ diff -BurN router/rcamdmips/rcamd.c gateway/rcamdmips/rcamd.c
 +	*len = (*len)<<3;
 +	printf("OV519 : len: %x\n", *len);
 +	fwrite(image + 2, sizeof(unsigned char), *len, fd);
-+	close(fd);
++	fclose(fd);
 +	return;
 +  }
 +	 
