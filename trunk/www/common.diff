@@ -278,7 +278,7 @@ diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
  	rm -rf ../web_$MODEL/*11g*.asp
  	rm -rf ../web_$MODEL/*11b*.asp
  	rm -rf ../web_$MODEL/*_300g.asp	
-@@ -457,6 +577,92 @@
+@@ -457,6 +577,91 @@
  	rm -rf ../web_$MODEL/graph/*_500gx.*	
  	rm -rf ../web_$MODEL/graph/*_520g.*
  	rm -rf ../web_$MODEL/graph/*_331g.*
@@ -351,7 +351,6 @@ diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
 +	rm -f ../web_$MODEL/Advanced_PrinterSetup_Widzard.asp
 +	rm -f ../web_$MODEL/Advanced_RDHCP_Content.asp
 +	rm -f ../web_$MODEL/Advanced_RouterHelp_Widzard.asp
-+	rm -f ../web_$MODEL/Advanced_URLFilter_Content.asp
 +	rm -f ../web_$MODEL/Advanced_VirtualServer_Widzard.asp
 +	rm -f ../web_$MODEL/Advanced_WMMADV_Content.asp
 +	rm -f ../web_$MODEL/Basic_AOperation_Content.asp

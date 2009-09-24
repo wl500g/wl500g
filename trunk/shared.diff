@@ -1,7 +1,7 @@
-diff -BurpN -x'*.o' router/shared/Makefile gateway/shared/Makefile
+diff -BurpN '-x*.o' router/shared/Makefile gateway/shared/Makefile
 --- router/shared/Makefile	2004-12-05 19:54:17.000000000 +0000
-+++ gateway/shared/Makefile	2008-12-24 17:52:17.000000000 +0000
-@@ -12,8 +12,9 @@
++++ gateway/shared/Makefile	2009-09-24 16:30:37.000000000 +0000
+@@ -12,10 +12,11 @@
  # $Id$
  #
  
@@ -10,8 +10,11 @@ diff -BurpN -x'*.o' router/shared/Makefile gateway/shared/Makefile
 -CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall
 +CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
  #CFLAGS	+= -g -DDEBUG
- CFLAGS	+= -s -O2
+-CFLAGS	+= -s -O2
++CFLAGS	+= -s -O2 -DWEBSTRFILTER
  LDFLAGS += -L.
+ 
+ OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o
 @@ -26,6 +27,8 @@ endif
  
  all: libshared.so
@@ -21,7 +24,7 @@ diff -BurpN -x'*.o' router/shared/Makefile gateway/shared/Makefile
  install: all
  	install -d $(INSTALLDIR)/usr/lib
  	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
-diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
+diff -BurpN '-x*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
 --- router/shared/bcmconfig.h	2004-12-10 01:03:45.000000000 +0000
 +++ gateway/shared/bcmconfig.h	2008-03-17 17:52:25.000000000 +0000
 @@ -1,7 +1,6 @@
@@ -128,7 +131,7 @@ diff -BurpN -x'*.o' router/shared/bcmconfig.h gateway/shared/bcmconfig.h
   */
 +#undef __CONFIG_SENTRY5__
 +#undef __CONFIG_ROBO__
-diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
+diff -BurpN '-x*.o' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
 +++ gateway/shared/defaults.c	2008-03-17 17:52:17.000000000 +0000
 @@ -32,7 +32,7 @@ struct nvram_tuple router_defaults[] = {
@@ -149,7 +152,7 @@ diff -BurpN -x'*.o' router/shared/defaults.c gateway/shared/defaults.c
  	{ "http_passwd", "admin", 0 },		/* Password */
  	{ "http_wanport", "", 0 },		/* WAN port to listen on */
  	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
-diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
+diff -BurpN '-x*.o' router/shared/flash.default gateway/shared/flash.default
 --- router/shared/flash.default	2004-11-19 11:37:16.000000000 +0000
 +++ gateway/shared/flash.default	2009-05-08 06:09:17.000000000 +0000
 @@ -29,7 +29,7 @@
@@ -357,19 +360,49 @@ diff -BurpN -x'*.o' router/shared/flash.default gateway/shared/flash.default
 +{"wl_reg_mode", "d", 0},
 +{"wl_wpa_mode", "0", 0},
 +
-diff -BurpN -x'*.o' router/shared/netconf.h gateway/shared/netconf.h
+diff -BurpN '-x*.o' router/shared/netconf.h gateway/shared/netconf.h
 --- router/shared/netconf.h	2004-10-14 19:11:32.000000000 +0000
-+++ gateway/shared/netconf.h	2008-03-17 17:52:17.000000000 +0000
-@@ -64,7 +64,7 @@ typedef struct _netconf_match_t {
++++ gateway/shared/netconf.h	2009-09-24 16:48:16.000000000 +0000
+@@ -60,11 +60,37 @@ typedef struct _netconf_match_t {
+ 	int flags;			/* Match flags */
+ 	uint days[2];			/* Match by day of the week (local time) (0 == Sunday) */
+ 	uint secs[2];			/* Match by time of day (local time) (0 == 12:00 AM) */
++
++        /* +++ Match by module name. Cherry Cho added in 2007/12/27. +++ */
++	uint module_num;
++#ifdef WEBSTRFILTER
++	struct netconf_webstr_info {
++		char string[256];
++		u_int16_t invert;
++		u_int16_t len;
++		u_int8_t type;
++	} webstr_info;
++#endif
++
+ 	struct _netconf_match_t *next, *prev;
  } netconf_match_t;
  
++enum netfilter_extra_modules
++{
++    WEBSTRFILTER_MODULE,
++};
++
++#ifdef WEBSTRFILTER
++enum netconf_webstr_type	/* Cherry Cho added in 2007/12/28. */
++{
++    NETCONF_WEBSTR_HOST,
++    NETCONF_WEBSTR_URL,
++    NETCONF_WEBSTR_CONTENT,
++};
++#endif
++
  #define netconf_valid_ipproto(ipproto) \
 -	((ipproto == 0) || (ipproto) == IPPROTO_TCP || (ipproto) == IPPROTO_UDP)
 +	((ipproto == 0) || (ipproto) == IPPROTO_IGMP || (ipproto) == IPPROTO_TCP || (ipproto) == IPPROTO_UDP)
  
  /* Supported firewall target types */
  enum netconf_target {
-diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
+diff -BurpN '-x*.o' router/shared/shutils.c gateway/shared/shutils.c
 --- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
 +++ gateway/shared/shutils.c	2009-09-21 12:03:53.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -523,7 +556,7 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
  /*
   * Convert Ethernet address string representation to binary data
   * @param	a	string in xx:xx:xx:xx:xx:xx notation
-@@ -309,3 +350,455 @@ ether_etoa(const unsigned char *e, char 
+@@ -309,3 +350,455 @@ ether_etoa(const unsigned char *e, char
  	}
  	return a;
  }
@@ -979,7 +1012,7 @@ diff -BurpN -x'*.o' router/shared/shutils.c gateway/shared/shutils.c
 +}
 +
 +#endif
-diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
+diff -BurpN '-x*.o' router/shared/shutils.h gateway/shared/shutils.h
 --- router/shared/shutils.h	2004-11-15 03:34:19.000000000 +0000
 +++ gateway/shared/shutils.h	2009-09-21 11:57:08.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1139,7 +1172,7 @@ diff -BurpN -x'*.o' router/shared/shutils.h gateway/shared/shutils.h
  
  
  #endif /* _shutils_h_ */
-diff -BurpN -x'*.o' router/shared/wl.c gateway/shared/wl.c
+diff -BurpN '-x*.o' router/shared/wl.c gateway/shared/wl.c
 --- router/shared/wl.c	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wl.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1407,7 +1440,7 @@ diff -BurpN -x'*.o' router/shared/wl.c gateway/shared/wl.c
  }
 +*/
  
-diff -BurpN -x'*.o' router/shared/wl_linux.c gateway/shared/wl_linux.c
+diff -BurpN '-x*.o' router/shared/wl_linux.c gateway/shared/wl_linux.c
 --- router/shared/wl_linux.c	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wl_linux.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1427,7 +1460,7 @@ diff -BurpN -x'*.o' router/shared/wl_linux.c gateway/shared/wl_linux.c
  
  typedef u_int64_t u64;
  typedef u_int32_t u32;
-diff -BurpN -x'*.o' router/shared/wlutils.h gateway/shared/wlutils.h
+diff -BurpN '-x*.o' router/shared/wlutils.h gateway/shared/wlutils.h
 --- router/shared/wlutils.h	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wlutils.h	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@

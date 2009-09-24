@@ -81,12 +81,12 @@ diff -Bup gateway/rc/common_ex.c.orig gateway/rc/common_ex.c
 --- gateway/rc/common_ex.c.orig	2008-05-12 13:44:47.000000000 +0400
 +++ gateway/rc/common_ex.c	2009-02-20 10:18:33.000000000 +0300
 @@ -552,6 +552,10 @@ void convert_asus_values()
-                 eval("insmod", "ip_nat_ftp.o");
+                 eval("insmod", "ip_nat_ftp");
          }
  
 +	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 +	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
-+		eval("insmod", "ipt_recent.o");
++		eval("insmod", "ipt_recent");
 +
  	update_lan_status(1);
  

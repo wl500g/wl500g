@@ -1,22 +1,36 @@
  2008-03-18 Netconf modifications due to changes in iptables-1.3.x branch
  2008-12-12 gcc4 compilation fixes
+ 2009-09-23 "webstr" netfilter match
  
-diff -BurN router/netconf/Makefile gateway/netconf/Makefile
---- router/netconf/Makefile	2004-10-14 23:11:28.000000000 +0400
-+++ gateway/netconf/Makefile	2008-12-24 16:34:10.000000000 +0300
-@@ -12,7 +12,7 @@
+diff -BurpN '-x*.o' router/netconf/Makefile gateway/netconf/Makefile
+--- router/netconf/Makefile	2004-10-14 19:11:28.000000000 +0000
++++ gateway/netconf/Makefile	2009-09-24 16:30:48.000000000 +0000
+@@ -12,9 +12,9 @@
  # $Id$
  #
  
 -CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -I$(LINUXDIR)/include -Wall
-+CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -Wall $(EXTRACFLAGS)
++CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include -Wall $(EXTRACFLAGS)
  #CFLAGS	+= -g -DDEBUG
- CFLAGS	+= -s -O2
+-CFLAGS	+= -s -O2
++CFLAGS	+= -s -O2 -DWEBSTRFILTER
  LDFLAGS += -L. -L$(TOP)/iptables/libiptc
-diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
---- router/netconf/netconf_linux.c	2004-10-14 23:11:28.000000000 +0400
-+++ gateway/netconf/netconf_linux.c	2008-12-12 20:36:48.000000000 +0300
-@@ -116,6 +116,18 @@
+ 
+ all: libnetconf.so netconf
+diff -BurpN '-x*.o' router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
+--- router/netconf/netconf_linux.c	2004-10-14 19:11:28.000000000 +0000
++++ gateway/netconf/netconf_linux.c	2009-09-24 16:48:35.000000000 +0000
+@@ -33,6 +33,9 @@
+ #include <proto/ethernet.h>
+ #include <netconf.h>
+ #include <netconf_linux.h>
++#ifdef WEBSTRFILTER
++#include <linux/netfilter_ipv4/ipt_webstr.h>
++#endif
+ 
+ /* Loops over each match in the ipt_entry */
+ #define for_each_ipt_match(match, entry) \
+@@ -116,6 +119,18 @@ target_num(const struct ipt_entry *entry
  }
  
  /*
@@ -35,7 +49,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
   * Get a list of the current firewall entries
   * @param	fw_list	list of firewall entries
   * @return	0 on success and errno on failure
-@@ -146,7 +158,7 @@
+@@ -146,7 +161,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
  		for (chain = iptc_first_chain(&handle); chain; chain = iptc_next_chain(&handle)) {
  
  			if (strcmp(chain, "INPUT") && strcmp(chain, "FORWARD") && strcmp(chain, "OUTPUT") &&
@@ -44,7 +58,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  				continue;		
  
  			/* Search all entries */
-@@ -174,11 +186,11 @@
+@@ -174,11 +189,11 @@ netconf_get_fw(netconf_fw_t *fw_list)
  
  				/* Only know about specified target types */
  				if (netconf_valid_filter(num))
@@ -59,7 +73,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  				else
  					continue;
  
-@@ -250,6 +262,11 @@
+@@ -250,6 +265,11 @@ netconf_get_fw(netconf_fw_t *fw_list)
  					}
  				}
  				
@@ -71,7 +85,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  				/* Get source MAC address */
  				for_each_ipt_match(match, entry) {
  					if (strncmp(match->u.user.name, "mac", IPT_FUNCTION_MAXNAMELEN) != 0)
-@@ -346,7 +363,6 @@
+@@ -346,7 +366,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
  
  		if (!iptc_commit(&handle)) {
  			fprintf(stderr, "%s\n", iptc_strerror(errno));
@@ -79,7 +93,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  			goto err;
  		}
  	}
-@@ -355,7 +371,7 @@
+@@ -355,7 +374,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
  
   err:
  	if (handle)
@@ -88,7 +102,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	netconf_list_free(fw_list);
  	return errno;	
  }
-@@ -420,7 +436,7 @@
+@@ -420,7 +439,7 @@ netconf_fw_index(const netconf_fw_t *fw)
  			/* Only consider specified chains */
  			if (filter && strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0)
  				continue;
@@ -97,7 +111,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  				continue;
  			else if (app && strncmp(chain, "PREROUTING", sizeof(ipt_chainlabel)) != 0)
  				continue;
-@@ -623,6 +639,8 @@
+@@ -623,6 +642,8 @@ netconf_fw_index(const netconf_fw_t *fw)
  			break;
  	}
  
@@ -106,7 +120,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	return (entry ? ret : -ENOENT);
  }
  
-@@ -705,6 +723,24 @@
+@@ -705,6 +726,24 @@ netconf_append_target(struct ipt_entry *
  }
  
  /*
@@ -131,7 +145,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
   * Insert an entry into a reasonable location in the chain
   * @param	chain	chain name
   * @param	entry	iptables entry
-@@ -717,9 +753,7 @@
+@@ -717,9 +756,7 @@ insert_entry(const char *chain, struct i
  	int i;
  	struct ipt_ip blank;
  	const struct ipt_entry *rule;
@@ -141,7 +155,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	memset(&blank, 0, sizeof(struct ipt_ip));
  
  	/* If this is a default policy (no match) insert at the end of the chain */
-@@ -728,16 +762,16 @@
+@@ -728,16 +765,16 @@ insert_entry(const char *chain, struct i
  		return iptc_append_entry(chain, entry, handle);
  
  	/* If dropping insert at the beginning of the chain */
@@ -164,7 +178,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  			    (rule->target_offset == sizeof(struct ipt_entry) &&
  			     !memcmp(&rule->ip, &blank, sizeof(struct ipt_ip))))
  				break;
-@@ -875,6 +909,12 @@
+@@ -875,6 +912,12 @@ netconf_add_fw(netconf_fw_t *fw)
  		entry->nfcache |= (udp->dpts[0] != 0 || udp->dpts[1] != 0xffff) ? NFC_IP_DST_PT : 0;
  	}
  	
@@ -177,7 +191,30 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	/* Match by source MAC address */
  	if (!ETHER_ISNULLADDR(fw->match.mac.octet)) {
  		struct ipt_mac_info *mac;
-@@ -978,7 +1018,8 @@
+@@ -929,6 +972,22 @@ netconf_add_fw(netconf_fw_t *fw)
+ 		time->time_stop = fw->match.secs[1];
+ 	}
+ 
++#ifdef WEBSTRFILTER
++  /* Match by module name. Cherry Cho added in 2007/12/27. */
++        if (fw->match.module_num == WEBSTRFILTER_MODULE) {
++                struct ipt_webstr_info *webstr_info;
++
++                if (!(match = netconf_append_match(&entry, "webstr", sizeof(struct ipt_webstr_info))))
++                        goto err;
++                webstr_info = (struct ipt_webstr_info *) &match->data[0];
++                strncpy(webstr_info->string, fw->match.webstr_info.string, BM_MAX_NLEN);
++                webstr_info->invert = fw->match.webstr_info.invert;
++                webstr_info->len = fw->match.webstr_info.len;
++                webstr_info->type = fw->match.webstr_info.type;
++                entry->nfcache |= NFC_UNKNOWN;
++        }
++#endif
++
+ 	/* Allocate target */
+ 	if (!(target = netconf_append_target(&entry, ipt_target_name[fw->target], ipt_target_size[fw->target])))
+ 		goto err;
+@@ -978,7 +1037,8 @@ netconf_add_fw(netconf_fw_t *fw)
  			range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
  		}
  
@@ -187,7 +224,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  			fprintf(stderr, "%s\n", iptc_strerror(errno));
  			goto err;
  		}
-@@ -1004,12 +1045,11 @@
+@@ -1004,12 +1064,11 @@ netconf_add_fw(netconf_fw_t *fw)
  		goto err;
  	}
  
@@ -202,7 +239,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	free(entry);
  	return errno;
  }
-@@ -1024,7 +1064,7 @@
+@@ -1024,7 +1083,7 @@ netconf_del_fw(netconf_fw_t *fw)
  {
  	int num;
  	const char *chain;
@@ -211,7 +248,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  
  	/* netconf_fw_index() sanity checks fw */
  	if ((num = netconf_fw_index(fw)) < 0)
-@@ -1034,7 +1074,7 @@
+@@ -1034,7 +1093,7 @@ netconf_del_fw(netconf_fw_t *fw)
  	if (netconf_valid_filter(fw->target))
  		chain = ipt_filter_chain_name[((netconf_filter_t *) fw)->dir];
  	else if (netconf_valid_nat(fw->target))
@@ -220,7 +257,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	else if (fw->target == NETCONF_APP)
  		chain = "PREROUTING";
  	else
-@@ -1250,9 +1290,9 @@
+@@ -1250,9 +1309,9 @@ netconf_reset_chain(char *table, char *c
  	return 0;
  
   err:
@@ -232,7 +269,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	return errno;
  }
  
-@@ -1280,7 +1320,8 @@
+@@ -1280,7 +1339,8 @@ netconf_reset_fw(void)
  
  	/* Reset custom chains */
  	if ((ret = netconf_reset_chain("filter", "logdrop")) ||
@@ -242,7 +279,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  		goto err;
  
  	/* Log only when a connection is attempted */
-@@ -1339,6 +1380,8 @@
+@@ -1339,6 +1399,8 @@ netconf_reset_fw(void)
   err:
  	if (entry)
  		free(entry);
@@ -251,7 +288,7 @@ diff -BurN router/netconf/netconf_linux.c gateway/netconf/netconf_linux.c
  	fprintf(stderr, "%s\n", iptc_strerror(errno));
  	return errno;
  }
-@@ -1356,7 +1399,7 @@
+@@ -1356,7 +1418,7 @@ int
  netconf_clamp_mss_to_pmtu(void)
  {
  	struct ipt_entry *entry;
