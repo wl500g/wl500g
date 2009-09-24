@@ -254,16 +254,13 @@ p910nd-diff:
 p910nd: $(TOP)/p910nd
 	@true
 
+samba_Patches := $(call patches_list,samba)
+
 $(TOP)/samba: samba/$(SAMBA).tar.bz2
 	@rm -rf $(TOP)/$(SAMBA) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(SAMBA) samba/$(SAMBA).patch \
-	samba/$(SAMBA)-security.patch samba/$(SAMBA)-writex.patch \
-	samba/$(SAMBA)-cp1251.patch samba/$(SAMBA)-utf8.patch \
-	samba/$(SAMBA)-vista.patch samba/$(SAMBA)-2k3sp1-rpc.patch \
-	samba/$(SAMBA)-nt-ioctl.patch samba/$(SAMBA)-mount.patch \
-	samba/$(SAMBA)-gcc34.patch 
-	tar xzvf samba/$(SAMBA)-codepages.tar.gz -C $(TOP)/$(SAMBA)
+	$(PATCHER) $(TOP)/$(SAMBA) $(samba_Patches)
+	tar -xzvf samba/$(SAMBA)-codepages.tar.gz -C $(TOP)/$(SAMBA)
 	mv $(TOP)/$(SAMBA) $@
 
 samba: $(TOP)/samba
