@@ -70,7 +70,7 @@ endef
 DIFF := LC_ALL=C TZ=UTC0 diff
 
 define make_diff
-    (cd $(ROOT) && $(DIFF) $(1) -x*.o $(2)/$(4) $(3)/$(4) | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $(4).diff
+    (cd $(ROOT) && $(DIFF) $(1) -x'*.o' -x'*.orig' $(2)/$(4) $(3)/$(4) | grep -v "^Files .* differ$$" | grep -v ^Binary.*differ$$) > $(4).diff
     diffstat $(4).diff
 endef
 
@@ -509,6 +509,10 @@ www-diff:
 	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www/pages.diff
 	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") > www/common.diff
 	diffstat www/pages.diff
+
+shared-diff:
+	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)
+
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
