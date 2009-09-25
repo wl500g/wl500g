@@ -148,7 +148,7 @@ obj-$(CONFIG_VLAN) += vlan
 
 # Added by Joey for ASUS application
 obj-$(CONFIG_PPTP) += pptp
-obj-$(CONFIG_PPTP) += accel-pptp
+obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_INFOSVR) += infosvr
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
