@@ -28,11 +28,11 @@ diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
  	char *filename;
 -	int rc;
 +	FILE *fp = NULL;
-+	int rc, len;
++	int rc, pos;
  
  	/* Compat note:
  	 * 2.6 style insmod has no options and required filename
-@@ -33,6 +38,26 @@ int insmod_main(int argc UNUSED_PARAM, c
+@@ -33,6 +38,28 @@ int insmod_main(int argc UNUSED_PARAM, c
  	if (!filename)
  		bb_show_usage();
  
@@ -44,12 +44,14 @@ diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
 +	        uname(&uts);
 +    		xchdir(uts.release);
 +
-+		len = strlen(filename);
++		pos = strlen(filename) - 2;
 +		if (get_linux_version_code() < KERNEL_VERSION(2,6,0)) {
-+			if (len >= 2 && strncmp(&filename[len - 2], ".o", 2) !=0 )
++			if (pos < 0) pos = 0;
++			if (strncmp(&filename[pos], ".o", 2) !=0 )
 +				filename = xasprintf("%s.o", filename);
 +		} else {
-+			if (len >= 3 && strncmp(&filename[len - 3], ".ko", 3) !=0 )
++			if (--pos < 0) pos = 0;
++			if (strncmp(&filename[pos], ".ko", 3) !=0 )
 +				filename = xasprintf("%s.ko", filename);
 +		}
 +	}
