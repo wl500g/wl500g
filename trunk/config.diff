@@ -67,18 +67,22 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  config CONFIG_PPP
         bool "PPPoE client"
         depends on CONFIG_NAT
-@@ -223,6 +218,156 @@
+@@ -223,6 +218,158 @@
  
  endmenu
  
 +menu "Asus stuff"
 +
 +config CONFIG_PPTP
-+	bool "CONFIG_PPTP"
++	bool "PPTP client"
++	default n
++
++config CONFIG_ACCEL_PPTP
++	bool "Accelerated PPTP driver"
 +	default y
 +
 +config CONFIG_PPPOERELAY
-+	bool "CONFIG_PPPOERELAY"
++	bool "PPPOE-relay"
 +	default y
 +
 +config CONFIG_INFOSVR
@@ -86,27 +90,27 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +	default y
 +
 +config CONFIG_EZIPUPDATE
-+	bool "CONFIG_EZIPUPDATE"
++	bool "DynDNS support"
 +	default y
 +
 +config CONFIG_VSFTPD
-+	bool "CONFIG_VSFTPD"
++	bool "vsftpd server"
 +	default y
 +
 +config CONFIG_JPEG6B
-+	bool "CONFIG_JPEG6B"
++	bool "jpeg6b library"
 +	default y
 +
 +config CONFIG_RCAMD
-+	bool "CONFIG_RCAMD"
++	bool "rcamd daemon (web-camera support)"
 +	default y
 +
 +config CONFIG_SENDMAIL
-+	bool "CONFIG_SENDMAIL"
++	bool "Mini sendmail"
 +	default y
 +
 +config CONFIG_LPRNG
-+	bool "CONFIG_LPRNG"
++	bool "LPRng daemon"
 +	default y
 +
 +config CONFIG_OTHERS
@@ -118,7 +122,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +	default n
 +
 +config CONFIG_BPALOGIN
-+	bool "CONFIG_BPALOGIN"
++	bool "Big Pond Broadband support"
 +	default y
 +
 +config CONFIG_WAVESERVER
@@ -209,8 +213,6 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +       default y
 +       help
 +       Mode switching tool for controlling "flip flop" (multiple device) USB gear.
-+
-+endmenu
 +
 +config CONFIG_MADWIMAX
 +       bool "WiMAX modem support"
@@ -316,13 +318,14 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  CONFIG_NTP=y
  CONFIG_DNSMASQ=y
  CONFIG_UTILS=y
-@@ -42,15 +40,51 @@
+@@ -42,15 +40,52 @@
  # CONFIG_WCN is not set
  
  #
 +# Asus stuff
 +#
-+CONFIG_PPTP=y
++CONFIG_PPTP=n
++CONFIG_ACCEL_PPTP=y
 +CONFIG_PPPOERELAY=y
 +CONFIG_INFOSVR=y
 +CONFIG_EZIPUPDATE=y
