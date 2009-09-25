@@ -59,3 +59,27 @@ diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
  	rc = bb_init_module(filename, parse_cmdline_module_options(argv));
  	if (rc)
  		bb_error_msg("can't insert '%s': %s", filename, moderror(rc));
+diff -Burp busybox-1.15.1/modutils/modutils-24.c busybox/modutils/modutils-24.c
+--- busybox-1.15.1/modutils/modutils-24.c	2009-09-12 19:55:36.000000000 +0400
++++ busybox/modutils/modutils-24.c	2009-09-25 21:55:39.000000000 +0400
+@@ -3782,7 +3782,7 @@ int FAST_FUNC bb_init_module_24(const ch
+ 	/* Load module into memory and unzip if compressed */
+ 	image = xmalloc_open_zipped_read_close(m_filename, &image_size);
+ 	if (!image)
+-		return EXIT_FAILURE;
++		return (-errno);
+ 
+ 	m_name = xstrdup(bb_basename(m_filename));
+ 	/* "module.o[.gz]" -> "module" */
+@@ -3812,8 +3812,10 @@ int FAST_FUNC bb_init_module_24(const ch
+ 				"\twhile this kernel is version %s",
+ 				flag_force_load ? "warning: " : "",
+ 				m_name, m_strversion, uts.release);
+-			if (!flag_force_load)
++			if (!flag_force_load) {
++				exit_status = -ESRCH;
+ 				goto out;
++			}
+ 		}
+ 	}
+ #endif
