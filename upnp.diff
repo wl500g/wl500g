@@ -435,25 +435,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/linux_main.c gateway/upnp/ig
      return 0;
 diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/mapmgr.c gateway/upnp/igd/mapmgr.c
 --- tools/upnp/igd/mapmgr.c	2004-11-11 10:29:39.000000000 +0000
-+++ gateway/upnp/igd/mapmgr.c	2009-09-26 07:57:18.000000000 +0000
-@@ -50,7 +50,7 @@ void mapmgr_update()
-     memset(&ranges, 0, sizeof(ranges));
- 
-     for (i = 0; i < NFDBITS; i++) {
--	if (get_forward_port(i, &m)) {
-+//	if (get_forward_port(i, &m)) {
- 	    if (m.match.dst.ports[0] == m.match.dst.ports[1]) {
- 		FD_SET(i, &ports.map);
- 		ports.count++;
-@@ -58,7 +58,7 @@ void mapmgr_update()
- 		FD_SET(i, &ranges.map);
- 		ranges.count++;
- 	    }
--	}
-+//	}
-     }
- }
- 
++++ gateway/upnp/igd/mapmgr.c	2009-09-26 08:04:39.000000000 +0000
 @@ -95,7 +95,7 @@ static bool mapmgr_add_map(map_set_t *ps
      for (i = 0; i < NFDBITS; i++) {
  	if (!FD_ISSET(i, &ports.map) && !FD_ISSET(i, &ranges.map) ) {
