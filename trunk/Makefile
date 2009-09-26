@@ -111,7 +111,7 @@ $(ROOT)/lzma/SRC/7zip/Compress:
 $(ROOT)/lzma: $(LZMA).zip $(ROOT)/lzma/SRC/7zip/Compress
 	@rm -rf $@ && mkdir -p $@
 	unzip -q $< -d $@
-	$(PATCHER) $@ $(LZMA).patch
+	$(PATCHER) -Z $@ $(LZMA).patch
 
 lzma: $(ROOT)/lzma
 	@true
@@ -119,7 +119,7 @@ lzma: $(ROOT)/lzma
 et:
 	[ -d $(ROOT)/$(ET).orig ] || mv $(ROOT)/et $(ROOT)/$(ET).orig
 	tar -C $(ROOT) -xzf $(ET).tar.gz
-	$(PATCHER) $(ROOT)/et $(ET).patch
+	$(PATCHER) -Z $(ROOT)/et $(ET).patch
 
 wl:
 	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
@@ -172,7 +172,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	@rm -rf $(TOP)/$(BUSYBOX) $@
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
-	$(PATCHER) $(TOP)/$(BUSYBOX) $(busybox_Patches)
+	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
@@ -186,7 +186,7 @@ vsftpd_Patches := $(call patches_list,vsftpd)
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	@rm -rf $(TOP)/$(VSFTPD) $@
 	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(VSFTPD) $(vsftpd_Patches)
+	$(PATCHER) -Z $(TOP)/$(VSFTPD) $(vsftpd_Patches)
 	mv $(TOP)/$(VSFTPD) $@
 
 vsftpd: $(TOP)/vsftpd
@@ -197,7 +197,7 @@ dropbear_Patches := $(call patches_list,dropbear)
 $(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
 	@rm -rf $(TOP)/$(DROPBEAR) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(DROPBEAR) $(dropbear_Patches)
+	$(PATCHER) -Z $(TOP)/$(DROPBEAR) $(dropbear_Patches)
 	mv $(TOP)/$(DROPBEAR) $@
 
 dropbear: $(TOP)/dropbear
@@ -208,7 +208,7 @@ ucdsnmp_Patches := $(call patches_list,ucd-snmp)
 $(TOP)/ucdsnmp: ucd-snmp/$(UCDSNMP).tar.gz
 	@rm -rf $(TOP)/$(UCDSNMP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(UCDSNMP) $(ucdsnmp_Patches)
+	$(PATCHER) -Z $(TOP)/$(UCDSNMP) $(ucdsnmp_Patches)
 	mv $(TOP)/$(UCDSNMP) $@
 
 ucdsnmp: $(TOP)/ucdsnmp
@@ -227,7 +227,7 @@ iproute2: $(TOP)/iproute2
 $(TOP)/dnsmasq: $(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(DNSMASQ) $(DNSMASQ).patch
+	$(PATCHER) -Z $(TOP)/$(DNSMASQ) $(DNSMASQ).patch
 	mv $(TOP)/$(DNSMASQ) $@ && touch $@
 
 dnsmasq-diff: $(DNSMASQ).tar.gz
@@ -242,7 +242,7 @@ dnsmasq: $(TOP)/dnsmasq
 $(TOP)/p910nd: $(P910ND).tar.bz2
 	@rm -rf $(TOP)/$(P910ND) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(P910ND) $(P910ND).patch
+	$(PATCHER) -Z $(TOP)/$(P910ND) $(P910ND).patch
 	mv $(TOP)/$(P910ND) $@ && touch $@
 
 p910nd-diff:
@@ -259,7 +259,7 @@ samba_Patches := $(call patches_list,samba)
 $(TOP)/samba: samba/$(SAMBA).tar.bz2
 	@rm -rf $(TOP)/$(SAMBA) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(SAMBA) $(samba_Patches)
+	$(PATCHER) -Z $(TOP)/$(SAMBA) $(samba_Patches)
 	tar -xzvf samba/$(SAMBA)-codepages.tar.gz -C $(TOP)/$(SAMBA)
 	mv $(TOP)/$(SAMBA) $@
 
@@ -271,7 +271,7 @@ iptables_Patches := $(call patches_list,iptables)
 $(TOP)/iptables: iptables/$(IPTABLES).tar.bz2
 	@rm -rf $(TOP)/$(IPTABLES) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(IPTABLES) $(iptables_Patches)
+	$(PATCHER) -Z $(TOP)/$(IPTABLES) $(iptables_Patches)
 	chmod a+x $(TOP)/$(IPTABLES)/extensions/.*-test $(TOP)/$(IPTABLES)/extensions/.*-test6
 	mv $(TOP)/$(IPTABLES) $@ && touch $@
 
@@ -281,7 +281,7 @@ iptables: $(TOP)/iptables
 $(TOP)/nfs-utils:
 	@rm -rf $(TOP)/$(NFSUTILS) $@
 	tar -xzf $(NFSUTILS).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(NFSUTILS) $(NFSUTILS).patch $(NFSUTILS)-libnfs.patch 
+	$(PATCHER) -Z $(TOP)/$(NFSUTILS) $(NFSUTILS).patch $(NFSUTILS)-libnfs.patch 
 	mv $(TOP)/$(NFSUTILS) $@
 
 nfs-utils: $(TOP)/nfs-utils
@@ -290,7 +290,7 @@ nfs-utils: $(TOP)/nfs-utils
 $(TOP)/portmap: $(PORTMAP).tar.gz
 	@rm -rf $(TOP)/$(PORTMAP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(PORTMAP) $(PORTMAP).patch
+	$(PATCHER) -Z $(TOP)/$(PORTMAP) $(PORTMAP).patch
 	mv $(TOP)/$(PORTMAP) $@
 
 portmap: $(TOP)/portmap
@@ -299,7 +299,7 @@ portmap: $(TOP)/portmap
 $(TOP)/radvd:
 	@rm -rf $(TOP)/$(RADVD) $@
 	tar -xzf $(RADVD).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(RADVD) $(RADVD).patch
+	$(PATCHER) -Z $(TOP)/$(RADVD) $(RADVD).patch
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
@@ -320,7 +320,7 @@ ppp_Patches := $(call patches_list,ppp)
 $(TOP)/ppp: ppp/$(PPP).tar.bz2
 	@rm -rf $(TOP)/$(PPP) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(PPP) $(ppp_Patches)
+	$(PATCHER) -Z $(TOP)/$(PPP) $(ppp_Patches)
 	mv $(TOP)/$(PPP) $@ && touch $@
 
 ppp: $(TOP)/ppp
@@ -331,7 +331,7 @@ rp-l2tp_Patches := $(call patches_list,rp-l2tp)
 $(TOP)/rp-l2tp:
 	@rm -rf $(TOP)/$(L2TP) $@
 	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$($L2TP) $(rp-l2tp_Patches)
+	$(PATCHER) -Z $(TOP)/$($L2TP) $(rp-l2tp_Patches)
 	mv $(TOP)/$(L2TP) $@
 
 rp-l2tp: $(TOP)/rp-l2tp
@@ -342,7 +342,7 @@ xl2tpd_Patches := $(call patches_list,xl2tpd)
 $(TOP)/xl2tpd:
 	@rm -rf $(TOP)/$(XL2TPD) $@
 	tar -xzf xl2tpd/$(XL2TPD).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$($XL2TPD) $(xl2tpd_Patches)
+	$(PATCHER) -Z $(TOP)/$($XL2TPD) $(xl2tpd_Patches)
 	mv $(TOP)/$(XL2TPD) $@
 
 xl2tpd: $(TOP)/xl2tpd
@@ -353,7 +353,7 @@ rp-pppoe_Patches := $(call patches_list,rp-pppoe)
 $(TOP)/rp-pppoe: rp-pppoe/$(RP-PPPOE).tar.gz
 	@rm -rf $(TOP)/$(RP-PPPOE) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(RP-PPPOE) $(rp-pppoe_Patches)
+	$(PATCHER) -Z $(TOP)/$(RP-PPPOE) $(rp-pppoe_Patches)
 	mv $(TOP)/$(RP-PPPOE) $@ && touch $@
 
 rp-pppoe: $(TOP)/rp-pppoe
@@ -366,7 +366,7 @@ $(TOP)/accel-pptp: accel-pptp/$(ACCEL-PPTP).tar.bz2
 	tar -xjf $^ -C $(TOP)
 	rm -rf $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
 	ln -s $(TOP)/ppp/pppd $(TOP)/$(ACCEL-PPTP)/pppd_plugin/src/pppd
-	$(PATCHER) $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
+	$(PATCHER) -Z $(TOP)/$(ACCEL-PPTP) $(accel-pptp_Patches)
 	mv $(TOP)/$(ACCEL-PPTP) $@ && touch $@
 	touch $@
 
@@ -378,7 +378,7 @@ igmpproxy_Patches := $(call patches_list,igmpproxy)
 $(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
 	@rm -rf $(TOP)/igmpproxy
 	tar -xzf igmpproxy/$(IGMPPROXY).tar.gz -C $(TOP)
-	$(PATCHER) $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
+	$(PATCHER) -Z $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
 	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
 
 igmpproxy: $(TOP)/igmpproxy
@@ -389,7 +389,7 @@ pptp_Patches := $(call patches_list,pptp)
 $(TOP)/pptp: pptp/$(PPTP).tar.gz
 	@rm -rf $(TOP)/$(PPTP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/$(PPTP) $(pptp_Patches)
+	$(PATCHER) -Z $(TOP)/$(PPTP) $(pptp_Patches)
 	mv $(TOP)/$(PPTP) $@ && touch $@
 
 pptp: $(TOP)/pptp
@@ -398,7 +398,7 @@ pptp: $(TOP)/pptp
 $(TOP)/udpxy: $(UDPXY).tgz
 	@rm -rf $(TOP)/udpxy-wl $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(UDPXY).patch ] || $(PATCHER) $(TOP)/$(UDPXY) $(UDPXY).patch
+	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy
@@ -407,7 +407,7 @@ udpxy: $(TOP)/udpxy
 $(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
 	@rm -rf $(TOP)/$(NTPCLIENT) $@
 	tar -xjf $^ -C $(TOP)
-	[ ! -f $(NTPCLIENT).patch ] || $(PATCHER) $(TOP)/$(NTPCLIENT) $(NTPCLIENT).patch
+	[ ! -f $(NTPCLIENT).patch ] || $(PATCHER) -Z $(TOP)/$(NTPCLIENT) $(NTPCLIENT).patch
 	mv $(TOP)/$(NTPCLIENT) $@ && touch $@
 
 ntpclient: $(TOP)/ntpclient
@@ -426,7 +426,7 @@ ez-ipupdate: $(TOP)/ez-ipupdate
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(SCSIIDLE).patch ] || $(PATCHER) $(TOP)/$(SCSIIDLE) $(SCSIIDLE).patch
+	[ ! -f $(SCSIIDLE).patch ] || $(PATCHER) -Z $(TOP)/$(SCSIIDLE) $(SCSIIDLE).patch
 	mv $(TOP)/$(SCSIIDLE) $@ && touch $@
 
 scsi-idle: $(TOP)/scsi-idle
@@ -435,7 +435,7 @@ scsi-idle: $(TOP)/scsi-idle
 $(TOP)/libusb: libusb/$(LIBUSB).tar.bz2
 	@rm -rf $(TOP)/$(LIBUSB) $@
 	tar -jxf $^ -C $(TOP)
-	[ ! -f libusb/$(LIBUSB).patch ] || $(PATCHER) $(TOP)/$(LIBUSB) libusb/$(LIBUSB).patch
+	[ ! -f libusb/$(LIBUSB).patch ] || $(PATCHER) -Z $(TOP)/$(LIBUSB) libusb/$(LIBUSB).patch
 	mv $(TOP)/$(LIBUSB) $@ && touch $@
 
 libusb: $(TOP)/libusb10 $(TOP)/libusb
@@ -444,7 +444,7 @@ libusb: $(TOP)/libusb10 $(TOP)/libusb
 $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	@rm -rf $(TOP)/$(LIBUSB10) $@
 	tar -jxf $^ -C $(TOP)
-	[ ! -f libusb/$(LIBUSB10).patch ] || $(PATCHER) $(TOP)/$(LIBUSB10) libusb/$(LIBUSB10).patch
+	[ ! -f libusb/$(LIBUSB10).patch ] || $(PATCHER) -Z $(TOP)/$(LIBUSB10) libusb/$(LIBUSB10).patch
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
@@ -452,7 +452,7 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	tar -jxf $^ -C $(TOP)
 	cp -pf usb_modeswitch/usb_modeswitch.conf $(TOP)/$(USBMODESWITCH)/
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
-		$(PATCHER) $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
+		$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
 
@@ -463,7 +463,7 @@ $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	rm -rf $(TOP)/$(MADWIMAX) $@
 	tar -zxf $^ -C $(TOP)
 	[ ! -f wimax/$(MADWIMAX).patch ] || \
-		$(PATCHER) $(TOP)/$(MADWIMAX) wimax/$(MADWIMAX).patch
+		$(PATCHER) -Z $(TOP)/$(MADWIMAX) wimax/$(MADWIMAX).patch
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
@@ -486,7 +486,7 @@ wlconf: $(WLCONF).tar.gz
 upnp:
 	[ ! -d $(SRC)/../tools/$@ ] || [ -d $(TOP)/$@ ] || \
 		tar -C $(SRC)/../tools -cf - $@ | tar -C $(TOP) -xf -
-	[ ! -f $@.diff ] || $(PATCHER) $(TOP) $@.diff
+	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
 
 upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
