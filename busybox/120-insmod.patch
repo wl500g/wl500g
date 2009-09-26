@@ -79,7 +79,7 @@ diff -Burp busybox-1.15.1/modutils/modutils-24.c busybox/modutils/modutils-24.c
  				m_name, m_strversion, uts.release);
 -			if (!flag_force_load)
 +			if (!flag_force_load) {
-+				exit_status = -ESRCH;
++				exit_status = ESRCH;
  				goto out;
 +			}
  		}
