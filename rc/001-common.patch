@@ -5066,7 +5066,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		}
 +
 +		//run script if any
-+		eval("/usr/local/sbin/post-mount", product);
++		eval("/usr/local/sbin/post-mount", product, mnt_dir);
  	}
 -#endif
 +
