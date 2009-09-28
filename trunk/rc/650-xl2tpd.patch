@@ -5,7 +5,7 @@ diff -BurpN gateway/rc.l2tp/init.c gateway/rc/init.c
  		signal(sig, SIG_DFL);
  
  	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
-+#ifdef	CONFIG_XL2TPD
++#ifdef __CONFIG_XL2TPD__
 +	eval("killall", "xl2tpd");
 +#else
 +	eval("killall", "l2tpd");
@@ -20,7 +20,7 @@ diff -BurpN gateway/rc.l2tp/network.c gateway/rc/network.c
  	/* Shutdown and kill all possible tasks */
  	eval("killall", "ip-up");
  	eval("killall", "ip-down");
-+#ifdef	CONFIG_XL2TPD
++#ifdef __CONFIG_XL2TPD__
 +	eval("killall", "xl2tpd");
 +#else
  	eval("killall", "l2tpd");
@@ -32,7 +32,7 @@ diff -BurpN gateway/rc.l2tp/network.c gateway/rc/network.c
  	/* Shutdown and kill all possible tasks */
  	eval("killall", "ip-up");
  	eval("killall", "ip-down");
-+#ifdef	CONFIG_XL2TPD
++#ifdef __CONFIG_XL2TPD__
 +	eval("killall", "xl2tpd");
 +#else
  	eval("killall", "l2tpd");
@@ -47,7 +47,7 @@ diff -BurpN gateway/rc.l2tp/network_ex.c gateway/rc/network_ex.c
  
         	if (nvram_match(strcat_r(prefix, "proto", tmp), "l2tp")) 
         	{
-+#ifdef	CONFIG_XL2TPD
++#ifdef __CONFIG_XL2TPD__
 +		if (!(fp = fopen("/etc/xl2tpd.conf", "w"))) {
 +	       	        perror(options);
 +	       	        return -1;
