@@ -1,16 +1,3 @@
-diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
---- router/rc/Makefile	2004-12-02 08:39:03.000000000 +0300
-+++ gateway/rc/Makefile	2008-12-27 20:07:24.000000000 +0300
-@@ -26,6 +26,9 @@ OBJS += firewall.o
- LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
- endif
- 
-+ifeq ($(CONFIG_IPV6),y)
-+CFLAGS += -DCONFIG_IPV6
-+endif
- 
- ifeq ($(CONFIG_SENTRY5),y)
- include $(TOP)/rc/Makefiles5.mk
 diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall_ex.c	2008-12-28 11:57:52.000000000 +0300
@@ -18,7 +5,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
  		}
  
-+	#ifdef CONFIG_IPV6
++	#ifdef __CONFIG_IPV6__
 +		if (nvram_match("ipv6_sit_enable", "1"))
 +		{
 +			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
@@ -35,7 +22,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  		nvram_safe_get("lan_ipaddr"),
  		nvram_safe_get("lan_netmask"));
 +
-+#ifdef CONFIG_IPV6
++#ifdef __CONFIG_IPV6__
 +	/* IPv6 address config */
 +	{
 +		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
@@ -61,7 +48,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  				perror("/proc/sys/net/ipv4/ip_forward");
  			}
  
-+#ifdef CONFIG_IPV6
++#ifdef __CONFIG_IPV6__
 +			/* Enable IPv6 Forwarding */
 +			if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+"))) 			{
 +				fputc('1', fp);
@@ -79,7 +66,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  		_eval(stats_argv, NULL, 5, NULL);
  	}
 +
-+#ifdef CONFIG_IPV6
++#ifdef __CONFIG_IPV6__
 +	/* IPv6 address config */
 +	{
 +		char *ip6_addr = nvram_safe_get("ipv6_wan_addr");
