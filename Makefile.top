@@ -114,11 +114,6 @@ ifeq ($(CONFIG_LIBUSB),y)
 obj-$(CONFIG_LIBUSB) += libusb10
 endif
 
-# fixme: disable rp-l2tp if xl2tpd enabled
-ifeq ($(CONFIG_XL2TPD),y)
-export CONFIG_L2TP :=
-endif
-
 #
 # Configuration
 #
@@ -494,12 +489,6 @@ $(LINUXDIR)/.config: .config
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
 rc: netconf shared nvram $(EXTRA_LIBS)
-# fixme: define xl2tpd for rc
-ifeq ($(CONFIG_XL2TPD),y)
-	$(MAKE) -C $@ EXTRACFLAGS="$(EXTRACFLAGS) -DCONFIG_XL2TPD"
-else
-	$(MAKE) -C $@ EXTRACFLAGS="$(EXTRACFLAGS)"
-endif
 
 www www-%:
 	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www

@@ -1,6 +1,6 @@
-diff -BurN -x'*.o' router/config/Config gateway/config/Config
+diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
 --- router/config/Config	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/Config	2009-06-08 19:05:53.000000000 +0000
++++ gateway/config/Config	2009-09-28 16:47:39.000000000 +0000
 @@ -13,12 +13,6 @@
  
  mainmenu "Router Configuration"
@@ -67,7 +67,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  config CONFIG_PPP
         bool "PPPoE client"
         depends on CONFIG_NAT
-@@ -223,6 +218,158 @@
+@@ -223,6 +218,167 @@
  
  endmenu
  
@@ -186,11 +186,20 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +       help
 +       SNMP is the network management protocol, usefull for monitoring network devices
 +
++choice
++	prompt "L2TP protocol support"
++	default CONFIG_L2TP
++	optional
++	help
++	L2TP is the protocol used by some ISPs
++
 +config CONFIG_L2TP
-+       bool "L2TP protocol support"
-+       default y
-+       help
-+       L2TP is the protocol used by some ISPs
++       bool "rp-l2tp"
++
++config CONFIG_XL2TPD
++       bool "xl2tpd"
++
++endchoice
 +
 +config CONFIG_IGMPPROXY
 +       bool "IGMPproxy"
@@ -226,7 +235,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  menu "Additional C libraries"
  
  config CONFIG_LIBCRYPT
-@@ -269,6 +405,12 @@
+@@ -269,6 +425,12 @@
         Contains code for "standard" functions used in many different
         Unix utilities.
  
@@ -239,7 +248,7 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
  endmenu
  
  menu "Environment"
-@@ -297,10 +439,26 @@
+@@ -297,10 +459,26 @@
         help
         Specify the location of the target /usr/lib directory.
  
@@ -266,9 +275,9 @@ diff -BurN -x'*.o' router/config/Config gateway/config/Config
 +       Answer Y for the user mode Robo switch configuration utility.
  
  endmenu
-diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
+diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
 --- router/config/defconfig	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/defconfig	2009-06-08 19:06:43.000000000 +0000
++++ gateway/config/defconfig	2009-09-28 16:49:52.000000000 +0000
 @@ -1,7 +1,6 @@
  #
  # Automatically generated make config: don't edit
@@ -318,13 +327,13 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  CONFIG_NTP=y
  CONFIG_DNSMASQ=y
  CONFIG_UTILS=y
-@@ -42,15 +40,52 @@
+@@ -42,15 +40,53 @@
  # CONFIG_WCN is not set
  
  #
 +# Asus stuff
 +#
-+CONFIG_PPTP=n
++# CONFIG_PPTP is not set
 +CONFIG_ACCEL_PPTP=y
 +CONFIG_PPPOERELAY=y
 +CONFIG_INFOSVR=y
@@ -352,6 +361,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
 +# CONFIG_IPV6 is not set
 +CONFIG_SNMP=y
 +CONFIG_L2TP=y
++# CONFIG_XL2TPD is not set
 +CONFIG_IGMPPROXY=y
 +CONFIG_SCSIIDLE=y
 +CONFIG_USBMODESWITCH=y
@@ -378,7 +388,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  
  #
  # Environment
-@@ -59,7 +92,10 @@
+@@ -59,7 +95,10 @@
  LINUXDIR=$(SRCBASE)/linux/linux
  LIBDIR=$(TOOLCHAIN)/lib
  USRLIBDIR=$(TOOLCHAIN)/usr/lib
@@ -389,7 +399,7 @@ diff -BurN -x'*.o' router/config/defconfig gateway/config/defconfig
  #
 +# CONFIG_SENTRY5 is not set
 +# CONFIG_ROBO is not set
-diff -BurN -x'*.o' router/config/lkc.h gateway/config/lkc.h
+diff -BurN -x'*.o' -x'*.orig' router/config/lkc.h gateway/config/lkc.h
 --- router/config/lkc.h	2004-10-14 19:11:24.000000000 +0000
 +++ gateway/config/lkc.h	2006-12-16 16:30:02.000000000 +0000
 @@ -55,9 +55,6 @@
@@ -402,7 +412,7 @@ diff -BurN -x'*.o' router/config/lkc.h gateway/config/lkc.h
  /* symbol.c */
  void sym_init(void);
  void sym_clear_all_valid(void);
-diff -BurN -x'*.o' router/config/menu.c gateway/config/menu.c
+diff -BurN -x'*.o' -x'*.orig' router/config/menu.c gateway/config/menu.c
 --- router/config/menu.c	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/menu.c	2006-12-16 16:30:02.000000000 +0000
 @@ -10,7 +10,6 @@
@@ -413,7 +423,7 @@ diff -BurN -x'*.o' router/config/menu.c gateway/config/menu.c
  static struct menu **last_entry_ptr;
  
  struct file *file_list;
-diff -BurN -x'*.o' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
+diff -BurN -x'*.o' -x'*.orig' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
 --- router/config/zconf.tab.c_shipped	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.tab.c_shipped	2006-12-16 16:30:02.000000000 +0000
 @@ -160,6 +160,8 @@
@@ -425,7 +435,7 @@ diff -BurN -x'*.o' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_
  #define YYERROR_VERBOSE
  
  
-diff -BurN -x'*.o' router/config/zconf.y gateway/config/zconf.y
+diff -BurN -x'*.o' -x'*.orig' router/config/zconf.y gateway/config/zconf.y
 --- router/config/zconf.y	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.y	2006-12-16 16:30:02.000000000 +0000
 @@ -25,6 +25,8 @@

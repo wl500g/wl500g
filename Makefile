@@ -39,8 +39,8 @@ LZMA=lzma406
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
-XL2TPD=xl2tpd-1.2.4
 L2TP=rp-l2tp-0.4
+XL2TPD=xl2tpd-1.2.4
 IGMPPROXY=igmpproxy-0.1_beta5
 VSFTPD=vsftpd-2.2.0
 UDPXY=udpxy-1.0-Chipmunk-14
@@ -512,7 +512,6 @@ www-diff:
 
 shared-diff:
 	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)
-
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
