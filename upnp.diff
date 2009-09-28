@@ -528,6 +528,18 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wanppp.c gateway/upnp/igd/wanppp.c
      pppoe_up();
      
      return TRUE;
+diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp.h gateway/upnp/include/upnp.h
+--- tools/upnp/include/upnp.h	2004-11-11 10:29:39.000000000 +0000
++++ gateway/upnp/include/upnp.h	2009-09-26 17:40:30.000000000 +0000
+@@ -24,7 +24,7 @@
+ // #define  HTTP_PORT 80
+ 
+ // number of seconds to wait before refershing device advertisements.
+-#define SSDP_REFRESH   30
++#define SSDP_REFRESH   60
+ #define UPNP_REFRESH   ((SSDP_REFRESH * 2)/3)
+ #define NOTIFY_RECEIPT_TIMEOUT 30
+ #define HTTP_REQUEST_TIMEOUT   15
 diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp_dbg.h gateway/upnp/include/upnp_dbg.h
 --- tools/upnp/include/upnp_dbg.h	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/include/upnp_dbg.h	2009-09-26 07:36:39.000000000 +0000
