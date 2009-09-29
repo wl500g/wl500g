@@ -1,11 +1,13 @@
 diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shared/Makefile
 --- router/shared/Makefile	2004-12-05 19:54:17.000000000 +0000
 +++ gateway/shared/Makefile	2009-09-26 09:34:12.000000000 +0000
-@@ -12,8 +12,9 @@
+@@ -12,8 +12,11 @@
  # $Id$
  #
  
++ifneq ($(MAKECMDGOALS),clean)
 +include $(TOP)/.config
++endif
  
 -CFLAGS	+= -I. -I../httpd -I$(SRCBASE)/include -Wall
 +CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
@@ -21,6 +23,15 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shar
  install: all
  	install -d $(INSTALLDIR)/usr/lib
  	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
+@@ -37,5 +37,8 @@ install: all
+ clean:
+ 	rm -f *.o *.so
+ 
++distclean: clean
++	rm -f bcmconfig.h
++
+ libshared.so: $(OBJS)
+ 	$(LD) -shared -o $@ $^
 diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
 +++ gateway/shared/defaults.c	2008-03-17 17:52:17.000000000 +0000

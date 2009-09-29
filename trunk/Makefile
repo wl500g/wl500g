@@ -101,7 +101,7 @@ $(TOP)/Makefile: Makefile.top
 prep: $(TOP) $(TOP)/Makefile
 	-svnversion 2> /dev/null > $(TOP)/.svnrev
 
-$(TOP)/.config: config
+$(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
 	$(MAKE) -C $(TOP) .config
 
