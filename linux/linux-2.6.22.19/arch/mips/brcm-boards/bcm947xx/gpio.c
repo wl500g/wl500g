@@ -108,7 +108,7 @@ gpio_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	return sizeof(val);
 }
 
-static struct file_operations gpio_fops = {
+static const struct file_operations gpio_fops = {
 	owner:		THIS_MODULE,
 	open:		gpio_open,
 	release:	gpio_release,

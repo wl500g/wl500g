@@ -103,7 +103,7 @@ static int dvb_device_open(struct inode *inode, struct file *file)
 }
 
 
-static struct file_operations dvb_device_fops =
+static const struct file_operations dvb_device_fops =
 {
 	.owner =	THIS_MODULE,
 	.open =		dvb_device_open,

@@ -711,7 +711,7 @@ bailout:
 	return ret;
 }
 
-static struct file_operations cinergyt2_fops = {
+static const struct file_operations cinergyt2_fops = {
 	.owner          = THIS_MODULE,
 	.ioctl		= cinergyt2_ioctl,
 	.poll           = cinergyt2_poll,

@@ -100,7 +100,7 @@ struct segment_descriptor_64 {
 static long kvm_vcpu_ioctl(struct file *file, unsigned int ioctl,
 			   unsigned long arg);
 
-static struct inode *kvmfs_inode(struct file_operations *fops)
+static struct inode *kvmfs_inode(const struct file_operations *fops)
 {
 	int error = -ENOMEM;
 	struct inode *inode = new_inode(kvmfs_mnt->mnt_sb);
@@ -2257,7 +2257,7 @@ static int kvm_vcpu_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static struct file_operations kvm_vcpu_fops = {
+static const struct file_operations kvm_vcpu_fops = {
 	.release        = kvm_vcpu_release,
 	.unlocked_ioctl = kvm_vcpu_ioctl,
 	.compat_ioctl   = kvm_vcpu_ioctl,
@@ -2724,7 +2724,7 @@ static int kvm_vm_mmap(struct file *file, struct vm_area_struct *vma)
 	return 0;
 }
 
-static struct file_operations kvm_vm_fops = {
+static const struct file_operations kvm_vm_fops = {
 	.release        = kvm_vm_release,
 	.unlocked_ioctl = kvm_vm_ioctl,
 	.compat_ioctl   = kvm_vm_ioctl,
@@ -2840,7 +2840,7 @@ out:
 	return r;
 }
 
-static struct file_operations kvm_chardev_ops = {
+static const struct file_operations kvm_chardev_ops = {
 	.open		= kvm_dev_open,
 	.release        = kvm_dev_release,
 	.unlocked_ioctl = kvm_dev_ioctl,

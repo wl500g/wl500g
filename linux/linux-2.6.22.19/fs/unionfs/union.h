@@ -68,8 +68,8 @@
 #define UNIONFS_MIN_CC_TIME	3
 
 /* Operations vectors defined in specific files. */
-extern struct file_operations unionfs_main_fops;
-extern struct file_operations unionfs_dir_fops;
+extern const struct file_operations unionfs_main_fops;
+extern const struct file_operations unionfs_dir_fops;
 extern struct inode_operations unionfs_main_iops;
 extern struct inode_operations unionfs_dir_iops;
 extern struct inode_operations unionfs_symlink_iops;

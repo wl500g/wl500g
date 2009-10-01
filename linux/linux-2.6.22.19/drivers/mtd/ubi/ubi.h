@@ -344,8 +344,8 @@ struct ubi_device {
 	struct mtd_info *mtd;
 };
 
-extern struct file_operations ubi_cdev_operations;
-extern struct file_operations ubi_vol_cdev_operations;
+extern const struct file_operations ubi_cdev_operations;
+extern const struct file_operations ubi_vol_cdev_operations;
 extern struct class *ubi_class;
 
 /* vtbl.c */

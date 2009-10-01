@@ -1880,7 +1880,7 @@ static ssize_t wlan_debugfs_write(struct file *f, const char __user *buf,
 	return (ssize_t)cnt;
 }
 
-static struct file_operations libertas_debug_fops = {
+static const struct file_operations libertas_debug_fops = {
 	.owner = THIS_MODULE,
 	.open = open_file_generic,
 	.write = wlan_debugfs_write,

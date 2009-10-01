@@ -289,7 +289,7 @@ out:
  * Trimmed directory options, we shouldn't pass everything down since
  * we don't want to operate on partial directories.
  */
-struct file_operations unionfs_dir_fops = {
+const struct file_operations unionfs_dir_fops = {
 	.llseek		= unionfs_dir_llseek,
 	.read		= generic_read_dir,
 	.readdir	= unionfs_readdir,

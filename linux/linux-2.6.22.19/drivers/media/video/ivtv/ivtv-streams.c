@@ -46,7 +46,7 @@
 #include "ivtv-streams.h"
 #include "ivtv-cards.h"
 
-static struct file_operations ivtv_v4l2_enc_fops = {
+static const struct file_operations ivtv_v4l2_enc_fops = {
       .owner = THIS_MODULE,
       .read = ivtv_v4l2_read,
       .write = ivtv_v4l2_write,
@@ -56,7 +56,7 @@ static struct file_operations ivtv_v4l2_enc_fops = {
       .poll = ivtv_v4l2_enc_poll,
 };
 
-static struct file_operations ivtv_v4l2_dec_fops = {
+static const struct file_operations ivtv_v4l2_dec_fops = {
       .owner = THIS_MODULE,
       .read = ivtv_v4l2_read,
       .write = ivtv_v4l2_write,
@@ -72,7 +72,7 @@ static struct {
 	int minor_offset;
 	int dma, pio;
 	enum v4l2_buf_type buf_type;
-	struct file_operations *fops;
+	const struct file_operations *fops;
 } ivtv_stream_info[] = {
 	{	/* IVTV_ENC_STREAM_TYPE_MPG */
 		"encoder MPEG",

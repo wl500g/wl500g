@@ -1221,7 +1221,7 @@ static int mon_bin_mmap(struct file *filp, struct vm_area_struct *vma)
 	return 0;
 }
 
-struct file_operations mon_fops_binary = {
+const struct file_operations mon_fops_binary = {
 	.owner =	THIS_MODULE,
 	.open =		mon_bin_open,
 	.llseek =	no_llseek,

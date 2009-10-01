@@ -177,7 +177,7 @@ static loff_t usb_devpath_lseek(struct file * file, loff_t offset, int orig)
 	}
 }
 
-struct file_operations usbfs_devpath_fops = {
+const struct file_operations usbfs_devpath_fops = {
 	llseek:		usb_devpath_lseek,
 	read:		usb_devpath_read,
 };

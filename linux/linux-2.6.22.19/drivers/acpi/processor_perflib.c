@@ -389,7 +389,7 @@ EXPORT_SYMBOL(acpi_processor_notify_smm);
 /* /proc/acpi/processor/../performance interface (DEPRECATED) */
 
 static int acpi_processor_perf_open_fs(struct inode *inode, struct file *file);
-static struct file_operations acpi_processor_perf_fops = {
+static const struct file_operations acpi_processor_perf_fops = {
 	.open = acpi_processor_perf_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,

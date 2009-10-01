@@ -96,7 +96,7 @@ static int
 /**************************** VARIABLES ****************************/
 
 /* Filesystem callbacks (to call us) */
-static struct file_operations irnet_device_fops =
+static const struct file_operations irnet_device_fops =
 {
 	.owner		= THIS_MODULE,
 	.read		= dev_irnet_read,

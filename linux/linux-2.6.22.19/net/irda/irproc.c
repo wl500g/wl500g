@@ -33,15 +33,15 @@
 #include <net/irda/irlap.h>
 #include <net/irda/irlmp.h>
 
-extern struct file_operations discovery_seq_fops;
-extern struct file_operations irlap_seq_fops;
-extern struct file_operations irlmp_seq_fops;
-extern struct file_operations irttp_seq_fops;
-extern struct file_operations irias_seq_fops;
+extern const struct file_operations discovery_seq_fops;
+extern const struct file_operations irlap_seq_fops;
+extern const struct file_operations irlmp_seq_fops;
+extern const struct file_operations irttp_seq_fops;
+extern const struct file_operations irias_seq_fops;
 
 struct irda_entry {
 	const char *name;
-	struct file_operations *fops;
+	const struct file_operations *fops;
 };
 
 struct proc_dir_entry *proc_irda;

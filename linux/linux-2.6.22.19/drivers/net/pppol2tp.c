@@ -2447,7 +2447,7 @@ static const struct seq_operations pppol2tp_proc_ops = {
 	.show		= pppol2tp_proc_show,
 };
 
-static struct file_operations pppol2tp_proc_fops = {
+static const struct file_operations pppol2tp_proc_fops = {
 	.owner		= THIS_MODULE,
 	.open		= pppol2tp_proc_open,
 	.read		= seq_read,

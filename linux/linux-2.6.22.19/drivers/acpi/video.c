@@ -173,7 +173,7 @@ struct acpi_video_device {
 
 /* bus */
 static int acpi_video_bus_info_open_fs(struct inode *inode, struct file *file);
-static struct file_operations acpi_video_bus_info_fops = {
+static const struct file_operations acpi_video_bus_info_fops = {
 	.open = acpi_video_bus_info_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -181,7 +181,7 @@ static struct file_operations acpi_video_bus_info_fops = {
 };
 
 static int acpi_video_bus_ROM_open_fs(struct inode *inode, struct file *file);
-static struct file_operations acpi_video_bus_ROM_fops = {
+static const struct file_operations acpi_video_bus_ROM_fops = {
 	.open = acpi_video_bus_ROM_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -190,7 +190,7 @@ static struct file_operations acpi_video_bus_ROM_fops = {
 
 static int acpi_video_bus_POST_info_open_fs(struct inode *inode,
 					    struct file *file);
-static struct file_operations acpi_video_bus_POST_info_fops = {
+static const struct file_operations acpi_video_bus_POST_info_fops = {
 	.open = acpi_video_bus_POST_info_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -198,7 +198,7 @@ static struct file_operations acpi_video_bus_POST_info_fops = {
 };
 
 static int acpi_video_bus_POST_open_fs(struct inode *inode, struct file *file);
-static struct file_operations acpi_video_bus_POST_fops = {
+static const struct file_operations acpi_video_bus_POST_fops = {
 	.open = acpi_video_bus_POST_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -206,7 +206,7 @@ static struct file_operations acpi_video_bus_POST_fops = {
 };
 
 static int acpi_video_bus_DOS_open_fs(struct inode *inode, struct file *file);
-static struct file_operations acpi_video_bus_DOS_fops = {
+static const struct file_operations acpi_video_bus_DOS_fops = {
 	.open = acpi_video_bus_DOS_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -216,7 +216,7 @@ static struct file_operations acpi_video_bus_DOS_fops = {
 /* device */
 static int acpi_video_device_info_open_fs(struct inode *inode,
 					  struct file *file);
-static struct file_operations acpi_video_device_info_fops = {
+static const struct file_operations acpi_video_device_info_fops = {
 	.open = acpi_video_device_info_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -225,7 +225,7 @@ static struct file_operations acpi_video_device_info_fops = {
 
 static int acpi_video_device_state_open_fs(struct inode *inode,
 					   struct file *file);
-static struct file_operations acpi_video_device_state_fops = {
+static const struct file_operations acpi_video_device_state_fops = {
 	.open = acpi_video_device_state_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -234,7 +234,7 @@ static struct file_operations acpi_video_device_state_fops = {
 
 static int acpi_video_device_brightness_open_fs(struct inode *inode,
 						struct file *file);
-static struct file_operations acpi_video_device_brightness_fops = {
+static const struct file_operations acpi_video_device_brightness_fops = {
 	.open = acpi_video_device_brightness_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -243,7 +243,7 @@ static struct file_operations acpi_video_device_brightness_fops = {
 
 static int acpi_video_device_EDID_open_fs(struct inode *inode,
 					  struct file *file);
-static struct file_operations acpi_video_device_EDID_fops = {
+static const struct file_operations acpi_video_device_EDID_fops = {
 	.open = acpi_video_device_EDID_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,

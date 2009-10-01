@@ -227,7 +227,7 @@ static int au1000gpio_ioctl(struct inode *inode, struct file *file,
 }
 
 
-static struct file_operations au1000gpio_fops =
+static const struct file_operations au1000gpio_fops =
 {
 	.owner		= THIS_MODULE,
 	.ioctl		= au1000gpio_ioctl,

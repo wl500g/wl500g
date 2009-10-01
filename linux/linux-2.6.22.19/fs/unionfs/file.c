@@ -347,7 +347,7 @@ out:
 	return err;
 }
 
-struct file_operations unionfs_main_fops = {
+const struct file_operations unionfs_main_fops = {
 	.llseek		= generic_file_llseek,
 	.read		= unionfs_read,
 	.write		= unionfs_write,

@@ -780,7 +780,7 @@ static ssize_t clear_refs_write(struct file *file, const char __user *buf,
 	return end - buffer;
 }
 
-static struct file_operations proc_clear_refs_operations = {
+static const struct file_operations proc_clear_refs_operations = {
 	.write		= clear_refs_write,
 };
 #endif

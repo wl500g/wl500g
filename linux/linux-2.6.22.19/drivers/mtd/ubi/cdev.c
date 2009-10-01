@@ -704,14 +704,14 @@ static int ubi_cdev_ioctl(struct inode *inode, struct file *file,
 }
 
 /* UBI character device operations */
-struct file_operations ubi_cdev_operations = {
+const struct file_operations ubi_cdev_operations = {
 	.owner = THIS_MODULE,
 	.ioctl = ubi_cdev_ioctl,
 	.llseek = no_llseek
 };
 
 /* UBI volume character device operations */
-struct file_operations ubi_vol_cdev_operations = {
+const struct file_operations ubi_vol_cdev_operations = {
 	.owner   = THIS_MODULE,
 	.open    = vol_cdev_open,
 	.release = vol_cdev_release,

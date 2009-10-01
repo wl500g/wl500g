@@ -858,9 +858,9 @@ static int
 acpi_sbs_generic_add_fs(struct proc_dir_entry **dir,
 			struct proc_dir_entry *parent_dir,
 			char *dir_name,
-			struct file_operations *info_fops,
-			struct file_operations *state_fops,
-			struct file_operations *alarm_fops, void *data)
+			const struct file_operations *info_fops,
+			const struct file_operations *state_fops,
+			const struct file_operations *alarm_fops, void *data)
 {
 	struct proc_dir_entry *entry = NULL;
 
@@ -1210,7 +1210,7 @@ static int acpi_battery_alarm_open_fs(struct inode *inode, struct file *file)
 	return single_open(file, acpi_battery_read_alarm, PDE(inode)->data);
 }
 
-static struct file_operations acpi_battery_info_fops = {
+static const struct file_operations acpi_battery_info_fops = {
 	.open = acpi_battery_info_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -1218,7 +1218,7 @@ static struct file_operations acpi_battery_info_fops = {
 	.owner = THIS_MODULE,
 };
 
-static struct file_operations acpi_battery_state_fops = {
+static const struct file_operations acpi_battery_state_fops = {
 	.open = acpi_battery_state_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,
@@ -1226,7 +1226,7 @@ static struct file_operations acpi_battery_state_fops = {
 	.owner = THIS_MODULE,
 };
 
-static struct file_operations acpi_battery_alarm_fops = {
+static const struct file_operations acpi_battery_alarm_fops = {
 	.open = acpi_battery_alarm_open_fs,
 	.read = seq_read,
 	.write = acpi_battery_write_alarm,
@@ -1269,7 +1269,7 @@ static int acpi_ac_state_open_fs(struct inode *inode, struct file *file)
 	return single_open(file, acpi_ac_read_state, PDE(inode)->data);
 }
 
-static struct file_operations acpi_ac_state_fops = {
+static const struct file_operations acpi_ac_state_fops = {
 	.open = acpi_ac_state_open_fs,
 	.read = seq_read,
 	.llseek = seq_lseek,

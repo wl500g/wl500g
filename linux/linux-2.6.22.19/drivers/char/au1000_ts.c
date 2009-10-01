@@ -586,7 +586,7 @@ au1000_release(struct inode * inode, struct file * filp)
 }
 
 
-static struct file_operations ts_fops = {
+static const struct file_operations ts_fops = {
 	.read           = au1000_read,
 	.poll           = au1000_poll,
 	.ioctl		= au1000_ioctl,

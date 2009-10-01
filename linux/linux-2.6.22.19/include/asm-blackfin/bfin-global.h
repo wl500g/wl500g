@@ -105,7 +105,7 @@ extern unsigned long dpdt_swapcount_table[];
 extern unsigned long table_start, table_end;
 
 extern u16 _bfin_swrst; /* shadow for Software Reset Register (SWRST) */
-extern struct file_operations dpmc_fops;
+extern const struct file_operations dpmc_fops;
 extern char _start;
 extern unsigned long _ramstart, _ramend, _rambase;
 extern unsigned long memory_start, memory_end, physical_mem_end;

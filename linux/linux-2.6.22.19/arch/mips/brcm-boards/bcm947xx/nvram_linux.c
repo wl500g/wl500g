@@ -810,7 +810,7 @@ dev_nvram_release(struct inode *inode, struct file * file)
 	return 0;
 }
 
-static struct file_operations dev_nvram_fops = {
+static const struct file_operations dev_nvram_fops = {
 	owner:		THIS_MODULE,
 	open:		dev_nvram_open,
 	release:	dev_nvram_release,
