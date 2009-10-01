@@ -14,8 +14,9 @@ diff -BurN router/rcamdmips/Makefile gateway/rcamdmips/Makefile
  # remove it for Backpaq cameras
  #CFLAGS = `gtk-config --cflags` -O -g -g -I$(LINUXKERNELINCLUDEDIR) -Wall 
 -CFLAGS = -O -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK 
+-LDFLAGS = -L/opt/brcm/hndtools-mipsel-uclibc/lib/ -lpthread 
 +CFLAGS = -O2 -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK $(EXTRACFLAGS)
- LDFLAGS = -L/opt/brcm/hndtools-mipsel-uclibc/lib/ -lpthread 
++LDFLAGS = -lpthread 
  
  SRCS = rcamd.c text.c glist.c gtimer.c gslist.c gmutex.c gmem.c garray.c gtree.c ccvt_c.c #djpeg.c
 diff -BurN router/rcamdmips/rcamd.c gateway/rcamdmips/rcamd.c
