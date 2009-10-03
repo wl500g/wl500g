@@ -1,5 +1,6 @@
---- accel-pptp/pppd_plugin/src/pptp.c	2009-09-04 09:31:34.000000000 +0000
-+++ accel-pptp.new/pppd_plugin/src/pptp.c	2009-09-04 09:30:29.000000000 +0000
+diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-10-03 09:09:10.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-10-03 09:09:55.000000000 +0000
 @@ -347,10 +347,8 @@ static int get_call_id(int sock, pid_t g
  
  void plugin_init(void)

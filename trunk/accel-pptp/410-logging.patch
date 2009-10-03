@@ -1,6 +1,6 @@
 diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
---- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-25 16:55:33.000000000 +0000
-+++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-25 17:07:55.000000000 +0000
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-10-03 09:08:18.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-10-03 09:09:10.000000000 +0000
 @@ -67,6 +67,7 @@ char *pptp_client = NULL;
  char *pptp_phone = NULL;
  int pptp_sock=-1;
@@ -19,8 +19,8 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  };
  
 diff -BurpN accel-pptp.orig/pppd_plugin/src/util.c accel-pptp/pppd_plugin/src/util.c
---- accel-pptp.orig/pppd_plugin/src/util.c	2009-08-25 16:56:33.000000000 +0000
-+++ accel-pptp/pppd_plugin/src/util.c	2009-08-25 17:13:06.000000000 +0000
+--- accel-pptp.orig/pppd_plugin/src/util.c	2009-08-28 20:34:16.000000000 +0000
++++ accel-pptp/pppd_plugin/src/util.c	2009-10-03 09:09:10.000000000 +0000
 @@ -26,8 +26,7 @@ va_list ap;						\
  char buf[256], string[256];				\
  va_start(ap, format);					\

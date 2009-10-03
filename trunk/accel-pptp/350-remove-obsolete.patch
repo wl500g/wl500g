@@ -1,8 +1,8 @@
 diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pptp.c
---- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-08-21 14:35:08.000000000 +0000
-+++ accel-pptp/pppd_plugin/src/pptp.c	2009-08-21 14:34:03.000000000 +0000
-@@ -168,8 +168,10 @@ static int pptp_start_client(void)
- 		fatal("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
+--- accel-pptp.orig/pppd_plugin/src/pptp.c	2009-10-03 08:39:17.000000000 +0000
++++ accel-pptp/pppd_plugin/src/pptp.c	2009-10-03 08:42:10.000000000 +0000
+@@ -169,8 +169,10 @@ static int pptp_start_client(void)
+ 		error("PPTP: failed to create PPTP socket (%s)\n",strerror(errno));
  		return -1;
  	}
 +	/* obsolete from 0.7
@@ -11,4 +11,4 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
 +	*/
  	if (bind(pptp_fd,(struct sockaddr*)&src_addr,sizeof(src_addr)))
  	{
- 		fatal("PPTP: failed to bind PPTP socket (%s)\n",strerror(errno));
+ 		close(pptp_fd);
