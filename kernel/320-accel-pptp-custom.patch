@@ -1,6 +1,6 @@
-diff -BurpN linux-2.4.37.3/drivers/net/pptp.c linux/drivers/net/pptp.c
---- linux-2.4.37.3/drivers/net/pptp.c	2009-08-28 20:49:41.000000000 +0000
-+++ linux/drivers/net/pptp.c	2009-09-04 09:43:38.000000000 +0000
+diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
+--- linux-2.4.37.6/drivers/net/pptp.c	2009-09-27 17:05:00.000000000 +0000
++++ linux/drivers/net/pptp.c	2009-10-03 09:14:43.000000000 +0000
 @@ -21,7 +21,7 @@
  #include <linux/init.h>
  #include <linux/ppp_channel.h>
@@ -20,7 +20,7 @@ diff -BurpN linux-2.4.37.3/drivers/net/pptp.c linux/drivers/net/pptp.c
  /**
   * __ffs - find first bit in word.
   * @word: The word to search
-@@ -451,13 +453,16 @@ static int pptp_xmit(struct ppp_channel 
+@@ -455,13 +457,16 @@ static int pptp_xmit(struct ppp_channel 
  	#endif
  	iph->version		=	4;
  	iph->ihl		=	sizeof(struct iphdr) >> 2;
