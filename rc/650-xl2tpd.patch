@@ -60,7 +60,7 @@ diff -BurpN gateway/rc.l2tp/network_ex.c gateway/rc/network_ex.c
 +			"pppoptfile = %s\n"
 +			"lns = %s\n"
 +			"redial = yes\n"
-+			"max redial = %s\n"
++			"max redials = %s\n"
 +			"redial timeout = %s\n"
 +			"autodial = yes\n",
 +			options,
