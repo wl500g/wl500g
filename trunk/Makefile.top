@@ -191,7 +191,7 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 export LANGUAGE := "EN"
 export GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DPRNINFO -DNO_PARALLEL -DUSBONLY
 
-LZMADIR=$(SRCBASE)/lzma/SRC/7zip/Compress
+LZMADIR=$(SRCBASE)/lzma/CPP/7zip/Compress
 
 SVNREVISION:=$(shell cat $(TOP)/.svnrev 2>/dev/null)
 ifneq (0,$(words $(SVNREVISION)))
@@ -228,10 +228,18 @@ distclean mrproper: clean
 	rm -f .config $(LINUXDIR)/.config
 
 lzma-lib:
-	$(MAKE) -C $(LZMADIR)/LZMA_Lib/
+	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
 
 lzma:
-	$(MAKE) -C $(LZMADIR)/LZMA_Alone/
+	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc
+
+loader:
+	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma EXTRACFLAGS="$(EXTRACFLAGS)"
+
+mksquashfs-lzma: lzma-lib $(LINUXDIR)/scripts/squashfs/mksquashfs-lzma
+	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
+		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
+
 
 kernel-modules: $(LINUXDIR)/.config
 	( . $(LINUXDIR)/.config ; \
@@ -257,7 +265,7 @@ kernel: kernel-image kernel-modules fuse-driver
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
-	
+
 kernel-install: lzma
 ifeq ($(CONFIG_LOADER),y)
 	cat $(LINUXDIR)/arch/mips/bcm947xx/compressed/piggy | \
@@ -369,7 +377,7 @@ endif
 install: package-$(MODEL)
 	@true
 
-package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config lzma-lib
+package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs-lzma
 	$(MAKE) www-pages-$*
         # Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
@@ -393,9 +401,6 @@ endif
 	$(MAKE) modules_install-$*
         # Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
-        # Make sure mksquashfs-2.0 is used
-	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
-		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
@@ -969,4 +974,5 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
 .PHONY: all clean distclean mrproper install package
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
+.PHONY: mksquashfs-lzma
 .PHONY: dummy

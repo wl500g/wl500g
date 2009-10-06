@@ -35,7 +35,7 @@ PPP=ppp-2.4.5-pre
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20091003
 PPTP=pptp-1.7.1
-LZMA=lzma406
+LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
@@ -105,12 +105,9 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
 	$(MAKE) -C $(TOP) .config
 
-$(ROOT)/lzma/SRC/7zip/Compress:
-	@true
-
-$(ROOT)/lzma: $(LZMA).zip $(ROOT)/lzma/SRC/7zip/Compress
+$(ROOT)/lzma: $(LZMA).tbz2 $(ROOT)/lzma/CPP/7zip/Compress
 	@rm -rf $@ && mkdir -p $@
-	unzip -q $< -d $@
+	tar -C $@ -xjf $(LZMA).tbz2
 	$(PATCHER) -Z $@ $(LZMA).patch
 
 lzma: $(ROOT)/lzma

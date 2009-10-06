@@ -2,14 +2,14 @@
 +++ linux/scripts/squashfs/Makefile	2005-01-20 14:57:53.423668596 +0300
 @@ -1,12 +1,19 @@
  INCLUDEDIR = $(SRCBASE)/linux/linux/include/linux
-+#LZMAPATH = ../lzma/SRC/7zip/Compress/LZMA_Lib
++#LZMAPATH = ../lzma/CPP/7zip/Compress/LZMA_Lib
  
  CFLAGS := -I. -idirafter$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -O2
  
  mksquashfs: mksquashfs.o read_fs.o sort.o
  	$(CC) mksquashfs.o read_fs.o sort.o -lz -o $@
  
-+mksquashfs-lzma: mksquashfs.o read_fs.o sort.o
++mksquashfs-lzma: mksquashfs.o read_fs.o sort.o $(LZMAPATH)/liblzma.a
 +	$(CXX) mksquashfs.o read_fs.o sort.o -L$(LZMAPATH) -llzma -o $@
 +
  mksquashfs.o: mksquashfs.c mksquashfs.h
