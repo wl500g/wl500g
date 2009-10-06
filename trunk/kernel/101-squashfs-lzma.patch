@@ -60,7 +60,7 @@ Oleg I. Vdovikin <oleg@cs.msu.su>
  
  static DECLARE_FSTYPE_DEV(squashfs_fs_type, "squashfs", squashfs_read_super);
  
-@@ -232,6 +256,15 @@
+@@ -232,6 +256,18 @@
  	if(compressed) {
  		int zlib_err;
  
