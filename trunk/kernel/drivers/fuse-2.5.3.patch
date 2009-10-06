@@ -375,12 +375,6 @@ diff -urBp fuse-2.5.3/dev.c fuse/dev.c
  		if (cs->write)
  			memcpy(cs->buf, *val, ncpy);
  		else
-Only in fuse: dev.o
-Only in fuse: .dev.o.flags
-Only in fuse: dir.o
-Only in fuse: .dir.o.flags
-Only in fuse: file.o
-Only in fuse: .file.o.flags
 diff -urBp fuse-2.5.3/fuse_i.h fuse/fuse_i.h
 --- fuse-2.5.3/fuse_i.h	2006-02-02 20:04:52.000000000 +0300
 +++ fuse/fuse_i.h	2008-10-22 19:03:50.000000000 +0400
