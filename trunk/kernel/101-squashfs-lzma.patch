@@ -15,21 +15,18 @@ Oleg I. Vdovikin <oleg@cs.msu.su>
   * This program is free software; you can redistribute it and/or
   * modify it under the terms of the GNU General Public License
   * as published by the Free Software Foundation; either version 2,
-@@ -21,7 +24,11 @@
+@@ -21,6 +24,8 @@
   * inode.c
   */
  
 +#define SQUASHFS_LZMA
 +
-+#ifndef SQUASHFS_LZMA
- #define SQUASHFS_1_0_COMPATIBILITY
-+#endif
- 
  #include <linux/types.h>
  #include <linux/squashfs_fs.h>
+ #include <linux/module.h>
 @@ -39,6 +46,20 @@
- #include <linux/blkdev.h>
- #include <linux/vmalloc.h>
+ 
+ #include "squashfs.h"
  
 +#ifdef SQUASHFS_LZMA
 +#define _7ZIP_BYTE_DEFINED
@@ -45,32 +42,20 @@ Oleg I. Vdovikin <oleg@cs.msu.su>
 +
 +#endif
 +
- #ifdef SQUASHFS_TRACE
- #define TRACE(s, args...)				printk(KERN_NOTICE "SQUASHFS: "s, ## args)
- #else
-@@ -77,7 +97,11 @@
- 
- DECLARE_MUTEX(read_data_mutex);
- 
-+#ifdef SQUASHFS_LZMA
-+static unsigned char lzma_workspace[LZMA_WORKSPACE_SIZE];
-+#else
- static z_stream stream;
-+#endif
- 
- static DECLARE_FSTYPE_DEV(squashfs_fs_type, "squashfs", squashfs_read_super);
- 
-@@ -232,6 +256,18 @@
+ static struct super_block *squashfs_read_super(struct super_block *, void *, int);
+ static void squashfs_put_super(struct super_block *);
+ static int squashfs_statfs(struct super_block *, struct statfs *);
+@@ -232,6 +256,18 @@ unsigned int squashfs_read_data(
  	if(compressed) {
  		int zlib_err;
  
 +#ifdef SQUASHFS_LZMA
 +		CLzmaDecoderState vs;
 +		vs.Properties.lc = LZMA_LC; vs.Properties.lp = LZMA_LP; vs.Properties.pb = LZMA_PB;
-+		vs.Probs = (CProb *)lzma_workspace;
++		vs.Probs = (CProb *)stream.workspace;
 +		if ((zlib_err = LzmaDecode(&vs, 
 +			c_buffer, c_byte, &avail_bytes, 
-+			buffer, msBlk->read_size, &bytes)) != LZMA_RESULT_OK)
++			buffer, msblk->read_size, &bytes)) != LZMA_RESULT_OK)
 +		{
 +			ERROR("lzma returned unexpected result 0x%x\n", zlib_err);
 +			bytes = 0;
@@ -79,44 +64,37 @@ Oleg I. Vdovikin <oleg@cs.msu.su>
  		stream.next_in = c_buffer;
  		stream.avail_in = c_byte;
  		stream.next_out = buffer;
-@@ -243,6 +276,7 @@
+@@ -243,7 +276,7 @@ unsigned int squashfs_read_data(
  			bytes = 0;
  		} else
  			bytes = stream.total_out;
+-		
 +#endif
- 		up(&read_data_mutex);
+ 		up(&msblk->read_data_mutex);
  	}
  
-@@ -1491,17 +1525,21 @@
- static int __init init_squashfs_fs(void)
- {
+@@ -1981,7 +2004,12 @@ int __init init_squashfs_fs(void)
+ 	printk(KERN_INFO "squashfs: version 3.0 (2006/03/15) "
+ 		"Phillip Lougher\n");
  
-+#ifndef SQUASHFS_LZMA
- 	if(!(stream.workspace = (char *) vmalloc(zlib_inflate_workspacesize()))) {
++#ifdef SQUASHFS_LZMA
++	if (!(stream.workspace = vmalloc(LZMA_WORKSPACE_SIZE))) {
++		ERROR("Failed to allocate LZMA workspace\n");
++#else
+ 	if (!(stream.workspace = vmalloc(zlib_inflate_workspacesize()))) {
  		ERROR("Failed to allocate zlib workspace\n");
++#endif
  		return -ENOMEM;
  	}
-+#endif
- 	return register_filesystem(&squashfs_fs_type);
- }
- 
- 
- static void __exit exit_squashfs_fs(void)
- {
-+#ifndef SQUASHFS_LZMA
- 	vfree(stream.workspace);
-+#endif
- 	unregister_filesystem(&squashfs_fs_type);
- }
- 
 --- linuz/fs/squashfs/Makefile	2004-12-15 22:56:47.000000000 +0300
 +++ linux/fs/squashfs/Makefile	2009-10-05 20:26:23.000000000 +0400
-@@ -4,8 +4,12 @@
+@@ -4,9 +4,13 @@
  
  O_TARGET := squashfs.o
  
 -obj-y  := inode.o
 +obj-y  := inode.o LzmaDecode.o
+ obj-$(CONFIG_SQUASHFS_2_0_COMPATIBILITY) += squashfs2_0.o
  
  obj-m := $(O_TARGET)
  
