@@ -16,15 +16,17 @@
 # Copyright 2005  Oleg I. Vdovikin <oleg@cs.msu.su>
 #   Cleaned up, modified for lzma support, removed from kernel
 #
+# 2009-10-05 - Upgrade to lzma SDK 4.57 by Leonid Lisovskiy
+#
 
 TEXT_START	:= 0x80001000
-BZ_TEXT_START	:= 0x80300000
+BZ_TEXT_START	:= 0x80400000
 
 OBJCOPY		:= $(CROSS_COMPILE)objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S
 
 CFLAGS		= -D__KERNEL__ -Wall -Wstrict-prototypes -Wno-trigraphs -O2 \
 		  -fno-strict-aliasing -fno-common -fomit-frame-pointer -G 0 -mno-abicalls -fno-pic \
-		  -ffunction-sections -pipe -mips32 -mips2 -Wa,--trap  -m4710a0kern
+		  -ffunction-sections -pipe -Wa,--trap $(EXTRACFLAGS)
 CFLAGS		+= -DLOADADDR=$(TEXT_START) -D_LZMA_IN_CB
 
 ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
@@ -32,6 +34,9 @@ ASFLAGS		= $(CFLAGS) -D__ASSEMBLY__ -DBZ_TEXT_START=$(BZ_TEXT_START)
 SEDFLAGS	:= s/BZ_TEXT_START/$(BZ_TEXT_START)/;s/TEXT_START/$(TEXT_START)/
 
 OBJECTS		:= head.o data.o
+
+CFLAGS		+= -I$(LZMAPATH)
+vpath %.c $(LZMAPATH)
 
 all: loader.gz
 
