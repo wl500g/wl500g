@@ -56,7 +56,7 @@ diff -BurpN gateway/rc.l2tp/network_ex.c gateway/rc/network_ex.c
 +		fprintf(fp,
 +			"[global]\n"
 +			"access control = yes\n\n"
-+			"[lac default]\n"
++			"[lac l2tp]\n"
 +			"pppoptfile = %s\n"
 +			"lns = %s\n"
 +			"redial = yes\n"
