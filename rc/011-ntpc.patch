@@ -26,7 +26,7 @@ diff -urBp router/rc/ntp.c gateway/rc/ntp.c
  	while(1)
  	{
 -		ret=eval("ntpclient", "-h", servers, "-i", "3", "-l", "-s");
-+		ret=eval("ntpclient", "-h", servers, "-i", "3", "-c", "1", "-l", "-s");
++		ret=eval("ntpclient", "-h", servers, "-i", "3", "-c", "1", "-lst");
  		pause();
  	}	
  }
@@ -98,7 +98,7 @@ diff -urBp router/rc/services.c gateway/rc/services.c
  	if (strlen(servers)) {
 -		char *nas_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-l", "-s", NULL};
 -		_eval(nas_argv, NULL, 0, NULL);
-+		char *ntp_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-c", "1", "-l", "-s", NULL};
++		char *ntp_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-c", "1", "-lst", NULL};
 +		_eval(ntp_argv, NULL, 0, &pid);
  	}
  	
