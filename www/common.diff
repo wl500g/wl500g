@@ -73,8 +73,10 @@ diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
 --- router/www/asus/mkweb	2004-11-19 04:11:13.000000000 +0000
 +++ gateway/www/asus/mkweb	2009-04-19 06:29:47.000000000 +0000
 @@ -1,5 +1,11 @@
- #!/bin/sh
- 
+-#!/bin/sh
+-
++#! /bin/bash
++
 +### CHUPA REVISION 1 29-10-2004 01:56
 +### CHUPA REVISION 2 22-11-2004 23:35
 +#+remove some unused files from www/graph and www/
