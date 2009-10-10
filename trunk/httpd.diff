@@ -1,4 +1,4 @@
-diff -BurpN -x'*.o' router/httpd/Makefile gateway/httpd/Makefile
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/Makefile gateway/httpd/Makefile
 --- router/httpd/Makefile	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/Makefile	2009-09-23 12:12:27.000000000 +0000
 @@ -8,7 +8,7 @@
@@ -19,7 +19,7 @@ diff -BurpN -x'*.o' router/httpd/Makefile gateway/httpd/Makefile
 +
 +httpd: httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
  	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
-diff -BurpN -x'*.o' router/httpd/broadcom.c gateway/httpd/broadcom.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/broadcom.c gateway/httpd/broadcom.c
 --- router/httpd/broadcom.c	2004-11-11 07:27:09.000000000 +0000
 +++ gateway/httpd/broadcom.c	2008-01-06 11:26:57.000000000 +0000
 @@ -592,6 +592,7 @@ ej_wan_iflist(int eid, webs_t wp, int ar
@@ -103,7 +103,7 @@ diff -BurpN -x'*.o' router/httpd/broadcom.c gateway/httpd/broadcom.c
  			}
  		}
  		nl++;
-diff -BurpN -x'*.o' router/httpd/common.c gateway/httpd/common.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/common.c gateway/httpd/common.c
 --- router/httpd/common.c	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/common.c	2009-09-23 11:38:45.000000000 +0000
 @@ -303,7 +303,8 @@ int CheckGroupVariables(int sid, struct 
@@ -131,7 +131,7 @@ diff -BurpN -x'*.o' router/httpd/common.c gateway/httpd/common.c
  void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, char *action)
  {
     int groupCount;     
-diff -BurpN -x'*.o' router/httpd/httpd.c gateway/httpd/httpd.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
 --- router/httpd/httpd.c	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/httpd.c	2009-09-23 12:04:01.000000000 +0000
 @@ -97,6 +97,7 @@ static void handle_request(void);
@@ -280,7 +280,7 @@ diff -BurpN -x'*.o' router/httpd/httpd.c gateway/httpd/httpd.c
  		strcpy(pidfile, "/var/run/httpd.pid");
  	else sprintf(pidfile, "/var/run/httpd-%d.pid", http_port);
  
-diff -BurpN -x'*.o' router/httpd/nvmap.c gateway/httpd/nvmap.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/nvmap.c gateway/httpd/nvmap.c
 --- router/httpd/nvmap.c	2004-11-11 07:27:09.000000000 +0000
 +++ gateway/httpd/nvmap.c	2009-09-23 12:03:08.000000000 +0000
 @@ -1,5 +1,6 @@
@@ -302,7 +302,7 @@ diff -BurpN -x'*.o' router/httpd/nvmap.c gateway/httpd/nvmap.c
  {	
  	char tmpstr[32], tmpstr1[32], macbuf[18];
  	char list[2048];
-diff -BurpN -x'*.o' router/httpd/nvram_f.c gateway/httpd/nvram_f.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/nvram_f.c gateway/httpd/nvram_f.c
 --- router/httpd/nvram_f.c	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/nvram_f.c	2009-09-23 11:59:41.000000000 +0000
 @@ -81,13 +81,13 @@ char *strtrim(char *str)
@@ -336,7 +336,7 @@ diff -BurpN -x'*.o' router/httpd/nvram_f.c gateway/httpd/nvram_f.c
  
  
  /*
-diff -BurpN -x'*.o' router/httpd/shutils.c gateway/httpd/shutils.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/shutils.c gateway/httpd/shutils.c
 --- router/httpd/shutils.c	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/shutils.c	2008-01-06 11:26:57.000000000 +0000
 @@ -125,6 +125,8 @@ _eval(char *const argv[], char *path, in
@@ -348,7 +348,7 @@ diff -BurpN -x'*.o' router/httpd/shutils.c gateway/httpd/shutils.c
  		/* Redirect stdout to <path> */
  		if (path) {
  			flags = O_WRONLY | O_CREAT;
-diff -BurpN -x'*.o' router/httpd/variables.c gateway/httpd/variables.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/variables.c gateway/httpd/variables.c
 --- router/httpd/variables.c	2004-11-15 08:06:01.000000000 +0000
 +++ gateway/httpd/variables.c	2009-04-08 21:01:03.000000000 +0000
 @@ -455,6 +455,8 @@
@@ -861,9 +861,9 @@ diff -BurpN -x'*.o' router/httpd/variables.c gateway/httpd/variables.c
             {0, 0, 0}
        };
  	
-diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
+diff -BurpN -x'*.o' -x'*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
 --- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
-+++ gateway/httpd/web_ex.c	2009-09-23 12:07:19.000000000 +0000
++++ gateway/httpd/web_ex.c	2009-10-10 11:03:08.000000000 +0000
 @@ -48,6 +48,7 @@
  
  #define sys_restart() kill(1, SIGHUP)
@@ -986,6 +986,15 @@ diff -BurpN -x'*.o' router/httpd/web_ex.c gateway/httpd/web_ex.c
  /*
   * Example: 
   * wan_proto=dhcp
+@@ -727,7 +753,7 @@ ej_uptime(int eid, webs_t wp, int argc, 
+ 	if (str) {
+ 		unsigned int up = atoi(str);
+ 		free(str);
+-		sprintf(buf, "%s(%s since boot)", buf, reltime(up));
++		sprintf(buf, "%s (%s since boot)", buf, reltime(up));
+ 	}
+ 
+ 	ret = websWrite(wp, buf);  
 @@ -1035,7 +1061,7 @@ static int dump_file(webs_t wp, char *fi
  	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL)
  	{	 	
