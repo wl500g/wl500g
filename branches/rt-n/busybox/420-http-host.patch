@@ -1,0 +1,13 @@
+diff -BurpN busybox-1.14.2/networking/httpd.c busybox/networking/httpd.c
+--- busybox-1.14.2/networking/httpd.c	2009-07-22 18:31:25.000000000 +0000
++++ busybox/networking/httpd.c	2009-07-22 18:32:17.000000000 +0000
+@@ -1444,7 +1444,8 @@ static void send_cgi_and_exit(
+ #endif
+ 	if (referer)
+ 		setenv1("HTTP_REFERER", referer);
+-	setenv1("HTTP_HOST", host); /* set to "" if NULL */
++	if (host)
++		setenv1("HTTP_HOST", host);
+ 	/* setenv1("SERVER_NAME", safe_gethostname()); - don't do this,
+ 	 * just run "env SERVER_NAME=xyz httpd ..." instead */
+ 

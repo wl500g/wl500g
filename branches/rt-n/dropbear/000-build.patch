@@ -1,0 +1,55 @@
+diff -urbB dropbear-0.52/options.h dropbear/options.h
+--- dropbear-0.52/options.h	2008-11-11 17:13:50.000000000 +0300
++++ dropbear/options.h	2008-11-17 12:49:21.000000000 +0300
+@@ -21,10 +21,10 @@
+ 
+ /* Default hostkey paths - these can be specified on the command line */
+ #ifndef DSS_PRIV_FILENAME
+-#define DSS_PRIV_FILENAME "/etc/dropbear/dropbear_dss_host_key"
++#define DSS_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_dss_host_key"
+ #endif
+ #ifndef RSA_PRIV_FILENAME
+-#define RSA_PRIV_FILENAME "/etc/dropbear/dropbear_rsa_host_key"
++#define RSA_PRIV_FILENAME "/usr/local/etc/dropbear/dropbear_rsa_host_key"
+ #endif
+ 
+ /* Set NON_INETD_MODE if you require daemon functionality (ie Dropbear listens
+@@ -129,7 +129,7 @@
+ /* #define DSS_PROTOK */
+ 
+ /* Whether to do reverse DNS lookups. */
+-#define DO_HOST_LOOKUP
++//#define DO_HOST_LOOKUP
+ 
+ /* Whether to print the message of the day (MOTD). This doesn't add much code
+  * size */
+@@ -227,12 +227,12 @@
+  * OpenSSH), set the path below. If the path isn't defined, sftp will not
+  * be enabled */
+ #ifndef SFTPSERVER_PATH
+-#define SFTPSERVER_PATH "/usr/libexec/sftp-server"
++#define SFTPSERVER_PATH "/opt/libexec/sftp-server"
+ #endif
+ 
+ /* This is used by the scp binary when used as a client binary. If you're
+  * not using the Dropbear client, you'll need to change it */
+-#define _PATH_SSH_PROGRAM "/usr/bin/dbclient"
++#define _PATH_SSH_PROGRAM "/usr/bin/ssh"
+ 
+ /* Whether to log commands executed by a client. This only logs the 
+  * (single) command sent to the server, not what a user did in a 
+diff -urbB dropbear-0.52/scp.c dropbear/scp.c
+--- dropbear-0.52/scp.c	2008-11-11 17:09:03.000000000 +0300
++++ dropbear/scp.c	2008-11-17 12:47:59.000000000 +0300
+@@ -492,9 +492,11 @@
+ 			addargs(&alist, "%s", ssh_program);
+ 			if (verbose_mode)
+ 				addargs(&alist, "-v");
++#ifndef DROPBEAR_CLIENT
+ 			addargs(&alist, "-x");
+ 			addargs(&alist, "-oClearAllForwardings yes");
+ 			addargs(&alist, "-n");
++#endif
+ 
+ 			*src++ = 0;
+ 			if (*src == 0)

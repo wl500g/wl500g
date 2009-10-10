@@ -1,0 +1,23 @@
+ Don't allow empty strings as IP address & netmask
+ 
+diff -uBp gateway.orig/rc/interface.c gateway/rc/interface.c
+--- gateway.orig/rc/interface.c	2008-03-19 20:07:24.000000000 +0300
++++ gateway/rc/interface.c	2009-03-03 19:52:07.000000000 +0300
+@@ -65,7 +65,7 @@ ifconfig(char *name, int flags, char *ad
+ 		goto err;
+ 	
+ 	/* Set IP address */
+-	if (addr) {
++	if (addr && *addr) {
+ 		inet_aton(addr, &in_addr);
+ 		sin_addr(&ifr.ifr_addr).s_addr = in_addr.s_addr;
+ 		ifr.ifr_addr.sa_family = AF_INET;
+@@ -74,7 +74,7 @@ ifconfig(char *name, int flags, char *ad
+ 	}
+ 
+ 	/* Set IP netmask and broadcast */
+-	if (addr && netmask) {
++	if ((addr && *addr) && (netmask && *netmask)) {
+ 		inet_aton(netmask, &in_netmask);
+ 		sin_addr(&ifr.ifr_netmask).s_addr = in_netmask.s_addr;
+ 		ifr.ifr_netmask.sa_family = AF_INET;

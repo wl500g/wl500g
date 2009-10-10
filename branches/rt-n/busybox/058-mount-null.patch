@@ -1,0 +1,22 @@
+From ba98603264125aceac59c36a36dfbee0f7f67c7f
+From: Denys Vlasenko
+Date: Tue, 15 Sep 2009 21:00:09 +0000
+Subject: mount: do not execute "mount.(null)" :)
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+index 56c32e1..478dc24 100644
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -448,7 +448,7 @@ static int mount_it_now(struct mntent *mp, long vfsflags, char *filteropts)
+ 
+ 		// If mount failed, try
+ 		// helper program mount.<mnt_type>
+-		if (HELPERS_ALLOWED && rc) {
++		if (HELPERS_ALLOWED && rc && mp->mnt_type) {
+ 			char *args[8];
+ 			int errno_save = errno;
+ 			args[0] = xasprintf("mount.%s", mp->mnt_type);
+--
+cgit v0.8.2.1

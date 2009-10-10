@@ -1,0 +1,34 @@
+From 219757fee9a1cacedaffcfe062254adb2ffe7cac Mon Sep 17 00:00:00 2001
+From: Denys Vlasenko <vda.linux@googlemail.com>
+Date: Thu, 8 Oct 2009 23:05:46 +0200
+Subject: [PATCH] udhcpc: fix bug 629: use bcast receive when we perform rebinding
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+ networking/udhcp/dhcpc.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/networking/udhcp/dhcpc.c b/networking/udhcp/dhcpc.c
+index ccc0393..9a2fe35 100644
+--- a/networking/udhcp/dhcpc.c
++++ b/networking/udhcp/dhcpc.c
+@@ -451,6 +451,8 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
+ 				state = REBINDING;
+ 				/* fall right through */
+ 			case REBINDING:
++				/* Switch to bcast receive */
++				change_listen_mode(LISTEN_RAW);
+ 				/* Lease is *really* about to run out,
+ 				 * try to find DHCP server using broadcast */
+ 				if (timeout > 0) {
+@@ -462,7 +464,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
+ 				/* Timed out, enter init state */
+ 				bb_info_msg("Lease lost, entering init state");
+ 				udhcp_run_script(NULL, "deconfig");
+-				change_listen_mode(LISTEN_RAW);
+ 				state = INIT_SELECTING;
+ 				/*timeout = 0; - already is */
+ 				packet_num = 0;
+-- 
+1.5.6.5
+

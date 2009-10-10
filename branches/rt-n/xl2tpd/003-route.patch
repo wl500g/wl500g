@@ -1,0 +1,159 @@
+diff -BurpN gateway/xl2tpd-1.2.4/call.c gateway/xl2tpd/call.c
+--- gateway/xl2tpd-1.2.4/call.c	2009-03-08 23:25:30.000000000 +0000
++++ gateway/xl2tpd/call.c	2009-09-17 21:19:46.000000000 +0000
+@@ -701,6 +701,9 @@ struct call *get_call (int tunnel, int c
+         st->next = tunnels.head;
+         tunnels.head = st;
+         tunnels.count++;
++        /* Add route to the peer */
++        memset(&st->rt, 0, sizeof(&st->rt));
++        route_add(st->peer.sin_addr, &st->rt);
+         return st->self;
+     }
+ }
+diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
+--- gateway/xl2tpd-1.2.4/l2tp.h	2009-09-17 20:57:14.000000000 +0000
++++ gateway/xl2tpd/l2tp.h	2009-09-17 21:37:03.000000000 +0000
+@@ -36,6 +36,7 @@ typedef unsigned long long _u64;
+ #include "aaa.h"
+ #include "common.h"
+ #include "ipsecmast.h"
++#include <net/route.h>
+ 
+ #define CONTROL_PIPE "/var/run/l2tp-control"
+ 
+@@ -167,6 +168,7 @@ struct tunnel
+     struct call *self;
+     struct lns *lns;            /* LNS that owns us */
+     struct lac *lac;            /* LAC that owns us */
++    struct rtentry rt;		/* Route added to destination */
+ };
+ 
+ struct tunnel_list
+@@ -226,6 +228,10 @@ extern int get_entropy (unsigned char *,
+ #endif
+ #endif
+ 
++/* Route manipulation */
++#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
++extern int route_add(const struct in_addr inetaddr, struct rtentry *rt);
++extern int route_del(struct rtentry *rt);
+ 
+ /* 
+  * This is just some stuff to take
+diff -BurpN gateway/xl2tpd-1.2.4/xl2tpd.c gateway/xl2tpd/xl2tpd.c
+--- gateway/xl2tpd-1.2.4/xl2tpd.c	2009-03-08 23:25:30.000000000 +0000
++++ gateway/xl2tpd/xl2tpd.c	2009-09-17 21:36:46.000000000 +0000
+@@ -48,6 +48,8 @@
+ #include <fcntl.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
++#include <net/route.h>
++#include <sys/ioctl.h>
+ #include "l2tp.h"
+ 
+ struct tunnel_list tunnels;
+@@ -569,6 +571,7 @@ void destroy_tunnel (struct tunnel *t)
+        the memory pointed to by t->chal_us.vector at some other place */
+     if (t->chal_them.vector)
+         free (t->chal_them.vector);
++    route_del(&t->rt);
+     free (t);
+     free (me);
+ }
+@@ -1272,3 +1275,95 @@ int main (int argc, char *argv[])
+     return 0;
+ }
+ 
++/* Route manipulation */
++
++static int
++route_ctrl(int ctrl, struct rtentry *rt)
++{
++	int s;
++
++	/* Open a raw socket to the kernel */
++	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0 ||	ioctl(s, ctrl, rt) < 0)
++		l2tp_log (LOG_ERR, "route_ctrl: %s", strerror(errno));
++	else errno = 0;
++
++	close(s);
++	return errno;
++}
++
++int
++route_del(struct rtentry *rt)
++{
++	if (rt->rt_dev) {
++		route_ctrl(SIOCDELRT, rt);
++		free(rt->rt_dev);
++		rt->rt_dev = NULL;
++	}
++	return 0;
++}
++
++int
++route_add(const struct in_addr inetaddr, struct rtentry *rt)
++{
++	char buf[256], dev[64];
++	int metric, flags;
++	u_int32_t dest, mask;
++
++	FILE *f = fopen("/proc/net/route", "r");
++	if (f == NULL) {
++	        l2tp_log (LOG_ERR, "/proc/net/route: %s", strerror(errno));
++		return -1;
++	}
++
++	while (fgets(buf, sizeof(buf), f)) {
++		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
++		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
++			continue;
++		if ((flags & RTF_UP) == RTF_UP && (inetaddr.s_addr & mask) == dest) {
++			rt->rt_metric = metric + 1;
++			rt->rt_gateway.sa_family = AF_INET;
++			break;
++		}
++	}
++
++	fclose(f);
++
++	/* check for no route */
++	if (rt->rt_gateway.sa_family != AF_INET) {
++	        l2tp_log (LOG_ERR, "route_add: no route to host");
++		return -1;
++	}
++
++	/* check for existing route to this host, 
++	add if missing based on the existing routes */
++	if (mask == INADDR_BROADCAST) {
++	        /* l2tp_log (LOG_ERR, "route_add: not adding existing route"); */
++		return -1;
++	}
++
++	sin_addr(&rt->rt_dst) = inetaddr;
++	rt->rt_dst.sa_family = AF_INET;
++
++	sin_addr(&rt->rt_genmask).s_addr = INADDR_BROADCAST;
++	rt->rt_genmask.sa_family = AF_INET;
++
++	rt->rt_flags = RTF_UP | RTF_HOST;
++	if (sin_addr(&rt->rt_gateway).s_addr)
++		rt->rt_flags |= RTF_GATEWAY;
++
++	rt->rt_metric++;
++	rt->rt_dev = strdup(dev);
++
++	if (!rt->rt_dev) {
++	        l2tp_log (LOG_ERR, "route_add: no memory");
++		return -1;
++	}
++
++	if (!route_ctrl(SIOCADDRT, rt))
++		return 0;
++
++	free(rt->rt_dev);
++	rt->rt_dev = NULL;
++
++	return -1;
++}

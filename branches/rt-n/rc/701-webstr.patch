@@ -1,0 +1,61 @@
+diff -uBp gateway/rc/common_ex.c gateway/rc/common_ex.c
+--- gateway/rc/common_ex.c	2009-02-20 10:18:33.000000000 +0300
++++ gateway/rc/common_ex.c	2009-09-24 21:36:12.000000000 +0400
+@@ -537,6 +537,12 @@ void convert_asus_values()
+ 		eval("insmod", "ipt_NETMAP.o");
+ 	}
+ 
++#ifdef WEBSTRFILTER
++	if (nvram_match("url_enable_x", "1")) {
++		eval("insmod", "ipt_webstr");
++	}
++#endif
++
+         //2005/09/22 insmod FTP module
+         if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x"))!=21)
+         {
+diff -uBp gateway/rc/firewall_ex.c gateway/rc/firewall_ex.c
+--- gateway/rc/firewall_ex.c	2009-09-19 00:31:57.000000000 +0400
++++ gateway/rc/firewall_ex.c	2009-09-24 21:01:21.000000000 +0400
+@@ -701,6 +701,9 @@ filter_setting(char *wan_if, char *wan_i
+ 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
+ 	char *setting, line[256], s[64];
+ 	int i;
++#ifdef WEBSTRFILTER
++        char nvname[36], timef[256], *filterstr;
++#endif
+ 	
+ 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
+ 
+@@ -978,6 +981,20 @@ filter_setting(char *wan_if, char *wan_i
+ 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
+ 		  "-A logdrop -j DROP\n");
+ 	
++#ifdef WEBSTRFILTER
++        if (nvram_match("url_enable_x", "1")) {
++
++                timematch_conv(timef, "url_date_x", "url_time_x");
++                for(i=0; i<atoi(nvram_safe_get("url_num_x")); i++) {
++                        memset(nvname, 0, sizeof(nvname));
++                        sprintf(nvname, "url_keyword_x%d", i);
++                        filterstr =  nvram_safe_get(nvname);
++                        if(strcmp(filterstr,"") && nvram_invmatch("url_date_x", "0000000"))
++                                fprintf(fp,"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j DROP\n", timef, filterstr); //2008.10 magic
++                }
++        }
++#endif
++
+ 	fprintf(fp, "COMMIT\n\n");
+        	fclose(fp);
+ 
+diff -uBp gateway/rc/Makefile gateway/rc/Makefile
+--- gateway/rc/Makefile	2009-09-11 22:09:18.000000000 +0400
++++ gateway/rc/Makefile	2009-09-24 20:55:29.000000000 +0400
+@@ -26,6 +26,7 @@ OBJS := rc.o init.o interface.o network.
+ 
+ ifeq ($(CONFIG_NETCONF),y)
+ OBJS += firewall.o
++CFLAGS += -DWEBSTRFILTER
+ LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
+ endif
+ 

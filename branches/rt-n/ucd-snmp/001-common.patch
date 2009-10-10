@@ -1,0 +1,242 @@
+diff -ur ucd-snmp-3.6.2/agent/agent_read_config.c ucd-snmp/agent/agent_read_config.c
+--- ucd-snmp-3.6.2/agent/agent_read_config.c	1999-05-28 14:25:26.000000000 +0400
++++ ucd-snmp/agent/agent_read_config.c	2005-05-25 21:09:58.084534847 +0400
+@@ -72,6 +72,12 @@
+                           snmpd_parse_config_trapcommunity,
+                           snmpd_free_trapcommunity,
+                           "community-string");
++#ifndef USING_MIBII_VACM_VARS_MODULE
++  register_config_handler("snmpd","community",
++                          snmpd_parse_config_community,
++                          snmpd_free_community,
++                          "community-string");
++#endif
+ #include "mibgroup/mib_module_dot_conf.h"
+ #ifdef TESTING
+   print_config_handlers();
+diff -ur ucd-snmp-3.6.2/agent/Makefile.in ucd-snmp/agent/Makefile.in
+--- ucd-snmp-3.6.2/agent/Makefile.in	1999-03-16 03:24:39.000000000 +0300
++++ ucd-snmp/agent/Makefile.in	2005-05-25 23:01:38.270426339 +0400
+@@ -31,7 +31,7 @@
+ getmibstat.o: mibgroup/kernel_sunos5.c
+ 	$(CC) $(CFLAGS) -o $@ -D_GETMIBSTAT_TEST -DDODEBUG -c $? 
+ 
+-AGENTOBJS=snmpd.o snmp2p.o kernel.o snmp_agent.o snmp_vars.o view_parse.o agent_read_config.o auto_nlist.o
++AGENTOBJS=snmpd.o dummy.o kernel.o snmp_agent.o snmp_vars.o view_parse.o agent_read_config.o auto_nlist.o
+ 
+ snmpd:	${MIBOBJS} ${AGENTOBJS} $(USELIBS)
+ 	${CC} -o $@ ${AGENTOBJS} ${MIBOBJS} ${LDFLAGS} ${LIBS}  
+diff -ur ucd-snmp-3.6.2/agent/mibgroup/mibII.h ucd-snmp/agent/mibgroup/mibII.h
+--- ucd-snmp-3.6.2/agent/mibgroup/mibII.h	1999-01-18 21:43:49.000000000 +0300
++++ ucd-snmp/agent/mibgroup/mibII.h	2005-05-25 18:15:37.137196530 +0400
+@@ -1,14 +1,11 @@
+ /* module to include the modules relavent to the mib-II mib(s) */
+ config_require(mibII/system_mib)
+-config_require(mibII/sysORTable)
+ config_require(mibII/at)
+ config_require(mibII/interfaces)
+-config_require(mibII/snmp_mib)
+ config_require(mibII/tcp)
+ config_require(mibII/icmp)
+ config_require(mibII/ip)
+ config_require(mibII/udp)
+-config_require(mibII/vacm_vars)
+ 
+ void init_mibII (void);
+   
+diff -ur ucd-snmp-3.6.2/agent/mibgroup/ucd_snmp.h ucd-snmp/agent/mibgroup/ucd_snmp.h
+--- ucd-snmp-3.6.2/agent/mibgroup/ucd_snmp.h	1999-02-25 21:03:41.000000000 +0300
++++ ucd-snmp/agent/mibgroup/ucd_snmp.h	2005-05-25 17:46:43.901966920 +0400
+@@ -1,13 +1,7 @@
+ /* module to include the various ucd-snmp specific extension modules. */
+ config_require(ucd-snmp/proc)
+ config_require(ucd-snmp/versioninfo)
+-config_require(ucd-snmp/pass)
+-config_require(ucd-snmp/disk)
+ config_require(ucd-snmp/loadave)
+-config_require(ucd-snmp/extensible)
+-config_require(ucd-snmp/errormib)
+-config_require(ucd-snmp/registry)
+-config_require(ucd-snmp/file)
+ config_arch_require(linux, ucd-snmp/memory)
+ config_arch_require(hpux9, ucd-snmp/memory)
+ config_arch_require(hpux10, ucd-snmp/memory)
+diff -ur ucd-snmp-3.6.2/agent/snmp_agent.c ucd-snmp/agent/snmp_agent.c
+--- ucd-snmp-3.6.2/agent/snmp_agent.c	1999-06-01 11:29:35.000000000 +0400
++++ ucd-snmp/agent/snmp_agent.c	2005-05-25 22:52:56.472555573 +0400
+@@ -87,6 +87,7 @@
+ 		      void *statP,
+ 		      int statLen)
+ {
++#if 0
+     char buf [SPRINT_MAX_LEN];
+     struct variable_list temp_var;
+ 
+@@ -95,6 +96,7 @@
+     temp_var.val_len = statLen;
+     sprint_variable (buf, var_name, var_name_len, &temp_var);
+     fprintf (stdout, "    >> %s\n", buf);
++#endif
+ }
+ 
+ int
+diff -ur ucd-snmp-3.6.2/agent/snmpd.c ucd-snmp/agent/snmpd.c
+--- ucd-snmp-3.6.2/agent/snmpd.c	1999-05-28 14:25:26.000000000 +0400
++++ ucd-snmp/agent/snmpd.c	2005-05-25 22:55:24.036481109 +0400
+@@ -563,7 +563,9 @@
+                     break;
+                 case 'H':
+                     init_agent();            /* register our .conf handlers */
++#ifdef HAVE_MIB
+                     register_mib_handlers(); /* snmplib .conf handlers */
++#endif
+                     fprintf(stderr, "Configuration directives understood:\n");
+                     read_config_print_usage("  ");
+                     break;
+@@ -625,22 +627,28 @@
+     if (!dont_fork && fork() != 0)   /* detach from shell */
+       exit(0);
+     init_agent();            /* register our .conf handlers */
++#ifdef HAVE_MIB
+     register_mib_handlers(); /* snmplib .conf handlers */
+     read_premib_configs();   /* read pre-mib-reading .conf handlers */
+     init_mib();              /* initialize the mib structures */
++#endif
+     update_config(0);        /* read in config files and register HUP */
+ #ifdef PERSISTENTFILE
+     /* read in the persistent information cache */
+     read_config_with_type(PERSISTENTFILE, "snmpd");
+     unlink(PERSISTENTFILE);  /* nuke it now that we've read it */
+ #endif
++#ifdef HAVE_SNMP2P
+     init_snmp2p( dest_port );
++#endif
+     
+     printf("Opening port(s): "); 
+     fflush(stdout);
+     if (( ret = open_port( dest_port )) > 0 )
+         sd_handlers[ret-1] = snmp_read_packet;   /* Save pointer to function */
++#ifdef HAVE_SNMP2P
+     open_ports_snmp2p( );
++#endif
+     printf("\n");
+     fflush(stdout);
+ 
+diff -ur ucd-snmp-3.6.2/agent/snmpd.h ucd-snmp/agent/snmpd.h
+--- ucd-snmp-3.6.2/agent/snmpd.h	1999-02-18 02:13:38.000000000 +0300
++++ ucd-snmp/agent/snmpd.h	2005-05-25 21:10:45.880737088 +0400
+@@ -20,4 +20,6 @@
+ void snmpd_free_trapsinks (void);
+ void snmpd_parse_config_trapcommunity (char *, char *);
+ void snmpd_free_trapcommunity (void);
++void snmpd_parse_config_community (char *, char *);
++void snmpd_free_community (void);
+ void agentBoots_conf (char *, char *);
+diff -ur ucd-snmp-3.6.2/agent/snmp_vars.c ucd-snmp/agent/snmp_vars.c
+--- ucd-snmp-3.6.2/agent/snmp_vars.c	1999-05-26 19:29:18.000000000 +0400
++++ ucd-snmp/agent/snmp_vars.c	2005-05-25 21:29:11.572347928 +0400
+@@ -358,6 +358,23 @@
+   return ret;
+ }
+ 
++char *snmp_community = NULL;
++
++void snmpd_parse_config_community(char *token, char *cptr)
++{
++	if (snmp_community) free(snmp_community);
++	snmp_community = malloc (strlen(cptr));
++	copy_word(cptr, snmp_community);
++}
++
++void snmpd_free_community (void)
++{
++	if (snmp_community) {
++		free(snmp_community);
++		snmp_community = NULL;
++	}
++}
++
+ /* in_a_view: determines if a given packet_info is allowed to see a
+    given name/namelen OID pointer
+    name         IN - name of var, OUT - name matched
+@@ -381,6 +398,12 @@
+ #ifdef USING_MIBII_VACM_VARS_MODULE
+     return vacm_in_view(pi, name, *namelen);
+ #else
++    if (snmp_community == NULL)
++	snmp_community = strdup("public");
++	
++    if (strcmp(snmp_community, (char *)pi->community))
++	return 0;
++	
+     return 1;
+ #endif
+   case SNMP_VERSION_2p:
+diff -ur ucd-snmp-3.6.2/configure ucd-snmp/configure
+--- ucd-snmp-3.6.2/configure	1999-06-08 18:13:39.000000000 +0400
++++ ucd-snmp/configure	2005-05-25 17:24:34.962778029 +0400
+@@ -1822,7 +1822,7 @@
+     esac
+ else
+     SHLIB_EXTENSION="a"
+-    SHLIB_LD_CMD="ar cr"
++    SHLIB_LD_CMD=$AR" cr"
+     SHLIB_LDCONFIG_CMD=":"
+ fi
+ 
+diff -ur ucd-snmp-3.6.2/snmplib/snmp_api.c ucd-snmp/snmplib/snmp_api.c
+--- ucd-snmp-3.6.2/snmplib/snmp_api.c	1999-06-08 14:40:36.000000000 +0400
++++ ucd-snmp/snmplib/snmp_api.c	2005-05-25 22:41:49.097435153 +0400
+@@ -391,7 +391,9 @@
+ extern int init_mib_internals(void);
+ 
+     init_snmp_session();
++#ifdef HAVE_MIBS
+     init_mib_internals();
++#endif
+ 
+     /* initialize session to default values */
+  
+@@ -421,9 +423,11 @@
+ #endif
+ 
+   init_snmp_session();
++#ifdef HAVE_MIBS
+   register_mib_handlers();
+   read_premib_configs();
+   init_mib();
++#endif
+   read_configs();
+ }
+ 
+diff -urN ucd-snmp-3.6.2/agent/dummy.c ucd-snmp/agent/dummy.c
+--- ucd-snmp-3.6.2/agent/dummy.c	1970-01-01 03:00:00.000000000 +0300
++++ ucd-snmp/agent/dummy.c	2005-05-25 23:01:05.378792478 +0400
+@@ -0,0 +1,27 @@
++/*
++ * Dummy functions to build minimal agent
++ *
++ * Copyright (c) 2005 Oleg I. Vdovikin
++ *
++ * Licensed under GPL version 2
++ *
++ */
++
++typedef unsigned char oid;
++
++int read_objid (char *input, oid *output, int *out_len)
++{
++    *out_len = 0;
++
++    return 0;
++}
++
++void snmp_set_quick_print (int val)
++{
++}
++
++char *sprint_objid (char *buf, oid *name, int name_len)
++{
++    *buf = 0;
++    return buf;
++}
