@@ -557,6 +557,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	BUG_ON(size == 0);
 
 	if (cpu_has_inclusive_pcaches) {
+		printk("r4k_dma_cache_wback_inv: cpu_has_inclusive_pcaches set!!!!\n");
 		if (size >= scache_size)
 			r4k_blast_scache();
 		else
@@ -571,7 +572,7 @@ static void r4k_dma_cache_wback_inv(unsigned long addr, unsigned long size)
 	 */
 	if (size >= dcache_size) {
 		r4k_blast_dcache();
-	} else {
+	} else if (size) {
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		blast_dcache_range(addr, addr + size);
 	}
@@ -585,6 +586,7 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 	BUG_ON(size == 0);
 
 	if (cpu_has_inclusive_pcaches) {
+		printk("r4k_dma_cache_wback_inv: cpu_has_inclusive_pcaches set!!!!\n");
 		if (size >= scache_size)
 			r4k_blast_scache();
 		else
@@ -594,7 +596,7 @@ static void r4k_dma_cache_inv(unsigned long addr, unsigned long size)
 
 	if (size >= dcache_size) {
 		r4k_blast_dcache();
-	} else {
+	} else if (size) {
 		R4600_HIT_CACHEOP_WAR_IMPL;
 		blast_inv_dcache_range(addr, addr + size);
 	}
@@ -786,7 +788,6 @@ static void __cpuinit probe_pcache(void)
 	case CPU_VR4133:
 		write_c0_config(config & ~VR41_CONF_P4K);
 	case CPU_VR4131:
-		/* Workaround for cache instruction bug of VR4131 */
 		if (c->processor_id == 0x0c80U || c->processor_id == 0x0c81U ||
 		    c->processor_id == 0x0c82U) {
 			config |= 0x00400000U;
@@ -1142,6 +1143,22 @@ void au1x00_fixup_config_od(void)
 	}
 }
 
+#if defined(CONFIG_BCM47XX) || defined(CONFIG_BCM5365)
+static void __cpuinit _change_cachability(u32 cm)
+{
+	change_c0_config(CONF_CM_CMASK, cm);
+
+	if (BCM330X(current_cpu_data.processor_id)) {
+		cm = read_c0_diag();
+		/* Enable icache */
+		cm |= (1 << 31);
+		/* Enable dcache */
+		cm |= (1 << 30);
+		write_c0_diag(cm);
+	}
+}	
+static void (*change_cachability)(u32);
+#else
 static void __cpuinit coherency_setup(void)
 {
 	change_c0_config(CONF_CM_CMASK, CONF_CM_DEFAULT);
@@ -1173,6 +1190,7 @@ static void __cpuinit coherency_setup(void)
 		break;
 	}
 }
+#endif
 
 void __cpuinit r4k_cache_init(void)
 {
@@ -1229,5 +1247,11 @@ void __cpuinit r4k_cache_init(void)
 	build_clear_page();
 	build_copy_page();
 	local_r4k___flush_cache_all(NULL);
+
+#if defined(CONFIG_BCM47XX) || defined(CONFIG_BCM5365)
+	change_cachability = (void (*)(u32)) KSEG1ADDR((unsigned long)(_change_cachability));
+	_change_cachability(CONF_CM_DEFAULT);
+#else
 	coherency_setup();
+#endif
 }

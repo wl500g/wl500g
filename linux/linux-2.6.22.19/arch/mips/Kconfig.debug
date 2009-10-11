@@ -95,4 +95,9 @@ config MIPS_UNCACHED
 	  hardware debugging with a logic analyzer and need to see all traffic
 	  on the bus.
 
+config PRINT_SYSCALLS
+	bool "Syscalls trace"
+	help
+	  Enables poor man's strace.
+
 endmenu

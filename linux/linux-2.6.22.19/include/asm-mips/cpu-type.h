@@ -141,6 +141,12 @@ static inline int __pure __get_cpu_type(const int cpu_type)
 	case CPU_SB1:
 	case CPU_SB1A:
 #endif
+#ifdef CONFIG_BCM47XX
+# if !defined(CONFIG_CPU_MIPSR2)
+	case CPU_BCM4710:
+# endif
+	case CPU_BCM3302:
+#endif
 		break;
 	default:
 		unreachable();

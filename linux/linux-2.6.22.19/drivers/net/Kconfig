@@ -28,6 +28,8 @@ config NETDEVICES
 # that for each of the symbols.
 if NETDEVICES
 
+source "drivers/net/hnd/Kconfig"
+
 config IFB
 	tristate "Intermediate Functional Block support"
 	depends on NET_CLS_ACT

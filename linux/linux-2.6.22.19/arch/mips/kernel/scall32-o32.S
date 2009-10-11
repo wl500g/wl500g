@@ -55,6 +55,21 @@ NESTED(handle_sys, PT_SIZE, sp)
 	bgez	t3, stackargs
 
 stack_done:
+#ifdef CONFIG_PRINT_SYSCALLS
+	SAVE_STATIC
+	sw	t2, PT_R1(sp)
+	move	a0, sp			# pass pointer to saved regs
+	
+	jal	strace
+
+	RESTORE_STATIC
+	lw	t2, PT_R1(sp)
+
+	lw	a0, PT_R4(sp)		# Restore argument registers
+	lw	a1, PT_R5(sp)
+	lw	a2, PT_R6(sp)
+	lw	a3, PT_R7(sp)
+#endif
 	lw	t0, TI_FLAGS($28)	# syscall tracing enabled?
 	li	t1, _TIF_SYSCALL_TRACE | _TIF_SYSCALL_AUDIT
 	and	t0, t1

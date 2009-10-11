@@ -5,16 +5,27 @@ config MIPS
 	select EMBEDDED
 	select RTC_LIB
 
+config ZONE_DMA
+	bool
+
 mainmenu "Linux/MIPS Kernel Configuration"
 
 menu "Machine selection"
 
-config ZONE_DMA
-	bool
-
 choice
 	prompt "System type"
-	default SGI_IP22
+	default MIPS_BRCM
+
+config MIPS_BRCM
+	bool "Broadcom MIPS based platforms"
+	select SYS_SUPPORTS_LITTLE_ENDIAN
+	select DMA_NONCOHERENT
+	select HW_HAS_PCI
+	select IRQ_CPU
+	select SYS_SUPPORTS_32BIT_KERNEL
+	select SYS_SUPPORTS_KGDB
+	select SYS_HAS_CPU_MIPS32_R1
+	select SYS_HAS_CPU_MIPS32_R2
 
 config MACH_ALCHEMY
 	bool "Alchemy processor based machines"
@@ -669,6 +680,31 @@ source "arch/mips/philips/pnx8550/common/Kconfig"
 
 endmenu
 
+menu "Support for Broadcom MIPS based boards"
+
+config BCM947XX
+	bool "Support for Broadcom BCM947XX"
+	depends on MIPS_BRCM
+
+config BCM47XX
+	bool "Support for Broadcom BCM47XX processors"
+	depends on BCM947XX
+
+config BCMIPDSCP
+	bool "Support for Using DSCP based IP forwarding"
+	depends on BCM947XX
+
+config HND_BMIPS3300_PROF
+	bool "Support for performance profiling"
+	depends on BCM947XX
+
+config RAM_SIZE
+	int "Memory size (in megabytes)"
+	depends on BCM947XX
+
+endmenu
+
+
 config RWSEM_GENERIC_SPINLOCK
 	bool
 	default y
@@ -929,7 +965,7 @@ menu "CPU selection"
 
 choice
 	prompt "CPU type"
-	default CPU_R4X00
+	default CPU_MIPS32_R1
 
 config CPU_MIPS32_R1
 	bool "MIPS32 Release 1"

@@ -65,3 +65,16 @@ obj-$(CONFIG_KEXEC)		+= machine_kexec.o relocate_kernel.o
 obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
 
 CFLAGS_cpu-bugs64.o	= $(shell if $(CC) $(CFLAGS) -Wa,-mdaddi -c -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-DHAVE_AS_SET_DADDI"; fi)
+
+ifneq ($(CONFIG_PRINT_SYSCALLS),)
+$(src)/syscall.o: $(src)/syscalls.h
+
+clean-files := syscalls.h
+
+quiet_cmd_syscall_names = GEN     $@
+      cmd_syscall_names = $(AWK) -f $(src)/syscalls.awk $< >$@
+
+# Only O32 ABI supported for now
+$(src)/syscalls.h: $(src)/scall32-o32.S $(src)/syscalls.awk
+	$(call cmd,syscall_names)
+endif

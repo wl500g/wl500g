@@ -316,6 +316,37 @@ CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-delete-null-pointer-checks
 AFLAGS          := -D__ASSEMBLY__
 
+
+# Broadcom source tree
+TOPDIR  := $(shell /bin/pwd)
+SRCBASE ?= $(TOPDIR)/../..
+export SRCBASE
+CFLAGS += -I$(SRCBASE)/include
+AFLAGS += -I$(SRCBASE)/include
+ASFLAGS += -I$(SRCBASE)/include
+
+ifeq ("$(CONFIG_WL_EMULATOR)","y")
+CFLAGS += -DBCM_WL_EMULATOR -DBCMPERFSTATS
+endif #CONFIG_WL_EMULATOR
+
+#ifdef BCMINTERNAL
+##BCMINTERNAL := y
+ifeq ("$(strip $(BCMINTERNAL))","y")
+AFLAGS += -DBCMINTERNAL
+ASFLAGS += -DBCMINTERNAL
+CFLAGS += -DBCMINTERNAL
+#ifdef BCMDBG
+##BCMDBG := y
+ifeq ("$(strip $(BCMDBG))","y")
+AFLAGS += -DBCMDBG
+ASFLAGS += -DBCMDBG
+CFLAGS += -DBCMDBG
+endif #BCMDBG
+#endif
+endif #BCMINTERNAL
+#endif
+CFLAGS += -DBCMDRIVER -Dlinux
+
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
@@ -564,6 +595,8 @@ export MODLIB
 #  stripped after they are installed.  If INSTALL_MOD_STRIP is '1', then
 #  the default option --strip-debug will be used.  Otherwise,
 #  INSTALL_MOD_STRIP will used as the options to the strip command.
+
+INSTALL_MOD_STRIP = 1
 
 ifdef INSTALL_MOD_STRIP
 ifeq ($(INSTALL_MOD_STRIP),1)

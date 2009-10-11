@@ -81,7 +81,13 @@ endif
 cflags-y			+= -G 0 -mno-abicalls -fno-pic -pipe
 cflags-y			+= -msoft-float
 LDFLAGS_vmlinux			+= -G 0 -static -n -nostdlib
-MODFLAGS			+= -mlong-calls
+MODFLAGS			+= -mlong-calls -fno-common
+
+# Always compile with debug symbols. They will be stripped by the router
+# makefile to produce the final kernel. Debug versions of kernel and brcm
+# kernel modules will be kept with the extension dbgsym attached to their
+# names.
+cflags-y += -ggdb
 
 cflags-y += -ffreestanding
 
@@ -602,6 +608,15 @@ load-$(CONFIG_TOSHIBA_RBTX4938) += 0xffffffff80100000
 cflags-y			+= -Iinclude/asm-mips/mach-generic
 drivers-$(CONFIG_PCI)		+= arch/mips/pci/
 
+#
+# Broadcom BCM947XX variants
+#
+core-$(CONFIG_BCM947XX) += arch/mips/brcm-boards/generic/ arch/mips/brcm-boards/bcm947xx/
+load-$(CONFIG_BCM947XX) := 0xffffffff80001000
+ifdef CONFIG_BCM947XX
+zImage: vmlinux
+endif
+
 ifdef CONFIG_32BIT
 ifdef CONFIG_CPU_LITTLE_ENDIAN
 JIFFIES			= jiffies_64
@@ -613,6 +628,7 @@ JIFFIES			= jiffies_64
 endif
 
 AFLAGS		+= $(cflags-y)
+ASFLAGS		+= $(cflags-y)
 CFLAGS		+= $(cflags-y)
 
 LDFLAGS			+= -m $(ld-emul)
@@ -723,6 +739,7 @@ endif
 archclean:
 	@$(MAKE) $(clean)=arch/mips/boot
 	@$(MAKE) $(clean)=arch/mips/lasat
+	$(Q)$(MAKE) -C arch/mips/brcm-boards/bcm947xx/compressed clean
 
 CLEAN_FILES += vmlinux.32 \
 	       vmlinux.64 \
