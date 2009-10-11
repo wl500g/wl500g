@@ -31,7 +31,7 @@
  				robo->ops->write_reg(robo, PAGE_VLAN, pdesc[pid].ptagr,
  				                     &val16, sizeof(val16));
  			}
-@@ -981,19 +984,19 @@
+@@ -981,26 +984,26 @@
  			/* VLAN Table Access Register (Page 0x34, Address 0x08) */
  			val16 = ((1 << 13) | 	/* start command */
  				 (1 << 12) |	/* write state */
@@ -40,9 +40,17 @@
  			robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_ACCESS_5365, &val16,
  			                     sizeof(val16));
  		} else if (robo->devid == DEVID5325) {
- 			val32 |= ((1 << 20) |		/* valid write */
--			          ((vid >> 4) << 12));	/* vlan id bit[11:4] */
-+				  ((vid0 >> 4) << 12));	/* vlan id bit[11:4] */
+ 			if (robo->corerev < 3) {
+ 				val32 |= ((1 << 20) |		/* valid write */
+-				          ((vid >> 4) << 12));	/* vlan id bit[11:4] */
++					  ((vid0 >> 4) << 12));	/* vlan id bit[11:4] */
+			} else {
+ 				val32 |= ((1 << 24) |		/* valid write */
+-				          (vid << 12));	/* vlan id bit[11:4] */
++					  (vid0 << 12));	/* vlan id bit[11:4] */
+			}
+ 			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
+ 
  			/* VLAN Write Register (Page 0x34, Address 0x08-0x0B) */
  			robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_WRITE, &val32,
  			                     sizeof(val32));
