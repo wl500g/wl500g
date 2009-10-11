@@ -1,0 +1,243 @@
+Fixes from 2.6.22.X
+
+diff -urBwNp linux-2.6.22/fs/direct-io.c linux-2.6/fs/direct-io.c
+--- linux-2.6.22/fs/direct-io.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/direct-io.c	2009-03-17 10:22:01.000000000 +0300
+@@ -974,6 +974,7 @@ direct_io_worker(int rw, struct kiocb *i
+ 	dio->get_block = get_block;
+ 	dio->end_io = end_io;
+ 	dio->map_bh.b_private = NULL;
++	dio->map_bh.b_state = 0;
+ 	dio->final_block_in_bio = -1;
+ 	dio->next_block_for_io = -1;
+ 
+diff -urBwNp linux-2.6.22/fs/exec.c linux-2.6/fs/exec.c
+--- linux-2.6.22/fs/exec.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/exec.c	2009-03-17 10:22:01.000000000 +0300
+@@ -586,18 +586,12 @@ static int de_thread(struct task_struct
+ 	int count;
+ 
+ 	/*
+-	 * Tell all the sighand listeners that this sighand has
+-	 * been detached. The signalfd_detach() function grabs the
+-	 * sighand lock, if signal listeners are present on the sighand.
+-	 */
+-	signalfd_detach(tsk);
+-
+-	/*
+ 	 * If we don't share sighandlers, then we aren't sharing anything
+ 	 * and we can just re-use it all.
+ 	 */
+ 	if (atomic_read(&oldsighand->count) <= 1) {
+ 		BUG_ON(atomic_read(&sig->count) != 1);
++		signalfd_detach(tsk);
+ 		exit_itimers(sig);
+ 		return 0;
+ 	}
+@@ -736,6 +730,7 @@ static int de_thread(struct task_struct
+ 	sig->flags = 0;
+ 
+ no_thread_group:
++	signalfd_detach(tsk);
+ 	exit_itimers(sig);
+ 	if (leader)
+ 		release_task(leader);
+@@ -890,8 +885,11 @@ int flush_old_exec(struct linux_binprm *
+ 	 */
+ 	current->mm->task_size = TASK_SIZE;
+ 
+-	if (bprm->e_uid != current->euid || bprm->e_gid != current->egid || 
+-	    file_permission(bprm->file, MAY_READ) ||
++	if (bprm->e_uid != current->euid || bprm->e_gid != current->egid) {
++		suid_keys(current);
++		current->mm->dumpable = suid_dumpable;
++		current->pdeath_signal = 0;
++	} else if (file_permission(bprm->file, MAY_READ) ||
+ 	    (bprm->interp_flags & BINPRM_FLAGS_ENFORCE_NONDUMP)) {
+ 		suid_keys(current);
+ 		current->mm->dumpable = suid_dumpable;
+@@ -983,8 +981,10 @@ void compute_creds(struct linux_binprm *
+ {
+ 	int unsafe;
+ 
+-	if (bprm->e_uid != current->uid)
++	if (bprm->e_uid != current->uid) {
+ 		suid_keys(current);
++		current->pdeath_signal = 0;
++	}
+ 	exec_keys(current);
+ 
+ 	task_lock(current);
+@@ -1561,6 +1561,12 @@ int do_coredump(long signr, int exit_cod
+ 	   but keep the previous behaviour for now. */
+ 	if (!ispipe && !S_ISREG(inode->i_mode))
+ 		goto close_fail;
++	/*
++	 * Dont allow local users get cute and trick others to coredump
++	 * into their pre-created files:
++	 */
++	if (inode->i_uid != current->fsuid)
++		goto close_fail;
+ 	if (!file->f_op)
+ 		goto close_fail;
+ 	if (!file->f_op->write)
+diff -urBwNp linux-2.6.22/fs/locks.c linux-2.6/fs/locks.c
+--- linux-2.6.22/fs/locks.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/locks.c	2009-03-17 10:22:01.000000000 +0300
+@@ -786,7 +786,7 @@ find_conflict:
+ 	if (request->fl_flags & FL_ACCESS)
+ 		goto out;
+ 	locks_copy_lock(new_fl, request);
+-	locks_insert_lock(&inode->i_flock, new_fl);
++	locks_insert_lock(before, new_fl);
+ 	new_fl = NULL;
+ 	error = 0;
+ 
+diff -urBwNp linux-2.6.22/fs/namei.c linux-2.6/fs/namei.c
+--- linux-2.6.22/fs/namei.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/namei.c	2009-03-17 10:22:01.000000000 +0300
+@@ -1543,7 +1543,7 @@ int may_open(struct nameidata *nd, int a
+ 	if (S_ISLNK(inode->i_mode))
+ 		return -ELOOP;
+ 	
+-	if (S_ISDIR(inode->i_mode) && (flag & FMODE_WRITE))
++	if (S_ISDIR(inode->i_mode) && (acc_mode & MAY_WRITE))
+ 		return -EISDIR;
+ 
+ 	error = vfs_permission(nd, acc_mode);
+@@ -1562,7 +1562,7 @@ int may_open(struct nameidata *nd, int a
+ 			return -EACCES;
+ 
+ 		flag &= ~O_TRUNC;
+-	} else if (IS_RDONLY(inode) && (flag & FMODE_WRITE))
++	} else if (IS_RDONLY(inode) && (acc_mode & MAY_WRITE))
+ 		return -EROFS;
+ 	/*
+ 	 * An append-only file must be opened in append mode for writing.
+diff -urBwNp linux-2.6.22/fs/signalfd.c linux-2.6/fs/signalfd.c
+--- linux-2.6.22/fs/signalfd.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/signalfd.c	2009-03-17 10:22:01.000000000 +0300
+@@ -56,12 +56,18 @@ static int signalfd_lock(struct signalfd
+ 		sighand = lock_task_sighand(lk->tsk, &lk->flags);
+ 	rcu_read_unlock();
+ 
+-	if (sighand && !ctx->tsk) {
++	if (!sighand)
++		return 0;
++
++	if (!ctx->tsk) {
+ 		unlock_task_sighand(lk->tsk, &lk->flags);
+-		sighand = NULL;
++		return 0;
+ 	}
+ 
+-	return sighand != NULL;
++	if (lk->tsk->tgid == current->tgid)
++		lk->tsk = current;
++
++	return 1;
+ }
+ 
+ static void signalfd_unlock(struct signalfd_lockctx *lk)
+@@ -331,7 +337,7 @@ asmlinkage long sys_signalfd(int ufd, si
+ 
+ 		init_waitqueue_head(&ctx->wqh);
+ 		ctx->sigmask = sigmask;
+-		ctx->tsk = current;
++		ctx->tsk = current->group_leader;
+ 
+ 		sighand = current->sighand;
+ 		/*
+diff -urBwNp linux-2.6.22/fs/splice.c linux-2.6/fs/splice.c
+--- linux-2.6.22/fs/splice.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/splice.c	2009-03-17 10:22:01.000000000 +0300
+@@ -601,7 +601,7 @@ find_page:
+ 		ret = add_to_page_cache_lru(page, mapping, index,
+ 					    GFP_KERNEL);
+ 		if (unlikely(ret))
+-			goto out;
++			goto out_release;
+ 	}
+ 
+ 	ret = mapping->a_ops->prepare_write(file, page, offset, offset+this_len);
+@@ -657,8 +657,9 @@ find_page:
+ 	 */
+ 	mark_page_accessed(page);
+ out:
+-	page_cache_release(page);
+ 	unlock_page(page);
++out_release:
++	page_cache_release(page);
+ out_ret:
+ 	return ret;
+ }
+@@ -1010,7 +1011,7 @@ long do_splice_direct(struct file *in, l
+ 		max_read_len = min(len, (size_t)(PIPE_BUFFERS*PAGE_SIZE));
+ 
+ 		ret = do_splice_to(in, ppos, pipe, max_read_len, flags);
+-		if (unlikely(ret < 0))
++		if (unlikely(ret <= 0))
+ 			goto out_release;
+ 
+ 		read_len = ret;
+@@ -1022,7 +1023,7 @@ long do_splice_direct(struct file *in, l
+ 		 */
+ 		ret = do_splice_from(pipe, out, &out_off, read_len,
+ 				     flags & ~SPLICE_F_NONBLOCK);
+-		if (unlikely(ret < 0))
++		if (unlikely(ret <= 0))
+ 			goto out_release;
+ 
+ 		bytes += ret;
+@@ -1181,6 +1182,9 @@ static int get_iovec_page_array(const st
+ 		if (unlikely(!base))
+ 			break;
+ 
++		if (!access_ok(VERIFY_READ, base, len))
++			break;
++
+ 		/*
+ 		 * Get this base offset and number of pages, then map
+ 		 * in the user pages.
+diff -urBwNp linux-2.6.22/fs/timerfd.c linux-2.6/fs/timerfd.c
+--- linux-2.6.22/fs/timerfd.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/fs/timerfd.c	2009-03-17 10:22:01.000000000 +0300
+@@ -95,7 +95,7 @@ static ssize_t timerfd_read(struct file
+ {
+ 	struct timerfd_ctx *ctx = file->private_data;
+ 	ssize_t res;
+-	u32 ticks = 0;
++	u64 ticks = 0;
+ 	DECLARE_WAITQUEUE(wait, current);
+ 
+ 	if (count < sizeof(ticks))
+@@ -130,7 +130,7 @@ static ssize_t timerfd_read(struct file
+ 			 * callback to avoid DoS attacks specifying a very
+ 			 * short timer period.
+ 			 */
+-			ticks = (u32)
++			ticks = (u64)
+ 				hrtimer_forward(&ctx->tmr,
+ 						hrtimer_cb_get_time(&ctx->tmr),
+ 						ctx->tintv);
+@@ -140,7 +140,7 @@ static ssize_t timerfd_read(struct file
+ 	}
+ 	spin_unlock_irq(&ctx->wqh.lock);
+ 	if (ticks)
+-		res = put_user(ticks, buf) ? -EFAULT: sizeof(ticks);
++		res = put_user(ticks, (u64 __user *) buf) ? -EFAULT: sizeof(ticks);
+ 	return res;
+ }
+ 
+diff -urBwNp linux-2.6.22/include/linux/ext2_fs_sb.h linux-2.6/include/linux/ext2_fs_sb.h
+--- linux-2.6.22/include/linux/ext2_fs_sb.h	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/include/linux/ext2_fs_sb.h	2009-03-17 12:10:53.000000000 +0300
+@@ -33,6 +33,8 @@ struct ext2_sb_info {
+ 	unsigned long s_gdb_count;	/* Number of group descriptor blocks */
+ 	unsigned long s_desc_per_block;	/* Number of group descriptors per block */
+ 	unsigned long s_groups_count;	/* Number of groups in the fs */
++	unsigned long s_overhead_last;
++	unsigned long s_blocks_last;
+ 	struct buffer_head * s_sbh;	/* Buffer containing the super block */
+ 	struct ext2_super_block * s_es;	/* Pointer to the super block in the buffer */
+ 	struct buffer_head ** s_group_desc;
