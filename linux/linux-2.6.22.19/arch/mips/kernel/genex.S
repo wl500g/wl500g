@@ -51,6 +51,10 @@ NESTED(except_vec1_generic, 0, sp)
 NESTED(except_vec3_generic, 0, sp)
 	.set	push
 	.set	noat
+#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
+	nop
+	nop
+#endif
 #if R5432_CP0_INTERRUPT_WAR
 	mfc0	k0, CP0_INDEX
 #endif

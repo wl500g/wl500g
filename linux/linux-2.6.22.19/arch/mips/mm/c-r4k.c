@@ -30,6 +30,13 @@
 #include <asm/cacheflush.h> /* for run_uncached() */
 
 
+/* For enabling BCM4710 cache workarounds */
+#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
+static int war_bcm4710 __read_mostly = 0;
+#else
+#define war_bcm4710	0
+#endif
+
 /*
  * Special Variant of smp_call_function for use by cache functions:
  *
@@ -94,6 +101,9 @@ static void __cpuinit r4k_blast_dcache_page_setup(void)
 {
 	unsigned long  dc_lsize = cpu_dcache_line_size();
 
+	if (unlikely(war_bcm4710))
+		r4k_blast_dcache_page = blast_dcache_page;
+	else
 	if (dc_lsize == 0)
 		r4k_blast_dcache_page = (void *)cache_noop;
 	else if (dc_lsize == 16)
@@ -108,6 +118,9 @@ static void __cpuinit r4k_blast_dcache_page_indexed_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
+	if (unlikely(war_bcm4710))
+		r4k_blast_dcache_page_indexed = blast_dcache_page_indexed;
+	else
 	if (dc_lsize == 0)
 		r4k_blast_dcache_page_indexed = (void *)cache_noop;
 	else if (dc_lsize == 16)
@@ -122,6 +135,9 @@ static void __cpuinit r4k_blast_dcache_setup(void)
 {
 	unsigned long dc_lsize = cpu_dcache_line_size();
 
+	if (unlikely(war_bcm4710))
+		r4k_blast_dcache = blast_dcache;
+	else
 	if (dc_lsize == 0)
 		r4k_blast_dcache = (void *)cache_noop;
 	else if (dc_lsize == 16)
@@ -618,6 +634,8 @@ static void local_r4k_flush_cache_sigtramp(void * arg)
 	unsigned long addr = (unsigned long) arg;
 
 	R4600_HIT_CACHEOP_WAR_IMPL;
+	BCM4710_PROTECTED_FILL_TLB(addr);
+	BCM4710_PROTECTED_FILL_TLB(addr + 4);
 	if (dc_lsize)
 		protected_writeback_dcache_line(addr & ~(dc_lsize - 1));
 	if (!cpu_icache_snoops_remote_store && scache_size)
@@ -1171,6 +1189,17 @@ static void __cpuinit coherency_setup(void)
 	 * silly idea of putting something else there ...
 	 */
 	switch (current_cpu_type()) {
+       case CPU_BCM3302:
+               {
+                       u32 cm;
+                       cm = read_c0_diag();
+                       /* Enable icache */
+                       cm |= (1 << 31);
+                       /* Enable dcache */
+                       cm |= (1 << 30);
+                       write_c0_diag(cm);
+               }
+               break;
 	case CPU_R4000PC:
 	case CPU_R4000SC:
 	case CPU_R4000MC:
@@ -1201,6 +1230,15 @@ void __cpuinit r4k_cache_init(void)
 
 	/* Default cache error handler for R4000 and R5000 family */
 	set_uncached_handler (0x100, &except_vec2_generic, 0x80);
+
+	/* Check if special workarounds are required */
+#if defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
+	if (current_cpu_type() == CPU_BCM4710 && (current_cpu_data.processor_id & 0xff) == 0) {
+		printk(KERN_INFO "Enabling BCM4710A0 cache workarounds.\n");
+		war_bcm4710 = 1;
+	} else
+		war_bcm4710 = 0;
+#endif
 
 	probe_pcache();
 	setup_scache();

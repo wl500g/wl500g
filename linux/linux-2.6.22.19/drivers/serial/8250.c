@@ -342,6 +342,10 @@ static inline int map_8250_out_reg(struct uart_8250_port *up, int offset)
 
 #endif
 
+#ifdef CONFIG_BCM47XX
+#include <asm/r4kcache.h>
+#endif
+
 static unsigned int serial_in(struct uart_8250_port *up, int offset)
 {
 	unsigned int tmp;
@@ -392,6 +396,9 @@ serial_out(struct uart_8250_port *up, int offset, int value)
 
 	case UPIO_MEM:
 		writeb(value, up->port.membase + offset);
+#ifdef CONFIG_BCM47XX
+		BCM4710_DUMMY_RREG();
+#endif
 		break;
 
 	case UPIO_RM9000:
