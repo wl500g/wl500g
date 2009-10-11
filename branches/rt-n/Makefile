@@ -20,7 +20,7 @@
 ROOT := $(shell (cd .. && pwd -P))
 SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
-export KERNEL_DIR := $(ROOT)/linux/linux
+export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
 BUSYBOX=busybox-1.15.2
 DROPBEAR=dropbear-0.52
@@ -53,8 +53,9 @@ MADWIMAX=madwimax-0.1.1
 
 UCLIBC=uClibc-0.9.29
 
-ET=et-4.108.9
-WL=wl-4.150.10.29
+ET=et-5.10.56.46
+WL=wl-5.10.56.46
+NAS=nas-5.10.56.46
 LIBBCMCRYPTO=libbcmcrypto-3.130.20
 WLCONF=wlconf
 
@@ -74,9 +75,8 @@ define make_diff
     diffstat $(4).diff
 endef
 
-OPENWRT_Kernel_Patches:=$(call patches_list,kernel/openwrt)
-OPENWRT_Brcm_Patches:=$(call patches_list,kernel/openwrt/brcm)
-OUR_Kernel_Patches:=$(call patches_list, kernel)
+OPENWRT_Kernel_Patches:=$(call patches_list,kernel-2.6/openwrt)
+OUR_Kernel_Patches:=$(call patches_list, kernel-2.6)
 
 all: prep custom
 	@true
@@ -115,30 +115,27 @@ lzma: $(ROOT)/lzma
 
 et:
 	[ -d $(ROOT)/$(ET).orig ] || mv $(ROOT)/et $(ROOT)/$(ET).orig
-	tar -C $(ROOT) -xzf $(ET).tar.gz
-	$(PATCHER) -Z $(ROOT)/et $(ET).patch
+	tar -C $(ROOT) -xjf brcm-src/$(ET).tar.bz2
+	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
 wl:
 	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
-	tar -C $(ROOT) -xjf $(WL).tar.bz2
+	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
+
+brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	@cd brcm-src && $(PATCHER) -Z $(ROOT) brcm-src-shared.patch brcm-src-include.patch \
-		brcm-src-5365.patch brcm-src-5365-robo.patch brcm-src-5354.patch \
-		brcm-src-robo-tag.patch 
+	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 
 kernel-patch:
 	@echo Preparing kernel ...
-	[ -d $(KERNEL_DIR)/arch/mips/bcm947xx ] || tar -C $(KERNEL_DIR) -xvjf kernel/brcm-boards.tar.bz2
-	$(MAKE) -C $(KERNEL_DIR)/arch/mips/bcm947xx/compressed/ clean
-	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
+#	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
-	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
-	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
+#	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 kernel-extra-drivers:
