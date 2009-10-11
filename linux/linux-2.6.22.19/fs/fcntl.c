@@ -290,6 +290,10 @@ int f_setown(struct file *filp, unsigned long arg, int force)
 	}
 	rcu_read_lock();
 	pid = find_pid(who);
+	if (pid == NULL)
+		printk(KERN_DEBUG "f_setown: NULL pid\n");
+	else
+		printk(KERN_DEBUG "f_setown: pid = %d\n", pid_nr(pid));
 	result = __f_setown(filp, pid, type, force);
 	rcu_read_unlock();
 	return result;
