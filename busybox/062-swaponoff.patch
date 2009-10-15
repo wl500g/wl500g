@@ -1,0 +1,181 @@
+From 9aff29997ed22932f78aa8d8c7c2412e9d3f49e5
+From: Natanael Copa
+Date: Sun, 20 Sep 2009 02:28:22 +0000
+Subject: swaponoff: add uuid/label support. By Natanael Copa
+
+function                                             old     new   delta
+swap_enable_disable                                  130     150     +20
+resolve_mount_spec                                    76      96     +20
+mount_main                                          1152    1154      +2
+findfs_main                                          125      80     -45
+------------------------------------------------------------------------------
+(add/remove: 0/0 grow/shrink: 3/1 up/down: 42/-45)             Total: -3 bytes
+
+Signed-off-by: Natanael Copa <natanael.copa@gmail.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/include/volume_id.h b/include/volume_id.h
+index bba32c0..77e874d 100644
+--- a/include/volume_id.h
++++ b/include/volume_id.h
+@@ -21,3 +21,10 @@
+ char *get_devname_from_label(const char *spec);
+ char *get_devname_from_uuid(const char *spec);
+ void display_uuid_cache(void);
++
++/* Returns:
++ * 0: no UUID= or LABEL= prefix found
++ * 1: UUID= or LABEL= prefix found. In this case,
++ *    *fsname is replaced if device with such UUID or LABEL is found
++ */
++int resolve_mount_spec(char **fsname);
+diff --git a/util-linux/Config.in b/util-linux/Config.in
+index 5f5adc0..7cf1757 100644
+--- a/util-linux/Config.in
++++ b/util-linux/Config.in
+@@ -689,6 +689,7 @@ config FEATURE_MOUNT_LABEL
+ 	help
+ 	  This allows for specifying a device by label or uuid, rather than by
+ 	  name. This feature utilizes the same functionality as blkid/findfs.
++	  This also enables label or uuid support for swapon.
+ 
+ config FEATURE_MOUNT_NFS
+ 	bool "Support mounting NFS file systems"
+diff --git a/util-linux/findfs.c b/util-linux/findfs.c
+index 5b64399..1e9c687 100644
+--- a/util-linux/findfs.c
++++ b/util-linux/findfs.c
+@@ -12,26 +12,27 @@
+ #include "volume_id.h"
+ 
+ int findfs_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+-int findfs_main(int argc, char **argv)
++int findfs_main(int argc UNUSED_PARAM, char **argv)
+ {
+-	char *tmp = NULL;
++	char *dev = *++argv;
+ 
+-	if (argc != 2)
++	if (!dev)
+ 		bb_show_usage();
+ 
+-	if (!strncmp(argv[1], "LABEL=", 6))
+-		tmp = get_devname_from_label(argv[1] + 6);
+-	else if (!strncmp(argv[1], "UUID=", 5))
+-		tmp = get_devname_from_uuid(argv[1] + 5);
+-	else if (!strncmp(argv[1], "/dev/", 5)) {
+-		/* Just pass a device name right through.  This might aid in some scripts
+-		being able to call this unconditionally */
+-		tmp = argv[1];
+-	} else
+-		bb_show_usage();
++	if (strncmp(dev, "/dev/", 5) == 0) {
++		/* Just pass any /dev/xxx name right through.
++		 * This might aid in some scripts being able
++		 * to call this unconditionally */
++		dev = NULL;
++	} else {
++		/* Otherwise, handle LABEL=xxx and UUID=xxx,
++		 * fail on anything else */
++		if (!resolve_mount_spec(argv))
++			bb_show_usage();
++	}
+ 
+-	if (tmp) {
+-		puts(tmp);
++	if (*argv != dev) {
++		puts(*argv);
+ 		return 0;
+ 	}
+ 	return 1;
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+index 478dc24..9f465f1 100644
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -50,7 +50,9 @@
+ #include "libbb.h"
+ 
+ #if ENABLE_FEATURE_MOUNT_LABEL
+-#include "volume_id.h"
++# include "volume_id.h"
++#else
++# define resolve_mount_spec(fsname) ((void)0)
+ #endif
+ 
+ // Needed for nfs support only
+@@ -290,23 +292,6 @@ static int verbose_mount(const char *source, const char *target,
+ #define verbose_mount(...) mount(__VA_ARGS__)
+ #endif
+ 
+-#if ENABLE_FEATURE_MOUNT_LABEL
+-static void resolve_mount_spec(char **fsname)
+-{
+-	char *tmp = NULL;
+-
+-	if (!strncmp(*fsname, "UUID=", 5))
+-		tmp = get_devname_from_uuid(*fsname + 5);
+-	else if (!strncmp(*fsname, "LABEL=", 6))
+-		tmp = get_devname_from_label(*fsname + 6);
+-
+-	if (tmp)
+-		*fsname = tmp;
+-}
+-#else
+-#define resolve_mount_spec(fsname) ((void)0)
+-#endif
+-
+ // Append mount options to string
+ static void append_mount_options(char **oldopts, const char *newopts)
+ {
+diff --git a/util-linux/swaponoff.c b/util-linux/swaponoff.c
+index 863f773..33ad00a 100644
+--- a/util-linux/swaponoff.c
++++ b/util-linux/swaponoff.c
+@@ -11,6 +11,12 @@
+ #include <mntent.h>
+ #include <sys/swap.h>
+ 
++#if ENABLE_FEATURE_MOUNT_LABEL
++# include "volume_id.h"
++#else
++# define resolve_mount_spec(fsname) ((void)0)
++#endif
++
+ #if ENABLE_FEATURE_SWAPON_PRI
+ struct globals {
+ 	int flags;
+@@ -26,6 +32,7 @@ static int swap_enable_disable(char *device)
+ 	int status;
+ 	struct stat st;
+ 
++	resolve_mount_spec(&device);
+ 	xstat(device, &st);
+ 
+ #if ENABLE_DESKTOP
+diff --git a/util-linux/volume_id/get_devname.c b/util-linux/volume_id/get_devname.c
+index 0686a07..9b5283f 100644
+--- a/util-linux/volume_id/get_devname.c
++++ b/util-linux/volume_id/get_devname.c
+@@ -260,3 +260,20 @@ char *get_devname_from_uuid(const char *spec)
+ 	}
+ 	return NULL;
+ }
++
++int resolve_mount_spec(char **fsname)
++{
++	char *tmp = *fsname;
++
++	if (strncmp(*fsname, "UUID=", 5) == 0)
++		tmp = get_devname_from_uuid(*fsname + 5);
++	else if (strncmp(*fsname, "LABEL=", 6) == 0)
++		tmp = get_devname_from_label(*fsname + 6);
++
++	if (tmp == *fsname)
++		return 0; /* no UUID= or LABEL= prefix found */
++
++	if (tmp)
++		*fsname = tmp;
++	return 1;
++}
+--
+cgit v0.8.2.1
