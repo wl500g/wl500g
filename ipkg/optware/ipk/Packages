@@ -1,0 +1,29 @@
+Package: nano
+Architecture: mipsel
+Priority: optional
+Section: editor
+Version: 2.1.11-1
+Maintainer: Mark Donszelmann <mark@donszelmann.com>
+Source: http://www.nano-editor.org/dist/v2.1/nano-2.1.11.tar.gz
+Filename: nano_2.1.11-1_mipsel.ipk
+Size: 123986
+MD5Sum: c632153877237c18743f5badaf718033
+Description: A pico like editor with UTF-8 support
+Depends: ncursesw
+Conflicts: 
+
+Package: vsftpd+
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 2.1.2-ext1-1
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://vsftpd.devnet.ru/files/2.1.2/ext.1/vsftpd-2.1.2-ext1.tgz
+Filename: vsftpd+_2.1.2-ext1-1_mipsel.ipk
+Size: 90780
+MD5Sum: 13cbc943e34ba890a885f10d515f6c0b
+Description: ftp daemon with an emphasis on speed and security with extensions including charset conversion
+Depends: 
+Suggests: 
+Conflicts: 
+
