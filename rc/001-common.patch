@@ -4707,7 +4707,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		sleep(1);
  		umount_all_part("usb");
  		nvram_set("usb_ftp_device", "");
-@@ -1041,173 +1559,242 @@ remove_storage_main(void)
+@@ -1041,173 +1559,247 @@ remove_storage_main(void)
  	return 0;
  }
  
@@ -4843,22 +4843,27 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -		sprintf(msg, "ntfs(ro) fs mounted to %s\n", usb_file_part);	
 -		logmessage("USB storage", msg);
 -		return MOUNT_VAL_RONLY;
-+		char options[40];
++		char options[64];
 +		unsigned long flags = MS_NOATIME;
 +
-+		options[0] = 0;
++		options[0] = '\0';
 +		
 +		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0)
 +			flags = 0; /* not a mountable partition */
 +		else if (strcmp(type, "vfat") == 0)
 +		{
++			int l = 0;
++
++			if (nvram_invmatch("usb_vfat_options", ""))
++				l = snprintf(options, 64, "%s", nvram_get("usb_vfat_options"));
 +			if (nvram_invmatch("usb_smbcset_x", ""))
-+				sprintf(options, "iocharset=%s%s", 
++				l += snprintf(options + l, 64-l, ",iocharset=%s%s" + ((l>0) ? 0 : 1),
 +					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
 +						nvram_get("usb_smbcset_x"));
 +			if (nvram_invmatch("usb_smbcpage_x", ""))
-+				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), 
++				l += snprintf(options + l, 64-l, ",codepage=%s" + ((l>0) ? 0 : 1), 
 +					nvram_get("usb_smbcpage_x"));
++			options[l+1] = '\0';
 +		}
 +		else if (strcmp(type, "ntfs") == 0)
 +		{
