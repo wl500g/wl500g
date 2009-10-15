@@ -1,0 +1,37 @@
+This repository contains several packages compiled using optware toolchain.
+The hardware platform is of course asus wl500g series of the routers with
+oleg as optware target. The intention is to bring UTF-8 support into some
+of the packages, and to provide some experimental packages for testing and
+usage. It is not intended to replace original optware repository in any
+means.
+
+We suggest two methods of usage of this repository.
+1. For beginners:
+Download ipk file on your router and install them just by:
+
+ipkg install ipkfile.ipk
+
+2. For advanced users (this method still requires more testing):
+Update the content of the /opt/etc/ipkg.conf in the following way
+(our repository has to be recoreded after the default optware one):
+
+src optware http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable
+src wl500g-optware http://wl500g.googlecode.com/svn/ipkg/optware/ipk
+dest /opt/ /
+
+And then use these two repositories in parallel. They will interact in the 
+following way:
+- if both repositories contain a package with the same name and version, then 
+  the version from googlecode will be installed;
+- if names are the same, but the versions are different, then the package 
+  with higher version number will be installed;
+- if a package from googlecode has dependenses against the original optware 
+  packages they will be automatically installed.
+
+Finally, the src directory is intended to be used as a sort of notebook. 
+It contains all the files which were modified to allow building of the 
+package (.mk, patches, .conf files) through the optware toolchain. The 
+packages to be placed in this repository will be accepted only if these 
+sources are provided. Due to volatile nature of the optware sources the 
+.diff files are not intended to be used directly. They are provided just 
+to facilitate overview of the changes performed.
