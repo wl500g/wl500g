@@ -86,28 +86,27 @@ diff -urN linux.old/include/net/pkt_sched.h linux.dev/include/net/pkt_sched.h
 diff -urN linux.old/net/core/Makefile linux.dev/net/core/Makefile
 --- linux.old/net/core/Makefile	2006-03-19 06:32:22.000000000 +0100
 +++ linux.dev/net/core/Makefile	2006-03-19 06:29:41.000000000 +0100
-@@ -9,7 +9,11 @@
+@@ -9,7 +9,10 @@
  
  O_TARGET := core.o
  
-+ifeq ($(CONFIG_BCM4710),y)
+-export-objs := netfilter.o profile.o ethtool.o neighbour.o
 +export-objs := netfilter.o profile.o neighbour.o
-+else
- export-objs := netfilter.o profile.o ethtool.o neighbour.o
++ifneq ($(CONFIG_BCM4710),y)
++export-objs += ethtool.o
 +endif
  
  obj-y := sock.o skbuff.o iovec.o datagram.o scm.o
  
-@@ -21,8 +25,13 @@
+@@ -21,8 +25,11 @@
  
  obj-$(CONFIG_FILTER) += filter.o
  
-+ifeq ($(CONFIG_BCM4710),y)
+-obj-$(CONFIG_NET) +=	dev.o ethtool.o dev_mcast.o dst.o neighbour.o \
 +obj-$(CONFIG_NET) +=	dev.o dev_mcast.o dst.o neighbour.o \
-+			rtnetlink.o utils.o
-+else
- obj-$(CONFIG_NET) +=	dev.o ethtool.o dev_mcast.o dst.o neighbour.o \
  			rtnetlink.o utils.o
++ifneq ($(CONFIG_BCM4710),y)
++obj-$(CONFIG_NET) +=	ethtool.o
 +endif
  
  obj-$(CONFIG_NETFILTER) += netfilter.o
