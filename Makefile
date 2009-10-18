@@ -113,18 +113,20 @@ $(ROOT)/lzma: $(LZMA).tbz2 $(ROOT)/lzma/CPP/7zip/Compress
 lzma: $(ROOT)/lzma
 	@true
 
-et:
-	[ -d $(ROOT)/$(ET).orig ] || mv $(ROOT)/et $(ROOT)/$(ET).orig
+et: $(ROOT)/et
+	-@mv $(ROOT)/et $(ROOT)/et.orig
 	tar -C $(ROOT) -xjf brcm-src/$(ET).tar.bz2
 	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
-wl:
-	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
+wl: $(ROOT)/wl
+	-@mv $(ROOT)/wl $(ROOT)/wl.orig
 	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
+	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src/$(NAS).tbz2
 
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
+	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -132,23 +134,18 @@ kernel-mrproper:
 
 kernel-patch:
 	@echo Preparing kernel ...
-#	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
+#	@$(PATCHER) -Z $(KERNEL_DIR) kernel-2.6/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
 #	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 kernel-extra-drivers:
-	tar -C $(KERNEL_DIR) -xvjf kernel/drivers/ov51x-1.65-1.12.tar.bz2
-	tar -C kernel/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
-	if [ ! -d $(KERNEL_DIR)/fs/fuse ]; then \
-	  tar -C $(KERNEL_DIR)/fs -xvjf kernel/drivers/fuse-2.5.3.tar.bz2 fuse-2.5.3/kernel/ \
-	   && mv $(KERNEL_DIR)/fs/fuse-2.5.3/kernel $(KERNEL_DIR)/fs/fuse && rmdir $(KERNEL_DIR)/fs/fuse-2.5.3; \
-	  $(PATCHER) -Z $(KERNEL_DIR)/fs/fuse kernel/drivers/fuse-2.5.3.patch; \
-	fi
+#	tar -C $(KERNEL_DIR) -xvjf kernel-2.6/drivers/ov51x-1.65-1.12.tar.bz2
+#	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
 kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
-	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
+	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
