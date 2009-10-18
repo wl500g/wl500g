@@ -43,7 +43,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
 #
 
 # Build platform
-export BUILD := $(shell (gcc -dumpmachine))
+export BUILD := i386-pc-linux-gnu
 export HOSTCC := gcc
 export HOSTCXX := g++
 
@@ -92,7 +92,12 @@ export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
 # Determine kernel version
-LINUX_KERNEL=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/version.h)))
+kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
+
+LINUX_KERNEL=$(call kver,version.h)
+ifeq ($(LINUX_KERNEL),)
+LINUX_KERNEL=$(call kver,utsrelease.h)
+endif
 export MODULESDIR := $(TARGETDIR)/lib/modules/$(LINUX_KERNEL)
 SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
 
@@ -177,12 +182,25 @@ obj-y += udpxy
 
 obj-y += kernel
 
+
+CONFIG_LINUX_26=y
+export CONFIG_LINUX_26
+
+# Kernel modules extension
+ifeq ($(CONFIG_LINUX_26),y)
+EXTRACFLAGS += -DLINUX26
+kmod_ext=.ko
+else
+kmod_ext=.o
+endif
+
 # Netfilter modules NOT to include in main FW
-netfilter_external_modules := ipt_layer7.o ip_set.o \
- ip_set_ipmap.o ip_set_iptree.o ip_set_iptreemap.o ip_set_macipmap.o \
- ip_set_nethash.o ip_set_iphash.o \
- ip_set_portmap.o ip_set_ipporthash.o ip_set_ipportiphash.o \
- ip_set_ipportnethash.o ip_set_setlist.o ipt_SET.o ipt_set.o
+netfilter_external_modules := ipt_layer7$(kmod_ext) ip_set$(kmod_ext) \
+ ip_set_ipmap$(kmod_ext) ip_set_iptree$(kmod_ext) ip_set_iptreemap$(kmod_ext) \
+ ip_set_macipmap$(kmod_ext) ip_set_nethash$(kmod_ext) ip_set_iphash$(kmod_ext) \
+ ip_set_portmap$(kmod_ext) ip_set_ipporthash$(kmod_ext) ip_set_ipportiphash$(kmod_ext) \
+ ip_set_ipportnethash$(kmod_ext) ip_set_setlist$(kmod_ext) \
+ ipt_SET$(kmod_ext) ipt_set$(kmod_ext)
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -228,29 +246,28 @@ distclean mrproper: clean
 	rm -f .config $(LINUXDIR)/.config
 
 lzma-lib:
-	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
+	$(MAKE) -C $(LZMADIR)/LZMA_Lib/
 
 lzma:
 	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc
 
 loader:
-	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma
 
-mksquashfs-lzma: lzma-lib $(LINUXDIR)/scripts/squashfs/mksquashfs-lzma
+mksquashfs-lzma: lzma-lib
 	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
-		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
-
+		Sqlzma=. LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
 kernel-modules: $(LINUXDIR)/.config
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc-3.4.6; \
+	    $(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc; \
 	fi )
 
 kernel-image: $(LINUXDIR)/.config
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_EMBEDDED_RAMDISK}" = "" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc-3.4.6; \
+	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc; \
 	fi )
 
 $(LINUXDIR)/fs/fuse/Makefile:
@@ -260,18 +277,24 @@ $(LINUXDIR)/fs/fuse/Makefile:
 fuse-driver: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
 	cd $(LINUXDIR)/fs/fuse && $(MAKE)
 
-kernel: kernel-image kernel-modules fuse-driver
-	@true
+kernel-deps-y := kernel-image kernel-modules
+ifneq ($(CONFIG_LINUX_26),y)
+kernel-deps-y += fuse-driver
+endif
+
+kernel: $(kernel-deps-y)
+	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
+	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed clean
 
 kernel-install: lzma
 ifeq ($(CONFIG_LOADER),y)
-	cat $(LINUXDIR)/arch/mips/bcm947xx/compressed/piggy | \
+	cat $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/piggy | \
 		$(LZMADIR)/LZMA_Alone/lzma e -si -so -lc1 -lp2 -pb2 > $(PLATFORMDIR)/vmlinuz
 else
-	cp $(LINUXDIR)/arch/mips/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
+	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
 endif
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
@@ -296,8 +319,14 @@ modules_install-WL3%: modules_install
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
+	rm -rf $(MODULESDIR)/parport
+
+modules_install-RT-N16: modules_install
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL700g: modules_install
@@ -321,63 +350,39 @@ modules_install-WLHDD: modules_install
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
-NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
 
 modules_install: .config
 	install -d $(MODULESDIR)
 	# network stuff
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/et/et.o \
-		$(SRCMODULESDIR)/drivers/net/wl/wl.o \
-		$(SRCMODULESDIR)/drivers/net/tun.o \
-		$(SRCMODULESDIR)/drivers/net/imq.o \
+		$(SRCMODULESDIR)/drivers/net/et/et$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/net/wl/wl$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/net/tun$(kmod_ext) \
 		$(NETFILTER_MODS_LIST)
 	# generic usb
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/usbcore.o \
-		$(SRCMODULESDIR)/drivers/usb/printer.o
+		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/usb/class/usblp$(kmod_ext)
 	# usb storage
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage.o \
-		$(SRCMODULESDIR)/drivers/scsi/sd_mod.o \
-		$(SRCMODULESDIR)/drivers/scsi/scsi_mod.o
+		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/scsi/sd_mod$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/scsi/scsi_mod$(kmod_ext)
 	# usb serial
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/serial/usbserial.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/pl2303.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/option.o
+		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(kmod_ext)
 	# usb webcams
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/media/video/videodev.o \
-		$(SRCMODULESDIR)/drivers/usb/ov51x.o \
-		$(SRCMODULESDIR)/drivers/usb/ov511_decomp.o \
-		$(SRCMODULESDIR)/drivers/usb/ov518_decomp.o \
-		$(SRCMODULESDIR)/drivers/usb/pwc.o \
-		$(SRCMODULESDIR)/drivers/usb/pwcx.o
 	# usb audio
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/audio.o \
-		$(SRCMODULESDIR)/drivers/sound/soundcore.o
-ifeq ($(CONFIG_NFSD),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/lockd/*.o \
-		$(SRCMODULESDIR)/fs/nfsd/*.o	\
-		$(SRCMODULESDIR)/net/sunrpc/*.o
-endif
-ifeq ($(CONFIG_NFS),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/nfs/*.o
-endif
 
 install: package-$(MODEL)
 	@true
 
-package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs-lzma
+package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config lzma-lib
 	$(MAKE) www-pages-$*
         # Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
@@ -401,6 +406,7 @@ endif
 	$(MAKE) modules_install-$*
         # Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
+        # Make sure mksquashfs-2.0 is used
 	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
@@ -465,11 +471,12 @@ kconf:
 kmconf:
 	$(MAKE) -C $(LINUXDIR) menuconfig
 
-koldconf: $(LINUXDIR)/.config
-	$(MAKE) -C $(LINUXDIR) oldconfig
+koldconf: $(LINUXDIR)/include/linux/version.h
+	@true
 
 $(LINUXDIR)/include/linux/version.h: $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) include/linux/version.h
+	$(MAKE) -C $(LINUXDIR) include/linux/autoconf.h
 
 # Convenience
 config: conf
@@ -881,7 +888,7 @@ model-%:
 	( if [ "$*" = "WL500gx" ]; then \
 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DWL500GX -DQOS -DWPA2_WMM"; \
 		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
-	elif [ "$*" = "WL500gp" ]; then \
+	elif [ "$*" = "WL500gp" -o "$*" = "RT-N16" ]; then \
 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500GP -DQOS -DWPA2_WMM"; \
 		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL500gpv2" -o "$*" = "WL520gu" -o "$*" = "WL330gE" ]; then \
@@ -954,6 +961,7 @@ fast:
 	#make images-WL300g
 	#make images-WLHDD
 
+
 #
 # Generic rules
 #
@@ -974,5 +982,4 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
 .PHONY: all clean distclean mrproper install package
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
-.PHONY: mksquashfs-lzma
-.PHONY: dummy
+.PHONY: dummy qqq
