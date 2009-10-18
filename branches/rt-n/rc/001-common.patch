@@ -1581,7 +1581,13 @@ diff -BurpN -x'*.o' router/rc/interface.c gateway/rc/interface.c
 diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 --- router/rc/Makefile	2004-12-02 08:39:03.000000000 +0300
 +++ gateway/rc/Makefile	2008-12-27 20:07:24.000000000 +0300
-@@ -16,10 +16,13 @@
+@@ -12,14 +12,19 @@
+ # $Id$
+ #
+ 
++ifneq ($(MAKECMDGOALS),clean)
+ include $(TOP)/.config
++endif
  
  CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPTIONS)
  #CFLAGS	+= -g -DDEBUG
