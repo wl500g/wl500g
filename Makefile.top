@@ -43,7 +43,7 @@ export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
 #
 
 # Build platform
-export BUILD := i386-pc-linux-gnu
+export BUILD := $(shell (gcc -dumpmachine))
 export HOSTCC := gcc
 export HOSTCXX := g++
 
