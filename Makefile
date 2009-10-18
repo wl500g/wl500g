@@ -115,17 +115,17 @@ lzma: $(ROOT)/lzma
 
 et:
 	[ -d $(ROOT)/$(ET).orig ] || mv $(ROOT)/et $(ROOT)/$(ET).orig
-	tar -C $(ROOT) -xzf $(ET).tar.gz
-	$(PATCHER) -Z $(ROOT)/et $(ET).patch
+	tar -C $(ROOT) -xzf brcm-src/$(ET).tar.gz
+	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
 wl:
 	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
-	tar -C $(ROOT) -xjf $(WL).tar.bz2
+	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
+
+brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	@cd brcm-src && $(PATCHER) -Z $(ROOT) brcm-src-shared.patch brcm-src-include.patch \
-		brcm-src-5365.patch brcm-src-5365-robo.patch brcm-src-5354.patch \
-		brcm-src-robo-tag.patch 
+	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
 	$(MAKE) -C $(KERNEL_DIR) mrproper
