@@ -867,7 +867,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
  	
 diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
 --- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
-+++ gateway/httpd/web_ex.c	2009-10-18 14:05:23.000000000 +0000
++++ gateway/httpd/web_ex.c	2009-10-18 17:15:10.000000000 +0000
 @@ -48,19 +48,26 @@
  
  #define sys_restart() kill(1, SIGHUP)
@@ -1011,6 +1011,15 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
  /*
   * Example: 
   * wan_proto=dhcp
+@@ -727,7 +759,7 @@ ej_uptime(int eid, webs_t wp, int argc,
+ 	if (str) {
+ 		unsigned int up = atoi(str);
+ 		free(str);
+-		sprintf(buf, "%s(%s since boot)", buf, reltime(up));
++		sprintf(buf, "%s (%s since boot)", buf, reltime(up));
+ 	}
+ 
+ 	ret = websWrite(wp, buf);  
 @@ -1035,7 +1067,7 @@ static int dump_file(webs_t wp, char *fi
  	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL)
  	{	 	
