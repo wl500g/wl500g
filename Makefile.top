@@ -14,7 +14,7 @@
 
 include .config
 
-RELEASE=1.9.2.7-d
+RELEASE=1.9.2.7-e
 
 
 MODEL=WL500gp
