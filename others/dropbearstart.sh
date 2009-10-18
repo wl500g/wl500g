@@ -23,25 +23,27 @@
 # them and saving in flashfs if they are absent at all.
 # IMPORTANT: This script does not change the state of flashfs!
 
+SSHD_ETC=/tmp/local/etc/dropbear
+
 #check if the key files are in the right place
-if ! [ -s /tmp/local/etc/dropbear/dropbear_rsa_host_key -a \
-       -s /tmp/local/etc/dropbear/dropbear_dss_host_key ]; then
-	mkdir -p /tmp/local/etc/dropbear
+if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
+       -s $SSHD_ETC/dropbear_dss_host_key ]; then
+	mkdir -p $SSHD_ETC
 	#check if the key files are stored in flashfs
 	if [ -n "$(/bin/tar -tzf /dev/mtdblock/4 2> /dev/null | \
 	     grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
 		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear tmp/local/etc/ssh.*
 	else
 		#generate new key files
-		dropbearkey -t rsa -f /tmp/local/etc/dropbear/dropbear_rsa_host_key \
-		  | grep "ssh-rsa" > /tmp/local/etc/dropbear/dropbear_rsa_host_key.pub
-		dropbearkey -t dss -f /tmp/local/etc/dropbear/dropbear_dss_host_key \
-		  | grep "ssh-dss" > /tmp/local/etc/dropbear/dropbear_dss_host_key.pub
+		dropbearkey -t rsa -f $SSHD_ETC/dropbear_rsa_host_key \
+		  | grep "ssh-rsa" > $SSHD_ETC/dropbear_rsa_host_key.pub
+		dropbearkey -t dss -f $SSHD_ETC/dropbear_dss_host_key \
+		  | grep "ssh-dss" > $SSHD_ETC/dropbear_dss_host_key.pub
 
 		#store generated keys in the flashfs for future use
 		mkdir -p /tmp/_tmp/tmp/local/etc
 		/bin/tar -C /tmp/_tmp/ -xzf /dev/mtdblock/4 2> /dev/null
-		cp -r /tmp/local/etc/dropbear /tmp/_tmp/tmp/local/etc
+		cp -r $SSHD_ETC /tmp/_tmp/tmp/local/etc
 		/bin/tar -C /tmp/_tmp/ -czf /tmp/_flash.tar.gz etc tmp
 
 		/sbin/flash /tmp/_flash.tar.gz /dev/mtd/4
