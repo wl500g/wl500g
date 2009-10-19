@@ -122,6 +122,8 @@ endif
 #
 # Configuration
 #
+CONFIG_LINUX_26=y
+export CONFIG_LINUX_26
 
 obj-$(CONFIG_HTTPD) += httpd
 obj-$(CONFIG_RC) += rc
@@ -160,6 +162,12 @@ obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_TEST) += test
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_WAVESERVER) += waveserver
+obj-$(CONFIG_EMF) += emf
+obj-$(CONFIG_EMF) += igs
+ifeq ($(CONFIG_LINUX_26),y)
+obj-y += udev
+obj-y += hotplug2
+endif
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -183,8 +191,6 @@ obj-y += udpxy
 obj-y += kernel
 
 
-CONFIG_LINUX_26=y
-export CONFIG_LINUX_26
 
 # Kernel modules extension
 ifeq ($(CONFIG_LINUX_26),y)
@@ -362,6 +368,8 @@ modules_install: .config
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/net/et/et$(kmod_ext) \
 		$(SRCMODULESDIR)/drivers/net/wl/wl$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/net/emf/emf$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/net/igs/igs$(kmod_ext) \
 		$(SRCMODULESDIR)/drivers/net/tun$(kmod_ext) \
 		$(NETFILTER_MODS_LIST)
 	# generic usb
@@ -406,7 +414,7 @@ endif
 	$(MAKE) modules_install-$*
         # Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
-        # Make sure mksquashfs-2.0 is used
+        # Make rootfs image
 	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
@@ -872,6 +880,22 @@ madwimax-install:
 	install -D madwimax/src/madwimax $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 
+udev:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
+	    PROGRAMS=udevtrigger
+
+udev-install:
+	install -d $(TARGETDIR)
+	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev configdir=/udev/usr/etc/udev \
+	    install-udevtrigger
+
+hotplug2:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+hotplug2-install:
+	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
+	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/usr KERNELVER=$(LINUX_KERNEL)
+
 rcamdmips:
 	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR)
 
@@ -982,4 +1006,4 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
 .PHONY: all clean distclean mrproper install package
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
-.PHONY: dummy qqq
+.PHONY: dummy
