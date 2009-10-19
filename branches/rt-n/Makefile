@@ -50,8 +50,10 @@ LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.3
 USBMODESWITCH=usb_modeswitch-1.0.5
 MADWIMAX=madwimax-0.1.1
+HOTPLUG2=hotplug2-0.9
+UDEV=udev-113
 
-UCLIBC=uClibc-0.9.29
+UCLIBC=uClibc-0.9.30.1
 
 ET=et-5.10.56.46
 WL=wl-5.10.56.46
@@ -458,6 +460,28 @@ $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
+	@true
+
+hotplug2_Patches := $(call patches_list,hotplug2)
+
+$(TOP)/hotplug2: hotplug2/$(HOTPLUG2).tar.gz
+	@rm -rf $(TOP)/$(HOTPLUG2) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(HOTPLUG2) $(hotplug2_Patches)
+	mv $(TOP)/$(HOTPLUG2) $@ && touch $@
+
+hotplug2: $(TOP)/hotplug2
+	@true
+
+udev_Patches := $(call patches_list,udev)
+
+$(TOP)/udev: udev/$(UDEV).tar.bz2
+	@rm -rf $(TOP)/$(UDEV) $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(UDEV) $(udev_Patches)
+	mv $(TOP)/$(UDEV) $@ && touch $@
+
+udev: $(TOP)/udev
 	@true
 
 $(TOP)/others:
