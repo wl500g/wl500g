@@ -15,8 +15,8 @@ ipkg install ipkfile.ipk
 Update the content of the /opt/etc/ipkg.conf in the following way
 (our repository has to be recoreded after the default optware one):
 
-src optware http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable
-src wl500g-optware http://wl500g.googlecode.com/svn/ipkg/optware/ipk
+src/gz optware http://ipkg.nslu2-linux.org/feeds/optware/oleg/cross/stable
+src/gz wl500g-optware http://wl500g.googlecode.com/svn/ipkg/optware
 dest /opt/ /
 
 And then use these two repositories in parallel. They will interact in the 
