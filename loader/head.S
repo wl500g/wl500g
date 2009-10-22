@@ -32,6 +32,8 @@
 #define CONF1_IS_MASK	0x01c00000
 #define CONF1_IS_BASE	64
 
+#define CONF_AR         (7 << 10) 
+
 #define Index_Invalidate_I	0x00
 #define Index_Writeback_Inv_D   0x01
 
@@ -91,17 +93,33 @@ $L1:
 	multu	s1,t0			/* D$ linesize * lines */
 	mflo	s2			/* s2 is now D$ size in bytes */
 
+	/* Figure if it is a mips32r2 CPU which we take as an indication that
+	 * there is no BRCM CP0 register and the D$ tags are in select 2
+	 */
+	mfc0	s6,C0_CONFIG
+	andi	s6,CONF_AR			# s6 != 0 if mips32r2
 	/* Initilize the D$: */
+	beqz	s6,1f
+	nop
+	.set	mips32
+	mtc0	zero,C0_TAGLO,2			# For mips32r2 the D$ Tags are in select 2
+	mtc0	zero,C0_TAGHI,2
+	.set	mips0
+	b	2f
+	nop
+
+1:
 	mtc0	zero,C0_TAGLO
 	mtc0	zero,C0_TAGHI
 
+2:
 	li	t0,KSEG0		/* Just an address for the first $ line */
 	addu	t1,t0,s2		/*  + size of cache == end */
 
 	.set	mips3
-1:	cache	Index_Writeback_Inv_D,0(t0)
+3:	cache	Index_Writeback_Inv_D,0(t0)
 	.set	mips0
-	bne	t0,t1,1b
+	bne	t0,t1,3b
 	addu	t0,s1
 	
 nodc:
