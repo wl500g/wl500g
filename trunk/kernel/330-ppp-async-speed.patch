@@ -1,0 +1,16 @@
+From: fangxiaozhi <huananhu@huawei.com>
+1. This patch is based on the kernel of 2.6.32-rc4 
+2. In this patch, we enlarge the out buffer size to optimize the upload speed for the ppp connection. Then it can support the upload of HSUPA data cards.
+Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+-----------------------------------------------------------------------------------------
+--- a/drivers/net/ppp_async.c	2009-10-12 05:43:56.000000000 +0800
++++ b/drivers/net/ppp_async.c	2009-10-15 16:29:56.000000000 +0800
+@@ -36,7 +36,7 @@
+ 
+ #define PPP_VERSION	"2.4.2"
+ 
+-#define OBUFSIZE	256
++#define OBUFSIZE	2048
+ 
+ /* Structure for storing local state. */
+ struct asyncppp {
