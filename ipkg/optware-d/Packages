@@ -7,8 +7,8 @@ Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
 Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
 Filename: ipkg_0.99.163-2_mipsel.ipk
-Size: 72811
-MD5Sum: 795d92a9228d16b97258b701ac93339c
+Size: 72833
+MD5Sum: fdd821f2821de1a9adb3c522bbde798b
 Description: lightweight package management system
  ipkg is the Itsy Package Management System, for handling
  installation and removal of packages on a system. It can
