@@ -1,6 +1,6 @@
 diff -BurpN linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6.22/scripts/squashfs/Makefile
 --- linux-2.6.22.orig/scripts/squashfs/Makefile	1970-01-01 00:00:00.000000000 +0000
-+++ linux-2.6.22/scripts/squashfs/Makefile	2009-10-24 17:37:13.000000000 +0000
++++ linux-2.6.22/scripts/squashfs/Makefile	2009-10-24 17:47:57.000000000 +0000
 @@ -0,0 +1,22 @@
 +INCLUDEDIR = $(SRCBASE)/linux/linux-2.6/include/linux
 +
@@ -11,16 +11,16 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6.22/scripts/squ
 +mksquashfs: mksquashfs.o read_fs.o sort.o
 +	$(CC) mksquashfs.o read_fs.o sort.o -lz -lpthread -lm -o $@
 +
-+mksquashfs.o: mksquashfs.c squashfs_fs.h mksquashfs.h global.h sort.h
++mksquashfs.o: mksquashfs.c mksquashfs.h global.h sort.h
 +
-+read_fs.o: read_fs.c squashfs_fs.h read_fs.h global.h
++read_fs.o: read_fs.c read_fs.h global.h
 +
-+sort.o: sort.c squashfs_fs.h global.h sort.h
++sort.o: sort.c global.h sort.h
 +
 +unsquashfs: unsquashfs.o
 +	$(CC) unsquashfs.o -lz -lpthread -lm -o $@
 +
-+unsquashfs.o: unsquashfs.c squashfs_fs.h read_fs.h global.h
++unsquashfs.o: unsquashfs.c read_fs.h global.h
 +
 +clean:
 +	-rm -f *.o mksquashfs unsquashfs
