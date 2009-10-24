@@ -199,7 +199,7 @@ ifneq (0,$(words $(SVNREVISION)))
 endif
 
 define SwitchConfParam
-	@( ORIG_STR=`grep "$(2)" $(1) 2>/dev/null`; \
+	@( ORIG_STR=`grep -w "$(2)" $(1) 2>/dev/null`; \
 	if [ "$(3)" = "n" ]; then \
 	    TEST_PATTERN="# $(2) is not set"; \
 	else \
