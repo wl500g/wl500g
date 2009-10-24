@@ -1,6 +1,6 @@
-diff -BurpN '-x*.o' '-x*.orig' router/config/Config gateway/config/Config
+diff -BurpN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
 --- router/config/Config	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/Config	2009-10-23 17:41:36.000000000 +0000
++++ gateway/config/Config	2009-10-24 16:19:21.000000000 +0000
 @@ -13,12 +13,6 @@
  
  mainmenu "Router Configuration"
@@ -253,6 +253,15 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/Config gateway/config/Config
  endmenu
  
  menu "Environment"
+@@ -281,7 +448,7 @@ config PLATFORM
+ 
+ config LINUXDIR
+        string "Target Linux kernel"
+-       default "$(SRCBASE)/linux/linux"
++       default "$(SRCBASE)/linux/linux-2.6"
+        help
+        Specify the location of the target Linux kernel directory.
+ 
 @@ -297,10 +464,26 @@ config USRLIBDIR
         help
         Specify the location of the target /usr/lib directory.
@@ -280,9 +289,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/Config gateway/config/Config
 +       Answer Y for the user mode Robo switch configuration utility.
  
  endmenu
-diff -BurpN '-x*.o' '-x*.orig' router/config/defconfig gateway/config/defconfig
+diff -BurpN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
 --- router/config/defconfig	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/defconfig	2009-10-23 17:42:08.000000000 +0000
++++ gateway/config/defconfig	2009-10-24 16:19:09.000000000 +0000
 @@ -1,7 +1,6 @@
  #
  # Automatically generated make config: don't edit
@@ -291,7 +300,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/defconfig gateway/config/defconfig
  
  #
  # Base Features
-@@ -9,48 +8,86 @@ CONFIG_NAT=y
+@@ -9,57 +8,98 @@ CONFIG_NAT=y
  CONFIG_RC=y
  CONFIG_NVRAM=y
  CONFIG_SHARED=y
@@ -395,8 +404,10 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/defconfig gateway/config/defconfig
  
  #
  # Environment
-@@ -59,7 +96,10 @@ PLATFORM=mipsel
- LINUXDIR=$(SRCBASE)/linux/linux
+ #
+ PLATFORM=mipsel
+-LINUXDIR=$(SRCBASE)/linux/linux
++LINUXDIR=$(SRCBASE)/linux/linux-2.6
  LIBDIR=$(TOOLCHAIN)/lib
  USRLIBDIR=$(TOOLCHAIN)/usr/lib
 +EXTRACFLAGS=-mips32 -mtune=mips32 -Wno-pointer-sign 
@@ -406,7 +417,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/defconfig gateway/config/defconfig
  #
 +# CONFIG_SENTRY5 is not set
 +# CONFIG_ROBO is not set
-diff -BurpN '-x*.o' '-x*.orig' router/config/lkc.h gateway/config/lkc.h
+diff -BurpN -x'*.o' -x'*.orig' router/config/lkc.h gateway/config/lkc.h
 --- router/config/lkc.h	2004-10-14 19:11:24.000000000 +0000
 +++ gateway/config/lkc.h	2006-12-16 16:30:02.000000000 +0000
 @@ -55,9 +55,6 @@ void menu_set_type(int type);
@@ -419,7 +430,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/lkc.h gateway/config/lkc.h
  /* symbol.c */
  void sym_init(void);
  void sym_clear_all_valid(void);
-diff -BurpN '-x*.o' '-x*.orig' router/config/menu.c gateway/config/menu.c
+diff -BurpN -x'*.o' -x'*.orig' router/config/menu.c gateway/config/menu.c
 --- router/config/menu.c	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/menu.c	2006-12-16 16:30:02.000000000 +0000
 @@ -10,7 +10,6 @@
@@ -430,7 +441,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/menu.c gateway/config/menu.c
  static struct menu **last_entry_ptr;
  
  struct file *file_list;
-diff -BurpN '-x*.o' '-x*.orig' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
+diff -BurpN -x'*.o' -x'*.orig' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
 --- router/config/zconf.tab.c_shipped	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.tab.c_shipped	2006-12-16 16:30:02.000000000 +0000
 @@ -160,6 +160,8 @@ static bool zconf_endtoken(int token, in
@@ -442,7 +453,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/config/zconf.tab.c_shipped gateway/config/
  #define YYERROR_VERBOSE
  
  
-diff -BurpN '-x*.o' '-x*.orig' router/config/zconf.y gateway/config/zconf.y
+diff -BurpN -x'*.o' -x'*.orig' router/config/zconf.y gateway/config/zconf.y
 --- router/config/zconf.y	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.y	2006-12-16 16:30:02.000000000 +0000
 @@ -25,6 +25,8 @@ static bool zconf_endtoken(int token, in
