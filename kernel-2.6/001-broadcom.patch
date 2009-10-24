@@ -4929,7 +4929,7 @@ diff -urBwNp linux-2.6.22/arch/mips/defconfig-bcm947xx-slimrtr linux-2.6/arch/mi
 diff -urBwNp linux-2.6.22/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
 --- linux-2.6.22/arch/mips/Kconfig	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/arch/mips/Kconfig	2008-12-12 06:25:39.000000000 +0300
-@@ -4,16 +4,26 @@ config MIPS
+@@ -4,16 +4,27 @@ config MIPS
  	# Horrible source of confusion.  Die, die, die ...
  	select EMBEDDED
  
@@ -4957,6 +4957,7 @@ diff -urBwNp linux-2.6.22/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
 +	select SYS_SUPPORTS_32BIT_KERNEL
 +	select SYS_SUPPORTS_KGDB
 +	select SYS_HAS_CPU_MIPS32_R1
++	select SYS_HAS_CPU_MIPS32_R2
  
  config MACH_ALCHEMY
  	bool "Alchemy processor based machines"

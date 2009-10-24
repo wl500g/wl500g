@@ -223,7 +223,7 @@ ifneq (0,$(words $(SVNREVISION)))
 endif
 
 define SwitchConfParam
-	@( ORIG_STR=`grep "$(2)" $(1) 2>/dev/null`; \
+	@( ORIG_STR=`grep -w "$(2)" $(1) 2>/dev/null`; \
 	if [ "$(3)" = "n" ]; then \
 	    TEST_PATTERN="# $(2) is not set"; \
 	else \
@@ -479,7 +479,7 @@ kconf:
 kmconf:
 	$(MAKE) -C $(LINUXDIR) menuconfig
 
-koldconf: $(LINUXDIR)/include/linux/version.h
+koldconf: $(LINUXDIR)/.config
 	@true
 
 $(LINUXDIR)/include/linux/version.h: $(LINUXDIR)/.config
@@ -886,8 +886,7 @@ udev:
 
 udev-install:
 	install -d $(TARGETDIR)
-	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev configdir=/udev/usr/etc/udev \
-	    install-udevtrigger
+	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
 
 hotplug2:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
@@ -895,6 +894,18 @@ hotplug2:
 hotplug2-install:
 	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
 	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/usr KERNELVER=$(LINUX_KERNEL)
+
+emf:
+	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+emf-install:
+	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
+
+igs:
+	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+igs-install:
+	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 rcamdmips:
 	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR)

@@ -127,7 +127,7 @@ wl: $(ROOT)/wl
 
 brcm_Patches := $(call patches_list,brcm-src)
 
-brcm-shared:
+brcm-src:
 	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
@@ -146,7 +146,7 @@ kernel-extra-drivers:
 #	tar -C $(KERNEL_DIR) -xvjf kernel-2.6/drivers/ov51x-1.65-1.12.tar.bz2
 #	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
-kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
+kernel: lzma et wl brcm-src kernel-patch kernel-extra-drivers
 	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
@@ -543,5 +543,5 @@ shared-diff:
 	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
 	    $(call make_diff,-BurN,router,gateway,$*)
 
-.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
+.PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
 	busybox dropbear iptables others
