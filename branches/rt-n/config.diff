@@ -1,6 +1,6 @@
-diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
+diff -BurpN '-x*.o' '-x*.orig' router/config/Config gateway/config/Config
 --- router/config/Config	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/Config	2009-09-28 16:47:39.000000000 +0000
++++ gateway/config/Config	2009-10-23 17:41:36.000000000 +0000
 @@ -13,12 +13,6 @@
  
  mainmenu "Router Configuration"
@@ -14,7 +14,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  menu "Base Features"
  
  config CONFIG_RC
-@@ -59,9 +53,9 @@
+@@ -59,9 +53,9 @@ config CONFIG_BUSYBOX
  config CONFIG_BUSYBOX_CONFIG
         string "BusyBox default configuration"
         depends on CONFIG_BUSYBOX
@@ -26,7 +26,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  
  config CONFIG_WLCONF
         bool "Wireless configuration"
-@@ -78,7 +72,6 @@
+@@ -78,7 +72,6 @@ config CONFIG_BRIDGE
  
  config CONFIG_VLAN
         bool "VLAN configuration"
@@ -34,7 +34,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
         default y
         help
         Answer Y for the user mode VLAN configuration utility.
-@@ -96,6 +89,12 @@
+@@ -96,6 +89,12 @@ config CONFIG_WWW
         help
         Answer Y for additional web pages.
  
@@ -47,7 +47,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  config CONFIG_NETCONF
         bool "Firewall configuration"
         depends on (CONFIG_IPTABLES || CONFIG_LIBIPT) && CONFIG_NAT
-@@ -108,7 +107,7 @@
+@@ -108,7 +107,7 @@ config CONFIG_NETCONF
  
  choice
  	prompt "Iptables"
@@ -56,7 +56,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  	default CONFIG_LIBIPT
  	optional
  	help
-@@ -152,10 +151,6 @@
+@@ -152,10 +151,6 @@ config CONFIG_VENDOR
         help
         Answer Y for vendor-specific customization.
  
@@ -67,10 +67,17 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  config CONFIG_PPP
         bool "PPPoE client"
         depends on CONFIG_NAT
-@@ -223,6 +218,167 @@
+@@ -221,6 +216,172 @@ config CONFIG_WCN
+ 	   to configure wireless networks via USB Flash Devices.
+ 	   (Requires CONFIG_WCN and dependents be configured into the kernel.)
  
- endmenu
- 
++config CONFIG_EMF
++       bool "Efficient Multicast Forwarding"
++       depends on CONFIG_NVRAM && CONFIG_SHARED
++       default y
++
++endmenu
++
 +menu "Asus stuff"
 +
 +config CONFIG_PPTP
@@ -230,12 +237,10 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
 +       help
 +       Include driver for WiMAX modems (Yota).
 +
-+endmenu
-+
- menu "Additional C libraries"
+ endmenu
  
- config CONFIG_LIBCRYPT
-@@ -269,6 +425,12 @@
+ menu "Additional C libraries"
+@@ -269,6 +430,12 @@ config CONFIG_LIBUTIL
         Contains code for "standard" functions used in many different
         Unix utilities.
  
@@ -248,7 +253,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
  endmenu
  
  menu "Environment"
-@@ -297,10 +459,26 @@
+@@ -297,10 +464,26 @@ config USRLIBDIR
         help
         Specify the location of the target /usr/lib directory.
  
@@ -275,9 +280,9 @@ diff -BurN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
 +       Answer Y for the user mode Robo switch configuration utility.
  
  endmenu
-diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
+diff -BurpN '-x*.o' '-x*.orig' router/config/defconfig gateway/config/defconfig
 --- router/config/defconfig	2004-10-14 19:11:24.000000000 +0000
-+++ gateway/config/defconfig	2009-09-28 16:49:52.000000000 +0000
++++ gateway/config/defconfig	2009-10-23 17:42:08.000000000 +0000
 @@ -1,7 +1,6 @@
  #
  # Automatically generated make config: don't edit
@@ -286,7 +291,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
  
  #
  # Base Features
-@@ -9,31 +8,30 @@
+@@ -9,48 +8,86 @@ CONFIG_NAT=y
  CONFIG_RC=y
  CONFIG_NVRAM=y
  CONFIG_SHARED=y
@@ -327,10 +332,12 @@ diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
  CONFIG_NTP=y
  CONFIG_DNSMASQ=y
  CONFIG_UTILS=y
-@@ -42,15 +40,53 @@
+ # CONFIG_ETC is not set
+ CONFIG_BCMWPA2=y
  # CONFIG_WCN is not set
- 
- #
++CONFIG_EMF=y
++
++#
 +# Asus stuff
 +#
 +# CONFIG_PPTP is not set
@@ -366,8 +373,8 @@ diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
 +CONFIG_SCSIIDLE=y
 +CONFIG_USBMODESWITCH=y
 +CONFIG_MADWIMAX=y
-+
-+#
+ 
+ #
  # Additional C libraries
  #
 -# CONFIG_LIBCRYPT is not set
@@ -388,7 +395,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
  
  #
  # Environment
-@@ -59,7 +95,10 @@
+@@ -59,7 +96,10 @@ PLATFORM=mipsel
  LINUXDIR=$(SRCBASE)/linux/linux
  LIBDIR=$(TOOLCHAIN)/lib
  USRLIBDIR=$(TOOLCHAIN)/usr/lib
@@ -399,10 +406,10 @@ diff -BurN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
  #
 +# CONFIG_SENTRY5 is not set
 +# CONFIG_ROBO is not set
-diff -BurN -x'*.o' -x'*.orig' router/config/lkc.h gateway/config/lkc.h
+diff -BurpN '-x*.o' '-x*.orig' router/config/lkc.h gateway/config/lkc.h
 --- router/config/lkc.h	2004-10-14 19:11:24.000000000 +0000
 +++ gateway/config/lkc.h	2006-12-16 16:30:02.000000000 +0000
-@@ -55,9 +55,6 @@
+@@ -55,9 +55,6 @@ void menu_set_type(int type);
  struct file *file_lookup(const char *name);
  int file_write_dep(const char *name);
  
@@ -412,7 +419,7 @@ diff -BurN -x'*.o' -x'*.orig' router/config/lkc.h gateway/config/lkc.h
  /* symbol.c */
  void sym_init(void);
  void sym_clear_all_valid(void);
-diff -BurN -x'*.o' -x'*.orig' router/config/menu.c gateway/config/menu.c
+diff -BurpN '-x*.o' '-x*.orig' router/config/menu.c gateway/config/menu.c
 --- router/config/menu.c	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/menu.c	2006-12-16 16:30:02.000000000 +0000
 @@ -10,7 +10,6 @@
@@ -423,10 +430,10 @@ diff -BurN -x'*.o' -x'*.orig' router/config/menu.c gateway/config/menu.c
  static struct menu **last_entry_ptr;
  
  struct file *file_list;
-diff -BurN -x'*.o' -x'*.orig' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
+diff -BurpN '-x*.o' '-x*.orig' router/config/zconf.tab.c_shipped gateway/config/zconf.tab.c_shipped
 --- router/config/zconf.tab.c_shipped	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.tab.c_shipped	2006-12-16 16:30:02.000000000 +0000
-@@ -160,6 +160,8 @@
+@@ -160,6 +160,8 @@ static bool zconf_endtoken(int token, in
  
  struct symbol *symbol_hash[257];
  
@@ -435,10 +442,10 @@ diff -BurN -x'*.o' -x'*.orig' router/config/zconf.tab.c_shipped gateway/config/z
  #define YYERROR_VERBOSE
  
  
-diff -BurN -x'*.o' -x'*.orig' router/config/zconf.y gateway/config/zconf.y
+diff -BurpN '-x*.o' '-x*.orig' router/config/zconf.y gateway/config/zconf.y
 --- router/config/zconf.y	2004-10-14 19:11:25.000000000 +0000
 +++ gateway/config/zconf.y	2006-12-16 16:30:02.000000000 +0000
-@@ -25,6 +25,8 @@
+@@ -25,6 +25,8 @@ static bool zconf_endtoken(int token, in
  
  struct symbol *symbol_hash[257];
  
