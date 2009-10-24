@@ -30,14 +30,12 @@ diff -urBp udev-113/Makefile udev/Makefile
  	$(Q) extras="$(EXTRAS)"; for target in $$extras; do \
  		$(MAKE) CC="$(CC)" \
  			CFLAGS="$(CFLAGS)" \
-@@ -268,6 +271,13 @@ uninstall-man:
+@@ -268,6 +271,11 @@ uninstall-man:
  	done;
  .PHONY: uninstall-man
  
 +install-udevtrigger:
 +	$(INSTALL) -d $(DESTDIR)$(udevdir)
-+	$(INSTALL) -d $(DESTDIR)$(configdir)
-+	$(INSTALL_DATA) etc/udev/udev.conf $(DESTDIR)$(configdir)
 +	$(INSTALL_PROGRAM) -D udevtrigger $(DESTDIR)$(sbindir)/udevtrigger
 +	$(STRIP) $(DESTDIR)$(sbindir)/udevtrigger
 +
