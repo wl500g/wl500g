@@ -1,6 +1,29 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d (Current)===
+  * kernel
+    * squashfs 3.0
+    * cifs 1.49 (external module)
+    * optimize the upload speed for PPP connections
+
+  * busybox 1.15.2
+
+  * dnsmasq 2.51
+
+  * vsftpd 2.2.1
+
+  * igmproxy 1.0
+
+  * rc (startup) procedures changes
+    * dnsmasq default cache size increased to 512
+    * return back usb_vfat_options nvram variable, especially for options NOT related to codepages
+
+  * bugfixes
+    * allow ntpclient to get time from non rfc-4330 servers (win XP)
+    * busybox (udhcpc,swaponoff)
+    * libshared - disable forwarding of port 0
+
 ===wl500g-1.9.2.7-d-`r655` (2009-10-04)===
   * kernel
     * nfs client patches from http://client.linux-nfs.org
