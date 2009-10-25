@@ -4,5 +4,5 @@
     * [CompilingCustomFirmware Сборка прошивки]
     * [colinux Сборка прошивки под MS Windows]
   * Оборудование
-    * [Devices Список моделей]
+    * [Devices Список устройств]
   * [LINKS Ссылки]
