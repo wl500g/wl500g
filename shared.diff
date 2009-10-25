@@ -14,7 +14,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shar
  #CFLAGS	+= -g -DDEBUG
  CFLAGS	+= -s -O2
  LDFLAGS += -L.
-@@ -26,6 +27,8 @@ endif
+@@ -26,6 +29,8 @@ endif
  
  all: libshared.so
  
@@ -23,7 +23,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shar
  install: all
  	install -d $(INSTALLDIR)/usr/lib
  	install -m 755 libshared.so $(INSTALLDIR)/usr/lib
-@@ -37,5 +37,8 @@ install: all
+@@ -34,5 +39,8 @@ install: all
  clean:
  	rm -f *.o *.so
  
@@ -312,6 +312,31 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/netconf.h gateway/sha
  
  /* Supported firewall target types */
  enum netconf_target {
+diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/nvparse.c gateway/shared/nvparse.c
+--- router/shared/nvparse.c	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/nvparse.c	2009-10-25 15:53:21.000000000 +0000
+@@ -275,7 +275,9 @@ bool
+ valid_forward_port(const netconf_nat_t *nat)
+ {
+ 	/* Check WAN destination port range */
+-	if (ntohs(nat->match.dst.ports[0]) > ntohs(nat->match.dst.ports[1]))
++	if (ntohs(nat->match.dst.ports[0]) > ntohs(nat->match.dst.ports[1]) ||
++	    nat->match.dst.ports[0] == htons(0) ||
++	    nat->match.dst.ports[1] == htons(0))
+ 		return FALSE;
+ 
+ 	/* Check protocol */
+@@ -287,7 +289,9 @@ valid_forward_port(const netconf_nat_t *
+ 		return FALSE;
+ 
+ 	/* Check LAN destination port range */
+-	if (ntohs(nat->ports[0]) > ntohs(nat->ports[1]))
++	if (ntohs(nat->ports[0]) > ntohs(nat->ports[1]) ||
++	    nat->ports[0] == htons(0) ||
++	    nat->ports[1] == htons(0))
+ 		return FALSE;
+ 
+ 	/* Check port range size */
 diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/shared/shutils.c
 --- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
 +++ gateway/shared/shutils.c	2009-09-21 12:03:53.000000000 +0000
