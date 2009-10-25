@@ -2,7 +2,7 @@
 
 Originally from [http://oleg.wl500g.info/devices.html]
 
-||*Model*||*CPU*||*Switch*||*Radio*||*RAM*||*FLASH*||*USB*||
+|| *Model* || *CPU* || *Switch* || *Radio* || *RAM* || *FLASH* || *USB* ||
 ||_Generation 1_||
 ||WL-300g||BCM4702 125MHz||N/A||802.11g (BCM4306+BCM2050)||16MB SDR 32bit||4MB||N/A||
 ||WL-500b||BCM4702 125MHz||BCM5325M||MiniPCI 802.11b (BCM4301+BCM2051)||16MB SDR 32bit||4MB||1 x 1.1||
