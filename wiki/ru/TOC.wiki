@@ -3,4 +3,6 @@
   * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки]
     * [colinux Сборка прошивки под MS Windows]
+  * Оборудование
+    * [Devices Список моделей]
   * [LINKS Ссылки]
