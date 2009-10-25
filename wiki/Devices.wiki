@@ -6,7 +6,7 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||_Generation 1_||
 ||WL-300g||BCM4702 125MHz||N/A||802.11g (BCM4306+BCM2050)||16MB SDR 32bit||4MB||N/A||
 ||WL-500b||BCM4702 125MHz||BCM5325M||MiniPCI 802.11b (BCM4301+BCM2051)||16MB SDR 32bit||4MB||1 x 1.1||
-||WL-500b V2||BCM4702 125MHz||BCM5325M||MiniPCI 802.11b RaLink||16MB SDR 32bit||4MB||1 x 1.1||
+||WL-500b V2||BCM4702 125MHz||BCM5325M||MiniPCI 802.11b !RaLink||16MB SDR 32bit||4MB||1 x 1.1||
 ||WL-HDD/WL-HMD||BCM4702 125MHz||N/A||802.11g (BCM4306+BCM2050)||16MB SDR 32bit||4MB||1 x 1.1||
 ||_Generation 2_||
 ||WL-500g Deluxe (WL-500gx)||BCM5365P/BCM5364P 200MHz||SoC||802.11g (BCM4306 + BCM2050)||32MB SDR 32bit||4MB||2 x 2.0 (VT6212L)||
@@ -24,5 +24,5 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||WL-520GU||BCM5354 200MHz||SoC||802.11g (SoC)||16MB SDR 16bit||4MB||1 x 2.0 (SoC)||
 ||WL-330gE||BCM5354 240MHz||SoC||802.11g (SoC)||16MB SDR 16bit||4MB||N/A||
 ||_Generation 4_||
-||RT-N13U||RA3052F 384Mhz Ralink||SoC||802.11g (SoC)||32MB SDR 16bit||4MB||1 x 2.0 (SoC)||
+||RT-N13U||RA3052F 384Mhz !RaLink||SoC||802.11g (SoC)||32MB SDR 16bit||4MB||1 x 2.0 (SoC)||
 ||RT-N16||BCM4718 533MHz||Gigabit BCM53115||802.11n (SoC + BCM2050)||128MB DDR 32bit||32MB||2 x 2.0||
