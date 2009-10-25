@@ -3,4 +3,6 @@
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
     * [colinux Firmware compiling on MS Widnows]
+  * Hardware infos
+    * [Devices Devices list]
   * [LINKS Links]
