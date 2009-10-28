@@ -96,7 +96,7 @@ $(TOP):
 	@mkdir -p $(TOP)
 
 $(TOP)/Makefile: Makefile.top
-	cp $^ $@
+	cp -p $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
 	-svnversion 2> /dev/null > $(TOP)/.svnrev
@@ -151,7 +151,7 @@ kernel-extra-drivers:
 	fi
 
 kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
-	cp kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
+	cp -p kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
@@ -171,7 +171,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
-	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
+	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
 	mv $(TOP)/$(BUSYBOX) $@
 
