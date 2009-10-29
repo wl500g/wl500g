@@ -5,4 +5,5 @@
     * [colinux Firmware compiling on MS Widnows]
   * Hardware infos
     * [Devices Devices list]
+    * [sdram BCM3302 Memory Controller info]
   * [LINKS Links]
