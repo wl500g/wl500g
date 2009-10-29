@@ -24,7 +24,7 @@ diff -BurpN madwimax.orig/src/wimax.c madwimax/src/wimax.c
  	printf("                              particular 802.16e wireless network\n");
  	printf("  -e, --event-script=FILE     specify path to the event script\n");
  	printf("  -p, --pid-file=FILE         specify path to the pid-file\n");
-+	printf("  -s, --stats-file=FILE        specify path to the statistics file\n");
++	printf("  -s, --stats-file=FILE       specify path to the statistics file\n");
  	printf("  -h, --help                  display this help\n");
  }
  
