@@ -456,11 +456,12 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
 
+wimax_Patches := $(call patches_list,wimax)
+
 $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	rm -rf $(TOP)/$(MADWIMAX) $@
 	tar -zxf $^ -C $(TOP)
-	[ ! -f wimax/$(MADWIMAX).patch ] || \
-		$(PATCHER) -Z $(TOP)/$(MADWIMAX) wimax/$(MADWIMAX).patch
+	$(PATCHER) -Z $(TOP)/$(MADWIMAX) $(wimax_Patches)
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
