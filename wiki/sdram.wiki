@@ -1,0 +1,41 @@
+#summary BCM3302 Memory Controller Configuration
+
+Originally from http://oleg.wl500g.info/sdram.html
+
+This pages focus on memory controller configuration values, stored in the nvram and used for BCM3302 memory controller configuration found in the BCM4712, BCM53xx series of SoC and BCM5836 CPU
+
+There are several references, which was used to make this summary page, including GPL source code tarballs, distributed by Linksys and ASUS and CFE distributed by Broadcom.
+
+Memory configuration is perfromed by code, assembled from shared/sbsdram.S file. Depending on version it's either uses embedded nvram header values (found in PMON/CFE loader at offset 0x100 or 0x400) or values, from current nvram. These values are generated from sdram`_*` values either during bootloader flashing or via nvram update using nvram commit command.
+
+The exact sdram configuration variables are: *sdram_init*, *sdram_config*, *sdram_refresh* and *sdram_ncdl*. They are used as following: 
+
+  * *sdram_init* determines the memory controller operation mode, i.e. DDR/SDR cycles, 16/32 bit memory interface, number of bits in CAS signal, etc.:
+||Field||Name||Description||
+||0||MemType||Memory type in use.<br> 0: SDR SDRAM<br> 1: DDR SDRAM||
+||1||16BitMem||Memory interface.<br> 0: 32-bit interface<br> 1: 16-bit interface||
+||4:2||ColWidth||Column width in use.<br> 000: 8-bit column<br> 010: 9-bit column<br> 100: 10-bit column||
+||13||Clock||Clock source?<br> 0: External clock<br> 1: Internal clock||
+
+  * *sdram_config*  is used to initialize the mode register (during MRS cycle) of the SDRAM, it contains things defined by JEDEC: burst type, burst length, CAS latency; 
+||Field||Name||Description||
+||0:2||BurstLength||Burst Length value.<br> 000: 1<br> 001: 2<br> 010: 4<br> 011: 8<br> 111: full page||
+||3||BurstType||Burst Type value.<br> 0: Sequential<br> 1: Interleave||
+||6:4||CASLatency||CAS Latency.<br> 001: 1<br> 010: 2<br> 011: 3<br> 101: 1.5<br> 110: 2.5<br> 111: 3.5||
+
+  * *sdram_refresh*  seems to be leaved for compatibility, and not used anymore;
+  * *sdram_ncdl* contains various memory controller timing information, this could be either 0, which indicates to perform auto-tuning during memory initialzation (it will be updated to real value once initialization completed by CFE) or predefined value.
+
+Sample memory configurations which could be found in the sources provided by Broadcom:
+||Size||Type||Organization||sdram_init||bits||RAS||CAS||Technology||
+||8MB||SDR||4 Meg x 16||0x0002||000 1 0||A0-A11||A0-A7||64Mbit||
+||16MB||SDR||4 Meg x 16 x 2||0x0000||000 0 0||A0-A11||A0-A7||64Mbit||
+||16MB||SDR||8 Meg x 16||0x000a||010 1 0||A0-A11||A0-A8||128Mbit||
+||32MB||DDR||16 Meg x 16||0x000b||010 1 1||A0-A12||A0-A8||256Mbit||
+||32MB||SDR||16 Meg x 16||0x000a||010 1 0||A0-A12||A0-A8||256Mbit||
+||32MB||SDR||8 Meg x 16 x 2||0x0008||010 0 0||A0-A11||A0-A8||128Mbit||
+||64MB||DDR||16 Meg x 16 x 2||0x0009||010 0 1||A0-A12||A0-A8||256Mbit||
+||64MB||SDR||16 Meg x 16 x 2||0x0008||010 0 0||A0-A12||A0-A8||256Mbit||
+||128MB||DDR||32 Meg x 16 x 2||0x0011||100 0 1||A0-A12||A0-A9||512Mbit||
+||128MB||SDR||32 Meg x 16 x 2||0x0010||100 0 0||A0-A12||A0-A9||512Mbit||
+||256MB||DDR||64 Meg x 16 x 2||0x0011||100 0 1||A0-A13||A0-A9||1Gbit||
