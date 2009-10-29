@@ -45,6 +45,7 @@ static int diode_on = 1;
 static int detach_dvd = 0;
 static char *ssid = "@yota.ru";
 static char *event_script = SYSCONFDIR "/event.sh";
+static char *pid_fname = NULL;
 
 static FILE *logfile = NULL;
 
@@ -649,6 +650,7 @@ void usage(const char *progname)
 	printf("      --ssid                  specify SSID, a friendly name that identifies a\n");
 	printf("                              particular 802.16e wireless network\n");
 	printf("  -e, --event-script=FILE     specify path to the event script\n");
+	printf("  -p, --pid-file=FILE         specify path to the pid-file\n");
 	printf("  -h, --help                  display this help\n");
 }
 
@@ -678,11 +680,12 @@ static void parse_args(int argc, char **argv)
 			{"version",		no_argument,		0, 'V'},
 			{"ssid",		required_argument,	0, 3},
 			{"event-script",	required_argument,	0, 'e'},
+			{"pid-file",		required_argument,	0, 'p'},
 			{"help",		no_argument,		0, 'h'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "vqdl:ofVe:h", long_options, &option_index);
+		c = getopt_long(argc, argv, "vqdl:ofVe:p:h", long_options, &option_index);
 
 		/* detect the end of the options. */
 		if (c == -1)
@@ -783,6 +786,10 @@ static void parse_args(int argc, char **argv)
 					event_script = optarg;
 					break;
 				}
+			case 'p': {
+					pid_fname = optarg;
+					break;
+				}
 			case '?': {
 					/* getopt_long already printed an error message. */
 					usage(argv[0]);
@@ -825,6 +832,9 @@ static void exit_release_resources(int code)
 	if(logfile != NULL) {
 		fclose(logfile);
 	}
+	if (pid_fname) {
+		unlink(pid_fname);
+	}
 	exit(code);
 }
 
@@ -836,6 +846,19 @@ static void sighandler_wait_child(int signum) {
 	int status;
 	wait3(&status, WNOHANG, NULL);
 	wmlog_msg(2, "Child exited with status %d", status);
+}
+
+static int write_pidfile(const char *fname)
+{
+	FILE *pid_fd;
+
+	/* we will overwrite stale pidfile */
+	if (fname && (pid_fd = fopen(fname, "w"))) {
+		fprintf(pid_fd, "%d\n", getpid());
+    		fclose(pid_fd);
+    		return 1;
+	}
+        return 0;
 }
 
 int main(int argc, char **argv)
@@ -912,6 +935,11 @@ int main(int argc, char **argv)
 	r = init();
 	if (r < 0) {
 		wmlog_msg(0, "init error %d", r);
+		exit_release_resources(1);
+	}
+
+	if (pid_fname && !write_pidfile(pid_fname)) {
+		wmlog_msg(0, "failed to create pid file %s", pid_fname);
 		exit_release_resources(1);
 	}
 
