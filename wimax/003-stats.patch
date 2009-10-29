@@ -1,0 +1,112 @@
+originally created by artp from wl500g.info
+
+diff -BurpN madwimax.orig/src/wimax.c madwimax/src/wimax.c
+--- madwimax.orig/src/wimax.c	2009-10-29 15:48:50.000000000 +0000
++++ madwimax/src/wimax.c	2009-10-29 17:41:43.000000000 +0000
+@@ -46,6 +46,7 @@ static int detach_dvd = 0;
+ static char *ssid = "@yota.ru";
+ static char *event_script = SYSCONFDIR "/event.sh";
+ static char *pid_fname = NULL;
++static char *stats_fname = NULL;
+ 
+ static FILE *logfile = NULL;
+ 
+@@ -91,7 +92,7 @@ static union {
+ #define MAX_PACKET_LEN		0x4000
+ 
+ /* information collector */
+-static struct wimax_dev_status wd_status;
++static struct wimax_dev_status wd_status = {0};
+ 
+ char *wimax_states[] = {"INIT", "SYNC", "NEGO", "NORMAL", "SLEEP", "IDLE", "HHO", "FBSS", "RESET", "RESERVED", "UNDEFINED", "BE", "NRTPS", "RTPS", "ERTPS", "UGS", "INITIAL_RNG", "BASIC", "PRIMARY", "SECONDARY", "MULTICAST", "NORMAL_MULTICAST", "SLEEP_MULTICAST", "IDLE_MULTICAST", "FRAG_BROADCAST", "BROADCAST", "MANAGEMENT", "TRANSPORT"};
+ 
+@@ -651,6 +651,7 @@ void usage(const char *progname)
+ 	printf("                              particular 802.16e wireless network\n");
+ 	printf("  -e, --event-script=FILE     specify path to the event script\n");
+ 	printf("  -p, --pid-file=FILE         specify path to the pid-file\n");
++	printf("  -s, --stats-file=FILE        specify path to the statistics file\n");
+ 	printf("  -h, --help                  display this help\n");
+ }
+ 
+@@ -681,11 +682,12 @@ static void parse_args(int argc, char **
+ 			{"ssid",		required_argument,	0, 3},
+ 			{"event-script",	required_argument,	0, 'e'},
+ 			{"pid-file",		required_argument,	0, 'p'},
++			{"stats-file",		required_argument,	0, 's'},
+ 			{"help",		no_argument,		0, 'h'},
+ 			{0, 0, 0, 0}
+ 		};
+ 
+-		c = getopt_long(argc, argv, "vqdl:ofVe:p:h", long_options, &option_index);
++		c = getopt_long(argc, argv, "vqdl:ofVe:p:s:h", long_options, &option_index);
+ 
+ 		/* detect the end of the options. */
+ 		if (c == -1)
+@@ -790,6 +792,10 @@ static void parse_args(int argc, char **
+ 					pid_fname = optarg;
+ 					break;
+ 				}
++			case 's': {
++					stats_fname = optarg;
++					break;
++				}
+ 			case '?': {
+ 					/* getopt_long already printed an error message. */
+ 					usage(argv[0]);
+@@ -832,6 +838,9 @@ static void exit_release_resources(int c
+ 	if(logfile != NULL) {
+ 		fclose(logfile);
+ 	}
++	if (stats_fname) {
++		unlink(stats_fname);
++	}
+ 	if (pid_fname) {
+ 		unlink(pid_fname);
+ 	}
+@@ -848,6 +857,36 @@ static void sighandler_wait_child(int si
+ 	wmlog_msg(2, "Child exited with status %d", status);
+ }
+ 
++static void sighandler_stats(int signum) {
++	FILE *fd;
++	if (stats_fname && (fd = fopen(stats_fname, "w"))) {
++		fprintf(fd,
++			"SSID: %s\n"
++			"State: %s\n"
++			"Number: %d\n"
++			"Response: %d\n",
++			ssid,
++			wimax_states[wd_status.state],
++			wd_status.state,
++			wd_status.link_status);
++		if (wd_status.link_status != 0) {
++			fprintf(fd,
++				"RSSI: %d\n"
++				"CINR: %f\n"
++				"TX Power: %d\n"
++				"Frequency: %d\n"
++				"BSID: %02x:%02x:%02x:%02x:%02x:%02x\n",
++				wd_status.rssi,
++				wd_status.cinr,
++				wd_status.txpwr,
++				wd_status.freq,
++				wd_status.bsid[0], wd_status.bsid[1], wd_status.bsid[2],
++				wd_status.bsid[3], wd_status.bsid[4], wd_status.bsid[5]);
++		}
++		fclose(fd);
++	}
++}
++
+ static int write_pidfile(const char *fname)
+ {
+ 	FILE *pid_fd;
+@@ -876,6 +915,9 @@ int main(int argc, char **argv)
+ 	sigaction(SIGQUIT, &sigact, NULL);
+ 	sigact.sa_handler = sighandler_wait_child;
+ 	sigaction(SIGCHLD, &sigact, NULL);
++	sigfillset(&sigact.sa_mask);
++	sigact.sa_handler = sighandler_stats;
++	sigaction(SIGUSR1, &sigact, NULL);
+ 
+ 	if (logfile != NULL) {
+ 		set_wmlogger(argv[0], WMLOGGER_FILE, logfile);
