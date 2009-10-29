@@ -12,15 +12,15 @@ The exact sdram configuration variables are: *sdram_init*, *sdram_config*, *sdra
 
   * *sdram_init* determines the memory controller operation mode, i.e. DDR/SDR cycles, 16/32 bit memory interface, number of bits in CAS signal, etc.:
 ||Field||Name||Description||
-||0||MemType||Memory type in use.<br> 0: SDR SDRAM<br> 1: DDR SDRAM||
+||0||!MemType||Memory type in use.<br> 0: SDR SDRAM<br> 1: DDR SDRAM||
 ||1||16BitMem||Memory interface.<br> 0: 32-bit interface<br> 1: 16-bit interface||
-||4:2||ColWidth||Column width in use.<br> 000: 8-bit column<br> 010: 9-bit column<br> 100: 10-bit column||
+||4:2||!ColWidth||Column width in use.<br> 000: 8-bit column<br> 010: 9-bit column<br> 100: 10-bit column||
 ||13||Clock||Clock source?<br> 0: External clock<br> 1: Internal clock||
 
   * *sdram_config*  is used to initialize the mode register (during MRS cycle) of the SDRAM, it contains things defined by JEDEC: burst type, burst length, CAS latency; 
 ||Field||Name||Description||
-||0:2||BurstLength||Burst Length value.<br> 000: 1<br> 001: 2<br> 010: 4<br> 011: 8<br> 111: full page||
-||3||BurstType||Burst Type value.<br> 0: Sequential<br> 1: Interleave||
+||0:2||!BurstLength||Burst Length value.<br> 000: 1<br> 001: 2<br> 010: 4<br> 011: 8<br> 111: full page||
+||3||!BurstType||Burst Type value.<br> 0: Sequential<br> 1: Interleave||
 ||6:4||CASLatency||CAS Latency.<br> 001: 1<br> 010: 2<br> 011: 3<br> 101: 1.5<br> 110: 2.5<br> 111: 3.5||
 
   * *sdram_refresh*  seems to be leaved for compatibility, and not used anymore;
