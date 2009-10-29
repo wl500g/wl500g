@@ -198,7 +198,7 @@ ifneq (0,$(words $(SVNREVISION)))
   RELEASE:=$(RELEASE)-r$(firstword $(SVNREVISION))
 endif
 
-# $1 - config name, $2 - params list to change, $3 - new param value
+# $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
 define SwitchConfParam
 	@( \
 	SW_SEDCMD=""; \
@@ -214,8 +214,10 @@ define SwitchConfParam
 	    SW_SEDCMD="$${SW_SEDCMD};s/$${ORIG_STR}/$${TEST_PATTERN}/"; \
 	 fi; \
 	done; \
-	sed "$${SW_SEDCMD}" $(1) >$(1).sed; \
-	mv $(1).sed $(1); \
+	if [ "$${SW_SEDCMD}" != "" ]; then \
+	    sed "$${SW_SEDCMD}" $(1) >$(1).sed; \
+	    mv $(1).sed $(1); \
+	fi; \
 	)
 endef
 
