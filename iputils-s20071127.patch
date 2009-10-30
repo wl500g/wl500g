@@ -1,0 +1,12 @@
+diff -BurpN iputils-s20071127/traceroute6.c iputils/traceroute6.c
+--- iputils-s20071127/traceroute6.c	2007-11-27 00:57:27.000000000 +0000
++++ iputils/traceroute6.c	2009-10-30 08:01:14.000000000 +0000
+@@ -679,7 +679,7 @@ wait_for_reply(sock, from, to, reset_tim
+ 					continue;
+ 				switch (cmsg->cmsg_type) {
+ 				case IPV6_PKTINFO:
+-#ifdef IPV6_2292PKTINFO
++#if defined IPV6_2292PKTINFO && defined IPV6_RECVPKTINFO
+ 				case IPV6_2292PKTINFO:
+ #endif
+ 					ipi = (struct in6_pktinfo *)CMSG_DATA(cmsg);

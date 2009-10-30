@@ -165,6 +165,7 @@ obj-$(CONFIG_NFSD) += portmap
 obj-$(CONFIG_IPROUTE2) += iproute2
 obj-$(CONFIG_LOADER) += loader
 obj-$(CONFIG_IPV6) += radvd
+obj-$(CONFIG_IPV6) += iputils
 obj-$(CONFIG_SNMP) += ucdsnmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
@@ -519,6 +520,14 @@ radvd: radvd/Makefile
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
+
+iputils:
+	$(MAKE) -C $@ traceroute6 CC=$(CC) \
+	    CCOPT="-D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall $(EXTRACFLAGS)"
+
+iputils-install:
+	install -D iputils/traceroute6 $(INSTALLDIR)/iputils/usr/bin/traceroute6
+	$(STRIP) $(INSTALLDIR)/iputils/usr/bin/traceroute6
 
 bridge:
 	$(MAKE) -C $@ brctl/brctl EXTRACFLAGS="$(EXTRACFLAGS)"
