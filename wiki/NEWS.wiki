@@ -20,7 +20,10 @@
     * return back usb_vfat_options nvram variable, especially for options NOT related to codepages
 
   * madwimax
-    * add statistics & pid files support
+    * statistics & pid files support
+
+  * iputils
+    * traceroute6 within IPv6 build
 
   * bugfixes
     * allow ntpclient to get time from non rfc-4330 servers (win XP)
