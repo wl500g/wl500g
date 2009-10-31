@@ -1,7 +1,7 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d (Current)===
+===wl500g-1.9.2.7-d-`r740` (2009-10-31)===
   * kernel
     * squashfs 3.0
     * cifs 1.49 (external module)
@@ -18,6 +18,9 @@
   * rc (startup) procedures changes
     * dnsmasq default cache size increased to 512
     * return back usb_vfat_options nvram variable, especially for options NOT related to codepages
+
+  * madwimax
+    * add statistics & pid files support
 
   * bugfixes
     * allow ntpclient to get time from non rfc-4330 servers (win XP)
