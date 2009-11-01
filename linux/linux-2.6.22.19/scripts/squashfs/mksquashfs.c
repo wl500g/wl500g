@@ -62,6 +62,7 @@
 #include "mksquashfs.h"
 #include "global.h"
 #include "sort.h"
+#include "sqlzma.h"
 
 #ifdef SQUASHFS_TRACE
 #define TRACE(s, args...)	do { \
@@ -123,6 +124,10 @@ unsigned short uid_count = 0, guid_count = 0;
 squashfs_uid uids[SQUASHFS_UIDS], guids[SQUASHFS_GUIDS];
 int block_offset;
 int file_count = 0, sym_count = 0, dev_count = 0, dir_count = 0, fifo_count = 0, sock_count = 0;
+struct sqlzma_un un;
+struct sqlzma_opts sqlzma_opts = {
+	.try_lzma	= 1
+};
 
 /* write position within data section */
 long long bytes = 0, total_bytes = 0;
@@ -832,7 +837,7 @@ unsigned int mangle2(z_stream **strm, char *d, char *s, int size, int block_size
 	stream->next_out = (unsigned char *) d;
 	stream->avail_out = block_size;
 
-	res = deflate(stream, Z_FINISH);
+	res = sqlzma_cm(&sqlzma_opts, stream);
 	if(res != Z_STREAM_END && res != Z_OK) {
 		if(res == Z_STREAM_ERROR)
 			BAD_ERROR("zlib::compress failed, stream state inconsistent\n");
@@ -1450,6 +1455,11 @@ struct file_buffer *get_fragment(struct fragment *fragment)
 		unsigned long bytes = block_size;
 		char *data;
 		char cbuffer[block_size];
+		enum {Src, Dst};
+		struct sized_buf sbuf[] = {
+			{.buf = (void *)cbuffer, .sz = size},
+			{.buf = (void *)buffer->data, .sz = bytes}
+		};
 
 		if(compressed_buffer)
 			data = compressed_buffer->data;
@@ -1458,14 +1468,10 @@ struct file_buffer *get_fragment(struct fragment *fragment)
 			read_bytes(fd, start_block, size, data);
 		}
 
-		if((res = uncompress((unsigned char *) buffer->data, &bytes, (const unsigned char *) data, size)) != Z_OK) {
-			if(res == Z_MEM_ERROR)
-				BAD_ERROR("zlib::uncompress failed, not enough memory\n");
-			else if(res == Z_BUF_ERROR)
-				BAD_ERROR("zlib::uncompress failed, not enough room in output buffer\n");
-			else
-				BAD_ERROR("zlib::uncompress failed, unknown error %d\n", res);
-		}
+		sbuf[Src].buf = data;
+		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
+		if (res)
+			BAD_ERROR("%s:%d: res %d\n", __func__, __LINE__, res);
 	} else if(compressed_buffer)
 		memcpy(buffer->data, compressed_buffer->data, size);
 	else
@@ -2002,6 +2008,7 @@ void reader_scan(struct dir_info *dir) {
 				break;
 		}
 	}
+	return NULL;
 }
 
 
@@ -2275,6 +2282,7 @@ void progress_bar(long long current, long long max, int columns)
 	printf("] %*lld/%*lld", max_digits, current, max_digits, max);
 	printf(" %3lld%%", current * 100 / max);
 	fflush(stdout);
+	return;
 }
 
 
@@ -2974,7 +2982,7 @@ error:
 
 void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
 {
-	int squashfs_type;
+	int squashfs_type = -1;
 	int duplicate_file;
 	char *pathname = dir_info->pathname;
 	struct directory dir;
@@ -3577,7 +3585,8 @@ void read_recovery_data(char *recovery_file, char *destination_file)
 	printf("This program is distributed in the hope that it will be useful,\n");\
 	printf("but WITHOUT ANY WARRANTY; without even the implied warranty of\n");\
 	printf("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n");\
-	printf("GNU General Public License for more details.\n");
+	printf("GNU General Public License for more details.\n");\
+	printf("and LZMA support for slax.org by jro.\n");
 int main(int argc, char *argv[])
 {
 	struct stat buf, source_buf;
@@ -3596,7 +3605,9 @@ int main(int argc, char *argv[])
 #endif
 
 	pthread_mutex_init(&progress_mutex, NULL);
+	un.un_lzma = 1;
 	block_log = slog(block_size);
+	sqlzma_opts.dicsize = block_log;
 	if(argc > 1 && strcmp(argv[1], "-version") == 0) {
 		VERSION();
 		exit(0);
@@ -3663,24 +3674,33 @@ int main(int argc, char *argv[])
 				ERROR("%s: -fragment-queue should be 1 megabyte or larger\n", argv[0]);
 				exit(1);
 			}
-		} else if(strcmp(argv[i], "-b") == 0) {
+		} else if(strcmp(argv[i], "-b") == 0
+			|| strcmp(argv[i], "-lzmadic") == 0) {
+			long bs;
+			unsigned int bl;
 			if(++i == argc) {
-				ERROR("%s: -b missing block size\n", argv[0]);
+				ERROR("%s: -b|-lzmadic missing block size\n", argv[0]);
 				exit(1);
 			}
-			block_size = strtol(argv[i], &b, 10);
+			bs = strtol(argv[i], &b, 10);
 			if(*b == 'm' || *b == 'M')
-				block_size *= 1048576;
+				bs *= 1048576;
 			else if(*b == 'k' || *b == 'K')
-				block_size *= 1024;
+				bs *= 1024;
 			else if(*b != '\0') {
-				ERROR("%s: -b invalid block size\n", argv[0]);
+				ERROR("%s: -b|-lzmadic invalid size\n", argv[0]);
 				exit(1);
 			}
-			if((block_log = slog(block_size)) == 0) {
-				ERROR("%s: -b block size not power of two or not between 4096 and 1Mbyte\n", argv[0]);
+			bl = slog(bs);
+			if(bl == 0) {
+				ERROR("%s: -b|-lzmadic size not power of two or not between 4096 and 1Mbyte\n", argv[0]);
 				exit(1);
 			}
+			if (!strcmp(argv[i - 1], "-b")) {
+				block_size = bs;
+				block_log = bl;
+			}
+			sqlzma_opts.dicsize = bl;
 		} else if(strcmp(argv[i], "-ef") == 0) {
 			if(++i == argc) {
 				ERROR("%s: -ef missing filename\n", argv[0]);
@@ -3785,6 +3805,9 @@ int main(int argc, char *argv[])
 				exit(1);
 			}	
 			root_name = argv[i];
+		} else if(strcmp(argv[i], "-nolzma") == 0) {
+			un.un_lzma = 0;
+			sqlzma_opts.try_lzma = 0;
 		} else if(strcmp(argv[i], "-version") == 0) {
 			VERSION();
 		} else {
@@ -3835,6 +3858,12 @@ printOptions:
 			ERROR("-ef <exclude_file>\tlist of exclude dirs/files.  One per line\n");
 			ERROR("-wildcards\t\tAllow extended shell wildcards (globbing) to be used in\n\t\t\texclude dirs/files\n");
 			ERROR("-regex\t\t\tAllow POSIX regular expressions to be used in exclude\n\t\t\tdirs/files\n");
+			ERROR("-lzmadic <dic_size>\tset the LZMA dictionary"
+			      " size to <dic_size>\n"
+			      "\t\t\tDefault value always follow the block"
+			      " size\n"
+			      "\t\t\tUse this alone or AFTER -b option\n");
+			ERROR("-nolzma\t\t\tnever try LZMA compression\n");
 			exit(1);
 		}
 	}
@@ -3946,6 +3975,7 @@ printOptions:
 
 		be = orig_be;
 		block_log = slog(block_size = sBlk.block_size);
+		//sqlzma_opts.dicsize = block_size;
 		s_minor = sBlk.s_minor;
 		noI = SQUASHFS_UNCOMPRESSED_INODES(sBlk.flags);
 		noD = SQUASHFS_UNCOMPRESSED_DATA(sBlk.flags);
@@ -3958,6 +3988,12 @@ printOptions:
 	}
 
 	initialise_threads();
+
+	i = sqlzma_init(&un, un.un_lzma, 0);
+	if (i != Z_OK) {
+		ERROR("%s:%d: %d\n", __func__, __LINE__, i);
+		EXIT_MKSQUASHFS();
+	}
 
 	if(delete) {
 		printf("Creating %s %d.%d filesystem on %s, block size %d.\n",
@@ -4082,7 +4118,9 @@ printOptions:
 		dir_scan(&inode, "", scan1_encomp_readdir);
 	sBlk.root_inode = inode;
 	sBlk.inodes = inode_count;
-	sBlk.s_magic = SQUASHFS_MAGIC;
+	sBlk.s_magic = SQUASHFS_MAGIC_LZMA;
+	if (!un.un_lzma)
+		sBlk.s_magic = SQUASHFS_MAGIC;
 	sBlk.s_major = SQUASHFS_MAJOR;
 	sBlk.s_minor = s_minor;
 	sBlk.block_size = block_size;

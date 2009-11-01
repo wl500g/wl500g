@@ -46,6 +46,7 @@ extern int add_file(long long, long long, long long, unsigned int *, int, unsign
 #include <squashfs_fs.h>
 #include "read_fs.h"
 #include "global.h"
+#include "sqlzma.h"
 
 #include <stdlib.h>
 
@@ -62,6 +63,7 @@ extern int add_file(long long, long long, long long, unsigned int *, int, unsign
 					} while(0)
 
 int swap;
+extern struct sqlzma_un un;
 
 int read_block(int fd, long long start, long long *next, unsigned char *block, squashfs_super_block *sBlk)
 {
@@ -81,19 +83,20 @@ int read_block(int fd, long long start, long long *next, unsigned char *block, s
 		char buffer[SQUASHFS_METADATA_SIZE];
 		int res;
 		unsigned long bytes = SQUASHFS_METADATA_SIZE;
+		enum {Src, Dst};
+		struct sized_buf sbuf[] = {
+			{.buf = (void *)buffer},
+			{.buf = (void *)block, .sz = bytes}
+		};
 
 		c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
 		read_bytes(fd, start + offset, c_byte, buffer);
 
-		if((res = uncompress(block, &bytes, (const unsigned char *) buffer, c_byte)) != Z_OK) {
-			if(res == Z_MEM_ERROR)
-				ERROR("zlib::uncompress failed, not enough memory\n");
-			else if(res == Z_BUF_ERROR)
-				ERROR("zlib::uncompress failed, not enough room in output buffer\n");
-			else
-				ERROR("zlib::uncompress failed, unknown error %d\n", res);
-			return 0;
-		}
+		sbuf[Src].sz = c_byte;
+		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
+		if (res)
+			abort();
+		bytes = un.un_reslen;
 		if(next)
 			*next = start + offset + c_byte;
 		return bytes;
@@ -351,18 +354,30 @@ int read_super(int fd, squashfs_super_block *sBlk, int *be, char *source)
 
 	/* Check it is a SQUASHFS superblock */
 	swap = 0;
-	if(sBlk->s_magic != SQUASHFS_MAGIC) {
-		if(sBlk->s_magic == SQUASHFS_MAGIC_SWAP) {
-			squashfs_super_block sblk;
-			ERROR("Reading a different endian SQUASHFS filesystem on %s - ignoring -le/-be options\n", source);
-			SQUASHFS_SWAP_SUPER_BLOCK(&sblk, sBlk);
-			memcpy(sBlk, &sblk, sizeof(squashfs_super_block));
-			swap = 1;
-		} else  {
-			ERROR("Can't find a SQUASHFS superblock on %s\n", source);
-			goto failed_mount;
-		}
-	}
+	switch (sBlk->s_magic) {
+		squashfs_super_block sblk;
+
+	case SQUASHFS_MAGIC_LZMA:
+		if (!un.un_lzma)
+			goto bad;
+		break;
+	case SQUASHFS_MAGIC:
+		break;
+	case SQUASHFS_MAGIC_LZMA_SWAP:
+		if (!un.un_lzma)
+			goto bad;
+		/*FALLTHROUGH*/
+	case SQUASHFS_MAGIC_SWAP:
+		ERROR("Reading a different endian SQUASHFS filesystem on %s - ignoring -le/-be options\n", source);
+		SQUASHFS_SWAP_SUPER_BLOCK(&sblk, sBlk);
+		memcpy(sBlk, &sblk, sizeof(squashfs_super_block));
+		swap = 1;
+		break;
+	bad:
+	default:
+		ERROR("Can't find a SQUASHFS superblock on %s\n", source);
+		goto failed_mount;
+ 	}
 
 	/* Check the MAJOR & MINOR versions */
 	if(sBlk->s_major != SQUASHFS_MAJOR || sBlk->s_minor > SQUASHFS_MINOR) {
