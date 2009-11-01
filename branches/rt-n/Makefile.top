@@ -363,7 +363,7 @@ modules_install: .config
 install: package-$(MODEL)
 	@true
 
-package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config lzma-lib
+package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs-lzma
 	$(MAKE) www-pages-$*
         # Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
