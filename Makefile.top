@@ -252,7 +252,7 @@ distclean mrproper: clean
 	rm -f .config $(LINUXDIR)/.config
 
 lzma-lib:
-	$(MAKE) -C $(LZMADIR)/LZMA_Lib/
+	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
 
 lzma:
 	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc
@@ -262,7 +262,7 @@ loader:
 
 mksquashfs-lzma: lzma-lib
 	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
-		Sqlzma=. LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
+		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
 kernel-modules: $(LINUXDIR)/.config
 	( . $(LINUXDIR)/.config ; \
@@ -310,54 +310,22 @@ endif
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
-modules_install-WL500g modules_install-WL500b: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o
-
-modules_install-WL500bv2: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o
-	rm -f $(MODULESDIR)/wl.o
-	install -t $(MODULESDIR)/ rt2460/rt2400.o 
-
 modules_install-WL3%: modules_install
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext)
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-RT-N16: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
-	rm -rf $(MODULESDIR)/parport
-
-modules_install-WL700g: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o \
-		$(SRCMODULESDIR)/drivers/char/gpiortc.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-mod.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-disk.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-probe-mod.o
-	rm -rf $(MODULESDIR)/parport
-
-modules_install-WLHDD: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o \
-		$(SRCMODULESDIR)/drivers/char/gpiortc.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-mod.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-disk.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-probe-mod.o
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
@@ -371,10 +339,12 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/net/emf/emf$(kmod_ext) \
 		$(SRCMODULESDIR)/drivers/net/igs/igs$(kmod_ext) \
 		$(SRCMODULESDIR)/drivers/net/tun$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/connector/cn$(kmod_ext) \
 		$(NETFILTER_MODS_LIST)
 	# generic usb
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) \
 		$(SRCMODULESDIR)/drivers/usb/class/usblp$(kmod_ext)
 	# usb storage
 	install -t $(MODULESDIR) \
@@ -386,6 +356,9 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(kmod_ext)
 	# usb webcams
 	# usb audio
+	# other
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/lib/libcrc32c$(kmod_ext)
 
 install: package-$(MODEL)
 	@true
