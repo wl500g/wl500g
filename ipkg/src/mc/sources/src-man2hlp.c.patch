@@ -1,6 +1,6 @@
 --- mc-4.6.2/src/man2hlp.c.orig	2009-02-01 19:30:21.000000000 +0000
 +++ mc-4.6.2/src/man2hlp.c	2009-03-04 04:42:53.466522749 +0000
-@@ -18,17 +18,12 @@
+@@ -18,15 +18,11 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
  
@@ -14,10 +14,8 @@
 -#include <glib.h>
 -
  #include "help.h"
--#include "glibcompat.h"
  
  #define BUFFER_SIZE 256
- 
 @@ -146,7 +141,7 @@
  
      f = fopen (filename, flags);

@@ -5,7 +5,7 @@
 ###########################################################
 
 MC_SITE=http://www.midnight-commander.org/downloads
-MC_VERSION=4.7.0-pre3
+MC_VERSION=4.7.0-pre4
 MC_SOURCE=mc-$(MC_VERSION).tar.gz
 MC_DIR=mc-$(MC_VERSION)
 MC_UNZIP=zcat
@@ -29,8 +29,6 @@ MC_PATCHES=\
 $(MC_SOURCE_DIR)/doc-hlp-Makefile.in.patch \
 $(MC_SOURCE_DIR)/src-man2hlp.c.patch \
 $(MC_SOURCE_DIR)/configure.patch \
-$(MC_SOURCE_DIR)/ftpfs.patch \
-$(MC_SOURCE_DIR)/misc-mc.keymap.patch \
 
 #
 # If the compilation of the package requires additional

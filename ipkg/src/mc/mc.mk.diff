@@ -1,15 +1,15 @@
 --- mc.mk.orig	2009-10-12 04:35:42.000000000 +0000
-+++ mc.mk	2009-10-19 19:43:11.000000000 +0000
++++ mc.mk	2009-11-01 17:02:34.000000000 +0000
 @@ -5,7 +5,7 @@
  ###########################################################
  
  MC_SITE=http://www.midnight-commander.org/downloads
 -MC_VERSION=4.6.2
-+MC_VERSION=4.7.0-pre3
++MC_VERSION=4.7.0-pre4
  MC_SOURCE=mc-$(MC_VERSION).tar.gz
  MC_DIR=mc-$(MC_VERSION)
  MC_UNZIP=zcat
-@@ -26,8 +26,11 @@
+@@ -26,8 +26,9 @@
  # which they should be applied to the source code.
  #
  MC_PATCHES=\
@@ -18,8 +18,6 @@
 +$(MC_SOURCE_DIR)/doc-hlp-Makefile.in.patch \
 +$(MC_SOURCE_DIR)/src-man2hlp.c.patch \
 +$(MC_SOURCE_DIR)/configure.patch \
-+$(MC_SOURCE_DIR)/ftpfs.patch \
-+$(MC_SOURCE_DIR)/misc-mc.keymap.patch \
  
  #
  # If the compilation of the package requires additional

@@ -1,11 +1,11 @@
---- mc-4.7.0-pre3/doc/hlp/Makefile.in.orig	2009-02-01 19:46:24.000000000 +0000
-+++ mc-4.7.0-pre3/doc/hlp/Makefile.in	2009-03-04 04:54:33.236835120 +0000
-@@ -677,7 +677,7 @@
+--- mc-4.7.0-pre4/doc/hlp/Makefile.in.orig	2009-10-30 19:18:18.000000000 +0000
++++ mc-4.7.0-pre4/doc/hlp/Makefile.in	2009-11-01 16:45:22.000000000 +0000
+@@ -722,7 +722,7 @@
  
  
  mc.hlp: $(top_builddir)/doc/man/mc.1 $(srcdir)/xnc.hlp $(top_builddir)/src/man2hlp
 -	- $(top_builddir)/src/man2hlp $(top_builddir)/doc/man/mc.1 $(srcdir)/xnc.hlp mc.hlp
 +	- $(top_builddir)/src/man2hlp.host $(top_builddir)/doc/man/mc.1 $(srcdir)/xnc.hlp mc.hlp
+ 
  # Tell versions [3.59,3.63) of GNU make to not export all variables.
  # Otherwise a system limit (for SysV at least) may be exceeded.
- .NOEXPORT:

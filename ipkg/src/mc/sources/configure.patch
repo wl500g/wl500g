@@ -1,12 +1,14 @@
---- mc-4.7.0-pre3/configure.orig	2009-10-02 09:27:51.000000000 +0000
-+++ mc-4.7.0-pre3/configure	2009-10-18 17:39:20.000000000 +0000
-@@ -44021,64 +44021,63 @@
+--- mc-4.7.0-pre4/configure.orig	2009-10-30 19:18:07.000000000 +0000
++++ mc-4.7.0-pre4/configure	2009-11-01 16:08:07.000000000 +0000
+@@ -36892,67 +36892,67 @@
          if test x"$found_slang" = x"yes"; then
-         { echo "$as_me:$LINENO: checking for S-Lang version 2.0 or newer" >&5
- echo $ECHO_N "checking for S-Lang version 2.0 or newer... $ECHO_C" >&6; }
+         { $as_echo "$as_me:$LINENO: checking for S-Lang version 2.0 or newer" >&5
+ $as_echo_n "checking for S-Lang version 2.0 or newer... " >&6; }
 -        if test "$cross_compiling" = yes; then
 -  mc_slang_is_valid_version=no
--
++#        if test "$cross_compiling" = yes; then
++#  mc_slang_is_valid_version=no
+ 
 -else
 -  cat >conftest.$ac_ext <<_ACEOF
 -/* confdefs.h.  */
@@ -17,49 +19,20 @@
 -
 -#ifdef HAVE_SLANG_SLANG_H
 -#include <slang/slang.h>
--#else
+ #else
 -#include <slang.h>
 -#endif
 -int main (void)
 -{
 -#if SLANG_VERSION >= 20000
 -    return 0;
-+#        if test "$cross_compiling" = yes; then
-+#  mc_slang_is_valid_version=no
-+#
- #else
--    return 1;
--#endif
--}
--
--_ACEOF
--rm -f conftest$ac_exeext
--if { (ac_try="$ac_link"
--case "(($ac_try" in
--  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
--  *) ac_try_echo=$ac_try;;
--esac
--eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
--  (eval "$ac_link") 2>&5
--  ac_status=$?
--  echo "$as_me:$LINENO: \$? = $ac_status" >&5
--  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
--  { (case "(($ac_try" in
--  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
--  *) ac_try_echo=$ac_try;;
--esac
--eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
--  (eval "$ac_try") 2>&5
--  ac_status=$?
--  echo "$as_me:$LINENO: \$? = $ac_status" >&5
--  (exit $ac_status); }; }; then
 +#  cat >conftest.$ac_ext <<_ACEOF
 +#/* confdefs.h.  */
 +#_ACEOF
 +#cat confdefs.h >>conftest.$ac_ext
 +#cat >>conftest.$ac_ext <<_ACEOF
 +#/* end confdefs.h.  */
-+#
++
 +##ifdef HAVE_SLANG_SLANG_H
 +##include <slang/slang.h>
 +##else
@@ -73,7 +46,7 @@
 +#    return 1;
 +##endif
 +#}
-+#
++
 +#_ACEOF
 +#rm -f conftest$ac_exeext
 +#if { (ac_try="$ac_link"
@@ -81,42 +54,75 @@
 +#  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
 +#  *) ac_try_echo=$ac_try;;
 +#esac
-+#eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++#eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
++#$as_echo "$ac_try_echo") >&5
 +#  (eval "$ac_link") 2>&5
 +#  ac_status=$?
-+#  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++#  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
 +#  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
 +#  { (case "(($ac_try" in
 +#  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
 +#  *) ac_try_echo=$ac_try;;
 +#esac
-+#eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
++#eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
++#$as_echo "$ac_try_echo") >&5
 +#  (eval "$ac_try") 2>&5
 +#  ac_status=$?
-+#  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++#  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
 +#  (exit $ac_status); }; }; then
-   mc_slang_is_valid_version=yes
++#  mc_slang_is_valid_version=yes
+ #else
+-    return 1;
+-#endif
+-}
+-
+-_ACEOF
+-rm -f conftest$ac_exeext
+-if { (ac_try="$ac_link"
+-case "(($ac_try" in
+-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+-  *) ac_try_echo=$ac_try;;
+-esac
+-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+-$as_echo "$ac_try_echo") >&5
+-  (eval "$ac_link") 2>&5
+-  ac_status=$?
+-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+-  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+-  { (case "(($ac_try" in
+-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+-  *) ac_try_echo=$ac_try;;
+-esac
+-eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+-$as_echo "$ac_try_echo") >&5
+-  (eval "$ac_try") 2>&5
+-  ac_status=$?
+-  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+-  (exit $ac_status); }; }; then
+-  mc_slang_is_valid_version=yes
 -else
--  echo "$as_me: program exited with status $ac_status" >&5
--echo "$as_me: failed program was:" >&5
+-  $as_echo "$as_me: program exited with status $ac_status" >&5
+-$as_echo "$as_me: failed program was:" >&5
 -sed 's/^/| /' conftest.$ac_ext >&5
 -
 -( exit $ac_status )
 -mc_slang_is_valid_version=no
 -fi
+-rm -rf conftest.dSYM
 -rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 -fi
 -
-+#else
-+#  echo "$as_me: program exited with status $ac_status" >&5
-+#echo "$as_me: failed program was:" >&5
++#  $as_echo "$as_me: program exited with status $ac_status" >&5
++#$as_echo "$as_me: failed program was:" >&5
 +#sed 's/^/| /' conftest.$ac_ext >&5
-+#
++
 +#( exit $ac_status )
 +#mc_slang_is_valid_version=no
 +#fi
++#rm -rf conftest.dSYM
 +#rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
 +#fi
++mc_slang_is_valid_version=yes
  
  	if test x$mc_slang_is_valid_version = xno; then
              found_slang=no
