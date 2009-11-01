@@ -138,40 +138,6 @@ diff -urBp '-x.*' et-5.10.56.46/sys/etc47xx.c et/sys/etc47xx.c
  }
  
  /* set selected capability bits in autonegotiation advertisement */
-diff -urBp '-x.*' et-5.10.56.46/sys/etc.c et/sys/etc.c
---- et-5.10.56.46/sys/etc.c	2009-08-27 07:52:07.000000000 +0400
-+++ et/sys/etc.c	2009-10-10 20:43:47.000000000 +0400
-@@ -380,23 +380,22 @@ etc_ioctl(etc_info_t *etc, int cmd, void
- void
- etc_watchdog(etc_info_t *etc)
- {
--	uint16 status;
-+	uint16 status, control;
- 	uint16 lpa;
- 
- 	etc->now++;
- 
- 	/* no local phy registers */
- 	if (etc->phyaddr == EPHY_NOREG) {
--		etc->linkstate = TRUE;
--		etc->duplex = 1;
--		/* keep emac txcontrol duplex bit consistent with current phy duplex */
--		(*etc->chops->duplexupd)(etc->ch);
--		return;
-+		control = CTL_SPEED | CTL_DUPLEX;
-+		status = STAT_LINK;
-+	} else {
-+		control = (*etc->chops->phyrd)(etc->ch, etc->phyaddr, 0);
-+		status = (*etc->chops->phyrd)(etc->ch, etc->phyaddr, 1);
- 	}
- 
--	status = (*etc->chops->phyrd)(etc->ch, etc->phyaddr, 1);
- 	/* check for bad mdio read */
--	if (status == 0xffff) {
-+	if (control == 0xffff || status == 0xffff) {
- 		ET_ERROR(("et%d: etc_watchdog: bad mdio read: phyaddr %d mdcport %d\n",
- 			etc->unit, etc->phyaddr, etc->mdcport));
- 		return;
 diff -urBp '-x.*' et-5.10.56.46/sys/etcgmac.c et/sys/etcgmac.c
 --- et-5.10.56.46/sys/etcgmac.c	2009-08-27 07:52:07.000000000 +0400
 +++ et/sys/etcgmac.c	2009-10-10 19:55:29.000000000 +0400
