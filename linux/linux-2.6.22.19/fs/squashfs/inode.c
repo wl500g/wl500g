@@ -32,8 +32,30 @@
 #include <linux/vmalloc.h>
 #include <linux/spinlock.h>
 #include <linux/smp_lock.h>
+#include <linux/sched.h>
 
 #include "squashfs.h"
+#include "sqlzma.h"
+
+#undef KeepPreemptive
+#if defined(CONFIG_PREEMPT) && !defined(UnsquashNoPreempt)
+#define KeepPreemptive
+#endif
+
+struct sqlzma {
+#ifdef KeepPreemptive
+	struct mutex mtx;
+#endif
+	unsigned char read_data[SQUASHFS_FILE_MAX_SIZE];
+	struct sqlzma_un un;
+};
+static DEFINE_PER_CPU(struct sqlzma *, sqlzma);
+
+#define dpri(fmt, args...) /* printk("%s:%d: " fmt, __func__, __LINE__, ##args) */
+#define dpri_un(un)	dpri("un{%d, {%d %p}, {%d %p}, {%d %p}}\n", \
+			     (un)->un_lzma, (un)->un_a[0].sz, (un)->un_a[0].buf, \
+			     (un)->un_a[1].sz, (un)->un_a[1].buf, \
+			     (un)->un_a[2].sz, (un)->un_a[2].buf)
 
 static void vfs_read_inode(struct inode *i);
 static struct dentry *squashfs_get_parent(struct dentry *child);
@@ -238,35 +260,42 @@ SQSH_EXTERN unsigned int squashfs_read_data(struct super_block *s, char *buffer,
 	}
 
 	if (compressed) {
-		int zlib_err = 0;
+		int zlib_err = Z_STREAM_END;
+		int start;
+		enum {Src, Dst};
+		struct sized_buf sbuf[2];
+		struct sqlzma *percpu;
+		unsigned char *p;
 
 		/*
 	 	* uncompress block
 	 	*/
 
-		mutex_lock(&msblk->read_data_mutex);
+		/* mutex_lock(&msblk->read_data_mutex); */
 
-		msblk->stream.next_out = buffer;
-		msblk->stream.avail_out = srclength;
-
-		for (bytes = 0; k < b; k++) {
-			avail_bytes = min(c_byte - bytes, msblk->devblksize - offset);
-
+		start = k;
+		for (; k < b; k++) {
 			wait_on_buffer(bh[k]);
 			if (!buffer_uptodate(bh[k]))
 				goto release_mutex;
+		}
 
-			msblk->stream.next_in = bh[k]->b_data + offset;
-			msblk->stream.avail_in = avail_bytes;
+		/* it disables preemption */
+		percpu = get_cpu_var(sqlzma);
+#ifdef KeepPreemptive
+		put_cpu_var(sqlzma);
+		mutex_lock(&percpu->mtx);
+#endif
+		p = percpu->read_data;
+		k = start;
+		for (bytes = 0; k < b; k++) {
+			avail_bytes = min(c_byte - bytes, msblk->devblksize - offset);
 
 			if (k == 0) {
-				zlib_err = zlib_inflateInit(&msblk->stream);
-				if (zlib_err != Z_OK) {
-					ERROR("zlib_inflateInit returned unexpected result 0x%x,"
-						" srclength %d\n", zlib_err, srclength);
-					goto release_mutex;
-				}
-
+				/*
+				 * keep this block structture to simplify the
+				 * diff.
+				 */
 				if (avail_bytes == 0) {
 					offset = 0;
 					brelse(bh[k]);
@@ -274,30 +303,38 @@ SQSH_EXTERN unsigned int squashfs_read_data(struct super_block *s, char *buffer,
 				}
 			}
 
-			zlib_err = zlib_inflate(&msblk->stream, Z_NO_FLUSH);
-			if (zlib_err != Z_OK && zlib_err != Z_STREAM_END) {
-				ERROR("zlib_inflate returned unexpected result 0x%x,"
-					" srclength %d, avail_in %d, avail_out %d\n", zlib_err,
-					srclength, msblk->stream.avail_in, msblk->stream.avail_out);
-				goto release_mutex;
-			}
+			memcpy(p, bh[k]->b_data + offset, avail_bytes);
+			p += avail_bytes;
+#if 0
+			BUG_ON(percpu->read_data + sizeof(percpu->read_data)
+			       < p);
+#endif
 
 			bytes += avail_bytes;
 			offset = 0;
 			brelse(bh[k]);
 		}
 
-		if (zlib_err != Z_STREAM_END)
-			goto release_mutex;
+		sbuf[Src].buf = percpu->read_data;
+		sbuf[Src].sz = bytes;
+		sbuf[Dst].buf = buffer;
+		sbuf[Dst].sz = srclength;
+		dpri_un(&percpu->un);
+		dpri("src %d %p, dst %d %p\n", sbuf[Src].sz, sbuf[Src].buf,
+		     sbuf[Dst].sz, sbuf[Dst].buf);
+		zlib_err = sqlzma_un(&percpu->un, sbuf + Src, sbuf + Dst);
+		bytes = percpu->un.un_reslen;
 
-		zlib_err = zlib_inflateEnd(&msblk->stream);
-		if (zlib_err != Z_OK) {
-			ERROR("zlib_inflateEnd returned unexpected result 0x%x,"
-				" srclength %d\n", zlib_err, srclength);
+#ifdef KeepPreemptive
+		mutex_unlock(&percpu->mtx);
+#else
+		put_cpu_var(sqlzma);
+#endif
+		if (unlikely(zlib_err)) {
+			dpri("zlib_err %d\n", zlib_err);
 			goto release_mutex;
 		}
-		bytes = msblk->stream.total_out;
-		mutex_unlock(&msblk->read_data_mutex);
+		/* mutex_unlock(&msblk->read_data_mutex); */
 	} else {
 		int i;
 
@@ -325,7 +362,7 @@ SQSH_EXTERN unsigned int squashfs_read_data(struct super_block *s, char *buffer,
 	return bytes;
 
 release_mutex:
-	mutex_unlock(&msblk->read_data_mutex);
+	/* mutex_unlock(&msblk->read_data_mutex); */
 
 block_release:
 	for (; k < b; k++)
@@ -1055,6 +1092,7 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 	struct squashfs_sb_info *msblk;
 	struct squashfs_super_block *sblk;
 	char b[BDEVNAME_SIZE];
+	int err = -ENOMEM;
 	struct inode *root;
 
 	TRACE("Entered squashfs_fill_superblock\n");
@@ -1066,23 +1104,19 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 	}
 	msblk = s->s_fs_info;
 
-	msblk->stream.workspace = vmalloc(zlib_inflate_workspacesize());
-	if (msblk->stream.workspace == NULL) {
-		ERROR("Failed to allocate zlib workspace\n");
-		goto failure;
-	}
 	sblk = &msblk->sblk;
 	
 	msblk->devblksize = sb_min_blocksize(s, BLOCK_SIZE);
 	msblk->devblksize_log2 = ffz(~msblk->devblksize);
 
-	mutex_init(&msblk->read_data_mutex);
+	/* mutex_init(&msblk->read_data_mutex); */
 	mutex_init(&msblk->read_page_mutex);
 	mutex_init(&msblk->meta_index_mutex);
 	
 	/* sblk->bytes_used is checked in squashfs_read_data to ensure reads are not
  	 * beyond filesystem end.  As we're using squashfs_read_data to read sblk here,
  	 * first set sblk->bytes_used to a useful value */
+	err = -EINVAL;
 	sblk->bytes_used = sizeof(struct squashfs_super_block);
 	if (!squashfs_read_data(s, (char *) sblk, SQUASHFS_START,
 					sizeof(struct squashfs_super_block) |
@@ -1092,21 +1126,36 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 	}
 
 	/* Check it is a SQUASHFS superblock */
-	if ((s->s_magic = sblk->s_magic) != SQUASHFS_MAGIC) {
-		if (sblk->s_magic == SQUASHFS_MAGIC_SWAP) {
-			struct squashfs_super_block ssblk;
+	s->s_magic = sblk->s_magic;
+	msblk->swap = 0;
+	dpri("magic 0x%x\n", sblk->s_magic);
+	switch (sblk->s_magic) {
+		struct squashfs_super_block ssblk;
 
-			WARNING("Mounting a different endian SQUASHFS filesystem on %s\n",
-				bdevname(s->s_bdev, b));
+	case SQUASHFS_MAGIC_SWAP:
+		/*FALLTHROUGH*/
+	case SQUASHFS_MAGIC_LZMA_SWAP:
+		WARNING("Mounting a different endian SQUASHFS "
+			"filesystem on %s\n", bdevname(s->s_bdev, b));
 
-			SQUASHFS_SWAP_SUPER_BLOCK(&ssblk, sblk);
-			memcpy(sblk, &ssblk, sizeof(struct squashfs_super_block));
-			msblk->swap = 1;
-		} else  {
-			SERROR("Can't find a SQUASHFS superblock on %s\n",
-							bdevname(s->s_bdev, b));
-			goto failed_mount;
-		}
+		SQUASHFS_SWAP_SUPER_BLOCK(&ssblk, sblk);
+		memcpy(sblk, &ssblk, sizeof(struct squashfs_super_block));
+		msblk->swap = 1;
+		/*FALLTHROUGH*/
+	case SQUASHFS_MAGIC:
+	case SQUASHFS_MAGIC_LZMA:
+		break;
+	default:
+		SERROR("Can't find a SQUASHFS superblock on %s\n",
+		       bdevname(s->s_bdev, b));
+		goto failed_mount;
+	}
+
+	{
+		struct sqlzma *p;
+		dpri("block_size %d, devblksize %d\n",
+		     sblk->block_size, msblk->devblksize);
+		BUG_ON(sblk->block_size > sizeof(p->read_data));
 	}
 
 	/* Check the MAJOR & MINOR versions */
@@ -1152,6 +1201,7 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 		goto failed_mount;
 
 	/* Allocate read_page block */
+	err = -ENOMEM;
 	msblk->read_page = vmalloc(sblk->block_size);
 	if (msblk->read_page == NULL) {
 		ERROR("Failed to allocate read_page block\n");
@@ -1167,19 +1217,30 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 	}
 	msblk->guid = msblk->uid + sblk->no_uids;
    
+	dpri("swap %d\n", msblk->swap);
+	err = -EINVAL;
 	if (msblk->swap) {
-		unsigned int suid[sblk->no_uids + sblk->no_guids];
+		unsigned int *suid;
 
+		err = -ENOMEM;
+		suid = kmalloc(sizeof(*suid) * (sblk->no_uids + sblk->no_guids),
+			       GFP_KERNEL);
+		if (unlikely(!suid))
+			goto failed_mount;
+
+		err = -EINVAL;
 		if (!squashfs_read_data(s, (char *) &suid, sblk->uid_start,
 					((sblk->no_uids + sblk->no_guids) *
 					 sizeof(unsigned int)) |
 					SQUASHFS_COMPRESSED_BIT_BLOCK, NULL, (sblk->no_uids + sblk->no_guids) * sizeof(unsigned int))) {
 			ERROR("unable to read uid/gid table\n");
+			kfree(suid);
 			goto failed_mount;
 		}
 
 		SQUASHFS_SWAP_DATA(msblk->uid, suid, (sblk->no_uids +
 			sblk->no_guids), (sizeof(unsigned int) * 8));
+		kfree(suid);
 	} else
 		if (!squashfs_read_data(s, (char *) msblk->uid, sblk->uid_start,
 					((sblk->no_uids + sblk->no_guids) *
@@ -1209,9 +1270,12 @@ static int squashfs_fill_super(struct super_block *s, void *data, int silent)
 	s->s_export_op = &squashfs_export_ops;
 
 allocate_root:
+	dpri("alloate_root\n");
 	root = new_inode(s);
-	if ((msblk->read_inode)(root, sblk->root_inode) == 0)
+	if ((msblk->read_inode)(root, sblk->root_inode) == 0) {
+		iput(root);
 		goto failed_mount;
+	}
 	insert_inode_hash(root);
 
 	s->s_root = d_alloc_root(root);
@@ -1232,13 +1296,10 @@ failed_mount:
 	vfree(msblk->read_page);
 	squashfs_cache_delete(msblk->block_cache);
 	kfree(msblk->fragment_index_2);
-	vfree(msblk->stream.workspace);
 	kfree(s->s_fs_info);
 	s->s_fs_info = NULL;
-	return -EINVAL;
-
-failure:
-	return -ENOMEM;
+ failure:
+	return err;
 }
 
 
@@ -1249,7 +1310,7 @@ static int squashfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 
 	TRACE("Entered squashfs_statfs\n");
 
-	buf->f_type = SQUASHFS_MAGIC;
+	buf->f_type = sblk->s_magic;
 	buf->f_bsize = sblk->block_size;
 	buf->f_blocks = ((sblk->bytes_used - 1) >> sblk->block_log) + 1;
 	buf->f_bfree = buf->f_bavail = 0;
@@ -1411,15 +1472,21 @@ static int read_block_index(struct super_block *s, int blocks, char *block_list,
 	int block = 0;
 	
 	if (msblk->swap) {
-		char sblock_list[blocks << 2];
+		char *sblock_list;
+
+		sblock_list = kmalloc(blocks << 2, GFP_KERNEL);
+		if (unlikely(!sblock_list))
+			goto failure;
 
 		if (!squashfs_get_cached_block(s, sblock_list, *start_block,
 				*offset, blocks << 2, start_block, offset)) {
 			ERROR("Fail reading block list [%llx:%x]\n", *start_block, *offset);
+			kfree(sblock_list);
 			goto failure;
 		}
 		SQUASHFS_SWAP_INTS(((unsigned int *)block_list),
 				((unsigned int *)sblock_list), blocks);
+		kfree(sblock_list);
 	} else {
 		if (!squashfs_get_cached_block(s, block_list, *start_block,
 				*offset, blocks << 2, start_block, offset)) {
@@ -2043,7 +2110,6 @@ static void squashfs_put_super(struct super_block *s)
 		kfree(sbi->fragment_index);
 		kfree(sbi->fragment_index_2);
 		kfree(sbi->meta_index);
-		vfree(sbi->stream.workspace);
 		kfree(s->s_fs_info);
 		s->s_fs_info = NULL;
 	}
@@ -2058,18 +2124,63 @@ static int squashfs_get_sb(struct file_system_type *fs_type, int flags,
 }
 
 
+static void free_sqlzma(void)
+{
+	int cpu;
+	struct sqlzma *p;
+
+	for_each_online_cpu(cpu) {
+		p = per_cpu(sqlzma, cpu);
+		if (p) {
+#ifdef KeepPreemptive
+			mutex_destroy(&p->mtx);
+#endif
+			sqlzma_fin(&p->un);
+			kfree(p);
+		}
+	}
+}
+  
 static int __init init_squashfs_fs(void)
 {
+	struct sqlzma *p;
+	int cpu;
 	int err = init_inodecache();
 	if (err)
 		goto out;
 
+	for_each_online_cpu(cpu) {
+		dpri("%d: %p\n", cpu, per_cpu(sqlzma, cpu));
+		err = -ENOMEM;
+		p = kmalloc(sizeof(struct sqlzma), GFP_KERNEL);
+		if (p) {
+#ifdef KeepPreemptive
+			mutex_init(&p->mtx);
+#endif
+			err = sqlzma_init(&p->un, 1, 0);
+			if (unlikely(err)) {
+				ERROR("Failed to intialize uncompress workspace\n");
+				break;
+			}
+			per_cpu(sqlzma, cpu) = p;
+			err = 0;
+		} else
+			break;
+	}
+	if (unlikely(err)) {
+		free_sqlzma();
+		goto out;
+	}
+
 	printk(KERN_INFO "squashfs: version 3.4 (2008/08/26) "
-		"Phillip Lougher\n");
+		"Phillip Lougher\n"
+		"squashfs: LZMA suppport for slax.org by jro\n");
 
 	err = register_filesystem(&squashfs_fs_type);
-	if (err)
+	if (err) {
+		free_sqlzma();
 		destroy_inodecache();
+	}
 
 out:
 	return err;
@@ -2079,6 +2190,7 @@ out:
 static void __exit exit_squashfs_fs(void)
 {
 	unregister_filesystem(&squashfs_fs_type);
+	free_sqlzma();
 	destroy_inodecache();
 }
 
@@ -2127,6 +2239,6 @@ static void destroy_inodecache(void)
 
 module_init(init_squashfs_fs);
 module_exit(exit_squashfs_fs);
-MODULE_DESCRIPTION("squashfs 3.4, a compressed read-only filesystem");
-MODULE_AUTHOR("Phillip Lougher <phillip@lougher.demon.co.uk>");
+MODULE_DESCRIPTION("squashfs 3.4, a compressed read-only filesystem, and LZMA suppport for slax.org");
+MODULE_AUTHOR("Phillip Lougher <phillip@lougher.demon.co.uk>, and LZMA suppport for slax.org by jro");
 MODULE_LICENSE("GPL");
