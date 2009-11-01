@@ -116,12 +116,14 @@ lzma: $(ROOT)/lzma
 	@true
 
 et: $(ROOT)/et
-	-@mv $(ROOT)/et $(ROOT)/et.orig
+	[ -d $(ROOT)/et.orig ] || mv $(ROOT)/et $(ROOT)/et.orig
+	@rm -rf $(ROOT)/et
 	tar -C $(ROOT) -xjf brcm-src/$(ET).tar.bz2
 	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
 wl: $(ROOT)/wl
-	-@mv $(ROOT)/wl $(ROOT)/wl.orig
+	[ -d $(ROOT)/wl.orig ] || mv $(ROOT)/wl $(ROOT)/wl.orig
+	@rm -rf $(ROOT)/wl
 	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
 	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src/$(NAS).tbz2
 
