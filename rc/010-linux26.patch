@@ -147,7 +147,7 @@ diff -uBp '-x*.o' router/rc.old/rc.c gateway/rc/rc.c
  	nvram_set("os_date", __DATE__);
  
  	nvram_set("is_modified", "0");
-@@ -599,6 +599,14 @@ sysinit(void)
+@@ -599,6 +599,12 @@ sysinit(void)
  	/* /proc */
  	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
  
@@ -155,13 +155,23 @@ diff -uBp '-x*.o' router/rc.old/rc.c gateway/rc/rc.c
 +	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 +	mkdir("/dev/pts", 0777);
 +	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
-+	mkdir("/dev/shm", 0777);
-+	eval("/sbin/hotplug2", "--coldplug");
 +#endif
 +
  	/* /tmp */
  	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
  
+@@ -629,6 +629,11 @@ sysinit(void)
+ 	if (console_init())
+ 		noconsole = 1;
+ 
++#ifdef LINUX26
++	mkdir("/dev/shm", 0777);
++	eval("/sbin/hotplug2", "--coldplug");
++#endif
++
+ 	/* load flashfs */
+ 	if (!eval("flashfs", "start"))
+ 		eval("/usr/local/sbin/pre-boot");
 @@ -638,7 +647,7 @@ sysinit(void)
  #if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
  		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
