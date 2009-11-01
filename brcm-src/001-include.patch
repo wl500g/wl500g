@@ -23,3 +23,15 @@ diff -urB src/include.orig/linux_osl.h src/include/linux_osl.h
  #include <linux/kernel.h>	/* for vsn/printf's */
  #include <linux/string.h>	/* for mem*, str* */
  /* bcopy's: Linux kernel doesn't provide these (anymore) */
+diff -urB src/include.orig/trxhdr.h src/include/trxhdr.h
+--- src/include.orig/trxhdr.h	2009-08-27 07:52:28.000000000 +0400
++++ src/include/trxhdr.h	2009-11-01 20:38:49.000000000 +0300
+@@ -16,7 +16,7 @@
+ 
+ #define TRX_MAGIC	0x30524448	/* "HDR0" */
+ #define TRX_VERSION	1		/* Version 1 */
+-#define TRX_MAX_LEN	0x3B0000	/* Max length */
++#define TRX_MAX_LEN	0x7A0000	/* Max length */
+ #define TRX_NO_HEADER	1		/* Do not write TRX header */
+ #define TRX_GZ_FILES	0x2     /* Contains up to TRX_MAX_OFFSET individual gzip files */
+ #define TRX_MAX_OFFSET	3		/* Max number of individual files */
