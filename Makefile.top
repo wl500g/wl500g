@@ -552,10 +552,10 @@ busybox/.config: .config
 	$(MAKE) -C busybox oldconfig
 
 busybox: busybox/.config
-	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,--rpath /lib"
 
 busybox-install: busybox
-	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,--rpath /lib"
 
 dproxy-install: dproxy
 	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
