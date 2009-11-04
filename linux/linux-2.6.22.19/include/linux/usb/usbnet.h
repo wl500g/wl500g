@@ -138,6 +138,7 @@ extern int usbnet_suspend (struct usb_interface *, pm_message_t );
 extern int usbnet_resume (struct usb_interface *);
 extern void usbnet_disconnect(struct usb_interface *);
 
+#define FLAG_LINK_INTR	0x0800		/* updates link (carrier) status */
 
 /* Drivers that reuse some of the standard USB CDC infrastructure
  * (notably, using multiple interfaces according to the CDC
