@@ -56,6 +56,6 @@ diff -uBp gateway/rc/Makefile gateway/rc/Makefile
  ifeq ($(CONFIG_NETCONF),y)
  OBJS += firewall.o
 +CFLAGS += -DWEBSTRFILTER
- LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
+ LDFLAGS += -L$(TOP)/netconf -lnetconf
  endif
  
