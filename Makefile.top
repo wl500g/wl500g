@@ -508,9 +508,6 @@ rc: netconf shared nvram $(EXTRA_LIBS)
 www www-%:
 	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
 
-wwwmt wwwmt-%:
-	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
-
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CPPFLAGS="$(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=""
@@ -547,15 +544,15 @@ ez-ipupdate-install:
 	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 
 busybox/.config: .config
-	cd busybox && cp -fp sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) .config
+	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6,$(if $(CONFIG_IPV6),y,n))
 	$(MAKE) -C busybox oldconfig
 
 busybox: busybox/.config
-	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,--rpath /lib"
+	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 busybox-install: busybox
-	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,--rpath /lib"
+	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 dproxy-install: dproxy
 	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
@@ -605,7 +602,7 @@ upnp: netconf nvram shared
 wlconf: nvram shared
 
 vlan:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
+	$(MAKE) -C $@ CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
 
 vlan-install:
 	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
@@ -660,7 +657,7 @@ accel-pptp-install: accel-pptp
 
 dnsmasq:
 	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)"
-	
+
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -876,7 +873,7 @@ madwimax/Makefile: madwimax/Makefile.in
 	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
 	$(CONFIGURE) --prefix=/usr --without-man-pages --with-script=wl500g --sysconfdir=/etc
 
-madwimax: madwimax/Makefile libusb10
+madwimax: libusb10 madwimax/Makefile
 	$(MAKE) -C $@
 
 madwimax-install:
@@ -957,20 +954,6 @@ images:
 	#make images-WL700g
 	#make images-WL331g
 	#make images-WL331gl
-
-fast:
-	# vlan/usb
-	make images-WL500gx
-	make rc-clean rc package-WL550gE
-	make rc-clean rc package-WL500gp
-	make rc-clean rc package-WL500W
-	# usb/lpt/brcm
-	#make images-WL500g
-	#make package-WL500b
-	# others
-	#make images-WL500bv2
-	#make images-WL300g
-	#make images-WLHDD
 
 #
 # Generic rules
