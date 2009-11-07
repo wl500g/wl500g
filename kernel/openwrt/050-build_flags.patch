@@ -40,9 +40,8 @@ diff -ur linux-2.4.32/arch/mips/Makefile linux-2.4.32-openwrt/arch/mips/Makefile
  		$(CC) $$gas_abi $$gas_opt$$cpu $$gas_isa -Wa,-Z -c \
  			-o /dev/null -xassembler /dev/null > /dev/null 2>&1 && \
  			break 2; \
-@@ -172,6 +172,8 @@
+@@ -172,6 +172,7 @@
  endif
-+GCCFLAGS        += $(call check_gcc, -m4710a0kern, )
 
  AFLAGS		+= $(GCCFLAGS)
 +ASFLAGS		+= $(GCCFLAGS)
@@ -52,15 +51,6 @@ diff -ur linux-2.4.32/arch/mips/Makefile linux-2.4.32-openwrt/arch/mips/Makefile
 diff -ur linux-2.4.32/Makefile linux-2.4.32-openwrt/Makefile
 --- linux-2.4.32/Makefile	2005-12-15 13:53:59.000000000 +0100
 +++ linux-2.4.32-openwrt/Makefile	2005-12-15 13:59:30.000000000 +0100
-@@ -17,7 +17,7 @@
- FINDHPATH	= $(HPATH)/asm $(HPATH)/linux $(HPATH)/scsi $(HPATH)/net $(HPATH)/math-emu
- 
- HOSTCC  	= gcc
--HOSTCFLAGS	= -Wall -Wstrict-prototypes -O2 -fomit-frame-pointer
-+HOSTCFLAGS	= -Wall -Wstrict-prototypes -Os -fomit-frame-pointer
- 
- CROSS_COMPILE 	=
- 
 @@ -88,10 +88,9 @@
  #
  # standard CFLAGS

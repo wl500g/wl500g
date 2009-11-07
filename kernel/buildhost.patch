@@ -67,26 +67,6 @@
  	@echo \#define LINUX_COMPILER \"`$(CC) $(CFLAGS) -v 2>&1 | tail -n 1`\" >> .ver
  	@mv -f .ver $@
  	@rm -f .ver1
---- linuz/scripts/Configure	2009-08-14 02:04:00.000000000 +0400
-+++ linux/scripts/Configure	2009-10-29 11:39:13.000000000 +0300
-@@ -539,7 +539,7 @@
- 
- DEFAULTS=arch/$ARCH/defconfig
- if [ -f .config ]; then
--  DEFAULTS=.config
-+  DEFAULTS=./.config
- fi
- 
- if [ -f $DEFAULTS ]; then
-@@ -548,7 +548,7 @@
-   echo "#"
-   . $DEFAULTS
-   sed -e 's/# \(CONFIG_[^ ]*\) is not.*/\1=n/' <$DEFAULTS >.config-is-not.$$
--  . .config-is-not.$$
-+  . ./.config-is-not.$$
-   rm .config-is-not.$$
- else
-   echo "#"
 --- linux-2.4.35.5-orig/include/linux/byteorder/generic.h	2007-12-17 02:16:04.000000000 +0300
 +++ linux-2.4.35.5/include/linux/byteorder/generic.h	2007-12-20 18:52:54.000000000 +0300
 @@ -122,7 +122,7 @@
