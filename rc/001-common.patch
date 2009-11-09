@@ -1622,6 +1622,14 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
  
  	# Added by ASUS
  	cd $(INSTALLDIR)/sbin && ln -sf rc stopservice
+@@ -72,6 +75,7 @@ install: all
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_disconnect
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc restore
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc start_ddns
++	cd $(INSTALLDIR)/sbin && ln -sf rc start_ftpd
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc wlan_update
+ 
+ 
 diff -BurpN -x'*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
 --- router/rc/manu_ex.c	2004-12-07 16:02:14.000000000 +0300
 +++ gateway/rc/manu_ex.c	2008-03-19 20:07:24.000000000 +0300
@@ -3367,6 +3375,17 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
  	/* hotplug [event] */
  	else if (strstr(base, "hotplug")) {
  		if (argc >= 2) {
+@@ -819,6 +1039,10 @@ main(int argc, char **argv)
+ 	else if (strstr(base, "waveservermain")) {
+ 		return (waveserver_main());
+ 	}
++	/* run ftp server */
++	else if (strstr(base, "start_ftpd")) {
++		return (restart_ftpd());
++	}
+ #endif
+ 	/* write srom */
+ 	else if (strstr(base, "wsrom")) 
 @@ -842,7 +1063,13 @@ main(int argc, char **argv)
  			fprintf(stderr, "usage: rc [start|stop|restart]\n");
  			return EINVAL;
@@ -4257,7 +4276,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  }
  
  void start_script(void)
-@@ -706,60 +1000,292 @@ void start_script(void)
+@@ -706,60 +1000,293 @@ void start_script(void)
  	}	
  }
  
@@ -4287,7 +4306,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -	if (fp==NULL) return;	
 -	fprintf(fp, "Welcom to My FTP Site:\n");
 -	fclose(fp);
-+void restart_ftpd()
++int restart_ftpd()
 +{
 +	char vsftpd_users[] = "/etc/vsftpd.users";
 +	char vsftpd_passwd[] = "/etc/vsftpd.passwd";
@@ -4301,7 +4320,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	mkdir_if_none(vsftpd_users);
 +
 +	if ((fp = fopen("/etc/vsftpd.conf", "w")) == NULL)
-+		return;
++		return 1;
 +
 +	if (nvram_match("usb_ftpsuper_x", "1"))
 +	{
@@ -4369,7 +4388,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +
 +	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n", 
 +		nvram_get("usb_ftpport_x") ? : "21");
-+	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");	
++	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
 +
 +	/* fprintf(fp, "login-timeout=%s\n", nvram_safe_get("usb_ftptimeout_x")); */
 +	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("usb_ftpstaytimeout_x") ? : "300");
@@ -4383,13 +4402,13 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	/* bandwidth */
 +	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
 +		atoi(nvram_safe_get("usb_ftpanonrate_x")) * 1024,
-+		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);		
++		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);
 +	
  	fclose(fp);
 +	
 +	/* prepare passwd file and default users */
 +	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
-+		return;
++		return 2;
 +
 +	fprintf(fp, /* anonymous, admin, nobody */
 +		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
@@ -4454,6 +4473,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	fclose(fp);
 +	
 +	eval("/usr/sbin/vsftpd");
++	return 0;
 +}
  
 +void restart_smbd()
