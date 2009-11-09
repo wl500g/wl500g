@@ -133,7 +133,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/common.c gateway/httpd/common.c
     int groupCount;     
 diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
 --- router/httpd/httpd.c	2004-11-11 07:27:08.000000000 +0000
-+++ gateway/httpd/httpd.c	2009-09-23 12:04:01.000000000 +0000
++++ gateway/httpd/httpd.c	2009-11-09 20:31:40.000000000 +0000
 @@ -97,6 +97,7 @@ static void handle_request(void);
  int redirect = 1;
  char wan_if[16];
@@ -173,7 +173,18 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  	{
  		redirect=1;
  		file="WizardDetect.asp";
-@@ -560,7 +561,7 @@ http_login_cache(usockaddr *u)
+@@ -551,16 +552,17 @@ handle_request(void)
+     }	
+ }
+ 
+-http_login_cache(usockaddr *u)
++int http_login_cache(usockaddr *u)
+ {
+     	login_ip_tmp = (unsigned int)(u->sa_in.sin_addr.s_addr);
+     	//printf("client :%x\n", login_ip_tmp);
++    	return (login_ip_tmp != 0x100007f);
+ }
+ 
  http_login(unsigned int ip)
  {
  
@@ -182,7 +193,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  
  	login_ip = ip;
  	login_try = 0;
-@@ -571,7 +572,7 @@ int http_login_check(void)
+@@ -571,7 +573,7 @@ int http_login_check(void)
  {
  	time_t now;
  	
@@ -191,7 +202,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  
  	http_login_timeout(login_ip_tmp);
  
-@@ -593,7 +594,7 @@ http_login_timeout(unsigned int ip)
+@@ -593,7 +595,7 @@ http_login_timeout(unsigned int ip)
  
  	//printf("login : %x %x\n", now, login_timestamp);
  
@@ -200,7 +211,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  	{
  		http_logout(login_ip);
  	}
-@@ -613,16 +614,19 @@ http_logout(unsigned int ip)
+@@ -613,16 +615,19 @@ http_logout(unsigned int ip)
  
  int is_auth(void)
  {
@@ -222,7 +233,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  
  	memset(&ifr, 0, sizeof(ifr));
  
-@@ -654,6 +658,7 @@ int is_phyconnected(void)
+@@ -654,6 +659,7 @@ int is_phyconnected(void)
  	}
  }
  
@@ -230,7 +241,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  int is_fileexist(char *filename)
  {
  	FILE *fp;
-@@ -664,6 +669,7 @@ int is_fileexist(char *filename)
+@@ -664,6 +670,7 @@ int is_fileexist(char *filename)
  	fclose(fp);
  	return 1;
  }
@@ -238,7 +249,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  
  int is_connected(void)
  {
-@@ -671,7 +677,7 @@ int is_connected(void)
+@@ -671,7 +678,7 @@ int is_connected(void)
  	char line[128], *reason;
  
  	/* check if physical connection exist */
@@ -247,9 +258,11 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  	
  	/* check if connection static is CONNECTED */
  	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0)
-@@ -705,6 +711,14 @@ int main(int argc, char **argv)
+@@ -704,7 +711,16 @@ int main(int argc, char **argv)
+ 	int conn_fd;
  	socklen_t sz = sizeof(usa);
  	char pidfile[32];
++	pid_t parent;
  
 +	server_port = atoi(nvram_get_x("", "http_lanport"));
 +    if (server_port)
@@ -262,7 +275,16 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  	// Added by Joey for handling WAN Interface 
  	// usage: httpd [wan interface] [port]
  	if (argc>2) http_port=atoi(argv[2]);
-@@ -727,7 +741,7 @@ int main(int argc, char **argv)
+@@ -716,6 +732,8 @@ int main(int argc, char **argv)
+ 
+ 	/* Ignore broken pipes */
+ 	signal(SIGPIPE, SIG_IGN);
++	/* Prevent child zombies */
++	signal(SIGCHLD, SIG_IGN);
+ 
+ 	/* Initialize listen socket */
+ 	if ((listen_fd = initialize_listen_socket(&usa)) < 0) {
+@@ -727,7 +745,7 @@ int main(int argc, char **argv)
  	{
  	FILE *pid_fp;
  	/* Daemonize and log PID */
@@ -271,7 +293,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  	//{
  		if (daemon(1, 1) == -1) 
  		{
-@@ -735,7 +749,7 @@ int main(int argc, char **argv)
+@@ -735,7 +753,7 @@ int main(int argc, char **argv)
  			exit(errno);
  		}
  	//}
@@ -280,6 +302,39 @@ diff -BurpN -x'*.o' -x'*.orig' router/httpd/httpd.c gateway/httpd/httpd.c
  		strcpy(pidfile, "/var/run/httpd.pid");
  	else sprintf(pidfile, "/var/run/httpd-%d.pid", http_port);
  
+@@ -754,15 +772,31 @@ int main(int argc, char **argv)
+ 			perror("accept");
+ 			return errno;
+ 		}
++
++		if (http_login_cache(&usa))
++		{
++			parent = fork();
++			if (parent != 0)
++			{
++				close(conn_fd);
++				continue;
++			}
++			signal(SIGCHLD, SIG_DFL);
++			close(listen_fd);
++		} else
++			parent = 1;
++
+ 		if (!(conn_fp = fdopen(conn_fd, "r+"))) {
+ 			perror("fdopen");
+ 			return errno;
+ 		}		
+-		http_login_cache(&usa);
++
+ 		handle_request();
+ 		fflush(conn_fp);
+ 		fclose(conn_fp);
+ 		close(conn_fd);
++
++		if (!parent) return 0;
+ 	}
+ 
+ 	shutdown(listen_fd, 2);
 diff -BurpN -x'*.o' -x'*.orig' router/httpd/nvmap.c gateway/httpd/nvmap.c
 --- router/httpd/nvmap.c	2004-11-11 07:27:09.000000000 +0000
 +++ gateway/httpd/nvmap.c	2009-09-23 12:03:08.000000000 +0000
