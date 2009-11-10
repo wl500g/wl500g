@@ -1,5 +1,4 @@
   * [Welcome Home]
-  * [TOC Wiki Index]
   * [NEWS History of Changes]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
@@ -10,3 +9,4 @@
   * FAQ
     * [HookScripts User scripts]
   * [LINKS Links]
+  * [TOC Wiki Index]
