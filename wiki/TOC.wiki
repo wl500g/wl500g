@@ -1,5 +1,5 @@
   * [Welcome Home]
-  * [TOC Index]
+  * [TOC Wiki Index]
   * [NEWS History of Changes]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
