@@ -1,4 +1,4 @@
-  * [Welcome ↑ Главная]
+  * [Welcome Главная]
   * [NEWS История изменений]
   * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки]
