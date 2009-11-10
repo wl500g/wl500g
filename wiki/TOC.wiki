@@ -1,3 +1,4 @@
+#summary Wiki Index
   * [Welcome Home]
   * [NEWS History of Changes]
   * !HowTo articles

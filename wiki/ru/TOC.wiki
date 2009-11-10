@@ -1,3 +1,4 @@
+#summary Содержание Wiki
   * [Welcome Главная]
   * [NEWS История изменений]
   * Статьи !HowTo
