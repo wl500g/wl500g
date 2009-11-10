@@ -1,0 +1,59 @@
+diff -BurpN router/rc/http_ex.c gateway/rc/http_ex.c
+--- router/rc/http_ex.c	2009-06-30 18:03:30.000000000 +0000
++++ gateway/rc/http_ex.c	2009-11-10 17:51:32.000000000 +0000
+@@ -213,6 +213,31 @@ wget(int method, const char *server, cha
+ }
+ 
+ int
++http_check_pid(const char *pidfile)
++{
++	FILE *fp;
++	pid_t pid;
++	char tmp[32];
++	struct stat f_st;
++
++	fp = fopen(pidfile, "r");
++	if (fp && fgets(tmp, sizeof(tmp), fp))
++	{
++		fclose(fp);
++		pid = strtoul(tmp, NULL, 0);
++		if (pid > 0)
++		{
++			memset(tmp, 0, sizeof(tmp));
++			sprintf(tmp, "/proc/%d", pid);
++			lstat(tmp, &f_st);
++			return S_ISDIR(f_st.st_mode);
++		}
++	}
++
++	return 0;
++}
++
++int
+ http_check(const char *server, char *buf, size_t count, off_t offset)
+ {
+ 	return wget(METHOD_CHECK, server, buf, count, offset);
+diff -BurpN router/rc/watchdog.c gateway/rc/watchdog.c
+--- router/rc/watchdog.c	2009-03-02 18:49:13.000000000 +0000
++++ gateway/rc/watchdog.c	2009-11-10 17:48:16.000000000 +0000
+@@ -531,13 +531,17 @@ int http_processcheck(void)
+ {
+ 	char http_cmd[32];
+ 	char buf[256];
++	char *httpd_pid = "/var/run/httpd.pid";
+ 
+ 	//printf("http check\n");
+-	sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
+-	if (!http_check(http_cmd, buf, sizeof(buf), 0))
++
++	/* just check httpd process existance */
++	//sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
++	//if (!http_check(http_cmd, buf, sizeof(buf), 0))
++	if (!http_check_pid(httpd_pid))
+ 	{
+ 		dprintf("http rerun\n");
+-		kill_pidfile("/var/run/httpd.pid");
++		kill_pidfile(httpd_pid);
+ 		//stop_httpd();
+ 		start_httpd();
+ 	}
