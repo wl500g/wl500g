@@ -1,4 +1,4 @@
-  * [Welcome ↑ Home]
+  * [TOC Home]
   * [NEWS History of Changes]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
