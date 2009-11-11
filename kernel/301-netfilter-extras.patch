@@ -49,36 +49,6 @@ diff -BurN linuz/Documentation/Configure.help linux/Documentation/Configure.help
  TOS match support
  CONFIG_IP_NF_MATCH_TOS
    TOS matching allows you to match packets based on the Type Of
---- linux-2.4.35.5-orig/net/ipv4/netfilter/Config.in	2007-12-17 02:16:04.000000000 +0300
-+++ linux/net/ipv4/netfilter/Config.in	2008-01-01 23:56:45.000000000 +0300
-@@ -66,6 +122,27 @@
-           define_tristate CONFIG_IP_NF_NAT_AMANDA $CONFIG_IP_NF_NAT
-         fi
-       fi
-+      if [ "$CONFIG_IP_NF_H323" = "m" ]; then
-+       define_tristate CONFIG_IP_NF_NAT_H323 m
-+      else
-+       if [ "$CONFIG_IP_NF_H323" = "y" ]; then
-+         define_tristate CONFIG_IP_NF_NAT_H323 $CONFIG_IP_NF_NAT
-+       fi
-+      fi
-+      if [ "$CONFIG_IP_NF_RTSP" = "m" ]; then
-+        define_tristate CONFIG_IP_NF_NAT_RTSP m
-+      else
-+       if [ "$CONFIG_IP_NF_RTSP" = "y" ]; then
-+         define_tristate CONFIG_IP_NF_NAT_RTSP $CONFIG_IP_NF_NAT
-+       fi
-+      fi
-+      if [ "$CONFIG_IP_NF_MMS" = "m" ]; then
-+       define_tristate CONFIG_IP_NF_NAT_MMS m
-+      else
-+       if [ "$CONFIG_IP_NF_MMS" = "y" ]; then
-+         define_tristate CONFIG_IP_NF_NAT_MMS $CONFIG_IP_NF_NAT
-+       fi
-+      fi
-       if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-         dep_tristate '    Basic SNMP-ALG support (EXPERIMENTAL)' CONFIG_IP_NF_NAT_SNMP_BASIC $CONFIG_IP_NF_NAT
-       fi
 diff -ubB linux/include/linux/netfilter_ipv4/ipt_connmark.h iptables/include/linux/netfilter_ipv4/ipt_connmark.h
 --- linux/include/linux/netfilter_ipv4/ipt_connmark.h	2008-01-02 17:51:49.000000000 +0300
 +++ iptables/include/linux/netfilter_ipv4/ipt_connmark.h	2007-01-23 15:49:51.000000000 +0300
