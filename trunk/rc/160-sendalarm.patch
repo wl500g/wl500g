@@ -1,8 +1,8 @@
 Use resolving functions from libc instead of custom implementation.
 
-diff -uBp rc/Makefile rc.new/Makefile
---- rc/Makefile	2009-09-24 20:55:29.000000000 +0400
-+++ rc.new/Makefile	2009-11-12 21:09:28.000000000 +0300
+diff -uBp router/rc/Makefile gateway/rc/Makefile
+--- router/rc/Makefile	2009-09-24 20:55:29.000000000 +0400
++++ gateway/rc/Makefile	2009-11-12 21:09:28.000000000 +0300
 @@ -23,7 +23,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TO
  
  OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
@@ -12,9 +12,9 @@ diff -uBp rc/Makefile rc.new/Makefile
      bigpond.o qos.o rcamd.o waveserver.o
  
  ifeq ($(CONFIG_NETCONF),y)
-diff -uBp rc/rc.c rc.new/rc.c
---- rc/rc.c	2009-04-26 17:54:12.000000000 +0400
-+++ rc.new/rc.c	2009-11-12 20:49:18.000000000 +0300
+diff -uBp router/rc/rc.c gateway/rc/rc.c
+--- router/rc/rc.c	2009-04-26 17:54:12.000000000 +0400
++++ gateway/rc/rc.c	2009-11-12 20:49:18.000000000 +0300
 @@ -1003,12 +1003,7 @@ main(int argc, char **argv)
  	}
  	/* send alarm */
@@ -29,9 +29,9 @@ diff -uBp rc/rc.c rc.new/rc.c
  	}
  	/* invoke watchdog */
  	else if (strstr(base, "watchdog")) {
-diff -uBp rc/sendalarm.c rc.new/sendalarm.c
---- rc/sendalarm.c	2008-03-19 20:07:24.000000000 +0300
-+++ rc.new/sendalarm.c	2009-11-12 21:50:20.000000000 +0300
+diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
+--- router/rc/sendalarm.c	2008-03-19 20:07:24.000000000 +0300
++++ gateway/rc/sendalarm.c	2009-11-12 21:50:20.000000000 +0300
 @@ -21,6 +21,11 @@
  #include <sys/fcntl.h>
  #include <dirent.h>
