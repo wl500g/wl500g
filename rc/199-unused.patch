@@ -1,0 +1,76 @@
+diff -uBp router/rc/firewall_ex.c gateway/rc/firewall_ex.c
+--- router/rc/firewall_ex.c	2009-09-24 21:01:21.000000000 +0400
++++ gateway/rc/firewall_ex.c	2009-11-12 22:31:33.000000000 +0300
+@@ -513,17 +513,6 @@ write_upnp_forward(FILE *fp, char *wan_i
+ 	}
+ }
+ 
+-char *ipoffset(char *ip, int offset, char *tmp)
+-{
+-	unsigned int ip1, ip2, ip3, ip4;
+-
+-	sscanf(ip, "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4);
+-	sprintf(tmp, "%d.%d.%d.%d", ip1, ip2, ip3, ip4+offset);
+-
+-	dprintf("ip : %s\n", tmp);
+-	return(tmp);
+-}
+-
+ 
+ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+ {
+@@ -1194,6 +1183,7 @@ portmapping_main(int argc, char *argv[])
+ }
+ #endif	
+ 
++#ifndef DNSMASQ
+ void write_static_leases(char *file)
+ {
+ 	FILE *fp;
+@@ -1214,6 +1204,7 @@ void write_static_leases(char *file)
+ 	}
+ 	fclose(fp);
+ }
++#endif
+ 
+ void convert_routes(void)
+ {
+diff -uBp router/rc/manu_ex.c gateway/rc/manu_ex.c
+--- router/rc/manu_ex.c	2008-03-19 20:07:24.000000000 +0300
++++ gateway/rc/manu_ex.c	2009-11-12 22:35:11.000000000 +0300
+@@ -718,6 +718,7 @@ convert_country(void)
+ 
+ #define MAXBUF 32
+ 
++#if 0
+ void sync_mac(char *devname, char *mac)
+ {
+ 	int cmd, result, i, j;
+@@ -765,6 +766,7 @@ void sync_mac(char *devname, char *mac)
+ 	}
+ 	return;
+ }
++#endif
+ 
+ int
+ rsrom_main(char *devname, unsigned int pos, int pflag)
+diff -uBp router/rc/network.c gateway/rc/network.c
+--- router/rc/network.c	2009-09-18 02:12:58.000000000 +0400
++++ gateway/rc/network.c	2009-11-12 22:33:33.000000000 +0300
+@@ -1292,6 +1292,7 @@ lan_up(char *lan_ifname)
+ 	//start_ntpc();
+ }
+ 
++#if 0
+ void
+ lan_down(char *lan_ifname)
+ {
+@@ -1303,7 +1304,7 @@ lan_down(char *lan_ifname)
+ 	/* remove resolv.conf */
+ 	unlink("/tmp/resolv.conf");
+ }
+-
++#endif
+ 
+ void
+ lan_up_ex(char *lan_ifname)
