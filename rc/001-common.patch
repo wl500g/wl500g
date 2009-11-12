@@ -537,15 +537,23 @@ diff -BurpN -x'*.o' router/rc/dns_decode.h gateway/rc/dns_decode.h
 diff -BurpN -x'*.o' router/rc/firewall.c gateway/rc/firewall.c
 --- router/rc/firewall.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall.c	2008-12-28 11:57:52.000000000 +0300
-@@ -28,6 +28,8 @@
+@@ -28,6 +28,10 @@
  #include <netconf.h>
  #include <nvparse.h>
  
++#ifndef ASUS_EXT
++
 +extern void g_buf_init();
 +
  /* Add filter to specified table */
  static void
  add_filter(netconf_filter_t *filter, int dir)
+@@ -335,4 +337,4 @@
+ 	return 0;
+ }
+ 
+-
++#endif
 diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall_ex.c	2008-12-28 11:56:49.000000000 +0300
@@ -3404,7 +3412,7 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 --- router/rc/rc.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/rc.h	2008-12-28 11:59:11.000000000 +0300
-@@ -22,61 +22,108 @@
+@@ -22,61 +22,106 @@
  
  #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
  
@@ -3545,9 +3553,7 @@ diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 -extern int start_firewall2(char *ifname);
 -extern int stop_firewall2(char *ifname);
 +int start_firewall(void);
-+int stop_firewall(void);
 +int start_firewall2(char *ifname);
-+int stop_firewall2(char *ifname);
 +int start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip);
  #else
  #define start_firewall() do {} while (0)
