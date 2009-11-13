@@ -30,4 +30,4 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||_Generation 4_||
 ||RT-N12||BCM4716 300MHz||BCM5325F||802.11n (SoC)||32MB DDR||4MB||N/A||
 ||RT-N13U||RA3052F 384Mhz !RaLink||SoC||802.11n (SoC)||32MB SDR 16bit||4MB||1 x 2.0 (SoC)||
-||RT-N16||BCM4718 533MHz||BCM53115 (Gigabit)||802.11n (SoC + BCM2050)||128MB DDR 32bit||32MB||2 x 2.0||
+||RT-N16||BCM4718 480MHz||BCM53115 (Gigabit)||802.11n (SoC + BCM2050)||128MB DDR 32bit||32MB||2 x 2.0||
