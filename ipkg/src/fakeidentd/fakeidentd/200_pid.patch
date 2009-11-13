@@ -1,0 +1,11 @@
+--- identd.c.orig	2008-12-15 21:14:42.000000000 +0500
++++ identd.c	2008-12-15 21:22:35.000000000 +0500
+@@ -492,7 +492,7 @@
+ }
+ #endif
+ 
+-#define PIDFILE "/var/run/identd.pid"
++#define PIDFILE "/var/run/fakeidentd.pid"
+ 
+ static void delpidfile(void)
+ {

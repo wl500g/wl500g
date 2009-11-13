@@ -1,0 +1,11 @@
+--- identd.c.orig	2008-12-15 21:14:42.000000000 +0500
++++ identd.c	2008-12-15 21:16:15.000000000 +0500
+@@ -212,7 +212,7 @@
+ #define MAXCONNS	20
+ #define MAXIDLETIME	45
+ 
+-#if 1
++#if 0
+ static const char ident_substr[] = " : USERID : OTHER : ";
+ #else
+ static const char ident_substr[] = " : USERID : UNIX : ";

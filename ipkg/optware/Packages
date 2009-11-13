@@ -1,3 +1,18 @@
+Package: fakeidentd
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 2.5-6
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://www.guru-group.fi/~too/sw/releases//identd.c
+Filename: fakeidentd_2.5-6_mipsel.ipk
+Size: 7070
+MD5Sum: c87f4daa1f58d356ec81c3e6788a7c5a
+Description: Stanalone 'fake' ident deamon.
+Depends: 
+Suggests: 
+Conflicts: 
+
 Package: mc
 Architecture: mipsel
 Priority: optional
