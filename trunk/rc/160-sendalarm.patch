@@ -44,7 +44,7 @@ diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
  #include <bcmnvram.h>
  #include <netconf.h>
  #include <shutils.h>
-@@ -50,38 +55,110 @@ void filecat(FILE *fp, char *catted)
+@@ -50,38 +55,117 @@ void filecat(FILE *fp, char *catted)
  	return;
  }
  
@@ -60,8 +60,7 @@ diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
 +	HEADER		*rheader;	/* Reply header */
 +	unsigned char	*rrptr;		/* Current Resource record ptr */
 +	int		exprc;          /* dn_expand return code */
-+	int		rrtype;
-+	long		rrdlen;
++	int		rrtype,	rrdlen;
 +
 +	/* Initialize lookup system if needed (check global _res structure) */
 +	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
@@ -88,7 +87,7 @@ diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
 +		return NULL;
 +
 +	/* Determine offset of the first RR */
-+	rrptr = reply + sizeof(HEADER) + exprc + NS_INT32SZ;
++	rrptr = reply + sizeof(HEADER) + exprc + NS_QFIXEDSZ;
  
 -	fp=fopen("/etc/resolv.conf", "r+");
 -	
@@ -111,10 +110,16 @@ diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
 +			return NULL;
 +
 +		/* Jump to RR info */
++		/*  NAME     (? bytes)
++		    TYPE     (2 bytes)
++		    CLASS    (2 bytes)
++		    TTL      (4 bytes)
++		    RDLENGTH (2 bytes)
++		    RDATA    (? bytes)  */
 +		rrptr += exprc;
 +		rrtype = (rrptr[0] << 8 | rrptr[1]);  /* Extract RR type */
 +		rrdlen = (rrptr[8] << 8 | rrptr[9]);  /* Extract RR payload */
-+		rrptr += 10;
++		rrptr += NS_RRFIXEDSZ;
 +
 +		if (rrtype == qtype) // Our answer
 +		{
@@ -123,33 +128,35 @@ diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
 +			{
 +#ifdef T_AAAA
 +			case T_AAAA:
++				if (rrdlen < NS_IN6ADDRSZ)
++					break;
 +				inet_ntop(AF_INET6, rrptr, ret, retsize);
 +				break;
 +#endif
 +			case T_A:
++				if (rrdlen < NS_INADDRSZ)
++					break;
 +				inet_ntop(AF_INET, rrptr, ret, retsize);
 +				break;
 +			case T_MX:
-+				if (rrdlen < 3)
++				if (rrdlen < NS_INT16SZ+1)
 +					break;
 +				exprc = dn_expand(reply, reply + replylen,
-+						 rrptr+2,
++						 rrptr + NS_INT16SZ,
 +						 host, sizeof(host));
 +				if (exprc > 0)
 +					strncpy(ret, host, retsize);
 +				break;
 +			}
-+			break;
++			if (*ret)	/* Answer found */
++				return ret;
 +		}
 +
 +		/* Increment to next RR */
 +		rrptr += rrdlen;
 +	}
 +
-+	if (*ret == '\0')	/* Nothing found */
-+		return NULL;
-+	else
-+		return ret;
++	return NULL;
  }
  
  int
