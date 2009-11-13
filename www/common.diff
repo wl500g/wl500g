@@ -1,16 +1,17 @@
 diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 --- router/www/asus/Makefile	2004-11-18 18:33:33.000000000 +0000
-+++ gateway/www/asus/Makefile	2008-03-18 18:17:22.000000000 +0000
-@@ -14,6 +14,8 @@
++++ gateway/www/asus/Makefile	2009-11-13 22:47:24.000000000 +0000
+@@ -14,6 +14,9 @@
  
  PAGES := *
  PAGES_DIR := graph/*
 +MODEL := WL500g
 +LANGUAGE := EN
++IPV6 := y
  
  all: pages.mk
  
-@@ -21,15 +23,15 @@
+@@ -21,19 +24,18 @@
  	echo "PAGES := $(PAGES)" > $@
  
  install:
@@ -19,7 +20,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 -	install -m 644 web_WL500gx/*.asp $(INSTALLDIR)/www
 -	install -m 644 web_WL500gx/*.js $(INSTALLDIR)/www
 -	install -m 644 web_WL500gx/*.css $(INSTALLDIR)/www
-+	./mkweb $(MODEL) "EN"	
++	./mkweb $(MODEL) "$(LANGUAGE)" "$(IPV6)"
 +	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 +	install -m 644 web_$(MODEL)/*.asp $(INSTALLDIR)/www
 +	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
@@ -32,8 +33,13 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +	rm -rf web_$(MODEL)
  
  install-%:
- 	echo $(LANGUAGE)
-@@ -45,19 +47,26 @@
+-	echo $(LANGUAGE)
+-	./mkweb $* "$(LANGUAGE)"
++	./mkweb $* "$(LANGUAGE)" "$(IPV6)"
+ 	rm -rf www_$*	
+ 	install -d www_$*
+ 	install -m 644 web_$*/*.asp www_$*
+@@ -45,19 +47,25 @@
  	install -d www_$*/graph
  	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
  
@@ -52,8 +58,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  	rm -rf web_$*
  
 +pages-%:
-+	echo $(LANGUAGE)
-+	./mkweb $* "$(LANGUAGE)"	
++	./mkweb $* "$(LANGUAGE)" "$(IPV6)"
 +	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 +	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
 +	install -m 644 web_$*/*.js $(INSTALLDIR)/www
@@ -71,12 +76,11 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
 --- router/www/asus/mkweb	2004-11-19 04:11:13.000000000 +0000
-+++ gateway/www/asus/mkweb	2009-04-19 06:29:47.000000000 +0000
++++ gateway/www/asus/mkweb	2009-11-13 22:46:32.000000000 +0000
 @@ -1,5 +1,11 @@
 -#!/bin/sh
--
 +#! /bin/bash
-+
+ 
 +### CHUPA REVISION 1 29-10-2004 01:56
 +### CHUPA REVISION 2 22-11-2004 23:35
 +#+remove some unused files from www/graph and www/
@@ -86,6 +90,15 @@ diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
  # In the following directories, files of WL300g/WL500g/WL600/WL600g will be different
  # /init/
  # /web
+@@ -9,7 +15,7 @@
+ 
+ if [ -n "$1" ]; then
+ 
+-	MODEL=$1
++	MODEL=$1 IPV6=$3
+ 
+ 	if [ -n "$2" ]; then
+ 		if [ "$2" = "EN" ]; then
 @@ -73,6 +79,12 @@
  	if [ "$MODELID" = "WL500gx" ]; then
  		MODEL_STR="WL500g.Deluxe"
@@ -372,6 +385,20 @@ diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
  
  
  	if [ "$MODEL" = "WL500gl" ] || [ "$MODEL" = "WL500bl" ] || [ "$MODEL" = "WL331gl" ]; then		
+@@ -473,6 +678,13 @@
+ 	
+ 	### 8. Remove tempdir ###		
+ 	#rm -rf ../web_$MODEL
++
++	### 9. Removing IPV6 pages
++	if [ "$IPV6" != "y" ]; then
++		echo "Removing IPV6 pages..."
++		rm -rf ../web_$MODEL/*IPV6*.asp
++		sed -ri '/IPV6/d' ../web_$MODEL/index.asp
++	fi
+ else
+ 	echo Usage: [Model]
+ fi
 diff -BuN router/www/asus/pages.mk gateway/www/asus/pages.mk
 --- router/www/asus/pages.mk	1970-01-01 00:00:00.000000000 +0000
 +++ gateway/www/asus/pages.mk	2008-03-17 18:24:15.000000000 +0000
