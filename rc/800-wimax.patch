@@ -1,6 +1,6 @@
-diff -urNBp gateway/rc/common_ex.c gateway/rc.new/common_ex.c
---- gateway/rc/common_ex.c	2009-09-24 21:36:12.000000000 +0400
-+++ gateway/rc.new/common_ex.c	2009-11-14 17:24:23.000000000 +0300
+diff -BurpN gateway/rc.orig/common_ex.c gateway/rc/common_ex.c
+--- gateway/rc.orig/common_ex.c	2009-09-24 17:36:12.000000000 +0000
++++ gateway/rc/common_ex.c	2009-11-14 16:53:35.000000000 +0000
 @@ -627,6 +627,7 @@ void update_wan_status(int isup)
  	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
  	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
@@ -9,9 +9,9 @@ diff -urNBp gateway/rc/common_ex.c gateway/rc.new/common_ex.c
  
  
  	if (!isup)
-diff -urNBp gateway/rc/Makefile gateway/rc.new/Makefile
---- gateway/rc/Makefile	2009-09-24 20:55:29.000000000 +0400
-+++ gateway/rc.new/Makefile	2009-11-14 17:24:44.000000000 +0300
+diff -BurpN gateway/rc.orig/Makefile gateway/rc/Makefile
+--- gateway/rc.orig/Makefile	2009-09-24 16:55:29.000000000 +0000
++++ gateway/rc/Makefile	2009-11-14 16:53:35.000000000 +0000
 @@ -24,7 +24,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TO
  OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
      stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
@@ -29,9 +29,9 @@ diff -urNBp gateway/rc/Makefile gateway/rc.new/Makefile
  
  
  rc: $(OBJS)
-diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
---- gateway/rc/network.c	2009-09-18 02:12:58.000000000 +0400
-+++ gateway/rc.new/network.c	2009-11-14 17:24:23.000000000 +0300
+diff -BurpN gateway/rc.orig/network.c gateway/rc/network.c
+--- gateway/rc.orig/network.c	2009-09-17 22:12:58.000000000 +0000
++++ gateway/rc/network.c	2009-11-14 16:55:29.000000000 +0000
 @@ -673,7 +673,7 @@ start_wan(void)
  			close(s);
  			continue;
@@ -131,7 +131,7 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  	/* Notify dnsmasq of change */
  	eval("killall", "-1", "dnsmasq");
  
-@@ -1106,9 +1149,16 @@ wan_up(char *wan_ifname)
+@@ -1106,6 +1149,13 @@ wan_up(char *wan_ifname)
  {
  	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
  	char *wan_proto, *gateway;
@@ -145,9 +145,6 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  
  	/* Figure out nvram variable name prefix for this i/f */
  	if (wan_prefix(wan_ifname, prefix) < 0) 
- 	{
- 		/* called for dhcp+ppp */
- 		if (!nvram_match("wan0_ifname", wan_ifname))
 @@ -1146,7 +1196,7 @@ wan_up(char *wan_ifname)
  		/* start multicast router */
  		start_igmpproxy(wan_ifname);
@@ -221,9 +218,9 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
  				return unit;
  		}
-diff -urNBp gateway/rc/rc.c gateway/rc.new/rc.c
---- gateway/rc/rc.c	2009-04-26 17:54:12.000000000 +0400
-+++ gateway/rc.new/rc.c	2009-11-14 17:24:23.000000000 +0300
+diff -BurpN gateway/rc.orig/rc.c gateway/rc/rc.c
+--- gateway/rc.orig/rc.c	2009-04-26 13:54:12.000000000 +0000
++++ gateway/rc/rc.c	2009-11-14 16:53:35.000000000 +0000
 @@ -531,6 +531,7 @@ set_wan0_vars(void)
  	} else {
  		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
@@ -255,9 +252,9 @@ diff -urNBp gateway/rc/rc.c gateway/rc.new/rc.c
  	/* udhcpc [ deconfig bound renew ] */
  	else if (strstr(base, "udhcpc"))
  		return udhcpc_main(argc, argv);
-diff -urNBp gateway/rc/services_ex.c gateway/rc.new/services_ex.c
---- gateway/rc/services_ex.c	2009-05-23 21:50:18.000000000 +0400
-+++ gateway/rc.new/services_ex.c	2009-11-14 17:24:23.000000000 +0300
+diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
+--- gateway/rc.orig/services_ex.c	2009-05-23 17:50:18.000000000 +0000
++++ gateway/rc/services_ex.c	2009-11-14 16:53:35.000000000 +0000
 @@ -575,14 +575,40 @@ start_ddns(void)
  	char service[32];
  	char usrstr[64];
@@ -317,7 +314,7 @@ diff -urNBp gateway/rc/services_ex.c gateway/rc.new/services_ex.c
  		"-e", "/sbin/ddns_updated",
  		"-b", "/tmp/ddns.cache",
  		NULL};	
-@@ -1842,11 +1875,26 @@ hotplug_usb(void)
+@@ -1842,11 +1869,26 @@ hotplug_usb(void)
  	int isweb;
  	char flag[6];
  
@@ -344,9 +341,9 @@ diff -urNBp gateway/rc/services_ex.c gateway/rc.new/services_ex.c
  		/* usb storage */
  		if (strncmp(interface, "8/", 2) == 0)
  		{
-diff -urNBp gateway/rc/watchdog.c gateway/rc.new/watchdog.c
---- gateway/rc/watchdog.c	2009-11-10 20:48:16.000000000 +0300
-+++ gateway/rc.new/watchdog.c	2009-11-14 17:24:23.000000000 +0300
+diff -BurpN gateway/rc.orig/watchdog.c gateway/rc/watchdog.c
+--- gateway/rc.orig/watchdog.c	2009-11-10 17:48:16.000000000 +0000
++++ gateway/rc/watchdog.c	2009-11-14 16:53:35.000000000 +0000
 @@ -565,6 +565,19 @@ int http_processcheck(void)
  	}
  	return 0;
@@ -377,9 +374,9 @@ diff -urNBp gateway/rc/watchdog.c gateway/rc.new/watchdog.c
  #ifdef USB_SUPPORT
  	/* web cam process */
  	if (nvram_invmatch("usb_web_device", ""))
-diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
---- gateway/rc/wimax.c	1970-01-01 03:00:00.000000000 +0300
-+++ gateway/rc.new/wimax.c	2009-11-10 20:52:24.000000000 +0300
+diff -BurpN gateway/rc.orig/wimax.c gateway/rc/wimax.c
+--- gateway/rc.orig/wimax.c	1970-01-01 00:00:00.000000000 +0000
++++ gateway/rc/wimax.c	2009-11-14 16:53:35.000000000 +0000
 @@ -0,0 +1,229 @@
 +#include <stdio.h>
 +#include <stdlib.h>
