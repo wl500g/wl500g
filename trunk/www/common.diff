@@ -56,7 +56,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
  
  	rm -rf web
  	rm -rf web_$*
- 
++
 +pages-%:
 +	./mkweb $* "$(LANGUAGE)" "$(IPV6)"
 +	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
@@ -71,7 +71,7 @@ diff -BuN router/www/asus/Makefile gateway/www/asus/Makefile
 +
 +	rm -rf web
 +	rm -rf web_$*
-+
+ 
  clean:
  	rm -f pages.mk
 diff -BuN router/www/asus/mkweb gateway/www/asus/mkweb
