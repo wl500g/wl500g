@@ -5,7 +5,7 @@ diff -urNBp gateway/rc/common_ex.c gateway/rc.new/common_ex.c
  	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
  	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
  	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
-+	else if (!strcmp(proto, "madwimax")) nvram_set("wan_proto_t", "MadWimax");
++	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
  
  
  	if (!isup)
@@ -37,7 +37,7 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  			continue;
  		}
 -		if (!(ifr.ifr_flags & IFF_UP)) {
-+		if (!(ifr.ifr_flags & IFF_UP) && !nvram_match(strcat_r(prefix, "proto", tmp),"madwimax")) {
++		if (!(ifr.ifr_flags & IFF_UP) && !nvram_match(strcat_r(prefix, "proto", tmp),"wimax")) {
  			/* Sync connection nvram address and i/f hardware address */
  			memset(ifr.ifr_hwaddr.sa_data, 0, ETHER_ADDR_LEN);
  
@@ -47,7 +47,7 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  		else if (strcmp(wan_proto, "dhcp") == 0 ||
 -			 strcmp(wan_proto, "bigpond") == 0 ) {
 +			 strcmp(wan_proto, "bigpond") == 0 ||
-+			 strcmp(wan_proto, "madwimax") == 0 ) 
++			 strcmp(wan_proto, "wimax") == 0 ) 
 +		{
  			char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
  			char *dhcp_argv[] = { "udhcpc",
@@ -217,7 +217,7 @@ diff -urNBp gateway/rc/network.c gateway/rc.new/network.c
  			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
  			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
  			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-+			     nvram_match(strcat_r(prefix, "proto", tmp), "madwimax") ||
++			     nvram_match(strcat_r(prefix, "proto", tmp), "wimax") ||
  			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
  				return unit;
  		}
@@ -354,7 +354,7 @@ diff -urNBp gateway/rc/watchdog.c gateway/rc.new/watchdog.c
 +// madwimax
 +
 +
-+void 	madwimax_check(void);
++void madwimax_check(void);
 +
 +int madwimax_processcheck(void)
 +{
@@ -431,7 +431,7 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +		symlink("/sbin/rc", ev_fname);
 +	}
 +
-+	return ( nvram_match("wan_proto","madwimax") );
++	return ( nvram_match("wan_proto","wimax") );
 +}
 +
 +// called from watchdog using the "madwimax-check" symlink to rc.
@@ -486,12 +486,12 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +	char tmp[100];
 +	char prefix[] = "wanXXXXXXXXXX_";
 +
-+	if (nvram_match("wan_proto","madwimax"))		// wimax - the main wan interface
++	if (nvram_match("wan_proto","wimax"))		// wimax - the main wan interface
 +	{
 +		nvram_set("wan_ifname",ifname);
 +		nvram_set("wan0_ifname",ifname);
 +		nvram_set("wan0_priority",nvram_safe_get("wimax_priority"));
-+		nvram_set("wan0_proto","madwimax");
++		nvram_set("wan0_proto","wimax");
 +		nvram_set("wan_ifnames",ifname);
 +//		nvram_set("wimax_prefix", "wan0_");
 +
@@ -500,7 +500,7 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +	{
 +		snprintf(prefix, sizeof(prefix), "wan%d_", WIMAX_UNIT );// ???????? update_wan_status // MAX_NVPARSE-1
 +		nvram_set(strcat_r(prefix, "ifname", tmp), ifname);
-+		nvram_set(strcat_r(prefix, "proto", tmp), "madwimax");
++		nvram_set(strcat_r(prefix, "proto", tmp), "wimax");
 +		nvram_set(strcat_r(prefix, "primary", tmp), "1");
 +		nvram_set(strcat_r(prefix, "priority", tmp), nvram_safe_get("wimax_priority"));
 +		nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");	//nvram_safe_get("wimax_priority"));
@@ -524,7 +524,7 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +
 +		unlink(ev_fname);
 +
-+		if (nvram_match("wan_proto","madwimax")) {
++		if (nvram_match("wan_proto","wimax")) {
 +			stop_wan();
 +			nvram_set("wan_ifname","");
 +			nvram_set("wan0_ifname","");
@@ -547,7 +547,7 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +	char prefix[] = "wanXXXXXXXXXX_";
 +	int unit = WIMAX_UNIT;
 +
-+	if (nvram_match("wan_proto","madwimax"))		// wimax - the main wan interface
++	if (nvram_match("wan_proto","wimax"))		// wimax - the main wan interface
 +	{
 +		start_wan();
 +	}
@@ -558,7 +558,7 @@ diff -urNBp gateway/rc/wimax.c gateway/rc.new/wimax.c
 +		dprintf("unit %d\n",unit);
 +		unit = WIMAX_UNIT;
 +		snprintf(prefix, sizeof(prefix), "wan%d_", unit );
-+		nvram_set(strcat_r(prefix, "proto", tmp), "madwimax");
++		nvram_set(strcat_r(prefix, "proto", tmp), "wimax");
 +
 +		char *dhcp_argv[] = { "udhcpc",
 +				      "-i", ifname,
