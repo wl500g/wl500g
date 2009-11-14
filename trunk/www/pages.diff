@@ -453,7 +453,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_IPV6_Content.asp gateway/www/asu
 +<!-- Table for the conntent page -->	    
 +<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
 +    	
-+<input type="hidden" name="current_page" value="Advanced_APLAN_Content.asp"><input type="hidden" name="next_page" value="SaveRestart.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="IPv6Config;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
++<input type="hidden" name="current_page" value="Advanced_IPV6_Content.asp"><input type="hidden" name="next_page" value="SaveRestart.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="IPv6Config;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
 +<tr>
 +<td>
 +<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
