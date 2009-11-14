@@ -427,7 +427,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                
                     "bigpond:BigPond",
 +                   "l2tp:L2TP",
-+                   "madwimax:WiMax",
++                   "wimax:WiMAX",
                
                0), FALSE, FALSE},
             	
