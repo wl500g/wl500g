@@ -336,6 +336,9 @@ modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modul
 	rm -rf $(MODULESDIR)/parport
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
+ifeq ($(CONFIG_IPV6),y)
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
+endif
 
 modules_install: .config
 	install -d $(MODULESDIR)
