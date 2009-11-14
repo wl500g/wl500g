@@ -1,6 +1,6 @@
 diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
-+++ gateway/rc/firewall_ex.c	2008-12-28 11:57:52.000000000 +0300
++++ gateway/rc/firewall_ex.c	2009-11-14 13:57:52.000000000 +0300
 @@ -817,6 +817,12 @@ filter_setting(char *wan_if, char *wan_i
  			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
  		}
@@ -14,6 +14,55 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  		if (nvram_invmatch("misc_lpr_x", "0"))
  		{
+@@ -989,6 +989,48 @@ filter_setting(char *wan_if, char *wan_i
+ 
+ 	eval("iptables-restore", "/tmp/filter_rules");
+ 	
++#ifdef __CONFIG_IPV6__
++	if ((fp=fopen("/tmp/filter6_rules", "w"))==NULL) return -1;
++
++	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n");
++
++	// TODO: sync-flood protection, LAN/WAN filter, WAN/LAN filter
++
++	// Disable processing of any RH0 packet
++	// which could allow a ping-pong of packets.
++	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
++	fprintf(fp, "-A OUTPUT -m rt --rt-type 0 -j %s\n", logdrop);
++	fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j %s\n", logdrop);
++
++	// Allow
++	fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
++	fprintf(fp, "-A OUTPUT -o lo -j ACCEPT\n");
++	fprintf(fp, "-A FORWARD -o lo -j ACCEPT\n");
++
++	fprintf(fp, "-A OUTPUT -o sixtun -j ACCEPT\n");
++
++	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
++	fprintf(fp, "-A OUTPUT -o %s -j %s\n", lan_if, logaccept);
++
++	// Allow ICMP
++	if (nvram_invmatch("misc_ping_x", "0"))
++		fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
++	fprintf(fp, "-A OUTPUT -p ipv6-icmp -j %s\n", logaccept);
++	fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
++
++	// Allow Link-Local addresses
++	fprintf(fp, "-A INPUT -s fe80::/10 -j ACCEPT\n");
++	fprintf(fp, "-A OUTPUT -s fe80::/10 -j ACCEPT\n");
++
++	// Allow multicast
++	fprintf(fp, "-A INPUT -s ff00::/8 -j ACCEPT\n");
++	fprintf(fp, "-A OUTPUT -s ff00::/8 -j ACCEPT\n");
++
++	fprintf(fp, "COMMIT\n\n");
++       	fclose(fp);
++
++	eval("ip6tables-restore", "/tmp/filter6_rules");
++#endif
+ 	return 0;
+ }
+ 
 diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 --- router/rc/network.c	2004-11-18 18:50:49.000000000 +0300
 +++ gateway/rc/network.c	2008-12-28 11:12:51.000000000 +0300
