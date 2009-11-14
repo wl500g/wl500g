@@ -61,7 +61,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  		}
  
  		/* 
-@@ -737,6 +875,103 @@ start_wan(void)
+@@ -737,6 +875,105 @@ start_wan(void)
  		char *stats_argv[] = { "stats", nvram_get("stats_server"), NULL };
  		_eval(stats_argv, NULL, 5, NULL);
  	}
@@ -72,7 +72,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +		char *ip6_addr = nvram_safe_get("ipv6_wan_addr");
 +		char *ip6_size = nvram_safe_get("ipv6_wan_netsize");
 +		char *ip6_router = nvram_safe_get("ipv6_wan_router");
-+		
++
 +		if (ip6_addr && *ip6_addr && ip6_size && *ip6_size)
 +		{
 +			char ip6_net[64];
@@ -93,7 +93,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +		char *ip6_addrL = nvram_safe_get("ipv6_sit_localaddr");
 +		char *ip6_sizeL = nvram_safe_get("ipv6_sit_netsize");
 +		char *ip6_addrR = nvram_safe_get("ipv6_sit_remoteaddr");
-+		
++
 +		/* Instantiate tunnel */
 +		eval("ip", "tunnel", "add", "sixtun", "mode", "sit",
 +			"local", "0.0.0.0",
@@ -113,7 +113,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +		{
 +			char ip6_net[64];
 +			sprintf(ip6_net, "%s/%s", ip6_addrL, ip6_sizeL);
-+			
++
 +			eval("ip", "-6", "addr", "add", ip6_net, "dev", "sixtun");
 +
 +		}
@@ -132,7 +132,7 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +			int netsize = atoi(nvram_safe_get("ipv6_lan_netsize")), i = 15, n = netsize;
 +			struct in6_addr addr;
 +			char final[INET6_ADDRSTRLEN];
-+					
++
 +			/* Convert for easy manipulation */
 +			inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
 +
@@ -149,12 +149,14 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
 +
 +			/* Convert back to string representation */
 +			inet_ntop(AF_INET6, &addr, final, INET6_ADDRSTRLEN);
-+	
++
 +			/* And write out to config file */
 +			fprintf( radvdconf,
-+				"interface %s { AdvSendAdvert on; prefix %s/%d { AdvOnLink on; AdvAutonomous on; }; };",
++				"interface %s {\n"
++				" AdvSendAdvert on; prefix %s/%d { AdvOnLink on; AdvAutonomous on; };\n"
++				"};",
 +				nvram_safe_get("lan_ifname"), final, netsize);
-+	
++
 +			fclose(radvdconf);
 +
 +			/* Then start the radvd */
