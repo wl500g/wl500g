@@ -2043,14 +2043,14 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WiMax_Content.asp gateway/www/as
 +<td>
 +<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 +<tr class="content_header_tr">
-+<td class="content_header_td_title" colspan="2">WiMax Config</td>
++<td class="content_header_td_title" colspan="2">WiMAX Config</td>
 +</tr>
 +<tr>
-+<td class="content_desc_td" colspan="2">ZVMODELVZ supports WiMax(madwimax) to WAN.</td>
++<td class="content_desc_td" colspan="2">ZVMODELVZ supports WiMAX connection to WAN.</td>
 +</tr>
 +
 +<tr>
-+<td class="content_header_td">WiMax autorun?</td>
++<td class="content_header_td">WiMAX autorun?</td>
 +<td class="content_input_td">
 +<input type="radio" value="1" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "1", "checked"); %>>Yes</input>
 +<input type="radio" value="0" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "0", "checked"); %>>No</input>
@@ -2058,7 +2058,7 @@ diff -BurN router/www/asus/web_asus_en/Advanced_WiMax_Content.asp gateway/www/as
 +</tr>
 +
 +<tr>
-+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for for WiMax network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
++<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for for WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
 +<td class="content_input_td">
 +<input type="text" maxlength="32" class="content_input_fd" size="32" name="wimax_ssid" value="<% nvram_get_x("WiMaxConfig","wimax_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)">
 +</td>
@@ -3119,7 +3119,7 @@ diff -BurN router/www/asus/web_asus_en/Main_WMStatus_Content.asp gateway/www/asu
 +<td>
 +<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 +<tr class="content_header_tr">
-+<td class="content_header_td_title" colspan="2">Status - Wimax</td>
++<td class="content_header_td_title" colspan="2">Status - WiMAX</td>
 +</tr>
 +<tr class="content_header_tr">
 +<td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
@@ -3131,7 +3131,7 @@ diff -BurN router/www/asus/web_asus_en/Main_WMStatus_Content.asp gateway/www/asu
 +</tr>
 +<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 +<tr class="content_section_header_tr">
-+<td class="content_section_header_td" colspan="2">WiMax Interface</td>
++<td class="content_section_header_td" colspan="2">WiMAX Interface</td>
 +</tr>
 +<tr>
 +<td class="content_header_td_less">Device:
@@ -3954,7 +3954,7 @@ diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/in
      {  
      	   aux1 = appendChild(foldersTree, leafNode("IP Config"))            
             appendChild(aux1, generateDocEntry(0, "WAN & LAN", "Advanced_LANWAN_Content.asp", ""))    
-+           appendChild(aux1, generateDocEntry(0, "WiMax", "Advanced_WiMax_Content.asp", ""))    
++           appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""))    
 +           appendChild(aux1, generateDocEntry(0, "IPv6", "Advanced_IPV6_Content.asp", ""))
 +           appendChild(aux1, generateDocEntry(0, "SNMP", "Advanced_SNMP_Content.asp", ""))
             appendChild(aux1, generateDocEntry(0, "DHCP Server", "Advanced_DHCP_Content.asp", "")) 
@@ -4019,7 +4019,7 @@ diff -BurN router/www/asus/web_asus_en/index.asp gateway/www/asus/web_asus_en/in
          aux1 = appendChild(foldersTree, leafNode("Status & Log"))
             appendChild(aux1,generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""))
             appendChild(aux1,generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""))         
-+           appendChild(aux1,generateDocEntry(0, "WiMax", "Main_WMStatus_Content.asp", ""))         
++           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WMStatus_Content.asp", ""))         
             appendChild(aux1,generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", "")) 
             if (isModel() != 'SnapAP')
             {
