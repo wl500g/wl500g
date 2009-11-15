@@ -14,16 +14,31 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  		if (nvram_invmatch("misc_lpr_x", "0"))
  		{
-@@ -989,6 +989,48 @@ filter_setting(char *wan_if, char *wan_i
+@@ -989,6 +989,67 @@ filter_setting(char *wan_if, char *wan_i
  
  	eval("iptables-restore", "/tmp/filter_rules");
  	
 +#ifdef __CONFIG_IPV6__
++	{
++	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
++	char *def_pol_input = logaccept, *def_pol_output = logaccept;
++
 +	if ((fp=fopen("/tmp/filter6_rules", "w"))==NULL) return -1;
 +
-+	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n");
++	if (nvram_match("fw_enable_x", "1"))
++	{
++		if (nvram_match("fw_wl_enable_x", "1")
++		    && nvram_match("filter_wl_default_x", "DROP"))
++			def_pol_input = logdrop;
 +
-+	// TODO: sync-flood protection, LAN/WAN filter, WAN/LAN filter
++		if (nvram_match("fw_lw_enable_x", "1")
++		    && nvram_match("filter_lw_default_x", "DROP"))
++			def_pol_output = logdrop;
++	}
++
++	fprintf(fp, "*filter\n:INPUT %s [0:0]\n"
++		    ":FORWARD ACCEPT [0:0]\n"
++		    ":OUTPUT %s [0:0]\n", def_pol_input, def_pol_output);
 +
 +	// Disable processing of any RH0 packet
 +	// which could allow a ping-pong of packets.
@@ -32,20 +47,23 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 +	fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j %s\n", logdrop);
 +
 +	// Allow
-+	fprintf(fp, "-A INPUT -i lo -j ACCEPT\n");
-+	fprintf(fp, "-A OUTPUT -o lo -j ACCEPT\n");
-+	fprintf(fp, "-A FORWARD -o lo -j ACCEPT\n");
++	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
++	fprintf(fp, "-A OUTPUT -o lo -j %s\n", logaccept);
++	fprintf(fp, "-A FORWARD -o lo -j %s\n", logaccept);
 +
 +	fprintf(fp, "-A OUTPUT -o sixtun -j ACCEPT\n");
 +
 +	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
 +	fprintf(fp, "-A OUTPUT -o %s -j %s\n", lan_if, logaccept);
 +
-+	// Allow ICMP
-+	if (nvram_invmatch("misc_ping_x", "0"))
-+		fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
-+	fprintf(fp, "-A OUTPUT -p ipv6-icmp -j %s\n", logaccept);
-+	fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
++	if (nvram_match("fw_enable_x", "1")) {
++
++		// Allow ICMP
++		if (nvram_invmatch("misc_ping_x", "0"))
++			fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
++		fprintf(fp, "-A OUTPUT -p ipv6-icmp -j %s\n", logaccept);
++		fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
++	}
 +
 +	// Allow Link-Local addresses
 +	fprintf(fp, "-A INPUT -s fe80::/10 -j ACCEPT\n");
@@ -59,6 +77,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 +       	fclose(fp);
 +
 +	eval("ip6tables-restore", "/tmp/filter6_rules");
++	}
 +#endif
  	return 0;
  }
