@@ -216,3 +216,21 @@ diff -BurpN -x'*.o' router/rc/network.c gateway/rc/network.c
  }
  
  void
+diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
+--- router/rc/services_ex.c	2009-11-14 16:53:35.000000000 +0000
++++ gateway/rc/services_ex.c	2009-11-15 12:39:11.000000000 +0000
+@@ -1092,7 +1092,13 @@ int restart_ftpd()
+ 		"passwd_file=%s\n",
+ 		vsftpd_users, vsftpd_passwd);
+ 
+-	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n", 
++	fprintf(fp,
++#ifdef __CONFIG_IPV6__
++		"listen_ipv6=yes\n"
++#else
++		"listen=yes\n"
++#endif
++		"listen_port=%s\nbackground=yes\n",
+ 		nvram_get("usb_ftpport_x") ? : "21");
+ 	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
+ 
