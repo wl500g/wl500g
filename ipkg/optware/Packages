@@ -1,3 +1,18 @@
+Package: cpulimit
+Architecture: mipsel
+Priority: optional
+Section: system
+Version: 1.1-1
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://easynews.dl.sf.net/sourceforge/cpulimit/cpulimit-1.1.tar.gz
+Filename: cpulimit_1.1-1_mipsel.ipk
+Size: 6675
+MD5Sum: 3a768b50c8ed73ebfe2ff3dced2498d6
+Description: Describe cpulimit here.
+Depends: 
+Suggests: 
+Conflicts: 
+
 Package: fakeidentd
 Architecture: mipsel
 Priority: optional

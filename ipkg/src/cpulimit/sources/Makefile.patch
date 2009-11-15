@@ -1,0 +1,14 @@
+diff -BurpN cpulimit-1.1/Makefile cpulimit/Makefile
+--- cpulimit-1.1/Makefile	2005-06-24 10:53:43.000000000 +0000
++++ cpulimit/Makefile	2009-11-15 19:50:51.000000000 +0000
+@@ -1,7 +1,7 @@
+-all::	cpulimit
++all: cpulimit
+ 
+-cpulimit:	cpulimit.c
+-	gcc -o cpulimit cpulimit.c -lrt -Wall -O2
++cpulimit: cpulimit.c
++	$(CC) $(CPPFLAGS) $(LDFLAGS) -o cpulimit cpulimit.c
+ 
+ clean:
+ 	rm -f *~ cpulimit
