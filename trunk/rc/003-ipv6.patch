@@ -14,7 +14,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  		if (nvram_invmatch("misc_lpr_x", "0"))
  		{
-@@ -989,6 +989,67 @@ filter_setting(char *wan_if, char *wan_i
+@@ -989,6 +989,66 @@ filter_setting(char *wan_if, char *wan_i
  
  	eval("iptables-restore", "/tmp/filter_rules");
  	
@@ -56,14 +56,13 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 +	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
 +	fprintf(fp, "-A OUTPUT -o %s -j %s\n", lan_if, logaccept);
 +
-+	if (nvram_match("fw_enable_x", "1")) {
++//	if (nvram_match("fw_enable_x", "1")) {
 +
 +		// Allow ICMP
-+		if (nvram_invmatch("misc_ping_x", "0"))
-+			fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
++		fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
 +		fprintf(fp, "-A OUTPUT -p ipv6-icmp -j %s\n", logaccept);
 +		fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
-+	}
++//	}
 +
 +	// Allow Link-Local addresses
 +	fprintf(fp, "-A INPUT -s fe80::/10 -j ACCEPT\n");
