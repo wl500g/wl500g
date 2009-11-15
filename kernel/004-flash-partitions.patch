@@ -82,7 +82,7 @@
 +			bcm947xx_parts[4].size += size - 0x400000;
 +		else {
 +			bcm947xx_parts[4].size += size - (trx_len + 128*1024 + 256*1024);
-+			bcm947xx_parts[4].size &= (~0xFFFFUL); // Round down 64K
++			bcm947xx_parts[4].size &= (~0x3FFFFUL); // Round down 256K
 +		}
 +	}
 +	bcm947xx_parts[4].offset = bcm947xx_parts[3].offset - bcm947xx_parts[4].size;
