@@ -267,7 +267,7 @@ diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
  	if (nvram_match("wan_proto", "pppoe") ||
  	    nvram_match("wan_proto", "pptp")  ||
  	    nvram_match("wan_proto", "l2tp"))
-@@ -1848,11 +1852,26 @@ hotplug_usb(void)
+@@ -1848,11 +1852,29 @@ hotplug_usb(void)
  	int isweb;
  	char flag[6];
  
@@ -282,7 +282,10 @@ diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
 +		/* wimax modem */
 +		if (strncmp(interface, "255/", 4) == 0)
 +		{
-+			if (strncmp(product, "4e8/6761", 8) == 0)
++			if (strncmp(product, "4e8/6761", 8) == 0 ||
++			    strncmp(product, "4e9/6761", 8) == 0 ||
++			    strncmp(product, "4e8/6731", 8) == 0 ||
++			    strncmp(product, "4e8/6780", 8) == 0)
 +			{
 +				if (strcmp(action, "add") == 0)
 +					nvram_set("wimax_device", product);
@@ -290,7 +293,7 @@ diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
 +					nvram_unset("wimax_device");
 +				return 0;
 +			}
-+		}
++		} else
  		/* usb storage */
  		if (strncmp(interface, "8/", 2) == 0)
  		{
