@@ -255,66 +255,19 @@ diff -BurpN gateway/rc.orig/rc.c gateway/rc/rc.c
 diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
 --- gateway/rc.orig/services_ex.c	2009-05-23 17:50:18.000000000 +0000
 +++ gateway/rc/services_ex.c	2009-11-14 16:53:35.000000000 +0000
-@@ -575,14 +575,40 @@ start_ddns(void)
- 	char service[32];
- 	char usrstr[64];
- 	char wan_ifname[16];
-+	char realip[16];
- 	int  wild=nvram_match("ddns_wildcard_x", "1");
- 
- 
- 	if (nvram_match("router_disable", "1")) return -1;
--	
- 	if (nvram_invmatch("ddns_enable_x", "1")) return -1;
--	
--	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
-+
-+	memset(realip, 0, sizeof(realip));
-+
+@@ -635,6 +634,11 @@ start_ddns(void)
+ 			
+ 	sprintf(usrstr, "%s:%s", user, passwd);
+ 	
 +	if (nvram_match("ddns_realip_x", "1"))
 +	{
-+		char *ddns_realip[] = {"wget", "-qO", "/tmp/ddns.realip", NULL, NULL};
-+		char *realip_sites[] = { "http://ip.xten.net",
-+				 "http://www.networksecuritytoolkit.org/nst/cgi-bin/ip.cgi",
-+				 NULL };
-+		int i;
-+
-+		for (i=0;realip_sites[i];i++)
-+		{
-+			ddns_realip[3] = realip_sites[i];
-+			if (_eval(ddns_realip, NULL, 0, NULL)==0) break;
-+		}
-+
-+		if ((fp=fopen("/tmp/ddns.realip", "r")))
-+		{
-+			fgets(realip, sizeof(realip), fp);
-+			fclose(fp);
-+		}
-+ 		wan_ip = realip;
-+	} else {
-+		if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
++		strcpy(wan_ifname, "auto");
 +	}
-+
-+	dprintf("real-%s-%s\n",realip, wan_ip);
- 
- 	if (nvram_match("ddns_ipaddr", wan_ip) ||
- 	   (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr"))))
-@@ -671,11 +697,12 @@ start_ddns(void)
- 		"-c", "/etc/ddns.conf",
- #else
- 		"-S", service,
--	        "-i", wan_ifname,
-- 		"-u", usrstr,
-+  		"-u", usrstr,
- 		"-h", host,
- 		wild ? "-w" : NULL,
- #endif
-+		realip[0] == '\0' ? "-i" : "-a",
-+		realip[0] == '\0' ? wan_ifname : realip,
- 		"-e", "/sbin/ddns_updated",
- 		"-b", "/tmp/ddns.cache",
- 		NULL};	
-@@ -1842,11 +1869,26 @@ hotplug_usb(void)
++	else
+ 	if (nvram_match("wan_proto", "pppoe") ||
+ 	    nvram_match("wan_proto", "pptp")  ||
+ 	    nvram_match("wan_proto", "l2tp"))
+@@ -1848,11 +1852,26 @@ hotplug_usb(void)
  	int isweb;
  	char flag[6];
  
