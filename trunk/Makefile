@@ -39,7 +39,6 @@ LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
-IPUTILS=iputils-s20071127
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.4
 IGMPPROXY=igmpproxy-0.1
@@ -84,7 +83,7 @@ all: prep custom
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
-	nfs-utils portmap radvd iputils ucdsnmp igmpproxy vsftpd udpxy \
+	nfs-utils portmap radvd ucdsnmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips sendmail \
 	scsi-idle libusb usb_modeswitch wimax \
@@ -301,15 +300,6 @@ $(TOP)/radvd:
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
-	@true
-
-$(TOP)/iputils:
-	@rm -rf $(TOP)/$(IPUTILS) $@
-	tar -xjf $(IPUTILS).tar.bz2 -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(IPUTILS) $(IPUTILS).patch
-	mv $(TOP)/$(IPUTILS) $@
-
-iputils: $(TOP)/iputils
 	@true
 
 rc_Patches := $(call patches_list,rc)

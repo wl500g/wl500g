@@ -1,0 +1,689 @@
+diff -urNBp -x'.*' -x'*.o' busybox/include/applets.h busybox.new/include/applets.h
+--- busybox/include/applets.h	2009-07-22 19:28:09.000000000 +0400
++++ busybox.new/include/applets.h	2009-11-16 12:50:21.000000000 +0300
+@@ -392,6 +392,7 @@ IF_TOP(APPLET(top, _BB_DIR_USR_BIN, _BB_
+ IF_TOUCH(APPLET_NOFORK(touch, touch, _BB_DIR_BIN, _BB_SUID_DROP, touch))
+ IF_TR(APPLET(tr, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_TRACEROUTE(APPLET(traceroute, _BB_DIR_USR_BIN, _BB_SUID_MAYBE))
++IF_TRACEROUTE6(APPLET(traceroute6, _BB_DIR_USR_BIN, _BB_SUID_MAYBE))
+ IF_TRUE(APPLET_NOFORK(true, true, _BB_DIR_BIN, _BB_SUID_DROP, true))
+ IF_TTY(APPLET(tty, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_TTYSIZE(APPLET(ttysize, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+diff -urNBp -x'.*' -x'*.o' busybox/include/usage.h busybox.new/include/usage.h
+--- busybox/include/usage.h	2009-07-22 19:26:30.000000000 +0400
++++ busybox.new/include/usage.h	2009-11-16 13:03:41.000000000 +0300
+@@ -4626,6 +4626,26 @@
+      "\n			(default 3 sec)" \
+      "\n	-g		Loose source route gateway (8 max)" \
+ 
++#define traceroute6_trivial_usage \
++       "[-dnrv] [-m max_ttl] [-p port#] [-q nqueries]\n" \
++       "	[-s src_addr] [-t tos] [-w wait] [-i iface]\n" \
++       "	HOST [data size]"
++#define traceroute6_full_usage "\n\n" \
++       "Trace the route to HOST\n" \
++     "\nOptions:" \
++     "\n	-d	Set SO_DEBUG options to socket" \
++     "\n	-n	Print hop addresses numerically rather than symbolically" \
++     "\n	-r	Bypass the normal routing tables and send directly to a host" \
++     "\n	-v	Verbose" \
++     "\n	-m max_ttl	Max time-to-live (max number of hops)" \
++     "\n	-p port#	Base UDP port number used in probes" \
++     "\n			(default is 33434)" \
++     "\n	-q nqueries	Number of probes per 'ttl' (default 3)" \
++     "\n	-s src_addr	IP address to use as the source address" \
++     "\n	-t tos		Type-of-service in probe packets (default 0)" \
++     "\n	-w wait		Time in seconds to wait for a response" \
++     "\n			(default 3 sec)" \
++
+ #define true_trivial_usage \
+        ""
+ #define true_full_usage "\n\n" \
+diff -urNBp -x'.*' -x'*.o' busybox/networking/Config.in busybox.new/networking/Config.in
+--- busybox/networking/Config.in	2009-10-08 04:59:09.000000000 +0400
++++ busybox.new/networking/Config.in	2009-11-16 13:00:07.000000000 +0300
+@@ -846,6 +846,13 @@ config TRACEROUTE
+ 	help
+ 	  Utility to trace the route of IP packets.
+ 
++config TRACEROUTE6
++	bool "traceroute6"
++	default n
++	depends on FEATURE_IPV6 && TRACEROUTE
++	help
++	  Utility to trace the route of IPv6 packets.
++
+ config FEATURE_TRACEROUTE_VERBOSE
+ 	bool "Enable verbose output"
+ 	default n
+diff -urNBp -x'.*' -x'*.o' busybox/networking/Kbuild busybox.new/networking/Kbuild
+--- busybox/networking/Kbuild	2009-09-26 17:14:57.000000000 +0400
++++ busybox.new/networking/Kbuild	2009-11-16 13:01:19.000000000 +0300
+@@ -38,6 +38,7 @@ lib-$(CONFIG_TELNETD)      += telnetd.o
+ lib-$(CONFIG_TFTP)         += tftp.o
+ lib-$(CONFIG_TFTPD)        += tftp.o
+ lib-$(CONFIG_TRACEROUTE)   += traceroute.o
++lib-$(CONFIG_TRACEROUTE6)  += traceroute6.o
+ lib-$(CONFIG_TUNCTL)       += tunctl.o
+ lib-$(CONFIG_VCONFIG)      += vconfig.o
+ lib-$(CONFIG_WGET)         += wget.o
+diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute6.c busybox.new/networking/traceroute6.c
+--- busybox/networking/traceroute6.c	1970-01-01 03:00:00.000000000 +0300
++++ busybox.new/networking/traceroute6.c	2009-11-16 19:05:51.000000000 +0300
+@@ -0,0 +1,616 @@
++/*
++ *      Modified for NRL 4.4BSD IPv6 release.
++ *      07/31/96 bgp
++ *
++ *      Search for "#ifdef NRL" to find the changes.
++ */
++
++/*
++ *	Modified for Linux IPv6 by Pedro Roque <roque@di.fc.ul.pt>
++ *	31/07/1996
++ *
++ *	As ICMP error messages for IPv6 now include more than 8 bytes
++ *	UDP datagrams are now sent via an UDP socket instead of magic
++ *	RAW socket tricks.
++ *
++ *	Original copyright and comments left intact. They might not
++ *	match the code anymore.
++ *
++ *	Converted to busybox applet by Leonid Lisovskiy <lly@sf.net>
++ *	2009-11-16
++ */
++
++/*-
++ * Copyright (c) 1990, 1993
++ *	The Regents of the University of California.  All rights reserved.
++ *
++ * This code is derived from software contributed to Berkeley by
++ * Van Jacobson.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. All advertising materials mentioning features or use of this software
++ *    must display the following acknowledgement:
++ *	This product includes software developed by the University of
++ *	California, Berkeley and its contributors.
++ * 4. Neither the name of the University nor the names of its contributors
++ *    may be used to endorse or promote products derived from this software
++ *    without specific prior written permission.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
++ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
++ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
++ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
++ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
++ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
++ * SUCH DAMAGE.
++ */
++
++#include <net/if.h>
++#include <arpa/inet.h>
++#include <netinet/in.h>
++#include <netinet/udp.h>
++#include <netinet/ip.h>
++#include <netinet/ip_icmp.h>
++#include <netinet/ip6.h>
++#include <netinet/icmp6.h>
++
++#include "libbb.h"
++#include "inet_common.h"
++
++#ifndef SOL_IPV6
++#define SOL_IPV6 IPPROTO_IPV6
++#endif
++
++/* Keep in sync with getopt32 call! */
++enum {
++	OPT_ADDR_NUM     = (1 << 0),    /* n */
++	OPT_BYPASS_ROUTE = (1 << 1),    /* r */
++	OPT_DEBUG        = (1 << 2),    /* d */
++	OPT_VERBOSE      = (1 << 3) * ENABLE_FEATURE_TRACEROUTE_VERBOSE, /* v */
++	OPT_TOS          = (1 << 4),    /* t */
++	OPT_DEVICE       = (1 << 5),    /* i */
++	OPT_MAX_TTL      = (1 << 6),    /* m */
++	OPT_PORT         = (1 << 7),    /* p */
++	OPT_NPROBES      = (1 << 8),    /* q */
++	OPT_SOURCE       = (1 << 9),    /* s */
++	OPT_WAITTIME     = (1 << 10),   /* w */
++	OPT_GW           = (1 << 11),   /* g */
++};
++#define verbose (option_mask32 & OPT_VERBOSE)
++
++#define	MAXPACKET	65535
++
++struct outdata_t
++{
++	u_int32_t ident;
++	u_int32_t seq;
++	struct timeval tv;
++};
++
++struct globals {
++    char *sendbuff;
++    unsigned char packet[512];	/* last inbound (icmp) packet */
++    int datalen;
++
++    int icmp_sock;		/* receive (icmp) socket file descriptor */
++    int sndsock;		/* send (udp) socket file descriptor */
++
++    len_and_sockaddr *dest_lsa;	/* Who to try to reach */
++    struct sockaddr_in6 firsthop;
++
++    u_int32_t ident;
++    u_int16_t port;		/* start udp dest port # for probe packets */
++    int waittime;		/* time to wait for response (in seconds) */
++};
++
++#define G (*ptr_to_globals)
++#define sendbuff	(G.sendbuff  )
++#define packet		(G.packet    )
++#define datalen		(G.datalen   )
++#define icmp_sock	(G.icmp_sock )
++#define sndsock		(G.sndsock   )
++#define dest_lsa	(G.dest_lsa  )
++#define firsthop	(G.firsthop  )
++#define waittime	(G.waittime  )
++#define INIT_G() do { \
++        SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
++        G.port = 32768 + 666; \
++        waittime = 5; \
++        datalen = sizeof(struct outdata_t); \
++} while (0)
++
++
++static int	wait_for_reply(int, struct sockaddr_in6 *, struct in6_addr *, int);
++static int	packet_ok(u_char *buf, int cc, struct sockaddr_in6 *from,
++		  struct in6_addr *to, int seq, struct timeval *);
++static void	send_probe(int seq, int ttl);
++static void	print_delta_ms(struct timeval *, struct timeval *);
++static const char *pr_type(unsigned char t);
++static void	print_inetname(int cc, struct sockaddr_in6 *from);
++
++
++
++int traceroute6_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
++int traceroute6_main(int argc, char **argv)
++{
++	char pa[MAXHOSTNAMELEN];
++	unsigned op;
++	char *max_ttl_str;
++	char *port_str;
++	char *nprobes_str;
++	char *tos_str;
++	char *waittime_str;
++	char *gw_str;
++	char *source;
++	char *device;
++	struct sockaddr_in6 saddr;
++	int i, on, probe, ttl;
++	int seq = 0;
++	int tos = 0;
++	int nprobes = 3;
++	int max_ttl = 30;
++
++	INIT_G();
++
++	op = getopt32(argv, "dnrvm:p:q:s:t:w:i:g:"
++			, &max_ttl_str, &port_str, &nprobes_str
++			, &source, &tos_str, &waittime_str, &device
++			, &gw_str
++	);
++
++	if (op & OPT_MAX_TTL)
++		max_ttl = xatou_range(max_ttl_str, 1, 255);
++	if (op & OPT_PORT)
++		G.port = xatou16(port_str);
++	if (op & OPT_NPROBES)
++		nprobes = xatou_range(nprobes_str, 1, INT_MAX);
++        if (op & OPT_TOS)
++		tos = xatou_range(tos_str, 0, 255);
++	if (op & OPT_WAITTIME)
++		waittime = xatou_range(waittime_str, 1, 24 * 60 * 60);
++	if (op & OPT_GW)
++		bb_error_msg("Sorry, rthdr is not yet supported");
++
++        /* Process destination and optional packet size */
++        argv += optind;
++        argc -= optind;
++	switch (argc) {
++	case 2:
++		datalen = xatoul_range(argv[1], sizeof(struct outdata_t), MAXPACKET);
++		/* Fall through */
++	case 1:
++		dest_lsa = xhost_and_af2sockaddr(argv[0], G.port, AF_INET6);
++		firsthop = dest_lsa->u.sin6;
++		break;
++	default:
++		bb_show_usage();
++	}
++
++        /* Ensure the socket fds won't be 0, 1 or 2 */
++        bb_sanitize_stdio();
++	setlinebuf(stdout);
++
++	G.ident = getpid();
++	sendbuff = xzalloc(datalen);
++
++	icmp_sock = create_icmp6_socket();
++	on = 1;
++
++#ifdef IPV6_RECVPKTINFO
++	setsockopt(icmp_sock, SOL_IPV6, IPV6_RECVPKTINFO, &on, sizeof(on));
++	setsockopt(icmp_sock, SOL_IPV6, IPV6_2292PKTINFO, &on, sizeof(on));
++#else
++	setsockopt(icmp_sock, SOL_IPV6, IPV6_PKTINFO, &on, sizeof(on));
++#endif
++
++	if (op & OPT_DEBUG)
++		setsockopt(icmp_sock, SOL_SOCKET, SO_DEBUG,
++			   (char *)&on, sizeof(on));
++	if (op & OPT_BYPASS_ROUTE)
++		setsockopt(icmp_sock, SOL_SOCKET, SO_DONTROUTE,
++			   (char *)&on, sizeof(on));
++	on = 2;
++	if (setsockopt(icmp_sock, SOL_RAW, IPV6_CHECKSUM,
++			   &on, sizeof(on)) < 0)
++		bb_perror_msg_and_die("setsockopt RAW_CHECKSUM");
++
++	if ((sndsock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
++		bb_perror_msg_and_die("UDP socket");
++#ifdef SO_SNDBUF
++	if (setsockopt(sndsock, SOL_SOCKET, SO_SNDBUF, (char *)&datalen,
++		       sizeof(datalen)) < 0)
++		bb_perror_msg_and_die("SO_SNDBUF");
++#endif
++#if 0 /* IP_TOS */
++        if ((op & OPT_TOS) && setsockopt(sndsock, SOL_IPV6, IP_TOS,
++    		     &tos, sizeof(tos)) < 0)
++                bb_perror_msg_and_die("setsockopt TOS %d", tos);
++#endif
++	if (op & OPT_DEBUG)
++		setsockopt(sndsock, SOL_SOCKET, SO_DEBUG,
++				  (char *)&on, sizeof(on));
++	if (op & OPT_BYPASS_ROUTE)
++		setsockopt(sndsock, SOL_SOCKET, SO_DONTROUTE,
++				  (char *)&on, sizeof(on));
++
++	if (!(op & OPT_SOURCE)) {
++		socklen_t alen;
++		int probe_fd = socket(AF_INET6, SOCK_DGRAM, 0);
++
++		if (probe_fd < 0) {
++			bb_perror_msg_and_die("probe socket");
++		}
++		if (op & OPT_DEVICE) {
++			if (setsockopt(probe_fd, SOL_SOCKET, SO_BINDTODEVICE, device, strlen(device)+1) == -1)
++				bb_perror_msg("WARNING: interface is ignored");
++		}
++		firsthop.sin6_port = htons(1025);
++		if (connect(probe_fd, (struct sockaddr*)&firsthop, sizeof(firsthop)) == -1) {
++			bb_perror_msg_and_die("connect");
++		}
++		alen = sizeof(saddr);
++		if (getsockname(probe_fd, (struct sockaddr*)&saddr, &alen) == -1) {
++			bb_perror_msg_and_die("getsockname");
++		}
++		saddr.sin6_port = 0;
++		close(probe_fd);
++	} else {
++		memset((char *)&saddr, 0, sizeof(saddr));
++		saddr.sin6_family = AF_INET6;
++		if (inet_pton(AF_INET6, source, &saddr.sin6_addr) <= 0)
++		{
++			bb_error_msg_and_die("unknown addr %s\n", source);
++		}
++	}
++
++	if (bind(sndsock, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
++		bb_perror_msg_and_die("bind send socket");
++	}
++	if (bind(icmp_sock, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
++		bb_perror_msg_and_die("bind icmp6 socket");
++	}
++
++	/* Revert to non-privileged user after opening sockets */
++	xsetgid(getgid());
++	xsetuid(getuid());
++
++	printf("traceroute to %s (%s)", argv[0],
++		inet_ntop(AF_INET6, &dest_lsa->u.sin6.sin6_addr, pa, sizeof(pa)));
++
++	printf(" from %s",
++		inet_ntop(AF_INET6, &saddr.sin6_addr, pa, sizeof(pa)));
++	printf(", %d hops max, %d byte packets\n", max_ttl, datalen);
++
++	for (ttl = 1; ttl <= max_ttl; ++ttl) {
++		struct in6_addr lastaddr = {{{0,}}};
++		int got_there = 0;
++		int unreachable = 0;
++
++		printf("%2d ", ttl);
++		for (probe = 0; probe < nprobes; ++probe) {
++			int cc, reset_timer;
++			struct timeval t1, t2;
++			struct timezone tz;
++			struct sockaddr_in6 from;
++			struct in6_addr to;
++
++			gettimeofday(&t1, &tz);
++			send_probe(++seq, ttl);
++			reset_timer = 1;
++
++			while ((cc = wait_for_reply(icmp_sock, &from, &to, reset_timer)) != 0) {
++				gettimeofday(&t2, &tz);
++				if ((i = packet_ok(packet, cc, &from, &to, seq, &t1))) {
++					reset_timer = 1;
++					if (memcmp(&from.sin6_addr, &lastaddr, sizeof(from.sin6_addr))) {
++						print_inetname(cc, &from);
++						memcpy(&lastaddr,
++						       &from.sin6_addr,
++						       sizeof(lastaddr));
++					}
++					print_delta_ms(&t1, &t2);
++					switch (i - 1) {
++					case ICMP6_DST_UNREACH_NOPORT:
++						++got_there;
++						break;
++
++					case ICMP6_DST_UNREACH_NOROUTE:
++						++unreachable;
++						printf(" !N");
++						break;
++					case ICMP6_DST_UNREACH_ADDR:
++						++unreachable;
++						printf(" !H");
++						break;
++
++					case ICMP6_DST_UNREACH_ADMIN:
++						++unreachable;
++						printf(" !S");
++						break;
++					}
++					break;
++				} else
++					reset_timer = 0;
++			}
++			if (cc <= 0)
++				printf(" *");
++			fflush(stdout);
++		}
++		putchar('\n');
++		if (got_there ||
++		    (unreachable > 0 && unreachable >= nprobes-1))
++			exit(0);
++	}
++
++	return 0;
++}
++
++static int wait_for_reply(int sock,
++	       struct sockaddr_in6 *from,
++	       struct in6_addr *to,
++	       int reset_timer)
++{
++	fd_set fds;
++	static struct timeval wait_rep;
++	int cc = 0;
++	char cbuf[512];
++
++	FD_ZERO(&fds);
++	FD_SET(sock, &fds);
++	if (reset_timer) {
++		/*
++		 * traceroute could hang if someone else has a ping
++		 * running and our ICMP reply gets dropped but we don't
++		 * realize it because we keep waking up to handle those
++		 * other ICMP packets that keep coming in.  To fix this,
++		 * "reset_timer" will only be true if the last packet that
++		 * came in was for us or if this is the first time we're
++		 * waiting for a reply since sending out a probe.  Note
++		 * that this takes advantage of the select() feature on
++		 * Linux where the remaining timeout is written to the
++		 * struct timeval area.
++		 */
++		wait_rep.tv_sec = waittime;
++		wait_rep.tv_usec = 0;
++	}
++
++	if (select(sock+1, &fds, (fd_set *)0, (fd_set *)0, &wait_rep) > 0) {
++		struct iovec iov;
++		struct msghdr msg;
++		iov.iov_base = packet;
++		iov.iov_len = sizeof(packet);
++		msg.msg_name = (void *)from;
++		msg.msg_namelen = sizeof(*from);
++		msg.msg_iov = &iov;
++		msg.msg_iovlen = 1;
++		msg.msg_flags = 0;
++		msg.msg_control = cbuf;
++		msg.msg_controllen = sizeof(cbuf);
++
++		cc = recvmsg(icmp_sock, &msg, 0);
++		if (cc >= 0) {
++			struct cmsghdr *cmsg;
++			struct in6_pktinfo *ipi;
++
++			for (cmsg = CMSG_FIRSTHDR(&msg);
++			     cmsg;
++			     cmsg = CMSG_NXTHDR(&msg, cmsg)) {
++				if (cmsg->cmsg_level != SOL_IPV6)
++					continue;
++				switch (cmsg->cmsg_type) {
++				case IPV6_PKTINFO:
++#if defined IPV6_2292PKTINFO && defined IPV6_RECVPKTINFO
++				case IPV6_2292PKTINFO:
++#endif
++					ipi = (struct in6_pktinfo *)CMSG_DATA(cmsg);
++					memcpy(to, ipi, sizeof(*to));
++				}
++			}
++		}
++	}
++
++	return(cc);
++}
++
++
++static void send_probe(int seq, int ttl)
++{
++	struct outdata_t *pkt = (struct outdata_t *) sendbuff;
++	struct timezone tz;
++	int res;
++
++	pkt->ident = htonl(G.ident);
++	pkt->seq   = htonl(seq);
++	gettimeofday(&pkt->tv, &tz);
++
++	res = setsockopt(sndsock, SOL_IPV6, IPV6_UNICAST_HOPS, &ttl, sizeof(ttl));
++	if (res < 0)
++		bb_perror_msg_and_die("setsockopt UNICAST_HOPS %d", ttl);
++
++	res = xsendto(sndsock, sendbuff, datalen,
++			   (struct sockaddr *)&dest_lsa->u.sa, dest_lsa->len);
++
++	if (res != datalen)  {
++		bb_info_msg("wrote %d chars, ret=%d\n", datalen, res);
++	}
++}
++
++
++static void print_delta_ms(struct timeval *t1p, struct timeval *t2p)
++{
++	register double dt;
++
++	dt = (double)(t2p->tv_sec - t1p->tv_sec) * 1000.0 +
++	     (double)(t2p->tv_usec - t1p->tv_usec) / 1000.0;
++
++	printf("  %g ms", dt);
++}
++
++
++#if ENABLE_FEATURE_TRACEROUTE_VERBOSE
++/*
++ * Convert an ICMP "type" field to a printable string.
++ */
++static const char *pr_type(unsigned char t)
++{
++	switch (t) {
++	/* Unknown */
++	case 0:
++		return "Error";
++	case 1:
++		/* ICMP6_DST_UNREACH: */
++		return "Destination Unreachable";
++	case 2:
++		/* ICMP6_PACKET_TOO_BIG: */
++		return "Packet Too Big";
++	case 3:
++		/* ICMP6_TIME_EXCEEDED */
++		return "Time Exceeded in Transit";
++	case 4:
++		/* ICMP6_PARAM_PROB */
++		return "Parameter Problem";
++	case 128:
++		/* ICMP6_ECHO_REQUEST */
++		return "Echo Request";
++	case 129:
++		/* ICMP6_ECHO_REPLY */
++		return "Echo Reply";
++	case 130:
++		/* ICMP6_MEMBERSHIP_QUERY */
++		return "Membership Query";
++	case 131:
++		/* ICMP6_MEMBERSHIP_REPORT */
++		return "Membership Report";
++	case 132:
++		/* ICMP6_MEMBERSHIP_REDUCTION */
++		return "Membership Reduction";
++	case 133:
++		/* ND_ROUTER_SOLICIT */
++		return "Router Solicitation";
++	case 134:
++		/* ND_ROUTER_ADVERT */
++		return "Router Advertisement";
++	case 135:
++		/* ND_NEIGHBOR_SOLICIT */
++		return "Neighbor Solicitation";
++	case 136:
++		/* ND_NEIGHBOR_ADVERT */
++		return "Neighbor Advertisement";
++	case 137:
++		/* ND_REDIRECT */
++		return "Redirect";
++	}
++
++	return "OUT-OF-RANGE";
++}
++#endif
++
++
++static int packet_ok(u_char *buf, int cc, struct sockaddr_in6 *from,
++	      struct in6_addr *to, int seq,
++	      struct timeval *tv)
++{
++	struct icmp6_hdr *icp;
++	u_char type, code;
++
++	icp = (struct icmp6_hdr *) buf;
++
++	type = icp->icmp6_type;
++	code = icp->icmp6_code;
++
++	if ((type == ICMP6_TIME_EXCEEDED && code == ICMP6_TIME_EXCEED_TRANSIT) ||
++	    type == ICMP6_DST_UNREACH)
++	{
++		struct ip6_hdr *hip;
++		struct udphdr *up;
++		int nexthdr;
++
++		hip = (struct ip6_hdr *) (icp + 1);
++		up = (struct udphdr *)(hip+1);
++		nexthdr = hip->ip6_nxt;
++
++		if (nexthdr == 44) {
++			nexthdr = *(unsigned char*)up;
++			up++;
++		}
++		if (nexthdr == IPPROTO_UDP)
++		{
++			struct outdata_t *pkt;
++
++			pkt = (struct outdata_t *) (up + 1);
++
++			if (ntohl(pkt->ident) == G.ident &&
++			    ntohl(pkt->seq) == seq)
++			{
++				*tv = pkt->tv;
++				return (type == ICMP6_TIME_EXCEEDED ? -1 : code+1);
++			}
++		}
++
++	}
++
++#if ENABLE_FEATURE_TRACEROUTE_VERBOSE
++	if (verbose) {
++		unsigned char *p;
++		char pa1[MAXHOSTNAMELEN];
++		char pa2[MAXHOSTNAMELEN];
++		int i;
++
++		p = (unsigned char *) (icp + 1);
++
++		printf("\n%d bytes from %s to %s", cc,
++		       inet_ntop(AF_INET6, &from->sin6_addr, pa1, sizeof(pa1)),
++		       inet_ntop(AF_INET6, to, pa2, sizeof(pa2)));
++
++		printf(": icmp type %d (%s) code %d\n", type, pr_type(type),
++		       icp->icmp6_code);
++
++		cc -= sizeof(struct icmp6_hdr);
++		for (i = 0; i < cc ; i++) {
++			if (i % 16 == 0)
++				printf("%04x:", i);
++			if (i % 4 == 0)
++				printf(" ");
++			printf("%02x", 0xff & (unsigned)p[i]);
++			if (i % 16 == 15 && i + 1 < cc)
++				printf("\n");
++		}
++		printf("\n");
++	}
++#endif
++
++	return(0);
++}
++
++
++static void print_inetname(int cc UNUSED_PARAM, struct sockaddr_in6 *from)
++{
++	char pa[MAXHOSTNAMELEN];
++	const char *h;
++
++	h = inet_ntop(AF_INET6, &from->sin6_addr, pa, sizeof(pa));
++
++	if (option_mask32 & OPT_ADDR_NUM)
++		printf(" %s", h);
++	else
++	{
++		struct hostent *hp;
++
++		if ((hp = gethostbyaddr((char *)&from->sin6_addr,
++					sizeof(from->sin6_addr), AF_INET6)))
++			h = hp->h_name;
++
++		printf(" %s (%s)", h, pa);
++	}
++}
