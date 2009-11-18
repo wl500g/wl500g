@@ -223,8 +223,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  		/* Always calculate checksum for icmp packets */
  		outicmp->icmp_cksum = 0;
--		outicmp->icmp_cksum = in_cksum((uint16_t *)outicmp,
-+		outicmp->icmp_cksum = INET_cksum((uint16_t *)outicmp,
+ 		outicmp->icmp_cksum = in_cksum((uint16_t *)outicmp,
  					packlen - (sizeof(*outip) + optlen));
  		if (outicmp->icmp_cksum == 0)
  			outicmp->icmp_cksum = 0xffff;
