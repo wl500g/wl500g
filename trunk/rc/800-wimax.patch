@@ -1,14 +1,3 @@
-diff -BurpN gateway/rc.orig/common_ex.c gateway/rc/common_ex.c
---- gateway/rc.orig/common_ex.c	2009-09-24 17:36:12.000000000 +0000
-+++ gateway/rc/common_ex.c	2009-11-14 16:53:35.000000000 +0000
-@@ -627,6 +627,7 @@ void update_wan_status(int isup)
- 	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
- 	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
- 	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
-+	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
- 
- 
- 	if (!isup)
 diff -BurpN gateway/rc.orig/Makefile gateway/rc/Makefile
 --- gateway/rc.orig/Makefile	2009-09-24 16:55:29.000000000 +0000
 +++ gateway/rc/Makefile	2009-11-14 16:53:35.000000000 +0000
@@ -29,6 +18,30 @@ diff -BurpN gateway/rc.orig/Makefile gateway/rc/Makefile
  
  
  rc: $(OBJS)
+diff -BurpN gateway/rc.orig/common_ex.c gateway/rc/common_ex.c
+--- gateway/rc.orig/common_ex.c	2009-09-24 17:36:12.000000000 +0000
++++ gateway/rc/common_ex.c	2009-11-14 16:53:35.000000000 +0000
+@@ -627,6 +627,7 @@ void update_wan_status(int isup)
+ 	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
+ 	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
+ 	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
++	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
+ 
+ 
+ 	if (!isup)
+diff -BurpN gateway/rc.orig/firewall_ex.c gateway/rc/firewall_ex.c
+--- gateway/rc.orig/firewall_ex.c	2009-09-24 17:01:21.000000000 +0000
++++ gateway/rc/firewall_ex.c	2009-11-18 00:02:05.000000000 +0000
+@@ -821,7 +821,8 @@ filter_setting(char *wan_if, char *wan_i
+ 
+ 	/* Clamp TCP MSS to PMTU of WAN interface */
+ 	if (nvram_match("wan_proto", "pppoe") ||
+-		nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))
++		nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp") ||
++		nvram_match("wan_proto", "wimax"))
+ 	{
+ 		fprintf(fp, "-A FORWARD -p tcp --syn -j TCPMSS --clamp-mss-to-pmtu\n");
+ 	}
 diff -BurpN gateway/rc.orig/network.c gateway/rc/network.c
 --- gateway/rc.orig/network.c	2009-09-17 22:12:58.000000000 +0000
 +++ gateway/rc/network.c	2009-11-14 16:55:29.000000000 +0000
