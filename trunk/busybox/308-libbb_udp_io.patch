@@ -1,7 +1,16 @@
-Fix broken recv_from_to() for IPv6
+Fix broken send_to_from() & recv_from_to() for IPv6
 
 --- a/libbb/udp_io.c	2009-09-26 17:14:57.000000000 +0400
 +++ a/libbb/udp_io.c	2009-11-18 21:18:59.000000000 +0300
+@@ -87,7 +87,7 @@ send_to_from(int fd, void *buf, size_t l
+ 		cmsgptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
+ 		pktptr = (struct in6_pktinfo *)(CMSG_DATA(cmsgptr));
+ 		/* pktptr->ipi6_ifindex = 0; -- already done by memset(cbuf...) */
+-		pktptr->ipi6_addr = ((struct sockaddr_in6*)from)->sin6_addr;
++		memcpy(&pktptr->ipi6_addr, &((struct sockaddr_in6*)from)->sin6_addr, sizeof(struct in6_addr));
+ 	}
+ #endif
+ 	msg.msg_controllen = cmsgptr->cmsg_len;
 @@ -156,7 +156,7 @@ recv_from_to(int fd, void *buf, size_t l
  		) {
  #define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )
