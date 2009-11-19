@@ -73,7 +73,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/Config.in busybox.new/networking/C
  	default n
 diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networking/traceroute.c
 --- busybox/networking/traceroute.c	2009-09-26 17:14:57.000000000 +0400
-+++ busybox.new/networking/traceroute.c	2009-11-18 21:28:22.000000000 +0300
++++ busybox.new/networking/traceroute.c	2009-11-19 12:55:36.000000000 +0300
 @@ -23,6 +23,23 @@
   */
  
@@ -158,7 +158,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  	uint16_t port; // 32768 + 666;  /* start udp dest port # for probe packets */
  	int waittime; // 5;             /* time to wait for response (in seconds) */
  #if ENABLE_FEATURE_TRACEROUTE_SOURCE_ROUTE
-@@ -306,19 +345,32 @@ struct globals {
+@@ -306,19 +345,31 @@ struct globals {
  
  
  static int
@@ -172,19 +172,19 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  	pfd[0].fd = rcvsock;
  	pfd[0].events = POLLIN;
- 	if (safe_poll(pfd, 1, waittime * 1000) > 0)
+-	if (safe_poll(pfd, 1, waittime * 1000) > 0)
++	if (safe_poll(pfd, 1, waittime * 1000) > 0) {
 +#if ENABLE_TRACEROUTE6
 +		cc = recv_from_to(rcvsock, recv_pkt, sizeof(recv_pkt), 0,
 +            		    (struct sockaddr *)&fromp->u, to, fromp->len);
 +#else
-+	{
 +		socklen_t fromlen = fromp->len;
 +
  		cc = recvfrom(rcvsock, recv_pkt, sizeof(recv_pkt), 0,
 -			    (struct sockaddr *)fromp, &fromlen);
 +			    (struct sockaddr *)&fromp->u, &fromlen);
-+	}
 +#endif
++	}
 +
  	return cc;
  }
@@ -194,7 +194,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  /*
   * Checksum routine for Internet Protocol family headers (C Version)
-@@ -354,12 +406,23 @@ in_cksum(uint16_t *addr, int len)
+@@ -354,12 +405,23 @@ in_cksum(uint16_t *addr, int len)
  }
  
  static void
@@ -219,12 +219,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  	outdata->seq = seq;
  	outdata->ttl = ttl;
  // UNUSED: was storing gettimeofday's result there, but never ever checked it
-@@ -370,11 +433,12 @@ send_probe(int seq, int ttl)
- 
- 		/* Always calculate checksum for icmp packets */
- 		outicmp->icmp_cksum = 0;
- 		outicmp->icmp_cksum = in_cksum((uint16_t *)outicmp,
- 					packlen - (sizeof(*outip) + optlen));
+@@ -375,6 +437,7 @@ send_probe(int seq, int ttl)
  		if (outicmp->icmp_cksum == 0)
  			outicmp->icmp_cksum = 0xffff;
  	}
@@ -232,7 +227,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  //BUG! verbose is (x & OPT_VERBOSE), not a counter!
  #if 0 //ENABLE_FEATURE_TRACEROUTE_VERBOSE
-@@ -402,6 +466,17 @@ send_probe(int seq, int ttl)
+@@ -402,6 +465,17 @@ send_probe(int seq, int ttl)
  	}
  #endif
  
@@ -250,7 +245,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  #if defined(IP_TTL)
  	if (setsockopt(sndsock, IPPROTO_IP, IP_TTL,
  				(char *)&ttl, sizeof(ttl)) < 0) {
-@@ -417,19 +492,25 @@ send_probe(int seq, int ttl)
+@@ -417,19 +491,25 @@ send_probe(int seq, int ttl)
  		len -= sizeof(*outudp);
  		set_nport(dest_lsa, htons(port + seq));
  	}
@@ -277,7 +272,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  {
  	static const char *const ttab[] = {
  	"Echo Reply",   "ICMP 1",       "ICMP 2",       "Dest Unreachable",
-@@ -438,12 +519,32 @@ pr_type(unsigned char t)
+@@ -438,12 +518,32 @@ pr_type(unsigned char t)
  	"Param Problem", "Timestamp",   "Timestamp Reply", "Info Request",
  	"Info Reply",   "Mask Request", "Mask Reply"
  	};
@@ -310,7 +305,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  #endif
  
  #if !ENABLE_FEATURE_TRACEROUTE_VERBOSE
-@@ -494,7 +595,7 @@ packet_ok(int cc, const struct sockaddr_
+@@ -494,7 +594,7 @@ packet_ok(int cc, const struct sockaddr_
  			 && icp->icmp_id == htons(ident)
  			 && icp->icmp_seq == htons(seq)
  			) {
@@ -319,7 +314,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  			}
  
  			hicmp = (struct icmp *)((unsigned char *)hip + hlen);
-@@ -528,7 +629,7 @@ packet_ok(int cc, const struct sockaddr_
+@@ -528,7 +628,7 @@ packet_ok(int cc, const struct sockaddr_
  		       "%s: icmp type %d (%s) code %d\n",
  			cc, inet_ntoa(from->sin_addr),
  			inet_ntoa(ip->ip_dst),
@@ -328,7 +323,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  		for (i = 4; i < cc; i += sizeof(*lp))
  			printf("%2d: x%8.8x\n", i, *lp++);
  	}
-@@ -546,7 +647,17 @@ print_inetname(const struct sockaddr_in
+@@ -546,12 +646,26 @@ print_inetname(const struct sockaddr_in 
  {
  	const char *ina;
  
@@ -340,13 +335,12 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
 +			 &((const struct sockaddr_in6 *)from)->sin6_addr,
 +			 pa, sizeof(pa));
 +	else
-+#endif
++		ina = inet_ntoa(from->sin_addr);
++#else
  	ina = inet_ntoa(from->sin_addr);
++#endif
 +
  	if (option_mask32 & OPT_ADDR_NUM)
- 		printf("  %s", ina);
- 	else {
-@@ -551,7 +662,9 @@ print_inetname(const struct sockaddr_in
  		printf("  %s", ina);
  	else {
  		char *n = NULL;
@@ -357,7 +351,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  			n = xmalloc_sockaddr2host_noport((struct sockaddr*)from);
  		printf("  %s (%s)", (n ? n : ina), ina);
  		free(n);
-@@ -580,6 +693,85 @@ print_delta_ms(unsigned t1p, unsigned t2
+@@ -580,6 +694,85 @@ print_delta_ms(unsigned t1p, unsigned t2
  	printf("  %u.%03u ms", tt / 1000, tt % 1000);
  }
  
@@ -443,7 +437,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  /*
  Usage: [-dFIlnrvx] [-g gateway] [-i iface] [-f first_ttl]
  [-m max_ttl] [ -p port] [-q nqueries] [-s src_addr] [-t tos]
-@@ -611,19 +803,15 @@ int traceroute_main(int argc, char **arg
+@@ -611,19 +804,15 @@ int traceroute_main(int argc, char **arg
  	llist_t *source_route_list = NULL;
  	int lsrr = 0;
  #endif
@@ -468,7 +462,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  		, &tos_str, &device, &max_ttl_str, &port_str, &nprobes_str
  		, &source, &waittime_str, &pausemsecs_str, &first_ttl_str
  #if ENABLE_FEATURE_TRACEROUTE_SOURCE_ROUTE
-@@ -674,9 +862,19 @@ int traceroute_main(int argc, char **arg
+@@ -674,9 +863,19 @@ int traceroute_main(int argc, char **arg
  	}
  #endif
  
@@ -488,7 +482,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  	packlen = minpacket;
  
  	/* Process destination and optional packet size */
-@@ -687,7 +885,12 @@ int traceroute_main(int argc, char **arg
+@@ -687,7 +886,12 @@ int traceroute_main(int argc, char **arg
  		packlen = xatoul_range(argv[1], minpacket, 32 * 1024);
  		/* Fall through */
  	case 1:
@@ -501,7 +495,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  		break;
  	default:
  		bb_show_usage();
-@@ -696,7 +899,22 @@ int traceroute_main(int argc, char **arg
+@@ -696,7 +900,22 @@ int traceroute_main(int argc, char **arg
  	/* Ensure the socket fds won't be 0, 1 or 2 */
  	bb_sanitize_stdio();
  
@@ -524,7 +518,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  #if TRACEROUTE_SO_DEBUG
  	if (op & OPT_DEBUG)
  		setsockopt(rcvsock, SOL_SOCKET, SO_DEBUG,
-@@ -706,6 +924,18 @@ int traceroute_main(int argc, char **arg
+@@ -706,6 +925,18 @@ int traceroute_main(int argc, char **arg
  		setsockopt(rcvsock, SOL_SOCKET, SO_DONTROUTE,
  				&const_int_1, sizeof(const_int_1));
  
@@ -543,7 +537,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  	if (op & OPT_USE_ICMP)
  		xmove_fd(xsocket(AF_INET, SOCK_RAW, IPPROTO_ICMP), sndsock);
  	else
-@@ -736,6 +966,8 @@ int traceroute_main(int argc, char **arg
+@@ -736,6 +967,8 @@ int traceroute_main(int argc, char **arg
  	}
  #endif /* IP_OPTIONS */
  #endif /* CONFIG_FEATURE_TRACEROUTE_SOURCE_ROUTE */
@@ -552,7 +546,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  #ifdef SO_SNDBUF
  	if (setsockopt(sndsock, SOL_SOCKET, SO_SNDBUF, &packlen, sizeof(packlen)) < 0) {
  		bb_perror_msg_and_die("SO_SNDBUF");
-@@ -762,14 +994,21 @@ int traceroute_main(int argc, char **arg
+@@ -762,29 +995,71 @@ int traceroute_main(int argc, char **arg
  
  	outip = xzalloc(packlen);
  
@@ -575,12 +569,24 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  	if (op & OPT_DEVICE) /* hmm, do we need error check? */
  		setsockopt_bindtodevice(sndsock, device);
-@@ -785,6 +1024,39 @@ int traceroute_main(int argc, char **arg
+ 
+ 	if (op & OPT_SOURCE) {
+ 		len_and_sockaddr *source_lsa = xdotted2sockaddr(source, 0);
+-		/* Ping does this (why?) */
+-		if (setsockopt(sndsock, IPPROTO_IP, IP_MULTICAST_IF,
++		/* Ping4 does this (why?) */
++		if (IF_TRACEROUTE6((source_lsa->u.sa.sa_family == AF_INET) &&)
++		    setsockopt(sndsock, IPPROTO_IP, IP_MULTICAST_IF,
+ 				&source_lsa->u.sa, source_lsa->len))
+ 			bb_error_msg_and_die("can't set multicast source interface");
+ //TODO: we can query source port we bound to,
+ // and check it in replies... if we care enough
  		xbind(sndsock, &source_lsa->u.sa, source_lsa->len);
  		free(source_lsa);
++#if !ENABLE_TRACEROUTE6
  	}
-+#if ENABLE_TRACEROUTE6
-+	else if (af == AF_INET6) {
++#else
++	} else if (af == AF_INET6) {
 +		struct sockaddr_in6 firsthop = dest_lsa->u.sin6;
 +		struct sockaddr_in6 saddr;
 +		socklen_t alen;
@@ -615,7 +621,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  
  	/* Revert to non-privileged user after opening sockets */
  	xsetgid(getgid());
-@@ -797,58 +1069,100 @@ int traceroute_main(int argc, char **arg
+@@ -797,58 +1072,100 @@ int traceroute_main(int argc, char **arg
  	printf(", %d hops max, %d byte packets\n", max_ttl, packlen);
  
  	for (ttl = first_ttl; ttl <= max_ttl; ++ttl) {
@@ -689,8 +695,8 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
 +					gotlastaddr = 1;
 +				}
 +				} else
-+#endif
-+				{
++#endif /* ENABLE_TRACEROUTE6 */
++				{ /* AF_INET */
  				if (!gotlastaddr
 -				 || from.sin_addr.s_addr != lastaddr
 +				 || (from_lsa.u.sin.sin_addr.s_addr != lastaddr.ina.s_addr)
@@ -731,7 +737,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  				case ICMP_UNREACH_PORT:
  					if (ip->ip_ttl <= 1)
  						printf(" !");
-@@ -854,11 +1168,18 @@ int traceroute_main(int argc, char **arg
+@@ -854,11 +1171,18 @@ int traceroute_main(int argc, char **arg
  						printf(" !");
  					got_there = 1;
  					break;
@@ -750,7 +756,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  					printf(" !H");
  					++unreachable;
  					break;
-@@ -871,6 +1192,9 @@ int traceroute_main(int argc, char **arg
+@@ -871,6 +1195,9 @@ int traceroute_main(int argc, char **arg
  					++unreachable;
  					break;
  				case ICMP_UNREACH_SRCFAIL:
@@ -760,7 +766,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  					printf(" !S");
  					++unreachable;
  					break;
-@@ -912,7 +1237,7 @@ int traceroute_main(int argc, char **arg
+@@ -912,7 +1239,7 @@ int traceroute_main(int argc, char **arg
  				}
  				break;
  			}
@@ -769,7 +775,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  				printf("  *");
  		}
  		bb_putchar('\n');
-@@ -922,5 +1247,17 @@ int traceroute_main(int argc, char **arg
+@@ -922,5 +1249,17 @@ int traceroute_main(int argc, char **arg
  			break;
  		}
  	}
