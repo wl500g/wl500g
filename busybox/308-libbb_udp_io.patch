@@ -11,8 +11,17 @@ Fix broken send_to_from() & recv_from_to() for IPv6
  	}
  #endif
  	msg.msg_controllen = cmsgptr->cmsg_len;
-@@ -156,7 +156,7 @@ recv_from_to(int fd, void *buf, size_t l
- 		) {
+@@ -156,11 +156,14 @@ recv_from_to(int fd, void *buf, size_t l
+ 		}
+ #if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
+ 		if (cmsgptr->cmsg_level == IPPROTO_IPV6
+-		 && cmsgptr->cmsg_type == IPV6_PKTINFO
+-		) {
++		 && (cmsgptr->cmsg_type == IPV6_PKTINFO
++#if defined(IPV6_2292PKTINFO) && defined(IPV6_RECVPKTINFO)
++            		 || cmsgptr->cmsg_type == IPV6_2292PKTINFO
++#endif
++		)) {
  #define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )
  			to->sa_family = AF_INET6;
 -			((struct sockaddr_in6*)to)->sin6_addr = pktinfo(cmsgptr)->ipi6_addr;
