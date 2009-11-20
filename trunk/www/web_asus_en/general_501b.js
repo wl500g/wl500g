@@ -1582,7 +1582,7 @@ function load_body()
   	   inputCtrl(document.form.PPPConnection_IdleDisconnectTime_check, 0); 
   	   inputCtrl(document.form.PPPConnection_x_ServiceName, 0);  	  	   
   	   inputCtrl(document.form.PPPConnection_x_AccessConcentrator, 0);  	
-  	}
+  	}
   	else
   	{
   	   inputCtrl(document.form.IPConnection_ExternalIPAddress, 0); 
@@ -2386,7 +2386,7 @@ function change_common(o, s, v)
   	   inputCtrl(document.form.PPPConnection_IdleDisconnectTime_check, 0); 
   	   inputCtrl(document.form.PPPConnection_x_ServiceName, 0);  	  	   
   	   inputCtrl(document.form.PPPConnection_x_AccessConcentrator, 0);  	
-  	}
+  	}
   	else
   	{
   	   inputCtrl(document.form.IPConnection_ExternalIPAddress, 0); 
@@ -2736,7 +2736,7 @@ function encryptionType(authType, wepType)
       	  }   
       	  else if (wepType.value == "1") wepLen = "64";	
           else wepLen = "128";   
-      }	
+      }	
       
       return(pflag + wepLen);
 }
@@ -3263,7 +3263,7 @@ function validate_wlphrase(s, o)
    	   }   
         }   	
   
-   }
+   }
    return true;	
 }
 

@@ -384,7 +384,7 @@ function saveQuick(o)
         else if (document.form.x_WANType[2].checked == true)
         {
            document.form.wan_proto.value = 'pptp';
-        }   
+        }   
         else if (document.form.x_WANType[3].checked == true)
         {                     	
            document.form.wan_proto.value = 'static';    
@@ -733,7 +733,7 @@ function saveMode(o)
         document.form.wan_nat_x.value = '1';
         document.form.wan_route_x.value = 'IP_Routed';       
         document.form.wan_proto.value = 'pppoe';
-    }
+    }
     }
     else
     {	   
