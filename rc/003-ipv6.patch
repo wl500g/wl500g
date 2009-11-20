@@ -14,7 +14,7 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
  
  		if (nvram_invmatch("misc_lpr_x", "0"))
  		{
-@@ -983,6 +989,111 @@ filter_setting(char *wan_if, char *wan_i
+@@ -983,6 +989,116 @@ filter_setting(char *wan_if, char *wan_i
  
  	eval("iptables-restore", "/tmp/filter_rules");
  	
@@ -74,6 +74,11 @@ diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 +			// don't use --syn coz no related connections state yet
 +			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n",
 +			    nvram_safe_get("usb_ftpport_x"), logaccept);
++			// Web-UI from WAN
++		if (nvram_match("misc_http_x", "1"))
++			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n",
++			    nvram_safe_get("ipv6_lan_addr"),
++			    nvram_safe_get("http_lanport"), logaccept);
 +
 +		// Drop everything else
 +		fprintf(fp, "-A INPUT -j %s\n", logdrop);
