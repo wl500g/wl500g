@@ -2815,7 +2815,7 @@ function encryptionType(authType, wepType)
       	  }   
       	  else if (wepType.value == "1") wepLen = "64";	
           else wepLen = "128";   
-      }	
+      }	
       
       return(pflag + wepLen);
 }
@@ -3107,7 +3107,7 @@ function validate_wlphrase(s, v, o)
    	   }   
         }   	
   
-   }
+   }
    else
    {
    	if (!validate_string(o))
@@ -4027,7 +4027,7 @@ function change_wan_type(v)
   	   //inputCtrl(document.form.wan_hwaddr_x, 0);
     	   inputRCtrl1(document.form.x_DHCPClient, 1);
     	   inputRCtrl2(document.form.x_DHCPClient, 1);
-  	}  	else if(v == "l2tp")
+  	}  	else if(v == "l2tp")
   	{
   	   inputCtrl(document.form.wan_ipaddr, 1);
   	   inputCtrl(document.form.wan_netmask, 1); 
@@ -4047,7 +4047,7 @@ function change_wan_type(v)
   	   //inputCtrl(document.form.wan_hwaddr_x, 0);
     	   inputRCtrl1(document.form.x_DHCPClient, 1);
     	   inputRCtrl2(document.form.x_DHCPClient, 1);
-  	}  	
+  	}  	
   	else if (v == "bigpond")
   	{
   	   inputCtrl(document.form.wan_ipaddr, 0);

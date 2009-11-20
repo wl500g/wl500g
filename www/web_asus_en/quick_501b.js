@@ -446,7 +446,7 @@ function saveQuick(o)
         else if (document.form.x_WANType[2].checked == true)
         {
            document.form.Layer3Forwarding_x_ConnectionType.value = 'PPTP';
-        }   
+        }   
         else if (document.form.x_WANType[3].checked == true)
         {                     	
            document.form.Layer3Forwarding_x_ConnectionType.value = 'Static IP';    
@@ -855,7 +855,7 @@ function saveMode(o)
         document.form.IPConnection_NATEnabled.value = '1';
         document.form.IPConnection_ConnectionType.value = 'IP_Routed';       
         document.form.Layer3Forwarding_x_ConnectionType.value = 'PPPoE';
-    }
+    }
     }
     else
     {	   
