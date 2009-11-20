@@ -1,5 +1,5 @@
-From ad7d94bdc7d6a8ffe798a54f09e1e51dd949c9b7 Mon Sep 17 00:00:00 2001
-From: Denys Vlasenko <vda.linux@googlemail.com>
+From ad7d94bdc7d6a8ffe798a54f09e1e51dd949c9b7
+From: Denys Vlasenko
 Date: Fri, 20 Nov 2009 17:12:12 +0000
 Subject: ping6: do not play dirty tricks with argv
 
@@ -54,7 +54,7 @@ index d30eb5c..0ca41b9 100644
  	while ((++argv)[0] && argv[0][0] == '-') {
  		if (argv[0][1] == '4') {
  			af = AF_INET;
-@@ -716,12 +717,10 @@ static void ping(len_and_sockaddr *lsa)
+@@ -716,18 +717,16 @@ static void ping(len_and_sockaddr *lsa)
  		ping4(lsa);
  }
  
@@ -68,6 +68,13 @@ index d30eb5c..0ca41b9 100644
  
  	INIT_G();
  
+ 	/* exactly one argument needed; -v and -q don't mix; -c NUM, -w NUM, -W NUM */
+ 	opt_complementary = "=1:q--v:v--q:c+:w+:W+";
+-	opt = getopt32(argv, OPT_STRING, &pingcount, &str_s, &deadline, &timeout, &str_I);
++	opt |= getopt32(argv, OPT_STRING, &pingcount, &str_s, &deadline, &timeout, &str_I);
+ 	if (opt & OPT_s)
+ 		datalen = xatou16(str_s); // -s
+ 	if (opt & OPT_I) { // -I
 @@ -765,13 +764,25 @@ int ping_main(int argc UNUSED_PARAM, char **argv)
  #endif /* FEATURE_FANCY_PING */
  
