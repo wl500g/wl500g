@@ -67,6 +67,7 @@ function inputCCtrl4(o, flag)
     o[2].checked = false;        
     o[3].checked = false;
     o[4].checked = false;    		    
+    o[5].checked = false;    		    
     o[flag].checked = true;   
 }   
 
@@ -241,6 +242,11 @@ function loadQuick()
     	    inputCCtrl4(document.form.x_WANType, 2);    	        	 
             inputRCtrl2(document.form.x_DHCPClient, 1);
     	}   
+    	else if (document.form.wan_proto.value == 'l2tp')
+    	{    	   
+    	    inputCCtrl4(document.form.x_WANType, 5);    	        	 
+            inputRCtrl2(document.form.x_DHCPClient, 1);
+    	}   
     	else   
     	{
     	    if (document.form.wan_proto.value == 'static')
@@ -265,6 +271,7 @@ function loadQuick()
     masq_wepkey();            
     loadSecurity();
     sameWireless=true;                                 	                                     
+    TimeZoneList();
     changeMode();    
 }
 
@@ -276,7 +283,7 @@ function loadMode()
             
     //alert(document.form.wan_dnsenable_x[0].checked);
     //alert(document.form.wan_dnsenable_x[1].checked);
-    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331")
+    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331" || window.top.isModel() =="WLHDD")
     {
     	if (document.form.wan_nat_x.value == '1')
     	{    	
@@ -377,7 +384,7 @@ function saveQuick(o)
         else if (document.form.x_WANType[2].checked == true)
         {
            document.form.wan_proto.value = 'pptp';
-        }   
+        }   
         else if (document.form.x_WANType[3].checked == true)
         {                     	
            document.form.wan_proto.value = 'static';    
@@ -385,6 +392,10 @@ function saveQuick(o)
         else if (document.form.x_WANType[4].checked == true)
         {                     	
            document.form.wan_proto.value = 'bigpond';    
+        }   
+        else if (document.form.x_WANType[5].checked == true)
+        {                     	
+           document.form.wan_proto.value = 'l2tp';    
         }   
         else
         {        	
@@ -396,6 +407,9 @@ function saveQuick(o)
     	document.form.x_DHCPClient[0].checked = false;
     	document.form.x_DHCPClient[1].checked = false;       	
     	inputRCtrl1(document.form.wan_dnsenable_x, 1);
+    	inputCtrl1(document.form.wan_ipaddr, 1);
+    	inputCtrl1(document.form.wan_netmask, 1);
+    	inputCtrl1(document.form.wan_gateway, 1);    	         
     }             
         
     o.value = '  Save  ';   
@@ -430,7 +444,7 @@ function changeMode()
     	 {
     	 	
     	     // require account 	
-    	     if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true)
+    	     if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true || document.form.x_WANType[5].checked == true)
     	     {    	      	     	     	      	         	     	
     	        inputCtrl1(document.form.wan_pppoe_username, 1); 
     	        inputCtrl1(document.form.wan_pppoe_passwd, 1);     	         	   
@@ -455,9 +469,9 @@ function changeMode()
     	     	//inputCtrl1(document.form.wan_dns1_x, 1);  
     	     	//inputCtrl1(document.form.wan_dns2_x, 1); 
     	     }	
-    	     else if(document.form.x_WANType[2].checked == true) // pptp 	    	     
+    	     else if(document.form.x_WANType[2].checked == true || document.form.x_WANType[5].checked == true) // pptp 	    	     
     	     {
-    	     	inputRCtrl1(document.form.x_DHCPClient, 0);
+    	     	inputRCtrl1(document.form.x_DHCPClient, 1);
     	     	inputRCtrl2(document.form.x_DHCPClient, 1);
     	     	inputCtrl1(document.form.wan_ipaddr, 0); 
     	     	inputCtrl1(document.form.wan_netmask, 0);     
@@ -467,6 +481,11 @@ function changeMode()
     	     	//inputRCtrl2(document.form.wan_dnsenable_x, 1);
     	     	//inputCtrl1(document.form.wan_dns1_x, 1);
     	     	//inputCtrl1(document.form.wan_dns2_x, 1);
+		if (document.form.wan_ipaddr.value == "" || 
+			document.form.wan_ipaddr.value == "0.0.0.0") 
+		{
+    	   		inputRCtrl2(document.form.x_DHCPClient, 0);
+		}
     	     }	
     	     else // static
     	     {    	     	
@@ -555,15 +574,12 @@ function changeWANType()
     	     inputRCtrl2(document.form.wan_dnsenable_x, 0);
     	     inputCtrl1(document.form.wan_dns1_x, 1);  
     	     inputCtrl1(document.form.wan_dns2_x, 1);
-    	         	     
-    	     changeDHCPClient();    
-    	     changeDNSServer();	    	    	    	
     	 }
     	 else 
     	 {
     	 	
     	     // require account 	
-    	     if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true)
+    	     if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true || document.form.x_WANType[5].checked == true)
     	     {    	      	     	     	      	         	     	
     	        inputCtrl1(document.form.wan_pppoe_username, 1); 
     	        inputCtrl1(document.form.wan_pppoe_passwd, 1);     	         	   
@@ -588,18 +604,23 @@ function changeWANType()
     	     	inputCtrl1(document.form.wan_dns1_x, 1);  
     	     	inputCtrl1(document.form.wan_dns2_x, 1); 
     	     }	
-    	     else if(document.form.x_WANType[2].checked == true) // pptp 	    	     
+    	     else if(document.form.x_WANType[2].checked == true || document.form.x_WANType[5].checked == true) // pptp 	    	     
     	     {
-    	     	inputRCtrl1(document.form.x_DHCPClient, 0);
+    	     	inputRCtrl1(document.form.x_DHCPClient, 1);
     	     	inputRCtrl2(document.form.x_DHCPClient, 1);
     	     	inputCtrl1(document.form.wan_ipaddr, 0); 
     	     	inputCtrl1(document.form.wan_netmask, 0);     
     	     	inputCtrl1(document.form.wan_gateway, 0);
     	     
     	     	inputRCtrl1(document.form.wan_dnsenable_x, 1);
-    	     	inputRCtrl2(document.form.wan_dnsenable_x, 1);
+    	     	inputRCtrl2(document.form.wan_dnsenable_x, 0);
     	     	inputCtrl1(document.form.wan_dns1_x, 1);  
     	     	inputCtrl1(document.form.wan_dns2_x, 1); 
+		if (document.form.wan_ipaddr.value == "" || 
+			document.form.wan_ipaddr.value == "0.0.0.0") 
+		{
+    	   		inputRCtrl2(document.form.x_DHCPClient, 0);
+		}
     	     }	
     	     else // static
     	     {    	     	
@@ -614,9 +635,10 @@ function changeWANType()
     	     	inputCtrl1(document.form.wan_dns1_x, 1);  
     	     	inputCtrl1(document.form.wan_dns2_x, 1); 
     	     }
-    	     changeDHCPClient();
-    	     changeDNSServer();
     	 }	    	
+    	         	     
+     changeDHCPClient();    
+     changeDNSServer();	    	    	    	
 }
 
 function changeDHCPClient()
@@ -626,12 +648,25 @@ function changeDHCPClient()
     	inputCtrl1(document.form.wan_ipaddr, 0); 
     	inputCtrl1(document.form.wan_netmask, 0);     
     	inputCtrl1(document.form.wan_gateway, 0);
+	v = document.form.wan_proto.value;
+	if (v == "l2tp" || v == "pptp" || v == "pppoe") 
+	{
+	   document.form.wan_ipaddr.value = "0.0.0.0";
+	   document.form.wan_netmask.value = "0.0.0.0";
+	   document.form.wan_gateway.value = "0.0.0.0";
+	}
     }	
     else   
     {    	    	
     	inputCtrl1(document.form.wan_ipaddr, 1); 
     	inputCtrl1(document.form.wan_netmask, 1);     
     	inputCtrl1(document.form.wan_gateway, 1);
+	if (document.form.wan_ipaddr.value == "0.0.0.0") 
+	{
+	   document.form.wan_ipaddr.value = "";
+	   document.form.wan_netmask.value = "";
+	   document.form.wan_gateway.value = "";
+	}
     }	   
 }
 
@@ -685,7 +720,7 @@ function saveMode(o)
     	
     document.form.next_page.value = 'Main_Operation.asp';
     
-    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331")
+    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331" || window.top.isModel() =="WLHDD")
     {	
     if (document.form.x_Mode[0].checked == true) //Access Point
     {           	                
@@ -752,7 +787,7 @@ function toTag(s)
 	}   
 	else if (s=='Broadband')
 	{	    	   
-	    if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true)
+	    if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true || document.form.x_WANType[5].checked == true)
 	    {
 	       //inputRCtrl2(document.form.x_ADSLType, 1);
 	       changeADSLType();
@@ -769,7 +804,7 @@ function toTag(s)
         }
         else if (s=='PPPoE')
 	{	
-	    if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true)
+	    if (document.form.x_WANType[1].checked == true || document.form.x_WANType[2].checked == true || document.form.x_WANType[4].checked == true || document.form.x_WANType[5].checked == true)
 	    {
 	       if (document.form.wan_pppoe_username.value == "" || document.form.wan_pppoe_passwd.value == "")	   
 	       {
@@ -790,9 +825,9 @@ function toTag(s)
 	       {
 	          t = 'MacHost';       
 	       }   
-	       else if (document.form.x_WANType[2].checked == true)
+	       else if (document.form.x_WANType[2].checked == true || document.form.x_WANType[5].checked == true)
 	       {
-	          t = 'WANSetting';       
+	          t = 'MacHost';       
 	       }   
 	       else
 	       {

@@ -20,7 +20,7 @@
 <td>
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 <tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">System Setup - Setting Mangement</td>
+<td class="content_header_td_title" colspan="2">System Setup - Setting Management</td>
 <input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
 <input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
 </tr>

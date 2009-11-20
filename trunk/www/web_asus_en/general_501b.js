@@ -2083,7 +2083,7 @@ function change_wireless_bridge(m, a, r, mflag)
 	   
     }	    	  	       	   
     wdsimage = "graph/" + wdsimage + ".gif";
-    document.form.WirelessBridge_img.src = wdsimage;
+//    document.form.WirelessBridge_img.src = wdsimage;
 }
 
 function onSubmit()

@@ -30,7 +30,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the driver used for your web camera.', LEFT);" onMouseOut="return nd();">Web Camera Driver:
-           </td><td class="content_input_td"><select name="usb_webdriver_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webdriver_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "0","selected"); %>>PWC 8.8</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "1","selected"); %>>OV511 2.10</option></select></td>
+           </td><td class="content_input_td"><select name="usb_webdriver_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webdriver_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "0","selected"); %>>PWC 9.0.2</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "1","selected"); %>>OV51x 1.65-1.12</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the size of image.', LEFT);" onMouseOut="return nd();">Image Size:
@@ -42,8 +42,8 @@
            </td><td class="content_input_td"><select name="usb_websense_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_websense_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_websense_x", "0","selected"); %>>Low</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_websense_x", "1","selected"); %>>Medium</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_websense_x", "2","selected"); %>>High</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the time interval in seconds that system reloads image. The range of value is 1~65535.', LEFT);" onMouseOut="return nd();">Refresh Time in seconds:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the time interval in seconds that system reloads image. The range of value is 0~65535.', LEFT);" onMouseOut="return nd();">Refresh Time in seconds:
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the string that will be the title displayed on your Webcam page.', LEFT);" onMouseOut="return nd();">Caption String:

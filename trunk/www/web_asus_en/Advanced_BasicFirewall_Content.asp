@@ -29,6 +29,10 @@
            </td><td class="content_input_td"><input type="radio" value="1" name="fw_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_enable_x', '1')" <% nvram_match_x("FirewallConfig","fw_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="fw_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_enable_x', '0')" <% nvram_match_x("FirewallConfig","fw_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
+<td class="content_header_td">Enable DoS protection?
+           </td><td class="content_input_td"><input type="radio" value="1" name="fw_dos_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_dos_x', '1')" <% nvram_match_x("FirewallConfig","fw_dos_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="fw_dos_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'fw_dos_x', '0')" <% nvram_match_x("FirewallConfig","fw_dos_x", "0", "checked"); %>>No</input></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates what kind of packets between LAN and WAN will be logged.', LEFT);" onMouseOut="return nd();">Logged packets type:
            </td><td class="content_input_td"><select name="fw_log_x" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', 'fw_log_x')"><option class="content_input_fd" value="none" <% nvram_match_x("FirewallConfig","fw_log_x", "none","selected"); %>>None</option><option class="content_input_fd" value="drop" <% nvram_match_x("FirewallConfig","fw_log_x", "drop","selected"); %>>Dropped</option><option class="content_input_fd" value="accept" <% nvram_match_x("FirewallConfig","fw_log_x", "accept","selected"); %>>Accepted</option><option class="content_input_fd" value="both" <% nvram_match_x("FirewallConfig","fw_log_x", "both","selected"); %>>Both</option></select></td>
 </tr>
@@ -47,6 +51,39 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This feature allows you to respond ping request from Internet.', LEFT);" onMouseOut="return nd();">Respond Ping Request from WAN?
            </td><td class="content_input_td"><input type="radio" value="1" name="misc_ping_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'misc_ping_x', '1')" <% nvram_match_x("FirewallConfig","misc_ping_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="misc_ping_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'misc_ping_x', '0')" <% nvram_match_x("FirewallConfig","misc_ping_x", "0", "checked"); %>>No</input></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (1024-16384).', LEFT);" onMouseOut="return nd();">Number of connections to track:
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1024, 16384)"></td>
+</tr>
+</table>
+</td>
+</tr>
+<tr>
+<td>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">Protection against Brute Force Attack for SSH and FTP Servers</td>
+</tr>
+<tr>
+<td class="content_desc_td" colspan="2">Blocks attempts to login more than hitcount times within a period of time.
+Remember: all attempts are counted, not only unsuccessful.</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against Brute Force Attacks for SSH Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for SSH Server:</td>
+<td class="content_input_td"><input type="radio" value="1" name="recent_ssh_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ssh_enable', '1')" <% nvram_match_x("FirewallConfig", "recent_ssh_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="recent_ssh_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ssh_enable', '0')" <% nvram_match_x("FirewallConfig", "recent_ssh_enable", "0", "checked"); %>>No</input></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against Brute Force Attacks for FTP Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for FTP Server:</td>
+<td class="content_input_td"><input type="radio" value="1" name="recent_ftp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ftp_enable', '1')" <% nvram_match_x("FirewallConfig", "recent_ftp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="recent_ftp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ftp_enable', '0')" <% nvram_match_x("FirewallConfig", "recent_ftp_enable", "0", "checked"); %>>No</input></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Hitcount.', LEFT);" onMouseOut="return nd();">Hitcount:</td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_hitcount" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "recent_hitcount"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(this)"></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Period of time in seconds.', LEFT);" onMouseOut="return nd();">Period, seconds:</td>
+<td class="content_input_td"><input type="text" maxlength="5" size="5" name="recent_seconds" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "recent_seconds"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(this)"></td>
 </tr>
 </table>
 </td>

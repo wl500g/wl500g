@@ -55,11 +55,15 @@
 <div align="center">
 <table class="content_list_value_table" border="1" cellspacing="0" cellpadding="0">
 <tr>
-<td></td><td class="content_list_field_header_td" colspan="">MAC Address	                
-           	        </td><td></td>
+	<td></td>
+	<td class="content_list_field_header_td" colspan="">MAC Address</td>
+	<td class="content_list_field_header_td" colspan="">Comment</td>
+	<td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="32" name="wl_maclist_x_0" onKeyPress="return is_hwaddr()"></td>
+	<td></td>
+	<td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="20" name="wl_maclist_x_0" onKeyPress="return is_hwaddr()"></td>
+	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="40" name="wl_macdesc_x_0" onKeyPress="return is_string()"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">

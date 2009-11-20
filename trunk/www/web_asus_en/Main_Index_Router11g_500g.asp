@@ -40,17 +40,12 @@
       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Wireless Router</b>    
       <ul>
         <li> 
-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a> 
-          allows users to complete basic setting by just answering several questions.</li>     
-        <li> <b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a> &nbsp;</b>supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
-        <li> <b><a href="javascript:top.openBranch('USB Application')">USB Application</a>
-          </b>Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                  
-        <li> <b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a> </b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> 
-          log status of system in details.</li>
-        <p> 
-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
-        </p>
+          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
+            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
+        <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>                
+        <li><b><a href="javascript:top.openBranch('USB Application')">USB Application</a></b> Plug a USB storage to become a FTP server or plug a USB web camera to monitor your home environment.</li>                  
+        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
         &nbsp;&nbsp;      
         <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type="submit" onClick="onSubmitCtrl(this, 'NEXT')" value="Next" name="action">       

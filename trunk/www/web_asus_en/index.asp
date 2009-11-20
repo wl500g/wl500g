@@ -38,14 +38,17 @@ function isModel()
 {
    model = 'WL600';
    pid = parent.titleFrame.document.form.productid.value;
-   
-   if (pid.indexOf("WL500")!=-1) model = 'WL500';
+
+   if (pid.indexOf("WL500")!=-1 || pid.indexOf("WL700")!=-1 ||
+       pid.indexOf("WL550")!=-1 || pid.indexOf("WL520gu")!= -1) model = 'WL500';
    else if (pid.indexOf("WL331")!=-1) model = 'WL331';
    else if (pid.indexOf("WL520")!=-1 ||
             pid.indexOf("WL530")!=-1) model = 'WL520';            
    else if (pid.indexOf("SnapAP")!=-1) model = 'SnapAP';
-   else if (pid.indexOf("WL300")!=-1) model = 'WL300';
-         
+   else if (pid.indexOf("WL300")!=-1 || pid.indexOf("WL320")!=-1 ||
+   	pid.indexOf("WL330")!=-1) model = 'WL300';
+   else if (pid.indexOf("WLHDD")!=-1) model = 'WLHDD';
+
    return model;
 }
 
@@ -166,11 +169,17 @@ function generateTree()
     {   
     	   aux1 = appendChild(foldersTree, leafNode("IP Config"))            
            appendChild(aux1, generateDocEntry(0, "LAN", "Advanced_APLAN_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "IPv6", "Advanced_IPV6_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "SNMP", "Advanced_SNMP_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "Miscellaneous", "Advanced_RMISC_Content.asp", ""))
     }       
     else 
     {  
     	   aux1 = appendChild(foldersTree, leafNode("IP Config"))            
            appendChild(aux1, generateDocEntry(0, "WAN & LAN", "Advanced_LANWAN_Content.asp", ""))    
+           appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""))    
+           appendChild(aux1, generateDocEntry(0, "IPv6", "Advanced_IPV6_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "SNMP", "Advanced_SNMP_Content.asp", ""))
            appendChild(aux1, generateDocEntry(0, "DHCP Server", "Advanced_DHCP_Content.asp", "")) 
            
            if (isModel()!='SnapAP')    
@@ -207,7 +216,7 @@ function generateTree()
     	   //	   appendChild(aux1, generateDocEntry(0, "WLAN & WAN Filter",  "Advanced_DMZDWFilter_Content.asp", ""))                                                                                          
     	   //       appendChild(aux1, generateDocEntry(0, "WLAN & LAN Filter",  "Advanced_DMZDLFilter_Content.asp", ""))                                                                                                                            
     	   //}       
-    	   if (isModel() == 'WL500'|| isModel() == 'WL331')
+    	   if (isModel() == 'WL500' || isModel() == 'WLHDD' || isModel() == 'WL300')
     	   {
     	       appendChild(aux1, generateDocEntry(0, "MAC Filter",  "Advanced_MACFilter_Content.asp", ""))
     	   }           
@@ -217,10 +226,12 @@ function generateTree()
      {
     	 aux1 = appendChild(foldersTree, leafNode("USB Application"))          
            appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "Samba", "Advanced_Samba_Content.asp", ""))
+           appendChild(aux1, generateDocEntry(0, "NFS Server", "Advanced_NFS_Content.asp", ""))
            appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""))
      }      
      
-     if (isModel() == 'WL500' && isFlash() != '2MB' && mode!='AP')
+     if ((isModel() == 'WL500' || isModel() == 'WLHDD') && isFlash() != '2MB' && mode!='AP')
      {
      	 aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"))          
            appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""))           
@@ -230,17 +241,21 @@ function generateTree()
      if (isModel() != 'WL520' && isModel() != 'SnapAP')
      {
      	appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
+     	appendChild(aux1, generateDocEntry(0, "Services", "Advanced_Services_Content.asp",""))
+     	appendChild(aux1, generateDocEntry(0, "Change Name", "Advanced_Name_Content.asp",""))
      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
-     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
+     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
+	appendChild(aux1, generateDocEntry(0, "Flashfs Management", "Advanced_FlashfsBackup_Content.asp", ""))
      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
+        appendChild(aux1, generateDocEntry(0, "System Command", "Main_AdmStatus_Content.asp", ""))
      }	
      else
      {
      	//appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
      	appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
      	appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
-     	appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
+     	appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
      	appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
      }
      //appendChild(aux1, generateDocEntry(0, "Printer Setup", "Advanced_PrinterSetup_Content.asp", ""))
@@ -250,13 +265,14 @@ function generateTree()
            aux1 = appendChild(foldersTree, leafNode("Status & Log"))
            appendChild(aux1,generateDocEntry(0, "Status", "Main_AStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""))
-           //appendChild(aux1,generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""))
+           appendChild(aux1,generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""))
      }
      else
      {
         aux1 = appendChild(foldersTree, leafNode("Status & Log"))
            appendChild(aux1,generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""))         
+           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WMStatus_Content.asp", ""))         
            appendChild(aux1,generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", "")) 
            if (isModel() != 'SnapAP')
            {

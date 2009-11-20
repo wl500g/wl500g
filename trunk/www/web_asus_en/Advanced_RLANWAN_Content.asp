@@ -67,6 +67,10 @@
             </td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:
            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>

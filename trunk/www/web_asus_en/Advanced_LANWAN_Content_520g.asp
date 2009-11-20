@@ -130,6 +130,10 @@
            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_ac" value="<% nvram_get_x("PPPConnection","wan_pppoe_ac"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required.', LEFT);" onMouseOut="return nd();">Additional pppd options:
+           </td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="wan_pppoe_options_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_options_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('Enable PPPoE relay allows stations in LAN to setup individual PPPoE connections that are passthrough NAT.', LEFT);" onMouseOut="return nd();">Enable PPPoE Relay?
            </td><td class="content_input_td"><input type="radio" value="1" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '1')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '0')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "0", "checked"); %>>No</input></td>
 </tr>
@@ -163,6 +167,10 @@
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">LAN IP Setting
             </td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:

@@ -18,7 +18,7 @@
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 <tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">IP Config - Basic Config</td>
+<td class="content_header_td_title" colspan="2">Bandwidth Management - Basic Config</td>
 </tr>
 <tr>
 <td class="content_desc_td" colspan="2">Bandwidth Management allows you to control the bandwidth for different applications.
@@ -48,11 +48,11 @@
 <td class="content_list_header_td" width="60%" id="x_QRuleList">Download Policy List
          <input type="hidden" name="qos_rulenum_x_0" value="<% nvram_get_x("PrinterStatus", "qos_rulenum_x"); %>" readonly="1"></td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_QRuleList', 8, ' Add ');" name="x_QRuleList" value="Add" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_QRuleList', 32, ' Add ');" name="x_QRuleList" value="Add" size="12">
 </div>
 </td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_QRuleList', 8, ' Del ');" name="x_QRuleList" value="Del" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_QRuleList', 32, ' Del ');" name="x_QRuleList" value="Del" size="12">
 </div>
 </td><td width="5%"></td>
 </tr>
@@ -97,11 +97,11 @@
 <td class="content_list_header_td" width="60%" id="x_UQRuleList">Upload Policy List
          <input type="hidden" name="qos_urulenum_x_0" value="<% nvram_get_x("PrinterStatus", "qos_urulenum_x"); %>" readonly="1"></td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_UQRuleList', 8, ' Add ');" name="x_UQRuleList" value="Add" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_UQRuleList', 32, ' Add ');" name="x_UQRuleList" value="Add" size="12">
 </div>
 </td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_UQRuleList', 8, ' Del ');" name="x_UQRuleList" value="Del" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'x_UQRuleList', 32, ' Del ');" name="x_UQRuleList" value="Del" size="12">
 </div>
 </td><td width="5%"></td>
 </tr>

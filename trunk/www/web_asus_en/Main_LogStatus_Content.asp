@@ -21,7 +21,7 @@
 <td class="content_header_td_title" colspan="2">Status & Log - System Log</td>
 </tr>
 <tr class="content_header_tr">
-<td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
+<td colspan="2"><textarea class="content_log_td" cols="63" rows="25" wrap="off" readonly="1">
 <% nvram_dump("syslog.log","syslog.sh"); %>              
             </textarea></td>
 </tr>

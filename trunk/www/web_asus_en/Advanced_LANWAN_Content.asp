@@ -13,7 +13,7 @@
 <!-- Table for the conntent page -->	    
 <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
     	
-<input type="hidden" name="current_page" value="Advanced_LANWAN_Content.asp"><input type="hidden" name="next_page" value="Advanced_DHCP_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="Layer3Forwarding;LANHostConfig;IPConnection;PPPConnection;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
+<input type="hidden" name="current_page" value="Advanced_LANWAN_Content.asp"><input type="hidden" name="next_page" value="Advanced_WiMax_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="Layer3Forwarding;LANHostConfig;IPConnection;PPPConnection;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
 <tr>
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
@@ -26,7 +26,7 @@
 </tr>
 <tr>
 <td class="content_header_td">WAN Connection Type:
-           </td><td class="content_input_td"><select name="wan_proto" class="content_input_fd" onChange="return change_common(this, 'Layer3Forwarding', 'wan_proto')"><option class="content_input_fd" value="dhcp" <% nvram_match_x("Layer3Forwarding","wan_proto", "dhcp","selected"); %>>Automatic IP</option><option class="content_input_fd" value="static" <% nvram_match_x("Layer3Forwarding","wan_proto", "static","selected"); %>>Static IP</option><option class="content_input_fd" value="pppoe" <% nvram_match_x("Layer3Forwarding","wan_proto", "pppoe","selected"); %>>PPPoE</option><option class="content_input_fd" value="pptp" <% nvram_match_x("Layer3Forwarding","wan_proto", "pptp","selected"); %>>PPTP</option><option class="content_input_fd" value="bigpond" <% nvram_match_x("Layer3Forwarding","wan_proto", "bigpond","selected"); %>>BigPond</option></select></td>
+           </td><td class="content_input_td"><select name="wan_proto" class="content_input_fd" onChange="return change_common(this, 'Layer3Forwarding', 'wan_proto')"><option class="content_input_fd" value="dhcp" <% nvram_match_x("Layer3Forwarding","wan_proto", "dhcp","selected"); %>>Automatic IP</option><option class="content_input_fd" value="static" <% nvram_match_x("Layer3Forwarding","wan_proto", "static","selected"); %>>Static IP</option><option class="content_input_fd" value="pppoe" <% nvram_match_x("Layer3Forwarding","wan_proto", "pppoe","selected"); %>>PPPoE</option><option class="content_input_fd" value="pptp" <% nvram_match_x("Layer3Forwarding","wan_proto", "pptp","selected"); %>>PPTP</option><option class="content_input_fd" value="bigpond" <% nvram_match_x("Layer3Forwarding","wan_proto", "bigpond","selected"); %>>BigPond</option><option class="content_input_fd" value="l2tp" <% nvram_match_x("Layer3Forwarding","wan_proto", "l2tp","selected"); %>>L2TP</option><option class="content_input_fd" value="wimax" <% nvram_match_x("Layer3Forwarding","wan_proto", "wimax","selected"); %>>WiMAX</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td">WAN Connection Speed:
@@ -43,7 +43,10 @@
             </td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This is IP address of ZVMODELVZ as seen on the remote network. If you leave it blank, ZVMODELVZ will get IP address from DHCP Server automatically.', LEFT);" onMouseOut="return nd();">IP Address:
+<td class="content_header_td_less">Get IP automatically?</td><td class="content_input_td"><input type="radio" value="1" name="x_DHCPClient" class="content_input_fd" onClick="changeDHCPClient()">Yes</input><input type="radio" value="0" name="x_DHCPClient" class="content_input_fd" onClick="changeDHCPClient()">No</input></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This is IP address of ZVMODELVZ as seen on the remote network. If you set it to 0.0.0.0, ZVMODELVZ will get IP address from DHCP Server automatically.', LEFT);" onMouseOut="return nd();">IP Address:
            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_ipaddr" value="<% nvram_get_x("IPConnection","wan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'wan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
@@ -53,6 +56,11 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the IP address of default gateway that allows for contact between ZVMODELVZ and the remote network or host.', LEFT);" onMouseOut="return nd();">Default Gateway:
            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_gateway" value="<% nvram_get_x("IPConnection","wan_gateway"); %>" onBlur="return validate_ipaddr(this, 'wan_gateway')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This is the priority of default gateway (1-10).', LEFT);" onMouseOut="return nd();">Priority:</td>
+<td class="content_input_td">
+<input type="text" maxlength="3" class="content_input_fd" size="3" name="wan_priority" value="<% nvram_get_x("IPConnection","wan_priority"); %>" onBlur="return validate_range(this, 1, 10)" onKeyPress="return is_number(this)"</td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WAN DNS Setting
@@ -97,7 +105,7 @@
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 <tr class="content_section_header_tr">
-<td class="content_section_header_td" colspan="2">PPPoE or PPTP Account
+<td class="content_section_header_td" colspan="2">PPPoE, PPTP or L2TP Account
             </td>
 </tr>
 <tr>
@@ -130,6 +138,14 @@
            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_pppoe_ac" value="<% nvram_get_x("PPPConnection","wan_pppoe_ac"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required', LEFT);" onMouseOut="return nd();">PPTP Options:
+           </td><td class="content_input_td"><select name="wan_pptp_options_x" class="content_input_fd"><option class="content_input_fd" value="" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "","selected"); %>>None</option><option class="content_input_fd" value="-mppc" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "-mppc","selected"); %>>No Encryption</option><option class="content_input_fd" value="+mppe-40" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-40","selected"); %>>MPPE 40</option><option class="content_input_fd" value="+mppe-56" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-56","selected"); %>>MPPE 56</option><option class="content_input_fd" value="+mppe-128" <% nvram_match_x("Layer3Forwarding","wan_pptp_options_x", "+mppe-128","selected"); %>>MPPE 128</option></select></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required.', LEFT);" onMouseOut="return nd();">Additional pppd options:
+           </td><td class="content_input_td"><input type="text" maxlength="255" class="content_input_fd" size="32" name="wan_pppoe_options_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_options_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('Enable PPPoE relay allows stations in LAN to setup individual PPPoE connections that are passthrough NAT.', LEFT);" onMouseOut="return nd();">Enable PPPoE Relay?
            </td><td class="content_input_td"><input type="radio" value="1" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '1')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="wan_pppoe_relay_x" class="content_input_fd" onClick="return change_common_radio(this, 'PPPConnection', 'wan_pppoe_relay_x', '0')" <% nvram_match_x("PPPConnection","wan_pppoe_relay_x", "0", "checked"); %>>No</input></td>
 </tr>
@@ -146,7 +162,7 @@
            </td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="wan_hwaddr_x" value="<% nvram_get_x("PPPConnection","wan_hwaddr_x"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
 </tr>
 <tr>
-<td class="content_header_td">Heart-Beat Server:
+<td class="content_header_td">Heart-Beat or PPTP/L2TP (VPN) Server:
            </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_heartbeat_x" value="<% nvram_get_x("PPPConnection","wan_heartbeat_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 </table>
@@ -163,6 +179,10 @@
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">LAN IP Setting
             </td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:

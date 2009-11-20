@@ -75,7 +75,7 @@ function redirect1()
    window.status = "Connecting to Server...";
    //document.body.style.cursor = "default";
    //if (document.form.imageidx.value=="0")
-   the_timeout = setTimeout("redirect1()",document.form.RefreshTime.value*1000)
+   the_timeout = setTimeout("redirect1()",((document.form.RefreshTime.value==0)?1:document.form.RefreshTime.value)*1000)
    //else
    //   clearTimeout(the_timeout);   
 }
@@ -125,16 +125,8 @@ function loadWidzard()
 
 if ( document.form.ImageSize.value == "0") // 640 X 480
 {
-     if (document.form.CameraModel.value == "0" ) //PWC
-     {	
-     	width = 320;
-     	height = 240;
-     }
-     else
-     {
-     	width = 640;
-     	height = 480;
-     }			
+     width = 640;
+     height = 480;
 }
 else if ( document.form.ImageSize.value == "1") // 320 X 240
 {    

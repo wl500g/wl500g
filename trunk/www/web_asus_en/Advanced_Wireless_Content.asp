@@ -93,6 +93,10 @@
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 <tr>
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">802.11b Interface
+            </td>
+</tr>
 <td class="content_header_td" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN.', LEFT);" onMouseOut="return nd();">SSID:
            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wl_ssid" value="<% nvram_get_x("WLANConfig11b","wl_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>

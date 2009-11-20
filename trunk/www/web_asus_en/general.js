@@ -81,9 +81,23 @@ function inputCtrl(o, flag)
     }   
 }
 
+function inputCtrl2(o, flag)
+{
+    if (flag == 0)
+    {
+       o.readOnly = 1;
+       o.style.backgroundColor = "gray";
+    }
+    else
+    {
+       o.readOnly = 0;
+       o.style.backgroundColor = "white"
+    }
+}
+
 function str2val(v)
 {
-      for(i=0; i<v.length; i++) 
+      for(i=0; i<v.length-1; i++) 
       {                      
           if (v.charAt(i) !='0') break;
       }   	
@@ -285,11 +299,9 @@ function markGroup(o, s, c, b) {
     	{
     	    if (document.form.usb_ftpnum_x_0.value >= c) cFlag=1;
     	    else if (!validate_string(document.form.usb_ftpusername_x_0) ||
-    	    	!validate_string(document.form.usb_ftppasswd_x_0) ||
-            	!validate_range(document.form.usb_ftpmaxuser_x_0, 1, 12)) return false;
+    	    	!validate_string(document.form.usb_ftppasswd_x_0)) return false;
             else if (document.form.usb_ftpusername_x_0.value=="" ||
-            	document.form.usb_ftppasswd_x_0.value=="" ||
-            	document.form.usb_ftpmaxuser_x_0.value=="") bFlag=1;
+            	document.form.usb_ftppasswd_x_0.value=="") bFlag=1;
             else if (!validate_duplicate(document.form.x_FUserList_s, document.form.usb_ftpusername_x_0.value, 16, 0)) return false;	
         }   
         else if (s=='x_FBanIPList')
@@ -298,6 +310,13 @@ function markGroup(o, s, c, b) {
             else if (!validate_iprange(document.form.usb_ftpbanip_x_0, "")) return false;
             else if (document.form.usb_ftpbanip_x_0.value=="") bFlag=1;
             else if (!validate_duplicate(document.form.x_FBanIPList_s, document.form.usb_ftpbanip_x_0.value, 15, 0)) return false;                                                          
+        }
+        else if (s == 'x_ExportsList') // NFS Exports List 
+        {
+            if (document.form.usb_nfsnum_x_0.value >= c) cFlag=1;
+            else if (!validate_string(document.form.usb_nfslist_x_0)) return false;
+            else if (document.form.usb_nfslist_x_0.value=="") bFlag=1;
+             else if (!validate_duplicate(document.form.x_ExportsList_s, document.form.usb_nfslist_x_0.value, 80, 0)) return false;
         }
         else if (s=='x_QRuleList')
     	{
@@ -1363,6 +1382,17 @@ function add_options_x2(o, varr, arr, orig)
   }     
 }  
 
+function add_options_x3(o, arr, orig)
+{
+  for (i = 0; i < arr.length; i++)
+  {
+  	if (orig == arr[i].split("|")[0])
+	   add_option_x(o, arr[i].split("|")[0], arr[i].split("|")[1], 1);
+	else
+	   add_option_x(o, arr[i].split("|")[0], arr[i].split("|")[1], 0);
+  }
+}
+
 function rcheck(o)
 {
    if (o[0].checked == true) 
@@ -1489,6 +1519,69 @@ function getTimeRange(str, pos)
       return str.substring(4,6);
    else if (pos == 3) 
       return str.substring(6,8);
+}
+
+function TimeZoneList()
+{
+    var TimeZone = new Array(
+	"UCT11|(GMT-11) Midway Island, Samoa",
+	"HST10|(GMT-10) Honolulu",
+	"AKST9AKDT,M3.2.0,M11.1.0|(GMT-9DST) Anchorage",
+	"PST8PDT,M3.2.0,M11.1.0|(GMT-8DST) Los Angeles",
+	"MST7MDT,M3.2.0,M11.1.0|(GMT-7DST) Denver",
+	"MST7|(GMT-7) Phoenix",
+	"CST6CDT,M3.2.0,M11.1.0|(GMT-6DST) Chicago",
+	"CST6|(GMT-6) San Salvador",
+	"EST5EDT,M3.2.0,M11.1.0|(GMT-5DST) New York",
+	"EST5|(GMT-5) Bogota,Lima",
+	"UCT4:30|(GMT-4:30) Caracas",
+	"UCT4|(GMT-4) La Paz",
+	"UCT3|(GMT-3) Cayenne,Paramaribo",
+	"UCT2|(GMT-2) Mid-Atlantic",
+	"AZOT1AZOST,M3.5.0/0,M10.5.0/1|(GMT-1DST) Ponta Delgada",
+	"GMT0BST,M3.5.0/1,M10.5.0|(GMTDST) Dublin,Lisbon,London",
+	"UCT|(GMT) Monrovia,Rabat",
+	"CET-1CEST,M3.5.0,M10.5.0/3|(GMT+1DST) Amsterdam,Berlin,Madrid,Paris,Rome",
+	"UCT-1|(GMT+1) Algiers",
+	"EET-2EEST,M3.5.0/3,M10.5.0/4|(GMT+2DST) Athens,Helsinki,Kiev",
+	"EET-2EEST,M3.5.0,M10.5.0/3|(GMT+2DST) Kaliningrad,Minsk",
+	"UCT-2|(GMT+2) Jerusalem,Pretoria",
+	"MSK-3MSD,M3.5.0,M10.5.0/3|(GMT+3DST) Moscow,St.Petersburg,Volgograd",
+	"AST-3|(GMT+3) Aden,Bahrain,Kuwait,Qatar,Riyadh",
+	"IRST-3:30|(GMT+3:30) Tehran",
+	"SAMT-4SAMST,M3.5.0,M10.5.0/3|(GMT+4DST) Izhevsk,Samara,Yerevan",
+	"AZT-4AZST,M3.5.0/4,M10.5.0/5|(GMT+4DST) Baku",
+	"UCT-4|(GMT+4) Dubai,Muscat,Tbilisi",
+	"AFT-4:30|(GMT+4:30) Kabul",
+	"YEKT-5YEKST,M3.5.0,M10.5.0/3|(GMT+5DST) Yekaterinburg",
+	"UCT-5|(GMT+5) Aqtobe,Ashgabat,Dushanbe,Karachi,Oral,Tashkent",
+	"IST-5:30|(GMT+5:30) Calcutta,Colombo",
+	"OMST-6OMSST,M3.5.0,M10.5.0/3|(GMT+6DST) Novosibirsk,Omsk",
+	"UCT-6|(GMT+6) Almaty,Bishkek,Dhaka,Qyzylorda,Thimphu",
+	"KRAT-7KRAST,M3.5.0,M10.5.0/3|(GMT+7DST) Krasnoyarsk",
+	"UCT-7|(GMT+7) Jakarta,Bangkok,Vientiane,Phnom_Penh",
+	"IRKT-8IRKST,M3.5.0,M10.5.0/3|(GMT+8DST) Irkutsk",
+	"UCT-8|(GMT+8) Shanghai,Hong_Kong,Taipei,Singapore,Ulaanbaatar,Perth",
+	"YAKT-9YAKST,M3.5.0,M10.5.0/3|(GMT+9DST) Yakutsk",
+	"UCT-9|(GMT+9) Dili,Jayapura,Pyongyang,Seoul,Tokyo",
+	"CST-9:30CST,M10.5.0,M3.5.0/3|(GMT+9:30DST) Adelaide",
+	"CST-9:30|(GMT+9:30) Darwin",
+	"VLAT-10VLAST,M3.5.0,M10.5.0/3|(GMT+10DST) Vladivostok,Sakhalin",
+	"EST-10EST,M10.5.0,M3.5.0/3|(GMT+10DST) Melbourne",
+	"EST-10EST,M10.1.0,M3.5.0/3|(GMT+10DST) Hobart",
+	"EST-10|(GMT+10) Brisbane",
+	"MAGT-11MAGST,M3.5.0,M10.5.0/3|(GMT+11DST) Magadan",
+	"PETT-12PETST,M3.5.0,M10.5.0/3|(GMT+12DST) Anadyr,Kamchatka",
+	"NZST-12NZDT,M10.1.0,M3.3.0/3|(GMT+12DST) Auckland"
+    );
+    list = document.form.TimeZoneList;
+    free_options(list);
+    add_option_x(list, "manual", "Manual", 1);
+    add_options_x3(list, TimeZone, document.form.time_zone.value);
+    if (list.options[list.options.selectedIndex].value == "manual")
+        inputCtrl2(document.form.time_zone, 1);
+    else
+        inputCtrl2(document.form.time_zone, 0);
 }
 
 function setDateCheck(d1, d2, d3, d4, d5, d6, d7)
@@ -1830,10 +1923,15 @@ function load_body()
    {   	
    	//checkDmzSubnet();
    }   
-   else if (document.form.current_page.value == "Advanced_DDNS_Content.asp")
+   else if (document.form.current_page.value.indexOf("Advanced_DDNS_Content")!=-1)
    {
    	//if (document.form.LANHostConfig_x_DDNSStatus.value != "1")
    	//    document.form.LANHostConfig_x_DDNSStatus_button.disabled = true;
+    	TimeZoneList();
+	if (document.form.udpxy_wan_x.value == "1")
+		document.form.udpxy_wan_check.checked = true;
+	else
+		document.form.udpxy_wan_check.checked = false;
    }
    else if (document.form.current_page.value == "Advanced_APLAN_Content.asp")
    {
@@ -1862,15 +1960,6 @@ function load_body()
 		document.form.usb_webenable_x.options[2] = null;
    	 }
    	 
-         // Handle for Date and Time
-	 if (document.form.usb_webdriver_x.value == 0)
-	 {
-		// If type == PWC, then only 320x240 or 160x120 could be selected
-		if (document.form.usb_webimage_x.value==0)
-			document.form.usb_webimage_x.value=1;
-		document.form.usb_webimage_x.options[0].value = null;
-		document.form.usb_webimage_x.options[0] = null;
-	 }
          document.form.usb_websecurity_date_x_Sun.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 0);
          document.form.usb_websecurity_date_x_Mon.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 1);
          document.form.usb_websecurity_date_x_Tue.checked = getDateCheck(document.form.usb_websecurity_date_x.value, 2);
@@ -1923,6 +2012,10 @@ function load_body()
    	//	document.form.PPPConnection_x_WANAction_button1.disabled = 1;
    	//}	   
    }          
+   else if (document.form.current_page.value == "Advanced_RMISC_Content.asp")
+   {
+    	TimeZoneList();
+   }
    change = 0;
 }
 
@@ -1946,14 +2039,14 @@ function change_internet_firewall(r)
 {
     if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isFlash() != '2MB')
     {	
-    	if (r=="1")	      	    
-    	{
-    		document.form.InternetFirewall_img.src = "graph/internet_some.gif";
-    	}	
-    	else
-    	{
-    		document.form.InternetFirewall_img.src = "graph/internet_none.gif";
-    	}
+//    	if (r=="1")	      	    
+//    	{
+//    		document.form.InternetFirewall_img.src = "graph/internet_some.gif";
+//    	}	
+//    	else
+//    	{
+//    		document.form.InternetFirewall_img.src = "graph/internet_none.gif";
+//    	}
     }	       
 }
 
@@ -2046,25 +2139,25 @@ function change_wireless_bridge(m, a, r, mflag)
         inputRCtrl1(document.form.wl_lazywds, 1);
 
         if (m == "1")	
-  	   wdsimage = "wds_wds";
+  	   wdsimage = "wds_wds_both";
   	else
-  	   wdsimage = "wds_mixed";
+  	   wdsimage = "wds_mixed_both";
   	   	
-  	if (a == "0")
-        {
-           if (r == "0")  	 
-  	     wdsimage += "_connect";               	
-  	   else  
-  	     wdsimage += "_anony";
-        }
-        else
-        {
-            if (r == "0")            
-  	     wdsimage += "_connect";   
-  	    else 
-  	     wdsimage += "_both";
-  	    
-	}
+//  	if (a == "0")
+//        {
+//           if (r == "0")  	 
+//  	     wdsimage += "_connect";               	
+//  	   else  
+//  	     wdsimage += "_anony";
+//        }
+//        else
+//        {
+//            if (r == "0")            
+//  	     wdsimage += "_connect";   
+//  	    else 
+//  	     wdsimage += "_both";
+//  	    
+//	}
 		  	
 	if (document.form.wl_channel.value == "0") 
 	{
@@ -2083,8 +2176,8 @@ function change_wireless_bridge(m, a, r, mflag)
     }	    	  	       	   
     wdsimage = "graph/" + wdsimage + ".gif";
     
-    if (window.top.isFlash() != '2MB')
-       document.form.WirelessBridge_img.src = wdsimage;
+//    if (window.top.isFlash() != '2MB')
+//       document.form.WirelessBridge_img.src = wdsimage;
 }
 
 function change_wireless_bridge2(m, a, r, mflag)
@@ -2153,8 +2246,8 @@ function change_wireless_bridge2(m, a, r, mflag)
     }	    	  	       	   
     wdsimage = "graph/" + wdsimage + ".gif";
     
-    if (window.top.isFlash() != '2MB')
-       document.form.WirelessBridge_img.src = wdsimage;
+//    if (window.top.isFlash() != '2MB')
+//       document.form.WirelessBridge_img.src = wdsimage;
 }
 
 function onSubmit()
@@ -2182,6 +2275,9 @@ function onSubmit()
   	    }   
   	}  
   	checkSubnet();
+    	inputCtrl(document.form.wan_ipaddr, 1); 
+	inputCtrl(document.form.wan_netmask, 1);     
+	inputCtrl(document.form.wan_gateway, 1);
    } 	
    else if (document.form.current_page.value == "Advanced_RLANWAN_Content.asp")
    {
@@ -2363,10 +2459,19 @@ function change_common(o, s, v)
   {     	         	            	       	 
       wl_auth_mode_change(0);                                                   	
       
-      if (o.value == "psk")
-      	document.form.wl_wpa_psk.focus();
-      else if (o.value == "shared")
-      	document.form.wl_phrase_x.focus();
+	if (o.value == "psk")
+	{
+		opts=document.form.wl_auth_mode.options;
+		if (opts[opts.selectedIndex].text == "WPA-Personal")
+			document.form.wl_wpa_mode.value="1";
+		else if (opts[opts.selectedIndex].text == "WPA2-Personal")
+			document.form.wl_wpa_mode.value="2";
+		else if (opts[opts.selectedIndex].text == "WPA-Auto-Personal")
+			document.form.wl_wpa_mode.value="0";
+		document.form.wl_wpa_psk.focus();
+	}
+	else if (o.value == "shared" || o.value == "radius")
+		document.form.wl_phrase_x.focus();
   }  
   else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
   {     	         	            	       	 
@@ -2431,6 +2536,17 @@ function change_common(o, s, v)
 	     document.form.WLANConfig11b_Channel.options[0].selected = 0;
 	     document.form.WLANConfig11b_Channel.options[1].selected = 1;
   	}
+  }
+  else if (s=="LANHostConfig" && v=="time_zone")
+  {
+        opts = document.form.TimeZoneList.options;
+        if (opts[opts.selectedIndex].value == "manual")
+            inputCtrl2(document.form.time_zone, 1);
+        else
+        {
+            inputCtrl2(document.form.time_zone, 0);
+            document.form.time_zone.value = opts[opts.selectedIndex].value;
+        }
   }
   return true;   	
 }
@@ -2550,12 +2666,14 @@ function change_common_radio(o, s, v, r)
     		inputCtrl(document.form.lan_ipaddr, 0);  
     		inputCtrl(document.form.lan_netmask, 0);   
     		inputCtrl(document.form.lan_gateway, 0);     
+    		inputCtrl(document.form.lan_dns, 0);     
     	}	
     	else   
     	{    	
     		inputCtrl(document.form.lan_ipaddr, 1);  
     		inputCtrl(document.form.lan_netmask, 1);   
     		inputCtrl(document.form.lan_gateway, 1);    
+    		inputCtrl(document.form.lan_dns, 1);    
     	}	  	
   }      
   else if (s=='FirewallConfig' && v=='DmzEnable')
@@ -2638,6 +2756,13 @@ function change_common_radio(o, s, v, r)
   	inputCtrl(document.form.PPPConnection_x_PPPoEMRU2, flag);  	  	  	  	
   	inputCtrl(document.form.PPPConnection_x_ServiceName2, flag);  	  	   
   	inputCtrl(document.form.PPPConnection_x_AccessConcentrator2, flag);  	  	     	  	  	  		  	  
+  }
+  else if (s=="LANHostConfig" && v=="udpxy_wan")
+  {
+	if (document.form.udpxy_wan_check.checked)
+		document.form.udpxy_wan_x.value = "1";
+	else
+		document.form.udpxy_wan_x.value = "0";
   }
   return true; 	
 }
@@ -3266,12 +3391,15 @@ function openLink(s)
    if (s=='x_DDNSServer')
    {   
    	if (document.form.ddns_server_x.value.indexOf("WWW.DYNDNS.ORG")!=-1)
-   	    	//tourl = "https://members.dyndns.org/policy.shtml"
-   	    	tourl = "https://www.dyndns.org/account/create.html"
+   	    	tourl = "https://www.dyndns.com/account/create.html"
+    	else if (document.form.ddns_server_x.value == 'WWW.TZO.COM')
+    		tourl = "http://signup.tzo.com"
     	else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
-    		tourl = "https://www.zoneedit.com/signup.html"   	       	
-    	else    	
-   	    	tourl = "https://controlpanel.tzo.com/cgi-bin/tzopanel.exe"   	       	
+    		tourl = "https://www.zoneedit.com/signup.html?"
+    	else if (document.form.ddns_server_x.value == 'WWW.DNSOMATIC.COM')
+    		tourl = "https://www.dnsomatic.com/create/"
+    	else
+    		return;
    	    
    		link = window.open(tourl, "DDNSLink",
                "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=480");    
@@ -3405,7 +3533,8 @@ function changeAuthType()
         inputCtrl(document.form.wl_key,  1);    	                   
         inputCtrl(document.form.wl_wpa_gtk_rekey,  0);         
     }
-    else if (document.form.wl_auth_mode.value == "wpa")
+    else if (document.form.wl_auth_mode.value == "wpa" || 
+    	document.form.wl_auth_mode.value == "wpa2")
     {
     	inputCtrl(document.form.wl_crypto,  0);
         inputCtrl(document.form.wl_wpa_psk,  0);         
@@ -3589,7 +3718,7 @@ function wl_wep_change()
 	
 	if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=="ralink")
 	{
-		if (mode == "wpa" || mode == "psk" || mode == "radius") 
+		if (mode == "wpa" || mode == "wpa2" || mode == "psk" || mode == "radius") 
 		{
 			inputCtrl(document.form.wl_crypto,  1);
         		inputCtrl(document.form.wl_wpa_psk,  1);
@@ -3633,7 +3762,8 @@ function wl_wep_change()
 	{
 		/* enable/disable network key 1 to 4 */
 		if (wep != "0") {
-			if (mode == "wpa" || mode == "psk" || mode == "radius") {
+       			inputCtrl(document.form.wl_phrase_x,  1);
+			if (mode == "wpa" || mode == "wpa2" || mode == "psk" || mode == "radius") {
 				inputCtrl(document.form.wl_key1,  0); 	
 				inputCtrl(document.form.wl_key4,  0); 	
 			
@@ -3646,6 +3776,7 @@ function wl_wep_change()
 			inputCtrl(document.form.wl_key3,  1); 	
 		} else 
 		{
+       			inputCtrl(document.form.wl_phrase_x,  0);
 			inputCtrl(document.form.wl_key1,  0); 	
 			inputCtrl(document.form.wl_key2,  0); 	
 			inputCtrl(document.form.wl_key3,  0); 	
@@ -3662,7 +3793,7 @@ function wl_wep_change()
 		if (wep != "0")
 			inputCtrl(document.form.wl_wpa_gtk_rekey,  0); 	
 		else {
-			if (mode == "wpa" || mode == "psk")
+			if (mode == "wpa" || mode == "wpa2" || mode == "psk")
 				inputCtrl(document.form.wl_wpa_gtk_rekey,  1); 	
 			else
 				inputCtrl(document.form.wl_wpa_gtk_rekey,  0);
@@ -3698,7 +3829,8 @@ function change_wep_type(mode)
 function wl_auth_mode_reconf()
 {
 	if (document.form.wl_auth_mode.value=="radius" ||
-	   document.form.wl_auth_mode.value=="wpa")
+	   document.form.wl_auth_mode.value=="wpa" ||
+	   document.form.wl_auth_mode.value=="wpa2")
 		document.form.wl_auth_mode.value="open";
 		
 	document.form.wl_auth_mode.options[3].value = null;
@@ -3715,7 +3847,7 @@ function wl_auth_mode_change(isload)
 	inputCtrl(document.form.wl_wep_x,  1);
 	
 	/* enable/disable crypto algorithm */
-	if (mode == "wpa" || mode == "psk")
+	if (mode == "wpa" || mode == "wpa2" || mode == "psk")
 		inputCtrl(document.form.wl_crypto,  1);
 	else
 		inputCtrl(document.form.wl_crypto,  0);
@@ -3727,7 +3859,7 @@ function wl_auth_mode_change(isload)
 		inputCtrl(document.form.wl_wpa_psk,  0); 	
 
 	/* update wl_crypto */
-	if (mode == "wpa" || mode == "psk") {
+	if (mode == "wpa" || mode == "wpa2" || mode == "psk") {
 		/* Save current crypto algorithm */
 		for (i = 0; i < document.form.wl_crypto.length; i++) {
 			if (document.form.wl_crypto[i].selected) {
@@ -3762,7 +3894,7 @@ function wl_auth_mode_change(isload)
 	}
 
 	/* Define new network key indices */
-	if (mode == "wpa" || mode == "psk" || mode == "radius")
+	if (mode == "wpa" || mode == "wpa2" || mode == "psk" || mode == "radius")
 		algos = new Array("2", "3");
 	else
 	{			
@@ -3781,7 +3913,7 @@ function wl_auth_mode_change(isload)
 	}
 	wl_wep_change();
 		
-	if ((mode == "wpa" || mode == "psk"))
+	if ((mode == "wpa" || mode == "wpa2" || mode == "psk"))
 	{
 		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isBand()=='b' )
 		{	
@@ -3847,14 +3979,18 @@ function change_wan_type(v)
   	   inputCtrl(document.form.wan_pppoe_idletime_check, 0); 
   	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
   	   inputCtrl(document.form.wan_pppoe_ac, 0);
+  	   inputCtrl(document.form.wan_pppoe_options_x, 0);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
   	   //inputCtrl(document.form.wan_hostname, 0);
   	   //inputCtrl(document.form.wan_hwaddr_x, 0);
+   	   inputRCtrl1(document.form.x_DHCPClient, 0);
+    	   inputRCtrl2(document.form.x_DHCPClient, 1);
   	}
   	else if(v == "pppoe")
   	{
-  	   inputCtrl(document.form.wan_ipaddr, 0);
-  	   inputCtrl(document.form.wan_netmask, 0); 
-  	   inputCtrl(document.form.wan_gateway, 0); 
+  	   inputCtrl(document.form.wan_ipaddr, 1);
+  	   inputCtrl(document.form.wan_netmask, 1); 
+  	   inputCtrl(document.form.wan_gateway, 1); 
   	   inputCtrl(document.form.wan_pppoe_username, 1); 
   	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
   	   inputCtrl(document.form.wan_pppoe_idletime, 1);
@@ -3864,8 +4000,12 @@ function change_wan_type(v)
   	   inputCtrl(document.form.wan_pppoe_service, 1);  	  	   
   	   inputCtrl(document.form.wan_pppoe_ac, 1);
   	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	   
+  	   inputCtrl(document.form.wan_pppoe_options_x, 1);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
   	   //inputCtrl(document.form.wan_hostname, 1);
   	   //inputCtrl(document.form.wan_hwaddr_x, 1);
+    	   inputRCtrl1(document.form.x_DHCPClient, 1);
+    	   inputRCtrl2(document.form.x_DHCPClient, 1);
   	}
   	else if(v == "pptp")
   	{
@@ -3875,14 +4015,38 @@ function change_wan_type(v)
   	   inputCtrl(document.form.wan_pppoe_username, 1); 
   	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
   	   inputCtrl(document.form.wan_pppoe_idletime, 1);
+  	   inputCtrl(document.form.wan_pppoe_idletime_check, 1); 
+  	   inputCtrl(document.form.wan_pppoe_mtu, 0);  	
+  	   inputCtrl(document.form.wan_pppoe_mru, 0);  	  	  	   
+  	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
+  	   inputCtrl(document.form.wan_pppoe_ac, 0);
+  	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	   
+  	   inputCtrl(document.form.wan_pppoe_options_x, 1);
+  	   inputCtrl(document.form.wan_pptp_options_x, 1);
+  	   //inputCtrl(document.form.wan_hostname, 0);
+  	   //inputCtrl(document.form.wan_hwaddr_x, 0);
+    	   inputRCtrl1(document.form.x_DHCPClient, 1);
+    	   inputRCtrl2(document.form.x_DHCPClient, 1);
+  	}  	else if(v == "l2tp")
+  	{
+  	   inputCtrl(document.form.wan_ipaddr, 1);
+  	   inputCtrl(document.form.wan_netmask, 1); 
+  	   inputCtrl(document.form.wan_gateway, 1); 
+  	   inputCtrl(document.form.wan_pppoe_username, 1); 
+  	   inputCtrl(document.form.wan_pppoe_passwd, 1); 
+  	   inputCtrl(document.form.wan_pppoe_idletime, 0);
   	   inputCtrl(document.form.wan_pppoe_idletime_check, 0); 
   	   inputCtrl(document.form.wan_pppoe_mtu, 0);  	
   	   inputCtrl(document.form.wan_pppoe_mru, 0);  	  	  	   
   	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
   	   inputCtrl(document.form.wan_pppoe_ac, 0);
   	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	   
+  	   inputCtrl(document.form.wan_pppoe_options_x, 1);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
   	   //inputCtrl(document.form.wan_hostname, 0);
   	   //inputCtrl(document.form.wan_hwaddr_x, 0);
+    	   inputRCtrl1(document.form.x_DHCPClient, 1);
+    	   inputRCtrl2(document.form.x_DHCPClient, 1);
   	}  	
   	else if (v == "bigpond")
   	{
@@ -3898,8 +4062,12 @@ function change_wan_type(v)
   	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
   	   inputCtrl(document.form.wan_pppoe_ac, 0);
   	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
+  	   inputCtrl(document.form.wan_pppoe_options_x, 0);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
   	   //inputCtrl(document.form.wan_hostname, 1);
   	   //inputCtrl(document.form.wan_hwaddr_x, 1);
+    	   inputRCtrl1(document.form.x_DHCPClient, 0);
+    	   inputRCtrl2(document.form.x_DHCPClient, 0);
 	}
 	else
   	{
@@ -3915,9 +4083,53 @@ function change_wan_type(v)
   	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
   	   inputCtrl(document.form.wan_pppoe_ac, 0);
   	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	  	     	   	  	   
+  	   inputCtrl(document.form.wan_pppoe_options_x, 0);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
   	   //inputCtrl(document.form.wan_hostname, 1);
   	   //inputCtrl(document.form.wan_hwaddr_x, 1);
+    	   inputRCtrl1(document.form.x_DHCPClient, 0);
+    	   inputRCtrl2(document.form.x_DHCPClient, 0);
   	}	  	  	
+	if ((v == "l2tp" || v == "pptp") 
+		&& document.form.wan_ipaddr.value == "") 
+	{
+    	   inputRCtrl2(document.form.x_DHCPClient, 0);
+	}
+	if ((v == "l2tp" || v == "pptp" || v == "pppoe") 
+		&& document.form.wan_ipaddr.value == "0.0.0.0")
+	{
+    	   inputRCtrl2(document.form.x_DHCPClient, 0);
+	}
+	changeDHCPClient();
+}
+
+function changeDHCPClient()
+{        
+    if (document.form.x_DHCPClient[0].checked == true)
+    {
+    	inputCtrl(document.form.wan_ipaddr, 0); 
+    	inputCtrl(document.form.wan_netmask, 0);     
+    	inputCtrl(document.form.wan_gateway, 0);
+	v = document.form.wan_proto.value;
+	if (v == "l2tp" || v == "pptp" || v == "pppoe") 
+	{
+	   document.form.wan_ipaddr.value = "0.0.0.0";
+	   document.form.wan_netmask.value = "0.0.0.0";
+	   document.form.wan_gateway.value = "0.0.0.0";
+	}
+    }	
+    else   
+    {    	    	
+    	inputCtrl(document.form.wan_ipaddr, 1); 
+    	inputCtrl(document.form.wan_netmask, 1);     
+    	inputCtrl(document.form.wan_gateway, 1);
+	if (document.form.wan_ipaddr.value == "0.0.0.0") 
+	{
+	   document.form.wan_ipaddr.value = "";
+	   document.form.wan_netmask.value = "";
+	   document.form.wan_gateway.value = "";
+	}
+    }
 }
 
 function masq_wepkey()
