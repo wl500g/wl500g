@@ -22,7 +22,7 @@
 </tr>
 <tr class="content_header_tr">
 <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
-<% nvram_dump("leases.log","leases.sh"); %>              
+<% nvram_dump("dnsmasq.log","dnsmasq.sh"); %>              
             </textarea></td>
 </tr>
 </table>

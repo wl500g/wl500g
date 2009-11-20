@@ -29,7 +29,7 @@
 <tr>
 <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
          <div align="center">
-<img name="WirelessBridge_img" src="graph/wds_ap.gif"></div>
+</div>
 </td>
 </tr>
 <tr>

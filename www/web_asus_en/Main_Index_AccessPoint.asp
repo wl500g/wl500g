@@ -39,17 +39,12 @@
       <p align="center">
       <p align="left" style="color: #660066; font-size: 14pt; margin-top: 0; margin-bottom: 0; margin-left: 25"><b>Dual Band Access Point</b>
       <ul>
-        <li> 
-          <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0"> <a href="javascript:top.openBranch('Quick Setup')"><b>Quick Setup</b></a>
-          allows users to complete basic setting by just answering several questions.</li>
-        <li> <b><a href="javascript:top.openBranch('Wireless')">Dual Band</a> &nbsp;</b>supports 802.11a and 802.11g 
-          simultaneously.</li>  
-        <li> <b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a> &nbsp;</b>all computers share the same printer.</li> 
-        <li> <b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> 
-          log status of system in details.</li><p> 
-         <i><FONT style="color: #0000ff; font-size: 10pt;">This site is best viewed with IE 5.0 or above.</FONT></i>  
-        </p>
-        <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+        <li><p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
+            <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
+        <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
+        <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
+        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
+        <p><font face="Arial">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
         &nbsp;&nbsp;      
         <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type="submit" value="NEXT" name="action">
         </p>

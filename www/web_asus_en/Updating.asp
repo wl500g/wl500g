@@ -42,7 +42,7 @@ function redirect1() {
         </tr>
         <tr> 
           <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial"> 
-            <font color="#FF0000"><b>Note: It takes about 80 seconds.</b></font></font></td>
+            <font color="#FF0000"><b>Note: It takes up to several minutes depending on the flash speed.</b></font></font></td>
         </tr>
         </tbody> 
       </table>

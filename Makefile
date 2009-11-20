@@ -490,23 +490,11 @@ upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
 
 $(TOP)/www:
-	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
-		tar -C $(SRC) -cf - www/asus/web_asus_en \
-		www/asus/Makefile www/asus/mkweb www/asus/pages.mk www/asus/notin2MB \
-		| tar -C $(TOP) -xf -
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
 
-www: $(TOP)/www www/pages.diff www/common.diff
-	$(PATCHER) -Z $(TOP) www/pages.diff www/common.diff
-	chmod a+x $(TOP)/www/asus/remccoms2.sh
-	cp www/netcam_mfc_activeX.cab $(TOP)/www/asus/web_asus_en/
-	cp www/iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp www/iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp www/iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
-
-www-diff:
-	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www/pages.diff
-	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") > www/common.diff
-	diffstat www/pages.diff
+www: $(TOP)/www
+	@true
 
 shared-diff:
 	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)

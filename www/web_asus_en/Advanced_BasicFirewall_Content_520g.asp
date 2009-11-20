@@ -40,6 +40,10 @@
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to specify the port used to access Web server from Internet.', LEFT);" onMouseOut="return nd();">Port of Web Access from WAN:
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="misc_httpport_x" class="content_input_fd" value="<% nvram_get_x("FirewallConfig", "misc_httpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"></td>
 </tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (1024-16384).', LEFT);" onMouseOut="return nd();">Number of connections to track:
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1024, 16384)"></td>
+</tr>
 </table>
 </td>
 </tr>

@@ -170,7 +170,7 @@ function generateTree()
      appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", "")) 
      appendChild(aux1, generateDocEntry(0, "Change Password", "Advanced_Password_Content.asp",""))
      appendChild(aux1, generateDocEntry(0, "Firmware Upgrade", "Advanced_FirmwareUpgrade_Content.asp", ""))
-     appendChild(aux1, generateDocEntry(0, "Setting Mangement", "Advanced_SettingBackup_Content.asp", ""))
+     appendChild(aux1, generateDocEntry(0, "Setting Management", "Advanced_SettingBackup_Content.asp", ""))
      appendChild(aux1, generateDocEntry(0, "Factory Default", "Advanced_FactoryDefault_Content.asp", ""))
      //appendChild(aux1, generateDocEntry(0, "Printer Setup", "Advanced_PrinterSetup_Content.asp", ""))
     

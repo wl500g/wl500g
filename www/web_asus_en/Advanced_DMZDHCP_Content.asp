@@ -83,11 +83,11 @@
 <td class="content_list_header_td" width="60%" id="DmzManualDHCPList">Manually Assigned IP List
          <input type="hidden" name="DmzManualDHCPCount_0" value="<% nvram_get_x("LANHostConfig", "DmzManualDHCPCount"); %>" readonly="1"></td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'DmzManualDHCPList', 8, ' Add ');" name="DmzManualDHCPList" value="Add" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'DmzManualDHCPList', 32, ' Add ');" name="DmzManualDHCPList" value="Add" size="12">
 </div>
 </td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'DmzManualDHCPList', 8, ' Del ');" name="DmzManualDHCPList" value="Del" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'DmzManualDHCPList', 32, ' Del ');" name="DmzManualDHCPList" value="Del" size="12">
 </div>
 </td><td width="5%"></td>
 </tr>

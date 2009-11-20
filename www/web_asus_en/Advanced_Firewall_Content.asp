@@ -22,8 +22,6 @@
 </tr>
 <tr>
 <td class="content_desc_td" colspan="2">LAN vs. WAN filter allows you to block specified packets between LAN and WAN. At first, you can define the date and time that filter will be enabled. Then, you can choose the default action for filter in both directions and insert the rules for any exceptions.
-         <div align="center">
-<img name="InternetFirewall_img" src="graph/internet_some.gif"></div>
 </td>
 </tr>
 <tr class="content_section_header_tr">
@@ -187,6 +185,10 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines those WAN to LAN packets which are not specified in WAN to LAN Filter Table will be accepted or dropped.', LEFT);" onMouseOut="return nd();">Packets(WAN to LAN) not specified will be:
            </td><td class="content_input_td"><select name="filter_wl_default_x" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', 'filter_wl_default_x')"><option class="content_input_fd" value="DROP" <% nvram_match_x("FirewallConfig","filter_wl_default_x", "DROP","selected"); %>>DROP</option><option class="content_input_fd" value="ACCEPT" <% nvram_match_x("FirewallConfig","filter_wl_default_x", "ACCEPT","selected"); %>>ACCEPT</option></select></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field defines Port Forwarding default policy.', LEFT);" onMouseOut="return nd();">Port Forwarding default policy:
+           </td><td class="content_input_td"><select name="filter_vs_default_x" class="content_input_fd" onChange="return change_common(this, 'FirewallConfig', 'filter_vs_default_x')"><option class="content_input_fd" value="DROP" <% nvram_match_x("FirewallConfig","filter_vs_default_x", "DROP","selected"); %>>DROP</option><option class="content_input_fd" value="ACCEPT" <% nvram_match_x("FirewallConfig","filter_vs_default_x", "ACCEPT","selected"); %>>ACCEPT</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines a list of WAN to LAN ICMP packets type that will be filtered. For example, if you would like to filter Echo(type 8) and Echo Reply(type 0) ICMP packets, you need to enter a string with numbers separated by blank, such as, 0 5.', LEFT);" onMouseOut="return nd();">Filtered ICMP(WAN to LAN) packet types:

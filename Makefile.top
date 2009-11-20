@@ -509,7 +509,7 @@ httpd: netconf shared nvram $(EXTRA_LIBS)
 rc: netconf shared nvram $(EXTRA_LIBS)
 
 www www-%:
-	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www IPV6="$(if $(CONFIG_IPV6),y,n)"
+	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www IPV6="$(if $(CONFIG_IPV6),y,n)"
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CPPFLAGS="$(EXTRACFLAGS)" \

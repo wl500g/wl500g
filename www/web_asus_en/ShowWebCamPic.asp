@@ -1,6 +1,5 @@
 <html>
 <head>
-<meta http-equiv="refresh" content="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
 <title>ZVMODELVZ Web Camera Page</title>
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -8,7 +7,8 @@
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <SCRIPT LANGUAGE="JavaScript">
 
-
+var the_timeout = <% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>;
+setTimeout("location.reload(true)", (the_timeout == 0 ? 1 : the_timeout) * 1000);
 
 function onClose()
 {
@@ -24,7 +24,6 @@ function loadWidzard()
 </head>
 <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
 <form method="GET" name="form" action="webcam.cgi">  
-<input type="hidden" name="RefreshTime" value="<% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>">
 <input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
 <input type="hidden" name="CaptionString" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>">
 <input type="hidden" name="CameraMode" value="<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>">
@@ -40,16 +39,8 @@ function loadWidzard()
 <script language="JavaScript">
 if ( document.form.ImageSize.value == "0") // 640 X 480
 {
-     if (document.form.CameraModel.value == "0" ) //PWC
-     {	
-     	width = 320;
-     	height = 240;
-     }
-     else
-     {
-     	width = 640;
-     	height = 480;
-     }			
+     width = 640;
+     height = 480;
 }
 else if ( document.form.ImageSize.value == "1") // 320 X 240
 {    

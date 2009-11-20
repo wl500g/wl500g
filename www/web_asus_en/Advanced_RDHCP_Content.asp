@@ -82,11 +82,11 @@
 <td class="content_list_header_td" width="60%" id="ManualDHCPList">Manually Assigned IP List
          <input type="hidden" name="dhcp_staticnum_x_0" value="<% nvram_get_x("LANHostConfig", "dhcp_staticnum_x"); %>" readonly="1"></td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'ManualDHCPList', 8, ' Add ');" name="ManualDHCPList" value="Add" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'ManualDHCPList', 32, ' Add ');" name="ManualDHCPList" value="Add" size="12">
 </div>
 </td><td width="10%">
 <div align="center">
-<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'ManualDHCPList', 8, ' Del ');" name="ManualDHCPList" value="Del" size="12">
+<input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'ManualDHCPList', 32, ' Del ');" name="ManualDHCPList" value="Del" size="12">
 </div>
 </td><td width="5%"></td>
 </tr>
