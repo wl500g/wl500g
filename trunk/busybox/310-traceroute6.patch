@@ -775,7 +775,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  				printf("  *");
  		}
  		bb_putchar('\n');
-@@ -922,5 +1249,17 @@ int traceroute_main(int argc, char **arg
+@@ -922,5 +1249,16 @@ int traceroute_main(int argc, char **arg
  			break;
  		}
  	}
@@ -788,7 +788,6 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
 +int traceroute6_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 +int traceroute6_main(int argc, char **argv)
 +{
-+	argv[-1] = argv[0];
 +	argv[0]  = (char *)"-6";
 +	return traceroute_main(argc+1, argv-1);
 +}
