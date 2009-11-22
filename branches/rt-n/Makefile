@@ -24,14 +24,14 @@ export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
 BUSYBOX=busybox-1.15.2
 DROPBEAR=dropbear-0.52
-DNSMASQ=dnsmasq-2.51test3
+DNSMASQ=dnsmasq-2.51
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.4.7-now-ss020116-try
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
-PPP=ppp-2.4.5-pre
+PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20091003
 PPTP=pptp-1.7.1
@@ -42,7 +42,7 @@ RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.4
 IGMPPROXY=igmpproxy-0.1
-VSFTPD=vsftpd-2.2.0
+VSFTPD=vsftpd-2.2.2
 UDPXY=udpxy-1.0-Chipmunk-14
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
@@ -98,7 +98,7 @@ $(TOP):
 	@mkdir -p $(TOP)
 
 $(TOP)/Makefile: Makefile.top
-	cp $^ $@
+	cp -p $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
 	-svnversion 2> /dev/null > $(TOP)/.svnrev
@@ -169,7 +169,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
-	cp busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
+	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
 	mv $(TOP)/$(BUSYBOX) $@
 
@@ -454,11 +454,12 @@ $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
 
+wimax_Patches := $(call patches_list,wimax)
+
 $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	rm -rf $(TOP)/$(MADWIMAX) $@
 	tar -zxf $^ -C $(TOP)
-	[ ! -f wimax/$(MADWIMAX).patch ] || \
-		$(PATCHER) -Z $(TOP)/$(MADWIMAX) wimax/$(MADWIMAX).patch
+	$(PATCHER) -Z $(TOP)/$(MADWIMAX) $(wimax_Patches)
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
@@ -509,23 +510,11 @@ upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
 
 $(TOP)/www:
-	[ ! -d $(SRC)/www ] || [ -d $@ ] || \
-		tar -C $(SRC) -cf - www/asus/web_asus_en \
-		www/asus/Makefile www/asus/mkweb www/asus/pages.mk www/asus/notin2MB \
-		| tar -C $(TOP) -xf -
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
 
-www: $(TOP)/www www/pages.diff www/common.diff
-	$(PATCHER) -Z $(TOP) www/pages.diff www/common.diff
-	chmod a+x $(TOP)/www/asus/remccoms2.sh
-	cp www/netcam_mfc_activeX.cab $(TOP)/www/asus/web_asus_en/
-	cp www/iBox_title_all.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp www/iBox_title_all_HDD.jpg $(TOP)/www/asus/web_asus_en/graph/
-	cp www/iBox_title_all_550g.jpg $(TOP)/www/asus/web_asus_en/graph/
-
-www-diff:
-	(cd .. && $(DIFF) -BurN router/www/asus/web_asus_en gateway/www/asus/web_asus_en | grep -v ^Binary.*differ$$) > www/pages.diff
-	(cd .. && $(DIFF) -BuN router/www/asus gateway/www/asus | grep -v ^Binary.*differ$$ | grep -v "^Common subdirectories: .*$$") > www/common.diff
-	diffstat www/pages.diff
+www: $(TOP)/www
+	@true
 
 shared-diff:
 	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)

@@ -222,18 +222,27 @@ ifneq (0,$(words $(SVNREVISION)))
   RELEASE:=$(RELEASE)-r$(firstword $(SVNREVISION))
 endif
 
+# $1 - config name, $2 - params list to change, $3 - new param value (y/n/m)
 define SwitchConfParam
-	@( ORIG_STR=`grep -w "$(2)" $(1) 2>/dev/null`; \
-	if [ "$(3)" = "n" ]; then \
-	    TEST_PATTERN="# $(2) is not set"; \
-	else \
-	    TEST_PATTERN="$(2)=$(3)"; \
-	fi; \
-	IS_SAME_VALUE=`echo $${ORIG_STR} | grep "$${TEST_PATTERN}" 2>/dev/null`; \
-	if [ "$${IS_SAME_VALUE}" = "" ]; then \
-	    sed "s/$${ORIG_STR}/$${TEST_PATTERN}/" $(1) >$(1).sed; \
+	@( \
+	SW_SEDCMD=""; \
+	for SW_PARAM in $(2); do \
+	 ORIG_STR=`grep -w "$${SW_PARAM}" $(1) 2>/dev/null`; \
+	 if [ "$(3)" = "n" ]; then \
+	    TEST_PATTERN="# $${SW_PARAM} is not set"; \
+	 else \
+	    TEST_PATTERN="$${SW_PARAM}=$(3)"; \
+	 fi; \
+	 IS_SAME_VALUE=`echo $${ORIG_STR} | grep "$${TEST_PATTERN}" 2>/dev/null`; \
+	 if [ "$${IS_SAME_VALUE}" = "" ]; then \
+	    SW_SEDCMD="$${SW_SEDCMD};s/$${ORIG_STR}/$${TEST_PATTERN}/"; \
+	 fi; \
+	done; \
+	if [ "$${SW_SEDCMD}" != "" ]; then \
+	    sed "$${SW_SEDCMD}" $(1) >$(1).sed; \
 	    mv $(1).sed $(1); \
-	fi )
+	fi; \
+	)
 endef
 
 #
@@ -329,6 +338,9 @@ modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modul
 	rm -rf $(MODULESDIR)/parport
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
+ifeq ($(CONFIG_IPV6),y)
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
+endif
 
 modules_install: .config
 	install -d $(MODULESDIR)
@@ -443,6 +455,7 @@ conf mconf:
 oldconf: .config
 	$(MAKE) -C config
 	@./config/conf -o ./config/Config
+	$(MAKE) shared-clean rc-clean
         # Also configure kernel
 	$(MAKE) k$@
 
@@ -484,10 +497,7 @@ httpd: netconf shared nvram $(EXTRA_LIBS)
 rc: netconf shared nvram $(EXTRA_LIBS)
 
 www www-%:
-	$(MAKE) -C www/$(CONFIG_VENDOR) $* INSTALLDIR=$(INSTALLDIR)/www
-
-wwwmt wwwmt-%:
-	$(MAKE) -C www/mea $* INSTALLDIR=$(INSTALLDIR)/www
+	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www IPV6="$(if $(CONFIG_IPV6),y,n)"
 
 radvd/Makefile: radvd/Makefile.in
 	cd radvd && CPPFLAGS="$(EXTRACFLAGS)" \
@@ -517,15 +527,15 @@ ez-ipupdate-install:
 	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 
 busybox/.config: .config
-	cd busybox && cp -fp sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) .config
-	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6,$(if $(CONFIG_IPV6),y,n))
+	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
+	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
 	$(MAKE) -C busybox oldconfig
 
 busybox: busybox/.config
-	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 busybox-install: busybox
-	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 dproxy-install: dproxy
 	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
@@ -575,7 +585,7 @@ upnp: netconf nvram shared
 wlconf: nvram shared
 
 vlan:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
+	$(MAKE) -C $@ CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
 
 vlan-install:
 	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
@@ -629,8 +639,8 @@ accel-pptp-install: accel-pptp
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 dnsmasq:
-	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)"
-	
+	$(MAKE) -C $@ CFLAGS="-Os $(EXTRACFLAGS)" COPTS="$(if $(CONFIG_IPV6),-DUSE_IPV6,)"
+
 dnsmasq-install:
 	install -D dnsmasq/src/dnsmasq $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
@@ -846,7 +856,7 @@ madwimax/Makefile: madwimax/Makefile.in
 	    libusb1_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0" \
 	$(CONFIGURE) --prefix=/usr --without-man-pages --with-script=wl500g --sysconfdir=/etc
 
-madwimax: madwimax/Makefile libusb10
+madwimax: libusb10 madwimax/Makefile
 	$(MAKE) -C $@
 
 madwimax-install:
@@ -954,20 +964,6 @@ images:
 	#make images-WL700g
 	#make images-WL331g
 	#make images-WL331gl
-
-fast:
-	# vlan/usb
-	make images-WL500gx
-	make rc-clean rc package-WL550gE
-	make rc-clean rc package-WL500gp
-	make rc-clean rc package-WL500W
-	# usb/lpt/brcm
-	#make images-WL500g
-	#make package-WL500b
-	# others
-	#make images-WL500bv2
-	#make images-WL300g
-	#make images-WLHDD
 
 
 #

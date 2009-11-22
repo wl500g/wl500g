@@ -537,15 +537,23 @@ diff -BurpN -x'*.o' router/rc/dns_decode.h gateway/rc/dns_decode.h
 diff -BurpN -x'*.o' router/rc/firewall.c gateway/rc/firewall.c
 --- router/rc/firewall.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall.c	2008-12-28 11:57:52.000000000 +0300
-@@ -28,6 +28,8 @@
+@@ -28,6 +28,10 @@
  #include <netconf.h>
  #include <nvparse.h>
  
++#ifndef ASUS_EXT
++
 +extern void g_buf_init();
 +
  /* Add filter to specified table */
  static void
  add_filter(netconf_filter_t *filter, int dir)
+@@ -335,4 +337,4 @@
+ 	return 0;
+ }
+ 
+-
++#endif
 diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall_ex.c	2008-12-28 11:56:49.000000000 +0300
@@ -1581,7 +1589,7 @@ diff -BurpN -x'*.o' router/rc/interface.c gateway/rc/interface.c
 diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 --- router/rc/Makefile	2004-12-02 08:39:03.000000000 +0300
 +++ gateway/rc/Makefile	2008-12-27 20:07:24.000000000 +0300
-@@ -12,14 +12,19 @@
+@@ -12,18 +12,23 @@
  # $Id$
  #
  
@@ -1594,7 +1602,7 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 -CFLAGS	+= -s -O2
 -LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared
 +CFLAGS	+= -s -O2 $(EXTRACFLAGS)
-+LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared -lcrypt
++LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /lib
  
 -OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o ntp.o bigpond.o qos.o rcamd.o waveserver.o
 +OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o \
@@ -1604,6 +1612,11 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
  
  ifeq ($(CONFIG_NETCONF),y)
  OBJS += firewall.o
+-LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
++LDFLAGS += -L$(TOP)/netconf -lnetconf
+ endif
+ 
+ 
 @@ -45,8 +48,12 @@ install: all
  	cd $(INSTALLDIR)/sbin && ln -sf rc init
  	cd $(INSTALLDIR)/sbin && ln -sf rc erase
@@ -1617,6 +1630,14 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
  
  	# Added by ASUS
  	cd $(INSTALLDIR)/sbin && ln -sf rc stopservice
+@@ -72,6 +75,7 @@ install: all
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_disconnect
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc restore
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc start_ddns
++	cd $(INSTALLDIR)/sbin && ln -sf rc start_ftpd
+ 	cd $(INSTALLDIR)/sbin && ln -sf rc wlan_update
+ 
+ 
 diff -BurpN -x'*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
 --- router/rc/manu_ex.c	2004-12-07 16:02:14.000000000 +0300
 +++ gateway/rc/manu_ex.c	2008-03-19 20:07:24.000000000 +0300
@@ -3362,6 +3383,17 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
  	/* hotplug [event] */
  	else if (strstr(base, "hotplug")) {
  		if (argc >= 2) {
+@@ -819,6 +1039,10 @@ main(int argc, char **argv)
+ 	else if (strstr(base, "waveservermain")) {
+ 		return (waveserver_main());
+ 	}
++	/* run ftp server */
++	else if (strstr(base, "start_ftpd")) {
++		return (restart_ftpd());
++	}
+ #endif
+ 	/* write srom */
+ 	else if (strstr(base, "wsrom")) 
 @@ -842,7 +1063,13 @@ main(int argc, char **argv)
  			fprintf(stderr, "usage: rc [start|stop|restart]\n");
  			return EINVAL;
@@ -3380,7 +3412,7 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 --- router/rc/rc.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/rc.h	2008-12-28 11:59:11.000000000 +0300
-@@ -22,61 +22,108 @@
+@@ -22,61 +22,106 @@
  
  #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
  
@@ -3521,9 +3553,7 @@ diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 -extern int start_firewall2(char *ifname);
 -extern int stop_firewall2(char *ifname);
 +int start_firewall(void);
-+int stop_firewall(void);
 +int start_firewall2(char *ifname);
-+int stop_firewall2(char *ifname);
 +int start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip);
  #else
  #define start_firewall() do {} while (0)
@@ -3759,7 +3789,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  int
  start_dhcpd(void)
  {
-@@ -343,6 +375,165 @@ stop_dns(void)
+@@ -343,6 +375,166 @@ stop_dns(void)
  	return ret;
  }
  
@@ -3860,16 +3890,17 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +		return errno;
 +	}
 +
-+	fprintf(fp, "user=nobody\n");
-+	fprintf(fp, "resolv-file=/tmp/resolv.conf\nno-poll\n");
-+	fprintf(fp, "interface=%s\n", nvram_safe_get("lan_ifname"));
++	fprintf(fp, "user=nobody\n"
++		    "resolv-file=/tmp/resolv.conf\nno-poll\n"
++		    "interface=%s\n", nvram_safe_get("lan_ifname"));
 +
 +	if (nvram_invmatch("lan_domain", "")) {
-+		fprintf(fp, "domain=%s\n", nvram_safe_get("lan_domain"));
-+		fprintf(fp, "expand-hosts\n");
++		fprintf(fp, "domain=%s\n"
++			    "expand-hosts\n", nvram_get("lan_domain"));
 +	}
 +	
-+	fprintf(fp, "no-negcache\n");
++	fprintf(fp, "no-negcache\n"
++		    "cache-size=512\n");
 +	
 +	if (nvram_match("lan_proto", "dhcp")) {
 +		fprintf(fp, "dhcp-leasefile=/tmp/dnsmasq.log\n");
@@ -4251,7 +4282,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  }
  
  void start_script(void)
-@@ -706,60 +1000,292 @@ void start_script(void)
+@@ -706,60 +1000,293 @@ void start_script(void)
  	}	
  }
  
@@ -4281,7 +4312,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -	if (fp==NULL) return;	
 -	fprintf(fp, "Welcom to My FTP Site:\n");
 -	fclose(fp);
-+void restart_ftpd()
++int restart_ftpd()
 +{
 +	char vsftpd_users[] = "/etc/vsftpd.users";
 +	char vsftpd_passwd[] = "/etc/vsftpd.passwd";
@@ -4295,7 +4326,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	mkdir_if_none(vsftpd_users);
 +
 +	if ((fp = fopen("/etc/vsftpd.conf", "w")) == NULL)
-+		return;
++		return 1;
 +
 +	if (nvram_match("usb_ftpsuper_x", "1"))
 +	{
@@ -4363,7 +4394,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +
 +	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n", 
 +		nvram_get("usb_ftpport_x") ? : "21");
-+	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");	
++	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
 +
 +	/* fprintf(fp, "login-timeout=%s\n", nvram_safe_get("usb_ftptimeout_x")); */
 +	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("usb_ftpstaytimeout_x") ? : "300");
@@ -4377,13 +4408,13 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	/* bandwidth */
 +	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
 +		atoi(nvram_safe_get("usb_ftpanonrate_x")) * 1024,
-+		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);		
++		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);
 +	
  	fclose(fp);
 +	
 +	/* prepare passwd file and default users */
 +	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
-+		return;
++		return 2;
 +
 +	fprintf(fp, /* anonymous, admin, nobody */
 +		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
@@ -4448,6 +4479,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +	fclose(fp);
 +	
 +	eval("/usr/sbin/vsftpd");
++	return 0;
 +}
  
 +void restart_smbd()
@@ -4713,7 +4745,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  		sleep(1);
  		umount_all_part("usb");
  		nvram_set("usb_ftp_device", "");
-@@ -1041,173 +1559,242 @@ remove_storage_main(void)
+@@ -1041,173 +1559,247 @@ remove_storage_main(void)
  	return 0;
  }
  
@@ -4849,22 +4881,27 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 -		sprintf(msg, "ntfs(ro) fs mounted to %s\n", usb_file_part);	
 -		logmessage("USB storage", msg);
 -		return MOUNT_VAL_RONLY;
-+		char options[40];
++		char options[64];
 +		unsigned long flags = MS_NOATIME;
 +
-+		options[0] = 0;
++		options[0] = '\0';
 +		
 +		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0)
 +			flags = 0; /* not a mountable partition */
 +		else if (strcmp(type, "vfat") == 0)
 +		{
++			int l = 0;
++
++			if (nvram_invmatch("usb_vfat_options", ""))
++				l = snprintf(options, 64, "%s", nvram_get("usb_vfat_options"));
 +			if (nvram_invmatch("usb_smbcset_x", ""))
-+				sprintf(options, "iocharset=%s%s", 
++				l += snprintf(options + l, 64-l, ",iocharset=%s%s" + ((l>0) ? 0 : 1),
 +					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
 +						nvram_get("usb_smbcset_x"));
 +			if (nvram_invmatch("usb_smbcpage_x", ""))
-+				sprintf(options + strlen(options), ",codepage=%s" + (options[0] ? 0 : 1), 
++				l += snprintf(options + l, 64-l, ",codepage=%s" + ((l>0) ? 0 : 1), 
 +					nvram_get("usb_smbcpage_x"));
++			options[l+1] = '\0';
 +		}
 +		else if (strcmp(type, "ntfs") == 0)
 +		{
@@ -5605,7 +5642,7 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
 +		reset_mask = GPIO2, reset_value = 0;
 +		ready_mask = GPIO0, ready_value = 0;
 +		setup_mask = GPIO3, setup_value = 0;
-+	}
++	} else
 +	// DLINK DIR-320
 +	if (nvram_match("boardtype", "0x048e") &&
 +		!nvram_match("boardnum", "45"))

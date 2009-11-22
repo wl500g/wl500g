@@ -354,7 +354,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/shutils.c gateway/httpd/shutils.c
  			flags = O_WRONLY | O_CREAT;
 diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.c
 --- router/httpd/variables.c	2004-11-15 08:06:01.000000000 +0000
-+++ gateway/httpd/variables.c	2009-04-08 21:01:03.000000000 +0000
++++ gateway/httpd/variables.c	2009-11-14 14:49:37.000000000 +0000
 @@ -455,6 +455,8 @@
                  {"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
              
@@ -426,7 +426,25 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
        struct variable variables_PrinterStatus_x_QRuleList[] = {          
        
                  {"qos_ipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
-@@ -957,6 +981,10 @@
+@@ -715,6 +739,8 @@
+                    "pptp:PPTP",
+               
+                    "bigpond:BigPond",
++                   "l2tp:L2TP",
++                   "wimax:WiMAX",
+               
+               0), FALSE, FALSE},
+            	
+@@ -829,6 +855,8 @@
+                 {"wan_netmask", "", validate_ipaddr, NULL, FALSE, FALSE},
+             
+                 {"wan_gateway", "", validate_ipaddr, NULL, FALSE, FALSE},
++
++                {"wan_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
+                              
+                  {"wan_dnsenable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+               
+@@ -957,6 +985,10 @@
                      
                  {"wan_pppoe_txonly_x", "", validate_string, ARGV(""), FALSE, FALSE}, 
                           
@@ -437,7 +455,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
               {"wan_pppoe_mtu", "", validate_range, ARGV("576", "1492", ""), FALSE, FALSE},
                       
               {"wan_pppoe_mru", "", validate_range, ARGV("576", "1492", ""), FALSE, FALSE},
-@@ -1074,6 +1102,8 @@
+@@ -1074,6 +1106,8 @@
                         {"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                                       
                   {"fw_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
@@ -446,7 +464,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                	
                {"fw_log_x", "", validate_choice, ARGV(              
                
-@@ -1097,6 +1127,13 @@
+@@ -1097,6 +1131,13 @@
                                 
                   {"misc_ping_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                 
@@ -460,7 +478,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                   {"fw_wl_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                
                  {"filter_wl_date_x", "", validate_portrange, NULL, FALSE, FALSE},
-@@ -1110,6 +1147,14 @@
+@@ -1110,6 +1151,14 @@
                     "ACCEPT",
                
                0), FALSE, FALSE},
@@ -475,7 +493,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
             
                  {"filter_wl_icmp_x", "", validate_portrange, NULL, FALSE, FALSE},
              
-@@ -1318,6 +1363,10 @@
+@@ -1318,6 +1367,10 @@
     
        struct variable variables_RouterConfig[] = {
                         
@@ -486,7 +504,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                   {"sr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                	
                {"sr_rip_x", "", validate_choice, ARGV(              
-@@ -1470,7 +1519,7 @@
+@@ -1470,7 +1523,7 @@
                                               
                         {"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                       
@@ -495,7 +513,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
         
        {"StaticRoute", "Group", validate_group, ARGV(variables_RouterConfig_StaticRoute, "16", "46", "dr_staticnum_x"), FALSE, FALSE},     
         
-@@ -1502,6 +1551,8 @@
+@@ -1502,6 +1555,8 @@
                      {"lan_hostname", "", validate_string, ARGV("32"), FALSE, FALSE},                                                                                                                   
                   
                  {"lan_gateway", "", validate_ipaddr, NULL, FALSE, FALSE},
@@ -504,7 +522,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                               
                   {"dhcp_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                 
-@@ -1555,97 +1606,20 @@
+@@ -1555,97 +1610,20 @@
                      
        {"DmzDHCPLog", "Status", NULL, ARGV("dleases.log",""), FALSE, FALSE},
                   
@@ -608,7 +626,16 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                                    
                   {"", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                
-@@ -1665,6 +1639,8 @@
+@@ -1653,6 +1631,8 @@
+                              
+                  {"ddns_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+               	
++	    {"ddns_realip_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
++
+               {"ddns_server_x", "", validate_choice, ARGV(              
+               
+                    "WWW.DYNDNS.ORG",
+@@ -1665,6 +1645,8 @@
                
                     "WWW.ZONEEDIT.COM",
                
@@ -617,7 +644,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                0), FALSE, FALSE},
                                                     
                      {"ddns_username_x", "", validate_string, ARGV("32"), FALSE, FALSE},                                                                                                                   
-@@ -1677,7 +1653,12 @@
+@@ -1677,7 +1659,12 @@
                
        {"x_DDNSStatus", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
   
@@ -631,7 +658,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
         
        {"DmzManualDHCPList", "Group", validate_group, ARGV(variables_LANHostConfig_DmzManualDHCPList, "8", "29", "DmzManualDHCPCount"), FALSE, FALSE},     
         
-@@ -1793,7 +1774,7 @@
+@@ -1793,7 +1780,7 @@
                      
                  {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
               
@@ -640,7 +667,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
         
        {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11a_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                          
-@@ -1869,9 +1850,11 @@
+@@ -1869,9 +1856,11 @@
                
                     "1:Auto",
                
@@ -653,7 +680,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                
                0), FALSE, FALSE},
             
-@@ -1890,6 +1873,16 @@
+@@ -1890,6 +1879,16 @@
                     "radius:Radius with 802.1x",
                
                0), FALSE, FALSE},
@@ -670,7 +697,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
             	
                {"wl_crypto", "", validate_choice, ARGV(              
                
-@@ -1980,6 +1973,36 @@
+@@ -1980,6 +1979,36 @@
                     "54000000:54",
                
                0), FALSE, FALSE},
@@ -707,7 +734,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
             	
                {"wl_rateset", "", validate_choice, ARGV(              
                
-@@ -1990,6 +2013,16 @@
+@@ -1990,6 +2019,16 @@
                     "12:1, 2 Mbps",
                
                0), FALSE, FALSE},
@@ -724,7 +751,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                          
               {"wl_frag", "", validate_range, ARGV("256", "2346", ""), FALSE, FALSE},
                       
-@@ -2064,6 +2097,16 @@
+@@ -2064,6 +2103,16 @@
                   {"wl_preauth", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                                        
                      {"wl_net_reauth", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
@@ -741,7 +768,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                    
        {"RBRList", "Group", validate_group, ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x"), FALSE, FALSE},     
                          
-@@ -2100,7 +2143,7 @@
+@@ -2100,7 +2149,7 @@
                      
                  {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
               
@@ -750,7 +777,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
         
        {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11b_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                          
-@@ -2256,21 +2299,44 @@
+@@ -2256,21 +2305,44 @@
              
        {"x_FEject", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
                   
@@ -798,15 +825,15 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
                   	
                {"", "", validate_choice, ARGV(              
                
-@@ -2296,14 +2362,27 @@
+@@ -2296,14 +2368,27 @@
                                               
                         {"qos_urulenum_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                       
 -      {"x_FUserList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FUserList, "32", "59", "usb_ftpnum_x"), FALSE, FALSE},     
--       
--      {"x_FBanIPList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FBanIPList, "16", "24", "usb_bannum_x"), FALSE, FALSE},     
 +      {"x_FUserList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FUserList, "32", "52", "usb_ftpnum_x"), FALSE, FALSE},     
         
+-      {"x_FBanIPList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FBanIPList, "16", "24", "usb_bannum_x"), FALSE, FALSE},     
+-       
 -      {"x_QRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_QRuleList, "8", "44", "qos_rulenum_x"), FALSE, FALSE},     
 +      {"x_FBanIPList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FBanIPList, "16", "24", "usb_bannum_x"), FALSE, FALSE},     
 +      
@@ -831,10 +858,11 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
        { 0, 0, 0, 0, 0, 0}
        };
        
-@@ -4221,6 +4300,25 @@ struct action actions_WLANAuthentication
+@@ -4221,7 +4306,35 @@ struct action actions_WLANAuthentication
  struct action actions_PrinterStatus[];
  struct variable variables_WLANAuthentication11b[];
  
+-
 +struct variable variables_IPv6Config[] = {
 +
 +	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
@@ -854,14 +882,25 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
 +	{ 0, 0, 0, 0}
 +	};
 +struct action actions_IPv6Config[];
- 
++
++struct variable variables_WiMaxConfig[] = {
++	{"wimax_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
++	{"wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
++	{"wimax_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
++	{ 0, 0, 0, 0}
++	};
++
++struct action actions_WiMaxConfig[];
++
  struct svcLink svcLinks[] = {            
             {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
-@@ -4239,6 +4337,7 @@ struct svcLink svcLinks[] = {
+            {"LANHostConfig", "urn:schemas-upnp-org:service:Layer3Forwarding:1", variables_LANHostConfig, actions_LANHostConfig},
+@@ -4239,6 +4352,8 @@ struct svcLink svcLinks[] = {
             {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, actions_DeviceSecurity},
             {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, actions_WLANAuthentication},         
             {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, actions_PrinterStatus},
 +	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, actions_IPv6Config},
++	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, actions_WiMaxConfig},
             {0, 0, 0}
        };
  	
@@ -965,15 +1004,20 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
       }
       else if (strcmp(name, "syslog.sh")==0)
       {
-@@ -229,6 +236,7 @@ void sys_script(char *name)
+@@ -229,6 +230,12 @@ void sys_script(char *name)
       else if (strcmp(name, "lpr_remove")==0)
       {
  	   kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
 +	   eval("killall","p910nd");
++     }
++     else if (strcmp(name, "madwimax.sh")==0)
++     {	
++	   // update status of madwimax
++	   kill_pidfile_s("/var/run/madwimax.pid", SIGUSR1);
       }
       else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0)
       {
-@@ -238,6 +246,11 @@ void sys_script(char *name)
+@@ -238,6 +245,11 @@ void sys_script(char *name)
       {
  		sys_refresh_lease();	
       }

@@ -56,13 +56,13 @@ diff -Bup gateway/rc/firewall_ex.c.orig gateway/rc/firewall_ex.c
 +	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 +	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0"))) {
 +		// Evaluate incoming connections through white&blacklists stored in flashfs
-+		if ((fp1 = fopen("/tmp/local/etc/ssh.allow", "r")) != NULL) {
++		if ((fp1 = fopen("/usr/local/etc/ssh.allow", "r")) != NULL) {
 +			while (fgets(line, sizeof(line), fp1))
 +				if ((sscanf(line, "%s", s) == 1) && (s[0] != '#'))
 +					fprintf(fp, "-A BRUTE -s %s -j %s\n", s, logaccept);
 +					fclose(fp1);
 +		}
-+		if ((fp1 = fopen("/tmp/local/etc/ssh.deny", "r")) != NULL) {
++		if ((fp1 = fopen("/usr/local/etc/ssh.deny", "r")) != NULL) {
 +			while (fgets(line, sizeof(line), fp1))
 +				if ((sscanf(line, "%s", s) == 1) && (s[0] != '#'))
 +					fprintf(fp, "-A BRUTE -s %s -j %s\n", s, logdrop);
