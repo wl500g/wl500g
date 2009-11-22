@@ -1,7 +1,7 @@
 diff -BurpN '-x*.o' '-x*.orig' router/httpd/Makefile gateway/httpd/Makefile
 --- router/httpd/Makefile	2004-11-11 07:27:08.000000000 +0000
 +++ gateway/httpd/Makefile	2009-09-23 12:12:27.000000000 +0000
-@@ -8,7 +8,7 @@
+@@ -8,11 +8,10 @@
  
  CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
  #CFLAGS	+= -g -DDEBUG
@@ -10,6 +10,10 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/Makefile gateway/httpd/Makefile
  LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
  
  vpath %.c $(TOP)/shared
+-vpath %.c $(TOP)/shared_common
+ 
+ all: httpd
+ 	$(STRIP) httpd
 @@ -24,5 +24,7 @@ install: all
  	install -D httpd $(INSTALLDIR)/usr/sbin/httpd
  	$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
@@ -903,7 +907,7 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/variables.c gateway/httpd/variables.
 diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
 --- router/httpd/web_ex.c	2004-12-01 13:58:17.000000000 +0000
 +++ gateway/httpd/web_ex.c	2009-11-14 14:47:10.000000000 +0000
-@@ -48,6 +48,7 @@
+@@ -48,19 +48,26 @@
  
  #define sys_restart() kill(1, SIGHUP)
  #define sys_reboot() kill(1, SIGTERM)
@@ -911,7 +915,28 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
  
  #ifdef WEBS
  #define init_cgi(query)
-@@ -78,6 +79,8 @@ static int apply_cgi_group(webs_t wp, in
+ #define do_file(webs, file)
+ #endif
+ 
+-#define sys_upgrade(image) eval("write", image, "/dev/mtd/1")
++#ifdef LINUX26
++ #define        MTD_DEV(arg)            "/dev/mtd"#arg
++#else
++ #define        MTD_DEV(arg)            "/dev/mtd/"#arg
++#endif
++
++#define sys_upgrade(image) eval("write", image, MTD_DEV(1))
+ #define sys_upload(image) eval("nvram", "restore", image)
+ #define sys_download(file) eval("nvram", "save", file)
+ #define sys_stats(url) eval("stats", (url))
+ #define sys_restore(sid) eval("nvram_x","get",(sid))
+ #define sys_commit(sid) nvram_commit();
+-#define sys_default()   eval("erase", "/dev/mtd/3")
++#define sys_default()   eval("erase", MTD_DEV(3))
+ #define sys_nvram_set(param) eval("nvram", "set", param)
+ 
+ #define UPNP_E_SUCCESS 0
+@@ -78,6 +85,8 @@ static int apply_cgi_group(webs_t wp, in
  static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
  
  static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
@@ -1220,7 +1245,16 @@ diff -BurpN '-x*.o' '-x*.orig' router/httpd/web_ex.c gateway/httpd/web_ex.c
          { "nvram_match_both_x", ej_nvram_match_both_x},
  	{ "nvram_match_list_x", ej_nvram_match_list_x},
  	{ "select_channel", ej_select_channel},
-@@ -2895,7 +3032,7 @@ wl_channels_in_country(char *abbrev, int
+@@ -2539,7 +2677,7 @@ void websSetVer(void)
+ 	strcpy(productid, "WLHDD");
+ 	strcpy(fwver, "0.1.0.1");
+ 
+-	if ((fp = fopen("/dev/mtd/1", "rb"))!=NULL)
++	if ((fp = fopen(MTD_DEV(1), "rb"))!=NULL)
+ 	{
+ 		if (fseek(fp, 4, SEEK_SET)!=0) goto write_ver;
+ 		fread(dataPtr, 1, 4, fp);
+@@ -2895,7 +3033,7 @@ wl_channels_in_country(char *abbrev, int
  
  	cic->buflen = sizeof(ibuf2);
  	strcpy(cic->country_abbrev, abbrev);
