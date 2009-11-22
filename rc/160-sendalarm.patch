@@ -1,0 +1,215 @@
+Use resolving functions from libc instead of custom implementation.
+
+diff -uBp router/rc/Makefile gateway/rc/Makefile
+--- router/rc/Makefile	2009-09-24 20:55:29.000000000 +0400
++++ gateway/rc/Makefile	2009-11-12 21:09:28.000000000 +0300
+@@ -23,7 +23,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TO
+ 
+ OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
+     stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
+-    manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o \
++    manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
+     bigpond.o qos.o rcamd.o waveserver.o
+ 
+ ifeq ($(CONFIG_NETCONF),y)
+diff -uBp router/rc/rc.c gateway/rc/rc.c
+--- router/rc/rc.c	2009-04-26 17:54:12.000000000 +0400
++++ gateway/rc/rc.c	2009-11-12 20:49:18.000000000 +0300
+@@ -1003,12 +1003,7 @@ main(int argc, char **argv)
+ 	}
+ 	/* send alarm */
+ 	else if (strstr(base, "sendalarm")) {
+-		if (argc >= 1)
+-			return sendalarm_main(argc, argv);
+-		else {
+-			fprintf(stderr, "usage: sendalarm\n");
+-			return EINVAL;
+-		}
++		return sendalarm_main(argc, argv);
+ 	}
+ 	/* invoke watchdog */
+ 	else if (strstr(base, "watchdog")) {
+diff -uBp router/rc/sendalarm.c gateway/rc/sendalarm.c
+--- router/rc/sendalarm.c	2008-03-19 20:07:24.000000000 +0300
++++ gateway/rc/sendalarm.c	2009-11-12 21:50:20.000000000 +0300
+@@ -21,6 +21,11 @@
+ #include <sys/fcntl.h>
+ #include <dirent.h>
+ #include <sys/mount.h>
++#include <netdb.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <arpa/nameser.h>
++#include <resolv.h>
+ #include <bcmnvram.h>
+ #include <netconf.h>
+ #include <shutils.h>
+@@ -50,38 +55,117 @@ void filecat(FILE *fp, char *catted)
+ 	return;
+ }
+ 
+-char *nslookup(char *name, char qtype, char *ret)
++char *nslookup(char *name, int qtype, char *ret, size_t retsize)
+ {
+-	#define MAX_LINE_SIZE 512
+-	FILE *fp;
+-	char buf[MAX_LINE_SIZE];
++	unsigned char	reply[1024];	/* Reply buffer */
++	char		host[MAXDNAME];
++	int		replylen = 0;
++	HEADER		*rheader;	/* Reply header */
++	unsigned char	*rrptr;		/* Current Resource record ptr */
++	int		exprc;          /* dn_expand return code */
++	int		rrtype,	rrdlen;
++
++	/* Initialize lookup system if needed (check global _res structure) */
++	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
++    		return NULL;
++
++	if (retsize <= 0)
++    		return NULL;
++	*ret = '\0';
++
++	replylen = res_query(name, C_IN, qtype, (unsigned char*)&reply, sizeof(reply));
++	rheader = (HEADER *)reply;
++
++	if ( (replylen <= 0) || (ntohs(rheader->rcode) != NOERROR)
++	     || (ntohs(rheader->ancount) <= 0) )
++		return NULL;
++
++	/* Parse out the Question section, and get to the following.
++	 RRs (see RFC 1035-4.1.2) */
++	exprc = dn_expand(reply,                /* Msg ptr */
++			reply + replylen,       /* End of msg ptr */
++			reply + sizeof(HEADER), /* Offset into msg */
++			host, sizeof(host));
++	if (exprc < 0)
++		return NULL;
++
++	/* Determine offset of the first RR */
++	rrptr = reply + sizeof(HEADER) + exprc + NS_QFIXEDSZ;
+ 
+-	fp=fopen("/etc/resolv.conf", "r+");
+-	
+-	if (fp!=NULL) {
+-	    if (fgets(buf, MAX_LINE_SIZE, fp)!=NULL &&
+-		strncmp(buf,"nameserver", 10)==0)
++	/* Walk the RRs, building a list of targets */
++	while (rrptr < (reply + replylen))
+ 	{
+-		dns_query(&buf[11], name, qtype, ret);
+-	}
+-	fclose(fp);
+-	}
+-	return ret;
++		/* Expand the domain name */
++		exprc = dn_expand(reply, reply + replylen, rrptr,
++				host, sizeof(host));
++
++		if (exprc < 0)
++			return NULL;
++
++		/* Jump to RR info */
++		/*  NAME     (? bytes)
++		    TYPE     (2 bytes)
++		    CLASS    (2 bytes)
++		    TTL      (4 bytes)
++		    RDLENGTH (2 bytes)
++		    RDATA    (? bytes)  */
++		rrptr += exprc;
++		rrtype = (rrptr[0] << 8 | rrptr[1]);  /* Extract RR type */
++		rrdlen = (rrptr[8] << 8 | rrptr[9]);  /* Extract RR payload */
++		rrptr += NS_RRFIXEDSZ;
++
++		if (rrtype == qtype) // Our answer
++		{
++			/* Process the RR */
++			switch (rrtype)
++			{
++#ifdef T_AAAA
++			case T_AAAA:
++				if (rrdlen < NS_IN6ADDRSZ)
++					break;
++				inet_ntop(AF_INET6, rrptr, ret, retsize);
++				break;
++#endif
++			case T_A:
++				if (rrdlen < NS_INADDRSZ)
++					break;
++				inet_ntop(AF_INET, rrptr, ret, retsize);
++				break;
++			case T_MX:
++				if (rrdlen < NS_INT16SZ+1)
++					break;
++				exprc = dn_expand(reply, reply + replylen,
++						 rrptr + NS_INT16SZ,
++						 host, sizeof(host));
++				if (exprc > 0)
++					strncpy(ret, host, retsize);
++				break;
++			}
++			if (*ret)	/* Answer found */
++				return ret;
++		}
++
++		/* Increment to next RR */
++		rrptr += rrdlen;
++	}
++
++	return NULL;
+ }
+ 
+ int
+ sendalarm_main(int argc, char *argv[])
+ {
+ 	FILE *fp;
+-	char serverip[32], servername[32];
++	char *serverip, servername[64];
+ 	char command[128];
+ 	char image[64], *imagebase;
+ 	char *boundry="alarmmailalarmmail";
+ 	int i;
++	struct hostent *serverhost = NULL;
+ 
+ 	if (nvram_invmatch("usb_websecurity_x", "1")) return -1;
+ 
+-	*servername = *serverip = 0x0;
++	*servername = '\0';
+ 
+ 	if (nvram_invmatch("usb_websendto_x", ""))
+ 	{
+@@ -90,23 +167,27 @@ sendalarm_main(int argc, char *argv[])
+ 		mname = strstr(nvram_safe_get("usb_websendto_x"), "@");
+ 
+ 		if (mname!=NULL)
+-			nslookup(mname+1, 'M', servername);
++			nslookup(mname+1, T_MX, servername, sizeof(servername));
+ 
+ 		if (*servername)
+-			nslookup(servername, 'A', serverip);
++			serverhost = gethostbyname(servername);
+ 	}
+ 
+-	if (!*serverip && nvram_invmatch("usb_webmserver_x", ""))
++	if (!serverhost && nvram_invmatch("usb_webmserver_x", ""))
+ 	{
+-		nslookup(nvram_safe_get("web_webmserver_x"), 'A' , serverip);
++		serverhost = gethostbyname(nvram_safe_get("web_webmserver_x"));
+ 	}
+ 
+-	if (!*serverip)
++	if (!serverhost)
+ 	{
+ 		logs("send email alarm, but can not resolve ip of email server!");
+-		return -1;
++		return -2;
++	}
++	else
++	{
++		serverip = inet_ntoa( *( struct in_addr* )(serverhost->h_addr) );
++		dprintf("send alarm to : %s\n", serverip);
+ 	}
+-	else dprintf("send alarm to : %s\n", serverip);
+ 	// Build mail source file
+ 
+ 	if ((fp = fopen("/var/tmp/alarmmail", "w"))==NULL) return -1;

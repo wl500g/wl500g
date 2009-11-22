@@ -1,0 +1,23 @@
+From: Ray <ray123>
+Date: Sat, 3 Oct 2009 02:28:26 +0000 (-0400)
+X-Git-Url: http://repo.or.cz/w/tomato.git?a=commitdiff_plain;h=14d438a46e4842f921bcfa6013b8fc0015045719
+
+Busybox: tell swaponoff to not die if one of the swap files listed in /etc/fstab doesn't exist
+---
+
+diff --git a/util-linux/swaponoff.c b/util-linux/swaponoff.c
+index 33ad00a..3567cd3 100644
+--- a/util-linux/swaponoff.c
++++ b/util-linux/swaponoff.c
+@@ -33,7 +33,10 @@ static int swap_enable_disable(char *device)
+ 	struct stat st;
+ 
+ 	resolve_mount_spec(&device);
+-	xstat(device, &st);
++	if (stat(device, &st)) {
++		bb_perror_msg("warning: can't stat '%s'", device);
++		return 1;
++	}
+ 
+ #if ENABLE_DESKTOP
+ 	/* test for holes */

@@ -1,0 +1,84 @@
+/*
+ * Copyright 2001, Broadcom Corporation
+ * All Rights Reserved.
+ *
+ * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+ * the contents of this file may not be disclosed to third parties, copied or
+ * duplicated in any form, in whole or in part, without the prior written
+ * permission of Broadcom Corporation.
+ *
+ * $Id: style.css,v 1.6 2002/02/21 00:43:58 mhuang Exp $
+ */		   
+.title1		{ font-family: Verdana, sans-serif; font-size: 24pt; font-weight: bold }
+.title2		{ font-family: Verdana, sans-serif; font-size: 20pt; font-weight: bold }
+.title3		{ font-family: Verdana, sans-serif; font-size: 16pt}
+.content	{ font-family: Verdana, sans-serif; font-size: 12pt }
+.navbar		{ background: #cc0000; color: white; }
+.edge		{ background-image: url(repeat_edge_new.gif); width: 100% }
+.label		{ font-family: Verdana, sans-serif; font-size: 16pt; font-weight: bold }
+.bold		{ font-weight: bold }		  
+
+.list_background { background: #660066; color: #000000; }
+
+.page_table {background:#660066; width:800; border:0; margin-top:0; margin-left:0}
+.list_table1 { width:40; border:0 ; cellspacing:0; cellpadding:0; height:115; align:center; background:#ffffff}
+.list_table2 { width:40; border:0 : cellspacing:0; cellpadding:0; align:center; background:#ffffff}
+
+.content_table { width:625; border:0; background:#FFFFFF; color:#FFFFFF; margin-top:0; margin-left:0; margin-right:0; border-style:dotted; vertical-align:top}
+.content_title_table1 { width:500; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
+.content_title_table2 { width:150; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
+.content_title_table3 { width:150; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
+
+.content_value_table { width:600; border:50; cellspacing:0; cellpadding:2; color:#F00F00; background:#FF00FF; margin-top:0; margin-left:0; margin-right:0; vertical-align:top; align:left}
+.content_value_item_table {width:618; border:2; cellspacing:2; cellpadding=2; color:#FF0000; backgroud:#FF00FF;margin-top:0; margin-bottom:10; margin-left:0; bgcolor:#FF00FF}
+
+.content_list_table {background: #FFFFFF;  width:618; margin-top:0; margin-left:0}
+.content_list_value_table {background: #FFFFFF; margin-top:0; margin-left:0; align:center}
+
+.list_content_tr1 {background: #ffffff; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 11pt; font-weight: bold}
+.list_content_tr2 {background: #000000; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 11pt; border:0 ; cellspacing:0; cellpadding:0; margin-top:0; margin-left:0}
+.list_content_tr3 {background: #ffffff; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 11pt; border:0 ; cellspacing:0; cellpadding:0; margin-top:0; margin-left:0}
+.list_content_td  {background: #990099; height: 30; width:180; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 11pt; font-weight: bold; border:0 ; cellspacing:0; cellpadding:0; margin-top:0; margin-left:0}
+.list_content_button  {background: #660066; height: 30; width:140; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt; border:0 ; cellspacing:0; cellpadding:0; margin-top:0; margin-left:0}
+
+.content_background { background: #FFFFFF; color: #000000; }
+.content_title1 {width:150; height:115}
+.content_title2 {width:150; background:#FFFFFF}
+.content_title3 {background: #990099; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 11pt}
+.content_header_tr {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; height:50; background:#FFBB00}
+.content_header_td_title {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; height:50; background:#FFBB00; padding-left:6; padding-right:2;}
+.content_demo_title {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; height:36; background:#00F000; padding-left:6; padding-right:2;}
+.content_header_td_help {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height:36; background:#FFFFFF; width:55%; padding-left:12; padding-right:2; padding-top:6; padding-bottom:6}
+.content_header_td_title_red {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 16pt; font-weight: bold; height:50; background:#FF0000; padding-left:6; padding-right:2;}
+.content_header_td_title_yellow {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 16pt; font-weight: bold; height:50; background:#FFBB00; padding-left:6; padding-right:2;}
+.content_section_header_tr {font-family: "arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 14pt; height:36; background:#6666FF}
+.content_section_header_td {font-family: "arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 14pt; height:36; background:#6666FF; padding-left:6; padding-right:2; padding-bottom:8; padding-top:8;}
+.content_header_td {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height:36; font-weight:bold; background:#FFFFFF; width:55%; padding-left:6; }
+.content_header_td_less {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; font-weight: bold; height:36; background:#FFFFFF; width:45%; padding-left:6;}
+.content_header_td_30 {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; font-weight: bold; height:36; background:#FFFFFF; width:25%; padding-left:6;}
+.content_header_td_15 {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; font-weight: bold; height:36; background:#FFFFFF; width:15%; padding-left:6;}
+.content_input_td {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height: 36; background:#FFFFFF;}
+.content_input_fd {font-family: "Arial"; text-decoration: none; color: #000000; font-size: 10pt; height:30; padding-top:4; background:#FFFFFF;}
+.content_input_fd_ro {font-family: "Arial"; text-decoration: none; color: #000000; font-size: 10pt; height:30; padding-top:4; background:#CCCCCC;}
+.content_input_fd_button_ro {font-family: "Arial"; text-decoration: none; color: #000000; font-size: 10pt; height:30; padding-top:4; background:#CCCCCC;}
+.content_input_link {font-family: "Arial"; text-decoration: none; color: #0000FF; font-size: 9pt; font-style: italic; font-weight: bold; height:24; padding-top:8; padding-left:12;}
+.content_input_list_fd {font-family: "fixedsys"; text-decoration: none; color: #000000; font-size: 10pt; background:#FFFFFF;}
+.content_input_td_less {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; background:#FFFFFF}
+.content_input_td_padding {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height: 36; background:#FFFFFF; padding-left:6}
+.content_desc_td {font-family: "Verdana", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height: 36; background:#FFFFFF; padding-left:6; padding-right:6; padding-bottom:10; padding-top:10;}
+.content_desc_td_color {font-family: "Verdana", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height: 16; background:#FFFFFF; padding-left:6; padding-right:6; padding-bottom:10; padding-top:10;}
+.content_desc_td_home {font-family: "Verdana", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; height: 36; background:#EEFFDD; padding-left:6; padding-right:6; padding-bottom:10; padding-top:10;}
+
+.content_list_header_tr {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; height: 42; font-weight: bold; background:#FFCC00}
+.content_list_field_header_tr {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; height:50; background:#FFBBFF}
+.content_list_header_td {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; height: 42; font-weight: bold; background:#FFCC00; padding-left:6; padding-right:2;}
+.content_list_field_header_td {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt; font-weight: bold; height:36; background:#FFFFF0;  padding-left:2; padding-right:2;}
+.content_list_input_td {font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 8pt; height: 36; background:#FFFFFF; }
+.content_log_td {width: 660;}
+.content_log_td_backup {font-family: "fixedsys"; color: #000000; font-size: 11pt; width: 660; background:#FFFFFF;}
+
+.content_apply_tr {height:40; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; background:#FFFFFF}
+.content_apply_td {height:40; font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 14pt; font-weight: bold; background:#FFFFFF}
+
+.wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 10pt}
+.inputSubmit {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #000000; font-size: 10pt;}

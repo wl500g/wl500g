@@ -2,7 +2,7 @@
 +++ gateway/rc/Makefile	2009-08-24 19:58:46.000000000 +0400
 @@ -19,7 +19,7 @@
  CFLAGS	+= -s -O2 $(EXTRACFLAGS)
- LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared -lcrypt
+ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt
  
 -OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o \
 +OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \

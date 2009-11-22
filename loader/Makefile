@@ -76,4 +76,4 @@ decompress.lds: decompress.lds.in Makefile
 mrproper: clean
 
 clean:
-	rm -f loader.gz loader decompress *.lds *.o *.image
+	rm -f loader.gz loader decompress loader.lds decompress.lds *.o *.image

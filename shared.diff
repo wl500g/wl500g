@@ -34,7 +34,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shar
  	$(LD) -shared -o $@ $^
 diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
-+++ gateway/shared/defaults.c	2009-10-03 15:16:07.000000000 +0000
++++ gateway/shared/defaults.c	2009-11-14 08:12:21.000000000 +0000
 @@ -32,7 +32,7 @@ struct nvram_tuple router_defaults[] = {
  
  	/* Miscellaneous parameters */
@@ -44,9 +44,15 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/sh
  	{ "time_zone", "PST8PDT", 0 },		/* Time zone (GNU TZ format) */
  	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
  	{ "upnp_enable", "0", 0 },		/* Start UPnP */
-@@ -122,7 +122,7 @@ struct nvram_tuple router_defaults[] = {
+@@ -121,8 +121,13 @@ struct nvram_tuple router_defaults[] = {
+ 	{ "dhcp_wins", "wan", 0 },		/* Use WAN WINS first if available (wan|lan) */
  #endif	/* __CONFIG_NAT__ */
  
++#ifdef __CONFIG_IPV6__
++	{ "ipv6_sit_enable", "0", 0 },
++	{ "ipv6_radvd_enable", "0", 0 },
++#endif  /* __CONFIG_IPV6__ */
++
  	/* Web server parameters */
 -	{ "http_username", "", 0 },		/* Username */
 +	{ "http_username", "admin", 0 },	/* Username */
@@ -345,6 +351,31 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/netconf.h gateway/sha
  
  /* Supported firewall target types */
  enum netconf_target {
+diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/nvparse.c gateway/shared/nvparse.c
+--- router/shared/nvparse.c	2004-10-14 19:11:32.000000000 +0000
++++ gateway/shared/nvparse.c	2009-10-25 15:53:21.000000000 +0000
+@@ -275,7 +275,9 @@ bool
+ valid_forward_port(const netconf_nat_t *nat)
+ {
+ 	/* Check WAN destination port range */
+-	if (ntohs(nat->match.dst.ports[0]) > ntohs(nat->match.dst.ports[1]))
++	if (ntohs(nat->match.dst.ports[0]) > ntohs(nat->match.dst.ports[1]) ||
++	    nat->match.dst.ports[0] == htons(0) ||
++	    nat->match.dst.ports[1] == htons(0))
+ 		return FALSE;
+ 
+ 	/* Check protocol */
+@@ -287,7 +289,9 @@ valid_forward_port(const netconf_nat_t *
+ 		return FALSE;
+ 
+ 	/* Check LAN destination port range */
+-	if (ntohs(nat->ports[0]) > ntohs(nat->ports[1]))
++	if (ntohs(nat->ports[0]) > ntohs(nat->ports[1]) ||
++	    nat->ports[0] == htons(0) ||
++	    nat->ports[1] == htons(0))
+ 		return FALSE;
+ 
+ 	/* Check port range size */
 diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/shared/shutils.c
 --- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
 +++ gateway/shared/shutils.c	2009-09-21 12:03:53.000000000 +0000
