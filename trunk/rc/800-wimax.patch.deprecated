@@ -306,7 +306,7 @@ diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
 +					nvram_unset("wimax_device");
 +				return 0;
 +			}
-+		} else
++		}
  		/* usb storage */
  		if (strncmp(interface, "8/", 2) == 0)
  		{
@@ -430,7 +430,7 @@ diff -BurpN gateway/rc.orig/wimax.c gateway/rc/wimax.c
 +*/
 +	// if no madwimax, then STOP THE UDHCPC
 +	if (pid == 0) {
-+		int unit = atoi(nvram_get("wimax_unit"));
++		int unit = atoi(nvram_safe_get("wimax_unit"));
 +		if (unit) {
 +		 	// kill the udhcpc
 +			kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
