@@ -8,11 +8,10 @@
 
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
+CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
 vpath %.c $(TOP)/shared
-vpath %.c $(TOP)/shared_common
 
 all: httpd
 	$(STRIP) httpd
@@ -24,5 +23,7 @@ install: all
 	install -D httpd $(INSTALLDIR)/usr/sbin/httpd
 	$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
 
-httpd: httpd.o ej.o cgi.o web_ex.o shutils.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
+common.o: common.c variables.c
+
+httpd: httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
 	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf

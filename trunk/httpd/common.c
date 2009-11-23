@@ -304,6 +304,7 @@ int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var)
    return 0;
 }
 
+#ifdef REMOVE_NVRAM   
 char *GetVariable(int sid, char *name)
 {
    struct variable *v;
@@ -335,7 +336,6 @@ void SetVariable(int sid, char *name, char *value)
    nvram_set_x(svcLinks[sid].serviceId, name, value);	
 }
    
-#ifdef REMOVE_NVRAM   
 void SetGroupVariable(int sid, struct variable *gvs, char *name, char *value, char *action)
 {
    int groupCount;     

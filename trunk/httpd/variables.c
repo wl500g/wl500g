@@ -455,6 +455,8 @@
                 {"dhcp_staticmac_x", "14", validate_hwaddr, NULL, FALSE, 0x0},
             
                 {"dhcp_staticip_x", "15", validate_ipaddr, NULL, FALSE, 0x0},
+            
+                {"dhcp_staticname_x", "32", validate_string, ARGV("32"), FALSE, 0x0},
                             
       {0,0,0,0,0}
       };      
@@ -477,7 +479,9 @@
         
       struct variable variables_DeviceSecurity11a_ACLList[] = {          
       
-                {"wl_maclist_x", "32", validate_hwaddr, NULL, FALSE, 0x0},
+                {"wl_maclist_x", "20", validate_hwaddr, NULL, FALSE, 0x0},
+      
+                {"wl_macdesc_x", "40", validate_string,  ARGV("80"), FALSE, 0x0},
                             
       {0,0,0,0,0}
       };      
@@ -534,7 +538,9 @@
         
       struct variable variables_DeviceSecurity11b_ACLList[] = {          
       
-                {"wl_maclist_x", "32", validate_hwaddr, NULL, FALSE, 0x0},
+                {"wl_maclist_x", "20", validate_hwaddr, NULL, FALSE, 0x0},
+      
+                {"wl_macdesc_x", "40", validate_string,  ARGV("80"), FALSE, 0x0},
                             
       {0,0,0,0,0}
       };      
@@ -588,11 +594,9 @@
                                                          
                     {"usb_ftppasswd_x", "18", validate_string, ARGV("16"), FALSE, 0x0},                                                                                                                     
                               
-             {"usb_ftpmaxuser_x", "7", validate_range, ARGV("0", "12", ""), FALSE , 0x0},                                          	                                                                      
-        	              
               {"usb_ftprights_x", "16", validate_choice, ARGV(                
               
-                   "Read/Write/Erase",
+                   "Write Only",
               
                    "Read/Write",
               
@@ -612,6 +616,26 @@
       struct variable variables_PrinterStatus_x_FBanIPList[] = {          
       
                 {"usb_ftpbanip_x", "24", validate_ipaddr, NULL, FALSE, 0x0},
+                            
+      {0,0,0,0,0}
+      };      
+        
+      struct variable variables_PrinterStatus_x_ExportsList[] = {          
+      
+                {"usb_nfslist_x", "80", validate_string, ARGV("80"), FALSE, 0x0},
+                            
+      {0,0,0,0,0}
+      };      
+        
+      struct variable variables_PrinterStatus_x_SharesList[] = {          
+      
+                {"usb_smbdir_x", "20", validate_string, ARGV("80"), FALSE, 0x0},
+      
+                {"usb_smbshare_x", "20", validate_string, ARGV("80"), FALSE, 0x0},
+      
+                {"usb_smblevel_x", "14", validate_choice, ARGV("Read Only", "Read/Write", 0), FALSE, 0x0},
+      
+                {"usb_smbdesc_x", "20", validate_string, ARGV("80"), FALSE, 0x0},
                             
       {0,0,0,0,0}
       };      
@@ -715,6 +739,8 @@
                    "pptp:PPTP",
               
                    "bigpond:BigPond",
+                   "l2tp:L2TP",
+                   "wimax:WiMAX",
               
               0), FALSE, FALSE},
            	
@@ -829,6 +855,8 @@
                 {"wan_netmask", "", validate_ipaddr, NULL, FALSE, FALSE},
             
                 {"wan_gateway", "", validate_ipaddr, NULL, FALSE, FALSE},
+
+                {"wan_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
                              
                  {"wan_dnsenable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               
@@ -957,6 +985,10 @@
                     
                 {"wan_pppoe_txonly_x", "", validate_string, ARGV(""), FALSE, FALSE}, 
                          
+                {"wan_pppoe_options_x", "", validate_string, ARGV("255"), FALSE, FALSE}, 
+                         
+                {"wan_pptp_options_x", "", validate_string, ARGV("255"), FALSE, FALSE}, 
+                         
              {"wan_pppoe_mtu", "", validate_range, ARGV("576", "1492", ""), FALSE, FALSE},
                      
              {"wan_pppoe_mru", "", validate_range, ARGV("576", "1492", ""), FALSE, FALSE},
@@ -1074,6 +1106,8 @@
                        {"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                                      
                  {"fw_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                                     
+                 {"fw_dos_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               	
               {"fw_log_x", "", validate_choice, ARGV(              
               
@@ -1097,6 +1131,13 @@
                                
                  {"misc_ping_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                
+             {"misc_conntrack_x", "", validate_range, ARGV("1024", "16384", ""), FALSE, FALSE},
+
+	{"recent_ssh_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
+	{"recent_ftp_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
+	{"recent_seconds", "", validate_range, ARGV("1", "65535"), FALSE, FALSE},
+	{"recent_hitcount", "", validate_range, ARGV("1", "65535"), FALSE, FALSE},
+
                  {"fw_wl_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               
                 {"filter_wl_date_x", "", validate_portrange, NULL, FALSE, FALSE},
@@ -1104,6 +1145,14 @@
                 {"filter_wl_time_x", "", validate_portrange, NULL, FALSE, FALSE},
             	
               {"filter_wl_default_x", "", validate_choice, ARGV(              
+              
+                   "DROP",
+              
+                   "ACCEPT",
+              
+              0), FALSE, FALSE},
+            	
+              {"filter_vs_default_x", "", validate_choice, ARGV(              
               
                    "DROP",
               
@@ -1318,6 +1367,10 @@
    
       struct variable variables_RouterConfig[] = {
                        
+                 {"dr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                       
+                 {"mr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                       
                  {"sr_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               	
               {"sr_rip_x", "", validate_choice, ARGV(              
@@ -1470,7 +1523,7 @@
                                              
                        {"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                      
-      {"GWStatic", "Group", validate_group, ARGV(variables_RouterConfig_GWStatic, "6", "59", "sr_num_x"), FALSE, FALSE},     
+      {"GWStatic", "Group", validate_group, ARGV(variables_RouterConfig_GWStatic, "16", "59", "sr_num_x"), FALSE, FALSE},     
        
       {"StaticRoute", "Group", validate_group, ARGV(variables_RouterConfig_StaticRoute, "16", "46", "dr_staticnum_x"), FALSE, FALSE},     
        
@@ -1502,6 +1555,8 @@
                     {"lan_hostname", "", validate_string, ARGV("32"), FALSE, FALSE},                                                                                                                   
                  
                 {"lan_gateway", "", validate_ipaddr, NULL, FALSE, FALSE},
+                 
+                {"lan_dns", "", validate_ipaddr, NULL, FALSE, FALSE},
                              
                  {"dhcp_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                
@@ -1555,97 +1610,20 @@
                     
       {"DmzDHCPLog", "Status", NULL, ARGV("dleases.log",""), FALSE, FALSE},
                  
-                 {"upnp_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
-              
+                 {"upnp_enable", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
+		{"udpxy_enable_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
+		{"udpxy_wan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
                 {"log_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
             	
-              {"time_zone", "", validate_choice, ARGV(              
-              
-                   "UCT11:(GMT-11:00) Midway Island, Samoa",
-              
-                   "UCT10:(GMT-10:00) Hawaii",
-              
-                   "NAST9NADT:(GMT-09:00) Alaska",
-              
-                   "PST8PDT:(GMT-08:00) Pacific Time",
-              
-                   "MST7MDT:(GMT-07:00) Mountain Time",
-              
-                   "MST7:(GMT-07:00) Arizona",
-              
-                   "CST6CDT:(GMT-06:00) Central Time",
-              
-                   "UCT6:(GMT-06:00) Middle America",
-              
-                   "UCT5:(GMT-05:00) Indiana East, Colombia",
-              
-                   "EST5EDT:(GMT-05:00) Eastern Time",
-              
-                   "AST4ADT:(GMT-04:00) Atlantic Time, Brazil West",
-              
-                   "UCT4:(GMT-04:00) Bolivia, Venezuela",
-              
-                   "UCT3:(GMT-03:00) Guyana",
-              
-                   "EBST3EBDT:(GMT-03:00) Brazil East, Greenland",
-              
-                   "NORO2:(GMT-02:00) Mid-Atlantic",
-              
-                   "UCT0:(GMT) Gambia, Liberia, Morocco",
-              
-                   "GMT0BST:(GMT) England",
-              
-                   "MET-1METDST:(GMT+01:00) Netherland, France, Italy",
-              
-                   "MEZ-1MESZ:(GMT+01:00) Germany",
-              
-                   "UCT-1:(GMT+01:00) Tunisia",
-              
-                   "EET-2EETDST:(GMT+02:00) Greece, Ukraine, Turkey",
-              
-                   "SAST-2:(GMT+02:00) South Africa",
-              
-                   "IST-3IDT:(GMT+03:00) Iraq, Jordan, Kuwait",
-              
-                   "MSK-3MSD:(GMT+03:00) Moscow Winter Time",
-              
-                   "UCT-4:(GMT+04:00) Armenia",
-              
-                   "UCT-5:(GMT+05:00) Pakistan, Russia",
-              
-                   "UCT-6:(GMT+06:00) Bangladesh, Russia",
-              
-                   "UCT-7:(GMT+07:00) Thailand, Russia",
-              
-                   "CST-8:(GMT+08:00) China Coast, Hong Kong",
-              
-                   "CCT-8:(GMT+08:00) Taipei",
-              
-                   "SST-8:(GMT+08:00) Singapore",
-              
-                   "WAS-8WAD:(GMT+08:00) Australia West",
-              
-                   "JST-9:(GMT+09:00) Japan, Korea",
-              
-                   "KST-9KDT:(GMT+09:00) Korean",
-              
-                   "UCT-10:(GMT+10:00) Guam, Russia",
-              
-                   "EST-10EDT:(GMT+10:00) Australia",
-              
-                   "UCT-11:(GMT+11:00) Solomon Islands",
-              
-                   "UCT-12:(GMT+12:00) Fiji",
-              
-                   "NZST-12NZDT:(GMT+12:00) New Zealand",
-              
-              0), FALSE, FALSE},
+              {"time_zone", "", validate_string, ARGV("255"), FALSE, FALSE},
                                                    
                     {"time_interval", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
                                                          
                     {"ntp_server0", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
                                                          
                     {"ntp_server1", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+
+             {"ntp_interval_x", "", validate_range, ARGV("1", "144"), FALSE, FALSE},
                                   
                  {"", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               
@@ -1653,6 +1631,8 @@
                              
                  {"ddns_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               	
+	    {"ddns_realip_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+
               {"ddns_server_x", "", validate_choice, ARGV(              
               
                    "WWW.DYNDNS.ORG",
@@ -1664,6 +1644,8 @@
                    "WWW.TZO.COM",
               
                    "WWW.ZONEEDIT.COM",
+              
+                   "WWW.DNSOMATIC.COM",
               
               0), FALSE, FALSE},
                                                    
@@ -1677,7 +1659,12 @@
               
       {"x_DDNSStatus", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
  
-      {"ManualDHCPList", "Group", validate_group, ARGV(variables_LANHostConfig_ManualDHCPList, "8", "29", "dhcp_staticnum_x"), FALSE, FALSE},     
+	{"snmp_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+	{"snmp_community", "", validate_string, ARGV("32"), FALSE,FALSE},
+	{"snmp_contact", "", validate_string, ARGV("80"), FALSE,FALSE},
+	{"snmp_location", "", validate_string, ARGV("80"), FALSE,FALSE},
+	
+      {"ManualDHCPList", "Group", validate_group, ARGV(variables_LANHostConfig_ManualDHCPList, "32", "61", "dhcp_staticnum_x"), FALSE, FALSE},     
        
       {"DmzManualDHCPList", "Group", validate_group, ARGV(variables_LANHostConfig_DmzManualDHCPList, "8", "29", "DmzManualDHCPCount"), FALSE, FALSE},     
        
@@ -1793,7 +1780,7 @@
                     
                 {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
              
-      {"ACLList", "Group", validate_group, ARGV(variables_DeviceSecurity11a_ACLList, "64", "32", "wl_macnum_x"), FALSE, FALSE},     
+      {"ACLList", "Group", validate_group, ARGV(variables_DeviceSecurity11a_ACLList, "64", "60", "wl_macnum_x"), FALSE, FALSE},     
        
       {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11a_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                         
@@ -1869,9 +1856,11 @@
               
                    "1:Auto",
               
-                   "4:54G Only",
+                   "4:Performance",
               
                    "0:802.11B Only",
+
+                   "5:54G LRS",
               
               0), FALSE, FALSE},
            
@@ -1889,6 +1878,16 @@
               
                    "radius:Radius with 802.1x",
               
+              0), FALSE, FALSE},
+
+              {"wl_wpa_mode", "", validate_choice, ARGV(
+
+                   "0:WPA-Auto-Personal",
+
+                   "1:WPA-Personal",
+
+                   "2:WPA2-Personal",
+
               0), FALSE, FALSE},
            	
               {"wl_crypto", "", validate_choice, ARGV(              
@@ -1980,6 +1979,36 @@
                    "54000000:54",
               
               0), FALSE, FALSE},
+              	
+              {"wl_mrate", "", validate_choice, ARGV(              
+              
+                   "0:Auto",
+              
+                   "1000000:1",
+              
+                   "2000000:2",
+              
+                   "5500000:5.5",
+              
+                   "6000000:6",
+              
+                   "9000000:9",
+              
+                   "11000000:11",
+              
+                   "12000000:12",
+              
+                   "18000000:18",
+              
+                   "24000000:24",
+              
+                   "36000000:36",
+              
+                   "48000000:48",
+              
+                   "54000000:54",
+              
+              0), FALSE, FALSE},
            	
               {"wl_rateset", "", validate_choice, ARGV(              
               
@@ -1988,6 +2017,16 @@
                    "all:All",
               
                    "12:1, 2 Mbps",
+              
+              0), FALSE, FALSE},
+           	
+              {"wl_reg_mode", "", validate_choice, ARGV(              
+              
+                   "off:Off",
+              
+                   "d:802.11d",
+              
+                   "h:802.11h",
               
               0), FALSE, FALSE},
                         
@@ -2064,6 +2103,16 @@
                  {"wl_preauth", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                                       
                     {"wl_net_reauth", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+
+		{"wl_nbw", "20", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nctrlsb", "none", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nband", "2", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nmcsidx", "-1", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nmode", "-1", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_leddc", "0x640000", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_wme_apsd", "on", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_sta_retry_time", "5", validate_string, ARGV(""), FALSE, FALSE},
+
                   
       {"RBRList", "Group", validate_group, ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x"), FALSE, FALSE},     
                         
@@ -2100,7 +2149,7 @@
                     
                 {"", "", validate_string, ARGV(""), FALSE, FALSE}, 
              
-      {"ACLList", "Group", validate_group, ARGV(variables_DeviceSecurity11b_ACLList, "64", "32", "wl_macnum_x"), FALSE, FALSE},     
+      {"ACLList", "Group", validate_group, ARGV(variables_DeviceSecurity11b_ACLList, "64", "60", "wl_macnum_x"), FALSE, FALSE},     
        
       {"AESList", "Group", validate_group, ARGV(variables_DeviceSecurity11b_AESList, "64", "58", "AESListCount"), FALSE, FALSE},     
                         
@@ -2256,21 +2305,44 @@
             
       {"x_FEject", "Status", NULL, ARGV("ddns.log","DDNSStatus"), FALSE, FALSE},
                  
-                 {"usb_ftpenable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                 {"usb_storage_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                 {"usb_smbenable_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
+                 {"usb_smbhidden_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
+                 {"usb_smbwrkgrp_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                       
+                 {"usb_smbcpage_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                       
+                 {"x_SharesList", "Group", validate_group, ARGV(variables_PrinterStatus_x_SharesList, "32", "80", "usb_smbnum_x"), FALSE, FALSE},                                    
+                 
+                 {"usb_ftpenable_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
                                
-                 {"usb_ftpanonymous_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                 {"usb_ftpanonymous_x", "", validate_range, ARGV("0","3"), FALSE, FALSE},                                                       
                                
                  {"usb_ftpsuper_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                            
              {"usb_ftpport_x", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
                      
-             {"usb_ftpmax_x", "", validate_range, ARGV("1", "12", ""), FALSE, FALSE},
+             {"usb_ftppubroot_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                    
+                     
+             {"usb_ftppvtroot_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                    
+                     
+             {"usb_ftpanonroot_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                    
+                     
+             {"usb_ftpdirlist_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},
+
+             {"usb_ftpmax_x", "", validate_range, ARGV("0", "12", ""), FALSE, FALSE},
+                     
+             {"usb_ftpipmax_x", "", validate_range, ARGV("0", "12", ""), FALSE, FALSE},
                                  
                        {"usb_ftptimeout_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                                              
                        {"usb_ftpstaytimeout_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                                                             
                     {"usb_ftpscript_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+                                                            
+                    {"usb_ftpscript_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+                     
+             {"usb_ftprate_x", "", validate_range, ARGV("0", "99999", ""), FALSE, FALSE},
+                     
+             {"usb_ftpanonrate_x", "", validate_range, ARGV("0", "99999", ""), FALSE, FALSE},
                  	
               {"", "", validate_choice, ARGV(              
               
@@ -2296,14 +2368,27 @@
                                              
                        {"qos_urulenum_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                      
-      {"x_FUserList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FUserList, "32", "59", "usb_ftpnum_x"), FALSE, FALSE},     
+      {"x_FUserList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FUserList, "32", "52", "usb_ftpnum_x"), FALSE, FALSE},     
        
       {"x_FBanIPList", "Group", validate_group, ARGV(variables_PrinterStatus_x_FBanIPList, "16", "24", "usb_bannum_x"), FALSE, FALSE},     
+      
+      {"usb_nfsenable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+
+      {"x_ExportsList", "Group", validate_group, ARGV(variables_PrinterStatus_x_ExportsList, "32", "80", "usb_nfsnum_x"), FALSE, FALSE},     
+              
+      {"x_QRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_QRuleList, "32", "44", "qos_rulenum_x"), FALSE, FALSE},     
        
-      {"x_QRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_QRuleList, "8", "44", "qos_rulenum_x"), FALSE, FALSE},     
-       
-      {"x_UQRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_UQRuleList, "8", "28", "qos_urulenum_x"), FALSE, FALSE},     
+      {"x_UQRuleList", "Group", validate_group, ARGV(variables_PrinterStatus_x_UQRuleList, "32", "28", "qos_urulenum_x"), FALSE, FALSE},     
                         
+	{"telnet_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"ssh_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"ssh_port", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
+	{"infosvr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"lpr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"raw_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"audio_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"usb20_disable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	
       { 0, 0, 0, 0, 0, 0}
       };
       
@@ -4221,6 +4306,34 @@ struct action actions_WLANAuthentication[];
 struct action actions_PrinterStatus[];
 struct variable variables_WLANAuthentication11b[];
 
+struct variable variables_IPv6Config[] = {
+
+	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_lan_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
+	{"ipv6_wan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_wan_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
+	{"ipv6_wan_router", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_sit_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"ipv6_sit_remote", "", validate_ipaddr, NULL, FALSE, FALSE},
+	{"ipv6_sit_localaddr", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_sit_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
+	{"ipv6_sit_remoteaddr", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_sit_mtu", "", validate_range, ARGV("0", "1480"), FALSE, FALSE},
+	{"ipv6_sit_ttl", "", validate_range, ARGV("0", "255"), FALSE, FALSE},
+	{"ipv6_radvd_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
+	
+	{ 0, 0, 0, 0}
+	};
+struct action actions_IPv6Config[];
+
+struct variable variables_WiMaxConfig[] = {
+	{"wimax_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
+	{"wimax_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
+	{ 0, 0, 0, 0}
+	};
+
+struct action actions_WiMaxConfig[];
 
 struct svcLink svcLinks[] = {            
            {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
@@ -4239,6 +4352,8 @@ struct svcLink svcLinks[] = {
            {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, actions_DeviceSecurity},
            {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, actions_WLANAuthentication},         
            {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, actions_PrinterStatus},
+	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, actions_IPv6Config},
+	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, actions_WiMaxConfig},
            {0, 0, 0}
       };
 	

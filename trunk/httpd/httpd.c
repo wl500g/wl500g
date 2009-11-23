@@ -97,6 +97,7 @@ static void handle_request(void);
 int redirect = 1;
 char wan_if[16];
 int http_port=SERVER_PORT;
+static int server_port = SERVER_PORT; /* Port for SERVER USER interface */
 
 /* Added by Joey for handle one people at the same time */
 unsigned int login_ip=0;
@@ -413,10 +414,10 @@ handle_request(void)
 
     method = path = line;
     strsep(&path, " ");
-    while (*path == ' ') path++;
+    while (path && *path == ' ') path++;
     protocol = path;
     strsep(&protocol, " ");
-    while (*protocol == ' ') protocol++;
+    while (protocol && *protocol == ' ') protocol++;
     cp = protocol;
     strsep(&cp, " ");
     if ( !method || !path || !protocol ) {
@@ -474,7 +475,7 @@ handle_request(void)
 
     //printf("File: %s\n", file);
 
-    if (http_port==SERVER_PORT && !http_login_check())
+    if (http_port==server_port && !http_login_check())
     {
 	sprintf(line, "Please log out user, %s, first or wait for session timeout(60 seconds).", inet_ntoa(login_ip));
 
@@ -485,7 +486,7 @@ handle_request(void)
 	
     if ( (file[0] == '\0' || file[len-1] == '/'))
     {
-	if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==SERVER_PORT)
+	if (strlen(wan_if)>0 && !is_connected() && !is_firsttime() && http_port==server_port)
 	{
 		redirect=1;
 		file="WizardDetect.asp";
@@ -560,7 +561,7 @@ http_login_cache(usockaddr *u)
 http_login(unsigned int ip)
 {
 
-	if (http_port!=SERVER_PORT || ip == 0x100007f) return;
+	if (http_port!=server_port || ip == 0x100007f) return;
 
 	login_ip = ip;
 	login_try = 0;
@@ -571,7 +572,7 @@ int http_login_check(void)
 {
 	time_t now;
 	
-	if (http_port!=SERVER_PORT || login_ip_tmp == 0x100007f) return 1;
+	if (http_port!=server_port || login_ip_tmp == 0x100007f) return 1;
 
 	http_login_timeout(login_ip_tmp);
 
@@ -593,7 +594,7 @@ http_login_timeout(unsigned int ip)
 
 	//printf("login : %x %x\n", now, login_timestamp);
 
-	if ((unsigned long)(now - login_timestamp)>60) //one minitues
+	if (ip != login_ip && (unsigned long)(now - login_timestamp)>60) //one minitues
 	{
 		http_logout(login_ip);
 	}
@@ -613,16 +614,19 @@ http_logout(unsigned int ip)
 
 int is_auth(void)
 {
-	if (http_port==SERVER_PORT ||
+	if (http_port==server_port ||
 		strcmp(nvram_get_x("PrinterStatus", "usb_webhttpcheck_x"), "1")==0) return 1;
 	else return 0;
 }
 
-int is_phyconnected(void)
+static int is_phyconnected(void)
 {	
 	int fd, err;
 	struct ifreq ifr;
 	struct ethtool_cmd ecmd;
+	
+	if (strstr(wan_if, "vlan"))
+		return 1;
 
 	memset(&ifr, 0, sizeof(ifr));
 
@@ -654,6 +658,7 @@ int is_phyconnected(void)
 	}
 }
 
+#ifdef REMOVE
 int is_fileexist(char *filename)
 {
 	FILE *fp;
@@ -664,6 +669,7 @@ int is_fileexist(char *filename)
 	fclose(fp);
 	return 1;
 }
+#endif
 
 int is_connected(void)
 {
@@ -671,7 +677,7 @@ int is_connected(void)
 	char line[128], *reason;
 
 	/* check if physical connection exist */
-	if (!is_phyconnected()) return 0;
+	/* if (!is_phyconnected()) return 0; */
 	
 	/* check if connection static is CONNECTED */
 	if (strcmp(nvram_get_x("WANIPAddress", "wan_status_t"), "Disconnected")==0)
@@ -705,6 +711,14 @@ int main(int argc, char **argv)
 	socklen_t sz = sizeof(usa);
 	char pidfile[32];
 
+	server_port = atoi(nvram_get_x("", "http_lanport"));
+    if (server_port)
+      http_port = server_port;
+    else
+      server_port = http_port;
+      
+    
+    
 	// Added by Joey for handling WAN Interface 
 	// usage: httpd [wan interface] [port]
 	if (argc>2) http_port=atoi(argv[2]);
@@ -727,7 +741,7 @@ int main(int argc, char **argv)
 	{
 	FILE *pid_fp;
 	/* Daemonize and log PID */
-	//if (http_port==SERVER_PORT)
+	//if (http_port==server_port)
 	//{
 		if (daemon(1, 1) == -1) 
 		{
@@ -735,7 +749,7 @@ int main(int argc, char **argv)
 			exit(errno);
 		}
 	//}
-	if (http_port==SERVER_PORT)
+	if (http_port==server_port)
 		strcpy(pidfile, "/var/run/httpd.pid");
 	else sprintf(pidfile, "/var/run/httpd-%d.pid", http_port);
 

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <bcmnvram.h>
 
 
@@ -99,8 +100,10 @@ struct nvmap maps[] = {
 { "Storage", "x_AccUser6_Write", "sh_accuser_write_x6"},
 { NULL, NULL, NULL }};
 
+char *mac_conv(char *mac_name, int idx, char *buf);
+
 /* This function is used to map nvram value from asus to Broadcom */
-void readFromNvram()
+static void readFromNvram()
 {	
 	char tmpstr[32], tmpstr1[32], macbuf[18];
 	char list[2048];

@@ -489,6 +489,13 @@ upnp:
 upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
 
+$(TOP)/httpd:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - httpd | tar -C $(TOP) -xf -
+
+httpd: $(TOP)/httpd
+	@true
+
 $(TOP)/www:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
@@ -515,4 +522,5 @@ shared-diff:
 	    $(call make_diff,-BurN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
-	busybox dropbear iptables others
+	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
+	rc 
