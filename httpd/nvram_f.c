@@ -81,13 +81,13 @@ char *strtrim(char *str)
    return (str);
 }
 
+#ifdef REMOVE
 char *strtrim_c(char *str)
 {
    int i;
   
    return(str);
 
-#ifdef REMOVE   
    i=strlen(str)-1;
    	
    while(i>0)
@@ -100,7 +100,6 @@ char *strtrim_c(char *str)
       i--;
    }
    return (str);
-#endif   
 }
 
 
@@ -147,6 +146,7 @@ err:
    if (orig) env->next = orig;
    return(0);                
 }
+#endif	// REMOVE
 
 
 /*

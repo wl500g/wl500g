@@ -48,19 +48,26 @@
 
 #define sys_restart() kill(1, SIGHUP)
 #define sys_reboot() kill(1, SIGTERM)
+#define sys_forcereboot() kill(1, SIGABRT)
 
 #ifdef WEBS
 #define init_cgi(query)
 #define do_file(webs, file)
 #endif
 
-#define sys_upgrade(image) eval("write", image, "/dev/mtd/1")
+#ifdef LINUX26
+ #define        MTD_DEV(arg)            "/dev/mtd"#arg
+#else
+ #define        MTD_DEV(arg)            "/dev/mtd/"#arg
+#endif
+
+#define sys_upgrade(image) eval("write", image, MTD_DEV(1))
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
 #define sys_stats(url) eval("stats", (url))
 #define sys_restore(sid) eval("nvram_x","get",(sid))
 #define sys_commit(sid) nvram_commit();
-#define sys_default()   eval("erase", "/dev/mtd/3")
+#define sys_default()   eval("erase", MTD_DEV(3))
 #define sys_nvram_set(param) eval("nvram", "set", param)
 
 #define UPNP_E_SUCCESS 0
@@ -78,6 +85,8 @@ static int apply_cgi_group(webs_t wp, int sid, struct variable *var, char *group
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
 
 static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
+static int wl_channels_in_country(char *abbrev, int channels[]);
+static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
 char ibuf[8192];
 char ibuf2[8192];
@@ -98,7 +107,7 @@ char *groupItem[MAX_GROUP_ITEM];
 char urlcache[128];
 char *next_host;
 int delMap[MAX_GROUP_COUNT];
-char SystemCmd[64];
+char SystemCmd[128];
 char UserID[32]="";
 char UserPass[32]="";
 char ProductID[32]="";
@@ -124,7 +133,7 @@ reltime(unsigned int seconds)
 	static char s[] = "XXXXX days, XX hours, XX minutes, XX seconds";
 	char *c = s;
 
-#ifdef SHOWALL
+#if 1 //def SHOWALL
 	if (seconds > 60*60*24) {
 		c += sprintf(c, "%d days, ", seconds / (60*60*24));
 		seconds %= 60*60*24;
@@ -151,7 +160,7 @@ reltime(unsigned int seconds)
  *	Redirect the user to another webs page
  */
  
-char *getip(FILE *fp)
+static char *getip(FILE *fp)
 {     
     //getpeername(fd, &addr, &addrlen);
     if (next_host==NULL || strcmp(next_host, "")==0)    
@@ -170,7 +179,10 @@ void websRedirect(webs_t wp, char_t *url)
 {	
 	//printf("Redirect to : %s\n", url);	
 	websWrite(wp, T("<html><head>\r\n"));
-        websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=http://%s/%s\">\r\n"), getip((FILE *)wp), url);
+	if (next_host && *next_host)
+        	websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=http://%s/%s\">\r\n"), next_host, url);
+        else
+        	websWrite(wp, T("<meta http-equiv=\"refresh\" content=\"0; url=%s\">\r\n"), url);
         websWrite(wp, T("<meta http-equiv=\"Content-Type\" content=\"text/html\">\r\n"));
         websWrite(wp, T("</head></html>\r\n"));      
 	
@@ -203,15 +215,10 @@ void sys_script(char *name)
 
      if (strcmp(name,"syscmd.sh")==0)
      {
-	   if (strcmp(SystemCmd, "")!=0)
-	   {
-	   	sprintf(SystemCmd, "%s > /tmp/syscmd.log\n", SystemCmd);
-	   	system(SystemCmd);
-	   }	
-	   else
-	   {
-	   	system("echo None > /tmp/syscmd.log\n");
-	   }
+	   if (strcmp(SystemCmd, "")==0)
+		strcpy(SystemCmd, "echo None");
+	   sprintf(SystemCmd, "%s > /tmp/syscmd.log 2>&1\n", SystemCmd);
+	   system(SystemCmd);
      }
      else if (strcmp(name, "syslog.sh")==0)
      {
@@ -229,6 +236,12 @@ void sys_script(char *name)
      else if (strcmp(name, "lpr_remove")==0)
      {
 	   kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
+	   eval("killall","p910nd");
+     }
+     else if (strcmp(name, "madwimax.sh")==0)
+     {	
+	   // update status of madwimax
+	   kill_pidfile_s("/var/run/madwimax.pid", SIGUSR1);
      }
      else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0)
      {
@@ -237,6 +250,11 @@ void sys_script(char *name)
      else if (strcmp(name,"leases.sh")==0 || strcmp(name,"dleases.sh")==0)
      {
 		sys_refresh_lease();	
+     }
+     else if (strcmp(name,"dnsmasq.sh")==0)
+     {
+	   kill_pidfile_s("/var/run/dnsmasq.pid", SIGALRM);
+	   sleep(1);
      }
      else if (strcmp(name,"iptable.sh")==0) 
      {
@@ -473,6 +491,25 @@ ej_nvram_match_x(int eid, webs_t wp, int argc, char_t **argv)
 
 	return 0;
 }	
+
+static int
+ej_nvram_double_match_x(int eid, webs_t wp, int argc, char_t **argv)
+{
+	char *sid, *name, *match, *output;
+	char *sid2, *name2, *match2;
+
+	if (ejArgs(argc, argv, "%s %s %s %s %s %s %s", &sid, &name, &match, &sid2, &name2, &match2, &output) < 7) {
+		websError(wp, 400, "Insufficient args\n");
+		return -1;
+	}
+	
+	if (nvram_match_x(sid, name, match) && nvram_match_x(sid2, name2, match2))
+	{
+		return websWrite(wp, output);
+	}	
+
+	return 0;
+}
 
 /*
  * Example: 
@@ -727,7 +764,7 @@ ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 	if (str) {
 		unsigned int up = atoi(str);
 		free(str);
-		sprintf(buf, "%s(%s since boot)", buf, reltime(up));
+		sprintf(buf, "%s (%s since boot)", buf, reltime(up));
 	}
 
 	ret = websWrite(wp, buf);  
@@ -1035,7 +1072,7 @@ static int dump_file(webs_t wp, char *filename)
 	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL)
 	{	 	
 	    //printf("Read time: %s\n", buf);	    	    	    	   
-	    ret += websWrite(wp, buf);
+	    ret += websWrite(wp, "%s", buf);
 	}		    	                             		
 	 
 	fclose(fp);		
@@ -1444,14 +1481,15 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
 	   	sys_script(script);
 	}   
 	
-
-
-    	    	               
-        if (!strcmp(value, "  Save  ") || !strcmp(value, " Apply "))
+        if (!strcmp(value, "  Save  "))
         {
-
            strcpy(urlcache, next_url);
            websRedirect(wp, next_url);
+        } else 
+        if (!strcmp(value, " Apply "))
+        {
+           strcpy(urlcache, current_url);
+           websRedirect(wp, current_url);
         } 
         
     	else if(!strcmp(value, " Finish ")) websRedirect(wp, "SaveRestart.asp");
@@ -2116,7 +2154,7 @@ do_upgrade_cgi(char *url, FILE *stream)
 	{
                 websApply(stream, "Updating.asp"); 
 		sys_upgrade("/tmp/linux.trx");
-		sys_reboot();
+		sys_forcereboot();
 	}	
 	else    
 	{
@@ -2294,10 +2332,111 @@ do_prf_file(char *url, FILE *stream)
 {
 	sys_commit(NULL);
 	sys_download("/tmp/settings");
-	do_file(url, stream);
+	do_file("/tmp/settings", stream);
 	//unlink("/tmp/settings");
 }
 
+
+static void
+do_upload_file(char *upload_file, char *url, FILE *stream, int len, char *boundary)
+{
+	FILE *fifo = NULL;
+	char buf[1024];
+	int count, ret = EINVAL;
+
+	cprintf("Start upload\n");
+	/* Look for our part */
+	while (len > 0) 
+	{
+	     if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
+	     {			
+			goto err;
+	     }			
+		
+	     len -= strlen(buf);
+		
+	     if (!strncasecmp(buf, "Content-Disposition:", 20) &&
+		    strstr(buf, "name=\"file\""))
+			break;			
+	}
+
+	/* Skip boundary and headers */
+	while (len > 0) {
+		if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
+		{
+			goto err;
+		}		
+		len -= strlen(buf);
+		if (!strcmp(buf, "\n") || !strcmp(buf, "\r\n"))
+		{
+			break;
+		}
+	}
+
+	if (!(fifo = fopen(upload_file, "w"))) goto err;
+				
+	len -= strlen(boundary)+8;
+	cprintf("Upgrading %d\n", len);
+	while (len > 0)
+	{
+		count = fread(buf, 1, MIN(len, sizeof(buf)), stream);
+		fwrite(buf, 1, count, fifo);
+		len -= count;
+	}
+	fread(buf, 1, strlen(boundary)+8, stream);
+	fflush(fifo);
+	ret = 0;
+ err:
+	if (fifo)
+	   fclose(fifo);
+		
+	//printf("Error : %d\n", ret);
+	fcntl(fileno(stream), F_SETOWN, -ret);
+}
+
+static void
+do_uploadflashfs_post(char *url, FILE *stream, int len, char *boundary)
+{
+  char upload_file[]="/tmp/flash.tar.gz";
+  
+  do_upload_file(upload_file, url, stream, len, boundary);
+  
+  if(eval("tar","ztf",upload_file) != 0)
+   fcntl(fileno(stream), F_SETOWN, -EINVAL);
+}
+
+static void
+do_uploadflashfs_cgi(char *url, FILE *stream)
+{
+	int ret;
+	
+	//printf("Upgrade CGI\n");
+	ret = fcntl(fileno(stream), F_GETOWN, 0);
+	/* Reboot if successful */
+	if (ret == 0)
+	{
+		websApply(stream, "Uploading.asp"); 
+		eval("flashfs","commit");
+		eval("flashfs","enable");
+		sys_reboot();
+	}	
+	else    
+	{
+	   	websApply(stream, "UploadError.asp");
+	   	//unlink("/tmp/settings_u.prf");
+	}   	
+	  
+}
+
+static void
+do_flashfs_file(char *url, FILE *stream)
+{
+
+	eval("flashfs", "load");
+	eval("flashfs", "save");
+	do_file("/tmp/flash.tar.gz", stream);
+	//unlink("/tmp/settings");
+}
 
 #elif defined(vxworks)
 
@@ -2345,6 +2484,7 @@ initHandlers(void)
 	websAspDefine("nvram_get_buf_x", ej_nvram_get_buf_x);	
 	websAspDefine("nvram_get_table_x", ej_nvram_get_table_x);	
 	websAspDefine("nvram_match_x", ej_nvram_match_x);
+	websAspDefine("nvram_double_match_x", ej_nvram_double_match_x);
     	websAspDefine("nvram_match_both_x", ej_nvram_match_both_x);	
 	websAspDefine("nvram_match_list_x", ej_nvram_match_list_x);
 	websAspDefine("select_channel", ej_select_channel);
@@ -2370,9 +2510,11 @@ struct mime_handler mime_handlers[] = {
 	{ "**.js",  "text/javascript", NULL, NULL, do_file, do_auth },
 	{ "**.cab", "text/txt", NULL, NULL, do_file, do_auth },
 	{ "**.CFG", "text/txt", NULL, NULL, do_prf_file, do_auth },
+	{ "**.tar.gz", "text/txt", NULL, NULL, do_flashfs_file, do_auth },
 	{ "apply.cgi*", "text/html", no_cache, do_apply_cgi_post, do_apply_cgi, do_auth },	
 	{ "upgrade.cgi*", "text/html", no_cache, do_upgrade_post, do_upgrade_cgi, do_auth},
 	{ "upload.cgi*", "text/html", no_cache, do_upload_post, do_upload_cgi, do_auth },
+	{ "uploadflashfs.cgi*", "text/html", no_cache, do_uploadflashfs_post, do_uploadflashfs_cgi, do_auth },
  	{ "syslog.cgi*", "text/txt", no_cache, NULL, do_log_cgi, do_auth },
 	{ "webcam.cgi*", "text/html", no_cache, NULL, do_webcam_cgi, do_auth },
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
@@ -2510,6 +2652,7 @@ struct ej_handler ej_handlers[] = {
 	{ "nvram_get_buf_x", ej_nvram_get_buf_x},
 	{ "nvram_get_table_x", ej_nvram_get_table_x},
 	{ "nvram_match_x", ej_nvram_match_x},
+	{ "nvram_double_match_x", ej_nvram_double_match_x},
         { "nvram_match_both_x", ej_nvram_match_both_x},
 	{ "nvram_match_list_x", ej_nvram_match_list_x},
 	{ "select_channel", ej_select_channel},
@@ -2539,7 +2682,7 @@ void websSetVer(void)
 	strcpy(productid, "WLHDD");
 	strcpy(fwver, "0.1.0.1");
 
-	if ((fp = fopen("/dev/mtd/1", "rb"))!=NULL)
+	if ((fp = fopen(MTD_DEV(1), "rb"))!=NULL)
 	{
 		if (fseek(fp, 4, SEEK_SET)!=0) goto write_ver;
 		fread(dataPtr, 1, 4, fp);
@@ -2895,7 +3038,7 @@ wl_channels_in_country(char *abbrev, int channels[])
 
 	cic->buflen = sizeof(ibuf2);
 	strcpy(cic->country_abbrev, abbrev);
-	cic->band = WLC_BAND_B;
+	cic->band = WLC_BAND_2G;
 	cic->count = 0;
 
 
@@ -2912,24 +3055,4 @@ wl_channels_in_country(char *abbrev, int channels[])
 	}
 	return cic->count;
 
-}
-
-/* 
- * Kills process whose PID is stored in plaintext in pidfile
- * @param	pidfile	PID file, signal
- * @return	0 on success and errno on failure
- */
-int
-kill_pidfile_s(char *pidfile, int sig)
-{
-	FILE *fp = fopen(pidfile, "r");
-	char buf[256];
-	extern errno;
-
-	if (fp && fgets(buf, sizeof(buf), fp)) {
-		pid_t pid = strtoul(buf, NULL, 0);
-		fclose(fp);
-		return kill(pid, sig);
-  	} else
-		return errno;
 }

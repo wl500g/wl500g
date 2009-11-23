@@ -592,6 +592,7 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 #endif
 
 
+#ifdef REMOVE
 static int
 ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv) 
 {
@@ -624,25 +625,30 @@ ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv)
 
 	return websWrite(wp, "%u", val);
 }
-
+#endif
 
 int
 ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 {
-	int ret, i;
-	char bssid[32];
-	char bssinfobuf[2000];
-	wl_bss_info_t *info;
-	int val;
+	int ret;
+	unsigned char bssid[32];
 
 	// Get bssid
-	ret=wl_ioctl(ifname, WLC_GET_BSSID, bssid, sizeof(bssid));
-	//wl_scan_results();
+	ret = wl_ioctl(ifname, WLC_GET_BSSID, bssid, sizeof(bssid));
 
-	if (ret==0 && !(bssid[0]==0&&bssid[1]==0&&bssid[2]==0
-		&&bssid[3]==0&&bssid[4]==0&&bssid[5]==0)) 	
+	if (ret == 0 && memcmp(bssid, "\x00\x00\x00\x00\x00", 6))
 	{
-		return(websWrite(wp, "Status	: Connect to %s\n", nvram_safe_get("wl0_ssid")));
+		uint32 rssi;
+		
+		if (wl_ioctl(ifname, WLC_GET_RSSI, &rssi, sizeof(rssi)))
+			return(websWrite(wp, "Status	: Connected to %s\n"
+				     "AP	: %02x:%02x:%02x:%02x:%02x:%02x\n", 
+				nvram_safe_get("wl0_ssid"), 
+				bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]));
+		else	return(websWrite(wp, "Status	: Connected to %s\n"
+				     "AP	: %02x:%02x:%02x:%02x:%02x:%02x\n"
+				     "Signal	: %d dBm\n",  nvram_safe_get("wl0_ssid"), 
+				bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5], rssi));
 	}
 	return(websWrite(wp, "Status	: Connecting to %s\n", nvram_safe_get("wl0_ssid")));
 }
@@ -693,7 +699,7 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 	}
 	else if (nvram_match(strcat_r(prefix, "mode", tmp), "sta"))
 	{
-		ret+=websWrite(wp, "Mode	: Stations\n");
+		ret+=websWrite(wp, "Mode	: Station\n");
 		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
 		ret+=ej_wl_sta_status(eid, wp, name);
 		return ret;
@@ -891,17 +897,17 @@ ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
 
 			if (strstr(buff, "br0"))
 			{
-				ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d LAN\n",
+				ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d LAN %s\n",
 				sdest, sgw,
 				inet_ntoa(mask),
-				flags, metric, ref, use);
+				flags, metric, ref, use, buff);
 			}
 			else if(!strstr(buff, "lo"))
 			{
-				ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d WAN\n",
+				ret += websWrite(wp, "%-16s%-16s%-16s%-6s%-6d %-2d %7d WAN %s\n",
 				sdest, sgw,
 				inet_ntoa(mask),
-				flags, metric, ref, use);
+				flags, metric, ref, use, buff);
 			}
 		}
 		nl++;
