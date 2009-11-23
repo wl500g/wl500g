@@ -128,7 +128,7 @@ diff -uBp '-x*.o' router/rc.old/network.c gateway/rc/network.c
  		return 0;
  
 +#ifdef LINUX26
-+        if (!strcmp(action, "add")) {
++	if (!strcmp(action, "add")) {
 +#else
  	if (!strcmp(action, "register")) {
 +#endif
