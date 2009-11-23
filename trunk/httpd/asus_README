@@ -1,0 +1,6 @@
+* Directory Content
+  web server, httpd, for WL500g/WL500b/WL300g and its related products
+
+* How to generate image
+  1. cd /root/broadcom/src/router
+  2. make httpd-install
