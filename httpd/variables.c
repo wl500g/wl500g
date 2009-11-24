@@ -1126,7 +1126,7 @@
                  {"misc_http_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                            
              {"misc_httpport_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
-                         
+
                  {"misc_lpr_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
                                
                  {"misc_ping_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
