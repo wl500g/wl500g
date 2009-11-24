@@ -797,7 +797,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
  #ifdef SO_SNDBUF
  	if (setsockopt(sndsock, SOL_SOCKET, SO_SNDBUF, &packlen, sizeof(packlen)) < 0) {
  		bb_perror_msg_and_die("SO_SNDBUF");
-@@ -762,29 +976,66 @@ int traceroute_main(int argc, char **arg
+@@ -762,29 +976,67 @@ int traceroute_main(int argc, char **arg
  
  	outip = xzalloc(packlen);
  
@@ -863,6 +863,7 @@ diff -urNBp -x'.*' -x'*.o' busybox/networking/traceroute.c busybox.new/networkin
 +			bb_error_msg_and_die("can't get probe addr");
 +
 +		close(probe_fd);
++		set_nport(dest_lsa, htons(port));
 +
 +		/* bind our sockets to this IP (but not port) */
 +		set_nport(source_lsa, 0);
