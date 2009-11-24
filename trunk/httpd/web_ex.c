@@ -102,7 +102,7 @@ int action;
 char *serviceId;
 #define MAX_GROUP_ITEM 10
 #define MAX_GROUP_COUNT 300
-#define MAX_LINE_SIZE 512
+#define MAX_LINE_SIZE 1024
 char *groupItem[MAX_GROUP_ITEM];
 char urlcache[128];
 char *next_host;
@@ -410,6 +410,19 @@ void websApply(webs_t wp, char_t *url)
      fclose(fp);
 }
 
+int websWriteEscape(webs_t wp, char *buf)
+{
+	static char *escapes = "\"&<>";
+	char *c;
+	int ret = 0;
+
+        for (c = buf; *c; c++) {
+		if (strchr(escapes, *c))
+			ret += websWrite(wp, "&#%d", *c);
+		else
+			ret += websWrite(wp, "%c", *c);
+	}
+}
 
 /*
  * Example: 
@@ -420,23 +433,14 @@ void websApply(webs_t wp, char_t *url)
 static int
 ej_nvram_get_x(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *sid, *name, *c;
-	int ret = 0;
+	char *sid, *name;
 
 	if (ejArgs(argc, argv, "%s %s", &sid, &name) < 2) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
 
-	for (c = nvram_safe_get_x(sid, name); *c; c++) {
-		if (isprint(*c) &&
-		    *c != '"' && *c != '&' && *c != '<' && *c != '>')
-			ret += websWrite(wp, "%c", *c);
-		else
-			ret += websWrite(wp, "&#%d", *c);
-	}
-
-	return ret;
+	return websWriteEscape(wp, nvram_safe_get_x(sid, name));
 }
 
 /*
@@ -448,24 +452,14 @@ ej_nvram_get_x(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_nvram_get_f(int eid, webs_t wp, int argc, char_t **argv)
 {
-	char *file, *field, *c, buf[64];
-	int ret = 0;
+	char *file, *field;
 
 	if (ejArgs(argc, argv, "%s %s", &file, &field) < 2) {
 		websError(wp, 400, "Insufficient args\n");
 		return -1;
 	}
-			
-	strcpy(buf, nvram_safe_get_f(file, field));		
-        for (c = buf; *c; c++) {
-		if (isprint(*c) &&
-		    *c != '"' && *c != '&' && *c != '<' && *c != '>')
-			ret += websWrite(wp, "%c", *c);
-		else
-			ret += websWrite(wp, "&#%d", *c);
-	}
 
-	return ret;
+	return websWriteEscape(wp, nvram_safe_get_f(file, field));
 }
 
 /*
@@ -2504,6 +2498,7 @@ initHandlers(void)
 #else
 struct mime_handler mime_handlers[] = {
 	{ "**.asp", "text/html", no_cache, NULL, do_ej, do_auth },
+	{ "**.htm", "text/html", no_cache, NULL, do_ej, do_auth },
 	{ "**.css", "text/css", NULL, NULL, do_file, do_auth },
 	{ "**.gif", "image/gif", NULL, NULL, do_file, do_auth },
 	{ "**.jpg", "image/jpeg", NULL, NULL, do_file, do_auth },
