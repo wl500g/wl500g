@@ -1181,9 +1181,9 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &backRes)
 
   if (repLens[repMaxIndex] >= 2)
   {
-    if (repLens[repMaxIndex] + 1 >= lenMain || 
-        repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9)) ||
-        repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15)))
+    if ((repLens[repMaxIndex] + 1 >= lenMain) || 
+        (repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9))) ||
+        (repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15))))
     {
       backRes = repMaxIndex;
       UInt32 lenRes = repLens[repMaxIndex];
@@ -1199,10 +1199,10 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &backRes)
     if (_longestMatchLength >= 2)
     {
       UInt32 newDistance = matchDistances[_numDistancePairs - 1];
-      if (_longestMatchLength >= lenMain && newDistance < backMain || 
-          _longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance) ||
-          _longestMatchLength > lenMain + 1 ||
-          _longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain))
+      if ((_longestMatchLength >= lenMain && newDistance < backMain) || 
+          (_longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance)) ||
+          (_longestMatchLength > lenMain + 1) ||
+          (_longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain)))
       {
         _longestMatchWasFound = true;
         backRes = UInt32(-1);
