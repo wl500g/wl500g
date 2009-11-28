@@ -14,9 +14,13 @@
 
 PAGES := *
 PAGES_DIR := graph/*
-MODEL := WL500g
+MODEL := WL500gp
 LANGUAGE := EN
-IPV6 := y
+
+ifneq ($(MAKECMDGOALS),clean)
+include $(TOP)/.config
+export CONFIG_IPV6 CONFIG_MADWIMAX
+endif
 
 all: pages.mk
 
@@ -24,7 +28,7 @@ pages.mk:
 	echo "PAGES := $(PAGES)" > $@
 
 install:
-	./mkweb $(MODEL) "$(LANGUAGE)" "$(IPV6)"
+	./mkweb $(MODEL) "$(LANGUAGE)"
 	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.asp $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
@@ -35,7 +39,7 @@ install:
 	rm -rf web_$(MODEL)
 
 install-%:
-	./mkweb $* "$(LANGUAGE)" "$(IPV6)"
+	./mkweb $* "$(LANGUAGE)"
 	rm -rf www_$*	
 	install -d www_$*
 	install -m 644 web_$*/*.asp www_$*
@@ -53,7 +57,7 @@ install-%:
 	rm -rf web_$*
 
 pages-%:
-	./mkweb $* "$(LANGUAGE)" "$(IPV6)"
+	./mkweb $* "$(LANGUAGE)"
 	rm -rf $(INSTALLDIR)/www && install -d $(INSTALLDIR)/www
 	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
 	install -m 644 web_$*/*.js $(INSTALLDIR)/www

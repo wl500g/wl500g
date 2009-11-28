@@ -14,8 +14,8 @@
 
 <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
     	
-<input type="hidden" name="current_page" value="Main_WMStatus_Content.asp">
-<input type="hidden" name="next_page" value="Main_WMStatus_Content.asp">
+<input type="hidden" name="current_page" value="Main_WiMaxStatus_Content.asp">
+<input type="hidden" name="next_page" value="Main_WiMaxStatus_Content.asp">
 <input type="hidden" name="next_host" value="">
 <input type="hidden" name="sid_list" value="WLANConfig11a;WLANConfig11b;">
 <input type="hidden" name="group_id" value="">
