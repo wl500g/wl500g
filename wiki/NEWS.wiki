@@ -1,6 +1,35 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d-`current trunk`===
+  * kernel 2.4.37.7
+    * IPv6: fix BUG of ndisc_send_redirect(), backport of ip6t_TCPMSS netfilter module
+    * ext2 module (separate archive)
+
+  * IPv6 - initial support (EXPERIMENTAL! - not included in standard builds)
+
+  * busybox
+    * bugfixes for applets - env, ping6
+    * traceroute6 applet
+    * allow mount by uuid/label ext/swap partitions
+
+  * accel-pptp: don't drop old echo request/reply packets (workaround for Corbina ISP)
+
+  * ez-ipupdate: added support for service autodetected public ip address
+
+  * rc
+    * reworked httpd watchdog check, closes issue 29
+    * default policies for ip6tables
+    * allow append samba config from /usr/local/smb.conf
+
+  * pppd 2.4.5
+
+  * vsftpd 2.2.2
+
+  * bugfixes
+    * uClibc can't resolv 30 hostnames in DNS answer
+    * madwimax driver - TX power must be signed
+
 ===wl500g-1.9.2.7-d-`r740` (2009-10-31)===
   * kernel
     * squashfs 3.0
