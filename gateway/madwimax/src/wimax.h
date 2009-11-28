@@ -46,7 +46,7 @@ struct wimax_dev_status {
 	short rssi;
 	float cinr;
 	unsigned char bsid[6];
-	unsigned short txpwr;
+	short txpwr;
 	unsigned int freq;
 	int state;
 };
