@@ -10,7 +10,16 @@ diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
  #include <linux/if_ppp.h>
  #include <linux/notifier.h>
  #include <linux/file.h>
-@@ -89,7 +89,9 @@ static inline void *kzalloc(size_t size,
+@@ -60,6 +60,8 @@ static int log_level=0;
+ static int log_packets=10;
+ 
+ #define MAX_CALLID 65535
++#define PPP_LCP_ECHOREQ 0x09
++#define PPP_LCP_ECHOREP 0x10
+ 
+ static unsigned long *callid_bitmap=NULL;
+ static struct pppox_sock **callid_sock=NULL;
+@@ -89,7 +91,9 @@ static inline void *kzalloc(size_t size,
  	memset(p,0,size);
  	return p;
  }
@@ -20,7 +29,18 @@ diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
  /**
   * __ffs - find first bit in word.
   * @word: The word to search
-@@ -455,13 +457,16 @@ static int pptp_xmit(struct ppp_channel 
+@@ -385,8 +389,8 @@ static int pptp_xmit(struct ppp_channel 
+ 		*/
+ 	if ((opt->ppp_flags & SC_COMP_AC) == 0 || islcp) {
+ 		data=skb_push(skb,2);
+-		data[0]=0xff;
+-		data[1]=0x03;
++		data[0]=PPP_ALLSTATIONS;
++		data[1]=PPP_UI;
+ 	}
+ 	
+ 	len=skb->len;
+@@ -455,13 +459,16 @@ static int pptp_xmit(struct ppp_channel 
  	#endif
  	iph->version		=	4;
  	iph->ihl		=	sizeof(struct iphdr) >> 2;
@@ -39,7 +59,40 @@ diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
  	#else
  	iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
  	#endif
-@@ -578,7 +583,7 @@ static int pptp_rcv_core(struct sock *sk
+@@ -545,12 +552,24 @@ static int pptp_rcv_core(struct sock *sk
+ 	payload=skb->data+headersize;
+ 	/* check for expected sequence number */
+ 	if ( seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq) ){
++		if ( (payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
++		     (PPP_PROTOCOL(payload) == PPP_LCP) &&
++		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ){
++			#ifdef DEBUG
++			if ( log_level >= 1)
++				printk(KERN_INFO"PPTP[%i]: allowing old LCP Echo packet %d (expecting %d)\n", opt->src_addr.call_id,
++							seq, opt->seq_recv + 1);
++			#endif
++			goto allow_packet;
++		}
+ 		#ifdef DEBUG
+ 		if ( log_level >= 1)
+ 			printk(KERN_INFO"PPTP[%i]: discarding duplicate or old packet %d (expecting %d)\n",opt->src_addr.call_id,
+ 							seq, opt->seq_recv + 1);
+ 		#endif
+ 	}else{
++		opt->seq_recv = seq;
++allow_packet:
+ 		#ifdef DEBUG
+ 		if ( log_level >= 3 && opt->seq_sent<=log_packets)
+ 			printk(KERN_INFO"PPTP[%i]: accepting packet %d size=%i (%02x %02x %02x %02x %02x %02x)\n",opt->src_addr.call_id, seq,payload_len,
+@@ -561,7 +580,6 @@ static int pptp_rcv_core(struct sock *sk
+ 				*(payload +4),
+ 				*(payload +5));
+ 		#endif
+-		opt->seq_recv = seq;
+ 
+ 		skb_pull(skb,headersize);
+ 
+@@ -578,7 +596,7 @@ static int pptp_rcv_core(struct sock *sk
  		}
  
  		skb->ip_summed=CHECKSUM_NONE;
