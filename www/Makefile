@@ -45,9 +45,7 @@ install-%:
 	install -m 644 web_$*/*.asp www_$*
 	install -m 644 web_$*/*.js www_$*
 	install -m 644 web_$*/*.css www_$*
-	( if [ "$*" != "WL500gl" ] && [ "$*" != "WL500bl" ] && [ "$*" != "WL331gl" ]; then \
-		install -m 644 web_$*/*.cab www_$*;\
-	fi )
+	install -m 644 web_$*/*.cab www_$*
 	install -d www_$*/graph
 	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
 
