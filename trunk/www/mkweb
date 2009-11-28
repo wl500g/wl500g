@@ -157,7 +157,7 @@ if [ -n "$1" ]; then
 
     ### 5. Replace ProductID in *.xml ###
 
-	PATTERN="s/WL600/$MODEL/g"
+#	PATTERN="s/WL600/$MODEL/g"
 # CHUPA	cat igdevicedesc.xml | sed "$PATTERN" > ../web_$MODEL/igdevicedesc.xml
 
 	### 6. Copy different files for different Model ###
@@ -165,24 +165,13 @@ if [ -n "$1" ]; then
 	if [ "$MODEL" = "WL330gE" ] || [ "$MODEL" = "WL320gE" ] || [ "$MODEL" = "WL320gP" ]; then
 		### 6.1 default value ###
 		
-		if [ "$MODEL" = "WL300g" ]; then
-		cat ../web_$MODEL/flash.default \
-		| sed 's/IP_Routed/IP_Bridged/g' \
-		| sed 's/NATEnabled=\"1\"/NATEnabled=\"0\"/g' \
-		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_300g
-		else	
 		cat ../web_$MODEL/flash.default \
 		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
 		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_300g
-		fi
 		cp -f ../web_$MODEL/flash.default_300g ../target/ramfs/etc/linuxigd/flash.default
 		
 		### 6.2 web page ###	
 		cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-		if [ "$MODEL" = "WL300g" ]; then
-		cp -f ../web_$MODEL/Advanced_WAdvanced_Content_300g.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
-		fi
     		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp		
 		cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
 
@@ -199,9 +188,6 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
 		
 		### 6.3 web graph ###		
-		if [ "$MODEL" = "WL300g" ]; then
-			cp -f ../web_$MODEL/graph/iBox_title_all_300g.jpg ../web_$MODEL/graph/iBox_title_all.jpg
-		fi
 		cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
 		cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
 		cp -f ../web_$MODEL/graph/internet_some_300.gif ../web_$MODEL/graph/internet_some.gif			
@@ -215,7 +201,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
 		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif	
 		
-	elif [ "$MODEL" = "WL500g" ] || [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] || [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] || [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
+	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] || [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] || [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
 		### 6.1 default value ###
 		cat ../web_$MODEL/flash.default \
 		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
@@ -256,76 +242,6 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
 		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif		
 		
-		### 6.4 Script and module ###
-		#cp -f ../target/init/functions_500g ../target/init/functions
-		#cp -f ../target/init/firewall.refresh_600g ../target/init/firewall.refresh
-		#cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
-		#cp -f ../target/web/script/route.sh_600g ../target/web/script/route.sh
-		#cp -f ../target/web/script/portmapping.sh_600g ../target/web/script/portmapping.sh
-
-		#cp -f ../target/web/script/wlan11b.sh_600g ../target/web/script/wlan11b.sh
-
-		#cp -f ../target/lib/modules/2.4.5/splink_led.o_300g ../target/lib/modules/2.4.5/splink_led.o	
-		#cp -f ../target/lib/modules/2.4.5/parport/lp.o_500g ../target/lib/modules/2.4.5/parport/lp.o	
-
-		#if [ "$MODELID" != "$MODEL" ]; then
-			#cp -f ../target/usr/sbin/upnp_Netgear ../target/usr/sbin/upnp
-			#cp -f ../target/sbin/lpd_usb ../target/sbin/lpd
-			#cp -f ../target/sbin/infosvr_usb ../target/sbin/infosvr
-			#cp -f ../target/init/rc.prnsvr_usb ../target/init/rc.prnsvr
-		#else						
-			#cp -f ../target/usr/sbin/upnp_500g ../target/usr/sbin/upnp
-			#cp -f ../target/sbin/lpd_600g ../target/sbin/lpd
-			#cp -f ../target/sbin/infosvr_600g ../target/sbin/infosvr
-			#cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
-		#fi
-	elif [ "$MODEL" = "WL520g" ] || [ "$MODEL" = "WL530g" ]; then
-		### 6.1 default value ###
-		cat ../web_$MODEL/flash.default \
-		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
-		cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
-				
-		### 6.2 web page ###						
-		cp -f ../web_$MODEL/Advanced_Wireless11g_Content_520g.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-    		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
-
-		cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
-
-		cp -f ../web_$MODEL/Advanced_WAdvanced_Content_520g.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
-
-
-		cp -f ../web_$MODEL/Advanced_LANWAN_Content_520g.asp ../web_$MODEL/Advanced_LANWAN_Content.asp
-
-
-		cp -f ../web_$MODEL/Advanced_BasicFirewall_Content_520g.asp ../web_$MODEL/Advanced_BasicFirewall_Content.asp
-		cp -f ../web_$MODEL/Advanced_Firewall_Content_520g.asp ../web_$MODEL/Advanced_Firewall_Content.asp
-
-		cp -f ../web_$MODEL/Advanced_VirtualServer_Content_520g.asp ../web_$MODEL/Advanced_VirtualServer_Content.asp
-
-		cp -f ../web_$MODEL/Main_GStatus11g_Content_520g.asp ../web_$MODEL/Main_GStatus_Content.asp
-
-		cp -f ../web_$MODEL/Main_WStatus11g_Content_520g.asp ../web_$MODEL/Main_WStatus_Content.asp
-
-		cp -f ../web_$MODEL/Main_Index_AccessPoint11g_520g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
-		cp -f ../web_$MODEL/Main_Index_HomeGateway11g_520g.asp ../web_$MODEL/Main_Index_HomeGateway.asp	
-		cp -f ../web_$MODEL/Main_Index_Router11g_520g.asp ../web_$MODEL/Main_Index_Router.asp
-
-
-		### 6.3 web graph ###
-		cp -f ../web_$MODEL/graph/iBox_title_all_520g.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
-		cp -f ../web_$MODEL/graph/internet_all_500.gif ./../web_$MODEL/graph/internet_all.gif
-		cp -f ../web_$MODEL/graph/internet_none_500.gif ./../web_$MODEL/graph/internet_none.gif
-		cp -f ../web_$MODEL/graph/internet_some_500.gif ./../web_$MODEL/graph/internet_some.gif			
-		cp -f ../web_$MODEL/graph/wds_ap_500.gif ./../web_$MODEL/graph/wds_ap.gif	
-		cp -f ../web_$MODEL/graph/wds_mixed_connect_500.gif ./../web_$MODEL/graph/wds_mixed_connect.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_anony_500.gif ./../web_$MODEL/graph/wds_mixed_anony.gif
-		cp -f ../web_$MODEL/graph/wds_mixed_both_500.gif ./../web_$MODEL/graph/wds_mixed_both.gif
-		cp -f ../web_$MODEL/graph/wds_wds_connect_500.gif ./../web_$MODEL/graph/wds_wds_connect.gif
-		cp -f ../web_$MODEL/graph/wds_wds_anony_500.gif ./../web_$MODEL/graph/wds_wds_anony.gif
-		cp -f ../web_$MODEL/graph/wds_wds_both_500.gif ./../web_$MODEL/graph/wds_wds_both.gif			
-		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
-		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif		
 	elif [ "$MODEL" = "WL600" ]; then
 		### 6.1 default value ###
 		cp -f ../web_$MODEL/flash.default ../target/ramfs/etc/linuxigd/flash.default
@@ -414,12 +330,8 @@ if [ -n "$1" ]; then
 	rm -rf ../web_$MODEL/*11g*.asp
 	rm -rf ../web_$MODEL/*11b*.asp
 	rm -rf ../web_$MODEL/*_300g.asp	
-	rm -rf ../web_$MODEL/*_520g.asp
 	rm -rf ../web_$MODEL/*_SP.asp
-	rm -rf ../web_$MODEL/*00g.jpg
 
-	rm -rf ../web_$MODEL/*501b.*
-	rm -rf ../web_$MODEL/*500g.*	
 	rm -rf ../web_$MODEL/*Client*.*
 	rm -rf ../web_$MODEL/*ClientMore*.asp
 	rm -rf ../web_$MODEL/*Certificate*.asp
