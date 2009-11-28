@@ -290,16 +290,6 @@ endif
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
-modules_install-WL500g modules_install-WL500b: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o
-
-modules_install-WL500bv2: modules_install
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o
-	rm -f $(MODULESDIR)/wl.o
-	install -t $(MODULESDIR)/ rt2460/rt2400.o 
-
 modules_install-WL3%: modules_install
 	rm -rf $(MODULESDIR)/parport
 
@@ -909,18 +899,6 @@ model-%:
 	elif [ "$*" = "WLHDD" ]; then \
 		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WLHDD -DQOS -DWPA2_WMM"; \
 		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
-	elif [ "$*" = "WL300g" ]; then \
-		make rc GLOBAL_OPTIONS="-DCONFIG_WL300G -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
-	elif [ "$*" = "WL300g2" ]; then \
-		make rc GLOBAL_OPTIONS="-DCONFIG_WL300G2 -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
-	elif [ "$*" = "WL331g" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
-	elif [ "$*" = "WL331gl" ]; then \
-		make rc GLOBAL_OPTIONS="-DCONFIG_WL331G -DWPA2_WMM -DWOB"; \
-		make infosvr GLOBAL_OPTIONS="-DNO_PARALLEL"; \
 	fi )
 
 image-%:
@@ -936,7 +914,6 @@ images-%:
 
 images:
 	make images-WL500gx
-	#make images-WL300g
 	#make images-WLHDD
 	make images-WL550gE
 	make images-WL320gE
@@ -947,8 +924,6 @@ images:
 	make images-WL500gpv2
 	make images-WL330gE
 	#make images-WL700g
-	#make images-WL331g
-	#make images-WL331gl
 
 #
 # Generic rules
