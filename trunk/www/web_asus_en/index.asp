@@ -272,7 +272,7 @@ function generateTree()
         aux1 = appendChild(foldersTree, leafNode("Status & Log"))
            appendChild(aux1,generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""))         
-           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WMStatus_Content.asp", ""))         
+           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WiMaxStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", "")) 
            if (isModel() != 'SnapAP')
            {

@@ -15,7 +15,7 @@ echo Make $1 Web Page
 
 if [ -n "$1" ]; then
 
-	MODEL=$1 IPV6=$3
+	MODEL=$1
 
 	if [ -n "$2" ]; then
 		if [ "$2" = "EN" ]; then
@@ -93,7 +93,21 @@ if [ -n "$1" ]; then
 	done
 
 
-	### 2bis. Strip *.asp, *.css and *.js ###
+	### 3. Removing IPV6 & WiMAX pages
+	if [ "$CONFIG_IPV6" != "y" ]; then
+		echo "Removing IPV6 pages..."
+		rm -rf ../web_$MODEL/*IPV6*.asp
+		sed -ri '/IPV6/d' ../web_$MODEL/index.asp
+	fi
+
+	if [ "$CONFIG_MADWIMAX" != "y" ]; then
+		echo "Removing WiMax pages..."
+		rm -rf ../web_$MODEL/*WiMax*.asp
+		sed -ri '/WiMAX/d' ../web_$MODEL/index.asp
+		sed -ri '/WiMAX/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
+	fi
+
+	### 4. Strip *.asp, *.css and *.js ###
 	echo "Stripping web interface..."
 
 	# Strip c++ style (//...) comments from js and asp, however, preserve urls like http://
@@ -141,15 +155,15 @@ if [ -n "$1" ]; then
 		sed -ri ':c;$!N;s/\n</</;tc' $i
 	done
 
-    ### 3. Replace ProductID in *.xml ###
+    ### 5. Replace ProductID in *.xml ###
 
 	PATTERN="s/WL600/$MODEL/g"
 # CHUPA	cat igdevicedesc.xml | sed "$PATTERN" > ../web_$MODEL/igdevicedesc.xml
 
-	### 4. Copy different files for different Model ###
+	### 6. Copy different files for different Model ###
 	
 	if [ "$MODEL" = "WL330gE" ] || [ "$MODEL" = "WL320gE" ] || [ "$MODEL" = "WL320gP" ]; then
-		### 4.1 default value ###
+		### 6.1 default value ###
 		
 		if [ "$MODEL" = "WL300g" ]; then
 		cat ../web_$MODEL/flash.default \
@@ -164,7 +178,7 @@ if [ -n "$1" ]; then
 		fi
 		cp -f ../web_$MODEL/flash.default_300g ../target/ramfs/etc/linuxigd/flash.default
 		
-		### 4.2 web page ###	
+		### 6.2 web page ###	
 		cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
 		if [ "$MODEL" = "WL300g" ]; then
 		cp -f ../web_$MODEL/Advanced_WAdvanced_Content_300g.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
@@ -184,7 +198,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/Main_RStatus11g_Content.asp ../web_$MODEL/Main_RStatus_Content.asp		
 		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
 		
-		### 4.3 web graph ###		
+		### 6.3 web graph ###		
 		if [ "$MODEL" = "WL300g" ]; then
 			cp -f ../web_$MODEL/graph/iBox_title_all_300g.jpg ../web_$MODEL/graph/iBox_title_all.jpg
 		fi
@@ -202,13 +216,13 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif	
 		
 	elif [ "$MODEL" = "WL500g" ] || [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] || [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] || [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
-		### 4.1 default value ###
+		### 6.1 default value ###
 		cat ../web_$MODEL/flash.default \
 		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
 		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
 		cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
 				
-		### 4.2 web page ###							
+		### 6.2 web page ###							
 		if [ "$MODEL" = "WL500W" ]; then
 			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
 			cp -f ../web_$MODEL/Advanced_WAdvanced_Content_11n.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
@@ -221,7 +235,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/Main_Index_AccessPoint11g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
 		cp -f ../web_$MODEL/Main_Index_HomeGateway11g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
 		cp -f ../web_$MODEL/Main_Index_Router11g.asp ../web_$MODEL/Main_Index_Router.asp
-		### 4.3 web graph ###
+		### 6.3 web graph ###
 		if [ "$MODEL" = "WL500gx" ]; then
 			cp -f ../web_$MODEL/graph/iBox_title_all_500gx.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
 		elif [ "$MODEL" = "WL550gE" ]; then
@@ -242,7 +256,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
 		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif		
 		
-		### 4.4 Script and module ###
+		### 6.4 Script and module ###
 		#cp -f ../target/init/functions_500g ../target/init/functions
 		#cp -f ../target/init/firewall.refresh_600g ../target/init/firewall.refresh
 		#cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
@@ -266,13 +280,13 @@ if [ -n "$1" ]; then
 			#cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
 		#fi
 	elif [ "$MODEL" = "WL520g" ] || [ "$MODEL" = "WL530g" ]; then
-		### 4.1 default value ###
+		### 6.1 default value ###
 		cat ../web_$MODEL/flash.default \
 		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
 		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
 		cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
 				
-		### 4.2 web page ###						
+		### 6.2 web page ###						
 		cp -f ../web_$MODEL/Advanced_Wireless11g_Content_520g.asp ../web_$MODEL/Advanced_Wireless_Content.asp
     		cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
 
@@ -298,7 +312,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/Main_Index_Router11g_520g.asp ../web_$MODEL/Main_Index_Router.asp
 
 
-		### 4.3 web graph ###
+		### 6.3 web graph ###
 		cp -f ../web_$MODEL/graph/iBox_title_all_520g.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
 		cp -f ../web_$MODEL/graph/internet_all_500.gif ./../web_$MODEL/graph/internet_all.gif
 		cp -f ../web_$MODEL/graph/internet_none_500.gif ./../web_$MODEL/graph/internet_none.gif
@@ -313,13 +327,13 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif	
 		cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif		
 	elif [ "$MODEL" = "WL600" ]; then
-		### 4.1 default value ###
+		### 6.1 default value ###
 		cp -f ../web_$MODEL/flash.default ../target/ramfs/etc/linuxigd/flash.default
 		
-		### 4.2 web page ###	
+		### 6.2 web page ###	
 		cp -f ../web_$MODEL/Advanced_WirelessDual11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
 		
-		### 4.3 web graph ###
+		### 6.3 web graph ###
 		cp -f ../web_$MODEL/graph/internet_all_600.gif ./../web_$MODEL/graph/internet_all.gif
 		cp -f ../web_$MODEL/graph/internet_none_600.gif ./../web_$MODEL/graph/internet_none.gif
 		cp -f ../web_$MODEL/graph/internet_some_600.gif ./../web_$MODEL/graph/internet_some.gif			
@@ -328,7 +342,7 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/graph/wf_a_600.gif ./../web_$MODEL/graph/wf_a.gif	
 		cp -f ../web_$MODEL/graph/wf_both_600.gif ./../web_$MODEL/graph/wf_both.gif	
 		
-		### 4.4 Script and module ###
+		### 6.4 Script and module ###
 		cp -f ../target/init/functions_600g ../target/init/functions
 		cp -f ../target/init/firewall.refresh_600g ../target/init/firewall.refresh
 		cp -f ../target/init/rc.prnsvr_600g ../target/init/rc.prnsvr
@@ -345,11 +359,11 @@ if [ -n "$1" ]; then
 
 #################################################################### WLHDD
         elif [ "$MODEL" = "WLHDD" ]; then
-                ### 4.1 default value ###
+                ### 6.1 default value ###
 		
 ### CHUPA: Obsolete, left out..
 
-                ### 4.2 web page ###
+                ### 6.2 web page ###
                 cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
                 cp -f ../web_$MODEL/Advanced_WAdvanced_Content.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
 # for afterburner (wl500gx/wlhdd function)
@@ -375,7 +389,7 @@ if [ -n "$1" ]; then
                 cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
 # exposed_content seems to be obsolete as exposed_SP vervangen replaces it..?
 
-                ### 4.3 web graph ###
+                ### 6.3 web graph ###
                 cp -f ../web_$MODEL/graph/iBox_title_all_HDD.jpg ../web_$MODEL/graph/iBox_title_all.jpg
 # need new image, present at http://www.chupa.nl/www/asus etc..
                 cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
@@ -394,7 +408,7 @@ if [ -n "$1" ]; then
 #################################################################### WLHDD /
 	fi
 
-	### 6. Remove useless files in ./target/web/* ###
+	### 7. Remove useless files in ./target/web/* ###
 	rm -rf ../web_$MODEL/flash.default*
 	rm -rf ../web_$MODEL/*11n*.asp
 	rm -rf ../web_$MODEL/*11g*.asp
@@ -511,12 +525,6 @@ if [ -n "$1" ]; then
 	### 8. Remove tempdir ###		
 	#rm -rf ../web_$MODEL
 
-	### 9. Removing IPV6 pages
-	if [ "$IPV6" != "y" ]; then
-		echo "Removing IPV6 pages..."
-		rm -rf ../web_$MODEL/*IPV6*.asp
-		sed -ri '/IPV6/d' ../web_$MODEL/index.asp
-	fi
 else
 	echo Usage: [Model]
 fi
