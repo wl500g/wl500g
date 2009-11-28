@@ -1,3 +1,8 @@
+1. disabled ffs routines redefine
+2. used route-default ttl & df bit
+3. fixed 2.6.22 kernel compability
+3. allowed old lcp echo packets, thnx McMCC@wl500g.info
+
 diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
 --- linux-2.4.37.6/drivers/net/pptp.c	2009-09-27 17:05:00.000000000 +0000
 +++ linux/drivers/net/pptp.c	2009-10-03 09:14:43.000000000 +0000
