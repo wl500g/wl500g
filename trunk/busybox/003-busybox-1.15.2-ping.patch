@@ -1,40 +1,24 @@
-From ad7d94bdc7d6a8ffe798a54f09e1e51dd949c9b7
-From: Denys Vlasenko
-Date: Fri, 20 Nov 2009 17:12:12 +0000
-Subject: ping6: do not play dirty tricks with argv
-
-function                                             old     new   delta
-common_ping_main                                       -     368    +368
-ping6_main                                            30      14     -16
-ping_main                                            370      11    -359
-------------------------------------------------------------------------------
-(add/remove: 1/0 grow/shrink: 0/2 up/down: 368/-375)           Total: -7 bytes
-
-Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
----
-diff --git a/networking/ping.c b/networking/ping.c
-index d30eb5c..0ca41b9 100644
---- a/networking/ping.c
-+++ b/networking/ping.c
-@@ -30,13 +30,13 @@
- #include "libbb.h"
- 
- #if ENABLE_PING6
--#include <netinet/icmp6.h>
-+# include <netinet/icmp6.h>
- /* I see RENUMBERED constants in bits/in.h - !!?
-  * What a fuck is going on with libc? Is it a glibc joke? */
--#ifdef IPV6_2292HOPLIMIT
--#undef IPV6_HOPLIMIT
--#define IPV6_HOPLIMIT IPV6_2292HOPLIMIT
--#endif
-+# ifdef IPV6_2292HOPLIMIT
-+#  undef IPV6_HOPLIMIT
-+#  define IPV6_HOPLIMIT IPV6_2292HOPLIMIT
-+# endif
- #endif
- 
- enum {
+diff -urpN busybox-1.15.2/include/platform.h busybox-1.15.2-ping/include/platform.h
+--- busybox-1.15.2/include/platform.h	2009-09-26 15:14:57.000000000 +0200
++++ busybox-1.15.2-ping/include/platform.h	2009-11-28 23:48:41.000000000 +0100
+@@ -174,12 +174,14 @@ char *strchrnul(const char *s, int c);
+  * a lvalue. This makes it more likely to not swap them by mistake
+  */
+ #if defined(i386) || defined(__x86_64__)
++# define move_from_unaligned_int(v, intp) ((v) = *(int*)(intp))
+ # define move_from_unaligned16(v, u16p) ((v) = *(uint16_t*)(u16p))
+ # define move_from_unaligned32(v, u32p) ((v) = *(uint32_t*)(u32p))
+ # define move_to_unaligned32(u32p, v)   (*(uint32_t*)(u32p) = (v))
+ /* #elif ... - add your favorite arch today! */
+ #else
+ /* performs reasonably well (gcc usually inlines memcpy here) */
++# define move_from_unaligned_int(v, intp) (memcpy(&(v), (intp), sizeof(int)))
+ # define move_from_unaligned16(v, u16p) (memcpy(&(v), (u16p), 2))
+ # define move_from_unaligned32(v, u32p) (memcpy(&(v), (u32p), 4))
+ # define move_to_unaligned32(u32p, v) do { \
+diff -urpN busybox-1.15.2/networking/ping.c busybox-1.15.2-ping/networking/ping.c
+--- busybox-1.15.2/networking/ping.c	2009-09-26 15:14:57.000000000 +0200
++++ busybox-1.15.2-ping/networking/ping.c	2009-11-28 23:48:41.000000000 +0100
 @@ -173,13 +173,14 @@ static void ping6(len_and_sockaddr *lsa)
  }
  #endif
@@ -54,7 +38,17 @@ index d30eb5c..0ca41b9 100644
  	while ((++argv)[0] && argv[0][0] == '-') {
  		if (argv[0][1] == '4') {
  			af = AF_INET;
-@@ -716,18 +717,16 @@ static void ping(len_and_sockaddr *lsa)
+@@ -689,7 +690,8 @@ static void ping6(len_and_sockaddr *lsa)
+ 			 /* don't check len - we trust the kernel: */
+ 			 /* && mp->cmsg_len >= CMSG_LEN(sizeof(int)) */
+ 			) {
+-				hoplimit = *(int*)CMSG_DATA(mp);
++				/*hoplimit = *(int*)CMSG_DATA(mp); - unaligned access */
++				move_from_unaligned_int(hoplimit, CMSG_DATA(mp));
+ 			}
+ 		}
+ 		unpack6(packet, c, /*&from,*/ hoplimit);
+@@ -716,18 +718,16 @@ static void ping(len_and_sockaddr *lsa)
  		ping4(lsa);
  }
  
@@ -75,7 +69,7 @@ index d30eb5c..0ca41b9 100644
  	if (opt & OPT_s)
  		datalen = xatou16(str_s); // -s
  	if (opt & OPT_I) { // -I
-@@ -765,13 +764,25 @@ int ping_main(int argc UNUSED_PARAM, char **argv)
+@@ -765,13 +765,25 @@ int ping_main(int argc UNUSED_PARAM, cha
  #endif /* FEATURE_FANCY_PING */
  
  
@@ -104,5 +98,3 @@ index d30eb5c..0ca41b9 100644
  }
  #endif
  
---
-cgit v0.8.2.1
