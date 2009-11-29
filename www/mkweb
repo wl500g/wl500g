@@ -347,7 +347,6 @@ if [ -n "$1" ]; then
 	rm -rf ../web_$MODEL/graph/*_300g.*
 	rm -rf ../web_$MODEL/graph/*_500gx.*	
 	rm -rf ../web_$MODEL/graph/*_520g.*
-	rm -rf ../web_$MODEL/graph/*_331g.*
 # CHUPA
 	rm -rf ../web_$MODEL/graph/*_HDD.*
 	rm -rf ../web_$MODEL/graph/*_550g.*
@@ -361,18 +360,11 @@ if [ -n "$1" ]; then
 	rm -rf ../web_$MODEL/graph/List_backgroup.gif
 	rm -rf ../web_$MODEL/graph/Notebook.gif
 	rm -rf ../web_$MODEL/graph/PC.gif
-	rm -rf ../web_$MODEL/graph/Upload.gif
-	rm -rf ../web_$MODEL/graph/Upload_BAD.gif
-	rm -rf ../web_$MODEL/graph/Upload_OK.gif
 	rm -rf ../web_$MODEL/graph/V.gif
 	rm -rf ../web_$MODEL/graph/apicon.gif
 	rm -rf ../web_$MODEL/graph/apply.gif
 	rm -rf ../web_$MODEL/graph/asusLogo.jpg
 	rm -rf ../web_$MODEL/graph/delthisentry.gif
-	rm -rf ../web_$MODEL/graph/firewall1.gif
-	rm -rf ../web_$MODEL/graph/firewall2.gif
-	rm -rf ../web_$MODEL/graph/firewall3.gif
-	rm -rf ../web_$MODEL/graph/gatewayLogo.gif
 	rm -rf ../web_$MODEL/graph/iBox.gif
 	rm -rf ../web_$MODEL/graph/internet.gif
 	rm -rf ../web_$MODEL/graph/restore.gif
@@ -383,9 +375,6 @@ if [ -n "$1" ]; then
 	rm -rf ../web_$MODEL/graph/sumhorsd.gif
 	rm -rf ../web_$MODEL/graph/sumtextb.jpg
 	rm -rf ../web_$MODEL/graph/x.gif
-
-	rm -rf ../web_$MODEL/index_JP.asp
-	rm -rf ../web_$MODEL/firmware.asp
 
 	rm -f ../web_$MODEL/graph/internet_*.gif
 	rm -f ../web_$MODEL/graph/wf_both.gif
@@ -401,16 +390,12 @@ if [ -n "$1" ]; then
 	rm -f ../web_$MODEL/Advanced_DMZDLFilter_Content.asp
 	rm -f ../web_$MODEL/Advanced_DMZDWFilter_Content.asp
 	rm -f ../web_$MODEL/Advanced_DMZIP_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZLAN_Content.asp
-	rm -f ../web_$MODEL/Advanced_DMZWAN_Content.asp
 	rm -f ../web_$MODEL/Advanced_DynamicRoute_Content.asp
 	rm -f ../web_$MODEL/Advanced_FilterHelp_Widzard.asp
 	rm -f ../web_$MODEL/Advanced_GRouterHelp_Widzard.asp
 	rm -f ../web_$MODEL/Advanced_Help_Widzard.asp
-	rm -f ../web_$MODEL/Advanced_LANWAN_Content_JP.asp
 	rm -f ../web_$MODEL/Advanced_LFirewall_Content.asp
 	rm -f ../web_$MODEL/Advanced_MultiPPPoE_Content.asp
-	rm -f ../web_$MODEL/Advanced_NAT_Content_JP.asp
 	rm -f ../web_$MODEL/Advanced_PortForwarding_Widzard.asp
 	rm -f ../web_$MODEL/Advanced_PortMapping_Content.asp
 	rm -f ../web_$MODEL/Advanced_PrinterSetup_Content.asp
@@ -422,15 +407,10 @@ if [ -n "$1" ]; then
 	rm -f ../web_$MODEL/Basic_AOperation_Content.asp
 	rm -f ../web_$MODEL/Basic_Operation_Content.asp
 	rm -f ../web_$MODEL/Checking.asp
-	rm -f ../web_$MODEL/EMITest.asp
 	rm -f ../web_$MODEL/Main_Content.asp
-	rm -f ../web_$MODEL/Main_FWStatus_Content.asp
-	rm -f ../web_$MODEL/Main_Index.asp
 	rm -f ../web_$MODEL/Main_Index_Content.asp
 	rm -f ../web_$MODEL/Main_Password_Content.asp
 	rm -f ../web_$MODEL/Main_Status_Content.asp
-	rm -f ../web_$MODEL/WizardFirst.asp
-	rm -f ../web_$MODEL/WlanUpdate.asp
 			
 # /CHUPA
 
