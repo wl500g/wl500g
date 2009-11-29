@@ -572,8 +572,8 @@ function displayIconAndLabel(foldersNode, doc)
     else
       doc.write(szCloseIconName + " width=22 height=22 border=noborder></a>")
     doc.write("<td valign=middle align=left nowrap>")
-    doc.write("<a href='javascript:top.openBranch(\"" + foldersNode[3] + "\")'  onClick='return top.checkChanged()'>")
-    doc.write("<font size=-1 face='Arial, Helvetica' class='wounderline'>"+foldersNode[3]+"</font></a>")
+    doc.write("<a href='javascript:top.openBranch(\"" + foldersNode[3] + "\")' class='wounderline' onClick='return top.checkChanged()'>")
+    doc.write("<font size=-1 face='Arial, Helvetica'>"+foldersNode[3]+"</font></a>")
     }
 
 //**********************+
