@@ -20,7 +20,7 @@ diff -BurpN linux-2.4.37.6/drivers/net/pptp.c linux/drivers/net/pptp.c
  
  #define MAX_CALLID 65535
 +#define PPP_LCP_ECHOREQ 0x09
-+#define PPP_LCP_ECHOREP 0x10
++#define PPP_LCP_ECHOREP 0x0A
  
  static unsigned long *callid_bitmap=NULL;
  static struct pppox_sock **callid_sock=NULL;
