@@ -1691,7 +1691,7 @@ function load_body()
    	if (window.top.isCard()!='ralink')
    		wl_rate_change();
    	
-   	if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isModel()!="WL300" && window.top.isModel()!="WL331" && window.top.isCard()!='ralink')
+   	if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isCard()!='ralink')
    	{
    		if (window.top.isBand() == 'b') inputCtrl(document.form.wl_frameburst, 0);
    		
@@ -2085,11 +2085,8 @@ function change_firewall(r)
     		
     		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
     		{    			
-    			if (window.top.isFlash() != '2MB' && window.top.isModel()!= "WL331" )
-    			{
-    				inputRCtrl1(document.form.misc_lpr_x, 0);
-    				inputRCtrl2(document.form.misc_lpr_x, 1);
-    			}	
+			inputRCtrl1(document.form.misc_lpr_x, 0);
+			inputRCtrl2(document.form.misc_lpr_x, 1);
     			inputRCtrl1(document.form.misc_ping_x, 0);    			
     			inputRCtrl2(document.form.misc_ping_x, 1);
     		}	    		
@@ -2101,10 +2098,7 @@ function change_firewall(r)
     		
     		if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
     		{
-    			if (window.top.isFlash() != '2MB' && window.top.isModel()!="WL331")
-    			{
-    				inputRCtrl1(document.form.misc_lpr_x, 1);
-    			}		
+    			inputRCtrl1(document.form.misc_lpr_x, 1);
     			inputRCtrl1(document.form.misc_ping_x, 1);    	
     		}		
     	}    
@@ -2297,10 +2291,7 @@ function onSubmit()
     		
     	if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
     	{
-    		if ( window.top.isFlash() != '2MB' && window.top.isModel()!="WL331")
-    		{    			
-    			inputRCtrl1(document.form.misc_lpr_x, 1);
-    		}	
+		inputRCtrl1(document.form.misc_lpr_x, 1);
     		inputRCtrl1(document.form.misc_ping_x, 1);
     	}	
    } 		
@@ -3336,7 +3327,7 @@ function updateDateTime(s)
    	   document.form.usb_websecurity_time_x_endhour,
    	   document.form.usb_websecurity_time_x_endmin);   	        
    }
-   else if (s == "Advanced_WAdvanced_Content.asp" && window.top.isModel()!="WL300" && window.top.isModel()!="WL331")
+   else if (s == "Advanced_WAdvanced_Content.asp")
    {   	          
    	if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
    	{

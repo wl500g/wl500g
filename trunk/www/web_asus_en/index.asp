@@ -41,7 +41,6 @@ function isModel()
 
    if (pid.indexOf("WL500")!=-1 || pid.indexOf("WL700")!=-1 ||
        pid.indexOf("WL550")!=-1 || pid.indexOf("WL520gu")!= -1) model = 'WL500';
-   else if (pid.indexOf("WL331")!=-1) model = 'WL331';
    else if (pid.indexOf("WL520")!=-1 ||
             pid.indexOf("WL530")!=-1) model = 'WL520';            
    else if (pid.indexOf("SnapAP")!=-1) model = 'SnapAP';
@@ -85,9 +84,8 @@ function isFlash()
    flash = '4MB';
    
    pid = parent.titleFrame.document.form.productid.value;
-   if (pid.indexOf("WL331g")!=-1) flash = '2MB';        
-   else if (pid.indexOf("WL500g.Lite")!=-1) flash = '2MB';         
-   else if (pid.indexOf("WL500b.Lite")!=-1) flash = '2MB';          
+   if (pid.indexOf("WL500gp")!=-1 || pid.indexOf("WL500W")!=-1 || ))
+	flash = '8MB';
    return flash;
 }
 
@@ -222,7 +220,7 @@ function generateTree()
     	   }           
      }    
      
-     if (isModel() != 'WL300' && isModel() != 'WL520' && isModel() != 'SnapAP' && isFlash() != '2MB')
+     if (isModel() != 'WL520' && isModel() != 'SnapAP')
      {
     	 aux1 = appendChild(foldersTree, leafNode("USB Application"))          
            appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""))
@@ -468,7 +466,7 @@ function redrawTree()
     doc.write("<td>");
     doc.write("<div align='center'>");
 
-    if (isModel()=="WL520" || isModel()=="SnapAP" || isModel()=="WL331")
+    if (isModel()=="WL520" || isModel()=="SnapAP")
     {
     	doc.write("<img src='graph/asusLogo.jpg' width='144' height='66'></div>");
     }
