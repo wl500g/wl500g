@@ -53,10 +53,13 @@ extern int strncasecmp(const char *s1, const char *s2, size_t n);
 extern char *strsep(char **stringp, char *delim);
 #define socklen_t 		int
 #define main			milli
-#else
+#else /* !vxvorks */
 #include <error.h>
 #include <sys/signal.h>
+#include <sys/ioctl.h>
 #endif
+
+#include "bcmnvram_f.h"
 
 // Added by Joey for ethtool
 #include <net/if.h>
@@ -92,6 +95,10 @@ static int b64_decode( const char* str, unsigned char* space, int size );
 static int match( const char* pattern, const char* string );
 static int match_one( const char* pattern, int patternlen, const char* string );
 static void handle_request(void);
+static void http_login(unsigned int ip);
+static int http_login_check(void);
+static void http_logout(unsigned int ip);
+static void http_login_timeout(unsigned int ip);
 
 /* added by Joey */
 int redirect = 1;
@@ -552,13 +559,13 @@ handle_request(void)
     }	
 }
 
-http_login_cache(usockaddr *u)
+static void http_login_cache(usockaddr *u)
 {
     	login_ip_tmp = (unsigned int)(u->sa_in.sin_addr.s_addr);
     	//printf("client :%x\n", login_ip_tmp);
 }
 
-http_login(unsigned int ip)
+static void http_login(unsigned int ip)
 {
 
 	if (http_port!=server_port || ip == 0x100007f) return;
@@ -568,10 +575,8 @@ http_login(unsigned int ip)
 	time(&login_timestamp);
 }
 
-int http_login_check(void)
+static int http_login_check(void)
 {
-	time_t now;
-	
 	if (http_port!=server_port || login_ip_tmp == 0x100007f) return 1;
 
 	http_login_timeout(login_ip_tmp);
@@ -586,7 +591,7 @@ int http_login_check(void)
 	return 1;
 }
 
-http_login_timeout(unsigned int ip)
+static void http_login_timeout(unsigned int ip)
 {
 	time_t now;
 
@@ -600,7 +605,7 @@ http_login_timeout(unsigned int ip)
 	}
 }
 
-http_logout(unsigned int ip)
+static void http_logout(unsigned int ip)
 {
 	//fprintf(stderr, "ip : %x %x %x\n", ip, login_ip, login_try);
 

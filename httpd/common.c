@@ -14,6 +14,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -24,6 +25,7 @@
 #include <sys/socket.h>
 #include <linux/if.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "shutils.h"
 #include "bcmnvram_f.h"
@@ -46,14 +48,6 @@
 
 char *serviceId;
 
-static unsigned long
-inet_atoul(char *cp)
-{
-	struct in_addr in;
-
-	inet_aton(cp, &in);
-	return in.s_addr;
-}
 
 static int
 validate_portrange(char *value, struct variable *v)
@@ -64,33 +58,41 @@ validate_portrange(char *value, struct variable *v)
 static int
 validate_wlchannel(char *value, struct variable *v)
 {
+	return UPNP_E_SUCCESS;
 }
 
 static int
 validate_wlwep(char *value, struct variable *v)
 {
+	return UPNP_E_SUCCESS;
 }
 
 static int
 validate_wlkey(char *value, struct variable *v)
 {
+	return UPNP_E_SUCCESS;
 }
 
 static int
 validate_wlrate(char *value, struct variable *v)
 {
+	return UPNP_E_SUCCESS;
 }
 
 static int
 validate_wlphrase(char *value, struct variable *v)
 {
+	return UPNP_E_SUCCESS;
 }
 
 
 static int
 validate_ipaddr(char *value, struct variable *v)
 {
-	struct in_addr ipaddr, netaddr, netmask;
+	struct in_addr ipaddr;
+#ifdef REMOVE_WL600
+	struct in_addr netaddr, netmask;
+#endif
 
 	if (!inet_aton(value, &ipaddr)) {		
 		return UPNP_E_INVALID_ARGUMENT;
@@ -156,7 +158,7 @@ validate_string(char *value, struct variable *v)
 	return UPNP_E_SUCCESS;
 }
 
-static void
+static int
 validate_group(char *value, struct variable *v)
 {
    return(UPNP_E_SUCCESS);
@@ -235,7 +237,7 @@ struct action *CheckActions(int sid, char *name)
 {
    struct action *a;
    	
-   for (a = GetActions(sid); a->name != NULL; a++) 
+   for (a = GetActions(sid); a != NULL && a->name != NULL; a++) 
    {
       if (strcmp(a->name, name)==0)	
       {
@@ -289,7 +291,7 @@ int CheckGroupVariables(int sid, struct variable *gvs, char *name, char *var)
    struct variable *gv;
             
    /* Find member of group */
-   for (gv = gvs->argv[0]; gv->name!=NULL; gv++)
+   for (gv = (struct variable *)gvs->argv[0]; gv->name!=NULL; gv++)
    {     
       if (strcmp(gv->name, name)==0)
       {           	

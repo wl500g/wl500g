@@ -41,9 +41,6 @@
 char *workingDir="/etc/linuxigd";
 
 
-/* Linked list of environment variables */
-static EnvRec  curEnv;
-
 /*
  * NOTE : The mutex must be initialized in the OS previous to the point at
  *           which multiple entry points to the nvram code are enabled 
@@ -148,6 +145,7 @@ err:
 }
 #endif	// REMOVE
 
+extern void findNVRAMName(const char *serviceId, const char *field, char *name);
 
 /*
  * Set the value of an NVRAM variable
@@ -476,7 +474,6 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 {
 #ifndef REMOVE_NVRAM
 
-    FILE *fp;
     char names[32], oname[32], nname[32], *oval, *nval;
     int oi, ni, di;
     

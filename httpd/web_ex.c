@@ -43,6 +43,7 @@
 #include "typedefs.h"
 #include "shutils.h"
 #include "bcmutils.h"
+#include "bcmnvram.h"
 #include "bcmnvram_f.h"
 #include "common.h"
 
@@ -80,6 +81,9 @@
 
 #define IMAGE_HEADER 	"HDR0"
 #define PROFILE_HEADER 	"HDR1"
+
+extern void getSharedEntry(int index);
+extern void setSharedEntry(int index);
 
 static int apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int flag);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
@@ -422,6 +426,7 @@ int websWriteEscape(webs_t wp, char *buf)
 		else
 			ret += websWrite(wp, "%c", *c);
 	}
+	return ret;
 }
 
 /*
@@ -737,6 +742,8 @@ ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
 	    	websWrite(wp, "Main_Index_AccessPoint.asp");
 	}		
 	strcpy(urlcache,"");		                             	
+
+	return flag;
 }
 
 
@@ -744,10 +751,7 @@ ej_urlcache(int eid, webs_t wp, int argc, char_t **argv)
 static int
 ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 {
-
-	FILE *fp;
 	char buf[MAX_LINE_SIZE];
-	unsigned long uptime;
 	int ret;
 	char *str = file2str("/proc/uptime");
 	time_t tm;
@@ -772,7 +776,7 @@ ej_dumplog(int eid, webs_t wp, int argc, char_t **argv)
 	#define MAX_LOG_BUF 2048
 	#define MAX_LOG_SIZE 16384
 	char buf[MAX_LOG_BUF], *line;
-	char *next, *s;
+	char *s;
 	int len, ret = 0;
 	long filelen;
 	time_t tm;
@@ -1049,7 +1053,7 @@ static int dump_file(webs_t wp, char *filename)
 {
 	FILE *fp;
 	char buf[MAX_LINE_SIZE];
-	int ret;
+	int ret = 0;
 
 	//printf("dump: %s\n", filename);
 	
@@ -1061,8 +1065,6 @@ static int dump_file(webs_t wp, char *filename)
 		return(ret);
 	}
 
-	ret = 0;
-		
 	while (fgets(buf, MAX_LINE_SIZE, fp)!=NULL)
 	{	 	
 	    //printf("Read time: %s\n", buf);	    	    	    	   
@@ -1077,8 +1079,6 @@ static int dump_file(webs_t wp, char *filename)
 static int
 ej_dump(int eid, webs_t wp, int argc, char_t **argv)
 {	
-	FILE *fp;
-	char buf[MAX_LINE_SIZE];
 	char filename[32];
 	char *file,*script;
 	int ret;
@@ -1302,7 +1302,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
     char groupId[64];
     char urlStr[64];
     char *groupName;
-    char *host;
+//    char *host;
     
     if (!query)
 	goto footer;
@@ -1621,9 +1621,8 @@ void nvram_add_group_item(webs_t wp, struct variable *v, int sid)
 void nvram_remove_group_item(webs_t wp, struct variable *v, int sid, int *delMap)
 {
     struct variable *gv;
-    char *value;
-    char glist[MAX_LINE_SIZE], *itemPtr, *glistPtr, cstr[5];    
-    int item, i, count;
+    char cstr[5];
+    int i, count;
     
     if (v->argv[0]==NULL) 
     {
@@ -1745,9 +1744,7 @@ static int
 apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int flag)
 {	
    struct variable *v;
-   char *value, *value1;
-   char item[64];
-   int i, groupCount;
+   int groupCount;
          
        
    cprintf("This group limit is %d %d\n", flag, sid);
@@ -1888,7 +1885,7 @@ mySecurityHandler(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, char_t 
 static void
 do_auth(char *userid, char *passwd, char *realm)
 {	
-	time_t tm;
+//	time_t tm;
 					
 	if (strcmp(ProductID,"")==0)
 	{
@@ -1977,7 +1974,7 @@ static void
 do_webcam_cgi(char *url, FILE *stream)
 {
 	#define MAX_RECORD_IMG 12
-	char *query, *path, *last;
+	char *query, *path;
 	char pic[32];
 	int query_idx, last_idx;
 	        
@@ -2003,10 +2000,9 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 	char upload_fifo[] = "/tmp/linux.trx";
 	FILE *fifo = NULL;
 	/*char *write_argv[] = { "write", upload_fifo, "linux", NULL };*/
-	pid_t pid;
 	char buf[1024];
 	int count, ret = EINVAL, ch;
-	int eno, cnt;
+	int cnt;
 	long filelen, *filelenptr;
 	int hwmajor=0, hwminor=0;
 	char version[MAX_VERSION_LEN], cmpHeader;
@@ -2165,13 +2161,12 @@ do_upload_post(char *url, FILE *stream, int len, char *boundary)
 	char upload_fifo[] = "/tmp/settings_u.prf";
 	FILE *fifo = NULL;
 	/*char *write_argv[] = { "write", upload_fifo, "linux", NULL };*/
-	pid_t pid;
 	char buf[1024];
 	int count, ret = EINVAL, ch;
-	int eno, cnt;
+	int cnt;
 	long filelen, *filelenptr;
-	int hwmajor=0, hwminor=0;
-	char version[MAX_VERSION_LEN], cmpHeader;
+//	char version[MAX_VERSION_LEN];
+	char cmpHeader;
 	char *hwver;
 	
 	cprintf("Start upload\n");
@@ -2521,9 +2516,8 @@ ej_select_folder(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid;
 	int ret = 0;	
-	char buf[8], out[64];	
-	int i, channel;
-	FILE *fp;
+	char out[64];	
+	int i;
 	DIR *dir;
 	struct dirent *entry;
 
@@ -2557,8 +2551,8 @@ ej_select_list(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *id;
 	int ret = 0;	
-	char buf[8], out[64], idxstr[12], tmpstr[64], tmpstr1[64];
-	int i, channel, curr, hit, noneFlag;
+	char out[64], idxstr[12], tmpstr[64], tmpstr1[64];
+	int i, curr, hit, noneFlag;
 	char *ref1, *ref2, *refnum;
 
 	if (ejArgs(argc, argv, "%s", &id) < 1) {
@@ -2666,13 +2660,11 @@ struct ej_handler ej_handlers[] = {
 void websSetVer(void)
 {
 	FILE *fp;
-	char buf[1];
 	unsigned long *imagelen;
 	char dataPtr[4];
 	char verPtr[64];
 	char productid[13];
 	char fwver[12];
-	int i;
 
 	strcpy(productid, "WLHDD");
 	strcpy(fwver, "0.1.0.1");
@@ -2985,10 +2977,8 @@ ej_select_country(int eid, webs_t wp, int argc, char_t **argv)
 static int
 wl_channels_in_country_asus(char *abbrev, int channels[])
 {
-	int i, j;
-	wl_channels_in_country_t *cic = (wl_channels_in_country_t *)ibuf2;
+	int i;
 	char var[256], *next;
-	int log_level, log_drop, log_accept;
 
 	i=0;
 	
@@ -3016,7 +3006,6 @@ wl_channels_in_country(char *abbrev, int channels[])
 	wl_channels_in_country_t *cic = (wl_channels_in_country_t *)ibuf2;
 	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
 	char *name;
-	channel_info_t ci;
 
 	if ((unit = atoi(nvram_safe_get_x("", "wl_unit"))) < 0)
 		return -1;
