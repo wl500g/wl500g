@@ -16,6 +16,8 @@
 /* Basic authorization userid and passwd limit */
 #define AUTH_MAX 64
 
+extern int is_auth(void);
+
 /* Generic MIME type handler */
 struct mime_handler {
 	char *pattern;
@@ -60,6 +62,11 @@ struct ej_handler {
 	int (*output)(int eid, webs_t wp, int argc, char_t **argv);
 };
 extern struct ej_handler ej_handlers[];
+
+extern int ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 
 #ifdef vxworks
 #define fopen(path, mode)	tar_fopen((path), (mode))

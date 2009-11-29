@@ -12,6 +12,8 @@
 #include <error.h>
 #include <httpd.h>
 #include <bcmnvram.h>
+#include <shutils.h>
+
 #define	MAXBUF		(8192)
 
 typedef unsigned char	UINT8;
@@ -113,19 +115,16 @@ typedef struct wl_ioctl
 
 static int	wl_ioctl_nobr(UINT8 *name, int cmd, void *buf, int len );
 
-ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv)
+int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char		*devname;
 	int		result;
 	int		cmd;
 	UINT8		buf[MAXBUF];
-	INT		*bufint;
 	int unit;
 	char tmp[100], prefix[] = "wlXXXXXXXXXX_";
 	char *name;
-	struct maclist *auth, *assoc, *authorized;
-	int max_sta_count, maclist_size;
-	int i, j, ret, val;
+	int i, ret = 0;
 	int channel;
 
 	channel = atoi(nvram_safe_get("wl_channel"));

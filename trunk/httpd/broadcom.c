@@ -375,13 +375,14 @@ sys_renew(void)
 {
 	int unit;
 	char tmp[100];
-	char *str;
-	int pid;
 
 	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
 		unit = 0;
 
 #ifdef REMOVE	
+	char *str;
+	int pid;
+
 	snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
 	if ((str = file2str(tmp))) {
 		pid = atoi(str);
@@ -392,7 +393,7 @@ sys_renew(void)
 #else
 	snprintf(tmp, sizeof(tmp), "wan_connect,%d", unit);
 	nvram_set("rc_service", tmp);
-	kill(1, SIGUSR1);
+	return kill(1, SIGUSR1);
 #endif
 }
 
@@ -402,13 +403,14 @@ sys_release(void)
 {
 	int unit;
 	char tmp[100];
-	char *str;
-	int pid;
 
 	if ((unit = atoi(nvram_safe_get("wan_unit"))) < 0)
 		unit = 0;
 	
 #ifdef REMOVE
+	char *str;
+	int pid;
+
 	snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
 	if ((str = file2str(tmp))) {
 		pid = atoi(str);
@@ -419,7 +421,7 @@ sys_release(void)
 #else	
 	snprintf(tmp, sizeof(tmp), "wan_disconnect,%d", unit);
 	nvram_set("rc_service", tmp);
-	kill(1, SIGUSR1);
+	return kill(1, SIGUSR1);
 #endif
 }
 
@@ -662,7 +664,8 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 	char *name;
 	struct maclist *auth, *assoc, *authorized;
 	int max_sta_count, maclist_size;
-	int i, j, ret, val;	
+	int i, j, val;
+	int ret = 0;
 	channel_info_t ci;
 
 	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
@@ -676,7 +679,7 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 	if (val==1) 
 	{
 		ret+=websWrite(wp, "Radio is disabled\n");
-		return;
+		return 0;
 	}
 	
 	wl_ioctl(name, WLC_GET_CHANNEL, &ci, sizeof(ci));
@@ -780,9 +783,8 @@ exit:
 int
 ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 {
-    	int needlen = 0, listlen, i, ret;
+    	int needlen = 0, listlen, i, ret = 0;
     	netconf_nat_t *nat_list = 0;
-	netconf_nat_t **plist, *cur;
 	char line[256], tstr[32];
 
 	ret += websWrite(wp, "Destination     Proto.  Port Range  Redirect to\n");
@@ -855,7 +857,8 @@ ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
 	struct in_addr dest;
 	struct in_addr gw;
 	struct in_addr mask;
-	int flgs, ref, use, metric, ret;
+	int flgs, ref, use, metric;
+	int ret = 0;
 	char flags[4];
 	unsigned long int d,g,m;
 	char sdest[16], sgw[16];
@@ -913,4 +916,6 @@ ej_route_table(int eid, webs_t wp, int argc, char_t **argv)
 		nl++;
 	}
 	fclose(fp);
+
+	return 0;
 }

@@ -89,5 +89,21 @@ extern int nvram_getall_x(const char *sid);
 extern char *nvram_get_list_x(const char *sid, const char *name, int index);
 extern int nvram_add_list_x(const char *sid, const char *name, const char *value);
 extern int nvram_del_list_x(const char *sid, const char *name, int index);
+
+/*
+ * Add the value into the end an NVRAM variable list
+ * @param       name    name of variable to get
+ * @return      0 on success and errno on failure
+ */
+int nvram_add_lists_x(const char *sid, const char *name, const char *value, int count);
+/*
+ * Delete the value from an NVRAM variable list
+ * @param       name    name of variable list
+ *              index   index of variable list
+ * @return      0 on success and errno on failure
+ */
+int nvram_del_lists_x(const char *sid, const char *name, int *delMap);
+
 #endif /* _LANGUAGE_ASSEMBLY */
+
 #endif /* _bcmnvram_f_h_ */

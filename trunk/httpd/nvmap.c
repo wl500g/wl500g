@@ -102,6 +102,7 @@ struct nvmap maps[] = {
 
 char *mac_conv(char *mac_name, int idx, char *buf);
 
+#ifdef REMOVE
 /* This function is used to map nvram value from asus to Broadcom */
 static void readFromNvram()
 {	
@@ -251,8 +252,9 @@ static void readFromNvram()
 
 	/* Storage Section */
 }
+#endif
 
-void findNVRAMName(char *serviceId, char *field, char *name)
+void findNVRAMName(const char *serviceId, const char *field, char *name)
 {    	
     int idx;
    
@@ -367,28 +369,27 @@ void nvram_set_i(char *name, int idx, char *value)
 	nvram_set(tmpstr1, value);
 }
 
-nvram_cpy(char *name1, char *name2, int idx)
+int nvram_cpy(char *name1, char *name2, int idx)
 {
 
 	char tmpstr1[128];
 
 	strcpy(tmpstr1, nvram_get_i(name2, idx));
-	nvram_set(name1, tmpstr1);	
+	return nvram_set(name1, tmpstr1);
 }
 
-nvram_cpy2(char *name1, char *name2, int idx)
+void nvram_cpy2(char *name1, char *name2, int idx)
 {
 
 	char tmpstr1[128];
 
 	strcpy(tmpstr1, nvram_get(name2));
-	nvram_set_i(name1, idx, tmpstr1);	
+	nvram_set_i(name1, idx, tmpstr1);
 }
 
 void getSharedEntry(int index)
 {
-    char idxstr[10], idxstr1[10], tmpstr[32], tmpstr1[128], acc[32];
-    char *path;
+    char idxstr[10], tmpstr[32], tmpstr1[128];
     char rright[128], wright[128], username[32];
     char *ruser, *wuser;
     int i, j, acc_num;
@@ -448,11 +449,9 @@ void getSharedEntry(int index)
 
 void setSharedEntry(int index)
 {
-    char idxstr[10], tmpstr[32], tmpstr1[128], acc[32], user[32];
-    char *path;
-    char rright[128], wright[128], username[32];
-    char *ruser, *wuser;
-    int i, acc_num;
+    char idxstr[10], tmpstr[32], tmpstr1[128], user[32];
+    char rright[128], wright[128];
+    int i;
 
 
     sprintf(idxstr, "%d", index);
