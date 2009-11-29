@@ -21,7 +21,7 @@
 <td class="content_header_td_title" colspan="2">System Command</td>
 </tr>
 <tr class="content_header_tr">
-<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="1024" size="32" name="SystemCmd" onkeydown="onSubmitCtrl(this, ' Refresh ')" value=""></td>
+<td class="content_header_td">System Command:</td><td class="content_header_td"><input type="text" maxlength="1024" class="content_input_fd" size="32" name="SystemCmd" onkeydown="onSubmitCtrl(this, ' Refresh ')" value=""></td>
 </tr>
 <tr class="content_header_tr">
 <td colspan="2"><textarea class="content_log_td" cols="63" rows="10" wrap="off" readonly="1">
