@@ -43,8 +43,8 @@
 #include <nvparse.h>
 #include <wlutils.h>
 
-static char * rfctime(const time_t *timep);
-static char * reltime(unsigned int seconds);
+extern char * rfctime(const time_t *timep);
+extern char * reltime(unsigned int seconds);
 
 #define wan_prefix(unit, prefix)	snprintf(prefix, sizeof(prefix), "wan%d_", unit)
 
@@ -58,11 +58,10 @@ typedef struct {
 	char *name;     /* Long name */
 	char *abbrev;   /* Abbreviation */
 } country_name_t;
-country_name_t country_names[];     /* At end of this file */
+//country_name_t country_names[];     /* At end of this file */
 
 char ibuf[WLC_IOCTL_MAXLEN];
 char ibuf2[WLC_IOCTL_MAXLEN];
-static int ezc_error = 0;
 
 struct variable {
 	char *name;
@@ -73,7 +72,7 @@ struct variable {
 	int ezc_flags;
 };
 
-struct variable variables[];
+//struct variable variables[];
 extern struct nvram_tuple router_defaults[];
 
 #define ARGV(args...) ((char *[]) { args, NULL })
@@ -144,14 +143,10 @@ typedef u_int8_t u8;
 #include <linux/sockios.h>
 #include <net/if_arp.h>
 
-#define sys_restart() kill(1, SIGHUP)
-#define sys_reboot() kill(1, SIGTERM)
-#define sys_stats(url) eval("stats", (url))
-
-#ifndef WEBS
 
 #define MIN_BUF_SIZE	4096
 
+#ifdef REMOVE
 /* Upgrade from remote server or socket stream */
 static int
 sys_upgrade(char *url, FILE *stream, int *total)
@@ -235,7 +230,6 @@ sys_upgrade(char *url, FILE *stream, int *total)
 	unlink(upload_fifo);
 	return ret;
 }
-
 #endif
 
 int 
@@ -629,7 +623,7 @@ ej_wl_parse_str(int eid, webs_t wp, int argc, char_t **argv)
 }
 #endif
 
-int
+static int
 ej_wl_sta_status(int eid, webs_t wp, char *ifname)
 {
 	int ret;

@@ -37,6 +37,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -95,10 +96,14 @@ static int b64_decode( const char* str, unsigned char* space, int size );
 static int match( const char* pattern, const char* string );
 static int match_one( const char* pattern, int patternlen, const char* string );
 static void handle_request(void);
-static void http_login(unsigned int ip);
+
+static int is_firsttime(void);
+static int is_connected(void);
+static void http_login(struct in_addr ip);
 static int http_login_check(void);
-static void http_logout(unsigned int ip);
-static void http_login_timeout(unsigned int ip);
+static void http_logout(struct in_addr ip);
+static void http_login_timeout(struct in_addr ip);
+
 
 /* added by Joey */
 int redirect = 1;
@@ -107,10 +112,10 @@ int http_port=SERVER_PORT;
 static int server_port = SERVER_PORT; /* Port for SERVER USER interface */
 
 /* Added by Joey for handle one people at the same time */
-unsigned int login_ip=0;
+struct in_addr login_ip = { .s_addr = 0 };
 time_t login_timestamp=0;
-unsigned int login_ip_tmp=0;
-unsigned int login_try=0;
+struct in_addr login_ip_tmp = { .s_addr = 0 };
+struct in_addr login_try = { .s_addr = 0 };
 
 static int
 initialize_listen_socket( usockaddr* usaP )
@@ -188,10 +193,10 @@ auth_check( char* dirname, char* authorization )
     {
     	//fprintf(stderr, "login check : %x %x\n", login_ip, login_try);
     	/* Is this is the first login after logout */
-    	if (login_ip==0 && login_try==login_ip_tmp)
+    	if (login_ip.s_addr==0 && login_try.s_addr==login_ip_tmp.s_addr)
     	{
 		send_authenticate(dirname);
-		login_try=0;
+		login_try.s_addr=0;
 		return 0;
     	}
 	return 1;
@@ -484,7 +489,7 @@ handle_request(void)
 
     if (http_port==server_port && !http_login_check())
     {
-	sprintf(line, "Please log out user, %s, first or wait for session timeout(60 seconds).", inet_ntoa(login_ip));
+	sprintf(line, "Please log out user, %s, first or wait for session timeout(60 seconds).", inet_ntoa((struct in_addr )login_ip));
 
 	printf("resposne: %s \n", line);
 	send_error( 200, "Request is rejected", (char*) 0, line);
@@ -561,29 +566,29 @@ handle_request(void)
 
 static void http_login_cache(usockaddr *u)
 {
-    	login_ip_tmp = (unsigned int)(u->sa_in.sin_addr.s_addr);
+    	login_ip_tmp.s_addr = u->sa_in.sin_addr.s_addr;
     	//printf("client :%x\n", login_ip_tmp);
 }
 
-static void http_login(unsigned int ip)
+static void http_login(struct in_addr ip)
 {
 
-	if (http_port!=server_port || ip == 0x100007f) return;
+	if (http_port!=server_port || ip.s_addr == 0x100007f) return;
 
 	login_ip = ip;
-	login_try = 0;
+	login_try.s_addr = 0;
 	time(&login_timestamp);
 }
 
 static int http_login_check(void)
 {
-	if (http_port!=server_port || login_ip_tmp == 0x100007f) return 1;
+	if (http_port != server_port || login_ip_tmp.s_addr == 0x100007f) return 1;
 
 	http_login_timeout(login_ip_tmp);
 
-	if (login_ip!=0)
+	if (login_ip.s_addr != 0)
 	{	
-		if (login_ip!=login_ip_tmp)
+		if (login_ip.s_addr != login_ip_tmp.s_addr)
 		{
 			return 0;
 		}
@@ -591,7 +596,7 @@ static int http_login_check(void)
 	return 1;
 }
 
-static void http_login_timeout(unsigned int ip)
+static void http_login_timeout(struct in_addr ip)
 {
 	time_t now;
 
@@ -599,20 +604,20 @@ static void http_login_timeout(unsigned int ip)
 
 	//printf("login : %x %x\n", now, login_timestamp);
 
-	if (ip != login_ip && (unsigned long)(now - login_timestamp)>60) //one minitues
+	if (ip.s_addr != login_ip.s_addr && (unsigned long)(now - login_timestamp)>60) //one minitues
 	{
 		http_logout(login_ip);
 	}
 }
 
-static void http_logout(unsigned int ip)
+static void http_logout(struct in_addr ip)
 {
 	//fprintf(stderr, "ip : %x %x %x\n", ip, login_ip, login_try);
 
-	if (ip==login_ip) 
+	if (ip.s_addr == login_ip.s_addr)
 	{
 		login_try = login_ip;
-		login_ip = 0;
+		login_ip.s_addr = 0;
 		login_timestamp = 0;
 	}
 }
@@ -676,7 +681,7 @@ int is_fileexist(char *filename)
 }
 #endif
 
-int is_connected(void)
+static int is_connected(void)
 {
 	FILE *fp;
 	char line[128], *reason;
@@ -702,7 +707,7 @@ int is_connected(void)
 	return 1;		
 }
 
-int is_firsttime(void)
+static int is_firsttime(void)
 {
 	if (strcmp(nvram_get_x("General", "x_Setting"), "1")==0) return 0;
 	else return 1;

@@ -4304,7 +4304,6 @@ struct action actions_WLANConfig[];
 struct action actions_DeviceSecurity[];
 struct action actions_WLANAuthentication[];
 struct action actions_PrinterStatus[];
-struct variable variables_WLANAuthentication11b[];
 
 struct variable variables_IPv6Config[] = {
 

@@ -31,17 +31,6 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define sys_restart() kill(1, SIGHUP)
-#define sys_reboot() kill(1, SIGTERM)
-
-#ifndef REMOVE_WL600
-#define sys_upgrade(url) (1) 
-#define sys_stats(url)   (1)
-#else
-#define sys_upgrade(url) eval("write", (url), "linux")
-#define sys_stats(url) eval("stats", (url))
-#endif
-
 #define MAX_LINE_SIZE 512
 #define UPNP_E_SUCCESS 0
 #define UPNP_E_INVALID_ARGUMENT -1
@@ -69,18 +58,6 @@ validate_wlwep(char *value, struct variable *v)
 
 static int
 validate_wlkey(char *value, struct variable *v)
-{
-	return UPNP_E_SUCCESS;
-}
-
-static int
-validate_wlrate(char *value, struct variable *v)
-{
-	return UPNP_E_SUCCESS;
-}
-
-static int
-validate_wlphrase(char *value, struct variable *v)
 {
 	return UPNP_E_SUCCESS;
 }
