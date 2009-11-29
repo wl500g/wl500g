@@ -47,8 +47,6 @@
 #include "bcmnvram_f.h"
 #include "common.h"
 
-#define sys_restart() kill(1, SIGHUP)
-#define sys_reboot() kill(1, SIGTERM)
 #define sys_forcereboot() kill(1, SIGABRT)
 
 #ifdef WEBS
@@ -65,7 +63,7 @@
 #define sys_upgrade(image) eval("write", image, MTD_DEV(1))
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
-#define sys_stats(url) eval("stats", (url))
+//#define sys_stats(url) eval("stats", (url))
 #define sys_restore(sid) eval("nvram_x","get",(sid))
 #define sys_commit(sid) nvram_commit();
 #define sys_default()   eval("erase", MTD_DEV(3))
@@ -95,8 +93,6 @@ static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 char ibuf[8192];
 char ibuf2[8192];
 
-
-static int ezc_error = 0;
 
 #define ACTION_UPGRADE_OK   0
 #define ACTION_UPGRADE_FAIL 1
@@ -1157,7 +1153,7 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 {
     struct variable *v;    
     char *value;
-    const char name[64];
+    char name[64];
         
     /* Validate and set variables in table order */
     for (v = GetVariables(sid); v->name != NULL; v++) 
@@ -2006,7 +2002,6 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 	long filelen, *filelenptr;
 	int hwmajor=0, hwminor=0;
 	char version[MAX_VERSION_LEN], cmpHeader;
-	char *hwver;
 	
 	cprintf("Start upgrade!!!\n");
 	eval("stopservice");
@@ -2068,7 +2063,7 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 		    }
 		    else cmpHeader = 1;	   
 		    		   
-		    filelenptr = (buf+4);		   
+		    filelenptr = (long *)(buf+4);
 		    filelen = *filelenptr;		  
 		    /*printf("Filelen: %x %x %x %x %x %x\n", filelen, count, (unsigned long)(buf+4), (unsigned long)(buf+7), buf[5], buf[4]);*/
 		    cnt ++;
@@ -2167,7 +2162,6 @@ do_upload_post(char *url, FILE *stream, int len, char *boundary)
 	long filelen, *filelenptr;
 //	char version[MAX_VERSION_LEN];
 	char cmpHeader;
-	char *hwver;
 	
 	cprintf("Start upload\n");
 	eval("stopservice");
@@ -2229,7 +2223,7 @@ do_upload_post(char *url, FILE *stream, int len, char *boundary)
 		    }
 		    else cmpHeader = 1;	   
 		    		   
-		    filelenptr = (buf+4);		   
+		    filelenptr = (long *)(buf+4);
 		    filelen = *filelenptr;		  
 		    //printf("Filelen: %x %x %x %x %x %x\n", filelen, count, (unsigned long)(buf+4), (unsigned long)(buf+7), buf[5], buf[4]);
 		    cnt ++;
@@ -2447,12 +2441,6 @@ static char no_cache[] =
 "Expires: 0"
 ;
 
-static char log_headers[] = 
-"Content-Disposition: attachment; filename=\"SYSLOG.DAT\"\r\n"
-"Cache-Control: no-cache\r\n"
-"Pragma: no-cache\r\n"
-"Expires: 0"
-;
 
 static void 
 do_log_cgi(char *path, FILE *stream)

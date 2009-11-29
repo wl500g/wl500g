@@ -67,6 +67,7 @@ extern int ej_lan_leases(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv);
 
 #ifdef vxworks
 #define fopen(path, mode)	tar_fopen((path), (mode))
@@ -77,5 +78,8 @@ extern FILE * tar_fopen(const char *path, const char *mode);
 extern void tar_fclose(FILE *fp);
 extern int tar_fgetc(FILE *fp);
 #endif
+
+#define sys_restart() kill(1, SIGHUP)
+#define sys_reboot() kill(1, SIGTERM)
 
 #endif /* _httpd_h_ */
