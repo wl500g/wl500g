@@ -2037,7 +2037,7 @@ function unload_body()
 
 function change_internet_firewall(r)
 {
-    if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP" && window.top.isFlash() != '2MB')
+    if (window.top.isModel()!="WL520" && window.top.isModel()!="SnapAP")
     {	
 //    	if (r=="1")	      	    
 //    	{
