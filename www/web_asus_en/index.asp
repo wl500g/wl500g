@@ -84,8 +84,9 @@ function isFlash()
    flash = '4MB';
    
    pid = parent.titleFrame.document.form.productid.value;
-   if (pid.indexOf("WL500gp")!=-1 || pid.indexOf("WL500W")!=-1 || ))
-	flash = '8MB';
+   if (pid.indexOf("WL500gp")!=-1 || pid.indexOf("WL500W")!=-1)
+     flash = '8MB';
+
    return flash;
 }
 
@@ -229,7 +230,7 @@ function generateTree()
            appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""))
      }      
      
-     if ((isModel() == 'WL500' || isModel() == 'WLHDD') && isFlash() != '2MB' && mode!='AP')
+     if ((isModel() == 'WL500' || isModel() == 'WLHDD') && mode!='AP')
      {
      	 aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"))          
            appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""))           
