@@ -1,7 +1,7 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d-`current trunk`===
+===wl500g-1.9.2.7-d-`r893` (2009-12-01)===
   * kernel 2.4.37.7
     * IPv6: fix BUG of ndisc_send_redirect(), backport of ip6t_TCPMSS netfilter module
     * ext2 module (separate archive)
@@ -9,7 +9,7 @@
   * IPv6 - initial support (EXPERIMENTAL! - not included in standard builds)
 
   * busybox
-    * bugfixes for applets - env, ping6
+    * bugfixes for applets - ash, env, ping6, awk
     * traceroute6 applet
     * allow mount by uuid/label ext/swap partitions
 
@@ -21,6 +21,8 @@
     * reworked httpd watchdog check, closes issue 29
     * default policies for ip6tables
     * allow append samba config from /usr/local/smb.conf
+
+  * web-UI: minor style fixes
 
   * pppd 2.4.5
 
