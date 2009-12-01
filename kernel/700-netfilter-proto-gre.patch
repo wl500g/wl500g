@@ -1,6 +1,9 @@
 Backport nat and conntrack of gre packets from 2.6.31 kernel
 Should fix "unknown GRE version" log flood, allowing only RFC 1702 packets
 
+Also include patch from Peter Zion preventing oops in ip_ct_gre_keymap_change()
+in case of null km passed.
+
 --- linux-2.4.37.6/net/ipv4/netfilter/ip_nat_proto_gre.c	2005-04-02 17:15:10.000000000 +0000
 +++ linux/net/ipv4/netfilter/ip_nat_proto_gre.c	2009-09-15 08:44:24.000000000 +0000
 @@ -70,6 +70,11 @@ gre_unique_tuple(struct ip_conntrack_tup
@@ -40,6 +43,19 @@ Should fix "unknown GRE version" log flood, allowing only RFC 1702 packets
  			DEBUGP("call_id -> 0x%04x\n", 
 --- linux-2.4.37.6/net/ipv4/netfilter/ip_conntrack_proto_gre.c	2009-09-15 08:39:55.000000000 +0000
 +++ linux/net/ipv4/netfilter/ip_conntrack_proto_gre.c	2009-09-15 08:32:34.000000000 +0000
+@@ -131,6 +131,12 @@ int ip_ct_gre_keymap_add(struct ip_connt
+ void ip_ct_gre_keymap_change(struct ip_ct_gre_keymap *km,
+ 			     struct ip_conntrack_tuple *t)
+ {
++	if (!km)
++	{
++		printk(KERN_WARNING "NULL GRE conntrack keymap change requested\n");
++		return;
++	}
++
+ 	DEBUGP("changing entry %p to: ", km);
+ 	DUMP_TUPLE_GRE(t);
+ 
 @@ -182,29 +182,20 @@ static int gre_pkt_to_tuple(const void *
  
  	/* core guarantees 8 protocol bytes, no need for size check */
