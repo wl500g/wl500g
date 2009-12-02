@@ -20,7 +20,7 @@
   * rc
     * reworked httpd watchdog check, closes issue 29
     * default policies for ip6tables
-    * allow append samba config from /usr/local/smb.conf
+    * allow append samba config from /usr/local/etc/smb.conf
 
   * web-UI: minor style fixes
 
