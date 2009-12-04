@@ -57,6 +57,7 @@ GCC_CONFIGURE:= \
 		--disable-libmudflap \
 		--disable-multilib \
 		--disable-nls \
+		--disable-__cxa_atexit \
 		$(SOFT_FLOAT_CONFIG_OPTION) \
 		$(call qstrip,$(CONFIG_EXTRA_GCC_CONFIG_OPTIONS)) \
 
@@ -82,18 +83,10 @@ ifneq ($(CONFIG_EXTRA_TARGET_ARCH),)
 		--enable-targets=$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_NAME))-linux-$(TARGET_SUFFIX)
 endif
 
-ifeq ($(LIBC),uClibc)
-  GCC_CONFIGURE+= \
-		--disable-__cxa_atexit
-else
-  GCC_CONFIGURE+= \
-		--enable-__cxa_atexit
-endif
-
 GCC_CONFIGURE_STAGE1:= \
 	$(GCC_CONFIGURE) \
 		--with-newlib \
-		--with-sysroot=$(BUILD_DIR_HOST)/$(LIBC)_dev/ \
+		--with-sysroot=$(BUILD_DIR_HOST)/uClibc_dev/ \
 		--enable-languages=c \
 		--disable-shared \
 		--disable-threads \
