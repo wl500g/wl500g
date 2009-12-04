@@ -1,12 +1,14 @@
 Package: ipkg
 Version: 0.99.163-2
 Section: base
+Priority: required
+Essential: yes
 Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
-MD5Sum: fdd821f2821de1a9adb3c522bbde798b
-Size: 72833
-Filename: ipkg_0.99.163-2_mipsel.ipk
 Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
+Filename: optware-d/ipkg_0.99.163-2_mipsel.ipk
+Size: 72833
+MD5Sum: fdd821f2821de1a9adb3c522bbde798b
 Description: lightweight package management system
  ipkg is the Itsy Package Management System, for handling
  installation and removal of packages on a system. It can
@@ -21,31 +23,35 @@ Description: lightweight package management system
 
 
 Package: ipset
-Version: 3.2
-Section: net
 Architecture: mipsel
+Priority: optional
+Section: net
+Version: 3.2
 Maintainer: http://ipset.netfilter.org/
-MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
+Filename: optware-d/ipset_3.2_mipsel.ipk
 Size: 49737
-Filename: ipset_3.2_mipsel.ipk
-Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
+MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
 Description: ipset administration tool for IP sets.
-
+Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
+Depends:
+Conflicts:
 
 Package: ntfs-3g
-Version: 2009.11.14
-Section: system
 Architecture: mipsel
+Priority: optional
+Section: system
+Version: 2009.11.14
 Maintainer: http://forum.ntfs-3g.org/
-MD5Sum: 96b6e27e4eda428392a22732ba6255da
-Size: 190330
-Filename: ntfs-3g_2009.11.14_mipsel.ipk
 Source: http://ntfs-3g.org/ntfs-3g-2009.11.14.tgz
+Filename: optware-d/ntfs-3g_2009.11.14_mipsel.ipk
+Size: 190330
+MD5Sum: 96b6e27e4eda428392a22732ba6255da
 Description: The NTFS-3G driver is a freely and commercially available
  and supported read/write NTFS driver
  for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
  operating systems. It provides safe and fast handling of the Windows XP,
  Windows Server 2003, Windows 2000, Windows Vista, Windows Server 2008
- and Windows 7 file systems.
-
+ and Windows 7 file systems. 
+Depends:
+Conflicts:
 
