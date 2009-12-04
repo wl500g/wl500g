@@ -1,6 +1,6 @@
 diff -urpN busybox-1.15.2/shell/ash.c busybox-1.15.2-ash/shell/ash.c
 --- busybox-1.15.2/shell/ash.c	2009-10-08 03:18:15.000000000 +0200
-+++ busybox-1.15.2-ash/shell/ash.c	2009-11-29 01:18:53.000000000 +0100
++++ busybox-1.15.2-ash/shell/ash.c	2009-12-04 04:17:52.000000000 +0100
 @@ -258,9 +258,6 @@ static void trace_vprintf(const char *fm
  /* ============ Utility functions */
  #define xbarrier() do { __asm__ __volatile__ ("": : :"memory"); } while (0)
@@ -1114,7 +1114,18 @@ diff -urpN busybox-1.15.2/shell/ash.c busybox-1.15.2-ash/shell/ash.c
  					break;
  				}
  				/* fall through */
-@@ -13311,7 +13302,7 @@ int ash_main(int argc UNUSED_PARAM, char
+@@ -13056,6 +13047,10 @@ init(void)
+ 
+ 	/* from trap.c: */
+ 	signal(SIGCHLD, SIG_DFL);
++	/* bash re-enables SIGHUP which is SIG_IGNed on entry.
++	 * Try: "trap '' HUP; bash; echo RET" and type "kill -HUP $$"
++	 */
++        signal(SIGHUP, SIG_DFL);
+ 
+ 	/* from var.c: */
+ 	{
+@@ -13311,7 +13306,7 @@ int ash_main(int argc UNUSED_PARAM, char
  	}
  
  	if (sflag || minusc == NULL) {
