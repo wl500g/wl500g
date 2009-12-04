@@ -13,9 +13,7 @@ libipset_macipmap.so ipset:mipsel:./opt/lib/ipset/libipset_macipmap.so
 libipset_nethash.so ipset:mipsel:./opt/lib/ipset/libipset_nethash.so
 libipset_portmap.so ipset:mipsel:./opt/lib/ipset/libipset_portmap.so
 libipset_setlist.so ipset:mipsel:./opt/lib/ipset/libipset_setlist.so
-libntfs-3g.so ntfs-3g:mipsel:./opt/lib/libntfs-3g.so
-libntfs-3g.so.54 ntfs-3g:mipsel:./opt/lib/libntfs-3g.so.54
-libntfs-3g.so.54.0.0 ntfs-3g:mipsel:./opt/lib/libntfs-3g.so.54.0.0
 ntfs-3g ntfs-3g:mipsel:./opt/sbin/ntfs-3g
+ntfs-3g.8 ntfs-3g:mipsel:./opt/share/man/man8/ntfs-3g.8
 rc.unslung ipkg:mipsel:./opt/etc/init.d/rc.unslung
 update-alternatives ipkg:mipsel:./opt/bin/update-alternatives

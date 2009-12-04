@@ -1,14 +1,12 @@
 Package: ipkg
 Version: 0.99.163-2
 Section: base
-Priority: required
-Essential: yes
 Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
-Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
-Filename: ipkg_0.99.163-2_mipsel.ipk
-Size: 72833
 MD5Sum: fdd821f2821de1a9adb3c522bbde798b
+Size: 72833
+Filename: ipkg_0.99.163-2_mipsel.ipk
+Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
 Description: lightweight package management system
  ipkg is the Itsy Package Management System, for handling
  installation and removal of packages on a system. It can
@@ -23,35 +21,31 @@ Description: lightweight package management system
 
 
 Package: ipset
-Architecture: mipsel
-Priority: optional
-Section: net
 Version: 3.2
+Section: net
+Architecture: mipsel
 Maintainer: http://ipset.netfilter.org/
-Filename: ipset_3.2_mipsel.ipk
-Size: 49737
 MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
-Description: ipset administration tool for IP sets.
+Size: 49737
+Filename: ipset_3.2_mipsel.ipk
 Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
-Depends:
-Conflicts:
+Description: ipset administration tool for IP sets.
+
 
 Package: ntfs-3g
-Architecture: mipsel
-Priority: optional
+Version: 2009.11.14
 Section: system
-Version: 2009.4.4
+Architecture: mipsel
 Maintainer: http://forum.ntfs-3g.org/
-Source: http://ntfs-3g.org/ntfs-3g-2009.4.4.tgz
-Filename: ntfs-3g_2009.4.4_mipsel.ipk
-Size: 150024
-MD5Sum: 1cda3a78fc6e1c441d3fca81623abec2
+MD5Sum: 96b6e27e4eda428392a22732ba6255da
+Size: 190330
+Filename: ntfs-3g_2009.11.14_mipsel.ipk
+Source: http://ntfs-3g.org/ntfs-3g-2009.11.14.tgz
 Description: The NTFS-3G driver is a freely and commercially available
  and supported read/write NTFS driver
  for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
  operating systems. It provides safe and fast handling of the Windows XP,
  Windows Server 2003, Windows 2000, Windows Vista, Windows Server 2008
- and Windows 7 file systems. 
-Depends:
-Conflicts:
+ and Windows 7 file systems.
+
 
