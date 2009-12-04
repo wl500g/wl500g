@@ -165,10 +165,10 @@ if [ -n "$1" ]; then
 	if [ "$MODEL" = "WL330gE" ] || [ "$MODEL" = "WL320gE" ] || [ "$MODEL" = "WL320gP" ]; then
 		### 6.1 default value ###
 		
-		cat ../web_$MODEL/flash.default \
-		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_300g
-		cp -f ../web_$MODEL/flash.default_300g ../target/ramfs/etc/linuxigd/flash.default
+		#cat ../web_$MODEL/flash.default \
+		#| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
+		#| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_300g
+		#cp -f ../web_$MODEL/flash.default_300g ../target/ramfs/etc/linuxigd/flash.default
 		
 		### 6.2 web page ###	
 		cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
@@ -203,10 +203,10 @@ if [ -n "$1" ]; then
 		
 	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] || [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] || [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
 		### 6.1 default value ###
-		cat ../web_$MODEL/flash.default \
-		| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
-		| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
-		cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
+		#cat ../web_$MODEL/flash.default \
+		#| sed 's/ApplyDevices=\"Both\"/ApplyDevices=\"802.11g only\"/g' \
+		#| sed 's/DmzDevices=\"Both\"/DmzDevices=\"802.11g only\"/g' > ../web_$MODEL/flash.default_500g
+		#cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
 				
 		### 6.2 web page ###							
 		if [ "$MODEL" = "WL500W" ]; then
@@ -244,7 +244,7 @@ if [ -n "$1" ]; then
 		
 	elif [ "$MODEL" = "WL600" ]; then
 		### 6.1 default value ###
-		cp -f ../web_$MODEL/flash.default ../target/ramfs/etc/linuxigd/flash.default
+		#cp -f ../web_$MODEL/flash.default ../target/ramfs/etc/linuxigd/flash.default
 		
 		### 6.2 web page ###	
 		cp -f ../web_$MODEL/Advanced_WirelessDual11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
