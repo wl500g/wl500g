@@ -21,6 +21,14 @@
  };
  
  static int 
+@@ -87,7 +87,6 @@ wget(int method, const char *server, cha
+ 	int fd;
+ 	FILE *fp;
+ 	struct sockaddr_in sin;
+-	struct stat fstatus;
+ 
+ 	int chunked = 0, len = 0;
+ 
 @@ -125,10 +126,8 @@ wget(int method, const char *server, cha
  	dprintf("Connecting to %s:%u...\n", host, port);
  	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||

@@ -557,11 +557,16 @@ diff -BurpN -x'*.o' router/rc/firewall.c gateway/rc/firewall.c
 diff -BurpN -x'*.o' router/rc/firewall_ex.c gateway/rc/firewall_ex.c
 --- router/rc/firewall_ex.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/firewall_ex.c	2008-12-28 11:56:49.000000000 +0300
-@@ -1,4 +1,3 @@
--
- /*
-  * Copyright 2004, ASUSTek Inc.
-  * All Rights Reserved.
+@@ -31,6 +31,9 @@
+ char *g_buf;
+ char g_buf_pool[1024];
+ 
++/* Forwards */
++int porttrigger_setting(FILE *fp, char *lan_if);
++
+ void g_buf_init()
+ {
+ 	g_buf = g_buf_pool;
 @@ -97,7 +97,7 @@
  	return (g_buf_alloc(g_buf));
  }
@@ -1429,14 +1434,7 @@ diff -BurpN -x'*.o' router/rc/init.c gateway/rc/init.c
  		"SHELL=" SHELL,
  		"USER=root",
  		tz,
-@@ -157,25 +162,41 @@ run_shell(int timeout, int nowait)
- static void
- shutdown_system(void)
- {
--	int sig;
-+	int sig, fd;
- 
- 	/* Disable signal handlers */
+@@ -157,19 +162,35 @@ shutdown_system(void)
  	for (sig = 0; sig < (_NSIG-1); sig++)
  		signal(sig, SIG_DFL);
  
@@ -1641,6 +1639,14 @@ diff -BurpN -x'*.o' router/rc/Makefile gateway/rc/Makefile
 diff -BurpN -x'*.o' router/rc/manu_ex.c gateway/rc/manu_ex.c
 --- router/rc/manu_ex.c	2004-12-07 16:02:14.000000000 +0300
 +++ gateway/rc/manu_ex.c	2008-03-19 20:07:24.000000000 +0300
+@@ -13,6 +13,7 @@
+ #include <shutils.h>
+ #include <rc.h>
+ #include <wlioctl.h>
++#include <wlutils.h>
+ #include <bcmnvram.h>
+ 
+ #define A_UCHAR  unsigned char
 @@ -724,7 +724,7 @@ void sync_mac(char *devname, char *mac)
  	char buf[MAXBUF], macstr[32], s[3];
  	unsigned char t;	
@@ -2721,6 +2727,14 @@ diff -BurpN -x'*.o' router/rc/network_ex.c gateway/rc/network_ex.c
 diff -BurpN -x'*.o' router/rc/ppp.c gateway/rc/ppp.c
 --- router/rc/ppp.c	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/ppp.c	2008-03-19 20:07:24.000000000 +0300
+@@ -17,6 +17,7 @@
+ #include <unistd.h>
+ #include <string.h>
+ #include <net/route.h>
++#include <sys/stat.h>
+ #include <sys/ioctl.h>
+ #include <sys/socket.h>
+ #include <netinet/in.h>
 @@ -56,6 +56,8 @@ ipup_main(int argc, char **argv)
  	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
  
@@ -3287,7 +3301,7 @@ diff -BurpN -x'*.o' router/rc/rc.c gateway/rc/rc.c
 diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 --- router/rc/rc.h	2004-11-11 10:32:05.000000000 +0300
 +++ gateway/rc/rc.h	2008-12-28 11:59:11.000000000 +0300
-@@ -22,61 +22,106 @@
+@@ -22,61 +22,109 @@
  
  #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
  
@@ -3365,6 +3379,7 @@ diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 +void stop_lan(void);
 +void start_wan(void);
 +void stop_wan(void);
++void stop_wan2(void);
 +void wan_up(char *ifname);
 +void wan_down(char *ifname);
 +void lan_up_ex(char *lan_ifname);
@@ -3392,6 +3407,8 @@ diff -BurpN -x'*.o' router/rc/rc.h gateway/rc/rc.h
 +int start_dhcpd(void);
 +int stop_dhcpd(void);
 +int stop_snmpd(void);
++int start_pppd(char *prefix);
++void start_pppoe_relay(char *wan_if);
 +int start_dns(void);
 +int stop_dns(void);
 +int start_upnp(void);
@@ -3621,12 +3638,13 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
  #ifdef ASUS_EXT
  #include <stdio.h>
  #include <stdlib.h>
-@@ -25,6 +28,13 @@
+@@ -25,6 +28,14 @@
  #include <shutils.h>
  #include <rc.h>
  #include <syslog.h>
 +#include <sys/types.h>
 +#include <sys/stat.h>
++#include <arpa/inet.h>
 +#include <ctype.h>
 +#if defined(__UCLIBC__)
 +#include <crypt.h>
@@ -5277,9 +5295,11 @@ diff -BurpN -x'*.o' router/rc/watchdog.c gateway/rc/watchdog.c
  
  #include <bcmnvram.h>
  #include <shutils.h>
-@@ -25,15 +27,13 @@
+@@ -25,16 +27,15 @@
+ #include <rc.h>
  #include <stdarg.h>
  #include <wlioctl.h>
++#include <wlutils.h>
  
 -#if 0 
 -#define DEBUG printf

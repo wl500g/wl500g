@@ -64,6 +64,16 @@ diff -ur ucd-snmp-3.6.2/agent/mibgroup/ucd_snmp.h ucd-snmp/agent/mibgroup/ucd_sn
 diff -ur ucd-snmp-3.6.2/agent/snmp_agent.c ucd-snmp/agent/snmp_agent.c
 --- ucd-snmp-3.6.2/agent/snmp_agent.c	1999-06-01 11:29:35.000000000 +0400
 +++ ucd-snmp/agent/snmp_agent.c	2005-05-25 22:52:56.472555573 +0400
+@@ -46,6 +46,9 @@
+ #if HAVE_NETINET_IN_H
+ #include <netinet/in.h>
+ #endif
++#if HAVE_STRING_H
++#include <string.h>
++#endif
+ 
+ #include "asn1.h"
+ #include "snmp_api.h"
 @@ -87,6 +87,7 @@
  		      void *statP,
  		      int statLen)
@@ -240,3 +250,29 @@ diff -urN ucd-snmp-3.6.2/agent/dummy.c ucd-snmp/agent/dummy.c
 +    *buf = 0;
 +    return buf;
 +}
+diff -urN ucd-snmp-3.6.2/agent/mibgroup/ucd-snmp/proc.c ucd-snmp/agent/mibgroup/ucd-snmp/proc.c
+--- ucd-snmp-3.6.2/agent/mibgroup/ucd-snmp/proc.c	1999-06-01 11:27:36.000000000 +0400
++++ ucd-snmp/agent/mibgroup/ucd-snmp/proc.c	2009-12-04 14:15:24.000000000 +0300
+@@ -14,6 +14,9 @@
+ #if HAVE_MALLOC_H
+ #include <malloc.h>
+ #endif
++#if HAVE_STRING_H
++#include <string.h>
++#endif
+ #include <math.h>
+ #include <ctype.h>
+ #include <sys/types.h>
+diff -urN ucd-snmp-3.6.2/agent/mibgroup/ucd-snmp/versioninfo.c ucd-snmp/agent/mibgroup/ucd-snmp/versioninfo.c
+--- ucd-snmp-3.6.2/agent/mibgroup/ucd-snmp/versioninfo.c	1999-02-12 03:10:25.000000000 +0300
++++ ucd-snmp/agent/mibgroup/ucd-snmp/versioninfo.c	2009-12-04 14:19:02.000000000 +0300
+@@ -14,6 +14,9 @@
+ #if HAVE_NETINET_IN_H
+ #include <netinet/in.h>
+ #endif
++#if HAVE_STRING_H
++#include <string.h>
++#endif
+ 
+ #include "mibincl.h"
+ #include "struct.h"

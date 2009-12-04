@@ -840,8 +840,8 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/sha
 +	{
 +		list[listlen++] = 0x20;
 +	}
-+	
-+	listlen += strncpy( &list[listlen], name, namelen+1/*terminate*/ );
++
++	strncpy( &list[listlen], name, namelen+1/*terminate*/ );
 +
 +	return 0;
 +}
