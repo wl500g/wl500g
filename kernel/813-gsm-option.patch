@@ -23,7 +23,7 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/drivers/usb/serial/Mak
 diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb/serial/option.c
 --- linux-2.4.37.orig/drivers/usb/serial/option.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux/drivers/usb/serial/option.c	2009-08-31 16:11:03.000000000 +0000
-@@ -0,0 +1,1359 @@
+@@ -0,0 +1,1358 @@
 +/*
 +  USB Driver for GSM modems
 +
@@ -1124,7 +1124,6 @@ diff -uBN -x'.*' linux-2.4.37.orig/drivers/usb/serial/option.c linux/drivers/usb
 +static int option_open(struct usb_serial_port *port, struct file *filp)
 +{
 +	struct option_port_private *portdata = usb_get_serial_port_data(port);
-+	struct usb_serial *serial = port->serial;
 +	int i, err;
 +	struct urb *urb;
 +
