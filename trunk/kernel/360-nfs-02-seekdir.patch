@@ -91,7 +91,7 @@ diff -u --recursive --new-file --show-c-function linux-2.4.26-01-fix_unlink/fs/n
 +static inline
 +u64 nfs_transform_cookie64(u64 cookie)
 +{
-+	return (cookie & 0x80000000) ? (cookie ^ 0xFFFFFFFF00000000) : cookie;
++	return (cookie & 0x80000000) ? (cookie ^ 0xFFFFFFFF00000000LL) : cookie;
 +}
 +
  /*
