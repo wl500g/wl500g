@@ -3804,7 +3804,7 @@ diff -BurpN -x'*.o' router/rc/services_ex.c gateway/rc/services_ex.c
 +			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
 +		if (nvram_invmatch("dhcp_wins_x",""))		
 +			fprintf(fp, "dhcp-option=lan,44,%s\n"
-+				    "dhcp-option=lan,46,8", nvram_safe_get("dhcp_wins_x"));
++				    "dhcp-option=lan,46,8\n", nvram_safe_get("dhcp_wins_x"));
 +		if (nvram_invmatch("lan_domain", ""))
 +			fprintf(fp, "dhcp-option=lan,15,%s\n", nvram_safe_get("lan_domain"));
 +		if (nvram_invmatch("dhcp_gateway_x",""))
