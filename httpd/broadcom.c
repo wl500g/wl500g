@@ -60,7 +60,6 @@ typedef struct {
 } country_name_t;
 //country_name_t country_names[];     /* At end of this file */
 
-char ibuf[WLC_IOCTL_MAXLEN];
 char ibuf2[WLC_IOCTL_MAXLEN];
 
 struct variable {
