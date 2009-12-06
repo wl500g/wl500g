@@ -90,8 +90,7 @@ static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
 static int wl_channels_in_country(char *abbrev, int channels[]);
 static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
-char ibuf[8192];
-char ibuf2[8192];
+extern char ibuf2[WLC_IOCTL_MAXLEN];
 
 
 #define ACTION_UPGRADE_OK   0
