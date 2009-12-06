@@ -184,8 +184,8 @@ mkdir $inst/broadcom/src/linux -p
 mkdir /opt/brcm -p
 tar -C $inst -zxvf GPL_1927.zip
 tar -C $inst/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.1.2-1.tar.bz2
-ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.1.2 /opt/brcm/hndtools-mipsel-uclibc
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.2.4-1.tar.bz2
+ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.2.4 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.7.tar.bz2
 ln -sf linux-2.4.37.7 $inst/broadcom/src/linux/linux
