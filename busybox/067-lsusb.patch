@@ -1,0 +1,141 @@
+From 11a802a0fa04627110809d908c588aa2c471d5aa Mon Sep 17 00:00:00 2001
+From: Souf Oued <souf_oued@yahoo.fr>
+Date: Mon, 07 Dec 2009 00:37:34 +0000
+Subject: lsusb: new applet. +400 bytes
+
+Signed-off-by: Souf Oued <souf_oued@yahoo.fr>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/include/applets.h b/include/applets.h
+index 7d5d440..69dcdc0 100644
+--- a/include/applets.h
++++ b/include/applets.h
+@@ -247,6 +247,7 @@ IF_LSATTR(APPLET(lsattr, _BB_DIR_BIN, _BB_SUID_DROP))
+ IF_LSMOD(APPLET(lsmod, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_MODPROBE_SMALL(APPLET_ODDNAME(lsmod, modprobe, _BB_DIR_SBIN, _BB_SUID_DROP, modprobe))
+ IF_LSPCI(APPLET(lspci, _BB_DIR_SBIN, _BB_SUID_DROP))
++IF_LSUSB(APPLET(lsusb, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_UNLZMA(APPLET_ODDNAME(lzmacat, unlzma, _BB_DIR_USR_BIN, _BB_SUID_DROP, lzmacat))
+ IF_LZOP(APPLET(lzop, _BB_DIR_BIN, _BB_SUID_DROP))
+ IF_LZOP(APPLET_ODDNAME(lzopcat, lzop, _BB_DIR_USR_BIN, _BB_SUID_DROP, lzopcat))
+diff --git a/include/usage.h b/include/usage.h
+index 6b27384..9f4c448 100644
+--- a/include/usage.h
++++ b/include/usage.h
+@@ -2510,6 +2510,9 @@
+      "\n	-m	Parseable output" \
+      "\n	-k	Show driver" \
+ 
++#define lsusb_trivial_usage NOUSAGE_STR
++#define lsusb_full_usage ""
++
+ #if ENABLE_FEATURE_MAKEDEVS_LEAF
+ #define makedevs_trivial_usage \
+        "NAME TYPE MAJOR MINOR FIRST LAST [s]"
+diff --git a/util-linux/Config.in b/util-linux/Config.in
+index 94337df..f04511b 100644
+--- a/util-linux/Config.in
++++ b/util-linux/Config.in
+@@ -357,6 +357,15 @@ config LSPCI
+ 
+ 	  This version uses sysfs (/sys/bus/pci/devices) only.
+ 
++config LSUSB
++	bool "lsusb"
++	default n
++	help
++	  lsusb is a utility for displaying information about USB buses in the
++	  system and devices connected to them.
++
++	  This version uses sysfs (/sys/bus/usb/devices) only.
++
+ config MDEV
+ 	bool "mdev"
+ 	default n
+diff --git a/util-linux/Kbuild b/util-linux/Kbuild
+index 3004fd0..72a2ef1 100644
+--- a/util-linux/Kbuild
++++ b/util-linux/Kbuild
+@@ -22,6 +22,7 @@ lib-$(CONFIG_IPCRM)             += ipcrm.o
+ lib-$(CONFIG_IPCS)              += ipcs.o
+ lib-$(CONFIG_LOSETUP)           += losetup.o
+ lib-$(CONFIG_LSPCI)             += lspci.o
++lib-$(CONFIG_LSUSB)             += lsusb.o
+ lib-$(CONFIG_MDEV)              += mdev.o
+ lib-$(CONFIG_MKFS_EXT2)         += mkfs_ext2.o
+ lib-$(CONFIG_MKFS_MINIX)        += mkfs_minix.o
+diff --git a/util-linux/lsusb.c b/util-linux/lsusb.c
+new file mode 100644
+index 0000000..7c5b6b9
+--- a/dev/null
++++ b/util-linux/lsusb.c
+@@ -0,0 +1,67 @@
++/* vi: set sw=4 ts=4: */
++/*
++* lspci implementation for busybox
++*
++* Copyright (C) 2009  Malek Degachi <malek-degachi@laposte.net>
++*
++* Licensed under the GPL v2 or later, see the file LICENSE in this tarball.
++*/
++#include <libbb.h>
++
++static int FAST_FUNC fileAction(
++		const char *fileName,
++		struct stat *statbuf UNUSED_PARAM,
++		void *userData UNUSED_PARAM,
++		int depth UNUSED_PARAM)
++{
++	parser_t *parser;
++	char *tokens[6];
++	char *bus = NULL, *device = NULL;
++	int product_vid = 0, product_did = 0;
++
++	char *uevent_filename = concat_path_file(fileName, "/uevent");
++	parser = config_open2(uevent_filename, fopen_for_read);
++	free(uevent_filename);
++
++	while (config_read(parser, tokens, 6, 1, "\\/=", PARSE_NORMAL)) {
++		if ((parser->lineno == 1) && strcmp(tokens[0], "DEVTYPE") == 0) {
++			break;
++		}
++
++		if (strcmp(tokens[0], "DEVICE") == 0) {
++			bus = xstrdup(tokens[4]);
++			device = xstrdup(tokens[5]);
++			continue;
++		}
++
++		if (strcmp(tokens[0], "PRODUCT") == 0) {
++			product_vid = xstrtou(tokens[1], 16);
++			product_did = xstrtou(tokens[2], 16);
++			continue;
++		}
++	}
++	config_close(parser);
++
++	if (bus) {
++		printf("Bus %s Device %s: ID %04x:%04x\n", bus, device, product_vid, product_did);
++		free(bus);
++		free(device);
++	}
++
++	return TRUE;
++}
++
++int lsusb_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
++int lsusb_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
++{
++	/* no options, no getopt */
++
++	recursive_action("/sys/bus/usb/devices",
++			ACTION_RECURSE,
++			fileAction,
++			NULL, /* dirAction */
++			NULL, /* userData */
++			0 /* depth */);
++
++	return EXIT_SUCCESS;
++}
+--
+cgit v0.8.2.1
