@@ -1780,7 +1780,7 @@ diff -urN linux-2.4.29-old/net/ipv4/netfilter/Makefile linux-2.4.29-dev/net/ipv4
  # generic IP tables 
  obj-$(CONFIG_IP_NF_IPTABLES) += ip_tables.o
 --- linux-2.4.32/net/ipv4/netfilter/ip_conntrack_pptp.c	1970-01-01 01:00:00.000000000 +0100
-+++ /home/florian//openwrt/trunk/openwrt/build_mipsel/linux/net/ipv4/netfilter/ip_conntrack_pptp.c	2006-02-04 18:23:27.000000000 +0100
++++ linux/net/ipv4/netfilter/ip_conntrack_pptp.c	2006-02-04 18:23:27.000000000 +0100
 @@ -0,0 +1,635 @@
 +/*
 + * ip_conntrack_pptp.c	- Version 1.9
