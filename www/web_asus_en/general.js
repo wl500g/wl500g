@@ -95,15 +95,6 @@ function inputCtrl2(o, flag)
     }
 }
 
-function str2val(v)
-{
-      for(i=0; i<v.length-1; i++) 
-      {                      
-          if (v.charAt(i) !='0') break;
-      }   	
-      return v.substring(i);
-}
-
 function inputRCtrl1(o, flag)
 {
     if (flag == 0)
@@ -217,21 +208,17 @@ function markGroup(o, s, c, b) {
             {            		   
             	if (document.form.vts_num_x_0.value >= c) cFlag=1;
             	else if (document.form.vts_ipaddr_x_0.value=="") bFlag=1;
-            	else if (document.form.vts_proto_x_0.value == "OTHER")
-            	{
-            		if (!validate_ipaddr(document.form.vts_ipaddr_x_0, "") ||
-            	    	!validate_portrange(document.form.vts_port_x_0, "") ||
-            	    	!validate_range(document.form.vts_protono_x_0, 0, 255)) return false;
-            		else if (document.form.vts_protono_x_0.value=="") bFlag=1;
-            		document.form.vts_port_x_0.value = "";            	
-	        }	 
-        	else
-            	{ 
-                	if (!validate_ipaddr(document.form.vts_ipaddr_x_0, "") ||
+            	if (!validate_ipaddr(document.form.vts_ipaddr_x_0, "") ||
             		!validate_portrange(document.form.vts_port_x_0, "") ||
             		!validate_range_sp(document.form.vts_lport_x_0, 1, 65535)) return false;
-                	else if (document.form.vts_port_x_0.value=="") bFlag=1;
-            		document.form.vts_protono_x_0.value = "";
+            	if (document.form.vts_proto_x_0.value == "OTHER")
+            	{
+            	    	if (!validate_range(document.form.vts_protono_x_0, 0, 255)) return false;
+            		else if (document.form.vts_protono_x_0.value=="") bFlag=1;
+	        }
+        	else
+            	{
+                	if (document.form.vts_port_x_0.value=="") bFlag=1;
             	}
             }
             else
@@ -601,36 +588,27 @@ function is_number(o)
 
 function validate_range(o, min, max)
 {      	
-   if(o.value<min || o.value>max)
+   if (isNaN(o.value))
+   {
+      alert('Please enter a number');
+      o.focus();
+      return false;
+   }
+   if (o.value<min || o.value>max)
    {
       alert('Please enter a value between ' + min + ' to ' + max + '.');
       o.value = min;
       o.focus();
       return false;    
    }
-   else
-   {
-      o.value = str2val(o.value);            
-      return true;   
-   }
+   return true;   
 }
 
 function validate_range_sp(o, min, max)
-{      	
+{
    if (o.value.length==0) return true;
-      	
-   if(o.value<min || o.value>max)
-   {
-      alert('Please enter a value between ' + min + ' to ' + max + '.');
-      o.value = min;
-      o.focus();
-      return false;    
-   }
-   else
-   {
-      o.value = str2val(o.value);            
-      return true;   
-   }
+
+   return validate_range(o, min, max);
 }
 
 function change_ipaddr(o)
