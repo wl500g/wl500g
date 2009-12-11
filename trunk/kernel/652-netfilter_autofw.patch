@@ -61,7 +61,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
  	union {
 --- linux-2.4.35.5-orig/net/ipv4/netfilter/ip_autofw.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux/net/ipv4/netfilter/ip_autofw.c	2004-12-03 05:58:29.000000000 +0300
-@@ -0,0 +1,320 @@
+@@ -0,0 +1,326 @@
 +/*
 + * Automatic port forwarding target. When this target is entered, a
 + * related connection to a port in the reply direction will be
@@ -98,9 +98,15 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 +#include <linux/netfilter_ipv4/ip_autofw.h>
 +#include <linux/netfilter_ipv4/lockhelp.h>
 +
-+DECLARE_LOCK(ip_autofw_lock);
++#undef NEW_PORT_TRIG
 +
++#if 0
++#define DEBUGP printk
++#else
 +#define DEBUGP(format, args...)
++#endif
++
++DECLARE_LOCK(ip_autofw_lock);
 +
 +static unsigned int
 +autofw_nat_help(struct ip_conntrack *ct,
@@ -268,7 +274,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 +
 +
 +static unsigned int
-+target(struct sk_buff **pskb,
++autofw_target(struct sk_buff **pskb,
 +       unsigned int hooknum,
 +       const struct net_device *in,
 +       const struct net_device *out,
@@ -305,7 +311,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 + 		exp->help.exp_autofw_info.to[0] = info->to[0];
 + 		exp->help.exp_autofw_info.to[1] = info->to[1];
 +
-+		DEBUGP("autofw_expect: expecting ");
++		DEBUGP("autofw_target: expecting ");
 +		DUMP_TUPLE(&exp->tuple);
 +
 +		/* Ignore failure; should only happen with NAT */
@@ -323,7 +329,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 +	exp->help.exp_autofw_info.to[0] = info->to[0];
 +	exp->help.exp_autofw_info.to[1] = info->to[1];
 +
-+	DEBUGP("autofw_expect: expecting ");
++	DEBUGP("autofw_target: expecting ");
 +	DUMP_TUPLE(&exp->tuple);
 +
 +	/* Ignore failure; should only happen with NAT */
@@ -337,7 +343,7 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 +
 +/* Must specify -p tcp/udp --dport port */
 +static int
-+checkentry(const char *tablename,
++autofw_checkentry(const char *tablename,
 +	   const struct ipt_entry *e,
 +	   void *targinfo,
 +	   unsigned int targinfosize,
@@ -362,22 +368,22 @@ diff -urN linux-2.4.29-old/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.4
 +		DEBUGP("autofw_check: bad proto %d.\n", info->proto);
 +		return 0;
 +	}
-+		
++
 +	return 1;
 +}
 +
-+static struct ipt_target autofw_target
++static struct ipt_target ipt_autofw_reg
 += { { NULL, NULL }, "autofw",
-+    target, checkentry, NULL, THIS_MODULE };
++    autofw_target, autofw_checkentry, NULL, THIS_MODULE };
 +
 +static int __init init(void)
 +{
-+	return ipt_register_target(&autofw_target);
++	return ipt_register_target(&ipt_autofw_reg);
 +}
 +
 +static void __exit fini(void)
 +{
-+	ipt_unregister_target(&autofw_target);
++	ipt_unregister_target(&ipt_autofw_reg);
 +}
 +
 +module_init(init);
