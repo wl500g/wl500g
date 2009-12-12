@@ -977,12 +977,7 @@ main(int argc, char **argv)
 	}
 	/* send alarm */
 	else if (strstr(base, "sendalarm")) {
-		if (argc >= 1)
-			return sendalarm_main(argc, argv);
-		else {
-			fprintf(stderr, "usage: sendalarm\n");
-			return EINVAL;
-		}
+		return sendalarm_main(argc, argv);
 	}
 	/* invoke watchdog */
 	else if (strstr(base, "watchdog")) {
