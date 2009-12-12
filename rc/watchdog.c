@@ -379,8 +379,8 @@ int ntp_timesync(void)
 		      		sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
 			  	logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
 
-				stop_upnp();
-				start_upnp();
+				//stop_upnp();
+				//start_upnp();
 		   	}	
 		  	else sync_interval = 6;		/* Once per 60s */
 	
