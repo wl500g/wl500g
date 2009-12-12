@@ -17,7 +17,7 @@ include .config
 RELEASE=1.9.2.7-e
 
 
-MODEL=WL500gp
+MODEL=RT-N16
 # WL500gx, WL550gE, WL500gp, WL500gpv2, WL500W
 
 #
