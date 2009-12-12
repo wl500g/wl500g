@@ -794,6 +794,12 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
 		}
 
+	#ifdef __CONFIG_IPV6__
+		if (nvram_match("ipv6_sit_enable", "1"))
+		{
+			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
+		}
+	#endif
 
 		if (nvram_invmatch("misc_lpr_x", "0"))
 		{
@@ -950,6 +956,116 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	eval("iptables-restore", "/tmp/filter_rules");
 	
+#ifdef __CONFIG_IPV6__
+	{
+	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
+	if ((fp=fopen("/tmp/filter6_rules", "w"))==NULL) return -1;
+
+	fprintf(fp, "*filter\n"
+		    ":INPUT ACCEPT [0:0]\n"
+		    ":FORWARD ACCEPT [0:0]\n"
+		    ":OUTPUT ACCEPT [0:0]\n"
+		    ":SECURITY - [0:0]\n"
+		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
+
+	/* SECURITY chain */
+	// sync-flood protection
+	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
+	// furtive port scanner
+	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
+	// udp flooding
+	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
+	// ping of death
+	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
+	// drop attacks!!!
+	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
+
+	/* INPUT chain */
+	// Disable RH0 to block ping-pong of packets.
+	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
+	// From localhost and intranet, all traffic is accepted
+	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
+	// Allow ICMPv6
+	fprintf(fp, "-A INPUT -p ipv6-icmp -j %s\n", logaccept);
+	// Pass Link-Local
+	fprintf(fp, "-A INPUT -s fe80::/10 -j %s\n", logaccept);
+	// Pass multicast, should it depend on mr_enable_x?
+	//if (nvram_match("mr_enable_x", "1"))
+		fprintf(fp, "-A INPUT -s ff00::/8 -j %s\n", logaccept);
+	// Check internet traffic
+	/* TODO: ipv6_state --state NEW */
+	//if (nvram_match("fw_dos_x", "1")) {
+	//	if (nvram_match("ipv6_sit_enable", "1"))
+	//		fprintf(fp, "-A INPUT -i sixtun -m state --state NEW -j SECURITY\n");
+	//	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
+	//	if (nvram_invmatch("wan0_ifname", wan_if))
+	//		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n",
+	//		    nvram_get("wan0_ifname"), wan_if);
+	// Firewall between WAN and Local
+	if (nvram_match("fw_enable_x", "1")) {
+		if (nvram_match("ssh_enable", "1"))
+			// don't use --syn coz no related connections state yet
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			    nvram_safe_get("ssh_port"), logaccept);
+		if (nvram_match("usb_ftpenable_x", "1"))
+			// don't use --syn coz no related connections state yet
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n",
+			    nvram_safe_get("usb_ftpport_x"), logaccept);
+			// Web-UI from WAN
+		if (nvram_match("misc_http_x", "1"))
+			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n",
+			    nvram_safe_get("ipv6_lan_addr"),
+			    nvram_safe_get("http_lanport"), logaccept);
+
+		// Drop everything else
+		fprintf(fp, "-A INPUT -j %s\n", logdrop);
+	}
+
+	/* FORWARD chain */
+	// Disable RH0 to block ping-pong of packets.
+	fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j %s\n", logdrop);
+	// Accept the redirect, might be seen as INVALID, packets
+	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);
+	// Allow ICMPv6
+	fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
+	/* Clamp TCP MSS to PMTU of WAN interface */
+	/* TODO: backported ipv6_tcpmss testing */
+	//fprintf(fp, "-A FORWARD -p tcp --syn -j TCPMSS --clamp-mss-to-pmtu\n");
+	// Pass Link-Local
+	fprintf(fp, "-A FORWARD -s fe80::/10 -j %s\n", logaccept);
+	// Pass multicast, should it depend on mr_enable_x?
+	//if (nvram_match("mr_enable_x", "1"))
+		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
+	// Filter out invalid WAN->WAN connections
+	if (nvram_match("ipv6_sit_enable", "1"))
+		fprintf(fp, "-A FORWARD -o sixtun ! -i %s -j %s\n", lan_if, logdrop);
+	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
+	if (nvram_invmatch("wan0_ifname", wan_if))
+		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+
+	/* OUTPUT chain */
+	// Disable RH0 to block ping-pong of packets.
+	fprintf(fp, "-A OUTPUT -m rt --rt-type 0 -j %s\n", logdrop);
+
+	/* logaccept chain */
+	/* TODO: ip6_state --state NEW */
+	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
+		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
+		  "-A logaccept -j ACCEPT\n");
+
+	/* logdrop chain */
+	/* TODO: ip6_state --state NEW */
+	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
+		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
+		  "-A logdrop -j DROP\n");
+
+	fprintf(fp, "COMMIT\n\n");
+       	fclose(fp);
+
+	eval("ip6tables-restore", "/tmp/filter6_rules");
+	}
+#endif
 	return 0;
 }
 

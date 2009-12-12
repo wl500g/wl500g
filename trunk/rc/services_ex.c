@@ -1094,7 +1094,13 @@ int restart_ftpd()
 		"passwd_file=%s\n",
 		vsftpd_users, vsftpd_passwd);
 
-	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n", 
+	fprintf(fp,
+#ifdef __CONFIG_IPV6__
+		"listen_ipv6=yes\n"
+#else
+		"listen=yes\n"
+#endif
+		"listen_port=%s\nbackground=yes\n",
 		nvram_get("usb_ftpport_x") ? : "21");
 	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
 
