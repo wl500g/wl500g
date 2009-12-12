@@ -32,6 +32,9 @@
 char *g_buf;
 char g_buf_pool[1024];
 
+/* Forwards */
+int porttrigger_setting(FILE *fp, char *lan_if);
+
 void g_buf_init()
 {
 	g_buf = g_buf_pool;
@@ -98,7 +101,7 @@ char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	return (g_buf_alloc(g_buf));
 }
 
-char *portrange_ex_conv(char *port_name, int idx)
+static char *portrange_ex_conv(char *port_name, int idx)
 {
 	char *port, *strptr;
 	char itemname_arr[32];
@@ -117,7 +120,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 	else if(!strncmp(port, "<", 1)) {
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
 	}
-	else if(strptr=strchr(port, ':'))
+	else if ((strptr=strchr(port, ':')) != NULL)
 	{		
 		strcpy(itemname_arr, port);
 		strptr = strchr(itemname_arr, ':');
@@ -129,7 +132,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 	}
 	else
 	{
-		sprintf(g_buf, "");
+		g_buf[0] = 0;
 	}
 	
 	return(g_buf_alloc(g_buf));
@@ -162,7 +165,7 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 		*start=1;
 		*end=atoi(port+1);
 	}
-	else if(strptr=strchr(port, ':'))
+	else if( (strptr=strchr(port, ':')) != NULL)
 	{		
 		strcpy(itemname_arr, port);
 		strptr = strchr(itemname_arr, ':');
@@ -178,7 +181,7 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 	}
 	else
 	{
-		sprintf(g_buf, "");
+		g_buf[0] = 0;
 		*start=0;
 		*end=0;
 	}
@@ -196,6 +199,7 @@ char *portrange_conv(char *port_name, int idx)
 	return(g_buf_alloc(g_buf));
 }
 
+#ifdef REMOVE
 char *iprange_conv(char *ip_name, int idx)
 {
 	char *ip;
@@ -237,6 +241,7 @@ char *iprange_conv(char *ip_name, int idx)
 		sprintf(g_buf, "%s-%s", startip, endip);
 	return(g_buf_alloc(g_buf));
 }
+#endif
 
 char *iprange_ex_conv(char *ip_name, int idx)
 {
@@ -408,7 +413,7 @@ void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 	return;
 	
 no_match:
-	sprintf(mstr, "");
+	mstr[0] = 0;
 	return;
 }
 
@@ -425,18 +430,19 @@ ip2class(char *lan_ip, char *netmask, char *buf)
 	struct in_addr in;
 	int i=0;
 
-	// only handle class A,B,C	
 	val = (unsigned int)inet_addr(netmask);
 	ip = (unsigned int)inet_addr(lan_ip);
 	in.s_addr = ip & val;
-	if (val==0xff00000) sprintf(buf, "%s/8", inet_ntoa(in));
-	else if (val==0xffff0000) sprintf(buf, "%s/16", inet_ntoa(in));
-	else sprintf(buf, "%s/24", inet_ntoa(in));
-	dprintf(buf);	
+
+        for (val = ntohl(val); val; i++) 
+        	val <<= 1;
+       
+        sprintf(buf, "%s/%d", inet_ntoa(in), i);
+	dprintf("%s", buf);	
 }
 
 void
-write_upnp_forward(FILE *fp, FILE *fp1, char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *lan_class, char *logaccept, char *logdrop)
+write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *lan_class, char *logaccept, char *logdrop)
 {
 	char name[] = "forward_portXXXXXXXXXX", value[512];
         char *wan_port0, *wan_port1, *lan_ipaddr, *lan_port0, *lan_port1, *proto;
@@ -444,7 +450,7 @@ write_upnp_forward(FILE *fp, FILE *fp1, char *wan_if, char *wan_ip, char *lan_if
 	int i;
 
 	/* Set wan_port0-wan_port1>lan_ipaddr:lan_port0-lan_port1,proto,enable,desc */
-	for(i=0 ; i<15 ; i++)
+	for(i=0 ; i<MAX_NVPARSE ; i++)
 	{
 		snprintf(name, sizeof(name), "forward_port%d", i);
 
@@ -499,21 +505,14 @@ write_upnp_forward(FILE *fp, FILE *fp1, char *wan_if, char *wan_ip, char *lan_if
 		                 --to-destination 192.168.1.88:23  */
 		if( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
 		{
-	   		fprintf(fp, "-A PREROUTING -p tcp -m tcp -d %s --dport %s "
+	   		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
-					, wan_ip, wan_port0, lan_ipaddr, lan_port0);
-
-			fprintf(fp1, "-A FORWARD -p tcp "
-				 "-m tcp -d %s --dport %s -j %s\n"
-				 , lan_ipaddr, lan_port0, logaccept);
+					, wan_port0, lan_ipaddr, lan_port0);
 		}
 		if( !strcmp(proto,"udp") || !strcmp(proto,"both") ){
-	   		fprintf(fp, "-A PREROUTING -p udp -m udp -d %s --dport %s "
+	   		fprintf(fp, "-A VSERVER -p udp -m udp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
-				  	, wan_ip, wan_port0, lan_ipaddr, lan_port0);
-
-			fprintf(fp1, "-A FORWARD -p udp -m udp -d %s --dport %s -j %s\n"
-				 , lan_ipaddr, lan_port0, logaccept);
+				  	, wan_port0, lan_ipaddr, lan_port0);
 		}
 	}
 }
@@ -529,42 +528,48 @@ char *ipoffset(char *ip, int offset, char *tmp)
 	return(tmp);
 }
 
-nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+
+void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
-	FILE *fp, *fp1;
-        char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
-        char *setting, lan_class[32];
+	FILE *fp;
+        char lan_class[32];
 	int i;
 	int wan_port;
-	char *internal_ip, *internal_num;
-	int num;
 	char dstips[32], dstports[12];
      				
 	
-	if ((fp=fopen("/tmp/nat_rules", "w"))==NULL) return -1;
-	if ((fp1=fopen("/tmp/nat_forward_rules", "w"))==NULL) return -1;
+	if ((fp=fopen("/tmp/nat_rules", "w"))==NULL) return;
 
 	fprintf(fp, "*nat\n"
 	       	":PREROUTING ACCEPT [0:0]\n"
 	       	":POSTROUTING ACCEPT [0:0]\n"
-	  	":OUTPUT ACCEPT [0:0]\n");
+	  	":OUTPUT ACCEPT [0:0]\n"
+	  	":VSERVER - [0:0]\n");
 
 	//Log	
    	//if(nvram_match("misc_natlog_x", "1"))
    	// 	fprintf(fp, "-A PREROUTING -i %s -j LOG --log-prefix ALERT --log-level 4\n", wan_if);
 
+	/* VSERVER chain */
+	if (inet_addr_(wan_ip))
+		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wan_ip);
+
+	if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+   		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", nvram_get("wanx_ipaddr"));
+      
    	if (nvram_match("misc_http_x", "1"))
 	{
 		wan_port=8080;
    		if (nvram_invmatch("misc_httpport_x", ""))
       			wan_port=atoi(nvram_safe_get("misc_httpport_x")); 	
-   		fprintf(fp, "-A PREROUTING -p tcp -m tcp -d %s --dport %d -j DNAT --to-destination %s:80\n", wan_ip, wan_port, lan_ip);
+   		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %d -j DNAT --to-destination %s:%s\n",
+			wan_port, lan_ip, nvram_safe_get("http_lanport"));
 	}
 
-   	if (nvram_match("wan_nat_x", "1"))
+   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("upnp_enable", "0"))
    	{     		
 		// upnp port forward
-        	write_upnp_forward(fp, fp1, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
+        	write_upnp_forward(fp, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
 	}
 
 	// Port forwarding or Virtual Server
@@ -601,45 +606,37 @@ nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logacc
 			{
 				if (lport!=NULL && strlen(lport)!=0) 
 				{
-					fprintf(fp, "-A PREROUTING -p tcp -m tcp -d %s --dport %s -j DNAT --to-destination %s\n", 
-					wan_ip, port, dstips);
+					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT --to-destination %s\n", 
+					port, dstips);
 				}
 				else
 				{
-					fprintf(fp, "-A PREROUTING -p tcp -m tcp -d %s --dport %s -j DNAT --to %s\n", 
-					wan_ip, port, dstip);
+					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT --to %s\n", 
+					port, dstip);
 				}
-
-				fprintf(fp1, "-A FORWARD -p tcp -m tcp -d %s --dport %s -j %s\n", 
-					dstip, dstports, logaccept);
 			}     				
 				
 			if (strcmp(proto, "udp")==0 || strcmp(proto, "both")==0)
 			{
 				if (lport!=NULL && strlen(lport)!=0) 
 				{
-					fprintf(fp, "-A PREROUTING -p udp -m udp -d %s --dport %s -j DNAT --to-destination %s\n", 
-					wan_ip, port, dstips);
+					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT --to-destination %s\n", 
+					port, dstips);
 				}
 				else
 				{
-					fprintf(fp, "-A PREROUTING -p udp -m udp -d %s --dport %s -j DNAT --to %s\n", 
-					wan_ip, port, dstip);
+					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT --to %s\n", 
+					port, dstip);
 				}
-				fprintf(fp1, "-A FORWARD -p udp -m udp -d %s --dport %s -j %s\n", 
-					dstip, dstports, logaccept);
 			}     				        			
 			if (strcmp(proto, "other")==0)
 			{
-				fprintf(fp, "-A PREROUTING -p %s -d %s -j DNAT --to %s\n",
-					protono, wan_ip, dstip);
-
-				fprintf(fp1, "-A FORWARD -p %s -d %s -j %s\n",
-					protono, dstip, logaccept);
+				fprintf(fp, "-A VSERVER -p %s -j DNAT --to %s\n",
+					protono, dstip);
 			}     				        				}	
 	}	
 
-   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0"))
+   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && inet_addr_(wan_ip))
 	{
 		#define BASEPORT 6112
 		#define BASEPORT_NEW 10000
@@ -650,34 +647,35 @@ nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logacc
 		fprintf(fp, "-A PREROUTING -p udp -d %s --sport %d -j NETMAP --to %s\n", wan_ip, BASEPORT, lan_class);
 
 		fprintf(fp, "-A POSTROUTING -p udp -s %s --dport %d -j NETMAP --to %s\n", lan_class, BASEPORT, wan_ip);
-
-		fprintf(fp1, "-A FORWARD -p udp --dport %d -j %s\n",
-					BASEPORT, logaccept);
 	}
 
    	// Exposed station	
    	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("dmz_ip", ""))
    	{   		
-      		fprintf(fp, "-A PREROUTING -d %s -j DNAT --to %s\n", 
-			wan_ip, nvram_safe_get("dmz_ip"));      
-
-      		fprintf(fp1, "-A FORWARD -d %s -j %s\n", 
-			nvram_safe_get("dmz_ip"), logaccept);      
+      		fprintf(fp, "-A VSERVER -j DNAT --to %s\n", nvram_safe_get("dmz_ip"));
       	}
 
 	if (nvram_match("wan_nat_x", "1"))
 	{
-   		fprintf(fp, "-A POSTROUTING -o %s -j MASQUERADE\n", wan_if);
+		if (inet_addr_(wan_ip))
+   			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
+
+   		/* masquerade physical WAN port connection */
+		if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", 
+	   			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"));
 
 		// masquerade lan to lan
 		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
 		fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j MASQUERADE\n", lan_if, lan_class, lan_class);
 	}
 
+	/* Trigger port setting */
+	porttrigger_setting(fp, lan_if);
+
 	fprintf(fp, "COMMIT\n");
 	
 	fclose(fp);
-	fclose(fp1);
 
 	eval("iptables-restore", "/tmp/nat_rules");
 }
@@ -703,156 +701,143 @@ int
 filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
 
-	FILE *fp, *fp1;
+	FILE *fp;
         char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
         char *setting, line[256];
-	char macaccept[32], chain[3];
-	char *ftype, *dtype, *fftype;
-	int num;
 	int i;
-	int wan_port;
 	
 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
 
-	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
-
-	strcpy(macaccept, "");
+	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
 
 	// FILTER from LAN to WAN Source MAC
-	if(nvram_invmatch("macfilter_enable_x", "0"))
+	if(nvram_invmatch("macfilter_enable_x", "0") && 
+		nvram_invmatch("macfilter_enable_x", "disabled"))
 	{   		
+		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
 		// LAN/WAN filter		
-		g_buf_init();
-
-		if (nvram_match("macfilter_enable_x", "2"))
-		{
-			dtype = logaccept;
-			ftype = logdrop;
-			fftype = logdrop;
-		}
-		else
-		{
-			dtype = logdrop;
-			ftype = logaccept;
-
-			strcpy(macaccept, "MACS");
-			fftype = macaccept;
-		}
-	
-		num = atoi(nvram_safe_get("macfilter_num_x"));
-
-		for(i=0;i<num;i++)
+		foreach_x("macfilter_num_x")
 		{	
-         		fprintf(fp, "-A INPUT -i %s -m mac --mac-source %s -j %s\n", lan_if, mac_conv("macfilter_list_x", i, line), ftype);
-         		fprintf(fp, "-A FORWARD -i %s -m mac --mac-source %s -j %s\n", lan_if, mac_conv("macfilter_list_x", i, line), fftype);
+			g_buf_init();
+         		fprintf(fp, "-A MACS -m mac --mac-source %s -j %s\n", 
+				mac_conv("macfilter_list_x", i, line), 
+				(blacklist ? logdrop : "RETURN"));
 		} 
+		if (!blacklist)
+			fprintf(fp, "-A MACS -j %s\n", logdrop);
+		fprintf(fp, "-A INPUT -i %s -j MACS\n", lan_if);
+		fprintf(fp, "-A FORWARD -i %s -j MACS\n", lan_if);
 	} 
 
-	if (nvram_invmatch("fw_enable_x", "1"))
-	{
-		if (nvram_match("macfilter_enable_x", "1"))
-		{
-			/* Filter known SPI state */
-			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n"
-			,lan_if, logdrop);
-		}
-	}
-	else
-	{	
-		if (nvram_match("macfilter_enable_x", "1"))
-		{
-			/* Filter known SPI state */
-			fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n"
-		          "-A INPUT -m state --state RELATED,ESTABLISHED -j %s\n"
-	        	  "-A INPUT -i lo -m state --state NEW -j %s\n"
-		          "-A INPUT -i %s -m state --state NEW -j %s\n"
-			,logdrop, logaccept, "ACCEPT", lan_if, logdrop);
-		}
-		else
-		{
-			/* Filter known SPI state */
-			fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n"
-		          "-A INPUT -m state --state RELATED,ESTABLISHED -j %s\n"
-	        	  "-A INPUT -i lo -m state --state NEW -j %s\n"
-		          "-A INPUT -i %s -m state --state NEW -j %s\n"
-			,logdrop, logaccept, "ACCEPT", lan_if, "ACCEPT");
-		}
-
-
-	// Firewall between WAN and Local
-	if (nvram_match("misc_http_x", "1"))
-	{
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
-		//fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", wan_ip, nvram_safe_get("misc_httpport_x"), logaccept);
-	}
-
-	if (nvram_match("usb_webenable_x", "2"))
-	{
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", wan_ip, nvram_safe_get("usb_webhttpport_x"), logaccept);
-
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", wan_ip, nvram_safe_get("usb_webactivex_x"), logaccept);
-	}
-
-	if (nvram_invmatch("usb_ftpenable_x", "0"))
-	{	
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", wan_ip, nvram_safe_get("usb_ftpport_x"), logaccept);
-	}
-
-	if (nvram_invmatch("misc_ping_x", "0"))
-	{
-		fprintf(fp, "-A INPUT -p icmp -d %s -j %s\n", wan_ip, logaccept);
-	}
-
-	if (nvram_invmatch("misc_lpr_x", "0"))
-	{
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %d -j %s\n", wan_ip, 515, logaccept);
-
-		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %d -j %s\n", wan_ip, 3838, logaccept);
-	}
-
-	fprintf(fp, "-A INPUT -j %s\n", logdrop);
-	}
+	// Security checks
+	// sync-flood protection	
+	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
+	// furtive port scanner
+	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
+	// udp flooding
+	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
+	// ping of death
+	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
+	// drop attacks!!!
+	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
 
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
-	if (strlen(macaccept)>0)
-		fprintf(fp, "-A MACS -m state --state INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
+	/* Accept related connections, skip rest of checks */
+	fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+	/* From localhost and intranet, all traffic is accepted */
+	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
+	/* Pass multicast */
+	if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) {
+		fprintf(fp, "-A INPUT -p igmp -d 224.0.0.0/4 -j %s\n", logaccept);
+		fprintf(fp, "-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j %s\n", logaccept);
+	}
+	/* Check internet traffic */
+	if (nvram_match("fw_dos_x", "1"))
+		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
+
+	if (nvram_match("fw_enable_x", "1"))
+	{	
+		/* enable incoming packets from broken dhcp servers, which are sending replies
+		 * from addresses other than used for query, this could lead to lower level
+		 * of security, but it does not work otherwise (conntrack does not work) :-( 
+		 */
+		if (nvram_match("wan0_proto", "dhcp") || nvram_match("wan0_proto", "bigpond") ||
+		    nvram_match("wan_ipaddr", "0.0.0.0"))
+		{
+			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
+		}
+
+		// Firewall between WAN and Local
+		if (nvram_invmatch("http_lanport", "80"))
+			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
+		if (nvram_match("misc_http_x", "1"))
+		{
+            		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", nvram_safe_get("lan_ipaddr"), nvram_safe_get("http_lanport"), logaccept);  
+		}
+
+		if (nvram_match("usb_webenable_x", "2"))
+		{
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webhttpport_x"), logaccept);
+
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webactivex_x"), logaccept);
+		}
+
+		if (nvram_match("usb_ftpenable_x", "1"))
+		{	
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_ftpport_x"), logaccept);
+		}
+
+		if (nvram_invmatch("misc_ping_x", "0"))
+		{
+			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
+		}
+
+
+		if (nvram_invmatch("misc_lpr_x", "0"))
+		{
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 515, logaccept);
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 9100, logaccept);
+	#ifdef PARPORT_SUPPORT	
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 9101, logaccept);
+	#endif
+
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 3838, logaccept);
+		}
+
+		fprintf(fp, "-A INPUT -j %s\n", logdrop);
+	}
 
 
 	/* Accept the redirect, might be seen as INVALID, packets */
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);	
-	if (strlen(macaccept)>0)
-		fprintf(fp, "-A MACS -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);	
+	/* Drop the wrong state, INVALID, packets */
+	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
+	/* Pass multicast */
+	if (nvram_match("mr_enable_x", "1"))
+		fprintf(fp, "-A FORWARD -p udp -d 224.0.0.0/4 -j ACCEPT\n");
+
 	/* Clamp TCP MSS to PMTU of WAN interface */
-	if( nvram_match("wan_proto", "pppoe"))
+	if (nvram_match("wan_proto", "pppoe") ||
+		nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp"))
 	{
-		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS "
-			  "--set-mss %d\n", atoi(nvram_safe_get("wan_pppoe_mtu"))-39, atoi(nvram_safe_get("wan_pppoe_mtu"))-40);
-		
-		if (strlen(macaccept)>0)
-			fprintf(fp, "-A MACS -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS "
-			  "--set-mss %d\n", atoi(nvram_safe_get("wan_pppoe_mtu"))-39, atoi(nvram_safe_get("wan_pppoe_mtu"))-40);
-	}
-	
-	if (nvram_match("fw_enable_x", "1"))
-	{
-   		// DoS attacks   
-   		// sync-flood protection	
-   		fprintf(fp, "-A FORWARD -i %s -p tcp --syn -m limit --limit 1/s -j %s\n", wan_if, logaccept);
-   		// furtive port scanner
-   		fprintf(fp, "-A FORWARD -i %s -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j %s\n", wan_if, logaccept);
-   		// ping of death
-   		fprintf(fp, "-A FORWARD -i %s -p icmp --icmp-type echo-request -m limit --limit 1/s -j %s\n", wan_if, logaccept);
+		fprintf(fp, "-A FORWARD -p tcp --syn -j TCPMSS --clamp-mss-to-pmtu\n");
 	}
 
+	/* Accept related connections, skip rest of checks */
+	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+
+	/* Filter out invalid WAN->WAN connections */
+	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
+	if (nvram_invmatch("wan0_ifname", wan_if))
+		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+
+	/* Check internet traffic */
+	if (nvram_match("fw_dos_x", "1"))
+		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
 
 	// FILTER from LAN to WAN
-        // Rules for MAC Filter and LAN to WAN Filter
-        // Drop rules always before Accept
-	if(nvram_match("macfilter_enable_x", "1"))
-		strcpy(chain, "MACS");
-	else strcpy(chain, "FORWARD");
-		
 	if(nvram_match("fw_lw_enable_x", "1"))
 	{   		
 		char lanwan_timematch[128];
@@ -865,7 +850,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		{
 			dtype = logdrop;
 			ftype = logaccept;
-
 		}
 		else
 		{
@@ -874,10 +858,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 			
 		// LAN/WAN filter		
-		g_buf_init();
-
        		foreach_x("filter_lw_num_x")
        		{	               			
+			g_buf_init();
             		proto = protoflag_conv("filter_lw_proto_x", i, 0);
             		flag = protoflag_conv("filter_lw_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_lw_srcip_x", i);
@@ -885,22 +868,17 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			dstip = iprange_ex_conv("filter_lw_dstip_x", i);
 			dstport = portrange_conv("filter_lw_dstport_x", i);	
 			setting=filter_conv(proto, flag, srcip, srcport, dstip, dstport); 
-         		fprintf(fp, "-A %s %s -i %s -o %s %s -j %s\n", chain, lanwan_timematch, lan_if, wan_if, setting, ftype);
+         		fprintf(fp, "-A FORWARD %s -i %s %s -j %s\n", lanwan_timematch, lan_if, setting, ftype);
 		}            
 
        		// ICMP       	       			       			
        		foreach(ptr, nvram_safe_get("filter_lw_icmp_x"), icmplist)
 		{	   	 		
-	        	fprintf(fp, "-A %s %s -i %s -o %s -p icmp --icmp-type %s -j %s\n", chain, lanwan_timematch, lan_if, wan_if, ptr, ftype);
+	        	fprintf(fp, "-A FORWARD %s -i %s -p icmp --icmp-type %s -j %s\n", lanwan_timematch, lan_if, ptr, ftype);
 	        }	
 
 		// Default
-	        fprintf(fp, "-A %s -i %s -o %s -j %s\n", chain, lan_if, wan_if, dtype);
-	} 
-	else if (nvram_match("macfilter_enable_x", "1"))
-	{
-         	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, wan_if, logdrop);
-         	fprintf(fp, "-A MACS -i %s -o %s -j %s\n", lan_if, wan_if, logaccept);
+	        fprintf(fp, "-A FORWARD -i %s -j %s\n", lan_if, dtype);
 	}
 
 	// Filter from WAN to LAN
@@ -911,7 +889,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		char *dtype, *ftype;
 
 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
-		g_buf_init();
 	
 		if (nvram_match("filter_wl_default_x", "DROP"))
 		{
@@ -926,6 +903,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			
        		foreach_x("filter_wl_num_x")
        		{	               			
+			g_buf_init();
             		proto = protoflag_conv("filter_wl_proto_x", i, 0);
             		flag = protoflag_conv("filter_wl_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_wl_srcip_x", i);
@@ -934,29 +912,25 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			dstport = portrange_conv("filter_wl_dstport_x", i);	
 			setting=filter_conv(proto, flag, srcip, srcport, dstip, dstport);
 
-         		fprintf(fp, "-A FORWARD %s -i %s -o %s %s -j %s\n", wanlan_timematch, wan_if, lan_if, setting, ftype);
+         		fprintf(fp, "-A FORWARD %s -o %s %s -j %s\n", wanlan_timematch, lan_if, setting, ftype);
 		}            
        			 
        		// ICMP       	       			       			
        		foreach(ptr, nvram_safe_get("filter_wl_icmp_x"), icmplist)
 		{	   	 		
-	        	fprintf(fp, "-A FORWARD %s -i %s -o %s -p icmp --icmp-type %s -j %s\n", wanlan_timematch, wan_if, lan_if, ptr, ftype);
-	        }	
-         	
-		// Default
-		fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", wan_if, lan_if, dtype);
+	        	fprintf(fp, "-A FORWARD %s -o %s -p icmp --icmp-type %s -j %s\n", wanlan_timematch, lan_if, ptr, ftype);
+	        }
        	}
 
+	/* Enable Virtual Servers */
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate DNAT -j %s\n", 
+		nvram_match("filter_vs_default_x", "DROP") ? logdrop : logaccept);
 
-	/* Write forward chain rules of NAT */
-	if ((fp1 = fopen("/tmp/nat_forward_rules", "r"))!=NULL)
-	{
-		while(fgets(line, sizeof(line), fp1))
-		{
-			fprintf(fp, "%s", line);
-		}
-
-		fclose(fp1);
+	if(nvram_match("fw_wl_enable_x", "1"))
+	{   		
+		// Default
+		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if, 
+			nvram_match("filter_wl_default_x", "DROP") ? logdrop : logaccept);
 	}
 
 
@@ -966,7 +940,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
-	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP\" "
+	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 	
@@ -974,9 +948,11 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
        	fclose(fp);
 
 	eval("iptables-restore", "/tmp/filter_rules");
+	
+	return 0;
 }
 
-int porttrigger_setting()
+int porttrigger_setting(FILE *fp, char *lan_if)
 {
 	netconf_app_t apptarget, *app;
 	int i;
@@ -1040,10 +1016,18 @@ int porttrigger_setting()
 		app->target = NETCONF_APP;
 
 		if (valid_autofw_port(app))
-		{	
-			netconf_add_fw((netconf_fw_t *)app);
+		{
+			fprintf(fp, "-A PREROUTING -p %s -i %s --dport %d:%d -j autofw"
+			    " --related-proto %s --related-dport %d-%d --related-to %d-%d\n",
+				(app->match.ipproto == IPPROTO_TCP) ? "tcp" : "udp", lan_if, 
+				ntohs(app->match.dst.ports[0]), ntohs(app->match.dst.ports[1]), 
+				(app->proto == IPPROTO_TCP) ? "tcp" : "udp", 
+				ntohs(app->dport[0]), ntohs(app->dport[1]), 
+				ntohs(app->to[0]), ntohs(app->to[1]));
+			/*netconf_add_fw((netconf_fw_t *)app); */
 		}
 	}
+	return 0;
 }
 
 int
@@ -1054,6 +1038,11 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	FILE *fp;
 	char name[NAME_MAX];
 	char logaccept[32], logdrop[32];
+	char *mcast_ifname = nvram_get("wan0_ifname");
+	
+	/* mcast needs rp filter to be turned off only for non default iface */
+	if (!(nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) ||
+	 	strcmp(wan_if, mcast_ifname) == 0) mcast_ifname = NULL;
 	
 	/* Block obviously spoofed IP addresses */
 	if (!(dir = opendir("/proc/sys/net/ipv4/conf")))
@@ -1066,7 +1055,8 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 				perror(name);
 				break;
 			}
-			fputc('1', fp);
+			fputc(mcast_ifname && strncmp(file->d_name, 
+				mcast_ifname, NAME_MAX) == 0 ? '0' : '1', fp);
 			fclose(fp);
 		}
 	}
@@ -1088,9 +1078,13 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	/* Filter setting */
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
-	/* Trigger port setting */
-	porttrigger_setting();
-
+	if (nvram_invmatch("misc_conntrack_x", "")) {
+		if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_max", "r+")) ){
+			fputs(nvram_safe_get("misc_conntrack_x"), fp);
+			fclose(fp);
+		} else
+			perror("/proc/sys/net/ipv4/ip_conntrack_max");
+	}	
 #ifdef XBOX_SUPPORT
 	if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+")) ){
 		fprintf(fp, "%d %d", 65, 180);
@@ -1105,10 +1099,16 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	} else
 		perror("/proc/sys/net/ipv4/ip_forward");
 
-	return ;
+	if (nvram_invmatch("wan0_ifname", wan_if))
+		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip, 
+			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"));
+	else
+		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip);
+
+	return 0;
 }
 
-
+#if 0
 portmapping_main(int argc, char *argv[])
 {	
 	char actionname[32], portname[32], ipname[32];
@@ -1141,7 +1141,7 @@ portmapping_main(int argc, char *argv[])
 		start_firewall_ex("eth0", "", "br0", "");
 	}		
 }
-	
+#endif	
 
 void write_static_leases(char *file)
 {
@@ -1168,14 +1168,15 @@ void convert_routes(void)
 {
 	int i;
 	char *ip, *netmask, *gateway, *matric, *interface;
-	char wroutes[400], lroutes[400];
+	char wroutes[1024], lroutes[1024], mroutes[1024];
 
 	wroutes[0] = 0;
 	lroutes[0] = 0;	
+	mroutes[0] = 0;	
 
 	g_buf_init();
 			
-	foreach_x("sr_num_x")
+	if (nvram_match("sr_enable_x", "1")) foreach_x("sr_num_x")
 	{
 		ip = general_conv("sr_ipaddr_x", i);
 		netmask = general_conv("sr_netmask_x", i);
@@ -1194,14 +1195,19 @@ void convert_routes(void)
 		{
 			sprintf(lroutes, "%s %s:%s:%s:%d", lroutes, ip, netmask, gateway, atoi(matric)+1);
 		}	
+		else if (!strcmp(interface, "MAN"))
+		{
+			sprintf(mroutes, "%s %s:%s:%s:%d", mroutes, ip, netmask, gateway, atoi(matric)+1);
+		}	
 	}
 
 	//printf("route: %s %s\n", lroutes, wroutes);
 	nvram_set("lan_route", lroutes);
 	nvram_set("wan0_route", wroutes);
+	nvram_set("wan_route", mroutes);
 }
 
-#ifdef USB_SUPPORT	
+#ifdef CONFIG_STUPIDFTPD
 void write_ftp_banip(FILE *fp)
 {
 	char *ip;

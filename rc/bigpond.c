@@ -38,7 +38,7 @@ start_bpalogin(void)
 	}
 	else if(nvram_invmatch("wan0_domain", " ") && nvram_invmatch("wan0_domain", ""))
 	{	
-		snprintf(authserver, sizeof(authserver), "sm-server.%s", nvram_safe_get("wan0_domain"));
+		snprintf(authserver, sizeof(authserver), "%s", "sm-server");
 		snprintf(authdomain, sizeof(authdomain), "%s", nvram_safe_get("wan0_domain"));
 	}
 #ifdef REMOVE
@@ -68,7 +68,7 @@ start_bpalogin(void)
 		snprintf(authdomain, sizeof(authdomain), "%s", "");
 	}
 
-	snprintf(buf, sizeof(buf), "%s%c%s", authserver, !strcmp(authdomain,"") ? '\0' : '.', authdomain);
+	snprintf(buf, sizeof(buf), "%s%s%s", authserver, !strcmp(authdomain,"") ? "" : ".", authdomain);
 
 	nvram_set("hb_server_name", buf);
 	
@@ -79,7 +79,9 @@ start_bpalogin(void)
 	fprintf(fp, "username %s\n", nvram_safe_get("wan_pppoe_username"));
 	fprintf(fp, "password %s\n", nvram_safe_get("wan_pppoe_passwd"));
 	fprintf(fp, "authserver %s\n", authserver);
-	fprintf(fp, "%cauthdomain %s\n", strcmp(authdomain,"") ? '\0' : '#', authdomain);
+	if (strcmp(authdomain,"")) {
+	  fprintf(fp, "authdomain %s\n", authdomain);
+	}
 	fprintf(fp, "localport 5050\n");
 	fprintf(fp, "logging syslog\n");
 	fprintf(fp, "debuglevel 0\n");
@@ -115,7 +117,6 @@ stop_bpalogin(void)
 int
 bpa_connect_main(int argc, char **argv)
 {
-	FILE *fp;
 	char buf[254];
 	
 	nvram_set("wan_auth_t", "OK");
@@ -133,6 +134,12 @@ bpa_connect_main(int argc, char **argv)
 int
 bpa_disconnect_main(int argc, char **argv)
 {
+#if 1
+	/* never play with dhcp leases, they're working
+	 idependently of authentication and you could 
+	 erroneously release lease, which was just aquired */
+	nvram_set("wan_auth_t", "FAIL");
+#else
 	char tmp[100], *str;
 	int pid;
 
@@ -144,6 +151,6 @@ bpa_disconnect_main(int argc, char **argv)
 		free(str);	
 		kill(pid, SIGUSR2);
 	}
-
+#endif
 	return TRUE;
 }

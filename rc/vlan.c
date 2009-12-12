@@ -81,6 +81,20 @@ int vlan_configured = 0;
 int brcm_tag_driver_enabled = 0;
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
+static void
+enable_wan_port(void)
+{
+	char val8 = 0;
+	
+	if ((bcm_api_init()) < 0)
+		return;
+
+	/* enable physical WAN port */
+	bcm_write_reg(0, ROBO_CTRL_PAGE, ROBO_PORT0_CTRL, &val8, 1);
+
+	bcm_api_deinit();
+}
+
 static int
 vlan_configure(void)
 
@@ -89,7 +103,7 @@ vlan_configure(void)
     char *vlan_enable = nvram_safe_get("vlan_enable");
     char *lan_ifname = nvram_safe_get("lan_ifname");
     char *lan_ifnames = nvram_safe_get("lan_ifnames");
-    char *wan_hwaddr = nvram_safe_get("wan_hwaddr");
+    char *wan_hwaddr = nvram_safe_get("wan0_hwaddr"); /* BUG */
     char *wan_ifname = NULL;
 	char *wan_proto;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
@@ -163,6 +177,7 @@ vlan_configure(void)
         if (bcm_is_robo())
         {
         	dprintf("No active, configured WAN interface found\n");
+        	enable_wan_port();
         }
         return -1;
     }
@@ -213,7 +228,7 @@ vlan_configure(void)
 	    return -1;
     }
     if (strlen(restore_wan_hwaddr)) {
-	if (nvram_set(strcat_r(prefix, "wan_hwaddr", tmp), restore_wan_hwaddr))
+	if (nvram_set(strcat_r(prefix, "hwaddr", tmp), restore_wan_hwaddr))
 	    return -1;
 	if (nvram_unset("restore_wan_hwaddr"))
 	    return -1;
@@ -221,8 +236,10 @@ vlan_configure(void)
 
     /* now check to see if vlan disabled */
     /* disabled, just exit */
-    if (!bVlan)
+    if (!bVlan) {
+	enable_wan_port();
 	return 0;
+    }
     
     /* activate interface to Robo switch */
     if ((bcm_api_init())<0) {
@@ -638,7 +655,7 @@ vlan_deconfigure(void)
 	    return -1;
     }
     if (strlen(restore_wan_hwaddr)) {
-	if (nvram_set(strcat_r(prefix, "wan_hwaddr", tmp), restore_wan_hwaddr))
+	if (nvram_set(strcat_r(prefix, "hwaddr", tmp), restore_wan_hwaddr))
 	    return -1;
 	if (nvram_unset("restore_wan_hwaddr"))
 	    return -1;

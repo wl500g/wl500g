@@ -16,9 +16,12 @@
 #include <sys/ioctl.h>
 
 #include "dns.h"
+#include "dns_decode.h"
 
 #define DNS_PORT 53
 #define SVR_PORT 4567
+
+int dns_construct_name(char *name, char *encoded_name);
 
 static int 
 waitsock(int sockfd, int sec, int usec)

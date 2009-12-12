@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <string.h>
 
+#include "dns.h"
 #include "dns_decode.h"
 
 /*

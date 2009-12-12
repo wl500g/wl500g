@@ -15,7 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <syslog.h>															
+#include <syslog.h>
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
@@ -41,8 +41,10 @@ typedef u_int8_t u8;
 #include <nvparse.h>
 #include <rc.h>
 #include <bcmutils.h>
-#include <etsockio.h>
+#include <etioctl.h>
 #include <bcmparams.h>
+
+void lan_up(char *lan_ifname);
 
 static int
 add_routes(char *prefix, char *var, char *ifname)
@@ -65,6 +67,9 @@ add_routes(char *prefix, char *var, char *ifname)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
+			
+		if (inet_addr_(gateway) == INADDR_ANY) 
+			gateway = nvram_safe_get("wanx_gateway");
 
 		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, atoi(metric), ipaddr, gateway, netmask);
 		
@@ -72,6 +77,77 @@ add_routes(char *prefix, char *var, char *ifname)
 	}
 
 	return 0;
+}
+
+static void
+add_wanx_routes(char *prefix, char *ifname, int metric)
+{
+	char *routes, *msroutes, *tmp;
+	char buf[30];
+
+	char ipaddr[] = "255.255.255.255";
+	char gateway[] = "255.255.255.255";
+	char netmask[] = "255.255.255.255";
+
+	if (!nvram_match("dr_enable_x", "1"))
+		return;
+
+	/* routes */
+	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
+	for (tmp = routes; tmp && *tmp; )
+	{
+		char *ipaddr = strsep(&tmp, " ");
+		char *gateway = strsep(&tmp, " ");
+		if (gateway) {
+			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		}
+	}
+	free(routes);
+	
+	/* ms routes */
+	for (msroutes = nvram_get(strcat_r(prefix, "msroutes", buf)); msroutes && isdigit(*msroutes); )
+	{
+		/* read net length */
+		int bit, bits = strtol(msroutes, &msroutes, 10);
+		struct in_addr ip, gw, mask;
+		
+		if (bits < 1 || bits > 32 || *msroutes != ' ')
+			break;
+
+		mask.s_addr = htonl(0xffffffff << (32 - bits));
+
+		/* read network address */
+		for (ip.s_addr = 0, bit = 24; bit > (24 - bits); bit -= 8)
+		{
+			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+				goto bad_data;
+
+			ip.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+		}
+		
+		/* read gateway */
+		for (gw.s_addr = 0, bit = 24; bit >= 0 && *msroutes; bit -= 8)
+		{
+			if (*msroutes++ != ' ' || !isdigit(*msroutes))
+				goto bad_data;
+
+			gw.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
+		}
+		
+		/* clear bits per RFC */
+		ip.s_addr &= mask.s_addr;
+		
+		strcpy(ipaddr, inet_ntoa(ip));
+		strcpy(gateway, inet_ntoa(gw));
+		strcpy(netmask, inet_ntoa(mask));
+		
+		route_add(ifname, metric + 1, ipaddr, gateway, netmask);
+		
+		if (*msroutes == ' ')
+			msroutes++;
+	}
+bad_data:
+	return;
 }
 
 static int
@@ -96,6 +172,9 @@ del_routes(char *prefix, char *var, char *ifname)
 		gateway = strsep(&metric, ":");
 		if (!gateway || !metric)
 			continue;
+			
+		if (inet_addr_(gateway) == INADDR_ANY) 
+			gateway = nvram_safe_get("wanx_gateway");
 		
 		dprintf("add %s\n", ifname);
 		
@@ -115,6 +194,42 @@ static int
 del_lan_routes(char *lan_ifname)
 {
 	return del_routes("lan_", "route", lan_ifname);
+}
+
+static void
+start_igmpproxy(char *wan_ifname)
+{
+	static char *igmpproxy_conf = "/etc/igmpproxy.conf";
+	struct stat	st_buf;
+	FILE 		*fp;
+
+	if (atoi(nvram_safe_get("udpxy_enable_x")))
+		eval("/usr/sbin/udpxy", "-a", nvram_get("lan_ifname") ? : "br0",
+			"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
+	
+	if (!nvram_match("mr_enable_x", "1"))
+		return;
+	
+	if (stat(igmpproxy_conf, &st_buf) != 0) 
+	{
+		if ((fp = fopen(igmpproxy_conf, "w")) == NULL) {
+			perror(igmpproxy_conf);
+			return;
+		}
+		
+		fprintf(fp, "# automagically generated from web settings\n"
+			"quickleave\n\n"
+			"phyint %s upstream\n"
+			"\taltnet %s\n\n"
+			"phyint %s downstream ratelimit 0\n\n", 
+			wan_ifname, 
+			nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
+			nvram_get("lan_ifname") ? : "br0");
+			
+		fclose(fp);
+	}
+	
+	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 }
 
 void
@@ -175,7 +290,8 @@ start_lan(void)
 					j = atoi(nvram_safe_get("wl_wdsnum_x"));
 					for(i=1;i<=j;i++)
 					{
-						sprintf(tmpstr, "ra%d", i);							ifconfig(tmpstr, IFUP, NULL, NULL);
+						sprintf(tmpstr, "ra%d", i);
+						ifconfig(tmpstr, IFUP, NULL, NULL);
 						eval("brctl","addif",lan_ifname,tmpstr);
 					}
 				}
@@ -190,7 +306,9 @@ start_lan(void)
 				char wl_name[] = "wlXXXXXXXXXX_mode";
 				int unit;
 #ifdef ASUS_EXT
-				sync_mac(name, nvram_safe_get("et0macaddr"));
+				/* do not play srom games, let asus firmware do everything */
+				/* mac offset == 72 for sroms 1, 2, == 76 for srom 3 */
+				/* sync_mac(name, nvram_safe_get("et0macaddr")); */
 #endif
 				wl_ioctl(name, WLC_GET_INSTANCE, &unit, sizeof(unit));
 				snprintf(wl_name, sizeof(wl_name), "wl%d_mode", unit);
@@ -264,6 +382,7 @@ start_lan(void)
 			}
 		}
 	}
+	close(s);
 #endif
 
 #ifdef ASUS_EXT
@@ -437,6 +556,11 @@ wan_valid(char *ifname)
 	foreach(name, nvram_safe_get("wan_ifnames"), next)
 		if (ifname && !strcmp(ifname, name))
 			return 1;
+	
+	if (nvram_invmatch("wl_mode_ex", "ap")) {
+		return nvram_match("wl0_ifname", ifname);
+	}
+
 	return 0;
 }
 
@@ -459,7 +583,7 @@ start_wan(void)
 #ifdef ASUS_EXT
 	update_wan_status(0);
 	/* start connection independent firewall */
-	start_firewall();
+	/* start_firewall(); */
 #else
 	/* start connection independent firewall */
 	start_firewall();
@@ -546,7 +670,11 @@ start_wan(void)
 			ifconfig(wan_ifname, IFUP, NULL, NULL);
 
 			/* do wireless specific config */
-			eval("wlconf", wan_ifname, "up");
+			if (!eval("wlconf", wan_ifname, "up")) {
+				/* Kick wl to join network */
+				if (nvram_match("wl0_mode", "wet") || nvram_match("wl0_mode", "sta"))
+					system(nvram_safe_get("wl0_join"));
+			}
 		}
 	
 		close(s);
@@ -558,7 +686,7 @@ start_wan(void)
 			FILE *fp;
 
 			setup_ethernet(nvram_safe_get("wan_ifname"));
-			start_pppoe_relay(nvram_safe_get("wan_ifname"));
+			start_pppoe_relay(wan_ifname);
 
 
 			/* Enable Forwarding */
@@ -569,90 +697,68 @@ start_wan(void)
 			{	
 				perror("/proc/sys/net/ipv4/ip_forward");
 			}
+
 		}
 
-		if (strcmp(wan_proto, "pptp")==0) 
-		{
-			start_pptp(prefix);
-#ifdef ASUS_EXT
-			nvram_set("wan_ifname_t", "ppp0");
-#endif
-		}
-		else
 		/* 
 		* Configure PPPoE connection. The PPPoE client will run 
 		* ip-up/ip-down scripts upon link's connect/disconnect.
 		*/
-		if (strcmp(wan_proto, "pppoe") == 0) {
-			char *pppoe_argv[] = { "pppoecd",
-					       nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
-					       "-u", nvram_safe_get(strcat_r(prefix, "pppoe_username", tmp)),
-					       "-p", nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)),
-					       "-r", nvram_safe_get(strcat_r(prefix, "pppoe_mru", tmp)),
-					       "-t", nvram_safe_get(strcat_r(prefix, "pppoe_mtu", tmp)),
-					       "-i", nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1") ?
-					       		nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp)) : "0",
-#ifdef ASUS_EXT
-						NULL, NULL,
-						NULL, NULL,
-						NULL, NULL,
-#endif
-					       NULL, NULL,	/* pppoe_service */
-					       NULL, NULL,	/* pppoe_ac */
-					       NULL,		/* pppoe_keepalive */
-					       NULL, NULL,	/* ppp unit requested */
-					       NULL
-			}, **arg;
-			int timeout = 5;
-			char pppunit[] = "XXXXXXXXXXXX";
+		if (strcmp(wan_proto, "pppoe") == 0 || strcmp(wan_proto, "pptp") == 0 ||
+		    strcmp(wan_proto, "l2tp") == 0) 
+		{
+			int demand = atoi(nvram_safe_get(strcat_r(prefix, "pppoe_idletime", tmp))) &&
+			    strcmp(wan_proto, "l2tp") /* L2TP does not support idling */;
+			
+			/* update demand option */
+			nvram_set(strcat_r(prefix, "pppoe_demand", tmp), demand ? "1" : "0");
 
-			/* Add optional arguments */
+			/* Bring up WAN interface */
+			ifconfig(wan_ifname, IFUP, 
+				nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp)),
+				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)));
 
-			for (arg = pppoe_argv; *arg; arg++);
+			/* start firewall */
+			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
+				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 
-#ifdef ASUS_EXT
-			if (nvram_invmatch(strcat_r(prefix, "pppoe_idletime", tmp), "0"))
-			{
-				*arg++ = "-I";
-				*arg++ = "30";
-
-				*arg++ = "-T";
-				*arg++ = "9";
-
-				*arg++ = "-N";
-				*arg++ = "10";
+		 	/* launch dhcp client and wait for lease forawhile */
+		 	if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) 
+		 	{
+				char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
+				char *dhcp_argv[] = { "udhcpc",
+					      "-i", wan_ifname,
+					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
+					      "-s", "/tmp/udhcpc",
+					      "-b",
+					      wan_hostname && *wan_hostname ? "-H" : NULL,
+					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
+					      NULL
+				};
+				/* Start dhcp daemon */
+				_eval(dhcp_argv, NULL, 0, NULL);
+		 	} else {
+			 	/* setup static wan routes via physical device */
+				add_routes("wan_", "route", wan_ifname);
+				/* and set default route if specified with metric 1 */
+				if (inet_addr_(nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))) &&
+				    !nvram_match("wan_heartbeat_x", ""))
+					route_add(wan_ifname, 2, "0.0.0.0", 
+						nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)), "0.0.0.0");
+				/* start multicast router */
+				start_igmpproxy(wan_ifname);
 			}
-
-			if (nvram_invmatch(strcat_r(prefix, "pppoe_txonly_x", tmp), "0")) {
-				*arg++ = "-o";
-			}
-#endif
-			if (nvram_invmatch(strcat_r(prefix, "pppoe_service", tmp), "")) {
-				*arg++ = "-s";
-				*arg++ = nvram_safe_get(strcat_r(prefix, "pppoe_service", tmp));
-			}
-			if (nvram_invmatch(strcat_r(prefix, "pppoe_ac", tmp), "")) {
-				*arg++ = "-a";
-				*arg++ = nvram_safe_get(strcat_r(prefix, "pppoe_ac", tmp));
-			}
-
-#ifndef ASUS_EXT	// keep alive anyway
-			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1") || 
-			    nvram_match(strcat_r(prefix, "pppoe_keepalive", tmp), "1"))
-#endif
-				*arg++ = "-k";
-			snprintf(pppunit, sizeof(pppunit), "%d", unit);
-			*arg++ = "-U";
-			*arg++ = pppunit;
-
+			
 			/* launch pppoe client daemon */
-			_eval(pppoe_argv, NULL, 0, &pid);
+			start_pppd(prefix);
 
 			/* ppp interface name is referenced from this point on */
 			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
 			
 			/* Pretend that the WAN interface is up */
-			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) {
+			if (demand) 
+			{
+				int timeout = 5;
 				/* Wait for pppx to be created */
 				while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
 					sleep(1);
@@ -703,6 +809,8 @@ start_wan(void)
 					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
 					      NULL
 			};
+			/* start firewall */
+			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 			/* Start dhcp daemon */
 			_eval(dhcp_argv, NULL, 0, &pid);
 #ifdef ASUS_EXT
@@ -750,14 +858,14 @@ stop_wan(void)
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");
 	eval("killall", "ip-down");
-	snprintf(signal, sizeof(signal), "-%d", SIGHUP);
-	eval("killall", signal, "pppoecd");
-	eval("killall", signal, "pppd");
-	eval("killall", "pppoecd");
+	eval("killall", "l2tpd");
 	eval("killall", "pppd");
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
+	eval("killall", "igmpproxy");
+	eval("killall", "udpxy");
+	eval("killall", "pppoe-relay");
 
 	/* Bring down WAN interfaces */
 	foreach(name, nvram_safe_get("wan_ifnames"), next)
@@ -790,15 +898,15 @@ stop_wan2(void)
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");
 	eval("killall", "ip-down");
-	snprintf(signal, sizeof(signal), "-%d", SIGHUP);
-	eval("killall", signal, "pppoecd");
-	eval("killall", signal, "pppd");
-	eval("killall", "pppoecd");
+	eval("killall", "l2tpd");
 	eval("killall", "pppd");
 
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
+	eval("killall", "igmpproxy");
+	eval("killall", "udpxy");
+	eval("killall", "pppoe-relay");
 
 	/* Remove dynamically created links */
 	unlink("/tmp/udhcpc");
@@ -814,109 +922,32 @@ stop_wan2(void)
 	dprintf("done\n");
 }
 
-static int
-add_ns(char *wan_ifname)
+static int 
+update_resolvconf(void)
 {
 	FILE *fp;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char word[100], *next;
-	char line[100];
 
-	/* Figure out nvram variable name prefix for this i/f */
-	if (wan_prefix(wan_ifname, prefix) < 0)
-		return -1;
+	/* check if auto dns enabled */	
+	if (!nvram_match("wan_dnsenable_x", "1"))
+		return 0;
 
-	/* Open resolv.conf to read */
-	if (!(fp = fopen("/tmp/resolv.conf", "r+"))) {
+	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
 		return errno;
 	}
-
-	/* Append only those not in the original list */
-	foreach(word, nvram_safe_get(strcat_r(prefix, "dns", tmp)), next) 
+	
+	foreach(word, (nvram_get("wan0_dns") ? : 
+		nvram_safe_get("wanx_dns")), next) 
 	{
-		fseek(fp, 0, SEEK_SET);
-		while (fgets(line, sizeof(line), fp)) {
-			char *token = strtok(line, " \t\n");
-
-			if (!token || strcmp(token, "nameserver") != 0)
-				continue;
-			if (!(token = strtok(NULL, " \t\n")))
-				continue;
-
-			if (!strcmp(token, word))
-				break;
-		}
-		if (feof(fp))
-			fprintf(fp, "nameserver %s\n", word);
+		fprintf(fp, "nameserver %s\n", word);
 	}
-	fclose(fp);
-
-#ifdef ASUS_EXT
-	stop_dns();
-	start_dns();
-#else
-	/* notify dnsmasq */
-	snprintf(tmp, sizeof(tmp), "-%d", SIGHUP);
-	eval("killall", tmp, "dnsmasq");
-#endif
 	
-	return 0;
-}
-
-static int
-del_ns(char *wan_ifname)
-{
-	FILE *fp, *fp2;
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char word[100], *next;
-	char line[100];
-
-	/* Figure out nvram variable name prefix for this i/f */
-	if (wan_prefix(wan_ifname, prefix) < 0)
-		return -1;
-
-	/* Open resolv.conf to read */
-	if (!(fp = fopen("/tmp/resolv.conf", "r"))) {
-		perror("fopen /tmp/resolv.conf");
-		return errno;
-	}
-	/* Open resolv.tmp to save updated name server list */
-	if (!(fp2 = fopen("/tmp/resolv.tmp", "w"))) {
-		perror("fopen /tmp/resolv.tmp");
-		fclose(fp);
-		return errno;
-	}
-	/* Copy updated name servers */
-	while (fgets(line, sizeof(line), fp)) {
-		char *token = strtok(line, " \t\n");
-
-		if (!token || strcmp(token, "nameserver") != 0)
-			continue;
-		if (!(token = strtok(NULL, " \t\n")))
-			continue;
-
-		foreach(word, nvram_safe_get(strcat_r(prefix, "dns", tmp)), next)
-			if (!strcmp(word, token))
-				break;
-		if (!next)
-			fprintf(fp2, "nameserver %s\n", token);
-	}
 	fclose(fp);
-	fclose(fp2);
-	/* Use updated file as resolv.conf */
-	unlink("/tmp/resolv.conf");
-	rename("/tmp/resolv.tmp", "/tmp/resolv.conf");
-
-#ifdef ASUS_EXT
-	stop_dns();
-	start_dns();
-#else	
-	/* notify dnsmasq */
-	snprintf(tmp, sizeof(tmp), "-%d", SIGHUP);
-	eval("killall", tmp, "dnsmasq");
-#endif
 	
+	/* Notify dnsmasq of change */
+	eval("killall", "-1", "dnsmasq");
+
 	return 0;
 }
 
@@ -924,27 +955,92 @@ void
 wan_up(char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char *wan_proto;
+	char *wan_proto, *gateway;
 
 	/* Figure out nvram variable name prefix for this i/f */
-	if (wan_prefix(wan_ifname, prefix) < 0)
+	if (wan_prefix(wan_ifname, prefix) < 0) 
+	{
+		/* called for dhcp+ppp */
+		if (!nvram_match("wan0_ifname", wan_ifname))
+			return;
+
+		/* re-start firewall with old ppp0 address or 0.0.0.0 */
+		start_firewall_ex("ppp0", nvram_safe_get("wan0_ipaddr"),
+			"br0", nvram_safe_get("lan_ipaddr"));
+
+	 	/* setup static wan routes via physical device */
+		add_routes("wan_", "route", wan_ifname);
+		/* and one supplied via DHCP */
+		add_wanx_routes("wanx_", wan_ifname, 0);
+		
+		gateway = inet_addr_(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
+			nvram_get("wan_gateway") : nvram_safe_get("wanx_gateway");
+
+		/* and default route with metric 1 */
+		if (inet_addr_(gateway) != INADDR_ANY)
+		{
+			char word[100], *next;
+
+			route_add(wan_ifname, 2, "0.0.0.0", gateway, "0.0.0.0");
+
+			/* ... and to dns servers as well for demand ppp to work */
+			if (nvram_match("wan_dnsenable_x", "1"))
+				foreach(word, nvram_safe_get("wanx_dns"), next) 
+			{
+				in_addr_t mask = inet_addr(nvram_safe_get("wanx_netmask"));
+				if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wanx_ipaddr")) & mask))
+					route_add(wan_ifname, 2, word, gateway, "255.255.255.255");
+			}
+		}
+
+		/* start multicast router */
+		start_igmpproxy(wan_ifname);
+		
+		update_resolvconf();
+		
 		return;
+	}
 
 	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));	
 
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
 	/* Set default route to gateway if specified */
-	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
+	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) 
+	{
+		if (strcmp(wan_proto, "dhcp") == 0 || strcmp(wan_proto, "static") == 0) 
+		{
+			/* the gateway is in the local network */
+			route_add(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
+				NULL, "255.255.255.255");
+		}
+		/* default route via default gateway */
 		route_add(wan_ifname, 0, "0.0.0.0", 
-			nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
-			"0.0.0.0");
+			nvram_safe_get(strcat_r(prefix, "gateway", tmp)), "0.0.0.0");
+		/* hack: avoid routing cycles, when both peer and server has the same IP */
+		if (strcmp(wan_proto, "pptp") == 0 || strcmp(wan_proto, "l2tp") == 0) {
+			/* delete gateway route as it's no longer needed */
+			route_del(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
+				"0.0.0.0", "255.255.255.255");
+		}
+	}
 
 	/* Install interface dependent static routes */
 	add_wan_routes(wan_ifname);
 
+ 	/* setup static wan routes via physical device */
+	if (strcmp(wan_proto, "dhcp") == 0 || strcmp(wan_proto, "static") == 0) 
+	{
+		nvram_set("wanx_gateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+		add_routes("wan_", "route", wan_ifname);
+	}
+
+	/* and one supplied via DHCP */
+	if (strcmp(wan_proto, "dhcp") == 0)
+		add_wanx_routes(prefix, wan_ifname, 0);
+
 	/* Add dns servers to resolv.conf */
-	add_ns(wan_ifname);
+	update_resolvconf();
 
 	/* Sync time */
 	//start_ntpc();
@@ -955,13 +1051,24 @@ wan_up(char *wan_ifname)
 	start_ddns();
 	stop_upnp();
 	start_upnp();		
-	if (strcmp(wan_proto, "bigpond")==0)	start_bpalogin();
+	if (strcmp(wan_proto, "bigpond")==0) {
+		stop_bpalogin();
+		start_bpalogin();
+	}
 #endif
 	
 #ifdef QOS
 	// start qos related 
 	start_qos(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 #endif
+
+	/* start multicast router */
+	if (strcmp(wan_proto, "dhcp") == 0 || 
+		strcmp(wan_proto, "bigpond") == 0 || 
+		strcmp(wan_proto, "static") == 0) 
+	{
+		start_igmpproxy(wan_ifname);
+	}
 
 	dprintf("done\n");
 }
@@ -989,8 +1096,10 @@ wan_down(char *wan_ifname)
 	/* Remove interface dependent static routes */
 	del_wan_routes(wan_ifname);
 
-	/* Update resolv.conf */
-	del_ns(wan_ifname);
+	/* Update resolv.conf -- leave as is if no dns servers left for demand to work */
+	if (*nvram_safe_get("wanx_dns"))
+		nvram_unset(strcat_r(prefix, "dns", tmp));
+	update_resolvconf();
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
@@ -1007,7 +1116,6 @@ lan_up(char *lan_ifname)
 {
 	FILE *fp;
 	char word[100], *next;
-	char line[100];
 
 	/* Set default route to gateway if specified */
 	route_add(lan_ifname, 0, "0.0.0.0", 
@@ -1017,11 +1125,11 @@ lan_up(char *lan_ifname)
 	/* Open resolv.conf to read */
 	if (!(fp = fopen("/tmp/resolv.conf", "w"))) {
 		perror("/tmp/resolv.conf");
-		return errno;
+		return;
 	}
 
-	if (nvram_invmatch("lan_gateway", ""))
-		fprintf(fp, "nameserver %s\n", nvram_safe_get("lan_gateway"));
+	/*if (nvram_invmatch("lan_gateway", ""))
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("lan_gateway"));*/
 
 	foreach(word, nvram_safe_get("lan_dns"), next)
 	{
@@ -1029,6 +1137,9 @@ lan_up(char *lan_ifname)
 	}
 	fclose(fp);
 
+	/* Notify dnsmasq of change */
+	eval("killall", "-1", "dnsmasq");
+	
 	/* Sync time */
 	//start_ntpc();
 }
@@ -1051,7 +1162,6 @@ lan_up_ex(char *lan_ifname)
 {
 	FILE *fp;
 	char word[100], *next;
-	char line[100];
 
 	/* Set default route to gateway if specified */
 	route_add(lan_ifname, 0, "0.0.0.0", 
@@ -1061,11 +1171,11 @@ lan_up_ex(char *lan_ifname)
 	/* Open resolv.conf to read */
 	if (!(fp = fopen("/tmp/resolv.conf", "w"))) {
 		perror("/tmp/resolv.conf");
-		return errno;
+		return;
 	}
 
-	if (nvram_invmatch("lan_gateway_t", ""))
-		fprintf(fp, "nameserver %s\n", nvram_safe_get("lan_gateway_t"));
+	/*if (nvram_invmatch("lan_gateway_t", ""))
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("lan_gateway_t"))*/;
 
 	foreach(word, nvram_safe_get("lan_dns_t"), next)
 	{
@@ -1073,6 +1183,9 @@ lan_up_ex(char *lan_ifname)
 	}
 	fclose(fp);
 
+	/* Notify dnsmasq of change */
+	eval("killall", "-1", "dnsmasq");
+	
 	/* Sync time */
 	//start_ntpc();
 	//update_lan_status(1);
@@ -1117,8 +1230,13 @@ notify_nas(char *type, char *ifname, char *action)
 	/* the wireless interface must be configured to run NAS */
 	wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 	snprintf(prefix, sizeof(prefix), "wl%d_", unit);
+#ifdef WPA2_WMM
 	if (nvram_match(strcat_r(prefix, "akm", tmp), "") &&
 	    nvram_match(strcat_r(prefix, "auth_mode", tmp), "none"))
+#else
+	if (nvram_match(strcat_r(prefix, "auth_mode", tmp), "open") ||
+	    nvram_match(strcat_r(prefix, "auth_mode", tmp), "shared"))
+#endif
 		return 0;
 
 	/* find WDS link configuration */
@@ -1145,7 +1263,11 @@ notify_nas(char *type, char *ifname, char *action)
 		/* crypto */
 		argv[5] = nvram_safe_get(strcat_r(prefix, "crypto", tmp));
 		/* auth mode */
+#ifdef WPA2_WMM
 		argv[6] = nvram_safe_get(strcat_r(prefix, "akm", tmp));
+#else
+		argv[6] = nvram_safe_get(strcat_r(prefix, "auth_mode", tmp));
+#endif
 		/* passphrase */
 		argv[7] = nvram_safe_get(strcat_r(prefix, "wpa_psk", tmp));
 		/* ssid */

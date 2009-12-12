@@ -17,23 +17,24 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
+#include <fcntl.h>
 
 #include <bcmnvram.h>
 #include <shutils.h>
 #include <rc.h>
 #include <stdarg.h>
 #include <wlioctl.h>
-
-#if 0 
-#define DEBUG printf
-#else
-#define DEBUG(format, args...) 
-#endif
+#include <wlutils.h>
 
 #define BCM47XX_SOFTWARE_RESET  0x40		/* GPIO 6 */
 #define RESET_WAIT		3		/* seconds */
-#define RESET_WAIT_COUNT	RESET_WAIT * 10 /* 10 times a second */
+#define RESET_STATE		5		/* seconds */
+#define RESET_WAIT_COUNT	(RESET_WAIT * 10) /* 10 times a second */
+#define RESET_STATE_COUNT	(RESET_STATE * 10)/* 10 times a second */
+#define SETUP_WAIT_COUNT	3
+#define SETUP_STATE_COUNT	5
 
 #define NORMAL_PERIOD		1		/* second */
 #define URGENT_PERIOD		100 * 1000	/* microsecond */	
@@ -49,68 +50,195 @@
 #define GPIO5 0x0020
 #define GPIO6 0x0040
 #define GPIO7 0x0080
+#define GPIO15 0x8000
 
-#define LED_ON 	0
-#define LED_OFF 1
+// failsafe defaults, independent of nvram state
+#if defined(CONFIG_WL550GE)
 
-#define LED_POWER	GPIO0
-#define BTN_RESET	GPIO6
+static int reset_mask	= GPIO1;
+static int reset_value	= GPIO1;
+static int ready_mask	= GPIO2;
+static int ready_value	= 0;
+static int setup_mask	= GPIO15;
+static int setup_value	= GPIO15;
+static int power_mask	= 0;
+static int power_value	= 0;
+
+#elif defined(CONFIG_WL500GP)
+
+static int reset_mask	= GPIO0;
+static int reset_value	= GPIO0;
+static int ready_mask	= GPIO1;
+static int ready_value	= 0;
+static int setup_mask	= GPIO4;
+static int setup_value	= GPIO4;
+static int power_mask	= 0;
+static int power_value	= 0;
+
+#elif defined(CONFIG_WL500W)
+
+static int reset_mask	= GPIO6;
+static int reset_value	= GPIO6;
+static int ready_mask	= GPIO5;
+static int ready_value	= 0;
+static int setup_mask	= GPIO7;
+static int setup_value	= GPIO7;
+static int power_mask	= 0;
+static int power_value	= 0;
+/* -robo_reset is GPIO0 */
+
+#elif defined(CONFIG_WL700G)
+
+static int reset_mask	= GPIO0; /* PWR */
+static int reset_value	= GPIO0;
+static int ready_mask	= GPIO1; /* GPIO3 - PWR */
+static int ready_value	= 0;
+static int setup_mask	= GPIO4;
+static int setup_value	= GPIO4;
+static int power_mask	= GPIO3;	/* POWER button light */
+static int power_value  = GPIO3;
+/* copy is GPIO6, ez is GPIO4, pwr is GPIO0 */
+/* hwpower is GPIO7, pwr is GPIO3, -ready is GPIO1 */
+/* GPIO2 is SDA, GPIO5 is SCL */
+
+#elif defined(CONFIG_WL520GX)
+
+static int reset_mask	= GPIO2;
+static int reset_value	= 0;
+static int ready_mask	= GPIO0;
+static int ready_value	= 0;
+static int setup_mask	= GPIO3;
+static int setup_value	= 0;
+static int power_mask	= 0;
+static int power_value	= 0;
+
+#else
+
+static int reset_mask = GPIO6;
+#ifdef CONFIG_WLHDD
+static int reset_value = 0;
+/* GPIO4 is SDA, GPIO5 is SCL */
+#else
+static int reset_value = GPIO6;
+#endif
+
+static int ready_mask = GPIO0;	/* Ready or Power LED */
+static int ready_value = 0;
+static int setup_mask = 0;	/* EZ-Setup button */
+static int setup_value = 0;
+static int power_mask = 0;	/* POWER button light */
+static int power_value = 0;
+
+#endif
+
+#define LED_READY_ON 	(ready_value)
+#define LED_READY_OFF (~ready_value)
+
+#define LED_READY	ready_mask
+
 #define LED_CONTROL(led,flag) gpio_write("/dev/gpio/out", led, flag)
 
-struct itimerval itv; 
+static struct itimerval itv; 
 int watchdog_period=0;
-static int btn_pressed=0;
-static int btn_count = 0;
 long sync_interval=-1; // every 30 seconds a unit
 int sync_flag=0;
 long timestamp_g=0;
 int stacheck_interval=-1;
 
 
-void gpio_write(char *dev, int gpio, int flag)
+void gpio_write(char *dev, int mask, int value)
 {
-	unsigned int val;
-	FILE *fp;	
-
-	val = gpio_read(dev, 0xffff);
-
-	fp=fopen(dev, "w");
-	if (fp!=NULL)
+	unsigned int val = 0;
+	int fd = open(dev, O_RDWR);
+	
+	if (fd != -1)
 	{
-		if (flag) val|=gpio;
-		else val&=~gpio;
-
-		fwrite(&val, 4, 1, fp);
-		fclose(fp);
-	}	
+		if (read(fd, &val, sizeof(val)) == sizeof(val))
+		{
+			val = (val & ~mask) | (value & mask);
+			write(fd, &val, sizeof(val));
+		}
+		close(fd);
+	}
 }
 
-int gpio_read(char *dev, int gpio)
+unsigned int gpio_read(char *dev)
 {
-	unsigned int val;
-	FILE *fp;
-
-	fp=fopen(dev, "r");
-
-	if (fp!=NULL)
+	unsigned int val = 0;
+	int fd = open(dev, O_RDONLY);
+	
+	if (fd != -1) 
 	{
-		fread(&val, 4, 1, fp);
-		fclose(fp);
-		return(val&gpio);		
+		read(fd, &val, sizeof(val));
+		close(fd);
 	}
-	return 0;
+	
+	return val;
 }
 
 
 /* Functions used to control led and button */
-gpio_init()
+void gpio_init(void)
 {
-	unsigned int outen;
-
-	// gpio 0 as output
-	// gpio 6 as input
-	gpio_write("/dev/gpio/outen", LED_POWER, 1);
-	gpio_write("/dev/gpio/outen", BTN_RESET, 0);
+	// overrides based on nvram
+	if (nvram_match("boardnum", "mn700")) {
+		reset_mask = GPIO7, reset_value = 0;
+		ready_mask = GPIO6, ready_value = GPIO6;
+	} else
+	// wl550gE
+	if (nvram_match("boardtype", "0x467") && 
+		nvram_match("boardnum", "45")) 
+	{
+		reset_mask = GPIO1, reset_value = GPIO1;
+		ready_mask = GPIO2, ready_value = 0;
+		setup_mask = GPIO15, setup_value = GPIO15;
+	} else
+	// wl500gp
+	if (nvram_match("boardtype", "0x042f") && 
+		nvram_match("boardnum", "45")) 
+	{
+		reset_mask = GPIO0, reset_value = GPIO0;
+		ready_mask = GPIO1, ready_value = 0;
+		setup_mask = GPIO4, setup_value = GPIO4;
+	} else
+	// wl500w
+	if (nvram_match("boardtype", "0x0472") && 
+		nvram_match("boardnum", "45")) 
+	{
+		reset_mask = GPIO6, reset_value = GPIO6;
+		ready_mask = GPIO5, ready_value = 0;
+		setup_mask = GPIO7, setup_value = GPIO7;
+	} else
+	// wl700g
+	if (nvram_match("boardtype", "0x042f") && 
+		nvram_match("boardnum", "44")) 
+	{
+		reset_mask = GPIO0, reset_value = GPIO0;
+		ready_mask = GPIO1, ready_value = 0;
+		/* enable copy button too */
+		setup_mask = GPIO4 | GPIO6, setup_value = GPIO4;
+		power_mask = GPIO3, power_value = GPIO3;
+	} else
+	// wl520gU
+	if (nvram_match("boardtype", "0x48E") && 
+		nvram_match("boardnum", "45")) 
+	{
+		reset_mask = GPIO2, reset_value = 0;
+		ready_mask = GPIO0, ready_value = 0;
+		setup_mask = GPIO3, setup_value = 0;
+	} else
+	// DLINK DIR-320
+	if (nvram_match("boardtype", "0x048e") &&
+		!nvram_match("boardnum", "45"))
+	{
+		reset_mask = GPIO7, reset_value = 0;
+		ready_mask = GPIO1, ready_value = GPIO1;
+		setup_mask = GPIO6, setup_value = 0;
+	}
+	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
+		reset_mask | setup_mask, ready_mask | power_mask);
+	gpio_write("/dev/gpio/control", ready_mask | power_mask |
+		reset_mask | setup_mask, 0);
 }
 
 static void
@@ -124,48 +252,94 @@ alarmtimer(unsigned long sec,unsigned long usec)
 
 void btn_check(void)
 {
-	//printf("btn :  %d %d\n", btn_pressed, btn_count);	
-	if (gpio_read("/dev/gpio/in", BTN_RESET))
+	static int pressed;
+
+	if ((gpio_read("/dev/gpio/in") & reset_mask) == reset_value)
 	{
-		if (!btn_pressed)
-		{
-			btn_pressed=1;
-			btn_count=0;
-			alarmtimer(0, URGENT_PERIOD);
-		}
-		else {	/* Whenever it is pushed steady */
-			if( ++btn_count > RESET_WAIT_COUNT )
-			{
-				btn_pressed=2;
-			}
-
-			if (btn_pressed==2)
-			{
-				/* 0123456789 */
-				/* 0011100111 */
-				if ((btn_count%10)<1 ||
-				    ((btn_count%10)>4 && (btn_count%10)<7)) LED_CONTROL(LED_POWER, LED_OFF);
-				else LED_CONTROL(LED_POWER, LED_ON);
-
-
+		/* Whenever it is pushed steady */
+		if (++pressed < RESET_WAIT_COUNT) {
+			if (pressed == 1) alarmtimer(0, URGENT_PERIOD);
+		} else {
+			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
+			case 0: /* power off indication */
+#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+				LED_CONTROL(LED_READY, LED_READY_OFF);
+				break;
+#endif
+			case 1:	/* restore to defaults indication */
+				LED_CONTROL(LED_READY, (pressed & 1) ? LED_READY_OFF : LED_READY_ON);
+				break;
+			default: /* start over */
+				pressed = 0;
+				LED_CONTROL(LED_READY, LED_READY_ON);
+				break;
 			}
 		}
 	}
 	else
 	{
-		if(btn_pressed==1)
-		{
-			btn_count = 0;
-			btn_pressed = 0;			
-			LED_CONTROL(LED_POWER, LED_ON);
-			alarmtimer(NORMAL_PERIOD, 0);
+		if (pressed < RESET_WAIT_COUNT) {
+			if (pressed) {
+				alarmtimer(NORMAL_PERIOD, 0);
+				LED_CONTROL(LED_READY, LED_READY_ON);
+			}
+		} else {
+			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
+			case 0: /* power off */
+#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+				alarmtimer(0, 0);
+				kill(1, SIGQUIT);
+				break;
+#endif
+			case 1:	/* restore to defaults */
+				alarmtimer(0, 0);
+				eval("erase", "/dev/mtd/3");
+				kill(1, SIGTERM);
+				break;
+			}
+		}		
+		pressed = 0;
+	}
+}
+
+void setup_check(void)
+{
+	static int pressed;
+
+	if ((gpio_read("/dev/gpio/in") & setup_mask) == setup_value)
+	{
+		/* Whenever it is pushed steady */
+		if (++pressed < SETUP_WAIT_COUNT) {
+			//if (pressed == 1) alarmtimer(0, URGENT_PERIOD);
+		} else {
+			switch ((pressed - SETUP_WAIT_COUNT) / SETUP_STATE_COUNT) {
+			case 0:	/* action indication */
+				LED_CONTROL(LED_READY, (pressed & 1) ? LED_READY_OFF : LED_READY_ON);
+				break;
+			default: /* start over */
+				pressed = 0;
+				LED_CONTROL(LED_READY, LED_READY_ON);
+				break;
+			}
 		}
-		else if(btn_pressed==2)
-		{
-			alarmtimer(0, 0);
-			eval("erase", "/dev/mtd/3");
-			kill(1, SIGTERM);
-		}
+	}
+	else
+	{
+		if (pressed < SETUP_WAIT_COUNT) {
+			if (pressed) {
+				//alarmtimer(NORMAL_PERIOD, 0);
+				LED_CONTROL(LED_READY, LED_READY_ON);
+			}
+		} else {
+			switch ((pressed - SETUP_WAIT_COUNT) / SETUP_STATE_COUNT) {
+			case 0: /* action */
+				//alarmtimer(0, 0);
+				LED_CONTROL(LED_READY, LED_READY_ON);
+				eval("/usr/local/sbin/ez-setup");
+				break;
+			}
+		}		
+		pressed = 0;
 	}
 }
 
@@ -226,7 +400,7 @@ enum
 int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
 int extStatus[ACTIVEITEMS] = { 0, 0, 0};
 char svcDate[ACTIVEITEMS][10];
-char *svcTime[ACTIVEITEMS][20];
+char svcTime[ACTIVEITEMS][20];
 
 int timecheck_item(char *activeDate, char *activeTime)
 {
@@ -303,8 +477,8 @@ int svc_timecheck(void)
 		{
 			//printf("url time change: %d\n", activeNow);
 			svcStatus[URLACTIVE] = activeNow;
-			stop_dns();
-			start_dns();
+			//stop_dns();
+			//start_dns();
 		}
 	}
 
@@ -359,7 +533,7 @@ int http_processcheck(void)
 	char buf[256];
 
 	//printf("http check\n");
-	sprintf(http_cmd, "http://127.0.0.1/");
+	sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
 	if (!http_check(http_cmd, buf, sizeof(buf), 0))
 	{
 		dprintf("http rerun\n");
@@ -403,11 +577,7 @@ int rcamd_processcheck()
 	{
 		while(fgets(buf, sizeof(buf), fp))
 		{
-#ifdef WL500GX
-			if (strstr(buf, "ehci"))
-#else
-			if (strstr(buf, "ohci"))
-#endif
+			if (strstr(buf, "ehci") || strstr(buf, "ohci"))
 			{
 				//logmessage("web camera", buf);
 
@@ -581,12 +751,14 @@ void sta_check(void)
  *      3. http-process
  *      4. usb hotplug status
  */
-void watchdog(void)
+void watchdog(int signum)
 {
 	time_t now;
 	/* handle button */
-	btn_check();
-
+	if (reset_mask) btn_check();
+	/* handle ezsetup */
+	if (setup_mask) setup_check();
+	
 	/* if timer is set to less than 1 sec, then bypass the following */
 	if (itv.it_value.tv_sec==0) return;
 
@@ -641,6 +813,30 @@ void watchdog(void)
 }
 
 int 
+poweron_main(int argc, char *argv[])
+{
+	/* Start GPIO function */
+	gpio_init();
+	
+	if (power_mask) {
+		gpio_write("/dev/gpio/out", power_mask,	power_value);
+		/* sleep to allow hdd to spin up */
+		sleep(2);
+	}
+	
+	return 0;
+}
+
+static int running = 1;
+
+static void readyoff(int sig)
+{
+	gpio_write("/dev/gpio/out", ready_mask, ~ready_value);
+	
+	running = 0;
+}
+
+int 
 watchdog_main(int argc, char *argv[])
 {
 	FILE *fp;
@@ -672,22 +868,24 @@ watchdog_main(int argc, char *argv[])
 	signal(SIGUSR1, catch_sig);
 	signal(SIGUSR2, catch_sig);
 	signal(SIGALRM, watchdog);
-
-	/* set timer */
-	alarmtimer(NORMAL_PERIOD, 0);
+	signal(SIGTERM, readyoff);
 
 	/* Start GPIO function */
 	gpio_init();
 
-	/* Start POWER LED */
-	LED_CONTROL(LED_POWER, LED_ON);
+	/* turn on POWER and READY LEDs */
+	gpio_write("/dev/gpio/out", power_mask | ready_mask,
+		power_value | ready_value);
 
 	/* Start sync time */
 	sync_interval=1;
 	start_ntpc();
 
+	/* set timer */
+	alarmtimer(NORMAL_PERIOD, 0);
+
 	/* Most of time it goes to sleep */
-	while(1)
+	while (running)
 	{
 		pause();
 	}

@@ -28,6 +28,10 @@
 #include <netconf.h>
 #include <nvparse.h>
 
+#ifndef ASUS_EXT
+
+extern void g_buf_init();
+
 /* Add filter to specified table */
 static void
 add_filter(netconf_filter_t *filter, int dir)
@@ -333,4 +337,4 @@ start_firewall2(char *wan_ifname)
 	return 0;
 }
 
-
+#endif

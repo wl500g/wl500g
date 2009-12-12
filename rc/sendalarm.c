@@ -58,12 +58,13 @@ char *nslookup(char *name, char qtype, char *ret)
 
 	fp=fopen("/etc/resolv.conf", "r+");
 	
-	if (fp!=NULL && 
-		fgets(buf, MAX_LINE_SIZE, fp)!=NULL &&
+	if (fp!=NULL) {
+	    if (fgets(buf, MAX_LINE_SIZE, fp)!=NULL &&
 		strncmp(buf,"nameserver", 10)==0)
 	{
 		dns_query(&buf[11], name, qtype, ret);
-		fclose(fp);
+	}
+	fclose(fp);
 	}
 	return ret;
 }
@@ -130,7 +131,9 @@ sendalarm_main(int argc, char *argv[])
 			if (!(imagebase=rindex(image, '/'))) imagebase = image;
 			else imagebase++;
 			
-			eval("uuencode", "-m", image, imagebase, "-f", "/var/tmp/uuencode");
+			//eval("uuencode", "-m", image, imagebase, "-f", "/var/tmp/uuencode");
+			sprintf(command, "uuencode -m %s %s > /var/tmp/uuencode", image, imagebase);
+			system(command);
 			
 			fprintf(fp, "--%s\n", boundry);
 			fprintf(fp, "Content-Type: application/unknown\n");

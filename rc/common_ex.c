@@ -13,6 +13,7 @@
 
 #include<stdlib.h>
 #include<stdio.h>
+#include <string.h>
 #include<time.h>
 #include<signal.h>
 #include<bcmnvram.h>
@@ -22,6 +23,9 @@
 #include<sys/time.h>
 #include<syslog.h>
 #include <stdarg.h>
+#include <errno.h>
+
+#include "rc.h"
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -56,13 +60,9 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 
 	mac = nvram_safe_get(name);
 
-	if (strlen(mac)==0) 
+	j=0;
+	if (strlen(mac)!=0) 
 	{
-		buf[0] = 0;
-	}
-	else
-	{
-		j=0;	
 		for(i=0; i<12; i++)
 		{		
 			if (i!=0&&i%2==0) buf[j++] = ':';
@@ -117,55 +117,6 @@ write_ver:
 	nvram_set("firmver", trim_r(fwver));
 }
 
-void wan_netmask_check(void)
-{
-	unsigned int ip, gw, nm, lip, lnm;
-
-	if (nvram_match("wan0_proto", "static") ||
-	    nvram_match("wan0_proto", "pptp"))
-	{
-		ip = inet_addr(nvram_safe_get("wan_ipaddr"));
-		gw = inet_addr(nvram_safe_get("wan_gateway"));
-		nm = inet_addr(nvram_safe_get("wan_netmask"));
-
-		lip = inet_addr(nvram_safe_get("lan_ipaddr"));
-		lnm = inet_addr(nvram_safe_get("lan_netmask"));
-
-		dprintf("ip : %x %x %x\n", ip, gw, nm);
-
-		if (ip==0x0 || (ip&lnm)==(lip&lnm))
-		{
-			nvram_set("wan_ipaddr", "1.1.1.1");
-			nvram_set("wan_netmask", "255.0.0.0");	
-		}
-
-		// check netmask here
-		if (gw==0 || gw==0xffffffff || (ip&nm)==(gw&nm))
-		{
-			nvram_set("wan0_netmask", nvram_safe_get("wan_netmask"));
-		}
-		else
-		{		
-			for(nm=0xffffffff;nm!=0;nm=(nm>>8))
-			{
-				if ((ip&nm)==(gw&nm)) break;
-			}
-
-			dprintf("nm: %x\n", nm);
-
-			if (nm==0xffffffff) nvram_set("wan0_netmask", "255.255.255.255");
-			else if (nm==0xffffff) nvram_set("wan0_netmask", "255.255.255.0");
-			else if (nm==0xffff) nvram_set("wan0_netmask", "255.255.0.0");
-			else if (nm==0xff) nvram_set("wan0_netmask", "255.0.0.0");
-			else nvram_set("wan0_netmask", "0.0.0.0");
-		}
-
-		nvram_set("wanx_ipaddr", nvram_safe_get("wan0_ipaddr"));
-		nvram_set("wanx_netmask", nvram_safe_get("wan0_netmask"));
-		nvram_set("wanx_gateway", nvram_safe_get("wan0_gateway"));
-	}
-}
-
 /* This function is used to map nvram value from asus to Broadcom */
 void convert_asus_values()
 {	
@@ -198,23 +149,33 @@ void convert_asus_values()
 	cprintf("read from nvram\n");
 
 	/* Wireless Section */
+	nvram_set("wl0_bss_enabled", "1");
+	
+	/* No wsc support yet -- this also fixes nas WPA/WPA-PSK problems */
+	nvram_set("wl0_wsc_mode", "disabled");
+
 	/* Country Code */
 	nvram_set("wl0_country_code", nvram_safe_get("wl_country_code"));
 
 	/* GMODE */
 	nvram_set("wl0_gmode", nvram_safe_get("wl_gmode"));
+	nvram_set("wl0_nmode", nvram_safe_get("wl_gmode"));
 
 	if (nvram_match("wl_gmode_protection_x", "1"))
 	{
 		//cprintf("set to auto\n");
 		nvram_set("wl_gmode_protection", "auto");
 		nvram_set("wl0_gmode_protection", "auto");
+		nvram_set("wl_nmode_protection", "auto");
+		nvram_set("wl0_nmode_protection", "auto");
 	}
 	else
 	{
 		//cprintf("set to off");
 		nvram_set("wl_gmode_protection", "off");
 		nvram_set("wl0_gmode_protection", "off");
+		nvram_set("wl_nmode_protection", "off");
+		nvram_set("wl0_nmode_protection", "off");
 	}	
 
 	if (nvram_match("wl_wep_x", "0"))
@@ -229,21 +190,54 @@ void convert_asus_values()
 #ifdef WPA2_WMM
 	if (nvram_match("wl_auth_mode", "wpa"))
 	{
-		nvram_set("wl_akm", "wpa wpa2");
-		nvram_set("wl0_akm", "wpa wpa2");
+                nvram_set("wl_akm", "wpa");
+                nvram_set("wl0_akm", "wpa");
 	}
+        else if (nvram_match("wl_auth_mode", "wpa2"))
+        {
+                nvram_set("wl_akm", "wpa2");
+                nvram_set("wl0_akm", "wpa2");
+        }
 	else if (nvram_match("wl_auth_mode", "psk"))
 	{
-		nvram_set("wl_akm", "psk psk2");
-		nvram_set("wl0_akm", "psk psk2");
+                if (nvram_match("wl_wpa_mode", "0"))
+                {
+                        if (nvram_match("wl_crypto", "tkip") || nvram_match("wl_crypto", "0"))
+                        {
+                                nvram_set("wl_akm", "psk");
+                                nvram_set("wl0_akm", "psk");
+                        }
+                        else if (nvram_match("wl_crypto", "aes"))
+                        {
+                                nvram_set("wl_akm", "psk2");
+                                nvram_set("wl0_akm", "psk2");
+                        }
+                        else
+                        {
+                                nvram_set("wl_akm", "psk psk2");
+                                nvram_set("wl0_akm", "psk psk2");
+                        }
+                }
+                else if (nvram_match("wl_wpa_mode", "1"))
+                {
+                        nvram_set("wl_akm", "psk");
+                        nvram_set("wl0_akm", "psk");
+                }
+                else if (nvram_match("wl_wpa_mode", "2"))
+                {
+                        nvram_set("wl_akm", "psk2");
+                        nvram_set("wl0_akm", "psk2");
+                }
+
 	}	
 	else 
 	{
 		nvram_set("wl_akm", "");
 		nvram_set("wl0_akm", "");
 	}
-	
-	nvram_set("wl0_auth_mode", "none");
+
+	nvram_set("wl0_auth_mode", 
+		nvram_match("wl_auth_mode", "radius") ? "radius" : "none");
 	nvram_set("wl0_preauth", nvram_safe_get("wl_preauth"));
 	nvram_set("wl0_net_reauth", nvram_safe_get("wl_net_reauth"));
 	nvram_set("wl0_wme", nvram_safe_get("wl_wme"));
@@ -258,12 +252,47 @@ void convert_asus_values()
 	nvram_set("wl0_wme_ap_vo", nvram_safe_get("wl_wme_ap_vo"));
 #else
 	nvram_set("wl0_auth_mode", nvram_safe_get("wl_auth_mode"));
+	nvram_set("wl_akm", "");
+	nvram_set("wl0_akm", "");
+	nvram_set("wl0_wme", "off");
 #endif
+
+	nvram_set("wl0_rate", nvram_safe_get("wl_rate"));
+	nvram_set("wl0_gmode", nvram_get("wl_gmode"));
+	nvram_set("wl0_nreqd", "0");	/* off */
+
+	/* BUGBUG: nmcsidx == -1 causes wlconf to ignore wl_rate */
+	/* setting completely (resets to auto), so we use something < 0 */
+	nvram_set("wl0_nmcsidx", nvram_match("wl_nmcsidx", "-1") ? 
+		"-2" : nvram_get("wl_nmcsidx"));
+	
+	/* override settings for 11n */
+	if (nvram_match("wl_gmode", "6"))	/* 11n */
+	{
+		nvram_set("wl0_rate", "0");
+		nvram_set("wl0_nmode", "1");	/* on */
+		nvram_set("wl0_gmode", "1");	/* auto */
+		nvram_set("wl0_nreqd", "1");	/* on */
+	}
+	else if (nvram_match("wl_gmode","1"))	/* auto */
+	{	
+		nvram_set("wl0_nmode", "-1");	/* auto */
+	} else {
+		nvram_set("wl0_nmode", "0");	/* off */
+	}
+
+	nvram_set("wl0_nbw", nvram_safe_get("wl_nbw"));
+	/* 0 - 20Mhz, 1 - 40 Mhz, 2 - 20Mhz in 2.4G/40Mhz in 5G */
+	nvram_set("wl0_nbw_cap", nvram_match("wl_nbw", "20") ? "0" : "1");
+	nvram_set("wl0_nctrlsb", nvram_safe_get("wl_nctrlsb"));
+	nvram_set("wl0_nband", nvram_safe_get("wl_nband"));
+	nvram_set("wl0_reg_mode", nvram_safe_get("wl_reg_mode"));
 
 	nvram_set("wl0_ssid", nvram_safe_get("wl_ssid"));
 	nvram_set("wl0_channel", nvram_safe_get("wl_channel"));
 	nvram_set("wl0_country_code", nvram_safe_get("wl_country_code"));
 	nvram_set("wl0_rate", nvram_safe_get("wl_rate"));
+	nvram_set("wl0_mrate", nvram_safe_get("wl_mrate"));
 	nvram_set("wl0_rateset", nvram_safe_get("wl_rateset"));
 	nvram_set("wl0_frag", nvram_safe_get("wl_frag"));
 	nvram_set("wl0_rts", nvram_safe_get("wl_rts"));
@@ -293,7 +322,7 @@ void convert_asus_values()
 		int wepidx=atoi(nvram_safe_get("wl0_key"));
 		char wepkey[64], wepname[16];
 
-		sprintf(sbuf, "wl join %s", nvram_safe_get("wl0_ssid"));
+		sprintf(sbuf, "wl join \"%s\"", nvram_safe_get("wl0_ssid"));
 
 		// key ??
 		if (nvram_match("wl0_auth_mode", "psk"))
@@ -308,7 +337,9 @@ void convert_asus_values()
 		
 		sprintf(sbuf, "%s imode bss", sbuf);
 		
-		if (nvram_match("wl0_auth_mode", "shared"))
+		if (nvram_match("wl_auth_mode", "psk"))
+			sprintf(sbuf, "%s amode wpapsk", sbuf);
+		else if (nvram_match("wl_auth_mode", "shared"))
 			sprintf(sbuf, "%s amode shared", sbuf);
 		else sprintf(sbuf, "%s amode open", sbuf);
 
@@ -398,6 +429,7 @@ void convert_asus_values()
 
 	nvram_set("wan0_proto", nvram_safe_get("wan_proto"));
 	nvram_set("wan0_ipaddr", nvram_safe_get("wan_ipaddr"));
+	nvram_set("wan0_netmask", nvram_safe_get("wan_netmask"));
 	nvram_set("wan0_gateway", nvram_safe_get("wan_gateway"));
 
 	nvram_set("wan_ipaddr_t", "");
@@ -406,30 +438,46 @@ void convert_asus_values()
 	nvram_set("wan_dns_t", "");
 	nvram_set("wan_status_t", "Disconnected");
 
-	wan_netmask_check();
-
-
-	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp"))
+	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
+		nvram_match("wan_proto", "l2tp"))
 	{
 		nvram_set("wan0_pppoe_ifname", "ppp0");
 		nvram_set("upnp_wan_proto", "pppoe");
 		nvram_set("wan0_pppoe_username", nvram_safe_get("wan_pppoe_username"));
 		nvram_set("wan0_pppoe_passwd", nvram_safe_get("wan_pppoe_passwd"));
 		nvram_set("wan0_pppoe_idletime", nvram_safe_get("wan_pppoe_idletime"));
+		nvram_set("wan0_pppoe_txonly_x", nvram_safe_get("wan_pppoe_txonly_x"));
 		nvram_set("wan0_pppoe_mtu", nvram_safe_get("wan_pppoe_mtu"));
 		nvram_set("wan0_pppoe_mru", nvram_safe_get("wan_pppoe_mru"));
 		nvram_set("wan0_pppoe_service", nvram_safe_get("wan_pppoe_service"));
 		nvram_set("wan0_pppoe_ac", nvram_safe_get("wan_pppoe_ac"));
+		nvram_set("wan0_pppoe_options_x", nvram_safe_get("wan_pppoe_options_x"));
+		nvram_set("wan0_pptp_options_x", nvram_safe_get("wan_pptp_options_x"));
 #ifdef REMOVE
 		nvram_set("wan0_pppoe_demand", "1");
 		nvram_set("wan0_pppoe_keepalive", "1");
 #endif
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
-		nvram_set("wan0_pppoe_netmask", nvram_safe_get("wan_netmask"));
-		nvram_set("wan0_pppoe_gateway", nvram_safe_get("wan_gateway"));
+		nvram_set("wan0_pppoe_netmask", 
+			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
+			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+				nvram_get("wan_netmask") : NULL);
+		nvram_set("wan0_pppoe_gateway", nvram_get("wan_gateway"));
+		
+		/* current interface address (dhcp + firewall) */
+		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
-	nvram_set("wan0_hwaddr", mac_conv("wan_hwaddr_x", -1, macbuf));
+
+	if (nvram_invmatch("wan_hwaddr_x", ""))
+	{
+		nvram_set("wan_hwaddr", mac_conv("wan_hwaddr_x", -1, macbuf));
+		nvram_set("wan0_hwaddr", mac_conv("wan_hwaddr_x", -1, macbuf));
+	}
+
+	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
+	nvram_unset("wan0_dns");
+	nvram_unset("wanx_dns");
 
 	convert_routes();
 
@@ -445,22 +493,40 @@ void convert_asus_values()
 	if (nvram_match("wan_nat_x", "0") && nvram_match("wan_route_x", "IP_Bridged"))
 	{
 		sprintf(ifnames, "%s", nvram_safe_get("lan_ifnames"));
-		sprintf(ifnames, "%s %s", ifnames, nvram_safe_get("wan_ifnames"));
-		nvram_set("lan_ifnames_t", ifnames);
+		sprintf(ifnames, "%s %s", ifnames, nvram_safe_get("wan_ifname"));
 		nvram_set("router_disable", "1");
+		nvram_set("vlan_enable", "0");
+	}
+	else if (nvram_invmatch("wl_mode_ex", "ap")) 
+	{
+		char name[80], *next;
+		char *wl_ifname = nvram_safe_get("wl0_ifname");
+
+		strcpy(ifnames, nvram_safe_get("wan_ifname"));
+		/* remove wl_ifname from the ifnames */
+		foreach(name, nvram_safe_get("lan_ifnames"), next) {
+			if (strcmp(name, wl_ifname)) {
+				sprintf(ifnames, "%s %s", ifnames, name);
+			}
+		}
+
+		nvram_set("router_disable", "0");
 		nvram_set("vlan_enable", "0");
 	}
 	else 
 	{ 
-		nvram_set("lan_ifnames_t", nvram_safe_get("lan_ifnames"));
+		strcpy(ifnames, nvram_safe_get("lan_ifnames"));
 		nvram_set("router_disable", "0");
 		nvram_set("vlan_enable", "1");
 	}
+	
+	nvram_set("lan_ifnames_t", ifnames);
 
 	// clean some temp variables
 	nvram_set("usb_device", "");
 	nvram_set("usb_ftp_device", "");
-	nvram_set("usb_storage_device", "");
+	/* force mounting (boot_local and wl-hdd) */
+	nvram_set("usb_storage_device", "ide");
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
@@ -473,13 +539,28 @@ void convert_asus_values()
 		eval("insmod", "ipt_NETMAP.o");
 	}
 
+        //2005/09/22 insmod FTP module
+        if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x"))!=21)
+        {
+                char ports[32];
+
+                sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
+                eval("insmod", "ip_conntrack_ftp", ports);
+                eval("insmod", "ip_nat_ftp", ports);
+        }
+        else
+        {
+                eval("insmod", "ip_conntrack_ftp");
+                eval("insmod", "ip_nat_ftp");
+        }
+
 	update_lan_status(1);
 
 	dprintf("end map\n");
 }
 
 
-char *findpattern(char *target, char *pattern)
+static char *findpattern(char *target, char *pattern)
 {
 	char *find;
 	int len;
@@ -536,6 +617,7 @@ void update_wan_status(int isup)
 	else if (!strcmp(proto, "dhcp")) nvram_set("wan_proto_t", "Automatic IP");
 	else if (!strcmp(proto, "pppoe")) nvram_set("wan_proto_t", "PPPoE");	
 	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
+	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
 	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
 
 
@@ -557,10 +639,11 @@ void update_wan_status(int isup)
 
 		if (nvram_invmatch("wan_dnsenable_x", "1"))	
 		{		
+			dns_str[0] = '\0';
 			if (nvram_invmatch("wan_dns1_x",""))
 				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));		
-			if (nvram_invmatch("wan_dns1_x",""))
-				sprintf(dns_str, " %s", nvram_safe_get("wan_dns1_x"));		
+			if (nvram_invmatch("wan_dns2_x",""))
+				sprintf(dns_str+strlen(dns_str), " %s", nvram_safe_get("wan_dns2_x"));
 			nvram_set("wan_dns_t", dns_str);
 		}
 		else nvram_set("wan_dns_t", nvram_safe_get("wan0_dns"));
@@ -615,11 +698,13 @@ char *pppstatus(char *buf)
    {
 	p = strstr(sline, ",");
 	strcpy(buf, p+1);
+	fclose(fp);
    }
    else
    {
 	strcpy(buf, "unknown reason");
    }	
+   return buf;
 }
 
 
@@ -633,7 +718,6 @@ kill_pidfile_s(char *pidfile, int sig)
 {
 	FILE *fp = fopen(pidfile, "r");
 	char buf[256];
-	extern errno;
 
 	if (fp && fgets(buf, sizeof(buf), fp)) {
 		pid_t pid = strtoul(buf, NULL, 0);

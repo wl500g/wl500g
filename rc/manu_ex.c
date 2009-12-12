@@ -13,6 +13,7 @@
 #include <shutils.h>
 #include <rc.h>
 #include <wlioctl.h>
+#include <wlutils.h>
 #include <bcmnvram.h>
 
 #define A_UCHAR  unsigned char
@@ -861,7 +862,9 @@ wlan_update()
 		val = rsrom_main("eth2", 104, 0);
 		if (val==0x003c) wsrom_main("eth2", 104, 0x004c);// ver 1.6
 		else if (val==0x0035) wsrom_main("eth2", 104, 0x0046);     // ver 2.2
+#if 0
 		else wsrom_main("eth2", 104, 0x0046);
+#endif
 		wsrom_main("eth2", 114, 0x0249);
 	}
 	else if(nvram_match("productid", "WL500g.Deluxe"))

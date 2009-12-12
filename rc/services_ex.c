@@ -10,6 +10,9 @@
  * $Id$
  */
 
+#define DNSMASQ
+#define DDNSCONF
+
 #ifdef ASUS_EXT
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,6 +28,14 @@
 #include <shutils.h>
 #include <rc.h>
 #include <syslog.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <arpa/inet.h>
+#include <ctype.h>
+#if defined(__UCLIBC__)
+#include <crypt.h>
+#endif
+#include <mntent.h>
 #include "iboxcom.h"
 #include "lp.h"
 
@@ -137,6 +148,28 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
+#if defined(DNSMASQ) || defined(DDNSCONF)
+size_t
+fappend(char *name, FILE *f)
+{
+	size_t size = 0, count;
+	
+	FILE *fp = fopen(name, "r");
+
+	if (fp != NULL) {
+		char buf[4096];
+		
+		while ((count = fread(buf, 1, sizeof(buf), fp)) > 0)
+			size += fwrite(buf, 1, count, f);
+	
+		fclose(fp);
+	}
+	
+	return size;
+}
+#endif
+
+#ifndef DNSMASQ
 int
 start_dhcpd(void)
 {
@@ -343,6 +376,167 @@ stop_dns(void)
 	return ret;
 }
 
+#else
+
+int
+start_dns(void)
+{
+	FILE *fp;
+	char *argv[] = {"dnsmasq", NULL};
+	pid_t pid;
+
+	size_t ethers = 0;
+	
+	int ret;
+
+	/* Create resolv.conf with empty nameserver list */
+	if (!(fp = fopen("/tmp/resolv.conf", "a"))) {
+		perror("/tmp/resolv.conf");
+		return errno;
+	}
+
+	// if user want to set dns server by himself
+	if (nvram_invmatch("wan_dnsenable_x", "1"))	
+	{
+		/* Write resolv.conf with upstream nameservers */
+		if (nvram_invmatch("wan_dns1_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));		
+		if (nvram_invmatch("wan_dns2_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
+	}
+
+	fclose(fp);
+
+	/* create /etc/hosts */
+	if (!(fp = fopen("/etc/hosts", "a"))) {
+		perror("/etc/hosts");
+		return errno;
+	}
+
+	fprintf(fp, "127.0.0.1 localhost.localdomain localhost\n");
+	fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("lan_ipaddr"),
+			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+
+	if (nvram_match("dhcp_static_x","1"))
+	{	
+		int i;
+		char ip[32], name[32];
+		for (i = 0; i < atoi(nvram_safe_get("dhcp_staticnum_x")); i++) 
+		{
+			sprintf(ip, "dhcp_staticip_x%d", i);
+			sprintf(name, "dhcp_staticname_x%d", i);
+
+			if (inet_addr_(nvram_safe_get(ip)) != INADDR_ANY && 
+				nvram_invmatch(name, "")) 
+			{
+				fprintf(fp, "%s %s\n", nvram_get(ip), nvram_get(name));
+			}
+		}
+	}
+	
+	fappend("/usr/local/etc/hosts", fp);
+	fclose(fp);
+
+	if (nvram_match("router_disable", "1"))
+		return 0;
+
+	/* create /etc/ethers */
+	if (!(fp = fopen("/etc/ethers", "w"))) {
+		perror("/etc/ethers");
+	} else {
+		if (nvram_match("dhcp_static_x","1"))
+		{	
+			int i;
+			char buf[32], *mac;
+			for (i = 0; i < atoi(nvram_safe_get("dhcp_staticnum_x")); i++) 
+			{
+				sprintf(buf, "dhcp_staticmac_x%d", i);
+				
+				if (strlen(mac = nvram_safe_get(buf)) == 12) {
+					sprintf(buf, "dhcp_staticip_x%d", i);
+					ethers += fprintf(fp, "%c%c:%c%c:%c%c:%c%c:%c%c:%c%c %s\n", 
+						mac[0], mac[1], mac[2], mac[3], mac[4], mac[5], 
+						mac[6], mac[7], mac[8], mac[9], mac[10], mac[11],
+						nvram_safe_get(buf));
+				}
+				
+			}
+		}
+	
+		ethers += fappend("/usr/local/etc/ethers", fp);
+		fclose(fp);
+	}
+
+	/* start playing with conf file */
+	if (!(fp = fopen("/etc/dnsmasq.conf", "w"))) {
+		perror("/etc/dnsmasq.conf");
+		return errno;
+	}
+
+	fprintf(fp, "user=nobody\n"
+		    "resolv-file=/tmp/resolv.conf\nno-poll\n"
+		    "interface=%s\n", nvram_safe_get("lan_ifname"));
+
+	if (nvram_invmatch("lan_domain", "")) {
+		fprintf(fp, "domain=%s\n"
+			    "expand-hosts\n", nvram_get("lan_domain"));
+	}
+	
+	fprintf(fp, "no-negcache\n"
+		    "cache-size=512\n");
+	
+	if (nvram_match("lan_proto", "dhcp")) {
+		fprintf(fp, "dhcp-leasefile=/tmp/dnsmasq.log\n");
+		fprintf(fp, "dhcp-range=lan,%s,%s,%s\n", nvram_safe_get("dhcp_start"), 
+			nvram_safe_get("dhcp_end"), nvram_safe_get("dhcp_lease"));
+
+		if (nvram_invmatch("dhcp_dns1_x",""))
+			fprintf(fp, "dhcp-option=lan,6,%s,0.0.0.0\n", nvram_safe_get("dhcp_dns1_x"));
+		if (nvram_invmatch("dhcp_wins_x",""))		
+			fprintf(fp, "dhcp-option=lan,44,%s\n"
+				    "dhcp-option=lan,46,8\n", nvram_safe_get("dhcp_wins_x"));
+		if (nvram_invmatch("lan_domain", ""))
+			fprintf(fp, "dhcp-option=lan,15,%s\n", nvram_safe_get("lan_domain"));
+		if (nvram_invmatch("dhcp_gateway_x",""))
+			fprintf(fp, "dhcp-option=lan,3,%s\n", nvram_safe_get("dhcp_gateway_x"));
+			
+		if (ethers)
+			fprintf(fp, "read-ethers\n");
+			
+		fprintf(fp, "dhcp-authoritative\n");
+	}
+	
+	fappend("/usr/local/etc/dnsmasq.conf", fp);
+	fclose(fp);
+
+	/* launch it */		
+	ret = _eval(argv, NULL, 0, &pid);
+
+	dprintf("done\n");
+	return ret;
+}	
+
+int
+stop_dns(void)
+{
+	int ret = eval("killall", "dnsmasq");
+
+	dprintf("done\n");
+	return ret;
+}
+
+int start_dhcpd(void)
+{
+	return 0;
+}
+
+int stop_dhcpd(void)
+{
+	return 0;
+}
+
+#endif // DNSMASQ
+
 int
 ddns_updated_main(int argc, char *argv[])
 {
@@ -373,7 +567,7 @@ int
 start_ddns(void)
 {
 	FILE *fp;
-	char buf[64];
+//	char buf[64];
 	char *wan_ip, *ddns_cache;
 	char server[32];
 	char user[32];
@@ -422,9 +616,9 @@ start_ddns(void)
 	if (strcmp(server, "WWW.DYNDNS.ORG")==0)
 		strcpy(service, "dyndns");			
 	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)")==0)
-		strcpy(service, "dyndns");			
+		strcpy(service, "dyndns-custom");			
 	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)")==0)
-		strcpy(service, "dyndns");			
+		strcpy(service, "dyndns-static");			
 	else if (strcmp(server, "WWW.TZO.COM")==0)
 		strcpy(service, "tzo");			
 	else if (strcmp(server, "WWW.ZONEEDIT.COM")==0)
@@ -437,7 +631,8 @@ start_ddns(void)
 			
 	sprintf(usrstr, "%s:%s", user, passwd);
 	
-	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp"))
+	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
+		nvram_match("wan_proto", "l2tp"))
 	{
 		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
 	}
@@ -448,16 +643,33 @@ start_ddns(void)
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 
+#ifdef DDNSCONF
+	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
+		perror("/etc/ddns.conf");
+		return errno;
+	}
+	fprintf(fp, "service-type=%s\n", service);
+	fprintf(fp, "interface=%s\n", wan_ifname);
+	fprintf(fp, "user=%s\n", usrstr);
+	fprintf(fp, "host=%s\n", host);
+	if (wild) fprintf(fp, "wildcard\n");
+	fappend("/usr/local/etc/ddns.conf", fp);
+	fclose(fp);
+#endif
 	if (strlen(service)>0)
 	{
 		char *ddns_argv[] = {"ez-ipupdate", 
+#ifdef DDNSCONF
+		"-c", "/etc/ddns.conf",
+#else
 		"-S", service,
 	        "-i", wan_ifname,
  		"-u", usrstr,
 		"-h", host,
+		wild ? "-w" : NULL,
+#endif
 		"-e", "/sbin/ddns_updated",
 		"-b", "/tmp/ddns.cache",
-		wild ? "-w" : NULL,
 		NULL};	
 		pid_t pid;
 
@@ -486,36 +698,22 @@ start_logger(void)
 {		
 	pid_t pid;
 
+#if 0
 	if (nvram_match("router_disable", "1"))
 		return 0;
-
-	if (nvram_invmatch("log_ipaddr", ""))
-	{
-		char *syslogd_argv[] = {"syslogd", "-m", "0", "-t", nvram_safe_get("time_zone"), "-O", "/tmp/syslog.log", "-R", nvram_safe_get("log_ipaddr"), "-L", NULL};
-#ifdef KERNEL_DBG
-		char *klogd_argv[] = {"klogd", "-d", NULL};
-#else
-		char *klogd_argv[] = {"klogd", NULL};
 #endif
 
-		//while(syslogd_argv[i]) printf("log: %s\n", syslogd_argv[i++]);
-	
-		_eval(syslogd_argv, NULL, 0, &pid);
-		_eval(klogd_argv, NULL, 0, &pid);
-	}
-	else
-	{
-		char *syslogd_argv[] = {"syslogd", "-m", "0", "-t", nvram_safe_get("time_zone"), "-O", "/tmp/syslog.log", NULL};
+	char *syslogd_argv[] = {"syslogd", "-m", "0", "-O", "/tmp/syslog.log", "-S",
+		"-l", "7", "-b", "2", "-R", nvram_safe_get("log_ipaddr"), "-L", NULL};
+	char *klogd_argv[] = {"klogd", NULL};
 
-#ifdef KERNEL_DBG
-		char *klogd_argv[] = {"klogd", "-d", NULL};
-#else
-		char *klogd_argv[] = {"klogd", NULL};
-#endif
+	syslogd_argv[7] = nvram_get("log_level_x") ? : "7";
 
-		_eval(syslogd_argv, NULL, 0, &pid);
-		_eval(klogd_argv, NULL, 0, &pid);
-	}
+	if (!*syslogd_argv[11])
+		syslogd_argv[10] = NULL;
+		
+	_eval(syslogd_argv, NULL, 0, &pid);
+	_eval(klogd_argv, NULL, 0, &pid);
 	// remote log not easy to ok
 	sleep(1);
 	return 0;
@@ -538,20 +736,21 @@ start_misc(void)
 	char *watchdog_argv[] = {"watchdog", NULL};
 	pid_t pid;
 	
-	_eval(infosvr_argv, NULL, 0, &pid);
+	if (!nvram_invmatch("infosvr_enable", "1"))
+		_eval(infosvr_argv, NULL, 0, &pid);
 	_eval(watchdog_argv, NULL, 0, &pid);
 
-	/* adjust some special parameters here */
-	/* tx power */
-	if (nvram_invmatch("wl_radio_power_x", "19"))
+	/* try to adjust wifi tx power */
+	if (nvram_invmatch("wl_radio_power_x", ""))
 	{
-		eval("wl", "txpwr", nvram_safe_get("wl_radio_power_x"));
+		eval("wl", "txpwr1", "-m", nvram_safe_get("wl_radio_power_x"), "-o");
 	}
 
-
+#if 1
 	// for all product, fix antdiv
-	eval("wl", "antdiv", "0");
-	eval("wl", "txant", "0");
+	if (eval("wl", "antdiv", "0") == 0)
+		eval("wl", "txant", "0");
+#endif
 
 	return 0;
 }
@@ -583,13 +782,71 @@ int hotplug_usb(void)
 	return 0;
 }
 #else
+
+int start_nfsd(void)
+{
+	struct stat	st_buf;
+	FILE 		*fp;
+
+	/* create directories/files */
+	mkdir("/var/lib", 0755);
+	mkdir("/var/lib/nfs", 0755);
+	close(creat("/var/lib/nfs/etab", 0644));
+	close(creat("/var/lib/nfs/xtab", 0644));
+	close(creat("/var/lib/nfs/rmtab", 0644));
+	
+	/* create /etc/exports, if it does not exists yet */
+	if (stat("/etc/exports", &st_buf) != 0) 
+	{
+		int i, count;
+		char tmp[] = "usb_nfslist_xXXXXX";
+		
+		if ((fp = fopen("/etc/exports", "w")) == NULL) {
+			perror("/etc/exports");
+			return 1;
+		}
+		
+		fprintf(fp, "# automagically generated from web settings\n");
+
+		for (i = 0, count = atoi(nvram_safe_get("usb_nfsnum_x")); i < count; i++) 
+		{
+			sprintf(tmp, "usb_nfslist_x%d", i);
+			if (nvram_safe_get(tmp)[0] == '/')
+				fprintf(fp, "%s\n", nvram_safe_get(tmp));
+			else	fprintf(fp, "/tmp/harddisk/%s\n", nvram_safe_get(tmp));
+		}
+		
+		fclose(fp);
+	}
+
+	eval("/usr/sbin/portmap");
+	eval("/usr/sbin/lockd");
+	eval("/usr/sbin/statd");
+	eval("/usr/sbin/nfsd");
+	eval("/usr/sbin/mountd");
+	eval("/usr/sbin/exportfs", "-a");
+
+	return 0;	
+}
+
+int restart_nfsd(void)
+{
+	eval("/usr/sbin/exportfs", "-au");
+	eval("/usr/sbin/exportfs", "-a");
+
+	return 0;	
+}
+
 int 
 start_usb(void)
 {
 	eval("insmod", "usbcore");
 	eval("insmod", "usb-ohci");
-	eval("insmod", "uhci");
+	eval("insmod", "usb-uhci");
 	eval("insmod", "ehci-hcd");
+
+	/* mount usbfs */
+	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
 #ifdef PRINTER_SUPPORT
 #ifdef PARPORT_SUPPORT	
@@ -602,7 +859,7 @@ start_usb(void)
 	eval("insmod", "printer.o");
 	mkdir("/var/state", 0777);
 	mkdir("/var/state/parport", 0777);
-	mkdir("/var/state/parport/svr_statue", 0777);
+	if (!nvram_invmatch("lpr_enable", "1"))
 	{
 		char *lpd_argv[]={"lpd", NULL};
 		pid_t pid;
@@ -610,11 +867,21 @@ start_usb(void)
 		sleep(1);
 		_eval(lpd_argv, ">/dev/null", 0, &pid);	
 	}
+	if (!nvram_invmatch("raw_enable", "1"))
+	{
+		eval("p910nd", "-f", "/dev/usb/lp0", "0");
+#ifdef PARPORT_SUPPORT	
+		eval("p910nd", "-f", "/dev/printers/0", "1");
+#endif
+	}
 #endif	
+	if (!nvram_invmatch("audio_enable", "1"))
+	{
 #ifdef AUDIO_SUPPORT
-	eval("insmod", "soundcore.o");
-	eval("insmod", "audio.o");
-	start_audio();
+		eval("insmod", "soundcore");
+		eval("insmod", "audio");
+		start_audio();
+	}
 #endif
 #ifdef WEBCAM_SUPPORT	
 	if (nvram_invmatch("usb_webenable_x", "0"))
@@ -627,23 +894,47 @@ start_usb(void)
 	}
 #endif
 #ifdef MASSSTORAGE_SUPPORT
-	if (nvram_invmatch("usb_ftpenable_x", "0"))
+	mkdir("/tmp/mnt", 0755);
+
+	if (!nvram_match("usb_storage_x", "0"))
 	{
 		eval("insmod", "scsi_mod.o");
 		eval("insmod", "sd_mod.o");
 		eval("insmod", "usb-storage.o");
-		mkdir("/tmp/harddisk", 0444);
 	}	
 #endif
+	if (nvram_match("usb_nfsenable_x", "1"))
+	{	
+		eval("insmod", "sunrpc");
+		eval("insmod", "lockd");
+		eval("insmod", "nfsd");
+		
+		start_nfsd();
+	}
+	return 0;
 }
 
 int
 stop_usb(void)
 {
+	if (nvram_match("usb_nfsenable_x", "1"))
+	{	
+		eval("killall", "mountd");
+		eval("killall", "-9", "nfsd");
+		eval("killall", "-9", "lockd");
+		eval("killall", "portmap");
+		
+		eval("rmmod", "nfsd");
+		eval("rmmod", "lockd");
+		eval("rmmod", "sunrpc");
+	}
+	
 #ifdef MASSSTORAGE_SUPPORT
-	if (nvram_invmatch("usb_ftpenable_x", "0"))
+	if (!nvram_match("usb_storage_x", "0"))
 	{
 		eval("killall", "stupid-fptd");
+		eval("killall", "smbd");
+		eval("killall", "nmbd");
 		eval("rmmod", "usb-storage");
 		eval("rmmod", "sd_mod");
 		eval("rmmod", "scsi_mod");
@@ -670,6 +961,7 @@ stop_usb(void)
 #endif
 #ifdef PRINTER_SUPPORT	
 	eval("killall", "lpd");
+	eval("killall", "p910nd");
 	eval("rmmod", "printer");
 #ifdef PARPORT_SUPPORT
 	eval("rmmod", "lp.o");
@@ -677,9 +969,14 @@ stop_usb(void)
 	eval("rmmod", "parport.o");
 #endif
 #endif	
-	eval("rmmod", "usb-ehci");
+
+	umount("/proc/bus/usb");
+
+	eval("rmmod", "ehci-hcd");
+	eval("rmmod", "usb-uhci");
 	eval("rmmod", "usb-ohci");
 	eval("rmmod", "usbcore");
+	return 0;
 }
 
 void start_script(void)
@@ -706,67 +1003,300 @@ void start_script(void)
 	}	
 }
 
-void start_ftpd()
+/* get full storage path */
+char *nvram_storage_path(char *var)
 {
-	FILE *fp;
-	char *ftpd_argv[] = {"stupid-ftpd", NULL};
-	char user[32], user1[32], password[32], path[32];
-	char tmpstr[32];
-	char rright[128], wright[128], maxuser[16];
-	int snum, unum, i, j;
-	pid_t pid;
-
-
-	fp=fopen("/tmp/stupid-ftpd.mtd", "w");
-	if (fp==NULL) return;	
-	fprintf(fp, "Welcom to My FTP Site:\n");
-	fclose(fp);
-		
-	fp=fopen("/tmp/stupid-ftpd.bye", "w");
-	if (fp==NULL) return;	
-	fprintf(fp, "Thanks for your coming. Byte Byte!!\n");
-	fclose(fp);
-
-	fp=fopen("/tmp/stupid-ftpd.conf", "w");
-	if (fp==NULL) return;
+	static char buf[256];
+	char *val = nvram_safe_get(var);
+	int len = sprintf(buf, "%s%s", 
+		val[0] == '/' ? "" : "/tmp/harddisk/", val);
 	
-	fprintf(fp, "mode=daemon\n");
-	fprintf(fp, "serverroot=/tmp/harddisk\n");
-	fprintf(fp, "changeroottype=real\n");
+	if (len > 1 && buf[len - 1] == '/')
+		buf[len - 1] = 0;
 
-	fprintf(fp, "motd=/tmp/stupid-ftpd.motd\n");
-	fprintf(fp, "byemsg=/tmp/stupid-ftpd.bye\n");
-	fprintf(fp, "banmsg=You have no permission\n");
-	fprintf(fp, "log=/tmp/stupid-ftpd.log\n");
-	fprintf(fp, "port=%s\n", nvram_safe_get("usb_ftpport_x"));
-	fprintf(fp, "maxusers=%s\n", nvram_safe_get("usb_ftpmax_x"));	
-	fprintf(fp, "login-timeout=%s\n", nvram_safe_get("usb_ftptimeout_x"));
-	fprintf(fp, "timeout=%s\n", nvram_safe_get("usb_ftpstaytimeout_x"));
+	return buf;
+}
 
+int restart_ftpd()
+{
+	char vsftpd_users[] = "/etc/vsftpd.users";
+	char vsftpd_passwd[] = "/etc/vsftpd.passwd";
+	int i, count;
 
-	if (nvram_match("usb_ftpanonymous_x", "1"))
-	{
-		fprintf(fp, "user=anonymous * // 0 A\n");
-	}
+	char tmp[256];
+	FILE *fp, *f;
+
+	eval("killall", "vsftpd");
+	
+	mkdir_if_none(vsftpd_users);
+
+	if ((fp = fopen("/etc/vsftpd.conf", "w")) == NULL)
+		return 1;
+
 	if (nvram_match("usb_ftpsuper_x", "1"))
 	{
-		fprintf(fp, "user=%s %s // 0 A\n", nvram_safe_get("http_username"), nvram_safe_get("http_passwd"));
+		/* rights */
+		sprintf(tmp, "%s/%s", vsftpd_users,
+			nvram_get("http_username") ? : "admin");
+		if ((f = fopen(tmp, "w")))
+		{
+			fprintf(f, 
+				"dirlist_enable=yes\n"
+				"write_enable=yes\n"
+				"download_enable=yes\n");
+			fclose(f);
+		}
 	}
 
-	write_ftp_banip(fp);
-	write_ftp_userlist(fp);
+	if (nvram_invmatch("usb_ftpanonymous_x", "0"))
+	{
+		fprintf(fp, 
+			"anon_allow_writable_root=yes\n"
+			"anon_world_readable_only=no\n"
+			"anon_umask=022\n");
+		
+		/* rights */
+		sprintf(tmp, "%s/ftp", vsftpd_users);
+		if ((f = fopen(tmp, "w")))
+		{
+			if (nvram_match("usb_ftpdirlist_x", "0"))
+				fprintf(f, "dirlist_enable=yes\n");
+			if (nvram_match("usb_ftpanonymous_x", "1") || 
+			    nvram_match("usb_ftpanonymous_x", "3"))
+				fprintf(f, "write_enable=yes\n");
+			if (nvram_match("usb_ftpanonymous_x", "1") || 
+			    nvram_match("usb_ftpanonymous_x", "2"))
+				fprintf(f, "download_enable=yes\n");
+			fclose(f);
+		}
+		if (nvram_match("usb_ftpanonymous_x", "1") || 
+		    nvram_match("usb_ftpanonymous_x", "3"))
+			fprintf(fp, 
+				"anon_upload_enable=yes\n"
+				"anon_mkdir_write_enable=yes\n"
+				"anon_other_write_enable=yes\n");
+	} else {
+		fprintf(fp, "anonymous_enable=no\n");
+	}
+	
+	fprintf(fp,
+		"dirmessage_enable=yes\n"
+		"download_enable=no\n"
+		"dirlist_enable=no\n"
+		"hide_ids=yes\n"
+		"syslog_enable=yes\n"
+		"local_enable=yes\n"
+		"local_umask=022\n"
+		"chmod_enable=no\n"
+		"chroot_local_user=yes\n"
+		"check_shell=no\n"
+		"user_config_dir=%s\n"
+		"passwd_file=%s\n",
+		vsftpd_users, vsftpd_passwd);
+
+	fprintf(fp, "listen=yes\nlisten_port=%s\nbackground=yes\n", 
+		nvram_get("usb_ftpport_x") ? : "21");
+	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
+
+	/* fprintf(fp, "login-timeout=%s\n", nvram_safe_get("usb_ftptimeout_x")); */
+	fprintf(fp, "idle_session_timeout=%s\n", nvram_get("usb_ftpstaytimeout_x") ? : "300");
+
+	if (nvram_match("usb_smbcset_x", "utf8"))
+		fprintf(fp, "utf8=yes\n");
+
+	/* ntfs does not support sendfile at the moment */
+	fprintf(fp, "use_sendfile=no\n");
+
+	/* bandwidth */
+	fprintf(fp, "anon_max_rate=%d\nlocal_max_rate=%d\n",
+		atoi(nvram_safe_get("usb_ftpanonrate_x")) * 1024,
+		atoi(nvram_safe_get("usb_ftprate_x")) * 1024);
+	
+	fclose(fp);
+	
+	/* prepare passwd file and default users */
+	if ((fp = fopen(vsftpd_passwd, "w")) == NULL)
+		return 2;
+
+	fprintf(fp, /* anonymous, admin, nobody */
+		"ftp:x:0:0:ftp:%s:/sbin/nologin\n"
+		"%s:%s:0:0:root:/tmp/mnt/:/sbin/nologin\n"
+		"nobody:x:99:99:nobody:/usr/share/empty:/sbin/nologin\n",
+		nvram_storage_path("usb_ftpanonroot_x"), 
+		nvram_get("http_username") ? : "admin",
+		nvram_match("usb_ftpsuper_x", "1") ? 
+			crypt(nvram_get("http_passwd") ? : "admin", "$1$") : "x");
+
+	for (i = 0, count = atoi(nvram_safe_get("usb_ftpnum_x")); i < count; i++) 
+	{
+		char *user = (sprintf(tmp, "usb_ftpusername_x%d", i), nvram_get(tmp));
+		char *pass = (sprintf(tmp, "usb_ftppasswd_x%d", i), nvram_get(tmp));
+		char *rights = (sprintf(tmp, "usb_ftprights_x%d", i), nvram_get(tmp));
+		
+		if (user && pass && rights)
+		{
+			/* directory */
+			if (strncmp(rights, "Private", 7) == 0)
+			{
+				sprintf(tmp, "%s/%s", nvram_storage_path("usb_ftppvtroot_x"), user);
+				mkdir_if_none(tmp);
+			}
+			else	sprintf(tmp, "%s", nvram_storage_path("usb_ftppubroot_x"));
+
+
+			fprintf(fp, "%s:%s:0:0:%s:%s:/sbin/nologin\n",
+				user, crypt(pass, "$1$"), user, tmp);
+
+			/* rights */
+			sprintf(tmp, "%s/%s", vsftpd_users, user);
+			if ((f = fopen(tmp, "w")))
+			{
+				if (nvram_invmatch("usb_ftpdirlist_x", "1"))
+					strcpy(tmp, "dirlist_enable=yes\n");
+				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
+					strcat(tmp, "download_enable=yes\n");
+				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
+					strcat(tmp, "write_enable=yes\n");
+					
+				fputs(tmp, f);
+				fclose(f);
+			}
+		}
+	}
+	
+	fclose(fp);
+	
+	eval("/usr/sbin/vsftpd");
+	return 0;
+}
+
+void restart_smbd()
+{
+	FILE *fp;
+	DIR *dir = NULL;
+	struct dirent *dp;
+	
+	kill_pidfile("/var/lock/nmbd.pid");
+	if (!kill_pidfile("/var/lock/smbd.pid"))
+		sleep(2);	/* wait for smbd to finish */
+
+	if ((fp = fopen("/etc/smb.conf", "w")) == NULL) {
+		perror("/etc/smb.conf");
+		return;
+	}
+		
+	fprintf(fp, "[global]\n"
+		"\tinterfaces = %s\n"
+		"\tbind interfaces only = yes\n"
+		"\tworkgroup = %s\n"
+		"\tserver string = %s\n"
+		"\tguest account = nobody\n"
+		"\tsecurity = share\n"
+		"\tbrowseable = yes\n"
+		"\tguest ok = yes\n"
+		"\tguest only = yes\n"
+		"\tlog level = 1\n"
+		"\tmax log size = 100\n"
+		"\tencrypt passwords = no\n"
+		"\tpreserve case = yes\n"
+		"\tshort preserve case = yes\n",
+		nvram_get("lan_ifname") ? : "br0",
+		nvram_get("usb_smbwrkgrp_x") ? : "WORKGROUP",
+		nvram_get("productid") ? : "Samba");
+
+	if (nvram_invmatch("usb_smbcpage_x", ""))
+		fprintf(fp, "\tclient code page = %s\n", nvram_get("usb_smbcpage_x"));
+	if (nvram_match("usb_smbcset_x", "utf8"))
+		fprintf(fp, "\tcoding system = utf8\n");
+	else if (nvram_invmatch("usb_smbcset_x", ""))
+		fprintf(fp, "\tcharacter set = %s\n", nvram_get("usb_smbcset_x"));
+
+	if (nvram_match("usb_smbenable_x", "1"))
+	{
+		fprintf(fp, "\n[share]\n"
+			"\tpath = /tmp/harddisk\n");
+		
+		if (nvram_match("usb_smbhidden_x", "1"))
+			fprintf(fp, "\n[share$]\n"
+				"\tpath = /tmp/harddisk\n"
+				"\tbrowseable = no\n");
+		
+		if (nvram_match("usb_smbhidden_x", "1") || 
+		    nvram_match("usb_smbhidden_x", "2"))
+			fprintf(fp, 
+				"\twritable = yes\n"
+				"\tforce user = %s\n",
+				nvram_get("http_username") ? : "root");
+	}
+
+	/* share everything below /tmp/mnt */
+	if (nvram_match("usb_smbenable_x", "2") && (dir = opendir("/tmp/mnt")))
+		while ((dp = readdir(dir)))
+	{
+		if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, ".."))
+		{
+			fprintf(fp, "\n[%s]\n"
+				"\tpath = /tmp/mnt/%s\n", dp->d_name, dp->d_name);
+
+			if (nvram_match("usb_smbhidden_x", "1"))
+				fprintf(fp, "\n[%s$]\n"
+					"\tpath = /tmp/mnt/%s\n"
+					"\tbrowseable = no\n", dp->d_name, dp->d_name);
+		
+			if (nvram_match("usb_smbhidden_x", "1") || nvram_match("usb_smbhidden_x", "2"))
+				fprintf(fp, 
+					"\twritable = yes\n"
+					"\tforce user = %s\n",
+					nvram_get("http_username") ? : "root");
+		}
+	}
+
+	if (dir) closedir(dir);
+
+	if (nvram_match("usb_smbenable_x", "3"))
+	{
+		int i, count;
+		char tmp[] = "usb_smblist_xXXXXX";
+		
+		for (i = 0, count = atoi(nvram_safe_get("usb_smbnum_x")); i < count; i++) 
+		{
+			/* share name */
+			sprintf(tmp, "usb_smbshare_x%d", i);
+			if (!nvram_invmatch(tmp, ""))
+				continue;
+			fprintf(fp, "\n[%s]\n", nvram_get(tmp));
+		
+			/* path */
+			sprintf(tmp, "usb_smbdir_x%d", i);
+			fprintf(fp, "\tpath = %s\n", 
+				nvram_storage_path(tmp));
+
+			/* access level */
+			sprintf(tmp, "usb_smblevel_x%d", i);
+			if (nvram_match(tmp, "Read/Write"))
+				fprintf(fp, 
+					"\twritable = yes\n"
+					"\tforce user = %s\n",
+					nvram_get("http_username") ? : "root");
+			/* comment */
+			sprintf(tmp, "usb_smbdesc_x%d", i);
+			if (nvram_invmatch(tmp, ""))
+				fprintf(fp, "\tcomment = %s\n", nvram_get(tmp));
+		}
+	}
+			
 	fclose(fp);
 
-	//_eval(ftpd_argv, NULL, 0, &pid); 
-	eval("stupid-ftpd");
-}	
+	eval("/usr/sbin/nmbd", "-D");
+	eval("/usr/sbin/smbd", "-D");
+}
 
 int
 hotplug_usb_webcam(char *product, int webflag)
 {
 	char *rcamd_argv[]={"rcamd", 
 				"-p", nvram_safe_get("usb_webactivex_x"),
-				"-s", "0",
+				"-s", nvram_safe_get("usb_webfresh_x"),
 				"-z", nvram_safe_get("time_zone"),
 				"-a", nvram_safe_get("usb_websecurity_x"),
 				NULL, NULL,	// Model -t
@@ -779,12 +1309,13 @@ hotplug_usb_webcam(char *product, int webflag)
 	char **arg;
 	pid_t pid;
 
-	if (nvram_match("usb_webenable_x", "0") || strlen(product)==0 || webflag==0) return;
+	if (nvram_match("usb_webenable_x", "0") || strlen(product)==0 || webflag==0) return 1;
 	for (arg = rcamd_argv; *arg; arg++);
 	
 	if (webflag == WEB_PWCWEB)
 	{
-		eval("insmod", "pwc.o", "power_save=0");
+		eval("insmod", "pwc", "power_save=0", "size=vga");
+		eval("insmod", "pwcx");
 		nvram_set("usb_webdriver_x", "0");
 
 		*arg++ = "-t";
@@ -826,8 +1357,8 @@ hotplug_usb_webcam(char *product, int webflag)
 	if (nvram_match("usb_webimage_x", "0"))
 	{
 		*arg++ = "-f";
-		if (webflag==WEB_PWCWEB) *arg++="320x240";
-		else *arg++="640x480";
+
+		*arg++="640x480";
 	}
 	else if (nvram_match("usb_webimage_x", "1"))
 	{
@@ -892,7 +1423,7 @@ hotplug_usb_webcam(char *product, int webflag)
 	//_eval(httpd_argv, NULL, 0, &pid);
 	eval("httpd", nvram_safe_get("wan0_ifname"), nvram_safe_get("usb_webhttpport_x"));
 	chdir("/");
-	_eval(rcamd_argv, ">/dev/null", 0, NULL);
+	_eval(rcamd_argv, ">/dev/null", 0, &pid);
 
 	return 0;
 }
@@ -948,14 +1479,14 @@ start_rcamd(void)
 	char *rcamd_argv[] = {"rcamdmain", NULL};
 	pid_t pid;
 
-	_eval(rcamd_argv, NULL, 0, &pid);
-	return 0;
+	return _eval(rcamd_argv, NULL, 0, &pid);
 }
 
 int
 stop_rcamd(void)
 {
-	int ret = eval("killall", "rcamdmain");
+	eval("killall", "rcamdmain");
+	return 0;
 }
 
 
@@ -963,43 +1494,26 @@ stop_rcamd(void)
 int
 umount_all_part(char *usbdevice)
 {
-	int n;
 	DIR *dir_to_open;
 	struct dirent *dp;
 	char umount_dir[32];
 	
-
-	if(!(dir_to_open = opendir("/tmp/harddisk")))
-		perror("***cannot open /tmp/harddisk\n");
-
-	while(dir_to_open && (dp=readdir(dir_to_open)))
+	for (dir_to_open = opendir("/tmp/mnt");
+		dir_to_open && (dp=readdir(dir_to_open)); )
 	{
-		if(strncmp(dp->d_name, "..", NAME_MAX) == 0 ||
-		strncmp(dp->d_name, ".", NAME_MAX) == 0 ||
-		strncmp(dp->d_name, "part", 4) != 0)
-			continue;
-		
-		sprintf(umount_dir, "/tmp/harddisk/%s", dp->d_name);
-		if(umount(umount_dir))
+		if (strncmp(dp->d_name, "disc", 4) == 0)
 		{
-			//perror("umount failed");
+			sprintf(umount_dir, "/tmp/mnt/%s", dp->d_name);
+			if (!umount(umount_dir))
+				unlink(umount_dir);
 		}
-		//eval("umount", umount_dir);
 	}
 
 	if (dir_to_open)
 		closedir(dir_to_open);
 	
-	sprintf(umount_dir, "/tmp/harddisk");
+	unlink("/tmp/harddisk");
 
-	//logs(umount_dir);
-
-	// retry 3 times
-	if(umount(umount_dir))
-	{
-		//perror("umount failed");
-	}
-	//eval("umount", umount_dir);
 	return 0;
 }
 
@@ -1016,7 +1530,15 @@ remove_usb_mass(char *product)
 
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
-		eval("killall", "stupid-ftpd");
+		if (nvram_invmatch("usb_ftpenable_x", "0")) {
+			eval("killall", "stupid-ftpd");
+			eval("killall", "vsftpd");
+		}
+		if (nvram_invmatch("usb_smbenable_x", "0")) {
+			eval("killall", "smbd");
+			eval("killall", "nmbd");
+		}
+		
 		sleep(1);
 		umount_all_part("usb");
 		nvram_set("usb_ftp_device", "");
@@ -1041,173 +1563,247 @@ remove_storage_main(void)
 	return 0;
 }
 
+/* stollen from the e2fsprogs/ismounted.c */
+static struct mntent *findmntent(char *file)
+{
+	struct mntent 	*mnt;
+	struct stat	st_buf;
+	dev_t		file_dev=0, file_rdev=0;
+	ino_t		file_ino=0;
+	FILE 		*f;
+	
+	if ((f = setmntent ("/proc/mounts", "r")) == NULL)
+		return NULL;
+
+	if (stat(file, &st_buf) == 0) {
+		if (S_ISBLK(st_buf.st_mode)) {
+			file_rdev = st_buf.st_rdev;
+		} else {
+			file_dev = st_buf.st_dev;
+			file_ino = st_buf.st_ino;
+		}
+	}
+	while ((mnt = getmntent (f)) != NULL) {
+		if (strcmp(file, mnt->mnt_fsname) == 0)
+			break;
+		if (stat(mnt->mnt_fsname, &st_buf) == 0) {
+			if (S_ISBLK(st_buf.st_mode)) {
+				if (file_rdev && (file_rdev == st_buf.st_rdev))
+					break;
+			} else {
+				if (file_dev && ((file_dev == st_buf.st_dev) &&
+						 (file_ino == st_buf.st_ino)))
+					break;
+			}
+		}
+	}
+
+	fclose(f);
+	return mnt;
+}
+
+char *detect_fs_type(char *device)
+{
+	int fd;
+	unsigned char buf[4096];
+	
+	if ((fd = open(device, O_RDONLY)) < 0)
+		return NULL;
+		
+	if (read(fd, buf, sizeof(buf)) != sizeof(buf))
+	{
+		close(fd);
+		return NULL;
+	}
+	
+	close(fd);
+	
+	/* first check for mbr */
+	if (*device && device[strlen(device) - 1] > '9' &&
+	    buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
+	    ((buf[0x1be] | buf[0x1ce] | buf[0x1de] | buf[0x1ee]) & 0x7f) == 0) /* boot flags */
+	{
+		return "mbr";
+	} else
+	/* detect swap */
+	if (memcmp(buf + 4086, "SWAPSPACE2", 10) == 0 ||
+	    memcmp(buf + 4086, "SWAP-SPACE", 10) == 0)
+	{
+		return "swap";
+	} else
+	/* detect ext2/3 */
+	if (buf[0x438] == 0x53 && buf[0x439] == 0xEF)
+	{
+		return	((buf[0x460] & 0x0008 /* JOURNAL_DEV */) != 0 ||
+			 (buf[0x45c] & 0x0004 /* HAS_JOURNAL */) != 0) ? "ext3" : "ext2";
+	} else 
+	/* detect ntfs */
+	if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
+	    memcmp(buf + 3, "NTFS    ", 8) == 0)
+	{
+		return "ntfs";
+	} else
+	/* detect vfat */
+	if (buf[510] == 0x55 && buf[511] == 0xAA && /* signature */
+	    buf[11] == 0 && buf[12] >= 1 && buf[12] <= 8 /* sector size 512 - 4096 */ &&
+	    buf[13] != 0 && (buf[13] & (buf[13] - 1)) == 0) /* sectors per cluster */
+	{
+	 	return "vfat";
+	}
+
+	return NULL;
+}
+
 #define MOUNT_VAL_FAIL 	0
 #define MOUNT_VAL_RONLY	1
 #define MOUNT_VAL_RW 	2
 
 int
-mount_r(char *usb_part, char *usb_file_part)
+mount_r(char *mnt_dev, char *mnt_dir)
 {
-	char msg[64];
+	struct mntent *mnt = findmntent(mnt_dev);
+	char *type;
+	
+	if (mnt) {
+		return strcmp(mnt->mnt_dir, mnt_dir) ? 
+			MOUNT_VAL_FAIL : MOUNT_VAL_RW;
+	}
+	
+	if ((type = detect_fs_type(mnt_dev))) 
+	{
+		char options[64];
+		unsigned long flags = MS_NOATIME;
 
-	if(!mount(usb_part, usb_file_part, "ext2", MS_SYNCHRONOUS, NULL)) 
-	{
-		sprintf(msg, "ext2 fs mounted to %s\n", usb_file_part);		
-		logmessage("USB storage", msg);
-		return MOUNT_VAL_RW;
+		options[0] = '\0';
+		
+		if (strcmp(type, "swap") == 0 || strcmp(type, "mbr") == 0)
+			flags = 0; /* not a mountable partition */
+		else if (strcmp(type, "vfat") == 0)
+		{
+			int l = 0;
+
+			if (nvram_invmatch("usb_vfat_options", ""))
+				l = snprintf(options, 64, "%s", nvram_get("usb_vfat_options"));
+			if (nvram_invmatch("usb_smbcset_x", ""))
+				l += snprintf(options + l, 64-l, ",iocharset=%s%s" + ((l>0) ? 0 : 1),
+					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
+						nvram_get("usb_smbcset_x"));
+			if (nvram_invmatch("usb_smbcpage_x", ""))
+				l += snprintf(options + l, 64-l, ",codepage=%s" + ((l>0) ? 0 : 1), 
+					nvram_get("usb_smbcpage_x"));
+			options[l+1] = '\0';
+		}
+		else if (strcmp(type, "ntfs") == 0)
+		{
+			flags = MS_RDONLY;
+			if (nvram_invmatch("usb_smbcset_x", ""))
+				sprintf(options, "iocharset=%s%s", 
+					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
+						nvram_get("usb_smbcset_x"));
+		}
+
+		if (flags && !mkdir_if_none(mnt_dir) &&
+			!mount(mnt_dev, mnt_dir, type, flags, options[0] ? options : NULL)) 
+		{
+			logmessage("USB storage", "%s%s fs at %s mounted to %s", 
+				type, (flags & MS_RDONLY) ? "(ro)" : "", mnt_dev, mnt_dir);
+			return (flags & MS_RDONLY) ? MOUNT_VAL_RONLY : MOUNT_VAL_RW;
+		}
+
+		rmdir(mnt_dir);
 	}
-	if(!mount(usb_part, usb_file_part, "vfat", MS_SYNCHRONOUS, "codepage=950,iocharset=cp950")) 
-	{
-		sprintf(msg, "vfat fs mounted to %s\n", usb_file_part);		
-		logmessage("USB storage", msg);
-		return MOUNT_VAL_RW;
-	}
-	if(!mount(usb_part, usb_file_part, "msdos", MS_SYNCHRONOUS, NULL))
-	{
-		sprintf(msg, "msdos fs mounted to %s\n", usb_file_part);	
-		logmessage("USB storage", msg);
-		return MOUNT_VAL_RW;
-	}
-	if(!mount(usb_part, usb_file_part, "ntfs", MS_SYNCHRONOUS, "iocharset=cp950"))
-	{
-		sprintf(msg, "ntfs(ro) fs mounted to %s\n", usb_file_part);	
-		logmessage("USB storage", msg);
-		return MOUNT_VAL_RONLY;
-	}
+	
 	return MOUNT_VAL_FAIL;
 }
 
 /* insert usb mass storage */
-hotplug_usb_mass(char *product)
+int hotplug_usb_mass(char *product)
 {	
-	DIR *dir_to_open, *dir_of_usb, *usb_dev_disc, *usb_dev_part;
-	char usb_disc[128], usb_part[128], usb_file_part[128];
-	int n = 0, m;
-	struct dirent *dp, *dp_disc, **dpopen;
+	DIR *dir_to_open, *usb_dev_disc, *usb_dev_part;
+	char usb_disc[128], mnt_dev[128], mnt_dir[128];
+	struct dirent *dp, *dp_disc;
 
-	if (nvram_match("usb_ftpenable_x", "0")) return;
-
-	dir_to_open=dir_of_usb=usb_dev_disc=usb_dev_part=NULL;
+	dir_to_open = usb_dev_disc = usb_dev_part = NULL;
 	
 	// Mount USB to system
 	if((usb_dev_disc = opendir("/dev/discs")))
 	{
+		eval("/usr/local/sbin/pre-mount", product);
+
+		struct stat st_buf;
+		if (stat("/etc/fstab", &st_buf) == 0) {
+			eval("swapon", "-a");
+			eval("mount", "-a");
+		}
+		
 		while(usb_dev_disc && (dp=readdir(usb_dev_disc)))
 		{
-			if(!strncmp(dp->d_name, "..", NAME_MAX) || !strncmp(dp->d_name, ".", NAME_MAX) /*|| !strncmp(dp->d_name, "disc0", NAME_MAX)*/)
+			if(!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
 
 			sprintf(usb_disc, "/dev/discs/%s", dp->d_name);
 
-			//logs(usb_disc);
-
 			if((usb_dev_part = opendir(usb_disc)))
 			{
-				m = 0;
-
 				while(usb_dev_part && (dp_disc=readdir(usb_dev_part)))
 				{
-					//logs(dp_disc->d_name);
-
-					if(!strncmp(dp_disc->d_name, "..", NAME_MAX) || !strncmp(dp_disc->d_name, ".", NAME_MAX) ||
-!strncmp(dp_disc->d_name, "disc", NAME_MAX))
+					/* assume disc is the first entry */
+					int disc = !strcmp(dp_disc->d_name, "disc");
+					
+					if (!strcmp(dp_disc->d_name, "..") || !strcmp(dp_disc->d_name, "."))
 						continue;
 					
-					sprintf(usb_part, "/dev/discs/%s/%s", dp->d_name, dp_disc->d_name);
+					sprintf(mnt_dev, "/dev/discs/%s/%s", dp->d_name, dp_disc->d_name);
 
-					if (n==0)
-						sprintf(usb_file_part, "/tmp/harddisk");
-					else 
-						sprintf(usb_file_part, "/tmp/harddisk/part%d", n);
+					if (disc) sprintf(mnt_dir, "/tmp/mnt/%s", dp->d_name);
+					else sprintf(mnt_dir, "/tmp/mnt/%s_%s", dp->d_name, 
+						dp_disc->d_name + (strncmp(dp_disc->d_name, "part", 4) ? 0 : 4));
 
-					mkdir_if_none(usb_file_part);
-#if MOUNTALL
-					eval("mount", usb_part, usb_file_part);
-#else
-					if (mount_r(usb_part, usb_file_part))
+					if (mount_r(mnt_dev, mnt_dir))
 					{
-						n++;
-						m++;
+						if (disc) break; /* no mbr -- no partitions */
 					}
-#endif	
-				}
-
-				if (!m) // There is no other partition
-				{
-										
-					sprintf(usb_part, "/dev/discs/%s/disc", dp->d_name);
-					if (n==0)
-						sprintf(usb_file_part, "/tmp/harddisk");
-					else 
-						sprintf(usb_file_part, "/tmp/harddisk/part%d", n++);
-#ifdef MOUNTALL
-					eval("mount", usb_part, usb_file_part);
-#else
-					if(mount_r(usb_part, usb_file_part))
-					{
-						n++;	
-					}
-#endif
 				}
 			}
-				
 		}
-	}
-
-	if (n) 
-	{
-		nvram_set("usb_ftp_device", product);
-		start_ftpd();
-		//logmessage("USB storage", "attached");
-		start_script();
-		//run script if any
-	}
-	else
-	{
 		
+		/* create /tmp/harddisk pointing to first partition */
+		usb_disc[0] = 0;	/* alphabetical sort minimum */
+		for (dir_to_open = opendir("/tmp/mnt");
+			dir_to_open && (dp = readdir(dir_to_open)); )
+		{
+			if (!strncmp(dp->d_name, "disc", 4) &&
+			    (usb_disc[0] == 0 || strcmp(dp->d_name, usb_disc) < 0))
+				strcpy(usb_disc, dp->d_name);
+		}
+		
+		if (usb_disc[0])
+		{
+			sprintf(mnt_dir, "/tmp/mnt/%s", usb_disc);
+			symlink(mnt_dir, "/tmp/harddisk");
+
+			nvram_set("usb_ftp_device", product);
+			if (nvram_invmatch("usb_ftpenable_x", "0")) {
+				restart_ftpd();
+			}
+
+			if (nvram_invmatch("usb_smbenable_x", "0") && nvram_invmatch("lan_hostname", "")) {
+				restart_smbd();
+			}
+
+			if (nvram_match("usb_nfsenable_x", "1"))
+			{	
+				restart_nfsd();
+			}
+			
+			//logmessage("USB storage", "attached");
+			start_script();
+		}
+
+		//run script if any
+		eval("/usr/local/sbin/post-mount", product, mnt_dir);
 	}
 
-#ifdef USBCOPY_SUPPORT
-	n = 1;
-	if((dir_to_open = opendir("/tmp/harddisk")))
-	{
-		while(dir_to_open && (dp=readdir(dir_to_open)))
-		{
-			if(!strncmp(dp->d_name, "..", NAME_MAX) || !strncmp(dp->d_name, ".", NAME_MAX) || !strncmp(dp->d_name, "part", 4))
-				continue;
-			sprintf(usb_part, "/tmp/harddisk/%s", dp->d_name);
-			if(scandir(usb_part, &dpopen, 0, alphasort) <= 2)
-				continue;
-			while(1)
-			{
-				sprintf(path_copy_to, "/tmp/harddisk/part1/USBpart%03d", n);
-				if(!opendir(path_copy_to))
-				{
-					if(mkdir(path_copy_to, 0777))
-					{
-						perror("error on creating usb directory");
-					}
-					eval("echo", path_copy_to);
-					break;
-				}
-				else
-					n++;
-			}
-			if((dir_of_usb = opendir(usb_part)))
-			{
-				while(dir_of_usb && (dp_disc=readdir(dir_of_usb)))
-				{
-					if(!strncmp(dp_disc->d_name, "..", NAME_MAX) || !strncmp(dp_disc->d_name, ".", NAME_MAX))
-						continue;
-					sprintf(path_to_copy, "/tmp/harddisk/%s/%s", dp->d_name, dp_disc->d_name);
-					eval("cp", "-Rf", path_to_copy, path_copy_to);
-					sync();
-				}
-			}
-			n++;
-		}
-	}
-#endif
 	if(usb_dev_disc)
 		closedir(usb_dev_disc);
 	if(usb_dev_part)
@@ -1226,7 +1822,7 @@ hotplug_usb_mass(char *product)
 int
 hotplug_usb(void)
 {
-	char *action, *interface, *product, *type;
+	char *action, *interface, *product;
 	int i;
 	int isweb;
 	char flag[6];
@@ -1236,6 +1832,16 @@ hotplug_usb(void)
 
 	if ((product=getenv("PRODUCT")))
 	{
+		/* usb storage */
+		if (strncmp(interface, "8/", 2) == 0)
+		{
+			if (strcmp(action, "add") == 0)
+				nvram_set("usb_storage_device", product);
+			else
+				remove_usb_mass(product);
+			return 0;
+		}
+
 		if (strncmp(interface, "1/1", 3)==0)
 		{
 			// if the audio device is the same with web cam,
@@ -1277,10 +1883,7 @@ usbhandler:
 		nvram_set("usb_device", "1");
 		if (isweb==WEB_NONE)
 		{
-			if (nvram_match("usb_ftp_device", "")) // Treat it as USB storage
-			{
-				nvram_set("usb_storage_device", product);
-			}
+			/* old usb-storage handler */
 		}
 		else if (isweb==WEB_AUDIO)
 		{
@@ -1304,7 +1907,7 @@ usbhandler:
 	{
 		if (isweb==WEB_NONE) // Treat it as USB Storage
 		{
-			remove_usb_mass(product);
+			/* old usb-storage handler */
 		}
 		else if(isweb==WEB_AUDIO)
 		{
@@ -1330,11 +1933,13 @@ usbhandler:
 int
 stop_service_main(int argc, char *argv[])
 {
+	stop_snmpd();
 	stop_misc();
 	stop_logger();
 	stop_usb();
 
-	stop_nas();
+	/* nas is still needed for upgrade over WiFI with WPA enabled */
+	/* stop_nas();*/
 	stop_upnp();
 	stop_dhcpd();
 	stop_dns();
@@ -1349,7 +1954,6 @@ int service_handle(void)
 	char tmp[100], *str;
 	int unit;
 	int pid;
-	char *ping_argv[] = { "ping", "140.113.1.1", NULL};
 	FILE *fp;
 
 	service = nvram_get("rc_service");
@@ -1396,19 +2000,11 @@ int service_handle(void)
 		}
 		else 
 		{
-			// pppoe or ppptp, check if /tmp/ppp exist
-			if (nvram_invmatch("wan0_proto", "static") && (fp=fopen("/tmp/ppp/ip-up", "r"))!=NULL)
-			{
-				fclose(fp);
-				_eval(ping_argv, NULL, 0, &pid);
-
-			}
-			else
-			{
-				stop_wan();
-				start_wan();
-				_eval(ping_argv, NULL, 0, &pid);
-			}
+			stop_wan();
+			sleep(5);
+			start_wan();
+			/* trigger connect */
+			eval("nslookup", "localhost");
 		}
 	}
 	nvram_unset("rc_service");
@@ -1420,13 +2016,14 @@ int hotplug_usb_audio(char *product)
 	char *wave_argv[]={"waveserver", NULL};
 	pid_t pid;
 
-	if (strlen(product)==0) return;
-	_eval(wave_argv, ">/dev/null", 0, NULL);
+	if (strlen(product)==0) return 1;
+	return _eval(wave_argv, ">/dev/null", 0, &pid);
 }
 
 int remove_usb_audio(char *product)
 {
 	eval("killall", "waveserver");
+	return 0;
 }
 
 int
@@ -1435,14 +2032,14 @@ start_audio(void)
 	char *wave_argv[] = {"waveservermain", NULL};
 	pid_t pid;
 
-	_eval(wave_argv, NULL, 0, &pid);
-	return 0;
+	return _eval(wave_argv, NULL, 0, &pid);
 }
 
 int
 stop_audio(void)
 {
-	int ret = eval("killall", "waveserver");
+	eval("killall", "waveserver");
+	return 0;
 }
 
 

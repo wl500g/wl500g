@@ -34,6 +34,17 @@
 #include <bcmparams.h>
 #include <rc.h>
 
+in_addr_t
+inet_addr_(const char *cp)
+{
+	struct in_addr a;
+
+	if (!inet_aton(cp, &a))
+		return INADDR_ANY;
+	else
+		return a.s_addr;
+}
+
 int
 ifconfig(char *name, int flags, char *addr, char *netmask)
 {
@@ -153,14 +164,14 @@ config_loopback(void)
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
 }
 
-#ifndef WL500GX
+#ifndef CONFIG_SENTRY5
 /* configure/start vlan interface(s) based on nvram settings */
 int
 start_vlan(void)
 {
 	int s;
 	struct ifreq ifr;
-	int i, j;
+	int i, j, vlan0tag;
 	char ea[ETHER_ADDR_LEN];
 
 	/* set vlan i/f name to style "vlan<ID>" */
@@ -169,6 +180,8 @@ start_vlan(void)
 	/* create vlan interfaces */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 		return errno;
+
+	vlan0tag = strtoul(nvram_safe_get("vlan0tag"), NULL, 0);
 
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		char nvvar_name[16];
@@ -202,10 +215,10 @@ start_vlan(void)
 		if (!(ifr.ifr_flags & IFF_UP))
 			ifconfig(ifr.ifr_name, IFUP, 0, 0);
 		/* create the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
 		/* setup ingress map (vlan->priority => skb->priority) */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | vlan0tag);
 		for (j = 0; j < VLAN_NUMPRIS; j ++) {
 			snprintf(prio, sizeof(prio), "%d", j);
 			eval("vconfig", "set_ingress_map", vlan_id, prio, prio);
@@ -221,10 +234,12 @@ start_vlan(void)
 int
 stop_vlan(void)
 {
-	int i;
+	int i, vlan0tag;
 	char nvvar_name[16];
 	char vlan_id[16];
 	char *hwname;
+
+	vlan0tag = strtoul(nvram_safe_get("vlan0tag"), NULL, 0);
 
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		/* get the address of the EMAC on which the VLAN sits */
@@ -233,7 +248,7 @@ stop_vlan(void)
 			continue;
 
 		/* remove the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i);
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | vlan0tag);
 		eval("vconfig", "rem", vlan_id);
 	}
 
