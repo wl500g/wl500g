@@ -532,13 +532,17 @@ int http_processcheck(void)
 {
 	char http_cmd[32];
 	char buf[256];
+	char *httpd_pid = "/var/run/httpd.pid";
 
 	//printf("http check\n");
-	sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
-	if (!http_check(http_cmd, buf, sizeof(buf), 0))
+
+	/* just check httpd process existance */
+	//sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
+	//if (!http_check(http_cmd, buf, sizeof(buf), 0))
+	if (!http_check_pid(httpd_pid))
 	{
 		dprintf("http rerun\n");
-		kill_pidfile("/var/run/httpd.pid");
+		kill_pidfile(httpd_pid);
 		//stop_httpd();
 		start_httpd();
 	}
