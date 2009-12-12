@@ -21,8 +21,8 @@ diff -BurpN router/rc/http_ex.c gateway/rc/http_ex.c
 +		{
 +			memset(tmp, 0, sizeof(tmp));
 +			sprintf(tmp, "/proc/%d", pid);
-+			lstat(tmp, &f_st);
-+			return S_ISDIR(f_st.st_mode);
++			if (lstat(tmp, &f_st) == 0)
++				return S_ISDIR(f_st.st_mode);
 +		}
 +	}
 +

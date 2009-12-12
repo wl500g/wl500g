@@ -374,7 +374,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
 +CONFIG_NFSD=y
 +CONFIG_NFS=y
 +CONFIG_IPROUTE2=y
-+# CONFIG_IPV6 is not set
++CONFIG_IPV6=y
 +CONFIG_SNMP=y
 +CONFIG_L2TP=y
 +# CONFIG_XL2TPD is not set

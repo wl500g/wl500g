@@ -59,7 +59,7 @@
 </tr>
 <tr>
 <td class="content_header_td_less">Action:
-           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('dhcpc_release')" size="12" name="PPPConnection_x_WANAction_button" value="Disconnect"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('dhcpc_renew')" size="12" name="PPPConnection_x_WANAction_button1" value="Connect"></td>
+           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('dhcpc_release')" size="12" name="PPPConnection_x_WANAction_button" value="Disconnect"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('dhcpc_renew')" size="12" name="PPPConnection_x_WANAction_button1" value="Connect"></td>
 </tr>
 </table>
 </td>
@@ -89,7 +89,7 @@
 </tr>
 <tr>
 <td class="content_header_td_less">Action:
-           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_botton_ro" onClick="return onSubmitApply('lpr_remove')" size="12" name="PrinterStatus_x_PrinterAction_button" value="Remove"></td>
+           </td><td class="content_input_td"><input type="submit" maxlength="15" class="content_input_fd_ro" onClick="return onSubmitApply('lpr_remove')" size="12" name="PrinterStatus_x_PrinterAction_button" value="Remove"></td>
 </tr>
 </table>
 </td>

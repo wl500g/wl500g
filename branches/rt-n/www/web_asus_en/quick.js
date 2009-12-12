@@ -283,7 +283,7 @@ function loadMode()
             
     //alert(document.form.wan_dnsenable_x[0].checked);
     //alert(document.form.wan_dnsenable_x[1].checked);
-    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331" || window.top.isModel() =="WLHDD")
+    if (window.top.isModel() =="WLHDD")
     {
     	if (document.form.wan_nat_x.value == '1')
     	{    	
@@ -720,7 +720,7 @@ function saveMode(o)
     	
     document.form.next_page.value = 'Main_Operation.asp';
     
-    if (window.top.isModel() == "WL300" || window.top.isModel() == "WL331" || window.top.isModel() =="WLHDD")
+    if (window.top.isModel() =="WLHDD")
     {	
     if (document.form.x_Mode[0].checked == true) //Access Point
     {           	                

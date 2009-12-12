@@ -33,7 +33,7 @@ UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
-ACCEL-PPTP=accel-pptp-git-20091003
+ACCEL-PPTP=accel-pptp-git-20091205
 PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.7
@@ -509,6 +509,13 @@ upnp:
 upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
 
+$(TOP)/httpd:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - httpd | tar -C $(TOP) -xf -
+
+httpd: $(TOP)/httpd
+	@true
+
 $(TOP)/www:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
@@ -535,4 +542,5 @@ shared-diff:
 	    $(call make_diff,-BurN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
-	busybox dropbear iptables others
+	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
+	rc 
