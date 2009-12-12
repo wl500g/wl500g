@@ -1,4 +1,4 @@
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shared/Makefile
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/Makefile gateway/shared/Makefile
 --- router/shared/Makefile	2004-12-05 19:54:17.000000000 +0000
 +++ gateway/shared/Makefile	2009-09-26 09:34:12.000000000 +0000
 @@ -12,8 +12,11 @@
@@ -32,19 +32,42 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/Makefile gateway/shar
 +
  libshared.so: $(OBJS)
  	$(LD) -shared -o $@ $^
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/shared/defaults.c
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/defaults.c gateway/shared/defaults.c
 --- router/shared/defaults.c	2004-12-01 01:28:13.000000000 +0000
-+++ gateway/shared/defaults.c	2009-11-14 08:12:21.000000000 +0000
-@@ -32,7 +32,7 @@ struct nvram_tuple router_defaults[] = {
++++ gateway/shared/defaults.c	2009-12-11 14:54:27.000000000 +0000
+@@ -32,10 +32,10 @@ struct nvram_tuple router_defaults[] = {
  
  	/* Miscellaneous parameters */
  	{ "timer_interval", "3600", 0 },	/* Timer interval in seconds */
 -	{ "ntp_server", "192.5.41.40 192.5.41.41 133.100.9.2", 0 },		/* NTP server */
+-	{ "time_zone", "PST8PDT", 0 },		/* Time zone (GNU TZ format) */
 +	{ "ntp_server0", "time.nist.gov", 0 },	/* NTP server */
- 	{ "time_zone", "PST8PDT", 0 },		/* Time zone (GNU TZ format) */
++	{ "time_zone", "GMT0", 0 },		/* Time zone (GNU TZ format) */
  	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
- 	{ "upnp_enable", "0", 0 },		/* Start UPnP */
-@@ -121,8 +121,13 @@ struct nvram_tuple router_defaults[] = {
+-	{ "upnp_enable", "0", 0 },		/* Start UPnP */
++	{ "upnp_enable", "1", 0 },		/* Start UPnP */
+ 	{ "ezc_enable", "1", 0 },		/* Enable EZConfig updates */
+ 	{ "ezc_version", EZC_VERSION_STR, 0 },	/* EZConfig version */
+ 	{ "is_default", "1", 0 },		/* is it default setting: 1:yes 0:no*/
+@@ -89,7 +89,7 @@ struct nvram_tuple router_defaults[] = {
+ 	{ "wan_pppoe_ifname", "", 0 },		/* PPPoE enslaved interface */
+ 	{ "wan_pppoe_username", "", 0 },	/* PPP username */
+ 	{ "wan_pppoe_passwd", "", 0 },		/* PPP password */
+-	{ "wan_pppoe_idletime", "60", 0 },	/* Dial on demand max idle time (seconds) */
++	{ "wan_pppoe_idletime", "0", 0 },	/* Dial on demand max idle time (seconds) */
+ 	{ "wan_pppoe_keepalive", "0", 0 },	/* Restore link automatically */
+ 	{ "wan_pppoe_demand", "0", 0 },		/* Dial on demand */
+ 	{ "wan_pppoe_mru", "1492", 0 },		/* Negotiate MRU to this value */
+@@ -115,14 +115,20 @@ struct nvram_tuple router_defaults[] = {
+ 	{ "autofw_port0", "", 0 },		/* out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc */
+ 
+ 	/* DHCP server parameters */
+-	{ "dhcp_start", "192.168.1.100", 0 },	/* First assignable DHCP address */
+-	{ "dhcp_end", "192.168.1.150", 0 },	/* Last assignable DHCP address */
++	{ "dhcp_start", "192.168.1.101", 0 },	/* First assignable DHCP address */
++	{ "dhcp_end", "192.168.1.254", 0 },	/* Last assignable DHCP address */
++	{ "dhcp_lease", "86400", 0},		/* Lease time in seconds */
+ 	{ "dhcp_domain", "wan", 0 },		/* Use WAN domain name first if available (wan|lan) */
  	{ "dhcp_wins", "wan", 0 },		/* Use WAN WINS first if available (wan|lan) */
  #endif	/* __CONFIG_NAT__ */
  
@@ -59,6 +82,24 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/sh
  	{ "http_passwd", "admin", 0 },		/* Password */
  	{ "http_wanport", "", 0 },		/* WAN port to listen on */
  	{ "http_lanport", "80", 0 },		/* LAN port to listen on */
+@@ -134,7 +140,7 @@ struct nvram_tuple router_defaults[] = {
+ 	{ "wl_corerev", "", 0 },		/* Current core revision */
+ 	{ "wl_phytypes", "", 0 },		/* List of supported wireless bands (e.g. "ga") */
+ 	{ "wl_radioids", "", 0 },		/* List of radio IDs */
+-	{ "wl_ssid", "Broadcom", 0 },		/* Service set ID (network name) */
++	{ "wl_ssid", "default", 0 },		/* Service set ID (network name) */
+ 	{ "wl_country", "", 0 },		/* Country (default obtained from driver) */
+ 	{ "wl_radio", "1", 0 },			/* Enable (1) or disable (0) radio */
+ 	{ "wl_closed", "0", 0 },		/* Closed (hidden) network */
+@@ -170,7 +176,7 @@ struct nvram_tuple router_defaults[] = {
+ 	{ "wl_infra", "1", 0 },			/* Network Type (BSS/IBSS) */
+ 
+ 	/* WPA parameters */
+-	{ "wl_auth_mode", "none", 0 },		/* Network authentication mode (radius|none) */
++	{ "wl_auth_mode", "open", 0 },		/* Network authentication mode */
+ 	{ "wl_wpa_psk", "", 0 },		/* WPA pre-shared key */
+ 	{ "wl_wpa_gtk_rekey", "0", 0 },		/* GTK rotation interval */
+ 	{ "wl_radius_ipaddr", "", 0 },		/* RADIUS server IP address */
 @@ -212,3 +212,32 @@ struct nvram_tuple router_defaults[] = {
  
  	{ 0, 0, 0 }
@@ -92,10 +133,29 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/defaults.c gateway/sh
 +        return NULL;
 +}
 +
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway/shared/flash.default
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/flash.default gateway/shared/flash.default
 --- router/shared/flash.default	2004-11-19 11:37:16.000000000 +0000
-+++ gateway/shared/flash.default	2009-05-08 06:09:17.000000000 +0000
-@@ -29,7 +29,7 @@
++++ gateway/shared/flash.default	2009-12-11 14:54:06.000000000 +0000
+@@ -1,18 +1,9 @@
+-
+-{"http_username", "admin", 0},
+-
+-{"http_passwd", "admin", 0},
+-
+-{"wan_proto", "dhcp", 0},
+-
+ {"wan_mode_x", "2", 0},
+ 
+ {"wan_etherspeed_x", "auto", 0},
+ 
+ {"wan_route_x", "IP_Routed", 0},
+ 
+-{"wan_nat_x", "1", 0},
+-
+ {"wan_ipaddr", "", 0},
+ 
+ {"wan_netmask", "", 0},
+@@ -29,7 +20,7 @@
  
  {"dmz_ip", "", 0},
  
@@ -104,18 +164,36 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  
  {"vts_enable_x", "1", 0},
  
-@@ -69,6 +69,10 @@
+@@ -61,26 +52,14 @@
  
+ {"autofw_desc_x", "", 0},
+ 
+-{"wan_pppoe_username", "", 0},
+-
+-{"wan_pppoe_passwd", "", 0},
+-
+-{"wan_pppoe_idletime", "1800", 0},
+-
  {"wan_pppoe_txonly_x", "0", 0},
  
+-{"wan_pppoe_mtu", "1492", 0},
+-
+-{"wan_pppoe_mru", "1492", 0},
 +{"wan_pppoe_options_x", "", 0},
-+
-+{"wan_pptp_options_x", "", 0},
-+
- {"wan_pppoe_mtu", "1492", 0},
  
- {"wan_pppoe_mru", "1492", 0},
-@@ -101,6 +105,8 @@
+-{"wan_pppoe_service", "", 0},
+-
+-{"wan_pppoe_ac", "", 0},
++{"wan_pptp_options_x", "", 0},
+ 
+ {"wan_pppoe_relay_x", "0", 0},
+ 
+-{"wan_hostname", "", 0},
+-
+ {"wan_hwaddr_x", "", 0},
+ 
+ {"wan_heartbeat_x", "", 0},
+@@ -101,6 +80,8 @@
  
  {"fw_enable_x", "1", 0},
  
@@ -124,7 +202,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  {"fw_log_x", "none", 0},
  
  {"misc_natlog_x", "0", 0},
-@@ -113,13 +119,17 @@
+@@ -113,13 +94,17 @@
  
  {"misc_ping_x", "0", 0},
  
@@ -144,7 +222,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  
  {"filter_wl_icmp_x", "", 0},
  
-@@ -129,7 +139,7 @@
+@@ -129,7 +114,7 @@
  
  {"filter_lw_time_x", "00002359", 0},
  
@@ -153,7 +231,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  
  {"filter_lw_icmp_x", "", 0},
  
-@@ -173,6 +183,10 @@
+@@ -173,6 +158,10 @@
  
  {"macfilter_list_x", "", 0},
  
@@ -164,19 +242,52 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  {"sr_enable_x", "0", 0},
  
  {"sr_rip_x", "0", 0},
-@@ -241,7 +255,9 @@
+@@ -207,10 +196,6 @@
+ 
+ {"lan_proto_x", "1", 0},
+ 
+-{"lan_ipaddr", "192.168.1.1", 0},
+-
+-{"lan_netmask", "255.255.255.0", 0},
+-
+ {"lan_ipaddr_t", "", 0},
+ 
+ {"lan_netmask_t", "", 0},
+@@ -219,18 +204,8 @@
+ 
+ {"lan_hostname", "", 0},
+ 
+-{"lan_gateway", "", 0},
+-
+ {"dhcp_enable_x", "1", 0},
+ 
+-{"lan_domain", "", 0},
+-
+-{"dhcp_start", "192.168.1.2", 0},
+-
+-{"dhcp_end", "192.168.1.254", 0},
+-
+-{"dhcp_lease", "86400", 0},
+-
+ {"dhcp_gateway_x", "", 0},
+ 
+ {"dhcp_dns1_x", "", 0},
+@@ -241,18 +216,15 @@
  
  {"dhcp_staticnum_x", "0", 0},
  
 -{"upnp_enable", "1", 0},
-+{"upnp_enable", "1", 0},
+-
+-{"log_ipaddr", "", 0},
+-
+-{"time_zone", "GMT0", 0},
 +{"udpxy_enable_x", "0", 0},
 +{"udpxy_wan_x", "0", 0},
  
- {"log_ipaddr", "", 0},
+ {"time_interval", "20", 0},
  
-@@ -253,6 +269,8 @@
- 
+-{"ntp_server0", "time.nist.gov", 0},
+-
  {"ntp_server1", "", 0},
  
 +{"ntp_interval_x", "2", 0},
@@ -184,7 +295,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  {"ddns_enable_x", "0", 0},
  
  {"ddns_server_x", "", 0},
-@@ -264,18 +282,23 @@
+@@ -264,83 +236,44 @@
  {"ddns_hostname_x", "", 0},
  
  {"ddns_wildcard_x", "0", 0},
@@ -192,6 +303,8 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
 -{"dhcp_staticmac_x", "", 0},
 -
 -{"dhcp_staticip_x", "", 0},
+-
+-{"wl_macmode", "disabled", 0},
 +
 +{"snmp_enable", "0", 0},
 +{"snmp_community", "public", 0},
@@ -202,20 +315,114 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
 +{"dhcp_staticip_x", "", 0},
 +{"dhcp_staticname_x", "", 0},
  
- {"wl_macmode", "disabled", 0},
- 
  {"wl_macapply_x", "Both", 0},
  
 -{"wl_macnum_x", "0", 0},
 -
 -{"wl_maclist_x", "", 0},
+-
+-{"wl_radius_ipaddr", "", 0},
+-
+-{"wl_radius_port", "1812", 0},
+-
+-{"wl_radius_key", "", 0},
 +{"wl_macnum_x", "0", 0},
 +{"wl_maclist_x", "", 0},
 +{"wl_macdesc_x", "", 0},
  
- {"wl_radius_ipaddr", "", 0},
+ {"wl_country_code", "", 0},
  
-@@ -427,6 +450,28 @@
+-{"wl_ssid", "default", 0},
+-
+ {"wl_mode_x", "0", 0},
+ 
+ {"wl_channel", "0", 0},
+ 
+ {"wl_wdsapply_x", "0", 0},
+ 
+-{"wl_lazywds", "0", 0},
+-
+ {"wl_wdsnum_x", "0", 0},
+ 
+ {"wl_gmode", "1", 0},
+ 
+ {"wl_gmode_protection_x", "0", 0},
+ 
+-{"wl_auth_mode", "open", 0},
+-
+ {"wl_crypto", "0", 0},
+ 
+-{"wl_wpa_psk", "", 0},
+-
+ {"wl_wep_x", "0", 0},
+ 
+ {"wl_phrase_x", "", 0},
+ 
+-{"wl_key1", "", 0},
+-
+-{"wl_key2", "", 0},
+-
+-{"wl_key3", "", 0},
+-
+-{"wl_key4", "", 0},
+-
+-{"wl_key", "1", 0},
+-
+-{"wl_wpa_gtk_rekey", "0", 0},
+-
+-{"wl_afterburner", "off", 0},
+-
+-{"wl_closed", "0", 0},
+-
+-{"wl_ap_isolate", "0", 0},
+-
+-{"wl_rate", "0", 0},
+-
+-{"wl_rateset", "default", 0},
+-
+-{"wl_frag", "2346", 0},
+-
+-{"wl_rts", "2347", 0},
+-
+ {"wl_dtim", "1", 0},
+ 
+-{"wl_bcn", "100", 0},
+-
+ {"wl_frameburst", "0", 0},
+ 
+ {"wl_mode_ex", "ap", 0},
+@@ -353,30 +286,10 @@
+ 
+ {"wl_radio_power_x", "19", 0},
+ 
+-{"wl_wme", "off", 0},
+-
+-{"wl_wme_no_ack", "off", 0},
+-
+ {"wl_preauth", "1", 0},
+ 
+-{"wl_net_reauth", "36000", 0},
+-
+ {"wl_wdslist_x", "", 0},
+ 
+-{"wl_macmode", "disabled", 0},
+-
+-{"wl_macapply_x", "Both", 0},
+-
+-{"wl_macnum_x", "0", 0},
+-
+-{"wl_maclist_x", "", 0},
+-
+-{"wl_radius_ipaddr", "", 0},
+-
+-{"wl_radius_port", "1812", 0},
+-
+-{"wl_radius_key", "", 0},
+-
+ {"usb_webenable_x", "1", 0},
+ 
+ {"usb_webmode_x", "1", 0},
+@@ -427,6 +340,28 @@
  
  {"usb_webremote6_x", "", 0},
  
@@ -244,7 +451,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  {"usb_ftpenable_x", "1", 0},
  
  {"usb_ftpanonymous_x", "1", 0},
-@@ -435,12 +480,26 @@
+@@ -435,12 +370,26 @@
  
  {"usb_ftpport_x", "21", 0},
  
@@ -271,7 +478,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
  {"usb_ftpscript_x", "", 0},
  
  {"usb_ftpnum_x", "0", 0},
-@@ -476,3 +535,28 @@
+@@ -476,3 +425,28 @@
  {"qos_umaxbw_x", "", 0},
  
  {"qos_uminbw_x", "", 0},
@@ -284,7 +491,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
 +{"recent_seconds", "600", 0},
 +{"recent_hitcount", "3", 0},
 +{"infosvr_enable", "1", 0},
-+{"lpr_enable", "1", 0},
++{"lpr_enable", "0", 0},
 +{"raw_enable", "1", 0},
 +{"audio_enable", "1", 0},
 +{"usb20_disable_x", "0", 0},
@@ -300,7 +507,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/flash.default gateway
 +{"wl_reg_mode", "d", 0},
 +{"wl_wpa_mode", "0", 0},
 +
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/netconf.h gateway/shared/netconf.h
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/netconf.h gateway/shared/netconf.h
 --- router/shared/netconf.h	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/netconf.h	2009-09-26 09:38:01.000000000 +0000
 @@ -15,6 +15,9 @@
@@ -351,7 +558,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/netconf.h gateway/sha
  
  /* Supported firewall target types */
  enum netconf_target {
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/nvparse.c gateway/shared/nvparse.c
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/nvparse.c gateway/shared/nvparse.c
 --- router/shared/nvparse.c	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/nvparse.c	2009-10-25 15:53:21.000000000 +0000
 @@ -275,7 +275,9 @@ bool
@@ -376,9 +583,9 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/nvparse.c gateway/sha
  		return FALSE;
  
  	/* Check port range size */
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/shared/shutils.c
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/shutils.c gateway/shared/shutils.c
 --- router/shared/shutils.c	2004-11-15 03:34:17.000000000 +0000
-+++ gateway/shared/shutils.c	2009-09-21 12:03:53.000000000 +0000
++++ gateway/shared/shutils.c	2009-12-04 10:38:51.000000000 +0000
 @@ -1,7 +1,7 @@
  /*
   * Shell-like utility functions
@@ -530,7 +737,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/sha
  /*
   * Convert Ethernet address string representation to binary data
   * @param	a	string in xx:xx:xx:xx:xx:xx notation
-@@ -309,3 +350,455 @@ ether_etoa(const unsigned char *e, char
+@@ -309,3 +350,455 @@ ether_etoa(const unsigned char *e, char 
  	}
  	return a;
  }
@@ -874,7 +1081,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/sha
 +		list[listlen++] = 0x20;
 +	}
 +	
-+	listlen += strncpy( &list[listlen], name, namelen+1/*terminate*/ );
++	strncpy( &list[listlen], name, namelen+1/*terminate*/ );
 +
 +	return 0;
 +}
@@ -986,7 +1193,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.c gateway/sha
 +}
 +
 +#endif
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.h gateway/shared/shutils.h
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/shutils.h gateway/shared/shutils.h
 --- router/shared/shutils.h	2004-11-15 03:34:19.000000000 +0000
 +++ gateway/shared/shutils.h	2009-09-21 11:57:08.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1146,7 +1353,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/shutils.h gateway/sha
  
  
  #endif /* _shutils_h_ */
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/wl.c gateway/shared/wl.c
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/wl.c gateway/shared/wl.c
 --- router/shared/wl.c	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wl.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1414,7 +1621,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/wl.c gateway/shared/w
  }
 +*/
  
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/wl_linux.c gateway/shared/wl_linux.c
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/wl_linux.c gateway/shared/wl_linux.c
 --- router/shared/wl_linux.c	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wl_linux.c	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@
@@ -1434,7 +1641,7 @@ diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/wl_linux.c gateway/sh
  
  typedef u_int64_t u64;
  typedef u_int32_t u32;
-diff -BurpN -xbcmconfig.h '-x*.o' '-x*.orig' router/shared/wlutils.h gateway/shared/wlutils.h
+diff -BurpN -xbcmconfig.h -x'*.o' -x'*.orig' router/shared/wlutils.h gateway/shared/wlutils.h
 --- router/shared/wlutils.h	2004-10-14 19:11:32.000000000 +0000
 +++ gateway/shared/wlutils.h	2008-03-17 17:52:17.000000000 +0000
 @@ -1,7 +1,7 @@

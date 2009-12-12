@@ -60,3 +60,25 @@ diff -urBp iproute2-ss020116/misc/Makefile iproute2.new/misc/Makefile
  
  all: $(TARGETS)
  
+diff -urBp iproute2.orig/misc/rtstat.c iproute2/iproute2.orig/misc/rtstat.c
+--- iproute2.orig/misc/rtstat.c	2001-12-25 00:44:30.000000000 +0300
++++ iproute2/iproute2.orig/misc/rtstat.c	2009-12-04 14:43:17.000000000 +0300
+@@ -14,6 +14,7 @@
+  */
+ 
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <unistd.h>
+ #include <getopt.h>
+ 
+diff -urBp iproute2.orig/misc/ssfilter.y iproute2/iproute2.orig/misc/ssfilter.y
+--- iproute2.orig/misc/ssfilter.y	2001-12-25 23:07:50.000000000 +0300
++++ iproute2/iproute2.orig/misc/ssfilter.y	2009-12-04 14:44:28.000000000 +0300
+@@ -1,6 +1,7 @@
+ %{
+ 
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <malloc.h>
+ #include <string.h>
+ #include "ssfilter.h"
