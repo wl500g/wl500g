@@ -789,6 +789,8 @@ start_wan(void)
 			if (demand) 
 			{
 				int timeout = 5;
+				char *ping_argv[] = { "ping", "-c1", "", NULL};
+
 				/* Wait for pppx to be created */
 				while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
 					sleep(1);
@@ -817,6 +819,10 @@ start_wan(void)
 				*/
 
 				preset_wan_routes(wan_ifname);
+
+				/* Stimulate link up */
+				ping_argv[2] = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+				_eval(ping_argv, NULL, 0, &pid);
 			}
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
