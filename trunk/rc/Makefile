@@ -23,7 +23,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /l
 
 OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
-    manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o \
+    manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
     bigpond.o qos.o rcamd.o waveserver.o
 
 ifeq ($(CONFIG_NETCONF),y)
