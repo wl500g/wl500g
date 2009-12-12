@@ -769,6 +769,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 		if (nvram_invmatch("http_lanport", "80"))
 			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
+
+		if (nvram_invmatch("udpxy_enable_x", "0") && nvram_invmatch("udpxy_wan_x", "0"))
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("udpxy_enable_x"), logaccept);
+
 		if (nvram_match("misc_http_x", "1"))
 		{
             		fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport %s -j %s\n", nvram_safe_get("lan_ipaddr"), nvram_safe_get("http_lanport"), logaccept);  
