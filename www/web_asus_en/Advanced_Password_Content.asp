@@ -31,10 +31,10 @@
 		<td class="content_header_td" width="344" colspan="2"></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="34">New Password:</td><td class="content_input_td" width="310"><input type="password" maxlength="16" size="16" name="http_passwd"></td>
+		<td class="content_header_td" width="34">New Password:</td><td class="content_input_td" width="310"><input type="password" maxlength="16" class="content_input_fd" size="16" name="http_passwd"></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="34">Retype New Password:</td><td class="content_input_td" width="310"><input type="password" maxlength="16" size="16" name="v_password"></td>
+		<td class="content_header_td" width="34">Retype New Password:</td><td class="content_input_td" width="310"><input type="password" maxlength="16" class="content_input_fd" size="16" name="v_password"></td>
 </tr>
 <tr>
 <td class="content_input_td_less" height="60" colspan="2">

@@ -41,7 +41,6 @@ function isModel()
 
    if (pid.indexOf("WL500")!=-1 || pid.indexOf("WL700")!=-1 ||
        pid.indexOf("WL550")!=-1 || pid.indexOf("WL520gu")!= -1) model = 'WL500';
-   else if (pid.indexOf("WL331")!=-1) model = 'WL331';
    else if (pid.indexOf("WL520")!=-1 ||
             pid.indexOf("WL530")!=-1) model = 'WL520';            
    else if (pid.indexOf("SnapAP")!=-1) model = 'SnapAP';
@@ -85,9 +84,9 @@ function isFlash()
    flash = '4MB';
    
    pid = parent.titleFrame.document.form.productid.value;
-   if (pid.indexOf("WL331g")!=-1) flash = '2MB';        
-   else if (pid.indexOf("WL500g.Lite")!=-1) flash = '2MB';         
-   else if (pid.indexOf("WL500b.Lite")!=-1) flash = '2MB';          
+   if (pid.indexOf("WL500gp")!=-1 || pid.indexOf("WL500W")!=-1)
+     flash = '8MB';
+
    return flash;
 }
 
@@ -222,7 +221,7 @@ function generateTree()
     	   }           
      }    
      
-     if (isModel() != 'WL300' && isModel() != 'WL520' && isModel() != 'SnapAP' && isFlash() != '2MB')
+     if (isModel() != 'WL520' && isModel() != 'SnapAP')
      {
     	 aux1 = appendChild(foldersTree, leafNode("USB Application"))          
            appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""))
@@ -231,7 +230,7 @@ function generateTree()
            appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""))
      }      
      
-     if ((isModel() == 'WL500' || isModel() == 'WLHDD') && isFlash() != '2MB' && mode!='AP')
+     if ((isModel() == 'WL500' || isModel() == 'WLHDD') && mode!='AP')
      {
      	 aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"))          
            appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""))           
@@ -272,7 +271,7 @@ function generateTree()
         aux1 = appendChild(foldersTree, leafNode("Status & Log"))
            appendChild(aux1,generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""))         
-           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WMStatus_Content.asp", ""))         
+           appendChild(aux1,generateDocEntry(0, "WiMAX", "Main_WiMaxStatus_Content.asp", ""))
            appendChild(aux1,generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", "")) 
            if (isModel() != 'SnapAP')
            {
@@ -468,7 +467,7 @@ function redrawTree()
     doc.write("<td>");
     doc.write("<div align='center'>");
 
-    if (isModel()=="WL520" || isModel()=="SnapAP" || isModel()=="WL331")
+    if (isModel()=="WL520" || isModel()=="SnapAP")
     {
     	doc.write("<img src='graph/asusLogo.jpg' width='144' height='66'></div>");
     }
@@ -572,8 +571,8 @@ function displayIconAndLabel(foldersNode, doc)
     else
       doc.write(szCloseIconName + " width=22 height=22 border=noborder></a>")
     doc.write("<td valign=middle align=left nowrap>")
-    doc.write("<a href='javascript:top.openBranch(\"" + foldersNode[3] + "\")'  onClick='return top.checkChanged()'>")
-    doc.write("<font size=-1 face='Arial, Helvetica' class='wounderline'>"+foldersNode[3]+"</font></a>")
+    doc.write("<a href='javascript:top.openBranch(\"" + foldersNode[3] + "\")' class='wounderline' onClick='return top.checkChanged()'>")
+    doc.write("<font size=-1 face='Arial, Helvetica'>"+foldersNode[3]+"</font></a>")
     }
 
 //**********************+
