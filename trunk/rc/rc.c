@@ -593,7 +593,7 @@ sysinit(void)
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
 
 	/* /tmp */
-	mount("ramfs", "/tmp", "ramfs", MS_MGC_VAL, NULL);
+	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
 
 	/* /var */
 	mkdir("/tmp/var", 0777);
