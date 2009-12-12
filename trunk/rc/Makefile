@@ -28,6 +28,7 @@ OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
 
 ifeq ($(CONFIG_NETCONF),y)
 OBJS += firewall.o
+CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
 endif
 

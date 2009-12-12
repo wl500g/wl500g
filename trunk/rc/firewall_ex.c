@@ -694,6 +694,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
 	char *setting, line[256], s[64];
 	int i;
+#ifdef WEBSTRFILTER
+        char nvname[36], timef[256], *filterstr;
+#endif
 	
 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
 
@@ -971,6 +974,20 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 	
+#ifdef WEBSTRFILTER
+        if (nvram_match("url_enable_x", "1")) {
+
+                timematch_conv(timef, "url_date_x", "url_time_x");
+                for(i=0; i<atoi(nvram_safe_get("url_num_x")); i++) {
+                        memset(nvname, 0, sizeof(nvname));
+                        sprintf(nvname, "url_keyword_x%d", i);
+                        filterstr =  nvram_safe_get(nvname);
+                        if(strcmp(filterstr,"") && nvram_invmatch("url_date_x", "0000000"))
+                                fprintf(fp,"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j DROP\n", timef, filterstr); //2008.10 magic
+                }
+        }
+#endif
+
 	fprintf(fp, "COMMIT\n\n");
        	fclose(fp);
 

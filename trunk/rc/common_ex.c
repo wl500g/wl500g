@@ -537,6 +537,12 @@ void convert_asus_values()
 		eval("insmod", "ipt_NETMAP.o");
 	}
 
+#ifdef WEBSTRFILTER
+	if (nvram_match("url_enable_x", "1")) {
+		eval("insmod", "ipt_webstr");
+	}
+#endif
+
         //2005/09/22 insmod FTP module
         if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x"))!=21)
         {
