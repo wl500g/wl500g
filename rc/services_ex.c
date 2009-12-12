@@ -149,7 +149,7 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
-#if defined(DNSMASQ) || defined(DDNSCONF)
+#if defined(DNSMASQ) || defined(DDNSCONF) || 1
 size_t
 fappend(char *name, FILE *f)
 {
@@ -1307,7 +1307,7 @@ void restart_smbd()
 				fprintf(fp, "\tcomment = %s\n", nvram_get(tmp));
 		}
 	}
-			
+	fappend("/usr/local/etc/smb.conf", fp);
 	fclose(fp);
 
 	eval("/usr/sbin/nmbd", "-D");
