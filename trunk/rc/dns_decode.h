@@ -1,4 +1,3 @@
-#include "dns.h"
 
 /*
  * Queries are encoded such that there is and integer specifying how long 

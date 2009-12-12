@@ -18,6 +18,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
@@ -142,6 +143,74 @@ stop_dns(void)
 #endif
 
 int
+start_telnetd(void)
+{
+	int ret;
+	
+	/* telnet is enabled by default */
+	if (nvram_invmatch("telnet_enable", "1"))
+		return 0;
+
+	char *argv[] = {"telnetd", NULL};
+	pid_t pid;
+
+	ret = _eval(argv, NULL, 0, &pid);
+
+	dprintf("done\n");
+	return ret;
+}
+
+int
+stop_telnetd(void)
+{
+	int ret = eval("killall", "telnetd");
+
+	dprintf("done\n");
+	return ret;
+}
+
+
+int
+start_snmpd(void)
+{
+	static char *snmpd_conf = "/tmp/snmpd.conf";
+	
+	int ret;
+	FILE *fp;
+	
+	if (!nvram_match("snmp_enable", "1"))
+		return 0;
+		
+	/* create snmpd.conf  */
+	if ((fp = fopen(snmpd_conf, "w")) == NULL) {
+		perror(snmpd_conf);
+		return 1;
+	}
+
+	fprintf(fp, "# automagically generated from web settings\n");
+
+	fprintf(fp, "community %s\n", nvram_get("snmp_community") ? : "public");
+	fprintf(fp, "syscontact %s\n", nvram_get("snmp_contact") ? : "Administrator");
+	fprintf(fp, "syslocation %s\n", nvram_get("snmp_location") ? : "Unknown");
+
+	fclose(fp);
+	
+	ret = eval("snmpd", "-c", snmpd_conf);
+
+	dprintf("done\n");
+	return ret;
+}
+
+int
+stop_snmpd(void)
+{
+	int ret = eval("killall", "snmpd");
+
+	dprintf("done\n");
+	return ret;
+}
+
+int
 start_httpd(void)
 {
 	int ret;
@@ -172,7 +241,7 @@ stop_httpd(void)
 int
 start_upnp(void)
 {
-	char *wan_ifname;
+	char *wan_ifname, *wan_proto;
 	int ret;
 	char var[100], prefix[] = "wanXXXXXXXXXX_";
 
@@ -182,7 +251,9 @@ start_upnp(void)
 	ret = eval("killall", "-SIGUSR1", "upnp");
 	if (ret != 0) {
 	    snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
-	    wan_ifname = nvram_match(strcat_r(prefix, "proto", var), "pppoe") ? 
+	    wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
+	    wan_ifname = nvram_match("upnp_enable", "1") && (strcmp(wan_proto, "pppoe") == 0 || 
+	    	strcmp(wan_proto, "pptp") ==0 || strcmp(wan_proto, "l2tp") == 0) ? 
 					nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
 					nvram_safe_get(strcat_r(prefix, "ifname", var));
 	    ret = eval("upnp", "-D",
@@ -271,12 +342,14 @@ stop_ntpc(void)
 int
 start_services(void)
 {
+	start_telnetd();
 	start_httpd();
 	start_dns();
 	start_dhcpd();
 #ifdef ASUS_EXT
 	start_logger();
 #endif
+	start_snmpd();
 	start_upnp();
 	start_nas("lan");
 
@@ -296,12 +369,14 @@ stop_services(void)
 #endif
 	stop_nas();
 	stop_upnp();
+	stop_snmpd();
 #ifdef ASUS_EXT
 	stop_logger();
 #endif
 	stop_dhcpd();
 	stop_dns();
 	stop_httpd();
+	stop_telnetd();
 
 	dprintf("done\n");
 	return 0;

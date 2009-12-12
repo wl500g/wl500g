@@ -31,6 +31,7 @@
 #include <sys/time.h>
 
 #include <shutils.h>
+#include <rc.h>
 
 #define loop_forever() do { sleep(1); } while (1)
 #define SHELL "/bin/sh"
@@ -77,6 +78,7 @@ int
 console_init()
 {
 	int fd;
+	int ret = 0;
 
 	/* Clean up */
 	ioctl(0, TIOCNOTTY, 0);
@@ -88,9 +90,12 @@ console_init()
 	/* Reopen console */
 	if ((fd = open(_PATH_CONSOLE, O_RDWR)) < 0) {
 		perror(_PATH_CONSOLE);
-		return errno;
+		if ((fd = open("/dev/null", O_RDWR)) < 0) {
+			perror("/dev/null");
+			return errno;
+		}
+		ret = -1;
 	}
-	dup2(fd, 0);
 	dup2(fd, 1);
 	dup2(fd, 2);
 
@@ -98,7 +103,7 @@ console_init()
 	tcsetpgrp(0, getpgrp());
 	set_term(0);
 
-	return 0;
+	return ret;
 }
 
 pid_t
@@ -109,7 +114,7 @@ run_shell(int timeout, int nowait)
 	char *envp[] = {
 		"TERM=vt100",
 		"HOME=/",
-		"PATH=/usr/bin:/bin:/usr/sbin:/sbin",
+		"PATH=/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/sbin",
 		"SHELL=" SHELL,
 		"USER=root",
 		tz,
@@ -163,19 +168,35 @@ shutdown_system(void)
 	for (sig = 0; sig < (_NSIG-1); sig++)
 		signal(sig, SIG_DFL);
 
+	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
+	eval("killall", "pppd");
+
+	eval("/usr/local/sbin/pre-shutdown");
+	sleep(2);
+	
+	if (exists("/dev/misc/rtc"))
+		eval("/sbin/hwclock", "-w");
+
 	cprintf("Sending SIGTERM to all processes\n");
 	kill(-1, SIGTERM);
-	sleep(1);
+	sleep(3);
 
 	cprintf("Sending SIGKILL to all processes\n");
 	kill(-1, SIGKILL);
 	sleep(1);
 
-	sync();
+	sync(), sync();
+
+	/* bring wifi interfaces down */
+#ifdef RT2400_SUPPORT
+	ifconfig("ra0", 0, NULL, NULL);
+#else
+	eval("wl", "radio", "off");
+#endif
 }
 
 static int fatal_signals[] = {
-	SIGQUIT,
+	SIGQUIT,	/* halt */
 	SIGILL,
 	SIGABRT,
 	SIGFPE,
@@ -186,14 +207,13 @@ static int fatal_signals[] = {
 	SIGTRAP,
 	SIGPWR,
 	SIGTERM,	/* reboot */
-	SIGUSR1,	/* halt */
 };
 
 void
 fatal_signal(int sig)
 {
 	char *message = NULL;
-
+	
 	switch (sig) {
 	case SIGQUIT: message = "Quit"; break;
 	case SIGILL: message = "Illegal instruction"; break;
@@ -217,8 +237,8 @@ fatal_signal(int sig)
 	shutdown_system();
 	sleep(2);
 
-	/* Halt on SIGUSR1 */
-	reboot(sig == SIGUSR1 ? RB_HALT_SYSTEM : RB_AUTOBOOT);
+	/* Halt on SIGQUIT */
+	reboot((sig == SIGQUIT) ? RB_HALT_SYSTEM : RB_AUTOBOOT);
 	loop_forever();
 }
 

@@ -73,8 +73,8 @@ void tc_class(char *network, char *idx, char *minBW, char *maxBW)
 		minBW=maxBW;
 	}
 	sprintf(flowid, "%s%s", "1:1", idx);
-	sprintf(max_bw, "%s%s", maxBW, "Kbps");
-	sprintf(min_bw, "%s%s", minBW, "Kbps");
+	sprintf(max_bw, "%s%s", maxBW, "kbit");
+	sprintf(min_bw, "%s%s", minBW, "kbit");
 	eval("tc","class","add","dev",network,"parent","1:1","classid",flowid,"htb","rate",min_bw,"ceil",max_bw);
 }
 

@@ -12,18 +12,23 @@
 # $Id$
 #
 
+ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
+endif
 
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPTIONS)
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2
-LDFLAGS	+= -L$(TOP)/nvram -L$(INSTALLDIR)/nvram/usr/lib -lnvram -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared
+CFLAGS	+= -s -O2 $(EXTRACFLAGS)
+LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /lib
 
-OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o ntp.o bigpond.o qos.o rcamd.o waveserver.o
+OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o \
+    stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
+    manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o \
+    ntp.o bigpond.o qos.o rcamd.o waveserver.o
 
 ifeq ($(CONFIG_NETCONF),y)
 OBJS += firewall.o
-LDFLAGS += -L$(TOP)/netconf -L$(INSTALLDIR)/netconf/usr/lib -lnetconf
+LDFLAGS += -L$(TOP)/netconf -lnetconf
 endif
 
 
@@ -45,8 +50,12 @@ install: all
 	cd $(INSTALLDIR)/sbin && ln -sf rc init
 	cd $(INSTALLDIR)/sbin && ln -sf rc erase
 	cd $(INSTALLDIR)/sbin && ln -sf rc write
+	cd $(INSTALLDIR)/sbin && ln -sf rc flash
 	cd $(INSTALLDIR)/sbin && ln -sf rc stats
 	cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
+	cd $(INSTALLDIR)/sbin && ln -sf rc halt
+	cd $(INSTALLDIR)/sbin && ln -sf rc reboot
+	cd $(INSTALLDIR)/sbin && ln -sf rc poweron
 
 	# Added by ASUS
 	cd $(INSTALLDIR)/sbin && ln -sf rc stopservice
@@ -65,6 +74,7 @@ install: all
 	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_disconnect
 	cd $(INSTALLDIR)/sbin && ln -sf rc restore
 	cd $(INSTALLDIR)/sbin && ln -sf rc start_ddns
+	cd $(INSTALLDIR)/sbin && ln -sf rc start_ftpd
 	cd $(INSTALLDIR)/sbin && ln -sf rc wlan_update
 
 

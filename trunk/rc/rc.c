@@ -31,6 +31,9 @@
 #include <sys/socket.h>
 #include <net/if_arp.h>
 #include <dirent.h>
+#if defined(__UCLIBC__)
+#include <crypt.h>
+#endif
 
 #include <epivers.h>
 #include <bcmnvram.h>
@@ -49,7 +52,7 @@ static void rc_signal(int sig);
 
 extern struct nvram_tuple router_defaults[];
 
-static int restore_defaults_g=0;
+//static int restore_defaults_g=0;
 
 static int
 build_ifnames(char *type, char *names, int *size)
@@ -124,6 +127,9 @@ build_ifnames(char *type, char *names, int *size)
 
 			/* append interface name to list */
 			len += snprintf(&names[len], *size - len, "%s ", ifr.ifr_name);
+			
+			/* first match only (et and wl macs are the same */
+			break;
 		}
 	}
 	
@@ -132,6 +138,136 @@ build_ifnames(char *type, char *names, int *size)
 	*size = len;
 	return 0;
 }	
+
+static void
+early_defaults(void)
+{
+	/* wl700ge -- boardflags are not set correctly */
+	if (nvram_match("boardflags", "0x10") && nvram_get("default_boardflags")) 
+	{
+		nvram_set("boardflags", nvram_get("default_boardflags"));
+	}
+
+	/* fix Sentry5 config */
+	if (nvram_match("boardtype", "bcm95365r") && !nvram_get("vlan0ports"))
+	{
+		nvram_set("lan_ifname", "br0");
+		nvram_set("lan_ifnames", "vlan0 eth1");
+		nvram_set("wan_ifname", "vlan1");
+		nvram_set("wan_ifnames", "vlan1");
+		
+		nvram_set("vlan0hwname", "et0");
+		nvram_set("vlan0ports", "1 2 3 4 5*");
+		nvram_set("vlan1hwname", "et0");
+		nvram_set("vlan1ports", "0 5");
+	}
+
+	/* bcm95350rg -- use vlans (wl550ge, wl500gp, wl700ge) vs wl320g - no vlans */
+	if (nvram_match("wandevs", "et0") && 	/* ... wl500gpv2 */
+	    (nvram_match("vlan1ports", "0 5u") || nvram_match("vlan1ports", "4 5u")) &&
+	    (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) != 0)
+	{
+		nvram_set("wandevs", "vlan1");
+		nvram_set("wan_ifname", "vlan1");
+		nvram_set("wan_ifnames", "vlan1");
+		
+		/* data should be tagged for WAN port too */
+		nvram_set("vlan1ports",
+			nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
+	}
+	
+	/* fix DLINK DIR-320 vlans & gpio */
+	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+	{
+		if (!nvram_get("wan_ifname"))
+		{
+        		nvram_unset( "vlan2ports" );
+          		nvram_unset( "vlan2hwname" );
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan1ports", "0 5");
+			nvram_set("wandevs", "vlan1");
+			nvram_set("wan_ifname", "vlan1");
+			nvram_set("wan_ifnames", "vlan1");
+			nvram_set("wan0_ifname", "vlan1");
+			nvram_set("wan0_ifnames", "vlan1");
+		}
+		if (nvram_match("wl0gpio0", "255"))
+		{
+			nvram_set("wl0gpio0", "8");
+			nvram_set("wl0gpio1", "0");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
+		}
+	}
+
+	/* wl550ge -- missing wl0gpio values */
+	if (nvram_match("boardtype", "0x467") && nvram_match("boardnum", "45") &&
+		!nvram_get("wl0gpio0"))
+	{
+		nvram_set("wl0gpio0", "2");
+		nvram_set("wl0gpio1", "0");
+		nvram_set("wl0gpio2", "0");
+		nvram_set("wl0gpio3", "0");
+	}
+	
+	/* fix AIR LED -- override default SROM setting and fix wl550ge config */
+	if (!nvram_get("wl0gpio0") || nvram_match("wl0gpio0", "2"))
+		nvram_set("wl0gpio0", "0x88");
+	
+	/* WL520gu/gc/gp/330ge */
+	if (nvram_match("wl0gpio1", "0x02"))
+		nvram_set("wl0gpio1", "0x88");
+
+	/* wl500gp -- 16mb memory activated, 32 available */
+	if (nvram_match("boardtype", "0x042f") && nvram_match("boardnum", "45") &&
+	    nvram_match("sdram_init", "0x000b") && nvram_match("sdram_config", "0x0062"))
+	{
+		nvram_set("sdram_init", "0x0009");
+		nvram_set("sdram_ncdl", "0");
+	}
+
+	/* fix WL500W mac adresses for WAN port */
+	if (nvram_match("et1macaddr", "00:90:4c:a1:00:2d")) 
+		nvram_set("et1macaddr", nvram_get("et0macaddr"));
+
+#if 0	/* leave it commented out until VLANs will work */
+	/* WL500W could have vlans enabled */
+	if (nvram_match("boardtype", "0x0472") && nvram_match("boardnum", "45"))
+	{
+		if (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN)
+		{
+			if (!nvram_get("vlan0ports")) {
+				nvram_set("vlan0hwname", "et0");
+				nvram_set("vlan0ports", "0 1 2 3 5*");
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("vlan1ports", "4 5");
+			}
+			nvram_set("lan_ifnames", "vlan0 eth2");
+			nvram_set("wan_ifname", "vlan1");
+		} else {
+			nvram_set("lan_ifnames", "eth0 eth2");
+			nvram_set("wan_ifname", "eth1");
+		}
+		nvram_set("lan_ifname", "br0");
+		nvram_set("wan_ifnames", nvram_get("wan_ifname"));
+	}
+#endif
+
+	/* set lan_hostname */
+	if (!nvram_invmatch("lan_hostname", ""))
+	{
+		/* derive from et0 mac addr */
+		char *mac = nvram_get("et0macaddr");
+		if (mac && strlen(mac) == 17)
+		{
+			char hostname[16];
+			sprintf(hostname, "WL-%c%c%c%c%c%c%c%c%c%c%c%c",
+				mac[0], mac[1], mac[3], mac[4], mac[6], mac[7],
+				mac[9], mac[10], mac[12], mac[13], mac[15], mac[16]);
+			nvram_set("lan_hostname", hostname);
+		}
+	}
+}
 
 static void
 restore_defaults(void)
@@ -155,6 +291,9 @@ restore_defaults(void)
 		{ "lan_ifnames", "", 0 },
 		{ "wan_ifname", "", 0 },
 		{ "wan_ifnames", "", 0 },
+		/* default with vlans disabled */
+		{ "wan_nat_x", "0", 0},
+		{ "wan_route_x", "IP_Bridged", 0},
 		{ 0, 0, 0 }
 	};
 
@@ -162,7 +301,7 @@ restore_defaults(void)
 #ifdef CONFIG_WL300G
 	struct nvram_tuple wl300g[] = {
 		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth0 eth2", 0 },
+		{ "lan_ifnames", "eth2", 0 },
 		{ "wan_ifname", "eth0", 0 },
 		{ "wan_ifnames", "eth0", 0 },
 		{ "wan_nat_x", "0", 0},
@@ -195,6 +334,18 @@ restore_defaults(void)
 	};
 #endif
 
+
+#ifdef CONFIG_WLHDD
+	struct nvram_tuple wlhdd[] = {
+		{ "lan_ifname", "br0", 0 },
+		{ "lan_ifnames", "eth2", 0 },
+		{ "wan_ifname", "eth1", 0 },
+		{ "wan_ifnames", "eth1", 0 },
+		{ "wan_nat_x", "0", 0},
+		{ "wan_route_x", "IP_Bridged", 0},
+		{ 0, 0, 0 }
+	};
+#endif
 
 #ifdef CONFIG_SENTRY5
 #include "rcs5.h"
@@ -266,6 +417,11 @@ restore_defaults(void)
 		}
 		else
 			ap = 1;
+		
+		/* if vlans enabled -- enable router mode */
+		if ((strtoul(nvram_safe_get("boardflags"), 
+			NULL, 0) & BFL_ENETVLAN) != 0) dyna[4].name = NULL;
+
 		linux_overrides = dyna;
 	}
 	/* override lan i/f name list and wan i/f name list with default values */
@@ -292,6 +448,14 @@ canned_config:
 #ifdef CONFIG_WL331G
 	linux_overrides = wl331g;
 #endif
+
+#ifdef CONFIG_WLHDD
+	linux_overrides = wlhdd;
+#endif
+
+	if (nvram_match("boardtype", "bcm95365r"))
+		linux_overrides = vlan;
+	
 	/* Restore defaults */
 	for (t = router_defaults; t->name; t++) {
 		if (restore_defaults || !nvram_get(t->name)) {
@@ -357,6 +521,56 @@ set_wan0_vars(void)
 		nvram_set(strcat_r(prefix, "desc", tmp), "Default Connection");
 		nvram_set(strcat_r(prefix, "primary", tmp), "1");
 	}
+	/* reconfigure wan0 for client mode */
+	if (nvram_invmatch("wl_mode_ex", "ap")) {
+		nvram_set("wan0_ifname", nvram_safe_get("wl0_ifname"));
+		nvram_set("wan0_ifnames", nvram_safe_get("wl0_ifname"));
+	} else {
+		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
+		nvram_set("wan0_ifnames", nvram_get("wan_ifnames"));
+	}
+}
+
+/*
+ * create /etc/passwd and /etc/group files
+ */
+ 
+static void 
+make_etc(void)
+{
+	FILE *f;
+	char *name, *pass;
+	
+	/* crypt using md5, no salt */
+	name = nvram_get("http_username") ? : "admin";
+	pass = crypt(nvram_get("http_passwd") ? : "admin", "$1$");
+	
+	if ((f = fopen("/etc/passwd", "w"))) {
+		fprintf(f, "%s:%s:0:0:root:/usr/local/root:/bin/sh\n"
+			"nobody:x:99:99:nobody:/:/sbin/nologin\n", name, pass);
+		fclose(f);
+	}
+	
+	if ((f = fopen("/etc/group", "w"))) {
+		fprintf(f, "root:x:0:%s\nnobody:x:99:\n", name);
+		fclose(f);
+	}
+	
+	/* uClibc TZ */
+	if ((f = fopen("/etc/TZ", "w"))) {
+		fprintf(f, "%s\n", nvram_safe_get("time_zone"));
+		fclose(f);
+	}
+	
+	/* /etc/resolv.conf compatibility */
+	symlink("/tmp/resolv.conf", "/etc/resolv.conf");
+	
+	/* hostname */
+	if ((f = fopen("/proc/sys/kernel/hostname", "w"))) {
+		fputs(nvram_safe_get("lan_hostname"), f);
+		fclose(f);
+	}
+
 }
 
 static int noconsole = 0;
@@ -367,7 +581,11 @@ sysinit(void)
 	char buf[PATH_MAX];
 	struct utsname name;
 	struct stat tmp_stat;
-	time_t tm = 0;
+	
+	time_t now;
+	struct tm gm, local;
+	struct timezone tz;
+	struct timeval tv = { 0 };
 
 	/* /proc */
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
@@ -381,13 +599,24 @@ sysinit(void)
 	mkdir("/var/log", 0777);
 	mkdir("/var/run", 0777);
 	mkdir("/var/tmp", 0777);
+	
+	/* /usr/local */
+	mkdir("/tmp/local", 0755);
+	mkdir("/tmp/local/root", 0700);
+	
+	/* /etc contents */
+	eval("cp", "-dpR", "/usr/etc", "/tmp");
 
+	/* create /etc/{passwd,group,TZ} */
+	make_etc();
+	
 	/* Setup console */
 	if (console_init())
 		noconsole = 1;
 
-	// for debug 
-	//nvram_set("console_loglevel", "0");
+	/* load flashfs */
+	if (!eval("flashfs", "start"))
+		eval("/usr/local/sbin/pre-boot");
 
 	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
 
@@ -397,26 +626,31 @@ sysinit(void)
 	if (stat("/proc/modules", &tmp_stat) == 0 &&
 	    stat(buf, &tmp_stat) == 0) {
 		char module[80], *modules, *next;
-#ifdef WL500GX
-		modules = nvram_get("kernel_mods") ? : "et robo il wl";
+#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
 #else
-		modules = nvram_get("kernel_mods") ? : "et il wl";
+		modules = nvram_get("kernel_mods") ? : "et wl";
 #endif
 		foreach(module, modules, next)
 			eval("insmod", module);
 	}
 
-#ifdef ASUS_EXT
-	//eval("insmod", "/lib/modules/2.4.20/splink_led.o");
-	//eval("mknod", "/dev/led0", "c", "244", "0");
-	//eval("mknod", "/dev/led1", "c", "244", "1");
-	//eval("mknod", "/dev/led2", "c", "244", "2");
-	//eval("mknod", "/dev/led3", "c", "244", "3");
-	//eval("mknod", "/dev/led4", "c", "244", "4");
-#endif
+	/* Update kernel timezone and time */
+	setenv("TZ", nvram_safe_get("time_zone"), 1);
+	time(&now);
+	gmtime_r(&now, &gm);
+	localtime_r(&now, &local);
+	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
+	settimeofday(&tv, &tz);
 
-	/* Set a sane date */
-	stime(&tm);
+#if defined(CONFIG_WLHDD)
+	eval("insmod", "gpiortc", "sda_mask=0x10", "scl_mask=0x20");
+#elif defined(CONFIG_WL700G)
+	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
+#endif
+	
+	if (exists("/dev/misc/rtc"))
+		eval("/sbin/hwclock", "-s");
 
 	dprintf("done\n");
 }
@@ -514,6 +748,9 @@ main_loop(void)
 	pid_t shell_pid = 0;
 	uint boardflags;
 
+	/* Convert vital config before loading modules */
+	early_defaults();
+
 	/* Basic initialization */
 	sysinit();
 
@@ -531,18 +768,9 @@ main_loop(void)
 	if (!noconsole)
 		run_shell(1, 0);
 
-#ifdef WL500GX
-	if (!nvram_match("restore_defaults", "0"))
-	{
-		nvram_set("vlan_enable", "1");
-		restore_defaults();
-		set_wan0_vars();
-		RC1_START();
-	}
-#endif
-
 	/* Add vlan */
-	boardflags = strtoul(nvram_safe_get("boardflags"), NULL, 0);
+	boardflags = nvram_match("boardtype", "bcm95365r") ? BFL_ENETVLAN :
+		strtoul(nvram_safe_get("boardflags"), NULL, 0);
 
 	/* Add loopback */
 	config_loopback();
@@ -559,8 +787,7 @@ main_loop(void)
 
 	/* Setup wan0 variables if necessary */
 	set_wan0_vars();
-
-
+	
 	/* Loop forever */
 	for (;;) {
 		switch (state) {
@@ -582,12 +809,8 @@ main_loop(void)
 			stop_wan();
 			stop_lan();
 
-#ifndef WL500GX
 			if (boardflags & BFL_ENETVLAN)
 				stop_vlan();
-#else
-			RC1_STOP();
-#endif
 
 			if (state == STOP) {
 				state = IDLE;
@@ -597,12 +820,8 @@ main_loop(void)
 		case START:
 			dprintf("START\n");
 
-#ifndef WL500GX
 			if (boardflags & BFL_ENETVLAN)
 				start_vlan();
-#else
-			RC1_START();
-#endif
 
 			start_lan();
 			//if (restore_defaults_g) 
@@ -615,6 +834,9 @@ main_loop(void)
 
 #ifdef ASUS_EXT
 			start_misc();
+#endif
+			eval("/usr/local/sbin/post-boot");
+#ifdef ASUS_EXT
 			sleep(5);
 			diag_PaN();
 #endif
@@ -711,6 +933,16 @@ main(int argc, char **argv)
 		}
 	}
 
+	/* flash [path] [device] */
+	else if (strstr(base, "flash")) {
+		if (argc >= 3)
+			return mtd_flash(argv[1], argv[2]);
+		else {
+			fprintf(stderr, "usage: flash [path] [device]\n");
+			return EINVAL;
+		}
+	}
+
 	/* hotplug [event] */
 	else if (strstr(base, "hotplug")) {
 		if (argc >= 2) {
@@ -779,6 +1011,10 @@ main(int argc, char **argv)
 	else if (strstr(base, "waveservermain")) {
 		return (waveserver_main());
 	}
+	/* run ftp server */
+	else if (strstr(base, "start_ftpd")) {
+		return (restart_ftpd());
+	}
 #endif
 	/* write srom */
 	else if (strstr(base, "wsrom")) 
@@ -842,7 +1078,13 @@ main(int argc, char **argv)
 			fprintf(stderr, "usage: rc [start|stop|restart]\n");
 			return EINVAL;
 		}
+	} else if (strstr(base, "halt")) {
+		kill(1, SIGQUIT);
+	} else if (strstr(base, "reboot")) {
+		kill(1, SIGTERM);
+	} else if (strstr(base, "poweron")) {
+		return poweron_main(argc, argv);
 	}
-
+	
 	return EINVAL;
 }

@@ -88,10 +88,10 @@ bound(void)
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0)
-		return -1;
-
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	if ((unit = wan_ifunit(wan_ifname)) < 0) 
+		strcpy(prefix, "wanx_");
+	else
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 	
 	if ((value = getenv("ip")))
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
@@ -103,8 +103,13 @@ bound(void)
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
+
+	nvram_set(strcat_r(prefix, "routes", tmp), getenv("routes"));
+	nvram_set(strcat_r(prefix, "msroutes", tmp), getenv("msroutes"));
+#if 0
 	if ((value = getenv("hostname")))
 		sethostname(trim_r(value), strlen(value) + 1);
+#endif
 	if ((value = getenv("domain")))
 		nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
 	if ((value = getenv("lease"))) {
@@ -138,7 +143,8 @@ bound(void)
 static int
 renew(void)
 {
-	bound();
+	/* XXX: add checks at some day... */
+	/* bound(); */
 
 	dprintf("done\n");
 	return 0;
@@ -158,5 +164,7 @@ udhcpc_main(int argc, char **argv)
 		return bound();
 	else if (strstr(argv[1], "renew"))
 		return renew();
+	else if (strstr(argv[1], "leasefail"))
+		return 0;
 	else return deconfig();
 }

@@ -98,8 +98,10 @@ bound(void)
 		nvram_set(strcat_r(prefix, "dns_t", tmp), value);
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins_t", tmp), value);
+#if 0
 	if ((value = getenv("hostname")))
 		sethostname(value, strlen(value) + 1);
+#endif
 	if ((value = getenv("domain")))
 		nvram_set(strcat_r(prefix, "domain_t", tmp), value);
 	if ((value = getenv("lease"))) {
@@ -153,5 +155,7 @@ udhcpc_ex_main(int argc, char **argv)
 		return bound();
 	else if (strstr(argv[1], "renew"))
 		return renew();
+	else if (strstr(argv[1], "leasefail"))
+		return 0;
 	else return deconfig();
 }

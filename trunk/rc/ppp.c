@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <net/route.h>
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -56,6 +57,8 @@ ipup_main(int argc, char **argv)
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
 	dprintf("%s\n", argv[0]);
+	
+	umask(022);
 
 	if ((unit = ppp_ifunit(wan_ifname)) < 0)
 		return -1;
@@ -68,6 +71,9 @@ ipup_main(int argc, char **argv)
 		return errno;
 	}
 	fclose(fp);
+	
+	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+		return -1;
 
 	if ((value = getenv("IPLOCAL"))) {
 		ifconfig(wan_ifname, IFUP,
@@ -103,16 +109,21 @@ ipdown_main(int argc, char **argv)
 	char *wan_ifname = safe_getenv("IFNAME");
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+
+	umask(022);
 	
 	if ((unit = ppp_ifunit(wan_ifname)) < 0)
 		return -1;
 	
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
+	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+		return -1;
+
 	wan_down(wan_ifname);
 
 	unlink(strcat_r("/tmp/ppp/link.", wan_ifname, tmp));
-
+	
 	preset_wan_routes(wan_ifname);
 
 	logmessage(nvram_safe_get("wan_proto_t"), "Disconnected");
