@@ -65,7 +65,7 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 		goto err;
 	
 	/* Set IP address */
-	if (addr) {
+	if (addr && *addr) {
 		inet_aton(addr, &in_addr);
 		sin_addr(&ifr.ifr_addr).s_addr = in_addr.s_addr;
 		ifr.ifr_addr.sa_family = AF_INET;
@@ -74,7 +74,7 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 	}
 
 	/* Set IP netmask and broadcast */
-	if (addr && netmask) {
+	if ((addr && *addr) && (netmask && *netmask)) {
 		inet_aton(netmask, &in_netmask);
 		sin_addr(&ifr.ifr_netmask).s_addr = in_netmask.s_addr;
 		ifr.ifr_netmask.sa_family = AF_INET;
