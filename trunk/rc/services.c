@@ -308,34 +308,22 @@ stop_nas(void)
 int
 start_ntpc(void)
 {
-#ifdef ASUS_EXT
-	char *ntp_argv[] = {"ntp", NULL};
 	pid_t pid;
-
-	_eval(ntp_argv, NULL, 0, &pid);
-#else
-	char *servers = nvram_safe_get("ntp_server");
+	char *servers = nvram_safe_get("ntp_servers");
 	
 	if (strlen(servers)) {
-		char *nas_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-l", "-s", NULL};
-		_eval(nas_argv, NULL, 0, NULL);
+		char *ntp_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-c", "1", "-lst", NULL};
+		_eval(ntp_argv, NULL, 0, &pid);
 	}
 	
-	dprintf("done\n");
-#endif
-	return 0;
+	return pid;
 }
 
 int
 stop_ntpc(void)
 {
-#ifdef ASUS_EXT
-	int ret = eval("killall", "ntp");
-#else
 	int ret = eval("killall", "ntpclient");
-#endif
 
-	dprintf("done\n");
 	return ret;
 }
 

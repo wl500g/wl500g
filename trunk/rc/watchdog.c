@@ -343,10 +343,10 @@ void setup_check(void)
 	}
 }
 
-void refresh_ntpc(void)
+void inline refresh_ntpc(void)
 {
-	eval("killall","ntpclient");
-	kill_pidfile_s("/var/run/ntp.pid", SIGUSR1);	
+	stop_ntpc();
+	start_ntpc();
 	//printf("Sync time %dn", sync_interval);
 }
 
@@ -376,17 +376,18 @@ int ntp_timesync(void)
 
 		   	if (tm.tm_year>100) // More than 2000 
 		   	{	 
-		      		sync_interval=60*60/5;
-			  	logmessage("ntp client", "time is synchronized to %s", nvram_safe_get("ntp_servers"));
+		      		sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
+			  	logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
 
 				stop_upnp();
 				start_upnp();
 		   	}	
-		  	else sync_interval=1;
+		  	else sync_interval = 6;		/* Once per 60s */
 	
 			refresh_ntpc();	
 		}
 	}	
+	return 0;
 }
 
 enum 
@@ -836,6 +837,7 @@ watchdog_main(int argc, char *argv[])
 	signal(SIGUSR2, catch_sig);
 	signal(SIGALRM, watchdog);
 	signal(SIGTERM, readyoff);
+	signal(SIGCHLD, SIG_IGN);
 
 	/* Start GPIO function */
 	gpio_init();

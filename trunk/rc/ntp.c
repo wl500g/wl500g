@@ -16,6 +16,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 
 #include <bcmnvram.h>
@@ -52,7 +53,7 @@ int ntp_main(void)
 
 	while(1)
 	{
-		ret=eval("ntpclient", "-h", servers, "-i", "3", "-l", "-s");
+		ret=eval("ntpclient", "-h", servers, "-i", "3", "-c", "1", "-lst");
 		pause();
 	}	
 }

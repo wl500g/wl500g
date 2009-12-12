@@ -760,7 +760,7 @@ stop_misc(void)
 {
 	int ret1 = eval("killall", "infosvr");
 	int ret2 = eval("killall", "watchdog");
-	int ret3 = eval("killall", "ntp");
+	stop_ntpc();
 
 	dprintf("done\n");
 	return(ret1);
