@@ -157,7 +157,7 @@ void convert_asus_values()
 
 	/* GMODE */
 	nvram_set("wl0_gmode", nvram_safe_get("wl_gmode"));
-	nvram_set("wl0_nmode", nvram_safe_get("wl_gmode"));
+	nvram_set("wl0_nmode", nvram_safe_get("wl_nmode"));
 
 	if (nvram_match("wl_gmode_protection_x", "1"))
 	{
