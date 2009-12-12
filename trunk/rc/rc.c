@@ -867,6 +867,20 @@ main_loop(void)
 	}
 }
 
+static int
+check_option(int argc, char * const argv[], int *index, const char *option) {
+	int res;
+	int found = 0;
+	opterr = 0;
+	if (strlen(option)==0) return 0;
+	while ((res = getopt(argc,argv,option)) != -1) {
+		if (!found)
+			found = ((char)res == option[0]);
+	}
+	*index = optind;
+	return found;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -927,20 +941,32 @@ main(int argc, char **argv)
 
 	/* write [path] [device] */
 	else if (strstr(base, "write")) {
-		if (argc >= 3)
-			return mtd_write(argv[1], argv[2]);
-		else {
-			fprintf(stderr, "usage: write [path] [device]\n");
+		int index;
+		int reboot = check_option(argc, argv, &index, "r");
+		if (argc >= index+2) {
+			if (reboot) preshutdown_system();
+			int res = mtd_write(argv[index], argv[index+1]);
+			if (reboot && !res) kill(1, SIGABRT);
+			return res;
+		} else {
+			fprintf(stderr, "usage: write [-r] [path] [device]\n");
+			fprintf(stderr, "	-r: reboot after write\n");
 			return EINVAL;
 		}
 	}
 
 	/* flash [path] [device] */
 	else if (strstr(base, "flash")) {
-		if (argc >= 3)
-			return mtd_flash(argv[1], argv[2]);
-		else {
-			fprintf(stderr, "usage: flash [path] [device]\n");
+		int index;
+		int reboot = check_option(argc, argv, &index, "r");
+		if (argc >= index+2) {
+			if (reboot) preshutdown_system();
+			int res = mtd_flash(argv[index], argv[index+1]);
+			if (reboot && !res) kill(1, SIGABRT);
+			return res;
+		} else {
+			fprintf(stderr, "usage: flash [-r] [path] [device]\n");
+			fprintf(stderr, "	-r: reboot after flash\n");
 			return EINVAL;
 		}
 	}
