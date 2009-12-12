@@ -759,6 +759,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 
 		// Firewall between WAN and Local
+		if (nvram_match("ssh_enable", "1"))
+			fprintf(fp, "-A INPUT -p tcp --syn --dport %s -j %s\n", nvram_safe_get("ssh_port"), logaccept);
 		if (nvram_invmatch("http_lanport", "80"))
 			fprintf(fp, "-A INPUT -p tcp -m tcp -d %s --dport 80 -j %s\n", nvram_safe_get("lan_ipaddr"), logaccept);
 		if (nvram_match("misc_http_x", "1"))
