@@ -926,8 +926,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
        	}
 
 	/* Enable Virtual Servers */
-	fprintf(fp, "-A FORWARD -m conntrack --ctstate DNAT -j %s\n", 
-		nvram_match("filter_vs_default_x", "DROP") ? logdrop : logaccept);
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate DNAT -j %s\n", (
+		nvram_match("fw_wl_enable_x", "1") ?
+		nvram_match("filter_vs_default_x", "DROP") : FALSE) ? logdrop : logaccept);
 
 	if(nvram_match("fw_wl_enable_x", "1"))
 	{   		
