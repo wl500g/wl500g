@@ -212,6 +212,31 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 }
 
 int
+http_check_pid(const char *pidfile)
+{
+	FILE *fp;
+	pid_t pid;
+	char tmp[32];
+	struct stat f_st;
+
+	fp = fopen(pidfile, "r");
+	if (fp && fgets(tmp, sizeof(tmp), fp))
+	{
+		fclose(fp);
+		pid = strtoul(tmp, NULL, 0);
+		if (pid > 0)
+		{
+			memset(tmp, 0, sizeof(tmp));
+			sprintf(tmp, "/proc/%d", pid);
+			if (lstat(tmp, &f_st) == 0)
+				return S_ISDIR(f_st.st_mode);
+		}
+	}
+
+	return 0;
+}
+
+int
 http_check(const char *server, char *buf, size_t count, off_t offset)
 {
 	return wget(METHOD_CHECK, server, buf, count, offset);
