@@ -203,9 +203,14 @@ start_igmpproxy(char *wan_ifname)
 	struct stat	st_buf;
 	FILE 		*fp;
 
-	if (atoi(nvram_safe_get("udpxy_enable_x")))
-		eval("/usr/sbin/udpxy", "-a", nvram_get("lan_ifname") ? : "br0",
-			"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
+	if (atoi(nvram_safe_get("udpxy_enable_x"))) {
+		if (nvram_invmatch("udpxy_wan_x", "0"))
+			eval("/usr/sbin/udpxy",
+				"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
+		else
+			eval("/usr/sbin/udpxy", "-a", nvram_get("lan_ifname") ? : "br0",
+				"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
+	}
 	
 	if (!nvram_match("mr_enable_x", "1"))
 		return;
