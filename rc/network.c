@@ -1275,6 +1275,7 @@ lan_up(char *lan_ifname)
 	//start_ntpc();
 }
 
+#if 0
 void
 lan_down(char *lan_ifname)
 {
@@ -1286,7 +1287,7 @@ lan_down(char *lan_ifname)
 	/* remove resolv.conf */
 	unlink("/tmp/resolv.conf");
 }
-
+#endif
 
 void
 lan_up_ex(char *lan_ifname)
