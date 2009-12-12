@@ -169,6 +169,26 @@ stop_telnetd(void)
 	return ret;
 }
 
+int
+start_dropbear(void)
+{
+	if (nvram_match("ssh_enable", "0"))
+		return 0;
+
+	int ret = eval("dropbearstart");
+
+	dprintf("done\n");
+	return ret;
+}
+
+int
+stop_dropbear(void)
+{
+	int ret = eval("killall", "dropbear");
+
+	dprintf("done\n");
+	return ret;
+}
 
 int
 start_snmpd(void)
@@ -331,6 +351,7 @@ int
 start_services(void)
 {
 	start_telnetd();
+	start_dropbear();
 	start_httpd();
 	start_dns();
 	start_dhcpd();
@@ -364,6 +385,7 @@ stop_services(void)
 	stop_dhcpd();
 	stop_dns();
 	stop_httpd();
+	stop_dropbear();
 	stop_telnetd();
 
 	dprintf("done\n");
