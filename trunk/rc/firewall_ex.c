@@ -517,17 +517,6 @@ write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan
 	}
 }
 
-char *ipoffset(char *ip, int offset, char *tmp)
-{
-	unsigned int ip1, ip2, ip3, ip4;
-
-	sscanf(ip, "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4);
-	sprintf(tmp, "%d.%d.%d.%d", ip1, ip2, ip3, ip4+offset);
-
-	dprintf("ip : %s\n", tmp);
-	return(tmp);
-}
-
 
 void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
@@ -1260,6 +1249,7 @@ portmapping_main(int argc, char *argv[])
 }
 #endif	
 
+#ifndef DNSMASQ
 void write_static_leases(char *file)
 {
 	FILE *fp;
@@ -1280,6 +1270,7 @@ void write_static_leases(char *file)
 	}
 	fclose(fp);
 }
+#endif
 
 void convert_routes(void)
 {

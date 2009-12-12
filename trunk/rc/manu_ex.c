@@ -719,6 +719,7 @@ convert_country(void)
 
 #define MAXBUF 32
 
+#if 0
 void sync_mac(char *devname, char *mac)
 {
 	int cmd, result, i, j;
@@ -766,6 +767,7 @@ void sync_mac(char *devname, char *mac)
 	}
 	return;
 }
+#endif
 
 int
 rsrom_main(char *devname, unsigned int pos, int pflag)
