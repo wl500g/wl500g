@@ -21,7 +21,7 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPT
 CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /lib
 
-OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o http.o \
+OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o dns.o dns_decode.o udhcpc_ex.o \
     ntp.o bigpond.o qos.o rcamd.o waveserver.o

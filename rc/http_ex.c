@@ -58,7 +58,8 @@ base64enc(const char *p, char *buf, int len)
 
 enum {
 	METHOD_GET,
-	METHOD_POST
+	METHOD_POST,
+	METHOD_CHECK,
 };
 
 static int 
@@ -86,7 +87,6 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 	int fd;
 	FILE *fp;
 	struct sockaddr_in sin;
-	struct stat fstatus;
 
 	int chunked = 0, len = 0;
 
@@ -125,10 +125,8 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 	dprintf("Connecting to %s:%u...\n", host, port);
 	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
 	    connect(fd, (struct sockaddr *) &sin, sizeof(sin)) < 0
-#ifdef REMOVE
 		 ||
-	    !(fp = fdopen(fd, "r+"))
-#endif
+	    (!(method == METHOD_CHECK) && !(fp = fdopen(fd, "r+")))
 		) {
 		perror(host);
 		if (fd >= 0)
@@ -164,14 +162,15 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 		// get message anyway
 		close(fd);
 		return 1;
-#ifdef REMOVE
+		if (!(method == METHOD_CHECK)) {
 			for (s = line; *s && !isspace((int)*s); s++);
 			for (; isspace((int)*s); s++);
 			switch (atoi(s)) {
 			case 200: if (offset) goto done; else break;
 			case 206: if (offset) break; else goto done;
 			default: goto done;
-#endif
+			}
+		}
 	}
 	else
 	{
@@ -179,7 +178,8 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 		return 0;
 	}
 
-#ifdef REMOVE
+	if ((method == METHOD_CHECK)) return 0;
+
 	/* Parse headers */
 	while (fgets(line, sizeof(line), fp)) {
 		dprintf("%s", line);
@@ -210,12 +210,23 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 	fflush(fp);
 	fclose(fp);
 	return len;
-#endif
 }
 
 int
 http_check(const char *server, char *buf, size_t count, off_t offset)
 {
+	return wget(METHOD_CHECK, server, buf, count, offset);
+}
+
+int
+http_get(const char *server, char *buf, size_t count, off_t offset)
+{
 	return wget(METHOD_GET, server, buf, count, offset);
 }
 
+int
+http_post(const char *server, char *buf, size_t count)
+{
+        /* No continuation generally possible with POST */
+        return wget(METHOD_POST, server, buf, count, 0);
+}
