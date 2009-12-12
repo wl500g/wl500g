@@ -709,16 +709,7 @@ do_timer(void)
 
 	dprintf("%d\n", interval);
 
-#ifdef ASUS_EXT
-	/* Update kernel timezone */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(NULL, &tz);
-	return 0;
-#endif
+#ifndef ASUS_EXT
 	if (interval == 0)
 		return 0;
 
@@ -730,7 +721,7 @@ do_timer(void)
 
 	/* Sync time */
 	start_ntpc();
-
+#endif
 	/* Update kernel timezone */
 	setenv("TZ", nvram_safe_get("time_zone"), 1);
 	time(&now);
@@ -738,7 +729,9 @@ do_timer(void)
 	localtime_r(&now, &local);
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 	settimeofday(NULL, &tz);
+#ifndef ASUS_EXT
 	alarm(interval);
+#endif
 	return 0;
 }
 
@@ -1002,7 +995,7 @@ main(int argc, char **argv)
 #endif
 	/* run ntp client */
 	else if (strstr(base, "ntp")) {
-		return (ntp_main());
+		return (!start_ntpc());
 	}
 #ifdef USB_SUPPORT
 	/* run rcamd */
