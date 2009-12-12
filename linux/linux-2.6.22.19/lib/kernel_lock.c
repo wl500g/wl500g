@@ -194,8 +194,11 @@ static inline void __unlock_kernel(void)
 void __lockfunc lock_kernel(void)
 {
 	int depth = current->lock_depth+1;
-	if (likely(!depth))
+
+	if (likely(!depth)) {
+		might_sleep();
 		__lock_kernel();
+	}
 	current->lock_depth = depth;
 }
 
