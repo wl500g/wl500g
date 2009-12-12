@@ -1959,14 +1959,18 @@ usbhandler:
 int
 stop_service_main(int argc, char *argv[])
 {
-	stop_snmpd();
 	stop_misc();
-	stop_logger();
+
+	preshutdown_system();
 	stop_usb();
 
 	/* nas is still needed for upgrade over WiFI with WPA enabled */
 	/* stop_nas();*/
+
 	stop_upnp();
+	stop_snmpd();
+	stop_logger();
+
 	stop_dhcpd();
 	stop_dns();
 
