@@ -473,6 +473,26 @@ start_lan(void)
 	dprintf("%s %s\n",
 		nvram_safe_get("lan_ipaddr"),
 		nvram_safe_get("lan_netmask"));
+
+#ifdef __CONFIG_IPV6__
+	/* IPv6 address config */
+	{
+		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
+		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
+		if( ip6_addr && *ip6_addr && ip6_size && *ip6_size )
+		{
+			char *ip6_net = (char*) malloc(45);
+			strcpy( ip6_net, ip6_addr );
+			strcat( ip6_net, "/" );
+			strcat( ip6_net, ip6_size );
+
+			eval( "ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("lan_ifname") );
+		
+			free( ip6_net );
+		}
+	}
+#endif
+
 }
 
 void
@@ -698,6 +718,16 @@ start_wan(void)
 				perror("/proc/sys/net/ipv4/ip_forward");
 			}
 
+#ifdef __CONFIG_IPV6__
+			/* Enable IPv6 Forwarding */
+			if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+"))) 			{
+				fputc('1', fp);
+				fclose(fp);
+			} else
+			{	
+				perror("/proc/sys/net/ipv6/conf/all/forwarding");
+			}
+#endif
 		}
 
 		/* 
@@ -847,6 +877,105 @@ start_wan(void)
 		char *stats_argv[] = { "stats", nvram_get("stats_server"), NULL };
 		_eval(stats_argv, NULL, 5, NULL);
 	}
+
+#ifdef __CONFIG_IPV6__
+	/* IPv6 address config */
+	{
+		char *ip6_addr = nvram_safe_get("ipv6_wan_addr");
+		char *ip6_size = nvram_safe_get("ipv6_wan_netsize");
+		char *ip6_router = nvram_safe_get("ipv6_wan_router");
+
+		if (ip6_addr && *ip6_addr && ip6_size && *ip6_size)
+		{
+			char ip6_net[64];
+			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
+
+			eval("ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("wan0_ifname"));
+		}
+
+		/* Configurate remote IPv6 address (default gateway) */
+		if (ip6_router && *ip6_router)
+			eval("ip", "-6", "ro", "add", "default", "via", ip6_router, "dev", nvram_safe_get("wan0_ifname"));
+
+	}
+
+	/* IPv6 tunnel config */
+	if (nvram_match("ipv6_sit_enable", "1"))
+	{
+		char *ip6_addrL = nvram_safe_get("ipv6_sit_localaddr");
+		char *ip6_sizeL = nvram_safe_get("ipv6_sit_netsize");
+		char *ip6_addrR = nvram_safe_get("ipv6_sit_remoteaddr");
+
+		/* Instantiate tunnel */
+		eval("ip", "tunnel", "add", "sixtun", "mode", "sit",
+			"local", "0.0.0.0",
+			"remote", nvram_safe_get("ipv6_sit_remote"));
+
+		/* Enable tunnel */
+		eval("ip", "link", "set", "sixtun", "up");
+
+		/* Set MTU value */
+		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", "sixtun");
+
+		/* Set TTL value */
+		eval("ip", "tunnel", "change", "sixtun", "ttl", nvram_safe_get("ipv6_sit_ttl"));
+
+		/* Configure local IPv6 address */
+		if (ip6_addrL && *ip6_addrL && ip6_sizeL && *ip6_sizeL)
+		{
+			char ip6_net[64];
+			sprintf(ip6_net, "%s/%s", ip6_addrL, ip6_sizeL);
+
+			eval("ip", "-6", "addr", "add", ip6_net, "dev", "sixtun");
+
+		}
+
+		/* Configurate remote IPv6 address (default gateway) */
+		if (ip6_addrR && *ip6_addrR)
+			eval("ip", "-6", "ro", "add", "default", "via", ip6_addrR, "dev", "sixtun");
+	}
+
+	/* IPv6 router advertisement daemon */
+	if (nvram_match("ipv6_radvd_enable", "1"))
+	{
+		FILE *radvdconf = fopen( "/etc/radvd.conf", "w" );
+		if (radvdconf != NULL)
+		{
+			int netsize = atoi(nvram_safe_get("ipv6_lan_netsize")), i = 15, n = netsize;
+			struct in6_addr addr;
+			char final[INET6_ADDRSTRLEN];
+
+			/* Convert for easy manipulation */
+			inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+
+			/* Clean complete bytes, starting from the end */
+			while (n >= 8)
+			{
+				addr.s6_addr[i--] = 0;
+				n -= 8;
+			}
+
+			/* Clear remaining bits */
+			if (i > 0)
+				addr.s6_addr[i] &= (255 << n);
+
+			/* Convert back to string representation */
+			inet_ntop(AF_INET6, &addr, final, INET6_ADDRSTRLEN);
+
+			/* And write out to config file */
+			fprintf( radvdconf,
+				"interface %s {\n"
+				" AdvSendAdvert on; prefix %s/%d { AdvOnLink on; AdvAutonomous on; };\n"
+				"};",
+				nvram_safe_get("lan_ifname"), final, netsize);
+
+			fclose(radvdconf);
+
+			/* Then start the radvd */
+			eval("radvd");
+		}
+	}
+#endif
 }
 
 void
