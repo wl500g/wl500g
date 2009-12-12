@@ -1000,7 +1000,11 @@ stop_wan(void)
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");
 	eval("killall", "ip-down");
+#ifdef __CONFIG_XL2TPD__
+	eval("killall", "xl2tpd");
+#else
 	eval("killall", "l2tpd");
+#endif
 	eval("killall", "pppd");
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
@@ -1040,7 +1044,11 @@ stop_wan2(void)
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");
 	eval("killall", "ip-down");
+#ifdef __CONFIG_XL2TPD__
+	eval("killall", "xl2tpd");
+#else
 	eval("killall", "l2tpd");
+#endif
 	eval("killall", "pppd");
 
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
