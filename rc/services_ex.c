@@ -631,6 +631,8 @@ start_ddns(void)
 		strcpy(service, "justlinux");
 	else if (strcmp(server, "WWW.EASYDNS.COM")==0)
 		strcpy(service, "easydns");
+	else if (strcmp(server, "WWW.DNSOMATIC.COM")==0)
+		strcpy(service, "dnsomatic");
 	else strcpy(service, "dyndns");
 			
 	sprintf(usrstr, "%s:%s", user, passwd);
