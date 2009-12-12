@@ -56,6 +56,7 @@ int console_init(void);
 pid_t run_shell(int timeout, int nowait);
 void signal_init(void);
 void fatal_signal(int sig);
+void preshutdown_system(void);
 
 /* interface */
 int ifconfig(char *ifname, int flags, char *addr, char *netmask);

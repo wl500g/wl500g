@@ -159,6 +159,13 @@ run_shell(int timeout, int nowait)
 	}
 }
 
+void
+preshutdown_system(void)
+{
+	eval("/usr/local/sbin/pre-shutdown");
+	sleep(2);
+}
+
 static void
 shutdown_system(void)
 {
@@ -171,9 +178,6 @@ shutdown_system(void)
 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
 	eval("killall", "pppd");
 
-	eval("/usr/local/sbin/pre-shutdown");
-	sleep(2);
-	
 	if (exists("/dev/misc/rtc"))
 		eval("/sbin/hwclock", "-w");
 
@@ -226,13 +230,20 @@ fatal_signal(int sig)
 	case SIGTRAP: message = "Trace trap"; break;
 	case SIGPWR: message = "Power failure"; break;
 	case SIGTERM: message = "Terminated"; break;
-	case SIGUSR1: message = "User-defined signal 1"; break;
 	}
 
 	if (message)
 		cprintf("%s\n", message);
 	else
 		cprintf("Caught signal %d\n", sig);
+
+	/* Perform pre-shutdown script only with common signals */
+	switch (sig) {
+	case SIGQUIT:
+	case SIGTERM:
+		preshutdown_system();
+		break;
+	}
 
 	shutdown_system();
 	sleep(2);
