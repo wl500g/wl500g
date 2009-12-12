@@ -102,6 +102,96 @@ mtd_erase(const char *mtd)
 	return 0;
 }
 
+
+/*
+ * Flash a file to an MTD device
+ * @param	path	file to write or a URL
+ * @param	mtd	path to or partition name of MTD device 
+ * @return	0 on success and errno on failure
+ */
+int
+mtd_flash(const char *path, const char *mtd)
+{
+	int mtd_fd = -1;
+	mtd_info_t mtd_info;
+	erase_info_t erase_info;
+
+	FILE *fp = NULL;
+	struct stat stats;
+	char *buf = NULL;
+	long count, len;
+	int ret = -1;
+
+	if (stat(path, &stats) || !(fp = fopen(path, "r"))) 
+	{
+		perror(path);
+		goto fail;
+	}
+
+	/* Open MTD device and get sector size */
+	if ((mtd_fd = mtd_open(mtd, O_RDWR)) < 0 ||
+	    ioctl(mtd_fd, MEMGETINFO, &mtd_info) != 0) 
+	{
+		perror(mtd);
+		goto fail;
+	}
+	
+	if (stats.st_size > mtd_info.size) {
+		fprintf(stderr, "%s: File is too big (%ld, max %ld)\n", path,
+				stats.st_size, mtd_info.size);
+		goto fail;
+	}
+
+	/* Allocate temporary buffer */
+	erase_info.length = mtd_info.erasesize;
+	
+	if (!(buf = malloc(erase_info.length))) {
+		perror("malloc");
+		goto fail;
+	}
+
+	/* Write file to MTD device */
+	for (erase_info.start = 0; erase_info.start < stats.st_size; erase_info.start += count) {
+		len = MIN(erase_info.length, stats.st_size - erase_info.start);
+		count = safe_fread(buf, 1, len, fp);
+
+		if (count < len) {
+			fprintf(stderr, "%s: Truncated file (actual %ld expect %ld)\n", path,
+				count, len);
+			goto fail;
+		}
+
+		/* Do it */
+		(void) ioctl(mtd_fd, MEMUNLOCK, &erase_info);
+		if (write(1, "-", 1) != 1 ||
+		    ioctl(mtd_fd, MEMERASE, &erase_info) != 0 ||
+		    write(1, "\b+", 2) != 2 ||
+		    write(mtd_fd, buf, count) != count) {
+			perror(mtd);
+			goto fail;
+		}
+		
+		write(1, "\b.", 2);
+	}
+
+	ret = 0;
+
+ fail:
+	printf("\n");
+
+	if (buf) {
+		/* Dummy read to ensure chip(s) are out of lock/suspend state */
+		(void) read(mtd_fd, buf, 2);
+		free(buf);
+	}
+
+	if (mtd_fd >= 0)
+		close(mtd_fd);
+	if (fp)
+		fclose(fp);
+	return ret;
+}
+
 extern int http_get(const char *server, char *buf, size_t count, off_t offset);
 
 /*
@@ -135,18 +225,19 @@ mtd_write(const char *path, const char *mtd)
 		fprintf(stderr, "%s: File is too small (%ld bytes)\n", path, count);
 		goto fail;
 	}
-	if (trx.magic != TRX_MAGIC ||
-	    trx.len > TRX_MAX_LEN ||
-	    trx.len < sizeof(struct trx_header)) {
-		fprintf(stderr, "%s: Bad trx header\n", path);
-		goto fail;
-	}
 
 	/* Open MTD device and get sector size */
 	if ((mtd_fd = mtd_open(mtd, O_RDWR)) < 0 ||
 	    ioctl(mtd_fd, MEMGETINFO, &mtd_info) != 0 ||
 	    mtd_info.erasesize < sizeof(struct trx_header)) {
 		perror(mtd);
+		goto fail;
+	}
+
+	if (trx.magic != TRX_MAGIC ||
+	    trx.len > mtd_info.size ||
+	    trx.len < sizeof(struct trx_header)) {
+		fprintf(stderr, "%s: Bad trx header\n", path);
 		goto fail;
 	}
 
@@ -190,7 +281,7 @@ mtd_write(const char *path, const char *mtd)
 			goto fail;
 		}
 		/* Update CRC */
-		crc = crc32(&buf[off], count - off, crc);
+		crc = crc32((uint8 *)&buf[off], count - off, crc);
 		/* Check CRC before writing if possible */
 		if (count == trx.len) {
 			if (crc != trx.crc32) {

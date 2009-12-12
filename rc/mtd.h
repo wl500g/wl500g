@@ -38,4 +38,12 @@ extern int mtd_erase(const char *mtd);
  */
 extern int mtd_write(const char *path, const char *mtd);
 
+/*
+ * Flash a file to an MTD device
+ * @param	path	file to write or a URL
+ * @param	mtd	path to or partition name of MTD device 
+ * @return	0 on success and errno on failure
+ */
+extern int mtd_write(const char *path, const char *mtd);
+
 #endif /* _mtd_h_ */
