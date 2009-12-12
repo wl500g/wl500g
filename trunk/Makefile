@@ -302,12 +302,9 @@ $(TOP)/radvd:
 radvd: $(TOP)/radvd
 	@true
 
-rc_Patches := $(call patches_list,rc)
-
 $(TOP)/rc/Makefile:
-	tar -C $(SRC) -cf - rc | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) $(rc_Patches)
-	$(MAKE) -C $(TOP)/rc clean
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - rc | tar -C $(TOP) -xf -
 
 rc: $(TOP)/rc/Makefile
 	@true
