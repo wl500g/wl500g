@@ -1874,6 +1874,11 @@ hotplug_usb(void)
 		}
 		else if(strncmp(interface, "1/", 2)==0)
 			return 0;
+
+		/* ignore hubs */
+		if (strncmp(interface, "9/", 2)==0)
+			return 0;
+
 		i=0;
 		isweb = WEB_NONE;
 		while(PWCLIST[i]!=NULL)
@@ -1899,7 +1904,7 @@ hotplug_usb(void)
 	else return 0;
 
 usbhandler:	
-	if (strstr(action, "add"))
+	if (!strncasecmp(action, "add", 3))
 	{		
 		nvram_set("usb_device", "1");
 		if (isweb==WEB_NONE)
