@@ -813,6 +813,8 @@ start_wan(void)
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 			/* Start dhcp daemon */
 			_eval(dhcp_argv, NULL, 0, &pid);
+			/* Update wan information for null DNS server */
+			update_wan_status(1);
 #ifdef ASUS_EXT
 			wanmessage("Can not get IP from server");
 			nvram_set("wan_ifname_t", wan_ifname);

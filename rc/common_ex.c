@@ -79,13 +79,11 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 void getsyspara(void)
 {
 	FILE *fp;
-	char buf[1];
 	unsigned long *imagelen;
 	char dataPtr[4];
 	char verPtr[64];
 	char productid[13];
 	char fwver[12];
-	int i;
 
 	strcpy(productid, "WLHDD");
 	strcpy(fwver, "0.1.0.1");
@@ -120,7 +118,7 @@ write_ver:
 /* This function is used to map nvram value from asus to Broadcom */
 void convert_asus_values()
 {	
-	char tmpstr[32], tmpstr1[32], macbuf[36];
+	char macbuf[36];
 	char servers[64];
 	char ifnames[36];
 	char sbuf[64];
@@ -392,7 +390,7 @@ void convert_asus_values()
 	/* Mac filter */
 	nvram_set("wl0_macmode", nvram_safe_get("wl_macmode"));
 
-	if (strcmp(tmpstr, "disabled"))
+	if (nvram_invmatch("wl_macmode", "disabled"))
 	{
 		num = atoi(nvram_safe_get("wl_macnum_x"));
 		list[0]=0;

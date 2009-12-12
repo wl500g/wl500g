@@ -117,6 +117,11 @@ build_ifnames(char *type, char *names, int *size)
 				if (!(mac = nvram_get(var)) || !ether_atoe(mac, ea) ||
 				    bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
 					continue;
+
+				// add by Chen-I to filter out wl interface here
+				if (!wl_probe(ifr.ifr_name))
+					continue;
+
 			}
 			/* mac address: compare value */
 			else if (ether_atoe(name, ea) && !bcmp(ea, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
@@ -127,9 +132,6 @@ build_ifnames(char *type, char *names, int *size)
 
 			/* append interface name to list */
 			len += snprintf(&names[len], *size - len, "%s ", ifr.ifr_name);
-			
-			/* first match only (et and wl macs are the same */
-			break;
 		}
 	}
 	
