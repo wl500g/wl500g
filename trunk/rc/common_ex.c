@@ -706,25 +706,6 @@ char *pppstatus(char *buf)
 }
 
 
-/* 
- * Kills process whose PID is stored in plaintext in pidfile
- * @param	pidfile	PID file, signal
- * @return	0 on success and errno on failure
- */
-int
-kill_pidfile_s(char *pidfile, int sig)
-{
-	FILE *fp = fopen(pidfile, "r");
-	char buf[256];
-
-	if (fp && fgets(buf, sizeof(buf), fp)) {
-		pid_t pid = strtoul(buf, NULL, 0);
-		fclose(fp);
-		return kill(pid, sig);
-  	} else
-		return errno;
-}
-
 #ifdef RT2400_SUPPORT
 void write_rt2400_conf(void)
 {

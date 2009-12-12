@@ -594,69 +594,36 @@ int rcamd_processcheck()
 
 int notice_rcamd(int flag)
 {
-	 int rcamdpid=-1;
-	 //printf("Send signal : %d %d\n", rcamdpid, flag);
-	 if (rcamdpid==-1)
-	 {
-			FILE *fp;
+	int ret = -1;
 
-			if ((fp=fopen("/var/run/rcamd.pid","r"))!=NULL)
-			{
-				fscanf(fp,"%d", &rcamdpid);
-				fclose(fp);
-			}			
-	 }
-	 if (rcamdpid!=-1) 
-	 {
-		 if (flag)
-			kill(rcamdpid, SIGUSR1);
-		 else
-			kill(rcamdpid, SIGUSR2);	
-
-		 return 1;
-	 }
-	 return 0;
+	if (flag)
+		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1);
+	else
+		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR2);
+	
+	return (ret == 0);
 }
 
 int refresh_rcamd(void)
 {
-	FILE *fp;
-	int rcamdpid=-1;
-
-	if ((fp=fopen("/var/run/rcamd.pid","r"))!=NULL)
+	if (kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1) == 0)
 	{
-		fscanf(fp,"%d", &rcamdpid);
-		fclose(fp);
 		unlink("/var/run/rcamd.pid");
-		kill(rcamdpid, SIGUSR1);
 	}			
 	else 
 	{	
 		eval("killall", "rcamd");
 	}
 
-	if ((fp=fopen("/var/run/rcamdmain.pid","r"))!=NULL)
-	{
-		fscanf(fp,"%d", &rcamdpid);
-		fclose(fp);
-		kill(rcamdpid, SIGUSR1);
-	}		
+	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
 	return 0;
 }
 
 int refresh_wave(void)
 {
-	FILE *fp;
-	int wavepid=-1;
-
 	eval("killall", "waveserver");
 
-	if ((fp=fopen("/var/run/waveservermain.pid","r"))!=NULL)
-	{
-		fscanf(fp,"%d", &wavepid);
-		fclose(fp);
-		kill(wavepid, SIGUSR1);
-	}			
+	kill_pidfile_s("/var/run/waveservermain.pid", SIGUSR1);
 	return 0;
 }
 
