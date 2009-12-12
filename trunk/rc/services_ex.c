@@ -12,6 +12,7 @@
 
 #define DNSMASQ
 #define DDNSCONF
+#define DDNSDAEMON
 
 #ifdef ASUS_EXT
 #include <stdio.h>
@@ -585,9 +586,12 @@ start_ddns(void)
 	
 	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
 
-	if (nvram_match("ddns_ipaddr", wan_ip)) return -1;
-
-	if (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr"))) return -1;
+	if (nvram_match("ddns_ipaddr", wan_ip) ||
+	   (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr"))))
+	{
+		logmessage("ddns", "IP address has not changed since the last update");
+		return 0;
+	}
 
 	// TODO : Check /tmp/ddns.cache to see current IP in DDNS
 	// update when,
@@ -631,8 +635,9 @@ start_ddns(void)
 			
 	sprintf(usrstr, "%s:%s", user, passwd);
 	
-	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
-		nvram_match("wan_proto", "l2tp"))
+	if (nvram_match("wan_proto", "pppoe") ||
+	    nvram_match("wan_proto", "pptp")  ||
+	    nvram_match("wan_proto", "l2tp"))
 	{
 		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
 	}
@@ -659,6 +664,9 @@ start_ddns(void)
 	if (strlen(service)>0)
 	{
 		char *ddns_argv[] = {"ez-ipupdate", 
+#ifdef DDNSDAEMON
+		"-d", "-1",
+#endif
 #ifdef DDNSCONF
 		"-c", "/etc/ddns.conf",
 #else
@@ -677,8 +685,11 @@ start_ddns(void)
 		nvram_unset("ddns_cache");
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
-
+#ifdef DDNSDAEMON
+		eval("killall", "-SIGQUIT", "ez-ipupdate");
+#else
 		eval("killall", "ez-ipupdate");
+#endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
 	return 0;
@@ -687,8 +698,11 @@ start_ddns(void)
 int 
 stop_ddns(void)
 {
+#ifdef DDNSDAEMON
+	int ret = eval("killall", "-SIGQUIT", "ez-ipupdate");
+#else
 	int ret = eval("killall", "ez-ipupdate");
-
+#endif
 	dprintf("done\n");
 	return ret;
 }
