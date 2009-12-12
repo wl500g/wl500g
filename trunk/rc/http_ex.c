@@ -122,7 +122,7 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(port);
 
-	dprintf("Connecting to %s:%u...\n", host, port);
+//	dprintf("Connecting to %s:%u...\n", host, port);
 	if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0 ||
 	    connect(fd, (struct sockaddr *) &sin, sizeof(sin)) < 0
 		 ||
@@ -134,7 +134,7 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 		return 0;
 	}
 
-	dprintf("connected!\n");
+//	dprintf("connected!\n");
 
 	/* Send HTTP request */
 	sprintf(line, "%s /%s HTTP/1.1\r\n", method == METHOD_POST ? "POST" : "GET", path);
@@ -153,12 +153,11 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 		sprintf(line,"%sConnection: close\r\n\r\n", line);
 
 	/* Check HTTP response */
-	dprintf("HTTP request sent, awaiting response..\n");
+//	dprintf("HTTP request sent, awaiting response..\n");
 	write(fd, line, strlen(line));
 
 	if (waitsock(fd, 2, 0) && read(fd, line, sizeof(line))) 
 	{
-		dprintf("%s", line);
 		// get message anyway
 		close(fd);
 		return 1;
