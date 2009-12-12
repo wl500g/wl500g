@@ -588,16 +588,10 @@ function is_number(o)
 
 function validate_range(o, min, max)
 {      	
-   if (isNaN(o.value))
-   {
-      alert('Please enter a number');
-      o.focus();
-      return false;
-   }
-   if (o.value<min || o.value>max)
+   if (isNaN(o.value) || o.value<min || o.value>max)
    {
       alert('Please enter a value between ' + min + ' to ' + max + '.');
-      o.value = min;
+//      o.value = min;
       o.focus();
       return false;    
    }
