@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <sys/time.h>
+#include <sys/resource.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -588,6 +589,12 @@ sysinit(void)
 	struct tm gm, local;
 	struct timezone tz;
 	struct timeval tv = { 0 };
+	struct rlimit lim;
+
+	/* set default hardlimit */
+	getrlimit(RLIMIT_NOFILE, &lim);
+	lim.rlim_max = 16384;
+	setrlimit(RLIMIT_NOFILE, &lim);
 
 	/* /proc */
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
