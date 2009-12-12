@@ -373,6 +373,8 @@ start_services(void)
 int
 stop_services(void)
 {
+	preshutdown_system();
+
 #ifdef ASUS_EXT
 	stop_usb();
 #endif
