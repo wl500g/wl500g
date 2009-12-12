@@ -93,7 +93,7 @@ ipup_main(int argc, char **argv)
 
 	wan_up(wan_ifname);
 
-	logmessage(nvram_safe_get("wan_proto_t"), "connect to ISP");
+	logmessage(nvram_safe_get("wan_proto_t"), "connected to ISP");
 	wanmessage("");
 
 	dprintf("done\n");
