@@ -655,7 +655,7 @@ vlan_deconfigure(void)
 	    return -1;
     }
     if (strlen(restore_wan_hwaddr)) {
-	if (nvram_set(strcat_r(prefix, "hwaddr", tmp), restore_wan_hwaddr))
+	if (nvram_set(strcat_r(prefix, "wan_hwaddr", tmp), restore_wan_hwaddr))
 	    return -1;
 	if (nvram_unset("restore_wan_hwaddr"))
 	    return -1;

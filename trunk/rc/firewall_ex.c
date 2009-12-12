@@ -858,9 +858,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 			
 		// LAN/WAN filter		
+		g_buf_init();
+
        		foreach_x("filter_lw_num_x")
        		{	               			
-			g_buf_init();
             		proto = protoflag_conv("filter_lw_proto_x", i, 0);
             		flag = protoflag_conv("filter_lw_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_lw_srcip_x", i);
@@ -889,6 +890,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		char *dtype, *ftype;
 
 		timematch_conv(wanlan_timematch, "filter_wl_date_x", "filter_wl_time_x");
+		g_buf_init();
 	
 		if (nvram_match("filter_wl_default_x", "DROP"))
 		{
@@ -903,7 +905,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			
        		foreach_x("filter_wl_num_x")
        		{	               			
-			g_buf_init();
             		proto = protoflag_conv("filter_wl_proto_x", i, 0);
             		flag = protoflag_conv("filter_wl_proto_x", i, 1);
 			srcip = iprange_ex_conv("filter_wl_srcip_x", i);

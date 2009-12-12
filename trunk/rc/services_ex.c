@@ -1954,6 +1954,7 @@ int service_handle(void)
 	char tmp[100], *str;
 	int unit;
 	int pid;
+	char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
 	FILE *fp;
 
 	service = nvram_get("rc_service");
@@ -2000,11 +2001,24 @@ int service_handle(void)
 		}
 		else 
 		{
-			stop_wan();
-			sleep(5);
-			start_wan();
+			// pppoe or ppptp, check if /tmp/ppp exist
+			if (nvram_invmatch("wan0_proto", "static") &&
+			     (fp=fopen("/tmp/ppp/ip-up", "r"))!=NULL)
+			{
+				fclose(fp);                                     
+			}
+			else
+			{
+				stop_wan();
+				sleep(3);
+	    			start_wan();
+				sleep(2);
+			}
 			/* trigger connect */
-			eval("nslookup", "localhost");
+			str = nvram_get("wan0_gateway");
+			if (str)
+				ping_argv[2] = str;
+			_eval(ping_argv, NULL, 0, &pid);
 		}
 	}
 	nvram_unset("rc_service");
