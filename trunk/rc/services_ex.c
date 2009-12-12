@@ -831,7 +831,7 @@ int start_nfsd(void)
 				fprintf(fp, "%s\n", nvram_safe_get(tmp));
 			else	fprintf(fp, "/tmp/harddisk/%s\n", nvram_safe_get(tmp));
 		}
-		
+		fappend("/usr/local/etc/exports", fp);
 		fclose(fp);
 	}
 
