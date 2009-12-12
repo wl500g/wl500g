@@ -665,9 +665,9 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", 
 	   			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"));
 
-		// masquerade lan to lan
+		// snat lan to lan
 		ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_class);
-		fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j MASQUERADE\n", lan_if, lan_class, lan_class);
+		fprintf(fp, "-A POSTROUTING -o %s -s %s -d %s -j SNAT --to-source %s\n", lan_if, lan_class, lan_class, lan_ip);
 	}
 
 	/* Trigger port setting */
