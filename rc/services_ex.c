@@ -1978,11 +1978,7 @@ int service_handle(void)
 			nvram_match("wan0_proto", "bigpond"))
 		{		
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
-			if ((str = file2str(tmp))) {
-				pid = atoi(str);
-				free(str);			
-				kill(pid, SIGUSR2);
-			}
+			kill_pidfile_s(tmp, SIGUSR2);
 		}
 		else 
 		{			
@@ -1999,11 +1995,7 @@ int service_handle(void)
 			nvram_match("wan0_proto", "bigpond"))
 		{
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
-			if ((str = file2str(tmp))) {
-				pid = atoi(str);
-				free(str);
-				kill(pid, SIGUSR1);
-			}
+			kill_pidfile_s(tmp, SIGUSR1);
 		}
 		else 
 		{
