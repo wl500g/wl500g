@@ -874,13 +874,12 @@ function validate_ipaddrport(o, v)
       port = str.substring(portidx+1);
       len = portidx;
       
-      if (port>65535) 
+      if (isNaN(port) || port<1 || port>65535)
       {
-      	 alert(port + ' is not a valid port number!');
-         o.value = "";
-         o.focus();         
+         alert(port + ' is not a valid port number!');
+	 o.focus();
          return false;
-      }   
+      }
   }   
   else
   {      	
@@ -1119,25 +1118,24 @@ function validate_portrange(o, v)
 {       
   if (o.value.length==0)
      return true;
-  
+
   prev = -1;
-  num = -1;
-  
+  num = 0;
+
   for(i=0; i<o.value.length; i++) 
   {
      c=o.value.charAt(i);
      
      if (c>='0'&&c<='9')
      {
-     	if(num==-1) num=0;
         num = num*10 + (c-'0');
      }   
      else 
      {
-     	if (num>65535 || num==0 || (c!=':' && c!='>' && c!='<'))
+     	if (num>65535 || num<1 || (c!=':' && c!='>' && c!='<'))
         {
-     	   alert(num + ' is not a valid port number!');
-     	   o.value = "";
+     	   alert(o.value.substring(0, i+1) + ' is not a valid port number!');
+//         o.value = "";
            o.focus();
            return false;
         } 
@@ -1147,6 +1145,7 @@ function validate_portrange(o, v)
         {
         	prev = num;              
         	num = 0;
+		break;
         }		
      }   
   }
@@ -1156,7 +1155,7 @@ function validate_portrange(o, v)
         alert(num + ' is not a valid port number!');
      else 	
         alert(o.value + ' is not a valid port range!');
-     o.value = "";   
+//     o.value = "";
      o.focus();
      return false;
   } 
