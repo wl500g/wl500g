@@ -1145,7 +1145,6 @@ function validate_portrange(o, v)
         {
         	prev = num;              
         	num = 0;
-		break;
         }		
      }   
   }
