@@ -629,6 +629,7 @@ int is_auth(void)
 	else return 0;
 }
 
+#ifdef REMOVE
 static int is_phyconnected(void)
 {	
 	int fd, err;
@@ -668,7 +669,6 @@ static int is_phyconnected(void)
 	}
 }
 
-#ifdef REMOVE
 int is_fileexist(char *filename)
 {
 	FILE *fp;

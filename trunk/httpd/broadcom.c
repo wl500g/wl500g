@@ -258,62 +258,6 @@ sys_refresh_lease(void)
 	eval("killall", sigusr1, "udhcpd");
 }
 
-/* Dump firewall log */
-static int
-ej_dumplog(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char buf[4096], *line, *next, *s;
-	int len, ret = 0;
-
-	time_t tm;
-	char *verdict, *src, *dst, *proto, *spt, *dpt;
-
-	if (klogctl(3, buf, 4096) < 0) {
-		websError(wp, 400, "Insufficient memory\n");
-		return -1;
-	}
-
-	for (next = buf; (line = strsep(&next, "\n"));) {
-		if (!strncmp(line, "<4>DROP", 7))
-			verdict = "denied";
-		else if (!strncmp(line, "<4>ACCEPT", 9))
-			verdict = "accepted";
-		else
-			continue;
-
-		/* Parse into tokens */
-		s = line;
-		len = strlen(s);
-		while (strsep(&s, " "));
-
-		/* Initialize token values */
-		time(&tm);
-		src = dst = proto = spt = dpt = "n/a";
-
-		/* Set token values */
-		for (s = line; s < &line[len] && *s; s += strlen(s) + 1) {
-			if (!strncmp(s, "TIME=", 5))
-				tm = strtoul(&s[5], NULL, 10);
-			else if (!strncmp(s, "SRC=", 4))
-				src = &s[4];
-			else if (!strncmp(s, "DST=", 4))
-				dst = &s[4];
-			else if (!strncmp(s, "PROTO=", 6))
-				proto = &s[6];
-			else if (!strncmp(s, "SPT=", 4))
-				spt = &s[4];
-			else if (!strncmp(s, "DPT=", 4))
-				dpt = &s[4];
-		}
-
-		ret += websWrite(wp, "%s %s connection %s to %s:%s from %s:%s\n",
-				 rfctime(&tm), proto, verdict, dst, dpt, src, spt);
-		ret += websWrite(wp, "<br>");
-	}
-
-	return ret;
-}
-
 struct lease_t {
 	unsigned char chaddr[16];
 	u_int32_t yiaddr;
@@ -418,6 +362,7 @@ sys_release(void)
 #endif
 }
 
+#ifdef REMOVE
 static int
 wan_restore_mac(webs_t wp)
 {
@@ -452,7 +397,7 @@ wan_restore_mac(webs_t wp)
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 /* Return WAN link state */
-static int
+int
 ej_wan_link(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *wan_ifname;
@@ -515,7 +460,7 @@ ej_wan_link(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 /* Display IP Address lease */
-static int
+int
 ej_wan_lease(int eid, webs_t wp, int argc, char_t **argv)
 {
 	unsigned long expires = 0;
@@ -582,9 +527,10 @@ ej_wan_iflist(int eid, webs_t wp, int argc, char_t **argv)
 
 	return ret;
 }
-
-
 #endif
+
+
+#endif // linux
 
 
 #ifdef REMOVE
