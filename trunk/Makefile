@@ -493,6 +493,13 @@ $(TOP)/httpd:
 httpd: $(TOP)/httpd
 	@true
 
+$(TOP)/utils:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - utils | tar -C $(TOP) -xf -
+
+utils: $(TOP)/utils
+	@true
+
 $(TOP)/www:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
