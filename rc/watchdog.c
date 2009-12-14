@@ -145,6 +145,8 @@ int sync_flag=0;
 long timestamp_g=0;
 int stacheck_interval=-1;
 
+/* forwards */
+int notice_rcamd(int flag);
 
 void gpio_write(char *dev, int mask, int value)
 {
@@ -407,7 +409,7 @@ int timecheck_item(char *activeDate, char *activeTime)
 {
 	#define DAYSTART (0)
 	#define DAYEND (60*60*23+60*59+59) //86399
-	int current, active, activeTimeStart, activeTimeEnd, i;
+	int current, active, activeTimeStart, activeTimeEnd;
 	time_t now;
 	struct tm *tm;
 
@@ -673,10 +675,9 @@ static void catch_sig(int sig)
 
 void sta_check(void)
 {
-	int ret, i;
+	int ret;
 	char *wl_ifname=nvram_safe_get("wl0_ifname");
 	char bssid[32];
-	int val;
 
 	if (stacheck_interval==-1)
 	{
@@ -701,7 +702,6 @@ void sta_check(void)
 	}
 	else 
 	{
-		char sbuf[128];
 		dprintf("disconnected\n");
 		stacheck_interval=STACHECK_PERIOD_DISCONNECT;
 
@@ -809,7 +809,7 @@ static void readyoff(int sig)
 }
 
 int 
-watchdog_main(int argc, char *argv[])
+watchdog_main()
 {
 	FILE *fp;
 

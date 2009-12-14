@@ -709,14 +709,15 @@ rc_signal(int sig)
 int
 do_timer(void)
 {
-	int interval = atoi(nvram_safe_get("timer_interval"));
 	time_t now;
 	struct tm gm, local;
 	struct timezone tz;
 
+#ifndef ASUS_EXT
+	int interval = atoi(nvram_safe_get("timer_interval"));
+
 	dprintf("%d\n", interval);
 
-#ifndef ASUS_EXT
 	if (interval == 0)
 		return 0;
 

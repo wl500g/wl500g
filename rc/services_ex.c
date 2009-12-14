@@ -63,18 +63,14 @@ enum
 char *PWCLIST[] = {"471","69a","46d","55d","41e","4cc","d81", NULL};
 char *OVLIST[] = {"5a9","813","b62", NULL};
 char buf_g[512];
-	
+
+int remove_usb_audio(char *product);
+
+
 void diag_PaN(void)
 {
 	FILE *fp;
-	char *token;
-    	char                                mfr[32];
-    	char                                model[64];
-    	int                                 fd;
-        int  i = 0;
         
-    	struct parport_splink_device_info   prn_info;
-
 	/* dump pci device */
 	fp=fopen("/proc/pci", "r");
 	if (fp!=NULL)
@@ -102,6 +98,12 @@ void diag_PaN(void)
 
 #ifdef PRINTER_SUPPORT
 #ifdef PARPORT_SUPPORT	
+	char *token;
+    	char                                mfr[32];
+    	char                                model[64];
+    	int                                 fd;
+    	struct parport_splink_device_info   prn_info;
+
     if( (fd=open("/dev/lp0", O_RDWR)) < 0 ) //Someone is opening the lp0
     {
         fp=fopen("/proc/sys/dev/parport/parport0/devices/lp/deviceid","r");
@@ -539,7 +541,7 @@ int stop_dhcpd(void)
 #endif // DNSMASQ
 
 int
-ddns_updated_main(int argc, char *argv[])
+ddns_updated_main()
 {
 	FILE *fp;
 	char buf[64], *ip;
@@ -774,12 +776,14 @@ start_misc(void)
 int
 stop_misc(void)
 {
-	int ret1 = eval("killall", "infosvr");
-	int ret2 = eval("killall", "watchdog");
+	int ret;
+
+	eval("killall", "infosvr");
+	ret = eval("killall", "watchdog");
 	stop_ntpc();
 
 	dprintf("done\n");
-	return(ret1);
+	return(ret);
 }
 
 #ifndef USB_SUPPORT
@@ -998,7 +1002,7 @@ stop_usb(void)
 
 void start_script(void)
 {
-	pid_t pid;
+//	pid_t pid;
 	FILE *fp;
 	char *script;
 	char runbuf[512];
@@ -1959,7 +1963,7 @@ usbhandler:
 
 /* stop necessary services for firmware upgrade */	
 int
-stop_service_main(int argc, char *argv[])
+stop_service_main()
 {
 	stop_misc();
 
@@ -1984,7 +1988,6 @@ int service_handle(void)
 {
 	char *service;
 	char tmp[100], *str;
-	int unit;
 	int pid;
 	char *ping_argv[] = { "ping", "-c2", "140.113.1.1", NULL};
 	FILE *fp;
