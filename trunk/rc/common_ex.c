@@ -123,7 +123,9 @@ void convert_asus_values()
 	char ifnames[36];
 	char sbuf[64];
 	int i, num;
+#ifdef RT2400_SUPPORT
 	FILE *fp;
+#endif
 
 	getsyspara();
 	/* convert country code from regulation_domain */
@@ -318,7 +320,7 @@ void convert_asus_values()
 	if (nvram_invmatch("wl_mode_ex", "ap"))
 	{
 		int wepidx=atoi(nvram_safe_get("wl0_key"));
-		char wepkey[64], wepname[16];
+		char wepname[16];
 
 		sprintf(sbuf, "wl join \"%s\"", nvram_safe_get("wl0_ssid"));
 
@@ -565,25 +567,6 @@ void convert_asus_values()
 	update_lan_status(1);
 
 	dprintf("end map\n");
-}
-
-
-static char *findpattern(char *target, char *pattern)
-{
-	char *find;
-	int len;
-
-	//printf("find : %s %s\n", target, pattern);
-
-	if ((find=strstr(target, pattern)))
-	{
-		len = strlen(pattern);
-		if (find[len]==';' || find[len]==0)
-		{
-			return find;
-		}
-	}
-	return NULL;
 }
 
 void update_lan_status(int isup)

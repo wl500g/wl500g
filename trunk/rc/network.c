@@ -242,8 +242,6 @@ start_lan(void)
 {
 	char *lan_ifname = nvram_safe_get("lan_ifname");
 	char name[80], *next;
-	char tmpstr[48];
-	int i, j;
 	int s;
 	struct ifreq ifr;
 
@@ -280,6 +278,9 @@ start_lan(void)
 			if (eval("wlconf", name, "up"))
 			{
 #ifdef RT2400_SUPPORT
+				char tmpstr[48];
+				int i, j;
+
 				if (strcmp(name, "eth2")==0)
 				{
 					// added by Joey for WL500b + WL127
@@ -1036,7 +1037,7 @@ stop_wan(void)
 void
 stop_wan2(void)
 {
-	char name[80], *next, signal[] = "XXXX";
+	char signal[] = "XXXX";
 	
 	eval("killall", "stats");
 	eval("killall", "ntpclient");

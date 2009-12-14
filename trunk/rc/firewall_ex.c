@@ -101,7 +101,8 @@ char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	return (g_buf_alloc(g_buf));
 }
 
-static char *portrange_ex_conv(char *port_name, int idx)
+#ifdef REMOVE
+char *portrange_ex_conv(char *port_name, int idx)
 {
 	char *port, *strptr;
 	char itemname_arr[32];
@@ -137,6 +138,7 @@ static char *portrange_ex_conv(char *port_name, int idx)
 	
 	return(g_buf_alloc(g_buf));
 }
+#endif
 
 char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 {
