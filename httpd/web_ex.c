@@ -158,21 +158,6 @@ reltime(unsigned int seconds)
 /*
  *	Redirect the user to another webs page
  */
- 
-static char *getip(FILE *fp)
-{     
-    //getpeername(fd, &addr, &addrlen);
-    if (next_host==NULL || strcmp(next_host, "")==0)    
-    {
-	
-       return(nvram_get_x("BRIPAddress","lan_ipaddr"));	
-    }
-    else
-{
-	
-       return(next_host);
-}
-} 
 
 void websRedirect(webs_t wp, char_t *url)
 {	
@@ -532,13 +517,14 @@ ej_nvram_match_both_x(int eid, webs_t wp, int argc, char_t **argv)
         }	
 }
 
+#ifdef REMOVE
 /*
  * Example: 
  * wan_proto=dhcp
  * <% nvram_match_both("wan_proto", "dhcp", "selected", "not"); %> produces "selected"
  * <% nvram_match_both("wan_proto", "static", "selected", "not"); %> produces "not"
  */
-static int
+int
 ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 {
 	char *sid, *name, *match, *output, *output_ex;
@@ -554,7 +540,7 @@ ej_nvram_match_list_both_x(int eid, webs_t wp, int argc, char_t **argv)
 	else
 	        return websWrite(wp, output_ex);		
 }	
-
+#endif
 
 /*
  * Example: 
@@ -764,8 +750,9 @@ ej_uptime(int eid, webs_t wp, int argc, char_t **argv)
 	return ret;	    
 }
 
+#ifdef REMOVE
 /* Dump firewall log */
-static int
+int
 ej_dumplog(int eid, webs_t wp, int argc, char_t **argv)
 {
 	#define MAX_LOG_BUF 2048
@@ -1043,6 +1030,7 @@ ej_dumpiptable(int eid, webs_t wp, char *iptable_file)
 
 	return ret;
 }
+#endif
 
 static int dump_file(webs_t wp, char *filename)
 {
@@ -1130,21 +1118,6 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	sys_script(script);
 	return(websWrite(wp,""));						    
 }	
-
-/* Return PPPoE link state */
-static int
-ej_ppplink(int eid, webs_t wp, int argc, char_t **argv)
-{
-	FILE *fp = fopen("/tmp/ppp/link", "r");
-
-	if (!fp)
-		return websWrite(wp, "Down");
-	else {
-		fclose(fp);
-		return websWrite(wp, "Up");
-	}
-}
-
 
 
 static void
@@ -1246,41 +1219,6 @@ char *svc_pop_list(char *value, char key)
     return(NULL);
 }
 
-static int special_handler(webs_t wp, char_t *url)
-{
-    #define MAX_SERVICES 5	
-    char *flag;
-    char *svc[MAX_SERVICES] = {"80","5190","554","23","20:21"};
-    char *sid="FirewallConfig";
-    char name[24];	
-    int i, count;
-    	  	
-    if ((flag = websGetVar(wp, "FirewallConfig_LanWanActiveSVCFlag", NULL)) && strcmp(flag,""))
-    {   
-    	count  = 0; 	        	    
-        for(i=0;i<MAX_SERVICES;i++)
-        { 
-			//printf("Save SVC:%d %s\n", i, svc[i]);         	 	    				
-
-    	    if (flag[i] == '1')
-    	    { 	    	    		
-    	        sprintf(name, "LanWanSrcIP%d", count);
-    	        nvram_set_x(sid, name, "");
-    	        sprintf(name, "LanWanSrcPort%d", count);
-    	        nvram_set_x(sid, name, "");
-    	        sprintf(name, "LanWanDstIP%d", count);
-    	        nvram_set_x(sid, name, "");
-    	        sprintf(name, "LanWanDstPort%d", count);
-    	        nvram_set_x(sid, name, svc[i]);
-    	        sprintf(name, "LanWanProFlag%d", count);
-    	        nvram_set_x(sid, name, "TCP");
-    	        count++;
-    	    }	    		    	    
-    	}  
-    	sprintf(name, "%d", count);  		
-    	nvram_set_x(sid, "LanWanRuleCount", name);
-    }    	
-}
 
 static int
 apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, 
@@ -1458,12 +1396,6 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
     
 	printf("apply????\n");
 	
-    	/* Add for Internet Access Quick Setup */
-    	//special_handler(wp, url);
-    	
-	/* Add for NVRAM mapping if necessary */
-	//nvMap(current_url);
-
     	/* Add for EMI Test page */
     	if (strcmp(script, "")!=0)
     	{    	      	   
@@ -2611,15 +2543,6 @@ ej_select_list(int eid, webs_t wp, int argc, char_t **argv)
 	return ret;
 }
 
-
-static int nvMap(char_t *url)
-{
-	cprintf("MAP:%s\n", url);
-	if (strcmp(url, "Advanced_StorageUser_Content.asp")==0)
-	{
-		setSharedEntry(atoi(nvram_get("sh_path_x")));	
-	}
-}
 
 struct ej_handler ej_handlers[] = {
 	{ "nvram_get_x", ej_nvram_get_x},

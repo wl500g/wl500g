@@ -22,7 +22,7 @@ SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
-BUSYBOX=busybox-1.15.2
+BUSYBOX=busybox-1.15.3
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.51
 P910ND=p910nd-0.93
@@ -513,6 +513,20 @@ $(TOP)/httpd:
 httpd: $(TOP)/httpd
 	@true
 
+$(TOP)/shared:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - shared | tar -C $(TOP) -xf -
+
+shared: $(TOP)/shared
+	@true
+
+$(TOP)/utils:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - utils | tar -C $(TOP) -xf -
+
+utils: $(TOP)/utils
+	@true
+
 $(TOP)/www:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
@@ -520,8 +534,6 @@ $(TOP)/www:
 www: $(TOP)/www
 	@true
 
-shared-diff:
-	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \

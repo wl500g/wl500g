@@ -144,7 +144,7 @@ mtd_flash(const char *path, const char *mtd)
 	}
 	
 	if (stats.st_size > mtd_info.size) {
-		fprintf(stderr, "%s: File is too big (%ld, max %ld)\n", path,
+		fprintf(stderr, "%s: File is too big (%ld, max %d)\n", path,
 				stats.st_size, mtd_info.size);
 		goto fail;
 	}

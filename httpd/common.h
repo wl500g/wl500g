@@ -30,7 +30,7 @@ struct variable {
 	char *name;
 	char *longname;
 	int (*validate)(char *value, struct variable *v);
-	char **argv;	
+	char **argv;
 	int nullok;
 	int event;
 };
@@ -54,7 +54,7 @@ struct svcLink
       struct action *actions;
 };
 
-#define ARGV(args...) ((char *[]) { args, NULL })
+#define ARGV(args...) ((char *[]) { (char *) args, NULL })
 
 
 #ifdef __cplusplus

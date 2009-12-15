@@ -32,13 +32,16 @@ void update_lan_status(int isup);
 void update_wan_status(int isup);
 char *pppstatus(char *buf);
 void convert_asus_values();
+void convert_country();
+void convert_routes();
 char *mac_conv(char *mac_name, int idx, char *buf);
 
-/* dns */
-void dns_query(char *svrip, char *hostname, char qtype, char *ret);
+int wsrom_main(char *devname, unsigned int pos, unsigned short val);
+int rsrom_main(char *devname, unsigned int pos, int pflag);
 
 /* udhcpc scripts */
 int udhcpc_main(int argc, char **argv);
+int udhcpc_ex_main(int argc, char **argv);
 
 /* ppp scripts */
 int ipup_main(int argc, char **argv);
@@ -50,6 +53,7 @@ int http_get(const char *server, char *buf, size_t count, off_t offset);
 int http_post(const char *server, char *buf, size_t count);
 int http_stats(const char *url);
 int http_check(const char *server, char *buf, size_t count, off_t offset);
+int http_check_pid(const char *pidfile);
 
 /* init */
 int console_init(void);
@@ -84,8 +88,12 @@ int start_bpalogin(void);
 int stop_bpalogin(void);
 void start_qos(char *wan_ipaddr);
 void setup_ethernet(char *wan_if);
+int write_mac(char *devname, char *mac);
+int bpa_connect_main(int argc, char **argv);
+int bpa_disconnect_main(int argc, char **argv);
 
 /* services */
+int stop_service_main();
 int start_httpd(void);
 int start_dhcpd(void);
 int stop_dhcpd(void);
@@ -118,8 +126,17 @@ int hotplug_usb(void);
 int hotplug_usb_mass(char *product);
 int hotplug_usb_webcam(char *product, int webflag);
 int hotplug_usb_audio(char *product);
+int remove_webcam_main(int webflag);
+int remove_storage_main();
+int restart_ftpd();
+int ddns_updated_main();
+int sendalarm_main(int argc, char *argv[]);
+int rcamd_main(void);
+int waveserver_main(void);
 int service_handle(void);
 int mkdir_if_none(char *dir);
+void diag_PaN(void);
+int wlan_update();
 
 /* firewall */
 #ifdef __CONFIG_NETCONF__
@@ -135,5 +152,10 @@ int start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip);
 
 /* routes */
 int preset_wan_routes(char *ifname);
+
+/* watchdog */
+int refresh_wave(void);
+int poweron_main(int argc, char *argv[]);
+int watchdog_main();
 
 #endif /* _rc_h_ */
