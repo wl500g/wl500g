@@ -218,3 +218,32 @@ struct nvram_tuple router_defaults[] = {
 
 	{ 0, 0, 0 }
 };
+
+/*.
+ * Find nvram param name; return pointer which should be treated as const
+ * return NULL if not found.
+ *
+ * NOTE:  This routine special-cases the variable wl_bss_enabled.  It will
+ * return the normal default value if asked for wl_ or wl0_.  But it will
+ * return 0 if asked for a virtual BSS reference like wl0.1_.
+ */
+char *
+nvram_default_get(const char *name)
+{
+        int idx;
+
+        if (strcmp(name, "wl_bss_enabled") == 0) {
+                if (name[3] == '.' || name[4] == '.') { /* Virtual interface */
+                        return "0";
+                }
+        }
+
+        for (idx = 0; router_defaults[idx].name != NULL; idx++) {
+                if (strcmp(router_defaults[idx].name, name) == 0) {
+                        return router_defaults[idx].value;
+                }
+        }
+
+        return NULL;
+}
+
