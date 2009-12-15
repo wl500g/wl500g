@@ -229,8 +229,7 @@ all: $(obj-y)
 
 clean: $(obj-clean) config-clean
 	rm -rf $(TARGETDIR)
-	rm -f $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
-	rm -f full usb20 lite
+	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 	$(MAKE) -C $(LINUXDIR) clean
 
 distclean mrproper: clean

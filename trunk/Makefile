@@ -493,6 +493,13 @@ $(TOP)/httpd:
 httpd: $(TOP)/httpd
 	@true
 
+$(TOP)/shared:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - shared | tar -C $(TOP) -xf -
+
+shared: $(TOP)/shared
+	@true
+
 $(TOP)/utils:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - utils | tar -C $(TOP) -xf -
@@ -507,8 +514,6 @@ $(TOP)/www:
 www: $(TOP)/www
 	@true
 
-shared-diff:
-	$(call make_diff,-BurpN -xbcmconfig.h,router,gateway,shared)
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
