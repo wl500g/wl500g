@@ -780,7 +780,7 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 	for (pri=0;pri < MAX_NVPARSE; pri++){
 		snprintf(varname,sizeof(varname),
 					"wl%d_ifname",pri);
-		if (nvram_match(varname,(char *)osifname)){
+		if (nvram_match(varname,osifname)) {
 					snprintf(nvifname_buf,nvifname_buf_len,"wl%d",pri);
 					return 0;
 				}
@@ -791,7 +791,7 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 		for (sec=0;sec< MAX_NVPARSE; sec++){
 			snprintf(varname,sizeof(varname),
 					"wl%d.%d_ifname",pri,sec);
-			if (nvram_match(varname,(char *)osifname)){
+			if (nvram_match(varname,osifname)) {
 					snprintf(nvifname_buf,nvifname_buf_len,"wl%d.%d",pri,sec);
 					return 0;
 				}

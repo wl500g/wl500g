@@ -1066,20 +1066,24 @@
  
  /*
   * Match an NVRAM variable.
-@@ -69,7 +91,7 @@
+@@ -69,8 +91,8 @@
+  *		to match or FALSE otherwise
   */
  static INLINE int
- nvram_match(char *name, char *match) {
+-nvram_match(char *name, char *match) {
 -	const char *value = BCMINIT(nvram_get)(name);
++nvram_match(const char *name, const char *match) {
 +	const char *value = nvram_get(name);
  	return (value && !strcmp(value, match));
  }
  
-@@ -82,7 +104,7 @@
+@@ -82,8 +104,8 @@
+  *		equal to invmatch or FALSE otherwise
   */
  static INLINE int
- nvram_invmatch(char *name, char *invmatch) {
+-nvram_invmatch(char *name, char *invmatch) {
 -	const char *value = BCMINIT(nvram_get)(name);
++nvram_invmatch(const char *name, const char *invmatch) {
 +	const char *value = nvram_get(name);
  	return (value && strcmp(value, invmatch));
  }
