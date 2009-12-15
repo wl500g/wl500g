@@ -38,7 +38,7 @@ struct mii_data {
 #define  MII_BMCR_RESTART	0x0200
 #define  MII_BMCR_DUPLEX	0x0100
 #define  MII_BMCR_COLTEST	0x0080
-#define  MII_BMCR_SPEED1000	0x0040
+#define  MII_BMCR_1000MBIT	0x0040
 
 /* Basic Mode Status Register */
 #define MII_BMSR		0x01
@@ -66,7 +66,7 @@ struct mii_data {
 #define  MII_AN_NEXT_PAGE	0x8000
 #define  MII_AN_ACK		0x4000
 #define  MII_AN_REMOTE_FAULT	0x2000
-#define  MII_AN_ABILITY_MASK	0x07e0
+#define  MII_AN_ABILITY_MASK	(MII_AN_FLOW_CONTROL|MII_AN_100BASET4|MII_AN_100BASETX_FD|MII_AN_100BASETX_HD|MII_AN_10BASET_FD|MII_AN_10BASET_HD)
 #define  MII_AN_FLOW_CONTROL	0x0400
 #define  MII_AN_100BASET4	0x0200
 #define  MII_AN_100BASETX_FD	0x0100
@@ -84,15 +84,20 @@ struct mii_data {
 #define  MII_ANER_PAGE_RX	0x0002
 #define  MII_ANER_LP_AN_ABLE	0x0001
 
+/* Gigabit Registers */
 #define MII_CTRL1000		0x09
-#define   MII_BMCR2_1000FULL	0x0200
-#define   MII_BMCR2_1000HALF	0x0100
+#define   MII_AN2_1000FULL	0x0200
+#define   MII_AN2_1000HALF	0x0100
 
 #define MII_STAT1000		0x0a
-#define   MII_LPA2_1000LOCALOK  0x2000
-#define   MII_LPA2_1000REMRXOK	0x1000
 #define   MII_LPA2_1000FULL	0x0800
 #define   MII_LPA2_1000HALF	0x0400
+
+#define MII_ESTAT1000		0x0f
+#define   MII_EST_1000THALF	0x1000		/* 1000BASE-T half duplex capable */
+#define   MII_EST_1000TFULL	0x2000		/* 1000BASE-T full duplex capable */
+#define   MII_EST_1000XHALF	0x4000		/* 1000BASE-X half duplex capable */
+#define   MII_EST_1000XFULL	0x8000		/* 1000BASE-X full duplex capable */
 
 /* Last register we need for show_basic_mii() */
 #define MII_BASIC_MAX		(MII_STAT1000+1)

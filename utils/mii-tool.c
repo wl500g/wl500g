@@ -30,7 +30,7 @@
 */
 
 static char version[] =
-"mii-tool.c 1.9 2000/04/28 00:56:08 (David Hinds)\n";
+"mii-tool.c 1.9.1 2000/04/28 00:56:08 (David Hinds)\n";
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -106,11 +106,10 @@ static unsigned int
     opt_reset = 0,
     opt_log = 0,
     opt_watch = 0;
-static int nway_advertise = 0;
-static int fixed_speed = 0;
+static u_long nway_advertise = 0;
+static u_long fixed_speed = 0;
 static int override_phy = -1;
 
-static int skfd = -1;		/* AF_INET socket for ioctl() calls. */
 static struct ifreq ifr;
 
 /*--------------------------------------------------------------------*/
@@ -145,43 +144,43 @@ const struct {
     u_short	value[2];
 } media[] = {
     /* The order through 100baseT4 matches bits in the BMSR */
-    { "10baseT-HD",	{MII_AN_10BASET_HD} },
-    { "10baseT-FD",	{MII_AN_10BASET_FD} },
-    { "100baseTx-HD",	{MII_AN_100BASETX_HD} },
-    { "100baseTx-FD",	{MII_AN_100BASETX_FD} },
-    { "100baseT4",	{MII_AN_100BASET4} },
-    { "100baseTx",	{MII_AN_100BASETX_FD | MII_AN_100BASETX_HD} },
-    { "10baseT",	{MII_AN_10BASET_FD | MII_AN_10BASET_HD} },
+    { "10baseT-HD",	{MII_AN_10BASET_HD,   0} },
+    { "10baseT-FD",	{MII_AN_10BASET_FD,   0} },
+    { "100baseTx-HD",	{MII_AN_100BASETX_HD, 0} },
+    { "100baseTx-FD",	{MII_AN_100BASETX_FD, 0} },
+    { "100baseT4",	{MII_AN_100BASET4,    0} },
+    { "100baseTx",	{MII_AN_100BASETX_FD | MII_AN_100BASETX_HD, 0} },
+    { "10baseT",	{MII_AN_10BASET_FD | MII_AN_10BASET_HD, 0} },
 
-    { "1000baseT-HD",	{0, MII_BMCR2_1000HALF} },
-    { "1000baseT-FD",	{0, MII_BMCR2_1000FULL} },
-    { "1000baseT",	{0, MII_BMCR2_1000HALF|MII_BMCR2_1000FULL} },
+    { "1000baseT-HD",	{0, MII_AN2_1000HALF} },
+    { "1000baseT-FD",	{0, MII_AN2_1000FULL} },
+    { "1000baseT",	{0, MII_AN2_1000HALF|MII_AN2_1000FULL} },
 };
 #define NMEDIA (sizeof(media)/sizeof(media[0]))
 	
 /* Parse an argument list of media types */
-static int parse_media(char *arg, unsigned *bmcr2)
+static u_long parse_media(char *arg)
 {
-    int mask, i;
+    int i;
+    u_long mask;
     char *s;
+
     mask = strtoul(arg, &s, 16);
     if ((*arg != '\0') && (*s == '\0')) {
 	if ((mask & MII_AN_ABILITY_MASK) &&
 	    !(mask & ~MII_AN_ABILITY_MASK)) {
-		*bmcr2 = 0;
 		return mask;
 	}
 	goto failed;
     }
     mask = 0;
-    *bmcr2 = 0;
     s = strtok(arg, ", ");
     do {
 	    for (i = 0; i < NMEDIA; i++)
 		if (strcasecmp(media[i].name, s) == 0) break;
 	    if (i == NMEDIA) goto failed;
 	    mask |= media[i].value[0];
-	    *bmcr2 |= media[i].value[1];
+	    mask |= media[i].value[1] << 16;
     } while ((s = strtok(NULL, ", ")) != NULL);
 
     return mask;
@@ -198,15 +197,10 @@ static const char *media_list(unsigned mask, unsigned mask2, int best)
     int i;
     *buf = '\0';
 
-    if (mask & MII_BMCR_SPEED1000) {
-	if (mask2 & MII_BMCR2_1000HALF) {
+    for (i = 8; i >= 7; i--) {
+	if (mask2 & media[i].value[1]) {
 	    strcat(buf, " ");
-	    strcat(buf, "1000baseT-HD");
-	    if (best) goto out;
-	}
-	if (mask2 & MII_BMCR2_1000FULL) {
-	    strcat(buf, " ");
-	    strcat(buf, "1000baseT-FD");
+	    strcat(buf, media[i].name);
 	    if (best) goto out;
 	}
     }
@@ -252,7 +246,7 @@ int show_basic_mii(int sock, int phy_id)
 	    if (advert & lkpar) {
 		strcat(buf, (lkpar & MII_AN_ACK) ?
 		       "negotiated" : "no autonegotiation,");
-		strcat(buf, media_list(advert & lkpar, bmcr2 & lpa2>>2, 1));
+		strcat(buf, media_list(advert & lkpar, bmcr2 & (lpa2>>2), 1));
 		strcat(buf, ", ");
 	    } else {
 		strcat(buf, "autonegotiation failed, ");
@@ -262,10 +256,9 @@ int show_basic_mii(int sock, int phy_id)
 	}
     } else {
 	sprintf(buf+strlen(buf), "%s Mbit, %s duplex, ",
-		((bmcr2 & (MII_BMCR2_1000HALF | MII_BMCR2_1000FULL)) & lpa2 >> 2)
-		? "1000"
+		 (bmcr & MII_BMCR_1000MBIT) ? "1000"
 		: (bmcr & MII_BMCR_100MBIT) ? "100" : "10",
-		(bmcr & MII_BMCR_DUPLEX) ? "full" : "half");
+		   (bmcr & MII_BMCR_DUPLEX) ? "full" : "half");
     }
     strcat(buf, (bmsr & MII_BMSR_LINK_VALID) ? "link ok" : "no link");
 
@@ -315,7 +308,8 @@ int show_basic_mii(int sock, int phy_id)
 	    printf("autonegotiation enabled\n");
 	} else {
 	    printf("%s Mbit, %s duplex\n",
-		   (bmcr & MII_BMCR_100MBIT) ? "100" : "10",
+		 (bmcr & MII_BMCR_1000MBIT) ? "1000"
+		: (bmcr & MII_BMCR_100MBIT) ? "100" : "10",
 		   (bmcr & MII_BMCR_DUPLEX) ? "full" : "half");
 	}
 	printf("  basic status: ");
@@ -360,7 +354,11 @@ static int do_one_xcvr(int skfd, char *ifname, int maybe)
 	mdio_write(skfd, MII_BMCR, MII_BMCR_RESET);
     }
     if (nway_advertise) {
-	mdio_write(skfd, MII_ANAR, nway_advertise | 1);
+	int adv2 = mdio_read(skfd, MII_CTRL1000);
+	adv2 &= ~(MII_AN2_1000HALF|MII_AN2_1000FULL);
+	adv2 |= (nway_advertise >> 16) & (MII_AN2_1000HALF|MII_AN2_1000FULL);
+	mdio_write(skfd, MII_CTRL1000, adv2);
+	mdio_write(skfd, MII_ANAR, (nway_advertise | 1) & 0xFFFF);
 	opt_restart = 1;
     }
     if (opt_restart) {
@@ -370,9 +368,11 @@ static int do_one_xcvr(int skfd, char *ifname, int maybe)
     }
     if (fixed_speed) {
 	int bmcr = 0;
+	if (fixed_speed & ((MII_AN2_1000HALF<<16)|(MII_AN2_1000FULL<<16)))
+	    bmcr |= MII_BMCR_1000MBIT;
 	if (fixed_speed & (MII_AN_100BASETX_FD|MII_AN_100BASETX_HD))
 	    bmcr |= MII_BMCR_100MBIT;
-	if (fixed_speed & (MII_AN_100BASETX_FD|MII_AN_10BASET_FD))
+	if (fixed_speed & (MII_AN_100BASETX_FD|MII_AN_10BASET_FD|(MII_AN2_1000FULL<<16)))
 	    bmcr |= MII_BMCR_DUPLEX;
 	mdio_write(skfd, MII_BMCR, bmcr);
     }
@@ -419,19 +419,20 @@ const char *usage =
 "       -A, --advertise=media,...   advertise only specified media\n"
 "       -F, --force=media           force specified media technology\n"
 "       -p num                      override PHY port number\n"
-"media: 100baseT4, 100baseTx-FD, 100baseTx-HD, 10baseT-FD, 10baseT-HD,\n"
-"       (to advertise both HD and FD) 100baseTx, 10baseT\n";
+"media: 1000baseT-FD, 1000baseT-HD, 100baseT4, 100baseTx-FD, 100baseTx-HD,\n"
+"       10baseT-FD, 10baseT-HD,\n"
+"       (to advertise both HD and FD) 1000baseT, 100baseTx, 10baseT\n";
 
 int main(int argc, char **argv)
 {
+    int skfd = -1;		/* AF_INET socket for ioctl() calls. */
     int i, c, ret, errflag = 0;
     char s[6];
-    unsigned ctrl1000 = 0;
-    
+
     while ((c = getopt_long(argc, argv, "A:F:p:lrRvVw?", longopts, 0)) != EOF)
 	switch (c) {
-	case 'A': nway_advertise = parse_media(optarg, &ctrl1000); break;
-	case 'F': fixed_speed = parse_media(optarg, &ctrl1000); break;
+	case 'A': nway_advertise = parse_media(optarg); break;
+	case 'F': fixed_speed = parse_media(optarg); break;
 	case 'p': override_phy = atoi(optarg); break;
 	case 'r': opt_restart++;	break;
 	case 'R': opt_reset++;		break;

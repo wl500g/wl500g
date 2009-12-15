@@ -759,6 +759,8 @@ ucdsnmp-install:
 	install -D ucdsnmp/agent/snmpd $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
 
+utils: shared
+
 rp-l2tp/Makefile: rp-l2tp/Makefile.in
 	cd rp-l2tp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr
