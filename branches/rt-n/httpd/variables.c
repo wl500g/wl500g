@@ -4297,14 +4297,6 @@
       { 0, 0, 0, 0}
       };
   
-struct action actions_General[];
-struct action actions_FirewallConfig[];
-struct action actions_RouterConfig[];
-struct action actions_WLANConfig[];
-struct action actions_DeviceSecurity[];
-struct action actions_WLANAuthentication[];
-struct action actions_PrinterStatus[];
-
 struct variable variables_IPv6Config[] = {
 
 	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
@@ -4323,7 +4315,6 @@ struct variable variables_IPv6Config[] = {
 	
 	{ 0, 0, 0, 0}
 	};
-struct action actions_IPv6Config[];
 
 struct variable variables_WiMaxConfig[] = {
 	{"wimax_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
@@ -4332,7 +4323,6 @@ struct variable variables_WiMaxConfig[] = {
 	{ 0, 0, 0, 0}
 	};
 
-struct action actions_WiMaxConfig[];
 
 struct svcLink svcLinks[] = {            
            {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
@@ -4342,17 +4332,17 @@ struct svcLink svcLinks[] = {
            {"IPConnection", "urn:schemas-upnp-org:service:WANIPConnection:1", variables_IPConnection, actions_IPConnection},
            {"PPPConnection", "urn:schemas-upnp-org:service:WANPPPConnection:1", variables_PPPConnection, actions_PPPConnection},
            {"EthernetLink", "urn:schemas-upnp-org:service:WANEthernetLinkConfig:1", variables_EthernetLink, actions_EthernetLink},
-           {"FirewallConfig", "urn:schemas-upnp-org:service:FirewallConfig:1", variables_FirewallConfig, actions_FirewallConfig},
-           {"RouterConfig", "urn:schemas-upnp-org:service:RouterConfig:1", variables_RouterConfig, actions_RouterConfig},           
-           {"WLANConfig11a", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11a, actions_WLANConfig},
-           {"DeviceSecurity11a", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11a, actions_DeviceSecurity},
-           {"WLANAuthentication11a", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11a, actions_WLANAuthentication},
-           {"WLANConfig11b", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11b, actions_WLANConfig},
-           {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, actions_DeviceSecurity},
-           {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, actions_WLANAuthentication},         
-           {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, actions_PrinterStatus},
-	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, actions_IPv6Config},
-	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, actions_WiMaxConfig},
-           {0, 0, 0}
+           {"FirewallConfig", "urn:schemas-upnp-org:service:FirewallConfig:1", variables_FirewallConfig, NULL},
+           {"RouterConfig", "urn:schemas-upnp-org:service:RouterConfig:1", variables_RouterConfig, NULL},
+           {"WLANConfig11a", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11a, NULL},
+           {"DeviceSecurity11a", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11a, NULL},
+           {"WLANAuthentication11a", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11a, NULL},
+           {"WLANConfig11b", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11b, NULL},
+           {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, NULL},
+           {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, NULL},
+           {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, NULL},
+	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, NULL},
+	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, NULL},
+           {0, 0, 0, 0}
       };
 	

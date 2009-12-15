@@ -34,9 +34,7 @@ static void catch_sig(int sig)
 
 int waveserver_main(void)
 {
-	pid_t pid;
 	FILE *fp;
-	int ret;
 	
 	fp=fopen("/var/run/waveservermain.pid","w");
 	if (fp==NULL) exit(0);

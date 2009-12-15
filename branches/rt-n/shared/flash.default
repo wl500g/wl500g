@@ -1,0 +1,452 @@
+{"wan_mode_x", "2", 0},
+
+{"wan_etherspeed_x", "auto", 0},
+
+{"wan_route_x", "IP_Routed", 0},
+
+{"wan_ipaddr", "", 0},
+
+{"wan_netmask", "", 0},
+
+{"wan_gateway", "", 0},
+
+{"wan_dnsenable_x", "1", 0},
+
+{"wan_dns1_x", "", 0},
+
+{"wan_dns2_x", "", 0},
+
+{"wan_nat_x", "1", 0},
+
+{"dmz_ip", "", 0},
+
+{"sp_battle_ips", "0", 0},
+
+{"vts_enable_x", "1", 0},
+
+{"vts_num_x", "0", 0},
+
+{"autofw_enable_x", "0", 0},
+
+{"autofw_num_x", "0", 0},
+
+{"vts_port_x", "", 0},
+
+{"vts_ipaddr_x", "", 0},
+
+{"vts_lport_x", "", 0},
+
+{"vts_proto_x", "", 0},
+
+{"vts_protono_x", "", 0},
+
+{"vts_desc_x", "", 0},
+
+{"autofw_outport_x", "", 0},
+
+{"autofw_outproto_x", "", 0},
+
+{"autofw_inport_x", "", 0},
+
+{"autofw_inproto_x", "", 0},
+
+{"autofw_desc_x", "", 0},
+
+{"wan_pppoe_txonly_x", "0", 0},
+
+{"wan_pppoe_options_x", "", 0},
+
+{"wan_pptp_options_x", "", 0},
+
+{"wan_pppoe_relay_x", "0", 0},
+
+{"wan_hwaddr_x", "", 0},
+
+{"wan_heartbeat_x", "", 0},
+
+{"wan_proto_t", "", 0},
+
+{"wan_ipaddr_t", "", 0},
+
+{"wan_netmask_t", "", 0},
+
+{"wan_gateway_t", "", 0},
+
+{"wan_dns_t", "", 0},
+
+{"wan_status_t", "", 0},
+
+{"ddns_status_t", "", 0},
+
+{"fw_enable_x", "1", 0},
+
+{"fw_dos_x", "0", 0},
+
+{"fw_log_x", "none", 0},
+
+{"misc_natlog_x", "0", 0},
+
+{"misc_http_x", "0", 0},
+
+{"misc_httpport_x", "8080", 0},
+
+{"misc_lpr_x", "0", 0},
+
+{"misc_ping_x", "0", 0},
+
+{"misc_conntrack_x", "4096", 0},
+
+{"fw_wl_enable_x", "1", 0},
+
+{"filter_wl_date_x", "1111111", 0},
+
+{"filter_wl_time_x", "00002359", 0},
+
+{"filter_wl_default_x", "DROP", 0},
+
+{"filter_vs_default_x", "ACCEPT", 0},
+
+{"filter_wl_icmp_x", "", 0},
+
+{"fw_lw_enable_x", "0", 0},
+
+{"filter_lw_date_x", "1111111", 0},
+
+{"filter_lw_time_x", "00002359", 0},
+
+{"filter_lw_default_x", "DROP", 0},
+
+{"filter_lw_icmp_x", "", 0},
+
+{"url_enable_x", "0", 0},
+
+{"url_date_x", "1111111", 0},
+
+{"url_time_x", "00002359", 0},
+
+{"url_num_x", "0", 0},
+
+{"filter_wl_num_x", "0", 0},
+
+{"filter_lw_num_x", "0", 0},
+
+{"macfilter_enable_x", "disabled", 0},
+
+{"macfilter_num_x", "0", 0},
+
+{"filter_wl_srcip_x", "", 0},
+
+{"filter_wl_srcport_x", "", 0},
+
+{"filter_wl_dstip_x", "", 0},
+
+{"filter_wl_dstport_x", "", 0},
+
+{"filter_wl_proto_x", "", 0},
+
+{"filter_lw_srcip_x", "", 0},
+
+{"filter_lw_srcport_x", "", 0},
+
+{"filter_lw_dstip_x", "", 0},
+
+{"filter_lw_dstport_x", "", 0},
+
+{"filter_lw_proto_x", "", 0},
+
+{"url_keyword_x", "", 0},
+
+{"macfilter_list_x", "", 0},
+
+{"dr_enable_x", "1", 0},
+
+{"mr_enable_x", "0", 0},
+
+{"sr_enable_x", "0", 0},
+
+{"sr_rip_x", "0", 0},
+
+{"sr_num_x", "0", 0},
+
+{"dr_static_rip_x", "0", 0},
+
+{"dr_static_matric_x", "1", 0},
+
+{"dr_default_x", "1", 0},
+
+{"dr_static_rip_x", "0", 0},
+
+{"dr_staticnum_x", "0", 0},
+
+{"sr_ipaddr_x", "", 0},
+
+{"sr_netmask_x", "", 0},
+
+{"sr_gateway_x", "", 0},
+
+{"sr_matric_x", "", 0},
+
+{"sr_if_x", "", 0},
+
+{"dr_staticipaddr_x", "", 0},
+
+{"dr_staticnetmask_x", "0", 0},
+
+{"dr_staticgateway_x", "", 0},
+
+{"lan_proto_x", "1", 0},
+
+{"lan_ipaddr_t", "", 0},
+
+{"lan_netmask_t", "", 0},
+
+{"lan_gateway_t", "", 0},
+
+{"lan_hostname", "", 0},
+
+{"dhcp_enable_x", "1", 0},
+
+{"dhcp_gateway_x", "", 0},
+
+{"dhcp_dns1_x", "", 0},
+
+{"dhcp_wins_x", "", 0},
+
+{"dhcp_static_x", "0", 0},
+
+{"dhcp_staticnum_x", "0", 0},
+
+{"udpxy_enable_x", "0", 0},
+{"udpxy_wan_x", "0", 0},
+
+{"time_interval", "20", 0},
+
+{"ntp_server1", "", 0},
+
+{"ntp_interval_x", "2", 0},
+
+{"ddns_enable_x", "0", 0},
+
+{"ddns_server_x", "", 0},
+
+{"ddns_username_x", "", 0},
+
+{"ddns_passwd_x", "", 0},
+
+{"ddns_hostname_x", "", 0},
+
+{"ddns_wildcard_x", "0", 0},
+
+{"snmp_enable", "0", 0},
+{"snmp_community", "public", 0},
+{"snmp_contact", "Administrator", 0},
+{"snmp_location", "Unknown", 0},
+
+{"dhcp_staticmac_x", "", 0},
+{"dhcp_staticip_x", "", 0},
+{"dhcp_staticname_x", "", 0},
+
+{"wl_macapply_x", "Both", 0},
+
+{"wl_macnum_x", "0", 0},
+{"wl_maclist_x", "", 0},
+{"wl_macdesc_x", "", 0},
+
+{"wl_country_code", "", 0},
+
+{"wl_mode_x", "0", 0},
+
+{"wl_channel", "0", 0},
+
+{"wl_wdsapply_x", "0", 0},
+
+{"wl_wdsnum_x", "0", 0},
+
+{"wl_gmode", "1", 0},
+
+{"wl_gmode_protection_x", "0", 0},
+
+{"wl_crypto", "0", 0},
+
+{"wl_wep_x", "0", 0},
+
+{"wl_phrase_x", "", 0},
+
+{"wl_dtim", "1", 0},
+
+{"wl_frameburst", "0", 0},
+
+{"wl_mode_ex", "ap", 0},
+
+{"wl_radio_x", "1", 0},
+
+{"wl_radio_date_x", "1111111", 0},
+
+{"wl_radio_time_x", "00002359", 0},
+
+{"wl_radio_power_x", "19", 0},
+
+{"wl_preauth", "1", 0},
+
+{"wl_wdslist_x", "", 0},
+
+{"usb_webenable_x", "1", 0},
+
+{"usb_webmode_x", "1", 0},
+
+{"usb_webdriver_x", "0", 0},
+
+{"usb_webimage_x", "1", 0},
+
+{"usb_websense_x", "1", 0},
+
+{"usb_webrectime_x", "0", 0},
+
+{"usb_webfresh_x", "1", 0},
+
+{"usb_webcaption_x", "Web Camera Live Demo!!!", 0},
+
+{"usb_webhttpport_x", "7776", 0},
+
+{"usb_webhttpcheck_x", "0", 0},
+
+{"usb_webactivex_x", "7777", 0},
+
+{"usb_websecurity_x", "0", 0},
+
+{"usb_websecurity_date_x", "1111111", 0},
+
+{"usb_websecurity_time_x", "00002359", 0},
+
+{"usb_websendto_x", "", 0},
+
+{"usb_webmserver_x", "", 0},
+
+{"usb_websubject_x", "Motion detection alert!!!", 0},
+
+{"usb_webattach_x", "1", 0},
+
+{"usb_webremote_x", "LAN Only", 0},
+
+{"usb_webremote1_x", "", 0},
+
+{"usb_webremote2_x", "", 0},
+
+{"usb_webremote3_x", "", 0},
+
+{"usb_webremote4_x", "", 0},
+
+{"usb_webremote5_x", "", 0},
+
+{"usb_webremote6_x", "", 0},
+
+{"usb_storage_x", "1", 0},
+
+{"usb_smbenable_x", "0", 0},
+
+{"usb_smbhidden_x", "1", 0},
+
+{"usb_smbwrkgrp_x", "WORKGROUP", 0},
+
+{"usb_smbcpage_x", "866", 0},
+
+{"usb_smbcset_x", "utf8", 0},
+
+{"usb_smbnum_x", "0", 0},
+{"usb_smbdir_x", "", 0},
+{"usb_smbshare_x", "", 0},
+{"usb_smblevel_x", "", 0},
+{"usb_smbdesc_x", "", 0},
+
+{"usb_nfsenable_x", "0", 0},
+{"usb_nfsnum_x", "0", 0},
+{"usb_nfslist_x", "", 0},
+
+{"usb_ftpenable_x", "1", 0},
+
+{"usb_ftpanonymous_x", "1", 0},
+
+{"usb_ftpsuper_x", "0", 0},
+
+{"usb_ftpport_x", "21", 0},
+
+{"usb_ftppubroot_x", "ftp_pub", 0},
+
+{"usb_ftppvtroot_x", "ftp_pvt", 0},
+
+{"usb_ftpanonroot", "", 0},
+
+{"usb_ftpdirlist_x", "0", 0},
+
+{"usb_ftpmax_x", "12", 0},
+
+{"usb_ftpipmax_x", "1", 0},
+
+{"usb_ftptimeout_x", "120", 0},
+
+{"usb_ftpstaytimeout_x", "240", 0},
+
+{"usb_ftprate_x", "0", 0},
+
+{"usb_ftpanonrate_x", "0", 0},
+
+{"usb_ftpscript_x", "", 0},
+
+{"usb_ftpnum_x", "0", 0},
+
+{"usb_bannum_x", "0", 0},
+
+{"qos_enable_x", "0", 0},
+
+{"qos_rulenum_x", "0", 0},
+
+{"qos_urulenum_x", "0", 0},
+
+{"usb_ftpusername_x", "", 0},
+
+{"usb_ftppasswd_x", "", 0},
+
+{"usb_ftpmaxuser_x", "", 0},
+
+{"usb_ftprights_x", "", 0},
+
+{"usb_ftpbanip_x", "", 0},
+
+{"qos_ipaddr_x", "", 0},
+
+{"qos_port_x", "", 0},
+
+{"qos_maxbw_x", "", 0},
+
+{"qos_minbw_x", "", 0},
+
+{"qos_uport_x", "", 0},
+
+{"qos_umaxbw_x", "", 0},
+
+{"qos_uminbw_x", "", 0},
+
+{"telnet_enable", "1", 0},
+{"ssh_enable", "0", 0},
+{"ssh_port", "22", 0},
+{"recent_ssh_enable", "0", 0},
+{"recent_ftp_enable", "0", 0},
+{"recent_seconds", "600", 0},
+{"recent_hitcount", "3", 0},
+{"infosvr_enable", "1", 0},
+{"lpr_enable", "0", 0},
+{"raw_enable", "1", 0},
+{"audio_enable", "1", 0},
+{"usb20_disable_x", "0", 0},
+
+{"wl_nbw","40",0},
+{"wl_nctrlsb","lower",0},
+{"wl_nband","2",0},
+{"wl_nmcsidx","-1",0},
+{"wl_nmode","-1",0},
+{"wl_leddc","0x640000",0},
+{"wl_wme_apsd","on",0},
+{"wl_sta_retry_time","5",0},
+{"wl_reg_mode", "d", 0},
+{"wl_wpa_mode", "0", 0},
+

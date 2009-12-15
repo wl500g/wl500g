@@ -253,8 +253,7 @@ all: $(obj-y)
 
 clean: $(obj-clean) config-clean
 	rm -rf $(TARGETDIR)
-	rm -f $(PLATFORMDIR)/linux.trx $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
-	rm -f full usb20 lite
+	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 	$(MAKE) -C $(LINUXDIR) clean
 
 distclean mrproper: clean
@@ -431,7 +430,7 @@ manpages-install:
 	    igmpproxy/doc/igmpproxy.conf.5 vsftpd/vsftpd.conf.5 samba/docs/manpages/smb.conf.5 \
 	    ucdsnmp/man/snmpd.conf.5
 ifeq ($(CONFIG_IPV6),y)
-	make -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
+	$(MAKE) -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
 	    iptables/ip6tables.8 iptables/ip6tables-restore.8 iptables/ip6tables-save.8 
 endif
@@ -758,6 +757,8 @@ ucdsnmp-install:
 	install -D ucdsnmp/agent/snmpd $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
 
+utils: shared
+
 rp-l2tp/Makefile: rp-l2tp/Makefile.in
 	cd rp-l2tp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr
@@ -904,26 +905,26 @@ model-%:
 	#make shared-clean
 
 	( if [ "$*" = "WL500gx" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DWL500GX -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DWL500GX -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL500gp" -o "$*" = "RT-N16" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500GP -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500GP -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL500gpv2" -o "$*" = "WL520gu" -o "$*" = "WL330gE" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL520GX -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL520GX -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL700g" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL700G -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL700G -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL500W" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500W -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500W -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "WLHDD" ]; then \
-		make rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WLHDD -DQOS -DWPA2_WMM"; \
-		make infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WLHDD -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	fi )
 
 image-%:
@@ -965,7 +966,7 @@ images:
 	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
 
 %-diff:
-	make -C wl500g $*-diff
+	$(MAKE) -C wl500g $*-diff
 
 $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 

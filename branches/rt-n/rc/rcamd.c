@@ -34,9 +34,7 @@ static void catch_sig(int sig)
 
 int rcamd_main(void)
 {
-	pid_t pid;
 	FILE *fp;
-	int ret;
 	
 	fp=fopen("/var/run/rcamdmain.pid","w");
 	if (fp==NULL) exit(0);

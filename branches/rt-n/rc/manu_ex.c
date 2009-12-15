@@ -521,7 +521,7 @@ void
 RefreshBRCountry(char *regDmnName, char *country, char *country_code)
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;
-    int i, j, regDmnEnumEntries, newPrint = 0;
+    int i, regDmnEnumEntries;
     const REG_DMN_ENUM_FREQ_TABLE *pCcTable;    
     A_UINT16 lowChannel = 24, highChannel = 220;    
    
@@ -573,7 +573,7 @@ void
 RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;
-    int i, j, regDmnEnumEntries, newPrint = 0;
+    int i, j, regDmnEnumEntries;
     const REG_DMN_ENUM_FREQ_TABLE *pCcTable;
     A_UINT16 channelSpread, searchChannel, firstChannel;
     A_UINT16 lowChannel = 24, highChannel = 220;    
@@ -657,7 +657,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 }
 
 
-convert_country(void)
+void convert_country(void)
 {
 #ifdef REMOVE
     char *countrylist[]=
@@ -776,16 +776,16 @@ rsrom_main(char *devname, unsigned int pos, int pflag)
 	unsigned short *oval;
 	char buf[MAXBUF];
 	srom_rw_t *srom;
-	unsigned int val;
+	unsigned short val;
 
-	srom = buf;
+	srom = (srom_rw_t *)buf;
 	srom->byteoff=pos;
 	srom->nbytes=2; //sizeof(val);
 	
 	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
 	{
-		oval =(unsigned int)(buf + 8);
-		val = (unsigned int)*oval;
+		oval =(unsigned short *)(buf + 8);
+		val = (unsigned short)*oval;
 	}
 	else val = 0;
 
@@ -802,13 +802,13 @@ wsrom_main(char *devname, unsigned int pos, unsigned short val)
 	srom_rw_t *srom;
 	/* Usage srom [postion] [val in 2 byte] */
 	dprintf("write %s srom[%x] : %x\n", devname, pos, val);	
-	srom = buf;
+	srom = (srom_rw_t *)buf;
 	srom->byteoff=pos;
 	srom->nbytes=2; //sizeof(val);
 	
 	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0)
 	{
-		oval =(unsigned int)(buf + 8);
+		oval =(unsigned short *)(buf + 8);
 
 		if (*oval!=val)
 		{
@@ -818,14 +818,14 @@ wsrom_main(char *devname, unsigned int pos, unsigned short val)
 	return 0;
 }
 
-void write_mac(char *devname, char *mac)
+int write_mac(char *devname, char *mac)
 {
-	int cmd, result, i, j;
+	int result, i;
 	char buf[MAXBUF], macstr[32], s[3];
 	unsigned char t;	
 	srom_rw_t *srom;
 
-	if (strlen(mac)!=17) return;
+	if (strlen(mac)!=17) return -1;
 
 	//printf("dev: %s, mac : %s\n", devname, mac);
 
@@ -839,23 +839,19 @@ void write_mac(char *devname, char *mac)
 		else macstr[i-1] = t ;
 	}
 
-	srom=buf;
+	srom=(srom_rw_t *)buf;
 	srom->byteoff=72;
 	srom->nbytes=6;
 
 	memcpy(buf+8, macstr, 6);
 	result = wl_ioctl(devname, WLC_SET_SROM, buf, MAXBUF);
-	return;
+	return result;
 }
 
 
 int
 wlan_update()
 {
-	int result;
-	unsigned short *oval;
-	char buf[MAXBUF];
-	srom_rw_t *srom;
 	unsigned short val;
 
 	/* update eerpom for driver 3.90.x.x */

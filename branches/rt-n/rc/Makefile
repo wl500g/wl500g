@@ -37,7 +37,7 @@ ifeq ($(CONFIG_SENTRY5),y)
 include $(TOP)/rc/Makefiles5.mk
 endif
 
-vpath %.c $(TOP)/shared $(SRCBASE)/rts/src
+vpath %.c $(SRCBASE)/rts/src
 
 all: rc
 
