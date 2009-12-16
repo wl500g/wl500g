@@ -38,9 +38,10 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+	fprintf(stderr, "Usage: ip tunnel { add | change | del | show | 6rd } [ NAME ]\n");
 	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]\n");
 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+	fprintf(stderr, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Where: NAME := STRING\n");
@@ -313,11 +314,13 @@ static int do_del(int argc, char **argv)
 
 static void print_tunnel(struct ip_tunnel_parm *p)
 {
+	struct ip_tunnel_6rd ip6rd;
 	char s1[1024];
 	char s2[1024];
 	char s3[64];
 	char s4[64];
 
+	memset(&ip6rd, 0, sizeof(ip6rd));
 	inet_ntop(AF_INET, &p->i_key, s3, sizeof(s3));
 	inet_ntop(AF_INET, &p->o_key, s4, sizeof(s4));
 
@@ -353,6 +356,17 @@ static void print_tunnel(struct ip_tunnel_parm *p)
 
 	if (!(p->iph.frag_off&htons(IP_DF)))
 		printf(" nopmtudisc");
+
+	if (p->iph.protocol == IPPROTO_IPV6 && !tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
+		printf(" 6rd-prefix %s/%u ",
+		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
+		       ip6rd.prefixlen);
+		if (ip6rd.relay_prefix) {
+			printf("6rd-relay_prefix %s/%u ",
+			       format_host(AF_INET, 4, &ip6rd.relay_prefix, s1, sizeof(s1)),
+			       ip6rd.relay_prefixlen);
+		}
+	}
 
 	if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) && p->o_key == p->i_key)
 		printf(" key %s", s3);
@@ -476,6 +490,52 @@ static int do_show(int argc, char **argv)
 	return 0;
 }
 
+static int do_6rd(int argc, char **argv)
+{
+	struct ip_tunnel_6rd ip6rd;
+	int devname = 0;
+	int cmd = 0;
+	char medium[IFNAMSIZ];
+	inet_prefix prefix;
+
+	memset(&ip6rd, 0, sizeof(ip6rd));
+	memset(&medium, 0, sizeof(medium));
+
+	while (argc > 0) {
+		if (strcmp(*argv, "6rd-prefix") == 0) {
+			NEXT_ARG();
+			if (get_prefix(&prefix, *argv, AF_INET6))
+				invarg("invalid 6rd_prefix\n", *argv);
+			cmd = SIOCADD6RD;
+			memcpy(&ip6rd.prefix, prefix.data, 16);
+			ip6rd.prefixlen = prefix.bitlen;
+		} else if (strcmp(*argv, "6rd-relay_prefix") == 0) {
+			NEXT_ARG();
+			if (get_prefix(&prefix, *argv, AF_INET))
+				invarg("invalid 6rd-relay_prefix\n", *argv);
+			cmd = SIOCADD6RD;
+			memcpy(&ip6rd.relay_prefix, prefix.data, 4);
+			ip6rd.relay_prefixlen = prefix.bitlen;
+		} else if (strcmp(*argv, "6rd-reset") == 0) {
+			cmd = SIOCDEL6RD;
+		} else if (strcmp(*argv, "dev") == 0) {
+			NEXT_ARG();
+			strncpy(medium, *argv, IFNAMSIZ-1);
+			devname++;
+		} else {
+			fprintf(stderr,"%s: Invalid 6RD parameter.\n", *argv);
+			exit(-1);
+		}
+		argc--; argv++;
+	}
+	if (devname == 0) {
+		fprintf(stderr, "Must specify dev.\n");
+		exit(-1);
+	}
+
+	return tnl_6rd_ioctl(cmd, medium, &ip6rd);
+}
+
 int do_iptunnel(int argc, char **argv)
 {
 	switch (preferred_family) {
@@ -507,6 +567,8 @@ int do_iptunnel(int argc, char **argv)
 		    matches(*argv, "lst") == 0 ||
 		    matches(*argv, "list") == 0)
 			return do_show(argc-1, argv+1);
+		if (matches(*argv, "6rd") == 0)
+			return do_6rd(argc-1, argv+1);
 		if (matches(*argv, "help") == 0)
 			usage();
 	} else
