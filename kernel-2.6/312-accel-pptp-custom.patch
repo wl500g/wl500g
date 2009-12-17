@@ -1,0 +1,121 @@
+1. disabled ffs routines redefine
+2. used route-default ttl & df bit
+3. fixed 2.6.22 kernel compability
+4. allowed old lcp echo packets, thnx McMCC@wl500g.info
+5. fixed NF_HOOK call
+
+diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
+--- linux-2.6.22.orig/drivers/net/pptp.c	2009-12-05 08:44:40.000000000 +0000
++++ linux-2.6/drivers/net/pptp.c	2009-12-05 08:45:56.000000000 +0000
+@@ -21,7 +21,7 @@
+ #include <linux/init.h>
+ #include <linux/ppp_channel.h>
+ #include <linux/ppp_defs.h>
+-#include "if_pppox.h"
++#include <linux/if_pppox.h>
+ #include <linux/if_ppp.h>
+ #include <linux/notifier.h>
+ #include <linux/file.h>
+@@ -62,6 +62,8 @@ static int log_packets=10;
+ static int smp_affinity=0xffffffff;
+ 
+ #define MAX_CALLID 65535
++#define PPP_LCP_ECHOREQ 0x09
++#define PPP_LCP_ECHOREP 0x0A
+ 
+ static unsigned long *callid_bitmap=NULL;
+ static struct pppox_sock **callid_sock=NULL;
+@@ -101,7 +103,9 @@ static inline void *kzalloc(size_t size,
+ 	memset(p,0,size);
+ 	return p;
+ }
++#endif
+ 
++#if 0 // already defined for mips32
+ /**
+  * __ffs - find first bit in word.
+  * @word: The word to search
+@@ -397,8 +401,8 @@ static int pptp_xmit(struct ppp_channel 
+ 		*/
+ 	if ((opt->ppp_flags & SC_COMP_AC) == 0 || islcp) {
+ 		data=skb_push(skb,2);
+-		data[0]=0xff;
+-		data[1]=0x03;
++		data[0]=PPP_ALLSTATIONS;
++		data[1]=PPP_UI;
+ 	}
+ 	
+ 	len=skb->len;
+@@ -467,13 +471,16 @@ static int pptp_xmit(struct ppp_channel 
+ 	#endif
+ 	iph->version		=	4;
+ 	iph->ihl		=	sizeof(struct iphdr) >> 2;
+-	iph->frag_off		=	0;//df;
++	if (ip_dont_fragment(sk, &rt->u.dst))
++		iph->frag_off	=	htons(IP_DF);
++	else
++		iph->frag_off	=	0;
+ 	iph->protocol		=	IPPROTO_GRE;
+ 	iph->tos		=	0;
+ 	iph->daddr		=	rt->rt_dst;
+ 	iph->saddr		=	rt->rt_src;
+ 	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+-	iph->ttl = sysctl_ip_default_ttl;
++	iph->ttl = sk->protinfo.af_inet.ttl;
+ 	#else
+ 	iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
+ 	#endif
+@@ -553,12 +560,24 @@ static int pptp_rcv_core(struct sock *sk
+ 	payload=skb->data+headersize;
+ 	/* check for expected sequence number */
+ 	if ( seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq) ){
++		if ( (payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
++		     (PPP_PROTOCOL(payload) == PPP_LCP) &&
++		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ){
++			#ifdef DEBUG
++			if ( log_level >= 1)
++				printk(KERN_INFO"PPTP[%i]: allowing old LCP Echo packet %d (expecting %d)\n", opt->src_addr.call_id,
++							seq, opt->seq_recv + 1);
++			#endif
++			goto allow_packet;
++		}
+ 		#ifdef DEBUG
+ 		if ( log_level >= 1)
+ 			printk(KERN_INFO"PPTP[%i]: discarding duplicate or old packet %d (expecting %d)\n",opt->src_addr.call_id,
+ 							seq, opt->seq_recv + 1);
+ 		#endif
+ 	}else{
++		opt->seq_recv = seq;
++allow_packet:
+ 		#ifdef DEBUG
+ 		if ( log_level >= 3 && opt->seq_sent<=log_packets)
+ 			printk(KERN_INFO"PPTP[%i]: accepting packet %d size=%i (%02x %02x %02x %02x %02x %02x)\n",opt->src_addr.call_id, seq,payload_len,
+@@ -569,7 +588,6 @@ static int pptp_rcv_core(struct sock *sk
+ 				*(payload +4),
+ 				*(payload +5));
+ 		#endif
+-		opt->seq_recv = seq;
+ 
+ 		skb_pull(skb,headersize);
+ 
+@@ -586,7 +604,7 @@ static int pptp_rcv_core(struct sock *sk
+ 		}
+ 
+ 		skb->ip_summed=CHECKSUM_NONE;
+-		#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,19)
++		#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,21)
+ 		skb_set_network_header(skb,skb->head-skb->data);
+ 		#endif
+ 		ppp_input(&po->chan,skb);
+@@ -1124,9 +1142,9 @@ static int worker_thread_tx(void*p)
+ 		spin_unlock_bh(&txq_lock);
+ 		if (skb){
+ 			#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+-		 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dst.dev, ip_send);
++		 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dev, ip_send);
+ 			#elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,25)
+-		 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dst.dev, dst_output);
++		 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dev, dst_output);
+ 		 	#else
+ 		 	ip_local_out(skb);
+ 		 	#endif

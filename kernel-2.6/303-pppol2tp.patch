@@ -1,0 +1,305 @@
+diff -BurpN linux-2.6.22.orig/MAINTAINERS linux-2.6/MAINTAINERS
+--- linux-2.6.22.orig/MAINTAINERS	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/MAINTAINERS	2009-12-14 18:10:02.000000000 +0000
+@@ -2903,6 +2903,11 @@ P:	Michal Ostrowski
+ M:	mostrows@speakeasy.net
+ S:	Maintained
+ 
++PPP OVER L2TP
++P:	Martijn van Oosterhout
++M:	kleptog@svana.org
++S:	Maintained
++
+ PREEMPTIBLE KERNEL
+ P:	Robert Love
+ M:	rml@tech9.net
+diff -BurpN linux-2.6.22.orig/drivers/net/Kconfig linux-2.6/drivers/net/Kconfig
+--- linux-2.6.22.orig/drivers/net/Kconfig	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/drivers/net/Kconfig	2009-12-14 18:10:02.000000000 +0000
+@@ -2838,6 +2838,19 @@ config PPPOATM
+ 	  which can lead to bad results if the ATM peer loses state and
+ 	  changes its encapsulation unilaterally.
+ 
++config PPPOL2TP
++	tristate "PPP over L2TP (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && PPP
++	help
++	  Support for PPP-over-L2TP socket family. L2TP is a protocol
++	  used by ISPs and enterprises to tunnel PPP traffic over UDP
++	  tunnels. L2TP is replacing PPTP for VPN uses.
++
++	  This kernel component handles only L2TP data packets: a
++	  userland daemon handles L2TP the control protocol (tunnel
++	  and session setup). One such daemon is OpenL2TP
++	  (http://openl2tp.sourceforge.net/).
++
+ config SLIP
+ 	tristate "SLIP (serial line) support"
+ 	---help---
+diff -BurpN linux-2.6.22.orig/drivers/net/Makefile linux-2.6/drivers/net/Makefile
+--- linux-2.6.22.orig/drivers/net/Makefile	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/drivers/net/Makefile	2009-12-14 18:10:02.000000000 +0000
+@@ -119,6 +119,7 @@ obj-$(CONFIG_PPP_DEFLATE) += ppp_deflate
+ obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
+ obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
++obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
+ 
+ obj-$(CONFIG_SLIP) += slip.o
+ obj-$(CONFIG_SLHC) += slhc.o
+diff -BurpN linux-2.6.22.orig/include/linux/Kbuild linux-2.6/include/linux/Kbuild
+--- linux-2.6.22.orig/include/linux/Kbuild	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/include/linux/Kbuild	2009-12-14 18:10:02.000000000 +0000
+@@ -225,6 +225,7 @@ unifdef-y += if_fddi.h
+ unifdef-y += if_frad.h
+ unifdef-y += if_ltalk.h
+ unifdef-y += if_link.h
++unifdef-y += if_pppol2tp.h
+ unifdef-y += if_pppox.h
+ unifdef-y += if_shaper.h
+ unifdef-y += if_tr.h
+diff -BurpN linux-2.6.22.orig/include/linux/if_ppp.h linux-2.6/include/linux/if_ppp.h
+--- linux-2.6.22.orig/include/linux/if_ppp.h	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/include/linux/if_ppp.h	2009-12-14 18:10:02.000000000 +0000
+@@ -110,6 +110,21 @@ struct ifpppcstatsreq {
+ 	struct ppp_comp_stats stats;
+ };
+ 
++/* For PPPIOCGL2TPSTATS */
++struct pppol2tp_ioc_stats {
++	__u16	tunnel_id;	/* redundant */
++	__u16	session_id;	/* if zero, get tunnel stats */
++	__u64	tx_packets;
++	__u64	tx_bytes;
++	__u64	tx_errors;
++	__u64	rx_packets;
++	__u64	rx_bytes;
++	__u64	rx_seq_discards;
++	__u64	rx_oos_packets;
++	__u64	rx_errors;
++	int	using_ipsec;	/* valid only for session_id == 0 */
++};
++
+ #define ifr__name       b.ifr_ifrn.ifrn_name
+ #define stats_ptr       b.ifr_ifru.ifru_data
+ 
+@@ -146,6 +161,7 @@ struct ifpppcstatsreq {
+ #define PPPIOCDISCONN	_IO('t', 57)		/* disconnect channel */
+ #define PPPIOCATTCHAN	_IOW('t', 56, int)	/* attach to ppp channel */
+ #define PPPIOCGCHAN	_IOR('t', 55, int)	/* get ppp channel number */
++#define PPPIOCGL2TPSTATS _IOR('t', 54, struct pppol2tp_ioc_stats)
+ 
+ #define SIOCGPPPSTATS   (SIOCDEVPRIVATE + 0)
+ #define SIOCGPPPVER     (SIOCDEVPRIVATE + 1)	/* NEVER change this!! */
+diff -BurpN linux-2.6.22.orig/include/linux/if_pppol2tp.h linux-2.6/include/linux/if_pppol2tp.h
+--- linux-2.6.22.orig/include/linux/if_pppol2tp.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6/include/linux/if_pppol2tp.h	2009-12-14 18:10:02.000000000 +0000
+@@ -0,0 +1,67 @@
++/***************************************************************************
++ * Linux PPP over L2TP (PPPoL2TP) Socket Implementation (RFC 2661)
++ *
++ * This file supplies definitions required by the PPP over L2TP driver
++ * (pppol2tp.c).  All version information wrt this file is located in pppol2tp.c
++ *
++ * License:
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ */
++
++#ifndef __LINUX_IF_PPPOL2TP_H
++#define __LINUX_IF_PPPOL2TP_H
++
++#include <asm/types.h>
++
++#ifdef __KERNEL__
++#include <linux/in.h>
++#endif
++
++/* Structure used to bind() the socket to a particular socket & tunnel */
++struct pppol2tp_addr
++{
++	pid_t	pid;			/* pid that owns the fd.
++					 * 0 => current */
++	int	fd;			/* FD of UDP socket to use */
++
++	struct sockaddr_in addr;	/* IP address and port to send to */
++
++	__u16 s_tunnel, s_session;	/* For matching incoming packets */
++	__u16 d_tunnel, d_session;	/* For sending outgoing packets */
++};
++
++/* Socket options:
++ * DEBUG	- bitmask of debug message categories
++ * SENDSEQ	- 0 => don't send packets with sequence numbers
++ *		  1 => send packets with sequence numbers
++ * RECVSEQ	- 0 => receive packet sequence numbers are optional
++ *		  1 => drop receive packets without sequence numbers
++ * LNSMODE	- 0 => act as LAC.
++ *		  1 => act as LNS.
++ * REORDERTO	- reorder timeout (in millisecs). If 0, don't try to reorder.
++ */
++enum {
++	PPPOL2TP_SO_DEBUG	= 1,
++	PPPOL2TP_SO_RECVSEQ	= 2,
++	PPPOL2TP_SO_SENDSEQ	= 3,
++	PPPOL2TP_SO_LNSMODE	= 4,
++	PPPOL2TP_SO_REORDERTO	= 5,
++};
++
++/* Debug message categories for the DEBUG socket option */
++enum {
++	PPPOL2TP_MSG_DEBUG	= (1 << 0),	/* verbose debug (if
++						 * compiled in) */
++	PPPOL2TP_MSG_CONTROL	= (1 << 1),	/* userspace - kernel
++						 * interface */
++	PPPOL2TP_MSG_SEQ	= (1 << 2),	/* sequence numbers */
++	PPPOL2TP_MSG_DATA	= (1 << 3),	/* data packets */
++};
++
++
++
++#endif
+diff -BurpN linux-2.6.22.orig/include/linux/if_pppox.h linux-2.6/include/linux/if_pppox.h
+--- linux-2.6.22.orig/include/linux/if_pppox.h	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/include/linux/if_pppox.h	2009-12-14 18:10:02.000000000 +0000
+@@ -1,6 +1,6 @@
+ /***************************************************************************
+  * Linux PPP over X - Generic PPP transport layer sockets
+- * Linux PPP over Ethernet (PPPoE) Socket Implementation (RFC 2516) 
++ * Linux PPP over Ethernet (PPPoE) Socket Implementation (RFC 2516) 
+  *
+  * This file supplies definitions required by the PPP over Ethernet driver
+  * (pppox.c).  All version information wrt this file is located in pppox.c
+@@ -18,15 +18,28 @@
+ 
+ 
+ #include <asm/types.h>
++#ifdef __KERNEL__
+ #include <asm/byteorder.h>
++#else
++#include <endian.h>
++#include <byteswap.h>
++#if __BYTE_ORDER == __LITTLE_ENDIAN
++#define __LITTLE_ENDIAN_BITFIELD
++#elif __BYTE_ORDER == __BIG_ENDIAN
++#define __BIG_ENDIAN_BITFIELD
++#else
++#error "Adjust your <endian.h> defines."
++#endif
++#endif
+ 
+-#ifdef  __KERNEL__
++#ifdef	__KERNEL__
+ #include <linux/if_ether.h>
+ #include <linux/if.h>
+ #include <linux/netdevice.h>
+ #include <asm/semaphore.h>
+ #include <linux/ppp_channel.h>
+ #endif /* __KERNEL__ */
++#include <linux/if_pppol2tp.h>
+ 
+ /* For user-space programs to pick up these definitions
+  * which they wouldn't get otherwise without defining __KERNEL__
+@@ -36,30 +49,41 @@
+ #define PF_PPPOX	AF_PPPOX
+ #endif /* !(AF_PPPOX) */
+ 
+-/************************************************************************ 
+- * PPPoE addressing definition 
+- */ 
+-typedef __u16 sid_t; 
+-struct pppoe_addr{ 
+-       sid_t           sid;                    /* Session identifier */ 
+-       unsigned char   remote[ETH_ALEN];       /* Remote address */ 
+-       char            dev[IFNAMSIZ];          /* Local device to use */ 
+-}; 
+- 
+-/************************************************************************ 
+- * Protocols supported by AF_PPPOX 
+- */ 
++/************************************************************************ 
++ * PPPoE addressing definition 
++ */ 
++typedef __u16 sid_t; 
++struct pppoe_addr{ 
++       sid_t           sid;                    /* Session identifier */ 
++       unsigned char   remote[ETH_ALEN];       /* Remote address */ 
++       char            dev[IFNAMSIZ];          /* Local device to use */ 
++}; 
++ 
++/************************************************************************ 
++ * Protocols supported by AF_PPPOX 
++ */ 
+ #define PX_PROTO_OE    0 /* Currently just PPPoE */
+-#define PX_MAX_PROTO   1	
+- 
+-struct sockaddr_pppox { 
+-       sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
+-       unsigned int    sa_protocol;          /* protocol identifier */ 
+-       union{ 
+-               struct pppoe_addr       pppoe; 
+-       }sa_addr; 
+-}__attribute__ ((packed)); 
++#define PX_PROTO_OL2TP 1 /* Now L2TP also */
++#define PX_MAX_PROTO   2
+ 
++struct sockaddr_pppox { 
++       sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
++       unsigned int    sa_protocol;          /* protocol identifier */ 
++       union{ 
++               struct pppoe_addr       pppoe; 
++       }sa_addr; 
++}__attribute__ ((packed)); 
++
++/* The use of the above union isn't viable because the size of this
++ * struct must stay fixed over time -- applications use sizeof(struct
++ * sockaddr_pppox) to fill it. We use a protocol specific sockaddr
++ * type instead.
++ */
++struct sockaddr_pppol2tp {
++	sa_family_t     sa_family;      /* address family, AF_PPPOX */
++	unsigned int    sa_protocol;    /* protocol identifier */
++	struct pppol2tp_addr pppol2tp;
++}__attribute__ ((packed));
+ 
+ /*********************************************************************
+  *
+@@ -89,11 +113,11 @@ struct pppoe_tag {
+ #define PTT_AC_NAME	__constant_htons(0x0102)
+ #define PTT_HOST_UNIQ	__constant_htons(0x0103)
+ #define PTT_AC_COOKIE	__constant_htons(0x0104)
+-#define PTT_VENDOR 	__constant_htons(0x0105)
++#define PTT_VENDOR	__constant_htons(0x0105)
+ #define PTT_RELAY_SID	__constant_htons(0x0110)
+-#define PTT_SRV_ERR     __constant_htons(0x0201)
+-#define PTT_SYS_ERR  	__constant_htons(0x0202)
+-#define PTT_GEN_ERR  	__constant_htons(0x0203)
++#define PTT_SRV_ERR	__constant_htons(0x0201)
++#define PTT_SYS_ERR	__constant_htons(0x0202)
++#define PTT_GEN_ERR	__constant_htons(0x0203)
+ 
+ struct pppoe_hdr {
+ #if defined(__LITTLE_ENDIAN_BITFIELD)
+@@ -123,7 +147,7 @@ static inline struct pppoe_hdr *pppoe_hd
+ }
+ 
+ struct pppoe_opt {
+-	struct net_device      *dev;	  /* device associated with socket*/
++	struct net_device	*dev;	  /* device associated with socket*/
+ 	int			ifindex;  /* ifindex of device associated with socket */
+ 	struct pppoe_addr	pa;	  /* what this socket is bound to*/
+ 	struct sockaddr_pppox	relay;	  /* what socket data will be
+diff -BurpN linux-2.6.22.orig/include/linux/socket.h linux-2.6/include/linux/socket.h
+--- linux-2.6.22.orig/include/linux/socket.h	2007-07-08 23:32:17.000000000 +0000
++++ linux-2.6/include/linux/socket.h	2009-12-14 18:10:02.000000000 +0000
+@@ -287,6 +287,7 @@ struct ucred {
+ #define SOL_NETLINK	270
+ #define SOL_TIPC	271
+ #define SOL_RXRPC	272
++#define SOL_PPPOL2TP	273
+ 
+ /* IPX options */
+ #define IPX_TYPE	1
