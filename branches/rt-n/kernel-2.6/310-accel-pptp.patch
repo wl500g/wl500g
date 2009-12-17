@@ -1,0 +1,144 @@
+diff -BurpN linux-2.6.22.orig/MAINTAINERS linux-2.6/MAINTAINERS
+--- linux-2.6.22.orig/MAINTAINERS	2009-12-16 07:46:54.000000000 +0000
++++ linux-2.6/MAINTAINERS	2009-12-16 08:13:48.000000000 +0000
+@@ -2908,6 +2908,11 @@ P:	Martijn van Oosterhout
+ M:	kleptog@svana.org
+ S:	Maintained
+ 
++PPTP
++P:      Dmitry Kozlov
++M:      xeb@mail.ru
++S:      Maintained
++
+ PREEMPTIBLE KERNEL
+ P:	Robert Love
+ M:	rml@tech9.net
+diff -BurpN linux-2.6.22.orig/drivers/net/Kconfig linux-2.6/drivers/net/Kconfig
+--- linux-2.6.22.orig/drivers/net/Kconfig	2009-12-16 07:46:54.000000000 +0000
++++ linux-2.6/drivers/net/Kconfig	2009-12-17 18:24:03.000000000 +0000
+@@ -2851,6 +2851,15 @@ config PPPOL2TP
+ 	  and session setup). One such daemon is OpenL2TP
+ 	  (http://openl2tp.sourceforge.net/).
+ 
++config PPTP
++	tristate "PPTP (Point-to-Point Tunneling Protocol) (EXPERIMENTAL)"
++	depends on EXPERIMENTAL && PPP
++	help
++	  Support for Microsoft Point-to-Point Tunneling Protocol.
++
++	  See http://accel-pptp.sourceforge.net/ for information on 
++	  configuring PPTP clients and servers to utilize this driver.
++
+ config SLIP
+ 	tristate "SLIP (serial line) support"
+ 	---help---
+diff -BurpN linux-2.6.22.orig/drivers/net/Makefile linux-2.6/drivers/net/Makefile
+--- linux-2.6.22.orig/drivers/net/Makefile	2009-12-16 07:46:54.000000000 +0000
++++ linux-2.6/drivers/net/Makefile	2009-12-17 18:24:48.000000000 +0000
+@@ -120,6 +120,7 @@ obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
+ obj-$(CONFIG_PPP_MPPE) += ppp_mppe.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+ obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
++obj-$(CONFIG_PPTP) += pppox.o pptp.o
+ 
+ obj-$(CONFIG_SLIP) += slip.o
+ obj-$(CONFIG_SLHC) += slhc.o
+diff -BurpN linux-2.6.22.orig/include/linux/if_pppox.h linux-2.6/include/linux/if_pppox.h
+--- linux-2.6.22.orig/include/linux/if_pppox.h	2009-12-16 07:46:54.000000000 +0000
++++ linux-2.6/include/linux/if_pppox.h	2009-12-17 18:27:54.000000000 +0000
+@@ -36,6 +36,7 @@
+ #include <linux/if_ether.h>
+ #include <linux/if.h>
+ #include <linux/netdevice.h>
++#include <linux/in.h>
+ #include <asm/semaphore.h>
+ #include <linux/ppp_channel.h>
+ #endif /* __KERNEL__ */
+@@ -59,32 +60,49 @@ struct pppoe_addr{ 
+        char            dev[IFNAMSIZ];          /* Local device to use */ 
+ }; 
+  
++struct pptp_addr {
++       __u16           call_id;
++       struct in_addr  sin_addr;
++};
++
+ /************************************************************************ 
+  * Protocols supported by AF_PPPOX 
+  */ 
+ #define PX_PROTO_OE    0 /* Currently just PPPoE */
+ #define PX_PROTO_OL2TP 1 /* Now L2TP also */
+-#define PX_MAX_PROTO   2
++#define PX_PROTO_PPTP  2
++#define PX_MAX_PROTO   3
+ 
+ struct sockaddr_pppox { 
+        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
+        unsigned int    sa_protocol;          /* protocol identifier */ 
+        union{ 
+                struct pppoe_addr       pppoe; 
++               struct pptp_addr        pptp;
+        }sa_addr; 
+-}__attribute__ ((packed)); 
++}__attribute__ ((packed)); /* deprecated */
+ 
+ /* The use of the above union isn't viable because the size of this
+  * struct must stay fixed over time -- applications use sizeof(struct
+  * sockaddr_pppox) to fill it. We use a protocol specific sockaddr
+  * type instead.
+  */
++struct sockaddr_pppoe {
++	sa_family_t     sa_family;	/* address family, AF_PPPOX */
++	unsigned int    sa_protocol;    /* protocol identifier */
++	struct pppoe_addr pppoe;
++}__attribute__ ((packed));
++
+ struct sockaddr_pppol2tp {
+ 	sa_family_t     sa_family;      /* address family, AF_PPPOX */
+ 	unsigned int    sa_protocol;    /* protocol identifier */
+ 	struct pppol2tp_addr pppol2tp;
+ }__attribute__ ((packed));
+ 
++/* Socket options */
++#define PPTP_SO_TIMEOUT 1
++#define PPTP_SO_WINDOW  2
++
+ /*********************************************************************
+  *
+  * ioctl interface for defining forwarding of connections
+@@ -93,7 +111,8 @@ struct sockaddr_pppol2tp {
+ 
+ #define PPPOEIOCSFWD	_IOW(0xB1 ,0, size_t)
+ #define PPPOEIOCDFWD	_IO(0xB1 ,1)
+-/*#define PPPOEIOCGFWD	_IOWR(0xB1,2, size_t)*/
++/*#define PPPOEIOCGFWD	_IOWR(0xB1, 2, size_t)*/
++#define PPPTPIOWFP	_IOWR(0xB1 ,2, size_t)*/
+ 
+ /* Codes to identify message types */
+ #define PADI_CODE	0x09
+@@ -154,6 +173,17 @@ struct pppoe_opt {
+ 					     relayed to (PPPoE relaying) */
+ };
+ 
++struct pptp_opt {
++	struct pptp_addr	src_addr;
++	struct pptp_addr	dst_addr;
++	__u32 ack_sent, ack_recv;
++	__u32 seq_sent, seq_recv;
++	int ppp_flags;
++};
++
++#define PPTP_FLAG_PAUSE 0
++#define PPTP_FLAG_PROC 1
++
+ #include <net/sock.h>
+ 
+ struct pppox_sock {
+@@ -163,6 +193,7 @@ struct pppox_sock {
+ 	struct pppox_sock	*next;	  /* for hash table */
+ 	union {
+ 		struct pppoe_opt pppoe;
++		struct pptp_opt  pptp;
+ 	} proto;
+ 	unsigned short		num;
+ };
