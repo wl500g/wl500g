@@ -1111,6 +1111,7 @@ int restart_ftpd()
 		"chmod_enable=no\n"
 		"chroot_local_user=yes\n"
 		"check_shell=no\n"
+		"isolate=no\n"
 		"user_config_dir=%s\n"
 		"passwd_file=%s\n",
 		vsftpd_users, vsftpd_passwd);
