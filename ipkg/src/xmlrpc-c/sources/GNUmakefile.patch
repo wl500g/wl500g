@@ -1,0 +1,11 @@
+--- GNUmakefile.orig	2009-12-17 23:23:51.000000000 +0300
++++ GNUmakefile	2009-12-19 01:03:25.000000000 +0300
+@@ -21,7 +21,7 @@
+ # As with any subdirectory, to build 'tools' or 'examples', cd to the
+ # subdirectory and make there.
+ 
+-DEFAULT_SUBDIRS = include lib src
++DEFAULT_SUBDIRS = include lib src tools
+ 
+ PROGRAMS_TO_INSTALL = xmlrpc-c-config
+ 

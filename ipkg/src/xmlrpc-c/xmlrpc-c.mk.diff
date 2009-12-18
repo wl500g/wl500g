@@ -1,0 +1,109 @@
+--- xmlrpc-c.mk.orig	2009-10-13 20:25:14.000000000 +0400
++++ xmlrpc-c.mk	2009-12-19 01:23:43.000000000 +0300
+@@ -21,8 +21,14 @@
+ # "NSLU2 Linux" other developers will feel free to edit.
+ #
+ XMLRPC-C_SITE=http://$(SOURCEFORGE_MIRROR)/sourceforge/xmlrpc-c
+-XMLRPC-C_VERSION=1.11.00
++XMLRPC-C_VERSION=1.16.24
++XMLRPC-C_SVN=http://xmlrpc-c.svn.sourceforge.net/svnroot/xmlrpc-c/stable
++XMLRPC-C_SVN_REV=1840
++ifdef XMLRPC-C_SVN_REV
++XMLRPC-C_SOURCE=xmlrpc-c-svn-$(XMLRPC-C_SVN_REV).tar.gz
++else
+ XMLRPC-C_SOURCE=xmlrpc-c-$(XMLRPC-C_VERSION).tgz
++endif
+ XMLRPC-C_DIR=xmlrpc-c-$(XMLRPC-C_VERSION)
+ XMLRPC-C_UNZIP=zcat
+ XMLRPC-C_MAINTAINER=NSLU2 Linux <nslu2-linux@yahoogroups.com>
+@@ -39,7 +45,7 @@
+ #
+ # XMLRPC-C_IPK_VERSION should be incremented when the ipk changes.
+ #
+-XMLRPC-C_IPK_VERSION=3
++XMLRPC-C_IPK_VERSION=1
+ 
+ #
+ # XMLRPC-C_CONFFILES should be a list of user-editable files
+@@ -49,10 +55,11 @@
+ # XMLRPC-C_PATCHES should list any patches, in the the order in
+ # which they should be applied to the source code.
+ #
+-XMLRPC-C_PATCHES= \
+-$(XMLRPC-C_SOURCE_DIR)/ltconfig.patch \
+-$(XMLRPC-C_SOURCE_DIR)/Makefile.config.in.patch \
+-$(XMLRPC-C_SOURCE_DIR)/curl_easy_setopt.patch
++XMLRPC-C_PATCHES= $(XMLRPC-C_SOURCE_DIR)/GNUmakefile.patch \
++
++#$(XMLRPC-C_SOURCE_DIR)/ltconfig.patch \
++#$(XMLRPC-C_SOURCE_DIR)/Makefile.config.in.patch \
++#$(XMLRPC-C_SOURCE_DIR)/curl_easy_setopt.patch
+ 
+ #
+ # If the compilation of the package requires additional
+@@ -70,10 +77,15 @@
+ #
+ # You should not change any of these variables.
+ #
++
+ XMLRPC-C_BUILD_DIR=$(BUILD_DIR)/xmlrpc-c
+ XMLRPC-C_SOURCE_DIR=$(SOURCE_DIR)/xmlrpc-c
+ XMLRPC-C_IPK_DIR=$(BUILD_DIR)/xmlrpc-c-$(XMLRPC-C_VERSION)-ipk
++ifdef XMLRPC-C_SVN_REV
++XMLRPC-C_IPK=$(BUILD_DIR)/xmlrpc-c_$(XMLRPC-C_VERSION)+r$(XMLRPC-C_SVN_REV)-$(XMLRPC-C_IPK_VERSION)_$(TARGET_ARCH).ipk
++else
+ XMLRPC-C_IPK=$(BUILD_DIR)/xmlrpc-c_$(XMLRPC-C_VERSION)-$(XMLRPC-C_IPK_VERSION)_$(TARGET_ARCH).ipk
++endif
+ 
+ .PHONY: xmlrpc-c-source xmlrpc-c-unpack xmlrpc-c xmlrpc-c-stage xmlrpc-c-ipk xmlrpc-c-clean xmlrpc-c-dirclean xmlrpc-c-check
+ 
+@@ -82,8 +94,18 @@
+ # then it will be fetched from the site using wget.
+ #
+ $(DL_DIR)/$(XMLRPC-C_SOURCE):
++ifdef XMLRPC-C_SVN_REV
++	( cd $(BUILD_DIR) ; \
++		rm -rf $(XMLRPC-C_DIR) && \
++		svn co -r $(XMLRPC-C_SVN_REV) $(XMLRPC-C_SVN) \
++			$(XMLRPC-C_DIR) && \
++		tar -czf $@ $(XMLRPC-C_DIR) && \
++		rm -rf $(XMLRPC-C_DIR) \
++	)
++else
+ 	$(WGET) -P $(@D) $(XMLRPC-C_SITE)/$(@F) || \
+ 	$(WGET) -P $(@D) $(SOURCES_NLO_SITE)/$(@F)
++endif
+ 
+ #
+ # The source code depends on it existing within the download directory.
+@@ -125,7 +147,7 @@
+ 		then mv $(BUILD_DIR)/$(XMLRPC-C_DIR) $(XMLRPC-C_BUILD_DIR) ; \
+ 	fi
+ #	sed -i -e '/ifeq.*linux-gnu/s/.*/ifeq (1,1)/' $(@D)/Makefile.config.in
+-	sed -i '/FLAGS_COMMON *=/s|$$| $$(CPPFLAGS)|' $(@D)/Makefile.common
++	sed -i '/FLAGS_COMMON *=/s|$$| $$(CPPFLAGS)|' $(@D)/common.mk
+ 	(cd $(XMLRPC-C_BUILD_DIR); \
+ 		PATH=$(STAGING_PREFIX)/bin:$$PATH \
+ 		$(TARGET_CONFIGURE_OPTS) \
+@@ -142,9 +164,9 @@
+ 		--disable-nls \
+ 		--disable-static \
+ 	)
+-	$(PATCH_LIBTOOL) \
+-	-e 's|CC -shared|& $(STAGING_LDFLAGS) $(XMLRPC-C_LDFLAGS)|' \
+-	$(XMLRPC-C_BUILD_DIR)/libtool
++#	$(PATCH_LIBTOOL) \
++#	-e 's|CC -shared|& $(STAGING_LDFLAGS) $(XMLRPC-C_LDFLAGS)|' \
++#	$(XMLRPC-C_BUILD_DIR)/libtool
+ 	touch $@
+ 
+ xmlrpc-c-unpack: $(XMLRPC-C_BUILD_DIR)/.configured
+@@ -216,6 +238,8 @@
+ 	$(MAKE) -C $(XMLRPC-C_BUILD_DIR) DESTDIR=$(XMLRPC-C_IPK_DIR) install
+ 	rm -f $(XMLRPC-C_IPK_DIR)/opt/lib/*.a $(XMLRPC-C_IPK_DIR)/opt/lib/*.la
+ 	$(STRIP_COMMAND) $(XMLRPC-C_IPK_DIR)/opt/lib/libxmlrpc*.so.[0-9]*.*
++	$(STRIP_COMMAND) $(XMLRPC-C_IPK_DIR)/opt/bin/xmlrpc
++	$(STRIP_COMMAND) $(XMLRPC-C_IPK_DIR)/opt/bin/xmlrpc_transport
+ 	$(MAKE) $(XMLRPC-C_IPK_DIR)/CONTROL/control
+ 	echo $(XMLRPC-C_CONFFILES) | sed -e 's/ /\n/g' > $(XMLRPC-C_IPK_DIR)/CONTROL/conffiles
+ 	cd $(BUILD_DIR); $(IPKG_BUILD) $(XMLRPC-C_IPK_DIR)

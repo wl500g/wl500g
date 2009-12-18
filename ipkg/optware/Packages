@@ -99,3 +99,18 @@ Depends:
 Suggests: 
 Conflicts: 
 
+Package: xmlrpc-c
+Architecture: mipsel
+Priority: optional
+Section: lib
+Version: 1.16.24-1
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://easynews.dl.sf.net/sourceforge/xmlrpc-c/xmlrpc-c-svn-1840.tar.gz
+Filename: xmlrpc-c_1.16.24-1_mipsel.ipk
+Size: 137059
+MD5Sum: 1d2e3e90b62b9f9c583675c0f55881f6
+Description: A library providing modular implementation of XML-RPC for C and C++.
+Depends: libcurl, libxml2, openssl, zlib
+Suggests: 
+Conflicts: 
+
