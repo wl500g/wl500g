@@ -2006,7 +2006,13 @@ diff -urBp '-x.*' linux-2.4.37.orig/drivers/usb/host/ehci-q.c linux/drivers/usb/
  		return;
  	} 
  
-@@ -1106,31 +1149,29 @@ static void start_unlink_async (struct e
+@@ -1106,35 +1149,34 @@ static void start_unlink_async (struct e
+ 	prev->qh_next = qh->qh_next;
+ 	wmb ();
+ 
+-	if (unlikely (ehci->hcd.state == USB_STATE_HALT)) {
++	/* If the controller isn't running, we don't have to wait for it */
++	if (unlikely (!HCD_IS_RUNNING (ehci->hcd.state))) {
  		/* if (unlikely (qh->reclaim != 0))
  		 * 	this will recurse, probably not much
  		 */
