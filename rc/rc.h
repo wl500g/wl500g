@@ -127,7 +127,7 @@ int hotplug_usb_mass(char *product);
 int hotplug_usb_webcam(char *product, int webflag);
 int hotplug_usb_audio(char *product);
 int remove_webcam_main(int webflag);
-int remove_storage_main();
+int remove_storage_main(int scsi_host_no);
 int restart_ftpd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);

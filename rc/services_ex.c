@@ -65,6 +65,8 @@ char *OVLIST[] = {"5a9","813","b62", NULL};
 char buf_g[512];
 
 int remove_usb_audio(char *product);
+static int umount_all_part(char *product, int scsi_host_no);
+static struct mntent *findmntent(char *file);
 
 
 void diag_PaN(void)
@@ -956,6 +958,7 @@ stop_usb(void)
 		eval("killall", "stupid-fptd");
 		eval("killall", "smbd");
 		eval("killall", "nmbd");
+		umount_all_part(NULL, -1);
 		eval("rmmod", "usb-storage");
 		eval("rmmod", "sd_mod");
 		eval("rmmod", "scsi_mod");
@@ -1518,43 +1521,95 @@ stop_rcamd(void)
 
 
 /*to unmount all partitions*/
-int
-umount_all_part(char *usbdevice)
+static int
+umount_all_part(char *product, int scsi_host_no)
 {
-	DIR *dir_to_open;
+	DIR *dir_to_open, *usb_dev_disc;
 	struct dirent *dp;
-	char umount_dir[32];
-	
-	for (dir_to_open = opendir("/tmp/mnt");
-		dir_to_open && (dp=readdir(dir_to_open)); )
+	char umount_dir[128];
+	int usb_disc_0 = 0;
+
+	if (scsi_host_no != -1)
 	{
-		if (strncmp(dp->d_name, "disc", 4) == 0)
+	    // umount all partitions from specific scsi host only
+	    char discs_path[64], parts[128];
+	    char scsi_dev_link[256];
+	    char buf[256];
+	    FILE *part_fp;
+	    struct mntent *mnt;
+	    int t_host_no;
+	    int len;
+
+	    if ((usb_dev_disc = opendir("/dev/discs")))
+    	    {
+		while ((dp = readdir(usb_dev_disc))) {
+		    if (strncmp(dp->d_name, "disc", 4) != 0)
+                    	continue;
+		    snprintf(discs_path, sizeof(discs_path), "%s/%s", "/dev/discs", dp->d_name);
+		    len = readlink(discs_path, scsi_dev_link, sizeof(scsi_dev_link) - 1);
+                    if (len < 0)
+                    	continue;
+
+		    scsi_dev_link[len] = '\0';
+		    if (strncmp(scsi_dev_link, "../scsi/host", 12))
+                    	continue;
+		    t_host_no = atoi(scsi_dev_link + 12);
+		    if (t_host_no != scsi_host_no)
+                    	continue;
+
+		    /* We have found a disc that is on this controller.
+            	     * Loop thru all the partitions on this disc.
+	             */
+		    if ((part_fp = fopen("/proc/partitions", "r")))
+		    {
+			while (fgets(buf, sizeof(buf) - 1, part_fp))
+			{
+			    if (sscanf(buf, " %*s %*s %*s %s", parts) == 1)
+			    {
+				if (strncmp(parts, scsi_dev_link+3, len-3) == 0
+				     && strncmp(parts + (len-3), "/part", 5) == 0)
+				{
+				    snprintf(umount_dir, sizeof(umount_dir), "%s%s", discs_path, parts + (len-3));
+				    if ((mnt = findmntent(umount_dir)))
+				    {
+					if (!umount(mnt->mnt_dir))
+					    unlink(mnt->mnt_dir);
+				    }
+				}
+			    }
+			}
+			fclose(part_fp);
+		    } /* partitions loop */
+
+		}
+		closedir(usb_dev_disc);
+            }
+	}
+	else if ((dir_to_open = opendir("/tmp/mnt")))
+	{
+		while ((dp=readdir(dir_to_open)))
 		{
+		    if (strncmp(dp->d_name, "disc", 4) == 0)
+		    {
 			sprintf(umount_dir, "/tmp/mnt/%s", dp->d_name);
 			if (!umount(umount_dir))
 				unlink(umount_dir);
+		    }
 		}
+		closedir(dir_to_open);
+		usb_disc_0 = 1;
 	}
 
-	if (dir_to_open)
-		closedir(dir_to_open);
-	
-	unlink("/tmp/harddisk");
+	if (usb_disc_0)
+		unlink("/tmp/harddisk");
 
 	return 0;
 }
 
 /* remove usb mass storage */
 int
-remove_usb_mass(char *product)
+remove_usb_mass(char *product, int scsi_host_no)
 {
-#ifdef REMOVE
-	if (product!=NULL) 
-	   logmessage("USB storage", product);
-	else
-    	   logmessage("USB storage", "NULL");
-#endif
-
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
@@ -1565,9 +1620,9 @@ remove_usb_mass(char *product)
 			eval("killall", "smbd");
 			eval("killall", "nmbd");
 		}
-		
+
 		sleep(1);
-		umount_all_part("usb");
+		umount_all_part(product, scsi_host_no);
 		nvram_set("usb_ftp_device", "");
 		logmessage("USB storage", "removed");
 	}
@@ -1584,10 +1639,9 @@ int mkdir_if_none(char *dir)
 }
 
 int
-remove_storage_main(void)
+remove_storage_main(int scsi_host_no)
 {
-	remove_usb_mass(NULL);
-	return 0;
+	return remove_usb_mass(NULL, scsi_host_no);
 }
 
 /* stollen from the e2fsprogs/ismounted.c */
@@ -1763,7 +1817,7 @@ int hotplug_usb_mass(char *product)
 			eval("mount", "-a");
 		}
 		
-		while(usb_dev_disc && (dp=readdir(usb_dev_disc)))
+		while ((dp=readdir(usb_dev_disc)))
 		{
 			if(!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
@@ -1772,7 +1826,7 @@ int hotplug_usb_mass(char *product)
 
 			if((usb_dev_part = opendir(usb_disc)))
 			{
-				while(usb_dev_part && (dp_disc=readdir(usb_dev_part)))
+				while ((dp_disc=readdir(usb_dev_part)))
 				{
 					/* assume disc is the first entry */
 					int disc = !strcmp(dp_disc->d_name, "disc");
@@ -1862,10 +1916,15 @@ hotplug_usb(void)
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{
+			char *scsi_host = getenv("SCSI_HOST");
+			int scsi_host_no = -1;
+
+			if (scsi_host)
+				scsi_host_no = atoi(scsi_host);
 			if (strcmp(action, "add") == 0)
 				nvram_set("usb_storage_device", product);
 			else
-				remove_usb_mass(product);
+				remove_usb_mass(product, scsi_host_no);
 			return 0;
 		}
 
