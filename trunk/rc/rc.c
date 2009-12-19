@@ -1019,7 +1019,10 @@ main(int argc, char **argv)
 	}
 	/* remove usbstorage module */
 	else if (strstr(base, "rmstorage")) {
-		return (remove_storage_main());
+		int scsi_host = -1;
+		if (argc >= 2)
+			scsi_host = atoi(argv[1]);
+		return (remove_storage_main(scsi_host));
 	}
 #endif
 	/* run ntp client */
