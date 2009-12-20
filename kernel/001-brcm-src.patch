@@ -1,6 +1,6 @@
 --- linux.1927/drivers/mtd/devices/sflash.c	2004-12-03 05:56:56.000000000 +0300
 +++ linux.1985/drivers/mtd/devices/sflash.c	2007-03-20 15:21:02.000000000 +0300
-@@ -21,6 +21,7 @@
+@@ -21,13 +21,14 @@
  #include <linux/mtd/partitions.h>
  #include <linux/errno.h>
  #include <linux/pci.h>
@@ -8,6 +8,14 @@
  #include <asm/io.h>
  
  #include <typedefs.h>
+ #include <bcmdevs.h>
+ #include <bcmutils.h>
+ #include <osl.h>
+-#include <bcmutils.h>
++#include <sbutils.h>
+ #include <bcmnvram.h>
+ #include <sbconfig.h>
+ #include <sbchipc.h>
 --- linux.1927/drivers/mtd/maps/bcm947xx-flash.c	2004-12-03 05:56:56.000000000 +0300
 +++ linux.1985/drivers/mtd/maps/bcm947xx-flash.c	2007-03-20 15:21:02.000000000 +0300
 @@ -146,7 +146,7 @@
