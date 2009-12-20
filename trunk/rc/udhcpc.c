@@ -158,13 +158,13 @@ udhcpc_main(int argc, char **argv)
 
 	if (!argv[1])
 		return EINVAL;
-	else if (strstr(argv[1], "deconfig"))
+	else if (!strcmp(argv[1], "deconfig"))
 		return deconfig();
-	else if (strstr(argv[1], "bound"))
+	else if (!strcmp(argv[1], "bound"))
 		return bound();
-	else if (strstr(argv[1], "renew"))
+	else if (!strcmp(argv[1], "renew"))
 		return renew();
-	else if (strstr(argv[1], "leasefail"))
+	else if (!strcmp(argv[1], "leasefail"))
 		return 0;
 	else return deconfig();
 }

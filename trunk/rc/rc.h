@@ -53,7 +53,7 @@ int http_get(const char *server, char *buf, size_t count, off_t offset);
 int http_post(const char *server, char *buf, size_t count);
 int http_stats(const char *url);
 int http_check(const char *server, char *buf, size_t count, off_t offset);
-int http_check_pid(const char *pidfile);
+int proc_check_pid(const char *pidfile);
 
 /* init */
 int console_init(void);

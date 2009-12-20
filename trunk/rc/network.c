@@ -884,12 +884,6 @@ start_wan(void)
 			nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 	}
 
-	/* Report stats */
-	if (nvram_invmatch("stats_server", "")) {
-		char *stats_argv[] = { "stats", nvram_get("stats_server"), NULL };
-		_eval(stats_argv, NULL, 5, NULL);
-	}
-
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
 	{
@@ -995,7 +989,6 @@ stop_wan(void)
 {
 	char name[80], *next, signal[] = "XXXX";
 	
-	eval("killall", "stats");
 	eval("killall", "ntpclient");
 
 	/* Shutdown and kill all possible tasks */
@@ -1039,7 +1032,6 @@ stop_wan2(void)
 {
 	char signal[] = "XXXX";
 	
-	eval("killall", "stats");
 	eval("killall", "ntpclient");
 
 	/* Shutdown and kill all possible tasks */

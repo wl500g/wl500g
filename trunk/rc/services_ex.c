@@ -10,7 +10,6 @@
  * $Id$
  */
 
-#define DNSMASQ
 #define DDNSCONF
 #define DDNSDAEMON
 
@@ -91,13 +90,6 @@ void diag_PaN(void)
 		fprintf(stderr, "dumping 0x4301 for manu.\n");
 #endif
 
-#ifdef USB_SUPPORT
-	if (nvram_match("usb_device", "1"))
-	{
-		fprintf(stderr, "new USB device\r\n");
-	}
-#endif
-
 #ifdef PRINTER_SUPPORT
 #ifdef PARPORT_SUPPORT	
 	char *token;
@@ -153,7 +145,7 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
-#if defined(DNSMASQ) || defined(DDNSCONF) || 1
+#if defined(__CONFIG_DNSMASQ__) || defined(DDNSCONF) || 1
 size_t
 fappend(char *name, FILE *f)
 {
@@ -174,7 +166,7 @@ fappend(char *name, FILE *f)
 }
 #endif
 
-#ifndef DNSMASQ
+#ifndef __CONFIG_DNSMASQ__
 int
 start_dhcpd(void)
 {
@@ -540,7 +532,7 @@ int stop_dhcpd(void)
 	return 0;
 }
 
-#endif // DNSMASQ
+#endif // __CONFIG_DNSMASQ__
 
 int
 ddns_updated_main()
@@ -1974,7 +1966,6 @@ hotplug_usb(void)
 usbhandler:	
 	if (!strncasecmp(action, "add", 3))
 	{		
-		nvram_set("usb_device", "1");
 		if (isweb==WEB_NONE)
 		{
 			/* old usb-storage handler */

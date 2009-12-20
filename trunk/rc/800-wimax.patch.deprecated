@@ -3,7 +3,7 @@ diff -BurpN gateway/rc.orig/Makefile gateway/rc/Makefile
 +++ gateway/rc/Makefile	2009-11-14 16:53:35.000000000 +0000
 @@ -24,7 +24,7 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TO
  OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
-     stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
+     crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
      manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
 -    bigpond.o qos.o rcamd.o waveserver.o
 +    bigpond.o qos.o rcamd.o waveserver.o wimax.o
@@ -228,16 +228,16 @@ diff -BurpN gateway/rc.orig/rc.c gateway/rc/rc.c
  #ifdef ASUS_EXT
 @@ -902,6 +904,12 @@ main(int argc, char **argv)
  		return ipup_main(argc, argv);
- 	else if (strstr(base, "ip-down"))
+ 	else if (!strcmp(base, "ip-down"))
  		return ipdown_main(argc, argv);
 +	/* start of daemon */
-+	else if (strstr(base, "madwimax-check"))
++	else if (!strcmp(base, "madwimax-check"))
 +		return madwimax_check();
 +	/* madwimax [ if-create if-up if-down if-release ] */
-+	else if (strstr(base, "madwimax"))
++	else if (!strcmp(base, "madwimax"))
 +		return madwimax_main(argc, argv);
  	/* udhcpc [ deconfig bound renew ] */
- 	else if (strstr(base, "udhcpc"))
+ 	else if (!strcmp(base, "udhcpc"))
  		return udhcpc_main(argc, argv);
 diff -BurpN gateway/rc.orig/services_ex.c gateway/rc/services_ex.c
 --- gateway/rc.orig/services_ex.c	2009-05-23 17:50:18.000000000 +0000
@@ -541,13 +541,13 @@ diff -BurpN gateway/rc.orig/wimax.c gateway/rc/wimax.c
 +	if (argc != 3)
 +		return(0);
 +
-+	if (strstr(argv[1], "if-create"))
++	if (strcmp(argv[1], "if-create"))
 +		return madwimax_create(argv[2]);
-+	else if (strstr(argv[1], "if-up"))
++	else if (strcmp(argv[1], "if-up"))
 +		return madwimax_up(argv[2]);
-+	else if (strstr(argv[1], "if-down"))
++	else if (strcmp(argv[1], "if-down"))
 +		return madwimax_down(argv[2]);
-+	else if (strstr(argv[1], "if-release"))
++	else if (strcmp(argv[1], "if-release"))
 +		return madwimax_release(argv[2]);
 +	else return 0;
 +}

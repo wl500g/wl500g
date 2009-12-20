@@ -63,7 +63,6 @@
 #define sys_upgrade(image) eval("write", image, MTD_DEV(1))
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
-//#define sys_stats(url) eval("stats", (url))
 #define sys_restore(sid) eval("nvram_x","get",(sid))
 #define sys_commit(sid) nvram_commit();
 #define sys_default()   eval("erase", MTD_DEV(3))

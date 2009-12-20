@@ -721,12 +721,6 @@ do_timer(void)
 	if (interval == 0)
 		return 0;
 
-	/* Report stats */
-	if (nvram_invmatch("stats_server", "")) {
-		char *stats_argv[] = { "stats", nvram_get("stats_server"), NULL };
-		_eval(stats_argv, NULL, 5, NULL);
-	}
-
 	/* Sync time */
 	start_ntpc();
 #endif
@@ -890,7 +884,7 @@ main(int argc, char **argv)
 	base = base ? base + 1 : argv[0];
 
 	/* init */
-	if (strstr(base, "init")) {
+	if (!strcmp(base, "init")) {
 		main_loop();
 		return 0;
 	}
@@ -899,15 +893,15 @@ main(int argc, char **argv)
 	setenv("TZ", nvram_safe_get("time_zone"), 1);
 
 	/* ppp */
-	if (strstr(base, "ip-up"))
+	if (!strcmp(base, "ip-up"))
 		return ipup_main(argc, argv);
-	else if (strstr(base, "ip-down"))
+	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
 	/* udhcpc [ deconfig bound renew ] */
-	else if (strstr(base, "udhcpc"))
+	else if (!strcmp(base, "udhcpc"))
 		return udhcpc_main(argc, argv);
 	/* restore default */
-	else if (strstr(base, "restore"))
+	else if (!strcmp(base, "restore"))
 	{
 		if (argc==2)
 		{
@@ -926,12 +920,9 @@ main(int argc, char **argv)
 		}
 		return 0;
 	}
-	/* stats [ url ] */
-	else if (strstr(base, "stats"))
-		return http_stats(argv[1] ? : nvram_safe_get("stats_server"));
 
 	/* erase [device] */
-	else if (strstr(base, "erase")) {
+	else if (!strcmp(base, "erase")) {
 		if (argv[1])
 			return mtd_erase(argv[1]);
 		else {
@@ -941,7 +932,7 @@ main(int argc, char **argv)
 	}
 
 	/* write [path] [device] */
-	else if (strstr(base, "write")) {
+	else if (!strcmp(base, "write")) {
 		int index;
 		int reboot = check_option(argc, argv, &index, "r");
 		if (argc >= index+2) {
@@ -957,7 +948,7 @@ main(int argc, char **argv)
 	}
 
 	/* flash [path] [device] */
-	else if (strstr(base, "flash")) {
+	else if (!strcmp(base, "flash")) {
 		int index;
 		int reboot = check_option(argc, argv, &index, "r");
 		if (argc >= index+2) {
@@ -973,7 +964,7 @@ main(int argc, char **argv)
 	}
 
 	/* hotplug [event] */
-	else if (strstr(base, "hotplug")) {
+	else if (!strcmp(base, "hotplug")) {
 		if (argc >= 2) {
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
@@ -989,36 +980,36 @@ main(int argc, char **argv)
 
 #ifdef ASUS_EXT
 	/* ddns update ok */
-	else if (strstr(base, "stopservice")) {
+	else if (!strcmp(base, "stopservice")) {
 		return stop_service_main();
 	}
 	/* ddns update ok */
-	else if (strstr(base, "ddns_updated")) 
+	else if (!strcmp(base, "ddns_updated")) 
 	{
 		return ddns_updated_main();
 	}
 	/* ddns update ok */
-	else if (strstr(base, "start_ddns")) 
+	else if (!strcmp(base, "start_ddns")) 
 	{
 		return start_ddns();
 	}
 	/* send alarm */
-	else if (strstr(base, "sendalarm")) {
+	else if (!strcmp(base, "sendalarm")) {
 		return sendalarm_main(argc, argv);
 	}
 	/* invoke watchdog */
-	else if (strstr(base, "watchdog")) {
+	else if (!strcmp(base, "watchdog")) {
 		return(watchdog_main());
 	}
 #ifdef USB_SUPPORT
 	/* remove webcam module */
-	else if (strstr(base, "rmwebcam")) {
+	else if (!strcmp(base, "rmwebcam")) {
 		if (argc >= 2)
 			return (remove_webcam_main(atoi(argv[1])));
 		else return EINVAL;
 	}
 	/* remove usbstorage module */
-	else if (strstr(base, "rmstorage")) {
+	else if (!strcmp(base, "rmstorage")) {
 		int scsi_host = -1;
 		if (argc >= 2)
 			scsi_host = atoi(argv[1]);
@@ -1026,25 +1017,25 @@ main(int argc, char **argv)
 	}
 #endif
 	/* run ntp client */
-	else if (strstr(base, "ntp")) {
+	else if (!strcmp(base, "ntp")) {
 		return (!start_ntpc());
 	}
 #ifdef USB_SUPPORT
 	/* run rcamd */
-	else if (strstr(base, "rcamdmain")) {
+	else if (!strcmp(base, "rcamdmain")) {
 		return (rcamd_main());
 	}
 	/* run waveserver */
-	else if (strstr(base, "waveservermain")) {
+	else if (!strcmp(base, "waveservermain")) {
 		return (waveserver_main());
 	}
 	/* run ftp server */
-	else if (strstr(base, "start_ftpd")) {
+	else if (!strcmp(base, "start_ftpd")) {
 		return (restart_ftpd());
 	}
 #endif
 	/* write srom */
-	else if (strstr(base, "wsrom")) 
+	else if (!strcmp(base, "wsrom")) 
 	{
 		do_timer();
 		if (argc >= 4) 
@@ -1055,7 +1046,7 @@ main(int argc, char **argv)
 		}
 	}
 	/* write srom */
-	else if (strstr(base, "rsrom")) 
+	else if (!strcmp(base, "rsrom")) 
 	{
 		if (argc >= 3)
 		{	 
@@ -1068,7 +1059,7 @@ main(int argc, char **argv)
 		}
 	}
 	/* write mac */
-	else if (strstr(base, "wmac")) 
+	else if (!strcmp(base, "wmac")) 
 	{
 		if (argc >= 3) 
 			return write_mac(argv[1], argv[2]);
@@ -1078,22 +1069,22 @@ main(int argc, char **argv)
 		}
 	}
 	/* wlan update */
-	else if (strstr(base, "wlan_update")) 
+	else if (!strcmp(base, "wlan_update")) 
 	{
 		wlan_update();
 		return 0;
 	}
 	/* udhcpc_ex [ deconfig bound renew ], for lan only */
-	else if (strstr(base, "landhcpc"))
+	else if (!strcmp(base, "landhcpc"))
 		return udhcpc_ex_main(argc, argv);
-	else if (strstr(base, "bpa_connect"))
+	else if (!strcmp(base, "bpa_connect"))
                  return bpa_connect_main(argc, argv);
-        else if (strstr(base, "bpa_disconnect"))
+        else if (!strcmp(base, "bpa_disconnect"))
                  return bpa_disconnect_main(argc, argv);
 #endif
 
 	/* rc [stop|start|restart ] */
-	else if (strstr(base, "rc")) {
+	else if (!strcmp(base, "rc")) {
 		if (argv[1]) {
 			if (strncmp(argv[1], "start", 5) == 0)
 				return kill(1, SIGUSR2);
@@ -1105,11 +1096,11 @@ main(int argc, char **argv)
 			fprintf(stderr, "usage: rc [start|stop|restart]\n");
 			return EINVAL;
 		}
-	} else if (strstr(base, "halt")) {
+	} else if (!strcmp(base, "halt")) {
 		kill(1, SIGQUIT);
-	} else if (strstr(base, "reboot")) {
+	} else if (!strcmp(base, "reboot")) {
 		kill(1, SIGTERM);
-	} else if (strstr(base, "poweron")) {
+	} else if (!strcmp(base, "poweron")) {
 		return poweron_main(argc, argv);
 	}
 	
