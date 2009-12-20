@@ -1,6 +1,24 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * backport of scsi settle by Ray123 from Tomato project
+    * several usb storage bugfixes backport from 2.6
+
+  * Broadcom SDK updates from GPL source 500gpV2 3.0.4.2
+
+  * busybox 1.15.3
+    * bugfixes for applets - wget, crond
+    * mkswap volume label support
+
+  * rc
+    * dhcp - allow broadcast with wins usage
+    * usb-hotplug - perform unmount of specified device only on remove, not all partitions on all discs, closes issue 43
+
+  * bugfixes
+    * web-UI - fix validation of number fields & ports range, closes issue 64
+
 ===wl500g-1.9.2.7-d-`r893` (2009-12-01)===
   * kernel 2.4.37.7
     * IPv6: fix BUG of ndisc_send_redirect(), backport of ip6t_TCPMSS netfilter module
