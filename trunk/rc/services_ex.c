@@ -1526,8 +1526,8 @@ umount_all_part(char *product, int scsi_host_no)
 {
 	DIR *dir_to_open, *usb_dev_disc;
 	struct dirent *dp;
+	struct stat sd;
 	char umount_dir[128];
-	int usb_disc_0 = 0;
 
 	if (scsi_host_no != -1)
 	{
@@ -1597,10 +1597,10 @@ umount_all_part(char *product, int scsi_host_no)
 		    }
 		}
 		closedir(dir_to_open);
-		usb_disc_0 = 1;
 	}
 
-	if (usb_disc_0)
+	/* We just unmounted first disk? */
+	if (stat("/tmp/harddisk", &sd) != 0)
 		unlink("/tmp/harddisk");
 
 	return 0;
@@ -1683,7 +1683,7 @@ static struct mntent *findmntent(char *file)
 	return mnt;
 }
 
-char *detect_fs_type(char *device)
+char *detect_fs_type(const char *device)
 {
 	int fd;
 	unsigned char buf[4096];
@@ -1738,6 +1738,7 @@ char *detect_fs_type(char *device)
 #define MOUNT_VAL_FAIL 	0
 #define MOUNT_VAL_RONLY	1
 #define MOUNT_VAL_RW 	2
+#define MOUNT_VAL_DUP 	3
 
 int
 mount_r(char *mnt_dev, char *mnt_dir)
@@ -1746,8 +1747,10 @@ mount_r(char *mnt_dev, char *mnt_dir)
 	char *type;
 	
 	if (mnt) {
-		return strcmp(mnt->mnt_dir, mnt_dir) ? 
-			MOUNT_VAL_FAIL : MOUNT_VAL_RW;
+		if (strcmp(mnt->mnt_dir, mnt_dir) == 0)
+			return MOUNT_VAL_RW;
+		strcpy(mnt_dir, mnt->mnt_dir);
+		return MOUNT_VAL_DUP;
 	}
 	
 	if ((type = detect_fs_type(mnt_dev))) 
