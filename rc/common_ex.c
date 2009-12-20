@@ -523,10 +523,9 @@ void convert_asus_values()
 	nvram_set("lan_ifnames_t", ifnames);
 
 	// clean some temp variables
-	nvram_set("usb_device", "");
 	nvram_set("usb_ftp_device", "");
 	/* force mounting (boot_local and wl-hdd) */
-	nvram_set("usb_storage_device", "ide");
+	nvram_set("usb_storage_device", "");
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");

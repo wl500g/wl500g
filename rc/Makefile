@@ -22,7 +22,7 @@ CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /lib
 
 OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
-    stats.o crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
+    crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
     bigpond.o qos.o rcamd.o waveserver.o
 
@@ -31,7 +31,6 @@ OBJS += firewall.o
 CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
 endif
-
 
 ifeq ($(CONFIG_SENTRY5),y)
 include $(TOP)/rc/Makefiles5.mk
@@ -52,7 +51,6 @@ install: all
 	cd $(INSTALLDIR)/sbin && ln -sf rc erase
 	cd $(INSTALLDIR)/sbin && ln -sf rc write
 	cd $(INSTALLDIR)/sbin && ln -sf rc flash
-	cd $(INSTALLDIR)/sbin && ln -sf rc stats
 	cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	cd $(INSTALLDIR)/sbin && ln -sf rc halt
 	cd $(INSTALLDIR)/sbin && ln -sf rc reboot

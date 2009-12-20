@@ -34,10 +34,6 @@
 
 #define logs(s) syslog(LOG_NOTICE, s)
 
-#define WEBCAM_SUPPORT 1
-#define PRINTER_SUPPORT 1
-#define MASSSTORAGE_SUPPORT 1
-
 void filecat(FILE *fp, char *catted)
 {
 	FILE *cfp;
