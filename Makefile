@@ -131,7 +131,6 @@ brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-src:
 	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
-	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
