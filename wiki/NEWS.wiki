@@ -1,7 +1,7 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r1000` (2009-12-21)===
   * kernel
     * backport of scsi settle by Ray123 from Tomato project
     * several usb storage bugfixes backport from 2.6
