@@ -39,7 +39,7 @@ function isModel()
    model = 'WL600';
    pid = parent.titleFrame.document.form.productid.value;
 
-   if (pid.indexOf("WL500")!=-1 || pid.indexOf("WL700")!=-1 ||
+   if (pid.indexOf("WL500")!=-1 || pid.indexOf("RT-N1")!=-1 || pid.indexOf("WL700")!=-1||
        pid.indexOf("WL550")!=-1 || pid.indexOf("WL520gu")!= -1) model = 'WL500';
    else if (pid.indexOf("WL520")!=-1 ||
             pid.indexOf("WL530")!=-1) model = 'WL520';            
