@@ -21,14 +21,22 @@
  * @param	flags	open() flags
  * @return	return value of open()
  */
-extern int mtd_open(const char *mtd, int flags);
+int mtd_open(const char *mtd, int flags);
 
 /*
  * Erase an MTD device
  * @param	mtd	path to or partition name of MTD device
  * @return	0 on success and errno on failure
  */
-extern int mtd_erase(const char *mtd);
+int mtd_erase(const char *mtd);
+
+/*
+ * Flash a file to an MTD device
+ * @param       path    file to write or a URL
+ * @param       mtd     path to or partition name of MTD device.
+ * @return      0 on success and errno on failure
+ */
+int mtd_flash(const char *path, const char *mtd);
 
 /*
  * Write a file or a URL to an MTD device
@@ -36,14 +44,6 @@ extern int mtd_erase(const char *mtd);
  * @param	mtd	path to or partition name of MTD device 
  * @return	0 on success and errno on failure
  */
-extern int mtd_write(const char *path, const char *mtd);
-
-/*
- * Flash a file to an MTD device
- * @param	path	file to write or a URL
- * @param	mtd	path to or partition name of MTD device 
- * @return	0 on success and errno on failure
- */
-extern int mtd_write(const char *path, const char *mtd);
+int mtd_write(const char *path, const char *mtd);
 
 #endif /* _mtd_h_ */
