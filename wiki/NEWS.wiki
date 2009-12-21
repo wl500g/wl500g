@@ -5,8 +5,11 @@
   * kernel
     * backport of scsi settle by Ray123 from Tomato project
     * several usb storage bugfixes backport from 2.6
+    * port trigger (autofw) fix
 
   * Broadcom SDK updates from GPL source 500gpV2 3.0.4.2
+
+  * updated toolchain (gcc 4.2.4)
 
   * busybox 1.15.3
     * bugfixes for applets - wget, crond
