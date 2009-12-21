@@ -213,7 +213,7 @@ if [ -n "$1" ]; then
 		#cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
 				
 		### 6.2 web page ###							
-		if [ "$MODEL" = "WL500W" || "$MODEL" = "RT-N16" ]; then
+		if [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ]; then
 			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
 			cp -f ../web_$MODEL/Advanced_WAdvanced_Content_11n.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
 		else
