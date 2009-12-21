@@ -13,7 +13,7 @@
 #
 
 UTILS := wl nas mii-tool robocfg
-CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall $(EXTRACFLAGS)
+CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
 
@@ -26,10 +26,10 @@ endif
 all: $(UTILS)
 
 wl: $(SRCBASE)/wl/mipsel-uclibc/wl_exe.o
-	$(CC) $(CCFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $<
 
 nas: $(SRCBASE)/wl/mipsel-uclibc/nas_exe.o
-	$(CC) $(CCFLAGS) -o $@ $< -L$(TOP)/shared  -L$(TOP)/nvram -lnvram -lshared
+	$(CC) $(CFLAGS) -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
 
 mii-tool: mii-tool.c mii.h
 
