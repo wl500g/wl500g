@@ -211,8 +211,11 @@ wget(int method, const char *server, char *buf, size_t count, off_t offset)
 	return len;
 }
 
+/* Checks existence of process in memory by pidfile
+ *  returns zero if process seems to be dead
+ */
 int
-http_check_pid(const char *pidfile)
+proc_check_pid(const char *pidfile)
 {
 	FILE *fp;
 	pid_t pid;

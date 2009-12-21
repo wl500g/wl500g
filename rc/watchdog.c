@@ -148,7 +148,7 @@ long timestamp_g=0;
 int stacheck_interval=-1;
 
 /* forwards */
-int notice_rcamd(int flag);
+static int notice_rcamd(int flag);
 
 void gpio_write(char *dev, int mask, int value)
 {
@@ -467,6 +467,7 @@ int svc_timecheck(void)
 
 	activeFlag = 0;
 
+#ifndef __CONFIG_DNSMASQ__
 	/* Initialize */
 	if (svcStatus[URLACTIVE]==-1 && nvram_invmatch("url_enable_x", "0"))
 	{
@@ -486,6 +487,7 @@ int svc_timecheck(void)
 			//start_dns();
 		}
 	}
+#endif
 
 	if (svcStatus[WEBACTIVE]==-1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
@@ -543,7 +545,7 @@ int http_processcheck(void)
 	/* just check httpd process existance */
 	//sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("http_lanport"));
 	//if (!http_check(http_cmd, buf, sizeof(buf), 0))
-	if (!http_check_pid(httpd_pid))
+	if (!proc_check_pid(httpd_pid))
 	{
 		dprintf("http rerun\n");
 		kill_pidfile(httpd_pid);
@@ -572,36 +574,7 @@ int http_processcheck(void)
 }
 
 #ifdef USB_SUPPORT
-char usbinterrupt[128];
-
-int rcamd_processcheck()
-{
-	FILE *fp;
-	char buf[128];
-	int flag=1;
-
-	fp = fopen("/proc/interrupts", "r");
-
-	if (fp!=NULL)
-	{
-		while(fgets(buf, sizeof(buf), fp))
-		{
-			if (strstr(buf, "ehci") || strstr(buf, "ohci"))
-			{
-				//logmessage("web camera", buf);
-
-				if (strcmp(usbinterrupt, buf)==0) flag=0;
-				strcpy(usbinterrupt, buf);
-				break;
-			}				
-		}
-		fclose(fp);
-	}
-	return flag;		
-}
-#endif
-
-int notice_rcamd(int flag)
+static int notice_rcamd(int flag)
 {
 	int ret = -1;
 
@@ -613,7 +586,7 @@ int notice_rcamd(int flag)
 	return (ret == 0);
 }
 
-int refresh_rcamd(void)
+static int refresh_rcamd(void)
 {
 	if (kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1) == 0)
 	{
@@ -627,6 +600,7 @@ int refresh_rcamd(void)
 	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
 	return 0;
 }
+#endif
 
 int refresh_wave(void)
 {
@@ -675,7 +649,7 @@ static void catch_sig(int sig)
 	}	
 }
 
-void sta_check(void)
+static void sta_check(void)
 {
 	int ret;
 	char *wl_ifname=nvram_safe_get("wl0_ifname");
@@ -757,7 +731,7 @@ void watchdog(int signum)
 	{	
 		if (nvram_invmatch("usb_webdriver_x", ""))
 		{
-			if (!rcamd_processcheck())
+			if (!proc_check_pid("/var/run/rcamd.pid"))
 			{
 				refresh_rcamd();
 			}
@@ -801,7 +775,7 @@ poweron_main(int argc, char *argv[])
 	return 0;
 }
 
-static int running = 1;
+static volatile int running = 1;
 
 static void readyoff(int sig)
 {

@@ -13,7 +13,7 @@
 #
 
 UTILS := wl nas mii-tool robocfg
-CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall $(EXTRACFLAGS)
+CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
 

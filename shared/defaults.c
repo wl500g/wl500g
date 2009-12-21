@@ -40,7 +40,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "ezc_version", EZC_VERSION_STR, 0 },	/* EZConfig version */
 	{ "is_default", "1", 0 },		/* is it default setting: 1:yes 0:no*/
 	{ "os_server", "", 0 },			/* URL for getting upgrades */
-	{ "stats_server", "", 0 },		/* URL for posting stats */
 	{ "console_loglevel", "0", 0 },		/* Kernel panics only */
 
 	/* Big switches */

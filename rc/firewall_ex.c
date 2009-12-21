@@ -1299,7 +1299,7 @@ portmapping_main(int argc, char *argv[])
 }
 #endif	
 
-#ifndef DNSMASQ
+#ifndef __CONFIG_DNSMASQ__
 void write_static_leases(char *file)
 {
 	FILE *fp;
