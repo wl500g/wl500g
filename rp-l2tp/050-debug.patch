@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
---- gateway/rp-l2tp-0.4/tunnel.c	2009-08-31 06:00:47.000000000 +0000
-+++ gateway/rp-l2tp/tunnel.c	2009-08-31 06:01:57.000000000 +0000
+diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
+--- rp-l2tp-0.4/tunnel.c	2009-08-31 06:00:47.000000000 +0000
++++ rp-l2tp/tunnel.c	2009-08-31 06:01:57.000000000 +0000
 @@ -665,8 +665,8 @@ l2tp_tunnel_handle_received_control_data
  
      if (!tunnel) {

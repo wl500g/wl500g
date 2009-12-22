@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/Makefile.in gateway/rp-l2tp/Makefile.in
---- gateway/rp-l2tp-0.4/Makefile.in	2004-07-01 15:17:11.000000000 +0000
-+++ gateway/rp-l2tp/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+diff -BurpN rp-l2tp-0.4/Makefile.in rp-l2tp/Makefile.in
+--- rp-l2tp-0.4/Makefile.in	2004-07-01 15:17:11.000000000 +0000
++++ rp-l2tp/Makefile.in	2009-08-31 05:46:52.000000000 +0000
 @@ -30,7 +30,7 @@ OBJS=auth.o debug.o dgram.o main.o md5.o
  EXTRA_LIBS=@LIBEVENT@/*.o -ldl
  
@@ -30,9 +30,9 @@ diff -BurpN gateway/rp-l2tp-0.4/Makefile.in gateway/rp-l2tp/Makefile.in
  	$(MAKE) -C handlers distclean
  
  -include .depend
-diff -BurpN gateway/rp-l2tp-0.4/configure gateway/rp-l2tp/configure
---- gateway/rp-l2tp-0.4/configure	2002-09-30 18:46:52.000000000 +0000
-+++ gateway/rp-l2tp/configure	2009-08-31 05:46:52.000000000 +0000
+diff -BurpN rp-l2tp-0.4/configure rp-l2tp/configure
+--- rp-l2tp-0.4/configure	2002-09-30 18:46:52.000000000 +0000
++++ rp-l2tp/configure	2009-08-31 05:46:52.000000000 +0000
 @@ -1766,6 +1766,7 @@ s%@oldincludedir@%$oldincludedir%g
  s%@infodir@%$infodir%g
  s%@mandir@%$mandir%g
@@ -41,9 +41,9 @@ diff -BurpN gateway/rp-l2tp-0.4/configure gateway/rp-l2tp/configure
  s%@INSTALL_PROGRAM@%$INSTALL_PROGRAM%g
  s%@INSTALL_SCRIPT@%$INSTALL_SCRIPT%g
  s%@INSTALL_DATA@%$INSTALL_DATA%g
-diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Makefile.in
---- gateway/rp-l2tp-0.4/handlers/Makefile.in	2002-09-30 19:45:00.000000000 +0000
-+++ gateway/rp-l2tp/handlers/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/Makefile.in rp-l2tp/handlers/Makefile.in
+--- rp-l2tp-0.4/handlers/Makefile.in	2002-09-30 19:45:00.000000000 +0000
++++ rp-l2tp/handlers/Makefile.in	2009-08-31 05:46:52.000000000 +0000
 @@ -19,19 +19,19 @@ CFLAGS=-g -O2 -I.. -I../libevent -I../..
  all: $(HANDLERS) l2tp-control
  
@@ -69,9 +69,9 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Ma
  
  clean:
  	rm -f *.so *.o *~
-diff -BurpN gateway/rp-l2tp-0.4/libevent/Makefile.in gateway/rp-l2tp/libevent/Makefile.in
---- gateway/rp-l2tp-0.4/libevent/Makefile.in	2002-09-30 19:45:00.000000000 +0000
-+++ gateway/rp-l2tp/libevent/Makefile.in	2009-08-31 05:46:52.000000000 +0000
+diff -BurpN rp-l2tp-0.4/libevent/Makefile.in rp-l2tp/libevent/Makefile.in
+--- rp-l2tp-0.4/libevent/Makefile.in	2002-09-30 19:45:00.000000000 +0000
++++ rp-l2tp/libevent/Makefile.in	2009-08-31 05:46:52.000000000 +0000
 @@ -18,20 +18,20 @@ all: libevent.a
  
  libevent.a: $(OBJS)

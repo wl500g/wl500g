@@ -1,6 +1,6 @@
-diff -BurpN gateway/xl2tpd-1.2.4/file.h gateway/xl2tpd/file.h
---- gateway/xl2tpd-1.2.4/file.h	2009-03-08 23:25:30.000000000 +0000
-+++ gateway/xl2tpd/file.h	2009-09-17 20:54:38.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/file.h xl2tpd/file.h
+--- xl2tpd-1.2.4/file.h	2009-03-08 23:25:30.000000000 +0000
++++ xl2tpd/file.h	2009-09-17 20:54:38.000000000 +0000
 @@ -50,13 +50,13 @@ struct host
  #define SENSE_DENY 0
  
@@ -19,9 +19,9 @@ diff -BurpN gateway/xl2tpd-1.2.4/file.h gateway/xl2tpd/file.h
  #define DEFAULT_PID_FILE "/var/run/xl2tpd.pid"
  
  /* Definition of an LNS */
-diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
---- gateway/xl2tpd-1.2.4/l2tp.h	2009-03-08 23:25:30.000000000 +0000
-+++ gateway/xl2tpd/l2tp.h	2009-09-17 20:56:30.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/l2tp.h xl2tpd/l2tp.h
+--- xl2tpd-1.2.4/l2tp.h	2009-03-08 23:25:30.000000000 +0000
++++ xl2tpd/l2tp.h	2009-09-17 20:56:30.000000000 +0000
 @@ -37,7 +37,7 @@ typedef unsigned long long _u64;
  #include "common.h"
  #include "ipsecmast.h"
