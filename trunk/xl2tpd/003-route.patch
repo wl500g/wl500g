@@ -1,6 +1,6 @@
-diff -BurpN gateway/xl2tpd-1.2.4/call.c gateway/xl2tpd/call.c
---- gateway/xl2tpd-1.2.4/call.c	2009-03-08 23:25:30.000000000 +0000
-+++ gateway/xl2tpd/call.c	2009-09-17 21:19:46.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/call.c xl2tpd/call.c
+--- xl2tpd-1.2.4/call.c	2009-03-08 23:25:30.000000000 +0000
++++ xl2tpd/call.c	2009-09-17 21:19:46.000000000 +0000
 @@ -701,6 +701,9 @@ struct call *get_call (int tunnel, int c
          st->next = tunnels.head;
          tunnels.head = st;
@@ -11,9 +11,9 @@ diff -BurpN gateway/xl2tpd-1.2.4/call.c gateway/xl2tpd/call.c
          return st->self;
      }
  }
-diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
---- gateway/xl2tpd-1.2.4/l2tp.h	2009-09-17 20:57:14.000000000 +0000
-+++ gateway/xl2tpd/l2tp.h	2009-09-17 21:37:03.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/l2tp.h xl2tpd/l2tp.h
+--- xl2tpd-1.2.4/l2tp.h	2009-09-17 20:57:14.000000000 +0000
++++ xl2tpd/l2tp.h	2009-09-17 21:37:03.000000000 +0000
 @@ -36,6 +36,7 @@ typedef unsigned long long _u64;
  #include "aaa.h"
  #include "common.h"
@@ -41,9 +41,9 @@ diff -BurpN gateway/xl2tpd-1.2.4/l2tp.h gateway/xl2tpd/l2tp.h
  
  /* 
   * This is just some stuff to take
-diff -BurpN gateway/xl2tpd-1.2.4/xl2tpd.c gateway/xl2tpd/xl2tpd.c
---- gateway/xl2tpd-1.2.4/xl2tpd.c	2009-03-08 23:25:30.000000000 +0000
-+++ gateway/xl2tpd/xl2tpd.c	2009-09-17 21:36:46.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/xl2tpd.c xl2tpd/xl2tpd.c
+--- xl2tpd-1.2.4/xl2tpd.c	2009-03-08 23:25:30.000000000 +0000
++++ xl2tpd/xl2tpd.c	2009-09-17 21:36:46.000000000 +0000
 @@ -48,6 +48,8 @@
  #include <fcntl.h>
  #include <netinet/in.h>

@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sync-pppd.c
---- gateway/rp-l2tp-0.4/handlers/sync-pppd.c	2004-07-01 14:58:56.000000000 +0000
-+++ gateway/rp-l2tp/handlers/sync-pppd.c	2009-08-31 05:51:04.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/sync-pppd.c rp-l2tp/handlers/sync-pppd.c
+--- rp-l2tp-0.4/handlers/sync-pppd.c	2004-07-01 14:58:56.000000000 +0000
++++ rp-l2tp/handlers/sync-pppd.c	2009-08-31 05:51:04.000000000 +0000
 @@ -183,7 +183,8 @@ close_session(l2tp_session *ses, char co
      sl->event = NULL;
  
@@ -33,9 +33,9 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sy
  	ses->private = NULL;
  	l2tp_session_send_CDN(ses, RESULT_GENERAL_REQUEST, 0,
  			      "pppd process exited");
-diff -BurpN gateway/rp-l2tp-0.4/session.c gateway/rp-l2tp/session.c
---- gateway/rp-l2tp-0.4/session.c	2004-07-01 14:58:55.000000000 +0000
-+++ gateway/rp-l2tp/session.c	2009-08-31 05:51:04.000000000 +0000
+diff -BurpN rp-l2tp-0.4/session.c rp-l2tp/session.c
+--- rp-l2tp-0.4/session.c	2004-07-01 14:58:55.000000000 +0000
++++ rp-l2tp/session.c	2009-08-31 05:51:04.000000000 +0000
 @@ -473,7 +473,7 @@ l2tp_session_handle_CDN(l2tp_session *se
      val = l2tp_dgram_search_avp(dgram, ses->tunnel, NULL, NULL, &len,
  				VENDOR_IETF, AVP_RESULT_CODE);
@@ -54,9 +54,9 @@ diff -BurpN gateway/rp-l2tp-0.4/session.c gateway/rp-l2tp/session.c
      }
  }
  
-diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
---- gateway/rp-l2tp-0.4/tunnel.c	2004-07-01 14:58:56.000000000 +0000
-+++ gateway/rp-l2tp/tunnel.c	2009-08-31 05:51:05.000000000 +0000
+diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
+--- rp-l2tp-0.4/tunnel.c	2004-07-01 14:58:56.000000000 +0000
++++ rp-l2tp/tunnel.c	2009-08-31 05:51:05.000000000 +0000
 @@ -966,6 +966,17 @@ tunnel_handle_timeout(EventSelector *es,
      if (tunnel->retransmissions >= MAX_RETRANSMISSIONS) {
  	l2tp_set_errmsg("Too many retransmissions on tunnel (%s); closing down",

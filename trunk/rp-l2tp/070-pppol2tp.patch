@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Makefile.in
---- gateway/rp-l2tp-0.4/handlers/Makefile.in	2009-08-31 06:07:49.000000000 +0000
-+++ gateway/rp-l2tp/handlers/Makefile.in	2009-08-31 06:08:17.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/Makefile.in rp-l2tp/handlers/Makefile.in
+--- rp-l2tp-0.4/handlers/Makefile.in	2009-08-31 06:07:49.000000000 +0000
++++ rp-l2tp/handlers/Makefile.in	2009-08-31 06:08:17.000000000 +0000
 @@ -14,7 +14,7 @@ HANDLERS=sync-pppd.so cmd.so
  
  OBJS=pty.o sync-pppd.o dstring.o
@@ -10,9 +10,9 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/Makefile.in gateway/rp-l2tp/handlers/Ma
  
  all: $(HANDLERS) l2tp-control
  
-diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppol2tp.h gateway/rp-l2tp/handlers/linux/if_pppol2tp.h
---- gateway/rp-l2tp-0.4/handlers/linux/if_pppol2tp.h	1970-01-01 00:00:00.000000000 +0000
-+++ gateway/rp-l2tp/handlers/linux/if_pppol2tp.h	2009-08-31 06:08:17.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/linux/if_pppol2tp.h rp-l2tp/handlers/linux/if_pppol2tp.h
+--- rp-l2tp-0.4/handlers/linux/if_pppol2tp.h	1970-01-01 00:00:00.000000000 +0000
++++ rp-l2tp/handlers/linux/if_pppol2tp.h	2009-08-31 06:08:17.000000000 +0000
 @@ -0,0 +1,67 @@
 +/***************************************************************************
 + * Linux PPP over L2TP (PPPoL2TP) Socket Implementation (RFC 2661)
@@ -81,9 +81,9 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppol2tp.h gateway/rp-l2tp/han
 +
 +
 +#endif
-diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppox.h gateway/rp-l2tp/handlers/linux/if_pppox.h
---- gateway/rp-l2tp-0.4/handlers/linux/if_pppox.h	1970-01-01 00:00:00.000000000 +0000
-+++ gateway/rp-l2tp/handlers/linux/if_pppox.h	2009-08-31 05:05:14.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/linux/if_pppox.h rp-l2tp/handlers/linux/if_pppox.h
+--- rp-l2tp-0.4/handlers/linux/if_pppox.h	1970-01-01 00:00:00.000000000 +0000
++++ rp-l2tp/handlers/linux/if_pppox.h	2009-08-31 05:05:14.000000000 +0000
 @@ -0,0 +1,165 @@
 +/***************************************************************************
 + * Linux PPP over X - Generic PPP transport layer sockets
@@ -250,9 +250,9 @@ diff -BurpN gateway/rp-l2tp-0.4/handlers/linux/if_pppox.h gateway/rp-l2tp/handle
 +#endif /* __KERNEL__ */
 +
 +#endif /* !(__LINUX_IF_PPPOX_H) */
-diff -BurpN gateway/rp-l2tp-0.4/handlers/sync-pppd.c gateway/rp-l2tp/handlers/sync-pppd.c
---- gateway/rp-l2tp-0.4/handlers/sync-pppd.c	2009-08-31 06:07:49.000000000 +0000
-+++ gateway/rp-l2tp/handlers/sync-pppd.c	2009-08-31 06:08:17.000000000 +0000
+diff -BurpN rp-l2tp-0.4/handlers/sync-pppd.c rp-l2tp/handlers/sync-pppd.c
+--- rp-l2tp-0.4/handlers/sync-pppd.c	2009-08-31 06:07:49.000000000 +0000
++++ rp-l2tp/handlers/sync-pppd.c	2009-08-31 06:08:17.000000000 +0000
 @@ -22,6 +22,10 @@ static char const RCSID[] =
  #include <stdio.h>
  #include <string.h>

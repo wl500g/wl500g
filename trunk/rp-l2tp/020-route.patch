@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/l2tp.h gateway/rp-l2tp/l2tp.h
---- gateway/rp-l2tp-0.4/l2tp.h	2004-07-01 14:58:55.000000000 +0000
-+++ gateway/rp-l2tp/l2tp.h	2009-08-31 05:52:54.000000000 +0000
+diff -BurpN rp-l2tp-0.4/l2tp.h rp-l2tp/l2tp.h
+--- rp-l2tp-0.4/l2tp.h	2004-07-01 14:58:55.000000000 +0000
++++ rp-l2tp/l2tp.h	2009-08-31 05:52:54.000000000 +0000
 @@ -16,6 +16,7 @@
  #include <stdint.h>
  #include <netinet/in.h>
@@ -17,9 +17,9 @@ diff -BurpN gateway/rp-l2tp-0.4/l2tp.h gateway/rp-l2tp/l2tp.h
  } l2tp_tunnel;
  
  /* A session within a tunnel */
-diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
---- gateway/rp-l2tp-0.4/tunnel.c	2009-08-31 05:52:33.000000000 +0000
-+++ gateway/rp-l2tp/tunnel.c	2009-08-31 05:52:54.000000000 +0000
+diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
+--- rp-l2tp-0.4/tunnel.c	2009-08-31 05:52:33.000000000 +0000
++++ rp-l2tp/tunnel.c	2009-08-31 05:52:54.000000000 +0000
 @@ -5,6 +5,8 @@
  * Functions for manipulating L2TP tunnel objects.
  *

@@ -326,8 +326,8 @@ rp-l2tp_Patches := $(call patches_list,rp-l2tp)
 $(TOP)/rp-l2tp:
 	@rm -rf $(TOP)/$(L2TP) $@
 	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(L2TP) $(rp-l2tp_Patches)
 	mv $(TOP)/$(L2TP) $@
-	$(PATCHER) -Z $(TOP)/$($L2TP) $(rp-l2tp_Patches)
 
 rp-l2tp: $(TOP)/rp-l2tp
 	@true
@@ -337,7 +337,7 @@ xl2tpd_Patches := $(call patches_list,xl2tpd)
 $(TOP)/xl2tpd:
 	@rm -rf $(TOP)/$(XL2TPD) $@
 	tar -xzf xl2tpd/$(XL2TPD).tar.gz -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$($XL2TPD) $(xl2tpd_Patches)
+	$(PATCHER) -Z $(TOP)/$(XL2TPD) $(xl2tpd_Patches)
 	mv $(TOP)/$(XL2TPD) $@
 
 xl2tpd: $(TOP)/xl2tpd
