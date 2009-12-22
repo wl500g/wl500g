@@ -326,8 +326,8 @@ rp-l2tp_Patches := $(call patches_list,rp-l2tp)
 $(TOP)/rp-l2tp:
 	@rm -rf $(TOP)/$(L2TP) $@
 	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$($L2TP) $(rp-l2tp_Patches)
 	mv $(TOP)/$(L2TP) $@
+	$(PATCHER) -Z $(TOP)/$($L2TP) $(rp-l2tp_Patches)
 
 rp-l2tp: $(TOP)/rp-l2tp
 	@true
