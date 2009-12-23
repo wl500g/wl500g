@@ -297,7 +297,7 @@ name_cmp(char *a, char *b)
 	/* compare strings a and b, but only upto ',' in a */
 	while (*a && *b && *a != ',' && *a == *b)
 		a++, b++;
-	if (!*b && (!*a || !a == ',') )
+	if (!*b && (!*a || *a == ','))
 		return 0;
 	if (!*b) return 1;
 	if (!*a || *a == ',') return -1;
