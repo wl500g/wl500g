@@ -69,7 +69,6 @@ extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv);
 
-extern void sys_refresh_lease(void);
 extern int sys_renew(void);
 extern int sys_release(void);
 
