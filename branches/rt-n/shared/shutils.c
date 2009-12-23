@@ -695,6 +695,40 @@ int add_to_list( char *name, char *list, int listsize )
 	return 0;
 }
 
+/* In the space-separated/null-terminated list(haystack), try to
+ * locate the string "needle"
+ */
+char *
+find_in_list(const char *haystack, const char *needle)
+{
+	const char *ptr = haystack;
+	int needle_len = 0;
+	int haystack_len = 0;
+	int len = 0;
+
+	if (!haystack || !needle || !*haystack || !*needle)
+		return NULL;
+
+	needle_len = strlen(needle);
+	haystack_len = strlen(haystack);
+
+	while (*ptr != 0 && ptr < &haystack[haystack_len])
+	{
+		/* consume leading spaces */
+		ptr += strspn(ptr, " ");
+
+		/* what's the length of the next word */
+		len = strcspn(ptr, " ");
+
+		if ((needle_len == len) && (!strncmp(needle, ptr, len)))
+			return (char*) ptr;
+
+		ptr += len;
+	}
+	return NULL;
+}
+
+
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"
@@ -769,9 +803,10 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 		return -1;
 	}
 	
-	memset(nvifname_buf,nvifname_buf_len,0);
+	memset(nvifname_buf, 0, nvifname_buf_len);
 	
-	if (strstr(osifname,"wl")){
+	if (strstr(osifname,"wl") || strstr(osifname, "br") ||
+	    strstr(osifname, "wds")) {
 		strncpy(nvifname_buf,osifname,nvifname_buf_len);
 		return 0;
 	}	

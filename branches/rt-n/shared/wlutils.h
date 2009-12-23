@@ -35,7 +35,7 @@ extern int wl_ioctl(char *name, int cmd, void *buf, int len);
  * @param	len	length of buf
  * @return	>= 0 if successful or < 0 otherwise
  */
-#define DEV_TYPE_LEN 3
+#define DEV_TYPE_LEN 3 /* Length for dev type 'et'/'wl' */
 extern int wl_get_dev_type(char *name, void *buf, int len);
 
 /*
