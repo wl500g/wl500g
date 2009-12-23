@@ -769,7 +769,7 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 		return -1;
 	}
 	
-	memset(nvifname_buf,nvifname_buf_len,0);
+	memset(nvifname_buf, 0, nvifname_buf_len);
 	
 	if (strstr(osifname,"wl")){
 		strncpy(nvifname_buf,osifname,nvifname_buf_len);
