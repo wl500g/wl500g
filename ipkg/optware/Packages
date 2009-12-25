@@ -32,6 +32,20 @@ Package: mc
 Architecture: mipsel
 Priority: optional
 Section: utilities
+Version: 4.7.0-1
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://www.midnight-commander.org/downloads/mc-4.7.0.tar.gz
+Filename: mc_4.7.0-1_mipsel.ipk
+Size: 660361
+MD5Sum: aca2888aa82875096d8e6f160177f5b6
+Description: Midnight Commander File Manager
+Depends: glib, slang, e2fslibs
+Conflicts: 
+
+Package: mc
+Architecture: mipsel
+Priority: optional
+Section: utilities
 Version: 4.7.0-pre3-1
 Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
 Source: http://www.midnight-commander.org/downloads/mc-4.7.0-pre3.tar.gz
