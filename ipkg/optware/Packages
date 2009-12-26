@@ -42,34 +42,6 @@ Description: Midnight Commander File Manager
 Depends: glib, slang, e2fslibs
 Conflicts: 
 
-Package: mc
-Architecture: mipsel
-Priority: optional
-Section: utilities
-Version: 4.7.0-pre3-1
-Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
-Source: http://www.midnight-commander.org/downloads/mc-4.7.0-pre3.tar.gz
-Filename: mc_4.7.0-pre3-1_mipsel.ipk
-Size: 640761
-MD5Sum: 72c180413cad2e432609e71f476cac34
-Description: Midnight Commander File Manager
-Depends: glib, slang, e2fslibs
-Conflicts: 
-
-Package: mc
-Architecture: mipsel
-Priority: optional
-Section: utilities
-Version: 4.7.0-pre4-1
-Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
-Source: http://www.midnight-commander.org/downloads/mc-4.7.0-pre4.tar.gz
-Filename: mc_4.7.0-pre4-1_mipsel.ipk
-Size: 650489
-MD5Sum: 219f4fbd99657e2f51126f68c61434ff
-Description: Midnight Commander File Manager
-Depends: glib, slang, e2fslibs
-Conflicts: 
-
 Package: nano
 Architecture: mipsel
 Priority: optional
