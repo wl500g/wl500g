@@ -749,7 +749,11 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	}
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
-		fprintf(fp, "-A INPUT -i ! %s -m state --state NEW -j SECURITY\n", lan_if);
+	{
+		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
+		if (nvram_invmatch("wan0_ifname", wan_if))
+			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", nvram_get("wan0_ifname"));
+	}
 
 	if (nvram_match("fw_enable_x", "1"))
 	{	
