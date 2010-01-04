@@ -724,7 +724,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	} 
 
 	// Security checks
-	// sync-flood protection	
+	// sync-flood protection
 	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
 	// furtive port scanner
 	fprintf(fp, "-A SECURITY -p tcp --tcp-flags SYN,ACK,FIN,RST RST -m limit --limit 1/s -j RETURN\n");
@@ -732,6 +732,11 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A SECURITY -p udp -m limit --limit 5/s -j RETURN\n");
 	// ping of death
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
+	#ifdef __CONFIG_IPV6__
+	// pass ipv6-in-ipv4 tunnel packets
+	if (nvram_match("ipv6_sit_enable", "1"))
+		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
+	#endif
 	// drop attacks!!!
 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
 
