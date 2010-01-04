@@ -1,0 +1,60 @@
+--- identd.c.orig	2009-12-27 22:00:31.000000000 +0000
++++ identd.c	2009-12-27 22:28:25.000000000 +0000
+@@ -209,6 +209,9 @@ exit 1
+ #ifndef BIND_ADDRESS
+ #define BIND_ADDRESS	0.0.0.0
+ #endif
++#ifndef BIND_ADDRESS6
++#define BIND_ADDRESS6	::
++#endif
+ #define IDENT_PORT	113
+ #define MAXCONNS	20
+ #define MAXIDLETIME	45
+@@ -344,13 +347,31 @@ static int inetbind(int port)
+ 
+ static int inetbind(int ipport)
+ {
+-  int			s;
+-  struct sockaddr_in	addr;
+-  int			len = sizeof addr;
++  int s, len;
++  union {
++    struct sockaddr_in	sin4;
++    struct sockaddr_in6 sin6;
++  } addr;
+ 
+   close(0);
++  memset(&addr, 0, sizeof addr);
+ 
+-  if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
++  if ((s = socket(AF_INET6, SOCK_STREAM, 0)) >= 0)
++    {
++      len = sizeof addr.sin6;
++      inet_pton(AF_INET6, __STRINGIFY_MACRO(BIND_ADDRESS6), &addr.sin6.sin6_addr);
++      addr.sin6.sin6_family = AF_INET6;
++      addr.sin6.sin6_port = ipport;
++    }
++  else
++  if ((s = socket(AF_INET, SOCK_STREAM, 0)) >= 0)
++    {
++      len = sizeof addr.sin4;
++      addr.sin4.sin_addr.s_addr = inet_addr(__STRINGIFY_MACRO(BIND_ADDRESS));
++      addr.sin4.sin_family = AF_INET;
++      addr.sin4.sin_port = ipport;
++    }
++  else
+     {
+       syslog(LOG_CRIT, "Can not create server socket: %s.", strerrno());
+       return -1;
+@@ -358,11 +379,6 @@ static int inetbind(int ipport)
+ 
+   setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+ 
+-  memset(&addr, 0, sizeof addr);
+-  addr.sin_addr.s_addr = inet_addr(__STRINGIFY_MACRO(BIND_ADDRESS));
+-  addr.sin_family = AF_INET;
+-  addr.sin_port = ipport;
+-
+   if (bind(s, (struct sockaddr *)&addr, len) < 0)
+     {
+       syslog(LOG_CRIT, "Can not bind() server socket: %s.", strerrno());

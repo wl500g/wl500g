@@ -42,7 +42,7 @@ FAKEIDENTD_CONFLICTS=
 #
 # FAKEIDENTD_IPK_VERSION should be incremented when the ipk changes.
 #
-FAKEIDENTD_IPK_VERSION=6
+FAKEIDENTD_IPK_VERSION=7
 
 #
 # FAKEIDENTD_CONFFILES should be a list of user-editable files
@@ -55,7 +55,8 @@ FAKEIDENTD_CONFFILES=/opt/etc/init.d/S55fakeidentd /opt/etc/default/fakeidentd
 FAKEIDENTD_PATCHES= \
 	$(FAKEIDENTD_SOURCE_DIR)/100_unix.patch \
 	$(FAKEIDENTD_SOURCE_DIR)/200_pid.patch \
-	$(FAKEIDENTD_SOURCE_DIR)/300_target.patch
+	$(FAKEIDENTD_SOURCE_DIR)/300_target.patch \
+	$(FAKEIDENTD_SOURCE_DIR)/400_ipv6.patch
 
 #
 # If the compilation of the package requires additional
