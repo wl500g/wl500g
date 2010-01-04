@@ -6,7 +6,7 @@ Essential: yes
 Architecture: mipsel
 Maintainer: Pierluigi Frullani <pigi@frumar.it>
 Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
-Filename: optware-d/ipkg_0.99.163-2_mipsel.ipk
+Filename: ipkg_0.99.163-2_mipsel.ipk
 Size: 72833
 MD5Sum: fdd821f2821de1a9adb3c522bbde798b
 Description: lightweight package management system
@@ -28,7 +28,7 @@ Priority: optional
 Section: net
 Version: 3.2
 Maintainer: http://ipset.netfilter.org/
-Filename: optware-d/ipset_3.2_mipsel.ipk
+Filename: ipset_3.2_mipsel.ipk
 Size: 49737
 MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
 Description: ipset administration tool for IP sets.
@@ -43,7 +43,7 @@ Section: system
 Version: 2009.11.14
 Maintainer: http://forum.ntfs-3g.org/
 Source: http://ntfs-3g.org/ntfs-3g-2009.11.14.tgz
-Filename: optware-d/ntfs-3g_2009.11.14_mipsel.ipk
+Filename: ntfs-3g_2009.11.14_mipsel.ipk
 Size: 190330
 MD5Sum: 96b6e27e4eda428392a22732ba6255da
 Description: The NTFS-3G driver is a freely and commercially available
