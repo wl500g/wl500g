@@ -1,10 +1,14 @@
-REPOSITORIES=optware   \
-	     optware-d \
+REPOSITORIES=optware optware-d
 
-packages: ipkg-make-index.sh
-	for dir in $(REPOSITORIES) ; do \
-		(cd $${dir} ; \
-			../ipkg-make-index.sh . > Packages ; \
-			gzip -c9 Packages > Packages.gz \
-		) \
-	done
+all: $(REPOSITORIES)
+
+repo-%: ipkg-make-index.sh
+	./ipkg-make-index.sh $* > $*/Packages
+	gzip -c9 $*/Packages > $*/Packages.gz
+
+%:
+	[ ! -d $* ] || $(MAKE) repo-$*
+
+$(REPOSITORIES): dummy
+
+.PHONY: all dummy
