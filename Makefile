@@ -114,18 +114,16 @@ lzma: $(ROOT)/lzma
 	@true
 
 et:
-	[ -d $(ROOT)/$(ET).orig ] || mv $(ROOT)/et $(ROOT)/$(ET).orig
-	tar -C $(ROOT) -xzf brcm-src/$(ET).tar.gz
+	tar -C $(ROOT) --recursive-unlink -xzf brcm-src/$(ET).tar.gz
 	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
 wl:
-	[ -d $(ROOT)/$(WL).orig ] || mv $(ROOT)/wl $(ROOT)/$(WL).orig
-	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
 
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/brcm-src.tar.bz2
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
