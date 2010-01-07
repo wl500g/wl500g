@@ -134,10 +134,9 @@ static int ip6_output2(struct sk_buff *skb)
 	skb->dev = dev;
 
 	if (ipv6_addr_is_multicast(&ipv6_hdr(skb)->daddr)) {
-		struct ipv6_pinfo* np = skb->sk ? inet6_sk(skb->sk) : NULL;
 		struct inet6_dev *idev = ip6_dst_idev(skb->dst);
 
-		if (!(dev->flags & IFF_LOOPBACK) && (!np || np->mc_loop) &&
+		if (!(dev->flags & IFF_LOOPBACK) && sk_mc_loop(skb->sk) &&
 		    ((mroute6_socket && !(IP6CB(skb)->flags & IP6SKB_FORWARDED)) ||
 		     ipv6_chk_mcast_addr(dev, &ipv6_hdr(skb)->daddr,
 					 &ipv6_hdr(skb)->saddr))) {

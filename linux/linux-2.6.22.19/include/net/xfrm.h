@@ -15,6 +15,7 @@
 
 #include <net/sock.h>
 #include <net/dst.h>
+#include <net/ip.h>
 #include <net/route.h>
 #include <net/ipv6.h>
 #include <net/ip6_fib.h>
