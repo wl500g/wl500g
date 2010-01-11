@@ -70,7 +70,7 @@ diff -urN linux-2.4.32.orig/net/ipv4/netfilter/ipt_time.c linux-2.4.32/net/ipv4/
 +	const struct ipt_time_info *info = matchinfo;   /* match info for rule */
 +	struct tm currenttime;                          /* time human readable */
 +	u_int8_t days_of_week[7] = {64, 32, 16, 8, 4, 2, 1};
-+	u_int16_t packet_time;
++	u_int32_t packet_time;
 +	struct timeval kerneltimeval;
 +	time_t packet_local_time;
 +
