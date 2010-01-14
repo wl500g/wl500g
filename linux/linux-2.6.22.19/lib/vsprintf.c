@@ -24,6 +24,7 @@
 #include <linux/kernel.h>
 #include <linux/kallsyms.h>
 #include <linux/uaccess.h>
+#include <net/addrconf.h>
 
 #include <asm/page.h>		/* for PAGE_SIZE */
 #include <asm/div64.h>
@@ -548,21 +549,191 @@ static char *string(char *buf, char *end, const char *s, struct printf_spec spec
 }
 
 static char *mac_address_string(char *buf, char *end, u8 *addr,
-				struct printf_spec spec)
+				struct printf_spec spec, const char *fmt)
 {
-	char mac_addr[6 * 3]; /* (6 * 2 hex digits), 5 colons and trailing zero */
+	char mac_addr[sizeof("xx:xx:xx:xx:xx:xx")];
 	char *p = mac_addr;
 	int i;
 
 	for (i = 0; i < 6; i++) {
 		p = hex_byte_pack(p, addr[i]);
-		if (!(spec.flags & SPECIAL) && i != 5)
+		if (fmt[0] == 'M' && i != 5)
 			*p++ = ':';
 	}
 	*p = '\0';
-	spec.flags &= ~SPECIAL;
 
 	return string(buf, end, mac_addr, spec);
+}
+
+static char *ip4_string(char *p, const u8 *addr, const char *fmt)
+{
+	int i;
+	bool leading_zeros = (fmt[0] == 'i');
+	int index;
+	int step;
+
+	switch (fmt[2]) {
+	case 'h':
+#ifdef __BIG_ENDIAN
+		index = 0;
+		step = 1;
+#else
+		index = 3;
+		step = -1;
+#endif
+		break;
+	case 'l':
+		index = 3;
+		step = -1;
+		break;
+	case 'n':
+	case 'b':
+	default:
+		index = 0;
+		step = 1;
+		break;
+	}
+	for (i = 0; i < 4; i++) {
+		char temp[4] __aligned(2);	/* hold each IP quad in reverse order */
+		int digits = put_dec_trunc8(temp, addr[index]) - temp;
+		if (leading_zeros) {
+			if (digits < 3)
+				*p++ = '0';
+			if (digits < 2)
+				*p++ = '0';
+		}
+		/* reverse the digits in the quad */
+		while (digits--)
+			*p++ = temp[digits];
+		if (i < 3)
+			*p++ = '.';
+		index += step;
+	}
+
+	*p = '\0';
+	return p;
+}
+
+static char *ip6_compressed_string(char *p, const char *addr)
+{
+	int i;
+	int j;
+	int range;
+	unsigned char zerolength[8];
+	int longest = 1;
+	int colonpos = -1;
+	u16 word;
+	u8 hi;
+	u8 lo;
+	bool needcolon = false;
+	bool useIPv4;
+	struct in6_addr in6;
+
+	memcpy(&in6, addr, sizeof(struct in6_addr));
+
+	useIPv4 = ipv6_addr_v4mapped(&in6) || ipv6_addr_is_isatap(&in6);
+
+	memset(zerolength, 0, sizeof(zerolength));
+
+	if (useIPv4)
+		range = 6;
+	else
+		range = 8;
+
+	/* find position of longest 0 run */
+	for (i = 0; i < range; i++) {
+		for (j = i; j < range; j++) {
+			if (in6.s6_addr16[j] != 0)
+				break;
+			zerolength[i]++;
+		}
+	}
+	for (i = 0; i < range; i++) {
+		if (zerolength[i] > longest) {
+			longest = zerolength[i];
+			colonpos = i;
+		}
+	}
+	if (longest == 1)		/* don't compress a single 0 */
+		colonpos = -1;
+
+	/* emit address */
+	for (i = 0; i < range; i++) {
+		if (i == colonpos) {
+			if (needcolon || i == 0)
+				*p++ = ':';
+			*p++ = ':';
+			needcolon = false;
+			i += longest - 1;
+			continue;
+		}
+		if (needcolon) {
+			*p++ = ':';
+			needcolon = false;
+		}
+		/* hex u16 without leading 0s */
+		word = ntohs(in6.s6_addr16[i]);
+		hi = word >> 8;
+		lo = word & 0xff;
+		if (hi) {
+			if (hi > 0x0f)
+				p = hex_byte_pack(p, hi);
+			else
+				*p++ = hex_asc_lo(hi);
+			p = hex_byte_pack(p, lo);
+		}
+		else if (lo > 0x0f)
+			p = hex_byte_pack(p, lo);
+		else
+			*p++ = hex_asc_lo(lo);
+		needcolon = true;
+	}
+
+	if (useIPv4) {
+		if (needcolon)
+			*p++ = ':';
+		p = ip4_string(p, &in6.s6_addr[12], "I4");
+	}
+
+	*p = '\0';
+	return p;
+}
+
+static char *ip6_string(char *p, const char *addr, const char *fmt)
+{
+	int i;
+	for (i = 0; i < 8; i++) {
+		p = hex_byte_pack(p, *addr++);
+		p = hex_byte_pack(p, *addr++);
+		if (fmt[0] == 'I' && i != 7)
+			*p++ = ':';
+	}
+
+	*p = '\0';
+	return p;
+}
+
+static char *ip6_addr_string(char *buf, char *end, const u8 *addr,
+			     struct printf_spec spec, const char *fmt)
+{
+	char ip6_addr[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255")];
+
+	if (fmt[0] == 'I' && fmt[2] == 'c')
+		ip6_compressed_string(ip6_addr, addr);
+	else
+		ip6_string(ip6_addr, addr, fmt);
+
+	return string(buf, end, ip6_addr, spec);
+}
+
+static char *ip4_addr_string(char *buf, char *end, const u8 *addr,
+			     struct printf_spec spec, const char *fmt)
+{
+	char ip4_addr[sizeof("255.255.255.255")];
+
+	ip4_string(ip4_addr, addr, fmt);
+
+	return string(buf, end, ip4_addr, spec);
 }
 
 #ifdef CONFIG_KALLSYMS
@@ -584,6 +755,16 @@ static char *symbol_string(char *buf, char *end, void *ptr,
  *
  * - 'M' For a 6-byte MAC address, it prints the address in the
  *       usual colon-separated hex notation
+ * - 'm' For a 6-byte MAC address, it prints the hex address without colons
+ * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way
+ *       IPv4 uses dot-separated decimal without leading 0's (1.2.3.4)
+ *       IPv6 uses colon separated network-order 16 bit hex with leading 0's
+ * - 'i' [46] for 'raw' IPv4/IPv6 addresses
+ *       IPv6 omits the colons (01020304...0f)
+ *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
+ * - '[Ii]4[hnbl]' IPv4 addresses in host, network, big or little endian order
+ * - 'I6c' for IPv6 addresses printed as specified by
+ *       http://tools.ietf.org/html/rfc5952
  * - 'S' For Symbolic direct pointers
  */
 static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
@@ -597,12 +778,29 @@ static char *pointer(const char *fmt, char *buf, char *end, void *ptr,
 	case 'S':
 		return symbol_string(buf, end, ptr, spec);
 #endif
-	case 'M':
-		return mac_address_string(buf, end, ptr, spec);
+	case 'M':			/* Colon separated: 00:01:02:03:04:05 */
+	case 'm':			/* Contiguous: 000102030405 */
+		return mac_address_string(buf, end, ptr, spec, fmt);
+	case 'I':			/* Formatted IP supported
+					 * 4:	1.2.3.4
+					 * 6:	0001:0203:...:0708
+					 * 6c:	1::708 or 1::1.2.3.4
+					 */
+	case 'i':			/* Contiguous:
+					 * 4:	001.002.003.004
+					 * 6:   000102...0f
+					 */
+		switch (fmt[1]) {
+		case '6':
+			return ip6_addr_string(buf, end, ptr, spec, fmt);
+		case '4':
+			return ip4_addr_string(buf, end, ptr, spec, fmt);
+		}
+		break;
 	}
 	spec.flags |= SMALL;
 	if (spec.field_width == -1) {
-		spec.field_width = 2 * sizeof(void *);
+		spec.field_width = 2 * sizeof(void *) + (spec.flags & SPECIAL ? 2 : 0);
 		spec.flags |= ZEROPAD;
 	}
 	spec.base = 16;
