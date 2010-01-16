@@ -1,0 +1,26 @@
+>From af843d0a18279725cedb51e00209457e8d0281c0
+From: Aurelien Jacobs
+Date: Fri, 15 Jan 2010 19:43:06 +0100
+Subject: [PATCH] enable log2f and exp2f
+
+Signed-off-by: Aurelien Jacobs <aurel@gnuage.org>
+---
+ libm/float_wrappers.c    |    4 ++--
+
+diff --git a/libm/float_wrappers.c b/libm/float_wrappers.c
+index 93d56c3..e1ab8b5 100644
+--- a/libm/float_wrappers.c
++++ b/libm/float_wrappers.c
+@@ -15,12 +15,10 @@
+ 
+ /* For the time being, do _NOT_ implement these functions
+  * that are defined by SuSv3 */
+-#undef L_exp2f         /*float       exp2f(float);*/
+ #undef L_fdimf         /*float       fdimf(float, float);*/
+ #undef L_fmaf          /*float       fmaf(float, float, float);*/
+ #undef L_fmaxf         /*float       fmaxf(float, float);*/
+ #undef L_fminf         /*float       fminf(float, float);*/
+-#undef L_log2f         /*float       log2f(float);*/
+ #undef L_nearbyintf    /*float       nearbyintf(float);*/
+ #undef L_nexttowardf   /*float       nexttowardf(float, long double);*/
+ #undef L_remquof       /*float       remquof(float, float, int *);*/
