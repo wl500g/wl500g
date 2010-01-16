@@ -99,7 +99,7 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
      exit(0);
  }
  
-@@ -520,3 +544,98 @@
+@@ -520,3 +544,99 @@
      execvp(new_argv[0], new_argv);
  }
  
@@ -148,7 +148,8 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
 +		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
 +		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
 +			continue;
-+		if ((flags & (RTF_UP | RTF_GATEWAY)) == (RTF_UP | RTF_GATEWAY) && (inetaddr.s_addr & mask) == dest)
++		if ((flags & RTF_UP) == RTF_UP && (inetaddr.s_addr & mask) == dest &&
++			strncmp(dev, "ppp", 3) != 0)
 +		{
 +			rt->rt_metric = metric;
 +			rt->rt_gateway.sa_family = AF_INET;
