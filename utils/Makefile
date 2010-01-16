@@ -12,7 +12,7 @@
 # $Id$
 #
 
-UTILS := wl nas mii-tool robocfg
+UTILS := wl nas eapd mii-tool robocfg
 CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
@@ -29,6 +29,9 @@ wl: $(SRCBASE)/wl/mipsel-uclibc/wl
 	cp -p $< $@
 
 nas: $(SRCBASE)/wl/mipsel-uclibc/nas
+	cp -p $< $@
+
+eapd: $(SRCBASE)/wl/mipsel-uclibc/eapd
 	cp -p $< $@
 
 mii-tool: mii-tool.c mii.h
