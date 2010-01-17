@@ -15,6 +15,9 @@
 
 set -e
 
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
+
 # By default do not do globbing. Any command wanting globbing should
 # explicitly enable it first and disable it afterwards.
 set -o noglob

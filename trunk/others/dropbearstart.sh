@@ -25,6 +25,9 @@
 
 SSHD_ETC=/tmp/local/etc/dropbear
 
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
+
 #check if the key files are in the right place
 if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
        -s $SSHD_ETC/dropbear_dss_host_key ]; then
