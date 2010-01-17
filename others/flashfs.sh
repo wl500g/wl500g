@@ -17,6 +17,9 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
+
 VERSION="$(cat /.version)"; VERSION=${VERSION%-r[0-9]*}
 
 case "$1" in
