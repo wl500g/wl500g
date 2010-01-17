@@ -165,7 +165,7 @@ obj-$(CONFIG_NFSD) += portmap
 obj-$(CONFIG_IPROUTE2) += iproute2
 obj-$(CONFIG_LOADER) += loader
 obj-$(CONFIG_IPV6) += radvd
-obj-$(CONFIG_SNMP) += ucdsnmp
+obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
 obj-$(CONFIG_IGMPPROXY) += igmpproxy
@@ -423,10 +423,10 @@ manpages-install:
 	    samba/docs/manpages/smbpasswd.8 samba/docs/manpages/nmbd.8 samba/docs/manpages/smbd.8 
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man1 \
 	    busybox/docs/BusyBox.1 dropbear/dbclient.1 ntpclient/ntpclient.1 \
-	    ucdsnmp/man/snmpd.1 
+	    ucd-snmp/man/snmpd.1 
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man5 \
 	    igmpproxy/doc/igmpproxy.conf.5 vsftpd/vsftpd.conf.5 samba/docs/manpages/smb.conf.5 \
-	    ucdsnmp/man/snmpd.conf.5
+	    ucd-snmp/man/snmpd.conf.5
 ifeq ($(CONFIG_IPV6),y)
 	$(MAKE) -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
@@ -739,8 +739,8 @@ iproute2-install:
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/ip
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
 
-ucdsnmp/Makefile: ucdsnmp/Makefile.in
-	cd ucdsnmp && \
+ucd-snmp/Makefile: ucd-snmp/Makefile.in
+	cd ucd-snmp && \
 	    ac_cv_CAN_USE_SYSCTL=no ac_cv_struct_ifnet_has_if_obytes=yes \
 	    ac_cv_struct_ifnet_has_if_ibytes=yes ac_cv_struct_ifnet_has_if_ibytes=yes \
 	 $(CONFIGURE) --with-cflags="-g -O2 $(EXTRACFLAGS)" \
@@ -748,11 +748,11 @@ ucdsnmp/Makefile: ucdsnmp/Makefile.in
 	    --with-out-mib-modules="v2party" --with-sys-location=Unknown --with-sys-contact=Administrator \
 	    --with-logfile=/var/log/snmpd.log
 
-ucdsnmp: ucdsnmp/Makefile
+ucd-snmp: ucd-snmp/Makefile
 
-ucdsnmp-install:
-	install -D ucdsnmp/agent/snmpd $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
-	$(STRIP) $(INSTALLDIR)/ucdsnmp/usr/sbin/snmpd
+ucd-snmp-install:
+	install -D ucd-snmp/agent/snmpd $(INSTALLDIR)/ucd-snmp/usr/sbin/snmpd
+	$(STRIP) $(INSTALLDIR)/ucd-snmp/usr/sbin/snmpd
 
 utils: shared
 
