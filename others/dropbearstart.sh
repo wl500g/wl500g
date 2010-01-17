@@ -31,14 +31,14 @@ if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
 	mkdir -p $SSHD_ETC
 	#check if the key files are stored in flashfs
 	if [ -n "$(/bin/tar -tzf /dev/mtdblock/4 2> /dev/null | \
-	     grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
+	     /bin/grep tmp/local/etc/dropbear/dropbear_[rd]s[as]_host_key)" ]; then
 		/bin/tar -C / -xzf /dev/mtdblock/4 tmp/local/etc/dropbear tmp/local/etc/ssh.*
 	else
 		#generate new key files
 		dropbearkey -t rsa -f $SSHD_ETC/dropbear_rsa_host_key \
-		  | grep "ssh-rsa" > $SSHD_ETC/dropbear_rsa_host_key.pub
+		  | /bin/grep "ssh-rsa" > $SSHD_ETC/dropbear_rsa_host_key.pub
 		dropbearkey -t dss -f $SSHD_ETC/dropbear_dss_host_key \
-		  | grep "ssh-dss" > $SSHD_ETC/dropbear_dss_host_key.pub
+		  | /bin/grep "ssh-dss" > $SSHD_ETC/dropbear_dss_host_key.pub
 
 		#store generated keys in the flashfs for future use
 		mkdir -p /tmp/_tmp/tmp/local/etc
