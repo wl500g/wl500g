@@ -60,7 +60,7 @@ case "$1" in
 		/bin/tar -C / -tzf /dev/mtdblock/4
 		;;
 	save)
-		[ -f /usr/local/.files ] && FILES=$(grep -v ^# /usr/local/.files)
+		[ -f /usr/local/.files ] && FILES=$(/bin/grep -v ^# /usr/local/.files)
 		/bin/tar -C / -czvf /tmp/flash.tar.gz /tmp/local $FILES && 
 		ls -l /tmp/flash.tar.gz &&
 		echo "Check saved image and type \"$0 commit\" to commit changes"
