@@ -115,22 +115,18 @@ $(ROOT)/lzma: $(LZMA).tbz2 $(ROOT)/lzma/CPP/7zip/Compress
 lzma: $(ROOT)/lzma
 	@true
 
-et: $(ROOT)/et
-	[ -d $(ROOT)/et.orig ] || mv $(ROOT)/et $(ROOT)/et.orig
-	@rm -rf $(ROOT)/et
-	tar -C $(ROOT) -xjf brcm-src/$(ET).tar.bz2
+et:
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(ET).tar.bz2
 	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
-wl: $(ROOT)/wl
-	[ -d $(ROOT)/wl.orig ] || mv $(ROOT)/wl $(ROOT)/wl.orig
-	@rm -rf $(ROOT)/wl
-	tar -C $(ROOT) -xjf brcm-src/$(WL).tar.bz2
+wl:
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
 	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src/$(NAS).tbz2
 
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-src:
-	tar -C $(ROOT) -xjf brcm-src/brcm-src.tar.bz2
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/brcm-src.tar.bz2
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
