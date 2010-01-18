@@ -898,7 +898,7 @@ main(int argc, char **argv)
 #ifdef LINUX26
         if (!strcmp(base, "preinit")) {
                 mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-                mknod("/dev/console", S_IRWXU|S_IFCHR, makedev(5, 1));
+                mknod("/dev/console", S_IFCHR | S_IRUSR | S_IWUSR, makedev(5, 1));
 #else /* LINUX26 */
 	if (!strcmp(base, "init")) {
 #endif /* LINUX26 */
