@@ -149,7 +149,7 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
 +		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
 +			continue;
 +		if ((flags & RTF_UP) == RTF_UP && (inetaddr.s_addr & mask) == dest &&
-+			strncmp(dev, "ppp", 3) != 0)
++			(dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/)
 +		{
 +			rt->rt_metric = metric;
 +			rt->rt_gateway.sa_family = AF_INET;
@@ -168,7 +168,7 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
 +
 +	/* check for existing route to this host, 
 +	add if missing based on the existing routes */
-+	if (mask == INADDR_BROADCAST) {
++	if (flags & RTF_HOST) {
 +	        warn("route_add: not adding existing route");
 +		return -1;
 +	}
@@ -180,7 +180,7 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
 +	rt->rt_genmask.sa_family = AF_INET;
 +
 +	rt->rt_flags = RTF_UP | RTF_HOST;
-+	if (sin_addr(&rt->rt_gateway).s_addr)
++	if (flags & RTF_GATEWAY)
 +		rt->rt_flags |= RTF_GATEWAY;
 +
 +	rt->rt_metric++;
