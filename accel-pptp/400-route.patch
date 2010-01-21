@@ -48,7 +48,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
  }
  
  static int open_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
-@@ -348,3 +358,96 @@ void plugin_init(void)
+@@ -348,3 +358,97 @@ void plugin_init(void)
      modem = 0;
  }
  
@@ -95,7 +95,8 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
 +		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
 +		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
 +			continue;
-+		if ((flags & (RTF_UP | RTF_GATEWAY)) == (RTF_UP | RTF_GATEWAY) && (inetaddr.s_addr & mask) == dest)
++		if ((flags & RTF_UP) == RTF_UP && (inetaddr.s_addr & mask) == dest &&
++			(dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/)
 +		{
 +			rt->rt_metric = metric;
 +			rt->rt_gateway.sa_family = AF_INET;
@@ -114,7 +115,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
 +
 +	/* check for existing route to this host, 
 +	add if missing based on the existing routes */
-+	if (mask == INADDR_BROADCAST) {
++	if (flags & RTF_HOST) {
 +	        warn("route_add: not adding existing route");
 +		return -1;
 +	}
@@ -126,7 +127,7 @@ diff -BurpN accel-pptp.orig/pppd_plugin/src/pptp.c accel-pptp/pppd_plugin/src/pp
 +	rt->rt_genmask.sa_family = AF_INET;
 +
 +	rt->rt_flags = RTF_UP | RTF_HOST;
-+	if (sin_addr(&rt->rt_gateway).s_addr)
++	if (flags & RTF_GATEWAY)
 +		rt->rt_flags |= RTF_GATEWAY;
 +
 +	rt->rt_metric++;
