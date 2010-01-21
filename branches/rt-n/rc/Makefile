@@ -48,7 +48,6 @@ install: all
 	install rc $(INSTALLDIR)/sbin
 	$(STRIP) $(INSTALLDIR)/sbin/rc
 	cd $(INSTALLDIR)/sbin && ln -sf rc init
-	ln -sf rc $(INSTALLDIR)/sbin/preinit
 	cd $(INSTALLDIR)/sbin && ln -sf rc erase
 	cd $(INSTALLDIR)/sbin && ln -sf rc write
 	cd $(INSTALLDIR)/sbin && ln -sf rc flash

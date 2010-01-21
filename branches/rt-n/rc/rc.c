@@ -600,6 +600,8 @@ sysinit(void)
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
 
 #ifdef LINUX26
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+	mknod("/dev/console", S_IFCHR | S_IRUSR | S_IWUSR, makedev(5, 1));
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 	mkdir("/dev/pts", 0777);
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
@@ -607,6 +609,9 @@ sysinit(void)
 
 	/* /tmp */
 	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+#ifdef LINUX26
+	mkdir("/dev/shm", 0777);
+#endif
 
 	/* /var */
 	mkdir("/tmp/var", 0777);
@@ -630,7 +635,6 @@ sysinit(void)
 		noconsole = 1;
 
 #ifdef LINUX26
-	mkdir("/dev/shm", 0777);
 	eval("/sbin/hotplug2", "--coldplug");
 #endif
 
@@ -895,13 +899,7 @@ main(int argc, char **argv)
 	base = base ? base + 1 : argv[0];
 
 	/* init */
-#ifdef LINUX26
-        if (!strcmp(base, "preinit")) {
-                mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-                mknod("/dev/console", S_IFCHR | S_IRUSR | S_IWUSR, makedev(5, 1));
-#else /* LINUX26 */
 	if (!strcmp(base, "init")) {
-#endif /* LINUX26 */
 		main_loop();
 		return 0;
 	}
