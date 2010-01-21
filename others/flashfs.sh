@@ -21,6 +21,8 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 export PATH
 
 VERSION="$(cat /.version)"; VERSION=${VERSION%-r[0-9]*}
+MTD="/dev/mtd/4"
+MTDBLOCK="/dev/mtdblock/4"
 
 case "$1" in
 	status)
@@ -34,7 +36,7 @@ case "$1" in
 	start)
 		if [ "$(nvram get boot_local)" = "$VERSION" ] ||
 		   [ "$(nvram get boot_local)" = "enabled" ]; then
-			/bin/tar -C / -xzf /dev/mtdblock/4
+			/bin/tar -C / -xzf $MTDBLOCK
 		fi
 		;;
 	enable)
@@ -54,13 +56,13 @@ case "$1" in
 		nvram commit
 		;;
 	clear)
-		/sbin/erase /dev/mtd/4
+		/sbin/erase $MTD
 		;;
 	load)
-		/bin/tar -C / -xzvf /dev/mtdblock/4
+		/bin/tar -C / -xzvf $MTDBLOCK
 		;;
 	list)
-		/bin/tar -C / -tzf /dev/mtdblock/4
+		/bin/tar -C / -tzf $MTDBLOCK
 		;;
 	save)
 		[ -f /usr/local/.files ] && FILES=$(/bin/grep -v ^# /usr/local/.files)
@@ -69,7 +71,7 @@ case "$1" in
 		echo "Check saved image and type \"$0 commit\" to commit changes"
 		;;
 	commit)
-		/sbin/flash /tmp/flash.tar.gz /dev/mtd/4 &&
+		/sbin/flash /tmp/flash.tar.gz $MTD &&
 		rm -f /tmp/flash.tar.gz &&
 		echo "Committed."
 		;;
