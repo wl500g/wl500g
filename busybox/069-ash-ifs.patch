@@ -1,0 +1,66 @@
+From 8cd04d1cb658227d3c6eeb2a377314ca9cdf249d
+From: Denys Vlasenko
+Date: Fri, 08 Jan 2010 14:44:07 +0000
+Subject: ash: fix for read $IFS splitting. Closes bug 235
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/shell/ash.c b/shell/ash.c
+index 2c1779f..b47f0e8 100644
+--- a/shell/ash.c
++++ b/shell/ash.c
+@@ -12615,7 +12615,7 @@ readcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
+ #endif
+ 
+ 	status = 0;
+-	startword = 2;
++	startword = 1;
+ 	backslash = 0;
+ #if ENABLE_ASH_READ_TIMEOUT
+ 	if (timeout) /* NB: ensuring end_ms is nonzero */
+diff --git a/shell/ash_test/ash-read/read_ifs.right b/shell/ash_test/ash-read/read_ifs.right
+index 027ecd1..b523344 100644
+--- a/shell/ash_test/ash-read/read_ifs.right
++++ b/shell/ash_test/ash-read/read_ifs.right
+@@ -1,7 +1,10 @@
+-.a. .b. .c.
+-.a. .b. .c.
+-.a. .. .b,c.
+-.a. .. .b,c.
+-.a. .. .c.
+-.a. .. .c. .d.
+-.a. .. .b,c,d  ,  ,.
++test 1: .a. .b. .c.
++test 2: .a. .b. .c.
++test 3: .a. .. .b,c.
++test 4: .a. .. .b,c.
++test 5: .a. .. .c.
++test 6: .a. .. .c. .d.
++test 7: .a. .. .b,c,d  ,  ,.
++test 8: .. .a. .b. .c.
++test 9: .a. .b. .c. ..
++test A: .. .a. .. .b. .c.
+diff --git a/shell/ash_test/ash-read/read_ifs.tests b/shell/ash_test/ash-read/read_ifs.tests
+index cf7cd93..6e83112 100755
+--- a/shell/ash_test/ash-read/read_ifs.tests
++++ b/shell/ash_test/ash-read/read_ifs.tests
+@@ -1,7 +1,10 @@
+-printf 'a\t\tb\tc\n' | ( IFS=$(printf "\t") read a b c; echo ".$a. .$b. .$c." )
+-printf 'a\t\tb\tc\n' | ( IFS=$(printf " \t") read a b c; echo ".$a. .$b. .$c." )
+-printf 'a,,b,c\n'    | ( IFS="," read a b c; echo ".$a. .$b. .$c." )
+-printf 'a,,b,c\n'    | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
+-printf 'a ,, c\n'    | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
+-printf 'a ,, c d\n'  | ( IFS=" ," read a b c d; echo ".$a. .$b. .$c. .$d." )
+-printf ' a,,b,c,d  ,  ,\n' | ( IFS=" ," read a b c; echo ".$a. .$b. .$c." )
++printf 'a\t\tb\tc\n' | ( IFS=$(printf "\t") read a b c;  echo "test 1: .$a. .$b. .$c." )
++printf 'a\t\tb\tc\n' | ( IFS=$(printf " \t") read a b c; echo "test 2: .$a. .$b. .$c." )
++printf 'a,,b,c\n'    | ( IFS="," read a b c;  echo "test 3: .$a. .$b. .$c." )
++printf 'a,,b,c\n'    | ( IFS=" ," read a b c; echo "test 4: .$a. .$b. .$c." )
++printf 'a ,, c\n'    | ( IFS=" ," read a b c; echo "test 5: .$a. .$b. .$c." )
++printf 'a ,, c d\n'  | ( IFS=" ," read a b c d;     echo "test 6: .$a. .$b. .$c. .$d." )
++printf ' a,,b,c,d  ,  ,\n' | ( IFS=" ," read a b c; echo "test 7: .$a. .$b. .$c." )
++printf '\t,\ta\t,\tb\tc'   | ( IFS=$(printf " \t,") read a b c d;   echo "test 8: .$a. .$b. .$c. .$d." )
++printf '\t\ta\t,\tb\tc'    | ( IFS=$(printf " \t,") read a b c d;   echo "test 9: .$a. .$b. .$c. .$d." )
++printf '\t,\ta\t,,\tb\tc'  | ( IFS=$(printf " \t,") read a b c d e; echo "test A: .$a. .$b. .$c. .$d. .$e." )
+--
+cgit v0.8.2.1
