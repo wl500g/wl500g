@@ -40,7 +40,7 @@ NFSUTILS=nfs-utils-1.0.7
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
-XL2TPD=xl2tpd-1.2.4
+XL2TPD=xl2tpd-1.2.5
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
 UDPXY=udpxy-1.0-Chipmunk-14
@@ -85,7 +85,7 @@ all: prep custom
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
-	nfs-utils portmap radvd ucdsnmp igmpproxy vsftpd udpxy \
+	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips sendmail udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax \
@@ -194,15 +194,15 @@ $(TOP)/dropbear: dropbear/$(DROPBEAR).tar.bz2
 dropbear: $(TOP)/dropbear
 	@true
 
-ucdsnmp_Patches := $(call patches_list,ucd-snmp)
+ucd-snmp_Patches := $(call patches_list,ucd-snmp)
 
-$(TOP)/ucdsnmp: ucd-snmp/$(UCDSNMP).tar.gz
+$(TOP)/ucd-snmp: ucd-snmp/$(UCDSNMP).tar.gz
 	@rm -rf $(TOP)/$(UCDSNMP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(UCDSNMP) $(ucdsnmp_Patches)
+	$(PATCHER) -Z $(TOP)/$(UCDSNMP) $(ucd-snmp_Patches)
 	mv $(TOP)/$(UCDSNMP) $@
 
-ucdsnmp: $(TOP)/ucdsnmp
+ucd-snmp: $(TOP)/ucd-snmp
 	@true
 
 iproute2_Patches := $(call patches_list,iproute2)
