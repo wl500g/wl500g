@@ -21,8 +21,8 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 export PATH
 
 VERSION="$(cat /.version)"; VERSION=${VERSION%-r[0-9]*}
-MTD="/dev/mtd/4"
-MTDBLOCK="/dev/mtdblock/4"
+MTD="/dev/mtd4"
+MTDBLOCK="/dev/mtdblock4"
 
 case "$1" in
 	status)
