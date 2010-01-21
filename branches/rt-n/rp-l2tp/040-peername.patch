@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
---- gateway/rp-l2tp-0.4/tunnel.c	2009-08-31 05:54:41.000000000 +0000
-+++ gateway/rp-l2tp/tunnel.c	2009-08-31 05:55:06.000000000 +0000
+diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
+--- rp-l2tp-0.4/tunnel.c	2009-08-31 05:54:41.000000000 +0000
++++ rp-l2tp/tunnel.c	2009-08-31 05:55:06.000000000 +0000
 @@ -25,6 +25,7 @@ static char const RCSID[] =
  #include <string.h>
  #include <errno.h>
