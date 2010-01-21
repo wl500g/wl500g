@@ -17,7 +17,12 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+export PATH
+
 VERSION="$(cat /.version)"; VERSION=${VERSION%-r[0-9]*}
+MTD="/dev/mtd/4"
+MTDBLOCK="/dev/mtdblock/4"
 
 case "$1" in
 	status)
@@ -31,7 +36,7 @@ case "$1" in
 	start)
 		if [ "$(nvram get boot_local)" = "$VERSION" ] ||
 		   [ "$(nvram get boot_local)" = "enabled" ]; then
-			/bin/tar -C / -xzf /dev/mtdblock/4
+			/bin/tar -C / -xzf $MTDBLOCK
 		fi
 		;;
 	enable)
@@ -51,22 +56,22 @@ case "$1" in
 		nvram commit
 		;;
 	clear)
-		/sbin/erase /dev/mtd/4
+		/sbin/erase $MTD
 		;;
 	load)
-		/bin/tar -C / -xzvf /dev/mtdblock/4
+		/bin/tar -C / -xzvf $MTDBLOCK
 		;;
 	list)
-		/bin/tar -C / -tzf /dev/mtdblock/4
+		/bin/tar -C / -tzf $MTDBLOCK
 		;;
 	save)
-		[ -f /usr/local/.files ] && FILES=$(grep -v ^# /usr/local/.files)
+		[ -f /usr/local/.files ] && FILES=$(/bin/grep -v ^# /usr/local/.files)
 		/bin/tar -C / -czvf /tmp/flash.tar.gz /tmp/local $FILES && 
 		ls -l /tmp/flash.tar.gz &&
 		echo "Check saved image and type \"$0 commit\" to commit changes"
 		;;
 	commit)
-		/sbin/flash /tmp/flash.tar.gz /dev/mtd/4 &&
+		/sbin/flash /tmp/flash.tar.gz $MTD &&
 		rm -f /tmp/flash.tar.gz &&
 		echo "Committed."
 		;;
