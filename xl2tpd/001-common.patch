@@ -1,6 +1,6 @@
-diff -BurpN gateway/xl2tpd-1.2.4/Makefile gateway/xl2tpd/Makefile
---- gateway/xl2tpd-1.2.4/Makefile	2009-03-08 23:25:30.000000000 +0000
-+++ gateway/xl2tpd/Makefile	2009-09-16 22:11:17.000000000 +0000
+diff -BurpN xl2tpd-1.2.4/Makefile xl2tpd/Makefile
+--- xl2tpd-1.2.4/Makefile	2009-03-08 23:25:30.000000000 +0000
++++ xl2tpd/Makefile	2009-09-16 22:11:17.000000000 +0000
 @@ -47,7 +47,7 @@
  # trust pppd. This work around will be removed in the near future.
  

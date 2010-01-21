@@ -2,9 +2,9 @@ Wrong Ns in ZLB packets - ID: 2844119
 Thomas Surrel ( tsurrel ) - 2009-08-25 09:05
 http://sourceforge.net/tracker/?func=detail&aid=2844119&group_id=63352&atid=503661
 
-diff -BurpN gateway/rp-l2tp-0.4/tunnel.c gateway/rp-l2tp/tunnel.c
---- gateway/rp-l2tp-0.4/tunnel.c	2009-09-02 16:44:31.000000000 +0000
-+++ gateway/rp-l2tp/tunnel.c	2009-09-02 16:44:47.000000000 +0000
+diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
+--- rp-l2tp-0.4/tunnel.c	2009-09-02 16:44:31.000000000 +0000
++++ rp-l2tp/tunnel.c	2009-09-02 16:44:47.000000000 +0000
 @@ -1298,7 +1298,7 @@ tunnel_send_ZLB(l2tp_tunnel *tunnel)
  	return;
      }

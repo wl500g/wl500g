@@ -1,6 +1,6 @@
-diff -BurpN gateway/rp-l2tp-0.4/main.c gateway/rp-l2tp/main.c
---- gateway/rp-l2tp-0.4/main.c	2009-08-31 06:06:57.000000000 +0000
-+++ gateway/rp-l2tp/main.c	2009-08-31 06:07:13.000000000 +0000
+diff -BurpN rp-l2tp-0.4/main.c rp-l2tp/main.c
+--- rp-l2tp-0.4/main.c	2009-08-31 06:06:57.000000000 +0000
++++ rp-l2tp/main.c	2009-08-31 06:07:13.000000000 +0000
 @@ -39,6 +39,13 @@ usage(int argc, char *argv[], int exitco
      exit(exitcode);
  }
