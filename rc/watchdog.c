@@ -112,22 +112,22 @@ static int power_value	= 0;
 #elif defined(CONFIG_RTN10)
 
 static int reset_mask	= GPIO3;
-static int reset_value	= 0;
-static int ready_mask	= 0;
+static int reset_value	= GPIO3;
+static int ready_mask	= GPIO1;
 static int ready_value	= 0;
 static int setup_mask	= GPIO2;
-static int setup_value	= 0;
+static int setup_value	= GPIO2;
 static int power_mask	= 0;
 static int power_value	= 0;
 
 #elif defined(CONFIG_RTN12)
 
 static int reset_mask	= GPIO1;
-static int reset_value	= 0;
-static int ready_mask	= 0;
+static int reset_value	= GPIO1;
+static int ready_mask	= GPIO2;
 static int ready_value	= 0;
 static int setup_mask	= GPIO0;
-static int setup_value	= 0;
+static int setup_value	= GPIO0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
@@ -135,11 +135,11 @@ static int power_value	= 0;
 
 static int reset_mask	= GPIO6;
 static int reset_value	= GPIO6;
-static int ready_mask	= GPIO7;
-static int ready_value	= GPIO7;
+static int ready_mask	= GPIO1;
+static int ready_value	= 0;
 static int setup_mask	= GPIO8;
 static int setup_value	= GPIO8;
-static int power_mask	= GPIO1;
+static int power_mask	= 0;
 static int power_value	= 0;
 
 #elif defined(CONFIG_WL700G)
@@ -356,9 +356,8 @@ void gpio_init(void)
 		nvram_match("boardnum", "45")) 
 	{
 		reset_mask = GPIO6, reset_value = GPIO6;
-		ready_mask = GPIO7, ready_value = GPIO7;
+		ready_mask = GPIO1, ready_value = 0;
 		setup_mask = GPIO8, setup_value = GPIO8;
-		power_mask = GPIO1, power_value = 0;
 	} else
 	// wl700g
 	if (nvram_match("boardtype", "0x042f") && 
