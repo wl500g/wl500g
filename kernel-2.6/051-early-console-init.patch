@@ -1,0 +1,19 @@
+diff -BurpN linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c
+--- linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c	2009-02-23 14:14:55.000000000 +0000
++++ linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c	2010-01-18 18:41:18.000000000 +0000
+@@ -103,13 +103,14 @@ bcm947xx_machine_halt(void)
+ 
+ static struct uart_port rs = {
+ 	line: 0,
+-	flags: ASYNC_BOOT_AUTOCONF,
++	flags: ASYNC_BOOT_AUTOCONF | UPF_SHARE_IRQ,
+ 	iotype: SERIAL_IO_MEM,
+ };
+ 
+ static void __init
+ serial_add(void *regs, uint irq, uint baud_base, uint reg_shift)
+ {
++	rs.mapbase = (unsigned int) regs;
+ 	rs.membase = regs;
+ 	rs.irq = irq + 2;
+ 	rs.uartclk = baud_base;
