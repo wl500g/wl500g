@@ -108,6 +108,39 @@ static int power_mask	= 0;
 static int power_value	= 0;
 /* -robo_reset is GPIO0 */
 
+#elif defined(CONFIG_RTN10)
+
+static int reset_mask	= GPIO3;
+static int reset_value	= 0;
+static int ready_mask	= 0;
+static int ready_value	= 0;
+static int setup_mask	= GPIO2;
+static int setup_value	= 0;
+static int power_mask	= 0;
+static int power_value	= 0;
+
+#elif defined(CONFIG_RTN12)
+
+static int reset_mask	= GPIO1;
+static int reset_value	= 0;
+static int ready_mask	= 0;
+static int ready_value	= 0;
+static int setup_mask	= GPIO0;
+static int setup_value	= 0;
+static int power_mask	= 0;
+static int power_value	= 0;
+
+#elif defined(CONFIG_RTN16)
+
+static int reset_mask	= GPIO6;
+static int reset_value	= 0;
+static int ready_mask	= 0;
+static int ready_value	= 0;
+static int setup_mask	= GPIO8;
+static int setup_value	= 0;
+static int power_mask	= 0;
+static int power_value	= 0;
+
 #elif defined(CONFIG_WL700G)
 
 static int reset_mask	= GPIO0; /* PWR */
