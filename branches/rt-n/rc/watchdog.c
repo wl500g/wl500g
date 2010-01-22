@@ -28,6 +28,12 @@
 #include <wlioctl.h>
 #include <wlutils.h>
 
+#ifdef LINUX26
+#define GPIOCTL
+#else
+#undef GPIOCTL
+#endif
+
 #include "mtd.h"
 
 #define BCM47XX_SOFTWARE_RESET  0x40		/* GPIO 6 */
@@ -43,6 +49,19 @@
 						/* 1/10 second */
 #define STACHECK_PERIOD_CONNECT 60/5		/* 30 seconds */
 #define STACHECK_PERIOD_DISCONNECT 5/5		/* 5 seconds */
+
+#ifdef GPIOCTL
+#include <sys/ioctl.h>
+#include <linux_gpio.h>
+/* Global containing the file descriptor of the GPIO kernel drivers */
+static int bcmgpio_fd;
+/* GPIO registers */
+#define BCMGPIO_REG_IN          0
+#define BCMGPIO_REG_OUT         1
+#define BCMGPIO_REG_OUTEN       2
+#define BCMGPIO_REG_RESERVE     3
+#define BCMGPIO_REG_RELEASE     4
+#endif
 
 #define GPIO0 0x0001
 #define GPIO1 0x0002
@@ -130,7 +149,6 @@ static int setup_mask = 0;	/* EZ-Setup button */
 static int setup_value = 0;
 static int power_mask = 0;	/* POWER button light */
 static int power_value = 0;
-
 #endif
 
 #define LED_READY_ON 	(ready_value)
@@ -150,11 +168,82 @@ int stacheck_interval=-1;
 /* forwards */
 static int notice_rcamd(int flag);
 
-void gpio_write(char *dev, int mask, int value)
+#ifdef GPIOCTL
+static int tgpio_fd_init ()
 {
-	unsigned int val = 0;
+	bcmgpio_fd = open("/dev/gpio", O_RDWR);
+	if (bcmgpio_fd == -1) {
+		printf ("Failed to open /dev/gpio\n");
+		return -1;
+	}
+	return 0;
+}
+
+static void tgpio_fd_cleanup ()
+{
+	if (bcmgpio_fd != -1) {
+		close (bcmgpio_fd);
+		bcmgpio_fd = -1;
+	}
+}
+
+static int tgpio_ioctl(int gpioreg, unsigned int mask , unsigned int value)
+{
+	struct gpio_ioctl gpio;
+	int type;
+
+	gpio.val = value;
+	gpio.mask = mask;
+
+	switch (gpioreg) {
+		case BCMGPIO_REG_IN:
+			type = GPIO_IOC_IN;
+			break;
+		case BCMGPIO_REG_OUT:
+			type = GPIO_IOC_OUT;
+			break;
+		case BCMGPIO_REG_OUTEN:
+			type = GPIO_IOC_OUTEN;
+			break;
+		case BCMGPIO_REG_RESERVE:
+			type = GPIO_IOC_RESERVE;
+			break;
+		case BCMGPIO_REG_RELEASE:
+			type = GPIO_IOC_RELEASE;
+			break;
+		default:
+			printf ("invalid gpioreg %d\n", gpioreg);
+			return -1;
+	}
+	if (ioctl(bcmgpio_fd, type, &gpio) < 0) {
+		printf ("invalid gpioreg %d\n", gpioreg);
+		return -1;
+	}
+	return gpio.val;
+}
+#endif
+
+void gpio_write(char *dev, unsigned int mask, unsigned int value)
+{
+#ifdef GPIOCTL
+	unsigned int gpio_type = 0;
+
+	if (strcmp(dev, "/dev/gpio/in") == 0)
+		gpio_type = BCMGPIO_REG_IN;
+	else if (strcmp(dev, "/dev/gpio/out") == 0)
+		gpio_type = BCMGPIO_REG_OUT;
+	else if (strcmp(dev, "/dev/gpio/outen") == 0)
+		gpio_type = BCMGPIO_REG_OUTEN;
+	else
+		printf("ERROR GPIO NAME %s\n", dev);
+
+	tgpio_fd_init();
+	tgpio_ioctl(BCMGPIO_REG_RESERVE, mask, mask);
+	tgpio_ioctl(gpio_type, mask, value);
+	tgpio_fd_cleanup();
+#else
+	unsigned long val = 0;
 	int fd = open(dev, O_RDWR);
-	
 	if (fd != -1)
 	{
 		if (read(fd, &val, sizeof(val)) == sizeof(val))
@@ -164,22 +253,37 @@ void gpio_write(char *dev, int mask, int value)
 		}
 		close(fd);
 	}
+#endif
 }
 
-unsigned int gpio_read(char *dev)
+unsigned int gpio_read(char *dev, unsigned int mask)
 {
 	unsigned int val = 0;
-	int fd = open(dev, O_RDONLY);
+#ifdef GPIOCTL
+	unsigned int gpio_type = 0;
+
+        if (strcmp(dev, "/dev/gpio/in") == 0)
+                gpio_type = BCMGPIO_REG_IN;
+        else if (strcmp (dev, "/dev/gpio/out") == 0)
+                gpio_type = BCMGPIO_REG_OUT;
+        else if (strcmp (dev, "/dev/gpio/outen") == 0)
+                gpio_type = BCMGPIO_REG_OUTEN;
+        else
+                printf("ERROR GPIO NAME %s\n", dev);
 	
-	if (fd != -1) 
+	tgpio_fd_init();
+        val = tgpio_ioctl(gpio_type, mask, 0);
+	tgpio_fd_cleanup();
+#else
+	int fd = open(dev, O_RDONLY);
+	if (fd != -1)
 	{
 		read(fd, &val, sizeof(val));
 		close(fd);
 	}
-	
-	return val;
+#endif
+	return val & mask;
 }
-
 
 /* Functions used to control led and button */
 void gpio_init(void)
@@ -239,7 +343,7 @@ void gpio_init(void)
 		ready_mask = GPIO1, ready_value = GPIO1;
 		setup_mask = GPIO6, setup_value = 0;
 	}
-	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
+	gpio_write("/dev/gpio/outen", ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
 		reset_mask | setup_mask, 0);
@@ -258,7 +362,7 @@ void btn_check(void)
 {
 	static int pressed;
 
-	if ((gpio_read("/dev/gpio/in") & reset_mask) == reset_value)
+	if (gpio_read("/dev/gpio/in", reset_mask) == reset_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < RESET_WAIT_COUNT) {
@@ -310,7 +414,7 @@ void setup_check(void)
 {
 	static int pressed;
 
-	if ((gpio_read("/dev/gpio/in") & setup_mask) == setup_value)
+	if (gpio_read("/dev/gpio/in", setup_mask) == setup_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < SETUP_WAIT_COUNT) {
