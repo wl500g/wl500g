@@ -71,6 +71,7 @@ static int bcmgpio_fd;
 #define GPIO5 0x0020
 #define GPIO6 0x0040
 #define GPIO7 0x0080
+#define GPIO8 0x0100
 #define GPIO15 0x8000
 
 // failsafe defaults, independent of nvram state
@@ -133,12 +134,12 @@ static int power_value	= 0;
 #elif defined(CONFIG_RTN16)
 
 static int reset_mask	= GPIO6;
-static int reset_value	= 0;
-static int ready_mask	= 0;
-static int ready_value	= 0;
+static int reset_value	= GPIO6;
+static int ready_mask	= GPIO7;
+static int ready_value	= GPIO7;
 static int setup_mask	= GPIO8;
-static int setup_value	= 0;
-static int power_mask	= 0;
+static int setup_value	= GPIO8;
+static int power_mask	= GPIO1;
 static int power_value	= 0;
 
 #elif defined(CONFIG_WL700G)
@@ -185,7 +186,7 @@ static int power_value = 0;
 #endif
 
 #define LED_READY_ON 	(ready_value)
-#define LED_READY_OFF (~ready_value)
+#define LED_READY_OFF	(~ready_value)
 
 #define LED_READY	ready_mask
 
@@ -350,6 +351,15 @@ void gpio_init(void)
 		ready_mask = GPIO5, ready_value = 0;
 		setup_mask = GPIO7, setup_value = GPIO7;
 	} else
+	// rt-n16
+	if (nvram_match("boardtype", "0x04cf") && 
+		nvram_match("boardnum", "45")) 
+	{
+		reset_mask = GPIO6, reset_value = GPIO6;
+		ready_mask = GPIO7, ready_value = GPIO7;
+		setup_mask = GPIO8, setup_value = GPIO8;
+		power_mask = GPIO1, power_value = 0;
+	} else
 	// wl700g
 	if (nvram_match("boardtype", "0x042f") && 
 		nvram_match("boardnum", "44")) 
@@ -378,8 +388,10 @@ void gpio_init(void)
 	}
 	gpio_write("/dev/gpio/outen", ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
+#ifndef GPIOCTL
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
 		reset_mask | setup_mask, 0);
+#endif
 }
 
 static void
