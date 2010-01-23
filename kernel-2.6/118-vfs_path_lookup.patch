@@ -4,8 +4,8 @@ Date: Fri, 8 Jan 2010 20:19:36 -0500
 Subject: [PATCH] fs: introduce vfs_path_lookup
 
 ---
- fs/namei.c          |   32 ++++++++++++++++++++
- .../src-rt/linux/linux-2.6/include/linux/namei.h   |    2 +
+ fs/namei.c              |   32 ++++++++++++++++++++
+ include/linux/namei.h   |    2 +
  2 files changed, 34 insertions(+), 0 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c

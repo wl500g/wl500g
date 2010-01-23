@@ -4,8 +4,8 @@ Date: Wed, 13 Jan 2010 13:03:39 -0500
 Subject: [PATCH] zlib: optimize inffast when copying direct from output
 
 ---
- .../linux/linux-2.6/arch/powerpc/boot/Makefile     |    4 +-
- .../linux/linux-2.6/lib/zlib_inflate/inffast.c     |   55 ++++++++++++++++----
+ arch/powerpc/boot/Makefile     |    4 +-
+ lib/zlib_inflate/inffast.c     |   55 ++++++++++++++++----
  2 files changed, 47 insertions(+), 12 deletions(-)
 
 diff --git a/arch/powerpc/boot/Makefile b/arch/powerpc/boot/Makefile
