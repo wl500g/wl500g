@@ -193,7 +193,7 @@ extern __u64 __xchg_u64_unsupported_on_32bit_kernels(volatile __u64 * m, __u64 v
 #define __xchg_u64 __xchg_u64_unsupported_on_32bit_kernels
 #endif
 
-static inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
+static __always_inline unsigned long __xchg(unsigned long x, volatile void * ptr, int size)
 {
 	switch (size) {
 	case 4:
