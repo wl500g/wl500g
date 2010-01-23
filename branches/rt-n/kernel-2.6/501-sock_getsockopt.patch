@@ -1,0 +1,34 @@
+From a6fa7047cf5cb20353178e9b31c3105f13461b54
+From: Eugene Teo
+Date: Mon, 23 Feb 2009 15:38:41 -0800
+Subject: [PATCH] net: amend the fix for SO_BSDCOMPAT gsopt infoleak
+
+[ Upstream commit 50fee1dec5d71b8a14c1b82f2f42e16adc227f8b ]
+
+The fix for CVE-2009-0676 (upstream commit df0bca04) is incomplete. Note
+that the same problem of leaking kernel memory will reappear if someone
+on some architecture uses struct timeval with some internal padding (for
+example tv_sec 64-bit and tv_usec 32-bit) --- then, you are going to
+leak the padded bytes to userspace.
+
+Signed-off-by: Eugene Teo <eugeneteo@kernel.sg>
+Reported-by: Mikulas Patocka <mpatocka@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ net/core/sock.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/sock.c b/net/core/sock.c
+index b1b2f22..d9fa31b 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -674,6 +674,8 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
+ 	if (len < 0)
+ 		return -EINVAL;
+ 
++	memset(&v, 0, sizeof(v));
++
+ 	switch(optname) {
+ 	case SO_DEBUG:
+ 		v.val = sock_flag(sk, SOCK_DBG);
