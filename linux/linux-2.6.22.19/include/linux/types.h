@@ -1,6 +1,14 @@
 #ifndef _LINUX_TYPES_H
 #define _LINUX_TYPES_H
 
+/* Debian: Use userland types instead.  */
+#ifndef __KERNEL__
+# include <sys/types.h>
+/* For other kernel headers.  */
+# include <linux/posix_types.h>
+# include <asm/types.h>
+#endif /* __KERNEL__ DEBIAN */
+
 #ifndef __ASSEMBLY__
 #ifdef	__KERNEL__
 
