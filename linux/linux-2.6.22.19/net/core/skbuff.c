@@ -207,6 +207,10 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 	skb->mac_header = ~0U;
 #endif
 	skb->vlan_tci = 0;
+#if defined(CONFIG_IMQ) || defined (CONFIG_IMQ_MODULE)
+	skb->imq_flags = 0;
+	skb->nf_info = NULL;
+#endif
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);
 	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));

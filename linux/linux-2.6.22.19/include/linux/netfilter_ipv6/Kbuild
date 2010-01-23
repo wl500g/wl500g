@@ -1,4 +1,5 @@
 header-y += ip6t_HL.h
+header-y += ip6t_IMQ.h
 header-y += ip6t_LOG.h
 header-y += ip6t_MARK.h
 header-y += ip6t_REJECT.h

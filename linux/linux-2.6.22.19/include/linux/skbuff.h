@@ -323,6 +323,10 @@ struct sk_buff {
 	atomic_t		users;
 
 	__u16			vlan_tci;
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	__u8			imq_flags;
+	struct nf_info		*nf_info;
+#endif
 };
 
 #ifdef __KERNEL__
@@ -1833,6 +1837,10 @@ static inline void __nf_copy(struct sk_buff *dst, const struct sk_buff *src)
 #ifdef CONFIG_BRIDGE_NETFILTER
 	dst->nf_bridge  = src->nf_bridge;
 	nf_bridge_get(src->nf_bridge);
+#endif
+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
+	dst->imq_flags = src->imq_flags;
+	dst->nf_info = src->nf_info;
 #endif
 }
 
