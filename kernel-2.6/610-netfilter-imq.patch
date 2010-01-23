@@ -145,7 +145,7 @@ diff --git a/drivers/net/Makefile b/drivers/net/Makefile
 diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 --- /dev/null
 +++ b/drivers/net/imq.c
-@@ -0,0 +1,402 @@
+@@ -0,0 +1,400 @@
 +/*
 + *             Pseudo-driver for the intermediate queue device.
 + *
