@@ -201,7 +201,7 @@ kmod_ext=.o
 endif
 
 # Netfilter modules NOT to include in main FW
-netfilter_external_modules := ipt_layer7$(kmod_ext) ip_set$(kmod_ext) \
+netfilter_external_modules := {xt,ipt}_layer7$(kmod_ext) ip_set$(kmod_ext) \
  ip_set_ipmap$(kmod_ext) ip_set_iptree$(kmod_ext) ip_set_iptreemap$(kmod_ext) \
  ip_set_macipmap$(kmod_ext) ip_set_nethash$(kmod_ext) ip_set_iphash$(kmod_ext) \
  ip_set_portmap$(kmod_ext) ip_set_ipporthash$(kmod_ext) ip_set_ipportiphash$(kmod_ext) \
@@ -336,9 +336,10 @@ modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modul
 		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
-NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(kmod_ext) 2>/dev/null))
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
 ifeq ($(CONFIG_IPV6),y)
-NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*$(kmod_ext) 2>/dev/null))
 endif
 
 modules_install: .config
