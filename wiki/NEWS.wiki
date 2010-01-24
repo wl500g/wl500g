@@ -1,6 +1,25 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d-`r1087` (2010-01-24)===
+  * kernel
+    * netfilter ipt_time fix
+    * CIFS 1.49 fix for CVE-2009-1439
+
+  * pptp/accel-pptp
+    * Add routes to VPN servers exactly as in 1.9.2.7-10.7
+
+  * busybox
+    * bugfixes for applets - ash, mkswap
+    * blkid applet
+
+  * ucd-snmp
+    * Add ability to determine ethernet NIC speed (for bridges port 0 is hardcoded)
+
+  * bugfixes
+    * flashfs, dropbearstart, ipkg.sh - restrict PATH(/sbin:/bin:/usr/sbin:/usr/bin) to avoid possible impact with optware
+    * rc - fixed ipv6-in-ipv4 tunnel packets drop with DoS protection enabled
+
 ===wl500g-1.9.2.7-d-`r1000` (2009-12-21)===
   * kernel
     * backport of scsi settle by Ray123 from Tomato project
