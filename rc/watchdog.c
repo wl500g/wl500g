@@ -387,11 +387,7 @@ void gpio_init(void)
 	}
 	gpio_write("/dev/gpio/outen", ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
-#ifdef GPIOCTL
-	gpio_write("/dev/gpio/out", ready_mask | power_mask |
-		reset_mask | setup_mask, ~(ready_value | power_value |
-		reset_value | setup_value));
-#else
+#ifndef GPIOCTL
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
 		reset_mask | setup_mask, 0);
 #endif
