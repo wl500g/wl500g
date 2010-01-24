@@ -1,0 +1,13 @@
+--- a/scripts/mkcompile_h
++++ b/scripts/mkcompile_h
+@@ -60,8 +60,8 @@
+   echo \#define UTS_VERSION \"`echo $UTS_VERSION | $UTS_TRUNCATE`\"
+ 
+   echo \#define LINUX_COMPILE_TIME \"`date +%T`\"
+-  echo \#define LINUX_COMPILE_BY \"`whoami`\"
+-  echo \#define LINUX_COMPILE_HOST \"`hostname | $UTS_TRUNCATE`\"
++  echo \#define LINUX_COMPILE_BY \"root\"
++  echo \#define LINUX_COMPILE_HOST \"localhost\"
+ 
+   if [ -x /bin/dnsdomainname ]; then
+     echo \#define LINUX_COMPILE_DOMAIN \"`dnsdomainname | $UTS_TRUNCATE`\"
