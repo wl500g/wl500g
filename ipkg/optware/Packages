@@ -13,6 +13,21 @@ Depends:
 Suggests: 
 Conflicts: 
 
+Package: cutter
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 1.03-1
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://www.lowth.com/cutter/software/cutter-1.03.tgz
+Filename: cutter_1.03-1_mipsel.ipk
+Size: 6539
+MD5Sum: 7346b0a562afef25f8303982996e25ff
+Description: Tool that allows to abort TCP/IP connections routed over the firewall or router on which it is run
+Depends: 
+Suggests: 
+Conflicts: 
+
 Package: fakeidentd
 Architecture: mipsel
 Priority: optional

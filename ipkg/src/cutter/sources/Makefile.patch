@@ -1,0 +1,9 @@
+--- Makefile.orig	2003-06-09 22:55:52.000000000 +0000
++++ Makefile	2010-01-24 06:26:13.000000000 +0000
+@@ -1,5 +1,5 @@
+ cutter: cutter.c
+-	cc cutter.c -o cutter
++	$(CC) $(CPPFLAGS) $(LDFLAGS) cutter.c -o cutter
+ 
+ clean:
+ 	rm -f cutter.o cutter
