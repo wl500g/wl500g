@@ -24,7 +24,7 @@ export KERNEL_DIR := $(ROOT)/linux/linux
 
 BUSYBOX=busybox-1.15.3
 DROPBEAR=dropbear-0.52
-DNSMASQ=dnsmasq-2.51
+DNSMASQ=dnsmasq-2.52
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.4.7-now-ss020116-try
