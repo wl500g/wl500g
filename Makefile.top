@@ -245,6 +245,8 @@ define SwitchConfParam
 	)
 endef
 
+FlashMaxSize = $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880,$(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g),7995392,$(if $(filter $(1),RT-N16),16384000,0)))
+
 #
 # Basic rules
 #
@@ -404,10 +406,12 @@ endif
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -o $(PLATFORMDIR)/$*-$(RELEASE).trx \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		loader/loader.gz $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 else
-	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -o $(PLATFORMDIR)/$*-$(RELEASE).trx \
+	$(SRCBASE)/asustrx/asustrx -p $* -v $(KERNEL_VER).$(FS_VER) -m $(call FlashMaxSize,$*) \
+		-o $(PLATFORMDIR)/$*-$(RELEASE).trx \
 		$(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 endif
 	@echo
@@ -923,9 +927,6 @@ model-%:
 	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
-	elif [ "$*" = "WLHDD" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WLHDD -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "RT-N10" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN10 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
@@ -950,7 +951,6 @@ images-%:
 
 images:
 	make images-WL500gx
-	#make images-WLHDD
 	make images-WL550gE
 	make images-WL320gE
 	make images-WL320gP

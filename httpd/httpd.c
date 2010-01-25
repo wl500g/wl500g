@@ -74,10 +74,23 @@ extern char *strsep(char **stringp, char *delim);
 #define PROTOCOL "HTTP/1.0"
 #define RFC1123FMT "%a, %d %b %Y %H:%M:%S GMT"
 
+#include <bcmconfig.h>
+#ifndef __CONFIG_IPV6__
+#define uaddr struct in_addr
+#define uaddr_init {.s_addr = 0}
+#else
+#define uaddr struct in6_addr
+#define uaddr_init IN6ADDR_ANY_INIT
+#endif
+
 /* A multi-family sockaddr. */
 typedef union {
     struct sockaddr sa;
+#ifndef __CONFIG_IPV6__
     struct sockaddr_in sa_in;
+#else
+    struct sockaddr_in6 sa_in;
+#endif
     } usockaddr;
 
 /* Globals. */
@@ -99,10 +112,10 @@ static void handle_request(void);
 
 static int is_firsttime(void);
 static int is_connected(void);
-static void http_login(struct in_addr ip);
+static void http_login(uaddr ip);
 static int http_login_check(void);
-static void http_logout(struct in_addr ip);
-static void http_login_timeout(struct in_addr ip);
+static void http_logout(uaddr ip);
+static void http_login_timeout(uaddr ip);
 
 
 /* added by Joey */
@@ -112,10 +125,10 @@ int http_port=SERVER_PORT;
 static int server_port = SERVER_PORT; /* Port for SERVER USER interface */
 
 /* Added by Joey for handle one people at the same time */
-struct in_addr login_ip = { .s_addr = 0 };
+uaddr login_ip = uaddr_init;
+uaddr login_ip_tmp = uaddr_init;
+uaddr login_try = uaddr_init;
 time_t login_timestamp=0;
-struct in_addr login_ip_tmp = { .s_addr = 0 };
-struct in_addr login_try = { .s_addr = 0 };
 
 static int
 initialize_listen_socket( usockaddr* usaP )
@@ -124,9 +137,15 @@ initialize_listen_socket( usockaddr* usaP )
     int i;
 
     memset( usaP, 0, sizeof(usockaddr) );
+#ifndef __CONFIG_IPV6__
     usaP->sa.sa_family = AF_INET;
     usaP->sa_in.sin_addr.s_addr = htonl( INADDR_ANY );
     usaP->sa_in.sin_port = htons( http_port );
+#else
+    usaP->sa.sa_family = AF_INET6;
+    usaP->sa_in.sin6_addr = in6addr_any;
+    usaP->sa_in.sin6_port = htons( http_port );
+#endif
 
     listen_fd = socket( usaP->sa.sa_family, SOCK_STREAM, 0 );
     if ( listen_fd < 0 )
@@ -141,7 +160,7 @@ initialize_listen_socket( usockaddr* usaP )
 	perror( "setsockopt" );
 	return -1;
 	}
-    if ( bind( listen_fd, &usaP->sa, sizeof(struct sockaddr_in) ) < 0 )
+    if ( bind( listen_fd, &usaP->sa, sizeof(usaP->sa_in) ) < 0 )
 	{
 	perror( "bind" );
 	return -1;
@@ -193,12 +212,22 @@ auth_check( char* dirname, char* authorization )
     {
     	//fprintf(stderr, "login check : %x %x\n", login_ip, login_try);
     	/* Is this is the first login after logout */
+#ifndef __CONFIG_IPV6__
     	if (login_ip.s_addr==0 && login_try.s_addr==login_ip_tmp.s_addr)
     	{
 		send_authenticate(dirname);
 		login_try.s_addr=0;
 		return 0;
     	}
+#else
+    	if ((memcmp(&login_ip, &in6addr_any, sizeof(struct in6_addr)) == 0) &&
+    	    (memcmp(&login_try, &login_ip_tmp, sizeof(struct in6_addr)) == 0))
+    	{
+		send_authenticate(dirname);
+		memcpy(&login_try, &in6addr_any, sizeof(struct in6_addr));
+		return 0;
+    	}
+#endif
 	return 1;
     }
 
@@ -412,7 +441,11 @@ handle_request(void)
     int len;
     struct mime_handler *handler;
     int cl = 0, flags;
-
+#ifndef __CONFIG_IPV6__
+    char *straddr;
+#else
+    char straddr[INET6_ADDRSTRLEN];
+#endif
 
     /* Initialize the request variables. */
     authorization = boundary = NULL;
@@ -489,8 +522,12 @@ handle_request(void)
 
     if (http_port==server_port && !http_login_check())
     {
-	sprintf(line, "Please log out user, %s, first or wait for session timeout(60 seconds).", inet_ntoa((struct in_addr )login_ip));
-
+#ifndef __CONFIG_IPV6__
+	straddr = inet_ntoa(login_ip);
+#else
+	inet_ntop(AF_INET6, &login_ip, straddr, sizeof(straddr));
+#endif
+	sprintf(line, "Please log out user %s first or wait for session timeout(60 seconds).", straddr);
 	printf("resposne: %s \n", line);
 	send_error( 200, "Request is rejected", (char*) 0, line);
 	return;
@@ -566,60 +603,96 @@ handle_request(void)
 
 static void http_login_cache(usockaddr *u)
 {
+#ifndef __CONFIG_IPV6__
     	login_ip_tmp.s_addr = u->sa_in.sin_addr.s_addr;
+#else
+	memcpy(&login_ip_tmp, &(u->sa_in.sin6_addr), sizeof(struct in6_addr));
+#endif
     	//printf("client :%x\n", login_ip_tmp);
 }
 
-static void http_login(struct in_addr ip)
+static void http_login(uaddr ip)
 {
+	if ((http_port != server_port) ||
+#ifndef __CONFIG_IPV6__
+	    (ip.s_addr == 0x100007f)
+#else
+	    (memcmp(&ip, &in6addr_loopback, sizeof(struct in6_addr)) == 0)
+#endif
+	) return;
 
-	if (http_port!=server_port || ip.s_addr == 0x100007f) return;
-
+#ifndef __CONFIG_IPV6__
 	login_ip = ip;
 	login_try.s_addr = 0;
+#else
+	memcpy(&login_ip, &ip, sizeof(struct in6_addr));
+	memcpy(&login_try, &in6addr_any, sizeof(struct in6_addr));
+#endif
+
 	time(&login_timestamp);
 }
 
 static int http_login_check(void)
 {
-	if (http_port != server_port || login_ip_tmp.s_addr == 0x100007f) return 1;
+	if ((http_port != server_port) ||
+#ifndef __CONFIG_IPV6__
+	    (login_ip_tmp.s_addr == 0x100007f)
+#else
+	    (memcmp(&login_ip_tmp, &in6addr_loopback, sizeof(struct in6_addr)) == 0)
+#endif
+	) return 1;
 
 	http_login_timeout(login_ip_tmp);
 
-	if (login_ip.s_addr != 0)
-	{	
-		if (login_ip.s_addr != login_ip_tmp.s_addr)
-		{
-			return 0;
-		}
-	}
+	if (
+#ifndef __CONFIG_IPV6__
+	    (login_ip.s_addr != 0) &&
+	    (login_ip.s_addr != login_ip_tmp.s_addr)
+#else
+	    (memcmp(&login_ip, &in6addr_any, sizeof(struct in6_addr)) != 0) &&
+	    (memcmp(&login_ip, &login_ip_tmp, sizeof(struct in6_addr)) != 0)
+#endif
+	) return 0;
+
 	return 1;
 }
 
-static void http_login_timeout(struct in_addr ip)
+static void http_login_timeout(uaddr ip)
 {
 	time_t now;
-
 	time(&now);
 
 	//printf("login : %x %x\n", now, login_timestamp);
-
-	if (ip.s_addr != login_ip.s_addr && (unsigned long)(now - login_timestamp)>60) //one minitues
+	if (
+#ifndef __CONFIG_IPV6__
+	    (ip.s_addr != login_ip.s_addr)
+#else
+	    (memcmp(&ip, &login_ip, sizeof(struct in6_addr)) != 0)
+#endif
+	&& (unsigned long)(now - login_timestamp)>60) //one minitues
 	{
 		http_logout(login_ip);
 	}
 }
 
-static void http_logout(struct in_addr ip)
+static void http_logout(uaddr ip)
 {
 	//fprintf(stderr, "ip : %x %x %x\n", ip, login_ip, login_try);
-
+#ifndef __CONFIG_IPV6__
 	if (ip.s_addr == login_ip.s_addr)
 	{
 		login_try = login_ip;
 		login_ip.s_addr = 0;
 		login_timestamp = 0;
 	}
+#else
+	if (memcmp(&ip, &login_ip, sizeof(struct in6_addr)) == 0)
+	{
+		memcpy(&login_try, &login_ip, sizeof(struct in6_addr));
+		memcpy(&login_ip, &in6addr_any, sizeof(struct in6_addr));
+		login_timestamp = 0;
+	}
+#endif
 }
 
 int is_auth(void)
