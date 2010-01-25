@@ -231,32 +231,6 @@ sys_upgrade(char *url, FILE *stream, int *total)
 }
 #endif
 
-int 
-sys_send_signal(char *pidfile, int sig)
-{
-
-	FILE *fp;
-	pid_t pid;	    
-	fp=fopen(pidfile,"r");	    
-	if (fp!=NULL)
-	{
-	    	fscanf(fp, "%d", &pid);
-	    	kill(pid, sig);
-	    	fclose(fp);	 
-		return 0;
-	}
-	return 1;
-}
-
-void
-sys_refresh_lease(void)
-{
-	char sigusr1[] = "-XX";
-
-	/* Write out leases file */
-	sprintf(sigusr1, "-%d", SIGUSR1);
-	eval("killall", sigusr1, "udhcpd");
-}
 
 struct lease_t {
 	unsigned char chaddr[16];

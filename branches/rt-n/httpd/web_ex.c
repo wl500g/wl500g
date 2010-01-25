@@ -230,10 +230,6 @@ void sys_script(char *name)
      {
 	  // do nothing	
      }
-     else if (strcmp(name,"leases.sh")==0 || strcmp(name,"dleases.sh")==0)
-     {
-		sys_refresh_lease();	
-     }
      else if (strcmp(name,"dnsmasq.sh")==0)
      {
 	   kill_pidfile_s("/var/run/dnsmasq.pid", SIGALRM);
