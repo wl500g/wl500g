@@ -74,6 +74,7 @@ define make_diff
     diffstat $(4).diff
 endef
 
+MIPS_Kernel_Patches:=$(call patches_list,kernel/linux-mips)
 OPENWRT_Kernel_Patches:=$(call patches_list,kernel/openwrt)
 OPENWRT_Brcm_Patches:=$(call patches_list,kernel/openwrt/brcm)
 OUR_Kernel_Patches:=$(call patches_list, kernel)
@@ -136,6 +137,7 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) kernel/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
+	@$(PATCHER) -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Brcm_Patches)
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
