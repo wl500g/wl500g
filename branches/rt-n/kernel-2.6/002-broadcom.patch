@@ -4993,35 +4993,6 @@ diff -urBwNp linux-2.6.22/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
  config RWSEM_GENERIC_SPINLOCK
  	bool
  	default y
-@@ -841,15 +872,10 @@ config MIPS_TX3927
- config MIPS_RM9122
- 	bool
- 	select SERIAL_RM9000
--	select GPI_RM9000
--	select WDT_RM9000
- 
- config PCI_MARVELL
- 	bool
- 
--config SERIAL_RM9000
--	bool
--
- config PNX8550
- 	bool
- 	select SOC_PNX8550
-@@ -875,12 +901,6 @@ config EMMA2RH
- config SERIAL_RM9000
- 	bool
- 
--config GPI_RM9000
--	bool
--
--config WDT_RM9000
--	bool
--
- #
- # Unfortunately not all GT64120 systems run the chip at the same clock.
- # As the user for the clock rate and try to minimize the available options.
 @@ -942,7 +962,7 @@ menu "CPU selection"
  
  choice
@@ -5723,9 +5694,9 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/traps.c linux-2.6/arch/mips/kernel/tr
  
 +#include <linux/reboot.h>
 +
- extern asmlinkage void handle_int(void);
- extern asmlinkage void handle_tlbm(void);
- extern asmlinkage void handle_tlbl(void);
+ extern void check_wait(void);
+ extern asmlinkage void r4k_wait(void);
+ extern asmlinkage void rollback_handle_int(void);
 @@ -742,6 +740,8 @@ out_sigsegv:
  asmlinkage void do_ri(struct pt_regs *regs)
  {
@@ -5786,49 +5757,6 @@ diff -urBwNp linux-2.6.22/arch/mips/Makefile linux-2.6/arch/mips/Makefile
  CFLAGS		+= $(cflags-y)
  
  LDFLAGS			+= -m $(ld-emul)
-@@ -702,6 +720,16 @@ vmlinux.srec: $(vmlinux-32)
- CLEAN_FILES += vmlinux.ecoff \
- 	       vmlinux.srec
- 
-+archprepare:
-+ifdef CONFIG_MIPS32_N32
-+	@echo '  Checking missing-syscalls for N32'
-+	$(Q)$(MAKE) $(build)=. missing-syscalls EXTRA_CFLAGS="-mabi=n32"
-+endif
-+ifdef CONFIG_MIPS32_O32
-+	@echo '  Checking missing-syscalls for O32'
-+	$(Q)$(MAKE) $(build)=. missing-syscalls EXTRA_CFLAGS="-mabi=32"
-+endif
-+
- archclean:
- 	@$(MAKE) $(clean)=arch/mips/boot
- 	@$(MAKE) $(clean)=arch/mips/lasat
-@@ -709,25 +737,3 @@ archclean:
- CLEAN_FILES += vmlinux.32 \
- 	       vmlinux.64 \
- 	       vmlinux.ecoff
--
--quiet_cmd_syscalls_n32 = CALL-N32 $<
--      cmd_syscalls_n32 = $(CONFIG_SHELL) $< $(CC) $(c_flags) -mabi=n32
--
--quiet_cmd_syscalls_o32 = CALL-O32 $<
--      cmd_syscalls_o32 = $(CONFIG_SHELL) $< $(CC) $(c_flags) -mabi=32
--
--PHONY += missing-syscalls-n32 missing-syscalls-o32
--
--missing-syscalls-n32: scripts/checksyscalls.sh FORCE
--	$(call cmd,syscalls_n32)
--
--missing-syscalls-o32: scripts/checksyscalls.sh FORCE
--	$(call cmd,syscalls_o32)
--
--archprepare:
--ifdef CONFIG_MIPS32_N32
--	$(Q)$(MAKE) $(build)=arch/mips missing-syscalls-n32
--endif
--ifdef CONFIG_MIPS32_O32
--	$(Q)$(MAKE) $(build)=arch/mips missing-syscalls-o32
--endif
 diff -urBwNp linux-2.6.22/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/mm/c-r4k.c
 --- linux-2.6.22/arch/mips/mm/c-r4k.c	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/arch/mips/mm/c-r4k.c	2008-12-12 06:25:49.000000000 +0300
@@ -5879,7 +5807,7 @@ diff -urBwNp linux-2.6.22/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/mm/c-r4k.c
  }
  
 +#if defined(CONFIG_BCM47XX) || defined(CONFIG_BCM5365)
-+static void __init _change_cachability(u32 cm)
++static void __cpuinit _change_cachability(u32 cm)
 +{
 +	change_c0_config(CONF_CM_CMASK, cm);
 +
@@ -5894,7 +5822,7 @@ diff -urBwNp linux-2.6.22/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/mm/c-r4k.c
 +}	
 +static void (*change_cachability)(u32);
 +#else
- static void __init coherency_setup(void)
+ static void __cpuinit coherency_setup(void)
  {
  	change_c0_config(CONF_CM_CMASK, CONF_CM_DEFAULT);
 @@ -1176,6 +1193,7 @@ static void __init coherency_setup(void)
@@ -5931,8 +5859,8 @@ diff -urBwNp linux-2.6.22/arch/mips/mm/tlbex.c linux-2.6/arch/mips/mm/tlbex.c
  
 diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
 --- linux-2.6.22/arch/mips/pci/pci.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/arch/mips/pci/pci.c	2008-12-12 06:25:51.000000000 +0300
-@@ -108,92 +108,10 @@ static inline u8 bridge_swizzle(u8 pin,
++++ linux-2.6/arch/mips/pci/pci.c	2010-01-26 15:52:34.000000000 +0300
+@@ -108,95 +108,9 @@ static inline u8 bridge_swizzle(u8 pin, 
  	return (((pin - 1) + slot) % 4) + 1;
  }
  
@@ -5987,7 +5915,7 @@ diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
 -
 -	return 0;
 -}
- 
+-
 +extern int __init pcibios_init(void);
  subsys_initcall(pcibios_init);
  
@@ -6005,6 +5933,11 @@ diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
 -			continue;
 -
 -		r = &dev->resource[idx];
+-		if (!(r->flags & (IORESOURCE_IO | IORESOURCE_MEM)))
+-			continue;
+-		if ((idx == PCI_ROM_RESOURCE) &&
+-				(!(r->flags & IORESOURCE_ROM_ENABLE)))
+-			continue;
 -		if (!r->start && r->end) {
 -			printk(KERN_ERR "PCI: Device %s not available because of resource collisions\n", pci_name(dev));
 -			return -EINVAL;
@@ -6014,8 +5947,6 @@ diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
 -		if (r->flags & IORESOURCE_MEM)
 -			cmd |= PCI_COMMAND_MEMORY;
 -	}
--	if (dev->resource[PCI_ROM_RESOURCE].start)
--		cmd |= PCI_COMMAND_MEMORY;
 -	if (cmd != old_cmd) {
 -		printk("PCI: Enabling device %s (%04x -> %04x)\n", pci_name(dev), old_cmd, cmd);
 -		pci_write_config_word(dev, PCI_COMMAND, cmd);
@@ -6026,7 +5957,7 @@ diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
  /*
   *  If we set up a device for bus mastering, we need to check the latency
   *  timer as certain crappy BIOSes forget to set it properly.
-@@ -220,61 +138,6 @@ unsigned int pcibios_assign_all_busses(v
+@@ -223,61 +137,6 @@ unsigned int pcibios_assign_all_busses(v
  	return (pci_probe & PCI_ASSIGN_ALL_BUSSES) ? 1 : 0;
  }
  
@@ -6088,7 +6019,7 @@ diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
  
  void __init
  pcibios_update_irq(struct pci_dev *dev, int irq)
-@@ -320,8 +183,3 @@ EXPORT_SYMBOL(pcibios_bus_to_resource);
+@@ -323,8 +182,3 @@ EXPORT_SYMBOL(pcibios_bus_to_resource);
  EXPORT_SYMBOL(PCIBIOS_MIN_IO);
  EXPORT_SYMBOL(PCIBIOS_MIN_MEM);
  #endif
@@ -6128,7 +6059,7 @@ diff -uB linux-2.6/drivers/mtd/devices/Kconfig linux-2.6/drivers/mtd/devices/Kco
  	depends on MTD!=n
  
 +config MTD_SFLASH
-+	bool '  Broadcom Chipcommon Serial Flash support'
++	bool "Broadcom Chipcommon Serial Flash support"
 +
  config MTD_PMC551
  	tristate "Ramix PMC551 PCI Mezzanine RAM card support"
@@ -7856,18 +7787,6 @@ diff -urBwNp linux-2.6.22/mm/bootmem.c linux-2.6/mm/bootmem.c
 diff -urBwNp linux-2.6.22/Makefile linux-2.6/Makefile
 --- linux-2.6.22/Makefile	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/Makefile	2009-03-02 10:34:48.000000000 +0300
-@@ -158,10 +158,7 @@ export srctree objtree VPATH TOPDIR
- # then ARCH is assigned, getting whatever value it gets normally, and 
- # SUBARCH is subsequently ignored.
- 
--SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
--				  -e s/arm.*/arm/ -e s/sa110/arm/ \
--				  -e s/s390x/s390/ -e s/parisc64/parisc/ \
--				  -e s/ppc.*/powerpc/ -e s/mips.*/mips/ )
-+SUBARCH := mips
- 
- # Cross compiling and selecting different set of gcc/bin-utils
- # ---------------------------------------------------------------------------
 @@ -316,6 +313,35 @@ CFLAGS          := -Wall -Wundef -Wstric
                     -fno-strict-aliasing -fno-common
  AFLAGS          := -D__ASSEMBLY__
@@ -8030,3 +7949,15 @@ diff -urBwNp linux-2.6.22/Makefile linux-2.6/Makefile
 +
 +clean:
 +	rm -f vmlinux vmlinuz zImage piggz piggy *.lds *.o
+diff -urBwNp linux-2.6.22/arch/mips/kernel/gdb-stub.c linux-2.6/arch/mips/kernel/gdb-stub.c
+--- linux-2.6.22/arch/mips/kernel/gdb-stub.c	2007-07-09 03:32:17.000000000 +0400
++++ linux-2.6/arch/mips/kernel/gdb-stub.c	2008-12-12 06:25:45.000000000 +0300
+@@ -377,7 +377,7 @@ static struct hard_trap_info {
+ 	unsigned char signo;		/* Signal that we map this trap into */
+ } hard_trap_info[] = {
+ 	{ 6, SIGBUS },			/* instruction bus error */
+-	{ 7, SIGBUS },			/* data bus error */
++/*	{ 7, SIGBUS },		*/	/* data bus error */
+ 	{ 9, SIGTRAP },			/* break */
+ 	{ 10, SIGILL },			/* reserved instruction */
+ /*	{ 11, SIGILL },		*/	/* CPU unusable */
