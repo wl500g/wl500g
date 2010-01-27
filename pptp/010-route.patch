@@ -162,14 +162,14 @@ diff -urbB pptp-1.7.1/pptp.c pptp.route/pptp.c
 +	/* check for no route */
 +	if (rt->rt_gateway.sa_family != AF_INET) 
 +	{
-+	        warn("route_add: no route to host");
++	        /* warn("route_add: no route to host"); */
 +		return -1;
 +	}
 +
 +	/* check for existing route to this host, 
 +	add if missing based on the existing routes */
 +	if (flags & RTF_HOST) {
-+	        warn("route_add: not adding existing route");
++	        /* warn("route_add: not adding existing route"); */
 +		return -1;
 +	}
 +
