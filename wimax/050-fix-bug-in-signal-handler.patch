@@ -1,0 +1,28 @@
+From 791e0e51f878827b2e88aaf6fa4680b4902ec4b0 Mon Sep 17 00:00:00 2001
+From: Alexander Gordeev <lasaine@lvk.cs.msu.su>
+Date: Wed, 27 Jan 2010 04:26:51 +0300
+Subject: [PATCH] fix bug in signal handler
+
+syslog() should not be called from signal handler, removing it.
+(Closes issue #46)
+
+Signed-off-by: Alexander Gordeev <lasaine@lvk.cs.msu.su>
+---
+ src/wimax.c |    1 -
+ 1 files changed, 0 insertions(+), 1 deletions(-)
+
+diff --git a/src/wimax.c b/src/wimax.c
+index c9132f0..00ecf5c 100644
+--- a/src/wimax.c
++++ b/src/wimax.c
+@@ -835,7 +835,6 @@ static void sighandler_exit(int signum) {
+ static void sighandler_wait_child(int signum) {
+ 	int status;
+ 	wait3(&status, WNOHANG, NULL);
+-	wmlog_msg(2, "Child exited with status %d", status);
+ }
+ 
+ int main(int argc, char **argv)
+-- 
+1.5.6.5
+
