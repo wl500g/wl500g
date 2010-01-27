@@ -1,6 +1,6 @@
 diff -BurpN rp-l2tp-0.4/l2tp.h rp-l2tp/l2tp.h
 --- rp-l2tp-0.4/l2tp.h	2004-07-01 14:58:55.000000000 +0000
-+++ rp-l2tp/l2tp.h	2009-08-31 05:52:54.000000000 +0000
++++ rp-l2tp/l2tp.h	2010-01-27 06:16:48.000000000 +0000
 @@ -16,6 +16,7 @@
  #include <stdint.h>
  #include <netinet/in.h>
@@ -18,8 +18,8 @@ diff -BurpN rp-l2tp-0.4/l2tp.h rp-l2tp/l2tp.h
  
  /* A session within a tunnel */
 diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
---- rp-l2tp-0.4/tunnel.c	2009-08-31 05:52:33.000000000 +0000
-+++ rp-l2tp/tunnel.c	2009-08-31 05:52:54.000000000 +0000
+--- rp-l2tp-0.4/tunnel.c	2010-01-27 06:24:27.000000000 +0000
++++ rp-l2tp/tunnel.c	2010-01-27 06:21:03.000000000 +0000
 @@ -5,6 +5,8 @@
  * Functions for manipulating L2TP tunnel objects.
  *
@@ -68,7 +68,7 @@ diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
      hash_insert(&tunnels_by_peer_address, tunnel);
      tunnel_send_SCCRQ(tunnel);
      tunnel_set_state(tunnel, TUNNEL_WAIT_CTL_REPLY);
-@@ -1922,3 +1935,99 @@ l2tp_tunnel_next_session(l2tp_tunnel *tu
+@@ -1922,3 +1935,100 @@ l2tp_tunnel_next_session(l2tp_tunnel *tu
  {
      return hash_next(&tunnel->sessions_by_my_id, cursor);
  }
@@ -118,7 +118,8 @@ diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
 +		if (sscanf(buf, "%63s %x %x %X %*s %*s %d %x", dev, &dest,
 +		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
 +			continue;
-+		if ((flags & RTF_UP) == RTF_UP && (inetaddr.s_addr & mask) == dest)
++		if ((flags & RTF_UP) == (RTF_UP) && (inetaddr.s_addr & mask) == dest &&
++		    (dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/)
 +		{
 +			rt->rt_metric = metric + 1;
 +			rt->rt_gateway.sa_family = AF_INET;
@@ -131,13 +132,13 @@ diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
 +	/* check for no route */
 +	if (rt->rt_gateway.sa_family != AF_INET) 
 +	{
-+	        l2tp_set_errmsg("route_add: no route to host");
++	        /*l2tp_set_errmsg("route_add: no route to host");*/
 +		return -1;
 +	}
 +
 +	/* check for existing route to this host, 
 +	add if missing based on the existing routes */
-+	if (mask == INADDR_BROADCAST) {
++	if (flags & RTF_HOST) {
 +	        /*l2tp_set_errmsg("route_add: not adding existing route");*/
 +		return -1;
 +	}
@@ -149,7 +150,7 @@ diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
 +	rt->rt_genmask.sa_family = AF_INET;
 +
 +	rt->rt_flags = RTF_UP | RTF_HOST;
-+	if (sin_addr(&rt->rt_gateway).s_addr)
++	if (flags & RTF_GATEWAY)
 +		rt->rt_flags |= RTF_GATEWAY;
 +
 +	rt->rt_metric++;
