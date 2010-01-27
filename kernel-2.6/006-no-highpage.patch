@@ -1,7 +1,7 @@
 diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/init.c linux-2.6/arch/mips/mm/init.c
 --- linux-N12/arch/mips/mm/init.c	2009-08-27 07:53:51.000000000 +0400
-+++ linux-2.6/arch/mips/mm/init.c	2009-10-03 17:58:04.000000000 +0400
-@@ -201,31 +201,6 @@ void kunmap_coherent(void)
++++ linux-2.6/arch/mips/mm/init.c	2010-01-26 19:49:29.000000000 +0300
+@@ -208,32 +208,6 @@ void kunmap_coherent(void)
  	preempt_check_resched();
  }
  
@@ -11,7 +11,8 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/init.c linux-2.6/arch/mips/mm
 -	void *vfrom, *vto;
 -
 -	vto = kmap_atomic(to, KM_USER1);
--	if (cpu_has_dc_aliases) {
+-	if (cpu_has_dc_aliases &&
+-	    page_mapped(from) && !Page_dcache_dirty(from)) {
 -		vfrom = kmap_coherent(from, vaddr);
 -		copy_page(vto, vfrom);
 -		kunmap_coherent();
