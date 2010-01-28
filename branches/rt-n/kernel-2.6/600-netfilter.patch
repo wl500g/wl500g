@@ -2035,8 +2035,8 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ipt_time.h linux-2.6/incl
 +
 +struct ipt_time_info {
 +	u_int8_t days_match;	/* 1 bit per day (bit 0 = Sunday) */
-+	u_int16_t time_start;	/* 0 < time_start < 24*60*60-1 = 86399 */
-+	u_int16_t time_stop;		/* 0 < time_end < 24*60*60-1 = 86399 */
++	u_int32_t time_start;	/* 0 < time_start < 24*60*60-1 = 86399 */
++	u_int32_t time_stop;		/* 0 < time_end < 24*60*60-1 = 86399 */
 +	u_int8_t kerneltime;			/* ignore skb time (and use kerneltime) or not. */
 +	time_t date_start;
 +	time_t date_stop;
@@ -3265,13 +3265,13 @@ diff -urBwNp linux-2.6.22/net/netfilter/xt_time.c linux-2.6/net/netfilter/xt_tim
 +{
 +	printk("ipt_time loading\n");
 +	//return ipt_register_match(&time_match);
-+	return xt_register_match(&time_match);
++	return xt_register_matches(time_match, ARRAY_SIZE(time_match));
 +}
 +
 +static void __exit fini(void)
 +{
 +	//ipt_unregister_match(&time_match);
-+	xt_unregister_match(&time_match);
++	xt_unregister_matches(time_match, ARRAY_SIZE(time_match));
 +	printk("ipt_time unloaded\n");
 +}
 +

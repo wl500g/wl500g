@@ -107,7 +107,7 @@ diff -urBwNp linux-2.6.22/drivers/usb/class/usblp.c linux-2.6/drivers/usb/class/
  /*
   * Version Information
   */
-@@ -68,6 +113,17 @@
+@@ -68,6 +113,16 @@
  #define USBLP_BUF_SIZE		8192
  #define USBLP_DEVICE_ID_SIZE	1024
  
@@ -118,7 +118,6 @@ diff -urBwNp linux-2.6.22/drivers/usb/class/usblp.c linux-2.6/drivers/usb/class/
 +#define LPWRITEADDR     0x0614  /* write address to printer */
 +#define LPREADDATA      0x0615  /* read data from pinter */
 +#define LPREADADDR      0x0616  /* read address from pinter */
-+#define DEVICE_ID_SIZE	1024
 +/*******************************************************/
 +#endif // U2EC
 +
