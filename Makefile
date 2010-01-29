@@ -116,7 +116,7 @@ lzma: $(ROOT)/lzma
 	@true
 
 et:
-	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(ET).tar.bz2
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
 
 wl:
@@ -125,8 +125,8 @@ wl:
 
 brcm_Patches := $(call patches_list,brcm-src)
 
-brcm-src:
-	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/brcm-src.tar.bz2
+brcm-shared:
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -144,7 +144,7 @@ kernel-extra-drivers:
 #	tar -C $(KERNEL_DIR) -xvjf kernel-2.6/drivers/ov51x-1.65-1.12.tar.bz2
 #	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
-kernel: lzma et wl brcm-src kernel-patch kernel-extra-drivers
+kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
 	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
