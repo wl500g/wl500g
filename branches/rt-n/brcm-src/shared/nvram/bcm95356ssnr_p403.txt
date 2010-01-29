@@ -1,0 +1,107 @@
+# NVRAM board text file for the 5356 bu boards
+# Copyright (C) 2008, Broadcom Corporation
+# All Rights Reserved.
+# 
+# This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+# the contents of this file may not be disclosed to third parties, copied
+# or duplicated in any form, in whole or in part, without the prior
+# written permission of Broadcom Corporation.
+# All Rights Reserved.
+# $Id $
+#
+
+boardtype=0x0505
+boardnum=${serno}
+boardrev=0x1403
+
+boardflags=0x1710
+sromrev=8
+
+# CPU clock (Mhz)
+clkfreq=333,166,83
+
+# Oscillator clock (Khz)
+xtalfreq=25000
+
+# 64MB of DDR1 (DDRM32X16)
+# 0x002 for 133 MHz, 0x003 for 200MHz, 0x006 for 166MHz
+sdram_config=0x006
+
+# 64MB of SDR (SDRM32X16)
+#sdram_config=0x002
+
+sdram_refresh=0x1c50
+sdram_ncdl=0x7000001c
+
+# Ethernet w/ internal roboswitch
+et0macaddr=00:90:4c:23:${maclo}
+et0phyaddr=30
+et0mdcport=0
+
+# Its a sslpn board
+wl0id=0x4338
+
+# 5356 sslpn parameters
+macaddr=00:90:4c:24:${maclo}
+# more ....
+
+# Robo switch config (vlan1:WAN, vlan2:LAN)
+vlan1hwname=et0
+vlan1ports=0 5
+vlan2hwname=et0
+vlan2ports=1 2 3 4 5*
+
+# Bootloader and OS glue
+landevs=vlan2 wl0
+wandevs=vlan1
+
+# Bootlaoder variables
+lan_ipaddr=192.168.1.1
+lan_netmask=255.255.255.0
+boot_wait=on
+reset_gpio=3
+wait_time=3
+
+# GPIO settings for WPS button
+ledbh2=0
+gpio2=wps_button
+
+# Watchdog timer in ms
+watchdog=0
+
+opo=0
+pa0b0=0x1865
+pa0b1=0xfa23
+pa0b2=0xfeab
+pa0itssit=62
+# pa0maxpwr is the maximum TX output power for 2.4GHz
+# units of 0.25dB
+# max TX power is 0x50=80qdBm=20dBm
+pa0maxpwr=76
+
+rssismf2g=0xa
+rssismc2g=0xb
+rssisav2g=0x2
+
+ag0=255
+aa2g=3
+rxpo2g=0
+
+ccode=ALL
+cctl=0x0
+# ofdm2gpo is the 2.4GHz band, legacy 11g SISO, OFDM power offsets
+#          Nibble:  7   6   5   4   3   2   1   0
+#                  --- --- --- --- --- --- --- ---
+# Offset for rate: 54  48  36  24  18  12   9   6
+# each offset is in half-dB steps of reduction from maxp2ga0/maxp2ga1
+ofdm2gpo=0x53200000
+
+# 20MHz mcs0-7 power offsets
+mcs2gpo0=0x6222
+mcs2gpo1=0x6666
+
+# 40MHz mcs0-7 power offsets
+mcs2gpo2=0x8888
+mcs2gpo3=0x8888
+
+wl_msglevel=0x1

@@ -908,13 +908,18 @@ start_wan(void)
 	/* IPv6 tunnel config */
 	if (nvram_match("ipv6_sit_enable", "1"))
 	{
+		/* 6to4: "2002:aabb:ccdd:0::1" for "aaa.bbb.ccc.ddd" wan ipv4 addr */
 		char *ip6_addrL = nvram_safe_get("ipv6_sit_localaddr");
+		/* 6to4: "64" */
 		char *ip6_sizeL = nvram_safe_get("ipv6_sit_netsize");
+		/* 6to4: "::192.88.99.1" */
 		char *ip6_addrR = nvram_safe_get("ipv6_sit_remoteaddr");
 
 		/* Instantiate tunnel */
 		eval("ip", "tunnel", "add", "sixtun", "mode", "sit",
+			/* 6to4: "local", "aaa.bbb.ccc.ddd" ??? security ??? */
 			"local", "0.0.0.0",
+			/* 6to4: "remote", "any" */
 			"remote", nvram_safe_get("ipv6_sit_remote"));
 
 		/* Enable tunnel */
@@ -931,13 +936,16 @@ start_wan(void)
 		{
 			char ip6_net[64];
 			sprintf(ip6_net, "%s/%s", ip6_addrL, ip6_sizeL);
-
 			eval("ip", "-6", "addr", "add", ip6_net, "dev", "sixtun");
 
 		}
 
 		/* Configurate remote IPv6 address (default gateway) */
 		if (ip6_addrR && *ip6_addrR)
+			/* 6to4:
+			eval "ip", "-6", "ro", "add", "2002::/16", "dev", "sixtun");
+			eval("ip", "-6", "ro", "add", "default", "via", ip6_addrR, "dev", "sixtun", "metric", "1");
+			*/
 			eval("ip", "-6", "ro", "add", "default", "via", ip6_addrR, "dev", "sixtun");
 	}
 
@@ -947,11 +955,13 @@ start_wan(void)
 		FILE *radvdconf = fopen( "/etc/radvd.conf", "w" );
 		if (radvdconf != NULL)
 		{
+			/* 6to4: "64" */
 			int netsize = atoi(nvram_safe_get("ipv6_lan_netsize")), i = 15, n = netsize;
 			struct in6_addr addr;
 			char final[INET6_ADDRSTRLEN];
 
 			/* Convert for easy manipulation */
+			/* 6to4: "2002:aabb:ccdd:1::1" for "aaa.bbb.ccc.ddd" wan ipv4 addr */
 			inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
 
 			/* Clean complete bytes, starting from the end */
