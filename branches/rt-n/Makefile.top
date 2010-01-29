@@ -14,7 +14,7 @@
 
 include .config
 
-RELEASE=1.9.2.7-e
+RELEASE=1.9.2.7-rtn
 
 
 MODEL=RT-N16
