@@ -186,7 +186,6 @@ static int power_value = 0;
 
 #define LED_READY_ON 	(ready_value)
 #define LED_READY_OFF	(~ready_value)
-
 #define LED_READY	ready_mask
 
 #define LED_CONTROL(led,flag) gpio_write(GPIO_DEV_OUT, led, flag)
@@ -917,15 +916,15 @@ watchdog_main()
 		fclose(fp);
 	}
 
+	/* Start GPIO function */
+	gpio_init();
+
 	/* set the signal handler */
 	signal(SIGUSR1, catch_sig);
 	signal(SIGUSR2, catch_sig);
 	signal(SIGALRM, watchdog);
 	signal(SIGTERM, readyoff);
 	signal(SIGCHLD, SIG_IGN);
-
-	/* Start GPIO function */
-	gpio_init();
 
 	/* turn on POWER and READY LEDs */
 	gpio_write(GPIO_DEV_OUT, power_mask | ready_mask,
