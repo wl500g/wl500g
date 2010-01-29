@@ -29,9 +29,9 @@
 #include <wlutils.h>
 
 #ifdef LINUX26
-#define GPIOCTL
+ #define GPIOCTL
 #else
-#undef GPIOCTL
+ #undef GPIOCTL
 #endif
 
 #include "mtd.h"
@@ -49,19 +49,6 @@
 						/* 1/10 second */
 #define STACHECK_PERIOD_CONNECT 60/5		/* 30 seconds */
 #define STACHECK_PERIOD_DISCONNECT 5/5		/* 5 seconds */
-
-#ifdef GPIOCTL
-#include <sys/ioctl.h>
-#include <linux_gpio.h>
-/* Global containing the file descriptor of the GPIO kernel drivers */
-static int bcmgpio_fd;
-/* GPIO registers */
-#define BCMGPIO_REG_IN          0
-#define BCMGPIO_REG_OUT         1
-#define BCMGPIO_REG_OUTEN       2
-#define BCMGPIO_REG_RESERVE     3
-#define BCMGPIO_REG_RELEASE     4
-#endif
 
 #define GPIO0 0x0001
 #define GPIO1 0x0002
@@ -112,33 +99,33 @@ static int power_value	= 0;
 #elif defined(CONFIG_RTN10)
 
 static int reset_mask	= GPIO3;
-static int reset_value	= GPIO3;
+static int reset_value	= 0;
 static int ready_mask	= GPIO1;
 static int ready_value	= 0;
 static int setup_mask	= GPIO2;
-static int setup_value	= GPIO2;
+static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
 #elif defined(CONFIG_RTN12)
 
 static int reset_mask	= GPIO1;
-static int reset_value	= GPIO1;
+static int reset_value	= 0;
 static int ready_mask	= GPIO2;
 static int ready_value	= 0;
 static int setup_mask	= GPIO0;
-static int setup_value	= GPIO0;
+static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
 #elif defined(CONFIG_RTN16)
 
 static int reset_mask	= GPIO6;
-static int reset_value	= GPIO6;
+static int reset_value	= 0;
 static int ready_mask	= GPIO1;
 static int ready_value	= 0;
 static int setup_mask	= GPIO8;
-static int setup_value	= GPIO8;
+static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
@@ -185,12 +172,24 @@ static int power_mask = 0;	/* POWER button light */
 static int power_value = 0;
 #endif
 
+#ifdef GPIOCTL
+ #include <sys/ioctl.h>
+ #include <linux_gpio.h>
+ #define GPIO_DEV_IN	GPIO_IOC_IN
+ #define GPIO_DEV_OUT	GPIO_IOC_OUT
+ #define GPIO_DEV_OUTEN	GPIO_IOC_OUTEN
+#else
+ #define GPIO_DEV_IN	"/dev/gpio/in"
+ #define GPIO_DEV_OUT	"/dev/gpio/out"
+ #define GPIO_DEV_OUTEN	"/dev/gpio/outen"
+#endif
+
 #define LED_READY_ON 	(ready_value)
 #define LED_READY_OFF	(~ready_value)
 
 #define LED_READY	ready_mask
 
-#define LED_CONTROL(led,flag) gpio_write("/dev/gpio/out", led, flag)
+#define LED_CONTROL(led,flag) gpio_write(GPIO_DEV_OUT, led, flag)
 
 static struct itimerval itv; 
 int watchdog_period=0;
@@ -203,80 +202,56 @@ int stacheck_interval=-1;
 static int notice_rcamd(int flag);
 
 #ifdef GPIOCTL
-static int tgpio_fd_init ()
+
+static int tgpio_open ()
 {
-	bcmgpio_fd = open("/dev/gpio", O_RDWR);
-	if (bcmgpio_fd == -1) {
+	int fd = open("/dev/gpio", O_RDWR);
+	if (fd < 0)
 		printf ("Failed to open /dev/gpio\n");
-		return -1;
-	}
-	return 0;
+	return fd;
 }
 
-static void tgpio_fd_cleanup ()
-{
-	if (bcmgpio_fd != -1) {
-		close (bcmgpio_fd);
-		bcmgpio_fd = -1;
-	}
-}
-
-static int tgpio_ioctl(int gpioreg, unsigned int mask , unsigned int value)
+static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int value)
 {
 	struct gpio_ioctl gpio;
-	int type;
 
 	gpio.val = value;
 	gpio.mask = mask;
 
-	switch (gpioreg) {
-		case BCMGPIO_REG_IN:
-			type = GPIO_IOC_IN;
-			break;
-		case BCMGPIO_REG_OUT:
-			type = GPIO_IOC_OUT;
-			break;
-		case BCMGPIO_REG_OUTEN:
-			type = GPIO_IOC_OUTEN;
-			break;
-		case BCMGPIO_REG_RESERVE:
-			type = GPIO_IOC_RESERVE;
-			break;
-		case BCMGPIO_REG_RELEASE:
-			type = GPIO_IOC_RELEASE;
-			break;
-		default:
-			printf ("invalid gpioreg %d\n", gpioreg);
-			return -1;
-	}
-	if (ioctl(bcmgpio_fd, type, &gpio) < 0) {
-		printf ("invalid gpioreg %d\n", gpioreg);
+	if (ioctl(fd, gpioreg, &gpio) < 0) {
+		printf ("Invalid gpioreg %d\n", gpioreg);
 		return -1;
 	}
 	return gpio.val;
 }
-#endif
+
+void gpio_write(int gpioreg, unsigned int mask, unsigned int value)
+{
+	int fd = tgpio_open();
+	if (fd != -1)
+	{
+		tgpio_ioctl(fd, GPIO_IOC_RESERVE, mask, mask);
+		tgpio_ioctl(fd, gpioreg, mask, value & mask);
+		close(fd);
+	}
+}
+
+unsigned int gpio_read(int gpioreg, unsigned int mask)
+{
+	unsigned int val = 0;
+	int fd = tgpio_open();
+	if (fd != -1)
+	{
+		val = tgpio_ioctl(fd, gpioreg, mask, 0);
+		close(fd);
+	}
+	return val & mask;
+}
+#else
 
 void gpio_write(char *dev, unsigned int mask, unsigned int value)
 {
-#ifdef GPIOCTL
-	unsigned int gpio_type = 0;
-
-	if (strcmp(dev, "/dev/gpio/in") == 0)
-		gpio_type = BCMGPIO_REG_IN;
-	else if (strcmp(dev, "/dev/gpio/out") == 0)
-		gpio_type = BCMGPIO_REG_OUT;
-	else if (strcmp(dev, "/dev/gpio/outen") == 0)
-		gpio_type = BCMGPIO_REG_OUTEN;
-	else
-		printf("ERROR GPIO NAME %s\n", dev);
-
-	tgpio_fd_init();
-	tgpio_ioctl(BCMGPIO_REG_RESERVE, mask, mask);
-	tgpio_ioctl(gpio_type, mask, value);
-	tgpio_fd_cleanup();
-#else
-	unsigned long val = 0;
+	unsigned long val;
 	int fd = open(dev, O_RDWR);
 	if (fd != -1)
 	{
@@ -287,37 +262,20 @@ void gpio_write(char *dev, unsigned int mask, unsigned int value)
 		}
 		close(fd);
 	}
-#endif
 }
 
 unsigned int gpio_read(char *dev, unsigned int mask)
 {
 	unsigned int val = 0;
-#ifdef GPIOCTL
-	unsigned int gpio_type = 0;
-
-        if (strcmp(dev, "/dev/gpio/in") == 0)
-                gpio_type = BCMGPIO_REG_IN;
-        else if (strcmp (dev, "/dev/gpio/out") == 0)
-                gpio_type = BCMGPIO_REG_OUT;
-        else if (strcmp (dev, "/dev/gpio/outen") == 0)
-                gpio_type = BCMGPIO_REG_OUTEN;
-        else
-                printf("ERROR GPIO NAME %s\n", dev);
-	
-	tgpio_fd_init();
-        val = tgpio_ioctl(gpio_type, mask, 0);
-	tgpio_fd_cleanup();
-#else
 	int fd = open(dev, O_RDONLY);
 	if (fd != -1)
 	{
 		read(fd, &val, sizeof(val));
 		close(fd);
 	}
-#endif
 	return val & mask;
 }
+#endif
 
 /* Functions used to control led and button */
 void gpio_init(void)
@@ -355,9 +313,9 @@ void gpio_init(void)
 	if (nvram_match("boardtype", "0x04cf") && 
 		nvram_match("boardnum", "45")) 
 	{
-		reset_mask = GPIO6, reset_value = GPIO6;
+		reset_mask = GPIO6, reset_value = 0;
 		ready_mask = GPIO1, ready_value = 0;
-		setup_mask = GPIO8, setup_value = GPIO8;
+		setup_mask = GPIO8, setup_value = 0;
 	} else
 	// wl700g
 	if (nvram_match("boardtype", "0x042f") && 
@@ -385,7 +343,7 @@ void gpio_init(void)
 		ready_mask = GPIO1, ready_value = GPIO1;
 		setup_mask = GPIO6, setup_value = 0;
 	}
-	gpio_write("/dev/gpio/outen", ready_mask | power_mask |
+	gpio_write(GPIO_DEV_OUTEN, ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
 #ifndef GPIOCTL
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
@@ -406,7 +364,7 @@ void btn_check(void)
 {
 	static int pressed;
 
-	if (gpio_read("/dev/gpio/in", reset_mask) == reset_value)
+	if (gpio_read(GPIO_DEV_IN, reset_mask) == reset_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < RESET_WAIT_COUNT) {
@@ -458,7 +416,7 @@ void setup_check(void)
 {
 	static int pressed;
 
-	if (gpio_read("/dev/gpio/in", setup_mask) == setup_value)
+	if (gpio_read(GPIO_DEV_IN, setup_mask) == setup_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < SETUP_WAIT_COUNT) {
@@ -915,7 +873,7 @@ poweron_main(int argc, char *argv[])
 	gpio_init();
 	
 	if (power_mask) {
-		gpio_write("/dev/gpio/out", power_mask,	power_value);
+		gpio_write(GPIO_DEV_OUT, power_mask, power_value);
 		/* sleep to allow hdd to spin up */
 		sleep(2);
 	}
@@ -927,8 +885,7 @@ static volatile int running = 1;
 
 static void readyoff(int sig)
 {
-	gpio_write("/dev/gpio/out", ready_mask, ~ready_value);
-	
+	gpio_write(GPIO_DEV_OUT, ready_mask, ~ready_value);
 	running = 0;
 }
 
@@ -971,7 +928,7 @@ watchdog_main()
 	gpio_init();
 
 	/* turn on POWER and READY LEDs */
-	gpio_write("/dev/gpio/out", power_mask | ready_mask,
+	gpio_write(GPIO_DEV_OUT, power_mask | ready_mask,
 		power_value | ready_value);
 
 	/* Start sync time */
