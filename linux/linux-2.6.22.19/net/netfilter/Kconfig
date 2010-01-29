@@ -363,6 +363,23 @@ config NETFILTER_XT_TARGET_CONNSECMARK
 
 	  To compile it as a module, choose M here.  If unsure, say N.
 
+config NETFILTER_XT_TARGET_TARPIT
+	tristate '"TARPIT" target support'
+	depends on NETFILTER_XTABLES
+	---help---
+	  Adds a TARPIT target to iptables, which captures and holds
+	  incoming TCP connections using no local per-connection resources.
+	  Connections are accepted, but immediately switched to the persist
+	  state (0 byte window), in which the remote side stops sending data
+	  and asks to continue every 60-240 seconds. Attempts to close the
+	  connection are ignored, forcing the remote side to time out the
+	  connection in 12-24 minutes.
+
+	  This offers similar functionality to LaBrea
+	  <http://www.hackbusters.net/LaBrea/>, but does not require dedicated
+	  hardware or IPs. Any TCP port that you would normally DROP or REJECT
+	  can instead become a tarpit.
+
 config NETFILTER_XT_TARGET_TCPMSS
 	tristate '"TCPMSS" target support'
 	depends on NETFILTER_XTABLES
