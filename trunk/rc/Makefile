@@ -24,12 +24,16 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /l
 OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
-    bigpond.o qos.o rcamd.o waveserver.o
+    bigpond.o qos.o rcamd.o
 
 ifeq ($(CONFIG_NETCONF),y)
 OBJS += firewall.o
 CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
+endif
+
+ifeq ($(CONFIG_WAVESERVER),y)
+OBJS += waveserver.o
 endif
 
 ifeq ($(CONFIG_SENTRY5),y)
@@ -68,7 +72,9 @@ install: all
 	cd $(INSTALLDIR)/sbin && ln -sf rc wmac
 	cd $(INSTALLDIR)/sbin && ln -sf rc ntp	
 	cd $(INSTALLDIR)/sbin && ln -sf rc rcamdmain
+ifeq ($(CONFIG_WAVESERVER),y)
 	cd $(INSTALLDIR)/sbin && ln -sf rc waveservermain
+endif
 	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_connect	
 	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_disconnect
 	cd $(INSTALLDIR)/sbin && ln -sf rc restore
