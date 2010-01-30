@@ -724,7 +724,8 @@ function validate_ipaddr(o, v)
       
   if (o.value.length==0)
   {
-     if (v=='dhcp_start' || v=='dhcp_end' || v=='wan_ipaddr')
+     if (v=='dhcp_start' || v=='dhcp_end' || v=='wan_ipaddr' ||
+	 v=='ipv6_sit_remote' || v=='ipv6_sit_local' || v=='ipv6_sit_relay')
      {
   	alert("Fields can't be blank!!!");
   	o.focus();
@@ -808,6 +809,17 @@ function validate_ipaddr(o, v)
   		document.form.dhcp_end.value = tmp;
 	}
   }   
+  else if (v=='ipv6_sit_local')
+  {
+	ip = intoa(o.value);
+	if (ip > 0)
+	{
+		ip1 = (ip >> 16) % 0xffff; ip2 = ip & 0xffff;
+		prefix = '2002:' + ip1.toString(16) +':' + ip2.toString(16) + ':';
+		document.form.ipv6_wan_addr.value = prefix+'0::1';
+		document.form.ipv6_lan_addr.value = prefix+'1::1';
+	}
+  }
   return true;
 }
 
@@ -1710,6 +1722,10 @@ function load_body()
         
    	//change_common(document.form.wan_proto, "Layer3Forwarding", "x_ConnectionType");
    }
+   else if (document.form.current_page.value == "Advanced_IPV6_Content.asp")
+   {
+	change_ipv6_type(document.form.ipv6_proto.value);
+   }
    else if (document.form.current_page.value == "Advanced_MultiPPPoE_Content.asp")
    {   	
    	
@@ -2243,6 +2259,10 @@ function onSubmit()
 	inputCtrl(document.form.wan_netmask, 1);     
 	inputCtrl(document.form.wan_gateway, 1);
    } 	
+   else if (document.form.current_page.value == "Advanced_IPV6_Content.asp")
+   {
+	//checkSubnet();
+   }
    else if (document.form.current_page.value == "Advanced_RLANWAN_Content.asp")
    {
    	checkSubnet();
@@ -2469,6 +2489,10 @@ function change_common(o, s, v)
   {
   	change_wan_type(o.value);  	  	
   }        
+  else if (v=="ipv6_proto")
+  {
+  	change_ipv6_type(o.value);
+  }
   else if (s == "FirewallConfig" && v=="DmzDevices")
   {
         change_wireless_firewall();
@@ -4091,6 +4115,44 @@ function changeDHCPClient()
 	   document.form.wan_gateway.value = "";
 	}
     }
+}
+
+function change_ipv6_type(v)
+{
+	if (v == "native")
+	{
+	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_sit_local, 0);
+	   inputCtrl(document.form.ipv6_sit_remote, 0);
+	   inputCtrl(document.form.ipv6_sit_relay, 0);
+	   inputCtrl(document.form.ipv6_sit_mtu, 0);
+	   inputCtrl(document.form.ipv6_sit_ttl, 0);
+	}
+	else if(v == "tun6in4")
+	{
+	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_sit_local, 0);
+	   inputCtrl(document.form.ipv6_sit_remote, 1);
+	   inputCtrl(document.form.ipv6_sit_relay, 0);
+	   inputCtrl(document.form.ipv6_sit_mtu, 1);
+	   inputCtrl(document.form.ipv6_sit_ttl, 1);
+	   if (document.form.ipv6_sit_remote.value == "0.0.0.0")
+		document.form.ipv6_sit_remote.value = "";
+	}
+	else if(v == "tun6to4")
+	{
+	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_sit_local, 1);
+	   inputCtrl(document.form.ipv6_sit_remote, 0);
+	   inputCtrl(document.form.ipv6_sit_relay, 1);
+	   inputCtrl(document.form.ipv6_sit_mtu, 1);
+	   inputCtrl(document.form.ipv6_sit_ttl, 1);
+	   if (document.form.ipv6_sit_local.value == "0.0.0.0")
+		document.form.ipv6_sit_local.value = "";
+	   if (document.form.ipv6_sit_relay.value == "0.0.0.0" ||
+	       document.form.ipv6_sit_relay.value == "")
+		document.form.ipv6_sit_relay.value = "192.88.99.1";
+	}
 }
 
 function masq_wepkey()
