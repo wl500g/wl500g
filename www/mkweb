@@ -226,11 +226,6 @@ if [ -n "$1" ]; then
 		cp -f ../web_$MODEL/Main_Index_HomeGateway11g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
 		cp -f ../web_$MODEL/Main_Index_Router11g.asp ../web_$MODEL/Main_Index_Router.asp
 		### 6.3 web graph ###
-		if [ "$MODEL" = "WL500gx" ]; then
-			cp -f ../web_$MODEL/graph/iBox_title_all_500gx.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
-		elif [ "$MODEL" = "WL550gE" ]; then
-			cp -f ../web_$MODEL/graph/iBox_title_all_550g.jpg ./../web_$MODEL/graph/iBox_title_all.jpg
-		fi
 		cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
 
 		cp -f ../web_$MODEL/graph/internet_all_500.gif ./../web_$MODEL/graph/internet_all.gif
@@ -310,7 +305,6 @@ if [ -n "$1" ]; then
 # exposed_content seems to be obsolete as exposed_SP vervangen replaces it..?
 
                 ### 6.3 web graph ###
-                cp -f ../web_$MODEL/graph/iBox_title_all_HDD.jpg ../web_$MODEL/graph/iBox_title_all.jpg
 # need new image, present at http://www.chupa.nl/www/asus etc..
                 cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
                 cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
