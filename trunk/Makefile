@@ -87,7 +87,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
-	misc netconf nvram others rc rcamdmips sendmail \
+	misc netconf nvram others rc rcamdmips \
 	scsi-idle libusb usb_modeswitch wimax \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo

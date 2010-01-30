@@ -149,7 +149,6 @@ obj-$(CONFIG_INFOSVR) += infosvr
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
 obj-$(CONFIG_JPEG6B) += jpeg-6b
 obj-$(CONFIG_RCAMD) += rcamdmips
-obj-$(CONFIG_SENDMAIL) += sendmail
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_TEST) += test
@@ -419,7 +418,7 @@ manpages-install:
 	    dropbear/dropbear.8 dropbear/dropbearkey.8 igmpproxy/doc/igmpproxy.8 \
 	    iptables/iptables.8 iptables/iptables-restore.8 iptables/iptables-save.8 \
 	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 pptp/pptp.8 \
-	    sendmail/mini_sendmail.8 vsftpd/vsftpd.8 \
+	    vsftpd/vsftpd.8 \
 	    samba/docs/manpages/smbpasswd.8 samba/docs/manpages/nmbd.8 samba/docs/manpages/smbd.8 
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man1 \
 	    busybox/docs/BusyBox.1 dropbear/dbclient.1 ntpclient/ntpclient.1 \
@@ -528,6 +527,7 @@ ez-ipupdate-install:
 busybox/.config: .config
 	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
+	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))
 	$(MAKE) -C busybox oldconfig
 
 busybox: busybox/.config
