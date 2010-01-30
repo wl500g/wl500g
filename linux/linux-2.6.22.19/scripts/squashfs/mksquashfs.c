@@ -62,6 +62,7 @@
 #include "mksquashfs.h"
 #include "global.h"
 #include "sort.h"
+#include "pseudo.h"
 #include "sqlzma.h"
 
 #ifdef SQUASHFS_TRACE
@@ -348,6 +349,7 @@ pthread_mutex_t	pos_mutex;
 pthread_mutex_t progress_mutex;
 pthread_cond_t progress_wait;
 int rotate = 0;
+struct pseudo *pseudo = NULL;
 
 /* user options that control parallelisation */
 int processors = -1;
@@ -377,7 +379,8 @@ extern int read_sort_file(char *filename, int source, char *source_path[]);
 extern void sort_files_and_write(struct dir_info *dir);
 struct file_info *duplicate(long long file_size, long long bytes, unsigned int **block_list, long long *start, struct fragment **fragment, struct file_buffer *file_buffer, struct buffer_list *buffer_list, int blocks, unsigned short checksum, unsigned short fragment_checksum, int checksum_flag);
 struct dir_info *dir_scan1(char *, struct pathnames *, int (_readdir)(char *, char *, struct dir_info *));
-void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info);
+struct dir_info *dir_scan2(struct dir_info *dir, struct pseudo *pseudo);
+void dir_scan3(squashfs_inode *inode, struct dir_info *dir_info);
 struct file_info *add_non_dup(long long file_size, long long bytes, unsigned int *block_list, long long start, struct fragment *fragment, unsigned short checksum, unsigned short fragment_checksum, int checksum_flag);
 extern void generate_file_priorities(struct dir_info *dir, int priority, struct stat *buf);
 extern struct priority_entry *priority_list[65536];
@@ -1231,7 +1234,7 @@ int create_inode(squashfs_inode *i_no, struct dir_ent *dir_ent, int type, long l
 }
 
 
-void scan2_init_dir(struct directory *dir)
+void scan3_init_dir(struct directory *dir)
 {
 	if((dir->buff = malloc(SQUASHFS_METADATA_SIZE)) == NULL) {
 		BAD_ERROR("Out of memory allocating directory buffer\n");
@@ -2008,7 +2011,6 @@ void reader_scan(struct dir_info *dir) {
 				break;
 		}
 	}
-	return NULL;
 }
 
 
@@ -2843,7 +2845,32 @@ int scan1_readdir(char *pathname, char *dir_name, struct dir_info *dir)
 }
 
 
-struct dir_ent *scan2_readdir(struct directory *dir, struct dir_info *dir_info)
+struct dir_ent *scan2_readdir(struct dir_info *dir_info)
+{
+	int current_count;
+
+	while((current_count = dir_info->current_count++) < dir_info->count)
+		if(dir_info->list[current_count]->data)
+			continue;
+		else 
+			return dir_info->list[current_count];
+	return NULL;
+}
+
+
+struct dir_ent *scan2_lookup(struct dir_info *dir, char *name)
+{
+	int i;
+
+	for(i = 0; i < dir->count; i++)
+		if(strcmp(dir->list[i]->name, name) == 0)
+			return dir->list[i];
+
+	return NULL;
+}
+
+
+struct dir_ent *scan3_readdir(struct directory *dir, struct dir_info *dir_info)
 {
 	int current_count;
 
@@ -2853,7 +2880,7 @@ struct dir_ent *scan2_readdir(struct directory *dir, struct dir_info *dir_info)
 				dir_info->list[current_count]->name, dir_info->list[current_count]->data->type, dir);
 		else 
 			return dir_info->list[current_count];
-	return FALSE;	
+	return NULL;
 }
 
 
@@ -2864,7 +2891,13 @@ void scan1_freedir(struct dir_info *dir)
 }
 
 
-void scan2_freedir(struct directory *dir)
+void scan2_freedir(struct dir_info *dir)
+{
+	dir->current_count = 0;
+}
+
+
+void scan3_freedir(struct directory *dir)
 {
 	if(dir->index)
 		free(dir->index);
@@ -2880,6 +2913,8 @@ void dir_scan(squashfs_inode *inode, char *pathname, int (_readdir)(char *, char
 	
 	if(dir_info == NULL)
 		return;
+
+	dir_scan2(dir_info, pseudo);
 
 	if((dir_ent = malloc(sizeof(struct dir_ent))) == NULL)
 		BAD_ERROR("Out of memory in dir_scan\n");
@@ -2915,7 +2950,7 @@ void dir_scan(squashfs_inode *inode, char *pathname, int (_readdir)(char *, char
 		sort_files_and_write(dir_info);
 	if(progress)
 		enable_progress_bar();
-	dir_scan2(inode, dir_info);
+	dir_scan3(inode, dir_info);
 	dir_ent->inode->inode = *inode;
 	dir_ent->inode->type = SQUASHFS_DIR_TYPE;
 }
@@ -2980,7 +3015,69 @@ error:
 }
 
 
-void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
+struct dir_info *dir_scan2(struct dir_info *dir, struct pseudo *pseudo)
+{
+	struct dir_info *sub_dir;
+	struct dir_ent *dir_ent;
+	struct pseudo_entry *pseudo_ent;
+	struct stat buf;
+	static ino_t pseudo_ino = 1;
+	
+	if(dir == NULL && (dir = scan1_opendir("")) == NULL)
+		return NULL;
+	
+	while((dir_ent = scan2_readdir(dir)) != NULL) {
+		struct inode_info *inode_info = dir_ent->inode;
+		struct stat *buf = &inode_info->buf;
+		char *name = dir_ent->name;
+
+		if((buf->st_mode & S_IFMT) == S_IFDIR)
+			dir_scan2(dir_ent->dir, pseudo_subdir(name, pseudo));
+	}
+
+	while((pseudo_ent = pseudo_readdir(pseudo)) != NULL) {
+		dir_ent = scan2_lookup(dir, pseudo_ent->name);
+		if(dir_ent) {
+			ERROR("Pseudo file \"%s\" exists in source filesystem "
+				"\"%s\"\n", pseudo_ent->pathname,
+				dir_ent->pathname);
+			ERROR("Ignoring, exclude it (-e/-ef) to override\n");
+			continue;
+		}
+
+		if(pseudo_ent->dev->type == 'd') {
+			sub_dir = dir_scan2(NULL, pseudo_ent->pseudo);
+			if(sub_dir == NULL) {
+				ERROR("Could not create pseudo directory \"%s\""
+					", skipping...\n",
+					pseudo_ent->pathname);
+				continue;
+			}
+			dir->directory_count ++;
+		} else
+			sub_dir = NULL;
+
+		memset(&buf, 0, sizeof(buf));
+		buf.st_mode = pseudo_ent->dev->mode;
+		buf.st_uid = pseudo_ent->dev->uid;
+		buf.st_gid = pseudo_ent->dev->gid;
+		buf.st_rdev = makedev(pseudo_ent->dev->major,
+			pseudo_ent->dev->minor);
+		buf.st_mtime = time(NULL);
+		buf.st_ino = pseudo_ino ++;
+
+		add_dir_entry(pseudo_ent->name, pseudo_ent->pathname, sub_dir,
+			lookup_inode(&buf), NULL, dir);
+	}
+
+	scan2_freedir(dir);
+	sort_directory(dir);
+
+	return dir;
+}
+
+
+void dir_scan3(squashfs_inode *inode, struct dir_info *dir_info)
 {
 	int squashfs_type = -1;
 	int duplicate_file;
@@ -2988,9 +3085,9 @@ void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
 	struct directory dir;
 	struct dir_ent *dir_ent;
 	
-	scan2_init_dir(&dir);
+	scan3_init_dir(&dir);
 	
-	while((dir_ent = scan2_readdir(&dir, dir_info)) != NULL) {
+	while((dir_ent = scan3_readdir(&dir, dir_info)) != NULL) {
 		struct inode_info *inode_info = dir_ent->inode;
 		struct stat *buf = &inode_info->buf;
 		char *filename = dir_ent->pathname;
@@ -3007,7 +3104,7 @@ void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
 
 				case S_IFDIR:
 					squashfs_type = SQUASHFS_DIR_TYPE;
-					dir_scan2(inode, dir_ent->dir);
+					dir_scan3(inode, dir_ent->dir);
 					break;
 
 				case S_IFLNK:
@@ -3083,7 +3180,7 @@ void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
 	write_dir(inode, dir_info, &dir);
 	INFO("directory %s inode 0x%llx\n", pathname, *inode);
 
-	scan2_freedir(&dir);
+	scan3_freedir(&dir);
 }
 
 
@@ -3618,7 +3715,27 @@ int main(int argc, char *argv[])
 	source_path = argv + 1;
 	source = i - 2;
 	for(; i < argc; i++) {
-		if(strcmp(argv[i], "-recover") == 0) {
+		if(strcmp(argv[i], "-pf") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -pf missing filename\n", argv[0]);
+				exit(1);
+			}
+			if(read_pseudo_file(&pseudo, argv[i]) == FALSE) {
+				ERROR("Failed to parse pseudo file \"%s\"\n",
+					argv[i]);
+				exit(1);
+			}
+		} else if(strcmp(argv[i], "-p") == 0) {
+			if(++i == argc) {
+				ERROR("%s: -p missing pseudo file definition\n",
+					argv[0]);
+				exit(1);
+			}
+			if(read_pseudo_def(&pseudo, argv[i]) == FALSE) {
+				ERROR("Failed to parse pseudo definition\n");
+				exit(1);
+			}
+		} else if(strcmp(argv[i], "-recover") == 0) {
 			if(++i == argc) {
 				ERROR("%s: -recover missing recovery file\n", argv[0]);
 				exit(1);
@@ -3858,6 +3975,8 @@ printOptions:
 			ERROR("-ef <exclude_file>\tlist of exclude dirs/files.  One per line\n");
 			ERROR("-wildcards\t\tAllow extended shell wildcards (globbing) to be used in\n\t\t\texclude dirs/files\n");
 			ERROR("-regex\t\t\tAllow POSIX regular expressions to be used in exclude\n\t\t\tdirs/files\n");
+			ERROR("-p <pseudo-definition>\tAdd pseudo file definition\n");
+			ERROR("-pf <pseudo-file>\tAdd list of pseudo file definitions\n");
 			ERROR("-lzmadic <dic_size>\tset the LZMA dictionary"
 			      " size to <dic_size>\n"
 			      "\t\t\tDefault value always follow the block"
@@ -3937,7 +4056,7 @@ printOptions:
 			fclose(fd);
 		} else if(strcmp(argv[i], "-e") == 0)
 			break;
-		else if(strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "-root-becomes") == 0 || strcmp(argv[i], "-sort") == 0)
+		else if(strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "-root-becomes") == 0 || strcmp(argv[i], "-sort") == 0 || strcmp(argv[i], "-pf") == 0 || strcmp(argv[i], "-p") == 0)
 			i++;
 
 	if(i != argc) {
@@ -3959,7 +4078,7 @@ printOptions:
 			sorted ++;
 		} else if(strcmp(argv[i], "-e") == 0)
 			break;
-		else if(strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "-root-becomes") == 0 || strcmp(argv[i], "-ef") == 0)
+		else if(strcmp(argv[i], "-b") == 0 || strcmp(argv[i], "-root-becomes") == 0 || strcmp(argv[i], "-ef") == 0 || strcmp(argv[i], "-pf") == 0 || strcmp(argv[i], "-p") == 0)
 			i++;
 
 #ifdef SQUASHFS_TRACE
