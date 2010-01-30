@@ -56,7 +56,7 @@ int nvram_save(char *file, char *buf)
 int issyspara(char *p)
 {
 	extern struct nvram_tuple router_defaults[];
-	struct nvram_tuple *t, *u;
+	struct nvram_tuple *t;
 
 	for (t = router_defaults; t->name; t++)
 	{
@@ -94,7 +94,7 @@ int nvram_restore(char *file, char *buf)
 
 		if(v!=NULL)
 		{	
-			*v++ = NULL;
+			*v++ = '\0';
 
 			if (issyspara(p))
 			{
