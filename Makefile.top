@@ -505,8 +505,11 @@ radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
-bridge:
-	$(MAKE) -C $@ brctl/brctl EXTRACFLAGS="$(EXTRACFLAGS)"
+bridge/Makefile: bridge/Makefile.in
+	cd bridge && CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix="/usr" --with-linux-headers=$(LINUXDIR)/include
+
+bridge: bridge/Makefile
 
 bridge-install: bridge
 	install -D bridge/brctl/brctl $(INSTALLDIR)/bridge/usr/sbin/brctl

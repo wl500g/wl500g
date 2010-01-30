@@ -41,6 +41,7 @@ PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.5
+BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
 UDPXY=udpxy-1.0-Chipmunk-14
@@ -292,6 +293,15 @@ $(TOP)/portmap: $(PORTMAP).tar.gz
 	mv $(TOP)/$(PORTMAP) $@
 
 portmap: $(TOP)/portmap
+	@true
+
+$(TOP)/bridge:
+	@rm -rf $(TOP)/$(BRIDGE) $@
+	tar -xzf $(BRIDGE).tar.gz -C $(TOP)
+	[ ! -f $(BRIDGE).patch ] || $(PATCHER) -Z $(TOP)/$(BRIDGE) $(BRIDGE).patch
+	mv $(TOP)/$(BRIDGE) $@
+
+bridge: $(TOP)/bridge
 	@true
 
 $(TOP)/radvd:
