@@ -107,6 +107,10 @@ if [ -n "$1" ]; then
 		sed -ri '/WiMAX/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
 	fi
 
+	if [ "$CONFIG_WAVESERVER" != "y" ]; then
+		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
+	fi
+
 	### 4. Strip *.asp, *.css and *.js ###
 	echo "Stripping web interface..."
 
