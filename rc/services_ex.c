@@ -961,7 +961,6 @@ stop_usb(void)
 	{
 		stop_rcamd();	
 		eval("killall", "rcamd");
-		eval("killall", "sendmail");
 		eval("rmmod", "pwc");
 		eval("rmmod", "ov511_decomp");
 		eval("rmmod", "ov518_decomp");
