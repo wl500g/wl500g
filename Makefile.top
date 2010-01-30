@@ -402,7 +402,8 @@ endif
         # Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
         # Make rootfs image
-	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
+	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
+		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
