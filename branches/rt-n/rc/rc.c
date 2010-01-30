@@ -600,18 +600,17 @@ sysinit(void)
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
 
 #ifdef LINUX26
-	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-	mknod("/dev/console", S_IFCHR | S_IRUSR | S_IWUSR, makedev(5, 1));
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
 	mkdir("/dev/pts", 0777);
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+	mkdir("/dev/shm", 0777);
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
 #endif
 
 	/* /tmp */
 	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-#ifdef LINUX26
-	mkdir("/dev/shm", 0777);
-#endif
 
 	/* /var */
 	mkdir("/tmp/var", 0777);
