@@ -731,7 +731,7 @@ start_wan(void)
 			/* Enable IPv6 Forwarding */
 			if (ipv6_proto && *ipv6_proto)
 			{
-				if (fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+")))
+				if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+")))
 				{
 					fputc('1', fp);
 					fclose(fp);
