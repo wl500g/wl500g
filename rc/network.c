@@ -482,6 +482,8 @@ start_lan(void)
 
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
+	char *ipv6_proto = nvram_safe_get("ipv6_proto");
+	if (ipv6_proto && *ipv6_proto)
 	{
 		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
 		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
@@ -595,7 +597,9 @@ start_wan(void)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	char *ipv6_proto;
+#ifdef __CONFIG_IPV6__
+	char *ipv6_proto = nvram_safe_get("ipv6_proto");
+#endif
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char eabuf[32];
@@ -708,31 +712,31 @@ start_wan(void)
 
 
 #ifdef ASUS_EXT
-		if (unit==0) 
-		{		
+		if (unit==0)
+		{
 			FILE *fp;
 
 			setup_ethernet(nvram_safe_get("wan_ifname"));
 			start_pppoe_relay(wan_ifname);
 
-
 			/* Enable Forwarding */
-			if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+"))) 			{
+			if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+")))
+			{
 				fputc('1', fp);
 				fclose(fp);
 			} else
-			{	
 				perror("/proc/sys/net/ipv4/ip_forward");
-			}
 
 #ifdef __CONFIG_IPV6__
 			/* Enable IPv6 Forwarding */
-			if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+"))) 			{
-				fputc('1', fp);
-				fclose(fp);
-			} else
-			{	
-				perror("/proc/sys/net/ipv6/conf/all/forwarding");
+			if (ipv6_proto && *ipv6_proto)
+			{
+				if (fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+")))
+				{
+					fputc('1', fp);
+					fclose(fp);
+				} else
+					perror("/proc/sys/net/ipv6/conf/all/forwarding");
 			}
 #endif
 		}
@@ -887,8 +891,7 @@ start_wan(void)
 
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
-	ipv6_proto = nvram_get("ipv6_proto");
-	if (ipv6_proto && strcmp(ipv6_proto, "disabled") != 0)
+	if (ipv6_proto && *ipv6_proto)
 	{
 		char *ip6_ifname = "sixtun";
 		char ip6_relay[INET6_ADDRSTRLEN] = "::";

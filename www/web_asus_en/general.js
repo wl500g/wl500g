@@ -4127,6 +4127,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
 	   inputCtrl(document.form.ipv6_sit_mtu, 0);
 	   inputCtrl(document.form.ipv6_sit_ttl, 0);
+	   inputRCtrl1(document.form.ipv6_radvd_enable, 1);
 	}
 	else if(v == "tun6in4")
 	{
@@ -4138,6 +4139,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_sit_ttl, 1);
 	   if (document.form.ipv6_sit_remote.value == "0.0.0.0")
 		document.form.ipv6_sit_remote.value = "";
+	   inputRCtrl1(document.form.ipv6_radvd_enable, 1);
 	}
 	else if(v == "tun6to4")
 	{
@@ -4152,6 +4154,12 @@ function change_ipv6_type(v)
 	   if (document.form.ipv6_sit_relay.value == "0.0.0.0" ||
 	       document.form.ipv6_sit_relay.value == "")
 		document.form.ipv6_sit_relay.value = "192.88.99.1";
+	   inputRCtrl1(document.form.ipv6_radvd_enable, 1);
+	}
+	else
+	{
+	   inputRCtrl1(document.form.ipv6_radvd_enable, 0);
+	   inputRCtrl2(document.form.ipv6_radvd_enable, 1);
 	}
 }
 
