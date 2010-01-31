@@ -188,6 +188,20 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 			return 0;
 		} else {
 			if (waitpid(pid, &status, 0) == -1) {
+			#define EVAL_DEBUG
+			#ifdef EVAL_DEBUG
+				int i;
+				char *buff = malloc(1024);
+				if (buff) {
+					strcpy(buff, "waitpid:");
+					for (i = 0; argv[i]; i++) {
+						strncat(buff, " ", 1024);
+						strncat(buff, argv[i], 1024);
+					}
+					perror(buff);
+					free(buff);
+				} else
+			#endif
 				perror("waitpid");
 				return errno;
 			}
