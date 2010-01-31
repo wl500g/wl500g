@@ -842,7 +842,7 @@ libusb10-install:
 	ln -sf libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
 
 usb_modeswitch: libusb
-	$(MAKE) -C $@ CC=$(CC) CCFLAGS="-Wall -Os $(EXTRACFLAGS) \
+	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Wall -Os $(EXTRACFLAGS) \
 	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 \
 	    -I$(TOP)/libusb/libusb -L$(TOP)/libusb/libusb/.libs -lusb"
 
