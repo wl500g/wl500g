@@ -1,53 +1,7 @@
-diff -BurN router/infosvr/infosvr.c gateway/infosvr/infosvr.c
---- router/infosvr/infosvr.c	2004-09-22 17:29:12.000000000 +0400
-+++ gateway/infosvr/infosvr.c	2008-12-19 14:32:02.000000000 +0300
-@@ -1,6 +1,7 @@
- #include <stdio.h>
- #include <string.h>
- #include <unistd.h>
-+#include <stdlib.h>
- #include <signal.h>
- #include <sys/types.h>
- #include <sys/time.h>
-@@ -20,7 +21,7 @@
- #include "lp.h"
- 
- #define SRV_PORT 9999
--#define PRINT(fmt, args...) printf(stderr, fmt, ## args)
-+#define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
- #define TRUE     1
- 
- //#define WLANCFG "/etc/thttpd/www/cgi-bin/wlan.cfg"
-@@ -208,6 +209,7 @@
-     
-     processPacket(sockfd, hdr);	
-     closesocket(sockfd);
-+    return( 0);
- }
- 
- /************************************/
-@@ -220,7 +222,7 @@
-     if( waitsock(sockfd , timeout , 0) == 0)
-     {
-         //timeout
--        PRINT("RECV timeout %d\n",timeout);
-+        PRINT("RECV timeout %ld\n",timeout);
-         return -1;
-     }
- 
-@@ -312,7 +314,7 @@
- 	len = strlen(str);
- 	for (i=0; i<len; i++)
- 	{
--		if (*(str+i) == '\r' || *(str+i) == '\n', *(str+i) == '"')
-+		if (*(str+i) == '\r' || *(str+i) == '\n' || *(str+i) == '"')
- 		{
- 			*(str+i) = 0;
- 			break;
-diff -BurN router/infosvr/Makefile gateway/infosvr/Makefile
---- router/infosvr/Makefile	2004-09-22 17:29:12.000000000 +0400
-+++ gateway/infosvr/Makefile	2008-12-19 12:10:19.000000000 +0300
-@@ -9,7 +9,7 @@
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/Makefile gateway/infosvr/Makefile
+--- router/infosvr/Makefile	2004-09-22 13:29:12.000000000 +0000
++++ gateway/infosvr/Makefile	2008-12-19 09:10:19.000000000 +0000
+@@ -9,7 +9,7 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBAS
   
  #CFLAGS	+= -g -DDEBUG
  CFLAGS	+= -s -O2
@@ -56,14 +10,127 @@ diff -BurN router/infosvr/Makefile gateway/infosvr/Makefile
  
  vpath %.c $(TOP)/shared
  
-diff -BurN router/infosvr/packet.c gateway/infosvr/packet.c
---- router/infosvr/packet.c	2004-09-22 17:29:12.000000000 +0400
-+++ gateway/infosvr/packet.c	2008-12-19 15:07:21.000000000 +0300
-@@ -1,4 +1,7 @@
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/common.c gateway/infosvr/common.c
+--- router/infosvr/common.c	2004-11-10 03:41:09.000000000 +0000
++++ gateway/infosvr/common.c	2010-01-30 11:56:09.000000000 +0000
+@@ -62,6 +62,7 @@
+ #include <unistd.h>		// eric++
+ #include <dirent.h>		// eric++
+ #include "ethtool-util.h"
++#include <bcmconfig.h>
+ #include "iboxcom.h"
+ 
+ #define SIOCETHTOOL 0x8946
+@@ -625,7 +626,7 @@ char *processPacket(int sockfd, char *pd
+     PKT_GET_INFO_SITES *res_sites;
+     PKT_GET_INFO_PROFILE *cmd_profiles, *res_profiles;
+ 
+-#ifdef WAVESERVER	// eric++
++#ifdef __CONFIG_WAVESERVER__	// eric++
+     pid_t pid;
+     DIR *dir;
+     int fd, ret, bytes;
+@@ -704,7 +705,7 @@ char *processPacket(int sockfd, char *pd
+ 		     ginfo->Regulation = 0xff;
+ #endif
+ 
+-#ifdef WAVESERVER    // eric++
++#ifdef __CONFIG_WAVESERVER__    // eric++
+ 		     // search /tmp/waveserver and get information
+ 		     wsinfo = (WS_INFO_T*) (pdubuf_res + sizeof (IBOX_COMM_PKT_RES) + sizeof (PKT_GET_INFO));
+ 		     memset (wsinfo, 0, sizeof (WS_INFO_T));
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/iboxcom.h gateway/infosvr/iboxcom.h
+--- router/infosvr/iboxcom.h	2004-11-10 03:41:10.000000000 +0000
++++ gateway/infosvr/iboxcom.h	2010-01-30 11:55:56.000000000 +0000
+@@ -122,8 +122,6 @@ typedef struct iboxPKTExRes
+ 
+ #define INFO_PDU_LENGTH	512
+ 
+-#define WAVESERVER			// eric++
+-
+ //Extended Fields Definition
+ typedef struct PktGetInfo
+ {
+@@ -137,7 +135,7 @@ typedef struct PktGetInfo
+   	BYTE Regulation;
+ } PKT_GET_INFO;
+ 
+-#ifdef WAVESERVER			// eric++
++#ifdef __CONFIG_WAVESERVER__		// eric++
+ #define WS_INFO_FILENAME		"/tmp/waveserver.info"
+ 
+ // appended to the PKT_GET_INFO; 
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/infosvr.c gateway/infosvr/infosvr.c
+--- router/infosvr/infosvr.c	2004-09-22 13:29:12.000000000 +0000
++++ gateway/infosvr/infosvr.c	2010-01-30 11:54:41.000000000 +0000
+@@ -1,6 +1,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <stdlib.h>
+ #include <signal.h>
+ #include <sys/types.h>
+ #include <sys/time.h>
+@@ -16,11 +17,12 @@
+ #include <sys/ioctl.h>
+ 
+ #include <bcmnvram.h>
++#include <bcmconfig.h>
+ #include "iboxcom.h"
+ #include "lp.h"
+ 
+ #define SRV_PORT 9999
+-#define PRINT(fmt, args...) printf(stderr, fmt, ## args)
++#define PRINT(fmt, args...) fprintf(stderr, fmt, ## args)
+ #define TRUE     1
+ 
+ //#define WLANCFG "/etc/thttpd/www/cgi-bin/wlan.cfg"
+@@ -208,6 +210,7 @@ int processReq(int sockfd)
+     
+     processPacket(sockfd, hdr);	
+     closesocket(sockfd);
++    return( 0);
+ }
+ 
+ /************************************/
+@@ -220,7 +223,7 @@ DWORD RECV(int sockfd , PBYTE pRcvbuf ,
+     if( waitsock(sockfd , timeout , 0) == 0)
+     {
+         //timeout
+-        PRINT("RECV timeout %d\n",timeout);
++        PRINT("RECV timeout %ld\n",timeout);
+         return -1;
+     }
+ 
+@@ -312,7 +315,7 @@ void deCR(char *str)
+ 	len = strlen(str);
+ 	for (i=0; i<len; i++)
+ 	{
+-		if (*(str+i) == '\r' || *(str+i) == '\n', *(str+i) == '"')
++		if (*(str+i) == '\r' || *(str+i) == '\n' || *(str+i) == '"')
+ 		{
+ 			*(str+i) = 0;
+ 			break;
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/packet.c gateway/infosvr/packet.c
+--- router/infosvr/packet.c	2004-09-22 13:29:12.000000000 +0000
++++ gateway/infosvr/packet.c	2010-01-30 11:54:53.000000000 +0000
+@@ -1,4 +1,8 @@
  /* Revision Date: 2004.04.07      */
 +#include <stdio.h>
 +#include <stdlib.h>
 +#include <string.h>
++#include <bcmconfig.h>
  #include "iboxcom.h"
  #include "packet.h"
+ 
+diff -BurpN '-x*.o' '-x*.orig' router/infosvr/wlutils.c gateway/infosvr/wlutils.c
+--- router/infosvr/wlutils.c	2004-09-22 13:29:12.000000000 +0000
++++ gateway/infosvr/wlutils.c	2010-01-30 11:54:48.000000000 +0000
+@@ -6,6 +6,7 @@
+ #include <wlutils.h>
+ #include <bcmnvram.h>
+ //#include <bcmutils.h>
++#include <bcmconfig.h>
+ #include <iboxcom.h>
+ #include <wlstatus.h>
  

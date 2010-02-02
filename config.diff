@@ -134,7 +134,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/config/Config gateway/config/Config
 +
 +config CONFIG_WAVESERVER
 +	bool "CONFIG_WAVESERVER"
-+	default y
++	default n
 +endmenu
 +
 +menu "Custom firmware features"
@@ -362,7 +362,7 @@ diff -BurpN -x'*.o' -x'*.orig' router/config/defconfig gateway/config/defconfig
 +CONFIG_OTHERS=y
 +# CONFIG_TEST is not set
 +CONFIG_BPALOGIN=y
-+CONFIG_WAVESERVER=y
++# CONFIG_WAVESERVER is not set
 +
 +#
 +# Custom firmware features

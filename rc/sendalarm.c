@@ -231,10 +231,9 @@ sendalarm_main(int argc, char *argv[])
 	}
 	fclose(fp);
 
-	sprintf(command, "cat /var/tmp/alarmmail | mini_sendmail -s%s %s", serverip, nvram_safe_get("usb_websendto_x"));
+	sprintf(command, "cat /var/tmp/alarmmail | sendmail -S%s %s", serverip, nvram_safe_get("usb_websendto_x"));
 	system(command);
 	
-	//eval("mini_sendmail", "-f", "/var/tmp/alarmmail", "-s", serverip, nvram_safe_get("usb_websendto"));
 	// log
 	logs("send mail alert");
 	kill_pidfile_s("/var/run/watchdog.pid", SIGUSR2);

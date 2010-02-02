@@ -705,8 +705,8 @@ static int refresh_rcamd(void)
 	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
 	return 0;
 }
-#endif
 
+#ifdef __CONFIG_WAVESERVER__
 int refresh_wave(void)
 {
 	eval("killall", "waveserver");
@@ -714,6 +714,8 @@ int refresh_wave(void)
 	kill_pidfile_s("/var/run/waveservermain.pid", SIGUSR1);
 	return 0;
 }
+#endif
+#endif
 
 static void catch_sig(int sig)
 {

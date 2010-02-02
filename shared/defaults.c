@@ -122,7 +122,7 @@ struct nvram_tuple router_defaults[] = {
 #endif	/* __CONFIG_NAT__ */
 
 #ifdef __CONFIG_IPV6__
-	{ "ipv6_sit_enable", "0", 0 },
+	{ "ipv6_proto", "", 0 },
 	{ "ipv6_radvd_enable", "0", 0 },
 #endif  /* __CONFIG_IPV6__ */
 

@@ -1039,10 +1039,12 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "rcamdmain")) {
 		return (rcamd_main());
 	}
+#ifdef __CONFIG_WAVESERVER__
 	/* run waveserver */
 	else if (!strcmp(base, "waveservermain")) {
 		return (waveserver_main());
 	}
+#endif
 	/* run ftp server */
 	else if (!strcmp(base, "start_ftpd")) {
 		return (restart_ftpd());

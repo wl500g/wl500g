@@ -734,7 +734,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	#ifdef __CONFIG_IPV6__
 	// pass ipv6-in-ipv4 tunnel packets
-	if (nvram_match("ipv6_sit_enable", "1"))
+	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
 	#endif
 	// drop attacks!!!
@@ -805,7 +805,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 
 	#ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_sit_enable", "1"))
+		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		{
 			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
 		}
@@ -1044,7 +1044,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// Check internet traffic
 	/* TODO: ipv6_state --state NEW */
 	//if (nvram_match("fw_dos_x", "1")) {
-	//	if (nvram_match("ipv6_sit_enable", "1"))
+	//	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 	//		fprintf(fp, "-A INPUT -i sixtun -m state --state NEW -j SECURITY\n");
 	//	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
 	//	if (nvram_invmatch("wan0_ifname", wan_if))
@@ -1086,7 +1086,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	//if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
 	// Filter out invalid WAN->WAN connections
-	if (nvram_match("ipv6_sit_enable", "1"))
+	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		fprintf(fp, "-A FORWARD -o sixtun ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))

@@ -535,8 +535,8 @@ void convert_asus_values()
 
 	if(nvram_invmatch("sp_battle_ips", "0"))
 	{
-		eval("insmod", "ip_nat_starcraft.o");
-		eval("insmod", "ipt_NETMAP.o");
+		eval("insmod", "ip_nat_starcraft");
+		eval("insmod", "ipt_NETMAP");
 	}
 
 #ifdef WEBSTRFILTER
