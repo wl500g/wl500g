@@ -867,11 +867,11 @@ start_usb(void)
 #ifdef PARPORT_SUPPORT	
 	symlink("/dev/printers/0", "/dev/lp0");
 	symlink("/dev/lp0", "/tmp/lp0");
-	eval("insmod", "parport.o");
-	eval("insmod", "parport_splink.o");
-	eval("insmod", "lp.o");
+	eval("insmod", "parport");
+	eval("insmod", "parport_splink");
+	eval("insmod", "lp");
 #endif		
-	eval("insmod", "printer.o");
+	eval("insmod", "printer");
 	mkdir("/var/state", 0777);
 	mkdir("/var/state/parport", 0777);
 	if (!nvram_invmatch("lpr_enable", "1"))
@@ -901,7 +901,7 @@ start_usb(void)
 #ifdef WEBCAM_SUPPORT	
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{	
-		eval("insmod", "videodev.o");
+		eval("insmod", "videodev");
 
 		// link video 
 		symlink("/dev/v4l/video0", "/dev/video");
@@ -913,9 +913,9 @@ start_usb(void)
 
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("insmod", "scsi_mod.o");
-		eval("insmod", "sd_mod.o");
-		eval("insmod", "usb-storage.o");
+		eval("insmod", "scsi_mod");
+		eval("insmod", "sd_mod");
+		eval("insmod", "usb-storage");
 	}	
 #endif
 	if (nvram_match("usb_nfsenable_x", "1"))
@@ -961,7 +961,6 @@ stop_usb(void)
 	{
 		stop_rcamd();	
 		eval("killall", "rcamd");
-		eval("killall", "sendmail");
 		eval("rmmod", "pwc");
 		eval("rmmod", "ov511_decomp");
 		eval("rmmod", "ov518_decomp");
@@ -1346,10 +1345,10 @@ hotplug_usb_webcam(char *product, int webflag)
 	}
 	else
 	{
-		eval("insmod", "i2c-core.o");
-		eval("insmod", "ov51x.o");
-		eval("insmod", "ov511_decomp.o");
-		eval("insmod", "ov518_decomp.o");
+		eval("insmod", "i2c-core");
+		eval("insmod", "ov51x");
+		eval("insmod", "ov511_decomp");
+		eval("insmod", "ov518_decomp");
 		nvram_set("usb_webdriver_x", "1");
 
 		if (strstr(product, "8519"))
@@ -1976,7 +1975,9 @@ usbhandler:
 			if (nvram_match("usb_audio_device", ""))
 				logmessage("USB audio", "attached");
 			nvram_set("usb_audio_device", product);
+#ifdef __CONFIG_WAVESERVER__
 			refresh_wave();
+#endif
 		}
 		else
 		{
@@ -1997,7 +1998,9 @@ usbhandler:
 		}
 		else if(isweb==WEB_AUDIO)
 		{
+#ifdef __CONFIG_WAVESERVER__
 			remove_usb_audio(product);
+#endif
 			nvram_set("usb_audio_device", "");
 		}
 		else
@@ -2106,8 +2109,9 @@ int service_handle(void)
 	return 0;
 }
 
+#ifdef __CONFIG_WAVESERVER__
 int hotplug_usb_audio(char *product)
-{					
+{
 	char *wave_argv[]={"waveserver", NULL};
 	pid_t pid;
 
@@ -2117,25 +2121,30 @@ int hotplug_usb_audio(char *product)
 
 int remove_usb_audio(char *product)
 {
-	eval("killall", "waveserver");
-	return 0;
+	return stop_audio();
 }
+#endif
 
 int
 start_audio(void)
 {
+#ifdef __CONFIG_WAVESERVER__
 	char *wave_argv[] = {"waveservermain", NULL};
 	pid_t pid;
 
 	return _eval(wave_argv, NULL, 0, &pid);
+#else
+	return 0;
+#endif
 }
 
 int
 stop_audio(void)
 {
+#ifdef __CONFIG_WAVESERVER__
 	eval("killall", "waveserver");
+#endif
 	return 0;
 }
-
 
 #endif

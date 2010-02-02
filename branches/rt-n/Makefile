@@ -41,6 +41,7 @@ PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.5
+BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
 UDPXY=udpxy-1.0-Chipmunk-14
@@ -48,7 +49,7 @@ NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.3
-USBMODESWITCH=usb_modeswitch-1.0.5
+USBMODESWITCH=usb-modeswitch-1.1.0
 MADWIMAX=madwimax-0.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
@@ -87,7 +88,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
-	misc netconf nvram others rc rcamdmips sendmail udev hotplug2 \
+	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax \
 	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
 	@echo
@@ -285,6 +286,15 @@ $(TOP)/portmap: $(PORTMAP).tar.gz
 	mv $(TOP)/$(PORTMAP) $@
 
 portmap: $(TOP)/portmap
+	@true
+
+$(TOP)/bridge:
+	@rm -rf $(TOP)/$(BRIDGE) $@
+	tar -xzf $(BRIDGE).tar.gz -C $(TOP)
+	[ ! -f $(BRIDGE).patch ] || $(PATCHER) -Z $(TOP)/$(BRIDGE) $(BRIDGE).patch
+	mv $(TOP)/$(BRIDGE) $@
+
+bridge: $(TOP)/bridge
 	@true
 
 $(TOP)/radvd:

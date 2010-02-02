@@ -4299,20 +4299,22 @@
   
 struct variable variables_IPv6Config[] = {
 
+	{"ipv6_proto", "", validate_choice, ARGV(
+		"native:Native IPv6",
+		"tun6in4:IPv6-in-IPv4 Tunnel",
+		"tun6to4:IPv6-to-IPv4 Tunnel",
+	0), FALSE, FALSE},
 	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_lan_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
 	{"ipv6_wan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_wan_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
 	{"ipv6_wan_router", "", validate_string, ARGV("40"), FALSE, FALSE},
-	{"ipv6_sit_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"ipv6_sit_remote", "", validate_ipaddr, NULL, FALSE, FALSE},
-	{"ipv6_sit_localaddr", "", validate_string, ARGV("40"), FALSE, FALSE},
-	{"ipv6_sit_netsize", "", validate_range, ARGV("1", "127"), FALSE, FALSE},
-	{"ipv6_sit_remoteaddr", "", validate_string, ARGV("40"), FALSE, FALSE},
+	{"ipv6_sit_local", "", validate_ipaddr, NULL, FALSE, FALSE},
+	{"ipv6_sit_relay", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"ipv6_sit_mtu", "", validate_range, ARGV("0", "1480"), FALSE, FALSE},
 	{"ipv6_sit_ttl", "", validate_range, ARGV("0", "255"), FALSE, FALSE},
 	{"ipv6_radvd_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
-	
 	{ 0, 0, 0, 0}
 	};
 
