@@ -202,7 +202,7 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 				signal(SIGCHLD, handler);
 
 			if (chldpid == -1) {
-			#define EVAL_DEBUG
+			#undef EVAL_DEBUG
 			#ifdef EVAL_DEBUG
 				int i;
 				char *buff = malloc(1024);
