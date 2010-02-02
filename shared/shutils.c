@@ -134,7 +134,7 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 
 	/* Prevent SIGCHLD from beeing set to SIG_IGN for waitpid compability */
 	if (!ppid)
-		handler = signal(SIGCHLD, SIG_DFL)
+		handler = signal(SIGCHLD, SIG_DFL);
 
 	switch (pid = fork()) {
 	case -1:	/* error */
