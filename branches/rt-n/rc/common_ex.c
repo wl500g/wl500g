@@ -541,7 +541,11 @@ void convert_asus_values()
 
 #ifdef WEBSTRFILTER
 	if (nvram_match("url_enable_x", "1")) {
+		#ifdef LINUX26
+		eval("insmod", "xt_webstr");
+		#else
 		eval("insmod", "ipt_webstr");
+		#endif
 	}
 #endif
 
@@ -551,13 +555,23 @@ void convert_asus_values()
                 char ports[32];
 
                 sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
+		#ifdef LINUX26
+                eval("insmod", "nf_conntrack_ftp", ports);
+                eval("insmod", "nf_nat_ftp", ports);
+		#else
                 eval("insmod", "ip_conntrack_ftp", ports);
                 eval("insmod", "ip_nat_ftp", ports);
+		#endif
         }
         else
         {
+		#ifdef LINUX26
+                eval("insmod", "nf_conntrack_ftp");
+                eval("insmod", "nf_nat_ftp");
+		#else
                 eval("insmod", "ip_conntrack_ftp");
                 eval("insmod", "ip_nat_ftp");
+		#endif
         }
 
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
