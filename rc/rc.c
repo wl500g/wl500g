@@ -602,11 +602,24 @@ sysinit(void)
 #ifdef LINUX26
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
-	mkdir("/dev/pts", 0777);
-	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
-	mkdir("/dev/shm", 0777);
-	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+
+	/* populate /dev */
 	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	eval("/sbin/mdev", "-s");
+
+	/* /dev/pts */
+	mkdir("/dev/pts", 0755);
+	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+
+	/* /dev/shm */
+	mkdir("/dev/shm", S_ISVTX | 0755);
+	
+	/* extra links */
+	symlink("/proc/self/fd", "/dev/fd");
+	symlink("/proc/self/fd/0", "/dev/stdin");
+	symlink("/proc/self/fd/1", "/dev/stdout");
+	symlink("/proc/self/fd/2", "/dev/stderr");
 #endif
 
 	/* /tmp */
@@ -632,10 +645,6 @@ sysinit(void)
 	/* Setup console */
 	if (console_init())
 		noconsole = 1;
-
-#ifdef LINUX26
-	eval("/sbin/hotplug2", "--coldplug");
-#endif
 
 	/* load flashfs */
 	if (!eval("flashfs", "start"))
@@ -980,6 +989,9 @@ main(int argc, char **argv)
 	/* hotplug [event] */
 	else if (!strcmp(base, "hotplug")) {
 		if (argc >= 2) {
+		#ifdef LINUX26
+			eval("/sbin/mdev");
+		#endif
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
 #ifdef ASUS_EXT
