@@ -29854,8 +29854,8 @@ diff -urNBp linux-2.4.37.7/lib/Makefile linux-2.4.37.7-mips/lib/Makefile
  include $(TOPDIR)/drivers/usb/Makefile.lib
  include $(TOPDIR)/drivers/bluetooth/Makefile.lib
 diff -urNBp linux-2.4.37.7/Makefile linux-2.4.37.7-mips/Makefile
---- linux-2.4.37.7/Makefile	2009-11-07 19:52:20.000000000 +0300
-+++ linux-2.4.37.7-mips/Makefile	2009-11-09 12:40:14.000000000 +0300
+--- linux-2.4.37.9/Makefile	2009-11-07 19:52:20.000000000 +0300
++++ linux-2.4.37.9-mips/Makefile	2010-02-03 12:40:14.000000000 +0300
 @@ -472,10 +472,11 @@ mrproper: clean archmrproper
  	$(MAKE) -C Documentation/DocBook mrproper
  
@@ -29863,12 +29863,12 @@ diff -urNBp linux-2.4.37.7/Makefile linux-2.4.37.7-mips/Makefile
 -	rm -f core `find . \( -not -type d \) -and \
 -		\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
 -		-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
--		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -type f -print` TAGS tags
+-		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -type f -print` TAGS tags cscope*
 +	find . \( -not -type d \) -and \
 +		\( -name core -o -name '*.orig' -o -name '*.rej' \
 +		-o -name '*~' -o -name '*.bak' -o -name '#*#' \
 +		-o -name '.*.rej' -o -name '.SUMS' -o -size 0 \
-+		-o -name TAGS -o -name tags \) -print | env -i xargs rm -f
++		-o -name TAGS -o -name tags -o -name cscope* \) -print | env -i xargs rm -f
  
  backup: mrproper
  	cd .. && tar cf - linux/ | gzip -9 > backup.gz
