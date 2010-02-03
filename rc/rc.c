@@ -995,7 +995,11 @@ main(int argc, char **argv)
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
 #ifdef ASUS_EXT
-			else if(!strcmp(argv[1], "usb"))
+		#ifdef LUNUX26
+			else if (!strcmp(argv[1], "usb"))
+		#else
+			else if (!strcmp(argv[1], "usb") || !strcmp(argv[1], "block"))
+		#endif
 				return hotplug_usb();
 #endif
 		} else {
