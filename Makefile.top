@@ -329,12 +329,12 @@ modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_
 
 modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N16: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(kmod_ext) 
 	rm -rf $(MODULESDIR)/parport
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(kmod_ext) 2>/dev/null))
