@@ -2231,7 +2231,7 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/nvram_linux.c linux-2.6
 diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c
 --- linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c	2009-05-27 12:34:44.000000000 +0400
-@@ -0,0 +1,356 @@
+@@ -0,0 +1,358 @@
 +/*
 + * Low-Level PCI and SB support for BCM47xx (Linux support code)
 + *
@@ -2489,6 +2489,8 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arc
 +	else if (si_coreid(sih) == USB20H_CORE_ID) {
 +		if (!si_iscoreup(sih)) {
 +			si_core_reset(sih, 0, 0);
++			// USB hungup issue from broadcom 2009.6.24
++			mdelay(10);
 +			writel(0x7ff, regs + 0x200);
 +			udelay(1);
 +		}
