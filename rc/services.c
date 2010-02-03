@@ -350,18 +350,17 @@ stop_ntpc(void)
 int
 start_services(void)
 {
+#ifdef ASUS_EXT
+	start_logger();
+#endif
 	start_telnetd();
 	start_dropbear();
 	start_httpd();
 	start_dns();
 	start_dhcpd();
-#ifdef ASUS_EXT
-	start_logger();
-#endif
 	start_snmpd();
 	start_upnp();
 	start_nas("lan");
-
 #ifdef ASUS_EXT
 	start_usb();
 #endif
@@ -381,15 +380,14 @@ stop_services(void)
 	stop_nas();
 	stop_upnp();
 	stop_snmpd();
-#ifdef ASUS_EXT
-	stop_logger();
-#endif
 	stop_dhcpd();
 	stop_dns();
 	stop_httpd();
 	stop_dropbear();
 	stop_telnetd();
-
+#ifdef ASUS_EXT
+	stop_logger();
+#endif
 	dprintf("done\n");
 	return 0;
 }
