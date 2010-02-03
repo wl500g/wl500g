@@ -519,6 +519,13 @@ $(TOP)/httpd:
 httpd: $(TOP)/httpd
 	@true
 
+$(TOP)/nvram:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - nvram | tar -C $(TOP) -xf -
+
+nvram: $(TOP)/nvram
+	@true
+
 $(TOP)/shared:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - shared | tar -C $(TOP) -xf -

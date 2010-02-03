@@ -725,9 +725,9 @@ start_logger(void)
 		syslogd_argv[10] = NULL;
 		
 	_eval(syslogd_argv, NULL, 0, &pid);
+	usleep(500000);
 	_eval(klogd_argv, NULL, 0, &pid);
 	// remote log not easy to ok
-	sleep(1);
 	return 0;
 }
 
