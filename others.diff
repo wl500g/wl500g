@@ -1,7 +1,7 @@
 diff -BurN router/others/Makefile gateway/others/Makefile
 --- router/others/Makefile	2004-11-15 11:51:39.000000000 +0300
 +++ gateway/others/Makefile	2008-08-25 12:46:06.000000000 +0400
-@@ -3,34 +3,43 @@
+@@ -3,34 +3,44 @@
  endif
  
  all :
@@ -24,6 +24,7 @@ diff -BurN router/others/Makefile gateway/others/Makefile
 +	install -m 644 rpc $(INSTALLDIR)/usr/etc
 +	install -m 644 profile $(INSTALLDIR)/usr/etc
 +	install -m 644 ipkg.conf $(INSTALLDIR)/usr/etc
++	install -m 644 mdev.conf $(INSTALLDIR)/usr/etc
  	install netcam_mfc_activeX.cab $(INSTALLDIR)/www
 -	install lp.o $(INSTALLDIR)/lib/modules/2.4.20/parport
 -	install parport.o $(INSTALLDIR)/lib/modules/2.4.20/parport
