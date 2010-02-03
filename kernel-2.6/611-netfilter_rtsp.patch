@@ -347,7 +347,7 @@
  	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
 --- /dev/null
 +++ b/net/netfilter/nf_conntrack_rtsp.c
-@@ -0,0 +1,513 @@
+@@ -0,0 +1,519 @@
 +/*
 + * RTSP extension for IP connection tracking
 + * (C) 2003 by Tom Marshall <tmarshall at real.com>
@@ -609,9 +609,12 @@
 +
 +void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 +{
-+    if(nf_nat_rtsp_hook_expectfn) {
-+        nf_nat_rtsp_hook_expectfn(ct,exp);
-+    }
++	typeof(nf_nat_rtsp_hook_expectfn) nf_nat_rtsp_expectfn;
++	nf_nat_rtsp_expectfn = rcu_dereference(nf_nat_rtsp_hook_expectfn);
++
++	if (nf_nat_rtsp_expectfn && ct->master->status & IPS_NAT_MASK) {
++		nf_nat_rtsp_expectfn(ct,exp);
++	}
 +}
 +
 +/*** conntrack functions ***/
@@ -633,6 +636,7 @@
 +	int ret = NF_ACCEPT;
 +	
 +	struct nf_conntrack_expect *exp;
++	typeof(nf_nat_rtsp_hook) nf_nat_rtsp;
 +	
 +	__be16 be_loport;
 +	
@@ -671,7 +675,7 @@
 +		DEBUGP("udp transport found, ports=(%d,%hu,%hu)\n",
 +		       (int)expinfo.pbtype, expinfo.loport, expinfo.hiport);
 +
-+		exp = nf_ct_expect_alloc(ct);
++		exp = nf_conntrack_expect_alloc(ct);
 +		if (!exp) {
 +			ret = NF_DROP;
 +			goto out;
@@ -679,7 +683,7 @@
 +
 +		be_loport = htons(expinfo.loport);
 +
-+		nf_ct_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
 +			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
 +			IPPROTO_UDP, NULL, &be_loport); 
 +
@@ -699,14 +703,15 @@
 +		       NIPQUAD(exp->tuple.dst.u3.ip),
 +		       ntohs(exp->tuple.dst.u.udp.port));
 +
-+		if (nf_nat_rtsp_hook)
++		nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
++		if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
 +			/* pass the request off to the nat helper */
 +			ret = nf_nat_rtsp_hook(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
-+		else if (nf_ct_expect_related(exp) != 0) {
-+			INFOP("nf_ct_expect_related failed\n");
++		else if (nf_conntrack_expect_related(exp) != 0) {
++			INFOP("nf_conntrack_expect_related failed\n");
 +			ret  = NF_DROP;
 +		}
-+		nf_ct_expect_put(exp);
++		nf_conntrack_expect_put(exp);
 +		goto out;
 +	}
 +out:
@@ -827,6 +832,7 @@
 +	for (i = 0; (i < MAX_PORTS) && ports[i]; i++) {
 +		hlpr = &rtsp_helpers[i];
 +		memset(hlpr, 0, sizeof(struct nf_conntrack_helper));
++		hlpr->tuple.src.l3num = AF_INET;
 +		hlpr->tuple.src.u.tcp.port = htons(ports[i]);
 +		hlpr->tuple.dst.protonum = IPPROTO_TCP;
 +		hlpr->max_expected = max_outstanding;
@@ -1023,7 +1029,7 @@
 +        for (loport = prtspexp->loport; loport != 0; loport++) /* XXX: improper wrap? */
 +        {
 +            t->dst.u.udp.port = htons(loport);
-+            if (nf_ct_expect_related(exp) == 0)
++            if (nf_conntrack_expect_related(exp) == 0)
 +            {
 +                DEBUGP("using port %hu\n", loport);
 +                break;
@@ -1039,7 +1045,7 @@
 +        for (loport = prtspexp->loport; loport != 0; loport += 2) /* XXX: improper wrap? */
 +        {
 +            t->dst.u.udp.port = htons(loport);
-+            if (nf_ct_expect_related(exp) == 0)
++            if (nf_conntrack_expect_related(exp) == 0)
 +            {
 +                hiport = loport + ~exp->mask.src.u.udp.port;
 +                DEBUGP("using ports %hu-%hu\n", loport, hiport);
@@ -1056,7 +1062,7 @@
 +        for (loport = prtspexp->loport; loport != 0; loport++) /* XXX: improper wrap? */
 +        {
 +            t->dst.u.udp.port = htons(loport);
-+            if (nf_ct_expect_related(exp) == 0)
++            if (nf_conntrack_expect_related(exp) == 0)
 +            {
 +                DEBUGP("using port %hu (1 of 2)\n", loport);
 +                break;
@@ -1065,7 +1071,7 @@
 +        for (hiport = prtspexp->hiport; hiport != 0; hiport++) /* XXX: improper wrap? */
 +        {
 +            t->dst.u.udp.port = htons(hiport);
-+            if (nf_ct_expect_related(exp) == 0)
++            if (nf_conntrack_expect_related(exp) == 0)
 +            {
 +                DEBUGP("using port %hu (2 of 2)\n", hiport);
 +                break;
@@ -1131,7 +1137,7 @@
 +                                                         off, diff, NULL, 0))
 +                    {
 +                        /* mangle failed, all we can do is bail */
-+			nf_ct_unexpect_related(exp);
++			nf_conntrack_unexpect_related(exp);
 +                        return 0;
 +                    }
 +                    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
@@ -1201,7 +1207,7 @@
 +                                              origoff, origlen, rbuf, rbuflen))
 +                    {
 +                        /* mangle failed, all we can do is bail */
-+			nf_ct_unexpect_related(exp);
++			nf_conntrack_unexpect_related(exp);
 +                        return 0;
 +                    }
 +                    get_skb_tcpdata(*pskb, &ptcp, &tcplen);
