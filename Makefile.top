@@ -323,8 +323,13 @@ modules_install-WL3%: modules_install
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
+ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext)
+else
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(kmod_ext)
+endif
 	rm -rf $(MODULESDIR)/parport
 
 modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N16: modules_install
