@@ -118,6 +118,14 @@ static int slave_configure(struct scsi_device *sdev)
 			sdev->request_queue->max_sectors > 64)
 		blk_queue_max_sectors(sdev->request_queue, 64);
 
+	/* Some USB host controllers can't do DMA; they have to use PIO.
+	 * They indicate this by setting their dma_mask to NULL.  For
+	 * such controllers we need to make sure the block layer sets
+	 * up bounce buffers in addressable memory.
+	 */
+	if (!us->pusb_dev->bus->controller->dma_mask)
+		blk_queue_bounce_limit(sdev->request_queue, BLK_BOUNCE_HIGH);
+
 	/* We can't put these settings in slave_alloc() because that gets
 	 * called before the device type is known.  Consequently these
 	 * settings can't be overridden via the scsi devinfo mechanism. */
@@ -240,7 +248,7 @@ static int queuecommand(struct scsi_cmnd *srb,
 	/* enqueue the command and wake up the control thread */
 	srb->scsi_done = done;
 	us->srb = srb;
-	up(&(us->sema));
+	complete(&us->cmnd_ready);
 
 	return 0;
 }
@@ -329,10 +337,14 @@ void usb_stor_report_device_reset(struct us_data *us)
 
 /* Report a driver-initiated bus reset to the SCSI layer.
  * Calling this for a SCSI-initiated reset is unnecessary but harmless.
- * The caller must own the SCSI host lock. */
+ * The caller must not own the SCSI host lock. */
 void usb_stor_report_bus_reset(struct us_data *us)
 {
-	scsi_report_bus_reset(us_to_host(us), 0);
+	struct Scsi_Host *host = us_to_host(us);
+
+	scsi_lock(host);
+	scsi_report_bus_reset(host, 0);
+	scsi_unlock(host);
 }
 
 /***********************************************************************
@@ -394,10 +406,6 @@ US_DO_ALL_FLAGS
 
 		*(pos++) = '\n';
 	}
-
-
-	SPRINTF("         Port: %s\n", us->pusb_dev->devpath);
-	// Added Port descriptor
 
 	/*
 	 * Calculate start of next buffer, and return value.

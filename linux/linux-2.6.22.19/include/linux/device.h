@@ -482,6 +482,14 @@ dev_dbg(struct device * dev, const char * fmt, ...)
 }
 #endif
 
+#ifdef VERBOSE_DEBUG
+#define dev_vdbg	dev_dbg
+#else
+
+#define dev_vdbg(dev, format, arg...)		\
+	({ if (0) dev_printk(KERN_DEBUG, dev, format, ##arg); 0; })
+#endif
+
 #define dev_err(dev, format, arg...)		\
 	dev_printk(KERN_ERR , dev , format , ## arg)
 #define dev_info(dev, format, arg...)		\
