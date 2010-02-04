@@ -1,0 +1,53 @@
+Subject: [PATCH] ehci-hub: improved over-current recovery
+From 756aa6b3d536afe85e151138cb03a293998887b3 from 2.6.23
+From: Christian Engelmayer
+Date: Wed, 30 May 2007 11:04:48 -0700
+
+According to the USB Specification Revision 2.0 chapter 11.12.5
+a hub experiencing an over-current condition must place all
+affected ports in the powered-off state. It seems that some root
+hubs need port power to be cycled by software in order to get back
+to normal functionality after an over-current condition ... like
+the EHCI implementation on an MPC8343E.
+
+Signed-off-by: Christian Engelmayer <christian.engelmayer@frequentis.com>
+Signed-off-by: David Brownell <david-b@pacbell.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ .../linux/linux-2.6/drivers/usb/host/ehci-hub.c    |   17 ++++++++++++++++-
+ 1 files changed, 16 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-hub.c b/drivers/usb/host/ehci-hub.c
+index f4d301b..1f87228 100644
+--- a/drivers/usb/host/ehci-hub.c
++++ b/drivers/usb/host/ehci-hub.c
+@@ -556,9 +556,24 @@ static int ehci_hub_control (
+ 			status |= 1 << USB_PORT_FEAT_C_CONNECTION;
+ 		if (temp & PORT_PEC)
+ 			status |= 1 << USB_PORT_FEAT_C_ENABLE;
+-		if ((temp & PORT_OCC) && !ignore_oc)
++
++		if ((temp & PORT_OCC) && !ignore_oc){
+ 			status |= 1 << USB_PORT_FEAT_C_OVER_CURRENT;
+ 
++			/*
++			 * Hubs should disable port power on over-current.
++			 * However, not all EHCI implementations do this
++			 * automatically, even if they _do_ support per-port
++			 * power switching; they're allowed to just limit the
++			 * current.  khubd will turn the power back on.
++			 */
++			if (HCS_PPC (ehci->hcs_params)){
++				ehci_writel(ehci,
++					temp & ~(PORT_RWC_BITS | PORT_POWER),
++					status_reg);
++			}
++		}
++
+ 		/* whoever resumes must GetPortStatus to complete it!! */
+ 		if (temp & PORT_RESUME) {
+ 
+-- 
+1.6.5.GIT
+
