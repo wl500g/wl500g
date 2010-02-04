@@ -1,0 +1,35 @@
+From b8c1c5da1520977cb55a358f20fc09567d40cad9
+From: Andrew Morton
+Date: Tue, 24 Jul 2007 12:02:40 -0700
+Subject: [PATCH] slab: correctly handle __GFP_ZERO
+
+Use the correct local variable when calling into the page allocator.  Local
+`flags' can have __GFP_ZERO set, which causes us to pass __GFP_ZERO into the
+page allocator, possibly from illegal contexts.  The page allocator will later
+do prep_zero_page()->kmap_atomic(..., KM_USER0) from irq contexts and will
+then go BUG.
+
+Cc: Mike Galbraith <efault@gmx.de>
+Acked-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/slab.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/mm/slab.c b/mm/slab.c
+index bde271c..a684778 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -2776,7 +2776,7 @@ static int cache_grow(struct kmem_cache *cachep,
+ 	 * 'nodeid'.
+ 	 */
+ 	if (!objp)
+-		objp = kmem_getpages(cachep, flags, nodeid);
++		objp = kmem_getpages(cachep, local_flags, nodeid);
+ 	if (!objp)
+ 		goto failed;
+ 
+-- 
+1.6.6.1
+
