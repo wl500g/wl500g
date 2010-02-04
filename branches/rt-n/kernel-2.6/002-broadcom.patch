@@ -5856,9 +5856,9 @@ diff -urBwNp linux-2.6.22/arch/mips/mm/tlbex.c linux-2.6/arch/mips/mm/tlbex.c
  	case CPU_25KF:
 +	case CPU_BCM4710:
 +	case CPU_BCM3302:
+ 		if (m4kc_tlbp_war())
+ 			i_nop(p);
  		tlbw(p);
- 		break;
- 
 diff -urBwNp linux-2.6.22/arch/mips/pci/pci.c linux-2.6/arch/mips/pci/pci.c
 --- linux-2.6.22/arch/mips/pci/pci.c	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/arch/mips/pci/pci.c	2010-01-26 15:52:34.000000000 +0300
