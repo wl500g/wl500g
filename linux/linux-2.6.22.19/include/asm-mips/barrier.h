@@ -129,4 +129,7 @@
 #define set_mb(var, value) \
 	do { var = value; smp_mb(); } while (0)
 
+#define smp_mb__before_llsc() smp_llsc_mb()
+#define nudge_writes() mb()
+
 #endif /* __ASM_BARRIER_H */
