@@ -855,8 +855,13 @@ int
 start_usb(void)
 {
 	eval("insmod", "usbcore");
+#ifdef LINUX26
+	eval("insmod", "ohci-hcd");
+	eval("insmod", "uhci-hcd");
+#else
 	eval("insmod", "usb-ohci");
 	eval("insmod", "usb-uhci");
+#endif
 	if (nvram_invmatch("usb20_disable_x", "1"))
 		eval("insmod", "ehci-hcd");
 
@@ -988,8 +993,13 @@ stop_usb(void)
 	umount("/proc/bus/usb");
 
 	eval("rmmod", "ehci-hcd");
+#ifdef LINUX26
+	eval("rmmod", "uhci-hcd");
+	eval("rmmod", "ohci-hcd");
+#else
 	eval("rmmod", "usb-uhci");
 	eval("rmmod", "usb-ohci");
+#endif
 	eval("rmmod", "usbcore");
 	return 0;
 }
