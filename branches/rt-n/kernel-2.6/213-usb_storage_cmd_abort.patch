@@ -1,0 +1,31 @@
+Subject: [PATCH] Fix USB storage hang on command abort
+From: Alan Stern <stern@rowland.harvard.edu>
+
+kernel.org commit 580da34847488b404218d1d7f53b156f245f5555
+---
+ drivers/usb/core/message.c     |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 6011301..d52005d 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -387,7 +387,6 @@ int usb_sg_init (
+ 	if (io->entries <= 0)
+ 		return io->entries;
+ 
+-	io->count = io->entries;
+ 	io->urbs = kmalloc (io->entries * sizeof *io->urbs, mem_flags);
+ 	if (!io->urbs)
+ 		goto nomem;
+@@ -456,6 +455,7 @@ int usb_sg_init (
+ 	io->urbs [--i]->transfer_flags &= ~URB_NO_INTERRUPT;
+ 
+ 	/* transaction state */
++	io->count = io->entries;
+ 	io->status = 0;
+ 	io->bytes = 0;
+ 	init_completion (&io->complete);
+-- 
+1.6.5.GIT
+
