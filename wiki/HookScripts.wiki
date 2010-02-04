@@ -13,6 +13,7 @@ List of scripts:
  # * pre-mount * - launched on hotplug usb disc before mount, suitable to manual mounts, disk checks, etc. Arguments:<br>  $1 - product ID (example: "58f/6387/142")<br><br>
  # * post-mount * - launched, when disc mount is finished, to achieve custom user actions. Arguments:<br>   $1 - product ID<br>  $2 - mounted directory<br><br>
  # * post-firewall * - executed every time, after router changes routing & firewall rules (for example, after new IP assigned to WAN), to allow add custom rules in firewall tables. Arguments:<br>   $1 / $2 - WAN interface name / WAN IP<br>  $3 / $4 - LAN interface name / LAN IP<br> $5 / $6 - DMZ interface name / DMZ IP<br><br>
+ # * ez-setup * - executed on EZ-SETUP button pressed<br><br>
 
 * WARNING: * _Incorrect files could prevent your wl500g from booting. Double check your changes before committing. If you wl500g failed to boot flash it with other firmware version and execute these commands:_
 {{{
