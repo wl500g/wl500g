@@ -4986,8 +4986,8 @@ diff -urBwNp linux-2.6.22/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
 +	depends on BCM947XX
 +
 +config RAM_SIZE
-+       int "Memory size (in megabytes)"
-+       depends on BCM947XX
++	int "Memory size (in megabytes)"
++	depends on BCM947XX
 +
 +endmenu
 +
