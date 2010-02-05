@@ -89,7 +89,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips \
 	scsi-idle libusb usb_modeswitch wimax \
-	shared test upnp utils vlan wlconf www rt2460 libbcmcrypto asustrx
+	shared test upnp utils vlan wlconf www libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -102,6 +102,13 @@ $(TOP)/Makefile: Makefile.top
 
 prep: $(TOP) $(TOP)/Makefile
 	-svnversion 2> /dev/null > $(TOP)/.svnrev
+
+$(TOP)/config:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - config | tar -C $(TOP) -xf -
+
+config: $(TOP)/config
+	@true
 
 $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
