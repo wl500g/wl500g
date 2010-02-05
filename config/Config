@@ -1,0 +1,489 @@
+#
+# For a description of the syntax of this configuration file,
+# see Kconfig-language.txt
+#
+# Copyright 2004, Broadcom Corporation
+# All Rights Reserved.
+# 
+# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
+# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+#
+
+mainmenu "Router Configuration"
+
+menu "Base Features"
+
+config CONFIG_RC
+       bool "Router control (rc)"
+       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_BUSYBOX
+       default y
+       help
+       rc is a compact replacement for traditional SysV init. rc
+       manages the execution of all daemons. Answer Y unless you have
+       configured busybox to provide SysV init functionality.
+
+config CONFIG_NVRAM
+       bool "NVRAM support"
+       default y
+       help
+       Answer Y for user mode NVRAM support.
+
+config CONFIG_SHARED
+       bool "Shared functions"
+       default y
+       help
+       Answer Y for shared functions required by most of the base
+       features.
+
+config CONFIG_LIBBCM
+       bool "Broadcom shared library functions"
+       default y
+       help
+       Answer Y for shared functions for accesing Broadcom h/w
+
+config CONFIG_BUSYBOX
+       bool "BusyBox"
+       default y
+       help
+       BusyBox combines tiny versions of many common UNIX utilities into
+       a single small executable.
+
+config CONFIG_BUSYBOX_CONFIG
+       string "BusyBox default configuration"
+       depends on CONFIG_BUSYBOX
+       default "defconfig"
+       help
+       Override the default BusyBox configuration. File must exist in busybox/sysdeps/linux.
+
+config CONFIG_WLCONF
+       bool "Wireless configuration"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default y
+       help
+       Answer Y for Broadcom wireless configuration support.
+
+config CONFIG_BRIDGE
+       bool "Ethernet bridging"
+       default y
+       help
+       Answer Y for the user mode Ethernet bridge configuration utility.
+
+config CONFIG_VLAN
+       bool "VLAN configuration"
+       default y
+       help
+       Answer Y for the user mode VLAN configuration utility.
+
+config CONFIG_HTTPD
+       bool "Web server"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default y
+       help
+       Answer Y for basic web configuration support.
+
+config CONFIG_WWW
+       bool "Web pages"
+       depends on CONFIG_HTTPD
+       help
+       Answer Y for additional web pages.
+
+config CONFIG_NAT
+       bool "Network Address Translation (NAT) Support"
+       default y
+       help
+       Answer Y to configure this box as a NAT box.
+
+config CONFIG_NETCONF
+       bool "Firewall configuration"
+       depends on (CONFIG_IPTABLES || CONFIG_LIBIPT) && CONFIG_NAT
+       default y
+       help
+       netconf is a compact, portable replacement for full iptables
+       support. It provides enough functionality to configure a basic
+       NAT firewall. Answer Y unless you plan on configuring a full
+       iptables based firewall setup.
+
+choice
+	prompt "Iptables"
+	depends on CONFIG_NAT
+	default CONFIG_LIBIPT
+	optional
+	help
+	netconf only requires the iptables support library. Answer
+	"Library only" unless you want full iptables support. Full
+	iptables support requires libdl (see "Additional C libraries").
+
+config CONFIG_IPTABLES
+       bool "Full"
+       depends on CONFIG_LIBDL
+
+config CONFIG_LIBIPT
+       bool "Library only"
+
+endchoice
+
+choice
+	prompt "C library"
+	default CONFIG_GLIBC
+
+config CONFIG_GLIBC
+       bool "GNU libc"
+
+config CONFIG_UCLIBC
+       bool "uClibc"
+
+endchoice
+
+config CONFIG_LIBOPT
+       bool "Optimize C library"
+       depends on CONFIG_GLIBC || CONFIG_UCLIBC
+       default y
+
+endmenu
+
+menu "Options"
+
+config CONFIG_VENDOR
+       string "Vendor"
+       default "broadcom"
+       help
+       Answer Y for vendor-specific customization.
+
+config CONFIG_PPP
+       bool "PPPoE client"
+       depends on CONFIG_NAT
+       default y
+
+config CONFIG_UPNP
+       bool "UPnP IGD server"
+       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED && CONFIG_NAT
+       default y
+
+config CONFIG_NAS
+       bool "802.1X/WPA network authenticator"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default y
+
+config CONFIG_SES
+       bool "Secure Easy Setup configurator"
+       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_LIBBCM
+       default y
+
+config CONFIG_EZC
+       bool "EZConfig Setup (Phase 1)"
+       depends on CONFIG_HTTPD
+       default y
+
+config CONFIG_NTP
+       bool "NTP client"
+       default y
+
+config CONFIG_DNSMASQ
+       bool "DNS forwarder"
+       depends on CONFIG_NAT
+       default y
+
+config CONFIG_UTILS
+       bool "Broadcom driver utilities"
+       default y
+
+config CONFIG_ETC
+       bool "SysV init scripts"
+       depends on CONFIG_BUSYBOX
+       default n
+       help
+       SysV init scripts.
+
+config CONFIG_RCS
+       string "Default SysV init script"
+       depends on CONFIG_ETC
+       default "rcS"
+       help
+       Default initialization script.
+
+config CONFIG_BCMWPA2
+       bool "WPA2 Config"
+       default y
+
+config CONFIG_WCN
+       bool "Windows Connect Now support"
+	   depends on CONFIG_NVRAM && CONFIG_SHARED
+       default n
+       help
+       Answer Y to enable support for Windows Connect Now - a method 
+	   to configure wireless networks via USB Flash Devices.
+	   (Requires CONFIG_WCN and dependents be configured into the kernel.)
+
+config CONFIG_EMF
+       bool "Efficient Multicast Forwarding"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default y
+
+endmenu
+
+menu "Asus stuff"
+
+config CONFIG_PPTP
+	bool "PPTP client"
+	default n
+
+config CONFIG_ACCEL_PPTP
+	bool "Accelerated PPTP driver"
+	default y
+
+config CONFIG_PPPOERELAY
+	bool "PPPOE-relay"
+	default y
+
+config CONFIG_INFOSVR
+	bool "CONFIG_INFOSVR"
+	default y
+
+config CONFIG_EZIPUPDATE
+	bool "DynDNS support"
+	default y
+
+config CONFIG_VSFTPD
+	bool "vsftpd server"
+	default y
+
+config CONFIG_JPEG6B
+	bool "jpeg6b library"
+	default y
+
+config CONFIG_RCAMD
+	bool "rcamd daemon (web-camera support)"
+	default y
+
+config CONFIG_SENDMAIL
+	bool "Mini sendmail"
+	default y
+
+config CONFIG_LPRNG
+	bool "LPRng daemon"
+	default y
+
+config CONFIG_OTHERS
+	bool "CONFIG_OTHERS"
+	default y
+
+config CONFIG_TEST
+	bool "CONFIG_TEST"
+	default n
+
+config CONFIG_BPALOGIN
+	bool "Big Pond Broadband support"
+	default y
+
+config CONFIG_WAVESERVER
+	bool "CONFIG_WAVESERVER"
+	default n
+endmenu
+
+menu "Custom firmware features"
+
+config CONFIG_LOADER
+       bool "LZMA compressed kernel loader"
+       default y
+       help
+       Save bunch of flash space
+
+config CONFIG_SSHD
+       bool "Dropbear SSH daemon"
+       default y
+       help
+       Dropbear is the small ssh daemon.
+
+config CONFIG_JETDIRECT
+       bool "p910nd printing daemon"
+       default y
+       help
+       p910nd is the small JetDirect capable printing daemon.
+
+config CONFIG_SAMBA
+       bool "Samba filesharing"
+       default y
+       help
+       Samba filesharing.
+
+config CONFIG_NFSD
+       bool "NFS server"
+       default y
+       help
+       NFS filesharing.
+
+config CONFIG_NFS
+       bool "NFS client"
+       default y
+       help
+       NFS filesharing.
+
+config CONFIG_IPROUTE2
+       bool "iproute2 package"
+       default y
+       help
+       iproute2 package used by wonder shaper.
+
+config CONFIG_IPV6
+       bool "IPv6 support"
+       default y
+       help
+       IPv6 is the next-generation IP protocol. Please ensure IPv6 is enabled in the kernel and busybox config
+
+config CONFIG_SNMP
+       bool "SNMP agent support"
+       default y
+       help
+       SNMP is the network management protocol, usefull for monitoring network devices
+
+choice
+	prompt "L2TP protocol support"
+	default CONFIG_L2TP
+	optional
+	help
+	L2TP is the protocol used by some ISPs
+
+config CONFIG_L2TP
+       bool "rp-l2tp"
+
+config CONFIG_XL2TPD
+       bool "xl2tpd"
+
+endchoice
+
+config CONFIG_IGMPPROXY
+       bool "IGMPproxy"
+       default y
+       help
+       IGMPproxy is a simple dynamic Multicast Routing Daemon
+       using only IGMP signalling (Internet Group Management Protocol). 
+       It's intended for simple forwarding of Multicast traffic 
+       between networks.
+
+config CONFIG_SCSIIDLE
+       bool "SCSI start & stop"
+       default y
+       help
+       Small programs to start and stop SCSI disks.
+
+config CONFIG_USBMODESWITCH
+       bool "USB_Modeswitch"
+       depends on CONFIG_LIBUSB
+       default y
+       help
+       Mode switching tool for controlling "flip flop" (multiple device) USB gear.
+
+config CONFIG_MADWIMAX
+       bool "WiMAX modem support"
+       depends on CONFIG_LIBUSB
+       default y
+       help
+       Include driver for WiMAX modems (Yota).
+
+endmenu
+
+menu "Additional C libraries"
+
+config CONFIG_LIBCRYPT
+       bool "libcrypt"
+       default y
+       help
+       libcrypt is the cryptography library.
+
+config CONFIG_LIBDL
+       bool "libdl"
+       default n
+       help
+       libdl is the dynamic linking interface library.
+
+config CONFIG_LIBM
+       bool "libm"
+       default n
+       help
+       libm is the mathematical library.
+
+config CONFIG_LIBNSL
+       bool "libnsl"
+       default n
+       help
+       libnsl is the network services library.
+
+config CONFIG_LIBPTHREAD
+       bool "libpthread"
+       default n
+       help
+       The POSIX threads library.
+
+config CONFIG_LIBRESOLV
+       bool "libresolv"
+       default n
+       help
+       Functions in this library provide for creating, sending, and
+       interpreting packets to the Internet domain name servers.
+
+config CONFIG_LIBUTIL
+       bool "libutil"
+       default n
+       help
+       Contains code for "standard" functions used in many different
+       Unix utilities.
+
+config CONFIG_LIBUSB
+       bool "libusb"
+       default n
+       help
+       Library for interfacing to the USB subsystem.
+
+endmenu
+
+menu "Environment"
+
+config PLATFORM
+       string "Target architecture"
+       default "mipsel"
+       help
+       Specify the target architecture.
+
+config LINUXDIR
+       string "Target Linux kernel"
+       default "$(SRCBASE)/linux/linux-2.6"
+       help
+       Specify the location of the target Linux kernel directory.
+
+config LIBDIR
+       string "Target /lib"
+       default "$(TOOLCHAIN)/lib"
+       help
+       Specify the location of the target /lib directory.
+
+config USRLIBDIR
+       string "Target /usr/lib"
+       default "$(TOOLCHAIN)/usr/lib"
+       help
+       Specify the location of the target /usr/lib directory.
+
+config EXTRACFLAGS
+       string "Extra C compiler flags"
+       default ""
+       help
+       Specify the extra C compiler flags (if necessary).
+
+endmenu
+
+menu "Internal Options"
+
+config CONFIG_SENTRY5
+       bool "Sentry5 Features Enable"
+       default y
+       help
+       Answer Y for the Sentry5 Features compilation enable.
+
+config CONFIG_ROBO
+       bool "Robo switch configuration"
+       default y
+       help
+       Answer Y for the user mode Robo switch configuration utility.
+
+endmenu
