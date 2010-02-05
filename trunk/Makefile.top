@@ -151,7 +151,6 @@ obj-$(CONFIG_JPEG6B) += jpeg-6b
 obj-$(CONFIG_RCAMD) += rcamdmips
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
-obj-$(CONFIG_TEST) += test
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_WAVESERVER) += waveserver
 
