@@ -532,6 +532,13 @@ $(TOP)/utils:
 utils: $(TOP)/utils
 	@true
 
+$(TOP)/misc:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - misc | tar -C $(TOP) -xf -
+
+misc: $(TOP)/misc
+	@true
+
 $(TOP)/www:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - www | tar -C $(TOP) -xf -
