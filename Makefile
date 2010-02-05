@@ -320,6 +320,13 @@ $(TOP)/radvd:
 radvd: $(TOP)/radvd
 	@true
 
+$(TOP)/netconf:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - netconf | tar -C $(TOP) -xf -
+
+netconf: $(TOP)/netconf
+	@true
+
 $(TOP)/rc/Makefile:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - rc | tar -C $(TOP) -xf -
