@@ -13,12 +13,6 @@
 
 mainmenu "Router Configuration"
 
-config CONFIG_NAT
-       bool "Network Address Translation (NAT) Support"
-       default y
-       help
-       Answer Y to configure this box as a NAT box.
-
 menu "Base Features"
 
 config CONFIG_RC
@@ -59,9 +53,9 @@ config CONFIG_BUSYBOX
 config CONFIG_BUSYBOX_CONFIG
        string "BusyBox default configuration"
        depends on CONFIG_BUSYBOX
-       default "router"
+       default "defconfig"
        help
-       Override the default BusyBox configuration. File must exist in busybox/configs.
+       Override the default BusyBox configuration. File must exist in busybox/sysdeps/linux.
 
 config CONFIG_WLCONF
        bool "Wireless configuration"
@@ -78,7 +72,6 @@ config CONFIG_BRIDGE
 
 config CONFIG_VLAN
        bool "VLAN configuration"
-       depends on CONFIG_NAT
        default y
        help
        Answer Y for the user mode VLAN configuration utility.
@@ -96,6 +89,12 @@ config CONFIG_WWW
        help
        Answer Y for additional web pages.
 
+config CONFIG_NAT
+       bool "Network Address Translation (NAT) Support"
+       default y
+       help
+       Answer Y to configure this box as a NAT box.
+
 config CONFIG_NETCONF
        bool "Firewall configuration"
        depends on (CONFIG_IPTABLES || CONFIG_LIBIPT) && CONFIG_NAT
@@ -108,7 +107,7 @@ config CONFIG_NETCONF
 
 choice
 	prompt "Iptables"
-    depends on CONFIG_NAT
+	depends on CONFIG_NAT
 	default CONFIG_LIBIPT
 	optional
 	help
@@ -151,10 +150,6 @@ config CONFIG_VENDOR
        default "broadcom"
        help
        Answer Y for vendor-specific customization.
-
-config CONFIG_UDHCPD
-       bool "DHCP client and server"
-       default y
 
 config CONFIG_PPP
        bool "PPPoE client"
@@ -223,6 +218,167 @@ config CONFIG_WCN
 
 endmenu
 
+menu "Asus stuff"
+
+config CONFIG_PPTP
+	bool "PPTP client"
+	default n
+
+config CONFIG_ACCEL_PPTP
+	bool "Accelerated PPTP driver"
+	default y
+
+config CONFIG_PPPOERELAY
+	bool "PPPOE-relay"
+	default y
+
+config CONFIG_INFOSVR
+	bool "CONFIG_INFOSVR"
+	default y
+
+config CONFIG_EZIPUPDATE
+	bool "DynDNS support"
+	default y
+
+config CONFIG_VSFTPD
+	bool "vsftpd server"
+	default y
+
+config CONFIG_JPEG6B
+	bool "jpeg6b library"
+	default y
+
+config CONFIG_RCAMD
+	bool "rcamd daemon (web-camera support)"
+	default y
+
+config CONFIG_SENDMAIL
+	bool "Mini sendmail"
+	default y
+
+config CONFIG_LPRNG
+	bool "LPRng daemon"
+	default y
+
+config CONFIG_OTHERS
+	bool "CONFIG_OTHERS"
+	default y
+
+config CONFIG_TEST
+	bool "CONFIG_TEST"
+	default n
+
+config CONFIG_BPALOGIN
+	bool "Big Pond Broadband support"
+	default y
+
+config CONFIG_WAVESERVER
+	bool "CONFIG_WAVESERVER"
+	default y
+endmenu
+
+menu "Custom firmware features"
+
+config CONFIG_LOADER
+       bool "LZMA compressed kernel loader"
+       default y
+       help
+       Save bunch of flash space
+
+config CONFIG_SSHD
+       bool "Dropbear SSH daemon"
+       default y
+       help
+       Dropbear is the small ssh daemon.
+
+config CONFIG_JETDIRECT
+       bool "p910nd printing daemon"
+       default y
+       help
+       p910nd is the small JetDirect capable printing daemon.
+
+config CONFIG_SAMBA
+       bool "Samba filesharing"
+       default y
+       help
+       Samba filesharing.
+
+config CONFIG_NFSD
+       bool "NFS server"
+       default y
+       help
+       NFS filesharing.
+
+config CONFIG_NFS
+       bool "NFS client"
+       default y
+       help
+       NFS filesharing.
+
+config CONFIG_IPROUTE2
+       bool "iproute2 package"
+       default y
+       help
+       iproute2 package used by wonder shaper.
+
+config CONFIG_IPV6
+       bool "IPv6 support"
+       default y
+       help
+       IPv6 is the next-generation IP protocol. Please ensure IPv6 is enabled in the kernel and busybox config
+
+config CONFIG_SNMP
+       bool "SNMP agent support"
+       default y
+       help
+       SNMP is the network management protocol, usefull for monitoring network devices
+
+choice
+	prompt "L2TP protocol support"
+	default CONFIG_L2TP
+	optional
+	help
+	L2TP is the protocol used by some ISPs
+
+config CONFIG_L2TP
+       bool "rp-l2tp"
+
+config CONFIG_XL2TPD
+       bool "xl2tpd"
+
+endchoice
+
+config CONFIG_IGMPPROXY
+       bool "IGMPproxy"
+       default y
+       help
+       IGMPproxy is a simple dynamic Multicast Routing Daemon
+       using only IGMP signalling (Internet Group Management Protocol). 
+       It's intended for simple forwarding of Multicast traffic 
+       between networks.
+
+config CONFIG_SCSIIDLE
+       bool "SCSI start & stop"
+       default y
+       help
+       Small programs to start and stop SCSI disks.
+
+config CONFIG_USBMODESWITCH
+       bool "USB_Modeswitch"
+       depends on CONFIG_LIBUSB
+       default y
+       help
+       Mode switching tool for controlling "flip flop" (multiple device) USB gear.
+
+config CONFIG_MADWIMAX
+       bool "WiMAX modem support"
+       depends on CONFIG_LIBUSB
+       default y
+       help
+       Include driver for WiMAX modems (Yota).
+
+endmenu
+
 menu "Additional C libraries"
 
 config CONFIG_LIBCRYPT
@@ -269,6 +425,12 @@ config CONFIG_LIBUTIL
        Contains code for "standard" functions used in many different
        Unix utilities.
 
+config CONFIG_LIBUSB
+       bool "libusb"
+       default n
+       help
+       Library for interfacing to the USB subsystem.
+
 endmenu
 
 menu "Environment"
@@ -297,10 +459,26 @@ config USRLIBDIR
        help
        Specify the location of the target /usr/lib directory.
 
+config EXTRACFLAGS
+       string "Extra C compiler flags"
+       default ""
+       help
+       Specify the extra C compiler flags (if necessary).
+
 endmenu
 
 menu "Internal Options"
 
+config CONFIG_SENTRY5
+       bool "Sentry5 Features Enable"
+       default y
+       help
+       Answer Y for the Sentry5 Features compilation enable.
 
+config CONFIG_ROBO
+       bool "Robo switch configuration"
+       default y
+       help
+       Answer Y for the user mode Robo switch configuration utility.
 
 endmenu
