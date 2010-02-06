@@ -435,9 +435,8 @@ ntpclient: $(TOP)/ntpclient
 ez-ipupdate_Patches := $(call patches_list,ez-ipupdate)
 
 $(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
-	tar -C $(SRC) -cf - ez-ipupdate | tar -C $(TOP) -xf -
+	tar -xjf ez-ipupdate/ez-ipupdate.tar.bz2 -C $(TOP)
 	$(PATCHER) -Z $(TOP) $(ez-ipupdate_Patches)
-	$(MAKE) -C $@ clean
 
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
