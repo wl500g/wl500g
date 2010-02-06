@@ -197,11 +197,7 @@ shutdown_system(void)
 	sync(), sync();
 
 	/* bring wifi interfaces down */
-#ifdef RT2400_SUPPORT
-	ifconfig("ra0", 0, NULL, NULL);
-#else
 	eval("wl", "radio", "off");
-#endif
 }
 
 static int fatal_signals[] = {

@@ -490,9 +490,7 @@ wimax: $(TOP)/madwimax
 	@true
 
 $(TOP)/others:
-	tar -C $(SRC) -cf - others | tar -C $(TOP) -xf -
 	tar -C . $(TAR_EXCL_SVN) -cf - others | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) others.diff
 
 others: $(TOP)/others
 
@@ -556,7 +554,7 @@ www: $(TOP)/www
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
-		tar -C $(SRC) -cf - $* | tar -C $(TOP) -xf -
+		tar -C $(SRC) $(TAR_EXCL_SVN) -cf - $* | tar -C $(TOP) -xf -
 	[ ! -f $*.diff ] || $(PATCHER) -Z $(TOP) $*.diff
 	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean

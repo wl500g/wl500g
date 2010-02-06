@@ -290,13 +290,12 @@ endif
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
 modules_install-WL3%: modules_install
-	rm -rf $(MODULESDIR)/parport
+#	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
-	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL700g: modules_install
 	install -t $(MODULESDIR) \
@@ -306,13 +305,11 @@ modules_install-WL700g: modules_install
 		$(SRCMODULESDIR)/drivers/ide/ide-mod.o \
 		$(SRCMODULESDIR)/drivers/ide/ide-disk.o \
 		$(SRCMODULESDIR)/drivers/ide/ide-probe-mod.o
-	rm -rf $(MODULESDIR)/parport
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
-	rm -rf $(MODULESDIR)/parport
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
 ifeq ($(CONFIG_IPV6),y)
