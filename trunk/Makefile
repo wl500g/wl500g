@@ -493,6 +493,11 @@ $(TOP)/others:
 
 others: $(TOP)/others
 
+$(TOP)/lib:
+	tar -C . $(TAR_EXCL_SVN) -cf - lib | tar -C $(TOP) -xf -
+
+lib: $(TOP)/lib
+
 libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
