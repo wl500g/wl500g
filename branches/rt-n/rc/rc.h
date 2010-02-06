@@ -91,6 +91,12 @@ void setup_ethernet(char *wan_if);
 int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
+#ifdef __CONFIG_BCMWL5__
+extern void start_wl(void);
+#else
+static inline void start_wl(void) { };
+#endif
+
 
 /* services */
 int stop_service_main();

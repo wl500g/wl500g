@@ -216,9 +216,14 @@ config CONFIG_WCN
 	   to configure wireless networks via USB Flash Devices.
 	   (Requires CONFIG_WCN and dependents be configured into the kernel.)
 
+config CONFIG_BCMWL5
+       bool "Broadcom SDK 5.x"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default y
+
 config CONFIG_EMF
        bool "Efficient Multicast Forwarding"
-       depends on CONFIG_NVRAM && CONFIG_SHARED
+       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_BCMWL5
        default y
 
 endmenu
