@@ -22,6 +22,7 @@ lib-$(CONFIG_LIBNSL) += libnsl
 lib-$(CONFIG_LIBPTHREAD) += libpthread
 lib-$(CONFIG_LIBRESOLV) += libresolv
 lib-$(CONFIG_LIBUTIL) += libutil
+lib-$(CONFIG_UCLIBC) += libgcc_s
 
 ifeq ($(CONFIG_UCLIBC),y)
 
