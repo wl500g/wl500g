@@ -48,7 +48,6 @@
 #define AUDIO_SUPPORT 1
 #endif
 
-//#define PARPORT_SUPPORT 
 //#define USBCOPY_SUPPORT 1
 
 enum
@@ -85,62 +84,7 @@ void diag_PaN(void)
 	}
 
 
-#ifdef RT2400_SUPPORT
-	if (nvram_match("nobr", "1"))
-		fprintf(stderr, "dumping 0x4301 for manu.\n");
-#endif
-
 #ifdef PRINTER_SUPPORT
-#ifdef PARPORT_SUPPORT	
-	char *token;
-    	char                                mfr[32];
-    	char                                model[64];
-    	int                                 fd;
-    	struct parport_splink_device_info   prn_info;
-
-    if( (fd=open("/dev/lp0", O_RDWR)) < 0 ) //Someone is opening the lp0
-    {
-        fp=fopen("/proc/sys/dev/parport/parport0/devices/lp/deviceid","r");
-
-        if( fp != NULL)
-        {    
-            while ( fgets(buf_g, sizeof(buf_g), fp) != NULL )  
-            {
-                if(buf_g[0] == '\n')
-                {
-                    continue;
-                }
-                if(strncmp(buf_g , "Model: " , strlen("Model: ")) == 0)
-                {
-                    token = buf_g + strlen("Model: ");
-		    sprintf(buf_g, "PARPORT: %s", token);
-		    fprintf(stderr, "%s\r\n", buf_g);
-		    //logmessage("PARPORT", buf_g);
-                }                
-	    }	
-	    fclose(fp);
-	}
-	//else logmessage("NO", "No printer found");
-    }
-    else
-    {
-        if( ioctl(fd, LPGETID, &prn_info) <0 )
-        {
-	    //logmessage("PaN", "No printer found");
-            //PRINT("ioctl error\n");
-        }
-        else
-        {
-            memccpy(mfr , prn_info.mfr , 1 , 32);
-            memccpy(model , prn_info.model , 1 , 32);
-        
-            sprintf(buf_g, "PARPORT: %s", model);
-	    fprintf(stderr, "%s\r\n", buf_g);
-            //logmessage("PARPORT", buf_g);
-        }
-	close(fd);
-   }
-#endif
 #endif
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
@@ -869,13 +813,6 @@ start_usb(void)
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
 #ifdef PRINTER_SUPPORT
-#ifdef PARPORT_SUPPORT	
-	symlink("/dev/printers/0", "/dev/lp0");
-	symlink("/dev/lp0", "/tmp/lp0");
-	eval("insmod", "parport");
-	eval("insmod", "parport_splink");
-	eval("insmod", "lp");
-#endif		
 	eval("insmod", "printer");
 	mkdir("/var/state", 0777);
 	mkdir("/var/state/parport", 0777);
@@ -890,9 +827,6 @@ start_usb(void)
 	if (!nvram_invmatch("raw_enable", "1"))
 	{
 		eval("p910nd", "-f", "/dev/usb/lp0", "0");
-#ifdef PARPORT_SUPPORT	
-		eval("p910nd", "-f", "/dev/printers/0", "1");
-#endif
 	}
 #endif	
 	if (!nvram_invmatch("audio_enable", "1"))
@@ -983,11 +917,6 @@ stop_usb(void)
 	eval("killall", "lpd");
 	eval("killall", "p910nd");
 	eval("rmmod", "printer");
-#ifdef PARPORT_SUPPORT
-	eval("rmmod", "lp.o");
-	eval("rmmod", "parport_splink.o");
-	eval("rmmod", "parport.o");
-#endif
 #endif	
 
 	umount("/proc/bus/usb");

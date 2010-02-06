@@ -269,10 +269,6 @@ config CONFIG_OTHERS
 	bool "CONFIG_OTHERS"
 	default y
 
-config CONFIG_TEST
-	bool "CONFIG_TEST"
-	default n
-
 config CONFIG_BPALOGIN
 	bool "Big Pond Broadband support"
 	default y
