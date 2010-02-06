@@ -815,9 +815,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		{
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 515, logaccept);
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 9100, logaccept);
-	#ifdef PARPORT_SUPPORT	
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 9101, logaccept);
-	#endif
 
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %d -j %s\n", 3838, logaccept);
 		}

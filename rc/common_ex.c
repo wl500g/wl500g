@@ -123,17 +123,10 @@ void convert_asus_values()
 	char ifnames[36];
 	char sbuf[64];
 	int i, num;
-#ifdef RT2400_SUPPORT
-	FILE *fp;
-#endif
 
 	getsyspara();
 	/* convert country code from regulation_domain */
 	convert_country();
-
-#ifdef RT2400_SUPPORT
-	write_rt2400_conf();
-#endif
 
 #ifdef WOB
 	// add for 4712/5350 which have no eeprom
@@ -362,27 +355,12 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_wdsnum_x"));
 		list[0]=0;
 
-#ifdef RT2400_SUPPORT
-		fp = fopen("/tmp/RT2400AP.dat", "a+");
-		if (fp) fprintf(fp, "WdsList=");
-#endif
-
 		for(i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
 
-#ifdef RT2400_SUPPORT
-			if (fp) 
-			{
-				fprintf(fp, "%s;", mac_conv("wl_wdslist_x", i, macbuf));
-			}
-#endif
 		}
 
-#ifdef RT2400_SUPPORT
-		fprintf(fp, "\n");
-		fclose(fp);
-#endif
 		dprintf("wds list %s %x\n", list, num);
 
 		nvram_set("wl0_wds", list);
@@ -397,24 +375,12 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_macnum_x"));
 		list[0]=0;
 
-#ifdef RT2400_SUPPORT
-		fp = fopen("/tmp/RT2400AP.dat", "a+");
-		if (fp) fprintf(fp, "AclList=");
-#endif
-
 		for(i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_maclist_x", i, macbuf));
 			
-#ifdef RT2400_SUPPORT
-			if (fp) fprintf(fp, "%s;", mac_conv("wl_maclist_x", i, macbuf));
-#endif
 		}
 
-#ifdef RT2400_SUPPORT		
-		fprintf(fp, "\n");
-		fclose(fp);
-#endif
 		//printf("mac list %s %x\n", list, num);
 
 		nvram_set("wl0_maclist", list);
@@ -698,84 +664,3 @@ char *pppstatus(char *buf)
 }
 
 
-#ifdef RT2400_SUPPORT
-void write_rt2400_conf(void)
-{
-	
-	FILE *fp;
-	char *tmpstr;
-
-	// create hostapd.conf
-	fp=fopen("/tmp/RT2400AP.dat","w");
-	if (fp==NULL)
-	{
-		return;	
-	}
-
-
-	fprintf(fp, "[Default]\n");
-	fprintf(fp, "SSID=%s\n", nvram_safe_get("wl_ssid"));
-	if (nvram_match("wl_channel", "0")) 
-		fprintf(fp, "Channel=6\n");
-	else
-		fprintf(fp, "Channel=%s\n", nvram_safe_get("wl_channel"));	
-
-	fprintf(fp, "HIDESSID=%s\n", nvram_safe_get("wl_closed"));
-
-	fprintf(fp, "BeaconPeriod=%s\n", nvram_safe_get("wl_bcn")); 	
-	fprintf(fp, "RTSThreshold=%s\n", nvram_safe_get("wl_rts")); 		
-	fprintf(fp, "FragThreshold=%s\n", nvram_safe_get("wl_frag")); 
-
-
-	if (nvram_invmatch("wl_wep_x","0"))
-	{	
-		fprintf(fp, "DefaultKeyID=%s\n", nvram_safe_get("wl_key")); 	
-
-		fprintf(fp, "Key1Type=0\n");		
-		fprintf(fp, "Key1Str=%s\n", nvram_safe_get("wl_key1")); 	
-		fprintf(fp, "Key2Type=0\n");		
-		fprintf(fp, "Key2Str=%s\n", nvram_safe_get("wl_key2")); 	
-		fprintf(fp, "Key3Type=0\n");		
-		fprintf(fp, "Key3Str=%s\n", nvram_safe_get("wl_key3")); 	
-		fprintf(fp, "Key4Type=0\n");		
-		fprintf(fp, "Key4Str=%s\n", nvram_safe_get("wl_key4")); 	
-	}
-
-
-	if (nvram_match("wl_auth_mode","shared"))
-	{
-		fprintf(fp, "AuthMode=shared\n"); 
-		fprintf(fp, "EncrypType=wep\n");
-	}
-	else if (nvram_match("wl_auth_mode","psk"))
-	{
-		fprintf(fp, "AuthMode=wpapsk\n"); 
-		fprintf(fp, "EncrypType=tkip\n");
-		fprintf(fp, "WPAPSK=%s\n", nvram_safe_get("wl_wpa_psk"));
-		fprintf(fp, "RekeyInterval=%s\n", nvram_safe_get("wl_wpa_gtk_rekey"));
-		fprintf(fp, "RekeyMethod=time\n");
-	}
-	else 
-	{
-		fprintf(fp, "AuthMode=open\n"); 
-		if (nvram_invmatch("wl_wep_x","0"))	
-			fprintf(fp, "EncrypType=wep\n");
-		else fprintf(fp, "EncrypType=none\n");
-	}
-
-	if (nvram_match("wl_macmode", "allow"))
-	{	
-		fprintf(fp, "AclEnable=1\n");
-	}
-	else if (nvram_match("wl_macmode", "deny"))
-	{	
-		fprintf(fp, "AclEnable=2\n");
-	}
-	else fprintf(fp, "AclEnable=0\n");
-
-	if (nvram_match("wl_mode_x", "0"))
-		fprintf(fp, "WdsEnable=0\n");
-	else fprintf(fp, "WdsEnable=1\n");
-	fclose(fp);
-}
-#endif
