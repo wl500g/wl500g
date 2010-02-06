@@ -277,34 +277,7 @@ start_lan(void)
 			/* If not a wl i/f then simply add it to the bridge */
 			if (eval("wlconf", name, "up"))
 			{
-#ifdef RT2400_SUPPORT
-				char tmpstr[48];
-				int i, j;
-
-				if (strcmp(name, "eth2")==0)
-				{
-					// added by Joey for WL500b + WL127
-					if (nvram_match("wl_channel", "0"))
-						nvram_set("wl_channel", "6");
-
-					sprintf(tmpstr, "mac_address=%s", nvram_safe_get("et0macaddr"));
-					eval("insmod","rt2400.o",tmpstr);
-					eval("brctl","addif",lan_ifname,"ra0");
-					ifconfig("ra0",IFUP,NULL,NULL);
-					nvram_set("nobr","1");
-
-					j = atoi(nvram_safe_get("wl_wdsnum_x"));
-					for(i=1;i<=j;i++)
-					{
-						sprintf(tmpstr, "ra%d", i);
-						ifconfig(tmpstr, IFUP, NULL, NULL);
-						eval("brctl","addif",lan_ifname,tmpstr);
-					}
-				}
-				else
-#endif
 				eval("brctl", "addif", lan_ifname, name);
-
 			}
 			else 
 			{

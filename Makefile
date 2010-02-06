@@ -91,7 +91,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax \
-	shared test upnp utils vlan wlconf www libbcmcrypto asustrx
+	shared upnp utils vlan wlconf www libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -430,9 +430,8 @@ ntpclient: $(TOP)/ntpclient
 ez-ipupdate_Patches := $(call patches_list,ez-ipupdate)
 
 $(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
-	tar -C $(SRC) -cf - ez-ipupdate | tar -C $(TOP) -xf -
+	tar -xjf ez-ipupdate/ez-ipupdate.tar.bz2 -C $(TOP)
 	$(PATCHER) -Z $(TOP) $(ez-ipupdate_Patches)
-	$(MAKE) -C $@ clean
 
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
@@ -507,11 +506,14 @@ udev: $(TOP)/udev
 	@true
 
 $(TOP)/others:
-	tar -C $(SRC) -cf - others | tar -C $(TOP) -xf -
 	tar -C . $(TAR_EXCL_SVN) -cf - others | tar -C $(TOP) -xf -
-	$(PATCHER) -Z $(TOP) others.diff
 
 others: $(TOP)/others
+
+$(TOP)/lib:
+	tar -C . $(TAR_EXCL_SVN) -cf - lib | tar -C $(TOP) -xf -
+
+lib: $(TOP)/lib
 
 libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
@@ -573,7 +575,7 @@ www: $(TOP)/www
 
 %:
 	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
-		tar -C $(SRC) -cf - $* | tar -C $(TOP) -xf -
+		tar -C $(SRC) $(TAR_EXCL_SVN) -cf - $* | tar -C $(TOP) -xf -
 	[ ! -f $*.diff ] || $(PATCHER) -Z $(TOP) $*.diff
 	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
