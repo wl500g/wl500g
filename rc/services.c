@@ -300,6 +300,13 @@ stop_upnp(void)
 int
 start_nas(char *type)
 {
+	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled")))
+                return;
+
+#ifdef __CONFIG_BCMWL5__
+        eval("eapd");
+        eval("nas");
+#else
 	char cfgfile[64];
 	char pidfile[64];
 	if (!type || !*type)
@@ -311,8 +318,9 @@ start_nas(char *type)
 		pid_t pid;
 
 		_eval(argv, NULL, 0, &pid);
-		dprintf("done\n");
 	}
+#endif
+	dprintf("done\n");
 	return 0;
 }
 
@@ -321,6 +329,9 @@ stop_nas(void)
 {
 	int ret = eval("killall", "nas");
 
+#ifdef __CONFIG_BCMWL5__
+        eval("killall", "eapd");
+#endif
 	dprintf("done\n");
 	return ret;
 }
@@ -353,6 +364,8 @@ start_services(void)
 #ifdef ASUS_EXT
 	start_logger();
 #endif
+	start_nas("lan");
+	start_wl(); // Start WLAN
 	start_telnetd();
 	start_dropbear();
 	start_httpd();
@@ -360,7 +373,6 @@ start_services(void)
 	start_dhcpd();
 	start_snmpd();
 	start_upnp();
-	start_nas("lan");
 #ifdef ASUS_EXT
 	start_usb();
 #endif

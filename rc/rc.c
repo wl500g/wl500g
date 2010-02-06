@@ -850,7 +850,9 @@ main_loop(void)
 			//}
 			start_services();
 			start_wan();
+#ifndef __CONFIG_BCMWL5__
 			start_nas("wan");
+#endif
 
 #ifdef ASUS_EXT
 			start_misc();

@@ -193,18 +193,18 @@ obj-y += kernel
 # Kernel modules extension
 ifeq ($(CONFIG_LINUX_26),y)
 EXTRACFLAGS += -DLINUX26
-kmod_ext=.ko
+ko=.ko
 else
-kmod_ext=.o
+ko=.o
 endif
 
 # Netfilter modules NOT to include in main FW
-netfilter_external_modules := {xt,ipt}_layer7$(kmod_ext) ip_set$(kmod_ext) \
- ip_set_ipmap$(kmod_ext) ip_set_iptree$(kmod_ext) ip_set_iptreemap$(kmod_ext) \
- ip_set_macipmap$(kmod_ext) ip_set_nethash$(kmod_ext) ip_set_iphash$(kmod_ext) \
- ip_set_portmap$(kmod_ext) ip_set_ipporthash$(kmod_ext) ip_set_ipportiphash$(kmod_ext) \
- ip_set_ipportnethash$(kmod_ext) ip_set_setlist$(kmod_ext) \
- ipt_SET$(kmod_ext) ipt_set$(kmod_ext)
+netfilter_external_modules := {xt,ipt}_layer7$(ko) ip_set$(ko) \
+ ip_set_ipmap$(ko) ip_set_iptree$(ko) ip_set_iptreemap$(ko) \
+ ip_set_macipmap$(ko) ip_set_nethash$(ko) ip_set_iphash$(ko) \
+ ip_set_portmap$(ko) ip_set_ipporthash$(ko) ip_set_ipportiphash$(ko) \
+ ip_set_ipportnethash$(ko) ip_set_setlist$(ko) \
+ ipt_SET$(ko) ipt_set$(ko)
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
@@ -324,65 +324,65 @@ modules_install-WL3%: modules_install
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(ko)
 else
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(ko)
 endif
 
 modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N16: modules_install
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
 else
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
 endif
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(kmod_ext) 
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
 else
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
 endif
 
-NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(kmod_ext) 2>/dev/null))
-NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(kmod_ext) 2>/dev/null))
+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(ko) 2>/dev/null))
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(ko) 2>/dev/null))
 ifeq ($(CONFIG_IPV6),y)
-NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(kmod_ext),\%/%$(kmod_ext),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*$(kmod_ext) 2>/dev/null))
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*$(ko) 2>/dev/null))
 endif
 
 modules_install: .config
 	install -d $(MODULESDIR)
 	# network stuff
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/et/et$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/net/wl/wl$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/net/emf/emf$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/net/igs/igs$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/net/tun$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/connector/cn$(kmod_ext) \
+		$(SRCMODULESDIR)/drivers/net/et/et$(ko) \
+		$(SRCMODULESDIR)/drivers/net/wl/wl$(ko) \
+		$(SRCMODULESDIR)/drivers/net/emf/emf$(ko) \
+		$(SRCMODULESDIR)/drivers/net/igs/igs$(ko) \
+		$(SRCMODULESDIR)/drivers/net/tun$(ko) \
+		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
 		$(NETFILTER_MODS_LIST)
 	# generic usb
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/usb/class/usblp$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/class/usblp$(ko)
 	# usb storage
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/scsi/sd_mod$(kmod_ext) \
-		$(SRCMODULESDIR)/drivers/scsi/scsi_mod$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage$(ko) \
+		$(SRCMODULESDIR)/drivers/scsi/sd_mod$(ko) \
+		$(SRCMODULESDIR)/drivers/scsi/scsi_mod$(ko)
 	# usb serial
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(kmod_ext)
+		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(ko)
 	# usb webcams
 	# usb audio
 	# other
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/lib/libcrc32c$(kmod_ext)
+		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
 
 install: package-$(MODEL)
 	@true
@@ -939,13 +939,10 @@ model-%:
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	elif [ "$*" = "RT-N10" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN10 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "RT-N12" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN12 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	elif [ "$*" = "RT-N16" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN16 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-		$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO -DNO_PARALLEL"; \
 	fi )
 
 	$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO"

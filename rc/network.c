@@ -1346,6 +1346,15 @@ lan_down_ex(char *lan_ifname)
 static int
 notify_nas(char *type, char *ifname, char *action)
 {
+#ifdef __CONFIG_BCMWL5__
+
+	/* Inform driver to send up new WDS link event */
+	if (wl_iovar_setint((char *)ifname, "wds_enable", 1)) {
+		dprintf("%s: set wds_enable failed\n", ifname);
+	}
+	return 1;
+
+#else   /* !__CONFIG_BCMWL5__ */
 	char *argv[] = {"nas4not", type, ifname, action, 
 			NULL,	/* role */
 			NULL,	/* crypto */
@@ -1417,7 +1426,26 @@ notify_nas(char *type, char *ifname, char *action)
 		return _eval(argv, ">/dev/console", 0, &pid);
 	}
 	return -1;
+#endif /* CONFIG_BCMWL5 */
 }
+
+#ifdef __CONFIG_BCMWL5__
+void start_wl(void)
+{
+	char ifname[64], *ifnext;
+	char *lan_ifname = nvram_safe_get("lan_ifname");
+
+	if (strncmp(lan_ifname, "br", 2) == 0) {
+		foreach(ifname, nvram_safe_get("lan_ifnames"), ifnext) {
+			eval("wlconf", ifname, "start"); /* start wl iface */
+                }
+	}
+	else if (strcmp(lan_ifname, "")) {
+		/* specific non-bridged lan iface */
+		eval("wlconf", lan_ifname, "start");
+	}
+}
+#endif // __CONFIG_BCMWL5__
 
 int
 hotplug_net(void)
