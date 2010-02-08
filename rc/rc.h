@@ -61,6 +61,7 @@ pid_t run_shell(int timeout, int nowait);
 void signal_init(void);
 void fatal_signal(int sig);
 void preshutdown_system(void);
+void child_reap(int sig);
 
 /* interface */
 int ifconfig(char *ifname, int flags, char *addr, char *netmask);
