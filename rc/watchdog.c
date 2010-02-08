@@ -926,7 +926,7 @@ watchdog_main()
 	signal(SIGUSR2, catch_sig);
 	signal(SIGALRM, watchdog);
 	signal(SIGTERM, readyoff);
-	signal(SIGCHLD, SIG_IGN);
+	signal(SIGCHLD, child_reap);
 
 	/* turn on POWER and READY LEDs */
 	gpio_write(GPIO_DEV_OUT, power_mask | ready_mask,
