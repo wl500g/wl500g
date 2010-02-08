@@ -124,17 +124,19 @@ waitfor(int fd, int timeout)
 int
 _eval(char *const argv[], char *path, int timeout, int *ppid)
 {
-	sigset_t set;
-	pid_t pid, chldpid;
+	sigset_t set, omask;
+	pid_t pid, ret;
 	int status;
 	int fd;
 	int flags;
 	int sig;
-	__sighandler_t handler = SIG_DFL;
 
-	/* Prevent SIGCHLD from beeing set to SIG_IGN for waitpid compability */
-	if (!ppid)
-		handler = signal(SIGCHLD, SIG_DFL);
+	/* Block SIGCHLD signal to avoid interaction with its handler */
+	if (ppid == NULL) {
+		sigemptyset(&set);
+		sigaddset(&set, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &set, &omask);
+	}
 
 	switch (pid = fork()) {
 	case -1:	/* error */
@@ -187,21 +189,21 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 		execvp(argv[0], argv);
 		perror(argv[0]);
 		exit(errno);
-		break;
 	default:	/* parent */
-		if (ppid) {
+		if (ppid != NULL) {
 			*ppid = pid;
 			return 0;
 		} else {
 			do
-				chldpid = waitpid(pid, &status, 0);
-			while ((chldpid == -1) && (errno = EINTR));
+				ret = waitpid(pid, &status, 0);
+			while ((ret == -1) && (errno = EINTR));
 
-			/* Restore original SIGCHLD handler */
-			if (handler != SIG_DFL)
-				signal(SIGCHLD, handler);
+			// Restore signals, errno should be preserved
+			flags = errno;
+			sigprocmask(SIG_SETMASK, &omask, NULL);
+			errno = flags;
 
-			if (chldpid == -1) {
+			if (ret != pid) {
 				perror("waitpid");
 				return errno;
 			}
