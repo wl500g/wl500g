@@ -188,7 +188,7 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 		alarm(timeout);
 		execvp(argv[0], argv);
 		perror(argv[0]);
-		exit(errno);
+		_exit(errno);
 	default:	/* parent */
 		if (ppid != NULL) {
 			*ppid = pid;
