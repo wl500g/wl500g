@@ -59,7 +59,7 @@ UCLIBC=uClibc-0.9.30.1
 ET=et-5.10.56.46
 WL=wl-5.10.56.46
 NAS=nas-5.10.56.46
-LIBBCMCRYPTO=libbcmcrypto-3.130.20
+LIBBCMCRYPTO=libbcmcrypto-5.20.41
 WLCONF=wlconf
 
 # tar has --exclude parameter ?
