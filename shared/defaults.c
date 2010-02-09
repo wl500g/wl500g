@@ -14,6 +14,7 @@
 
 #include <epivers.h>
 #include <string.h>
+#include <ctype.h>
 #include <bcmnvram.h>
 #include <typedefs.h>
 #include <wlioctl.h>
@@ -140,10 +141,19 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_phytypes", "", 0 },		/* List of supported wireless bands (e.g. "ga") */
 	{ "wl_radioids", "", 0 },		/* List of radio IDs */
 	{ "wl_ssid", "default", 0 },		/* Service set ID (network name) */
-	{ "wl_country", "", 0 },		/* Country (default obtained from driver) */
+	{ "wl_bss_enabled", "1", 0 },		/* See "default_get" below. */
+	{ "wl_country_code", "", 0 },		/* Country code (default obtained from driver) */
 	{ "wl_radio", "1", 0 },			/* Enable (1) or disable (0) radio */
 	{ "wl_closed", "0", 0 },		/* Closed (hidden) network */
-        { "wl_ap_isolate", "0", 0 },            /* AP isolate mode */
+	{ "wl_ap_isolate", "0", 0 },            /* AP isolate mode */
+	{ "wl_wmf_bss_enable", "0", 0 },	/* WMF Enable/Disable */
+	{ "wl_rxchain_pwrsave_enable", "1", 0 },	/* Rxchain powersave enable */
+	{ "wl_rxchain_pwrsave_quiet_time", "1800", 0 },	/* Quiet time for power save */
+	{ "wl_rxchain_pwrsave_pps", "10", 0 },	/* Packets per second threshold for power save */
+	{ "wl_radio_pwrsave_enable", "0", 0 },  /* Radio powersave enable */
+	{ "wl_radio_pwrsave_quiet_time", "1800", 0 },   /* Quiet time for power save */
+	{ "wl_radio_pwrsave_pps", "10", 0 },    /* Packets per second threshold for power save */
+	{ "wl_radio_pwrsave_on_time", "50", 0 },        /* Radio on time for power save */
 	{ "wl_mode", "ap", 0 },			/* AP mode (ap|sta|wds) */
 	{ "wl_lazywds", "0", 0 },		/* Enable "lazy" WDS mode (0|1) */
 	{ "wl_wds", "", 0 },			/* xx:xx:xx:xx:xx:xx ... */
@@ -165,25 +175,26 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_rts", "2347", 0 },		/* RTS threshold */
 	{ "wl_dtim", "3", 0 },			/* DTIM period */
 	{ "wl_bcn", "100", 0 },			/* Beacon interval */
+	{ "wl_bcn_rotate", "1", 0 },		/* Beacon rotation */
 	{ "wl_plcphdr", "long", 0 },		/* 802.11b PLCP preamble type */
 	{ "wl_gmode", XSTR(GMODE_AUTO), 0 },	/* 54g mode */
 	{ "wl_gmode_protection", "auto", 0 },	/* 802.11g RTS/CTS protection (off|auto) */
 	{ "wl_afterburner", "off", 0 },		/* AfterBurner */
 	{ "wl_frameburst", "off", 0 },		/* BRCM Frambursting mode (off|on) */
-	{ "wl_wme", "off", 0 },			/* WME mode (off|on) */
 	{ "wl_antdiv", "-1", 0 },		/* Antenna Diversity (-1|0|1|3) */
 	{ "wl_infra", "1", 0 },			/* Network Type (BSS/IBSS) */
 
 	/* WPA parameters */
 	{ "wl_auth_mode", "open", 0 },		/* Network authentication mode */
 	{ "wl_wpa_psk", "", 0 },		/* WPA pre-shared key */
+	{ "wl_wpa_mode", "0", 0},
 	{ "wl_wpa_gtk_rekey", "0", 0 },		/* GTK rotation interval */
 	{ "wl_radius_ipaddr", "", 0 },		/* RADIUS server IP address */
 	{ "wl_radius_key", "", 0 },		/* RADIUS shared secret */
 	{ "wl_radius_port", "1812", 0 },	/* RADIUS server UDP port */
 	{ "wl_crypto", "tkip", 0 },		/* WPA data encryption */
 	{ "wl_net_reauth", "36000", 0 },	/* Network Re-auth/PMK caching duration */
-	{ "wl_akm", "", 0 },			/* WPA akm list */
+	{ "wl_akm", "", 0 },			/* Authenticated Key Management list */
 
 #ifdef __CONFIG_SES__
 	/* SES parameters */
@@ -192,24 +203,59 @@ struct nvram_tuple router_defaults[] = {
 #endif /* __CONFIG_SES__ */
 
 	/* WME parameters */
+	{ "wl_wme", "off", 0 },		/* WME mode (off|on|auto) */
+	{ "wl_wme_no_ack", "off", 0},		/* WME No-Acknowledgmen mode */
+
 	/* EDCA parameters for STA */
+#ifdef __CONFIG_BCMWL5__
+	{ "wl_wme_sta_be", "15 1023 3 0 0 off off", 0 },	/* WME STA AC_BE parameters */
+	{ "wl_wme_sta_bk", "15 1023 7 0 0 off off", 0 },	/* WME STA AC_BK parameters */
+	{ "wl_wme_sta_vi", "7 15 2 6016 3008 off off", 0 },	/* WME STA AC_VI parameters */
+	{ "wl_wme_sta_vo", "3 7 2 3264 1504 off off", 0 },	/* WME STA AC_VO parameters */
+#else
 	{ "wl_wme_sta_bk", "15 1023 7 0 0 off", 0 },	/* WME STA AC_BK paramters */
 	{ "wl_wme_sta_be", "15 1023 3 0 0 off", 0 },	/* WME STA AC_BE paramters */
 	{ "wl_wme_sta_vi", "7 15 2 6016 3008 off", 0 },	/* WME STA AC_VI paramters */
 	{ "wl_wme_sta_vo", "3 7 2 3264 1504 off", 0 },	/* WME STA AC_VO paramters */
+#endif
 
 	/* EDCA parameters for AP */
+#ifdef __CONFIG_BCMWL5__
+	{ "wl_wme_ap_be", "15 63 3 0 0 off off", 0 },		/* WME AP AC_BE parameters */
+	{ "wl_wme_ap_bk", "15 1023 7 0 0 off off", 0 },		/* WME AP AC_BK parameters */
+	{ "wl_wme_ap_vi", "7 15 1 6016 3008 off off", 0 },	/* WME AP AC_VI parameters */
+	{ "wl_wme_ap_vo", "3 7 1 3264 1504 off off", 0 },	/* WME AP AC_VO parameters */
+#else
 	{ "wl_wme_ap_bk", "15 1023 7 0 0 off", 0 },	/* WME AP AC_BK paramters */
 	{ "wl_wme_ap_be", "15 63 3 0 0 off", 0 },	/* WME AP AC_BE paramters */
 	{ "wl_wme_ap_vi", "7 15 1 6016 3008 off", 0 },	/* WME AP AC_VI paramters */
 	{ "wl_wme_ap_vo", "3 7 1 3264 1504 off", 0 },	/* WME AP AC_VO paramters */
+#endif
 
-	{ "wl_wme_no_ack", "off", 0},		/* WME No-Acknowledgmen mode */
+	/* Per AC Tx parameters */
+#ifdef __CONFIG_BCMWL5__
+	{ "wl_wme_txp_be", "7 3 4 2 0", 0 },	/* WME AC_BE Tx parameters */
+	{ "wl_wme_txp_bk", "7 3 4 2 0", 0 },	/* WME AC_BK Tx parameters */
+	{ "wl_wme_txp_vi", "7 3 4 2 0", 0 },	/* WME AC_VI Tx parameters */
+	{ "wl_wme_txp_vo", "7 3 4 2 0", 0 },	/* WME AC_VO Tx parameters */
+#endif
+
+	{ "wl_wme_bss_disable", "0", 0 },	/* WME BSS disable advertising (off|on) */
+	{ "wl_wme_apsd","on",0},		/* WME APSD mode */
 
 	{ "wl_maxassoc", "128", 0},		/* Max associations driver could support */
+	{ "wl_bss_maxassoc", "128", 0},		/* Max associations driver could support */
 
 	{ "wl_unit", "0", 0 },			/* Last configured interface */
-		
+
+#ifdef __CONFIG_EMF__
+	/* EMF defaults */
+	{ "emf_entry", "", 0 },			/* Static MFDB entry (mgrp:if) */
+	{ "emf_uffp_entry", "", 0 },		/* Unreg frames forwarding ports */
+	{ "emf_rtport_entry", "", 0 },		/* IGMP frames forwarding ports */
+	{ "emf_enable", "0", 0 },		/* Disable EMF by default */
+#endif /* __CONFIG_EMF__ */
+
 	/* Restore defaults */
 	{ "restore_defaults", "0", 0 },		/* Set to 0 to not restore defaults on boot */
 
@@ -218,7 +264,32 @@ struct nvram_tuple router_defaults[] = {
 	{ 0, 0, 0 }
 };
 
-/*.
+/* Translates from, for example, wl0_ (or wl0.1_) to wl_. */
+/* Only single digits are currently supported */
+
+static void
+fix_name(const char *name, char *fixed_name)
+{
+	char *pSuffix = NULL;
+
+	/* Translate prefix wlx_ and wlx.y_ to wl_ */
+	/* Expected inputs are: wld_root, wld.d_root, wld.dd_root
+	 * We accept: wld + '_' anywhere
+	 */
+	pSuffix = strchr(name, '_');
+
+	if ((strncmp(name, "wl", 2) == 0) && isdigit(name[2]) && (pSuffix != NULL)) {
+		strcpy(fixed_name, "wl");
+		strcpy(&fixed_name[2], pSuffix);
+		return;
+	}
+
+	/* No match with above rules: default to input name */
+	strcpy(fixed_name, name);
+}
+
+
+/* 
  * Find nvram param name; return pointer which should be treated as const
  * return NULL if not found.
  *
@@ -229,16 +300,18 @@ struct nvram_tuple router_defaults[] = {
 char *
 nvram_default_get(const char *name)
 {
-        int idx;
+	int idx;
+	char fixed_name[NVRAM_MAX_VALUE_LEN];
 
-        if (strcmp(name, "wl_bss_enabled") == 0) {
+	fix_name(name, fixed_name);
+	if (strcmp(fixed_name, "wl_bss_enabled") == 0) {
                 if (name[3] == '.' || name[4] == '.') { /* Virtual interface */
                         return "0";
                 }
         }
 
         for (idx = 0; router_defaults[idx].name != NULL; idx++) {
-                if (strcmp(router_defaults[idx].name, name) == 0) {
+                if (strcmp(router_defaults[idx].name, fixed_name) == 0) {
                         return router_defaults[idx].value;
                 }
         }

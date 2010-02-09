@@ -445,8 +445,5 @@
 {"wl_nmcsidx","-1",0},
 {"wl_nmode","-1",0},
 {"wl_leddc","0x640000",0},
-{"wl_wme_apsd","on",0},
 {"wl_sta_retry_time","5",0},
 {"wl_reg_mode", "d", 0},
-{"wl_wpa_mode", "0", 0},
-
