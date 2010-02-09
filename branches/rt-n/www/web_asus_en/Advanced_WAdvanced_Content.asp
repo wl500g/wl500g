@@ -102,7 +102,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Enable or Disable WMM.', LEFT);" onMouseOut="return nd();">Enable WMM?
-           </td><td class="content_input_td"><select name="wl_wme" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_wme')"><option class="content_input_fd" value="off" <% nvram_match_x("WLANConfig11b","wl_wme", "off","selected"); %>>Disabled</option><option class="content_input_fd" value="on" <% nvram_match_x("WLANConfig11b","wl_wme", "on","selected"); %>>Enabled</option></select></td>
+           </td><td class="content_input_td"><select name="wl_wme" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_wme')"><option class="content_input_fd" value="auto" <% nvram_match_x("WLANConfig11b","wl_wme", "auto","selected"); %>>Auto</option><option class="content_input_fd" value="off" <% nvram_match_x("WLANConfig11b","wl_wme", "off","selected"); %>>Disabled</option><option class="content_input_fd" value="on" <% nvram_match_x("WLANConfig11b","wl_wme", "on","selected"); %>>Enabled</option></select></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Enable or Disable WMM No-Acknowledgment.', LEFT);" onMouseOut="return nd();">Enable WMM No-Acknowledgement?
