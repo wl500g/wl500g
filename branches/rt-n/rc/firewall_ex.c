@@ -1241,11 +1241,11 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
-		if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_max", "r+")) ){
+		if( (fp=fopen("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", "r+")) ){
 			fputs(nvram_safe_get("misc_conntrack_x"), fp);
 			fclose(fp);
 		} else
-			perror("/proc/sys/net/ipv4/ip_conntrack_max");
+			perror("/proc/sys/net/ipv4/netfilter/ip_conntrack_max");
 	}	
 #ifdef XBOX_SUPPORT
 	if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+")) ){
