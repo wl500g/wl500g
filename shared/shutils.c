@@ -196,7 +196,7 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 		} else {
 			do
 				ret = waitpid(pid, &status, 0);
-			while ((ret == -1) && (errno = EINTR));
+			while ((ret == -1) && (errno == EINTR));
 
 			// Restore signals, errno should be preserved
 			flags = errno;
@@ -257,7 +257,7 @@ _backtick(char *const argv[])
 		dup2(filedes[1], 1);	/* redirect stdout to write end of pipe */
 		close(filedes[1]);	/* close write end of pipe */
 		execvp(argv[0], argv);
-		exit(errno);
+		_exit(errno);
 		break;
 	default:	/* parent */
 		close(filedes[1]);	/* close write end of pipe */

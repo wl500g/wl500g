@@ -30,5 +30,13 @@ index b8cd549..0f99e8d 100644
  	parse_url(argv[optind], &target);
  
  	/* Use the proxy if necessary */
+@@ -708,6 +709,7 @@ int wget_main(int argc UNUSED_PARAM, cha
+ 	if (use_proxy) {
+ 		proxy = getenv(target.is_ftp ? "ftp_proxy" : "http_proxy");
+ 		if (proxy && proxy[0]) {
++			server.user = NULL;
+ 			parse_url(proxy, &server);
+ 		} else {
+ 			use_proxy = 0;
 --
 cgit v0.8.2.1
