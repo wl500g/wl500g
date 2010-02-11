@@ -502,6 +502,8 @@ oldconfig: oldconf
 $(LINUXDIR)/.config: .config
 	cp $(LINUXDIR)/arch/mips/defconfig-bcm947xx $@
 	$(call SwitchConfParam,$@,CONFIG_IPV6,$(if $(CONFIG_IPV6),y,n))
+	$(call SwitchConfParam,$@,CONFIG_CPU_MIPS32_R1,$(if $(filter WL%,$(MODEL)),y,n))
+	$(call SwitchConfParam,$@,CONFIG_CPU_MIPS32_R2,$(if $(filter RT-N%,$(MODEL)),y,n))
 
 #
 # Overrides
