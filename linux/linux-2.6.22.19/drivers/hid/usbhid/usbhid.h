@@ -64,6 +64,7 @@ struct usbhid_device {
 	char *ctrlbuf;                                                  /* Control buffer */
 	dma_addr_t ctrlbuf_dma;                                         /* Control buffer dma */
 	spinlock_t ctrllock;                                            /* Control fifo spinlock */
+	unsigned long last_ctrl;						/* record of last output for timeouts */
 
 	struct urb *urbout;                                             /* Output URB */
 	struct hid_report *out[HID_CONTROL_FIFO_SIZE];                  /* Output pipe fifo */
@@ -71,6 +72,7 @@ struct usbhid_device {
 	char *outbuf;                                                   /* Output buffer */
 	dma_addr_t outbuf_dma;                                          /* Output buffer dma */
 	spinlock_t outlock;                                             /* Output fifo spinlock */
+	unsigned long last_out;							/* record of last output for timeouts */
 
 	unsigned long iofl;                                             /* I/O flags (CTRL_RUNNING, OUT_RUNNING) */
 	struct timer_list io_retry;                                     /* Retry timer */

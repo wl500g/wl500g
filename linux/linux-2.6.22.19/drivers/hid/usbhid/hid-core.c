@@ -251,6 +251,7 @@ static int hid_submit_out(struct hid_device *hid)
 		err_hid("usb_submit_urb(out) failed");
 		return -1;
 	}
+	usbhid->last_out = jiffies;
 
 	return 0;
 }
@@ -300,6 +301,7 @@ static int hid_submit_ctrl(struct hid_device *hid)
 		err_hid("usb_submit_urb(ctrl) failed");
 		return -1;
 	}
+	usbhid->last_ctrl = jiffies;
 
 	return 0;
 }
@@ -422,9 +424,20 @@ void usbhid_submit_report(struct hid_device *hid, struct hid_report *report, uns
 		usbhid->out[usbhid->outhead] = report;
 		usbhid->outhead = head;
 
-		if (!test_and_set_bit(HID_OUT_RUNNING, &usbhid->iofl))
+		if (!test_and_set_bit(HID_OUT_RUNNING, &usbhid->iofl)) {
 			if (hid_submit_out(hid))
 				clear_bit(HID_OUT_RUNNING, &usbhid->iofl);
+		} else {
+			/*
+			 * the queue is known to run
+			 * but an earlier request may be stuck
+			 * we may need to time out
+			 * no race because this is called under
+			 * spinlock
+			 */
+			if (time_after(jiffies, usbhid->last_out + HZ * 5))
+				usb_unlink_urb(usbhid->urbout);
+		}
 
 		spin_unlock_irqrestore(&usbhid->outlock, flags);
 		return;
@@ -442,9 +455,20 @@ void usbhid_submit_report(struct hid_device *hid, struct hid_report *report, uns
 	usbhid->ctrl[usbhid->ctrlhead].dir = dir;
 	usbhid->ctrlhead = head;
 
-	if (!test_and_set_bit(HID_CTRL_RUNNING, &usbhid->iofl))
+	if (!test_and_set_bit(HID_CTRL_RUNNING, &usbhid->iofl)) {
 		if (hid_submit_ctrl(hid))
 			clear_bit(HID_CTRL_RUNNING, &usbhid->iofl);
+	} else {
+		/*
+		 * the queue is known to run
+		 * but an earlier request may be stuck
+		 * we may need to time out
+		 * no race because this is called under
+		 * spinlock
+		 */
+		if (time_after(jiffies, usbhid->last_ctrl + HZ * 5))
+			usb_unlink_urb(usbhid->urbctrl);
+	}
 
 	spin_unlock_irqrestore(&usbhid->ctrllock, flags);
 }
