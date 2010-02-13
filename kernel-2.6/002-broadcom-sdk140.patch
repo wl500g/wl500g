@@ -175,24 +175,6 @@ diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/g
 +
 +module_init(gen_gpio_init);
 +module_exit(gen_gpio_exit);
-diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/irq.c linux-2.6/arch/mips/brcm-boards/bcm947xx/irq.c
---- linux-2.6/arch/mips/brcm-boards/bcm947xx/irq.c	2008-12-12 06:25:41.000000000 +0300
-+++ linux-2.6/arch/mips/brcm-boards/bcm947xx/irq.c	2009-11-26 02:33:36.000000000 +0300
-@@ -258,6 +252,14 @@ plat_irq_dispatch(struct pt_regs *regs)
- 	}
- 	set_c0_status(pending);
- 	irq_enable_hazard();
-+
-+	/* Process any pending softirqs (tasklets, softirqs ...) */
-+	if (!in_softirq() && local_softirq_pending()) {
-+		unsigned long flags;
-+		local_irq_save(flags);
-+		__do_softirq();
-+		local_irq_restore(flags);
-+	}
- }
- 
- /* MIPS IRQ0 to IRQ7 interrupt controller */
 diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile
 --- linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile	2009-06-23 12:25:32.000000000 +0400
 +++ linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile	2009-11-26 02:33:36.000000000 +0300
