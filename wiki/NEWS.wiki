@@ -1,6 +1,29 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel 2.4.37.9
+    * update patches from linux-mips.org up to git linux-2.4 2009-12-05
+    * import backport of SIP ALG conntrack by [http://atens.blogspot.com/2008/04/sip-alghelper-for-linux-kernel-24.html atens] (EXPERIMENTAL, not tested!)
+
+  * IPv6 - added IPv6-to-IPv4 tunnel support, redesigned IPv6 setup page
+
+  * Support of obsolete ASUS !WaveServer turned off.
+
+  * mini_sendmail replaced with busybox's sendmail.
+
+  * bridge-utils 1.0.6
+
+  * dnsmasq 2.52
+
+  * usb-modeswitch 1.1.0
+
+  * bugfixes
+    * busybox (wget, gunzip)
+    * rc - early logger start to avoid kernel messages lost in syslog
+    * libshared - made `_`exec() POSIX.1-2001 compatible
+    * madwimax - fix bug in signal handler
+
 ===wl500g-1.9.2.7-d-`r1087` (2010-01-24)===
   * kernel
     * netfilter ipt_time fix
