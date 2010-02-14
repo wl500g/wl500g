@@ -56,7 +56,6 @@ UDEV=udev-113
 
 UCLIBC=uClibc-0.9.30.1
 
-ET=et-5.10.56.46
 WL=wl-5.10.56.46
 NAS=nas-5.10.56.46
 LIBBCMCRYPTO=libbcmcrypto-5.20.41
@@ -124,10 +123,6 @@ $(ROOT)/lzma: $(LZMA).tbz2 $(ROOT)/lzma/CPP/7zip/Compress
 lzma: $(ROOT)/lzma
 	@true
 
-et:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - et | tar -C $(ROOT) --recursive-unlink -xf -
-	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
-
 wl:
 	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
 	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src/$(NAS).tbz2
@@ -135,7 +130,7 @@ wl:
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -154,7 +149,7 @@ kernel-extra-drivers:
 #	tar -C $(KERNEL_DIR) -xvjf kernel-2.6/drivers/ov51x-1.65-1.12.tar.bz2
 #	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
-kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
+kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
