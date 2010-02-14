@@ -82,21 +82,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/icmp
  };
  
  
-@@ -98,6 +104,14 @@ struct icmp6hdr {
- #define ICMPV6_MLD2_REPORT		143
- #define MLD2_ALL_MCR_INIT { { { 0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x16 } } }
- 
-+#define ICMPV6_NI_QUERY			139
-+#define ICMPV6_NI_REPLY			140
-+
-+#define ICMPV6_DHAAD_REQUEST		144
-+#define ICMPV6_DHAAD_REPLY		145
-+#define ICMPV6_MOBILE_PREFIX_SOL	146
-+#define ICMPV6_MOBILE_PREFIX_ADV	147
-+
- /*
-  *	Codes for Destination Unreachable
-  */
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/in6.h linux-2.4.37.9-ct6/include/linux/in6.h
 --- linux-2.4.37.9/include/linux/in6.h	2010-02-02 00:04:46.000000000 +0300
 +++ linux-2.4.37.9-ct6/include/linux/in6.h	2010-02-14 13:59:16.000000000 +0300
