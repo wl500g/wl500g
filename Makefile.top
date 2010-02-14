@@ -377,7 +377,10 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/scsi/scsi_mod$(ko)
 	# usb serial
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(ko)
+		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/pl2303$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko)
 	# usb webcams
 	# usb audio
 	# other
