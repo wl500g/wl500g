@@ -1372,7 +1372,7 @@ diff -urN linux-2.4.29-old/net/ipv4/netfilter/ip_nat_pptp.c linux-2.4.29-dev/net
 +		break;
 +	case PPTP_IN_CALL_REQUEST:
 +		/* only need to nat in case PAC is behind NAT box */
-+		break;
++		return NF_ACCEPT;
 +	case PPTP_WAN_ERROR_NOTIFY:
 +		pcid = &pptpReq.wanerr->peersCallID;
 +		break;
@@ -1671,7 +1671,7 @@ diff -urN linux-2.4.29-old/net/ipv4/netfilter/ip_nat_proto_gre.c linux-2.4.29-de
 +		case GRE_VERSION_PPTP:
 +			DEBUGP("call_id -> 0x%04x\n", 
 +				ntohl(manip->u.gre.key));
-+			pgreh->call_id = htons(ntohl(manip->u.gre.key));
++			pgreh->call_id = manip->u.gre.key;
 +			break;
 +		default:
 +			DEBUGP("can't nat unknown GRE version\n");
