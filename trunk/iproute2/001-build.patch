@@ -22,7 +22,7 @@ diff -urBp iproute2-ss020116/Makefile iproute2.new/Makefile
  #ADDLIB=inet_ntop.o inet_pton.o
  
  #options for decnet
-@@ -23,19 +22,15 @@ ADDLIB+=dnet_ntop.o dnet_pton.o
+@@ -23,20 +22,17 @@ ADDLIB+=dnet_ntop.o dnet_pton.o
  #options for ipx
  ADDLIB+=ipx_ntop.o ipx_pton.o
  
@@ -46,8 +46,10 @@ diff -urBp iproute2-ss020116/Makefile iproute2.new/Makefile
 +CCOPTS += $(call check_gcc,-Wno-pointer-sign,)
 +CFLAGS = $(CCOPTS) $(GLIBCFIX) -I$(KERNEL_INCLUDE) -I../include $(DEFINES) $(EXTRACFLAGS)
  
++LDFLAGS += $(EXTRA_LDFLAGS)
  LDLIBS += -L../lib -lnetlink -lutil
  
+ SUBDIRS=lib ip tc misc
 diff -urBp iproute2-ss020116/misc/Makefile iproute2.new/misc/Makefile
 --- iproute2-ss020116/misc/Makefile	2002-01-16 02:30:32.000000000 +0300
 +++ iproute2.new/misc/Makefile	2009-07-09 20:01:56.000000000 +0400
