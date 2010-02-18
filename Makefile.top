@@ -731,7 +731,7 @@ portmap-install:
 	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 
 iproute2: .config
-	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip
