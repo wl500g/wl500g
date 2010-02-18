@@ -528,15 +528,15 @@ Index: net/ipv4/netfilter/ip_nat_sip.c
 +				      char *buffer, int bufflen,
 +				      enum sip_header_pos pos)
 +{
-+	int i;
 +	unsigned int matchlen, matchoff;
 +	struct iphdr *iph = (*pskb)->nh.iph;
 +
 +	if (ct_sip_get_info(ct, *dptr, dlen, &matchoff, &matchlen, pos) <= 0)
 +		return 0;
 +
-+	
 +#ifdef DEBUG
++	int i;
++	
 +	printk("%s:%d:mangle udp packet.\nBefore:\n\t", __FILE__, __LINE__);
 +
 +	for (i= 0; i<matchlen; i++) {

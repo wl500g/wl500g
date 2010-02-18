@@ -7,7 +7,7 @@
 -			long diff = PSCHED_TDIFF_SAFE(q->now, cl->t_c, (u32)cl->mbuffer, 0);
 -			printk(KERN_DEBUG "htb*c%x m=%d t=%ld c=%ld pq=%lu df=%ld ql=%d "
 +			long long diff = PSCHED_TDIFF_SAFE(q->now, cl->t_c, (u32)cl->mbuffer, 0);
-+			printk(KERN_DEBUG "htb*c%x m=%d t=%ld c=%ld pq=%lu df=%ld ql=%lld "
++			printk(KERN_DEBUG "htb*c%x m=%d t=%ld c=%ld pq=%lu df=%lld ql=%d "
  					"pa=%x f:",
  				cl->classid,cl->cmode,cl->tokens,cl->ctokens,
 @@ -617,7 +617,7 @@
