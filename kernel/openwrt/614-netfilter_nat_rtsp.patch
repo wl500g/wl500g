@@ -1182,16 +1182,6 @@ diff -urN linux-2.4.32/net/ipv4/netfilter/ip_nat_rtsp.c linux-2.4.32.new/net/ipv
 +
 +module_init(init);
 +module_exit(fini);
---- linux-2.4.32/arch/mips/kernel/mips_ksyms.c	2006-03-01 00:49:34.142887320 +0100
-+++ linux-2.4.32.new/arch/mips/kernel/mips_ksyms.c	2006-03-01 00:55:14.469149864 +0100
-@@ -52,6 +52,7 @@
- /*
-  * String functions
-  */
-+EXPORT_SYMBOL_NOVERS(memchr);
- EXPORT_SYMBOL_NOVERS(memcmp);
- EXPORT_SYMBOL_NOVERS(memset);
- EXPORT_SYMBOL_NOVERS(memcpy);
 diff -urN linux-2.4.32/include/linux/netfilter_helpers.h linux-2.4.32.new/include/linux/netfilter_helpers.h
 --- linux-2.4.32/include/linux/netfilter_helpers.h	1970-01-01 01:00:00.000000000 +0100
 +++ linux-2.4.32.new/include/linux/netfilter_helpers.h	2006-03-01 00:55:14.470149712 +0100
