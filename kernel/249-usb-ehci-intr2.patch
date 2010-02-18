@@ -29,7 +29,7 @@ Index: usb-2.6/drivers/usb/host/ehci-q.c
 ===================================================================
 --- usb-2.6.orig/drivers/usb/host/ehci-q.c
 +++ usb-2.6/drivers/usb/host/ehci-q.c
-@@ -849,9 +849,10 @@ qh_make (
+@@ -769,9 +769,10 @@ qh_make (
  				 * But interval 1 scheduling is simpler, and
  				 * includes high bandwidth.
  				 */
@@ -43,7 +43,7 @@ Index: usb-2.6/drivers/usb/host/ehci-q.c
  			}
  		} else {
  			int		think_time;
-@@ -874,6 +875,10 @@ qh_make (
+@@ -794,6 +795,10 @@ qh_make (
  					usb_calc_bus_time (urb->dev->speed,
  					is_input, 0, max_packet (maxp)));
  			qh->period = urb->interval;
@@ -54,4 +54,12 @@ Index: usb-2.6/drivers/usb/host/ehci-q.c
  		}
  	}
 
+@@ -853,7 +853,6 @@ qh_make (
+ 		break;
+ 	default:
+  		dbg ("bogus dev %p speed %d", urb->dev, urb->dev->speed);
+-done:
+ 		qh_put (ehci, qh);
+ 		return NULL;
+ 	}
 --
