@@ -437,8 +437,15 @@ void convert_asus_values()
 
 	if (nvram_invmatch("wan_hwaddr_x", ""))
 	{
-		nvram_set("wan_hwaddr", mac_conv("wan_hwaddr_x", -1, macbuf));
-		nvram_set("wan0_hwaddr", mac_conv("wan_hwaddr_x", -1, macbuf));
+		char *wan_mac = mac_conv("wan_hwaddr_x", -1, macbuf);
+
+		nvram_set("wan_hwaddr", wan_mac);
+		nvram_set("wan0_hwaddr", wan_mac);
+	}
+	else
+	{
+		nvram_unset("wan_hwaddr");
+		nvram_unset("wan0_hwaddr");
 	}
 
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
