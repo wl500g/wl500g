@@ -436,7 +436,7 @@
 {"infosvr_enable", "1", 0},
 {"lpr_enable", "0", 0},
 {"raw_enable", "1", 0},
-{"audio_enable", "1", 0},
+{"audio_enable", "0", 0},
 {"usb20_disable_x", "0", 0},
 
 {"wl_nbw","40",0},
