@@ -1,6 +1,6 @@
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/Documentation/Configure.help linux-2.4.37.9-ct6/Documentation/Configure.help
 --- linux-2.4.37.9/Documentation/Configure.help	2009-01-20 15:10:50.000000000 +0300
-+++ linux-2.4.37.9-ct6/Documentation/Configure.help	2010-02-14 12:33:36.000000000 +0300
++++ linux-2.4.37.9-ct6/Documentation/Configure.help	2009-01-20 15:10:50.000000000 +0300
 @@ -3467,6 +3467,35 @@ CONFIG_IP_NF_COMPAT_IPFWADM
    If you want to compile it as a module, say M here and read
    <file:Documentation/modules.txt>.  If unsure, say `N'.
@@ -50,8 +50,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/Documentation/netw
  conf/default/*:
  	Change the interface-specific default settings.
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/icmpv6.h linux-2.4.37.9-ct6/include/linux/icmpv6.h
---- linux-2.4.37.9/include/linux/icmpv6.h	2010-02-02 00:04:46.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/icmpv6.h	2010-02-14 16:38:59.000000000 +0300
+--- linux-2.4.37.9/include/linux/icmpv6.h	2010-02-14 14:52:10.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/icmpv6.h	2010-02-18 20:58:53.000000000 +0300
 @@ -40,14 +40,18 @@ struct icmp6hdr {
                  struct icmpv6_nd_ra {
  			__u8		hop_limit;
@@ -84,7 +84,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/icmp
  
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/in6.h linux-2.4.37.9-ct6/include/linux/in6.h
 --- linux-2.4.37.9/include/linux/in6.h	2010-02-02 00:04:46.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/in6.h	2010-02-14 13:59:16.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/in6.h	2010-02-18 20:58:44.000000000 +0300
 @@ -40,7 +40,7 @@ struct in6_addr
  #define s6_addr32		in6_u.u6_addr32
  };
@@ -141,7 +141,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/ipv6
  	struct in6_addr		rtmsg_src;
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter.h linux-2.4.37.9-ct6/include/linux/netfilter.h
 --- linux-2.4.37.9/include/linux/netfilter.h	2010-02-02 00:04:46.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter.h	2010-02-14 16:39:01.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter.h	2010-02-18 20:58:55.000000000 +0300
 @@ -155,6 +155,10 @@ arpt_find_target_lock(const char *name,
  extern void (*ip_ct_attach)(struct sk_buff *, struct nf_ct_info *);
  extern void nf_ct_attach(struct sk_buff *, struct sk_buff *);
@@ -155,7 +155,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
  #endif
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_core.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_core.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_core.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_core.h	2010-02-14 16:57:52.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_core.h	2010-02-20 23:07:15.000000000 +0300
 @@ -0,0 +1,69 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
@@ -210,14 +210,14 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +ip6_conntrack_find_get(const struct ip6_conntrack_tuple *tuple,
 +		      const struct ip6_conntrack *ignored_conntrack);
 +
-+extern int __ip6_conntrack_confirm(struct sk_buff *skb);
++extern int __ip6_conntrack_confirm(struct nf_ct_info *nfct);
 +
 +/* Confirm a connection: returns NF_DROP if packet must be dropped. */
 +static inline int ip6_conntrack_confirm(struct sk_buff *skb)
 +{
 +	if (skb->nfct
-+	    && !is_confirmed((struct ip6_conntrack *)skb->nfct))
-+		return __ip6_conntrack_confirm(skb);
++	    && !is_confirmed((struct ip6_conntrack *)skb->nfct->master))
++		return __ip6_conntrack_confirm(skb->nfct);
 +	return NF_ACCEPT;
 +}
 +
@@ -284,8 +284,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /* _IP6_CONNTRACK_FTP_H */
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack.h	2010-02-14 17:02:30.000000000 +0300
-@@ -0,0 +1,272 @@
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack.h	2010-02-20 23:02:16.000000000 +0300
+@@ -0,0 +1,273 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
 + *
@@ -347,6 +347,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#ifdef __KERNEL__
 +
 +#include <linux/config.h>
++#include <net/ipv6.h>
 +#include <linux/netfilter_ipv6/ip6_conntrack_tuple.h>
 +#include <linux/bitops.h>
 +#include <linux/compiler.h>
@@ -560,7 +561,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /* _IP6_CONNTRACK_H */
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_helper.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_helper.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_helper.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_helper.h	2010-02-14 17:02:58.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_helper.h	2010-02-20 23:02:28.000000000 +0300
 @@ -0,0 +1,57 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
@@ -621,7 +622,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /*_IP6_CONNTRACK_HELPER_H*/
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_icmpv6.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_icmpv6.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_icmpv6.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_icmpv6.h	2010-02-14 14:02:00.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_icmpv6.h	2010-02-20 16:15:24.000000000 +0300
 @@ -0,0 +1,24 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
@@ -649,7 +650,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /* _IP6_CONNTRACK_ICMPv6_H */
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_protocol.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_protocol.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_protocol.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_protocol.h	2010-02-14 17:02:58.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_protocol.h	2010-02-20 23:02:28.000000000 +0300
 @@ -0,0 +1,83 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
@@ -736,7 +737,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /*_IP6_CONNTRACK_PROTOCOL_H*/
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_reasm.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_reasm.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_reasm.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_reasm.h	2010-02-14 16:57:52.000000000 +0300
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_reasm.h	2010-02-20 16:15:24.000000000 +0300
 @@ -0,0 +1,28 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
@@ -813,8 +814,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +#endif /* _IP6_CONNTRACK_TCP_H */
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_tuple.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_tuple.h
 --- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6_conntrack_tuple.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_tuple.h	2010-02-14 14:02:00.000000000 +0300
-@@ -0,0 +1,131 @@
++++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6_conntrack_tuple.h	2010-02-20 22:59:50.000000000 +0300
+@@ -0,0 +1,143 @@
 +/*
 + * Copyright (C)2003 USAGI/WIDE Project
 + *
@@ -932,14 +933,26 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +
 +#endif /* __KERNEL__ */
 +
-+extern int ip6_ct_tuple_src_equal(const struct ip6_conntrack_tuple *t1,
-+				  const struct ip6_conntrack_tuple *t2);
++static inline int ip6_ct_tuple_src_equal(const struct ip6_conntrack_tuple *t1,
++				  const struct ip6_conntrack_tuple *t2)
++{
++	return ipv6_addr_cmp(&t1->src.ip, &t2->src.ip) == 0
++		&& t1->src.u.all == t2->src.u.all;
++}
 +
-+extern int ip6_ct_tuple_dst_equal(const struct ip6_conntrack_tuple *t1,
-+				  const struct ip6_conntrack_tuple *t2);
++static inline int ip6_ct_tuple_dst_equal(const struct ip6_conntrack_tuple *t1,
++				  const struct ip6_conntrack_tuple *t2)
++{
++	return ipv6_addr_cmp(&t1->dst.ip, &t2->dst.ip) == 0
++		&& t1->dst.u.all == t2->dst.u.all
++		&& t1->dst.protonum == t2->dst.protonum;
++}
 +
-+extern int ip6_ct_tuple_equal(const struct ip6_conntrack_tuple *t1,
-+			      const struct ip6_conntrack_tuple *t2);
++static inline int ip6_ct_tuple_equal(const struct ip6_conntrack_tuple *t1,
++			      const struct ip6_conntrack_tuple *t2)
++{
++	return ip6_ct_tuple_src_equal(t1, t2) && ip6_ct_tuple_dst_equal(t1, t2);
++}
 +
 +extern int ip6_ct_tuple_mask_cmp(const struct ip6_conntrack_tuple *t,
 +			       const struct ip6_conntrack_tuple *tuple,
@@ -1045,8 +1058,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
  #    dep_tristate '  Owner match support (EXPERIMENTAL)' CONFIG_IP6_NF_MATCH_OWNER $CONFIG_IP6_NF_IPTABLES
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_core.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_core.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_core.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_core.c	2010-02-14 16:23:21.000000000 +0300
-@@ -0,0 +1,1618 @@
++++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_core.c	2010-02-20 23:13:03.000000000 +0300
+@@ -0,0 +1,1585 @@
 +/*
 + * IPv6 Connection Tracking
 + * Linux INET6 implementation
@@ -1129,6 +1142,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static atomic_t ip6_conntrack_count = ATOMIC_INIT(0);
 +struct list_head *ip6_conntrack_hash;
 +static kmem_cache_t *ip6_conntrack_cachep;
++static LIST_HEAD(unconfirmed);
 +
 +extern struct ip6_conntrack_protocol ip6_conntrack_generic_protocol;
 +
@@ -1153,7 +1167,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 + *	    normal payload protocol.
 + *	  - Note also special handling of AUTH header. Thanks to IPsec wizards.
 + */
-+
 +static int ip6_ct_skip_exthdr(struct sk_buff *skb, int start, u8 *nexthdrp,
 +			      int len)
 +{
@@ -1191,43 +1204,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +	*nexthdrp = nexthdr;
 +	return start;
-+}
-+
-+int ip6_ct_tuple_src_equal(const struct ip6_conntrack_tuple *t1,
-+			   const struct ip6_conntrack_tuple *t2)
-+{
-+	if (ipv6_addr_cmp(&t1->src.ip, &t2->src.ip))
-+		return 0;
-+
-+	if (t1->src.u.all != t2->src.u.all)
-+		return 0;
-+
-+	if (t1->dst.protonum != t2->dst.protonum)
-+		return 0;
-+
-+	return 1;
-+
-+}
-+
-+int ip6_ct_tuple_dst_equal(const struct ip6_conntrack_tuple *t1,
-+			   const struct ip6_conntrack_tuple *t2)
-+{
-+	if (ipv6_addr_cmp(&t1->dst.ip, &t2->dst.ip))
-+		return 0;
-+
-+	if (t1->dst.u.all != t2->dst.u.all)
-+		return 0;
-+
-+	if (t1->dst.protonum != t2->dst.protonum)
-+		return 0;
-+
-+	return 1;
-+}
-+
-+int ip6_ct_tuple_equal(const struct ip6_conntrack_tuple *t1,
-+		       const struct ip6_conntrack_tuple *t2)
-+{
-+  return ip6_ct_tuple_src_equal(t1, t2) && ip6_ct_tuple_dst_equal(t1, t2);
 +}
 +
 +int ip6_ct_tuple_mask_cmp(const struct ip6_conntrack_tuple *t,
@@ -1468,11 +1444,11 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static void unexpect_related(struct ip6_conntrack_expect *expect)
 +{
 +	IP6_NF_ASSERT(expect->expectant);
-+	IP6_NF_ASSERT(expect->expectant->helper);
 +	/* if we are supposed to have a timer, but we can't delete
 +	 * it: race condition.  __unexpect_related will
 +	 * be calledd by timeout function */
-+	if (expect->expectant->helper->timeout
++	if (expect->expectant->helper
++	    && expect->expectant->helper->timeout
 +	    && !del_timer(&expect->timeout))
 +		return;
 +
@@ -1627,13 +1603,13 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +}
 +
 +/* Confirm a connection given skb; places it in hash table */
-+int __ip6_conntrack_confirm(struct sk_buff *skb)
++int __ip6_conntrack_confirm(struct nf_ct_info *nfct)
 +{
 +	unsigned int hash, repl_hash;
 +	struct ip6_conntrack *ct;
 +	enum ip6_conntrack_info ctinfo;
 +
-+	ct = ip6_conntrack_get(skb, &ctinfo);
++	ct = __ip6_conntrack_get(nfct, &ctinfo);
 +
 +	/* ip6t_REJECT uses ip6_conntrack_attach to attach related
 +	   ICMP/TCP RST packets in other direction.  Actual packet
@@ -1667,6 +1643,9 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			  conntrack_tuple_cmp,
 +			  struct ip6_conntrack_tuple_hash *,
 +			  &ct->tuplehash[IP6_CT_DIR_REPLY].tuple, NULL)) {
++		/* Remove from unconfirmed list */
++		list_del(&ct->tuplehash[IP6_CT_DIR_ORIGINAL].list);
++
 +		list_prepend(&ip6_conntrack_hash[hash],
 +			     &ct->tuplehash[IP6_CT_DIR_ORIGINAL]);
 +		list_prepend(&ip6_conntrack_hash[repl_hash],
@@ -1722,19 +1701,10 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	IP6_NF_ASSERT(skb->nfct == NULL);
 +
 +	ip6h = skb->nh.ipv6h;
-+	if (skb_copy_bits(skb, icmp6off, &hdr, sizeof(hdr)) != 0) {
-+		DEBUGP("icmp_error_track: Can't copy ICMPv6 hdr.\n");
++	if (skb_copy_bits(skb, icmp6off, &hdr, sizeof(hdr))) {
++		DEBUGP("icmp6_error_track: Can't copy ICMPv6 hdr.\n");
 +		return NULL;
 +	}
-+
-+	if (hdr.icmp6_type >= 128)
-+		return NULL;
-+
-+	/*
-+	 * Should I ignore invalid ICMPv6 error here ?
-+	 * ex) ICMPv6 error in ICMPv6 error, Fragmented packet, and so on.
-+	 * - kozakai
-+	 */
 +
 +	/* Why not check checksum in IPv4 conntrack ? - kozakai */
 +	/* Ignore it if the checksum's bogus. */
@@ -1747,9 +1717,17 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		return NULL;
 +	}
 +
++	/*
++	 * Should I ignore invalid ICMPv6 error here ?
++	 * ex) ICMPv6 error in ICMPv6 error, Fragmented packet, and so on.
++	 * - kozakai
++	 */
++	if (hdr.icmp6_type >= 128)
++		return NULL;
++
 +	inip6off = icmp6off + sizeof(hdr);
-+	if (skb_copy_bits(skb, inip6off, &inip6h, sizeof(inip6h)) != 0) {
-+		DEBUGP("Can't copy inner IPv6 hdr.\n");
++	if (skb_copy_bits(skb, inip6off, &inip6h, sizeof(inip6h))) {
++		DEBUGP("icmp6_error_track: Can't copy inner IPv6 hdr.\n");
 +		return NULL;
 +	}
 +
@@ -1760,7 +1738,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +	if (inprotoff < 0 || inprotoff > skb->len
 +	    || inprotonum == NEXTHDR_FRAGMENT) {
-+		DEBUGP("icmp6_error: Can't find protocol header in ICMPv6 payload.\n");
++		DEBUGP("icmp6_error_track: Can't find protocol header in ICMPv6 payload.\n");
 +		return NULL;
 +	}
 +
@@ -1769,7 +1747,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	/* Are they talking about one of our connections? */
 +	if (!ip6_get_tuple(&inip6h, skb, inprotoff, inprotonum,
 +			   &origtuple, inproto)) {
-+		DEBUGP("icmp6_error: ! get_tuple p=%u\n", inprotonum);
++		DEBUGP("icmp6_error_track: ! get_tuple p=%u\n", inprotonum);
 +		return NULL;
 +	}
 +
@@ -1933,6 +1911,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +	/* If the expectation is dying, then this is a loser. */
 +	if (expected
++	    && expected->expectant->helper
 +	    && expected->expectant->helper->timeout
 +	    && ! del_timer(&expected->timeout))
 +		expected = NULL;
@@ -1949,6 +1928,10 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		expected->expectant->expecting--;
 +		nf_conntrack_get(&master_ct6(conntrack)->infos[0]);
 +	}
++	/* Overload tuple linked list to put us in unconfirmed list. */
++	list_add(&conntrack->tuplehash[IP6_CT_DIR_ORIGINAL].list,
++		 &unconfirmed);
++
 +	atomic_inc(&ip6_conntrack_count);
 +	write_unlock_bh(&ip6_conntrack_lock);
 +
@@ -2036,6 +2019,9 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	if ((*pskb)->nfct)
 +		return NF_ACCEPT;
 +
++	/* FIXME: Do this right please. --RR */
++	(*pskb)->nfcache |= NFC_UNKNOWN;
++
 +	extoff = (u8*)((*pskb)->nh.ipv6h+1) - (*pskb)->data;
 +	len = (*pskb)->len - extoff;
 +
@@ -2051,7 +2037,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	 */
 +	if (protoff < 0 || protoff > (*pskb)->len
 +	    || protonum == NEXTHDR_FRAGMENT) {
-+		DEBUGP("ip6_conntrack_core: can't find proto in pkt\n");
++		DEBUGP("ip6_conntrack_in: can't find proto in pkt\n");
 +		return NF_ACCEPT;
 +	}
 +
@@ -2189,7 +2175,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		   pointing into the payload - otherwise we should have to copy 
 +		   the data filled out by the helper over the old one */
 +		DEBUGP("expect_related: resent packet\n");
-+		if (related_to->helper->timeout) {
++		if (old->expectant == related_to &&
++		    related_to->helper && related_to->helper->timeout) {
 +			if (!del_timer(&old->timeout)) {
 +				/* expectation is dying. Fall through */
 +				old = NULL;
@@ -2204,9 +2191,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			write_unlock_bh(&ip6_conntrack_lock);
 +			return -EEXIST;
 +		}
-+	} else if (related_to->helper->max_expected && 
++	} else if (related_to->helper && related_to->helper->max_expected && 
 +		   related_to->expecting >= related_to->helper->max_expected) {
-+		struct list_head *cur_item;
 +		/* old == NULL */
 +		if (!(related_to->helper->flags & 
 +		      IP6_CT_HELPER_F_REUSE_EXPECT)) {
@@ -2231,21 +2217,14 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		       NIP6(related_to->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.dst.ip));
 + 
 +		/* choose the the oldest expectation to evict */
-+		list_for_each(cur_item, &related_to->sibling_list) { 
-+			struct ip6_conntrack_expect *cur;
-+
-+			cur = list_entry(cur_item, 
-+					 struct ip6_conntrack_expect,
-+					 expected_list);
-+			if (cur->sibling == NULL) {
-+				old = cur;
++		list_for_each_entry(old, &related_to->sibling_list, 
++						      expected_list)
++			if (old->sibling == NULL)
 +				break;
-+			}
-+		}
 +
 +		/* (!old) cannot happen, since related_to->expecting is the
 +		 * number of unconfirmed expects */
-+		IP6_NF_ASSERT(old);
++		IP6_NF_ASSERT(old && old->sibling == NULL);
 +
 +		/* newnat14 does not reuse the real allocated memory
 +		 * structures but rather unexpects the old and
@@ -2281,7 +2260,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	/* add to global list of expectations */
 +	list_prepend(&ip6_conntrack_expect_list, &new->list);
 +	/* add and start timer if required */
-+	if (related_to->helper->timeout) {
++	if (related_to->helper &&
++	    related_to->helper->timeout) {
 +		init_timer(&new->timeout);
 +		new->timeout.data = (unsigned long)new;
 +		new->timeout.function = expectation_timed_out;
@@ -2667,7 +2647,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +}
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_ftp.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_ftp.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_ftp.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_ftp.c	2010-02-14 12:55:31.000000000 +0300
++++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_ftp.c	2010-02-20 20:42:25.000000000 +0300
 @@ -0,0 +1,553 @@
 +/*
 + * FTP extension for IPv6 connection tracking.
@@ -3034,7 +3014,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		return NF_ACCEPT;
 +	}
 +
-+	if (skb_copy_bits(skb, protoff, &tcph, sizeof(tcph)) != 0) 
++	if (skb_copy_bits(skb, protoff, &tcph, sizeof(tcph)) != 0)
 +		return NF_ACCEPT;
 +
 +	dataoff = protoff + tcph.doff * 4;
@@ -3311,8 +3291,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_proto_icmpv6.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_icmpv6.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_proto_icmpv6.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_icmpv6.c	2010-02-14 14:44:23.000000000 +0300
-@@ -0,0 +1,136 @@
++++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_icmpv6.c	2010-02-20 23:13:17.000000000 +0300
+@@ -0,0 +1,139 @@
 +/*
 + * ICMPv6 extension for IPv6 connection tracking
 + * Linux INET6 implementation
@@ -3362,23 +3342,24 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	return 1;
 +}
 +
++/* Add 1; spaces filled with 0. */
++static u_int8_t invmap[] = {
++	[ICMPV6_ECHO_REQUEST - 128]	= ICMPV6_ECHO_REPLY + 1,
++	[ICMPV6_ECHO_REPLY - 128]	= ICMPV6_ECHO_REQUEST + 1,
++	[ICMPV6_NI_QUERY - 128]		= ICMPV6_NI_QUERY + 1,
++	[ICMPV6_NI_REPLY - 128]		= ICMPV6_NI_REPLY +1
++};
++
 +static int icmpv6_invert_tuple(struct ip6_conntrack_tuple *tuple,
 +			       const struct ip6_conntrack_tuple *orig)
 +{
-+	/* Add 1; spaces filled with 0. */
-+	static u_int8_t invmap[] = {
-+		[ICMPV6_ECHO_REQUEST]	= ICMPV6_ECHO_REPLY + 1,
-+		[ICMPV6_ECHO_REPLY]	= ICMPV6_ECHO_REQUEST + 1,
-+		[ICMPV6_NI_QUERY]	= ICMPV6_NI_QUERY + 1,
-+		[ICMPV6_NI_REPLY]	= ICMPV6_NI_REPLY +1
-+	};
 +
-+	if (orig->dst.u.icmpv6.type >= sizeof(invmap)
-+	    || !invmap[orig->dst.u.icmpv6.type])
++        int type = orig->dst.u.icmpv6.type - 128;
++        if (type < 0 || type >= sizeof(invmap) || !invmap[type])
 +		return 0;
 +
 +	tuple->src.u.icmpv6.id   = orig->src.u.icmpv6.id;
-+	tuple->dst.u.icmpv6.type = invmap[orig->dst.u.icmpv6.type] - 1;
++	tuple->dst.u.icmpv6.type = invmap[type] - 1;
 +	tuple->dst.u.icmpv6.code = orig->dst.u.icmpv6.code;
 +	return 1;
 +}
@@ -3428,16 +3409,18 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		      const struct sk_buff *skb,
 +		      unsigned int dataoff)
 +{
-+	static u_int8_t valid_new[] = {
-+		[ICMPV6_ECHO_REQUEST] = 1,
-+		[ICMPV6_NI_QUERY] = 1
++	static const u_int8_t valid_new[] = {
++		[ICMPV6_ECHO_REQUEST - 128] = 1,
++		[ICMPV6_NI_QUERY - 128]	= 1
 +	};
 +
-+	if (conntrack->tuplehash[0].tuple.dst.u.icmpv6.type >= sizeof(valid_new)
-+	    || !valid_new[conntrack->tuplehash[0].tuple.dst.u.icmpv6.type]) {
++	int type = conntrack->tuplehash[0].tuple.dst.u.icmpv6.type - 128;
++
++	if (type < 0 || type >= sizeof(valid_new)
++	    || !valid_new[type]) {
 +		/* Can't create a new ICMPV6 `conn' with this. */
 +		DEBUGP("icmpv6: can't create new conn with type %u\n",
-+		       conntrack->tuplehash[0].tuple.dst.u.icmpv6.type);
++		       type + 128);
 +		DUMP_TUPLE(&conntrack->tuplehash[0].tuple);
 +		return 0;
 +	}
@@ -3451,7 +3434,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +    icmpv6_print_conntrack, icmpv6_packet, icmpv6_new, NULL, NULL, NULL };
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_proto_tcp.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_tcp.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_proto_tcp.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_tcp.c	2005-10-14 04:05:06.000000000 +0400
++++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_proto_tcp.c	2010-02-20 23:13:11.000000000 +0300
 @@ -0,0 +1,272 @@
 +/*
 + * TCP extension for IPv6 Connection Tracking
@@ -4827,8 +4810,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +}
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c	2010-02-14 17:05:04.000000000 +0300
-@@ -0,0 +1,502 @@
++++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c	2010-02-20 23:13:14.000000000 +0300
+@@ -0,0 +1,497 @@
 +/*
 + * IPv6 Connection Tracking
 + * Linux INET6 implementation
@@ -5087,11 +5070,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			       const struct net_device *out,
 +			       int (*okfn)(struct sk_buff *))
 +{
-+	int ret;
-+
-+	ret = ip6_conntrack_confirm(*pskb);
-+
-+	return ret;
++	return ip6_conntrack_confirm(*pskb);
 +}
 +
 +static unsigned int ip6_conntrack_out(unsigned int hooknum,
@@ -5100,7 +5079,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			      const struct net_device *out,
 +			      int (*okfn)(struct sk_buff *))
 +{
-+
 +	if (ip6_conntrack_confirm(*pskb) != NF_ACCEPT)
 +                return NF_DROP;
 +
@@ -5456,7 +5434,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +ip6_conntrack.o: $(ip6_conntrack-objs)
 +	$(LD) -r -o $@ $(ip6_conntrack-objs)
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/netsyms.c linux-2.4.37.9-ct6/net/netsyms.c
---- linux-2.4.37.9/net/netsyms.c	2010-02-14 03:00:00.000000000 +0300
+--- linux-2.4.37.9/net/netsyms.c	2010-02-20 03:00:00.000000000 +0300
 +++ linux-2.4.37.9-ct6/net/netsyms.c	2010-02-14 12:39:01.000000000 +0300
 @@ -610,6 +610,9 @@ EXPORT_SYMBOL(nf_setsockopt);
  EXPORT_SYMBOL(nf_getsockopt);
