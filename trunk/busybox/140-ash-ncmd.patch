@@ -1,5 +1,7 @@
 ash: fix for bb bug #1087 - segfault on command "echo $(</tmp/file)"
 
+ http://git.busybox.net/busybox/commit/?id=7426920461738367205e3d08649c827c747bd93d
+
 diff -uBp busybox-1.15.3/shell/ash.c busybox/shell/ash.c
 --- busybox-1.15.3/shell/ash.c	2010-02-20 03:00:00.000000000 +0300
 +++ busybox/shell/ash.c	2010-02-20 11:26:15.000000000 +0300
