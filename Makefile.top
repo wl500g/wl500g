@@ -293,6 +293,7 @@ endif
 
 modules_install-WL3%: modules_install
 #	rm -rf $(MODULESDIR)/parport
+	@true
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 	install -t $(MODULESDIR) \
