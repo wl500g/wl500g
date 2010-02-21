@@ -1,16 +1,23 @@
 #summary History of Changes
 #labels Featured
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r1222` (2010-02-21)===
   * kernel 2.4.37.9
     * update patches from linux-mips.org up to git linux-2.4 2009-12-05
-    * import backport of SIP ALG conntrack by [http://atens.blogspot.com/2008/04/sip-alghelper-for-linux-kernel-24.html atens] (EXPERIMENTAL, not tested!)
+    * netfilter
+      * import backport of SIP ALG conntrack by [http://atens.blogspot.com/2008/04/sip-alghelper-for-linux-kernel-24.html atens] (EXPERIMENTAL, not tested!)
+      * backport of IPv6 conntrack (EXPERIMENTAL, not fully tested!)
+      * PPTP/GRE helper fixes from 2.6 upstream
 
   * IPv6 - added IPv6-to-IPv4 tunnel support, redesigned IPv6 setup page
 
   * Support of obsolete ASUS !WaveServer turned off.
 
   * mini_sendmail replaced with busybox's sendmail.
+
+  * rc
+    * early logger start to avoid kernel messages lost in syslog
+    * it was impossible to unset wan MAC-addr, closes issue 88
 
   * bridge-utils 1.0.6
 
@@ -19,8 +26,7 @@
   * usb-modeswitch 1.1.0
 
   * bugfixes
-    * busybox (wget, gunzip)
-    * rc - early logger start to avoid kernel messages lost in syslog
+    * busybox (ash, wget, gunzip)
     * libshared - made `_`exec() POSIX.1-2001 compatible
     * madwimax - fix bug in signal handler
 
