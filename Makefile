@@ -441,6 +441,13 @@ $(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
 
+$(TOP)/bpalogin: $(TOP)/bpalogin/Makefile.in
+	tar -xjf bpalogin.tar.bz2 -C $(TOP)
+	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
+
+bpalogin: $(TOP)/bpalogin
+	@true
+
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
