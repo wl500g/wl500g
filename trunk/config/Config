@@ -270,7 +270,7 @@ config CONFIG_BPALOGIN
 
 config CONFIG_WAVESERVER
 	bool "CONFIG_WAVESERVER"
-	default y
+	default n
 endmenu
 
 menu "Custom firmware features"
