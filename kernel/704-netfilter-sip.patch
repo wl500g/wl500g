@@ -57,7 +57,7 @@ Index: include/linux/netfilter_ipv4/ip_conntrack_sip.h
 ===================================================================
 --- a/include/linux/netfilter_ipv4/ip_conntrack_sip.h	(.../sip-alg)	(revision 0)
 +++ b/include/linux/netfilter_ipv4/ip_conntrack_sip.h	(.../linux-2.4.27-sip-alg)	(revision 22)
-@@ -0,0 +1,54 @@
+@@ -0,0 +1,58 @@
 +#ifndef __IP_CONNTRACK_SIP_H__
 +#define __IP_CONNTRACK_SIP_H__
 +
@@ -91,6 +91,8 @@ Index: include/linux/netfilter_ipv4/ip_conntrack_sip.h
 +	u_int16_t saved_port;
 +	u_int32_t saved_ip;
 +};
++
++#ifdef __KERNEL__
 +#if 0
 +extern unsigned int (*ip_nat_sip_hook)(struct sk_buff **pskb,
 +				       enum ip_conntrack_info ctinfo,
@@ -111,6 +113,8 @@ Index: include/linux/netfilter_ipv4/ip_conntrack_sip.h
 +				 int case_sensitive);
 +extern int sip_parse_addr(struct ip_conntrack *, const char *, const char **,
 +                      union ip_conntrack_address *, const char *);
++#endif /* __KERNEL__ */
++
 +#endif /* __IP_CONNTRACK_SIP_H__ */
 Index: net/ipv4/netfilter/Makefile
 ===================================================================

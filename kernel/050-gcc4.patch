@@ -1,7 +1,23 @@
 diff -urbB linux-2.4.37.orig/include/linux/compiler.h linux/include/linux/compiler.h
---- linux-2.4.37.orig/include/linux/compiler.h	2008-12-15 11:27:42.000000000 +0300
-+++ linux/include/linux/compiler.h	2008-12-15 15:52:12.000000000 +0300
-@@ -37,12 +37,21 @@
+--- linux-2.4.37.orig/include/linux/compiler.h	2010-02-02 00:04:46.000000000 +0300
++++ linux/include/linux/compiler.h	2010-02-21 19:21:53.000000000 +0300
+@@ -1,6 +1,15 @@
+ #ifndef __LINUX_COMPILER_H
+ #define __LINUX_COMPILER_H
+ 
++#if !defined(__KERNEL__)
++/* Debian: Most of these are inappropriate for userspace. */
++/* We don't define likely, unlikely, or barrier; they're namespace-intrusive
++ and should not be needed outside of __KERNEL__. For __attribute_pure__
++ and __attribute_used__ we use glibc's definitions. */
++# include <sys/cdefs.h>
++# define __deprecated
++#else
++
+ /* Somewhere in the middle of the GCC 2.96 development cycle, we implemented
+    a mechanism by which the user can annotate likely branch directions and
+    expect the blocks to be reordered appropriately.  Define __builtin_expect
+@@ -33,15 +42,23 @@
  #define __attribute_const__	/* unimplemented */
  #endif
  
@@ -24,7 +40,20 @@ diff -urbB linux-2.4.37.orig/include/linux/compiler.h linux/include/linux/compil
 +# define __compiler_offsetof(a,b) __builtin_offsetof(a,b)
  #endif
  
- #ifdef __KERNEL__
+-#ifdef __KERNEL__
+ #if __GNUC__ > 4 || __GNUC__ == 4 && __GNUC_MINOR__ >= 2
+ #error "GCC >= 4.2 miscompiles kernel 2.4, do not use it!"
+ #error "While the resulting kernel may boot, you will encounter random bugs"
+@@ -49,7 +66,8 @@
+ #error "To build with another version, for instance 3.3, please do"
+ #error "   make bzImage CC=gcc-3.3 "
+ #endif
+-#endif
++
++#endif /* __KERNEL__ */
+ 
+ /* no checker support, so we unconditionally define this as (null) */
+ #define __user
 diff -urbB linux-2.4.37.orig/include/linux/stddef.h linux/include/linux/stddef.h
 --- linux-2.4.37.orig/include/linux/stddef.h	2008-12-02 11:01:34.000000000 +0300
 +++ linux/include/linux/stddef.h	2008-12-15 15:53:09.000000000 +0300
