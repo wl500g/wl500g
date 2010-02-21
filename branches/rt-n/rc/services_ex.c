@@ -829,9 +829,9 @@ start_usb(void)
 		eval("p910nd", "-f", "/dev/usb/lp0", "0");
 	}
 #endif	
+#ifdef AUDIO_SUPPORT
 	if (!nvram_invmatch("audio_enable", "1"))
 	{
-#ifdef AUDIO_SUPPORT
 		eval("insmod", "soundcore");
 		eval("insmod", "audio");
 		start_audio();

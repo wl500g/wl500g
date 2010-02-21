@@ -431,6 +431,13 @@ $(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
 
+$(TOP)/bpalogin: $(TOP)/bpalogin/Makefile.in
+	tar -xjf bpalogin.tar.bz2 -C $(TOP)
+	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
+
+bpalogin: $(TOP)/bpalogin
+	@true
+
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
@@ -518,8 +525,8 @@ wlconf: $(WLCONF).tar.gz
 	tar -zxf $^ -C $(TOP)
 
 upnp:
-	[ ! -d $(SRC)/../tools/$@ ] || [ -d $(TOP)/$@ ] || \
-		tar -C $(SRC)/../tools -cf - $@ | tar -C $(TOP) -xf -
+	[ -d $(TOP)/$@ ] || \
+		tar -xjf $@.tar.bz2 -C $(TOP)
 	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
 
 upnp-diff:

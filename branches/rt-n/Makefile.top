@@ -320,6 +320,7 @@ endif
 
 modules_install-WL3%: modules_install
 #	rm -rf $(MODULESDIR)/parport
+	@true
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 ifeq ($(CONFIG_LINUX_26),y)
@@ -548,6 +549,16 @@ ez-ipupdate: ez-ipupdate/Makefile
 ez-ipupdate-install:
 	install -D ez-ipupdate/ez-ipupdate $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
+
+bpalogin/Makefile: bpalogin/Makefile.in
+	cd bpalogin && CC=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr
+
+bpalogin: bpalogin/Makefile
+
+bpalogin-install:
+	install -D bpalogin/bpalogin $(INSTALLDIR)/bpalogin/usr/sbin/bpalogin
+	$(STRIP) $(INSTALLDIR)/bpalogin/usr/sbin/bpalogin
 
 busybox/.config: .config
 	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
