@@ -54,4 +54,12 @@ Index: usb-2.6/drivers/usb/host/ehci-q.c
  		}
  	}
 
+@@ -893,7 +893,6 @@ qh_make (
+ 		break;
+ 	default:
+  		dbg ("bogus dev %p speed %d", urb->dev, urb->dev->speed);
+-done:
+ 		qh_put (ehci, qh);
+ 		return NULL;
+ 	}
 --

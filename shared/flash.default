@@ -436,7 +436,7 @@
 {"infosvr_enable", "1", 0},
 {"lpr_enable", "0", 0},
 {"raw_enable", "1", 0},
-{"audio_enable", "1", 0},
+{"audio_enable", "0", 0},
 {"usb20_disable_x", "0", 0},
 
 {"wl_nbw","40",0},
@@ -445,5 +445,6 @@
 {"wl_nmcsidx","-1",0},
 {"wl_nmode","-1",0},
 {"wl_leddc","0x640000",0},
+{"wl_wme_apsd","on",0},
 {"wl_sta_retry_time","5",0},
 {"wl_reg_mode", "d", 0},
