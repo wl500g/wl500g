@@ -1210,17 +1210,17 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			  const struct ip6_conntrack_tuple *tuple,
 +			  const struct ip6_conntrack_tuple *mask)
 +{
-+	int count = 0;
++	int count;
 +
 +	for (count = 0; count < 8; count++){
-+		if ((ntohs(t->src.ip.s6_addr16[count]) ^
-+		     ntohs(tuple->src.ip.s6_addr16[count])) &
-+		    ntohs(mask->src.ip.s6_addr16[count]))
++		if ((t->src.ip.s6_addr16[count] ^
++		     tuple->src.ip.s6_addr16[count]) &
++		    mask->src.ip.s6_addr16[count])
 +			return 0;
 +
-+		if ((ntohs(t->dst.ip.s6_addr16[count]) ^
-+		     ntohs(tuple->dst.ip.s6_addr16[count])) &
-+		    ntohs(mask->dst.ip.s6_addr16[count]))
++		if ((t->dst.ip.s6_addr16[count] ^
++		     tuple->dst.ip.s6_addr16[count]) &
++		    mask->dst.ip.s6_addr16[count])
 +			return 0;
 +	}
 +
