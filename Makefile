@@ -506,8 +506,8 @@ wlconf: $(WLCONF).tar.gz
 	tar -zxf $^ -C $(TOP)
 
 upnp:
-	[ ! -d $(SRC)/../tools/$@ ] || [ -d $(TOP)/$@ ] || \
-		tar -C $(SRC)/../tools -cf - $@ | tar -C $(TOP) -xf -
+	[ -d $(TOP)/$@ ] || \
+		tar -xjf $@.tar.bz2 -C $(TOP)
 	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
 
 upnp-diff:
