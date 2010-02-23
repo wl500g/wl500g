@@ -514,7 +514,7 @@ bridge-install: bridge
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
 ez-ipupdate/Makefile: ez-ipupdate/Makefile.in ez-ipupdate/config.h.in ez-ipupdate/configure.in
-	cd ez-ipupdate && ac_cv_prog_CC=$(CC) CPP=$(CC) CPPFLAGS="$(EXTRACFLAGS)" \
+	cd ez-ipupdate && ac_cv_prog_CC=$(CC) CPP=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \
 	$(CONFIGURE)
 
 ez-ipupdate: ez-ipupdate/Makefile

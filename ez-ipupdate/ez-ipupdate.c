@@ -1720,6 +1720,11 @@ int read_input(char *buf, int len)
       dprintf((stderr, "bread: %d\n", bread));
       buf[bread] = '\0';
       dprintf((stderr, "got: %s\n", buf));
+#if DEBUG
+      char *p;
+      if ((p=strstr(buf, "\r\n\r\n")) != NULL)
+        dprintf((stderr, "resp: %s\n", p));
+#endif
       if(bread == -1)
       {
         show_message("error recv()ing reply: %s\n", error_string);
@@ -1774,6 +1779,21 @@ int get_if_addr(int sock, char *name, struct sockaddr_in *sin)
 #endif
 }
 
+static int output_hdr(char *buf, int bufsz, char *_auth, char *_ua)
+{
+  int l;
+
+  l = snprintf(buf, bufsz, " HTTP/1.0\015\012");
+  if (_auth != NULL)
+    l += snprintf(buf+l, bufsz-l, "Authorization: Basic %s\015\012", _auth);
+  snprintf(buf+l, bufsz-l, "User-Agent: %s-%s %s [%s] (%s)\015\012"
+                           "Host: %s\015\012"
+                           "\015\012",
+           _ua, VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay",
+           server);
+  output(buf);
+}
+
 static int PGPOW_read_response(char *buf)
 {
   int bytes; 
@@ -1786,8 +1806,6 @@ static int PGPOW_read_response(char *buf)
   }
   buf[bytes] = '\0';
 
-  dprintf((stderr, "server says: %s\n", buf));
-  
   if(strncmp("OK", buf, 2) != 0)
   {
     return(1);
@@ -1819,10 +1837,8 @@ static int ODS_read_response(char *buf, int len)
       break;
     }
 
-    dprintf((stderr, "server says: %s\n", p));
     p += bread;
   }
-  dprintf((stderr, "server said: %s\n", buf));
   
   return(atoi(buf));
 }
@@ -1874,28 +1890,13 @@ int EZIP_update_entry(void)
   output(buf);
   if(address)
   {
-    snprintf(buf, BUFFER_SIZE, "%s=%s&", "ipaddress", address);
+    snprintf(buf, BUFFER_SIZE, "ipaddress=%s&", address);
     output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "wildcard", wildcard ? "yes" : "no");
+  snprintf(buf, BUFFER_SIZE, "wildcard=%s&mx=%s&url=%s&host=%s&",
+           wildcard ? "yes" : "no", mx, url, host);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "mx", mx);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "url", url);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "host", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -1904,12 +1905,10 @@ int EZIP_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -2062,17 +2061,7 @@ int DYNDNS_update_entry(void)
     snprintf(buf, BUFFER_SIZE, "%s=%s&", "offline", "yes");
     output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -2470,15 +2459,9 @@ static int DHS_post_buf(char *buf, const char *domain, const char *hostname, int
     return(UPDATERES_ERROR);
   }
 
-  snprintf(buf, BUFFER_SIZE, "POST %s HTTP/1.0\015\012", request);
+  snprintf(buf, BUFFER_SIZE, "POST %s ", request);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   p = putbuf;
   *p = '\0';
@@ -2798,25 +2781,10 @@ int TZO_update_entry(void)
     return(UPDATERES_ERROR);
   }
 
-  snprintf(buf, BUFFER_SIZE, "GET %s?", request);
+  snprintf(buf, BUFFER_SIZE, "GET %s?TZOName=%s&Email=%s&TZOKey=%s&IPAddress=%s&",
+           request, host, user_name, password, address);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "TZOName", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "Email", user_name);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "TZOKey", password);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "IPAddress", address);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, NULL, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -2825,12 +2793,10 @@ int TZO_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -2967,25 +2933,10 @@ int EASYDNS_update_entry(void)
     snprintf(buf, BUFFER_SIZE, "%s=%s&", "myip", address);
     output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "wildcard", wildcard ? "ON" : "OFF");
+  snprintf(buf, BUFFER_SIZE, "wildcard=%s&mx=%s&backmx=%s&host_id=%s&",
+           wildcard ? "ON" : "OFF", mx, *mx == '\0' ? "NO" : "YES", host);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "mx", mx);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "backmx", *mx == '\0' ? "NO" : "YES");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "host_id", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -2994,12 +2945,10 @@ int EASYDNS_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -3128,23 +3077,10 @@ int EASYDNS_PARTNER_update_entry(void)
     snprintf(buf, BUFFER_SIZE, "%s=%s&", "myip", address);
     output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "partner", partner);
+  snprintf(buf, BUFFER_SIZE, "partner=%s&wildcard=%s&hostname=%s",
+           partner, wildcard ? "ON" : "OFF", host);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "wildcard", wildcard ? "ON" : "OFF");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s", "hostname", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -3153,12 +3089,10 @@ int EASYDNS_PARTNER_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -3325,8 +3259,7 @@ int GNUDIP_update_entry(void)
     return(UPDATERES_ERROR);
   }
   buf[bytes] = '\0';
-  dprintf((stderr, "bytes: %d\n", bytes));
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", bytes));
 
   // buf holds the shared secret
   chomp(buf);
@@ -3361,8 +3294,7 @@ int GNUDIP_update_entry(void)
   }
   buf[bytes] = '\0';
 
-  dprintf((stderr, "bytes: %d\n", bytes));
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", bytes));
 
   close(client_sockfd);
 
@@ -3472,27 +3404,10 @@ int JUSTL_update_entry(void)
     return(UPDATERES_ERROR);
   }
 
-  snprintf(buf, BUFFER_SIZE, "GET %s?direct=1&", request);
+  snprintf(buf, BUFFER_SIZE, "GET %s?direct=1&username=%s&password=%s&host=%s&ip=%s&",
+           request, user_name, password, host, address);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "username", user_name);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "password", password);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "host", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "ip", address);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -3501,12 +3416,10 @@ int JUSTL_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -3622,27 +3535,10 @@ int DYNS_update_entry(void)
     return(UPDATERES_ERROR);
   }
 
-  snprintf(buf, BUFFER_SIZE, "GET %s?", request);
+  snprintf(buf, BUFFER_SIZE, "GET %s?username=%s&password=%s&host=%s&ip=%s",
+           request, user_name, password, host, address);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "username", user_name);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "password", password);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "host", host);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s", "ip", address);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -3651,12 +3547,10 @@ int DYNS_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -3773,17 +3667,7 @@ int HN_update_entry(void)
     snprintf(buf, BUFFER_SIZE, "%s=%s&", "IP", address);
     output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -3792,12 +3676,10 @@ int HN_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -3963,17 +3845,7 @@ int ZONEEDIT_update_entry(void)
       snprintf(buf, BUFFER_SIZE, "%s=%s&", "type", "a,mx");
       output(buf);
   }
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s (%s)\015\012", 
-      "zoneedit", VERSION, OS, "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", lserver);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, auth, "zoneedit");
 
   bp = buf;
   bytes = 0;
@@ -3982,12 +3854,10 @@ int ZONEEDIT_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -4134,15 +4004,7 @@ int HEIPV6TB_update_entry(void)
                              request, address == NULL ? "AUTO" : address,
                              user_name, auth, extra);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-      "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "\015\012");
-  output(buf);
+  output_hdr(buf, BUFFER_SIZE, NULL, "ez-update");
 
   bp = buf;
   bytes = 0;
@@ -4151,12 +4013,11 @@ int HEIPV6TB_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
+  dprintf((stderr, "btot: %d\n", btot));
 
-  dprintf((stderr, "server output: %s\n", buf));
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
     ret = -1;
