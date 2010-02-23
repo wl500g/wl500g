@@ -65,6 +65,7 @@ AC_CHECK_HEADERS( arpa/inet.h \
 		  syslog.h \
 		  pwd.h \
 		  stdarg.h \
+		  string.h \
 		  grp.h \
 		  errno.h \
 		  sys/sockio.h \

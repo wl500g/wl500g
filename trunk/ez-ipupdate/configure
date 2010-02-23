@@ -1505,6 +1505,7 @@ for ac_hdr in arpa/inet.h \
 		  syslog.h \
 		  pwd.h \
 		  stdarg.h \
+		  string.h \
 		  grp.h \
 		  errno.h \
 		  sys/sockio.h \
@@ -1521,6 +1522,8 @@ else
 #line 1522 "configure"
 #include "confdefs.h"
 #include <$ac_hdr>
+
+int main() { return 0; }
 EOF
 ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
 { (eval echo configure:1527: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
@@ -1565,6 +1568,8 @@ else
 #line 1566 "configure"
 #include "confdefs.h"
 #include <$ac_hdr>
+
+int main() { return 0; }
 EOF
 ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
 { (eval echo configure:1571: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
