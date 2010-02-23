@@ -115,13 +115,11 @@ int read_cache_file(char *file, time_t *date, char **ipaddr)
     datestr = buf;
     ipstr = p;
 
-    *date = strtoul(datestr, NULL, 10);
-    *ipaddr = strdup(ipstr);
-  }
-  else
-  {
-    *date = 0;
-    *ipaddr = NULL;
+    if (strncmp(ipstr, "0.0.0.0", 7) != 0)
+    {
+      *date = strtoul(datestr, NULL, 10);
+      *ipaddr = strdup(ipstr);
+    }
   }
 
   fclose(fp);
