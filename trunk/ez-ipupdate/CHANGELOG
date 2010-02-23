@@ -1,3 +1,86 @@
+Changelog for ez-ipupdate:
+
+version 3.0.11b7 is a bug fix for the new ODS server update (it was
+ez-ipupdate's bug).
+
+version 3.0.11b6 has a small fix for dyns.cx changing their protocol by
+accident (lower case Host now).
+
+version 3.0.7 -> 3.0.11x I can't remember, check the changelog.
+
+version 3.0.7 gives us a default max-interval for dyndns and allows specifying
+intervals in days/weeks/months as well as support for another service
+zoneedit.
+
+version 3.0.3 brings a fix for hn.org that was causing it to ignore the
+supplied IP address and always use the one that you were connecting from.
+
+version 3.0.1 brings supoprt for hn.org and the option of using a pid file.
+
+version 3.0.0 brings new symantics, now you MUST specify an interface and
+service-type for daemon mode. it also brings many fixes, it seems that there
+have been some serious bugs introduced some time after version 2.9.1 and this
+should fix those and bring some new features like self throttling. All users
+are strongly encoraged to upgrade to version 3.x.x.
+
+version 2.9.3 brings long awaited support for a cache file. this was needed in
+a big way for use with the dyndns.org service.
+
+version 2.9.2 brings support for justlinux.com's new version 2.0 service, now
+"justlinux" is for the justlinux v2.0 service and "pgpow" is for the justlinux
+v1.0 service. now that penguinpowered has switched to their v2.0 update method
+I don't know which one I like the best, probably dyndns.org.
+
+version 2.9.0 adds support for EasyDNS. Their service is nice, very good web .
+site design, it is commercial though thanks to Mark Jeftovic for the code to .
+support EasyDNS                                                              .
+
+version 2.8.0 adds support for GNUDip and TZO as well as a new feature to run.
+a command after every successful update. There are probably some bug fixes in.
+there too thanks to Jeremy Bopp for the code to support GNUDip and TZO       .
+
+version 2.6.0 adds support for ODS and a couple minor fixups.
+
+version 2.4.2 adds support for dyndns and some other cleanups. the service
+that dyndns offers looks good, I still think I like justlinux better though.
+
+version 2.2.2 gives us support for updating the MX record for dhs.org. I
+have to say that the implementation of dhs.org's service is laughable. I
+strongly advise people not to use it, it is just that bad. If you are updating
+a dhs.org acount with an MX record then there is 60 second sleep() call (or
+the length of the timeout, whichever is shorter) to get around problems with
+dhs' service.
+
+version 2.2.1 brings support for our friends at dhs.org and fixes a socket
+leak in the dhs code and the penguinpowered code. I have to say though that I
+am not impressed with the dhs.org service, penguinpowered.com gets my vote for
+best implementation. (although they wont even acknowledge my client or put a
+link to it on thier site)
+
+If you are getting errors connecting to the server for a justlinux.com service
+please ensure that you either specify "-S pgpow" or "--service penguinpowered"
+on either the command line or in the config file(in the config file the syntax
+is "service=penguinpowered"). The default for this tool is to think it is
+connecting to an ez-ip.net service.
+
+Version 2.0.0 brings support for other services than just ez-ip.net and
+contains some bug fixes.
+
+Version 1.0.1 brings some new features such the useage of config files,
+timeouts on I/O, set user id and many more.
+
+Version 0.9.0 fixes a problem with a leaky file descriptor and some other
+litte things wrong. It also moves the version number up quite a bit as I have
+been running it in daemon mode for over 60 days without any problems.
+
+Version 0.0.3 fixes a bug in the user/password code and a bunch of issues with
+the packaging (I copied another project to start this one and forgot to update
+some stuff). I Also added the system type to the User-Agent string.
+
+Version 0.0.2 adds some nice features for those of use who use Linux. It
+now can run in daemon mode periodicly check the IP address of the specified
+interface and only update it if it has changed. It also adds the feature to
+turn your password in to '***' for the proccess listing.
 
 RCS file: /home/amackay/src/cvsroot/ez-ipupdate/ez-ipupdate.c,v
 Working file: ez-ipupdate.c

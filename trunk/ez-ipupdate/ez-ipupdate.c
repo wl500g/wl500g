@@ -138,7 +138,9 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <time.h>
+#if HAVE_TIME_H
+#  include <time.h>
+#endif
 #if HAVE_FCNTL_H
 #  include <fcntl.h>
 #endif
@@ -156,6 +158,9 @@
 #endif
 #if HAVE_SIGNAL_H
 #  include <signal.h>
+#endif
+#if HAVE_TIME_H
+#  include <time.h>
 #endif
 #if HAVE_SYS_TIME_H
 #  include <sys/time.h>
@@ -706,7 +711,7 @@ static void print_usage( void )
   fprintf(stdout, "  -q, --quiet \t\t\tbe quiet\n");
   fprintf(stdout, "  -r, --retrys <num>\t\tnumber of trys (default: 1)\n");
   fprintf(stdout, "  -R, --run-as-user <user>\tchange to <user> for running, be ware\n\t\t\t\tthat this can cause problems with handeling\n\t\t\t\tSIGHUP properly if that user can't read the\n\t\t\t\tconfig file. also it can't write it's pid file \n\t\t\t\tto a root directory\n");
-  fprintf(stdout, "  -Q, --run-as-euser <user>\tchange to effective <user> for running, \n\t\t\t\tthis is NOT secure but it does solve the \n\t\t\t\tproblems with run-as-user and config files and \n\t\t\t\tpid files.\n");
+  fprintf(stdout, "  -Q, --run-as-euser <user>\tchange to effective <user> for running, \n\t\t\t\tthis is NOT secure but it does solve the \n\t\t\t\tproblems with run-as-user and config files and \n\t\t\t\tpid files\n");
   fprintf(stdout, "  -s, --server <server[:port]>\tthe server to connect to\n");
   fprintf(stdout, "  -S, --service-type <server>\tthe type of service that you are using\n");
   width = fprintf(stdout, "\t\t\t\ttry one of: ") + 4*7;
@@ -752,7 +757,7 @@ void print_credits( void )
 #ifndef EMBED
 void print_signalhelp( void )
 {
-  fprintf(stdout, "\nsignals are only really used when in daemon mode.\n\n");
+  fprintf(stdout, "\nsignals are only really used when in daemon mode\n\n");
   fprintf(stdout, "signals: \n");
   fprintf(stdout, "  HUP\t\tcauses it to re-read its config file\n");
   fprintf(stdout, "  TERM\t\twake up and possibly perform an update\n");
@@ -764,7 +769,7 @@ void print_signalhelp( void )
 #if HAVE_SIGNAL_H
 RETSIGTYPE sigint_handler(int sig)
 {
-  char message[] = "interupted.\n";
+  char message[] = "interrupted\n";
   close(client_sockfd);
   write(2, message, sizeof(message)-1);
 
@@ -1659,7 +1664,6 @@ void output(void *buf)
   memcpy(&tv, &timeout, sizeof(struct timeval));
 
   ret = select(max_fd + 1, NULL, &writefds, NULL, &tv);
-  dprintf((stderr, "ret: %d\n", ret));
 
   if(ret == -1)
   {
@@ -1681,7 +1685,7 @@ void output(void *buf)
     }
     else
     {
-      dprintf((stderr, "error: case not handled."));
+      dprintf((stderr, "error: case not handled ret=%d.", ret));
     }
   }
 }
@@ -1701,7 +1705,6 @@ int read_input(char *buf, int len)
   memcpy(&tv, &timeout, sizeof(struct timeval));
 
   ret = select(max_fd + 1, &readfds, NULL, NULL, &tv);
-  dprintf((stderr, "ret: %d\n", ret));
 
   if(ret == -1)
   {
@@ -1720,7 +1723,7 @@ int read_input(char *buf, int len)
       dprintf((stderr, "bread: %d\n", bread));
       buf[bread] = '\0';
       dprintf((stderr, "got: %s\n", buf));
-#if DEBUG
+#ifdef DEBUG
       char *p;
       if ((p=strstr(buf, "\r\n\r\n")) != NULL)
         dprintf((stderr, "resp: %s\n", p));
@@ -1732,7 +1735,7 @@ int read_input(char *buf, int len)
     }
     else
     {
-      dprintf((stderr, "error: case not handled."));
+      dprintf((stderr, "error: case not handled ret=%d.", ret));
     }
   }
 
@@ -1832,7 +1835,7 @@ static int ODS_read_response(char *buf, int len)
       close(client_sockfd);
       return(-1);
     }
-    if(strstr(buf, "\r\n") > 0)
+    if(strstr(buf, "\n") != NULL)
     {
       break;
     }
@@ -1849,8 +1852,8 @@ int NULL_check_info(void)
 
   if(options & OPT_DAEMON)
   {
-    show_message("no compile time default service was set therefor you must "
-        "specify a service type.\n");
+    show_message("no compile time default service was set, you must "
+        "specify a service type\n");
 
     return(-1);
   }
@@ -2070,12 +2073,10 @@ int DYNDNS_update_entry(void)
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -2513,12 +2514,10 @@ static int DHS_post_buf(char *buf, const char *domain, const char *hostname, int
   {
     bp += bytes;
     btot += bytes;
-    dprintf((stderr, "btot: %d\n", btot));
   }
   close(client_sockfd);
   buf[btot] = '\0';
-
-  dprintf((stderr, "server output: %s\n", buf));
+  dprintf((stderr, "btot: %d\n", btot));
 
   if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
   {
@@ -4025,8 +4024,6 @@ int HEIPV6TB_update_entry(void)
 
   switch(ret)
   {
-    char *p;
-
     case -1:
       if(!(options & OPT_QUIET))
       {
@@ -4186,7 +4183,7 @@ void handle_sig(int sig)
     case SIGHUP:
       if(config_file)
       {
-        show_message("SIGHUP recieved, re-reading config file\n");
+        show_message("SIGHUP received, re-reading config file\n");
         if(parse_conf_file(config_file, conf_commands) != 0)
         {
           show_message("error parsing config file \"%s\"\n", config_file);
@@ -4221,6 +4218,7 @@ void handle_sig(int sig)
 
 int main(int argc, char **argv)
 {
+  char *tmp;
   int ifresolve_warned = 0;
   int i;
   int retval = 1;
@@ -4232,9 +4230,10 @@ int main(int argc, char **argv)
   //mcheck(NULL);
 #endif
 
-  dprintf((stderr, "staring...\n"));
+  dprintf((stderr, "starting...\n"));
 
-  program_name = argv[0];
+  tmp = strrchr(argv[0], '/');
+  program_name = tmp ? tmp + 1 : argv[0];
   options = 0;
   *user = '\0';
   timeout.tv_sec = DEFAULT_TIMEOUT;
@@ -4254,7 +4253,7 @@ int main(int argc, char **argv)
 
   if(!(options & OPT_QUIET) && !(options & OPT_DAEMON))
   {
-    fprintf(stderr, "ez-ipupdate Version %s\nCopyright (C) 1998-2001 Angus Mackay.\n", VERSION);
+    fprintf(stderr, "%s Version %s\nCopyright (C) 1998-2001 Angus Mackay\n", program_name, VERSION);
   }
 
 #if HAVE_SYSLOG_H
@@ -4299,11 +4298,11 @@ int main(int argc, char **argv)
     dprintf((stderr, "user_name: %s\n", user_name));
     dprintf((stderr, "password: %s\n", password));
   }
-  if(*user_name == '\0')
+  if(*user_name == '\0' && !(options & OPT_DAEMON))
   {
     get_input("user name", user_name, sizeof(user_name));
   }
-  if(*password == '\0')
+  if(*password == '\0' && !(options & OPT_DAEMON))
   {
     strncpy(password, getpass("password: "), sizeof(password));
   }
@@ -4580,7 +4579,7 @@ int main(int argc, char **argv)
 #endif
 
 #else
-    show_message("sorry, this mode is only available on platforms that the ");
+    show_message("sorry, this mode is only available on platforms where the ");
     show_message("IP address \ncan be determined. feel free to hack the code");
     show_message(" though.\n");
     exit(1);
@@ -4608,7 +4607,7 @@ int main(int argc, char **argv)
       if(ipstr != NULL)
       {
 
-        if(address == NULL || *address == '\0')
+        if((address == NULL || *address == '\0') && interface != NULL)
         {
 #ifdef IF_LOOKUP
           struct sockaddr_in sin;
@@ -4626,7 +4625,7 @@ int main(int argc, char **argv)
           exit(1);
 #endif
         }
-        else
+        else if(ipstr||ipdate)
         {
           snprintf(ipbuf, sizeof(ipbuf), "%s", address);
         }
