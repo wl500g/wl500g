@@ -445,6 +445,13 @@ $(TOP)/bpalogin: $(TOP)/bpalogin/Makefile.in
 bpalogin: $(TOP)/bpalogin
 	@true
 
+$(TOP)/infosvr: infosvr.tar.bz2
+	tar -xjf infosvr.tar.bz2 -C $(TOP)
+	[ ! -f infosvr.patch ] || $(PATCHER) -Z $@ infosvr.patch
+
+infosvr: $(TOP)/infosvr
+	@true
+
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
