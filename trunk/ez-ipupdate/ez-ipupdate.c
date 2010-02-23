@@ -44,8 +44,11 @@
 #define SEND_EMAIL_CMD "mail"
 #endif
 
-#undef HAS_REDIRECT
 // support of HTTP/301 - redirect command
+#undef HAS_REDIRECT
+
+// name of virtual interface for address autodetection
+#define AUTO_IFS "auto"
 
 #define EZIP_DEFAULT_SERVER "www.EZ-IP.Net"
 #define EZIP_DEFAULT_PORT "80"
@@ -275,6 +278,7 @@ char *url = NULL;
 char *host = NULL;
 char *cloak_title = NULL;
 char *interface = NULL;
+char *auto_ifs = AUTO_IFS;
 int ntrys = 1;
 int update_period = DEFAULT_UPDATE_PERIOD;
 int resolv_period = DEFAULT_RESOLV_PERIOD;
@@ -686,7 +690,7 @@ static void print_usage( void )
   fprintf(stdout, "  -F, --pidfile <file>\t\tuse <file> as a pid file\n");
   fprintf(stdout, "  -g, --request-uri <uri>\tURI to send updates to\n");
   fprintf(stdout, "  -h, --host <host>\t\tstring to send as host parameter\n");
-  fprintf(stdout, "  -i, --interface <iface>\twhich interface to use\n");
+  fprintf(stdout, "  -i, --interface <iface>\twhich interface to use or \"%s\" to autodetect address\n", AUTO_IFS);
   fprintf(stdout, "  -L, --cloak_title <host>\tsome stupid thing for DHS only\n");
   fprintf(stdout, "  -m, --mx <mail exchange>\tstring to send as your mail exchange\n");
   fprintf(stdout, "  -M, --max-interval <# of sec>\tmax time in between updates\n");
@@ -1723,9 +1727,15 @@ int read_input(char *buf, int len)
 
 int get_if_addr(int sock, char *name, struct sockaddr_in *sin)
 {
-#ifdef IF_LOOKUP
   struct ifreq ifr;
 
+  if(strcmp(name, auto_ifs) == 0)
+  {
+    sin->sin_addr.s_addr = htonl(INADDR_ANY);
+    return 0;
+  }
+
+#ifdef IF_LOOKUP
   memset(&ifr, 0, sizeof(ifr));
   strcpy(ifr.ifr_name, name);
   ifr.ifr_addr.sa_family = AF_INET;
@@ -2267,6 +2277,12 @@ int PGPOW_check_info(void)
     option_handler(CMD_interface, buf);
   }
 
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
+  }
+
   warn_fields(service->fields_used);
 
   return 0;
@@ -2410,6 +2426,12 @@ int DHS_check_info(void)
     if(interface) { free(interface); }
     get_input("interface", buf, sizeof(buf));
     option_handler(CMD_interface, buf);
+  }
+
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
   }
 
   warn_fields(service->fields_used);
@@ -2630,7 +2652,7 @@ int ODS_check_info(void)
       return(-1);
     }
     if(address) { free(address); }
-    address = strdup("");
+    address = NULL;
   }
 
   warn_fields(service->fields_used);
@@ -2689,7 +2711,7 @@ int ODS_update_entry(void)
 
   /* send address command */
   snprintf(buf, BUFFER_SIZE, "ADDRR %s A %s\012", host, 
-                *address == '\0' ? "CONNIP" :  address);
+                (!address || *address == '\0') ? "CONNIP" :  address);
   output(buf);
 
   response = ODS_read_response(buf, BUFFER_SIZE);
@@ -2735,6 +2757,12 @@ int TZO_check_info(void)
     if(interface) { free(interface); }
     get_input("interface", buf, sizeof(buf));
     option_handler(CMD_interface, buf);
+  }
+
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
   }
 
   warn_fields(service->fields_used);
@@ -3261,7 +3289,7 @@ int GNUDIP_update_entry(void)
 
   // send an offline request if address 0.0.0.0 is used
   // otherwise, we ignore the address and send an update request
-  gnudip_request[0] = strcmp(address, "0.0.0.0") == 0 ? '1' : '0';
+  gnudip_request[0] = ((address) && strcmp(address, "0.0.0.0") == 0) ? '1' : '0';
   gnudip_request[1] = '\0';
 
   // find domainname
@@ -3403,6 +3431,12 @@ int JUSTL_check_info(void)
     if(interface) { free(interface); }
     get_input("interface", buf, sizeof(buf));
     option_handler(CMD_interface, buf);
+  }
+
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
   }
 
   warn_fields(service->fields_used);
@@ -3547,6 +3581,12 @@ int DYNS_check_info(void)
     if(interface) { free(interface); }
     get_input("interface", buf, sizeof(buf));
     option_handler(CMD_interface, buf);
+  }
+
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
   }
 
   warn_fields(service->fields_used);
@@ -4042,6 +4082,13 @@ int HEIPV6TB_check_info(void)
     get_input("interface", buf, sizeof(buf));
     option_handler(CMD_interface, buf);
   }
+
+  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  {
+    show_message("server doesn't support address autodetection\n");
+    return(-1);
+  }
+
   warn_fields(service->fields_used);
 
   return 0;
@@ -4490,7 +4537,8 @@ int main(int argc, char **argv)
       {
         ifresolve_warned = 0;
         if(memcmp(&sin.sin_addr, &sin2.sin_addr, sizeof(struct in_addr)) != 0 || 
-            (max_interval > 0 && time(NULL) - last_update > max_interval))
+            (max_interval > 0 && time(NULL) - last_update > max_interval) ||
+            (strcmp(interface, auto_ifs) == 0))
         {
           int updateres;
 
@@ -4499,7 +4547,10 @@ int main(int argc, char **argv)
 
           // update the address buffer
           if(address) { free(address); }
-          address = strdup(inet_ntoa(sin.sin_addr));
+          if(strcmp(interface, auto_ifs) == 0)
+            address = NULL;
+          else
+            address = strdup(inet_ntoa(sin.sin_addr));
 
           if((updateres=service->update_entry()) == UPDATERES_OK)
           {
@@ -4711,7 +4762,10 @@ int main(int argc, char **argv)
         if(get_if_addr(sock, interface, &sin) == 0)
         {
           if(address) { free(address); }
-          address = strdup(inet_ntoa(sin.sin_addr));
+          if(strcmp(interface, auto_ifs) == 0)
+            address = NULL;
+          else
+            address = strdup(inet_ntoa(sin.sin_addr));
         }
         else
         {
