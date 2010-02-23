@@ -113,6 +113,10 @@
 #define HEIPV6TB_DEFAULT_PORT "80"
 #define HEIPV6TB_REQUEST "/index.cgi"
 
+#define DNSOMATIC_DEFAULT_SERVER "updates.dnsomatic.com"
+#define DNSOMATIC_DEFAULT_PORT "80"
+#define DNSOMATIC_REQUEST "/nic/update"
+
 #define DEFAULT_TIMEOUT 120
 #define DEFAULT_UPDATE_PERIOD 120
 #define DEFAULT_RESOLV_PERIOD 30
@@ -550,6 +554,16 @@ struct service_t services[] = {
     HEIPV6TB_DEFAULT_SERVER,
     HEIPV6TB_DEFAULT_PORT,
     HEIPV6TB_REQUEST
+  },
+  { "dnsomatic",
+    { "dnsomatic", 0, 0, },
+    DYNDNS_init,
+    DYNDNS_update_entry,
+    DYNDNS_check_info,
+    DYNDNS_fields_used,
+    DNSOMATIC_DEFAULT_SERVER,
+    DNSOMATIC_DEFAULT_PORT,
+    DNSOMATIC_REQUEST
   },
 };
 
