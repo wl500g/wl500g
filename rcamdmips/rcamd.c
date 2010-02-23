@@ -403,6 +403,7 @@ sender(unsigned char *yuvcap, int size)
 			// mark this node for deletion
 			del = g_list_append(del, cur);
 finish:
+			;
 		}
 	}
     	i++;
@@ -784,6 +785,7 @@ int setup_memory_mapping( struct CaptureData *camera )
 }
 
 #ifdef WL600
+#if 0
 static char rgbimage[160*120*3];
 
 /*
@@ -894,6 +896,92 @@ put_image_jpeg (char *filename, char *image, int width, int height, int quality)
   fclose (fd);
 }
 
+
+#else
+
+/*
+ * Write image buffer to timestamp named jpeg file( w/ color support).
+ *
+ * Ben Lau <benlau@linux.org.hk>
+ *
+ */
+
+void
+put_image_jpeg (char *filename, char *image, int width, int height, int quality)
+{
+  int y, x, line_width;
+  JSAMPROW row_ptr[1];
+  struct jpeg_compress_struct cjpeg;
+  struct jpeg_error_mgr jerr;
+  char *imageptr;
+  int index;
+  FILE *fd;
+  JSAMPROW yp[16],cb[16],cr[16]; // y[2][5] = color sample of row 2 and pixel column 5; (one plane)
+  JSAMPARRAY data[3]; // t[0][2][5] = color sample 0 of row 2 and column 5
+  int i,j;
+
+  if ((fd = fopen (filename, "w+")) == NULL) {
+    fprintf (stderr, "Error: Can't Create File %s\n", filename);
+    exit (-2);
+  }
+
+  data[0] = yp;
+  data[1] = cb;
+  data[2] = cr;
+
+  /* Add by Joey to handle OV519 frame */
+  if (cameratype==2)
+  {
+	unsigned short *len;
+
+	len  = (unsigned short *)(&image[0]);
+	*len = (*len)<<3;
+	printf("OV519 : len: %x\n", *len);
+	fwrite(image + 2, sizeof(unsigned char), *len, fd);
+	fclose(fd);
+	return;
+  }
+	 
+  cjpeg.err = jpeg_std_error (&jerr);
+  jpeg_create_compress (&cjpeg);
+  cjpeg.image_width = width;
+  cjpeg.image_height = height;
+  cjpeg.input_components = 3;
+  jpeg_set_defaults (&cjpeg);
+  jpeg_set_colorspace(&cjpeg, JCS_YCbCr);
+  
+  cjpeg.raw_data_in = TRUE; // supply downsampled data
+  cjpeg.comp_info[0].h_samp_factor = 2;
+  cjpeg.comp_info[0].v_samp_factor = 2;
+  cjpeg.comp_info[1].h_samp_factor = 1;
+  cjpeg.comp_info[1].v_samp_factor = 1;
+  cjpeg.comp_info[2].h_samp_factor = 1;
+  cjpeg.comp_info[2].v_samp_factor = 1;
+
+  jpeg_set_quality (&cjpeg, quality, TRUE);
+  cjpeg.dct_method = JDCT_FASTEST;
+  jpeg_stdio_dest (&cjpeg, fd);
+
+  jpeg_start_compress (&cjpeg, TRUE);
+
+  for (j=0;j<height;j+=16) {
+            for (i=0;i<16;i++) {
+              yp[i] = image + width*(i+j);
+               if (i%2 == 0) {
+                       cb[i/2] = image + width*height + width/2*((i+j)/2);
+                        cr[i/2] = image + width*height + width*height/4 + width/2*((i+j)/2);
+		                          }
+                 }
+                jpeg_write_raw_data (&cjpeg, data, 16);
+      }
+
+  jpeg_finish_compress (&cjpeg);
+  jpeg_destroy_compress (&cjpeg);
+  fclose (fd);
+}
+
+#endif
+
 void sig_usr(int sig)
 {
   //printf("Signal %d\n", sig);
@@ -962,11 +1050,11 @@ int main (int argc, char *argv[])
 	FILE *fp;
 
 	// parse cmdline args
-	while((i = getopt(argc, argv, "t:d:m:s:f:p:hg:b:
+	while((i = getopt(argc, argv, "t:d:m:s:f:p:hg:b:"
 #ifdef WL600
-    r:a:c:z:
+    "r:a:c:z:"
 #endif
-    ")) != EOF) {
+    "")) != EOF) {
 
 	  switch(i) {
 	  case 't':
@@ -1029,9 +1117,9 @@ int main (int argc, char *argv[])
 		   "       -p <port to listen for connections>\n"\
 		   "       -b <brightness=1-500> (default=400 available only cameratype=1)\n"\
 		   "       -g <gain=0-4> corresponding to a gain of 2^<gain> (default=0)\n"\
-		   "       -t <cameratype=0,1> corresponding to a camera driver (0:pwc or 1:ov511 default=0)\n"\	
+		   "       -t <cameratype=0,1> corresponding to a camera driver (0:pwc or 1:ov511 default=0)\n"\
 		   "       -r <record interval=0-65535> (default=60 minutes)\n"\
-		   "       -a <alert=0,1> define if alert is on or off)\n"\				
+		   "       -a <alert=0,1> define if alert is on or off)\n"\
 		   "       -s <max count for difference threshold=0-999999> (default=100)\n"\
 		   "       -z <time zone string>\n");
 	    exit(0);
@@ -1170,9 +1258,4 @@ Retry:
 	pthread_mutex_destroy( &gCamera.image.lock );
 	pthread_mutex_destroy(&clients_lock);
 	return 0;
-}
-
-decompress_jpeg(char *buf, int size, char *data)
-{
-	
 }

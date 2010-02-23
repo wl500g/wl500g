@@ -87,3 +87,4 @@ int sender(unsigned char *yuvcap, int size);
 unsigned int compare_images(unsigned char *last, unsigned char *current,
 				   int width, int height);
 
+void put_image_jpeg (char *filename, char *image, int width, int height, int quality);

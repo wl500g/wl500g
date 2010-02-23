@@ -452,6 +452,12 @@ $(TOP)/infosvr: infosvr.tar.bz2
 infosvr: $(TOP)/infosvr
 	@true
 
+$(TOP)/rcamdmips:
+	tar -C . $(TAR_EXCL_SVN) -cf - rcamdmips | tar -C $(TOP) -xf -
+
+rcamdmips: $(TOP)/rcamdmips
+	@true
+
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
@@ -584,4 +590,4 @@ www: $(TOP)/www
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
 	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
-	rc 
+	rc rcamdmips 

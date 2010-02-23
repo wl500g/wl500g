@@ -1298,30 +1298,37 @@ GLogLevelFlags	g_log_set_always_fatal	(GLogLevelFlags	 fatal_mask);
 #ifndef	G_LOG_DOMAIN
 #define	G_LOG_DOMAIN	((gchar*) 0)
 #endif	/* G_LOG_DOMAIN */
+
+#ifndef DEBUG
+#define	g_error(format...)
+#define	g_message(format...)
+#define	g_critical(format...)
+#define	g_warning(format...)
+#else
 #if defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
-#define	g_error(...)	//g_log (G_LOG_DOMAIN,         \
+#define	g_error(...)	g_log (G_LOG_DOMAIN,         \
 			       G_LOG_LEVEL_ERROR,    \
 			       __VA_ARGS__)
-#define	g_message(...)//	g_log (G_LOG_DOMAIN,         \
+#define	g_message(...)	g_log (G_LOG_DOMAIN,         \
 			       G_LOG_LEVEL_MESSAGE,  \
 			       __VA_ARGS__)
-#define	g_critical(...)	//g_log (G_LOG_DOMAIN,         \
+#define	g_critical(...)	g_log (G_LOG_DOMAIN,         \
 			       G_LOG_LEVEL_CRITICAL, \
 			       __VA_ARGS__)
-#define	g_warning(...)	//g_log (G_LOG_DOMAIN,         \
+#define	g_warning(...)	g_log (G_LOG_DOMAIN,         \
 			       G_LOG_LEVEL_WARNING,  \
 			       __VA_ARGS__)
 #elif defined (__GNUC__)
-#define	g_error(format...)	//g_log (G_LOG_DOMAIN,         \
+#define	g_error(format...)	g_log (G_LOG_DOMAIN,         \
 				       G_LOG_LEVEL_ERROR,    \
 				       format)
-#define	g_message(format...)	//g_log (G_LOG_DOMAIN,         \
+#define	g_message(format...)	g_log (G_LOG_DOMAIN,         \
 				       G_LOG_LEVEL_MESSAGE,  \
 				       format)
-#define	g_critical(format...)//	g_log (G_LOG_DOMAIN,         \
+#define	g_critical(format...)	g_log (G_LOG_DOMAIN,         \
 				       G_LOG_LEVEL_CRITICAL, \
 				       format)
-#define	g_warning(format...)//	g_log (G_LOG_DOMAIN,         \
+#define	g_warning(format...)	g_log (G_LOG_DOMAIN,         \
 				       G_LOG_LEVEL_WARNING,  \
 				       format)
 #else	/* !__GNUC__ */
@@ -1353,6 +1360,7 @@ g_warning (const gchar *format,
   va_end (args);
 }
 #endif	/* !__GNUC__ */
+#endif  /* DEBUG */
 
 typedef void	(*GPrintFunc)		(const gchar	*string);
 void		g_print			(const gchar	*format,

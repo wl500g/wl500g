@@ -59,6 +59,7 @@ init(struct module_ctx *mctx)
 #endif
 
 #ifdef WL600
+int
 add_time(unsigned char *img, int width, int height)
 #else
 int
