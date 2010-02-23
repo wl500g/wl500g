@@ -432,13 +432,13 @@ $(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
 ntpclient: $(TOP)/ntpclient
 	@true
 
-$(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
+$(TOP)/ez-ipupdate:
 	tar -C . $(TAR_EXCL_SVN) -cf - ez-ipupdate | tar -C $(TOP) -xf -
 
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
 
-$(TOP)/bpalogin: $(TOP)/bpalogin/Makefile.in
+$(TOP)/bpalogin: bpalogin.tar.bz2
 	tar -xjf bpalogin.tar.bz2 -C $(TOP)
 	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
 
@@ -456,6 +456,13 @@ $(TOP)/rcamdmips:
 	tar -C . $(TAR_EXCL_SVN) -cf - rcamdmips | tar -C $(TOP) -xf -
 
 rcamdmips: $(TOP)/rcamdmips
+	@true
+
+$(TOP)/jpeg-6b: jpeg-6b.tar.bz2
+	tar -xjf jpeg-6b.tar.bz2 -C $(TOP)
+	[ ! -f jpeg-6b.patch ] || $(PATCHER) -Z $@ jpeg-6b.patch
+
+jpeg-6b: $(TOP)/jpeg-6b
 	@true
 
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
@@ -580,14 +587,14 @@ www: $(TOP)/www
 	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
 	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
 
-%-diff:
-	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
-	    $(call make_diff,-BurpN,router,gateway,$*)
+#%-diff:
+#	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
+#	    $(call make_diff,-BurpN,router,gateway,$*)
 
-%-diff-simple:
-	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
-	    $(call make_diff,-BurN,router,gateway,$*)
+#%-diff-simple:
+#	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
+#	    $(call make_diff,-BurN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
 	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
-	rc rcamdmips 
+	rc rcamdmips jpeg-6b config igmpproxy iproute2 lib shared utils
