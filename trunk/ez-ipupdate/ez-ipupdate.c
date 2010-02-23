@@ -653,10 +653,10 @@ static struct conf_cmd conf_commands[] = {
 
 /**************************************************/
 
-void print_usage( void );
-void print_version( void );
-void parse_args( int argc, char **argv );
-int do_connect(int *sock, char *host, char *port);
+static void print_usage( void );
+static void print_version( void );
+static void parse_args( int argc, char **argv );
+static int do_connect(int *sock, char *host, char *port);
 void base64Encode(char *intext, char *output);
 int main( int argc, char **argv );
 void warn_fields(char **okay_fields);
@@ -664,7 +664,7 @@ static int is_in_list(char *needle, char **haystack);
 
 /**************************************************/
 
-void print_usage( void )
+static void print_usage( void )
 {
   int i;
   int width;
@@ -889,7 +889,7 @@ void show_message(char *fmt, ...)
 
   va_end(args);
 }
-#else
+#else // REMOVE
 /*
  * show_message
  *
@@ -906,7 +906,7 @@ void show_message(char *fmt, ...)
   closelog();
   va_end(args);
 }
-#endif
+#endif //!REMOVE
 
 /*
  * returns true if the string passed in is an internet address in dotted quad
@@ -1268,7 +1268,7 @@ int conf_handler(struct conf_cmd *cmd, char *arg)
 #  define xgetopt( x1, x2, x3, x4, x5 ) getopt( x1, x2, x3 )
 #endif
 
-void parse_args( int argc, char **argv )
+static void parse_args( int argc, char **argv )
 {
 #ifdef HAVE_GETOPT_LONG
   struct option long_options[] = {
@@ -1499,7 +1499,7 @@ void parse_args( int argc, char **argv )
  * connect a socket and return the file descriptor
  *
  */
-int do_connect(int *sock, char *host, char *port)
+static int do_connect(int *sock, char *host, char *port)
 {
   struct sockaddr_in address;
   int len;
@@ -2302,14 +2302,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2320,14 +2313,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2338,14 +2324,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2356,14 +2335,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2374,14 +2346,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2394,14 +2359,7 @@ int PGPOW_update_entry(void)
 
     if(PGPOW_read_response(buf) != 0)
     {
-      if(strncmp("ERR", buf, 3) == 0)
-      {
-        show_message("error talking to server: %s\n", &(buf[3]));
-      }
-      else
-      {
-        show_message("error talking to server:\n\t%s\n", buf);
-      }
+    show_message("error talking to server:\n\t'%s'\n", buf);
       close(client_sockfd);
       return(UPDATERES_ERROR);
     }
@@ -2413,14 +2371,7 @@ int PGPOW_update_entry(void)
 
   if(PGPOW_read_response(buf) != 0)
   {
-    if(strncmp("ERR", buf, 3) == 0)
-    {
-      show_message("error talking to server: %s\n", &(buf[3]));
-    }
-    else
-    {
-      show_message("error talking to server:\n\t%s\n", buf);
-    }
+    show_message("error talking to server:\n\t'%s'\n", buf);
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2466,52 +2417,18 @@ int DHS_check_info(void)
   return 0;
 }
 
-/*
- * grrrrr, it seems that dhs.org requires us to use POST
- * also DHS doesn't update both the mx record and the address at the same
- * time, this service really stinks. go with justlinix.com (penguinpowered)
- * instead, the only advantage is short host names.
- */
-int DHS_update_entry(void)
+static int DHS_post_buf(char *buf, const char *domain, const char *hostname, int upd_type)
 {
-  char *buf = update_entry_buf;
   char *putbuf = update_entry_putbuf;
   char *bp = buf;
+  char *p;
   int bytes;
   int btot;
   int ret;
-  char *domain = NULL;
-  char *hostname = NULL;
-  char *p;
   int limit;
-  int retval = UPDATERES_OK;
 
   buf[BUFFER_SIZE] = '\0';
   putbuf[BUFFER_SIZE] = '\0';
-
-  /* parse apart the domain and hostname */
-  hostname = strdup(host);
-  if((p=strchr(hostname, '.')) == NULL)
-  {
-    if(!(options & OPT_QUIET))
-    {
-      show_message("error parsing hostname from host %s\n", host);
-    }
-    return(UPDATERES_ERROR);
-  }
-  *p = '\0';
-  p++;
-  if(*p == '\0')
-  {
-    if(!(options & OPT_QUIET))
-    {
-      show_message("error parsing domain from host %s\n", host);
-    }
-    return(UPDATERES_ERROR);
-  }
-  domain = strdup(p);
-
-  dprintf((stderr, "hostname: %s, domain: %s\n", hostname, domain));
 
   if(do_connect((int*)&client_sockfd, server, port) != 0)
   {
@@ -2534,46 +2451,37 @@ int DHS_update_entry(void)
 
   p = putbuf;
   *p = '\0';
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "hostscmd=edit&hostscmdstage=2&type=4&");
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s&", "updatetype", "Online");
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s&", "ip", address);
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s&", "mx", mx);
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s&", "offline_url", url);
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
+  bytes = 0;
+  limit = BUFFER_SIZE - 1;
+  bytes += snprintf(p, limit, "hostscmd=edit&hostscmdstage=2&type=4&");
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s&", "updatetype",
+			(upd_type == 0) ? "Online" : "Update+Mail+Exchanger");
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s&", "ip", address);
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s&", "mx", mx);
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s&", "offline_url", url);
+  p += bytes; limit -= bytes;
   if(cloak_title)
   {
-    snprintf(p, limit, "%s=%s&", "cloak", "Y");
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "cloak_title", cloak_title);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
+    bytes += snprintf(p, limit, "%s=%s&", "cloak", "Y");
+    p += bytes; limit -= bytes;
+    bytes += snprintf(p, limit, "%s=%s&", "cloak_title", cloak_title);
+    p += bytes; limit -= bytes;
   }
   else
   {
-    snprintf(p, limit, "%s=%s&", "cloak_title", "");
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
+    bytes += snprintf(p, limit, "%s=%s&", "cloak_title", "");
+    p += bytes; limit -= bytes;
   }
-  snprintf(p, limit, "%s=%s&", "submit", "Update");
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s&", "domain", domain);
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
-  snprintf(p, limit, "%s=%s", "hostname", hostname);
-  p += strlen(p);
-  limit = BUFFER_SIZE - 1 - strlen(buf);
+  bytes += snprintf(p, limit, "%s=%s&", "submit", "Update");
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s&", "domain", domain);
+  p += bytes; limit -= bytes;
+  bytes += snprintf(p, limit, "%s=%s", "hostname", hostname);
+  p += bytes; limit -= bytes;
 
   snprintf(buf, BUFFER_SIZE, "Content-length: %d\015\012", strlen(putbuf));
   output(buf);
@@ -2602,152 +2510,15 @@ int DHS_update_entry(void)
   {
     ret = -1;
   }
-
+  
   switch(ret)
   {
-    case -1:
-      if(!(options & OPT_QUIET))
-      {
-        show_message("strange server response, are you connecting to the right server?\n");
-      }
-      retval = UPDATERES_ERROR;
-      break;
-
-    case 200:
-      if(!(options & OPT_QUIET))
-      {
-        show_message("request successful\n");
-      }
-      break;
-
-    case 401:
-      if(!(options & OPT_QUIET))
-      {
-        show_message("authentication failure\n");
-      }
-      retval = UPDATERES_SHUTDOWN;
-      break;
-
-    default:
-      if(!(options & OPT_QUIET))
-      {
-        // reuse the auth buffer
-        *auth = '\0';
-        sscanf(buf, " HTTP/1.%*c %*3d %255[^\r\n]", auth);
-        show_message("unknown return code: %d\n", ret);
-        show_message("server response: %s\n", auth);
-      }
-      retval = UPDATERES_ERROR;
-      break;
-  }
-
-  // this stupid service requires us to do seperate request if we want to 
-  // update the mail exchanger (mx). grrrrrr
-  if(*mx != '\0')
-  {
-    // okay, dhs's service is incredibly stupid and will not work with two
-    // requests right after each other. I could care less that this is ugly,
-    // I personally will NEVER use dhs, it is laughable.
-    sleep(DHS_SUCKY_TIMEOUT < timeout.tv_sec ? DHS_SUCKY_TIMEOUT : timeout.tv_sec);
-
-    if(do_connect((int*)&client_sockfd, server, port) != 0)
-    {
-      if(!(options & OPT_QUIET))
-      {
-        show_message("error connecting to %s:%s\n", server, port);
-      }
-      return(UPDATERES_ERROR);
-    }
-
-    snprintf(buf, BUFFER_SIZE, "POST %s HTTP/1.0\015\012", request);
-    output(buf);
-    snprintf(buf, BUFFER_SIZE, "Authorization: Basic %s\015\012", auth);
-    output(buf);
-    snprintf(buf, BUFFER_SIZE, "User-Agent: %s-%s %s [%s] (%s)\015\012", 
-        "ez-update", VERSION, OS, (options & OPT_DAEMON) ? "daemon" : "", "by Angus Mackay");
-    output(buf);
-    snprintf(buf, BUFFER_SIZE, "Host: %s\015\012", server);
-    output(buf);
-
-    p = putbuf;
-    *p = '\0';
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "hostscmd=edit&hostscmdstage=2&type=4&");
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "updatetype", "Update+Mail+Exchanger");
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "ip", address);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "mx", mx);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "offline_url", url);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    if(cloak_title)
-    {
-      snprintf(p, limit, "%s=%s&", "cloak", "Y");
-      p += strlen(p);
-      limit = BUFFER_SIZE - 1 - strlen(buf);
-      snprintf(p, limit, "%s=%s&", "cloak_title", cloak_title);
-      p += strlen(p);
-      limit = BUFFER_SIZE - 1 - strlen(buf);
-    }
-    else
-    {
-      snprintf(p, limit, "%s=%s&", "cloak_title", "");
-      p += strlen(p);
-      limit = BUFFER_SIZE - 1 - strlen(buf);
-    }
-    snprintf(p, limit, "%s=%s&", "submit", "Update");
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s&", "domain", domain);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-    snprintf(p, limit, "%s=%s", "hostname", hostname);
-    p += strlen(p);
-    limit = BUFFER_SIZE - 1 - strlen(buf);
-
-    snprintf(buf, BUFFER_SIZE, "Content-length: %d\015\012", strlen(putbuf));
-    output(buf);
-    snprintf(buf, BUFFER_SIZE, "\015\012");
-    output(buf);
-
-    output(putbuf);
-    snprintf(buf, BUFFER_SIZE, "\015\012");
-    output(buf);
-
-    bp = buf;
-    bytes = 0;
-    btot = 0;
-    while((bytes=read_input(bp, BUFFER_SIZE-btot)) > 0)
-    {
-      bp += bytes;
-      btot += bytes;
-      dprintf((stderr, "btot: %d\n", btot));
-    }
-    close(client_sockfd);
-    buf[btot] = '\0';
-
-    dprintf((stderr, "server output: %s\n", buf));
-
-    if(sscanf(buf, " HTTP/1.%*c %3d", &ret) != 1)
-    {
-      ret = -1;
-    }
-
-    switch(ret)
-    {
       case -1:
         if(!(options & OPT_QUIET))
         {
           show_message("strange server response, are you connecting to the right server?\n");
         }
-        retval = UPDATERES_ERROR;
+        ret = UPDATERES_ERROR;
         break;
 
       case 200:
@@ -2755,6 +2526,7 @@ int DHS_update_entry(void)
         {
           show_message("request successful\n");
         }
+	ret = UPDATERES_OK;
         break;
 
       case 401:
@@ -2762,7 +2534,7 @@ int DHS_update_entry(void)
         {
           show_message("authentication failure\n");
         }
-        retval = UPDATERES_SHUTDOWN;
+        ret = UPDATERES_SHUTDOWN;
         break;
 
       default:
@@ -2774,9 +2546,62 @@ int DHS_update_entry(void)
           show_message("unknown return code: %d\n", ret);
           show_message("server response: %s\n", auth);
         }
-        retval = UPDATERES_ERROR;
+        ret = UPDATERES_ERROR;
         break;
+  }
+
+  return ret;
+}
+
+/*
+ * grrrrr, it seems that dhs.org requires us to use POST
+ * also DHS doesn't update both the mx record and the address at the same
+ * time, this service really stinks. go with justlinix.com (penguinpowered)
+ * instead, the only advantage is short host names.
+ */
+int DHS_update_entry(void)
+{
+  char *domain = NULL;
+  char *hostname = NULL;
+  char *p;
+  int retval;
+
+  /* parse apart the domain and hostname */
+  hostname = strdup(host);
+  if((p=strchr(hostname, '.')) == NULL)
+  {
+    if(!(options & OPT_QUIET))
+    {
+      show_message("error parsing hostname from host %s\n", host);
     }
+    return(UPDATERES_ERROR);
+  }
+  *p = '\0';
+  p++;
+  if(*p == '\0')
+  {
+    if(!(options & OPT_QUIET))
+    {
+      show_message("error parsing domain from host %s\n", host);
+    }
+    return(UPDATERES_ERROR);
+  }
+  domain = strdup(p);
+
+  dprintf((stderr, "hostname: %s, domain: %s\n", hostname, domain));
+
+  retval = DHS_post_buf(update_entry_buf, domain, hostname, 0);
+
+  // this stupid service requires us to do seperate request if we want to 
+  // update the mail exchanger (mx). grrrrrr
+  if(*mx != '\0' && retval == UPDATERES_OK)
+  {
+    // okay, dhs's service is incredibly stupid and will not work with two
+    // requests right after each other. I could care less that this is ugly,
+    // I personally will NEVER use dhs, it is laughable.
+    sleep(DHS_SUCKY_TIMEOUT < timeout.tv_sec ? DHS_SUCKY_TIMEOUT : timeout.tv_sec);
+
+    retval = DHS_post_buf(update_entry_buf, domain, hostname, 1);
   }
 
   return(retval);
@@ -2844,14 +2669,8 @@ int ODS_update_entry(void)
   response = ODS_read_response(buf, BUFFER_SIZE);
   if(!(response == 225 || response == 226))
   {
-    if(strlen(buf) > 4)
-    {
-      show_message("error talking to server: %s\n", &(buf[4]));
-    }
-    else
-    {
-      show_message("error talking to server\n");
-    }
+    show_message("error talking to server: %s\n", 
+    		    (strlen(buf) > 4) ? (&(buf[4])) : "" );
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2862,14 +2681,8 @@ int ODS_update_entry(void)
 
   if(ODS_read_response(buf, BUFFER_SIZE) != 901)
   {
-    if(strlen(buf) > 4)
-    {
-      show_message("error talking to server: %s\n", &(buf[4]));
-    }
-    else
-    {
-      show_message("error talking to server\n");
-    }
+    show_message("error talking to server: %s\n", 
+    		    (strlen(buf) > 4) ? (&(buf[4])) : "" );
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
@@ -2882,14 +2695,8 @@ int ODS_update_entry(void)
   response = ODS_read_response(buf, BUFFER_SIZE);
   if(!(response == 795 || response == 796))
   {
-    if(strlen(buf) > 4)
-    {
-      show_message("error talking to server: %s\n", &(buf[4]));
-    }
-    else
-    {
-      show_message("error talking to server\n");
-    }
+    show_message("error talking to server: %s\n", 
+    		    (strlen(buf) > 4) ? (&(buf[4])) : "" );
     close(client_sockfd);
     return(UPDATERES_ERROR);
   }
