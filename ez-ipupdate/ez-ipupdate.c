@@ -112,9 +112,9 @@
 #define ZONEEDIT_DEFAULT_PORT "80"
 #define ZONEEDIT_REQUEST "/auth/dynamic.html"
 
-#define HEIPV6TB_DEFAULT_SERVER "ipv6tb.he.net"
+#define HEIPV6TB_DEFAULT_SERVER "ipv4.tunnelbroker.net"
 #define HEIPV6TB_DEFAULT_PORT "80"
-#define HEIPV6TB_REQUEST "/index.cgi"
+#define HEIPV6TB_REQUEST "/ipv4_end.php"
 
 #define DNSOMATIC_DEFAULT_SERVER "updates.dnsomatic.com"
 #define DNSOMATIC_DEFAULT_PORT "80"
@@ -273,6 +273,7 @@ char *address = NULL;
 char *request = NULL;
 char *request_over_ride = NULL;
 int wildcard = 0;
+char *extra = NULL;
 char *mx = NULL;
 char *url = NULL;
 char *host = NULL;
@@ -364,7 +365,7 @@ static char *ZONEEDIT_fields_used[] = { "server", "user", "address", "mx", "host
 
 int HEIPV6TB_update_entry(void);
 int HEIPV6TB_check_info(void);
-static char *HEIPV6TB_fields_used[] = { "server", "user", NULL };
+static char *HEIPV6TB_fields_used[] = { "server", "user", "address", "extra", NULL };
 
 struct service_t services[] = {
   { "NULL",
@@ -591,6 +592,7 @@ enum {
   CMD_address,
   CMD_wildcard,
   CMD_mx,
+  CMD_extra,
   CMD_max_interval,
   CMD_url,
   CMD_host,
@@ -632,6 +634,7 @@ static struct conf_cmd conf_commands[] = {
   { CMD_host,            "host",            CONF_NEED_ARG, 1, conf_handler, "%s=<host>" },
   { CMD_interface,       "interface",       CONF_NEED_ARG, 1, conf_handler, "%s=<interface>" },
   { CMD_mx,              "mx",              CONF_NEED_ARG, 1, conf_handler, "%s=<mail exchanger>" },
+  { CMD_extra,           "extra",           CONF_NEED_ARG, 1, conf_handler, "%s=<extra info>" },
   { CMD_max_interval,    "max-interval",    CONF_NEED_ARG, 1, conf_handler, "%s=<number of seconds between updates>" },
 #ifdef SEND_EMAIL_CMD
   { CMD_notify_email,    "notify-email",    CONF_NEED_ARG, 1, conf_handler, "%s=<address to email if bad things happen>" },
@@ -1060,6 +1063,12 @@ int option_handler(int id, char *optarg)
       if(mx) { free(mx); }
       mx = strdup(optarg);
       dprintf((stderr, "mx: %s\n", mx));
+      break;
+
+    case CMD_extra:
+      if(extra) { free(extra); }
+      extra = strdup(optarg);
+      dprintf((stderr, "extra: %s\n", extra));
       break;
 
     case CMD_max_interval:
@@ -4083,10 +4092,10 @@ int HEIPV6TB_check_info(void)
     option_handler(CMD_interface, buf);
   }
 
-  if((strcmp(interface, auto_ifs) == 0) && (!address))
+  if((extra == NULL) || (*extra == '\0'))
   {
-    show_message("server doesn't support address autodetection\n");
-    return(-1);
+      show_message("you must provide tunnel id in 'extra' param\n");
+      return(-1);
   }
 
   warn_fields(service->fields_used);
@@ -4096,10 +4105,13 @@ int HEIPV6TB_check_info(void)
 
 int HEIPV6TB_update_entry(void)
 {
+  unsigned char digestbuf[MD5_DIGEST_BYTES];
   char *buf = update_entry_buf;
   char *bp = buf;
+  char *p;
   int bytes;
   int btot;
+  int i;
   int ret;
 
   buf[BUFFER_SIZE] = '\0';
@@ -4113,13 +4125,14 @@ int HEIPV6TB_update_entry(void)
     return(UPDATERES_ERROR);
   }
 
-  snprintf(buf, BUFFER_SIZE, "GET %s?menu=%s&", request, "edit_tunnel_address");
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "aname=%s&", user_name);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "auth=%s&", password);
-  output(buf);
-  snprintf(buf, BUFFER_SIZE, "ipv4b=%s", address);
+  md5_buffer(password, strlen(password), digestbuf);
+  for(i=0, p=auth; i<MD5_DIGEST_BYTES; i++, p+=2)
+  {
+    sprintf(p, "%02x", digestbuf[i]);
+  }
+  snprintf(buf, BUFFER_SIZE, "GET %s?ipv4b=%s&user_id=%s&pass=%s&tunnel_id=%s",
+                             request, address == NULL ? "AUTO" : address,
+                             user_name, auth, extra);
   output(buf);
   snprintf(buf, BUFFER_SIZE, " HTTP/1.0\015\012");
   output(buf);
@@ -4160,12 +4173,34 @@ int HEIPV6TB_update_entry(void)
       }
       return(UPDATERES_ERROR);
       break;
+
     case 200:
-      if(!(options & OPT_QUIET))
+    /* GOOD responses:
+     *       Your tunnel endpoint has been updated to: X.X.X.X
+     *       That IPv4 endpoint is already in use.
+     * BAD responses:
+     *       Please enter a valid IPv4 endpoint!
+     *       That user_id or password is not valid
+     *       Unable to find your tunnel
+     */
+      if(strstr(buf, "tunnel endpoint has been updated") != NULL ||
+         strstr(buf, "IPv4 endpoint is already in use") != NULL)
       {
-        show_message("request successful\n");
+         if(!(options & OPT_QUIET))
+         {
+           show_message("request successful\n");
+         }
       }
+      else
+      {
+        if(!(options & OPT_QUIET))
+        {
+          show_message("bad request\n");
+        }
+        return(UPDATERES_ERROR);
+      } 
       break;
+
     default:
       if(!(options & OPT_QUIET))
       {
@@ -4210,6 +4245,11 @@ void warn_fields(char **okay_fields)
   {
     show_message("warning: this service does not support the %s option\n",
         "mx");
+  }
+  if(!(extra == NULL || *extra == '\0') && !is_in_list("extra", okay_fields))
+  {
+    show_message("warning: this service does not support the %s option\n",
+        "extra");
   }
   if(!(url == NULL || *url == '\0') && !is_in_list("url", okay_fields))
   {
@@ -4425,6 +4465,7 @@ int main(int argc, char **argv)
   }
 
   if(mx == NULL) { mx = strdup(""); }
+  if(extra == NULL) { extra = strdup(""); }
   if(url == NULL) { url = strdup(""); }
 
 #ifdef IF_LOOKUP
@@ -4857,6 +4898,7 @@ int main(int argc, char **argv)
   if(host) { free(host); }
   if(interface) { free(interface); }
   if(mx) { free(mx); }
+  if(extra) { free(extra); }
   if(port) { free(port); }
   if(request) { free(request); }
   if(request_over_ride) { free(request_over_ride); }
