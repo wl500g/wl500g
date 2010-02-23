@@ -703,7 +703,7 @@ fi
 
 PACKAGE=ez-ipupdate
 
-VERSION=3.0.11b7
+VERSION=3.0.11b8
 
 if test "`cd $srcdir && pwd`" != "`pwd`" && test -f $srcdir/config.status; then
   { echo "configure: error: source directory already configured; run "make distclean" there first" 1>&2; exit 1; }
@@ -1498,6 +1498,7 @@ done
 
 for ac_hdr in arpa/inet.h \
 		  sys/types.h \
+		  time.h \
 		  sys/time.h \
 		  sys/stat.h \
 		  fcntl.h \
