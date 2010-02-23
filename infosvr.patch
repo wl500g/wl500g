@@ -1,6 +1,6 @@
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/Makefile gateway/infosvr/Makefile
---- router/infosvr/Makefile	2004-09-22 13:29:12.000000000 +0000
-+++ gateway/infosvr/Makefile	2008-12-19 09:10:19.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/Makefile infosvr/Makefile
+--- infosvr/Makefile	2004-09-22 13:29:12.000000000 +0000
++++ infosvr/Makefile	2008-12-19 09:10:19.000000000 +0000
 @@ -9,7 +9,7 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBAS
   
  #CFLAGS	+= -g -DDEBUG
@@ -10,9 +10,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/infosvr/Makefile gateway/infosvr/Makefile
  
  vpath %.c $(TOP)/shared
  
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/common.c gateway/infosvr/common.c
---- router/infosvr/common.c	2004-11-10 03:41:09.000000000 +0000
-+++ gateway/infosvr/common.c	2010-01-30 11:56:09.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/common.c infosvr/common.c
+--- infosvr/common.c	2004-11-10 03:41:09.000000000 +0000
++++ infosvr/common.c	2010-01-30 11:56:09.000000000 +0000
 @@ -62,6 +62,7 @@
  #include <unistd.h>		// eric++
  #include <dirent.h>		// eric++
@@ -39,9 +39,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/infosvr/common.c gateway/infosvr/common.c
  		     // search /tmp/waveserver and get information
  		     wsinfo = (WS_INFO_T*) (pdubuf_res + sizeof (IBOX_COMM_PKT_RES) + sizeof (PKT_GET_INFO));
  		     memset (wsinfo, 0, sizeof (WS_INFO_T));
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/iboxcom.h gateway/infosvr/iboxcom.h
---- router/infosvr/iboxcom.h	2004-11-10 03:41:10.000000000 +0000
-+++ gateway/infosvr/iboxcom.h	2010-01-30 11:55:56.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/iboxcom.h infosvr/iboxcom.h
+--- infosvr/iboxcom.h	2004-11-10 03:41:10.000000000 +0000
++++ infosvr/iboxcom.h	2010-01-30 11:55:56.000000000 +0000
 @@ -122,8 +122,6 @@ typedef struct iboxPKTExRes
  
  #define INFO_PDU_LENGTH	512
@@ -60,9 +60,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/infosvr/iboxcom.h gateway/infosvr/iboxcom.
  #define WS_INFO_FILENAME		"/tmp/waveserver.info"
  
  // appended to the PKT_GET_INFO; 
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/infosvr.c gateway/infosvr/infosvr.c
---- router/infosvr/infosvr.c	2004-09-22 13:29:12.000000000 +0000
-+++ gateway/infosvr/infosvr.c	2010-01-30 11:54:41.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/infosvr.c infosvr/infosvr.c
+--- infosvr/infosvr.c	2004-09-22 13:29:12.000000000 +0000
++++ infosvr/infosvr.c	2010-01-30 11:54:41.000000000 +0000
 @@ -1,6 +1,7 @@
  #include <stdio.h>
  #include <string.h>
@@ -111,9 +111,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/infosvr/infosvr.c gateway/infosvr/infosvr.
  		{
  			*(str+i) = 0;
  			break;
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/packet.c gateway/infosvr/packet.c
---- router/infosvr/packet.c	2004-09-22 13:29:12.000000000 +0000
-+++ gateway/infosvr/packet.c	2010-01-30 11:54:53.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/packet.c infosvr/packet.c
+--- infosvr/packet.c	2004-09-22 13:29:12.000000000 +0000
++++ infosvr/packet.c	2010-01-30 11:54:53.000000000 +0000
 @@ -1,4 +1,8 @@
  /* Revision Date: 2004.04.07      */
 +#include <stdio.h>
@@ -123,9 +123,9 @@ diff -BurpN '-x*.o' '-x*.orig' router/infosvr/packet.c gateway/infosvr/packet.c
  #include "iboxcom.h"
  #include "packet.h"
  
-diff -BurpN '-x*.o' '-x*.orig' router/infosvr/wlutils.c gateway/infosvr/wlutils.c
---- router/infosvr/wlutils.c	2004-09-22 13:29:12.000000000 +0000
-+++ gateway/infosvr/wlutils.c	2010-01-30 11:54:48.000000000 +0000
+diff -BurpN '-x*.o' '-x*.orig' infosvr/wlutils.c infosvr/wlutils.c
+--- infosvr/wlutils.c	2004-09-22 13:29:12.000000000 +0000
++++ infosvr/wlutils.c	2010-01-30 11:54:48.000000000 +0000
 @@ -6,6 +6,7 @@
  #include <wlutils.h>
  #include <bcmnvram.h>
