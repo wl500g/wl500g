@@ -138,9 +138,6 @@
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
-#if HAVE_TIME_H
-#  include <time.h>
-#endif
 #if HAVE_FCNTL_H
 #  include <fcntl.h>
 #endif
@@ -926,6 +923,13 @@ void show_message(char *fmt, ...)
  */
 int is_dotted_quad(char *addr)
 {
+#if HAVE_ARPA_INET_H
+  struct in_addr q;
+
+  if (!inet_aton(addr, &q))
+    return (0);
+
+#else
   int q[4];
   char *p;
   int i;
@@ -953,6 +957,7 @@ int is_dotted_quad(char *addr)
   {
     return(0);
   }
+#endif /* HAVE_ARPA_INET_H */
 
   return(1);
 }
@@ -1519,7 +1524,7 @@ static void parse_args( int argc, char **argv )
  */
 static int do_connect(int *sock, char *host, char *port)
 {
-  struct sockaddr_in address;
+  struct sockaddr_in addr;
   int len;
   int result;
   struct hostent *hostinfo;
@@ -1534,7 +1539,7 @@ static int do_connect(int *sock, char *host, char *port)
     }
     return(-1);
   }
-  address.sin_family = AF_INET;
+  addr.sin_family = AF_INET;
 
   // get the host address
   hostinfo = gethostbyname(host);
@@ -1547,22 +1552,22 @@ static int do_connect(int *sock, char *host, char *port)
     close(*sock);
     return(-1);
   }
-  address.sin_addr = *(struct in_addr *)*hostinfo -> h_addr_list;
+  addr.sin_addr = *(struct in_addr *)*hostinfo -> h_addr_list;
 
   // get the host port
   servinfo = getservbyname(port, "tcp");
   if(servinfo)
   {
-    address.sin_port = servinfo -> s_port;
+    addr.sin_port = servinfo -> s_port;
   }
   else
   {
-    address.sin_port = htons(atoi(port));
+    addr.sin_port = htons(atoi(port));
   }
 
   // connect the socket
-  len = sizeof(address);
-  if((result=connect(*sock, (struct sockaddr *)&address, len)) == -1) 
+  len = sizeof(addr);
+  if((result=connect(*sock, (struct sockaddr *)&addr, len)) == -1) 
   {
     if(!(options & OPT_QUIET))
     {
@@ -1578,8 +1583,8 @@ static int do_connect(int *sock, char *host, char *port)
     show_message(
         "connected to %s (%s) on port %d.\n",
         host,
-        inet_ntoa(address.sin_addr),
-        ntohs(address.sin_port));
+        inet_ntoa(addr.sin_addr),
+        ntohs(addr.sin_port));
   }
 
   return 0;
@@ -1782,7 +1787,7 @@ int get_if_addr(int sock, char *name, struct sockaddr_in *sin)
 #endif
 }
 
-static int output_hdr(char *buf, int bufsz, char *_auth, char *_ua)
+static void output_hdr(char *buf, int bufsz, char *_auth, char *_ua)
 {
   int l;
 
