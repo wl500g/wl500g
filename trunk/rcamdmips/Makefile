@@ -6,15 +6,15 @@ LD = $(CC)
 
 PROG = rcamd
 
-LINUXKERNELSRC	= /root/broadcom/src/linux/linux/
+#LINUXKERNELSRC	= /root/broadcom/src/linux/linux/
 LINUXKERNELINCLUDEDIR	= $(LINUXKERNELSRC)/include
 #TARGETDIR = /root/broadcom/src/router/mipsel/target
 
 # add -DANYCAM for general video4linux devices
 # remove it for Backpaq cameras
 #CFLAGS = `gtk-config --cflags` -O -g -g -I$(LINUXKERNELINCLUDEDIR) -Wall 
-CFLAGS = -O -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK 
-LDFLAGS = -L/opt/brcm/hndtools-mipsel-uclibc/lib/ -lpthread 
+CFLAGS = -O2 -g -I$(LINUXKERNELINCLUDEDIR) -I. -I../jpeg-6b -Wall -DWL600 -DNONBLOCK $(EXTRACFLAGS)
+LDFLAGS = -lpthread 
 
 SRCS = rcamd.c text.c glist.c gtimer.c gslist.c gmutex.c gmem.c garray.c gtree.c ccvt_c.c #djpeg.c
 INCLUDES = ${SRCS:.c=.h}
@@ -30,7 +30,7 @@ install: $(PROG)
 	$(STRIP) $(INSTALLDIR)/usr/sbin/rcamd
 
 ${PROG}: ${OBJS}
-	${LD} ${LDFLAGS} ${OBJS} -o $@ libjpeg.a
+	${LD} ${LDFLAGS} ${OBJS} -o $@ ../jpeg-6b/libjpeg.a
 
 clean:
 	/bin/rm -f *.o *~ core .depend log ${PROG}

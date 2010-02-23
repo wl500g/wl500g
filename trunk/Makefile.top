@@ -874,7 +874,7 @@ madwimax-install:
 	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 
 rcamdmips:
-	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR)
+	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"
 
 LPRng:
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(EXTRACFLAGS)"

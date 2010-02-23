@@ -28,6 +28,7 @@
  * MT safe
  */
 
+#include <string.h>
 #include "glib.h"
 
 
