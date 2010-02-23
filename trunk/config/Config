@@ -70,12 +70,6 @@ config CONFIG_BRIDGE
        help
        Answer Y for the user mode Ethernet bridge configuration utility.
 
-config CONFIG_VLAN
-       bool "VLAN configuration"
-       default y
-       help
-       Answer Y for the user mode VLAN configuration utility.
-
 config CONFIG_HTTPD
        bool "Web server"
        depends on CONFIG_NVRAM && CONFIG_SHARED

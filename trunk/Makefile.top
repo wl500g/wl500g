@@ -139,7 +139,6 @@ obj-$(CONFIG_UDHCPD) += udhcpd
 obj-$(CONFIG_UPNP) += upnp
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
-obj-$(CONFIG_VLAN) += vlan
 
 # Added by Joey for ASUS application
 obj-$(CONFIG_PPTP) += pptp
@@ -592,12 +591,6 @@ upnp: netconf nvram shared
 
 wlconf: nvram shared
 
-vlan:
-	$(MAKE) -C $@ CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
-
-vlan-install:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
-
 pptp-install: pptp
 	install -D pptp/pptp $(INSTALLDIR)/pptp/usr/sbin/pptp
 	$(STRIP) $(INSTALLDIR)/pptp/usr/sbin/pptp
@@ -883,7 +876,6 @@ model-%:
 	make rc-clean
 	make infosvr-clean
 	#make LPRng-clean
-	#make vlan-clean
 	#make shared-clean
 
 	( if [ "$*" = "WL500gx" ]; then \

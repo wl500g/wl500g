@@ -89,7 +89,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips \
 	scsi-idle libusb usb_modeswitch wimax \
-	shared upnp utils vlan wlconf www libbcmcrypto asustrx
+	shared upnp utils wlconf www libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
 	@echo
