@@ -1,6 +1,12 @@
---- nano.mk.orig	2009-12-11 00:18:50.000000000 +0300
-+++ nano.mk	2009-12-11 00:13:50.000000000 +0300
-@@ -10,10 +10,10 @@
+--- nano.mk.orig	2010-02-24 22:48:21.000000000 +0300
++++ nano.mk	2010-02-24 22:33:32.000000000 +0300
+@@ -5,15 +5,15 @@
+ ###########################################################
+ 
+ NANO_SITE=http://www.nano-editor.org/dist/v2.2
+-NANO_VERSION=2.2.1
++NANO_VERSION=2.2.3
+ NANO_SOURCE=nano-$(NANO_VERSION).tar.gz
  NANO_DIR=nano-$(NANO_VERSION)
  NANO_UNZIP=zcat
  NANO_MAINTAINER=Mark Donszelmann <mark@donszelmann.com>

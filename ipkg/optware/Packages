@@ -61,40 +61,12 @@ Package: nano
 Architecture: mipsel
 Priority: optional
 Section: editor
-Version: 2.1.11-1
+Version: 2.2.3-1
 Maintainer: Mark Donszelmann <mark@donszelmann.com>
-Source: http://www.nano-editor.org/dist/v2.1/nano-2.1.11.tar.gz
-Filename: nano_2.1.11-1_mipsel.ipk
-Size: 123986
-MD5Sum: c632153877237c18743f5badaf718033
-Description: A pico like editor with UTF-8 support
-Depends: ncursesw
-Conflicts: 
-
-Package: nano
-Architecture: mipsel
-Priority: optional
-Section: editor
-Version: 2.2.0-1
-Maintainer: Mark Donszelmann <mark@donszelmann.com>
-Source: http://www.nano-editor.org/dist/v2.2/nano-2.2.0.tar.gz
-Filename: nano_2.2.0-1_mipsel.ipk
-Size: 125865
-MD5Sum: 653e6a8f47b1e4fb7099f0c87ac428fc
-Description: A pico like editor with UTF-8 support
-Depends: ncursesw
-Conflicts: 
-
-Package: nano
-Architecture: mipsel
-Priority: optional
-Section: editor
-Version: 2.2.1-1
-Maintainer: Mark Donszelmann <mark@donszelmann.com>
-Source: http://www.nano-editor.org/dist/v2.2/nano-2.2.1.tar.gz
-Filename: nano_2.2.1-1_mipsel.ipk
-Size: 126338
-MD5Sum: 60377b8a608651c79d0b3b692666df6d
+Source: http://www.nano-editor.org/dist/v2.2/nano-2.2.3.tar.gz
+Filename: nano_2.2.3-1_mipsel.ipk
+Size: 126369
+MD5Sum: 3b95477c625e3b1c3a89c615284a597f
 Description: A pico like editor with UTF-8 support
 Depends: ncursesw
 Conflicts: 
