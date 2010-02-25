@@ -18,13 +18,13 @@
 #
 
 ROOT := $(shell (cd .. && pwd -P))
-SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
 BUSYBOX=busybox-1.15.3
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.52
+LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.4.7-now-ss020116-try
@@ -90,7 +90,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax \
-	shared upnp utils vlan wlconf www libbcmcrypto asustrx
+	shared upnp utils wlconf www libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -233,6 +233,17 @@ dnsmasq-diff: $(DNSMASQ).tar.gz
 	-(cd $(TOP) && $(DIFF) -BurpN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
 
 dnsmasq: $(TOP)/dnsmasq
+	@true
+
+LPRng_Patches := $(call patches_list,LPRng)
+
+$(TOP)/LPRng: LPRng/$(LPRNG).tgz
+	@rm -rf $(TOP)/$(LPRNG) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(LPRNG) $(LPRng_Patches)
+	mv $(TOP)/$(LPRNG) $@
+
+LPRng: $(TOP)/LPRng
 	@true
 
 $(TOP)/p910nd: $(P910ND).tar.bz2
@@ -422,20 +433,37 @@ $(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
 ntpclient: $(TOP)/ntpclient
 	@true
 
-ez-ipupdate_Patches := $(call patches_list,ez-ipupdate)
-
-$(TOP)/ez-ipupdate: $(TOP)/ez-ipupdate/Makefile.in
-	tar -xjf ez-ipupdate/ez-ipupdate.tar.bz2 -C $(TOP)
-	$(PATCHER) -Z $(TOP) $(ez-ipupdate_Patches)
+$(TOP)/ez-ipupdate:
+	tar -C . $(TAR_EXCL_SVN) -cf - ez-ipupdate | tar -C $(TOP) -xf -
 
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
 
-$(TOP)/bpalogin: $(TOP)/bpalogin/Makefile.in
+$(TOP)/bpalogin: bpalogin.tar.bz2
 	tar -xjf bpalogin.tar.bz2 -C $(TOP)
 	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
 
 bpalogin: $(TOP)/bpalogin
+	@true
+
+$(TOP)/infosvr: infosvr.tar.bz2
+	tar -xjf infosvr.tar.bz2 -C $(TOP)
+	[ ! -f infosvr.patch ] || $(PATCHER) -Z $@ infosvr.patch
+
+infosvr: $(TOP)/infosvr
+	@true
+
+$(TOP)/rcamdmips:
+	tar -C . $(TAR_EXCL_SVN) -cf - rcamdmips | tar -C $(TOP) -xf -
+
+rcamdmips: $(TOP)/rcamdmips
+	@true
+
+$(TOP)/jpeg-6b: jpeg-6b.tar.bz2
+	tar -xjf jpeg-6b.tar.bz2 -C $(TOP)
+	[ ! -f jpeg-6b.patch ] || $(PATCHER) -Z $@ jpeg-6b.patch
+
+jpeg-6b: $(TOP)/jpeg-6b
 	@true
 
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
@@ -575,21 +603,10 @@ www: $(TOP)/www
 	@true
 
 
-%:
-	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
-		tar -C $(SRC) $(TAR_EXCL_SVN) -cf - $* | tar -C $(TOP) -xf -
-	[ ! -f $*.diff ] || $(PATCHER) -Z $(TOP) $*.diff
-	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
-	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
-
-%-diff:
-	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
-	    $(call make_diff,-BurpN,router,gateway,$*)
-
-%-diff-simple:
-	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
-	    $(call make_diff,-BurN,router,gateway,$*)
+#%-diff:
+#	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
+#	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
 	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
-	rc 
+	rc rcamdmips jpeg-6b config igmpproxy iproute2 lib shared utils

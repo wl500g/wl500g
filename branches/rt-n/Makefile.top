@@ -146,7 +146,6 @@ obj-$(CONFIG_UDHCPD) += udhcpd
 obj-$(CONFIG_UPNP) += upnp
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
-obj-$(CONFIG_VLAN) += vlan
 
 # Added by Joey for ASUS application
 obj-$(CONFIG_PPTP) += pptp
@@ -541,7 +540,7 @@ bridge-install: bridge
 	$(STRIP) $(INSTALLDIR)/bridge/usr/sbin/brctl
 
 ez-ipupdate/Makefile: ez-ipupdate/Makefile.in ez-ipupdate/config.h.in ez-ipupdate/configure.in
-	cd ez-ipupdate && ac_cv_prog_CC=$(CC) CPP=$(CC) CPPFLAGS="$(EXTRACFLAGS)" \
+	cd ez-ipupdate && ac_cv_prog_CC=$(CC) CPP=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \
 	$(CONFIGURE)
 
 ez-ipupdate: ez-ipupdate/Makefile
@@ -619,12 +618,6 @@ udhcpd-install: udhcpd
 upnp: netconf nvram shared
 
 wlconf: nvram shared
-
-vlan:
-	$(MAKE) -C $@ CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP)
-
-vlan-install:
-	$(MAKE) -C vlan CROSS=$(CROSS_COMPILE) STRIPTOOL=$(STRIP) INSTALLDIR=$(INSTALLDIR) install
 
 pptp-install: pptp
 	install -D pptp/pptp $(INSTALLDIR)/pptp/usr/sbin/pptp
@@ -929,16 +922,22 @@ igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 rcamdmips:
-	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR)
+	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"
 
-LPRng:
-	$(MAKE) -C $@ GLOBAL_OPTIONS="$(EXTRACFLAGS)"
+LPRng/Makefile: LPRng/Makefile.in
+	cd LPRng && CC=$(CC) CPPFLAGS="$(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
+	$(CONFIGURE) --includedir=$(LINUXDIR)/include --disable-werror \
+	--disable-kerberos --disable-ssl --disable-mit_kerberos4 \
+	--with-userid=root --with-groupid=root --disable-setuid --disable-nls \
+	--enable-static
+
+LPRng: LPRng/Makefile
+	$(MAKE) -C $@/src TARGET=lpd
 
 model-%:
 	make rc-clean
 	make infosvr-clean
 	#make LPRng-clean
-	#make vlan-clean
 	#make shared-clean
 
 	( if [ "$*" = "WL500gx" ]; then \
