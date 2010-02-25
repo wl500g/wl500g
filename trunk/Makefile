@@ -18,7 +18,6 @@
 #
 
 ROOT := $(shell (cd .. && pwd -P))
-SRC := $(ROOT)/router
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux
 
@@ -592,20 +591,9 @@ www: $(TOP)/www
 	@true
 
 
-%:
-	[ ! -d $(SRC)/$* ] || [ -d $(TOP)/$* ] || \
-		tar -C $(SRC) $(TAR_EXCL_SVN) -cf - $* | tar -C $(TOP) -xf -
-	[ ! -f $*.diff ] || $(PATCHER) -Z $(TOP) $*.diff
-	[ ! -f $*.patch ] || patch -d $(TOP) -d $* -p1 --no-backup-if-mismatch -Z < $*.patch
-	[ ! -f $(TOP)/$*/Makefile ] || $(MAKE) -C $(TOP)/$* clean
-
 #%-diff:
 #	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
 #	    $(call make_diff,-BurpN,router,gateway,$*)
-
-#%-diff-simple:
-#	[ -d $(SRC)/$* ] || [ -d $(TOP)/$* ] && \
-#	    $(call make_diff,-BurN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
 	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
