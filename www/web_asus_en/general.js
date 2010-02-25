@@ -823,6 +823,49 @@ function validate_ipaddr(o, v)
   return true;
 }
 
+function validate_ip6addr(o)
+{
+  is_ip6 = true;
+  sep_cnt = 0;
+  pos = 0;
+  len = o.value.length;
+
+  for (i=0; i<len; i++)
+  {
+     c=o.value.charAt(i);
+     if (c==':')
+     {
+       sep_cnt++;
+       if (i > pos)
+          num = parseInt(o.value.substring(pos, i), 16);
+       else
+          num = 0;
+       if (sep_cnt > 7 || num > 0xffff)
+       {
+         is_ip6 = false;
+         break;
+       }
+       pos = i+1;
+     }
+     else if (!(c>='0'&&c<='9') && !(c>='a'&&c<='f') && !(c>='A'&&c<='F'))
+     {
+       is_ip6 = false;
+       break;
+     }
+  }
+  if (pos < len) // Check final part
+    if (parseInt(o.value.substring(pos, len), 16) > 0xffff)
+      is_ip6 = false;
+
+  if (!is_ip6)
+  {
+     alert(o.value + ' is not a valid IPv6 address!');
+     o.focus();
+     return false;
+  }
+  return true;
+}
+
 function change_ipaddrport(o)
 {   
 /*
@@ -4121,6 +4164,8 @@ function change_ipv6_type(v)
 {
 	if (v == "native")
 	{
+	   inputCtrl(document.form.ipv6_wan_addr, 1);
+	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
@@ -4129,8 +4174,10 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_sit_ttl, 0);
 	   inputRCtrl1(document.form.ipv6_radvd_enable, 1);
 	}
-	else if(v == "tun6in4")
+	else if (v == "tun6in4")
 	{
+	   inputCtrl(document.form.ipv6_wan_addr, 1);
+	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 1);
@@ -4143,6 +4190,8 @@ function change_ipv6_type(v)
 	}
 	else if(v == "tun6to4")
 	{
+	   inputCtrl(document.form.ipv6_wan_addr, 1);
+	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 0);
 	   inputCtrl(document.form.ipv6_sit_local, 1);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
@@ -4158,6 +4207,14 @@ function change_ipv6_type(v)
 	}
 	else
 	{
+	   inputCtrl(document.form.ipv6_wan_addr, 0);
+	   inputCtrl(document.form.ipv6_wan_netsize, 0);
+	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_sit_local, 0);
+	   inputCtrl(document.form.ipv6_sit_remote, 0);
+	   inputCtrl(document.form.ipv6_sit_relay, 0);
+	   inputCtrl(document.form.ipv6_sit_mtu, 0);
+	   inputCtrl(document.form.ipv6_sit_ttl, 0);
 	   inputRCtrl1(document.form.ipv6_radvd_enable, 0);
 	   inputRCtrl2(document.form.ipv6_radvd_enable, 1);
 	}
