@@ -25,6 +25,7 @@ export KERNEL_DIR := $(ROOT)/linux/linux
 BUSYBOX=busybox-1.15.3
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.52
+LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.4.7-now-ss020116-try
@@ -243,6 +244,17 @@ dnsmasq-diff: $(DNSMASQ).tar.gz
 	-(cd $(TOP) && $(DIFF) -BurpN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
 
 dnsmasq: $(TOP)/dnsmasq
+	@true
+
+LPRng_Patches := $(call patches_list,LPRng)
+
+$(TOP)/LPRng: LPRng/$(LPRNG).tgz
+	@rm -rf $(TOP)/$(LPRNG) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(LPRNG) $(LPRng_Patches)
+	mv $(TOP)/$(LPRNG) $@
+
+LPRng: $(TOP)/LPRng
 	@true
 
 $(TOP)/p910nd: $(P910ND).tar.bz2
