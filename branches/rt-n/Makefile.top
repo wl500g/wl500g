@@ -934,6 +934,10 @@ LPRng/Makefile: LPRng/Makefile.in
 LPRng: LPRng/Makefile
 	$(MAKE) -C $@/src TARGET=lpd
 
+LPRng-install:
+	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
+	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
+
 model-%:
 	make rc-clean
 	make infosvr-clean
