@@ -883,9 +883,11 @@ LPRng-install:
 	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
 
+infosvr:
+	$(MAKE) -C infosvr GLOBAL_OPTIONS="$(EXTRACFLAGS) -DPRNINFO -DNO_PARALLEL"
+
 model-%:
 	make rc-clean
-	make infosvr-clean
 	#make LPRng-clean
 	#make shared-clean
 
@@ -902,8 +904,6 @@ model-%:
 	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	fi )
-
-	$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO"
 
 image-%:
 	make model-$*
