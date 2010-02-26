@@ -878,10 +878,6 @@ start_wan(void)
 		{
 			ip6_ifname = nvram_safe_get("wan0_ifname");
 
-			/* Configurate remote IPv6 address (default gateway) */
-			if (ip6_router && *ip6_router)
-				eval("ip", "-6", "route", "add", "default",
-					"via", ip6_router, "dev", nvram_safe_get("wan0_ifname"));
 		} else
 
 		/* Tunnel 6in4 & 6to4 */
@@ -918,6 +914,7 @@ start_wan(void)
 		if (ip6_addr && *ip6_addr && ip6_size && *ip6_size)
 		{
 			char ip6_net[64];
+
 			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
         		eval("ip", "-6", "addr", "add", ip6_net, "dev", ip6_ifname);
         	}
@@ -925,8 +922,16 @@ start_wan(void)
         	/* Configurate remote IPv6 address (default gateway) */
 		if (ip6_router && *ip6_router)
 		{
+			int size;
+
 			if (strcmp(ipv6_proto, "tun6to4") == 0)
 				eval("ip", "-6", "route", "add", "2002::/16", "dev", ip6_ifname);
+			else
+			if ((sscanf(ip6_router, "%[^/]/%d", ip6_relay, &size) == 2) && (size < 128)) {
+				ip6_router = ip6_relay;
+				eval("ip", "-6", "route", "add", ip6_router, "dev", ip6_ifname);
+			}
+
 			eval("ip", "-6", "route", "add", "default",
 				"via", ip6_router, "dev", ip6_ifname);
 		}
