@@ -313,15 +313,13 @@ hostmon		5355/tcp			# hostmon uses TCP (nocol)
 hostmon		5355/udp			# hostmon uses TCP (nocol)
 ircd		6667/tcp			# Internet Relay Chat
 ircd		6667/udp			# Internet Relay Chat
-webcam		7777/tcp			# test
-webcam		7777/udp			# test
-infosvr		3838/udp
-remote		9999/tcp
+lpdasus		3838/tcp
 webcache	8080/tcp			# WWW caching service
 webcache	8080/udp			# WWW caching service
 tproxy		8081/tcp			# Transparent Proxy
 tproxy		8081/udp			# Transparent Proxy
 mandelspawn	9359/udp	mandelbrot	# network mandelbrot
+infosvr		9999/udp
 amanda		10080/udp			# amanda backup services
 kamanda		10081/tcp			# amanda backup services (Kerberos)
 kamanda		10081/udp			# amanda backup services (Kerberos)
