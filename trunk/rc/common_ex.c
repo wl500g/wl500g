@@ -535,6 +535,13 @@ void convert_asus_values()
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 		eval("insmod", "ipt_recent");
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "disabled"))
+	{
+		eval("insmod", "ip6_conntrack");
+		eval("insmod", "ip6t_state");
+	}
+#endif
 
 	update_lan_status(1);
 
