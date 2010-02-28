@@ -17,6 +17,12 @@ choice
 		bool "uClibc 0.9.30"
 endchoice
 
+
+config UCLIBC_ENABLE_DEBUG
+	bool "Build with debug information"
+	depends on TOOLCHAINOPTS
+	default n
+
 config UCLIBC_EXTRA_VERSION
 	string
 	prompt "Extra uClibc version" if TOOLCHAINOPTS

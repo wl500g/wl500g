@@ -125,6 +125,10 @@ UCLIBC_MAKE := PATH=$(TARGET_PATH) $(MAKE) -C $(PKG_BUILD_DIR) \
 	CPU_CFLAGS="$(TARGET_CFLAGS)" \
 	LIBGCC="$(subst libgcc.a,libgcc_initial.a,$(shell $(TARGET_CC) -print-libgcc-file-name))" \
 
+ifeq ($(CONFIG_UCLIBC_ENABLE_DEBUG),y)
+	UCLIBC_MAKE += DODEBUG=y DODEBUG_PT=y
+endif
+
 define Build/Compile
 	$(SED) 's,^CROSS=.*,CROSS=$(TARGET_CROSS),g' $(PKG_BUILD_DIR)/Rules.mak
 	$(UCLIBC_MAKE) PREFIX= all
