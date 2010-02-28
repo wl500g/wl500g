@@ -1013,6 +1013,14 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		    ":SECURITY - [0:0]\n"
 		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
 
+	/* Drop packets if IPv6 disabled */
+	if (*nvram_safe_get("ipv6_proto") == 0) {
+		fprintf(fp, "-A INPUT -j DROP\n"
+			    "-A FORWARD -j DROP\n"
+			    "-A OUTPUT -j DROP\n");
+		goto ipv6_commit;
+	}
+
 	/* SECURITY chain */
 	// sync-flood protection
 	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
@@ -1105,8 +1113,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 
+ipv6_commit:
 	fprintf(fp, "COMMIT\n\n");
-       	fclose(fp);
+	fclose(fp);
 
 	eval("ip6tables-restore", "/tmp/filter6_rules");
 	}
