@@ -883,11 +883,12 @@ start_wan(void)
 			char *sit_remote = "any";
 
 			/* Tunnel 6in4 */
-			if (nvram_match("ipv6_proto", "tun6in4") == 0)
+			if (nvram_match("ipv6_proto", "tun6in4"))
 				sit_remote = nvram_safe_get("ipv6_sit_remote");
 			else
 
-			/* Tunnel 6in4 */
+			/* Tunnel 6to4 */
+			if (nvram_match("ipv6_proto", "tun6to4"))
 			{
 				sit_local = nvram_safe_get("ipv6_sit_local");
 				strcat(ip6_relay, nvram_safe_get("ipv6_sit_relay"));
@@ -907,7 +908,7 @@ start_wan(void)
 		/* Configurate wanif IPv6 address */
 		if (*ip6_addr && *ip6_size)
 		{
-			char ip6_net[64];
+			char ip6_net[INET6_ADDRSTRLEN];
 
 			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
         		eval("ip", "-6", "addr", "add", ip6_net, "dev", ip6_ifname);
@@ -918,7 +919,7 @@ start_wan(void)
 		{
 			int size;
 
-			if (nvram_match("ipv6_proto", "tun6to4") == 0)
+			if (nvram_match("ipv6_proto", "tun6to4"))
 				eval("ip", "-6", "route", "add", "2002::/16", "dev", ip6_ifname);
 			else
 			if ((sscanf(ip6_router, "%[^/]/%d", ip6_relay, &size) == 2) && (size < 128)) {
