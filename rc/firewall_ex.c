@@ -1014,7 +1014,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		    ":logaccept - [0:0]\n:logdrop - [0:0]\n");
 
 	/* Drop packets if IPv6 disabled */
-	if (*nvram_safe_get("ipv6_proto") == 0) {
+	if (!nvram_invmatch("ipv6_proto", "")) {
 		fprintf(fp, "-A INPUT -j DROP\n"
 			    "-A FORWARD -j DROP\n"
 			    "-A OUTPUT -j DROP\n");
