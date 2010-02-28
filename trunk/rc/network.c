@@ -455,14 +455,13 @@ start_lan(void)
 
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
-	char *ipv6_proto = nvram_safe_get("ipv6_proto");
-	if (ipv6_proto && *ipv6_proto)
+	if (*nvram_safe_get("ipv6_proto"))
 	{
-		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
-		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
+		char *ip6_addr = nvram_get("ipv6_lan_addr");
+		char *ip6_size = nvram_get("ipv6_lan_netsize");
 		if( ip6_addr && *ip6_addr && ip6_size && *ip6_size )
 		{
-			char *ip6_net = (char*) malloc(45);
+			char *ip6_net = (char*) malloc(INET6_ADDRSTRLEN);
 			strcpy( ip6_net, ip6_addr );
 			strcat( ip6_net, "/" );
 			strcat( ip6_net, ip6_size );
