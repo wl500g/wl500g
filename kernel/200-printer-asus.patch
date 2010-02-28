@@ -263,7 +263,7 @@
  {
  	struct usblp *usblp = file->private_data;
 +//JYWeng 20031212: set this as global	struct parport_splink_device_info prn_info_tmp, *prn_info; // Added by PaN
-+	struct print_buffer user_buf_tmp, *user_buf; // Added by PaN
++	struct print_buffer *user_buf; // Added by PaN
 +//JYWeng 20031212: set this as global	char *strtmp, *strunknown="unknown"; // Added by PaN
 +	char *str_dev_id; // Added by PaN: JYWeng 20031212: modified from the above
 +	//int i, unk=0; // Added by PaN

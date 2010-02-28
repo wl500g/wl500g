@@ -2667,7 +2667,7 @@
 +/*END OF ARMLIB*/
 --- /dev/null
 +++ b/fs/jffs2/jffs2_bbc_framework.c
-@@ -0,0 +1,1324 @@
+@@ -0,0 +1,1325 @@
 +/* 
 + * JFFS2-BBC: Compression Framework
 + *
@@ -2814,18 +2814,18 @@
 +extern int jffs2_zlib_compress2(unsigned char *data_in, unsigned char *cpage_out, uint32_t * sourcelen, uint32_t * dstlen);
 +extern void jffs2_zlib_decompress2(unsigned char *data_in, unsigned char *cpage_out, uint32_t srclen, uint32_t destlen);
 +
-+static int jffs2_bbc_zlib_compress(void *model, unsigned char *input, unsigned char *output, unsigned long *sourcelen, unsigned long *dstlen) 
++static int jffs2_bbc_zlib_compress(void *model, unsigned char *input, unsigned char *output, uint32_t *sourcelen, uint32_t *dstlen) 
 +{
 +        return jffs2_zlib_compress2(input, output, sourcelen, dstlen);
 +}
 +
-+static int jffs2_bbc_zlib_decompress(void *model, unsigned char *input, unsigned char *output, unsigned long sourcelen, unsigned long dstlen) 
++static int jffs2_bbc_zlib_decompress(void *model, unsigned char *input, unsigned char *output, uint32_t sourcelen, uint32_t dstlen) 
 +{
 +        jffs2_zlib_decompress2(input, output, sourcelen, dstlen);
 +        return 0;
 +}
 +
-+static int jffs2_bbc_zlib_estimate(void *model, unsigned char *input, unsigned long sourcelen, unsigned long *dstlen, unsigned long *readtime, unsigned long *writetime)
++static int jffs2_bbc_zlib_estimate(void *model, unsigned char *input, uint32_t sourcelen, uint32_t *dstlen, unsigned long *readtime, unsigned long *writetime)
 +{
 +	*dstlen    = sourcelen * 65 / 100;
 +	*readtime  = JFFS2_BBC_ZLIB_READ_TIME;
@@ -3537,7 +3537,7 @@
 +static int debug_mem_counter = -1;
 +
 +
-+void debug_before_compress(struct jffs2_bbc_compressor_type *c, void *model, unsigned char *input, unsigned char *output, long *sourcelen, long *dstlen)
++void debug_before_compress(struct jffs2_bbc_compressor_type *c, void *model, unsigned char *input, unsigned char *output, uint32_t *sourcelen, uint32_t *dstlen)
 +{
 +
 +	debug_orig_srclen = *sourcelen;	// for buffer overflow test
@@ -3547,10 +3547,10 @@
 +	debug_mem_counter = jffs2_bbc_get_memory_counter();	// for memory guard
 +}
 +
-+void debug_after_compress(struct jffs2_bbc_compressor_type *c, int back, void *model, unsigned char *input, unsigned char *output, long *sourcelen, long *dstlen)
++void debug_after_compress(struct jffs2_bbc_compressor_type *c, int back, void *model, unsigned char *input, unsigned char *output, uint32_t *sourcelen, uint32_t *dstlen)
 +{
-+	long dst_len = *dstlen;
-+	long src_len = *sourcelen;
++	uint32_t dst_len = *dstlen;
++	uint32_t src_len = *sourcelen;
 +	int i;
 +
 +	// Memory guard
@@ -3593,8 +3593,9 @@
 +int jffs2_zlib_compress(unsigned char *data_in, unsigned char *cpage_out, uint32_t * sourcelen, uint32_t * dstlen)
 +{
 +	struct jffs2_bbc_compressor_type *c;
-+	int back, back_zlib, mode, min, i, i2;
-+	long tmp = 0, tmp_read_time = 1000, tmp_write_time = 1000, orig_src, orig_dest, src, dest;
++	int back, back_zlib = 0, mode, min, i, i2;
++	long tmp = 0, tmp_read_time = 1000, tmp_write_time = 1000;
++	uint32_t orig_src, orig_dest, src, dest;
 +	struct jffs2_bbc_model_list_node *m;
 +	void *sb;
 +	unsigned char *tmp_p = NULL;
@@ -3673,11 +3674,11 @@
 +					if (m->sb == sb) {
 +						if (c->buffer_cnt == -1) {
 +#ifdef DEBUG_COMPRESSORS
-+							debug_before_compress(c, m->model, data_in, c->buffer, (long *) (&src), (long *) (&dest));
++							debug_before_compress(c, m->model, data_in, c->buffer, &src, &dest);
 +#endif
-+							back = c->compress(m->model, data_in, c->buffer, (long *) (&src), (long *) (&dest));
++							back = c->compress(m->model, data_in, c->buffer, &src, &dest);
 +#ifdef DEBUG_COMPRESSORS
-+							debug_after_compress(c, back, m->model, data_in, c->buffer, (long *) (&src), (long *) (&dest));
++							debug_after_compress(c, back, m->model, data_in, c->buffer, &src, &dest);
 +#endif
 +							if (back == 0) {
 +								c->buffer_cnt = dest;
@@ -3773,7 +3774,7 @@
 +	if ((mode == JFFS2_BBC_FASTR_MODE)||(mode == JFFS2_BBC_FASTW_MODE)||(mode == JFFS2_BBC_FASTS_MODE)) {
 +		// Estimating all compressors
 +                if (jffs2_bbc_original_compressor->enabled) {
-+		        back = jffs2_bbc_original_compressor->estimate(NULL, data_in, *sourcelen, &tmp, &tmp_read_time, &tmp_write_time);
++		        back = jffs2_bbc_original_compressor->estimate(NULL, data_in, *sourcelen, (uint32_t *)&tmp, &tmp_read_time, &tmp_write_time);
 +		} 
 +                else {
 +			tmp = -1;
@@ -3826,7 +3827,7 @@
 +				continue;
 +			}
 +			if (c->buffer_cnt == min) {
-+				back = c->compress(jffs2_bbc_model_get_newest(c), data_in, cpage_out, (unsigned long*)sourcelen, (unsigned long*)dstlen);
++				back = c->compress(jffs2_bbc_model_get_newest(c), data_in, cpage_out, sourcelen, dstlen);
 +				if ((back == 0) && (*dstlen < orig_dest) && (*dstlen > 4)) {
 +					c->stat_compr_orig += *sourcelen;
 +					c->stat_compr_new += *dstlen;
@@ -3871,7 +3872,7 @@
 +					dest = orig_dest;
 +					if (m->sb == sb) {
 +						if (min == -1) {
-+							back = c->compress(m->model, data_in, cpage_out, (unsigned long*)sourcelen, (unsigned long*)dstlen);
++							back = c->compress(m->model, data_in, cpage_out, sourcelen, dstlen);
 +							if ((back == 0) && (*dstlen < orig_dest) && (*dstlen > 4)) {
 +								min = dest;
 +								tmp_p = cpage_out;
@@ -3994,7 +3995,7 @@
 +#endif
 --- /dev/null
 +++ b/fs/jffs2/jffs2_bbc_framework.h
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,204 @@
 +/*
 + * JFFS2-BBC: Compression Framework - headers
 + *
@@ -4021,6 +4022,8 @@
 +#ifndef __JFFS2_BBC_FRAMEWORK_H__
 +
 +#define __JFFS2_BBC_FRAMEWORK_H__
++
++#include <linux/types.h>
 +
 +#define JFFS2_BBC_VERSION "0.54.3"
 +
@@ -4068,13 +4071,13 @@
 +	 *   if it is not enough write *sourcelen over to the processed amount of data
 +	 *   returns non zero if fails
 +	 */
-+	int (*compress)(void *model, unsigned char *input, unsigned char *output, unsigned long *sourcelen, unsigned long *dstlen);
-+	int (*estimate)(void *model, unsigned char *input, unsigned long sourcelen, 
-+	                unsigned long *dstlen, unsigned long *readtime, unsigned long *writetime);
++	int (*compress)(void *model, unsigned char *input, unsigned char *output, uint32_t *sourcelen, uint32_t *dstlen);
++	int (*estimate)(void *model, unsigned char *input, uint32_t sourcelen, 
++	                uint32_t *dstlen, unsigned long *readtime, unsigned long *writetime);
 +	/* Decompress block 
 +	 *   returns non zero if fails
 +	 */
-+	int (*decompress)(void *model, unsigned char *input, unsigned char *output, unsigned long sourcelen, unsigned long dstlen);
++	int (*decompress)(void *model, unsigned char *input, unsigned char *output, uint32_t sourcelen, uint32_t dstlen);
 +	char *(*proc_info)(void);
 +	int (*proc_command)(char *command);
 +	int enabled;		/* filled by BBC */
@@ -4566,7 +4569,7 @@
 +void jffs2_bbc_proc_deinit(void);
 --- /dev/null
 +++ b/fs/jffs2/jffs2_bbc_lzari_comp.c
-@@ -0,0 +1,788 @@
+@@ -0,0 +1,790 @@
 +/* -*- Mode: C; indent-tabs-mode: t; c-basic-offset: 4; tab-width: 4 -*- */
 +
 +/*
@@ -4606,6 +4609,8 @@
 +				Initial release
 +
 +*/
++
++#include <linux/types.h>
 +
 +/* lzari.c */
 +
@@ -4805,8 +4810,8 @@
 +/* on return, srclen will contain the number of successfully compressed bytes
 +   and dstlen will contain completed compressed bytes */
 +
-+static int Encode(unsigned char *srcbuf, unsigned char *dstbuf, unsigned long *srclen,
-+			unsigned long *dstlen)
++static int Encode(unsigned char *srcbuf, unsigned char *dstbuf, uint32_t *srclen,
++			uint32_t *dstlen)
 +{
 +	unsigned long c, i, len, r, s, last_match_length, sym, range;
 +	unsigned long low = 0;
@@ -5139,8 +5144,8 @@
 +	return 0;
 +}
 +
-+static int Decode(unsigned char *srcbuf, unsigned char *dstbuf, unsigned long srclen,
-+					unsigned long dstlen)	/* Just the reverse of Encode(). */
++static int Decode(unsigned char *srcbuf, unsigned char *dstbuf, uint32_t srclen,
++					uint32_t dstlen)	/* Just the reverse of Encode(). */
 +{
 +	unsigned long i, r, j, k, c, range, sym;
 +	unsigned char *ip, *op;
@@ -5239,18 +5244,18 @@
 +
 +static int
 +jffs2_bbc_lzari_compress (void *model, unsigned char *input,
-+			unsigned char *output, unsigned long *sourcelen,
-+			unsigned long *dstlen);
++			unsigned char *output, uint32_t *sourcelen,
++			uint32_t *dstlen);
 +
 +static int
 +jffs2_bbc_lzari_estimate (void *model, unsigned char *input,
-+			unsigned long sourcelen, unsigned long *dstlen,
++			uint32_t sourcelen, uint32_t *dstlen,
 +			unsigned long *readtime, unsigned long *writetime);
 +
 +static int
 +jffs2_bbc_lzari_decompress (void *model, unsigned char *input,
-+			  unsigned char *output, unsigned long sourcelen,
-+			  unsigned long dstlen);
++			  unsigned char *output, uint32_t sourcelen,
++			  uint32_t dstlen);
 +
 +static char *
 +jffs2_bbc_lzari_proc_info (void);
@@ -5286,11 +5291,11 @@
 +
 +static int
 +jffs2_bbc_lzari_compress (void *model, unsigned char *input,
-+			unsigned char *output, unsigned long *sourcelen,
-+			unsigned long *dstlen)
++			unsigned char *output, uint32_t *sourcelen,
++			uint32_t *dstlen)
 +{
 +	int retval;
-+	unsigned long dst = *dstlen;
++	uint32_t dst = *dstlen;
 +	*(output++) = jffs2_bbc_lzari.block_sign[0];
 +	*(output++) = jffs2_bbc_lzari.block_sign[1];
 +	dst -= 2;
@@ -5302,7 +5307,7 @@
 +
 +static int
 +jffs2_bbc_lzari_estimate (void *model, unsigned char *input,
-+			unsigned long sourcelen, unsigned long *dstlen,
++			uint32_t sourcelen, uint32_t *dstlen,
 +			unsigned long *readtime, unsigned long *writetime)
 +{
 +	*dstlen = sourcelen / 2;
@@ -5313,8 +5318,8 @@
 +
 +static int
 +jffs2_bbc_lzari_decompress (void *model, unsigned char *input,
-+			  unsigned char *output, unsigned long sourcelen,
-+			  unsigned long dstlen)
++			  unsigned char *output, uint32_t sourcelen,
++			  uint32_t dstlen)
 +{
 +	if (	( *(input++) != (unsigned char)jffs2_bbc_lzari.block_sign[0] ) ||
 +			( *(input++) != (unsigned char)jffs2_bbc_lzari.block_sign[1] )
