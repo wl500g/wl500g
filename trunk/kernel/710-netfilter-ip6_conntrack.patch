@@ -196,7 +196,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +/* Returns conntrack if it dealt with ICMP, and filled in skb->nfct */
 +extern struct ip6_conntrack *icmp6_error_track(struct sk_buff *skb,
 +					       unsigned int icmp6off,
-+					       enum ip6_conntrack_info *ctinfo,
++					       enum ip_conntrack_info *ctinfo,
 +					       unsigned int hooknum);
 +extern int ip6_get_tuple(const struct ipv6hdr *ipv6h,
 +			 const struct sk_buff *skb,
@@ -276,9 +276,9 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +/* This structure exists only once per master */
 +struct ip6_ct_ftp_master {
 +	/* Next valid seq position for cmd matching after newline */
-+	u_int32_t seq_aft_nl[IP6_CT_DIR_MAX];
++	u_int32_t seq_aft_nl[IP_CT_DIR_MAX];
 +	/* 0 means seq_match_aft_nl not set */
-+	int seq_aft_nl_set[IP6_CT_DIR_MAX];
++	int seq_aft_nl_set[IP_CT_DIR_MAX];
 +};
 +
 +#endif /* _IP6_CONNTRACK_FTP_H */
@@ -305,43 +305,43 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +   but required by, the NAT layer; it can also be used by an iptables
 +   extension. */
 +
-+enum ip6_conntrack_info
++enum ip_conntrack_info
 +{
 +	/* Part of an established connection (either direction). */
-+	IP6_CT_ESTABLISHED,
++	IP_CT_ESTABLISHED,
 +
 +	/* Like NEW, but related to an existing connection, or ICMP error
 +	   (in either direction). */
-+	IP6_CT_RELATED,
++	IP_CT_RELATED,
 +
 +	/* Started a new connection to track (only
-+           IP6_CT_DIR_ORIGINAL); may be a retransmission. */
-+	IP6_CT_NEW,
++	   IP_CT_DIR_ORIGINAL); may be a retransmission. */
++	IP_CT_NEW,
 +
 +	/* >= this indicates reply direction */
-+	IP6_CT_IS_REPLY,
++	IP_CT_IS_REPLY,
 +
-+	/* Number of distinct IP6_CT types (no NEW in reply dirn). */
-+	IP6_CT_NUMBER = IP6_CT_IS_REPLY * 2 - 1
++	/* Number of distinct IP_CT types (no NEW in reply dirn). */
++	IP_CT_NUMBER = IP_CT_IS_REPLY * 2 - 1
 +};
 +
 +/* Bitset representing status of connection. */
-+enum ip6_conntrack_status {
++enum ip_conntrack_status {
 +	/* It's an expected connection: bit 0 set.  This bit never changed */
-+	IP6S_EXPECTED_BIT = 0,
-+	IP6S_EXPECTED = (1 << IP6S_EXPECTED_BIT),
++	IPS_EXPECTED_BIT = 0,
++	IPS_EXPECTED = (1 << IPS_EXPECTED_BIT),
 +
 +	/* We've seen packets both ways: bit 1 set.  Can be set, not unset. */
-+	IP6S_SEEN_REPLY_BIT = 1,
-+	IP6S_SEEN_REPLY = (1 << IP6S_SEEN_REPLY_BIT),
++	IPS_SEEN_REPLY_BIT = 1,
++	IPS_SEEN_REPLY = (1 << IPS_SEEN_REPLY_BIT),
 +
 +	/* Conntrack should never be early-expired. */
-+	IP6S_ASSURED_BIT = 2,
-+	IP6S_ASSURED = (1 << IP6S_ASSURED_BIT),
++	IPS_ASSURED_BIT = 2,
++	IPS_ASSURED = (1 << IPS_ASSURED_BIT),
 +
 +	/* Connection is confirmed: originating packet has left box */
-+	IP6S_CONFIRMED_BIT = 3,
-+	IP6S_CONFIRMED = (1 << IP6S_CONFIRMED_BIT),
++	IPS_CONFIRMED_BIT = 3,
++	IPS_CONFIRMED = (1 << IPS_CONFIRMED_BIT),
 +};
 +
 +#ifdef __KERNEL__
@@ -452,7 +452,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +	struct nf_conntrack ct_general;
 +
 +	/* These are my tuples; original and reply */
-+	struct ip6_conntrack_tuple_hash tuplehash[IP6_CT_DIR_MAX];
++	struct ip6_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
 +
 +	/* Have we seen traffic both ways yet? (bitset) */
 +	unsigned long status;
@@ -475,7 +475,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +
 +        /* Our various nf_ct_info structs specify *what* relation this
 +           packet has to the conntrack */
-+        struct nf_ct_info infos[IP6_CT_NUMBER];
++        struct nf_ct_info infos[IP_CT_NUMBER];
 +
 +	/* Storage reserved for other modules: */
 +	union ip6_conntrack_proto proto;
@@ -500,7 +500,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +
 +/* Return conntrack_info and tuple hash for given skb. */
 +extern struct ip6_conntrack *
-+ip6_conntrack_get(const struct sk_buff *skb, enum ip6_conntrack_info *ctinfo);
++ip6_conntrack_get(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo);
 +
 +/* decrement reference count on a conntrack */
 +extern inline void ip6_conntrack_put(struct ip6_conntrack *ct);
@@ -537,7 +537,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +/* It's confirmed if it is, or has been in the hash table. */
 +static inline int is_confirmed(struct ip6_conntrack *ct)
 +{
-+	return test_bit(IP6S_CONFIRMED_BIT, &ct->status);
++	return test_bit(IPS_CONFIRMED_BIT, &ct->status);
 +}
 +
 +extern unsigned int ip6_conntrack_htable_size;
@@ -606,7 +606,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +	int (*help)(const struct sk_buff *skb,
 +		    unsigned int protoff,
 +		    struct ip6_conntrack *ct,
-+		    enum ip6_conntrack_info conntrackinfo);
++		    enum ip_conntrack_info conntrackinfo);
 +};
 +
 +extern int ip6_conntrack_helper_register(struct ip6_conntrack_helper *);
@@ -706,7 +706,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +	int (*packet)(struct ip6_conntrack *conntrack,
 +		      const struct sk_buff *skb,
 +		      unsigned int dataoff,
-+		      enum ip6_conntrack_info ctinfo);
++		      enum ip_conntrack_info ctinfo);
 +
 +	/* Called when a new connection for this protocol found;
 +	 * returns TRUE if it's OK.  If so, packet() called next. */
@@ -898,11 +898,11 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +	} dst;
 +};
 +
-+enum ip6_conntrack_dir
++enum ip_conntrack_dir
 +{
-+	IP6_CT_DIR_ORIGINAL,
-+	IP6_CT_DIR_REPLY,
-+	IP6_CT_DIR_MAX
++	IP_CT_DIR_ORIGINAL,
++	IP_CT_DIR_REPLY,
++	IP_CT_DIR_MAX
 +};
 +
 +#ifdef __KERNEL__
@@ -915,10 +915,10 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +		NIP6((tp)->dst.ip), ntohs((tp)->dst.u.all));		\
 +}
 +
-+#define CTINFO2DIR(ctinfo) ((ctinfo) >= IP6_CT_IS_REPLY ? IP6_CT_DIR_REPLY : IP6_CT_DIR_ORIGINAL)
++#define CTINFO2DIR(ctinfo) ((ctinfo) >= IP_CT_IS_REPLY ? IP_CT_DIR_REPLY : IP_CT_DIR_ORIGINAL)
 +
 +/* If we're the first tuple, it's the original dir. */
-+#define DIRECTION(h) ((enum ip6_conntrack_dir)(&(h)->ctrack->tuplehash[1] == (h)))
++#define DIRECTION(h) ((enum ip_conntrack_dir)(&(h)->ctrack->tuplehash[1] == (h)))
 +
 +/* Connections have two entries in the hash table: one for each way */
 +struct ip6_conntrack_tuple_hash
@@ -959,34 +959,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netf
 +			       const struct ip6_conntrack_tuple *mask);
 +
 +#endif /* _IP6_CONNTRACK_TUPLE_H */
-diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/include/linux/netfilter_ipv6/ip6t_state.h linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6t_state.h
---- linux-2.4.37.9/include/linux/netfilter_ipv6/ip6t_state.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.4.37.9-ct6/include/linux/netfilter_ipv6/ip6t_state.h	2003-09-18 23:48:46.000000000 +0400
-@@ -0,0 +1,24 @@
-+/*
-+ * Copyright (C)2003 USAGI/WIDE Project
-+ *
-+ * Authors:
-+ *	Yasuyuki Kozakai	<yasuyuki.kozakai@toshiba.co.jp>
-+ *
-+ * Based on: include/linux/netfilter_ipv4/ipt_state.h
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
-+#ifndef _IP6T_STATE_H
-+#define _IP6T_STATE_H
-+
-+#define IP6T_STATE_BIT(ctinfo) (1 << ((ctinfo)%IP6_CT_IS_REPLY+1))
-+#define IP6T_STATE_INVALID (1 << 0)
-+
-+struct ip6t_state_info
-+{
-+	unsigned int statemask;
-+};
-+#endif /*_IP6T_STATE_H*/
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/core/netfilter.c linux-2.4.37.9-ct6/net/core/netfilter.c
 --- linux-2.4.37.9/net/core/netfilter.c	2010-02-02 00:04:46.000000000 +0300
 +++ linux-2.4.37.9-ct6/net/core/netfilter.c	2010-02-14 12:39:16.000000000 +0300
@@ -1266,20 +1238,20 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +}
 +
 +static inline struct ip6_conntrack *
-+__ip6_conntrack_get(const struct nf_ct_info *nfct, enum ip6_conntrack_info *ctinfo)
++__ip6_conntrack_get(const struct nf_ct_info *nfct, enum ip_conntrack_info *ctinfo)
 +{
 +	struct ip6_conntrack *ct
 +		= (struct ip6_conntrack *)nfct->master;
 +
 +	/* ctinfo is the index of the nfct inside the conntrack */
 +	*ctinfo = nfct - ct->infos;
-+	IP6_NF_ASSERT(*ctinfo >= 0 && *ctinfo < IP6_CT_NUMBER);
++	IP6_NF_ASSERT(*ctinfo >= 0 && *ctinfo < IP_CT_NUMBER);
 +	return ct;
 +}
 +
 +/* Return conntrack and conntrack_info given skb->nfct->master */
 +struct ip6_conntrack *
-+ip6_conntrack_get(const struct sk_buff *skb, enum ip6_conntrack_info *ctinfo)
++ip6_conntrack_get(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo)
 +{
 +	if (skb->nfct)
 +		return __ip6_conntrack_get(skb->nfct, ctinfo);
@@ -1495,13 +1467,13 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	DEBUGP("clean_from_lists(%p)\n", ct);
 +	ASSERT_WRITE_LOCK(&ip6_conntrack_lock);
 +
-+	ho = hash_conntrack(&ct->tuplehash[IP6_CT_DIR_ORIGINAL].tuple);
-+	hr = hash_conntrack(&ct->tuplehash[IP6_CT_DIR_REPLY].tuple);
++	ho = hash_conntrack(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++	hr = hash_conntrack(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
 +
 +	LIST_DELETE(&ip6_conntrack_hash[ho],
-+		    &ct->tuplehash[IP6_CT_DIR_ORIGINAL]);
++		    &ct->tuplehash[IP_CT_DIR_ORIGINAL]);
 +	LIST_DELETE(&ip6_conntrack_hash[hr],
-+		    &ct->tuplehash[IP6_CT_DIR_REPLY]);
++		    &ct->tuplehash[IP_CT_DIR_REPLY]);
 +
 +	/* Destroy all un-established, pending expectations */
 +	remove_expectations(ct, 1);
@@ -1520,7 +1492,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	/* To make sure we don't get any weird locking issues here:
 +	 * destroy_conntrack() MUST NOT be called with a write lock
 +	 * to ip6_conntrack_lock!!! -HW */
-+	proto = ip6_ct_find_proto(ct->tuplehash[IP6_CT_DIR_REPLY].tuple.dst.protonum);
++	proto = ip6_ct_find_proto(ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.protonum);
 +	if (proto && proto->destroy)
 +		proto->destroy(ct);
 +
@@ -1607,19 +1579,19 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +{
 +	unsigned int hash, repl_hash;
 +	struct ip6_conntrack *ct;
-+	enum ip6_conntrack_info ctinfo;
++	enum ip_conntrack_info ctinfo;
 +
 +	ct = __ip6_conntrack_get(nfct, &ctinfo);
 +
 +	/* ip6t_REJECT uses ip6_conntrack_attach to attach related
 +	   ICMP/TCP RST packets in other direction.  Actual packet
-+	   which created connection will be IP6_CT_NEW or for an
-+	   expected connection, IP6_CT_RELATED. */
-+	if (CTINFO2DIR(ctinfo) != IP6_CT_DIR_ORIGINAL)
++	   which created connection will be IP_CT_NEW or for an
++	   expected connection, IP_CT_RELATED. */
++	if (CTINFO2DIR(ctinfo) != IP_CT_DIR_ORIGINAL)
 +		return NF_ACCEPT;
 +
-+	hash = hash_conntrack(&ct->tuplehash[IP6_CT_DIR_ORIGINAL].tuple);
-+	repl_hash = hash_conntrack(&ct->tuplehash[IP6_CT_DIR_REPLY].tuple);
++	hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple);
++	repl_hash = hash_conntrack(&ct->tuplehash[IP_CT_DIR_REPLY].tuple);
 +
 +	/* We're not in hash table, and we refuse to set up related
 +	   connections for unconfirmed conns.  But packet copies and
@@ -1638,25 +1610,25 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	if (!LIST_FIND(&ip6_conntrack_hash[hash],
 +		       conntrack_tuple_cmp,
 +		       struct ip6_conntrack_tuple_hash *,
-+		       &ct->tuplehash[IP6_CT_DIR_ORIGINAL].tuple, NULL)
++		       &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple, NULL)
 +	    && !LIST_FIND(&ip6_conntrack_hash[repl_hash],
 +			  conntrack_tuple_cmp,
 +			  struct ip6_conntrack_tuple_hash *,
-+			  &ct->tuplehash[IP6_CT_DIR_REPLY].tuple, NULL)) {
++			  &ct->tuplehash[IP_CT_DIR_REPLY].tuple, NULL)) {
 +		/* Remove from unconfirmed list */
-+		list_del(&ct->tuplehash[IP6_CT_DIR_ORIGINAL].list);
++		list_del(&ct->tuplehash[IP_CT_DIR_ORIGINAL].list);
 +
 +		list_prepend(&ip6_conntrack_hash[hash],
-+			     &ct->tuplehash[IP6_CT_DIR_ORIGINAL]);
++			     &ct->tuplehash[IP_CT_DIR_ORIGINAL]);
 +		list_prepend(&ip6_conntrack_hash[repl_hash],
-+			     &ct->tuplehash[IP6_CT_DIR_REPLY]);
++			     &ct->tuplehash[IP_CT_DIR_REPLY]);
 +		/* Timer relative to confirmation time, not original
 +		   setting time, otherwise we'd get timer wrap in
 +		   wierd delay cases. */
 +		ct->timeout.expires += jiffies;
 +		add_timer(&ct->timeout);
 +		atomic_inc(&ct->ct_general.use);
-+		set_bit(IP6S_CONFIRMED_BIT, &ct->status);
++		set_bit(IPS_CONFIRMED_BIT, &ct->status);
 +		write_unlock_bh(&ip6_conntrack_lock);
 +		return NF_ACCEPT;
 +	}
@@ -1685,7 +1657,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +struct ip6_conntrack *
 +icmp6_error_track(struct sk_buff *skb,
 +		  unsigned int icmp6off,
-+		  enum ip6_conntrack_info *ctinfo,
++		  enum ip_conntrack_info *ctinfo,
 +		  unsigned int hooknum)
 +{
 +	struct ip6_conntrack_tuple intuple, origtuple;
@@ -1758,15 +1730,15 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		return NULL;
 +	}
 +
-+	*ctinfo = IP6_CT_RELATED;
++	*ctinfo = IP_CT_RELATED;
 +
 +	h = ip6_conntrack_find_get(&intuple, NULL);
 +	if (!h) {
 +		DEBUGP("icmp6_error_track: no match\n");
 +		return NULL;
 +	} else {
-+		if (DIRECTION(h) == IP6_CT_DIR_REPLY)
-+			*ctinfo += IP6_CT_IS_REPLY;
++		if (DIRECTION(h) == IP_CT_DIR_REPLY)
++			*ctinfo += IP_CT_IS_REPLY;
 +	}
 +
 +	/* Update skb to refer to this connection */
@@ -1778,7 +1750,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +   connection.  Too bad: we're in trouble anyway. */
 +static inline int unreplied(const struct ip6_conntrack_tuple_hash *i)
 +{
-+	return !(test_bit(IP6S_ASSURED_BIT, &i->ctrack->status));
++	return !(test_bit(IPS_ASSURED_BIT, &i->ctrack->status));
 +}
 +
 +static int early_drop(struct list_head *chain)
@@ -1872,11 +1844,11 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	memset(conntrack, 0, sizeof(*conntrack));
 +	atomic_set(&conntrack->ct_general.use, 1);
 +	conntrack->ct_general.destroy = destroy_conntrack;
-+	conntrack->tuplehash[IP6_CT_DIR_ORIGINAL].tuple = *tuple;
-+	conntrack->tuplehash[IP6_CT_DIR_ORIGINAL].ctrack = conntrack;
-+	conntrack->tuplehash[IP6_CT_DIR_REPLY].tuple = repl_tuple;
-+	conntrack->tuplehash[IP6_CT_DIR_REPLY].ctrack = conntrack;
-+	for (i=0; i < IP6_CT_NUMBER; i++)
++	conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple = *tuple;
++	conntrack->tuplehash[IP_CT_DIR_ORIGINAL].ctrack = conntrack;
++	conntrack->tuplehash[IP_CT_DIR_REPLY].tuple = repl_tuple;
++	conntrack->tuplehash[IP_CT_DIR_REPLY].ctrack = conntrack;
++	for (i=0; i < IP_CT_NUMBER; i++)
 +                conntrack->infos[i].master = &conntrack->ct_general;
 +
 +	if (!protocol->new(conntrack, skb, protoff)) {
@@ -1921,7 +1893,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			conntrack, expected);
 +		/* Welcome, Mr. Bond.  We've been expecting you... */
 +		IP6_NF_ASSERT(master_ct6(conntrack));
-+		__set_bit(IP6S_EXPECTED_BIT, &conntrack->status);
++		__set_bit(IPS_EXPECTED_BIT, &conntrack->status);
 +		conntrack->master = expected;
 +		expected->sibling = conntrack;
 +		LIST_DELETE(&ip6_conntrack_expect_list, expected);
@@ -1929,7 +1901,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		nf_conntrack_get(&master_ct6(conntrack)->infos[0]);
 +	}
 +	/* Overload tuple linked list to put us in unconfirmed list. */
-+	list_add(&conntrack->tuplehash[IP6_CT_DIR_ORIGINAL].list,
++	list_add(&conntrack->tuplehash[IP_CT_DIR_ORIGINAL].list,
 +		 &unconfirmed);
 +
 +	atomic_inc(&ip6_conntrack_count);
@@ -1937,7 +1909,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +	if (expected && expected->expectfn)
 +		expected->expectfn(conntrack);
-+	return &conntrack->tuplehash[IP6_CT_DIR_ORIGINAL];
++	return &conntrack->tuplehash[IP_CT_DIR_ORIGINAL];
 +}
 +
 +/* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
@@ -1948,7 +1920,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		  struct ip6_conntrack_protocol *proto,
 +		  int *set_reply,
 +		  unsigned int hooknum,
-+		  enum ip6_conntrack_info *ctinfo)
++		  enum ip_conntrack_info *ctinfo)
 +{
 +	struct ip6_conntrack_tuple tuple;
 +	struct ip6_conntrack_tuple_hash *h;
@@ -1967,24 +1939,24 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	}
 +
 +	/* It exists; we have (non-exclusive) reference. */
-+	if (DIRECTION(h) == IP6_CT_DIR_REPLY) {
-+		*ctinfo = IP6_CT_ESTABLISHED + IP6_CT_IS_REPLY;
++	if (DIRECTION(h) == IP_CT_DIR_REPLY) {
++		*ctinfo = IP_CT_ESTABLISHED + IP_CT_IS_REPLY;
 +		/* Please set reply bit if this packet OK */
 +		*set_reply = 1;
 +	} else {
 +		/* Once we've had two way comms, always ESTABLISHED. */
-+		if (test_bit(IP6S_SEEN_REPLY_BIT, &h->ctrack->status)) {
++		if (test_bit(IPS_SEEN_REPLY_BIT, &h->ctrack->status)) {
 +			DEBUGP("ip6_conntrack_in: normal packet for %p\n",
 +			       h->ctrack);
-+		        *ctinfo = IP6_CT_ESTABLISHED;
-+		} else if (test_bit(IP6S_EXPECTED_BIT, &h->ctrack->status)) {
++		        *ctinfo = IP_CT_ESTABLISHED;
++		} else if (test_bit(IPS_EXPECTED_BIT, &h->ctrack->status)) {
 +			DEBUGP("ip6_conntrack_in: related packet for %p\n",
 +			       h->ctrack);
-+			*ctinfo = IP6_CT_RELATED;
++			*ctinfo = IP_CT_RELATED;
 +		} else {
 +			DEBUGP("ip6_conntrack_in: new packet for %p\n",
 +			       h->ctrack);
-+			*ctinfo = IP6_CT_NEW;
++			*ctinfo = IP_CT_NEW;
 +		}
 +		*set_reply = 0;
 +	}
@@ -2000,7 +1972,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +			     int (*okfn)(struct sk_buff *))
 +{
 +	struct ip6_conntrack *ct;
-+	enum ip6_conntrack_info ctinfo;
++	enum ip_conntrack_info ctinfo;
 +	struct ip6_conntrack_protocol *proto;
 +	int set_reply;
 +	int ret;
@@ -2077,7 +2049,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		}
 +	}
 +	if (set_reply)
-+		set_bit(IP6S_SEEN_REPLY_BIT, &ct->status);
++		set_bit(IPS_SEEN_REPLY_BIT, &ct->status);
 +
 +	return ret;
 +}
@@ -2204,8 +2176,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +				       "%x:%x:%x:%x:%x:%x:%x:%x->%x:%x:%x:%x:%x:%x:%x:%x\n",
 +				       related_to->helper->max_expected,
 +				       related_to->helper->name,
-+				       NIP6(related_to->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.src.ip),
-+				       NIP6(related_to->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.dst.ip));
++				       NIP6(related_to->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip),
++				       NIP6(related_to->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip));
 +			return -EPERM;
 +		}
 +		DEBUGP("ip6_conntrack: max number of expected "
@@ -2213,8 +2185,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		       "%x:%x:%x:%x:%x:%x:%x:%x->%x:%x:%x:%x:%x:%x:%x:%x, reusing\n",
 + 		       related_to->helper->max_expected,
 +		       related_to->helper->name,
-+		       NIP6(related_to->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.src.ip),
-+		       NIP6(related_to->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.dst.ip));
++		       NIP6(related_to->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip),
++		       NIP6(related_to->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip));
 + 
 +		/* choose the the oldest expectation to evict */
 +		list_for_each_entry(old, &related_to->sibling_list, 
@@ -2294,7 +2266,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	DEBUGP("Altering reply tuple of %p to ", conntrack);
 +	DUMP_TUPLE(newreply);
 +
-+	conntrack->tuplehash[IP6_CT_DIR_REPLY].tuple = *newreply;
++	conntrack->tuplehash[IP_CT_DIR_REPLY].tuple = *newreply;
 +	if (!conntrack->master)
 +		conntrack->helper = ip6_ct_find_helper(newreply);
 +	write_unlock_bh(&ip6_conntrack_lock);
@@ -2365,16 +2337,16 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static void ip6_conntrack_attach(struct sk_buff *nskb, struct sk_buff *skb)
 +{
 +	struct ip6_conntrack *ct;
-+	enum ip6_conntrack_info ctinfo;
++	enum ip_conntrack_info ctinfo;
 +
 +	ct = ip6_conntrack_get(skb, &ctinfo);
 +
 +	/* This ICMP is in reverse direction to the packet which
 +           caused it */
-+	if (CTINFO2DIR(ctinfo) == IP6_CT_DIR_ORIGINAL)
-+		ctinfo = IP6_CT_RELATED + IP6_CT_IS_REPLY;
++	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL)
++		ctinfo = IP_CT_RELATED + IP_CT_IS_REPLY;
 +	else
-+		ctinfo = IP6_CT_RELATED;
++		ctinfo = IP_CT_RELATED;
 +
 +	/* Attach new skbuff, and increment count */
 +	nskb->nfct = &ct->infos[ctinfo];
@@ -2462,10 +2434,10 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		memset(&sin, 0, sizeof(sin));
 +
 +		sin.sin6_family = AF_INET6;
-+		sin.sin6_port = h->ctrack->tuplehash[IP6_CT_DIR_ORIGINAL]
++		sin.sin6_port = h->ctrack->tuplehash[IP_CT_DIR_ORIGINAL]
 +				.tuple.dst.u.tcp.port;
 +		ipv6_addr_copy(&sin.sin6_addr,
-+			       &h->ctrack->tuplehash[IP6_CT_DIR_ORIGINAL]
++			       &h->ctrack->tuplehash[IP_CT_DIR_ORIGINAL]
 +				.tuple.dst.ip);
 +		/* FIXME: sin6_scope_id */
 +
@@ -2713,7 +2685,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int try_espv_response(const char *, size_t, struct cmd_info *, char);
 +
 +static struct ftp_search {
-+	enum ip6_conntrack_dir dir;
++	enum ip_conntrack_dir dir;
 +	const char *pattern;
 +	size_t plen;
 +	char skip;
@@ -2722,13 +2694,13 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	int (*getnum)(const char *, size_t, struct cmd_info *, char);
 +} search[] = {
 +	{
-+		IP6_CT_DIR_ORIGINAL,
++		IP_CT_DIR_ORIGINAL,
 +		"EPRT", sizeof("EPRT") - 1, ' ', '\r',
 +		IP6_CT_FTP_EPRT,
 +		try_eprt,
 +	},
 +	{
-+		IP6_CT_DIR_REPLY,
++		IP_CT_DIR_REPLY,
 +		"229 ", sizeof("229 ") - 1, '(', ')',
 +		IP6_CT_FTP_EPSV,
 +		try_espv_response,
@@ -2987,7 +2959,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int help(const struct sk_buff *skb,
 +		unsigned int protoff,
 +		struct ip6_conntrack *ct,
-+		enum ip6_conntrack_info ctinfo)
++		enum ip_conntrack_info ctinfo)
 +{
 +	unsigned int dataoff, datalen;
 +	struct tcphdr tcph;
@@ -3008,8 +2980,8 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	unsigned int csum;
 +
 +	/* Until there's been traffic both ways, don't look in packets. */
-+	if (ctinfo != IP6_CT_ESTABLISHED
-+	    && ctinfo != IP6_CT_ESTABLISHED+IP6_CT_IS_REPLY) {
++	if (ctinfo != IP_CT_ESTABLISHED
++	    && ctinfo != IP_CT_ESTABLISHED+IP_CT_IS_REPLY) {
 +		DEBUGP("ftp: Conntrackinfo = %u\n", ctinfo);
 +		return NF_ACCEPT;
 +	}
@@ -3269,7 +3241,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int established(struct ip6_conntrack *conntrack,
 +		       const struct sk_buff *skb,
 +		       unsigned int dataoff,
-+		       enum ip6_conntrack_info conntrackinfo)
++		       enum ip_conntrack_info conntrackinfo)
 +{
 +	ip6_ct_refresh(conntrack, GENERIC_TIMEOUT);
 +	return NF_ACCEPT;
@@ -3386,13 +3358,13 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int icmpv6_packet(struct ip6_conntrack *ct,
 +			 const struct sk_buff *skb,
 +			 unsigned int dataoff,
-+			 enum ip6_conntrack_info ctinfo)
++			 enum ip_conntrack_info ctinfo)
 +{
 +	/* Try to delete connection immediately after all replies:
 +           won't actually vanish as we still have skb, and del_timer
 +           means this will only run once even if count hits zero twice
 +           (theoretically possible with SMP) */
-+	if (CTINFO2DIR(ctinfo) == IP6_CT_DIR_REPLY) {
++	if (CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY) {
 +		if (atomic_dec_and_test(&ct->proto.icmpv6.count)
 +		    && del_timer(&ct->timeout))
 +			ct->timeout.function((unsigned long)ct);
@@ -3609,7 +3581,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int tcp_packet(struct ip6_conntrack *conntrack,
 +		      const struct sk_buff *skb,
 +		      unsigned int dataoff,
-+		      enum ip6_conntrack_info ctinfo)
++		      enum ip_conntrack_info ctinfo)
 +{
 +	enum tcp_conntrack newconntrack, oldtcpstate;
 +	struct tcphdr tcph;
@@ -3637,7 +3609,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +	/* Poor man's window tracking: record SYN/ACK for handshake check */
 +	if (oldtcpstate == TCP_CONNTRACK_SYN_SENT
-+	    && CTINFO2DIR(ctinfo) == IP6_CT_DIR_REPLY
++	    && CTINFO2DIR(ctinfo) == IP_CT_DIR_REPLY
 +	    && tcph.syn && tcph.ack)
 +		conntrack->proto.tcp.handshake_ack
 +			= htonl(ntohl(tcph.seq) + 1);
@@ -3646,17 +3618,17 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +	   have an established connection: this is a fairly common
 +	   problem case, so we can delete the conntrack
 +	   immediately.  --RR */
-+	if (!test_bit(IP6S_SEEN_REPLY_BIT, &conntrack->status) && tcph.rst) {
++	if (!test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status) && tcph.rst) {
 +		write_unlock_bh(&tcp_lock);
 +		if (del_timer(&conntrack->timeout))
 +			conntrack->timeout.function((unsigned long)conntrack);
 +	} else {
 +		/* Set ASSURED if we see see valid ack in ESTABLISHED after SYN_RECV */
 +		if (oldtcpstate == TCP_CONNTRACK_SYN_RECV
-+		    && CTINFO2DIR(ctinfo) == IP6_CT_DIR_ORIGINAL
++		    && CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL
 +		    && tcph.ack && !tcph.syn
 +		    && tcph.ack_seq == conntrack->proto.tcp.handshake_ack)
-+			set_bit(IP6S_ASSURED_BIT, &conntrack->status);
++			set_bit(IPS_ASSURED_BIT, &conntrack->status);
 +
 +		write_unlock_bh(&tcp_lock);
 +		ip6_ct_refresh(conntrack, tcp_timeouts[newconntrack]);
@@ -3785,14 +3757,14 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +static int udp_packet(struct ip6_conntrack *conntrack,
 +		      const struct sk_buff *skb,
 +		      unsigned int dataoff,
-+		      enum ip6_conntrack_info conntrackinfo)
++		      enum ip_conntrack_info conntrackinfo)
 +{
 +	/* If we've seen traffic both ways, this is some kind of UDP
 +	   stream.  Extend timeout. */
-+	if (test_bit(IP6S_SEEN_REPLY_BIT, &conntrack->status)) {
++	if (test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)) {
 +		ip6_ct_refresh(conntrack, UDP_STREAM_TIMEOUT);
 +		/* Also, more likely to be important, and not a probe */
-+		set_bit(IP6S_ASSURED_BIT, &conntrack->status);
++		set_bit(IPS_ASSURED_BIT, &conntrack->status);
 +	} else
 +		ip6_ct_refresh(conntrack, UDP_TIMEOUT);
 +
@@ -4869,7 +4841,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +
 +static int kill_proto(const struct ip6_conntrack *i, void *data)
 +{
-+	return (i->tuplehash[IP6_CT_DIR_ORIGINAL].tuple.dst.protonum == 
++	return (i->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum == 
 +			*((u_int8_t *) data));
 +}
 +
@@ -4912,26 +4884,26 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +{
 +	unsigned int len;
 +	struct ip6_conntrack_protocol *proto
-+		= __ip6_ct_find_proto(conntrack->tuplehash[IP6_CT_DIR_ORIGINAL]
++		= __ip6_ct_find_proto(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
 +			       .tuple.dst.protonum);
 +
 +	len = sprintf(buffer, "%-8s %u %lu ",
 +		      proto->name,
-+		      conntrack->tuplehash[IP6_CT_DIR_ORIGINAL]
++		      conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
 +		      .tuple.dst.protonum,
 +		      timer_pending(&conntrack->timeout)
 +		      ? (conntrack->timeout.expires - jiffies)/HZ : 0);
 +
 +	len += proto->print_conntrack(buffer + len, conntrack);
 +	len += print_tuple(buffer + len,
-+			   &conntrack->tuplehash[IP6_CT_DIR_ORIGINAL].tuple,
++			   &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
 +			   proto);
-+	if (!(test_bit(IP6S_SEEN_REPLY_BIT, &conntrack->status)))
++	if (!(test_bit(IPS_SEEN_REPLY_BIT, &conntrack->status)))
 +		len += sprintf(buffer + len, "[UNREPLIED] ");
 +	len += print_tuple(buffer + len,
-+			   &conntrack->tuplehash[IP6_CT_DIR_REPLY].tuple,
++			   &conntrack->tuplehash[IP_CT_DIR_REPLY].tuple,
 +			   proto);
-+	if (test_bit(IP6S_ASSURED_BIT, &conntrack->status))
++	if (test_bit(IPS_ASSURED_BIT, &conntrack->status))
 +		len += sprintf(buffer + len, "[ASSURED] ");
 +	len += sprintf(buffer + len, "use=%u ",
 +		       atomic_read(&conntrack->ct_general.use));
@@ -5336,7 +5308,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +#include <linux/skbuff.h>
 +#include <linux/netfilter_ipv6/ip6_conntrack.h>
 +#include <linux/netfilter_ipv6/ip6_tables.h>
-+#include <linux/netfilter_ipv6/ip6t_state.h>
++#include <linux/netfilter_ipv4/ipt_state.h>
 +
 +static int
 +match(const struct sk_buff *skb,
@@ -5348,14 +5320,14 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +      u_int16_t datalen,
 +      int *hotdrop)
 +{
-+	const struct ip6t_state_info *sinfo = matchinfo;
-+	enum ip6_conntrack_info ctinfo;
++	const struct ipt_state_info *sinfo = matchinfo;
++	enum ip_conntrack_info ctinfo;
 +	unsigned int statebit;
 +
 +	if (!ip6_conntrack_get(skb, &ctinfo))
-+		statebit = IP6T_STATE_INVALID;
++		statebit = IPT_STATE_INVALID;
 +	else
-+		statebit = IP6T_STATE_BIT(ctinfo);
++		statebit = IPT_STATE_BIT(ctinfo);
 +
 +	return (sinfo->statemask & statebit);
 +}
@@ -5366,7 +5338,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		 unsigned int matchsize,
 +		 unsigned int hook_mask)
 +{
-+	if (matchsize != IP6T_ALIGN(sizeof(struct ip6t_state_info)))
++	if (matchsize != IP6T_ALIGN(sizeof(struct ipt_state_info)))
 +		return 0;
 +
 +	return 1;
