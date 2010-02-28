@@ -536,7 +536,7 @@ void convert_asus_values()
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 		eval("insmod", "ipt_recent");
 #ifdef __CONFIG_IPV6__
-	if (*nvram_safe_get("ipv6_proto"))
+	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");
