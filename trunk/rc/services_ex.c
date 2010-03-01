@@ -688,12 +688,15 @@ stop_logger(void)
 int 
 start_misc(void)
 { 
-	char *infosvr_argv[] = {"infosvr", "br0", NULL};
 	char *watchdog_argv[] = {"watchdog", NULL};
 	pid_t pid;
 	
+#ifdef __CONFIG_INFOSVR__
+	char *infosvr_argv[] = {"infosvr", "br0", NULL};
+
 	if (!nvram_invmatch("infosvr_enable", "1"))
 		_eval(infosvr_argv, NULL, 0, &pid);
+#endif
 	_eval(watchdog_argv, NULL, 0, &pid);
 
 	/* try to adjust wifi tx power */

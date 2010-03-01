@@ -228,7 +228,7 @@ config CONFIG_PPPOERELAY
 
 config CONFIG_INFOSVR
 	bool "CONFIG_INFOSVR"
-	default y
+	default n
 
 config CONFIG_EZIPUPDATE
 	bool "DynDNS support"
