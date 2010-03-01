@@ -4783,7 +4783,7 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c	2010-02-20 23:13:14.000000000 +0300
-@@ -0,0 +1,497 @@
+@@ -0,0 +1,496 @@
 +/*
 + * IPv6 Connection Tracking
 + * Linux INET6 implementation
@@ -5269,7 +5269,6 @@ diff '-x.*' '-x*.o' '-x*.lds' '-x*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +EXPORT_SYMBOL(ip6_ct_selective_cleanup);
 +EXPORT_SYMBOL(ip6_ct_refresh);
 +EXPORT_SYMBOL(ip6_ct_find_proto);
-+EXPORT_SYMBOL(__ip6_ct_find_proto);
 +EXPORT_SYMBOL(ip6_ct_find_helper);
 +EXPORT_SYMBOL(ip6_conntrack_expect_related);
 +EXPORT_SYMBOL(ip6_conntrack_unexpect_related);
