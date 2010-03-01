@@ -152,15 +152,17 @@ diff '-x.*' -urBp linux/net/ipv6/netfilter/ip6_conntrack_core.c linuz/net/ipv6/n
  }
  
  /* There's a small race here where we may free a just-assured
-@@ -981,7 +1003,7 @@ unsigned int ip6_conntrack_in(unsigned i
+@@ -981,8 +1003,8 @@ unsigned int ip6_conntrack_in(unsigned i
  
  	/* It may be an icmp error... */
  	if (protonum == IPPROTO_ICMPV6
 -	    && icmp6_error_track(*pskb, protoff, &ctinfo, hooknum))
-+	    && icmp6_error_track(*pskb, protoff, &ctinfo, hooknum) > 0)
- 		return NF_ACCEPT;
+-		return NF_ACCEPT;
++	    && icmp6_error_track(*pskb, protoff, &ctinfo, hooknum) <= 0)
++		return -NF_ACCEPT;
  
  	proto = ip6_ct_find_proto(protonum);
+ 
 @@ -1492,6 +1514,8 @@ void ip6_conntrack_cleanup(void)
  		schedule();
  		goto i_see_dead_people;
