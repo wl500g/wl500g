@@ -215,7 +215,7 @@ void sys_script(char *name)
 	   // update status of printer
 	   kill_pidfile_s("/var/run/infosvr.pid", SIGUSR1);
 #else
-	    //TODO
+	   readPrnID();
 #endif
      }
      else if (strcmp(name, "lpr_remove")==0)

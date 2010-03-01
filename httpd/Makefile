@@ -6,12 +6,23 @@
 # $Id: Makefile,v 1.3 2004/01/05 05:39:17 Cheni_Shen Exp $
 #
 
+ifneq ($(MAKECMDGOALS),clean)
+include $(TOP)/.config
+endif
+
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
-vpath %.c $(TOP)/shared
+OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
+
+ifneq ($(CONFIG_INFOSVR),y)
+OBJS += prninfo.o
+endif
+
+
+#vpath %.c $(TOP)/shared
 
 all: httpd
 	$(STRIP) httpd
@@ -25,5 +36,5 @@ install: all
 
 common.o: common.c variables.c
 
-httpd: httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
+httpd: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS) -lnvram -lshared -lnetconf
