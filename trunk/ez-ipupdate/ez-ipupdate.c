@@ -363,7 +363,7 @@ static char *HN_fields_used[] = { "server", "user", "address", NULL };
 
 int ZONEEDIT_update_entry(void);
 int ZONEEDIT_check_info(void);
-static char *ZONEEDIT_fields_used[] = { "server", "user", "address", "mx", "host", NULL };
+static char *ZONEEDIT_fields_used[] = { "server", "user", "address", "wildcard", "mx", "host", NULL };
 
 int HEIPV6TB_update_entry(void);
 int HEIPV6TB_check_info(void);
@@ -3839,7 +3839,7 @@ int ZONEEDIT_update_entry(void)
 
   snprintf(buf, BUFFER_SIZE, "GET %s?", lrequest);
   output(buf);
-  snprintf(buf, BUFFER_SIZE, "%s=%s&", "host", host);
+  snprintf(buf, BUFFER_SIZE, "%s=%s%s&", "host", wildcard ? "*." : "", host);
   output(buf);
   if (address && *address) {
       snprintf(buf, BUFFER_SIZE, "%s=%s&", "dnsto", address);
