@@ -63,10 +63,10 @@ you to perform advanced configuration.</td>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Printing services</td>
 </tr>
-<tr>
+<!-- <tr>
 <td class="content_header_td" onMouseOver="return overlib('Enables remote device discovery (insecure).', LEFT);" onMouseOut="return nd();">Enable device discovery:</td>
 <td class="content_input_td"><input type="radio" value="1" name="infosvr_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'infosvr_enable', '1')" <% nvram_match_x("PrinterStatus","infosvr_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="infosvr_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'infosvr_enable', '0')" <% nvram_match_x("PrinterStatus","infosvr_enable", "0", "checked"); %>>No</input></td>
-</tr>
+</tr> -->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Enables LPR protocol support.', LEFT);" onMouseOut="return nd();">Enable LPR printing:</td>
 <td class="content_input_td"><input type="radio" value="1" name="lpr_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lpr_enable', '1')" <% nvram_match_x("PrinterStatus","lpr_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="lpr_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lpr_enable', '0')" <% nvram_match_x("PrinterStatus","lpr_enable", "0", "checked"); %>>No</input></td>
