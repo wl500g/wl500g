@@ -540,7 +540,7 @@ void convert_asus_values()
 	{
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");
-		eval("insmod", "ip6t_TCPMSS");
+//		eval("insmod", "ip6t_TCPMSS");
 	}
 #endif
 
