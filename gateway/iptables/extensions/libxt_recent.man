@@ -38,6 +38,11 @@ This option must be used in conjunction with one of \fB\-\-rcheck\fP or
 \fB\-\-update\fP. When used, this will narrow the match to only happen when the
 address is in the list and was seen within the last given number of seconds.
 .TP
+\fB\-\-reap\fP \fIreap\fP
+This option must be used in conjunction with \fB\-\-seconds\fP. When used, this
+will remove entries with the most recent timestamp older then \fB\-\-seconds\fP
+since the last packet was received.
+.TP
 [\fB!\fR] \fB\-\-hitcount \fIhits\fP
 This option must be used in conjunction with one of \fB\-\-rcheck\fP or
 \fB\-\-update\fP. When used, this will narrow the match to only happen when the

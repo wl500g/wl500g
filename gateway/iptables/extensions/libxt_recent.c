@@ -19,6 +19,7 @@ static const struct option recent_opts[] = {
 	{ .name = "name",     .has_arg = 1, .val = 208 },
 	{ .name = "rsource",  .has_arg = 0, .val = 209 },
 	{ .name = "rdest",    .has_arg = 0, .val = 210 },
+	{ .name = "reap",     .has_arg = 0, .val = 211 },
 	{ .name = NULL }
 };
 
@@ -36,6 +37,7 @@ static void recent_help(void)
 "    --hitcount hits             For check and update commands above.\n"
 "                                Specifies that the match will only occur if source address seen hits times.\n"
 "                                May be used in conjunction with the seconds option.\n"
+"    --reap                      Remove entries that have expired. Can only be used with --seconds\n"
 "    --rttl                      For check and update commands above.\n"
 "                                Specifies that the match will only occur if the source address and the TTL\n"
 "                                match between this packet and the one which was set.\n"
@@ -61,6 +63,8 @@ static void recent_init(struct xt_entry_match *match)
 #define RECENT_CMDS \
 	(XT_RECENT_SET | XT_RECENT_CHECK | \
 	XT_RECENT_UPDATE | XT_RECENT_REMOVE)
+
+#define XT_RECENT_SECONDS 1 << 31
 
 static int recent_parse(int c, char **argv, int invert, unsigned int *flags,
                         const void *entry, struct xt_entry_match **match)
@@ -114,6 +118,7 @@ static int recent_parse(int c, char **argv, int invert, unsigned int *flags,
 
 		case 204:
 			info->seconds = atoi(optarg);
+			*flags |= XT_RECENT_SECONDS;
 			break;
 
 		case 205:
@@ -138,6 +143,11 @@ static int recent_parse(int c, char **argv, int invert, unsigned int *flags,
 			info->side = XT_RECENT_DEST;
 			break;
 
+		case 211:
+			info->check_set |= XT_RECENT_REAP;
+			*flags |= XT_RECENT_REAP;
+			break;
+
 		default:
 			return 0;
 	}
@@ -156,6 +166,12 @@ static void recent_check(unsigned int flags)
 		xtables_error(PARAMETER_PROBLEM,
 		           "recent: --rttl may only be used with --rcheck or "
 		           "--update");
+	if ((flags & XT_RECENT_REAP) &&
+	    ((flags & (XT_RECENT_SET | XT_RECENT_REMOVE)) ||
+	    (!(flags & XT_RECENT_SECONDS))))
+		xtables_error(PARAMETER_PROBLEM,
+		           "recent: --reap may only be used with --rcheck or "
+		           "--update and --seconds");
 }
 
 static void recent_print(const void *ip, const struct xt_entry_match *match,
@@ -183,7 +199,9 @@ static void recent_print(const void *ip, const struct xt_entry_match *match,
 	if (info->side == XT_RECENT_SOURCE)
 		printf("side: source ");
 	if (info->side == XT_RECENT_DEST)
-		printf("side: dest");
+		printf("side: dest ");
+	if (info->check_set & XT_RECENT_REAP)
+		printf("reap ");
 }
 
 static void recent_save(const void *ip, const struct xt_entry_match *match)
@@ -210,6 +228,8 @@ static void recent_save(const void *ip, const struct xt_entry_match *match)
 		printf("--rsource ");
 	if (info->side == XT_RECENT_DEST)
 		printf("--rdest ");
+	if (info->check_set & XT_RECENT_REAP)
+		printf("--reap ");
 }
 
 static struct xtables_match recent_mt_reg = {
