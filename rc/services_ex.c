@@ -1105,13 +1105,11 @@ int restart_ftpd()
 			if ((f = fopen(tmp, "w")))
 			{
 				if (nvram_invmatch("usb_ftpdirlist_x", "1"))
-					strcpy(tmp, "dirlist_enable=yes\n");
+					fprintf(f, "dirlist_enable=yes\n");
 				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
-					strcat(tmp, "download_enable=yes\n");
+					fprintf(f, "download_enable=yes\n");
 				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
-					strcat(tmp, "write_enable=yes\n");
-					
-				fputs(tmp, f);
+					fprintf(f, "write_enable=yes\n");
 				fclose(f);
 			}
 		}
