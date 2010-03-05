@@ -938,9 +938,11 @@ LPRng-install:
 	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
 
+infosvr:
+	$(MAKE) -C infosvr GLOBAL_OPTIONS="$(EXTRACFLAGS) -DPRNINFO -DNO_PARALLEL"
+
 model-%:
 	make rc-clean
-	make infosvr-clean
 	#make LPRng-clean
 	#make shared-clean
 
@@ -963,8 +965,6 @@ model-%:
 	elif [ "$*" = "RT-N16" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN16 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	fi )
-
-	$(MAKE) infosvr GLOBAL_OPTIONS="-DPRNINFO"
 
 image-%:
 	make model-$*
