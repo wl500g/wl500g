@@ -4832,7 +4832,7 @@ diff -x'.*' -x'*.o' -x'*.lds' -x'*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 diff -x'.*' -x'*.o' -x'*.lds' -x'*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c
 --- linux-2.4.37.9/net/ipv6/netfilter/ip6_conntrack_standalone.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.4.37.9-ct6/net/ipv6/netfilter/ip6_conntrack_standalone.c	2010-02-28 15:07:11.000000000 +0300
-@@ -0,0 +1,497 @@
+@@ -0,0 +1,500 @@
 +/*
 + * IPv6 Connection Tracking
 + * Linux INET6 implementation
@@ -4980,8 +4980,11 @@ diff -x'.*' -x'*.o' -x'*.lds' -x'*.map' -urNBp linux-2.4.37.9/net/ipv6/netfilter
 +		return 0;
 +
 +	newlen = print_conntrack(buffer + *len, hash->ctrack);
-+	if (*len + newlen > maxlen)
++
++	if (*len + newlen > maxlen) {
++		(*upto)--;
 +		return 1;
++	}
 +	else *len += newlen;
 +
 +	return 0;
