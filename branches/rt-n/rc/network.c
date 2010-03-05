@@ -455,14 +455,13 @@ start_lan(void)
 
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
-	char *ipv6_proto = nvram_safe_get("ipv6_proto");
-	if (ipv6_proto && *ipv6_proto)
+	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
 		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
-		if( ip6_addr && *ip6_addr && ip6_size && *ip6_size )
+		if (*ip6_addr && *ip6_size)
 		{
-			char *ip6_net = (char*) malloc(45);
+			char *ip6_net = (char*) malloc(INET6_ADDRSTRLEN);
 			strcpy( ip6_net, ip6_addr );
 			strcat( ip6_net, "/" );
 			strcat( ip6_net, ip6_size );
@@ -570,9 +569,6 @@ start_wan(void)
 {
 	char *wan_ifname;
 	char *wan_proto;
-#ifdef __CONFIG_IPV6__
-	char *ipv6_proto = nvram_safe_get("ipv6_proto");
-#endif
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char eabuf[32];
@@ -702,7 +698,7 @@ start_wan(void)
 
 #ifdef __CONFIG_IPV6__
 			/* Enable IPv6 Forwarding */
-			if (ipv6_proto && *ipv6_proto)
+			if (nvram_invmatch("ipv6_proto", ""))
 			{
 				if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+")))
 				{
@@ -864,7 +860,7 @@ start_wan(void)
 
 #ifdef __CONFIG_IPV6__
 	/* IPv6 address config */
-	if (ipv6_proto && *ipv6_proto)
+	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		char *ip6_ifname = "sixtun";
 		char ip6_relay[INET6_ADDRSTRLEN] = "::";
@@ -874,26 +870,25 @@ start_wan(void)
 		char *ip6_router = nvram_safe_get("ipv6_wan_router");
 
 		/* Native IPv6 address */
-		if (strcmp(ipv6_proto, "native") == 0)
+		if (nvram_match("ipv6_proto", "native"))
 		{
 			ip6_ifname = nvram_safe_get("wan0_ifname");
 
 		} else
 
 		/* Tunnel 6in4 & 6to4 */
-		if (strcmp(ipv6_proto, "tun6in4") == 0 ||
-		    strcmp(ipv6_proto, "tun6to4") == 0)
+		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		{
 			char *sit_local = "0.0.0.0";
 			char *sit_remote = "any";
 
 			/* Tunnel 6in4 */
-			if (strcmp(ipv6_proto, "tun6in4") == 0)
+			if (nvram_match("ipv6_proto", "tun6in4"))
 				sit_remote = nvram_safe_get("ipv6_sit_remote");
 			else
 
-			/* Tunnel 6in4 */
-			if (strcmp(ipv6_proto, "tun6to4") == 0)
+			/* Tunnel 6to4 */
+			if (nvram_match("ipv6_proto", "tun6to4"))
 			{
 				sit_local = nvram_safe_get("ipv6_sit_local");
 				strcat(ip6_relay, nvram_safe_get("ipv6_sit_relay"));
@@ -911,20 +906,20 @@ start_wan(void)
 		}
 
 		/* Configurate wanif IPv6 address */
-		if (ip6_addr && *ip6_addr && ip6_size && *ip6_size)
+		if (*ip6_addr && *ip6_size)
 		{
-			char ip6_net[64];
+			char ip6_net[INET6_ADDRSTRLEN];
 
 			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
         		eval("ip", "-6", "addr", "add", ip6_net, "dev", ip6_ifname);
         	}
 
         	/* Configurate remote IPv6 address (default gateway) */
-		if (ip6_router && *ip6_router)
+		if (*ip6_router)
 		{
 			int size;
 
-			if (strcmp(ipv6_proto, "tun6to4") == 0)
+			if (nvram_match("ipv6_proto", "tun6to4"))
 				eval("ip", "-6", "route", "add", "2002::/16", "dev", ip6_ifname);
 			else
 			if ((sscanf(ip6_router, "%[^/]/%d", ip6_relay, &size) == 2) && (size < 128)) {

@@ -42,6 +42,7 @@
 #include <wlutils.h>
 #include "typedefs.h"
 #include "shutils.h"
+#include "bcmconfig.h"
 #include "bcmutils.h"
 #include "bcmnvram.h"
 #include "bcmnvram_f.h"
@@ -198,23 +199,24 @@ void sys_script(char *name)
 
      if (strcmp(name,"syscmd.sh")==0)
      {
+	    char *Cmd_argv[] = { "/bin/sh", "-c", SystemCmd, NULL };
+
 	   if (strcmp(SystemCmd, "")==0)
-		strcpy(SystemCmd, "echo None");
-	   sprintf(SystemCmd, "%s > /tmp/syscmd.log 2>&1\n", SystemCmd);
-	   system(SystemCmd);
+		Cmd_argv[2] = "echo None";
+	   _eval(Cmd_argv, ">/tmp/syscmd.log", 10, NULL);
      }
      else if (strcmp(name, "syslog.sh")==0)
      {
 	   // to nothing
      }	
-     else if (strcmp(name, "wan.sh")==0)
+     else if (strcmp(name, "wan.sh")==0 || strcmp(name, "printer.sh")==0)
      {
-	   kill_pidfile_s("/var/run/infosvr.pid", SIGUSR1);
-     }
-     else if (strcmp(name, "printer.sh")==0)
-     {	
+#ifdef __CONFIG_INFOSVR__
 	   // update status of printer
 	   kill_pidfile_s("/var/run/infosvr.pid", SIGUSR1);
+#else
+	   readPrnID();
+#endif
      }
      else if (strcmp(name, "lpr_remove")==0)
      {

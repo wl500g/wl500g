@@ -115,7 +115,7 @@ $(TOP)/.config: config shared
 	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
 	$(MAKE) -C $(TOP) .config
 
-$(ROOT)/lzma: $(LZMA).tbz2 $(ROOT)/lzma/CPP/7zip/Compress
+$(ROOT)/lzma: $(LZMA).tbz2
 	@rm -rf $@ && mkdir -p $@
 	tar -C $@ -xjf $(LZMA).tbz2
 	$(PATCHER) -Z $@ $(LZMA).patch
@@ -155,7 +155,7 @@ kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 asustrx:
 	tar -C $(ROOT) -xjf asustrx.tar.bz2 
 
-$(TOP)/loader: loader/Makefile
+$(TOP)/loader:
 	@rm -rf $(TOP)/loader
 	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
