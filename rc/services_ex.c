@@ -719,7 +719,9 @@ stop_misc(void)
 {
 	int ret;
 
+#ifdef __CONFIG_INFOSVR__
 	eval("killall", "infosvr");
+#endif
 	ret = eval("killall", "watchdog");
 	stop_ntpc();
 
