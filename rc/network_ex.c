@@ -322,11 +322,24 @@ void setup_ethernet(char *wan_if)
 	{
 		char *speed = nvram_safe_get("wan_etherspeed_x");
 		
-		if (nvram_match("vlan1ports", "0 5") || nvram_match("vlan1ports", "0 5u"))
-			eval("mii-tool", "eth0", "-p", "0", "-A", 
-				!strcmp(speed, "100full") ? "100baseTx-FD" :
-				!strcmp(speed, "100half") ? "100baseTx-HD" :
-				!strcmp(speed, "10full") ? "10baseT-FD" : "10baseT-HD");
-		else eval("et", "-i", wan_if, "speed", speed);	
-	}	
+		if (strncmp(wan_if, "vlan", 4) == 0)
+		{
+			char tmp[16];
+			char *wanport;
+			char *mii_argv[] = { "mii-tool", "eth0", "-p", "0",
+				 "-A", !strcmp(speed, "100full") ? "100baseTx-FD" :
+					!strcmp(speed, "100half") ? "100baseTx-HD" :
+					!strcmp(speed, "10full") ? "10baseT-FD" : "10baseT-HD",
+				 NULL };
+
+			if ((wanport = nvram_get(strcat_r(wan_if, "ports", tmp))))
+			{
+				tmp[0] = wanport[0]; // copy single digit
+				tmp[1] = '\0';
+				mii_argv[3] = tmp;
+			}
+			_eval(mii_argv, ">/dev/null", 0, NULL);
+		}
+		else eval("et", "-i", wan_if, "speed", speed);
+	}
 } 
