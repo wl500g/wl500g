@@ -179,6 +179,29 @@ early_defaults(void)
 			nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
 	}
 	
+	/* USE 0x04cf for N16(BCM4718) *
+	 * RT-N16, WAN=0, LAN1~4=4~1 CPU port=8 */
+	if (nvram_match("boardtype", "0x04cf"))
+	{
+		if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
+		{
+        		nvram_unset( "vlan0ports" );
+        		nvram_unset( "br0_ifnames" );
+			nvram_set("vlan1ports", "1 2 3 4 8*");
+			nvram_set("vlan2ports", "0 8u");
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan2hwname", "et0");
+			nvram_set("landevs", "vlan1 wl0");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wandevs", "vlan2");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan0_ifname", "vlan2");
+			nvram_set("wan0_ifnames", "vlan2");
+			nvram_set("wlan_ifname", "eth1");
+		}
+	}
+
 	/* fix DLINK DIR-320 vlans & gpio */
 	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
 	{
