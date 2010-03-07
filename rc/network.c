@@ -598,7 +598,7 @@ start_wan(void)
 
 	//symlink("/dev/null", "/tmp/ppp/connect-errors");
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	nvram_set("wimax_enable","0");
 #endif
 
@@ -611,7 +611,7 @@ start_wan(void)
 
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
 		if( wan_proto && !strcmp(wan_proto, "wimax" ) ){
 			nvram_set("wimax_enable","1");
@@ -1172,7 +1172,7 @@ wan_up(char *wan_ifname)
 	{
 		if (strcmp(wan_proto, "dhcp") == 0 || 
 		    strcmp(wan_proto, "static") == 0 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 		    || strcmp(wan_proto, "wimax") == 0 
 #endif
 		){
@@ -1199,7 +1199,7 @@ wan_up(char *wan_ifname)
  	/* setup static wan routes via physical device */
 	if (    strcmp(wan_proto, "dhcp") == 0 
 	     || strcmp(wan_proto, "static") == 0 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
 	){
@@ -1209,7 +1209,7 @@ wan_up(char *wan_ifname)
 
 	/* and one supplied via DHCP */
 	if (    strcmp(wan_proto, "dhcp") == 0 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
 	){
@@ -1243,7 +1243,7 @@ wan_up(char *wan_ifname)
 	if (   strcmp(wan_proto, "dhcp") == 0
 	    || strcmp(wan_proto, "bigpond") == 0
 	    || strcmp(wan_proto, "static") == 0 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	    ||  strcmp(wan_proto, "wimax") == 0
 #endif
 	){
@@ -1511,7 +1511,7 @@ wan_ifunit(char *wan_ifname)
 			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
 			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
 			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 			     nvram_match(strcat_r(prefix, "proto", tmp), "wimax") ||
 #endif
 			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))

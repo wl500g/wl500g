@@ -223,7 +223,7 @@ void sys_script(char *name)
 	   kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
 	   eval("killall","p910nd");
      }
-#ifdef __CONFIG_WIMAX__     
+#ifdef __CONFIG_MADWIMAX__
      else if (strcmp(name, "madwimax.sh")==0)
      {
 	   // update status of madwimax

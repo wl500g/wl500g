@@ -740,7 +740,7 @@
               
                    "bigpond:BigPond",
                    "l2tp:L2TP",
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
                    "wimax:WiMAX",
 #endif
               0), FALSE, FALSE},
@@ -4319,7 +4319,7 @@ struct variable variables_IPv6Config[] = {
 	{ 0, 0, 0, 0}
 	};
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 struct variable variables_WiMaxConfig[] = {
 //	{"wimax_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
@@ -4347,7 +4347,7 @@ struct svcLink svcLinks[] = {
            {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, NULL},
            {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, NULL},
 	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, NULL},
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, NULL},
 #endif
            {0, 0, 0, 0}

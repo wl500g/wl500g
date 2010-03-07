@@ -32,6 +32,10 @@ CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
 endif
 
+ifeq ($(CONFIG_MADWIMAX),y)
+OBJS += wimax.o
+endif
+
 ifeq ($(CONFIG_WAVESERVER),y)
 OBJS += waveserver.o
 endif

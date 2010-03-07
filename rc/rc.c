@@ -898,7 +898,7 @@ main(int argc, char **argv)
 		return ipup_main(argc, argv);
 	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	/* start of daemon */
 	else if (!strcmp(base, "madwimax-check"))
 		return madwimax_check();
