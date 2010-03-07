@@ -24,30 +24,15 @@ diff -urBp madwimax/src/wimax.c b/src/wimax.c
  
  		/* detect the end of the options. */
  		if (c == -1)
-@@ -803,6 +805,14 @@ static void parse_args(int argc, char **
+@@ -803,6 +805,11 @@ static void parse_args(int argc, char **
  					exit(1);
  					break;
  				}
 +			case 'i': {
-+					if( strlen(optarg)>=sizeof(tap_dev) ){
-+						fprintf(stderr, "Too long interface name.\n");
-+						exit(1);
-+					}
-+					strcpy( tap_dev, optarg );
++					strncpy(tap_dev, optarg, sizeof(tap_dev)-1);
++					tap_dev[sizeof(tap_dev)-1] = '\0';
 +					break;
-+			}
++				}
  			default: {
  					exit(1);
  				}
-@@ -883,6 +893,11 @@ static void sighandler_stats(int signum)
- 				wd_status.bsid[0], wd_status.bsid[1], wd_status.bsid[2],
- 				wd_status.bsid[3], wd_status.bsid[4], wd_status.bsid[5]);
- 		}
-+		fprintf( fd,
-+			"-----------------------\n"
-+			"Chip info: %s\n" "Firmware info: %s", 
-+			wd_status.chip, wd_status.firmware );
-+
- 		fclose(fd);
- 	}
- }

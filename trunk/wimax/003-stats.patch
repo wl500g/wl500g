@@ -63,7 +63,7 @@ diff -BurpN madwimax.orig/src/wimax.c madwimax/src/wimax.c
  	if (pid_fname) {
  		unlink(pid_fname);
  	}
-@@ -848,6 +857,36 @@ static void sighandler_wait_child(int si
+@@ -848,6 +857,41 @@ static void sighandler_wait_child(int si
  	wmlog_msg(2, "Child exited with status %d", status);
  }
  
@@ -93,6 +93,11 @@ diff -BurpN madwimax.orig/src/wimax.c madwimax/src/wimax.c
 +				wd_status.bsid[0], wd_status.bsid[1], wd_status.bsid[2],
 +				wd_status.bsid[3], wd_status.bsid[4], wd_status.bsid[5]);
 +		}
++		fprintf(fd,
++			"Chip: %s\n"
++			"Firmware: %s\n",
++			wd_status.chip,
++			wd_status.firmware);
 +		fclose(fd);
 +	}
 +}
