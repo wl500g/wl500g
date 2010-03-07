@@ -570,6 +570,20 @@ int http_processcheck(void)
 	return 0;
 }
 
+#ifdef __CONFIG_WIMAX__
+// madwimax
+int madwimax_check(void);
+
+int madwimax_processcheck(void)
+{
+//	pid_t pid;
+//
+//	char *argv[] = {"/sbin/madwimax-check", NULL};
+//	_eval(argv, NULL, 0, &pid);
+	return madwimax_check();
+}
+#endif
+
 #ifdef USB_SUPPORT
 static int notice_rcamd(int flag)
 {
@@ -723,6 +737,11 @@ void watchdog(int signum)
 
 	/* http server check */
 	http_processcheck();
+
+#ifdef __CONFIG_WIMAX__
+	/* madwimax */
+	madwimax_processcheck();
+#endif
 
 #ifdef USB_SUPPORT
 	/* web cam process */

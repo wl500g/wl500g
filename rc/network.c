@@ -45,6 +45,7 @@ typedef u_int8_t u8;
 #include <bcmparams.h>
 
 void lan_up(char *lan_ifname);
+int madwimax_start( char * ifname );
 
 static int
 add_routes(char *prefix, char *var, char *ifname)
@@ -597,6 +598,10 @@ start_wan(void)
 
 	//symlink("/dev/null", "/tmp/ppp/connect-errors");
 
+#ifdef __CONFIG_WIMAX__
+	nvram_set("wimax_enable","0");
+#endif
+
 	/* Start each configured and enabled wan connection and its undelying i/f */
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
 	{
@@ -605,6 +610,18 @@ start_wan(void)
 #endif
 
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+#ifdef __CONFIG_WIMAX__
+		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+		if( wan_proto && !strcmp(wan_proto, "wimax" ) ){
+			nvram_set("wimax_enable","1");
+			sprintf( tmp, "%d", unit );
+			nvram_set( "wimax_unit", tmp );
+			sprintf( tmp, "wan%d", unit );
+			madwimax_start( tmp );
+			continue;
+		}
+#endif
 
 		/* make sure the connection exists and is enabled */ 
 		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
@@ -648,7 +665,8 @@ start_wan(void)
 			close(s);
 			continue;
 		}
-		if (!(ifr.ifr_flags & IFF_UP)) {
+		else if ( !(ifr.ifr_flags & IFF_UP) )
+		{
 			/* Sync connection nvram address and i/f hardware address */
 			memset(ifr.ifr_hwaddr.sa_data, 0, ETHER_ADDR_LEN);
 
@@ -676,9 +694,8 @@ start_wan(void)
 					system(nvram_safe_get("wl0_join"));
 			}
 		}
-	
+		
 		close(s);
-
 
 #ifdef ASUS_EXT
 		if (unit==0)
@@ -815,7 +832,8 @@ start_wan(void)
 		* renew and release.
 		*/
 		else if (strcmp(wan_proto, "dhcp") == 0 ||
-			 strcmp(wan_proto, "bigpond") == 0 ) {
+			 strcmp(wan_proto, "bigpond") == 0 )
+		{
 			char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
 			char *dhcp_argv[] = { "udhcpc",
 					      "-i", wan_ifname,
@@ -837,7 +855,8 @@ start_wan(void)
 #endif
 		}
 		/* Configure static IP connection. */
-		else if (strcmp(wan_proto, "static") == 0) {
+		else if (strcmp(wan_proto, "static") == 0 )
+		{
 			/* Assign static IP address to i/f */
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
@@ -1056,11 +1075,12 @@ stop_wan2(void)
 }
 
 static int 
-update_resolvconf(void)
+update_resolvconf(char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
 
+	dprintf("%s %d %d\n",ifname,metric,up);
 	/* check if auto dns enabled */	
 	if (!nvram_match("wan_dnsenable_x", "1"))
 		return 0;
@@ -1074,6 +1094,7 @@ update_resolvconf(void)
 		nvram_safe_get("wanx_dns")), next) 
 	{
 		fprintf(fp, "nameserver %s\n", word);
+		dprintf( "nameserver %s\n", word );
 	}
 	
 	fclose(fp);
@@ -1089,6 +1110,13 @@ wan_up(char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char *wan_proto, *gateway;
+	int metric;
+
+#ifdef DEBUG
+	int r;
+	r = wan_prefix(wan_ifname, prefix);
+	dprintf("wan_up: %s %s %d\n", wan_ifname, prefix, r);
+#endif
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0) 
@@ -1129,7 +1157,7 @@ wan_up(char *wan_ifname)
 		/* start multicast router */
 		start_igmpproxy(wan_ifname);
 		
-		update_resolvconf();
+		update_resolvconf(wan_ifname,2,1);
 		
 		return;
 	}
@@ -1137,18 +1165,25 @@ wan_up(char *wan_ifname)
 	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));	
 
 	dprintf("%s %s\n", wan_ifname, wan_proto);
+	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
 
 	/* Set default route to gateway if specified */
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1")) 
 	{
-		if (strcmp(wan_proto, "dhcp") == 0 || strcmp(wan_proto, "static") == 0) 
-		{
+		if (strcmp(wan_proto, "dhcp") == 0 || 
+		    strcmp(wan_proto, "static") == 0 
+#ifdef __CONFIG_WIMAX__
+		    || strcmp(wan_proto, "wimax") == 0 
+#endif
+		){
 			/* the gateway is in the local network */
 			route_add(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 				NULL, "255.255.255.255");
 		}
 		/* default route via default gateway */
-		route_add(wan_ifname, 0, "0.0.0.0", 
+		
+		dprintf("metric %s - %d\n",nvram_safe_get(strcat_r(prefix, "priority", tmp)),metric);
+		route_add(wan_ifname, metric, "0.0.0.0", 
 			nvram_safe_get(strcat_r(prefix, "gateway", tmp)), "0.0.0.0");
 		/* hack: avoid routing cycles, when both peer and server has the same IP */
 		if (strcmp(wan_proto, "pptp") == 0 || strcmp(wan_proto, "l2tp") == 0) {
@@ -1162,18 +1197,27 @@ wan_up(char *wan_ifname)
 	add_wan_routes(wan_ifname);
 
  	/* setup static wan routes via physical device */
-	if (strcmp(wan_proto, "dhcp") == 0 || strcmp(wan_proto, "static") == 0) 
-	{
+	if (    strcmp(wan_proto, "dhcp") == 0 
+	     || strcmp(wan_proto, "static") == 0 
+#ifdef __CONFIG_WIMAX__
+	     || strcmp(wan_proto, "wimax") == 0 
+#endif
+	){
 		nvram_set("wanx_gateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
 		add_routes("wan_", "route", wan_ifname);
 	}
 
 	/* and one supplied via DHCP */
-	if (strcmp(wan_proto, "dhcp") == 0)
+	if (    strcmp(wan_proto, "dhcp") == 0 
+#ifdef __CONFIG_WIMAX__
+	     || strcmp(wan_proto, "wimax") == 0 
+#endif
+	){
 		add_wanx_routes(prefix, wan_ifname, 0);
+	}
 
 	/* Add dns servers to resolv.conf */
-	update_resolvconf();
+	update_resolvconf(wan_ifname, metric, 1 );
 
 	/* Sync time */
 	//start_ntpc();
@@ -1196,10 +1240,13 @@ wan_up(char *wan_ifname)
 #endif
 
 	/* start multicast router */
-	if (strcmp(wan_proto, "dhcp") == 0 || 
-		strcmp(wan_proto, "bigpond") == 0 || 
-		strcmp(wan_proto, "static") == 0) 
-	{
+	if (   strcmp(wan_proto, "dhcp") == 0
+	    || strcmp(wan_proto, "bigpond") == 0
+	    || strcmp(wan_proto, "static") == 0 
+#ifdef __CONFIG_WIMAX__
+	    ||  strcmp(wan_proto, "wimax") == 0
+#endif
+	){
 		start_igmpproxy(wan_ifname);
 	}
 
@@ -1211,6 +1258,7 @@ wan_down(char *wan_ifname)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char *wan_proto;
+	int metric;
 
 	/* Figure out nvram variable name prefix for this i/f */
 	if (wan_prefix(wan_ifname, prefix) < 0)
@@ -1221,8 +1269,9 @@ wan_down(char *wan_ifname)
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
 	/* Remove default route to gateway if specified */
+	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
-		route_del(wan_ifname, 0, "0.0.0.0", 
+		route_del(wan_ifname, metric, "0.0.0.0", 
 			nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 			"0.0.0.0");
 
@@ -1232,7 +1281,7 @@ wan_down(char *wan_ifname)
 	/* Update resolv.conf -- leave as is if no dns servers left for demand to work */
 	if (*nvram_safe_get("wanx_dns"))
 		nvram_unset(strcat_r(prefix, "dns", tmp));
-	update_resolvconf();
+	update_resolvconf(wan_ifname, metric, 0);
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
@@ -1462,6 +1511,9 @@ wan_ifunit(char *wan_ifname)
 			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
 			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
 			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
+#ifdef __CONFIG_WIMAX__
+			     nvram_match(strcat_r(prefix, "proto", tmp), "wimax") ||
+#endif
 			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
 				return unit;
 		}

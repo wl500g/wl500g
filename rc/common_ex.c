@@ -590,7 +590,9 @@ void update_wan_status(int isup)
 	else if (!strcmp(proto, "pptp")) nvram_set("wan_proto_t", "PPTP");
 	else if (!strcmp(proto, "l2tp")) nvram_set("wan_proto_t", "L2TP");
 	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
-
+#ifdef __CONFIG_WIMAX__
+	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
+#endif
 
 	if (!isup)
 	{
