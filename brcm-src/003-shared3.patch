@@ -719,3 +719,78 @@ diff -urBwp src/shared/load.c shared/load.c
  
  	/* Copy self to flash if we booted from SDRAM */
  	if (PHYSADDR(ra) < SB_FLASH1) {
+@@ -283,6 +283,36 @@
+ 	jr	t2
+ 	nop
+ 
++	/* Black hole for traps with BEV on */
++	.org	0x380
++bevtrap: nop
++	nop
++	.set	mips32
++	wait
++	.set	mips0
++	nop
++	nop
++	b	bevtrap
++	nop
++
++	/* Record the size of the binary */
++	.org	BISZ_OFFSET
++	.word	BISZ_MAGIC
++	.word	text_start
++	.word	text_end
++	.word	data_start
++	.word	data_end
++	.word	bss_start
++	.word	bss_end
++	.word	_end
++
++	/* Embedded NVRAM */
++	.balign	0x400	
++	.globl	embedded_nvram
++embedded_nvram:
++	.fill	0x100,4,~(0x48534c46)
++	
++
+ initdram:
+ 	/* Initialize SDRAM */
+ 	li	t0,KSEG0ADDR(SB_FLASH1)
+@@ -315,37 +345,6 @@
+ 	add	a1,4
+ 	blt	a1,a2,1b
+ 	nop
+-	b	setsp
+-	nop
+-
+-	/* Black hole for traps with BEV on */
+-	.org	0x380
+-bevtrap: nop
+-	nop
+-	.set	mips32
+-	wait
+-	.set	mips0
+-	nop
+-	nop
+-	b	bevtrap
+-	nop
+-
+-	/* Record the size of the binary */
+-	.org	BISZ_OFFSET
+-	.word	BISZ_MAGIC
+-	.word	text_start
+-	.word	text_end
+-	.word	data_start
+-	.word	data_end
+-	.word	bss_start
+-	.word	bss_end
+-	.word	_end
+-
+-	/* Embedded NVRAM */
+-	.balign	0x400	
+-	.globl	embedded_nvram
+-embedded_nvram:
+-	.fill	0x100,4,~(0x48534c46)
+ 
+ setsp:
+ 	/* Record the memory size */
