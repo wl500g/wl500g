@@ -31,15 +31,13 @@
 <tr>
 <td class="content_desc_td" colspan="2">ZVMODELVZ supports WiMAX connection to WAN.</td>
 </tr>
-
-<tr>
+<!--<tr>
 <td class="content_header_td">WiMAX autorun?</td>
 <td class="content_input_td">
 <input type="radio" value="1" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "1", "checked"); %>>Yes</input>
 <input type="radio" value="0" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "0", "checked"); %>>No</input>
 </td>
-</tr>
-
+</tr>-->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for for WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
 <td class="content_input_td">
@@ -47,16 +45,24 @@
 </td>
 </tr>
 
-<tr>
+<!--<tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the priority of default gateway (1-10).', LEFT);" onMouseOut="return nd();">Priority:</td>
 <td class="content_input_td">
 <input type="text" maxlength="3" class="content_input_fd" size="3" name="wimax_priority" value="<% nvram_get_x("WiMaxConfig","wimax_priority"); %>" onBlur="return validate_range(this, 1, 10)" onKeyPress="return is_number(this)"</td>
+</tr>-->
+
+<tr>
+<td class="content_header_td">Check connection?</td>
+<td class="content_input_td">
+<input type="radio" value="1" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "1", "checked"); %>>Yes</input>
+<input type="radio" value="0" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "0", "checked"); %>>No</input>
+</td>
 </tr>
 
 </table>
 </td></tr>
 
-<tr><td>		
+<tr><td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
 <tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  

@@ -577,6 +577,11 @@ start_ddns(void)
 			
 	sprintf(usrstr, "%s:%s", user, passwd);
 	
+	if (nvram_match("ddns_realip_x", "1"))
+	{
+		strcpy(wan_ifname, "auto");
+	}
+	else
 	if (nvram_match("wan_proto", "pppoe") ||
 	    nvram_match("wan_proto", "pptp")  ||
 	    nvram_match("wan_proto", "l2tp"))
@@ -803,6 +808,9 @@ int restart_nfsd(void)
 int 
 start_usb(void)
 {
+	// unset possible values
+	nvram_unset("wimax_device");
+
 	eval("insmod", "usbcore");
 	eval("insmod", "usb-ohci");
 	eval("insmod", "usb-uhci");
@@ -1834,11 +1842,29 @@ hotplug_usb(void)
 	int isweb;
 	char flag[6];
 
+#ifdef DEBUG
+	dprintf("%s-%s-%s\n",getenv("INTERFACE"),getenv("ACTION"),product=getenv("PRODUCT"));
+#endif
 	if( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
 
 	if ((product=getenv("PRODUCT")))
 	{
+		/* wimax modem */
+		if (strncmp(interface, "255/", 4) == 0)
+		{
+			if (strncmp(product, "4e8/6761", 8) == 0 ||
+			    strncmp(product, "4e9/6761", 8) == 0 ||
+			    strncmp(product, "4e8/6731", 8) == 0 ||
+			    strncmp(product, "4e8/6780", 8) == 0)
+			{
+				if (strcmp(action, "add") == 0)
+					nvram_set("wimax_device", product);
+				else
+					nvram_unset("wimax_device");
+				return 0;
+			}
+		}
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{

@@ -4097,6 +4097,27 @@ function change_wan_type(v)
     	   inputRCtrl1(document.form.x_DHCPClient, 0);
     	   inputRCtrl2(document.form.x_DHCPClient, 0);
 	}
+	else if (v == "wimax")
+  	{
+  	   inputCtrl(document.form.wan_ipaddr, 1);
+  	   inputCtrl(document.form.wan_netmask, 1); 
+  	   inputCtrl(document.form.wan_gateway, 1); 
+  	   inputCtrl(document.form.wan_pppoe_username, 0); 
+  	   inputCtrl(document.form.wan_pppoe_passwd, 0); 
+  	   inputCtrl(document.form.wan_pppoe_idletime, 0);
+  	   inputCtrl(document.form.wan_pppoe_mtu, 0);  	
+  	   inputCtrl(document.form.wan_pppoe_mru, 0);  	  	
+  	   inputRCtrl1(document.form.wan_pppoe_relay_x, 1);  	
+  	   inputCtrl(document.form.wan_pppoe_idletime_check, 0); 
+  	   inputCtrl(document.form.wan_pppoe_service, 0);  	  	   
+  	   inputCtrl(document.form.wan_pppoe_ac, 0);
+  	   inputCtrl(document.form.wan_pppoe_options_x, 0);
+  	   inputCtrl(document.form.wan_pptp_options_x, 0);
+  	   //inputCtrl(document.form.wan_hostname, 0);
+  	   //inputCtrl(document.form.wan_hwaddr_x, 0);
+    	   inputRCtrl1(document.form.x_DHCPClient, 1);
+    	   inputRCtrl2(document.form.x_DHCPClient, 1);
+  	}
 	else
   	{
   	   inputCtrl(document.form.wan_ipaddr, 0);
@@ -4118,12 +4139,12 @@ function change_wan_type(v)
     	   inputRCtrl1(document.form.x_DHCPClient, 0);
     	   inputRCtrl2(document.form.x_DHCPClient, 0);
   	}	  	  	
-	if ((v == "l2tp" || v == "pptp") 
+	if ((v == "l2tp" || v == "pptp" || v == "wimax") 
 		&& document.form.wan_ipaddr.value == "") 
 	{
     	   inputRCtrl2(document.form.x_DHCPClient, 0);
 	}
-	if ((v == "l2tp" || v == "pptp" || v == "pppoe") 
+	if ((v == "l2tp" || v == "pptp" || v == "pppoe" || v == "wimax") 
 		&& document.form.wan_ipaddr.value == "0.0.0.0")
 	{
     	   inputRCtrl2(document.form.x_DHCPClient, 0);
@@ -4139,7 +4160,7 @@ function changeDHCPClient()
     	inputCtrl(document.form.wan_netmask, 0);     
     	inputCtrl(document.form.wan_gateway, 0);
 	v = document.form.wan_proto.value;
-	if (v == "l2tp" || v == "pptp" || v == "pppoe") 
+	if (v == "l2tp" || v == "pptp" || v == "pppoe" || v == "wimax") 
 	{
 	   document.form.wan_ipaddr.value = "0.0.0.0";
 	   document.form.wan_netmask.value = "0.0.0.0";

@@ -531,6 +531,7 @@ set_wan0_vars(void)
 	} else {
 		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
 		nvram_set("wan0_ifnames", nvram_get("wan_ifnames"));
+		nvram_set("wan0_priority", nvram_safe_get("wan_priority"));
 	}
 }
 
@@ -897,6 +898,14 @@ main(int argc, char **argv)
 		return ipup_main(argc, argv);
 	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
+#ifdef __CONFIG_WIMAX__
+	/* start of daemon */
+	else if (!strcmp(base, "madwimax-check"))
+		return madwimax_check();
+	/* madwimax [ if-create if-up if-down if-release ] */
+	else if ( !strcmp(base, "madwimax.events" ) )
+		return madwimax_main(argc, argv);
+#endif
 	/* udhcpc [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc"))
 		return udhcpc_main(argc, argv);

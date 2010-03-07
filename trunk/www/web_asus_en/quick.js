@@ -645,11 +645,11 @@ function changeDHCPClient()
 {        
     if (document.form.x_DHCPClient[0].checked == true)
     {
-    	inputCtrl1(document.form.wan_ipaddr, 0); 
-    	inputCtrl1(document.form.wan_netmask, 0);     
+    	inputCtrl1(document.form.wan_ipaddr, 0);
+    	inputCtrl1(document.form.wan_netmask, 0);
     	inputCtrl1(document.form.wan_gateway, 0);
 	v = document.form.wan_proto.value;
-	if (v == "l2tp" || v == "pptp" || v == "pppoe") 
+	if (v == "l2tp" || v == "pptp" || v == "pppoe" || v == "wimax") 
 	{
 	   document.form.wan_ipaddr.value = "0.0.0.0";
 	   document.form.wan_netmask.value = "0.0.0.0";
