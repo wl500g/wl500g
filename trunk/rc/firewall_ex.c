@@ -834,7 +834,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	/* Clamp TCP MSS to PMTU of WAN interface */
 	if (nvram_match("wan_proto", "pppoe") ||
 		nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp") 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 		|| nvram_match("wan_proto", "wimax")
 #endif
         ){

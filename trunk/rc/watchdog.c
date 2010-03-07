@@ -570,7 +570,7 @@ int http_processcheck(void)
 	return 0;
 }
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 // madwimax
 int madwimax_check(void);
 
@@ -738,7 +738,7 @@ void watchdog(int signum)
 	/* http server check */
 	http_processcheck();
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 	/* madwimax */
 	madwimax_processcheck();
 #endif
