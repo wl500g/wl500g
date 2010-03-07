@@ -653,6 +653,7 @@ void usage(const char *progname)
 	printf("  -e, --event-script=FILE     specify path to the event script\n");
 	printf("  -p, --pid-file=FILE         specify path to the pid-file\n");
 	printf("  -s, --stats-file=FILE       specify path to the statistics file\n");
+	printf("  -i, --interface=NAME        specify wimax interface name (by default wmx...)\n");
 	printf("  -h, --help                  display this help\n");
 }
 
@@ -685,10 +686,11 @@ static void parse_args(int argc, char **argv)
 			{"pid-file",		required_argument,	0, 'p'},
 			{"stats-file",		required_argument,	0, 's'},
 			{"help",		no_argument,		0, 'h'},
+			{"interface",		required_argument,	0, 'i'},
 			{0, 0, 0, 0}
 		};
 
-		c = getopt_long(argc, argv, "vqdl:ofVe:p:s:h", long_options, &option_index);
+		c = getopt_long(argc, argv, "vqdl:ofVe:p:s:h:i:", long_options, &option_index);
 
 		/* detect the end of the options. */
 		if (c == -1)
@@ -801,6 +803,11 @@ static void parse_args(int argc, char **argv)
 					/* getopt_long already printed an error message. */
 					usage(argv[0]);
 					exit(1);
+					break;
+				}
+			case 'i': {
+					strncpy(tap_dev, optarg, sizeof(tap_dev)-1);
+					tap_dev[sizeof(tap_dev)-1] = '\0';
 					break;
 				}
 			default: {
