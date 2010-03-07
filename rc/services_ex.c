@@ -818,7 +818,11 @@ start_usb(void)
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
 #ifdef PRINTER_SUPPORT
+# ifdef LINUX26
+	eval("insmod", "usblp");
+# else
 	eval("insmod", "printer");
+# endif
 	mkdir("/var/state", 0777);
 	mkdir("/var/state/parport", 0777);
 	if (!nvram_invmatch("lpr_enable", "1"))
@@ -921,7 +925,11 @@ stop_usb(void)
 #ifdef PRINTER_SUPPORT	
 	eval("killall", "lpd");
 	eval("killall", "p910nd");
+# ifdef LINUX26
+        eval("rmmod", "usblp");
+# else
 	eval("rmmod", "printer");
+# endif
 #endif	
 
 	umount("/proc/bus/usb");
