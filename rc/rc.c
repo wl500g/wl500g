@@ -186,9 +186,10 @@ early_defaults(void)
 		if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
 		{
         		nvram_unset( "vlan0ports" );
+        		nvram_unset( "vlan0hwname" );
         		nvram_unset( "br0_ifnames" );
 			nvram_set("vlan1ports", "1 2 3 4 8*");
-			nvram_set("vlan2ports", "0 8u");
+			nvram_set("vlan2ports", "0 8");
 			nvram_set("vlan1hwname", "et0");
 			nvram_set("vlan2hwname", "et0");
 			nvram_set("landevs", "vlan1 wl0");
