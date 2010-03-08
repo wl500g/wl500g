@@ -16,32 +16,8 @@
 
 static char *pid_fname  = "/var/run/madwimax.pid";
 static char *ev_fname   = "/tmp/madwimax.events";
-static char *chk_fname  = "/tmp/wimax_check_connection.sh";
 
 const char * wimax_ifname_templ = "wmx%d";
-
-const char * check_connection_script =
-"#!/bin/sh\n"
-"\n"
-"PID=$1\n"
-"IFNAME=$2\n"
-"TARGET=$3\n"
-"if [ \"$IFNAME\" == \"\" ] || [ \"$TARGET\" == \"\"  ] ; then\n"
-"   kill $PID\n"
-"fi\n"
-"\n"
-"PACKETS=5\n"
-"PING_FN=/var/state/$IFNAME_ping.log\n"
-"ping -q -I $IFNAME -c $PACKETS $TARGET 2>/dev/null >$PING_FN\n"
-"\n"
-"RET=`awk '/packets received/ {print $4}' $PING_FN`\n"
-"RTT=`$PING | awk '/min/ {print $4 $5}' $PING_FN`\n"
-"nvram set wmx_ping_t=\"$RTT\"\n"
-"if [ \"$RET\" == \"0\" ] || [ \"$RET\" == \"\"  ] ; then\n"
-"   kill $PID\n"
-"fi\n"
-;
-
 
 #define WIMAX_UNIT 10
 
@@ -70,7 +46,7 @@ madwimax_start(char *ifname)
 	update_nvram_wmx( ifname, 0 );
 	
 	char *wimax_ssid = nvram_get("wimax_ssid");
-	char * argv[] = {
+	char *wmx_argv[] = {
 		"/usr/sbin/madwimax", "-qof",
 		"-e", ev_fname,
 		"-p", pid_fname,
@@ -83,18 +59,10 @@ madwimax_start(char *ifname)
 	if (nvram_match("wimax_enable","1") && (wimax_modem()) )
 	{
 		eval("insmod", "tun");
-		ret = _eval(argv, NULL, 0, &pid);
+		ret = _eval(wmx_argv, NULL, 0, &pid);
 		symlink("/sbin/rc", ev_fname);
 	}
 	
-	FILE * file = fopen( chk_fname, "w" );
-	if( file )
-	{
-	  fputs( check_connection_script, file );
-	  fclose( file );
-	  chmod(chk_fname, S_IRWXU | S_IRWXG  );
-	};
-
 	return ( nvram_match("wan_proto","wimax") );
 }
 
@@ -132,19 +100,18 @@ madwimax_check(void)
 		if(	(cur_time - prev_time) > 60 || 
 			cur_time < prev_time  )
 		{
-			//dprintf( "start %s", chk_fname );
 			get_wimax_ifname( tmp, unit );
 			char s_pid[20];
 			sprintf( s_pid, "%d", pid  );
-			char * argv[] = {
-				chk_fname,
+			char * wchk_argv[] = {
+				"/usr/sbin/wimax_check_connection.sh",
 				s_pid,
 				tmp,
 				nvram_safe_get( "wmx_gateway_t" ),
 				NULL
 			};
 			int ping_pid;
-			_eval( argv, NULL, 0, &ping_pid);
+			_eval( wchk_argv, NULL, 0, &ping_pid);
 			prev_time = cur_time;
 		
 			fp = fopen(pid_fname, "r");
