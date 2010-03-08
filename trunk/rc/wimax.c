@@ -18,6 +18,8 @@ static char *pid_fname  = "/var/run/madwimax.pid";
 static char *ev_fname   = "/tmp/madwimax.events";
 static char *chk_fname  = "/tmp/wimax_check_connection.sh";
 
+const char * wimax_ifname_templ = "wmx%d";
+
 const char * check_connection_script =
 "#!/bin/sh\n"
 "\n"
@@ -44,6 +46,10 @@ const char * check_connection_script =
 #define WIMAX_UNIT 10
 
 void update_nvram_wmx( char * ifname, int isup );
+
+void get_wimax_ifname( char * out, int unit ){
+   sprintf( out, wimax_ifname_templ, unit  );
+};
 
 int
 wimax_modem(void)
@@ -127,7 +133,7 @@ madwimax_check(void)
 			cur_time < prev_time  )
 		{
 			//dprintf( "start %s", chk_fname );
-			sprintf( tmp, "wan%d", unit  );
+			get_wimax_ifname( tmp, unit );
 			char s_pid[20];
 			sprintf( s_pid, "%d", pid  );
 			char * argv[] = {
@@ -153,7 +159,7 @@ madwimax_check(void)
 	 	// kill the udhcpc
 		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
 		kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
-		sprintf( tmp, "wan%d", unit  );
+		get_wimax_ifname( tmp, unit );
 		madwimax_start( tmp );
 	}
 	return 0;
@@ -272,12 +278,9 @@ madwimax_down(char *ifname)
 	
 	char tmp[100];
 	int unit = wan_ifunit(ifname);
-	if ( unit ) {
-	 	// kill the udhcpc
-		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
-		kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
-		return 1;
-	}
+ 	// kill the udhcpc
+	kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
+	kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
 	return 0;
 }
 

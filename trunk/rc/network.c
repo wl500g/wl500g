@@ -43,9 +43,9 @@ typedef u_int8_t u8;
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
+#include "wimax.h"
 
 void lan_up(char *lan_ifname);
-int madwimax_start( char * ifname );
 
 static int
 add_routes(char *prefix, char *var, char *ifname)
@@ -617,7 +617,7 @@ start_wan(void)
 			nvram_set("wimax_enable","1");
 			sprintf( tmp, "%d", unit );
 			nvram_set( "wimax_unit", tmp );
-			sprintf( tmp, "wan%d", unit );
+			get_wimax_ifname( tmp, unit );
 			madwimax_start( tmp );
 			continue;
 		}

@@ -46,6 +46,7 @@
 #include <bcmdevs.h>
 #include <wlutils.h>
 #include <bcmparams.h>
+#include "wimax.h"
 
 static void restore_defaults(void);
 static void sysinit(void);
@@ -531,7 +532,7 @@ set_wan0_vars(void)
 	} else {
 		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
 		nvram_set("wan0_ifnames", nvram_get("wan_ifnames"));
-		nvram_set("wan0_priority", nvram_safe_get("wan_priority"));
+		nvram_set("wan0_metric", nvram_safe_get("wan_metric"));
 	}
 }
 
