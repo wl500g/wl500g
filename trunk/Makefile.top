@@ -449,7 +449,7 @@ conf mconf:
 oldconf: .config
 	$(MAKE) -C config
 	@./config/conf -o ./config/Config
-	$(MAKE) shared-clean rc-clean
+	$(MAKE) shared-clean rc-clean httpd-clean
         # Also configure kernel
 	$(MAKE) k$@
 
