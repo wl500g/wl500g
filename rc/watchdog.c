@@ -572,8 +572,7 @@ int http_processcheck(void)
 
 #ifdef __CONFIG_MADWIMAX__
 // madwimax
-int madwimax_check(void);
-
+#include "wimax.h"
 int madwimax_processcheck(void)
 {
 //	pid_t pid;

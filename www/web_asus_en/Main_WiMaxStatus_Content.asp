@@ -46,10 +46,10 @@
 <td class="content_header_td_less">Device:
            </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wmx_device" value="<% nvram_get_f("wan.log","wimax_device"); %>" readonly="1"></td>
 </tr>
-<tr>
+<!--<tr>
 <td class="content_header_td_less">Interface name:
            </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wmx_ifname_t" value="<% nvram_get_f("wan.log","wmx_ifname_t"); %>" readonly="1"></td>
-</tr>
+</tr>-->
 <tr>
 <td class="content_header_td_less">IP Address:
            </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wmx_ipaddr_t" value="<% nvram_get_f("wan.log","wmx_ipaddr_t"); %>" readonly="1"></td>
