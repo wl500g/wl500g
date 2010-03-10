@@ -1,0 +1,199 @@
+From 57ed3eda977a215f054102b460ab0eb5d8d112e6
+From: Pekka J Enberg
+Date: Tue, 1 Jan 2008 17:23:28 +0100
+Subject: [PATCH] slub: provide /proc/slabinfo
+
+This adds a read-only /proc/slabinfo file on SLUB, that makes slabtop work.
+
+[ mingo@elte.hu: build fix. ]
+
+Cc: Andi Kleen <andi@firstfloor.org>
+Cc: Christoph Lameter <clameter@sgi.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/slub_def.h |    2 +
+ mm/slub.c                |  105 ++++++++++++++++++++++++++++++++++++++++------
+ 2 files changed, 94 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+index 40801e7..b7d9408 100644
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -200,4 +200,6 @@ static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
+ }
+ #endif
+ 
++extern const struct seq_operations slabinfo_op;
++
+ #endif /* _LINUX_SLUB_DEF_H */
+diff --git a/mm/slub.c b/mm/slub.c
+index 3655ad3..903dabd 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -3076,6 +3076,19 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
+ 	return slab_alloc(s, gfpflags, node, caller, size);
+ }
+ 
++static unsigned long count_partial(struct kmem_cache_node *n)
++{
++	unsigned long flags;
++	unsigned long x = 0;
++	struct page *page;
++
++	spin_lock_irqsave(&n->list_lock, flags);
++	list_for_each_entry(page, &n->partial, lru)
++		x += page->inuse;
++	spin_unlock_irqrestore(&n->list_lock, flags);
++	return x;
++}
++
+ #if defined(CONFIG_SYSFS) && defined(CONFIG_SLUB_DEBUG)
+ static int validate_slab(struct kmem_cache *s, struct page *page)
+ {
+@@ -3458,19 +3471,6 @@ static int list_locations(struct kmem_cache *s, char *buf,
+ 	return n;
+ }
+ 
+-static unsigned long count_partial(struct kmem_cache_node *n)
+-{
+-	unsigned long flags;
+-	unsigned long x = 0;
+-	struct page *page;
+-
+-	spin_lock_irqsave(&n->list_lock, flags);
+-	list_for_each_entry(page, &n->partial, lru)
+-		x += page->inuse;
+-	spin_unlock_irqrestore(&n->list_lock, flags);
+-	return x;
+-}
+-
+ enum slab_stat_type {
+ 	SL_FULL,
+ 	SL_PARTIAL,
+@@ -4123,3 +4123,90 @@ static int __init slab_sysfs_init(void)
+ 
+ __initcall(slab_sysfs_init);
+ #endif
++
++/*
++ * The /proc/slabinfo ABI
++ */
++#ifdef CONFIG_PROC_FS
++
++static void print_slabinfo_header(struct seq_file *m)
++{
++	seq_puts(m, "slabinfo - version: 2.1\n");
++	seq_puts(m, "# name            <active_objs> <num_objs> <objsize> "
++		 "<objperslab> <pagesperslab>");
++	seq_puts(m, " : tunables <limit> <batchcount> <sharedfactor>");
++	seq_puts(m, " : slabdata <active_slabs> <num_slabs> <sharedavail>");
++	seq_putc(m, '\n');
++}
++
++static void *s_start(struct seq_file *m, loff_t *pos)
++{
++	loff_t n = *pos;
++	struct list_head *lh;
++
++	down_read(&slub_lock);
++	if (!n)
++		print_slabinfo_header(m);
++
++	list_for_each(lh, &slab_caches)
++		if (n-- == 0)
++			return lh;
++
++	return NULL;
++}
++
++static void *s_next(struct seq_file *m, void *p, loff_t *pos)
++{
++	struct list_head *lh = ((struct list_head *)p)->next;
++
++	++*pos;
++	return (lh == &slab_caches) ? NULL : lh;
++}
++
++static void s_stop(struct seq_file *m, void *p)
++{
++	up_read(&slub_lock);
++}
++
++static int s_show(struct seq_file *m, void *p)
++{
++	unsigned long nr_partials = 0;
++	unsigned long nr_slabs = 0;
++	unsigned long nr_inuse = 0;
++	unsigned long nr_objs;
++	struct kmem_cache *s;
++	int node;
++
++	s = list_entry(p, struct kmem_cache, list);
++
++	for_each_online_node(node) {
++		struct kmem_cache_node *n = get_node(s, node);
++
++		if (!n)
++			continue;
++
++		nr_partials += n->nr_partial;
++		nr_slabs += atomic_long_read(&n->nr_slabs);
++		nr_inuse += count_partial(n);
++	}
++
++	nr_objs = nr_slabs * s->objects;
++	nr_inuse += (nr_slabs - nr_partials) * s->objects;
++
++	seq_printf(m, "%-17s %6lu %6lu %6u %4u %4d", s->name, nr_inuse,
++		   nr_objs, s->size, s->objects, (1 << s->order));
++	seq_printf(m, " : tunables %4u %4u %4u", 0, 0, 0);
++	seq_printf(m, " : slabdata %6lu %6lu %6lu", nr_slabs, nr_slabs,
++		   0UL);
++	seq_putc(m, '\n');
++	return 0;
++}
++
++const struct seq_operations slabinfo_op = {
++	.start = s_start,
++	.next = s_next,
++	.stop = s_stop,
++	.show = s_show,
++};
++
++#endif /* CONFIG_PROC_FS */
+-- 
+1.7.0.2
+diff -uBp a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
+--- a/fs/proc/proc_misc.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/proc/proc_misc.c	2010-03-10 21:06:24.000000000 +0300
+@@ -396,7 +396,7 @@ static const struct file_operations proc
+ };
+ #endif
+ 
+-#ifdef CONFIG_SLAB
++#if defined(CONFIG_SLAB) || defined(CONFIG_SLUB)
+ static int slabinfo_open(struct inode *inode, struct file *file)
+ {
+ 	return seq_open(file, &slabinfo_op);
+@@ -404,7 +404,9 @@ static int slabinfo_open(struct inode *i
+ static const struct file_operations proc_slabinfo_operations = {
+ 	.open		= slabinfo_open,
+ 	.read		= seq_read,
++#ifdef CONFIG_SLAB
+ 	.write		= slabinfo_write,
++#endif
+ 	.llseek		= seq_lseek,
+ 	.release	= seq_release,
+ };
+@@ -698,7 +700,7 @@ void __init proc_misc_init(void)
+ #endif
+ 	create_seq_entry("stat", 0, &proc_stat_operations);
+ 	create_seq_entry("interrupts", 0, &proc_interrupts_operations);
+-#ifdef CONFIG_SLAB
++#if defined(CONFIG_SLAB) || defined(CONFIG_SLUB)
+ 	create_seq_entry("slabinfo",S_IWUSR|S_IRUGO,&proc_slabinfo_operations);
+ #ifdef CONFIG_DEBUG_SLAB_LEAK
+ 	create_seq_entry("slab_allocators", 0 ,&proc_slabstats_operations);
