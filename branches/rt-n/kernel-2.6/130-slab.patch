@@ -1,24 +1,22 @@
-Subject: [PATCH] Various slab allocator patches from 2.6 upstream
-From faeb2bc038b62d326f6b9331c421934aa3b0d15a
-From: Fedor <fedork@ubuntu.(none)>
-Date: Thu, 18 Feb 2010 01:45:31 -0500
+Subject: [PATCH] Various slab/slub/slob allocator patches from 2.6 upstream
 
 ---
- include/linux/cache.h    |    4 +
- include/linux/slab.h     |  148 +++--
- include/linux/slab_def.h |   42 +-
+
+ include/linux/cache.h    |    4 
+ include/linux/slab.h     |  148 ++++++----
+ include/linux/slab_def.h |   42 +--
  include/linux/slob_def.h |   36 ++
- include/linux/slub_def.h |   29 +-
- init/Kconfig             |   10 +-
- mm/bootmem.c             |    1 +
+ include/linux/slub_def.h |   29 --
+ init/Kconfig             |   10 
+ mm/bootmem.c             |    1 
  mm/internal.h            |   38 ++
- mm/page_alloc.c          |    2 +
- mm/slab.c                |  162 ++----
- mm/slob.c                |  649 ++++++++++++++------
- mm/slub.c                |  141 ++---
- mm/sparse.c              |   31 +
+ mm/page_alloc.c          |    2 
+ mm/slab.c                |  164 +++--------
+ mm/slob.c                |  649 ++++++++++++++++++++++++++++++++---------------
+ mm/slub.c                |  141 +++-------
+ mm/sparse.c              |   31 ++
  mm/util.c                |   51 ++-
- 14 files changed, 812 insertions(+), 532 deletions(-)
+ 14 files changed, 813 insertions(+), 533 deletions(-)
 
 diff --git a/include/linux/cache.h b/include/linux/cache.h
 index 4552504..97e2488 100644
@@ -719,6 +717,15 @@ index 7bd06ea..fd942ac 100644
  
  	local_flags = (flags & GFP_LEVEL_MASK);
  	/* Take the l3 list lock to change the colour_next on this node */
+@@ -2776,7 +2776,7 @@ static int cache_grow(struct kmem_cache *cachep,
+ 	 * 'nodeid'.
+ 	 */
+ 	if (!objp)
+-		objp = kmem_getpages(cachep, flags, nodeid);
++		objp = kmem_getpages(cachep, local_flags, nodeid);
+ 	if (!objp)
+ 		goto failed;
+ 
 @@ -2786,7 +2785,6 @@ static int cache_grow(struct kmem_cache *cachep,
  	if (!slabp)
  		goto opps1;
@@ -2214,4 +2221,3 @@ index ace2aea..ab522d7 100644
   *
 -- 
 1.6.5.GIT
-
