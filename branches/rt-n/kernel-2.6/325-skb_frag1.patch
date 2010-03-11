@@ -1,0 +1,54 @@
+From 4e9229c7efa9289d1179de4aab356c2738a49be2
+From: Herbert Xu
+Date: Thu, 29 Jan 2009 16:07:52 -0800
+Subject: [PATCH] net: Fix frag_list handling in skb_seq_read
+
+[ Upstream commit 95e3b24cfb4ec0479d2c42f7a1780d68063a542a ]
+
+The frag_list handling was broken in skb_seq_read:
+
+1) We didn't add the stepped offset when looking at the head
+are of fragments other than the first.
+
+2) We didn't take the stepped offset away when setting the data
+pointer in the head area.
+
+3) The frag index wasn't reset.
+
+This patch fixes both issues.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ net/core/skbuff.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index ca1ccdf..798e2c6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2001,10 +2001,10 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ 		return 0;
+ 
+ next_skb:
+-	block_limit = skb_headlen(st->cur_skb);
++	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+ 
+ 	if (abs_offset < block_limit) {
+-		*data = st->cur_skb->data + abs_offset;
++		*data = st->cur_skb->data + (abs_offset - st->stepped_offset);
+ 		return block_limit - abs_offset;
+ 	}
+ 
+@@ -2046,6 +2046,7 @@ next_skb:
+ 	} else if (st->root_skb == st->cur_skb &&
+ 		   skb_shinfo(st->root_skb)->frag_list) {
+ 		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
++		st->frag_idx = 0;
+ 		goto next_skb;
+ 	}
+ 
+-- 
+1.7.0.2
+

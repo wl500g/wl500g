@@ -1,0 +1,87 @@
+From 42f1115b1be1f528a082b97b127e909d6f640079
+From: Shyam Iyer
+Date: Thu, 29 Jan 2009 16:12:42 -0800
+Subject: [PATCH] net: Fix OOPS in skb_seq_read().
+
+[ Upstream commit 71b3346d182355f19509fadb8fe45114a35cc499 ]
+
+It oopsd for me in skb_seq_read. addr2line said it was
+linux-2.6/net/core/skbuff.c:2228, which is this line:
+
+	while (st->frag_idx < skb_shinfo(st->cur_skb)->nr_frags) {
+
+I added some printks in there and it looks like we hit this:
+
+        } else if (st->root_skb == st->cur_skb &&
+                   skb_shinfo(st->root_skb)->frag_list) {
+                 st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
+                 st->frag_idx = 0;
+                 goto next_skb;
+        }
+
+Actually I did some testing and added a few printks and found that the
+st->cur_skb->data was 0 and hence the ptr used by iscsi_tcp was null.
+This caused the kernel panic.
+
+ 	if (abs_offset < block_limit) {
+-		*data = st->cur_skb->data + abs_offset;
++		*data = st->cur_skb->data + (abs_offset - st->stepped_offset);
+
+I enabled the debug_tcp and with a few printks found that the code did
+not go to the next_skb label and could find that the sequence being
+followed was this -
+
+It hit this if condition -
+
+        if (st->cur_skb->next) {
+                st->cur_skb = st->cur_skb->next;
+                st->frag_idx = 0;
+                goto next_skb;
+
+And so, now the st pointer is shifted to the next skb whereas actually
+it should have hit the second else if first since the data is in the
+frag_list.
+
+        else if (st->root_skb == st->cur_skb &&
+                 skb_shinfo(st->root_skb)->frag_list) {
+                st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
+                goto next_skb;
+        }
+
+Reversing the two conditions the attached patch fixes the issue for me
+on top of Herbert's patches.
+
+Signed-off-by: Shyam Iyer <shyam_iyer@dell.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ net/core/skbuff.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 798e2c6..9b3e793 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2039,13 +2039,13 @@ next_skb:
+ 		st->frag_data = NULL;
+ 	}
+ 
+-	if (st->cur_skb->next) {
+-		st->cur_skb = st->cur_skb->next;
++	if (st->root_skb == st->cur_skb &&
++	    skb_shinfo(st->root_skb)->frag_list) {
++		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
+ 		st->frag_idx = 0;
+ 		goto next_skb;
+-	} else if (st->root_skb == st->cur_skb &&
+-		   skb_shinfo(st->root_skb)->frag_list) {
+-		st->cur_skb = skb_shinfo(st->root_skb)->frag_list;
++	} else if (st->cur_skb->next) {
++		st->cur_skb = st->cur_skb->next;
+ 		st->frag_idx = 0;
+ 		goto next_skb;
+ 	}
+-- 
+1.7.0.2
+
