@@ -2231,7 +2231,7 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/nvram_linux.c linux-2.6
 diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c
 --- linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c	2009-05-27 12:34:44.000000000 +0400
-@@ -0,0 +1,358 @@
+@@ -0,0 +1,362 @@
 +/*
 + * Low-Level PCI and SB support for BCM47xx (Linux support code)
 + *
@@ -2496,22 +2496,26 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arc
 +		}
 +
 +		/* PRxxxx: War for 5354 failures. */
-+		if (sih->chip == BCM5354_CHIP_ID && si_corerev(sih) == 1) {
++		if (sih->chip == BCM5354_CHIP_ID && (si_corerev(sih) == 1 || si_corerev(sih) == 2)) {
 +			uint32 tmp;
 +
 +			/* Change Flush control reg */
 +			tmp = readl(regs + 0x400);
 +			tmp &= ~8;
 +			writel(tmp, regs + 0x400);
-+			tmp = readl(regs + 0x400);
-+			printk("USB20H fcr: 0x%x\n", tmp);
 +
 +			/* Change Shim control reg */
 +			tmp = readl(regs + 0x304);
 +			tmp &= ~0x100;
 +			writel(tmp, regs + 0x304);
-+			tmp = readl(regs + 0x304);
-+			printk("USB20H shim cr: 0x%x\n", tmp);
++
++			/* Change Syn01 reg */
++			tmp = 0x00fe00fe;
++			writel(tmp, (uintptr)regs + 0x894);
++
++			/* Change Syn03 reg */
++			tmp = 0x1;
++			writel(tmp, (uintptr)regs + 0x89c);
 +		}
 +
 +                                /* War for 4716 failures. */
