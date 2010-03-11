@@ -1,5 +1,5 @@
 /*
- * Copyright 2004, Broadcom Corporation
+ * Copyright (C) 2008, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -7,12 +7,12 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * Low resolution timer interface. Timer handlers may be called 
- * in a deferred manner in a different task context after the 
+ * Low resolution timer interface. Timer handlers may be called
+ * in a deferred manner in a different task context after the
  * timer expires or in the task context from which the timer
  * was created, depending on the implementation.
  *
- * $Id$
+ * $Id: bcmtimer.h,v 1.7 2005/11/20 23:27:36 Exp $
  */
 #ifndef __bcmtimer_h__
 #define __bcmtimer_h__
