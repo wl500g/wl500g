@@ -534,13 +534,26 @@ void convert_asus_values()
 
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
+	{
 		eval("insmod", "ipt_recent");
+	}
+
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");
 //		eval("insmod", "ip6t_TCPMSS");
+	} else {
+		/* FIXME: Move it to the right place */
+		FILE *fp;
+
+		if ((fp = fopen("/proc/sys/net/ipv6/conf/all/disable_ipv6", "r+")))
+		{
+			fputc('1', fp);
+			fclose(fp);
+		} else
+			perror("/proc/sys/net/ipv6/conf/all/disable_ipv6");
 	}
 #endif
 
