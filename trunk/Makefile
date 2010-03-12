@@ -101,7 +101,7 @@ $(TOP)/Makefile: Makefile.top
 	cp -p $^ $@
 
 prep: $(TOP) $(TOP)/Makefile
-	-svnversion 2> /dev/null > $(TOP)/.svnrev
+	-svnversion -c 2>/dev/null | sed "s/.*://" > $(TOP)/.svnrev
 
 $(TOP)/config:
 	[ -d $@ ] || \
