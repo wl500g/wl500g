@@ -281,7 +281,7 @@ index 0eab12b..edeb942 100644
 +							get_order(size));
 +	s = get_slab(size, gfpflags);
  
- 	if (ZERO_OR_NULL_PTR(s))
+ 	if (unlikely(ZERO_OR_NULL_PTR(s)))
  		return s;
 @@ -2801,7 +2809,12 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
  void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
@@ -295,7 +295,7 @@ index 0eab12b..edeb942 100644
 +							get_order(size));
 +	s = get_slab(size, gfpflags);
  
- 	if (ZERO_OR_NULL_PTR(s))
+ 	if (unlikely(ZERO_OR_NULL_PTR(s)))
  		return s;
 -- 
 1.7.0.2
