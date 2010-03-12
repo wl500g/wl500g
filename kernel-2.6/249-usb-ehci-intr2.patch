@@ -42,7 +42,7 @@ Index: usb-2.6/drivers/usb/host/ehci-q.c
 +				urb->interval = qh->period << 3;
  			}
  		} else {
- 			int		think_time;
+ 			struct usb_tt	*tt = urb->dev->tt;
 @@ -874,6 +875,10 @@ qh_make (
  					usb_calc_bus_time (urb->dev->speed,
  					is_input, 0, max_packet (maxp)));
