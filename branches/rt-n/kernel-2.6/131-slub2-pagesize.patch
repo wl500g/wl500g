@@ -113,7 +113,7 @@ index 7496207..3b361b2 100644
  
 @@ -168,15 +152,21 @@ void *__kmalloc(size_t size, gfp_t flags);
  
- static __always_inline void *kmalloc(size_t size, gfp_t flags)
+ static inline void *kmalloc(size_t size, gfp_t flags)
  {
 -	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
 -		struct kmem_cache *s = kmalloc_slab(size);
@@ -142,7 +142,7 @@ index 7496207..3b361b2 100644
  #ifdef CONFIG_NUMA
 @@ -185,15 +175,16 @@ void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
  
- static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
+ static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
  {
 -	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
 -		struct kmem_cache *s = kmalloc_slab(size);
@@ -165,7 +165,7 @@ diff --git a/mm/slub.c b/mm/slub.c
 index 0eab12b..edeb942 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -2227,11 +2227,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);
+@@ -2127,11 +2127,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);
   *		Kmalloc subsystem
   *******************************************************************/
  
@@ -179,7 +179,7 @@ index 0eab12b..edeb942 100644
  #endif
  
  static int __init setup_slub_min_order(char *str)
-@@ -2397,12 +2397,8 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
+@@ -2297,12 +2297,8 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
  			return ZERO_SIZE_PTR;
  
  		index = size_index[(size - 1) / 8];
@@ -192,8 +192,8 @@ index 0eab12b..edeb942 100644
 -	}
  
  #ifdef CONFIG_ZONE_DMA
- 	if (unlikely((flags & SLUB_DMA)))
-@@ -2414,9 +2410,15 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
+ 	if (unlikely((flags & SLUB_DMA))) {
+@@ -2314,9 +2310,15 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
  
  void *__kmalloc(size_t size, gfp_t flags)
  {
@@ -210,8 +210,8 @@ index 0eab12b..edeb942 100644
 +	if (unlikely(ZERO_OR_NULL_PTR(s)))
  		return s;
  
- 	return slab_alloc(s, flags, -1, __builtin_return_address(0));
-@@ -2426,9 +2428,15 @@ EXPORT_SYMBOL(__kmalloc);
+ 	return slab_alloc(s, flags, -1, __builtin_return_address(0), size);
+@@ -2326,9 +2328,15 @@ EXPORT_SYMBOL(__kmalloc);
  #ifdef CONFIG_NUMA
  void *__kmalloc_node(size_t size, gfp_t flags, int node)
  {
@@ -228,8 +228,8 @@ index 0eab12b..edeb942 100644
 +	if (unlikely(ZERO_OR_NULL_PTR(s)))
  		return s;
  
- 	return slab_alloc(s, flags, node, __builtin_return_address(0));
-@@ -2473,16 +2481,17 @@ EXPORT_SYMBOL(ksize);
+ 	return slab_alloc(s, flags, node, __builtin_return_address(0), size);
+@@ -2373,16 +2381,17 @@ EXPORT_SYMBOL(ksize);
  
  void kfree(const void *x)
  {
@@ -251,7 +251,7 @@ index 0eab12b..edeb942 100644
  }
  EXPORT_SYMBOL(kfree);
  
-@@ -2602,7 +2605,7 @@ void __init kmem_cache_init(void)
+@@ -2502,7 +2505,7 @@ void __init kmem_cache_init(void)
  		caches++;
  	}
  
@@ -260,7 +260,7 @@ index 0eab12b..edeb942 100644
  		create_kmalloc_cache(&kmalloc_caches[i],
  			"kmalloc", 1 << i, GFP_KERNEL);
  		caches++;
-@@ -2629,7 +2632,7 @@ void __init kmem_cache_init(void)
+@@ -2529,7 +2532,7 @@ void __init kmem_cache_init(void)
  	slab_state = UP;
  
  	/* Provide the correct kmalloc names now that the caches are up */
@@ -269,7 +269,7 @@ index 0eab12b..edeb942 100644
  		kmalloc_caches[i]. name =
  			kasprintf(GFP_KERNEL, "kmalloc-%d", 1 << i);
  
-@@ -2790,7 +2793,12 @@ static struct notifier_block __cpuinitdata slab_notifier =
+@@ -2690,7 +2693,12 @@ static struct notifier_block __cpuinitdata slab_notifier =
  
  void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
  {
@@ -283,7 +283,7 @@ index 0eab12b..edeb942 100644
  
  	if (unlikely(ZERO_OR_NULL_PTR(s)))
  		return s;
-@@ -2801,7 +2809,12 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
+@@ -2701,7 +2709,12 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
  void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
  					int node, void *caller)
  {

@@ -5086,7 +5086,7 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/cpu-probe.c linux-2.6/arch/mips/kerne
 +}
 +
  
- __init void cpu_probe(void)
+ __cpuinit void cpu_probe(void)
  {
 @@ -760,6 +810,9 @@ __init void cpu_probe(void)
   	case PRID_COMP_PHILIPS:
@@ -5837,7 +5837,7 @@ diff -urBwNp linux-2.6.22/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/mm/c-r4k.c
  }
 +#endif
  
- void __init r4k_cache_init(void)
+ void __cpuinit r4k_cache_init(void)
  {
 @@ -1232,5 +1250,11 @@ void __init r4k_cache_init(void)
  	build_clear_page();

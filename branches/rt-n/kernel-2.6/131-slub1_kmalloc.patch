@@ -37,7 +37,7 @@ diff --git a/mm/slub.c b/mm/slub.c
 index f93adb9..71988f9 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
-@@ -2313,19 +2313,57 @@
+@@ -2213,19 +2213,57 @@
  	panic("Creation of kmalloc slab %s size=%d failed.\n", name, size);
  }
  
@@ -102,7 +102,7 @@ index f93adb9..71988f9 100644
 		struct kmem_cache *s;
 		struct kmem_cache *x;
 		char *text;
-@@ -2532,6 +2571,24 @@ void __init kmem_cache_init(void)
+@@ -2432,6 +2471,24 @@ void __init kmem_cache_init(void)
  		caches++;
  	}
  
