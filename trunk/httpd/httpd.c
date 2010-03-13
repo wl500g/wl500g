@@ -141,7 +141,7 @@ initialize_listen_socket( usockaddr* usaP )
 
     memset( usaP, 0, sizeof(usockaddr) );
 #ifdef __CONFIG_IPV6__
-    if (i != AF_INET) {
+    if (i == AF_INET6) {
        usaP->sa.sa_family = AF_INET6;
        usaP->sa_in6.sin6_addr = in6addr_any;
        usaP->sa_in6.sin6_port = htons( http_port );
@@ -166,7 +166,7 @@ initialize_listen_socket( usockaddr* usaP )
 	perror( "setsockopt" );
 	return -1;
 	}
-    if ( bind( listen_fd, &usaP->sa, sizeof(usaP->sa_in) ) < 0 )
+    if ( bind( listen_fd, &usaP->sa, sizeof(usockaddr) ) < 0 )
 	{
 	perror( "bind" );
 	return -1;
@@ -606,7 +606,7 @@ static void http_login_cache(usockaddr *usa)
 #endif
 	{
 		login_ip_tmp.len = sizeof(struct in_addr);
-		login_ip_tmp.addr.in4.s_addr = &usa->sa_in.sin_addr.s_addr;
+		login_ip_tmp.addr.in4.s_addr = usa->sa_in.sin_addr.s_addr;
 	}
 }
 
