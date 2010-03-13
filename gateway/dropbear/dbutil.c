@@ -245,7 +245,7 @@ void set_sock_priority(int sock, enum dropbear_prio prio) {
  * Returns the number of sockets bound on success, or -1 on failure. On
  * failure, if errstring wasn't NULL, it'll be a newly malloced error
  * string.*/
-int dropbear_listen(const char* address, const char* port,
+int dropbear_listen(int family, const char* address, const char* port,
 		int *socks, unsigned int sockcount, char **errstring, int *maxfd) {
 
 	struct addrinfo hints, *res = NULL, *res0 = NULL;
@@ -258,7 +258,7 @@ int dropbear_listen(const char* address, const char* port,
 	TRACE(("enter dropbear_listen"))
 	
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC; /* TODO: let them flag v4 only etc */
+	hints.ai_family = family;
 	hints.ai_socktype = SOCK_STREAM;
 
 	/* for calling getaddrinfo:
@@ -395,7 +395,7 @@ int connect_unix(const char* path) {
  * wasn't null, it will be a newly malloced error message */
 
 /* TODO: maxfd */
-int connect_remote(const char* remotehost, const char* remoteport,
+int connect_remote(int family, const char* remotehost, const char* remoteport,
 		int nonblocking, char ** errstring) {
 
 	struct addrinfo *res0 = NULL, *res = NULL, hints;
@@ -410,7 +410,7 @@ int connect_remote(const char* remotehost, const char* remoteport,
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_family = PF_UNSPEC;
+	hints.ai_family = family;
 
 	err = getaddrinfo(remotehost, remoteport, &hints, &res0);
 	if (err) {

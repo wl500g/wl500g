@@ -72,7 +72,8 @@ int main(int argc, char ** argv) {
 	} else
 #endif
 	{
-		int sock = connect_remote(cli_opts.remotehost, cli_opts.remoteport, 
+		int sock = connect_remote(cli_opts.ipfamily,
+				cli_opts.remotehost, cli_opts.remoteport, 
 				0, &error);
 		sock_in = sock_out = sock;
 	}
