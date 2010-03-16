@@ -835,7 +835,7 @@ start_usb(void)
 	}
 	if (!nvram_invmatch("raw_enable", "1"))
 	{
-		eval("p910nd", "-f", "/dev/usb/lp0", "0");
+		eval("p910nd", "-f", LP_DEV(0), "0");
 	}
 #endif	
 #ifdef AUDIO_SUPPORT
