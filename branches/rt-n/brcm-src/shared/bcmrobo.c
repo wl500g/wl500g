@@ -53,6 +53,7 @@
 #define PAGE_MMR	0x02	/* 5397 Management/Mirroring page */
 #define PAGE_VTBL	0x05	/* ARL/VLAN Table access page */
 #define PAGE_VLAN	0x34	/* VLAN page */
+#define PAGE_JUMBO	0x40	/* JUMBO frame page */
 
 /* Control page registers */
 #define REG_CTRL_PORT0	0x00	/* Port 0 traffic control register */
@@ -69,6 +70,10 @@
 #define REG_CTRL_SRST	0x79	/* Software reset control register */
 
 #define REG_DEVICE_ID	0x30	/* 539x Device id: */
+
+/* JUMBO Control Register */
+#define	REG_JUMBO_CTRL	0x01
+#define	REG_JUMBO_SIZE	0x05
 
 /* VLAN page registers */
 #define REG_VLAN_CTRL0	0x00	/* VLAN Control 0 register */
@@ -1096,6 +1101,19 @@ vlan_setup:
 			 (3 << 12) |	/* Pri 6 mapped to TXQ 3 */
 			 (3 << 14));	/* Pri 7 mapped to TXQ 3 */
 		robo->ops->write_reg(robo, 0x30, 0x62, &val16, sizeof(val16));
+
+		/* Jumbo Frame control refister (Page 0x40, Address 0x01 */
+		if (nvram_match("jumbo_frame_enable", "1")) {
+			val8 = (( 1 << 0) |
+				( 1 << 1) |
+				( 1 << 2) |
+				( 1 << 3) |
+				( 1 << 4) 
+				);
+		}
+		else
+			val8 = 0;
+		robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val8, sizeof(val8));
 	}
 
 	/* Disable management interface access */
