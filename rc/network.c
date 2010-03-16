@@ -325,6 +325,10 @@ start_lan(void)
 		close(s);
 	}
 
+	/* set the packet size */
+	if (nvram_match("jumbo_frame_enable", "1"))
+		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
+
 #ifdef WPA2_WMM
 	/* Set QoS mode */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) >= 0) {
