@@ -1005,7 +1005,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	eval("iptables-restore", "/tmp/filter_rules");
 	
 #ifdef __CONFIG_IPV6__
-	if (!nvram_invmatch("ipv6_proto", "")) {
+	if (nvram_invmatch("ipv6_proto", "")) {
 	// TODO: sync-flood protection, LAN/WAN filter tables, WAN/LAN filter tables
 	if ((fp=fopen("/tmp/filter6_rules", "w"))==NULL) return -1;
 
@@ -1033,6 +1033,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	// Disable RH0 to block ping-pong of packets.
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
+#ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
@@ -1040,13 +1041,21 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// From localhost and intranet, all traffic is accepted
 	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
 	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
+#else
+	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
+#endif
 	// Allow ICMPv6
 	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
+#else
 	// Pass Link-Local, is it superseded by ipv6-icmp? 
-	//fprintf(fp, "-A INPUT -s fe80::/10 -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -s fe80::/10 -j %s\n", logaccept);
+#endif
 	// Pass multicast, should it depend on mr_enable_x?
 	//if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A INPUT -s ff00::/8 -j %s\n", logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
 	// Check internet traffic
 	if (nvram_match("fw_dos_x", "1")) {
 		if (nvram_invmatch("ipv6_proto", "native"))
@@ -1055,16 +1064,25 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		if (nvram_invmatch("wan0_ifname", wan_if))
 			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", nvram_get("wan0_ifname"));
 	}
+#endif
 	// Firewall between WAN and Local
 	if (nvram_match("fw_enable_x", "1")) {
 		// Pass SSH
 		if (nvram_match("ssh_enable", "1")) {
+#ifndef BROKEN_IPV6_CONNTRACK
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("ssh_port"),
+#else
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("ssh_port"),
+#endif
 				logaccept);
 		}
 		// Pass FTP
 		if (nvram_match("usb_ftpenable_x", "1")) {
+#ifndef BROKEN_IPV6_CONNTRACK
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s --syn -j %s\n", nvram_safe_get("usb_ftpport_x"),
+#else
+			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_ftpport_x"),
+#endif
 				logaccept);
 		}
 		// Pass Web-UI
@@ -1074,8 +1092,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 				nvram_safe_get("http_lanport"), logaccept);
 		}
 		// Pass ping, echo-reply should be handled by conntrack
-		if (nvram_invmatch("misc_ping_x", "0"))
-		{
+		if (nvram_invmatch("misc_ping_x", "0")) {
 			fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type echo-request -j %s\n", logaccept);
 		}
 		// Drop everything else
@@ -1088,31 +1105,41 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A FORWARD -m rt --rt-type 0 -j %s\n", logdrop);
 	// Accept the redirect, might be seen as INVALID, packets
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
 	/* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
-	// Pass Link-Local, is it superseded by ipv6-icmp? 
-	//fprintf(fp, "-A FORWARD -s fe80::/10 -j %s\n", logaccept);
+#endif
 	// Pass multicast, should it depend on mr_enable_x?
 	//if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
 	/* Clamp TCP MSS to PMTU of WAN interface */
 //	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4")) {
 //		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 //	}
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+#endif
 	// Allow ICMPv6
 	// Should be only echo-req, dest-unreach, packet-too-big, time-exeed and parm-problem
 	fprintf(fp, "-A FORWARD -p ipv6-icmp -j %s\n", logaccept);
+#ifndef BROKEN_IPV6_CONNTRACK
+#else
+	// Pass Link-Local, is it superseded by ipv6-icmp?
+	fprintf(fp, "-A FORWARD -s fe80::/10 -j %s\n", logaccept);
+#endif
+
         // Filter out invalid WAN->WAN connections
 	if (nvram_invmatch("ipv6_proto", "native"))
 		fprintf(fp, "-A FORWARD -o sixtun ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))
 		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
+#ifndef BROKEN_IPV6_CONNTRACK
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
 		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
+#endif
 
 	/* OUTPUT chain */
 
@@ -1120,14 +1147,20 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A OUTPUT -m rt --rt-type 0 -j %s\n", logdrop);
 
 	/* logaccept chain */
-	/* TODO: ip6_state --state NEW */
+#ifndef BROKEN_IPV6_CONNTRACK
+	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
+#else
 	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
-	/* TODO: ip6_state --state NEW */
+#ifndef BROKEN_IPV6_CONNTRACK
+	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
+#else
 	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 

@@ -541,9 +541,11 @@ void convert_asus_values()
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
+#ifndef BROKEN_IPV6_CONNTRACK
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");
 //		eval("insmod", "ip6t_TCPMSS");
+#endif
 	} else {
 		/* FIXME: Move it to the right place */
 		FILE *fp;
