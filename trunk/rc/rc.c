@@ -576,6 +576,9 @@ make_etc(void)
 		fclose(f);
 	}
 
+	/* crond */
+	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
+
 }
 
 static int noconsole = 0;
@@ -609,6 +612,8 @@ sysinit(void)
 	mkdir("/var/lock", 0777);
 	mkdir("/var/log", 0777);
 	mkdir("/var/run", 0777);
+	mkdir("/var/spool", 0777);
+	mkdir("/var/spool/cron", 0777);
 	mkdir("/var/tmp", 0777);
 	
 	/* /usr/local */
