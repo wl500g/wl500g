@@ -802,6 +802,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		if (nvram_invmatch("misc_ping_x", "0"))
 		{
 			fprintf(fp, "-A INPUT -p icmp -j %s\n", logaccept);
+			// Pass udp traceroute
+			fprintf(fp, "-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", logaccept);
 		}
 
 	#ifdef __CONFIG_IPV6__
@@ -1094,6 +1096,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		// Pass ping, echo-reply should be handled by conntrack
 		if (nvram_invmatch("misc_ping_x", "0")) {
 			fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type echo-request -j %s\n", logaccept);
+			// Pass udp traceroute
+			fprintf(fp, "-A INPUT -p udp -m udp --dport 33434:33534 -j %s\n", logaccept);
 		}
 		// Drop everything else
 		fprintf(fp, "-A INPUT -j %s\n", logdrop);
