@@ -1055,7 +1055,8 @@ int restart_ftpd()
 #ifdef __CONFIG_IPV6__
 		nvram_invmatch("ipv6_proto", "") ? "listen_ipv6=yes\n" :
 #endif
-		"listen=yes\n"
+		"listen=yes\n");
+	fprintf(fp,
 		"listen_port=%s\nbackground=yes\n",
 		nvram_get("usb_ftpport_x") ? : "21");
 	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
