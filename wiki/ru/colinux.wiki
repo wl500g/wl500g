@@ -180,7 +180,6 @@ net stop colinux
 inst=`pwd -P`
 mkdir $inst/broadcom/src/linux -p
 mkdir /opt/brcm -p
-tar -C $inst -zxvf GPL_1927.zip
 tar -C $inst/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.2.4-1.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.2.4 /opt/brcm/hndtools-mipsel-uclibc
