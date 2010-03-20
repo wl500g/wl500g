@@ -1,6 +1,31 @@
 #summary History of Changes
 #labels Featured
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * backport of ability to disable IPv6 at kernel level (/proc/sys/net/ipv6/conf/all/disable_ipv6)
+    * backport of nf_conntrack: Don't track locally generated special ICMP error
+    * Few patches from Willy Tarreau 2.4.37-wt3 collection (ppoll/epoll jiffies, ipt_recent memleak)
+
+  * rc
+    * IPv6 fixes on startup code/rules
+    * avoid garbage in vsftpd users' config files, fixes  issue 94 
+    * fixed huge packets pass in clamp-mss-to-pmtu rule
+    * pre-generate directories for built-in cron
+
+  * WiMAX support in web-UI, contributed by artp & rss @ wl500g.info
+
+  * ez-ipupdate: added wildcard support for zoneedit
+
+  * removed infosvr daemon from ASUS, it functionality of query printer interface moved to httpd.
+
+  * httpd: System command - set 10 second time limit to exclude infinite loops in Web-UI
+
+  * usb-modeswitch 1.1.1
+
+  * bugfixes
+    * busybox (ash, awk, ping)
+
 ===wl500g-1.9.2.7-d-`r1222` (2010-02-21)===
   * kernel 2.4.37.9
     * update patches from linux-mips.org up to git linux-2.4 2009-12-05
