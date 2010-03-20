@@ -34,10 +34,6 @@ $ ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.2.4 /opt/brcm/hndtools-mipsel-uclibc
 {{{
 $ svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/wl500g-1.9.2.7-d
 }}}
-  # The old toolchain ASUS/Broadcom can be removed
-{{{
-rm -rf /whatever-you-want/broadcom/opt
-}}}
   # Add the path to the toolchain (it can be introduced to the personal ~/.profile for convenience)
 {{{
 $ export PATH=$PATH:/opt/brcm/hndtools-mipsel-uclibc/bin
