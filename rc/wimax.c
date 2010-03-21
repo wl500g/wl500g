@@ -33,18 +33,56 @@ wimax_modem(void)
 //	dprintf("%s\n", nvram_safe_get("wimax_device"));
 	if (!nvram_safe_get("wimax_device")) 
 		return 0;
-
 	return 1;
 }
+
+inline int is_chk_con(){ return nvram_match("wmx_chk_con", "0" ) == 0; };
+inline int is_chk_log(){ return nvram_match("wmx_chk_log", "1" ) != 0; };
+inline int is_chk_restart_wimax(){ return nvram_match("wmx_chk_rst", "1" ) != 0; };
+inline int wmx_chk_interval(){ 
+	int result = atoi ( nvram_safe_get("wmx_chk_interval") );
+	if ( result ) return result;
+	else  return 30;
+};
+
+inline time_t wmx_chk_get_last_time(){ return atol ( nvram_safe_get("wmx_chk_tm_last") );}
+
+inline void wmx_chk_set_last_time( time_t cur )
+{
+   char buf[0x20];
+   snprintf( buf, sizeof(buf), "%ld", (unsigned long) cur );
+   nvram_set("wmx_chk_tm_last", buf );
+};
+
+inline void wmx_nvram_check_default( char * name, char * def_val)
+{
+	if( nvram_match( name, "0" ) == 0 &&
+	    nvram_match( name, "1" ) == 0 )
+		nvram_set( name, def_val );
+};
+
+void init_wmx_variables()
+{
+	wmx_nvram_check_default("wmx_chk_con", "0" ); // ping connection
+	wmx_nvram_check_default("wmx_chk_log", "0" ); // output to syslog
+	wmx_nvram_check_default("wmx_chk_rst", "0" ); // kill madwimax if ping failed
+
+	int t_interval = atoi ( nvram_safe_get("wmx_chk_interval") );
+	if( t_interval<30 || t_interval>3600 ) 
+		nvram_set("wmx_chk_interval", "60" );
+
+	nvram_unset( "wmx_chk_tm_last" ); // timestamp of the last connection checking
+};
+
 
 int
 madwimax_start(char *ifname)
 {
-
 	int ret;
 
+	init_wmx_variables();
 	update_nvram_wmx( ifname, 0 );
-	
+
 	char *wimax_ssid = nvram_get("wimax_ssid");
 	char *wmx_argv[] = {
 		"/usr/sbin/madwimax", "-qof",
@@ -67,12 +105,12 @@ madwimax_start(char *ifname)
 }
 
 
-time_t prev_time = 0;
+//time_t prev_time = 0;
 // called from watchdog using the "madwimax-check" symlink to rc.
 int
 madwimax_check(void)
 {
-	char tmp[100];
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	// check nvram wimax_enble
 	if (!nvram_match("wimax_enable","1")) {
 		return 0;
@@ -84,36 +122,43 @@ madwimax_check(void)
 	// check the madwimax process
 	pid_t pid = 0;
 
-        FILE *fp = fopen(pid_fname, "r");
-        char buf[256];
-        if (fp && fgets(buf, sizeof(buf), fp)) {
-                pid = strtoul(buf, NULL, 0);
-                fclose(fp);
-        }
+	FILE *fp = fopen(pid_fname, "r");
+	char buf[256];
+	if (fp && fgets(buf, sizeof(buf), fp)) {
+		pid = strtoul(buf, NULL, 0);
+		fclose(fp);
+	}
 
-        int unit = atoi(nvram_safe_get("wimax_unit"));
+	int unit = atoi(nvram_safe_get("wimax_unit"));
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if (pid > 0 && !nvram_match("wmx_chk_con", "0" ) ) {
+	//*********** Connection checking section *****************
+	if (pid > 0 && is_chk_con() ) {
 		// TODO check the process state
 		//dprintf( "wmx_chk_con enabled, madwimad pid %d", pid );
 		time_t cur_time = time(NULL);
-		if(	(cur_time - prev_time) > 60 || 
+		time_t prev_time = wmx_chk_get_last_time();
+
+		if(	(cur_time - prev_time) > wmx_chk_interval() || 
 			cur_time < prev_time  )
 		{
-			get_wimax_ifname( tmp, unit );
+			//if( is_chk_log() ) logmessage( "[wmx_checker]", "Ping gateway\n" );
+			get_wimax_ifname( buf, unit );
 			char s_pid[20];
-			sprintf( s_pid, "%d", pid  );
+			snprintf( s_pid, sizeof(s_pid), "%d", pid  );
 			char * wchk_argv[] = {
 				"/usr/sbin/wimax_check_connection.sh",
-				s_pid,
-				tmp,
-				nvram_safe_get( "wmx_gateway_t" ),
+				s_pid,					// madwimax pid
+				buf,					// if_name
+				//nvram_safe_get( "wmx_gateway_t" ),	// gateway ip
+				nvram_safe_get( strcat_r(prefix, "gateway", tmp) ),
 				NULL
 			};
 			int ping_pid;
 			_eval( wchk_argv, NULL, 0, &ping_pid);
-			prev_time = cur_time;
-		
+			//prev_time = cur_time;
+			wmx_chk_set_last_time( cur_time );
+
 			fp = fopen(pid_fname, "r");
 			if (fp && fgets(buf, sizeof(buf), fp)) {
 				pid = strtoul(buf, NULL, 0);
@@ -121,8 +166,11 @@ madwimax_check(void)
 			}
 		}
 	}
+	//*********************************************************
+
 	// if no madwimax, then STOP THE UDHCPC
 	if (pid == 0) {
+		if( is_chk_log() ) logmessage( "[wmx_checker]", "Restarting madwimax\n" );
 	 	// kill the udhcpc
 		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
 		kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
@@ -138,8 +186,9 @@ madwimax_check(void)
 int
 madwimax_create(char *ifname)
 {
-	char tmp[100];
-	char prefix[] = "wanXXXXXXXXXX_";
+	//char tmp[100];
+	//char prefix[] = "wanXXXXXXXXXX_";
+	wmx_chk_set_last_time( time(NULL) );
 
 	dprintf( "ifname %s", ifname );
 
@@ -151,9 +200,8 @@ madwimax_create(char *ifname)
 		nvram_set("wan0_proto","wimax");
 		nvram_set("wan_ifnames",ifname);
 //		nvram_set("wimax_prefix", "wan0_");
-
 	}
-	else // ------ for using in future ------
+/*	else // ------ for using in future ------
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", WIMAX_UNIT );// ???????? update_wan_status // MAX_NVPARSE-1
 		nvram_set(strcat_r(prefix, "ifname", tmp), ifname);
@@ -164,7 +212,7 @@ madwimax_create(char *ifname)
 
 		snprintf(tmp, sizeof(tmp), "%d", WIMAX_UNIT);
 		nvram_set("wimax_unit", tmp);
-	}
+	}*/
 	return 1;
 }
 
@@ -208,6 +256,7 @@ madwimax_up(char *ifname)
 	char prefix[] = "wanXXXXXXXXXX_";
 
 	dprintf( "ifname %s", ifname );
+	wmx_chk_set_last_time( time(NULL) );
 
 	int unit = WIMAX_UNIT;
 
@@ -224,6 +273,7 @@ madwimax_up(char *ifname)
 		};
 		/* Start dhcp daemon */
 		_eval(dhcp_argv, NULL, 0, &pid);
+		
 	} else {
 			ifconfig(ifname, IFUP,
 				 nvram_safe_get("wan_ipaddr"), 
@@ -254,6 +304,7 @@ madwimax_down(char *ifname)
 void update_nvram_wmx( char * ifname, int isup )
 {
 	dprintf( "ifname: %s, is up: %d", ifname, isup );
+/*	// variables may be usefull in case of multiwan (web output)
 	if( isup ){
 		nvram_set("wmx_ifname_t", ifname );
 		nvram_set("wmx_ipaddr_t",nvram_safe_get("wan_ipaddr_t"));
@@ -266,8 +317,11 @@ void update_nvram_wmx( char * ifname, int isup )
 		nvram_set("wmx_netmask_t","");
 		nvram_set("wmx_gateway_t","");
 		nvram_set("wmx_dns_t","");
-	}
-	nvram_set("wmx_ping_t","");
+	}*/
+	if( is_chk_con() )
+		nvram_set("wmx_ping_t","");
+	else
+		nvram_set("wmx_ping_t","Switch on \"check connection\".");
 };
 
 int

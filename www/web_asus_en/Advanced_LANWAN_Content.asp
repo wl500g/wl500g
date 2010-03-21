@@ -59,11 +59,11 @@
 <td class="content_header_td" onMouseOver="return overlib('This is the IP address of default gateway that allows for contact between ZVMODELVZ and the remote network or host.', LEFT);" onMouseOut="return nd();">Default Gateway:
            </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="wan_gateway" value="<% nvram_get_x("IPConnection","wan_gateway"); %>" onBlur="return validate_ipaddr(this, 'wan_gateway')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
-<tr>
+<!--<tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the priority of default gateway (1-10).', LEFT);" onMouseOut="return nd();">Priority:</td>
 <td class="content_input_td">
 <input type="text" maxlength="3" class="content_input_fd" size="3" name="wan_priority" value="<% nvram_get_x("IPConnection","wan_priority"); %>" onBlur="return validate_range(this, 1, 10)" onKeyPress="return is_number(this)"</td>
-</tr>
+</tr>-->
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WAN DNS Setting
             </td>

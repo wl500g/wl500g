@@ -39,7 +39,7 @@
 </td>
 </tr>-->
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for for WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
+<td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for the WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
 <td class="content_input_td">
 <input type="text" maxlength="32" class="content_input_fd" size="32" name="wimax_ssid" value="<% nvram_get_x("WiMaxConfig","wimax_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)">
 </td>
@@ -52,12 +52,28 @@
 </tr>-->
 
 <tr>
-<td class="content_header_td">Check connection?</td>
+<td class="content_header_td" onMouseOver="return overlib('It makes periodically ping to the default gateway of ISP.', LEFT);" onMouseOut="return nd();">Check connection?</td>
 <td class="content_input_td">
-<input type="radio" value="1" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "1", "checked"); %>>Yes</input>
-<input type="radio" value="0" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "0", "checked"); %>>No</input>
+<input type="radio" value="1" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "1", "checked"); %> onChange="changeWIMAXChkCon()">Yes</input>
+<input type="radio" value="0" name="wmx_chk_con" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_con", "0", "checked"); %> onChange="changeWIMAXChkCon()">No</input>
 </td>
 </tr>
+
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Input the time period between connection checking (in seconds).', LEFT);" onMouseOut="return nd();">Time period, sec:</td>
+<td class="content_input_td">
+<input type="text" maxlength="5" class="content_input_fd" size="3" name="wmx_chk_interval" value="<% nvram_get_x("WiMaxConfig","wmx_chk_interval"); %>" onBlur="return validate_range(this, 1, 10000)" onKeyPress="return is_number(this)"</td>
+</tr>
+
+
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Restart WiMAX then connection checking signals fail. It does not work without Check connection.', LEFT);" onMouseOut="return nd();">Restart WiMAX on ping fail?</td>
+<td class="content_input_td">
+<input type="radio" value="1" name="wmx_chk_rst" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_rst", "1", "checked"); %>>Yes</input>
+<input type="radio" value="0" name="wmx_chk_rst" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wmx_chk_rst", "0", "checked"); %>>No</input>
+</td>
+</tr>
+
 
 </table>
 </td></tr>
