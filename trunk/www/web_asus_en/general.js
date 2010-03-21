@@ -1655,8 +1655,8 @@ function load_wizard()
 
 function load_body()
 {
-   document.form.next_host.value = location.host;	
-   
+   document.form.next_host.value = location.host;
+
    if (document.form.current_page.value == "Advanced_Wireless_Content.asp")
    {    
    	if (window.top.isBand() == 'b')
@@ -2044,6 +2044,10 @@ function load_body()
    else if (document.form.current_page.value == "Advanced_RMISC_Content.asp")
    {
     	TimeZoneList();
+   }
+   else if (document.form.current_page.value == "Advanced_WiMax_Content.asp")
+   {
+	changeWIMAXChkCon();
    }
    change = 0;
 }
@@ -4276,3 +4280,16 @@ function unmasq_wepkey()
 		document.form.wl_key4.value = wep4;					
 }
 
+function changeWIMAXChkCon()
+{
+    if (document.form.wmx_chk_con[0].checked == false)
+    {
+	inputCtrl(document.form.wmx_chk_interval, 0);
+	inputRCtrl1(document.form.wmx_chk_rst, 0);
+    }
+    else
+    {
+	inputCtrl(document.form.wmx_chk_interval, 1);
+	inputRCtrl1(document.form.wmx_chk_rst, 1);
+    }
+}

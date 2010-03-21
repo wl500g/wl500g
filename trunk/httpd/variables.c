@@ -4325,6 +4325,9 @@ struct variable variables_WiMaxConfig[] = {
 	{"wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
 //	{"wimax_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
 	{"wmx_chk_con", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wmx_chk_interval", "", validate_range, ARGV("1","10000"), FALSE, FALSE},
+	{"wmx_chk_rst", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wmx_chk_log", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{ 0, 0, 0, 0}
 	};
 #endif
