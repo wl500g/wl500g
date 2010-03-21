@@ -9,7 +9,7 @@
     * [sdram BCM3302 Memory Controller info]
   * Web-GUI information
     * Wireless
-      * Interface
+      * [wirelessinterface Interface]
       * Bridge
       * Access Control
       * RADIUS Settings
