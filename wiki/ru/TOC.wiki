@@ -57,6 +57,6 @@
       * Routing Table
       * System Log
   * FAQ
-    * [HookScripts Пользовательские скрипты]
+    * [UserScripts Пользовательские скрипты]
   * [LINKS Ссылки]
   * [TOC Содержание Wiki]
