@@ -13,7 +13,6 @@ The SSID must not exceed 32 characters.
 The SSID is also important for WPA and WPA2 encryption security since it's a part of the generated security key.
 This will protect you from "Rainbow code" based attacks.
 
-
 == Channel ==
 
 !WiFi communicates over a range of frequencies, to make it easier they are numbered for 802.11B/G/N.
@@ -21,6 +20,7 @@ Usually the best results will be made with the auto setting, this way the router
 the best possible channel at the moment it boots.
 
 !WiFi allows a total of 14 channels. In some countries it's not allowed to use all channels though.
+
 || *Channel* || *North America* || *Japan* || *Most of the world* ||
 ||1||yes||yes||yes||
 ||2||yes||yes||yes||
@@ -36,12 +36,15 @@ the best possible channel at the moment it boots.
 ||12||no||yes||yes||
 ||13||no||yes||yes||
 ||14||no||802.11b only||no||
+
 This table only shows general information, are you unsure about what channels you may use, please refer to your local authorities or search the web.
 
 Channels must be set to a fixed number when using [http://en.wikipedia.org/wiki/Wireless_Distribution_System WDS networking].
 
 === Channel overlapping ===
-[http://i42.tinypic.com/2e549x1.jpg http://i41.tinypic.com/nz3j85.jpg]
+
+[http://i42.tinypic.com/2e549x1.jpg http://i41.tinypic.com/nz3j85.jpg Channels overlapping]
+
 In this graph you can see the overlapping of the channels.
 Every channel has a lower, center and upper frequency.
 
@@ -51,7 +54,6 @@ This will guarantee you have optimal signal quality and throughput.
 Usually the best channels to choose are 1, 6 or 11 since they do not overlap each other.
 
 When you have a 802.11N(draft) enabled router you must set the channel to 6 for best results.
-
 
 == Wireless Mode ==
 
