@@ -3,4 +3,4 @@
 ==Статьи !HowTo==
 
  * [CompilingCustomFirmware Самостоятельная сборка прошивки]
- * [colinux Сборка прошивки под MS Windows]
+ * [CoLinux Сборка прошивки под MS Windows]
