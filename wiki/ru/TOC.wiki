@@ -7,6 +7,55 @@
   * Оборудование
     * [Devices Краткая характеристика устройств]
     * [sdram Информация по конроллеру памяти BCM3302]
+  * Web-GUI
+    * Wireless
+      * [GUIWirelessInterface Interface]
+      * Bridge
+      * Access Control
+      * RADIUS Settings
+      * Advanced
+    * IP Config
+      * WAN & LAN
+      * WiMAX
+      * IPv6
+      * SNMP
+      * DHCP Server
+      * Route
+      * Miscellaneous
+    * NAT Setting
+      * Port Trigger
+      * Virtual Server
+      * Virtual DMZ
+    * Internet Firewall
+      * Basic Config
+      * WAN & LAN Filter
+      * URL Filter
+      * MAC Filter
+    * USB Application
+      * FTP Server
+      * Samba
+      * NFS Server
+      * Web Camera
+    * Bandwidth Management
+      * Basic Config
+    * System Setup
+      * Operation Mode
+      * Services
+      * Change Name
+      * Change Password
+      * Firmware Upgrade
+      * Setting Management
+      * Flashfs Management
+      * Factory Default
+      * System Command
+    * Status and Log
+      * Status
+      * Wireless
+      * WiMAX
+      * DHCP Leases
+      * Port Forwarding
+      * Routing Table
+      * System Log
   * FAQ
     * [HookScripts Пользовательские скрипты]
   * [LINKS Ссылки]

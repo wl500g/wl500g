@@ -4,12 +4,12 @@
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
     * [colinux Firmware compiling on MS Widnows]
-  * Hardware infos
+  * Hardware
     * [Devices Devices list]
     * [sdram BCM3302 Memory Controller info]
-  * Web-GUI information
+  * Web-GUI
     * Wireless
-      * [WirelessInterface Interface]
+      * [GUIWirelessInterface Interface]
       * Bridge
       * Access Control
       * RADIUS Settings
