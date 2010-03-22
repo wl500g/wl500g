@@ -1,7 +1,4 @@
 #summary HowTo Compile Custom Firmware
-#sidebar TOC
-
-= Building of the custom firmware =
 
 == 1. Required software ==
 

@@ -1,7 +1,4 @@
 #summary Firmware building under MS Windows
-#sidebar TOC
-
-= Firmware building under MS Windows =
 
 == Introduction ==
 

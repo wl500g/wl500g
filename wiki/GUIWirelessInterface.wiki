@@ -1,7 +1,6 @@
-= Wireless - Interface =
+#summary Wireless - Interface
 
 In this menu you're able to set basic wireless settings like: Network name and encryption settings
-
 
 == SSID ==
 
