@@ -17,103 +17,26 @@ This will protect you from "Rainbow code" based attacks.
 
 == Channel ==
 
-WiFi communicates over a range of frequencies, to make it easier they are numbered for 802.11B/G/N.
+!WiFi communicates over a range of frequencies, to make it easier they are numbered for 802.11B/G/N.
 Usually the best results will be made with the auto setting, this way the router will pick
 the best possible channel at the moment it boots.
 
-WiFi allows a total of 14 channels. In some countries it's not allowed to use all channels though.
-<table border="1">
-<tr>
-<th>Channel</th>
-<th>North America</th>
-<th>Japan</th>
-<th>Most of the world</th>
-</tr>
-<tr>
-<td>1</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>2</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>3</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>4</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>5</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>6</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>7</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>8</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>9</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>10</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>11</td>
-<td>yes</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>12</td>
-<td>no</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>13</td>
-<td>no</td>
-<td>yes</td>
-<td>yes</td>
-</tr>
-<tr>
-<td>14</td>
-<td>no</td>
-<td>802.11b only</td>
-<td>no</td>
-</tr>
-</table>
+!WiFi allows a total of 14 channels. In some countries it's not allowed to use all channels though.
+|| *Channel* || *North America* || *Japan* || *Most of the world* ||
+||1||yes||yes||yes||
+||2||yes||yes||yes||
+||3||yes||yes||yes||
+||4||yes||yes||yes||
+||5||yes||yes||yes||
+||6||yes||yes||yes||
+||7||yes||yes||yes||
+||8||yes||yes||yes||
+||9||yes||yes||yes||
+||10||yes||yes||yes||
+||11||yes||yes||yes||
+||12||no||yes||yes||
+||13||no||yes||yes||
+||14||no||802.11b only||no||
 This table only shows general information, are you unsure about what channels you may use, please refer to your local authorities or search the web.
 
 Channels must be set to a fixed number when using [http://en.wikipedia.org/wiki/Wireless_Distribution_System WDS networking].
