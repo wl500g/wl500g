@@ -1,6 +1,10 @@
 #summary History of Changes
 #labels Featured
 
+===Detailed revision history===
+  * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
+  * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
+
 ===wl500g-1.9.2.7-d (current)===
   * kernel
     * backport of ability to disable IPv6 at kernel level (/proc/sys/net/ipv6/conf/all/disable_ipv6)
