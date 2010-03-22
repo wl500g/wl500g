@@ -841,7 +841,7 @@ main_loop(void)
 #endif
 			eval("/usr/local/sbin/post-boot");
 #ifdef ASUS_EXT
-			sleep(5);
+			sleep(3);
 			diag_PaN();
 #endif
 			/* Fall through */

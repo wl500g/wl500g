@@ -792,6 +792,7 @@ int start_nfsd(void)
 	eval("/usr/sbin/statd");
 	eval("/usr/sbin/nfsd");
 	eval("/usr/sbin/mountd");
+	sleep(1);
 	eval("/usr/sbin/exportfs", "-a");
 
 	return 0;	
