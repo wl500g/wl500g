@@ -1,6 +1,6 @@
 #summary Wiki Index
   * [Welcome Home]
-  * [NEWS History of Changes]
+  * [News History of Changes]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
     * [CoLinux Firmware compiling on MS Widnows]
@@ -58,5 +58,5 @@
       * System Log
   * FAQ
     * [UserScripts User scripts]
-  * [LINKS Links]
+  * [Links Links]
   * [TOC Wiki Index]

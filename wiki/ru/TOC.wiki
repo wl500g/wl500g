@@ -1,6 +1,6 @@
 #summary Содержание Wiki
   * [Welcome Главная]
-  * [NEWS История изменений]
+  * [News История изменений]
   * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки]
     * [CoLinux Сборка прошивки под MS Windows]
@@ -58,5 +58,5 @@
       * System Log
   * FAQ
     * [UserScripts Пользовательские скрипты]
-  * [LINKS Ссылки]
+  * [Links Ссылки]
   * [TOC Содержание Wiki]
