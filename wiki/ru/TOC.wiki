@@ -3,10 +3,10 @@
   * [NEWS История изменений]
   * Статьи !HowTo
     * [CompilingCustomFirmware Сборка прошивки]
-    * [colinux Сборка прошивки под MS Windows]
+    * [CoLinux Сборка прошивки под MS Windows]
   * Оборудование
     * [Devices Краткая характеристика устройств]
-    * [sdram Информация по конроллеру памяти BCM3302]
+    * [MemoryController Информация по конроллеру памяти BCM3302]
   * Web-GUI
     * Wireless
       * [GUIWirelessInterface Interface]

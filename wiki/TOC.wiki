@@ -3,10 +3,10 @@
   * [NEWS History of Changes]
   * !HowTo articles
     * [CompilingCustomFirmware Firmware compiling]
-    * [colinux Firmware compiling on MS Widnows]
+    * [CoLinux Firmware compiling on MS Widnows]
   * Hardware
     * [Devices Devices list]
-    * [sdram BCM3302 Memory Controller info]
+    * [MemoryController BCM3302 Memory Controller info]
   * Web-GUI
     * Wireless
       * [GUIWirelessInterface Interface]
