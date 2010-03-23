@@ -42,6 +42,24 @@ diff -BurN iptables-1.2.7a/Makefile iptables/Makefile
  DO_IPV6:=1
  endif
  
+@@ -104,7 +104,7 @@
+ SH_CFLAGS:=$(CFLAGS) -fPIC
+ STATIC_LIBS  =
+ STATIC6_LIBS =
+-LDFLAGS      = -rdynamic
++LDFLAGS      = -rdynamic $(EXT_LDFLAGS)
+ LDLIBS       = -ldl
+ ifeq ($(DO_SELINUX), 1)
+ LDLIBS       += -lselinux
+@@ -113,7 +113,7 @@
+ DEPFILES = $(EXT_OBJS:%.o=%.d)
+ STATIC_LIBS  = extensions/libext.a
+ STATIC6_LIBS = extensions/libext6.a
+-LDFLAGS      = -static
++LDFLAGS      = -static $(EXT_LDFLAGS)
+ LDLIBS	     =
+ ifeq ($(DO_SELINUX), 1)
+ LDLIBS       += -lselinux
 @@ -123,7 +123,9 @@
  
  .PHONY: print-extensions
