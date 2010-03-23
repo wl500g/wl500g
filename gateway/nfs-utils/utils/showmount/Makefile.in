@@ -58,8 +58,7 @@ sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
 am_showmount_OBJECTS = showmount-showmount.$(OBJEXT)
 showmount_OBJECTS = $(am_showmount_OBJECTS)
-showmount_DEPENDENCIES = ../../support/export/libexport.a \
-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a
+showmount_DEPENDENCIES = ../../support/lib/libnfs.so
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -234,9 +233,7 @@ top_srcdir = @top_srcdir@
 man8_MANS = showmount.man
 EXTRA_DIST = $(man8_MANS)
 showmount_SOURCES = showmount.c
-showmount_LDADD = ../../support/export/libexport.a \
-		  ../../support/nfs/libnfs.a \
-	  	  ../../support/misc/libmisc.a
+showmount_LDADD = -L../../support/lib/ -lnfs
 
 showmount_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
 		   -I$(top_builddir)/support/export

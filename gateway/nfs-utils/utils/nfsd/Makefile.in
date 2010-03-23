@@ -58,8 +58,7 @@ sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
 am_nfsd_OBJECTS = nfsd.$(OBJEXT)
 nfsd_OBJECTS = $(am_nfsd_OBJECTS)
-nfsd_DEPENDENCIES = ../../support/export/libexport.a \
-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a
+nfsd_DEPENDENCIES = ../../support/lib/libnfs.so
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -236,9 +235,7 @@ EXTRA_DIST = $(man8_MANS)
 RPCPREFIX = rpc.
 KPREFIX = @kprefix@
 nfsd_SOURCES = nfsd.c
-nfsd_LDADD = ../../support/export/libexport.a \
-	     ../../support/nfs/libnfs.a \
-	     ../../support/misc/libmisc.a
+nfsd_LDADD = -L../../support/lib/ -lnfs
 
 MAINTAINERCLEANFILES = Makefile.in
 all: all-am

@@ -60,8 +60,7 @@ PROGRAMS = $(sbin_PROGRAMS)
 am_exportfs_OBJECTS = exportfs.$(OBJEXT)
 exportfs_OBJECTS = $(am_exportfs_OBJECTS)
 am__DEPENDENCIES_1 =
-exportfs_DEPENDENCIES = ../../support/export/libexport.a \
-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
+exportfs_DEPENDENCIES = ../../support/lib/libnfs.so \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -241,9 +240,7 @@ man7_MANS = nfsd.man
 man8_MANS = exportfs.man
 EXTRA_DIST = $(man5_MANS) $(man7_MANS) $(man8_MANS)
 exportfs_SOURCES = exportfs.c
-exportfs_LDADD = ../../support/export/libexport.a \
-	       	 ../../support/nfs/libnfs.a \
-		 ../../support/misc/libmisc.a \
+exportfs_LDADD = -L../../support/lib/ -lnfs \
 		 $(LIBWRAP) $(LIBNSL)
 
 MAINTAINERCLEANFILES = Makefile.in

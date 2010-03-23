@@ -69,8 +69,7 @@ am_statd_OBJECTS = callback.$(OBJEXT) notlist.$(OBJEXT) log.$(OBJEXT) \
 	sm_inter_clnt.$(OBJEXT) sm_inter_svc.$(OBJEXT) \
 	sm_inter_xdr.$(OBJEXT)
 statd_OBJECTS = $(am_statd_OBJECTS)
-statd_DEPENDENCIES = ../../support/export/libexport.a \
-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
+statd_DEPENDENCIES = ../../support/lib/libnfs.so \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 dist_sbinSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(dist_sbin_SCRIPTS)
@@ -261,9 +260,7 @@ statd_SOURCES = callback.c notlist.c log.c misc.c monitor.c \
 
 sm_notify_SOURCES = sm-notify.c
 BUILT_SOURCES = $(GENFILES)
-statd_LDADD = ../../support/export/libexport.a \
-	      ../../support/nfs/libnfs.a \
-	      ../../support/misc/libmisc.a \
+statd_LDADD = -L../../support/lib/ -lnfs \
 	      $(LIBWRAP) $(LIBNSL)
 
 sm_notify_LDADD = $(LIBNSL)

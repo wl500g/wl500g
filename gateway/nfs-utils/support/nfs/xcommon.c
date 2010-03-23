@@ -22,6 +22,7 @@
 
 void (*at_die)(void ) = NULL;
 
+#if 0
 char *
 xstrndup (const char *s, int n) {
      char *t;
@@ -119,6 +120,7 @@ char *canonicalize (const char *path) {
 
 	return xstrdup(path);
 }
+#endif
 
 /* Fatal error.  Print message and exit.  */
 void

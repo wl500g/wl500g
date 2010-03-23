@@ -62,8 +62,7 @@ am_mountd_OBJECTS = mountd-mountd.$(OBJEXT) \
 	mountd-svc_run.$(OBJEXT) mountd-fsloc.$(OBJEXT)
 mountd_OBJECTS = $(am_mountd_OBJECTS)
 am__DEPENDENCIES_1 =
-mountd_DEPENDENCIES = ../../support/export/libexport.a \
-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
+mountd_DEPENDENCIES = ../../support/lib/libnfs.so \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
@@ -244,9 +243,7 @@ KPREFIX = @kprefix@
 mountd_SOURCES = mountd.c mount_dispatch.c auth.c rmtab.c cache.c \
 		 svc_run.c fsloc.c mountd.h
 
-mountd_LDADD = ../../support/export/libexport.a \
-	       ../../support/nfs/libnfs.a \
-	       ../../support/misc/libmisc.a \
+mountd_LDADD = -L../../support/lib/ -lnfs \
 	       $(LIBBSD) $(LIBWRAP) $(LIBNSL) $(LIBBLKID)
 
 mountd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
