@@ -1,0 +1,154 @@
+diff -urNBp nfs-utils-1.0.9/support/lib/Makefile nfs-utils/support/lib/Makefile
+--- nfs-utils-1.0.9/support/lib/Makefile	1970-01-01 03:00:00.000000000 +0300
++++ nfs-utils/support/lib/Makefile	2010-03-22 20:29:41.000000000 +0300
+@@ -0,0 +1,23 @@
++
++
++LIBS	= 
++
++NFSOBJS = ../nfs/exports.o ../nfs/rmtab.o ../nfs/xio.o ../nfs/closeall.o \
++	  ../nfs/rpcmisc.o ../nfs/rpcdispatch.o ../nfs/xlog.o ../nfs/xcommon.o ../nfs/wildmat.o \
++	  ../nfs/nfssvc.o ../nfs/nfsclient.o ../nfs/nfsexport.o ../nfs/getfh.o ../nfs/nfsctl.o \
++	  ../nfs/lockdsvc.o ../nfs/svc_socket.o ../nfs/cacheio.o
++EXPOBJS = ../export/mount_clnt.o ../export/mount_xdr.o ../export/client.o ../export/export.o ../export/hostname.o \
++	  ../export/nfsctl.o ../export/rmtab.o ../export/xtab.o
++MSCOBJS = ../misc/from_local.o ../misc/mountpoint.o
++
++all install::	$(LIBS) libnfs.so
++	@:
++
++clean distclean::
++	rm -f $(LIBS)
++
++lib%.a:
++	ln -sf ../$*/$@ .
++
++libnfs.so: $(NFSOBJS) $(EXPOBJS) $(MSCOBJS)
++	$(CC) -shared -nostdlib -o $@ $^
+diff -urNBp nfs-utils-1.0.9/support/Makefile.in nfs-utils/support/Makefile.in
+--- nfs-utils-1.0.9/support/Makefile.in	2006-07-08 04:06:44.000000000 +0400
++++ nfs-utils/support/Makefile.in	2010-03-22 20:32:14.000000000 +0300
+@@ -207,7 +207,7 @@ statduser = @statduser@
+ statedir = @statedir@
+ sysconfdir = @sysconfdir@
+ target_alias = @target_alias@
+-SUBDIRS = export include misc nfs
++SUBDIRS = export include misc nfs lib
+ MAINTAINERCLEANFILES = Makefile.in
+ all: all-recursive
+ 
+diff -urBp nfs-utils-1.0.9/support/nfs/xcommon.c nfs-utils/support/nfs/xcommon.c
+--- nfs-utils-1.0.9/support/nfs/xcommon.c	2006-07-08 04:04:32.000000000 +0400
++++ nfs-utils/support/nfs/xcommon.c	2010-03-23 10:42:17.000000000 +0300
+@@ -22,6 +22,7 @@
+ 
+ void (*at_die)(void ) = NULL;
+ 
++#if 0
+ char *
+ xstrndup (const char *s, int n) {
+      char *t;
+@@ -119,6 +120,7 @@ char *canonicalize (const char *path) {
+ 
+ 	return xstrdup(path);
+ }
++#endif
+ 
+ /* Fatal error.  Print message and exit.  */
+ void
+diff -urNBp nfs-utils-1.0.9/utils/exportfs/Makefile.in nfs-utils/utils/exportfs/Makefile.in
+--- nfs-utils-1.0.9/utils/exportfs/Makefile.in	2006-07-08 04:06:46.000000000 +0400
++++ nfs-utils/utils/exportfs/Makefile.in	2010-03-22 20:25:28.000000000 +0300
+@@ -57,8 +57,7 @@ PROGRAMS = $(sbin_PROGRAMS)
+ am_exportfs_OBJECTS = exportfs.$(OBJEXT)
+ exportfs_OBJECTS = $(am_exportfs_OBJECTS)
+ am__DEPENDENCIES_1 =
+-exportfs_DEPENDENCIES = ../../support/export/libexport.a \
+-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
++exportfs_DEPENDENCIES = ../../support/lib/libnfs.so \
+ 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+@@ -233,9 +232,7 @@ man7_MANS = nfsd.man
+ man8_MANS = exportfs.man
+ EXTRA_DIST = $(man5_MANS) $(man7_MANS) $(man8_MANS)
+ exportfs_SOURCES = exportfs.c
+-exportfs_LDADD = ../../support/export/libexport.a \
+-	       	 ../../support/nfs/libnfs.a \
+-		 ../../support/misc/libmisc.a \
++exportfs_LDADD = -L../../support/lib/ -lnfs \
+ 		 $(LIBWRAP) $(LIBNSL)
+ 
+ MAINTAINERCLEANFILES = Makefile.in
+diff -urNBp nfs-utils-1.0.9/utils/mountd/Makefile.in nfs-utils/utils/mountd/Makefile.in
+--- nfs-utils-1.0.9/utils/mountd/Makefile.in	2006-07-08 04:06:48.000000000 +0400
++++ nfs-utils/utils/mountd/Makefile.in	2010-03-22 20:26:30.000000000 +0300
+@@ -59,8 +59,7 @@ am_mountd_OBJECTS = mountd-mountd.$(OBJE
+ 	mountd-svc_run.$(OBJEXT)
+ mountd_OBJECTS = $(am_mountd_OBJECTS)
+ am__DEPENDENCIES_1 =
+-mountd_DEPENDENCIES = ../../support/export/libexport.a \
+-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
++mountd_DEPENDENCIES = ../../support/lib/libnfs.so \
+ 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
+ 	$(am__DEPENDENCIES_1)
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
+@@ -236,9 +235,7 @@ KPREFIX = @kprefix@
+ mountd_SOURCES = mountd.c mount_dispatch.c auth.c rmtab.c cache.c \
+ 		 svc_run.c mountd.h
+ 
+-mountd_LDADD = ../../support/export/libexport.a \
+-	       ../../support/nfs/libnfs.a \
+-	       ../../support/misc/libmisc.a \
++mountd_LDADD = -L../../support/lib/ -lnfs \
+ 	       $(LIBBSD) $(LIBWRAP) $(LIBNSL)
+ 
+ mountd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
+diff -urNBp nfs-utils-1.0.9/utils/showmount/Makefile.in nfs-utils/utils/showmount/Makefile.in
+--- nfs-utils-1.0.9/utils/showmount/Makefile.in	2006-07-08 04:06:48.000000000 +0400
++++ nfs-utils/utils/showmount/Makefile.in	2010-03-22 20:27:16.000000000 +0300
+@@ -55,8 +55,7 @@ sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM
+ PROGRAMS = $(sbin_PROGRAMS)
+ am_showmount_OBJECTS = showmount-showmount.$(OBJEXT)
+ showmount_OBJECTS = $(am_showmount_OBJECTS)
+-showmount_DEPENDENCIES = ../../support/export/libexport.a \
+-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a
++showmount_DEPENDENCIES = ../../support/lib/libnfs.so
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+ am__depfiles_maybe = depfiles
+@@ -226,9 +225,7 @@ target_alias = @target_alias@
+ man8_MANS = showmount.man
+ EXTRA_DIST = $(man8_MANS)
+ showmount_SOURCES = showmount.c
+-showmount_LDADD = ../../support/export/libexport.a \
+-		  ../../support/nfs/libnfs.a \
+-	  	  ../../support/misc/libmisc.a
++showmount_LDADD = -L../../support/lib/ -lnfs
+ 
+ showmount_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
+ 		   -I$(top_builddir)/support/export
+diff -urNBp nfs-utils-1.0.9/utils/statd/Makefile.in nfs-utils/utils/statd/Makefile.in
+--- nfs-utils-1.0.9/utils/statd/Makefile.in	2006-07-08 04:06:49.000000000 +0400
++++ nfs-utils/utils/statd/Makefile.in	2010-03-22 20:27:40.000000000 +0300
+@@ -60,8 +60,7 @@ am_statd_OBJECTS = callback.$(OBJEXT) no
+ 	sm_inter_svc.$(OBJEXT) sm_inter_xdr.$(OBJEXT)
+ statd_OBJECTS = $(am_statd_OBJECTS)
+ am__DEPENDENCIES_1 =
+-statd_DEPENDENCIES = ../../support/export/libexport.a \
+-	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
++statd_DEPENDENCIES = ../../support/lib/libnfs.so \
+ 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
+ DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+@@ -243,9 +243,7 @@ statd_SOURCES = callback.c notlist.c log
+ 	        notlist.h statd.h system.h version.h sm_inter.h
+ 
+ BUILT_SOURCES = $(GENFILES)
+-statd_LDADD = ../../support/export/libexport.a \
+-	      ../../support/nfs/libnfs.a \
+-	      ../../support/misc/libmisc.a \
++statd_LDADD = -L../../support/lib/ -lnfs \
+ 	      $(LIBWRAP) $(LIBNSL)
+ 
+ EXTRA_DIST = sim_sm_inter.x sm_inter.x $(man8_MANS) COPYRIGHT simulate.c
