@@ -549,7 +549,7 @@ dproxy-install: dproxy
 	$(STRIP) $(INSTALLDIR)/dproxy/usr/sbin/dproxy
 
 iptables: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" DO_MULTI=1
+	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" EXT_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
