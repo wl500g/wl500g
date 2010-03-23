@@ -36,6 +36,7 @@ ln -sf ../tmp/local usr/local
 
 # etc
 mkdir -p usr/etc
+mkdir usr/etc/crontabs
 ln -sf ../usr/etc tmp/etc
 ln -sf tmp/etc etc
 echo "/lib" > etc/ld.so.conf

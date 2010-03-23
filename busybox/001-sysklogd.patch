@@ -1,0 +1,12 @@
+diff -BurpN busybox.1.15.3/sysklogd/syslogd.c busybox/sysklogd/syslogd.c
+--- busybox.1.15.3/sysklogd/syslogd.c	2010-02-07 06:12:59.000000000 +0000
++++ busybox/sysklogd/syslogd.c	2010-03-18 10:49:23.000000000 +0000
+@@ -46,7 +46,7 @@
+ #undef SYSLOGD_WRLOCK
+ 
+ enum {
+-	MAX_READ = 256,
++	MAX_READ = 512,
+ 	DNS_WAIT_SEC = 2 * 60,
+ };
+ 

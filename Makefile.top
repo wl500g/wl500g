@@ -473,7 +473,7 @@ conf mconf:
 oldconf: .config
 	$(MAKE) -C config
 	@./config/conf -o ./config/Config
-	$(MAKE) shared-clean rc-clean
+	$(MAKE) shared-clean rc-clean httpd-clean
         # Also configure kernel
 	$(MAKE) k$@
 
@@ -577,7 +577,7 @@ dproxy-install: dproxy
 	$(STRIP) $(INSTALLDIR)/dproxy/usr/sbin/dproxy
 
 iptables: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" DO_MULTI=1
+	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
@@ -742,12 +742,13 @@ samba-install:
 samba-clean:
 	$(MAKE) -C samba/source clean
 
-nfs-utils/config.mk: nfs-utils/config.mk.in
-	cd nfs-utils && $(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
+nfs-utils/Makefile: nfs-utils/Makefile.in
+	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
+	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
 	    --disable-gss --disable-rquotad
 
-nfs-utils: nfs-utils/config.mk
-	$(MAKE) -C $@ CCOPTS="$(EXTRACFLAGS)"
+nfs-utils: nfs-utils/Makefile
+	$(MAKE) -C $@
 
 nfs-utils-install:
 	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd

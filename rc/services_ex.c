@@ -577,6 +577,11 @@ start_ddns(void)
 			
 	sprintf(usrstr, "%s:%s", user, passwd);
 	
+	if (nvram_match("ddns_realip_x", "1"))
+	{
+		strcpy(wan_ifname, "auto");
+	}
+	else
 	if (nvram_match("wan_proto", "pppoe") ||
 	    nvram_match("wan_proto", "pptp")  ||
 	    nvram_match("wan_proto", "l2tp"))
@@ -787,6 +792,7 @@ int start_nfsd(void)
 	eval("/usr/sbin/statd");
 	eval("/usr/sbin/nfsd");
 	eval("/usr/sbin/mountd");
+	sleep(1);
 	eval("/usr/sbin/exportfs", "-a");
 
 	return 0;	
@@ -803,6 +809,9 @@ int restart_nfsd(void)
 int 
 start_usb(void)
 {
+	// unset possible values
+	nvram_unset("wimax_device");
+
 	eval("insmod", "usbcore");
 #ifdef LINUX26
 	eval("insmod", "ohci-hcd");
@@ -1064,10 +1073,10 @@ int restart_ftpd()
 
 	fprintf(fp,
 #ifdef __CONFIG_IPV6__
-		"listen_ipv6=yes\n"
-#else
-		"listen=yes\n"
+		nvram_invmatch("ipv6_proto", "") ? "listen_ipv6=yes\n" :
 #endif
+		"listen=yes\n");
+	fprintf(fp,
 		"listen_port=%s\nbackground=yes\n",
 		nvram_get("usb_ftpport_x") ? : "21");
 	fprintf(fp, "max_clients=%s\n", nvram_get("usb_ftpmax_x") ? : "0");
@@ -1853,11 +1862,29 @@ hotplug_usb(void)
 	int isweb;
 	char flag[6];
 
+#ifdef DEBUG
+	dprintf("%s-%s-%s\n",getenv("INTERFACE"),getenv("ACTION"),product=getenv("PRODUCT"));
+#endif
 	if( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
 
 	if ((product=getenv("PRODUCT")))
 	{
+		/* wimax modem */
+		if (strncmp(interface, "255/", 4) == 0)
+		{
+			if (strncmp(product, "4e8/6761", 8) == 0 ||
+			    strncmp(product, "4e9/6761", 8) == 0 ||
+			    strncmp(product, "4e8/6731", 8) == 0 ||
+			    strncmp(product, "4e8/6780", 8) == 0)
+			{
+				if (strcmp(action, "add") == 0)
+					nvram_set("wimax_device", product);
+				else
+					nvram_unset("wimax_device");
+				return 0;
+			}
+		}
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{

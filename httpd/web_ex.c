@@ -223,11 +223,13 @@ void sys_script(char *name)
 	   kill_pidfile_s("/var/run/lpdparent.pid", SIGUSR2);
 	   eval("killall","p910nd");
      }
+#ifdef __CONFIG_MADWIMAX__
      else if (strcmp(name, "madwimax.sh")==0)
-     {	
+     {
 	   // update status of madwimax
 	   kill_pidfile_s("/var/run/madwimax.pid", SIGUSR1);
      }
+#endif
      else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0)
      {
 	  // do nothing	

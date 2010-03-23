@@ -1,51 +1,14 @@
-diff -ur nfs-utils-1.0.7/config.mk.in nfs-utils/config.mk.in
---- nfs-utils-1.0.7/config.mk.in	2004-10-19 04:22:53.000000000 +0400
-+++ nfs-utils/config.mk.in	2005-02-12 23:26:12.395497200 +0300
-@@ -55,7 +55,7 @@
- LN_S		= ln -sf
- RANLIB		= @RANLIB@
- INDENT		= indent
--RPCGEN		= $(TOP)bin/rpcgen
-+RPCGEN		= rpcgen
- GETKVER		= $(TOP)tools/getkversion
- INSTALL		= install
- MAN2PS		= groff -Tps -man
-diff -ur nfs-utils-1.0.7/Makefile nfs-utils/Makefile
---- nfs-utils-1.0.7/Makefile	2003-09-15 04:06:15.000000000 +0400
-+++ nfs-utils/Makefile	2005-02-12 23:26:12.396497048 +0300
-@@ -2,7 +2,7 @@
- # linux-nfs/Makefile
- #
- 
--SUBDIRS	= tools support utils
-+SUBDIRS	= support utils
- TOP	= 
- 
- all:: config.mk utils/statd/.depend
-diff -ur nfs-utils-1.0.7/support/Makefile nfs-utils/support/Makefile
---- nfs-utils-1.0.7/support/Makefile	2004-10-19 04:22:54.000000000 +0400
-+++ nfs-utils/support/Makefile	2005-02-12 23:39:36.422266552 +0300
-@@ -2,7 +2,8 @@
- # Makefile for linux-nfs/support
- #
- 
--SUBDIRS	= include nfs export lib misc rpc gssapi
-+#SUBDIRS	= include nfs export lib misc rpc gssapi
-+SUBDIRS	= include nfs export lib misc
- .DEFAULT: all
- 
- include $(TOP)rules.mk
-diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_socket.c
---- nfs-utils-1.0.7/support/nfs/svc_socket.c	2002-09-13 07:50:56.000000000 +0400
+diff -ur nfs-utils-1.0.9/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_socket.c
+--- nfs-utils-1.0.9/support/nfs/svc_socket.c	2002-09-13 07:50:56.000000000 +0400
 +++ nfs-utils/support/nfs/svc_socket.c	2005-02-12 23:46:00.936811456 +0300
-@@ -39,9 +39,14 @@
+@@ -39,9 +39,14 @@ svc_socket (u_long number,
  {
    struct sockaddr_in addr;
    socklen_t len = sizeof (struct sockaddr_in);
-+#if 0
++#ifdef __UCLIBC_HAS_REENTRANT_RPC__
    char rpcdata [1024], servdata [1024];
    struct rpcent rpcbuf, *rpcp;
-   struct servent servbuf, *servp;
+   struct servent servbuf, *servp = NULL;
 +#else
 +  struct rpcent *rpcp;
 +  struct servent *servp;
@@ -53,7 +16,7 @@ diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
    int sock, ret;
    const char *proto = protocol == IPPROTO_TCP ? "tcp" : "udp";
  
-@@ -63,16 +68,24 @@
+@@ -63,16 +68,24 @@ svc_socket (u_long number,
  	}
      }
  
@@ -61,7 +24,7 @@ diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
 +  bzero ((char *) &addr, sizeof (addr));
    addr.sin_family = AF_INET;
  
-+#if 0
++#ifdef __UCLIBC_HAS_REENTRANT_RPC__
    ret = getrpcbynumber_r (number, &rpcbuf, rpcdata, sizeof rpcdata,
  			  &rpcp);
 +#else
@@ -70,7 +33,7 @@ diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
    if (ret == 0 && rpcp != NULL)
      {
        /* First try name.  */
-+#if 0
++#ifdef __UCLIBC_HAS_REENTRANT_RPC__
        ret = getservbyname_r (rpcp->r_name, proto, &servbuf, servdata,
  			     sizeof servdata, &servp);
 +#else
@@ -79,11 +42,11 @@ diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
        if ((ret != 0 || servp == NULL) && rpcp->r_aliases)
  	{
  	  const char **a;
-@@ -80,8 +93,12 @@
+@@ -80,8 +93,12 @@ svc_socket (u_long number,
  	  /* Then we try aliases.  */
  	  for (a = (const char **) rpcp->r_aliases; *a != NULL; a++) 
  	    {
-+#if 0
++#ifdef __UCLIBC_HAS_REENTRANT_RPC__
  	      ret = getservbyname_r (*a, proto, &servbuf, servdata,
  				     sizeof servdata, &servp);
 +#else
@@ -92,8 +55,8 @@ diff -ur nfs-utils-1.0.7/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
  	      if (ret == 0 && servp != NULL)
  		break;
  	    }
-diff -ur nfs-utils-1.0.7/utils/statd/statd.c nfs-utils/utils/statd/statd.c
---- nfs-utils-1.0.7/utils/statd/statd.c	2004-12-06 04:25:27.000000000 +0300
+diff -ur nfs-utils-1.0.9/utils/statd/statd.c nfs-utils/utils/statd/statd.c
+--- nfs-utils-1.0.9/utils/statd/statd.c	2004-12-06 04:25:27.000000000 +0300
 +++ nfs-utils/utils/statd/statd.c	2005-02-12 23:44:04.711480392 +0300
 @@ -27,6 +27,8 @@
  #include <sys/types.h>

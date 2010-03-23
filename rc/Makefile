@@ -26,10 +26,16 @@ OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
     bigpond.o qos.o rcamd.o
 
+#CFLAGS += -DBROKEN_IPV6_CONNTRACK
+
 ifeq ($(CONFIG_NETCONF),y)
 OBJS += firewall.o
 CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
+endif
+
+ifeq ($(CONFIG_MADWIMAX),y)
+OBJS += wimax.o
 endif
 
 ifeq ($(CONFIG_WAVESERVER),y)

@@ -46,6 +46,7 @@
 #include <bcmdevs.h>
 #include <wlutils.h>
 #include <bcmparams.h>
+#include "wimax.h"
 
 static void restore_defaults(void);
 static void sysinit(void);
@@ -555,6 +556,7 @@ set_wan0_vars(void)
 	} else {
 		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
 		nvram_set("wan0_ifnames", nvram_get("wan_ifnames"));
+		nvram_set("wan0_priority", nvram_safe_get("wan_priority"));
 	}
 }
 
@@ -597,6 +599,9 @@ make_etc(void)
 		fputs(nvram_safe_get("lan_hostname"), f);
 		fclose(f);
 	}
+
+	/* crond */
+	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
 
 }
 
@@ -654,6 +659,8 @@ sysinit(void)
 	mkdir("/var/lock", 0777);
 	mkdir("/var/log", 0777);
 	mkdir("/var/run", 0777);
+	mkdir("/var/spool", 0777);
+	mkdir("/var/spool/cron", 0777);
 	mkdir("/var/tmp", 0777);
 	
 	/* /usr/local */
@@ -883,7 +890,7 @@ main_loop(void)
 #endif
 			eval("/usr/local/sbin/post-boot");
 #ifdef ASUS_EXT
-			sleep(5);
+			sleep(3);
 			diag_PaN();
 #endif
 			/* Fall through */
@@ -946,6 +953,14 @@ main(int argc, char **argv)
 		return ipup_main(argc, argv);
 	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
+#ifdef __CONFIG_MADWIMAX__
+	/* start of daemon */
+	else if (!strcmp(base, "madwimax-check"))
+		return madwimax_check();
+	/* madwimax [ if-create if-up if-down if-release ] */
+	else if ( !strcmp(base, "madwimax.events" ) )
+		return madwimax_main(argc, argv);
+#endif
 	/* udhcpc [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc"))
 		return udhcpc_main(argc, argv);

@@ -39,6 +39,9 @@ install: all
 	install -m 755 wshaper.sh $(INSTALLDIR)/sbin/wshaper
 	install -m 755 ipkg.sh $(INSTALLDIR)/usr/bin/ipkg.sh
 	install -m 755 dropbearstart.sh $(INSTALLDIR)/usr/sbin/dropbearstart
+ifeq ($(CONFIG_MADWIMAX),y)
+	install -m 755 wimax_check_connection.sh $(INSTALLDIR)/usr/sbin/wimax_check_connection.sh
+endif
 
 clean:
 
