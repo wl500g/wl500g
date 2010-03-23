@@ -47,7 +47,7 @@ diff -BurN iptables-1.2.7a/Makefile iptables/Makefile
  STATIC_LIBS  =
  STATIC6_LIBS =
 -LDFLAGS      = -rdynamic
-+LDFLAGS      = -rdynamic $(EXT_LDFLAGS)
++LDFLAGS      = -rdynamic $(EXTRA_LDFLAGS)
  LDLIBS       = -ldl
  ifeq ($(DO_SELINUX), 1)
  LDLIBS       += -lselinux
@@ -56,7 +56,7 @@ diff -BurN iptables-1.2.7a/Makefile iptables/Makefile
  STATIC_LIBS  = extensions/libext.a
  STATIC6_LIBS = extensions/libext6.a
 -LDFLAGS      = -static
-+LDFLAGS      = -static $(EXT_LDFLAGS)
++LDFLAGS      = -static $(EXTRA_LDFLAGS)
  LDLIBS	     =
  ifeq ($(DO_SELINUX), 1)
  LDLIBS       += -lselinux
