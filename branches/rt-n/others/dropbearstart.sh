@@ -57,11 +57,6 @@ if ! [ -s $SSHD_ETC/dropbear_rsa_host_key -a \
 	fi
 fi
 
-port="$(nvram get ssh_port)"
-if [ "${port}" -ne "22" ]; then
-	args="-p ${port}"
-fi
+dropbear "$@"
 
-dropbear ${args}
-
-exit 0
+exit $?

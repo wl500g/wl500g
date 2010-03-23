@@ -36,7 +36,7 @@ RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20091205
 PPTP=pptp-1.7.1
 LZMA=lzma457
-NFSUTILS=nfs-utils-1.0.7
+NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
@@ -49,7 +49,7 @@ NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.3
-USBMODESWITCH=usb-modeswitch-1.1.0
+USBMODESWITCH=usb-modeswitch-1.1.1
 MADWIMAX=madwimax-0.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
@@ -285,10 +285,12 @@ $(TOP)/iptables: iptables/$(IPTABLES).tar.bz2
 iptables: $(TOP)/iptables
 	@true
 
-$(TOP)/nfs-utils:
+nfs-utils_Patches := $(call patches_list,nfs-utils)
+
+$(TOP)/nfs-utils: nfs-utils/$(NFSUTILS).tar.bz2
 	@rm -rf $(TOP)/$(NFSUTILS) $@
-	tar -xzf $(NFSUTILS).tar.gz -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(NFSUTILS) $(NFSUTILS).patch $(NFSUTILS)-libnfs.patch 
+	tar -xjf nfs-utils/$(NFSUTILS).tar.bz2 -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(NFSUTILS) $(nfs-utils_Patches)
 	mv $(TOP)/$(NFSUTILS) $@
 
 nfs-utils: $(TOP)/nfs-utils
