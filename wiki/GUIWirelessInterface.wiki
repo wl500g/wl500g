@@ -2,6 +2,11 @@
 
 In this menu you're able to set basic wireless settings like: Network name and encryption settings
 
+== Introduction ==
+Wireless networking is not very easy to understand when it comes to the science of wlan.
+In this article I make an attempt to keep it easy, but with the handy to know facts that'll make your wireless network work.
+
+----------
 == SSID ==
 
 The SSID is the wireless network name the router will use.
@@ -10,18 +15,19 @@ Unless you want to make a [http://en.wikipedia.org/wiki/Wireless_LAN#Roaming roa
 you'll need to choose a unique name preferably easy to remember.
 The SSID must not exceed 32 characters.
 
-The SSID is also important for WPA and WPA2 encryption security since it's a part of the generated security key.
-This will protect you from "Rainbow code" based attacks.
+* note: choosing your address as SSID is usually not safe. Burglars tend to break in at houses with their address as SSID.
 
+The SSID is also important for WPA and WPA2 encryption security since it's a part of the generated security key.
+This uniqueness will protect you from "[http://en.wikipedia.org/wiki/Rainbow_table Rainbow tables]" based attacks.
+---------
 == Channel ==
 
 !WiFi communicates over a range of frequencies, to make it easier they are numbered for 802.11B/G/N.
-Usually the best results will be made with the auto setting, this way the router will pick
-the best possible channel at the moment it boots.
+Usually the best results will be achieved with the "auto" setting, this way the router will pick the best possible channel at the moment it boots.
 
 !WiFi allows a total of 14 channels. In some countries it's not allowed to use all channels though.
 
-|| *Channel* || *North America* || *Japan* || *Most of the world* ||
+|| *Channel* || *North America* || *Japan* || *Most of the world (e.g. Europe)* ||
 ||1||yes||yes||yes||
 ||2||yes||yes||yes||
 ||3||yes||yes||yes||
@@ -42,43 +48,177 @@ This table only shows general information, are you unsure about what channels yo
 Channels must be set to a fixed number when using [http://en.wikipedia.org/wiki/Wireless_Distribution_System WDS networking].
 
 === Channel overlapping ===
-
-[http://i42.tinypic.com/2e549x1.jpg http://i41.tinypic.com/nz3j85.jpg Channels overlapping]
+The !WiFi alliance specified a few rules when it comes to channels.
+Unlike you may think, a specific channel does not represent one frequency, but a range of about 20MHz around the central frequency.
+If you do the math: 20 * 14 = 280MHz which does not fit between ~2400 and ~2500 MHz.
+To overcome this the !WiFi alliance made the channels overlap each other:
+  
+ [http://i42.tinypic.com/2e549x1.jpg http://i41.tinypic.com/nz3j85.jpg Channel overlapping]
 
 In this graph you can see the overlapping of the channels.
 Every channel has a lower, center and upper frequency.
+The center frequency is shown by the horizontal line.
 
-Because the frequencies are overlapping, it's not a good idea to choose a channel close to another WiFi network channel.
-This will guarantee you have optimal signal quality and throughput.
+Because the frequencies are overlapping, it's not a good idea to choose a channel close to another !WiFi network channel since they might interfere with each other.
+Choosing a non overlapping channel will guarantee you have optimal signal quality and throughput.
 
 Usually the best channels to choose are 1, 6 or 11 since they do not overlap each other.
 
-When you have a 802.11N(draft) enabled router you must set the channel to 6 for best results.
+  === 802.11N (draft) ===
+  802.11N is a bit different than 802.11B/G networks since it usually uses 40MHz to enable throughputs of 300Mbit/s.
+  When you want to use 20MHz only, you don't need to worry about this chapter.
+  Since the specification wants us to use a maximum of ~20MHz, 802.11N will use 2 channels to get a total of 40MHz.
+  When it comes to channels, this means that you can choose the first channel by picking a number out of the list between 1 and 9 (6 usually has the best results). The second channel will be assigned by the router by doing simple math: first channel + 2.
+  When you pick channel 6 as first channel this will mean that the second channel will be 8.
+  Also remember that your second channel might be in unauthorized frequencies in your country, as displayed in the table above here.
 
+-------
 == Wireless Mode ==
 
 Different modes are available to choose from, recommended is "Auto" which will allow all types of 802.11.
-Available modes differ per router, but this is the list:
+Available modes available differ per router, but this is the list:
 
 ==== Auto ====
-Allow every mode available: 802.11b/g/n
-Recommended setting!
+ Allow every mode available for your router: 802.11b/g/n
+ Recommended setting!
 ==== 802.11g only ====
-Only allow clients supporting 802.11g (54Mbit/s)
-When you have only 802.11g clients this is probably the best setting.
-It optimizes maximum throughput as well as range.
+ Only allow clients supporting 802.11g (54Mbit/s)
+ When you have only 802.11g clients this is probably the best setting.
+ It optimizes maximum throughput as well as range.
 ==== Performance ====
-This is a special option for 802.11g which allows high throughputs.
-This mode usually only works with special Asus WiFi adapters supporting throughput boost functionalities.
+ This is a special option for 802.11g which allows high throughputs.
+ This mode usually only works with special Asus WiFi adapters supporting throughput boost functionalities.
 ==== 54G LRS ==== 
-The so called "Limited Rate Support". 
-This is only needed when some 802.11b clients can't connect. This is the special compatibility mode.
-802.11g clients are also allowed.
+ The so called "Limited Rate Support". 
+ This is only needed when some 802.11b clients can't connect. So its the special compatibility mode.
+ 802.11g clients are also allowed.
 ==== 802.11n Only ====
-Only allow clients supporting 802.11n.
-When you have only 802.11n clients this is probably the best setting.
-It optimizes maximum throughput as well as range.
+ Only allow clients supporting 802.11n.
+ When you have only 802.11n clients this is probably the best setting.
+ It optimizes maximum throughput as well as range.
 
+------
+== Bandwidth ==
+This option is only available for 802.11N enabled routers.
+As explained in the chapter: Channel -> Channel Overlapping -> 802.11N (draft) 802.11N is able to use the "normal" 20MHz as well as 40MHz.
 
+The only difference apart from what channels will be used is the maximum throughput you can achieve.
 
-(more coming soon)
+20MHz will allow you to use a maximum of 155Mbit/s and uses just a single channel.
+40MHz will allow speeds up to 300Mbit/s and uses 2 channels.
+
+40MHz is recommended because it interferes less with existing networks and allows higher throughputs.
+
+------
+== Authentication Method ==
+You can choose from several different authentication methods.
+Basically this means the encryption of what you send wirelessly, and how hard it is to break into.
+Lets go trough the available options:
+==== Open System ====
+ With this method you can use both a password or none to gain access to your network.
+ It provides low level of security which is easy to hack and is not really recommended.
+==== Shared Key ====
+ This is pretty much the same as Open System authentication which is fairly unsafe to use.
+ The Shared Key method is even less secure to use since a hacker will be able to see what's going on even easier!
+ The only difference from Open System is that the Shared Key requires a password.
+==== WPA-Personal ====
+ This encryption provides a pretty good security.
+ It's a lot harder to hack since the encryption is not linear.
+ For WPA-Personal are 2 types of encryption standards available: [http://en.wikipedia.org/wiki/Temporal_Key_Integrity_Protocol TKIP] and [http://en.wikipedia.org/wiki/Advanced_Encryption_Standard AES].
+==== WPA2-Personal ====
+ The second version of WPA, and is more secure than WPA-Personal.
+ The reason is because a new AES based type of encryption is added for WPA2: [http://en.wikipedia.org/wiki/CCMP CCMP]. When you choose AES as WPA2 encryption you will use this new  type.
+ At this moment of writing WPA2-AES is considered safe since it requires so much calculating that a single super computer would take more than 10 years to crack the code.
+ If your wireless clients support WPA2, it's HIGHLY recommended to use this protection method.
+==== WPA-Auto-Personal ====
+ This is a mixed mode between WPA-Personal and WPA2-Personal.
+ It allows both WPA and WPA2 enabled clients to connect.\
+ This authentication method requires you to choose "TKIP+AES" at "WPA Encryption".
+==== WPA-Enterprise ====
+ This is pretty much the same as WPA-Personal with one key difference: it requires clients to use a username and password to gain access to the wireless network.
+ You need a RADIUS server for this, so for most people this is not a good option.
+==== WPA2-Enterprise ====
+ This is pretty much the same as WPA2-Personal with one key difference: it requires clients to use a username and password to gain access to the wireless network.
+ You need a RADIUS server for this, so for most people this is not a good option.
+==== Radius with 802.1x ====
+ Again this is not suitable for the regular user.
+ This option will use the [http://en.wikipedia.org/wiki/IEEE_802.1X 802.1x authentication] method and requires a RADIUS server.
+ This method is also known as EAP.
+
+------
+== WPA Encryption ==
+This sets the encryption type for WPA and WPA2 based authentication methods.
+
+[http://en.wikipedia.org/wiki/Advanced_Encryption_Standard AES] is considered the safest encryption method and is recommended.
+[http://en.wikipedia.org/wiki/Temporal_Key_Integrity_Protocol TKIP] is also quite safe, but still easier to crack than [http://en.wikipedia.org/wiki/Advanced_Encryption_Standard AES].
+
+TKIP+AES mode allows both [http://en.wikipedia.org/wiki/Temporal_Key_Integrity_Protocol TKIP] and [http://en.wikipedia.org/wiki/Advanced_Encryption_Standard AES] and is required for WPA-Auto-Personal authentication method.
+
+==== 802.11N (draft) ====
+ This standard requires you to use AES encryption. TKIP + 802.11N networks are not allowed.
+
+------
+== WPA Pre-Shared Key ==
+This text box is required when you want to use WPA or WPA2 Personal.
+You may enter 8 to a maximum of 63 characters, of course: the more the better your security is.
+Also the more random your Pre-Shared Key is, the more secure.
+you may use a generator to get a good key: [http://www.kurtm.net/wpa-pskgen/ wpa-pskgen]
+
+allowed characters:
+{{{
+specials: ! " # $ % & ` ( ) * + , - . / [ ] \ ^ _ '  { } | ~
+numeric: from 0 till 9 (9 included)
+alpha: from a till z (z included)
+capital alpha: from A till Z (Z included)
+}}}
+Sometimes the special characters do not work correctly, when this happens stick with numbers and (capital) alpha characters.
+
+-----
+== WEP Encryption ==
+In this box you can select which WEP encryption you want to use.
+
+==== None ====
+ It's not recommended to use this unless you want to create a free to use access point.
+ Even if you protect your network with MAC authenticating it will be fairly easy to break into your network. All the data you send like: chat messages or websites you visit will be broadcasted into the open air for anyone to see.
+
+==== WEP-64bits ====
+ This protects your network by a 10 character long password.
+ Remember it's quite easy to break into.
+
+==== WEP-128bits ====
+ This protects your network by a 26 character long password.
+ Remember it's quite easy to break into.
+
+-----
+== Passphrase ==
+This is the build-in password generator for WEP keys.
+Note that not every client supports pass-phrases to be filled in. Instead you must enter the generated WEP Key to gain access to your network.
+
+-----
+== WEP Key X (10 or 26 hex digits) ==
+You may enter 4 different WEP keys to remember, but the used key will be set by the "Key Index".
+
+On our routers only HEX WEP keys are allowed, so you may only use these characters:
+{{{
+Numeric: 0 till 9 (9 included)
+Capital alpha: A till F (F included)
+}}}
+
+Depending on what WEP Encryption setting you used you may only enter 10 or 26 characters.
+not more, not less.
+
+-----
+== Key Index ==
+This setting will allow you to choose between the 4 keys you've entered.
+The chosen WEP key will be used for encryption
+
+-----
+== Network Key Rotation Interval ==
+This option only works when you use AES encryption or TKIP+AES, only AES will be affected.
+Here you can set a time in seconds before the wireless key is regenerated.
+This does not mean that you need a different password to access your wireless network, but rather that it changes the generated key from your password and SSID.
+Setting it for a hour or so will make your wireless network more secure but will also generate a short time of a few seconds where you can't communicate with the network.
+
+Be aware that setting a really low value will cause you trouble with normal network usage.
+
+Setting the value to 0 means that it never refreshes the key, this is optimal for constant streaming applications like watching streaming video's or playing online games via the wireless network.
