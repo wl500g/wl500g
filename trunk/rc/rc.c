@@ -46,7 +46,6 @@
 #include <bcmdevs.h>
 #include <wlutils.h>
 #include <bcmparams.h>
-#include "wimax.h"
 
 static void restore_defaults(void);
 static void sysinit(void);

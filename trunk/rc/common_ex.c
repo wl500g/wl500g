@@ -503,6 +503,9 @@ void convert_asus_values()
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
 	nvram_set("usb_web_flag", "");
+#ifdef __CONFIG_MADWIMAX__
+	nvram_set("usb_wimax_device", "");
+#endif
 	nvram_set("no_br", "0");
 
 	if(nvram_invmatch("sp_battle_ips", "0"))

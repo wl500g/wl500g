@@ -571,14 +571,12 @@ int http_processcheck(void)
 }
 
 #ifdef __CONFIG_MADWIMAX__
-// madwimax
-#include "wimax.h"
 int madwimax_processcheck(void)
 {
-//	pid_t pid;
-//
-//	char *argv[] = {"/sbin/madwimax-check", NULL};
-//	_eval(argv, NULL, 0, &pid);
+	//pid_t pid;
+	//
+	//char *argv[] = {"/sbin/madwimax-check", NULL};
+	//_eval(argv, NULL, 0, &pid);
 	return madwimax_check();
 }
 #endif
