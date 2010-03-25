@@ -43,7 +43,6 @@ typedef u_int8_t u8;
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
-#include "wimax.h"
 
 void lan_up(char *lan_ifname);
 

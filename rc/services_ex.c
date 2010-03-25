@@ -809,9 +809,6 @@ int restart_nfsd(void)
 int 
 start_usb(void)
 {
-	// unset possible values
-	nvram_unset("wimax_device");
-
 	eval("insmod", "usbcore");
 	eval("insmod", "usb-ohci");
 	eval("insmod", "usb-uhci");
@@ -1851,6 +1848,7 @@ hotplug_usb(void)
 
 	if ((product=getenv("PRODUCT")))
 	{
+#ifdef __CONFIG_MADWIMAX__
 		/* wimax modem */
 		if (strncmp(interface, "255/", 4) == 0)
 		{
@@ -1860,12 +1858,13 @@ hotplug_usb(void)
 			    strncmp(product, "4e8/6780", 8) == 0)
 			{
 				if (strcmp(action, "add") == 0)
-					nvram_set("wimax_device", product);
+					nvram_set("usb_wimax_device", product);
 				else
-					nvram_unset("wimax_device");
+					nvram_unset("usb_wimax_device");
 				return 0;
 			}
 		}
+#endif
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{

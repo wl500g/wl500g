@@ -30,8 +30,8 @@ void get_wimax_ifname( char * out, int unit ){
 int
 wimax_modem(void)
 {
-//	dprintf("%s\n", nvram_safe_get("wimax_device"));
-	if (!nvram_safe_get("wimax_device")) 
+	//dprintf("%s\n", nvram_safe_get("usb_wimax_device"));
+	if (!nvram_safe_get("usb_wimax_device")) 
 		return 0;
 	return 1;
 }
