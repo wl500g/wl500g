@@ -113,7 +113,7 @@ diff -urBwNp linux-2.6.22/drivers/usb/class/usblp.c linux-2.6/drivers/usb/class/
  
 +#ifdef U2EC
 +/****************add by JY 20031118*************************************/
-+#define LPGETID                 0x0610		/* get printer's device ID */
++#define LPGETID         0x0610	 /* get printer's device ID */
 +#define LPWRITEDATA     0x0613  /* write data to printer */
 +#define LPWRITEADDR     0x0614  /* write address to printer */
 +#define LPREADDATA      0x0615  /* read data from pinter */
