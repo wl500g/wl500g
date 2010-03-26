@@ -435,8 +435,8 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +{
 +	dev->hard_start_xmit    = imq_dev_xmit;
 +	dev->type               = ARPHRD_VOID;
-+	dev->mtu                = 1500;
-+	dev->tx_queue_len       = 30;
++	dev->mtu                = 16000;
++	dev->tx_queue_len       = 11000;
 +	dev->flags              = IFF_NOARP;
 +	dev->priv = kzalloc(sizeof(struct net_device_stats), GFP_KERNEL);
 +	if (dev->priv == NULL)
@@ -546,6 +546,42 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +MODULE_AUTHOR("http://www.linuximq.net");
 +MODULE_DESCRIPTION("Pseudo-driver for the intermediate queue device. See http://www.linuximq.net/ for more information.");
 +MODULE_LICENSE("GPL");
+diff -uBp linux-2.6.22/net/core/skbuff.c linux/net/core/skbuff.c
+--- linux-2.6.22/net/core/skbuff.c
++++ linux/net/core/skbuff.c
+@@ -174,6 +174,10 @@ struct sk_buff *__alloc_skb(unsigned int
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
++#if defined(CONFIG_IMQ) || defined (CONFIG_IMQ_MODULE)
++	skb->imq_flags = 0;
++	skb->nf_info = NULL;
++#endif
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+ 	atomic_set(&shinfo->dataref, 1);
+@@ -423,6 +427,10 @@ struct sk_buff *skb_clone(struct sk_buff
+ #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+ 	C(ipvs_property);
+ #endif
++#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
++	C(imq_flags);
++	C(nf_info);
++#endif
+ 	C(protocol);
+ 	n->destructor = NULL;
+ 	C(mark);
+@@ -486,6 +494,10 @@ static void copy_skb_header(struct sk_bu
+ #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
+ 	new->ipvs_property = old->ipvs_property;
+ #endif
++#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
++	new->imq_flags  = old->imq_flags;
++	new->nf_info    = old->nf_info;
++#endif
+ #ifdef CONFIG_NET_SCHED
+ #ifdef CONFIG_NET_CLS_ACT
+ 	new->tc_verd = old->tc_verd;
 diff --git a/include/linux/imq.h b/include/linux/imq.h
 --- /dev/null
 +++ b/include/linux/imq.h
