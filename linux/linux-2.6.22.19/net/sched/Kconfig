@@ -133,6 +133,17 @@ config NET_SCH_SFQ
 	  To compile this code as a module, choose M here: the
 	  module will be called sch_sfq.
 
+config NET_SCH_SFQ_NFCT
+	bool "Connection Tracking Hash Types"
+	depends on NET_SCH_SFQ && NF_CONNTRACK_ENABLED=y || NET_SCH_SFQ=m && NF_CONNTRACK_ENABLED=m
+	---help---
+	  Say Y here to enable support for hashing based on netfilter connection
+	  tracking information. This is useful for a router that is also using
+	  NAT to connect privately-addressed hosts to the Internet. If you want
+	  to provide fair distribution of upstream bandwidth, SFQ must use 
+	  connection tracking information, since all outgoing packets will share
+	  the same source address.
+
 config NET_SCH_TEQL
 	tristate "True Link Equalizer (TEQL)"
 	---help---

@@ -133,20 +133,44 @@ enum
 struct tc_sfq_qopt
 {
 	unsigned	quantum;	/* Bytes per round allocated to flow */
-	int		perturb_period;	/* Period of hash perturbation */
+	unsigned	perturb_period;	/* Period of hash perturbation */
 	__u32		limit;		/* Maximal packets in queue */
 	unsigned	divisor;	/* Hash divisor  */
 	unsigned	flows;		/* Maximal number of flows  */
+	unsigned	hash_kind;	/* Hash function to use for flow identification */
 };
 
-/*
- *  NOTE: limit, divisor and flows are hardwired to code at the moment.
- *
- *	limit=flows=128, divisor=1024;
- *
- *	The only reason for this is efficiency, it is possible
- *	to change these parameters in compile time.
- */
+enum
+{
+	TCA_SFQ_UNSPEC,
+	TCA_SFQ_COMPAT,
+	TCA_SFQ_QUANTUM,
+	TCA_SFQ_PERTURB,
+	TCA_SFQ_LIMIT,
+	TCA_SFQ_DIVISOR,
+	TCA_SFQ_FLOWS,
+	TCA_SFQ_HASH,
+	__TCA_SFQ_MAX,
+};
+
+#define TCA_SFQ_MAX (__TCA_SFQ_MAX - 1)
+
+enum
+{
+        TCA_SFQ_HASH_CLASSIC,
+        TCA_SFQ_HASH_DST,
+        TCA_SFQ_HASH_SRC,
+        TCA_SFQ_HASH_FWMARK,
+	/* conntrack */
+        TCA_SFQ_HASH_CTORIGDST,
+        TCA_SFQ_HASH_CTORIGSRC,
+        TCA_SFQ_HASH_CTREPLDST,
+        TCA_SFQ_HASH_CTREPLSRC,
+        TCA_SFQ_HASH_CTNATCHG,
+        __TCA_SFQ_HASH_MAX,
+};
+
+#define TCA_SFQ_HASH_MAX (__TCA_SFQ_HASH_MAX - 1)
 
 /* RED section */
 
