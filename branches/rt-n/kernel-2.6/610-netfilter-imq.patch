@@ -560,28 +560,6 @@ diff -uBp linux-2.6.22/net/core/skbuff.c linux/net/core/skbuff.c
  	/* make sure we initialize shinfo sequentially */
  	shinfo = skb_shinfo(skb);
  	atomic_set(&shinfo->dataref, 1);
-@@ -423,6 +427,10 @@ struct sk_buff *skb_clone(struct sk_buff
- #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
- 	C(ipvs_property);
- #endif
-+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-+	C(imq_flags);
-+	C(nf_info);
-+#endif
- 	C(protocol);
- 	n->destructor = NULL;
- 	C(mark);
-@@ -486,6 +494,10 @@ static void copy_skb_header(struct sk_bu
- #if defined(CONFIG_IP_VS) || defined(CONFIG_IP_VS_MODULE)
- 	new->ipvs_property = old->ipvs_property;
- #endif
-+#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-+	new->imq_flags  = old->imq_flags;
-+	new->nf_info    = old->nf_info;
-+#endif
- #ifdef CONFIG_NET_SCHED
- #ifdef CONFIG_NET_CLS_ACT
- 	new->tc_verd = old->tc_verd;
 diff --git a/include/linux/imq.h b/include/linux/imq.h
 --- /dev/null
 +++ b/include/linux/imq.h
