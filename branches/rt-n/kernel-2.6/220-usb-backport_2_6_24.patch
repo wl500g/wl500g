@@ -26421,9 +26421,32 @@ diff --git a/drivers/usb/storage/initializers.c b/drivers/usb/storage/initialize
 index 3a41740..c37007b 100644
 --- a/drivers/usb/storage/initializers.c
 +++ b/drivers/usb/storage/initializers.c
-@@ -90,3 +90,16 @@ int usb_stor_ucr61s2b_init(struct us_data *us)
+@@ -54,7 +54,7 @@ int usb_stor_euscsi_init(struct us_data *us)
+ 	us->iobuf[0] = 0x1;
+ 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
+ 			0x0C, USB_RECIP_INTERFACE | USB_TYPE_VENDOR,
+-			0x01, 0x0, us->iobuf, 0x1, 5*HZ);
++			0x01, 0x0, us->iobuf, 0x1, 5000);
+ 	US_DEBUGP("-- result is %d\n", result);
  
- 	return (res ? -1 : 0);
+ 	return 0;
+@@ -81,12 +81,27 @@ int usb_stor_ucr61s2b_init(struct us_data *us)
+ 
+ 	res = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe, bcb,
+ 			US_BULK_CB_WRAP_LEN, &partial);
+-	if(res)
+-		return res;
++	if (res)
++		return -EIO;
+ 
+ 	US_DEBUGP("Getting status packet...\n");
+ 	res = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe, bcs,
+ 			US_BULK_CS_WRAP_LEN, &partial);
++	if (res)
++		return -EIO;
+ 
+-	return (res ? -1 : 0);
++	return 0;
  }
 +
 +/* This places the HUAWEI E220 devices in multi-port mode */
@@ -26435,8 +26458,8 @@ index 3a41740..c37007b 100644
 +				      USB_REQ_SET_FEATURE,
 +				      USB_TYPE_STANDARD | USB_RECIP_DEVICE,
 +				      0x01, 0x0, NULL, 0x0, 1000);
-+	US_DEBUGP("usb_control_msg performing result is %d\n", result);
-+	return (result ? 0 : -1);
++	US_DEBUGP("Huawei mode set result is %d\n", result);
++	return 0;
 +}
 diff --git a/drivers/usb/storage/initializers.h b/drivers/usb/storage/initializers.h
 index e2967a4..ad3ffd4 100644
@@ -26487,7 +26510,7 @@ new file mode 100644
 index 0000000..ed7664d
 --- /dev/null
 +++ b/drivers/usb/storage/option_ms.c
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,169 @@
 +/*
 + * Driver for Option High Speed Mobile Devices.
 + *
@@ -26527,7 +26550,7 @@ index 0000000..ed7664d
 +
 +#define RESPONSE_LEN 1024
 +
-+static int option_rezero(struct us_data *us, int ep_in, int ep_out)
++static int option_rezero(struct us_data *us)
 +{
 +	const unsigned char rezero_msg[] = {
 +	  0x55, 0x53, 0x42, 0x43, 0x78, 0x56, 0x34, 0x12,
@@ -26544,10 +26567,10 @@ index 0000000..ed7664d
 +	if (buffer == NULL)
 +		return USB_STOR_TRANSPORT_ERROR;
 +
-+	memcpy(buffer, rezero_msg, sizeof (rezero_msg));
++	memcpy(buffer, rezero_msg, sizeof(rezero_msg));
 +	result = usb_stor_bulk_transfer_buf(us,
-+			usb_sndbulkpipe(us->pusb_dev, ep_out),
-+			buffer, sizeof (rezero_msg), NULL);
++			us->send_bulk_pipe,
++			buffer, sizeof(rezero_msg), NULL);
 +	if (result != USB_STOR_XFER_GOOD) {
 +		result = USB_STOR_XFER_ERROR;
 +		goto out;
@@ -26556,9 +26579,15 @@ index 0000000..ed7664d
 +	/* Some of the devices need to be asked for a response, but we don't
 +	 * care what that response is.
 +	 */
-+	result = usb_stor_bulk_transfer_buf(us,
-+			usb_sndbulkpipe(us->pusb_dev, ep_out),
++	usb_stor_bulk_transfer_buf(us,
++			us->recv_bulk_pipe,
 +			buffer, RESPONSE_LEN, NULL);
++
++	/* Read the CSW */
++	usb_stor_bulk_transfer_buf(us,
++			us->recv_bulk_pipe,
++			buffer, 13, NULL);
++
 +	result = USB_STOR_XFER_GOOD;
 +
 +out:
@@ -26566,63 +26595,78 @@ index 0000000..ed7664d
 +	return result;
 +}
 +
++static int option_inquiry(struct us_data *us)
++{
++	const unsigned char inquiry_msg[] = {
++	  0x55, 0x53, 0x42, 0x43, 0x12, 0x34, 0x56, 0x78,
++	  0x24, 0x00, 0x00, 0x00, 0x80, 0x00, 0x06, 0x12,
++	  0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0x00,
++	  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
++	};
++	char *buffer;
++	int result;
++
++	US_DEBUGP("Option MS: %s", "device inquiry for vendor name\n");
++
++	buffer = kzalloc(0x24, GFP_KERNEL);
++	if (buffer == NULL)
++		return USB_STOR_TRANSPORT_ERROR;
++
++	memcpy(buffer, inquiry_msg, sizeof(inquiry_msg));
++	result = usb_stor_bulk_transfer_buf(us,
++			us->send_bulk_pipe,
++			buffer, sizeof(inquiry_msg), NULL);
++	if (result != USB_STOR_XFER_GOOD) {
++		result = USB_STOR_XFER_ERROR;
++		goto out;
++	}
++
++	result = usb_stor_bulk_transfer_buf(us,
++			us->recv_bulk_pipe,
++			buffer, 0x24, NULL);
++	if (result != USB_STOR_XFER_GOOD) {
++		result = USB_STOR_XFER_ERROR;
++		goto out;
++	}
++
++	result = memcmp(buffer+8, "Option", 6);
++
++	if (result != 0)
++		result = memcmp(buffer+8, "ZCOPTION", 8);
++
++	/* Read the CSW */
++	usb_stor_bulk_transfer_buf(us,
++			us->recv_bulk_pipe,
++			buffer, 13, NULL);
++
++out:
++	kfree(buffer);
++	return result;
++}
++
++
 +int option_ms_init(struct us_data *us)
 +{
-+	struct usb_device *udev;
-+	struct usb_interface *intf;
-+	struct usb_host_interface *iface_desc;
-+	struct usb_endpoint_descriptor *endpoint = NULL;
-+	u8 ep_in = 0, ep_out = 0;
-+	int ep_in_size = 0, ep_out_size = 0;
-+	int i, result;
-+
-+	udev = us->pusb_dev;
-+	intf = us->pusb_intf;
-+
-+	/* Ensure it's really a ZeroCD device; devices that are already
-+	 * in modem mode return 0xFF for class, subclass, and protocol.
-+	 */
-+	if (udev->descriptor.bDeviceClass != 0 ||
-+	    udev->descriptor.bDeviceSubClass != 0 ||
-+	    udev->descriptor.bDeviceProtocol != 0)
-+		return USB_STOR_TRANSPORT_GOOD;
++	int result;
 +
 +	US_DEBUGP("Option MS: option_ms_init called\n");
 +
-+	/* Find the right mass storage interface */
-+	iface_desc = intf->cur_altsetting;
-+	if (iface_desc->desc.bInterfaceClass != 0x8 ||
-+	    iface_desc->desc.bInterfaceSubClass != 0x6 ||
-+	    iface_desc->desc.bInterfaceProtocol != 0x50) {
-+		US_DEBUGP("Option MS: mass storage interface not found, no action "
-+		          "required\n");
++	/* Additional test for vendor information via INQUIRY,
++	 * because some vendor/product IDs are ambiguous
++	 */
++	result = option_inquiry(us);
++	if (result != 0) {
++		US_DEBUGP("Option MS: vendor is not Option or not determinable,"
++			  " no action taken\n");
 +		return USB_STOR_TRANSPORT_GOOD;
-+	}
-+
-+	/* Find the mass storage bulk endpoints */
-+	for (i = 0; i < iface_desc->desc.bNumEndpoints && (!ep_in_size || !ep_out_size); ++i) {
-+		endpoint = &iface_desc->endpoint[i].desc;
-+
-+		if (usb_endpoint_is_bulk_in(endpoint)) {
-+			ep_in = endpoint->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
-+			ep_in_size = le16_to_cpu(endpoint->wMaxPacketSize);
-+		} else if (usb_endpoint_is_bulk_out(endpoint)) {
-+			ep_out = endpoint->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
-+			ep_out_size = le16_to_cpu(endpoint->wMaxPacketSize);
-+		}
-+	}
-+
-+	/* Can't find the mass storage endpoints */
-+	if (!ep_in_size || !ep_out_size) {
-+		US_DEBUGP("Option MS: mass storage endpoints not found, no action "
-+		          "required\n");
-+		return USB_STOR_TRANSPORT_GOOD;
-+	}
++	} else
++		US_DEBUGP("Option MS: this is a genuine Option device,"
++			  " proceeding\n");
 +
 +	/* Force Modem mode */
 +	if (option_zero_cd == ZCD_FORCE_MODEM) {
 +		US_DEBUGP("Option MS: %s", "Forcing Modem Mode\n");
-+		result = option_rezero(us, ep_in, ep_out);
++		result = option_rezero(us);
 +		if (result != USB_STOR_XFER_GOOD)
 +			US_DEBUGP("Option MS: Failed to switch to modem mode.\n");
 +		return -EIO;
@@ -26636,7 +26680,6 @@ index 0000000..ed7664d
 +}
 +
 +EXPORT_SYMBOL(option_ms_init);
-\ No newline at end of file
 diff --git a/drivers/usb/storage/option_ms.h b/drivers/usb/storage/option_ms.h
 new file mode 100644
 index 0000000..b6e448c
@@ -26651,6 +26694,30 @@ diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
 index dc43f0c..1ba19ea 100644
 --- a/drivers/usb/storage/scsiglue.c
 +++ b/drivers/usb/storage/scsiglue.c
+@@ -124,6 +124,14 @@ static int slave_configure(struct scsi_device *sdev)
+ 					      max_sectors);
+ 	}
+ 
++	/* Some USB host controllers can't do DMA; they have to use PIO.
++	 * They indicate this by setting their dma_mask to NULL.  For
++	 * such controllers we need to make sure the block layer sets
++	 * up bounce buffers in addressable memory.
++	 */
++	if (!us->pusb_dev->bus->controller->dma_mask)
++		blk_queue_bounce_limit(sdev->request_queue, BLK_BOUNCE_HIGH);
++
+ 	/* We can't put these settings in slave_alloc() because that gets
+ 	 * called before the device type is known.  Consequently these
+ 	 * settings can't be overridden via the scsi devinfo mechanism. */
+@@ -246,7 +254,7 @@ static int queuecommand(struct scsi_cmnd *srb,
+ 	/* enqueue the command and wake up the control thread */
+ 	srb->scsi_done = done;
+ 	us->srb = srb;
+-	up(&(us->sema));
++	complete(&us->cmnd_ready);
+ 
+ 	return 0;
+ }
 @@ -321,10 +321,14 @@ void usb_stor_report_device_reset(struct us_data *us)
  
  /* Report a driver-initiated bus reset to the SCSI layer.
@@ -26915,6 +26982,15 @@ index 323293a..2e495bd 100644
  /*
   * Transfer a scatter-gather list via bulk transfer
   *
+@@ -701,7 +701,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
+ 	}
+ 
+ 	/* Did we transfer less than the minimum amount required? */
+-	if (srb->result == SAM_STAT_GOOD &&
++	if ((srb->result == SAM_STAT_GOOD || srb->sense_buffer[2] == 0) &&
+ 			srb->request_bufflen - srb->resid < srb->underflow)
+ 		srb->result = (DID_ERROR << 16) | (SUGGEST_RETRY << 24);
+ 
 diff --git a/drivers/usb/storage/unusual_devs.h b/drivers/usb/storage/unusual_devs.h
 index 54979c2..1382e55 100644
 --- a/drivers/usb/storage/unusual_devs.h
@@ -27307,7 +27383,8 @@ index 54979c2..1382e55 100644
 +UNUSUAL_DEV(  0x07af, 0x0004, 0x0100, 0x0133,
  		"Microtech",
  		"USB-SCSI-DB25",
- 		US_SC_SCSI, US_PR_BULK, usb_stor_euscsi_init,
+-		US_SC_SCSI, US_PR_BULK, usb_stor_euscsi_init,
++		US_SC_DEVICE, US_PR_DEVICE, usb_stor_euscsi_init,
  		US_FL_SCM_MULT_TARG ), 
  
 -UNUSUAL_DEV(  0x07af, 0x0005, 0x0100, 0x0100, 
@@ -27849,6 +27926,17 @@ diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
 index b443bb8..14afca9 100644
 --- a/drivers/usb/storage/usb.c
 +++ b/drivers/usb/storage/usb.c
+@@ -47,6 +47,10 @@
+  * 675 Mass Ave, Cambridge, MA 02139, USA.
+  */
+ 
++#ifdef CONFIG_USB_STORAGE_DEBUG
++#define DEBUG
++#endif
++
+ #include <linux/sched.h>
+ #include <linux/errno.h>
+ #include <linux/freezer.h>
 @@ -101,6 +101,8 @@
  #ifdef CONFIG_USB_STORAGE_KARMA
  #include "karma.h"
@@ -27943,6 +28031,18 @@ index b443bb8..14afca9 100644
  }
  
  /*
+@@ -314,9 +318,9 @@ static int usb_stor_control_thread(void * __us)
+ 
+ 	for(;;) {
+ 		US_DEBUGP("*** thread sleeping.\n");
+-		if(down_interruptible(&us->sema))
++		if (wait_for_completion_interruptible(&us->cmnd_ready))
+ 			break;
+-			
++
+ 		US_DEBUGP("*** thread awakened.\n");
+ 
+ 		/* lock the device pointers */
 @@ -412,23 +420,15 @@ SkipForAbort:
  		mutex_unlock(&us->dev_mutex);
  	} /* for (;;) */
@@ -27998,10 +28098,12 @@ index b443bb8..14afca9 100644
  
  	return 0;
  }
-@@ -825,6 +819,8 @@ static void usb_stor_release_resources(struct us_data *us)
+@@ -825,7 +819,9 @@ static void usb_stor_release_resources(struct us_data *us)
+ 	 */
  	US_DEBUGP("-- sending exit command to thread\n");
  	set_bit(US_FLIDX_DISCONNECTING, &us->flags);
- 	up(&us->sema);
+-	up(&us->sema);
++	complete(&us->cmnd_ready);
 +	if (us->ctl_thread)
 +		kthread_stop(us->ctl_thread);
  
@@ -28034,15 +28136,31 @@ index b443bb8..14afca9 100644
  }
  
  /* Second stage of disconnect processing: deallocate all resources */
-@@ -909,6 +906,7 @@ static int usb_stor_scan_thread(void * __us)
- 	printk(KERN_DEBUG
- 		"usb-storage: device found at %d\n", us->pusb_dev->devnum);
+@@ -904,13 +908,13 @@ static int usb_stor_scan_thread(void * __us)
+ {
+ 	struct us_data *us = (struct us_data *)__us;
  
-+	set_freezable();
+-	printk(KERN_DEBUG
+-		"usb-storage: device found at %d\n", us->pusb_dev->devnum);
++	dev_dbg(&us->pusb_intf->dev, "device found\n");
+ 
++ 	set_freezable();
  	/* Wait for the timeout to expire or for a disconnect */
  	if (delay_use > 0) {
- 		printk(KERN_DEBUG "usb-storage: waiting for device "
-@@ -937,8 +935,7 @@ retry:
+-		printk(KERN_DEBUG "usb-storage: waiting for device "
+-				"to settle before scanning\n");
++		dev_dbg(&us->pusb_intf->dev, "waiting for device to settle "
++				"before scanning\n");
+ retry:
+ 		wait_event_interruptible_timeout(us->delay_wait,
+ 				test_bit(US_FLIDX_DISCONNECTING, &us->flags),
+@@ -931,13 +934,12 @@ retry:
+ 			mutex_unlock(&us->dev_mutex);
+ 		}
+ 		scsi_scan_host(us_to_host(us));
+-		printk(KERN_DEBUG "usb-storage: device scan complete\n");
++		dev_dbg(&us->pusb_intf->dev, "scan complete\n");
+ 
  		/* Should we unbind if no devices were detected? */
  	}
  
@@ -28052,8 +28170,12 @@ index b443bb8..14afca9 100644
  }
  
  
-@@ -973,6 +970,7 @@ static int storage_probe(struct usb_interface *intf,
- 	init_MUTEX_LOCKED(&(us->sema));
+@@ -973,9 +970,10 @@ static int storage_probe(struct usb_interface *intf,
+ 	us = host_to_us(host);
+ 	memset(us, 0, sizeof(struct us_data));
+ 	mutex_init(&(us->dev_mutex));
+-	init_MUTEX_LOCKED(&(us->sema));
++	init_completion(&us->cmnd_ready);
  	init_completion(&(us->notify));
  	init_waitqueue_head(&us->delay_wait);
 +	init_completion(&us->scanning_done);
@@ -28108,7 +28230,8 @@ index 6dac1ff..8d87503 100644
 +	struct task_struct	*ctl_thread;	 /* the control thread   */
  
  	/* mutual exclusion and synchronization structures */
- 	struct semaphore	sema;		 /* to sleep thread on	    */
+-	struct semaphore	sema;		 /* to sleep thread on	    */
++	struct completion	cmnd_ready;	 /* to sleep thread on	    */
  	struct completion	notify;		 /* thread begin/end	    */
  	wait_queue_head_t	delay_wait;	 /* wait during scan, reset */
 +	struct completion	scanning_done;	 /* wait for scan thread    */
