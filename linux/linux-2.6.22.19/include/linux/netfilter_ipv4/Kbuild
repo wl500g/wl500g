@@ -16,6 +16,7 @@ header-y += ipt_esp.h
 header-y += ipt_hashlimit.h
 header-y += ipt_helper.h
 header-y += ipt_iprange.h
+header-y += ipt_layer7.h
 header-y += ipt_length.h
 header-y += ipt_limit.h
 header-y += ipt_LOG.h

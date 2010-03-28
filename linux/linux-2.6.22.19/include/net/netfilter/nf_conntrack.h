@@ -27,6 +27,23 @@
 
 #include <net/netfilter/nf_conntrack_tuple.h>
 
+#if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || \
+    defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
+struct ip_ct_layer7
+{
+	/*
+	 * e.g. "http". NULL before decision. "unknown" after decision
+	 * if no match.
+	 */
+	char *app_proto;
+	/*
+	 * application layer data so far. NULL after match decision.
+	 */
+	char *app_data;
+	unsigned int app_data_len;
+};
+#endif
+
 /* per conntrack: protocol private data */
 union nf_conntrack_proto {
 	/* insert conntrack proto private data here */
@@ -130,6 +147,11 @@ struct nf_conn
 
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
+
+#if defined(CONFIG_NETFILTER_XT_MATCH_LAYER7) || \
+    defined(CONFIG_NETFILTER_XT_MATCH_LAYER7_MODULE)
+	struct ip_ct_layer7 layer7;
+#endif
 
 	/* features dynamically at the end: helper, nat (both optional) */
 	char data[0];
