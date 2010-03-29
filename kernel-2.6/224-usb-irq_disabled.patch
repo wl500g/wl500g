@@ -1,0 +1,113 @@
+From d61533a6be2908afeecdf12bca6f484d926853de Mon Sep 17 00:00:00 2001
+From: Fedor <fedork@ubuntu.(none)>
+Date: Mon, 22 Mar 2010 22:20:40 -0400
+Subject: [PATCH] USB: use IRQF_DISABLED for HCD interrupt handlers, use u16 for isochronous intervals
+
+kernel.org patches
+442258e2ff69276ff767f3703b30ce6a31fdd181
+c06d4dcf5034ee2289a921b9b2c547f3fed2d878
+---
+ drivers/usb/core/hcd-pci.c      |    2 +-
+ drivers/usb/host/ehci-fsl.c     |    2 +-
+ drivers/usb/host/ehci.h         |    2 +-
+ drivers/usb/host/ohci-ppc-of.c  |    2 +-
+ drivers/usb/host/uhci-hcd.c     |    9 ++++-----
+ 5 files changed, 8 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/usb/core/hcd-pci.c b/drivers/usb/core/hcd-pci.c
+index 5cf6d5f..3fb9af8 100644
+--- a/drivers/usb/core/hcd-pci.c
++++ b/drivers/usb/core/hcd-pci.c
+@@ -125,7 +125,7 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
+ 
+ 	pci_set_master (dev);
+ 
+-	retval = usb_add_hcd (hcd, dev->irq, IRQF_SHARED);
++	retval = usb_add_hcd(hcd, dev->irq, IRQF_DISABLED | IRQF_SHARED);
+ 	if (retval != 0)
+ 		goto err4;
+ 	return retval;
+diff --git a/drivers/usb/host/ehci-fsl.c b/drivers/usb/host/ehci-fsl.c
+index b7b7bfb..430821c 100644
+--- a/drivers/usb/host/ehci-fsl.c
++++ b/drivers/usb/host/ehci-fsl.c
+@@ -122,7 +122,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
+ 	temp = in_le32(hcd->regs + 0x1a8);
+ 	out_le32(hcd->regs + 0x1a8, temp | 0x3);
+ 
+-	retval = usb_add_hcd(hcd, irq, IRQF_SHARED);
++	retval = usb_add_hcd(hcd, irq, IRQF_DISABLED | IRQF_SHARED);
+ 	if (retval != 0)
+ 		goto err4;
+ 	return retval;
+diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
+index 951d69f..b307fe4 100644
+--- a/drivers/usb/host/ehci.h
++++ b/drivers/usb/host/ehci.h
+@@ -534,8 +534,8 @@ struct ehci_iso_stream {
+ 	 * trusting urb->interval == f(epdesc->bInterval) and
+ 	 * including the extra info for hw_bufp[0..2]
+ 	 */
+-	u8			interval;
+ 	u8			usecs, c_usecs;
++	u16			interval;
+ 	u16			tt_usecs;
+ 	u16			maxp;
+ 	u16			raw_mask;
+diff --git a/drivers/usb/host/ohci-ppc-of.c b/drivers/usb/host/ohci-ppc-of.c
+index c43b66a..9695283 100644
+--- a/drivers/usb/host/ohci-ppc-of.c
++++ b/drivers/usb/host/ohci-ppc-of.c
+@@ -139,7 +139,7 @@ ohci_hcd_ppc_of_probe(struct of_device *op, const struct of_device_id *match)
+ 
+ 	ohci_hcd_init(ohci);
+ 
+-	rv = usb_add_hcd(hcd, irq, 0);
++	rv = usb_add_hcd(hcd, irq, IRQF_DISABLED);
+ 	if (rv == 0)
+ 		return 0;
+ 
+diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
+index 7f10519..690013e 100644
+--- a/drivers/usb/host/uhci-hcd.c
++++ b/drivers/usb/host/uhci-hcd.c
+@@ -378,7 +378,6 @@ static irqreturn_t uhci_irq(struct usb_hcd *hcd)
+ {
+ 	struct uhci_hcd *uhci = hcd_to_uhci(hcd);
+ 	unsigned short status;
+-	unsigned long flags;
+ 
+ 	/*
+ 	 * Read the interrupt status, and write it back to clear the
+@@ -398,7 +397,7 @@ static irqreturn_t uhci_irq(struct usb_hcd *hcd)
+ 			dev_err(uhci_dev(uhci), "host controller process "
+ 					"error, something bad happened!\n");
+ 		if (status & USBSTS_HCH) {
+-			spin_lock_irqsave(&uhci->lock, flags);
++			spin_lock(&uhci->lock);
+ 			if (uhci->rh_state >= UHCI_RH_RUNNING) {
+ 				dev_err(uhci_dev(uhci),
+ 					"host controller halted, "
+@@ -415,16 +414,16 @@ static irqreturn_t uhci_irq(struct usb_hcd *hcd)
+ 				 * pending unlinks */
+ 				mod_timer(&hcd->rh_timer, jiffies);
+ 			}
+-			spin_unlock_irqrestore(&uhci->lock, flags);
++			spin_unlock(&uhci->lock);
+ 		}
+ 	}
+ 
+ 	if (status & USBSTS_RD)
+ 		usb_hcd_poll_rh_status(hcd);
+ 	else {
+-		spin_lock_irqsave(&uhci->lock, flags);
++		spin_lock(&uhci->lock);
+ 		uhci_scan_schedule(uhci);
+-		spin_unlock_irqrestore(&uhci->lock, flags);
++		spin_unlock(&uhci->lock);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+-- 
+1.6.5.GIT
+

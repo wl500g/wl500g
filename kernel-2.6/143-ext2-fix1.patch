@@ -1,0 +1,802 @@
+From 10b78d0ce9c7bf4f87a44a24ab9fa7af2f439ca7
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 25 Mar 2010 18:23:21 -0400
+Subject: [PATCH] Ext2: fixes from 2.6 tree
+
+---
+ fs/ext2/balloc.c        |  101 ++++++++++++++++---
+ fs/ext2/dir.c           |  106 +++++++++++++-------
+ fs/ext2/ext2.h          |    7 ++
+ fs/ext2/inode.c         |   59 +++++++----
+ fs/ext2/super.c         |   69 +++++++++++--
+ fs/ext2/xattr.c         |    6 +-
+ include/linux/ext2_fs.h |    8 +--
+ 7 files changed, 261 insertions(+), 95 deletions(-)
+
+diff --git a/fs/ext2/balloc.c b/fs/ext2/balloc.c
+index 538c221..557d1f4 100644
+--- a/fs/ext2/balloc.c
++++ b/fs/ext2/balloc.c
+@@ -69,9 +69,53 @@ struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
+ 	return desc + offset;
+ }
+ 
++static int ext2_valid_block_bitmap(struct super_block *sb,
++					struct ext2_group_desc *desc,
++					unsigned int block_group,
++					struct buffer_head *bh)
++{
++	ext2_grpblk_t offset;
++	ext2_grpblk_t next_zero_bit;
++	ext2_fsblk_t bitmap_blk;
++	ext2_fsblk_t group_first_block;
++
++	group_first_block = ext2_group_first_block_no(sb, block_group);
++
++	/* check whether block bitmap block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_block_bitmap);
++	offset = bitmap_blk - group_first_block;
++	if (!ext2_test_bit(offset, bh->b_data))
++		/* bad block bitmap */
++		goto err_out;
++
++	/* check whether the inode bitmap block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_inode_bitmap);
++	offset = bitmap_blk - group_first_block;
++	if (!ext2_test_bit(offset, bh->b_data))
++		/* bad block bitmap */
++		goto err_out;
++
++	/* check whether the inode table block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_inode_table);
++	offset = bitmap_blk - group_first_block;
++	next_zero_bit = ext2_find_next_zero_bit(bh->b_data,
++				offset + EXT2_SB(sb)->s_itb_per_group,
++				offset);
++	if (next_zero_bit >= offset + EXT2_SB(sb)->s_itb_per_group)
++		/* good bitmap for inode tables */
++		return 1;
++
++err_out:
++	ext2_error(sb, __FUNCTION__,
++			"Invalid block bitmap - "
++			"block_group = %d, block = %lu",
++			block_group, bitmap_blk);
++	return 0;
++}
++
+ /*
+- * Read the bitmap for a given block_group, reading into the specified 
+- * slot in the superblock's bitmap cache.
++ * Read the bitmap for a given block_group,and validate the
++ * bits for block/inode/inode tables are set in the bitmaps
+  *
+  * Return buffer_head on success or NULL in case of failure.
+  */
+@@ -80,17 +124,37 @@ read_block_bitmap(struct super_block *sb, unsigned int block_group)
+ {
+ 	struct ext2_group_desc * desc;
+ 	struct buffer_head * bh = NULL;
+-	
+-	desc = ext2_get_group_desc (sb, block_group, NULL);
++	ext2_fsblk_t bitmap_blk;
++
++	desc = ext2_get_group_desc(sb, block_group, NULL);
+ 	if (!desc)
+-		goto error_out;
+-	bh = sb_bread(sb, le32_to_cpu(desc->bg_block_bitmap));
+-	if (!bh)
+-		ext2_error (sb, "read_block_bitmap",
++		return NULL;
++	bitmap_blk = le32_to_cpu(desc->bg_block_bitmap);
++	bh = sb_getblk(sb, bitmap_blk);
++	if (unlikely(!bh)) {
++		ext2_error(sb, __FUNCTION__,
+ 			    "Cannot read block bitmap - "
+ 			    "block_group = %d, block_bitmap = %u",
+ 			    block_group, le32_to_cpu(desc->bg_block_bitmap));
+-error_out:
++		return NULL;
++	}
++	if (likely(bh_uptodate_or_lock(bh)))
++		return bh;
++
++	if (bh_submit_read(bh) < 0) {
++		brelse(bh);
++		ext2_error(sb, __FUNCTION__,
++			    "Cannot read block bitmap - "
++			    "block_group = %d, block_bitmap = %u",
++			    block_group, le32_to_cpu(desc->bg_block_bitmap));
++		return NULL;
++	}
++
++	ext2_valid_block_bitmap(sb, desc, block_group, bh);
++	/*
++	 * file system mounted not to panic on error, continue with corrupt
++	 * bitmap
++	 */
+ 	return bh;
+ }
+ 
+@@ -182,8 +246,7 @@ restart:
+ 		prev = rsv;
+ 	}
+ 	printk("Window map complete.\n");
+-	if (bad)
+-		BUG();
++	BUG_ON(bad);
+ }
+ #define rsv_window_dump(root, verbose) \
+ 	__rsv_window_dump((root), (verbose), __FUNCTION__)
+@@ -474,11 +537,13 @@ do_more:
+ 	    in_range (block, le32_to_cpu(desc->bg_inode_table),
+ 		      sbi->s_itb_per_group) ||
+ 	    in_range (block + count - 1, le32_to_cpu(desc->bg_inode_table),
+-		      sbi->s_itb_per_group))
++		      sbi->s_itb_per_group)) {
+ 		ext2_error (sb, "ext2_free_blocks",
+ 			    "Freeing blocks in system zones - "
+ 			    "Block = %lu, count = %lu",
+ 			    block, count);
++		goto error_return;
++	}
+ 
+ 	for (i = 0, group_freed = 0; i < count; i++) {
+ 		if (!ext2_clear_bit_atomic(sb_bgl_lock(sbi, block_group),
+@@ -1230,6 +1295,7 @@ retry_alloc:
+ 	 * turn off reservation for this allocation
+ 	 */
+ 	if (my_rsv && (free_blocks < windowsz)
++		&& (free_blocks > 0)
+ 		&& (rsv_is_empty(&my_rsv->rsv_window)))
+ 		my_rsv = NULL;
+ 
+@@ -1267,7 +1333,7 @@ retry_alloc:
+ 		 * free blocks is less than half of the reservation
+ 		 * window size.
+ 		 */
+-		if (free_blocks <= (windowsz/2))
++		if (my_rsv && (free_blocks <= (windowsz/2)))
+ 			continue;
+ 
+ 		brelse(bitmap_bh);
+@@ -1311,11 +1377,18 @@ allocated:
+ 	    in_range(ret_block, le32_to_cpu(gdp->bg_inode_table),
+ 		      EXT2_SB(sb)->s_itb_per_group) ||
+ 	    in_range(ret_block + num - 1, le32_to_cpu(gdp->bg_inode_table),
+-		      EXT2_SB(sb)->s_itb_per_group))
++		      EXT2_SB(sb)->s_itb_per_group)) {
+ 		ext2_error(sb, "ext2_new_blocks",
+ 			    "Allocating block in system zone - "
+ 			    "blocks from "E2FSBLK", length %lu",
+ 			    ret_block, num);
++		/*
++		 * ext2_try_to_allocate marked the blocks we allocated as in
++		 * use.  So we may want to selectively mark some of the blocks
++		 * as free
++		 */
++		goto retry_alloc;
++	}
+ 
+ 	performed_allocation = 1;
+ 
+diff --git a/fs/ext2/dir.c b/fs/ext2/dir.c
+index 2bf49d7..7899e1b 100644
+--- a/fs/ext2/dir.c
++++ b/fs/ext2/dir.c
+@@ -26,6 +26,24 @@
+ 
+ typedef struct ext2_dir_entry_2 ext2_dirent;
+ 
++static inline unsigned ext2_rec_len_from_disk(__le16 dlen)
++{
++	unsigned len = le16_to_cpu(dlen);
++
++	if (len == EXT2_MAX_REC_LEN)
++		return 1 << 16;
++	return len;
++}
++
++static inline __le16 ext2_rec_len_to_disk(unsigned len)
++{
++	if (len == (1 << 16))
++		return cpu_to_le16(EXT2_MAX_REC_LEN);
++	else
++		BUG_ON(len > (1 << 16));
++	return cpu_to_le16(len);
++}
++
+ /*
+  * ext2 uses block-sized chunks. Arguably, sector-sized ones would be
+  * more robust, but we have what we have
+@@ -74,7 +92,7 @@ static int ext2_commit_chunk(struct page *page, unsigned from, unsigned to)
+ 	return err;
+ }
+ 
+-static void ext2_check_page(struct page *page)
++static void ext2_check_page(struct page *page, int quiet)
+ {
+ 	struct inode *dir = page->mapping->host;
+ 	struct super_block *sb = dir->i_sb;
+@@ -95,7 +113,7 @@ static void ext2_check_page(struct page *page)
+ 	}
+ 	for (offs = 0; offs <= limit - EXT2_DIR_REC_LEN(1); offs += rec_len) {
+ 		p = (ext2_dirent *)(kaddr + offs);
+-		rec_len = le16_to_cpu(p->rec_len);
++		rec_len = ext2_rec_len_from_disk(p->rec_len);
+ 
+ 		if (rec_len < EXT2_DIR_REC_LEN(1))
+ 			goto Eshort;
+@@ -117,10 +135,10 @@ out:
+ 	/* Too bad, we had an error */
+ 
+ Ebadsize:
+-	ext2_error(sb, "ext2_check_page",
+-		"size of directory #%lu is not a multiple of chunk size",
+-		dir->i_ino
+-	);
++	if (!quiet)
++		ext2_error(sb, __func__,
++			"size of directory #%lu is not a multiple "
++			"of chunk size", dir->i_ino);
+ 	goto fail;
+ Eshort:
+ 	error = "rec_len is smaller than minimal";
+@@ -137,32 +155,36 @@ Espan:
+ Einumber:
+ 	error = "inode out of bounds";
+ bad_entry:
+-	ext2_error (sb, "ext2_check_page", "bad entry in directory #%lu: %s - "
+-		"offset=%lu, inode=%lu, rec_len=%d, name_len=%d",
+-		dir->i_ino, error, (page->index<<PAGE_CACHE_SHIFT)+offs,
+-		(unsigned long) le32_to_cpu(p->inode),
+-		rec_len, p->name_len);
++	if (!quiet)
++		ext2_error(sb, __func__, "bad entry in directory #%lu: : %s - "
++			"offset=%lu, inode=%lu, rec_len=%d, name_len=%d",
++			dir->i_ino, error, (page->index<<PAGE_CACHE_SHIFT)+offs,
++			(unsigned long) le32_to_cpu(p->inode),
++			rec_len, p->name_len);
+ 	goto fail;
+ Eend:
+-	p = (ext2_dirent *)(kaddr + offs);
+-	ext2_error (sb, "ext2_check_page",
+-		"entry in directory #%lu spans the page boundary"
+-		"offset=%lu, inode=%lu",
+-		dir->i_ino, (page->index<<PAGE_CACHE_SHIFT)+offs,
+-		(unsigned long) le32_to_cpu(p->inode));
++	if (!quiet) {
++		p = (ext2_dirent *)(kaddr + offs);
++		ext2_error(sb, "ext2_check_page",
++			"entry in directory #%lu spans the page boundary"
++			"offset=%lu, inode=%lu",
++			dir->i_ino, (page->index<<PAGE_CACHE_SHIFT)+offs,
++			(unsigned long) le32_to_cpu(p->inode));
++	}
+ fail:
+ 	SetPageChecked(page);
+ 	SetPageError(page);
+ }
+ 
+-static struct page * ext2_get_page(struct inode *dir, unsigned long n)
++static struct page * ext2_get_page(struct inode *dir, unsigned long n,
++				   int quiet)
+ {
+ 	struct address_space *mapping = dir->i_mapping;
+ 	struct page *page = read_mapping_page(mapping, n, NULL);
+ 	if (!IS_ERR(page)) {
+ 		kmap(page);
+ 		if (!PageChecked(page))
+-			ext2_check_page(page);
++			ext2_check_page(page, quiet);
+ 		if (PageError(page))
+ 			goto fail;
+ 	}
+@@ -193,7 +215,8 @@ static inline int ext2_match (int len, const char * const name,
+  */
+ static inline ext2_dirent *ext2_next_entry(ext2_dirent *p)
+ {
+-	return (ext2_dirent *)((char*)p + le16_to_cpu(p->rec_len));
++	return (ext2_dirent *)((char *)p +
++			ext2_rec_len_from_disk(p->rec_len));
+ }
+ 
+ static inline unsigned 
+@@ -262,14 +285,14 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
+ 	for ( ; n < npages; n++, offset = 0) {
+ 		char *kaddr, *limit;
+ 		ext2_dirent *de;
+-		struct page *page = ext2_get_page(inode, n);
++		struct page *page = ext2_get_page(inode, n, 0);
+ 
+ 		if (IS_ERR(page)) {
+ 			ext2_error(sb, __FUNCTION__,
+ 				   "bad page in #%lu",
+ 				   inode->i_ino);
+ 			filp->f_pos += PAGE_CACHE_SIZE - offset;
+-			return -EIO;
++			return PTR_ERR(page);
+ 		}
+ 		kaddr = page_address(page);
+ 		if (unlikely(need_revalidate)) {
+@@ -305,7 +328,7 @@ ext2_readdir (struct file * filp, void * dirent, filldir_t filldir)
+ 					return 0;
+ 				}
+ 			}
+-			filp->f_pos += le16_to_cpu(de->rec_len);
++			filp->f_pos += ext2_rec_len_from_disk(de->rec_len);
+ 		}
+ 		ext2_put_page(page);
+ 	}
+@@ -331,6 +354,7 @@ struct ext2_dir_entry_2 * ext2_find_entry (struct inode * dir,
+ 	struct page *page = NULL;
+ 	struct ext2_inode_info *ei = EXT2_I(dir);
+ 	ext2_dirent * de;
++	int dir_has_error = 0;
+ 
+ 	if (npages == 0)
+ 		goto out;
+@@ -344,7 +368,7 @@ struct ext2_dir_entry_2 * ext2_find_entry (struct inode * dir,
+ 	n = start;
+ 	do {
+ 		char *kaddr;
+-		page = ext2_get_page(dir, n);
++		page = ext2_get_page(dir, n, dir_has_error);
+ 		if (!IS_ERR(page)) {
+ 			kaddr = page_address(page);
+ 			de = (ext2_dirent *) kaddr;
+@@ -361,7 +385,9 @@ struct ext2_dir_entry_2 * ext2_find_entry (struct inode * dir,
+ 				de = ext2_next_entry(de);
+ 			}
+ 			ext2_put_page(page);
+-		}
++		} else
++			dir_has_error = 1;
++
+ 		if (++n >= npages)
+ 			n = 0;
+ 		/* next page is past the blocks we've got */
+@@ -384,7 +410,7 @@ found:
+ 
+ struct ext2_dir_entry_2 * ext2_dotdot (struct inode *dir, struct page **p)
+ {
+-	struct page *page = ext2_get_page(dir, 0);
++	struct page *page = ext2_get_page(dir, 0, 0);
+ 	ext2_dirent *de = NULL;
+ 
+ 	if (!IS_ERR(page)) {
+@@ -413,7 +439,7 @@ void ext2_set_link(struct inode *dir, struct ext2_dir_entry_2 *de,
+ 			struct page *page, struct inode *inode)
+ {
+ 	unsigned from = (char *) de - (char *) page_address(page);
+-	unsigned to = from + le16_to_cpu(de->rec_len);
++	unsigned to = from + ext2_rec_len_from_disk(de->rec_len);
+ 	int err;
+ 
+ 	lock_page(page);
+@@ -455,7 +481,7 @@ int ext2_add_link (struct dentry *dentry, struct inode *inode)
+ 	for (n = 0; n <= npages; n++) {
+ 		char *dir_end;
+ 
+-		page = ext2_get_page(dir, n);
++		page = ext2_get_page(dir, n, 0);
+ 		err = PTR_ERR(page);
+ 		if (IS_ERR(page))
+ 			goto out;
+@@ -469,7 +495,7 @@ int ext2_add_link (struct dentry *dentry, struct inode *inode)
+ 				/* We hit i_size */
+ 				name_len = 0;
+ 				rec_len = chunk_size;
+-				de->rec_len = cpu_to_le16(chunk_size);
++				de->rec_len = ext2_rec_len_to_disk(chunk_size);
+ 				de->inode = 0;
+ 				goto got_it;
+ 			}
+@@ -483,7 +509,7 @@ int ext2_add_link (struct dentry *dentry, struct inode *inode)
+ 			if (ext2_match (namelen, name, de))
+ 				goto out_unlock;
+ 			name_len = EXT2_DIR_REC_LEN(de->name_len);
+-			rec_len = le16_to_cpu(de->rec_len);
++			rec_len = ext2_rec_len_from_disk(de->rec_len);
+ 			if (!de->inode && rec_len >= reclen)
+ 				goto got_it;
+ 			if (rec_len >= name_len + reclen)
+@@ -504,8 +530,8 @@ got_it:
+ 		goto out_unlock;
+ 	if (de->inode) {
+ 		ext2_dirent *de1 = (ext2_dirent *) ((char *) de + name_len);
+-		de1->rec_len = cpu_to_le16(rec_len - name_len);
+-		de->rec_len = cpu_to_le16(name_len);
++		de1->rec_len = ext2_rec_len_to_disk(rec_len - name_len);
++		de->rec_len = ext2_rec_len_to_disk(name_len);
+ 		de = de1;
+ 	}
+ 	de->name_len = namelen;
+@@ -536,7 +562,8 @@ int ext2_delete_entry (struct ext2_dir_entry_2 * dir, struct page * page )
+ 	struct inode *inode = mapping->host;
+ 	char *kaddr = page_address(page);
+ 	unsigned from = ((char*)dir - kaddr) & ~(ext2_chunk_size(inode)-1);
+-	unsigned to = ((char*)dir - kaddr) + le16_to_cpu(dir->rec_len);
++	unsigned to = ((char *)dir - kaddr) +
++				ext2_rec_len_from_disk(dir->rec_len);
+ 	ext2_dirent * pde = NULL;
+ 	ext2_dirent * de = (ext2_dirent *) (kaddr + from);
+ 	int err;
+@@ -557,7 +584,7 @@ int ext2_delete_entry (struct ext2_dir_entry_2 * dir, struct page * page )
+ 	err = mapping->a_ops->prepare_write(NULL, page, from, to);
+ 	BUG_ON(err);
+ 	if (pde)
+-		pde->rec_len = cpu_to_le16(to-from);
++		pde->rec_len = ext2_rec_len_to_disk(to - from);
+ 	dir->inode = 0;
+ 	err = ext2_commit_chunk(page, from, to);
+ 	inode->i_ctime = inode->i_mtime = CURRENT_TIME_SEC;
+@@ -591,14 +618,14 @@ int ext2_make_empty(struct inode *inode, struct inode *parent)
+ 	memset(kaddr, 0, chunk_size);
+ 	de = (struct ext2_dir_entry_2 *)kaddr;
+ 	de->name_len = 1;
+-	de->rec_len = cpu_to_le16(EXT2_DIR_REC_LEN(1));
++	de->rec_len = ext2_rec_len_to_disk(EXT2_DIR_REC_LEN(1));
+ 	memcpy (de->name, ".\0\0", 4);
+ 	de->inode = cpu_to_le32(inode->i_ino);
+ 	ext2_set_de_type (de, inode);
+ 
+ 	de = (struct ext2_dir_entry_2 *)(kaddr + EXT2_DIR_REC_LEN(1));
+ 	de->name_len = 2;
+-	de->rec_len = cpu_to_le16(chunk_size - EXT2_DIR_REC_LEN(1));
++	de->rec_len = ext2_rec_len_to_disk(chunk_size - EXT2_DIR_REC_LEN(1));
+ 	de->inode = cpu_to_le32(parent->i_ino);
+ 	memcpy (de->name, "..\0", 4);
+ 	ext2_set_de_type (de, inode);
+@@ -616,14 +643,17 @@ int ext2_empty_dir (struct inode * inode)
+ {
+ 	struct page *page = NULL;
+ 	unsigned long i, npages = dir_pages(inode);
++	int dir_has_error = 0;
+ 
+ 	for (i = 0; i < npages; i++) {
+ 		char *kaddr;
+ 		ext2_dirent * de;
+-		page = ext2_get_page(inode, i);
++		page = ext2_get_page(inode, i, dir_has_error);
+ 
+-		if (IS_ERR(page))
++		if (IS_ERR(page)) {
++			dir_has_error = 1;
+ 			continue;
++		}
+ 
+ 		kaddr = page_address(page);
+ 		de = (ext2_dirent *)kaddr;
+diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
+index baa8deb..21f9462 100644
+--- a/fs/ext2/ext2.h
++++ b/fs/ext2/ext2.h
+@@ -175,3 +175,10 @@ extern const struct inode_operations ext2_special_inode_operations;
+ /* symlink.c */
+ extern const struct inode_operations ext2_fast_symlink_inode_operations;
+ extern const struct inode_operations ext2_symlink_inode_operations;
++
++static inline ext2_fsblk_t
++ext2_group_first_block_no(struct super_block *sb, unsigned long group_no)
++{
++	return group_no * (ext2_fsblk_t)EXT2_BLOCKS_PER_GROUP(sb) +
++		le32_to_cpu(EXT2_SB(sb)->s_es->s_first_data_block);
++}
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+index baea2a1..781c06b 100644
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -254,13 +254,13 @@ no_block:
+  *	Caller must make sure that @ind is valid and will stay that way.
+  */
+ 
+-static unsigned long ext2_find_near(struct inode *inode, Indirect *ind)
++static ext2_fsblk_t ext2_find_near(struct inode *inode, Indirect *ind)
+ {
+ 	struct ext2_inode_info *ei = EXT2_I(inode);
+ 	__le32 *start = ind->bh ? (__le32 *) ind->bh->b_data : ei->i_data;
+ 	__le32 *p;
+-	unsigned long bg_start;
+-	unsigned long colour;
++	ext2_fsblk_t bg_start;
++	ext2_fsblk_t colour;
+ 
+ 	/* Try to find previous block */
+ 	for (p = ind->p - 1; p >= start; p--)
+@@ -275,8 +275,7 @@ static unsigned long ext2_find_near(struct inode *inode, Indirect *ind)
+ 	 * It is going to be refered from inode itself? OK, just put it into
+ 	 * the same cylinder group then.
+ 	 */
+-	bg_start = (ei->i_block_group * EXT2_BLOCKS_PER_GROUP(inode->i_sb)) +
+-		le32_to_cpu(EXT2_SB(inode->i_sb)->s_es->s_first_data_block);
++	bg_start = ext2_group_first_block_no(inode->i_sb, ei->i_block_group);
+ 	colour = (current->pid % 16) *
+ 			(EXT2_BLOCKS_PER_GROUP(inode->i_sb) / 16);
+ 	return bg_start + colour;
+@@ -292,10 +291,8 @@ static unsigned long ext2_find_near(struct inode *inode, Indirect *ind)
+  *	Returns preferred place for a block (the goal).
+  */
+ 
+-static inline int ext2_find_goal(struct inode *inode,
+-				 long block,
+-				 Indirect chain[4],
+-				 Indirect *partial)
++static inline ext2_fsblk_t ext2_find_goal(struct inode *inode, long block,
++		Indirect chain[4], Indirect *partial)
+ {
+ 	struct ext2_block_alloc_info *block_i;
+ 
+@@ -595,9 +592,8 @@ static int ext2_get_blocks(struct inode *inode,
+ 
+ 	if (depth == 0)
+ 		return (err);
+-reread:
+-	partial = ext2_get_branch(inode, depth, offsets, chain, &err);
+ 
++	partial = ext2_get_branch(inode, depth, offsets, chain, &err);
+ 	/* Simplest case - block found, no allocation needed */
+ 	if (!partial) {
+ 		first_block = le32_to_cpu(chain[depth - 1].key);
+@@ -607,15 +603,16 @@ reread:
+ 		while (count < maxblocks && count <= blocks_to_boundary) {
+ 			ext2_fsblk_t blk;
+ 
+-			if (!verify_chain(chain, partial)) {
++			if (!verify_chain(chain, chain + depth - 1)) {
+ 				/*
+ 				 * Indirect block might be removed by
+ 				 * truncate while we were reading it.
+ 				 * Handling of that case: forget what we've
+ 				 * got now, go to reread.
+ 				 */
++				err = -EAGAIN;
+ 				count = 0;
+-				goto changed;
++				break;
+ 			}
+ 			blk = le32_to_cpu(*(chain[depth-1].p + count));
+ 			if (blk == first_block + count)
+@@ -623,7 +620,8 @@ reread:
+ 			else
+ 				break;
+ 		}
+-		goto got_it;
++		if (err != -EAGAIN)
++			goto got_it;
+ 	}
+ 
+ 	/* Next simple case - plain lookup or failed read of indirect block */
+@@ -631,6 +629,33 @@ reread:
+ 		goto cleanup;
+ 
+ 	mutex_lock(&ei->truncate_mutex);
++	/*
++	 * If the indirect block is missing while we are reading
++	 * the chain(ext3_get_branch() returns -EAGAIN err), or
++	 * if the chain has been changed after we grab the semaphore,
++	 * (either because another process truncated this branch, or
++	 * another get_block allocated this branch) re-grab the chain to see if
++	 * the request block has been allocated or not.
++	 *
++	 * Since we already block the truncate/other get_block
++	 * at this point, we will have the current copy of the chain when we
++	 * splice the branch into the tree.
++	 */
++	if (err == -EAGAIN || !verify_chain(chain, partial)) {
++		while (partial > chain) {
++			brelse(partial->bh);
++			partial--;
++		}
++		partial = ext2_get_branch(inode, depth, offsets, chain, &err);
++		if (!partial) {
++			count++;
++			mutex_unlock(&ei->truncate_mutex);
++			if (err)
++				goto cleanup;
++			clear_buffer_new(bh_result);
++			goto got_it;
++		}
++	}
+ 
+ 	/*
+ 	 * Okay, we need to do block allocation.  Lazily initialize the block
+@@ -688,12 +713,6 @@ cleanup:
+ 		partial--;
+ 	}
+ 	return err;
+-changed:
+-	while (partial > chain) {
+-		brelse(partial->bh);
+-		partial--;
+-	}
+-	goto reread;
+ }
+ 
+ int ext2_get_block(struct inode *inode, sector_t iblock, struct buffer_head *bh_result, int create)
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+index e8f64c0..e263a81 100644
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -560,14 +560,15 @@ static int ext2_check_descriptors (struct super_block * sb)
+ 	int i;
+ 	int desc_block = 0;
+ 	struct ext2_sb_info *sbi = EXT2_SB(sb);
+-	unsigned long first_block = le32_to_cpu(sbi->s_es->s_first_data_block);
+-	unsigned long last_block;
+ 	struct ext2_group_desc * gdp = NULL;
+ 
+ 	ext2_debug ("Checking group descriptors");
+ 
+ 	for (i = 0; i < sbi->s_groups_count; i++)
+ 	{
++		ext2_fsblk_t first_block = ext2_group_first_block_no(sb, i);
++		ext2_fsblk_t last_block;
++
+ 		if (i == sbi->s_groups_count - 1)
+ 			last_block = le32_to_cpu(sbi->s_es->s_blocks_count) - 1;
+ 		else
+@@ -604,7 +605,6 @@ static int ext2_check_descriptors (struct super_block * sb)
+ 				    i, (unsigned long) le32_to_cpu(gdp->bg_inode_table));
+ 			return 0;
+ 		}
+-		first_block += EXT2_BLOCKS_PER_GROUP(sb);
+ 		gdp++;
+ 	}
+ 	return 1;
+@@ -618,11 +618,31 @@ static int ext2_check_descriptors (struct super_block * sb)
+ static loff_t ext2_max_size(int bits)
+ {
+ 	loff_t res = EXT2_NDIR_BLOCKS;
+-	/* This constant is calculated to be the largest file size for a
+-	 * dense, 4k-blocksize file such that the total number of
++	int meta_blocks;
++	loff_t upper_limit;
++
++	/* This is calculated to be the largest file size for a
++	 * dense, file such that the total number of
+ 	 * sectors in the file, including data and all indirect blocks,
+-	 * does not exceed 2^32. */
+-	const loff_t upper_limit = 0x1ff7fffd000LL;
++	 * does not exceed 2^32 -1
++	 * __u32 i_blocks representing the total number of
++	 * 512 bytes blocks of the file
++	 */
++	upper_limit = (1LL << 32) - 1;
++
++	/* total blocks in file system block size */
++	upper_limit >>= (bits - 9);
++
++
++	/* indirect blocks */
++	meta_blocks = 1;
++	/* double indirect blocks */
++	meta_blocks += 1 + (1LL << (bits-2));
++	/* tripple indirect blocks */
++	meta_blocks += 1 + (1LL << (bits-2)) + (1LL << (2*(bits-2)));
++
++	upper_limit -= meta_blocks;
++	upper_limit <<= bits;
+ 
+ 	res += 1LL << (bits-2);
+ 	res += 1LL << (2*(bits-2));
+@@ -630,6 +650,10 @@ static loff_t ext2_max_size(int bits)
+ 	res <<= bits;
+ 	if (res > upper_limit)
+ 		res = upper_limit;
++
++	if (res > MAX_LFS_FILESIZE)
++		res = MAX_LFS_FILESIZE;
++
+ 	return res;
+ }
+ 
+@@ -638,10 +662,9 @@ static unsigned long descriptor_loc(struct super_block *sb,
+ 				    int nr)
+ {
+ 	struct ext2_sb_info *sbi = EXT2_SB(sb);
+-	unsigned long bg, first_data_block, first_meta_bg;
++	unsigned long bg, first_meta_bg;
+ 	int has_super = 0;
+ 	
+-	first_data_block = le32_to_cpu(sbi->s_es->s_first_data_block);
+ 	first_meta_bg = le32_to_cpu(sbi->s_es->s_first_meta_bg);
+ 
+ 	if (!EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_META_BG) ||
+@@ -650,7 +673,8 @@ static unsigned long descriptor_loc(struct super_block *sb,
+ 	bg = sbi->s_desc_per_block * nr;
+ 	if (ext2_bg_has_super(sb, bg))
+ 		has_super = 1;
+-	return (first_data_block + has_super + (bg * sbi->s_blocks_per_group));
++
++	return ext2_group_first_block_no(sb, bg) + has_super;
+ }
+ 
+ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
+@@ -780,8 +804,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
+ 
+ 	blocksize = BLOCK_SIZE << le32_to_cpu(sbi->s_es->s_log_block_size);
+ 
+-	if ((ext2_use_xip(sb)) && ((blocksize != PAGE_SIZE) ||
+-				  (sb->s_blocksize != blocksize))) {
++	if (ext2_use_xip(sb) && blocksize != PAGE_SIZE) {
+ 		if (!silent)
+ 			printk("XIP: Unsupported blocksize\n");
+ 		goto failed_mount;
+@@ -994,9 +1017,30 @@ failed_sbi:
+ 	return -EINVAL;
+ }
+ 
++static void ext2_clear_super_error(struct super_block *sb)
++{
++	struct buffer_head *sbh = EXT2_SB(sb)->s_sbh;
++
++	if (buffer_write_io_error(sbh)) {
++		/*
++		 * Oh, dear.  A previous attempt to write the
++		 * superblock failed.  This could happen because the
++		 * USB device was yanked out.  Or it could happen to
++		 * be a transient write error and maybe the block will
++		 * be remapped.  Nothing we can do but to retry the
++		 * write and hope for the best.
++		 */
++		printk(KERN_ERR "EXT2-fs: %s previous I/O error to "
++		       "superblock detected", sb->s_id);
++		clear_buffer_write_io_error(sbh);
++		set_buffer_uptodate(sbh);
++	}
++}
++
+ static void ext2_commit_super (struct super_block * sb,
+ 			       struct ext2_super_block * es)
+ {
++	ext2_clear_super_error(sb);
+ 	es->s_wtime = cpu_to_le32(get_seconds());
+ 	mark_buffer_dirty(EXT2_SB(sb)->s_sbh);
+ 	sb->s_dirt = 0;
+@@ -1004,6 +1048,7 @@ static void ext2_commit_super (struct super_block * sb,
+ 
+ static void ext2_sync_super(struct super_block *sb, struct ext2_super_block *es)
+ {
++	ext2_clear_super_error(sb);
+ 	es->s_free_blocks_count = cpu_to_le32(ext2_count_free_blocks(sb));
+ 	es->s_free_inodes_count = cpu_to_le32(ext2_count_free_inodes(sb));
+ 	es->s_wtime = cpu_to_le32(get_seconds());
+diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
+index 3e8683d..d7602f4 100644
+--- a/fs/ext2/xattr.c
++++ b/fs/ext2/xattr.c
+@@ -660,10 +660,8 @@ ext2_xattr_set2(struct inode *inode, struct buffer_head *old_bh,
+ 			ext2_xattr_cache_insert(new_bh);
+ 		} else {
+ 			/* We need to allocate a new block */
+-			int goal = le32_to_cpu(EXT2_SB(sb)->s_es->
+-						           s_first_data_block) +
+-				   EXT2_I(inode)->i_block_group *
+-				   EXT2_BLOCKS_PER_GROUP(sb);
++			ext2_fsblk_t goal = ext2_group_first_block_no(sb,
++						EXT2_I(inode)->i_block_group);
+ 			int block = ext2_new_block(inode, goal, &error);
+ 			if (error)
+ 				goto cleanup;
+diff --git a/include/linux/ext2_fs.h b/include/linux/ext2_fs.h
+index c77c3bb..84cec2a 100644
+--- a/include/linux/ext2_fs.h
++++ b/include/linux/ext2_fs.h
+@@ -561,12 +561,6 @@ enum {
+ #define EXT2_DIR_ROUND 			(EXT2_DIR_PAD - 1)
+ #define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
+ 					 ~EXT2_DIR_ROUND)
+-
+-static inline ext2_fsblk_t
+-ext2_group_first_block_no(struct super_block *sb, unsigned long group_no)
+-{
+-	return group_no * (ext2_fsblk_t)EXT2_BLOCKS_PER_GROUP(sb) +
+-		le32_to_cpu(EXT2_SB(sb)->s_es->s_first_data_block);
+-}
++#define EXT2_MAX_REC_LEN		((1<<16)-1)
+ 
+ #endif	/* _LINUX_EXT2_FS_H */
+-- 
+1.6.5.GIT
+
