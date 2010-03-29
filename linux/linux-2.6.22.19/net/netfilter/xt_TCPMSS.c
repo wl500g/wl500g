@@ -13,7 +13,11 @@
 #include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/tcp.h>
+#include <net/dst.h>
+#include <net/flow.h>
 #include <net/ipv6.h>
+#include <net/route.h>
+#include <net/ip6_route.h>
 #include <net/tcp.h>
 
 #include <linux/netfilter_ipv4/ip_tables.h>
@@ -24,7 +28,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
-MODULE_DESCRIPTION("x_tables TCP MSS modification module");
+MODULE_DESCRIPTION("x_tables TCP Maximum Segment Size (MSS) adjustment");
 MODULE_ALIAS("ipt_TCPMSS");
 MODULE_ALIAS("ip6t_TCPMSS");
 
@@ -38,37 +42,68 @@ optlen(const u_int8_t *opt, unsigned int offset)
 		return opt[offset+1];
 }
 
+static u_int32_t tcpmss_reverse_mtu(const struct sk_buff *skb,
+				    unsigned int family)
+{
+	struct flowi fl = {};
+	struct rtable *rt = NULL;
+	u_int32_t mtu     = ~0U;
+
+	if (family == PF_INET)
+		fl.fl4_dst = ip_hdr(skb)->saddr;
+	else
+		fl.fl6_dst = ipv6_hdr(skb)->saddr;
+
+	rcu_read_lock();
+	if (family == PF_INET)
+		ip_route_output_key(&rt, &fl);
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	else
+		rt = (struct rtable *)ip6_route_output(NULL, &fl);
+#endif
+	rcu_read_unlock();
+
+	if (rt != NULL) {
+		mtu = dst_mtu(&rt->u.dst);
+		dst_release(&rt->u.dst);
+	}
+	return mtu;
+}
+
 static int
 tcpmss_mangle_packet(struct sk_buff **pskb,
 		     const struct xt_tcpmss_info *info,
+		     unsigned int family,
 		     unsigned int tcphoff,
 		     unsigned int minlen)
 {
 	struct tcphdr *tcph;
-	unsigned int tcplen, i;
+	int len, tcp_hdrlen;
+	unsigned int i;
 	__be16 oldval;
 	u16 newmss;
 	u8 *opt;
 
+	/* This is a fragment, no TCP header is available */
+	if (par->fragoff != 0)
+		return 0;
+
 	if (!skb_make_writable(pskb, (*pskb)->len))
 		return -1;
 
-	tcplen = (*pskb)->len - tcphoff;
-	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
-
-	/* Since it passed flags test in tcp match, we know it is is
-	   not a fragment, and has data >= tcp header length.  SYN
-	   packets should not contain data: if they did, then we risk
-	   running over MTU, sending Frag Needed and breaking things
-	   badly. --RR */
-	if (tcplen != tcph->doff*4) {
-		if (net_ratelimit())
-			printk(KERN_ERR "xt_TCPMSS: bad length (%u bytes)\n",
-			       (*pskb)->len);
+	len = (*pskb)->len - tcphoff;
+	if (len < (int)sizeof(struct tcphdr))
 		return -1;
-	}
+
+	tcph = (struct tcphdr *)(skb_network_header(*pskb) + tcphoff);
+	tcp_hdrlen = tcph->doff * 4;
+
+	if (len < tcp_hdrlen)
+		return -1;
 
 	if (info->mss == XT_TCPMSS_CLAMP_PMTU) {
+		unsigned int in_mtu = tcpmss_reverse_mtu(skb, family);
+
 		if (dst_mtu((*pskb)->dst) <= minlen) {
 			if (net_ratelimit())
 				printk(KERN_ERR "xt_TCPMSS: "
@@ -76,20 +111,28 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
 				       dst_mtu((*pskb)->dst));
 			return -1;
 		}
-		newmss = dst_mtu((*pskb)->dst) - minlen;
+		if (in_mtu <= minlen) {
+			if (net_ratelimit())
+				printk(KERN_ERR "xt_TCPMSS: unknown or "
+				       "invalid path-MTU (%u)\n", in_mtu);
+			return -1;
+		}
+		newmss = min(dst_mtu((*pskb)->dst), in_mtu) - minlen;
 	} else
 		newmss = info->mss;
 
 	opt = (u_int8_t *)tcph;
-	for (i = sizeof(struct tcphdr); i < tcph->doff*4; i += optlen(opt, i)) {
-		if (opt[i] == TCPOPT_MSS && tcph->doff*4 - i >= TCPOLEN_MSS &&
-		    opt[i+1] == TCPOLEN_MSS) {
+	for (i = sizeof(struct tcphdr); i <= tcp_hdrlen - TCPOLEN_MSS; i += optlen(opt, i)) {
+		if (opt[i] == TCPOPT_MSS && opt[i+1] == TCPOLEN_MSS) {
 			u_int16_t oldmss;
 
 			oldmss = (opt[i+2] << 8) | opt[i+3];
 
-			if (info->mss == XT_TCPMSS_CLAMP_PMTU &&
-			    oldmss <= newmss)
+			/* Never increase MSS, even when setting it, as
+			 * doing so results in problems for hosts that rely
+			 * on MSS being set correctly.
+			 */
+			if (oldmss <= newmss)
 				return 0;
 
 			opt[i+2] = (newmss & 0xff00) >> 8;
@@ -100,6 +143,13 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
 			return 0;
 		}
 	}
+
+	/* There is data after the header so the option can't be added
+	 * without moving it, and doing so may make the SYN packet
+	 * itself too large. Accept the packet unmodified instead.
+	 */
+	if (len > tcp_hdrlen)
+		return 0;
 
 	/*
 	 * MSS Option not found ?! add it..
@@ -118,11 +168,23 @@ tcpmss_mangle_packet(struct sk_buff **pskb,
 
 	skb_put((*pskb), TCPOLEN_MSS);
 
+	/*
+	 * IPv4: RFC 1122 states "If an MSS option is not received at
+	 * connection setup, TCP MUST assume a default send MSS of 536".
+	 * IPv6: RFC 2460 states IPv6 has a minimum MTU of 1280 and a minimum
+	 * length IPv6 header of 60, ergo the default MSS value is 1220
+	 * Since no MSS was provided, we must use the default values
+	 */
+	if (par->family == NFPROTO_IPV4)
+		newmss = min(newmss, (u16)536);
+	else
+		newmss = min(newmss, (u16)1220);
+
 	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
-	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
+	memmove(opt + TCPOLEN_MSS, opt, len - sizeof(struct tcphdr));
 
 	nf_proto_csum_replace2(&tcph->check, *pskb,
-			       htons(tcplen), htons(tcplen + TCPOLEN_MSS), 1);
+				 htons(len), htons(len + TCPOLEN_MSS), 1);
 	opt[0] = TCPOPT_MSS;
 	opt[1] = TCPOLEN_MSS;
 	opt[2] = (newmss & 0xff00) >> 8;
@@ -149,7 +211,9 @@ xt_tcpmss_target4(struct sk_buff **pskb,
 	__be16 newlen;
 	int ret;
 
-	ret = tcpmss_mangle_packet(pskb, targinfo, iph->ihl * 4,
+	ret = tcpmss_mangle_packet(pskb, targinfo,
+				   PF_INET,
+				   iph->ihl * 4,
 				   sizeof(*iph) + sizeof(struct tcphdr));
 	if (ret < 0)
 		return NF_DROP;
@@ -180,7 +244,9 @@ xt_tcpmss_target6(struct sk_buff **pskb,
 	tcphoff = ipv6_skip_exthdr(*pskb, sizeof(*ipv6h), &nexthdr);
 	if (tcphoff < 0)
 		return NF_DROP;
-	ret = tcpmss_mangle_packet(pskb, targinfo, tcphoff,
+	ret = tcpmss_mangle_packet(pskb, targinfo,
+				   PF_INET6,
+				   tcphoff,
 				   sizeof(*ipv6h) + sizeof(struct tcphdr));
 	if (ret < 0)
 		return NF_DROP;
