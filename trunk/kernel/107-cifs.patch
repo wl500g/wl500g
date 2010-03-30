@@ -15274,7 +15274,7 @@ diff -urNB -x'.*' linux-2.4.37.6/fs/cifs/cn_cifs.h linux-cifs/fs/cifs/cn_cifs.h
 diff -urNB -x'.*' linux-2.4.37.6/fs/cifs/connect.c linux-cifs/fs/cifs/connect.c
 --- linux-2.4.37.6/fs/cifs/connect.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-cifs/fs/cifs/connect.c	2009-10-15 04:00:00.000000000 +0400
-@@ -0,0 +1,3552 @@
+@@ -0,0 +1,3553 @@
 +/*
 + *   fs/cifs/connect.c
 + *
@@ -15650,6 +15650,7 @@ diff -urNB -x'.*' linux-2.4.37.6/fs/cifs/connect.c linux-cifs/fs/cifs/connect.c
 +	daemonize("cifsd");
 +	allow_signal(SIGKILL);
 +#endif
++	reparent_to_init();
 +	current->flags |= PF_MEMALLOC;
 +	server->tsk = current;	/* save process info to wake at shutdown */
 +	cFYI(1, ("Demultiplex PID: %d", current->pid));
