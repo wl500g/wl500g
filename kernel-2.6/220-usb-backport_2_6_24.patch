@@ -4766,7 +4766,7 @@ index 8dd8cd0..2ab222b 100644
 +/* Binary descriptors */
 +
 +static ssize_t
-+read_descriptors(struct kobject *kobj, struct bin_attribute *attr,
++read_descriptors(struct kobject *kobj,
 +		char *buf, loff_t off, size_t count)
 +{
 +	struct usb_device *udev = to_usb_device(
@@ -11635,6 +11635,15 @@ index bb9cc59..48e4b11 100644
  			spin_lock_irq (&ohci->lock);
  		}
  		return status;
+@@ -561,7 +561,7 @@ static void start_hnp(struct ohci_hcd *ohci);
+ static inline int root_port_reset (struct ohci_hcd *ohci, unsigned port)
+ {
+ 	__hc32 __iomem *portstat = &ohci->regs->roothub.portstatus [port];
+-	u32	temp;
++	u32	temp = 0;
+ 	u16	now = ohci_readl(ohci, &ohci->regs->fmnumber);
+ 	u16	reset_done = now + PORT_RESET_MSEC;
+ 
 diff --git a/drivers/usb/host/ohci-mem.c b/drivers/usb/host/ohci-mem.c
 index 2f20d3d..450c7b4 100644
 --- a/drivers/usb/host/ohci-mem.c

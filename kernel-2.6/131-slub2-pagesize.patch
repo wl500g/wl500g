@@ -229,12 +229,13 @@ index 0eab12b..edeb942 100644
  		return s;
  
  	return slab_alloc(s, flags, node, __builtin_return_address(0), size);
-@@ -2373,16 +2381,17 @@ EXPORT_SYMBOL(ksize);
+@@ -2373,16 +2381,18 @@ EXPORT_SYMBOL(ksize);
  
  void kfree(const void *x)
  {
 -	struct kmem_cache *s;
  	struct page *page;
++	void *object = (void *)x;
  
  	if (unlikely(ZERO_OR_NULL_PTR(x)))
  		return;
@@ -247,7 +248,7 @@ index 0eab12b..edeb942 100644
 +		put_page(page);
 +		return;
 +	}
-+	slab_free(page->slab, page, (void *)x, __builtin_return_address(0));
++	slab_free(page->slab, page, object, __builtin_return_address(0));
  }
  EXPORT_SYMBOL(kfree);
  

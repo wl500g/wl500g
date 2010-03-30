@@ -809,9 +809,9 @@ diff -urBwNp linux-2.6.22/fs/fcntl.c linux-2.6/fs/fcntl.c
  	rcu_read_lock();
  	pid = find_pid(who);
 +	if (pid == NULL)
-+		printk("dbg: NULL pid\n");
++		printk(KERN_DEBUG "f_setown: NULL pid\n");
 +	else
-+		printk("dbg: pid = %d\n", pid);
++		printk(KERN_DEBUG "f_setown: pid = %d\n", pid_nr(pid));
  	result = __f_setown(filp, pid, type, force);
  	rcu_read_unlock();
  	return result;
