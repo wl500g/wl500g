@@ -78,7 +78,7 @@
            </td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to.', LEFT);" onMouseOut="return nd();">DNS Server:
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNS Server:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)">
 	  </td>
 </tr>

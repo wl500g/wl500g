@@ -4316,6 +4316,7 @@ struct variable variables_IPv6Config[] = {
 	{"ipv6_sit_mtu", "", validate_range, ARGV("0", "1480"), FALSE, FALSE},
 	{"ipv6_sit_ttl", "", validate_range, ARGV("0", "255"), FALSE, FALSE},
 	{"ipv6_radvd_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
+	{"ipv6_dns1_x", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{ 0, 0, 0, 0}
 	};
 
