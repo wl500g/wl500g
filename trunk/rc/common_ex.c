@@ -620,7 +620,7 @@ void update_wan_status(int isup)
 		nvram_set("wan_dns_t", "");
 		nvram_set("wan_ifname_t", "");
 		nvram_set("wan_status_t", "Disconnected");
-	}	
+	}
 	else
 	{
 		nvram_set("wan_ipaddr_t", nvram_safe_get("wan0_ipaddr"));
@@ -628,11 +628,11 @@ void update_wan_status(int isup)
 		nvram_set("wan_gateway_t", nvram_safe_get("wan0_gateway"));
 
 
-		if (nvram_invmatch("wan_dnsenable_x", "1"))	
-		{		
+		if (nvram_invmatch("wan_dnsenable_x", "1"))
+		{
 			dns_str[0] = '\0';
 			if (nvram_invmatch("wan_dns1_x",""))
-				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));		
+				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));
 			if (nvram_invmatch("wan_dns2_x",""))
 				sprintf(dns_str+strlen(dns_str), " %s", nvram_safe_get("wan_dns2_x"));
 			nvram_set("wan_dns_t", dns_str);

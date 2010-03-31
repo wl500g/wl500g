@@ -1078,28 +1078,44 @@ update_resolvconf(char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
+	int update = 0;
 
-	dprintf("%s %d %d\n",ifname,metric,up);
-	/* check if auto dns enabled */	
-	if (!nvram_match("wan_dnsenable_x", "1"))
-		return 0;
+	dprintf("%s %d %d\n", ifname, metric, up);
 
 	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
 		return errno;
 	}
-	
-	foreach(word, (nvram_get("wan0_dns") ? : 
-		nvram_safe_get("wanx_dns")), next) 
+
+	/* check if auto dns enabled */	
+	if (!nvram_match("wan_dnsenable_x", "1"))
 	{
-		fprintf(fp, "nameserver %s\n", word);
-		dprintf( "nameserver %s\n", word );
+		foreach(word, (nvram_get("wan0_dns") ? : 
+			nvram_safe_get("wanx_dns")), next) 
+		{
+			fprintf(fp, "nameserver %s\n", word);
+			dprintf( "nameserver %s\n", word );
+		}
+		update++;
 	}
-	
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", ""))
+	{
+		if (nvram_invmatch("ipv6_dns1_x", ""))
+		{
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+			dprintf( "nameserver %s\n", nvram_safe_get("ipv6_dns1_x") );
+			update++;
+		}
+	}
+#endif
+
 	fclose(fp);
-	
+
 	/* Notify dnsmasq of change */
-	eval("killall", "-1", "dnsmasq");
+	if (update)
+		eval("killall", "-1", "dnsmasq");
 
 	return 0;
 }
