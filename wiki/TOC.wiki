@@ -13,7 +13,7 @@
       * Bridge
       * Access Control
       * RADIUS Settings
-      * Advanced
+      * [GUIWirelessAdvanced Advanced]
     * IP Config
       * WAN & LAN
       * WiMAX
