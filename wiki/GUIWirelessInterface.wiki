@@ -50,7 +50,7 @@ Channels must be set to a fixed number when using [http://en.wikipedia.org/wiki/
 === Channel overlapping ===
 The !WiFi alliance specified a few rules when it comes to channels.
 Unlike you may think, a specific channel does not represent one frequency, but a range of about 20MHz around the central frequency.
-If you do the math: 20 * 14 = 280MHz which does not fit between ~2400 and ~2500 MHz.
+If you do the math: 20 x 14 = 280MHz which does not fit between ~2400 and ~2500 MHz.
 To overcome this the !WiFi alliance made the channels overlap each other:
   
  [http://i42.tinypic.com/2e549x1.jpg http://i41.tinypic.com/nz3j85.jpg Channel overlapping]
