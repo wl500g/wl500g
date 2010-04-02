@@ -31,13 +31,6 @@
 <tr>
 <td class="content_desc_td" colspan="2">ZVMODELVZ supports WiMAX connection to WAN.</td>
 </tr>
-<!--<tr>
-<td class="content_header_td">WiMAX autorun?</td>
-<td class="content_input_td">
-<input type="radio" value="1" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "1", "checked"); %>>Yes</input>
-<input type="radio" value="0" name="wimax_enable" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wimax_enable", "0", "checked"); %>>No</input>
-</td>
-</tr>-->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for the WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
 <td class="content_input_td">
