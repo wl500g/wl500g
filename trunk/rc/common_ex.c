@@ -433,6 +433,14 @@ void convert_asus_values()
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
+#ifdef __CONFIG_MADWIMAX__
+	else if (nvram_match("wan_proto", "wimax"))
+	{
+		nvram_set("wan0_ifname", "wmx0");
+		nvram_set("wan0_wimax_ssid", nvram_safe_get("wimax_ssid"));
+		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
+	}
+#endif
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
 
 	if (nvram_invmatch("wan_hwaddr_x", ""))

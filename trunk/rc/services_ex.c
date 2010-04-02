@@ -612,7 +612,7 @@ start_ddns(void)
 	else
 	{
 		strcpy(wan_ifname, nvram_safe_get("wan0_ifname"));
-	}	
+	}
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 
