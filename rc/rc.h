@@ -160,7 +160,8 @@ int poweron_main(int argc, char *argv[]);
 int watchdog_main();
 
 #ifdef __CONFIG_MADWIMAX__
-int madwimax_start(char *ifname);
+int start_wimax(char *prefix);
+int stop_wimax(void);
 int madwimax_check(void);
 int madwimax_main(int argc, char **argv);
 void get_wimax_ifname(char * out, int unit);

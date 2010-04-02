@@ -531,7 +531,7 @@ set_wan0_vars(void)
 	} else {
 		nvram_set("wan0_ifname", nvram_get("wan_ifname"));
 		nvram_set("wan0_ifnames", nvram_get("wan_ifnames"));
-		nvram_set("wan0_priority", nvram_safe_get("wan_priority"));
+		//nvram_set("wan0_priority", nvram_safe_get("wan_priority"));
 	}
 }
 
