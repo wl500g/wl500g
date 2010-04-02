@@ -14,26 +14,22 @@
 
 #include <nvparse.h>
 
-static char *pid_fname  = "/var/run/madwimax.pid";
-static char *ev_fname   = "/tmp/madwimax.events";
+#define wimax_events "/tmp/madwimax.events"
 
-const char * wimax_ifname_templ = "wmx%d";
+extern int wan_valid(char *ifname);
 
-#define WIMAX_UNIT 10
+void update_nvram_wmx(char * ifname, int isup);
 
-void update_nvram_wmx( char * ifname, int isup );
-
-void get_wimax_ifname( char * out, int unit ){
-   sprintf( out, wimax_ifname_templ, unit  );
-};
+void get_wimax_ifname(char *out, int unit)
+{
+	sprintf(out, "wmx%d", unit);
+}
 
 int
 wimax_modem(void)
 {
 	//dprintf("%s\n", nvram_safe_get("usb_wimax_device"));
-	if (!nvram_safe_get("usb_wimax_device")) 
-		return 0;
-	return 1;
+	return nvram_invmatch("usb_wimax_device", "");
 }
 
 inline int is_chk_con(){ return nvram_match("wmx_chk_con", "0" ) == 0; };
@@ -76,48 +72,63 @@ void init_wmx_variables()
 
 
 int
-madwimax_start(char *ifname)
+start_wimax(char *prefix)
 {
-	int ret;
+	char tmp[100];
+	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+	char *wimax_ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+	char *wimax_ssid = nvram_safe_get(strcat_r(prefix, "wimax_ssid", tmp));
+
+	char *wmx_argv[] = {
+		"/usr/sbin/madwimax", "-qofd",
+		"-i", wimax_ifname,
+		"-e", wimax_events,
+		"-p", (sprintf(tmp, "/var/run/madwimax%d.pid", unit), tmp),
+		"-s", "/tmp/madwimax.log",
+		"--ssid", *wimax_ssid ? wimax_ssid : "@yota.ru",
+		NULL};
 
 	init_wmx_variables();
-	update_nvram_wmx( ifname, 0 );
+	update_nvram_wmx(wimax_ifname, 0);
 
-	char *wimax_ssid = nvram_get("wimax_ssid");
-	char *wmx_argv[] = {
-		"/usr/sbin/madwimax", "-qof",
-		"-e", ev_fname,
-		"-p", pid_fname,
-		"-s", "/tmp/madwimax.log",
-		"--ssid", wimax_ssid && *wimax_ssid ? wimax_ssid : "@yota.ru",
-		"-i", ifname,
-		NULL};
-	pid_t pid;
-
-	if (nvram_match("wimax_enable","1") && (wimax_modem()) )
+	if (wimax_modem())
 	{
 		eval("insmod", "tun");
-		ret = _eval(wmx_argv, NULL, 0, &pid);
-		symlink("/sbin/rc", ev_fname);
+		sleep(1);
+		symlink("/sbin/rc", wimax_events);
+		return _eval(wmx_argv, NULL, 0, NULL);
 	}
-	
-	return ( nvram_match("wan_proto","wimax") );
+
+	return 0;
 }
 
+int
+stop_wimax(void)
+{
+	eval("killall", "madwimax");
+	sleep(1);
+	unlink(wimax_events);
+	eval("rmmod", "tun");
+
+	return 0;
+}
 
 //time_t prev_time = 0;
 // called from watchdog using the "madwimax-check" symlink to rc.
 int
 madwimax_check(void)
 {
-	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	// check nvram wimax_enble
-	if (!nvram_match("wimax_enable","1")) {
-		return 0;
-	}
+	char tmp[100], pid_fname[100];
+	char prefix[] = "wanXXXXXXXXXX_";
+
 	if (!wimax_modem()) {
-		return 0;
+		return -1;
 	}
+
+	//int unit = atoi(nvram_safe_get("wimax_unit"));
+	int unit = 0; // !!! tobefixed
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	sprintf(pid_fname, "/var/run/madwimax%d.pid", unit);
 
 	// check the madwimax process
 	pid_t pid = 0;
@@ -128,9 +139,6 @@ madwimax_check(void)
 		pid = strtoul(buf, NULL, 0);
 		fclose(fp);
 	}
-
-	int unit = atoi(nvram_safe_get("wimax_unit"));
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	//*********** Connection checking section *****************
 	if (pid > 0 && is_chk_con() ) {
@@ -174,8 +182,8 @@ madwimax_check(void)
 	 	// kill the udhcpc
 		kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
 		kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
-		get_wimax_ifname( tmp, unit );
-		madwimax_start( tmp );
+		//get_wimax_ifname( tmp, unit );
+		start_wimax(prefix);
 	}
 	return 0;
 }
@@ -186,34 +194,28 @@ madwimax_check(void)
 int
 madwimax_create(char *ifname)
 {
-	//char tmp[100];
-	//char prefix[] = "wanXXXXXXXXXX_";
-	wmx_chk_set_last_time( time(NULL) );
+	char tmp[100];
+	char prefix[] = "wanXXXXXXXXXX_";
+	int unit = 0;
 
-	dprintf( "ifname %s", ifname );
+	dprintf("ifname %s", ifname);
 
-	if (nvram_match("wan_proto","wimax"))	// wimax - the main wan interface
+	if ((unit = wan_ifunit(ifname)) < 0)
+		return -1;
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	wmx_chk_set_last_time(time(NULL));
+
+	if (nvram_match("wan_proto", "wimax"))
+		nvram_set("wan_ifname", ifname);
+
+	if (!wan_valid(ifname))
 	{
-		nvram_set("wan_ifname",ifname);
-		nvram_set("wan0_ifname",ifname);
-		nvram_set("wan0_priority",nvram_safe_get("wimax_priority"));
-		nvram_set("wan0_proto","wimax");
-		nvram_set("wan_ifnames",ifname);
-//		nvram_set("wimax_prefix", "wan0_");
+		sprintf(tmp, "%s %s", ifname, nvram_safe_get("wan_ifnames"));
+		nvram_set("wan_ifnames", tmp);
 	}
-/*	else // ------ for using in future ------
-	{
-		snprintf(prefix, sizeof(prefix), "wan%d_", WIMAX_UNIT );// ???????? update_wan_status // MAX_NVPARSE-1
-		nvram_set(strcat_r(prefix, "ifname", tmp), ifname);
-		nvram_set(strcat_r(prefix, "proto", tmp), "wimax");
-		nvram_set(strcat_r(prefix, "primary", tmp), "1");
-		nvram_set(strcat_r(prefix, "priority", tmp), nvram_safe_get("wimax_priority"));
-		nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");	//nvram_safe_get("wimax_priority"));
 
-		snprintf(tmp, sizeof(tmp), "%d", WIMAX_UNIT);
-		nvram_set("wimax_unit", tmp);
-	}*/
-	return 1;
+	return 0;
 }
 
 //if-release
@@ -222,29 +224,32 @@ madwimax_release(char *ifname)
 {
 	char tmp[100];
 	char prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+	char name[100], *next;
 
-	dprintf( "ifname %s", ifname );
+	dprintf("ifname %s", ifname);
 
-	int unit = wan_ifunit(ifname);
+	if ((unit = wan_ifunit(ifname)) < 0)
+		return -1;
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if ( unit ) {
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit );
-
-		unlink(ev_fname);
-
-		if (nvram_match("wan_proto","wimax")) {
-			stop_wan();
-			nvram_set("wan_ifname","");
-			nvram_set("wan0_ifname","");
-			nvram_set("wan_ifnames","");
-		} else {
-			nvram_unset(strcat_r(prefix, "ifname", tmp));
-			nvram_unset(strcat_r(prefix, "proto", tmp));
-			nvram_unset(strcat_r(prefix, "primary", tmp));
-		}
+	if (nvram_match("wan_proto", "wimax"))
+	{
+		stop_wan();
+		nvram_set("wan_ifname","");
 	}
 
-	return 1;
+	if (wan_valid(ifname))
+	{
+		foreach(name, nvram_safe_get("wan_ifnames"), next)
+		{
+			if (strcmp(name, ifname) != 0)
+				sprintf(tmp, "%s %s", tmp, name);
+		}
+		nvram_set("wan_ifnames", tmp);
+	}
+
+	return 0;
 }
 
 //if-up
@@ -252,52 +257,63 @@ int
 madwimax_up(char *ifname)
 {
 	char tmp[100];
-	pid_t pid;
 	char prefix[] = "wanXXXXXXXXXX_";
+	int unit;
 
 	dprintf( "ifname %s", ifname );
-	wmx_chk_set_last_time( time(NULL) );
 
-	int unit = WIMAX_UNIT;
+	if ((unit = wan_ifunit(ifname)) < 0)
+		return -1;
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if ( nvram_match("wan_ipaddr", "0.0.0.0") || nvram_match("wan_ipaddr", "") ){
-		unit = atoi(nvram_safe_get("wimax_unit"));
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit );
-		nvram_set(strcat_r(prefix, "proto", tmp), "wimax");
+	wmx_chk_set_last_time(time(NULL));
+	
+	/* Start firewall */
+	start_firewall_ex( ifname, "0.0.0.0",
+			  "br0", nvram_safe_get("lan_ipaddr"));
 
-		char *dhcp_argv[] = { "udhcpc",
-				      "-i", ifname,
-				      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-				      "-s", "/tmp/udhcpc",
-				      NULL
-		};
+	if (nvram_match(strcat_r(prefix, "ipaddr", tmp), "0.0.0.0"))
+	{
+		char *dhcp_argv[] = {"udhcpc",
+				     "-i", ifname,
+				     "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
+				     "-s", "/tmp/udhcpc",
+				     "-b",
+				     NULL};
 		/* Start dhcp daemon */
-		_eval(dhcp_argv, NULL, 0, &pid);
-		
+		_eval(dhcp_argv, NULL, 0, NULL);
 	} else {
-			ifconfig(ifname, IFUP,
-				 nvram_safe_get("wan_ipaddr"), 
-				 nvram_safe_get("wan_netmask") );
+		ifconfig(ifname, IFUP,
+			nvram_get(strcat_r(prefix, "ipaddr", tmp)),
+			nvram_get(strcat_r(prefix, "netmask", tmp)));
+
+		wan_up(ifname);
 	}
-	wan_up( ifname );
-	update_nvram_wmx( ifname, 1 );
-	return 1;
+
+	update_nvram_wmx(ifname, 1);
+
+	return 0;
 }
 
 //if-down
 int
 madwimax_down(char *ifname)
 {
-	dprintf( "ifname %s", ifname );
+	char tmp[100];
+	int unit;
+
+	dprintf("ifname %s", ifname);
+
+	if ((unit = wan_ifunit(ifname)) < 0)
+		return -1;
 
 	wan_down(ifname);
-	update_nvram_wmx( ifname, 0 );
-	
-	char tmp[100];
-	int unit = wan_ifunit(ifname);
+	update_nvram_wmx(ifname, 0);
+
  	// kill the udhcpc
 	kill_pidfile_s((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp), SIGUSR2);
 	kill_pidfile((sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp));
+
 	return 0;
 }
 
@@ -331,15 +347,16 @@ madwimax_main(int argc, char **argv)
 	dprintf("%s %s %s\n", argv[0], argv[1], argv[2]);
 
 	if (argc != 3)
-		return(0);
+		return -1;
 
-	if (!strncmp(argv[1], "if-create", 5 ))
+	if (!strcmp(argv[1], "if-create"))
 		return madwimax_create(argv[2]);
-	else if (!strncmp(argv[1], "if-up", 5))
+	if (!strcmp(argv[1], "if-up"))
 		return madwimax_up(argv[2]);
-	else if (!strncmp(argv[1], "if-down", 5))
+	if (!strcmp(argv[1], "if-down"))
 		return madwimax_down(argv[2]);
-	else if (!strncmp(argv[1], "if-release", 5))
+	if (!strcmp(argv[1], "if-release"))
 		return madwimax_release(argv[2]);
-	else return 0;
+
+	return -1;
 }

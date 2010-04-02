@@ -227,7 +227,8 @@ void sys_script(char *name)
      else if (strcmp(name, "madwimax.sh")==0)
      {
 	   // update status of madwimax
-	   kill_pidfile_s("/var/run/madwimax.pid", SIGUSR1);
+	   kill_pidfile_s("/var/run/madwimax0.pid", SIGUSR1);
+	   usleep(100);
      }
 #endif
      else if (strcmp(name, "wlan11a.sh")==0 || strcmp(name,"wlan11b.sh")==0)
