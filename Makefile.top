@@ -384,6 +384,18 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko)
 	# usb webcams
 	# usb audio
+	# NFS
+ifeq ($(CONFIG_NFSD),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/lockd/lockd$(ko) \
+		$(SRCMODULESDIR)/fs/exportfs/exportfs$(ko)    \
+		$(SRCMODULESDIR)/fs/nfsd/nfsd$(ko)    \
+		$(SRCMODULESDIR)/net/sunrpc/sunrpc$(ko)
+endif
+ifeq ($(CONFIG_NFS),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/nfs/nfs$(ko)
+endif
 	# other
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
