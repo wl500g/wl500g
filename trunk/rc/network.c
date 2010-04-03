@@ -1121,6 +1121,15 @@ update_resolvconf(char *ifname, int metric, int up)
 		dprintf( "nameserver %s\n", word );
 	}
 
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		next = nvram_safe_get("ipv6_dns1_x");
+ 		fprintf(fp, "nameserver %s\n", next);
+		dprintf( "nameserver %s\n", next );
+	}
+#endif
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
@@ -1341,6 +1350,14 @@ lan_up(char *lan_ifname)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 	}
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
@@ -1388,6 +1405,14 @@ lan_up_ex(char *lan_ifname)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 	}
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
