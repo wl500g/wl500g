@@ -168,6 +168,10 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_maclist", "", 0 },		/* xx:xx:xx:xx:xx:xx ... */
 	{ "wl_macmode", "disabled", 0 },	/* "allow" only, "deny" only, or "disabled" (allow all) */
 	{ "wl_channel", "11", 0 },		/* Channel number */
+	{ "wl_dfs_preism", "60", 0 },		/* 802.11H pre network CAC time */
+	{ "wl_dfs_postism", "60", 0 },		/* 802.11H In Service Monitoring CAC time */
+	/* Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40 */
+	{ "wl_radarthrs", "0 0x6a8 0x6c8 0x6ac 0x6c7", 0 },
 	{ "wl_rate", "0", 0 },			/* Rate (bps, 0 for auto) */
 	{ "wl_mrate", "0", 0 },			/* Mcast Rate (bps, 0 for auto) */
 	{ "wl_rateset", "default", 0 },		/* "default" or "all" or "12" */
@@ -183,6 +187,26 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_frameburst", "off", 0 },		/* BRCM Frambursting mode (off|on) */
 	{ "wl_antdiv", "-1", 0 },		/* Antenna Diversity (-1|0|1|3) */
 	{ "wl_infra", "1", 0 },			/* Network Type (BSS/IBSS) */
+	{ "wl_nctrlsb", "lower", 0},		/* N-CTRL SB (none/lower/upper) */
+	{ "wl_nband", "2", 0},			/* N-BAND */
+	{ "wl_nmcsidx", "-1", 0},		/* MCS Index for N - rate */
+	{ "wl_nmode", "-1", 0},			/* N-mode */
+	{ "wl_vlan_prio_mode", "off", 0},	/* VLAN Priority support */
+
+#ifdef __CONFIG_BCMWL5__
+	{ "wl_rxstreams", "0", 0},              /* 802.11n Rx Streams, 0 is invalid, WLCONF will
+						 * change it to a radio appropriate default
+						 */
+	{ "wl_txstreams", "0", 0},              /* 802.11n Tx Streams 0, 0 is invalid, WLCONF will
+						 * change it to a radio appropriate default
+						 */
+	{ "wl_ampdu", "auto", 0 },		/* Default AMPDU setting */
+	/* Default AMPDU retry limit per-tid setting */
+	{ "wl_ampdu_rtylimit_tid", "5 5 5 5 5 5 5 5", 0 },
+	/* Default AMPDU regular rate retry limit per-tid setting */
+	{ "wl_ampdu_rr_rtylimit_tid", "2 2 2 2 2 2 2 2", 0 },
+	{ "wl_amsdu", "auto", 0 },		/* Default AMSDU setting */
+#endif
 
 	/* WPA parameters */
 	{ "wl_auth_mode", "open", 0 },		/* Network authentication mode */
@@ -203,7 +227,7 @@ struct nvram_tuple router_defaults[] = {
 #endif /* __CONFIG_SES__ */
 
 	/* WME parameters */
-	{ "wl_wme", "off", 0 },		/* WME mode (off|on|auto) */
+	{ "wl_wme", "on", 0 },		/* WME mode (off|on|auto) */
 	{ "wl_wme_no_ack", "off", 0},		/* WME No-Acknowledgmen mode */
 
 	/* EDCA parameters for STA */
