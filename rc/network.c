@@ -1102,16 +1102,21 @@ update_resolvconf(char *ifname, int metric, int up)
 {
 	FILE *fp;
 	char word[100], *next;
-	int update = 0;
 
 	dprintf("%s %d %d\n", ifname, metric, up);
+
+	/* check if auto dns enabled */
+	if (!nvram_match("wan_dnsenable_x", "1")
+#ifdef __CONFIG_IPV6__
+	&& (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+#endif
+	   ) return 0;
 
 	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
 		return errno;
 	}
 
-	/* check if auto dns enabled */	
 	if (nvram_match("wan_dnsenable_x", "1"))
 	{
 		foreach(word, (nvram_get("wan0_dns") ? : 
@@ -1120,7 +1125,6 @@ update_resolvconf(char *ifname, int metric, int up)
 			fprintf(fp, "nameserver %s\n", word);
 			dprintf( "nameserver %s\n", word );
 		}
-		update++;
 	}
 
 #ifdef __CONFIG_IPV6__
@@ -1130,7 +1134,6 @@ update_resolvconf(char *ifname, int metric, int up)
 		{
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
 			dprintf( "nameserver %s\n", nvram_safe_get("ipv6_dns1_x") );
-			update++;
 		}
 	}
 #endif
@@ -1138,8 +1141,7 @@ update_resolvconf(char *ifname, int metric, int up)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	if (update)
-		eval("killall", "-1", "dnsmasq");
+	eval("killall", "-1", "dnsmasq");
 
 	return 0;
 }
