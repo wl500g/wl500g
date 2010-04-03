@@ -266,8 +266,6 @@
 
 {"wl_gmode_protection_x", "0", 0},
 
-{"wl_crypto", "0", 0},
-
 {"wl_wep_x", "0", 0},
 
 {"wl_phrase_x", "", 0},
@@ -286,7 +284,7 @@
 
 {"wl_radio_power_x", "19", 0},
 
-{"wl_preauth", "1", 0},
+{"wl_preauth", "disabled", 0},
 
 {"wl_wdslist_x", "", 0},
 
@@ -444,10 +442,7 @@
 {"usb20_disable_x", "0", 0},
 
 {"wl_nbw","40",0},
-{"wl_nctrlsb","lower",0},
-{"wl_nband","2",0},
-{"wl_nmcsidx","-1",0},
-{"wl_nmode","-1",0},
+{"wl_mimo_preamble", "mm", 0},
 {"wl_leddc","0x640000",0},
 {"wl_wme_apsd","on",0},
 {"wl_sta_retry_time","5",0},
