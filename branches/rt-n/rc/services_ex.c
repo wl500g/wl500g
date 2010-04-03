@@ -759,6 +759,9 @@ int start_nfsd(void)
 	/* create directories/files */
 	mkdir("/var/lib", 0755);
 	mkdir("/var/lib/nfs", 0755);
+# ifdef LINUX26
+	mkdir("/var/lib/nfs/v4recovery", 0755);
+# endif
 	close(creat("/var/lib/nfs/etab", 0644));
 	close(creat("/var/lib/nfs/xtab", 0644));
 	close(creat("/var/lib/nfs/rmtab", 0644));
@@ -879,6 +882,9 @@ start_usb(void)
 	{	
 		eval("insmod", "sunrpc");
 		eval("insmod", "lockd");
+#ifdef LINUX26
+		eval("insmod", "exportfs");
+#endif
 		eval("insmod", "nfsd");
 		
 		start_nfsd();
@@ -897,6 +903,9 @@ stop_usb(void)
 		eval("killall", "portmap");
 		
 		eval("rmmod", "nfsd");
+#ifdef LINUX26
+		eval("rmmod", "exportfs");
+#endif
 		eval("rmmod", "lockd");
 		eval("rmmod", "sunrpc");
 	}
