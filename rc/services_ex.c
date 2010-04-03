@@ -261,20 +261,6 @@ start_dns(void)
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 		fclose(fp);
 	}
-#ifdef __CONFIG_IPV6__
-	// if user want to set ipv6 dns server by himself
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
-	{
-		/* Write resolv.conf with upstream ipv6 nameservers */
-		if (!(fp = fopen("/tmp/resolv.conf", "w"))) {
-			perror("/tmp/resolv.conf");
-			return errno;
-		}
-
-		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
-		fclose(fp);
-	}
-#endif
 
 	active = timecheck_item(nvram_safe_get("url_date_x"), 
 				nvram_safe_get("url_time_x"));
@@ -359,15 +345,6 @@ start_dns(void)
 		if (nvram_invmatch("wan_dns2_x",""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	}
-
-#ifdef __CONFIG_IPV6__
-	// if user want to set ipv6 dns server by himself
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
-	{
-		/* Write resolv.conf with upstream ipv6 nameservers */
-		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
-	}
-#endif
 
 	fclose(fp);
 

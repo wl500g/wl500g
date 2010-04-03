@@ -1106,37 +1106,20 @@ update_resolvconf(char *ifname, int metric, int up)
 	dprintf("%s %d %d\n", ifname, metric, up);
 
 	/* check if auto dns enabled */
-	if (!nvram_match("wan_dnsenable_x", "1")
-#ifdef __CONFIG_IPV6__
-	&& (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
-#endif
-	   ) return 0;
+	if (nvram_invmatch("wan_dnsenable_x", "1"))
+		return 0;
 
 	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
 		return errno;
 	}
 
-	if (nvram_match("wan_dnsenable_x", "1"))
+	foreach(word, (nvram_get("wan0_dns") ? : 
+		nvram_safe_get("wanx_dns")), next) 
 	{
-		foreach(word, (nvram_get("wan0_dns") ? : 
-			nvram_safe_get("wanx_dns")), next) 
-		{
-			fprintf(fp, "nameserver %s\n", word);
-			dprintf( "nameserver %s\n", word );
-		}
+		fprintf(fp, "nameserver %s\n", word);
+		dprintf( "nameserver %s\n", word );
 	}
-
-#ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
-		if (nvram_invmatch("ipv6_dns1_x", ""))
-		{
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
-			dprintf( "nameserver %s\n", nvram_safe_get("ipv6_dns1_x") );
-		}
-	}
-#endif
 
 	fclose(fp);
 
