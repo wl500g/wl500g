@@ -218,18 +218,32 @@ start_dns(void)
 	if (nvram_match("router_disable", "1"))
 		return 0;
 
-
 	/* Create resolv.conf with empty nameserver list */
-	if (!(fp = fopen("/tmp/resolv.conf", "r")))
-	{
-		if (!(fp = fopen("/tmp/resolv.conf", "w"))) 
-		{
-			perror("/tmp/resolv.conf");
-			return errno;
-		}
-		else fclose(fp);
+	if (!(fp = fopen("/tmp/resolv.conf", "a"))) {
+		perror("/tmp/resolv.conf");
+		return errno;
 	}
-	else fclose(fp);
+
+	// if user want to set dns server by himself
+	if (nvram_invmatch("wan_dnsenable_x", "1"))
+	{
+		/* Write resolv.conf with upstream nameservers */
+		if (nvram_invmatch("wan_dns1_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
+		if (nvram_invmatch("wan_dns2_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
+	}
+
+#ifdef __CONFIG_IPV6__
+	// if user want to ipv6 set dns server by himself
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+		/* Write resolv.conf with upstream ipv6 nameservers */
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
+	fclose(fp);
 
 	if (!(fp = fopen("/tmp/dproxy.conf", "w"))) {
 		perror("/tmp/dproxy.conf");
@@ -245,22 +259,6 @@ start_dns(void)
 	fprintf(fp, "dhcp_lease_file=\n");
 	fprintf(fp, "ppp_dev=/var/run/ppp0.pid\n");
 	fclose(fp);
-
-	// if user want to set dns server by himself
-	if (nvram_invmatch("wan_dnsenable_x", "1"))	
-	{
-		/* Write resolv.conf with upstream nameservers */
-		if (!(fp = fopen("/tmp/resolv.conf", "w"))) {
-			perror("/tmp/resolv.conf");
-			return errno;
-		}
-
-		if (nvram_invmatch("wan_dns1_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
-		if (nvram_invmatch("wan_dns2_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
-		fclose(fp);
-	}
 
 	active = timecheck_item(nvram_safe_get("url_date_x"), 
 				nvram_safe_get("url_time_x"));
@@ -346,6 +344,15 @@ start_dns(void)
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	}
 
+#ifdef __CONFIG_IPV6__
+	// if user want to ipv6 set dns server by himself
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+		/* Write resolv.conf with upstream ipv6 nameservers */
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
 	fclose(fp);
 
 	/* create /etc/hosts */
@@ -417,6 +424,15 @@ start_dns(void)
 	fprintf(fp, "user=nobody\n"
 		    "resolv-file=/tmp/resolv.conf\nno-poll\n"
 		    "interface=%s\n", nvram_safe_get("lan_ifname"));
+
+#if 0
+#ifdef __CONFIG_IPV6__
+	/* use static ipv6 dns servers for external clients only */
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+			fprintf(fp, "server=%s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+#endif
 
 	if (nvram_invmatch("lan_domain", "")) {
 		fprintf(fp, "domain=%s\n"
