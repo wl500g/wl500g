@@ -211,7 +211,8 @@ madwimax_create(char *ifname)
 
 	if (!wan_valid(ifname))
 	{
-		sprintf(tmp, "%s %s", ifname, nvram_safe_get("wan_ifnames"));
+		strcpy(tmp, nvram_safe_get("wan_ifnames"));
+		add_to_list(ifname, tmp, sizeof(tmp));
 		nvram_set("wan_ifnames", tmp);
 	}
 
@@ -241,11 +242,8 @@ madwimax_release(char *ifname)
 
 	if (wan_valid(ifname))
 	{
-		foreach(name, nvram_safe_get("wan_ifnames"), next)
-		{
-			if (strcmp(name, ifname) != 0)
-				sprintf(tmp, "%s %s", tmp, name);
-		}
+		strcpy(tmp, nvram_safe_get("wan_ifnames"));
+		remove_from_list(ifname, tmp, sizeof(tmp));
 		nvram_set("wan_ifnames", tmp);
 	}
 
