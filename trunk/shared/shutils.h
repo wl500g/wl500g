@@ -238,8 +238,11 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 #define safe_getenv(s) (getenv(s) ? : "")
 
 #if defined(linux) && defined(DEBUG)
+# ifdef DEBUG_TO_SYSLOG
+# define cprintf cprintf_syslog
+extern void cprintf_syslog( char * fmt, ... );
+# else
 /* Print directly to the console */
-
 #define cprintf(fmt, args...) do { \
 	FILE *fp = fopen("/dev/console", "w"); \
 	if (fp) { \
@@ -247,6 +250,8 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 		fclose(fp); \
 	} \
 } while (0)
+# endif
+
 #else
 #define cprintf(fmt, args...) 
 #endif
