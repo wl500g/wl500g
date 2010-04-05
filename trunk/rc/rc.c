@@ -898,6 +898,11 @@ main(int argc, char **argv)
 	/* Set TZ for all rc programs */
 	setenv("TZ", nvram_safe_get("time_zone"), 1);
 
+#ifdef DEBUG
+	cprintf("rc applet: %s %s %s",
+		 base, (argc>1) ? argv[1] : "", (argc>2) ? argv[2] : "");
+#endif
+
 	/* ppp */
 	if (!strcmp(base, "ip-up"))
 		return ipup_main(argc, argv);

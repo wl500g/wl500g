@@ -342,8 +342,6 @@ int
 madwimax_main(int argc, char **argv)
 {
 
-	dprintf("%s %s %s\n", argv[0], argv[1], argv[2]);
-
 	if (argc != 3)
 		return -1;
 
