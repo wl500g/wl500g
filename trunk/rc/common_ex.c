@@ -657,13 +657,10 @@ void update_wan_status(int isup)
 void logmessage(char *logheader, char *fmt, ...)
 {
   va_list args;
-  char buf[512];
 
   va_start(args, fmt);
-
-  vsnprintf(buf, sizeof(buf), fmt, args);
   openlog(logheader, 0, 0);
-  syslog(0, buf);
+  vsyslog(0, fmt, args);
   closelog();
   va_end(args);
 }
