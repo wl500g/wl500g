@@ -56,8 +56,6 @@ ipup_main(int argc, char **argv)
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
-	dprintf("%s\n", argv[0]);
-	
 	umask(022);
 
 	if ((unit = ppp_ifunit(wan_ifname)) < 0)

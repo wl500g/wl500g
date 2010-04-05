@@ -145,11 +145,12 @@ renew(void)
 int
 udhcpc_ex_main(int argc, char **argv)
 {
-	if (argv[1]) strcpy(udhcpstate, argv[1]);
-
-	if (!argv[1])
+	if (argc<2 || !argv[1])
 		return EINVAL;
-	else if (!strcmp(argv[1], "deconfig"))
+
+	strcpy(udhcpstate, argv[1]);
+
+	if (!strcmp(argv[1], "deconfig"))
 		return deconfig();
 	else if (!strcmp(argv[1], "bound"))
 		return bound();
