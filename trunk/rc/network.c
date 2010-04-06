@@ -617,18 +617,14 @@ start_wan(void)
 
 		dprintf("%s %s\n\n\n\n\n", wan_ifname, wan_proto);
 
-#ifdef __CONFIG_MADWIMAX__
-		if (strcmp(wan_proto, "wimax") == 0)
-			wan_ifname = NULL;
-		else
-#endif
 		/* disable the connection if the i/f is not in wan_ifnames */
 		if (!wan_valid(wan_ifname)) {
 			nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
 			continue;
 		}
 #ifdef __CONFIG_MADWIMAX__
-		if (wan_ifname) {
+		if (strcmp(wan_proto, "wimax") != 0)
+		{
 #endif
 		/* Set i/f hardware address before bringing it up */
 		if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
@@ -828,18 +824,12 @@ start_wan(void)
 
 #ifdef __CONFIG_MADWIMAX__
 		else if (strcmp(wan_proto, "wimax") == 0){
-			char wimax_ifname[0xFF];
-			get_wimax_ifname( wimax_ifname, unit );
-			nvram_set(strcat_r(prefix, "ifname", tmp), wimax_ifname );
+			/* launch wimax daemon */
+			start_wimax(prefix);
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
-			/* launch wimax daemon */
-			start_wimax(prefix);
 			continue;
-
-			/* wmx interface name is referenced from this point on */
-			//wan_ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
 		}
 #endif
 		/* 
