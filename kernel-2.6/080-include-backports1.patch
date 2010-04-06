@@ -1,0 +1,185 @@
+Subject: [PATCH] kernel 2.6 byteorder: move le32_add_cpu & friends from OCFS2 to core
+From: Marcin Slusarz <marcin.slusarz@gmail.com>
+Date: Wed, 31 Mar 2010 14:57:25 -0400
+
+kernel.org commit 8b5f6883683c91ad7e1af32b7ceeb604d68e2865
+
+Needed for the following backports of ext3 fixes.
+---
+ fs/ocfs2/cluster/endian.h         |   30 -------------
+ fs/ocfs2/cluster/nodemanager.c    |    1 -
+ fs/ocfs2/dlm/dlmast.c             |    1 -
+ fs/ocfs2/endian.h                 |   45 --------------------
+ fs/ocfs2/ocfs2.h                  |    1 -
+ include/linux/byteorder/generic.h |   30 +++++++++++++
+ 6 files changed, 30 insertions(+), 78 deletions(-)
+ delete mode 100644 fs/ocfs2/cluster/endian.h
+ delete mode 100644 fs/ocfs2/endian.h
+
+diff --git a/fs/ocfs2/cluster/endian.h b/fs/ocfs2/cluster/endian.h
+deleted file mode 100644
+index 2df9082..0000000
+--- a/fs/ocfs2/cluster/endian.h
++++ /dev/null
+@@ -1,30 +0,0 @@
+-/* -*- mode: c; c-basic-offset: 8; -*-
+- * vim: noexpandtab sw=8 ts=8 sts=0:
+- *
+- * Copyright (C) 2005 Oracle.  All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public
+- * License along with this program; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA 021110-1307, USA.
+- */
+-
+-#ifndef OCFS2_CLUSTER_ENDIAN_H
+-#define OCFS2_CLUSTER_ENDIAN_H
+-
+-static inline void be32_add_cpu(__be32 *var, u32 val)
+-{
+-	*var = cpu_to_be32(be32_to_cpu(*var) + val);
+-}
+-
+-#endif /* OCFS2_CLUSTER_ENDIAN_H */
+diff --git a/fs/ocfs2/cluster/nodemanager.c b/fs/ocfs2/cluster/nodemanager.c
+index 9f5ad0f..816dc5e 100644
+--- a/fs/ocfs2/cluster/nodemanager.c
++++ b/fs/ocfs2/cluster/nodemanager.c
+@@ -24,7 +24,6 @@
+ #include <linux/sysctl.h>
+ #include <linux/configfs.h>
+ 
+-#include "endian.h"
+ #include "tcp.h"
+ #include "nodemanager.h"
+ #include "heartbeat.h"
+diff --git a/fs/ocfs2/dlm/dlmast.c b/fs/ocfs2/dlm/dlmast.c
+index 2fd8bde..644bee5 100644
+--- a/fs/ocfs2/dlm/dlmast.c
++++ b/fs/ocfs2/dlm/dlmast.c
+@@ -43,7 +43,6 @@
+ #include "cluster/heartbeat.h"
+ #include "cluster/nodemanager.h"
+ #include "cluster/tcp.h"
+-#include "cluster/endian.h"
+ 
+ #include "dlmapi.h"
+ #include "dlmcommon.h"
+diff --git a/fs/ocfs2/endian.h b/fs/ocfs2/endian.h
+deleted file mode 100644
+index f226b22..0000000
+--- a/fs/ocfs2/endian.h
++++ /dev/null
+@@ -1,45 +0,0 @@
+-/* -*- mode: c; c-basic-offset: 8; -*-
+- * vim: noexpandtab sw=8 ts=8 sts=0:
+- *
+- * Copyright (C) 2005 Oracle.  All rights reserved.
+- *
+- * This program is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public
+- * License along with this program; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA 021110-1307, USA.
+- */
+-
+-#ifndef OCFS2_ENDIAN_H
+-#define OCFS2_ENDIAN_H
+-
+-static inline void le16_add_cpu(__le16 *var, u16 val)
+-{
+-	*var = cpu_to_le16(le16_to_cpu(*var) + val);
+-}
+-
+-static inline void le32_add_cpu(__le32 *var, u32 val)
+-{
+-	*var = cpu_to_le32(le32_to_cpu(*var) + val);
+-}
+-
+-static inline void le32_and_cpu(__le32 *var, u32 val)
+-{
+-	*var = cpu_to_le32(le32_to_cpu(*var) & val);
+-}
+-
+-static inline void be32_add_cpu(__be32 *var, u32 val)
+-{
+-	*var = cpu_to_be32(be32_to_cpu(*var) + val);
+-}
+-
+-#endif /* OCFS2_ENDIAN_H */
+diff --git a/fs/ocfs2/ocfs2.h b/fs/ocfs2/ocfs2.h
+index a860633..b367a33 100644
+--- a/fs/ocfs2/ocfs2.h
++++ b/fs/ocfs2/ocfs2.h
+@@ -43,7 +43,6 @@
+ #include "dlm/dlmapi.h"
+ 
+ #include "ocfs2_fs.h"
+-#include "endian.h"
+ #include "ocfs2_lockid.h"
+ 
+ /* Most user visible OCFS2 inodes will have very few pieces of
+diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
+index 3dc715b..d377155 100644
+--- a/include/linux/byteorder/generic.h
++++ b/include/linux/byteorder/generic.h
+@@ -146,6 +146,36 @@
+ #define htons(x) ___htons(x)
+ #define ntohs(x) ___ntohs(x)
+ 
++static inline void le16_add_cpu(__le16 *var, u16 val)
++{
++	*var = cpu_to_le16(le16_to_cpu(*var) + val);
++}
++
++static inline void le32_add_cpu(__le32 *var, u32 val)
++{
++	*var = cpu_to_le32(le32_to_cpu(*var) + val);
++}
++
++static inline void le64_add_cpu(__le64 *var, u64 val)
++{
++	*var = cpu_to_le64(le64_to_cpu(*var) + val);
++}
++
++static inline void be16_add_cpu(__be16 *var, u16 val)
++{
++	*var = cpu_to_be16(be16_to_cpu(*var) + val);
++}
++
++static inline void be32_add_cpu(__be32 *var, u32 val)
++{
++	*var = cpu_to_be32(be32_to_cpu(*var) + val);
++}
++
++static inline void be64_add_cpu(__be64 *var, u64 val)
++{
++	*var = cpu_to_be64(be64_to_cpu(*var) + val);
++}
++
+ #endif /* KERNEL */
+ 
+ #endif /* _LINUX_BYTEORDER_GENERIC_H */
+-- 
+1.6.5.GIT
+
