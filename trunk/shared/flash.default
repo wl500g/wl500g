@@ -450,7 +450,7 @@
 {"wl_reg_mode", "d", 0},
 {"wl_wpa_mode", "0", 0},
 
-#ifdef __CONFIG_WIMAX__
+#ifdef __CONFIG_MADWIMAX__
 {"wan_wimax_ssid", "", 0},
 {"wan_wimax_check", "0", 0},
 {"wan_wimax_interval", "60", 0},

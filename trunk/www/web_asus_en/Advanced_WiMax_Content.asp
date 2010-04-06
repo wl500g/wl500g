@@ -14,9 +14,9 @@
 
 <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
 <input type="hidden" name="current_page" value="Advanced_WiMax_Content.asp">
-<input type="hidden" name="next_page" value="Advanced_DHCP_Content.asp">
+<input type="hidden" name="next_page" value="SaveRestart.asp">
 <input type="hidden" name="next_host" value="">
-<input type="hidden" name="sid_list" value="WiMaxConfig;Layer3Forwarding;LANHostConfig;IPConnection;PPPConnection;">
+<input type="hidden" name="sid_list" value="WiMaxConfig;">
 <input type="hidden" name="group_id" value="">
 <input type="hidden" name="modified" value="0">
 <input type="hidden" name="action_mode" value="">
@@ -34,36 +34,30 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a SSID for the WiMAX network. Default: @yota.ru', LEFT);" onMouseOut="return nd();">SSID:</td>
 <td class="content_input_td">
-<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_wimax_ssid" value="<% nvram_get_x("WiMaxConfig","wan_wimax_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)">
+	<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_wimax_ssid" value="<% nvram_get_x("WiMaxConfig","wan_wimax_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)">
 </td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('It makes periodically ping to the default gateway of ISP.', LEFT);" onMouseOut="return nd();">Check connection?</td>
 <td class="content_input_td">
-<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wan_wimax_check", "1", "checked"); %> onChange="changeWIMAXChkCon()">Yes</input>
-<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wan_wimax_check", "0", "checked"); %> onChange="changeWIMAXChkCon()">No</input>
-</td>
+	<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" onClick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "1", "checked"); %>>Yes</input>
+	<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" onClick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "0", "checked"); %>>No</input>
+	</td>
 </tr>
-
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Input the time period between connection checking (in seconds).', LEFT);" onMouseOut="return nd();">Time period, sec:</td>
 <td class="content_input_td">
-<input type="text" maxlength="5" class="content_input_fd" size="3" name="wan_wimax_interval" value="<% nvram_get_x("WiMaxConfig","wan_wimax_interval"); %>" onBlur="return validate_range(this, 1, 10000)" onKeyPress="return is_number(this)"</td>
+	<input type="text" maxlength="5" class="content_input_fd" size="3" name="wan_wimax_interval" value="<% nvram_get_x("WiMaxConfig","wan_wimax_interval"); %>" onBlur="return validate_range(this, 1, 10000)" onKeyPress="return is_number(this)"</td>
 </tr>
-
-
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Restart WiMAX then connection checking signals fail. It does not work without Check connection.', LEFT);" onMouseOut="return nd();">Restart dead connection?</td>
 <td class="content_input_td">
-<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wan_wimax_restart", "1", "checked"); %>>Yes</input>
-<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" <% nvram_match_x("WiMaxConfig","wan_wimax_restart", "0", "checked"); %>>No</input>
+	<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" onClick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "1", "checked"); %>>Yes</input>
+	<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" onClick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "0", "checked"); %>>No</input>
 </td>
 </tr>
-
-
 </table>
 </td></tr>
-
 <tr><td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
 <tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
@@ -79,7 +73,6 @@
 </td></tr>
 </table>
 </td></tr>
-
 <tr><td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
 <tr>

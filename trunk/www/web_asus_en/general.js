@@ -2047,7 +2047,7 @@ function load_body()
    }
    else if (document.form.current_page.value == "Advanced_WiMax_Content.asp")
    {
-	changeWIMAXChkCon();
+	changeWiMAXCheckConnection();
    }
    change = 0;
 }
@@ -2795,6 +2795,10 @@ function change_common_radio(o, s, v, r)
 		document.form.udpxy_wan_x.value = "1";
 	else
 		document.form.udpxy_wan_x.value = "0";
+  }
+  else if (s=="WiMaxConfig" && v=="wan_wimax_check")
+  {
+	changeWiMAXCheckConnection();
   }
   return true; 	
 }
@@ -4280,16 +4284,16 @@ function unmasq_wepkey()
 		document.form.wl_key4.value = wep4;					
 }
 
-function changeWIMAXChkCon()
+function changeWiMAXCheckConnection()
 {
-    if (document.form.wan_wimax_check[0].checked == false)
-    {
-	inputCtrl(document.form.wan_wimax_interval, 0);
-	inputRCtrl1(document.form.wan_wimax_restart, 0);
-    }
-    else
-    {
-	inputCtrl(document.form.wan_wimax_interval, 1);
-	inputRCtrl1(document.form.wan_wimax_restart, 1);
-    }
+	if (document.form.wan_wimax_check[0].checked == false)
+	{
+		inputCtrl(document.form.wan_wimax_interval, 0);
+		inputRCtrl1(document.form.wan_wimax_restart, 0);
+	}
+	else
+	{
+		inputCtrl(document.form.wan_wimax_interval, 1);
+		inputRCtrl1(document.form.wan_wimax_restart, 1);
+	}
 }
