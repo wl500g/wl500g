@@ -52,7 +52,7 @@ index 15a9e8b..314b3e1 100644
 +			if (info->seconds && time_after(time, e->stamps[i]))
  				continue;
 -			if (++hits >= info->hit_count) {
-+			if (info->hit_count && ++hits >= info->hit_count) {
++			if (!info->hit_count || ++hits >= info->hit_count) {
  				ret ^= 1;
  				break;
  			}
