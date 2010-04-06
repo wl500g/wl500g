@@ -4196,6 +4196,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
@@ -4208,6 +4209,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 1);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
@@ -4222,6 +4224,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 1);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 1);
@@ -4239,6 +4242,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 0);
 	   inputCtrl(document.form.ipv6_wan_netsize, 0);
 	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_dns1_x, 0);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
