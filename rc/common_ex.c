@@ -436,8 +436,20 @@ void convert_asus_values()
 #ifdef __CONFIG_MADWIMAX__
 	else if (nvram_match("wan_proto", "wimax"))
 	{
-		nvram_set("wan0_ifname", "wmx0");
-		nvram_set("wan0_wimax_ssid", nvram_safe_get("wimax_ssid"));
+		nvram_set("wan_ifname", "wmx0");
+		nvram_set("wan_ifnames", "wmx0");
+		/* will be done again with set_wan0_vars(), but to be clear */
+		nvram_set("wan0_ifnames", "wmx0");
+		nvram_set("wan0_wimax_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_wimax_netmask", 
+			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
+			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+				nvram_get("wan_netmask") : NULL);
+		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
+		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
+		nvram_set("wan0_wimax_enabled", "0");
+
+		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
 #endif

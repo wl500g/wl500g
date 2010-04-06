@@ -4322,13 +4322,11 @@ struct variable variables_IPv6Config[] = {
 
 #ifdef __CONFIG_MADWIMAX__
 struct variable variables_WiMaxConfig[] = {
-//	{"wimax_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
-//	{"wimax_priority", "", validate_range, ARGV("1","10"), FALSE, FALSE},
-	{"wmx_chk_con", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"wmx_chk_interval", "", validate_range, ARGV("1","10000"), FALSE, FALSE},
-	{"wmx_chk_rst", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"wmx_chk_log", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_wimax_ssid", "", validate_string, ARGV("32"), FALSE, FALSE},
+	{"wan_wimax_check", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_wimax_interval", "", validate_range, ARGV("1","10000"), FALSE, FALSE},
+	{"wan_wimax_restart", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_wimax_syslog", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{ 0, 0, 0, 0}
 	};
 #endif

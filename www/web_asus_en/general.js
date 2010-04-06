@@ -4282,14 +4282,14 @@ function unmasq_wepkey()
 
 function changeWIMAXChkCon()
 {
-    if (document.form.wmx_chk_con[0].checked == false)
+    if (document.form.wan_wimax_check[0].checked == false)
     {
-	inputCtrl(document.form.wmx_chk_interval, 0);
-	inputRCtrl1(document.form.wmx_chk_rst, 0);
+	inputCtrl(document.form.wan_wimax_interval, 0);
+	inputRCtrl1(document.form.wan_wimax_restart, 0);
     }
     else
     {
-	inputCtrl(document.form.wmx_chk_interval, 1);
-	inputRCtrl1(document.form.wmx_chk_rst, 1);
+	inputCtrl(document.form.wan_wimax_interval, 1);
+	inputRCtrl1(document.form.wan_wimax_restart, 1);
     }
 }
