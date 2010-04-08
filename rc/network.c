@@ -826,6 +826,9 @@ start_wan(void)
 		else if (strcmp(wan_proto, "wimax") == 0){
 			/* launch wimax daemon */
 			start_wimax(prefix);
+
+			/* wimax interface name is referenced from this point on */
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp));
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
@@ -1196,7 +1199,7 @@ wan_up(char *wan_ifname)
 		if (strcmp(wan_proto, "dhcp") == 0 || 
 		    strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
-		    || strcmp(wan_proto, "wimax") == 0 
+		 || strcmp(wan_proto, "wimax") == 0
 #endif
 		){
 			/* the gateway is in the local network */
@@ -1267,7 +1270,7 @@ wan_up(char *wan_ifname)
 	    || strcmp(wan_proto, "bigpond") == 0
 	    || strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
-	    ||  strcmp(wan_proto, "wimax") == 0
+	    || strcmp(wan_proto, "wimax") == 0
 #endif
 	){
 		start_igmpproxy(wan_ifname);
@@ -1544,15 +1547,17 @@ wan_ifunit(char *wan_ifname)
 
 	if ((unit = ppp_ifunit(wan_ifname)) >= 0)
 		return unit;
+#ifdef __CONFIG_MADWIMAX__
+	else
+	if ((unit = wimax_ifunit(wan_ifname)) >= 0)
+		return unit;
+#endif
 	else {
 		for (unit = 0; unit < MAX_NVPARSE; unit ++) {
 			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
 			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
 			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-#ifdef __CONFIG_MADWIMAX__
-			     nvram_match(strcat_r(prefix, "proto", tmp), "wimax") ||
-#endif
 			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
 				return unit;
 		}

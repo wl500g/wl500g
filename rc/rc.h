@@ -164,7 +164,7 @@ int start_wimax(char *prefix);
 int stop_wimax(void);
 int madwimax_check(void);
 int madwimax_main(int argc, char **argv);
-void get_wimax_ifname(char * out, int unit);
+int wimax_ifunit(char *ifname);
 #endif
 
 #endif /* _rc_h_ */

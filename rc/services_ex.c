@@ -590,24 +590,23 @@ start_ddns(void)
 	else if (strcmp(server, "WWW.DNSOMATIC.COM")==0)
 		strcpy(service, "dnsomatic");
 	else strcpy(service, "dyndns");
-			
+
 	sprintf(usrstr, "%s:%s", user, passwd);
-	
+
 	if (nvram_match("ddns_realip_x", "1"))
-	{
 		strcpy(wan_ifname, "auto");
-	}
 	else
 	if (nvram_match("wan_proto", "pppoe") ||
 	    nvram_match("wan_proto", "pptp")  ||
 	    nvram_match("wan_proto", "l2tp"))
-	{
 		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
-	}
 	else
-	{
+#ifdef __CONFIG_MADWIMAX__
+	if (nvram_match("wan_proto", "wimax"))
+		strcpy(wan_ifname, nvram_safe_get("wan0_wimax_ifname"));
+	else
+#endif
 		strcpy(wan_ifname, nvram_safe_get("wan0_ifname"));
-	}
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 

@@ -451,6 +451,7 @@
 {"wl_wpa_mode", "0", 0},
 
 #ifdef __CONFIG_MADWIMAX__
+{"wan_wimax_ifname", "", 0 },
 {"wan_wimax_ssid", "", 0},
 {"wan_wimax_check", "0", 0},
 {"wan_wimax_interval", "60", 0},
