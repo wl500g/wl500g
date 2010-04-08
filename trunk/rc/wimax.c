@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <ctype.h>
 #include <time.h>
 
 #include <bcmnvram.h>
@@ -82,13 +83,22 @@ init_wmx_variables(char *prefix)
 	nvram_unset(strcat_r(prefix, "wimax_check_time", tmp));
 }
 
+int
+wimax_ifunit(char *ifname)
+{
+	if (strncmp(ifname, "wmx", 3))
+		return -1;
+	if (!isdigit(ifname[3]))
+		return -1;
+	return atoi(&ifname[3]);
+}
 
 int
 start_wimax(char *prefix)
 {
 	char tmp[100];
 	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
-	char *wimax_ifname = nvram_safe_get(strcat_r(prefix, "ifname", tmp));
+	char *wimax_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp));
 	char *wimax_ssid = nvram_safe_get(strcat_r(prefix, "wimax_ssid", tmp));
 	int ret = 0;
 
@@ -226,7 +236,7 @@ madwimax_create(char *ifname)
 	char prefix[] = "wanXXXXXXXXXX_";
 	int unit = 0;
 
-	if ((unit = wan_ifunit(ifname)) < 0)
+	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -259,7 +269,7 @@ madwimax_release(char *ifname)
 	//char prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 
-	if ((unit = wan_ifunit(ifname)) < 0)
+	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 	//snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -286,7 +296,7 @@ madwimax_up(char *ifname)
 	char prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 
-	if ((unit = wan_ifunit(ifname)) < 0)
+	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -333,7 +343,7 @@ madwimax_down(char *ifname)
 	char tmp[100];
 	int unit;
 
-	if ((unit = wan_ifunit(ifname)) < 0)
+	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 
 	wan_down(ifname);
