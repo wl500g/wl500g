@@ -76,7 +76,7 @@ init_wmx_variables(char *prefix)
 	char tmp[100];
 
 	int t_interval = atoi(nvram_safe_get("wan_wimax_interval"));
-	if (t_interval < 30 || t_interval > 3600 ) 
+	if (t_interval < 20 || t_interval > 3600 ) 
 		nvram_set("wan_wimax_interval", "60");
 
 	// Timestamp of the last connection checking
@@ -111,6 +111,8 @@ start_wimax(char *prefix)
 		"--ssid", *wimax_ssid ? wimax_ssid : "@yota.ru",
 		NULL};
 
+	dprintf( "%s", prefix );
+
 	init_wmx_variables(prefix);
 	update_nvram_wmx(wimax_ifname, 0);
 
@@ -120,8 +122,9 @@ start_wimax(char *prefix)
 		sleep(1);
 		symlink("/sbin/rc", wimax_events);
 		ret = _eval(wmx_argv, NULL, 0, NULL);
-		nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "1");
 	}
+
+	nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "1");
 
 	return ret;
 }
@@ -138,6 +141,8 @@ stop_wimax(void)
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "0");
+
+	dprintf( "%s", prefix );
 
 	eval("killall", "madwimax");
 	sleep(1);
@@ -236,6 +241,8 @@ madwimax_create(char *ifname)
 	char prefix[] = "wanXXXXXXXXXX_";
 	int unit = 0;
 
+	dprintf( "%s", ifname );
+
 	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
@@ -269,6 +276,8 @@ madwimax_release(char *ifname)
 	//char prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 
+	dprintf( "%s", ifname );
+
 	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
 	//snprintf(prefix, sizeof(prefix), "wan%d_", unit);
@@ -295,6 +304,8 @@ madwimax_up(char *ifname)
 	char tmp[100];
 	char prefix[] = "wanXXXXXXXXXX_";
 	int unit;
+
+	dprintf( "%s", ifname );
 
 	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;
@@ -342,6 +353,8 @@ madwimax_down(char *ifname)
 {
 	char tmp[100];
 	int unit;
+
+	dprintf( "%s", ifname );
 
 	if ((unit = wimax_ifunit(ifname)) < 0)
 		return -1;

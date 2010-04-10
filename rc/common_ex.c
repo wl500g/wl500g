@@ -450,12 +450,17 @@ void convert_asus_values()
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
 		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
-		nvram_set("wan0_wimax_enabled", "0");
 
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
 #endif
+
+
+#ifdef __CONFIG_MADWIMAX__
+	nvram_set("wan0_wimax_enabled", "0");
+#endif
+
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
 
 	if (nvram_invmatch("wan_hwaddr_x", ""))
