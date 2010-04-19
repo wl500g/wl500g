@@ -44,6 +44,7 @@ header-y += xt_time.h
 header-y += xt_SECMARK.h
 header-y += xt_CONNSECMARK.h
 header-y += xt_TCPMSS.h
+header-y += xt_TEE.h
 header-y += xt_u32.h
 header-y += xt_webstr.h
 

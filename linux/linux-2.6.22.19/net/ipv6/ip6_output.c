@@ -188,6 +188,7 @@ int ip6_output(struct sk_buff *skb)
 	else
 		return ip6_output2(skb);
 }
+EXPORT_SYMBOL_GPL(ip6_output);
 
 /*
  *	xmit an sk_buff (used by TCP)
