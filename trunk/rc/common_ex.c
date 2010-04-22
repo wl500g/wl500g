@@ -436,11 +436,6 @@ void convert_asus_values()
 #ifdef __CONFIG_MADWIMAX__
 	else if (nvram_match("wan_proto", "wimax"))
 	{
-		//nvram_set("wan_ifname", "wmx0");
-		//nvram_set("wan_ifnames", "wmx0");
-		/* will be done again with set_wan0_vars(), but to be clear */
-		//nvram_set("wan0_ifnames", "wmx0");
-
 		nvram_set("wan0_wimax_ifname", "wmx0");
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_wimax_ipaddr", nvram_safe_get("wan_ipaddr"));
@@ -454,11 +449,6 @@ void convert_asus_values()
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
-#endif
-
-
-#ifdef __CONFIG_MADWIMAX__
-	nvram_set("wan0_wimax_enabled", "0");
 #endif
 
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
@@ -479,6 +469,9 @@ void convert_asus_values()
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
 	nvram_unset("wan0_dns");
 	nvram_unset("wanx_dns");
+#ifdef __CONFIG_MADWIMAX__
+	nvram_unset("wan0_wimax_enabled");
+#endif
 
 	convert_routes();
 
