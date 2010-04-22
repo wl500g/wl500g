@@ -7,7 +7,7 @@
   * Hardware
     * [Devices Devices list]
     * [MemoryController BCM3302 Memory Controller info]
-  * Web-GUI
+  * Web Interface
     * Wireless
       * [GUIWirelessInterface Interface]
       * Bridge

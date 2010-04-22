@@ -7,7 +7,7 @@
   * Оборудование
     * [Devices Краткая характеристика устройств]
     * [MemoryController Информация по конроллеру памяти BCM3302]
-  * Web-GUI
+  * Web Интерфейс
     * Wireless
       * [GUIWirelessInterface Interface]
       * Bridge
