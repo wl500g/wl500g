@@ -824,6 +824,8 @@ start_wan(void)
 
 #ifdef __CONFIG_MADWIMAX__
 		else if (strcmp(wan_proto, "wimax") == 0){
+			// wait for usb-device initializing
+			sleep(1);
 			/* launch wimax daemon */
 			start_wimax(prefix);
 
