@@ -199,7 +199,7 @@ madwimax_check(void)
 			char * wchk_argv[] = {
 				"/usr/sbin/wimax_check_connection.sh",
 				(snprintf(s_pid, sizeof(s_pid), "%d", pid), s_pid),
-				nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
+				nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp)),
 				nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 				NULL};
 
