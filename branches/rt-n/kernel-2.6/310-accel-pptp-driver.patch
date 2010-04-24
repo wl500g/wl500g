@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
 --- linux-2.6.22.orig/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6/drivers/net/pptp.c	2009-12-16 07:57:19.000000000 +0000
-@@ -0,0 +1,1295 @@
+@@ -0,0 +1,1296 @@
 +/*
 + *  Point-to-Point Tunneling Protocol for Linux
 + *
@@ -377,7 +377,7 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
 +	#endif
 +
 +
-+	if (skb_headroom(skb) < max_headroom || skb_shared(skb)
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
 +	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
 +		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
 +		if (!new_skb) {
