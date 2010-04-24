@@ -284,12 +284,18 @@ start_upnp(void)
 	
 	ret = eval("killall", "-SIGUSR1", "upnp");
 	if (ret != 0) {
-	    snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
-	    wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
-	    wan_ifname = nvram_match("upnp_enable", "1") && (strcmp(wan_proto, "pppoe") == 0 || 
-	    	strcmp(wan_proto, "pptp") ==0 || strcmp(wan_proto, "l2tp") == 0) ? 
-					nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
-					nvram_safe_get(strcat_r(prefix, "ifname", var));
+		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
+		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
+		wan_ifname = nvram_match("upnp_enable", "1") &&
+		    (strcmp(wan_proto, "pppoe") == 0 ||
+		     strcmp(wan_proto, "pptp") ==0 ||
+		     strcmp(wan_proto, "l2tp") == 0) ?
+		        nvram_safe_get(strcat_r(prefix, "pppoe_ifname", var)) :
+#ifdef __CONFIG_MADWIMAX__
+		    (strcmp(wan_proto, "wimax") == 0) ?
+			nvram_safe_get(strcat_r(prefix, "wimax_ifname", var)) :
+#endif
+			nvram_safe_get(strcat_r(prefix, "ifname", var));
 	    ret = eval("upnp", "-D",
 		       "-L", nvram_safe_get("lan_ifname"),
 		       "-W", wan_ifname);

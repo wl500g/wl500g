@@ -37,6 +37,9 @@
 #include <net/ethernet.h>
 #endif /* linux */
 
+#include <syslog.h>
+#include <stdarg.h>
+
 #define MAX_NVPARSE 255
 
 #ifdef linux
@@ -866,4 +869,16 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 
 }
 
+# ifdef DEBUG_TO_SYSLOG
+void
+cprintf_syslog( char * fmt, ... )
+{
+	va_list args;
+	va_start( args, fmt );
+	openlog("DEBUG", LOG_CONS | LOG_PID, 0);
+	vsyslog( 0, fmt, args );
+	closelog();
+	va_end( args );
+}
+# endif
 #endif

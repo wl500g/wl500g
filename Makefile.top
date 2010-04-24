@@ -640,6 +640,7 @@ ppp/Makefile: ppp/linux/Makefile.top
 	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
 
 ppp: ppp/Makefile
+	$(MAKE) -C $@ $(if $(CONFIG_IPV6),HAVE_INET6=y,)
 
 ppp-install: ppp
 	install -D ppp/pppd/pppd $(INSTALLDIR)/ppp/usr/sbin/pppd

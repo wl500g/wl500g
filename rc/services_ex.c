@@ -218,18 +218,32 @@ start_dns(void)
 	if (nvram_match("router_disable", "1"))
 		return 0;
 
-
 	/* Create resolv.conf with empty nameserver list */
-	if (!(fp = fopen("/tmp/resolv.conf", "r")))
-	{
-		if (!(fp = fopen("/tmp/resolv.conf", "w"))) 
-		{
-			perror("/tmp/resolv.conf");
-			return errno;
-		}
-		else fclose(fp);
+	if (!(fp = fopen("/tmp/resolv.conf", "a"))) {
+		perror("/tmp/resolv.conf");
+		return errno;
 	}
-	else fclose(fp);
+
+	// if user want to set dns server by himself
+	if (nvram_invmatch("wan_dnsenable_x", "1"))
+	{
+		/* Write resolv.conf with upstream nameservers */
+		if (nvram_invmatch("wan_dns1_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
+		if (nvram_invmatch("wan_dns2_x",""))
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
+	}
+
+#ifdef __CONFIG_IPV6__
+	// if user want to ipv6 set dns server by himself
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+		/* Write resolv.conf with upstream ipv6 nameservers */
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
+	fclose(fp);
 
 	if (!(fp = fopen("/tmp/dproxy.conf", "w"))) {
 		perror("/tmp/dproxy.conf");
@@ -245,22 +259,6 @@ start_dns(void)
 	fprintf(fp, "dhcp_lease_file=\n");
 	fprintf(fp, "ppp_dev=/var/run/ppp0.pid\n");
 	fclose(fp);
-
-	// if user want to set dns server by himself
-	if (nvram_invmatch("wan_dnsenable_x", "1"))	
-	{
-		/* Write resolv.conf with upstream nameservers */
-		if (!(fp = fopen("/tmp/resolv.conf", "w"))) {
-			perror("/tmp/resolv.conf");
-			return errno;
-		}
-	
-		if (nvram_invmatch("wan_dns1_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));		
-		if (nvram_invmatch("wan_dns2_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
-		fclose(fp);
-	}
 
 	active = timecheck_item(nvram_safe_get("url_date_x"), 
 				nvram_safe_get("url_time_x"));
@@ -341,10 +339,19 @@ start_dns(void)
 	{
 		/* Write resolv.conf with upstream nameservers */
 		if (nvram_invmatch("wan_dns1_x",""))
-			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));		
+			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns1_x"));
 		if (nvram_invmatch("wan_dns2_x",""))
 			fprintf(fp, "nameserver %s\n", nvram_safe_get("wan_dns2_x"));
 	}
+
+#ifdef __CONFIG_IPV6__
+	// if user want to ipv6 set dns server by himself
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+		/* Write resolv.conf with upstream ipv6 nameservers */
+		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
 
 	fclose(fp);
 
@@ -417,6 +424,15 @@ start_dns(void)
 	fprintf(fp, "user=nobody\n"
 		    "resolv-file=/tmp/resolv.conf\nno-poll\n"
 		    "interface=%s\n", nvram_safe_get("lan_ifname"));
+
+#if 0
+#ifdef __CONFIG_IPV6__
+	/* use static ipv6 dns servers for external clients only */
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+			fprintf(fp, "server=%s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+#endif
 
 	if (nvram_invmatch("lan_domain", "")) {
 		fprintf(fp, "domain=%s\n"
@@ -574,24 +590,23 @@ start_ddns(void)
 	else if (strcmp(server, "WWW.DNSOMATIC.COM")==0)
 		strcpy(service, "dnsomatic");
 	else strcpy(service, "dyndns");
-			
+
 	sprintf(usrstr, "%s:%s", user, passwd);
-	
+
 	if (nvram_match("ddns_realip_x", "1"))
-	{
 		strcpy(wan_ifname, "auto");
-	}
 	else
 	if (nvram_match("wan_proto", "pppoe") ||
 	    nvram_match("wan_proto", "pptp")  ||
 	    nvram_match("wan_proto", "l2tp"))
-	{
 		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
-	}
 	else
-	{
+#ifdef __CONFIG_MADWIMAX__
+	if (nvram_match("wan_proto", "wimax"))
+		strcpy(wan_ifname, nvram_safe_get("wan0_wimax_ifname"));
+	else
+#endif
 		strcpy(wan_ifname, nvram_safe_get("wan0_ifname"));
-	}	
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 
@@ -812,9 +827,6 @@ int restart_nfsd(void)
 int 
 start_usb(void)
 {
-	// unset possible values
-	nvram_unset("wimax_device");
-
 	eval("insmod", "usbcore");
 #ifdef LINUX26
 	eval("insmod", "ohci-hcd");
@@ -1879,6 +1891,7 @@ hotplug_usb(void)
 
 	if ((product=getenv("PRODUCT")))
 	{
+#ifdef __CONFIG_MADWIMAX__
 		/* wimax modem */
 		if (strncmp(interface, "255/", 4) == 0)
 		{
@@ -1888,12 +1901,13 @@ hotplug_usb(void)
 			    strncmp(product, "4e8/6780", 8) == 0)
 			{
 				if (strcmp(action, "add") == 0)
-					nvram_set("wimax_device", product);
+					nvram_set("usb_wimax_device", product);
 				else
-					nvram_unset("wimax_device");
+					nvram_unset("usb_wimax_device");
 				return 0;
 			}
 		}
+#endif
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{

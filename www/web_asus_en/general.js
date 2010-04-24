@@ -2047,7 +2047,7 @@ function load_body()
    }
    else if (document.form.current_page.value == "Advanced_WiMax_Content.asp")
    {
-	changeWIMAXChkCon();
+	changeWiMAXCheckConnection();
    }
    change = 0;
 }
@@ -2795,6 +2795,10 @@ function change_common_radio(o, s, v, r)
 		document.form.udpxy_wan_x.value = "1";
 	else
 		document.form.udpxy_wan_x.value = "0";
+  }
+  else if (s=="WiMaxConfig" && v=="wan_wimax_check")
+  {
+	changeWiMAXCheckConnection();
   }
   return true; 	
 }
@@ -4192,6 +4196,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
@@ -4204,6 +4209,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 1);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 1);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
@@ -4218,6 +4224,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 1);
 	   inputCtrl(document.form.ipv6_wan_netsize, 1);
 	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_dns1_x, 1);
 	   inputCtrl(document.form.ipv6_sit_local, 1);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 1);
@@ -4235,6 +4242,7 @@ function change_ipv6_type(v)
 	   inputCtrl(document.form.ipv6_wan_addr, 0);
 	   inputCtrl(document.form.ipv6_wan_netsize, 0);
 	   inputCtrl(document.form.ipv6_wan_router, 0);
+	   inputCtrl(document.form.ipv6_dns1_x, 0);
 	   inputCtrl(document.form.ipv6_sit_local, 0);
 	   inputCtrl(document.form.ipv6_sit_remote, 0);
 	   inputCtrl(document.form.ipv6_sit_relay, 0);
@@ -4280,16 +4288,16 @@ function unmasq_wepkey()
 		document.form.wl_key4.value = wep4;					
 }
 
-function changeWIMAXChkCon()
+function changeWiMAXCheckConnection()
 {
-    if (document.form.wmx_chk_con[0].checked == false)
-    {
-	inputCtrl(document.form.wmx_chk_interval, 0);
-	inputRCtrl1(document.form.wmx_chk_rst, 0);
-    }
-    else
-    {
-	inputCtrl(document.form.wmx_chk_interval, 1);
-	inputRCtrl1(document.form.wmx_chk_rst, 1);
-    }
+	if (document.form.wan_wimax_check[0].checked == false)
+	{
+		inputCtrl(document.form.wan_wimax_interval, 0);
+		inputRCtrl1(document.form.wan_wimax_restart, 0);
+	}
+	else
+	{
+		inputCtrl(document.form.wan_wimax_interval, 1);
+		inputRCtrl1(document.form.wan_wimax_restart, 1);
+	}
 }

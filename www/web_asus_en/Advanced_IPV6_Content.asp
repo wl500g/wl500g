@@ -60,12 +60,6 @@
 <td class="content_section_header_td" colspan="2">WAN IPv6 Setting
            </td>
 </tr>
-<!---
-<tr>
-<td class="content_desc_td" colspan="2">Only use these values when your WAN-port is connected to a native IPv6-network. If you need a tunnel to connect to the public IPv6-network, leave these fields empty and configure the next section.
-           </td>
-</tr>
---->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen on the WAN-port. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">Static or local IPv6 address:
            </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_addr" value="<% nvram_get_x("IPv6Config","ipv6_wan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)"></td>
@@ -77,6 +71,15 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv6 gateway. All IPv6 traffic flowing out of the network will be directed to this host', LEFT);" onMouseOut="return nd();">Remote IPv6 gateway:
           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get_x("IPv6Config","ipv6_wan_router"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)">
+	  </td>
+</tr>
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">WAN DNS IPv6 Setting
+           </td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNS Server:
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)">
 	  </td>
 </tr>
 <tr class="content_section_header_tr">

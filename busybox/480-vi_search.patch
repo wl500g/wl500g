@@ -11,9 +11,9 @@ diff -BurpN busybox-1.14.2/editors/vi.c busybox/editors/vi.c
  			goto dc3; // if no pat re-use old pat
  		}
 @@ -3242,6 +3242,10 @@ static void do_cmd(int c)
- 		if (cmdcnt-- > 1) {
+ 		if (--cmdcnt > 0) {
  			do_cmd(c);
- 		}				// repeat cnt
+ 		}
 +		if (last_search_pattern == 0) {
 +			msg = "No previous regular expression";
 +			goto dc2;

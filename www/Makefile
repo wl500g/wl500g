@@ -19,7 +19,7 @@ LANGUAGE := EN
 
 ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
-export CONFIG_IPV6 CONFIG_MADWIMAX
+export CONFIG_IPV6 CONFIG_MADWIMAX CONFIG_WAVESERVER
 endif
 
 all: pages.mk

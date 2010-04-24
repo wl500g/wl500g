@@ -165,4 +165,12 @@ int refresh_wave(void);
 int poweron_main(int argc, char *argv[]);
 int watchdog_main();
 
+#ifdef __CONFIG_MADWIMAX__
+int start_wimax(char *prefix);
+int stop_wimax(void);
+int madwimax_check(void);
+int madwimax_main(int argc, char **argv);
+int wimax_ifunit(char *ifname);
+#endif
+
 #endif /* _rc_h_ */

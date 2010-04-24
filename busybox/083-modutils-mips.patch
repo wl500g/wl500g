@@ -1,0 +1,30 @@
+From 8597da193474673a3caeffcf3d134bb2ed57aa4d
+From: Ralf Rösch
+Date: Wed, 14 Apr 2010 16:45:37 +0000
+Subject: modutils-24: [mips] modutlis-24 segfault fix for 2.4 kernel modules
+
+handling DWARF sections solves the problem.
+
+This seems to be a long outstanding bug:
+http://permalink.gmane.org/gmane.linux.busybox/4533
+http://www.linux-mips.org/archives/linux-mips/2004-08/msg00072.html
+
+Signed-off-by: Ralf Rösch <ralf.roesch@rw-gmbh.de>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/modutils/modutils-24.c b/modutils/modutils-24.c
+index 05c1bf2..5c1611c 100644
+--- a/modutils/modutils-24.c
++++ b/modutils/modutils-24.c
+@@ -3285,6 +3285,9 @@ static struct obj_file *obj_load(char *image, size_t image_size, int loadprogbit
+ 			case SHT_SYMTAB:
+ 			case SHT_STRTAB:
+ 			case SHT_RELM:
++#if defined(__mips__)
++			case SHT_MIPS_DWARF:
++#endif
+ 				sec->contents = NULL;
+ 				if (sec->header.sh_size > 0) {
+ 					sec->contents = xmalloc(sec->header.sh_size);
+--
+cgit v0.8.2.1

@@ -10,7 +10,7 @@ diff -ur ppp-2.4.2/pppd/fsm.c pppd/pppd/fsm.c
  
  /*
   * fsm_init - Initialize fsm.
-@@ -280,6 +282,10 @@
+@@ -280,6 +282,10 @@ fsm_timeout(arg)
      case ACKRCVD:
      case ACKSENT:
  	if (f->retransmits <= 0) {
@@ -34,18 +34,18 @@ diff -ur ppp-2.4.2/pppd/lcp.c pppd/pppd/lcp.c
  /*
   * LCP-related command-line options.
   */
-@@ -400,6 +403,7 @@
-     char *reason;
+@@ -400,6 +403,7 @@ lcp_close(unit, reason)
  {
      fsm *f = &lcp_fsm[unit];
+     int oldstate;
 +    int statusindex = 0;/* JYWeng 20031216: add to wanstatus.log */
  
-     if (phase != PHASE_DEAD)
+     if (phase != PHASE_DEAD && phase != PHASE_MASTER)
  	new_phase(PHASE_TERMINATE);
-@@ -415,6 +419,16 @@
- 
-     } else
- 	fsm_close(f, reason);
+@@ -415,6 +419,16 @@ lcp_close(unit, reason)
+ 	f->flags &= ~DELAYED_UP;
+ 	lcp_finished(f);
+     }
 +/* JYWeng 20031216: add to wanstatus.log */
 +    if(strstr(reason, "Link inactive")) {
 +	    statusindex = 1;
