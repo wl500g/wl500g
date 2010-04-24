@@ -4,7 +4,7 @@ diff -BurpN busybox-1.15.1/include/applets.h busybox/include/applets.h
 @@ -134,8 +134,8 @@
  IF_DU(APPLET(du, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_DUMPKMAP(APPLET(dumpkmap, _BB_DIR_BIN, _BB_SUID_DROP))
- IF_APP_DUMPLEASES(APPLET(dumpleases, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_DUMPLEASES(APPLET(dumpleases, _BB_DIR_USR_BIN, _BB_SUID_DROP))
 -//IF_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
 -//IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP, e2label))
 +IF_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
@@ -21,30 +21,30 @@ diff -BurpN busybox-1.15.1/include/applets.h busybox/include/applets.h
 +IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext2))
 +IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext3))
  IF_FSCK_MINIX(APPLET_ODDNAME(fsck.minix, fsck_minix, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_minix))
+ IF_FSYNC(APPLET_NOFORK(fsync, fsync, _BB_DIR_BIN, _BB_SUID_DROP, fsync))
  IF_FTPD(APPLET(ftpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
- IF_FTPGET(APPLET_ODDNAME(ftpget, ftpgetput, _BB_DIR_USR_BIN, _BB_SUID_DROP, ftpget))
-@@ -251,10 +251,10 @@
+@@ -261,10 +261,10 @@
  IF_MICROCOM(APPLET(microcom, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_MKDIR(APPLET_NOFORK(mkdir, mkdir, _BB_DIR_BIN, _BB_SUID_DROP, mkdir))
  IF_MKFS_VFAT(APPLET_ODDNAME(mkdosfs, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
--//IF_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
-+IF_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+-IF_MKFS_EXT2(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
++IF_MKE2FS(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
  IF_MKFIFO(APPLET(mkfifo, _BB_DIR_USR_BIN, _BB_SUID_DROP))
--//IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
+-IF_MKFS_EXT2(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
 -//IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
-+IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
-+IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
++IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
++IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
  IF_MKFS_MINIX(APPLET_ODDNAME(mkfs.minix, mkfs_minix, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_minix))
+ IF_MKFS_REISER(APPLET_ODDNAME(mkfs.reiser, mkfs_reiser, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_reiser))
  IF_MKFS_VFAT(APPLET_ODDNAME(mkfs.vfat, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
- IF_MKNOD(APPLET(mknod, _BB_DIR_BIN, _BB_SUID_DROP))
 @@ -389,7 +389,7 @@
  IF_TTY(APPLET(tty, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_TTYSIZE(APPLET(ttysize, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_TUNCTL(APPLET(tunctl, _BB_DIR_SBIN, _BB_SUID_DROP))
--//IF_TUNE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+-IF_MKFS_EXT2(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
 +IF_TUNE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
- IF_APP_UDHCPC(APPLET(udhcpc, _BB_DIR_SBIN, _BB_SUID_DROP))
- IF_APP_UDHCPD(APPLET(udhcpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
+ IF_UDHCPC(APPLET(udhcpc, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_UDHCPD(APPLET(udhcpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
  IF_UDPSVD(APPLET_ODDNAME(udpsvd, tcpudpsvd, _BB_DIR_USR_BIN, _BB_SUID_DROP, udpsvd))
 diff -BurpN busybox-1.14.2/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
 --- busybox-1.14.2/e2fsprogs/e2fsck.c	2009-06-21 22:31:59.000000000 +0000
@@ -165,9 +165,19 @@ diff -BurpN busybox-1.14.2/Makefile busybox/Makefile
 diff -BurpN busybox-1.14.2/include/usage.h busybox/include/usage.h
 --- busybox-1.14.2/include/usage.h	2009-06-21 22:46:43.000000000 +0000
 +++ busybox/include/usage.h	2009-07-22 15:26:30.000000000 +0000
-@@ -973,6 +973,10 @@
+@@ -1013,7 +1013,6 @@
+      "\n	-a	Interpret lease times as expire time" \
+ 	)
+ 
+-/*
+ #define e2fsck_trivial_usage \
+        "[-panyrcdfvstDFSV] [-b superblock] [-B blocksize] " \
+        "[-I inode_buffer_blocks] [-P process_inode_size] " \
+@@ -1033,8 +1032,11 @@
+      "\n	-j journal	Set location of the external journal" \
       "\n	-l file		Add to badblocks list" \
       "\n	-L file		Set badblocks list" \
+-*/
  
 +
 +#define e2label_trivial_usage NOUSAGE_STR
@@ -189,13 +199,68 @@ diff -BurpN busybox-1.14.2/include/usage.h busybox/include/usage.h
  #define fsck_minix_trivial_usage \
         "[-larvsmf] /dev/name"
  #define fsck_minix_full_usage "\n\n" \
-@@ -2663,6 +2673,12 @@
-      "\n	-Z	Set security context" \
- 	)
+@@ -2769,42 +2769,45 @@
  
-+#define mkfs_ext2_trivial_usage NOUSAGE_STR
-+#define mkfs_ext2_full_usage ""
-+
+ #define mkfs_ext2_trivial_usage \
+        "[-Fn] " \
+-       /* "[-c|-l filename] " */ \
++       "[-c|-l filename] " \
+        "[-b BLK_SIZE] " \
+-       /* "[-f fragment-size] [-g blocks-per-group] " */ \
++       "[-f fragment-size] [-g blocks-per-group] " \
+        "[-i INODE_RATIO] [-I INODE_SIZE] " \
+-       /* "[-j] [-J journal-options] [-N number-of-inodes] " */ \
++       "[-j] [-J journal-options] [-N number-of-inodes] " \
+        "[-m RESERVED_PERCENT] " \
+-       /* "[-o creator-os] [-O feature[,...]] [-q] " */ \
+-       /* "[r fs-revision-level] [-E extended-options] [-v] [-F] " */ \
++       "[-o creator-os] [-O feature[,...]] [-q] " \
++       "[r fs-revision-level] [-E extended-options] [-v] [-F] " \
+        "[-L LABEL] " \
+-       /* "[-M last-mounted-directory] [-S] [-T filesystem-type] " */ \
++       "[-M last-mounted-directory] [-S] [-T filesystem-type] " \
+        "BLOCKDEV [KBYTES]"
+ #define mkfs_ext2_full_usage "\n\n" \
+        "	-b BLK_SIZE	Block size, bytes" \
+-/*   "\n	-c		Check device for bad blocks" */ \
+-/*   "\n	-E opts		Set extended options" */ \
+-/*   "\n	-f size		Fragment size in bytes" */ \
++     "\n	-c		Check device for bad blocks" \
++     "\n	-E opts		Set extended options" \
++     "\n	-f size		Fragment size in bytes" \
+      "\n	-F		Force" \
+-/*   "\n	-g N		Number of blocks in a block group" */ \
++     "\n	-g N		Number of blocks in a block group" \
+      "\n	-i RATIO	Max number of files is filesystem_size / RATIO" \
+      "\n	-I BYTES	Inode size (min 128)" \
+-/*   "\n	-j		Create a journal (ext3)" */ \
+-/*   "\n	-J opts		Set journal options (size/device)" */ \
+-/*   "\n	-l file		Read bad blocks list from file" */ \
++     "\n	-j		Create a journal (ext3)" \
++     "\n	-J opts		Set journal options (size/device)" \
++     "\n	-l file		Read bad blocks list from file" \
+      "\n	-L LBL		Volume label" \
+      "\n	-m PERCENT	Percent of blocks to reserve for admin" \
+-/*   "\n	-M dir		Set last mounted directory" */ \
++     "\n	-M dir		Set last mounted directory" \
+      "\n	-n		Dry run" \
+-/*   "\n	-N N		Number of inodes to create" */ \
+-/*   "\n	-o os		Set the 'creator os' field" */ \
+-/*   "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super" */ \
+-/*   "\n	-q		Quiet" */ \
+-/*   "\n	-r rev		Set filesystem revision" */ \
+-/*   "\n	-S		Write superblock and group descriptors only" */ \
+-/*   "\n	-T fs-type	Set usage type (news/largefile/largefile4)" */ \
+-/*   "\n	-v		Verbose" */ \
++     "\n	-N N		Number of inodes to create" \
++     "\n	-o os		Set the 'creator os' field" \
++     "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super" \
++     "\n	-q		Quiet" \
++     "\n	-r rev		Set filesystem revision" \
++     "\n	-S		Write superblock and group descriptors only" \
++     "\n	-T fs-type	Set usage type (news/largefile/largefile4)" \
++     "\n	-v		Verbose" \
+ 
 +#define mkfs_ext3_trivial_usage NOUSAGE_STR
 +#define mkfs_ext3_full_usage ""
 +
@@ -296,6 +361,17 @@ diff -urBp busybox.orig/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
  	blk_t			blk;
  	int			count;
  
+@@ -1174,8 +1174,8 @@
+ 	if (ENABLE_FEATURE_CLEAN_UP && journal_device) free(journal_device);
+ }
+ 
+-int mke2fs_main (int argc, char **argv);
+-int mke2fs_main (int argc, char **argv)
++int mkfs_ext2_main (int argc, char **argv);
++int mkfs_ext2_main (int argc, char **argv)
+ {
+ 	errcode_t	retval;
+ 	ext2_filsys	fs;
 diff -urBp busybox.orig/e2fsprogs/util.c busybox/e2fsprogs/util.c
 --- busybox.orig/e2fsprogs/util.c	2009-07-29 03:33:00.000000000 +0400
 +++ busybox/e2fsprogs/util.c	2009-08-25 15:06:21.000000000 +0400
