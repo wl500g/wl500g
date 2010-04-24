@@ -5,11 +5,13 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r1445` (2010-04-24)===
   * kernel
     * backport of ability to disable IPv6 at kernel level (/proc/sys/net/ipv6/conf/all/disable_ipv6)
     * backport of nf_conntrack: Don't track locally generated special ICMP error
     * Few patches from Willy Tarreau 2.4.37-wt3 collection (ppoll/epoll jiffies, ipt_recent memleak)
+    * Fix to avoid a flood of zombie cifsd processes, if there are problems connecting to a cifs. By Ray123 @ linksysinfo.org forum.
+    * vfat: backport of fix buffer overflow in shortname creation procedure (from Tomato project).
 
   * rc
     * IPv6 fixes on startup code/rules
@@ -23,12 +25,20 @@
 
   * removed infosvr daemon from ASUS, it functionality of query printer interface moved to httpd.
 
-  * httpd: System command - set 10 second time limit to exclude infinite loops in Web-UI
+  * httpd: System command - set 10 second time limit to exclude infinite loops in Web-UI.
+
+  * pppd
+    * allow ipv6cp in case of IPv6 enabled.
+    * fixes from upstream (git 2010-03-07)
+
+  * nfs-utils 1.0.9
 
   * usb-modeswitch 1.1.1
 
   * bugfixes
-    * busybox (ash, awk, ping)
+    * busybox (ash, awk, ping, syslogd, httpd, sed, insmod)
+    * upnp: use real web interface port
+    * Web-UI: fixed printer info status
 
 ===wl500g-1.9.2.7-d-`r1222` (2010-02-21)===
   * kernel 2.4.37.9
