@@ -1,0 +1,27 @@
+From 1854bc1aa2081b99490bd60721122d28fc8a6737
+From: Denys Vlasenko
+Date: Tue, 06 Apr 2010 21:33:28 +0000
+Subject: hexdump: make -s 0xNNNNN work
+
+function                                             old     new   delta
+hexdump_main                                         603     605      +2
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/hexdump.c b/util-linux/hexdump.c
+index f3878f4..2eb5e57 100644
+--- a/util-linux/hexdump.c
++++ b/util-linux/hexdump.c
+@@ -92,8 +92,8 @@ int hexdump_main(int argc, char **argv)
+ 		if (ch == 'n') {
+ 			dumper->dump_length = xatoi_u(optarg);
+ 		} /* else */
+-		if (ch == 's') {
+-			dumper->dump_skip = xatoul_range_sfx(optarg, 0, LONG_MAX, suffixes);
++		if (ch == 's') { /* compat: -s accepts hex numbers too */
++			dumper->dump_skip = xstrtoul_range_sfx(optarg, /*base:*/ 0, /*lo:*/ 0, /*hi:*/ LONG_MAX, suffixes);
+ 		} /* else */
+ 		if (ch == 'v') {
+ 			dumper->dump_vflag = ALL;
+--
+cgit v0.8.2.1
