@@ -1,0 +1,137 @@
+Subject: [PATCH] USB: usb-storage: merge CB and CBI transport routines
+From 64648a9dc4d7ac0189364188207310ec6bc75bbe
+From: Alan Stern
+Date: Thu, 20 Nov 2008 14:20:03 -0500
+
+This patch (as1173) merges usb-storage's CB and CBI transports into a
+single routine.  So much of their code is common, it's silly to keep
+them separate.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+CC: Matthew Dharm <mdharm-usb@one-eyed-alien.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/usb/storage/transport.c |   61 ++++++---------------------------------
+ drivers/usb/storage/transport.h |    2 -
+ drivers/usb/storage/usb.c       |    2 +-
+ 3 files changed, 10 insertions(+), 55 deletions(-)
+
+diff --git a/drivers/usb/storage/transport.c b/drivers/usb/storage/transport.c
+index f584e72..9cc30af 100644
+--- a/drivers/usb/storage/transport.c
++++ b/drivers/usb/storage/transport.c
+@@ -756,10 +756,10 @@ void usb_stor_stop_transport(struct us_data *us)
+ }
+ 
+ /*
+- * Control/Bulk/Interrupt transport
++ * Control/Bulk and Control/Bulk/Interrupt transport
+  */
+ 
+-int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
++int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
+ {
+ 	unsigned int transfer_length = scsi_bufflen(srb);
+ 	unsigned int pipe = 0;
+@@ -801,6 +801,13 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
+ 	}
+ 
+ 	/* STATUS STAGE */
++
++	/* NOTE: CB does not have a status stage.  Silly, I know.  So
++	 * we have to catch this at a higher level.
++	 */
++	if (us->protocol != US_PR_CBI)
++		return USB_STOR_TRANSPORT_GOOD;
++
+ 	result = usb_stor_intr_transfer(us, us->iobuf, 2);
+ 	US_DEBUGP("Got interrupt data (0x%x, 0x%x)\n", 
+ 			us->iobuf[0], us->iobuf[1]);
+@@ -857,58 +864,6 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
+ }
+ 
+ /*
+- * Control/Bulk transport
+- */
+-int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
+-{
+-	unsigned int transfer_length = srb->request_bufflen;
+-	int result;
+-
+-	/* COMMAND STAGE */
+-	/* let's send the command via the control pipe */
+-	result = usb_stor_ctrl_transfer(us, us->send_ctrl_pipe,
+-				      US_CBI_ADSC, 
+-				      USB_TYPE_CLASS | USB_RECIP_INTERFACE, 0, 
+-				      us->ifnum, srb->cmnd, srb->cmd_len);
+-
+-	/* check the return code for the command */
+-	US_DEBUGP("Call to usb_stor_ctrl_transfer() returned %d\n", result);
+-
+-	/* if we stalled the command, it means command failed */
+-	if (result == USB_STOR_XFER_STALLED) {
+-		return USB_STOR_TRANSPORT_FAILED;
+-	}
+-
+-	/* Uh oh... serious problem here */
+-	if (result != USB_STOR_XFER_GOOD) {
+-		return USB_STOR_TRANSPORT_ERROR;
+-	}
+-
+-	/* DATA STAGE */
+-	/* transfer the data payload for this command, if one exists*/
+-	if (transfer_length) {
+-		unsigned int pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
+-				us->recv_bulk_pipe : us->send_bulk_pipe;
+-		result = usb_stor_bulk_transfer_sg(us, pipe,
+-					srb->request_buffer, transfer_length,
+-					srb->use_sg, &srb->resid);
+-		US_DEBUGP("CB data stage result is 0x%x\n", result);
+-
+-		/* if we stalled the data transfer it means command failed */
+-		if (result == USB_STOR_XFER_STALLED)
+-			return USB_STOR_TRANSPORT_FAILED;
+-		if (result > USB_STOR_XFER_STALLED)
+-			return USB_STOR_TRANSPORT_ERROR;
+-	}
+-
+-	/* STATUS STAGE */
+-	/* NOTE: CB does not have a status stage.  Silly, I know.  So
+-	 * we have to catch this at a higher level.
+-	 */
+-	return USB_STOR_TRANSPORT_GOOD;
+-}
+-
+-/*
+  * Bulk only transport
+  */
+ 
+diff --git a/drivers/usb/storage/transport.h b/drivers/usb/storage/transport.h
+index e70b881..242ff5e 100644
+--- a/drivers/usb/storage/transport.h
++++ b/drivers/usb/storage/transport.h
+@@ -113,8 +113,6 @@ struct bulk_cs_wrap {
+ 
+ #define US_CBI_ADSC		0
+ 
+-extern int usb_stor_CBI_transport(struct scsi_cmnd *, struct us_data*);
+-
+ extern int usb_stor_CB_transport(struct scsi_cmnd *, struct us_data*);
+ extern int usb_stor_CB_reset(struct us_data*);
+ 
+diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
+index 099e07c..cdd009f 100644
+--- a/drivers/usb/storage/usb.c
++++ b/drivers/usb/storage/usb.c
+@@ -591,7 +591,7 @@ static int get_transport(struct us_data *us)
+ 
+ 	case US_PR_CBI:
+ 		us->transport_name = "Control/Bulk/Interrupt";
+-		us->transport = usb_stor_CBI_transport;
++		us->transport = usb_stor_CB_transport;
+ 		us->transport_reset = usb_stor_CB_reset;
+ 		us->max_lun = 7;
+ 		break;
+-- 
+1.7.1
+
