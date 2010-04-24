@@ -1,0 +1,353 @@
+Subject: [PATCH] NET : convert IP route cache garbage collection from softirq processing to a workqueue
+From 86bba269d08f0c545ae76c90b56727f65d62d57f
+From: Eric Dumazet
+Date: Wed, 12 Sep 2007 14:29:01 +0200
+
+When the periodic IP route cache flush is done (every 600 seconds on
+default configuration), some hosts suffer a lot and eventually trigger
+the "soft lockup" message.
+
+dst_run_gc() is doing a scan of a possibly huge list of dst_entries,
+eventually freeing some (less than 1%) of them, while holding the
+dst_lock spinlock for the whole scan.
+
+Then it rearms a timer to redo the full thing 1/10 s later...
+The slowdown can last one minute or so, depending on how active are
+the tcp sessions.
+
+This second version of the patch converts the processing from a softirq
+based one to a workqueue.
+
+Even if the list of entries in garbage_list is huge, host is still
+responsive to softirqs and can make progress.
+
+Instead of resetting gc timer to 0.1 second if one entry was freed in a
+gc run, we do this if more than 10% of entries were freed.
+
+Before patch :
+
+Aug 16 06:21:37 SRV1 kernel: BUG: soft lockup detected on CPU#0!
+Aug 16 06:21:37 SRV1 kernel:
+Aug 16 06:21:37 SRV1 kernel: Call Trace:
+Aug 16 06:21:37 SRV1 kernel:  <IRQ>  [<ffffffff802286f0>] wake_up_process+0x10/0x20
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80251e09>] softlockup_tick+0xe9/0x110
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd380>] dst_run_gc+0x0/0x140
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802376f3>] run_local_timers+0x13/0x20
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802379c7>] update_process_times+0x57/0x90
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80216034>] smp_local_timer_interrupt+0x34/0x60
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802165cc>] smp_apic_timer_interrupt+0x5c/0x80
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020a816>] apic_timer_interrupt+0x66/0x70
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3d3>] dst_run_gc+0x53/0x140
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd3c6>] dst_run_gc+0x46/0x140
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80237148>] run_timer_softirq+0x148/0x1c0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8023340c>] __do_softirq+0x6c/0xe0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8020ad6c>] call_softirq+0x1c/0x30
+Aug 16 06:21:37 SRV1 kernel:  <EOI>  [<ffffffff8020cb34>] do_softirq+0x34/0x90
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff802331cf>] local_bh_enable_ip+0x3f/0x60
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422913>] _spin_unlock_bh+0x13/0x20
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803dfde8>] rt_garbage_collect+0x1d8/0x320
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803cd4dd>] dst_alloc+0x1d/0xa0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e1433>] __ip_route_output_key+0x573/0x800
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c02e2>] sock_common_recvmsg+0x32/0x50
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803e16dc>] ip_route_output_flow+0x1c/0x60
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80400160>] tcp_v4_connect+0x150/0x610
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803ebf07>] inet_bind_bucket_create+0x17/0x60
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8040cd16>] inet_stream_connect+0xa6/0x2c0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c0bdf>] lock_sock_nested+0xcf/0xe0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80422981>] _spin_lock_bh+0x11/0x30
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be551>] sys_connect+0x71/0xa0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803eee3f>] tcp_setsockopt+0x1f/0x30
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803c030f>] sock_common_setsockopt+0xf/0x20
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff803be4bd>] sys_setsockopt+0x9d/0xc0
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff8028881e>] sys_ioctl+0x5e/0x80
+Aug 16 06:21:37 SRV1 kernel:  [<ffffffff80209c4e>] system_call+0x7e/0x83
+
+After patch : (RT_CACHE_DEBUG set to 2 to get following traces)
+
+dst_total: 75469 delayed: 74109 work_perf: 141 expires: 150 elapsed: 8092 us
+dst_total: 78725 delayed: 73366 work_perf: 743 expires: 400 elapsed: 8542 us
+dst_total: 86126 delayed: 71844 work_perf: 1522 expires: 775 elapsed: 8849 us
+dst_total: 100173 delayed: 68791 work_perf: 3053 expires: 1256 elapsed: 9748 us
+dst_total: 121798 delayed: 64711 work_perf: 4080 expires: 1997 elapsed: 10146 us
+dst_total: 154522 delayed: 58316 work_perf: 6395 expires: 25 elapsed: 11402 us
+dst_total: 154957 delayed: 58252 work_perf: 64 expires: 150 elapsed: 6148 us
+dst_total: 157377 delayed: 57843 work_perf: 409 expires: 400 elapsed: 6350 us
+dst_total: 163745 delayed: 56679 work_perf: 1164 expires: 775 elapsed: 7051 us
+dst_total: 176577 delayed: 53965 work_perf: 2714 expires: 1389 elapsed: 8120 us
+dst_total: 198993 delayed: 49627 work_perf: 4338 expires: 1997 elapsed: 8909 us
+dst_total: 226638 delayed: 46865 work_perf: 2762 expires: 2748 elapsed: 7351 us
+
+I successfully reduced the IP route cache of many hosts by a four factor
+thanks to this patch. Previously, I had to disable "ip route flush cache"
+to avoid crashes.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dst.c |  189 ++++++++++++++++++++++++++++++++++++--------------------
+ 1 files changed, 122 insertions(+), 67 deletions(-)
+
+diff --git a/net/core/dst.c b/net/core/dst.c
+index 32267a1..38c741a 100644
+--- a/net/core/dst.c
++++ b/net/core/dst.c
+@@ -9,6 +9,7 @@
+ #include <linux/errno.h>
+ #include <linux/init.h>
+ #include <linux/kernel.h>
++#include <linux/workqueue.h>
+ #include <linux/mm.h>
+ #include <linux/module.h>
+ #include <linux/netdevice.h>
+@@ -19,50 +20,72 @@
+ 
+ #include <net/dst.h>
+ 
+-/* Locking strategy:
+- * 1) Garbage collection state of dead destination cache
+- *    entries is protected by dst_lock.
+- * 2) GC is run only from BH context, and is the only remover
+- *    of entries.
+- * 3) Entries are added to the garbage list from both BH
+- *    and non-BH context, so local BH disabling is needed.
+- * 4) All operations modify state, so a spinlock is used.
++/*
++ * Theory of operations:
++ * 1) We use a list, protected by a spinlock, to add
++ *    new entries from both BH and non-BH context.
++ * 2) In order to keep spinlock held for a small delay,
++ *    we use a second list where are stored long lived
++ *    entries, that are handled by the garbage collect thread
++ *    fired by a workqueue.
++ * 3) This list is guarded by a mutex,
++ *    so that the gc_task and dst_dev_event() can be synchronized.
+  */
+-static struct dst_entry 	*dst_garbage_list;
+ #if RT_CACHE_DEBUG >= 2
+ static atomic_t			 dst_total = ATOMIC_INIT(0);
+ #endif
+-static DEFINE_SPINLOCK(dst_lock);
+ 
+-static unsigned long dst_gc_timer_expires;
+-static unsigned long dst_gc_timer_inc = DST_GC_MAX;
+-static void dst_run_gc(unsigned long);
++/*
++ * We want to keep lock & list close together
++ * to dirty as few cache lines as possible in __dst_free().
++ * As this is not a very strong hint, we dont force an alignment on SMP.
++ */
++static struct {
++	spinlock_t		lock;
++	struct dst_entry 	*list;
++	unsigned long		timer_inc;
++	unsigned long		timer_expires;
++} dst_garbage = {
++	.lock = __SPIN_LOCK_UNLOCKED(dst_garbage.lock),
++	.timer_inc = DST_GC_MAX,
++};
++static void dst_gc_task(struct work_struct *work);
+ static void ___dst_free(struct dst_entry * dst);
+ 
+-static DEFINE_TIMER(dst_gc_timer, dst_run_gc, DST_GC_MIN, 0);
++static DECLARE_DELAYED_WORK(dst_gc_work, dst_gc_task);
+ 
+-static void dst_run_gc(unsigned long dummy)
++static DEFINE_MUTEX(dst_gc_mutex);
++/*
++ * long lived entries are maintained in this list, guarded by dst_gc_mutex
++ */
++static struct dst_entry         *dst_busy_list;
++
++static void dst_gc_task(struct work_struct *work)
+ {
+ 	int    delayed = 0;
+-	int    work_performed;
+-	struct dst_entry * dst, **dstp;
++	int    work_performed = 0;
++	unsigned long expires = ~0L;
++	struct dst_entry *dst, *next, head;
++	struct dst_entry *last = &head;
++#if RT_CACHE_DEBUG >= 2
++	ktime_t time_start = ktime_get();
++	struct timespec elapsed;
++#endif
+ 
+-	if (!spin_trylock(&dst_lock)) {
+-		mod_timer(&dst_gc_timer, jiffies + HZ/10);
+-		return;
+-	}
++	mutex_lock(&dst_gc_mutex);
++	next = dst_busy_list;
+ 
+-	del_timer(&dst_gc_timer);
+-	dstp = &dst_garbage_list;
+-	work_performed = 0;
+-	while ((dst = *dstp) != NULL) {
+-		if (atomic_read(&dst->__refcnt)) {
+-			dstp = &dst->next;
++loop:
++	while ((dst = next) != NULL) {
++		next = dst->next;
++		prefetch(&next->next);
++		if (likely(atomic_read(&dst->__refcnt))) {
++			last->next = dst;
++			last = dst;
+ 			delayed++;
+ 			continue;
+ 		}
+-		*dstp = dst->next;
+-		work_performed = 1;
++		work_performed++;
+ 
+ 		dst = dst_destroy(dst);
+ 		if (dst) {
+@@ -78,38 +101,56 @@ static void dst_run_gc(unsigned long dummy)
+ 				continue;
+ 
+ 			___dst_free(dst);
+-			dst->next = *dstp;
+-			*dstp = dst;
+-			dstp = &dst->next;
++			dst->next = next;
++			next = dst;
+ 		}
+ 	}
+-	if (!dst_garbage_list) {
+-		dst_gc_timer_inc = DST_GC_MAX;
+-		goto out;
++
++	spin_lock_bh(&dst_garbage.lock);
++	next = dst_garbage.list;
++	if (next) {
++		dst_garbage.list = NULL;
++		spin_unlock_bh(&dst_garbage.lock);
++		goto loop;
+ 	}
+-	if (!work_performed) {
+-		if ((dst_gc_timer_expires += dst_gc_timer_inc) > DST_GC_MAX)
+-			dst_gc_timer_expires = DST_GC_MAX;
+-		dst_gc_timer_inc += DST_GC_INC;
+-	} else {
+-		dst_gc_timer_inc = DST_GC_INC;
+-		dst_gc_timer_expires = DST_GC_MIN;
++	last->next = NULL;
++	dst_busy_list = head.next;
++	if (!dst_busy_list)
++		dst_garbage.timer_inc = DST_GC_MAX;
++	else {
++		/*
++		 * if we freed less than 1/10 of delayed entries,
++		 * we can sleep longer.
++		 */
++		if (work_performed <= delayed/10) {
++			dst_garbage.timer_expires += dst_garbage.timer_inc;
++			if (dst_garbage.timer_expires > DST_GC_MAX)
++				dst_garbage.timer_expires = DST_GC_MAX;
++			dst_garbage.timer_inc += DST_GC_INC;
++		} else {
++			dst_garbage.timer_inc = DST_GC_INC;
++			dst_garbage.timer_expires = DST_GC_MIN;
++		}
++		expires = dst_garbage.timer_expires;
++		/*
++		 * if the next desired timer is more than 4 seconds in the future
++		 * then round the timer to whole seconds
++		 */
++		if (expires > 4*HZ)
++			expires = round_jiffies_relative(expires);
++		schedule_delayed_work(&dst_gc_work, expires);
+ 	}
++
++	spin_unlock_bh(&dst_garbage.lock);
++	mutex_unlock(&dst_gc_mutex);
+ #if RT_CACHE_DEBUG >= 2
+-	printk("dst_total: %d/%d %ld\n",
+-	       atomic_read(&dst_total), delayed,  dst_gc_timer_expires);
++	elapsed = ktime_to_timespec(ktime_sub(ktime_get(), time_start));
++	printk(KERN_DEBUG "dst_total: %d delayed: %d work_perf: %d"
++		" expires: %lu elapsed: %lu us\n",
++		atomic_read(&dst_total), delayed, work_performed,
++		expires,
++		elapsed.tv_sec * USEC_PER_SEC + elapsed.tv_nsec / NSEC_PER_USEC);
+ #endif
+-	/* if the next desired timer is more than 4 seconds in the future
+-	 * then round the timer to whole seconds
+-	 */
+-	if (dst_gc_timer_expires > 4*HZ)
+-		mod_timer(&dst_gc_timer,
+-			round_jiffies(jiffies + dst_gc_timer_expires));
+-	else
+-		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
+-
+-out:
+-	spin_unlock(&dst_lock);
+ }
+ 
+ static int dst_discard(struct sk_buff *skb)
+@@ -154,16 +195,16 @@ static void ___dst_free(struct dst_entry * dst)
+ 
+ void __dst_free(struct dst_entry * dst)
+ {
+-	spin_lock_bh(&dst_lock);
++	spin_lock_bh(&dst_garbage.lock);
+ 	___dst_free(dst);
+-	dst->next = dst_garbage_list;
+-	dst_garbage_list = dst;
+-	if (dst_gc_timer_inc > DST_GC_INC) {
+-		dst_gc_timer_inc = DST_GC_INC;
+-		dst_gc_timer_expires = DST_GC_MIN;
+-		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
++	dst->next = dst_garbage.list;
++	dst_garbage.list = dst;
++	if (dst_garbage.timer_inc > DST_GC_INC) {
++		dst_garbage.timer_inc = DST_GC_INC;
++		dst_garbage.timer_expires = DST_GC_MIN;
++		schedule_delayed_work(&dst_gc_work, dst_garbage.timer_expires);
+ 	}
+-	spin_unlock_bh(&dst_lock);
++	spin_unlock_bh(&dst_garbage.lock);
+ }
+ 
+ struct dst_entry *dst_destroy(struct dst_entry * dst)
+@@ -251,7 +292,7 @@ static inline void dst_ifdown(struct dst_entry *dst, struct net_device *dev,
+ static int dst_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
+ {
+ 	struct net_device *dev = ptr;
+-	struct dst_entry *dst;
++	struct dst_entry *dst, *last = NULL;
+ 
+ 	if (dev->nd_net != &init_net)
+ 		return NOTIFY_DONE;
+@@ -259,11 +300,25 @@ static int dst_dev_event(struct notifier_block *this, unsigned long event, void
+ 	switch (event) {
+ 	case NETDEV_UNREGISTER:
+ 	case NETDEV_DOWN:
+-		spin_lock_bh(&dst_lock);
+-		for (dst = dst_garbage_list; dst; dst = dst->next) {
++		mutex_lock(&dst_gc_mutex);
++		for (dst = dst_busy_list; dst; dst = dst->next) {
++			last = dst;
++			dst_ifdown(dst, dev, event != NETDEV_DOWN);
++		}
++
++		spin_lock_bh(&dst_garbage.lock);
++		dst = dst_garbage.list;
++		dst_garbage.list = NULL;
++		spin_unlock_bh(&dst_garbage.lock);
++
++		if (last)
++			last->next = dst;
++		else
++			dst_busy_list = dst;
++		for (; dst; dst = dst->next) {
+ 			dst_ifdown(dst, dev, event != NETDEV_DOWN);
+ 		}
+-		spin_unlock_bh(&dst_lock);
++		mutex_unlock(&dst_gc_mutex);
+ 		break;
+ 	}
+ 	return NOTIFY_DONE;
+-- 
+1.7.1
+
