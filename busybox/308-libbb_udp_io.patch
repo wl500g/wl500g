@@ -4,7 +4,7 @@ Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 +++ a/libbb/udp_io.c	2009-11-18 21:18:59.000000000 +0300
 @@ -156,8 +156,11 @@ recv_from_to(int fd, void *buf, size_t l
  		}
- #if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
+ # if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
  		if (cmsgptr->cmsg_level == IPPROTO_IPV6
 -		 && cmsgptr->cmsg_type == IPV6_PKTINFO
 -		) {
@@ -13,6 +13,6 @@ Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 +            		 || cmsgptr->cmsg_type == IPV6_2292PKTINFO
 +#endif
 +		)) {
- #define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )
+ #  define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )
  			to->sa_family = AF_INET6;
- 			((struct sockaddr_in6*)to)->sin6_addr = pktinfo(cmsgptr)->ipi6_addr;
+ 			/*to6->sin6_addr = pktinfo(cmsgptr)->ipi6_addr; - may be unaligned */
