@@ -1,0 +1,25 @@
+From bf1d347964eac6bf25c1595d29fcb761e58c99c3
+From: Denys Vlasenko
+Date: Wed, 24 Feb 2010 07:13:30 +0000
+Subject: fdisk: do not treat names ending in '0' as partitions
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/fdisk.c b/util-linux/fdisk.c
+index a731316..980568b 100644
+--- a/util-linux/fdisk.c
++++ b/util-linux/fdisk.c
+@@ -2802,8 +2802,9 @@ list_devs_in_proc_partititons(void)
+ 				&ma, &mi, &sz, ptname) != 4)
+ 			continue;
+ 		for (s = ptname; *s; s++)
+-			continue;
+-		if (isdigit(s[-1]))
++    			continue;
++		/* note: excluding '0': e.g. mmcblk0 is not a partition name! */
++		if (s[-1] >= '1' && s[-1] <= '9')
+ 			continue;
+ 		sprintf(devname, "/dev/%s", ptname);
+ 		open_list_and_close(devname, 0);
+--
+cgit v0.8.2.1
