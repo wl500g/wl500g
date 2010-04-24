@@ -835,9 +835,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* Clamp TCP MSS to PMTU of WAN interface */
 	if (nvram_match("wan_proto", "pppoe") ||
-		nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp") 
+	    nvram_match("wan_proto", "pptp") || nvram_match("wan_proto", "l2tp") 
 #ifdef __CONFIG_MADWIMAX__
-		|| nvram_match("wan_proto", "wimax")
+	 || nvram_match("wan_proto", "wimax")
 #endif
         ){
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");

@@ -226,15 +226,11 @@
 {"ntp_interval_x", "2", 0},
 
 {"ddns_enable_x", "0", 0},
-
+{"ddns_realip_x", "0", 0},
 {"ddns_server_x", "", 0},
-
 {"ddns_username_x", "", 0},
-
 {"ddns_passwd_x", "", 0},
-
 {"ddns_hostname_x", "", 0},
-
 {"ddns_wildcard_x", "0", 0},
 
 {"snmp_enable", "0", 0},
@@ -451,3 +447,12 @@
 /* Jumbo frame for N16 only */
 {"jumbo_frame_enable", "0", 0 },
 {"jumbo_frame_size", "2000", 0 },
+
+#ifdef __CONFIG_MADWIMAX__
+{"wan_wimax_ifname", "", 0 },
+{"wan_wimax_ssid", "", 0},
+{"wan_wimax_check", "0", 0},
+{"wan_wimax_interval", "60", 0},
+{"wan_wimax_restart", "0", 0},
+{"wan_wimax_syslog", "0", 0},
+#endif

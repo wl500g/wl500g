@@ -1,4 +1,4 @@
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/Makefile gateway/upnp/Makefile
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/Makefile gateway/upnp/Makefile
 --- tools/upnp/Makefile	1970-01-01 00:00:00.000000000 +0000
 +++ gateway/upnp/Makefile	2009-09-26 07:59:55.000000000 +0000
 @@ -0,0 +1,34 @@
@@ -36,7 +36,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/Makefile gateway/upnp/Makefile
 +	$(MAKE) -C $(UPNP) DEBUG=$(DEBUG) SRCBASE=$(SRCBASE) TOP=$(TOP) TARGET_PREFIX=$(CROSS_COMPILE)
 +
 +FORCE:
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd.c gateway/upnp/igd/igd.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/igd.c gateway/upnp/igd/igd.c
 --- tools/upnp/igd/igd.c	2004-11-19 13:34:33.000000000 +0000
 +++ gateway/upnp/igd/igd.c	2009-09-25 19:07:17.000000000 +0000
 @@ -18,6 +18,24 @@
@@ -92,7 +92,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd.c gateway/upnp/igd/igd.c
      char *ifname = NULL;
  
      switch (state) {
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd.h gateway/upnp/igd/igd.h
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/igd.h gateway/upnp/igd/igd.h
 --- tools/upnp/igd/igd.h	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/igd.h	2009-09-25 19:07:17.000000000 +0000
 @@ -68,9 +68,9 @@ typedef struct _WANCommonPrivateData {
@@ -129,7 +129,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd.h gateway/upnp/igd/igd.h
 -#endif /* linux */
 -
  #endif /* _igd_h_ */
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd_desc.c gateway/upnp/igd/igd_desc.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/igd_desc.c gateway/upnp/igd/igd_desc.c
 --- tools/upnp/igd/igd_desc.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/igd_desc.c	2009-09-25 19:07:17.000000000 +0000
 @@ -23,13 +23,11 @@
@@ -148,7 +148,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/igd_desc.c gateway/upnp/igd/igd_de
  
  
  /* Global structure for storing the state table for this device */
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/ipt.c gateway/upnp/igd/ipt.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/ipt.c gateway/upnp/igd/ipt.c
 --- tools/upnp/igd/ipt.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/ipt.c	2009-09-25 19:07:17.000000000 +0000
 @@ -126,7 +126,6 @@ int AddPortMapping( UFILE *uclient, PSer
@@ -185,7 +185,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/ipt.c gateway/upnp/igd/ipt.c
      parse_status = (int) parse_dnat(&e, 
  			       ac->params[2].value,	/* NewProtocol */
  			       ac->params[0].value,	/* NewRemoteHost */
-@@ -400,18 +391,10 @@ netconf_nat_t *parse_dnat(netconf_nat_t
+@@ -400,18 +391,10 @@ netconf_nat_t *parse_dnat(netconf_nat_t 
      entry->match.src.ports[1] = htons(0xffff);
  
      // parse the external ip address
@@ -206,7 +206,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/ipt.c gateway/upnp/igd/ipt.c
      }
  
      // parse the external ports
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/lanhostconfig.c gateway/upnp/igd/lanhostconfig.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/lanhostconfig.c gateway/upnp/igd/lanhostconfig.c
 --- tools/upnp/igd/lanhostconfig.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/lanhostconfig.c	2009-09-25 19:07:17.000000000 +0000
 @@ -52,7 +52,7 @@ int LANHostConfig_SetDomainName(UFILE *u
@@ -218,7 +218,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/lanhostconfig.c gateway/upnp/igd/l
      // restart ?? 
      
      return success;
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/Makefile gateway/upnp/igd/linux/Makefile
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/linux/Makefile gateway/upnp/igd/linux/Makefile
 --- tools/upnp/igd/linux/Makefile	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/linux/Makefile	2009-09-26 08:01:24.000000000 +0000
 @@ -32,7 +32,7 @@ COMPILER = $(TARGET_PREFIX)g++
@@ -272,7 +272,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/Makefile gateway/upnp/igd/li
  
  endif
  
-@@ -122,9 +122,9 @@ clean:
+@@ -122,9 +122,9 @@ clean: 
  	rm -f upnp
  	$(MAKE) -C ../../upnp/linux clean
  ifneq ($(BUILD_LIBS),)
@@ -285,7 +285,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/Makefile gateway/upnp/igd/li
  endif
  
  fptest: fptest.o
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/linux_igd.c gateway/upnp/igd/linux/linux_igd.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/linux/linux_igd.c gateway/upnp/igd/linux/linux_igd.c
 --- tools/upnp/igd/linux/linux_igd.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/linux/linux_igd.c	2009-09-26 07:31:05.000000000 +0000
 @@ -169,13 +169,13 @@ uint osl_max_bitrates(char *devname, ulo
@@ -338,7 +338,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/linux_igd.c gateway/upnp/igd
      return status;
  }
  
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/linux_main.c gateway/upnp/igd/linux/linux_main.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/linux/linux_main.c gateway/upnp/igd/linux/linux_main.c
 --- tools/upnp/igd/linux/linux_main.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/linux/linux_main.c	2009-09-25 19:07:17.000000000 +0000
 @@ -43,6 +43,56 @@ extern struct net_connection *net_connec
@@ -433,7 +433,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/linux/linux_main.c gateway/upnp/ig
      }
      
      return 0;
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/mapmgr.c gateway/upnp/igd/mapmgr.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/mapmgr.c gateway/upnp/igd/mapmgr.c
 --- tools/upnp/igd/mapmgr.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/mapmgr.c	2009-09-26 08:04:39.000000000 +0000
 @@ -95,7 +95,7 @@ static bool mapmgr_add_map(map_set_t *ps
@@ -445,7 +445,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/mapmgr.c gateway/upnp/igd/mapmgr.c
  	    FD_SET(i, &pset->map);
  	    pset->count++;
  	    break;
-@@ -118,7 +118,7 @@ static bool mapmgr_delete_map(map_set_t
+@@ -118,7 +118,7 @@ static bool mapmgr_delete_map(map_set_t 
  		FD_CLR(i, &pset->map);
  		pset->count--;
  		foundit = del_forward_port(i);
@@ -454,7 +454,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/mapmgr.c gateway/upnp/igd/mapmgr.c
  		break;
  	    }
  	}
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wancommon.c gateway/upnp/igd/wancommon.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/wancommon.c gateway/upnp/igd/wancommon.c
 --- tools/upnp/igd/wancommon.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/wancommon.c	2009-09-25 19:07:17.000000000 +0000
 @@ -129,10 +129,6 @@ ServiceTemplate Template_WANCommonInterf
@@ -468,7 +468,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wancommon.c gateway/upnp/igd/wanco
  static int WANCommonInterfaceConfig_Init(PService psvc, service_state_t state)
  {
      PWANDevicePrivateData pdevdata;
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wanipc.c gateway/upnp/igd/wanipc.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/wanipc.c gateway/upnp/igd/wanipc.c
 --- tools/upnp/igd/wanipc.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/wanipc.c	2009-09-26 07:44:25.000000000 +0000
 @@ -474,7 +474,7 @@ static int ForceTermination(UFILE *uclie
@@ -498,7 +498,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wanipc.c gateway/upnp/igd/wanipc.c
  	igd_restart(3);
  	pdata->connection_status = IP_CONNECTING;
  	pdata->connection_timeout = CONNECTION_TIMEOUT;
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wanppp.c gateway/upnp/igd/wanppp.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/igd/wanppp.c gateway/upnp/igd/wanppp.c
 --- tools/upnp/igd/wanppp.c	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/igd/wanppp.c	2009-09-25 19:07:17.000000000 +0000
 @@ -78,7 +78,7 @@ int WANPPPConnection_ConfigureConnection
@@ -528,7 +528,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/igd/wanppp.c gateway/upnp/igd/wanppp.c
      pppoe_up();
      
      return TRUE;
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp.h gateway/upnp/include/upnp.h
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/include/upnp.h gateway/upnp/include/upnp.h
 --- tools/upnp/include/upnp.h	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/include/upnp.h	2009-09-26 17:40:30.000000000 +0000
 @@ -24,7 +24,7 @@
@@ -540,7 +540,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp.h gateway/upnp/include/up
  #define UPNP_REFRESH   ((SSDP_REFRESH * 2)/3)
  #define NOTIFY_RECEIPT_TIMEOUT 30
  #define HTTP_REQUEST_TIMEOUT   15
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp_dbg.h gateway/upnp/include/upnp_dbg.h
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/include/upnp_dbg.h gateway/upnp/include/upnp_dbg.h
 --- tools/upnp/include/upnp_dbg.h	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/include/upnp_dbg.h	2009-09-26 07:36:39.000000000 +0000
 @@ -16,6 +16,8 @@
@@ -592,7 +592,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp_dbg.h gateway/upnp/includ
 +#endif	// defined(DEBUG)
  
  #endif /* _upnp_dbg_ */
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp_osl.h gateway/upnp/include/upnp_osl.h
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/include/upnp_osl.h gateway/upnp/include/upnp_osl.h
 --- tools/upnp/include/upnp_osl.h	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/include/upnp_osl.h	2009-09-25 19:07:17.000000000 +0000
 @@ -23,6 +23,7 @@
@@ -610,7 +610,30 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/include/upnp_osl.h gateway/upnp/includ
 +extern int osl_join_multicast(struct iface *pif, int fd, ulong ipaddr, ushort port);
  
  #endif	/* _upnp_osl_h_ */
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/gena.c gateway/upnp/upnp/gena.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/device.c gateway/upnp/upnp/device.c
+--- tools/upnp/upnp/device.c	2004-11-11 10:29:39.000000000 +0000
++++ gateway/upnp/upnp/device.c	2010-03-30 19:44:09.000000000 +0000
+@@ -192,9 +192,17 @@ void device_xml(PDevice pdev, UFILE *up)
+ 
+     // generate XML for any subdevices in this device.
+     device_devicelist(pdev, up);
+-	
++
+     if (ISROOT(pdev)) {
+-	uprintf(up, "<presentationURL>http://%s</presentationURL>\r\n", nvram_safe_get("lan_ipaddr"));
++	char buffer[32];
++	char *url = nvram_safe_get("lan_ipaddr");
++	int port = atoi(nvram_safe_get("http_lanport"));
++
++	if (*url && port && port != 80) {
++	    sprintf(buffer, "%s:%d", url, port);
++	    url = buffer;
++	}
++	uprintf(up, "<presentationURL>http://%s</presentationURL>\r\n", url);
+     }
+ 
+     uprintf(up, "</device>\r\n");
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/gena.c gateway/upnp/upnp/gena.c
 --- tools/upnp/upnp/gena.c	2004-11-11 10:29:40.000000000 +0000
 +++ gateway/upnp/upnp/gena.c	2009-09-25 19:07:17.000000000 +0000
 @@ -424,7 +424,7 @@ static struct net_connection *make_gena_
@@ -622,7 +645,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/gena.c gateway/upnp/upnp/gena.c
  
      // if we have not yet resolved the address of this host, do so now.
      // cache the result in the subscription.
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/linux/Makefile gateway/upnp/upnp/linux/Makefile
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/linux/Makefile gateway/upnp/upnp/linux/Makefile
 --- tools/upnp/upnp/linux/Makefile	2004-11-11 10:29:39.000000000 +0000
 +++ gateway/upnp/upnp/linux/Makefile	2009-09-26 08:01:53.000000000 +0000
 @@ -25,9 +25,9 @@ STRIP = $(TARGET_PREFIX)strip
@@ -637,7 +660,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/linux/Makefile gateway/upnp/upnp/
  vpath %.h $(VPATH.h)
  
  ifeq ($(DEBUG),1)
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/service.c gateway/upnp/upnp/service.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/service.c gateway/upnp/upnp/service.c
 --- tools/upnp/upnp/service.c	2004-11-11 10:29:40.000000000 +0000
 +++ gateway/upnp/upnp/service.c	2009-09-26 07:39:57.000000000 +0000
 @@ -17,6 +17,9 @@
@@ -664,7 +687,7 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/service.c gateway/upnp/upnp/servi
  
      uprintf(up, 
  	    "<?xml version=\"1.0\"?>\r\n"
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/ssdp.c gateway/upnp/upnp/ssdp.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/ssdp.c gateway/upnp/upnp/ssdp.c
 --- tools/upnp/upnp/ssdp.c	2004-11-11 10:29:40.000000000 +0000
 +++ gateway/upnp/upnp/ssdp.c	2009-09-26 07:28:44.000000000 +0000
 @@ -87,7 +87,7 @@ void ssdp_receive(caction_t flag, struct
@@ -739,10 +762,10 @@ diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/ssdp.c gateway/upnp/upnp/ssdp.c
      switch (ptype) {
      case SSDP_REPLY:
  	uprintf(up, "HTTP/1.1 200 OK\r\n");
-diff -BurpN '-x*.o' '-x*.orig' tools/upnp/upnp/upnp.c gateway/upnp/upnp/upnp.c
+diff -BurpN -x'*.o' -x'*.orig' tools/upnp/upnp/upnp.c gateway/upnp/upnp/upnp.c
 --- tools/upnp/upnp/upnp.c	2004-11-11 10:29:40.000000000 +0000
 +++ gateway/upnp/upnp/upnp.c	2009-09-25 19:07:17.000000000 +0000
-@@ -95,6 +95,9 @@ int upnp_main(PDeviceTemplate pdevtmpl,
+@@ -95,6 +95,9 @@ int upnp_main(PDeviceTemplate pdevtmpl, 
  
      signal(SIGINT, interrupt_handler);
      signal(SIGTERM, interrupt_handler);

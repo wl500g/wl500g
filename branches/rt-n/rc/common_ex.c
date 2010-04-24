@@ -437,6 +437,24 @@ void convert_asus_values()
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
+#ifdef __CONFIG_MADWIMAX__
+	else if (nvram_match("wan_proto", "wimax"))
+	{
+		nvram_set("wan0_wimax_ifname", "wmx0");
+		//nvram_set("upnp_wan_proto", "dhcp");
+		nvram_set("wan0_wimax_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_wimax_netmask", 
+			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
+			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+				nvram_get("wan_netmask") : NULL);
+		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
+		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
+
+		/* current interface address (dhcp + firewall) */
+		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
+	}
+#endif
+
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
 
 	if (nvram_invmatch("wan_hwaddr_x", ""))
@@ -455,6 +473,9 @@ void convert_asus_values()
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
 	nvram_unset("wan0_dns");
 	nvram_unset("wanx_dns");
+#ifdef __CONFIG_MADWIMAX__
+	nvram_unset("wan0_wimax_enabled");
+#endif
 
 	convert_routes();
 
@@ -507,6 +528,9 @@ void convert_asus_values()
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
 	nvram_set("usb_web_flag", "");
+#ifdef __CONFIG_MADWIMAX__
+	nvram_set("usb_wimax_device", "");
+#endif
 	nvram_set("no_br", "0");
 
 	if(nvram_invmatch("sp_battle_ips", "0"))
@@ -635,7 +659,7 @@ void update_wan_status(int isup)
 		nvram_set("wan_dns_t", "");
 		nvram_set("wan_ifname_t", "");
 		nvram_set("wan_status_t", "Disconnected");
-	}	
+	}
 	else
 	{
 		nvram_set("wan_ipaddr_t", nvram_safe_get("wan0_ipaddr"));
@@ -643,11 +667,11 @@ void update_wan_status(int isup)
 		nvram_set("wan_gateway_t", nvram_safe_get("wan0_gateway"));
 
 
-		if (nvram_invmatch("wan_dnsenable_x", "1"))	
-		{		
+		if (nvram_invmatch("wan_dnsenable_x", "1"))
+		{
 			dns_str[0] = '\0';
 			if (nvram_invmatch("wan_dns1_x",""))
-				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));		
+				sprintf(dns_str, "%s", nvram_safe_get("wan_dns1_x"));
 			if (nvram_invmatch("wan_dns2_x",""))
 				sprintf(dns_str+strlen(dns_str), " %s", nvram_safe_get("wan_dns2_x"));
 			nvram_set("wan_dns_t", dns_str);
@@ -664,13 +688,10 @@ void update_wan_status(int isup)
 void logmessage(char *logheader, char *fmt, ...)
 {
   va_list args;
-  char buf[512];
 
   va_start(args, fmt);
-
-  vsnprintf(buf, sizeof(buf), fmt, args);
   openlog(logheader, 0, 0);
-  syslog(0, buf);
+  vsyslog(0, fmt, args);
   closelog();
   va_end(args);
 }

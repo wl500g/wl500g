@@ -1,0 +1,64 @@
+From 8fc9e6a15d23c7e20ef135d8f242406b0aa0e8af
+From: Denys Vlasenko
+Date: Fri, 02 Apr 2010 08:40:58 +0000
+Subject: httpd: fix proxy mode bug (annoying but harmless), better help text
+
+function                                             old     new   delta
+cgi_io_loop_and_exit                                 594     635     +41
+packed_usage                                       26815   26841     +26
+handle_incoming_and_exit                            2745    2739      -6
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/include/usage.h b/include/usage.h
+index cf576c6..f4ab39b 100644
+--- a/include/usage.h
++++ b/include/usage.h
+@@ -1786,13 +1786,13 @@
+      "\n	-i		Inetd mode" \
+      "\n	-f		Don't daemonize" \
+      "\n	-v[v]		Verbose" \
+-     "\n	-c FILE		Configuration file (default httpd.conf)" \
+      "\n	-p [IP:]PORT	Bind to ip:port (default *:80)" \
+ 	IF_FEATURE_HTTPD_SETUID( \
+      "\n	-u USER[:GRP]	Set uid/gid after binding to port") \
+ 	IF_FEATURE_HTTPD_BASIC_AUTH( \
+      "\n	-r REALM	Authentication Realm for Basic Authentication") \
+      "\n	-h HOME		Home directory (default .)" \
++     "\n	-c FILE		Configuration file (default {/etc,HOME}/httpd.conf)" \
+ 	IF_FEATURE_HTTPD_AUTH_MD5( \
+      "\n	-m STRING	MD5 crypt STRING") \
+      "\n	-e STRING	HTML encode STRING" \
+diff --git a/networking/httpd.c b/networking/httpd.c
+index 8834c1c..6dbc219 100644
+--- a/networking/httpd.c
++++ b/networking/httpd.c
+@@ -1145,13 +1145,14 @@ static NOINLINE void cgi_io_loop_and_exit(int fromCgi_rd, int toCgi_wr, int post
+ 				/* post_len <= 0 && hdr_cnt <= 0:
+ 				 * no more POST data to CGI,
+ 				 * let CGI see EOF on CGI's stdin */
+-				close(toCgi_wr);
++				if (toCgi_wr != fromCgi_rd)
++					close(toCgi_wr);
+ 				toCgi_wr = 0;
+ 			}
+ 		}
+ 
+ 		/* Now wait on the set of sockets */
+-		count = safe_poll(pfd, 3, -1);
++		count = safe_poll(pfd, toCgi_wr ? TO_CGI+1 : FROM_CGI+1, -1);
+ 		if (count <= 0) {
+ #if 0
+ 			if (safe_waitpid(pid, &status, WNOHANG) <= 0) {
+@@ -2103,8 +2104,7 @@ static void handle_incoming_and_exit(const len_and_sockaddr *fromAddr)
+ 		header_ptr += 2;
+ 		write(proxy_fd, header_buf, header_ptr - header_buf);
+ 		free(header_buf); /* on the order of 8k, free it */
+-		/* cgi_io_loop_and_exit needs to have two distinct fds */
+-		cgi_io_loop_and_exit(proxy_fd, dup(proxy_fd), length);
++		cgi_io_loop_and_exit(proxy_fd, proxy_fd, length);
+ 	}
+ #endif
+ 
+--
+cgit v0.8.2.1

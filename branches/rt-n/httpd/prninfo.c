@@ -42,7 +42,7 @@ static void readUsbPrnID(char *prninfo)
     struct parport_splink_device_info   prn_info;
 
     fd = open(LP_DEV(0), O_RDWR);
-    if (fd < 0 && fd != -ENOENT) // Someone is opening the usb lp0
+    if (fd < 0 && errno != ENOENT) // Someone is opening the usb lp0
     {
         FILE *fp = fopen("/proc/usblp/usblpid", "r");
 
@@ -87,7 +87,7 @@ static void readUsbPrnID(char *prninfo)
             PRINT("PRINTER MODEL %s\n",prninfo);
         }
     }
-    else
+    else if (fd > 0)
     {
         if (ioctl(fd, LPGETID, &prn_info) < 0)
         {
@@ -158,9 +158,8 @@ static void readLpdStatus(void)
                 }
             }
 	    fclose(fp);
-	    strcpy(status, ONLINE_STRING);
     }
-    else strcpy(status, OFFLINE_STRING);
+    else strcpy(status, ONLINE_STRING);
 
     nvram_set("printer_status_t", status);
     nvram_set("printer_user_t", user);
@@ -179,12 +178,12 @@ void readPrnID()
     if (strlen(prninfo) == 0)
     {
 		nvram_set("printer_model_t", "");
-		readLpdStatus();
+		nvram_set("printer_status_t", "");
+		nvram_set("printer_user_t", "");
     }
     else
     {
 		nvram_set("printer_model_t", prninfo);
-		nvram_set("printer_status_t", "");
-		nvram_set("printer_user_t", "");
+		readLpdStatus();
     }
 }

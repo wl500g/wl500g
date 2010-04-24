@@ -43,7 +43,6 @@ typedef u_int8_t u8;
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
-#include "wimax.h"
 
 void lan_up(char *lan_ifname);
 
@@ -557,11 +556,11 @@ int
 wan_valid(char *ifname)
 {
 	char name[80], *next;
-	
+
 	foreach(name, nvram_safe_get("wan_ifnames"), next)
 		if (ifname && !strcmp(ifname, name))
 			return 1;
-	
+
 	if (nvram_invmatch("wl_mode_ex", "ap")) {
 		return nvram_match("wl0_ifname", ifname);
 	}
@@ -602,10 +601,6 @@ start_wan(void)
 
 	//symlink("/dev/null", "/tmp/ppp/connect-errors");
 
-#ifdef __CONFIG_MADWIMAX__
-	nvram_set("wimax_enable","0");
-#endif
-
 	/* Start each configured and enabled wan connection and its undelying i/f */
 	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
 	{
@@ -615,34 +610,26 @@ start_wan(void)
 
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-#ifdef __CONFIG_MADWIMAX__
-		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
-		if( wan_proto && !strcmp(wan_proto, "wimax" ) ){
-			nvram_set("wimax_enable","1");
-			sprintf( tmp, "%d", unit );
-			nvram_set( "wimax_unit", tmp );
-			get_wimax_ifname( tmp, unit );
-			madwimax_start( tmp );
-			continue;
-		}
-#endif
-
 		/* make sure the connection exists and is enabled */ 
 		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
 		if (!wan_ifname)
 			continue;
+
 		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
+
+		dprintf("%s %s\n\n\n\n\n", wan_ifname, wan_proto);
 
 		/* disable the connection if the i/f is not in wan_ifnames */
 		if (!wan_valid(wan_ifname)) {
 			nvram_set(strcat_r(prefix, "proto", tmp), "disabled");
 			continue;
 		}
-
-		dprintf("%s %s\n\n\n\n\n", wan_ifname, wan_proto);
-
+#ifdef __CONFIG_MADWIMAX__
+		if (strcmp(wan_proto, "wimax") != 0)
+		{
+#endif
 		/* Set i/f hardware address before bringing it up */
 		if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 			continue;
@@ -698,16 +685,24 @@ start_wan(void)
 					system(nvram_safe_get("wl0_join"));
 			}
 		}
-		
 		close(s);
 
 #ifdef ASUS_EXT
 		if (unit==0)
 		{
-			FILE *fp;
-
 			setup_ethernet(nvram_safe_get("wan_ifname"));
 			start_pppoe_relay(wan_ifname);
+		}
+#endif
+
+#ifdef __CONFIG_MADWIMAX__
+		}
+#endif
+
+#ifdef ASUS_EXT
+		if (unit==0)
+		{
+			FILE *fp;
 
 			/* Enable Forwarding */
 			if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+")))
@@ -828,6 +823,22 @@ start_wan(void)
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
+		}
+#endif
+
+#ifdef __CONFIG_MADWIMAX__
+		else if (strcmp(wan_proto, "wimax") == 0){
+			// wait for usb-device initializing
+			sleep(1);
+			/* launch wimax daemon */
+			start_wimax(prefix);
+
+			/* wimax interface name is referenced from this point on */
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "wimax_ifname", tmp));
+#ifdef ASUS_EXT
+			nvram_set("wan_ifname_t", wan_ifname);
+#endif
+			continue;
 		}
 #endif
 		/* 
@@ -1013,6 +1024,10 @@ stop_wan(void)
 	eval("killall", "l2tpd");
 #endif
 	eval("killall", "pppd");
+#ifdef __CONFIG_MADWIMAX__
+	stop_wimax();
+#endif
+
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
@@ -1028,7 +1043,7 @@ stop_wan(void)
 
 	/* Remove dynamically created links */
 	unlink("/tmp/udhcpc");
-	
+
 	unlink("/tmp/ppp/ip-up");
 	unlink("/tmp/ppp/ip-down");
 	rmdir("/tmp/ppp");
@@ -1056,6 +1071,9 @@ stop_wan2(void)
 	eval("killall", "l2tpd");
 #endif
 	eval("killall", "pppd");
+#ifdef __CONFIG_MADWIMAX__
+	stop_wimax();
+#endif
 
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
@@ -1084,25 +1102,35 @@ update_resolvconf(char *ifname, int metric, int up)
 	FILE *fp;
 	char word[100], *next;
 
-	dprintf("%s %d %d\n",ifname,metric,up);
-	/* check if auto dns enabled */	
-	if (!nvram_match("wan_dnsenable_x", "1"))
+	dprintf("%s %d %d\n", ifname, metric, up);
+
+	/* check if auto dns enabled */
+	if (nvram_invmatch("wan_dnsenable_x", "1"))
 		return 0;
 
 	if (!(fp = fopen("/tmp/resolv.conf", "w+"))) {
 		perror("/tmp/resolv.conf");
 		return errno;
 	}
-	
+
 	foreach(word, (nvram_get("wan0_dns") ? : 
 		nvram_safe_get("wanx_dns")), next) 
 	{
 		fprintf(fp, "nameserver %s\n", word);
 		dprintf( "nameserver %s\n", word );
 	}
-	
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		next = nvram_safe_get("ipv6_dns1_x");
+ 		fprintf(fp, "nameserver %s\n", next);
+		dprintf( "nameserver %s\n", next );
+	}
+#endif
+
 	fclose(fp);
-	
+
 	/* Notify dnsmasq of change */
 	eval("killall", "-1", "dnsmasq");
 
@@ -1177,7 +1205,7 @@ wan_up(char *wan_ifname)
 		if (strcmp(wan_proto, "dhcp") == 0 || 
 		    strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
-		    || strcmp(wan_proto, "wimax") == 0 
+		 || strcmp(wan_proto, "wimax") == 0
 #endif
 		){
 			/* the gateway is in the local network */
@@ -1248,7 +1276,7 @@ wan_up(char *wan_ifname)
 	    || strcmp(wan_proto, "bigpond") == 0
 	    || strcmp(wan_proto, "static") == 0 
 #ifdef __CONFIG_MADWIMAX__
-	    ||  strcmp(wan_proto, "wimax") == 0
+	    || strcmp(wan_proto, "wimax") == 0
 #endif
 	){
 		start_igmpproxy(wan_ifname);
@@ -1321,6 +1349,14 @@ lan_up(char *lan_ifname)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 	}
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
@@ -1368,6 +1404,14 @@ lan_up_ex(char *lan_ifname)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 	}
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
+ 	{
+ 		fprintf(fp, "nameserver %s\n", nvram_safe_get("ipv6_dns1_x"));
+	}
+#endif
+
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
@@ -1541,15 +1585,17 @@ wan_ifunit(char *wan_ifname)
 
 	if ((unit = ppp_ifunit(wan_ifname)) >= 0)
 		return unit;
+#ifdef __CONFIG_MADWIMAX__
+	else
+	if ((unit = wimax_ifunit(wan_ifname)) >= 0)
+		return unit;
+#endif
 	else {
 		for (unit = 0; unit < MAX_NVPARSE; unit ++) {
 			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 			if (nvram_match(strcat_r(prefix, "ifname", tmp), wan_ifname) &&
 			    (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") ||
 			     nvram_match(strcat_r(prefix, "proto", tmp), "bigpond") ||
-#ifdef __CONFIG_MADWIMAX__
-			     nvram_match(strcat_r(prefix, "proto", tmp), "wimax") ||
-#endif
 			     nvram_match(strcat_r(prefix, "proto", tmp), "static")))
 				return unit;
 		}
