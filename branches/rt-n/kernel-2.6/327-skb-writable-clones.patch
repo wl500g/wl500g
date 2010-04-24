@@ -1,0 +1,66 @@
+Subject: [PATCH] NET: Avoid copying writable clones in tunnel drivers
+From: Patrick McHardy <kaber@trash.net>
+Date: Sun, 18 Apr 2010 22:16:33 -0400
+ kernel.org commit cfbba49d80be6cf8d3872b66fc5421f119843b36
+
+---
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 724b612..4b09b25 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -809,7 +809,8 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	max_headroom = LL_RESERVED_SPACE(tdev) + gre_hlen;
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb)||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
+index ebd2f2d..3964372 100644
+--- a/net/ipv4/ipip.c
++++ b/net/ipv4/ipip.c
+@@ -595,7 +595,8 @@ static int ipip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	max_headroom = (LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr));
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 31f9252..df30976 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -883,8 +883,8 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
+ 	 */
+ 	max_headroom += LL_RESERVED_SPACE(tdev);
+ 
+-	if (skb_headroom(skb) < max_headroom ||
+-	    skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb;
+ 
+ 		if (!(new_skb = skb_realloc_headroom(skb, max_headroom)))
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 1efa95a..eb20bb6 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -532,7 +532,8 @@ static int ipip6_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	max_headroom = LL_RESERVED_SPACE(tdev)+sizeof(struct iphdr);
+ 
+-	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
++	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
++	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
+ 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
+ 		if (!new_skb) {
+ 			ip_rt_put(rt);
+-- 
+1.6.5.GIT
+
