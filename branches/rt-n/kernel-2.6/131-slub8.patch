@@ -1,0 +1,37 @@
+From 7693143481730686362cc6360e3d47c012d9b2c8
+From: Pekka J Enberg
+Date: Sat, 1 Mar 2008 13:43:54 -0800
+Subject: [PATCH] slub: look up object from the freelist once
+
+We only need to look up object from c->page->freelist once in
+__slab_alloc().
+
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+---
+ mm/slub.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+index 10d5469..db8026b 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -1486,7 +1486,6 @@ load_freelist:
+ 	if (unlikely(SlabDebug(page)))
+ 		goto debug;
+ 
+-	object = page->freelist;
+ 	page->lockless_freelist = object[page->offset];
+ 	page->inuse = s->objects;
+ 	page->freelist = NULL;
+@@ -1542,7 +1541,6 @@ new_slab:
+ 	}
+ 	return NULL;
+ debug:
+-	object = page->freelist;
+ 	if (!alloc_debug_processing(s, page, object, addr))
+ 		goto another_slab;
+ 
+-- 
+1.7.1
+
