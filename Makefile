@@ -520,6 +520,7 @@ hotplug2_Patches := $(call patches_list,hotplug2)
 $(TOP)/hotplug2: hotplug2/$(HOTPLUG2).tar.gz
 	@rm -rf $(TOP)/$(HOTPLUG2) $@
 	tar -xzf $^ -C $(TOP)
+	cp -pf hotplug2/hotplug2.rules $(TOP)/$(HOTPLUG2)/examples/hotplug2.rules-2.6kernel
 	$(PATCHER) -Z $(TOP)/$(HOTPLUG2) $(hotplug2_Patches)
 	mv $(TOP)/$(HOTPLUG2) $@ && touch $@
 
