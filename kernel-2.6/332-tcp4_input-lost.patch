@@ -1,0 +1,32 @@
+From 6830c25b7d08fbbd922959425193791bc42079f2
+From: Lennart Schulte
+Date: Wed, 17 Mar 2010 02:16:29 +0000
+Subject: [PATCH] tcp: Fix tcp_mark_head_lost() with packets == 0
+
+A packet is marked as lost in case packets == 0, although nothing should be done.
+This results in a too early retransmitted packet during recovery in some cases.
+This small patch fixes this issue by returning immediately.
+
+Signed-off-by: Lennart Schulte <lennart.schulte@nets.rwth-aachen.de>
+Signed-off-by: Arnd Hannemann <hannemann@nets.rwth-aachen.de>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/tcp_input.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 788851c..c096a42 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1754,6 +1754,9 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+ 	struct sk_buff *skb;
+ 	int cnt;
+ 
++	if (packets == 0)
++		return;
++
+ 	BUG_TRAP(packets <= tp->packets_out);
+ 	if (tp->lost_skb_hint) {
+ 		skb = tp->lost_skb_hint;
+-- 
+1.7.1
