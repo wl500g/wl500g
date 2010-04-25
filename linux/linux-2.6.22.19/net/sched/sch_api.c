@@ -395,7 +395,14 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
 	if (n == 0)
 		return;
 	while ((parentid = sch->parent)) {
+		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
+			return;
+
 		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
+		if (sch == NULL) {
+			WARN_ON(parentid != TC_H_ROOT);
+			return;
+		}
 		cops = sch->ops->cl_ops;
 		if (cops->qlen_notify) {
 			cl = cops->get(sch, parentid);
@@ -436,8 +443,6 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
 			unsigned long cl = cops->get(parent, classid);
 			if (cl) {
 				err = cops->graft(parent, cl, new, old);
-				if (new)
-					new->parent = classid;
 				cops->put(parent, cl);
 			}
 		}
@@ -452,7 +457,8 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
  */
 
 static struct Qdisc *
-qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
+qdisc_create(struct net_device *dev, u32 parent, u32 handle,
+	   struct rtattr **tca, int *errp)
 {
 	int err;
 	struct rtattr *kind = tca[TCA_KIND-1];
@@ -497,6 +503,8 @@ qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
 		err = PTR_ERR(sch);
 		goto err_out2;
 	}
+
+	sch->parent = parent;
 
 	if (handle == TC_H_INGRESS) {
 		sch->flags |= TCQ_F_INGRESS;
@@ -778,9 +786,11 @@ create_n_graft:
 	if (!(n->nlmsg_flags&NLM_F_CREATE))
 		return -ENOENT;
 	if (clid == TC_H_INGRESS)
-		q = qdisc_create(dev, tcm->tcm_parent, tca, &err);
+		q = qdisc_create(dev, tcm->tcm_parent, tcm->tcm_parent,
+				 tca, &err);
 	else
-		q = qdisc_create(dev, tcm->tcm_handle, tca, &err);
+		q = qdisc_create(dev, tcm->tcm_parent, tcm->tcm_handle,
+				 tca, &err);
 	if (q == NULL) {
 		if (err == -EAGAIN)
 			goto replay;
@@ -1232,10 +1242,13 @@ EXPORT_SYMBOL(tcf_destroy_chain);
 #ifdef CONFIG_PROC_FS
 static int psched_show(struct seq_file *seq, void *v)
 {
+	struct timespec ts;
+
+	hrtimer_get_res(CLOCK_MONOTONIC, &ts);
 	seq_printf(seq, "%08x %08x %08x %08x\n",
 		   (u32)NSEC_PER_USEC, (u32)PSCHED_US2NS(1),
 		   1000000,
-		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(KTIME_MONOTONIC_RES));
+		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(timespec_to_ktime(ts)));
 
 	return 0;
 }
