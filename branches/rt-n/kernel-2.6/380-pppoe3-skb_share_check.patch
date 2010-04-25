@@ -1,0 +1,37 @@
+From 31bac44468257986484703cc09da8a9dcae88a36
+From: Herbert Xu
+Date: Sun, 16 Sep 2007 16:19:20 -0700
+Subject: [PATCH] [PPP] pppoe: Fix skb_unshare_check call position
+
+The skb_unshare_check call needs to be made before pskb_may_pull,
+not after.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/pppoe.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+index 68631a5..5ac3eff 100644
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -385,12 +385,12 @@ static int pppoe_rcv(struct sk_buff *skb,
+ 	struct pppoe_hdr *ph;
+ 	struct pppox_sock *po;
+ 
+-	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
+-		goto drop;
+-
+ 	if (!(skb = skb_share_check(skb, GFP_ATOMIC)))
+ 		goto out;
+ 
++	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
++		goto drop;
++
+ 	ph = pppoe_hdr(skb);
+ 
+ 	po = get_item((unsigned long) ph->sid, eth_hdr(skb)->h_source, dev->ifindex);
+-- 
+1.7.1
+
