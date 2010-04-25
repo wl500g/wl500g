@@ -19,7 +19,7 @@
     * fixed huge packets pass in clamp-mss-to-pmtu rule
     * pre-generate directories for built-in cron
 
-  * WiMAX support in web-UI, contributed by artp & rss @ wl500g.info
+  * WiMAX support (madwimax driver for Samsung SWC-U200, web-gui), contributed by artp & rss @ wl500g.info. Ready for Yota, also tested with mezon.lt
 
   * ez-ipupdate: added wildcard support for zoneedit
 
