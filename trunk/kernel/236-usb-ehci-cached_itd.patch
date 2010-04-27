@@ -25,6 +25,22 @@ Signed-off-by: David Brownell <dbrownell@users.sourceforge.net>
 Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 ---
 
+From d63c66d2d08f52487f3ef32f1c9b1231d848966b
+From: Dmitri Epshtein <dima@marvell.com>
+Date: Mon, 14 Dec 2009 17:17:33 +0200
+Subject: [PATCH] USB: ehci: add call of free_cached_itd_list() function in disable_periodic()
+
+Sometimes disable_periodic() stop scan_periodic before than free_cached_itd_list() was called.
+In such case USB Host stacked during disconnect operation
+Solution: add call of free_cached_itd_list() function in disable_periodic()
+
+Signed-off-by: Dimitry Epshtein <dima@marvell.com>
+Signed-off-by: Saeed Bishara <saeed@marvell.com>
+Cc: David Brownell <dbrownell@users.sourceforge.net>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+
 diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
 index 4725d15..e551bb3 100644
 --- a/drivers/usb/host/ehci-hcd.c
@@ -61,6 +77,15 @@ diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
 index a081ee6..07bcb93 100644
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
+@@ -475,6 +475,8 @@ static int disable_periodic (struct ehci_hcd *ehci)
+ 	writel (cmd, &ehci->regs->command);
+ 	/* posted write ... */
+ 
++	free_cached_itd_list(ehci);
++
+ 	ehci->next_uframe = -1;
+ 	return 0;
+ }
 @@ -1653,14 +1654,28 @@ itd_complete (
  			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out");
  	}
