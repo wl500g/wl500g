@@ -177,6 +177,11 @@ busybox_Patches := $(call patches_list,busybox)
 $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	@rm -rf $(TOP)/$(BUSYBOX) $@
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
+	rm -rf $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/fsck.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/chattr.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/lsattr.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/README \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/uuid
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
