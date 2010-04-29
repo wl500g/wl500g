@@ -181,7 +181,8 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/chattr.c \
 	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/lsattr.c \
 	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/README \
-	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/uuid
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/uuid \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/blkid
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
