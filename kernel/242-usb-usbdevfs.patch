@@ -16,12 +16,17 @@ diff -urBp linux-2.4.37/include/linux/usb.h linux//include/linux/usb.h
  
 diff -urBp linux-2.4.37.orig/drivers/usb/devio.c linux/drivers/usb/devio.c
 --- linux-2.4.37.orig/drivers/usb/devio.c	2009-06-07 23:50:24.000000000 +0400
-+++ linux/drivers/usb/devio.c	2009-06-11 22:09:36.000000000 +0400
-@@ -813,11 +813,11 @@ static int proc_submiturb(struct dev_sta
++++ linux/drivers/usb/devio.c	2010-04-30 21:09:36.000000000 +0400
+@@ -813,11 +813,16 @@ static int proc_submiturb(struct dev_sta
  		if ((ret = checkintf(ps, intf)))
  			return ret;
  	}
-+	if (!(ep_desc = usb_epnum_to_ep_desc(ps->dev, uurb.endpoint)))
++	if ((uurb.endpoint & ~USB_ENDPOINT_DIR_MASK) != 0) {
++		ep_desc = usb_epnum_to_ep_desc(ps->dev, uurb.endpoint);
++	} else {
++		ep_desc = ps->dev->actconfig->interface[0].altsetting[0].endpoint;
++	}
++	if (!ep_desc)
 +		return -ENOENT;
  	switch(uurb.type) {
  	case USBDEVFS_URB_TYPE_CONTROL:
