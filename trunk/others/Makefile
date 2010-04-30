@@ -24,10 +24,10 @@ install: all
 	install -m 644 ipkg.conf $(INSTALLDIR)/usr/etc
 	#install waveserver $(INSTALLDIR)/usr/sbin/waveserver
 	
-	ln -sf /tmp/settings $(INSTALLDIR)/www/WL500g.Premium.CFG
-	ln -sf /tmp/settings $(INSTALLDIR)/www/WL700g.CFG
-	ln -sf /tmp/settings $(INSTALLDIR)/www/WL500W.CFG
-	ln -sf /tmp/settings $(INSTALLDIR)/www/WL550gE.CFG
+	ln -sf /tmp/settings $(INSTALLDIR)/www/WL500g.Premium.cfg
+	ln -sf /tmp/settings $(INSTALLDIR)/www/WL700g.cfg
+	ln -sf /tmp/settings $(INSTALLDIR)/www/WL500W.cfg
+	ln -sf /tmp/settings $(INSTALLDIR)/www/WL550gE.cfg
 	ln -sf /tmp/flash.tar.gz $(INSTALLDIR)/www/WL500g.Premium.tar.gz
 	ln -sf /tmp/flash.tar.gz $(INSTALLDIR)/www/WL500W.tar.gz
 	ln -sf /tmp/flash.tar.gz $(INSTALLDIR)/www/WL550gE.tar.gz
