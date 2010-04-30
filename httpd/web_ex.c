@@ -2418,7 +2418,7 @@ struct mime_handler mime_handlers[] = {
 	{ "**.jpg", "image/jpeg", NULL, NULL, do_file, do_auth },
 	{ "**.js",  "text/javascript", NULL, NULL, do_file, do_auth },
 	{ "**.cab", "text/txt", NULL, NULL, do_file, do_auth },
-	{ "**.CFG", "text/txt", NULL, NULL, do_prf_file, do_auth },
+	{ "**.cfg", "text/txt", NULL, NULL, do_prf_file, do_auth },
 	{ "**.tar.gz", "text/txt", NULL, NULL, do_flashfs_file, do_auth },
 	{ "apply.cgi*", "text/html", no_cache, do_apply_cgi_post, do_apply_cgi, do_auth },	
 	{ "upgrade.cgi*", "text/html", no_cache, do_upgrade_post, do_upgrade_cgi, do_auth},
