@@ -1,0 +1,64 @@
+Subject: [PATCH] USB: patches from upstream kernel 2.6 tree
+From 009e594ab2ccdf05cf8ceb066c06ea683dcb3d92
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 30 Apr 2010 16:51:18 -0400
+
+kernel.org commits:
+OHCI: don't look at the root hub to get the number of ports (fcf7d2141f4a363a4a8454c4a0f26bb69e766c5f)
+USB: don't choose configs with no interfaces (62f9cfa3ece58268b3e92ca59c23b175f86205aa)
+USB: fix testing the wrong variable in fs_create_by_name() (fa7fe7af146a7b613e36a311eefbbfb5555325d1)
+---
+ drivers/usb/core/generic.c     |    2 +-
+ drivers/usb/core/inode.c       |    4 ++--
+ drivers/usb/host/ohci-hub.c    |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
+index b2fc2b1..33f0a1e 100644
+--- a/drivers/usb/core/generic.c
++++ b/drivers/usb/core/generic.c
+@@ -120,7 +120,7 @@ static int choose_configuration(struct usb_device *udev)
+ 		 * than a vendor-specific driver. */
+ 		else if (udev->descriptor.bDeviceClass !=
+ 						USB_CLASS_VENDOR_SPEC &&
+-				(!desc || desc->bInterfaceClass !=
++				(desc && desc->bInterfaceClass !=
+ 						USB_CLASS_VENDOR_SPEC)) {
+ 			best = c;
+ 			break;
+diff --git a/drivers/usb/core/inode.c b/drivers/usb/core/inode.c
+index cd4f111..fda34d2 100644
+--- a/drivers/usb/core/inode.c
++++ b/drivers/usb/core/inode.c
+@@ -480,13 +480,13 @@ static int fs_create_by_name (const char *name, mode_t mode,
+ 	*dentry = NULL;
+ 	mutex_lock(&parent->d_inode->i_mutex);
+ 	*dentry = lookup_one_len(name, parent, strlen(name));
+-	if (!IS_ERR(dentry)) {
++	if (!IS_ERR(*dentry)) {
+ 		if ((mode & S_IFMT) == S_IFDIR)
+ 			error = usbfs_mkdir (parent->d_inode, *dentry, mode);
+ 		else 
+ 			error = usbfs_create (parent->d_inode, *dentry, mode);
+ 	} else
+-		error = PTR_ERR(dentry);
++		error = PTR_ERR(*dentry);
+ 	mutex_unlock(&parent->d_inode->i_mutex);
+ 
+ 	return error;
+diff --git a/drivers/usb/host/ohci-hub.c b/drivers/usb/host/ohci-hub.c
+index e3db913..d1fe223 100644
+--- a/drivers/usb/host/ohci-hub.c
++++ b/drivers/usb/host/ohci-hub.c
+@@ -605,7 +605,7 @@ static int ohci_hub_control (
+ 	u16		wLength
+ ) {
+ 	struct ohci_hcd	*ohci = hcd_to_ohci (hcd);
+-	int		ports = hcd_to_bus (hcd)->root_hub->maxchild;
++	int		ports = ohci->num_ports;
+ 	u32		temp;
+ 	int		retval = 0;
+ 
+-- 
+1.6.5.GIT
+

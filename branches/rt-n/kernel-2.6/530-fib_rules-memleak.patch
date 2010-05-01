@@ -1,0 +1,373 @@
+Subject: [PATCH] INET: Small possible memory leak in FIB rules
+From: Denis V. Lunev <den@openvz.org>
+
+kernel.org commits
+76c72d4f44ec5fb7f88eda8a0d3aa30922c891d1
+2994c63863ac350c4c8c6a65d8110749c2abb95c
+---
+ include/net/fib_rules.h |    5 +-
+ net/core/fib_rules.c    |   44 +++++++++++----
+ net/decnet/dn_rules.c   |   22 ++-----
+ net/ipv4/fib_rules.c    |   61 ++++++++------------
+ net/ipv6/fib6_rules.c   |   41 +++++--------
+ 5 files changed, 83 insertions(+), 90 deletions(-)
+
+diff --git a/include/net/fib_rules.h b/include/net/fib_rules.h
+index 83e41dd..41a301e 100644
+--- a/include/net/fib_rules.h
++++ b/include/net/fib_rules.h
+@@ -65,7 +65,7 @@ struct fib_rules_ops
+ 
+ 	int			nlgroup;
+ 	const struct nla_policy	*policy;
+-	struct list_head	*rules_list;
++	struct list_head	rules_list;
+ 	struct module		*owner;
+ };
+ 
+@@ -107,4 +107,7 @@ extern int			fib_rules_unregister(struct fib_rules_ops *);
+ extern int			fib_rules_lookup(struct fib_rules_ops *,
+ 						 struct flowi *, int flags,
+ 						 struct fib_lookup_arg *);
++extern int			fib_default_rule_add(struct fib_rules_ops *,
++						     u32 pref, u32 table,
++						     u32 flags);
+ #endif
+diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
+index 8c5474e..6205087 100644
+--- a/net/core/fib_rules.c
++++ b/net/core/fib_rules.c
+@@ -16,6 +16,28 @@
+ static LIST_HEAD(rules_ops);
+ static DEFINE_SPINLOCK(rules_mod_lock);
+ 
++int fib_default_rule_add(struct fib_rules_ops *ops,
++			 u32 pref, u32 table, u32 flags)
++{
++	struct fib_rule *r;
++
++	r = kzalloc(ops->rule_size, GFP_KERNEL);
++	if (r == NULL)
++		return -ENOMEM;
++
++	atomic_set(&r->refcnt, 1);
++	r->action = FR_ACT_TO_TBL;
++	r->pref = pref;
++	r->table = table;
++	r->flags = flags;
++
++	/* The lock is not required here, the list in unreacheable
++	 * at the moment this function is called */
++	list_add_tail(&r->list, &ops->rules_list);
++	return 0;
++}
++EXPORT_SYMBOL(fib_default_rule_add);
++
+ static void notify_rule_change(int event, struct fib_rule *rule,
+ 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
+ 			       u32 pid);
+@@ -82,7 +104,7 @@ static void cleanup_ops(struct fib_rules_ops *ops)
+ {
+ 	struct fib_rule *rule, *tmp;
+ 
+-	list_for_each_entry_safe(rule, tmp, ops->rules_list, list) {
++	list_for_each_entry_safe(rule, tmp, &ops->rules_list, list) {
+ 		list_del_rcu(&rule->list);
+ 		fib_rule_put(rule);
+ 	}
+@@ -137,7 +159,7 @@ int fib_rules_lookup(struct fib_rules_ops *ops, struct flowi *fl,
+ 
+ 	rcu_read_lock();
+ 
+-	list_for_each_entry_rcu(rule, ops->rules_list, list) {
++	list_for_each_entry_rcu(rule, &ops->rules_list, list) {
+ jumped:
+ 		if (!fib_rule_match(rule, ops, fl, flags))
+ 			continue;
+@@ -268,7 +290,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		if (rule->target <= rule->pref)
+ 			goto errout_free;
+ 
+-		list_for_each_entry(r, ops->rules_list, list) {
++		list_for_each_entry(r, &ops->rules_list, list) {
+ 			if (r->pref == rule->target) {
+ 				rule->ctarget = r;
+ 				break;
+@@ -284,7 +306,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (err < 0)
+ 		goto errout_free;
+ 
+-	list_for_each_entry(r, ops->rules_list, list) {
++	list_for_each_entry(r, &ops->rules_list, list) {
+ 		if (r->pref > rule->pref)
+ 			break;
+ 		last = r;
+@@ -297,7 +319,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		 * There are unresolved goto rules in the list, check if
+ 		 * any of them are pointing to this new rule.
+ 		 */
+-		list_for_each_entry(r, ops->rules_list, list) {
++		list_for_each_entry(r, &ops->rules_list, list) {
+ 			if (r->action == FR_ACT_GOTO &&
+ 			    r->target == rule->pref) {
+ 				BUG_ON(r->ctarget != NULL);
+@@ -317,7 +339,7 @@ static int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (last)
+ 		list_add_rcu(&rule->list, &last->list);
+ 	else
+-		list_add_rcu(&rule->list, ops->rules_list);
++		list_add_rcu(&rule->list, &ops->rules_list);
+ 
+ 	notify_rule_change(RTM_NEWRULE, rule, ops, nlh, NETLINK_CB(skb).pid);
+ 	flush_route_cache(ops);
+@@ -356,7 +378,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 	if (err < 0)
+ 		goto errout;
+ 
+-	list_for_each_entry(rule, ops->rules_list, list) {
++	list_for_each_entry(rule, &ops->rules_list, list) {
+ 		if (frh->action && (frh->action != rule->action))
+ 			continue;
+ 
+@@ -399,7 +421,7 @@ static int fib_nl_delrule(struct sk_buff *skb, struct nlmsghdr* nlh, void *arg)
+ 		 * actually been added.
+ 		 */
+ 		if (ops->nr_goto_rules > 0) {
+-			list_for_each_entry(tmp, ops->rules_list, list) {
++			list_for_each_entry(tmp, &ops->rules_list, list) {
+ 				if (tmp->ctarget == rule) {
+ 					rcu_assign_pointer(tmp->ctarget, NULL);
+ 					ops->unresolved_rules++;
+@@ -495,7 +517,7 @@ static int dump_rules(struct sk_buff *skb, struct netlink_callback *cb,
+ 	int idx = 0;
+ 	struct fib_rule *rule;
+ 
+-	list_for_each_entry(rule, ops->rules_list, list) {
++	list_for_each_entry(rule, &ops->rules_list, list) {
+ 		if (idx < cb->args[1])
+ 			goto skip;
+ 
+@@ -602,12 +624,12 @@ static int fib_rules_event(struct notifier_block *this, unsigned long event,
+ 	switch (event) {
+ 	case NETDEV_REGISTER:
+ 		list_for_each_entry(ops, &rules_ops, list)
+-			attach_rules(ops->rules_list, dev);
++			attach_rules(&ops->rules_list, dev);
+ 		break;
+ 
+ 	case NETDEV_UNREGISTER:
+ 		list_for_each_entry(ops, &rules_ops, list)
+-			detach_rules(ops->rules_list, dev);
++			detach_rules(&ops->rules_list, dev);
+ 		break;
+ 	}
+ 
+diff --git a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
+index 84ff3dd..ffebea0 100644
+--- a/net/decnet/dn_rules.c
++++ b/net/decnet/dn_rules.c
+@@ -48,17 +48,6 @@ struct dn_fib_rule
+ 	u8			flags;
+ };
+ 
+-static struct dn_fib_rule default_rule = {
+-	.common = {
+-		.refcnt =		ATOMIC_INIT(2),
+-		.pref =			0x7fff,
+-		.table =		RT_TABLE_MAIN,
+-		.action =		FR_ACT_TO_TBL,
+-	},
+-};
+-
+-static LIST_HEAD(dn_fib_rules);
+-
+ 
+ int dn_fib_lookup(struct flowi *flp, struct dn_fib_res *res)
+ {
+@@ -228,9 +217,9 @@ static u32 dn_fib_rule_default_pref(void)
+ 	struct list_head *pos;
+ 	struct fib_rule *rule;
+ 
+-	if (!list_empty(&dn_fib_rules)) {
+-		pos = dn_fib_rules.next;
+-		if (pos->next != &dn_fib_rules) {
++	if (!list_empty(&dn_fib_rules_ops.rules_list)) {
++		pos = dn_fib_rules_ops.rules_list.next;
++		if (pos->next != &dn_fib_rules_ops.rules_list) {
+ 			rule = list_entry(pos->next, struct fib_rule, list);
+ 			if (rule->pref)
+ 				return rule->pref - 1;
+@@ -258,13 +247,14 @@ static struct fib_rules_ops dn_fib_rules_ops = {
+ 	.flush_cache	= dn_fib_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_DECnet_RULE,
+ 	.policy		= dn_fib_rule_policy,
+-	.rules_list	= &dn_fib_rules,
++	.rules_list	= LIST_HEAD_INIT(dn_fib_rules_ops.rules_list),
+ 	.owner		= THIS_MODULE,
+ };
+ 
+ void __init dn_fib_rules_init(void)
+ {
+-	list_add_tail(&default_rule.common.list, &dn_fib_rules);
++	BUG_ON(fib_default_rule_add(&dn_fib_rules_ops, 0x7fff,
++			            RT_TABLE_MAIN, 0));
+ 	fib_rules_register(&dn_fib_rules_ops);
+ }
+ 
+diff --git a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
+index 2a94784..a0ada3a 100644
+--- a/net/ipv4/fib_rules.c
++++ b/net/ipv4/fib_rules.c
+@@ -49,35 +49,6 @@ struct fib4_rule
+ #endif
+ };
+ 
+-static struct fib4_rule default_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFF,
+-		.table =	RT_TABLE_DEFAULT,
+-		.action =	FR_ACT_TO_TBL,
+-	},
+-};
+-
+-static struct fib4_rule main_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFE,
+-		.table =	RT_TABLE_MAIN,
+-		.action =	FR_ACT_TO_TBL,
+-	},
+-};
+-
+-static struct fib4_rule local_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.table =	RT_TABLE_LOCAL,
+-		.action =	FR_ACT_TO_TBL,
+-		.flags =	FIB_RULE_PERMANENT,
+-	},
+-};
+-
+-static LIST_HEAD(fib4_rules);
+-
+ #ifdef CONFIG_NET_CLS_ROUTE
+ u32 fib_rules_tclass(struct fib_result *res)
+ {
+@@ -279,9 +250,9 @@ static u32 fib4_rule_default_pref(void)
+ 	struct list_head *pos;
+ 	struct fib_rule *rule;
+ 
+-	if (!list_empty(&fib4_rules)) {
+-		pos = fib4_rules.next;
+-		if (pos->next != &fib4_rules) {
++	if (!list_empty(&fib4_rules_ops.rules_list)) {
++		pos = fib4_rules_ops.rules_list.next;
++		if (pos->next != &fib4_rules_ops.rules_list) {
+ 			rule = list_entry(pos->next, struct fib_rule, list);
+ 			if (rule->pref)
+ 				return rule->pref - 1;
+@@ -317,15 +288,31 @@ static struct fib_rules_ops fib4_rules_ops = {
+ 	.flush_cache	= fib4_rule_flush_cache,
+ 	.nlgroup	= RTNLGRP_IPV4_RULE,
+ 	.policy		= fib4_rule_policy,
+-	.rules_list	= &fib4_rules,
++	.rules_list	= LIST_HEAD_INIT(fib4_rules_ops.rules_list),
+ 	.owner		= THIS_MODULE,
+ };
+ 
+-void __init fib4_rules_init(void)
++static int __init fib_default_rules_init(void)
+ {
+-	list_add_tail(&local_rule.common.list, &fib4_rules);
+-	list_add_tail(&main_rule.common.list, &fib4_rules);
+-	list_add_tail(&default_rule.common.list, &fib4_rules);
++	int err;
+ 
++	err = fib_default_rule_add(&fib4_rules_ops, 0,
++				   RT_TABLE_LOCAL, FIB_RULE_PERMANENT);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFE,
++				   RT_TABLE_MAIN, 0);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib4_rules_ops, 0x7FFF,
++				   RT_TABLE_DEFAULT, 0);
++	if (err < 0)
++		return err;
++	return 0;
++}
++
++void __init fib4_rules_init(void)
++{
++	BUG_ON(fib_default_rules_init());
+ 	fib_rules_register(&fib4_rules_ops);
+ }
+diff --git a/net/ipv6/fib6_rules.c b/net/ipv6/fib6_rules.c
+index 53b3998..428c6b0 100644
+--- a/net/ipv6/fib6_rules.c
++++ b/net/ipv6/fib6_rules.c
+@@ -31,27 +31,6 @@ struct fib6_rule
+ 
+ static struct fib_rules_ops fib6_rules_ops;
+ 
+-static struct fib6_rule main_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0x7FFE,
+-		.action =	FR_ACT_TO_TBL,
+-		.table =	RT6_TABLE_MAIN,
+-	},
+-};
+-
+-static struct fib6_rule local_rule = {
+-	.common = {
+-		.refcnt =	ATOMIC_INIT(2),
+-		.pref =		0,
+-		.action =	FR_ACT_TO_TBL,
+-		.table =	RT6_TABLE_LOCAL,
+-		.flags =	FIB_RULE_PERMANENT,
+-	},
+-};
+-
+-static LIST_HEAD(fib6_rules);
+-
+ struct dst_entry *fib6_rule_lookup(struct flowi *fl, int flags,
+ 				   pol_lookup_t lookup)
+ {
+@@ -268,15 +247,27 @@ static struct fib_rules_ops fib6_rules_ops = {
+ 	.nlmsg_payload		= fib6_rule_nlmsg_payload,
+ 	.nlgroup		= RTNLGRP_IPV6_RULE,
+ 	.policy			= fib6_rule_policy,
+-	.rules_list		= &fib6_rules,
++	.rules_list		= LIST_HEAD_INIT(fib6_rules_ops.rules_list),
+ 	.owner			= THIS_MODULE,
+ };
+ 
+-void __init fib6_rules_init(void)
++static int __init fib6_default_rules_init(void)
+ {
+-	list_add_tail(&local_rule.common.list, &fib6_rules);
+-	list_add_tail(&main_rule.common.list, &fib6_rules);
++	int err;
++
++	err = fib_default_rule_add(&fib6_rules_ops, 0,
++				   RT6_TABLE_LOCAL, FIB_RULE_PERMANENT);
++	if (err < 0)
++		return err;
++	err = fib_default_rule_add(&fib6_rules_ops, 0x7FFE, RT6_TABLE_MAIN, 0);
++	if (err < 0)
++		return err;
++	return 0;
++}
+ 
++void __init fib6_rules_init(void)
++{
++	BUG_ON(fib6_default_rules_init());
+ 	fib_rules_register(&fib6_rules_ops);
+ }
+ 
+-- 
+1.6.5.GIT
+
