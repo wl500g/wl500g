@@ -1,0 +1,47 @@
+From b226801676d9533d09da511eb379fe970fa1a770
+From: Radu Rendec
+Date: Sat, 10 Nov 2007 21:54:50 -0800
+Subject: [PATCH] [PKT_SCHED] CLS_U32: Use ffs() instead of C code on hash mask to get first set bit.
+
+Computing the rank of the first set bit in the hash mask (for using later
+in u32_hash_fold()) was done with plain C code. Using ffs() instead makes
+the code more readable and improves performance (since ffs() is better
+optimized in assembler).
+
+Using the conditional operator on hash mask before applying ntohl() also
+saves one ntohl() call if mask is 0.
+
+Signed-off-by: Radu Rendec <radu.rendec@ines.ro>
+Signed-off-by: Jarek Poplawski <jarkao2@o2.pl>
+Acked-by: Jamal Hadi Salim <hadi@cyberus.ca>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/cls_u32.c |   12 +-----------
+ 1 files changed, 1 insertions(+), 11 deletions(-)
+
+diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+index 5317102..c390082 100644
+--- a/net/sched/cls_u32.c
++++ b/net/sched/cls_u32.c
+@@ -613,17 +613,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,
+ 	memcpy(&n->sel, s, sizeof(*s) + s->nkeys*sizeof(struct tc_u32_key));
+ 	n->ht_up = ht;
+ 	n->handle = handle;
+-{
+-	u8 i = 0;
+-	u32 mask = ntohl(s->hmask);
+-	if (mask) {
+-		while (!(mask & 1)) {
+-			i++;
+-			mask>>=1;
+-		}
+-	}
+-	n->fshift = i;
+-}
++	n->fshift = s->hmask ? ffs(ntohl(s->hmask)) - 1 : 0;
+ 
+ #ifdef CONFIG_CLS_U32_MARK
+ 	if (tb[TCA_U32_MARK-1]) {
+-- 
+1.7.1
+
