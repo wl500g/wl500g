@@ -1,0 +1,123 @@
+Subject: [PATCH] vlan: avoid header copying and linearisation where possible
+From 11a100f844f6096787ab20e19f17d72abc957a8f
+From: Patrick McHardy <kaber@trash.net>
+Date: Tue, 8 Jul 2008 15:36:57 -0700
+
+- vlan_dev_reorder_header() is only called on the receive path after
+  calling skb_share_check(). This means we can use skb_cow() since
+  all we need is a writable header.
+
+- vlan_dev_hard_header() includes a work-around for some apparently
+  broken out of tree MPLS code. The hard_header functions can expect
+  to always have a headroom of at least there own hard_header_len
+  available, so the reallocation check is unnecessary.
+
+- __vlan_put_tag() can use skb_cow_head() to avoid the skb_unshare()
+  copy when the header is writable.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/if_vlan.h |   18 +++---------------
+ net/8021q/vlan_dev.c    |   34 +++++-----------------------------
+ 2 files changed, 8 insertions(+), 44 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index d36515d..93f5d9b 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -247,22 +247,10 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short
+ {
+ 	struct vlan_ethhdr *veth;
+ 
+-	if (skb_headroom(skb) < VLAN_HLEN) {
+-		struct sk_buff *sk_tmp = skb;
+-		skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-		kfree_skb(sk_tmp);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to realloc headroom\n");
+-			return NULL;
+-		}
+-	} else {
+-		skb = skb_unshare(skb, GFP_ATOMIC);
+-		if (!skb) {
+-			printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-			return NULL;
+-		}
++	if (skb_cow_head(skb, VLAN_HLEN) < 0) {
++		kfree_skb(skb);
++		return NULL;
+ 	}
+-
+ 	veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+ 
+ 	/* Move the mac addresses to the beginning of the new header. */
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 2ccac6b..b6e52c0 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -74,11 +74,8 @@ int vlan_dev_rebuild_header(struct sk_buff *skb)
+ static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff *skb)
+ {
+ 	if (VLAN_DEV_INFO(skb->dev)->flags & 1) {
+-		if (skb_shared(skb) || skb_cloned(skb)) {
+-			struct sk_buff *nskb = skb_copy(skb, GFP_ATOMIC);
+-			kfree_skb(skb);
+-			skb = nskb;
+-		}
++		if (skb_cow(skb, skb_headroom(skb)) < 0)
++			skb = NULL;
+ 		if (skb) {
+ 			/* Lifted from Gleb's VLAN code... */
+ 			memmove(skb->data - ETH_HLEN,
+@@ -345,13 +342,15 @@ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 	unsigned short veth_TCI = 0;
+ 	int rc = 0;
+ 	int build_vlan_header = 0;
+-	struct net_device *vdev = dev; /* save this for the bottom of the method */
+ 
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "%s: skb: %p type: %hx len: %x vlan_id: %hx, daddr: %p\n",
+ 		__FUNCTION__, skb, type, len, VLAN_DEV_INFO(dev)->vlan_id, daddr);
+ #endif
+ 
++	if (WARN_ON(skb_headroom(skb) < dev->hard_header_len))
++		return -ENOSPC;
++
+ 	/* build vlan header only if re_order_header flag is NOT set.  This
+ 	 * fixes some programs that get confused when they see a VLAN device
+ 	 * sending a frame that is VLAN encoded (the consensus is that the VLAN
+@@ -401,31 +400,6 @@ int vlan_dev_hard_header(struct sk_buff *skb, struct net_device *dev,
+ 
+ 	dev = VLAN_DEV_INFO(dev)->real_dev;
+ 
+-	/* MPLS can send us skbuffs w/out enough space.	 This check will grow the
+-	 * skb if it doesn't have enough headroom.  Not a beautiful solution, so
+-	 * I'll tick a counter so that users can know it's happening...	 If they
+-	 * care...
+-	 */
+-
+-	/* NOTE:  This may still break if the underlying device is not the final
+-	 * device (and thus there are more headers to add...)  It should work for
+-	 * good-ole-ethernet though.
+-	 */
+-	if (skb_headroom(skb) < dev->hard_header_len) {
+-		struct sk_buff *sk_tmp = skb;
+-		skb = skb_realloc_headroom(sk_tmp, dev->hard_header_len);
+-		kfree_skb(sk_tmp);
+-		if (skb == NULL) {
+-			struct net_device_stats *stats = vlan_dev_get_stats(vdev);
+-			stats->tx_dropped++;
+-			return -ENOMEM;
+-		}
+-		VLAN_DEV_INFO(vdev)->cnt_inc_headroom_on_tx++;
+-#ifdef VLAN_DEBUG
+-		printk(VLAN_DBG "%s: %s: had to grow skb.\n", __FUNCTION__, vdev->name);
+-#endif
+-	}
+-
+ 	if (build_vlan_header) {
+ 		/* Now make the underlying real hard header */
+ 		rc = dev->hard_header(skb, dev, ETH_P_8021Q, daddr, saddr, len + VLAN_HLEN);
+-- 
+1.7.1
