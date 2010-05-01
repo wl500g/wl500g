@@ -25849,15 +25849,6 @@ index c2fe7f6..9bf01a5 100644
  }
  
  /*****************************************************************************
-@@ -865,7 +866,7 @@ int usb_serial_probe(struct usb_interface *interface,
- 			dev_err(&interface->dev, "No free urbs available\n");
- 			goto probe_error;
- 		}
--		buffer_size = (endpoint->wMaxPacketSize > maxSize) ? endpoint->wMaxPacketSize : maxSize;
-+		buffer_size = le16_to_cpu(endpoint->wMaxPacketSize);
- 		port->bulk_in_size = buffer_size;
- 		port->bulk_in_endpointAddress = endpoint->bEndpointAddress;
- 		port->bulk_in_buffer = kmalloc (buffer_size, GFP_KERNEL);
 @@ -1070,6 +1071,36 @@ void usb_serial_disconnect(struct usb_interface *interface)
  	dev_info(dev, "device disconnected\n");
  }
