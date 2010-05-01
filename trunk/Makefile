@@ -502,10 +502,12 @@ $(TOP)/libusb: libusb/$(LIBUSB).tar.bz2
 libusb: $(TOP)/libusb10 $(TOP)/libusb
 	@true
 
+libusb10_Patches := $(call patches_list,libusb)
+
 $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	@rm -rf $(TOP)/$(LIBUSB10) $@
 	tar -jxf $^ -C $(TOP)
-	[ ! -f libusb/$(LIBUSB10).patch ] || $(PATCHER) -Z $(TOP)/$(LIBUSB10) libusb/$(LIBUSB10).patch
+	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
