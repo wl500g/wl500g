@@ -285,6 +285,7 @@ static int wpa_supplicant_get_pmk(struct wpa_sm *sm,
 			wpa_sm_ether_send(sm, sm->bssid, ETH_P_EAPOL,
 					  buf, buflen);
 			os_free(buf);
+			return -2;
 		}
 
 		return -1;
@@ -380,6 +381,7 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
 	struct wpa_eapol_ie_parse ie;
 	struct wpa_ptk *ptk;
 	u8 buf[8];
+	int res;
 
 	if (wpa_sm_get_network_ctx(sm) == NULL) {
 		wpa_printf(MSG_WARNING, "WPA: No SSID info found (msg 1 of "
@@ -407,7 +409,13 @@ static void wpa_supplicant_process_1_of_4(struct wpa_sm *sm,
 	}
 #endif /* CONFIG_NO_WPA2 */
 
-	if (wpa_supplicant_get_pmk(sm, src_addr, ie.pmkid))
+	res = wpa_supplicant_get_pmk(sm, src_addr, ie.pmkid);
+	if (res == -2) {
+		wpa_printf(MSG_DEBUG, "RSN: Do not reply to msg 1/4 - "
+			   "requesting full EAP authentication");
+		return;
+	}
+	if (res)
 		goto failed;
 
 	if (sm->renew_snonce) {
