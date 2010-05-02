@@ -320,7 +320,7 @@ endif
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
-modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
+modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(ko)
