@@ -7,9 +7,10 @@ Cleanup a lot of copy'n'paste code
  */
  
 -struct parport_splink_device_info prn_info_tmp, *prn_info; // Added by JYWeng 20031212:
- char *strunknown="unknown"; // Added by JYWeng 20031212:
+-char *strunknown="unknown"; // Added by JYWeng 20031212:
 -void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *prn_info_data, char *usblpid_info_data);// Added by JYWeng 20031212:
-+void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data);// Added by JYWeng 20031212:
++static char *strunknown="unknown"; // Added by JYWeng 20031212:
++static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data);// Added by JYWeng 20031212:
  
  static ssize_t usblp_write(struct file *file, const char *buffer, size_t count, loff_t *ppos);
  static ssize_t usblp_read(struct file *file, char *buffer, size_t count, loff_t *ppos);
@@ -154,7 +155,7 @@ Cleanup a lot of copy'n'paste code
 -done:
 -	return retval;
 -	
-+	return length;
++	return sizeof(usblp->usblpid_info);
  }
  // End PaN
  #endif // U2EC
@@ -320,7 +321,7 @@ Cleanup a lot of copy'n'paste code
  ** JYWeng 20031212: parsing the information of printers **
  *********************************************************/
 -void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *prn_info_data, char *usblpid_info_data)
-+void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data)
++static void parseKeywords(char *str_dev_id, char *keyword1, char *keyword2, char *usblpid_info_data)
  {
  	char *strtmp;
  	int i, unk = 0;
