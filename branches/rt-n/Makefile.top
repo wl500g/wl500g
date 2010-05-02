@@ -161,10 +161,8 @@ obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_WAVESERVER) += waveserver
 obj-$(CONFIG_EMF) += emf
 obj-$(CONFIG_EMF) += igs
-ifeq ($(CONFIG_LINUX_26),y)
-obj-y += udev
-obj-y += hotplug2
-endif
+obj-$(CONFIG_LINUX_26) += udev
+obj-$(CONFIG_LINUX_26) += hotplug2
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -186,6 +184,11 @@ obj-$(CONFIG_MADWIMAX) += madwimax
 obj-y += udpxy
 
 obj-y += kernel
+
+# Exclude targets for non-USB router models
+ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax p910nd rcamdmips samba scsi-idle usb_modeswitch vsftpd,$(obj-y))
+endif
 
 
 
@@ -317,10 +320,6 @@ endif
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
-modules_install-WL3%: modules_install
-#	rm -rf $(MODULESDIR)/parport
-	@true
-
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
@@ -330,7 +329,10 @@ else
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(ko)
 endif
 
-modules_install-RT-N10 modules_install-RT-N12 modules_install-RT-N16: modules_install
+modules_install-RT-N10 modules_install-RT-N12: modules_install
+	@true
+
+modules_install-RT-N16: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
@@ -339,7 +341,7 @@ else
 		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
 endif
 
-modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
+modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
@@ -354,18 +356,7 @@ ifeq ($(CONFIG_IPV6),y)
 NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*$(ko) 2>/dev/null))
 endif
 
-modules_install: .config
-	install -d $(MODULESDIR)
-	# network stuff
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/et/et$(ko) \
-		$(SRCMODULESDIR)/drivers/net/wl/wl$(ko) \
-		$(SRCMODULESDIR)/drivers/net/emf/emf$(ko) \
-		$(SRCMODULESDIR)/drivers/net/igs/igs$(ko) \
-		$(SRCMODULESDIR)/drivers/net/tun$(ko) \
-		$(SRCMODULESDIR)/drivers/net/imq$(ko) \
-		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
-		$(NETFILTER_MODS_LIST)
+modules_install-usb:
 	# generic usb
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(ko) \
@@ -392,6 +383,20 @@ ifeq ($(CONFIG_NFSD),y)
 		$(SRCMODULESDIR)/fs/nfsd/nfsd$(ko)    \
 		$(SRCMODULESDIR)/net/sunrpc/sunrpc$(ko)
 endif
+
+modules_install: .config
+	install -d $(MODULESDIR)
+	# network stuff
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/net/et/et$(ko) \
+		$(SRCMODULESDIR)/drivers/net/wl/wl$(ko) \
+		$(SRCMODULESDIR)/drivers/net/emf/emf$(ko) \
+		$(SRCMODULESDIR)/drivers/net/igs/igs$(ko) \
+		$(SRCMODULESDIR)/drivers/net/tun$(ko) \
+		$(SRCMODULESDIR)/drivers/net/imq$(ko) \
+		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
+		$(NETFILTER_MODS_LIST)
+	# NFS
 ifeq ($(CONFIG_NFS),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/nfs/nfs$(ko)
@@ -974,16 +979,16 @@ model-%:
 	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	elif [ "$*" = "RT-N10" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN10 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DCONFIG_RTN10 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	elif [ "$*" = "RT-N12" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN12 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
+		$(MAKE) rc GLOBAL_OPTIONS="-DCONFIG_RTN12 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	elif [ "$*" = "RT-N16" ]; then \
 		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_RTN16 -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
 	fi )
 
 image-%:
-	make model-$*
-	make package-$*
+	make model-$* MODEL="$*"
+	make package-$* MODEL="$*"
 
 images-%:
 	make image-$* LANGUAGE="EN"
@@ -993,16 +998,12 @@ images-%:
 	#make image-$* LANGUAGE="JP"
 
 images:
-	make images-WL500gx
-	make images-WL550gE
-	make images-WL320gE
-	make images-WL320gP
-	make images-WL500gp
-	make images-WL500W
-	make images-WL520gu
-	make images-WL500gpv2
-	make images-WL330gE
-	#make images-WL700g
+	make images-RT-N12
+	make images-RT-N16
+	#make images-WL500gp
+	#make images-WL500W
+	#make images-WL520gu
+	#make images-WL500gpv2
 
 
 #
