@@ -21,7 +21,7 @@ ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
-BUSYBOX=busybox-1.15.3
+BUSYBOX=busybox-1.16.1
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.52
 LPRNG=LPRng-3.8.22
@@ -48,8 +48,8 @@ UDPXY=udpxy-1.0-Chipmunk-14
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
-LIBUSB10=libusb-1.0.3
-USBMODESWITCH=usb-modeswitch-1.1.1
+LIBUSB10=libusb-1.0.7
+USBMODESWITCH=usb-modeswitch-1.1.2
 MADWIMAX=madwimax-0.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
@@ -167,6 +167,12 @@ busybox_Patches := $(call patches_list,busybox)
 $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	@rm -rf $(TOP)/$(BUSYBOX) $@
 	tar -xjf busybox/$(BUSYBOX).tar.bz2 -C $(TOP)
+	rm -rf $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/fsck.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/chattr.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/lsattr.c \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/README \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/uuid \
+	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/blkid
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
@@ -486,10 +492,12 @@ $(TOP)/libusb: libusb/$(LIBUSB).tar.bz2
 libusb: $(TOP)/libusb10 $(TOP)/libusb
 	@true
 
+libusb10_Patches := $(call patches_list,libusb)
+
 $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	@rm -rf $(TOP)/$(LIBUSB10) $@
 	tar -jxf $^ -C $(TOP)
-	[ ! -f libusb/$(LIBUSB10).patch ] || $(PATCHER) -Z $(TOP)/$(LIBUSB10) libusb/$(LIBUSB10).patch
+	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2

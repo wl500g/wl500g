@@ -594,6 +594,7 @@ int svc_timecheck(void)
 	}
 #endif
 
+#ifdef USB_SUPPORT
 	if (svcStatus[WEBACTIVE]==-1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
@@ -613,6 +614,7 @@ int svc_timecheck(void)
 			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE]=-1;
 		}	
 	}
+#endif // USB_SUPPORT
 
 	if (svcStatus[RADIOACTIVE]==-1 && nvram_invmatch("wl_radio_x", "0"))
 	{	
@@ -736,10 +738,11 @@ static void catch_sig(int sig)
 	}
 	else if (sig == SIGUSR2)
 	{
+		dprintf("Get Signal: %d %d %d\n", svcStatus[WEBACTIVE], extStatus[WEBACTIVE], sig);
+
+#ifdef USB_SUPPORT
 		FILE *fp;
 		char command[256], *cmd_ptr;
-
-		dprintf("Get Signal: %d %d %d\n", svcStatus[WEBACTIVE], extStatus[WEBACTIVE], sig);
 
 		if (!svcStatus[WEBACTIVE]) return;
 
@@ -762,6 +765,7 @@ static void catch_sig(int sig)
 			notice_rcamd(1);
 			extStatus[WEBACTIVE] = 0;
 		}
+#endif // USB_SUPPORT
 	}	
 }
 

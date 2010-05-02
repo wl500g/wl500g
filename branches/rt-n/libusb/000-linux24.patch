@@ -1,7 +1,7 @@
 diff -urBp libusb-1.0.2/libusb/os/linux_usbfs.c libusb10/libusb/os/linux_usbfs.c
 --- libusb-1.0.2/libusb/os/linux_usbfs.c	2009-06-11 00:41:26.000000000 +0400
 +++ libusb10/libusb/os/linux_usbfs.c	2009-08-24 21:24:03.000000000 +0400
-@@ -1706,6 +1706,15 @@ static int handle_bulk_completion(struct
+@@ -1782,6 +1782,15 @@ static int handle_bulk_completion(struct
  
  	tpriv->num_retired++;
  
@@ -14,19 +14,9 @@ diff -urBp libusb-1.0.2/libusb/os/linux_usbfs.c libusb10/libusb/os/linux_usbfs.c
 +	}
 +#endif
 +
- 	if (urb->status == 0 ||
- 			(urb->status == -EOVERFLOW && urb->actual_length > 0))
- 		itransfer->transferred += urb->actual_length;
-@@ -2008,7 +2008,9 @@ static int op_clock_gettime(int clk_id,
- {
- 	switch (clk_id) {
- 	case USBI_CLOCK_MONOTONIC:
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
- 		return clock_gettime(CLOCK_MONOTONIC, tp);
-+#endif
- 	case USBI_CLOCK_REALTIME:
- 		return clock_gettime(CLOCK_REALTIME, tp);
- 	default:
+ 	if (tpriv->reap_action != NORMAL) {
+ 		/* cancelled, submit_fail, or completed early */
+ 		usbi_dbg("abnormal reap: urb status %d", urb->status);
 diff -urBp libusb-1.0.2/libusb/os/linux_usbfs.h libusb10/libusb/os/linux_usbfs.h
 --- libusb-1.0.2/libusb/os/linux_usbfs.h	2008-07-16 18:17:57.000000000 +0400
 +++ libusb10/libusb/os/linux_usbfs.h	2009-06-05 21:31:31.000000000 +0400

@@ -36,7 +36,7 @@
 <tr>
 <td class="content_desc_td" colspan="2" width="614">
 <p style="margin-top: 7"> 
-                 Move your cursor over <a href="/ZVMODELVZ.CFG">HERE</a>. Then click the right button of mouse and select <b>"Save As..."</b> to save current setting of ZVMODELVZ into a file. (Note: While you save current settings to a file, it will be saved to flash as well.)
+                 Move your cursor over <a href="/ZVMODELVZ.cfg">HERE</a>. Then click the right button of mouse and select <b>"Save As..."</b> to save current setting of ZVMODELVZ into a file. (Note: While you save current settings to a file, it will be saved to flash as well.)
 <p style="margin-buttom: 7">                    
 </td>
 </tr>
