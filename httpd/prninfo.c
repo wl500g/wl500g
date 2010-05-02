@@ -44,7 +44,7 @@ static void readUsbPrnID(char *prninfo)
     fd = open(LP_DEV(0), O_RDWR);
     if (fd < 0 && errno != ENOENT) // Someone is opening the usb lp0
     {
-        FILE *fp = fopen("/proc/usblp/usblpid", "r");
+        FILE *fp = fopen("/proc/usblp/lp0", "r");
 
         if (fp != NULL)
         {
