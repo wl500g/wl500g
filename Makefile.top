@@ -593,10 +593,6 @@ busybox: busybox/.config
 busybox-install: busybox
 	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
-dproxy-install: dproxy
-	install -D dproxy/dproxy $(INSTALLDIR)/dproxy/usr/sbin/dproxy
-	$(STRIP) $(INSTALLDIR)/dproxy/usr/sbin/dproxy
-
 iptables: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
 
