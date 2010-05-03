@@ -1040,6 +1040,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	// Disable RH0 to block ping-pong of packets.
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
+	// Allow ICMPv6
+	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
@@ -1051,11 +1053,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #else
 	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
 	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
-#endif
-	// Allow ICMPv6
-	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);
-#ifndef BROKEN_IPV6_CONNTRACK
-#else
 	// Pass Link-Local, is it superseded by ipv6-icmp? 
 	fprintf(fp, "-A INPUT -s fe80::/10 -j %s\n", logaccept);
 #endif
