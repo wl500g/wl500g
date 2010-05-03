@@ -809,6 +809,11 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	#ifdef __CONFIG_IPV6__
 		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		{
+			if (nvram_match("ipv6_proto", "tun6in4") && !nvram_invmatch("misc_ping_x", "0")) {
+				char *sit_remote = nvram_safe_get("ipv6_sit_remote");
+				if (*sit_remote)
+					fprintf(fp, "-A INPUT -p icmp -s %s -j %s\n", sit_remote, logaccept);
+			}
 			fprintf(fp, "-A INPUT -p 41 -j %s\n", logaccept);
 		}
 	#endif
