@@ -506,7 +506,8 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
 	tar -jxf $^ -C $(TOP)
-	cp -pf usb_modeswitch/usb_modeswitch.conf $(TOP)/$(USBMODESWITCH)/
+	[ -f usb_modeswitch/usb_modeswitch.setup ] && \
+		cp -pf usb_modeswitch/usb_modeswitch.setup $(TOP)/$(USBMODESWITCH)/
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
 		$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
