@@ -22,6 +22,9 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPT
 CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -Wl,-rpath /lib
 
+MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))
+STAMP := .stamp-$(MODEL)
+
 OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
@@ -52,7 +55,7 @@ vpath %.c $(SRCBASE)/rts/src
 all: rc
 
 clean:
-	rm -f *.o rc
+	rm -f *.o rc .stamp-*
 
 install: all
 	install -d $(INSTALLDIR)/sbin
@@ -89,6 +92,12 @@ endif
 	cd $(INSTALLDIR)/sbin && ln -sf rc start_ftpd
 	cd $(INSTALLDIR)/sbin && ln -sf rc wlan_update
 
+
+$(STAMP):
+	$(MAKE) clean
+	touch $(STAMP)
+
+$(OBJS): $(STAMP)
 
 rc: $(OBJS)
 	$(CC) -o $@ $^ $(LDFLAGS)

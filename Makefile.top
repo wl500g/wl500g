@@ -187,7 +187,7 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
 # defaults
 export LANGUAGE := "EN"
-export GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DPRNINFO -DUSBONLY
+GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM
 
 LZMADIR=$(SRCBASE)/lzma/CPP/7zip/Compress
 
@@ -487,6 +487,10 @@ $(LINUXDIR)/.config: .config
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
 rc: netconf shared nvram $(EXTRA_LIBS)
+	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z]' '[A-Z]')" EXTRACFLAGS="$(EXTRACFLAGS)"
+
+rc-install:
+	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z]' '[A-Z]')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
@@ -884,28 +888,10 @@ LPRng-install:
 	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
 
-model-%:
-	make rc-clean
-	#make LPRng-clean
-	#make shared-clean
-
-	( if [ "$*" = "WL500gx" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DWL500GX -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	elif [ "$*" = "WL500gp" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500GP -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	elif [ "$*" = "WL500gpv2" -o "$*" = "WL520gu" -o "$*" = "WL330gE" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL520GX -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	elif [ "$*" = "WL700g" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL700G -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	elif [ "$*" = "WL500W" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL500W -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	elif [ "$*" = "WL550gE" -o "$*" = "WL320gE" -o "$*" = "WL320gP" ]; then \
-		$(MAKE) rc GLOBAL_OPTIONS="-DUSB_SUPPORT -DCONFIG_WL550GE -DQOS -DWPA2_WMM" EXTRACFLAGS="$(EXTRACFLAGS)"; \
-	fi )
 
 image-%:
-	make model-$*
-	make package-$*
+	$(MAKE) rc MODEL="$*"
+	$(MAKE) package-$* MODEL="$*"
 
 images-%:
 	make image-$* LANGUAGE="EN"
@@ -938,9 +924,6 @@ images:
 
 %-install:
 	[ ! -d $* ] || $(MAKE) -C $* install INSTALLDIR=$(INSTALLDIR)/$*
-
-%-diff:
-	$(MAKE) -C wl500g $*-diff
 
 $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
