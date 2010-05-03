@@ -11,7 +11,7 @@
  *
  * $Id$
  */
-#ifdef WL500GX
+#ifdef MODEL_WL500GX
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>

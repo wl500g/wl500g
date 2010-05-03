@@ -62,7 +62,7 @@
 #define GPIO15 0x8000
 
 // failsafe defaults, independent of nvram state
-#if defined(CONFIG_WL550GE)
+#if defined(MODEL_WL550GE) || defined(MODEL_WL320GE) || defined(MODEL_WL320GP)
 
 static int reset_mask	= GPIO1;
 static int reset_value	= GPIO1;
@@ -73,7 +73,7 @@ static int setup_value	= GPIO15;
 static int power_mask	= 0;
 static int power_value	= 0;
 
-#elif defined(CONFIG_WL500GP)
+#elif defined(MODEL_WL500GP)
 
 static int reset_mask	= GPIO0;
 static int reset_value	= GPIO0;
@@ -84,7 +84,7 @@ static int setup_value	= GPIO4;
 static int power_mask	= 0;
 static int power_value	= 0;
 
-#elif defined(CONFIG_WL500W)
+#elif defined(MODEL_WL500W)
 
 static int reset_mask	= GPIO6;
 static int reset_value	= GPIO6;
@@ -96,7 +96,7 @@ static int power_mask	= 0;
 static int power_value	= 0;
 /* -robo_reset is GPIO0 */
 
-#elif defined(CONFIG_RTN10)
+#elif defined(MODEL_RT_N10)
 
 static int reset_mask	= GPIO3;
 static int reset_value	= 0;
@@ -107,7 +107,7 @@ static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
-#elif defined(CONFIG_RTN12)
+#elif defined(MODEL_RT_N12)
 
 static int reset_mask	= GPIO1;
 static int reset_value	= 0;
@@ -118,7 +118,7 @@ static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
-#elif defined(CONFIG_RTN16)
+#elif defined(MODEL_RT_N16)
 
 static int reset_mask	= GPIO6;
 static int reset_value	= 0;
@@ -129,7 +129,7 @@ static int setup_value	= 0;
 static int power_mask	= 0;
 static int power_value	= 0;
 
-#elif defined(CONFIG_WL700G)
+#elif defined(MODEL_WL700G)
 
 static int reset_mask	= GPIO0; /* PWR */
 static int reset_value	= GPIO0;
@@ -143,7 +143,7 @@ static int power_value  = GPIO3;
 /* hwpower is GPIO7, pwr is GPIO3, -ready is GPIO1 */
 /* GPIO2 is SDA, GPIO5 is SCL */
 
-#elif defined(CONFIG_WL520GX)
+#elif defined(MODEL_WL520GU) || defined(MODEL_WL500GPV2) || defined(MODEL_WL330GE)
 
 static int reset_mask	= GPIO2;
 static int reset_value	= 0;
@@ -157,7 +157,7 @@ static int power_value	= 0;
 #else
 
 static int reset_mask = GPIO6;
-#ifdef CONFIG_WLHDD
+#ifdef MODEL_WLHDD
 static int reset_value = 0;
 /* GPIO4 is SDA, GPIO5 is SCL */
 #else
@@ -371,7 +371,7 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off indication */
-#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
 				LED_CONTROL(LED_READY, LED_READY_OFF);
 				break;
 #endif
@@ -395,7 +395,7 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off */
-#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
 				alarmtimer(0, 0);
 				kill(1, SIGQUIT);
 				break;

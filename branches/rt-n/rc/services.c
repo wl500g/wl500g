@@ -321,7 +321,7 @@ int
 start_nas(char *type)
 {
 	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled")))
-                return;
+                return 1;
 
 #ifdef __CONFIG_BCMWL5__
         eval("eapd");

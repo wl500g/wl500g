@@ -236,10 +236,6 @@ config CONFIG_PPPOERELAY
 	bool "PPPOE-relay"
 	default y
 
-config CONFIG_INFOSVR
-	bool "CONFIG_INFOSVR"
-	default n
-
 config CONFIG_EZIPUPDATE
 	bool "DynDNS support"
 	default y

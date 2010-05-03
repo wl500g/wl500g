@@ -83,6 +83,8 @@
 extern void getSharedEntry(int index);
 extern void setSharedEntry(int index);
 
+extern void readPrnID();
+
 static int apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int flag);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
 
@@ -211,12 +213,7 @@ void sys_script(char *name)
      }	
      else if (strcmp(name, "wan.sh")==0 || strcmp(name, "printer.sh")==0)
      {
-#ifdef __CONFIG_INFOSVR__
-	   // update status of printer
-	   kill_pidfile_s("/var/run/infosvr.pid", SIGUSR1);
-#else
 	   readPrnID();
-#endif
      }
      else if (strcmp(name, "lpr_remove")==0)
      {

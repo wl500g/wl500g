@@ -87,7 +87,7 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
-	ntpclient bpalogin bridge ez-ipupdate httpd infosvr jpeg-6b lib LPRng \
+	ntpclient bpalogin bridge ez-ipupdate httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax \
 	shared upnp utils wlconf www libbcmcrypto asustrx
@@ -452,13 +452,6 @@ $(TOP)/bpalogin: bpalogin.tar.bz2
 	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
 
 bpalogin: $(TOP)/bpalogin
-	@true
-
-$(TOP)/infosvr: infosvr.tar.bz2
-	tar -xjf infosvr.tar.bz2 -C $(TOP)
-	[ ! -f infosvr.patch ] || $(PATCHER) -Z $@ infosvr.patch
-
-infosvr: $(TOP)/infosvr
 	@true
 
 $(TOP)/rcamdmips:
