@@ -15,11 +15,7 @@ CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinu
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
-OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o
-
-ifneq ($(CONFIG_INFOSVR),y)
-OBJS += prninfo.o
-endif
+OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o prninfo.o
 
 
 #vpath %.c $(TOP)/shared

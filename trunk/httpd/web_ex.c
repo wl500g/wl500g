@@ -211,12 +211,7 @@ void sys_script(char *name)
      }	
      else if (strcmp(name, "wan.sh")==0 || strcmp(name, "printer.sh")==0)
      {
-#ifdef __CONFIG_INFOSVR__
-	   // update status of printer
-	   kill_pidfile_s("/var/run/infosvr.pid", SIGUSR1);
-#else
 	   readPrnID();
-#endif
      }
      else if (strcmp(name, "lpr_remove")==0)
      {

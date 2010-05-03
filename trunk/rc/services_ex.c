@@ -711,12 +711,6 @@ start_misc(void)
 	char *watchdog_argv[] = {"watchdog", NULL};
 	pid_t pid;
 	
-#ifdef __CONFIG_INFOSVR__
-	char *infosvr_argv[] = {"infosvr", "br0", NULL};
-
-	if (!nvram_invmatch("infosvr_enable", "1"))
-		_eval(infosvr_argv, NULL, 0, &pid);
-#endif
 	_eval(watchdog_argv, NULL, 0, &pid);
 
 	/* try to adjust wifi tx power */
@@ -739,9 +733,6 @@ stop_misc(void)
 {
 	int ret;
 
-#ifdef __CONFIG_INFOSVR__
-	eval("killall", "infosvr");
-#endif
 	ret = eval("killall", "watchdog");
 	stop_ntpc();
 
