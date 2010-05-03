@@ -301,31 +301,7 @@ restore_defaults(void)
 	};
 
 
-#ifdef CONFIG_WL300G
-	struct nvram_tuple wl300g[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth2", 0 },
-		{ "wan_ifname", "eth0", 0 },
-		{ "wan_ifnames", "eth0", 0 },
-		{ "wan_nat_x", "0", 0},
-		{ "wan_route_x", "IP_Bridged", 0},
-		{ 0, 0, 0 }
-	};
-#endif
-
-#ifdef CONFIG_WL300G2
-	struct nvram_tuple wl300g2[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth0 eth2", 0 },
-		{ "wan_ifname", "eth1", 0 },
-		{ "wan_ifnames", "eth1", 0 },
-		{ "wan_nat_x", "1", 0},
-		{ "wan_route_x", "IP_Routed", 0},
-		{ 0, 0, 0 }
-	};
-#endif
-
-#ifdef CONFIG_WL331G
+#ifdef MODEL_WL331G
 	struct nvram_tuple wl331g[] = {
 		{ "lan_ifname", "br0", 0 },
 		{ "lan_ifnames", "eth1", 0 },
@@ -338,7 +314,7 @@ restore_defaults(void)
 #endif
 
 
-#ifdef CONFIG_WLHDD
+#ifdef MODEL_WLHDD
 	struct nvram_tuple wlhdd[] = {
 		{ "lan_ifname", "br0", 0 },
 		{ "lan_ifnames", "eth2", 0 },
@@ -440,19 +416,11 @@ canned_config:
 		LINUX_OVERRIDES();
 	}
 
-#ifdef CONFIG_WL300G
-	linux_overrides = wl300g;
-#endif
-
-#ifdef CONFIG_WL300G2
-	linux_overrides = wl300g2;
-#endif
-
-#ifdef CONFIG_WL331G
+#ifdef MODEL_WL331G
 	linux_overrides = wl331g;
 #endif
 
-#ifdef CONFIG_WLHDD
+#ifdef MODEL_WLHDD
 	linux_overrides = wlhdd;
 #endif
 
@@ -641,7 +609,7 @@ sysinit(void)
 	if (stat("/proc/modules", &tmp_stat) == 0 &&
 	    stat(buf, &tmp_stat) == 0) {
 		char module[80], *modules, *next;
-#if defined(CONFIG_WLHDD) || defined(CONFIG_WL700G)
+#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
 		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
 #else
 		modules = nvram_get("kernel_mods") ? : "et wl";
@@ -658,9 +626,9 @@ sysinit(void)
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 	settimeofday(&tv, &tz);
 
-#if defined(CONFIG_WLHDD)
+#if defined(MODEL_WLHDD)
 	eval("insmod", "gpiortc", "sda_mask=0x10", "scl_mask=0x20");
-#elif defined(CONFIG_WL700G)
+#elif defined(MODEL_WL700G)
 	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
 #endif
 	
