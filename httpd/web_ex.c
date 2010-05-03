@@ -83,6 +83,8 @@
 extern void getSharedEntry(int index);
 extern void setSharedEntry(int index);
 
+extern void readPrnID();
+
 static int apply_cgi_group(webs_t wp, int sid, struct variable *var, char *groupName, int flag);
 static int nvram_generate_table(webs_t wp, char *serviceId, char *groupName);
 
