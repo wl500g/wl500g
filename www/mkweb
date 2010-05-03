@@ -274,7 +274,6 @@ if [ -n "$1" ]; then
 		cp -f ../target/lib/modules/2.4.5/parport/lp.o_600g ../target/lib/modules/2.4.5/parport/lp.o
 		cp -f ../target/usr/sbin/upnp_600g ../target/usr/sbin/upnp
 		cp -f ../target/sbin/lpd_600g ../target/sbin/lpd
-	    	cp -f ../target/sbin/infosvr_600g ../target/sbin/infosvr
 
 #################################################################### WLHDD
         elif [ "$MODEL" = "WLHDD" ]; then

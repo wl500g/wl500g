@@ -144,7 +144,6 @@ obj-$(CONFIG_ETC) += etc
 obj-$(CONFIG_PPTP) += pptp
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
-obj-$(CONFIG_INFOSVR) += infosvr
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
 obj-$(CONFIG_JPEG6B) += jpeg-6b
 obj-$(CONFIG_RCAMD) += rcamdmips
@@ -884,9 +883,6 @@ LPRng: LPRng/Makefile
 LPRng-install:
 	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
-
-infosvr:
-	$(MAKE) -C infosvr GLOBAL_OPTIONS="$(EXTRACFLAGS) -DPRNINFO -DNO_PARALLEL"
 
 model-%:
 	make rc-clean

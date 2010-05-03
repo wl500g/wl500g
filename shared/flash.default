@@ -430,10 +430,6 @@
 {"recent_seconds", "600", 0},
 {"recent_hitcount", "3", 0},
 
-#ifdef __CONFIG_INFOSVR__
-{"infosvr_enable", "1", 0},
-#endif
-
 {"lpr_enable", "0", 0},
 {"raw_enable", "1", 0},
 {"audio_enable", "0", 0},
