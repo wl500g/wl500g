@@ -288,8 +288,6 @@
 
 {"usb_webenable_x", "1", 0},
 
-{"usb_webmode_x", "1", 0},
-
 {"usb_webdriver_x", "0", 0},
 
 {"usb_webimage_x", "1", 0},
