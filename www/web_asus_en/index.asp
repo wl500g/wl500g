@@ -277,6 +277,7 @@ function generateTree()
            {
               appendChild(aux1,generateDocEntry(0, "Port Forwarding", "Main_IPTStatus_Content.asp", ""))                    
               appendChild(aux1, generateDocEntry(0, "Routing Table", "Advanced_RouteStatus_Content.asp", ""))              
+              appendChild(aux1,generateDocEntry(0, "System Utilization", "Main_Utilization_Content.asp", ""))
               appendChild(aux1,generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""))
            }   
      }                         
