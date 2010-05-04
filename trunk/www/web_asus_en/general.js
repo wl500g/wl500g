@@ -3448,15 +3448,9 @@ function openLink(s)
    	link = window.open(tourl, "NTPLink",
                "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=480");    
     }    
-    else if (s=='x_WImageSize')
-    {
-    	tourl = "Advanced_ShowTime_Widzard.asp"
-    	link = window.open(tourl, "WebCamera", 
-                "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=560");
-    }
     else if (s=='x_WImageStatic')
     {    	   
-    	tourl = "ShowWebCamPic.asp"
+    	tourl = "ShowWebCam.asp"
     	link = window.open(tourl, "WebCamera", 
                 "toolbar=yes,location=yes,directories=no,status=yes,menubar=yes,scrollbars=yes,resizable=yes,copyhistory=no,width=640,height=560");
     }

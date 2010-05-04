@@ -45,7 +45,6 @@ install-%:
 	install -m 644 web_$*/*.asp www_$*
 	install -m 644 web_$*/*.js www_$*
 	install -m 644 web_$*/*.css www_$*
-	install -m 644 web_$*/*.cab www_$*
 	install -d www_$*/graph
 	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
 
@@ -60,7 +59,6 @@ pages-%:
 	install -m 644 web_$*/*.asp $(INSTALLDIR)/www
 	install -m 644 web_$*/*.js $(INSTALLDIR)/www
 	install -m 644 web_$*/*.css $(INSTALLDIR)/www
-	install -m 644 web_$*/*.cab $(INSTALLDIR)/www
 	install -d $(INSTALLDIR)/www/graph
 	install -m 644 web_$*/$(PAGES_DIR) $(INSTALLDIR)/www/graph
 

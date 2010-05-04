@@ -9,8 +9,6 @@
 
 <SCRIPT LANGUAGE="JavaScript">
 
-var cameraMode = '<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>';
-
 function browserType()
 {
   if (navigator.appName == "Netscape")
@@ -35,14 +33,7 @@ function loadWidzard()
 	R6 = '<% nvram_get_x("PrinterStatus","usb_webremote6_x"); %>'
 	NAT = '<% nvram_get_x("IPConnection", "wan_nat_x"); %>'
 	
-	if ( browserType() != "MSIE" || cameraMode == "2")
-	{
-		aspName = "/ShowWebCamPic.asp";
-	}
-	else
-	{
-		aspName = "/ShowWebCam.asp";
-	}
+	aspName = "/ShowWebCam.asp";
 	
 	LANIP = '<% nvram_get_x("lan.log","lan_ipaddr"); %>'
 	//alert('LANIP ' + LANIP);

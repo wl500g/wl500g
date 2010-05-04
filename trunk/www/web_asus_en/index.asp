@@ -662,8 +662,6 @@ function checkChanged()
     {
         if (pageChangedCount==6)
         {          
-           //widzard = window.open("Advanced_ShowTime_Widzard.asp", "ShowTime", "toolbar=no,location=no,directories=no,status=no,menubar=no,scrollbars=yes,resizable=no,copyhistory=no,width=500,height=400");
-    	   //if (!widzard.opener) widzard.opener = self;     
     	   pageChangedCount = 0;
     	   ret = 1;
         }   
