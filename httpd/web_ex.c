@@ -2379,6 +2379,73 @@ do_log_cgi(char *path, FILE *stream)
 	fputs("\r\n", stream); /* terminator */
 }
 
+static void
+do_cpustat(char *url, webs_t *stream)
+{
+	char line[256];
+	int i, llen;
+	char buffer[256];
+	int strbuffer = 0;
+	buffer[strbuffer++] = '\n';
+	FILE *in = fopen("/proc/stat", "rb");
+	if (in == NULL) return;
+	if (fgets(line, sizeof(line), in) == NULL) return;
+	llen = strlen(line);
+	for (i = 0; i < llen; i++) {
+		buffer[strbuffer++] = line[i];
+	}
+	buffer[strbuffer] = 0;
+	fclose(in);
+	websWrite(stream, "%s", buffer);
+}
+
+static void
+do_fetchif(char *url, webs_t *stream)
+{
+	char line[256];
+	int i, llen;
+	char buffer[256];
+	char *path, *query;
+	query = url;
+	path = strsep(&query, "?") ? : url;
+	init_cgi(query);
+	if (query == NULL || strlen(query) == 0) return;
+	int strbuffer = 0;
+	time_t tm;
+	struct tm tm_time;
+	time(&tm);
+	memcpy(&tm_time, localtime(&tm), sizeof(tm_time));
+	strftime(buffer, 200, "%a %b %e %H:%M:%S %Z %Y", &tm_time);
+	strbuffer = strlen(buffer);
+	buffer[strbuffer++] = '\n';
+	FILE *in = fopen("/proc/net/dev", "rb");
+	if (in == NULL) return;
+	while (fgets(line, sizeof(line), in) != NULL) {
+	    if (!strchr(line, ':'))
+		continue;
+		if (strstr(line, query)) {
+			llen = strlen(line);
+			for (i = 0; i < llen; i++) {
+				buffer[strbuffer++] = line[i];
+			}
+			break;
+		}
+	}
+	buffer[strbuffer] = 0;
+	fclose(in);
+	websWrite(stream, "%s", buffer);
+}
+
+static void
+do_svgfile(char *url, FILE *stream)
+{
+	char *path, *query;
+	query = url;
+	path = strsep(&query, "?") ? : url;
+	init_cgi(query);
+	do_file(path, stream);
+}
+
 #ifdef WEBS
 void
 initHandlers(void)
@@ -2423,6 +2490,9 @@ struct mime_handler mime_handlers[] = {
 	{ "uploadflashfs.cgi*", "text/html", no_cache, do_uploadflashfs_post, do_uploadflashfs_cgi, do_auth },
  	{ "syslog.cgi*", "text/txt", no_cache, NULL, do_log_cgi, do_auth },
 	{ "webcam.cgi*", "text/html", no_cache, NULL, do_webcam_cgi, do_auth },
+	{ "**.svg*", "image/svg+xml", NULL, NULL, do_svgfile, do_auth },
+	{ "fetchif.cgi*", "text/html", no_cache, NULL, do_fetchif, do_auth },
+	{ "cpu.cgi*", "text/html", no_cache, NULL, do_cpustat, do_auth },
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
 

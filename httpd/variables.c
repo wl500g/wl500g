@@ -2212,16 +2212,6 @@
               
               0), FALSE, FALSE},
            	
-              {"usb_webmode_x", "", validate_choice, ARGV(              
-              
-                   "0:ActiveX Only",
-              
-                   "1:ActiveX and Refresh",
-              
-                   "2:Refresh Only",
-              
-              0), FALSE, FALSE},
-           	
               {"usb_webdriver_x", "", validate_choice, ARGV(              
               
                    "0:PWC 8.8",
