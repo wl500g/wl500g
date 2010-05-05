@@ -1,0 +1,83 @@
+From 29671f22a8b6522db3b126a3fdfb208759ce46e3
+From: Amerigo Wang
+Date: Mon, 14 Dec 2009 18:00:21 -0800
+Subject: [PATCH] rwsem: fix rwsem_is_locked() bugs
+
+rwsem_is_locked() tests ->activity without locks, so we should always keep
+->activity consistent.  However, the code in __rwsem_do_wake() breaks this
+rule, it updates ->activity after _all_ readers waken up, this may give
+some reader a wrong ->activity value, thus cause rwsem_is_locked() behaves
+wrong.
+
+Quote from Andrew:
+
+"
+- we have one or more processes sleeping in down_read(), waiting for access.
+
+- we wake one or more processes up without altering ->activity
+
+- they start to run and they do rwsem_is_locked().  This incorrectly
+  returns "false", because the waker process is still crunching away in
+  __rwsem_do_wake().
+
+- the waker now alters ->activity, but it was too late.
+"
+
+So we need get a spinlock to protect this.  And rwsem_is_locked() should
+not block, thus we use spin_trylock_irqsave().
+
+[akpm@linux-foundation.org: simplify code]
+Reported-by: Brian Behlendorf <behlendorf1@llnl.gov>
+Cc: Ben Woodard <bwoodard@llnl.gov>
+Cc: David Howells <dhowells@redhat.com>
+Signed-off-by: WANG Cong <amwang@redhat.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/rwsem-spinlock.h |    6 +-----
+ lib/rwsem-spinlock.c           |   13 +++++++++++++
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
+index 6c3c0f6..bdfcc25 100644
+--- a/include/linux/rwsem-spinlock.h
++++ b/include/linux/rwsem-spinlock.h
+@@ -68,11 +68,7 @@ extern int __down_write_trylock(struct rw_semaphore *sem);
+ extern void FASTCALL(__up_read(struct rw_semaphore *sem));
+ extern void FASTCALL(__up_write(struct rw_semaphore *sem));
+ extern void FASTCALL(__downgrade_write(struct rw_semaphore *sem));
+-
+-static inline int rwsem_is_locked(struct rw_semaphore *sem)
+-{
+-	return (sem->activity != 0);
+-}
++extern int rwsem_is_locked(struct rw_semaphore *sem);
+ 
+ #endif /* __KERNEL__ */
+ #endif /* _LINUX_RWSEM_SPINLOCK_H */
+diff --git a/lib/rwsem-spinlock.c b/lib/rwsem-spinlock.c
+index 39a7411..ccf95bf 100644
+--- a/lib/rwsem-spinlock.c
++++ b/lib/rwsem-spinlock.c
+@@ -17,6 +17,19 @@ struct rwsem_waiter {
+ #define RWSEM_WAITING_FOR_WRITE	0x00000002
+ };
+ 
++int rwsem_is_locked(struct rw_semaphore *sem)
++{
++	int ret = 1;
++	unsigned long flags;
++
++	if (spin_trylock_irqsave(&sem->wait_lock, flags)) {
++		ret = (sem->activity != 0);
++		spin_unlock_irqrestore(&sem->wait_lock, flags);
++	}
++	return ret;
++}
++EXPORT_SYMBOL(rwsem_is_locked);
++
+ /*
+  * initialise the semaphore
+  */
+-- 
+1.7.1
