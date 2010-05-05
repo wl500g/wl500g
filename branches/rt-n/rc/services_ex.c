@@ -1086,8 +1086,8 @@ hotplug_usb_webcam(char *product, int webflag)
 				"-s", nvram_safe_get("usb_webfresh_x"),
 				"-z", nvram_safe_get("time_zone"),
 				"-a", nvram_safe_get("usb_websecurity_x"),
+				"-r", "0",	// Record Time -r
 				NULL, NULL,	// Model -t
-				NULL, NULL,	// Record Time -r
 				NULL, NULL, 	// Image Size -f
 				NULL, NULL, 	// Sense Vlaue -m 
 				NULL, NULL, 	// Sense Limit -c
@@ -1128,18 +1128,6 @@ hotplug_usb_webcam(char *product, int webflag)
 		}
 	}
 
-	// start web cam
-	if (nvram_match("usb_webmode_x", "0")) // ActiveX only
-	{
-		*arg++ = "-r";
-		*arg++ = "60";
-	}
-	else 
-	{
-		*arg++ = "-r";
-		*arg++ = "0";
-	}
-		
 	// image size
 	if (nvram_match("usb_webimage_x", "0"))
 	{
