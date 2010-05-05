@@ -372,7 +372,7 @@ modules_install-usb:
 		$(SRCMODULESDIR)/drivers/usb/serial/pl2303$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko) \
-		$(SRCMODULESDIR)/drivers/usb/acm$(ko) 
+		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko) 
 	# usb webcams
 	# usb audio
 	# NFS
