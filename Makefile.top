@@ -340,7 +340,8 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/usb/serial/usbserial.o \
 		$(SRCMODULESDIR)/drivers/usb/serial/pl2303.o \
 		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/option.o
+		$(SRCMODULESDIR)/drivers/usb/serial/option.o \
+		$(SRCMODULESDIR)/drivers/usb/acm.o 
 	# usb webcams
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/media/video/videodev.o \
