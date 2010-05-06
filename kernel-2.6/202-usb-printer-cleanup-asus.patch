@@ -2,7 +2,16 @@ Cleanup a lot of copy'n'paste code
 
 --- a/drivers/usb/class/usblp.c
 +++ b/drivers/usb/class/usblp.c
-@@ -99,9 +99,8 @@ static int usblp_status_maping[MAX_STATU
+@@ -89,6 +89,8 @@ struct parport_splink_device_info {
+ 	char model[MAX_MODEL];
+ 	char description[MAX_DESCRIPT];
+ };
++#define USBLP_SPLINK_ID_SIZE	sizeof(struct parport_splink_device_info)
++
+ /*
+ static char *usblp_status_type[MAX_STATUS_TYPE]={ "Lexmark", "Canon", "Hp", "Epson", "EPSON", NULL};
+ static int usblp_status_maping[MAX_STATUS_TYPE][4]={ {0,0,0,0},
+@@ -99,9 +101,8 @@ static int usblp_status_maping[MAX_STATU
  				       		     {0,0,0,0}};
  */
  
@@ -14,7 +23,29 @@ Cleanup a lot of copy'n'paste code
  
  static ssize_t usblp_write(struct file *file, const char *buffer, size_t count, loff_t *ppos);
  static ssize_t usblp_read(struct file *file, char *buffer, size_t count, loff_t *ppos);
-@@ -423,133 +422,25 @@ static int proc_read_usblpid(char *page,
+@@ -230,7 +231,7 @@ struct usblp {
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry	*usblpid_file;
+ #endif
+-	struct parport_splink_device_info usblpid_info;
++	struct parport_splink_device_info *usblpid_info;
+ };
+ 
+ #ifdef DEBUG
+@@ -412,144 +413,36 @@ static const char *usblp_messages[] = { 
+ /* Added by PaN */
+ static int proc_read_usblpid(char *page, char **start, off_t off, int count, int *eof, void *data)
+ {
+-	struct usblp *usblp = data;
++	struct parport_splink_device_info *usblpid_info = ((struct usblp *)data)->usblpid_info;
+ 	int len=0;
+ 	
+ 	len=sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n", 
+-	usblp->usblpid_info.mfr, usblp->usblpid_info.model, usblp->usblpid_info.class_name, usblp->usblpid_info.description);
++	usblpid_info->mfr, usblpid_info->model, usblpid_info->class_name, usblpid_info->description);
+ 	
+ 	return len;
+ }
  
  static int proc_get_usblpid(struct usblp *usblp)
  {
@@ -79,7 +110,13 @@ Cleanup a lot of copy'n'paste code
 -	}
 -	usblp->usblpid_info.mfr[i]='\0';
 -	unk=0;
--
++//JYWeng 20031212: modified from below
++	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info->mfr);
++	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info->model);
++	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info->class_name);
++	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info->description);
++//JYWeng 20031212: end
+ 
 -	if ( (strtmp = strstr(str_dev_id, "MDL:")) == NULL) {
 -		if ( (strtmp = strstr(str_dev_id, "MODEL:")) == NULL) {
 -			for (i=0; i<7; i++) {
@@ -145,21 +182,23 @@ Cleanup a lot of copy'n'paste code
 -	}		
 -	usblp->usblpid_info.description[i]='\0';
 -#endif//JYWeng 20031212: end
-+//JYWeng 20031212: modified from below
-+	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info.mfr);
-+	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info.model);
-+	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info.class_name);
-+	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info.description);
-+//JYWeng 20031212: end
- 
+-
 -done:
 -	return retval;
 -	
-+	return sizeof(usblp->usblpid_info);
++	return 0;
  }
  // End PaN
  #endif // U2EC
-@@ -727,11 +618,7 @@ static unsigned int usblp_poll(struct fi
+@@ -675,6 +568,7 @@ static void usblp_cleanup (struct usblp 
+ 		remove_proc_entry(name, usblp_dir);
+ 		usblp->usblpid_file = NULL;
+ 	}
++	kfree(usblp->usblpid_info);
+ #endif
+ 	/* End PaN */
+ #endif // U2EC
+@@ -727,11 +621,7 @@ static unsigned int usblp_poll(struct fi
  static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  {
  #ifdef U2EC
@@ -171,7 +210,7 @@ Cleanup a lot of copy'n'paste code
  #endif // U2EC
  	struct usblp *usblp = file->private_data;
  	int length, err, i;
-@@ -903,140 +790,12 @@ static long usblp_ioctl(struct file *fil
+@@ -903,140 +793,9 @@ static long usblp_ioctl(struct file *fil
  #ifdef U2EC
  			/*=================================================================================== PaN */
  			case LPGETID: /* get the DEVICE_ID string */
@@ -189,8 +228,7 @@ Cleanup a lot of copy'n'paste code
 -					usblp->device_id_string[length] = '\0';
 -				else
 -					usblp->device_id_string[DEVICE_ID_SIZE - 1] = '\0';
-+				length = proc_get_usblpid(usblp);
- 
+-
 -				dbg ("usblp%d Device ID string [%d/max %d]='%s'",
 -					usblp->minor, length, cmd, &usblp->device_id_string[2]);
 -				info ("usblp%d Device ID string [%d/max %d]='%s'",
@@ -307,16 +345,34 @@ Cleanup a lot of copy'n'paste code
 -				usblp->usblpid_info.description[i]='\0';
 -#endif//JYWeng 20031212: end
 -				
- 				info("Parsing USBLPID...");
+-				info("Parsing USBLPID...");
 -				if (copy_to_user((unsigned char *) arg,
 -						prn_info, (unsigned long) length)) {
-+				if (length < 0 ||
++				if (usblp->usblpid_info == NULL ||
 +				    copy_to_user((unsigned char *) arg,
-+						&usblp->usblpid_info, (unsigned long) length)) {
++						usblp->usblpid_info, (unsigned long) USBLP_SPLINK_ID_SIZE)) {
  					retval = -EFAULT;
  					goto done;
  				}
-@@ -1128,7 +887,7 @@ done:
+@@ -1076,17 +835,6 @@ static long usblp_ioctl(struct file *fil
+ 					retval = -EFAULT;
+ 				*/
+                                 status = usblp_check_status(usblp, 0);
+-#if 0
+-				info("start=%s", usblpid_info.mfr);
+-				for (i=0; i< MAX_STATUS_TYPE; i++) {
+-				info("compare=%s", usblp_status_type[i]);
+-					if ( !( strcmp(usblpid_info.mfr, usblp_status_type[i]) ) )
+-						break;
+-				}
+-				info("%d=%s", i, usblp_status_type[i]);
+-				status=usblp_status_maping[i][status];
+-				info("STATUS=%x", status);
+-#endif
+ 				status=0;
+ 				if (copy_to_user ((int *)arg, &status, 2))
+ 					retval = -EFAULT;
+@@ -1128,7 +876,7 @@ done:
  /*********************************************************
  ** JYWeng 20031212: parsing the information of printers **
  *********************************************************/
@@ -325,7 +381,7 @@ Cleanup a lot of copy'n'paste code
  {
  	char *strtmp;
  	int i, unk = 0;
-@@ -1136,10 +895,8 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1136,10 +884,8 @@ void parseKeywords(char *str_dev_id, cha
  	if ( (strtmp = strstr(str_dev_id, keyword1)) == NULL) {
  		if ( (strtmp = strstr(str_dev_id, keyword2)) == NULL) {
  			for (i=0; i<7; i++) {
@@ -336,7 +392,7 @@ Cleanup a lot of copy'n'paste code
  			usblpid_info_data[i]='\0';
  			unk=1;
  			
-@@ -1153,11 +910,9 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1153,11 +899,9 @@ void parseKeywords(char *str_dev_id, cha
  					
  	i=0;
  	while (unk==0 && strtmp[i] && strtmp[i] != ';') {
@@ -348,3 +404,22 @@ Cleanup a lot of copy'n'paste code
  	usblpid_info_data[i]='\0';
  
  	return;
+@@ -1663,6 +1407,10 @@ static int usblp_probe(struct usb_interf
+ 	}
+ 	usblp->usblpid_file->owner = THIS_MODULE;
+ 	/* get device id */
++	if (!(usblp->usblpid_info = kmalloc(USBLP_SPLINK_ID_SIZE, GFP_KERNEL))) {
++		retval = -ENOMEM;
++		goto abort;
++	}
+ 	if (proc_get_usblpid(usblp) < 0) 
+ 		info("procfs: get usblpid error!");
+ 
+@@ -1681,6 +1429,7 @@ abort:
+ 		kfree(usblp->readbuf);
+ 		kfree(usblp->statusbuf);
+ 		kfree(usblp->device_id_string);
++		kfree(usblp->usblpid_info);
+ 		kfree(usblp);
+ 	}
+ 	return retval;
