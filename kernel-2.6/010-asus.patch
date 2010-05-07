@@ -746,23 +746,6 @@ diff -urBwNp linux-2.6.22/drivers/usb/storage/scsiglue.c linux-2.6/drivers/usb/s
  	/*
  	 * Calculate start of next buffer, and return value.
  	 */
-diff -urBwNp linux-2.6.22/drivers/usb/storage/usb.c linux-2.6/drivers/usb/storage/usb.c
---- linux-2.6.22/drivers/usb/storage/usb.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/drivers/usb/storage/usb.c	2009-03-02 10:16:42.000000000 +0300
-@@ -979,6 +977,13 @@ static int storage_probe(struct usb_inte
- 	if (result)
- 		goto BadDevice;
- 
-+	if (us->pusb_dev->actconfig->desc.bNumInterfaces > 1)   // patch for U2EC
-+	{
-+		printk("We only support single-interface storage device!\n");
-+		result = -ENOMEM;
-+		goto BadDevice;
-+	}
-+
- 	/*
- 	 * Get the unusual_devs entries and the descriptors
- 	 *
 diff -urBwNp linux-2.6.22/fs/fat/file.c linux-2.6/fs/fat/file.c
 --- linux-2.6.22/fs/fat/file.c	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/fs/fat/file.c	2009-03-24 15:47:56.000000000 +0300
