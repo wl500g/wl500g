@@ -171,7 +171,7 @@ net stop colinux
 
 == Compilling firmware ==
 
-creale file install.sh
+Sample install.sh
 
 *install.sh*
 {{{
@@ -179,8 +179,8 @@ creale file install.sh
 inst=`pwd -P`
 mkdir $inst/broadcom/src/linux -p
 mkdir /opt/brcm -p
-tar -C $inst/broadcom/src -jxvf wl500g-1.9.2.7-d.tar.bz2
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.2.4-1.tar.bz2
+svn checkout http://wl500g.googlecode.com/svn/trunk/ $inst/broadcom/src/1.9.2.7-d
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.2.4-2.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.2.4 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.9.tar.bz2
