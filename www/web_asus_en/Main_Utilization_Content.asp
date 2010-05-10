@@ -3,118 +3,166 @@
 <meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link><script language="JavaScript" type="text/javascript" src="overlib.js"></script><script language="JavaScript" type="text/javascript" src="general.js"></script>
-<script>
-  function intervalChange(value)
-  {
-     document.getElementById("cpu").data="graph_cpu.svg?#"+value;
-     document.getElementById("ppp0").data="graph_if.svg?ppp0#"+value;
-     document.getElementById("vlan1").data="graph_if.svg?vlan1#"+value;
-     document.getElementById("eth1").data="graph_if.svg?eth11#"+value;
-     document.getElementById("br0").data="graph_if.svg?br0#"+value;
-  }
+<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
+<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
+<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<script language="JavaScript" type="text/javascript">
+
+    var wan_proto="<% nvram_get_f("wan.log","wan_proto"); %>";
+    var wan_ifname="<% nvram_get_x("IPConnection","wan_ifname"); %>";
+    var man_ifname="";
+    var wlan_ifname="<% nvram_get_x("IPConnection","wl0_ifname"); %>";
+    var lan_ifname="<% nvram_get_x("IPConnection","lan_ifname"); %>";
+
+    function interval_change(value)
+    {
+	document.getElementById("cpu_graph").src="graph_cpu.svg?#"+value;
+	if (wan_ifname != "")
+	    document.getElementById("wan_graph").src="graph_if.svg?"+wan_ifname+"#"+value;
+	if (man_ifname != "")
+	    document.getElementById("man_graph").src="graph_if.svg?"+man_ifname+"#"+value;
+	if (wlan_ifname != "")
+	    document.getElementById("wlan_graph").src="graph_if.svg?"+wlan_ifname+"#"+value;
+	if (lan_ifname != "")
+	    document.getElementById("lan_graph").src="graph_if.svg?"+lan_ifname+"#"+value;
+    }
+
+    function process_element(elementId, value)
+    {
+	if (value != "") {
+	    document.getElementById(elementId+"_ifname").innerHTML=value;
+	} else {
+	    document.getElementById(elementId+"_data").style.display="none";
+	}
+    }
+
+    function generate_page()
+    {
+	load_body();
+
+	if (wan_proto=="l2tp" || wan_proto=="pptp" || wan_proto=="pppoe") {
+	    man_ifname=wan_ifname;
+	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
+	} else
+	if (wan_proto=="wimax") {
+	    wan_ifname="<% nvram_get_x("IPConnection","wan0_wimax_ifname"); %>";
+	} else
+	if (wan_proto=="usbmodem") {
+	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
+	}
+
+	process_element("wan", wan_ifname);
+	process_element("man", man_ifname);
+	process_element("wlan", wlan_ifname);
+	process_element("lan", lan_ifname);
+
+	interval_change(1);
+    }
 </script>
 </head>  
-<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
-<body onLoad="load_body()" onunLoad="return unload_body();">
-
-<!-- Table for the conntent page -->	    
-<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
+<body onLoad="generate_page();" onunLoad="return unload_body();">
+<form method="GET" name="form" action="apply.cgi">
+<!-- Table for the conntent page -->
+<table width="666" border="0" cellpadding="0" cellspacing="0">
+<input type="hidden" name="current_page" value="Main_Utilization_Content.asp">
+<input type="hidden" name="next_page" value="Main_Utilization_Content.asp">
+<input type="hidden" name="next_host" value="">
+<input type="hidden" name="sid_list" value="Utilization;">
+<input type="hidden" name="group_id" value="">
+<input type="hidden" name="modified" value="0">
+<input type="hidden" name="action_mode" value="">
+<input type="hidden" name="first_time" value="">
+<input type="hidden" name="action_script" value="">
 <tr>
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
 <tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">
-Status & Log - System Utilization
-</td>
+    <td class="content_header_td_title" colspan="2">Status & Log - System Utilization</td>
 </tr>
-<tr class="content_header_tr">
-<td colspan="2">
- <form>Refresh: <select  name="refresh"  onchange="intervalChange(this.value);">
- <option value="1" selected="selected">1 second</option><option value="2">2 seconds</option><option value="5">5 seconds</option>
- <option value="10">10 seconds</option><option value="30">30 seconds</option><option value="60">1 minute</option></select></form>
- <table align=center border=0>
- <tr><th>CPU Monitoring</th></tr>
- <tr><td><object id="cpu" type="image/svg+xml" width=530 height=250 data="graph_cpu.svg?#1"></object></td></tr>
- <tr><th>Bandwidth monitoring - Internet (ppp0)</th></tr>
- <tr><td><object id="ppp0" type="image/svg+xml" width=530 height=250 data="graph_if.svg?ppp0#1"></object></td></tr>
- <tr><th>Bandwidth monitoring - WAN (vlan1)</th></tr>
- <tr><td><object id="vlan1" type="image/svg+xml" width=530 height=250 data="graph_if.svg?vlan1#1"></object></td></tr>
- <tr><th>Bandwidth monitoring - Wireless (eth1)</th></tr>
- <tr><td><object id="eth1" type="image/svg+xml" width=530 height=250 data="graph_if.svg?eth1#1"></object></td></tr>
- <tr><th>Bandwidth monitoring - LAN (br0)</th></tr>
- <tr><td><object id="br0" type="image/svg+xml" width=530 height=250 data="graph_if.svg?br0#1"></object></td></tr>
- </table>
-</td>
+<tr>
+    <td class="content_header_td_less">Refresh Rate:</td>
+    <td class="content_input_td">
+	<select name="refresh" class="content_input_td" onchange="interval_change(this.value);">
+	<option value="1">1 second</option>
+	<option value="2">2 seconds</option>
+	<option value="5">5 seconds</option>
+	<option value="10">10 seconds</option>
+	<option value="30">30 seconds</option>
+	<option value="60">1 minute</option>
+	</select></td>
 </tr>
 </table>
 </td>
 </tr>
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<tr class="content_section_header_tr">
+    <td class="content_section_header_td" colspan="2">System Load Monitoring</td>
 </tr>
 <tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+    <td class="content_header_td">CPU:</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="cpu_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<tr class="content_section_header_tr">
+    <td class="content_section_header_td" colspan="2">Interface Bandwidth Monitoring</td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<tr id="wan_data">
+    <td class="content_header_td">WAN (<span id="wan_ifname"></span>):</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="wan_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<tr id="man_data">
+    <td class="content_header_td">MAN (<span id="man_ifname"></span>):</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="man_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<tr id="wlan_data">
+    <td class="content_header_td">Wireless (<span id="wlan_ifname"></span>):</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="wlan_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
+<tr id="lan_data">
+    <td class="content_header_td">LAN (<span id="lan_ifname"></span>):</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="lan_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
 </tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
+</table>
 </td>
 </tr>
 </form>
 <tr>
-<td>		
+<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
 <tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
-   <td height="25" width="34%">
-   </td>
-   <td height="25" width="33%">
-   </td>
-   <td height="25" width="33%">
-   <form method="get" name="form3" action="apply.cgi">		
-   <input type="hidden" name="current_page" value="Main_LogStatus_Content.asp"><input type="hidden" name="action_mode" value=" Refresh ">
-   <input type="hidden" name="next_host" value="">
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="document.form3.next_host.value = location.host; onSubmitCtrl(this, ' Refresh ')" type="submit" value="Refresh" name="action"></font></div> 
-   </form>
-   </td>
+    <td height="25" width="34%"></td>
+    <td height="25" width="33%"></td>
+    <td height="25" width="33%">
+	<input type="hidden" name="action_mode" value=" Refresh ">
+	<div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="document.form3.next_host.value = location.host; onSubmitCtrl(this, ' Refresh ')" type="submit" value="Refresh" name="action"></font></div> 
+	</td>
 </tr>
 </table>
 </td>
 </tr>
 </table>
+</form>
 </body>
