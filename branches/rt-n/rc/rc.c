@@ -945,7 +945,8 @@ main(int argc, char **argv)
 			if (step>=1)
 			{
 				nvram_set("vlan_enable", "1");
-				restore_defaults();							}
+				restore_defaults();
+			}
 			/* Setup wan0 variables if necessary */
 			if (step>=2)
 				set_wan0_vars();
