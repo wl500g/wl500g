@@ -170,7 +170,7 @@ madwimax_check(void)
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if(nvram_invmatch(strcat_r(prefix, "wimax_enabled", tmp), "1"))
+	if (!nvram_match(strcat_r(prefix, "wimax_enabled", tmp), "1"))
 		return -1;
 
 	sprintf(pid_fname, "/var/run/madwimax%d.pid", unit);
