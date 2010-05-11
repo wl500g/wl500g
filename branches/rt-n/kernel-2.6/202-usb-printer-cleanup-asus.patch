@@ -37,14 +37,18 @@ Cleanup a lot of copy'n'paste code
  static int proc_read_usblpid(char *page, char **start, off_t off, int count, int *eof, void *data)
  {
 -	struct usblp *usblp = data;
-+	struct parport_splink_device_info *usblpid_info = ((struct usblp *)data)->usblpid_info;
- 	int len=0;
- 	
- 	len=sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n", 
+-	int len=0;
+-	
+-	len=sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n", 
 -	usblp->usblpid_info.mfr, usblp->usblpid_info.model, usblp->usblpid_info.class_name, usblp->usblpid_info.description);
-+	usblpid_info->mfr, usblpid_info->model, usblpid_info->class_name, usblpid_info->description);
++	struct parport_splink_device_info *usblpid_info = ((struct usblp *)data)->usblpid_info;
  	
- 	return len;
+-	return len;
++	return (sprintf(page, "Manufacturer=%s\nModel=%s\nClass=%s\nDescription=%s\n\n", 
++		usblpid_info->mfr,
++		usblpid_info->model,
++		usblpid_info->class_name,
++		usblpid_info->description));
  }
  
  static int proc_get_usblpid(struct usblp *usblp)
@@ -110,13 +114,7 @@ Cleanup a lot of copy'n'paste code
 -	}
 -	usblp->usblpid_info.mfr[i]='\0';
 -	unk=0;
-+//JYWeng 20031212: modified from below
-+	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info->mfr);
-+	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info->model);
-+	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info->class_name);
-+	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info->description);
-+//JYWeng 20031212: end
- 
+-
 -	if ( (strtmp = strstr(str_dev_id, "MDL:")) == NULL) {
 -		if ( (strtmp = strstr(str_dev_id, "MODEL:")) == NULL) {
 -			for (i=0; i<7; i++) {
@@ -182,7 +180,13 @@ Cleanup a lot of copy'n'paste code
 -	}		
 -	usblp->usblpid_info.description[i]='\0';
 -#endif//JYWeng 20031212: end
--
++//JYWeng 20031212: modified from below
++	parseKeywords(str_dev_id, "MFG:", "MANUFACTURE:", usblp->usblpid_info->mfr);
++	parseKeywords(str_dev_id, "MDL:", "MODEL:", usblp->usblpid_info->model);
++	parseKeywords(str_dev_id, "CLS:", "CLASS:", usblp->usblpid_info->class_name);
++	parseKeywords(str_dev_id, "DES:", "DESCRIPTION:", usblp->usblpid_info->description);
++//JYWeng 20031212: end
+ 
 -done:
 -	return retval;
 -	
