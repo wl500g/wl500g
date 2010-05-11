@@ -16,21 +16,30 @@ diff -x'.*' -x'*.[oa]' -urBp busybox-1.16/include/volume_id.h busybox/include/vo
  int resolve_mount_spec(char **fsname);
 diff -x'.*' -x'*.[oa]' -urBp busybox-1.16/util-linux/volume_id/get_devname.c busybox/util-linux/volume_id/get_devname.c
 --- busybox-1.16/util-linux/volume_id/get_devname.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/util-linux/volume_id/get_devname.c	2010-04-29 12:41:27.000000000 +0400
-@@ -269,11 +269,12 @@ int resolve_mount_spec(char **fsname)
++++ busybox/util-linux/volume_id/get_devname.c	2010-05-11 13:54:36.000000000 +0400
+@@ -263,17 +263,20 @@ char *get_devname_from_uuid(const char *
+ 
+ int resolve_mount_spec(char **fsname)
+ {
+-	char *tmp = *fsname;
++	char *tmp = NULL;
+ 
+ 	if (strncmp(*fsname, "UUID=", 5) == 0)
  		tmp = get_devname_from_uuid(*fsname + 5);
  	else if (strncmp(*fsname, "LABEL=", 6) == 0)
  		tmp = get_devname_from_label(*fsname + 6);
 -
 -	if (tmp == *fsname)
-+	else
++	else {
++		*fsname = xstrdup(*fsname);
  		return 0; /* no UUID= or LABEL= prefix found */
++	}
++
++	if (!tmp)
++		return -2; /* device defined by UUID= or LABEL= wasn't found */
  
 -	if (tmp)
 -		*fsname = tmp;
-+	if (!tmp)
-+		return -2; /* device defined by UUID= or LABEL= wasn't found */
-+
 +	*fsname = tmp;
  	return 1;
  }
