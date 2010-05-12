@@ -1,0 +1,35 @@
+From 95a02cfd4d33886c166d4a5f309120f8d32ced58
+From: Thomas Graf
+Date: Mon, 10 Dec 2007 16:53:29 -0800
+Subject: [PATCH] [IPv6] ESP: Discard dummy packets introduced in rfc4303
+
+RFC4303 introduces dummy packets with a nexthdr value of 59
+to implement traffic confidentiality. Such packets need to
+be dropped silently and the payload may not be attempted to
+be parsed as it consists of random chunk.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/esp6.c |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
+index 7db66f1..4440532 100644
+--- a/net/ipv6/esp6.c
++++ b/net/ipv6/esp6.c
+@@ -230,6 +230,12 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)
+ 		}
+ 		/* ... check padding bits here. Silly. :-) */
+ 
++		/* RFC4303: Drop dummy packets without any error */
++		if (nexthdr[1] == IPPROTO_NONE) {
++			ret = -EINVAL;
++			goto out;
++		}
++
+ 		pskb_trim(skb, skb->len - alen - padlen - 2);
+ 		ret = nexthdr[1];
+ 	}
+-- 
+1.7.1
