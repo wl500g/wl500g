@@ -50,7 +50,7 @@ Also backport procfs handling from 2.6 rtn branch
  };
  
  #ifdef DEBUG
-@@ -357,144 +365,36 @@ static char *usblp_messages[] = { "ok", 
+@@ -353,144 +361,36 @@ static char *usblp_messages[] = { "ok",
  /* Added by PaN */
  static int proc_read_usblpid(char *page, char **start, off_t off, int count, int *eof, void *data)
  {
@@ -213,7 +213,7 @@ Also backport procfs handling from 2.6 rtn branch
  }
  // End PaN
  
-@@ -629,6 +529,15 @@ static void usblp_cleanup (struct usblp 
+@@ -625,6 +525,15 @@ static void usblp_cleanup (struct usblp
  	usb_deregister_devpath(usblp->dev);
  #endif
  	info("usblp%d: removed", usblp->minor);
@@ -229,7 +229,7 @@ Also backport procfs handling from 2.6 rtn branch
  
  	kfree (usblp->writebuf);
  	kfree (usblp->readbuf);
-@@ -674,11 +583,7 @@ static unsigned int usblp_poll(struct fi
+@@ -670,11 +579,7 @@ static unsigned int usblp_poll(struct fi
  static int usblp_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg)
  {
  	struct usblp *usblp = file->private_data;
@@ -241,7 +241,7 @@ Also backport procfs handling from 2.6 rtn branch
  	int length, err, i;
  	unsigned char newChannel;
  	int status;
-@@ -832,141 +737,9 @@ static int usblp_ioctl(struct inode *ino
+@@ -828,141 +733,9 @@ static int usblp_ioctl(struct inode *ino
  		switch (cmd) {
  			/*=================================================================================== PaN */
  			case LPGETID: /* get the DEVICE_ID string */
@@ -386,7 +386,7 @@ Also backport procfs handling from 2.6 rtn branch
  					retval = -EFAULT;
  					goto done;
  				}
-@@ -1014,7 +787,7 @@ done:
+@@ -1010,7 +783,7 @@ done:
  /*********************************************************
  ** JYWeng 20031212: parsing the information of printers **
  *********************************************************/
@@ -395,7 +395,7 @@ Also backport procfs handling from 2.6 rtn branch
  {
  	char *strtmp;
  	int i, unk = 0;
-@@ -1022,10 +795,8 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1018,10 +791,8 @@ void parseKeywords(char *str_dev_id, cha
  	if ( (strtmp = strstr(str_dev_id, keyword1)) == NULL) {
  		if ( (strtmp = strstr(str_dev_id, keyword2)) == NULL) {
  			for (i=0; i<7; i++) {
@@ -406,7 +406,7 @@ Also backport procfs handling from 2.6 rtn branch
  			usblpid_info_data[i]='\0';
  			unk=1;
  			
-@@ -1039,11 +810,9 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1035,11 +806,9 @@ void parseKeywords(char *str_dev_id, cha
  					
  	i=0;
  	while (unk==0 && strtmp[i] && strtmp[i] != ';') {
@@ -418,7 +418,7 @@ Also backport procfs handling from 2.6 rtn branch
  	usblpid_info_data[i]='\0';
  
  	return;
-@@ -1387,25 +1156,38 @@ static void *usblp_probe(struct usb_devi
+@@ -1383,25 +1152,34 @@ static void *usblp_probe(struct usb_devi
  	usblp->present = 1;
  
  	/* Added by PaN */
@@ -455,10 +455,6 @@ Also backport procfs handling from 2.6 rtn branch
 -        usblpid_file->owner = THIS_MODULE;
 +        usblp->usblpid_file->owner = THIS_MODULE;
  	/* get device id */
-+	if (!(usblp->usblpid_info = kmalloc(USBLP_SPLINK_ID_SIZE, GFP_KERNEL))) {
-+		err("out of memory for usblpid info");
-+		goto abort;
-+	}
  	if (proc_get_usblpid(usblp) < 0) 
  		info("proc:get usblpid error!!");
  
@@ -467,7 +463,7 @@ Also backport procfs handling from 2.6 rtn branch
  	// End PaN 
  
  
-@@ -1419,6 +1201,7 @@ abort:
+@@ -1415,6 +1193,7 @@ abort:
  			kfree (usblp->readbuf);
  		kfree(usblp->statusbuf);
  		kfree(usblp->device_id_string);
@@ -475,7 +471,7 @@ Also backport procfs handling from 2.6 rtn branch
  		usb_free_urb(usblp->writeurb);
  		usb_free_urb(usblp->readurb);
  		kfree(usblp);
-@@ -1635,12 +1418,26 @@ static int __init usblp_init(void)
+@@ -1629,12 +1408,26 @@ static int __init usblp_init(void)
  	if (usb_register(&usblp_driver))
  		return -1;
  	info(DRIVER_VERSION ": " DRIVER_DESC);
