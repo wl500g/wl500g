@@ -19,10 +19,11 @@ index 1f64458..4afbb51 100644
  #define SST49LF004B	        0x0060
  #define SST49LF040B	        0x0050
  #define SST49LF008A		0x005a
-@@ -293,13 +294,28 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
+@@ -293,14 +294,29 @@ struct mtd_info *cfi_cmdset_0002(struct map_info *map, int primary)
+ 			return NULL;
  		}
  
- 		if (extp->MajorVersion != '1' ||
+-		if (extp->MajorVersion != '1' ||
 -		    (extp->MinorVersion < '0' || extp->MinorVersion > '4')) {
 -			printk(KERN_ERR "  Unknown Amd/Fujitsu Extended Query "
 -			       "version %c.%c.\n",  extp->MajorVersion,
@@ -30,6 +31,7 @@ index 1f64458..4afbb51 100644
 -			kfree(extp);
 -			kfree(mtd);
 -			return NULL;
++		if (extp->MajorVersion < '0' || extp->MajorVersion > '3' ||
 +		   (extp->MinorVersion < '0' || extp->MinorVersion > '4')) {
 +			if (cfi->mfr == MANUFACTURER_SAMSUNG &&
 +			   ((extp->MajorVersion == '3' && extp->MinorVersion == '3') ||
