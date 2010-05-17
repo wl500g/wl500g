@@ -44,7 +44,7 @@ XL2TPD=xl2tpd-1.2.5
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
-UDPXY=udpxy-1.0-Chipmunk-14
+UDPXY=udpxy-1.0-Chipmunk-16
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
@@ -435,7 +435,7 @@ pptp: $(TOP)/pptp
 	@true
 
 $(TOP)/udpxy: $(UDPXY).tgz
-	@rm -rf $(TOP)/udpxy-wl $@
+	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
 	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
 	mv $(TOP)/$(UDPXY) $@ && touch $@
