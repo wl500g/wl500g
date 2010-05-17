@@ -1,0 +1,96 @@
+From 7c1ed9fbdedb6cd038df11322a82ac7aea412524
+From: Denys Vlasenko
+Date: Mon, 17 May 2010 02:42:40 +0000
+Subject: ash: fix signal5.tests
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/shell/ash.c b/shell/ash.c
+index ec5e0b8..ef22da1 100644
+--- a/shell/ash.c
++++ b/shell/ash.c
+@@ -3874,9 +3874,9 @@ dowait(int wait_flags, struct job *job)
+ }
+ 
+ static int
+-blocking_wait_with_raise_on_sig(struct job *job)
++blocking_wait_with_raise_on_sig(void)
+ {
+-	pid_t pid = dowait(DOWAIT_BLOCK, job);
++	pid_t pid = dowait(DOWAIT_BLOCK, NULL);
+ 	if (pid <= 0 && pending_sig)
+ 		raise_exception(EXSIG);
+ 	return pid;
+@@ -4069,14 +4069,21 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
+ 				jp->waited = 1;
+ 				jp = jp->prev_job;
+ 			}
++			blocking_wait_with_raise_on_sig();
+ 	/* man bash:
+ 	 * "When bash is waiting for an asynchronous command via
+ 	 * the wait builtin, the reception of a signal for which a trap
+ 	 * has been set will cause the wait builtin to return immediately
+ 	 * with an exit status greater than 128, immediately after which
+ 	 * the trap is executed."
+-	 * Do we do it that way? */
+-			blocking_wait_with_raise_on_sig(NULL);
++	 *
++	 * blocking_wait_with_raise_on_sig raises signal handlers
++	 * if it gets no pid (pid < 0). However,
++	 * if child sends us a signal *and immediately exits*,
++	 * blocking_wait_with_raise_on_sig gets pid > 0
++	 * and does not handle pending_sig. Check this case: */
++			if (pending_sig)
++				raise_exception(EXSIG);
+ 		}
+ 	}
+ 
+@@ -4096,7 +4103,7 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
+ 			job = getjob(*argv, 0);
+ 		/* loop until process terminated or stopped */
+ 		while (job->state == JOBRUNNING)
+-			blocking_wait_with_raise_on_sig(NULL);
++			blocking_wait_with_raise_on_sig();
+ 		job->waited = 1;
+ 		retval = getstatus(job);
+  repeat: ;
+diff --git a/shell/ash_test/ash-signals/signal5.right b/shell/ash_test/ash-signals/signal5.right
+new file mode 100644
+index 0000000..35fcbd6
+--- a/dev/null
++++ b/shell/ash_test/ash-signals/signal5.right
+@@ -0,0 +1,12 @@
++sleeping for 3 sec
++sleeping for 2 sec
++Waiting
++2 sec passed, sending USR1 to parent
++USR1 received
++Wait exit code: 138
++Waiting
++3 sec passed, sending USR1 to parent
++USR1 received
++Wait exit code: 138
++Waiting
++Wait returned 0
+diff --git a/shell/ash_test/ash-signals/signal5.tests b/shell/ash_test/ash-signals/signal5.tests
+new file mode 100755
+index 0000000..b75b149
+--- a/dev/null
++++ b/shell/ash_test/ash-signals/signal5.tests
+@@ -0,0 +1,14 @@
++trap "echo USR1 received" USR1
++stub() {
++    echo "sleeping for $1 sec"
++    sleep $1
++    echo "$1 sec passed, sending USR1 to parent"
++    kill -USR1 $$
++}
++stub 3 &
++stub 2 &
++sleep 1
++until { echo "Waiting"; wait; } do
++    echo "Wait exit code: $?"
++done
++echo "Wait returned 0"
+--
+cgit v0.8.2.1
