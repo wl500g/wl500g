@@ -1,0 +1,36 @@
+Subject: [PATCH] Fix libusb_device::lock memory leak
+From 5b69f3b7b0610d5f518954792ddc93332a41d292
+From: Michael Plante <michael.plante@gmail.com>
+Date: Thu, 25 Feb 2010 19:39:22 -0600
+
+---
+ AUTHORS       |    1 +
+ libusb/core.c |    1 +
+ 2 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/AUTHORS b/AUTHORS
+index f855002..105f6b5 100644
+--- a/AUTHORS
++++ b/AUTHORS
+@@ -13,6 +13,7 @@ Felipe Balbi
+ Hans Ulrich Niedermann
+ Ludovic Rousseau
+ Martin Koegler
++Michael Plante
+ Mikhail Gusarov
+ Peter Stuge
+ Rob Walker
+diff --git a/libusb/core.c b/libusb/core.c
+index 0f5b894..e1849af 100644
+--- a/libusb/core.c
++++ b/libusb/core.c
+@@ -831,6 +831,7 @@ API_EXPORTED void libusb_unref_device(libusb_device *dev)
+ 		list_del(&dev->list);
+ 		pthread_mutex_unlock(&dev->ctx->usb_devs_lock);
+ 
++		pthread_mutex_destroy(&dev->lock);
+ 		free(dev);
+ 	}
+ }
+-- 
+1.7.0.4
