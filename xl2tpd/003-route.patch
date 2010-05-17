@@ -110,7 +110,7 @@ diff -BurpN xl2tpd-1.2.5/xl2tpd.c xl2tpd/xl2tpd.c
 +		    	&sin_addr(&rt->rt_gateway).s_addr, &flags, &metric, &mask) != 6)
 +			continue;
 +		if ((flags & RTF_UP) == (RTF_UP) && (inetaddr.s_addr & mask) == dest &&
-+		    (dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/)
++		    (dest || strncmp(dev, "ppp", 3)) /* avoid default via pppX to avoid on-demand loops*/) {
 +			rt->rt_metric = metric + 1;
 +			rt->rt_gateway.sa_family = AF_INET;
 +			break;
