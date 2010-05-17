@@ -177,6 +177,7 @@ obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
 obj-$(CONFIG_IGMPPROXY) += igmpproxy
 obj-$(CONFIG_VSFTPD) += vsftpd
+obj-$(CONFIG_NTFS3G) += ntfs-3g
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
@@ -186,7 +187,7 @@ obj-y += kernel
 
 # Exclude targets for non-USB router models
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax p910nd rcamdmips samba scsi-idle usb_modeswitch vsftpd,$(obj-y))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax p910nd rcamdmips samba scsi-idle usb_modeswitch vsftpd ntfs-3g,$(obj-y))
 endif
 
 
@@ -382,6 +383,11 @@ ifeq ($(CONFIG_NFSD),y)
 		$(SRCMODULESDIR)/fs/exportfs/exportfs$(ko)    \
 		$(SRCMODULESDIR)/fs/nfsd/nfsd$(ko)    \
 		$(SRCMODULESDIR)/net/sunrpc/sunrpc$(ko)
+endif
+
+ifeq ($(CONFIG_NTFS3G),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/fuse/fuse$(ko)
 endif
 
 modules_install: .config
@@ -849,6 +855,21 @@ igmpproxy-install:
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
+
+ntfs-3g/Makefile: ntfs-3g/Makefile.in
+	cd ntfs-3g && $(CONFIGURE) --enable-shared=no --enable-static=no \
+	--disable-library --disable-ldconfig --disable-mount-helper \
+	--with-fuse=internal
+
+ntfs-3g: ntfs-3g/Makefile
+
+ntfs-3g-install:
+	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g
+	$(STRIP) $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g
+	install -D ntfs-3g/src/ntfs-3g.probe $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g.probe
+	$(STRIP) $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g.probe
+	@mkdir -p $(INSTALLDIR)/ntfs-3g/sbin
+	ln -sf ../usr/sbin/ntfs-3g $(INSTALLDIR)/ntfs-3g/sbin/mount.ntfs-3g
 
 udpxy:
 	$(MAKE) -C $@ release CDEFS="-O2 $(EXTRACFLAGS)"
