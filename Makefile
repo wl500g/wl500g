@@ -53,6 +53,7 @@ USBMODESWITCH=usb-modeswitch-1.1.2
 MADWIMAX=madwimax-0.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
+NTFS3G=ntfs-3g-2010.5.16
 
 UCLIBC=uClibc-0.9.30.1
 
@@ -89,7 +90,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
-	scsi-idle libusb usb_modeswitch wimax \
+	scsi-idle libusb usb_modeswitch wimax ntfs-3g\
 	shared upnp utils wlconf www libbcmcrypto asustrx
 	@echo
 	@echo Sources prepared for compilation
@@ -174,7 +175,6 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/uuid \
 	    $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/blkid
 	mv $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs/* $(TOP)/$(BUSYBOX)/e2fsprogs/
-	rmdir $(TOP)/$(BUSYBOX)/e2fsprogs/old_e2fsprogs
 	$(PATCHER) -Z $(TOP)/$(BUSYBOX) $(busybox_Patches)
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
@@ -194,6 +194,18 @@ $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 
 vsftpd: $(TOP)/vsftpd
 	@true
+
+ntfs-3g_Patches := $(call patches_list,ntfs-3g)
+
+$(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
+	@rm -rf $(TOP)/$(NTFS3G) $@
+	tar -xzf ntfs-3g/$(NTFS3G).tgz -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(NTFS3G) $(ntfs-3g_Patches)
+	mv $(TOP)/$(NTFS3G) $@
+
+ntfs-3g: $(TOP)/ntfs-3g
+	@true
+
 
 dropbear_Patches := $(call patches_list,dropbear)
 

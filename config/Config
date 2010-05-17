@@ -373,6 +373,12 @@ config CONFIG_MADWIMAX
        help
        Include driver for WiMAX modems (Yota).
 
+config CONFIG_NTFS3G
+       bool "NTFS-3G support"
+       default y
+       help
+       NTFS-3G support.
+
 endmenu
 
 menu "Additional C libraries"
