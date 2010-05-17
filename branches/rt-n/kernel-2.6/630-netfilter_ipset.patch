@@ -4702,7 +4702,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ip_set_ipportnethash.c linuz/net/ipv4/n
 diff -urNB linux.orig/net/ipv4/netfilter/ip_set_iptree.c linuz/net/ipv4/netfilter/ip_set_iptree.c
 --- linux.orig/net/ipv4/netfilter/ip_set_iptree.c	1970-01-01 00:00:00.000000000 +0000
 +++ linuz/net/ipv4/netfilter/ip_set_iptree.c	2010-05-17 15:03:35.000000000 +0000
-@@ -0,0 +1,466 @@
+@@ -0,0 +1,467 @@
 +/* Copyright (C) 2005-2008 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 + *
 + * This program is free software; you can redistribute it and/or modify
@@ -4715,6 +4715,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ip_set_iptree.c linuz/net/ipv4/netfilte
 +#include <linux/module.h>
 +#include <linux/moduleparam.h>
 +#include <linux/ip.h>
++#include <linux/version.h>
 +#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 +#include <linux/jiffies.h>
 +#endif
@@ -5172,7 +5173,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ip_set_iptree.c linuz/net/ipv4/netfilte
 diff -urNB linux.orig/net/ipv4/netfilter/ip_set_iptreemap.c linuz/net/ipv4/netfilter/ip_set_iptreemap.c
 --- linux.orig/net/ipv4/netfilter/ip_set_iptreemap.c	1970-01-01 00:00:00.000000000 +0000
 +++ linuz/net/ipv4/netfilter/ip_set_iptreemap.c	2010-05-17 15:03:44.000000000 +0000
-@@ -0,0 +1,702 @@
+@@ -0,0 +1,703 @@
 +/* Copyright (C) 2007 Sven Wegener <sven.wegener@stealer.net>
 + *
 + * This program is free software; you can redistribute it and/or modify it
@@ -5189,6 +5190,7 @@ diff -urNB linux.orig/net/ipv4/netfilter/ip_set_iptreemap.c linuz/net/ipv4/netfi
 +#include <linux/kernel.h>
 +#include <linux/module.h>
 +#include <linux/ip.h>
++#include <linux/version.h>
 +#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 +#include <linux/jiffies.h>
 +#endif
