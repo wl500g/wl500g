@@ -2106,7 +2106,11 @@
                     {"wl_net_reauth", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
 
 		{"wl_nbw", "20", validate_string, ARGV(""), FALSE, FALSE},
-		{"wl_nctrlsb", "none", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nctrlsb", "", validate_choice, ARGV(
+			"none",
+			"lower",
+			"upper",
+		0), FALSE, FALSE},
 		{"wl_nband", "2", validate_string, ARGV(""), FALSE, FALSE},
 		{"wl_nmcsidx", "-1", validate_string, ARGV(""), FALSE, FALSE},
 		{"wl_nmode", "-1", validate_string, ARGV(""), FALSE, FALSE},
