@@ -802,7 +802,7 @@ int main(int argc, char **argv)
 		exit(errno);
 	}
 
-#if !defined(DEBUG) && !defined(vxworks)
+#if !defined(DEBUG1) && !defined(vxworks)
 	{
 	FILE *pid_fp;
 	/* Daemonize and log PID */
