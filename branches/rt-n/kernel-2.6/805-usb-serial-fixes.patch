@@ -1,0 +1,247 @@
+Subject: [PATCH] USB serial: fixes from upstream 2.6 kernel tree
+From 6bb18e92f61b778099c64ddca3b547f1eed9b7d0
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 7 May 2010 14:06:07 -0400
+
+kernel.org commits:
+5adceac5da3d353dd1318d0482cab94a79472adf
+063a2da8f01806906f7d7b1a1424b9afddebc443
+337850917a690ca83605b30b29c464bb3397abdf
+8abaee238ebb1ef9b8bcafac7a1833f92e7f2319
+bfaeafcfc2242277e31cc1cfae687afaac0cd9ec
+9a6b1efa6fd1ee022fdf42c91a9868c589cc95b7
+b507cc9710d8b6e3013468b40522e235342fc84a
+07c3b1a1001614442c665570942a3107a722c314
+---
+ drivers/usb/serial/console.c    |    3 +-
+ drivers/usb/serial/generic.c    |   13 +++--
+ drivers/usb/serial/usb-serial.c |   56 +++++++++++++++----
+ include/linux/usb/serial.h      |   21 +++++---
+ 4 files changed, 68 insertions(+), 25 deletions(-)
+
+diff --git a/drivers/usb/serial/console.c b/drivers/usb/serial/console.c
+index 9386e21..d4d2b74 100644
+--- a/drivers/usb/serial/console.c
++++ b/drivers/usb/serial/console.c
+@@ -187,8 +187,9 @@ static int usb_console_setup(struct console *co, char *options)
+ 		kfree (termios);
+ 		kfree (tty);
+ 	}
++	port->console = 1;
+ 
+-	return retval;
++	return 0;
+ }
+ 
+ static void usb_console_write(struct console *co, const char *buf, unsigned count)
+diff --git a/drivers/usb/serial/generic.c b/drivers/usb/serial/generic.c
+index 9eb4a65..dbc4b53 100644
+--- a/drivers/usb/serial/generic.c
++++ b/drivers/usb/serial/generic.c
+@@ -315,7 +315,7 @@ static void flush_and_resubmit_read_urb (struct usb_serial_port *port)
+ 		room = tty_buffer_request_room(tty, urb->actual_length);
+ 		if (room) {
+ 			tty_insert_flip_string(tty, urb->transfer_buffer, room);
+-			tty_flip_buffer_push(tty); /* is this allowed from an URB callback ? */
++			tty_flip_buffer_push(tty);
+ 		}
+ 	}
+ 
+@@ -327,6 +327,7 @@ void usb_serial_generic_read_bulk_callback (struct urb *urb)
+ 	struct usb_serial_port *port = (struct usb_serial_port *)urb->context;
+ 	unsigned char *data = urb->transfer_buffer;
+ 	int status = urb->status;
++	unsigned long flags;
+ 
+ 	dbg("%s - port %d", __FUNCTION__, port->number);
+ 
+@@ -339,11 +340,13 @@ void usb_serial_generic_read_bulk_callback (struct urb *urb)
+ 	usb_serial_debug_data(debug, &port->dev, __FUNCTION__, urb->actual_length, data);
+ 
+ 	/* Throttle the device if requested by tty */
+-	spin_lock(&port->lock);
+-	if (!(port->throttled = port->throttle_req))
+-		/* Handle data and continue reading from device */
++	spin_lock_irqsave(&port->lock, flags);
++	if (!(port->throttled = port->throttle_req)) {
++		spin_unlock_irqrestore(&port->lock, flags);
+ 		flush_and_resubmit_read_urb(port);
+-	spin_unlock(&port->lock);
++	} else {
++		spin_unlock_irqrestore(&port->lock, flags);
++	}
+ }
+ EXPORT_SYMBOL_GPL(usb_serial_generic_read_bulk_callback);
+ 
+diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
+index 9bf01a5..fe509aa 100644
+--- a/drivers/usb/serial/usb-serial.c
++++ b/drivers/usb/serial/usb-serial.c
+@@ -264,19 +264,21 @@ static void serial_close(struct tty_struct *tty, struct file * filp)
+ 	}
+ 
+ 	--port->open_count;
+-	if (port->open_count == 0) {
++	if (port->open_count == 0)
+ 		/* only call the device specific close if this 
+ 		 * port is being closed by the last owner */
+ 		port->serial->type->close(port, filp);
+ 
++	if (port->open_count == (port->console? 1 : 0)) {
+ 		if (port->tty) {
+ 			if (port->tty->driver_data)
+ 				port->tty->driver_data = NULL;
+ 			port->tty = NULL;
+ 		}
++	}
+ 
++	if (port->open_count == 0)
+ 		module_put(port->serial->type->driver.owner);
+-	}
+ 
+ 	mutex_unlock(&port->mutex);
+ 	usb_serial_put(port->serial);
+@@ -429,6 +431,8 @@ static void serial_set_termios (struct tty_struct *tty, struct ktermios * old)
+ 	/* pass on to the driver specific version of this function if it is available */
+ 	if (port->serial->type->set_termios)
+ 		port->serial->type->set_termios(port, old);
++	else
++		tty_termios_copy_hw(tty->termios, old);
+ }
+ 
+ static void serial_break (struct tty_struct *tty, int break_state)
+@@ -578,6 +582,17 @@ static void kill_traffic(struct usb_serial_port *port)
+ {
+ 	usb_kill_urb(port->read_urb);
+ 	usb_kill_urb(port->write_urb);
++	/*
++	 * This is tricky.
++	 * Some drivers submit the read_urb in the
++	 * handler for the write_urb or vice versa
++	 * this order determines the order in which
++	 * usb_kill_urb() must be used to reliably
++	 * kill the URBs. As it is unknown here,
++	 * both orders must be used in turn.
++	 * The call below is not redundant.
++	 */
++	usb_kill_urb(port->read_urb);
+ 	usb_kill_urb(port->interrupt_in_urb);
+ 	usb_kill_urb(port->interrupt_out_urb);
+ }
+@@ -651,16 +666,14 @@ exit:
+ 
+ static struct usb_serial_driver *search_serial_device(struct usb_interface *iface)
+ {
+-	struct list_head *p;
+ 	const struct usb_device_id *id;
+-	struct usb_serial_driver *t;
++	struct usb_serial_driver *drv;
+ 
+ 	/* Check if the usb id matches a known device */
+-	list_for_each(p, &usb_serial_driver_list) {
+-		t = list_entry(p, struct usb_serial_driver, driver_list);
+-		id = get_iface_id(t, iface);
++	list_for_each_entry(drv, &usb_serial_driver_list, driver_list) {
++		id = get_iface_id(drv, iface);
+ 		if (id)
+-			return t;
++			return drv;
+ 	}
+ 
+ 	return NULL;
+@@ -800,9 +813,6 @@ int usb_serial_probe(struct usb_interface *interface,
+ 	/* END HORRIBLE HACK FOR PL2303 */
+ #endif
+ 
+-	/* found all that we need */
+-	dev_info(&interface->dev, "%s converter detected\n", type->description);
+-
+ #ifdef CONFIG_USB_SERIAL_GENERIC
+ 	if (type == &usb_serial_generic_device) {
+ 		num_ports = num_bulk_out;
+@@ -836,6 +846,26 @@ int usb_serial_probe(struct usb_interface *interface,
+ 	serial->num_interrupt_in = num_interrupt_in;
+ 	serial->num_interrupt_out = num_interrupt_out;
+ 
++#if 0
++	/* check that the device meets the driver's requirements */
++	if ((type->num_interrupt_in != NUM_DONT_CARE &&
++				type->num_interrupt_in != num_interrupt_in)
++			|| (type->num_interrupt_out != NUM_DONT_CARE &&
++				type->num_interrupt_out != num_interrupt_out)
++			|| (type->num_bulk_in != NUM_DONT_CARE &&
++				type->num_bulk_in != num_bulk_in)
++			|| (type->num_bulk_out != NUM_DONT_CARE &&
++				type->num_bulk_out != num_bulk_out)) {
++		dbg("wrong number of endpoints");
++		kfree(serial);
++		return -EIO;
++	}
++#endif
++
++	/* found all that we need */
++	dev_info(&interface->dev, "%s converter detected\n",
++			type->description);
++
+ 	/* create our ports, we need as many as the max endpoints */
+ 	/* we don't use num_ports here cauz some devices have more endpoint pairs than ports */
+ 	max_endpoints = max(num_bulk_in, num_bulk_out);
+@@ -1097,7 +1127,9 @@ int usb_serial_resume(struct usb_interface *intf)
+ {
+ 	struct usb_serial *serial = usb_get_intfdata(intf);
+ 
+-	return serial->type->resume(serial);
++	if (serial->type->resume)
++		return serial->type->resume(serial);
++	return 0;
+ }
+ EXPORT_SYMBOL(usb_serial_resume);
+ 
+diff --git a/include/linux/usb/serial.h b/include/linux/usb/serial.h
+index e8b8928..ef1e430 100644
+--- a/include/linux/usb/serial.h
++++ b/include/linux/usb/serial.h
+@@ -92,6 +92,7 @@ struct usb_serial_port {
+ 	int			open_count;
+ 	char			throttled;
+ 	char			throttle_req;
++	char			console;
+ 	struct device		dev;
+ };
+ #define to_usb_serial_port(d) container_of(d, struct usb_serial_port, dev)
+@@ -141,7 +142,7 @@ struct usb_serial {
+ };
+ #define to_usb_serial(d) container_of(d, struct usb_serial, kref)
+ 
+-#define NUM_DONT_CARE	(-1)
++#define NUM_DONT_CARE	99
+ 
+ /* get and set the serial private data pointer helper functions */
+ static inline void *usb_get_serial_data (struct usb_serial *serial)
+@@ -160,12 +161,18 @@ static inline void usb_set_serial_data (struct usb_serial *serial, void *data)
+  *	in the syslog messages when a device is inserted or removed.
+  * @id_table: pointer to a list of usb_device_id structures that define all
+  *	of the devices this structure can support.
+- * @num_interrupt_in: the number of interrupt in endpoints this device will
+- *	have.
+- * @num_interrupt_out: the number of interrupt out endpoints this device will
+- *	have.
+- * @num_bulk_in: the number of bulk in endpoints this device will have.
+- * @num_bulk_out: the number of bulk out endpoints this device will have.
++ * @num_interrupt_in: If a device doesn't have this many interrupt-in
++ *	endpoints, it won't be sent to the driver's attach() method.
++ *	(But it might still be sent to the probe() method.)
++ * @num_interrupt_out: If a device doesn't have this many interrupt-out
++ *	endpoints, it won't be sent to the driver's attach() method.
++ *	(But it might still be sent to the probe() method.)
++ * @num_bulk_in: If a device doesn't have this many bulk-in
++ *	endpoints, it won't be sent to the driver's attach() method.
++ *	(But it might still be sent to the probe() method.)
++ * @num_bulk_out: If a device doesn't have this many bulk-out
++ *	endpoints, it won't be sent to the driver's attach() method.
++ *	(But it might still be sent to the probe() method.)
+  * @num_ports: the number of different ports this device will have.
+  * @calc_num_ports: pointer to a function to determine how many ports this
+  *	device has dynamically.  It will be called after the probe()
+-- 
+1.6.5.GIT
