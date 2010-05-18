@@ -10,6 +10,9 @@ fi
 
 which md5sum 2>&1 >/dev/null || alias md5sum=md5
 
+pkg_list=$pkg_dir/Packages
+rm -f ${pkg_list}.tmp
+
 for pkg in `find $pkg_dir -name '*.ipk' | sort`; do
         echo "Generating index for package $pkg" >&2
         file_size=$(ls -l $pkg | awk '{print $5}')
@@ -19,6 +22,8 @@ for pkg in `find $pkg_dir -name '*.ipk' | sort`; do
         tar -xzOf $pkg ./control.tar.gz | tar xzOf - ./control | sed -e "s/^Description:/Filename: $sed_safe_pkg\\
 Size: $file_size\\
 MD5Sum: $md5sum\\
-Description:/"
-        echo ""
+Description:/"  >>${pkg_list}.tmp
+        echo "" >>${pkg_list}.tmp
 done
+
+mv ${pkg_list}.tmp ${pkg_list}
