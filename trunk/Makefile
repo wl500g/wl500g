@@ -151,7 +151,7 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 kernel-extra-drivers:
-	tar -C $(KERNEL_DIR) -xvjf kernel/drivers/ov51x-1.65-1.12.tar.bz2
+	tar -C kernel/drivers/ov51x-1.65 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 	tar -C kernel/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 	if [ ! -d $(KERNEL_DIR)/fs/fuse ]; then \
 	  tar -C $(KERNEL_DIR)/fs -xvjf kernel/drivers/fuse-2.5.3.tar.bz2 fuse-2.5.3/kernel/ \
