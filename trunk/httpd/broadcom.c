@@ -12,11 +12,6 @@
  * $Id$
  */
 
-#ifdef WEBS
-#include <webs.h>
-#include <uemf.h>
-#include <ej.h>
-#else /* !WEBS */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +26,6 @@
 #include <arpa/inet.h>
 #include <assert.h>
 #include <httpd.h>
-#endif /* WEBS */
 
 
 #include <typedefs.h>

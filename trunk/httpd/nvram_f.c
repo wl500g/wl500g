@@ -23,16 +23,6 @@
 //#include <typedefs.h>
 #include <bcmnvram.h>
 #include <sys/mman.h>
-#ifdef REMOVE_WL600
-#include <bcmutils.h>
-#include <sbsdram.h>
-#include <bcmendian.h>
-#include <bcmnvram.h>
-#include <bcmnvram_f.h>
-#include <flash.h>
-#include <flashutl.h>
-#include <osl.h>
-#endif
 
 
 #define MAX_LINE_SIZE 512
@@ -130,10 +120,6 @@ int nvram_add_item(EnvRec *env, char *name, char *value)
    env->next->value = NULL;
    if (nvram_set_item(env->next, name, value)==0) goto err;
      
-#ifdef REMOVE_WL600    
-   if (orig!=NULL)
-      printf("Add between %s %s %s\n", env->name, env->next->name, orig->name);
-#endif      
    env->next->next = orig;
    
    return(1);
@@ -208,41 +194,6 @@ char *nvram_get_list_x(const char *sid, const char *name, int index)
     sprintf(new_name, "%s%d", name, index);
     
     return(nvram_get_f(sid, new_name));	
-#ifdef OLD_DESIGN	 
-    static char value[MAX_LINE_SIZE];
-    char *v, *buf;
-    int i;
-    
-    strcpy(value, nvram_get_f(sid, name));    
-    
-    if (value[0]=='\0')    
-       return(value);
-       
-    buf = value;
-    v = strchr(buf, ';');
-    /*syslog(LOG_INFO,"Get %s %s %d\n", v, buf, index);*/
-    
-    i = 0;
-    while (v!=NULL)
-    {
-    	if (i==index-1)
-    	{
-    	    *v = '\0';  	
-    	    return(buf);
-    	}
-    	/*syslog(LOG_INFO, "Get %s %s\n", v, buf);*/
-    	buf = v+1;
-    	v = strchr(buf, ';');
-    	i++;
-    }       
-    if ( i==0 && index==1) 
-       return(value);
-    else if (i==(index-1))
-       return(buf);   
-    
-    value[0] = '\0';
-    return(value);   
-#endif    
 }
 
 #ifdef REMOVE_NVRAM
@@ -301,23 +252,6 @@ int nvram_add_list_x(const char *sid, const char *name, const char *value)
     fclose(flTemp);    
     
     return(0);	
-	
-	
-#ifdef OLD_DESIGN		
-    char buf[MAX_LINE_SIZE];
-    char *orig;
-    
-    orig = strtrim(nvram_get_f(sid, name));
-            
-    if (strcmp(orig,"")==0)
-       sprintf(buf, "%s;", value);
-    else
-       sprintf(buf, "%s%s;", orig, value);
-       
-    syslog(LOG_INFO,"ADD: [%x] [%s] [%s]\n", *orig, value, buf);
-       
-    nvram_set_x(sid, name, buf);
-#endif    
 }
 #endif
 
@@ -399,70 +333,8 @@ int nvram_add_lists_x(const char *sid, const char *name, const char *value, int 
     fclose(flTemp);    
 #endif    
     return(0);	
-	
-	
-#ifdef OLD_DESIGN		
-    char buf[MAX_LINE_SIZE];
-    char *orig;
-    
-    orig = strtrim(nvram_get_f(sid, name));
-            
-    if (strcmp(orig,"")==0)
-       sprintf(buf, "%s;", value);
-    else
-       sprintf(buf, "%s%s;", orig, value);
-       
-    syslog(LOG_INFO,"ADD: [%x] [%s] [%s]\n", *orig, value, buf);
-       
-    nvram_set_x(sid, name, buf);
-#endif    
 }
 
-
-#ifdef REMOVE_NVRAM
-/*
- * Delete the value from an NVRAM variable list 
- * @param	name	name of variable list
- *              index   index of variable list
- * @return	0 on success and errno on failure
- */
-int nvram_del_list_x(const char *sid, const char *name, int index)
-{
-#ifdef REMOVE_WL600	
-    char value[MAX_LINE_SIZE];
-    char *v, *buf;
-    int i;	   
-       
-    strcpy(value, nvram_get_f(sid, name));
-    
-    /*syslog(LOG_INFO, "Get list : %s %d\n", value, index);*/
-    
-    if (value[0]=='\0')
-       return(1);
-       
-    buf = value;
-    v = strchr(buf, ';');
-
-    i = 0;
-    while (v!=NULL)
-    {
-    	/* syslog(LOG_INFO, "Check list : %s %d %d\n", value, index, i);*/
-    	if (i==index-1)
-    	{
-    	    *v++ = '\0';  
-    	    strcpy(buf, v);
-    	    /*syslog(LOG_INFO, "Set list : %s\n", value);*/
-    	    nvram_set_x(sid, name, value);
-    	    return(0);
-    	}
-    	buf = v+1;
-    	v = strchr(buf, ';');
-    	i++;
-    }            
-    return(1);     
-#endif      	
-}
-#endif
 
 /*
  * Delete the value from an NVRAM variable list 
@@ -591,39 +463,5 @@ int nvram_del_lists_x(const char *sid, const char *name, int *delMap)
 #endif
     
     return(0);	
-			
-#ifdef REMOVE_WL600	
-    char value[MAX_LINE_SIZE];
-    char *v, *buf;
-    int i;	   
-       
-    strcpy(value, nvram_get_f(sid, name));
-    
-    /*syslog(LOG_INFO, "Get list : %s %d\n", value, index);*/
-    
-    if (value[0]=='\0')
-       return(1);
-       
-    buf = value;
-    v = strchr(buf, ';');
-
-    i = 0;
-    while (v!=NULL)
-    {
-    	/* syslog(LOG_INFO, "Check list : %s %d %d\n", value, index, i);*/
-    	if (i==index-1)
-    	{
-    	    *v++ = '\0';  
-    	    strcpy(buf, v);
-    	    /*syslog(LOG_INFO, "Set list : %s\n", value);*/
-    	    nvram_set_x(sid, name, value);
-    	    return(0);
-    	}
-    	buf = v+1;
-    	v = strchr(buf, ';');
-    	i++;
-    }            
-    return(1);     
-#endif      	
 }
 

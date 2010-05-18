@@ -68,24 +68,9 @@ static int
 validate_ipaddr(char *value, struct variable *v)
 {
 	struct in_addr ipaddr;
-#ifdef REMOVE_WL600
-	struct in_addr netaddr, netmask;
-#endif
 
 	if (!inet_aton(value, &ipaddr)) {		
 		return UPNP_E_INVALID_ARGUMENT;
-	}
-
-	if (v->argv) 
-	{
-#ifdef REMOVE_WL600		
-		inet_aton(nvram_safe_get(v->argv[0]), &netaddr);
-		inet_aton(nvram_safe_get(v->argv[1]), &netmask);
-		netaddr.s_addr &= netmask.s_addr;
-		if (netaddr.s_addr != (ipaddr.s_addr & netmask.s_addr)) {			
-			return UPNP_E_INVALID_ARGUMENT;
-		}
-#endif		
 	}
 
 	return UPNP_E_SUCCESS;
