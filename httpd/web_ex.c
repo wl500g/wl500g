@@ -1871,19 +1871,19 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 	fread(version, 1, MAX_VERSION_LEN, fifo);
 	
 	sscanf(nvram_get_x("general.log", "HardwareVer"), "%d.%d", &hwmajor, &hwminor);
-	cprintf("Hardware : %d.%d %s", hwmajor, hwminor, version+4);
+	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
 	
-	if ((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
+	if (((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
 	     strncmp(version+4, "WL500gx", 7)!=0) || 
 	    (strncmp(ProductID, "WL500g.Deluxe", 13)==0 &&
-	     strncmp(version+4, "WL500gx", 7)==0)
+	     strncmp(version+4, "WL500gx", 7)==0))
 	    && checkVersion(version,hwmajor,hwminor)) ret = 0;
 	
 		
 	fseek(fifo, 0, SEEK_END);
 	fclose(fifo);
 	fifo = NULL;
-	/*printf("done\n");*/
+	cprintf("FW image ok\n");
  	
  err:
 	if (fifo)
@@ -1904,8 +1904,6 @@ static void
 do_upgrade_cgi(char *url, FILE *stream)
 {
 	int ret;
-	
-	//printf("Upgrade CGI\n");
 
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 	
@@ -1913,6 +1911,7 @@ do_upgrade_cgi(char *url, FILE *stream)
 	if (ret == 0)
 	{
                 websApply(stream, "Updating.asp"); 
+		cprintf("Flashing new FW image\n");
 		sys_upgrade("/tmp/linux.trx");
 		sys_forcereboot();
 	}	

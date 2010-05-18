@@ -13,7 +13,7 @@ endif
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DFLASH_EMULATOR -DLinux -DMIPS
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -g -O2 $(EXTRACFLAGS)
-LDFLAGS	+= -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
+LDFLAGS	+= -s -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
 OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o prninfo.o
 
@@ -21,7 +21,6 @@ OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.
 #vpath %.c $(TOP)/shared
 
 all: httpd
-	$(STRIP) httpd
 
 clean:
 	rm -f *.o *~ httpd
