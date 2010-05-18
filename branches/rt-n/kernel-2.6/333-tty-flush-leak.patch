@@ -1,0 +1,160 @@
+From 42fd552e8647316757ded0176466c41d17934dcf
+From: Alan Cox
+Date: Fri, 10 Aug 2007 13:01:05 -0700
+Subject: [PATCH] fix serial buffer memory leak
+
+Patch c5c34d4862e18ef07c1276d233507f540fb5a532 (tty: flush flip buffer on
+ldisc input queue flush) introduces a race condition which can lead to memory
+leaks.
+
+The problem can be triggered when tcflush() is called when data are being
+pushed to the line discipline driver by flush_to_ldisc().
+
+flush_to_ldisc() releases tty->buf.lock when calling the line discipline
+receive_buf function. At that poing tty_buffer_flush() kicks in and sets both
+tty->buf.head and tty->buf.tail to NULL. When flush_to_ldisc() finishes, it
+restores tty->buf.head but doesn't touch tty->buf.tail. This corrups the
+buffer queue, and the next call to tty_buffer_request_room() will allocate a
+new buffer and overwrite tty->buf.head. The previous buffer is then lost
+forever without being released.
+
+(Thanks to Laurent for the above text, for finding, disgnosing and reporting
+the bug)
+
+- Use tty->flags bits for the flush status.
+
+- Wait for the flag to clear again before returning
+
+- Fix the doc error noted
+
+- Fix flush of empty queue leaving stale flushpending
+
+[akpm@linux-foundation.org: cleanup]
+Signed-off-by: Alan Cox <alan@redhat.com>
+Acked-by: Paul Fulghum <paulkf@microgate.com>
+Cc: Laurent Pinchart <laurentp@cse-semaphore.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ drivers/char/tty_io.c |   56 +++++++++++++++++++++++++++++++++++++++++++-----
+ include/linux/tty.h   |    2 +
+ 2 files changed, 52 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
+index de37ebc..51ea93c 100644
+--- a/drivers/char/tty_io.c
++++ b/drivers/char/tty_io.c
+@@ -369,25 +369,54 @@ static void tty_buffer_free(struct tty_struct *tty, struct tty_buffer *b)
+ }
+ 
+ /**
+- *	tty_buffer_flush		-	flush full tty buffers
++ *	__tty_buffer_flush		-	flush full tty buffers
+  *	@tty: tty to flush
+  *
+- *	flush all the buffers containing receive data
++ *	flush all the buffers containing receive data. Caller must
++ *	hold the buffer lock and must have ensured no parallel flush to
++ *	ldisc is running.
+  *
+- *	Locking: none
++ *	Locking: Caller must hold tty->buf.lock
+  */
+ 
+-static void tty_buffer_flush(struct tty_struct *tty)
++static void __tty_buffer_flush(struct tty_struct *tty)
+ {
+ 	struct tty_buffer *thead;
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&tty->buf.lock, flags);
+ 	while((thead = tty->buf.head) != NULL) {
+ 		tty->buf.head = thead->next;
+ 		tty_buffer_free(tty, thead);
+ 	}
+ 	tty->buf.tail = NULL;
++}
++
++/**
++ *	tty_buffer_flush		-	flush full tty buffers
++ *	@tty: tty to flush
++ *
++ *	flush all the buffers containing receive data. If the buffer is
++ *	being processed by flush_to_ldisc then we defer the processing
++ *	to that function
++ *
++ *	Locking: none
++ */
++
++static void tty_buffer_flush(struct tty_struct *tty)
++{
++	unsigned long flags;
++	spin_lock_irqsave(&tty->buf.lock, flags);
++
++	/* If the data is being pushed to the tty layer then we can't
++	   process it here. Instead set a flag and the flush_to_ldisc
++	   path will process the flush request before it exits */
++	if (test_bit(TTY_FLUSHING, &tty->flags)) {
++		set_bit(TTY_FLUSHPENDING, &tty->flags);
++		spin_unlock_irqrestore(&tty->buf.lock, flags);
++		wait_event(tty->read_wait,
++				test_bit(TTY_FLUSHPENDING, &tty->flags) == 0);
++		return;
++	} else
++		__tty_buffer_flush(tty);
+ 	spin_unlock_irqrestore(&tty->buf.lock, flags);
+ }
+ 
+@@ -3594,6 +3623,7 @@ static void flush_to_ldisc(struct work_struct *work)
+ 		return;
+ 
+ 	spin_lock_irqsave(&tty->buf.lock, flags);
++	set_bit(TTY_FLUSHING, &tty->flags);	/* So we know a flush is running */
+ 	head = tty->buf.head;
+ 	if (head != NULL) {
+ 		tty->buf.head = NULL;
+@@ -3607,6 +3637,11 @@ static void flush_to_ldisc(struct work_struct *work)
+ 				tty_buffer_free(tty, tbuf);
+ 				continue;
+ 			}
++			/* Ldisc or user is trying to flush the buffers
++			   we are feeding to the ldisc, stop feeding the
++			   line discipline as we want to empty the queue */
++			if (test_bit(TTY_FLUSHPENDING, &tty->flags))
++				break;
+ 			if (!tty->receive_room) {
+ 				schedule_delayed_work(&tty->buf.work, 1);
+ 				break;
+@@ -3620,8 +3655,17 @@ static void flush_to_ldisc(struct work_struct *work)
+ 			disc->receive_buf(tty, char_buf, flag_buf, count);
+ 			spin_lock_irqsave(&tty->buf.lock, flags);
+ 		}
++		/* Restore the queue head */
+ 		tty->buf.head = head;
+ 	}
++	/* We may have a deferred request to flush the input buffer,
++	   if so pull the chain under the lock and empty the queue */
++	if (test_bit(TTY_FLUSHPENDING, &tty->flags)) {
++		__tty_buffer_flush(tty);
++		clear_bit(TTY_FLUSHPENDING, &tty->flags);
++		wake_up(&tty->read_wait);
++	}
++	clear_bit(TTY_FLUSHING, &tty->flags);
+ 	spin_unlock_irqrestore(&tty->buf.lock, flags);
+ 
+ 	tty_ldisc_deref(disc);
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index 691a174..6570719 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -274,6 +274,8 @@ struct tty_struct {
+ #define TTY_PTY_LOCK 		16	/* pty private */
+ #define TTY_NO_WRITE_SPLIT 	17	/* Preserve write boundaries to driver */
+ #define TTY_HUPPED 		18	/* Post driver->hangup() */
++#define TTY_FLUSHING		19	/* Flushing to ldisc in progress */
++#define TTY_FLUSHPENDING	20	/* Queued buffer flush pending */
+ 
+ #define TTY_WRITE_FLUSH(tty) tty_write_flush((tty))
+ 
+-- 
+1.7.1
