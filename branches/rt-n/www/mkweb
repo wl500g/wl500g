@@ -111,6 +111,10 @@ if [ -n "$1" ]; then
 		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
+	if [ "$CONFIG_NTFS3G" != "y" ]; then
+		sed -ri '/ntfs/d' ../web_$MODEL/Advanced_Services_Content.asp
+	fi
+
 	### 4. Strip *.asp, *.css and *.js ###
 	echo "Stripping web interface..."
 
