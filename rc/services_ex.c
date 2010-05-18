@@ -673,6 +673,12 @@ start_usb(void)
 		eval("insmod", "scsi_mod");
 		eval("insmod", "sd_mod");
 		eval("insmod", "usb-storage");
+#ifdef __CONFIG_NTFS3G__
+		if (nvram_match("usb_ntfs3g_enable", "1"))
+		{
+			eval("insmod", "fuse");
+		}
+#endif
 	}	
 #endif
 	if (nvram_match("usb_nfsenable_x", "1"))
@@ -713,10 +719,17 @@ stop_usb(void)
 		eval("killall", "stupid-fptd");
 		eval("killall", "smbd");
 		eval("killall", "nmbd");
+		eval("killall", "ntfs-3g");
 		umount_all_part(NULL, -1);
 		eval("rmmod", "usb-storage");
 		eval("rmmod", "sd_mod");
 		eval("rmmod", "scsi_mod");
+#ifdef __CONFIG_NTFS3G__
+		if (nvram_match("usb_ntfs3g_enable", "1"))
+		{
+			eval("rmmod", "fuse");
+		}
+#endif
 	}
 #endif
 #ifdef WEBCAM_SUPPORT	
@@ -1529,6 +1542,16 @@ mount_r(char *mnt_dev, char *mnt_dir)
 				sprintf(options, "iocharset=%s%s", 
 					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
 						nvram_get("usb_smbcset_x"));
+#ifdef __CONFIG_NTFS3G__
+			if (nvram_match("usb_ntfs3g_enable", "1")) {
+				flags = MS_NOATIME;
+				mkdir_if_none(mnt_dir);
+				eval("ntfs-3g", mnt_dev, mnt_dir);
+				logmessage("USB storage", "%s%s fs at %s mounted to %s", 
+					type, (flags & MS_RDONLY) ? "(ro)" : "", mnt_dev, mnt_dir);
+				return (flags & MS_RDONLY) ? MOUNT_VAL_RONLY : MOUNT_VAL_RW;
+			}
+#endif
 		}
 
 		if (flags && !mkdir_if_none(mnt_dir) &&

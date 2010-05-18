@@ -430,6 +430,9 @@
 {"raw_enable", "1", 0},
 {"audio_enable", "0", 0},
 {"usb20_disable_x", "0", 0},
+#ifdef __CONFIG_NTFS3G__
+{"usb_ntfs3g_enable", "0", 0},
+#endif
 
 {"wl_nbw","40",0},
 {"wl_mimo_preamble", "mm", 0},

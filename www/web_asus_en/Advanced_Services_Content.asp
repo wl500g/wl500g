@@ -95,6 +95,20 @@ you to perform advanced configuration.</td>
 </tr>
 
 <tr>
+<td>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<tr class="content_section_header_tr">
+<td class="content_section_header_td" colspan="2">Mount options</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Enables NTFS Read-Write support (ntfs-3g).', LEFT);" onMouseOut="return nd();">Read-Write NTFS Support:</td>
+<td class="content_input_td"><input type="radio" value="1" name="usb_ntfs3g_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_ntfs3g_enable', '1')" <% nvram_match_x("PrinterStatus","usb_ntfs3g_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="usb_ntfs3g_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_ntfs3g_enable', '0')" <% nvram_match_x("PrinterStatus","usb_ntfs3g_enable", "0", "checked"); %>>No</input></td>
+</tr>
+</table>
+</td>
+</tr>
+
+<tr>
 <td>		
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
 <tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
