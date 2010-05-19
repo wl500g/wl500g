@@ -1,0 +1,34 @@
+#!/bin/sh
+
+USERNAME=$(nvram get ipw_username)
+PASSWORD=$(nvram get ipw_password)
+APN=$(nvram get ipw_apn)
+PIN=$(nvram get ipw_pin)
+MODE=$(nvram get ipw_mode)
+
+if [ "$(nvram get ipw_clearpin)" == "1" ]; then
+  nvram set ipw_clearpin=0
+  nvram set ipw_pin=
+  nvram commit
+  CLPIN=$PIN
+  PIN=
+fi
+
+grep -q '\"'$USERNAME'\" \* \"'$PASSWORD'\" \*' /tmp/ppp/chap-secrets
+CHAP=$?
+if [ "$CHAP" != "0" ]; then
+  echo \"$USERNAME\" \* \"$PASSWORD\" \*>>/tmp/ppp/chap-secrets
+fi
+chmod 600 /tmp/ppp/chap-secrets
+
+echo $DEVICE > /tmp/ppp/peers/ipw
+sed -e "s/\\\$username\\\$/$USERNAME/g" /usr/ppp/ipw/ipw >> /tmp/ppp/peers/ipw
+echo $(nvram get dial_param_$1) >> /tmp/ppp/peers/ipw
+
+sed -e "s/\\\$apn\\\$/$APN/g" \
+    -e "s/\\\$pin\\\$/$PIN/g" \
+    -e "s/\\\$clpin\\\$/$CLPIN/g" \
+    -e "s/\\\$mode\\\$/$MODE/g" \
+    -e "/CPIN='$/d" \
+    -e "/CLCK=\"SC\",0,\"\"'$/d" /usr/ppp/ipw/ipw.chat>/tmp/ppp/peers/ipw.chat
+

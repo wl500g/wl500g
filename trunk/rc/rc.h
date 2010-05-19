@@ -167,4 +167,9 @@ int madwimax_main(int argc, char **argv);
 int wimax_ifunit(char *ifname);
 #endif
 
+#ifdef __CONFIG_MODEM__
+int start_modem_dial( char * prefix );
+int stop_modem_dial();
+#endif
+
 #endif /* _rc_h_ */

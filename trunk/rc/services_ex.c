@@ -400,6 +400,12 @@ start_ddns(void)
 		strcpy(wan_ifname, nvram_safe_get("wan0_wimax_ifname"));
 	else
 #endif
+
+#ifdef __CONFIG_MODEM__
+	if (nvram_match("wan_proto", "usbmodem"))
+		strcpy(wan_ifname, nvram_safe_get("wan0_modem_ifname"));
+	else
+#endif
 		strcpy(wan_ifname, nvram_safe_get("wan0_ifname"));
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);

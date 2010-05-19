@@ -1,0 +1,50 @@
+#!/bin/sh
+
+ROOT_DIR=/usr
+
+if [ "$(nvram get wan_modem_enable_x)" = "0" ]; then
+ if [ -z "$(nvram get wan_modem_dial_first)" ]; then
+   $(nvram set wan_modem_dial_first="1")
+   exit
+ fi
+fi
+
+if [ -z "$(nvram get wan_modem_enable_x)" ]; then
+  nvram set wan_modem_enable_x=1
+fi
+
+if [ -n "$1" ]; then
+  dialmode=$1
+else
+  dialmode="$(nvram get wan_modem_mode_x)"
+fi
+
+if [ -z "$dialmode" ]; then
+        dialmode="1"
+fi
+
+case "$dialmode" in
+	1)	dialdir=$ROOT_DIR/ppp/cdma
+		;;
+	2)	dialdir=$ROOT_DIR/ppp/gprs
+		;;
+	3)	dialdir=$ROOT_DIR/ppp/dialup
+		;;
+	4)	dialdir=$ROOT_DIR/ppp/ipw
+		;;
+	5)	dialdir=$ROOT_DIR/ppp/zadacom
+		;;
+	21)	dialdir=$ROOT_DIR/ppp/cdma/GTRAN
+		;;
+	22)	dialdir=$ROOT_DIR/ppp/cdm/AnyDATA
+		;;
+	99)	dialdir=$ROOT_DIR/local/dial
+		;;
+	*)	echo Other
+		;;
+esac	
+
+if [ ! -z $dialdir ]; then
+	cd $dialdir
+	exec ./dial $dialmode $2
+fi

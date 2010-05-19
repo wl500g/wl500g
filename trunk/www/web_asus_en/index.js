@@ -233,6 +233,7 @@ function generateTree() {
 	// "Advanced_PrinterSetup_Content.asp", ""))
 
 	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
+	appendChild(aux1, generateDocEntry(0, "PPP Connection Mode", "Advanced_ConnectionMode_Content.asp", ""));
 	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));	
 
 	if (mode == 'AP') {
@@ -245,12 +246,14 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "WiMAX", "Main_WiMaxStatus_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "USB PPP Log", "Main_ChatStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", ""));
 		if (isModel() != 'SnapAP') {
 			appendChild(aux1, generateDocEntry(0, "Port Forwarding", "Main_IPTStatus_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "Routing Table", "Advanced_RouteStatus_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "System Utilization", "Main_Utilization_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""));
+			appendChild(aux1, generateDocEntry(0, "Diagnostic Info", "Main_SysInfo_Content.asp", ""));
 		}
 	}
 	

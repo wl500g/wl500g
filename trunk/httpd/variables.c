@@ -4324,27 +4324,60 @@ struct variable variables_WiMaxConfig[] = {
 	};
 #endif
 
-struct svcLink svcLinks[] = {            
-           {"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
-           {"LANHostConfig", "urn:schemas-upnp-org:service:Layer3Forwarding:1", variables_LANHostConfig, actions_LANHostConfig},
-           {"Layer3Forwarding", "urn:schemas-upnp-org:service:LANHostConfigManagement:0.8", variables_Layer3Forwarding, actions_Layer3Forwarding},
-           {"WANCommonInterface", "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1", variables_WANCommonInterface, actions_WANCommonInterface},           
-           {"IPConnection", "urn:schemas-upnp-org:service:WANIPConnection:1", variables_IPConnection, actions_IPConnection},
-           {"PPPConnection", "urn:schemas-upnp-org:service:WANPPPConnection:1", variables_PPPConnection, actions_PPPConnection},
-           {"EthernetLink", "urn:schemas-upnp-org:service:WANEthernetLinkConfig:1", variables_EthernetLink, actions_EthernetLink},
-           {"FirewallConfig", "urn:schemas-upnp-org:service:FirewallConfig:1", variables_FirewallConfig, NULL},
-           {"RouterConfig", "urn:schemas-upnp-org:service:RouterConfig:1", variables_RouterConfig, NULL},
-           {"WLANConfig11a", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11a, NULL},
-           {"DeviceSecurity11a", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11a, NULL},
-           {"WLANAuthentication11a", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11a, NULL},
-           {"WLANConfig11b", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11b, NULL},
-           {"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, NULL},
-           {"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, NULL},
-           {"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, NULL},
-	   {"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, NULL},
-#ifdef __CONFIG_MADWIMAX__
-	   {"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, NULL},
+#ifdef __CONFIG_MODEM__
+struct variable variables_3GConfigvariables_3GConfig[] = {
+	{"wan_modem_mode_x","", validate_range, ARGV("1", "12", ""), FALSE, FALSE},
+	{"wan_modem_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_modem_wanaslan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_modem_disable_usb2", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_modem_username", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_password", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_usbloc", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_apn", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_pin", "", validate_string, ARGV("4"), TRUE, FALSE},
+//	{"wan_modem_ipw_mode", "", validate_range, ARGV("0", "2", ""), FALSE, FALSE},      
+//	{"wan_modem_ipw_clearpin", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_modem_dialno", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_vid", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_pid", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_portspeed", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_packetsize", "", validate_range, ARGV("0", "16384", ""), TRUE, FALSE},
+	{"wan_modem_zerocd_mode", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par1", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par2", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par3", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par4", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par5", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_par6", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_dialup_init", "", validate_string, ARGV(""), TRUE, FALSE},
+	{ 0, 0, 0, 0, 0, 0}
+	};
 #endif
-           {0, 0, 0, 0}
-      };
-	
+
+
+struct svcLink svcLinks[] = {            
+	{"General", 	"urn:schemas-upnp-org:service:General:1", variables_General, actions_General},
+	{"LANHostConfig", "urn:schemas-upnp-org:service:Layer3Forwarding:1", variables_LANHostConfig, actions_LANHostConfig},
+	{"Layer3Forwarding", "urn:schemas-upnp-org:service:LANHostConfigManagement:0.8", variables_Layer3Forwarding, actions_Layer3Forwarding},
+	{"WANCommonInterface", "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:1", variables_WANCommonInterface, actions_WANCommonInterface},           
+	{"IPConnection", "urn:schemas-upnp-org:service:WANIPConnection:1", variables_IPConnection, actions_IPConnection},
+	{"PPPConnection", "urn:schemas-upnp-org:service:WANPPPConnection:1", variables_PPPConnection, actions_PPPConnection},
+	{"EthernetLink", "urn:schemas-upnp-org:service:WANEthernetLinkConfig:1", variables_EthernetLink, actions_EthernetLink},
+	{"FirewallConfig", "urn:schemas-upnp-org:service:FirewallConfig:1", variables_FirewallConfig, NULL},
+	{"RouterConfig", "urn:schemas-upnp-org:service:RouterConfig:1", variables_RouterConfig, NULL},
+	{"WLANConfig11a", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11a, NULL},
+	{"DeviceSecurity11a", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11a, NULL},
+	{"WLANAuthentication11a", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11a, NULL},
+	{"WLANConfig11b", "urn:schemas-upnp-org:service:WLANConfiguration:1", variables_WLANConfig11b, NULL},
+	{"DeviceSecurity11b", "urn:schemas-upnp-org:service:DeviceSecurity:1", variables_DeviceSecurity11b, NULL},
+	{"WLANAuthentication11b", "urn:schemas-upnp-org:service:WLANAuthentication:1", variables_WLANAuthentication11b, NULL},
+	{"PrinterStatus", "urn:schemas-upnp-org:service:PrinterStatus:1", variables_PrinterStatus, NULL},
+	{"IPv6Config", "urn::IPv6Config:1", variables_IPv6Config, NULL},
+#ifdef __CONFIG_MADWIMAX__
+	{"WiMaxConfig", "urn:WiMaxConfig:1", variables_WiMaxConfig, NULL},
+#endif
+#ifdef __CONFIG_MODEM__
+	{"3GConfig", "urn:3GConfig:1", variables_3GConfigvariables_3GConfig, NULL},
+#endif
+	{0, 0, 0, 0}
+	};
