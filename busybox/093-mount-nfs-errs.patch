@@ -1,0 +1,30 @@
+From dc1fd2e52aa7d24fd609399e94b78c8c4dd79229
+From: Denys Vlasenko
+Date: Wed, 19 May 2010 15:01:29 +0000
+Subject: mount: handle EDQUOT > 255 properly. closes bug 1579
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+index 8ec3071..aed6f79 100644
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -749,7 +749,15 @@ static const uint8_t nfs_err_stat[] = {
+ 	19, 20, 21, 22, 27, 28,
+ 	30, 63, 66, 69, 70, 71
+ };
+-static const uint8_t nfs_err_errnum[] = {
++#if ( \
++	EPERM | ENOENT      | EIO      | ENXIO | EACCES| EEXIST | \
++	ENODEV| ENOTDIR     | EISDIR   | EINVAL| EFBIG | ENOSPC | \
++	EROFS | ENAMETOOLONG| ENOTEMPTY| EDQUOT| ESTALE| EREMOTE) < 256
++typedef uint8_t nfs_err_type;
++#else
++typedef uint16_t nfs_err_type;
++#endif
++static const nfs_err_type nfs_err_errnum[] = {
+ 	EPERM , ENOENT      , EIO      , ENXIO , EACCES, EEXIST,
+ 	ENODEV, ENOTDIR     , EISDIR   , EINVAL, EFBIG , ENOSPC,
+ 	EROFS , ENAMETOOLONG, ENOTEMPTY, EDQUOT, ESTALE, EREMOTE
+--
+cgit v0.8.2.1
