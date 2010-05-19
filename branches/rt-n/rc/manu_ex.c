@@ -51,39 +51,6 @@ enum {
   ETSI
 };
 
-#ifdef REMOVE_WL600
-enum {
-  DEBUG_REG_DMN = 0,	
-  FCC1,
-  FCC2,
-  MKK1,
-  ETSI1,
-  ETSI2,
-  ETSI3,
-  ETSI4,
-  ETSI5,
-  ETSI6,
-  APL1,
-  APL2,
-  APL3,
-  APL4
-};
-
-#define APL5 APL4
-
-enum {
-  WORLD = 1,
-  FCCA,
-  MKKA,
-  APLA,
-  APLB,
-  APLC,
-  ETSIA,
-  ETSIB,
-  ETSIC, 
-};
-#endif
-
 /* Enumerated Regulatory Domain Information */
 /* Enumerated Regulatory Domain Information */
 enum EnumRd {

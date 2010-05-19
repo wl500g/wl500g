@@ -1,0 +1,153 @@
+Subject: [PATCH] Fixes to error handling and exit codepaths
+From 9996ccaed740f8fcec4287a478ccaaa573f9865a
+From: Pete Batard <pbatard@gmail.com>
+Date: Mon, 17 May 2010 19:16:54 -0300
+
+Various locks and things were being leaked/left open when handling
+errors and during deinitialization.
+
+[dsd: small tweaks]
+---
+ libusb/core.c |   14 ++++++++++++--
+ libusb/io.c   |   32 +++++++++++++++++++++++++++-----
+ 2 files changed, 39 insertions(+), 7 deletions(-)
+
+diff --git a/libusb/core.c b/libusb/core.c
+index efae9aa..3ffeb19 100644
+--- a/libusb/core.c
++++ b/libusb/core.c
+@@ -507,8 +507,10 @@ struct libusb_device *usbi_alloc_device(struct libusb_context *ctx,
+ 		return NULL;
+ 
+ 	r = pthread_mutex_init(&dev->lock, NULL);
+-	if (r)
++	if (r) {
++		free(dev);
+ 		return NULL;
++	}
+ 
+ 	dev->ctx = ctx;
+ 	dev->refcnt = 1;
+@@ -869,8 +871,10 @@ API_EXPORTED int libusb_open(libusb_device *dev, libusb_device_handle **handle)
+ 		return LIBUSB_ERROR_NO_MEM;
+ 
+ 	r = pthread_mutex_init(&_handle->lock, NULL);
+-	if (r)
++	if (r) {
++		free(_handle);
+ 		return LIBUSB_ERROR_OTHER;
++	}
+ 
+ 	_handle->dev = libusb_ref_device(dev);
+ 	_handle->claimed_interfaces = 0;
+@@ -879,6 +883,7 @@ API_EXPORTED int libusb_open(libusb_device *dev, libusb_device_handle **handle)
+ 	r = usbi_backend->open(_handle);
+ 	if (r < 0) {
+ 		libusb_unref_device(dev);
++		pthread_mutex_destroy(&_handle->lock);
+ 		free(_handle);
+ 		return r;
+ 	}
+@@ -990,6 +995,7 @@ static void do_close(struct libusb_context *ctx,
+ 
+ 	usbi_backend->close(dev_handle);
+ 	libusb_unref_device(dev_handle->dev);
++	pthread_mutex_destroy(&dev_handle->lock);
+ 	free(dev_handle);
+ }
+ 
+@@ -1501,6 +1507,8 @@ API_EXPORTED int libusb_init(libusb_context **context)
+ 	return 0;
+ 
+ err:
++	pthread_mutex_destroy(&ctx->open_devs_lock);
++	pthread_mutex_destroy(&ctx->usb_devs_lock);
+ 	free(ctx);
+ 	return r;
+ }
+@@ -1531,6 +1539,8 @@ API_EXPORTED void libusb_exit(struct libusb_context *ctx)
+ 	}
+ 	pthread_mutex_unlock(&default_context_lock);
+ 
++	pthread_mutex_destroy(&ctx->open_devs_lock);
++	pthread_mutex_destroy(&ctx->usb_devs_lock);
+ 	free(ctx);
+ }
+ 
+diff --git a/libusb/io.c b/libusb/io.c
+index f627bcf..8505f1e 100644
+--- a/libusb/io.c
++++ b/libusb/io.c
+@@ -1015,12 +1015,14 @@ int usbi_io_init(struct libusb_context *ctx)
+ 
+ 	/* FIXME should use an eventfd on kernels that support it */
+ 	r = pipe(ctx->ctrl_pipe);
+-	if (r < 0)
+-		return LIBUSB_ERROR_OTHER;
++	if (r < 0) {
++		r = LIBUSB_ERROR_OTHER;
++		goto err;
++	}
+ 
+ 	r = usbi_add_pollfd(ctx, ctx->ctrl_pipe[0], POLLIN);
+ 	if (r < 0)
+-		return r;
++		goto err_close_pipe;
+ 
+ #ifdef USBI_TIMERFD_AVAILABLE
+ 	ctx->timerfd = timerfd_create(usbi_backend->get_timerfd_clockid(),
+@@ -1030,7 +1032,7 @@ int usbi_io_init(struct libusb_context *ctx)
+ 		r = usbi_add_pollfd(ctx, ctx->timerfd, POLLIN);
+ 		if (r < 0) {
+ 			close(ctx->timerfd);
+-			return r;
++			goto err_close_pipe;
+ 		}
+ 	} else {
+ 		usbi_dbg("timerfd not available (code %d error %d)", ctx->timerfd, errno);
+@@ -1039,6 +1041,18 @@ int usbi_io_init(struct libusb_context *ctx)
+ #endif
+ 
+ 	return 0;
++
++err_close_pipe:
++	close(ctx->ctrl_pipe[0]);
++	close(ctx->ctrl_pipe[1]);
++err:
++	pthread_mutex_destroy(&ctx->flying_transfers_lock);
++	pthread_mutex_destroy(&ctx->pollfds_lock);
++	pthread_mutex_destroy(&ctx->pollfd_modify_lock);
++	pthread_mutex_destroy(&ctx->events_lock);
++	pthread_mutex_destroy(&ctx->event_waiters_lock);
++	pthread_cond_destroy(&ctx->event_waiters_cond);
++	return r;
+ }
+ 
+ void usbi_io_exit(struct libusb_context *ctx)
+@@ -1052,6 +1066,12 @@ void usbi_io_exit(struct libusb_context *ctx)
+ 		close(ctx->timerfd);
+ 	}
+ #endif
++	pthread_mutex_destroy(&ctx->flying_transfers_lock);
++	pthread_mutex_destroy(&ctx->pollfds_lock);
++	pthread_mutex_destroy(&ctx->pollfd_modify_lock);
++	pthread_mutex_destroy(&ctx->events_lock);
++	pthread_mutex_destroy(&ctx->event_waiters_lock);
++	pthread_cond_destroy(&ctx->event_waiters_cond);
+ }
+ 
+ static int calculate_timeout(struct usbi_transfer *transfer)
+@@ -1787,8 +1807,10 @@ static int handle_events(struct libusb_context *ctx, struct timeval *tv)
+ 
+ 	/* TODO: malloc when number of fd's changes, not on every poll */
+ 	fds = malloc(sizeof(*fds) * nfds);
+-	if (!fds)
++	if (!fds) {
++		pthread_mutex_unlock(&ctx->pollfds_lock);
+ 		return LIBUSB_ERROR_NO_MEM;
++	}
+ 
+ 	list_for_each_entry(ipollfd, &ctx->pollfds, list) {
+ 		struct libusb_pollfd *pollfd = &ipollfd->pollfd;
+-- 
+1.7.0.4

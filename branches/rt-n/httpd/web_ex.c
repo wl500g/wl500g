@@ -13,11 +13,6 @@
  * $Id: web_ex.c,v 1.5 2004/01/05 05:39:18 Cheni_Shen Exp $
  */
 
-#ifdef WEBS
-#include <webs.h>
-#include <uemf.h>
-#include <ej.h>
-#else /* !WEBS */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,7 +26,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <httpd.h>
-#endif /* WEBS */
 
 #include <fcntl.h>
 #include <signal.h>
@@ -50,10 +44,6 @@
 
 #define sys_forcereboot() kill(1, SIGABRT)
 
-#ifdef WEBS
-#define init_cgi(query)
-#define do_file(webs, file)
-#endif
 
 #ifdef LINUX26
  #define        MTD_DEV(arg)            "/dev/mtd"#arg
@@ -155,7 +145,6 @@ reltime(unsigned int seconds)
 	return s;
 }
 
-#ifndef WEBS
 /******************************************************************************/
 /*
  *	Redirect the user to another webs page
@@ -188,7 +177,6 @@ void websRedirect(webs_t wp, char_t *url)
 #endif        
         websDone(wp, 200);	
 }
-#endif
 
 void sys_script(char *name)
 {
@@ -564,27 +552,6 @@ ej_nvram_get_list_x(int eid, webs_t wp, int argc, char_t **argv)
 /*
  * Example: 
  * lan_ipaddr=192.168.1.1 192.168.39.248
- * <% nvram_get_list("lan_ipaddr", 0); %> produces "192.168.1.1"
- * <% nvram_get_list("lan_ipaddr", 1); %> produces "192.168.39.248"
- */
-static int
-ej_nvram_get_buf_x(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *sid, *name;
-	int which;		
-
-	if (ejArgs(argc, argv, "%s %s %d", &sid, &name, &which) < 3) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	
-	return 0;
-}
-
-/*
- * Example: 
- * lan_ipaddr=192.168.1.1 192.168.39.248
  * <% nvram_get_table_x("lan_ipaddr"); %> produces "192.168.1.1"
  * <% nvram_get_table_x("lan_ipaddr"); %> produces "192.168.39.248"
  */
@@ -803,13 +770,8 @@ ej_dumplog(int eid, webs_t wp, int argc, char_t **argv)
 	
 	//fseek(fp, 0, SEEK_SET);
 		
-#ifdef REMOVE_WL600	
-	for (next = buf; (line = strsep(&next, "\n"));) 
-#else
 	while(fgets(buf, MAX_LOG_BUF, fp))
-#endif	
 	{
-#ifndef REMOVE_WL600		
 		line = buf;
 		if (!strncmp(line, "<4>DROP", 7))
 			verdict = "denied";
@@ -845,10 +807,6 @@ ej_dumplog(int eid, webs_t wp, int argc, char_t **argv)
 
 		ret += websWrite(wp, "%s %s connection %s to %s:%s from %s:%s\n",
 				 rfctime(&tm), proto, verdict, dst, dpt, src, spt);
-#else
-		ret += websWrite(wp, "%s\n", buf);				 
-		cprintf("L:%s\n",buf);
-#endif				 
 	}	
 	fclose(fp);	
 	return ret;
@@ -877,34 +835,14 @@ websWriteCh(webs_t wp, char *ch, int count)
 
 /* Dump leases in <tr><td>MAC</td><td>IP</td><td>expires</td></tr> format */
 static int
-#ifdef REMOVE_WL600
-ej_dumpleases(int eid, webs_t wp, int argc, char_t **argv)
-#else
 ej_dumpleases(int eid, webs_t wp, char *lease_file)
-#endif
 {
 	FILE *fp;
 	struct lease_t lease;
 	int i;
 	struct in_addr addr;
 	unsigned long expires;
-#ifdef REMOVE_WL600	
-	char *format;
-	char f[]="";
-	char sigusr1[] = "-XX";
-#endif	
 	int ret = 0;
-
-#ifdef REMOVE_WL600
-	if (ejArgs(argc, argv, "%s", &format) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	/* Write out leases file */
-	sprintf(sigusr1, "-%d", SIGUSR1);
-	eval("killall", sigusr1, "udhcpd");
-#endif	
 
     ret +=websWrite(wp,"Mac Address       IP Address      Lease Time\n");	
         
@@ -1041,7 +979,7 @@ static int dump_file(webs_t wp, char *filename)
 		
 	if (fp==NULL) 
 	{
-		ret+=websWrite(wp, "");
+		ret+=websWrite(wp, "%s", "");
 		return(ret);
 	}
 
@@ -1113,7 +1051,7 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	}
 	 	  
 	sys_script(script);
-	return(websWrite(wp,""));						    
+	return (websWrite(wp, "%s", ""));
 }	
 
 
@@ -1142,20 +1080,6 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
     	         nvram_set_x(GetServiceId(sid), v->name, value);
     	      }   
 	 }     
-	 							 	
-#ifdef REMOVE_WL600				   
-	 if ((!*value && v->nullok) || !v->validate)
-         { 
-	    nvram_set_x(GetServiceId(sid), v->name, value);
-         } 
-  	 else
-         {
-	    if (v->validate(value, v) == UPNP_E_SUCCESS)
-	       nvram_set_x(FindSvcLink(sid), v->name, value);
-	    else
-	       websWrite(wp, "Invalid %s = %s\n", v->name, value);
-         }
-#endif        	
     }
 }
 
@@ -1744,68 +1668,6 @@ nvram_generate_table(webs_t wp, char *serviceId, char *groupName)
 }
 
 
-#ifdef WEBS
-mySecurityHandler(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, char_t *url, char_t *path, char_t *query)
-{
-	char_t *user, *passwd, *digestCalc;
-	int flags, nRet;
-
-
-	user = websGetRequestUserName(wp);
-	passwd = websGetRequestPassword(wp);
-	flags = websGetRequestFlags(wp);
-
-
-	nRet = 0;
-
-	if (user && *user)
-	{
-		if (strcmp(user, "admin")!=0)
-		{
-			websError(wp, 401, T("Wrong User Name"));
-			nRet = 1;
-		}
-		else if (passwd && *passwd)
-		{
-			if (strcmp(passwd, websGetPassword())!=0)
-			{
-				websError(wp, 401, T("Wrong Password"));
-				nRet = 1;
-			}
-		}
-#ifdef DIGEST_ACCESS_SUPPORT		
-		else if (flags & WEBS_AUTH_DIGEST)
-		{
-			wp->password = websGetPassword();
-
-			a_assert(wp->digest);
-			a_assert(wp->nonce);
-			a_assert(wp->password);
-
-			digestCalc = websCalcDigest(wp);
-			a_assert(digestCalc);		
-
-			if (gstrcmp(wp->digest, digestCalc)!=0)
-			{
-				websError(wp, 401, T("Wrong Password"));
-				nRet = 1;
-			}
-			bfree(B_L, digestCalc);
-		}
-#endif	
-	}
-	else 
-	{
-#ifdef DIGEST_ACCESS_SUPPORT
-		wp->flags |= WEBS_AUTH_DIGEST;
-#endif
-		websError(wp, 401, T(""));
-		nRet = 1;
-	}
-	return nRet;
-
-}
-#else
 static void
 do_auth(char *userid, char *passwd, char *realm)
 {	
@@ -1839,7 +1701,6 @@ do_auth(char *userid, char *passwd, char *realm)
 	}
 	strncpy(realm, ProductID, AUTH_MAX);	
 }
-#endif
 
 
 static void
@@ -1878,21 +1739,7 @@ do_apply_cgi_post(char *url, FILE *stream, int len, char *boundary)
 }
 
 
-#ifdef REMOVE_WL600
-static void
-do_internal_cgi(char *url, FILE *stream)
-{
-	char *path, *query;
-
-	query = url;
-	path = strsep(&query, "?") ? : url;
-	init_cgi(query);
-	internal_cgi(stream, NULL, NULL, 0, url, path, query);
-}
-#endif
-
 #if defined(linux)
-
 
 static void
 do_webcam_cgi(char *url, FILE *stream)
@@ -2024,19 +1871,19 @@ do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 	fread(version, 1, MAX_VERSION_LEN, fifo);
 	
 	sscanf(nvram_get_x("general.log", "HardwareVer"), "%d.%d", &hwmajor, &hwminor);
-	cprintf("Hardware : %d.%d %s", hwmajor, hwminor, version+4);
+	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
 	
-	if ((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
+	if (((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
 	     strncmp(version+4, "WL500gx", 7)!=0) || 
 	    (strncmp(ProductID, "WL500g.Deluxe", 13)==0 &&
-	     strncmp(version+4, "WL500gx", 7)==0)
+	     strncmp(version+4, "WL500gx", 7)==0))
 	    && checkVersion(version,hwmajor,hwminor)) ret = 0;
 	
 		
 	fseek(fifo, 0, SEEK_END);
 	fclose(fifo);
 	fifo = NULL;
-	/*printf("done\n");*/
+	cprintf("FW image ok\n");
  	
  err:
 	if (fifo)
@@ -2057,8 +1904,6 @@ static void
 do_upgrade_cgi(char *url, FILE *stream)
 {
 	int ret;
-	
-	//printf("Upgrade CGI\n");
 
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 	
@@ -2066,6 +1911,7 @@ do_upgrade_cgi(char *url, FILE *stream)
 	if (ret == 0)
 	{
                 websApply(stream, "Updating.asp"); 
+		cprintf("Flashing new FW image\n");
 		sys_upgrade("/tmp/linux.trx");
 		sys_forcereboot();
 	}	
@@ -2380,7 +2226,7 @@ do_log_cgi(char *path, FILE *stream)
 }
 
 static void
-do_cpustat(char *url, webs_t *stream)
+do_cpustat(char *url, FILE *stream)
 {
 	char line[256];
 	int i, llen;
@@ -2400,7 +2246,7 @@ do_cpustat(char *url, webs_t *stream)
 }
 
 static void
-do_fetchif(char *url, webs_t *stream)
+do_fetchif(char *url, FILE *stream)
 {
 	char line[256];
 	int i, llen;
@@ -2446,34 +2292,6 @@ do_svgfile(char *url, FILE *stream)
 	do_file(path, stream);
 }
 
-#ifdef WEBS
-void
-initHandlers(void)
-{                
-	websAspDefine("nvram_get_x", ej_nvram_get_x);
-	websAspDefine("nvram_get_f", ej_nvram_get_f);
-	websAspDefine("nvram_get_list_x", ej_nvram_get_list_x);	
-	websAspDefine("nvram_get_buf_x", ej_nvram_get_buf_x);	
-	websAspDefine("nvram_get_table_x", ej_nvram_get_table_x);	
-	websAspDefine("nvram_match_x", ej_nvram_match_x);
-	websAspDefine("nvram_double_match_x", ej_nvram_double_match_x);
-    	websAspDefine("nvram_match_both_x", ej_nvram_match_both_x);	
-	websAspDefine("nvram_match_list_x", ej_nvram_match_list_x);
-	websAspDefine("select_channel", ej_select_channel);
-	websAspDefine("select_country", ej_select_country);
-    	websAspDefine("urlcache", ej_urlcache);	
-	websAspDefine("uptime", ej_uptime);
-	websAspDefine("nvram_dump", ej_dump);	
-    	websAspDefine("load_script", ej_load);	
-	websSecurityDelete();
-	websUrlHandlerDefine("", NULL, 0, mySecurityHandler, WEBS_HANDLER_FIRST);	
-	websUrlHandlerDefine("/apply.cgi", NULL, 0, apply_cgi, 0);	
-	websSetPassword(nvram_safe_get_x("General", "x_Password"));
-	websSetRealm(nvram_safe_get_x("general.log", "ProductID"));
-}
-
-
-#else
 struct mime_handler mime_handlers[] = {
 	{ "**.asp", "text/html", no_cache, NULL, do_ej, do_auth },
 	{ "**.htm", "text/html", no_cache, NULL, do_ej, do_auth },
@@ -2532,90 +2350,10 @@ ej_select_folder(int eid, webs_t wp, int argc, char_t **argv)
 }
 
 
-static int
-ej_select_list(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *id;
-	int ret = 0;	
-	char out[64], idxstr[12], tmpstr[64], tmpstr1[64];
-	int i, curr, hit, noneFlag;
-	char *ref1, *ref2, *refnum;
-
-	if (ejArgs(argc, argv, "%s", &id) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-
-	//printf("id: %s\n", id);
-
-        if (strcmp(id, "Storage_x_SharedPath")==0)
-        {
-		ref1 = "sh_path_x";
-		ref2 = "sh_path";
-		refnum = "sh_num";
-
-		curr = atoi(nvram_get(ref1));
-		noneFlag = 0;
-        }
-	else if (strncmp(id, "Storage_x_AccUser", 17)==0)
-	{
-		sprintf(tmpstr, "sh_accuser_x%s", id + 17);
-		ref2 = "acc_username";
-		refnum = "acc_num";
-
-		curr = atoi(nvram_get(tmpstr));
-		noneFlag =1;
-	}
-	else if (strcmp(id, "Storage_x_AccAny")==0)
-	{
-		
-                 ret = websWrite(wp, "<option value=\"Guest\">Guest</option>");
-		 return ret;
-	}
-	else 
-	{
-		 return ret;     
-	}
-        
-
-	//printf("out %s\n", curr);
-	hit = 0;
- 
-	for(i=0;i<atoi(nvram_get(refnum));i++)
-	{     
- 		 sprintf(idxstr, "%d", i);
-		 strcpy(tmpstr1, nvram_get(strcat_r(ref2, idxstr, tmpstr)));
-             	 sprintf(out, "<option value=\"%d\"", i);
-
-                 if (i==curr) 
-		 {
-			hit = 1;
-			sprintf(out, "%s selected", out);
-		 }
-                 sprintf(out,"%s>%s</option>", out, tmpstr1);       
- 
-		 //printf("out: %s\n", out);
-
-                 ret += websWrite(wp, out);
-	}     
-
-	if (noneFlag)
-	{
-		cprintf("hit : %d\n", hit);
-		if (!hit) sprintf(out, "<option value=\"99\" selected>None</option>");
-		else sprintf(out, "<option value=\"99\">None</option>");
-
-		ret += websWrite(wp, out);
-	}	
-	return ret;
-}
-
-
 struct ej_handler ej_handlers[] = {
 	{ "nvram_get_x", ej_nvram_get_x},
 	{ "nvram_get_f", ej_nvram_get_f},
 	{ "nvram_get_list_x", ej_nvram_get_list_x},
-	{ "nvram_get_buf_x", ej_nvram_get_buf_x},
 	{ "nvram_get_table_x", ej_nvram_get_table_x},
 	{ "nvram_match_x", ej_nvram_match_x},
 	{ "nvram_double_match_x", ej_nvram_double_match_x},
@@ -2628,11 +2366,9 @@ struct ej_handler ej_handlers[] = {
 	{ "nvram_dump", ej_dump},
 	{ "load_script", ej_load},
 	{ "select_folder", ej_select_folder},
-	{ "select_list", ej_select_list},
 	{ NULL, NULL }
 };
 
-#endif /* !WEBS */
 
 void websSetVer(void)
 {
