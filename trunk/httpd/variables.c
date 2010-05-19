@@ -4329,7 +4329,6 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_mode_x","", validate_range, ARGV("1", "12", ""), FALSE, FALSE},
 	{"wan_modem_enable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wan_modem_wanaslan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"wan_modem_disable_usb2", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wan_modem_username", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_password", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_usbloc", "", validate_string, ARGV(""), TRUE, FALSE},
