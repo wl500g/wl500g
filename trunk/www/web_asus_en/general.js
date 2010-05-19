@@ -2567,6 +2567,27 @@ function change_common(o, s, v)
 			document.form.time_zone.value = opts[opts.selectedIndex].value;
 		}
 	}
+	else if (v == "wl_nbw")
+	{
+		if (o.value == "20") /* 20 MHz */
+		{
+			document.form.wl_nctrlsb.value = "none";
+			inputCtrl(document.form.wl_nctrlsb, 0);
+		}
+		else /* 40 MHz */
+		{
+			inputCtrl(document.form.wl_nctrlsb, 1);
+			document.form.wl_nctrlsb.value = "lower";
+		}
+	}
+	else if (v == "wl_nctrlsb")
+	{
+		if (o.value == "none") /* None */
+		{
+			document.form.wl_nbw.value = "20";
+			inputCtrl(document.form.wl_nctrlsb, 0);
+		}
+	}
 	return true;
 }
 

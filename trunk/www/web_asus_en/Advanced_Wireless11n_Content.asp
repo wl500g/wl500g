@@ -40,6 +40,14 @@
            </td><td class="content_input_td"><select name="wl_nbw" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nbw')"><option class="content_input_fd" value="20" <% nvram_match_x("WLANConfig11b","wl_nbw", "20","selected"); %>>20MHz</option><option class="content_input_fd" value="40" <% nvram_match_x("WLANConfig11b","wl_nbw", "40","selected"); %>>40MHz</option></select></td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the method of a choice of the channel for 802.11n interface. For 40MHz bandwidth, select value Lower or Upper, and for 20MHz bandwidth only None.', LEFT);" onMouseOut="return nd();">802.11n SubChannel:
+           </td><td class="content_input_td"><select name="wl_nctrlsb" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nctrlsb')">
+<option class="content_input_fd" value="none" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "none","selected"); %>>None</option>
+<option class="content_input_fd" value="lower" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "lower","selected"); %>>Lower</option>
+<option class="content_input_fd" value="upper" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "upper","selected"); %>>Upper</option>
+</select></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the method used to authenticate wireless users. Selecting different Authentication Method, different encryption scheme will be applied.', LEFT);" onMouseOut="return nd();">Authentication Method:</td>
 	<td class="content_input_td">
 		<select name="wl_auth_mode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_auth_mode')">
