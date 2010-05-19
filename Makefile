@@ -40,11 +40,11 @@ NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_4
 RADVD=radvd-0.7.3
 L2TP=rp-l2tp-0.4
-XL2TPD=xl2tpd-1.2.5
+XL2TPD=xl2tpd-1.2.6
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
-UDPXY=udpxy-1.0-Chipmunk-14
+UDPXY=udpxy-1.0-Chipmunk-16
 NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
@@ -147,7 +147,6 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 kernel-extra-drivers:
-#	tar -C $(KERNEL_DIR) -xvjf kernel-2.6/drivers/ov51x-1.65-1.12.tar.bz2
 #	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
 
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
@@ -437,7 +436,7 @@ pptp: $(TOP)/pptp
 	@true
 
 $(TOP)/udpxy: $(UDPXY).tgz
-	@rm -rf $(TOP)/udpxy-wl $@
+	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
 	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
 	mv $(TOP)/$(UDPXY) $@ && touch $@
