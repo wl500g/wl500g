@@ -450,6 +450,21 @@ void convert_asus_values()
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 	}
 #endif
+#ifdef __CONFIG_3G__
+	else if (nvram_match("wan_proto", "usbmodem"))
+	{
+		nvram_set("wan0_modem_ifname", "ppp0");
+		//nvram_set("upnp_wan_proto", "dhcp");
+		nvram_set("wan0_modem_ipaddr", nvram_safe_get("wan_ipaddr"));
+		nvram_set("wan0_modem_netmask", 
+			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
+			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+				nvram_get("wan_netmask") : NULL);
+		nvram_set("wan0_modem_gateway", nvram_get("wan_gateway"));
+		/* current interface address (dhcp + firewall) */
+		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
+	}
+#endif
 
 	nvram_set("wan0_hostname", nvram_safe_get("wan_hostname"));
 
@@ -631,6 +646,9 @@ void update_wan_status(int isup)
 	else if (!strcmp(proto, "bigpond")) nvram_set("wan_proto_t", "BigPond");
 #ifdef __CONFIG_MADWIMAX__
 	else if (!strcmp(proto, "wimax")) nvram_set("wan_proto_t", "WiMAX");
+#endif
+#ifdef __CONFIG_MODEM__
+	else if (!strcmp(proto, "usbmodem")) nvram_set("wan_proto_t", "3G USB Modem");
 #endif
 
 	if (!isup)

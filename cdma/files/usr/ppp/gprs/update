@@ -1,0 +1,26 @@
+#!/bin/sh
+
+USERNAME=$(nvram get wan_modem_username)
+PASSWORD=$(nvram get wan_modem_password)
+APN=$(nvram get wan_modem_apn)
+DIALNO=$(nvram get wan_modem_dialno)
+PORTSPEED=$(nvram get wan_modem_portspeed)
+UNIT=$(nvram get wan0_modem_unit)
+
+grep -q '\"'$USERNAME'\" \* \"'$PASSWORD'\" \*' /tmp/ppp/chap-secrets
+CHAP=$?
+if [ "$CHAP" != "0" ]; then
+  echo \"$USERNAME\" \* \"$PASSWORD\" \*>>/tmp/ppp/chap-secrets
+fi
+chmod 600 /tmp/ppp/chap-secrets
+cp /tmp/ppp/chap-secrets /tmp/ppp/pap-secrets
+
+echo $DEVICE > /tmp/ppp/peers/gprs
+echo $PORTSPEED >> /tmp/ppp/peers/gprs
+sed -e "s/\\\$username\\\$/$USERNAME/g" /usr/ppp/gprs/gprs >> /tmp/ppp/peers/gprs
+echo $(nvram get wan_modem_param_$1) >> /tmp/ppp/peers/gprs
+
+#echo "unit $UNIT" >> /tmp/ppp/peers/gprs
+
+sed -e "s/\\\$apn\\\$/$APN/g" \
+    -e "s/\\\$dialno\\\$/$DIALNO/g" /usr/ppp/gprs/gprs.chat > /tmp/ppp/peers/gprs.chat

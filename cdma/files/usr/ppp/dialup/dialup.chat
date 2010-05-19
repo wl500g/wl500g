@@ -1,0 +1,6 @@
+'' ''
+'' 'ATI'
+'' 'ATZ'
+$init$
+'OK' 'ATD $dialno$'
+'CONNECT' ''

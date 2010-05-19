@@ -45,6 +45,7 @@ typedef u_int8_t u8;
 #include <bcmparams.h>
 
 void lan_up(char *lan_ifname);
+int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
 
 static int
 add_routes(char *prefix, char *var, char *ifname)
@@ -592,8 +593,15 @@ start_wan(void)
 	/* Create links */
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
-	symlink("/sbin/rc", "/tmp/ppp/ip-down");	
+	symlink("/sbin/rc", "/tmp/ppp/ip-down");
 	symlink("/sbin/rc", "/tmp/udhcpc");
+
+#ifdef __CONFIG_MODEM__
+	/* ppp contents */
+//	eval("cp", "-dpR", "/usr/ppp", "/tmp");	
+	mkdir("/tmp/ppp/peers", 0777);
+	eval("cp", "-p", "/usr/ppp/chap-secrets", "/tmp/ppp");
+#endif
 
 	//symlink("/dev/null", "/tmp/ppp/connect-errors");
 
@@ -780,41 +788,7 @@ start_wan(void)
 			/* Pretend that the WAN interface is up */
 			if (demand) 
 			{
-				int timeout = 5;
-				char *ping_argv[] = { "ping", "-c1", "", NULL};
-
-				/* Wait for pppx to be created */
-				while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
-					sleep(1);
-
-				/* Retrieve IP info */
-				if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-					continue;
-				strncpy(ifr.ifr_name, wan_ifname, IFNAMSIZ);
-
-				/* Set temporary IP address */
-				if (ioctl(s, SIOCGIFADDR, &ifr))
-					perror(wan_ifname);
-				nvram_set(strcat_r(prefix, "ipaddr", tmp), inet_ntoa(sin_addr(&ifr.ifr_addr)));
-				nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
-
-				/* Set temporary P-t-P address */
-				if (ioctl(s, SIOCGIFDSTADDR, &ifr))
-					perror(wan_ifname);
-				nvram_set(strcat_r(prefix, "gateway", tmp), inet_ntoa(sin_addr(&ifr.ifr_dstaddr)));
-
-				close(s);
-
-				/* 
-				* Preset routes so that traffic can be sent to proper pppx even before 
-				* the link is brought up.
-				*/
-
-				preset_wan_routes(wan_ifname);
-
-				/* Stimulate link up */
-				ping_argv[2] = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
-				_eval(ping_argv, NULL, 0, &pid);
+				if( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
 			}
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
@@ -878,6 +852,68 @@ start_wan(void)
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
 		}
+#ifdef __CONFIG_MODEM__
+		/* 
+		* Configure PPP connection. The PPP client will run 
+		* ip-up/ip-down scripts upon link's connect/disconnect.
+		*/
+		else if (strcmp(wan_proto, "usbmodem") == 0 )
+		{
+			int demand = atoi(nvram_safe_get(strcat_r(prefix, "modem_idletime", tmp)));
+			
+			/* update demand option */
+			nvram_set(strcat_r(prefix, "modem_demand", tmp), demand ? "1" : "0");
+
+			/* Bring up WAN interface */
+			ifconfig(wan_ifname, IFUP, 
+				nvram_get(strcat_r(prefix, "ipaddr", tmp)),
+				nvram_get(strcat_r(prefix, "netmask", tmp)));
+
+			/* start firewall */
+			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp)),
+				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
+
+		 	/* launch dhcp client and wait for lease forawhile */
+/*		 	if (nvram_match(strcat_r(prefix, "ipaddr", tmp), "0.0.0.0")) 
+		 	{
+				char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
+				char *dhcp_argv[] = { "udhcpc",
+					      "-i", wan_ifname,
+					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
+					      "-s", "/tmp/udhcpc",
+					      "-b",
+					      wan_hostname && *wan_hostname ? "-H" : NULL,
+					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
+					      NULL
+				};
+				// Start dhcp daemon
+				_eval(dhcp_argv, NULL, 0, NULL);
+		 	} else {
+			 	// setup static wan routes via physical device
+				add_routes("wan_", "route", wan_ifname);
+				// and set default route if specified with metric 1
+				if (inet_addr_(nvram_safe_get(strcat_r(prefix, "gateway", tmp))) &&
+				    !nvram_match("wan_heartbeat_x", ""))
+					route_add(wan_ifname, 2, "0.0.0.0", 
+						nvram_safe_get(strcat_r(prefix, "gateway", tmp)), "0.0.0.0");
+				// start multicast router 
+				start_igmpproxy(wan_ifname);
+			}*/
+			
+			/* launch pppoe client daemon */
+			start_modem_dial(prefix);
+
+			/* ppp interface name is referenced from this point on */
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp));
+			
+			/* Pretend that the WAN interface is up */
+			if (demand) 
+			{
+				if( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
+			}
+		}
+#endif
+
 #ifndef ASUS_EXT
 		/* Start connection dependent firewall */
 		start_firewall2(wan_ifname);
@@ -1024,6 +1060,9 @@ stop_wan(void)
 	stop_wimax();
 #endif
 
+#ifdef __CONFIG_MODEM__
+	stop_modem_dial();
+#endif
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
@@ -1603,3 +1642,46 @@ wan_primary_ifunit(void)
 	return 0;
 }
 
+// return 0 if failed
+int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
+{
+	int timeout = 5;
+	int s, pid;
+	char tmp[200];
+
+	char *ping_argv[] = { "ping", "-c1", "", NULL};
+
+	/* Wait for pppx to be created */
+	while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
+		sleep(1);
+
+	/* Retrieve IP info */
+	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
+		return 0;
+	strncpy(ifr->ifr_name, wan_ifname, IFNAMSIZ);
+
+	/* Set temporary IP address */
+	if (ioctl(s, SIOCGIFADDR, ifr))
+		perror(wan_ifname);
+	nvram_set(strcat_r(prefix, "ipaddr", tmp), inet_ntoa(sin_addr(&ifr->ifr_addr)));
+	nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
+
+	/* Set temporary P-t-P address */
+	if (ioctl(s, SIOCGIFDSTADDR, &ifr))
+		perror(wan_ifname);
+	nvram_set(strcat_r(prefix, "gateway", tmp), inet_ntoa(sin_addr(&ifr->ifr_dstaddr)));
+
+	close(s);
+
+	/* 
+	* Preset routes so that traffic can be sent to proper pppx even before 
+	* the link is brought up.
+	*/
+
+	preset_wan_routes(wan_ifname);
+
+	/* Stimulate link up */
+	ping_argv[2] = nvram_safe_get(strcat_r(prefix, "gateway", tmp));
+	_eval(ping_argv, NULL, 0, &pid);
+	return 1;
+}

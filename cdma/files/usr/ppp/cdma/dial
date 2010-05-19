@@ -1,0 +1,42 @@
+#!/bin/sh
+
+nvram unset wan_modem_cdma_type
+
+if [ "$(nvram get wan_nat_x)" = "1" ]; then
+  echo "1" >/proc/sys/net/ipv4/ppp_filter
+fi
+
+while true; do
+  grep -q 'Vendor=05c6 ProdID=3196' /proc/bus/usb/devices && MODEM='GTRAN'
+  grep -q 'Vendor=16d5 ProdID=6501' /proc/bus/usb/devices && MODEM='ANYDATA'
+  grep -q 'Vendor=16d5 ProdID=6502' /proc/bus/usb/devices && MODEM='ANYDATA'
+  grep -q 'Vendor=16d5 ProdID=6202' /proc/bus/usb/devices && MODEM='ANYDATA'
+  grep -q 'Vendor=1726 ProdID=1000' /proc/bus/usb/devices && MODEM='AXESSTEL'
+  grep -q 'Vendor=16d8' /proc/bus/usb/devices && MODEM='CMOTECH'
+
+  if [ "$MODEM" = "GTRAN" ]; then
+    nvram set wan_modem_cdma_type=GTRAN
+    cd GTRAN
+    exec ./dial $1
+  fi
+
+  if [ "$MODEM" = "ANYDATA" ]; then
+    nvram set wan_modem_cdma_type=AnyDATA
+    cd AnyDATA
+    exec ./dial $1
+  fi
+
+  if [ "$MODEM" = "AXESSTEL" ]; then
+    nvram set wan_modem_cdma_type=Axesstel
+    cd Axesstel
+    exec ./dial $1
+  fi
+
+  if [ "$MODEM" = "CMOTECH" ]; then
+    nvram set wan_modem_cdma_type=GTRAN
+    cd GTRAN
+    exec ./dial $1
+  fi
+
+  sleep 1
+done

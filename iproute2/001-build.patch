@@ -39,9 +39,10 @@ diff -urBp iproute2-ss020116/Makefile iproute2.new/Makefile
 +check_gcc = $(shell if $(CC) $(1) -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi)
  
 -CC = gcc
-+#CC = gcc
- CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g
+-CCOPTS = -D_GNU_SOURCE -O2 -Wstrict-prototypes -Wall -g
 -CFLAGS = $(CCOPTS) $(GLIBCFIX) -I$(KERNEL_INCLUDE) -I../include $(DEFINES)
++#CC = gcc
++CCOPTS = -D_GNU_SOURCE -Wstrict-prototypes -Wall -g
 +# disable pointer signedness warnings in gcc 4.x
 +CCOPTS += $(call check_gcc,-Wno-pointer-sign,)
 +CFLAGS = $(CCOPTS) $(GLIBCFIX) -I$(KERNEL_INCLUDE) -I../include $(DEFINES) $(EXTRACFLAGS)
