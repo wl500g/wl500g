@@ -4267,6 +4267,7 @@ function changeWiMAXCheckConnection()
 		inputRCtrl1(frm.wan_wimax_restart, 1);
 	}
 }
+
 function getCmdExecUrl( host, cmd )
 {
 	return	"http://" + host + 
