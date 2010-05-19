@@ -210,6 +210,10 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
 	}
 
+	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
+	appendChild(aux1, generateDocEntry(0, "PPP Connection Mode", "Advanced_ConnectionMode_Content.asp", ""));
+	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));	
+
 	aux1 = appendChild(foldersTree, leafNode("System Setup"));
 	if (isModel() != 'Wl520' && isModel() != 'SnapAP') {
 		appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", ""));
@@ -231,10 +235,6 @@ function generateTree() {
 	}
 	// appendChild(aux1, generateDocEntry(0, "Printer Setup",
 	// "Advanced_PrinterSetup_Content.asp", ""))
-
-	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
-	appendChild(aux1, generateDocEntry(0, "PPP Connection Mode", "Advanced_ConnectionMode_Content.asp", ""));
-	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));	
 
 	if (mode == 'AP') {
 		aux1 = appendChild(foldersTree, leafNode("Status & Log"));
