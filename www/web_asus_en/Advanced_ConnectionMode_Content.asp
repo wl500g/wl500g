@@ -182,15 +182,6 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
-				Disable USB 2.0 controller
-			</td>
-			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_disable_usb2" class="content_input_fd" <% nvram_match_x("","wan_modem_disable_usb2", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_disable_usb2" class="content_input_fd" <% nvram_match_x("","wan_modem_disable_usb2", "0", "checked"); %>>No
-			</td>
-		</tr>
-		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('No USB modem connection', LEFT);"
 				onmouseout="return nd();">
 				<input type="radio" value="-1" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"

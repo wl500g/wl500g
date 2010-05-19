@@ -456,6 +456,5 @@
 #ifdef __CONFIG_MODEM__
 {"wan_modem_enable_x", "1", 0},
 {"wan_modem_wanaslan_x","0",0},
-{"wan_modem_disable_usb2","0",0},
 {"wan_modem_mode_x","0",0},
 #endif
