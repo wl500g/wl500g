@@ -38,34 +38,34 @@ static void MASQUERADE_init(struct xt_entry_target *t)
 static void
 parse_ports(const char *arg, struct nf_nat_multi_range *mr)
 {
-	const char *dash;
-	int port;
+	char *end;
+	unsigned int port, maxport;
 
 	mr->range[0].flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 
-	port = atoi(arg);
-	if (port <= 0 || port > 65535)
-		xtables_error(PARAMETER_PROBLEM, "Port \"%s\" not valid\n", arg);
+	if (!xtables_strtoui(arg, &end, &port, 0, UINT16_MAX))
+		xtables_param_act(XTF_BAD_VALUE, "MASQUERADE", "--to-ports", arg);
 
-	dash = strchr(arg, '-');
-	if (!dash) {
+	switch (*end) {
+	case '\0':
 		mr->range[0].min.tcp.port
 			= mr->range[0].max.tcp.port
 			= htons(port);
-	} else {
-		int maxport;
+		return;
+	case '-':
+		if (!xtables_strtoui(end + 1, NULL, &maxport, 0, UINT16_MAX))
+			break;
 
-		maxport = atoi(dash + 1);
-		if (maxport == 0 || maxport > 65535)
-			xtables_error(PARAMETER_PROBLEM,
-				   "Port `%s' not valid\n", dash+1);
 		if (maxport < port)
-			/* People are stupid.  Present reader excepted. */
-			xtables_error(PARAMETER_PROBLEM,
-				   "Port range `%s' funky\n", arg);
+			break;
+
 		mr->range[0].min.tcp.port = htons(port);
 		mr->range[0].max.tcp.port = htons(maxport);
+		return;
+	default:
+		break;
 	}
+	xtables_param_act(XTF_BAD_VALUE, "MASQUERADE", "--to-ports", arg);
 }
 
 static int MASQUERADE_parse(int c, char **argv, int invert, unsigned int *flags,
