@@ -21,7 +21,7 @@ insmod ftdi_sio
 while true; do
   kill -9 $(ps|grep pppd|grep gprs|awk -F' ' '{print $1}') 2>/dev/null
   rmmod option
-  /tmp/ppp/zerocd
+  /usr/ppp/zerocd >> /tmp/chat.log 2>&1
   insmod option
   sleep 5
 

@@ -506,7 +506,7 @@
 					Modem type:
 				</td>
 				<td class="content_input_td">
-					<select name="zerocd_mode" class="content_input_fd">
+					<select name="wan_modem_zerocd_mode" class="content_input_fd">
 						<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
 							Not set</option>
 						<option class="content_input_fd" value="OptionGlobeSurferIcon" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon","selected"); %>>
