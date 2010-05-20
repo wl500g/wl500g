@@ -36,7 +36,7 @@ case "$dialmode" in
 		;;
 	21)	dialdir=$ROOT_DIR/ppp/cdma/GTRAN
 		;;
-	22)	dialdir=$ROOT_DIR/ppp/cdm/AnyDATA
+	22)	dialdir=$ROOT_DIR/ppp/cdma/AnyDATA
 		;;
 	99)	dialdir=$ROOT_DIR/local/dial
 		;;
