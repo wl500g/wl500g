@@ -1,0 +1,42 @@
+From bbd725435ddb1cac732f7a8c23c21ff67f24c60f
+From: Andreas Meissner
+Date: Mon, 10 May 2010 04:47:49 -0700
+Subject: [PATCH] IPv4: unresolved multicast route cleanup
+
+Fixes the expiration timer for unresolved multicast route entries.
+In case new multicast routing requests come in faster than the
+expiration timeout occurs (e.g. zap through multicast TV streams), the
+timer is prevented from being called at time for already existing entries.
+
+As the single timer is resetted to default whenever a new entry is made,
+the timeout for existing unresolved entires are missed and/or not
+updated. As a consequence new requests are denied when the limit of
+unresolved entries has been reached because old entries live longer than
+they are supposed to.
+
+The solution is to reset the timer only for the first unresolved entry
+in the multicast routing cache. All other timers are already set and
+updated correctly within the timer function itself by now.
+
+Signed-off by: Andreas Meissner <andreas.meissner@sphairon.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ipmr.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 9d4f6d1..ec19a89 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -754,7 +754,8 @@ ipmr_cache_unresolved(struct net *net, vifi_t vifi, struct sk_buff *skb)
+ 		c->next = mfc_unres_queue;
+ 		mfc_unres_queue = c;
+ 
+-		mod_timer(&ipmr_expire_timer, c->mfc_un.unres.expires);
++		if (atomic_read(&cache_resolve_queue_len) == 1)
++			mod_timer(&ipmr_expire_timer, c->mfc_un.unres.expires);
+ 	}
+ 
+ 	/*
+-- 
+1.7.1
