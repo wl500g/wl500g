@@ -5691,27 +5691,6 @@ diff -urBwNp linux-2.6.22/arch/mips/kernel/time.c linux-2.6/arch/mips/kernel/tim
  	/*
  	 * call the generic timer interrupt handling
  	 */
-diff -urBwNp linux-2.6.22/arch/mips/kernel/traps.c linux-2.6/arch/mips/kernel/traps.c
---- linux-2.6.22/arch/mips/kernel/traps.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/arch/mips/kernel/traps.c	2009-05-27 12:40:53.000000000 +0400
-@@ -43,6 +43,8 @@
- #include <asm/types.h>
- #include <asm/stacktrace.h>
- 
-+#include <linux/reboot.h>
-+
- extern void check_wait(void);
- extern asmlinkage void r4k_wait(void);
- extern asmlinkage void rollback_handle_int(void);
-@@ -742,6 +740,8 @@ out_sigsegv:
- asmlinkage void do_ri(struct pt_regs *regs)
- {
- 	die_if_kernel("Reserved instruction in kernel code", regs);
-+	printk("do_ri, try to reboot it!\n");
-+	machine_restart(NULL);
- 
- 	if (!cpu_has_llsc)
- 		if (!simulate_llsc(regs))
 diff -urBwNp linux-2.6.22/arch/mips/Makefile linux-2.6/arch/mips/Makefile
 --- linux-2.6.22/arch/mips/Makefile	2007-07-09 03:32:17.000000000 +0400
 +++ linux-2.6/arch/mips/Makefile	2008-12-12 06:25:39.000000000 +0300
