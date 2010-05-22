@@ -1,0 +1,49 @@
+From 0453fb3c528c5eb3483441a466b24a4cb409eec5
+From: David Daney
+Date: Fri, 14 May 2010 12:44:18 -0700
+Subject: [PATCH] MIPS: Use GCC __builtin_prefetch() to implement prefetch().
+
+GCC's __builtin_prefetch() was introduced a long time ago, all
+supported GCC versions have it.  Lets do what the big boys up in
+linux/prefetch.h do, except we use '1' as the third parameter to
+provoke 'PREF 0,...'  and 'PREF 1,...' instead of other prefetch
+hints.
+
+This allows for better code generation.  In theory the existing
+embedded asm could be optimized, but the compiler has these builtins,
+so there is really no point.
+
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+To: linux-mips@linux-mips.org
+Patchwork: http://patchwork.linux-mips.org/patch/1235/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ include/asm-mips/processor.h |   12 +++---------
+ 1 files changed, 3 insertions(+), 9 deletions(-)
+
+diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
+index ab38791..5d33b72 100644
+--- a/include/asm-mips/processor.h
++++ b/include/asm-mips/processor.h
+@@ -344,16 +344,10 @@ unsigned long get_wchan(struct task_struct *p);
+ #ifdef CONFIG_CPU_HAS_PREFETCH
+ 
+ #define ARCH_HAS_PREFETCH
++#define prefetch(x) __builtin_prefetch((x), 0, 1)
+ 
+-static inline void prefetch(const void *addr)
+-{
+-	__asm__ __volatile__(
+-	"	.set	mips4		\n"
+-	"	pref	%0, (%1)	\n"
+-	"	.set	mips0		\n"
+-	:
+-	: "i" (Pref_Load), "r" (addr));
+-}
++#define ARCH_HAS_PREFETCHW
++#define prefetchw(x) __builtin_prefetch((x), 1, 1)
+ 
+ #endif
+ 
+-- 
+1.7.1
