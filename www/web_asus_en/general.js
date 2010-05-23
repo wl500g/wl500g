@@ -822,7 +822,7 @@ function validate_ipaddr(o, v)
 		ip = intoa(o.value);
 		if (ip > 0)
 		{
-			ip1 = (ip >> 16) % 0xffff; ip2 = ip & 0xffff;
+			ip1 = (ip >> 16) & 0xffff; ip2 = ip & 0xffff;
 			prefix = '2002:' + ip1.toString(16) +':' + ip2.toString(16) + ':';
 			document.form.ipv6_wan_addr.value = prefix+'0::1';
 			document.form.ipv6_lan_addr.value = prefix+'1::1';
