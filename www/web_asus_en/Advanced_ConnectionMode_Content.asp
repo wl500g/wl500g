@@ -12,12 +12,12 @@
 	<script type="text/javascript" src="quick.js"></script>
 
 	<script language="JavaScript" type="text/javascript">
-	const sCDMA	= 'CDMA';
-	const sGPRS	= 'GPRS';
-	const sDialup	= 'Dial-Up';
-	const sIPW	= 'IPW';
-	const sZada	= 'ZadaCOM';
-	const sUser	= 'User';
+	var sCDMA	= 'CDMA';
+	var sGPRS	= 'GPRS';
+	var sDialup	= 'Dial-Up';
+	var sIPW	= 'IPW';
+	var sZada	= 'ZadaCOM';
+	var sUser	= 'User';
 	var usb_connection_types= new Array();
 	usb_connection_types[ -1 ] = "none";
 	usb_connection_types[  1 ] = sCDMA;
@@ -39,7 +39,7 @@
 		var ctype = "";
 		var idx = get_radio_value ( document.form.wan_modem_mode_x );
 		try{
-		 ctype = usb_connection_types [ idx ];//"<% nvram_get_x("LANHostConfig","cdma_type"); %>";		 
+		    ctype = usb_connection_types [ idx ]; //"<% nvram_get_x("LANHostConfig","cdma_type"); %>";
 		} catch (e) {
 		}
 		
@@ -120,7 +120,7 @@
 		{
 			setDispModeById( sUser, 'block' );
 		
-	//	   	  appendChild(aux1,generateDocEntry(0, "User Dial-Up Config","Advanced_DialupUser_Content.asp", ""))
+	//		appendChild(aux1,generateDocEntry(0, "User Dial-Up Config","Advanced_DialupUser_Content.asp", ""))
 		}
 	}
 	</script>
@@ -135,7 +135,7 @@
 <!--<body onload="load_body()" onunload="return unload_body();">-->
 	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
 	</div>
-<body onload="changeUSBConnectionType()" onunload="return unload_body();">
+<body onload="changeUSBConnectionType();" onunload="return unload_body();">
 	<form method="GET" name="form" action="apply.cgi">
 	<input type="hidden" name="current_page" value="Advanced_ConnectionMode_Content.asp">
 	<input type="hidden" name="next_page" value="Advanced_ConnectionMode_Content.asp">
@@ -166,10 +166,10 @@
 				Enable automatic dial on boot
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_enable_x" class="content_input_fd" onchange="return change_common(this, '', 'wan_modem_enable_x')"
-					<% nvram_match_x("","dial_enable_x", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_enable_x" class="content_input_fd" onchange="return change_common(this, '', 'wan_modem_enable_x')"
-					<% nvram_match_x("","dial_enable_x", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_enable_x" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_enable_x')"
+					<% nvram_match_x("","wan_modem_enable_x", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_enable_x" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_enable_x')"
+					<% nvram_match_x("","wan_modem_enable_x", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
