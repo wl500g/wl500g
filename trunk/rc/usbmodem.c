@@ -15,12 +15,28 @@
 
 #include <nvparse.h>
 
+
+void modem_get_script_name( char * filename )
+{
+    char * script_fn = nvram_get( "wan_modem_scriptfn" );
+    if( script_fn && *script_fn )
+	strcpy( filename, script_fn );
+    else
+	strcpy( filename, "/usr/ppp/dial" );
+};
+
 int
 start_modem_dial( char * prefix )
 {
     int ret;
+    char sfn[200];
+    char *argv[] = {
+	(modem_get_script_name(sfn), sfn),
+	NULL
+    };
 
-    char *argv[] = {"dial", NULL};
+    dprintf( "%s", sfn );
+
     char dialparam[] = "dial_param_XXXXXXXXX";
     pid_t pid;
     char tmp[200];

@@ -900,14 +900,23 @@ start_wan(void)
 				start_igmpproxy(wan_ifname);
 			}*/
 			
-			/* launch pppoe client daemon */
-			start_modem_dial(prefix);
+			if( nvram_match( "wan0_modem_enable", "1" ) )
+			{
+				// wait for USB initialization
+				sleep( 5 );
+				/* launch ppp client daemon */
+				start_modem_dial(prefix);
+			} else
+			{
+				demand=0;
+				nvram_set( "wan0_modem_enable", "1" );
+			}
 
 			/* ppp interface name is referenced from this point on */
 			wan_ifname = nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp));
 			
 			/* Pretend that the WAN interface is up */
-			if (demand) 
+			if (demand)
 			{
 				if( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
 			}

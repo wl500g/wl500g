@@ -16,7 +16,7 @@ else
  fi
 fi
 
-insmod modem
+insmod option
 insmod pl2303
 insmod ftdi_sio
 

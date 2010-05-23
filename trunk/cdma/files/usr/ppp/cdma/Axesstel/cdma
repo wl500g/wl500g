@@ -8,4 +8,4 @@ usepeerdns
 noauth
 nodetach
 user "$username$"
-connect "chat -s -S -V -t 5 -f /tmp/ppp/cdma/Axesstel/cdma.chat 2>/tmp/chat.log"
+connect "chat -s -S -V -t 5 -f /usr/ppp/cdma/Axesstel/cdma.chat 2>/tmp/chat.log"
