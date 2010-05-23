@@ -19,7 +19,9 @@
   * rc
     * ipv6: allow any incoming icmp from 6in4 server
 
-  * web-UI: Add bandwidth monitor. Based on on !OpenWrt sources (originally part of m0n0wall), modified by Klim Tatarnikov.
+  * web-UI:
+    * added bandwidth monitor (!OpenWrt sources (originally part of m0n0wall) based, modified by Klim Tatarnikov.
+    * ipv6: fixed 6to4 ipv6 address calculation
 
   * busybox 1.16.1
     * bugfixes from upstrem (ash, telnet, swapon, grep, tar, sed, mount, vi)
