@@ -5,6 +5,31 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * accel-pptp: updated to 2010.05.01-git
+    * usb printer driver fixes & cleanup (Issue 32)
+    * usbdevfs: fix submit_urb control queries
+    * ipset 4.2 modules (requires ipset 4.x userspace!)
+    * backports from 2.6
+      * more usb EHCI fixes
+      * PPPoE/PPP fixes
+      * NET/TCP fixes
+
+  * rc
+    * ipv6: allow any incoming icmp from 6in4 server
+
+  * web-UI: Add bandwidth monitor. Based on on !OpenWrt sources (originally part of m0n0wall), modified by Klim Tatarnikov.
+
+  * busybox 1.16.1
+    * bugfixes from upstrem (ash, telnet, swapon, grep, tar, sed, mount, vi)
+
+  * libusb 1.0.8
+
+  * usb-modeswitch 1.1.2
+
+  * udpxy 1.0-Chipmunk-16
+
 ===wl500g-1.9.2.7-d-`r1445` (2010-04-24)===
   * kernel
     * backport of ability to disable IPv6 at kernel level (/proc/sys/net/ipv6/conf/all/disable_ipv6)
