@@ -204,7 +204,7 @@
 				MV110H modem.
 			</td>
 		</tr>
-		<tr>
+<!--		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set IP Wireless 4G connection via IP Wireless USB modem.', LEFT);"
 				onmouseout="return nd();">
 				<input type="radio" value="4" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
@@ -214,7 +214,7 @@
 			<td class="content_desc_td">
 				IP Wireless 4G connection via IP Wireless USB modem.
 			</td>
-		</tr>
+		</tr>-->
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set GPRS/EDGE/UMTS connection via USB connected GSM USB-serial converter + GSM.', LEFT);"
 				onmouseout="return nd();">
@@ -228,7 +228,7 @@
 				GPRS/EDGE/UMTS connection via USB-serial converter and GSM.
 			</td>
 		</tr>
-		<tr>
+<!--		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set internet connection via USB connected ZadaCOM USB modem.', LEFT);"
 				onmouseout="return nd();">
 				<input type="radio" value="5" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
@@ -238,7 +238,7 @@
 			<td class="content_desc_td">
 				Internet connection via ZadaCOM USB connected modem.
 			</td>
-		</tr>
+		</tr>-->
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set Dial-Up connection via USB modem or USB-serial converter and modem.', LEFT);"
 				onmouseout="return nd();">
@@ -535,6 +535,8 @@
 							ZTE MF620 (aka "Onda MH600HS")</option>
 						<option class="content_input_fd" value="ZTE_MF622" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ZTE_MF622","selected"); %>>
 							ZTE MF622</option>
+						<option class="content_input_fd" value="ZTE_MF626" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ZTE_MF626","selected"); %>>
+							ZTE MF626</option>
 						<option class="content_input_fd" value="ONDA_MT505UP" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ONDA_MT505UP","selected"); %>>
 							ONDA MT505UP (most likely a ZTE model)</option>
 						<option class="content_input_fd" value="NovatelWirelessOvation" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "NovatelWirelessOvation","selected"); %>>
