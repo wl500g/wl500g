@@ -2105,7 +2105,10 @@
                                                       
                     {"wl_net_reauth", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
 
-		{"wl_nbw", "20", validate_string, ARGV(""), FALSE, FALSE},
+		{"wl_nbw", "", validate_choice, ARGV(
+			"20",
+			"40",
+		0), FALSE, FALSE},
 		{"wl_nctrlsb", "", validate_choice, ARGV(
 			"none",
 			"lower",
