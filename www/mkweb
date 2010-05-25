@@ -100,15 +100,15 @@ if [ -n "$1" ]; then
 		sed -ri '/IPV6/d' ../web_$MODEL/index.js
 	fi
 
+	if [ "$CONFIG_WAVESERVER" != "y" ]; then
+		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
+	fi
+
 	if [ "$CONFIG_MADWIMAX" != "y" ]; then
 		echo "Removing WiMax pages..."
 		rm -rf ../web_$MODEL/*WiMax*.asp
 		sed -ri '/WiMAX/d' ../web_$MODEL/index.js
 		sed -ri '/WiMAX/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
-	fi
-
-	if [ "$CONFIG_WAVESERVER" != "y" ]; then
-		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
 	if [ "$CONFIG_MODEM" != "y" ]; then
@@ -118,6 +118,11 @@ if [ -n "$1" ]; then
 		rm -f ../web_$MODEL/Main_SysInfo_Content.asp
 		sed -ri '/PPP /d;/Main_SysInfo_Content/d' ../web_$MODEL/index.js
 		sed -ri '/usbmodem/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
+	fi
+
+	if [ "$CONFIG_MADWIMAX" != "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
+		echo "Removing USB Modem submenu..."
+		sed -ri '/USB Modem/d' ../web_$MODEL/index.js
 	fi
 
 	### 4. Strip *.asp, *.css and *.js ###
