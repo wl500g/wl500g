@@ -5,7 +5,7 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r1612` (2010-05-27)===
   * kernel
     * accel-pptp: updated to 2010.05.01-git
     * usb printer driver fixes & cleanup (Issue 32)
@@ -24,7 +24,7 @@
     * ipv6: fixed 6to4 ipv6 address calculation
 
   * busybox 1.16.1
-    * bugfixes from upstrem (ash, telnet, swapon, grep, tar, sed, mount, vi)
+    * bugfixes from upstrem (ash, telnet, swapon, grep, tar, sed, mount, vi, ifconfig)
 
   * libusb 1.0.8
 
