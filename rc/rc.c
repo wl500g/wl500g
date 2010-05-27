@@ -203,6 +203,27 @@ early_defaults(void)
 		}
 	}
 
+	/* fix RT-N12 / RT-N10 vlans */
+	if ((nvram_match("boardtype", "0x04CD") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201")) // N12
+	    || (nvram_match("boardtype", "0x04EC") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))) // N10
+	{
+		if (!nvram_get("wan_ifname"))
+		{
+			nvram_set("vlan0ports", "0 1 2 3 5*");
+			nvram_set("vlan1ports", "4 5");
+			nvram_set("vlan0hwname", "et0");
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("landevs", "vlan0 wl0");
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wandevs", "vlan1");
+			nvram_set("wan_ifname", "vlan1");
+			nvram_set("wan_ifnames", "vlan1");
+			nvram_set("wan0_ifname", "vlan1");
+			nvram_set("wan0_ifnames", "vlan1");
+			nvram_set("wlan_ifname", "eth1");
+		}
+	}
+
 	/* fix DLINK DIR-320 vlans & gpio */
 	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
 	{
