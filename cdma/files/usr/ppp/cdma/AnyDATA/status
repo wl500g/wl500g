@@ -1,0 +1,11 @@
+#!/bin/sh
+awk '
+/Manufacturer:/ {print $0
+                 while (getline)
+                 {
+                   if ($0 == "")
+                    exit
+                   print $0
+                 }
+                }
+' /tmp/chat.log

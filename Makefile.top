@@ -430,6 +430,9 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 ifeq ($(CONFIG_WAVESERVER),y)
 	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
 endif
+ifeq ($(CONFIG_MODEM),y)
+	$(MAKE) cdma-install
+endif
 	# Install binary Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
             ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
@@ -600,8 +603,12 @@ busybox: busybox/.config
 busybox-install: busybox
 	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
+cdma-install:
+	$(MAKE) -C cdma install
+
+
 iptables: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-O2 $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
+	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
@@ -790,7 +797,7 @@ portmap-install:
 	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 
 iproute2: .config
-	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
+	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iproute2-install:
 	install -D iproute2/ip/ip $(INSTALLDIR)/iproute2/usr/sbin/ip

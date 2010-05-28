@@ -1,0 +1,15 @@
+#!/bin/sh
+
+USERNAME=$(nvram get wan_modem_username)
+PASSWORD=$(nvram get wan_modem_password)
+
+grep -q '\"'$USERNAME'\" \* \"'$PASSWORD'\" \*' /tmp/ppp/chap-secrets
+CHAP=$?
+if [ "$CHAP" != "0" ]; then
+  echo \"$USERNAME\" \* \"$PASSWORD\" \*>>/tmp/ppp/chap-secrets
+fi
+chmod 600 /tmp/ppp/chap-secrets
+
+echo $DEVICE > /tmp/ppp/peers/cdma
+sed -e "s/\\\$username\\\$/$USERNAME/g" /usr/ppp/cdma/GTRAN/cdma >> /tmp/ppp/peers/cdma
+echo $(nvram get wan_modem_param_$1) >> /tmp/ppp/peers/cdma

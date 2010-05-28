@@ -1,0 +1,26 @@
+#!/bin/sh
+
+insmod acm
+
+while true; do
+  kill -9 $(ps|grep pppd|grep cdma|awk -F' ' '{print $1}') 2>/dev/null
+
+  sleep 5
+
+  if [ -z "$(nvram get wan_modem_usbloc)" ]; then
+   DEVICE="/dev/usb/acm/0"
+  else
+   DEVICE=$(grep ": $(nvram get wan_modem_usbloc) :" /proc/bus/usb/devpath | awk -F':' '{print $1}')
+  fi
+
+  export DEVICE
+
+  IFNAME=$(nvram get wan0_modem_ifname)
+  export IFNAME
+
+  /usr/ppp/cdma/GTRAN/update $1
+
+  pppd call cdma >> /tmp/chat.log
+
+  sleep 25
+done

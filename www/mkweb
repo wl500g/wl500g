@@ -97,18 +97,32 @@ if [ -n "$1" ]; then
 	if [ "$CONFIG_IPV6" != "y" ]; then
 		echo "Removing IPV6 pages..."
 		rm -rf ../web_$MODEL/*IPV6*.asp
-		sed -ri '/IPV6/d' ../web_$MODEL/index.asp
+		sed -ri '/IPV6/d' ../web_$MODEL/index.js
+	fi
+
+	if [ "$CONFIG_WAVESERVER" != "y" ]; then
+		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
 	if [ "$CONFIG_MADWIMAX" != "y" ]; then
 		echo "Removing WiMax pages..."
 		rm -rf ../web_$MODEL/*WiMax*.asp
-		sed -ri '/WiMAX/d' ../web_$MODEL/index.asp
+		sed -ri '/WiMAX/d' ../web_$MODEL/index.js
 		sed -ri '/WiMAX/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
 	fi
 
-	if [ "$CONFIG_WAVESERVER" != "y" ]; then
-		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
+	if [ "$CONFIG_MODEM" != "y" ]; then
+		echo "Removing 3G/cdma pages..."
+		rm -f ../web_$MODEL/Main_ChatStatus_Content.asp
+		rm -f ../web_$MODEL/Advanced_ConnectionMode_Content.asp
+		rm -f ../web_$MODEL/Main_SysInfo_Content.asp
+		sed -ri '/PPP /d;/Main_SysInfo_Content/d' ../web_$MODEL/index.js
+		sed -ri '/usbmodem/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
+	fi
+
+	if [ "$CONFIG_MADWIMAX" != "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
+		echo "Removing USB Modem submenu..."
+		sed -ri '/USB Modem/d' ../web_$MODEL/index.js
 	fi
 
 	if [ "$CONFIG_NTFS3G" != "y" ]; then
@@ -337,11 +351,8 @@ if [ -n "$1" ]; then
 	rm -rf ../web_$MODEL/*_300g.asp	
 	rm -rf ../web_$MODEL/*_SP.asp
 
-	rm -rf ../web_$MODEL/*Client*.*
-	rm -rf ../web_$MODEL/*ClientMore*.asp
 	rm -rf ../web_$MODEL/*Certificate*.asp
 	rm -rf ../web_$MODEL/*UniqueKey*.asp
-	
 	
 	rm -rf ../web_$MODEL/graph/*_300.*
 	rm -rf ../web_$MODEL/graph/*_500.*
@@ -410,7 +421,6 @@ if [ -n "$1" ]; then
 	rm -f ../web_$MODEL/Advanced_WMMADV_Content.asp
 	rm -f ../web_$MODEL/Basic_AOperation_Content.asp
 	rm -f ../web_$MODEL/Basic_Operation_Content.asp
-	rm -f ../web_$MODEL/Checking.asp
 	rm -f ../web_$MODEL/Main_Content.asp
 	rm -f ../web_$MODEL/Main_Index_Content.asp
 	rm -f ../web_$MODEL/Main_Password_Content.asp

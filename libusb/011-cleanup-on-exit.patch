@@ -8,9 +8,19 @@ errors and during deinitialization.
 
 [dsd: small tweaks]
 ---
- libusb/core.c |   14 ++++++++++++--
- libusb/io.c   |   32 +++++++++++++++++++++++++++-----
- 2 files changed, 39 insertions(+), 7 deletions(-)
+
+Subject: [PATCH] Fix libusb_init() error handling
+From 0e77f017fd3d1bdec4aced0429a380d3e434081b
+From: Daniel Drake <dan@reactivated.net>
+Date: Thu, 27 May 2010 19:24:49 -0400
+
+9996ccaed7 introduced a problem in that mutexes could be destroyed
+in the error handling codepath before they had been created.
+Pointed out by Michael Plante.
+---
+
+-- 
+1.7.0.4
 
 diff --git a/libusb/core.c b/libusb/core.c
 index efae9aa..3ffeb19 100644
@@ -56,12 +66,33 @@ index efae9aa..3ffeb19 100644
  	free(dev_handle);
  }
  
-@@ -1501,6 +1507,8 @@ API_EXPORTED int libusb_init(libusb_context **context)
+@@ -1480,7 +1480,7 @@ API_EXPORTED int libusb_init(libusb_context **context)
+ 	if (usbi_backend->init) {
+ 		r = usbi_backend->init(ctx);
+ 		if (r)
+-			goto err;
++			goto err_free_ctx;
+ 	}
+ 
+ 	pthread_mutex_init(&ctx->usb_devs_lock, NULL);
+@@ -1492,7 +1492,7 @@ API_EXPORTED int libusb_init(libusb_context **context)
+ 	if (r < 0) {
+ 		if (usbi_backend->exit)
+ 			usbi_backend->exit();
+-		goto err;
++		goto err_destroy_mutex;
+ 	}
+ 
+ 	pthread_mutex_lock(&default_context_lock);
+@@ -1501,7 +1507,10 @@ API_EXPORTED int libusb_init(libusb_context **context)
+ 		*context = ctx;
  	return 0;
  
- err:
+-err:
++err_destroy_mutex:
 +	pthread_mutex_destroy(&ctx->open_devs_lock);
 +	pthread_mutex_destroy(&ctx->usb_devs_lock);
++err_free_ctx:
  	free(ctx);
  	return r;
  }
@@ -96,9 +127,11 @@ index f627bcf..8505f1e 100644
  
  #ifdef USBI_TIMERFD_AVAILABLE
  	ctx->timerfd = timerfd_create(usbi_backend->get_timerfd_clockid(),
-@@ -1030,7 +1032,7 @@ int usbi_io_init(struct libusb_context *ctx)
+@@ -1030,8 +1032,9 @@ int usbi_io_init(struct libusb_context *ctx)
+ 		usbi_dbg("using timerfd for timeouts");
  		r = usbi_add_pollfd(ctx, ctx->timerfd, POLLIN);
  		if (r < 0) {
++			usbi_remove_pollfd(ctx, ctx->ctrl_pipe[0]);
  			close(ctx->timerfd);
 -			return r;
 +			goto err_close_pipe;

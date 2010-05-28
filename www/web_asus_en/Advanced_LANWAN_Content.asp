@@ -60,6 +60,7 @@
 								<option class="content_input_fd" value="l2tp" <% nvram_match_x("Layer3Forwarding","wan_proto", "l2tp","selected"); %>>
 									L2TP</option>
 								<option class="content_input_fd" value="wimax" <% nvram_match_x("Layer3Forwarding","wan_proto", "wimax","selected"); %>>WiMAX</option>
+								<option class="content_input_fd" value="usbmodem" <% nvram_match_x("Layer3Forwarding","wan_proto", "usbmodem","selected"); %>>USB Modem</option>
 							</select>
 						</td>
 					</tr>
