@@ -207,7 +207,7 @@ early_defaults(void)
 	if ((nvram_match("boardtype", "0x04CD") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201")) // N12
 	    || (nvram_match("boardtype", "0x04EC") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))) // N10
 	{
-		if (!nvram_get("wan_ifname"))
+		if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
 		{
 			nvram_set("vlan0ports", "0 1 2 3 5*");
 			nvram_set("vlan1ports", "4 5");
