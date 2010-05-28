@@ -105,11 +105,11 @@ function generateTree() {
 	// appendChild(aux1, generateDocEntry(0, "Quick Setup", "Basic_Operation_Content.asp#WANSetting", ""))
 	// }
 	aux1 = appendChild(foldersTree, leafNode("Wireless"));
-	if (isModel() == 'Wl600') {
+	if (isModel() == 'WL600') {
 		appendChild(aux1, generateDocEntry(0, "Interface",	"Advanced_Wireless_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "t2AES",	"Advanced_UniqueKey_Content.asp", ""));
         appendChild(aux1, generateDocEntry(0, "Access Control",	"Advanced_ACL_Content.asp", ""));
-	} else if (isModel() == 'Wl520') {
+	} else if (isModel() == 'WL520') {
 		appendChild(aux1, generateDocEntry(0, "Interface", "Advanced_Wireless_Content.asp", ""));
 		// appendChild(aux1, generateDocEntry(0, "Certificate", "Advanced_WCertificate_Content.asp", ""))
 		// appendChild(aux1, generateDocEntry(0, "Bridge", "Advanced_WMode_Content.asp", ""))
@@ -197,7 +197,7 @@ function generateTree() {
 		}
 	}
 
-	if (isModel() != 'Wl520' && isModel() != 'SnapAP') {
+	if (isModel() != 'WL520' && isModel() != 'SnapAP') {
 		aux1 = appendChild(foldersTree, leafNode("USB Application"));
 		appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Samba", "Advanced_Samba_Content.asp", ""));
@@ -205,13 +205,17 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""));
 	}
 
-	if ((isModel() == 'Wl500' || isModel() == 'WLHDD') && mode != 'AP') {
+	if (isModel() != 'WL520' && mode != 'AP') {
 		aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"));
 		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
 	}
 
+	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
+	appendChild(aux1, generateDocEntry(0, "PPP Connection Mode", "Advanced_ConnectionMode_Content.asp", ""));
+	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));	
+
 	aux1 = appendChild(foldersTree, leafNode("System Setup"));
-	if (isModel() != 'Wl520' && isModel() != 'SnapAP') {
+	if (isModel() != 'SnapAP') {
 		appendChild(aux1, generateDocEntry(0, "Operation Mode", "Advanced_OperationMode_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Services", "Advanced_Services_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Change Name", "Advanced_Name_Content.asp", ""));
@@ -232,9 +236,6 @@ function generateTree() {
 	// appendChild(aux1, generateDocEntry(0, "Printer Setup",
 	// "Advanced_PrinterSetup_Content.asp", ""))
 
-	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
-	appendChild(aux1, generateDocEntry(0, "WiMAX", "Advanced_WiMax_Content.asp", ""));	
-
 	if (mode == 'AP') {
 		aux1 = appendChild(foldersTree, leafNode("Status & Log"));
 		appendChild(aux1, generateDocEntry(0, "Status", "Main_AStatus_Content.asp", ""));
@@ -245,11 +246,13 @@ function generateTree() {
 		appendChild(aux1, generateDocEntry(0, "Status", "Main_GStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Wireless", "Main_WStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "WiMAX", "Main_WiMaxStatus_Content.asp", ""));
+		appendChild(aux1, generateDocEntry(0, "USB PPP Log", "Main_ChatStatus_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "DHCP Leases", "Main_DHCPStatus_Content.asp", ""));
 		if (isModel() != 'SnapAP') {
 			appendChild(aux1, generateDocEntry(0, "Port Forwarding", "Main_IPTStatus_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "Routing Table", "Advanced_RouteStatus_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "System Utilization", "Main_Utilization_Content.asp", ""));
+			appendChild(aux1, generateDocEntry(0, "Diagnostic Info", "Main_SysInfo_Content.asp", ""));
 			appendChild(aux1, generateDocEntry(0, "System Log", "Main_LogStatus_Content.asp", ""));
 		}
 	}
@@ -418,7 +421,7 @@ function redrawTree() {
 	doc.write("<td>");
 	doc.write("<div align='center'>");
 
-	if (isModel() == "Wl520" || isModel() == "SnapAP") {
+	if (isModel() == "WL520" || isModel() == "SnapAP") {
 		doc.write("<img src='graph/asusLogo.jpg' width='144' height='66'></div>");
 	} else {
 		if (mode == 'AP')

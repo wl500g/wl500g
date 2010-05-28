@@ -1,0 +1,103 @@
+#!/bin/sh
+# Inspired by WeWiMo from Lada JNet, lada@hkfree.org
+
+SHOW_DNS="1"	
+
+echo "<font size=-1>Uptime: $(uptime) </font>"
+echo "<hr><table border=0 cellpadding=0 cellspacing=0><tr>"
+ 
+echo "<td><b>IP Adress</b></td>"
+echo "<td><b>MAC Adress</b></td>"
+echo "<td><b>Signal</b></td>"
+
+if [ "$SHOW_DNS" != "0" ]; then echo "<td align=center><b>DNS Record</b></td>";
+fi
+
+echo "</b></tr>"
+
+# refresh DHCP leases
+echo >/tmp/dnsmasq.log
+killall -SIGALRM dnsmasq
+sleep 1
+
+awk -v SHOW_DNS="$SHOW_DNS" \
+'
+BEGIN{
+ getline <"/proc/net/arp"
+ while (getline <"/proc/net/arp"){
+  IP[$4]=$1;
+ }
+ close("/proc/net/arp");
+ 
+ while (getline <"/tmp/dnsmasq.log"){
+  IP[toupper($2)]=$3;
+  DNS[toupper($2)]=$4
+ }
+ close("/tmp/dnsmasq.log");
+
+ i=1;
+ while ("wl wds"|getline){
+  DNS[$2]="WDS "i
+  i++
+ }
+ close("wl wds");
+
+ while (getline <"/etc/hosts"){
+  DNS[$1]=$2
+ }
+ close("/etc/hosts");
+
+ while ("wl assoclist"|getline)
+  ShowMAC($2)
+
+ while ("wl wds"|getline)
+  ShowMAC($2)
+}
+
+function ShowMAC(MAC){
+ "wl rssi "MAC |getline
+ "wl rssi "MAC |getline
+ SIGNAL=$1
+ IP=IP[MAC]
+ DNS=DNS[IP]
+ if (DNS=="")
+  DNS=DNS[MAC]
+
+ if (COL=="1") {printf "<tr>";COL=0}
+ else {printf "<tr bgcolor=#dddddd>";COL=1}
+ if (DNS=="") DNS="unknown"
+ printf "<td>%s&nbsp;&nbsp;</td>",IP
+ printf "<td>%s&nbsp;&nbsp;</td>",MAC
+
+ printf "<td align=right><table border=0 cellspacing=0 cellpadding=0><tr><td>%sdB&nbsp;</td><td>\
+ <table width=90 cellspacing=0 cellpadding=0 border=0 bgcolor=#C00000><tr><td width=%s \
+ height=12 title=RSSI bgcolor=#00C000><font size=1>&nbsp;</font></td><td><font size=1>&nbsp;\
+ </font></td></tr></table></td></tr></table></td>",SIGNAL,99+SIGNAL
+
+ if (SHOW_DNS=="1") printf "<td>&nbsp;(%s)&nbsp;</td>",DNS
+ printf "</tr>"
+ printf "\n"
+}
+'
+echo "</table><hr>"
+
+echo -n "<h3>Detailed WiFi info:</h3>"
+echo -n "<blockquote><pre>"
+echo    "=========================================="
+for i in `wl assoclist | sed s/assoclist// `
+ do
+   echo "<pre> Station MAC address: $i"
+   wl sta_info $i |sed '1d'
+   echo -n "<b></pre> "
+   wl rssi $i
+   echo -n "</b>"
+   echo "=========================================="
+ done
+echo "</blockquote>"
+
+echo -n "<h3>Detailed Access Point info:</h3><pre>"
+wl pktcnt 
+echo -n "Features: ";wl cap;echo ""
+wl assoc
+
+echo "</pre><hr>"

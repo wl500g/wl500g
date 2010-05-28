@@ -91,7 +91,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax ntfs-3g\
-	shared upnp utils wlconf www libbcmcrypto asustrx
+	shared upnp utils wlconf www libbcmcrypto asustrx cdma
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -604,6 +604,14 @@ $(TOP)/utils:
 
 utils: $(TOP)/utils
 	@true
+
+$(TOP)/cdma:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - cdma | tar -C $(TOP) -xf -
+
+cdma: $(TOP)/cdma
+	@true
+
 
 $(TOP)/misc:
 	[ -d $@ ] || \

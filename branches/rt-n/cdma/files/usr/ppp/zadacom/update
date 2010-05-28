@@ -1,0 +1,24 @@
+#!/bin/sh
+
+USERNAME=$(nvram get gprs_username)
+PASSWORD=$(nvram get gprs_password)
+APN=$(nvram get gprs_apn)
+DIALNO=$(nvram get gprs_dialno)
+
+if [ -z $DEVNO ]; then
+ DEVNO=0
+fi
+
+grep -q '\"'$USERNAME'\" \* \"'$PASSWORD'\" \*' /tmp/ppp/chap-secrets
+CHAP=$?
+if [ "$CHAP" != "0" ]; then
+  echo \"$USERNAME\" \* \"$PASSWORD\" \*>>/tmp/ppp/chap-secrets
+fi
+chmod 600 /tmp/ppp/chap-secrets
+
+echo $DEVICE > /tmp/ppp/peers/zadacom
+sed -e "s/\\\$username\\\$/$USERNAME/g" /usr/ppp/zadacom/zadacom >> /tmp/ppp/peers/zadacom
+echo $(nvram get dial_param_$1) >> /tmp/ppp/peers/zadacom
+
+sed -e "s/\\\$apn\\\$/$APN/g" \
+    -e "s/\\\$dialno\\\$/$DIALNO/g" /usr/ppp/zadacom/zadacom.chat > /tmp/ppp/peers/zadacom.chat

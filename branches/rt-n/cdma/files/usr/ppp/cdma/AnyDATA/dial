@@ -1,0 +1,24 @@
+#!/bin/sh
+
+insmod usbserial
+insmod option
+
+while true; do
+  kill -9 $(ps|grep pppd|grep cdma|awk -F' ' '{print $1}') 2>/dev/null
+
+  sleep 5
+
+  if [ -z "$(nvram get wan_modem_usbloc)" ]; then
+   DEVICE="/dev/usb/tts/0"
+  else
+   DEVICE=$(grep ": $(nvram get wan_modem_usbloc) :" /proc/bus/usb/devpath | awk -F':' '{print $1}')
+  fi
+
+  export DEVICE
+
+  /usr/ppp/cdma/AnyDATA/update $1
+
+  pppd call cdma >> /tmp/chat.log
+
+  sleep 25
+done

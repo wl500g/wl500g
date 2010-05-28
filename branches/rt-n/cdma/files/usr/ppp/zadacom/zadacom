@@ -1,0 +1,12 @@
+debug
+115200
+crtscts
+noipdefault
+ipcp-accept-local
+lcp-echo-interval 60
+lcp-echo-failure 5
+usepeerdns
+noauth
+nodetach
+user "$username$"
+connect "/usr/sbin/chat -s -S -V -t 30 -f /tmp/ppp/peers/zadacom.chat 2>/tmp/chat.log"

@@ -1,0 +1,30 @@
+From a85b66e0f906fedbba7fbaf5ea9ac0dbfc0e4916
+From: Denys Vlasenko
+Date: Sun, 23 May 2010 21:04:15 +0000
+Subject: ifconfig: do not truncate interface names. closes bug 1795
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/networking/interface.c b/networking/interface.c
+index a59f310..659ac36 100644
+--- a/networking/interface.c
++++ b/networking/interface.c
+@@ -1002,7 +1002,7 @@ static void ife_print(struct interface *ptr)
+ 	if (hw == NULL)
+ 		hw = get_hwntype(-1);
+ 
+-	printf("%-9.9s Link encap:%s  ", ptr->name, hw->title);
++	printf("%-9s Link encap:%s  ", ptr->name, hw->title);
+ 	/* For some hardware types (eg Ash, ATM) we don't print the
+ 	   hardware address if it's null.  */
+ 	if (hw->print != NULL
+@@ -1178,7 +1178,6 @@ static int for_all_interfaces(int (*doit) (struct interface *, void *),
+ 		return -1;
+ 	for (ife = int_list; ife; ife = ife->next) {
+ 		int err = doit(ife, cookie);
+-
+ 		if (err)
+ 			return err;
+ 	}
+--
+cgit v0.8.2.1
