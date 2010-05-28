@@ -992,8 +992,9 @@ images-%:
 	#make image-$* LANGUAGE="JP"
 
 images:
-	make images-RT-N12
 	make images-RT-N16
+	make images-RT-N12
+	make images-RT-N10
 	#make images-WL500gp
 	#make images-WL500W
 	#make images-WL520gu
