@@ -23,15 +23,15 @@ function isModel() {
 	pid = parent.titleFrame.document.form.productid.value;
 
 	if (pid.indexOf("WL500") != -1 || pid.indexOf("RT-N1") != -1 || 
-		pid.indexOf("Wl700") != -1 || pid.indexOf("WL550") != -1 || 
-		pid.indexOf("Wl520gu") != -1)
+		pid.indexOf("WL700") != -1 || pid.indexOf("WL550") != -1 || 
+		pid.indexOf("WL520gu") != -1)
 		model = 'WL500';
 	else if (pid.indexOf("WL520") != -1 || pid.indexOf("WL530") != -1)
 		model = 'WL520';
 	else if (pid.indexOf("SnapAP") != -1)
 		model = 'SnapAP';
 	else if (pid.indexOf("WL300") != -1 || pid.indexOf("WL320") != -1 || 
-			pid.indexOf("Wl330") != -1)
+			pid.indexOf("WL330") != -1)
 		model = 'WL300';
 	else if (pid.indexOf("WLHDD") != -1)
 		model = 'WLHDD';
