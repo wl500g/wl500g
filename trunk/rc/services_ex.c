@@ -1655,7 +1655,9 @@ hotplug_usb(void)
 		{
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
-
+#if defined(__CONFIG_MODEM__)
+			hotplug_usb_modeswitch( interface, action, product );
+#endif
 			if (scsi_host)
 				scsi_host_no = atoi(scsi_host);
 			if (strcmp(action, "add") == 0)
