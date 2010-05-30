@@ -39,21 +39,13 @@ function isModel() {
 	return model;
 }
 
-function isModel2() {
-	model2 = 'WL530';
-	pid = parent.titleFrame.document.form.productid.value;
-
-	if (pid.indexOf("WL520") != -1)
-		model2 = 'WL520';
-
-	return model2;
-}
-
 function isBand() {
 	band = 'g';
 	pid = parent.titleFrame.document.form.productid.value;
 
-	if (pid.indexOf("WL500b") != -1)
+	if (pid.indexOf("WL500W") != -1 || pid.indexOf("RT-N1") != -1)
+		band = 'n';
+	else if (pid.indexOf("WL500b") != -1)
 		band = 'b';
 
 	return band;
@@ -62,6 +54,7 @@ function isBand() {
 function isCard() {
 	card = 'broadcom';
 	pid = parent.titleFrame.document.form.productid.value;
+
 	if (pid.indexOf("WL500bv2") != -1)
 		card = 'ralink';
 	return card;
@@ -69,8 +62,8 @@ function isCard() {
 
 function isFlash() {
 	flash = '4MB';
-
 	pid = parent.titleFrame.document.form.productid.value;
+
 	if (pid.indexOf("WL500gp") != -1 || pid.indexOf("WL500W") != -1)
 		flash = '8MB';
 
