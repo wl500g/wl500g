@@ -176,6 +176,7 @@ int hotplug_check_modem( char * interface, char * product, char * prefix );
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM)
 void hotplug_network_device( char * interface, char * action, char * product );
+void hotplug_usb_modeswitch( char * interface, char * action, char * product );
 #endif
 
 #endif /* _rc_h_ */

@@ -85,10 +85,6 @@ int hotplug_check_modem( char * interface, char * product, char * prefix )
     char tmp[200], *str1, *str2;
     char stored_product[40];
     int vid, pid;
-    char *argv[] = {
-	"/usr/ppp/zerocd",
-	NULL
-    };
 
     str1 = nvram_safe_get( "wan_modem_vid" );
     sscanf( str1, "%x", &vid );
@@ -123,12 +119,22 @@ int hotplug_check_modem( char * interface, char * product, char * prefix )
 	}
     }
 
-    if( ret==0 ){
-	// check zerocd mode
-	_eval(argv, NULL, 0, &pid);
-    }
-
     dprintf("done. ret %d", ret );
 
     return ret;
+}
+
+void
+hotplug_usb_modeswitch( char * interface, char * action, char * product )
+{
+    int pid;
+    char *argv[] = {
+	"/usr/ppp/zerocd",
+	NULL
+    };
+
+    if( strcmp(action, "add") == 0 ){
+	// check zerocd mode
+	_eval(argv, NULL, 0, &pid);
+    }
 }
