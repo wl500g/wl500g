@@ -495,6 +495,7 @@
 		</table>
 	</div>
 	<div id='ZeroCD' class='vanishing'>
+
 		<table class="content_table">
 			<tr class="content_header_tr">
 				<td class="content_section_header_td" colspan="2">
@@ -509,7 +510,7 @@
 					<select name="wan_modem_zerocd_mode" class="content_input_fd">
 						<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
 							Not set</option>
-						<option class="content_input_fd" value="OptionGlobeSurferIcon" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon","selected"); %>>
+<!--						<option class="content_input_fd" value="OptionGlobeSurferIcon" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon","selected"); %>>
 							Option GlobeSurfer Icon (aka "Vodafone EasyBox")</option>
 						<option class="content_input_fd" value="OptionGlobeSurferIcon_7_2" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon_7_2","selected"); %>>
 							Option GlobeSurfer Icon 7.2</option>
@@ -546,9 +547,11 @@
 						<option class="content_input_fd" value="Alcatel_OT_X020" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Alcatel_OT_X020","selected"); %>>
 							Alcatel OT-X020</option>
 						<option class="content_input_fd" value="AnyDATA_ADU" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "AnyDATA_ADU","selected"); %>>
-							AnyDATA ADU-500A, ADU-510A, ADU-520A</option>
+							AnyDATA ADU-500A, ADU-510A, ADU-520A</option> -->
+						<option class="content_input_fd" value="Auto" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
+							Auto</option>
 						<option class="content_input_fd" value="UserDefined" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
-							User config at /usr/local/etc/usb_modeswitch.conf</option>
+							Config at /usr/local/etc/usb_modeswitch.conf</option>
 					</select>
 				</td>
 			</tr>
