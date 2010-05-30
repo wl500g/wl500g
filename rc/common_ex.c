@@ -24,6 +24,7 @@
 #include<syslog.h>
 #include <stdarg.h>
 #include <errno.h>
+#include "nvparse.h"
 
 #include "rc.h"
 
@@ -404,6 +405,20 @@ void convert_asus_values()
 	nvram_set("wan_dns_t", "");
 	nvram_set("wan_status_t", "Disconnected");
 
+#if defined( __CONFIG_MADWIMAX__ ) || defined ( __CONFIG_MODEM__ )
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		nvram_unset(strcat_r(prefix, "dial_enabled", tmp));
+		nvram_unset(strcat_r(prefix, "wimax_enabled", tmp));
+		nvram_unset(strcat_r(prefix, "prepared", tmp));
+		nvram_unset(strcat_r(prefix, "usb_device", tmp));
+		nvram_unset(strcat_r(prefix, "usb_device_name", tmp));
+	}
+#endif
+
 	if (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "pptp") ||
 		nvram_match("wan_proto", "l2tp"))
 	{
@@ -464,8 +479,8 @@ void convert_asus_values()
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
 		if( !nvram_match("wan_modem_enable_x", "1") )
-			nvram_unset( "wan0_modem_enable" );
-		else nvram_set( "wan0_modem_enable", "1" );
+			nvram_unset( "wan0_dial_enabled" );
+		else nvram_set( "wan0_dial_enabled", "1" );
 	}
 #endif
 
@@ -487,9 +502,6 @@ void convert_asus_values()
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
 	nvram_unset("wan0_dns");
 	nvram_unset("wanx_dns");
-#ifdef __CONFIG_MADWIMAX__
-	nvram_unset("wan0_wimax_enabled");
-#endif
 
 	convert_routes();
 

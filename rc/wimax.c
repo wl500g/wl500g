@@ -24,7 +24,8 @@ void update_nvram_wmx(char * ifname, int isup);
 inline static int
 wimax_modem(void)
 {
-	return nvram_invmatch("usb_wimax_device", "");
+	char * tmp = nvram_get("wan0_usb_device");
+	return ( tmp!=0 && *tmp!=0 );
 }
 
 inline static int
@@ -384,6 +385,23 @@ update_nvram_wmx(char *ifname, int isup)
 	else
 		nvram_set("wan_wimax_ping_t", "Disabled");
 }
+
+int 
+hotplug_check_wimax( char * interface, char * product, char * prefix )
+{
+	char tmp[100];
+
+	dprintf( "%s %s %s", interface, product, prefix );
+	if (strncmp(product, "4e8/6761", 8) == 0 ||
+	    strncmp(product, "4e9/6761", 8) == 0 ||
+	    strncmp(product, "4e8/6731", 8) == 0 ||
+	    strncmp(product, "4e8/6780", 8) == 0){
+		nvram_set(strcat_r(prefix, "usb_device_name", tmp), "Samsung CMC-730 chip");
+		return 1;
+	}
+	else
+		return 0;
+};
 
 int
 madwimax_main(int argc, char **argv)

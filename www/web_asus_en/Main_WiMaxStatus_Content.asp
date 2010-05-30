@@ -44,7 +44,7 @@
 </tr>
 <tr>
 <td class="content_header_td_less">Device:
-           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="usb_wimax_device" value="<% nvram_get_f("wan.log","usb_wimax_device"); %>" readonly="1"></td>
+           </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan0_usb_device" value="<% nvram_get_f("wan.log","wan0_usb_device"); %>" readonly="1"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">IP Address:

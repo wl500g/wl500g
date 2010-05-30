@@ -165,11 +165,17 @@ int stop_wimax(void);
 int madwimax_check(void);
 int madwimax_main(int argc, char **argv);
 int wimax_ifunit(char *ifname);
+int hotplug_check_wimax( char * interface, char * product, char * prefix );
 #endif
 
 #ifdef __CONFIG_MODEM__
 int start_modem_dial( char * prefix );
 int stop_modem_dial();
+int hotplug_check_modem( char * interface, char * product, char * prefix );
+#endif
+
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM)
+void hotplug_network_device( char * interface, char * action, char * product );
 #endif
 
 #endif /* _rc_h_ */

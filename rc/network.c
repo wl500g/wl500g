@@ -43,9 +43,46 @@ typedef u_int8_t u8;
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
+#include <semaphore.h>
+#include <fcntl.h>
+
+sem_t * hotplug_sem;
 
 void lan_up(char *lan_ifname);
 int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
+
+void
+hotplug_sem_open()
+{
+	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
+	if( hotplug_sem == SEM_FAILED ){
+#ifdef DEBUG
+		dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+#endif
+		hotplug_sem = sem_open( "/hotplug_sem", 0 );
+	}
+#ifdef DEBUG
+	dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+#endif
+}
+
+void
+hotplug_sem_close()
+{
+	if(hotplug_sem) sem_close( hotplug_sem );
+}
+
+void
+hotplug_sem_lock()
+{
+	if(hotplug_sem) sem_wait( hotplug_sem );
+}
+
+void
+hotplug_sem_unlock()
+{
+	if(hotplug_sem) sem_post( hotplug_sem );
+}
 
 static int
 add_routes(char *prefix, char *var, char *ifname)
@@ -581,6 +618,10 @@ start_wan(void)
 	if (nvram_match("router_disable", "1"))
 		return;
 
+#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
+	hotplug_sem_open();
+#endif
+
 #ifdef ASUS_EXT
 	update_wan_status(0);
 	/* start connection independent firewall */
@@ -899,18 +940,20 @@ start_wan(void)
 				// start multicast router 
 				start_igmpproxy(wan_ifname);
 			}*/
+
+			hotplug_sem_lock();
+			nvram_set( strcat_r(prefix, "prepared", tmp), "1" );
 			
-			if( nvram_match( "wan0_modem_enable", "1" ) )
+			if( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) )
 			{
-				// wait for USB initialization
-				sleep( 5 );
 				/* launch ppp client daemon */
 				start_modem_dial(prefix);
 			} else
 			{
 				demand=0;
-				nvram_set( "wan0_modem_enable", "1" );
+				nvram_set( strcat_r(prefix, "dial_enabled", tmp), "1" );
 			}
+			hotplug_sem_unlock();
 
 			/* ppp interface name is referenced from this point on */
 			wan_ifname = nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp));
@@ -1047,6 +1090,11 @@ start_wan(void)
 		}
 	}
 #endif
+
+#if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
+	hotplug_sem_close();
+#endif
+
 }
 
 void
@@ -1694,3 +1742,70 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 	_eval(ping_argv, NULL, 0, &pid);
 	return 1;
 }
+
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM)
+void hotplug_network_device( char * interface, char * action, char * product )
+{
+	char *wan_ifname;
+	char *wan_proto;
+	int unit;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+
+	dprintf( "%s %s %s", interface, action, product );
+
+	int action_add = (strcmp(action, "add") == 0);
+
+	hotplug_sem_open();
+
+	/* Start each configured and enabled wan connection and its undelying i/f */
+	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+		/* make sure the connection exists and is enabled */ 
+		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+		if (!wan_ifname)
+			continue;
+
+		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+			continue;
+
+		dprintf("%s %s %p\n\n\n\n\n", wan_ifname, wan_proto, hotplug_sem );
+
+		hotplug_sem_lock();
+#ifdef __CONFIG_MADWIMAX__
+		if (strcmp(wan_proto, "wimax") == 0)
+		{
+			if( hotplug_check_wimax( interface, product, prefix ) ){
+				if ( action_add ){
+					nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+					start_wimax( prefix );
+				}
+			}
+		}
+#endif
+#ifdef __CONFIG_MODEM__
+		if (strcmp(wan_proto, "usbmodem") == 0)
+		{
+			if( hotplug_check_modem( interface, product, prefix ) ){
+				if ( action_add ){
+					nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+					start_modem_dial( prefix );
+				}
+			}
+		}
+#else
+		{}
+#endif
+		hotplug_sem_unlock();
+
+		if( action_add == 0 )
+			nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+	}
+
+	hotplug_sem_close();
+
+	dprintf("done");
+};
+#endif
