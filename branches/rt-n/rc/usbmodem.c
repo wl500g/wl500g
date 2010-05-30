@@ -28,8 +28,11 @@ void modem_get_script_name( char * filename )
 int
 start_modem_dial( char * prefix )
 {
-    int ret;
+    int ret=0;
     char sfn[200];
+    char dialparam[] = "dial_param_XXXXXXXXX";
+    pid_t pid;
+    char tmp[200];
     char *argv[] = {
 	(modem_get_script_name(sfn), sfn),
 	NULL
@@ -37,24 +40,22 @@ start_modem_dial( char * prefix )
 
     dprintf( "%s", sfn );
 
-    char dialparam[] = "dial_param_XXXXXXXXX";
-    pid_t pid;
-    char tmp[200];
+    if( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) &&
+	nvram_match( strcat_r(prefix, "prepared", tmp), "1" ) &&
+	nvram_get( strcat_r(prefix, "usb_device", tmp) ) ){
 
-    snprintf(dialparam, 20, "dial_param_%s", nvram_safe_get("wan_modem_mode_x"));
-    nvram_unset(dialparam);
-    nvram_unset("wan_modem_dial_param_1");
+	snprintf(dialparam, 20, "dial_param_%s", nvram_safe_get("wan_modem_mode_x"));
+	nvram_unset(dialparam);
+	nvram_unset("wan_modem_dial_param_1");
 
-    //nvram_set("wan0_primary", "1");
-    //nvram_set("wan1_primary", "0");
-
-    if (nvram_match("wan_proto", "usbmodem") &&
-	nvram_invmatch("wan_modem_mode_x", "-1"))
-    {
-		nvram_set("wan0_ifname", nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp)) );
-		nvram_set("wan0_dnsenable_x", "1");
+	if (nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") &&
+		nvram_invmatch("wan_modem_mode_x", "-1"))
+	{
+		nvram_set( strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp)) );
+		nvram_set( strcat_r(prefix, "dnsenable_x", tmp), "1");
+	}
+	ret = _eval(argv, NULL, 0, &pid);
     }
-    ret = _eval(argv, NULL, 0, &pid);
 
     dprintf("done\n");
     return ret;
@@ -63,9 +64,77 @@ start_modem_dial( char * prefix )
 int
 stop_modem_dial(void)
 {
-	int ret = eval("killall", "dial");
-	ret = eval("killall", "pppd");
+    int ret;
+    char sfn[200], * tmp;
+    //eval("killall", "dial");
+    modem_get_script_name( sfn );
+    tmp = strrchr( sfn, '/' );
+    if( tmp ) tmp++;
+    else tmp = sfn;
 
-	dprintf("done\n");
-	return ret;
+    eval("killall", tmp);
+    ret = eval("killall", "pppd");
+
+    dprintf("done\n");
+    return ret;
+}
+
+int hotplug_check_modem( char * interface, char * product, char * prefix )
+{
+    int ret=0;
+    char tmp[200], *str1, *str2;
+    char stored_product[40];
+    int vid, pid;
+
+    str1 = nvram_safe_get( "wan_modem_vid" );
+    sscanf( str1, "%x", &vid );
+    str2 = nvram_safe_get( "wan_modem_pid" );
+    sscanf( str2, "%x", &pid );
+
+    sprintf( stored_product, "%x/%x", vid, pid );
+
+    dprintf( "stored: %s, found: %s", stored_product, product );
+
+    if( strncmp( product, stored_product, strlen(stored_product) )==0 ){
+	ret=1;
+    } else {
+	if( !*str1 ){
+	    strcpy( stored_product, product );
+	    str1 = strchr( stored_product, '/' );
+	    if( str1 ){
+		*str1=0; str1++;
+		str2 = strchr( str1, '/' );
+		if( str2 ) *str2=0;
+		sscanf( stored_product, "%x", &vid ); sscanf( str1, "%x", &pid );
+		sprintf( stored_product, "0x%04x", vid );
+//		nvram_set(strcat_r(prefix, "modem_vid", tmp), stored_product );
+		nvram_set( "wan_modem_vid",  stored_product );
+		sprintf( stored_product, "0x%04x", pid );
+//		nvram_set(strcat_r(prefix, "modem_pid", tmp), stored_product );
+		nvram_set( "wan_modem_pid",  stored_product );
+		
+		dprintf( "wrote: %04x:%04x", vid, pid );
+		ret=1;
+	    }
+	}
+    }
+
+    dprintf("done. ret %d", ret );
+
+    return ret;
+}
+
+void
+hotplug_usb_modeswitch( char * interface, char * action, char * product )
+{
+    int pid;
+    char *argv[] = {
+	"/usr/ppp/zerocd",
+	NULL
+    };
+
+    if( strcmp(action, "add") == 0 ){
+	// check zerocd mode
+	_eval(argv, NULL, 0, &pid);
+    }
 }
