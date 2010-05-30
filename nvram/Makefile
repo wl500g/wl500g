@@ -14,7 +14,7 @@
 
 CFLAGS	+= -I. -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
-CFLAGS	+= -s -O2 -DASUS $(EXTRACFLAGS)
+CFLAGS	+= -fPIC -s -O2 -DASUS $(EXTRACFLAGS)
 LDFLAGS += -L.
 LDFLAGS	+= -L$(TOP)/shared -L$(INSTALLDIR)/shared/usr/lib -lshared
 

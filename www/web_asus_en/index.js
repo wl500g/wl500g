@@ -23,15 +23,15 @@ function isModel() {
 	pid = parent.titleFrame.document.form.productid.value;
 
 	if (pid.indexOf("WL500") != -1 || pid.indexOf("RT-N1") != -1 || 
-		pid.indexOf("Wl700") != -1 || pid.indexOf("WL550") != -1 || 
-		pid.indexOf("Wl520gu") != -1)
+		pid.indexOf("WL700") != -1 || pid.indexOf("WL550") != -1 || 
+		pid.indexOf("WL520gu") != -1)
 		model = 'WL500';
 	else if (pid.indexOf("WL520") != -1 || pid.indexOf("WL530") != -1)
 		model = 'WL520';
 	else if (pid.indexOf("SnapAP") != -1)
 		model = 'SnapAP';
 	else if (pid.indexOf("WL300") != -1 || pid.indexOf("WL320") != -1 || 
-			pid.indexOf("Wl330") != -1)
+			pid.indexOf("WL330") != -1)
 		model = 'WL300';
 	else if (pid.indexOf("WLHDD") != -1)
 		model = 'WLHDD';
@@ -39,21 +39,13 @@ function isModel() {
 	return model;
 }
 
-function isModel2() {
-	model2 = 'WL530';
-	pid = parent.titleFrame.document.form.productid.value;
-
-	if (pid.indexOf("WL520") != -1)
-		model2 = 'WL520';
-
-	return model2;
-}
-
 function isBand() {
 	band = 'g';
 	pid = parent.titleFrame.document.form.productid.value;
 
-	if (pid.indexOf("WL500b") != -1)
+	if (pid.indexOf("WL500W") != -1 || pid.indexOf("RT-N1") != -1)
+		band = 'n';
+	else if (pid.indexOf("WL500b") != -1)
 		band = 'b';
 
 	return band;
@@ -62,6 +54,7 @@ function isBand() {
 function isCard() {
 	card = 'broadcom';
 	pid = parent.titleFrame.document.form.productid.value;
+
 	if (pid.indexOf("WL500bv2") != -1)
 		card = 'ralink';
 	return card;
@@ -69,8 +62,8 @@ function isCard() {
 
 function isFlash() {
 	flash = '4MB';
-
 	pid = parent.titleFrame.document.form.productid.value;
+
 	if (pid.indexOf("WL500gp") != -1 || pid.indexOf("WL500W") != -1)
 		flash = '8MB';
 
@@ -197,17 +190,17 @@ function generateTree() {
 		}
 	}
 
+	if (isModel() != 'WL520' && mode != 'AP') {
+		aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"));
+		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
+	}
+
 	if (isModel() != 'WL520' && isModel() != 'SnapAP') {
 		aux1 = appendChild(foldersTree, leafNode("USB Application"));
 		appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Samba", "Advanced_Samba_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "NFS Server", "Advanced_NFS_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""));
-	}
-
-	if (isModel() != 'WL520' && mode != 'AP') {
-		aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"));
-		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
 	}
 
 	aux1 = appendChild(foldersTree, leafNode("USB Modem"));

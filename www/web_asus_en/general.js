@@ -1654,6 +1654,11 @@ function load_body()
 			inputCtrl(frm.wl_gmode, 0);
 			inputCtrl(frm.wl_gmode_check, 0);
 		}
+		else if (window.top.isBand() == 'n')
+		{
+			if (frm.wl_channel.value == "0")
+				inputCtrl(frm.wl_nctrlsb, 0);
+		}
 
 		masq_wepkey();
 		if (window.top.isModel()=="WL520" || window.top.isModel()=="SnapAP" || window.top.isCard()=='ralink')
@@ -1746,7 +1751,7 @@ function load_body()
 				frm.wan_pppoe_idletime_check.checked = true;
 			}
 
-			if (window.top.isModel2()=='WL520')
+			if (window.top.isModel()=='WL520')
 			{
 				frm.wan_mode_x.options[2].value = null;
 				frm.wan_mode_x.options[2] = null;
@@ -2470,56 +2475,7 @@ function change_common(o, s, v)
 	change = 1;
 	window.top.pageChanged = 1;
 
-	if (v == "wl_auth_mode") /* Handle AuthenticationMethod Change */
-	{
-		wl_auth_mode_change(0);
-
-		if (o.value == "psk")
-		{
-			opts=document.form.wl_auth_mode.options;
-			if (opts[opts.selectedIndex].text == "WPA-Personal")
-				document.form.wl_wpa_mode.value="1";
-			else if (opts[opts.selectedIndex].text == "WPA2-Personal")
-				document.form.wl_wpa_mode.value="2";
-			else if (opts[opts.selectedIndex].text == "WPA-Auto-Personal")
-				document.form.wl_wpa_mode.value="0";
-			document.form.wl_wpa_psk.focus();
-		}
-		else if (o.value == "shared" || o.value == "radius")
-			document.form.wl_phrase_x.focus();
-	}
-	else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
-	{
-		change_wlweptype(o, "WLANConfig11b");
-	}
-	else if (v == "wl_mode_x")
-	{
-		if (window.top.isCard()=='ralink')
-		{
-			change_wireless_bridge2(document.form.wl_mode_x.value,
-					rcheck(document.form.wl_wdsapply_x),
-					1, 1);
-		}
-		else change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
-	}
-	else if (v == "wl_crypto")
-	{
-		wl_auth_mode_change(0);
-//		if (o.value=="tkip+aes")
-//		{
-//		document.form.wl_wep_x.value = 0;
-//		//change_wlweptype(document.form.wl_wep_x, "WLANConfig11b");
-
-//		inputCtrl(document.form.wl_wep_x, 0);
-//		inputCtrl(document.form.wl_phrase_x, 0);
-//		inputCtrl(document.form.wl_key1, 0);
-//		inputCtrl(document.form.wl_key2, 0);
-//		inputCtrl(document.form.wl_key3, 0);
-//		inputCtrl(document.form.wl_key4, 0);
-//		inputCtrl(document.form.wl_key, 0);
-//		}
-	}
-	else if (v=="wan_proto")
+	if (v=="wan_proto")
 	{
 		change_wan_type(o.value);
 	}
@@ -2527,33 +2483,106 @@ function change_common(o, s, v)
 	{
 		change_ipv6_type(o.value);
 	}
-	else if (s == "FirewallConfig" && v=="DmzDevices")
+	else if (s == "FirewallConfig")
 	{
-		change_wireless_firewall();
-	}
-	else if (s == "FirewallConfig" && v=="WanLanDefaultAct")
-	{
-		if (o.value == "DROP")
+		if (v == "DmzDevices")
+			change_wireless_firewall();
+		else if (v == "WanLanDefaultAct" && o.value == "DROP")
 			alert("Selecting DROP will drop all WAN to LAN packets except for those matched in filter table. Please use it carefully.");
-	}
-	else if (s == "FirewallConfig" && v=="LanWanDefaultAct")
-	{
-		if (o.value == "DROP")
+		else if (v == "LanWanDefaultAct" && o.value == "DROP")
 			alert("Selecting DROP will drop all LAN to WAN packets except for those matched in filter table. Please use it carefully.");
 	}
-	else if (s=="WLANConfig11b" && v=="x_Mode11g")
+	else if (s == "WLANConfig11b")
 	{
-//		alert(document.form.wan_dnsenable_x[0].checked);
-//		alert(document.form.wan_dnsenable_x[1].checked);
-		RefreshRateSetList(document.form.WLANConfig11b_x_Mode11g.value, true);
-	}
-	else if (s=="WLANConfig11b" && v=="Channel" && document.form.current_page.value=="Advanced_WMode_Content.asp")
-	{
-		if (document.form.WLANConfig11b_x_APMode.value != "0" && document.form.WLANConfig11b_Channel.value == "0")
+		if (v == "wl_auth_mode") /* Handle AuthenticationMethod Change */
+		{
+			wl_auth_mode_change(0);
+
+			if (o.value == "psk")
+			{
+				opts=document.form.wl_auth_mode.options;
+				if (opts[opts.selectedIndex].text == "WPA-Personal")
+					document.form.wl_wpa_mode.value="1";
+				else if (opts[opts.selectedIndex].text == "WPA2-Personal")
+					document.form.wl_wpa_mode.value="2";
+				else if (opts[opts.selectedIndex].text == "WPA-Auto-Personal")
+					document.form.wl_wpa_mode.value="0";
+				document.form.wl_wpa_psk.focus();
+			}
+			else if (o.value == "shared" || o.value == "radius")
+				document.form.wl_phrase_x.focus();
+		}
+		else if (v == "wl_crypto")
+		{
+			wl_auth_mode_change(0);
+//			if (o.value=="tkip+aes")
+//			{
+//			document.form.wl_wep_x.value = 0;
+//			//change_wlweptype(document.form.wl_wep_x, "WLANConfig11b");
+
+//			inputCtrl(document.form.wl_wep_x, 0);
+//			inputCtrl(document.form.wl_phrase_x, 0);
+//			inputCtrl(document.form.wl_key1, 0);
+//			inputCtrl(document.form.wl_key2, 0);
+//			inputCtrl(document.form.wl_key3, 0);
+//			inputCtrl(document.form.wl_key4, 0);
+//			inputCtrl(document.form.wl_key, 0);
+//			}
+		}
+		else if (v == "wl_mode_x")
+		{
+			if (window.top.isCard()=='ralink')
+			{
+			change_wireless_bridge2(document.form.wl_mode_x.value,
+					rcheck(document.form.wl_wdsapply_x),
+					1, 1);
+			}
+			else change_wireless_bridge(o.value, rcheck(document.form.wl_wdsapply_x), rcheck(document.form.wl_lazywds), 1);
+		}
+		else if (v == "wl_wep_x") /* Handle AuthenticationMethod Change */
+		{
+			change_wlweptype(o, "WLANConfig11b");
+		}
+		else if (v == "x_Mode11g")
+		{
+//			alert(document.form.wan_dnsenable_x[0].checked);
+//			alert(document.form.wan_dnsenable_x[1].checked);
+			RefreshRateSetList(document.form.WLANConfig11b_x_Mode11g.value, true);
+		}
+		else if (v == "Channel" && document.form.current_page.value == "Advanced_WMode_Content.asp"
+					&& document.form.WLANConfig11b_x_APMode.value != "0" && document.form.WLANConfig11b_Channel.value == "0")
 		{
 			alert("Please set a fixed channel for WDS!!!");
 			document.form.WLANConfig11b_Channel.options[0].selected = 0;
 			document.form.WLANConfig11b_Channel.options[1].selected = 1;
+		}
+		else if (v == "wl_channel")
+		{
+			if (o.value == "0") /* auto */
+				inputCtrl(document.form.wl_nctrlsb, 0);
+			else if (document.form.wl_nbw.value == "40")
+				inputCtrl(document.form.wl_nctrlsb, 1);
+		}
+		else if (v == "wl_nbw")
+		{
+			if (o.value == "20") /* 20 MHz */
+			{
+				document.form.wl_nctrlsb.value = "none";
+				inputCtrl(document.form.wl_nctrlsb, 0);
+			}
+			else /* 40 MHz */
+			{
+				inputCtrl(document.form.wl_nctrlsb, 1);
+				document.form.wl_nctrlsb.value = "lower";
+			}
+		}
+		else if (v == "wl_nctrlsb")
+		{
+			if (o.value == "none") /* None */
+			{
+				document.form.wl_nbw.value = "20";
+				inputCtrl(document.form.wl_nctrlsb, 0);
+			}
 		}
 	}
 	else if (s=="LANHostConfig" && v=="time_zone")
@@ -2565,27 +2594,6 @@ function change_common(o, s, v)
 		{
 			inputCtrl2(document.form.time_zone, 0);
 			document.form.time_zone.value = opts[opts.selectedIndex].value;
-		}
-	}
-	else if (v == "wl_nbw")
-	{
-		if (o.value == "20") /* 20 MHz */
-		{
-			document.form.wl_nctrlsb.value = "none";
-			inputCtrl(document.form.wl_nctrlsb, 0);
-		}
-		else /* 40 MHz */
-		{
-			inputCtrl(document.form.wl_nctrlsb, 1);
-			document.form.wl_nctrlsb.value = "lower";
-		}
-	}
-	else if (v == "wl_nctrlsb")
-	{
-		if (o.value == "none") /* None */
-		{
-			document.form.wl_nbw.value = "20";
-			inputCtrl(document.form.wl_nctrlsb, 0);
 		}
 	}
 	return true;

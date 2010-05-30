@@ -38,6 +38,7 @@
 #include <mntent.h>
 #include "iboxcom.h"
 #include "lp.h"
+#include "nvparse.h"
 
 #define logs(s) syslog(LOG_NOTICE, s)
 
@@ -1693,21 +1694,11 @@ hotplug_usb(void)
 
 	if ((product=getenv("PRODUCT")))
 	{
-#ifdef __CONFIG_MADWIMAX__
-		/* wimax modem */
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+		/* communication device */
 		if (strncmp(interface, "255/", 4) == 0)
 		{
-			if (strncmp(product, "4e8/6761", 8) == 0 ||
-			    strncmp(product, "4e9/6761", 8) == 0 ||
-			    strncmp(product, "4e8/6731", 8) == 0 ||
-			    strncmp(product, "4e8/6780", 8) == 0)
-			{
-				if (strcmp(action, "add") == 0)
-					nvram_set("usb_wimax_device", product);
-				else
-					nvram_unset("usb_wimax_device");
-				return 0;
-			}
+			hotplug_network_device( interface, action, product );
 		}
 #endif
 		/* usb storage */
@@ -1715,7 +1706,9 @@ hotplug_usb(void)
 		{
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
-
+#if defined(__CONFIG_MODEM__)
+			hotplug_usb_modeswitch( interface, action, product );
+#endif
 			if (scsi_host)
 				scsi_host_no = atoi(scsi_host);
 			if (strcmp(action, "add") == 0)
