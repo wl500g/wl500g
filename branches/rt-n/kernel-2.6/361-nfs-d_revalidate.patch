@@ -1,0 +1,37 @@
+From d9e80b7de91db05c1c4d2e5ebbfd70b3b3ba0e0f
+From: Al Viro
+Date: Thu, 29 Apr 2010 03:10:43 +0100
+Subject: [PATCH] nfs d_revalidate() is too trigger-happy with d_drop()
+
+If dentry found stale happens to be a root of disconnected tree, we
+can't d_drop() it; its d_hash is actually part of s_anon and d_drop()
+would simply hide it from shrink_dcache_for_umount(), leading to
+all sorts of fun, including busy inodes on umount and oopsen after
+that.
+
+Bug had been there since at least 2006 (commit c636eb already has it),
+so it's definitely -stable fodder.
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+Cc: stable@kernel.org
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/nfs/dir.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/fs/nfs/dir.c b/fs/nfs/dir.c
+index be46f26..db3ad84 100644
+--- a/fs/nfs/dir.c
++++ b/fs/nfs/dir.c
+@@ -837,6 +837,8 @@ out_zap_parent:
+ 		/* If we have submounts, don't unhash ! */
+ 		if (have_submounts(dentry))
+ 			goto out_valid;
++		if (dentry->d_flags & DCACHE_DISCONNECTED)
++			goto out_valid;
+ 		shrink_dcache_parent(dentry);
+ 	}
+ 	d_drop(dentry);
+-- 
+1.7.1
+
