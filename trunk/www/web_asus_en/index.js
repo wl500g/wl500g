@@ -190,17 +190,17 @@ function generateTree() {
 		}
 	}
 
+	if (isModel() != 'WL520' && mode != 'AP') {
+		aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"));
+		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
+	}
+
 	if (isModel() != 'WL520' && isModel() != 'SnapAP') {
 		aux1 = appendChild(foldersTree, leafNode("USB Application"));
 		appendChild(aux1, generateDocEntry(0, "FTP Server", "Advanced_USBStorage_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Samba", "Advanced_Samba_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "NFS Server", "Advanced_NFS_Content.asp", ""));
 		appendChild(aux1, generateDocEntry(0, "Web Camera", "Advanced_WebCam_Content.asp", ""));
-	}
-
-	if (isModel() != 'WL520' && mode != 'AP') {
-		aux1 = appendChild(foldersTree, leafNode("Bandwidth Management"));
-		appendChild(aux1, generateDocEntry(0, "Basic Config", "Advanced_QOS_Content.asp", ""));
 	}
 
 	aux1 = appendChild(foldersTree, leafNode("USB Modem"));
