@@ -19,7 +19,7 @@ endif
 CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG_TO_SYSLOG
-CFLAGS	+= -s -O2
+CFLAGS	+= -fPIC -s -O2
 LDFLAGS += -L.
 
 OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o

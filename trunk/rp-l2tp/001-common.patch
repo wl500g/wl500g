@@ -21,8 +21,11 @@ diff -BurpN rp-l2tp-0.4/Makefile.in rp-l2tp/Makefile.in
  
  l2tpd: libl2tp.a libevent/libevent.a
  	$(MAKE) -C handlers
-@@ -74,7 +74,7 @@
+@@ -72,9 +72,10 @@ clean:
+ 	rm -f *.o *.a *~
+ 	rm -f l2tpd
  	$(MAKE) -C handlers clean
++	test -d libevent && $(MAKE) -C libevent clean
  
  distclean: clean
 -	rm -f Makefile config.cache
