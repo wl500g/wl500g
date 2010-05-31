@@ -484,7 +484,7 @@
 		<table class="content_table">
 			<tr>
 				<td class="content_header_td">
-					USB device serial speed (usually 115200):
+					USB device serial speed (usually 921600):
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_portspeed"
