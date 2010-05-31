@@ -1748,7 +1748,9 @@ void hotplug_network_device( char * interface, char * action, char * product )
 {
 	char *wan_ifname;
 	char *wan_proto;
+	char *device;
 	int unit;
+	int found=0;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
 	dprintf( "%s %s %s", interface, action, product );
@@ -1773,37 +1775,54 @@ void hotplug_network_device( char * interface, char * action, char * product )
 
 		dprintf("%s %s %p\n\n\n\n\n", wan_ifname, wan_proto, hotplug_sem );
 
-		hotplug_sem_lock();
+		if( !found ){
 #ifdef __CONFIG_MADWIMAX__
-		if (strcmp(wan_proto, "wimax") == 0)
-		{
-			if( hotplug_check_wimax( interface, product, prefix ) ){
-				if ( action_add ){
-					nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-					start_wimax( prefix );
-				}
-			}
-		}
+		    if( hotplug_check_wimax( interface, product, prefix ) ){
+			found = 1;
+		    } else 
 #endif
 #ifdef __CONFIG_MODEM__
-		if (strcmp(wan_proto, "usbmodem") == 0)
-		{
-			if( hotplug_check_modem( interface, product, prefix ) ){
-				if ( action_add ){
-					nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-					start_modem_dial( prefix );
-				}
-			}
-		}
+		    if( hotplug_check_modem( interface, product, prefix ) ){
+			found = 2;
+		    }
 #else
-		{}
+		    {}
 #endif
-		hotplug_sem_unlock();
+		}
+		if( found )
+		{
+		    hotplug_sem_lock();
+		    if ( action_add )
+		    {
+			device = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+			if ( !device || !*device )
+			{
+#ifdef __CONFIG_MADWIMAX__
+			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
+			    {
+				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+				start_wimax( prefix );
+				found=0;
+			    } else
+#endif
+#ifdef __CONFIG_MODEM__
+			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
+			    {
+				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+				start_modem_dial( prefix );
+				found=0;
+			    }
+#else
+			    {}
+#endif
+			}
+		    } else nvram_unset(strcat_r(prefix, "usb_device", tmp) );
 
-		if( action_add == 0 )
-			nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+		    hotplug_sem_unlock();
+
+		    if( found == 0 ) break;
+		}
 	}
-
 	hotplug_sem_close();
 
 	dprintf("done");
