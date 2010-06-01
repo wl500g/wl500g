@@ -1802,7 +1802,6 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
 				start_wimax( prefix );
-				found=0;
 			    } else
 #endif
 #ifdef __CONFIG_MODEM__
@@ -1810,17 +1809,32 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
 				start_modem_dial( prefix );
-				found=0;
 			    }
 #else
 			    {}
 #endif
 			}
-		    } else nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+		    } else {
+#ifdef __CONFIG_MADWIMAX__
+			if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
+			{
+			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			} else
+#endif
+#ifdef __CONFIG_MODEM__
+			if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
+			{
+			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			    stop_modem_dial();
+			}
+#else
+			{}
+#endif
+		    }
 
 		    hotplug_sem_unlock();
 
-		    if( found == 0 ) break;
+		    break;
 		}
 	}
 	hotplug_sem_close();
