@@ -64,17 +64,18 @@
 		setDispModeById( sUser,		'none' );
 		
 		setDispModeById( 'UserPasswd',	'none' );
-		setDispModeById( 'APN',			'none' );
+		setDispModeById( 'APN',		'none' );
 		setDispModeById( 'DialupNO',	'none' );
-		setDispModeById( 'USB',			'none' );
+		setDispModeById( 'USB',		'none' );
 		setDispModeById( 'PortSpeed',	'none' );
-		setDispModeById( 'ZeroCD',		'none' );
+		setDispModeById( 'ZeroCD',	'none' );
 		
 		if (isModeUsed( sCDMA ))
 		{
 			setDispModeById( sCDMA,	'block' );
 			setDispModeById( 'UserPasswd',	'block' );
-			setDispModeById( 'USB',	'block' );			
+			setDispModeById( 'USB',	'block' );
+			setDispModeById( 'ZeroCD',	'block' );
 	//		appendChild(aux1,generateDocEntry(0, "CDMA Config","Advanced_CDMA_Content.asp", ""))
 	//		if (CDMAType() == 'GTRAN')
 	//			appendChild(aux1,generateDocEntry(0, "GTRAN Info", "Main_CDMAGStatus_Content.asp", ""))

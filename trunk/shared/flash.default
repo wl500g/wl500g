@@ -457,6 +457,7 @@
 {"wan_modem_enable_x", "1", 0},
 {"wan_modem_wanaslan_x","0",0},
 {"wan_modem_autodetect", "1", 0},
-{"wan_modem_mode_x","0",0},
-{"wan_modem_portspeed","921600",0},
+{"wan_modem_mode_x","0", 0},
+{"wan_modem_portspeed","921600", 0},
+{"wan_modem_zerocd_mode","Auto", 0},
 #endif
