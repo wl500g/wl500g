@@ -510,44 +510,6 @@
 					<select name="wan_modem_zerocd_mode" class="content_input_fd">
 						<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
 							Not set</option>
-<!--						<option class="content_input_fd" value="OptionGlobeSurferIcon" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon","selected"); %>>
-							Option GlobeSurfer Icon (aka "Vodafone EasyBox")</option>
-						<option class="content_input_fd" value="OptionGlobeSurferIcon_7_2" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon_7_2","selected"); %>>
-							Option GlobeSurfer Icon 7.2</option>
-						<option class="content_input_fd" value="OptionGlobeSurferIcon_7_2_new" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionGlobeSurferIcon_7_2_new","selected"); %>>
-							Option GlobeSurfer Icon 7.2, new firmware</option>
-						<option class="content_input_fd" value="OptionIcon_225" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "OptionIcon_225","selected"); %>>
-							Option Icon 225 HSDPA</option>
-						<option class="content_input_fd" value="OptionGlobeTrotter" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "OptionGlobeTrotter","selected"); %>>
-							Option GlobeTrotter HSUPA Modem (aka "T-Mobile CC III")</option>
-						<option class="content_input_fd" value="OptionGlobeTrotterGTMAX_3_6" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "OptionGlobeTrotterGTMAX_3_6","selected"); %>>
-							Option GlobeTrotter GT MAX 3.6 (aka "T-Mobile CC II")</option>
-						<option class="content_input_fd" value="OptionGlobeTrotterGTMAX_7_2" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "OptionGlobeTrotterGTMAX_7_2","selected"); %>>
-							Option GlobeTrotter GT MAX "7.2 Ready"</option>
-						<option class="content_input_fd" value="OptionGlobeTrotterEXPRESS_7_2" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "OptionGlobeTrotterEXPRESS_7_2","selected"); %>>
-							Option GlobeTrotter EXPRESS 7.2 (aka "T-Mobile Express II")</option>
-						<option class="content_input_fd" value="Huawei_E220" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Huawei_E220","selected"); %>>
-							Huawei E220, E270, E870</option>
-						<option class="content_input_fd" value="Huawei_E169" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Huawei_E169","selected"); %>>
-							Huawei E169</option>
-						<option class="content_input_fd" value="Huawei_E630" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Huawei_E630","selected"); %>>
-							Huawei E630</option>
-						<option class="content_input_fd" value="ZTE_MF620" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ZTE_MF620","selected"); %>>
-							ZTE MF620 (aka "Onda MH600HS")</option>
-						<option class="content_input_fd" value="ZTE_MF622" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ZTE_MF622","selected"); %>>
-							ZTE MF622</option>
-						<option class="content_input_fd" value="ZTE_MF626" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ZTE_MF626","selected"); %>>
-							ZTE MF626</option>
-						<option class="content_input_fd" value="ONDA_MT505UP" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "ONDA_MT505UP","selected"); %>>
-							ONDA MT505UP (most likely a ZTE model)</option>
-						<option class="content_input_fd" value="NovatelWirelessOvation" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "NovatelWirelessOvation","selected"); %>>
-							Novatel Wireless Ovation MC950D and 930D, Merlin XU950D</option>
-						<option class="content_input_fd" value="Novatel_U727" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Novatel_U727","selected"); %>>
-							Novatel U727</option>
-						<option class="content_input_fd" value="Alcatel_OT_X020" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Alcatel_OT_X020","selected"); %>>
-							Alcatel OT-X020</option>
-						<option class="content_input_fd" value="AnyDATA_ADU" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "AnyDATA_ADU","selected"); %>>
-							AnyDATA ADU-500A, ADU-510A, ADU-520A</option> -->
 						<option class="content_input_fd" value="Auto" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
 							Auto</option>
 						<option class="content_input_fd" value="UserDefined" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
@@ -563,6 +525,18 @@
 			<tr class="content_header_tr">
 				<td class="content_section_header_td" colspan="2">
 					Custom USB device parameters
+				</td>
+			</tr>
+			<tr>
+				<td class="content_header_td" onmouseover="return overlib('Detect VID:PID every time at usb-modem plugging.')" 
+					onmouseout="return nd()">
+					Autodetect device
+				</td>
+				<td class="content_input_td" nowrap>
+					<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd"
+						<% nvram_match_x("","wan_modem_autodetect", "1", "checked"); %>>Yes
+					<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd"
+						<% nvram_match_x("","wan_modem_autodetect", "0", "checked"); %>>No
 				</td>
 			</tr>
 			<tr>

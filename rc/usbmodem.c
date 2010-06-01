@@ -105,6 +105,7 @@ hotplug_check_modem( char * interface, char * product, char * prefix )
     char tmp[200];
     char stored_product[40];
     int vid, pid;
+    int autodetect = nvram_match("wan_modem_autodetect", "1");
 
     str1 = nvram_safe_get( "wan_modem_vid" );
     sscanf( str1, "%x", &vid );
@@ -113,12 +114,13 @@ hotplug_check_modem( char * interface, char * product, char * prefix )
 
     sprintf( stored_product, "%x/%x", vid, pid );
 
-    dprintf( "stored: %s, found: %s", stored_product, product );
+    dprintf( "stored: %s, found: %s, autodetect: %d", stored_product, product, autodetect );
 
-    if( strncmp( product, stored_product, strlen(stored_product) )==0 ){
+    if( autodetect==0 &&
+	strncmp( product, stored_product, strlen(stored_product) )==0 ){
 	ret=1;
     } else {
-	if( !*str1 ){
+	if( !*str1 || autodetect ){
 	    if( parse_product_string( product, &vid, &pid ) ){
 		sprintf( stored_product, "0x%04x", vid );
 //		nvram_set(strcat_r(prefix, "modem_vid", tmp), stored_product );
