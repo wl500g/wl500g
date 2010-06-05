@@ -1740,6 +1740,8 @@ do_apply_cgi_post(char *url, FILE *stream, int len, char *boundary)
 
 
 #if defined(linux)
+static int do_upload_file(char *upload_file, char *url, FILE *stream, int len,
+			   char *boundary_t, int (*validate)(FILE *fifo, int len));
 
 static void
 do_webcam_cgi(char *url, FILE *stream)
@@ -1764,140 +1766,45 @@ do_webcam_cgi(char *url, FILE *stream)
 	do_file(pic, stream);
 }
 
-static void
-do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
+static int chk_fw_image(FILE *fifo, int len)
 {
+	char hdr_buf[8];
+	int rd;
 	#define MAX_VERSION_LEN 64
-	char upload_fifo[] = "/tmp/linux.trx";
-	FILE *fifo = NULL;
-	/*char *write_argv[] = { "write", upload_fifo, "linux", NULL };*/
-	char buf[1024];
-	int count, ret = EINVAL, ch;
-	int cnt;
-	long filelen, *filelenptr;
+	char version[MAX_VERSION_LEN];
 	int hwmajor=0, hwminor=0;
-	char version[MAX_VERSION_LEN], cmpHeader;
-	
-	cprintf("Start upgrade!!!\n");
-	eval("stopservice");
-	
-	/* Look for our part */
-	while (len > 0) 
-	{
-	     if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
-	     {			
-			goto err;
-	     }			
-		
-	     len -= strlen(buf);
-		
-	     if (!strncasecmp(buf, "Content-Disposition:", 20) &&
-		    strstr(buf, "name=\"file\""))
-			break;			
-	}
-	
-	/* Skip boundary and headers */
-	while (len > 0) {
-		if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
-		{
-			goto err;
-		}		
-		len -= strlen(buf);
-		if (!strcmp(buf, "\n") || !strcmp(buf, "\r\n"))
-		{
-			break;
-		}
-	}
 
-	if (!(fifo = fopen(upload_fifo, "a+"))) goto err;
-				
-        filelen = len;    
-        cnt = 0;
-        
-	/* Pipe the rest to the FIFO */
-	//printf("Upgrading %d\n", len);
-	cmpHeader = 0;
-	
-	while (len > 0 && filelen>0) 
-	{				
-		if (waitfor(fileno(stream), 10) <= 0)
-		{
-			/*printf("Break while len=%x filelen=%x\n", len, filelen);*/
-			break;
-		}
-                				
-		count = fread(buf, 1, MIN(len, sizeof(buf)), stream);
-		
-		if (cnt == 0 && count>8) 
-		{		  
-		    if (strncmp(buf, IMAGE_HEADER, 4)!=0) 
-		    {
-		       /*printf("Header %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);*/
-		       len-=count;
-		       goto err;
-		    }
-		    else cmpHeader = 1;	   
-		    		   
-		    filelenptr = (long *)(buf+4);
-		    filelen = *filelenptr;		  
-		    /*printf("Filelen: %x %x %x %x %x %x\n", filelen, count, (unsigned long)(buf+4), (unsigned long)(buf+7), buf[5], buf[4]);*/
-		    cnt ++;
-		}
-		
-		filelen-=count; 
-		len-=count;	
-										
-		fwrite(buf, 1, count, fifo);
-		/*printf(".");*/								   		
-	}		 		
-	
-	if (!cmpHeader) goto err;		
+	fseek(fifo, 0, SEEK_SET);
+	rd = fread(hdr_buf, 1, 4, fifo);
+	if (rd != 4 || strncmp(hdr_buf, IMAGE_HEADER, 4) != 0)
+		return -1;
 
-	/* Slurp anything remaining in the request */
-	while (len-- > 0)
-	{
-		ch = fgetc(stream);
-		
-		if (filelen>0)
-		{
-		   fwrite(&ch, 1, 1, fifo);
-		   filelen--;
-		}   
-	}	
-	
-	for(cnt=0;cnt<MAX_VERSION_LEN;cnt++) version[cnt] = 0;
-	   		
+	memset(version, 0, MAX_VERSION_LEN);
 	fseek(fifo, -MAX_VERSION_LEN, SEEK_END);
 	fread(version, 1, MAX_VERSION_LEN, fifo);
-	
 	sscanf(nvram_get_x("general.log", "HardwareVer"), "%d.%d", &hwmajor, &hwminor);
 	cprintf("Hardware : %d.%d %s\n", hwmajor, hwminor, version+4);
-	
+
 	if (((strncmp(ProductID, version+4, strlen(ProductID))==0 &&
 	     strncmp(version+4, "WL500gx", 7)!=0) || 
 	    (strncmp(ProductID, "WL500g.Deluxe", 13)==0 &&
 	     strncmp(version+4, "WL500gx", 7)==0))
-	    && checkVersion(version,hwmajor,hwminor)) ret = 0;
-	
-		
-	fseek(fifo, 0, SEEK_END);
-	fclose(fifo);
-	fifo = NULL;
-	cprintf("FW image ok\n");
- 	
- err:
-	if (fifo)
-	   fclose(fifo);
-		
-	/* Slurp anything remaining in the request */
-	while (len-- > 0)	
-		ch = fgetc(stream);				
-		
-#ifdef REMOVE_WL600
-	unlink(upload_fifo);
-#endif	
-	//printf("Error : %d\n", ret);	
-	fcntl(fileno(stream), F_SETOWN, -ret);
+	    && checkVersion(version,hwmajor,hwminor))
+	{
+		cprintf("FW image ok\n");
+		return 0;
+	}
+
+	return -2;
+}
+
+static void
+do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
+{
+	char upload_file[]="/tmp/linux.trx";
+
+	eval("stopservice");
+	do_upload_file(upload_file, url, stream, len, boundary, chk_fw_image);
 }
 
 static void
@@ -1923,139 +1830,27 @@ do_upgrade_cgi(char *url, FILE *stream)
 	  
 }
 
+#include <syslog.h>
+
+static int chk_profile_hdr(FILE *fifo, int len)
+{
+	char hdr_buf[8];
+	int rd;
+
+	fseek(fifo, 0, SEEK_SET);
+	rd = fread(hdr_buf, 1, 4, fifo);
+	if (rd != 4 || strncmp(hdr_buf, PROFILE_HEADER, 4) != 0)
+		return -1;
+	return 0;
+}
+
 static void
 do_upload_post(char *url, FILE *stream, int len, char *boundary)
 {
-	#define MAX_VERSION_LEN 64
-	char upload_fifo[] = "/tmp/settings_u.prf";
-	FILE *fifo = NULL;
-	/*char *write_argv[] = { "write", upload_fifo, "linux", NULL };*/
-	char buf[1024];
-	int count, ret = EINVAL, ch;
-	int cnt;
-	long filelen, *filelenptr;
-//	char version[MAX_VERSION_LEN];
-	char cmpHeader;
-	
-	cprintf("Start upload\n");
-	eval("stopservice");
-	
-	/* Look for our part */
-	while (len > 0) 
-	{
-	     if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
-	     {			
-			goto err;
-	     }			
-		
-	     len -= strlen(buf);
-		
-	     if (!strncasecmp(buf, "Content-Disposition:", 20) &&
-		    strstr(buf, "name=\"file\""))
-			break;			
-	}
-	
-	/* Skip boundary and headers */
-	while (len > 0) {
-		if (!fgets(buf, MIN(len + 1, sizeof(buf)), stream))
-		{
-			goto err;
-		}		
-		len -= strlen(buf);
-		if (!strcmp(buf, "\n") || !strcmp(buf, "\r\n"))
-		{
-			break;
-		}
-	}
+	char upload_file[]="/tmp/settings_u.prf";
 
-	if (!(fifo = fopen(upload_fifo, "a+"))) goto err;
-				
-        filelen = len;    
-        cnt = 0;
-        
-	/* Pipe the rest to the FIFO */
-	cprintf("Upgrading %d\n", len);
-	cmpHeader = 0;
-	
-	while (len > 0 && filelen>0) 
-	{				
-		if (waitfor(fileno(stream), 10) <= 0)
-		{
-			//printf("Break while len=%x filelen=%x\n", len, filelen);
-			break;
-		}
-                				
-		count = fread(buf, 1, MIN(len, sizeof(buf)), stream);
-		
-		if (cnt == 0 && count>8) 
-		{		  
-		    if (strncmp(buf, PROFILE_HEADER, 4)!=0) 
-		    {
-		       //printf("Header %x %x %x %x\n", buf[0], buf[1], buf[2], buf[3]);
-		       len-=count;
-		       goto err;
-		    }
-		    else cmpHeader = 1;	   
-		    		   
-		    filelenptr = (long *)(buf+4);
-		    filelen = *filelenptr;		  
-		    //printf("Filelen: %x %x %x %x %x %x\n", filelen, count, (unsigned long)(buf+4), (unsigned long)(buf+7), buf[5], buf[4]);
-		    cnt ++;
-		}
-		
-		filelen-=count; 
-		len-=count;	
-										
-		fwrite(buf, 1, count, fifo);
-		//printf(".");								   
-	}		 		
-	
-	if (!cmpHeader) goto err;		
-
-	/* Slurp anything remaining in the request */
-	while (len-- > 0)
-	{
-		ch = fgetc(stream);
-		
-		if (filelen>0)
-		{
-		   fwrite(&ch, 1, 1, fifo);
-		   filelen--;
-		}   
-	}	
-	
-#ifdef REMOVE_WL600	
-	for(cnt=0;cnt<MAX_VERSION_LEN;cnt++) version[cnt] = 0;
-	   		
-	fseek(fifo, -MAX_VERSION_LEN, SEEK_END);
-	fread(version, 1, MAX_VERSION_LEN, fifo);
-	
-	sscanf(nvram_get_x("general.log", "HardwareVer"), "%d.%d", &hwmajor, &hwminor);
-	cprintf("Hardware : %d.%d", hwmajor, hwminor);
-	
-	if (checkVersion(version,hwmajor,hwminor)) ret = 0;
-#else
-	ret = 0;	
-#endif
-		
-	fseek(fifo, 0, SEEK_END);
-	fclose(fifo);
-	fifo = NULL;
-	/*printf("done\n");*/
- 	
- err:
-	if (fifo)
-	   fclose(fifo);
-		
-	/* Slurp anything remaining in the request */
-	while (len-- > 0)	
-		ch = fgetc(stream);
-		
-#ifdef REMOVE_WL600
-	unlink(upload_fifo);
-#endif	
-	//printf("Error : %d\n", ret);
-	fcntl(fileno(stream), F_SETOWN, -ret);
+	if (do_upload_file(upload_file, url, stream, len, boundary, chk_profile_hdr) == 0)
+		eval("stopservice");
 }
 
 static void
@@ -2094,12 +1889,14 @@ do_prf_file(char *url, FILE *stream)
 }
 
 
-static void
-do_upload_file(char *upload_file, char *url, FILE *stream, int len, char *boundary)
+static int
+do_upload_file(char *upload_file, char *url, FILE *stream, int len,
+	       char *boundary_t, int (*validate)(FILE *fifo, int len))
 {
 	FILE *fifo = NULL;
 	char buf[1024];
-	int count, ret = EINVAL;
+	int total = 0, count, ret = EINVAL;
+	int boundary = strlen(boundary_t)+8;
 
 	cprintf("Start upload\n");
 	/* Look for our part */
@@ -2130,25 +1927,34 @@ do_upload_file(char *upload_file, char *url, FILE *stream, int len, char *bounda
 		}
 	}
 
-	if (!(fifo = fopen(upload_file, "w"))) goto err;
-				
-	len -= strlen(boundary)+8;
-	cprintf("Upgrading %d\n", len);
+	if (!(fifo = fopen(upload_file, "w+"))) goto err;
+
+	len -= boundary;
+	cprintf("Uploading %d\n", len);
+
+	/* Pipe the rest to the FIFO */
 	while (len > 0)
 	{
 		count = fread(buf, 1, MIN(len, sizeof(buf)), stream);
 		fwrite(buf, 1, count, fifo);
 		len -= count;
+		total += count;
 	}
-	fread(buf, 1, strlen(boundary)+8, stream);
+	fread(buf, 1, boundary, stream);
 	fflush(fifo);
-	ret = 0;
+	if (validate)
+		ret = (*validate)(fifo, total);
+	else
+		ret = 0;
+
  err:
 	if (fifo)
 	   fclose(fifo);
-		
+
 	//printf("Error : %d\n", ret);
 	fcntl(fileno(stream), F_SETOWN, -ret);
+
+	return ret;
 }
 
 static void
@@ -2156,7 +1962,7 @@ do_uploadflashfs_post(char *url, FILE *stream, int len, char *boundary)
 {
   char upload_file[]="/tmp/flash.tar.gz";
   
-  do_upload_file(upload_file, url, stream, len, boundary);
+  do_upload_file(upload_file, url, stream, len, boundary, NULL);
   
   if(eval("tar","ztf",upload_file) != 0)
    fcntl(fileno(stream), F_SETOWN, -EINVAL);
