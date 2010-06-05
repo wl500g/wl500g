@@ -1830,8 +1830,6 @@ do_upgrade_cgi(char *url, FILE *stream)
 	  
 }
 
-#include <syslog.h>
-
 static int chk_profile_hdr(FILE *fifo, int len)
 {
 	char hdr_buf[8];
