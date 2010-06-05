@@ -74,8 +74,8 @@ typedef volatile struct _bcmenettregs {
 	uint32	PAD[63];
 
 	/* DMA engine */
-	dmaregs_t	dmaregs;
-	dmafifo_t	dmafifo;
+	dma32regp_t	dmaregs;
+	dma32diag_t	dmafifo;
 	uint32	PAD[116];
 
 	/* EMAC Registers */

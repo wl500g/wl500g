@@ -21,6 +21,7 @@ int	sysFlashInit(char *flash_str);
 int sysFlashRead(uint off, uchar *dst, uint bytes);
 int sysFlashWrite(uint off, uchar *src, uint bytes);
 void nvWrite(unsigned short *data, unsigned int len);
+void nvWriteChars(unsigned char *data, unsigned int len);
 
 #endif	/* _LANGUAGE_ASSEMBLY */
 

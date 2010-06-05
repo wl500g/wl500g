@@ -1,5 +1,5 @@
 # bcm94712agr board with sdram as l2 switch.
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -65,7 +65,7 @@ boot_wait=on
 reset_gpio=7
 
 # Watchdog timer in ms
-watchdog=0
+watchdog=3000
 
 # glue between bootloader and firmware
 landevs=et0 wl0 wl1

@@ -16,7 +16,7 @@
 
 /* phy address */
 #define	MAXEPHY		32			/* mdio phy addresses are 5bit quantities */
-#define	EPHY_MASK	0x1f
+#define	EPHY_MASK	0x1f			/* phy mask */
 #define	EPHY_NONE	31			/* nvram: no phy present at all */
 #define	EPHY_NOREG	30			/* nvram: no local phy regs */
 

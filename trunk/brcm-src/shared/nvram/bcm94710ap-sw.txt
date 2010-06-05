@@ -1,5 +1,5 @@
 # BCM94710AP board as switch
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -38,8 +38,8 @@ lan_netmask=255.255.255.0
 scratch=a0180000
 boot_wait=on
 
-# watchdog set to 1 sec
-watchdog=1000
+# watchdog set to 3 sec
+watchdog=3000
 
 # glue between bootloader and firmware
 landevs=et0 et1 wl0 wl1 il0

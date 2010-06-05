@@ -42,7 +42,7 @@ static INLINE uint32 find_msbit(uint32 x)
         return msbit;
 }
 
-#else
+#else	/* !USE_PENTIUM_BSR || !__GNUC__ */
 
 /*
  * Generic Implementation
@@ -77,9 +77,9 @@ static INLINE uint32 find_msbit(uint32 x)
 	if (temp_x & DB_POW_MASK1) {
 		msbit += 1;
 	}
-	return(msbit);
+	return (msbit);
 }
 
-#endif
+#endif	/* USE_PENTIUM_BSR && __GNUC__ */
 
 #endif /* _BITFUNCS_H */
