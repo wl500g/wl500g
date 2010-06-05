@@ -7,7 +7,7 @@
  * interface. The core revision is stored in the SB ID register in SB
  * configuration space.
  *
- * Copyright 2004, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -18,8 +18,10 @@
  * $Id$
  */
 
-#ifndef	_SBMIPS_H
-#define	_SBMIPS_H
+#ifndef	_sbhndmips_h_
+#define	_sbhndmips_h_
+
+#include <mipsinc.h>
 
 #ifndef _LANGUAGE_ASSEMBLY
 
@@ -40,21 +42,6 @@ typedef volatile struct {
 	uint32	timer;
 } mipsregs_t;
 
-extern uint32 sb_flag(void *sbh);
-extern uint sb_irq(void *sbh);
+#endif	/* _LANGUAGE_ASSEMBLY */
 
-extern void BCMINIT(sb_serial_init)(void *sbh, void (*add)(void *regs, uint irq, uint baud_base, uint reg_shift));
-
-extern void *sb_jtagm_init(void *sbh, uint clkd, bool exttap);
-extern void sb_jtagm_disable(void *h);
-extern uint32 jtag_rwreg(void *h, uint32 ir, uint32 dr);
-extern void BCMINIT(sb_mips_init)(void *sbh);
-extern uint32 BCMINIT(sb_mips_clock)(void *sbh);
-extern bool BCMINIT(sb_mips_setclock)(void *sbh, uint32 mipsclock, uint32 sbclock, uint32 pciclock);
-
-extern uint32 BCMINIT(sb_memc_get_ncdl)(void *sbh);
-extern uint32 BCMINIT(sb_mips_get_pfc)(void *sbh);
-
-#endif /* _LANGUAGE_ASSEMBLY */
-
-#endif	/* _SBMIPS_H */
+#endif	/* _sbhndmips_h_ */
