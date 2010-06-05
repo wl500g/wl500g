@@ -9,8 +9,8 @@
 # $Id$
 boardtype=0x0446
 boardnum=${serno}
-# Board revision 5.1
-boardrev=0x51
+# Board revision 6.0
+boardrev=0x60
 boardflags=0x48
 sromrev=2
 
@@ -55,4 +55,4 @@ scratch=a0180000
 boot_wait=on
 
 # Watchdog timer in ms
-watchdog=0
+watchdog=3000

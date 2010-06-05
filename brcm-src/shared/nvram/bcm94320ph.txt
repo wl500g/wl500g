@@ -1,5 +1,5 @@
 # BCM94320ph board
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.                
 #                                     
 # This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;   
@@ -9,10 +9,10 @@
 # $Id$
 boardtype=0x045a
 boardnum=${serno}
-# Board revision 2.0
-boardrev=0x20
+# Board revision 3.6
+boardrev=0x36
 # Flags: NOPCI, CCKHIPWR & ADCDIV.
-boardflags=0x448
+boardflags=0x648
 sromrev=2
 
 # Make the d11 i/f single band
@@ -21,13 +21,13 @@ wl0id=0x4318
 # 4320 802.11g parameters
 il0macaddr=00:90:4c:82:${maclo}
 aa0=3
-ag0=5
-pa0maxpwr=80
+ag0=0x82
+pa0maxpwr=76
 pa0itssit=62
-pa0b0=0x1670
-pa0b1=0xfa71
-pa0b2=0xfe8c
-opo=2
+pa0b0=0x1665
+pa0b1=0xfa60
+pa0b2=0xfe83
+opo=8
 
 # Commons wireless parameters
 cctl=0

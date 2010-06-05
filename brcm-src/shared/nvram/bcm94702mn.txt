@@ -1,5 +1,5 @@
 # BCM94702MN board
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.                
 #                                     
 # This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;   
@@ -37,5 +37,5 @@ lan_netmask=255.255.255.0
 scratch=a0180000
 boot_wait=on
 
-# watchdog set to 1 sec
-watchdog=1000
+# watchdog set to 3 sec
+watchdog=3000

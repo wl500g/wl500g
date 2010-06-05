@@ -1,5 +1,5 @@
 # BCM4712ap board with SDRAM memory
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -49,10 +49,6 @@ wl0gpio3=0xff
 cctl=0
 ccode=0
 
-# It's an AP only
-router_disable=1
-lan_ifnames="eth0 eth1"
-
 # Bootlaoder variables
 dl_ram_addr=a0001000
 os_ram_addr=80001000
@@ -63,4 +59,9 @@ scratch=a0180000
 boot_wait=on
 
 # Watchdog timer in ms
-watchdog=0
+watchdog=3000
+
+# glue between bootloader and OS
+landevs=et0 wl0
+wandevs=
+

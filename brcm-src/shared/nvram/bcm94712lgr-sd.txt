@@ -1,5 +1,5 @@
 # BCM94712LGR SDR board
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,9 +9,10 @@
 # $Id$
 boardtype=0x0460
 boardnum=${serno}
-# Board revision 1.8
-boardrev=0x18
-boardflags=0x0758
+# Board revision 2.1 
+boardrev=0x21
+boardflags=0x1758
+# EXT_LNA enabled
 sromrev=2
 
 # MIPS clock frequency in MHz
@@ -40,9 +41,9 @@ aa0=3
 ag0=2
 pa0maxpwr=76
 pa0itssit=62
-pa0b0=0x153d
-pa0b1=0xfb91
-pa0b2=0xfeb7
+pa0b0=0x183d
+pa0b1=0xf9fa
+pa0b2=0xfe74
 opo=8
 
 # Commons wireless parameters

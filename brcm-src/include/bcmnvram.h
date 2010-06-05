@@ -18,12 +18,13 @@
 #ifndef _LANGUAGE_ASSEMBLY
 
 #include <typedefs.h>
+#include <bcmdefs.h>
 
 struct nvram_header {
 	uint32 magic;
 	uint32 len;
-	uint32 crc_ver_init;	/* 0:7 crc, 8:15 ver, 16:27 init, mem. test 28, 29-31 reserved */
-	uint32 config_refresh;	/* 0:15 config, 16:31 refresh */
+	uint32 crc_ver_init;	/* 0:7 crc, 8:15 ver, 16:31 sdram_init */
+	uint32 config_refresh;	/* 0:15 sdram_config, 16:31 sdram_refresh */
 	uint32 config_ncdl;	/* ncdl values for memc */
 };
 
@@ -34,16 +35,31 @@ struct nvram_tuple {
 };
 
 /*
+ * Get default value for an NVRAM variable
+ */
+extern char *nvram_default_get(const char *name);
+
+/*
  * Initialize NVRAM access. May be unnecessary or undefined on certain
  * platforms.
  */
-extern int BCMINIT(nvram_init)(void *sbh);
+extern int nvram_init(void *sbh);
+
+/*
+ * Append a chunk of nvram variables to the global list
+ */
+extern int nvram_append(void *sb, char *vars, uint varsz);
+
+/*
+ * Check for reset button press for restoring factory defaults.
+ */
+extern bool nvram_reset(void *sbh);
 
 /*
  * Disable NVRAM access. May be unnecessary or undefined on certain
  * platforms.
  */
-extern void BCMINIT(nvram_exit)(void);
+extern void nvram_exit(void *sbh);
 
 /*
  * Get the value of an NVRAM variable. The pointer returned may be
@@ -51,14 +67,20 @@ extern void BCMINIT(nvram_exit)(void);
  * @param	name	name of variable to get
  * @return	value of variable or NULL if undefined
  */
-extern char * BCMINIT(nvram_get)(const char *name);
+extern char * nvram_get(const char *name);
+
+/* 
+ * Read the reset GPIO value from the nvram and set the GPIO
+ * as input
+ */
+extern int BCMINITFN(nvram_resetgpio_init)(void *sbh);
 
 /* 
  * Get the value of an NVRAM variable.
  * @param	name	name of variable to get
  * @return	value of variable or NUL if undefined
  */
-#define nvram_safe_get(name) (BCMINIT(nvram_get)(name) ? : "")
+#define nvram_safe_get(name) (nvram_get(name) ? : "")
 
 /*
  * Match an NVRAM variable.
@@ -68,8 +90,8 @@ extern char * BCMINIT(nvram_get)(const char *name);
  *		to match or FALSE otherwise
  */
 static INLINE int
-nvram_match(char *name, char *match) {
-	const char *value = BCMINIT(nvram_get)(name);
+nvram_match(const char *name, const char *match) {
+	const char *value = nvram_get(name);
 	return (value && !strcmp(value, match));
 }
 
@@ -81,8 +103,8 @@ nvram_match(char *name, char *match) {
  *		equal to invmatch or FALSE otherwise
  */
 static INLINE int
-nvram_invmatch(char *name, char *invmatch) {
-	const char *value = BCMINIT(nvram_get)(name);
+nvram_invmatch(const char *name, const char *invmatch) {
+	const char *value = nvram_get(name);
 	return (value && strcmp(value, invmatch));
 }
 
@@ -95,7 +117,7 @@ nvram_invmatch(char *name, char *invmatch) {
  * @param	value	value of variable
  * @return	0 on success and errno on failure
  */
-extern int BCMINIT(nvram_set)(const char *name, const char *value);
+extern int nvram_set(const char *name, const char *value);
 
 /*
  * Unset an NVRAM variable. Pointers to previously set values
@@ -104,7 +126,7 @@ extern int BCMINIT(nvram_set)(const char *name, const char *value);
  * @return	0 on success and errno on failure
  * NOTE: use nvram_commit to commit this change to flash.
  */
-extern int BCMINIT(nvram_unset)(const char *name);
+extern int nvram_unset(const char *name);
 
 /*
  * Commit NVRAM variables to permanent storage. All pointers to values
@@ -112,7 +134,7 @@ extern int BCMINIT(nvram_unset)(const char *name);
  * NVRAM values are undefined after a commit.
  * @return	0 on success and errno on failure
  */
-extern int BCMINIT(nvram_commit)(void);
+extern int nvram_commit(void);
 
 /*
  * Get all NVRAM variables (format name=value\0 ... \0\0).
@@ -120,13 +142,30 @@ extern int BCMINIT(nvram_commit)(void);
  * @param	count	size of buffer in bytes
  * @return	0 on success and errno on failure
  */
-extern int BCMINIT(nvram_getall)(char *buf, int count);
+extern int nvram_getall(char *nvram_buf, int count);
+
+/*
+ * returns the crc value of the nvram
+ * @param	nvh	nvram header pointer
+ */
+uint8 nvram_calc_crc(struct nvram_header * nvh);
 
 #endif /* _LANGUAGE_ASSEMBLY */
 
+/* The NVRAM version number stored as an NVRAM variable */
+#define NVRAM_SOFTWARE_VERSION	"1"
+
 #define NVRAM_MAGIC		0x48534C46	/* 'FLSH' */
+#define NVRAM_CLEAR_MAGIC	0x0
+#define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20
 #define NVRAM_SPACE		0x8000
+
+#define NVRAM_MAX_VALUE_LEN 255
+#define NVRAM_MAX_PARAM_LEN 64
+
+#define NVRAM_CRC_START_POSITION	9 /* magic, len, crc8 to be skipped */
+#define NVRAM_CRC_VER_MASK	0xffffff00 /* for crc_ver_init */
 
 #endif /* _bcmnvram_h_ */

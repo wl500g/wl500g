@@ -1,5 +1,5 @@
 # BCM94320Retail board
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.                
 #                                     
 # This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;   
@@ -9,10 +9,10 @@
 # $Id$
 boardtype=0x0461
 boardnum=${serno}
-# Board revision 1.0
-boardrev=0x10
-# Flags: FEM, NOPCI, CCKHIPWR & ADCDIV.
-boardflags=0xc48
+# Board revision 3.1
+boardrev=0x31
+# Flags: FEM, NOPCI, CCKHIPWR & ADCDIV, Afterburner ON.
+boardflags=0xe48
 sromrev=2
 
 # Make the d11 i/f single band
@@ -24,10 +24,15 @@ aa0=1
 ag0=2
 pa0maxpwr=76
 pa0itssit=62
-pa0b0=0x1707
-pa0b1=0xfa61
-pa0b2=0xfeac
+pa0b0=5516
+pa0b1=-1417
+pa0b2=-368
+opo=16
 
 # Commons wireless parameters
 cctl=0
 ccode=0
+
+# PID and VID
+product_id=0xD11B
+vendor_id=0x0A5C

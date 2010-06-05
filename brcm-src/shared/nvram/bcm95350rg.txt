@@ -1,5 +1,5 @@
 # BCM95350RG sdram board
-# Copyright 2004, Broadcom Corporation
+# Copyright 2007, Broadcom Corporation
 # All Rights Reserved.
 # 
 # THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -39,7 +39,7 @@ boot_wait=on
 reset_gpio=7
 
 # Watchdog timer in ms
-watchdog=0
+watchdog=3000
 
 # Make the d11 i/f single band
 wl0id=0x4320

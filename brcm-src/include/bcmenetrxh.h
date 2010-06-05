@@ -28,7 +28,7 @@ typedef volatile struct {
 	uint16	pad[12];
 } bcmenetrxh_t;
 
-#define	RXHDR_LEN	28
+#define	RXHDR_LEN	28	/* Header length */
 
 #define	RXF_L		((uint16)1 << 11)	/* last buffer in a frame */
 #define	RXF_MISS	((uint16)1 << 7)	/* received due to promisc mode */
