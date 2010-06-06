@@ -44,7 +44,7 @@
 							SSID:
 						</td>
 						<td class="content_input_td">
-							<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_wimax_ssid"
+							<input type="text" maxlength="100" class="content_input_fd" size="32" name="wan_wimax_ssid"
 								value="<% nvram_get_x("WiMaxConfig","wan_wimax_ssid"); %>" onkeypress="return is_string(this)"
 								onblur="validate_string(this)">
 						</td>
