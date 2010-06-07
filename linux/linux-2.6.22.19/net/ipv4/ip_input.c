@@ -156,7 +156,7 @@
 DEFINE_SNMP_STAT(struct ipstats_mib, ip_statistics) __read_mostly;
 
 /*
- *	Process Router Attention IP option
+ *	Process Router Attention IP option (RFC 2113)
  */
 int ip_call_ra_chain(struct sk_buff *skb)
 {
@@ -164,8 +164,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
 	u8 protocol = ip_hdr(skb)->protocol;
 	struct sock *last = NULL;
 
-	read_lock(&ip_ra_lock);
-	for (ra = ip_ra_chain; ra; ra = ra->next) {
+	for (ra = rcu_dereference(ip_ra_chain); ra; ra = rcu_dereference(ra->next)) {
 		struct sock *sk = ra->sk;
 
 		/* If socket is bound to an interface, only report
@@ -175,10 +174,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
 		    (!sk->sk_bound_dev_if ||
 		     sk->sk_bound_dev_if == skb->dev->ifindex)) {
 			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN)) {
-					read_unlock(&ip_ra_lock);
+				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN))
 					return 1;
-				}
 			}
 			if (last) {
 				struct sk_buff *skb2 = skb_clone(skb, GFP_ATOMIC);
@@ -191,10 +188,8 @@ int ip_call_ra_chain(struct sk_buff *skb)
 
 	if (last) {
 		raw_rcv(last, skb);
-		read_unlock(&ip_ra_lock);
 		return 1;
 	}
-	read_unlock(&ip_ra_lock);
 	return 0;
 }
 
