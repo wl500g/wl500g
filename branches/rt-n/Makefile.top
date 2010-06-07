@@ -384,7 +384,9 @@ ifeq ($(CONFIG_NFSD),y)
 		$(SRCMODULESDIR)/fs/nfsd/nfsd$(ko)    \
 		$(SRCMODULESDIR)/net/sunrpc/sunrpc$(ko)
 endif
-
+	# fs
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/ntfs/ntfs$(ko)
 ifeq ($(CONFIG_NTFS3G),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/fuse/fuse$(ko)
