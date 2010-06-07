@@ -1,0 +1,22 @@
+From 3e47cfec90fbe358692b3b960f7fa2303e465c2f
+From: Denys Vlasenko
+Date: Wed, 02 Jun 2010 23:47:04 +0000
+Subject: test: "" is not a valid number. Closes bug 1915
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/coreutils/test.c b/coreutils/test.c
+index 5864c7f..a1d1645 100644
+--- a/coreutils/test.c
++++ b/coreutils/test.c
+@@ -393,7 +393,7 @@ static number_t getn(const char *s)
+ 	if (errno != 0)
+ 		syntax(s, "out of range");
+ 
+-	if (*(skip_whitespace(p)))
++	if (p == s || *(skip_whitespace(p)) != '\0')
+ 		syntax(s, "bad number");
+ 
+ 	return r;
+--
+cgit v0.8.2.1
