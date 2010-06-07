@@ -22,7 +22,7 @@
 	<input type="hidden" name="action_mode" value="">
 	<input type="hidden" name="first_time" value=""><input type="hidden" name="action_script"
 		value="">
-	</form>
+
 	<table width="666" border="0" cellpadding="0" cellspacing="0">
 		<tr>
 			<td>
@@ -35,24 +35,18 @@
 					<tr class="content_header_tr">
 						<td colspan="2">
 							<textarea class="content_log_td" cols="63" rows="25" wrap="off" readonly>
-<% nvram_dump("chat.log",""); %>
-            </textarea>
+							    <% nvram_dump("chat.log",""); %>
+							</textarea>
 						</td>
 					</tr>
 				</table>
 			</td>
 		</tr>
 		<tr>
-			<td bordercolor="#E0E0E0">
-				<br>
-			</td>
-		</tr>
-		<tr>
 			<td>
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr bgcolor="#CCCCCC">
-						<td colspan="3" style="font-family: 'Arial'; font-size: 2pt;">
-							<b>&nbsp;</b>
+						<td colspan="3" style="height:15px;">
 						</td>
 					</tr>
 					<tr bgcolor="#FFFFFF">
@@ -68,5 +62,6 @@
 				</table>
 			</td>
 		</tr>
-	</table>
+	</table	>
+	</form>
 </body>

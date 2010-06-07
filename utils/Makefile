@@ -13,7 +13,7 @@
 #
 
 UTILS := wl nas eapd mii-tool robocfg
-CFLAGS += -s -O2 -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
+CFLAGS += -s -Os -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
 
@@ -35,6 +35,9 @@ eapd: $(SRCBASE)/wl/mipsel-uclibc/eapd
 	cp -p $< $@
 
 mii-tool: mii-tool.c mii.h
+
+pwrled: pwrled.o
+	$(CC) $(CFLAGS) -o $@ -L$(TOP)/nvram -lnvram $<
 
 clean:
 	rm -f *.o *~ $(UTILS)

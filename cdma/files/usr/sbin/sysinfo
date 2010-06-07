@@ -1,6 +1,6 @@
 echo '
 <pre>
-<h1>Status Information</h1>'
+<h3>Status Information</h3>'
 cat /proc/version
 cat /.version
 echo

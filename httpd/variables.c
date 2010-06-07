@@ -4341,6 +4341,7 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 //	{"wan_modem_ipw_mode", "", validate_range, ARGV("0", "2", ""), FALSE, FALSE},      
 //	{"wan_modem_ipw_clearpin", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wan_modem_dialno", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_autodetect", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_vid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_pid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_portspeed", "", validate_string, ARGV(""), TRUE, FALSE},

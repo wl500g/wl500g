@@ -23,22 +23,20 @@
 	<input type="hidden" name="action_script" value="">
 	<!-- Table for the conntent page -->
 	<table class="content_table">
-		<tr class="content_log_td">
-			<td style="overflow-x: scroll;">
-				<% nvram_dump("sysinfo.htm","../usr/sbin/sysinfo > /tmp/sysinfo.htm"); %>
-			</td>
+		<tr class="content_header_tr">
+		    <td class="content_header_td_title" colspan="2">Status &amp; Log - Diagnostic Information</td>
 		</tr>
-		<tr>
+
+		<tr class="content_log_td">
 			<td>
-				<br>
+				<% nvram_dump("sysinfo.htm","../usr/sbin/sysinfo > /tmp/sysinfo.htm"); %>
 			</td>
 		</tr>
 		<tr>
 			<td>
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr bgcolor="#CCCCCC">
-						<td colspan="3" style="font-family: 'Arial'; font-size: 2pt;">
-							<b>&nbsp;</b>
+						<td colspan="3" style="height:15px;">
 						</td>
 					</tr>
 					<tr bgcolor="#FFFFFF">

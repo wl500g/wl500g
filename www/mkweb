@@ -132,9 +132,17 @@ if [ -n "$1" ]; then
 	### 4. Strip *.asp, *.css and *.js ###
 	echo "Stripping web interface..."
 
-	# Strip c++ style (//...) comments from js and asp, however, preserve urls like http://
+	# Strip c++ style (//...) full line comments from js and asp
 	LIST=$(ls ../web_$MODEL/*.{js,asp})
-	PATTERN="s|^[ \t]*//.*$||;s|[ \t]*[^:]//.*$||"
+	PATTERN="s|^[ \t]*//.*$||"
+	echo "sed $PATTERN"
+	for i in $LIST; do
+		sed -ri "$PATTERN" $i
+	done
+
+	# Strip the rest of c++ style (//...) comments from js only, however, preserve urls like http://
+	LIST=$(ls ../web_$MODEL/*.js)
+	PATTERN="s|[ \t]*[^:]//.*$||"
 	echo "sed $PATTERN"
 	for i in $LIST; do
 		sed -ri "$PATTERN" $i

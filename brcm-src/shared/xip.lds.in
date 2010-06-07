@@ -16,6 +16,7 @@ SECTIONS {
 		*(.rdata.*)
 		*(.rodata)
 		*(.rodata.*)
+		. = ALIGN(16);
 		_etext = .;
 		text_end = .;
 	}
