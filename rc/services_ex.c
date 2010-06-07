@@ -685,7 +685,9 @@ start_usb(void)
 		{
 			eval("insmod", "fuse");
 		}
+		else
 #endif
+		eval("insmod", "ntfs");
 	}	
 #endif
 	if (nvram_match("usb_nfsenable_x", "1"))
@@ -736,7 +738,9 @@ stop_usb(void)
 		{
 			eval("rmmod", "fuse");
 		}
+		else
 #endif
+			eval("rmmod", "ntfs");
 	}
 #endif
 #ifdef WEBCAM_SUPPORT	
