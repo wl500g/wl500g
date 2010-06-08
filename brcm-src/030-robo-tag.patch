@@ -46,8 +46,8 @@
 +					  ((vid0 >> 4) << 12));	/* vlan id bit[11:4] */
 			} else {
  				val32 |= ((1 << 24) |		/* valid write */
--				          (vid << 12));	/* vlan id bit[11:4] */
-+					  (vid0 << 12));	/* vlan id bit[11:4] */
+-				          (vid << 12));	/* vlan id bit[11:0] */
++					  ((vid0 | vid) << 12));	/* vlan id bit[11:0] */
 			}
  			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
  

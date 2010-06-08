@@ -26,8 +26,9 @@
 #include <bcmrobo.h>
 #include <proto/ethernet.h>
 
-#define	ET_ERROR(args)
+#define	ET_ERROR(args)		printk args
 #define	ET_MSG(args)
+#define	ET_TRACE(args)
 
 #define VARG(var, len) (((len) == 1) ? *((uint8 *)(var)) : \
 		        ((len) == 2) ? *((uint16 *)(var)) : \
@@ -41,15 +42,20 @@
 
 /* MII access registers */
 #define PSEUDO_PHYAD	0x1E	/* MII Pseudo PHY address */
+#define REG_MII_CTRL    0x00    /* 53115 MII control register */
 #define REG_MII_PAGE	0x10	/* MII Page register */
 #define REG_MII_ADDR	0x11	/* MII Address register */
 #define REG_MII_DATA0	0x18	/* MII Data register 0 */
 #define REG_MII_DATA1	0x19	/* MII Data register 1 */
 #define REG_MII_DATA2	0x1a	/* MII Data register 2 */
 #define REG_MII_DATA3	0x1b	/* MII Data register 3 */
+#define REG_MII_BRCM_TEST	0x1f	/* Broadcom test register */
+#define REG_MII_AUX_STATUS2	0x1b	/* Auxiliary status 2 register */
+#define REG_MII_AUTO_PWRDOWN	0x1C	/* 53115 Auto power down register */
 
 /* Page numbers */
 #define PAGE_CTRL	0x00	/* Control page */
+#define PAGE_STATUS	0x01	/* Status page */
 #define PAGE_MMR	0x02	/* 5397 Management/Mirroring page */
 #define PAGE_VTBL	0x05	/* ARL/VLAN Table access page */
 #define PAGE_VLAN	0x34	/* VLAN page */
@@ -67,7 +73,11 @@
 #define REG_CTRL_IMP	0x08	/* IMP port traffic control register */
 #define REG_CTRL_MODE	0x0B	/* Switch Mode register */
 #define REG_CTRL_MIIPO	0x0E	/* 5325: MII Port Override register */
+#define REG_CTRL_PWRDOWN 0x0F   /* 5325: Power Down Mode register */
 #define REG_CTRL_SRST	0x79	/* Software reset control register */
+
+/* Status Page Registers */
+#define REG_STATUS_LINK	0x00	/* Link Status Summary */
 
 #define REG_DEVICE_ID	0x30	/* 539x Device id: */
 
@@ -385,7 +395,7 @@ mii_wreg(robo_info_t *robo, uint8 page, uint8 reg, void *val, int len)
 	ASSERT(len == 1 || len == 6 || len == 8 ||
 	       ((len == 2) && !((int)val & 1)) || ((len == 4) && !((int)val & 3)));
 
-	ET_MSG(("%s: [0x%x-0x%x] := 0x%x (len %d)\n", __FUNCTION__, page, reg,
+	ET_TRACE(("%s: [0x%x-0x%x] := 0x%x (len %d)\n", __FUNCTION__, page, reg,
 	       VARG(val, len), len));
 
 	/* set page number - MII register 0x10 */
@@ -528,7 +538,7 @@ mii_rreg(robo_info_t *robo, uint8 page, uint8 reg, void *val, int len)
 		break;
 	}
 
-	ET_MSG(("%s: [0x%x-0x%x] => 0x%x (len %d)\n", __FUNCTION__, page, reg,
+	ET_TRACE(("%s: [0x%x-0x%x] => 0x%x (len %d)\n", __FUNCTION__, page, reg,
 	       VARG(val, len), len));
 
 	return 0;
@@ -1016,7 +1026,7 @@ vlan_setup:
 				          ((vid >> 4) << 12));	/* vlan id bit[11:4] */
 			} else {
 				val32 |= ((1 << 24) |		/* valid write */
-				          (vid << 12));	/* vlan id bit[11:4] */
+				          (vid << 12));	/* vlan id bit[11:0] */
 			}
 			ET_MSG(("bcm_robo_config_vlan: programming REG_VLAN_WRITE %08x\n", val32));
 
@@ -1056,7 +1066,7 @@ vlan_setup:
 			robo->ops->write_reg(robo, PAGE_VTBL, vtbla, &val8,
 			                     sizeof(val8));
 		}
-	}
+	} // vlan setup loop end
 
 	if (robo->devid == DEVID5325) {
 		/* setup priority mapping - applies to tagged ingress frames */
