@@ -328,7 +328,7 @@ static int ctnetlink_conntrack_event(struct notifier_block *this,
 	unsigned int flags = 0, group;
 
 	/* ignore our fake conntrack entry */
-	if (ct == &nf_conntrack_untracked)
+	if (nf_ct_is_untracked(ct))
 		return NOTIFY_DONE;
 
 	if (events & IPCT_DESTROY) {

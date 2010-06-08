@@ -257,7 +257,13 @@ extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
 extern void (*nf_conntrack_destroyed)(struct nf_conn *conntrack);
 
 /* Fake conntrack entry for untracked connections */
-extern struct nf_conn nf_conntrack_untracked;
+static inline struct nf_conn *nf_ct_untracked_get(void)
+{
+	extern struct nf_conn nf_conntrack_untracked;
+
+	return &nf_conntrack_untracked;
+}
+extern void nf_ct_untracked_status_or(unsigned long bits);
 
 extern int nf_ct_no_defrag;
 
@@ -280,9 +286,9 @@ static inline int nf_ct_is_dying(struct nf_conn *ct)
 	return test_bit(IPS_DYING_BIT, &ct->status);
 }
 
-static inline int nf_ct_is_untracked(const struct sk_buff *skb)
+static inline int nf_ct_is_untracked(const struct nf_conn *ct)
 {
-	return (skb->nfct == &nf_conntrack_untracked.ct_general);
+	return test_bit(IPS_UNTRACKED_BIT, &ct->status);
 }
 
 extern unsigned int nf_conntrack_htable_size;

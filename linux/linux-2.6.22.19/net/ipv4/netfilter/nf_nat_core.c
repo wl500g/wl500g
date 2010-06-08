@@ -570,7 +570,7 @@ static int __init nf_nat_init(void)
 	RCU_INIT_POINTER(nf_ct_nat_offset, nf_nat_get_offset);
 
 	/* Initialize fake conntrack so that NAT will skip it */
-	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
+	nf_ct_untracked_status_or(IPS_NAT_DONE_MASK);
 
 	l3proto = nf_ct_l3proto_find_get((u_int16_t)AF_INET);
 	return 0;

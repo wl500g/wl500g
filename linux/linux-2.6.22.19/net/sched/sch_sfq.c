@@ -188,7 +188,7 @@ static unsigned sfq_hash(struct sfq_sched_data *q, struct sk_buff *skb)
 	info.ctreplsrc = info.dst;
 	info.ctrepldst = info.src;
 	/* collect conntrack info */
-	if (ct && ct != &nf_conntrack_untracked) {
+	if (ct && !nf_ct_is_untracked(ct)) {
 		if (skb->protocol == __constant_htons(ETH_P_IP)) {
 			info.ctorigsrc =
 			    ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u3.ip;
