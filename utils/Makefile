@@ -36,6 +36,8 @@ eapd: $(SRCBASE)/wl/mipsel-uclibc/eapd
 
 mii-tool: mii-tool.c mii.h
 
+robocfg: robocfg.c etc53xx.h
+
 pwrled: pwrled.o
 	$(CC) $(CFLAGS) -o $@ -L$(TOP)/nvram -lnvram $<
 
