@@ -1,0 +1,73 @@
+#!/bin/sh
+apn=$(nvram get wan_modem_apn)  
+dialnumber=$(nvram get wan_modem_dialno) 
+modem=$(nvram get wan_modem_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
+username=$(nvram get wan_modem_username)
+port=$(nvram get wan_modem_tts_port)
+portspeed=$(nvram get wan_modem_portspeed)
+password=$(nvram get wan_modem_password)
+mtu=1492 #$(nvram get wan_usb_mtu)
+mru=1492 #$(nvram get wan_usb_mru)
+vend=$(nvram get wan_modem_vid)
+prod=$(nvram get wan_modem_pid)
+pppdoptions=$(nvram get wan_modem_options)
+initoptions=$(nvram get wan_modem_dialup_init)
+
+sleep 5
+if [ "$vend" == "" -o "$prod" == "" ]; then
+ insmod acm
+ insmod option
+else
+ insmod usbserial vendor=$vend product=$prod maxSize=4096
+fi
+kill -9 $(ps|grep pppd|awk -F' ' '{print $1}') 2>/dev/null
+mkdir /tmp/ppp/peers/
+sleep 20
+usbdev=$(cat /proc/bus/usb/devpath | grep -o "/.*" | awk -F 'm' '{print $1}')
+
+echo "'' ''
+'' 'ATZ'
+$initoptions
+'OK' 'ATDT#777'
+'CONNECT' 'ATO'
+'' ''" > /tmp/ppp/peers/0.chat
+
+echo "'' 'ATZ'
+$initoptions
+'' 'AT+CGDCONT=1,\"IP\",\"$apn\"'
+'OK' 'ATD$dialnumber'
+'CONNECT' ''" > /tmp/ppp/peers/1.chat
+
+echo "debug" > /tmp/ppp/peers/dialup
+if [ "$usbdev" == "/dev/usb/ac" ]; then
+ echo "/dev/usb/acm/$port" >> /tmp/ppp/peers/dialup
+else
+ echo "/dev/usb/tts/$port" >> /tmp/ppp/peers/dialup
+fi
+
+echo "$portspeed
+crtscts
+noipdefault
+ipcp-accept-local
+lcp-echo-interval 60
+lcp-echo-failure 6
+mtu $mtu
+mru $mru
+usepeerdns
+noauth
+$pppdoptionss
+maxfail 2
+nodetach
+persist
+linkname wan0
+user '$username'
+password '$password'
+connect \"/usr/sbin/chat -s -S -V -t 60 -f /tmp/ppp/peers/$modem.chat 2>/tmp/chat.log\"" >> /tmp/ppp/peers/dialup
+
+
+while true; do
+  kill -9 $(ps|grep pppd|grep gprs|awk -F' ' '{print $1}') 2>/dev/null
+
+  pppd call dialup >> /tmp/chat.log 2>&1
+  sleep 25
+done

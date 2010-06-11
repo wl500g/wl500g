@@ -3,7 +3,7 @@
 USERNAME=$(nvram get wan_modem_username)
 PASSWORD=$(nvram get wan_modem_password)
 DIALNO=$(nvram get wan_modem_dialno)
-INIT=$(nvram get wan_modem_init)
+INIT=$(nvram get wan_modem_dialup_init)
 PORTSPEED=$(nvram get wan_modem_portspeed)
 
 if [ $INIT != "" ]; then
