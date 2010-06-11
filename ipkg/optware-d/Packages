@@ -54,12 +54,12 @@ Package: ntfs-3g
 Architecture: mipsel
 Priority: optional
 Section: system
-Version: 2010.5.16
+Version: 2010.5.22
 Maintainer: http://www.tuxera.com/support/forums/
-Source: http://tuxera.com/opensource/ntfs-3g-2010.5.16.tgz
-Filename: ntfs-3g_2010.5.16_mipsel.ipk
-Size: 200757
-MD5Sum: 77374ec4d979333e3e8be661fcc0621e
+Source: http://tuxera.com/opensource/ntfs-3g-2010.5.22.tgz
+Filename: ntfs-3g_2010.5.22_mipsel.ipk
+Size: 192170
+MD5Sum: b8973dc6521bccfaad163abf39517635
 Description: The NTFS-3G driver is a freely and commercially available
  and supported read/write NTFS driver
  for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
