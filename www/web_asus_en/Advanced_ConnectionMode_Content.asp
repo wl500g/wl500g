@@ -4,13 +4,9 @@
 	<title>ZVMODELVZ Web Manager</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 	<link rel="stylesheet" type="text/css" href="style.css" media="screen">
-
 	<script type="text/javascript" src="overlib.js"></script>
-
 	<script type="text/javascript" src="general.js"></script>
-
 	<script type="text/javascript" src="quick.js"></script>
-
 	<script language="JavaScript" type="text/javascript">
 	var sCDMA	= 'CDMA';
 	var sGPRS	= 'GPRS';
@@ -18,6 +14,7 @@
 	var sIPW	= 'IPW';
 	var sZada	= 'ZadaCOM';
 	var sUser	= 'User';
+	var sUni	= 'Universal';
 	var usb_connection_types= new Array();
 	usb_connection_types[ -1 ] = "none";
 	usb_connection_types[  1 ] = sCDMA;
@@ -26,6 +23,7 @@
 	usb_connection_types[  4 ] = sIPW;
 	usb_connection_types[  5 ] = sZada;
 	usb_connection_types[ 99 ] = sUser;
+	usb_connection_types[ 100] = sUni;
 	
 	function isModeUsed(mode)
 	{
@@ -62,35 +60,25 @@
 		setDispModeById( sDialup,	'none' );
 		setDispModeById( sIPW,		'none' );
 		setDispModeById( sUser,		'none' );
+		setDispModeById( sUni,		'none' );
 		
 		setDispModeById( 'UserPasswd',	'none' );
 		setDispModeById( 'APN',		'none' );
 		setDispModeById( 'DialupNO',	'none' );
 		setDispModeById( 'USB',		'none' );
 		setDispModeById( 'PortSpeed',	'none' );
-		setDispModeById( 'ZeroCD',	'none' );
-		
+
 		if (isModeUsed( sCDMA ))
 		{
 			setDispModeById( sCDMA,	'block' );
 			setDispModeById( 'UserPasswd',	'block' );
 			setDispModeById( 'USB',	'block' );
-			setDispModeById( 'ZeroCD',	'block' );
-	//		appendChild(aux1,generateDocEntry(0, "CDMA Config","Advanced_CDMA_Content.asp", ""))
-	//		if (CDMAType() == 'GTRAN')
-	//			appendChild(aux1,generateDocEntry(0, "GTRAN Info", "Main_CDMAGStatus_Content.asp", ""))
-	//		if (CDMAType() == 'AnyDATA')
-	//		   appendChild(aux1,generateDocEntry(0, "AnyDATA Info", "Main_CDMAADStatus_Content.asp", ""))
-	//		/if (CDMAType() == 'Axesstel')
-	//		   appendChild(aux1,generateDocEntry(0, "Axesstel Info", "Main_CDMAAxStatus_Content.asp", ""))
 		} else if (isModeUsed(sIPW))
 		{
 			setDispModeById( sIPW, 'block' );
 			setDispModeById( 'UserPasswd',	'block' );
 			setDispModeById( 'APN',	'block' );
 			setDispModeById( 'USB',	'block' );
-	//	  appendChild(aux1,generateDocEntry(0, "IP Wireless 4G Config","Advanced_IPW_Content.asp", ""))
-	//	  appendChild(aux1,generateDocEntry(0, "IP Wireless 4G Info", "Main_IPWStatus_Content.asp", ""))
 		} else if (isModeUsed(sGPRS))
 		{
 			setDispModeById( sGPRS,			'block' );
@@ -99,8 +87,6 @@
 			setDispModeById( 'DialupNO',	'block' );
 			setDispModeById( 'PortSpeed',	'block' );
 			setDispModeById( 'USB',			'block' );
-			setDispModeById( 'ZeroCD',		'block' );
-	//		appendChild(aux1,generateDocEntry(0, "GPRS/EDGE/UMTS Config","Advanced_GPRS_Content.asp", ""))
 		} else if (isModeUsed(sZada))
 		{
 			setDispModeById( sZada,			'block' );
@@ -108,20 +94,23 @@
 			setDispModeById( 'APN',	'block' );
 			setDispModeById( 'DialupNO',	'block' );
 			setDispModeById( 'USB',	'block' );
-
-	//	   	  appendChild(aux1,generateDocEntry(0, "ZadaCOM Config","Advanced_ZadaCOM_Content.asp", ""))
 		} else if (isModeUsed(sDialup))
 		{
 			setDispModeById( sDialup, 'block' );
 			setDispModeById( 'DialupNO',	'block' );
 			setDispModeById( 'PortSpeed',	'block' );
 			setDispModeById( 'USB',	'block' );
-	//	   	  appendChild(aux1,generateDocEntry(0, "Dial-Up Config","Advanced_Dialup_Content.asp", ""))
 		} else if (isModeUsed(sUser))
 		{
 			setDispModeById( sUser, 'block' );
-		
-	//		appendChild(aux1,generateDocEntry(0, "User Dial-Up Config","Advanced_DialupUser_Content.asp", ""))
+		} else if (isModeUsed(sUni))
+		{
+			setDispModeById( sUni,			'block' );
+			setDispModeById( 'UserPasswd',	'block' );
+			setDispModeById( 'APN',			'block' );
+			setDispModeById( 'DialupNO',	'block' );
+			setDispModeById( 'PortSpeed',	'block' );
+			setDispModeById( 'USB',			'block' );		
 		}
 	}
 	</script>
@@ -134,8 +123,8 @@
 	</style>
 </head>
 <!--<body onload="load_body()" onunload="return unload_body();">-->
-	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
-	</div>
+<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
+</div>
 <body onload="changeUSBConnectionType();" onunload="return unload_body();">
 	<form method="GET" name="form" action="apply.cgi">
 	<input type="hidden" name="current_page" value="Advanced_ConnectionMode_Content.asp">
@@ -164,13 +153,28 @@
 		</tr>
 		<tr>
 			<td class="content_header_td">
+				Zero CD Configuration
+			</td>
+			<td class="content_input_td">
+				<select name="wan_modem_zerocd_mode" class="content_input_fd">
+					<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
+						Not set</option>
+					<option class="content_input_fd" value="Auto" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
+						Auto</option>
+					<option class="content_input_fd" value="UserDefined" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
+						Config at /usr/local/etc/usb_modeswitch.conf</option>
+				</select>
+			</td>
+		</tr>		
+		<tr>
+			<td class="content_header_td">
 				Enable automatic dial on boot
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_enable_x" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_enable_x')"
-					<% nvram_match_x("","wan_modem_enable_x", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_enable_x" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_enable_x')"
-					<% nvram_match_x("","wan_modem_enable_x", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_enable_x" class="content_input_fd"
+					onchange="change_common(this, '', 'wan_modem_enable_x')" <% nvram_match_x("","wan_modem_enable_x", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_enable_x" class="content_input_fd"
+					onchange="change_common(this, '', 'wan_modem_enable_x')" <% nvram_match_x("","wan_modem_enable_x", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
@@ -178,8 +182,10 @@
 				Use WAN port as LAN
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_wanaslan_x" class="content_input_fd" <% nvram_match_x("","wan_modem_wanaslan_x", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_wanaslan_x" class="content_input_fd" <% nvram_match_x("","wan_modem_wanaslan_x", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_wanaslan_x" class="content_input_fd"
+					<% nvram_match_x("","wan_modem_wanaslan_x", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_wanaslan_x" class="content_input_fd"
+					<% nvram_match_x("","wan_modem_wanaslan_x", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
@@ -205,7 +211,7 @@
 				MV110H modem.
 			</td>
 		</tr>
-<!--		<tr>
+		<!--		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set IP Wireless 4G connection via IP Wireless USB modem.', LEFT);"
 				onmouseout="return nd();">
 				<input type="radio" value="4" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
@@ -229,7 +235,7 @@
 				GPRS/EDGE/UMTS connection via USB-serial converter and GSM.
 			</td>
 		</tr>
-<!--		<tr>
+		<!--		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set internet connection via USB connected ZadaCOM USB modem.', LEFT);"
 				onmouseout="return nd();">
 				<input type="radio" value="5" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
@@ -263,7 +269,61 @@
 				User defined Dial-Up connection.
 			</td>
 		</tr>
+		<tr>
+			<td class="content_header_td_30" onmouseout="return nd();">
+				<input type="radio" value="100" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
+					<% nvram_match_x("","wan_modem_mode_x", "100", "checked"); %>>
+				Universal
+			</td>
+			<td class="content_desc_td">
+				Alternative universal dial script for CDMA/GPRS/EDGE/UMTS modems.
+			</td>
+		</tr>
 	</table>
+	<!-- ********************************************************************** -->
+	<div id='Universal' class='vanishing'>
+		<table class="content_table">
+			<tr class="content_header_tr">
+				<td class="content_section_header_td" colspan="2">
+					Universal Dial Script
+				</td>
+			</tr>
+			<tr>
+				<td class="content_header_td">
+					Modem type:
+				</td>			
+				<td class="content_input_td">
+					<select name="wan_modem_standard" class="content_input_fd">
+						<option class="content_input_fd" value="0" <%nvram_match_x("LANHostConfig","wan_modem_standard",  "0","selected"); %>>
+							CDMA/EVDO</option>
+						<option class="content_input_fd" value="1" <%nvram_match_x("LANHostConfig","wan_modem_standard", "1","selected"); %>>
+							GPRS/EDGE/UMTS/HSPDA</option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<td class="content_header_td">
+					USB tts(ac) port:
+				</td>
+				<td class="content_input_td">
+					<select name="wan_modem_tts_port" class="content_input_fd">
+						<option class="content_input_fd" value="0" <%nvram_match_x("LANHostConfig","wan_modem_tts_port",  "0","selected"); %>>
+							0</option>
+						<option class="content_input_fd" value="1" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "1","selected"); %>>
+							1</option>
+						<option class="content_input_fd" value="2" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "2","selected"); %>>
+							2</option>
+						<option class="content_input_fd" value="3" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "3","selected"); %>>
+							3</option>
+						<option class="content_input_fd" value="4" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "4","selected"); %>>
+							4</option>
+						<option class="content_input_fd" value="5" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "5","selected"); %>>
+							5</option>							
+					</select>
+				</td>
+			</tr>
+		</table>
+	</div>
 	<!-- ********************************************************************** -->
 	<div id='CDMA' class='vanishing'>
 		<table class="content_table">
@@ -495,31 +555,6 @@
 			</tr>
 		</table>
 	</div>
-	<div id='ZeroCD' class='vanishing'>
-
-		<table class="content_table">
-			<tr class="content_header_tr">
-				<td class="content_section_header_td" colspan="2">
-					Zero CD Configuration
-				</td>
-			</tr>
-			<tr>
-				<td class="content_header_td">
-					Modem type:
-				</td>
-				<td class="content_input_td">
-					<select name="wan_modem_zerocd_mode" class="content_input_fd">
-						<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
-							Not set</option>
-						<option class="content_input_fd" value="Auto" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
-							Auto</option>
-						<option class="content_input_fd" value="UserDefined" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
-							Config at /usr/local/etc/usb_modeswitch.conf</option>
-					</select>
-				</td>
-			</tr>
-		</table>
-	</div>
 	<!-- ********************************************************************** -->
 	<div id='USB' class='vanishing'>
 		<table class="content_table">
@@ -529,7 +564,7 @@
 				</td>
 			</tr>
 			<tr>
-				<td class="content_header_td" onmouseover="return overlib('Detect VID:PID every time at usb-modem plugging.')" 
+				<td class="content_header_td" onmouseover="return overlib('Detect VID:PID every time at usb-modem plugging.')"
 					onmouseout="return nd()">
 					Autodetect device
 				</td>
@@ -608,14 +643,14 @@
 						onclick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></div>
 			</td>
 			<td height="25" width="33%">
-			<div style='text-align: center; font-family: "Arial";'>
-				<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-					onclick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></div>
+				<div style='text-align: center; font-family: "Arial";'>
+					<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
+						onclick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></div>
 			</td>
 			<td height="25" width="33%">
-			<div style='text-align: center; font-family: "Arial";'>
-				<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-					onclick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></div>
+				<div style='text-align: center; font-family: "Arial";'>
+					<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
+						onclick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></div>
 			</td>
 		</tr>
 	</table>
