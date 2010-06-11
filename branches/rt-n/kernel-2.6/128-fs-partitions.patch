@@ -1,0 +1,201 @@
+From 11073cf4caedf23d817c9b3d87f0fad25fa4acfe
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 9 Jun 2010 15:49:33 -0400
+Subject: [PATCH] fs/partitions: backports from upstream kernel 2.6
+
+kernel.org commits:
+b84d879639f83d35d3fcd909222522c928bf974b
+6bcf19d02a5d7e627fa054f2f10e0a8d830df326
+73f20e58b1d586e9f6d3ddc3aad872829aca7743
+f751aa125d1843ea4a9a264b451fd5b1639fab20
+0607fd02587a6b4b086dc746d63123c1f284db68
+ac0d86f5809598ddcd6bfa0ea8245ccc910e9eac
+02c33b123e59cab5771e52a012aeb810500260a2
+8e0cc811e0f8029a7225372fb0951fab102c012f
+---
+ fs/fat/inode.c           |    2 +-
+ fs/partitions/check.c    |   23 +++++++++++-
+ fs/partitions/msdos.c    |   38 ++++++++++++++++----
+ include/linux/genhd.h    |    2 +-
+ include/linux/msdos_fs.h |    8 +++-
+ 5 files changed, 60 insertions(+), 13 deletions(-)
+
+diff --git a/fs/fat/inode.c b/fs/fat/inode.c
+index 414d014..a988efc 100644
+--- a/fs/fat/inode.c
++++ b/fs/fat/inode.c
+@@ -1226,7 +1226,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent,
+ 	 */
+ 
+ 	media = b->media;
+-	if (!FAT_VALID_MEDIA(media)) {
++	if (!fat_valid_media(media)) {
+ 		if (!silent)
+ 			printk(KERN_ERR "FAT: invalid media value (0x%02x)\n",
+ 			       media);
+diff --git a/fs/partitions/check.c b/fs/partitions/check.c
+index 9a3a058..efebc5e 100644
+--- a/fs/partitions/check.c
++++ b/fs/partitions/check.c
+@@ -546,14 +546,33 @@ int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
+ 		return 0;
+ 	if (IS_ERR(state))	/* I/O error reading the partition table */
+ 		return -EIO;
++
++	/* tell userspace that the media / partition table may have changed */
++	kobject_uevent(&disk->kobj, KOBJ_CHANGE);
++
+ 	for (p = 1; p < state->limit; p++) {
+ 		sector_t size = state->parts[p].size;
+ 		sector_t from = state->parts[p].from;
+ 		if (!size)
+ 			continue;
++		if (from >= get_capacity(disk)) {
++			printk(KERN_WARNING
++			       "%s: p%d ignored, start %llu is behind the end of the disk\n",
++			       disk->disk_name, p, (unsigned long long) from);
++			continue;
++		}
+ 		if (from + size > get_capacity(disk)) {
+-			printk(" %s: p%d exceeds device capacity\n",
+-				disk->disk_name, p);
++			/*
++			 * we can not ignore partitions of broken tables
++			 * created by for example camera firmware, but we
++			 * limit them to the end of the disk to avoid
++			 * creating invalid block devices
++			 */
++			printk(KERN_WARNING
++			       "%s: p%d size %llu exceeds device capacity, "
++			       "limited to end of disk\n",
++			       disk->disk_name, p, (unsigned long long) size);
++			size = get_capacity(disk) - from;
+ 		}
+ 		add_partition(disk, p, from, size, state->parts[p].flags);
+ #ifdef CONFIG_BLK_DEV_MD
+diff --git a/fs/partitions/msdos.c b/fs/partitions/msdos.c
+index fd6ffd4..35fe747 100644
+--- a/fs/partitions/msdos.c
++++ b/fs/partitions/msdos.c
+@@ -18,7 +18,7 @@
+  *
+  *  Re-organised Feb 1998 Russell King
+  */
+-
++#include <linux/msdos_fs.h>
+ 
+ #include "check.h"
+ #include "msdos.h"
+@@ -206,6 +206,7 @@ parse_solaris_x86(struct parsed_partitions *state, struct block_device *bdev,
+ 	Sector sect;
+ 	struct solaris_x86_vtoc *v;
+ 	int i;
++	short max_nparts;
+ 
+ 	v = (struct solaris_x86_vtoc *)read_dev_sector(bdev, offset+1, &sect);
+ 	if (!v)
+@@ -221,7 +222,9 @@ parse_solaris_x86(struct parsed_partitions *state, struct block_device *bdev,
+ 		put_dev_sector(sect);
+ 		return;
+ 	}
+-	for (i=0; i<SOLARIS_X86_NUMSLICE && state->next<state->limit; i++) {
++	/* Ensure we can handle previous case of VTOC with 8 entries gracefully */
++	max_nparts = le16_to_cpu (v->v_nparts) > 8 ? SOLARIS_X86_NUMSLICE : 8;
++	for (i=0; i<max_nparts && state->next<state->limit; i++) {
+ 		struct solaris_x86_slice *s = &v->v_slice[i];
+ 		if (s->s_size == 0)
+ 			continue;
+@@ -420,6 +423,7 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
+ 	Sector sect;
+ 	unsigned char *data;
+ 	struct partition *p;
++	struct fat_boot_sector *fb;
+ 	int slot;
+ 
+ 	data = read_dev_sector(bdev, 0, &sect);
+@@ -445,8 +449,21 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
+ 	p = (struct partition *) (data + 0x1be);
+ 	for (slot = 1; slot <= 4; slot++, p++) {
+ 		if (p->boot_ind != 0 && p->boot_ind != 0x80) {
+-			put_dev_sector(sect);
+-			return 0;
++			/*
++			 * Even without a valid boot inidicator value
++			 * its still possible this is valid FAT filesystem
++			 * without a partition table.
++			 */
++			fb = (struct fat_boot_sector *) data;
++			if (slot == 1 && fb->reserved && fb->fats
++				&& fat_valid_media(fb->media)) {
++				printk("\n");
++				put_dev_sector(sect);
++				return 1;
++			} else {
++				put_dev_sector(sect);
++				return 0;
++			}
+ 		}
+ 	}
+ 
+@@ -475,9 +492,16 @@ int msdos_partition(struct parsed_partitions *state, struct block_device *bdev)
+ 		if (!size)
+ 			continue;
+ 		if (is_extended_partition(p)) {
+-			/* prevent someone doing mkfs or mkswap on an
+-			   extended partition, but leave room for LILO */
+-			put_partition(state, slot, start, size == 1 ? 1 : 2);
++			/*
++			 * prevent someone doing mkfs or mkswap on an
++			 * extended partition, but leave room for LILO
++			 * FIXME: this uses one logical sector for > 512b
++			 * sector, although it may not be enough/proper.
++			 */
++			sector_t n = 2;
++			n = min(size, max(sector_size, n));
++			put_partition(state, slot, start, n);
++
+ 			printk(" <");
+ 			parse_extended(state, bdev, start, size);
+ 			printk(" >");
+diff --git a/include/linux/genhd.h b/include/linux/genhd.h
+index 9756fc1..a47b802 100644
+--- a/include/linux/genhd.h
++++ b/include/linux/genhd.h
+@@ -264,7 +264,7 @@ static inline void set_capacity(struct gendisk *disk, sector_t size)
+ 
+ #ifdef CONFIG_SOLARIS_X86_PARTITION
+ 
+-#define SOLARIS_X86_NUMSLICE	8
++#define SOLARIS_X86_NUMSLICE	16
+ #define SOLARIS_X86_VTOC_SANE	(0x600DDEEEUL)
+ 
+ struct solaris_x86_slice {
+diff --git a/include/linux/msdos_fs.h b/include/linux/msdos_fs.h
+index 0bca157..81cd36b 100644
+--- a/include/linux/msdos_fs.h
++++ b/include/linux/msdos_fs.h
+@@ -57,8 +57,6 @@
+ #define MSDOS_DOT	".          "	/* ".", padded to MSDOS_NAME chars */
+ #define MSDOS_DOTDOT	"..         "	/* "..", padded to MSDOS_NAME chars */
+ 
+-/* media of boot sector */
+-#define FAT_VALID_MEDIA(x)	((0xF8 <= (x) && (x) <= 0xFF) || (x) == 0xF0)
+ #define FAT_FIRST_ENT(s, x)	((MSDOS_SB(s)->fat_bits == 32 ? 0x0FFFFF00 : \
+ 	MSDOS_SB(s)->fat_bits == 16 ? 0xFF00 : 0xF00) | (x))
+ 
+@@ -330,6 +328,12 @@ static inline void fatwchar_to16(__u8 *dst, const wchar_t *src, size_t len)
+ #endif
+ }
+ 
++/* media of boot sector */
++static inline int fat_valid_media(u8 media)
++{
++	return 0xf8 <= media || media == 0xf0;
++}
++
+ /* fat/cache.c */
+ extern void fat_cache_inval_inode(struct inode *inode);
+ extern int fat_get_cluster(struct inode *inode, int cluster,
+-- 
+1.6.5.GIT
+
