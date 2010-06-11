@@ -535,7 +535,7 @@ main(int argc, char *argv[])
 				}
 			}
 
-			i++;
+			i = 2;
 		} else {
 			fprintf(stderr, "Invalid option %s\n", argv[i]);
 			usage();
