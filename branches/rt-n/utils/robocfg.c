@@ -57,7 +57,8 @@ typedef u_int8_t u8;
 typedef struct {
 	struct ifreq ifr;
 	int fd;
-	int et;			/* use private ioctls */
+	u8 et;			/* use private ioctls */
+	u8 gmii;		/* gigabit mii */
 } robo_t;
 
 static u16 mdio_read(robo_t *robo, u16 phy_id, u8 reg)
@@ -195,15 +196,26 @@ static void robo_write32(robo_t *robo, u8 page, u8 reg, u32 val32)
 	robo_reg(robo, page, reg, REG_MII_ADDR_WRITE);
 }
 
-/* checks that attached switch is 5325E/535x */
-static int robo_vlan5350(robo_t *robo)
+/* checks that attached switch is 5325/5352/5354/5356/53115 */
+static int robo_vlan535x(robo_t *robo, u32 phyid)
 {
 	/* set vlan access id to 15 and read it back */
 	u16 val16 = 15;
 	robo_write16(robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350, val16);
 	
 	/* 5365 will refuse this as it does not have this reg */
-	return (robo_read16(robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350) == val16);
+	if (robo_read16(robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350) != val16)
+		return 0;
+	if (robo->et == 0 && (mdio_read(robo, 0, ROBO_MII_STAT) & 0x0100))
+		robo->gmii = ((mdio_read(robo, 0, 0x0f) & 0xf000) != 0);
+	/* 53115 ? */
+	if (robo->gmii && robo_read32(robo, ROBO_STAT_PAGE, ROBO_LSA_IM_PORT) != 0)
+		return 4;
+	/* dirty trick for 5356 */
+	if ((phyid & 0xfff0ffff ) == 0x5da00362)
+		return 3;
+	/* 5325/5352/5354*/
+	return 1;
 }
 
 u8 port[6] = { 0, 1, 2, 3, 4, 8 };
@@ -262,9 +274,10 @@ int
 main(int argc, char *argv[])
 {
 	u16 val16;
+	u32 val32;
 	u16 mac[3];
 	int i = 0, j;
-	int robo5350 = 0;
+	int robo535x = 0;
 	u32 phyid;
 	
 	static robo_t robo;
@@ -305,13 +318,16 @@ main(int argc, char *argv[])
 
 	phyid = mdio_read(&robo, ROBO_PHY_ADDR, 0x2) | 
 		(mdio_read(&robo, ROBO_PHY_ADDR, 0x3) << 16);
-	
+	if (phyid == 0 && robo.et == 0)
+	    phyid = mdio_read(&robo, 0, 0x2) | 
+			(mdio_read(&robo, 0, 0x3) << 16);
+
 	if (phyid == 0xffffffff || phyid == 0x55210022) {
 		fprintf(stderr, "No Robo switch in managed mode found\n");
 		exit(1);
 	}
 	
-	robo5350 = robo_vlan5350(&robo);
+	robo535x = robo_vlan535x(&robo, phyid);
 	
 	for (i = 1; i < argc;) {
 		if (strcasecmp(argv[i], "showmacs") == 0)
@@ -328,16 +344,16 @@ main(int argc, char *argv[])
 				"--------------------------------------\n");
 			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_RW_CTRL, 0x81);
 			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_SEARCH_CTRL, 0x80);
-			for( idx = 0; idx < (robo5350 ? 
+			for( idx = 0; idx < (robo535x ? 
 				NUM_ARL_TABLE_ENTRIES_5350 : NUM_ARL_TABLE_ENTRIES); idx++)
 			{
 				robo_read(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_SEARCH_RESULT, 
-					buf, robo5350 ? 4 : 5);
+					buf, robo535x ? 4 : 5);
 				if (buf[3] & 0x8000 /* valid */)
 				{
 					printf("%04i  %02x:%02x:%02x:%02x:%02x:%02x  %7s  %c\n",
 						(base_vlan | ((buf[3] >> 5) & 0x0F) | 
-							(robo5350 ? 0 : ((buf[4] & 0x0f) << 4))),
+							(robo535x ? 0 : ((buf[4] & 0x0f) << 4))),
 						buf[2] >> 8, buf[2] & 255, 
 						buf[1] >> 8, buf[1] & 255,
 						buf[0] >> 8, buf[0] & 255,
@@ -435,9 +451,12 @@ main(int argc, char *argv[])
 					} else {
 						/* write config now */
 						val16 = (vid) /* vlan */ | (1 << 12) /* write */ | (1 << 13) /* enable */;
-						if (robo5350) {
-							robo_write32(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_WRITE_5350,
-								(1 << 20) /* valid */ | (untag << 6) | member | ((vid >> 4) << 12));
+						if (robo535x) {
+							if (robo535x == 3)
+								val32 = (1 << 24) /* valid */ | (untag << 6) | member | (vid << 12);
+							else
+								val32 = (1 << 20) /* valid */ | (untag << 6) | member | ((vid >> 4) << 12);
+							robo_write32(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_WRITE_5350, val32);
 							robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350, val16);
 						} else {
 							robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_WRITE,
@@ -461,11 +480,11 @@ main(int argc, char *argv[])
 			while (++i < argc) {
 				if (strcasecmp(argv[i], "reset") == 0) {
 					/* reset vlan validity bit */
-					for (j = 0; j <= (robo5350 ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
+					for (j = 0; j <= (robo535x ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
 					{
 						/* write config now */
 						val16 = (j) /* vlan */ | (1 << 12) /* write */ | (1 << 13) /* enable */;
-						if (robo5350) {
+						if (robo535x) {
 							robo_write32(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_WRITE_5350, 0);
 							robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350, val16);
 						} else {
@@ -550,7 +569,8 @@ main(int argc, char *argv[])
 	
 	/* show config */
 		
-	printf("Switch: %sabled\n", robo_read16(&robo, ROBO_CTRL_PAGE, ROBO_SWITCH_MODE) & 2 ? "en" : "dis");
+	printf("Switch: %sabled %s\n", robo_read16(&robo, ROBO_CTRL_PAGE, ROBO_SWITCH_MODE) & 2 ? "en" : "dis",
+		    robo.gmii ? "gigabit" : "");
 
 	for (i = 0; i < 6; i++) {
 		printf(robo_read16(&robo, ROBO_STAT_PAGE, ROBO_LINK_STAT_SUMMARY) & (1 << port[i]) ?
@@ -572,24 +592,25 @@ main(int argc, char *argv[])
 	val16 = robo_read16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_CTRL0);
 	
 	printf("VLANs: %s %sabled%s%s\n", 
-		robo5350 ? "BCM5325/535x" : "BCM536x",
+		robo535x ? "BCM5325/535x" : "BCM536x",
 		(val16 & (1 << 7)) ? "en" : "dis", 
 		(val16 & (1 << 6)) ? " mac_check" : "", 
 		(val16 & (1 << 5)) ? " mac_hash" : "");
 	
 	/* scan VLANs */
-	for (i = 0; i <= (robo5350 ? VLAN_ID_MAX5350 : VLAN_ID_MAX); i++) {
+	for (i = 0; i <= (robo535x ? VLAN_ID_MAX5350 : VLAN_ID_MAX); i++) {
 		/* issue read */
 		val16 = (i) /* vlan */ | (0 << 12) /* read */ | (1 << 13) /* enable */;
 		
-		if (robo5350) {
-			u32 val32;
+		if (robo535x) {
 			robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350, val16);
 			/* actual read */
 			val32 = robo_read32(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_READ);
-			if ((val32 & (1 << 20)) /* valid */) {
-				printf("%2d: vlan%d:", 
-					i, (((val32 & 0xff000) >> 12) << 4) | i);
+			if ((val32 & (robo535x == 3 ? (1 << 24) : (1 << 20))) /* valid */) {
+				val16 = (robo535x == 3)
+					? ((val32 & 0xff000) >> 12)
+					: ((val32 & 0xff000) >> 12) << 4;
+				printf("%3d: vlan%d:", i, val16 | i);
 				for (j = 0; j < 6; j++) {
 					if (val32 & (1 << j)) {
 						printf(" %d%s", j, (val32 & (1 << (j + 6))) ? 

@@ -427,7 +427,7 @@ typedef struct _ROBO_MII_AN_ADVERT_STRUC
     unsigned char   nextPage:1;     /* nex page operation supported */
 } ROBO_MII_AN_ADVERT_STRUC;
 #define ROBO_MII_CTRL                 0x00 /* Port MII Control */
-#define ROBO_MII_STAT                 0x02 /* Port MII Status  */
+#define ROBO_MII_STAT                 0x01 /* Port MII Status  */
 /* Fields of link status register */
 #define ROBO_MII_STAT_JABBER          (1<<1) /* Jabber detected */
 #define ROBO_MII_STAT_LINK            (1<<2) /* Link status */
@@ -595,17 +595,7 @@ typedef struct _ROBO_VLAN_READ_WRITE_STRUC_5350
 #define ROBO_VLAN_PORT5_DEF_TAG     0x1a /* 16b: VLAN Port 5 Default Tag Register */
 #define ROBO_VLAN_PORT6_DEF_TAG     0x1c /* 16b: VLAN Port 6 Default Tag Register */
 #define ROBO_VLAN_PORT7_DEF_TAG     0x1e /* 16b: VLAN Port 7 Default Tag Register */
-
-/* obsolete */
-#define ROBO_VLAN_PORT0_CTRL       0x00 /* 16b: Port 0 VLAN  Register */
-#define ROBO_VLAN_PORT1_CTRL       0x02 /* 16b: Port 1 VLAN  Register */
-#define ROBO_VLAN_PORT2_CTRL       0x04 /* 16b: Port 2 VLAN  Register */
-#define ROBO_VLAN_PORT3_CTRL       0x06 /* 16b: Port 3 VLAN  Register */
-#define ROBO_VLAN_PORT4_CTRL       0x08 /* 16b: Port 4 VLAN  Register */
-#define ROBO_VLAN_IM_PORT_CTRL     0x10 /* 16b: Inverse MII Port VLAN Reg */
-#define ROBO_VLAN_SMP_PORT_CTRL    0x12 /* 16b: Serial Port VLAN  Register */
-#define ROBO_VLAN_PORTSPI_DEF_TAG  0x1c /* 16b: VLAN Port SPI Default Tag Register */
-#define ROBO_VLAN_PRIORITY_REMAP   0x20 /* 24b: VLAN Priority Re-Map Register */
+#define ROBO_VLAN_PORT8_DEF_TAG     0x20 /* 16b: VLAN Port 8 Default Tag Register */
 
 #ifndef _CFE_
 #pragma pack()
