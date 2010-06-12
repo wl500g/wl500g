@@ -61,40 +61,11 @@ typedef struct {
 	u8 gmii;		/* gigabit mii */
 } robo_t;
 
-static u16 mdio_read(robo_t *robo, u16 phy_id, u8 reg)
+static u16 __mdio_access(robo_t *robo, u16 phy_id, u8 reg, u16 val, u16 wr)
 {
-	if (robo->et) {
-		int args[2] = { reg };
-		
-		if (phy_id != ROBO_PHY_ADDR) {
-			fprintf(stderr,
-				"Access to real 'phy' registers unavaliable.\n"
-				"Upgrade kernel driver.\n");
+	static int __ioctl_args[2][2] = { {SIOCGETCPHYRD, SIOCGMIIREG},
+					  {SIOCSETCPHYWR, SIOCSMIIREG} };
 
-			return 0xffff;
-		}
-	
-		robo->ifr.ifr_data = (caddr_t) args;
-		if (ioctl(robo->fd, SIOCGETCPHYRD, (caddr_t)&robo->ifr) < 0) {
-			perror("SIOCGETCPHYRD");
-			exit(1);
-		}
-	
-		return args[1];
-	} else {
-		struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&robo->ifr.ifr_data;
-		mii->phy_id = phy_id;
-		mii->reg_num = reg;
-		if (ioctl(robo->fd, SIOCGMIIREG, &robo->ifr) < 0) {
-			perror("SIOCGMIIREG");
-			exit(1);
-		}
-		return mii->val_out;
-	}
-}
-
-static void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
-{
 	if (robo->et) {
 		int args[2] = { reg, val };
 
@@ -102,24 +73,37 @@ static void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
 			fprintf(stderr,
 				"Access to real 'phy' registers unavaliable.\n"
 				"Upgrade kernel driver.\n");
-			return;
+
+			return 0xffff;
 		}
 		
 		robo->ifr.ifr_data = (caddr_t) args;
-		if (ioctl(robo->fd, SIOCSETCPHYWR, (caddr_t)&robo->ifr) < 0) {
-			perror("SIOCGETCPHYWR");
+		if (ioctl(robo->fd, __ioctl_args[wr][0], (caddr_t)&robo->ifr) < 0) {
+			perror("ET ioctl");
 			exit(1);
 		}
+		return args[1];
 	} else {
 		struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&robo->ifr.ifr_data;
 		mii->phy_id = phy_id;
 		mii->reg_num = reg;
 		mii->val_in = val;
-		if (ioctl(robo->fd, SIOCSMIIREG, &robo->ifr) < 0) {
-			perror("SIOCSMIIREG");
+		if (ioctl(robo->fd, __ioctl_args[wr][1], &robo->ifr) < 0) {
+			perror("MII ioctl");
 			exit(1);
 		}
+		return mii->val_out;
 	}
+}
+
+static inline u16 mdio_read(robo_t *robo, u16 phy_id, u8 reg)
+{
+	return __mdio_access(robo, phy_id, reg, 0, 0);
+}
+
+static inline void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
+{
+	__mdio_access(robo, phy_id, reg, val, 1);
 }
 
 static int _robo_reg(robo_t *robo, u8 page, u8 reg, u8 op)
@@ -237,7 +221,7 @@ struct {
 
 void usage()
 {
-	fprintf(stderr, "Broadcom BCM5325E/536x switch configuration utility\n"
+	fprintf(stderr, "Broadcom BCM5325/535x/536x switch configuration utility\n"
 		"Copyright (C) 2005-2008 Oleg I. Vdovikin (oleg@cs.msu.su)\n"
 		"Copyright (C) 2005 Dmitry 'dimss' Ivanov of \"Telecentrs\" (Riga, Latvia)\n\n"
 		"This program is distributed in the hope that it will be useful,\n"
@@ -451,7 +435,16 @@ main(int argc, char *argv[])
 					} else {
 						/* write config now */
 						val16 = (vid) /* vlan */ | (1 << 12) /* write */ | (1 << 13) /* enable */;
-						if (robo535x) {
+						if (robo535x == 4) {
+							val32 = (untag << 9) | member;
+							/* entry */
+							robo_write32(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ENTRY_5395, val32);
+							/* index */
+							robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_INDX_5395, vid);
+							/* access */
+							robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ACCESS_5395,
+										 (1 << 7) /* start */ | 0 /* write */);
+						} else if (robo535x) {
 							if (robo535x == 3)
 								val32 = (1 << 24) /* valid */ | (untag << 6) | member | (vid << 12);
 							else
@@ -480,7 +473,7 @@ main(int argc, char *argv[])
 			while (++i < argc) {
 				if (strcasecmp(argv[i], "reset") == 0) {
 					/* reset vlan validity bit */
-					for (j = 0; j <= (robo535x ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
+					for (j = 0; j <= ((robo535x == 1) ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
 					{
 						/* write config now */
 						val16 = (j) /* vlan */ | (1 << 12) /* write */ | (1 << 13) /* enable */;
@@ -524,7 +517,7 @@ main(int argc, char *argv[])
 				pagereg & 255, strtol(argv[i + 2], NULL, 0));
 
 			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				pagereg >> 8, pagereg & 255,
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
 				robo_read16(&robo, pagereg >> 8, pagereg & 255));
 
 			i += 3;
@@ -534,7 +527,7 @@ main(int argc, char *argv[])
 			long pagereg = strtol(argv[i + 1], NULL, 0);
 
 			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				pagereg >> 8, pagereg & 255,
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
 				robo_read16(&robo, pagereg >> 8, pagereg & 255));
 
 			i += 2;
@@ -554,7 +547,7 @@ main(int argc, char *argv[])
 				}
 			}
 
-			i++;
+			i = 2;
 		} else {
 			fprintf(stderr, "Invalid option %s\n", argv[i]);
 			usage();
@@ -592,17 +585,35 @@ main(int argc, char *argv[])
 	val16 = robo_read16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_CTRL0);
 	
 	printf("VLANs: %s %sabled%s%s\n", 
-		robo535x ? "BCM5325/535x" : "BCM536x",
+		(robo535x == 4) ? "BCM53115" : (robo535x ? "BCM5325/535x" : "BCM536x"),
 		(val16 & (1 << 7)) ? "en" : "dis", 
 		(val16 & (1 << 6)) ? " mac_check" : "", 
 		(val16 & (1 << 5)) ? " mac_hash" : "");
 	
 	/* scan VLANs */
-	for (i = 0; i <= (robo535x ? VLAN_ID_MAX5350 : VLAN_ID_MAX); i++) {
+	for (i = 0; i <= ((robo535x == 1) ? VLAN_ID_MAX5350 : VLAN_ID_MAX); i++) {
 		/* issue read */
 		val16 = (i) /* vlan */ | (0 << 12) /* read */ | (1 << 13) /* enable */;
 		
-		if (robo535x) {
+		if (robo535x == 4) {
+			/* index */
+			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_INDX_5395, i);
+			/* access */
+			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ACCESS_5395,
+						 (1 << 7) /* start */ | 1 /* read */);
+			/* actual read */
+			val32 = robo_read32(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ENTRY_5395);
+			if ((val32)) {
+				printf("%3d: vlan%d:", i, i);
+				for (j = 0; j <= 8; j++) {
+					if (val32 & (1 << j)) {
+						printf(" %d%s", j, (val32 & (1 << (j + 9))) ? 
+							(j == 8 ? "u" : "") : "t");
+					}
+				}
+				printf("\n");
+			}
+		} else if (robo535x) {
 			robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_TABLE_ACCESS_5350, val16);
 			/* actual read */
 			val32 = robo_read32(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_READ);
