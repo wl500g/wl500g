@@ -1060,7 +1060,7 @@ vlan_setup:
 			robo->ops->write_reg(robo, PAGE_VTBL, vtbli, &val16,
 			                     sizeof(val16));
 
-			/* VLAN Table Access Register (Page 0x34, Address 0x60/0x80) */
+			/* VLAN Table Access Register (Page 0x05, Address 0x60/0x80) */
 			val8 = ((1 << 7) | 	/* start command */
 			        0);	        /* write */
 			robo->ops->write_reg(robo, PAGE_VTBL, vtbla, &val8,
