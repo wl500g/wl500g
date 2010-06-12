@@ -60,40 +60,11 @@ typedef struct {
 	int et;			/* use private ioctls */
 } robo_t;
 
-static u16 mdio_read(robo_t *robo, u16 phy_id, u8 reg)
+static u16 __mdio_access(robo_t *robo, u16 phy_id, u8 reg, u16 val, u16 wr)
 {
-	if (robo->et) {
-		int args[2] = { reg };
-		
-		if (phy_id != ROBO_PHY_ADDR) {
-			fprintf(stderr,
-				"Access to real 'phy' registers unavaliable.\n"
-				"Upgrade kernel driver.\n");
+	static int __ioctl_args[2][2] = { {SIOCGETCPHYRD, SIOCGMIIREG},
+					  {SIOCSETCPHYWR, SIOCSMIIREG} };
 
-			return 0xffff;
-		}
-	
-		robo->ifr.ifr_data = (caddr_t) args;
-		if (ioctl(robo->fd, SIOCGETCPHYRD, (caddr_t)&robo->ifr) < 0) {
-			perror("SIOCGETCPHYRD");
-			exit(1);
-		}
-	
-		return args[1];
-	} else {
-		struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&robo->ifr.ifr_data;
-		mii->phy_id = phy_id;
-		mii->reg_num = reg;
-		if (ioctl(robo->fd, SIOCGMIIREG, &robo->ifr) < 0) {
-			perror("SIOCGMIIREG");
-			exit(1);
-		}
-		return mii->val_out;
-	}
-}
-
-static void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
-{
 	if (robo->et) {
 		int args[2] = { reg, val };
 
@@ -101,24 +72,37 @@ static void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
 			fprintf(stderr,
 				"Access to real 'phy' registers unavaliable.\n"
 				"Upgrade kernel driver.\n");
-			return;
+
+			return 0xffff;
 		}
 		
 		robo->ifr.ifr_data = (caddr_t) args;
-		if (ioctl(robo->fd, SIOCSETCPHYWR, (caddr_t)&robo->ifr) < 0) {
-			perror("SIOCGETCPHYWR");
+		if (ioctl(robo->fd, __ioctl_args[wr][0], (caddr_t)&robo->ifr) < 0) {
+			perror("ET ioctl");
 			exit(1);
 		}
+		return args[1];
 	} else {
 		struct mii_ioctl_data *mii = (struct mii_ioctl_data *)&robo->ifr.ifr_data;
 		mii->phy_id = phy_id;
 		mii->reg_num = reg;
 		mii->val_in = val;
-		if (ioctl(robo->fd, SIOCSMIIREG, &robo->ifr) < 0) {
-			perror("SIOCSMIIREG");
+		if (ioctl(robo->fd, __ioctl_args[wr][1], &robo->ifr) < 0) {
+			perror("MII ioctl");
 			exit(1);
 		}
+		return mii->val_out;
 	}
+}
+
+static inline u16 mdio_read(robo_t *robo, u16 phy_id, u8 reg)
+{
+	return __mdio_access(robo, phy_id, reg, 0, 0);
+}
+
+static inline void mdio_write(robo_t *robo, u16 phy_id, u8 reg, u16 val)
+{
+	__mdio_access(robo, phy_id, reg, val, 1);
 }
 
 static int _robo_reg(robo_t *robo, u8 page, u8 reg, u8 op)
@@ -505,7 +489,7 @@ main(int argc, char *argv[])
 				pagereg & 255, strtol(argv[i + 2], NULL, 0));
 
 			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				pagereg >> 8, pagereg & 255,
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
 				robo_read16(&robo, pagereg >> 8, pagereg & 255));
 
 			i += 3;
@@ -515,7 +499,7 @@ main(int argc, char *argv[])
 			long pagereg = strtol(argv[i + 1], NULL, 0);
 
 			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				pagereg >> 8, pagereg & 255,
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
 				robo_read16(&robo, pagereg >> 8, pagereg & 255));
 
 			i += 2;
