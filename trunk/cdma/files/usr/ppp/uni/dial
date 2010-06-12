@@ -1,7 +1,7 @@
 #!/bin/sh
 apn=$(nvram get wan_modem_apn)
 dialnumber=$(nvram get wan_modem_dialno)
-modem=$(nvram get wan_usb_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
+modem=$(nvram get wan_modem_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
 username=$(nvram get wan_modem_username)
 port=$(nvram get wan_modem_tts_port)
 portspeed=$(nvram get wan_modem_portspeed)
