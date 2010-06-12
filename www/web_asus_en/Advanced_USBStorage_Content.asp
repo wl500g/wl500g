@@ -26,7 +26,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes builds up a FTP server with your USB disk.', LEFT);" onMouseOut="return nd();">Enable FTP Server:</td>
-<td class="content_input_td"><select name="usb_ftpenable_x" class="content_input_fd">
+<td class="content_input_td"><select name="usb_ftpenable_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_ftpenable_x')">
 <option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_ftpenable_x","0","selected"); %>>No</option>
 <option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_ftpenable_x","1","selected"); %>>Yes</option>
 <option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_ftpenable_x","2","selected"); %>>Yes, LAN Only</option>
@@ -38,7 +38,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes allows user to connect to your FTP server without any password.', LEFT);" onMouseOut="return nd();">Anonymous Users Access:</td>
-<td class="content_input_td"><select name="usb_ftpanonymous_x" class="content_input_fd">
+<td class="content_input_td"><select name="usb_ftpanonymous_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_ftpanonymous_x')">
 <option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_ftpanonymous_x","0","selected"); %>>Disabled</option>
 <option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_ftpanonymous_x","1","selected"); %>>Read/Write</option>
 <option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_ftpanonymous_x","2","selected"); %>>Read Only</option>
@@ -64,7 +64,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows to enable or disable directory listings.', LEFT);" onMouseOut="return nd();">Directory Listings:</td>
-<td class="content_input_td"><select name="usb_ftpdirlist_x" class="content_input_fd">
+<td class="content_input_td"><select name="usb_ftpdirlist_x" class="content_input_fd" onChange="return change_common(this, '', 'usb_ftpdirlist_x')">
 <option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_ftpdirlist_x","0","selected"); %>>Enabled</option>
 <option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_ftpdirlist_x","1","selected"); %>>Disabled</option>
 <option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_ftpdirlist_x","2","selected"); %>>Disabled for Anonymous</option>
