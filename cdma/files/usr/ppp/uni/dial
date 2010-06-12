@@ -1,7 +1,7 @@
 #!/bin/sh
-apn=$(nvram get wan_modem_apn)  
-dialnumber=$(nvram get wan_modem_dialno) 
-modem=$(nvram get wan_modem_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
+apn=$(nvram get wan_modem_apn)
+dialnumber=$(nvram get wan_modem_dialno)
+modem=$(nvram get wan_usb_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
 username=$(nvram get wan_modem_username)
 port=$(nvram get wan_modem_tts_port)
 portspeed=$(nvram get wan_modem_portspeed)
@@ -13,39 +13,49 @@ prod=$(nvram get wan_modem_pid)
 pppdoptions=$(nvram get wan_modem_options)
 initoptions=$(nvram get wan_modem_dialup_init)
 
-sleep 5
-if [ "$vend" == "" -o "$prod" == "" ]; then
- insmod acm
- insmod option
-else
- insmod usbserial vendor=$vend product=$prod maxSize=4096
-fi
-kill -9 $(ps|grep pppd|awk -F' ' '{print $1}') 2>/dev/null
-mkdir /tmp/ppp/peers/
-sleep 20
-usbdev=$(cat /proc/bus/usb/devpath | grep -o "/.*" | awk -F 'm' '{print $1}')
+usbdev=""
 
-echo "'' ''
-'' 'ATZ'
+mkdir /tmp/ppp/peers/
+
+echo "ABORT	'}'
+ABORT	'BUSY'
+ABORT 	'NO CARRIER'
+ABORT	'ERROR'
+ABORT 	'NO DIAL TONE'
+ABORT 	'NO ANSWER'
+ABORT 	'DELAYED'
+REPORT	'CONNECT'
+''	'ATZ'
+SAY	'Calling CDMA/EVDO'
 $initoptions
-'OK' 'ATDT#777'
-'CONNECT' 'ATO'
+'OK'	'ATDT#777'
+'CONNECT'	'ATO'
 '' ''" > /tmp/ppp/peers/0.chat
 
-echo "'' 'ATZ'
+echo "ABORT	BUSY
+ABORT	'NO CARRIER'
+ABORT	ERROR
+REPORT	CONNECT
+''	'ATZ'
 $initoptions
-'' 'AT+CGDCONT=1,\"IP\",\"$apn\"'
-'OK' 'ATD$dialnumber'
-'CONNECT' ''" > /tmp/ppp/peers/1.chat
+SAY	'Calling UMTS/GPRS'
+''	'AT+CGDCONT=1,\"IP\",\"$apn\"'
+'OK'	'ATD$dialnumber'
+'CONNECT'	''" > /tmp/ppp/peers/1.chat
 
-echo "debug" > /tmp/ppp/peers/dialup
-if [ "$usbdev" == "/dev/usb/ac" ]; then
- echo "/dev/usb/acm/$port" >> /tmp/ppp/peers/dialup
-else
- echo "/dev/usb/tts/$port" >> /tmp/ppp/peers/dialup
-fi
+write_dialup_file()
+{
+  [[ -z  $usbdev ]] || return;
 
-echo "$portspeed
+  if [ -c /dev/usb/acm/$port ]; then
+   usbdev="/dev/usb/acm/$port"
+  else
+   usbdev="/dev/usb/tts/$port"
+  fi
+
+echo "debug
+$usbdev
+$portspeed
 crtscts
 noipdefault
 ipcp-accept-local
@@ -62,12 +72,25 @@ persist
 linkname wan0
 user '$username'
 password '$password'
-connect \"/usr/sbin/chat -s -S -V -t 60 -f /tmp/ppp/peers/$modem.chat 2>/tmp/chat.log\"" >> /tmp/ppp/peers/dialup
-
+connect \"/usr/sbin/chat -s -S -V -t 60 -f /tmp/ppp/peers/$modem.chat 2>/tmp/chat.log\"" > /tmp/ppp/peers/dialup
+}
 
 while true; do
-  kill -9 $(ps|grep pppd|grep gprs|awk -F' ' '{print $1}') 2>/dev/null
+  sleep 5
+  if [ "$vend" == "" -o "$prod" == "" ]; then
+   rmmod  option
+   rmmod  acm
+
+   insmod acm
+   insmod option
+  else
+   rmmod usbserial
+
+   insmod usbserial vendor=$vend product=$prod maxSize=4096
+  fi
+  sleep 20
+  write_dialup_file
 
   pppd call dialup >> /tmp/chat.log 2>&1
-  sleep 25
+  echo "Reconnect. Device: $usbdev" >> /tmp/chat.log
 done
