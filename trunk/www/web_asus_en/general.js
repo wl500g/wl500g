@@ -45,16 +45,13 @@ function NetscapeEventHandler_KeyDown(e)
 	return true;
 }
 
-function IEKey()
+function NavKey()
 {
 	window.top.pageChanged = 1;
-	return (event.keyCode);
-}
-
-function NSKey()
-{
-	window.top.pageChanged = 1;
-	return(0);
+	if (nav)
+		return (0);
+	else
+		return (event.keyCode);
 }
 
 function MicrosoftEventHandler_KeyDown()
@@ -497,8 +494,7 @@ function validate_duplicate(o, v, l, off)
 function is_hwaddr()
 {
 
-	if (!nav) keyPressed = IEKey();
-	else keyPressed=NSKey();
+	keyPressed=NavKey();
 
 	if ((keyPressed>47 && keyPressed<58)||(keyPressed>64 && keyPressed<71)||(keyPressed>96 && keyPressed<103))
 		return true;
@@ -538,8 +534,7 @@ function validate_hwaddr(o)
 
 function is_string(o)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed = NSKey();
+	keyPressed = NavKey();
 
 	if (keyPressed===0) return true;
 	else if (keyPressed>=0&&keyPressed<=126) return true;
@@ -586,8 +581,7 @@ function validate_string(o)
 
 function is_number(o)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed = NSKey();
+	keyPressed = NavKey();
 
 	if (keyPressed===0) return true;
 
@@ -642,8 +636,7 @@ function is_ipaddr(o)
 //	if (nav) keyPressed = e.which;
 //	alert('NAV' + e.which);
 
-	if (!nav) keyPressed = IEKey();
-	else keyPressed=NSKey();
+	keyPressed=NavKey();
 
 
 	if (keyPressed===0)
@@ -896,8 +889,7 @@ function is_ipaddrport(o)
 //	if (nav) keyPressed = e.which;
 //	alert('NAV' + e.which);
 
-	if (!nav) keyPressed = IEKey();
-	else keyPressed=NSKey();
+	keyPressed=NavKey();
 
 
 	if (keyPressed===0)
@@ -1003,8 +995,7 @@ function change_iprange(o)
 
 function is_iprange(o)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed=NSKey();
+	keyPressed=NavKey();
 
 	if (keyPressed===0)
 	{
@@ -1125,8 +1116,7 @@ function validate_iprange(o, v)
 
 function is_portrange(o)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed=NSKey();
+	keyPressed=NavKey();
 
 	if (keyPressed===0) return true;
 
@@ -1226,8 +1216,7 @@ function validate_portrange(o, v)
 
 function is_portlist(o)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed = NSKey();
+	keyPressed = NavKey();
 
 	if (keyPressed === 0 ) return true;
 
@@ -3006,8 +2995,7 @@ function change_widzard(o, id)
 
 function is_wlkey(o, s)
 {
-	if (!nav) keyPressed = IEKey();
-	else keyPressed = NSKey();
+	keyPressed = NavKey();
 
 	if (keyPressed === 0) return true;
 
