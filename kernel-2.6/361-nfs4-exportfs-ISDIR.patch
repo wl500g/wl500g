@@ -1,0 +1,63 @@
+From d7dd618a5901ce0b44ef518208b35f728775db74
+From: Christoph Hellwig
+Date: Tue, 17 Jul 2007 04:04:31 -0700
+Subject: [PATCH] knfsd: exportfs: untangle ISDIR logic in find_exported_dentry
+
+Rework some logic in find_exported_dentry so that we only have a single
+S_ISDIR check and logic that makes clear to the reader what we're really doing
+here.
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+Signed-off-by: Neil Brown <neilb@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/exportfs/expfs.c |   26 ++++++++++----------------
+ 1 files changed, 10 insertions(+), 16 deletions(-)
+
+diff --git a/fs/exportfs/expfs.c b/fs/exportfs/expfs.c
+index 1e6f556..abf0a31 100644
+--- a/fs/exportfs/expfs.c
++++ b/fs/exportfs/expfs.c
+@@ -116,30 +116,23 @@ find_exported_dentry(struct super_block *sb, void *obj, void *parent,
+ 		err = PTR_ERR(result);
+ 		goto err_out;
+ 	}
+-	if (S_ISDIR(result->d_inode->i_mode) &&
+-	    (result->d_flags & DCACHE_DISCONNECTED)) {
+-		/* it is an unconnected directory, we must connect it */
+-		;
+-	} else {
+-		if (acceptable(context, result))
+-			return result;
+-		if (S_ISDIR(result->d_inode->i_mode)) {
++	if (S_ISDIR(result->d_inode->i_mode)) {
++		if (!(result->d_flags & DCACHE_DISCONNECTED)) {
++			if (acceptable(context, result))
++				return result;
+ 			err = -EACCES;
+ 			goto err_result;
+ 		}
+ 
++		target_dir = dget(result);
++	} else {
++		if (acceptable(context, result))
++			return result;
++
+ 		alias = find_acceptable_alias(result, acceptable, context);
+ 		if (alias)
+ 			return alias;
+-	}			
+ 
+-	/* It's a directory, or we are required to confirm the file's
+-	 * location in the tree based on the parent information
+- 	 */
+-	dprintk("find_exported_dentry: need to look harder for %s/%d\n",sb->s_id,*(int*)obj);
+-	if (S_ISDIR(result->d_inode->i_mode))
+-		target_dir = dget(result);
+-	else {
+ 		if (parent == NULL)
+ 			goto err_result;
+ 
+-- 
+1.7.1
