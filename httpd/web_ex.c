@@ -2117,41 +2117,6 @@ struct mime_handler mime_handlers[] = {
 };
 
 
-static int
-ej_select_folder(int eid, webs_t wp, int argc, char_t **argv)
-{
-	char *sid;
-	int ret = 0;	
-	char out[64];	
-	int i;
-	DIR *dir;
-	struct dirent *entry;
-
-	if (ejArgs(argc, argv, "%s", &sid) < 1) {
-		websError(wp, 400, "Insufficient args\n");
-		return -1;
-	}
-         
-        i=0;  
-              
-	/* display folder in first level */
-	dir = opendir("/");
-	if (dir!=NULL)
-	{
-		i=0;
-
-		while((entry=readdir(dir))!=NULL)
-		{	
-             	 	sprintf(out, "<option value=\"%s\"", entry->d_name);
-                 	sprintf(out,"%s>%s</option>", out, entry->d_name);                 
-                 	websWrite(wp, out);
-       		} 
-        	closedir(dir);
-	}     
-	return ret;
-}
-
-
 struct ej_handler ej_handlers[] = {
 	{ "nvram_get_x", ej_nvram_get_x},
 	{ "nvram_get_f", ej_nvram_get_f},
@@ -2167,7 +2132,6 @@ struct ej_handler ej_handlers[] = {
 	{ "uptime", ej_uptime},   
 	{ "nvram_dump", ej_dump},
 	{ "load_script", ej_load},
-	{ "select_folder", ej_select_folder},
 	{ NULL, NULL }
 };
 
