@@ -2057,9 +2057,8 @@ do_fetchif(char *url, FILE *stream)
 	char buffer[256];
 	char *path, *query;
 	query = url;
-	path = strsep(&query, "?") ? : url;
-	init_cgi(query);
 	if (query == NULL || strlen(query) == 0) return;
+	path = strsep(&query, "?") ? : url;
 	int strbuffer = 0;
 	time_t tm;
 	struct tm tm_time;
@@ -2092,7 +2091,6 @@ do_svgfile(char *url, FILE *stream)
 	char *path, *query;
 	query = url;
 	path = strsep(&query, "?") ? : url;
-	init_cgi(query);
 	do_file(path, stream);
 }
 
