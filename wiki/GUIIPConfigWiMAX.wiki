@@ -1,4 +1,4 @@
-#summary WIMAX
+#summary WiMAX
 
 In this menu you're able to tune up WiMAX settings.
 
@@ -9,7 +9,7 @@ This page contains some additional WiMAX settings, all of them are not required.
 == SSID ==
 Service set identifier is a name that identifies a particular !WiMAX wireless network.
 Default value is blank, it means ''@yota.ru'' will be used.
-Known identifiers:
+Known WiMAX identifiers:
  * Yota - ''@yota.ru''
  * Comstar - ''login:pass@wimax.comstar-uts.ru''
  * Mezon.lt - ''@mezon.lt''
