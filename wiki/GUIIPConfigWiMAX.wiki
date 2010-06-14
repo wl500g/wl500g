@@ -1,0 +1,38 @@
+#summary WIMAX
+
+In this menu you're able to tune up !WiMAX settings.
+
+= Introduction =
+This page contains some additional !WiMAX settings, all of them are not required.
+
+-------
+== SSID ==
+Service set identifier is a name that identifies a particular !WiMAX wireless network.
+Default value is blank, it means ''@yota.ru'' will be used.
+Known identifiers:
+* Yota - ''@yota.ru''
+* Comstar - ''login:pass@wimax.comstar-uts.ru''
+* Mezon.lt - ''@mezon.lt''
+
+== Check connection ==
+When enabled, this setting allows periodic test of the connection by sending a series of ping packets to the ISP gateway.
+Results and time of packets circulation are displayed at page [GUIStatusLogWiMAX Status & Log - WiMAX].
+
+It's possible to add your own script * post-check-connection * to reflect connection check fails.
+Location and content rules are common and described in [UserScripts UserScripts FAQ]. Arguments:<br>
+$1 - !WiMAX interface name
+
+The default value is: No
+
+== Time period, sec ==
+The amout of time between the connection checks, in seconds.
+It's not reccomended to set value lower then 60 seconds, it could make your !WiMAX connection unworkable on unstable connections due constant restarts.
+
+The defalut value is: 60
+
+
+== Restart dead connection ==
+When enabled, this setting allows to force reset !WiMAX connection, if connection check fails with an error.
+It allows to keep your !WiMAX modem in the active state.
+
+The default value is: No
