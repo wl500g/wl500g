@@ -16,7 +16,7 @@
       * [GUIWirelessAdvanced Advanced]
     * IP Config
       * WAN & LAN
-      * [WiMAX]
+      * [GUIIPConfigWiMAX WiMAX]
       * IPv6
       * SNMP
       * DHCP Server
