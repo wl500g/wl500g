@@ -1,4 +1,4 @@
-#summary WiMAX
+#summary IP Config - WiMAX
 
 In this menu you're able to tune up WiMAX settings.
 

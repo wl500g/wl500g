@@ -1,4 +1,4 @@
-#summary WiMAX
+#summary IP Config - WiMAX
 
 Настройка подключения WiMAX
 
