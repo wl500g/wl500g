@@ -31,6 +31,7 @@ c:\>fsutil.exe file createnew c:\colinux\linux\swap.img 300000000
 kernel=vmlinux
 hda=c:\coLinux\linux\root_fs.img
 hdd=c:\coLinux\linux\slack12.iso
+hdе=c:\coLinux\linux\swap.img
 root=/dev/ram load_ramdisk=1 prompt_ramdisk=0 ramdisk_size=10000
 initrd=initrd.img
 mem=256
@@ -64,6 +65,7 @@ mount /dev/hda /mnt
 создаем swap
 {{{
 mkswap /dev/hde
+swapon /dev/hde
 }}}
 
 далее необходимо установить нужные пакеты 
@@ -81,7 +83,23 @@ installpkg -root /mnt *.tgz
 cd /cdrom/slackware/n
 installpkg -root /mnt *.tgz
 }}}
-после установки выключаем виртуальную машину.
+
+После установки всех пакетов необходимо отредактировать файл /mnt/etc/fstab чтобы при последующей загрузке все разделы подключились правильно.
+Отредактировать файл можно так
+
+nano /mnt/etc/fstab
+
+{{{
+/dev/hda        /               ext2      noatime         2     2
+/dev/hdb        /home           ext3      noatime         2     2
+/dev/hdc        /wl500g         ext3      noatime         2     2
+/dev/hdd        /dvd            iso9660   defaults        0     0
+/dev/hde        swap            swap      defaults        0     0
+proc            /proc           proc      defaults        0     0
+devpts          /dev/pts        devpts    gid=5,mode=620  0     0
+}}}
+
+выключаем виртуальную машину.
 {{{
 poweroff
 }}}
@@ -111,20 +129,6 @@ c:\> colinux-daemon.exe --install-service colinux @slack.conf
 }}}
 
 == Настройка системы ==
-
-После того как все нужные пакеты установлены необходимо подготовить рабочее окружение.
-Необходимо настроить автомонтирование дисков в файле
-
-*/etc/fstab*
-{{{
-/dev/hda        /               ext2      noatime         2     2
-/dev/hdb        /home           ext3      noatime         2     2
-/dev/hdc        /wl500g         ext3      noatime         2     2
-/dev/hdd        /dvd            iso9660   defaults        0     0
-/dev/hde        swap            swap      defaults        0     0
-proc            /proc           proc      defaults        0     0
-devpts          /dev/pts        devpts    gid=5,mode=620  0     0
-}}}
 
 После этого необходимо добавить в профиль переменные среды и необходимые для сборки прошивки пути.
 Поместите в конец файла */etc/profile* следующие переменные строки.

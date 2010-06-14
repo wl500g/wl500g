@@ -33,13 +33,14 @@ configure colinux installation
 kernel=vmlinux
 hda=c:\coLinux\linux\root_fs.img
 hdd=c:\coLinux\linux\slack12.iso
+hdе=c:\coLinux\linux\swap.img
 root=/dev/ram load_ramdisk=1 prompt_ramdisk=0 ramdisk_size=10000
 initrd=initrd.img
 mem=256
 cocon=120x40
 }}}
 
-Для инсталляции Slackware, во время первого запуска colinux потребуется файл initrd.img, он находится на скаченном диске дистрибутива. Чтобы его от туда извлечь можно подключить dvd образ, например через программу alcohol, я воспользовался плагином к Total Commander 
+For Slackware installation, for colinux first run you need initrd.img file, it resides on distribution disk. For it extraction from dvd image you should use appropriate program, alcohol or ISObuster for example, I used Total Commander plugin.
 
 Installing linux   
 {{{
@@ -63,9 +64,10 @@ mount main
 mount /dev/hda /mnt
 }}}
 
-создаем swap
+creating swap
 {{{
 mkswap /dev/hde
+swapon /dev/hde
 }}}
 
 installing packages
@@ -83,6 +85,22 @@ installpkg -root /mnt *.tgz
 cd /cdrom/slackware/n
 installpkg -root /mnt *.tgz
 }}}
+
+After packets install, you have to edit /mnt/etc/fstab to achieve successful next reboot.
+You can edit file like:
+
+nano /mnt/etc/fstab
+
+{{{
+/dev/hda        /               ext2      noatime         2     2
+/dev/hdb        /home           ext3      noatime         2     2
+/dev/hdc        /wl500g         ext3      noatime         2     2
+/dev/hdd        /dvd            iso9660   defaults        0     0
+/dev/hde        swap            swap      defaults        0     0
+proc            /proc           proc      defaults        0     0
+devpts          /dev/pts        devpts    gid=5,mode=620  0     0
+}}}
+
 rebooting after installation.
 {{{
 poweroff
@@ -114,21 +132,10 @@ c:\> colinux-daemon.exe --install-service colinux @slack.conf
 
 == Configure linux for compilling firmware ==
 
-Configure fstab for mount images
-*/etc/fstab*
-{{{
-/dev/hda        /               ext2      noatime         2     2
-/dev/hdb        /home           ext3      noatime         2     2
-/dev/hdc        /wl500g         ext3      noatime         2     2
-/dev/hdd        /dvd            iso9660   defaults        0     0
-/dev/hde        swap            swap      defaults        0     0
-proc            /proc           proc      defaults        0     0
-devpts          /dev/pts        devpts    gid=5,mode=620  0     0
-}}}
-
 configure enviroment 
 
- */etc/profile* следующие переменные строки.
+After that it is necessary to add environment variables set into profile
+add following lines into */etc/profile* 
 {{{
 export OPTWARE_TARGET="oleg"
 export LANG="ru_RU.UTF-8" (or your locale)
