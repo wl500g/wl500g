@@ -322,6 +322,27 @@
 					</select>
 				</td>
 			</tr>
+			<tr>
+				<td class="content_header_td">
+					Call on Demand
+				</td>
+				<td class="content_input_td">
+					<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd"
+						onchange="change_common(this, '', 'wan_modem_demand')" <% nvram_match_x("","wan_modem_demand", "1", "checked"); %>>Yes
+					<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd"
+						onchange="change_common(this, '', 'wan_modem_demand')" <% nvram_match_x("","wan_modem_demand", "0", "checked"); %>>No
+				</td>
+			</tr>
+			<tr>
+				<td class="content_header_td">
+					Idle time before disconnect (sec):
+				</td>
+				<td class="content_input_td">
+					<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_idle"
+						value="<% nvram_get_x("LANHostConfig","wan_modem_idle"); %>" onkeypress="return is_number(this)"
+						onblur="validate_string(this)">
+				</td>
+			</tr>
 		</table>
 	</div>
 	<!-- ********************************************************************** -->
