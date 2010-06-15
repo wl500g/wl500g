@@ -4355,6 +4355,8 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_dialup_init", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_tts_port", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_standard", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_demand", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_idle", "", validate_string, ARGV(""), TRUE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 	};
 #endif
