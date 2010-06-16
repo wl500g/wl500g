@@ -145,7 +145,7 @@ diff --git a/drivers/net/Makefile b/drivers/net/Makefile
 diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 --- /dev/null
 +++ b/drivers/net/imq.c
-@@ -0,0 +1,400 @@
+@@ -0,0 +1,430 @@
 +/*
 + *             Pseudo-driver for the intermediate queue device.
 + *
@@ -221,11 +221,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET,
 +	.hooknum	= NF_IP_PRE_ROUTING,
-+#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
 +	.priority	= NF_IP_PRI_MANGLE + 1
-+#else
-+	.priority	= NF_IP_PRI_NAT_DST + 1
-+#endif
 +};
 +
 +static struct nf_hook_ops imq_egress_ipv4 = {
@@ -233,11 +229,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET,
 +	.hooknum	= NF_IP_POST_ROUTING,
-+#if defined(CONFIG_IMQ_BEHAVIOR_AA) || defined(CONFIG_IMQ_BEHAVIOR_BA)
-+	.priority	= NF_IP_PRI_LAST
-+#else
 +	.priority	= NF_IP_PRI_NAT_SRC - 1
-+#endif
 +};
 +
 +#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
@@ -246,11 +238,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET6,
 +	.hooknum	= NF_IP6_PRE_ROUTING,
-+#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
 +	.priority	= NF_IP6_PRI_MANGLE + 1
-+#else
-+	.priority	= NF_IP6_PRI_NAT_DST + 1
-+#endif
 +};
 +
 +static struct nf_hook_ops imq_egress_ipv6 = {
@@ -258,11 +246,7 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.owner		= THIS_MODULE,
 +	.pf		= PF_INET6,
 +	.hooknum	= NF_IP6_POST_ROUTING,
-+#if defined(CONFIG_IMQ_BEHAVIOR_AA) || defined(CONFIG_IMQ_BEHAVIOR_BA)
-+	.priority	= NF_IP6_PRI_LAST
-+#else
 +	.priority	= NF_IP6_PRI_NAT_SRC - 1
-+#endif
 +};
 +#endif
 +
@@ -270,6 +254,20 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +static unsigned int numdevs = CONFIG_IMQ_NUM_DEVS;
 +#else
 +static unsigned int numdevs = IMQ_MAX_DEVS;
++#endif
++
++static char *behaviour;
++
++#if defined(CONFIG_IMQ_BEHAVIOR_BB)
++static int imq_behaviour = 0;
++#elif defined(CONFIG_IMQ_BEHAVIOR_BA)
++static int imq_behaviour = IMQ_BEHAV_EGRESS_AFTER;
++#elif defined(CONFIG_IMQ_BEHAVIOR_AB)
++static int imq_behaviour = IMQ_BEHAV_INGRESS_AFTER;
++#elif defined(CONFIG_IMQ_BEHAVIOR_AA)
++static int imq_behaviour = IMQ_BEHAV_INGRESS_AFTER | IMQ_BEHAV_EGRESS_AFTER;
++#else
++static int imq_behaviour = IMQ_BEHAV_EGRESS_AFTER;
 +#endif
 +
 +static struct net_device *imq_devs;
@@ -384,6 +382,40 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +static int __init imq_init_hooks(void)
 +{
 +	int err;
++
++	if (behaviour) {
++		if (strlen(behaviour) == 2) {
++		       if (behaviour[0] == 'b') {
++			       imq_behaviour &= ~IMQ_BEHAV_INGRESS_AFTER;
++		       } else if (behaviour[0] == 'a') {
++			       imq_behaviour |= IMQ_BEHAV_INGRESS_AFTER;
++		       } else
++				goto bad_behaviour;
++		       if (behaviour[1] == 'b') {
++			       imq_behaviour &= ~IMQ_BEHAV_EGRESS_AFTER;
++                       } else if (behaviour[1] == 'a') {
++			       imq_behaviour |= IMQ_BEHAV_EGRESS_AFTER;
++		       } else
++				goto bad_behaviour;
++		} else {
++bad_behaviour:
++			printk(KERN_ERR "IMQ: behaviour must be one of these: \"bb\", \"ba\", \"ab\", \"aa\".\n");
++                       return -EINVAL;
++		}
++	}
++
++	if (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) {
++	       imq_ingress_ipv4.priority = NF_IP_PRI_NAT_DST + 1;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	       imq_ingress_ipv6.priority = NF_IP6_PRI_NAT_DST + 1;
++#endif
++	}
++	if (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) {
++	       imq_egress_ipv4.priority = NF_IP_PRI_LAST;
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
++	       imq_egress_ipv6.priority = NF_IP6_PRI_LAST;
++#endif
++	}
 +
 +	err = nf_register_queue_handler(PF_INET, &nfqh);
 +	if (err > 0)
@@ -516,16 +548,12 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +
 +	printk(KERN_INFO "IMQ driver loaded successfully.\n");
 +
-+#if defined(CONFIG_IMQ_BEHAVIOR_BA) || defined(CONFIG_IMQ_BEHAVIOR_BB)
-+	printk(KERN_INFO "\tHooking IMQ before NAT on PREROUTING.\n");
-+#else
-+	printk(KERN_INFO "\tHooking IMQ after NAT on PREROUTING.\n");
-+#endif
-+#if defined(CONFIG_IMQ_BEHAVIOR_AB) || defined(CONFIG_IMQ_BEHAVIOR_BB)
-+	printk(KERN_INFO "\tHooking IMQ before NAT on POSTROUTING.\n");
-+#else
-+	printk(KERN_INFO "\tHooking IMQ after NAT on POSTROUTING.\n");
-+#endif
++	printk(KERN_INFO "\tHooking IMQ %s NAT on %s.\n",
++			 (imq_behaviour & IMQ_BEHAV_INGRESS_AFTER) ? "after" : "before",
++			 "PREROUTING");
++	printk(KERN_INFO "\tHooking IMQ %s NAT on %s.\n",
++			 (imq_behaviour & IMQ_BEHAV_EGRESS_AFTER) ? "after" : "before",
++			 "POSTROUTING");
 +
 +	return 0;
 +}
@@ -541,8 +569,10 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +module_init(imq_init_module);
 +module_exit(imq_cleanup_module);
 +
-+module_param(numdevs, int, IMQ_MAX_DEVS);
++module_param(numdevs, int, 0444);
 +MODULE_PARM_DESC(numdevs, "number of IMQ devices (how many imq* devices will be created)");
++module_param(behaviour, charp, 0444);
++MODULE_PARM_DESC(behaviour, "where to hook in PREROUTING and POSTROUTING - Before or After NAT (aa,ab,ba,bb)");
 +MODULE_AUTHOR("http://www.linuximq.net");
 +MODULE_DESCRIPTION("Pseudo-driver for the intermediate queue device. See http://www.linuximq.net/ for more information.");
 +MODULE_LICENSE("GPL");
@@ -563,14 +593,18 @@ diff -uBp linux-2.6.22/net/core/skbuff.c linux/net/core/skbuff.c
 diff --git a/include/linux/imq.h b/include/linux/imq.h
 --- /dev/null
 +++ b/include/linux/imq.h
-@@ -0,0 +1,9 @@
+@@ -0,0 +1,13 @@
 +#ifndef _IMQ_H
 +#define _IMQ_H
 +
-+#define IMQ_MAX_DEVS   16
++#define IMQ_MAX_DEVS	16
 +
-+#define IMQ_F_IFMASK   0x7f
-+#define IMQ_F_ENQUEUE  0x80
++#define IMQ_F_IFMASK	0x7f
++#define IMQ_F_ENQUEUE	0x80
++
++/* constants for IMQ behaviour (regarding netfilter hooking) */
++#define IMQ_BEHAV_INGRESS_AFTER		1
++#define IMQ_BEHAV_EGRESS_AFTER		2
 +
 +#endif /* _IMQ_H */
 diff --git a/include/linux/netfilter_ipv4/ipt_IMQ.h b/include/linux/netfilter_ipv4/ipt_IMQ.h
