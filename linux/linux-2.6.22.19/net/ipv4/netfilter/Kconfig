@@ -274,6 +274,11 @@ config NF_NAT_IRC
 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
 	default NF_NAT && NF_CONNTRACK_IRC
 
+config NF_NAT_RTSP
+	tristate
+ 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
+ 	default NF_NAT && NF_CONNTRACK_RTSP
+
 config NF_NAT_TFTP
 	tristate
 	depends on IP_NF_IPTABLES && NF_CONNTRACK && NF_NAT
