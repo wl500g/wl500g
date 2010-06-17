@@ -121,17 +121,17 @@ hotplug_check_modem( char * interface, char * product, char * prefix )
 	ret=1;
     } else {
 	if( !*str1 || autodetect ){
-	    if( parse_product_string( product, &vid, &pid ) ){
+	    if(autodetect && parse_product_string( product, &vid, &pid )){
 		sprintf( stored_product, "0x%04x", vid );
 //		nvram_set(strcat_r(prefix, "modem_vid", tmp), stored_product );
 		nvram_set( "wan_modem_vid",  stored_product );
 		sprintf( stored_product, "0x%04x", pid );
 //		nvram_set(strcat_r(prefix, "modem_pid", tmp), stored_product );
 		nvram_set( "wan_modem_pid",  stored_product );
-		
+
 		dprintf( "wrote: %04x:%04x", vid, pid );
-		ret=1;
 	    }
+	    ret=1;
 	}
     }
 

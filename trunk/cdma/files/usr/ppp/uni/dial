@@ -92,7 +92,7 @@ echo "debug
 echo -e "#!/bin/sh
     if [[ \$(nvram get wan_modem_need_chat) == 1 ]]; then
 	chat  -s -S -V -t 10 -f /tmp/ppp/peers/$modem.chat 2>>/tmp/chat.log
-	rez=\$?
+	res=\$?
     else
 	echo \"<<< chat.sh >>> Modem session may be up, try to reconnect\" >>/tmp/chat.log
        nvram set wan_modem_need_chat=1
@@ -102,7 +102,7 @@ echo -e "#!/bin/sh
 	echo \"<<< chat.sh >>> Modem session is up, force reconnect\" >>/tmp/chat.log
 	return 0;
     fi
-    return \$rez" > /tmp/ppp/peers/chat.sh
+    return \$res" > /tmp/ppp/peers/chat.sh
     chmod +x /tmp/ppp/peers/chat.sh
 
 if [[ ! -e /tmp/ppp/peers/ip-up ]] ; then
@@ -123,23 +123,42 @@ echo -e "#!/bin/sh
     done" > /tmp/ppp/peers/ping$ifnum.sh
 chmod +x /tmp/ppp/peers/ping$ifnum.sh
 
+load_drivers()
+{
+if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+    insmod acm
+else
+    insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
+fi
+
+if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
+    insmod usbserial
+else
+    if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
+    else
+	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxpacketsize=$(nvram get wan_modem_packetsize)
+    fi
+fi
+
+insmod pl2303
+insmod ftdi_sio
+}
+
+unload_drivers()
+{
+rmmod option
+rmmod acm
+rmmod usbserial
+}
+
 while true; do
     sleep 5
     if [ $restart_drv == "1" ]; then
-	if [ "$vend" == "" -o "$prod" == "" ]; then
-	    echo "Restarting option and acm drivers"
-	    rmmod  option
-	    rmmod  acm
-
-	    insmod acm
-	    insmod option
-	else
-	    echo "Restarting usbserial driver"
-	    rmmod usbserial
-
-	    insmod usbserial vendor=$vend product=$prod maxSize=4096
-	fi
-	sleep 20
+	echo "Unloading drivers" >> /tmp/chat.log
+	unload_drivers
+	load_drivers
+	sleep 10
 	write_dialup_file
 
 	if [[ "$demand" != "0" ]]; then
