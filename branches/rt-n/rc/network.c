@@ -57,13 +57,13 @@ hotplug_sem_open()
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
 	if( hotplug_sem == SEM_FAILED ){
 #ifdef DEBUG
-		dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+		if(errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
 #endif
 		hotplug_sem = sem_open( "/hotplug_sem", 0 );
-	}
 #ifdef DEBUG
-	dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+		if(errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
 #endif
+	}
 }
 
 void

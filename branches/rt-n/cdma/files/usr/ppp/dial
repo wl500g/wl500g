@@ -40,6 +40,8 @@ case "$dialmode" in
 		;;
 	99)	dialdir=$ROOT_DIR/local/dial
 		;;
+	100)	dialdir=$ROOT_DIR/ppp/uni/
+		;;
 	*)	echo Other
 		;;
 esac	
