@@ -17,9 +17,10 @@ idle=$(nvram get wan_modem_idle)
 usbdev=""
 
 ifnum=0
-restart_drv="1"
+restart_drv="0"
 
 nvram set wan_modem_need_chat=1
+nvram set wan_modem_packetsize=4096
 #mkdir /tmp/ppp/peers/
 
 echo "ABORT	'~'
@@ -125,24 +126,27 @@ chmod +x /tmp/ppp/peers/ping$ifnum.sh
 
 load_drivers()
 {
-if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+if [[ "$(lsmod | grep acm)" == "" ]]; then
+  if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
     insmod acm
-else
+  else
     insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
+  fi
 fi
-
-if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
+if [[ "$(lsmod | grep usbserial)" == "" ]]; then
+  if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
     insmod usbserial
-else
+    insmod option
+  else
     if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
 	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
     else
-	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxpacketsize=$(nvram get wan_modem_packetsize)
+	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxSize=$(nvram get wan_modem_packetsize)
     fi
+  fi
+  insmod pl2303
+  insmod ftdi_sio
 fi
-
-insmod pl2303
-insmod ftdi_sio
 }
 
 unload_drivers()
@@ -150,21 +154,27 @@ unload_drivers()
 rmmod option
 rmmod acm
 rmmod usbserial
+rmmod pl2303
+rmmod ftdi_sio
 }
 
+load_drivers
+write_dialup_file
+
 while true; do
-    sleep 5
+    sleep 1
     if [ $restart_drv == "1" ]; then
+	restart_drv="0"
 	echo "Unloading drivers" >> /tmp/chat.log
 	unload_drivers
+	sleep 3
+	echo "Loading drivers" >> /tmp/chat.log
 	load_drivers
-	sleep 10
-	write_dialup_file
-
-	if [[ "$demand" != "0" ]]; then
-	    killall ping$ifnum.sh
-	    /tmp/ppp/peers/ping$ifnum.sh &
-	fi
+	sleep 7
+    fi
+    if [[ "$demand" != "0" ]]; then
+	killall ping$ifnum.sh
+	/tmp/ppp/peers/ping$ifnum.sh &
     fi
 
     pppd call dialup >> /tmp/chat.log 2>&1
@@ -172,4 +182,8 @@ while true; do
     echo "pppd exit code: $res
 	Reconnect. Device: $usbdev" >> /tmp/chat.log
     logger "pppd exit code: $res"
+    if [[ $res != "6" ]]; then
+	restart_drv="0"
+    fi
+    sleep 4
 done
