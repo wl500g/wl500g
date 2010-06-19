@@ -1,0 +1,175 @@
+#!/bin/sh
+apn=$(nvram get wan_modem_apn)
+dialnumber=$(nvram get wan_modem_dialno)
+modem=$(nvram get wan_modem_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
+username=$(nvram get wan_modem_username)
+port=$(nvram get wan_modem_tts_port)
+portspeed=$(nvram get wan_modem_portspeed)
+password=$(nvram get wan_modem_password)
+mtu=1492 #$(nvram get wan_modem_mtu)
+mru=1492 #$(nvram get wan_modem_mru)
+vend=$(nvram get wan_modem_vid)
+prod=$(nvram get wan_modem_pid)
+pppdoptions=$(nvram get wan_modem_options)
+initoptions=$(nvram get wan_modem_dialup_init)
+demand=$(nvram get wan_modem_demand)
+idle=$(nvram get wan_modem_idle)
+usbdev=""
+
+ifnum=0
+restart_drv="1"
+
+nvram set wan_modem_need_chat=1
+#mkdir /tmp/ppp/peers/
+
+echo "ABORT	'~'
+ABORT	'BUSY'
+ABORT 	'NO CARRIER'
+ABORT	'ERROR'
+ABORT 	'NO DIAL TONE'
+ABORT 	'NO ANSWER'
+ABORT 	'DELAYED'
+REPORT	'CONNECT'
+''	'ATZ'
+SAY	'Calling CDMA/EVDO'
+'OK'	'$initoptions'
+''	'ATDT#777'
+'CONNECT'	'ATO'
+'' ''" > /tmp/ppp/peers/0.chat
+
+echo "ABORT	'~'
+ABORT	BUSY
+ABORT	'NO CARRIER'
+ABORT	ERROR
+REPORT	CONNECT
+''	'ATZ'
+SAY	'Calling UMTS/GPRS'
+'OK'	'$initoptions'
+''	'AT+CGDCONT=1,\"IP\",\"$apn\"'
+'OK'	'ATD$dialnumber'
+'CONNECT'	''" > /tmp/ppp/peers/1.chat
+
+write_dialup_file()
+{
+    [[ -z  $usbdev ]] || return;
+
+    if [ -c /dev/usb/acm/$port ]; then
+	usbdev="/dev/usb/acm/$port"
+    else
+	usbdev="/dev/usb/tts/$port"
+    fi
+
+echo "debug
+    $usbdev
+    $portspeed
+    crtscts
+    noipdefault
+    ipcp-accept-local
+    lcp-echo-interval 60
+    lcp-echo-failure 6
+    mtu $mtu
+    mru $mru
+    usepeerdns
+    noauth
+    $pppdoptions
+    holdoff 5
+    maxfail 0
+    nodetach
+    persist
+    unit $ifnum
+    novj nobsdcomp novjccomp nopcomp noaccomp
+    user '$username'
+    password '$password'" > /tmp/ppp/peers/dialup
+
+    if [[ -z $demand ]]; then demand="0"; fi
+    if [[ "$demand" != "0" ]]; then
+	if [[ -z $idle ]]; then idle="600"; fi
+	echo "demand idle $idle" >> /tmp/ppp/peers/dialup
+    fi
+    echo "connect \"/tmp/ppp/peers/chat.sh\"" >> /tmp/ppp/peers/dialup
+}
+
+echo -e "#!/bin/sh
+    if [[ \$(nvram get wan_modem_need_chat) == 1 ]]; then
+	chat  -s -S -V -t 10 -f /tmp/ppp/peers/$modem.chat 2>>/tmp/chat.log
+	res=\$?
+    else
+	echo \"<<< chat.sh >>> Modem session may be up, try to reconnect\" >>/tmp/chat.log
+       nvram set wan_modem_need_chat=1
+	return 0;
+    fi
+    if [[ \$res = 4 ]]; then
+	echo \"<<< chat.sh >>> Modem session is up, force reconnect\" >>/tmp/chat.log
+	return 0;
+    fi
+    return \$res" > /tmp/ppp/peers/chat.sh
+    chmod +x /tmp/ppp/peers/chat.sh
+
+if [[ ! -e /tmp/ppp/peers/ip-up ]] ; then
+    mv /tmp/ppp/ip-up /tmp/ppp/peers/ip-up
+fi
+echo -e "#!/bin/sh
+    nvram set wan_modem_need_chat=0
+    echo \"<<< /tmp/ppp/ip-up >>> Session is up, next try to reconnect\" >>/tmp/chat.log
+    /tmp/ppp/peers/ip-up \$@" > /tmp/ppp/ip-up
+    chmod +x /tmp/ppp/ip-up
+
+echo -e "#!/bin/sh
+    pingaddr=\"8.8.8.8\"
+    for i in 1 2 3 4; do
+	usleep 500000
+	ping -I ppp$ifnum -c 1 \$pingaddr >> /tmp/chat.log
+	usleep 500000
+    done" > /tmp/ppp/peers/ping$ifnum.sh
+chmod +x /tmp/ppp/peers/ping$ifnum.sh
+
+load_drivers()
+{
+if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+    insmod acm
+else
+    insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
+fi
+
+if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
+    insmod usbserial
+else
+    if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
+    else
+	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxpacketsize=$(nvram get wan_modem_packetsize)
+    fi
+fi
+
+insmod pl2303
+insmod ftdi_sio
+}
+
+unload_drivers()
+{
+rmmod option
+rmmod acm
+rmmod usbserial
+}
+
+while true; do
+    sleep 5
+    if [ $restart_drv == "1" ]; then
+	echo "Unloading drivers" >> /tmp/chat.log
+	unload_drivers
+	load_drivers
+	sleep 10
+	write_dialup_file
+
+	if [[ "$demand" != "0" ]]; then
+	    killall ping$ifnum.sh
+	    /tmp/ppp/peers/ping$ifnum.sh &
+	fi
+    fi
+
+    pppd call dialup >> /tmp/chat.log 2>&1
+    res=$?
+    echo "pppd exit code: $res
+	Reconnect. Device: $usbdev" >> /tmp/chat.log
+    logger "pppd exit code: $res"
+done
