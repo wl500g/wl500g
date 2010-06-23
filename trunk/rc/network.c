@@ -87,6 +87,7 @@ hotplug_sem_unlock()
 static int
 add_routes(char *prefix, char *var, char *ifname)
 {
+	int err, m;
 	char word[80], *next;
 	char *ipaddr, *netmask, *gateway, *metric;
 	char tmp[100];
@@ -109,9 +110,14 @@ add_routes(char *prefix, char *var, char *ifname)
 		if (inet_addr_(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wanx_gateway");
 
-		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, atoi(metric), ipaddr, gateway, netmask);
+		m = atoi(metric) + 1;
+		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, m, ipaddr, gateway, netmask);
 		
-		route_add(ifname, atoi(metric) + 1, ipaddr, gateway, netmask);
+		if ((err = route_add(ifname, m, ipaddr, gateway, netmask))) {
+			logmessage("route", "add failed(%d) '%s': %s dst %s mask %s gw %s metric %d",
+			err, strerror(err),
+			ifname, ipaddr, gateway, netmask, m);
+		}
 	}
 
 	return 0;
@@ -521,8 +527,10 @@ stop_lan(void)
 
 	dprintf("%s\n", lan_ifname);
 
+#ifndef ASUS_EXT
 	/* Stop the syslogd daemon */
 	eval("killall", "syslogd");
+#endif
 
 	/* Remove static routes */
 	del_lan_routes(lan_ifname);
