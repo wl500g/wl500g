@@ -132,6 +132,15 @@
  
  	/* add all alternatives to the routing cache */
  	for (hop = 0; hop < hopcount; hop++) {
+@@ -1868,7 +1876,7 @@ static inline int ip_mkroute_input(struc
+ 			ip_rt_put(rtres);
+ 
+ 		/* create a routing cache entry */
+-		err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos,
++		err = __mkroute_input(skb, res, in_dev, daddr, saddr, tos, lsrc,
+ 				      &rth);
+ 		if (err)
+ 			return err;
 @@ -1889,7 +1898,7 @@ static inline int ip_mkroute_input(struc
  	skb->dst = &rtres->u.dst;
  	return err;
