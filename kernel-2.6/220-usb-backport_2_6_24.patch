@@ -40,7 +40,7 @@ Originally from Tomato-rt commits:
  drivers/usb/core/message.c               |  121 +-
  drivers/usb/core/quirks.c                |   34 
  drivers/usb/core/sysfs.c                 |  173 +++
- drivers/usb/core/urb.c                   |   92 -
+ drivers/usb/core/urb.c                   |   88 -
  drivers/usb/core/usb.c                   |   12 
  drivers/usb/core/usb.h                   |   14 
  drivers/usb/gadget/Kconfig               |   53 +
@@ -156,7 +156,7 @@ Originally from Tomato-rt commits:
  drivers/usb/serial/safe_serial.c         |   12 
  drivers/usb/serial/sierra.c              | 1008 +++++++++++++--------
  drivers/usb/serial/ti_usb_3410_5052.c    |   46 
- drivers/usb/serial/usb-serial.c          |   51 -
+ drivers/usb/serial/usb-serial.c          |   49 -
  drivers/usb/serial/visor.c               |   66 -
  drivers/usb/serial/visor.h               |    3 
  drivers/usb/serial/whiteheat.c           |  122 +-
@@ -175,6 +175,7 @@ Originally from Tomato-rt commits:
  drivers/usb/storage/usb.c                |  121 +-
  drivers/usb/storage/usb.h                |    4 
  drivers/usb/usb-skeleton.c               |  151 ++-
+ include/linux/device.h                   |    8 
  include/linux/freezer.h                  |    9 
  include/linux/hid.h                      |   86 +
  include/linux/pm.h                       |    1 
@@ -184,7 +185,7 @@ Originally from Tomato-rt commits:
  include/linux/usb/quirks.h               |    8 
  include/linux/usb/serial.h               |    7 
  include/linux/usb_gadget.h               |   48 -
- 179 files changed, 10354 insertions(+), 6010 deletions(-)
+ 180 files changed, 10359 insertions(+), 6007 deletions(-)
 
 diff --git a/Documentation/power/swsusp.txt b/Documentation/power/swsusp.txt
 index 5b8d695..aea7e92 100644
@@ -28641,6 +28642,24 @@ index 8432bf1..8de11de 100644
  	.id_table =	skel_table,
  	.supports_autosuspend = 1,
  };
+diff -uB a/include/linux/device.h b/include/linux/device.h
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -577,6 +577,14 @@
+ }
+ #endif
+ 
++#ifdef VERBOSE_DEBUG
++#define dev_vdbg	dev_dbg
++#else
++
++#define dev_vdbg(dev, format, arg...)		\
++	({ if (0) dev_printk(KERN_DEBUG, dev, format, ##arg); 0; })
++#endif
++
+ #define dev_err(dev, format, arg...)		\
+ 	dev_printk(KERN_ERR , dev , format , ## arg)
+ #define dev_info(dev, format, arg...)		\
 diff --git a/include/linux/freezer.h b/include/linux/freezer.h
 index 4631086..5faef84 100644
 --- a/include/linux/freezer.h
