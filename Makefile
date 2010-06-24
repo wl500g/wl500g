@@ -189,6 +189,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
+	find $(TOP)/$(BUSYBOX)/shell/ash_test/ -name *.tests -perm 0644 -exec chmod a+x '{}' \;
 	mv $(TOP)/$(BUSYBOX) $@
 
 busybox: $(TOP)/busybox

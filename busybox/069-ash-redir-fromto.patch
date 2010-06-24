@@ -1,0 +1,41 @@
+From da75f4484469ca0122b80de69bf3b75a6be71efc
+From: Andreas Bühmann
+Date: Thu, 24 Jun 2010 02:32:37 +0000
+Subject: ash: <> redir should not truncate
+
+Signed-off-by: Andreas Bühmann <buehmann@users.berlios.de>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/shell/ash.c b/shell/ash.c
+index f581b5b..1f8f90a 100644
+--- a/shell/ash.c
++++ b/shell/ash.c
+@@ -4938,7 +4938,7 @@ openredirect(union node *redir)
+ 		break;
+ 	case NFROMTO:
+ 		fname = redir->nfile.expfname;
+-		f = open(fname, O_RDWR|O_CREAT|O_TRUNC, 0666);
++		f = open(fname, O_RDWR|O_CREAT, 0666);
+ 		if (f < 0)
+ 			goto ecreate;
+ 		break;
+diff --git a/shell/ash_test/ash-redir/redir9.right b/shell/ash_test/ash-redir/redir9.right
+new file mode 100644
+index 0000000..34c2512
+--- a/dev/null
++++ b/shell/ash_test/ash-redir/redir9.right
+@@ -0,0 +1,2 @@
++Ok
++Done:0
+diff --git a/shell/ash_test/ash-redir/redir9.tests b/shell/ash_test/ash-redir/redir9.tests
+new file mode 100755
+index 0000000..8befa61
+--- a/dev/null
++++ b/shell/ash_test/ash-redir/redir9.tests
+@@ -0,0 +1,4 @@
++echo Ok >file.tmp
++cat 0<>file.tmp
++echo Done:$?
++rm file.tmp
+--
+cgit v0.8.2.1
