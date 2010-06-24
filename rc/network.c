@@ -1175,6 +1175,10 @@ stop_wan2(void)
 	stop_wimax();
 #endif
 
+#ifdef __CONFIG_MODEM__
+	stop_modem_dial();
+#endif
+
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
@@ -1809,14 +1813,14 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				start_wimax( prefix );
+				//start_wimax( prefix );
 			    } else
 #endif
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				start_modem_dial( prefix );
+				//start_modem_dial( prefix );
 			    }
 #else
 			    {}
