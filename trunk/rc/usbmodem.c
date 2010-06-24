@@ -16,7 +16,7 @@
 #include <nvparse.h>
 
 
-void modem_get_script_name( char * filename )
+void modem_get_script_name(char *filename)
 {
     char * script_fn = nvram_get( "wan_modem_scriptfn" );
     if( script_fn && *script_fn )
@@ -26,13 +26,13 @@ void modem_get_script_name( char * filename )
 };
 
 int
-start_modem_dial( char * prefix )
+start_modem_dial(char *prefix)
 {
     int ret=0;
-    char sfn[200];
     char dialparam[] = "dial_param_XXXXXXXXX";
     pid_t pid;
-    char tmp[200];
+    FILE * file;
+    char sfn[200], tmp[200];
     char *argv[] = {
 	(modem_get_script_name(sfn), sfn),
 	NULL
@@ -55,6 +55,15 @@ start_modem_dial( char * prefix )
 		nvram_set( strcat_r(prefix, "dnsenable_x", tmp), "1");
 	}
 	ret = _eval(argv, NULL, 0, &pid);
+	if (pid) {
+	    sprintf(tmp, "/var/run/%s", prefix );
+	    if (tmp[strlen(tmp)-1]=='_') tmp[strlen(tmp)-1]=0;
+	    file=fopen(tmp, "w");
+	    if (file) {
+		fprintf(file, "%d", pid);
+		fclose(file);
+	    }
+	}
     }
 
     dprintf("done\n");
@@ -75,12 +84,14 @@ stop_modem_dial(void)
     eval("killall", tmp);
     ret = eval("killall", "pppd");
 
+    nvram_set( "wan0_dial_enabled", "0" );
+
     dprintf("done\n");
     return ret;
 }
 
 int
-parse_product_string( char * product, int * vid, int * pid )
+parse_product_string( char *product, int *vid, int *pid )
 {
     int res=0;
     char tmp[0x200], *str1, *str2;
@@ -98,7 +109,7 @@ parse_product_string( char * product, int * vid, int * pid )
 }
 
 int 
-hotplug_check_modem( char * interface, char * product, char * prefix )
+hotplug_check_modem( char *interface, char *product, char *prefix )
 {
     int ret=0;
     char *str1, *str2;
@@ -143,35 +154,33 @@ hotplug_check_modem( char * interface, char * product, char * prefix )
 }
 
 void
-hotplug_usb_modeswitch( char * interface, char * action, char * product )
+hotplug_usb_modeswitch( char *interface, char *action, char *product )
 {
     int vid, pid;
-//    char *argv[] = {
-//	"/usr/ppp/zerocd",
-//	NULL
-//    };
+
     int dev_vid, dev_pid;
     int i = 0;
     char sFileName[0x7F];
-    char sManufacturer[0x7F];
+    char sPath[0x7F];
+
     char * sMaList[]={
 	"Option",
 	"AnyDATA",
 	"SAMSUNG",
 	"Vertex"
     };
+
     char * argv_usb_modeswitch[] = {
 	"usb_modeswitch",
 	"-c",
-	sManufacturer,
+	sPath,
 	NULL
     };
-    *sManufacturer = 0;
+    *sPath = 0;
 
     if( strcmp(action, "add") == 0 ){
-	if( nvram_match("wan_modem_zerocd_mode", "UserDefined" ) )
-	{
-	    strcpy( sManufacturer, "/usr/local/etc/usb_modeswitch.conf" );
+	if( nvram_match("wan_modem_zerocd_mode", "UserDefined" ) ){
+	    strcpy( sPath, "/usr/local/etc/usb_modeswitch.conf" );
 	} else if( nvram_match("wan_modem_zerocd_mode", "Auto" ) )
 	{
 	    if( parse_product_string( product, &vid, &pid ) ){
@@ -179,8 +188,9 @@ hotplug_usb_modeswitch( char * interface, char * action, char * product )
 	
 		if( vid==0x05c6 && pid==0x1000 )
 		{
-		    FILE * file = fopen( "/proc/bus/usb/devices", "rt");
+		  FILE * file = fopen( "/proc/bus/usb/devices", "rt");
 		    char str[0xFF];
+		    int i_size;
 		    char * str1;
 		    if( file )
 		    {
@@ -188,6 +198,7 @@ hotplug_usb_modeswitch( char * interface, char * action, char * product )
 			char templ1[]="Vendor";
 			char templ2[]="ProdID";
 			char templ3[]="Manufacturer";
+			char sManufacturer[0xFF];
 
 			while( !feof(file) )
 			{
@@ -203,18 +214,16 @@ hotplug_usb_modeswitch( char * interface, char * action, char * product )
 			    } else {
 				str1 = strstr( str, templ3 );
 				if( str1 ){
-				    strcpy( sManufacturer, str1+sizeof(templ3) );
+				    strncpy( sManufacturer, str1+sizeof(templ3), sizeof(sManufacturer)-1);
 				    ready=1;
 				}
 			    }
-			    if( ready )
-			    {
-				dprintf( "USB: %04x:%04x %s", dev_vid, dev_pid, sManufacturer );
-				if( dev_vid==vid && dev_pid==pid ){
-				    for( i=0; i<sizeof(sMaList)/sizeof(char*); i++ )
-				    {
-					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 )
-					{
+			    if( ready ){
+				dprintf( "USB: %04x:%04x %s", dev_vid, dev_pid, sPath );
+				if( dev_vid==vid && dev_pid==pid ){  
+				    i_size = sizeof(sMaList)/sizeof(char*);
+				    for( i=0; i<i_size; i++ ){
+					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 ){
 					    if(i==0) strcat ( sFileName, "_sVe=" );
 					    else strcat ( sFileName, "_uMa=" );
 
@@ -222,6 +231,8 @@ hotplug_usb_modeswitch( char * interface, char * action, char * product )
 					    break;
 					}
 				    }
+				    if( i == i_size)
+					strcat ( sFileName, "_uMa=AnyDATA" );
 				    break;
 				}
 				ready=0;
@@ -231,20 +242,50 @@ hotplug_usb_modeswitch( char * interface, char * action, char * product )
 		    }
 		}
 	    };
-	    sprintf( sManufacturer, "/usr/share/usb_modeswitch.d/%s", sFileName );
+	    sprintf( sPath, "/usr/share/usb_modeswitch.d/%s", sFileName );
 	}
 	
-	if( *sManufacturer ){
-	    FILE * file = fopen( sManufacturer, "r" );
+	if( *sPath ){
+	    FILE * file = fopen( sPath, "r" );
 	    if( file ){
 		fclose( file );
-		dprintf( "usb_modeswitch -c %s", sManufacturer );
+		dprintf( "usb_modeswitch -c %s", sPath );
 		_eval(argv_usb_modeswitch, NULL, 0, &pid);
 	    }
 	}
 
-	// check zerocd mode
-	//_eval(argv, NULL, 0, &pid);
     }
     dprintf("done");
+}
+
+int 
+usb_modem_check(char *prefix)
+{
+    int ret=0;
+    char tmp[200];
+    FILE *file;
+
+    if( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) &&
+	nvram_match( strcat_r(prefix, "prepared", tmp), "1" ) &&
+	nvram_get( strcat_r(prefix, "usb_device", tmp) ) )
+    {
+	sprintf(tmp, "/var/run/%s", prefix);
+	if (tmp[strlen(tmp)-1]=='_') tmp[strlen(tmp)-1]=0;
+	dprintf("%s", tmp);
+	file=fopen(tmp,"r");
+	if(file){
+	    fgets(tmp+100, 99, file);
+	    fclose(file);
+
+	    sprintf(tmp, "/proc/%s/status", tmp+100);
+	    dprintf("%s", tmp);
+	    file=fopen(tmp, "r");
+	    if(file){
+		fclose(file);
+	    } else
+		ret=start_modem_dial(prefix);
+	}else
+	    ret=start_modem_dial(prefix);
+    }
+    return ret;
 }
