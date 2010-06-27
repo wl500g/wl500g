@@ -87,6 +87,7 @@ hotplug_sem_unlock()
 static int
 add_routes(char *prefix, char *var, char *ifname)
 {
+	int err, m;
 	char word[80], *next;
 	char *ipaddr, *netmask, *gateway, *metric;
 	char tmp[100];
@@ -109,9 +110,14 @@ add_routes(char *prefix, char *var, char *ifname)
 		if (inet_addr_(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wanx_gateway");
 
-		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, atoi(metric), ipaddr, gateway, netmask);
+		m = atoi(metric) + 1;
+		dprintf("\n\n\nadd %s %d %s %s %s\n\n\n", ifname, m, ipaddr, gateway, netmask);
 		
-		route_add(ifname, atoi(metric) + 1, ipaddr, gateway, netmask);
+		if ((err = route_add(ifname, m, ipaddr, gateway, netmask))) {
+			logmessage("route", "add failed(%d) '%s': %s dst %s mask %s gw %s metric %d",
+			err, strerror(err),
+			ifname, ipaddr, gateway, netmask, m);
+		}
 	}
 
 	return 0;
@@ -525,8 +531,10 @@ stop_lan(void)
 
 	dprintf("%s\n", lan_ifname);
 
+#ifndef ASUS_EXT
 	/* Stop the syslogd daemon */
 	eval("killall", "syslogd");
+#endif
 
 	/* Remove static routes */
 	del_lan_routes(lan_ifname);
@@ -1169,6 +1177,10 @@ stop_wan2(void)
 	eval("killall", "pppd");
 #ifdef __CONFIG_MADWIMAX__
 	stop_wimax();
+#endif
+
+#ifdef __CONFIG_MODEM__
+	stop_modem_dial();
 #endif
 
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
@@ -1837,14 +1849,14 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				start_wimax( prefix );
+				//start_wimax( prefix );
 			    } else
 #endif
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				start_modem_dial( prefix );
+				//start_modem_dial( prefix );
 			    }
 #else
 			    {}

@@ -27,6 +27,8 @@
 #include <stdarg.h>
 #include <wlioctl.h>
 #include <wlutils.h>
+#include <netconf.h>
+#include <nvparse.h>
 
 #ifdef LINUX26
  #define GPIOCTL
@@ -481,18 +483,18 @@ int ntp_timesync(void)
 			localtime_r(&now, &local);
 			tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 			settimeofday(NULL, &tz);
-		   	memcpy(&tm, localtime(&now), sizeof(struct tm));
+			memcpy(&tm, localtime(&now), sizeof(struct tm));
 
-		   	if (tm.tm_year>100) // More than 2000 
-		   	{	 
-		      		sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
-			  	logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
+			if (tm.tm_year>100) // More than 2000
+			{
+				sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
+				logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
 
 				//stop_upnp();
 				//start_upnp();
-		   	}	
-		  	else sync_interval = 6;		/* Once per 60s */
-	
+			}
+			else sync_interval = 6;		/* Once per 60s */
+
 			refresh_ntpc();	
 		}
 	}	
@@ -683,10 +685,38 @@ int http_processcheck(void)
 
 #ifdef USB_SUPPORT
 
-#ifdef __CONFIG_MADWIMAX__
-int madwimax_processcheck(void)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+int usb_communication_device_processcheck(void)
 {
-	return madwimax_check();
+  	char *wan_ifname;
+	char *wan_proto;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+
+	/* Start each configured and enabled wan connection and its undelying i/f */
+	for( unit=0; unit<MAX_NVPARSE; unit++) 
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+		/* make sure the connection exists and is enabled */ 
+		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+		if (!wan_ifname)
+			continue;
+
+		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+			continue;
+#ifdef __CONFIG_MADWIMAX__
+		if( !strcmp(wan_proto, "wimax")) madwimax_check();
+		else
+#else
+		{}
+#endif
+#ifdef __CONFIG_MODEM__
+		if( !strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
+#endif
+	}
+	return 0;
 }
 #endif
 
@@ -847,9 +877,9 @@ void watchdog(int signum)
 
 #ifdef USB_SUPPORT
 
-#ifdef __CONFIG_MADWIMAX__
-	/* madwimax process */
-	madwimax_processcheck();
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+	/* madwimax and 3g/cdma process */
+	usb_communication_device_processcheck();
 #endif
 
 	/* web cam process */
