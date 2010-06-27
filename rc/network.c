@@ -46,11 +46,16 @@ typedef u_int8_t u8;
 #include <semaphore.h>
 #include <fcntl.h>
 
-sem_t * hotplug_sem;
-
 void lan_up(char *lan_ifname);
 int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
 
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
+
+#define HOTPLUG_DEV_START
+sem_t * hotplug_sem;
 void
 hotplug_sem_open()
 {
@@ -83,7 +88,12 @@ hotplug_sem_unlock()
 {
 	if(hotplug_sem) sem_post( hotplug_sem );
 }
-
+#else
+#define hotplug_sem_open()
+#define hotplug_sem_close()
+#define hotplug_sem_lock()
+#define hotplug_sem_unlock()
+#endif
 static int
 add_routes(char *prefix, char *var, char *ifname)
 {
@@ -1785,7 +1795,7 @@ void hotplug_network_device( char * interface, char * action, char * product )
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 
-		dprintf("%s %s %p\n\n\n\n\n", wan_ifname, wan_proto, hotplug_sem );
+		dprintf("%s %s \n\n\n\n\n", wan_ifname, wan_proto);
 
 		if( !found ){
 #ifdef __CONFIG_MADWIMAX__
@@ -1813,14 +1823,18 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				//start_wimax( prefix );
+#ifdef HOTPLUG_DEV_START
+				start_wimax( prefix );
+#endif
 			    } else
 #endif
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
-				//start_modem_dial( prefix );
+#ifdef HOTPLUG_DEV_START
+				start_modem_dial( prefix );
+#endif
 			    }
 #else
 			    {}

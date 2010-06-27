@@ -85,6 +85,7 @@ stop_modem_dial(void)
     ret = eval("killall", "pppd");
 
     nvram_set( "wan0_dial_enabled", "0" );
+    unlink("/var/run/wan0");
 
     dprintf("done\n");
     return ret;
@@ -271,14 +272,12 @@ usb_modem_check(char *prefix)
     {
 	sprintf(tmp, "/var/run/%s", prefix);
 	if (tmp[strlen(tmp)-1]=='_') tmp[strlen(tmp)-1]=0;
-	dprintf("%s", tmp);
 	file=fopen(tmp,"r");
 	if(file){
 	    fgets(tmp+100, 99, file);
 	    fclose(file);
 
 	    sprintf(tmp, "/proc/%s/status", tmp+100);
-	    dprintf("%s", tmp);
 	    file=fopen(tmp, "r");
 	    if(file){
 		fclose(file);
