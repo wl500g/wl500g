@@ -49,7 +49,7 @@ NTPCLIENT=ntpclient-2007_365
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-1.1.2
+USBMODESWITCH=usb-modeswitch-1.1.3
 MADWIMAX=madwimax-0.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
@@ -178,6 +178,7 @@ $(TOP)/busybox: busybox/$(BUSYBOX).tar.bz2
 	mkdir -p $(TOP)/$(BUSYBOX)/sysdeps/linux/
 	cp -p busybox/busybox.config $(TOP)/$(BUSYBOX)/sysdeps/linux/defconfig
 	chmod a+x $(TOP)/$(BUSYBOX)/testsuite/*.tests
+	find $(TOP)/$(BUSYBOX)/shell/ash_test/ -name *.tests -perm 0644 -exec chmod a+x '{}' \;
 	mv $(TOP)/$(BUSYBOX) $@
 
 busybox: $(TOP)/busybox

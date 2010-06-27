@@ -48,5 +48,5 @@ esac
 
 if [ ! -z $dialdir ]; then
 	cd $dialdir
-	exec ./dial $dialmode $2
+	./dial $dialmode $2
 fi

@@ -48,13 +48,13 @@ inet_addr_(const char *cp)
 int
 ifconfig(char *name, int flags, char *addr, char *netmask)
 {
-	int s;
+	int s, ret = 0;
 	struct ifreq ifr;
 	struct in_addr in_addr, in_netmask, in_broadaddr;
 
 	/* Open a raw socket to the kernel */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-		goto err;
+		return errno;
 
 	/* Set interface name */
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
@@ -87,26 +87,25 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 		if (ioctl(s, SIOCSIFBRDADDR, &ifr) < 0)
 			goto err;
 	}
-
-	close(s);
-
-	return 0;
+	goto fexit;
 
  err:
-	close(s);
+	ret = errno;
 	perror(name);
-	return errno;
-}	
+ fexit:
+	close(s);
+	return ret;
+}
 
 static int
 route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
 {
-	int s;
+	int s, ret = 0;
 	struct rtentry rt;
 
 	/* Open a raw socket to the kernel */
 	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		goto err;
+		return errno;
 
 	/* Fill in rtentry */
 	memset(&rt, 0, sizeof(rt));
@@ -131,14 +130,14 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 		
 	if (ioctl(s, cmd, &rt) < 0)
 		goto err;
-
-	close(s);
-	return 0;
+	goto fexit;
 
  err:
-	close(s);
+	ret = errno;
 	perror(name);
-	return errno;
+ fexit:
+	close(s);
+	return ret;
 }
 
 int
