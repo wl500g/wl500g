@@ -25,7 +25,8 @@ static void LOG_help(void)
 " --log-tcp-sequence		Log TCP sequence numbers.\n"
 " --log-tcp-options		Log TCP options.\n"
 " --log-ip-options		Log IP options.\n"
-" --log-uid			Log UID owning the local socket.\n");
+" --log-uid			Log UID owning the local socket.\n"
+" --log-macdecode		Decode MAC addresses and protocol.\n");
 }
 
 static const struct option LOG_opts[] = {
@@ -35,6 +36,7 @@ static const struct option LOG_opts[] = {
 	{ .name = "log-tcp-options",  .has_arg = 0, .val = '2' },
 	{ .name = "log-ip-options",   .has_arg = 0, .val = '3' },
 	{ .name = "log-uid",          .has_arg = 0, .val = '4' },
+	{ .name = "log-macdecode",    .has_arg = 0, .val = '5' },
 	{ .name = NULL }
 };
 
@@ -99,6 +101,7 @@ parse_level(const char *level)
 #define IP6T_LOG_OPT_TCPOPT 0x08
 #define IP6T_LOG_OPT_IPOPT 0x10
 #define IP6T_LOG_OPT_UID 0x20
+#define IP6T_LOG_OPT_MACDECODE 0x40
 
 static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
                      const void *entry, struct xt_entry_target **target)
@@ -182,6 +185,15 @@ static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
 		*flags |= IP6T_LOG_OPT_UID;
 		break;
 
+	case '5':
+		if (*flags & IP6T_LOG_OPT_MACDECODE)
+			xtables_error(PARAMETER_PROBLEM,
+				      "Can't specify --log-macdecode twice");
+
+		loginfo->logflags |= IP6T_LOG_MACDECODE;
+		*flags |= IP6T_LOG_OPT_MACDECODE;
+		break;
+
 	default:
 		return 0;
 	}
@@ -219,6 +231,8 @@ static void LOG_print(const void *ip, const struct xt_entry_target *target,
 			printf("ip-options ");
 		if (loginfo->logflags & IP6T_LOG_UID)
 			printf("uid ");
+		if (loginfo->logflags & IP6T_LOG_MACDECODE)
+			printf("macdecode ");
 		if (loginfo->logflags & ~(IP6T_LOG_MASK))
 			printf("unknown-flags ");
 	}
@@ -246,6 +260,8 @@ static void LOG_save(const void *ip, const struct xt_entry_target *target)
 		printf("--log-ip-options ");
 	if (loginfo->logflags & IP6T_LOG_UID)
 		printf("--log-uid ");
+	if (loginfo->logflags & IP6T_LOG_MACDECODE)
+		printf("--log-macdecode ");
 }
 
 static struct xtables_target log_tg6_reg = {
