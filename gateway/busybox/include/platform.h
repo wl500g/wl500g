@@ -381,7 +381,7 @@ typedef unsigned smalluint;
 #define HAVE_NET_ETHERNET_H 1
 #define HAVE_SYS_STATFS_H 1
 
-#if defined(__UCLIBC__) && UCLIBC_VERSION < KERNEL_VERSION(0, 9, 32)
+#if defined(__UCLIBC__) && UCLIBC_VERSION < KERNEL_VERSION(0, 9, 30)
 # undef HAVE_STRVERSCMP
 #endif
 
