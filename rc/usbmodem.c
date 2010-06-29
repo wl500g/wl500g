@@ -185,7 +185,7 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 	} else if( nvram_match("wan_modem_zerocd_mode", "Auto" ) )
 	{
 	    if( parse_product_string( product, &vid, &pid ) ){
-		sprintf( sFileName, "%04x_%04x", vid, pid );
+		sprintf( sFileName, "%04x:%04x", vid, pid );
 	
 		if( vid==0x05c6 && pid==0x1000 )
 		{
@@ -225,15 +225,15 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 				    i_size = sizeof(sMaList)/sizeof(char*);
 				    for( i=0; i<i_size; i++ ){
 					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 ){
-					    if(i==0) strcat ( sFileName, "_sVe=" );
-					    else strcat ( sFileName, "_uMa=" );
+					    if(i==0) strcat ( sFileName, ":sVe=" );
+					    else strcat ( sFileName, ":uMa=" );
 
 					    strcat ( sFileName, sMaList[i] );
 					    break;
 					}
 				    }
 				    if( i == i_size)
-					strcat ( sFileName, "_uMa=AnyDATA" );
+					strcat ( sFileName, ":uMa=AnyDATA" );
 				    break;
 				}
 				ready=0;
