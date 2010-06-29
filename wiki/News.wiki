@@ -5,6 +5,27 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * minor nfs, hiddev fixes backport
+    * bridge backport - allow setting hardware address of bridge pseudo-dev
+
+  * 3g/cdma modems support, contributed by rss @ wl500g.info (EXPERIMENTAL)
+
+  * updated toolchain (gcc 4.3.5, binutils 2.20.1)
+
+  * dnsmasq 2.55
+
+  * busybox 1.16.2
+    * bugfixes from upstream (ash, udhcpc, sed)
+
+  * usb_modeswitch 1.1.3
+
+  * bugfixes
+    * web-UI fixes
+    * libusb 1.0 fixes from upstream
+    * iptables fixes from upstream
+
 ===wl500g-1.9.2.7-d-`r1612` (2010-05-27)===
   * kernel
     * accel-pptp: updated to 2010.05.01-git
@@ -24,7 +45,7 @@
     * ipv6: fixed 6to4 ipv6 address calculation
 
   * busybox 1.16.1
-    * bugfixes from upstrem (ash, telnet, swapon, grep, tar, sed, mount, vi, ifconfig)
+    * bugfixes from upstream (ash, telnet, swapon, grep, tar, sed, mount, vi, ifconfig)
 
   * libusb 1.0.8
 
@@ -123,7 +144,7 @@
 
   * Broadcom SDK updates from GPL source 500gpV2 3.0.4.2
 
-  * updated toolchain (gcc 4.2.4)
+  * updated toolchain (gcc 4.2.4, binutils 2.19.1)
 
   * busybox 1.15.3
     * bugfixes for applets - wget, crond
