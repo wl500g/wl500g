@@ -6,5 +6,5 @@
   * [http://openwrt.org/ OpenWRT firmware]
   * [http://www.dd-wrt.com DD-WRT firmware]
   * [http://koppel.cz/cdmawifi/ CDMA@wifi firmware]
-  * [http://www.polarcloud.com/tomato Tomato firmware]
+  * [http://tomatousb.org/ Tomato ND USB firmware]
   * [http://wl500g.info AsusForum.NET -- WL500g]
