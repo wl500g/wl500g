@@ -2741,27 +2741,6 @@ diff -urbBP linux-2.4.36/include/linux/eventpoll.h linux-epoll/include/linux/eve
 +
 +#endif /* #ifndef _LINUX_EVENTPOLL_H */
 +
-diff -urbB linux-2.4.36/include/linux/kernel.h linux-epoll/include/linux/kernel.h
---- linux-2.4.36/include/linux/kernel.h	2008-01-01 15:06:40.000000000 +0300
-+++ linux-epoll/include/linux/kernel.h	2008-11-25 21:19:27.000000000 +0300
-@@ -176,6 +176,17 @@
- #define max_t(type,x,y) \
- 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
- 
-+/**
-+ * container_of - cast a member of a structure out to the containing structure
-+ * @ptr:        the pointer to the member.
-+ * @type:       the type of the container struct this is embedded in.
-+ * @member:     the name of the member within the struct.
-+ *
-+ */
-+#define container_of(ptr, type, member) ({                      \
-+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
-+        (type *)( (char *)__mptr - offsetof(type,member) );})
-+
- extern void __out_of_line_bug(int line) ATTRIB_NORET;
- #define out_of_line_bug() __out_of_line_bug(__LINE__)
- 
 diff -urbBP linux-2.4.36/include/linux/fs.h linux-epoll/include/linux/fs.h
 --- linux-2.4.36/include/linux/fs.h	2008-01-01 15:06:40.000000000 +0300
 +++ linux-epoll/include/linux/fs.h	2008-11-25 13:20:40.000000000 +0300

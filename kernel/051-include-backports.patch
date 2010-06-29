@@ -1,3 +1,50 @@
+diff -urB linux-2.4.37.orig/include/linux/etherdevice.h linux/include/linux/etherdevice.h
+--- linux-2.4.37.orig/include/linux/etherdevice.h	2010-02-02 00:04:46.000000000 +0300
++++ linux/include/linux/etherdevice.h	2010-06-28 14:09:24.000000000 +0400
+@@ -25,6 +25,7 @@
+ #define _LINUX_ETHERDEVICE_H
+ 
+ #include <linux/if_ether.h>
++#include <linux/random.h>
+ 
+ #ifdef __KERNEL__
+ extern int		eth_header(struct sk_buff *skb, struct net_device *dev,
+@@ -63,6 +64,35 @@
+ 	return !(addr[0]&1) && memcmp( addr, zaddr, 6);
+ }
+ 
++/**
++ * random_ether_addr - Generate software assigned random Ethernet address
++ * @addr: Pointer to a six-byte array containing the Ethernet address
++ *
++ * Generate a random Ethernet address (MAC) that is not multicast
++ * and has the local assigned bit set.
++ */
++static inline void random_ether_addr(u8 *addr)
++{
++	get_random_bytes (addr, ETH_ALEN);
++	addr [0] &= 0xfe;	/* clear multicast bit */
++	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
++}
++
++/**
++ * compare_ether_addr - Compare two Ethernet addresses
++ * @addr1: Pointer to a six-byte array containing the Ethernet address
++ * @addr2: Pointer other six-byte array containing the Ethernet address
++ *
++ * Compare two ethernet addresses, returns 0 if equal
++ */
++static inline unsigned compare_ether_addr(const u8 *addr1, const u8 *addr2)
++{
++	const u16 *a = (const u16 *) addr1;
++	const u16 *b = (const u16 *) addr2;
++
++	BUILD_BUG_ON(ETH_ALEN != 6);
++	return ((a[0] ^ b[0]) | (a[1] ^ b[1]) | (a[2] ^ b[2])) != 0;
++}
+ #endif
+ 
+ #endif	/* _LINUX_ETHERDEVICE_H */
 diff -urB linux-2.4.37.orig/include/linux/kernel.h linux/include/linux/kernel.h
 --- linux-2.4.37.orig/include/linux/kernel.h	2008-12-15 16:25:13.000000000 +0300
 +++ linux/include/linux/kernel.h	2009-01-26 13:32:27.000000000 +0300
@@ -38,6 +85,42 @@ diff -urB linux-2.4.37.orig/include/linux/kernel.h linux/include/linux/kernel.h
  #if defined(__LITTLE_ENDIAN)
  #define HIPQUAD(addr) \
  	((unsigned char *)&addr)[3], \
+@@ -176,6 +176,17 @@
+ #define max_t(type,x,y) \
+ 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
+ 
++/**
++ * container_of - cast a member of a structure out to the containing structure
++ * @ptr:        the pointer to the member.
++ * @type:       the type of the container struct this is embedded in.
++ * @member:     the name of the member within the struct.
++ *
++ */
++#define container_of(ptr, type, member) ({                      \
++        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
++        (type *)( (char *)__mptr - offsetof(type,member) );})
++
+ extern void __out_of_line_bug(int line) ATTRIB_NORET;
+ #define out_of_line_bug() __out_of_line_bug(__LINE__)
+ 
+@@ -240,4 +240,17 @@
+ 	} \
+ } while (0)
+ 
++/* Force a compilation error if condition is true */
++#define BUILD_BUG_ON(condition) ((void)BUILD_BUG_ON_ZERO(condition))
++
++/* Force a compilation error if condition is constant and true */
++#define MAYBE_BUILD_BUG_ON(cond) ((void)sizeof(char[1 - 2 * !!(cond)]))
++
++/* Force a compilation error if condition is true, but also produce a
++   result (of value 0 and type size_t), so the expression can be used
++   e.g. in a structure initializer (or where-ever else comma expressions
++   aren't permitted). */
++#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
++#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
++
+ #endif /* _LINUX_KERNEL_H */
 diff -urB linux-2.4.37.orig/include/linux/list.h linux/include/linux/list.h
 --- linux-2.4.37.orig/include/linux/list.h	2009-01-26 13:32:30.000000000 +0300
 +++ linux/include/linux/list.h	2009-01-27 11:39:03.000000000 +0300
