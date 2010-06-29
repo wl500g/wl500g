@@ -1,0 +1,40 @@
+From 283f2fe87e980d8af5ad8aa63751e7e3258ee05a
+From: Eric Dumazet
+Date: Thu, 18 Mar 2010 13:37:40 +0000
+Subject: [PATCH] net: speedup netdev_set_master()
+
+We currently force a synchronize_net() in netdev_set_master()
+
+This seems necessary only when a slave had a master and we dismantle it.
+
+In the other case ("ifenslave bond0 ethO"), we dont need this long
+delay.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dev.c |    7 +++----
+ 1 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fe2a754..2d01f18 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3757,11 +3757,10 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
+ 
+ 	slave->master = master;
+ 
+-	synchronize_net();
+-
+-	if (old)
++	if (old) {
++		synchronize_net();
+ 		dev_put(old);
+-
++	}
+ 	if (master)
+ 		slave->flags |= IFF_SLAVE;
+ 	else
+-- 
+1.7.1
+
