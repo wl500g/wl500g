@@ -18,6 +18,9 @@ usbdev=""
 
 ifnum=0
 restart_drv="0"
+kernel="$(uname -r)"
+kernel=${kernel:0:3}
+echo $kernel
 
 nvram set wan_modem_need_chat=1
 nvram set wan_modem_packetsize=4096
@@ -48,16 +51,23 @@ SAY	'Calling UMTS/GPRS'
 'OK'	'$initoptions'
 ''	'AT+CGDCONT=1,\"IP\",\"$apn\"'
 'OK'	'ATD$dialnumber'
-'CONNECT'	''" > /tmp/ppp/peers/1.chat
+'CONNECT'a	''" > /tmp/ppp/peers/1.chat
 
 write_dialup_file()
 {
     [[ -z  $usbdev ]] || return;
-
-    if [ -c /dev/usb/acm/$port ]; then
-	usbdev="/dev/usb/acm/$port"
+    if [[ "$kernel" == "2.4" ]]; then
+	if [ -c /dev/usb/acm/$port ]; then
+		usbdev="/dev/usb/acm/$port"
+	else
+		usbdev="/dev/usb/tts/$port"
+	fi
     else
-	usbdev="/dev/usb/tts/$port"
+	if [ -c /dev/ttyACM$port ]; then
+		usbdev="/dev/ttyACM$port"
+	else
+		usbdev="/dev/ttyUSB$port"
+	fi
     fi
 
 echo "debug
@@ -127,32 +137,40 @@ chmod +x /tmp/ppp/peers/ping$ifnum.sh
 load_drivers()
 {
 if [[ "$(lsmod | grep acm)" == "" ]]; then
-  if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
-    insmod acm
-  else
-    insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
-  fi
+    if [[ "$kernel" == "2.4" ]]; then
+	if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+	    insmod acm
+	else
+	    insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
+	fi
+    else
+	insmod cdc-acm
+    fi
 fi
 if [[ "$(lsmod | grep usbserial)" == "" ]]; then
-  if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
-    insmod usbserial
-    insmod option
-  else
-    if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
-	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
+    if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
+	insmod usbserial
+	insmod option
     else
-	insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxSize=$(nvram get wan_modem_packetsize)
+	if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
+	    insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
+	else
+	    insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxSize=$(nvram get wan_modem_packetsize)
+	fi
     fi
-  fi
-  insmod pl2303
-  insmod ftdi_sio
+    insmod pl2303
+    insmod ftdi_sio
 fi
 }
 
 unload_drivers()
 {
 rmmod option
-rmmod acm
+if [[ kernel=="2.6" ]]; then
+    rmmod cdc_acm
+else
+    rmmod acm
+fi
 rmmod usbserial
 rmmod pl2303
 rmmod ftdi_sio
