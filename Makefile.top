@@ -169,6 +169,7 @@ obj-$(CONFIG_VSFTPD) += vsftpd
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
+obj-$(CONFIG_LLTD) += lltd
 obj-y += udpxy
 
 obj-y += kernel
@@ -875,6 +876,17 @@ madwimax: libusb10 madwimax/Makefile
 madwimax-install:
 	install -D madwimax/src/madwimax $(INSTALLDIR)/madwimax/usr/sbin/madwimax
 	$(STRIP) $(INSTALLDIR)/madwimax/usr/sbin/madwimax
+
+lltd: nvram shared
+	$(MAKE) -C $@ EXTRACFLAGS="$(EXTRACFLAGS)"
+
+lltd-install: lltd
+	install -D lltd/lld2d $(INSTALLDIR)/lltd/sbin/lld2d
+	$(STRIP) $(INSTALLDIR)/lltd/sbin/lld2d
+	install -d $(INSTALLDIR)/lltd/usr/etc/
+	install -D -m 0644 lltd/src/lld2d.conf $(INSTALLDIR)/lltd/usr/etc
+	install -D -m 0644 lltd/src/wrt54g.small.ico $(INSTALLDIR)/lltd/usr/etc/icon.small.ico
+	install -D -m 0644 lltd/src/wrt54g.large.ico $(INSTALLDIR)/lltd/usr/etc/icon.large.ico
 
 rcamdmips:
 	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"

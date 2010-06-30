@@ -73,6 +73,7 @@ CONFIG_SCSIIDLE=y
 CONFIG_USBMODESWITCH=y
 CONFIG_MADWIMAX=y
 CONFIG_MODEM=y
+# CONFIG_LLTD is not set
 
 #
 # Additional C libraries

@@ -52,6 +52,7 @@ LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.1.3
 USBMODESWITCHDATA=usb-modeswitch-data-20100623
 MADWIMAX=madwimax-0.1.1
+LLTD=LLTD-PortingKit
 
 UCLIBC=uClibc-0.9.29
 
@@ -89,7 +90,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips \
-	scsi-idle libusb usb_modeswitch wimax \
+	scsi-idle libusb usb_modeswitch wimax lltd \
 	shared upnp utils wlconf www libbcmcrypto asustrx cdma
 	@echo
 	@echo Sources prepared for compilation
@@ -528,6 +529,17 @@ $(TOP)/madwimax: wimax/$(MADWIMAX).tar.gz
 	mv $(TOP)/$(MADWIMAX) $@ && touch $@
 
 wimax: $(TOP)/madwimax
+	@true
+
+lltd_Patches := $(call patches_list,lltd)
+
+$(TOP)/lltd: lltd/$(LLTD).tar.bz2
+	rm -rf $(TOP)/$(LLTD) $@
+	tar -jxf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(LLTD) $(lltd_Patches)
+	mv $(TOP)/$(LLTD) $@ && touch $@
+
+lltd: $(TOP)/lltd
 	@true
 
 $(TOP)/others:

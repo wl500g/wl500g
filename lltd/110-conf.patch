@@ -1,0 +1,8 @@
+diff -BurpN LLTD-PortingKit/src/lld2d.conf lltd/src/lld2d.conf
+--- LLTD-PortingKit/src/lld2d.conf	2006-08-03 04:47:48.000000000 +0000
++++ lltd/src/lld2d.conf	2010-06-30 14:55:40.000000000 +0000
+@@ -1,2 +1,2 @@
+-icon = /etc/icon.ico
+-jumbo-icon = /etc/wrt54g.large.ico
++icon = /usr/etc/icon.small.ico
++jumbo-icon = /usr/etc/icon.large.ico
