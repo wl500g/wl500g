@@ -380,6 +380,12 @@ config CONFIG_MODEM
        help
        Include 3G, CDMA, Dialup scripts.
 
+config CONFIG_LLTD
+       bool "LLTD responder"
+       default n
+       help
+       Include Link Layer Topology Discovery responder.
+
 config CONFIG_NTFS3G
        bool "NTFS-3G support"
        default y
