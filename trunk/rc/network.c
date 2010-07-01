@@ -1740,13 +1740,13 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 	strncpy(ifr->ifr_name, wan_ifname, IFNAMSIZ);
 
 	/* Set temporary IP address */
-	if (ioctl(s, SIOCGIFADDR, ifr))
+	if (ioctl(s, SIOCGIFADDR, ifr) < 0)
 		perror(wan_ifname);
 	nvram_set(strcat_r(prefix, "ipaddr", tmp), inet_ntoa(sin_addr(&ifr->ifr_addr)));
 	nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
 
 	/* Set temporary P-t-P address */
-	if (ioctl(s, SIOCGIFDSTADDR, &ifr))
+	if (ioctl(s, SIOCGIFDSTADDR, ifr) < 0)
 		perror(wan_ifname);
 	nvram_set(strcat_r(prefix, "gateway", tmp), inet_ntoa(sin_addr(&ifr->ifr_dstaddr)));
 
