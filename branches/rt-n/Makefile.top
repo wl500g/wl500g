@@ -767,8 +767,8 @@ samba-install:
 	install -D samba/source/bin/smbpasswd.shared $(INSTALLDIR)/samba/usr/bin/smbpasswd
 	install -D samba/source/bin/libsmb.so $(INSTALLDIR)/samba/usr/lib/libsmb.so
 	install -d $(INSTALLDIR)/samba/usr/codepages/
-	install -D samba/source/codepages/codepage.* $(INSTALLDIR)/samba/usr/codepages
-	install -D samba/source/codepages/unicode_map.* $(INSTALLDIR)/samba/usr/codepages
+	install -D -m 0644 samba/source/codepages/codepage.* $(INSTALLDIR)/samba/usr/codepages
+	install -D -m 0644 samba/source/codepages/unicode_map.* $(INSTALLDIR)/samba/usr/codepages
 	$(STRIP) $(INSTALLDIR)/samba/usr/sbin/smbd
 	$(STRIP) $(INSTALLDIR)/samba/usr/sbin/nmbd
 	$(STRIP) $(INSTALLDIR)/samba/usr/bin/smbpasswd
@@ -930,7 +930,8 @@ usb_modeswitch: libusb
 usb_modeswitch-install:
 	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
 	$(STRIP) $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
-#	install -D -m 0644 usb_modeswitch/usb_modeswitch.conf $(INSTALLDIR)/usb_modeswitch/usr/etc/usb_modeswitch.conf
+	install -d $(INSTALLDIR)/usb_modeswitch/usr/share/usb_modeswitch.d/
+	install -D -m 0644 usb_modeswitch/data/usb_modeswitch.d/* $(INSTALLDIR)/usb_modeswitch/usr/share/usb_modeswitch.d/
 
 madwimax/Makefile: madwimax/Makefile.in
 	cd madwimax && CPPFLAGS="$(EXTRACFLAGS)" PKG_CONFIG=/bin/true \
