@@ -85,6 +85,7 @@ stop_modem_dial(void)
     ret = eval("killall", "pppd");
 
     nvram_set( "wan0_dial_enabled", "0" );
+    unlink("/var/run/wan0");
 
     dprintf("done\n");
     return ret;
@@ -184,7 +185,7 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 	} else if( nvram_match("wan_modem_zerocd_mode", "Auto" ) )
 	{
 	    if( parse_product_string( product, &vid, &pid ) ){
-		sprintf( sFileName, "%04x_%04x", vid, pid );
+		sprintf( sFileName, "%04x:%04x", vid, pid );
 	
 		if( vid==0x05c6 && pid==0x1000 )
 		{
@@ -224,15 +225,15 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 				    i_size = sizeof(sMaList)/sizeof(char*);
 				    for( i=0; i<i_size; i++ ){
 					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 ){
-					    if(i==0) strcat ( sFileName, "_sVe=" );
-					    else strcat ( sFileName, "_uMa=" );
+					    if(i==0) strcat ( sFileName, ":sVe=" );
+					    else strcat ( sFileName, ":uMa=" );
 
 					    strcat ( sFileName, sMaList[i] );
 					    break;
 					}
 				    }
 				    if( i == i_size)
-					strcat ( sFileName, "_uMa=AnyDATA" );
+					strcat ( sFileName, ":uMa=AnyDATA" );
 				    break;
 				}
 				ready=0;
@@ -271,14 +272,12 @@ usb_modem_check(char *prefix)
     {
 	sprintf(tmp, "/var/run/%s", prefix);
 	if (tmp[strlen(tmp)-1]=='_') tmp[strlen(tmp)-1]=0;
-	dprintf("%s", tmp);
 	file=fopen(tmp,"r");
 	if(file){
 	    fgets(tmp+100, 99, file);
 	    fclose(file);
 
 	    sprintf(tmp, "/proc/%s/status", tmp+100);
-	    dprintf("%s", tmp);
 	    file=fopen(tmp, "r");
 	    if(file){
 		fclose(file);

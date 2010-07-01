@@ -36,68 +36,6 @@
 #include <bcmutils.h>
 
 
-#if 0
-int start_pppoe(void)
-{
-
-	int timeout = 5;
-	char pppunit[] = "XXXXXXXXXXXX";
-
-	/* Add optional arguments */
-	for (arg = pppoe_argv; *arg; arg++);
-	if (nvram_invmatch(strcat_r(prefix, "pppoe_service", tmp), "")) {
-		*arg++ = "-s";
-				*arg++ = nvram_safe_get(strcat_r(prefix, "pppoe_service", tmp));
-			}
-			if (nvram_invmatch(strcat_r(prefix, "pppoe_ac", tmp), "")) {
-				*arg++ = "-a";
-				*arg++ = nvram_safe_get(strcat_r(prefix, "pppoe_ac", tmp));
-			}
-			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1") || 
-			    nvram_match(strcat_r(prefix, "pppoe_keepalive", tmp), "1"))
-				*arg++ = "-k";
-			snprintf(pppunit, sizeof(pppunit), "%d", unit);
-			*arg++ = "-U";
-			*arg++ = pppunit;
-
-			/* launch pppoe client daemon */
-
-
-			/* ppp interface name is referenced from this point on */
-			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
-			
-			/* Pretend that the WAN interface is up */
-			if (nvram_match(strcat_r(prefix, "pppoe_demand", tmp), "1")) {
-				/* Wait for pppx to be created */
-				while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
-					sleep(1);
-
-				/* Retrieve IP info */
-				if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
-					continue;
-				strncpy(ifr.ifr_name, wan_ifname, IFNAMSIZ);
-
-				/* Set temporary IP address */
-				if (ioctl(s, SIOCGIFADDR, &ifr))
-					perror(wan_ifname);
-				nvram_set(strcat_r(prefix, "ipaddr", tmp), inet_ntoa(sin_addr(&ifr.ifr_addr)));
-				nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
-
-				/* Set temporary P-t-P address */
-				if (ioctl(s, SIOCGIFDSTADDR, &ifr))
-					perror(wan_ifname);
-				nvram_set(strcat_r(prefix, "gateway", tmp), inet_ntoa(sin_addr(&ifr.ifr_dstaddr)));
-
-				close(s);
-
-				/* 
-				* Preset routes so that traffic can be sent to proper pppx even before 
-				* the link is brought up.
-				*/
-				preset_wan_routes(wan_ifname);
-}
-#endif
-
 int start_pppd(char *prefix)
 {
 	int ret;

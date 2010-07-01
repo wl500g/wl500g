@@ -50,6 +50,7 @@ SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.1.3
+USBMODESWITCHDATA=usb-modeswitch-data-20100623
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 HOTPLUG2=hotplug2-0.9
@@ -507,15 +508,15 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
-$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
+$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2 usb_modeswitch/$(USBMODESWITCHDATA).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
-	tar -jxf $^ -C $(TOP)
-	[ ! -f usb_modeswitch/usb_modeswitch.setup ] || \
-		cp -pf usb_modeswitch/usb_modeswitch.setup $(TOP)/$(USBMODESWITCH)/
+	tar -jxf usb_modeswitch/$(USBMODESWITCH).tar.bz2  -C $(TOP)
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
 		$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
+	tar -jxf usb_modeswitch/$(USBMODESWITCHDATA).tar.bz2  -C $@
+	mv $@/$(USBMODESWITCHDATA) $@/data
 
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
