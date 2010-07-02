@@ -4323,6 +4323,7 @@ struct variable variables_WiMaxConfig[] = {
 	{"wan_wimax_interval", "", validate_range, ARGV("1","10000"), FALSE, FALSE},
 	{"wan_wimax_restart", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"wan_wimax_syslog", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"wan_proto", "", validate_string, ARGV(""), TRUE, FALSE},
 	{ 0, 0, 0, 0}
 	};
 #endif
@@ -4357,6 +4358,7 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_standard", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_demand", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_idle", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_proto", "", validate_string, ARGV(""), TRUE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 	};
 #endif

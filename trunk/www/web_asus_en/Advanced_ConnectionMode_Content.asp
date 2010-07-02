@@ -7,7 +7,7 @@
 	<script type="text/javascript" src="overlib.js"></script>
 	<script type="text/javascript" src="general.js"></script>
 	<script type="text/javascript" src="quick.js"></script>
-	<script language="JavaScript" type="text/javascript">
+	<script type="text/javascript">
 	var sCDMA	= 'CDMA';
 	var sGPRS	= 'GPRS';
 	var sDialup	= 'Dial-Up';
@@ -110,7 +110,7 @@
 			setDispModeById( 'APN',			'block' );
 			setDispModeById( 'DialupNO',	'block' );
 			setDispModeById( 'PortSpeed',	'block' );
-			setDispModeById( 'USB',			'block' );		
+			setDispModeById( 'USB',			'block' );
 		}
 	}
 	</script>
@@ -142,13 +142,22 @@
 	<table class="content_table">
 		<tr class="content_header_tr">
 			<td class="content_header_td_title" colspan="2">
-				USB Connection - PPP Connection Mode
+				USB Network Devices - 3G/CDMA Modem
 			</td>
 		</tr>
 		<tr>
 			<td class="content_desc_td" colspan="2">
 				ZVMODELVZ supports following connection methods. Please select the mode that match
 				your situation.
+			</td>
+		</tr>
+		<tr>
+			<td class="content_header_td">
+				Set as WAN Connection Type by default
+			</td>
+			<td class="content_input_td" nowrap>
+				<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd"
+					onchange="if(this.checked){document.form.wan_proto.value='usbmodem';}else{document.form.wan_proto.value='dhcp';};" <% nvram_match_x("","wan_proto", "usbmodem", "checked"); %>>
 			</td>
 		</tr>
 		<tr>
@@ -182,17 +191,14 @@
 				Use WAN port as LAN
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_wanaslan_x" class="content_input_fd"
-					<% nvram_match_x("","wan_modem_wanaslan_x", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_wanaslan_x" class="content_input_fd"
-					<% nvram_match_x("","wan_modem_wanaslan_x", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_wanaslan_x" class="content_input_fd" <% nvram_match_x("","wan_modem_wanaslan_x", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_wanaslan_x" class="content_input_fd" <% nvram_match_x("","wan_modem_wanaslan_x", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('No USB modem connection', LEFT);"
 				onmouseout="return nd();">
-				<input type="radio" value="-1" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
-					<% nvram_match_x("","wan_modem_mode_x", "-1", "checked"); %>>
+				<input type="radio" value="-1" name="wan_modem_mode_x" onclick="changeUSBConnectionType();" <% nvram_match_x("","wan_modem_mode_x", "-1", "checked"); %>>
 				None
 			</td>
 			<td class="content_desc_td">
@@ -202,8 +208,7 @@
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set CDMA connection via GTRAN GPC-6420 or AnyDATA ADU E100H or ADU 510L or Axesstel MV110H modem.', LEFT);"
 				onmouseout="return nd();">
-				<input type="radio" value="1" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
-					<% nvram_match_x("","wan_modem_mode_x", "1", "checked"); %>>
+				<input type="radio" value="1" name="wan_modem_mode_x" onclick="changeUSBConnectionType();" <% nvram_match_x("","wan_modem_mode_x", "1", "checked"); %>>
 				CDMA
 			</td>
 			<td class="content_desc_td">
@@ -225,8 +230,7 @@
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set GPRS/EDGE/UMTS connection via USB connected GSM USB-serial converter + GSM.', LEFT);"
 				onmouseout="return nd();">
-				<input type="radio" value="2" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
-					<% nvram_match_x("","wan_modem_mode_x", "2", "checked"); %>>
+				<input type="radio" value="2" name="wan_modem_mode_x" onclick="changeUSBConnectionType();" <% nvram_match_x("","wan_modem_mode_x", "2", "checked"); %>>
 				GPRS/EDGE/UMTS
 			</td>
 			<td class="content_desc_td">
@@ -261,8 +265,7 @@
 		<tr>
 			<td class="content_header_td_30" onmouseover="return overlib('Set User defined Dial-Up connection.', LEFT);"
 				onmouseout="return nd();">
-				<input type="radio" value="99" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
-					<% nvram_match_x("","wan_modem_mode_x", "99", "checked"); %>>
+				<input type="radio" value="99" name="wan_modem_mode_x" onclick="changeUSBConnectionType();" <% nvram_match_x("","wan_modem_mode_x", "99", "checked"); %>>
 				User defined
 			</td>
 			<td class="content_desc_td">
@@ -271,8 +274,7 @@
 		</tr>
 		<tr>
 			<td class="content_header_td_30" onmouseout="return nd();">
-				<input type="radio" value="100" name="wan_modem_mode_x" onclick="changeUSBConnectionType();"
-					<% nvram_match_x("","wan_modem_mode_x", "100", "checked"); %>>
+				<input type="radio" value="100" name="wan_modem_mode_x" onclick="changeUSBConnectionType();" <% nvram_match_x("","wan_modem_mode_x", "100", "checked"); %>>
 				Universal
 			</td>
 			<td class="content_desc_td">
@@ -590,10 +592,8 @@
 					Autodetect device
 				</td>
 				<td class="content_input_td" nowrap>
-					<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd"
-						<% nvram_match_x("","wan_modem_autodetect", "1", "checked"); %>>Yes
-					<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd"
-						<% nvram_match_x("","wan_modem_autodetect", "0", "checked"); %>>No
+					<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" <% nvram_match_x("","wan_modem_autodetect", "1", "checked"); %>>Yes
+					<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" <% nvram_match_x("","wan_modem_autodetect", "0", "checked"); %>>No
 				</td>
 			</tr>
 			<tr>
