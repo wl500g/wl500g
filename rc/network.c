@@ -1136,6 +1136,7 @@ stop_wan(void)
 #endif
 
 #ifdef __CONFIG_MODEM__
+	nvram_unset( "wan0_prepared" );
 	stop_modem_dial();
 #endif
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
@@ -1186,6 +1187,7 @@ stop_wan2(void)
 #endif
 
 #ifdef __CONFIG_MODEM__
+	nvram_unset( "wan0_prepared" );
 	stop_modem_dial();
 #endif
 
