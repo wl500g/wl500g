@@ -884,9 +884,9 @@ lltd-install: lltd
 	install -D lltd/lld2d $(INSTALLDIR)/lltd/sbin/lld2d
 	$(STRIP) $(INSTALLDIR)/lltd/sbin/lld2d
 	install -d $(INSTALLDIR)/lltd/usr/etc/
-	install -D -m 0644 lltd/src/lld2d.conf $(INSTALLDIR)/lltd/usr/etc
-	install -D -m 0644 lltd/src/wrt54g.small.ico $(INSTALLDIR)/lltd/usr/etc/icon.small.ico
-	install -D -m 0644 lltd/src/wrt54g.large.ico $(INSTALLDIR)/lltd/usr/etc/icon.large.ico
+	install -D -m 0644 lltd/lld2d.conf $(INSTALLDIR)/lltd/usr/etc
+	[ ! -f lltd/icons/$(MODEL).ico ] || \
+	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/etc/icon.ico
 
 rcamdmips:
 	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"
