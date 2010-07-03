@@ -1818,7 +1818,7 @@ int service_handle(void)
 		}
 		else 
 		{			
-			stop_wan2();
+			stop_wan(nvram_invmatch("wan_ifname_t", "") ? nvram_safe_get("wan_ifname_t") : NULL);
 		}
 	}
 	else if (strstr(service,"wan_connect")!=NULL)
@@ -1843,7 +1843,7 @@ int service_handle(void)
 			}
 			else
 			{
-				stop_wan();
+				stop_wan(NULL);
 				sleep(3);
 	    			start_wan();
 				sleep(2);
