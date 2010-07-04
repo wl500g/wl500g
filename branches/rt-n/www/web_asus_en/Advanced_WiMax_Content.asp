@@ -24,13 +24,14 @@
 	<input type="hidden" name="action_mode" value="">
 	<input type="hidden" name="first_time" value="">
 	<input type="hidden" name="action_script" value="">
+	<input type="hidden" name="wan_proto" value="<% nvram_get_x("","wan_proto"); %>">
 	<table width="666" border="0" cellpadding="0" cellspacing="0">
 		<tr>
 			<td>
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 					<tr class="content_header_tr">
 						<td class="content_header_td_title" colspan="2">
-							IP Config - WiMAX
+							USB Network Devices - WiMAX
 						</td>
 					</tr>
 					<tr>
@@ -38,6 +39,16 @@
 							ZVMODELVZ supports WiMAX connection to WAN.
 						</td>
 					</tr>
+					<tr>
+						<td class="content_header_td">
+							Set as WAN Connection Type by default
+						</td>
+						<td class="content_input_td" nowrap>
+							<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd"
+								onchange="if(this.checked){document.form.wan_proto.value='wimax';}else{document.form.wan_proto.value='dhcp';};" <% nvram_match_x("","wan_proto", "wimax", "checked"); %>>
+						</td>
+					</tr>
+
 					<tr>
 						<td class="content_header_td" onmouseover="return overlib('This field allows you to provide a SSID for the WiMAX network. Default: @yota.ru', LEFT);"
 							onmouseout="return nd();">
@@ -55,10 +66,8 @@
 							Check connection?
 						</td>
 						<td class="content_input_td">
-							<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '1')"
-								<% nvram_match_x("WiMaxConfig", "wan_wimax_check", "1", "checked"); %>>Yes
-							<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '0')"
-								<% nvram_match_x("WiMaxConfig", "wan_wimax_check", "0", "checked"); %>>No
+							<input type="radio" value="1" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "1", "checked"); %>>Yes
+							<input type="radio" value="0" name="wan_wimax_check" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_check', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_check", "0", "checked"); %>>No
 						</td>
 					</tr>
 					<tr>
@@ -78,10 +87,8 @@
 							Restart dead connection?
 						</td>
 						<td class="content_input_td">
-							<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '1')"
-								<% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "1", "checked"); %>>Yes
-							<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '0')"
-								<% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "0", "checked"); %>>No
+							<input type="radio" value="1" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '1')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "1", "checked"); %>>Yes
+							<input type="radio" value="0" name="wan_wimax_restart" class="content_input_fd" onclick="return change_common_radio(this, 'WiMaxConfig', 'wan_wimax_restart', '0')" <% nvram_match_x("WiMaxConfig", "wan_wimax_restart", "0", "checked"); %>>No
 						</td>
 					</tr>
 				</table>

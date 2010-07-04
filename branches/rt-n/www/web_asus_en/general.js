@@ -827,7 +827,7 @@ function validate_ipaddr(o, v)
 function validate_ip6addr(o)
 {
 	is_ip6 = true;
-	sep_cnt = 0;
+	sep_cnt = 0; colonp = 0;
 	pos = 0;
 	len = o.value.length;
 
@@ -840,7 +840,12 @@ function validate_ip6addr(o)
 			if (i > pos)
 				num = parseInt(o.value.substring(pos, i), 16);
 			else
+			{
 				num = 0;
+				if (colonp != 0)
+					is_ip6 = false;
+				colonp = sep_cnt;
+			}
 			if (sep_cnt > 7 || num > 0xffff)
 			{
 				is_ip6 = false;
@@ -858,7 +863,7 @@ function validate_ip6addr(o)
 		if (parseInt(o.value.substring(pos, len), 16) > 0xffff)
 			is_ip6 = false;
 	}
-	if (!is_ip6)
+	if (!is_ip6 || (sep_cnt != 7 && colonp == 0))
 	{
 		alert(o.value + ' is not a valid IPv6 address!');
 		o.focus();

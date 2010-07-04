@@ -538,6 +538,7 @@ $(TOP)/lltd: lltd/$(LLTD).tar.bz2
 	rm -rf $(TOP)/$(LLTD) $@
 	tar -jxf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(LLTD) $(lltd_Patches)
+	tar -jxf lltd/icons.tar.bz2 -C $(TOP)/$(LLTD)
 	mv $(TOP)/$(LLTD) $@ && touch $@
 
 lltd: $(TOP)/lltd
