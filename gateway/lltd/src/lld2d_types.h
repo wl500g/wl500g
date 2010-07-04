@@ -31,6 +31,15 @@ typedef struct in6_addr ipv6addr_t;
 /* our own (hopefully portable) 2-byte char type */
 typedef uint16_t ucs2char_t;
 
+typedef struct {
+    uint8_t ssid[32];
+    uint8_t ssidLen;
+} __attribute__ ((packed)) ssid_t;
+
+typedef struct {
+    etheraddr_t bssid[6];
+    uint8_t     count;
+} __attribute__ ((packed)) aplineage_t;
 
 /* Process-level event management structure for io & timers */
 
@@ -94,5 +103,13 @@ typedef enum {
 #include "util.h"
 
 #define NUM_SEES 1024	/* how many recvee_desc_t we keep */
+
+#define WPM_UNKNOW          0x00
+#define WPM_FHSS_24G        0x01
+#define WPM_DSSS_24G        0x02
+#define WPM_IR_BASEDBAND    0x03
+#define WPM_OFDM_5G         0x04
+#define WPM_HRDSSS          0x05
+#define WPM_ERP             0x06
 
 #endif	/*** LLD2D_TYPES_H ***/
