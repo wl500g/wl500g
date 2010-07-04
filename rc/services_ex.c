@@ -159,7 +159,13 @@ start_dns(void)
 	fprintf(fp, "127.0.0.1 localhost.localdomain localhost\n");
 	fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("lan_ipaddr"),
 			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
-
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "")) {
+		fprintf(fp, "::1 localhost.localdomain localhost\n");
+		fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
+			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+	}
+#endif
 	if (nvram_match("dhcp_static_x","1"))
 	{	
 		int i;
@@ -1867,7 +1873,7 @@ int service_handle(void)
 		}
 		else 
 		{			
-			stop_wan2();
+			stop_wan(nvram_invmatch("wan_ifname_t", "") ? nvram_safe_get("wan_ifname_t") : NULL);
 		}
 	}
 	else if (strstr(service,"wan_connect")!=NULL)
@@ -1892,7 +1898,7 @@ int service_handle(void)
 			}
 			else
 			{
-				stop_wan();
+				stop_wan(NULL);
 				sleep(3);
 	    			start_wan();
 				sleep(2);

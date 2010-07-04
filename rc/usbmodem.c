@@ -84,7 +84,7 @@ stop_modem_dial(void)
     eval("killall", tmp);
     ret = eval("killall", "pppd");
 
-    nvram_set( "wan0_dial_enabled", "0" );
+//    nvram_set( "wan0_dial_enabled", "0" );
     unlink("/var/run/wan0");
 
     dprintf("done\n");
@@ -186,13 +186,13 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 	{
 	    if( parse_product_string( product, &vid, &pid ) ){
 		sprintf( sFileName, "%04x:%04x", vid, pid );
-	
 		if( vid==0x05c6 && pid==0x1000 )
 		{
-		  FILE * file = fopen( "/proc/bus/usb/devices", "rt");
+		    FILE * file = fopen( "/proc/bus/usb/devices", "rt");
 		    char str[0xFF];
 		    int i_size;
 		    char * str1;
+		    int added=0;
 		    if( file )
 		    {
 			int ready=0;
@@ -220,8 +220,8 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 				}
 			    }
 			    if( ready ){
-				dprintf( "USB: %04x:%04x %s", dev_vid, dev_pid, sPath );
-				if( dev_vid==vid && dev_pid==pid ){  
+				dprintf( "lsUSB: %04x:%04x", dev_vid, dev_pid );
+				if( dev_vid==vid && dev_pid==pid ){
 				    i_size = sizeof(sMaList)/sizeof(char*);
 				    for( i=0; i<i_size; i++ ){
 					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 ){
@@ -229,11 +229,10 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 					    else strcat ( sFileName, ":uMa=" );
 
 					    strcat ( sFileName, sMaList[i] );
+					    added=1;
 					    break;
 					}
 				    }
-				    if( i == i_size)
-					strcat ( sFileName, ":uMa=AnyDATA" );
 				    break;
 				}
 				ready=0;
@@ -241,12 +240,15 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 			}
 			fclose( file );
 		    }
+		    if( added==0 )
+			strcat (sFileName, ":uMa=AnyDATA");
 		}
 	    };
 	    sprintf( sPath, "/usr/share/usb_modeswitch.d/%s", sFileName );
 	}
 	
 	if( *sPath ){
+	    dprintf("Check usb_modeswitch data file %s",sPath);
 	    FILE * file = fopen( sPath, "r" );
 	    if( file ){
 		fclose( file );

@@ -1120,7 +1120,7 @@ start_wan(void)
 }
 
 void
-stop_wan(void)
+stop_wan(char *ifname)
 {
 	char name[80], *next, signal[] = "XXXX";
 	
@@ -1140,6 +1140,7 @@ stop_wan(void)
 #endif
 
 #ifdef __CONFIG_MODEM__
+	nvram_unset( "wan0_prepared" );
 	stop_modem_dial();
 #endif
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
@@ -1149,10 +1150,16 @@ stop_wan(void)
 	eval("killall", "udpxy");
 	eval("killall", "pppoe-relay");
 
-	/* Bring down WAN interfaces */
-	foreach(name, nvram_safe_get("wan_ifnames"), next)
+	if (ifname)
 	{
-		ifconfig(name, 0, NULL, NULL);
+		wan_down(ifname);
+	} else
+	{
+		/* Bring down WAN interfaces */
+		foreach(name, nvram_safe_get("wan_ifnames"), next)
+		{
+			ifconfig(name, 0, NULL, NULL);
+		}
 	}
 
 	/* Remove dynamically created links */
@@ -1164,51 +1171,6 @@ stop_wan(void)
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
-#endif
-
-	dprintf("done\n");
-}
-
-void
-stop_wan2(void)
-{
-	char signal[] = "XXXX";
-	
-	eval("killall", "ntpclient");
-
-	/* Shutdown and kill all possible tasks */
-	eval("killall", "ip-up");
-	eval("killall", "ip-down");
-#ifdef __CONFIG_XL2TPD__
-	eval("killall", "xl2tpd");
-#else
-	eval("killall", "l2tpd");
-#endif
-	eval("killall", "pppd");
-#ifdef __CONFIG_MADWIMAX__
-	stop_wimax();
-#endif
-
-#ifdef __CONFIG_MODEM__
-	stop_modem_dial();
-#endif
-
-	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
-	eval("killall", signal, "udhcpc");
-	eval("killall", "udhcpc");
-	eval("killall", "igmpproxy");
-	eval("killall", "udpxy");
-	eval("killall", "pppoe-relay");
-
-	/* Remove dynamically created links */
-	unlink("/tmp/udhcpc");
-	
-	unlink("/tmp/ppp/ip-up");
-	unlink("/tmp/ppp/ip-down");
-	rmdir("/tmp/ppp");
-
-#ifdef ASUS_EXT
-	if(nvram_invmatch("wan_ifname_t", "")) wan_down(nvram_safe_get("wan_ifname_t"));
 #endif
 
 	dprintf("done\n");
