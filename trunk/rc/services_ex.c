@@ -547,6 +547,33 @@ stop_misc(void)
 	return(ret);
 }
 
+int
+start_lltd(void)
+{
+#ifdef __CONFIG_LLTD__
+	char *lltd_argv[] = {
+		"/usr/sbin/lld2d",
+		nvram_safe_get("lan_ifname"),
+		nvram_safe_get("wl0_ifname"),
+		NULL};
+	pid_t pid;
+
+	if (nvram_match("lltd_enable", "1") && nvram_invmatch("router_disable", "1"))
+		return _eval(lltd_argv, NULL, 0, &pid);
+	else
+#endif
+	return 0;
+}
+
+int
+stop_lltd(void)
+{
+#ifdef __CONFIG_LLTD__
+	eval("killall", "lld2d");
+#endif
+	return 0;
+}
+
 #ifndef USB_SUPPORT
 int start_usb(void)
 {
