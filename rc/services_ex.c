@@ -552,7 +552,7 @@ start_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
 	char *lltd_argv[] = {
-		"/usr/sbin/lld2d",
+		"/sbin/lld2d",
 		nvram_safe_get("lan_ifname"),
 		nvram_safe_get("wl0_ifname"),
 		NULL};
