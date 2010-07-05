@@ -432,6 +432,7 @@
 {"raw_enable", "1", 0},
 {"audio_enable", "0", 0},
 {"usb20_disable_x", "0", 0},
+{"lltd_enable", "1", 0},
 
 {"wl_nbw","40",0},
 {"wl_nctrlsb","lower",0},

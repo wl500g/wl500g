@@ -381,6 +381,7 @@ start_services(void)
 	start_snmpd();
 	start_upnp();
 	start_nas("lan");
+	start_lltd();
 #ifdef ASUS_EXT
 	start_usb();
 #endif
@@ -398,6 +399,7 @@ stop_services(void)
 	stop_usb();
 #endif
 	stop_nas();
+	stop_lltd();
 	stop_upnp();
 	stop_snmpd();
 	stop_dhcpd();
