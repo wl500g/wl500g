@@ -116,13 +116,13 @@ if [ -n "$1" ]; then
 		rm -f ../web_$MODEL/Main_ChatStatus_Content.asp
 		rm -f ../web_$MODEL/Advanced_ConnectionMode_Content.asp
 		rm -f ../web_$MODEL/Main_SysInfo_Content.asp
-		sed -ri '/PPP /d;/Main_SysInfo_Content/d' ../web_$MODEL/index.js
+		sed -ri '/3G\/CDMA Modem/d;/Main_SysInfo_Content/d' ../web_$MODEL/index.js
 		sed -ri '/usbmodem/d' ../web_$MODEL/Advanced_LANWAN_Content.asp
 	fi
 
 	if [ "$CONFIG_MADWIMAX" != "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
 		echo "Removing USB Modem submenu..."
-		sed -ri '/USB Modem/d' ../web_$MODEL/index.js
+		sed -ri '/USB Network Devices/d' ../web_$MODEL/index.js
 	fi
 
 	### 4. Strip *.asp, *.css and *.js ###
