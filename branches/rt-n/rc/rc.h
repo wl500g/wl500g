@@ -122,6 +122,8 @@ int start_rcamd(void);
 int stop_rcamd(void);
 int start_audio(void);
 int stop_audio(void);
+int start_lltd(void);
+int stop_lltd(void);
 int start_services(void);
 int stop_services(void);
 int start_logger(void);
