@@ -1,0 +1,91 @@
+diff -urBp radvd/Makefile.in radvd.new/Makefile.in
+--- radvd/Makefile.in	2010-07-05 19:37:43.000000000 +0400
++++ radvd.new/Makefile.in	2010-07-05 21:14:46.000000000 +0400
+@@ -74,8 +74,11 @@ am__objects_1 = log.$(OBJEXT) socket.$(O
+ 	util.$(OBJEXT)
+ am_radvd_OBJECTS = $(am__objects_1) radvd.$(OBJEXT) timer.$(OBJEXT) \
+ 	send.$(OBJEXT) process.$(OBJEXT) interface.$(OBJEXT) \
+-	device.$(OBJEXT) device-common.$(OBJEXT) privsep.$(OBJEXT) \
++	device.$(OBJEXT) device-common.$(OBJEXT) \
+ 	gram.$(OBJEXT) scanner.$(OBJEXT)
++ifeq ($(USE_PRIVSEP),y)
++am_radvd_OBJECTS += privsep.$(OBJEXT)
++endif
+ radvd_OBJECTS = $(am_radvd_OBJECTS)
+ radvd_DEPENDENCIES =
+ am_radvdump_OBJECTS = $(am__objects_1) radvdump.$(OBJEXT)
+@@ -220,7 +223,11 @@ COMMON_SRC = log.c socket.c recv.c util.
+ 	includes.h
+ 
+ radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
+-	device.c device-common.c privsep.c gram.y gram.h scanner.l
++	device.c device-common.c gram.y gram.h scanner.l
++
++ifeq ($(USE_PRIVSEP),y)
++radvd_SOURCES += privsep.c
++endif
+ 
+ #radvd_LDADD = -lfl
+ EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
+diff -urBp radvd/radvd.c radvd.new/radvd.c
+--- radvd/radvd.c	2010-07-05 19:39:30.000000000 +0400
++++ radvd.new/radvd.c	2010-07-05 21:07:12.000000000 +0400
+@@ -37,7 +37,9 @@ struct option prog_opt[] = {
+ 	{"chrootdir", 1, 0, 't'},
+ 	{"version", 0, 0, 'v'},
+ 	{"help", 0, 0, 'h'},
++#ifdef USE_PRIVSEP
+ 	{"singleprocess", 0, 0, 's'},
++#endif
+ 	{NULL, 0, 0, 0}
+ };
+ #endif
+@@ -151,9 +153,11 @@ main(int argc, char *argv[])
+ 		case 'v':
+ 			version();
+ 			break;
++#ifdef USE_PRIVSEP
+ 		case 's':
+ 			singleprocess = 1;
+ 			break;
++#endif
+ 		case 'h':
+ 			usage();
+ #ifdef HAVE_GETOPT_LONG
+@@ -219,6 +223,7 @@ main(int argc, char *argv[])
+ 	if (readin_config(conf_file) < 0)
+ 		exit(1);
+ 
++#ifdef USE_PRIVSEP
+ 	/* drop root privileges if requested. */
+ 	if (username) {
+ 		if (!singleprocess) {
+@@ -230,6 +235,7 @@ main(int argc, char *argv[])
+ 		if (drop_root_privileges(username) < 0)
+ 			exit(1);
+ 	}
++#endif
+ 
+ 	if ((fd = open(pidfile, O_RDONLY, 0)) > 0)
+ 	{
+diff -urBp radvd/radvd.h radvd.new/radvd.h
+--- radvd/radvd.h	2009-09-07 11:59:57.000000000 +0400
++++ radvd.new/radvd.h	2010-07-05 21:16:35.000000000 +0400
+@@ -235,6 +235,7 @@ int check_rdnss_presence(struct AdvRDNSS
+ ssize_t readn(int fd, void *buf, size_t count);
+ ssize_t writen(int fd, const void *buf, size_t count);
+ 
++#ifdef USE_PRIVSEP
+ /* privsep.c */
+ int privsep_init(void);
+ int privsep_enabled(void);
+@@ -242,6 +243,9 @@ int privsep_interface_linkmtu(const char
+ int privsep_interface_curhlim(const char *iface, uint32_t hlim);
+ int privsep_interface_reachtime(const char *iface, uint32_t rtime);
+ int privsep_interface_retranstimer(const char *iface, uint32_t rettimer);
++#else
++static inline int privsep_enabled(void)	{ return 0; }
++#endif
+ 
+ /*
+  * compat hacks in case libc and kernel get out of sync:
