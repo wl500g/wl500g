@@ -38,7 +38,7 @@ PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_4
-RADVD=radvd-0.7.3
+RADVD=radvd-1.6
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.6
 BRIDGE=bridge-utils-1.0.6
@@ -334,10 +334,12 @@ $(TOP)/bridge:
 bridge: $(TOP)/bridge
 	@true
 
-$(TOP)/radvd:
+radvd_Patches := $(call patches_list,radvd)
+
+$(TOP)/radvd: radvd/$(RADVD).tar.gz
 	@rm -rf $(TOP)/$(RADVD) $@
-	tar -xzf $(RADVD).tar.gz -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(RADVD) $(RADVD).patch
+	tar -xzf radvd/$(RADVD).tar.gz -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(RADVD) $(radvd_Patches)
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
