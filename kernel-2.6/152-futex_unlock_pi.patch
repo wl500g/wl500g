@@ -1,0 +1,33 @@
+From 187226f57f1381cfc63216979b4375f30e593795
+From: john stultz
+Date: Wed, 22 Aug 2007 14:01:10 -0700
+Subject: [PATCH] futex_unlock_pi() hurts my brain and may cause application deadlock
+
+Avoid futex_unlock_pi returning -EFAULT (which results in deadlock), by
+clearing uval before jumping to retry_locked.
+
+Signed-off-by: John Stultz <johnstul@us.ibm.com>
+Acked-by: Steven Rostedt <rostedt@goodmis.org>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ kernel/futex.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/kernel/futex.c b/kernel/futex.c
+index 3415e9a..e8935b1 100644
+--- a/kernel/futex.c
++++ b/kernel/futex.c
+@@ -1670,6 +1670,7 @@ pi_faulted:
+ 					 attempt);
+ 		if (ret)
+ 			goto out;
++		uval = 0;
+ 		goto retry_unlocked;
+ 	}
+ 
+-- 
+1.7.1.1
+
