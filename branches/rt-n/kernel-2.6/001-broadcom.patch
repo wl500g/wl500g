@@ -2231,7 +2231,7 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/nvram_linux.c linux-2.6
 diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c
 --- linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/arch/mips/brcm-boards/bcm947xx/pcibios.c	2009-05-27 12:34:44.000000000 +0400
-@@ -0,0 +1,362 @@
+@@ -0,0 +1,363 @@
 +/*
 + * Low-Level PCI and SB support for BCM47xx (Linux support code)
 + *
@@ -2261,6 +2261,7 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arc
 +#include <bcmutils.h>
 +#include <hndsoc.h>
 +#include <siutils.h>
++#include <hndcpu.h>
 +#include <hndpci.h>
 +#include <pcicfg.h>
 +#include <bcmdevs.h>
@@ -2511,11 +2512,11 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arc
 +
 +			/* Change Syn01 reg */
 +			tmp = 0x00fe00fe;
-+			writel(tmp, (uintptr)regs + 0x894);
++			writel(tmp, regs + 0x894);
 +
 +			/* Change Syn03 reg */
 +			tmp = 0x1;
-+			writel(tmp, (uintptr)regs + 0x89c);
++			writel(tmp, regs + 0x89c);
 +		}
 +
 +                                /* War for 4716 failures. */
@@ -2535,17 +2536,17 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/pcibios.c linux-2.6/arc
 +                        /* Change Shim mdio control reg to fix host not acking at high frequencies
 + *                         */
 +                        if (val) {
-+                                writel(val, (uintptr)regs + 0x524);
++                                writel(val, regs + 0x524);
 +                                udelay(delay);
-+                                writel(0x4ab, (uintptr)regs + 0x524);
++                                writel(0x4ab, regs + 0x524);
 +                                udelay(delay);
-+                                tmp = readl((uintptr)regs + 0x528);
++                                tmp = readl(regs + 0x528);
 +                                udelay(delay);
-+                                writel(val, (uintptr)regs + 0x524);
++                                writel(val, regs + 0x524);
 +                                udelay(delay);
-+                                writel(0x4ab, (uintptr)regs + 0x524);
++                                writel(0x4ab, regs + 0x524);
 +                                udelay(delay);
-+                                tmp = readl((uintptr)regs + 0x528);
++                                tmp = readl(regs + 0x528);
 +                                printk("USB20H mdio control register : 0x%x\n", tmp);
 +                        }
 +                }
