@@ -122,7 +122,11 @@ if [ -n "$1" ]; then
 
 	if [ "$CONFIG_MADWIMAX" != "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
 		echo "Removing USB Modem submenu..."
-		sed -ri '/USB Network Devices/d' ../web_$MODEL/index.js
+		sed -ri '/USB Network Devices/d;/USBNetworkDevicesMenu_tmpl\.Asp/d' ../web_$MODEL/index.js
+	elif [ "$CONFIG_MADWIMAX" = "y" ] && [ "$CONFIG_MODEM" != "y" ]; then
+		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_WiMax_Content.asp/g' ../web_$MODEL/index.js
+	elif [ "$CONFIG_MODEM" = "y" ]; then
+		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_ConnectionMode_Content.asp/g' ../web_$MODEL/index.js
 	fi
 
 	### 4. Strip *.asp, *.css and *.js ###
