@@ -316,6 +316,8 @@ function clickOnFolderLink(folderName) {
 			top.folderFrame.location = "Main_RStatus_Content.asp";
 		else
 			top.folderFrame.location = "Main_GStatus_Content.asp";
+	} else if (folderName == "USB Network Devices") {
+			top.folderFrame.location = "USBNetworkDevicesMenu_tmpl.Asp";
 	}
 }
 
