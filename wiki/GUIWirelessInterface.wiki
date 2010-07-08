@@ -68,9 +68,8 @@ Usually the best channels to choose are 1, 6 or 11 since they do not overlap eac
   802.11N is a bit different than 802.11B/G networks since it usually uses 40MHz to enable throughputs of 300Mbit/s.
   When you want to use 20MHz only, you don't need to worry about this chapter.
   Since the specification wants us to use a maximum of ~20MHz, 802.11N will use 2 channels to get a total of 40MHz.
-  When it comes to channels, this means that you can choose the first channel by picking a number out of the list between 1 and 9 (6 usually has the best results). The second channel will be assigned by the router by doing simple math: first channel + 2.
-  When you pick channel 6 as first channel this will mean that the second channel will be 8.
-  Also remember that your second channel might be in unauthorized frequencies in your country, as displayed in the table above here.
+  When it comes to channels, this means that you can choose the first channel by picking a number out of the list between 1 and 9 (6 usually has the best results). The second channel will be assigned by the setting "802.11n !SubChannel" which will choose 2 channels higher or lower than the first channel.
+  Check the "802.11n !SubChannel" setting instructions for more information.
 
 -------
 == Wireless Mode ==
@@ -87,7 +86,7 @@ Available modes available differ per router, but this is the list:
  It optimizes maximum throughput as well as range.
 ==== Performance ====
  This is a special option for 802.11g which allows high throughputs.
- This mode usually only works with special Asus WiFi adapters supporting throughput boost functionalities.
+ This mode usually only works with special Asus !WiFi adapters supporting throughput boost functionalities.
 ==== 54G LRS ==== 
  The so called "Limited Rate Support". 
  This is only needed when some 802.11b clients can't connect. So its the special compatibility mode.
@@ -108,6 +107,18 @@ The only difference apart from what channels will be used is the maximum through
 40MHz will allow speeds up to 300Mbit/s and uses 2 channels.
 
 40MHz is recommended because it interferes less with existing networks and allows higher throughputs.
+
+------
+== 802.11n !SubChannel ==
+If your router is (draft) N compatible you can choose how the router will handle the second channel.
+
+This is especially handy when you try to maneuver trough crowded !WiFi hotspots to get a better signal.
+
+When you select upper, the second channel will be 2 channels higher than the first channel specified at the "Channel" setting.
+
+When you select lower it's just the other way around.
+
+And when you select None the second channel will be the same as the first channel, which means you'll have only 20MHz bandwidth to use.
 
 ------
 == Authentication Method ==
