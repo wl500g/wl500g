@@ -169,7 +169,6 @@ asustrx:
 
 $(TOP)/loader:
 	@rm -rf $(TOP)/loader
-	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
@@ -509,15 +508,14 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
-$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2 usb_modeswitch/$(USBMODESWITCHDATA).tar.bz2
+$(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
 	tar -jxf usb_modeswitch/$(USBMODESWITCH).tar.bz2  -C $(TOP)
 	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
 		$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
-	tar -jxf usb_modeswitch/$(USBMODESWITCHDATA).tar.bz2  -C $@
-	mv $@/$(USBMODESWITCHDATA) $@/data
+	tar -C usb_modeswitch $(TAR_EXCL_SVN) -cf - data | tar -C $(TOP)/usb_modeswitch -xf -
 
 usb_modeswitch: $(TOP)/usb_modeswitch
 	@true
