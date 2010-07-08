@@ -1,0 +1,532 @@
+From f83f1768f833cb45bc93429fdc552252a4f55ac3
+From: Joonwoo Park
+Date: Mon, 31 Mar 2008 21:02:47 -0700
+Subject: [PATCH] [LLC]: skb allocation size for responses
+
+Allocate the skb for llc responses with the received packet size by
+using the size adjustable llc_frame_alloc.
+Don't allocate useless extra payload.
+Cleanup magic numbers.
+
+So, this fixes oops.
+Reported by Jim Westfall:
+kernel: skb_over_panic: text:c0541fc7 len:1000 put:997 head:c166ac00 data:c166ac2f tail:0xc166b017 end:0xc166ac80 dev:eth0
+kernel: ------------[ cut here ]------------
+kernel: kernel BUG at net/core/skbuff.c:95!
+
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 3446b9d57edd0b96a89715fef222879e4919a115
+From: Arnaldo Carvalho de Melo
+Date: Fri, 30 May 2008 02:57:29 -0700
+Subject: [PATCH] llc: Fix double accounting of received packets
+
+llc_sap_rcv was being preceded by skb_set_owner_r, then calling
+llc_state_process that calls sock_queue_rcv_skb, that in turn calls
+skb_set_owner_r again making the space allowed to be used by the socket to be
+leaked, making the socket to get stuck.
+
+Fix it by setting skb->sk at llc_sap_rcv and leave the accounting to be done
+only at sock_queue_rcv_skb.
+
+Reported-by: Dmitry Petukhov <dmgenp@gmail.com>
+Tested-by: Dmitry Petukhov <dmgenp@gmail.com>
+Signed-off-by: Arnaldo Carvalho de Melo <acme@redhat.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 0f7b67dd9e1192976f5e5a78934c7a339ff7c45f
+From: Octavian Purdila
+Date: Sat, 26 Dec 2009 11:51:03 +0000
+Subject: [PATCH] llc: optimize multicast delivery
+
+Optimize multicast delivery by doing the actual delivery without
+holding the lock. Based on the same approach used in UDP code.
+
+Signed-off-by: Octavian Purdila <opurdila@ixiacom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ include/net/llc_pdu.h |    4 +-
+ include/net/llc_sap.h |    7 +++-
+ net/llc/llc_c_ac.c    |   47 +++++++++++++++++---------------
+ net/llc/llc_pdu.c     |    2 -
+ net/llc/llc_s_ac.c    |    9 ++++--
+ net/llc/llc_sap.c     |   72 +++++++++++++++++++++++++++++++++++++++-----------
+ net/llc/llc_station.c |   13 ++++++---
+ 7 files changed, 107 insertions(+), 47 deletions(-)
+
+diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
+index 4a8f58b..75b8e29 100644
+--- a/include/net/llc_pdu.h
++++ b/include/net/llc_pdu.h
+@@ -381,7 +381,7 @@ static inline void llc_pdu_init_as_xid_cmd(struct sk_buff *skb,
+ 	xid_info->fmt_id = LLC_XID_FMT_ID;	/* 0x81 */
+ 	xid_info->type	 = svcs_supported;
+ 	xid_info->rw	 = rx_window << 1;	/* size of receive window */
+-	skb_put(skb, 3);
++	skb_put(skb, sizeof(struct llc_xid_info));
+ }
+ 
+ /**
+@@ -406,7 +406,7 @@ static inline void llc_pdu_init_as_xid_rsp(struct sk_buff *skb,
+ 	xid_info->fmt_id = LLC_XID_FMT_ID;
+ 	xid_info->type	 = svcs_supported;
+ 	xid_info->rw	 = rx_window << 1;
+-	skb_put(skb, 3);
++	skb_put(skb, sizeof(struct llc_xid_info));
+ }
+ 
+ /* LLC Type 2 FRMR response information field format */
+diff --git a/include/net/llc_sap.h b/include/net/llc_sap.h
+index 2c56dbe..ed25bec 100644
+--- a/include/net/llc_sap.h
++++ b/include/net/llc_sap.h
+@@ -1,5 +1,8 @@
+ #ifndef LLC_SAP_H
+ #define LLC_SAP_H
++
++#include <asm/types.h>
++
+ /*
+  * Copyright (c) 1997 by Procom Technology,Inc.
+  * 		 2001-2003 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+@@ -19,8 +22,8 @@ struct sock;
+ extern void llc_sap_rtn_pdu(struct llc_sap *sap, struct sk_buff *skb);
+ extern void llc_save_primitive(struct sock *sk, struct sk_buff* skb,
+ 			       unsigned char prim);
+-extern struct sk_buff *llc_alloc_frame(struct sock *sk,
+-				       struct net_device *dev);
++extern struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev,
++				       u8 type, u32 data_size);
+ 
+ extern void llc_build_and_send_test_pkt(struct llc_sap *sap,
+ 				        struct sk_buff *skb,
+diff -uBp a/net/llc/llc_c_ac.c b/net/llc/llc_c_ac.c
+--- a/net/llc/llc_c_ac.c
++++ b/net/llc/llc_c_ac.c
+@@ -198,7 +198,7 @@ int llc_conn_ac_send_disc_cmd_p_set_x(st
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -223,7 +223,7 @@ int llc_conn_ac_send_dm_rsp_f_set_p(stru
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -249,7 +249,7 @@ int llc_conn_ac_send_dm_rsp_f_set_1(stru
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -282,7 +282,8 @@ int llc_conn_ac_send_frmr_rsp_f_set_x(st
+ 		llc_pdu_decode_pf_bit(skb, &f_bit);
+ 	else
+ 		f_bit = 0;
+-	nskb = llc_alloc_frame(sk, llc->dev);
++	nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U,
++			       sizeof(struct llc_frmr_info));
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+ 
+@@ -306,7 +307,8 @@ int llc_conn_ac_resend_frmr_rsp_f_set_0(
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U,
++					       sizeof(struct llc_frmr_info));
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -336,7 +338,8 @@ int llc_conn_ac_resend_frmr_rsp_f_set_p(
+ 	struct llc_sock *llc = llc_sk(sk);
+ 
+ 	llc_pdu_decode_pf_bit(skb, &f_bit);
+-	nskb = llc_alloc_frame(sk, llc->dev);
++	nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U,
++			       sizeof(struct llc_frmr_info));
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+ 		struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
+@@ -424,7 +427,7 @@ int llc_conn_ac_resend_i_xxx_x_set_0_or_
+ 	struct llc_pdu_sn *pdu = llc_pdu_sn_hdr(skb);
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -459,7 +462,7 @@ int llc_conn_ac_send_rej_cmd_p_set_1(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -483,7 +486,7 @@ int llc_conn_ac_send_rej_rsp_f_set_1(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -507,7 +510,7 @@ int llc_conn_ac_send_rej_xxx_x_set_0(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -531,7 +534,7 @@ int llc_conn_ac_send_rnr_cmd_p_set_1(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -555,7 +558,7 @@ int llc_conn_ac_send_rnr_rsp_f_set_1(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -579,7 +582,7 @@ int llc_conn_ac_send_rnr_xxx_x_set_0(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -615,7 +618,7 @@ int llc_conn_ac_opt_send_rnr_xxx_x_set_0
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -639,7 +642,7 @@ int llc_conn_ac_send_rr_cmd_p_set_1(stru
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -663,7 +666,7 @@ int llc_conn_ac_send_rr_rsp_f_set_1(stru
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -688,7 +691,7 @@ int llc_conn_ac_send_ack_rsp_f_set_1(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -712,7 +715,7 @@ int llc_conn_ac_send_rr_xxx_x_set_0(stru
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -736,7 +739,7 @@ int llc_conn_ac_send_ack_xxx_x_set_0(str
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -770,7 +773,7 @@ int llc_conn_ac_send_sabme_cmd_p_set_x(s
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+@@ -799,7 +802,7 @@ int llc_conn_ac_send_ua_rsp_f_set_p(stru
+ 	u8 f_bit;
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_U, 0);
+ 
+ 	llc_pdu_decode_pf_bit(skb, &f_bit);
+ 	if (nskb) {
+@@ -956,7 +959,7 @@ static int llc_conn_ac_send_rr_rsp_f_set
+ {
+ 	int rc = -ENOBUFS;
+ 	struct llc_sock *llc = llc_sk(sk);
+-	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev);
++	struct sk_buff *nskb = llc_alloc_frame(sk, llc->dev, LLC_PDU_TYPE_S, 0);
+ 
+ 	if (nskb) {
+ 		struct llc_sap *sap = llc->sap;
+diff -uBp a/net/llc/llc_pdu.c b/net/llc/llc_pdu.c
+--- a/net/llc/llc_pdu.c
++++ b/net/llc/llc_pdu.c
+@@ -241,7 +241,7 @@ void llc_pdu_init_as_frmr_rsp(struct sk_
+ 	FRMR_INFO_SET_PDU_INFO_2LONG_IND(frmr_info, vzyxw);
+ 	FRMR_INFO_SET_PDU_INVALID_Nr_IND(frmr_info, vzyxw);
+ 	FRMR_INFO_SET_PDU_INVALID_Ns_IND(frmr_info, vzyxw);
+-	skb_put(skb, 5);
++	skb_put(skb, sizeof(struct llc_frmr_info));
+ }
+ 
+ /**
+diff -uBp a/net/llc/llc_s_ac.c b/net/llc/llc_s_ac.c
+--- a/net/llc/llc_s_ac.c
++++ b/net/llc/llc_s_ac.c
+@@ -103,7 +103,8 @@ int llc_sap_action_send_xid_r(struct llc
+ 	llc_pdu_decode_sa(skb, mac_da);
+ 	llc_pdu_decode_da(skb, mac_sa);
+ 	llc_pdu_decode_ssap(skb, &dsap);
+-	nskb = llc_alloc_frame(NULL, skb->dev);
++	nskb = llc_alloc_frame(NULL, skb->dev, LLC_PDU_TYPE_U,
++			       sizeof(struct llc_xid_info));
+ 	if (!nskb)
+ 		goto out;
+ 	llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap, dsap,
+@@ -144,11 +145,15 @@ int llc_sap_action_send_test_r(struct ll
+ 	u8 mac_da[ETH_ALEN], mac_sa[ETH_ALEN], dsap;
+ 	struct sk_buff *nskb;
+ 	int rc = 1;
++	u32 data_size;
+ 
+ 	llc_pdu_decode_sa(skb, mac_da);
+ 	llc_pdu_decode_da(skb, mac_sa);
+ 	llc_pdu_decode_ssap(skb, &dsap);
+-	nskb = llc_alloc_frame(NULL, skb->dev);
++
++	/* The test request command is type U (llc_len = 3) */
++	data_size = ntohs(eth_hdr(skb)->h_proto) - 3;
++	nskb = llc_alloc_frame(NULL, skb->dev, LLC_PDU_TYPE_U, data_size);
+ 	if (!nskb)
+ 		goto out;
+ 	llc_pdu_header_init(nskb, LLC_PDU_TYPE_U, sap->laddr.lsap, dsap,
+diff -uBp a/net/llc/llc_sap.c b/net/llc/llc_sap.c
+--- a/net/llc/llc_sap.c
++++ b/net/llc/llc_sap.c
+@@ -24,20 +24,41 @@
+ #include <net/tcp_states.h>
+ #include <linux/llc.h>
+ 
++static int llc_mac_header_len(unsigned short devtype)
++{
++	switch (devtype) {
++	case ARPHRD_ETHER:
++	case ARPHRD_LOOPBACK:
++		return sizeof(struct ethhdr);
++#ifdef CONFIG_TR
++	case ARPHRD_IEEE802_TR:
++		return sizeof(struct trh_hdr);
++#endif
++	}
++	return 0;
++}
++
+ /**
+  *	llc_alloc_frame - allocates sk_buff for frame
+  *	@dev: network device this skb will be sent over
++ *	@type: pdu type to allocate
++ *	@data_size: data size to allocate
+  *
+  *	Allocates an sk_buff for frame and initializes sk_buff fields.
+  *	Returns allocated skb or %NULL when out of memory.
+  */
+-struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev)
++struct sk_buff *llc_alloc_frame(struct sock *sk, struct net_device *dev,
++				u8 type, u32 data_size)
+ {
+-	struct sk_buff *skb = alloc_skb(128, GFP_ATOMIC);
++	int hlen = type == LLC_PDU_TYPE_U ? 3 : 4;
++	struct sk_buff *skb;
++
++	hlen += llc_mac_header_len(dev->type);
++	skb = alloc_skb(hlen + data_size, GFP_ATOMIC);
+ 
+ 	if (skb) {
+ 		skb_reset_mac_header(skb);
+-		skb_reserve(skb, 50);
++		skb_reserve(skb, hlen);
+ 		skb_reset_network_header(skb);
+ 		skb_reset_transport_header(skb);
+ 		skb->protocol = htons(ETH_P_802_2);
+@@ -265,12 +286,14 @@ void llc_build_and_send_xid_pkt(struct l
+  *
+  *	Sends received pdus to the sap state machine.
+  */
+-static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb)
++static void llc_sap_rcv(struct llc_sap *sap, struct sk_buff *skb,
++			struct sock *sk)
+ {
+ 	struct llc_sap_state_ev *ev = llc_sap_ev(skb);
+ 
+ 	ev->type   = LLC_SAP_EV_TYPE_PDU;
+ 	ev->reason = 0;
++	skb->sk = sk;
+ 	llc_sap_state_process(sap, skb);
+ }
+ 
+@@ -305,6 +328,24 @@ found:
+ 	return rc;
+ }
+ 
++static void llc_do_mcast(struct llc_sap *sap, struct sk_buff *skb,
++			 struct sock **stack, int count)
++{
++	struct sk_buff *skb1;
++	int i;
++
++	for (i = 0; i < count; i++) {
++		skb1 = skb_clone(skb, GFP_ATOMIC);
++		if (!skb1) {
++			sock_put(stack[i]);
++			continue;
++		}
++
++		llc_sap_rcv(sap, skb1, stack[i]);
++		sock_put(stack[i]);
++	}
++}
++
+ /**
+  * 	llc_sap_mcast - Deliver multicast PDU's to all matching datagram sockets.
+  *	@sap: SAP
+@@ -317,13 +358,13 @@ static void llc_sap_mcast(struct llc_sap
+ 			  const struct llc_addr *laddr,
+ 			  struct sk_buff *skb)
+ {
+-	struct sock *sk;
++	int i = 0, count = 256 / sizeof(struct sock *);
++	struct sock *sk, *stack[count];
+ 	struct hlist_node *node;
+ 
+ 	read_lock_bh(&sap->sk_list.lock);
+ 	sk_for_each(sk, node, &sap->sk_list.list) {
+ 		struct llc_sock *llc = llc_sk(sk);
+-		struct sk_buff *skb1;
+ 
+ 		if (sk->sk_type != SOCK_DGRAM)
+ 			continue;
+@@ -334,16 +375,18 @@ static void llc_sap_mcast(struct llc_sap
+ 		if (llc->dev != skb->dev)
+ 			continue;
+ 
+-		skb1 = skb_clone(skb, GFP_ATOMIC);
+-		if (!skb1)
+-			break;
+-
+ 		sock_hold(sk);
+-		skb_set_owner_r(skb1, sk);
+-		llc_sap_rcv(sap, skb1);
+-		sock_put(sk);
++		if (i < count)
++			stack[i++] = sk;
++		else {
++			llc_do_mcast(sap, skb, stack, i);
++			i = 0;
++		}
++
+ 	}
+ 	read_unlock_bh(&sap->sk_list.lock);
++
++	llc_do_mcast(sap, skb, stack, i);
+ }
+ 
+ 
+@@ -360,8 +403,7 @@ void llc_sap_handler(struct llc_sap *sap
+ 	} else {
+ 		struct sock *sk = llc_lookup_dgram(sap, &laddr);
+ 		if (sk) {
+-			skb_set_owner_r(skb, sk);
+-			llc_sap_rcv(sap, skb);
++			llc_sap_rcv(sap, skb, sk);
+ 			sock_put(sk);
+ 		} else
+ 			kfree_skb(skb);
+diff -uBp a/net/llc/llc_station.c b/net/llc/llc_station.c
+--- a/net/llc/llc_station.c
++++ b/net/llc/llc_station.c
+@@ -253,7 +253,8 @@ static int llc_station_ac_inc_xid_r_cnt_
+ static int llc_station_ac_send_null_dsap_xid_c(struct sk_buff *skb)
+ {
+ 	int rc = 1;
+-	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev);
++	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev, LLC_PDU_TYPE_U,
++					       sizeof(struct llc_xid_info));
+ 
+ 	if (!nskb)
+ 		goto out;
+@@ -274,7 +275,8 @@ static int llc_station_ac_send_xid_r(str
+ {
+ 	u8 mac_da[ETH_ALEN], dsap;
+ 	int rc = 1;
+-	struct sk_buff* nskb = llc_alloc_frame(NULL, skb->dev);
++	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev, LLC_PDU_TYPE_U,
++					       sizeof(struct llc_xid_info));
+ 
+ 	if (!nskb)
+ 		goto out;
+@@ -298,7 +300,12 @@ static int llc_station_ac_send_test_r(st
+ {
+ 	u8 mac_da[ETH_ALEN], dsap;
+ 	int rc = 1;
+-	struct sk_buff *nskb = llc_alloc_frame(NULL, skb->dev);
++	u32 data_size;
++	struct sk_buff *nskb;
++
++	/* The test request command is type U (llc_len = 3) */
++	data_size = ntohs(eth_hdr(skb)->h_proto) - 3;
++	nskb = llc_alloc_frame(NULL, skb->dev, LLC_PDU_TYPE_U, data_size);
+ 
+ 	if (!nskb)
+ 		goto out;
+--
