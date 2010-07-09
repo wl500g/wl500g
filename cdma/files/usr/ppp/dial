@@ -16,7 +16,7 @@ fi
 if [ -n "$1" ]; then
   dialmode=$1
 else
-  dialmode="$(nvram get wan_modem_mode_x)"
+  dialmode="$(nvram get wan_modem_type)"
 fi
 
 if [ -z "$dialmode" ]; then
@@ -24,29 +24,20 @@ if [ -z "$dialmode" ]; then
 fi
 
 case "$dialmode" in
-	1)	dialdir=$ROOT_DIR/ppp/cdma
+	0)	dialdir=$ROOT_DIR/ppp/uni
 		;;
-	2)	dialdir=$ROOT_DIR/ppp/gprs
+	1)	dialdir=$ROOT_DIR/ppp/uni
 		;;
 	3)	dialdir=$ROOT_DIR/ppp/dialup
 		;;
-	4)	dialdir=$ROOT_DIR/ppp/ipw
-		;;
-	5)	dialdir=$ROOT_DIR/ppp/zadacom
-		;;
-	21)	dialdir=$ROOT_DIR/ppp/cdma/GTRAN
-		;;
-	22)	dialdir=$ROOT_DIR/ppp/cdma/AnyDATA
-		;;
 	99)	dialdir=$ROOT_DIR/local/dial
-		;;
-	100)	dialdir=$ROOT_DIR/ppp/uni/
 		;;
 	*)	echo Other
 		;;
 esac	
 
 if [ ! -z $dialdir ]; then
-	cd $dialdir
-	./dial $dialmode $2
+#	cd $dialdir
+#	./dial $dialmode $2
+	source "$dialdir/dial"
 fi
