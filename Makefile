@@ -169,6 +169,7 @@ asustrx:
 
 $(TOP)/loader:
 	@rm -rf $(TOP)/loader
+	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
 	@true
