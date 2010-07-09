@@ -275,7 +275,6 @@ char *address = NULL;
 char *request = NULL;
 char *request_over_ride = NULL;
 int wildcard = 0;
-char *extra = NULL;
 char *mx = NULL;
 char *url = NULL;
 char *host = NULL;
@@ -367,7 +366,7 @@ static char *ZONEEDIT_fields_used[] = { "server", "user", "address", "wildcard",
 
 int HEIPV6TB_update_entry(void);
 int HEIPV6TB_check_info(void);
-static char *HEIPV6TB_fields_used[] = { "server", "user", "address", "extra", NULL };
+static char *HEIPV6TB_fields_used[] = { "server", "user", "address", "host", NULL };
 
 struct service_t services[] = {
   { "NULL",
@@ -594,7 +593,6 @@ enum {
   CMD_address,
   CMD_wildcard,
   CMD_mx,
-  CMD_extra,
   CMD_max_interval,
   CMD_url,
   CMD_host,
@@ -636,7 +634,7 @@ static struct conf_cmd conf_commands[] = {
   { CMD_host,            "host",            CONF_NEED_ARG, 1, conf_handler, "%s=<host>" },
   { CMD_interface,       "interface",       CONF_NEED_ARG, 1, conf_handler, "%s=<interface>" },
   { CMD_mx,              "mx",              CONF_NEED_ARG, 1, conf_handler, "%s=<mail exchanger>" },
-  { CMD_extra,           "extra",           CONF_NEED_ARG, 1, conf_handler, "%s=<extra info>" },
+  { CMD_host,            "extra",           CONF_NEED_ARG, 1, conf_handler, "%s=<extra info>" },
   { CMD_max_interval,    "max-interval",    CONF_NEED_ARG, 1, conf_handler, "%s=<number of seconds between updates>" },
 #ifdef SEND_EMAIL_CMD
   { CMD_notify_email,    "notify-email",    CONF_NEED_ARG, 1, conf_handler, "%s=<address to email if bad things happen>" },
@@ -1073,12 +1071,6 @@ int option_handler(int id, char *optarg)
       if(mx) { free(mx); }
       mx = strdup(optarg);
       dprintf((stderr, "mx: %s\n", mx));
-      break;
-
-    case CMD_extra:
-      if(extra) { free(extra); }
-      extra = strdup(optarg);
-      dprintf((stderr, "extra: %s\n", extra));
       break;
 
     case CMD_max_interval:
@@ -3966,9 +3958,9 @@ int HEIPV6TB_check_info(void)
     option_handler(CMD_interface, buf);
   }
 
-  if((extra == NULL) || (*extra == '\0'))
+  if((host == NULL) || (*host == '\0'))
   {
-      show_message("you must provide tunnel id in 'extra' param\n");
+      show_message("you must provide global tunnel id in 'host' param\n");
       return(-1);
   }
 
@@ -4006,7 +3998,7 @@ int HEIPV6TB_update_entry(void)
   }
   snprintf(buf, BUFFER_SIZE, "GET %s?ipv4b=%s&user_id=%s&pass=%s&tunnel_id=%s",
                              request, address == NULL ? "AUTO" : address,
-                             user_name, auth, extra);
+                             user_name, auth, host);
   output(buf);
   output_hdr(buf, BUFFER_SIZE, NULL, "ez-update");
 
@@ -4108,11 +4100,6 @@ void warn_fields(char **okay_fields)
   {
     show_message("warning: this service does not support the %s option\n",
         "mx");
-  }
-  if(!(extra == NULL || *extra == '\0') && !is_in_list("extra", okay_fields))
-  {
-    show_message("warning: this service does not support the %s option\n",
-        "extra");
   }
   if(!(url == NULL || *url == '\0') && !is_in_list("url", okay_fields))
   {
@@ -4330,7 +4317,6 @@ int main(int argc, char **argv)
   }
 
   if(mx == NULL) { mx = strdup(""); }
-  if(extra == NULL) { extra = strdup(""); }
   if(url == NULL) { url = strdup(""); }
 
 #ifdef IF_LOOKUP
@@ -4763,7 +4749,6 @@ int main(int argc, char **argv)
   if(host) { free(host); }
   if(interface) { free(interface); }
   if(mx) { free(mx); }
-  if(extra) { free(extra); }
   if(port) { free(port); }
   if(request) { free(request); }
   if(request_over_ride) { free(request_over_ride); }
