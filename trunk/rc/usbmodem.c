@@ -71,23 +71,41 @@ start_modem_dial(char *prefix)
 }
 
 int
-stop_modem_dial(void)
+stop_modem_dial(char *prefix)
 {
-    int ret;
-    char sfn[200], * tmp;
-    //eval("killall", "dial");
-    modem_get_script_name( sfn );
-    tmp = strrchr( sfn, '/' );
-    if( tmp ) tmp++;
-    else tmp = sfn;
+    int ret, pid;
+    char tmp[200];
+    int unit;
+    FILE *file;
+    char *argv[] = {
+	"kill",
+	tmp+100,
+	NULL
+    };
 
-    eval("killall", tmp);
-    ret = eval("killall", "pppd");
+    unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
+    ret=0;
 
+    sprintf(tmp, "/var/run/%s", prefix);
+    tmp[strlen(tmp)-1]=0;
+    file=fopen(tmp,"r");
+    if(file){
+        fgets(tmp+100, 10, file);
+        fclose(file);
+        ret=_eval(argv, NULL, 0, &pid);
+    }
+    unlink(tmp);
+
+    sprintf(tmp, "/var/run/ppp%d.pid", unit);
+    file=fopen(tmp,"r");
+    if(file){
+        fgets(tmp+100, 10, file);
+        fclose(file);
+        ret=_eval(argv, NULL, 0, &pid);
+    }
 //    nvram_set( "wan0_dial_enabled", "0" );
-    unlink("/var/run/wan0");
 
-    dprintf("done\n");
+    dprintf("%s done\n", prefix);
     return ret;
 }
 
@@ -273,7 +291,7 @@ usb_modem_check(char *prefix)
 	nvram_get( strcat_r(prefix, "usb_device", tmp) ) )
     {
 	sprintf(tmp, "/var/run/%s", prefix);
-	if (tmp[strlen(tmp)-1]=='_') tmp[strlen(tmp)-1]=0;
+	tmp[strlen(tmp)-1]=0;
 	file=fopen(tmp,"r");
 	if(file){
 	    fgets(tmp+100, 99, file);

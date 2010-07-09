@@ -171,7 +171,7 @@ int hotplug_check_wimax(char *interface, char *product, char *prefix);
 
 #ifdef __CONFIG_MODEM__
 int start_modem_dial(char *prefix);
-int stop_modem_dial();
+int stop_modem_dial(char *prefix);
 int usb_modem_check(char * prefix);
 int hotplug_check_modem(char *interface, char *product, char *prefix);
 #endif

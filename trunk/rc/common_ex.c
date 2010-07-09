@@ -468,7 +468,7 @@ void convert_asus_values()
 #ifdef __CONFIG_MODEM__
 	else if (nvram_match("wan_proto", "usbmodem"))
 	{
-		nvram_set("wan0_modem_ifname", "ppp0");
+		nvram_set("wan0_pppoe_ifname", "ppp0");
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_modem_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_modem_netmask", 
@@ -478,9 +478,7 @@ void convert_asus_values()
 		nvram_set("wan0_modem_gateway", nvram_get("wan_gateway"));
 		/* current interface address (dhcp + firewall) */
 		nvram_set("wanx_ipaddr", nvram_safe_get("wan_ipaddr"));
-		if( !nvram_match("wan_modem_enable_x", "1") )
-			nvram_unset( "wan0_dial_enabled" );
-		else nvram_set( "wan0_dial_enabled", "1" );
+		nvram_set("wan0_dial_enabled", "1");
 	}
 #endif
 
