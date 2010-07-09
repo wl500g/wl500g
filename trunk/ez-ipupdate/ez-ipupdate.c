@@ -4449,8 +4449,10 @@ int main(int argc, char **argv)
             last_update = time(NULL);
             local_update_period = update_period;
 
-            show_message("successful update for %s->%s (%s)\n",
-                interface, inet_ntoa(sin.sin_addr), N_STR(host));
+            show_message("successful update for %s %s (%s)\n",
+                (address) ? interface : "autodetected",
+                (address) ? address : "address",
+                N_STR(host));
 
             if(post_update_cmd)
             {
