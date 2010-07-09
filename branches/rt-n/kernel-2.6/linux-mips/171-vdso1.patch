@@ -1,0 +1,311 @@
+From c52d0d30aef84aa8893b34e5254716c8ab5c4472
+From: David Daney
+Date: Thu, 18 Feb 2010 16:13:04 -0800
+Subject: [PATCH] MIPS: Preliminary VDSO
+
+This is a preliminary patch to add a vdso to all user processes.  Still
+missing are ELF headers and .eh_frame information.  But it is enough to
+allow us to move signal trampolines off of the stack.  Note that emulation
+of branch delay slots in the FPU emulator still requires the stack.
+
+We allocate a single page (the vdso) and write all possible signal
+trampolines into it.  The stack is moved down by one page and the vdso is
+mapped into this space.
+
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+To: linux-mips@linux-mips.org
+Patchwork: http://patchwork.linux-mips.org/patch/975/
+	http://patchwork.linux-mips.org/patch/1385/
+	http://patchwork.linux-mips.org/patch/1386/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ include/asm-mips/elf.h         |    4 +
+ include/asm-mips/mmu.h         |    5 +-
+ include/asm-mips/mmu_context.h |    2 +-
+ include/asm-mips/processor.h   |   11 +++-
+ include/asm-mips/vdso.h        |   29 +++++++++
+ arch/mips/kernel/Makefile           |    2 +-
+ arch/mips/kernel/syscall.c          |    6 ++-
+ arch/mips/kernel/vdso.c             |  112 +++++++++++++++++++++++++++++++++++
+ 8 files changed, 165 insertions(+), 6 deletions(-)
+ create mode 100644 include/asm-mips/vdso.h
+ create mode 100644 arch/mips/kernel/vdso.c
+
+diff --git a/include/asm-mips/a.out.h b/include/asm-mips/a.out.h
+--- a/include/asm-mips/a.out.h
++++ b/include/asm-mips/a.out.h
+@@ -32,15 +32,4 @@ struct exec
+ #define N_DRSIZE(a)	((a).a_drsize)
+ #define N_SYMSIZE(a)	((a).a_syms)
+ 
+-#ifdef __KERNEL__
+-
+-#ifdef CONFIG_32BIT
+-#define STACK_TOP	TASK_SIZE
+-#endif
+-#ifdef CONFIG_64BIT
+-#define STACK_TOP	(current->thread.mflags & MF_32BIT_ADDR ? TASK_SIZE32 : TASK_SIZE)
+-#endif
+-
+-#endif
+-
+ #endif /* _ASM_A_OUT_H */
+diff --git a/include/asm-mips/elf.h b/include/asm-mips/elf.h
+index 1184f6e..ea77a42 100644
+--- a/include/asm-mips/elf.h
++++ b/include/asm-mips/elf.h
+@@ -368,4 +368,8 @@ extern const char *__elf_platform;
+ #define ELF_ET_DYN_BASE         (TASK_SIZE / 3 * 2)
+ #endif
+ 
++#define ARCH_HAS_SETUP_ADDITIONAL_PAGES 1
++struct linux_binprm;
++extern int arch_setup_additional_pages(struct linux_binprm *bprm,
++				       int uses_interp);
+ #endif /* _ASM_ELF_H */
+diff --git a/include/asm-mips/mmu.h b/include/asm-mips/mmu.h
+index 4063edd..c436138 100644
+--- a/include/asm-mips/mmu.h
++++ b/include/asm-mips/mmu.h
+@@ -1,6 +1,9 @@
+ #ifndef __ASM_MMU_H
+ #define __ASM_MMU_H
+ 
+-typedef unsigned long mm_context_t[NR_CPUS];
++typedef struct {
++	unsigned long asid[NR_CPUS];
++	void *vdso;
++} mm_context_t;
+ 
+ #endif /* __ASM_MMU_H */
+diff --git a/include/asm-mips/mmu_context.h b/include/asm-mips/mmu_context.h
+index 145bb81..d959273 100644
+--- a/include/asm-mips/mmu_context.h
++++ b/include/asm-mips/mmu_context.h
+@@ -104,7 +104,7 @@ extern unsigned long smtc_asid_mask;
+ 
+ #endif
+ 
+-#define cpu_context(cpu, mm)	((mm)->context[cpu])
++#define cpu_context(cpu, mm)	((mm)->context.asid[cpu])
+ #define cpu_asid(cpu, mm)	(cpu_context((cpu), (mm)) & ASID_MASK)
+ #define asid_cache(cpu)		(cpu_data[cpu].asid_cache)
+ 
+diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
+index 087a888..ab38791 100644
+--- a/include/asm-mips/processor.h
++++ b/include/asm-mips/processor.h
+@@ -33,12 +33,19 @@ extern void (*cpu_wait)(void);
+ 
+ extern unsigned int vced_count, vcei_count;
+ 
++/*
++ * A special page (the vdso) is mapped into all processes at the very
++ * top of the virtual memory space.
++ */
++#define SPECIAL_PAGES_SIZE PAGE_SIZE
++
+ #ifdef CONFIG_32BIT
+ /*
+  * User space process size: 2GB. This is hardcoded into a few places,
+  * so don't change it unless you know what you are doing.
+  */
+ #define TASK_SIZE	0x7fff8000UL
++#define STACK_TOP	((TASK_SIZE & PAGE_MASK) - SPECIAL_PAGES_SIZE)
+ 
+ /*
+  * This decides where the kernel will search for a free chunk of vm
+@@ -59,6 +65,9 @@ extern unsigned int vced_count, vcei_count;
+  */
+ #define TASK_SIZE32	0x7fff8000UL
+ #define TASK_SIZE	0x10000000000UL
++#define STACK_TOP	\
++	(((test_thread_flag(TIF_32BIT_ADDR) ?				\
++	   TASK_SIZE32 : TASK_SIZE) & PAGE_MASK) - SPECIAL_PAGES_SIZE)
+ 
+ /*
+  * This decides where the kernel will search for a free chunk of vm
+diff --git a/include/asm-mips/vdso.h b/include/asm-mips/vdso.h
+new file mode 100644
+index 0000000..cca56aa
+--- /dev/null
++++ b/include/asm-mips/vdso.h
+@@ -0,0 +1,29 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2009 Cavium Networks
++ */
++
++#ifndef __ASM_VDSO_H
++#define __ASM_VDSO_H
++
++#include <linux/types.h>
++
++
++#ifdef CONFIG_32BIT
++struct mips_vdso {
++	u32 signal_trampoline[2];
++	u32 rt_signal_trampoline[2];
++};
++#else  /* !CONFIG_32BIT */
++struct mips_vdso {
++	u32 o32_signal_trampoline[2];
++	u32 o32_rt_signal_trampoline[2];
++	u32 rt_signal_trampoline[2];
++	u32 n32_rt_signal_trampoline[2];
++};
++#endif /* CONFIG_32BIT */
++
++#endif /* __ASM_VDSO_H */
+diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
+index ef20957..7a6ac50 100644
+--- a/arch/mips/kernel/Makefile
++++ b/arch/mips/kernel/Makefile
+@@ -6,7 +6,7 @@ extra-y		:= head.o init_task.o vmlinux.lds
+ 
+ obj-y		+= cpu-probe.o branch.o entry.o genex.o irq.o process.o \
+ 		   ptrace.o reset.o semaphore.o setup.o signal.o syscall.o \
+-		   time.o topology.o traps.o unaligned.o
++		   time.o topology.o traps.o unaligned.o vdso.o
+ 
+ binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
+ 			   irix5sys.o sysirix.o
+diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
+index 9587abc..dd81b0f 100644
+--- a/arch/mips/kernel/syscall.c
++++ b/arch/mips/kernel/syscall.c
+@@ -79,7 +79,11 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
+ 	int do_color_align;
+ 	unsigned long task_size;
+ 
+-	task_size = STACK_TOP;
++#ifdef CONFIG_32BIT
++	task_size = TASK_SIZE;
++#else /* Must be CONFIG_64BIT*/
++	task_size = test_thread_flag(TIF_32BIT_ADDR) ? TASK_SIZE32 : TASK_SIZE;
++#endif
+ 
+ 	if (len > task_size)
+ 		return -ENOMEM;
+diff --git a/arch/mips/kernel/vdso.c b/arch/mips/kernel/vdso.c
+new file mode 100644
+index 0000000..b773c11
+--- /dev/null
++++ b/arch/mips/kernel/vdso.c
+@@ -0,0 +1,110 @@
++/*
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (C) 2009, 2010 Cavium Networks, Inc.
++ */
++
++
++#include <linux/kernel.h>
++#include <linux/err.h>
++#include <linux/sched.h>
++#include <linux/mm.h>
++#include <linux/init.h>
++#include <linux/binfmts.h>
++#include <linux/elf.h>
++#include <linux/vmalloc.h>
++#include <linux/unistd.h>
++
++#include <asm/vdso.h>
++#include <asm/uasm.h>
++
++/*
++ * Including <asm/unistd.h> would give use the 64-bit syscall numbers ...
++ */
++#define __NR_O32_sigreturn		4119
++#define __NR_O32_rt_sigreturn		4193
++#define __NR_N32_rt_sigreturn		6211
++
++static struct page *vdso_page;
++
++static void __init install_trampoline(u32 *tramp, unsigned int sigreturn)
++{
++	i_addiu(&tramp, 2, 0, sigreturn);	/* li v0, sigreturn */
++	i_syscall(&tramp, 0);
++}
++
++static int __init init_vdso(void)
++{
++	struct mips_vdso *vdso;
++
++	vdso_page = alloc_page(GFP_KERNEL);
++	if (!vdso_page)
++		panic("Cannot allocate vdso");
++
++	vdso = vmap(&vdso_page, 1, 0, PAGE_KERNEL);
++	if (!vdso)
++		panic("Cannot map vdso");
++	clear_page(vdso);
++
++	install_trampoline(vdso->rt_signal_trampoline, __NR_rt_sigreturn);
++#ifdef CONFIG_32BIT
++	install_trampoline(vdso->signal_trampoline, __NR_sigreturn);
++#else
++	install_trampoline(vdso->n32_rt_signal_trampoline,
++			   __NR_N32_rt_sigreturn);
++	install_trampoline(vdso->o32_signal_trampoline, __NR_O32_sigreturn);
++	install_trampoline(vdso->o32_rt_signal_trampoline,
++			   __NR_O32_rt_sigreturn);
++#endif
++
++	vunmap(vdso);
++
++	return 0;
++}
++subsys_initcall(init_vdso);
++
++static unsigned long vdso_addr(unsigned long start)
++{
++	return STACK_TOP;
++}
++
++int arch_setup_additional_pages(struct linux_binprm *bprm, int uses_interp)
++{
++	int ret;
++	unsigned long addr;
++	struct mm_struct *mm = current->mm;
++
++	down_write(&mm->mmap_sem);
++
++	addr = vdso_addr(mm->start_stack);
++
++	addr = get_unmapped_area(NULL, addr, PAGE_SIZE, 0, 0);
++	if (IS_ERR_VALUE(addr)) {
++		ret = addr;
++		goto up_fail;
++	}
++
++	ret = install_special_mapping(mm, addr, PAGE_SIZE,
++				      VM_READ|VM_EXEC|
++				      VM_MAYREAD|VM_MAYWRITE|VM_MAYEXEC|
++				      VM_ALWAYSDUMP,
++				      &vdso_page);
++
++	if (ret)
++		goto up_fail;
++
++	mm->context.vdso = (void *)addr;
++
++up_fail:
++	up_write(&mm->mmap_sem);
++	return ret;
++}
++
++const char *arch_vma_name(struct vm_area_struct *vma)
++{
++	if (vma->vm_mm && vma->vm_start == (long)vma->vm_mm->context.vdso)
++		return "[vdso]";
++	return NULL;
++}
+-- 
+1.7.1.1
+
