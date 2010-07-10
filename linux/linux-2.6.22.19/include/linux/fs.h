@@ -1718,6 +1718,8 @@ extern int write_inode_now(struct inode *, int);
 extern int filemap_fdatawrite(struct address_space *);
 extern int filemap_flush(struct address_space *);
 extern int filemap_fdatawait(struct address_space *);
+extern int filemap_fdatawait_range(struct address_space *, loff_t lstart,
+				   loff_t lend);
 extern int filemap_write_and_wait(struct address_space *mapping);
 extern int filemap_write_and_wait_range(struct address_space *mapping,
 				        loff_t lstart, loff_t lend);
@@ -1725,6 +1727,8 @@ extern int wait_on_page_writeback_range(struct address_space *mapping,
 				pgoff_t start, pgoff_t end);
 extern int __filemap_fdatawrite_range(struct address_space *mapping,
 				loff_t start, loff_t end, int sync_mode);
+extern int filemap_fdatawrite_range(struct address_space *mapping,
+				loff_t start, loff_t end);
 
 extern long do_fsync(struct file *file, int datasync);
 extern void sync_supers(void);

@@ -214,11 +214,12 @@ int filemap_fdatawrite(struct address_space *mapping)
 }
 EXPORT_SYMBOL(filemap_fdatawrite);
 
-static int filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
+int filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
 				loff_t end)
 {
 	return __filemap_fdatawrite_range(mapping, start, end, WB_SYNC_ALL);
 }
+EXPORT_SYMBOL(filemap_fdatawrite_range);
 
 /**
  * filemap_flush - mostly a non-blocking flush
@@ -284,6 +285,26 @@ int wait_on_page_writeback_range(struct address_space *mapping,
 
 	return ret;
 }
+
+/**
+ * filemap_fdatawait_range - wait for all under-writeback pages to complete in a given range
+ * @mapping: address space structure to wait for
+ * @start:	offset in bytes where the range starts
+ * @end:	offset in bytes where the range ends (inclusive)
+ *
+ * Walk the list of under-writeback pages of the given address space
+ * in the given range and wait for all of them.
+ *
+ * This is just a simple wrapper so that callers don't have to convert offsets
+ * to page indexes themselves
+ */
+int filemap_fdatawait_range(struct address_space *mapping, loff_t start,
+			    loff_t end)
+{
+	return wait_on_page_writeback_range(mapping, start >> PAGE_CACHE_SHIFT,
+					    end >> PAGE_CACHE_SHIFT);
+}
+EXPORT_SYMBOL(filemap_fdatawait_range);
 
 /**
  * sync_page_range - write and wait on all pages in the passed range
@@ -984,6 +1005,12 @@ page_not_up_to_date:
 		}
 
 readpage:
+		/*
+		 * A previous I/O error may have been due to temporary
+		 * failures, eg. multipath errors.
+		 * PG_error will be set again if readpage fails.
+		 */
+		ClearPageError(page);
 		/* Start the actual read. The read will unlock the page. */
 		error = mapping->a_ops->readpage(filp, page);
 
@@ -2200,21 +2227,17 @@ generic_file_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
 	}
 
 	retval = mapping->a_ops->direct_IO(rw, iocb, iov, offset, nr_segs);
-	if (retval)
-		goto out;
 
 	/*
 	 * Finally, try again to invalidate clean pages which might have been
-	 * faulted in by get_user_pages() if the source of the write was an
-	 * mmap()ed region of the file we're writing.  That's a pretty crazy
-	 * thing to do, so we don't support it 100%.  If this invalidation
-	 * fails and we have -EIOCBQUEUED we ignore the failure.
+	 * cached by non-direct readahead, or faulted in by get_user_pages()
+	 * if the source of the write was an mmap'ed region of the file
+	 * we're writing.  Either one is a pretty crazy thing to do,
+	 * so we don't support it 100%.  If this invalidation
+	 * fails, tough, the write still worked...
 	 */
 	if (rw == WRITE && mapping->nrpages) {
-		int err = invalidate_inode_pages2_range(mapping,
-					      offset >> PAGE_CACHE_SHIFT, end);
-		if (err && retval >= 0)
-			retval = err;
+		invalidate_inode_pages2_range(mapping, offset >> PAGE_CACHE_SHIFT, end);
 	}
 out:
 	return retval;
