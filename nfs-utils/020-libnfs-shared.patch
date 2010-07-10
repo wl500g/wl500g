@@ -188,39 +188,3 @@ diff -urNBp nfs-utils-1.0.9/utils/statd/Makefile.in nfs-utils/utils/statd/Makefi
  	      $(LIBWRAP) $(LIBNSL)
  
  EXTRA_DIST = sim_sm_inter.x sm_inter.x $(man8_MANS) COPYRIGHT simulate.c
-diff -urNBp nfs-utils-1.0.9/utils/statd/Makefile.in.orig nfs-utils/utils/statd/Makefile.in.orig
---- nfs-utils-1.0.9/utils/statd/Makefile.in.orig	2006-07-08 04:06:49.000000000 +0400
-+++ nfs-utils/utils/statd/Makefile.in.orig	2010-03-22 20:49:13.000000000 +0300
-@@ -230,7 +230,7 @@ statedir = @statedir@
- sysconfdir = @sysconfdir@
- target_alias = @target_alias@
- man8_MANS = statd.man
--RPCGEN = $(top_builddir)/tools/rpcgen/rpcgen
-+RPCGEN = rpcgen
- GENFILES_CLNT = sm_inter_clnt.c
- GENFILES_SVC = sm_inter_svc.c
- GENFILES_XDR = sm_inter_xdr.c
-@@ -597,19 +597,19 @@ uninstall-am: uninstall-info-am uninstal
- $(RPCGEN):
- 	make -C ../../tools/rpcgen all
- 
--$(GENFILES_CLNT): %_clnt.c: %.x $(RPCGEN)
-+$(GENFILES_CLNT): %_clnt.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -l -o $@ $<
- 
--$(GENFILES_SVC): %_svc.c: %.x $(RPCGEN)
-+$(GENFILES_SVC): %_svc.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -m -o $@ $<
- 
--$(GENFILES_XDR): %_xdr.c: %.x $(RPCGEN)
-+$(GENFILES_XDR): %_xdr.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -c -o $@ $<
- 
--$(GENFILES_H): %.h: %.x $(RPCGEN)
-+$(GENFILES_H): %.h: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -h -o $@ $<
- 

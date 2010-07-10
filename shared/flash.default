@@ -456,14 +456,15 @@
 #endif
 
 #ifdef __CONFIG_MODEM__
-{"wan_modem_enable_x", "1", 0},
-{"wan_modem_wanaslan_x","0",0},
-{"wan_modem_packetsize","0",0},
+{"wan_modem_packetsize","4096",0},
 {"wan_modem_autodetect", "1", 0},
-{"wan_modem_mode_x","0", 0},
 {"wan_modem_portspeed","921600", 0},
 {"wan_modem_tts_port","0", 0},
-{"wan_modem_standard","1", 0},
+{"wan_modem_type","1", 0},
 {"wan_modem_demand","0", 0},
 {"wan_modem_idle","60", 0},
+{"wan_modem_mtu","1300", 0},
+{"wan_modem_mru","1300", 0},
+{"wan_modem_maxfail","0", 0},
+{"wan_modem_serial_enable","1", 0},
 #endif

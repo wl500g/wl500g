@@ -950,12 +950,11 @@ lltd: nvram shared
 	$(MAKE) -C $@ EXTRACFLAGS="$(EXTRACFLAGS)"
 
 lltd-install: lltd
-	install -D lltd/lld2d $(INSTALLDIR)/lltd/sbin/lld2d
-	$(STRIP) $(INSTALLDIR)/lltd/sbin/lld2d
-	install -d $(INSTALLDIR)/lltd/usr/etc/
-	install -D -m 0644 lltd/lld2d.conf $(INSTALLDIR)/lltd/usr/etc
+	install -D lltd/lld2d $(INSTALLDIR)/lltd/usr/sbin/lld2d
+	$(STRIP) $(INSTALLDIR)/lltd/usr/sbin/lld2d
+	install -D -m 0644 lltd/lld2d.conf $(INSTALLDIR)/lltd/usr/etc/lld2d.conf
 	[ ! -f lltd/icons/$(MODEL).ico ] || \
-	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/etc/icon.ico
+	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \

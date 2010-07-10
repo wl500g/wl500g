@@ -933,35 +933,8 @@ start_wan(void)
 				nvram_get(strcat_r(prefix, "netmask", tmp)));
 
 			/* start firewall */
-			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp)),
+			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
 				"0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
-
-		 	/* launch dhcp client and wait for lease forawhile */
-/*		 	if (nvram_match(strcat_r(prefix, "ipaddr", tmp), "0.0.0.0")) 
-		 	{
-				char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-				char *dhcp_argv[] = { "udhcpc",
-					      "-i", wan_ifname,
-					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-					      "-s", "/tmp/udhcpc",
-					      "-b",
-					      wan_hostname && *wan_hostname ? "-H" : NULL,
-					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
-					      NULL
-				};
-				// Start dhcp daemon
-				_eval(dhcp_argv, NULL, 0, NULL);
-		 	} else {
-			 	// setup static wan routes via physical device
-				add_routes("wan_", "route", wan_ifname);
-				// and set default route if specified with metric 1
-				if (inet_addr_(nvram_safe_get(strcat_r(prefix, "gateway", tmp))) &&
-				    !nvram_match("wan_heartbeat_x", ""))
-					route_add(wan_ifname, 2, "0.0.0.0", 
-						nvram_safe_get(strcat_r(prefix, "gateway", tmp)), "0.0.0.0");
-				// start multicast router 
-				start_igmpproxy(wan_ifname);
-			}*/
 
 			hotplug_sem_lock();
 			nvram_set( strcat_r(prefix, "prepared", tmp), "1" );
@@ -978,7 +951,7 @@ start_wan(void)
 			hotplug_sem_unlock();
 
 			/* ppp interface name is referenced from this point on */
-			wan_ifname = nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp));
+			wan_ifname = nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp));
 			
 			/* Pretend that the WAN interface is up */
 			if (demand)
@@ -1119,6 +1092,48 @@ start_wan(void)
 
 }
 
+
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+int 
+stop_usb_communication_devices(void)
+{
+  	char *wan_ifname;
+	char *wan_proto;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+
+	/* Start each configured and enabled wan connection and its undelying i/f */
+	for( unit=0; unit<MAX_NVPARSE; unit++) 
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+		/* make sure the connection exists and is enabled */ 
+		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+		if (!wan_ifname)
+			continue;
+
+		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+		if (!wan_proto || !strcmp(wan_proto, "disabled"))
+			continue;
+
+#ifdef __CONFIG_MADWIMAX__
+		if( !strcmp(wan_proto, "wimax")) stop_wimax();
+		else
+#else
+		{}
+#endif
+#ifdef __CONFIG_MODEM__
+		if( !strcmp(wan_proto, "usbmodem")){
+		    nvram_unset( strcat_r(prefix, "prepared", tmp));
+		     stop_modem_dial(prefix); 
+		}
+#endif
+	}
+	return 0;
+}
+#endif
+
+
 void
 stop_wan(char *ifname)
 {
@@ -1135,13 +1150,9 @@ stop_wan(char *ifname)
 	eval("killall", "l2tpd");
 #endif
 	eval("killall", "pppd");
-#ifdef __CONFIG_MADWIMAX__
-	stop_wimax();
-#endif
 
-#ifdef __CONFIG_MODEM__
-	nvram_unset( "wan0_prepared" );
-	stop_modem_dial();
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+	stop_usb_communication_devices();
 #endif
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
@@ -1849,7 +1860,7 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			{
 			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
-			    stop_modem_dial();
+			    stop_modem_dial(prefix);
 			}
 #else
 			{}

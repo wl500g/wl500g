@@ -1,6 +1,0 @@
-'' ''
-'' 'ATI'
-'' 'ATZ'
-'OK' 'AT+CGDCONT=1,"IP","$apn$"'
-'OK' 'ATD$dialno$'
-'CONNECT' ''

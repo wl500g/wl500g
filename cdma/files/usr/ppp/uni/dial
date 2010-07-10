@@ -1,29 +1,43 @@
 #!/bin/sh
+# Universal 3G/CDMA moden connection script
+#   from: sorine, rss, dlukanidin at wl500g.info
+
+#set new nvram variables, must be removed when new www interface will be done
+#nvram set wan_modem_maxfail=0
+nvram set wan_modem_hot_restart=0
+nvram set wan_modem_serial_enable=0
+
 apn=$(nvram get wan_modem_apn)
 dialnumber=$(nvram get wan_modem_dialno)
-modem=$(nvram get wan_modem_standard) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
+modem=$(nvram get wan_modem_type) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo
 username=$(nvram get wan_modem_username)
 port=$(nvram get wan_modem_tts_port)
 portspeed=$(nvram get wan_modem_portspeed)
 password=$(nvram get wan_modem_password)
-mtu=1492 #$(nvram get wan_modem_mtu)
-mru=1492 #$(nvram get wan_modem_mru)
+mtu=$(nvram get wan_modem_mtu)
+mru=$(nvram get wan_modem_mru)
 vend=$(nvram get wan_modem_vid)
 prod=$(nvram get wan_modem_pid)
 pppdoptions=$(nvram get wan_modem_options)
 initoptions=$(nvram get wan_modem_dialup_init)
 demand=$(nvram get wan_modem_demand)
 idle=$(nvram get wan_modem_idle)
+maxfail=$(nvram get wan_modem_maxfail)
+hot_restart=$(nvram get wan_modem_hot_restart)
+serial_enable=$(nvram get wan_modem_serial_enable)
+if [[ "$hot_restart" == "" ]]; then hot_restart="0"; fi
+POST_FN=$(nvram get wan_modem_onfailure) 
+[[ -z $POST_FN ]] && POST_FN="/usr/local/sbin/post-3g-failure";
 usbdev=""
+#ifnum=$1
+[[ -z $ifnum ]] && ifnum=0;
 
-ifnum=0
-restart_drv="0"
 kernel="$(uname -r)"
 kernel=${kernel:0:3}
 echo $kernel
 
 nvram set wan_modem_need_chat=1
-nvram set wan_modem_packetsize=4096
+#nvram set wan_modem_packetsize=4096
 #mkdir /tmp/ppp/peers/
 
 echo "ABORT	'~'
@@ -56,17 +70,18 @@ SAY	'Calling UMTS/GPRS'
 write_dialup_file()
 {
     [[ -z  $usbdev ]] || return;
+
     if [[ "$kernel" == "2.4" ]]; then
-	if [ -c /dev/usb/acm/$port ]; then
-		usbdev="/dev/usb/acm/$port"
-	else
+	if [ -c /dev/usb/tts/$port ]; then
 		usbdev="/dev/usb/tts/$port"
+	else
+		usbdev="/dev/usb/acm/$port"
 	fi
     else
-	if [ -c /dev/ttyACM$port ]; then
-		usbdev="/dev/ttyACM$port"
-	else
+	if [ -c /dev/ttyUSB$port ]; then
 		usbdev="/dev/ttyUSB$port"
+	else
+		usbdev="/dev/ttyACM$port"
 	fi
     fi
 
@@ -82,9 +97,8 @@ echo "debug
     mru $mru
     usepeerdns
     noauth
-    $pppdoptions
     holdoff 5
-    maxfail 0
+    maxfail $maxfail
     nodetach
     persist
     unit $ifnum
@@ -96,6 +110,9 @@ echo "debug
     if [[ "$demand" != "0" ]]; then
 	if [[ -z $idle ]]; then idle="600"; fi
 	echo "demand idle $idle" >> /tmp/ppp/peers/dialup
+    fi
+    if [[ ! -z $pppdoptions ]]; then
+	echo "$pppdoptions" >> /tmp/ppp/peers/dialup
     fi
     echo "connect \"/tmp/ppp/peers/chat.sh\"" >> /tmp/ppp/peers/dialup
 }
@@ -116,14 +133,16 @@ echo -e "#!/bin/sh
     return \$res" > /tmp/ppp/peers/chat.sh
     chmod +x /tmp/ppp/peers/chat.sh
 
-if [[ ! -e /tmp/ppp/peers/ip-up ]] ; then
+if [[ "$hot_restart" == "1" ]]; then
+  if [[ ! -e /tmp/ppp/peers/ip-up ]] ; then
     mv /tmp/ppp/ip-up /tmp/ppp/peers/ip-up
-fi
-echo -e "#!/bin/sh
+    echo -e "#!/bin/sh
     nvram set wan_modem_need_chat=0
     echo \"<<< /tmp/ppp/ip-up >>> Session is up, next try to reconnect\" >>/tmp/chat.log
     /tmp/ppp/peers/ip-up \$@" > /tmp/ppp/ip-up
     chmod +x /tmp/ppp/ip-up
+  fi
+fi
 
 echo -e "#!/bin/sh
     pingaddr=\"8.8.8.8\"
@@ -158,22 +177,11 @@ if [[ "$(lsmod | grep usbserial)" == "" ]]; then
 	    insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxSize=$(nvram get wan_modem_packetsize)
 	fi
     fi
-    insmod pl2303
-    insmod ftdi_sio
+    if [[ "$serial_enable" == "1" ]]; then
+	insmod pl2303
+	insmod ftdi_sio
+    fi
 fi
-}
-
-unload_drivers()
-{
-rmmod option
-if [[ kernel=="2.6" ]]; then
-    rmmod cdc_acm
-else
-    rmmod acm
-fi
-rmmod usbserial
-rmmod pl2303
-rmmod ftdi_sio
 }
 
 load_drivers
@@ -181,15 +189,6 @@ write_dialup_file
 
 while true; do
     sleep 1
-    if [ $restart_drv == "1" ]; then
-	restart_drv="0"
-	echo "Unloading drivers" >> /tmp/chat.log
-	unload_drivers
-	sleep 3
-	echo "Loading drivers" >> /tmp/chat.log
-	load_drivers
-	sleep 7
-    fi
     if [[ "$demand" != "0" ]]; then
 	killall ping$ifnum.sh
 	/tmp/ppp/peers/ping$ifnum.sh &
@@ -200,8 +199,8 @@ while true; do
     echo "pppd exit code: $res
 	Reconnect. Device: $usbdev" >> /tmp/chat.log
     logger "pppd exit code: $res"
-    if [[ $res != "6" ]]; then
-	restart_drv="0"
+    sleep 1
+    if [ -e $POST_FN ]; then
+        $POST_FN $ifnum $usbdev $res
     fi
-    sleep 4
 done

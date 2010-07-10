@@ -28,7 +28,7 @@
 .list_table1 { width:40px; border-width:0; padding:0; height:115px; text-align:center; background:#ffffff}
 .list_table2 { width:40px; border-width:0; padding:0; text-align:center; background:#ffffff}
 
-.content_table { width:670px; border-width:1px; background:#FFFFFF; border-color:#E0E0E0; margin-top:1px; margin-left:1px; margin-right:1px; vertical-align:top; border-style:solid; border-collapse:collapse;}
+.content_table { width:666px; border: solid 2px #E0E0E0; background:#FFFFFF; margin: 0px 0px 0px 0px; vertical-align:top; border-collapse:collapse;}
 .content_title_table1 { width:500px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
 .content_title_table2 { width:150px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
 .content_title_table3 { width:150px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
