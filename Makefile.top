@@ -545,7 +545,7 @@ inadyn/Makefile: inadyn/Makefile.in inadyn/config.h.in inadyn/configure.in
 inadyn: inadyn/Makefile
 
 inadyn-install:
-	install -D inadyn/src/inadyn $(INSTALLDIR)/ez-ipupdate/usr/sbin/inadyn
+	install -D inadyn/src/inadyn $(INSTALLDIR)/inadyn/usr/sbin/inadyn
 	$(STRIP) $(INSTALLDIR)/inadyn/usr/sbin/inadyn
 
 bpalogin/Makefile: bpalogin/Makefile.in
