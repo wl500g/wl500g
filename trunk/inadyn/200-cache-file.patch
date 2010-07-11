@@ -103,7 +103,7 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
 +	int dif;
 +
 +	if (fscanf(fp, "%ld,%16s", &dif, p_dyndns->info[0].my_ip_address.name) < 2) {
-+		DBG_PRINTF((LOG_WARNING,"DYNDNS: Error reading IP from cache\n"));
++		DBG_PRINTF((LOG_WARNING,"Error reading IP from cache\n"));
 +	}
 +	fclose(fp);
 +	DBG_PRINTF((LOG_INFO, MODULE_TAG "IP read from cache file is '%s'. No update required.\n", p_dyndns->info[0].my_ip_address.name));
