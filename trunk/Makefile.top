@@ -328,6 +328,9 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/net/tun.o \
 		$(SRCMODULESDIR)/drivers/net/imq.o \
 		$(NETFILTER_MODS_LIST)
+	# NLS
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/nls/nls_cp950.o
 	# generic usb
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/usbcore.o \
