@@ -10,9 +10,6 @@
  * $Id$
  */
 
-#define DDNSCONF
-#define DDNSDAEMON
-
 #ifdef ASUS_EXT
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,7 +87,6 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
-#if defined(__CONFIG_DNSMASQ__) || defined(DDNSCONF) || 1
 size_t
 fappend(char *name, FILE *f)
 {
@@ -109,7 +105,6 @@ fappend(char *name, FILE *f)
 	
 	return size;
 }
-#endif
 
 #ifdef __CONFIG_DNSMASQ__
 int
@@ -301,13 +296,13 @@ ddns_updated_main()
 	FILE *fp;
 	char buf[64], *ip;
 
-	if (!(fp=fopen("/tmp/ddns.cache", "r"))) return 0;
-	
+	if (!(fp = fopen("/tmp/ddns.cache", "r"))) return 0;
+
 	fgets(buf, sizeof(buf), fp);
 	fclose(fp);
 
-	if (!(ip=strchr(buf, ','))) return 0;
-	
+	if (!(ip = strchr(buf, ','))) return 0;
+
 	nvram_set("ddns_cache", buf);
 	nvram_set("ddns_ipaddr", ip+1);
 	nvram_set("ddns_status", "1");
@@ -325,26 +320,21 @@ int
 start_ddns(void)
 {
 	FILE *fp;
-//	char buf[64];
 	char *wan_ip, *ddns_cache;
-	char server[32];
-	char user[32];
-	char passwd[32];
-	char host[64];
+	char *server, *user, *passwd, *host;
+	int  wild;
 	char service[32];
-	char usrstr[64];
-	char wan_ifname[16];
-	int  wild=nvram_match("ddns_wildcard_x", "1");
+#ifdef __CONFIG_EZIPUPDATE__
+	char *wan_ifname;
+#endif
 
+	if (nvram_match("router_disable", "1") ||
+	    nvram_invmatch("ddns_enable_x", "1")) return -1;
 
-	if (nvram_match("router_disable", "1")) return -1;
-	
-	if (nvram_invmatch("ddns_enable_x", "1")) return -1;
-	
 	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
 
 	if (nvram_match("ddns_ipaddr", wan_ip) ||
-	   (inet_addr(wan_ip)==inet_addr(nvram_safe_get("ddns_ipaddr"))))
+	   (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr"))))
 	{
 		logmessage("ddns", "IP address has not changed since the last update");
 		return 0;
@@ -357,107 +347,137 @@ start_ddns(void)
         // update
 	// * nvram ddns_cache, the same with /tmp/ddns.cache
 
-
-	if ((fp=fopen("/tmp/ddns.cache", "r"))==NULL && 
-	     (ddns_cache=nvram_get("ddns_cache"))!=NULL)
+	if ((ddns_cache = nvram_get("ddns_cache")) != NULL)
 	{
-		if ((fp = fopen("/tmp/ddns.cache", "w+"))!=NULL)
+		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
+		    (fp = fopen("/tmp/ddns.cache", "w+")) != NULL)
 		{
 			fprintf(fp, "%s", ddns_cache);
 			fclose(fp);
 		}
 	}
 
-	strcpy(server, nvram_safe_get("ddns_server_x"));
-	strcpy(user, nvram_safe_get("ddns_username_x"));
-	strcpy(passwd, nvram_safe_get("ddns_passwd_x"));
-	strcpy(host, nvram_safe_get("ddns_hostname_x"));
+	server = nvram_safe_get("ddns_server_x");
+	user = nvram_safe_get("ddns_username_x");
+	passwd = nvram_safe_get("ddns_passwd_x");
+	host = nvram_safe_get("ddns_hostname_x");
+	wild = nvram_match("ddns_wildcard_x", "1");
 	strcpy(service, "");
-			
-	if (strcmp(server, "WWW.DYNDNS.ORG")==0)
-		strcpy(service, "dyndns");			
-	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)")==0)
-		strcpy(service, "dyndns-custom");			
-	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)")==0)
-		strcpy(service, "dyndns-static");			
-	else if (strcmp(server, "WWW.TZO.COM")==0)
-		strcpy(service, "tzo");			
-	else if (strcmp(server, "WWW.ZONEEDIT.COM")==0)
+
+#ifdef __CONFIG_EZIPUPDATE__
+	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
+		strcpy(service, "dyndns");
+	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
+		strcpy(service, "dyndns-custom");
+	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
+		strcpy(service, "dyndns-static");
+	else if (strcmp(server, "WWW.TZO.COM") == 0)
+		strcpy(service, "tzo");	
+	else if (strcmp(server, "WWW.ZONEEDIT.COM") == 0)
 		strcpy(service, "zoneedit");
-	else if (strcmp(server, "WWW.JUSTLINUX.COM")==0)
+	else if (strcmp(server, "WWW.JUSTLINUX.COM") == 0)
 		strcpy(service, "justlinux");
-	else if (strcmp(server, "WWW.EASYDNS.COM")==0)
+	else if (strcmp(server, "WWW.EASYDNS.COM") == 0)
 		strcpy(service, "easydns");
-	else if (strcmp(server, "WWW.DNSOMATIC.COM")==0)
+	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
 		strcpy(service, "dnsomatic");
 	else strcpy(service, "dyndns");
 
-	sprintf(usrstr, "%s:%s", user, passwd);
-
 	if (nvram_match("ddns_realip_x", "1"))
-		strcpy(wan_ifname, "auto");
+		wan_ifname = "auto";
 	else
 	if (nvram_match("wan_proto", "pppoe") ||
 	    nvram_match("wan_proto", "pptp")  ||
 	    nvram_match("wan_proto", "l2tp"))
-		strcpy(wan_ifname, nvram_safe_get("wan0_pppoe_ifname"));
+		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
 	else
 #ifdef __CONFIG_MADWIMAX__
 	if (nvram_match("wan_proto", "wimax"))
-		strcpy(wan_ifname, nvram_safe_get("wan0_wimax_ifname"));
+		wan_ifname = nvram_safe_get("wan0_wimax_ifname");
 	else
 #endif
-
 #ifdef __CONFIG_MODEM__
 	if (nvram_match("wan_proto", "usbmodem"))
-		strcpy(wan_ifname, nvram_safe_get("wan0_modem_ifname"));
+		wan_ifname = nvram_safe_get("wan0_modem_ifname");
 	else
 #endif
-		strcpy(wan_ifname, nvram_safe_get("wan0_ifname"));
+		wan_ifname = nvram_safe_get("wan0_ifname");
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 
-#ifdef DDNSCONF
+#elif __CONFIG_INADYN__
+	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
+		strcpy(service, "dyndns@dyndns.org");
+	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
+		strcpy(service, "customdns@dyndns.org");
+	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
+		strcpy(service, "statdns@dyndns.org");
+	else if (strcmp(server, "WWW.TZO.COM") == 0)
+		strcpy(service, "default@tzo.com");
+	else if (strcmp(server, "WWW.ZONEEDIT.COM") == 0)
+		strcpy(service, "default@zoneedit.com");
+	//else if (strcmp(server, "WWW.JUSTLINUX.COM") == 0)
+	//	strcpy(service, "default@justlinux.com");
+	else if (strcmp(server, "WWW.EASYDNS.COM") == 0)
+		strcpy(service, "default@easydns.com");
+	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
+		strcpy(service, "default@dnsomatic.com");
+	else strcpy(service, "default@dyndns.org");
+#endif
+
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
 	}
-	fprintf(fp, "service-type=%s\n", service);
-	fprintf(fp, "interface=%s\n", wan_ifname);
-	fprintf(fp, "user=%s\n", usrstr);
-	fprintf(fp, "host=%s\n", host);
-	if (wild) fprintf(fp, "wildcard\n");
+
+#ifdef __CONFIG_EZIPUPDATE__
+	fprintf(fp,
+	    "service-type=%s\n"
+	    "interface=%s\n"
+	    "user=%s:%s\n"
+	    "host=%s\n"
+	    "%s",
+	    service, wan_ifname, user, passwd, host, (wild) ? "wildcard\n" : "");
+#elif __CONFIG_INADYN__
+	fprintf(fp,
+	    "dyndns_system %s\n"
+	    "username %s\n"
+	    "password %s\n"
+	    "alias %s\n"
+	    "%s",
+	    service, user, passwd, host, (wild) ? "wildcard\n" : "");
+#endif
+
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
-#endif
+
 	if (strlen(service)>0)
 	{
+#ifdef __CONFIG_EZIPUPDATE__
 		char *ddns_argv[] = {"ez-ipupdate", 
-#ifdef DDNSDAEMON
-		"-d", "-1",
+		    "-d", "-1",
+		    "-c", "/etc/ddns.conf",
+		    "-e", "/sbin/ddns_updated",
+		    "-b", "/tmp/ddns.cache",
+		    NULL};
+#elif __CONFIG_INADYN__
+		char *ddns_argv[] = {"inadyn", 
+		    "--background", "--iterations", "1",
+		    "--input_file", "/etc/ddns.conf",
+		    "--exec", "/sbin/ddns_updated",
+		    "--cache_file", "/tmp/ddns.cache",
+		    NULL};
 #endif
-#ifdef DDNSCONF
-		"-c", "/etc/ddns.conf",
-#else
-		"-S", service,
-	        "-i", wan_ifname,
- 		"-u", usrstr,
-		"-h", host,
-		wild ? "-w" : NULL,
-#endif
-		"-e", "/sbin/ddns_updated",
-		"-b", "/tmp/ddns.cache",
-		NULL};	
 		pid_t pid;
 
 		dprintf("ddns update %s %s\n", server, service);
 		nvram_unset("ddns_cache");
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
-#ifdef DDNSDAEMON
+#ifdef __CONFIG_EZIPUPDATE__
 		eval("killall", "-SIGQUIT", "ez-ipupdate");
-#else
-		eval("killall", "ez-ipupdate");
+#elif __CONFIG_INADYN__
+		eval("killall", "inadyn");
 #endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
@@ -467,11 +487,12 @@ start_ddns(void)
 int 
 stop_ddns(void)
 {
-#ifdef DDNSDAEMON
+#ifdef __CONFIG_EZIPUPDATE__
 	int ret = eval("killall", "-SIGQUIT", "ez-ipupdate");
-#else
-	int ret = eval("killall", "ez-ipupdate");
+#elif __CONFIG_INADYN__
+	int ret = eval("killall", "inadyn");
 #endif
+
 	dprintf("done\n");
 	return ret;
 }

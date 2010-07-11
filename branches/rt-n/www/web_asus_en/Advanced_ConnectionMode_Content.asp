@@ -208,7 +208,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('This field allows you to configure to terminate your ISP connection after a specified period of time.', LEFT);"
+				onmouseout="return nd();">
 				Idle time before disconnect (sec):
 			</td>
 			<td class="content_input_td">
@@ -218,7 +219,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('That is Maximum Transmission Unit(MTU) of PPP packet.', LEFT);"
+				onmouseout="return nd()">
 				MTU
 			</td>
 			<td class="content_input_td">
@@ -228,7 +230,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('That is Maximum Receive Unit(MRU) of PPP packet.', LEFT);"
+				onmouseout="return nd();">
 				MRU
 			</td>
 			<td class="content_input_td">
@@ -284,7 +287,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify USB vendor ID manually. If Autodetect device option is enabled, the router will define it automatically.')"
+				onmouseout="return nd()">
 				USB device Vendor ID (0xabcd):
 			</td>
 			<td class="content_input_td">
@@ -294,7 +298,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify USB product ID manually. If Autodetect device option is enabled, the router will define it automatically.')"
+				onmouseout="return nd()">
 				USB device Product ID (0xefgh):
 			</td>
 			<td class="content_input_td">
@@ -339,7 +344,8 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
+			<td class="content_header_td" onmouseover="return overlib('This item may be specified by some ISPs. Check with your ISP and fill them in if required.', LEFT);"
+				onmouseout="return nd();">
 				Additional pppd options:
 			</td>
 			<td class="content_input_td">

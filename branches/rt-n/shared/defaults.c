@@ -221,12 +221,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_net_reauth", "36000", 0 },	/* Network Re-auth/PMK caching duration */
 	{ "wl_akm", "", 0 },			/* Authenticated Key Management list */
 
-#ifdef __CONFIG_SES__
-	/* SES parameters */
-	{ "ses_enable", "1", 0 },		/* enable ses */
-	{ "ses_event", "2", 0 },		/* initial ses event */
-#endif /* __CONFIG_SES__ */
-
 	/* WME parameters */
 	{ "wl_wme", "on", 0 },		/* WME mode (off|on|auto) */
 	{ "wl_wme_no_ack", "off", 0},		/* WME No-Acknowledgmen mode */

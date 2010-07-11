@@ -30,14 +30,12 @@ CONFIG_VENDOR=broadcom
 CONFIG_UDHCPD=y
 # CONFIG_PPP is not set
 # CONFIG_NAS is not set
-# CONFIG_SES is not set
 # CONFIG_EZC is not set
 CONFIG_NTP=y
 # CONFIG_DNSMASQ is not set
 # CONFIG_UTILS is not set
 # CONFIG_ETC is not set
 # CONFIG_BCMWPA2 is not set
-# CONFIG_WCN is not set
 
 #
 # Additional C libraries
