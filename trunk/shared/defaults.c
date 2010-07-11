@@ -186,12 +186,6 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_net_reauth", "36000", 0 },	/* Network Re-auth/PMK caching duration */
 	{ "wl_akm", "", 0 },			/* WPA akm list */
 
-#ifdef __CONFIG_SES__
-	/* SES parameters */
-	{ "ses_enable", "1", 0 },		/* enable ses */
-	{ "ses_event", "2", 0 },		/* initial ses event */
-#endif /* __CONFIG_SES__ */
-
 	/* WME parameters */
 	/* EDCA parameters for STA */
 	{ "wl_wme_sta_bk", "15 1023 7 0 0 off", 0 },	/* WME STA AC_BK paramters */
