@@ -10,9 +10,6 @@
  * $Id$
  */
 
-#define DDNSCONF
-#define DDNSDAEMON
-
 #ifdef ASUS_EXT
 #include <stdio.h>
 #include <stdlib.h>
@@ -90,7 +87,6 @@ void diag_PaN(void)
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
-#if defined(__CONFIG_DNSMASQ__) || defined(DDNSCONF) || 1
 size_t
 fappend(char *name, FILE *f)
 {
@@ -109,7 +105,6 @@ fappend(char *name, FILE *f)
 	
 	return size;
 }
-#endif
 
 #ifdef __CONFIG_DNSMASQ__
 int
@@ -417,7 +412,6 @@ start_ddns(void)
 
 	dprintf("wan_ifname: %s\n\n\n\n", wan_ifname);
 
-#ifdef DDNSCONF
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
 		perror("/etc/ddns.conf");
 		return errno;
@@ -429,22 +423,12 @@ start_ddns(void)
 	if (wild) fprintf(fp, "wildcard\n");
 	fappend("/usr/local/etc/ddns.conf", fp);
 	fclose(fp);
-#endif
+
 	if (strlen(service)>0)
 	{
 		char *ddns_argv[] = {"ez-ipupdate", 
-#ifdef DDNSDAEMON
 		"-d", "-1",
-#endif
-#ifdef DDNSCONF
 		"-c", "/etc/ddns.conf",
-#else
-		"-S", service,
-	        "-i", wan_ifname,
- 		"-u", usrstr,
-		"-h", host,
-		wild ? "-w" : NULL,
-#endif
 		"-e", "/sbin/ddns_updated",
 		"-b", "/tmp/ddns.cache",
 		NULL};	
@@ -454,11 +438,7 @@ start_ddns(void)
 		nvram_unset("ddns_cache");
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
-#ifdef DDNSDAEMON
 		eval("killall", "-SIGQUIT", "ez-ipupdate");
-#else
-		eval("killall", "ez-ipupdate");
-#endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
 	return 0;
@@ -467,11 +447,8 @@ start_ddns(void)
 int 
 stop_ddns(void)
 {
-#ifdef DDNSDAEMON
 	int ret = eval("killall", "-SIGQUIT", "ez-ipupdate");
-#else
-	int ret = eval("killall", "ez-ipupdate");
-#endif
+
 	dprintf("done\n");
 	return ret;
 }
