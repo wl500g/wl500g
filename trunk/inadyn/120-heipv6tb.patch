@@ -1,6 +1,6 @@
 diff -BurpN inadyn.orig/include/Makefile.am inadyn/include/Makefile.am
 --- inadyn.orig/include/Makefile.am	2010-07-10 23:31:21.000000000 +0000
-+++ inadyn/include/Makefile.am	2010-07-11 06:57:31.000000000 +0000
++++ inadyn/include/Makefile.am	2010-07-11 10:09:26.000000000 +0000
 @@ -19,6 +19,7 @@
  #  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  
@@ -10,28 +10,28 @@ diff -BurpN inadyn.orig/include/Makefile.am inadyn/include/Makefile.am
  	dyndns.h \
  	errorcode.h \
 diff -BurpN inadyn.orig/include/dyndns.h inadyn/include/dyndns.h
---- inadyn.orig/include/dyndns.h	2010-07-11 07:05:29.000000000 +0000
-+++ inadyn/include/dyndns.h	2010-07-11 07:10:47.000000000 +0000
-@@ -45,6 +45,7 @@ typedef enum
-     EASYDNS_DEFAULT,
+--- inadyn.orig/include/dyndns.h	2010-07-11 10:06:49.000000000 +0000
++++ inadyn/include/dyndns.h	2010-07-11 10:12:18.000000000 +0000
+@@ -46,6 +46,7 @@ typedef enum
+     TZO_DEFAULT,
      DYNDNS_3322_DYNAMIC,
      DNSOMATIC_DEFAULT,
 +    HE_IPV6TB,
      LAST_DNS_SYSTEM = -1
  } DYNDNS_SYSTEM_ID;
  
-@@ -145,6 +146,17 @@ typedef enum
+@@ -162,6 +163,17 @@ typedef enum
  	"Host: %s\r\n" \
  	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
  
 +/* HE tunnelbroker.com specific update request format */
 +#define HE_IPV6TB_UPDATE_MY_IP_REQUEST_FORMAT \
-+    "GET http://%s:%d%s" \
++    "GET %s" \
 +	"ipv4b=%s&" \
 +	"user_id=%s&" \
 +	"pass=%s&" \
 +	"tunnel_id=%s " \
-+	"HTTP/1.0\r\n" \
++	 "HTTP/1.0\r\n" \
 +	"Host: %s\r\n" \
 +	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
 +
@@ -40,7 +40,7 @@ diff -BurpN inadyn.orig/include/dyndns.h inadyn/include/dyndns.h
  
 diff -BurpN inadyn.orig/include/md5.h inadyn/include/md5.h
 --- inadyn.orig/include/md5.h	1970-01-01 00:00:00.000000000 +0000
-+++ inadyn/include/md5.h	2010-07-11 06:57:43.000000000 +0000
++++ inadyn/include/md5.h	2010-07-11 10:09:26.000000000 +0000
 @@ -0,0 +1,139 @@
 +/* md5.h - Declaration of functions and data types used for MD5 sum
 +   computing library functions.
@@ -183,7 +183,7 @@ diff -BurpN inadyn.orig/include/md5.h inadyn/include/md5.h
 +#endif
 diff -BurpN inadyn.orig/src/Makefile.am inadyn/src/Makefile.am
 --- inadyn.orig/src/Makefile.am	2010-07-10 23:31:21.000000000 +0000
-+++ inadyn/src/Makefile.am	2010-07-11 06:55:02.000000000 +0000
++++ inadyn/src/Makefile.am	2010-07-11 10:09:26.000000000 +0000
 @@ -25,7 +25,8 @@ INCLUDES=-I$(top_srcdir)/include/
  bin_PROGRAMS = inadyn
  
@@ -194,10 +194,9 @@ diff -BurpN inadyn.orig/src/Makefile.am inadyn/src/Makefile.am
  	dyndns.c \
  	errorcode.c \
  	get_cmd.c \
-diff -BurpN inadyn.orig/src/Makefile.in inadyn/src/Makefile.in
 diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
---- inadyn.orig/src/dyndns.c	2010-07-11 07:05:29.000000000 +0000
-+++ inadyn/src/dyndns.c	2010-07-11 07:04:49.000000000 +0000
+--- inadyn.orig/src/dyndns.c	2010-07-11 10:06:49.000000000 +0000
++++ inadyn/src/dyndns.c	2010-07-11 10:11:19.000000000 +0000
 @@ -41,8 +41,11 @@ Author: Narcis Ilisei
  #include "dyndns.h"
  #include "debug_if.h"
@@ -210,22 +209,23 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
  /* DNS systems specific configurations*/
  
  DYNDNS_ORG_SPECIFIC_DATA dyndns_org_dynamic = {"dyndns"};
-@@ -54,12 +57,14 @@ static int get_req_for_freedns_server(DY
- static int get_req_for_generic_http_dns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
- static int get_req_for_noip_http_dns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
+@@ -56,6 +59,7 @@ static int get_req_for_noip_http_dns_ser
+ static int get_req_for_zoneedit_http_dns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
  static int get_req_for_easydns_http_dns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
+ static int get_req_for_tzo_http_dns_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
 +static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info);
  
  static BOOL is_dyndns_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
  static BOOL is_freedns_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
- static BOOL is_generic_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
+@@ -63,6 +67,7 @@ static BOOL is_generic_server_rsp_ok( DY
  static BOOL is_zoneedit_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
  static BOOL is_easydns_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
+ static BOOL is_tzo_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
 +static BOOL is_he_ipv6_server_rsp_ok( DYN_DNS_CLIENT *p_self, char*p_rsp, int infcnt, char* p_ok_string);
  
  DYNDNS_SYSTEM_INFO dns_system_table[] = 
  { 
-@@ -130,6 +135,13 @@ DYNDNS_SYSTEM_INFO dns_system_table[] = 
+@@ -140,6 +145,13 @@ DYNDNS_SYSTEM_INFO dns_system_table[] = 
  	    DYNDNS_MY_IP_SERVER, DYNDNS_MY_IP_SERVER_URL,
  			"updates.dnsomatic.com", "/nic/update?", NULL}},
  
@@ -239,8 +239,8 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
      {CUSTOM_HTTP_BASIC_AUTH, 
          {"custom@http_svr_basic_auth", NULL,  
              (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_generic_server_rsp_ok, 
-@@ -251,6 +263,28 @@ static int get_req_for_easydns_http_dns_
- 		);
+@@ -276,6 +288,26 @@ static int get_req_for_tzo_http_dns_serv
+ 	    p_self->info[infcnt].dyndns_server_name.name);
  }
  
 +static int get_req_for_he_ipv6tb_server(DYN_DNS_CLIENT *p_self, int infcnt, int alcnt, DYNDNS_SYSTEM *p_sys_info)
@@ -255,8 +255,6 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
 +	for(i = 0; i < MD5_DIGEST_BYTES; i++)
 +		sprintf(&digeststr[i*2], "%02x", digestbuf[i]);
 +	return sprintf(p_self->p_req_buffer, HE_IPV6TB_UPDATE_MY_IP_REQUEST_FORMAT,
-+	    p_self->info[infcnt].dyndns_server_name.name,
-+	    p_self->info[infcnt].dyndns_server_name.port,
 +	    p_self->info[infcnt].dyndns_server_url,
 +	    p_self->info[infcnt].my_ip_address.name,
 +	    p_self->info[infcnt].credentials.my_username,
@@ -268,8 +266,8 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
  static int get_req_for_ip_server(DYN_DNS_CLIENT *p_self, int infcnt, void *p_specific_data)
  {
      return sprintf(p_self->p_req_buffer, DYNDNS_GET_MY_IP_HTTP_REQUEST,
-@@ -466,6 +500,16 @@ BOOL is_easydns_server_rsp_ok( DYN_DNS_C
- 	return (strstr(p_rsp, "NOERROR") != NULL);
+@@ -498,6 +530,16 @@ static BOOL is_tzo_server_rsp_ok( DYN_DN
+ 	return (strstr(p_rsp, " HTTP/1.%*c 302") == NULL);
  }
  
 +/* HE ipv6 tunnelbroker specific response validator.
@@ -286,10 +284,10 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
  {
  	int i, j;
 diff -BurpN inadyn.orig/src/inadyn_cmd.c inadyn/src/inadyn_cmd.c
---- inadyn.orig/src/inadyn_cmd.c	2010-07-11 07:05:29.000000000 +0000
-+++ inadyn/src/inadyn_cmd.c	2010-07-11 06:58:15.000000000 +0000
-@@ -114,6 +114,7 @@ static CMD_DESCRIPTION_TYPE cmd_options_
-             "\t\t-For easydns.com: default@easydns.com\n"
+--- inadyn.orig/src/inadyn_cmd.c	2010-07-11 10:06:49.000000000 +0000
++++ inadyn/src/inadyn_cmd.c	2010-07-11 10:09:26.000000000 +0000
+@@ -115,6 +115,7 @@ static CMD_DESCRIPTION_TYPE cmd_options_
+             "\t\t-For tzo.com: default@tzo.com\n"
              "\t\t-For 3322.org: dyndns@3322.org\n"
              "\t\t-For dnsomatic.com: default@dnsomatic.com\n"
 +            "\t\t-For tunnelbroker.net: ipv6tb@he.net\n"
@@ -298,7 +296,7 @@ diff -BurpN inadyn.orig/src/inadyn_cmd.c inadyn/src/inadyn_cmd.c
  
 diff -BurpN inadyn.orig/src/md5.c inadyn/src/md5.c
 --- inadyn.orig/src/md5.c	1970-01-01 00:00:00.000000000 +0000
-+++ inadyn/src/md5.c	2010-07-11 06:55:22.000000000 +0000
++++ inadyn/src/md5.c	2010-07-11 10:09:26.000000000 +0000
 @@ -0,0 +1,391 @@
 +/* md5.c - Functions to compute MD5 message digest of files or memory blocks
 +   according to the definition of MD5 in RFC 1321 from April 1992.
