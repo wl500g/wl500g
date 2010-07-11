@@ -16,7 +16,8 @@ ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 endif
 
-CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall -DASUS_EXT $(GLOBAL_OPTIONS)
+CFLAGS	+= -DASUS_EXT $(GLOBAL_OPTIONS)
+CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
 CFLAGS	+= -s -O2 $(EXTRACFLAGS)
@@ -25,29 +26,21 @@ LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -lpthread -Wl
 MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))
 STAMP := .stamp-$(MODEL)
 
-OBJS := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
-    crc.o mtd.o common_ex.o network_ex.o firewall_ex.o services_ex.o \
+OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
+    crc.o mtd.o common_ex.o network_ex.o firewall.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
     bigpond.o qos.o rcamd.o
 
 CFLAGS += -DBROKEN_IPV6_CONNTRACK
 
+OBJS-$(CONFIG_WAVESERVER) += waveserver.o
+OBJS-$(CONFIG_NETCONF) += firewall_ex.o
+OBJS-$(CONFIG_MADWIMAX) += wimax.o
+OBJS-$(CONFIG_MODEM) += usbmodem.o
+
 ifeq ($(CONFIG_NETCONF),y)
-OBJS += firewall.o
 CFLAGS += -DWEBSTRFILTER
 LDFLAGS += -L$(TOP)/netconf -lnetconf
-endif
-
-ifeq ($(CONFIG_MADWIMAX),y)
-OBJS += wimax.o
-endif
-
-ifeq ($(CONFIG_MODEM),y)
-OBJS += usbmodem.o
-endif
-
-ifeq ($(CONFIG_WAVESERVER),y)
-OBJS += waveserver.o
 endif
 
 ifeq ($(CONFIG_SENTRY5),y)
@@ -65,44 +58,43 @@ install: all
 	install -d $(INSTALLDIR)/sbin
 	install rc $(INSTALLDIR)/sbin
 	$(STRIP) $(INSTALLDIR)/sbin/rc
-	cd $(INSTALLDIR)/sbin && ln -sf rc init
-	cd $(INSTALLDIR)/sbin && ln -sf rc erase
-	cd $(INSTALLDIR)/sbin && ln -sf rc write
-	cd $(INSTALLDIR)/sbin && ln -sf rc flash
-	cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
-	cd $(INSTALLDIR)/sbin && ln -sf rc halt
-	cd $(INSTALLDIR)/sbin && ln -sf rc reboot
-	cd $(INSTALLDIR)/sbin && ln -sf rc poweron
+	ln -sf rc $(INSTALLDIR)/sbin/init
+	ln -sf rc $(INSTALLDIR)/sbin/erase
+	ln -sf rc $(INSTALLDIR)/sbin/write
+	ln -sf rc $(INSTALLDIR)/sbin/flash
+	ln -sf rc $(INSTALLDIR)/sbin/hotplug
+	ln -sf rc $(INSTALLDIR)/sbin/halt
+	ln -sf rc $(INSTALLDIR)/sbin/reboot
+	ln -sf rc $(INSTALLDIR)/sbin/poweron
 
 	# Added by ASUS
-	cd $(INSTALLDIR)/sbin && ln -sf rc stopservice
-	cd $(INSTALLDIR)/sbin && ln -sf rc ddns_updated
-	cd $(INSTALLDIR)/sbin && ln -sf rc watchdog
-	cd $(INSTALLDIR)/sbin && ln -sf rc sendalarm
-	cd $(INSTALLDIR)/sbin && ln -sf rc rmwebcam
-	cd $(INSTALLDIR)/sbin && ln -sf rc rmstorage
-	cd $(INSTALLDIR)/sbin && ln -sf rc wsrom
-	cd $(INSTALLDIR)/sbin && ln -sf rc rsrom
-	cd $(INSTALLDIR)/sbin && ln -sf rc wmac
-	cd $(INSTALLDIR)/sbin && ln -sf rc ntp	
-	cd $(INSTALLDIR)/sbin && ln -sf rc rcamdmain
+	ln -sf rc $(INSTALLDIR)/sbin/stopservice
+	ln -sf rc $(INSTALLDIR)/sbin/ddns_updated
+	ln -sf rc $(INSTALLDIR)/sbin/watchdog
+	ln -sf rc $(INSTALLDIR)/sbin/sendalarm
+	ln -sf rc $(INSTALLDIR)/sbin/rmwebcam
+	ln -sf rc $(INSTALLDIR)/sbin/rmstorage
+	ln -sf rc $(INSTALLDIR)/sbin/wsrom
+	ln -sf rc $(INSTALLDIR)/sbin/rsrom
+	ln -sf rc $(INSTALLDIR)/sbin/wmac
+	ln -sf rc $(INSTALLDIR)/sbin/ntp
+	ln -sf rc $(INSTALLDIR)/sbin/rcamdmain
 ifeq ($(CONFIG_WAVESERVER),y)
-	cd $(INSTALLDIR)/sbin && ln -sf rc waveservermain
+	ln -sf rc $(INSTALLDIR)/sbin/waveservermain
 endif
-	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_connect	
-	cd $(INSTALLDIR)/sbin && ln -sf rc bpa_disconnect
-	cd $(INSTALLDIR)/sbin && ln -sf rc restore
-	cd $(INSTALLDIR)/sbin && ln -sf rc start_ddns
-	cd $(INSTALLDIR)/sbin && ln -sf rc start_ftpd
-	cd $(INSTALLDIR)/sbin && ln -sf rc wlan_update
+	ln -sf rc $(INSTALLDIR)/sbin/bpa_connect
+	ln -sf rc $(INSTALLDIR)/sbin/bpa_disconnect
+	ln -sf rc $(INSTALLDIR)/sbin/restore
+	ln -sf rc $(INSTALLDIR)/sbin/start_ddns
+	ln -sf rc $(INSTALLDIR)/sbin/start_ftpd
+	ln -sf rc $(INSTALLDIR)/sbin/wlan_update
 
 
 $(STAMP):
 	$(MAKE) clean
 	touch $(STAMP)
 
-$(OBJS): $(STAMP)
+$(OBJS-y): $(STAMP)
 
-rc: $(OBJS)
+rc: $(OBJS-y)
 	$(CC) -o $@ $^ $(LDFLAGS)
-	
