@@ -581,6 +581,14 @@ void convert_asus_values()
 	}
 #endif
 
+	if (nvram_invmatch("usb_smbcset_x", "utf8"))
+	{
+		char *cpname = nvram_safe_get("usb_smbcset_x");
+
+		sprintf(sbuf, "nls_%s%s", (atoi(cpname) > 0) ? "cp" : "", cpname);
+		eval("insmod", sbuf);
+	}
+
         //2005/09/22 insmod FTP module
         if (nvram_match("usb_ftpenable_x", "1") && atoi(nvram_get("usb_ftpport_x"))!=21)
         {
