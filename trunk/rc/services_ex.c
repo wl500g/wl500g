@@ -296,15 +296,25 @@ ddns_updated_main()
 	FILE *fp;
 	char buf[64], *ip;
 
-	if (!(fp=fopen("/tmp/ddns.cache", "r"))) return 0;
-	
+#ifdef __CONFIG_EZIPUPDATE__
+	if (!(fp = fopen("/tmp/ddns.cache", "r"))) return 0;
 	fgets(buf, sizeof(buf), fp);
 	fclose(fp);
+	if (!(ip = strchr(buf, ','))) return 0;
+	ip++;
+#elif __CONFIG_INADYN__
+	if (!(fp = fopen("/tmp/inadyn_time.cache", "r"))) return 0;
+	fgets(buf, sizeof(buf), fp);
+	fclose(fp);
+	ip = buf+strlen(buf);
+	*ip++ = ',';
+	if (!(fp = fopen("/tmp/inadyn_ip.cache", "r"))) return 0;
+	fgets(ip, ip-buf, fp);
+	fclose(fp);
+#endif
 
-	if (!(ip=strchr(buf, ','))) return 0;
-	
 	nvram_set("ddns_cache", buf);
-	nvram_set("ddns_ipaddr", ip+1);
+	nvram_set("ddns_ipaddr", ip);
 	nvram_set("ddns_status", "1");
 	nvram_commit();
 
@@ -327,6 +337,8 @@ start_ddns(void)
 #ifdef __CONFIG_EZIPUPDATE__
 	char *wan_ifname;
 #endif
+	time_t ddns_time;
+	char ddns_ip[32];
 
 	if (nvram_match("router_disable", "1") ||
 	    nvram_invmatch("ddns_enable_x", "1")) return -1;
@@ -347,17 +359,33 @@ start_ddns(void)
         // update
 	// * nvram ddns_cache, the same with /tmp/ddns.cache
 
-
-	if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL && 
-	     (ddns_cache=nvram_get("ddns_cache")) != NULL)
+	if ((ddns_cache = nvram_get("ddns_cache")) != NULL &&
+	    (sscanf(ddns_cache, "%ld,%31s", &ddns_time, ddns_ip) == 2))
 	{
-		if ((fp = fopen("/tmp/ddns.cache", "w+"))!=NULL)
+#ifdef __CONFIG_EZIPUPDATE__
+		if ((fp = fopen("/tmp/ddns.cache", "r")) == NULL &&
+		    (fp = fopen("/tmp/ddns.cache", "w+")) != NULL)
 		{
 			fprintf(fp, "%s", ddns_cache);
 			fclose(fp);
 		}
-	}
+#elif __CONFIG_INADYN__
+		if ((fp = fopen("/tmp/inadyn_time.cache", "r")) == NULL)
+		{
+			if ((fp = fopen("/tmp/inadyn_time.cache", "w+")) != NULL)
+			{
+				fprintf(fp, "%ld", ddns_time);
+				fclose(fp);
 
+			}
+			if ((fp = fopen("/tmp/inadyn_ip.cache", "w+")) != NULL)
+			{
+				fprintf(fp, "%s", ddns_ip);
+				fclose(fp);
+			}
+		}
+#endif
+	}
 	server = nvram_safe_get("ddns_server_x");
 	user = nvram_safe_get("ddns_username_x");
 	passwd = nvram_safe_get("ddns_passwd_x");
