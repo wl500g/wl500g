@@ -1,18 +1,18 @@
 diff -BurpN inadyn.orig/include/dyndns.h inadyn/include/dyndns.h
---- inadyn.orig/include/dyndns.h	2010-07-10 23:31:21.000000000 +0000
-+++ inadyn/include/dyndns.h	2010-07-11 06:52:18.000000000 +0000
-@@ -44,6 +44,7 @@ typedef enum
-     NOIP_DEFAULT,
+--- inadyn.orig/include/dyndns.h	2010-07-11 10:01:58.000000000 +0000
++++ inadyn/include/dyndns.h	2010-07-11 10:06:49.000000000 +0000
+@@ -45,6 +45,7 @@ typedef enum
      EASYDNS_DEFAULT,
+     TZO_DEFAULT,
      DYNDNS_3322_DYNAMIC,
 +    DNSOMATIC_DEFAULT,
      LAST_DNS_SYSTEM = -1
  } DYNDNS_SYSTEM_ID;
  
 diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
---- inadyn.orig/src/dyndns.c	2010-07-10 23:31:21.000000000 +0000
-+++ inadyn/src/dyndns.c	2010-07-11 06:51:36.000000000 +0000
-@@ -123,6 +123,13 @@ DYNDNS_SYSTEM_INFO dns_system_table[] = 
+--- inadyn.orig/src/dyndns.c	2010-07-11 10:03:49.000000000 +0000
++++ inadyn/src/dyndns.c	2010-07-11 10:06:49.000000000 +0000
+@@ -133,6 +133,13 @@ DYNDNS_SYSTEM_INFO dns_system_table[] = 
               DYNDNS_3322_MY_IP_SERVER, DYNDNS_3322_MY_IP_SERVER_URL,
  			DYNDNS_3322_MY_DNS_SERVER, DYNDNS_3322_MY_DNS_SERVER_URL, NULL}},
  
@@ -27,11 +27,11 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
          {"custom@http_svr_basic_auth", NULL,  
              (DNS_SYSTEM_SRV_RESPONSE_OK_FUNC)is_generic_server_rsp_ok, 
 diff -BurpN inadyn.orig/src/inadyn_cmd.c inadyn/src/inadyn_cmd.c
---- inadyn.orig/src/inadyn_cmd.c	2010-07-10 23:31:21.000000000 +0000
-+++ inadyn/src/inadyn_cmd.c	2010-07-11 06:52:59.000000000 +0000
-@@ -113,6 +113,7 @@ static CMD_DESCRIPTION_TYPE cmd_options_
-             "\t\t-For no-ip.com: default@no-ip.com\n"
+--- inadyn.orig/src/inadyn_cmd.c	2010-07-11 10:04:14.000000000 +0000
++++ inadyn/src/inadyn_cmd.c	2010-07-11 10:06:49.000000000 +0000
+@@ -114,6 +114,7 @@ static CMD_DESCRIPTION_TYPE cmd_options_
              "\t\t-For easydns.com: default@easydns.com\n"
+             "\t\t-For tzo.com: default@tzo.com\n"
              "\t\t-For 3322.org: dyndns@3322.org\n"
 +            "\t\t-For dnsomatic.com: default@dnsomatic.com\n"
  			"\t\t-For generic: custom@http_svr_basic_auth\n"
