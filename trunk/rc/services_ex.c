@@ -413,8 +413,8 @@ start_ddns(void)
 		strcpy(service, "customdns@dyndns.org");
 	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
 		strcpy(service, "statdns@dyndns.org");
-	//else if (strcmp(server, "WWW.TZO.COM")==0)
-	//	strcpy(service, "default@tzo.com");
+	else if (strcmp(server, "WWW.TZO.COM") == 0)
+		strcpy(service, "default@tzo.com");
 	else if (strcmp(server, "WWW.ZONEEDIT.COM") == 0)
 		strcpy(service, "default@zoneedit.com");
 	//else if (strcmp(server, "WWW.JUSTLINUX.COM") == 0)
