@@ -32,14 +32,12 @@ CONFIG_UDHCPD=y
 CONFIG_PPP=y
 CONFIG_UPNP=y
 CONFIG_NAS=y
-# CONFIG_SES is not set
 # CONFIG_EZC is not set
 CONFIG_NTP=y
 CONFIG_DNSMASQ=y
 # CONFIG_UTILS is not set
 # CONFIG_ETC is not set
 CONFIG_BCMWPA2=y
-# CONFIG_WCN is not set
 
 #
 # Additional C libraries

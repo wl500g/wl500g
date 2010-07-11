@@ -160,11 +160,6 @@ config CONFIG_NAS
        depends on CONFIG_NVRAM && CONFIG_SHARED
        default y
 
-config CONFIG_SES
-       bool "Secure Easy Setup configurator"
-       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_LIBBCM
-       default y
-
 config CONFIG_EZC
        bool "EZConfig Setup (Phase 1)"
        depends on CONFIG_HTTPD
@@ -200,15 +195,6 @@ config CONFIG_RCS
 config CONFIG_BCMWPA2
        bool "WPA2 Config"
        default y
-
-config CONFIG_WCN
-       bool "Windows Connect Now support"
-	   depends on CONFIG_NVRAM && CONFIG_SHARED
-       default n
-       help
-       Answer Y to enable support for Windows Connect Now - a method 
-	   to configure wireless networks via USB Flash Devices.
-	   (Requires CONFIG_WCN and dependents be configured into the kernel.)
 
 endmenu
 

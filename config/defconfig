@@ -36,7 +36,6 @@ CONFIG_DNSMASQ=y
 CONFIG_UTILS=y
 # CONFIG_ETC is not set
 CONFIG_BCMWPA2=y
-# CONFIG_WCN is not set
 
 #
 # Asus stuff
