@@ -166,6 +166,7 @@ obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
 obj-$(CONFIG_IGMPPROXY) += igmpproxy
 obj-$(CONFIG_VSFTPD) += vsftpd
+obj-$(CONFIG_INADYN) += inadyn
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
@@ -529,6 +530,20 @@ ez-ipupdate: ez-ipupdate/Makefile
 ez-ipupdate-install:
 	install -D ez-ipupdate/ez-ipupdate $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
 	$(STRIP) $(INSTALLDIR)/ez-ipupdate/usr/sbin/ez-ipupdate
+
+inadyn/Makefile.in: inadyn/Makefile.am inadyn/configure.ac
+	NOCONFIGURE="yes" inadyn/autogen.sh
+
+inadyn/Makefile: inadyn/Makefile.in inadyn/config.h.in inadyn/configure.in
+	cd inadyn && CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	ac_cv_func_malloc_0_nonnull="yes" ac_cv_func_realloc_0_nonnull="yes" \
+	$(CONFIGURE)
+
+inadyn: inadyn/Makefile
+
+inadyn-install:
+	install -D inadyn/src/inadyn $(INSTALLDIR)/ez-ipupdate/usr/sbin/inadyn
+	$(STRIP) $(INSTALLDIR)/inadyn/usr/sbin/inadyn
 
 bpalogin/Makefile: bpalogin/Makefile.in
 	cd bpalogin && CC=$(CC) CFLAGS="-g -Os $(EXTRACFLAGS)" \

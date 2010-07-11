@@ -226,9 +226,17 @@ config CONFIG_PPPOERELAY
 	bool "PPPOE-relay"
 	default y
 
+choice
+	prompt "Dynamic DNS support"
+	default CONFIG_EZIPUPDATE
+
 config CONFIG_EZIPUPDATE
-	bool "DynDNS support"
-	default y
+	bool "ez-ipupdate"
+
+config CONFIG_INADYN
+       bool "inadyn"
+
+endchoice
 
 config CONFIG_VSFTPD
 	bool "vsftpd server"

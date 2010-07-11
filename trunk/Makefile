@@ -46,6 +46,7 @@ IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.2.2
 UDPXY=udpxy-1.0-Chipmunk-16
 NTPCLIENT=ntpclient-2007_365
+INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
@@ -88,7 +89,7 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
-	ntpclient bpalogin bridge ez-ipupdate httpd jpeg-6b lib LPRng \
+	ntpclient bpalogin bridge ez-ipupdate inadyn httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips \
 	scsi-idle libusb usb_modeswitch wimax lltd \
 	shared upnp utils wlconf www libbcmcrypto asustrx cdma
@@ -463,6 +464,17 @@ $(TOP)/ez-ipupdate:
 ez-ipupdate: $(TOP)/ez-ipupdate
 	@true
 
+inadyn_Patches := $(call patches_list,inadyn)
+
+$(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
+	@rm -rf $(TOP)/$(INADYN) $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(INADYN) $(inadyn_Patches)
+	mv $(TOP)/$(INADYN) $@ && touch $@
+
+inadyn: $(TOP)/inadyn
+	@true
+
 $(TOP)/bpalogin: bpalogin.tar.bz2
 	tar -xjf bpalogin.tar.bz2 -C $(TOP)
 	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
@@ -625,5 +637,5 @@ www: $(TOP)/www
 #	    $(call make_diff,-BurpN,router,gateway,$*)
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-shared www \
-	accel-pptp busybox dropbear ez-ipupdate httpd iptables others \
+	accel-pptp busybox dropbear ez-ipupdate inadyn httpd iptables others \
 	rc rcamdmips jpeg-6b config igmpproxy iproute2 lib shared utils
