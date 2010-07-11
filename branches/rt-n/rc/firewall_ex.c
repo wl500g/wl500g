@@ -1000,8 +1000,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
                         memset(nvname, 0, sizeof(nvname));
                         sprintf(nvname, "url_keyword_x%d", i);
                         filterstr =  nvram_safe_get(nvname);
-                        if(strcmp(filterstr,"") && nvram_invmatch("url_date_x", "0000000"))
-                                fprintf(fp,"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j DROP\n", timef, filterstr); //2008.10 magic
+                        if (strcmp(filterstr, "") && nvram_invmatch("url_date_x", "0000000"))
+                                fprintf(fp,"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n", timef, filterstr);
                 }
         }
 #endif
