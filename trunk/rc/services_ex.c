@@ -423,7 +423,7 @@ start_ddns(void)
 		strcpy(service, "default@easydns.com");
 	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
 		strcpy(service, "default@dnsomatic.com");
-	else strcpy(service, "dyndns");
+	else strcpy(service, "default@dyndns.org");
 #endif
 
 	if (!(fp = fopen("/etc/ddns.conf", "w"))) {
