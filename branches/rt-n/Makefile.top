@@ -570,10 +570,11 @@ radvd-install:
 
 quagga/Makefile: quagga/Makefile.in
 	cd quagga && CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix="/usr" \
-	 --disable-bgp-announce --disable-ipv6 \
+	$(CONFIGURE) --prefix=/usr --localstatedir=/var/run --sysconfdir=/etc/quagga/ \
+	 --disable-bgp-announce --disable-ipv6 --enable-multipath=8 \
 	 $(if $(CONFIG_LINUX_26),,--enable-linux24-tcp-md5) \
 	 --disable-vtysh --disable-bgpd --disable-watchquagga --disable-static \
+	 quagga_cv_ipforward_method=proc \
 	 ac_cv_func_realloc_0_nonnull=yes ac_cv_func_malloc_0_nonnull=yes \
 	 ac_cv_have_decl_CLOCK_MONOTONIC=no
 
