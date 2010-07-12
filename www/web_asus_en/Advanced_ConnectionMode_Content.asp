@@ -143,7 +143,7 @@
 						GPRS/EDGE/UMTS/HSPDA</option>
 					<option class="content_input_fd" value="3" <%nvram_match_x("LANHostConfig","wan_modem_type", "3","selected"); %>>
 						Dialup</option>
-					<option class="content_input_fd" value="1" <%nvram_match_x("LANHostConfig","wan_modem_type", "99","selected"); %>>
+					<option class="content_input_fd" value="99" <%nvram_match_x("LANHostConfig","wan_modem_type", "99","selected"); %>>
 						User defined</option>
 				</select>
 			</td>
