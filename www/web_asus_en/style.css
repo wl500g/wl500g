@@ -16,19 +16,18 @@
 .navbar		{ background: #cc0000; color: white; }
 .edge		{ background-image: url(repeat_edge_new.gif); width: 100% }
 .label		{ font-family: Verdana, sans-serif; font-size: 16pt; font-weight: bold }
-.bold		{ font-weight: bold }		  
+.bold		{ font-weight: bold }
 
 .list_background { background: #660066; color: #000000; }
 
-.content_table td {border: solid 1px}
-.content_table tr {border: solid 1px}
+.content_table td {border: inset 1px #E0E0E0;}
 .content_table pre { width:666px; height:430px; overflow: auto;}
 
 .page_table {background:#660066; width:800px; border:0; margin-top:0; margin-left:0}
 .list_table1 { width:40px; border-width:0; padding:0; height:115px; text-align:center; background:#ffffff}
 .list_table2 { width:40px; border-width:0; padding:0; text-align:center; background:#ffffff}
 
-.content_table { width:666px; border: solid 2px #E0E0E0; background:#FFFFFF; margin: 0px 0px 0px 0px; vertical-align:top; border-collapse:collapse;}
+.content_table { width:666px; border: solid 1px #E0E0E0; background:#FFFFFF; margin: 0; border-collapse:separate; padding: 0; border-spacing:0; }
 .content_title_table1 { width:500px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
 .content_title_table2 { width:150px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}
 .content_title_table3 { width:150px; background:#CCFF00; margin-top:0; margin-left:0; margin-right:0; vertical-align:top}

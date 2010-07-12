@@ -376,8 +376,9 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
-				Max number of reconnection attempts:
+			<td class="content_header_td" onmouseover="return overlib('If this parameter is not zero, then Failure event script will be started after max number of reconnections.', LEFT);"
+				onmouseout="return nd();">
+				Max number of reconnections (0 for unlimit):
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="10" class="content_input_fd" size="32" name="wan_modem_maxfail"
