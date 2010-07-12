@@ -347,6 +347,12 @@ config CONFIG_IGMPPROXY
        It's intended for simple forwarding of Multicast traffic 
        between networks.
 
+config CONFIG_RIPD
+       bool "RIP/OSPF listener support"
+       default y
+       help
+       Quagga is free software that manages various IPv4 and IPv6 routing protocols.
+
 config CONFIG_SCSIIDLE
        bool "SCSI start & stop"
        default y
