@@ -39,6 +39,7 @@ LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_4
 RADVD=radvd-1.6
+QUAGGA=quagga-0.99.16
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.6
 BRIDGE=bridge-utils-1.0.6
@@ -90,7 +91,7 @@ all: prep custom
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
-	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
+	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate inadyn httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd ntfs-3g\
@@ -345,6 +346,17 @@ $(TOP)/radvd: radvd/$(RADVD).tar.gz
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
+	@true
+
+quagga_Patches := $(call patches_list,quagga)
+
+$(TOP)/quagga: quagga/$(QUAGGA).tar.gz
+	@rm -rf $(TOP)/$(QUAGGA) $@
+	tar -xzf quagga/$(QUAGGA).tar.gz -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(QUAGGA) $(quagga_Patches)
+	mv $(TOP)/$(QUAGGA) $@
+
+quagga: $(TOP)/quagga
 	@true
 
 $(TOP)/netconf:
