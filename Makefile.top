@@ -170,6 +170,7 @@ obj-$(CONFIG_INADYN) += inadyn
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
+obj-$(CONFIG_MODEM) += cdma
 obj-$(CONFIG_LLTD) += lltd
 obj-y += udpxy
 
@@ -389,9 +390,6 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 ifeq ($(CONFIG_WAVESERVER),y)
 	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
 endif
-ifeq ($(CONFIG_MODEM),y)
-	$(MAKE) cdma-install
-endif
 	# Install binary Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
             ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
@@ -585,6 +583,9 @@ busybox: busybox/.config
 
 busybox-install: busybox
 	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
+
+cdma:
+	@true
 
 cdma-install:
 	$(MAKE) -C cdma install
