@@ -183,6 +183,7 @@ obj-$(CONFIG_INADYN) += inadyn
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
+obj-$(CONFIG_MODEM) += cdma
 obj-$(CONFIG_LLTD) += lltd
 obj-y += udpxy
 
@@ -190,7 +191,7 @@ obj-y += kernel
 
 # Exclude targets for non-USB router models
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax p910nd rcamdmips samba scsi-idle usb_modeswitch vsftpd ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd rcamdmips samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
 endif
 
 
@@ -383,6 +384,11 @@ modules_install-usb:
 	# usb webcams
 	# usb audio
 	# NFS
+ifeq ($(CONFIG_NFS),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/nfs/nfs$(ko)
+endif
+	# NFS
 ifeq ($(CONFIG_NFSD),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/lockd/lockd$(ko) \
@@ -410,11 +416,6 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/net/imq$(ko) \
 		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
 		$(NETFILTER_MODS_LIST)
-	# NFS
-ifeq ($(CONFIG_NFS),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/nfs/nfs$(ko)
-endif
 	# other
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
@@ -437,9 +438,6 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	# statically linked ASUS shit
 ifeq ($(CONFIG_WAVESERVER),y)
 	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
-endif
-ifeq ($(CONFIG_MODEM),y)
-	$(MAKE) cdma-install
 endif
 	# Install binary Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
@@ -652,6 +650,9 @@ busybox: busybox/.config
 
 busybox-install: busybox
 	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
+
+cdma:
+	@true
 
 cdma-install:
 	$(MAKE) -C cdma install
