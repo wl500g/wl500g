@@ -398,7 +398,7 @@ start_ddns(void)
 #endif
 #ifdef __CONFIG_MODEM__
 	if (nvram_match("wan_proto", "usbmodem"))
-		wan_ifname = nvram_safe_get("wan0_modem_ifname");
+		wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
 	else
 #endif
 		wan_ifname = nvram_safe_get("wan0_ifname");
