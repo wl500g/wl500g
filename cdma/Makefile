@@ -5,7 +5,7 @@
 
 all:
 
-install: 
-	cp -r files/* $(TARGETDIR)
+install:
+	cp -r files/* $(INSTALLDIR)/cdma
 
 clean:
