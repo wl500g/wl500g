@@ -1,0 +1,74 @@
+From 31ce8c71a3bdab12debb5899b1f6dac13e54c71d
+From: David Ward
+Date: Sat, 29 Aug 2009 00:04:09 -0700
+Subject: [PATCH] ipv6: Update Neighbor Cache when IPv6 RA is received on a router
+
+When processing a received IPv6 Router Advertisement, the kernel
+creates or updates an IPv6 Neighbor Cache entry for the sender --
+but presently this does not occur if IPv6 forwarding is enabled
+(net.ipv6.conf.*.forwarding = 1), or if IPv6 Router Advertisements
+are not accepted (net.ipv6.conf.*.accept_ra = 0), because in these
+cases processing of the Router Advertisement has already halted.
+
+This patch allows the Neighbor Cache to be updated in these cases,
+while still avoiding any modification to routes or link parameters.
+
+This continues to satisfy RFC 4861, since any entry created in the
+Neighbor Cache as the result of a received Router Advertisement is
+still placed in the STALE state.
+
+Signed-off-by: David Ward <david.ward@ll.mit.edu>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/ndisc.c |   14 ++++++++------
+ 1 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 1ba42bd..44b4c87 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1024,10 +1024,6 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 			   skb->dev->name);
+ 		return;
+ 	}
+-	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra) {
+-		in6_dev_put(in6_dev);
+-		return;
+-	}
+ 
+ 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
+ 		in6_dev_put(in6_dev);
+@@ -1036,6 +1032,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 		return;
+ 	}
+ 
++	/* skip route and link configuration on routers */
++	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
++		goto skip_linkparms;
++
+ 	if (in6_dev->if_flags & IF_RS_SENT) {
+ 		/*
+ 		 *	flag that an RA was received after an RS was sent
+@@ -1150,6 +1150,8 @@ skip_defrtr:
+ 		}
+ 	}
+ 
++skip_linkparms:
++
+ 	/*
+ 	 *	Process options.
+ 	 */
+@@ -1175,6 +1175,10 @@ skip_linkparms:
+ 			     NEIGH_UPDATE_F_ISROUTER);
+ 	}
+ 
++	/* skip route and link configuration on routers */
++	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
++		goto out;
++
+ #ifdef CONFIG_IPV6_ROUTE_INFO
+ 	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
+ 		struct nd_opt_hdr *p;
+-- 
+1.7.1.1
+
