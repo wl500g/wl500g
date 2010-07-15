@@ -844,6 +844,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #ifdef __CONFIG_MADWIMAX__
 	 || nvram_match("wan_proto", "wimax")
 #endif
+#ifdef __CONFIG_MODEM__
+	 || nvram_match("wan_proto", "usbmodem")
+#endif
+ 
         ){
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	}

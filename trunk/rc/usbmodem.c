@@ -51,7 +51,7 @@ start_modem_dial(char *prefix)
 	if (nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") &&
 		nvram_invmatch("wan_modem_mode_x", "-1"))
 	{
-		nvram_set( strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "modem_ifname", tmp)) );
+		nvram_set( strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)) );
 		nvram_set( strcat_r(prefix, "dnsenable_x", tmp), "1");
 	}
 	ret = _eval(argv, NULL, 0, &pid);
