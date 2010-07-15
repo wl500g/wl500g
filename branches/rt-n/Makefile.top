@@ -656,6 +656,7 @@ cdma:
 	@true
 
 cdma-install:
+	install -d $(INSTALLDIR)/cdma
 	$(MAKE) -C cdma install
 
 
