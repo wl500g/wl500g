@@ -9,22 +9,30 @@
   * kernel
     * minor nfs, hiddev fixes backport
     * bridge backport - allow setting hardware address of bridge pseudo-dev
+    * IPv6 backports from 2.6 upstream
 
-  * 3g/cdma modems support, contributed by rss @ wl500g.info (EXPERIMENTAL)
+  * 3g/cdma modems support, contributed by rss & dlukanidin @ wl500g.info (EXPERIMENTAL)
 
   * updated toolchain (gcc 4.3.5, binutils 2.20.1)
 
   * dnsmasq 2.55
 
   * busybox 1.16.2
-    * bugfixes from upstream (ash, udhcpc, sed)
+    * bugfixes from upstream (ash, udhcpc, sed, wget)
+    * which, grep -E utilities added
+
+  * radvd 1.6
 
   * usb_modeswitch 1.1.3
+    * usb-modeswitch-data 20100707
+
+  * ez-ipupdate ddns updater replaced with inadyn daemon
 
   * bugfixes
     * web-UI fixes
     * libusb 1.0 fixes from upstream
     * iptables fixes from upstream
+    * fix pppoe/pptp demand mode, was broken in r1612
 
 ===wl500g-1.9.2.7-d-`r1612` (2010-05-27)===
   * kernel
