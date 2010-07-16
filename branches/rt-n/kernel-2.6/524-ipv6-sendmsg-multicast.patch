@@ -1,0 +1,134 @@
+From 14deae41566b5cdd992c01d0069518ced5227c83
+From: David S. Miller
+Date: Sun, 4 Jan 2009 16:04:39 -0800
+Subject: [PATCH] ipv6: Fix sporadic sendmsg -EINVAL when sending to multicast groups.
+
+Thanks to excellent diagnosis by Eduard Guzovsky.
+
+The core problem is that on a network with lots of active
+multicast traffic, the neighbour cache can fill up.  If
+we try to allocate a new route and thus neighbour cache
+entry, the bog-standard GC attempt the neighbour layer does
+in ineffective because route entries hold a reference
+to the existing neighbour entries and GC can only liberate
+entries with no references.
+
+IPV4 already has a way to handle this, by doing a route cache
+GC in such situations (when neigh attach returns -ENOBUFS).
+
+So simply mimick this on the ipv6 side.
+
+Tested-by: Eduard Guzovsky <eguzovsky@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ndisc.h |    4 +-
+ net/ipv6/route.c    |   52 ++++++++++++++++++++++++++++++++++++++++++++++----
+ 2 files changed, 49 insertions(+), 7 deletions(-)
+
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index ce532f2..1459ed3 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -155,9 +155,9 @@ static inline struct neighbour * ndisc_get_neigh(struct net_device *dev, const s
+ {
+ 
+ 	if (dev)
+-		return __neigh_lookup(&nd_tbl, addr, dev, 1);
++		return __neigh_lookup_errno(&nd_tbl, addr, dev);
+ 
+-	return NULL;
++	return ERR_PTR(-ENODEV);
+ }
+ 
+ 
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 18c486c..76f06b9 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -627,6 +627,9 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad
+ 	rt = ip6_rt_copy(ort);
+ 
+ 	if (rt) {
++		struct neighbour *neigh;
++		int attempts = !in_softirq();
++
+ 		if (!(rt->rt6i_flags&RTF_GATEWAY)) {
+ 			if (rt->rt6i_dst.plen != 128 &&
+ 			    ipv6_addr_equal(&rt->rt6i_dst.addr, daddr))
+@@ -646,7 +649,30 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad
+ 		}
+ #endif
+ 
+-		rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++	retry:
++		neigh = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++		if (IS_ERR(neigh)) {
++			int saved_rt_min_interval = ip6_rt_gc_min_interval;
++			int saved_rt_elasticity = ip6_rt_gc_elasticity;
++
++			if (attempts-- > 0) {
++				ip6_rt_gc_elasticity = 1;
++				ip6_rt_gc_min_interval = 0;
++
++				ip6_dst_gc();
++
++				ip6_rt_gc_elasticity = saved_rt_elasticity;
++				ip6_rt_gc_min_interval = saved_rt_min_interval;
++				goto retry;
++			}
++
++			if (net_ratelimit())
++				printk(KERN_WARNING
++				       "Neighbour table overflow.\n");
++			dst_free(&rt->u.dst);
++			return NULL;
++		}
++		rt->rt6i_nexthop = neigh;
+ 
+ 	}
+ 
+@@ -997,8 +997,11 @@ struct dst_entry *icmp6_dst_alloc(struct net_device *dev,
+ 	dev_hold(dev);
+ 	if (neigh)
+ 		neigh_hold(neigh);
+-	else
++	else {
+ 		neigh = ndisc_get_neigh(dev, addr);
++		if (IS_ERR(neigh))
++			neigh = NULL;
++	}
+ 
+ 	rt->rt6i_dev	  = dev;
+ 	rt->rt6i_idev     = idev;
+@@ -1887,6 +1921,7 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 				    int anycast)
+ {
+ 	struct rt6_info *rt = ip6_dst_alloc();
++	struct neighbour *neigh;
+ 
+ 	if (rt == NULL)
+ 		return ERR_PTR(-ENOMEM);
+@@ -1909,11 +1944,18 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 		rt->rt6i_flags |= RTF_ANYCAST;
+ 	else
+ 		rt->rt6i_flags |= RTF_LOCAL;
+-	rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
+-	if (rt->rt6i_nexthop == NULL) {
++	neigh = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
++	if (IS_ERR(neigh)) {
+ 		dst_free(&rt->u.dst);
+-		return ERR_PTR(-ENOMEM);
++
++		/* We are casting this because that is the return
++		 * value type.  But an errno encoded pointer is the
++		 * same regardless of the underlying pointer type,
++		 * and that's what we are returning.  So this is OK.
++		 */
++		return (struct rt6_info *) neigh;
+ 	}
++	rt->rt6i_nexthop = neigh;
+ 
+ 	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
+ 	rt->rt6i_dst.plen = 128;
+-- 
+1.7.1.1
