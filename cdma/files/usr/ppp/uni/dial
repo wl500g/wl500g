@@ -2,11 +2,6 @@
 # Universal 3G/CDMA moden connection script
 #   from: sorine, rss, dlukanidin at wl500g.info
 
-#set new nvram variables, must be removed when new www interface will be done
-#nvram set wan_modem_maxfail=0
-nvram set wan_modem_hot_restart=0
-nvram set wan_modem_serial_enable=0
-
 apn=$(nvram get wan_modem_apn)
 dialnumber=$(nvram get wan_modem_dialno)
 modem=$(nvram get wan_modem_type) #1 - gprs/edge/umts/hsdpa, 0 - cdma/evdo

@@ -465,26 +465,41 @@ endif
 	@echo "Finished building $* firmware version $(KERNEL_VER).$(FS_VER) ($(RELEASE))"
 	@echo
 
+
+MANPAGES-y := busybox/docs/BusyBox.1 \
+	    LPRng/man/lpd.8 bridge/doc/brctl.8 dnsmasq/man/dnsmasq.8 \
+	    dropbear/dbclient.1 dropbear/dropbear.8 dropbear/dropbearkey.8 \
+	    igmpproxy/doc/igmpproxy.8 igmpproxy/doc/igmpproxy.conf.5 \
+	    iptables/iptables.8 iptables/iptables-restore.8 iptables/iptables-save.8 \
+	    ntpclient/ntpclient.1 \
+	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 pptp/pptp.8 \
+	    ucd-snmp/man/snmpd.1 ucd-snmp/man/snmpd.conf.5 \
+	    vsftpd/vsftpd.8 vsftpd/vsftpd.conf.5
+
+MANPAGES-$(CONFIG_SAMBA) += samba/docs/manpages/smb.conf.5 \
+	    samba/docs/manpages/smbpasswd.8 samba/docs/manpages/nmbd.8 samba/docs/manpages/smbd.8
+MANPAGES-$(CONFIG_IPV6) += iptables/ip6tables.8 iptables/ip6tables-restore.8 iptables/ip6tables-save.8
+MANPAGES-$(CONFIG_INADYN) += inadyn/man/inadyn.conf.5 inadyn/man/inadyn.8
+MANPAGES-$(CONFIG_NTFS3G) += ntfs-3g/src/ntfs-3g.8
+MANPAGES-$(CONFIG_RIPD) += quagga/doc/ospfd.8 quagga/doc/ripd.8 quagga/doc/zebra.8
+
 manpages-install:
+	$(MAKE) -C LPRng/man
 	@mkdir -p $(PLATFORMDIR)/manpages/man/man8 \
 	    $(PLATFORMDIR)/manpages/man/man1 $(PLATFORMDIR)/manpages/man/man5
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
-	    LPRng/man/lpd.8 bridge/doc/brctl.8 dnsmasq/man/dnsmasq.8 \
-	    dropbear/dropbear.8 dropbear/dropbearkey.8 igmpproxy/doc/igmpproxy.8 \
-	    iptables/iptables.8 iptables/iptables-restore.8 iptables/iptables-save.8 \
-	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 pptp/pptp.8 \
-	    vsftpd/vsftpd.8 \
-	    samba/docs/manpages/smbpasswd.8 samba/docs/manpages/nmbd.8 samba/docs/manpages/smbd.8 
+	    $(filter %.8,$(MANPAGES-y))
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man1 \
-	    busybox/docs/BusyBox.1 dropbear/dbclient.1 ntpclient/ntpclient.1 \
-	    ucd-snmp/man/snmpd.1 
+	    $(filter %.1,$(MANPAGES-y))
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man5 \
-	    igmpproxy/doc/igmpproxy.conf.5 vsftpd/vsftpd.conf.5 samba/docs/manpages/smb.conf.5 \
-	    ucd-snmp/man/snmpd.conf.5
+	    $(filter %.5,$(MANPAGES-y))
+ifeq ($(CONFIG_NFSD),y)
+	for subdir in exportfs lockd mountd nfsd statd; do \
+	$(MAKE) -C nfs-utils/utils/$${subdir} install-man DESTDIR=$(PLATFORMDIR)/ datarootdir=manpages ; \
+	done
+endif
 ifeq ($(CONFIG_IPV6),y)
 	$(MAKE) -C radvd install-man DESTDIR=$(PLATFORMDIR)/manpages
-	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man8 \
-	    iptables/ip6tables.8 iptables/ip6tables-restore.8 iptables/ip6tables-save.8 
 endif
 
 modules: kernel-install
@@ -694,11 +709,6 @@ ntpclient-install: ntpclient
 	install -D ntpclient/ntpclient $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
 	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
 
-udhcpd-install: udhcpd
-	install -D udhcpd/udhcpd $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-	$(STRIP) $(INSTALLDIR)/udhcpd/usr/sbin/udhcpd
-	cd $(INSTALLDIR)/udhcpd/usr/sbin && ln -sf udhcpd udhcpc
-
 upnp: netconf nvram shared
 
 wlconf: nvram shared
@@ -732,7 +742,7 @@ rp-pppoe: ppp rp-pppoe/src/Makefile
 rp-pppoe-clean:
 	$(MAKE) -C rp-pppoe/src clean
 
-rp-pppoe-install: rp-pppoe
+rp-pppoe-install:
 	install -D rp-pppoe/src/pppoe-relay $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 	$(STRIP) $(INSTALLDIR)/rp-pppoe/usr/sbin/pppoe-relay
 	install -D rp-pppoe/src/rp-pppoe.so $(INSTALLDIR)/rp-pppoe/usr/lib/pppd/rp-pppoe.so
@@ -823,7 +833,7 @@ samba-install:
 	$(STRIP) $(INSTALLDIR)/samba/usr/sbin/nmbd
 	$(STRIP) $(INSTALLDIR)/samba/usr/bin/smbpasswd
 	$(STRIP) $(INSTALLDIR)/samba/usr/lib/libsmb.so
-	
+
 samba-clean:
 	$(MAKE) -C samba/source clean
 

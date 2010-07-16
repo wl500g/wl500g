@@ -37,7 +37,7 @@ while true; do
 
   export DEVICE
   
-  IFNAME=$(nvram get wan0_modem_ifname)
+  IFNAME=$(nvram get wan0_pppoe_ifname)
   export IFNAME
 
   /usr/ppp/dialup/update $1

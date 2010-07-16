@@ -663,7 +663,6 @@ start_wan(void)
 	/* ppp contents */
 //	eval("cp", "-dpR", "/usr/ppp", "/tmp");	
 	mkdir("/tmp/ppp/peers", 0777);
-	eval("cp", "-p", "/usr/ppp/chap-secrets", "/tmp/ppp");
 #endif
 
 	//symlink("/dev/null", "/tmp/ppp/connect-errors");
