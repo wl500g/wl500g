@@ -1,0 +1,25 @@
+From c5bbd5d08543bbd18ebdeee2b0c3c35ac7e15729
+From: Denys Vlasenko
+Date: Mon, 12 Jul 2010 01:27:09 +0000
+Subject: wget: fix progress display
+
+function                                             old     new   delta
+progress_meter                                       187     199     +12
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/networking/wget.c b/networking/wget.c
+index f55b68a..1f35f8b 100644
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -50,7 +50,7 @@ static void progress_meter(int flag)
+ 	}
+ 
+ 	bb_progress_update(&G.pmt, G.curfile, G.beg_range, G.transferred,
+-			   G.chunked ? 0 : G.content_len + G.beg_range);
++			   G.chunked ? 0 : G.beg_range + G.transferred + G.content_len);
+ 
+ 	if (flag == 0) {
+ 		/* last call to progress_meter */
+--
+cgit v0.8.2.1
