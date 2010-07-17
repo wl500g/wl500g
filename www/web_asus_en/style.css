@@ -20,8 +20,8 @@
 
 .list_background { background: #660066; color: #000000; }
 
-.content_table td {border: inset 1px #E0E0E0;}
-.content_table pre { width:666px; height:430px; overflow: auto;}
+.content_table td {border: inset 1px #000000; }
+.content_table pre { width:660px; height:400px; overflow: auto;}
 
 .page_table {background:#660066; width:800px; border:0; margin-top:0; margin-left:0}
 .list_table1 { width:40px; border-width:0; padding:0; height:115px; text-align:center; background:#ffffff}
