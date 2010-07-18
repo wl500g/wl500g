@@ -27,7 +27,19 @@ diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
 index 1ba42bd..44b4c87 100644
 --- a/net/ipv6/ndisc.c
 +++ b/net/ipv6/ndisc.c
-@@ -925,10 +925,6 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+@@ -894,9 +894,9 @@ void ndisc_recv_na(struct sk_buff *skb)
+ static void ndisc_router_discovery(struct sk_buff *skb)
+ {
+         struct ra_msg *ra_msg = (struct ra_msg *) skb->h.raw;
+-	struct neighbour *neigh;
++	struct neighbour *neigh = NULL;
+ 	struct inet6_dev *in6_dev;
+-	struct rt6_info *rt;
++	struct rt6_info *rt = NULL;
+ 	int lifetime;
+ 	struct ndisc_options ndopts;
+ 	int optlen;
+@@ -925,10 +925,6 @@ static void ndisc_router_discovery(struc
  		ND_PRINTK1("RA: can't find in6 device\n");
  		return;
  	}
@@ -38,7 +50,7 @@ index 1ba42bd..44b4c87 100644
  
  	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
  		in6_dev_put(in6_dev);
-@@ -938,6 +934,10 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+@@ -938,6 +934,10 @@ static void ndisc_router_discovery(struc
  		return;
  	}
  
@@ -49,7 +61,7 @@ index 1ba42bd..44b4c87 100644
  	if (in6_dev->if_flags & IF_RS_SENT) {
  		/*
  		 *	flag that an RA was received after an RS was sent
-@@ -1028,6 +1028,8 @@ skip_defrtr:
+@@ -1028,6 +1028,8 @@ static void ndisc_router_discovery(struc
  		}
  	}
  
@@ -58,7 +70,7 @@ index 1ba42bd..44b4c87 100644
  	/*
  	 *	Process options.
  	 */
-@@ -1048,6 +1048,10 @@ skip_linkparms:
+@@ -1048,6 +1050,10 @@ static void ndisc_router_discovery(struc
  		neigh_update(neigh, lladdr, NUD_STALE, 1, 1);
  	}
  
