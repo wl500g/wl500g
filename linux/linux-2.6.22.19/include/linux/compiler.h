@@ -15,8 +15,14 @@
 # define __acquire(x)	__context__(x,1)
 # define __release(x)	__context__(x,-1)
 # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
-extern void __chk_user_ptr(const void __user *);
-extern void __chk_io_ptr(const void __iomem *);
+# define __percpu	__attribute__((noderef, address_space(3)))
+#ifdef CONFIG_SPARSE_RCU_POINTER
+# define __rcu		__attribute__((noderef, address_space(4)))
+#else
+# define __rcu
+#endif
+extern void __chk_user_ptr(const volatile void __user *);
+extern void __chk_io_ptr(const volatile void __iomem *);
 #else
 # define __user
 # define __kernel
@@ -32,6 +38,8 @@ extern void __chk_io_ptr(const void __iomem *);
 # define __acquire(x) (void)0
 # define __release(x) (void)0
 # define __cond_lock(x,c) (c)
+# define __percpu
+# define __rcu
 #endif
 
 #ifdef __KERNEL__
@@ -43,6 +51,8 @@ extern void __chk_io_ptr(const void __iomem *);
 #else
 # error Sorry, your compiler is too old/not recognized.
 #endif
+
+#define notrace __attribute__((no_instrument_function))
 
 /* Intel compiler defines __GNUC__. So we will overwrite implementations
  * coming from above header files here
@@ -63,6 +73,11 @@ extern void __chk_io_ptr(const void __iomem *);
 /* Optimization barrier */
 #ifndef barrier
 # define barrier() __memory_barrier()
+#endif
+
+/* Unreachable code */
+#ifndef unreachable
+# define unreachable() do { } while (1)
 #endif
 
 #ifndef RELOC_HIDE
@@ -150,6 +165,12 @@ extern void __chk_io_ptr(const void __iomem *);
 #define noinline
 #endif
 
+/*
+ * Rather then using noinline to prevent stack consumption, use
+ * noinline_for_stack instead.  For documentaiton reasons.
+ */
+#define noinline_for_stack noinline
+
 #ifndef __always_inline
 #define __always_inline inline
 #endif
@@ -173,5 +194,38 @@ extern void __chk_io_ptr(const void __iomem *);
 #ifndef __attribute_const__
 # define __attribute_const__	/* unimplemented */
 #endif
+
+/*
+ * Tell gcc if a function is cold. The compiler will assume any path
+ * directly leading to the call is unlikely.
+ */
+
+#ifndef __cold
+#define __cold
+#endif
+
+/* Simple shorthand for a section definition */
+#ifndef __section
+# define __section(S) __attribute__ ((__section__(#S)))
+#endif
+
+/* Are two types/vars the same type (ignoring qualifiers)? */
+#ifndef __same_type
+# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
+#endif
+
+/*
+ * Prevent the compiler from merging or refetching accesses.  The compiler
+ * is also forbidden from reordering successive instances of ACCESS_ONCE(),
+ * but only when the compiler is aware of some particular ordering.  One way
+ * to make the compiler aware of ordering is to put the two invocations of
+ * ACCESS_ONCE() in different C statements.
+ *
+ * This macro does absolutely -nothing- to prevent the CPU from reordering,
+ * merging, or refetching absolutely anything at any time.  Its main intended
+ * use is to mediate communication between process-level code and irq/NMI
+ * handlers, all running on the same CPU.
+ */
+#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
 
 #endif /* __LINUX_COMPILER_H */

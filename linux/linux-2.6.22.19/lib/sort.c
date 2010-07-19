@@ -45,37 +45,37 @@ static void generic_swap(void *a, void *b, int size)
  */
 
 void sort(void *base, size_t num, size_t size,
-	  int (*cmp)(const void *, const void *),
-	  void (*swap)(void *, void *, int size))
+	  int (*cmp_func)(const void *, const void *),
+	  void (*swap_func)(void *, void *, int size))
 {
 	/* pre-scale counters for performance */
 	int i = (num/2 - 1) * size, n = num * size, c, r;
 
-	if (!swap)
-		swap = (size == 4 ? u32_swap : generic_swap);
+	if (!swap_func)
+		swap_func = (size == 4 ? u32_swap : generic_swap);
 
 	/* heapify */
 	for ( ; i >= 0; i -= size) {
 		for (r = i; r * 2 + size < n; r  = c) {
 			c = r * 2 + size;
-			if (c < n - size && cmp(base + c, base + c + size) < 0)
+			if (c < n - size && cmp_func(base + c, base + c + size) < 0)
 				c += size;
-			if (cmp(base + r, base + c) >= 0)
+			if (cmp_func(base + r, base + c) >= 0)
 				break;
-			swap(base + r, base + c, size);
+			swap_func(base + r, base + c, size);
 		}
 	}
 
 	/* sort */
 	for (i = n - size; i >= 0; i -= size) {
-		swap(base, base + i, size);
+		swap_func(base, base + i, size);
 		for (r = 0; r * 2 + size < i; r = c) {
 			c = r * 2 + size;
-			if (c < i - size && cmp(base + c, base + c + size) < 0)
+			if (c < i - size && cmp_func(base + c, base + c + size) < 0)
 				c += size;
-			if (cmp(base + r, base + c) >= 0)
+			if (cmp_func(base + r, base + c) >= 0)
 				break;
-			swap(base + r, base + c, size);
+			swap_func(base + r, base + c, size);
 		}
 	}
 }

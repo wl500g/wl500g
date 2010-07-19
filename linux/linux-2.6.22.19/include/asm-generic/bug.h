@@ -33,7 +33,7 @@ struct bug_entry {
 
 #ifndef HAVE_ARCH_WARN_ON
 #define WARN_ON(condition) ({						\
-	typeof(condition) __ret_warn_on = (condition);			\
+	int __ret_warn_on = !!(condition);				\
 	if (unlikely(__ret_warn_on)) {					\
 		printk("WARNING: at %s:%d %s()\n", __FILE__,		\
 			__LINE__, __FUNCTION__);			\
@@ -41,6 +41,17 @@ struct bug_entry {
 	}								\
 	unlikely(__ret_warn_on);					\
 })
+
+#ifndef WARN
+#define WARN(condition, format...) ({					\
+	int __ret_warn_on = !!(condition);				\
+	if (unlikely(__ret_warn_on)) {					\
+		printk(format);						\
+		dump_stack();						\
+	}								\
+	unlikely(__ret_warn_on);					\
+})
+#endif
 #endif
 
 #else /* !CONFIG_BUG */
@@ -54,7 +65,14 @@ struct bug_entry {
 
 #ifndef HAVE_ARCH_WARN_ON
 #define WARN_ON(condition) ({						\
-	typeof(condition) __ret_warn_on = (condition);			\
+	int __ret_warn_on = !!(condition);				\
+	unlikely(__ret_warn_on);					\
+})
+#endif
+
+#ifndef WARN
+#define WARN(condition, format...) ({					\
+	int __ret_warn_on = !!(condition);				\
 	unlikely(__ret_warn_on);					\
 })
 #endif
@@ -69,6 +87,19 @@ struct bug_entry {
 			__warned = 1;				\
 	unlikely(__ret_warn_once);				\
 })
+
+#define WARN_ONCE(condition, format...)	({			\
+	static int __warned;					\
+	int __ret_warn_once = !!(condition);			\
+								\
+	if (unlikely(__ret_warn_once))				\
+		if (WARN(!__warned, format)) 			\
+			__warned = 1;				\
+	unlikely(__ret_warn_once);				\
+})
+
+#define WARN_ON_RATELIMIT(condition, state)			\
+		WARN_ON((condition) && __ratelimit(state))
 
 #ifdef CONFIG_SMP
 # define WARN_ON_SMP(x)			WARN_ON(x)
