@@ -118,10 +118,12 @@ static int uhci_show_urbp(struct urb_priv *urbp, char *buf, int len, int space)
 	}
 
 	out += sprintf(out, "%s%s", ptype, (urbp->fsbr ? " FSBR" : ""));
-	out += sprintf(out, " Actlen=%d", urbp->urb->actual_length);
+	out += sprintf(out, " Actlen=%d%s", urbp->urb->actual_length,
+			(urbp->qh->type == USB_ENDPOINT_XFER_CONTROL ?
+				"-8" : ""));
 
-	if (urbp->urb->status != -EINPROGRESS)
-		out += sprintf(out, " Status=%d", urbp->urb->status);
+	if (urbp->urb->unlinked)
+		out += sprintf(out, " Unlinked=%d", urbp->urb->unlinked);
 	out += sprintf(out, "\n");
 
 	i = nactive = ninactive = 0;

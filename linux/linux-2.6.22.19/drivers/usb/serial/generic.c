@@ -175,6 +175,14 @@ int usb_serial_generic_resume(struct usb_serial *serial)
 	struct usb_serial_port *port;
 	int i, c = 0, r;
 
+#ifdef CONFIG_PM
+	/*
+	 * If this is an autoresume, don't submit URBs.
+	 * They will be submitted in the open function instead.
+	 */
+	if (serial->dev->auto_pm)
+		return 0;
+#endif
 	for (i = 0; i < serial->num_ports; i++) {
 		port = serial->port[i];
 		if (port->open_count && port->read_urb) {
@@ -186,6 +194,7 @@ int usb_serial_generic_resume(struct usb_serial *serial)
 
 	return c ? -EIO : 0;
 }
+EXPORT_SYMBOL_GPL(usb_serial_generic_resume);
 
 void usb_serial_generic_close (struct usb_serial_port *port, struct file * filp)
 {
@@ -257,13 +266,14 @@ int usb_serial_generic_write_room (struct usb_serial_port *port)
 
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
+	/* FIXME: Locking */
 	if (serial->num_bulk_out) {
 		if (!(port->write_urb_busy))
 			room = port->bulk_out_size;
 	}
 
 	dbg("%s - returns %d", __FUNCTION__, room);
-	return (room);
+	return room;
 }
 
 int usb_serial_generic_chars_in_buffer (struct usb_serial_port *port)
@@ -273,6 +283,7 @@ int usb_serial_generic_chars_in_buffer (struct usb_serial_port *port)
 
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
+	/* FIXME: Locking */
 	if (serial->num_bulk_out) {
 		if (port->write_urb_busy)
 			chars = port->write_urb->transfer_buffer_length;
@@ -315,7 +326,7 @@ static void flush_and_resubmit_read_urb (struct usb_serial_port *port)
 		room = tty_buffer_request_room(tty, urb->actual_length);
 		if (room) {
 			tty_insert_flip_string(tty, urb->transfer_buffer, room);
-			tty_flip_buffer_push(tty); /* is this allowed from an URB callback ? */
+			tty_flip_buffer_push(tty);
 		}
 	}
 
@@ -324,9 +335,10 @@ static void flush_and_resubmit_read_urb (struct usb_serial_port *port)
 
 void usb_serial_generic_read_bulk_callback (struct urb *urb)
 {
-	struct usb_serial_port *port = (struct usb_serial_port *)urb->context;
+	struct usb_serial_port *port = urb->context;
 	unsigned char *data = urb->transfer_buffer;
 	int status = urb->status;
+	unsigned long flags;
 
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
@@ -339,17 +351,19 @@ void usb_serial_generic_read_bulk_callback (struct urb *urb)
 	usb_serial_debug_data(debug, &port->dev, __FUNCTION__, urb->actual_length, data);
 
 	/* Throttle the device if requested by tty */
-	spin_lock(&port->lock);
-	if (!(port->throttled = port->throttle_req))
-		/* Handle data and continue reading from device */
+	spin_lock_irqsave(&port->lock, flags);
+	if (!(port->throttled = port->throttle_req)) {
+		spin_unlock_irqrestore(&port->lock, flags);
 		flush_and_resubmit_read_urb(port);
-	spin_unlock(&port->lock);
+	} else {
+		spin_unlock_irqrestore(&port->lock, flags);
+	}
 }
 EXPORT_SYMBOL_GPL(usb_serial_generic_read_bulk_callback);
 
 void usb_serial_generic_write_bulk_callback (struct urb *urb)
 {
-	struct usb_serial_port *port = (struct usb_serial_port *)urb->context;
+	struct usb_serial_port *port = urb->context;
 	int status = urb->status;
 
 	dbg("%s - port %d", __FUNCTION__, port->number);

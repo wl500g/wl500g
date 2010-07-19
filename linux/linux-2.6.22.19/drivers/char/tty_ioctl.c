@@ -320,6 +320,25 @@ speed_t tty_get_baud_rate(struct tty_struct *tty)
 EXPORT_SYMBOL(tty_get_baud_rate);
 
 /**
+ *	tty_termios_hw_change	-	check for setting change
+ *	@a: termios
+ *	@b: termios to compare
+ *
+ *	Check if any of the bits that affect a dumb device have changed
+ *	between the two termios structures, or a speed change is needed.
+ */
+
+int tty_termios_hw_change(struct ktermios *a, struct ktermios *b)
+{
+	if (a->c_ispeed != b->c_ispeed || a->c_ospeed != b->c_ospeed)
+		return 1;
+	if ((a->c_cflag ^ b->c_cflag) & ~(HUPCL | CREAD | CLOCAL))
+		return 1;
+	return 0;
+}
+EXPORT_SYMBOL(tty_termios_hw_change);
+
+/**
  *	change_termios		-	update termios values
  *	@tty: tty to update
  *	@new_termios: desired new value

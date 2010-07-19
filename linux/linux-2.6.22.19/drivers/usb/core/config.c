@@ -255,7 +255,7 @@ static int usb_parse_interface(struct device *ddev, int cfgno,
 
 	/* Allocate space for the right(?) number of endpoints */
 	num_ep = num_ep_orig = alt->desc.bNumEndpoints;
-	alt->desc.bNumEndpoints = 0;		// Use as a counter
+	alt->desc.bNumEndpoints = 0;		/* Use as a counter */
 	if (num_ep > USB_MAXENDPOINTS) {
 		dev_warn(ddev, "too many endpoints for config %d interface %d "
 		    "altsetting %d: %d, using maximum allowed: %d\n",
@@ -263,7 +263,8 @@ static int usb_parse_interface(struct device *ddev, int cfgno,
 		num_ep = USB_MAXENDPOINTS;
 	}
 
-	if (num_ep > 0) {	/* Can't allocate 0 bytes */
+	if (num_ep > 0) {
+		/* Can't allocate 0 bytes */
 		len = sizeof(struct usb_host_endpoint) * num_ep;
 		alt->endpoint = kzalloc(len, GFP_KERNEL);
 		if (!alt->endpoint)
@@ -492,8 +493,9 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
 	return 0;
 }
 
-// hub-only!! ... and only exported for reset/reinit path.
-// otherwise used internally on disconnect/destroy path
+/* hub-only!! ... and only exported for reset/reinit path.
+ * otherwise used internally on disconnect/destroy path
+ */
 void usb_destroy_configuration(struct usb_device *dev)
 {
 	int c, i;
@@ -515,7 +517,7 @@ void usb_destroy_configuration(struct usb_device *dev)
 		kfree(cf->string);
 		for (i = 0; i < cf->desc.bNumInterfaces; i++) {
 			if (cf->intf_cache[i])
-				kref_put(&cf->intf_cache[i]->ref, 
+				kref_put(&cf->intf_cache[i]->ref,
 					  usb_release_interface_cache);
 		}
 	}
@@ -532,9 +534,8 @@ int usb_get_configuration(struct usb_device *dev)
 	int ncfg = dev->descriptor.bNumConfigurations;
 	int result = -ENOMEM;
 	unsigned int cfgno, length;
-	unsigned char *buffer;
 	unsigned char *bigbuffer;
- 	struct usb_config_descriptor *desc;
+	struct usb_config_descriptor *desc;
 
 	if (ncfg > USB_MAXCONFIG) {
 		dev_warn(ddev, "too many configurations: %d, "
@@ -557,16 +558,15 @@ int usb_get_configuration(struct usb_device *dev)
 	if (!dev->rawdescriptors)
 		goto err2;
 
-	buffer = kmalloc(USB_DT_CONFIG_SIZE, GFP_KERNEL);
-	if (!buffer)
+	desc = kmalloc(USB_DT_CONFIG_SIZE, GFP_KERNEL);
+	if (!desc)
 		goto err2;
-	desc = (struct usb_config_descriptor *)buffer;
 
 	for (cfgno = 0; cfgno < ncfg; cfgno++) {
 		/* We grab just the first descriptor so we know how long
 		 * the whole configuration is */
 		result = usb_get_descriptor(dev, USB_DT_CONFIG, cfgno,
-		    buffer, USB_DT_CONFIG_SIZE);
+		    desc, USB_DT_CONFIG_SIZE);
 		if (result < 0) {
 			dev_err(ddev, "unable to read config index %d "
 			    "descriptor/%s\n", cfgno, "start");
@@ -615,7 +615,7 @@ int usb_get_configuration(struct usb_device *dev)
 	result = 0;
 
 err:
-	kfree(buffer);
+	kfree(desc);
 	dev->descriptor.bNumConfigurations = cfgno;
 err2:
 	if (result == -ENOMEM)

@@ -1,6 +1,6 @@
 /*
  * (C) Copyright David Brownell 2000-2002
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; either version 2 of the License, or (at your
@@ -55,7 +55,7 @@
  *
  * Store this function in the HCD's struct pci_driver as probe().
  */
-int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
+int usb_hcd_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 {
 	struct hc_driver	*driver;
 	struct usb_hcd		*hcd;
@@ -64,66 +64,70 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
 	if (usb_disabled())
 		return -ENODEV;
 
-	if (!id || !(driver = (struct hc_driver *) id->driver_data))
+	if (!id)
+		return -EINVAL;
+	driver = (struct hc_driver *)id->driver_data;
+	if (!driver)
 		return -EINVAL;
 
-	if (pci_enable_device (dev) < 0)
+	if (pci_enable_device(dev) < 0)
 		return -ENODEV;
 	dev->current_state = PCI_D0;
-	dev->dev.power.power_state = PMSG_ON;
-	
-        if (!dev->irq) {
-        	dev_err (&dev->dev,
+
+	if (!dev->irq) {
+		dev_err(&dev->dev,
 			"Found HC with no IRQ.  Check BIOS/PCI %s setup!\n",
 			pci_name(dev));
-   	        retval = -ENODEV;
+		retval = -ENODEV;
 		goto err1;
-        }
+	}
 
-	hcd = usb_create_hcd (driver, &dev->dev, pci_name(dev));
+	hcd = usb_create_hcd(driver, &dev->dev, pci_name(dev));
 	if (!hcd) {
 		retval = -ENOMEM;
 		goto err1;
 	}
 
-	if (driver->flags & HCD_MEMORY) {	// EHCI, OHCI
-		hcd->rsrc_start = pci_resource_start (dev, 0);
-		hcd->rsrc_len = pci_resource_len (dev, 0);
-		if (!request_mem_region (hcd->rsrc_start, hcd->rsrc_len,
+	if (driver->flags & HCD_MEMORY) {
+		/* EHCI, OHCI */
+		hcd->rsrc_start = pci_resource_start(dev, 0);
+		hcd->rsrc_len = pci_resource_len(dev, 0);
+		if (!request_mem_region(hcd->rsrc_start, hcd->rsrc_len,
 				driver->description)) {
-			dev_dbg (&dev->dev, "controller already in use\n");
+			dev_dbg(&dev->dev, "controller already in use\n");
 			retval = -EBUSY;
 			goto err2;
 		}
-		hcd->regs = ioremap_nocache (hcd->rsrc_start, hcd->rsrc_len);
+		hcd->regs = ioremap_nocache(hcd->rsrc_start, hcd->rsrc_len);
 		if (hcd->regs == NULL) {
-			dev_dbg (&dev->dev, "error mapping memory\n");
+			dev_dbg(&dev->dev, "error mapping memory\n");
 			retval = -EFAULT;
 			goto err3;
 		}
 
-	} else { 				// UHCI
+	} else {
+		/* UHCI */
 		int	region;
 
 		for (region = 0; region < PCI_ROM_RESOURCE; region++) {
-			if (!(pci_resource_flags (dev, region) &
+			if (!(pci_resource_flags(dev, region) &
 					IORESOURCE_IO))
 				continue;
 
-			hcd->rsrc_start = pci_resource_start (dev, region);
-			hcd->rsrc_len = pci_resource_len (dev, region);
-			if (request_region (hcd->rsrc_start, hcd->rsrc_len,
+			hcd->rsrc_start = pci_resource_start(dev, region);
+			hcd->rsrc_len = pci_resource_len(dev, region);
+			if (request_region(hcd->rsrc_start, hcd->rsrc_len,
 					driver->description))
 				break;
 		}
 		if (region == PCI_ROM_RESOURCE) {
-			dev_dbg (&dev->dev, "no i/o regions available\n");
+			dev_dbg(&dev->dev, "no i/o regions available\n");
 			retval = -EBUSY;
 			goto err1;
 		}
 	}
 
-	pci_set_master (dev);
+	pci_set_master(dev);
 
 	retval = usb_add_hcd(hcd, dev->irq, IRQF_DISABLED | IRQF_SHARED);
 	if (retval != 0)
@@ -132,19 +136,19 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
 
  err4:
 	if (driver->flags & HCD_MEMORY) {
-		iounmap (hcd->regs);
+		iounmap(hcd->regs);
  err3:
-		release_mem_region (hcd->rsrc_start, hcd->rsrc_len);
+		release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	} else
-		release_region (hcd->rsrc_start, hcd->rsrc_len);
+		release_region(hcd->rsrc_start, hcd->rsrc_len);
  err2:
-	usb_put_hcd (hcd);
+	usb_put_hcd(hcd);
  err1:
-	pci_disable_device (dev);
-	dev_err (&dev->dev, "init %s fail, %d\n", pci_name(dev), retval);
+	pci_disable_device(dev);
+	dev_err(&dev->dev, "init %s fail, %d\n", pci_name(dev), retval);
 	return retval;
-} 
-EXPORT_SYMBOL (usb_hcd_pci_probe);
+}
+EXPORT_SYMBOL_GPL(usb_hcd_pci_probe);
 
 
 /* may be called without controller electrically present */
@@ -161,7 +165,7 @@ EXPORT_SYMBOL (usb_hcd_pci_probe);
  *
  * Store this function in the HCD's struct pci_driver as remove().
  */
-void usb_hcd_pci_remove (struct pci_dev *dev)
+void usb_hcd_pci_remove(struct pci_dev *dev)
 {
 	struct usb_hcd		*hcd;
 
@@ -169,17 +173,17 @@ void usb_hcd_pci_remove (struct pci_dev *dev)
 	if (!hcd)
 		return;
 
-	usb_remove_hcd (hcd);
+	usb_remove_hcd(hcd);
 	if (hcd->driver->flags & HCD_MEMORY) {
-		iounmap (hcd->regs);
-		release_mem_region (hcd->rsrc_start, hcd->rsrc_len);
+		iounmap(hcd->regs);
+		release_mem_region(hcd->rsrc_start, hcd->rsrc_len);
 	} else {
-		release_region (hcd->rsrc_start, hcd->rsrc_len);
+		release_region(hcd->rsrc_start, hcd->rsrc_len);
 	}
-	usb_put_hcd (hcd);
+	usb_put_hcd(hcd);
 	pci_disable_device(dev);
 }
-EXPORT_SYMBOL (usb_hcd_pci_remove);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_remove);
 
 
 #ifdef	CONFIG_PM
@@ -418,7 +422,7 @@ EXPORT_SYMBOL (usb_hcd_pci_resume);
  * usb_hcd_pci_shutdown - shutdown host controller
  * @dev: USB Host Controller being shutdown
  */
-void usb_hcd_pci_shutdown (struct pci_dev *dev)
+void usb_hcd_pci_shutdown(struct pci_dev *dev)
 {
 	struct usb_hcd		*hcd;
 
@@ -429,5 +433,5 @@ void usb_hcd_pci_shutdown (struct pci_dev *dev)
 	if (hcd->driver->shutdown)
 		hcd->driver->shutdown(hcd);
 }
-EXPORT_SYMBOL (usb_hcd_pci_shutdown);
+EXPORT_SYMBOL_GPL(usb_hcd_pci_shutdown);
 
