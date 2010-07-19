@@ -24,7 +24,7 @@
 	<input type="hidden" name="action_mode" value="">
 	<input type="hidden" name="first_time" value="">
 	<input type="hidden" name="action_script" value="">
-	<input type="hidden" name="wan_proto" value="<% nvram_get_x("","wan_proto"); %>">
+	<input type="hidden" name="wan_proto" value="<% nvram_get_x("WiMaxConfig","wan_proto"); %>">
 	<table width="666" border="0" cellpadding="0" cellspacing="0">
 		<tr>
 			<td>
@@ -45,7 +45,7 @@
 						</td>
 						<td class="content_input_td" nowrap>
 							<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd"
-								onchange="if(this.checked){document.form.wan_proto.value='wimax';}else{document.form.wan_proto.value='dhcp';};" <% nvram_match_x("","wan_proto", "wimax", "checked"); %>>
+								onchange="return change_common_radio(this, 'WiMaxConfig', 'wan_proto', '1')" <% nvram_match_x("WiMaxConfig","wan_proto", "wimax", "checked"); %>>
 						</td>
 					</tr>
 

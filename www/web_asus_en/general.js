@@ -2808,6 +2808,18 @@ function change_common_radio(o, s, v, r)
 	{
 		changeWiMAXCheckConnection();
 	}
+	else if (v=="wan_proto")
+	{
+		if (frm.wan_proto_x.checked)
+		{
+			if (s=="3GConfig")
+				frm.wan_proto.value="usbmodem";
+			else
+				frm.wan_proto.value="wimax";
+		}
+		else
+			frm.wan_proto.value="dhcp";
+	}
 	return true;
 }
 
