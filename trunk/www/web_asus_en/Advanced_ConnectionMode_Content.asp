@@ -87,7 +87,7 @@
 	<input type="hidden" name="action_mode" value="">
 	<input type="hidden" name="first_time" value="">
 	<input type="hidden" name="action_script" value="">
-	<input type="hidden" name="wan_proto" value="<% nvram_get_x("","wan_proto"); %>">
+	<input type="hidden" name="wan_proto" value="<% nvram_get_x("3GConfig","wan_proto"); %>">
 	<input type="hidden" name="dial_mode_org" value="<% nvram_get_x("","wan_modem_mode_x"); %>">
 	<!-- Table for the content page -->
 	<table class="content_table">
@@ -108,7 +108,7 @@
 			</td>
 			<td class="content_input_td" nowrap>
 				<input type="checkbox" value="dhcp" name="wan_proto_x" class="content_input_fd" 
-				onchange="if(this.checked){document.form.wan_proto.value='usbmodem';}else{document.form.wan_proto.value='dhcp';};" <% nvram_match_x("","wan_proto", "usbmodem", "checked"); %>>
+				onchange="return change_common_radio(this, '3GConfig', 'wan_proto', '1')" <% nvram_match_x("3GConfig","wan_proto", "usbmodem", "checked"); %>>
 			</td>
 		</tr>
 		<tr>
@@ -116,12 +116,12 @@
 				Zero CD Configuration
 			</td>
 			<td class="content_input_td">
-				<select name="wan_modem_zerocd_mode" class="content_input_fd">
-					<option class="content_input_fd" value="" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode",  "","selected"); %>>
+				<select name="wan_modem_zerocd_mode" class="content_input_fd" onChange="return change_common(this, '3GConfig', 'wan_modem_zerocd_mode')">
+					<option class="content_input_fd" value="" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode",  "","selected"); %>>
 						Not set</option>
-					<option class="content_input_fd" value="Auto" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
+					<option class="content_input_fd" value="Auto" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode", "Auto","selected"); %>>
 						Auto</option>
-					<option class="content_input_fd" value="UserDefined" <%nvram_match_x("LANHostConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
+					<option class="content_input_fd" value="UserDefined" <%nvram_match_x("3GConfig","wan_modem_zerocd_mode", "UserDefined","selected"); %>>
 						Config at /usr/local/etc/usb_modeswitch.conf</option>
 				</select>
 			</td>
@@ -136,14 +136,14 @@
 				Modem type:
 			</td>
 			<td class="content_input_td">
-				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();">
-					<option class="content_input_fd" value="0" <%nvram_match_x("LANHostConfig","wan_modem_type",  "0","selected"); %>>
+				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;">
+					<option class="content_input_fd" value="0" <%nvram_match_x("3GConfig","wan_modem_type",  "0","selected"); %>>
 						CDMA/EVDO</option>
-					<option class="content_input_fd" value="1" <%nvram_match_x("LANHostConfig","wan_modem_type", "1","selected"); %>>
+					<option class="content_input_fd" value="1" <%nvram_match_x("3GConfig","wan_modem_type", "1","selected"); %>>
 						GPRS/EDGE/UMTS/HSPDA</option>
-					<option class="content_input_fd" value="3" <%nvram_match_x("LANHostConfig","wan_modem_type", "3","selected"); %>>
+					<option class="content_input_fd" value="3" <%nvram_match_x("3GConfig","wan_modem_type", "3","selected"); %>>
 						Dialup</option>
-					<option class="content_input_fd" value="99" <%nvram_match_x("LANHostConfig","wan_modem_type", "99","selected"); %>>
+					<option class="content_input_fd" value="99" <%nvram_match_x("3GConfig","wan_modem_type", "99","selected"); %>>
 						User defined</option>
 				</select>
 			</td>
@@ -154,7 +154,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_username"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_username"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_username"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -164,7 +164,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="password" maxlength="256" class="content_input_fd" size="32" name="wan_modem_password"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_password"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_password"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -177,7 +177,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_apn"
-						value="<% nvram_get_x("LANHostConfig","wan_modem_apn"); %>" onkeypress="return is_string(this)"
+						value="<% nvram_get_x("3GConfig","wan_modem_apn"); %>" onkeypress="return is_string(this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -191,7 +191,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_dialno"
-						value="<% nvram_get_x("LANHostConfig","wan_modem_dialno"); %>" onkeypress="return is_string(this)"
+						value="<% nvram_get_x("3GConfig","wan_modem_dialno"); %>" onkeypress="return is_string(this)"
 						onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -203,8 +203,8 @@
 				Call on Demand
 			</td>
 			<td class="content_input_td">
-				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_demand')" <% nvram_match_x("","wan_modem_demand", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd" onchange="change_common(this, '', 'wan_modem_demand')" <% nvram_match_x("","wan_modem_demand", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '1')" <% nvram_match_x("3GConfig","wan_modem_demand", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '0')" <% nvram_match_x("3GConfig","wan_modem_demand", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
@@ -214,7 +214,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_idle"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_idle"); %>" onkeypress="return is_number(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_idle"); %>" onkeypress="return is_number(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -225,7 +225,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mtu"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_mtu"); %>" onkeypress="return is_number(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_mtu"); %>" onkeypress="return is_number(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -236,7 +236,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="32" class="content_input_fd" size="32" name="wan_modem_mru"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_mru"); %>" onkeypress="return is_number(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_mru"); %>" onkeypress="return is_number(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -251,8 +251,8 @@
 				Autodetect device
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" <% nvram_match_x("","wan_modem_autodetect", "1", "checked"); %>>Yes
-				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" <% nvram_match_x("","wan_modem_autodetect", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '1')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '0')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<!--			<tr>
@@ -270,18 +270,18 @@
 				USB tts(ac) port:
 			</td>
 			<td class="content_input_td">
-				<select name="wan_modem_tts_port" class="content_input_fd">
-					<option class="content_input_fd" value="0" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "0","selected"); %>>
+				<select name="wan_modem_tts_port" class="content_input_fd" onChange="return change_common(this, '3GConfig', 'wan_modem_tts_port')">
+					<option class="content_input_fd" value="0" <%nvram_match_x("3GConfig","wan_modem_tts_port", "0","selected"); %>>
 						0</option>
-					<option class="content_input_fd" value="1" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "1","selected"); %>>
+					<option class="content_input_fd" value="1" <%nvram_match_x("3GConfig","wan_modem_tts_port", "1","selected"); %>>
 						1</option>
-					<option class="content_input_fd" value="2" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "2","selected"); %>>
+					<option class="content_input_fd" value="2" <%nvram_match_x("3GConfig","wan_modem_tts_port", "2","selected"); %>>
 						2</option>
-					<option class="content_input_fd" value="3" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "3","selected"); %>>
+					<option class="content_input_fd" value="3" <%nvram_match_x("3GConfig","wan_modem_tts_port", "3","selected"); %>>
 						3</option>
-					<option class="content_input_fd" value="4" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "4","selected"); %>>
+					<option class="content_input_fd" value="4" <%nvram_match_x("3GConfig","wan_modem_tts_port", "4","selected"); %>>
 						4</option>
-					<option class="content_input_fd" value="5" <%nvram_match_x("LANHostConfig","wan_modem_tts_port", "5","selected"); %>>
+					<option class="content_input_fd" value="5" <%nvram_match_x("3GConfig","wan_modem_tts_port", "5","selected"); %>>
 						5</option>
 				</select>
 			</td>
@@ -293,7 +293,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_vid"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_vid"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_vid"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -304,7 +304,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pid"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_pid"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_pid"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -314,7 +314,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_packetsize"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_packetsize"); %>" onkeypress="return is_number(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_packetsize"); %>" onkeypress="return is_number(this)"
 					onblur="validate_range(this,0,16384)">
 			</td>
 		</tr>
@@ -324,7 +324,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_portspeed"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_portspeed"); %>" onkeypress="return is_number(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_portspeed"); %>" onkeypress="return is_number(this)"
 					onblur="validate_range(this, 0, 921600)">
 			</td>
 		</tr>
@@ -339,7 +339,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_dialup_init"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_dialup_init"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_dialup_init"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -350,7 +350,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_options"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_options"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_options"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>		
@@ -360,9 +360,9 @@
 			</td>
 			<td class="content_input_td">
 				<input type="radio" value="1" name="wan_modem_serial_enable" class="content_input_fd"
-					onchange="change_common(this, '', 'wan_modem_serial_enable')" <% nvram_match_x("","wan_modem_serial_enable", "1", "checked"); %>>Yes
+					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '1')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "1", "checked"); %>>Yes
 				<input type="radio" value="0" name="wan_modem_serial_enable" class="content_input_fd"
-					onchange="change_common(this, '', 'wan_modem_serial_enable')" <% nvram_match_x("","wan_modem_serial_enable", "0", "checked"); %>>No
+					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '0')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "0", "checked"); %>>No
 			</td>
 		</tr>
 		<tr>
@@ -371,7 +371,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_onfailure"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_onfailure"); %>" onkeypress="return is_string(this)"
+					value="<% nvram_get_x("3GConfig","wan_modem_onfailure"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
@@ -382,7 +382,7 @@
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="10" class="content_input_fd" size="32" name="wan_modem_maxfail"
-					value="<% nvram_get_x("LANHostConfig","wan_modem_maxfail"); %>" onkeypress="return is_number(this)">
+					value="<% nvram_get_x("3GConfig","wan_modem_maxfail"); %>" onkeypress="return is_number(this)">
 			</td>
 		</tr>
 		<tr>
