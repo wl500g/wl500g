@@ -1,3 +1,133 @@
+
+ Documentation/feature-removal-schedule.txt |   16 
+ Documentation/kernel-parameters.txt        |   57 +
+ Documentation/usb/persist.txt              |   44 -
+ block/ll_rw_blk.c                          |   24 
+ crypto/digest.c                            |    2 
+ crypto/scatterwalk.c                       |    2 
+ crypto/scatterwalk.h                       |    2 
+ drivers/ata/libata-scsi.c                  |    5 
+ drivers/block/ub.c                         |   11 
+ drivers/firewire/fw-sbp2.c                 |    6 
+ drivers/hid/usbhid/hid-core.c              |   11 
+ drivers/ieee1394/sbp2.c                    |    6 
+ drivers/media/video/pvrusb2/pvrusb2-hdw.c  |    2 
+ drivers/scsi/scsi.c                        |    2 
+ drivers/scsi/scsi_lib.c                    |   85 ++
+ drivers/scsi/scsi_tgt_lib.c                |    4 
+ drivers/scsi/sd.c                          |    5 
+ drivers/usb/Kconfig                        |    1 
+ drivers/usb/atm/cxacru.c                   |   12 
+ drivers/usb/class/cdc-acm.c                |   34 -
+ drivers/usb/core/Kconfig                   |   40 -
+ drivers/usb/core/buffer.c                  |   20 
+ drivers/usb/core/config.c                  |   24 
+ drivers/usb/core/devices.c                 |    2 
+ drivers/usb/core/devio.c                   |  327 ++++++---
+ drivers/usb/core/driver.c                  |  315 ++++++---
+ drivers/usb/core/endpoint.c                |   13 
+ drivers/usb/core/file.c                    |    4 
+ drivers/usb/core/generic.c                 |   14 
+ drivers/usb/core/hcd-pci.c                 |  299 +++------
+ drivers/usb/core/hcd.c                     |  922 +++++++++++++++++----------
+ drivers/usb/core/hcd.h                     |   59 +
+ drivers/usb/core/hub.c                     |  956 +++++++++++++++++++----------
+ drivers/usb/core/inode.c                   |   15 
+ drivers/usb/core/message.c                 |  600 +++++++++---------
+ drivers/usb/core/quirks.c                  |   29 
+ drivers/usb/core/sysfs.c                   |  338 ++++++----
+ drivers/usb/core/urb.c                     |  353 ++++++++--
+ drivers/usb/core/usb.c                     |  159 +---
+ drivers/usb/core/usb.h                     |   28 
+ drivers/usb/gadget/dummy_hcd.c             |   95 +-
+ drivers/usb/gadget/gmidi.c                 |    6 
+ drivers/usb/gadget/omap_udc.c              |    4 
+ drivers/usb/host/Kconfig                   |    9 
+ drivers/usb/host/ehci-au1xxx.c             |    2 
+ drivers/usb/host/ehci-dbg.c                |  311 +++++++--
+ drivers/usb/host/ehci-fsl.c                |    8 
+ drivers/usb/host/ehci-hcd.c                |  431 ++++++++-----
+ drivers/usb/host/ehci-hub.c                |  196 +++--
+ drivers/usb/host/ehci-mem.c                |   27 
+ drivers/usb/host/ehci-pci.c                |   44 +
+ drivers/usb/host/ehci-ppc-soc.c            |    2 
+ drivers/usb/host/ehci-ps3.c                |    5 
+ drivers/usb/host/ehci-q.c                  |  353 ++++++----
+ drivers/usb/host/ehci-sched.c              |  602 ++++++++++++------
+ drivers/usb/host/ehci.h                    |  100 +--
+ drivers/usb/host/isp116x-hcd.c             |   75 --
+ drivers/usb/host/ohci-at91.c               |    1 
+ drivers/usb/host/ohci-dbg.c                |  225 +++++-
+ drivers/usb/host/ohci-ep93xx.c             |    4 
+ drivers/usb/host/ohci-hcd.c                |  271 ++++++--
+ drivers/usb/host/ohci-hub.c                |   82 ++
+ drivers/usb/host/ohci-mem.c                |    1 
+ drivers/usb/host/ohci-omap.c               |    7 
+ drivers/usb/host/ohci-pci.c                |   68 --
+ drivers/usb/host/ohci-pnx4008.c            |    2 
+ drivers/usb/host/ohci-ps3.c                |    1 
+ drivers/usb/host/ohci-pxa27x.c             |    5 
+ drivers/usb/host/ohci-q.c                  |  202 +++---
+ drivers/usb/host/ohci-s3c2410.c            |    2 
+ drivers/usb/host/ohci.h                    |   33 +
+ drivers/usb/host/pci-quirks.c              |    2 
+ drivers/usb/host/sl811-hcd.c               |   84 --
+ drivers/usb/host/u132-hcd.c                |  374 ++++++-----
+ drivers/usb/host/uhci-debug.c              |    4 
+ drivers/usb/host/uhci-hcd.c                |  105 ++-
+ drivers/usb/host/uhci-hcd.h                |   21 
+ drivers/usb/host/uhci-q.c                  |  106 +--
+ drivers/usb/image/microtek.c               |   16 
+ drivers/usb/misc/Kconfig                   |   11 
+ drivers/usb/misc/Makefile                  |    1 
+ drivers/usb/misc/adutux.c                  |    4 
+ drivers/usb/misc/berry_charge.c            |  175 -----
+ drivers/usb/misc/iowarrior.c               |    8 
+ drivers/usb/misc/phidgetmotorcontrol.c     |    2 
+ drivers/usb/misc/usbtest.c                 |   11 
+ drivers/usb/mon/mon_bin.c                  |   54 +
+ drivers/usb/mon/mon_main.c                 |   25 
+ drivers/usb/mon/mon_text.c                 |   66 +-
+ drivers/usb/mon/usb_mon.h                  |    2 
+ drivers/usb/serial/aircable.c              |    4 
+ drivers/usb/serial/ftdi_sio.c              |   32 
+ drivers/usb/serial/ftdi_sio.h              |    7 
+ drivers/usb/serial/io_edgeport.c           |    4 
+ drivers/usb/serial/io_ti.c                 |    2 
+ drivers/usb/serial/ipw.c                   |   18 
+ drivers/usb/serial/kl5kusb105.c            |    3 
+ drivers/usb/serial/mos7720.c               |    4 
+ drivers/usb/serial/option.c                |    3 
+ drivers/usb/serial/oti6858.c               |    8 
+ drivers/usb/storage/alauda.c               |   16 
+ drivers/usb/storage/datafab.c              |   10 
+ drivers/usb/storage/isd200.c               |    6 
+ drivers/usb/storage/jumpshot.c             |   10 
+ drivers/usb/storage/libusual.c             |    7 
+ drivers/usb/storage/protocol.c             |  143 +---
+ drivers/usb/storage/protocol.h             |    2 
+ drivers/usb/storage/scsiglue.c             |   89 ++
+ drivers/usb/storage/sddr09.c               |   16 
+ drivers/usb/storage/sddr55.c               |   16 
+ drivers/usb/storage/shuttle_usbat.c        |   17 
+ drivers/usb/storage/transport.c            |  338 +++++++---
+ drivers/usb/storage/transport.h            |    2 
+ drivers/usb/storage/unusual_devs.h         |  185 ++---
+ drivers/usb/storage/usb.c                  |  203 ++++--
+ drivers/usb/storage/usb.h                  |   26 
+ fs/sysfs/group.c                           |   32 
+ include/linux/blkdev.h                     |    1 
+ include/linux/ktime.h                      |   10 
+ include/linux/scatterlist.h                |  106 +++
+ include/linux/sysfs.h                      |    2 
+ include/linux/usb.h                        |  103 ++-
+ include/linux/usb/quirks.h                 |    9 
+ include/linux/usb_usual.h                  |   11 
+ include/scsi/scsi_cmnd.h                   |   23 
+ include/scsi/sd.h                          |    5 
+ kernel/params.c                            |    2 
+ 127 files changed, 6613 insertions(+), 3955 deletions(-)
+
 diff '-x.*' -urNBp a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/block/ll_rw_blk.c	2010-07-16 22:00:15.000000000 +0400
@@ -105,7 +235,29 @@ diff '-x.*' -urNBp a/Documentation/kernel-parameters.txt b/Documentation/kernel-
  	USB	USB support is enabled.
  	USBHID	USB Human Interface Device support is enabled.
  	V4L	Video For Linux support is enabled.
-@@ -1907,6 +1908,43 @@ and is between 256 and 4096 characters.
+@@ -1904,9 +1904,65 @@ and is between 256 and 4096 characters. It is defined in the file
+ 			autosuspended.  Devices for which the delay is set
+ 			to a negative value won't be autosuspended at all.
+ 
++	usbcore.usbfs_snoop=
++			[USB] Set to log all usbfs traffic (default 0 = off).
++
++	usbcore.blinkenlights=
++			[USB] Set to cycle leds on hubs (default 0 = off).
++
++	usbcore.old_scheme_first=
++			[USB] Start with the old device initialization
++			scheme (default 0 = off).
++
++	usbcore.use_both_schemes=
++			[USB] Try the other device initialization scheme
++			if the first one fails (default 1 = enabled).
++
++	usbcore.initial_descriptor_timeout=
++			[USB] Specifies timeout for the initial 64-byte
++                        USB_REQ_GET_DESCRIPTOR request in milliseconds
++			(default 5000 = 5.0 seconds).
++
  	usbhid.mousepoll=
  			[USBHID] The interval which mice are to be polled at.
  
@@ -149,32 +301,6 @@ diff '-x.*' -urNBp a/Documentation/kernel-parameters.txt b/Documentation/kernel-
  	vdso=		[IA-32,SH]
  			vdso=2: enable compat VDSO (default with COMPAT_VDSO)
  			vdso=1: enable VDSO (default)
-@@ -2253,6 +2253,25 @@ and is between 256 and 4096 characters. It is defined in the file
- 			autosuspended.  Devices for which the delay is set
- 			to a negative value won't be autosuspended at all.
- 
-+	usbcore.usbfs_snoop=
-+			[USB] Set to log all usbfs traffic (default 0 = off).
-+
-+	usbcore.blinkenlights=
-+			[USB] Set to cycle leds on hubs (default 0 = off).
-+
-+	usbcore.old_scheme_first=
-+			[USB] Start with the old device initialization
-+			scheme (default 0 = off).
-+
-+	usbcore.use_both_schemes=
-+			[USB] Try the other device initialization scheme
-+			if the first one fails (default 1 = enabled).
-+
-+	usbcore.initial_descriptor_timeout=
-+			[USB] Specifies timeout for the initial 64-byte
-+                        USB_REQ_GET_DESCRIPTOR request in milliseconds
-+			(default 5000 = 5.0 seconds).
-+
- 	usbhid.mousepoll=
- 			[USBHID] The interval which mice are to be polled at.
- 
 diff '-x.*' -urNBp a/Documentation/usb/persist.txt b/Documentation/usb/persist.txt
 --- a/Documentation/usb/persist.txt	2010-07-16 04:00:00.000000000 +0400
 +++ b/Documentation/usb/persist.txt	2010-07-16 21:54:37.000000000 +0400
@@ -20959,131 +21085,3 @@ diff '-x.*' -urNBp a/kernel/params.c b/kernel/params.c
  		return ERR_PTR(-ENOMEM);
  
 --
- Documentation/feature-removal-schedule.txt |   16 
- Documentation/kernel-parameters.txt        |   38 +
- Documentation/usb/persist.txt              |   44 -
- block/ll_rw_blk.c                          |   24 
- crypto/digest.c                            |    2 
- crypto/scatterwalk.c                       |    2 
- crypto/scatterwalk.h                       |    2 
- drivers/ata/libata-scsi.c                  |    5 
- drivers/block/ub.c                         |   11 
- drivers/firewire/fw-sbp2.c                 |    6 
- drivers/hid/usbhid/hid-core.c              |   11 
- drivers/ieee1394/sbp2.c                    |    6 
- drivers/media/video/pvrusb2/pvrusb2-hdw.c  |    2 
- drivers/scsi/scsi.c                        |    2 
- drivers/scsi/scsi_lib.c                    |   85 ++
- drivers/scsi/scsi_tgt_lib.c                |    4 
- drivers/scsi/sd.c                          |    5 
- drivers/usb/Kconfig                        |    1 
- drivers/usb/atm/cxacru.c                   |   12 
- drivers/usb/class/cdc-acm.c                |   34 -
- drivers/usb/core/Kconfig                   |   40 -
- drivers/usb/core/buffer.c                  |   20 
- drivers/usb/core/config.c                  |   24 
- drivers/usb/core/devices.c                 |    2 
- drivers/usb/core/devio.c                   |  327 ++++++----
- drivers/usb/core/driver.c                  |  315 ++++++---
- drivers/usb/core/endpoint.c                |   13 
- drivers/usb/core/file.c                    |    4 
- drivers/usb/core/generic.c                 |   14 
- drivers/usb/core/hcd-pci.c                 |  299 +++------
- drivers/usb/core/hcd.c                     |  922 +++++++++++++++++-----------
- drivers/usb/core/hcd.h                     |   59 +
- drivers/usb/core/hub.c                     |  945 +++++++++++++++++++----------
- drivers/usb/core/inode.c                   |   15 
- drivers/usb/core/message.c                 |  600 +++++++++---------
- drivers/usb/core/quirks.c                  |   29 
- drivers/usb/core/sysfs.c                   |  338 ++++++----
- drivers/usb/core/urb.c                     |  353 ++++++++--
- drivers/usb/core/usb.c                     |  159 +---
- drivers/usb/core/usb.h                     |   28 
- drivers/usb/gadget/dummy_hcd.c             |   95 +-
- drivers/usb/gadget/gmidi.c                 |    6 
- drivers/usb/gadget/omap_udc.c              |    4 
- drivers/usb/host/Kconfig                   |    9 
- drivers/usb/host/ehci-au1xxx.c             |    2 
- drivers/usb/host/ehci-dbg.c                |  311 +++++++--
- drivers/usb/host/ehci-fsl.c                |    8 
- drivers/usb/host/ehci-hcd.c                |  431 ++++++++-----
- drivers/usb/host/ehci-hub.c                |  196 +++---
- drivers/usb/host/ehci-mem.c                |   27 
- drivers/usb/host/ehci-pci.c                |   44 +
- drivers/usb/host/ehci-ppc-soc.c            |    2 
- drivers/usb/host/ehci-ps3.c                |    5 
- drivers/usb/host/ehci-q.c                  |  353 ++++++----
- drivers/usb/host/ehci-sched.c              |  602 ++++++++++++------
- drivers/usb/host/ehci.h                    |  100 +--
- drivers/usb/host/isp116x-hcd.c             |   75 --
- drivers/usb/host/ohci-at91.c               |    1 
- drivers/usb/host/ohci-dbg.c                |  225 +++++-
- drivers/usb/host/ohci-ep93xx.c             |    4 
- drivers/usb/host/ohci-hcd.c                |  271 ++++++--
- drivers/usb/host/ohci-hub.c                |   82 ++
- drivers/usb/host/ohci-mem.c                |    1 
- drivers/usb/host/ohci-omap.c               |    7 
- drivers/usb/host/ohci-pci.c                |   68 --
- drivers/usb/host/ohci-pnx4008.c            |    2 
- drivers/usb/host/ohci-ps3.c                |    1 
- drivers/usb/host/ohci-pxa27x.c             |    5 
- drivers/usb/host/ohci-q.c                  |  202 +++---
- drivers/usb/host/ohci-s3c2410.c            |    2 
- drivers/usb/host/ohci.h                    |   33 +
- drivers/usb/host/pci-quirks.c              |    2 
- drivers/usb/host/sl811-hcd.c               |   84 --
- drivers/usb/host/u132-hcd.c                |  374 ++++++-----
- drivers/usb/host/uhci-debug.c              |    4 
- drivers/usb/host/uhci-hcd.c                |  105 ++-
- drivers/usb/host/uhci-hcd.h                |   21 
- drivers/usb/host/uhci-q.c                  |  106 +--
- drivers/usb/image/microtek.c               |   16 
- drivers/usb/misc/Kconfig                   |   11 
- drivers/usb/misc/Makefile                  |    1 
- drivers/usb/misc/adutux.c                  |    4 
- drivers/usb/misc/berry_charge.c            |  175 -----
- drivers/usb/misc/iowarrior.c               |    8 
- drivers/usb/misc/phidgetmotorcontrol.c     |    2 
- drivers/usb/misc/usbtest.c                 |   11 
- drivers/usb/mon/mon_bin.c                  |   54 +
- drivers/usb/mon/mon_main.c                 |   25 
- drivers/usb/mon/mon_text.c                 |   66 +-
- drivers/usb/mon/usb_mon.h                  |    2 
- drivers/usb/serial/aircable.c              |    4 
- drivers/usb/serial/ftdi_sio.c              |   32 
- drivers/usb/serial/ftdi_sio.h              |    7 
- drivers/usb/serial/io_edgeport.c           |    4 
- drivers/usb/serial/io_ti.c                 |    2 
- drivers/usb/serial/ipw.c                   |   18 
- drivers/usb/serial/kl5kusb105.c            |    3 
- drivers/usb/serial/mos7720.c               |    4 
- drivers/usb/serial/option.c                |    3 
- drivers/usb/serial/oti6858.c               |    8 
- drivers/usb/storage/alauda.c               |   16 
- drivers/usb/storage/datafab.c              |   10 
- drivers/usb/storage/isd200.c               |    6 
- drivers/usb/storage/jumpshot.c             |   10 
- drivers/usb/storage/libusual.c             |    7 
- drivers/usb/storage/protocol.c             |  143 +---
- drivers/usb/storage/protocol.h             |    2 
- drivers/usb/storage/scsiglue.c             |   89 ++
- drivers/usb/storage/sddr09.c               |   16 
- drivers/usb/storage/sddr55.c               |   16 
- drivers/usb/storage/shuttle_usbat.c        |   17 
- drivers/usb/storage/transport.c            |  338 +++++++---
- drivers/usb/storage/transport.h            |    2 
- drivers/usb/storage/unusual_devs.h         |  185 ++---
- drivers/usb/storage/usb.c                  |  203 ++++--
- drivers/usb/storage/usb.h                  |   26 
- fs/sysfs/group.c                           |   32 
- include/linux/blkdev.h                     |    1 
- include/linux/ktime.h                      |   10 
- include/linux/scatterlist.h                |  106 +++
- include/linux/sysfs.h                      |    2 
- include/linux/usb.h                        |  103 ++-
- include/linux/usb/quirks.h                 |    9 
- include/linux/usb_usual.h                  |   11 
- include/scsi/scsi_cmnd.h                   |   23 
- include/scsi/sd.h                          |    5 
- kernel/params.c                            |    2 
- 127 files changed, 6584 insertions(+), 3954 deletions(-)
