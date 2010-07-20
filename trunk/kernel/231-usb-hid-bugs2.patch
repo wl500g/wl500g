@@ -1,9 +1,9 @@
 Backport of kernel.org commits from 2.6:
- 13b58ee51802a45d2b8853ffe0003d9fa768195c
- cd6104572bca9e4afe0dcdb8ecd65ef90b01297b
- e5288eb5ea89bd82d897cb687348bc608278f920
- 826d598242d9200ddee63fce96f03793fddee4fc
- cdcb44e87bedcf5070eece61f89f9373a3810031
+ 13b58ee51802a45d2b8853ffe0003d9fa768195c USB: fix bug in handling of highspeed usb HID devices
+ cd6104572bca9e4afe0dcdb8ecd65ef90b01297b hid-core: Zero-pad truncated reports
+ e5288eb5ea89bd82d897cb687348bc608278f920 HID: fix oops in hid_check_keys_pressed()
+ 826d598242d9200ddee63fce96f03793fddee4fc Input: hiddev - use standard list implementation
+ cdcb44e87bedcf5070eece61f89f9373a3810031 USB HID: hiddev - fix race between hiddev_send_event() and hiddev_release()
 
 --- linux/drivers/usb/hid-core.c	2008-02-21 19:44:53.000000000 +0300
 +++ linux/drivers/usb/hid-core.c	2010-06-02 14:16:55.000000000 +0400
