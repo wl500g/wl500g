@@ -470,6 +470,7 @@ $(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
 	@rm -rf $(TOP)/$(INADYN) $@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(INADYN) $(inadyn_Patches)
+	chmod a+x $(TOP)/$(INADYN)/configure
 	mv $(TOP)/$(INADYN) $@ && touch $@
 
 inadyn: $(TOP)/inadyn
