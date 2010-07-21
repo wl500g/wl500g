@@ -573,7 +573,7 @@ diff -BurpN linux-2.6.22.orig/scripts/squashfs/pseudo.c linux-2.6.22/scripts/squ
 +
 +		/* fall through */
 +	case 'd':
-+		if(mode > 0777) {
++		if(mode > 07777) {
 +			ERROR("Mode %o out of range\n", mode);
 +			goto error;
 +		}
