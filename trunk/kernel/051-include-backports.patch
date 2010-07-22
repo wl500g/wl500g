@@ -280,6 +280,27 @@ diff -urB linux-2.4.37.orig/include/linux/list.h linux/include/linux/list.h
  		INIT_LIST_HEAD(list);
  	}
  }
+@@ -214,6 +298,20 @@
+ #define list_for_each(pos, head) \
+ 	for (pos = (head)->next, prefetch(pos->next); pos != (head); \
+         	pos = pos->next, prefetch(pos->next))
++
++/**
++ * __list_for_each	-	iterate over a list
++ * @pos:	the &struct list_head to use as a loop counter.
++ * @head:	the head for your list.
++ *
++ * This variant differs from list_for_each() in that it's the
++ * simplest possible list iteration code, no prefetching is done.
++ * Use this for code that knows the list to be very short (empty
++ * or 1 entry) most of the time.
++ */
++#define __list_for_each(pos, head) \
++	for (pos = (head)->next; pos != (head); pos = pos->next)
++
+ /**
+  * list_for_each_prev	-	iterate over a list backwards
+  * @pos:	the &struct list_head to use as a loop counter.
 diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/include/linux/usb.h b/include/linux/usb.h
 --- linux/include/linux/usb.h	2008-05-19 11:19:54.000000000 -0400
 +++ linux/include/linux/usb.h	2008-05-21 16:03:19.000000000 -0400
