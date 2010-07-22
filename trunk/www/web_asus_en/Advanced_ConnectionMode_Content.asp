@@ -88,7 +88,6 @@
 	<input type="hidden" name="first_time" value="">
 	<input type="hidden" name="action_script" value="">
 	<input type="hidden" name="wan_proto" value="<% nvram_get_x("3GConfig","wan_proto"); %>">
-	<input type="hidden" name="dial_mode_org" value="<% nvram_get_x("","wan_modem_mode_x"); %>">
 	<!-- Table for the content page -->
 	<table class="content_table">
 		<tr class="content_header_tr">
