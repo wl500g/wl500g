@@ -64,6 +64,7 @@ $ cd /whatever-you-want/broadcom/src/gateway
 $ make
 $ make install
 }}}
+  # Файл прошивки и модули ядра искать в /whatever-you-want/broadcom/src/gateway/mipsel-uclibc/
 
 == 5. Обновление из SVN ==
    * Если вы обновили дерево исходников из SVN, и хотите пересобрать только измененную часть, то алгоритм усложняется:

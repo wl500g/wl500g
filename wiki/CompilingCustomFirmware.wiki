@@ -64,6 +64,7 @@ $ cd /whatever-you-want/broadcom/src/gateway
 $ make
 $ make install
 }}}
+  # Firmware image and extra kernel modules resides under /whatever-you-want/broadcom/src/gateway/mipsel-uclibc/
 
 == 5. Sources update from SVN ==
    * In case of you want to refresh sources SVN, and don't want to rebuild an all tree, update algorithm will be complicated:
