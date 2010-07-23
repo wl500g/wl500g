@@ -29,7 +29,6 @@ int
 start_modem_dial(char *prefix)
 {
     int ret=0;
-    char dialparam[] = "dial_param_XXXXXXXXX";
     pid_t pid;
     FILE * file;
     char sfn[200], tmp[200];
@@ -44,12 +43,7 @@ start_modem_dial(char *prefix)
     {
 	dprintf( "%s", sfn );
 
-	snprintf(dialparam, 20, "dial_param_%s", nvram_safe_get("wan_modem_mode_x"));
-	nvram_unset(dialparam);
-	nvram_unset("wan_modem_dial_param_1");
-
-	if (nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") &&
-		nvram_invmatch("wan_modem_mode_x", "-1"))
+	if (nvram_match( strcat_r(prefix, "proto", tmp), "usbmodem") )
 	{
 		nvram_set( strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)) );
 		nvram_set( strcat_r(prefix, "dnsenable_x", tmp), "1");
