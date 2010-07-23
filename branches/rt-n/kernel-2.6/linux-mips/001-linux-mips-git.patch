@@ -1,8 +1,8 @@
-Update of linux-mips.org 2.6.22.19 -> 2.6.22.git-20100522
+Update of linux-mips.org 2.6.22.19 -> 2.6.22.git-20100723
 
 diff -urNBp linux-2.6.22.19-mips/arch/mips/arc/identify.c linux-2.6.22.19-mips-git/arch/mips/arc/identify.c
 --- linux-2.6.22.19-mips/arch/mips/arc/identify.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/arc/identify.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/arc/identify.c	2010-07-23 02:42:09.000000000 +0400
 @@ -68,6 +68,12 @@ static struct smatch mach_table[] = {
  		MACH_GROUP_SNI_RM,
  		MACH_SNI_RM200_PCI,
@@ -18,7 +18,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/arc/identify.c linux-2.6.22.19-mips-g
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/clocks.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/clocks.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/clocks.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/clocks.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/clocks.c	2010-07-23 02:42:09.000000000 +0400
 @@ -46,6 +46,7 @@ unsigned int get_au1x00_speed(void)
  {
  	return au1x00_clock;
@@ -29,7 +29,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/clocks.c linux-2.6.22.1
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/cputable.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/cputable.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/cputable.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/cputable.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/cputable.c	2010-07-23 02:42:09.000000000 +0400
 @@ -22,24 +22,24 @@ struct cpu_spec* cur_cpu_spec[NR_CPUS];
  /* With some thought, we can probably use the mask to reduce the
   * size of the table.
@@ -75,7 +75,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/cputable.c linux-2.6.22
  void
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/dbdma.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/dbdma.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/dbdma.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/dbdma.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/dbdma.c	2010-07-23 02:42:09.000000000 +0400
 @@ -411,8 +411,11 @@ au1xxx_dbdma_ring_alloc(u32 chanid, int
  		if ((desc_base = (u32)kmalloc(i, GFP_KERNEL|GFP_DMA)) == 0)
  			return 0;
@@ -100,7 +100,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/dbdma.c linux-2.6.22.19
  	dtp->dev_flags &= ~DEV_FLAGS_INUSE;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/platform.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/platform.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/platform.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/platform.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/platform.c	2010-07-23 02:42:09.000000000 +0400
 @@ -118,12 +118,12 @@ static struct resource au1xxx_usb_gdt_re
  static struct resource au1xxx_mmc_resources[] = {
  	[0] = {
@@ -153,7 +153,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/platform.c linux-2.6.22
  };
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/setup.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/setup.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -57,7 +57,7 @@ void __init plat_mem_setup(void)
  {
  	struct	cpu_spec *sp;
@@ -183,7 +183,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/setup.c linux-2.6.22.19
  	if (bclk)
 diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/time.c linux-2.6.22.19-mips-git/arch/mips/au1000/common/time.c
 --- linux-2.6.22.19-mips/arch/mips/au1000/common/time.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/time.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/au1000/common/time.c	2010-07-23 02:42:09.000000000 +0400
 @@ -246,6 +246,8 @@ unsigned long cal_r4koff(void)
  		while (au_readl(SYS_COUNTER_CNTRL) & SYS_CNTRL_C1S);
  		au_writel (0, SYS_TOYWRITE);
@@ -226,7 +226,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/au1000/common/time.c linux-2.6.22.19-
  	set_au1x00_uart_baud_base(cpu_speed / (2 * ((int)(au_readl(SYS_POWERCTRL)&0x03) + 2) * 16));
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/atlas_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/atlas_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/atlas_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/atlas_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/atlas_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_ATLAS=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -237,7 +237,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/atlas_defconfig linux-2.6.22.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/bigsur_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/bigsur_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/bigsur_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/bigsur_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/bigsur_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SIBYTE_BIGSUR=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -248,7 +248,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/bigsur_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/capcella_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/capcella_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/capcella_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/capcella_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/capcella_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -259,7 +259,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/capcella_defconfig linux-2.6.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/cobalt_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/cobalt_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/cobalt_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/cobalt_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/cobalt_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_COBALT=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -270,7 +270,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/cobalt_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1000_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/db1000_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/db1000_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/db1000_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/db1000_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_DB1000=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -281,7 +281,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1000_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1100_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/db1100_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/db1100_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/db1100_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/db1100_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_DB1100=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -292,7 +292,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1100_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1200_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/db1200_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/db1200_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/db1200_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/db1200_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_DB1200=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -303,7 +303,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1200_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1500_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/db1500_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/db1500_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/db1500_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/db1500_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_DB1500=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -314,7 +314,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1500_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1550_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/db1550_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/db1550_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/db1550_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/db1550_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_DB1550=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -325,7 +325,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/db1550_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ddb5477_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ddb5477_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ddb5477_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ddb5477_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ddb5477_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_DDB5477=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -336,7 +336,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ddb5477_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/decstation_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/decstation_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/decstation_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/decstation_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/decstation_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_DECSTATION=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -347,7 +347,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/decstation_defconfig linux-2.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/e55_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/e55_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/e55_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/e55_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/e55_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -358,7 +358,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/e55_defconfig linux-2.6.22.19
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/emma2rh_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/emma2rh_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/emma2rh_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/emma2rh_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/emma2rh_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MARKEINS=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -369,7 +369,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/emma2rh_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ev64120_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ev64120_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ev64120_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ev64120_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ev64120_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_EV64120=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -380,7 +380,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ev64120_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/excite_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/excite_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/excite_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/excite_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/excite_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_BASLER_EXCITE=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -391,7 +391,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/excite_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip22_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ip22_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ip22_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ip22_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ip22_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SGI_IP22=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -402,7 +402,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip22_defconfig linux-2.6.22.1
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip27_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ip27_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ip27_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ip27_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ip27_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SGI_IP27=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -422,7 +422,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip27_defconfig linux-2.6.22.1
  CONFIG_SYS_SUPPORTS_BIG_ENDIAN=y
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip32_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ip32_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ip32_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ip32_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ip32_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SGI_IP32=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -433,7 +433,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ip32_defconfig linux-2.6.22.1
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/jazz_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/jazz_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/jazz_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/jazz_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/jazz_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_JAZZ=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -444,7 +444,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/jazz_defconfig linux-2.6.22.1
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/jmr3927_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/jmr3927_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/jmr3927_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/jmr3927_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/jmr3927_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_ZONE_DMA=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -455,7 +455,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/jmr3927_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/lasat200_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/lasat200_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/lasat200_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/lasat200_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/lasat200_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_LASAT=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -466,7 +466,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/lasat200_defconfig linux-2.6.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/malta_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/malta_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/malta_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/malta_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/malta_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_MALTA=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -477,7 +477,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/malta_defconfig linux-2.6.22.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/mipssim_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/mipssim_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/mipssim_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/mipssim_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/mipssim_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_SIM=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -488,7 +488,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/mipssim_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/mpc30x_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/mpc30x_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/mpc30x_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/mpc30x_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/mpc30x_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -499,7 +499,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/mpc30x_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_3_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_3_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ocelot_3_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_3_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_3_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MOMENCO_OCELOT_3=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -510,7 +510,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_3_defconfig linux-2.6.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_c_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_c_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ocelot_c_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_c_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_c_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MOMENCO_OCELOT_C=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -521,7 +521,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_c_defconfig linux-2.6.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/ocelot_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/ocelot_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MOMENCO_OCELOT=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -532,7 +532,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/ocelot_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1100_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/pb1100_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/pb1100_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1100_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1100_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_PB1100=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -543,7 +543,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1100_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1500_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/pb1500_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/pb1500_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1500_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1500_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_PB1500=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -554,7 +554,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1500_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1550_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/pb1550_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/pb1550_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1550_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/pb1550_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -55,7 +55,6 @@ CONFIG_MIPS_PB1550=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -565,7 +565,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pb1550_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pnx8550-jbs_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-jbs_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/pnx8550-jbs_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-jbs_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-jbs_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_PNX8550_JBS=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -576,7 +576,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pnx8550-jbs_defconfig linux-2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pnx8550-stb810_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-stb810_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/pnx8550-stb810_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-stb810_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/pnx8550-stb810_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_PNX8550_STB810=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -587,7 +587,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/pnx8550-stb810_defconfig linu
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/qemu_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/qemu_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/qemu_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/qemu_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/qemu_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_QEMU=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -598,7 +598,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/qemu_defconfig linux-2.6.22.1
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rbhma4200_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4200_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/rbhma4200_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4200_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4200_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -51,7 +51,6 @@ CONFIG_MIPS=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -609,7 +609,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rbhma4200_defconfig linux-2.6
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rbhma4500_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4500_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/rbhma4500_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4500_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/rbhma4500_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_ZONE_DMA=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -620,7 +620,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rbhma4500_defconfig linux-2.6
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rm200_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/rm200_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/rm200_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/rm200_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/rm200_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_ZONE_DMA=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -631,7 +631,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/rm200_defconfig linux-2.6.22.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/sb1250-swarm_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/sb1250-swarm_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/sb1250-swarm_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/sb1250-swarm_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/sb1250-swarm_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SIBYTE_SWARM=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -642,7 +642,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/sb1250-swarm_defconfig linux-
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/sead_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/sead_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/sead_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/sead_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/sead_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MIPS_SEAD=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -653,7 +653,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/sead_defconfig linux-2.6.22.1
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0219_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/tb0219_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/tb0219_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0219_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0219_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -664,7 +664,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0219_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0226_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/tb0226_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/tb0226_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0226_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0226_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -675,7 +675,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0226_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0287_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/tb0287_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/tb0287_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0287_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/tb0287_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -686,7 +686,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/tb0287_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/workpad_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/workpad_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/workpad_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/workpad_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/workpad_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_MACH_VR41XX=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -697,7 +697,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/workpad_defconfig linux-2.6.2
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/wrppmc_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/wrppmc_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/wrppmc_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/wrppmc_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/wrppmc_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_WR_PPMC=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -708,7 +708,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/wrppmc_defconfig linux-2.6.22
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/yosemite_defconfig linux-2.6.22.19-mips-git/arch/mips/configs/yosemite_defconfig
 --- linux-2.6.22.19-mips/arch/mips/configs/yosemite_defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/configs/yosemite_defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/configs/yosemite_defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_PMC_YOSEMITE=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -719,7 +719,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/configs/yosemite_defconfig linux-2.6.
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/defconfig linux-2.6.22.19-mips-git/arch/mips/defconfig
 --- linux-2.6.22.19-mips/arch/mips/defconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/defconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/defconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -54,7 +54,6 @@ CONFIG_SGI_IP22=y
  # CONFIG_SIBYTE_SENTOSA is not set
  # CONFIG_SIBYTE_RHONE is not set
@@ -730,7 +730,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/defconfig linux-2.6.22.19-mips-git/ar
  # CONFIG_SIBYTE_CRHONE is not set
 diff -urNBp linux-2.6.22.19-mips/arch/mips/jazz/jazzdma.c linux-2.6.22.19-mips-git/arch/mips/jazz/jazzdma.c
 --- linux-2.6.22.19-mips/arch/mips/jazz/jazzdma.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/jazz/jazzdma.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/jazz/jazzdma.c	2010-07-23 02:42:09.000000000 +0400
 @@ -193,7 +193,7 @@ int vdma_free(unsigned long laddr)
  		return -1;
  	}
@@ -742,7 +742,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/jazz/jazzdma.c linux-2.6.22.19-mips-g
  	}
 diff -urNBp linux-2.6.22.19-mips/arch/mips/jazz/setup.c linux-2.6.22.19-mips-git/arch/mips/jazz/setup.c
 --- linux-2.6.22.19-mips/arch/mips/jazz/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/jazz/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/jazz/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -99,15 +99,9 @@ void __init plat_mem_setup(void)
  	pm_power_off = jazz_machine_power_off;
  
@@ -764,7 +764,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/jazz/setup.c linux-2.6.22.19-mips-git
  	vdma_init();
 diff -urNBp linux-2.6.22.19-mips/arch/mips/Kconfig linux-2.6.22.19-mips-git/arch/mips/Kconfig
 --- linux-2.6.22.19-mips/arch/mips/Kconfig	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/Kconfig	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/Kconfig	2010-07-23 02:42:09.000000000 +0400
 @@ -52,6 +52,7 @@ config MIPS_COBALT
  	select I8259
  	select IRQ_CPU
@@ -849,7 +849,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/Kconfig linux-2.6.22.19-mips-git/arch
  	default y
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/asm-offsets.c linux-2.6.22.19-mips-git/arch/mips/kernel/asm-offsets.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/asm-offsets.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/asm-offsets.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/asm-offsets.c	2010-07-23 02:42:09.000000000 +0400
 @@ -13,7 +13,7 @@
  #include <linux/sched.h>
  #include <linux/mm.h>
@@ -971,7 +971,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/asm-offsets.c linux-2.6.22.19-
 +}
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/binfmt_elfo32.c linux-2.6.22.19-mips-git/arch/mips/kernel/binfmt_elfo32.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/binfmt_elfo32.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/binfmt_elfo32.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/binfmt_elfo32.c	2010-07-23 02:42:09.000000000 +0400
 @@ -53,6 +53,23 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_N
  #define ELF_ET_DYN_BASE         (TASK32_SIZE / 3 * 2)
  
@@ -1008,7 +1008,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/binfmt_elfo32.c linux-2.6.22.1
  	int i;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/cpu-bugs64.c linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-bugs64.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/cpu-bugs64.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-bugs64.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-bugs64.c	2010-07-23 02:42:09.000000000 +0400
 @@ -164,7 +164,7 @@ static inline void check_mult_sh(void)
  	      );
  }
@@ -1020,7 +1020,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/cpu-bugs64.c linux-2.6.22.19-m
  {
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/cpu-probe.c linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-probe.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/cpu-probe.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-probe.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/cpu-probe.c	2010-07-23 02:42:09.000000000 +0400
 @@ -45,18 +45,7 @@ static void r39xx_wait(void)
  	local_irq_enable();
  }
@@ -1096,7 +1096,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/cpu-probe.c linux-2.6.22.19-mi
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/entry.S linux-2.6.22.19-mips-git/arch/mips/kernel/entry.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/entry.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/entry.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/entry.S	2010-07-23 02:42:09.000000000 +0400
 @@ -79,11 +79,6 @@ FEXPORT(syscall_exit)
  
  FEXPORT(restore_all)			# restore full frame
@@ -1123,7 +1123,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/entry.S linux-2.6.22.19-mips-g
  	RESTORE_TEMP
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/gdb-low.S linux-2.6.22.19-mips-git/arch/mips/kernel/gdb-low.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/gdb-low.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/gdb-low.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/gdb-low.S	2010-07-23 02:42:09.000000000 +0400
 @@ -9,21 +9,21 @@
  #include <asm/errno.h>
  #include <asm/irqflags.h>
@@ -1191,7 +1191,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/gdb-low.S linux-2.6.22.19-mips
  		LONG_L	$28, GDB_FR_REG28(sp)
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/genex.S linux-2.6.22.19-mips-git/arch/mips/kernel/genex.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/genex.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/genex.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/genex.S	2010-07-23 02:42:09.000000000 +0400
 @@ -20,6 +20,7 @@
  #include <asm/stackframe.h>
  #include <asm/war.h>
@@ -1253,7 +1253,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/genex.S linux-2.6.22.19-mips-g
  	SAVE_AT
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/head.S linux-2.6.22.19-mips-git/arch/mips/kernel/head.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/head.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/head.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/head.S	2010-07-23 02:42:09.000000000 +0400
 @@ -21,6 +21,7 @@
  #include <asm/irqflags.h>
  #include <asm/regdef.h>
@@ -1298,7 +1298,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/head.S linux-2.6.22.19-mips-gi
 +#endif
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/irixelf.c linux-2.6.22.19-mips-git/arch/mips/kernel/irixelf.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/irixelf.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/irixelf.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/irixelf.c	2010-07-23 02:42:09.000000000 +0400
 @@ -575,7 +575,7 @@ static inline int map_interpreter(struct
   * process and the system, here we map the page and fill the
   * structure
@@ -1340,7 +1340,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/irixelf.c linux-2.6.22.19-mips
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/kspd.c linux-2.6.22.19-mips-git/arch/mips/kernel/kspd.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/kspd.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/kspd.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/kspd.c	2010-07-23 02:42:09.000000000 +0400
 @@ -257,7 +257,7 @@ void sp_work_handle_request(void)
  
   		vcwd = vpe_getcwd(SP_VPE);
@@ -1362,7 +1362,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/kspd.c linux-2.6.22.19-mips-gi
  static int channel_open = 0;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/linux32.c linux-2.6.22.19-mips-git/arch/mips/kernel/linux32.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/linux32.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/linux32.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/linux32.c	2010-07-23 02:42:09.000000000 +0400
 @@ -586,3 +586,9 @@ _sys32_clone(nabi_no_regargs struct pt_r
  	return do_fork(clone_flags, newsp, &regs, 0,
  	               parent_tidptr, child_tidptr);
@@ -1375,7 +1375,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/linux32.c linux-2.6.22.19-mips
 +}
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/Makefile linux-2.6.22.19-mips-git/arch/mips/kernel/Makefile
 --- linux-2.6.22.19-mips/arch/mips/kernel/Makefile	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/Makefile	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/Makefile	2010-07-23 02:42:09.000000000 +0400
 @@ -39,9 +39,9 @@ obj-$(CONFIG_MIPS_MT)		+= mips-mt.o
  obj-$(CONFIG_MIPS_MT_SMTC)	+= smtc.o smtc-asm.o smtc-proc.o
  obj-$(CONFIG_MIPS_MT_SMP)	+= smp-mt.o
@@ -1387,9 +1387,99 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/Makefile linux-2.6.22.19-mips-
  
  obj-$(CONFIG_I8259)		+= i8259.o
  obj-$(CONFIG_IRQ_CPU)		+= irq_cpu.o
+diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/mips-mt.c linux-2.6.22.19-mips-git/arch/mips/kernel/mips-mt.c
+--- linux-2.6.22.19-mips/arch/mips/kernel/mips-mt.c	2008-02-26 12:54:25.000000000 +0300
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/mips-mt.c	2010-07-23 02:42:09.000000000 +0400
+@@ -12,6 +12,7 @@
+ #include <linux/security.h>
+ 
+ #include <asm/cpu.h>
++#include <linux/cpuset.h>
+ #include <asm/processor.h>
+ #include <asm/atomic.h>
+ #include <asm/system.h>
+@@ -55,6 +56,7 @@ static inline struct task_struct *find_p
+ 	return pid ? find_task_by_pid(pid) : current;
+ }
+ 
++extern struct mutex sched_hotcpu_mutex;
+ 
+ /*
+  * mipsmt_sys_sched_setaffinity - set the cpu affinity of a process
+@@ -62,10 +64,9 @@ static inline struct task_struct *find_p
+ asmlinkage long mipsmt_sys_sched_setaffinity(pid_t pid, unsigned int len,
+ 				      unsigned long __user *user_mask_ptr)
+ {
+-	cpumask_t new_mask;
+-	cpumask_t effective_mask;
+-	int retval;
++	cpumask_t new_mask, effective_mask;
+ 	struct task_struct *p;
++	int retval;
+ 
+ 	if (len < sizeof(new_mask))
+ 		return -EINVAL;
+@@ -73,13 +74,13 @@ asmlinkage long mipsmt_sys_sched_setaffi
+ 	if (copy_from_user(&new_mask, user_mask_ptr, sizeof(new_mask)))
+ 		return -EFAULT;
+ 
+-	lock_cpu_hotplug();
++	mutex_lock(&sched_hotcpu_mutex);
+ 	read_lock(&tasklist_lock);
+ 
+ 	p = find_process_by_pid(pid);
+ 	if (!p) {
+ 		read_unlock(&tasklist_lock);
+-		unlock_cpu_hotplug();
++		mutex_unlock(&sched_hotcpu_mutex);
+ 		return -ESRCH;
+ 	}
+ 
+@@ -90,13 +91,12 @@ asmlinkage long mipsmt_sys_sched_setaffi
+ 	 * set_cpus_allowed.
+ 	 */
+ 	get_task_struct(p);
++	read_unlock(&tasklist_lock);
+ 
+ 	retval = -EPERM;
+ 	if ((current->euid != p->euid) && (current->euid != p->uid) &&
+-			!capable(CAP_SYS_NICE)) {
+-		read_unlock(&tasklist_lock);
++			!capable(CAP_SYS_NICE))
+ 		goto out_unlock;
+-	}
+ 
+ 	retval = security_task_setscheduler(p, 0, NULL);
+ 	if (retval)
+@@ -105,15 +105,13 @@ asmlinkage long mipsmt_sys_sched_setaffi
+ 	/* Record new user-specified CPU set for future reference */
+ 	p->thread.user_cpus_allowed = new_mask;
+ 
+-	/* Unlock the task list */
+-	read_unlock(&tasklist_lock);
+-
+ 	/* Compute new global allowed CPU set if necessary */
+ 	if( (p->thread.mflags & MF_FPUBOUND)
+ 	&& cpus_intersects(new_mask, mt_fpu_cpumask)) {
+ 		cpus_and(effective_mask, new_mask, mt_fpu_cpumask);
+ 		retval = set_cpus_allowed(p, effective_mask);
+ 	} else {
++		effective_mask = new_mask;
+ 		p->thread.mflags &= ~MF_FPUBOUND;
+ 		retval = set_cpus_allowed(p, new_mask);
+ 	}
+@@ -121,7 +119,7 @@ asmlinkage long mipsmt_sys_sched_setaffi
+ 
+ out_unlock:
+ 	put_task_struct(p);
+-	unlock_cpu_hotplug();
++	mutex_unlock(&sched_hotcpu_mutex);
+ 	return retval;
+ }
+ 
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/module.c linux-2.6.22.19-mips-git/arch/mips/kernel/module.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/module.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/module.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/module.c	2010-07-23 02:42:09.000000000 +0400
 @@ -99,7 +99,9 @@ static int apply_r_mips_32_rela(struct m
  static int apply_r_mips_26_rel(struct module *me, u32 *location, Elf_Addr v)
  {
@@ -1424,7 +1514,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/module.c linux-2.6.22.19-mips-
  }
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/proc.c linux-2.6.22.19-mips-git/arch/mips/kernel/proc.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/proc.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/proc.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/proc.c	2010-07-23 02:42:09.000000000 +0400
 @@ -112,7 +112,7 @@ static int show_cpuinfo(struct seq_file
  	                            cpu_data[n].cputype : CPU_UNKNOWN],
  	                           (version >> 4) & 0x0f, version & 0x0f,
@@ -1436,7 +1526,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/proc.c linux-2.6.22.19-mips-gi
  	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/process.c linux-2.6.22.19-mips-git/arch/mips/kernel/process.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/process.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/process.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/process.c	2010-07-23 02:42:09.000000000 +0400
 @@ -100,7 +100,7 @@ int copy_thread(int nr, unsigned long cl
  {
  	struct thread_info *ti = task_thread_info(p);
@@ -1457,7 +1547,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/process.c linux-2.6.22.19-mips
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/ptrace.c linux-2.6.22.19-mips-git/arch/mips/kernel/ptrace.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/ptrace.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/ptrace.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/ptrace.c	2010-07-23 02:42:09.000000000 +0400
 @@ -246,7 +246,7 @@ long arch_ptrace(struct task_struct *chi
  		case FPC_EIR: {	/* implementation / version register */
  			unsigned int flags;
@@ -1469,7 +1559,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/ptrace.c linux-2.6.22.19-mips-
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/rtlx.c linux-2.6.22.19-mips-git/arch/mips/kernel/rtlx.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/rtlx.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/rtlx.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/rtlx.c	2010-07-23 02:42:09.000000000 +0400
 @@ -76,6 +76,15 @@ static void rtlx_dispatch(void)
  static irqreturn_t rtlx_interrupt(int irq, void *dev_id)
  {
@@ -1608,7 +1698,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/rtlx.c linux-2.6.22.19-mips-gi
  	setup_irq(rtlx_irq_num, &rtlx_irq);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall32-o32.S linux-2.6.22.19-mips-git/arch/mips/kernel/scall32-o32.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/scall32-o32.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall32-o32.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall32-o32.S	2010-07-23 02:42:09.000000000 +0400
 @@ -184,7 +184,7 @@ bad_stack:
  	 * The system call does not exist in this kernel
  	 */
@@ -1658,7 +1748,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall32-o32.S linux-2.6.22.19-
  	sys	sys_vmsplice		4
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-64.S linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-64.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/scall64-64.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-64.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-64.S	2010-07-23 02:42:09.000000000 +0400
 @@ -117,7 +117,7 @@ syscall_trace_entry:
  
  illegal_syscall:
@@ -1670,7 +1760,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-64.S linux-2.6.22.19-m
  	sd	t0, PT_R7(sp)
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-n32.S linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-n32.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/scall64-n32.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-n32.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-n32.S	2010-07-23 02:42:09.000000000 +0400
 @@ -385,12 +385,12 @@ EXPORT(sysn32_call_table)
  	PTR	sys_fchmodat
  	PTR	sys_faccessat
@@ -1686,9 +1776,31 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-n32.S linux-2.6.22.19-
  	PTR	sys_move_pages
  	PTR	compat_sys_set_robust_list
  	PTR	compat_sys_get_robust_list
+@@ -403,4 +403,21 @@ EXPORT(sysn32_call_table)
+ 	PTR	compat_sys_signalfd		/* 5280 */
+ 	PTR	compat_sys_timerfd
+ 	PTR	sys_eventfd
++	PTR	sys_ni_syscall			/* sys_fallocate */
++	PTR	sys_ni_syscall			/* sys_timerfd_create */
++	PTR	sys_ni_syscall		/* 5285, compat_sys_timerfd_gettime */
++	PTR	sys_ni_syscall			/* compat_sys_timerfd_settime */
++	PTR	sys_ni_syscall			/* sys_signalfd4 */
++	PTR	sys_ni_syscall			/* sys_eventfd2 */
++	PTR	sys_ni_syscall			/* sys_epoll_create1 */
++	PTR	sys_ni_syscall			/* 5290, sys_dup3 */
++	PTR	sys_ni_syscall			/* sys_pipe2 */
++	PTR	sys_ni_syscall			/* sys_inotify_init1 */
++	PTR	sys_ni_syscall			/* sys_preadv */
++	PTR	sys_ni_syscall			/* sys_pwritev */
++	PTR	sys_ni_syscall		/* 5295, compat_sys_rt_tgsigqueueinfo */
++	PTR	sys_ni_syscall			/* sys_perf_counter_open */
++	PTR	sys_ni_syscall			/* sys_accept4 */
++	PTR     sys_ni_syscall
++	PTR     sys_getdents
+ 	.size	sysn32_call_table,.-sysn32_call_table
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-o32.S linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-o32.S
 --- linux-2.6.22.19-mips/arch/mips/kernel/scall64-o32.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-o32.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/scall64-o32.S	2010-07-23 02:42:09.000000000 +0400
 @@ -174,14 +174,12 @@ not_o32_scall:
  	END(handle_sys)
  
@@ -1744,7 +1856,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/scall64-o32.S linux-2.6.22.19-
  	PTR	compat_sys_get_robust_list	/* 4310 */
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/setup.c linux-2.6.22.19-mips-git/arch/mips/kernel/setup.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -330,6 +330,7 @@ static void __init bootmem_init(void)
  	/*
  	 * Determine low and high memory ranges
@@ -1755,7 +1867,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/setup.c linux-2.6.22.19-mips-g
  		highstart_pfn = PFN_DOWN(HIGHMEM_START);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/smp.c linux-2.6.22.19-mips-git/arch/mips/kernel/smp.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/smp.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/smp.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/smp.c	2010-07-23 02:42:09.000000000 +0400
 @@ -30,6 +30,7 @@
  #include <linux/sched.h>
  #include <linux/cpumask.h>
@@ -1787,7 +1899,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/smp.c linux-2.6.22.19-mips-git
  void smp_send_stop(void)
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/smtc.c linux-2.6.22.19-mips-git/arch/mips/kernel/smtc.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/smtc.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/smtc.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/smtc.c	2010-07-23 02:42:09.000000000 +0400
 @@ -69,7 +69,7 @@ unsigned int ipi_timer_latch[NR_CPUS];
  
  #define IPIBUF_PER_CPU 4
@@ -1862,7 +1974,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/smtc.c linux-2.6.22.19-mips-gi
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/syscall.c linux-2.6.22.19-mips-git/arch/mips/kernel/syscall.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/syscall.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/syscall.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/syscall.c	2010-07-23 02:42:09.000000000 +0400
 @@ -84,7 +84,8 @@ unsigned long arch_get_unmapped_area(str
  		 * We do not accept a shared mapping if it would violate
  		 * cache aliasing constraints.
@@ -1875,7 +1987,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/syscall.c linux-2.6.22.19-mips
  	}
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/traps.c linux-2.6.22.19-mips-git/arch/mips/kernel/traps.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/traps.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/traps.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/traps.c	2010-07-23 02:42:09.000000000 +0400
 @@ -43,6 +43,9 @@
  #include <asm/types.h>
  #include <asm/stacktrace.h>
@@ -2089,7 +2201,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/traps.c linux-2.6.22.19-mips-g
  	set_except_vector(3, handle_tlbs);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/unaligned.c linux-2.6.22.19-mips-git/arch/mips/kernel/unaligned.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/unaligned.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/unaligned.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/unaligned.c	2010-07-23 02:42:09.000000000 +0400
 @@ -471,19 +471,19 @@ fault:
  		return 1;
  
@@ -2115,7 +2227,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/unaligned.c linux-2.6.22.19-mi
  }
 diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/vpe.c linux-2.6.22.19-mips-git/arch/mips/kernel/vpe.c
 --- linux-2.6.22.19-mips/arch/mips/kernel/vpe.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/kernel/vpe.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/kernel/vpe.c	2010-07-23 02:42:09.000000000 +0400
 @@ -69,7 +69,7 @@ static int major;
  static const int minor = 1;	/* fixed for now  */
  
@@ -2338,7 +2450,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/kernel/vpe.c linux-2.6.22.19-mips-git
  	if (ret < 0)
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/csum_partial.S linux-2.6.22.19-mips-git/arch/mips/lib/csum_partial.S
 --- linux-2.6.22.19-mips/arch/mips/lib/csum_partial.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/csum_partial.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/csum_partial.S	2010-07-23 02:42:09.000000000 +0400
 @@ -38,12 +38,14 @@
  #ifdef USE_DOUBLE
  
@@ -2417,7 +2529,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/csum_partial.S linux-2.6.22.19-mi
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/delay.c linux-2.6.22.19-mips-git/arch/mips/lib/delay.c
 --- linux-2.6.22.19-mips/arch/mips/lib/delay.c	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/delay.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/delay.c	2010-07-23 02:42:09.000000000 +0400
 @@ -0,0 +1,56 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -2477,7 +2589,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/delay.c linux-2.6.22.19-mips-git/
 +EXPORT_SYMBOL(__ndelay);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/libgcc.h linux-2.6.22.19-mips-git/arch/mips/lib/libgcc.h
 --- linux-2.6.22.19-mips/arch/mips/lib/libgcc.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/libgcc.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/libgcc.h	2010-07-23 02:42:09.000000000 +0400
 @@ -17,8 +17,7 @@ struct DWstruct {
  #error I feel sick.
  #endif
@@ -2490,7 +2602,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/libgcc.h linux-2.6.22.19-mips-git
  } DWunion;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/Makefile linux-2.6.22.19-mips-git/arch/mips/lib/Makefile
 --- linux-2.6.22.19-mips/arch/mips/lib/Makefile	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/Makefile	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/Makefile	2010-07-23 02:42:09.000000000 +0400
 @@ -2,8 +2,8 @@
  # Makefile for MIPS-specific library files..
  #
@@ -2504,7 +2616,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/Makefile linux-2.6.22.19-mips-git
  obj-$(CONFIG_PCI)	+= iomap-pci.o
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memcpy-inatomic.S linux-2.6.22.19-mips-git/arch/mips/lib/memcpy-inatomic.S
 --- linux-2.6.22.19-mips/arch/mips/lib/memcpy-inatomic.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/memcpy-inatomic.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/memcpy-inatomic.S	2010-07-23 02:42:09.000000000 +0400
 @@ -20,7 +20,7 @@
   * end of memory on some systems.  It's also a seriously bad idea on non
   * dma-coherent systems.
@@ -2516,7 +2628,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memcpy-inatomic.S linux-2.6.22.19
  #ifdef CONFIG_MIPS_MALTA
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memcpy.S linux-2.6.22.19-mips-git/arch/mips/lib/memcpy.S
 --- linux-2.6.22.19-mips/arch/mips/lib/memcpy.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/memcpy.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/memcpy.S	2010-07-23 02:42:09.000000000 +0400
 @@ -20,7 +20,7 @@
   * end of memory on some systems.  It's also a seriously bad idea on non
   * dma-coherent systems.
@@ -2528,7 +2640,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memcpy.S linux-2.6.22.19-mips-git
  #ifdef CONFIG_MIPS_MALTA
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/ucmpdi2.c linux-2.6.22.19-mips-git/arch/mips/lib/ucmpdi2.c
 --- linux-2.6.22.19-mips/arch/mips/lib/ucmpdi2.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/ucmpdi2.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/ucmpdi2.c	2010-07-23 02:42:09.000000000 +0400
 @@ -17,3 +17,5 @@ word_type __ucmpdi2 (unsigned long long
  		return 2;
  	return 1;
@@ -2537,7 +2649,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/ucmpdi2.c linux-2.6.22.19-mips-gi
 +EXPORT_SYMBOL(__ucmpdi2);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/uncached.c linux-2.6.22.19-mips-git/arch/mips/lib/uncached.c
 --- linux-2.6.22.19-mips/arch/mips/lib/uncached.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/lib/uncached.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/lib/uncached.c	2010-07-23 02:42:09.000000000 +0400
 @@ -35,7 +35,7 @@
   * values, so we can avoid sharing the same stack area between a cached
   * and the uncached mode.
@@ -2549,7 +2661,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/uncached.c linux-2.6.22.19-mips-g
  	register long ret __asm__("$2");
 diff -urNBp linux-2.6.22.19-mips/arch/mips/Makefile linux-2.6.22.19-mips-git/arch/mips/Makefile
 --- linux-2.6.22.19-mips/arch/mips/Makefile	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/Makefile	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/Makefile	2010-07-23 02:42:09.000000000 +0400
 @@ -564,7 +564,11 @@ load-$(CONFIG_SIBYTE_BIGSUR)	:= 0xffffff
  #
  core-$(CONFIG_SNI_RM)		+= arch/mips/sni/
@@ -2564,7 +2676,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/Makefile linux-2.6.22.19-mips-git/arc
  # Toshiba JMR-TX3927 board
 diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/cp1emu.c linux-2.6.22.19-mips-git/arch/mips/math-emu/cp1emu.c
 --- linux-2.6.22.19-mips/arch/mips/math-emu/cp1emu.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/math-emu/cp1emu.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/math-emu/cp1emu.c	2010-07-23 02:42:09.000000000 +0400
 @@ -75,6 +75,9 @@ struct mips_fpu_emulator_stats fpuemusta
  #define FPCREG_RID	0	/* $0  = revision id */
  #define FPCREG_CSR	31	/* $31 = csr */
@@ -2651,7 +2763,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/cp1emu.c linux-2.6.22.19-mip
  				return SIGFPE;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/dp_simple.c linux-2.6.22.19-mips-git/arch/mips/math-emu/dp_simple.c
 --- linux-2.6.22.19-mips/arch/mips/math-emu/dp_simple.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/math-emu/dp_simple.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/math-emu/dp_simple.c	2010-07-23 02:42:09.000000000 +0400
 @@ -62,8 +62,6 @@ ieee754dp ieee754dp_neg(ieee754dp x)
  		return ieee754dp_nanxcpt(y, "neg");
  	}
@@ -2683,7 +2795,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/dp_simple.c linux-2.6.22.19-
  }
 diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/sp_simple.c linux-2.6.22.19-mips-git/arch/mips/math-emu/sp_simple.c
 --- linux-2.6.22.19-mips/arch/mips/math-emu/sp_simple.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/math-emu/sp_simple.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/math-emu/sp_simple.c	2010-07-23 02:42:09.000000000 +0400
 @@ -62,8 +62,6 @@ ieee754sp ieee754sp_neg(ieee754sp x)
  		return ieee754sp_nanxcpt(y, "neg");
  	}
@@ -2714,7 +2826,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/math-emu/sp_simple.c linux-2.6.22.19-
  }
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/generic/pci.c linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/pci.c
 --- linux-2.6.22.19-mips/arch/mips/mips-boards/generic/pci.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/pci.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/pci.c	2010-07-23 02:42:09.000000000 +0400
 @@ -241,3 +241,16 @@ void __init mips_pcibios_init(void)
  
  	register_pci_controller (controller);
@@ -2734,7 +2846,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/generic/pci.c linux-2.6.2
 +	quirk_dlcsetup);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/generic/reset.c linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/reset.c
 --- linux-2.6.22.19-mips/arch/mips/mips-boards/generic/reset.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/reset.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/generic/reset.c	2010-07-23 02:42:09.000000000 +0400
 @@ -31,12 +31,6 @@
  #include <asm/mips-boards/atlas.h>
  #endif
@@ -2750,7 +2862,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/generic/reset.c linux-2.6
  	unsigned int __iomem *softres_reg =
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/malta/Makefile linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/Makefile
 --- linux-2.6.22.19-mips/arch/mips/mips-boards/malta/Makefile	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/Makefile	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/Makefile	2010-07-23 02:42:09.000000000 +0400
 @@ -19,6 +19,5 @@
  # under Linux.
  #
@@ -2761,7 +2873,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/malta/Makefile linux-2.6.
  obj-$(CONFIG_MIPS_MT_SMTC) += malta_smtc.o
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/malta/malta_int.c linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/malta_int.c
 --- linux-2.6.22.19-mips/arch/mips/mips-boards/malta/malta_int.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/malta_int.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mips-boards/malta/malta_int.c	2010-07-23 02:42:09.000000000 +0400
 @@ -77,7 +77,7 @@ static inline int mips_pcibios_iack(void
  		dummy = BONITO_PCIMAP_CFG;
  		iob();    /* sync */
@@ -2773,7 +2885,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mips-boards/malta/malta_int.c linux-2
  		BONITO_PCIMAP_CFG = 0;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/cache.c linux-2.6.22.19-mips-git/arch/mips/mm/cache.c
 --- linux-2.6.22.19-mips/arch/mips/mm/cache.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/cache.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/cache.c	2010-07-23 02:42:09.000000000 +0400
 @@ -126,9 +126,10 @@ void __update_cache(struct vm_area_struc
  	}
  }
@@ -2789,7 +2901,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/cache.c linux-2.6.22.19-mips-git/a
  		extern void __weak r3k_cache_init(void);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/cex-sb1.S linux-2.6.22.19-mips-git/arch/mips/mm/cex-sb1.S
 --- linux-2.6.22.19-mips/arch/mips/mm/cex-sb1.S	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/cex-sb1.S	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/cex-sb1.S	2010-07-23 02:42:09.000000000 +0400
 @@ -34,8 +34,6 @@
  	 * is changed.
  	 */
@@ -2822,7 +2934,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/cex-sb1.S linux-2.6.22.19-mips-git
  	mfc0	k0,CP0_CONFIG
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-r3k.c linux-2.6.22.19-mips-git/arch/mips/mm/c-r3k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/c-r3k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/c-r3k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/c-r3k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -28,7 +28,7 @@ static unsigned long icache_lsize, dcach
  
  #undef DEBUG_CACHE
@@ -2861,7 +2973,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-r3k.c linux-2.6.22.19-mips-git/a
  	extern void build_copy_page(void);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-r4k.c linux-2.6.22.19-mips-git/arch/mips/mm/c-r4k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/c-r4k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/c-r4k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/c-r4k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -89,7 +89,7 @@ static inline void r4k_blast_dcache_page
  	blast_dcache32_page(addr);
  }
@@ -3005,7 +3117,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-r4k.c linux-2.6.22.19-mips-git/a
  	extern void build_copy_page(void);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-tx39.c linux-2.6.22.19-mips-git/arch/mips/mm/c-tx39.c
 --- linux-2.6.22.19-mips/arch/mips/mm/c-tx39.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/c-tx39.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/c-tx39.c	2010-07-23 02:42:09.000000000 +0400
 @@ -329,7 +329,7 @@ static __init void tx39_probe_cache(void
  	}
  }
@@ -3017,7 +3129,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/c-tx39.c linux-2.6.22.19-mips-git/
  	extern void build_copy_page(void);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/dma-default.c linux-2.6.22.19-mips-git/arch/mips/mm/dma-default.c
 --- linux-2.6.22.19-mips/arch/mips/mm/dma-default.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/dma-default.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/dma-default.c	2010-07-23 02:42:09.000000000 +0400
 @@ -91,6 +91,7 @@ EXPORT_SYMBOL(dma_alloc_coherent);
  void dma_free_noncoherent(struct device *dev, size_t size, void *vaddr,
  	dma_addr_t dma_handle)
@@ -3062,7 +3174,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/dma-default.c linux-2.6.22.19-mips
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/init.c linux-2.6.22.19-mips-git/arch/mips/mm/init.c
 --- linux-2.6.22.19-mips/arch/mips/mm/init.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/init.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/init.c	2010-07-23 02:42:09.000000000 +0400
 @@ -26,6 +26,7 @@
  #include <linux/swap.h>
  #include <linux/proc_fs.h>
@@ -3085,7 +3197,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/init.c linux-2.6.22.19-mips-git/ar
  	pte = mk_pte(page, PAGE_KERNEL);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/pg-r4k.c linux-2.6.22.19-mips-git/arch/mips/mm/pg-r4k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/pg-r4k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/pg-r4k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/pg-r4k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -64,21 +64,21 @@ EXPORT_SYMBOL(copy_page);
   * with 64-bit kernels.  The prefetch offsets have been experimentally tuned
   * an Origin 200.
@@ -3145,7 +3257,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/pg-r4k.c linux-2.6.22.19-mips-git/
  	unsigned long off;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-ip22.c linux-2.6.22.19-mips-git/arch/mips/mm/sc-ip22.c
 --- linux-2.6.22.19-mips/arch/mips/mm/sc-ip22.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-ip22.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-ip22.c	2010-07-23 02:42:09.000000000 +0400
 @@ -168,7 +168,7 @@ struct bcache_ops indy_sc_ops = {
  	.bc_inv = indy_sc_wback_invalidate
  };
@@ -3157,7 +3269,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-ip22.c linux-2.6.22.19-mips-git
  		indy_sc_enable();
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-mips.c linux-2.6.22.19-mips-git/arch/mips/mm/sc-mips.c
 --- linux-2.6.22.19-mips/arch/mips/mm/sc-mips.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-mips.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-mips.c	2010-07-23 02:42:09.000000000 +0400
 @@ -32,6 +32,11 @@ static void mips_sc_wback_inv(unsigned l
   */
  static void mips_sc_inv(unsigned long addr, unsigned long size)
@@ -3181,7 +3293,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-mips.c linux-2.6.22.19-mips-git
  	if (found) {
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-r5k.c linux-2.6.22.19-mips-git/arch/mips/mm/sc-r5k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/sc-r5k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-r5k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-r5k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -99,7 +99,7 @@ static struct bcache_ops r5k_sc_ops = {
  	.bc_inv = r5k_dma_cache_inv_sc
  };
@@ -3193,7 +3305,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-r5k.c linux-2.6.22.19-mips-git/
  		r5k_sc_enable();
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-rm7k.c linux-2.6.22.19-mips-git/arch/mips/mm/sc-rm7k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/sc-rm7k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-rm7k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/sc-rm7k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -86,7 +86,7 @@ static void rm7k_sc_inv(unsigned long ad
  /*
   * This function is executed in uncached address space.
@@ -3223,7 +3335,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/sc-rm7k.c linux-2.6.22.19-mips-git
  	unsigned int config = read_c0_config();
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlbex.c linux-2.6.22.19-mips-git/arch/mips/mm/tlbex.c
 --- linux-2.6.22.19-mips/arch/mips/mm/tlbex.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/tlbex.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/tlbex.c	2010-07-23 02:42:09.000000000 +0400
 @@ -35,24 +35,24 @@
  #include <asm/smp.h>
  #include <asm/war.h>
@@ -3974,7 +4086,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlbex.c linux-2.6.22.19-mips-git/a
  			   (unsigned long)handle_tlbl + sizeof(handle_tlbl));
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r3k.c linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r3k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/tlb-r3k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r3k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r3k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -82,8 +82,7 @@ void local_flush_tlb_range(struct vm_are
  	int cpu = smp_processor_id();
  
@@ -4017,7 +4129,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r3k.c linux-2.6.22.19-mips-git
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r4k.c linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r4k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/tlb-r4k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r4k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r4k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -100,8 +100,7 @@ void local_flush_tlb_range(struct vm_are
  	int cpu = smp_processor_id();
  
@@ -4094,7 +4206,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r4k.c linux-2.6.22.19-mips-git
          /* From this point on the ARC firmware is dead.  */
 diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r8k.c linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r8k.c
 --- linux-2.6.22.19-mips/arch/mips/mm/tlb-r8k.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r8k.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/mm/tlb-r8k.c	2010-07-23 02:42:09.000000000 +0400
 @@ -111,8 +111,7 @@ out_restore:
  /* Usable for KV1 addresses only! */
  void local_flush_tlb_kernel_range(unsigned long start, unsigned long end)
@@ -4124,7 +4236,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/mm/tlb-r8k.c linux-2.6.22.19-mips-git
  	unsigned long status;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480.c linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480.c
 --- linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480.c	2010-07-23 02:42:09.000000000 +0400
 @@ -185,8 +185,8 @@ static struct resource bcm1480_mem_resou
  
  static struct resource bcm1480_io_resource = {
@@ -4159,7 +4271,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480.c linux-2.6.22.19-mip
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480ht.c linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480ht.c
 --- linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480ht.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480ht.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-bcm1480ht.c	2010-07-23 02:42:09.000000000 +0400
 @@ -180,8 +180,8 @@ static struct resource bcm1480ht_mem_res
  
  static struct resource bcm1480ht_io_resource = {
@@ -4208,7 +4320,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-bcm1480ht.c linux-2.6.22.19-m
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-ip27.c linux-2.6.22.19-mips-git/arch/mips/pci/pci-ip27.c
 --- linux-2.6.22.19-mips/arch/mips/pci/pci-ip27.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-ip27.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-ip27.c	2010-07-23 02:42:09.000000000 +0400
 @@ -40,7 +40,7 @@ int irq_to_slot[MAX_PCI_BUSSES * MAX_DEV
  
  extern struct pci_ops bridge_pci_ops;
@@ -4277,7 +4389,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-ip27.c linux-2.6.22.19-mips-g
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-sb1250.c linux-2.6.22.19-mips-git/arch/mips/pci/pci-sb1250.c
 --- linux-2.6.22.19-mips/arch/mips/pci/pci-sb1250.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-sb1250.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/pci/pci-sb1250.c	2010-07-23 02:42:09.000000000 +0400
 @@ -37,6 +37,7 @@
  #include <linux/mm.h>
  #include <linux/console.h>
@@ -4288,7 +4400,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/pci/pci-sb1250.c linux-2.6.22.19-mips
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/philips/pnx8550/common/reset.c linux-2.6.22.19-mips-git/arch/mips/philips/pnx8550/common/reset.c
 --- linux-2.6.22.19-mips/arch/mips/philips/pnx8550/common/reset.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/philips/pnx8550/common/reset.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/philips/pnx8550/common/reset.c	2010-07-23 02:42:09.000000000 +0400
 @@ -20,6 +20,7 @@
   * Reset the PNX8550 board.
   *
@@ -4299,7 +4411,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/philips/pnx8550/common/reset.c linux-
  #include <glb.h>
 diff -urNBp linux-2.6.22.19-mips/arch/mips/pmc-sierra/yosemite/smp.c linux-2.6.22.19-mips-git/arch/mips/pmc-sierra/yosemite/smp.c
 --- linux-2.6.22.19-mips/arch/mips/pmc-sierra/yosemite/smp.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/pmc-sierra/yosemite/smp.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/pmc-sierra/yosemite/smp.c	2010-07-23 02:42:09.000000000 +0400
 @@ -7,10 +7,10 @@
  
  #define LAUNCHSTACK_SIZE 256
@@ -4316,7 +4428,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/pmc-sierra/yosemite/smp.c linux-2.6.2
  	__attribute__((aligned(2 * sizeof(long))));
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-int.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-int.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-int.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-int.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-int.c	2010-07-23 02:42:09.000000000 +0400
 @@ -68,7 +68,7 @@ static void enable_local1_irq(unsigned i
  		sgint->imask1 |= (1 << (irq - SGINT_LOCAL1));
  }
@@ -4354,7 +4466,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-int.c linux-2.6.22.19-m
  }
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-platform.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-platform.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-platform.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-platform.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip22/ip22-platform.c	2010-07-23 02:42:09.000000000 +0400
 @@ -150,7 +150,7 @@ static int __init sgiseeq_devinit(void)
  		return res;
  
@@ -4366,7 +4478,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip22/ip22-platform.c linux-2.6.22
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-init.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-init.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-init.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-init.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-init.c	2010-07-23 02:42:09.000000000 +0400
 @@ -51,7 +51,7 @@ extern void pcibr_setup(cnodeid_t);
  
  extern void xtalk_probe_node(cnodeid_t nid);
@@ -4378,7 +4490,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-init.c linux-2.6.22.19-
  	nasid_t nasid = COMPACT_TO_NASID_NODEID(cnode);
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-timer.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-timer.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-timer.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-timer.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-timer.c	2010-07-23 02:42:09.000000000 +0400
 @@ -252,7 +252,7 @@ void __init cpu_time_init(void)
  	set_c0_status(SRB_TIMOCLK);
  }
@@ -4390,7 +4502,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-timer.c linux-2.6.22.19
  	 * We only need to initialize the current node.
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-xtalk.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-xtalk.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-xtalk.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-xtalk.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip27/ip27-xtalk.c	2010-07-23 02:42:09.000000000 +0400
 @@ -22,7 +22,7 @@
  
  extern int bridge_probe(nasid_t nasid, int widget, int masterwid);
@@ -4420,7 +4532,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip27/ip27-xtalk.c linux-2.6.22.19
  	nasid_t	 		nasid;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip32/ip32-reset.c linux-2.6.22.19-mips-git/arch/mips/sgi-ip32/ip32-reset.c
 --- linux-2.6.22.19-mips/arch/mips/sgi-ip32/ip32-reset.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip32/ip32-reset.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sgi-ip32/ip32-reset.c	2010-07-23 02:42:09.000000000 +0400
 @@ -53,7 +53,7 @@ static inline void ip32_machine_halt(voi
  
  static void ip32_machine_power_off(void)
@@ -4453,7 +4565,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sgi-ip32/ip32-reset.c linux-2.6.22.19
  	if (!(reg_c & RTC_IRQF)) {
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/bcm1480/irq.c linux-2.6.22.19-mips-git/arch/mips/sibyte/bcm1480/irq.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/bcm1480/irq.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/bcm1480/irq.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/bcm1480/irq.c	2010-07-23 02:42:09.000000000 +0400
 @@ -25,6 +25,7 @@
  #include <linux/kernel_stat.h>
  
@@ -4498,7 +4610,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/bcm1480/irq.c linux-2.6.22.19-
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/cfe/console.c linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/console.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/cfe/console.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/console.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/console.c	2010-07-23 02:42:09.000000000 +0400
 @@ -51,12 +51,13 @@ static int cfe_console_setup(struct cons
  			setleds("u0cn");
  		} else if (!strcmp(consdev, "uart1")) {
@@ -4518,7 +4630,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/cfe/console.c linux-2.6.22.19-
  	return 0;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/cfe/setup.c linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/setup.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/cfe/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/cfe/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -291,16 +291,7 @@ void __init prom_init(void)
  	 */
  	cfe_cons_handle = cfe_getstdhandle(CFE_STDHANDLE_CONSOLE);
@@ -4539,7 +4651,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/cfe/setup.c linux-2.6.22.19-mi
  			printk("LINUX_CMDLINE not defined in cfe.");
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/irq.c linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/irq.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/irq.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/irq.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/irq.c	2010-07-23 02:42:09.000000000 +0400
 @@ -26,6 +26,7 @@
  #include <linux/kernel_stat.h>
  
@@ -4584,7 +4696,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/irq.c linux-2.6.22.19-m
  
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/setup.c linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/setup.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/sb1250/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -122,6 +122,21 @@ static int __init setup_bcm1250(void)
  	return ret;
  }
@@ -4609,7 +4721,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/sb1250/setup.c linux-2.6.22.19
  	int ret = 0;
 diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/swarm/setup.c linux-2.6.22.19-mips-git/arch/mips/sibyte/swarm/setup.c
 --- linux-2.6.22.19-mips/arch/mips/sibyte/swarm/setup.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/sibyte/swarm/setup.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/sibyte/swarm/setup.c	2010-07-23 02:42:09.000000000 +0400
 @@ -147,15 +147,14 @@ void __init plat_mem_setup(void)
  
  #ifdef CONFIG_VT
@@ -4636,7 +4748,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/sibyte/swarm/setup.c linux-2.6.22.19-
  #endif
 diff -urNBp linux-2.6.22.19-mips/arch/mips/vr41xx/common/irq.c linux-2.6.22.19-mips-git/arch/mips/vr41xx/common/irq.c
 --- linux-2.6.22.19-mips/arch/mips/vr41xx/common/irq.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/arch/mips/vr41xx/common/irq.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/arch/mips/vr41xx/common/irq.c	2010-07-23 02:42:09.000000000 +0400
 @@ -72,6 +72,7 @@ static void irq_dispatch(unsigned int ir
  	cascade = irq_cascade + irq;
  	if (cascade->get_irq != NULL) {
@@ -4659,7 +4771,7 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/vr41xx/common/irq.c linux-2.6.22.19-m
  			irq_dispatch(irq);
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/asmmacro.h linux-2.6.22.19-mips-git/include/asm-mips/asmmacro.h
 --- linux-2.6.22.19-mips/include/asm-mips/asmmacro.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/asmmacro.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/asmmacro.h	2010-07-23 02:42:09.000000000 +0400
 @@ -35,6 +35,16 @@
  	mtc0	\reg, CP0_TCSTATUS
  	_ehb
@@ -4679,7 +4791,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/asmmacro.h linux-2.6.22.19-mip
  	mfc0	\reg, CP0_STATUS
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/atomic.h linux-2.6.22.19-mips-git/include/asm-mips/atomic.h
 --- linux-2.6.22.19-mips/include/asm-mips/atomic.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/atomic.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/atomic.h	2010-07-23 02:42:09.000000000 +0400
 @@ -283,10 +283,10 @@ static __inline__ int atomic_sub_if_posi
  		"	beqz	%0, 2f					\n"
  		"	 subu	%0, %1, %3				\n"
@@ -4692,6 +4804,94 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/atomic.h linux-2.6.22.19-mips-
  		"	.set	mips0					\n"
  		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
  		: "Ir" (i), "m" (v->counter)
+@@ -437,7 +437,7 @@ static __inline__ void atomic64_add(long
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%0, %1		# atomic64_add		\n"
+-		"	addu	%0, %2					\n"
++		"	daddu	%0, %2					\n"
+ 		"	scd	%0, %1					\n"
+ 		"	beqzl	%0, 1b					\n"
+ 		"	.set	mips0					\n"
+@@ -449,7 +449,7 @@ static __inline__ void atomic64_add(long
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%0, %1		# atomic64_add		\n"
+-		"	addu	%0, %2					\n"
++		"	daddu	%0, %2					\n"
+ 		"	scd	%0, %1					\n"
+ 		"	beqz	%0, 2f					\n"
+ 		"	.subsection 2					\n"
+@@ -482,7 +482,7 @@ static __inline__ void atomic64_sub(long
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%0, %1		# atomic64_sub		\n"
+-		"	subu	%0, %2					\n"
++		"	dsubu	%0, %2					\n"
+ 		"	scd	%0, %1					\n"
+ 		"	beqzl	%0, 1b					\n"
+ 		"	.set	mips0					\n"
+@@ -494,7 +494,7 @@ static __inline__ void atomic64_sub(long
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%0, %1		# atomic64_sub		\n"
+-		"	subu	%0, %2					\n"
++		"	dsubu	%0, %2					\n"
+ 		"	scd	%0, %1					\n"
+ 		"	beqz	%0, 2f					\n"
+ 		"	.subsection 2					\n"
+@@ -527,10 +527,10 @@ static __inline__ long atomic64_add_retu
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%1, %2		# atomic64_add_return	\n"
+-		"	addu	%0, %1, %3				\n"
++		"	daddu	%0, %1, %3				\n"
+ 		"	scd	%0, %2					\n"
+ 		"	beqzl	%0, 1b					\n"
+-		"	addu	%0, %1, %3				\n"
++		"	daddu	%0, %1, %3				\n"
+ 		"	.set	mips0					\n"
+ 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter)
+@@ -541,10 +541,10 @@ static __inline__ long atomic64_add_retu
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%1, %2		# atomic64_add_return	\n"
+-		"	addu	%0, %1, %3				\n"
++		"	daddu	%0, %1, %3				\n"
+ 		"	scd	%0, %2					\n"
+ 		"	beqz	%0, 2f					\n"
+-		"	addu	%0, %1, %3				\n"
++		"	daddu	%0, %1, %3				\n"
+ 		"	.subsection 2					\n"
+ 		"2:	b	1b					\n"
+ 		"	.previous					\n"
+@@ -579,10 +579,10 @@ static __inline__ long atomic64_sub_retu
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%1, %2		# atomic64_sub_return	\n"
+-		"	subu	%0, %1, %3				\n"
++		"	dsubu	%0, %1, %3				\n"
+ 		"	scd	%0, %2					\n"
+ 		"	beqzl	%0, 1b					\n"
+-		"	subu	%0, %1, %3				\n"
++		"	dsubu	%0, %1, %3				\n"
+ 		"	.set	mips0					\n"
+ 		: "=&r" (result), "=&r" (temp), "=m" (v->counter)
+ 		: "Ir" (i), "m" (v->counter)
+@@ -593,10 +593,10 @@ static __inline__ long atomic64_sub_retu
+ 		__asm__ __volatile__(
+ 		"	.set	mips3					\n"
+ 		"1:	lld	%1, %2		# atomic64_sub_return	\n"
+-		"	subu	%0, %1, %3				\n"
++		"	dsubu	%0, %1, %3				\n"
+ 		"	scd	%0, %2					\n"
+ 		"	beqz	%0, 2f					\n"
+-		"	subu	%0, %1, %3				\n"
++		"	dsubu	%0, %1, %3				\n"
+ 		"	.subsection 2					\n"
+ 		"2:	b	1b					\n"
+ 		"	.previous					\n"
 @@ -664,10 +664,10 @@ static __inline__ long atomic64_sub_if_p
  		"	beqz	%0, 2f					\n"
  		"	 dsubu	%0, %1, %3				\n"
@@ -4706,7 +4906,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/atomic.h linux-2.6.22.19-mips-
  		: "Ir" (i), "m" (v->counter)
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/byteorder.h linux-2.6.22.19-mips-git/include/asm-mips/byteorder.h
 --- linux-2.6.22.19-mips/include/asm-mips/byteorder.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/byteorder.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/byteorder.h	2010-07-23 02:42:09.000000000 +0400
 @@ -43,9 +43,8 @@ static __inline__ __attribute_const__ __
  static __inline__ __attribute_const__ __u64 ___arch__swab64(__u64 x)
  {
@@ -4721,7 +4921,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/byteorder.h linux-2.6.22.19-mi
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/cacheflush.h linux-2.6.22.19-mips-git/include/asm-mips/cacheflush.h
 --- linux-2.6.22.19-mips/include/asm-mips/cacheflush.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/cacheflush.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/cacheflush.h	2010-07-23 02:42:09.000000000 +0400
 @@ -93,7 +93,7 @@ extern void (*flush_data_cache_page)(uns
  	clear_bit(PG_dcache_dirty, &(page)->flags)
  
@@ -4733,7 +4933,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/cacheflush.h linux-2.6.22.19-m
  extern void kunmap_coherent(void);
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/cpu-info.h linux-2.6.22.19-mips-git/include/asm-mips/cpu-info.h
 --- linux-2.6.22.19-mips/include/asm-mips/cpu-info.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/cpu-info.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/cpu-info.h	2010-07-23 02:42:09.000000000 +0400
 @@ -41,8 +41,8 @@ struct cache_desc {
  #define MIPS_CACHE_PINDEX	0x00000020	/* Physically indexed cache */
  
@@ -4747,7 +4947,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/cpu-info.h linux-2.6.22.19-mip
  	cnodeid_t	p_nodeid;	/* my node ID in compact-id-space */
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/delay.h linux-2.6.22.19-mips-git/include/asm-mips/delay.h
 --- linux-2.6.22.19-mips/include/asm-mips/delay.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/delay.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/delay.h	2010-07-23 02:42:09.000000000 +0400
 @@ -11,77 +11,13 @@
  #define _ASM_DELAY_H
  
@@ -4831,9 +5031,173 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/delay.h linux-2.6.22.19-mips-g
  
  /* make sure "usecs *= ..." in udelay do not overflow. */
  #if HZ >= 1000
+diff -urNBp linux-2.6.22.19-mips/include/asm-mips/div64.h linux-2.6.22.19-mips-git/include/asm-mips/div64.h
+--- linux-2.6.22.19-mips/include/asm-mips/div64.h	2008-02-26 12:54:25.000000000 +0300
++++ linux-2.6.22.19-mips-git/include/asm-mips/div64.h	2010-07-23 02:42:09.000000000 +0400
+@@ -6,110 +6,68 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  */
+-#ifndef _ASM_DIV64_H
+-#define _ASM_DIV64_H
++#ifndef __ASM_DIV64_H
++#define __ASM_DIV64_H
+ 
+-#include <linux/types.h>
++#include <asm-generic/div64.h>
+ 
+-#if (_MIPS_SZLONG == 32)
++#if BITS_PER_LONG == 64
+ 
+-#include <asm/compiler.h>
++#include <linux/types.h>
+ 
+ /*
+  * No traps on overflows for any of these...
+  */
+ 
+-#define do_div64_32(res, high, low, base) ({ \
+-	unsigned long __quot, __mod; \
+-	unsigned long __cf, __tmp, __tmp2, __i; \
+-	\
+-	__asm__(".set	push\n\t" \
+-		".set	noat\n\t" \
+-		".set	noreorder\n\t" \
+-		"move	%2, $0\n\t" \
+-		"move	%3, $0\n\t" \
+-		"b	1f\n\t" \
+-		" li	%4, 0x21\n" \
+-		"0:\n\t" \
+-		"sll	$1, %0, 0x1\n\t" \
+-		"srl	%3, %0, 0x1f\n\t" \
+-		"or	%0, $1, %5\n\t" \
+-		"sll	%1, %1, 0x1\n\t" \
+-		"sll	%2, %2, 0x1\n" \
+-		"1:\n\t" \
+-		"bnez	%3, 2f\n\t" \
+-		" sltu	%5, %0, %z6\n\t" \
+-		"bnez	%5, 3f\n" \
+-		"2:\n\t" \
+-		" addiu	%4, %4, -1\n\t" \
+-		"subu	%0, %0, %z6\n\t" \
+-		"addiu	%2, %2, 1\n" \
+-		"3:\n\t" \
+-		"bnez	%4, 0b\n\t" \
+-		" srl	%5, %1, 0x1f\n\t" \
+-		".set	pop" \
+-		: "=&r" (__mod), "=&r" (__tmp), "=&r" (__quot), "=&r" (__cf), \
+-		  "=&r" (__i), "=&r" (__tmp2) \
+-		: "Jr" (base), "0" (high), "1" (low)); \
+-	\
+-	(res) = __quot; \
+-	__mod; })
+-
+-#define do_div(n, base) ({ \
+-	unsigned long long __quot; \
+-	unsigned long __mod; \
+-	unsigned long long __div; \
+-	unsigned long __upper, __low, __high, __base; \
+-	\
+-	__div = (n); \
+-	__base = (base); \
+-	\
+-	__high = __div >> 32; \
+-	__low = __div; \
+-	__upper = __high; \
+-	\
+-	if (__high) \
+-		__asm__("divu	$0, %z2, %z3" \
+-			: "=h" (__upper), "=l" (__high) \
+-			: "Jr" (__high), "Jr" (__base) \
+-			: GCC_REG_ACCUM); \
+-	\
+-	__mod = do_div64_32(__low, __upper, __low, __base); \
+-	\
+-	__quot = __high; \
+-	__quot = __quot << 32 | __low; \
+-	(n) = __quot; \
+-	__mod; })
+-
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+-#endif /* (_MIPS_SZLONG == 32) */
+-
+-#if (_MIPS_SZLONG == 64)
+-
+-/*
+- * Hey, we're already 64-bit, no
+- * need to play games..
+- */
+-#define do_div(n, base) ({ \
+-	unsigned long __quot; \
+-	unsigned int __mod; \
+-	unsigned long __div; \
+-	unsigned int __base; \
+-	\
+-	__div = (n); \
+-	__base = (base); \
+-	\
+-	__mod = __div % __base; \
+-	__quot = __div / __base; \
+-	\
+-	(n) = __quot; \
+-	__mod; })
++#define __div64_32(n, base)						\
++({									\
++	unsigned long __cf, __tmp, __tmp2, __i;				\
++	unsigned long __quot32, __mod32;				\
++	unsigned long __high, __low;					\
++	unsigned long long __n;						\
++									\
++	__high = *__n >> 32;						\
++	__low = __n;							\
++	__asm__(							\
++	"	.set	push					\n"	\
++	"	.set	noat					\n"	\
++	"	.set	noreorder				\n"	\
++	"	move	%2, $0					\n"	\
++	"	move	%3, $0					\n"	\
++	"	b	1f					\n"	\
++	"	 li	%4, 0x21				\n"	\
++	"0:							\n"	\
++	"	sll	$1, %0, 0x1				\n"	\
++	"	srl	%3, %0, 0x1f				\n"	\
++	"	or	%0, $1, %5				\n"	\
++	"	sll	%1, %1, 0x1				\n"	\
++	"	sll	%2, %2, 0x1				\n"	\
++	"1:							\n"	\
++	"	bnez	%3, 2f					\n"	\
++	"	 sltu	%5, %0, %z6				\n"	\
++	"	bnez	%5, 3f					\n"	\
++	"2:							\n"	\
++	"	 addiu	%4, %4, -1				\n"	\
++	"	subu	%0, %0, %z6				\n"	\
++	"	addiu	%2, %2, 1				\n"	\
++	"3:							\n"	\
++	"	bnez	%4, 0b\n\t"					\
++	"	 srl	%5, %1, 0x1f\n\t"				\
++	"	.set	pop"						\
++	: "=&r" (__mod32), "=&r" (__tmp),				\
++	  "=&r" (__quot32), "=&r" (__cf),				\
++	  "=&r" (__i), "=&r" (__tmp2)					\
++	: "Jr" (base), "0" (__high), "1" (__low));			\
++									\
++	(__n) = __quot32;						\
++	__mod32;							\
++})
+ 
+ static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
+ {
+ 	return dividend / divisor;
+ }
+ 
+-#endif /* (_MIPS_SZLONG == 64) */
++#endif /* BITS_PER_LONG == 64 */
+ 
+-#endif /* _ASM_DIV64_H */
++#endif /* __ASM_DIV64_H */
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/elf.h linux-2.6.22.19-mips-git/include/asm-mips/elf.h
 --- linux-2.6.22.19-mips/include/asm-mips/elf.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/elf.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/elf.h	2010-07-23 02:42:09.000000000 +0400
 @@ -232,7 +232,7 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_N
   */
  #ifdef __MIPSEB__
@@ -4866,7 +5230,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/elf.h linux-2.6.22.19-mips-git
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/fixmap.h linux-2.6.22.19-mips-git/include/asm-mips/fixmap.h
 --- linux-2.6.22.19-mips/include/asm-mips/fixmap.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/fixmap.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/fixmap.h	2010-07-23 02:42:09.000000000 +0400
 @@ -48,9 +48,9 @@ enum fixed_addresses {
  #define FIX_N_COLOURS 8
  	FIX_CMAP_BEGIN,
@@ -4881,7 +5245,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/fixmap.h linux-2.6.22.19-mips-
  	/* reserved pte's for temporary kernel mappings */
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/gdb-stub.h linux-2.6.22.19-mips-git/include/asm-mips/gdb-stub.h
 --- linux-2.6.22.19-mips/include/asm-mips/gdb-stub.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/gdb-stub.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/gdb-stub.h	2010-07-23 02:42:09.000000000 +0400
 @@ -4,7 +4,9 @@
   * for more details.
   *
@@ -5083,7 +5447,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/gdb-stub.h linux-2.6.22.19-mip
  #endif /* _ASM_GDB_STUB_H */
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1000.h linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1000.h
 --- linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1000.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1000.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1000.h	2010-07-23 02:42:09.000000000 +0400
 @@ -1778,6 +1778,7 @@ struct cpu_spec {
  	char		*cpu_name;
  	unsigned char	cpu_od;		/* Set Config[OD] */
@@ -5094,7 +5458,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1000.h linux-2.6
  extern struct cpu_spec		cpu_specs[];
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1xxx_dbdma.h linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1xxx_dbdma.h
 --- linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1xxx_dbdma.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1xxx_dbdma.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mach-au1x00/au1xxx_dbdma.h	2010-07-23 02:42:09.000000000 +0400
 @@ -314,6 +314,7 @@ typedef struct dbdma_chan_config {
  	dbdev_tab_t		*chan_dest;
  	au1x_dma_chan_t		*chan_ptr;
@@ -5105,7 +5469,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-au1x00/au1xxx_dbdma.h lin
  	void (*chan_callback)(int, void *);
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-ip27/cpu-feature-overrides.h linux-2.6.22.19-mips-git/include/asm-mips/mach-ip27/cpu-feature-overrides.h
 --- linux-2.6.22.19-mips/include/asm-mips/mach-ip27/cpu-feature-overrides.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mach-ip27/cpu-feature-overrides.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mach-ip27/cpu-feature-overrides.h	2010-07-23 02:42:09.000000000 +0400
 @@ -32,7 +32,11 @@
  #define cpu_has_64bits		1
  
@@ -5120,7 +5484,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-ip27/cpu-feature-override
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-qemu/cpu-feature-overrides.h linux-2.6.22.19-mips-git/include/asm-mips/mach-qemu/cpu-feature-overrides.h
 --- linux-2.6.22.19-mips/include/asm-mips/mach-qemu/cpu-feature-overrides.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mach-qemu/cpu-feature-overrides.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mach-qemu/cpu-feature-overrides.h	2010-07-23 02:42:09.000000000 +0400
 @@ -12,7 +12,7 @@
   * QEMU only comes with a hazard-free MIPS32 processor, so things are easy.
   */
@@ -5132,7 +5496,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mach-qemu/cpu-feature-override
  #define cpu_has_mcheck		0
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mipsregs.h linux-2.6.22.19-mips-git/include/asm-mips/mipsregs.h
 --- linux-2.6.22.19-mips/include/asm-mips/mipsregs.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mipsregs.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mipsregs.h	2010-07-23 02:42:09.000000000 +0400
 @@ -134,6 +134,12 @@
  #define FPU_CSR_COND7   0x80000000      /* $fcc7 */
  
@@ -5292,7 +5656,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mipsregs.h linux-2.6.22.19-mip
  								\
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mmu_context.h linux-2.6.22.19-mips-git/include/asm-mips/mmu_context.h
 --- linux-2.6.22.19-mips/include/asm-mips/mmu_context.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/mmu_context.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/mmu_context.h	2010-07-23 02:42:09.000000000 +0400
 @@ -15,6 +15,7 @@
  #include <linux/sched.h>
  #include <linux/slab.h>
@@ -5347,7 +5711,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/mmu_context.h linux-2.6.22.19-
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/page.h linux-2.6.22.19-mips-git/include/asm-mips/page.h
 --- linux-2.6.22.19-mips/include/asm-mips/page.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/page.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/page.h	2010-07-23 02:42:09.000000000 +0400
 @@ -162,7 +162,14 @@ typedef struct { unsigned long pgprot; }
  
  #ifdef CONFIG_FLATMEM
@@ -5366,7 +5730,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/page.h linux-2.6.22.19-mips-gi
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable-32.h linux-2.6.22.19-mips-git/include/asm-mips/pgtable-32.h
 --- linux-2.6.22.19-mips/include/asm-mips/pgtable-32.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable-32.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable-32.h	2010-07-23 02:42:09.000000000 +0400
 @@ -67,7 +67,7 @@ extern int add_temporary_entry(unsigned
  #define PTE_ORDER	0
  #endif
@@ -5378,7 +5742,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable-32.h linux-2.6.22.19-m
  #define USER_PTRS_PER_PGD	(0x80000000UL/PGDIR_SIZE)
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable-64.h linux-2.6.22.19-mips-git/include/asm-mips/pgtable-64.h
 --- linux-2.6.22.19-mips/include/asm-mips/pgtable-64.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable-64.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable-64.h	2010-07-23 02:42:09.000000000 +0400
 @@ -101,9 +101,14 @@
  #endif
  #define FIRST_USER_ADDRESS	0UL
@@ -5398,7 +5762,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable-64.h linux-2.6.22.19-m
  /* Load modules into 32bit-compatible segment. */
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable.h linux-2.6.22.19-mips-git/include/asm-mips/pgtable.h
 --- linux-2.6.22.19-mips/include/asm-mips/pgtable.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/pgtable.h	2010-07-23 02:42:09.000000000 +0400
 @@ -168,9 +168,9 @@ static inline void pte_clear(struct mm_s
  #define set_pud(pudptr, pudval) do { *(pudptr) = (pudval); } while(0)
  #endif
@@ -5426,7 +5790,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/pgtable.h linux-2.6.22.19-mips
  #else
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/processor.h linux-2.6.22.19-mips-git/include/asm-mips/processor.h
 --- linux-2.6.22.19-mips/include/asm-mips/processor.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/processor.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/processor.h	2010-07-23 02:42:09.000000000 +0400
 @@ -211,8 +211,9 @@ extern void start_thread(struct pt_regs
  
  unsigned long get_wchan(struct task_struct *p);
@@ -5441,7 +5805,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/processor.h linux-2.6.22.19-mi
  #define KSTK_STATUS(tsk) (task_pt_regs(tsk)->cp0_status)
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/reg.h linux-2.6.22.19-mips-git/include/asm-mips/reg.h
 --- linux-2.6.22.19-mips/include/asm-mips/reg.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/reg.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/reg.h	2010-07-23 02:42:09.000000000 +0400
 @@ -69,7 +69,7 @@
  
  #endif
@@ -5453,7 +5817,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/reg.h linux-2.6.22.19-mips-git
  #define EF_R1			 1
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/rtlx.h linux-2.6.22.19-mips-git/include/asm-mips/rtlx.h
 --- linux-2.6.22.19-mips/include/asm-mips/rtlx.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/rtlx.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/rtlx.h	2010-07-23 02:42:09.000000000 +0400
 @@ -3,7 +3,7 @@
   *
   */
@@ -5481,7 +5845,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/rtlx.h linux-2.6.22.19-mips-gi
     linux (vpe0) reads lx_buffer  and writes rt_buffer
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sibyte/board.h linux-2.6.22.19-mips-git/include/asm-mips/sibyte/board.h
 --- linux-2.6.22.19-mips/include/asm-mips/sibyte/board.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/sibyte/board.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/sibyte/board.h	2010-07-23 02:42:09.000000000 +0400
 @@ -19,10 +19,8 @@
  #ifndef _SIBYTE_BOARD_H
  #define _SIBYTE_BOARD_H
@@ -5497,7 +5861,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sibyte/board.h linux-2.6.22.19
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sibyte/swarm.h linux-2.6.22.19-mips-git/include/asm-mips/sibyte/swarm.h
 --- linux-2.6.22.19-mips/include/asm-mips/sibyte/swarm.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/sibyte/swarm.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/sibyte/swarm.h	2010-07-23 02:42:09.000000000 +0400
 @@ -26,24 +26,6 @@
  #define SIBYTE_HAVE_PCMCIA 1
  #define SIBYTE_HAVE_IDE    1
@@ -5525,7 +5889,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sibyte/swarm.h linux-2.6.22.19
  #define SIBYTE_HAVE_PCMCIA 0
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/agent.h linux-2.6.22.19-mips-git/include/asm-mips/sn/agent.h
 --- linux-2.6.22.19-mips/include/asm-mips/sn/agent.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/sn/agent.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/sn/agent.h	2010-07-23 02:42:09.000000000 +0400
 @@ -11,7 +11,6 @@
  #ifndef _ASM_SGI_SN_AGENT_H
  #define _ASM_SGI_SN_AGENT_H
@@ -5536,7 +5900,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/agent.h linux-2.6.22.19-mip
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/mapped_kernel.h linux-2.6.22.19-mips-git/include/asm-mips/sn/mapped_kernel.h
 --- linux-2.6.22.19-mips/include/asm-mips/sn/mapped_kernel.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/sn/mapped_kernel.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/sn/mapped_kernel.h	2010-07-23 02:42:09.000000000 +0400
 @@ -5,6 +5,8 @@
  #ifndef __ASM_SN_MAPPED_KERNEL_H
  #define __ASM_SN_MAPPED_KERNEL_H
@@ -5561,7 +5925,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/mapped_kernel.h linux-2.6.2
  				((unsigned long)MAPPED_ADDR_RO_TO_PHYS(x) | \
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/nmi.h linux-2.6.22.19-mips-git/include/asm-mips/sn/nmi.h
 --- linux-2.6.22.19-mips/include/asm-mips/sn/nmi.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/sn/nmi.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/sn/nmi.h	2010-07-23 02:42:09.000000000 +0400
 @@ -3,13 +3,13 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -5580,7 +5944,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/sn/nmi.h linux-2.6.22.19-mips-
  /*
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/stackframe.h linux-2.6.22.19-mips-git/include/asm-mips/stackframe.h
 --- linux-2.6.22.19-mips/include/asm-mips/stackframe.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/stackframe.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/stackframe.h	2010-07-23 02:42:09.000000000 +0400
 @@ -288,14 +288,31 @@
  #ifdef CONFIG_MIPS_MT_SMTC
  		.set	mips32r2
@@ -5677,7 +6041,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/stackframe.h linux-2.6.22.19-m
  		LONG_L	v1, PT_EPC(sp)
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/system.h linux-2.6.22.19-mips-git/include/asm-mips/system.h
 --- linux-2.6.22.19-mips/include/asm-mips/system.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/system.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/system.h	2010-07-23 02:42:09.000000000 +0400
 @@ -12,6 +12,7 @@
  #ifndef _ASM_SYSTEM_H
  #define _ASM_SYSTEM_H
@@ -5719,7 +6083,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/system.h linux-2.6.22.19-mips-
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/termios.h linux-2.6.22.19-mips-git/include/asm-mips/termios.h
 --- linux-2.6.22.19-mips/include/asm-mips/termios.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/termios.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/termios.h	2010-07-23 02:42:09.000000000 +0400
 @@ -9,6 +9,7 @@
  #ifndef _ASM_TERMIOS_H
  #define _ASM_TERMIOS_H
@@ -5826,7 +6190,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/termios.h linux-2.6.22.19-mips
  
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/uaccess.h linux-2.6.22.19-mips-git/include/asm-mips/uaccess.h
 --- linux-2.6.22.19-mips/include/asm-mips/uaccess.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/uaccess.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/uaccess.h	2010-07-23 02:42:09.000000000 +0400
 @@ -104,11 +104,21 @@
  
  #define __access_mask get_fs().seg
@@ -5852,9 +6216,48 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/uaccess.h linux-2.6.22.19-mips
  
  /*
   * put_user: - Write a simple value into user space.
+diff -urNBp linux-2.6.22.19-mips/include/asm-mips/unistd.h linux-2.6.22.19-mips-git/include/asm-mips/unistd.h
+--- linux-2.6.22.19-mips/include/asm-mips/unistd.h	2008-02-26 12:54:25.000000000 +0300
++++ linux-2.6.22.19-mips-git/include/asm-mips/unistd.h	2010-07-23 02:42:09.000000000 +0400
+@@ -936,16 +936,33 @@
+ #define __NR_signalfd			(__NR_Linux + 280)
+ #define __NR_timerfd			(__NR_Linux + 281)
+ #define __NR_eventfd			(__NR_Linux + 282)
++/* #define __NR_fallocate		(__NR_Linux + 283) */
++/* #define __NR_timerfd_create		(__NR_Linux + 284) */
++/* #define __NR_timerfd_gettime		(__NR_Linux + 285) */
++/* #define __NR_timerfd_settime		(__NR_Linux + 286) */
++/* #define __NR_signalfd4		(__NR_Linux + 287) */
++/* #define __NR_eventfd2		(__NR_Linux + 288) */
++/* #define __NR_epoll_create1		(__NR_Linux + 289) */
++/* #define __NR_dup3			(__NR_Linux + 290) */
++/* #define __NR_pipe2			(__NR_Linux + 291) */
++/* #define __NR_inotify_init1		(__NR_Linux + 292) */
++/* #define __NR_preadv			(__NR_Linux + 293) */
++/* #define __NR_pwritev			(__NR_Linux + 294) */
++/* #define __NR_rt_tgsigqueueinfo	(__NR_Linux + 295) */
++/* #define __NR_perf_counter_open	(__NR_Linux + 296) */
++/* #define __NR_accept4			(__NR_Linux + 297) */
++/* #define __NR_recvmmsg		(__NR_Linux + 298) */
++#define __NR_getdents64			(__NR_Linux + 299)
+ 
+ /*
+  * Offset of the last N32 flavoured syscall
+  */
+-#define __NR_Linux_syscalls		282
++#define __NR_Linux_syscalls		299
+ 
+ #endif /* _MIPS_SIM == _MIPS_SIM_NABI32 */
+ 
+ #define __NR_N32_Linux			6000
+-#define __NR_N32_Linux_syscalls		282
++#define __NR_N32_Linux_syscalls		299
+ 
+ #ifdef __KERNEL__
+ 
 diff -urNBp linux-2.6.22.19-mips/include/asm-mips/war.h linux-2.6.22.19-mips-git/include/asm-mips/war.h
 --- linux-2.6.22.19-mips/include/asm-mips/war.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/asm-mips/war.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/asm-mips/war.h	2010-07-23 02:42:09.000000000 +0400
 @@ -110,7 +110,12 @@
   * will just return and take the exception again if the information was
   * found to be inconsistent.
@@ -5871,7 +6274,7 @@ diff -urNBp linux-2.6.22.19-mips/include/asm-mips/war.h linux-2.6.22.19-mips-git
   * This is a DUART workaround related to glitches around register accesses
 diff -urNBp linux-2.6.22.19-mips/include/linux/time.h linux-2.6.22.19-mips-git/include/linux/time.h
 --- linux-2.6.22.19-mips/include/linux/time.h	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/include/linux/time.h	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/include/linux/time.h	2010-07-23 02:42:09.000000000 +0400
 @@ -171,6 +171,10 @@ static inline void timespec_add_ns(struc
  {
  	ns += a->tv_nsec;
@@ -5883,9 +6286,21 @@ diff -urNBp linux-2.6.22.19-mips/include/linux/time.h linux-2.6.22.19-mips-git/i
  		ns -= NSEC_PER_SEC;
  		a->tv_sec++;
  	}
+diff -urNBp linux-2.6.22.19-mips/kernel/sched.c linux-2.6.22.19-mips-git/kernel/sched.c
+--- linux-2.6.22.19-mips/kernel/sched.c	2008-02-26 12:54:25.000000000 +0300
++++ linux-2.6.22.19-mips-git/kernel/sched.c	2010-07-23 02:42:09.000000000 +0400
+@@ -305,7 +305,7 @@ struct rq {
+ };
+ 
+ static DEFINE_PER_CPU(struct rq, runqueues) ____cacheline_aligned_in_smp;
+-static DEFINE_MUTEX(sched_hotcpu_mutex);
++DEFINE_MUTEX(sched_hotcpu_mutex);
+ 
+ static inline int cpu_of(struct rq *rq)
+ {
 diff -urNBp linux-2.6.22.19-mips/scripts/mod/modpost.c linux-2.6.22.19-mips-git/scripts/mod/modpost.c
 --- linux-2.6.22.19-mips/scripts/mod/modpost.c	2008-02-26 12:54:25.000000000 +0300
-+++ linux-2.6.22.19-mips-git/scripts/mod/modpost.c	2010-05-22 11:25:07.000000000 +0400
++++ linux-2.6.22.19-mips-git/scripts/mod/modpost.c	2010-07-23 02:42:09.000000000 +0400
 @@ -1047,6 +1047,7 @@ static int init_section_ref_ok(const cha
  		".pdr",
  		"__param",
