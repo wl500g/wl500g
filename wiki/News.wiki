@@ -5,11 +5,11 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r1825` (2010-07-23)===
   * kernel
     * minor nfs, hiddev fixes backport
     * bridge backport - allow setting hardware address of bridge pseudo-dev
-    * IPv6 backports from 2.6 upstream
+    * IPv4/IPv6 backports from 2.6 upstream
 
   * 3g/cdma modems support, contributed by rss & dlukanidin @ wl500g.info (EXPERIMENTAL)
 
@@ -31,7 +31,7 @@
   * bugfixes
     * web-UI fixes
     * libusb 1.0 fixes from upstream
-    * iptables fixes from upstream
+    * iptables fixes from upstream, "-m time" - allow intervals with timestart > timestop
     * fix pppoe/pptp demand mode, was broken in r1612
 
 ===wl500g-1.9.2.7-d-`r1612` (2010-05-27)===
