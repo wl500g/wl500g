@@ -8,7 +8,7 @@
 ===wl500g-1.9.2.7-d-`r1825` (2010-07-23)===
   * kernel
     * minor nfs, hiddev fixes backport
-    * bridge backport - allow setting hardware address of bridge pseudo-dev
+    * bridge backport - allow setting hardware address of bridge pseudo-dev (sticky mac)
     * IPv4/IPv6 backports from 2.6 upstream
 
   * 3g/cdma modems support, contributed by rss & dlukanidin @ wl500g.info (EXPERIMENTAL)
