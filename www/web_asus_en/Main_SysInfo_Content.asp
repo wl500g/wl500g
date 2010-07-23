@@ -27,13 +27,12 @@
 		    <td class="content_header_td_title" colspan="2">Status &amp; Log - Diagnostic Information</td>
 		</tr>
 
-		<tr class="content_log_td">
+		<tr>
 			<td>
 				<% nvram_dump("sysinfo.htm","../usr/sbin/sysinfo > /tmp/sysinfo.htm"); %>
 			</td>
 		</tr>
-		<tr>
-			<td>
+	</table>
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr bgcolor="#CCCCCC">
 						<td colspan="3" style="height:15px;">
@@ -50,8 +49,5 @@
 						</td>
 					</tr>
 				</table>
-			</td>
-		</tr>
-	</table>
 	</form>
 </body>

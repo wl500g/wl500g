@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<!--<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">-->
 <head>
 <title>ZVMODELVZ Web Manager</title>
 
@@ -8,11 +8,11 @@
 <script language="JavaScript" type="text/javascript" src="general.js"></script>
 </head>  
 <body onLoad="load_body()" onunLoad="return unload_body();">
-<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
 <form method="GET" name="form" action="apply.cgi">
-    	
+
 <input type="hidden" name="current_page" value="Main_GStatus_Content.asp"><input type="hidden" name="next_page" value="default value"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="default value"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value=""><input type="hidden" name="load_script" value="<% load_script("wan.sh"); %>">
-<!-- Table for the conntent page -->	    
+<!-- Table for the conntent page -->
 <table width="666" border="0" cellpadding="0" cellspacing="0">
 <tr>
 <td>
@@ -21,15 +21,15 @@
 <td class="content_header_td_title" colspan="2">Status &amp; Log - Status</td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">System Time:
-           </td><td class="content_input_td"><input type="text" size="48" maxlength="88" class="content_input_fd_ro" value="<% uptime(); %>" readonly></td>
+<td class="content_header_td_30" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">System Time:
+           </td><td class="content_input_td"><input type="text" style="width:100%" maxlength="88" class="content_input_fd_ro" value="<% uptime(); %>" readonly></td>
 </tr>
 </table>
 </td>
 </tr>
 <tr>
 <td>
-<table class="content_table"> 
+<table class="content_table">
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WAN Interface</td>
 </tr>

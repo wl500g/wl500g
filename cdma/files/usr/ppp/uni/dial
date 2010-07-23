@@ -180,6 +180,7 @@ fi
 }
 
 load_drivers
+sleep 1
 write_dialup_file
 
 while true; do
