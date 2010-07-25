@@ -16,7 +16,6 @@
       * [GUIWirelessAdvanced Advanced]
     * IP Config
       * WAN & LAN
-
       * IPv6
       * SNMP
       * DHCP Server
