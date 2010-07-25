@@ -16,7 +16,6 @@
       * [GUIWirelessAdvanced Advanced]
     * IP Config
       * WAN & LAN
-      * [GUIIPConfigWiMAX WiMAX]
       * IPv6
       * SNMP
       * DHCP Server
@@ -36,6 +35,9 @@
       * Samba
       * NFS Server
       * Web Camera
+    * USB Network Devices
+      * [GUIUSBNetworkDevices3GCDMA 3G/CDMA]
+      * [GUIUSBNetworkDevicesWiMAX WiMAX]
     * Bandwidth Management
       * Basic Config
     * System Setup

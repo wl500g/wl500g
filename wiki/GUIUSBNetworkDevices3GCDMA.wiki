@@ -1,0 +1,153 @@
+﻿#summary USB Network Devices - 3G/CDMA
+
+In this menu you're able to tune up 3G/CDMA modems settings
+
+= Introduction =
+This page contains parameters to setup WAN-connection using USB-modem or cellular phone with USB-cable. Allowed dialup, GPRS/EDGE/UMTS/CDMA etc. modems.
+
+-------
+
+== Set as WAN Connection Type by default ==
+This checkbox allow to make 3G/CDMA connection as default WAN. Checked state indicate that parameter '''WAN Connection Type:''' at page '''IP Config - WAN & LAN''' is ''USB-Modem''.  Unchecking of it will set parameter '''WAN Connection Type:''' to value ''Auto''. Any changing of this checkbox requires router restart.
+
+== Zero CD Configuration ==
+Allow to switch USB-device with Zero CD mode to modem mode. Internally used usb_modeswitch.
+
+ * Not set – do not switch.
+ * Auto – automatically switch device if it detected in usb-modeswitch-data used in the router.
+ * Config at /usr/local/etc/usb_modeswitch.conf – if switch rules does not included in current firmware but exist it is allowed to use user file /usr/local/etc/usb_modeswitch.conf with any text available for usb_modeswitch.
+
+Use page Status & Log - Diagnostic Information to detect connected USB-devices and view devices that not switched in modem mode.
+
+The default value is: Auto
+
+= Modem options =
+
+== Modem type ==
+Modem type selection
+* CDMA/EVDO
+* GPRS/EDGE/UMTS/HSPDA
+* Dialup
+* User defined – run user dial script /usr/local/dial/dial.
+
+The default value is: GPRS/EDGE/UMTS/HSPDA
+
+== Username ==
+User name. Examples:
+* SkyLink - mobile
+* MTS – mts
+* Beeline – beeline
+* Megafone - gdata
+
+The default value is: empty
+
+== Password ==
+User password. Examples:
+* SkyLink - internet
+* MTS – mts
+* Beeline – beeline
+* Megafon - gdata
+
+The default value is: empty
+== APN ==
+Access Point Name. Examples:
+* MTS – internet.mts.ru
+* Beeline – internet.beeline.ru
+* Megafon - internet
+The default value is: empty
+
+== Dial Number ==
+For GPRS/EDGE/UMTS/HSPDA modems usually used *99***1# or *99# numbers.
+For CDMA the only #777 value.
+
+The default value is: empty
+
+== Call on Demand ==
+The default value is: No
+
+== Idle time before disconnect (sec) ==
+Idle time in seconds. Used together with Call on Demand parameter.
+
+The default value is: 60 секунд
+
+== MTU ==
+Maximum Transmission Unit
+
+The default value is: 1492
+
+== MRU ==
+Maximum Receive Unit
+
+The default value is: 1492
+
+= Custom USB device parameters =
+== Autodetect device ==
+Detect VID:PID values of the USB device and fill appropriate parameters.
+
+The default value is: Yes
+
+== USB tts(ac) port ==
+Port number that used for device configuration and data transmission. One USB device is able to use several channels for different purposes but the only channel used for data transmission.
+
+Firmware with linux kernel 2.4 use following names:
+* /dev/usb/tts/$port - modems
+* /dev/usb/acm/$port – cellular phones
+
+Firmware with linux kernel 2.6 use following names:
+* /dev/ttyUSB$port - modems 
+* /dev/ttyACM$port - cellular phones
+
+When drivers (usbserial, acm, option) was loaded, really used device channels may be viewed at page Status & Log - Diagnostic Information
+
+The default value is: 0
+
+== USB device Vendor ID (0xabcd) ==
+This parameter is optional.
+
+The default value is: empty
+
+== USB device Product ID (0xefgh) ==
+This parameter is optional.
+
+The default value is: empty
+
+== USB device packet size (0 for default) ==
+This parameter is optional.
+The default value is: 4096
+
+== USB device serial speed (usually 921600) ==
+This parameter is optional. Some modem drivers ignore this value.
+
+The default value is: 921600
+
+= Additional parameters =
+== Additional AT commands ==
+This parameter may be used for prioritizing network type selection. E.g. use 3G net for ZTE 626 modem with value AT+ZSNT=0,0,2
+
+The default value is: empty
+
+== Additional pppd options ==
+This parameter is optional.
+The default value is: empty
+
+== Enable USB-Serial drivers ==
+Load USB-Serial drivers pl2303, ftdi_sio before connection.
+The default value is: Yes
+
+== Failure event script name ==
+Run this script if max number of reconnection attempts was used. It is allow informing an administrator about connection problem or restarting devices. 
+If this parameter is empty, /usr/local/sbin/post-3g-failure name will use.
+
+Simples script name is reboot. More complex see http://wl500g.info/attachment.php?attachmentid=6704&d=1278335883
+
+Script parameters:
+* ifnum=$1 - interface number, may be used for example as "ppp$ifnum"
+* usbdev=$2 -  usb device, for example "/dev/usb/tts/0"
+* pppd_res=$3 - return code from pppd, for example 5 - pppd was exited with SIGINT, SIGTERM or SIGHUP.
+
+The default value is: empty
+
+== Max number of reconnection attempts ==
+Zero value 0 indicates that number of reconnection attempts will infinite. For using Failure event script it is none zero value required.
+
+The default value is: 0

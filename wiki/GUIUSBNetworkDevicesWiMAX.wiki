@@ -1,4 +1,4 @@
-#summary IP Config - WiMAX
+#summary USB Network Devices - WiMAX
 
 In this menu you're able to tune up WiMAX settings.
 
@@ -6,6 +6,10 @@ In this menu you're able to tune up WiMAX settings.
 This page contains some additional WiMAX settings, all of them are not required.
 
 -------
+== Set as WAN Connection Type by default ==
+This checkbox allow to make WiMAX connection as default WAN. Checked state indicate that parameter '''WAN Connection Type:''' at page '''IP Config - WAN & LAN''' is ''WiMAX''.  Unchecking of it will set parameter '''WAN Connection Type:''' to value ''Auto''. Any changing of this checkbox requires router restart.
+
+
 == SSID ==
 Service set identifier is a name that identifies a particular !WiMAX wireless network.
 Default value is blank, it means ''@yota.ru'' will be used.
