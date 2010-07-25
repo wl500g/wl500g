@@ -57,7 +57,7 @@ Access Point Name. Examples:
 The default value is: empty
 
 == Dial Number ==
-For GPRS/EDGE/UMTS/HSPDA modems usually used &#2A;99&#2A;&#2A;&#2A;1# or &#2A;99# numbers.
+For GPRS/EDGE/UMTS/HSPDA modems usually used `*99`*`*`*1# or `*99# numbers.
 For CDMA the only #777 value.
 
 The default value is: empty
