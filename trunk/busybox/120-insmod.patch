@@ -1,6 +1,6 @@
-diff -BurpN busybox-1.14.2/examples/depmod.pl busybox/examples/depmod.pl
---- busybox-1.14.2/examples/depmod.pl	2009-06-21 22:32:00.000000000 +0000
-+++ busybox/examples/depmod.pl	2009-07-22 15:51:12.000000000 +0000
+diff -BurpN busybox-1.17.1/examples/depmod.pl busybox/examples/depmod.pl
+--- busybox-1.17.1/examples/depmod.pl	2010-07-06 02:25:53.000000000 +0000
++++ busybox/examples/depmod.pl	2010-07-25 18:51:49.000000000 +0000
 @@ -118,6 +118,8 @@ warn "**** Finished locating modules\n" 
  foreach my $obj ( @liblist ){
      # turn the input file name into a target tag name
@@ -10,16 +10,19 @@ diff -BurpN busybox-1.14.2/examples/depmod.pl busybox/examples/depmod.pl
  
      warn "\nMODULE = $tgtname\n" if $verbose;
  
-diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
---- busybox-1.14.2/modutils/insmod.c	2009-06-21 22:40:29.000000000 +0000
-+++ busybox/modutils/insmod.c	2009-07-22 15:51:12.000000000 +0000
-@@ -9,12 +9,17 @@
+diff -BurpN busybox-1.17.1/modutils/insmod.c busybox/modutils/insmod.c
+--- busybox-1.17.1/modutils/insmod.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/modutils/insmod.c	2010-07-25 18:53:17.000000000 +0000
+@@ -9,6 +9,8 @@
  
  #include "libbb.h"
  #include "modutils.h"
-+#include <sys/utsname.h>                                                        
-+#include <fnmatch.h> 
++#include <sys/utsname.h>
++#include <fnmatch.h>
  
+ /* 2.6 style insmod has no options and required filename
+  * (not module name - .ko can't be omitted) */
+@@ -35,8 +37,11 @@
  int insmod_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
  int insmod_main(int argc UNUSED_PARAM, char **argv)
  {
@@ -32,7 +35,7 @@ diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
  
  	/* Compat note:
  	 * 2.6 style insmod has no options and required filename
-@@ -33,6 +38,28 @@ int insmod_main(int argc UNUSED_PARAM, c
+@@ -55,6 +60,28 @@ int insmod_main(int argc UNUSED_PARAM, c
  	if (!filename)
  		bb_show_usage();
  
@@ -61,10 +64,10 @@ diff -BurpN busybox-1.14.2/modutils/insmod.c busybox/modutils/insmod.c
  	rc = bb_init_module(filename, parse_cmdline_module_options(argv));
  	if (rc)
  		bb_error_msg("can't insert '%s': %s", filename, moderror(rc));
-diff -Burp busybox-1.15.1/modutils/modutils-24.c busybox/modutils/modutils-24.c
---- busybox-1.15.1/modutils/modutils-24.c	2009-09-12 19:55:36.000000000 +0400
-+++ busybox/modutils/modutils-24.c	2009-09-25 21:55:39.000000000 +0400
-@@ -3782,7 +3782,7 @@ int FAST_FUNC bb_init_module_24(const ch
+diff -BurpN busybox-1.17.1/modutils/modutils-24.c busybox/modutils/modutils-24.c
+--- busybox-1.17.1/modutils/modutils-24.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/modutils/modutils-24.c	2010-07-25 18:51:49.000000000 +0000
+@@ -3801,7 +3801,7 @@ int FAST_FUNC bb_init_module_24(const ch
  		/* Load module into memory and unzip if compressed */
  		image = xmalloc_open_zipped_read_close(m_filename, &image_size);
  		if (!image)
@@ -73,7 +76,7 @@ diff -Burp busybox-1.15.1/modutils/modutils-24.c busybox/modutils/modutils-24.c
  	}
  
  	m_name = xstrdup(bb_basename(m_filename));
-@@ -3812,8 +3812,10 @@ int FAST_FUNC bb_init_module_24(const ch
+@@ -3832,8 +3832,10 @@ int FAST_FUNC bb_init_module_24(const ch
  				"\twhile this kernel is version %s",
  				flag_force_load ? "warning: " : "",
  				m_name, m_strversion, uts.release);

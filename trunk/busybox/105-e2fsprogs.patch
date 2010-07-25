@@ -1,7 +1,19 @@
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/Config.in busybox/e2fsprogs/Config.in
---- busybox-1.16/e2fsprogs/Config.in	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/Config.in	2010-04-29 19:44:04.000000000 +0400
-@@ -14,6 +14,7 @@ config CHATTR
+diff -BurpN busybox-1.17.1/Makefile busybox/Makefile
+--- busybox-1.17.1/Makefile	2010-07-25 18:29:20.000000000 +0000
++++ busybox/Makefile	2010-07-25 18:48:26.000000000 +0000
+@@ -465,6 +465,8 @@ libs-y		:= \
+ 		coreutils/libcoreutils/ \
+ 		debianutils/ \
+ 		e2fsprogs/ \
++		e2fsprogs/e2p/ \
++		e2fsprogs/ext2fs/ \
+ 		editors/ \
+ 		findutils/ \
+ 		init/ \
+diff -BurpN busybox-1.17.1/e2fsprogs/Config.src busybox/e2fsprogs/Config.src
+--- busybox-1.17.1/e2fsprogs/Config.src	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/Config.src	2010-07-25 18:48:32.000000000 +0000
+@@ -16,6 +16,7 @@ config CHATTR
  config E2FSCK
  	bool "e2fsck"
  	default n
@@ -9,7 +21,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/Config.in busybox/e2fsprogs/
  	help
  	  e2fsck is used to check Linux second extended file systems (ext2fs).
  	  e2fsck also supports ext2 filesystems countaining a journal (ext3).
-@@ -37,6 +38,7 @@ config LSATTR
+@@ -39,6 +40,7 @@ config LSATTR
  config MKE2FS
  	bool "mke2fs"
  	default n
@@ -17,7 +29,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/Config.in busybox/e2fsprogs/
  	help
  	  mke2fs is used to create an ext2/ext3 filesystem. The normal compat
  	  symlinks 'mkfs.ext2' and 'mkfs.ext3' are also provided.
-@@ -44,6 +46,7 @@ config MKE2FS
+@@ -46,6 +48,7 @@ config MKE2FS
  config TUNE2FS
  	bool "tune2fs"
  	default n
@@ -25,10 +37,44 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/Config.in busybox/e2fsprogs/
  	help
  	  tune2fs allows the system administrator to adjust various tunable
  	  filesystem parameters on Linux ext2/ext3 filesystems.
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
---- busybox-1.16/e2fsprogs/e2fsck.c	2009-07-22 19:38:10.000000000 +0400
-+++ busybox/e2fsprogs/e2fsck.c	2010-04-29 20:04:57.000000000 +0400
-@@ -45,7 +45,7 @@
+diff -BurpN busybox-1.17.1/e2fsprogs/Kbuild.src busybox/e2fsprogs/Kbuild.src
+--- busybox-1.17.1/e2fsprogs/Kbuild.src	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/Kbuild.src	2010-07-25 18:48:32.000000000 +0000
+@@ -8,11 +8,11 @@ lib-y:=
+ 
+ INSERT
+ 
+-lib-$(CONFIG_CHATTR)     += chattr.o
+-lib-$(CONFIG_E2FSCK)     += e2fsck.o util.o
+-lib-$(CONFIG_FSCK)       += fsck.o util.o
+-lib-$(CONFIG_LSATTR)     += lsattr.o
+-lib-$(CONFIG_MKE2FS)     += mke2fs.o util.o
+-lib-$(CONFIG_TUNE2FS)    += tune2fs.o util.o
++lib-$(CONFIG_CHATTR)     += chattr.o e2fs_lib.o
++lib-$(CONFIG_E2FSCK)     += e2fsck.o util.o e2fs_lib.o
++lib-$(CONFIG_FSCK)       += fsck.o
++lib-$(CONFIG_LSATTR)     += lsattr.o e2fs_lib.o
++lib-$(CONFIG_MKE2FS)     += mke2fs.o util.o e2fs_lib.o
++lib-$(CONFIG_TUNE2FS)    += tune2fs.o util.o e2fs_lib.o
+ 
+ CFLAGS += -include $(srctree)/e2fsprogs/e2fsbb.h
+diff -BurpN busybox-1.17.1/e2fsprogs/e2fs_lib.h busybox/e2fsprogs/e2fs_lib.h
+--- busybox-1.17.1/e2fsprogs/e2fs_lib.h	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2fs_lib.h	2010-07-25 18:48:32.000000000 +0000
+@@ -44,4 +44,9 @@ extern const char e2attr_flags_sname[];
+ #define e2attr_flags_sname_chattr (&e2attr_flags_sname[1])
+ #endif
+ 
++/* uuid helpers */
++#define uuid_clear(uu) memset(uu, 0, sizeof(uu))
++#define uuid_copy(dst,src) memcpy(dst, src, sizeof(dst))
++#define uuid_is_null(uu) (!memcmp(uu, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", sizeof(uu)))
++
+ POP_SAVED_FUNCTION_VISIBILITY
+diff -BurpN busybox-1.17.1/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
+--- busybox-1.17.1/e2fsprogs/e2fsck.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2fsck.c	2010-07-25 18:48:32.000000000 +0000
+@@ -41,7 +41,7 @@
  static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
  
  /* pass1.c */
@@ -37,7 +83,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  
  /* pass2.c */
  static int e2fsck_process_bad_inode(e2fsck_t ctx, ext2_ino_t dir,
-@@ -1000,8 +1000,6 @@ static void e2fsck_free_context(e2fsck_t
+@@ -996,8 +996,6 @@ static void e2fsck_free_context(e2fsck_t
  		return;
  
  	e2fsck_reset_context(ctx);
@@ -46,7 +92,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  
  	ext2fs_free_mem(&ctx);
  }
-@@ -1646,11 +1644,10 @@ static errcode_t e2fsck_get_journal(e2fs
+@@ -1642,11 +1640,10 @@ static errcode_t e2fsck_get_journal(e2fs
  		if (!ctx->journal_name) {
  			char uuid[37];
  
@@ -61,7 +107,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  		}
  		journal_name = ctx->journal_name;
  
-@@ -1875,7 +1872,7 @@ static void e2fsck_journal_reset_super(e
+@@ -1871,7 +1868,7 @@ static void e2fsck_journal_reset_super(e
  {
  	char *p;
  	union {
@@ -70,7 +116,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  		__u32 val[4];
  	} u;
  	__u32 new_seq = 0;
-@@ -1905,7 +1902,7 @@ static void e2fsck_journal_reset_super(e
+@@ -1901,7 +1898,7 @@ static void e2fsck_journal_reset_super(e
  	 * This avoids the need to zero the whole journal (slow to do,
  	 * and risky when we are just recovering the filesystem).
  	 */
@@ -79,7 +125,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  	for (i = 0; i < 4; i ++)
  		new_seq ^= u.val[i];
  	jsb->s_sequence = htonl(new_seq);
-@@ -2544,7 +2541,7 @@ static void expand_inode_expression(char
+@@ -2540,7 +2537,7 @@ static void expand_inode_expression(char
  		if (do_gmt == -1) {
  			time_str = getenv("TZ");
  			if (!time_str)
@@ -88,7 +134,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  			do_gmt = !strcmp(time_str, "GMT");
  		}
  		t = inode->i_mtime;
-@@ -4413,7 +4410,7 @@ static int process_bad_block(ext2_filsys
+@@ -4409,7 +4406,7 @@ static int process_bad_block(ext2_filsys
   * out, so we can try to allocate new block(s) to replace the bad
   * blocks.
   */
@@ -97,7 +143,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  {
  	printf("Bad blocks detected on your filesystem\n"
  		"You should get your data off as the device will soon die\n");
-@@ -4551,11 +4548,11 @@ static errcode_t pass1_check_directory(e
+@@ -4547,11 +4544,11 @@ static errcode_t pass1_check_directory(e
  	return 0;
  }
  
@@ -111,7 +157,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  		fs->get_blocks = pass1_get_blocks;
  		fs->check_directory = pass1_check_directory;
  		fs->read_inode = pass1_read_inode;
-@@ -11888,7 +11885,7 @@ static void check_super_block(e2fsck_t c
+@@ -11884,7 +11881,7 @@ static void check_super_block(e2fsck_t c
  	 */
  	if (!(ctx->options & E2F_OPT_READONLY) && uuid_is_null(sb->s_uuid)) {
  		if (fix_problem(ctx, PR_0_ADD_UUID, &pctx)) {
@@ -120,7 +166,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  			ext2fs_mark_super_dirty(fs);
  			fs->flags &= ~EXT2_FLAG_MASTER_SB_ONLY;
  		}
-@@ -12187,11 +12184,10 @@ static void swap_filesys(e2fsck_t ctx)
+@@ -12183,11 +12180,10 @@ static void swap_filesys(e2fsck_t ctx)
   */
  
  
@@ -134,7 +180,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  
  	ret = xzalloc(size);
  	return ret;
-@@ -12994,7 +12990,6 @@ static errcode_t PRS(int argc, char **ar
+@@ -12989,7 +12985,6 @@ static errcode_t PRS(int argc, char **ar
  	}
  	memset(bar, '=', sizeof(bar)-1);
  	memset(spaces, ' ', sizeof(spaces)-1);
@@ -142,7 +188,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  
  	if (argc && *argv)
  		ctx->program_name = *argv;
-@@ -13116,8 +13111,9 @@ static errcode_t PRS(int argc, char **ar
+@@ -13111,8 +13106,9 @@ static errcode_t PRS(int argc, char **ar
  	ctx->io_options = strchr(argv[optind], '?');
  	if (ctx->io_options)
  		*ctx->io_options++ = 0;
@@ -154,9 +200,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.c busybox/e2fsprogs/e
  		bb_error_msg(_("Unable to resolve '%s'"), argv[optind]);
  		bb_error_msg_and_die(0);
  	}
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.h busybox/e2fsprogs/e2fsck.h
---- busybox-1.16/e2fsprogs/e2fsck.h	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2fsck.h	2010-04-29 15:29:18.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/e2fsck.h busybox/e2fsprogs/e2fsck.h
+--- busybox-1.17.1/e2fsprogs/e2fsck.h	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2fsck.h	2010-07-25 18:48:32.000000000 +0000
 @@ -36,9 +36,9 @@
  #include "fsck.h"
  
@@ -177,22 +223,21 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fsck.h busybox/e2fsprogs/e
  
  	jmp_buf abort_loc;
  
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2fs_lib.h busybox/e2fsprogs/e2fs_lib.h
---- busybox-1.16/e2fsprogs/e2fs_lib.h	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2fs_lib.h	2010-04-29 19:46:07.000000000 +0400
-@@ -44,4 +44,9 @@ extern const char e2attr_flags_sname[];
- #define e2attr_flags_sname_chattr (&e2attr_flags_sname[1])
- #endif
+diff -BurpN busybox-1.17.1/e2fsprogs/e2p/Kbuild.src busybox/e2fsprogs/e2p/Kbuild.src
+--- busybox-1.17.1/e2fsprogs/e2p/Kbuild.src	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2p/Kbuild.src	2010-07-25 18:48:32.000000000 +0000
+@@ -13,6 +13,6 @@ lib-y:=
  
-+/* uuid helpers */
-+#define uuid_clear(uu) memset(uu, 0, sizeof(uu))
-+#define uuid_copy(dst,src) memcpy(dst, src, sizeof(dst))
-+#define uuid_is_null(uu) (!memcmp(uu, "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", sizeof(uu)))
-+
- POP_SAVED_FUNCTION_VISIBILITY
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/e2p/e2p.h
---- busybox-1.16/e2fsprogs/e2p/e2p.h	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2p/e2p.h	2010-04-28 15:43:56.000000000 +0400
+ INSERT
+ 
+-lib-$(NEEDED-y) += fgetsetflags.o fgetsetversion.o pf.o iod.o mntopts.o \
+-           feature.o ls.o uuid.o pe.o ostype.o ps.o hashstr.o \
++lib-$(NEEDED-y) += mntopts.o \
++           feature.o ls.o pe.o ostype.o ps.o hashstr.o \
+            parse_num.o
+diff -BurpN busybox-1.17.1/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/e2p/e2p.h
+--- busybox-1.17.1/e2fsprogs/e2p/e2p.h	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2p/e2p.h	2010-07-25 18:48:32.000000000 +0000
 @@ -17,40 +17,17 @@
  
  #define PFOPT_LONG  1 /* Must be 1 for compatibility with `int long_format'. */
@@ -202,7 +247,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/
 -int fgetsetversion(const char * name, unsigned long * get_version, unsigned long set_version);
 -#define fgetversion(name, version) fgetsetversion(name, version, 0)
 -#define fsetversion(name, version) fgetsetversion(name, NULL, version)
- 
+-
 -/*int fgetflags (const char * name, unsigned long * flags);*/
 -/*int fsetflags (const char * name, unsigned long flags);*/
 -int fgetsetflags(const char * name, unsigned long * get_flags, unsigned long set_flags);
@@ -214,6 +259,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/
 -int iterate_on_dir (const char * dir_name,
 -		    int (*func) (const char *, struct dirent *, void *),
 -		    void * private);
++
  /*void list_super(struct ext2_super_block * s);*/
  void list_super2(struct ext2_super_block * s, FILE *f);
  #define list_super(s) list_super2(s, stdout)
@@ -234,27 +280,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/e2p.h busybox/e2fsprogs/
  const char *e2p_hash2string(int num);
  int e2p_string2hash(char *string);
  
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/Kbuild busybox/e2fsprogs/e2p/Kbuild
---- busybox-1.16/e2fsprogs/e2p/Kbuild	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2p/Kbuild	2010-04-28 14:31:07.000000000 +0400
-@@ -4,12 +4,10 @@
- #
- # Licensed under the GPL v2, see the file LICENSE in this tarball.
- 
--NEEDED-$(CONFIG_CHATTR) = y
--NEEDED-$(CONFIG_LSATTR) = y
- NEEDED-$(CONFIG_MKE2FS) = y
- NEEDED-$(CONFIG_TUNE2FS) = y
- 
- lib-y:=
--lib-$(NEEDED-y) += fgetsetflags.o fgetsetversion.o pf.o iod.o mntopts.o \
--           feature.o ls.o uuid.o pe.o ostype.o ps.o hashstr.o \
-+lib-$(NEEDED-y) += mntopts.o \
-+           feature.o ls.o pe.o ostype.o ps.o hashstr.o \
-            parse_num.o
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/ls.c busybox/e2fsprogs/e2p/ls.c
---- busybox-1.16/e2fsprogs/e2p/ls.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2p/ls.c	2010-04-29 19:53:13.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/e2p/ls.c busybox/e2fsprogs/e2p/ls.c
+--- busybox-1.17.1/e2fsprogs/e2p/ls.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2p/ls.c	2010-07-25 18:48:32.000000000 +0000
 @@ -21,6 +21,7 @@
  #include <time.h>
  
@@ -305,9 +333,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/ls.c busybox/e2fsprogs/e
  	if (sb->s_jnl_backup_type) {
  		fprintf(f, "Journal backup:           ");
  		if (sb->s_jnl_backup_type == 1)
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/pe.c busybox/e2fsprogs/e2p/pe.c
---- busybox-1.16/e2fsprogs/e2p/pe.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/e2p/pe.c	2009-08-25 16:01:58.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/e2p/pe.c busybox/e2fsprogs/e2p/pe.c
+--- busybox-1.17.1/e2fsprogs/e2p/pe.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/e2p/pe.c	2010-07-25 18:48:32.000000000 +0000
 @@ -21,7 +21,7 @@
  
  void print_fs_errors(FILE *f, unsigned short errors)
@@ -317,9 +345,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/e2p/pe.c busybox/e2fsprogs/e
  	switch (errors) {
  	case EXT2_ERRORS_CONTINUE: disp = "Continue"; break;
  	case EXT2_ERRORS_RO:       disp = "Remount read-only"; break;
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/bitops.c busybox/e2fsprogs/ext2fs/bitops.c
---- busybox-1.16/e2fsprogs/ext2fs/bitops.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/ext2fs/bitops.c	2010-04-28 15:57:46.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/bitops.c busybox/e2fsprogs/ext2fs/bitops.c
+--- busybox-1.17.1/e2fsprogs/ext2fs/bitops.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/ext2fs/bitops.c	2010-07-25 18:48:32.000000000 +0000
 @@ -67,7 +67,8 @@ int ext2fs_test_bit(unsigned int nr, con
  
  #endif	/* !_EXT2_HAVE_ASM_BITOPS_ */
@@ -339,9 +367,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/bitops.c busybox/e2fs
  {
  #ifndef OMIT_COM_ERR
  	if (bitmap->description)
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/ext2fs.h busybox/e2fsprogs/ext2fs/ext2fs.h
---- busybox-1.16/e2fsprogs/ext2fs/ext2fs.h	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/ext2fs/ext2fs.h	2009-08-25 15:17:11.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/ext2fs.h busybox/e2fsprogs/ext2fs/ext2fs.h
+--- busybox-1.17.1/e2fsprogs/ext2fs/ext2fs.h	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/ext2fs/ext2fs.h	2010-07-25 18:48:32.000000000 +0000
 @@ -13,7 +13,11 @@
  #define EXT2FS_EXT2FS_H 1
  
@@ -355,9 +383,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/ext2fs.h busybox/e2fs
  
  #ifdef __cplusplus
  extern "C" {
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/getsize.c busybox/e2fsprogs/ext2fs/getsize.c
---- busybox-1.16/e2fsprogs/ext2fs/getsize.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/ext2fs/getsize.c	2009-09-23 16:54:20.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/getsize.c busybox/e2fsprogs/ext2fs/getsize.c
+--- busybox-1.17.1/e2fsprogs/ext2fs/getsize.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/ext2fs/getsize.c	2010-07-25 18:48:32.000000000 +0000
 @@ -212,6 +212,7 @@ errcode_t ext2fs_get_device_size(const c
  	    off_t ms;
  	    u_int bs;
@@ -366,9 +394,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/getsize.c busybox/e2f
  		*retblocks = ms / blocksize;
  		return 0;
  	    }
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/ismounted.c busybox/e2fsprogs/ext2fs/ismounted.c
---- busybox-1.16/e2fsprogs/ext2fs/ismounted.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/ext2fs/ismounted.c	2009-07-22 19:31:11.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/ismounted.c busybox/e2fsprogs/ext2fs/ismounted.c
+--- busybox-1.17.1/e2fsprogs/ext2fs/ismounted.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/ext2fs/ismounted.c	2010-07-25 18:48:32.000000000 +0000
 @@ -176,8 +176,7 @@ static errcode_t check_mntent(const char
  #ifdef __linux__
  	retval = check_mntent_file("/proc/mounts", file, mount_flags,
@@ -379,9 +407,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/ismounted.c busybox/e
  #endif /* __linux__ */
  #if defined(MOUNTED) || defined(_PATH_MOUNTED)
  #ifndef MOUNTED
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/unix_io.c busybox/e2fsprogs/ext2fs/unix_io.c
---- busybox-1.16/e2fsprogs/ext2fs/unix_io.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/ext2fs/unix_io.c	2009-08-25 15:44:06.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/unix_io.c busybox/e2fsprogs/ext2fs/unix_io.c
+--- busybox-1.17.1/e2fsprogs/ext2fs/unix_io.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/ext2fs/unix_io.c	2010-07-25 18:48:32.000000000 +0000
 @@ -419,7 +419,7 @@ static errcode_t unix_open(const char *n
  
  #ifdef __linux__
@@ -391,30 +419,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/ext2fs/unix_io.c busybox/e2f
  #define RLIM_INFINITY	((unsigned long)(~0UL>>1))
  #else
  #define RLIM_INFINITY  (~0UL)
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/Kbuild busybox/e2fsprogs/Kbuild
---- busybox-1.16/e2fsprogs/Kbuild	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/Kbuild	2010-04-28 14:03:57.000000000 +0400
-@@ -6,11 +6,11 @@
- 
- lib-y:=
- 
--lib-$(CONFIG_CHATTR)     += chattr.o
--lib-$(CONFIG_E2FSCK)     += e2fsck.o util.o
--lib-$(CONFIG_FSCK)       += fsck.o util.o
--lib-$(CONFIG_LSATTR)     += lsattr.o
--lib-$(CONFIG_MKE2FS)     += mke2fs.o util.o
--lib-$(CONFIG_TUNE2FS)    += tune2fs.o util.o
-+lib-$(CONFIG_CHATTR)     += chattr.o e2fs_lib.o
-+lib-$(CONFIG_E2FSCK)     += e2fsck.o util.o e2fs_lib.o
-+lib-$(CONFIG_FSCK)       += fsck.o
-+lib-$(CONFIG_LSATTR)     += lsattr.o e2fs_lib.o
-+lib-$(CONFIG_MKE2FS)     += mke2fs.o util.o e2fs_lib.o
-+lib-$(CONFIG_TUNE2FS)    += tune2fs.o util.o e2fs_lib.o
- 
- CFLAGS += -include $(srctree)/e2fsprogs/e2fsbb.h
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
---- busybox-1.16/e2fsprogs/mke2fs.c	2010-03-28 21:43:35.000000000 +0400
-+++ busybox/e2fsprogs/mke2fs.c	2010-04-28 16:32:00.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
+--- busybox-1.17.1/e2fsprogs/mke2fs.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/mke2fs.c	2010-07-25 18:48:32.000000000 +0000
 @@ -29,7 +29,7 @@
  
  #include "e2fsbb.h"
@@ -489,9 +496,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/mke2fs.c busybox/e2fsprogs/m
  
  	/*
  	 * Add "jitter" to the superblock's check interval so that we
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/tune2fs.c busybox/e2fsprogs/tune2fs.c
---- busybox-1.16/e2fsprogs/tune2fs.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/e2fsprogs/tune2fs.c	2010-04-29 19:52:39.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/tune2fs.c busybox/e2fsprogs/tune2fs.c
+--- busybox-1.17.1/e2fsprogs/tune2fs.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/tune2fs.c	2010-07-25 18:48:32.000000000 +0000
 @@ -35,11 +35,11 @@
  #include "e2fsbb.h"
  #include "ext2fs/ext2_fs.h"
@@ -565,9 +572,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/tune2fs.c busybox/e2fsprogs/
  			bb_error_msg_and_die("Invalid UUID format");
  		}
  		ext2fs_mark_super_dirty(fs);
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/util.c busybox/e2fsprogs/util.c
---- busybox-1.16/e2fsprogs/util.c	2010-03-28 21:43:35.000000000 +0400
-+++ busybox/e2fsprogs/util.c	2010-04-29 12:47:27.000000000 +0400
+diff -BurpN busybox-1.17.1/e2fsprogs/util.c busybox/e2fsprogs/util.c
+--- busybox-1.17.1/e2fsprogs/util.c	2010-07-06 02:25:53.000000000 +0000
++++ busybox/e2fsprogs/util.c	2010-07-25 18:48:32.000000000 +0000
 @@ -17,7 +17,7 @@
  #include "e2p/e2p.h"
  #include "ext2fs/ext2_fs.h"
@@ -607,10 +614,10 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/e2fsprogs/util.c busybox/e2fsprogs/uti
  	putenv(oldpath);
  	return oldpath;
  }
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/applets.h busybox/include/applets.h
---- busybox-1.16/include/applets.h	2009-09-14 14:53:46.000000000 +0400
-+++ busybox/include/applets.h	2009-07-22 19:28:09.000000000 +0400
-@@ -136,8 +136,8 @@ IF_DPKG_DEB(APPLET_ODDNAME(dpkg-deb, dpk
+diff -BurpN busybox-1.17.1/include/applets.src.h busybox/include/applets.src.h
+--- busybox-1.17.1/include/applets.src.h	2010-07-25 18:32:16.000000000 +0000
++++ busybox/include/applets.src.h	2010-07-25 18:48:26.000000000 +0000
+@@ -133,8 +133,8 @@ IF_DPKG_DEB(APPLET_ODDNAME(dpkg-deb, dpk
  IF_DU(APPLET(du, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_DUMPKMAP(APPLET(dumpkmap, _BB_DIR_BIN, _BB_SUID_DROP))
  IF_DUMPLEASES(APPLET(dumpleases, _BB_DIR_USR_BIN, _BB_SUID_DROP))
@@ -620,8 +627,8 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/applets.h busybox/include/appl
 +IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP, e2label))
  IF_ECHO(APPLET_NOFORK(echo, echo, _BB_DIR_BIN, _BB_SUID_DROP, echo))
  IF_ED(APPLET(ed, _BB_DIR_BIN, _BB_SUID_DROP))
- IF_FEATURE_GREP_EGREP_ALIAS(APPLET_ODDNAME(egrep, grep, _BB_DIR_BIN, _BB_SUID_DROP, egrep))
-@@ -166,8 +166,8 @@ IF_FOLD(APPLET(fold, _BB_DIR_USR_BIN, _B
+ IF_EJECT(APPLET(eject, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+@@ -162,8 +162,8 @@ IF_FOLD(APPLET(fold, _BB_DIR_USR_BIN, _B
  IF_FREE(APPLET(free, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_FREERAMDISK(APPLET(freeramdisk, _BB_DIR_SBIN, _BB_SUID_DROP))
  IF_FSCK(APPLET(fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
@@ -632,7 +639,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/applets.h busybox/include/appl
  IF_FSCK_MINIX(APPLET_ODDNAME(fsck.minix, fsck_minix, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_minix))
  IF_FSYNC(APPLET_NOFORK(fsync, fsync, _BB_DIR_BIN, _BB_SUID_DROP, fsync))
  IF_FTPD(APPLET(ftpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
-@@ -261,10 +261,10 @@ IF_MESG(APPLET(mesg, _BB_DIR_USR_BIN, _B
+@@ -257,10 +257,10 @@ IF_MESG(APPLET(mesg, _BB_DIR_USR_BIN, _B
  IF_MICROCOM(APPLET(microcom, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_MKDIR(APPLET_NOFORK(mkdir, mkdir, _BB_DIR_BIN, _BB_SUID_DROP, mkdir))
  IF_MKFS_VFAT(APPLET_ODDNAME(mkdosfs, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
@@ -646,19 +653,10 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/applets.h busybox/include/appl
  IF_MKFS_MINIX(APPLET_ODDNAME(mkfs.minix, mkfs_minix, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_minix))
  IF_MKFS_REISER(APPLET_ODDNAME(mkfs.reiser, mkfs_reiser, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_reiser))
  IF_MKFS_VFAT(APPLET_ODDNAME(mkfs.vfat, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
-@@ -402,7 +402,7 @@ IF_TRUE(APPLET_NOFORK(true, true, _BB_DI
- IF_TTY(APPLET(tty, _BB_DIR_USR_BIN, _BB_SUID_DROP))
- IF_TTYSIZE(APPLET(ttysize, _BB_DIR_USR_BIN, _BB_SUID_DROP))
- IF_TUNCTL(APPLET(tunctl, _BB_DIR_SBIN, _BB_SUID_DROP))
--IF_MKFS_EXT2(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
-+IF_TUNE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
- IF_UDHCPC(APPLET(udhcpc, _BB_DIR_SBIN, _BB_SUID_DROP))
- IF_UDHCPD(APPLET(udhcpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
- IF_UDPSVD(APPLET_ODDNAME(udpsvd, tcpudpsvd, _BB_DIR_USR_BIN, _BB_SUID_DROP, udpsvd))
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/libbb.h busybox/include/libbb.h
---- busybox-1.16/include/libbb.h	2009-07-22 18:53:46.000000000 +0400
-+++ busybox/include/libbb.h	2010-04-29 20:09:26.000000000 +0400
-@@ -716,6 +716,10 @@ char *bin2hex(char *buf, const char *cp,
+diff -BurpN busybox-1.17.1/include/libbb.h busybox/include/libbb.h
+--- busybox-1.17.1/include/libbb.h	2010-07-25 18:29:36.000000000 +0000
++++ busybox/include/libbb.h	2010-07-25 18:48:26.000000000 +0000
+@@ -757,6 +757,10 @@ char* hex2bin(char *dst, const char *str
  
  /* Generate a UUID */
  void generate_uuid(uint8_t *buf) FAST_FUNC;
@@ -669,18 +667,18 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/libbb.h busybox/include/libbb.
  
  /* Last element is marked by mult == 0 */
  struct suffix_mult {
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/usage.h busybox/include/usage.h
---- busybox-1.16/include/usage.h	2010-04-28 04:00:00.000000000 +0400
-+++ busybox/include/usage.h	2009-07-22 19:26:30.000000000 +0400
-@@ -1013,7 +1013,6 @@
-      "\n	-a	Interpret lease times as expire time" \
+diff -BurpN busybox-1.17.1/include/usage.src.h busybox/include/usage.src.h
+--- busybox-1.17.1/include/usage.src.h	2010-07-24 22:12:43.000000000 +0000
++++ busybox/include/usage.src.h	2010-07-25 18:48:26.000000000 +0000
+@@ -1075,7 +1075,6 @@ INSERT
+      "\n	-a	Show expiration time" \
  	)
  
 -/*
  #define e2fsck_trivial_usage \
         "[-panyrcdfvstDFSV] [-b superblock] [-B blocksize] " \
         "[-I inode_buffer_blocks] [-P process_inode_size] " \
-@@ -1033,7 +1032,10 @@
+@@ -1095,7 +1094,10 @@ INSERT
       "\n	-j journal	Set location of the external journal" \
       "\n	-l file		Add to badblocks list" \
       "\n	-L file		Set badblocks list" \
@@ -692,7 +690,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/usage.h busybox/include/usage.
  
  #define echo_trivial_usage \
  	IF_FEATURE_FANCY_ECHO("[-neE] ") "[ARG]..."
-@@ -1353,6 +1355,12 @@
+@@ -1372,6 +1374,12 @@ INSERT
       "\n	-C n	Write status information to specified filedescriptor" \
       "\n	-t TYPE	List of filesystem types to check" \
  
@@ -705,7 +703,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/usage.h busybox/include/usage.
  #define fsck_minix_trivial_usage \
         "[-larvsmf] BLOCKDEV"
  #define fsck_minix_full_usage "\n\n" \
-@@ -2761,41 +2769,44 @@
+@@ -2723,41 +2731,44 @@ INSERT
  
  #define mkfs_ext2_trivial_usage \
         "[-Fn] " \
@@ -772,9 +770,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/usage.h busybox/include/usage.
  
  #define mkfs_minix_trivial_usage \
         "[-c | -l FILE] [-nXX] [-iXX] BLOCKDEV [KBYTES]"
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/volume_id.h busybox/include/volume_id.h
---- busybox-1.16/include/volume_id.h	2010-04-29 12:39:27.000000000 +0400
-+++ busybox/include/volume_id.h	2010-04-29 15:25:57.000000000 +0400
+diff -BurpN busybox-1.17.1/include/volume_id.h busybox/include/volume_id.h
+--- busybox-1.17.1/include/volume_id.h	2010-04-29 08:39:27.000000000 +0000
++++ busybox/include/volume_id.h	2010-07-25 18:48:26.000000000 +0000
 @@ -20,6 +20,7 @@
  
  char *get_devname_from_label(const char *spec);
@@ -783,12 +781,12 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/include/volume_id.h busybox/include/vo
  void display_uuid_cache(void);
  
  /* Returns:
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/libbb/xfuncs.c busybox/libbb/xfuncs.c
---- busybox-1.16/libbb/xfuncs.c	2010-03-20 05:58:07.000000000 +0300
-+++ busybox/libbb/xfuncs.c	2010-04-29 19:49:08.000000000 +0400
-@@ -272,3 +272,49 @@ void FAST_FUNC generate_uuid(uint8_t *bu
- 	/* variant = 10x */
- 	buf[4 + 2 + 2] = (buf[4 + 2 + 2] & 0x3f) | 0x80;
+diff -BurpN busybox-1.17.1/libbb/xfuncs.c busybox/libbb/xfuncs.c
+--- busybox-1.17.1/libbb/xfuncs.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/libbb/xfuncs.c	2010-07-25 18:48:26.000000000 +0000
+@@ -302,3 +302,49 @@ int FAST_FUNC wait4pid(pid_t pid)
+ 		return WTERMSIG(status) + 0x180;
+ 	return 0;
  }
 +
 +char * FAST_FUNC unparse_uuid(const uint8_t *uu, char *out)
@@ -836,22 +834,10 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/libbb/xfuncs.c busybox/libbb/xfuncs.c
 +	return 0;
 +}
 +
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/Makefile busybox/Makefile
---- busybox-1.16/Makefile	2009-07-22 18:53:46.000000000 +0400
-+++ busybox/Makefile	2010-04-29 13:57:43.000000000 +0400
-@@ -460,6 +460,8 @@ libs-y		:= \
- 		coreutils/libcoreutils/ \
- 		debianutils/ \
- 		e2fsprogs/ \
-+		e2fsprogs/e2p/ \
-+		e2fsprogs/ext2fs/ \
- 		editors/ \
- 		findutils/ \
- 		init/ \
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/util-linux/mkswap.c busybox/util-linux/mkswap.c
---- busybox-1.16/util-linux/mkswap.c	2010-03-28 21:43:36.000000000 +0400
-+++ busybox/util-linux/mkswap.c	2010-04-29 19:39:12.000000000 +0400
-@@ -111,17 +111,9 @@ int mkswap_main(int argc UNUSED_PARAM, c
+diff -BurpN busybox-1.17.1/util-linux/mkswap.c busybox/util-linux/mkswap.c
+--- busybox-1.17.1/util-linux/mkswap.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/util-linux/mkswap.c	2010-07-25 18:48:26.000000000 +0000
+@@ -107,17 +107,9 @@ int mkswap_main(int argc UNUSED_PARAM, c
  	hdr->last_page = (uoff_t)len / pagesize;
  
  	if (ENABLE_FEATURE_MKSWAP_UUID) {
@@ -871,9 +857,9 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/util-linux/mkswap.c busybox/util-linux
  	}
  	safe_strncpy(hdr->sws_volume, label, 16);
  
-diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/util-linux/volume_id/get_devname.c busybox/util-linux/volume_id/get_devname.c
---- busybox-1.16/util-linux/volume_id/get_devname.c	2010-04-29 12:41:27.000000000 +0400
-+++ busybox/util-linux/volume_id/get_devname.c	2010-04-29 20:03:04.000000000 +0400
+diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux/volume_id/get_devname.c
+--- busybox-1.17.1/util-linux/volume_id/get_devname.c	2010-05-11 09:54:36.000000000 +0000
++++ busybox/util-linux/volume_id/get_devname.c	2010-07-25 18:48:26.000000000 +0000
 @@ -15,7 +15,7 @@
  
  static struct uuidCache_s {
@@ -924,7 +910,7 @@ diff '-x.*' '-x*.[oa]' -urBp busybox-1.16/util-linux/volume_id/get_devname.c bus
  {
  	struct uuidCache_s *uc;
  
-@@ -150,66 +149,29 @@ get_spec_by_x(int n, const char *t, int
+@@ -150,66 +149,29 @@ get_spec_by_x(int n, const char *t, int 
  	while (uc) {
  		switch (n) {
  		case UUID:

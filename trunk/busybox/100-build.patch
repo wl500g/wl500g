@@ -1,6 +1,6 @@
-diff -BurpN busybox-1.14.2/Makefile busybox/Makefile
---- busybox-1.14.2/Makefile	2009-06-21 22:46:58.000000000 +0000
-+++ busybox/Makefile	2009-07-22 14:53:46.000000000 +0000
+diff -BurpN busybox-1.17.1/Makefile busybox/Makefile
+--- busybox-1.17.1/Makefile	2010-07-24 22:13:44.000000000 +0000
++++ busybox/Makefile	2010-07-25 18:29:20.000000000 +0000
 @@ -315,7 +315,7 @@ AFLAGS_KERNEL	=
  
  # Use LINUXINCLUDE when you must reference the include/ directory.
@@ -10,18 +10,18 @@ diff -BurpN busybox-1.14.2/Makefile busybox/Makefile
  # Added only to final link stage of busybox binary
  CFLAGS_busybox	:= $(CFLAGS_busybox)
  CPPFLAGS	:= $(CPPFLAGS)
-diff -BurpN busybox-1.14.2/include/applets.h busybox/include/applets.h
---- busybox-1.15.1/include/applets.h	2009-09-12 15:55:36.000000000 +0000
-+++ busybox/include/applets.h	2009-09-14 10:53:46.000000000 +0000
-@@ -84,6 +84,7 @@
+diff -BurpN busybox-1.17.1/include/applets.src.h busybox/include/applets.src.h
+--- busybox-1.17.1/include/applets.src.h	2010-07-25 18:32:06.000000000 +0000
++++ busybox/include/applets.src.h	2010-07-25 18:32:16.000000000 +0000
+@@ -83,6 +83,7 @@ IF_BEEP(APPLET(beep, _BB_DIR_USR_BIN, _B
  IF_BLKID(APPLET(blkid, _BB_DIR_SBIN, _BB_SUID_DROP))
+ IF_BOOTCHARTD(APPLET(bootchartd, _BB_DIR_SBIN, _BB_SUID_DROP))
  IF_BRCTL(APPLET(brctl, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
- IF_BUNZIP2(APPLET(bunzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP))
 +IF_HTTPD(APPLET_ODDNAME(busybox_httpd, httpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP, httpd))
- IF_BUNZIP2(APPLET_ODDNAME(bzcat, bunzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP, bzcat))
  IF_BZIP2(APPLET(bzip2, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_CAL(APPLET(cal, _BB_DIR_USR_BIN, _BB_SUID_DROP))
-@@ -182,7 +183,6 @@
+ IF_CAT(APPLET_NOFORK(cat, cat, _BB_DIR_BIN, _BB_SUID_DROP, cat))
+@@ -182,7 +183,6 @@ IF_HEAD(APPLET(head, _BB_DIR_USR_BIN, _B
  IF_HEXDUMP(APPLET_NOEXEC(hexdump, hexdump, _BB_DIR_USR_BIN, _BB_SUID_DROP, hexdump))
  IF_HOSTID(APPLET_NOFORK(hostid, hostid, _BB_DIR_USR_BIN, _BB_SUID_DROP, hostid))
  IF_HOSTNAME(APPLET(hostname, _BB_DIR_BIN, _BB_SUID_DROP))
@@ -29,10 +29,10 @@ diff -BurpN busybox-1.14.2/include/applets.h busybox/include/applets.h
  IF_HUSH(APPLET(hush, _BB_DIR_BIN, _BB_SUID_DROP))
  IF_HWCLOCK(APPLET(hwclock, _BB_DIR_SBIN, _BB_SUID_DROP))
  IF_ID(APPLET(id, _BB_DIR_USR_BIN, _BB_SUID_DROP))
-diff -BurpN busybox-1.14.2/include/libbb.h busybox/include/libbb.h
---- busybox-1.14.2/include/libbb.h	2009-06-21 22:46:43.000000000 +0000
-+++ busybox/include/libbb.h	2009-07-22 14:53:46.000000000 +0000
-@@ -1429,9 +1429,9 @@ extern const char bb_dev_null[];
+diff -BurpN busybox-1.17.1/include/libbb.h busybox/include/libbb.h
+--- busybox-1.17.1/include/libbb.h	2010-07-24 22:12:43.000000000 +0000
++++ busybox/include/libbb.h	2010-07-25 18:29:36.000000000 +0000
+@@ -1577,9 +1577,9 @@ extern const char bb_dev_null[];
  extern const char bb_busybox_exec_path[];
  /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
   * but I want to save a few bytes here */
@@ -44,10 +44,10 @@ diff -BurpN busybox-1.14.2/include/libbb.h busybox/include/libbb.h
  
  extern const int const_int_0;
  extern const int const_int_1;
-diff -BurpN busybox-1.14.2/libbb/messages.c busybox/libbb/messages.c
---- busybox-1.14.2/libbb/messages.c	2009-06-21 22:32:00.000000000 +0000
-+++ busybox/libbb/messages.c	2009-07-22 14:53:46.000000000 +0000
-@@ -48,7 +48,7 @@ const char bb_default_login_shell[] ALIG
+diff -BurpN busybox-1.17.1/libbb/messages.c busybox/libbb/messages.c
+--- busybox-1.17.1/libbb/messages.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/libbb/messages.c	2010-07-25 18:29:36.000000000 +0000
+@@ -49,7 +49,7 @@ const char bb_default_login_shell[] ALIG
  /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
   * but I want to save a few bytes here. Check libbb.h before changing! */
  const char bb_PATH_root_path[] ALIGN1 =
@@ -56,9 +56,9 @@ diff -BurpN busybox-1.14.2/libbb/messages.c busybox/libbb/messages.c
  
  
  const int const_int_1 = 1;
-diff -BurpN busybox-1.15.2/scripts/Makefile.lib busybox/scripts/Makefile.lib
---- busybox-1.15.2/scripts/Makefile.lib	2009-09-26 17:14:57.000000000 +0400
-+++ busybox/scripts/Makefile.lib	2009-11-04 19:30:45.000000000 +0300
+diff -BurpN busybox-1.17.1/scripts/Makefile.lib busybox/scripts/Makefile.lib
+--- busybox-1.17.1/scripts/Makefile.lib	2010-07-06 02:25:54.000000000 +0000
++++ busybox/scripts/Makefile.lib	2010-07-25 18:29:36.000000000 +0000
 @@ -119,9 +119,9 @@ cpp_flags      = -Wp,-MD,$(depfile) $(NO
  
  # Seems to be a wrong thing to do. LDFLAGS contains gcc's flags,
