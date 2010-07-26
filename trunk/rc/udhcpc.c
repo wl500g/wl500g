@@ -104,8 +104,15 @@ bound(void)
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
 
+	/* classful static routes*/
 	nvram_set(strcat_r(prefix, "routes", tmp), getenv("routes"));
-	nvram_set(strcat_r(prefix, "msroutes", tmp), getenv("msroutes"));
+
+	/* rfc classless static routes*/
+	/* skip it like windows clients do
+	nvram_set(strcat_r(prefix, "routes_static", tmp), getenv("staticroutes")); */
+
+	/* ms classless static routes*/
+	nvram_set(strcat_r(prefix, "routes_ms", tmp), getenv("msstaticroutes"));
 #if 0
 	if ((value = getenv("hostname")))
 		sethostname(trim_r(value), strlen(value) + 1);
