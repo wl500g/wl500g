@@ -1,0 +1,593 @@
+Backport of network splice receive.
+
+9c55e01c0cc835818475a6ce8c4d684df9949ac8 [TCP]: Splice receive support.
+293ad60401da621b8b329abbe8c388edb25f658a tcp: Fix for race due to temporary drop of the socket lock in skb_splice_bits.
+db43a282d3ec92ea45109c5551fff3dcc5afef02 tcp: fix for splice receive when used with software LRO
+33966dd0e2f68f26943cd9ee93ec6abbc6547a8e tcp: splice as many packets as possible at once
+9fa5fdf291c9b58b1cb8b4bb2a0ee57efa21d635 tcp: Fix length tcp_splice_data_recv passes to skb_splice_bits.
+
+---
+
+ include/linux/net.h    |    3 
+ include/linux/skbuff.h |    6 +
+ include/net/tcp.h      |    3 
+ net/core/skbuff.c      |  254 +++++++++++++++++++++++++++++++++++++++++++++++++
+ net/ipv4/af_inet.c     |    1 
+ net/ipv4/tcp.c         |  146 +++++++++++++++++++++++++++-
+ net/socket.c           |   13 ++
+ 7 files changed, 425 insertions(+), 1 deletion(-)
+
+diff -x'.*' -urBp a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/net.h	2010-07-26 15:51:02.000000000 +0400
+@@ -22,6 +22,7 @@
+ #include <asm/socket.h>
+ 
+ struct poll_table_struct;
++struct pipe_inode_info;
+ struct inode;
+ 
+ #define NPROTO		34		/* should be enough for now..	*/
+@@ -165,6 +166,8 @@ struct proto_ops {
+ 				      struct vm_area_struct * vma);
+ 	ssize_t		(*sendpage)  (struct socket *sock, struct page *page,
+ 				      int offset, size_t size, int flags);
++	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
++				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
+ };
+ 
+ struct net_proto_family {
+diff -x'.*' -urBp a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2010-07-26 04:00:00.000000000 +0400
++++ b/include/linux/skbuff.h	2010-07-26 15:51:02.000000000 +0400
+@@ -87,6 +87,7 @@
+ 
+ struct net_device;
+ struct scatterlist;
++struct pipe_inode_info;
+ 
+ #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
+ struct nf_conntrack {
+@@ -1553,6 +1554,11 @@ extern int	       skb_store_bits(struct 
+ extern __wsum	       skb_copy_and_csum_bits(const struct sk_buff *skb,
+ 					      int offset, u8 *to, int len,
+ 					      __wsum csum);
++extern int             skb_splice_bits(struct sk_buff *skb,
++						unsigned int offset,
++						struct pipe_inode_info *pipe,
++						unsigned int len,
++						unsigned int flags);
+ extern void	       skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
+ extern void	       skb_split(struct sk_buff *skb,
+ 				 struct sk_buff *skb1, const u32 len);
+diff -x'.*' -urBp a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	2010-07-26 04:00:00.000000000 +0400
++++ b/include/net/tcp.h	2010-07-26 04:00:00.000000000 +0400
+@@ -309,6 +309,9 @@ extern int			tcp_twsk_unique(struct sock
+ 
+ extern void			tcp_twsk_destructor(struct sock *sk);
+ 
++extern ssize_t			tcp_splice_read(struct socket *sk, loff_t *ppos,
++					        struct pipe_inode_info *pipe, size_t len, unsigned int flags);
++
+ static inline void tcp_dec_quickack_mode(struct sock *sk,
+ 					 const unsigned int pkts)
+ {
+diff -x'.*' -urBp a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c	2010-07-26 04:00:00.000000000 +0400
++++ b/net/core/skbuff.c	2010-07-26 15:51:24.000000000 +0400
+@@ -52,6 +52,7 @@
+ #endif
+ #include <linux/string.h>
+ #include <linux/skbuff.h>
++#include <linux/splice.h>
+ #include <linux/cache.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/init.h>
+@@ -71,6 +72,40 @@
+ static struct kmem_cache *skbuff_head_cache __read_mostly;
+ static struct kmem_cache *skbuff_fclone_cache __read_mostly;
+ 
++static void sock_pipe_buf_release(struct pipe_inode_info *pipe,
++				  struct pipe_buffer *buf)
++{
++	struct sk_buff *skb = (struct sk_buff *) buf->private;
++
++	kfree_skb(skb);
++}
++
++static void sock_pipe_buf_get(struct pipe_inode_info *pipe,
++				struct pipe_buffer *buf)
++{
++	struct sk_buff *skb = (struct sk_buff *) buf->private;
++
++	skb_get(skb);
++}
++
++static int sock_pipe_buf_steal(struct pipe_inode_info *pipe,
++			       struct pipe_buffer *buf)
++{
++	return 1;
++}
++
++
++/* Pipe buffer operations for a socket. */
++static struct pipe_buf_operations sock_pipe_buf_ops = {
++	.can_merge = 0,
++	.map = generic_pipe_buf_map,
++	.unmap = generic_pipe_buf_unmap,
++	.confirm = generic_pipe_buf_confirm,
++	.release = sock_pipe_buf_release,
++	.steal = sock_pipe_buf_steal,
++	.get = sock_pipe_buf_get,
++};
++
+ /*
+  *	Keep out-of-line to prevent kernel bloat.
+  *	__builtin_return_address is not used because it is not always
+@@ -1119,6 +1154,225 @@ fault:
+ 	return -EFAULT;
+ }
+ 
++/*
++ * Callback from splice_to_pipe(), if we need to release some pages
++ * at the end of the spd in case we error'ed out in filling the pipe.
++ */
++static void sock_spd_release(struct splice_pipe_desc *spd, unsigned int i)
++{
++	struct sk_buff *skb = (struct sk_buff *) spd->partial[i].private;
++
++	kfree_skb(skb);
++}
++
++/*
++ * Fill page/offset/length into spd, if it can hold more pages.
++ */
++static inline int spd_fill_page(struct splice_pipe_desc *spd, struct page *page,
++				unsigned int len, unsigned int offset,
++				struct sk_buff *skb)
++{
++	if (unlikely(spd->nr_pages == PIPE_BUFFERS))
++		return 1;
++
++	spd->pages[spd->nr_pages] = page;
++	spd->partial[spd->nr_pages].len = len;
++	spd->partial[spd->nr_pages].offset = offset;
++	spd->partial[spd->nr_pages].private = (unsigned long) skb_get(skb);
++	spd->nr_pages++;
++	return 0;
++}
++
++/*
++ * Map linear and fragment data from the skb to spd. Returns number of
++ * pages mapped.
++ */
++static int __skb_splice_bits(struct sk_buff *skb, unsigned int *offset,
++			     unsigned int *total_len,
++			     struct splice_pipe_desc *spd)
++{
++	unsigned int nr_pages = spd->nr_pages;
++	unsigned int poff, plen, len, toff, tlen;
++	int headlen, seg, error = 0;
++
++	toff = *offset;
++	tlen = *total_len;
++	if (!tlen) {
++		error = 1;
++		goto err;
++	}
++
++	/*
++	 * if the offset is greater than the linear part, go directly to
++	 * the fragments.
++	 */
++	headlen = skb_headlen(skb);
++	if (toff >= headlen) {
++		toff -= headlen;
++		goto map_frag;
++	}
++
++	/*
++	 * first map the linear region into the pages/partial map, skipping
++	 * any potential initial offset.
++	 */
++	len = 0;
++	while (len < headlen) {
++		void *p = skb->data + len;
++
++		poff = (unsigned long) p & (PAGE_SIZE - 1);
++		plen = min_t(unsigned int, headlen - len, PAGE_SIZE - poff);
++		len += plen;
++
++		if (toff) {
++			if (plen <= toff) {
++				toff -= plen;
++				continue;
++			}
++			plen -= toff;
++			poff += toff;
++			toff = 0;
++		}
++
++		plen = min(plen, tlen);
++		if (!plen)
++			break;
++
++		/*
++		 * just jump directly to update and return, no point
++		 * in going over fragments when the output is full.
++		 */
++		error = spd_fill_page(spd, virt_to_page(p), plen, poff, skb);
++		if (error)
++			goto done;
++
++		tlen -= plen;
++	}
++
++	/*
++	 * then map the fragments
++	 */
++map_frag:
++	for (seg = 0; seg < skb_shinfo(skb)->nr_frags; seg++) {
++		const skb_frag_t *f = &skb_shinfo(skb)->frags[seg];
++
++		plen = f->size;
++		poff = f->page_offset;
++
++		if (toff) {
++			if (plen <= toff) {
++				toff -= plen;
++				continue;
++			}
++			plen -= toff;
++			poff += toff;
++			toff = 0;
++		}
++
++		plen = min(plen, tlen);
++		if (!plen)
++			break;
++
++		error = spd_fill_page(spd, f->page, plen, poff, skb);
++		if (error)
++			break;
++
++		tlen -= plen;
++	}
++
++done:
++	if (spd->nr_pages - nr_pages) {
++		*offset = 0;
++		*total_len = tlen;
++		return 0;
++	}
++err:
++	/* update the offset to reflect the linear part skip, if any */
++	if (!error)
++		*offset = toff;
++	return error;
++}
++
++/*
++ * Map data from the skb to a pipe. Should handle both the linear part,
++ * the fragments, and the frag list. It does NOT handle frag lists within
++ * the frag list, if such a thing exists. We'd probably need to recurse to
++ * handle that cleanly.
++ */
++int skb_splice_bits(struct sk_buff *__skb, unsigned int offset,
++		    struct pipe_inode_info *pipe, unsigned int tlen,
++		    unsigned int flags)
++{
++	struct partial_page partial[PIPE_BUFFERS];
++	struct page *pages[PIPE_BUFFERS];
++	struct splice_pipe_desc spd = {
++		.pages = pages,
++		.partial = partial,
++		.flags = flags,
++		.ops = &sock_pipe_buf_ops,
++		.spd_release = sock_spd_release,
++	};
++	struct sk_buff *skb;
++
++	/*
++	 * I'd love to avoid the clone here, but tcp_read_sock()
++	 * ignores reference counts and unconditonally kills the sk_buff
++	 * on return from the actor.
++	 */
++	skb = skb_clone(__skb, GFP_KERNEL);
++	if (unlikely(!skb))
++		return -ENOMEM;
++
++	/*
++	 * __skb_splice_bits() only fails if the output has no room left,
++	 * so no point in going over the frag_list for the error case.
++	 */
++	if (__skb_splice_bits(skb, &offset, &tlen, &spd))
++		goto done;
++	else if (!tlen)
++		goto done;
++
++	/*
++	 * now see if we have a frag_list to map
++	 */
++	if (skb_shinfo(skb)->frag_list) {
++		struct sk_buff *list = skb_shinfo(skb)->frag_list;
++
++		for (; list && tlen; list = list->next) {
++			if (__skb_splice_bits(list, &offset, &tlen, &spd))
++				break;
++		}
++	}
++
++done:
++	/*
++	 * drop our reference to the clone, the pipe consumption will
++	 * drop the rest.
++	 */
++	kfree_skb(skb);
++
++	if (spd.nr_pages) {
++		int ret;
++		struct sock *sk = __skb->sk;
++
++		/*
++		 * Drop the socket lock, otherwise we have reverse
++		 * locking dependencies between sk_lock and i_mutex
++		 * here as compared to sendfile(). We enter here
++		 * with the socket lock held, and splice_to_pipe() will
++		 * grab the pipe inode lock. For sendfile() emulation,
++		 * we call into ->sendpage() with the i_mutex lock held
++		 * and networking will grab the socket lock.
++		 */
++		release_sock(sk);
++		ret = splice_to_pipe(pipe, &spd);
++		lock_sock(sk);
++		return ret;
++	}
++
++	return 0;
++}
++
+ /**
+  *	skb_store_bits - store bits from kernel buffer to skb
+  *	@skb: destination buffer
+diff -x'.*' -urBp a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv4/af_inet.c	2010-07-26 15:51:02.000000000 +0400
+@@ -835,6 +835,7 @@ const struct proto_ops inet_stream_ops =
+ 	.recvmsg	   = sock_common_recvmsg,
+ 	.mmap		   = sock_no_mmap,
+ 	.sendpage	   = tcp_sendpage,
++	.splice_read	   = tcp_splice_read,
+ #ifdef CONFIG_COMPAT
+ 	.compat_setsockopt = compat_sock_common_setsockopt,
+ 	.compat_getsockopt = compat_sock_common_getsockopt,
+diff -x'.*' -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c	2010-07-26 04:00:00.000000000 +0400
++++ b/net/ipv4/tcp.c	2010-07-26 15:51:46.000000000 +0400
+@@ -253,6 +253,10 @@
+ #include <linux/poll.h>
+ #include <linux/init.h>
+ #include <linux/fs.h>
++#include <linux/skbuff.h>
++#include <linux/splice.h>
++#include <linux/net.h>
++#include <linux/socket.h>
+ #include <linux/random.h>
+ #include <linux/bootmem.h>
+ #include <linux/cache.h>
+@@ -264,6 +268,7 @@
+ #include <net/xfrm.h>
+ #include <net/ip.h>
+ #include <net/netdma.h>
++#include <net/sock.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -291,6 +296,15 @@ EXPORT_SYMBOL(tcp_memory_allocated);
+ EXPORT_SYMBOL(tcp_sockets_allocated);
+ 
+ /*
++ * TCP splice context
++ */
++struct tcp_splice_state {
++	struct pipe_inode_info *pipe;
++	size_t len;
++	unsigned int flags;
++};
++
++/*
+  * Pressure flag: try to collapse.
+  * Technical note: it is used by multiple contexts non atomically.
+  * All the sk_stream_mem_schedule() is of this nature: accounting
+@@ -537,6 +551,128 @@ static inline void tcp_push(struct sock 
+ 	}
+ }
+ 
++int tcp_splice_data_recv(read_descriptor_t *rd_desc, struct sk_buff *skb,
++			 unsigned int offset, size_t len)
++{
++	struct tcp_splice_state *tss = rd_desc->arg.data;
++	int ret;
++
++	ret = skb_splice_bits(skb, offset, tss->pipe, min(rd_desc->count, len),
++			      tss->flags);
++	if (ret > 0)
++		rd_desc->count -= ret;
++	return ret;
++}
++
++static int __tcp_splice_read(struct sock *sk, struct tcp_splice_state *tss)
++{
++	/* Store TCP splice context information in read_descriptor_t. */
++	read_descriptor_t rd_desc = {
++		.arg.data = tss,
++		.count	  = tss->len,
++	};
++
++	return tcp_read_sock(sk, &rd_desc, tcp_splice_data_recv);
++}
++
++/**
++ *  tcp_splice_read - splice data from TCP socket to a pipe
++ * @sock:	socket to splice from
++ * @ppos:	position (not valid)
++ * @pipe:	pipe to splice to
++ * @len:	number of bytes to splice
++ * @flags:	splice modifier flags
++ *
++ * Description:
++ *    Will read pages from given socket and fill them into a pipe.
++ *
++ **/
++ssize_t tcp_splice_read(struct socket *sock, loff_t *ppos,
++			struct pipe_inode_info *pipe, size_t len,
++			unsigned int flags)
++{
++	struct sock *sk = sock->sk;
++	struct tcp_splice_state tss = {
++		.pipe = pipe,
++		.len = len,
++		.flags = flags,
++	};
++	long timeo;
++	ssize_t spliced;
++	int ret;
++
++	/*
++	 * We can't seek on a socket input
++	 */
++	if (unlikely(*ppos))
++		return -ESPIPE;
++
++	ret = spliced = 0;
++
++	lock_sock(sk);
++
++	timeo = sock_rcvtimeo(sk, flags & SPLICE_F_NONBLOCK);
++	while (tss.len) {
++		ret = __tcp_splice_read(sk, &tss);
++		if (ret < 0)
++			break;
++		else if (!ret) {
++			if (spliced)
++				break;
++			if (flags & SPLICE_F_NONBLOCK) {
++				ret = -EAGAIN;
++				break;
++			}
++			if (sock_flag(sk, SOCK_DONE))
++				break;
++			if (sk->sk_err) {
++				ret = sock_error(sk);
++				break;
++			}
++			if (sk->sk_shutdown & RCV_SHUTDOWN)
++				break;
++			if (sk->sk_state == TCP_CLOSE) {
++				/*
++				 * This occurs when user tries to read
++				 * from never connected socket.
++				 */
++				if (!sock_flag(sk, SOCK_DONE))
++					ret = -ENOTCONN;
++				break;
++			}
++			if (!timeo) {
++				ret = -EAGAIN;
++				break;
++			}
++			sk_wait_data(sk, &timeo);
++			if (signal_pending(current)) {
++				ret = sock_intr_errno(timeo);
++				break;
++			}
++			continue;
++		}
++		tss.len -= ret;
++		spliced += ret;
++
++		if (!timeo)
++			break;
++		release_sock(sk);
++		lock_sock(sk);
++
++		if (sk->sk_err || sk->sk_state == TCP_CLOSE ||
++		    (sk->sk_shutdown & RCV_SHUTDOWN) ||
++		    signal_pending(current))
++			break;
++	}
++
++	release_sock(sk);
++
++	if (spliced)
++		return spliced;
++
++	return ret;
++}
++
+ static ssize_t do_tcp_sendpages(struct sock *sk, struct page **pages, int poffset,
+ 			 size_t psize, int flags)
+ {
+@@ -1116,7 +1252,14 @@ int tcp_read_sock(struct sock *sk, read_
+ 				copied += used;
+ 				offset += used;
+ 			}
+-			if (offset != skb->len)
++			/*
++			 * If recv_actor drops the lock (e.g. TCP splice
++			 * receive) the skb pointer might be invalid when
++			 * getting here: tcp_collapse might have deleted it
++			 * while aggregating skbs from the socket queue.
++			 */
++			skb = tcp_recv_skb(sk, seq-1, &offset);
++			if (!skb || (offset+1 != skb->len))
+ 				break;
+ 		}
+ 		if (tcp_hdr(skb)->fin) {
+@@ -2555,6 +2698,7 @@ EXPORT_SYMBOL(tcp_poll);
+ EXPORT_SYMBOL(tcp_read_sock);
+ EXPORT_SYMBOL(tcp_recvmsg);
+ EXPORT_SYMBOL(tcp_sendmsg);
++EXPORT_SYMBOL(tcp_splice_read);
+ EXPORT_SYMBOL(tcp_sendpage);
+ EXPORT_SYMBOL(tcp_setsockopt);
+ EXPORT_SYMBOL(tcp_shutdown);
+diff -x'.*' -urBp a/net/socket.c b/net/socket.c
+--- a/net/socket.c	2010-07-26 04:00:00.000000000 +0400
++++ b/net/socket.c	2010-07-26 15:51:03.000000000 +0400
+@@ -111,6 +111,9 @@ static long compat_sock_ioctl(struct fil
+ static int sock_fasync(int fd, struct file *filp, int on);
+ static ssize_t sock_sendpage(struct file *file, struct page *page,
+ 			     int offset, size_t size, loff_t *ppos, int more);
++static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
++			        struct pipe_inode_info *pipe, size_t len,
++				unsigned int flags);
+ 
+ /*
+  *	Socket files have a set of 'special' operations as well as the generic file ones. These don't appear
+@@ -133,6 +136,7 @@ static const struct file_operations sock
+ 	.fasync =	sock_fasync,
+ 	.sendpage =	sock_sendpage,
+ 	.splice_write = generic_splice_sendpage,
++	.splice_read =	sock_splice_read,
+ };
+ 
+ /*
+@@ -691,6 +695,15 @@ static ssize_t sock_sendpage(struct file
+ 	return kernel_sendpage(sock, page, offset, size, flags);
+ }
+ 
++static ssize_t sock_splice_read(struct file *file, loff_t *ppos,
++			        struct pipe_inode_info *pipe, size_t len,
++				unsigned int flags)
++{
++	struct socket *sock = file->private_data;
++
++	return sock->ops->splice_read(sock, ppos, pipe, len, flags);
++}
++
+ static struct sock_iocb *alloc_sock_iocb(struct kiocb *iocb,
+ 					 struct sock_iocb *siocb)
+ {
+--
