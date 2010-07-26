@@ -22,9 +22,8 @@
 Проверить подключилось ли устройство в режиме модема можно командой *cat /proc/bus/usb/devices* или воспользоваться страницей *Status & Log - Diagnostic Information*.
 
 Значение по умолчанию: Auto
-
+-------
 = Modem options =
-
 == Modem type ==
 Выбор типа модема
 
@@ -57,10 +56,12 @@ Access Point Name – имя точки доступа
  * MTS – internet.mts.ru
  * Билайн – internet.beeline.ru
  * Мегафон - internet
+
 Значение по умолчанию: не установлено
 
 == Dial Number ==
-Номер дозвона. Для GPRS/EDGE/UMTS/HSPDA модемов применяются номера `*99`*`*`*1# или `*99#
+Номер дозвона. Для GPRS/EDGE/UMTS/HSPDA модемов применяются номера `*99***1#` или `*99#`
+
 Значение по умолчанию: не установлено
 
 == Call on Demand ==
@@ -82,7 +83,7 @@ Maximum Transmission Unit
 Maximum Receive Unit
 
 Значение по умолчанию: 1492
-
+-------
 = Custom USB device parameters =
 == Autodetect device ==
 Определение идентификаторов USB-устройства VID:PID и записывание их значений.
@@ -121,8 +122,9 @@ Maximum Receive Unit
 
 == USB device serial speed (usually 921600) ==
 Скорость обмена данными с USB-устройством. В зависимости от используемого драйвера, указанное значение может игнорироваться.
-Значение по умолчанию: 921600
 
+Значение по умолчанию: 921600
+-------
 = Additional parameters =
 == Additional AT commands ==
 Дополнительные строки инициализации модема. Могут быть использованы команды указания приоритета типа сети, например 3G для модема ZTE 626: AT+ZSNT=0,0,2
