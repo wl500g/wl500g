@@ -1,0 +1,44 @@
+From 04f217aca4d803fe72c2c54fe460d68f5233ce52
+From: Stephen Hemminger
+Date: Thu, 7 Feb 2008 18:13:00 -0800
+Subject: [PATCH] [TC]: oops in em_meta
+
+If userspace passes a unknown match index into em_meta, then
+em_meta_change will return an error and the data for the match will
+not be set. This then causes an null pointer dereference when the
+cleanup is done in the error path via tcf_em_tree_destroy. Since the
+tree structure comes kzalloc, it is initialized to NULL.
+
+Discovered when testing a new version of tc command against an
+accidental older kernel.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/sched/em_meta.c |   10 ++++++----
+ 1 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
+index 2a7e648..d417ec8 100644
+--- a/net/sched/em_meta.c
++++ b/net/sched/em_meta.c
+@@ -735,11 +735,13 @@ static int em_meta_match(struct sk_buff *skb, struct tcf_ematch *m,
+ 
+ static inline void meta_delete(struct meta_match *meta)
+ {
+-	struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
++	if (meta) {
++		struct meta_type_ops *ops = meta_type_ops(&meta->lvalue);
+ 
+-	if (ops && ops->destroy) {
+-		ops->destroy(&meta->lvalue);
+-		ops->destroy(&meta->rvalue);
++		if (ops && ops->destroy) {
++			ops->destroy(&meta->lvalue);
++			ops->destroy(&meta->rvalue);
++		}
+ 	}
+ 
+ 	kfree(meta);
+-- 
+1.7.1.1
