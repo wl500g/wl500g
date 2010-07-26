@@ -260,14 +260,7 @@
  static void acm_disconnect(struct usb_device *dev, void *ptr)
  {
  	struct acm *acm = ptr;
-@@ -632,27 +696,31 @@
- 
- 	usb_unlink_urb(&acm->ctrlurb);
- 	usb_unlink_urb(&acm->readurb);
- 	usb_unlink_urb(&acm->writeurb);
- 
- 	kfree(acm->ctrlurb.transfer_buffer);
- 
+@@ -632,6 +696,10 @@
  	usb_driver_release_interface(&acm_driver, acm->iface + 0);
  	usb_driver_release_interface(&acm_driver, acm->iface + 1);
  
@@ -278,21 +271,6 @@
  	if (!acm->used) {
  		tty_unregister_devfs(&acm_tty_driver, acm->minor);
  		acm_table[acm->minor] = NULL;
- 		kfree(acm);
- 		return;
- 	}
--
-+	
- 	if (acm->tty)
- 		tty_hangup(acm->tty);
- }
- 
- /*
-  * USB driver structure.
-  */
- 
- static struct usb_device_id acm_ids[] = {
- 	{ USB_DEVICE(0x22B8, 0x1005) },		/* Motorola TimePort 280 */
 @@ -737,10 +803,12 @@
  	tty_unregister_driver(&acm_tty_driver);
  }
