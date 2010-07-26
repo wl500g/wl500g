@@ -1,11 +1,11 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
-<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <body onLoad="load_body()" onunLoad="return unload_body();">
+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 
 <form method="post" name="form" action="uploadCA.cgi" enctype="multipart/form-data">
 <!-- Table for the conntent page -->
@@ -21,9 +21,9 @@
 
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
-<td class="content_list_header_td" width="60%" id="LocalCertDB">Certificate Database<input type="hidden" name="WLANAuthentication11a_CertDBNumberOfEntries_0" value="<% nvram_get_x("WLANAuthentication11a", "CertDBNumberOfEntries"); %>" readonly="1"></td><td width="10%">
+<td class="content_list_header_td" width="60%" id="LocalCertDB">Certificate Database<input type="hidden" name="WLANAuthentication11a_CertDBNumberOfEntries_0" value="<% nvram_get_x("WLANAuthentication11a", "CertDBNumberOfEntries"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'WLANAuthentication11a_LocalCertDB', 32);" name="WLANAuthentication11a_LocalCertDB" value=" Add " size="12">
 </div>
@@ -66,17 +66,17 @@
 
 <tr>
 <td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
    </td>  
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Finish " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Finish " name="action"></font></div> 
    </td>
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Apply " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Apply " name="action"></font></div> 
    </td>    
 </tr>
 </table>
@@ -85,7 +85,7 @@
 
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   

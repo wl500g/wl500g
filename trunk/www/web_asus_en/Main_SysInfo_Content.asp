@@ -8,9 +8,8 @@
 	<script type="text/javascript" src="general.js"></script>
 
 </head>
-<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
-</div>
 <body onload="load_body()" onunload="return unload_body();">
+  <div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;"></div>	
 	<form method="GET" name="form" action="apply.cgi">
 	<input type="hidden" name="current_page" value="Main_SysInfo_Content.asp">
 	<input type="hidden" name="next_page" value="Main_ARPTable_Content.asp">

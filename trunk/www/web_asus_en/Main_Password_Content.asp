@@ -8,8 +8,8 @@
 .wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt}
 -->
 </style>
-<script language="javascript" src="/js/general.js"></script>
-<SCRIPT language="JavaScript" src="/js/changepswd.js" type=text/javascript></SCRIPT>
+<script src="/js/general.js"></script>
+<SCRIPT src="/js/changepswd.js" type=text/javascript></SCRIPT>
 </head>
 <body bgcolor="#FFFFFF">
 <span class="wounderline"></span> 
@@ -61,8 +61,8 @@
             <center>
               <td colspan="2" align="left" height="25"> 
                 <p align="right"> 
-                  <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type=submit value=' Modify ' name="chgpwdbutton1">
-                  <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type=reset value='   Clear   ' name="reset">
+                  <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type=submit value=' Modify ' name="chgpwdbutton1">
+                  <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type=reset value='   Clear   ' name="reset">
                 </p>
               </td>
             </center>

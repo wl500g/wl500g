@@ -1,12 +1,10 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
-<script language="JavaScript" type="text/javascript" src="quick.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="quick.js"></script>
 </head>
 <body bgcolor="#FFFFFF" onLoad="loadQuick()">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
@@ -33,7 +31,7 @@
 <input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get_x("WLANConfig11a","WEPDefaultKey"); %>">
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr id="Broadband" class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Quick Setup</td>
 </tr>
@@ -188,7 +186,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">WEP:</td><td class="content_input_td"><select name="WLANConfig11b_WEPType" onChange="return change_wlweptype(this, 'WLANConfig11b')"><option value="None" <% nvram_match_x("WLANConfig11b","WEPType", "None","selected"); %>>None</option><option value="64bits" <% nvram_match_x("WLANConfig11b","WEPType", "64bits","selected"); %>>64bits</option><option value="128bits" <% nvram_match_x("WLANConfig11b","WEPType", "128bits","selected"); %>>128bits</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script language="JavaScript" type="text/javascript" src="phrase.js"></script><script language="JavaScript" type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get_x("WLANConfig11b","x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="phrase.js"></script><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get_x("WLANConfig11b","x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get_x("WLANConfig11b","WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
@@ -211,8 +209,8 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 
 <tr>
 <td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td height="25" width="34%">  
    </td>
@@ -221,7 +219,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
    <td height="25" width="33%">  
    <div align="center">
    <font face="Arial"><input onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="toPrevTag('Wireless')" type="button" value="  Prev  " name="action"></font>&nbsp;&nbsp;&nbsp;&nbsp;
-   <font face="Arial"><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" type="submit" value=" Finish " name="action"  onClick="saveQuick(this)"></font></div>
+   <font face="Arial"><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value=" Finish " name="action"  onClick="saveQuick(this)"></font></div>
    </td>
 </tr>
 </table>
@@ -230,7 +228,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="666" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   

@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <script type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
 <body onLoad="load_body()" onunLoad="return unload_body();">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
