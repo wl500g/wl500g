@@ -1,12 +1,18 @@
-From cf1f76eb3b75be560511fca70694f512398da0e1
-From: Joakim Tjernlund <Joakim.Tjernlund@transmode.se>
-Date: Wed, 13 Jan 2010 13:03:39 -0500
-Subject: [PATCH] zlib: optimize inffast when copying direct from output
+Subject: [PATCH] zlib: optimize inffast fixes
+From: Joakim Tjernlund
+Date: Sat, 13 Mar 2010 00:55:28 -0500
+
+See kernel.org commits:
+
+ac4c2a3bbe5db5fc570b1d0ee1e474db7cb22585 zlib: optimize inffast when copying direct from output
+6846ee5ca68d81e6baccf0d56221d7a00c1be18b zlib: Fix build of powerpc boot wrapper
+e69eae65523b457a3ac4262a66cfff57f2c924a9 zlib: make new optimized inflate endian independent
+51ea3f6a4571e9283e2ff79b74bcedfc2986dbe2 inflate_fast: sout is already a short so ptr arith was off by one.
 
 ---
- arch/powerpc/boot/Makefile     |    4 +-
- lib/zlib_inflate/inffast.c     |   55 ++++++++++++++++----
- 2 files changed, 47 insertions(+), 12 deletions(-)
+ .../linux/linux-2.6/arch/powerpc/boot/Makefile     |    4 +-
+ .../linux/linux-2.6/lib/zlib_inflate/inffast.c     |   44 ++++++++++++++------
+ 2 files changed, 32 insertions(+), 16 deletions(-)
 
 diff --git a/arch/powerpc/boot/Makefile b/arch/powerpc/boot/Makefile
 index ff27019..3ba307c 100644
@@ -31,31 +37,42 @@ index ff27019..3ba307c 100644
  $(obj)/44x.o: BOOTCFLAGS += -mcpu=440
  $(obj)/ebony.o: BOOTCFLAGS += -mcpu=440
 diff --git a/lib/zlib_inflate/inffast.c b/lib/zlib_inflate/inffast.c
-index d84560c..2ba277f 100644
+index 2ba277f..09032e2 100644
 --- a/lib/zlib_inflate/inffast.c
 +++ b/lib/zlib_inflate/inffast.c
-@@ -4,6 +4,8 @@
+@@ -21,12 +21,31 @@
+    - Pentium III (Anderson)
+    - M68060 (Nikl)
   */
- 
- #include <linux/zutil.h>
-+#include <asm/unaligned.h>
-+#include <asm/byteorder.h>
- #include "inftrees.h"
- #include "inflate.h"
- #include "inffast.h"
-@@ -24,9 +26,11 @@
++union uu {
++	unsigned short us;
++	unsigned char b[2];
++};
++
++/* Endian independed version */
++static inline unsigned short
++get_unaligned16(const unsigned short *p)
++{
++	union uu  mm;
++	unsigned char *b = (unsigned char *)p;
++
++	mm.b[0] = b[0];
++	mm.b[1] = b[1];
++	return mm.us;
++}
++
  #ifdef POSTINC
  #  define OFF 0
  #  define PUP(a) *(a)++
-+#  define UP_UNALIGNED(a) get_unaligned((a)++)
++#  define UP_UNALIGNED(a) get_unaligned16((a)++)
  #else
  #  define OFF 1
  #  define PUP(a) *++(a)
-+#  define UP_UNALIGNED(a) get_unaligned(++(a))
++#  define UP_UNALIGNED(a) get_unaligned16(++(a))
  #endif
  
  /*
-@@ -239,18 +243,47 @@ void inflate_fast(z_streamp strm, unsigned start)
+@@ -239,18 +258,50 @@ void inflate_fast(z_streamp strm, unsign
                      }
                  }
                  else {
@@ -87,22 +104,25 @@ index d84560c..2ba277f 100644
 +			sfrom = (unsigned short *)(from - OFF);
 +			loops = len >> 1;
 +			do
++#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
++			    PUP(sout) = PUP(sfrom);
++#else
 +			    PUP(sout) = UP_UNALIGNED(sfrom);
++#endif
 +			while (--loops);
 +			out = (unsigned char *)sout + OFF;
 +			from = (unsigned char *)sfrom + OFF;
 +		    } else { /* dist == 1 or dist == 2 */
 +			unsigned short pat16;
 +
-+			pat16 = *(sout-2+2*OFF);
-+			if (dist == 1)
-+#if defined(__BIG_ENDIAN)
-+			    pat16 = (pat16 & 0xff) | ((pat16 & 0xff) << 8);
-+#elif defined(__LITTLE_ENDIAN)
-+			    pat16 = (pat16 & 0xff00) | ((pat16 & 0xff00) >> 8);
-+#else
-+#error __BIG_ENDIAN nor __LITTLE_ENDIAN is defined
-+#endif
++			pat16 = *(sout-1+OFF);
++			if (dist == 1) {
++				union uu mm;
++				/* copy one char pattern to both bytes */
++				mm.us = pat16;
++				mm.b[0] = mm.b[1];
++				pat16 = mm.us;
++			}
 +			loops = len >> 1;
 +			do
 +			    PUP(sout) = pat16;
@@ -116,4 +136,3 @@ index d84560c..2ba277f 100644
              else if ((op & 64) == 0) {          /* 2nd level distance code */
 -- 
 1.6.5.GIT
-
