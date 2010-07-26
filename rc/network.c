@@ -136,71 +136,50 @@ add_routes(char *prefix, char *var, char *ifname)
 static void
 add_wanx_routes(char *prefix, char *ifname, int metric)
 {
-	char *routes, *msroutes, *tmp;
+	char *routes, *tmp;
 	char buf[30];
+	struct in_addr mask;
+	int bits;
 
 	char ipaddr[] = "255.255.255.255";
-	char gateway[] = "255.255.255.255";
 	char netmask[] = "255.255.255.255";
 
 	if (!nvram_match("dr_enable_x", "1"))
 		return;
 
-	/* routes */
+	/* classful static routes */
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
 	for (tmp = routes; tmp && *tmp; )
 	{
-		char *ipaddr = strsep(&tmp, " ");
+		char *netaddr = strsep(&tmp, " ");
 		char *gateway = strsep(&tmp, " ");
-		if (gateway) {
+
+		if (gateway && strcmp(netaddr, "0.0.0.0"))
+			route_add(ifname, metric + 1, netaddr, gateway, netmask);
+	}
+	free(routes);
+
+	/* rfc classless static routes*/
+	/* skip it like windows clients do
+	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes_rfc", buf))); */
+
+	/* ms classless static routes*/
+	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes_ms", buf)));
+	for (tmp = routes; tmp && *tmp; )
+	{
+		char *netaddr = strsep(&tmp, " ");
+		char *gateway = strsep(&tmp, " ");
+
+		if (!gateway && 
+		    sscanf(netaddr, "%s/%u", ipaddr, &bits) == 2 && bits > 0 && bits <= 32)
+		{
+			mask.s_addr = htonl(0xffffffff << (32 - bits));
+			strcpy(netmask, inet_ntoa(mask));
 			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 		}
 	}
 	free(routes);
-	
-	/* ms routes */
-	for (msroutes = nvram_get(strcat_r(prefix, "msroutes", buf)); msroutes && isdigit(*msroutes); )
-	{
-		/* read net length */
-		int bit, bits = strtol(msroutes, &msroutes, 10);
-		struct in_addr ip, gw, mask;
-		
-		if (bits < 1 || bits > 32 || *msroutes != ' ')
-			break;
 
-		mask.s_addr = htonl(0xffffffff << (32 - bits));
-
-		/* read network address */
-		for (ip.s_addr = 0, bit = 24; bit > (24 - bits); bit -= 8)
-		{
-			if (*msroutes++ != ' ' || !isdigit(*msroutes))
-				goto bad_data;
-
-			ip.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
-		}
-		
-		/* read gateway */
-		for (gw.s_addr = 0, bit = 24; bit >= 0 && *msroutes; bit -= 8)
-		{
-			if (*msroutes++ != ' ' || !isdigit(*msroutes))
-				goto bad_data;
-
-			gw.s_addr |= htonl(strtol(msroutes, &msroutes, 10) << bit);
-		}
-		
-		/* clear bits per RFC */
-		ip.s_addr &= mask.s_addr;
-		
-		strcpy(ipaddr, inet_ntoa(ip));
-		strcpy(gateway, inet_ntoa(gw));
-		strcpy(netmask, inet_ntoa(mask));
-		
-		route_add(ifname, metric + 1, ipaddr, gateway, netmask);
-		
-		if (*msroutes == ' ')
-			msroutes++;
-	}
-bad_data:
 	return;
 }
 
