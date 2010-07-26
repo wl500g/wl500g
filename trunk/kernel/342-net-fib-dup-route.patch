@@ -1,0 +1,32 @@
+From bd566e7525b5986864e8d6eb5b67640abcd284a9
+From: Joonwoo Park
+Date: Fri, 18 Jan 2008 03:44:48 -0800
+Subject: [PATCH] [IPV4] fib_hash: fix duplicated route issue
+
+http://bugzilla.kernel.org/show_bug.cgi?id=9493
+
+The fib allows making identical routes with 'ip route replace'.
+This patch makes the fib return -EEXIST if replacement would cause duplication.
+
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/fib_hash.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 527a6e0..99071d7 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -617,6 +617,9 @@ fn_hash_insert(struct fib_table *tb,
+ 			goto out;
+ 
+ 		if (n->nlmsg_flags&NLM_F_REPLACE) {
++			if (fi->fib_treeref > 1)
++				goto out;
++
+ 			del_fp = fp;
+ 			fp = &f->fn_next;
+ 			f = *fp;
+-- 
+1.7.1.1
