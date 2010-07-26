@@ -1,0 +1,43 @@
+From 21df56c6e2372e09c916111efb6c14c372a5ab2e
+From: Herbert Xu
+Date: Sun, 18 Nov 2007 18:48:08 -0800
+Subject: [PATCH] [TCP]: Fix TCP header misalignment
+
+Indeed my previous change to alloc_pskb has made it possible
+for the TCP header to be misaligned iff the MTU is not a multiple
+of 4 (and less than a page).  So I suspect the optimised IPsec
+MTU calculation is giving you just such an MTU :)
+
+This patch fixes it by changing alloc_pskb to make sure that
+the size is at least 32-bit aligned.  This does not cause the
+problem fixed by the previous patch because max_header is always
+32-bit aligned which means that in the SG/NOTSO case this will
+be a no-op.
+
+I thought about putting this in the callers but all the current
+callers are from TCP.  If and when we get a non-TCP caller we
+can always create a TCP wrapper for this function and move the
+alignment over there.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/sock.h |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 567e468..67e35c7 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -1236,6 +1236,9 @@ static inline struct sk_buff *sk_stream_alloc_pskb(struct sock *sk,
+ {
+ 	struct sk_buff *skb;
+ 
++	/* The TCP header must be at least 32-bit aligned.  */
++	size = ALIGN(size, 4);
++
+ 	skb = alloc_skb_fclone(size + sk->sk_prot->max_header, gfp);
+ 	if (skb) {
+ 		skb->truesize += mem;
+-- 
+1.7.2
