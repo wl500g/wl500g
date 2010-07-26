@@ -1,12 +1,10 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
-<script language="JavaScript" type="text/javascript" src="quick.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="quick.js"></script>
 </head>
 <body bgcolor="#FFFFFF" onLoad="loadQuick()">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
@@ -32,7 +30,7 @@
 <input type="hidden" name="wl_wep_x" value="<% nvram_get_x("WLANConfig11b","wl_wep_x"); %>">
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr  id="Wireless"  class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Quick Setup</td>
 </tr>
@@ -57,7 +55,7 @@
 </td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Selecting High Security Level, this filed will be used as a password to kicks off the TKIP encryption process. A 8~63 characters password is required. Selecting Middle Security Level, this field will be used to generate four WEP keys automatically.', LEFT);" onMouseOut="return nd();">Passphrase:</td><td class="content_input_td"><script language="JavaScript" type="text/javascript" src="phrase.js"></script><script language="JavaScript" type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="wl_wpa_psk" class="content_input_fd"  value="<% nvram_get_x("WLANConfig11b","wl_wpa_psk"); %>" onKeyUp="return is_wlphrase_q('WLANConfig11b',this)" onBlur="return validate_wlphrase_q('WLANConfig11b', this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Selecting High Security Level, this filed will be used as a password to kicks off the TKIP encryption process. A 8~63 characters password is required. Selecting Middle Security Level, this field will be used to generate four WEP keys automatically.', LEFT);" onMouseOut="return nd();">Passphrase:</td><td class="content_input_td"><script type="text/javascript" src="phrase.js"></script><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="wl_wpa_psk" class="content_input_fd"  value="<% nvram_get_x("WLANConfig11b","wl_wpa_psk"); %>" onKeyUp="return is_wlphrase_q('WLANConfig11b',this)" onBlur="return validate_wlphrase_q('WLANConfig11b', this)"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="wl_key1" class="content_input_fd" value="<% nvram_get_x("WLANConfig11b","wl_key1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey(this, 'WLANConfig11b')" onKeyUp="return change_wlkey(this, 'WLANConfig11b')"></td>
@@ -80,8 +78,8 @@
 
 <tr>
 <td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td height="25" width="34%">  
    </td>
@@ -90,7 +88,7 @@
    <td height="25" width="33%">  
    <div align="center">
    <font face="Arial"><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="toPrevTag('Wireless')" type="hidden" value="Prev" name="action1"></font>&nbsp;&nbsp;&nbsp;&nbsp;
-   <font face="Arial"><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" type="submit" value="Finish" name="action"  onClick="saveQuick(this)"></font></div>
+   <font face="Arial"><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value="Finish" name="action"  onClick="saveQuick(this)"></font></div>
    </td>
 </tr>
 </table>
@@ -99,7 +97,7 @@
 
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="666" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   

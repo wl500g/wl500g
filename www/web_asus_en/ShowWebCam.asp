@@ -1,9 +1,7 @@
 <html>
 <head>
 <title>ZVMODELVZ Web Camera Page</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <SCRIPT LANGUAGE="JavaScript">
 
