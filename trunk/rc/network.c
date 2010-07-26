@@ -1091,7 +1091,7 @@ stop_usb_communication_devices(void)
 			continue;
 
 #ifdef __CONFIG_MADWIMAX__
-		if( !strcmp(wan_proto, "wimax")) stop_wimax();
+		if( !strcmp(wan_proto, "wimax")) stop_wimax(prefix);
 		else
 #else
 		{}
@@ -1259,7 +1259,7 @@ wan_up(char *wan_ifname)
 		return;
 	}
 
-	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));	
+	wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
 
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));

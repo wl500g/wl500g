@@ -22,10 +22,11 @@ extern int wan_valid(char *ifname);
 void update_nvram_wmx(char * ifname, int isup);
 
 inline static int
-wimax_modem(void)
+wimax_modem(char *prefix)
 {
-	char * tmp = nvram_get("wan0_usb_device");
-	return ( tmp!=0 && *tmp!=0 );
+	char tmp[100];
+	char * tmp1 = nvram_get(strcat_r(prefix, "usb_device", tmp));
+	return ( tmp1!=0 && *tmp1!=0 );
 }
 
 inline static int
@@ -117,7 +118,7 @@ start_wimax(char *prefix)
 	init_wmx_variables(prefix);
 	update_nvram_wmx(wimax_ifname, 0);
 
-	if (wimax_modem())
+	if (wimax_modem(prefix))
 	{
 		eval("insmod", "tun");
 		sleep(1);
@@ -131,15 +132,11 @@ start_wimax(char *prefix)
 }
 
 int
-stop_wimax(void)
+stop_wimax(char *prefix)
 {
 	char tmp[100];
-	char prefix[] = "wanXXXXXXXXXX_";
 
-	/* Used primary wan0 */
-	int unit = 0;
-
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
 
 	nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "0");
 
@@ -156,20 +153,16 @@ stop_wimax(void)
 //time_t prev_time = 0;
 // called from watchdog using the "madwimax-check" symlink to rc.
 int
-madwimax_check(void)
+madwimax_check(char *prefix)
 {
 	char tmp[100], pid_fname[100], buf[256];
-	char prefix[] = "wanXXXXXXXXXX_";
 	FILE *fp;
 	pid_t pid = 0;
 
-	/* Used primary wan0 */
-	int unit = 0;
+	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
 
-	if (!wimax_modem())
+	if (!wimax_modem(prefix))
 		return -1;
-
-	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
 	if (!nvram_match(strcat_r(prefix, "wimax_enabled", tmp), "1"))
 		return -1;

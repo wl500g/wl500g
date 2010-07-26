@@ -877,9 +877,6 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "ip-down"))
 		return ipdown_main(argc, argv);
 #ifdef __CONFIG_MADWIMAX__
-	/* start of daemon */
-	else if (!strcmp(base, "madwimax-check"))
-		return madwimax_check();
 	/* madwimax [ if-create if-up if-down if-release ] */
 	else if ( !strcmp(base, "madwimax.events" ) )
 		return madwimax_main(argc, argv);
