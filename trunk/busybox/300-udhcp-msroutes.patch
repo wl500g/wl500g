@@ -1,6 +1,6 @@
 diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/common.c
 --- busybox-1.17.1/networking/udhcp/common.c	2010-07-06 02:25:54.000000000 +0000
-+++ busybox/networking/udhcp/common.c	2010-07-25 19:10:43.000000000 +0000
++++ busybox/networking/udhcp/common.c	2010-07-26 11:45:48.000000000 +0000
 @@ -37,6 +37,7 @@ const struct dhcp_optflag dhcp_optflags[
  	{ OPTION_U8                               , 0x17 }, /* DHCP_IP_TTL        */
  	{ OPTION_U16                              , 0x1a }, /* DHCP_MTU           */
@@ -13,7 +13,7 @@ diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/co
  	{ OPTION_SIP_SERVERS                      , 0x78 }, /* DHCP_SIP_SERVERS   */
  #endif
  	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
-+	{ OPTION_U8 | OPTION_LIST     | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
++	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
  	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */
  
  	/* Options below have no match in dhcp_option_strings[],
@@ -29,13 +29,13 @@ diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/co
  // doesn't work in udhcpd.conf since OPTION_STATIC_ROUTES
  // is not handled yet by "string->option" conversion code:
  	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
-+	"msroutes" "\0"    /* DHCP_MS_STATIC_ROUTES */
++	"msstaticroutes" "\0" /* DHCP_MS_STATIC_ROUTES */
  	"wpad" "\0"        /* DHCP_WPAD           */
  	;
  
 diff -BurpN busybox-1.17.1/networking/udhcp/common.h busybox/networking/udhcp/common.h
 --- busybox-1.17.1/networking/udhcp/common.h	2010-07-06 02:25:54.000000000 +0000
-+++ busybox/networking/udhcp/common.h	2010-07-25 19:05:49.000000000 +0000
++++ busybox/networking/udhcp/common.h	2010-07-26 11:45:48.000000000 +0000
 @@ -123,6 +123,7 @@ enum {
  //#define DHCP_IP_TTL           0x17
  //#define DHCP_MTU              0x1a
