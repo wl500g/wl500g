@@ -1335,7 +1335,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +arc4_setkey(struct ppp_mppe_state *state, const unsigned char *key,
 +	    const unsigned int keylen)
 +{
-+    crypto_cipher_setkey(state->arc4_tfm, key, keylen);
++    crypto_cipher_setkey(__crypto_cipher_cast(state->arc4_tfm), key, keylen);
 +}
 +
 +static inline void
@@ -1345,7 +1345,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +    int i;
 +    for (i = 0; i < len; i++)
 +    {
-+       crypto_cipher_encrypt_one(state->arc4_tfm, out+i, in+i);
++       crypto_cipher_encrypt_one(__crypto_cipher_cast(state->arc4_tfm), out+i, in+i);
 +    }
 +}
 +
@@ -1509,7 +1509,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +	    return NULL;
 +	}
 +
-+	digestsize = crypto_hash_digestsize(state->sha1_tfm);
++	digestsize = crypto_hash_digestsize(__crypto_hash_cast(state->sha1_tfm));
 +	if (digestsize < MPPE_MAX_KEY_LEN) {
 +	    crypto_free_tfm(state->sha1_tfm);
 +	    crypto_free_tfm(state->arc4_tfm);
