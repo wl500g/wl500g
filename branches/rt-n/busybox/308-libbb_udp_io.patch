@@ -1,8 +1,9 @@
 Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 
---- a/libbb/udp_io.c	2009-09-26 17:14:57.000000000 +0400
-+++ a/libbb/udp_io.c	2009-11-18 21:18:59.000000000 +0300
-@@ -156,8 +156,11 @@ recv_from_to(int fd, void *buf, size_t l
+diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
+--- busybox-1.17.1/libbb/udp_io.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/libbb/udp_io.c	2010-07-25 19:18:28.000000000 +0000
+@@ -162,8 +162,11 @@ recv_from_to(int fd, void *buf, size_t l
  		}
  # if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
  		if (cmsgptr->cmsg_level == IPPROTO_IPV6
@@ -13,6 +14,6 @@ Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 +            		 || cmsgptr->cmsg_type == IPV6_2292PKTINFO
 +#endif
 +		)) {
- #  define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )
+ 			const int IPI6_ADDR_OFF = offsetof(struct in6_pktinfo, ipi6_addr);
  			to->sa_family = AF_INET6;
- 			/*to6->sin6_addr = pktinfo(cmsgptr)->ipi6_addr; - may be unaligned */
+ 			/*#  define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )*/
