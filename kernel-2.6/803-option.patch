@@ -772,9 +772,9 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 -				usb_pipeout(urb->pipe), 0); */
 -	}
 -
- 	port->tty->low_latency = 1;
- 
  	option_send_setup(port);
+ 
+ 	return (0);
 @@ -1044,16 +1411,19 @@ static void option_setup_urbs(struct usb
  	}
  }
