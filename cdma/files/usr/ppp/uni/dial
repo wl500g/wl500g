@@ -97,9 +97,10 @@ echo "debug
     nodetach
     persist
     unit $ifnum
-    novj nobsdcomp novjccomp nopcomp noaccomp
-    user '$username'
-    password '$password'" > /tmp/ppp/peers/dialup
+    novj nobsdcomp novjccomp nopcomp noaccomp" > /tmp/ppp/peers/dialup
+
+    [[ -z $username ]] || echo "user '$username'" >> /tmp/ppp/peers/dialup;
+    [[ -z $password ]] || echo "password '$password'" >> /tmp/ppp/peers/dialup;
 
     if [[ -z $demand ]]; then demand="0"; fi
     if [[ "$demand" != "0" ]]; then

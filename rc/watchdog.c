@@ -707,7 +707,7 @@ int usb_communication_device_processcheck(void)
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 #ifdef __CONFIG_MADWIMAX__
-		if( !strcmp(wan_proto, "wimax")) madwimax_check();
+		if( !strcmp(wan_proto, "wimax")) madwimax_check(prefix);
 		else
 #else
 		{}

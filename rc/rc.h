@@ -168,8 +168,8 @@ int watchdog_main();
 
 #ifdef __CONFIG_MADWIMAX__
 int start_wimax(char *prefix);
-int stop_wimax(void);
-int madwimax_check(void);
+int stop_wimax(char *prefix);
+int madwimax_check(char *prefix);
 int madwimax_main(int argc, char **argv);
 int wimax_ifunit(char *ifname);
 int hotplug_check_wimax(char *interface, char *product, char *prefix);

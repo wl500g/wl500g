@@ -1,15 +1,27 @@
-diff -urBp busybox-1.15.1/networking/udhcp/packet.c busybox/networking/udhcp/packet.c
---- busybox-1.15.1/networking/udhcp/packet.c	2009-09-12 19:55:36.000000000 +0400
-+++ busybox/networking/udhcp/packet.c	2009-09-14 13:25:24.000000000 +0400
+diff -BurpN busybox-1.17.1/networking/udhcp/dhcpc.c busybox/networking/udhcp/dhcpc.c
+--- busybox-1.17.1/networking/udhcp/dhcpc.c	2010-07-25 00:00:00.000000000 +0000
++++ busybox/networking/udhcp/dhcpc.c	2010-07-25 19:14:17.000000000 +0000
+@@ -772,7 +772,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 	llist_t *list_x = NULL;
+ 	int tryagain_timeout = 20;
+ 	int discover_timeout = 3;
+-	int discover_retries = 3;
++	int discover_retries = 5;
+ 	uint32_t server_addr = server_addr; /* for compiler */
+ 	uint32_t requested_ip = 0;
+ 	uint32_t xid = 0;
+diff -BurpN busybox-1.17.1/networking/udhcp/packet.c busybox/networking/udhcp/packet.c
+--- busybox-1.17.1/networking/udhcp/packet.c	2010-07-06 02:25:54.000000000 +0000
++++ busybox/networking/udhcp/packet.c	2010-07-25 19:15:32.000000000 +0000
 @@ -19,11 +19,17 @@
+ #include "common.h"
  #include "dhcpd.h"
- #include "options.h"
  
 +#define SECS	3	/* lame attempt to add secs field */
 +
  void FAST_FUNC udhcp_init_header(struct dhcp_packet *packet, char type)
  {
- 	memset(packet, 0, sizeof(struct dhcp_packet));
+ 	memset(packet, 0, sizeof(*packet));
  	packet->op = BOOTREQUEST; /* if client to a server */
  	switch (type) {
 +	case DHCPDISCOVER:
@@ -19,15 +31,3 @@ diff -urBp busybox-1.15.1/networking/udhcp/packet.c busybox/networking/udhcp/pac
  	case DHCPOFFER:
  	case DHCPACK:
  	case DHCPNAK:
-diff -BurpN busybox-1.15.1/networking/udhcp/dhcpc.c busybox/networking/udhcp/dhcpc.c
---- busybox-1.15.1/networking/udhcp/dhcpc.c	2009-09-14 12:44:59.000000000 +0400
-+++ busybox/networking/udhcp/dhcpc.c	2009-09-14 12:46:38.000000000 +0400
-@@ -144,7 +146,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
- 	llist_t *list_O = NULL;
- 	int tryagain_timeout = 20;
- 	int discover_timeout = 3;
--	int discover_retries = 3;
-+	int discover_retries = 5;
- 	uint32_t server_addr = server_addr; /* for compiler */
- 	uint32_t requested_ip = 0;
- 	uint32_t xid = 0;
