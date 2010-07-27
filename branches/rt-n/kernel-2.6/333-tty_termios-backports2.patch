@@ -1,0 +1,198 @@
+From 2c9e997a6607900b52875ff4517a17ddf6fbdceb
+From: Fedor <fedork@ubuntu.(none)>
+Date: Mon, 28 Jun 2010 13:32:46 -0400
+Subject: [PATCH] Kernel 2.6 USB: tty changes needed for USB serial backport
+
+---
+ drivers/char/tty_ioctl.c       |   15 ++++++++++-----
+ drivers/serial/serial_core.c   |    3 ++-
+ include/asm-generic/termios.h  |    8 ++++++++
+ include/asm-mips/ioctls.h      |    4 ++++
+ include/asm-mips/termbits.h    |   18 ++++++++++++++++--
+ include/asm-mips/termios.h     |   16 ++++++++++++++--
+ 6 files changed, 54 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
+index 90d61e1..f3e8e82 100644
+--- a/drivers/char/tty_ioctl.c
++++ b/drivers/char/tty_ioctl.c
+@@ -243,7 +243,8 @@ EXPORT_SYMBOL(tty_termios_input_baud_rate);
+  *	and will all go away once this is done.
+  */
+ 
+-void tty_termios_encode_baud_rate(struct ktermios *termios, speed_t ibaud, speed_t obaud)
++void tty_termios_encode_baud_rate(struct ktermios *termios,
++				  speed_t ibaud, speed_t obaud)
+ {
+ 	int i = 0;
+ 	int ifound = -1, ofound = -1;
+@@ -278,11 +279,15 @@ void tty_termios_encode_baud_rate(struct ktermios *termios, speed_t ibaud, speed
+ 	 */
+ 
+ 	do {
+-		if (obaud - oclose >= baud_table[i] && obaud + oclose <= baud_table[i]) {
++		if (obaud - oclose <= baud_table[i] &&
++		    obaud + oclose >= baud_table[i]) {
+ 			termios->c_cflag |= baud_bits[i];
+ 			ofound = i;
+ 		}
+-		if (ibaud - iclose >= baud_table[i] && ibaud + iclose <= baud_table[i]) {
++		if (ibaud - iclose <= baud_table[i] &&
++		    ibaud + iclose >= baud_table[i]) {
++			/* For the case input == output don't set IBAUD bits
++			   if the user didn't do so */
+ 			if (ofound == i && !ibinput)
+ 				ifound  = i;
+ #ifdef IBSHIFT
+@@ -892,14 +897,14 @@ int n_tty_ioctl(struct tty_struct * tty, struct file * file,
+ 				retval = inq_canon(tty);
+ 			return put_user(retval, (unsigned int __user *) arg);
+ 		case TIOCGLCKTRMIOS:
+-			if (kernel_termios_to_user_termios((struct termios __user *)arg, real_tty->termios_locked))
++			if (kernel_termios_to_user_termios_1((struct termios __user *)arg, real_tty->termios_locked))
+ 				return -EFAULT;
+ 			return 0;
+ 
+ 		case TIOCSLCKTRMIOS:
+ 			if (!capable(CAP_SYS_ADMIN))
+ 				return -EPERM;
+-			if (user_termios_to_kernel_termios(real_tty->termios_locked, (struct termios __user *) arg))
++			if (user_termios_to_kernel_termios_1(real_tty->termios_locked, (struct termios __user *) arg))
+ 				return -EFAULT;
+ 			return 0;
+ 
+diff --git a/drivers/serial/serial_core.c b/drivers/serial/serial_core.c
+index 326020f..c90be86 100644
+--- a/drivers/serial/serial_core.c
++++ b/drivers/serial/serial_core.c
+@@ -1871,6 +1871,7 @@ uart_set_options(struct uart_port *port, struct console *co,
+ 		 int baud, int parity, int bits, int flow)
+ {
+ 	struct ktermios termios;
++	static struct ktermios dummy;
+ 	int i;
+ 
+ 	/*
+@@ -1910,7 +1911,7 @@ uart_set_options(struct uart_port *port, struct console *co,
+ 	if (flow == 'r')
+ 		termios.c_cflag |= CRTSCTS;
+ 
+-	port->ops->set_termios(port, &termios, NULL);
++	port->ops->set_termios(port, &termios, &dummy);
+ 	co->cflag = termios.c_cflag;
+ 
+ 	return 0;
+diff --git a/include/asm-generic/termios.h b/include/asm-generic/termios.h
+index 3769e6b..7d39ecc 100644
+--- a/include/asm-generic/termios.h
++++ b/include/asm-generic/termios.h
+@@ -61,8 +61,16 @@ static inline int kernel_termios_to_user_termio(struct termio __user *termio,
+ 	return 0;
+ }
+ 
++#ifndef user_termios_to_kernel_termios
+ #define user_termios_to_kernel_termios(k, u) copy_from_user(k, u, sizeof(struct termios))
++#endif
++
++#ifndef kernel_termios_to_user_termios
+ #define kernel_termios_to_user_termios(u, k) copy_to_user(u, k, sizeof(struct termios))
++#endif
++
++#define user_termios_to_kernel_termios_1(k, u) copy_from_user(k, u, sizeof(struct termios))
++#define kernel_termios_to_user_termios_1(u, k) copy_to_user(u, k, sizeof(struct termios))
+ 
+ #endif	/* __ARCH_TERMIO_GETPUT */
+ 
+diff --git a/include/asm-mips/ioctls.h b/include/asm-mips/ioctls.h
+index 92f6c36..5097cbf 100644
+--- a/include/asm-mips/ioctls.h
++++ b/include/asm-mips/ioctls.h
+@@ -77,6 +77,10 @@
+ #define TIOCSBRK	0x5427  /* BSD compatibility */
+ #define TIOCCBRK	0x5428  /* BSD compatibility */
+ #define TIOCGSID	0x7416  /* Return the session ID of FD */
++#define TCGETS2		_IOR('T',0x2A, struct termios2)
++#define TCSETS2		_IOW('T',0x2B, struct termios2)
++#define TCSETSW2	_IOW('T',0x2C, struct termios2)
++#define TCSETSF2	_IOW('T',0x2D, struct termios2)
+ #define TIOCGPTN	_IOR('T',0x30, unsigned int) /* Get Pty Number (of pty-mux device) */
+ #define TIOCSPTLCK	_IOW('T',0x31, int)  /* Lock/unlock Pty */
+ 
+diff --git a/include/asm-mips/termbits.h b/include/asm-mips/termbits.h
+index 0bbe07b..c83c684 100644
+--- a/include/asm-mips/termbits.h
++++ b/include/asm-mips/termbits.h
+@@ -30,6 +30,17 @@ struct termios {
+ 	cc_t c_cc[NCCS];		/* control characters */
+ };
+ 
++struct termios2 {
++	tcflag_t c_iflag;		/* input mode flags */
++	tcflag_t c_oflag;		/* output mode flags */
++	tcflag_t c_cflag;		/* control mode flags */
++	tcflag_t c_lflag;		/* local mode flags */
++	cc_t c_line;			/* line discipline */
++	cc_t c_cc[NCCS];		/* control characters */
++	speed_t c_ispeed;		/* input speed */
++	speed_t c_ospeed;		/* output speed */
++};
++
+ struct ktermios {
+ 	tcflag_t c_iflag;		/* input mode flags */
+ 	tcflag_t c_oflag;		/* output mode flags */
+@@ -153,6 +164,7 @@ struct ktermios {
+ #define HUPCL	0002000		/* Hang up on last close.  */
+ #define CLOCAL	0004000		/* Ignore modem status lines.  */
+ #define CBAUDEX 0010000
++#define    BOTHER 0010000
+ #define    B57600 0010001
+ #define   B115200 0010002
+ #define   B230400 0010003
+@@ -168,9 +180,11 @@ struct ktermios {
+ #define  B3000000 0010015
+ #define  B3500000 0010016
+ #define  B4000000 0010017
+-#define CIBAUD	  002003600000	/* input baud rate (not used) */
++#define CIBAUD	  002003600000	/* input baud rate */
+ #define CMSPAR    010000000000	/* mark or space (stick) parity */
+-#define CRTSCTS	  020000000000		/* flow control */
++#define CRTSCTS	  020000000000	/* flow control */
++
++#define IBSHIFT	16		/* Shift from CBAUD to CIBAUD */
+ 
+ /* c_lflag bits */
+ #define ISIG	0000001		/* Enable signals.  */
+diff --git a/include/asm-mips/termios.h b/include/asm-mips/termios.h
+index b15881b..8f77f77 100644
+--- a/include/asm-mips/termios.h
++++ b/include/asm-mips/termios.h
+@@ -148,12 +148,24 @@ static inline int kernel_termios_to_user_termio(struct termio __user *termio,
+ }
+ 
+ static inline int user_termios_to_kernel_termios(struct ktermios __user *k,
+-	struct termios *u)
++	struct termios2 *u)
++{
++	return copy_from_user(k, u, sizeof(struct termios2)) ? -EFAULT : 0;
++}
++
++static inline int kernel_termios_to_user_termios(struct termios2 __user *u,
++	struct ktermios *k)
++{
++	return copy_to_user(u, k, sizeof(struct termios2)) ? -EFAULT : 0;
++}
++
++static inline int user_termios_to_kernel_termios_1(struct ktermios *k,
++	struct termios __user *u)
+ {
+ 	return copy_from_user(k, u, sizeof(struct termios)) ? -EFAULT : 0;
+ }
+ 
+-static inline int kernel_termios_to_user_termios(struct termios __user *u,
++static inline int kernel_termios_to_user_termios_1(struct termios __user *u,
+ 	struct ktermios *k)
+ {
+ 	return copy_to_user(u, k, sizeof(struct termios)) ? -EFAULT : 0;
+-- 
+1.6.5.GIT
+

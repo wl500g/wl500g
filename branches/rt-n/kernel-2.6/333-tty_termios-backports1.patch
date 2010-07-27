@@ -150,7 +150,7 @@ index 3ee73cf..745d552 100644
  /**
   *	tty_get_baud_rate	-	get tty bit rates
 @@ -320,6 +352,29 @@ speed_t tty_get_baud_rate(struct tty_struct *tty)
- EXPORT_SYMBOL(tty_get_baud_rate);
+ EXPORT_SYMBOL(tty_termios_hw_change);
  
  /**
 + *	tty_termios_copy_hw	-	copy hardware settings
@@ -226,8 +226,8 @@ index 274b40f..56164d7 100644
 +extern void tty_termios_encode_baud_rate(struct ktermios *termios, speed_t ibaud, speed_t obaud);
 +extern void tty_encode_baud_rate(struct tty_struct *tty, speed_t ibaud, speed_t obaud);
 +extern void tty_termios_copy_hw(struct ktermios *new, struct ktermios *old);
+ extern int tty_termios_hw_change(struct ktermios *a, struct ktermios *b);
  
  extern struct tty_ldisc *tty_ldisc_ref(struct tty_struct *);
- extern void tty_ldisc_deref(struct tty_ldisc *);
 -- 
 1.7.1
