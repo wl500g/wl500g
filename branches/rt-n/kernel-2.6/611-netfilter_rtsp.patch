@@ -979,7 +979,7 @@
 +static int
 +rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
 +                 struct nf_conntrack_expect* exp,
-+								 struct ip_ct_rtsp_expect* prtspexp,
++		  struct ip_ct_rtsp_expect* prtspexp,
 +                 struct sk_buff** pskb, uint tranoff, uint tranlen)
 +{
 +    char*       ptcp;
