@@ -2624,12 +2624,14 @@ diff -x'.*' -urNBp a/drivers/usb/core/file.c b/drivers/usb/core/file.c
  
  /**
   * usb_deregister_dev - deregister a USB device's dynamic minor.
-@@ -245,4 +245,4 @@ void usb_deregister_dev(struct usb_inter
+@@ -245,6 +245,6 @@ void usb_deregister_dev(struct usb_inter
  	intf->minor = -1;
  	destroy_usb_class();
  }
 -EXPORT_SYMBOL(usb_deregister_dev);
 +EXPORT_SYMBOL_GPL(usb_deregister_dev);
+ 
+ 
 diff -x'.*' -urNBp a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
 --- a/drivers/usb/core/generic.c	2010-07-27 04:00:00.000000000 +0400
 +++ b/drivers/usb/core/generic.c	2010-07-16 21:54:37.000000000 +0400
@@ -7838,9 +7840,9 @@ diff -x'.*' -urNBp a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
 +}
 +static DEVICE_ATTR(remove, 0200, NULL, usb_remove_store);
 +
- 
  /* Descriptor fields */
  #define usb_descriptor_attr_le16(field, format_string)			\
+ static ssize_t								\
 @@ -420,6 +501,7 @@ static struct attribute *dev_attrs[] = {
  	&dev_attr_bConfigurationValue.attr,
  	&dev_attr_bmAttributes.attr,
@@ -12593,7 +12595,7 @@ diff -x'.*' -urNBp a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
  	qh->reclaim = NULL;
  
  	qh_completions (ehci, qh);
-@@ -1049,11 +1142,11 @@ static void start_unlink_async (struct e
+@@ -1049,7 +1142,7 @@ static void start_unlink_async (struct e
  	while (prev->qh_next.qh != qh)
  		prev = prev->qh_next.qh;
  
@@ -12602,11 +12604,6 @@ diff -x'.*' -urNBp a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
  	prev->qh_next = qh->qh_next;
  	wmb ();
  
--	if (unlikely (ehci_to_hcd(ehci)->state == HC_STATE_HALT)) {
-+	if (unlikely(!HC_IS_RUNNING(ehci_to_hcd(ehci)->state))) {
- 		/* if (unlikely (qh->reclaim != 0))
- 		 *	this will recurse, probably not much
- 		 */
 @@ -1061,11 +1154,10 @@ static void start_unlink_async (struct e
  		return;
  	}
