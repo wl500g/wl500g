@@ -1775,7 +1775,7 @@ index dbbe267..b033261 100644
   * Map an iov into an array of pages and offset/length tupples. With the
   * partial_page structure, we can map several non-contiguous ranges into
   * our ones pages[] map instead of splitting that operation into pieces.
-@@ -1151,35 +1259,30 @@ static int get_iovec_page_array(const struct iovec __user *iov,
+@@ -1151,36 +1259,29 @@ static int get_iovec_page_array(const struct iovec __user *iov,
  {
  	int buffers = 0, error = 0;
  
@@ -1815,10 +1815,10 @@ index dbbe267..b033261 100644
  			break;
  		error = -EFAULT;
 -		if (unlikely(!base))
-+		if (!access_ok(VERIFY_READ, base, len))
- 			break;
+-			break;
  
  		if (!access_ok(VERIFY_READ, base, len))
+ 			break;
 @@ -1252,28 +1355,136 @@ static int get_iovec_page_array(const struct iovec __user *iov,
  	return error;
  }
