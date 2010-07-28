@@ -1018,24 +1018,24 @@ diff -urNBp linux-2.6.22.19/arch/mips/kernel/vpe.c linux-2.6.22.19-mips/arch/mip
 diff -urNBp linux-2.6.22.19/arch/mips/lib-32/dump_tlb.c linux-2.6.22.19-mips/arch/mips/lib-32/dump_tlb.c
 --- linux-2.6.22.19/arch/mips/lib-32/dump_tlb.c	2008-02-26 02:59:40.000000000 +0300
 +++ linux-2.6.22.19-mips/arch/mips/lib-32/dump_tlb.c	2008-02-26 12:54:25.000000000 +0300
-@@ -40,8 +40,6 @@ static inline const char *msk2str(unsign
- 		return "256Mb";
+@@ -41,7 +41,7 @@ static inline const char *msk2str(unsign
  #endif
  	}
--
+ 
 -	return "unknown";
++	return "";
  }
  
  #define BARRIER()					\
 diff -urNBp linux-2.6.22.19/arch/mips/lib-64/dump_tlb.c linux-2.6.22.19-mips/arch/mips/lib-64/dump_tlb.c
 --- linux-2.6.22.19/arch/mips/lib-64/dump_tlb.c	2008-02-26 02:59:40.000000000 +0300
 +++ linux-2.6.22.19-mips/arch/mips/lib-64/dump_tlb.c	2008-02-26 12:54:25.000000000 +0300
-@@ -31,8 +31,6 @@ static inline const char *msk2str(unsign
- 	case PM_256M:	return "256Mb";
+@@ -32,7 +32,7 @@ static inline const char *msk2str(unsign
  #endif
  	}
--
+ 
 -	return "unknown";
++	return "";
  }
  
  #define BARRIER()					\
