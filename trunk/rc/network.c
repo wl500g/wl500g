@@ -139,9 +139,9 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	char *routes, *tmp;
 	char buf[30];
 	struct in_addr mask;
+	char *ipaddr, *gateway;
 	int bits;
 
-	char ipaddr[] = "255.255.255.255";
 	char netmask[] = "255.255.255.255";
 
 	if (!nvram_match("dr_enable_x", "1"))
@@ -151,11 +151,11 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
 	for (tmp = routes; tmp && *tmp; )
 	{
-		char *netaddr = strsep(&tmp, " ");
-		char *gateway = strsep(&tmp, " ");
+		ipaddr  = strsep(&tmp, " ");
+		gateway = strsep(&tmp, " ");
 
-		if (gateway && strcmp(netaddr, "0.0.0.0"))
-			route_add(ifname, metric + 1, netaddr, gateway, netmask);
+		if (gateway && strcmp(ipaddr, "0.0.0.0"))
+			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 	}
 	free(routes);
 
@@ -167,11 +167,11 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes_ms", buf)));
 	for (tmp = routes; tmp && *tmp; )
 	{
-		char *netaddr = strsep(&tmp, " ");
-		char *gateway = strsep(&tmp, " ");
+		ipaddr  = strsep(&tmp, "/");
+		bits    = atoi(strsep(&tmp, " "));
+		gateway = strsep(&tmp, " ");
 
-		if (!gateway && 
-		    sscanf(netaddr, "%s/%u", ipaddr, &bits) == 2 && bits > 0 && bits <= 32)
+		if (gateway && bits > 0 && bits <= 32)
 		{
 			mask.s_addr = htonl(0xffffffff << (32 - bits));
 			strcpy(netmask, inet_ntoa(mask));
