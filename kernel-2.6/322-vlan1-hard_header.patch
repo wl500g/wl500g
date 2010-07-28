@@ -1,0 +1,49 @@
+From acc81e1465d29e0284008770cc4b8bc90bd93bd7
+From: Patrick McHardy
+Date: Tue, 8 Jul 2008 03:21:27 -0700
+Subject: [PATCH] vlan: fix network_header/mac_header adjustments
+
+Lennert Buytenhek points out that the VLAN code incorrectly adjusts
+skb->network_header to point in the middle of the VLAN header and
+additionally tries to adjust skb->mac_header without checking for
+validity.
+
+The network_header should not be touched at all since we're only
+adding headers in front of it, mac_header adjustments are not
+necessary at all.
+
+Based on patch by Lennert Buytenhek <buytenh@wantstofly.org>.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ include/linux/if_vlan.h |    2 --
+ net/8021q/vlan_dev.c    |    1 -
+ 2 files changed, 3 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -263,8 +263,6 @@ static inline struct sk_buff *__vlan_put
+ 	veth->h_vlan_TCI = htons(tag);
+ 
+ 	skb->protocol = __constant_htons(ETH_P_8021Q);
+-	skb->mac_header -= VLAN_HLEN;
+-	skb->network_header -= VLAN_HLEN;
+ 
+ 	return skb;
+ }
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -391,7 +372,6 @@ int vlan_dev_hard_header(struct sk_buff 
+ 		}
+ 
+ 		skb->protocol = htons(ETH_P_8021Q);
+-		skb_reset_network_header(skb);
+ 	}
+ 
+ 	/* Before delegating work to the lower layer, enter our MAC-address */
+-- 
+1.7.1.1
