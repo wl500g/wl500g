@@ -6768,7 +6768,7 @@ diff -urBwNp linux-2.6.22/drivers/net/hnd/Kconfig linux-2.6/drivers/net/hnd/Kcon
 diff -urBwNp linux-2.6.22/drivers/net/hnd/Makefile linux-2.6/drivers/net/hnd/Makefile
 --- linux-2.6.22/drivers/net/hnd/Makefile	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/hnd/Makefile	2008-12-12 06:29:21.000000000 +0300
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,115 @@
 +#
 +# Makefile for Broadcom Home Networking Division (HND) shared driver code
 +#
@@ -6817,13 +6817,15 @@ diff -urBwNp linux-2.6.22/drivers/net/hnd/Makefile linux-2.6/drivers/net/hnd/Mak
 +
 +ifdef CONFIG_USB_RNDIS
 +EXTRA_CFLAGS += -DCONFIG_USBRNDIS_RETAIL
-+endif                                  
++endif
 +
 +ifeq ($(BCMDBG_MEM),1)
 +EXTRA_CFLAGS += -DBCMDBG_MEM
 +endif
 +
 +obj-$(CONFIG_HND) := hnd.o shared_ksyms.o
++
++clean-files := shared_ksyms.c
 +
 +ifeq ($(wildcard $(src)/$(SHARED)/bcmutils.c),)
 +$(src)/$(SHARED)/bcmutils.o: $(src)/$(SHARED)/linux/bcmutils.o
