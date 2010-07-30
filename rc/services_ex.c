@@ -381,6 +381,8 @@ start_ddns(void)
 		strcpy(service, "easydns");
 	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
 		strcpy(service, "dnsomatic");
+	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
+		strcpy(service, "heipv6tb");
 	else strcpy(service, "dyndns");
 
 	if (nvram_match("ddns_realip_x", "1"))
@@ -422,6 +424,8 @@ start_ddns(void)
 		strcpy(service, "default@easydns.com");
 	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
 		strcpy(service, "default@dnsomatic.com");
+	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
+		strcpy(service, "ipv6tb@he.net");
 	else strcpy(service, "default@dyndns.org");
 #endif
 
