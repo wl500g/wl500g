@@ -245,6 +245,17 @@
 			</td>
 		</tr>
 		<tr>
+				<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. See Status &amp; Log ->
+		Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0).
+		If blank, use default.')" onmouseout="return nd()"> USB device location ID: </td>
+		<td class="content_input_td">
+			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
+				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
+				onblur="validate_string(this)">
+			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
+		</td>
+		</tr>
+		<tr>
 			<td class="content_header_td" onmouseover="return overlib('Detect VID:PID every time at usb-modem plugging.')"
 				onmouseout="return nd()">
 				Autodetect device
@@ -254,16 +265,6 @@
 				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '0')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %>>No
 			</td>
 		</tr>
-		<!--			<tr>
-				<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. See Status &amp; Log ->
-		Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0).
-		If blank, use default.')" onmouseout="return nd()"> USB device location ID: </td>
-		<td class="content_input_td">
-			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
-				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
-				onblur="validate_string(this)">
-		</td>
-		</tr> -->
 		<tr>
 			<td class="content_header_td">
 				USB tts(ac) port:

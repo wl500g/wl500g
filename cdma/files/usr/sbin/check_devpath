@@ -1,0 +1,20 @@
+#!/bin/sh
+
+kernel="$(uname -r)"
+kernel=${kernel:0:3}
+
+usbserial="$(lsmod | grep usbserial)"
+acm="$(lsmod | grep acm)"
+option="$(lsmod | grep option)"
+
+[[ -z "$usbserial" ]] && insmod usbserial;
+if [[ -z "$acm" ]]; then
+    if [[ $kernel == "2.4" ]]; then
+	insmod acm
+    else
+	insmod cdc-acm
+    fi
+fi
+[[ -z "$option" ]] && insmod option;
+
+cat /proc/bus/usb/devpath
