@@ -1,72 +1,18 @@
-Patch from RHEL3 63.EL - check that the socket is still connected
+Modified patch from RHEL3 63.EL - check that the socket is still connected
 
- net/sunrpc/svcsock.c |   34 ++++++++++++++++++++++++++--------
- 1 file changed, 26 insertions(+), 8 deletions(-)
+ net/sunrpc/svcsock.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
 --- a/net/sunrpc/svcsock.c	2010-02-02 00:04:46.000000000 +0300
 +++ b/net/sunrpc/svcsock.c	2010-07-23 11:57:09.000000000 +0400
-@@ -316,11 +316,12 @@ svc_sendto(struct svc_rqst *rqstp, struc
- 	mm_segment_t	oldfs;
- 	struct svc_sock	*svsk = rqstp->rq_sock;
- 	struct socket	*sock = svsk->sk_sock;
-+	struct svc_serv	*serv = svsk->sk_server;
- 	struct msghdr	msg;
- 	char 		buffer[CMSG_SPACE(sizeof(struct in_pktinfo))];
- 	struct cmsghdr *cmh = (struct cmsghdr *)buffer;
- 	struct in_pktinfo *pki = (struct in_pktinfo *)CMSG_DATA(cmh);
--	int		i, buflen, len;
-+	int		i, buflen, sent = 0;
- 
- 	for (i = buflen = 0; i < nr; i++)
- 		buflen += iov[i].iov_len;
-@@ -350,14 +351,23 @@ svc_sendto(struct svc_rqst *rqstp, struc
+@@ -350,6 +350,10 @@ svc_sendto(struct svc_rqst *rqstp, struc
  	 */
  	msg.msg_flags	= 0;
  
--	oldfs = get_fs(); set_fs(KERNEL_DS);
--	len = sock_sendmsg(sock, &msg, buflen);
--	set_fs(oldfs);
-+	/* 
-+	 * Make sure there is a socket before sending
-+	 */
-+	spin_lock_bh(&serv->sv_lock);
++	/* Make sure there is a socket before sending */
 +	if (test_bit(SK_DEAD, &svsk->sk_flags))
-+		sent = -ENOTCONN;
-+	spin_unlock_bh(&serv->sv_lock);
- 
--	dprintk("svc: socket %p sendto([%p %Zu... ], %d, %d) = %d\n",
--			rqstp->rq_sock, iov[0].iov_base, iov[0].iov_len, nr, buflen, len);
-+	if (sent == 0) {
-+		oldfs = get_fs(); set_fs(KERNEL_DS);
-+		sent = sock_sendmsg(sock, &msg, buflen);
-+		set_fs(oldfs);
-+		dprintk("svc: socket %p sendto([%p %Zu... ], %d, %d) = %d\n",
-+			rqstp->rq_sock, iov[0].iov_base, iov[0].iov_len, nr, buflen, sent);
-+	}
- 
--	return len;
-+	return sent;
- }
- 
- /*
-@@ -1302,11 +1312,19 @@ svc_delete_socket(struct svc_sock *svsk)
- 	serv = svsk->sk_server;
- 	sk = svsk->sk_sk;
- 
-+	/*
-+	 * This only needs to be done once!
-+	 */
-+	spin_lock_bh(&serv->sv_lock);
-+	if (test_bit(SK_DEAD, &svsk->sk_flags)) {
-+		spin_unlock_bh(&serv->sv_lock);
-+		return;
-+	}
++		return -ENOTCONN;
 +
- 	sk->state_change = svsk->sk_ostate;
- 	sk->data_ready = svsk->sk_odata;
- 	sk->write_space = svsk->sk_owspace;
- 
--	spin_lock_bh(&serv->sv_lock);
- 
- 	list_del(&svsk->sk_list);
- 	if (test_bit(SK_TEMP, &svsk->sk_flags))
+ 	oldfs = get_fs(); set_fs(KERNEL_DS);
+ 	len = sock_sendmsg(sock, &msg, buflen);
+ 	set_fs(oldfs);
