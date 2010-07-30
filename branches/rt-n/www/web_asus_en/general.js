@@ -3449,6 +3449,8 @@ function openLink(s)
 			tourl = "https://www.zoneedit.com/signup.html?";
 		else if (document.form.ddns_server_x.value == 'WWW.DNSOMATIC.COM')
 			tourl = "https://www.dnsomatic.com/create/";
+		else if (document.form.ddns_server_x.value == 'WWW.TUNNELBROKER.NET')
+			tourl = "http://www.tunnelbroker.net/register.php";
 		else
 			return;
 

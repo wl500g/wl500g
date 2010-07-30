@@ -1635,19 +1635,13 @@
 	    {"ddns_realip_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 
               {"ddns_server_x", "", validate_choice, ARGV(              
-              
                    "WWW.DYNDNS.ORG",
-              
                    "WWW.DYNDNS.ORG(CUSTOM)",
-              
                    "WWW.DYNDNS.ORG(STATIC)",
-              
                    "WWW.TZO.COM",
-              
                    "WWW.ZONEEDIT.COM",
-              
                    "WWW.DNSOMATIC.COM",
-              
+                   "WWW.TUNNELBROKER.NET",
               0), FALSE, FALSE},
                                                    
                     {"ddns_username_x", "", validate_string, ARGV("32"), FALSE, FALSE},                                                                                                                   

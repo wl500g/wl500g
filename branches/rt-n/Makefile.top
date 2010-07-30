@@ -307,7 +307,6 @@ kernel: $(kernel-deps-y)
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
-	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed clean
 
 kernel-install: lzma
 ifeq ($(CONFIG_LOADER),y)
