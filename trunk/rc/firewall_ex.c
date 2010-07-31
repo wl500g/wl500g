@@ -997,15 +997,25 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		  "-A logdrop -j DROP\n");
 	
 #ifdef WEBSTRFILTER
-        if (nvram_match("url_enable_x", "1")) {
+	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
 
-                timematch_conv(timef, "url_date_x", "url_time_x");
-                for(i=0; i<atoi(nvram_safe_get("url_num_x")); i++) {
-                        memset(nvname, 0, sizeof(nvname));
-                        sprintf(nvname, "url_keyword_x%d", i);
-                        filterstr =  nvram_safe_get(nvname);
-                        if (strcmp(filterstr, "") && nvram_invmatch("url_date_x", "0000000"))
-                                fprintf(fp,"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n", timef, filterstr);
+		timematch_conv(timef, "url_date_x", "url_time_x");
+		for(i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
+		{
+			memset(nvname, 0, sizeof(nvname));
+			sprintf(nvname, "url_keyword_x%d", i);
+			filterstr = nvram_safe_get(nvname);
+			if (*filterstr)
+			{
+				if (strncasecmp(filterstr, "http://", strlen("http://")) == 0)
+					filterstr += strlen("http://");
+				else
+				if (strncasecmp(filterstr, "https://", strlen("https://")) == 0)
+					filterstr += strlen("https://");
+				fprintf(fp,
+					"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n",
+					timef, filterstr);
+			}
                 }
         }
 #endif
