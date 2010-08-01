@@ -1005,13 +1005,13 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 			memset(nvname, 0, sizeof(nvname));
 			sprintf(nvname, "url_keyword_x%d", i);
 			filterstr = nvram_safe_get(nvname);
+ 			if (strncasecmp(filterstr, "http://", strlen("http://")) == 0)
+				filterstr += strlen("http://");
+			else
+			if (strncasecmp(filterstr, "https://", strlen("https://")) == 0)
+				filterstr += strlen("https://");
 			if (*filterstr)
 			{
-				if (strncasecmp(filterstr, "http://", strlen("http://")) == 0)
-					filterstr += strlen("http://");
-				else
-				if (strncasecmp(filterstr, "https://", strlen("https://")) == 0)
-					filterstr += strlen("https://");
 				fprintf(fp,
 					"-I FORWARD -p tcp %s -m webstr --url \"%s\" -j REJECT --reject-with tcp-reset\n",
 					timef, filterstr);

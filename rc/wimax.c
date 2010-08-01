@@ -136,8 +136,6 @@ stop_wimax(char *prefix)
 {
 	char tmp[100];
 
-	int unit = atoi(nvram_safe_get(strcat_r(prefix, "unit", tmp)));
-
 	nvram_set(strcat_r(prefix, "wimax_enabled", tmp), "0");
 
 	dprintf( "%s", prefix );
