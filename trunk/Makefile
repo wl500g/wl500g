@@ -267,10 +267,12 @@ $(TOP)/LPRng: LPRng/$(LPRNG).tgz
 LPRng: $(TOP)/LPRng
 	@true
 
-$(TOP)/p910nd: $(P910ND).tar.bz2
+p910nd_Patches := $(call patches_list,p910nd)
+
+$(TOP)/p910nd: p910nd/$(P910ND).tar.bz2
 	@rm -rf $(TOP)/$(P910ND) $@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(P910ND) $(P910ND).patch
+	$(PATCHER) -Z $(TOP)/$(P910ND) $(p910nd_Patches)
 	mv $(TOP)/$(P910ND) $@ && touch $@
 
 p910nd-diff:
