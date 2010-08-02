@@ -242,8 +242,7 @@ int open_printer(int lpnumber)
 		device = lpname;
 	if ((lp = open(device, bidir ? (O_RDWR|O_NONBLOCK) : O_WRONLY)) == -1) {
 		if (errno != EBUSY)
-			dolog(LOGOPTS, "%s: %m\n", device);
-		dolog(LOGOPTS, "%s: %m, will try opening later\n", device);
+			dolog(LOGOPTS, "%s: %m, will try opening later\n", device);
 	}
 	return (lp);
 }
