@@ -252,7 +252,7 @@
 			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
 				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
 				onblur="validate_string(this)">
-			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
+			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select_devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
 		</td>
 		</tr>
 		<tr>
