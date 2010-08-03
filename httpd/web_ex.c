@@ -381,13 +381,13 @@ void websApply(webs_t wp, char_t *url)
 
 int websWriteEscape(webs_t wp, char *buf)
 {
-	static char *escapes = "\"&<>";
+	static char *escapes = "\"&'<>";
 	char *c;
 	int ret = 0;
 
         for (c = buf; *c; c++) {
 		if (strchr(escapes, *c))
-			ret += websWrite(wp, "&#%d", *c);
+			ret += websWrite(wp, "&#%d;", *c);
 		else
 			ret += websWrite(wp, "%c", *c);
 	}
@@ -1315,7 +1315,7 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
     	    sid_list = sid_list + strlen(serviceId)+1;
     	}    	
     
-	printf("apply????\n");
+	/* printf("apply????\n"); */
 	
     	/* Add for EMI Test page */
     	if (strcmp(script, "")!=0)
