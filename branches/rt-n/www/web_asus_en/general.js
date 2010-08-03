@@ -4306,6 +4306,34 @@ function changeWiMAXCheckConnection()
 
 function getCmdExecUrl( host, cmd )
 {
-	return	"http://" + host + 
-			"/apply.cgi?current_page=syscmd_out.asp&action_mode=+Refresh+&SystemCmd=" + escape( cmd );
+	return	"http://" + host +
+		"/apply.cgi?current_page=syscmd_out.asp&action_mode=+Refresh+&SystemCmd=" + encodeURIComponent( cmd );
+}
+
+function getHTTPRequest( url, func_res, func_fail )
+{
+	var xhr; 
+	try {  xhr = new ActiveXObject('Msxml2.XMLHTTP');   }
+	catch (e) 
+	{
+		try {   xhr = new ActiveXObject('Microsoft.XMLHTTP');    }
+		catch (e2) 
+		{
+			try {  xhr = new XMLHttpRequest();     }
+			catch (e3) {  xhr = false;   }
+		}
+	}
+	xhr.onreadystatechange=function(){
+		if(xhr.readyState != 4) return;
+			clearTimeout(timeout);
+			if(xhr.status==200 && func_res ){
+				func_res(xhr);
+			}
+		};
+	xhr.open("GET", url, true);
+	xhr.send(null);
+	var timeout = setTimeout( 
+		function(){ 
+			xhr.abort(); if(func_fail){ func_fail(url); };
+		}, 10000);
 }
