@@ -1,0 +1,30 @@
+From 989c5f3f2aa97b927c2fd29dedec1281d63f0250
+From: Fedor <fedork@ubuntu.(none)>
+Date: Tue, 15 Sep 2009 02:53:39 -0400
+Subject: [PATCH] Minor Samba fix
+
+---
+ source/smbd/server.c |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
+
+diff --git a/source/smbd/server.c b/source/smbd/server.c
+index efb4e4b..8e0adcc 100644
+--- a/source/smbd/server.c
++++ b/source/smbd/server.c
+@@ -254,6 +254,14 @@ max can be %d\n",
+ 			/* The parent doesn't need this socket */
+ 			close(Client); 
+ 
++			/* Sun May 6 18:56:14 2001 ackley@cs.unm.edu:
++				Clear the closed fd info out of Client in
++				util_sock.c to avoid a possible
++				getpeername failure if we reopen the logs
++				and use %I in the filename.
++			*/
++			Client = -1;
++
+ 			/* Force parent to check log size after
+ 			 * spawning child.  Fix from
+ 			 * klausr@ITAP.Physik.Uni-Stuttgart.De.  The
+-- 
+1.6.5.GIT
