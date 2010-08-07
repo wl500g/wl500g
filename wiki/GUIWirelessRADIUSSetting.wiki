@@ -7,7 +7,7 @@ This section allows you to set up additional parameters for authorizing wireless
 For RADIUS to work on your wireless network you need to set the "Authentication Method" in the [GUIWirelessInterface Wireless - Interface] page to "WPA-Enterprise", "WPA2-Enterprise" or "Radius with 802.1x"
 
 --------------
-== Server IP Address: ==
+== Server IP Address ==
 
 The IP Address of the RADIUS server.
 
