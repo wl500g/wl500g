@@ -10,9 +10,9 @@
   * Web Interface
     * Wireless
       * [GUIWirelessInterface Interface]
-      * Bridge
-      * Access Control
-      * RADIUS Settings
+      * [GUIWirelessBridge Bridge]
+      * [GUIWirelessAccessControl Access Control]
+      * [GUIWirelessRADIUSSetting RADIUS Settings]
       * [GUIWirelessAdvanced Advanced]
     * IP Config
       * WAN & LAN
