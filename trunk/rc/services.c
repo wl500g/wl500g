@@ -399,7 +399,6 @@ stop_services(void)
 	stop_usb();
 #endif
 	stop_nas();
-	stop_lltd();
 	stop_upnp();
 	stop_snmpd();
 	stop_dhcpd();

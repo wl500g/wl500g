@@ -91,6 +91,7 @@ void setup_ethernet(char *wan_if);
 int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
+void stop_igmpproxy(void);
 
 /* services */
 int stop_service_main();
@@ -117,7 +118,6 @@ int stop_rcamd(void);
 int start_audio(void);
 int stop_audio(void);
 int start_lltd(void);
-int stop_lltd(void);
 int start_services(void);
 int stop_services(void);
 int start_logger(void);

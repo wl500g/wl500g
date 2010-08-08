@@ -270,7 +270,7 @@ start_igmpproxy(char *wan_ifname)
 	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 }
 
-static void
+void
 stop_igmpproxy()
 {
 	eval("killall", "igmpproxy");
