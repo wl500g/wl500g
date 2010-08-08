@@ -60,10 +60,13 @@ char *PWCLIST[] = {"471","69a","46d","55d","41e","4cc","d81", NULL};
 char *OVLIST[] = {"5a9","813","b62", NULL};
 char buf_g[512];
 
-int remove_usb_audio(char *product);
+
+#ifdef __CONFIG_WAVESERVER__
+static int remove_usb_audio(char *product);
+#endif
 static int umount_all_part(char *product, int scsi_host_no);
 static struct mntent *findmntent(char *file);
-
+static int stop_lltd(void);
 
 void diag_PaN(void)
 {
@@ -564,6 +567,8 @@ stop_misc(void)
 
 	ret = eval("killall", "watchdog");
 	stop_ntpc();
+	stop_ddns();
+	stop_lltd();
 
 	dprintf("done\n");
 	return(ret);
@@ -587,7 +592,7 @@ start_lltd(void)
 	return 0;
 }
 
-int
+static int
 stop_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
@@ -1828,11 +1833,15 @@ stop_service_main()
 	/* nas is still needed for upgrade over WiFI with WPA enabled */
 	/* stop_nas();*/
 
-	stop_lltd();
+	stop_igmpproxy();
 	stop_upnp();
 	stop_snmpd();
 	stop_dhcpd();
 	stop_dns();
+
+#ifdef __CONFIG_IPV6__
+	eval("killall", "radvd");
+#endif
 
 	stop_logger();
 
@@ -1918,7 +1927,7 @@ int hotplug_usb_audio(char *product)
 	return _eval(wave_argv, ">/dev/null", 0, &pid);
 }
 
-int remove_usb_audio(char *product)
+static int remove_usb_audio(char *product)
 {
 	return stop_audio();
 }
