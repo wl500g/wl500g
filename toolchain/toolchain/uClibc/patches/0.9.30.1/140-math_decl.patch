@@ -5,13 +5,10 @@ Subject: math: isnan is a C99 feature
 
 --- a/libc/sysdeps/linux/common/bits/mathcalls.h
 +++ b/libc/sysdeps/linux/common/bits/mathcalls.h
-@@ -228,13 +228,14 @@
- #endif
+@@ -231,10 +231,14 @@
+ /* Return nonzero if VALUE is not a number.  */
+ __MATHDECL_PRIV (int,__isnan,, (_Mdouble_ __value), (__const__));
  
- 
--/* Return nonzero if VALUE is not a number.  */
--__MATHDECL_PRIV (int,__isnan,, (_Mdouble_ __value), (__const__));
--
 -#if defined __USE_MISC || defined __USE_XOPEN
 +#if defined __USE_MISC || defined __USE_XOPEN || defined __USE_ISOC99
 +__BEGIN_NAMESPACE_C99
