@@ -140,7 +140,7 @@ stop_dns(void)
 	dprintf("done\n");
 	return ret;
 }	
-#endif
+#endif /* !ASUS_EXT */
 
 int
 start_telnetd(void)
