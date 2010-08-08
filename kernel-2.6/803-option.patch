@@ -95,7 +95,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  #define BANDRICH_VENDOR_ID			0x1A8D
  #define BANDRICH_PRODUCT_C100_1			0x1002
  #define BANDRICH_PRODUCT_C100_2			0x1003
-@@ -300,21 +303,98 @@ static int  option_send_setup(struct usb
+@@ -300,21 +303,99 @@ static int  option_send_setup(struct usb
  
  #define QUALCOMM_VENDOR_ID			0x05C6
  
@@ -134,6 +134,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +#define QISDA_PRODUCT_H21_4512			0x4512
 +#define QISDA_PRODUCT_H21_4523			0x4523
 +#define QISDA_PRODUCT_H20_4515			0x4515
++#define QISDA_PRODUCT_H20_4518			0x4518
 +#define QISDA_PRODUCT_H20_4519			0x4519
 +
 +/* TLAYTECH PRODUCTS */
@@ -275,7 +276,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(YISO_VENDOR_ID, YISO_PRODUCT_U893) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_1) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_2) },
-@@ -521,12 +573,332 @@ static struct usb_device_id option_ids[]
+@@ -521,12 +573,333 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(KYOCERA_VENDOR_ID, KYOCERA_PRODUCT_KPC680) },
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6000)}, /* ZTE AC8700 */
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6613)}, /* Onda H600/ZTE MF330 */
@@ -577,6 +578,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	{ USB_DEVICE(QISDA_VENDOR_ID, QISDA_PRODUCT_H21_4512) },
 +	{ USB_DEVICE(QISDA_VENDOR_ID, QISDA_PRODUCT_H21_4523) },
 +	{ USB_DEVICE(QISDA_VENDOR_ID, QISDA_PRODUCT_H20_4515) },
++	{ USB_DEVICE(QISDA_VENDOR_ID, QISDA_PRODUCT_H20_4518) },
 +	{ USB_DEVICE(QISDA_VENDOR_ID, QISDA_PRODUCT_H20_4519) },
 +	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_PRODUCT_G450) },
 +	{ USB_DEVICE(TOSHIBA_VENDOR_ID, TOSHIBA_PRODUCT_HSDPA_MINICARD ) }, /* Toshiba 3G HSDPA == Novatel Expedite EU870D MiniCard */
