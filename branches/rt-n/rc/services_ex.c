@@ -680,15 +680,20 @@ int
 start_usb(void)
 {
 	eval("insmod", "usbcore");
+	if (nvram_invmatch("usb20_disable_x", "2"))
+	{
 #ifdef LINUX26
-	eval("insmod", "ohci-hcd");
-	eval("insmod", "uhci-hcd");
+		eval("insmod", "ohci-hcd");
+		eval("insmod", "uhci-hcd");
 #else
-	eval("insmod", "usb-ohci");
-	eval("insmod", "usb-uhci");
+		eval("insmod", "usb-ohci");
+		eval("insmod", "usb-uhci");
 #endif
+	}
 	if (nvram_invmatch("usb20_disable_x", "1"))
+	{
 		eval("insmod", "ehci-hcd");
+	}
 
 	/* mount usbfs */
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
