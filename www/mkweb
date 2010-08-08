@@ -104,6 +104,10 @@ if [ -n "$1" ]; then
 		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
+	if [ "$CONFIG_LLTD" != "y" ]; then
+		sed -ri '/LLTD responder/d' ../web_$MODEL/Advanced_Services_Content.asp
+	fi
+
 	if [ "$CONFIG_MADWIMAX" != "y" ]; then
 		echo "Removing WiMax pages..."
 		rm -rf ../web_$MODEL/*WiMax*.asp

@@ -677,10 +677,15 @@ int
 start_usb(void)
 {
 	eval("insmod", "usbcore");
-	eval("insmod", "usb-ohci");
-	eval("insmod", "usb-uhci");
+	if (nvram_invmatch("usb20_disable_x", "2"))
+	{
+		eval("insmod", "usb-ohci");
+		eval("insmod", "usb-uhci");
+	}
 	if (nvram_invmatch("usb20_disable_x", "1"))
+	{
 		eval("insmod", "ehci-hcd");
+	}
 
 	/* mount usbfs */
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);

@@ -2378,7 +2378,7 @@
 	{"lpr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"raw_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"audio_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"usb20_disable_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"usb20_disable_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},
 	{"lltd_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	
       { 0, 0, 0, 0, 0, 0}
