@@ -40,8 +40,7 @@ insmod ide-mod && insmod ide-probe-mod && insmod ide-disk
 # insert usb modules
 if [ ! -b "$boot_dev" ]; then
 	insmod usbcore
-	insmod usb-ohci
-	insmod usb-uhci
+	[ "$(nvram get usb20_disable_x)" -ne 2 ] && (insmod usb-ohci; insmod usb-uhci)
 	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd
 	sleep 2s
 	insmod scsi_mod && insmod sd_mod && insmod usb-storage
