@@ -270,6 +270,13 @@ start_igmpproxy(char *wan_ifname)
 	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
 }
 
+static void
+stop_igmpproxy()
+{
+	eval("killall", "igmpproxy");
+	eval("killall", "udpxy");
+}
+
 void
 start_lan(void)
 {
@@ -1131,8 +1138,7 @@ stop_wan(char *ifname)
 	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
 	eval("killall", signal, "udhcpc");
 	eval("killall", "udhcpc");
-	eval("killall", "igmpproxy");
-	eval("killall", "udpxy");
+	stop_igmpproxy();
 	eval("killall", "pppoe-relay");
 
 	if (ifname)

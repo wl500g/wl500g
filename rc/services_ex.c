@@ -272,10 +272,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	int ret = eval("killall", "dnsmasq");
-
-	dprintf("done\n");
-	return ret;
+	return eval("killall", "dnsmasq");
 }
 
 int start_dhcpd(void)
@@ -757,7 +754,7 @@ stop_usb(void)
 #ifdef MASSSTORAGE_SUPPORT
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("killall", "stupid-fptd");
+		eval("killall", "vsftpd");
 		eval("killall", "smbd");
 		eval("killall", "nmbd");
 		umount_all_part(NULL, -1);
@@ -1395,7 +1392,6 @@ remove_usb_mass(char *product, int scsi_host_no)
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
-			eval("killall", "stupid-ftpd");
 			eval("killall", "vsftpd");
 		}
 		if (nvram_invmatch("usb_smbenable_x", "0")) {
@@ -1832,12 +1828,13 @@ stop_service_main()
 	/* nas is still needed for upgrade over WiFI with WPA enabled */
 	/* stop_nas();*/
 
+	stop_lltd();
 	stop_upnp();
 	stop_snmpd();
-	stop_logger();
-
 	stop_dhcpd();
 	stop_dns();
+
+	stop_logger();
 
 	dprintf("done\n");
 	return 0;
