@@ -2566,8 +2566,11 @@ function change_common(o, s, v)
 			}
 			else /* 40 MHz */
 			{
-				inputCtrl(document.form.wl_nctrlsb, 1);
 				document.form.wl_nctrlsb.value = "lower";
+				if (document.form.wl_channel.value == "0") /*Auto*/
+					inputCtrl(document.form.wl_nctrlsb, 0);
+				else
+					inputCtrl(document.form.wl_nctrlsb, 1);
 			}
 		}
 		else if (v == "wl_nctrlsb")
@@ -2575,6 +2578,26 @@ function change_common(o, s, v)
 			if (o.value == "none") /* None */
 			{
 				document.form.wl_nbw.value = "20";
+				inputCtrl(document.form.wl_nctrlsb, 0);
+			}
+		}
+		else if (v == "wl_gmode")
+		{
+			if (o.value == "1" || o.value == "6")  /* Auto or 802.11n Only */
+			{
+				document.form.wl_nbw.value = "40";
+				inputCtrl(document.form.wl_nbw, 1);
+				document.form.wl_nctrlsb.value = "lower";
+				if (document.form.wl_channel.value == "0") /*Auto*/
+					inputCtrl(document.form.wl_nctrlsb, 0);
+				else
+					inputCtrl(document.form.wl_nctrlsb, 1);
+			}
+			else /* 802.11g Only, 802.11b Only, ... */
+			{
+				document.form.wl_nbw.value = "20";
+				inputCtrl(document.form.wl_nbw, 0);
+				document.form.wl_nctrlsb.value = "none";
 				inputCtrl(document.form.wl_nctrlsb, 0);
 			}
 		}

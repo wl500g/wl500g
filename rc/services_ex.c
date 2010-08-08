@@ -60,10 +60,13 @@ char *PWCLIST[] = {"471","69a","46d","55d","41e","4cc","d81", NULL};
 char *OVLIST[] = {"5a9","813","b62", NULL};
 char buf_g[512];
 
-int remove_usb_audio(char *product);
+
+#ifdef __CONFIG_WAVESERVER__
+static int remove_usb_audio(char *product);
+#endif
 static int umount_all_part(char *product, int scsi_host_no);
 static struct mntent *findmntent(char *file);
-
+static int stop_lltd(void);
 
 void diag_PaN(void)
 {
@@ -272,10 +275,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	int ret = eval("killall", "dnsmasq");
-
-	dprintf("done\n");
-	return ret;
+	return eval("killall", "dnsmasq");
 }
 
 int start_dhcpd(void)
@@ -567,6 +567,8 @@ stop_misc(void)
 
 	ret = eval("killall", "watchdog");
 	stop_ntpc();
+	stop_ddns();
+	stop_lltd();
 
 	dprintf("done\n");
 	return(ret);
@@ -590,7 +592,7 @@ start_lltd(void)
 	return 0;
 }
 
-int
+static int
 stop_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
@@ -783,7 +785,7 @@ stop_usb(void)
 #ifdef MASSSTORAGE_SUPPORT
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("killall", "stupid-fptd");
+		eval("killall", "vsftpd");
 		eval("killall", "smbd");
 		eval("killall", "nmbd");
 		eval("killall", "ntfs-3g");
@@ -1440,7 +1442,6 @@ remove_usb_mass(char *product, int scsi_host_no)
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
-			eval("killall", "stupid-ftpd");
 			eval("killall", "vsftpd");
 		}
 		if (nvram_invmatch("usb_smbenable_x", "0")) {
@@ -1887,12 +1888,17 @@ stop_service_main()
 	/* nas is still needed for upgrade over WiFI with WPA enabled */
 	/* stop_nas();*/
 
+	stop_igmpproxy();
 	stop_upnp();
 	stop_snmpd();
-	stop_logger();
-
 	stop_dhcpd();
 	stop_dns();
+
+#ifdef __CONFIG_IPV6__
+	eval("killall", "radvd");
+#endif
+
+	stop_logger();
 
 	dprintf("done\n");
 	return 0;
@@ -1976,7 +1982,7 @@ int hotplug_usb_audio(char *product)
 	return _eval(wave_argv, ">/dev/null", 0, &pid);
 }
 
-int remove_usb_audio(char *product)
+static int remove_usb_audio(char *product)
 {
 	return stop_audio();
 }
