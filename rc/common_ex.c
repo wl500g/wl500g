@@ -617,7 +617,11 @@ void convert_asus_values()
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 	{
+#if defined(LINUX26)
+		eval("insmod", "xt_recent");
+#else
 		eval("insmod", "ipt_recent");
+#endif
 	}
 
 #if defined(__CONFIG_IPV6__) && !defined(LINUX26)
