@@ -22,10 +22,10 @@ hot_restart=$(nvram get wan_modem_hot_restart)
 serial_enable=$(nvram get wan_modem_serial_enable)
 if [ "$hot_restart" == "" ]; then hot_restart="0"; fi
 POST_FN=$(nvram get wan_modem_onfailure) 
-[ -z $POST_FN ] && POST_FN="/usr/local/sbin/post-3g-failure";
+[ -z "$POST_FN" ] && POST_FN="/usr/local/sbin/post-3g-failure";
 usbdev=""
 #ifnum=$1
-[ -z $ifnum ] && ifnum=0;
+[ -z "$ifnum" ] && ifnum=0;
 
 kernel="$(uname -r)"
 kernel=${kernel:0:3}
