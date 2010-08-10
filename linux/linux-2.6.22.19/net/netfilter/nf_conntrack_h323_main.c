@@ -163,9 +163,7 @@ static int get_tpkt_data(struct sk_buff **pskb, unsigned int protoff,
 				}
 
 				/* Fragmented TPKT */
-				if (net_ratelimit())
-					printk("nf_ct_h323: "
-					       "fragmented TPKT\n");
+				DEBUGP("nf_ct_h323: fragmented TPKT\n");
 				goto clear_out;
 			}
 
@@ -277,9 +275,8 @@ static int expect_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
 		return 0;
 
 	/* RTP port is even */
-	port &= htons(~1);
-	rtp_port = port;
-	rtcp_port = htons(ntohs(port) + 1);
+	rtp_port = port & ~htons(1);
+	rtcp_port = port | htons(1);
 
 	/* Create expect for RTP */
 	if ((rtp_exp = nf_conntrack_expect_alloc(ct)) == NULL)
@@ -596,10 +593,9 @@ static int h245_help(struct sk_buff **pskb, unsigned int protoff,
 		ret = DecodeMultimediaSystemControlMessage(data, datalen,
 							   &mscm);
 		if (ret < 0) {
-			if (net_ratelimit())
-				printk("nf_ct_h245: decoding error: %s\n",
-				       ret == H323_ERROR_BOUND ?
-				       "out of bound" : "out of range");
+			DEBUGP("nf_ct_h245: decoding error: %s\n",
+			       ret == H323_ERROR_BOUND ?
+			       "out of bound" : "out of range");
 			/* We don't drop when decoding error */
 			break;
 		}
@@ -625,6 +621,7 @@ static struct nf_conntrack_helper nf_conntrack_helper_h245 __read_mostly = {
 	.me			= THIS_MODULE,
 	.max_expected		= H323_RTP_CHANNEL_MAX * 4 + 2 /* T.120 */,
 	.timeout		= 240,
+	.tuple.src.l3num	= AF_UNSPEC,
 	.tuple.dst.protonum	= IPPROTO_UDP,
 	.mask.src.u.udp.port	= __constant_htons(0xFFFF),
 	.mask.dst.protonum	= 0xFF,
@@ -1139,10 +1136,9 @@ static int q931_help(struct sk_buff **pskb, unsigned int protoff,
 		/* Decode Q.931 signal */
 		ret = DecodeQ931(data, datalen, &q931);
 		if (ret < 0) {
-			if (net_ratelimit())
-				printk("nf_ct_q931: decoding error: %s\n",
-				       ret == H323_ERROR_BOUND ?
-				       "out of bound" : "out of range");
+			DEBUGP("nf_ct_q931: decoding error: %s\n",
+			       ret == H323_ERROR_BOUND ?
+			       "out of bound" : "out of range");
 			/* We don't drop when decoding error */
 			break;
 		}
@@ -1720,10 +1716,9 @@ static int ras_help(struct sk_buff **pskb, unsigned int protoff,
 	/* Decode RAS message */
 	ret = DecodeRasMessage(data, datalen, &ras);
 	if (ret < 0) {
-		if (net_ratelimit())
-			printk("nf_ct_ras: decoding error: %s\n",
-			       ret == H323_ERROR_BOUND ?
-			       "out of bound" : "out of range");
+		DEBUGP("nf_ct_ras: decoding error: %s\n",
+		       ret == H323_ERROR_BOUND ?
+		       "out of bound" : "out of range");
 		goto accept;
 	}
 
@@ -1779,6 +1774,7 @@ static void __exit nf_conntrack_h323_fini(void)
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_ras[0]);
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[1]);
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[0]);
+	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
 	kfree(h323_buffer);
 	DEBUGP("nf_ct_h323: fini\n");
 }
@@ -1791,28 +1787,34 @@ static int __init nf_conntrack_h323_init(void)
 	h323_buffer = kmalloc(65536, GFP_KERNEL);
 	if (!h323_buffer)
 		return -ENOMEM;
-	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[0]);
+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_h245);
 	if (ret < 0)
 		goto err1;
-	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[1]);
+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[0]);
 	if (ret < 0)
 		goto err2;
-	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[0]);
+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_q931[1]);
 	if (ret < 0)
 		goto err3;
-	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[1]);
+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[0]);
 	if (ret < 0)
 		goto err4;
+	ret = nf_conntrack_helper_register(&nf_conntrack_helper_ras[1]);
+	if (ret < 0)
+		goto err5;
 	DEBUGP("nf_ct_h323: init success\n");
 	return 0;
 
-err4:
+err5:
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_ras[0]);
-err3:
+err4:
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[1]);
-err2:
+err3:
 	nf_conntrack_helper_unregister(&nf_conntrack_helper_q931[0]);
+err2:
+	nf_conntrack_helper_unregister(&nf_conntrack_helper_h245);
 err1:
+	kfree(h323_buffer);
 	return ret;
 }
 
