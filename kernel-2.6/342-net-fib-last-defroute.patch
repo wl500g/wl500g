@@ -1,0 +1,193 @@
+From 971b893e79db0f7dccfcea15dbdebca3ca64a84d
+From: Denis V. Lunev
+Date: Sat, 8 Dec 2007 00:32:23 -0800
+Subject: [PATCH] [IPV4]: last default route is a fib table property
+
+Also
+a2bbe6822f8928e254452765c07cb863633113b8 [IPV4]: Unify assignment of fi to fib_result
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ip_fib.h |    1 +
+ net/ipv4/fib_hash.c  |   16 ++++++++--------
+ net/ipv4/fib_trie.c  |   18 +++++++++---------
+ 3 files changed, 18 insertions(+), 17 deletions(-)
+
+diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
+index 690fb4d..d70b9b4 100644
+--- a/include/net/ip_fib.h
++++ b/include/net/ip_fib.h
+@@ -141,6 +141,7 @@ struct fib_table {
+ 	struct hlist_node tb_hlist;
+ 	u32		tb_id;
+ 	unsigned	tb_stamp;
++	int		tb_default;
+ 	int		(*tb_lookup)(struct fib_table *tb, const struct flowi *flp, struct fib_result *res);
+ 	int		(*tb_insert)(struct fib_table *, struct fib_config *);
+ 	int		(*tb_delete)(struct fib_table *, struct fib_config *);
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 86087d4..9d54041 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -271,8 +271,6 @@ out:
+ 	return err;
+ }
+ 
+-static int fn_hash_last_dflt=-1;
+-
+ static void
+ fn_hash_select_default(struct fib_table *tb, const struct flowi *flp, struct fib_result *res)
+ {
+@@ -313,12 +311,9 @@ fn_hash_select_default(struct fib_table 
+ 				if (next_fi != res->fi)
+ 					break;
+ 			} else if (!fib_detect_death(fi, order, &last_resort,
+-						     &last_idx, &fn_hash_last_dflt)) {
+-				if (res->fi)
+-					fib_info_put(res->fi);
+-				res->fi = fi;
+-				atomic_inc(&fi->fib_clntref);
+-				fn_hash_last_dflt = order;
++						     &last_idx, &tb->tb_default)) {
++				fib_result_assign(res, fi);
++				tb->tb_default = order;
+ 				goto out;
+ 			}
+ 			fi = next_fi;
+@@ -327,27 +322,19 @@ fn_hash_select_default(struct fib_table 
+ 	}
+ 
+ 	if (order <= 0 || fi == NULL) {
+-		fn_hash_last_dflt = -1;
++		tb->tb_default = -1;
+ 		goto out;
+ 	}
+ 
+-	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &fn_hash_last_dflt)) {
+-		if (res->fi)
+-			fib_info_put(res->fi);
+-		res->fi = fi;
+-		atomic_inc(&fi->fib_clntref);
+-		fn_hash_last_dflt = order;
++	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &tb->tb_default)) {
++		fib_result_assign(res, fi);
++		tb->tb_default = order;
+ 		goto out;
+ 	}
+ 
+-	if (last_idx >= 0) {
+-		if (res->fi)
+-			fib_info_put(res->fi);
+-		res->fi = last_resort;
+-		if (last_resort)
+-			atomic_inc(&last_resort->fib_clntref);
+-	}
+-	fn_hash_last_dflt = last_idx;
++	if (last_idx >= 0)
++		fib_result_assign(res, last_resort);
++	tb->tb_default = last_idx;
+ out:
+ 	read_unlock(&fib_hash_lock);
+ }
+@@ -800,6 +787,7 @@ struct fib_table * __init fib_hash_init(
+ 		return NULL;
+ 
+ 	tb->tb_id = id;
++	tb->tb_default = -1;
+ 	tb->tb_lookup = fn_hash_lookup;
+ 	tb->tb_insert = fn_hash_insert;
+ 	tb->tb_delete = fn_hash_delete;
+diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
+--- a/net/ipv4/fib_lookup.h
++++ b/net/ipv4/fib_lookup.h
+@@ -38,4 +38,14 @@ extern int fib_detect_death(struct fib_i
+ 			    struct fib_info **last_resort,
+ 			    int *last_idx, int *dflt);
+ 
++static inline void fib_result_assign(struct fib_result *res,
++				     struct fib_info *fi)
++{
++	if (res->fi != NULL)
++		fib_info_put(res->fi);
++	res->fi = fi;
++	if (fi != NULL)
++		atomic_inc(&fi->fib_clntref);
++}
++
+ #endif /* _FIB_LOOKUP_H */
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index c7c5c6c..9126eea 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -1771,8 +1771,6 @@ static int fn_trie_flush(struct fib_tabl
+ 	return found;
+ }
+ 
+-static int trie_last_dflt = -1;
+-
+ static void
+ fn_trie_select_default(struct fib_table *tb, const struct flowi *flp, struct fib_result *res)
+ {
+@@ -1819,39 +1817,28 @@ fn_trie_select_default(struct fib_table 
+ 			if (next_fi != res->fi)
+ 				break;
+ 		} else if (!fib_detect_death(fi, order, &last_resort,
+-					     &last_idx, &trie_last_dflt)) {
+-			if (res->fi)
+-				fib_info_put(res->fi);
+-			res->fi = fi;
+-			atomic_inc(&fi->fib_clntref);
+-			trie_last_dflt = order;
++					     &last_idx, &tb->tb_default)) {
++			fib_result_assign(res, fi);
++			tb->tb_default = order;
+ 			goto out;
+ 		}
+ 		fi = next_fi;
+ 		order++;
+ 	}
+ 	if (order <= 0 || fi == NULL) {
+-		trie_last_dflt = -1;
++		tb->tb_default = -1;
+ 		goto out;
+ 	}
+ 
+-	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &trie_last_dflt)) {
+-		if (res->fi)
+-			fib_info_put(res->fi);
+-		res->fi = fi;
+-		atomic_inc(&fi->fib_clntref);
+-		trie_last_dflt = order;
++	if (!fib_detect_death(fi, order, &last_resort, &last_idx, &tb->tb_default)) {
++		fib_result_assign(res, fi);
++		tb->tb_default = order;
+ 		goto out;
+ 	}
+-	if (last_idx >= 0) {
+-		if (res->fi)
+-			fib_info_put(res->fi);
+-		res->fi = last_resort;
+-		if (last_resort)
+-			atomic_inc(&last_resort->fib_clntref);
+-	}
+-	trie_last_dflt = last_idx;
+- out:;
++	if (last_idx >= 0)
++		fib_result_assign(res, last_resort);
++	tb->tb_default = last_idx;
++ out:
+ 	rcu_read_unlock();
+ }
+ 
+@@ -1978,6 +1965,7 @@ struct fib_table * __init fib_hash_init(
+ 		return NULL;
+ 
+ 	tb->tb_id = id;
++	tb->tb_default = -1;
+ 	tb->tb_lookup = fn_trie_lookup;
+ 	tb->tb_insert = fn_trie_insert;
+ 	tb->tb_delete = fn_trie_delete;
+-- 
+1.7.2.1
