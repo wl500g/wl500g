@@ -70,7 +70,7 @@
 + */
 + 
 +static int known_max_packet_size = 1024;
-+static int maxpacketsize = -1;
++static int maxSize = -1;
  
  /*
   * CMSPAR, some architectures can't have space and mark parity.
@@ -186,9 +186,9 @@
 +				printk("forcing new wMaxPacketSize for modem device: %d\n", ctrlsize);
 +			} 
 +			else {
-+				if (maxpacketsize > 0)
++				if (maxSize > 0)
 +				{
-+					ctrlsize = readsize = acm->writesize = maxpacketsize;
++					ctrlsize = readsize = acm->writesize = maxSize;
 +					printk("forcing new wMaxPacketSize for modem device: %d\n", ctrlsize);
 +				}
 +				else {
@@ -282,5 +282,5 @@
  MODULE_DESCRIPTION( DRIVER_DESC );
  MODULE_LICENSE("GPL");
  
-+MODULE_PARM(maxpacketsize, "i");
-+MODULE_PARM_DESC(maxpacketsize, "Force MaxPacketSize");
++MODULE_PARM(maxSize, "i");
++MODULE_PARM_DESC(maxSize, "Force MaxPacketSize");
