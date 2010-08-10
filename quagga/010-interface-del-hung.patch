@@ -1,0 +1,35 @@
+From e26873fd8f0c4306eff65de94a45b4114fc81b98
+From: Roman Hoog Antink
+Date: Wed, 5 May 2010 16:00:50 +0200
+Subject: [PATCH] zebra: fix infinite loop when deleting an interface
+
+When deleting a VLAN interface after flushing its
+addresses, zebra uses 100% CPU time and freezes.
+
+ * interface.c: The while loop in line 407 that
+   should clean up connected routes never hits one
+   of the 2 lines "last = node;" and thus loops
+   forever.
+
+Signed-off-by: Roman Hoog Antink <rha@open.ch>
+---
+ zebra/interface.c |    4 ++++
+ 1 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/zebra/interface.c b/zebra/interface.c
+index ba4cf25..03e7ff7 100644
+--- a/zebra/interface.c
++++ b/zebra/interface.c
+@@ -477,6 +477,10 @@ if_delete_update (struct interface *ifp)
+ 		}
+ 	    }
+ #endif /* HAVE_IPV6 */
++	  else
++	    {
++	      last = node;
++	    }
+ 	}
+     }
+   zebra_interface_delete_update (ifp);
+-- 
+1.7.1.1
