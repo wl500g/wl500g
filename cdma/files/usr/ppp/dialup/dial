@@ -1,19 +1,18 @@
 #!/bin/sh
 
-if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
- insmod acm
+maxpacket=$(nvram get wan_modem_packetsize)
+if [ -n "$maxpacketsize" -a "$maxpacketsize" != "0" ]; then
+ maxpacket="maxSize=${maxpacketsize}"
 else
- insmod acm maxpacketsize=$(nvram get wan_modem_packetsize)
+ maxpacket=
 fi
 
-if [ "$(nvram get wan_modem_vid)" == "" -o "$(nvram get wan_modem_pid)" == "" ]; then
+insmod acm $maxpacket
+
+if [ "$(nvram get wan_modem_vid)" = "" -o "$(nvram get wan_modem_pid)" = "" ]; then
  insmod usbserial
 else
- if [ "$(nvram get wan_modem_packetsize)" == "0" ]; then
-  insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid)
- else
-  insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) maxpacketsize=$(nvram get wan_modem_packetsize)
- fi
+ insmod usbserial vendor=$(nvram get wan_modem_vid) product=$(nvram get wan_modem_pid) $maxpacket
 fi
 
 insmod option
