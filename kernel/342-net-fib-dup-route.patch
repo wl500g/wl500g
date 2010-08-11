@@ -1,32 +1,83 @@
-From bd566e7525b5986864e8d6eb5b67640abcd284a9
-From: Joonwoo Park
-Date: Fri, 18 Jan 2008 03:44:48 -0800
-Subject: [PATCH] [IPV4] fib_hash: fix duplicated route issue
+From c18865f39276435abb9286f9a816cb5b66c99a00
+From: Julian Anastasov
+Date: Mon, 28 Jan 2008 21:14:10 -0800
+Subject: [PATCH] [IPV4] fib: fix route replacement, fib_info is shared
 
-http://bugzilla.kernel.org/show_bug.cgi?id=9493
+fib_info can be shared by many route prefixes but we don't want
+duplicate alternative routes for a prefix+tos+priority. Last change (bd566e7525b5986864e8d6eb5b67640abcd284a9)
+was not correct to check fib_treeref because it accounts usage from
+other prefixes. Additionally, avoid replacement without error if new
+route is same, as Joonwoo Park suggests.
 
-The fib allows making identical routes with 'ip route replace'.
-This patch makes the fib return -EEXIST if replacement would cause duplication.
+Also see http://bugzilla.kernel.org/show_bug.cgi?id=9493
 
-Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
 Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
- net/ipv4/fib_hash.c |    3 +++
- 1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 527a6e0..99071d7 100644
+index a15b2f1..76b9c68 100644
 --- a/net/ipv4/fib_hash.c
 +++ b/net/ipv4/fib_hash.c
-@@ -617,6 +617,9 @@ fn_hash_insert(struct fib_table *tb,
+@@ -610,32 +610,47 @@ rta->rta_prefsrc ? *(u32*)rta->rta_prefs
+ #endif
+ 	    fn_key_eq(f->fn_key, key) &&
+ 	    fi->fib_priority == FIB_INFO(f)->fib_priority) {
+-		struct fib_node **ins_fp;
++		struct fib_node **fp_first, **fp_match;
+ 
+ 		err = -EEXIST;
+ 		if (n->nlmsg_flags&NLM_F_EXCL)
  			goto out;
  
- 		if (n->nlmsg_flags&NLM_F_REPLACE) {
-+			if (fi->fib_treeref > 1)
-+				goto out;
++		/* We have 2 goals:
++		 * 1. Find exact match for type, scope, fib_info to avoid
++		 * duplicate routes
++		 * 2. Find next 'fp' (or head), NLM_F_APPEND inserts before it
++		 */
++		fp_match = NULL;
++		fp_first = fp;
++		FIB_SCAN_TOS(f, fp, key, tos) {
++			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
++				break;
++			if (f->fn_type == type && f->fn_scope == r->rtm_scope
++			    && FIB_INFO(f) == fi) {
++				fp_match = fp;
++				break;
++			}
++		}
 +
+ 		if (n->nlmsg_flags&NLM_F_REPLACE) {
++			fp = fp_first;
++			if (fp_match) {
++				if (fp == fp_match)
++					err = 0;
++				goto out;
++			}
  			del_fp = fp;
  			fp = &f->fn_next;
  			f = *fp;
+ 			goto replace;
+ 		}
+ 
+-		ins_fp = fp;
+-		err = -EEXIST;
+-
+-		FIB_SCAN_TOS(f, fp, key, tos) {
+-			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
+-				break;
+-			if (f->fn_type == type && f->fn_scope == r->rtm_scope
+-			    && FIB_INFO(f) == fi)
+-				goto out;
+-		}
++		if (fp_match)
++			goto out;
+ 
+ 		if (!(n->nlmsg_flags&NLM_F_APPEND)) {
+-			fp = ins_fp;
++			fp = fp_first;
+ 			f = *fp;
+ 		}
+ 	}
 -- 
-1.7.1.1
+1.7.2.1
