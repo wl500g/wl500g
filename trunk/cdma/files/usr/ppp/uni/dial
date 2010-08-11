@@ -154,8 +154,9 @@ chmod +x /tmp/ppp/peers/ping$ifnum.sh
 load_drivers()
 {
 maxpacket=$(nvram get wan_modem_packetsize)
-if [ -n "$maxpacketsize" -a "$maxpacketsize" != "0" ]; then
- maxpacket="maxSize=${maxpacketsize}"
+maxpacket=${maxpacket:-0}
+if [ $maxpacket -gt 128 ]; then
+ maxpacket="maxSize=${maxpacket}"
 else
  maxpacket=
 fi
