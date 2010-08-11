@@ -264,7 +264,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
 	INIT_LIST_HEAD(&qh->node);
 
 	if (udev) {		/* Normal QH */
-		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+		qh->type = usb_endpoint_type(&hep->desc);
 		if (qh->type != USB_ENDPOINT_XFER_ISOC) {
 			qh->dummy_td = uhci_alloc_td(uhci);
 			if (!qh->dummy_td) {
@@ -571,7 +571,7 @@ static void uhci_unlink_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
 	qh->unlink_frame = uhci->frame_number;
 
 	/* Force an interrupt so we know when the QH is fully unlinked */
-	if (list_empty(&uhci->skel_unlink_qh->node))
+	if (list_empty(&uhci->skel_unlink_qh->node) || uhci->is_stopped)
 		uhci_set_next_interrupt(uhci);
 
 	/* Move the QH from its old list to the end of the unlinking list */
@@ -1430,7 +1430,6 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
 		goto err_submit_failed;
 
 	/* Add this URB to the QH */
-	urbp->qh = qh;
 	list_add_tail(&urbp->node, &qh->queue);
 
 	/* If the new URB is the first and only one on this QH then either
@@ -1676,7 +1675,7 @@ static int uhci_advance_check(struct uhci_hcd *uhci, struct uhci_qh *qh)
 			qh->advance_jiffies = jiffies;
 			goto done;
 		}
-		ret = 0;
+		ret = uhci->is_stopped;
 	}
 
 	/* The queue hasn't advanced; check for timeout */
