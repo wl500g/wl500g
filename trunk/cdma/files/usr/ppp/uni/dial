@@ -20,6 +20,7 @@ idle=$(nvram get wan_modem_idle)
 maxfail=$(nvram get wan_modem_maxfail)
 hot_restart=$(nvram get wan_modem_hot_restart)
 serial_enable=$(nvram get wan_modem_serial_enable)
+usbloc=$(nvram get wan_modem_usbloc)
 if [ "$hot_restart" == "" ]; then hot_restart="0"; fi
 POST_FN=$(nvram get wan_modem_onfailure) 
 [ -z "$POST_FN" ] && POST_FN="/usr/local/sbin/post-3g-failure";
@@ -76,10 +77,15 @@ write_dialup_file()
 {
     [ -z "$usbdev" ] || return;
 
-    if [ ! -c ${acm_port}$port ]; then
-	usbdev="${tts_port}$port"
-    else
-	usbdev="${acm_port}$port"
+    if [ -n "$usbloc" ]; then
+	usbdev=$(grep ": $usbloc :" /proc/bus/usb/devpath | awk -F':' '{print $1}')
+    fi
+    if [ -z "$usbdev" ]; then
+        if [ ! -c ${acm_port}$port ]; then
+	    usbdev="${tts_port}$port"
+	else
+	    usbdev="${acm_port}$port"
+	fi
     fi
 
 echo "debug
