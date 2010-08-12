@@ -15,11 +15,6 @@
 #include <linux/key-type.h>
 #include <linux/key-ui.h>
 
-static inline __printf(1, 2)
-void no_printk(const char *fmt, ...)
-{
-}
-
 #ifdef __KDEBUG
 #define kenter(FMT, ...) \
 	printk(KERN_DEBUG "==> %s("FMT")\n", __FUNCTION__, ##__VA_ARGS__)

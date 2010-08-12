@@ -280,6 +280,13 @@ static inline int printk(const char *s, ...) { return 0; }
 
 #endif
 
+/*
+ * Dummy printk for disabled debugging statements to use whilst maintaining
+ * gcc's format and side-effect checking.
+ */
+static inline __printf(1, 2)
+int no_printk(const char *s, ...) { return 0; }
+
 unsigned long int_sqrt(unsigned long);
 
 extern int printk_ratelimit(void);
