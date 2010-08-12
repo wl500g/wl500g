@@ -3,18 +3,18 @@
 kernel="$(uname -r)"
 kernel=${kernel:0:3}
 
+if [ "$kernel" = "2.4" ]; then
+    acm_mod="acm"
+else
+    acm_mod="cdc-acm"
+fi
+
 usbserial="$(lsmod | grep usbserial)"
-acm="$(lsmod | grep acm)"
+acm="$(lsmod | grep $acm_mod)"
 option="$(lsmod | grep option)"
 
-[[ -z "$usbserial" ]] && insmod usbserial;
-if [[ -z "$acm" ]]; then
-    if [[ $kernel == "2.4" ]]; then
-	insmod acm
-    else
-	insmod cdc-acm
-    fi
-fi
-[[ -z "$option" ]] && insmod option;
+[ -z "$usbserial" ] && insmod usbserial;
+[ -z "$acm" ] && insmod $acm_mod;
+[ -z "$option" ] && insmod option;
 
 cat /proc/bus/usb/devpath
