@@ -1,131 +1,3 @@
-diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h
---- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	2009-06-19 18:07:57.000000000 +0400
-@@ -0,0 +1,11 @@
-+#ifndef _IP_CONNTRACK_AMANDA_H
-+#define _IP_CONNTRACK_AMANDA_H
-+/* AMANDA tracking. */
-+
-+struct ip_conntrack_expect;
-+extern unsigned int (*ip_nat_amanda_hook)(struct sk_buff **pskb,
-+					  enum ip_conntrack_info ctinfo,
-+					  unsigned int matchoff,
-+					  unsigned int matchlen,
-+					  struct ip_conntrack_expect *exp);
-+#endif /* _IP_CONNTRACK_AMANDA_H */
-diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h
---- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h	2009-06-19 18:07:57.000000000 +0400
-@@ -0,0 +1,61 @@
-+#ifndef _IP_CONNTRACK_CORE_H
-+#define _IP_CONNTRACK_CORE_H
-+#include <linux/netfilter.h>
-+
-+#define MAX_IP_CT_PROTO 256
-+extern struct ip_conntrack_protocol *ip_ct_protos[MAX_IP_CT_PROTO];
-+
-+/* This header is used to share core functionality between the
-+   standalone connection tracking module, and the compatibility layer's use
-+   of connection tracking. */
-+extern unsigned int ip_conntrack_in(unsigned int hooknum,
-+				    struct sk_buff **pskb,
-+				    const struct net_device *in,
-+				    const struct net_device *out,
-+				    int (*okfn)(struct sk_buff *));
-+
-+extern int ip_conntrack_init(void);
-+extern void ip_conntrack_cleanup(void);
-+
-+struct ip_conntrack_protocol;
-+
-+extern int
-+ip_ct_get_tuple(const struct iphdr *iph,
-+		const struct sk_buff *skb,
-+		unsigned int dataoff,
-+		struct ip_conntrack_tuple *tuple,
-+		const struct ip_conntrack_protocol *protocol);
-+
-+extern int
-+ip_ct_invert_tuple(struct ip_conntrack_tuple *inverse,
-+		   const struct ip_conntrack_tuple *orig,
-+		   const struct ip_conntrack_protocol *protocol);
-+
-+/* Find a connection corresponding to a tuple. */
-+struct ip_conntrack_tuple_hash *
-+ip_conntrack_find_get(const struct ip_conntrack_tuple *tuple,
-+		      const struct ip_conntrack *ignored_conntrack);
-+
-+extern int __ip_conntrack_confirm(struct sk_buff **pskb);
-+
-+/* Confirm a connection: returns NF_DROP if packet must be dropped. */
-+static inline int ip_conntrack_confirm(struct sk_buff **pskb)
-+{
-+	struct ip_conntrack *ct = (struct ip_conntrack *)(*pskb)->nfct;
-+	int ret = NF_ACCEPT;
-+
-+	if (ct) {
-+		if (!is_confirmed(ct) && !is_dying(ct))
-+			ret = __ip_conntrack_confirm(pskb);
-+		ip_ct_deliver_cached_events(ct);
-+	}
-+	return ret;
-+}
-+
-+extern void ip_ct_unlink_expect(struct ip_conntrack_expect *exp);
-+
-+extern struct list_head *ip_conntrack_hash;
-+extern struct list_head ip_conntrack_expect_list;
-+extern rwlock_t ip_conntrack_lock;
-+#endif /* _IP_CONNTRACK_CORE_H */
-+
-diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h
---- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	2009-06-19 18:07:57.000000000 +0400
-@@ -0,0 +1,44 @@
-+#ifndef _IP_CONNTRACK_FTP_H
-+#define _IP_CONNTRACK_FTP_H
-+/* FTP tracking. */
-+
-+/* This enum is exposed to userspace */
-+enum ip_ct_ftp_type
-+{
-+	/* PORT command from client */
-+	IP_CT_FTP_PORT,
-+	/* PASV response from server */
-+	IP_CT_FTP_PASV,
-+	/* EPRT command from client */
-+	IP_CT_FTP_EPRT,
-+	/* EPSV response from server */
-+	IP_CT_FTP_EPSV,
-+};
-+
-+#ifdef __KERNEL__
-+
-+#define FTP_PORT	21
-+
-+#define NUM_SEQ_TO_REMEMBER 2
-+/* This structure exists only once per master */
-+struct ip_ct_ftp_master {
-+	/* Valid seq positions for cmd matching after newline */
-+	u_int32_t seq_aft_nl[IP_CT_DIR_MAX][NUM_SEQ_TO_REMEMBER];
-+	/* 0 means seq_match_aft_nl not set */
-+	int seq_aft_nl_num[IP_CT_DIR_MAX];
-+};
-+
-+struct ip_conntrack_expect;
-+
-+/* For NAT to hook in when we find a packet which describes what other
-+ * connection we should expect. */
-+extern unsigned int (*ip_nat_ftp_hook)(struct sk_buff **pskb,
-+				       enum ip_conntrack_info ctinfo,
-+				       enum ip_ct_ftp_type type,
-+				       unsigned int matchoff,
-+				       unsigned int matchlen,
-+				       struct ip_conntrack_expect *exp,
-+				       u32 *seq);
-+#endif /* __KERNEL__ */
-+
-+#endif /* _IP_CONNTRACK_FTP_H */
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack.h	2009-06-19 18:07:57.000000000 +0400
@@ -532,6 +404,134 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.6/
 +
 +#endif /* __KERNEL__ */
 +#endif /* _IP_CONNTRACK_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,11 @@
++#ifndef _IP_CONNTRACK_AMANDA_H
++#define _IP_CONNTRACK_AMANDA_H
++/* AMANDA tracking. */
++
++struct ip_conntrack_expect;
++extern unsigned int (*ip_nat_amanda_hook)(struct sk_buff **pskb,
++					  enum ip_conntrack_info ctinfo,
++					  unsigned int matchoff,
++					  unsigned int matchlen,
++					  struct ip_conntrack_expect *exp);
++#endif /* _IP_CONNTRACK_AMANDA_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,61 @@
++#ifndef _IP_CONNTRACK_CORE_H
++#define _IP_CONNTRACK_CORE_H
++#include <linux/netfilter.h>
++
++#define MAX_IP_CT_PROTO 256
++extern struct ip_conntrack_protocol *ip_ct_protos[MAX_IP_CT_PROTO];
++
++/* This header is used to share core functionality between the
++   standalone connection tracking module, and the compatibility layer's use
++   of connection tracking. */
++extern unsigned int ip_conntrack_in(unsigned int hooknum,
++				    struct sk_buff **pskb,
++				    const struct net_device *in,
++				    const struct net_device *out,
++				    int (*okfn)(struct sk_buff *));
++
++extern int ip_conntrack_init(void);
++extern void ip_conntrack_cleanup(void);
++
++struct ip_conntrack_protocol;
++
++extern int
++ip_ct_get_tuple(const struct iphdr *iph,
++		const struct sk_buff *skb,
++		unsigned int dataoff,
++		struct ip_conntrack_tuple *tuple,
++		const struct ip_conntrack_protocol *protocol);
++
++extern int
++ip_ct_invert_tuple(struct ip_conntrack_tuple *inverse,
++		   const struct ip_conntrack_tuple *orig,
++		   const struct ip_conntrack_protocol *protocol);
++
++/* Find a connection corresponding to a tuple. */
++struct ip_conntrack_tuple_hash *
++ip_conntrack_find_get(const struct ip_conntrack_tuple *tuple,
++		      const struct ip_conntrack *ignored_conntrack);
++
++extern int __ip_conntrack_confirm(struct sk_buff **pskb);
++
++/* Confirm a connection: returns NF_DROP if packet must be dropped. */
++static inline int ip_conntrack_confirm(struct sk_buff **pskb)
++{
++	struct ip_conntrack *ct = (struct ip_conntrack *)(*pskb)->nfct;
++	int ret = NF_ACCEPT;
++
++	if (ct) {
++		if (!is_confirmed(ct) && !is_dying(ct))
++			ret = __ip_conntrack_confirm(pskb);
++		ip_ct_deliver_cached_events(ct);
++	}
++	return ret;
++}
++
++extern void ip_ct_unlink_expect(struct ip_conntrack_expect *exp);
++
++extern struct list_head *ip_conntrack_hash;
++extern struct list_head ip_conntrack_expect_list;
++extern rwlock_t ip_conntrack_lock;
++#endif /* _IP_CONNTRACK_CORE_H */
++
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,44 @@
++#ifndef _IP_CONNTRACK_FTP_H
++#define _IP_CONNTRACK_FTP_H
++/* FTP tracking. */
++
++/* This enum is exposed to userspace */
++enum ip_ct_ftp_type
++{
++	/* PORT command from client */
++	IP_CT_FTP_PORT,
++	/* PASV response from server */
++	IP_CT_FTP_PASV,
++	/* EPRT command from client */
++	IP_CT_FTP_EPRT,
++	/* EPSV response from server */
++	IP_CT_FTP_EPSV,
++};
++
++#ifdef __KERNEL__
++
++#define FTP_PORT	21
++
++#define NUM_SEQ_TO_REMEMBER 2
++/* This structure exists only once per master */
++struct ip_ct_ftp_master {
++	/* Valid seq positions for cmd matching after newline */
++	u_int32_t seq_aft_nl[IP_CT_DIR_MAX][NUM_SEQ_TO_REMEMBER];
++	/* 0 means seq_match_aft_nl not set */
++	int seq_aft_nl_num[IP_CT_DIR_MAX];
++};
++
++struct ip_conntrack_expect;
++
++/* For NAT to hook in when we find a packet which describes what other
++ * connection we should expect. */
++extern unsigned int (*ip_nat_ftp_hook)(struct sk_buff **pskb,
++				       enum ip_conntrack_info ctinfo,
++				       enum ip_ct_ftp_type type,
++				       unsigned int matchoff,
++				       unsigned int matchlen,
++				       struct ip_conntrack_expect *exp,
++				       u32 *seq);
++#endif /* __KERNEL__ */
++
++#endif /* _IP_CONNTRACK_FTP_H */
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_h323.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_h323.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_h323.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_h323.h	2009-06-19 18:07:57.000000000 +0400
@@ -1051,108 +1051,6 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_pptp.h linux
 +			     struct ip_conntrack_expect *exp);
 +#endif /* __KERNEL__ */
 +#endif /* _CONNTRACK_PPTP_H */
-diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h
---- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	2009-06-19 18:07:57.000000000 +0400
-@@ -0,0 +1,98 @@
-+/* Header for use in defining a given protocol for connection tracking. */
-+#ifndef _IP_CONNTRACK_PROTOCOL_H
-+#define _IP_CONNTRACK_PROTOCOL_H
-+#include <linux/netfilter_ipv4/ip_conntrack.h>
-+#include <linux/netfilter/nfnetlink_conntrack.h>
-+
-+struct seq_file;
-+
-+struct ip_conntrack_protocol
-+{
-+	/* Protocol number. */
-+	u_int8_t proto;
-+
-+	/* Protocol name */
-+	const char *name;
-+
-+	/* Try to fill in the third arg: dataoff is offset past IP
-+           hdr.  Return true if possible. */
-+	int (*pkt_to_tuple)(const struct sk_buff *skb,
-+			   unsigned int dataoff,
-+			   struct ip_conntrack_tuple *tuple);
-+
-+	/* Invert the per-proto part of the tuple: ie. turn xmit into reply.
-+	 * Some packets can't be inverted: return 0 in that case.
-+	 */
-+	int (*invert_tuple)(struct ip_conntrack_tuple *inverse,
-+			    const struct ip_conntrack_tuple *orig);
-+
-+	/* Print out the per-protocol part of the tuple. Return like seq_* */
-+	int (*print_tuple)(struct seq_file *,
-+			   const struct ip_conntrack_tuple *);
-+
-+	/* Print out the private part of the conntrack. */
-+	int (*print_conntrack)(struct seq_file *, const struct ip_conntrack *);
-+
-+	/* Returns verdict for packet, or -1 for invalid. */
-+	int (*packet)(struct ip_conntrack *conntrack,
-+		      const struct sk_buff *skb,
-+		      enum ip_conntrack_info ctinfo);
-+
-+	/* Called when a new connection for this protocol found;
-+	 * returns TRUE if it's OK.  If so, packet() called next. */
-+	int (*new)(struct ip_conntrack *conntrack, const struct sk_buff *skb);
-+
-+	/* Called when a conntrack entry is destroyed */
-+	void (*destroy)(struct ip_conntrack *conntrack);
-+
-+	int (*error)(struct sk_buff *skb, enum ip_conntrack_info *ctinfo,
-+		     unsigned int hooknum);
-+
-+	/* convert protoinfo to nfnetink attributes */
-+	int (*to_nfattr)(struct sk_buff *skb, struct nfattr *nfa,
-+			 const struct ip_conntrack *ct);
-+
-+	/* convert nfnetlink attributes to protoinfo */
-+	int (*from_nfattr)(struct nfattr *tb[], struct ip_conntrack *ct);
-+
-+	int (*tuple_to_nfattr)(struct sk_buff *skb,
-+			       const struct ip_conntrack_tuple *t);
-+	int (*nfattr_to_tuple)(struct nfattr *tb[],
-+			       struct ip_conntrack_tuple *t);
-+
-+	/* Module (if any) which this is connected to. */
-+	struct module *me;
-+};
-+
-+/* Protocol registration. */
-+extern int ip_conntrack_protocol_register(struct ip_conntrack_protocol *proto);
-+extern void ip_conntrack_protocol_unregister(struct ip_conntrack_protocol *proto);
-+/* Existing built-in protocols */
-+extern struct ip_conntrack_protocol ip_conntrack_protocol_tcp;
-+extern struct ip_conntrack_protocol ip_conntrack_protocol_udp;
-+extern struct ip_conntrack_protocol ip_conntrack_protocol_icmp;
-+extern struct ip_conntrack_protocol ip_conntrack_generic_protocol;
-+extern int ip_conntrack_protocol_tcp_init(void);
-+
-+/* Log invalid packets */
-+extern unsigned int ip_ct_log_invalid;
-+
-+extern int ip_ct_port_tuple_to_nfattr(struct sk_buff *,
-+				      const struct ip_conntrack_tuple *);
-+extern int ip_ct_port_nfattr_to_tuple(struct nfattr *tb[],
-+				      struct ip_conntrack_tuple *);
-+
-+#ifdef CONFIG_SYSCTL
-+#ifdef DEBUG_INVALID_PACKETS
-+#define LOG_INVALID(proto) \
-+	(ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW)
-+#else
-+#define LOG_INVALID(proto) \
-+	((ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW) \
-+	 && net_ratelimit())
-+#endif
-+#else
-+#define LOG_INVALID(proto) 0
-+#endif /* CONFIG_SYSCTL */
-+
-+#endif /*_IP_CONNTRACK_PROTOCOL_H*/
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h	2009-06-19 18:07:57.000000000 +0400
@@ -1271,6 +1169,108 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h 
 +#endif /* __KERNEL__ */
 +
 +#endif /* _CONNTRACK_PROTO_GRE_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,98 @@
++/* Header for use in defining a given protocol for connection tracking. */
++#ifndef _IP_CONNTRACK_PROTOCOL_H
++#define _IP_CONNTRACK_PROTOCOL_H
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++#include <linux/netfilter/nfnetlink_conntrack.h>
++
++struct seq_file;
++
++struct ip_conntrack_protocol
++{
++	/* Protocol number. */
++	u_int8_t proto;
++
++	/* Protocol name */
++	const char *name;
++
++	/* Try to fill in the third arg: dataoff is offset past IP
++           hdr.  Return true if possible. */
++	int (*pkt_to_tuple)(const struct sk_buff *skb,
++			   unsigned int dataoff,
++			   struct ip_conntrack_tuple *tuple);
++
++	/* Invert the per-proto part of the tuple: ie. turn xmit into reply.
++	 * Some packets can't be inverted: return 0 in that case.
++	 */
++	int (*invert_tuple)(struct ip_conntrack_tuple *inverse,
++			    const struct ip_conntrack_tuple *orig);
++
++	/* Print out the per-protocol part of the tuple. Return like seq_* */
++	int (*print_tuple)(struct seq_file *,
++			   const struct ip_conntrack_tuple *);
++
++	/* Print out the private part of the conntrack. */
++	int (*print_conntrack)(struct seq_file *, const struct ip_conntrack *);
++
++	/* Returns verdict for packet, or -1 for invalid. */
++	int (*packet)(struct ip_conntrack *conntrack,
++		      const struct sk_buff *skb,
++		      enum ip_conntrack_info ctinfo);
++
++	/* Called when a new connection for this protocol found;
++	 * returns TRUE if it's OK.  If so, packet() called next. */
++	int (*new)(struct ip_conntrack *conntrack, const struct sk_buff *skb);
++
++	/* Called when a conntrack entry is destroyed */
++	void (*destroy)(struct ip_conntrack *conntrack);
++
++	int (*error)(struct sk_buff *skb, enum ip_conntrack_info *ctinfo,
++		     unsigned int hooknum);
++
++	/* convert protoinfo to nfnetink attributes */
++	int (*to_nfattr)(struct sk_buff *skb, struct nfattr *nfa,
++			 const struct ip_conntrack *ct);
++
++	/* convert nfnetlink attributes to protoinfo */
++	int (*from_nfattr)(struct nfattr *tb[], struct ip_conntrack *ct);
++
++	int (*tuple_to_nfattr)(struct sk_buff *skb,
++			       const struct ip_conntrack_tuple *t);
++	int (*nfattr_to_tuple)(struct nfattr *tb[],
++			       struct ip_conntrack_tuple *t);
++
++	/* Module (if any) which this is connected to. */
++	struct module *me;
++};
++
++/* Protocol registration. */
++extern int ip_conntrack_protocol_register(struct ip_conntrack_protocol *proto);
++extern void ip_conntrack_protocol_unregister(struct ip_conntrack_protocol *proto);
++/* Existing built-in protocols */
++extern struct ip_conntrack_protocol ip_conntrack_protocol_tcp;
++extern struct ip_conntrack_protocol ip_conntrack_protocol_udp;
++extern struct ip_conntrack_protocol ip_conntrack_protocol_icmp;
++extern struct ip_conntrack_protocol ip_conntrack_generic_protocol;
++extern int ip_conntrack_protocol_tcp_init(void);
++
++/* Log invalid packets */
++extern unsigned int ip_ct_log_invalid;
++
++extern int ip_ct_port_tuple_to_nfattr(struct sk_buff *,
++				      const struct ip_conntrack_tuple *);
++extern int ip_ct_port_nfattr_to_tuple(struct nfattr *tb[],
++				      struct ip_conntrack_tuple *);
++
++#ifdef CONFIG_SYSCTL
++#ifdef DEBUG_INVALID_PACKETS
++#define LOG_INVALID(proto) \
++	(ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW)
++#else
++#define LOG_INVALID(proto) \
++	((ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW) \
++	 && net_ratelimit())
++#endif
++#else
++#define LOG_INVALID(proto) 0
++#endif /* CONFIG_SYSCTL */
++
++#endif /*_IP_CONNTRACK_PROTOCOL_H*/
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sctp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sctp.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sctp.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sctp.h	2009-06-19 18:07:57.000000000 +0400
@@ -1361,15 +1361,13 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tftp.h linux
 +#endif /* _IP_CT_TFTP */
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h	2009-06-19 17:53:44.000000000 +0400
-@@ -0,0 +1,171 @@
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h	2010-08-14 14:25:19.000000000 +0400
+@@ -0,0 +1,146 @@
 +#ifndef _IP_CONNTRACK_TUPLE_H
 +#define _IP_CONNTRACK_TUPLE_H
 +
 +#include <linux/types.h>
 +#include <linux/netfilter/nf_conntrack_tuple_common.h>
-+
-+#define ASUS_QOS 1
 +
 +/* A `tuple' is a structure containing the information to uniquely
 +  identify a connection.  ie. if two packets have the same tuple, they
@@ -1467,35 +1465,12 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h linu
 +/* If we're the first tuple, it's the original dir. */
 +#define DIRECTION(h) ((enum ip_conntrack_dir)(h)->tuple.dst.dir)
 +
-+#ifdef ASUS QOS
-+#define IP_TRACK_MAX              10
-+#define IP_TRACK_COMPARE          40
-+
-+#define IP_TRACK_FULL           0x01
-+#define IP_TRACK_PORT           0x02
-+#define IP_TRACK_DATA           0x04
-+#define IP_TRACK_PD             0x08
-+#define IP_TRACK_DOWN           0x10
-+#define IP_TRACK_TIME           0x20
-+
-+struct ip_track
-+{
-+        int flag;
-+        u_int8_t number;
-+        int length[IP_TRACK_MAX];
-+};
-+#endif
-+
 +/* Connections have two entries in the hash table: one for each way */
 +struct ip_conntrack_tuple_hash
 +{
 +	struct list_head list;
 +
 +	struct ip_conntrack_tuple tuple;
-+
-+#ifdef ASUS_QOS
-+	struct ip_track track;
-+#endif
 +};
 +
 +#endif /* __KERNEL__ */
@@ -1684,28 +1659,6 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h.3200
 +}
 +
 +#endif /* _IP_CONNTRACK_TUPLE_H */
-diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h
---- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h	2009-06-19 18:07:58.000000000 +0400
-@@ -0,0 +1,18 @@
-+#ifndef _IP_NAT_CORE_H
-+#define _IP_NAT_CORE_H
-+#include <linux/list.h>
-+#include <linux/netfilter_ipv4/ip_conntrack.h>
-+
-+/* This header used to share core functionality between the standalone
-+   NAT module, and the compatibility layer's use of NAT for masquerading. */
-+
-+extern unsigned int ip_nat_packet(struct ip_conntrack *ct,
-+			       enum ip_conntrack_info conntrackinfo,
-+			       unsigned int hooknum,
-+			       struct sk_buff **pskb);
-+
-+extern int ip_nat_icmp_reply_translation(struct ip_conntrack *ct,
-+					 enum ip_conntrack_info ctinfo,
-+					 unsigned int hooknum,
-+					 struct sk_buff **pskb);
-+#endif /* _IP_NAT_CORE_H */
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat.h linux-2.6/include/linux/netfilter_ipv4/ip_nat.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_nat.h	2009-06-19 17:53:39.000000000 +0400
@@ -1789,6 +1742,28 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat.h linux-2.6/includ
 +#define ip_nat_multi_range ip_nat_multi_range_compat
 +#endif /*__KERNEL__*/
 +#endif
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h	2009-06-19 18:07:58.000000000 +0400
+@@ -0,0 +1,18 @@
++#ifndef _IP_NAT_CORE_H
++#define _IP_NAT_CORE_H
++#include <linux/list.h>
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++
++/* This header used to share core functionality between the standalone
++   NAT module, and the compatibility layer's use of NAT for masquerading. */
++
++extern unsigned int ip_nat_packet(struct ip_conntrack *ct,
++			       enum ip_conntrack_info conntrackinfo,
++			       unsigned int hooknum,
++			       struct sk_buff **pskb);
++
++extern int ip_nat_icmp_reply_translation(struct ip_conntrack *ct,
++					 enum ip_conntrack_info ctinfo,
++					 unsigned int hooknum,
++					 struct sk_buff **pskb);
++#endif /* _IP_NAT_CORE_H */
 diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_helper.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_helper.h
 --- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_helper.h	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_helper.h	2009-06-19 18:08:01.000000000 +0400
@@ -1941,443 +1916,3 @@ diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_rule.h linux-2.6/i
 +			    struct ip_nat_info *info);
 +#endif
 +#endif /* _IP_NAT_RULE_H */
-diff -urBwNp linux-2.6.22/include/net/netfilter/nf_conntrack_tuple.h linux-2.6/include/net/netfilter/nf_conntrack_tuple.h
---- linux-2.6.22/include/net/netfilter/nf_conntrack_tuple.h	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/include/net/netfilter/nf_conntrack_tuple.h	2009-03-30 07:05:24.000000000 +0400
-@@ -122,12 +122,23 @@ DEBUGP("tuple %p: %u %u " NIP6_FMT " %hu
- #define NF_CT_DIRECTION(h)						\
- 	((enum ip_conntrack_dir)(h)->tuple.dst.dir)
- 
-+//--SZ Angela 09.03 Add for QOS {
-+struct ip_track 
-+{
-+	u_int8_t number;
-+	u_int8_t large_packet;
-+	u_int8_t flag;
-+};
-+//--SZ angela 09.03 Add for QOS }
-+
- /* Connections have two entries in the hash table: one for each way */
- struct nf_conntrack_tuple_hash
- {
- 	struct list_head list;
- 
- 	struct nf_conntrack_tuple tuple;
-+
-+	struct ip_track track; //--SZ angela 09.03
- };
- 
- #endif /* __KERNEL__ */
-diff -urBwNp linux-2.6.22/net/netfilter/nf_conntrack_core.c linux-2.6/net/netfilter/nf_conntrack_core.c
---- linux-2.6.22/net/netfilter/nf_conntrack_core.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/net/netfilter/nf_conntrack_core.c	2009-03-30 07:02:15.000000000 +0400
-@@ -29,6 +29,7 @@
- #include <linux/netdevice.h>
- #include <linux/socket.h>
- #include <linux/mm.h>
-+#include <linux/ip.h>
- 
- #include <net/netfilter/nf_conntrack.h>
- #include <net/netfilter/nf_conntrack_l3proto.h>
-@@ -106,6 +103,17 @@ static DEFINE_MUTEX(nf_ct_cache_mutex);
- static int nf_conntrack_hash_rnd_initted;
- static unsigned int nf_conntrack_hash_rnd;
- 
-+//--SZ angela 09.03 {
-+#define IP_TRACK_SMALL		0x01
-+#define IP_TRACK_PORT		0x02
-+#define IP_TRACK_DATA		0x04
-+#define	IP_TRACK_UDP		0x08
-+
-+extern int track_flag;
-+extern ulong ipaddr;
-+u_int8_t port_num_udp[65536];
-+//--SZ angela 09.03 }
-+
- static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
- 				  unsigned int size, unsigned int rnd)
- {
-@@ -696,6 +702,21 @@ init_conntrack(const struct nf_conntrack
- 	}
- 
- 	write_lock_bh(&nf_conntrack_lock);
-+	//--SZ angela 09.03 {
-+	/* if the qos enable and the layer 3 protocol is ipv4 */
-+	if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) {
-+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag = 0;
-+		conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number =1;
-+
-+		if(strcmp(l4proto->name, "udp") == 0) {		
-+			if(conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u3.ip == ipaddr)
-+			 	port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.all]++;
-+			else
-+				port_num_udp[conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.all]++;
-+		}	
-+	}
-+	//--SZ angela 09.03 }
-+	
- 	exp = find_expectation(tuple);
- 
- 	help = nfct_help(conntrack);
-@@ -738,6 +759,100 @@ init_conntrack(const struct nf_conntrack
- 	return &conntrack->tuplehash[IP_CT_DIR_ORIGINAL];
- }
- 
-+//--SZ angela 09.03 {
-+//On success, returns h->track.flags & IP_TRACK_MARK 
-+inline int deal_track(struct nf_conntrack_tuple_hash *h, int len)
-+{
-+	struct nf_conntrack_tuple_hash *rep_h;
-+	unsigned int port=0, dport=0;
-+	struct nf_conn *ct = NULL;
-+
-+	// Add the packet number of this connect track and record the length of the packet 
-+	h->track.number ++;
-+//	if((h->track.flag & IP_TRACK_FULL) != IP_TRACK_FULL)
-+//	{
-+		if(len > 512)
-+			h->track.large_packet++;
-+//	}
-+	
-+	// The download packet set the IP_TRACK_DOWN flag 
-+	if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+	{	
-+	       port = h->tuple.dst.u.all;
-+	       dport = h->tuple.src.u.all;
-+	}
-+	else
-+	{
-+		port = h->tuple.src.u.all;
-+		dport = h->tuple.dst.u.all;
-+	}
-+		
-+	// if the connect track is data connect ,we return IP_TRACK_DATA 
-+	if((h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)	
-+		return IP_TRACK_DATA;
-+	
-+	// if the destination port of this connect track is one of 80,8080,443.We return IP_TRACK_PORT
-+	if((h->track.flag & IP_TRACK_PORT) == IP_TRACK_PORT)
-+		return IP_TRACK_PORT;
-+
-+	if((h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
-+		return IP_TRACK_SMALL;
-+
-+	if((h->track.flag & IP_TRACK_UDP) == IP_TRACK_UDP)
-+		return IP_TRACK_UDP;
-+	
-+	ct = nf_ct_tuplehash_to_ctrack(h);
-+
-+	//start compare 
-+	if(NF_CT_DIRECTION(h) == IP_CT_DIR_REPLY)
-+		rep_h = &ct->tuplehash[IP_CT_DIR_ORIGINAL];
-+	else
-+		rep_h = &ct->tuplehash[IP_CT_DIR_REPLY];
-+	if(!rep_h)
-+		return 0;
-+
-+	if(ntohs(dport) == 80 || ntohs(dport) == 8080 || ntohs(dport) == 443)
-+       	{
-+  		h->track.flag |= IP_TRACK_PORT;
-+		rep_h->track.flag |= IP_TRACK_PORT;
-+		return IP_TRACK_PORT;
-+	}
-+
-+	// if the port has connections more than 30, we mark it and return IP_TRACK_UDP
-+	// h->tuple.dst.protonum == 17 &&
-+	if((port_num_udp[port] > 30 || port_num_udp[dport] >30)) 
-+	{
-+		h->track.flag |= IP_TRACK_UDP;		
-+		rep_h->track.flag |= IP_TRACK_UDP;
-+		return IP_TRACK_UDP;
-+	}
-+
-+	if(h->track.number == 250)
-+	{
-+		if(h->track.large_packet<70)
-+		{
-+			if((rep_h->track.flag & IP_TRACK_DATA) == IP_TRACK_DATA)
-+			{
-+				h->track.flag |= IP_TRACK_DATA;
-+				return IP_TRACK_DATA;
-+			}
-+			h->track.flag |= IP_TRACK_SMALL;
-+			return IP_TRACK_SMALL;
-+		}
-+		
-+		if((rep_h->track.flag & IP_TRACK_SMALL) == IP_TRACK_SMALL)
-+		{
-+			rep_h->track.flag |= IP_TRACK_DATA;
-+			rep_h->track.flag &= ~IP_TRACK_SMALL;
-+		}
-+		h->track.flag |= IP_TRACK_DATA;
-+		return IP_TRACK_DATA;
-+	}
-+	
-+	return 0;
-+}	
-+//--SZ angela 09.03 }
-+
- /* On success, returns conntrack ptr, sets skb->nfct and ctinfo */
- static inline struct nf_conn *
- resolve_normal_ct(struct sk_buff *skb,
-@@ -768,7 +883,45 @@ resolve_normal_ct(struct sk_buff *skb,
- 			return NULL;
- 		if (IS_ERR(h))
- 			return (void *)h;
-+	}//--SZ angela 09.03 {
-+	else if((track_flag == 1) && (strcmp(l3proto->name, "ipv4") == 0)) { 
-+		write_lock_bh(&nf_conntrack_lock);
-+	      
-+		switch(deal_track(h, ntohs(ip_hdr(skb)->tot_len))) {
-+			case IP_TRACK_UDP:
-+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+					skb->mark = 91;
-+				else 
-+					skb->mark = 51;
-+				break;
-+			case IP_TRACK_DATA:
-+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+					skb->mark = 90;
-+				else 
-+					skb->mark = 50;
-+				break;
-+			case IP_TRACK_PORT:
-+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+					skb->mark = 80;
-+				else
-+					skb->mark = 20;
-+				break;
-+			case IP_TRACK_SMALL:
-+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+					skb->mark = 70;
-+				else
-+					skb->mark = 10;
-+				break;
-+			default:
-+				if(ntohl(h->tuple.dst.u3.ip) == ipaddr)
-+					skb->mark = 90;
-+				else
-+					skb->mark = 50;
-+				break;
- 	}
-+		write_unlock_bh(&nf_conntrack_lock);			
-+	} //--SZ angela 09.03 }
-+
- 	ct = nf_ct_tuplehash_to_ctrack(h);
- 
- 	/* It exists; we have (non-exclusive) reference. */
-@@ -1238,6 +1391,9 @@ int __init nf_conntrack_init(void)
- 	}
- 	nf_conntrack_max = 8 * nf_conntrack_htable_size;
- 
-+	for(ret=0; ret<65535; ret++)		//--SZ Angela 09.03 QOS Initialization
-+		port_num_udp[ret]=0;
-+
- 	printk("nf_conntrack version %s (%u buckets, %d max)\n",
- 	       NF_CONNTRACK_VERSION, nf_conntrack_htable_size,
- 	       nf_conntrack_max);
-diff -urBwNp linux-2.6.22/net/netfilter/nf_conntrack_proto_tcp.c linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c
---- linux-2.6.22/net/netfilter/nf_conntrack_proto_tcp.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/net/netfilter/nf_conntrack_proto_tcp.c	2009-04-20 06:42:13.000000000 +0400
-@@ -30,6 +30,8 @@
- #define DEBUGP printk
- #define DEBUGP_VARS
- #else
-+extern int clean_flag; // 2009.04 James. wanduck.
-+
- #define DEBUGP(format, args...)
- #endif
- 
-@@ -315,6 +310,11 @@ static int tcp_print_conntrack(struct se
- {
- 	enum tcp_conntrack state;
- 
-+// 2009.04 James. wanduck. {
-+	if(clean_flag == 101)
-+		nf_ct_refresh(conntrack, NULL, 0);
-+// 2009.04 James. wanduck. }
-+
- 	read_lock_bh(&tcp_lock);
- 	state = conntrack->proto.tcp.state;
- 	read_unlock_bh(&tcp_lock);
-diff -urBwNp linux-2.6.22/net/netfilter/nf_conntrack_proto_udp.c linux-2.6/net/netfilter/nf_conntrack_proto_udp.c
---- linux-2.6.22/net/netfilter/nf_conntrack_proto_udp.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/net/netfilter/nf_conntrack_proto_udp.c	2009-04-20 06:42:56.000000000 +0400
-@@ -23,6 +23,8 @@
- #include <net/netfilter/nf_conntrack_l4proto.h>
- #include <net/netfilter/nf_conntrack_ecache.h>
- 
-+extern int clean_flag; // 2009.04 James. wanduck.
-+
- static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
- static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
- 
-@@ -64,6 +66,11 @@ static int udp_print_tuple(struct seq_fi
- static int udp_print_conntrack(struct seq_file *s,
- 			       const struct nf_conn *conntrack)
- {
-+// 2009.04 James. wanduck. {
-+	if(clean_flag == 101)
-+		nf_ct_refresh(conntrack, NULL, 0);
-+// 2009.04 James. wanduck. }
-+
- 	return 0;
- }
- 
-diff -urBwNp linux-2.6.22/net/netfilter/nf_conntrack_standalone.c linux-2.6/net/netfilter/nf_conntrack_standalone.c
---- linux-2.6.22/net/netfilter/nf_conntrack_standalone.c	2007-07-09 03:32:17.000000000 +0400
-+++ linux-2.6/net/netfilter/nf_conntrack_standalone.c	2009-03-30 07:03:32.000000000 +0400
-@@ -190,6 +186,125 @@ static int ct_seq_show(struct seq_file *
- 	return 0;
- }
- 
-+//--SZ Angela 09.03 for QOS {
-+/* return 0 on success, 1 in case of error */
-+static int ct_seq_show_track(struct seq_file *s, void *v)
-+{
-+	const struct nf_conntrack_tuple_hash *hash = v;
-+	const struct nf_conn *conntrack = nf_ct_tuplehash_to_ctrack(hash);
-+	struct nf_conntrack_l3proto *l3proto;
-+	struct nf_conntrack_l4proto *l4proto;
-+
-+	NF_CT_ASSERT(conntrack);
-+
-+	/* we only want to print DIR_ORIGINAL */
-+	if (NF_CT_DIRECTION(hash))
-+		return 0;
-+
-+	l3proto = __nf_ct_l3proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-+				       .tuple.src.l3num);
-+
-+	NF_CT_ASSERT(l3proto);
-+	l4proto = __nf_ct_l4proto_find(conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-+				   .tuple.src.l3num,
-+				   conntrack->tuplehash[IP_CT_DIR_ORIGINAL]
-+				   .tuple.dst.protonum);
-+	NF_CT_ASSERT(l4proto);
-+
-+	if (seq_printf(s, "%-8s %u %-8s %u %ld ",
-+		       l3proto->name,
-+		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num,
-+		       l4proto->name,
-+		       conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.protonum,
-+		       timer_pending(&conntrack->timeout)
-+		       ? (long)(conntrack->timeout.expires - jiffies)/HZ : 0) != 0)
-+		return -ENOSPC;
-+
-+	if (l3proto->print_conntrack(s, conntrack))
-+		return -ENOSPC;
-+
-+	if (l4proto->print_conntrack(s, conntrack))
-+		return -ENOSPC;
-+
-+	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-+			l3proto, l4proto))
-+		return -ENOSPC;
-+
-+	if (seq_print_counters(s, &conntrack->counters[IP_CT_DIR_ORIGINAL]))
-+		return -ENOSPC;
-+
-+	if(seq_printf(s, " flag=%d number=%d large_packet=%d \n\t\t",
-+			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.flag,
-+			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.number,
-+			conntrack->tuplehash[IP_CT_DIR_ORIGINAL].track.large_packet))
-+		return -ENOSPC;
-+
-+	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_REPLY].tuple,
-+			l3proto, l4proto))
-+		return -ENOSPC;
-+
-+	if (seq_print_counters(s, &conntrack->counters[IP_CT_DIR_REPLY]))
-+		return -ENOSPC;
-+
-+	if(seq_printf(s, " flag=%d number=%d large_packet=%d ",
-+			conntrack->tuplehash[IP_CT_DIR_REPLY].track.flag,
-+			conntrack->tuplehash[IP_CT_DIR_REPLY].track.number,
-+			conntrack->tuplehash[IP_CT_DIR_REPLY].track.large_packet))
-+		return -ENOSPC;
-+
-+#if defined(CONFIG_NF_CONNTRACK_MARK)
-+	if (seq_printf(s, "mark=%u ", conntrack->mark))
-+		return -ENOSPC;
-+#endif
-+
-+#ifdef CONFIG_NF_CONNTRACK_SECMARK
-+	if (seq_printf(s, "secmark=%u ", conntrack->secmark))
-+		return -ENOSPC;
-+#endif
-+
-+	if (seq_printf(s, "use=%u\n", atomic_read(&conntrack->ct_general.use)))
-+		return -ENOSPC;
-+	
-+	return 0;
-+}
-+
-+static struct seq_operations ct_seq_ops_track = {
-+	.start = ct_seq_start,
-+	.next  = ct_seq_next,
-+	.stop  = ct_seq_stop,
-+	.show  = ct_seq_show_track
-+};
-+
-+static int ct_open_track(struct inode *inode, struct file *file)
-+{
-+	struct seq_file *seq;
-+	struct ct_iter_state *st;
-+	int ret;
-+
-+	st = kmalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
-+	if (st == NULL)
-+		return -ENOMEM;
-+	ret = seq_open(file, &ct_seq_ops_track);
-+	if (ret)
-+		goto out_free;
-+	seq          = file->private_data;
-+	seq->private = st;
-+	memset(st, 0, sizeof(struct ct_iter_state));
-+	return ret;
-+out_free:
-+	kfree(st);
-+	return ret;
-+}
-+
-+static const struct file_operations ct_file_ops_track = {
-+	.owner   = THIS_MODULE,
-+	.open    = ct_open_track,
-+	.read    = seq_read,
-+	.llseek  = seq_lseek,
-+	.release = seq_release_private,
-+};
-+//--SZ Angela 09.03 }
-+
- static struct seq_operations ct_seq_ops = {
- 	.start = ct_seq_start,
- 	.next  = ct_seq_next,
-@@ -410,7 +525,7 @@ EXPORT_SYMBOL_GPL(nf_ct_log_invalid);
- static int __init nf_conntrack_standalone_init(void)
- {
- #ifdef CONFIG_PROC_FS
--	struct proc_dir_entry *proc, *proc_exp, *proc_stat;
-+	struct proc_dir_entry *proc, *proc_track, *proc_exp, *proc_stat;
- #endif
- 	int ret = 0;
- 
-@@ -422,6 +537,9 @@ static int __init nf_conntrack_standalon
- 	proc = proc_net_fops_create("nf_conntrack", 0440, &ct_file_ops);
- 	if (!proc) goto cleanup_init;
- 
-+	proc_track = proc_net_fops_create("ip_track", 0440, &ct_file_ops_track);	//--SZ Angela 09.03 QOS
-+	if (!proc_track) goto cleanup_init_track;
-+
- 	proc_exp = proc_net_fops_create("nf_conntrack_expect", 0440,
- 					&exp_file_ops);
- 	if (!proc_exp) goto cleanup_proc;
-@@ -452,6 +570,8 @@ static int __init nf_conntrack_standalon
- 	proc_net_remove("nf_conntrack_expect");
-  cleanup_proc:
- 	proc_net_remove("nf_conntrack");
-+cleanup_init_track:			//--SZ Angela 09.03 QOS
-+	proc_net_remove("ip_track");
-  cleanup_init:
- #endif /* CNFIG_PROC_FS */
- 	nf_conntrack_cleanup();
