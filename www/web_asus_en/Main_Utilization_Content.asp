@@ -11,6 +11,8 @@
     var wan_proto="<% nvram_get_f("wan.log","wan_proto"); %>";
     var wan_ifname="<% nvram_get_x("IPConnection","wan_ifname"); %>";
     var man_ifname="";
+    var ipv6_proto="<% nvram_get_x("wan.log","ipv6_proto"); %>";
+    var ipv6_ifname="";
     var wlan_ifname="<% nvram_get_x("IPConnection","wl0_ifname"); %>";
     var lan_ifname="<% nvram_get_x("IPConnection","lan_ifname"); %>";
 
@@ -21,6 +23,8 @@
 	    document.getElementById("wan_graph").src="graph_if.svg?"+wan_ifname+"#"+value;
 	if (man_ifname != "")
 	    document.getElementById("man_graph").src="graph_if.svg?"+man_ifname+"#"+value;
+	if (ipv6_ifname != "")
+	    document.getElementById("ipv6_graph").src="graph_if.svg?"+ipv6_ifname+"#"+value;
 	if (wlan_ifname != "")
 	    document.getElementById("wlan_graph").src="graph_if.svg?"+wlan_ifname+"#"+value;
 	if (lan_ifname != "")
@@ -50,9 +54,13 @@
 	if (wan_proto=="usbmodem") {
 	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
 	}
+	if (ipv6_proto=="tun6in4" || ipv6_proto=="tun6in4") {
+	    ipv6_ifname="sixtun";
+	}
 
 	process_element("wan", wan_ifname);
 	process_element("man", man_ifname);
+	process_element("ipv6", ipv6_ifname);
 	process_element("wlan", wlan_ifname);
 	process_element("lan", lan_ifname);
 
@@ -126,6 +134,14 @@
     <table align="right" border="0">
     <tr><td>
 	<iframe id="man_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
+    </td></tr></table></td>
+</tr>
+<tr id="ipv6_data">
+    <td class="content_header_td">IPV6 (<span id="ipv6_ifname"></span>):</td>
+    <td class="content_header_td">
+    <table align="right" border="0">
+    <tr><td>
+	<iframe id="ipv6_graph" type="image/svg+xml" width="530" height="250" frameborder="0" src=""></iframe>
     </td></tr></table></td>
 </tr>
 <tr id="wlan_data">
