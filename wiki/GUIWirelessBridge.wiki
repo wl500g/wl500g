@@ -1,5 +1,13 @@
 #summary Wireless - Bridge
 
+= Index =
+ * [GUIWirelessBridge#Introduction Introduction]
+ * [GUIWirelessBridge#AP_Mode AP Mode]
+ * [GUIWirelessBridge#Channel Channel]
+ * [GUIWirelessBridge#Connect_to_APs_in_Remote_Bridge_List Connect to APs in Remote Bridge List]
+ * [GUIWirelessBridge#Allow_anonymous Allow anonymous]
+ * [GUIWirelessBridge#Remote_Bridge_List Remote Bridge List]
+
 = Introduction =
 
 In this menu you'll be able to set up a Wireless Distribution System (WDS).
@@ -27,7 +35,7 @@ Read more about WDS [http://en.wikipedia.org/wiki/Wireless_Distribution_System h
 
 Choose between the several modes described above here.
 
-Make sure that in the [GUIWirelessAdvanced Wireless Advanced page] the "Extended Mode" is set to "AP or WDS".
+Make sure that in the [GUIWirelessAdvanced#Extended_Mode Wireless Advanced page the "Extended Mode" is set to "AP or WDS"].
 
 ----------
 
@@ -39,7 +47,7 @@ For all stations this channel must be the same!
 
 It's a good idea to set the Main station to a fixed channel as well so the other stations don't require a sudden configuration change.
 
-More information about channels? Check the [GUIWirelessInterface Wireless Interface page]!
+More information about channels? Check the [GUIWirelessInterface#Channel Wireless Interface page]!
 
 ----------
 
@@ -51,7 +59,7 @@ Selecting yes will cause the switch or base station to connect to other stations
 
 = Allow anonymous =
 
-Selecting yes will cause other stations to connect to this station without being listed in the Remote Bridge List as long as the encryption, channel and SSID are the same.
+Selecting yes will cause other stations to connect to this station without being listed in the Remote Bridge List as long as the [GUIWirelessInterface#Authentication_Method encryption], [GUIWirelessInterface#Channel channel] and [GUIWirelessInterface#SSID SSID] are the same.
 
 Beware of loops.
 
