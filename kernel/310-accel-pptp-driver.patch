@@ -1,6 +1,6 @@
-diff -BurpN linux-2.4.37.9/drivers/net/pptp.c linux/drivers/net/pptp.c
---- linux-2.4.37.9/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
-+++ linux/drivers/net/pptp.c	2010-08-21 10:31:41.000000000 +0000
+diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
+--- linux.orig/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/drivers/net/pptp.c	2010-08-21 14:22:39.000000000 +0000
 @@ -0,0 +1,1232 @@
 +/*
 + *  Point-to-Point Tunneling Protocol for Linux
