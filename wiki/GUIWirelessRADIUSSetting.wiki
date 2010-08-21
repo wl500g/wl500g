@@ -1,5 +1,13 @@
 #summary Wireless - RADIUS Setting
 
+= Index =
+ * [GUIWirelessRADIUSSetting#Introduction Introduction]
+ * [GUIWirelessRADIUSSetting#Server_IP_Address Server IP Address]
+ * [GUIWirelessRADIUSSetting#Server_Port Server Port]
+ * [GUIWirelessRADIUSSetting#Connection_Secret Connection Secret]
+
+----------
+
 = Introduction =
 
 This section allows you to set up additional parameters for authorizing wireless clients through RADIUS server. 
