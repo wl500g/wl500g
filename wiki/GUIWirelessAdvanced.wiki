@@ -2,6 +2,32 @@
 
 In this menu you're able to set advanced wireless settings.
 
+= Index =
+ * [GUIWirelessAdvanced#Introduction Introduction]
+ * [GUIWirelessAdvanced#Enable_AfterBurner Enable AfterBurner]
+ * [GUIWirelessAdvanced#Hide_SSID Hide SSID]
+ * [GUIWirelessAdvanced#Set_AP_Isolated Set AP Isolated]
+ * [GUIWirelessAdvanced#802.11b/g_Data_Rate_(Mbps) 802.11b/g Data Rate (Mbps)]
+ * [GUIWirelessAdvanced#Multicast_Rate_(Mbps) Multicast Rate (Mbps)]
+ * [GUIWirelessAdvanced#802.11n_MCS_Index 802.11n MCS Index]
+ * [GUIWirelessAdvanced#Basic_Rate_Set Basic Rate Set]
+ * [GUIWirelessAdvanced#Regulatory_Mode Regulatory Mode]
+ * [GUIWirelessAdvanced#Fragmentation_Threshold Fragmentation Threshold]
+ * [GUIWirelessAdvanced#RTS_Threshold RTS Threshold]
+  * [GUIWirelessAdvanced#What_is_RTS What is RTS]
+ * [GUIWirelessAdvanced#DTIM_Interval DTIM Interval]
+ * [GUIWirelessAdvanced#Beacon_Interval Beacon Interval]
+ * [GUIWirelessAdvanced#Enable_Frame_Bursting Enable Frame Bursting]
+ * [GUIWirelessAdvanced#Extended_Mode Extended Mode]
+ * [GUIWirelessAdvanced#Enable_Radio Enable Radio]
+ * [GUIWirelessAdvanced#Date_to_Enable_Radio Date to Enable Radio]
+ * [GUIWirelessAdvanced#Time_of_Day_to_Enable_Radio Time of Day to Enable Radio]
+ * [GUIWirelessAdvanced#Radio_Power Radio Power]
+ * [GUIWirelessAdvanced#Enable_WMM Enable WMM]
+ * [GUIWirelessAdvanced#Enable_WMM_No-Acknowledgement Enable WMM No-Acknowledgement]
+
+-------
+
 = Introduction =
 This page contains some advanced wireless settings. Usually you do not want to change most of the settings on this page since they can easily make your !WiFi connection unstable.
 
