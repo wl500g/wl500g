@@ -8,6 +8,8 @@
  * [GUIWirelessBridge#Allow_anonymous Allow anonymous]
  * [GUIWirelessBridge#Remote_Bridge_List Remote Bridge List]
 
+-------
+
 = Introduction =
 
 In this menu you'll be able to set up a Wireless Distribution System (WDS).
