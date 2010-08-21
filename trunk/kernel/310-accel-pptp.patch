@@ -1,6 +1,48 @@
-diff -BurpN linux-2.4.37.3/include/linux/if_pppox.h linux/include/linux/if_pppox.h
---- linux-2.4.37.3/include/linux/if_pppox.h	2009-07-26 00:00:00.000000000 +0000
-+++ linux/include/linux/if_pppox.h	2009-09-12 00:02:38.000000000 +0600
+diff -BurpN linux.orig/drivers/net/Config.in linux/drivers/net/Config.in
+--- linux.orig/drivers/net/Config.in	2010-08-21 00:00:00.000000000 +0000
++++ linux/drivers/net/Config.in	2010-08-21 14:37:42.000000000 +0000
+@@ -342,6 +342,7 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
+    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
+       dep_tristate '  PPP over L2TP (EXPERIMENTAL)' CONFIG_PPPOL2TP $CONFIG_PPP $CONFIG_PPPOE
++      dep_tristate '  PPP over IP (EXPERIMENTA)' CONFIG_PPTP $CONFIG_PPP $CONFIG_PPPOE
+    fi
+    if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
+       dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM
+diff -BurpN linux.orig/drivers/net/Makefile linux/drivers/net/Makefile
+--- linux.orig/drivers/net/Makefile	2010-08-21 00:00:00.000000000 +0000
++++ linux/drivers/net/Makefile	2010-08-21 14:37:42.000000000 +0000
+@@ -169,6 +169,7 @@ obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
+ obj-$(CONFIG_PPP_MPPE_MPPC) += ppp_mppe_mppc.o
+ obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
+ obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
++obj-$(CONFIG_PPTP) += pppox.o pptp.o
+ 
+ obj-$(CONFIG_SLIP) += slip.o
+ ifeq ($(CONFIG_SLIP_COMPRESSED),y)
+diff -BurpN linux.orig/drivers/net/pppox.c linux/drivers/net/pppox.c
+--- linux.orig/drivers/net/pppox.c	2010-08-21 00:00:00.000000000 +0000
++++ linux/drivers/net/pppox.c	2010-08-21 14:37:42.000000000 +0000
+@@ -77,7 +77,7 @@ EXPORT_SYMBOL(register_pppox_proto);
+ EXPORT_SYMBOL(unregister_pppox_proto);
+ EXPORT_SYMBOL(pppox_unbind_sock);
+ 
+-static int pppox_ioctl(struct socket* sock, unsigned int cmd,
++int pppox_ioctl(struct socket* sock, unsigned int cmd,
+ 		       unsigned long arg)
+ {
+ 	struct sock *sk = sock->sk;
+@@ -115,6 +115,7 @@ static int pppox_ioctl(struct socket* so
+ 	return err;
+ }
+ 
++EXPORT_SYMBOL(pppox_ioctl);
+ 
+ static int pppox_create(struct socket *sock, int protocol)
+ {
+diff -BurpN linux.orig/include/linux/if_pppox.h linux/include/linux/if_pppox.h
+--- linux.orig/include/linux/if_pppox.h	2010-08-21 00:00:00.000000000 +0000
++++ linux/include/linux/if_pppox.h	2010-08-21 14:41:32.000000000 +0000
 @@ -20,6 +20,7 @@
  #include <asm/types.h>
  #include <asm/byteorder.h>
@@ -39,7 +81,7 @@ diff -BurpN linux-2.4.37.3/include/linux/if_pppox.h linux/include/linux/if_pppox
  
  /* The use of a union isn't viable because the size of this struct
   * must stay fixed over time -- applications use sizeof(struct
-@@ -66,23 +77,40 @@ struct sockaddr_pppox {
+@@ -66,23 +77,34 @@ struct sockaddr_pppox {
         sa_family_t     sa_family;            /* address family, AF_PPPOX */
         unsigned int    sa_protocol;          /* protocol identifier */
         union{
@@ -72,16 +114,10 @@ diff -BurpN linux-2.4.37.3/include/linux/if_pppox.h linux/include/linux/if_pppox
  	struct pppol2tp_addr pppol2tp;
  }__attribute__ ((packed));
 +#endif
-+
-+/* Socket options */
-+#define PPTP_SO_TIMEOUT 1
-+#define PPTP_SO_WINDOW  2
-+#define PPTP_FLAG_PAUSE 0
-+#define PPTP_FLAG_PROC  1
  
  /*********************************************************************
   *
-@@ -92,7 +120,8 @@ struct sockaddr_pppol2tp {
+@@ -92,7 +114,8 @@ struct sockaddr_pppol2tp {
  
  #define PPPOEIOCSFWD	_IOW(0xB1 ,0, sizeof(struct sockaddr_pppox))
  #define PPPOEIOCDFWD	_IO(0xB1 ,1)
@@ -91,7 +127,7 @@ diff -BurpN linux-2.4.37.3/include/linux/if_pppox.h linux/include/linux/if_pppox
  
  /* Codes to identify message types */
  #define PADI_CODE	0x09
-@@ -147,6 +176,8 @@ extern void unregister_pppox_proto(int p
+@@ -147,6 +170,8 @@ extern void unregister_pppox_proto(int p
  extern void pppox_unbind_sock(struct sock *sk);/* delete ppp-channel binding */
  extern int pppox_channel_ioctl(struct ppp_channel *pc, unsigned int cmd,
  			       unsigned long arg);
@@ -100,9 +136,9 @@ diff -BurpN linux-2.4.37.3/include/linux/if_pppox.h linux/include/linux/if_pppox
  
  /* PPPoX socket states */
  enum {
-diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
---- linux-2.4.37.3/include/net/sock.h	2002-05-22 12:14:56.000000000 +0000
-+++ linux/include/net/sock.h	2009-07-26 12:46:05.000000000 +0000
+diff -BurpN linux.orig/include/net/sock.h linux/include/net/sock.h
+--- linux.orig/include/net/sock.h	2005-05-07 13:29:29.000000000 +0000
++++ linux/include/net/sock.h	2010-08-21 14:42:40.000000000 +0000
 @@ -73,7 +73,9 @@
  #endif
  #endif
@@ -114,7 +150,7 @@ diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
  #include <linux/if_pppox.h>
  #include <linux/ppp_channel.h>   /* struct ppp_channel */
  #endif
-@@ -235,19 +237,57 @@ struct pppoe_opt
+@@ -239,19 +241,55 @@ struct pppoe_opt
  	struct sockaddr_pppox	relay;	  /* what socket data will be
  					     relayed to (PPPoE relaying) */
  };
@@ -133,8 +169,6 @@ diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
 +	int ppp_flags;
 +};
 +#endif
-+#define PPTP_FLAG_PAUSE 0
-+#define PPTP_FLAG_PROC 1
 + 
 +#if defined(CONFIG_PPPOE) || defined(CONFIG_PPPOE_MODULE) \
 + || defined(CONFIG_PPPOL2TP) || defined(CONFIG_PPPOL2TP_MODULE) \
@@ -175,7 +209,7 @@ diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
  #endif
  
  /* This defines a selective acknowledgement block. */
-@@ -720,7 +760,9 @@ struct sock {
+@@ -738,7 +776,9 @@ struct sock {
  #if defined(CONFIG_ROSE) || defined(CONFIG_ROSE_MODULE)
  		rose_cb			*rose;
  #endif
@@ -186,7 +220,7 @@ diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
  		struct pppox_opt	*pppox;
  #endif
  		struct netlink_opt	*af_netlink;
-@@ -760,6 +802,20 @@ struct sock {
+@@ -778,6 +818,20 @@ struct sock {
  	void                    (*destruct)(struct sock *sk);
  };
  
@@ -207,45 +241,3 @@ diff -BurpN linux-2.4.37.3/include/net/sock.h linux/include/net/sock.h
  /* The per-socket spinlock must be held here. */
  #define sk_add_backlog(__sk, __skb)			\
  do {	if((__sk)->backlog.tail == NULL) {		\
-diff -BurpN linux-2.4.37.3/drivers/net/Config.in linux/drivers/net/Config.in
---- linux-2.4.37.3/drivers/net/Config.in	2009-07-26 00:00:00.000000000 +0000
-+++ linux/drivers/net/Config.in	2009-07-26 12:35:28.000000000 +0000
-@@ -347,6 +347,7 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
-    if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
-       dep_tristate '  PPP over L2TP (EXPERIMENTAL)' CONFIG_PPPOL2TP $CONFIG_PPP $CONFIG_PPPOE
-+      dep_tristate '  PPP over IP (EXPERIMENTA)' CONFIG_PPTP $CONFIG_PPP $CONFIG_PPPOE
-    fi
-    if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
-       dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM
-diff -BurpN linux-2.4.37.3/drivers/net/Makefile linux/drivers/net/Makefile
---- linux-2.4.37.3/drivers/net/Makefile	2009-07-26 00:00:00.000000000 +0000
-+++ linux/drivers/net/Makefile	2009-07-26 12:36:33.000000000 +0000
-@@ -169,6 +169,7 @@ obj-$(CONFIG_PPP_BSDCOMP) += bsd_comp.o
- obj-$(CONFIG_PPP_MPPE_MPPC) += ppp_mppe_mppc.o
- obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
- obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
-+obj-$(CONFIG_PPTP) += pppox.o pptp.o
- 
- obj-$(CONFIG_SLIP) += slip.o
- ifeq ($(CONFIG_SLIP_COMPRESSED),y)
-diff -BurpN linux-2.4.37.3/drivers/net/pppox.c linux/drivers/net/pppox.c
---- linux-2.4.37.3/drivers/net/pppox.c	2009-07-26 00:00:00.000000000 +0000
-+++ linux/drivers/net/pppox.c	2009-07-26 12:41:42.000000000 +0000
-@@ -77,7 +77,7 @@ EXPORT_SYMBOL(register_pppox_proto);
- EXPORT_SYMBOL(unregister_pppox_proto);
- EXPORT_SYMBOL(pppox_unbind_sock);
- 
--static int pppox_ioctl(struct socket* sock, unsigned int cmd,
-+int pppox_ioctl(struct socket* sock, unsigned int cmd,
- 		       unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
-@@ -115,6 +115,7 @@ static int pppox_ioctl(struct socket* so
- 	return err;
- }
- 
-+EXPORT_SYMBOL(pppox_ioctl);
- 
- static int pppox_create(struct socket *sock, int protocol)
- {

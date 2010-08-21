@@ -1,39 +1,59 @@
-diff -BurpN linux-2.4.37.9/drivers/net/Config.in linux/drivers/net/Config.in
---- linux-2.4.37.9/drivers/net/Config.in	2004-10-08 18:56:45.000000000 +0000
-+++ linux/drivers/net/Config.in	2010-08-20 21:37:01.000000000 +0000
-@@ -356,6 +356,9 @@ if [ ! "$CONFIG_PPP" = "n" ]; then
-       dep_tristate '  PPP over Ethernet (EXPERIMENTAL)' CONFIG_PPPOE $CONFIG_PPP
-       dep_tristate '  PPP over L2TP (EXPERIMENTAL)' CONFIG_PPPOL2TP $CONFIG_PPP $CONFIG_PPPOE
-       dep_tristate '  PPP over IP (EXPERIMENTA)' CONFIG_PPTP $CONFIG_PPP $CONFIG_PPPOE
-+      if [ "$CONFIG_PPTP" = "y" -o "$CONFIG_PPTP" = "m" ]; then
-+         tristate '  GRE over IPv4 demultiplexor' CONFIG_GRE
-+      fi
-    fi
-    if [ "$CONFIG_ATM" = "y" -o "$CONFIG_ATM" = "m" ]; then
-       dep_tristate '  PPP over ATM (EXPERIMENTAL)' CONFIG_PPPOATM $CONFIG_PPP $CONFIG_ATM
-diff -BurpN linux-2.4.37.9/drivers/net/Makefile linux/drivers/net/Makefile
---- linux-2.4.37.9/drivers/net/Makefile	2004-10-08 18:56:45.000000000 +0000
-+++ linux/drivers/net/Makefile	2010-08-20 21:37:26.000000000 +0000
-@@ -17,7 +17,7 @@ O_TARGET := net.o
+diff -BurpN linux.orig/include/net/gre.h linux/include/net/gre.h
+--- linux.orig/include/net/gre.h	1970-01-01 00:00:00.000000000 +0000
++++ linux/include/net/gre.h	2010-08-21 14:27:23.000000000 +0000
+@@ -0,0 +1,18 @@
++#ifndef __LINUX_GRE_H
++#define __LINUX_GRE_H
++
++#include <linux/skbuff.h>
++
++#define GREPROTO_CISCO		0
++#define GREPROTO_PPTP		1
++#define GREPROTO_MAX		2
++
++struct gre_protocol {
++	int	(*handler)(struct sk_buff *skb);
++	void	(*err_handler)(struct sk_buff *skb, u32 info);
++};
++
++int gre_add_protocol(struct gre_protocol *proto, u8 version);
++int gre_del_protocol(struct gre_protocol *proto, u8 version);
++
++#endif
+diff -BurpN linux.orig/net/ipv4/Config.in linux/net/ipv4/Config.in
+--- linux.orig/net/ipv4/Config.in	2005-05-07 12:54:59.000000000 +0000
++++ linux/net/ipv4/Config.in	2010-08-21 14:35:28.000000000 +0000
+@@ -24,6 +24,7 @@ if [ "$CONFIG_IP_PNP" = "y" ]; then
+ #   bool '    IP: ARP support' CONFIG_IP_PNP_ARP		
+ fi
+ tristate '  IP: tunneling' CONFIG_NET_IPIP
++tristate '  IP: GRE demultiplexer' CONFIG_NET_IPGRE_DEMUX
+ tristate '  IP: GRE tunnels over IP' CONFIG_NET_IPGRE
+ if [ "$CONFIG_IP_MULTICAST" = "y" ]; then
+    if [ "$CONFIG_NET_IPGRE" != "n" ]; then
+diff -BurpN linux.orig/net/ipv4/Makefile linux/net/ipv4/Makefile
+--- linux.orig/net/ipv4/Makefile	2010-02-01 21:04:46.000000000 +0000
++++ linux/net/ipv4/Makefile	2010-08-21 14:33:53.000000000 +0000
+@@ -9,7 +9,7 @@
  
- export-objs     :=	8390.o arlan.o aironet4500_core.o aironet4500_card.o \
- 			ppp_async.o ppp_generic.o slhc.o pppox.o auto_irq.o \
--			net_init.o mii.o
-+			net_init.o mii.o gre.o
- list-multi	:=	rcpci.o
- rcpci-objs	:=	rcpci45.o rclanmtl.o
+ O_TARGET := ipv4.o
  
-@@ -170,6 +170,7 @@ obj-$(CONFIG_PPP_MPPE_MPPC) += ppp_mppe_
- obj-$(CONFIG_PPPOE) += pppox.o pppoe.o
- obj-$(CONFIG_PPPOL2TP) += pppox.o pppol2tp.o
- obj-$(CONFIG_PPTP) += pppox.o pptp.o
-+obj-$(CONFIG_GRE) += gre.o
+-export-objs = ipip.o ip_gre.o
++export-objs = ipip.o gre.o ip_gre.o
  
- obj-$(CONFIG_SLIP) += slip.o
- ifeq ($(CONFIG_SLIP_COMPRESSED),y)
-diff -BurpN linux-2.4.37.9/drivers/net/gre.c linux/drivers/net/gre.c
---- linux-2.4.37.9/drivers/net/gre.c	1970-01-01 00:00:00.000000000 +0000
-+++ linux/drivers/net/gre.c	2010-08-21 10:16:13.000000000 +0000
+ obj-y     := utils.o route.o inetpeer.o proc.o protocol.o \
+ 	     ip_input.o ip_fragment.o ip_forward.o ip_options.o \
+@@ -22,6 +22,7 @@ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_
+ obj-$(CONFIG_IP_ROUTE_NAT) += ip_nat_dumb.o
+ obj-$(CONFIG_IP_MROUTE) += ipmr.o
+ obj-$(CONFIG_NET_IPIP) += ipip.o
++obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
+ obj-$(CONFIG_NET_IPGRE) += ip_gre.o
+ obj-$(CONFIG_SYN_COOKIES) += syncookies.o
+ obj-$(CONFIG_IP_PNP) += ipconfig.o
+diff -BurpN linux.orig/net/ipv4/gre.c linux/net/ipv4/gre.c
+--- linux.orig/net/ipv4/gre.c	1970-01-01 00:00:00.000000000 +0000
++++ linux/net/ipv4/gre.c	2010-08-21 14:27:23.000000000 +0000
 @@ -0,0 +1,220 @@
 +#include <linux/module.h>
 +#include <linux/kernel.h>
@@ -255,25 +275,64 @@ diff -BurpN linux-2.4.37.9/drivers/net/gre.c linux/drivers/net/gre.c
 +MODULE_LICENSE("GPL");
 +EXPORT_SYMBOL_GPL(gre_add_protocol);
 +EXPORT_SYMBOL_GPL(gre_del_protocol);
-diff -BurpN linux-2.4.37.9/include/linux/gre.h linux/include/linux/gre.h
---- linux-2.4.37.9/include/linux/gre.h	1970-01-01 00:00:00.000000000 +0000
-+++ linux/include/linux/gre.h	2010-08-21 10:40:37.000000000 +0000
-@@ -0,0 +1,18 @@
-+#ifndef __LINUX_GRE_H
-+#define __LINUX_GRE_H
-+
-+#include <linux/skbuff.h>
-+
-+#define GREPROTO_CISCO		0
-+#define GREPROTO_PPTP		1
-+#define GREPROTO_MAX		2
-+
-+struct gre_protocol {
-+	int		(*handler)(struct sk_buff *skb);
-+	void	(*err_handler)(struct sk_buff *skb, u32 info);
-+};
-+
-+int gre_add_protocol(struct gre_protocol *proto, u8 version);
-+int gre_del_protocol(struct gre_protocol *proto, u8 version);
-+
+--- linux.orig/net/ipv4/ip_gre.c	2010-02-01 21:04:46.000000000 +0000
++++ linux/net/ipv4/ip_gre.c	2010-08-21 15:01:12.000000000 +0000
+@@ -38,6 +38,10 @@
+ #include <net/checksum.h>
+ #include <net/inet_ecn.h>
+ 
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
++#include <net/gre.h>
 +#endif
++
+ #ifdef CONFIG_IPV6
+ #include <net/ipv6.h>
+ #include <net/ip6_fib.h>
+@@ -1243,7 +1247,12 @@ int __init ipgre_fb_tunnel_init(struct n
+ 	return 0;
+ }
+ 
+-
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
++static struct gre_protocol ipgre_protocol = {
++	.handler	= ipgre_rcv,
++	.err_handler	= ipgre_err,
++};
++#else
+ static struct inet_protocol ipgre_protocol = {
+   ipgre_rcv,             /* GRE handler          */
+   ipgre_err,             /* TUNNEL error control */
+@@ -1253,7 +1262,7 @@ static struct inet_protocol ipgre_protoc
+   NULL,                 /* data                 */
+   "GRE"                 /* name                 */
+ };
+-
++#endif
+ 
+ /*
+  *	And now the modules code and kernel interface.
+@@ -1269,7 +1278,12 @@ int __init ipgre_init(void)
+ 
+ 	ipgre_fb_tunnel_dev.priv = (void*)&ipgre_fb_tunnel;
+ 	register_netdev(&ipgre_fb_tunnel_dev);
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
++	if (gre_add_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
++		printk(KERN_INFO "ipgre close: can't add protocol\n");
++#else
+ 	inet_add_protocol(&ipgre_protocol);
++#endif
+ 	return 0;
+ }
+ 
+@@ -1277,7 +1291,11 @@ int __init ipgre_init(void)
+ 
+ void cleanup_module(void)
+ {
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
++	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
++#else
+ 	if ( inet_del_protocol(&ipgre_protocol) < 0 )
++#endif
+ 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
+ 
+ 	unregister_netdev(&ipgre_fb_tunnel_dev);
