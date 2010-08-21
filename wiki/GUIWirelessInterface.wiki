@@ -2,6 +2,26 @@
 
 In this menu you're able to set basic wireless settings like: Network name and encryption settings
 
+= Index =
+ * [GUIWirelessInterface#Introduction Introduction]
+ * [GUIWirelessInterface#SSID SSID]
+ * [GUIWirelessInterface#Channel Channel]
+  * [GUIWirelessInterface#Channel_overlapping Channel overlapping]
+   * [GUIWirelessInterface#802.11N_(draft) 802.11N (draft)]
+ * [GUIWirelessInterface#Wireless_Mode Wireless Mode]
+ * [GUIWirelessInterface#Bandwidth Bandwidth]
+ * [GUIWirelessInterface#802.11n_SubChannel 802.11n SubChannel]
+ * [GUIWirelessInterface#Authentication_Method Authentication Method]
+ * [GUIWirelessInterface#WPA_Encryption WPA Encryption]
+ * [GUIWirelessInterface#WPA_Pre-Shared_Key WPA Pre-Shared Key]
+ * [GUIWirelessInterface#WEP_Encryption WEP Encryption]
+ * [GUIWirelessInterface#Passphrase Passphrase]
+ * [GUIWirelessInterface#WEP_Key_X_(10_or_26_hex_digits) WEP Key X (10 or 26 hex digits)]
+ * [GUIWirelessInterface#Key_Index Key Index]
+ * [GUIWirelessInterface#Network_Key_Rotation_Interval Network Key Rotation Interval]
+
+----------
+
 == Introduction ==
 Wireless networking is not very easy to understand when it comes to the science of wlan.
 In this article I make an attempt to keep it easy, but with the handy to know facts that'll make your wireless network work.
