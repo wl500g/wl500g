@@ -1,14 +1,15 @@
-1. disabled ffs routines redefine
-2. used route-default ttl & df bit
-3. fixed 2.6.22 kernel compability
-4. allowed old lcp echo packets, thnx McMCC@wl500g.info
-5. Avoid copying writable clones in tunnel drivers
-   kernel.org commit cfbba49d80be6cf8d3872b66fc5421f119843b36
-
-diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
---- linux-2.6.22.orig/drivers/net/pptp.c	2010-01-03 16:30:21.000000000 +0000
-+++ linux-2.6/drivers/net/pptp.c	2010-05-02 11:49:32.000000000 +0000
-@@ -21,7 +21,7 @@
+diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
+--- linux.orig/drivers/net/pptp.c	2010-08-21 14:22:39.000000000 +0000
++++ linux/drivers/net/pptp.c	2010-08-21 14:50:01.000000000 +0000
+@@ -14,6 +14,7 @@
+ #include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/slab.h>
++#include <linux/vmalloc.h>
+ #include <linux/errno.h>
+ #include <linux/netdevice.h>
+ #include <linux/net.h>
+@@ -21,7 +22,7 @@
  #include <linux/init.h>
  #include <linux/ppp_channel.h>
  #include <linux/ppp_defs.h>
@@ -17,16 +18,23 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
  #include <linux/if_ppp.h>
  #include <linux/notifier.h>
  #include <linux/file.h>
-@@ -60,6 +60,8 @@ static int log_level=0;
- static int log_packets=10;
+@@ -43,11 +44,11 @@
  
- #define MAX_CALLID 65535
-+#define PPP_LCP_ECHOREQ 0x09
-+#define PPP_LCP_ECHOREP 0x0A
+ #include <asm/uaccess.h>
  
- static unsigned long *callid_bitmap=NULL;
- static struct pppox_sock **callid_sock=NULL;
-@@ -104,6 +106,7 @@ static inline void nf_reset(struct sk_bu
+-#define DEBUG
+-//#define CONFIG_GRE
++//#define DEBUG
++//#define CONFIG_NET_IPGRE_DEMUX
+ 
+-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
+-#include "gre.h"
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
++#include <net/gre.h>
+ #endif
+ 
+ #define PPTP_DRIVER_VERSION "0.8.5-rc1"
+@@ -93,6 +94,7 @@ static inline void nf_reset(struct sk_bu
  #define __user
  #endif
  
@@ -34,95 +42,108 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pptp.c linux-2.6/drivers/net/pptp.c
  /**
   * __ffs - find first bit in word.
   * @word: The word to search
-@@ -184,7 +187,7 @@ found_middle:
+@@ -173,6 +175,7 @@ found_middle:
  	return result + __ffs(tmp);
  }
  #endif
--
 +#endif
  
  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
  static rwlock_t chan_lock=RW_LOCK_UNLOCKED;
-@@ -374,8 +377,8 @@ static int pptp_xmit(struct ppp_channel 
- 	max_headroom = LL_RESERVED_SPACE(tdev) + sizeof(*iph)+sizeof(*hdr)+2;
- 	#endif
- 
--
--	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
-+	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
-+	    (skb_cloned(skb) && !skb_clone_writable(skb, 0))) {
- 		struct sk_buff *new_skb = skb_realloc_headroom(skb, max_headroom);
- 		if (!new_skb) {
- 			ip_rt_put(rt);
-@@ -399,8 +402,8 @@ static int pptp_xmit(struct ppp_channel 
- 		*/
- 	if ((opt->ppp_flags & SC_COMP_AC) == 0 || islcp) {
- 		data=skb_push(skb,2);
--		data[0]=0xff;
--		data[1]=0x03;
-+		data[0]=PPP_ALLSTATIONS;
-+		data[1]=PPP_UI;
- 	}
+@@ -270,7 +273,7 @@ static int lookup_chan_dst(u16 call_id, 
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+ 	rcu_read_lock();
+ #else
+-	down(&chan_lock);
++	read_lock(&chan_lock);
+ #endif
+ 	for(i = find_next_bit(callid_bitmap,MAX_CALLID,1); i < MAX_CALLID; 
+ 	                i = find_next_bit(callid_bitmap, MAX_CALLID, i + 1)){
+@@ -281,7 +284,7 @@ static int lookup_chan_dst(u16 call_id, 
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+ 	rcu_read_unlock();
+ #else
+-	up(&chan_lock);
++	read_unlock(&chan_lock);
+ #endif
  	
- 	len=skb->len;
-@@ -469,13 +472,16 @@ static int pptp_xmit(struct ppp_channel 
- 	#endif
- 	iph->version		=	4;
- 	iph->ihl		=	sizeof(struct iphdr) >> 2;
--	iph->frag_off		=	0;//df;
-+	if (ip_dont_fragment(sk, &rt->u.dst))
-+		iph->frag_off	=	htons(IP_DF);
-+	else
-+		iph->frag_off	=	0;
- 	iph->protocol		=	IPPROTO_GRE;
- 	iph->tos		=	0;
- 	iph->daddr		=	rt->rt_dst;
- 	iph->saddr		=	rt->rt_src;
- 	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
--	iph->ttl = sysctl_ip_default_ttl;
-+	iph->ttl = sk->protinfo.af_inet.ttl;
- 	#else
- 	iph->ttl = dst_metric(&rt->u.dst, RTAX_HOPLIMIT);
- 	#endif
-@@ -559,12 +565,24 @@ static int pptp_rcv_core(struct sock *sk
- 	payload=skb->data+headersize;
- 	/* check for expected sequence number */
- 	if ( seq < opt->seq_recv + 1 || WRAPPED(opt->seq_recv, seq) ){
-+		if ( (payload[0] == PPP_ALLSTATIONS) && (payload[1] == PPP_UI) &&
-+		     (PPP_PROTOCOL(payload) == PPP_LCP) &&
-+		     ((payload[4] == PPP_LCP_ECHOREQ) || (payload[4] == PPP_LCP_ECHOREP)) ){
-+			#ifdef DEBUG
-+			if ( log_level >= 1)
-+				printk(KERN_INFO"PPTP[%i]: allowing old LCP Echo packet %d (expecting %d)\n", opt->src_addr.call_id,
-+							seq, opt->seq_recv + 1);
-+			#endif
-+			goto allow_packet;
-+		}
- 		#ifdef DEBUG
- 		if ( log_level >= 1)
- 			printk(KERN_INFO"PPTP[%i]: discarding duplicate or old packet %d (expecting %d)\n",opt->src_addr.call_id,
- 							seq, opt->seq_recv + 1);
- 		#endif
- 	}else{
-+		opt->seq_recv = seq;
-+allow_packet:
- 		#ifdef DEBUG
- 		if ( log_level >= 3 && opt->seq_sent<=log_packets)
- 			printk(KERN_INFO"PPTP[%i]: accepting packet %d size=%i (%02x %02x %02x %02x %02x %02x)\n",opt->src_addr.call_id, seq,payload_len,
-@@ -575,7 +593,6 @@ static int pptp_rcv_core(struct sock *sk
- 				*(payload +4),
- 				*(payload +5));
- 		#endif
--		opt->seq_recv = seq;
+ 	return i<MAX_CALLID;
+@@ -1118,7 +1121,7 @@ static struct pppox_proto pppox_pptp_pro
+ #endif
+ };
  
- 		skb_pull(skb,headersize);
+-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+ static struct gre_protocol gre_pptp_protocol = {
+ 	.handler	= pptp_rcv,
+ };
+@@ -1139,14 +1142,22 @@ static int __init pptp_init_module(void)
+ 	int err=0;
+ 	printk(KERN_INFO "PPTP driver version " PPTP_DRIVER_VERSION "\n");
  
-@@ -592,7 +609,7 @@ static int pptp_rcv_core(struct sock *sk
- 		}
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
++	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
++	                        GFP_KERNEL, PAGE_KERNEL);
++#else
+ 	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
+ 	                        GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
++#endif
+ 	if (!callid_sock) {
+ 		printk(KERN_ERR "PPTP: cann't allocate memory\n");
+ 		return -ENOMEM;
+ 	}
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
++	memset(callid_sock, 0, (MAX_CALLID + 1) * sizeof(void *));
++#endif
  
- 		skb->ip_summed=CHECKSUM_NONE;
--		#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,19)
-+		#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,21)
- 		skb_set_network_header(skb,skb->head-skb->data);
- 		#endif
- 		ppp_input(&po->chan,skb);
+-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+ 	if (gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP) < 0) {
+ 		printk(KERN_INFO "PPTP: can't add protocol\n");
+ 		goto out_free_mem;
+@@ -1184,7 +1195,7 @@ out_unregister_sk_proto:
+ out_inet_del_protocol:
+ #endif
+ 
+-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+ 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
+ #elif LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+ 	inet_del_protocol(&net_pptp_protocol);
+@@ -1200,7 +1211,7 @@ out_free_mem:
+ static void __exit pptp_exit_module(void)
+ {
+ 	unregister_pppox_proto(PX_PROTO_PPTP);
+-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
++#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
+ 	proto_unregister(&pptp_sk_proto);
+ #endif
+diff -BurpN linux.orig/net/ipv4/gre.c linux/net/ipv4/gre.c
+--- linux.orig/net/ipv4/gre.c	2010-08-21 14:27:23.000000000 +0000
++++ linux/net/ipv4/gre.c	2010-08-21 14:52:12.000000000 +0000
+@@ -8,7 +8,7 @@
+ #include <linux/spinlock.h>
+ #include <net/protocol.h>
+ 
+-#include "gre.h"
++#include <net/gre.h>
+ 
+ struct gre_protocol *gre_proto[GREPROTO_MAX] ____cacheline_aligned_in_smp;
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+@@ -181,7 +181,7 @@ static struct net_protocol net_gre_proto
+ 	.handler	= gre_rcv,
+ 	.err_handler	= gre_err,
+ #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24)
+-	.netns_ok=1,
++	.netns_ok	= 1,
+ #endif
+ };
+ #endif
+@@ -188,7 +188,7 @@ static struct net_protocol net_gre_proto
+ 
+ static int __init gre_init(void)
+ {
+-	printk(KERN_INFO "GRE over IPv4 demultiplexor driver");
++	printk(KERN_INFO "GRE over IPv4 demultiplexor driver\n");
+ 
