@@ -2057,7 +2057,7 @@
             
                 {"wl_radio_time_x", "", validate_portrange, NULL, FALSE, FALSE},
                          
-             {"wl_radio_power_x", "", validate_range, ARGV("1", "84", ""), FALSE, FALSE},
+             {"wl_radio_power_x", "", validate_range, ARGV("0", "31"), FALSE, FALSE},
         
       {"WirelessLog", "Status", NULL, ARGV("wlan11b.log",""), FALSE, FALSE},
                                         

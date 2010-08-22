@@ -539,17 +539,17 @@ stop_logger(void)
 
 int 
 start_misc(void)
-{ 
-	char *watchdog_argv[] = {"watchdog", NULL};
+{
 	pid_t pid;
-	
+	char *watchdog_argv[] = {"watchdog", NULL};
+	char *txpwr;
+
 	_eval(watchdog_argv, NULL, 0, &pid);
 
 	/* try to adjust wifi tx power */
-	if (nvram_invmatch("wl_radio_power_x", ""))
-	{
-		eval("wl", "txpwr1", "-m", nvram_safe_get("wl_radio_power_x"), "-o");
-	}
+	txpwr = nvram_safe_get("wl_radio_power_x");
+	if (atoi(txpwr) > 0)
+		eval("wl", "txpwr1", "-d", txpwr, "-o");
 
 #if 1
 	// for all product, fix antdiv
