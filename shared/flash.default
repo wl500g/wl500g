@@ -280,7 +280,7 @@
 
 {"wl_radio_time_x", "00002359", 0},
 
-{"wl_radio_power_x", "16", 0},
+{"wl_radio_power_x", "17", 0},
 
 {"wl_preauth", "1", 0},
 
