@@ -36,6 +36,7 @@
 #include <linux/if_ether.h>
 #include <linux/if.h>
 #include <linux/netdevice.h>
+#include <linux/in.h>
 #include <asm/semaphore.h>
 #include <linux/ppp_channel.h>
 #endif /* __KERNEL__ */
@@ -59,26 +60,39 @@ struct pppoe_addr{
        char            dev[IFNAMSIZ];          /* Local device to use */ 
 }; 
  
+struct pptp_addr {
+       __u16           call_id;
+       struct in_addr  sin_addr;
+};
+
 /************************************************************************ 
  * Protocols supported by AF_PPPOX 
  */ 
 #define PX_PROTO_OE    0 /* Currently just PPPoE */
 #define PX_PROTO_OL2TP 1 /* Now L2TP also */
-#define PX_MAX_PROTO   2
+#define PX_PROTO_PPTP  2
+#define PX_MAX_PROTO   3
 
 struct sockaddr_pppox { 
        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
        unsigned int    sa_protocol;          /* protocol identifier */ 
        union{ 
                struct pppoe_addr       pppoe; 
+               struct pptp_addr        pptp;
        }sa_addr; 
-}__attribute__ ((packed)); 
+}__attribute__ ((packed)); /* deprecated */
 
 /* The use of the above union isn't viable because the size of this
  * struct must stay fixed over time -- applications use sizeof(struct
  * sockaddr_pppox) to fill it. We use a protocol specific sockaddr
  * type instead.
  */
+struct sockaddr_pppoe {
+	sa_family_t     sa_family;	/* address family, AF_PPPOX */
+	unsigned int    sa_protocol;    /* protocol identifier */
+	struct pppoe_addr pppoe;
+}__attribute__ ((packed));
+
 struct sockaddr_pppol2tp {
 	sa_family_t     sa_family;      /* address family, AF_PPPOX */
 	unsigned int    sa_protocol;    /* protocol identifier */
@@ -93,7 +107,8 @@ struct sockaddr_pppol2tp {
 
 #define PPPOEIOCSFWD	_IOW(0xB1 ,0, size_t)
 #define PPPOEIOCDFWD	_IO(0xB1 ,1)
-/*#define PPPOEIOCGFWD	_IOWR(0xB1,2, size_t)*/
+/*#define PPPOEIOCGFWD	_IOWR(0xB1, 2, size_t)*/
+#define PPPTPIOWFP	_IOWR(0xB1 ,2, size_t)*/
 
 /* Codes to identify message types */
 #define PADI_CODE	0x09
@@ -154,6 +169,14 @@ struct pppoe_opt {
 					     relayed to (PPPoE relaying) */
 };
 
+struct pptp_opt {
+	struct pptp_addr	src_addr;
+	struct pptp_addr	dst_addr;
+	__u32 ack_sent, ack_recv;
+	__u32 seq_sent, seq_recv;
+	int ppp_flags;
+};
+
 #include <net/sock.h>
 
 struct pppox_sock {
@@ -163,6 +186,7 @@ struct pppox_sock {
 	struct pppox_sock	*next;	  /* for hash table */
 	union {
 		struct pppoe_opt pppoe;
+		struct pptp_opt  pptp;
 	} proto;
 	unsigned short		num;
 };
