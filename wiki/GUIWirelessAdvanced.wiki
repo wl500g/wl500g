@@ -239,11 +239,16 @@ When it's set to 00:00-23:59 it will be turned on the entire day.
 -------
 
 == Radio Power ==
-* Warning: setting this value to high might cause damage to your router.
 
 This setting allows you to change the maximum power and will limit how far the !WiFi network reaches.
 
-A value between 1 and 84 can be entered. The default value is 19 however.
+All the values are in dBm since r1964, for calculating the mW value simply use a [http://www.aubraux.com/design/dbm-to-milli-watts-calculator.php calculator].	
+
+A value between 1 and 31 can be entered. The default value is 17 however.
+
+When the value is set to 0 the default (maximum) power will be used: 1496 mW
+
+Please keep in mind that a higher power can increase noise on the channel and might decrease transfer speeds over !WiFi.
 
 -------
 
