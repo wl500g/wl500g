@@ -144,6 +144,7 @@ struct ipv6hdr {
 	struct	in6_addr	daddr;
 };
 
+#ifdef __KERNEL__
 /*
  * This structure contains configuration options per IPv6 link.
  */
@@ -181,8 +182,16 @@ struct ipv6_devconf {
 #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
 	__s32		optimistic_dad;
 #endif
+	__s32		disable_ipv6;
 	void		*sysctl;
 };
+
+struct ipv6_params {
+	__s32 disable_ipv6;
+	__s32 autoconf;
+};
+extern struct ipv6_params ipv6_defaults;
+#endif
 
 /* index values for the variables in ipv6_devconf */
 enum {
@@ -211,6 +220,7 @@ enum {
 	DEVCONF_PROXY_NDP,
 	DEVCONF_OPTIMISTIC_DAD,
 	DEVCONF_ACCEPT_SOURCE_ROUTE,
+	DEVCONF_DISABLE_IPV6,
 	DEVCONF_MAX
 };
 
