@@ -33,13 +33,14 @@ static void	unexportfs(char *arg, int verbose);
 static void	exports_update(int verbose);
 static void	dump(int verbose);
 static void	error(nfs_export *exp, int err);
-static void	usage(void);
+static void	usage(const char *progname);
 static void	validate_export(nfs_export *exp);
 
 int
 main(int argc, char **argv)
 {
 	char	*options = NULL;
+	char	*progname = NULL;
 	int	f_export = 1;
 	int	f_all = 0;
 	int	f_verbose = 0;
@@ -49,7 +50,14 @@ main(int argc, char **argv)
 	int	new_cache = 0;
 	int	force_flush = 0;
 
-	xlog_open("exportfs");
+	if ((progname = strrchr(argv[0], '/')) != NULL)
+		progname++;
+	else
+		progname = argv[0];
+
+	xlog_open(progname);
+	xlog_stderr(1);
+	xlog_syslog(0);
 
 	export_errno = 0;
 
@@ -78,21 +86,21 @@ main(int argc, char **argv)
 			force_flush = 1;
 			break;
 		default:
-			usage();
+			usage(progname);
 			break;
 		}
 	}
 
 	if (optind != argc && f_all) {
-		fprintf(stderr,"exportfs: extra arguments are not permitted with -a or -r.\n");
+		xlog(L_ERROR, "extra arguments are not permitted with -a or -r");
 		return 1;
 	}
 	if (f_ignore && (f_all || ! f_export)) {
-		fprintf(stderr,"exportfs: -i not meaningful with -a, -r or -u.\n");
+		xlog(L_ERROR, "-i not meaningful with -a, -r or -u");
 		return 1;
 	}
 	if (f_reexport && ! f_export) {
-		fprintf(stderr, "exportfs: -r and -u are incompatible.\n");
+		xlog(L_ERROR, "-r and -u are incompatible");
 		return 1;
 	}
 	new_cache = check_new_cache();
@@ -101,8 +109,10 @@ main(int argc, char **argv)
 			if (new_cache)
 				cache_flush(1);
 			else {
-				fprintf(stderr, "exportfs: -f: only available with new cache controls: mount /proc/fs/nfsd first\n");
-				exit(1);
+				xlog(L_ERROR, "-f is available only "
+					"with new cache controls. "
+					"Mount /proc/fs/nfsd first");
+				return 1;
 			}
 			return 0;
 		} else {
@@ -240,7 +250,7 @@ exportfs(char *arg, char *options, int verbose)
 		*path++ = '\0';
 
 	if (!path || *path != '/') {
-		fprintf(stderr, "Invalid exporting option: %s\n", arg);
+		xlog(L_ERROR, "Invalid exporting option: %s", arg);
 		return;
 	}
 
@@ -295,8 +305,7 @@ unexportfs(char *arg, int verbose)
 		*path++ = '\0';
 
 	if (!path || *path != '/') {
-		fprintf(stderr, "Invalid unexporting option: %s\n",
-			arg);
+		xlog(L_ERROR, "Invalid unexporting option: %s", arg);
 		return;
 	}
 
@@ -392,14 +401,12 @@ validate_export(nfs_export *exp)
 	int fs_has_fsid = 0;
 
 	if (stat(path, &stb) < 0) {
-		fprintf(stderr, "exportfs: Warning: %s does not exist\n",
-			path);
+		xlog(L_ERROR, "Failed to stat %s: %m \n", path);
 		return;
 	}
 	if (!S_ISDIR(stb.st_mode) && !S_ISREG(stb.st_mode)) {
-		fprintf(stderr, "exportfs: Warning: %s is neither "
-			"a directory nor a file.\n"
-			"     remote access will fail\n", path);
+		xlog(L_ERROR, "%s is neither a directory nor a file. "
+			"Remote access will fail", path);
 		return;
 	}
 	if (!can_test())
@@ -412,19 +419,14 @@ validate_export(nfs_export *exp)
 	if ((exp->m_export.e_flags & NFSEXP_FSID) || exp->m_export.e_uuid ||
 	    fs_has_fsid) {
 		if ( !test_export(path, 1)) {
-			fprintf(stderr, "exportfs: Warning: %s does not "
-				"support NFS export.\n",
-				path);
+			xlog(L_ERROR, "%s does not support NFS export", path);
 			return;
 		}
 	} else if ( ! test_export(path, 0)) {
 		if (test_export(path, 1))
-			fprintf(stderr, "exportfs: Warning: %s requires fsid= "
-				"for NFS export\n", path);
+			xlog(L_ERROR, "%s requires fsid= for NFS export", path);
 		else
-			fprintf(stderr, "exportfs: Warning: %s does not "
-				"support NFS export.\n",
-				path);
+			xlog(L_ERROR, "%s does not support NFS export", path);
 		return;
 
 	}
@@ -531,13 +533,13 @@ dump(int verbose)
 static void
 error(nfs_export *exp, int err)
 {
-	fprintf(stderr, "%s:%s: %s\n", exp->m_client->m_hostname, 
+	xlog(L_ERROR, "%s:%s: %s\n", exp->m_client->m_hostname,
 		exp->m_export.e_path, strerror(err));
 }
 
 static void
-usage(void)
+usage(const char *progname)
 {
-	fprintf(stderr, "usage: exportfs [-aruv] [host:/path]\n");
+	fprintf(stderr, "usage: %s [-aruv] [host:/path]\n", progname);
 	exit(1);
 }
