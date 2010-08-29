@@ -546,6 +546,8 @@ make_etc(void)
 	/* crond */
 	symlink("/etc/crontabs", "/var/spool/cron/crontabs");
 
+	/* mtab compability */
+	symlink("/proc/mounts", "/etc/mtab");
 }
 
 static int noconsole = 0;
@@ -596,12 +598,11 @@ sysinit(void)
 	/* Setup console */
 	if (console_init())
 		noconsole = 1;
+	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
 
 	/* load flashfs */
 	if (!eval("flashfs", "start"))
 		eval("/usr/local/sbin/pre-boot");
-
-	klogctl(8, NULL, atoi(nvram_safe_get("console_loglevel")));
 
 	/* Modules */
 	uname(&name);
