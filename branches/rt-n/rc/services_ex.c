@@ -511,15 +511,24 @@ start_logger(void)
 		return 0;
 #endif
 
-	char *syslogd_argv[] = {"syslogd", "-m", "0", "-O", "/tmp/syslog.log", "-S",
-		"-l", "7", "-b", "2", "-R", nvram_safe_get("log_ipaddr"), "-L", NULL};
+	char *syslogd_argv[] = {"syslogd",
+		"-m", "0",
+		"-O", "/tmp/syslog.log",
+		"-S", "-D",
+		"-l", nvram_safe_get("log_level_x"),
+		"-b", "1",
+		"-R", nvram_safe_get("log_ipaddr"),
+		"-L", NULL};
 	char *klogd_argv[] = {"klogd", NULL};
 
-	syslogd_argv[7] = nvram_get("log_level_x") ? : "7";
+	/* -l argument */
+	if (!*syslogd_argv[7])
+		syslogd_argv[7] = "7";
 
+	/* -R argument */
 	if (!*syslogd_argv[11])
 		syslogd_argv[10] = NULL;
-		
+
 	_eval(syslogd_argv, NULL, 0, &pid);
 	usleep(500000);
 	_eval(klogd_argv, NULL, 0, &pid);
