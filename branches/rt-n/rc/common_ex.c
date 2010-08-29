@@ -395,6 +395,11 @@ void convert_asus_values()
 		nvram_set("wl0_maclist", list);
 	}
 
+	/* Power values
+	 * 400mW = 26dBm, defaults 50mW = 17 dBm */
+	//nvram_set("pa0maxpwr", "400");
+	nvram_set("wl0_radio_power_x", nvram_safe_get("wl_radio_power_x"));
+
 	/* Direct copy value */
 	/* LAN Section */
 	if (nvram_match("dhcp_enable_x", "1"))
