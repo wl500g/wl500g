@@ -549,7 +549,7 @@ start_misc(void)
 	/* try to adjust wifi tx power */
 	txpwr = nvram_safe_get("wl_radio_power_x");
 	if (atoi(txpwr) > 0)
-		eval("wl", "txpwr1", "-d", txpwr, "-o");
+		eval("wl", "txpwr1", "-m", txpwr, "-o");
 
 #if 1
 	// for all product, fix antdiv
