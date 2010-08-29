@@ -1,7 +1,7 @@
 diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 --- linux.orig/drivers/net/pptp.c	1970-01-01 00:00:00.000000000 +0000
-+++ linux/drivers/net/pptp.c	2010-08-21 14:22:39.000000000 +0000
-@@ -0,0 +1,1232 @@
++++ linux/drivers/net/pptp.c	2010-08-29 07:00:41.000000000 +0000
+@@ -0,0 +1,1238 @@
 +/*
 + *  Point-to-Point Tunneling Protocol for Linux
 + *
@@ -1143,8 +1143,14 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
 +	int err=0;
 +	printk(KERN_INFO "PPTP driver version " PPTP_DRIVER_VERSION "\n");
 +
++#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 +	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
 +	                        GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
++#else
++	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
++	                        GFP_KERNEL, PAGE_KERNEL);
++	memset(callid_sock, 0, (MAX_CALLID + 1) * sizeof(void *));
++#endif
 +	if (!callid_sock) {
 +		printk(KERN_ERR "PPTP: cann't allocate memory\n");
 +		return -ENOMEM;
