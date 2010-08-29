@@ -522,12 +522,12 @@ start_logger(void)
 	char *klogd_argv[] = {"klogd", NULL};
 
 	/* -l argument */
-	if (!*syslogd_argv[7])
+	if (!*syslogd_argv[8])
 		syslogd_argv[7] = "7";
 
 	/* -R argument */
-	if (!*syslogd_argv[11])
-		syslogd_argv[10] = NULL;
+	if (!*syslogd_argv[12])
+		syslogd_argv[11] = NULL;
 
 	_eval(syslogd_argv, NULL, 0, &pid);
 	usleep(500000);
