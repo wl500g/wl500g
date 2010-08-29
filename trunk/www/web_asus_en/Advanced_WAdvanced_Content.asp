@@ -95,8 +95,8 @@
                 <input type="text" maxlength="2" class="content_input_fd" size="2" name="wl_radio_time_x_endmin" onKeyPress="return is_number(this)" onBlur="return validate_timerange(this, 3)"></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('The Radio Power should be between 0 to 31 dBm, 0 is used for hardware defaults. But default value is recommended.', LEFT);" onMouseOut="return nd();">Radio Power:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="wl_radio_power_x" class="content_input_fd" value="<% nvram_get_x("WLANConfig11b", "wl_radio_power_x"); %>" onBlur="validate_range(this, 0, 31)" onKeyPress="return is_number(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('The Radio Power should be between 0 to 400 mW, 0 is used for hardware defaults. But default value is recommended.', LEFT);" onMouseOut="return nd();">Radio Power:
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="wl_radio_power_x" class="content_input_fd" value="<% nvram_get_x("WLANConfig11b", "wl_radio_power_x"); %>" onBlur="validate_range(this, 0, 400)" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Enable or Disable WMM.', LEFT);" onMouseOut="return nd();">Enable WMM?
