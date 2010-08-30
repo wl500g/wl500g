@@ -242,13 +242,13 @@ When it's set to 00:00-23:59 it will be turned on the entire day.
 
 This setting allows you to change the maximum power and will limit how far the !WiFi network reaches.
 
-All the values are in dBm since r1964, for calculating the mW value simply use a [http://www.aubraux.com/design/dbm-to-milli-watts-calculator.php calculator].	
+All the values are in milliWatt since r1974.
 
-A value between 1 and 31 can be entered. The default value is 17 however.
+A value between 0 and 400 can be entered. The default value is 50 however.
 
 When the value is set to 0 the default (maximum) power will be used: 1496 mW
 
-Please keep in mind that a higher power can increase noise on the channel and might decrease transfer speeds over !WiFi.
+Please keep in mind that a high power level can increase noise on the channel and might decrease transfer speeds over !WiFi.
 
 -------
 
