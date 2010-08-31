@@ -523,7 +523,7 @@ start_logger(void)
 
 	/* -l argument */
 	if (!*syslogd_argv[8])
-		syslogd_argv[7] = "7";
+		syslogd_argv[8] = "7";
 
 	/* -R argument */
 	if (!*syslogd_argv[12])
