@@ -263,7 +263,7 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v1.4.3"
+#define DRIVER_VERSION "v1.5.0"
 #define DRIVER_AUTHOR "Greg Kroah-Hartman <greg@kroah.com>, Bill Ryder <bryder@sgi.com>, Kuba Ober <kuba@mareimbrium.org>, Andreas Mohr"
 #define DRIVER_DESC "USB FTDI Serial Converters Driver"
 
@@ -293,15 +293,18 @@ struct ftdi_private {
 	int rx_processed;
 	unsigned long rx_bytes;
 
-	__u16 interface;	/* FT2232C port interface (0 for FT232/245) */
+	__u16 interface;	/* FT2232C, FT2232H or FT4232H port interface
+				   (0 for FT232/245) */
 
-	int force_baud;		/* if non-zero, force the baud rate to this value */
+	speed_t force_baud;	/* if non-zero, force the baud rate to this value */
 	int force_rtscts;	/* if non-zero, force RTS-CTS to always be enabled */
 
+	unsigned int latency;		/* latency setting in use */
 	spinlock_t tx_lock;	/* spinlock for transmit state */
 	unsigned long tx_bytes;
 	unsigned long tx_outstanding_bytes;
 	unsigned long tx_outstanding_urbs;
+	unsigned short max_packet_size;
 };
 
 /* struct ftdi_sio_quirk is used by devices requiring special attention. */
@@ -384,6 +387,7 @@ static struct usb_device_id id_table_combined [] = {
 	{ USB_DEVICE(FTDI_VID, FTDI_8U232AM_ALT_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_232RL_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_8U2232C_PID) },
+	{ USB_DEVICE(FTDI_VID, FTDI_4232H_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_MICRO_CHAMELEON_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_RELAIS_PID) },
 	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_PID) },
@@ -981,12 +985,13 @@ static const char *ftdi_chip_name[] = {
 	[FT232BM] = "FT232BM",
 	[FT2232C] = "FT2232C",
 	[FT232RL] = "FT232RL",
+	[FT2232H] = "FT2232H",
+	[FT4232H] = "FT4232H"
 };
 
 
 /* Constants for read urb and write urb */
 #define BUFSZ 512
-#define PKTSZ 64
 
 /* rx_flags */
 #define THROTTLED		0x01
@@ -997,8 +1002,8 @@ static const char *ftdi_chip_name[] = {
 #define FTDI_STATUS_B1_MASK	(FTDI_RS_BI)
 /* End TIOCMIWAIT */
 
-#define FTDI_IMPL_ASYNC_FLAGS = ( ASYNC_SPD_HI | ASYNC_SPD_VHI \
- ASYNC_SPD_CUST | ASYNC_SPD_SHI | ASYNC_SPD_WARP )
+#define FTDI_IMPL_ASYNC_FLAGS = (ASYNC_SPD_HI | ASYNC_SPD_VHI \
+ | ASYNC_SPD_CUST | ASYNC_SPD_SHI | ASYNC_SPD_WARP)
 
 /* function prototypes for a FTDI serial converter */
 static int  ftdi_sio_probe	(struct usb_serial *serial, const struct usb_device_id *id);
@@ -1020,10 +1025,12 @@ static void ftdi_break_ctl		(struct usb_serial_port *port, int break_state );
 static void ftdi_throttle		(struct usb_serial_port *port);
 static void ftdi_unthrottle		(struct usb_serial_port *port);
 
-static unsigned short int ftdi_232am_baud_base_to_divisor (int baud, int base);
-static unsigned short int ftdi_232am_baud_to_divisor (int baud);
-static __u32 ftdi_232bm_baud_base_to_divisor (int baud, int base);
-static __u32 ftdi_232bm_baud_to_divisor (int baud);
+static unsigned short int ftdi_232am_baud_base_to_divisor(int baud, int base);
+static unsigned short int ftdi_232am_baud_to_divisor(int baud);
+static __u32 ftdi_232bm_baud_base_to_divisor(int baud, int base);
+static __u32 ftdi_232bm_baud_to_divisor(int baud);
+static __u32 ftdi_2232h_baud_base_to_divisor(int baud, int base);
+static __u32 ftdi_2232h_baud_to_divisor(int baud);
 
 static struct usb_serial_driver ftdi_sio_device = {
 	.driver = {
@@ -1110,13 +1117,42 @@ static __u32 ftdi_232bm_baud_to_divisor(int baud)
 	 return(ftdi_232bm_baud_base_to_divisor(baud, 48000000));
 }
 
+static __u32 ftdi_2232h_baud_base_to_divisor(int baud, int base)
+{
+	static const unsigned char divfrac[8] = { 0, 3, 2, 4, 1, 5, 6, 7 };
+	__u32 divisor;
+	int divisor3;
+
+	/* hi-speed baud rate is 10-bit sampling instead of 16-bit */
+	divisor3 = (base / 10 / baud) * 8;
+
+	divisor = divisor3 >> 3;
+	divisor |= (__u32)divfrac[divisor3 & 0x7] << 14;
+	/* Deal with special cases for highest baud rates. */
+	if (divisor == 1)
+		divisor = 0;
+	else if (divisor == 0x4001)
+		divisor = 1;
+	/*
+	 * Set this bit to turn off a divide by 2.5 on baud rate generator
+	 * This enables baud rates up to 12Mbaud but cannot reach below 1200
+	 * baud with this bit set
+	 */
+	divisor |= 0x00020000;
+	return divisor;
+}
+
+static __u32 ftdi_2232h_baud_to_divisor(int baud)
+{
+	 return ftdi_2232h_baud_base_to_divisor(baud, 120000000);
+}
+
 #define set_mctrl(port, set)		update_mctrl((port), (set), 0)
 #define clear_mctrl(port, clear)	update_mctrl((port), 0, (clear))
 
 static int update_mctrl(struct usb_serial_port *port, unsigned int set, unsigned int clear)
 {
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	char *buf;
 	unsigned urb_value;
 	int rv;
 
@@ -1124,10 +1160,6 @@ static int update_mctrl(struct usb_serial_port *port, unsigned int set, unsigned
 		dbg("%s - DTR|RTS not being set|cleared", __FUNCTION__);
 		return 0;	/* no change */
 	}
-
-	buf = kmalloc(1, GFP_NOIO);
-	if (!buf)
-		return -ENOMEM;
 
 	clear &= ~set;	/* 'set' takes precedence over 'clear' */
 	urb_value = 0;
@@ -1144,11 +1176,9 @@ static int update_mctrl(struct usb_serial_port *port, unsigned int set, unsigned
 			       FTDI_SIO_SET_MODEM_CTRL_REQUEST,
 			       FTDI_SIO_SET_MODEM_CTRL_REQUEST_TYPE,
 			       urb_value, priv->interface,
-			       buf, 0, WDR_TIMEOUT);
-
-	kfree(buf);
+			       NULL, 0, WDR_TIMEOUT);
 	if (rv < 0) {
-		err("%s Error from MODEM_CTRL urb: DTR %s, RTS %s",
+		dbg("%s Error from MODEM_CTRL urb: DTR %s, RTS %s",
 				__FUNCTION__,
 				(set & TIOCM_DTR) ? "HIGH" :
 				(clear & TIOCM_DTR) ? "LOW" : "unchanged",
@@ -1173,15 +1203,10 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port);
 static int change_speed(struct usb_serial_port *port)
 {
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	char *buf;
         __u16 urb_value;
 	__u16 urb_index;
 	__u32 urb_index_value;
 	int rv;
-
-	buf = kmalloc(1, GFP_NOIO);
-	if (!buf)
-		return -ENOMEM;
 
 	urb_index_value = get_ftdi_divisor(port);
 	urb_value = (__u16)urb_index_value;
@@ -1195,9 +1220,7 @@ static int change_speed(struct usb_serial_port *port)
 			    FTDI_SIO_SET_BAUDRATE_REQUEST,
 			    FTDI_SIO_SET_BAUDRATE_REQUEST_TYPE,
 			    urb_value, urb_index,
-			    buf, 0, WDR_SHORT_TIMEOUT);
-
-	kfree(buf);
+			    NULL, 0, WDR_SHORT_TIMEOUT);
 	return rv;
 }
 
@@ -1266,6 +1289,7 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 		if (div_value == 0) {
 			dbg("%s - Baudrate (%d) requested is not supported", __FUNCTION__,  baud);
 			div_value = ftdi_sio_b9600;
+			baud = 9600;
 			div_okay = 0;
 		}
 		break;
@@ -1274,6 +1298,7 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 			div_value = ftdi_232am_baud_to_divisor(baud);
 		} else {
 	                dbg("%s - Baud rate too high!", __FUNCTION__);
+			baud = 9600;
 			div_value = ftdi_232am_baud_to_divisor(9600);
 			div_okay = 0;
 		}
@@ -1297,6 +1322,20 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 	                dbg("%s - Baud rate too high!", __FUNCTION__);
 			div_value = ftdi_232bm_baud_to_divisor(9600);
 			div_okay = 0;
+			baud = 9600;
+		}
+		break;
+	case FT2232H: /* FT2232H chip */
+	case FT4232H: /* FT4232H chip */
+		if ((baud <= 12000000) & (baud >= 1200)) {
+			div_value = ftdi_2232h_baud_to_divisor(baud);
+		} else if (baud < 1200) {
+			div_value = ftdi_232bm_baud_to_divisor(baud);
+		} else {
+			dbg("%s - Baud rate too high!", __func__);
+			div_value = ftdi_232bm_baud_to_divisor(9600);
+			div_okay = 0;
+			baud = 9600;
 		}
 		break;
 	} /* priv->chip_type */
@@ -1307,9 +1346,61 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
 			ftdi_chip_name[priv->chip_type]);
 	}
 
+	tty_encode_baud_rate(port->tty, baud, baud);
 	return(div_value);
 }
 
+static int write_latency_timer(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_device *udev = port->serial->dev;
+	int rv = 0;
+	int l = priv->latency;
+
+	if (priv->flags & ASYNC_LOW_LATENCY)
+		l = 1;
+
+	dbg("%s: setting latency timer = %i", __func__, l);
+
+	rv = usb_control_msg(udev,
+			     usb_sndctrlpipe(udev, 0),
+			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
+			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
+			     l, priv->interface,
+			     NULL, 0, WDR_TIMEOUT);
+	if (rv < 0)
+		dev_err(&port->dev, "Unable to write latency timer: %i\n", rv);
+	return rv;
+}
+
+static int read_latency_timer(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_device *udev = port->serial->dev;
+	unsigned char *buf;
+	int rv = 0;
+
+	dbg("%s", __func__);
+
+	buf = kmalloc(1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	rv = usb_control_msg(udev,
+			     usb_rcvctrlpipe(udev, 0),
+			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST,
+			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST_TYPE,
+			     0, priv->interface,
+			     buf, 1, WDR_TIMEOUT);
+	if (rv < 0)
+		dev_err(&port->dev, "Unable to read latency timer: %i\n", rv);
+	else
+		priv->latency = buf[0];
+
+	kfree(buf);
+
+	return rv;
+}
 
 static int get_serial_info(struct usb_serial_port * port, struct serial_struct __user * retinfo)
 {
@@ -1361,6 +1452,7 @@ static int set_serial_info(struct usb_serial_port * port, struct serial_struct _
 	priv->custom_divisor = new_serial.custom_divisor;
 
 	port->tty->low_latency = (priv->flags & ASYNC_LOW_LATENCY) ? 1 : 0;
+	write_latency_timer(port);
 
 check_and_exit:
 	if ((old_priv.flags & ASYNC_SPD_MASK) !=
@@ -1408,14 +1500,28 @@ static void ftdi_determine_type(struct usb_serial_port *port)
 	if (interfaces > 1) {
 		int inter;
 
-		/* Multiple interfaces.  Assume FT2232C. */
-		priv->chip_type = FT2232C;
+		/* Multiple interfaces.*/
+		if (version == 0x0800) {
+			priv->chip_type = FT4232H;
+			/* Hi-speed - baud clock runs at 120MHz */
+			priv->baud_base = 120000000 / 2;
+		} else if (version == 0x0700) {
+			priv->chip_type = FT2232H;
+			/* Hi-speed - baud clock runs at 120MHz */
+			priv->baud_base = 120000000 / 2;
+		} else
+			priv->chip_type = FT2232C;
+
 		/* Determine interface code. */
 		inter = serial->interface->altsetting->desc.bInterfaceNumber;
 		if (inter == 0) {
-			priv->interface = PIT_SIOA;
-		} else {
-			priv->interface = PIT_SIOB;
+			priv->interface = INTERFACE_A;
+		} else  if (inter == 1) {
+			priv->interface = INTERFACE_B;
+		} else  if (inter == 2) {
+			priv->interface = INTERFACE_C;
+		} else  if (inter == 3) {
+			priv->interface = INTERFACE_D;
 		}
 		/* BM-type devices have a bug where bcdDevice gets set
 		 * to 0x200 when iSerialNumber is 0.  */
@@ -1444,6 +1550,45 @@ static void ftdi_determine_type(struct usb_serial_port *port)
 }
 
 
+/* Determine the maximum packet size for the device.  This depends on the chip
+ * type and the USB host capabilities.  The value should be obtained from the
+ * device descriptor as the chip will use the appropriate values for the host.*/
+static void ftdi_set_max_packet_size(struct usb_serial_port *port)
+{
+	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct usb_serial *serial = port->serial;
+	struct usb_device *udev = serial->dev;
+
+	struct usb_interface *interface = serial->interface;
+	struct usb_endpoint_descriptor *ep_desc = &interface->cur_altsetting->endpoint[1].desc;
+
+	unsigned num_endpoints;
+	int i = 0;
+
+	num_endpoints = interface->cur_altsetting->desc.bNumEndpoints;
+	dev_info(&udev->dev, "Number of endpoints %d\n", num_endpoints);
+
+	/* NOTE: some customers have programmed FT232R/FT245R devices
+	 * with an endpoint size of 0 - not good.  In this case, we
+	 * want to override the endpoint descriptor setting and use a
+	 * value of 64 for wMaxPacketSize */
+	for (i = 0; i < num_endpoints; i++) {
+		dev_info(&udev->dev, "Endpoint %d MaxPacketSize %d\n", i+1,
+			interface->cur_altsetting->endpoint[i].desc.wMaxPacketSize);
+		ep_desc = &interface->cur_altsetting->endpoint[i].desc;
+		if (ep_desc->wMaxPacketSize == 0) {
+			ep_desc->wMaxPacketSize = cpu_to_le16(0x40);
+			dev_info(&udev->dev, "Overriding wMaxPacketSize on endpoint %d\n", i);
+		}
+	}
+
+	/* set max packet size based on descriptor */
+	priv->max_packet_size = ep_desc->wMaxPacketSize;
+
+	dev_info(&udev->dev, "Setting MaxPacketSize %d\n", priv->max_packet_size);
+}
+
+
 /*
  * ***************************************************************************
  * Sysfs Attribute
@@ -1454,25 +1599,10 @@ static ssize_t show_latency_timer(struct device *dev, struct device_attribute *a
 {
 	struct usb_serial_port *port = to_usb_serial_port(dev);
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	struct usb_device *udev = port->serial->dev;
-	unsigned short latency = 0;
-	int rv = 0;
-
-
-	dbg("%s",__FUNCTION__);
-
-	rv = usb_control_msg(udev,
-			     usb_rcvctrlpipe(udev, 0),
-			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST,
-			     FTDI_SIO_GET_LATENCY_TIMER_REQUEST_TYPE,
-			     0, priv->interface,
-			     (char*) &latency, 1, WDR_TIMEOUT);
-
-	if (rv < 0) {
-		dev_err(dev, "Unable to read latency timer: %i\n", rv);
-		return -EIO;
-	}
-	return sprintf(buf, "%i\n", latency);
+	if (priv->flags & ASYNC_LOW_LATENCY)
+		return sprintf(buf, "1\n");
+	else
+		return sprintf(buf, "%i\n", priv->latency);
 }
 
 /* Write a new value of the latency timer, in units of milliseconds. */
@@ -1481,25 +1611,13 @@ static ssize_t store_latency_timer(struct device *dev, struct device_attribute *
 {
 	struct usb_serial_port *port = to_usb_serial_port(dev);
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	struct usb_device *udev = port->serial->dev;
-	char buf[1];
 	int v = simple_strtoul(valbuf, NULL, 10);
 	int rv = 0;
 
-	dbg("%s: setting latency timer = %i", __FUNCTION__, v);
-
-	rv = usb_control_msg(udev,
-			     usb_sndctrlpipe(udev, 0),
-			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
-			     FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
-			     v, priv->interface,
-			     buf, 0, WDR_TIMEOUT);
-
-	if (rv < 0) {
-		dev_err(dev, "Unable to write latency timer: %i\n", rv);
+	priv->latency = v;
+	rv = write_latency_timer(port);
+	if (rv < 0)
 		return -EIO;
-	}
-
 	return count;
 }
 
@@ -1511,7 +1629,6 @@ static ssize_t store_event_char(struct device *dev, struct device_attribute *att
 	struct usb_serial_port *port = to_usb_serial_port(dev);
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
 	struct usb_device *udev = port->serial->dev;
-	char buf[1];
 	int v = simple_strtoul(valbuf, NULL, 10);
 	int rv = 0;
 
@@ -1522,8 +1639,7 @@ static ssize_t store_event_char(struct device *dev, struct device_attribute *att
 			     FTDI_SIO_SET_EVENT_CHAR_REQUEST,
 			     FTDI_SIO_SET_EVENT_CHAR_REQUEST_TYPE,
 			     v, priv->interface,
-			     buf, 0, WDR_TIMEOUT);
-
+			     NULL, 0, WDR_TIMEOUT);
 	if (rv < 0) {
 		dbg("Unable to write event character: %i", rv);
 		return -EIO;
@@ -1550,7 +1666,9 @@ static int create_sysfs_attrs(struct usb_serial_port *port)
 		if ((!retval) &&
 		    (priv->chip_type == FT232BM ||
 		     priv->chip_type == FT2232C ||
-		     priv->chip_type == FT232RL)) {
+		     priv->chip_type == FT232RL ||
+		     priv->chip_type == FT2232H ||
+		     priv->chip_type == FT4232H)) {
 			retval = device_create_file(&port->dev,
 						    &dev_attr_latency_timer);
 		}
@@ -1567,7 +1685,11 @@ static void remove_sysfs_attrs(struct usb_serial_port *port)
 	/* XXX see create_sysfs_attrs */
 	if (priv->chip_type != SIO) {
 		device_remove_file(&port->dev, &dev_attr_event_char);
-		if (priv->chip_type == FT232BM || priv->chip_type == FT2232C) {
+		if (priv->chip_type == FT232BM ||
+		    priv->chip_type == FT2232C ||
+		    priv->chip_type == FT232RL ||
+		    priv->chip_type == FT2232H ||
+		    priv->chip_type == FT4232H) {
 			device_remove_file(&port->dev, &dev_attr_latency_timer);
 		}
 	}
@@ -1646,7 +1768,11 @@ static int ftdi_sio_port_probe(struct usb_serial_port *port)
 
 	usb_set_serial_port_data(port, priv);
 
-	ftdi_determine_type (port);
+	ftdi_determine_type(port);
+	ftdi_set_max_packet_size(port);
+	if (read_latency_timer(port) < 0)
+		priv->latency = 16;
+	write_latency_timer(port);
 	create_sysfs_attrs(port);
 	return 0;
 }
@@ -1660,7 +1786,7 @@ static void ftdi_USB_UIRT_setup (struct ftdi_private *priv)
 
 	priv->flags |= ASYNC_SPD_CUST;
 	priv->custom_divisor = 77;
-	priv->force_baud = B38400;
+	priv->force_baud = 38400;
 } /* ftdi_USB_UIRT_setup */
 
 /* Setup for the HE-TIRA1 device, which requires hardwired
@@ -1671,7 +1797,7 @@ static void ftdi_HE_TIRA1_setup (struct ftdi_private *priv)
 
 	priv->flags |= ASYNC_SPD_CUST;
 	priv->custom_divisor = 240;
-	priv->force_baud = B38400;
+	priv->force_baud = 38400;
 	priv->force_rtscts = 1;
 } /* ftdi_HE_TIRA1_setup */
 
@@ -1691,7 +1817,6 @@ static int ftdi_NDI_device_setup(struct usb_serial *serial)
 	struct usb_device *udev = serial->dev;
 	int latency = ndi_latency_timer;
 	int rv = 0;
-	char buf[1];
 
 	if (latency == 0)
 		latency = 1;
@@ -1704,7 +1829,7 @@ static int ftdi_NDI_device_setup(struct usb_serial *serial)
 	rv = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
 				FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
 				FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
-				latency, 0, buf, 0, WDR_TIMEOUT);
+				latency, 0, NULL, 0, WDR_TIMEOUT);
 	return 0;
 }
 
@@ -1765,14 +1890,12 @@ static int ftdi_sio_port_remove(struct usb_serial_port *port)
 	return 0;
 }
 
-static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
+static int  ftdi_open(struct usb_serial_port *port, struct file *filp)
 { /* ftdi_open */
 	struct usb_device *dev = port->serial->dev;
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
 	unsigned long flags;
-
 	int result = 0;
-	char buf[1]; /* Needed for the usb_control_msg I think */
 
 	dbg("%s", __FUNCTION__);
 
@@ -1791,7 +1914,7 @@ static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
 	usb_control_msg(dev, usb_sndctrlpipe(dev, 0),
 			FTDI_SIO_RESET_REQUEST, FTDI_SIO_RESET_REQUEST_TYPE,
 			FTDI_SIO_RESET_SIO,
-			priv->interface, buf, 0, WDR_TIMEOUT);
+			priv->interface, NULL, 0, WDR_TIMEOUT);
 
 	/* Termios defaults are set by usb_serial_init. We don't change
 	   port->tty->termios - this would loose speed settings, etc.
@@ -1799,7 +1922,7 @@ static int  ftdi_open (struct usb_serial_port *port, struct file *filp)
 
 	/* ftdi_set_termios  will send usb control messages */
 	if (port->tty)
-		ftdi_set_termios(port, NULL);
+		ftdi_set_termios(port, port->tty->termios);
 
 	/* FIXME: Flow control might be enabled, so it should be checked -
 	   we have no control of defaults! */
@@ -1840,7 +1963,6 @@ static void ftdi_close (struct usb_serial_port *port, struct file *filp)
 { /* ftdi_close */
 	unsigned int c_cflag = port->tty->termios->c_cflag;
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	char buf[1];
 
 	dbg("%s", __FUNCTION__);
 
@@ -1851,7 +1973,7 @@ static void ftdi_close (struct usb_serial_port *port, struct file *filp)
 				    usb_sndctrlpipe(port->serial->dev, 0),
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST,
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST_TYPE,
-				    0, priv->interface, buf, 0,
+				    0, priv->interface, NULL, 0,
 				    WDR_TIMEOUT) < 0) {
 			err("error from flowcontrol urb");
 		}
@@ -1912,8 +2034,8 @@ static int ftdi_write (struct usb_serial_port *port,
 	if (data_offset > 0) {
 		/* Original sio needs control bytes too... */
 		transfer_size += (data_offset *
-				((count + (PKTSZ - 1 - data_offset)) /
-				 (PKTSZ - data_offset)));
+				((count + (priv->max_packet_size - 1 - data_offset)) /
+				 (priv->max_packet_size - data_offset)));
 	}
 
 	buffer = kmalloc (transfer_size, GFP_ATOMIC);
@@ -1932,8 +2054,9 @@ static int ftdi_write (struct usb_serial_port *port,
 
 	/* Copy data */
 	if (data_offset > 0) {
-		/* Original sio requires control byte at start of each packet. */
-		int user_pktsz = PKTSZ - data_offset;
+		/* Original sio requires control byte at start of
+		   each packet. */
+		int user_pktsz = priv->max_packet_size - data_offset;
 		int todo = count;
 		unsigned char *first_byte = buffer;
 		const unsigned char *current_position = buf;
@@ -2021,7 +2144,7 @@ static void ftdi_write_bulk_callback (struct urb *urb)
 	data_offset = priv->write_offset;
 	if (data_offset > 0) {
 		/* Subtract the control bytes */
-		countback -= (data_offset * DIV_ROUND_UP(countback, PKTSZ));
+		countback -= (data_offset * DIV_ROUND_UP(countback, priv->max_packet_size));
 	}
 	spin_lock_irqsave(&priv->tx_lock, flags);
 	--priv->tx_outstanding_urbs;
@@ -2126,7 +2249,7 @@ static void ftdi_read_bulk_callback (struct urb *urb)
 
 	/* count data bytes, but not status bytes */
 	countread = urb->actual_length;
-	countread -= 2 * DIV_ROUND_UP(countread, PKTSZ);
+	countread -= 2 * DIV_ROUND_UP(countread, priv->max_packet_size);
 	spin_lock_irqsave(&priv->rx_lock, flags);
 	priv->rx_bytes += countread;
 	spin_unlock_irqrestore(&priv->rx_lock, flags);
@@ -2197,7 +2320,8 @@ static void ftdi_process_read (struct work_struct *work)
 	/* if CD is dropped and the line is not CLOCAL then we should hangup */
 
 	need_flip = 0;
-	for (packet_offset = priv->rx_processed; packet_offset < urb->actual_length; packet_offset += PKTSZ) {
+	for (packet_offset = priv->rx_processed;
+		packet_offset < urb->actual_length; packet_offset += priv->max_packet_size) {
 		int length;
 
 		/* Compare new line status to the old one, signal if different */
@@ -2212,7 +2336,7 @@ static void ftdi_process_read (struct work_struct *work)
 			priv->prev_status = new_status;
 		}
 
-		length = min_t(u32, PKTSZ, urb->actual_length-packet_offset)-2;
+		length = min_t(u32, priv->max_packet_size, urb->actual_length-packet_offset)-2;
 		if (length < 0) {
 			err("%s - bad packet length: %d", __FUNCTION__, length+2);
 			length = 0;
@@ -2338,7 +2462,6 @@ static void ftdi_break_ctl( struct usb_serial_port *port, int break_state )
 {
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
 	__u16 urb_value = 0;
-	char buf[1];
 
 	/* break_state = -1 to turn on break, and 0 to turn off break */
 	/* see drivers/char/tty_io.c to see it used */
@@ -2355,7 +2478,7 @@ static void ftdi_break_ctl( struct usb_serial_port *port, int break_state )
 			    FTDI_SIO_SET_DATA_REQUEST,
 			    FTDI_SIO_SET_DATA_REQUEST_TYPE,
 			    urb_value , priv->interface,
-			    buf, 0, WDR_TIMEOUT) < 0) {
+			    NULL, 0, WDR_TIMEOUT) < 0) {
 		err("%s FAILED to enable/disable break state (state was %d)", __FUNCTION__,break_state);
 	}
 
@@ -2372,32 +2495,32 @@ static void ftdi_break_ctl( struct usb_serial_port *port, int break_state )
 static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old_termios)
 { /* ftdi_termios */
 	struct usb_device *dev = port->serial->dev;
-	unsigned int cflag = port->tty->termios->c_cflag;
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
+	struct ktermios *termios = port->tty->termios;
+	unsigned int cflag = termios->c_cflag;
 	__u16 urb_value; /* will hold the new flags */
-	char buf[1]; /* Perhaps I should dynamically alloc this? */
 
 	// Added for xon/xoff support
-	unsigned int iflag = port->tty->termios->c_iflag;
+	unsigned int iflag = termios->c_iflag;
 	unsigned char vstop;
 	unsigned char vstart;
 
 	dbg("%s", __FUNCTION__);
 
 	/* Force baud rate if this device requires it, unless it is set to B0. */
-	if (priv->force_baud && ((port->tty->termios->c_cflag & CBAUD) != B0)) {
+	if (priv->force_baud && ((termios->c_cflag & CBAUD) != B0)) {
 		dbg("%s: forcing baud rate for this device", __FUNCTION__);
-		port->tty->termios->c_cflag &= ~CBAUD;
-		port->tty->termios->c_cflag |= priv->force_baud;
+		tty_encode_baud_rate(port->tty, priv->force_baud,
+					priv->force_baud);
 	}
 
 	/* Force RTS-CTS if this device requires it. */
 	if (priv->force_rtscts) {
 		dbg("%s: forcing rtscts for this device", __FUNCTION__);
-		port->tty->termios->c_cflag |= CRTSCTS;
+		termios->c_cflag |= CRTSCTS;
 	}
 
-	cflag = port->tty->termios->c_cflag;
+	cflag = termios->c_cflag;
 
 	/* FIXME -For this cut I don't care if the line is really changing or
 	   not  - so just do the change regardless  - should be able to
@@ -2408,6 +2531,8 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 
 	/* Set number of data bits, parity, stop bits */
 
+	termios->c_cflag &= ~CMSPAR;
+
 	urb_value = 0;
 	urb_value |= (cflag & CSTOPB ? FTDI_SIO_SET_DATA_STOP_BITS_2 :
 		      FTDI_SIO_SET_DATA_STOP_BITS_1);
@@ -2417,12 +2542,10 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 		      FTDI_SIO_SET_DATA_PARITY_NONE);
 	if (cflag & CSIZE) {
 		switch (cflag & CSIZE) {
-		case CS5: urb_value |= 5; dbg("Setting CS5"); break;
-		case CS6: urb_value |= 6; dbg("Setting CS6"); break;
 		case CS7: urb_value |= 7; dbg("Setting CS7"); break;
 		case CS8: urb_value |= 8; dbg("Setting CS8"); break;
 		default:
-			err("CSIZE was set but not CS5-CS8");
+			err("CSIZE was set but not CS7-CS8");
 		}
 	}
 
@@ -2434,7 +2557,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 			    FTDI_SIO_SET_DATA_REQUEST,
 			    FTDI_SIO_SET_DATA_REQUEST_TYPE,
 			    urb_value , priv->interface,
-			    buf, 0, WDR_SHORT_TIMEOUT) < 0) {
+			    NULL, 0, WDR_SHORT_TIMEOUT) < 0) {
 		err("%s FAILED to set databits/stopbits/parity", __FUNCTION__);
 	}
 
@@ -2445,7 +2568,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST,
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST_TYPE,
 				    0, priv->interface,
-				    buf, 0, WDR_TIMEOUT) < 0) {
+				    NULL, 0, WDR_TIMEOUT) < 0) {
 			err("%s error from disable flowcontrol urb", __FUNCTION__);
 		}
 		/* Drop RTS and DTR */
@@ -2470,7 +2593,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST,
 				    FTDI_SIO_SET_FLOW_CTRL_REQUEST_TYPE,
 				    0 , (FTDI_SIO_RTS_CTS_HS | priv->interface),
-				    buf, 0, WDR_TIMEOUT) < 0) {
+				    NULL, 0, WDR_TIMEOUT) < 0) {
 			err("urb failed to set to rts/cts flow control");
 		}
 
@@ -2487,8 +2610,8 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 			// Set the vstart and vstop -- could have been done up above where
 			// a lot of other dereferencing is done but that would be very
 			// inefficient as vstart and vstop are not always needed
-			vstart=port->tty->termios->c_cc[VSTART];
-			vstop=port->tty->termios->c_cc[VSTOP];
+			vstart = termios->c_cc[VSTART];
+			vstop = termios->c_cc[VSTOP];
 			urb_value=(vstop << 8) | (vstart);
 
 			if (usb_control_msg(dev,
@@ -2497,7 +2620,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 					    FTDI_SIO_SET_FLOW_CTRL_REQUEST_TYPE,
 					    urb_value , (FTDI_SIO_XON_XOFF_HS
 							 | priv->interface),
-					    buf, 0, WDR_TIMEOUT) < 0) {
+					    NULL, 0, WDR_TIMEOUT) < 0) {
 				err("urb failed to set to xon/xoff flow control");
 			}
 		} else {
@@ -2509,7 +2632,7 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 					    FTDI_SIO_SET_FLOW_CTRL_REQUEST,
 					    FTDI_SIO_SET_FLOW_CTRL_REQUEST_TYPE,
 					    0, priv->interface,
-					    buf, 0, WDR_TIMEOUT) < 0) {
+					    NULL, 0, WDR_TIMEOUT) < 0) {
 				err("urb failed to clear flow control");
 			}
 		}
@@ -2519,13 +2642,18 @@ static void ftdi_set_termios (struct usb_serial_port *port, struct ktermios *old
 } /* ftdi_termios */
 
 
-static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
+static int ftdi_tiocmget(struct usb_serial_port *port, struct file *file)
 {
 	struct ftdi_private *priv = usb_get_serial_port_data(port);
-	unsigned char buf[2];
+	unsigned char *buf;
 	int ret;
 
 	dbg("%s TIOCMGET", __FUNCTION__);
+
+	buf = kmalloc(2, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
 	switch (priv->chip_type) {
 	case SIO:
 		/* Request the status from the device */
@@ -2535,14 +2663,15 @@ static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
 					   FTDI_SIO_GET_MODEM_STATUS_REQUEST_TYPE,
 					   0, 0,
 					   buf, 1, WDR_TIMEOUT)) < 0 ) {
-			err("%s Could not get modem status of device - err: %d", __FUNCTION__,
-			    ret);
-			return(ret);
+			goto out;
 		}
 		break;
 	case FT8U232AM:
 	case FT232BM:
 	case FT2232C:
+	case FT232RL:
+	case FT2232H:
+	case FT4232H:
 		/* the 8U232AM returns a two byte value (the sio is a 1 byte value) - in the same
 		   format as the data returned from the in point */
 		if ((ret = usb_control_msg(port->serial->dev,
@@ -2551,21 +2680,22 @@ static int ftdi_tiocmget (struct usb_serial_port *port, struct file *file)
 					   FTDI_SIO_GET_MODEM_STATUS_REQUEST_TYPE,
 					   0, priv->interface,
 					   buf, 2, WDR_TIMEOUT)) < 0 ) {
-			err("%s Could not get modem status of device - err: %d", __FUNCTION__,
-			    ret);
-			return(ret);
+			goto out;
 		}
 		break;
 	default:
-		return -EFAULT;
-		break;
+		ret = -EFAULT;
+		goto out;
 	}
 
-	return  (buf[0] & FTDI_SIO_DSR_MASK ? TIOCM_DSR : 0) |
+	ret = (buf[0] & FTDI_SIO_DSR_MASK ? TIOCM_DSR : 0) |
 		(buf[0] & FTDI_SIO_CTS_MASK ? TIOCM_CTS : 0) |
 		(buf[0]  & FTDI_SIO_RI_MASK  ? TIOCM_RI  : 0) |
 		(buf[0]  & FTDI_SIO_RLSD_MASK ? TIOCM_CD  : 0) |
 		priv->last_dtr_rts;
+out:
+	kfree(buf);
+	return ret;
 }
 
 static int ftdi_tiocmset(struct usb_serial_port *port, struct file * file, unsigned int set, unsigned int clear)
