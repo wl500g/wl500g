@@ -1,0 +1,45 @@
+From fed66381d65a35198639f564365e61a7f256bf79
+From: Eric Dumazet
+Date: Thu, 22 Jul 2010 19:09:08 +0000
+Subject: [PATCH] net: pskb_expand_head() optimization
+
+Move frags[] at the end of struct skb_shared_info, and make
+pskb_expand_head() copy only the used part of it instead of whole array.
+
+This should avoid kmemcheck warnings and speedup pskb_expand_head() as
+well, avoiding a lot of cache misses.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/skbuff.h |    3 ++-
+ net/core/skbuff.c      |    2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f5aa87e..d89876b 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -142,6 +142,7 @@ struct skb_shared_info {
+ 	unsigned short  gso_type;
+ 	__be32          ip6_frag_id;
+ 	struct sk_buff	*frag_list;
++	/* must be last field, see pskb_expand_head() */
+ 	skb_frag_t	frags[MAX_SKB_FRAGS];
+ };
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 76d33ca..7da58a2 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -697,7 +697,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
+ 	memcpy(data + nhead, skb->head, skb->tail - skb->head);
+ #endif
+ 	memcpy(data + size, skb_end_pointer(skb),
+-	       sizeof(struct skb_shared_info));
++	       offsetof(struct skb_shared_info, frags[skb_shinfo(skb)->nr_frags]));
+ 
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
+ 		get_page(skb_shinfo(skb)->frags[i].page);
+-- 
+1.7.2.1
