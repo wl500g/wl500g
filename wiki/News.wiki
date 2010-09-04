@@ -5,6 +5,40 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * mm/fs/net/nfs backports
+    * nfs/usb fixes from RedHat RHEL3 63.EL
+    * RFC 2385 (TCP MD5) patch by Hasso Teppe (EXPERIMENTAL)
+    * usb-serial - SiLabs CP210x Driver from http://www.etheus.net (EXPERIMENTAL)
+    * CIFS: backports from Tomato project
+    * enable appletalk & ipddp external modules
+    * MTU change for TUN/TAP interfaces
+
+  * accel-pptp 0.8.5
+
+  * pppd updates from upstream (up to 2010-08-24)
+
+  * busybox 1.17.2
+
+  * 3g/cdma improvements & fixes
+
+  * usb_modeswitch 1.1.4
+    * usb-modeswitch-data 20100826
+
+  * inadyn improvements
+
+  * p910nd: IPv6 support
+
+  * samba: handle access flags
+
+  * vsftpd 2.3.2
+
+  * web-UI
+    * added www.tunnelbroker.net service
+    * fix symbols escaping (Issue 51)
+    * added ipv6 tunnel utilization graph
+
 ===wl500g-1.9.2.7-d-`r1825` (2010-07-23)===
   * kernel
     * minor nfs, hiddev fixes backport
