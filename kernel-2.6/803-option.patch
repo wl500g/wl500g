@@ -54,11 +54,14 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  
  #define HUAWEI_VENDOR_ID			0x12D1
  #define HUAWEI_PRODUCT_E600			0x1001
-@@ -178,6 +175,14 @@ static int  option_send_setup(struct usb
+@@ -178,6 +175,17 @@ static int  option_send_setup(struct usb
  #define HUAWEI_PRODUCT_E143D			0x143D
  #define HUAWEI_PRODUCT_E143E			0x143E
  #define HUAWEI_PRODUCT_E143F			0x143F
++#define HUAWEI_PRODUCT_K4505			0x1464
++#define HUAWEI_PRODUCT_K3765			0x1465
 +#define HUAWEI_PRODUCT_E14AC			0x14AC
++#define HUAWEI_PRODUCT_ETS1220			0x1803
 +
 +#define QUANTA_VENDOR_ID			0x0408
 +#define QUANTA_PRODUCT_Q101			0xEA02
@@ -95,8 +98,13 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  #define BANDRICH_VENDOR_ID			0x1A8D
  #define BANDRICH_PRODUCT_C100_1			0x1002
  #define BANDRICH_PRODUCT_C100_2			0x1003
-@@ -300,21 +303,99 @@ static int  option_send_setup(struct usb
+@@ -300,26 +303,101 @@ static int  option_send_setup(struct usb
+ #define BANDRICH_PRODUCT_1011			0x1011
+ #define BANDRICH_PRODUCT_1012			0x1012
  
+-#define AMOI_VENDOR_ID			0x1614
+-#define AMOI_PRODUCT_9508			0x0800
+-
  #define QUALCOMM_VENDOR_ID			0x05C6
  
 -#define MAXON_VENDOR_ID				0x16d8
@@ -213,12 +221,15 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E600, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E220BIS, 0xff, 0xff, 0xff) },
-@@ -409,6 +493,7 @@ static struct usb_device_id option_ids[]
+@@ -409,6 +493,9 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143D, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143E, 0xff, 0xff, 0xff) },
  	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E143F, 0xff, 0xff, 0xff) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_K4505, 0xff, 0xff, 0xff) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_K3765, 0xff, 0xff, 0xff) },
++	{ USB_DEVICE_AND_INTERFACE_INFO(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_ETS1220, 0xff, 0xff, 0xff) },
 +	{ USB_DEVICE(HUAWEI_VENDOR_ID, HUAWEI_PRODUCT_E14AC) },
- 	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_9508) },
+-	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_9508) },
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_V640) }, /* Novatel Merlin V640/XV620 */
  	{ USB_DEVICE(NOVATELWIRELESS_VENDOR_ID, NOVATELWIRELESS_PRODUCT_V620) }, /* Novatel Merlin V620/S620 */
 @@ -428,7 +513,10 @@ static struct usb_device_id option_ids[]
@@ -645,7 +656,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	unsigned long out_busy;		/* Bit vector of URBs in use */
  
  	/* Settings for the port */
-@@ -635,6 +1008,24 @@ static void __exit option_exit(void)
+@@ -635,6 +1008,31 @@ static void __exit option_exit(void)
  module_init(option_init);
  module_exit(option_exit);
  
@@ -662,6 +673,13 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	if ((serial->dev->descriptor.idVendor == BANDRICH_VENDOR_ID ||
 +		serial->dev->descriptor.idVendor == PIRELLI_VENDOR_ID) &&
 +		serial->interface->cur_altsetting->desc.bInterfaceClass != 0xff)
++		return -ENODEV;
++
++	/* Don't bind network interfaces on Huawei K3765 & K4505 */
++	if (serial->dev->descriptor.idVendor == HUAWEI_VENDOR_ID &&
++		(serial->dev->descriptor.idProduct == HUAWEI_PRODUCT_K3765 ||
++			serial->dev->descriptor.idProduct == HUAWEI_PRODUCT_K4505) &&
++		serial->interface->cur_altsetting->desc.bInterfaceNumber == 1)
 +		return -ENODEV;
 +
 +	return 0;
