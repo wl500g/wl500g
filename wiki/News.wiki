@@ -7,15 +7,14 @@
 
 ===wl500g-1.9.2.7-d (current)===
   * kernel
+    * accel-pptp 0.8.5
     * mm/fs/net/nfs backports
-    * nfs/usb fixes from RedHat RHEL3 63.EL
+    * nfs/usb fixes from [http://rhkernel.org RedHat] RHEL3 63.EL
     * RFC 2385 (TCP MD5) patch by Hasso Teppe (EXPERIMENTAL)
-    * usb-serial - SiLabs CP210x Driver from http://www.etheus.net (EXPERIMENTAL)
+    * usb-serial - !SiLabs CP210x Driver from [http://www.etheus.net/CP210x_Linux_Driver etheus.net] (EXPERIMENTAL)
     * CIFS: backports from Tomato project
     * enable appletalk & ipddp external modules
     * MTU change for TUN/TAP interfaces
-
-  * accel-pptp 0.8.5
 
   * pppd updates from upstream (up to 2010-08-24)
 
