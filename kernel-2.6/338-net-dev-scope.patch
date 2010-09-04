@@ -1,0 +1,42 @@
+From 148f97292e8fa2c35fcef60a7725cf1b073d6818 
+From: Bjorn Mork 
+Date: Tue, 26 Feb 2008 18:17:53 -0800
+Subject: [PATCH] [IPV4]: Reset scope when changing address
+
+This bug did bite at least one user, who did have to resort to rebooting
+the system after an "ifconfig eth0 127.0.0.1" typo.
+
+Deleting the address and adding a new is a less intrusive workaround.
+But I still beleive this is a bug that should be fixed.  Some way or
+another.
+
+Another possibility would be to remove the scope mangling based on
+address.  This will always be incomplete (are 127/8 the only address
+space with host scope requirements?)
+
+We set the scope to RT_SCOPE_HOST if an IPv4 interface is configured
+with a loopback address (127/8).  The scope is never reset, and will
+remain set to RT_SCOPE_HOST after changing the address. This patch
+resets the scope if the address is changed again, to restore normal
+functionality.
+
+Signed-off-by: Bjorn Mork <bjorn@mork.no>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/devinet.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index f282b26..87490f7 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -752,6 +752,7 @@ int devinet_ioctl(unsigned int cmd, void __user *arg)
+ 			inet_del_ifa(in_dev, ifap, 0);
+ 			ifa->ifa_broadcast = 0;
+ 			ifa->ifa_anycast = 0;
++			ifa->ifa_scope = 0;
+ 		}
+ 
+ 		ifa->ifa_address = ifa->ifa_local = sin->sin_addr.s_addr;
+-- 
+1.7.2.3
