@@ -1,0 +1,47 @@
+From 68f98fe730acff8d8488cc1cc1e0d9c3549788a9
+From: Sylvain Rochet
+Date: Wed, 7 Apr 2010 21:57:24 +0200
+Subject: [PATCH] drivers/tun: MTU change for TUN/TAP interfaces
+
+This patch add the ability to change the MTU of TUN/TAP interfaces for
+the 2.4.x kernels series.
+
+Diagnosed-by: Sylvain Rochet <gradator@gradator.net>
+[wt: code is similar to 2.6 so that's fine]
+Signed-off-by: Willy Tarreau <w@1wt.eu>
+---
+ drivers/net/tun.c |   12 ++++++++++++
+ 1 files changed, 12 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 690bc03..c8dee60 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -118,6 +118,17 @@ static struct net_device_stats *tun_net_stats(struct net_device *dev)
+ 	return &tun->stats;
+ }
+ 
++#define MIN_MTU 68
++#define MAX_MTU 65535
++
++static int tun_net_change_mtu(struct net_device *dev, int new_mtu)  {
++	if (new_mtu < MIN_MTU || new_mtu + dev->hard_header_len > MAX_MTU)
++		return -EINVAL;
++	dev->mtu = new_mtu;
++	return 0;
++}
++
++
+ /* Initialize net device. */
+ int tun_net_init(struct net_device *dev)
+ {
+@@ -156,6 +167,7 @@ int tun_net_init(struct net_device *dev)
+ 		break;
+ 	};
+ 
++	dev->change_mtu = tun_net_change_mtu;
+ 	return 0;
+ }
+ 
+-- 
+1.7.2.3
