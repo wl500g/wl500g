@@ -1975,7 +1975,6 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
 	int work = 0;
 	int quota = min(backlog_dev->quota, *budget);
 	struct softnet_data *queue = &__get_cpu_var(softnet_data);
-	unsigned long start_time = jiffies;
 
 	backlog_dev->weight = weight_p;
 	for (;;) {
@@ -1991,7 +1990,7 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
 
 		work++;
 
-		if (work >= quota || jiffies - start_time > 1)
+		if (work >= quota)
 			break;
 
 	}
