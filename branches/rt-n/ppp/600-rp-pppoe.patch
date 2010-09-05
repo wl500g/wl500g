@@ -146,8 +146,8 @@ diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppo
  
  #ifndef _ROOT_PATH
 @@ -133,6 +132,17 @@ PPPOEConnectDevice(void)
- {
-     struct sockaddr_pppox sp;
+     struct ifreq ifr;
+     int s;
  
 +    /* Open session socket before discovery phase, to avoid losing session */
 +    /* packets sent by peer just after PADS packet (noted on some Cisco    */
@@ -160,9 +160,9 @@ diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppo
 +	return -1;
 +    }
 +
-     strlcpy(ppp_devnam, devnam, sizeof(ppp_devnam));
-     if (existingSession) {
- 	unsigned int mac[ETH_ALEN];
+     /* Restore configuration */
+     lcp_allowoptions[0].mru = conn->mtu;
+     lcp_wantoptions[0].mru = conn->mru;
 @@ -147,6 +157,8 @@ PPPOEConnectDevice(void)
  	    conn->peerEth[i] = (unsigned char) mac[i];
  	}
@@ -172,7 +172,7 @@ diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppo
  	discovery(conn);
  	if (conn->discoveryState != STATE_SESSION) {
  	    error("Unable to complete PPPoE Discovery");
-@@ -157,12 +169,6 @@ PPPOEConnectDevice(void)
+@@ -157,13 +169,6 @@ PPPOEConnectDevice(void)
      /* Set PPPoE session-number for further consumption */
      ppp_session_number = ntohs(conn->session);
  
@@ -182,6 +182,7 @@ diff -ubBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/plugin.c ppp/pppd/plugins/rp-pppo
 -	error("Failed to create PPPoE socket: %m");
 -	goto errout;
 -    }
+-
      sp.sa_family = AF_PPPOX;
      sp.sa_protocol = PX_PROTO_OE;
      sp.sa_addr.pppoe.sid = conn->session;
