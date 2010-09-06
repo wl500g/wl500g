@@ -5,10 +5,10 @@ Subject: [PATCH] VFS: fix a race in lease-breaking during truncate, check for nu
 
 From newer kernel:
 http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.32.y.git;a=commitdiff;h=9700382c3c9ff3e673e587084d76eedb3ba88668
-http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.32.y.git;a=commitdiff;h=322ee5b36eac42e762526b0df7fa432beba6e7a0
 ---
- fs/open.c |   28 +++++++++++++++++++++-------
- 1 files changed, 21 insertions(+), 7 deletions(-)
+
+ fs/open.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/fs/open.c b/fs/open.c
 index be6a457..080f7e5 100644
@@ -48,25 +48,5 @@ index be6a457..080f7e5 100644
  dput_and_out:
  	path_release(&nd);
  out:
-@@ -840,6 +842,18 @@ struct file *dentry_open(struct dentry *dentry, struct vfsmount *mnt, int flags)
- 	int error;
- 	struct file *f;
- 
-+	/*
-+	 * We must always pass in a valid mount pointer.   Historically
-+	 * callers got away with not passing it, but we must enforce this at
-+	 * the earliest possible point now to avoid strange problems deep in the
-+	 * filesystem stack.
-+	 */
-+	if (!mnt) {
-+		printk(KERN_WARNING "%s called with NULL vfsmount\n", __func__);
-+		dump_stack();
-+		return ERR_PTR(-EINVAL);
-+	}
-+
- 	error = -ENFILE;
- 	f = get_empty_filp();
- 	if (f == NULL) {
 -- 
 1.6.5.GIT
-
