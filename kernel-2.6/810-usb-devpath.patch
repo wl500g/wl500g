@@ -71,11 +71,11 @@ diff '-x.*' -urNBp a/drivers/usb/core/devpath.c b/drivers/usb/core/devpath.c
 +struct usb_devpath {
 +  struct list_head devpath_list;
 +  struct usb_device *dev;
-+  char index;
++  short index;
 +  char devfs[16];
 +};
 +
-+void usb_register_devpath(struct usb_device *dev, char index, const char *devname, int devnum)
++void usb_register_devpath(struct usb_device *dev, short index, const char *devname, int devnum)
 +{
 +	struct usb_devpath *newdevpath;
 +	
@@ -334,7 +334,7 @@ diff '-x.*' -urNBp a/include/linux/usb.h b/include/linux/usb.h
  /* this request isn't really synchronous, but it belongs with the others */
  extern int usb_driver_set_configuration(struct usb_device *udev, int config);
  
-+extern void usb_register_devpath(struct usb_device *udev, char index, const char *devname, int devnum);
++extern void usb_register_devpath(struct usb_device *udev, short index, const char *devname, int devnum);
 +extern void usb_deregister_devpath(struct usb_device *udev);
 +
  /*
