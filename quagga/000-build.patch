@@ -131,9 +131,9 @@ diff -uB quagga/Makefile.in quagga.new/Makefile.in
 @@ -279,7 +279,7 @@
  
  $(top_srcdir)/configure:  $(am__configure_deps)
- 	cd $(srcdir) && $(AUTOCONF)
+ 	$(am__cd) $(srcdir) && $(AUTOCONF)
 -$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 +$(ACLOCAL_M4):
- 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+ 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+ $(am__aclocal_m4_deps):
  
- config.h: stamp-h1
