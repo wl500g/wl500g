@@ -15,7 +15,7 @@
 == 2. Скачать дополнительные инструменты и исходники ==
   * Toolchain [http://code.google.com/p/wl500g/downloads/list?can=2&q=hndtools-mipsel-uclibc hndtools-mipsel-uclibc-4.3.5]
   * ядро Linux 
-    * Для основной ветки 1.9.2.7-d вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.9.tar.bz2 linux-2.4.37.9.tar.bz2]
+    * Для основной ветки 1.9.2.7-d вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.37.10.tar.bz2 linux-2.4.37.10.tar.bz2]
     * Для экспериментальной 1.9.2.7-rtn вам нужно ядро [http://www.kernel.org/pub/linux/kernel/v2.6/linux-2.6.22.19.tar.bz2 linux-2.6.22.19.tar.bz2]
 
 == 3. Распаковать архивы и подготовить дерево сборки ==
@@ -23,7 +23,7 @@
   # Распаковка (путь _/whatever-you-want_ заменить на тот, где будет храниться дерево сборки) 
     установите переменную KVER в версию ядра из пункта 2
 {{{
-KVER=2.4.37.9
+KVER=2.4.37.10
 mkdir -p /whatever-you-want/broadcom/src/linux
 mkdir -p /opt/brcm
 tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-2.tar.bz2
