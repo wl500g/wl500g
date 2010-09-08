@@ -1,0 +1,28 @@
+From: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+
+if_arp: add a pure ip ARPHRD
+
+Network hardware that operates passing around pure IP headers, without
+hardware specific wrappings/headers, needs a hardware type to use for
+DHCP requests. This is specified by the ARP HW types and registered by
+IANA.
+
+Number 35 has been requested to IANA for this kind of devices.
+http://iana.org/assignments/arp-parameters/arp-parameters.xhtml#arp-parameters-2.
+
+Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+
+---
+
+diff -r f456a80cbe51 include/linux/if_arp.h
+--- a/include/linux/if_arp.h	Sun Jul 13 23:00:20 2008 +0000
++++ b/include/linux/if_arp.h	Sat Aug 09 00:51:52 2008 -0700
+@@ -41,6 +41,7 @@
+ #define	ARPHRD_IEEE1394	24		/* IEEE 1394 IPv4 - RFC 2734	*/
+ #define ARPHRD_EUI64	27		/* EUI-64                       */
+ #define ARPHRD_INFINIBAND 32		/* InfiniBand			*/
++#define ARPHRD_PUREIP	35		/* Pure IP (no hw headers)	*/
+ 
+ /* Dummy types for non ARP hardware */
+ #define ARPHRD_SLIP	256
