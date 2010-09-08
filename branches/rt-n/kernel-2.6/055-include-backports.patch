@@ -17,4 +17,15 @@ diff '-x.*' -urNBp a/include/linux/list.h b/include/linux/list.h
  static inline void __list_splice(struct list_head *list,
  				 struct list_head *head)
  {
-
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -34,6 +34,7 @@ extern const char linux_proc_banner[];
+ 
+ #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
+ #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
++#define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
+ 
+ #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+ 
+-- 
