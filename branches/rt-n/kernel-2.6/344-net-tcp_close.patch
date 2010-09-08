@@ -1,0 +1,34 @@
+ kernel.org patches:
+ 565b7b2d2e632b5792879c0c9cccdd9eecd31195 tcp: do not send reset to already closed sockets
+ d84ba638e4ba3c40023ff997aa5e8d3ed002af36 tcp: select(writefds) don't hang up when a peer close connection
+
+---
+ net/ipv4/tcp.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -451,7 +451,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 				if (sk_stream_wspace(sk) >= sk_stream_min_wspace(sk))
+ 					mask |= POLLOUT | POLLWRNORM;
+ 			}
+-		}
++		} else
++			mask |= POLLOUT | POLLWRNORM;
+ 
+ 		if (tp->urg_data & TCP_URG_VALID)
+ 			mask |= POLLPRI;
+@@ -1898,6 +1898,10 @@ void tcp_close(struct sock *sk, long timeout)
+ 
+ 	sk_mem_reclaim(sk);
+ 
++	/* If socket has been already reset (e.g. in tcp_reset()) - kill it. */
++	if (sk->sk_state == TCP_CLOSE)
++		goto adjudge_to_death;
++
+ 	/* As outlined in RFC 2525, section 2.17, we send a RST here because
+ 	 * data was lost. To witness the awful effects of the old behavior of
+ 	 * always doing a FIN, run an older 2.1.x kernel or 2.0.x, start a bulk
+-- 
+1.7.2.3
