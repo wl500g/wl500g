@@ -29,11 +29,18 @@
 </select></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by IPTV proxy. Set to 0 to disable', LEFT);" onMouseOut="return nd();">IPTV UDP Multicast to HTTP Proxy Port:</td>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by IPTV proxy. Set to 0 to disable', LEFT);" onMouseOut="return nd();">Multicast to HTTP Proxy Port:</td>
 <td class="content_input_td">
 	<input type="text" maxlength="5" size="5" name="udpxy_enable_x" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "udpxy_enable_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"> (0 - disabled)</input>
 	<input type="checkbox" style="margin-left:30" name="udpxy_wan_check" value="" onClick="return change_common_radio(this, 'LANHostConfig', 'udpxy_wan', '1')">Enable access from WAN</input>
 	<input type="hidden" name="udpxy_wan_x" value="<% nvram_get_x("LANHostConfig","udpxy_wan_x"); %>">
+</td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('This field enables efficient multicast streams forwarding to reduce the bandwidth utilization and latency', LEFT);" onMouseOut="return nd();">Efficient Multicast Forwarding:</td>
+<td class="content_input_td">
+	<input type="radio" value="1" name="emf_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'emf_enable', '1')" <% nvram_match_x("LANHostConfig","emf_enable", "1", "checked"); %>>Enabled</input>
+	<input type="radio" value="0" name="emf_enable" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'emf_enable', '0')" <% nvram_match_x("LANHostConfig","emf_enable", "0", "checked"); %>>Disabled</input>
 </td>
 </tr>
 <tr>
