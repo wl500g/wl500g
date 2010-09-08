@@ -94,6 +94,126 @@ hotplug_sem_unlock()
 #define hotplug_sem_lock()
 #define hotplug_sem_unlock()
 #endif
+
+#ifdef __CONFIG_EMF__
+void
+emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+        char word[256], *next;
+        char *mgrp, *ifname;
+
+        /* Add/Delete MFDB entries corresponding to new interface */
+        foreach (word, nvram_safe_get("emf_entry"), next) {
+                ifname = word;
+                mgrp = strsep(&ifname, ":");
+
+                if ((mgrp == 0) || (ifname == 0))
+                        continue;
+
+                /* Add/Delete MFDB entry using the group addr and interface */
+                if (strcmp(lan_port_ifname, ifname) == 0) {
+                        eval("emf", ((add) ? "add" : "del"),
+                             "mfdb", lan_ifname, mgrp, ifname);
+                }
+        }
+
+        return;
+}
+
+void
+emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+        char word[256], *next;
+        char *ifname;
+
+        /* Add/Delete UFFP entries corresponding to new interface */
+        foreach (word, nvram_safe_get("emf_uffp_entry"), next) {
+                ifname = word;
+
+                if (ifname == 0)
+                        continue;
+
+                /* Add/Delete UFFP entry for the interface */
+                if (strcmp(lan_port_ifname, ifname) == 0) {
+                        eval("emf", ((add) ? "add" : "del"),
+                             "uffp", lan_ifname, ifname);
+                }
+        }
+
+        return;
+}
+
+void
+emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
+{
+        char word[256], *next;
+        char *ifname;
+
+        /* Add/Delete RTPORT entries corresponding to new interface */
+        foreach (word, nvram_safe_get("emf_rtport_entry"), next) {
+                ifname = word;
+
+                if (ifname == 0)
+                        continue;
+
+                /* Add/Delete RTPORT entry for the interface */
+                if (strcmp(lan_port_ifname, ifname) == 0) {
+                        eval("emf", ((add) ? "add" : "del"),
+                             "rtport", lan_ifname, ifname);
+                }
+        }
+
+        return;
+}
+
+void
+start_emf(char *lan_ifname)
+{
+        char word[256], *next;
+        char *mgrp, *ifname;
+
+        if (!nvram_match("emf_enable", "1"))
+                return;
+
+        /* Start EMF */
+        eval("emf", "start", lan_ifname);
+
+        /* Add the static MFDB entries */
+        foreach (word, nvram_safe_get("emf_entry"), next) {
+                ifname = word;
+                mgrp = strsep(&ifname, ":");
+
+                if ((mgrp == 0) || (ifname == 0))
+                        continue;
+
+                /* Add MFDB entry using the group addr and interface */
+                eval("emf", "add", "mfdb", lan_ifname, mgrp, ifname);
+        }
+
+        /* Add the UFFP entries */
+        foreach (word, nvram_safe_get("emf_uffp_entry"), next) {
+                ifname = word;
+                if (ifname == 0)
+                        continue;
+
+                /* Add UFFP entry for the interface */
+                eval("emf", "add", "uffp", lan_ifname, ifname);
+        }
+
+        /* Add the RTPORT entries */
+        foreach (word, nvram_safe_get("emf_rtport_entry"), next) {
+                ifname = word;
+                if (ifname == 0)
+                        continue;
+
+                /* Add RTPORT entry for the interface */
+                eval("emf", "add", "rtport", lan_ifname, ifname);
+        }
+
+        return;
+}
+#endif
+
 static int
 add_routes(char *prefix, char *var, char *ifname)
 {
@@ -292,7 +412,15 @@ start_lan(void)
 		eval("brctl", "addbr", lan_ifname);
 		eval("brctl", "setfd", lan_ifname, "0");
 		if (nvram_match("router_disable", "1") || nvram_match("lan_stp", "0"))
-			eval("brctl", "stp", lan_ifname, "dis");
+			eval("brctl", "stp", lan_ifname, "off");
+
+#ifdef __CONFIG_EMF__
+                if (nvram_match("emf_enable", "1")) {
+                        eval("emf", "add", "bridge", lan_ifname);
+                        eval("igs", "add", "bridge", lan_ifname);
+                }
+#endif
+
 #ifdef ASUS_EXT
 		foreach(name, nvram_safe_get("lan_ifnames_t"), next) {
 #else
@@ -318,6 +446,10 @@ start_lan(void)
 			if (eval("wlconf", name, "up"))
 			{
 				eval("brctl", "addif", lan_ifname, name);
+#ifdef __CONFIG_EMF__
+				if (nvram_match("emf_enable", "1"))
+					eval("emf", "add", "iface", lan_ifname, name);
+#endif
 			}
 			else 
 			{
@@ -335,8 +467,13 @@ start_lan(void)
 				if (nvram_match(wl_name, "wet"))
 					ifconfig(name, IFUP | IFF_ALLMULTI, NULL, NULL);
 				/* Do not attach the main wl i/f if in wds mode */
-				if (nvram_invmatch(wl_name, "wds"))
-					eval("brctl", "addif",lan_ifname,name);
+				if (nvram_invmatch(wl_name, "wds")) {
+					eval("brctl", "addif", lan_ifname, name);
+#ifdef __CONFIG_EMF__
+					if (nvram_match("emf_enable", "1"))
+						eval("emf", "add", "iface", lan_ifname, name);
+#endif
+				}
 			}
 		}
 	}
@@ -465,6 +602,11 @@ start_lan(void)
 	add_lan_routes(lan_ifname);
 #endif
 
+#ifdef __CONFIG_EMF__
+	/* Start the EMF for this LAN */
+	start_emf(lan_ifname);
+#endif
+
 #ifndef ASUS_EXT
 	/* Start syslogd if either log_ipaddr or log_ram_enable is set */
 	if (nvram_invmatch("log_ipaddr", "") || nvram_match("log_ram_enable", "1")) {
@@ -548,8 +690,18 @@ stop_lan(void)
 			eval("wlconf", name, "down");
 			ifconfig(name, 0, NULL, NULL);
 			eval("brctl", "delif", lan_ifname, name);
+#ifdef __CONFIG_EMF__
+			if (nvram_match("emf_enable", "1"))
+				eval("emf", "del", "iface", lan_ifname, name);
+#endif
 		}
 		eval("brctl", "delbr", lan_ifname);
+#ifdef __CONFIG_EMF__
+		if (nvram_match("emf_enable", "1")) {
+			eval("igs", "del", "bridge", lan_ifname);
+			eval("emf", "del", "bridge", lan_ifname);
+		}
+#endif
 	}
 	/* Bring down specific interface */
 	else if (strcmp(lan_ifname, ""))
@@ -1639,7 +1791,16 @@ hotplug_net(void)
 #endif
 		/* Bring up the interface and add to the bridge */
 		ifconfig(interface, IFUP, NULL, NULL);
-		
+
+#ifdef __CONFIG_EMF__
+                if (nvram_match("emf_enable", "1")) {
+                        eval("emf", "add", "iface", lan_ifname, interface);
+                        emf_mfdb_update(lan_ifname, interface, TRUE);
+                        emf_uffp_update(lan_ifname, interface, TRUE);
+                        emf_rtport_update(lan_ifname, interface, TRUE);
+                }
+#endif
+
 		/* Bridge WDS interfaces */
 		if (!strncmp(lan_ifname, "br", 2) && 
 		    eval("brctl", "addif", lan_ifname, interface))
