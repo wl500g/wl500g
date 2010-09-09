@@ -1,3 +1,52 @@
+diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
+--- a/include/asm-generic/bug.h
++++ b/include/asm-generic/bug.h
+@@ -33,7 +33,7 @@ struct bug_entry {
+ 
+ #ifndef HAVE_ARCH_WARN_ON
+ #define WARN_ON(condition) ({						\
+-	typeof(condition) __ret_warn_on = (condition);			\
++	typeof(condition) __ret_warn_on = !!(condition);		\
+ 	if (unlikely(__ret_warn_on)) {					\
+ 		printk("WARNING: at %s:%d %s()\n", __FILE__,		\
+ 			__LINE__, __FUNCTION__);			\
+@@ -41,6 +41,17 @@ struct bug_entry {
+ 	}								\
+ 	unlikely(__ret_warn_on);					\
+ })
++
++#ifndef WARN
++#define WARN(condition, format...) ({					\
++	typeof(condition) __ret_warn_on = !!(condition);		\
++	if (unlikely(__ret_warn_on)) {					\
++		printk(format);						\
++		dump_stack();						\
++	}								\
++	unlikely(__ret_warn_on);					\
++})
++#endif
+ #endif
+ 
+ #else /* !CONFIG_BUG */
+@@ -54,10 +66,17 @@ struct bug_entry {
+ 
+ #ifndef HAVE_ARCH_WARN_ON
+ #define WARN_ON(condition) ({						\
+-	typeof(condition) __ret_warn_on = (condition);			\
++	typeof(condition) __ret_warn_on = !!(condition);		\
+ 	unlikely(__ret_warn_on);					\
+ })
+ #endif
++
++#ifndef WARN
++#define WARN(condition, format...) ({					\
++	typeof(condition) __ret_warn_on = !!(condition);		\
++	unlikely(__ret_warn_on);					\
++})
++#endif
+ #endif
+ 
+ #define WARN_ON_ONCE(condition)	({				\
 diff '-x.*' -urNBp a/include/linux/list.h b/include/linux/list.h
 --- a/include/linux/list.h	2008-02-26 02:59:40.000000000 +0300
 +++ b/include/linux/list.h	2010-07-16 21:54:37.000000000 +0400
