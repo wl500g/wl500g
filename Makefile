@@ -524,13 +524,15 @@ $(TOP)/libusb10: libusb/$(LIBUSB10).tar.bz2
 	$(PATCHER) -Z $(TOP)/$(LIBUSB10) $(libusb10_Patches)
 	mv $(TOP)/$(LIBUSB10) $@ && touch $@
 
+modeswitch_Patches := $(call patches_list,usb_modeswitch)
+
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
 	tar -jxf usb_modeswitch/$(USBMODESWITCH).tar.bz2  -C $(TOP)
-	[ ! -f usb_modeswitch/$(USBMODESWITCH).patch ] || \
-		$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) usb_modeswitch/$(USBMODESWITCH).patch
+	$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) $(modeswitch_Patches)
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
+	# usb_modeswitch data
 	tar -C usb_modeswitch $(TAR_EXCL_SVN) -cf - data | tar -C $(TOP)/usb_modeswitch -xf -
 
 usb_modeswitch: $(TOP)/usb_modeswitch
