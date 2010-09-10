@@ -47,6 +47,21 @@ diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
  #endif
  
  #define WARN_ON_ONCE(condition)	({				\
+diff -uBp a/include/linux/device.h b/include/linux/device.h
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -463,6 +463,11 @@ struct device {
+ 	void	(*release)(struct device * dev);
+ };
+ 
++static inline const char *dev_name(const struct device *dev)
++{
++        return kobject_name(&dev->kobj);
++}
++
+ #ifdef CONFIG_NUMA
+ static inline int dev_to_node(struct device *dev)
+ {
 diff '-x.*' -urNBp a/include/linux/list.h b/include/linux/list.h
 --- a/include/linux/list.h	2008-02-26 02:59:40.000000000 +0300
 +++ b/include/linux/list.h	2010-07-16 21:54:37.000000000 +0400
@@ -77,4 +92,20 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
  
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -559,6 +559,12 @@ static inline void *netdev_priv(struct n
+  */
+ #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+ 
++/* Set the sysfs device type for the network logical device to allow
++ * fin grained indentification of different network device types. For
++ * example Ethernet, Wirelss LAN, Bluetooth, WiMAX etc.
++ */
++#define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
++
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+ 	struct net_device	*dev;	/* NULL is wildcarded here	     */
 -- 
