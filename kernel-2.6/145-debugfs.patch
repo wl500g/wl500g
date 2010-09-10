@@ -1,0 +1,323 @@
+debugfs: updates from upstream
+
+ kernel.org commits
+ cfc94cdf8e0f14e692a5a40ef3cc10f464b2511b debugfs: add rename for debugfs files
+ 9505e6375640fc61d92d36c8e9f25a6a218f3f57 debugfs: Implement debugfs_remove_recursive()
+ 5e07878787ad07361571150230cc3a8d522ae046 debugfs: add helpers for exporting a size_t simple value
+ 8adb711f3668b034e7b956fac951ed08b53e0d55 debugfs: introduce stub for debugfs_create_size_t() when DEBUG_FS=n
+ 5ee810072175042775e39bdd3eaaa68884c27805 Fix "multiple definition of `debugfs_create_size_t'"
+
+---
+
+ fs/debugfs/file.c       |   31 ++++++++
+ fs/debugfs/inode.c      |  182 +++++++++++++++++++++++++++++++++++++++++-------
+ include/linux/debugfs.h |   22 +++++
+ 3 files changed, 212 insertions(+), 23 deletions(-)
+
+diff -urBp a/fs/debugfs/file.c b/fs/debugfs/file.c
+--- a/fs/debugfs/file.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/debugfs/file.c	2010-09-10 15:05:26.000000000 +0400
+@@ -221,6 +221,37 @@ struct dentry *debugfs_create_u64(const 
+ }
+ EXPORT_SYMBOL_GPL(debugfs_create_u64);
+ 
++
++static void debugfs_size_t_set(void *data, u64 val)
++{
++	*(size_t *)data = val;
++}
++
++static u64 debugfs_size_t_get(void *data)
++{
++	return *(size_t *)data;
++}
++DEFINE_SIMPLE_ATTRIBUTE(fops_size_t, debugfs_size_t_get, debugfs_size_t_set,
++			"%llu\n");	/* %llu and %zu are more or less the same */
++
++/**
++ * debugfs_create_size_t - create a debugfs file that is used to read and write an size_t value
++ * @name: a pointer to a string containing the name of the file to create.
++ * @mode: the permission that the file should have
++ * @parent: a pointer to the parent dentry for this file.  This should be a
++ *          directory dentry if set.  If this parameter is %NULL, then the
++ *          file will be created in the root of the debugfs filesystem.
++ * @value: a pointer to the variable that the file should read to and write
++ *         from.
++ */
++struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
++				     struct dentry *parent, size_t *value)
++{
++	return debugfs_create_file(name, mode, parent, value, &fops_size_t);
++}
++EXPORT_SYMBOL_GPL(debugfs_create_size_t);
++
++
+ static ssize_t read_file_bool(struct file *file, char __user *user_buf,
+ 			      size_t count, loff_t *ppos)
+ {
+diff -urBp a/fs/debugfs/inode.c b/fs/debugfs/inode.c
+--- a/fs/debugfs/inode.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/debugfs/inode.c	2010-09-10 14:47:37.000000000 +0400
+@@ -313,6 +313,31 @@ struct dentry *debugfs_create_symlink(co
+ }
+ EXPORT_SYMBOL_GPL(debugfs_create_symlink);
+ 
++static void __debugfs_remove(struct dentry *dentry, struct dentry *parent)
++{
++	int ret = 0;
++
++	if (debugfs_positive(dentry)) {
++		if (dentry->d_inode) {
++			dget(dentry);
++			switch (dentry->d_inode->i_mode & S_IFMT) {
++			case S_IFDIR:
++				ret = simple_rmdir(parent->d_inode, dentry);
++				break;
++			case S_IFLNK:
++				kfree(dentry->d_inode->i_private);
++				/* fall through */
++			default:
++				simple_unlink(parent->d_inode, dentry);
++				break;
++			}
++			if (!ret)
++				d_delete(dentry);
++			dput(dentry);
++		}
++	}
++}
++
+ /**
+  * debugfs_remove - removes a file or directory from the debugfs filesystem
+  * @dentry: a pointer to a the dentry of the file or directory to be
+@@ -329,7 +354,6 @@ EXPORT_SYMBOL_GPL(debugfs_create_symlink
+ void debugfs_remove(struct dentry *dentry)
+ {
+ 	struct dentry *parent;
+-	int ret = 0;
+ 	
+ 	if (!dentry)
+ 		return;
+@@ -339,34 +363,146 @@ void debugfs_remove(struct dentry *dentr
+ 		return;
+ 
+ 	mutex_lock(&parent->d_inode->i_mutex);
+-	if (debugfs_positive(dentry)) {
+-		if (dentry->d_inode) {
+-			dget(dentry);
+-			switch (dentry->d_inode->i_mode & S_IFMT) {
+-			case S_IFDIR:
+-				ret = simple_rmdir(parent->d_inode, dentry);
+-				if (ret)
+-					printk(KERN_ERR
+-						"DebugFS rmdir on %s failed : "
+-						"directory not empty.\n",
+-						dentry->d_name.name);
+-				break;
+-			case S_IFLNK:
+-				kfree(dentry->d_inode->i_private);
+-				/* fall through */
+-			default:
+-				simple_unlink(parent->d_inode, dentry);
++	__debugfs_remove(dentry, parent);
++	mutex_unlock(&parent->d_inode->i_mutex);
++	simple_release_fs(&debugfs_mount, &debugfs_mount_count);
++}
++EXPORT_SYMBOL_GPL(debugfs_remove);
++
++/**
++ * debugfs_remove_recursive - recursively removes a directory
++ * @dentry: a pointer to a the dentry of the directory to be removed.
++ *
++ * This function recursively removes a directory tree in debugfs that
++ * was previously created with a call to another debugfs function
++ * (like debugfs_create_file() or variants thereof.)
++ *
++ * This function is required to be called in order for the file to be
++ * removed, no automatic cleanup of files will happen when a module is
++ * removed, you are responsible here.
++ */
++void debugfs_remove_recursive(struct dentry *dentry)
++{
++	struct dentry *child;
++	struct dentry *parent;
++
++	if (!dentry)
++		return;
++
++	parent = dentry->d_parent;
++	if (!parent || !parent->d_inode)
++		return;
++
++	parent = dentry;
++	mutex_lock(&parent->d_inode->i_mutex);
++
++	while (1) {
++		/*
++		 * When all dentries under "parent" has been removed,
++		 * walk up the tree until we reach our starting point.
++		 */
++		if (list_empty(&parent->d_subdirs)) {
++			mutex_unlock(&parent->d_inode->i_mutex);
++			if (parent == dentry)
+ 				break;
+-			}
+-			if (!ret)
+-				d_delete(dentry);
+-			dput(dentry);
++			parent = parent->d_parent;
++			mutex_lock(&parent->d_inode->i_mutex);
++		}
++		child = list_entry(parent->d_subdirs.next, struct dentry,
++				d_u.d_child);
++
++		/*
++		 * If "child" isn't empty, walk down the tree and
++		 * remove all its descendants first.
++		 */
++		if (!list_empty(&child->d_subdirs)) {
++			mutex_unlock(&parent->d_inode->i_mutex);
++			parent = child;
++			mutex_lock(&parent->d_inode->i_mutex);
++			continue;
++		}
++		__debugfs_remove(child, parent);
++		if (parent->d_subdirs.next == &child->d_u.d_child) {
++			/*
++			 * Avoid infinite loop if we fail to remove
++			 * one dentry.
++			 */
++			mutex_unlock(&parent->d_inode->i_mutex);
++			break;
+ 		}
++		simple_release_fs(&debugfs_mount, &debugfs_mount_count);
+ 	}
++
++	parent = dentry->d_parent;
++	mutex_lock(&parent->d_inode->i_mutex);
++	__debugfs_remove(dentry, parent);
+ 	mutex_unlock(&parent->d_inode->i_mutex);
+ 	simple_release_fs(&debugfs_mount, &debugfs_mount_count);
+ }
+-EXPORT_SYMBOL_GPL(debugfs_remove);
++EXPORT_SYMBOL_GPL(debugfs_remove_recursive);
++
++/**
++ * debugfs_rename - rename a file/directory in the debugfs filesystem
++ * @old_dir: a pointer to the parent dentry for the renamed object. This
++ *          should be a directory dentry.
++ * @old_dentry: dentry of an object to be renamed.
++ * @new_dir: a pointer to the parent dentry where the object should be
++ *          moved. This should be a directory dentry.
++ * @new_name: a pointer to a string containing the target name.
++ *
++ * This function renames a file/directory in debugfs.  The target must not
++ * exist for rename to succeed.
++ *
++ * This function will return a pointer to old_dentry (which is updated to
++ * reflect renaming) if it succeeds. If an error occurs, %NULL will be
++ * returned.
++ *
++ * If debugfs is not enabled in the kernel, the value -%ENODEV will be
++ * returned.
++ */
++struct dentry *debugfs_rename(struct dentry *old_dir, struct dentry *old_dentry,
++		struct dentry *new_dir, const char *new_name)
++{
++	int error;
++	struct dentry *dentry = NULL, *trap;
++	const char *old_name;
++
++	trap = lock_rename(new_dir, old_dir);
++	/* Source or destination directories don't exist? */
++	if (!old_dir->d_inode || !new_dir->d_inode)
++		goto exit;
++	/* Source does not exist, cyclic rename, or mountpoint? */
++	if (!old_dentry->d_inode || old_dentry == trap ||
++	    d_mountpoint(old_dentry))
++		goto exit;
++	dentry = lookup_one_len(new_name, new_dir, strlen(new_name));
++	/* Lookup failed, cyclic rename or target exists? */
++	if (IS_ERR(dentry) || dentry == trap || dentry->d_inode)
++		goto exit;
++
++	old_name = fsnotify_oldname_init(old_dentry->d_name.name);
++
++	error = simple_rename(old_dir->d_inode, old_dentry, new_dir->d_inode,
++		dentry);
++	if (error) {
++		fsnotify_oldname_free(old_name);
++		goto exit;
++	}
++	d_move(old_dentry, dentry);
++	fsnotify_move(old_dir->d_inode, new_dir->d_inode, old_name,
++		old_dentry->d_name.name, S_ISDIR(old_dentry->d_inode->i_mode),
++		NULL, old_dentry->d_inode);
++	fsnotify_oldname_free(old_name);
++	unlock_rename(new_dir, old_dir);
++	dput(dentry);
++	return old_dentry;
++exit:
++	if (dentry && !IS_ERR(dentry))
++		dput(dentry);
++	unlock_rename(new_dir, old_dir);
++	return NULL;
++}
++EXPORT_SYMBOL_GPL(debugfs_rename);
+ 
+ static decl_subsys(debug, NULL, NULL);
+ 
+diff -urBp a/include/linux/debugfs.h b/include/linux/debugfs.h
+--- a/include/linux/debugfs.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/debugfs.h	2010-09-10 14:53:15.000000000 +0400
+@@ -37,6 +37,10 @@ struct dentry *debugfs_create_symlink(co
+ 				      const char *dest);
+ 
+ void debugfs_remove(struct dentry *dentry);
++void debugfs_remove_recursive(struct dentry *dentry);
++
++struct dentry *debugfs_rename(struct dentry *old_dir, struct dentry *old_dentry,
++                struct dentry *new_dir, const char *new_name);
+ 
+ struct dentry *debugfs_create_u8(const char *name, mode_t mode,
+ 				 struct dentry *parent, u8 *value);
+@@ -46,6 +50,8 @@ struct dentry *debugfs_create_u32(const 
+ 				  struct dentry *parent, u32 *value);
+ struct dentry *debugfs_create_u64(const char *name, mode_t mode,
+ 				  struct dentry *parent, u64 *value);
++struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
++				     struct dentry *parent, size_t *value);
+ struct dentry *debugfs_create_bool(const char *name, mode_t mode,
+ 				  struct dentry *parent, u32 *value);
+ 
+@@ -85,6 +91,15 @@ static inline struct dentry *debugfs_cre
+ static inline void debugfs_remove(struct dentry *dentry)
+ { }
+ 
++static inline void debugfs_remove_recursive(struct dentry *dentry)
++{ }
++
++static inline struct dentry *debugfs_rename(struct dentry *old_dir, struct dentry *old_dentry,
++                struct dentry *new_dir, char *new_name)
++{
++	return ERR_PTR(-ENODEV);
++}
++
+ static inline struct dentry *debugfs_create_u8(const char *name, mode_t mode,
+ 					       struct dentry *parent,
+ 					       u8 *value)
+@@ -113,6 +128,13 @@ static inline struct dentry *debugfs_cre
+ 	return ERR_PTR(-ENODEV);
+ }
+ 
++static inline struct dentry *debugfs_create_size_t(const char *name, mode_t mode,
++				     struct dentry *parent,
++				     size_t *value)
++{
++	return ERR_PTR(-ENODEV);
++}
++
+ static inline struct dentry *debugfs_create_bool(const char *name, mode_t mode,
+ 						 struct dentry *parent,
+ 						 u32 *value)
+-- 
