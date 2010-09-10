@@ -98,7 +98,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  #define BANDRICH_VENDOR_ID			0x1A8D
  #define BANDRICH_PRODUCT_C100_1			0x1002
  #define BANDRICH_PRODUCT_C100_2			0x1003
-@@ -300,26 +303,101 @@ static int  option_send_setup(struct usb
+@@ -300,26 +303,105 @@ static int  option_send_setup(struct usb
  #define BANDRICH_PRODUCT_1011			0x1011
  #define BANDRICH_PRODUCT_1012			0x1012
  
@@ -190,6 +190,10 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +/* Haier products */
 +#define HAIER_VENDOR_ID				0x201e
 +#define HAIER_PRODUCT_CE100			0x2009
++
++/* Celot Products */
++#define CELOT_VENDOR_ID			0x211f
++#define CELOT_PRODUCT_CT680M			0x6801
 +
 +#define CINTERION_VENDOR_ID			0x0681
 +
@@ -287,7 +291,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
  	{ USB_DEVICE(YISO_VENDOR_ID, YISO_PRODUCT_U893) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_1) },
  	{ USB_DEVICE(BANDRICH_VENDOR_ID, BANDRICH_PRODUCT_C100_2) },
-@@ -521,12 +573,333 @@ static struct usb_device_id option_ids[]
+@@ -521,12 +573,334 @@ static struct usb_device_id option_ids[]
  	{ USB_DEVICE(KYOCERA_VENDOR_ID, KYOCERA_PRODUCT_KPC680) },
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6000)}, /* ZTE AC8700 */
  	{ USB_DEVICE(QUALCOMM_VENDOR_ID, 0x6613)}, /* Onda H600/ZTE MF330 */
@@ -600,6 +604,7 @@ diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
 +	{ USB_DEVICE(TLAYTECH_VENDOR_ID, TLAYTECH_PRODUCT_TEU800) },
 +	{ USB_DEVICE(FOUR_G_SYSTEMS_VENDOR_ID, FOUR_G_SYSTEMS_PRODUCT_W14) },
 +	{ USB_DEVICE(HAIER_VENDOR_ID, HAIER_PRODUCT_CE100) },
++	{ USB_DEVICE(CELOT_VENDOR_ID, CELOT_PRODUCT_CT680M) }, /* Celot CT-650 */
 +	{ USB_DEVICE(ERICSSON_VENDOR_ID, ERICSSON_PRODUCT_F3507G_1) },
 +	{ USB_DEVICE(ERICSSON_VENDOR_ID, ERICSSON_PRODUCT_F3507G_2) },
 +	/* Pirelli  */
