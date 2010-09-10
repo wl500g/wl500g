@@ -2,7 +2,7 @@ Index: linux-2.4.35.4/net/ipv6/netfilter/ip6t_REJECT.c
 ===================================================================
 --- /dev/null
 +++ linux-2.4.35.4/net/ipv6/netfilter/ip6t_REJECT.c
-@@ -0,0 +1,301 @@
+@@ -0,0 +1,302 @@
 +/*
 + * This is a module which is used for rejecting packets.
 + * 	Added support for customized reject packets (Jozsef Kadlecsik).
@@ -63,6 +63,7 @@ Index: linux-2.4.35.4/net/ipv6/netfilter/ip6t_REJECT.c
 +
 +	/* This packet will not be the same as the other: clear nf fields */
 +	nf_conntrack_put(nskb->nfct);
++	nf_conntrack_put_reasm(nskb->nfct_reasm);
 +	nskb->nfct = NULL;
 +	nskb->nfcache = 0;
 +#ifdef CONFIG_NETFILTER_DEBUG
