@@ -34,10 +34,11 @@ Cc: Christoph Lameter <cl@linux-foundation.org>
 Acked-by: David Daney <ddaney@caviumnetworks.com>
 ---
 
- include/asm-mips/fpu_emulator.h |   24 ++++++--
- arch/mips/math-emu/cp1emu.c     |  102 ++++++++++++++++++++--------------
- arch/mips/math-emu/dsemul.c     |    4 +-
- 3 files changed, 80 insertions(+), 50 deletions(-)
+ arch/mips/kernel/setup.c        |   17 +++++
+ arch/mips/math-emu/cp1emu.c     |  103 ++++++++++++++++++++++++++++++----------
+ arch/mips/math-emu/dsemul.c     |    4 -
+ include/asm-mips/fpu_emulator.h |   28 ++++++++--
+ 4 files changed, 119 insertions(+), 33 deletions(-)
 
 diff --git a/include/asm-mips/fpu_emulator.h b/include/asm-mips/fpu_emulator.h
 index e518957..aecada6 100644
@@ -346,5 +347,29 @@ index df7b9d9..36d975a 100644
  		return 0;
  	}
  
+diff --git a/arch/mips/kernel/setup.c b/arch/mips/kernel/setup.c
+--- a/arch/mips/kernel/setup.c
++++ b/arch/mips/kernel/setup.c
+@@ -575,3 +575,20 @@ __setup("nodsp", dsp_disable);
+ 
+ unsigned long kernelsp[NR_CPUS];
+ unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
++
++#ifdef CONFIG_DEBUG_FS
++#include <linux/debugfs.h>
++
++struct dentry *mips_debugfs_dir;
++static int __init debugfs_mips(void)
++{
++        struct dentry *d;
++
++        d = debugfs_create_dir("mips", NULL);
++        if (!d)
++                return -ENOMEM;
++        mips_debugfs_dir = d;
++        return 0;
++}
++arch_initcall(debugfs_mips);
++#endif
 -- 
 1.7.1
