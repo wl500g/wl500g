@@ -171,9 +171,18 @@ start_emf(char *lan_ifname)
 {
         char word[256], *next;
         char *mgrp, *ifname;
+        FILE *fp;
 
         if (!nvram_match("emf_enable", "1"))
                 return;
+
+	/* Force IGMPv2 for all interfaces due EMF limitations */
+	if ((fp = fopen("/proc/sys/net/ipv4/conf/all/force_igmp_version", "r+")))
+	{
+		fputc('2', fp);
+		fclose(fp);
+	} else
+		perror("/proc/sys/net/ipv4/conf/all/force_igmp_version");
 
         /* Start EMF */
         eval("emf", "start", lan_ifname);
@@ -700,6 +709,13 @@ stop_lan(void)
 
 	/* Bring down bridged interfaces */
 	if (strncmp(lan_ifname, "br", 2) == 0) {
+#ifdef __CONFIG_EMF__
+		if (nvram_match("emf_enable", "1")) {
+			eval("emf"  "stop", lan_ifname);
+			eval("igs", "del", "bridge", lan_ifname);
+			eval("emf", "del", "bridge", lan_ifname);
+	}
+#endif
 #ifdef ASUS_EXT
 		foreach(name, nvram_safe_get("lan_ifnames_t"), next) {
 #else
@@ -708,18 +724,8 @@ stop_lan(void)
 			eval("wlconf", name, "down");
 			ifconfig(name, 0, NULL, NULL);
 			eval("brctl", "delif", lan_ifname, name);
-#ifdef __CONFIG_EMF__
-			if (nvram_match("emf_enable", "1"))
-				eval("emf", "del", "iface", lan_ifname, name);
-#endif
 		}
 		eval("brctl", "delbr", lan_ifname);
-#ifdef __CONFIG_EMF__
-		if (nvram_match("emf_enable", "1")) {
-			eval("igs", "del", "bridge", lan_ifname);
-			eval("emf", "del", "bridge", lan_ifname);
-		}
-#endif
 	}
 	/* Bring down specific interface */
 	else if (strcmp(lan_ifname, ""))
