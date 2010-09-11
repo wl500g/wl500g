@@ -1,6 +1,6 @@
-diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/common.c
---- busybox-1.17.1/networking/udhcp/common.c	2010-07-06 02:25:54.000000000 +0000
-+++ busybox/networking/udhcp/common.c	2010-07-26 11:45:48.000000000 +0000
+diff -BurpN busybox-1.17.2.orig/networking/udhcp/common.c busybox-1.17.2/networking/udhcp/common.c
+--- busybox-1.17.2.orig/networking/udhcp/common.c	2010-08-23 00:44:35.000000000 +0000
++++ busybox-1.17.2/networking/udhcp/common.c	2010-09-07 14:20:18.210000002 +0000
 @@ -37,6 +37,7 @@ const struct dhcp_optflag dhcp_optflags[
  	{ OPTION_U8                               , 0x17 }, /* DHCP_IP_TTL        */
  	{ OPTION_U16                              , 0x1a }, /* DHCP_MTU           */
@@ -9,10 +9,12 @@ diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/co
  	{ OPTION_STRING                           , 0x28 }, /* DHCP_NIS_DOMAIN    */
  	{ OPTION_IP | OPTION_LIST                 , 0x29 }, /* DHCP_NIS_SERVER    */
  	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x2a }, /* DHCP_NTP_SERVER    */
-@@ -54,6 +55,7 @@ const struct dhcp_optflag dhcp_optflags[
+@@ -53,7 +54,8 @@ const struct dhcp_optflag dhcp_optflags[
+ 	{ OPTION_DNS_STRING | OPTION_LIST         , 0x77 }, /* DHCP_DOMAIN_SEARCH */
  	{ OPTION_SIP_SERVERS                      , 0x78 }, /* DHCP_SIP_SERVERS   */
  #endif
- 	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
+-	{ OPTION_STATIC_ROUTES                    , 0x79 }, /* DHCP_STATIC_ROUTES */
++	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0x79 }, /* DHCP_STATIC_ROUTES */
 +	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
  	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */
  
@@ -33,9 +35,9 @@ diff -BurpN busybox-1.17.1/networking/udhcp/common.c busybox/networking/udhcp/co
  	"wpad" "\0"        /* DHCP_WPAD           */
  	;
  
-diff -BurpN busybox-1.17.1/networking/udhcp/common.h busybox/networking/udhcp/common.h
---- busybox-1.17.1/networking/udhcp/common.h	2010-07-06 02:25:54.000000000 +0000
-+++ busybox/networking/udhcp/common.h	2010-07-26 11:45:48.000000000 +0000
+diff -BurpN busybox-1.17.2.orig/networking/udhcp/common.h busybox-1.17.2/networking/udhcp/common.h
+--- busybox-1.17.2.orig/networking/udhcp/common.h	2010-08-23 00:44:35.000000000 +0000
++++ busybox-1.17.2/networking/udhcp/common.h	2010-09-07 14:17:50.010000002 +0000
 @@ -123,6 +123,7 @@ enum {
  //#define DHCP_IP_TTL           0x17
  //#define DHCP_MTU              0x1a
