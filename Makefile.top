@@ -18,7 +18,7 @@ RELEASE=1.9.2.7-rtn
 
 
 MODEL=RT-N16
-# WL500gx, WL550gE, WL500gp, WL500gpv2, WL500W, RT-N10, RT-N12, RT-N16
+# WL500gp, WL500gpv2, WL500W, RT-N10, RT-N12, RT-N16
 
 #
 # asus trx trailer
