@@ -151,100 +151,109 @@ early_defaults(void)
 		nvram_set("boardflags", nvram_get("default_boardflags"));
 	}
 
-	/* fix Sentry5 config */
-	if (nvram_match("boardtype", "bcm95365r") && !nvram_get("vlan0ports"))
+	if (nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		nvram_set("lan_ifname", "br0");
-		nvram_set("lan_ifnames", "vlan0 eth1");
-		nvram_set("wan_ifname", "vlan1");
-		nvram_set("wan_ifnames", "vlan1");
-		
-		nvram_set("vlan0hwname", "et0");
-		nvram_set("vlan0ports", "1 2 3 4 5*");
-		nvram_set("vlan1hwname", "et0");
-		nvram_set("vlan1ports", "0 5");
-	}
-
-	/* bcm95350rg -- use vlans (wl550ge, wl500gp, wl700ge) vs wl320g - no vlans */
-	if (nvram_match("wandevs", "et0") && 	/* ... wl500gpv2 */
-	    (nvram_match("vlan1ports", "0 5u") || nvram_match("vlan1ports", "4 5u")) &&
-	    (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) != 0)
-	{
-		nvram_set("wandevs", "vlan1");
-		nvram_set("wan_ifname", "vlan1");
-		nvram_set("wan_ifnames", "vlan1");
-		
-		/* data should be tagged for WAN port too */
-		nvram_set("vlan1ports",
-			nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
-	}
-	
-	/* USE 0x04cf for N16(BCM4718) *
-	 * RT-N16, WAN=0, LAN1~4=4~1 CPU port=8 */
-	if (nvram_match("boardtype", "0x04cf"))
-	{
-		if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
+		if (nvram_match("boardtype", "0x04cf"))
 		{
-        		nvram_unset( "vlan0ports" );
-        		nvram_unset( "vlan0hwname" );
-        		nvram_unset( "br0_ifnames" );
-			nvram_set("vlan1ports", "1 2 3 4 8*");
-			nvram_set("vlan2ports", "0 8");
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("vlan2hwname", "et0");
-			nvram_set("landevs", "vlan1 wl0");
-			nvram_set("lan_ifnames", "vlan1 eth1");
-			nvram_set("wandevs", "vlan2");
-			nvram_set("wan_ifname", "vlan2");
-			nvram_set("wan_ifnames", "vlan2");
-			nvram_set("wan0_ifname", "vlan2");
-			nvram_set("wan0_ifnames", "vlan2");
-			nvram_set("wlan_ifname", "eth1");
+                        nvram_set("vlan1ports", "0 1 2 3 4 8*");
+                        nvram_set("vlan2ports", "8");
+                }
+		else
+		{
+			nvram_set("vlan0ports", "0 1 2 3 4 5*");
+			nvram_set("vlan1ports", "5");
 		}
 	}
+	else { /* router mode, use vlans */
 
-	/* fix RT-N12 / RT-N10 vlans */
-	if ((nvram_match("boardtype", "0x04CD") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201")) // N12
-	    || (nvram_match("boardtype", "0x04EC") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))) // N10
-	{
-		if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
+		/* fix Sentry5 config */
+		if (nvram_match("boardtype", "bcm95365r") && !nvram_get("vlan0ports"))
 		{
-			nvram_set("vlan0ports", "0 1 2 3 5*");
-			nvram_set("vlan1ports", "4 5");
-			nvram_set("vlan0hwname", "et0");
-			nvram_set("vlan1hwname", "et0");
-			nvram_set("landevs", "vlan0 wl0");
+			nvram_set("lan_ifname", "br0");
 			nvram_set("lan_ifnames", "vlan0 eth1");
-			nvram_set("wandevs", "vlan1");
 			nvram_set("wan_ifname", "vlan1");
 			nvram_set("wan_ifnames", "vlan1");
-			nvram_set("wan0_ifname", "vlan1");
-			nvram_set("wan0_ifnames", "vlan1");
-			nvram_set("wlan_ifname", "eth1");
-		}
-	}
-
-	/* fix DLINK DIR-320 vlans & gpio */
-	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
-	{
-		if (!nvram_get("wan_ifname"))
-		{
-        		nvram_unset( "vlan2ports" );
-          		nvram_unset( "vlan2hwname" );
+		
+			nvram_set("vlan0hwname", "et0");
+			nvram_set("vlan0ports", "1 2 3 4 5*");
 			nvram_set("vlan1hwname", "et0");
 			nvram_set("vlan1ports", "0 5");
+		}
+
+		/* bcm95350rg -- use vlans (wl550ge, wl500gp, wl700ge) vs wl320g - no vlans */
+		if (nvram_match("wandevs", "et0") && 	/* ... wl500gpv2 */
+		    (nvram_match("vlan1ports", "0 5u") || nvram_match("vlan1ports", "4 5u")) &&
+		    (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) != 0)
+		{
 			nvram_set("wandevs", "vlan1");
 			nvram_set("wan_ifname", "vlan1");
 			nvram_set("wan_ifnames", "vlan1");
-			nvram_set("wan0_ifname", "vlan1");
-			nvram_set("wan0_ifnames", "vlan1");
+		
+			/* data should be tagged for WAN port too */
+			nvram_set("vlan1ports",
+				nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
 		}
-		if (nvram_match("wl0gpio0", "255"))
+
+		/* USE 0x04cf for N16(BCM4718) *
+		 * RT-N16, WAN=0, LAN1~4=4~1 CPU port=8 */
+		if (nvram_match("boardtype", "0x04cf"))
 		{
-			nvram_set("wl0gpio0", "8");
-			nvram_set("wl0gpio1", "0");
-			nvram_set("wl0gpio2", "0");
-			nvram_set("wl0gpio3", "0");
+			if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
+			{
+	        		nvram_unset( "vlan0ports" );
+	        		nvram_unset( "vlan0hwname" );
+	        		nvram_unset( "br0_ifnames" );
+				nvram_set("vlan1ports", "1 2 3 4 8*");
+				nvram_set("vlan2ports", "0 8");
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("vlan2hwname", "et0");
+				nvram_set("landevs", "vlan1 wl0");
+				nvram_set("lan_ifnames", "vlan1 eth1");
+				nvram_set("wandevs", "vlan2");
+				nvram_set("wan_ifname", "vlan2");
+				nvram_set("wan_ifnames", "vlan2");
+				nvram_set("wan0_ifname", "vlan2");
+				nvram_set("wan0_ifnames", "vlan2");
+				nvram_set("wlan_ifname", "eth1");
+			}
+		}
+
+		/* fix RT-N12 / RT-N10 vlans */
+		if ((nvram_match("boardtype", "0x04CD") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201")) // N12
+		    || (nvram_match("boardtype", "0x04EC") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))) // N10
+		{
+			if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
+			{
+				nvram_set("vlan0ports", "0 1 2 3 5*");
+				nvram_set("vlan1ports", "4 5");
+				nvram_set("vlan0hwname", "et0");
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("landevs", "vlan0 wl0");
+				nvram_set("lan_ifnames", "vlan0 eth1");
+				nvram_set("wandevs", "vlan1");
+				nvram_set("wan_ifname", "vlan1");
+				nvram_set("wan_ifnames", "vlan1");
+				nvram_set("wan0_ifname", "vlan1");
+				nvram_set("wan0_ifnames", "vlan1");
+				nvram_set("wlan_ifname", "eth1");
+			}
+		}
+
+		/* fix DLINK DIR-320 vlans */
+		if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+		{
+			if (!nvram_get("wan_ifname"))
+			{
+	        		nvram_unset( "vlan2ports" );
+	          		nvram_unset( "vlan2hwname" );
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("vlan1ports", "0 5");
+				nvram_set("wandevs", "vlan1");
+				nvram_set("wan_ifname", "vlan1");
+				nvram_set("wan_ifnames", "vlan1");
+				nvram_set("wan0_ifname", "vlan1");
+				nvram_set("wan0_ifnames", "vlan1");
+			}
 		}
 	}
 
@@ -272,6 +281,18 @@ early_defaults(void)
 	{
 		nvram_set("sdram_init", "0x0009");
 		nvram_set("sdram_ncdl", "0");
+	}
+
+	/* fix DIR-320 gpio */
+	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+	{
+		if (nvram_match("wl0gpio0", "255"))
+		{
+			nvram_set("wl0gpio0", "8");
+			nvram_set("wl0gpio1", "0");
+			nvram_set("wl0gpio2", "0");
+			nvram_set("wl0gpio3", "0");
+		}
 	}
 
 	/* fix WL500W mac adresses for WAN port */
