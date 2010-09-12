@@ -204,7 +204,15 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_maxassoc", "128", 0},		/* Max associations driver could support */
 
 	{ "wl_unit", "0", 0 },			/* Last configured interface */
-		
+
+#ifdef __CONFIG_EMF__
+	/* EMF defaults */
+	{ "emf_entry", "", 0 },			/* Static MFDB entry (mgrp:if) */
+	{ "emf_uffp_entry", "", 0 },		/* Unreg frames forwarding ports */
+	{ "emf_rtport_entry", "", 0 },		/* IGMP frames forwarding ports */
+	{ "emf_enable", "0", 0 },		/* Disable EMF by default */
+#endif /* __CONFIG_EMF__ */
+
 	/* Restore defaults */
 	{ "restore_defaults", "0", 0 },		/* Set to 0 to not restore defaults on boot */
 
