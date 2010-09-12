@@ -1614,6 +1614,9 @@
                  {"upnp_enable", "", validate_range, ARGV("0","2"), FALSE, FALSE},                                                       
 		{"udpxy_enable_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
 		{"udpxy_wan_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+#ifdef __CONFIG_EMF__
+		{"emf_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+#endif
                 {"log_ipaddr", "", validate_ipaddr, NULL, FALSE, FALSE},
             	
               {"time_zone", "", validate_string, ARGV("255"), FALSE, FALSE},

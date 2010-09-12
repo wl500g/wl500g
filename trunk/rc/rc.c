@@ -633,6 +633,8 @@ sysinit(void)
 		char module[80], *modules, *next;
 #if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
 		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
+#elif defined(__CONFIG_EMF__)
+		modules = nvram_get("kernel_mods") ? : "emf igs et wl";
 #else
 		modules = nvram_get("kernel_mods") ? : "et wl";
 #endif
