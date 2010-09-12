@@ -140,6 +140,8 @@ obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
 obj-$(CONFIG_WAVESERVER) += waveserver
+obj-$(CONFIG_EMF) += emf
+obj-$(CONFIG_EMF) += igs
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -318,6 +320,11 @@ modules_install: .config
 		$(SRCMODULESDIR)/drivers/net/tun.o \
 		$(SRCMODULESDIR)/drivers/net/imq.o \
 		$(NETFILTER_MODS_LIST)
+ifeq ($(CONFIG_EMF),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/net/emf/emf.o \
+		$(SRCMODULESDIR)/drivers/net/igs/igs.o
+endif
 	# NLS
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/nls/nls_cp950.o
@@ -905,6 +912,18 @@ lltd-install: lltd
 	install -D -m 0644 lltd/lld2d.conf $(INSTALLDIR)/lltd/usr/etc/lld2d.conf
 	[ ! -f lltd/icons/$(MODEL).ico ] || \
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
+
+emf:
+	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+emf-install:
+	$(MAKE) -C $(SRCBASE)/emf/emfconf INSTALLDIR=$(INSTALLDIR) install
+
+igs:
+	$(MAKE) -C $(SRCBASE)/emf/igsconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+igs-install:
+	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
 rcamdmips:
 	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"

@@ -135,7 +135,7 @@ wl:
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
