@@ -9,7 +9,7 @@ STRIP = $(CROSS)strip
 
 ALL_OBJS = igsu.o igsu_linux.o
 
-CCFLAGS = -Os -Wall -I../../../include -I../../shared -I../../../include/emf/igs
+CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(TOP)/shared -I$(SRCBASE)/include/emf/igs $(EXTRACFLAGS)
 
 ifneq ($(wildcard ./prebuilt),)
 all:

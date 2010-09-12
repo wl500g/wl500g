@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <linux/types.h>
 #include <linux/netlink.h>
 #include <unistd.h>
 #include <errno.h>

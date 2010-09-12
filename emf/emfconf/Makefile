@@ -9,7 +9,7 @@ STRIP = $(CROSS)strip
 
 ALL_OBJS = emfu.o emfu_linux.o
 
-CCFLAGS = -Os -Wall -I../../../include -I../../shared -I../../../include/emf/emf
+CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(TOP)/shared -I$(SRCBASE)/include/emf/emf $(EXTRACFLAGS)
 
 ifneq ($(wildcard ./prebuilt),)
 all:
