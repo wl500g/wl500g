@@ -4,7 +4,7 @@
 	<script type="text/javascript">
 		function get_syscmd_out(xhr)
 		{
-			var url = "http://"+window.location.hostname+":"+window.location.port+"/syscmd_out.asp";
+			var url = "http://"+window.location.host+"/syscmd_out.asp";
 			getHTTPRequest( url, fill_table );
 		}
 		function fill_table(xhr)
@@ -13,7 +13,7 @@
 		}
 		function get_html()
 		{
-			var url=getCmdExecUrl( window.location.hostname+":"+window.location.port, "/usr/sbin/check_devpath" );
+			var url=getCmdExecUrl( window.location.host, "/usr/sbin/check_devpath" );
 			getHTTPRequest( url, get_syscmd_out );
 		}
 		function onfail()
@@ -26,7 +26,7 @@
 
 			var str="<table class='sel_devpath'>\n\
 				<tr><th>Device path</th><th>USB Location</th><th colspan='2'>Info</th></tr>";
-			
+
 			var ar=data_str.split( "\n" );
 			for(var i in ar ){
 				var str1=ar[i];
