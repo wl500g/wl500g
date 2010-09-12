@@ -104,17 +104,6 @@ SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
 # always build libbcmcrypto, required by nas
 obj-y += libbcmcrypto 
 
-# always build libusb, if required by usb_modeswitch
-ifeq ($(CONFIG_USBMODESWITCH),y)
-export CONFIG_LIBUSB := y
-obj-$(CONFIG_LIBUSB) += libusb
-endif
-
-# always build libusb, if required by madwimax
-ifeq ($(CONFIG_MADWIMAX),y)
-export CONFIG_LIBUSB := y
-endif
-
 ifeq ($(CONFIG_LIBUSB),y)
 obj-$(CONFIG_LIBUSB) += libusb10
 endif
