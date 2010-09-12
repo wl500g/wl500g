@@ -1379,11 +1379,13 @@ static int call_trans2qfilepathinfo(connection_struct *conn,
   data_size = max_data_bytes + 1024;
   pdata = *ppdata = Realloc(*ppdata, data_size); 
 
+#if 0
   if (total_data > 0 && IVAL(pdata,0) == total_data) {
     /* uggh, EAs for OS2 */
     DEBUG(4,("Rejecting EA request with total_data=%d\n",total_data));
     return(ERROR(ERRDOS,ERROR_EAS_NOT_SUPPORTED));
   }
+#endif
 
   memset((char *)pdata,'\0',data_size);
 
@@ -1652,11 +1654,13 @@ static int call_trans2setfilepathinfo(connection_struct *conn,
   tvs.actime = st.st_atime;
   mode = dos_mode(conn,fname,&st);
 
+#if 0
   if (total_data > 0 && IVAL(pdata,0) == total_data) {
     /* uggh, EAs for OS2 */
     DEBUG(4,("Rejecting EA request with total_data=%d\n",total_data));
     return(ERROR(ERRDOS,ERROR_EAS_NOT_SUPPORTED));
   }
+#endif
 
   switch (info_level)
   {
