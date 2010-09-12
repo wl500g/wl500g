@@ -35,6 +35,7 @@ void convert_asus_values();
 void convert_country();
 void convert_routes();
 char *mac_conv(char *mac_name, int idx, char *buf);
+int fputs_ex(char *name, char *value);
 
 int wsrom_main(char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(char *devname, unsigned int pos, int pflag);

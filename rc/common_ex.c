@@ -638,15 +638,17 @@ void convert_asus_values()
 //		eval("insmod", "ip6t_TCPMSS");
 #endif
 	} else {
-		/* FIXME: Move it to the right place */
-		FILE *fp;
+		fputs_ex("/proc/sys/net/ipv6/conf/all/disable_ipv6", "1");
+		fputs_ex("/proc/sys/net/ipv6/conf/default/disable_ipv6", "1");
+	}
+#endif
 
-		if ((fp = fopen("/proc/sys/net/ipv6/conf/all/disable_ipv6", "r+")))
-		{
-			fputc('1', fp);
-			fclose(fp);
-		} else
-			perror("/proc/sys/net/ipv6/conf/all/disable_ipv6");
+#ifdef __CONFIG_EMF__
+	/* Force IGMPv2 due EMF limitations */
+	if (nvram_match("emf_enable", "1"))
+	{
+		fputs_ex("/proc/sys/net/ipv4/conf/all/force_igmp_version", "2");
+		fputs_ex("/proc/sys/net/ipv4/conf/default/force_igmp_version", "2");
 	}
 #endif
 
@@ -786,4 +788,16 @@ char *pppstatus(char *buf)
    return buf;
 }
 
+int fputs_ex(char *name, char *value)
+{
+	FILE *fp;
 
+	if ((fp = fopen(name, "r+")))
+	{
+		fputs(value, fp);
+		fclose(fp);
+	} else
+		perror(name);
+
+	return errno;
+}

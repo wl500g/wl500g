@@ -40,7 +40,17 @@ diff -urBp radvd/radvd.c radvd.new/radvd.c
  	{NULL, 0, 0, 0}
  };
  #endif
-@@ -151,9 +153,11 @@ main(int argc, char *argv[])
+@@ -77,7 +79,9 @@ main(int argc, char *argv[])
+ 	int facility, fd;
+ 	char *username = NULL;
+ 	char *chrootdir = NULL;
++#ifdef USE_PRIVSEP
+ 	int singleprocess = 0;
++#endif
+ #ifdef HAVE_GETOPT_LONG
+ 	int opt_idx;
+ #endif
+@@ -151,9 +155,11 @@ main(int argc, char *argv[])
  		case 'v':
  			version();
  			break;
@@ -52,7 +62,7 @@ diff -urBp radvd/radvd.c radvd.new/radvd.c
  		case 'h':
  			usage();
  #ifdef HAVE_GETOPT_LONG
-@@ -219,6 +223,7 @@ main(int argc, char *argv[])
+@@ -219,6 +225,7 @@ main(int argc, char *argv[])
  	if (readin_config(conf_file) < 0)
  		exit(1);
  
@@ -60,7 +70,7 @@ diff -urBp radvd/radvd.c radvd.new/radvd.c
  	/* drop root privileges if requested. */
  	if (username) {
  		if (!singleprocess) {
-@@ -230,6 +235,7 @@ main(int argc, char *argv[])
+@@ -230,6 +237,7 @@ main(int argc, char *argv[])
  		if (drop_root_privileges(username) < 0)
  			exit(1);
  	}
@@ -79,12 +89,16 @@ diff -urBp radvd/radvd.h radvd.new/radvd.h
  /* privsep.c */
  int privsep_init(void);
  int privsep_enabled(void);
-@@ -242,6 +243,9 @@ int privsep_interface_linkmtu(const char
+@@ -242,6 +243,13 @@ int privsep_interface_linkmtu(const char
  int privsep_interface_curhlim(const char *iface, uint32_t hlim);
  int privsep_interface_reachtime(const char *iface, uint32_t rtime);
  int privsep_interface_retranstimer(const char *iface, uint32_t rettimer);
 +#else
 +static inline int privsep_enabled(void)	{ return 0; }
++static inline int privsep_interface_linkmtu(const char *iface, uint32_t mtu)		{ return 0; }
++static inline int privsep_interface_curhlim(const char *iface, uint32_t hlim)		{ return 0; }
++static inline int privsep_interface_reachtime(const char *iface, uint32_t rtime)	{ return 0; }
++static inline int privsep_interface_retranstimer(const char *iface, uint32_t rettimer)	{ return 0; }
 +#endif
  
  /*

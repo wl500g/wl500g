@@ -171,18 +171,9 @@ start_emf(char *lan_ifname)
 {
         char word[256], *next;
         char *mgrp, *ifname;
-        FILE *fp;
 
         if (!nvram_match("emf_enable", "1"))
                 return;
-
-	/* Force IGMPv2 for all interfaces due EMF limitations */
-	if ((fp = fopen("/proc/sys/net/ipv4/conf/all/force_igmp_version", "r+")))
-	{
-		fputc('2', fp);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/conf/all/force_igmp_version");
 
         /* Start EMF */
         eval("emf", "start", lan_ifname);
