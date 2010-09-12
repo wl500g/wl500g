@@ -18,6 +18,9 @@ kernel.org commits:
 
 See http://lkml.org/lkml/2008/4/20/170 (patches 1-9)
 
+Tomato-RT commit
+f6f3cb1b4491f2197c013807edf83d276e33ab70 fat: dirty hack for Samba2, as it was in 2.6.14
+
 ---
 
  Documentation/filesystems/vfat.txt |   15 +++
@@ -25,14 +28,13 @@ See http://lkml.org/lkml/2008/4/20/170 (patches 1-9)
  fs/fat/cache.c                     |    2 
  fs/fat/dir.c                       |   85 ++++++++++-------
  fs/fat/fatent.c                    |   16 ++-
- fs/fat/file.c                      |  176 +++++++++++++++++++++----------------
- fs/fat/inode.c                     |   82 +++++++++--------
+ fs/fat/file.c                      |  182 +++++++++++++++++++++----------------
+ fs/fat/inode.c                     |   82 +++++++++-------
  fs/msdos/namei.c                   |   37 ++++---
- fs/partitions/msdos.c              |   74 ++++++++-------
- fs/vfat/namei.c                    |   72 +++++++--------
- include/linux/config.h             |only
+ fs/partitions/msdos.c              |   74 +++++++--------
+ fs/vfat/namei.c                    |   72 +++++++-------
  include/linux/msdos_fs.h           |    6 -
- 12 files changed, 328 insertions(+), 239 deletions(-)
+ 11 files changed, 334 insertions(+), 239 deletions(-)
 
 diff -urBp a/Documentation/filesystems/vfat.txt b/Documentation/filesystems/vfat.txt
 --- a/Documentation/filesystems/vfat.txt
@@ -504,7 +506,7 @@ diff -urBp a/fs/fat/file.c b/fs/fat/file.c
  	fat_flush_inodes(inode->i_sb, inode, NULL);
  }
  
-@@ -325,8 +252,109 @@ int fat_getattr(struct vfsmount *mnt, st
+@@ -325,8 +252,115 @@ int fat_getattr(struct vfsmount *mnt, st
  }
  EXPORT_SYMBOL_GPL(fat_getattr);
  
@@ -560,10 +562,16 @@ diff -urBp a/fs/fat/file.c b/fs/fat/file.c
 +	 */
 +	if (attr->ia_valid & ATTR_SIZE) {
 +		if (attr->ia_size > inode->i_size) {
++#if 1
++			/* FAT cannot truncate to a longer file */
++			error = -EPERM;
++			goto out;
++#else
 +			error = fat_cont_expand(inode, attr->ia_size);
 +			if (error || attr->ia_valid == ATTR_SIZE)
 +				goto out;
 +			attr->ia_valid &= ~ATTR_SIZE;
++#endif
 +		}
 +	}
 +
@@ -1530,7 +1538,6 @@ diff -urBp a/fs/vfat/namei.c b/fs/vfat/namei.c
  	.getattr	= fat_getattr,
  };
  
-Only in b/include/linux: config.h
 diff -urBp a/include/linux/msdos_fs.h b/include/linux/msdos_fs.h
 --- a/include/linux/msdos_fs.h
 +++ b/include/linux/msdos_fs.h
