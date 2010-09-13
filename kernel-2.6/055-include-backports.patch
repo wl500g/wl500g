@@ -1,3 +1,61 @@
+diff -urNBp a/include/asm-generic/bitops/__fls.h b/include/asm-generic/bitops/__fls.h
+--- a/include/asm-generic/bitops/__fls.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/asm-generic/bitops/__fls.h	2008-10-10 02:13:53.000000000 +0400
+@@ -0,0 +1,43 @@
++#ifndef _ASM_GENERIC_BITOPS___FLS_H_
++#define _ASM_GENERIC_BITOPS___FLS_H_
++
++#include <asm/types.h>
++
++/**
++ * __fls - find last (most-significant) set bit in a long word
++ * @word: the word to search
++ *
++ * Undefined if no set bit exists, so code should check against 0 first.
++ */
++static inline unsigned long __fls(unsigned long word)
++{
++	int num = BITS_PER_LONG - 1;
++
++#if BITS_PER_LONG == 64
++	if (!(word & (~0ul << 32))) {
++		num -= 32;
++		word <<= 32;
++	}
++#endif
++	if (!(word & (~0ul << (BITS_PER_LONG-16)))) {
++		num -= 16;
++		word <<= 16;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-8)))) {
++		num -= 8;
++		word <<= 8;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-4)))) {
++		num -= 4;
++		word <<= 4;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-2)))) {
++		num -= 2;
++		word <<= 2;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-1))))
++		num -= 1;
++	return num;
++}
++
++#endif /* _ASM_GENERIC_BITOPS___FLS_H_ */
+diff -urNBp a/include/asm-generic/bitops.h b/include/asm-generic/bitops.h
+--- a/include/asm-generic/bitops.h
++++ b/include/asm-generic/bitops.h
+@@ -13,6 +13,7 @@
+ #include <asm-generic/bitops/non-atomic.h>
+ #include <asm-generic/bitops/__ffs.h>
+ #include <asm-generic/bitops/ffz.h>
++#include <asm-generic/bitops/__fls.h>
+ #include <asm-generic/bitops/fls.h>
+ #include <asm-generic/bitops/fls64.h>
+ #include <asm-generic/bitops/find.h>
 diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
 --- a/include/asm-generic/bug.h
 +++ b/include/asm-generic/bug.h
@@ -92,6 +150,73 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
  
+@@ -295,6 +295,24 @@ static inline int __attribute__ ((format
+ 	(void) (&_x == &_y);		\
+ 	_x > _y ? _x : _y; })
+ 
++/**
++ * clamp - return a value clamped to a given range with strict typechecking
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does strict typechecking of min/max to make sure they are of the
++ * same type as val.  See the unnecessary pointer comparisons.
++ */
++#define clamp(val, min, max) ({			\
++	typeof(val) __val = (val);		\
++	typeof(min) __min = (min);		\
++	typeof(max) __max = (max);		\
++	(void) (&__val == &__min);		\
++	(void) (&__val == &__max);		\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
+ /*
+  * ..and if you can't take the strict
+  * types, you can specify one yourself.
+@@ -306,6 +324,41 @@ static inline int __attribute__ ((format
+ #define max_t(type,x,y) \
+ 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
+ 
++/**
++ * clamp_t - return a value clamped to a given range using a given type
++ * @type: the type of variable to use
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does no typechecking and uses temporary variables of type
++ * 'type' to make all the comparisons.
++ */
++#define clamp_t(type, val, min, max) ({		\
++	type __val = (val);			\
++	type __min = (min);			\
++	type __max = (max);			\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
++/**
++ * clamp_val - return a value clamped to a given range using val's type
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does no typechecking and uses temporary variables of whatever
++ * type the input argument 'val' is.  This is useful when val is an unsigned
++ * type and min and max are literals that will otherwise be assigned a signed
++ * integer type.
++ */
++#define clamp_val(val, min, max) ({		\
++	typeof(val) __val = (val);		\
++	typeof(val) __min = (min);		\
++	typeof(val) __max = (max);		\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
+ 
+ /**
+  * container_of - cast a member of a structure out to the containing structure
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
