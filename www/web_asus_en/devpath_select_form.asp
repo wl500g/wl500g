@@ -13,7 +13,7 @@
 		}
 		function get_html()
 		{
-			var url=getCmdExecUrl( window.location.host, "/usr/sbin/check_devpath" );
+			var url=getCmdExecUrl( window.location.host, "check_devpath" );
 			getHTTPRequest( url, get_syscmd_out );
 		}
 		function onfail()
