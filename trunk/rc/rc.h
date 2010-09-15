@@ -128,6 +128,7 @@ int stop_misc(void);
 int hotplug_usb(void);
 int hotplug_usb_mass(char *product);
 int hotplug_usb_webcam(char *product, int webflag);
+int remove_usb_webcam(char *product, int webflag);
 int hotplug_usb_audio(char *product);
 int remove_webcam_main(int webflag);
 int remove_storage_main(int scsi_host_no);
@@ -181,5 +182,13 @@ int hotplug_check_modem(char *interface, char *product, char *prefix);
 void hotplug_network_device(char *interface, char *action, char *product);
 void hotplug_usb_modeswitch(char *interface, char *action, char *product);
 #endif
+
+enum
+{
+	WEB_NONE = 0,
+	WEB_PWCWEB,
+	WEB_OVWEB,
+	WEB_AUDIO
+} WEBTYPE;
 
 #endif /* _rc_h_ */
