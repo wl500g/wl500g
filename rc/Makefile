@@ -29,7 +29,7 @@ STAMP := .stamp-$(MODEL)
 OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     crc.o mtd.o common_ex.o network_ex.o firewall.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
-    bigpond.o qos.o rcamd.o
+    bigpond.o qos.o
 
 CFLAGS += -DBROKEN_IPV6_CONNTRACK
 
@@ -37,6 +37,8 @@ OBJS-$(CONFIG_WAVESERVER) += waveserver.o
 OBJS-$(CONFIG_NETCONF) += firewall_ex.o
 OBJS-$(CONFIG_MADWIMAX) += wimax.o
 OBJS-$(CONFIG_MODEM) += usbmodem.o
+OBJS-$(CONFIG_RCAMD) += rcamd.o
+
 
 ifeq ($(CONFIG_NETCONF),y)
 CFLAGS += -DWEBSTRFILTER

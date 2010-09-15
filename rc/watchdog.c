@@ -147,7 +147,11 @@ long timestamp_g=0;
 int stacheck_interval=-1;
 
 /* forwards */
+#ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag);
+#else
+inline static int notice_rcamd(int flag) { return 0; }
+#endif
 
 void gpio_write(char *dev, int mask, int value)
 {
@@ -488,7 +492,7 @@ int svc_timecheck(void)
 	}
 #endif
 
-#ifdef USB_SUPPORT
+#ifdef __CONFIG_RCAMD__
 	if (svcStatus[WEBACTIVE]==-1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
@@ -508,7 +512,7 @@ int svc_timecheck(void)
 			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE]=-1;
 		}	
 	}
-#endif // USB_SUPPORT
+#endif
 
 	if (svcStatus[RADIOACTIVE]==-1 && nvram_invmatch("wl_radio_x", "0"))
 	{	
@@ -612,6 +616,7 @@ int usb_communication_device_processcheck(void)
 }
 #endif
 
+#ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag)
 {
 	int ret = -1;
@@ -638,6 +643,8 @@ static int refresh_rcamd(void)
 	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
 	return 0;
 }
+#endif
+
 
 #ifdef __CONFIG_WAVESERVER__
 int refresh_wave(void)
@@ -774,6 +781,7 @@ void watchdog(int signum)
 	usb_communication_device_processcheck();
 #endif
 
+#ifdef __CONFIG_RCAMD__
 	/* web cam process */
 	if (nvram_invmatch("usb_web_device", ""))
 	{	
@@ -795,6 +803,7 @@ void watchdog(int signum)
 			svcStatus[WEBACTIVE] = -1;
 		}
 	}
+#endif
 
 	/* storage process */
 	if (nvram_invmatch("usb_storage_device", ""))
