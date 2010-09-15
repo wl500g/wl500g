@@ -238,8 +238,8 @@ config CONFIG_VSFTPD
 	bool "vsftpd server"
 	default y
 
-config CONFIG_JPEG6B
-	bool "jpeg6b library"
+config CONFIG_LIBJPEG
+	bool "libjpeg library"
 	default y
 
 config CONFIG_RCAMD
