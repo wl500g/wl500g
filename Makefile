@@ -92,8 +92,8 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	ntpclient bpalogin bridge ez-ipupdate inadyn httpd jpeg-6b lib LPRng \
-	misc netconf nvram others rc rcamdmips udev hotplug2 \
+	ntpclient bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
+	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd ntfs-3g\
 	shared upnp utils wlconf www libbcmcrypto asustrx cdma
 	@echo
@@ -498,17 +498,20 @@ $(TOP)/bpalogin: bpalogin.tar.bz2
 bpalogin: $(TOP)/bpalogin
 	@true
 
-$(TOP)/rcamdmips:
-	tar -C . $(TAR_EXCL_SVN) -cf - rcamdmips | tar -C $(TOP) -xf -
+rcamd_Patches := $(call patches_list,mjpg-streamer)
 
-rcamdmips: $(TOP)/rcamdmips
+$(TOP)/mjpg-streamer: mjpg-streamer/mjpg-streamer-r103.tar.bz2
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/mjpg-streamer $(rcamd_Patches)
+
+mjpg-streamer: $(TOP)/mjpg-streamer
 	@true
 
-$(TOP)/jpeg-6b: jpeg-6b.tar.bz2
-	tar -xjf jpeg-6b.tar.bz2 -C $(TOP)
-	[ ! -f jpeg-6b.patch ] || $(PATCHER) -Z $@ jpeg-6b.patch
+$(TOP)/jpeg-8b: jpegsrc.v8b.tar.bz2
+	tar -xjf $^ -C $(TOP)
+	[ ! -f jpeg-8b.patch ] || $(PATCHER) -Z $@ jpeg-8b.patch
 
-jpeg-6b: $(TOP)/jpeg-6b
+libjpeg: $(TOP)/jpeg-8b
 	@true
 
 $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
@@ -679,4 +682,4 @@ www: $(TOP)/www
 
 .PHONY: custom kernel kernel-patch kernel-extra-drivers brcm-src www \
 	accel-pptp busybox dropbear ez-ipupdate inadyn httpd iptables others \
-	rc rcamdmips jpeg-6b config igmpproxy iproute2 lib shared utils
+	rc mjpg-streamer libjpeg config igmpproxy iproute2 lib shared utils

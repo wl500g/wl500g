@@ -141,8 +141,8 @@ obj-$(CONFIG_PPTP) += pptp
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
-obj-$(CONFIG_JPEG6B) += jpeg-6b
-obj-$(CONFIG_RCAMD) += rcamdmips
+obj-$(CONFIG_LIBJPEG) += jpeg-8b
+obj-$(CONFIG_RCAMD) += mjpg-streamer
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
@@ -180,7 +180,7 @@ obj-y += kernel
 
 # Exclude targets for non-USB router models
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd rcamdmips samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
 endif
 
 
@@ -370,7 +370,16 @@ modules_install-usb:
 		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko) \
 		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko) 
 	# usb webcams
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/media/video/videodev$(ko) \
+		$(SRCMODULESDIR)/drivers/media/video/v4l2-common$(ko) \
+		$(SRCMODULESDIR)/drivers/media/video/uvc/uvcvideo$(ko) \
+		$(SRCMODULESDIR)/drivers/input/input-core$(ko) 
 	# usb audio
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/sound/soundcore$(ko) \
+		$(SRCMODULESDIR)/sound/core/snd-*$(ko) \
+		$(SRCMODULESDIR)/sound/usb/snd-usb-*$(ko) 
 	# NFS
 ifeq ($(CONFIG_NFS),y)
 	install -t $(MODULESDIR) \
@@ -1030,8 +1039,22 @@ igs:
 igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
-rcamdmips:
-	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"
+mjpg-streamer: jpeg-8b
+	$(MAKE) -C mjpg-streamer/mjpg-streamer CC=$(CC) EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b $(EXTRACFLAGS)" LIBS=$(TOP)/jpeg-8b/.libs/libjpeg.a
+
+mjpg-streamer-install:
+	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
+	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
+
+jpeg-8b/Makefile: jpeg-8b/Makefile.in
+	cd jpeg-8b && CC=$(CC) CPPFLAGS="-fPIC $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --disable-shared
+
+jpeg-8b: jpeg-8b/Makefile
+	$(MAKE) -C $@ libjpeg.la
+
+jpeg-8b-install:
+	@true
 
 LPRng/Makefile: LPRng/Makefile.in
 	cd LPRng && CC=$(CC) CPPFLAGS="$(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
