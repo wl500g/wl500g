@@ -38,8 +38,29 @@
     * fix symbols escaping (Issue 51)
     * added ipv6 tunnel utilization graph
 
+===alpha RT-N16-1.9.2.7-rtn-`r1943` (2010-08-15)===
+  * kernel
+    * linux-mips.org updates 2.6.22.git-20100723
+    * backports from upstream (mm, tty, vfs, fat, nfs, usb, usb-serial, scsi, net, bridge, route, netfilter, ppp)
+    * ppp: add mppe56 and mppc support
+    * usblp fixes
+    * netfilter: xt_recent
+
+  * ntfs-3g 2010.8.8
+
+  * quagga 0.99.16
+
+  * rc
+    * updates from RT-N16 1.0.1.2
+    * fix RT-N10 support
+
+  * robocfg: Partial support for BCM53115 (vlans mapping)
+
+  * dnsmasq/busybox/radvd/libusb user-space tools updates same as in mainstream trunk
+
 ===wl500g-1.9.2.7-d-`r1825` (2010-07-23)===
   * kernel
+    * linux-mips.org fixes
     * minor nfs, hiddev fixes backport
     * bridge backport - allow setting hardware address of bridge pseudo-dev (sticky mac)
     * IPv4/IPv6 backports from 2.6 upstream
@@ -93,6 +114,16 @@
   * usb-modeswitch 1.1.2
 
   * udpxy 1.0-Chipmunk-16
+
+===alpha RT-N16-1.9.2.7-rtn-`r1478` (2010-04-27)===
+  * kernel 2.6.22.19
+    * [http://www.linux-mips.org/ linux-mips 2.6.22.git-20100420] patches
+    * many backports from upstream (mm, sched, vfs, ext3, fat, usb, scsi, net, netfilter, l2tp, pppoe, nfs, cifs)
+    * squashfs 3.4
+
+  * Broadcom SDK 5.10.56.46 from ASUS RT-N12 1.0.0.5/RT-N16 1.0.0.6 GPL sources
+
+  * user-space tools mostly the same as in mainstream trunk, except 2.6 specific - udev fs
 
 ===wl500g-1.9.2.7-d-`r1445` (2010-04-24)===
   * kernel
