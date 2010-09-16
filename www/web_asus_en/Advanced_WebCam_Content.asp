@@ -38,8 +38,8 @@
            </td><td class="content_input_td"><select name="usb_websense_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_websense_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_websense_x", "0","selected"); %>>Low</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_websense_x", "1","selected"); %>>Medium</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_websense_x", "2","selected"); %>>High</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the time interval in seconds that system reloads image. The range of value is 0~65535.', LEFT);" onMouseOut="return nd();">Refresh Time in seconds:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the image refresh rate per second. The range of value is 1~30.', LEFT);" onMouseOut="return nd();">Frames Per Second:
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 30)" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the string that will be the title displayed on your Webcam page.', LEFT);" onMouseOut="return nd();">Caption String:
@@ -50,10 +50,6 @@
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
 </tr>
 <input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get_x("PrinterStatus","usb_webhttpcheck_x"); %>">
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the port that server listens on to communicate with ActiveX clients. The ActiveX port CAN NOT be the same with HTTP port.', LEFT);" onMouseOut="return nd();">ActiveX Port:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webactivex_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webactivex_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"></td>
-</tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Security Mode Setting
             </td>

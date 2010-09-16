@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include <bcmnvram.h>
@@ -24,31 +25,77 @@
 #include <rc.h>
 #include <stdarg.h>
 
-static void catch_sig(int sig)
+int
+start_rcamd(void)
 {
-	if (sig == SIGUSR1)
+	eval("insmod", "videodev");
+	eval("insmod", "v4l2-common");
+	eval("insmod", "input-core");
+	eval("insmod", "uvcvideo");
+	return 0;
+}
+
+int
+stop_rcamd(void)
+{
+	eval("killall", "mjpg_streamer");
+	eval("rmmod", "uvcvideo");
+	eval("rmmod", "input-core");
+	eval("rmmod", "v4l2-common");
+	eval("rmmod", "videodev");
+	return 0;
+}
+
+int
+hotplug_usb_webcam(char *product)
+{
+	char input_plugin_param[256], output_plugin_param[256];
+	char *rcamd_argv[]={"mjpg_streamer", "-b",
+				"-p", "/var/run/rcamd.pid",
+				"-i", input_plugin_param,
+				"-o", output_plugin_param,
+				NULL};
+	char *res;
+	pid_t pid;
+
+	if (nvram_match("usb_webenable_x", "0") || strlen(product) == 0) return 1;
+	
+	nvram_set("usb_webdriver_x", "uvc");
+
+	// image size
+	switch (atoi(nvram_safe_get("usb_webimage_x")))
 	{
-		//printf("SIGUSR1 catched\n");
+		case 0:
+			res = "640x480";
+			break;
+		case 1:
+			res = "320x240";
+			break;
+		case 2:
+			res = "160x120";
+			break;
+		default:
+			res = "80x60";
 	}
+
+//	mkdir("/tmp/webcam", 0777);
+//	symlink("/var/tmp/display.jpg", "/tmp/webcam/display.jpg");
+
+	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s", res, nvram_safe_get("usb_webfresh_x"));
+	sprintf(output_plugin_param, "output_http.so -p %s", nvram_safe_get("usb_webhttpport_x"));
+
+	chdir("/tmp");
+
+	return _eval(rcamd_argv, ">/dev/null", 0, &pid);
 }
 
-int rcamd_main(void)
+int
+remove_usb_webcam(char *product)
 {
-	FILE *fp;
-	
-	fp=fopen("/var/run/rcamdmain.pid","w");
-	if (fp==NULL) exit(0);
-	fprintf(fp, "%d", getpid());
-	fclose(fp);
-	
-	signal(SIGUSR1, catch_sig);
+	kill_pidfile("/var/run/rcamd.pid");
 
-	while(1)
-	{
-		hotplug_usb_webcam(nvram_safe_get("usb_web_device"), 
-				   atoi(nvram_safe_get("usb_web_flag")));
-		pause();
-	}	
+	nvram_set("usb_webdriver_x", "");
+	return 0;
 }
-#endif
 
+#endif

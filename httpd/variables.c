@@ -2246,7 +2246,7 @@
                                     
                        {"usb_webrectime_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
                                  
-             {"usb_webfresh_x", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
+             {"usb_webfresh_x", "", validate_range, ARGV("1", "30", ""), FALSE, FALSE},
                                                 
                     {"usb_webcaption_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
                               

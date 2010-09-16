@@ -198,61 +198,68 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 	{
 	    if( parse_product_string( product, &vid, &pid ) ){
 		sprintf( sFileName, "%04x:%04x", vid, pid );
-		if( vid==0x05c6 && pid==0x1000 )
+		if( (vid==0x05c6 && pid==0x1000) ||
+		    (vid==0x1a8d && pid==0x1000) )
 		{
 		    FILE * file = fopen( "/proc/bus/usb/devices", "rt");
 		    char str[0xFF];
 		    int i_size;
 		    char * str1;
 		    int added=0;
-		    if( file )
-		    {
+		    if( file ){
 			int ready=0;
-			char templ1[]="Vendor";
-			char templ2[]="ProdID";
-			char templ3[]="Manufacturer";
+			char *templ[]={	"Vendor=",
+					"ProdID=",
+					"Manufacturer=",
+					"Product="};
 			char sManufacturer[0xFF];
 
 			while( !feof(file) )
 			{
 			    fgets( str, sizeof(str)-1, file);
-			    str1 = strstr( str, templ1 );
-			    if( str1 ){
-				sscanf( str1+sizeof(templ1), "%x", &dev_vid );
-				str1 = strstr( str1, templ2 );
-				if( str1 ){
-				    sscanf( str1+sizeof(templ2), "%x", &dev_pid );
+			    if( (str1 = strstr( str, templ[0] )) ){
+				sscanf( str1+strlen(templ[0]), "%x", &dev_vid );
+				if( (str1 = strstr( str1, templ[1] )) ){
+				    sscanf( str1+strlen(templ[1]), "%x", &dev_pid );
 				}
 				ready=0;
-			    } else {
-				str1 = strstr( str, templ3 );
-				if( str1 ){
-				    strncpy( sManufacturer, str1+sizeof(templ3), sizeof(sManufacturer)-1);
-				    ready=1;
-				}
+			    } else if( (str1 = strstr( str, templ[2] )) ){
+				strncpy( sManufacturer, str1+strlen(templ[2]), sizeof(sManufacturer)-1);
+				ready=1;
+			    } else if( (str1 = strstr( str, templ[3] )) ){
+				strncpy( sManufacturer, str1+strlen(templ[3]), sizeof(sManufacturer)-1);
+				ready=2;
 			    }
+
 			    if( ready ){
 				dprintf( "lsUSB: %04x:%04x", dev_vid, dev_pid );
 				if( dev_vid==vid && dev_pid==pid ){
 				    i_size = sizeof(sMaList)/sizeof(char*);
-				    for( i=0; i<i_size; i++ ){
-					if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) ) == 0 ){
-					    if(i==0) strcat ( sFileName, ":sVe=" );
-					    else strcat ( sFileName, ":uMa=" );
+				    if( ready==1 ){
+					for( i=0; i<i_size; i++ ){
+					    if( strncmp( sManufacturer, sMaList[i], strlen(sMaList[i]) )==0 ){
+						if(i==0) strcat ( sFileName, ":sVe=" );
+						else strcat ( sFileName, ":uMa=" );
 
-					    strcat ( sFileName, sMaList[i] );
+						strcat ( sFileName, sMaList[i] );
+						added=1;
+						break;
+					    }
+					}
+				    } else {
+					if( strncmp( sManufacturer, "5G", 2 ) == 0 ){
+					    strcat ( sFileName, ":uPr=5G" );
 					    added=1;
 					    break;
 					}
 				    }
-				    break;
 				}
 				ready=0;
 			    }
 			}
 			fclose( file );
 		    }
-		    if( added==0 )
+		    if( added==0 && vid==0x05c6 )
 			strcat (sFileName, ":uMa=AnyDATA");
 		}
 	    };
@@ -265,7 +272,7 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 	    if( file ){
 		fclose( file );
 		dprintf( "usb_modeswitch -c %s", sPath );
-		_eval(argv_usb_modeswitch, NULL, 0, &pid);
+		_eval(argv_usb_modeswitch, NULL, 0, NULL);
 	    }
 	}
 

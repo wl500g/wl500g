@@ -284,7 +284,7 @@
 
 {"wl_wdslist_x", "", 0},
 
-{"usb_webenable_x", "1", 0},
+{"usb_webenable_x", "0", 0},
 
 {"usb_webdriver_x", "0", 0},
 
@@ -301,8 +301,6 @@
 {"usb_webhttpport_x", "7776", 0},
 
 {"usb_webhttpcheck_x", "0", 0},
-
-{"usb_webactivex_x", "7777", 0},
 
 {"usb_websecurity_x", "0", 0},
 
