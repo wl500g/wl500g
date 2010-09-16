@@ -200,7 +200,11 @@ long timestamp_g=0;
 int stacheck_interval=-1;
 
 /* forwards */
+#ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag);
+#else
+inline static int notice_rcamd(int flag) { return 0; }
+#endif
 
 #ifdef GPIOCTL
 
@@ -596,7 +600,7 @@ int svc_timecheck(void)
 	}
 #endif
 
-#ifdef USB_SUPPORT
+#ifdef __CONFIG_RCAMD__
 	if (svcStatus[WEBACTIVE]==-1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
@@ -616,7 +620,7 @@ int svc_timecheck(void)
 			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE]=-1;
 		}	
 	}
-#endif // USB_SUPPORT
+#endif
 
 	if (svcStatus[RADIOACTIVE]==-1 && nvram_invmatch("wl_radio_x", "0"))
 	{	
@@ -662,23 +666,6 @@ int http_processcheck(void)
 		start_httpd();
 	}
 
-	if (nvram_invmatch("usb_webdriver_x", ""))
-	{						
-		sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("usb_webhttpport_x"));
-		//logmessage("webcam", "webcam httpd die checking %s\n", http_cmd);
-
-		if (!http_check(http_cmd, buf, sizeof(buf), 0))
-		{
-			dprintf("http rerun\n");
-			sprintf(buf, "/var/run/httpd-%s.pid", nvram_safe_get("usb_webhttpport_x"));
-			kill_pidfile(buf);
-			//logmessage("webcam", "webcam httpd rerun\n");
-
-			chdir("/tmp/webcam");
-			eval("httpd", nvram_safe_get("wan0_ifname"), nvram_safe_get("usb_webhttpport_x"));
-			chdir("/");
-		}
-	}
 	return 0;
 }
 
@@ -720,15 +707,13 @@ int usb_communication_device_processcheck(void)
 }
 #endif
 
+#ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag)
 {
-	int ret = -1;
+	int ret;
 
-	if (flag)
-		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1);
-	else
-		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR2);
-	
+//	ret = kill_pidfile_s("/var/run/rcamd.pid", flag ? SIGUSR1 : SIGUSR2);
+
 	return (ret == 0);
 }
 
@@ -737,15 +722,16 @@ static int refresh_rcamd(void)
 	if (kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1) == 0)
 	{
 		unlink("/var/run/rcamd.pid");
-	}			
-	else 
-	{	
-		eval("killall", "rcamd");
+	}
+	else
+	{
+		eval("killall", "mjpg_streamer");
 	}
 
-	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
-	return 0;
+	return hotplug_usb_webcam(nvram_safe_get("usb_web_device"));
 }
+#endif
+
 
 #ifdef __CONFIG_WAVESERVER__
 int refresh_wave(void)
@@ -882,6 +868,7 @@ void watchdog(int signum)
 	usb_communication_device_processcheck();
 #endif
 
+#ifdef __CONFIG_RCAMD__
 	/* web cam process */
 	if (nvram_invmatch("usb_web_device", ""))
 	{	
@@ -894,15 +881,12 @@ void watchdog(int signum)
 		}				
 		else
 		{	
-			//hotplug_usb_webcam(nvram_safe_get("usb_web_device"), 
-			//	   atoi(nvram_safe_get("usb_web_flag")));
-			//nvram_set("usb_web_device", "");
-			//nvram_set("usb_web_flag", "");
 			// reset WEBCAM status	
 			refresh_rcamd();
 			svcStatus[WEBACTIVE] = -1;
 		}
 	}
+#endif
 
 	/* storage process */
 	if (nvram_invmatch("usb_storage_device", ""))

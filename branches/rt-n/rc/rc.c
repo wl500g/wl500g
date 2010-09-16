@@ -1087,29 +1087,29 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "watchdog")) {
 		return(watchdog_main());
 	}
+	/* run ntp client */
+	else if (!strcmp(base, "ntp")) {
+		return (!start_ntpc());
+	}
 #ifdef USB_SUPPORT
+#ifdef __CONFIG_RCAMD__
 	/* remove webcam module */
 	else if (!strcmp(base, "rmwebcam")) {
 		if (argc >= 2)
-			return (remove_webcam_main(atoi(argv[1])));
+			return (remove_usb_webcam(nvram_safe_get("usb_web_device")));
 		else return EINVAL;
 	}
+	/* run rcamd */
+	else if (!strcmp(base, "rcamdmain")) {
+		return (hotplug_usb_webcam(nvram_safe_get("usb_web_device")));
+	}
+#endif
 	/* remove usbstorage module */
 	else if (!strcmp(base, "rmstorage")) {
 		int scsi_host = -1;
 		if (argc >= 2)
 			scsi_host = atoi(argv[1]);
 		return (remove_storage_main(scsi_host));
-	}
-#endif
-	/* run ntp client */
-	else if (!strcmp(base, "ntp")) {
-		return (!start_ntpc());
-	}
-#ifdef USB_SUPPORT
-	/* run rcamd */
-	else if (!strcmp(base, "rcamdmain")) {
-		return (rcamd_main());
 	}
 #ifdef __CONFIG_WAVESERVER__
 	/* run waveserver */
@@ -1121,7 +1121,7 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "start_ftpd")) {
 		return (restart_ftpd());
 	}
-#endif
+#endif //USB_SUPPORT
 	/* write srom */
 	else if (!strcmp(base, "wsrom")) 
 	{

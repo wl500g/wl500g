@@ -40,7 +40,6 @@
 #define logs(s) syslog(LOG_NOTICE, s)
 
 #ifdef USB_SUPPORT
-#define WEBCAM_SUPPORT 1
 #define PRINTER_SUPPORT 1
 #define MASSSTORAGE_SUPPORT 1
 #define AUDIO_SUPPORT 1
@@ -48,16 +47,7 @@
 
 //#define USBCOPY_SUPPORT 1
 
-enum
-{
-	WEB_NONE = 0,
-	WEB_PWCWEB,
-	WEB_OVWEB,
-	WEB_AUDIO
-} WEBTYPE;
-
-char *PWCLIST[] = {"471","69a","46d","55d","41e","4cc","d81", NULL};
-char *OVLIST[] = {"5a9","813","b62", NULL};
+char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
 char buf_g[512];
 
 
@@ -736,13 +726,9 @@ start_usb(void)
 		start_audio();
 	}
 #endif
-#ifdef WEBCAM_SUPPORT	
+#ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{	
-		eval("insmod", "videodev");
-
-		// link video 
-		symlink("/dev/v4l/video0", "/dev/video");
 		start_rcamd();
 	}
 #endif
@@ -817,17 +803,10 @@ stop_usb(void)
 			eval("rmmod", "ntfs");
 	}
 #endif
-#ifdef WEBCAM_SUPPORT	
+#ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{
 		stop_rcamd();	
-		eval("killall", "rcamd");
-		eval("rmmod", "pwc");
-		eval("rmmod", "ov511_decomp");
-		eval("rmmod", "ov518_decomp");
-		eval("rmmod", "ov51x");
-		eval("rmmod", "i2c-core");
-		eval("rmmod", "videodev");
 	}
 #endif
 #ifdef AUDIO_SUPPORT
@@ -1174,192 +1153,6 @@ void restart_smbd()
 
 	eval("/usr/sbin/nmbd", "-D");
 	eval("/usr/sbin/smbd", "-D");
-}
-
-int
-hotplug_usb_webcam(char *product, int webflag)
-{
-	char *rcamd_argv[]={"rcamd", 
-				"-p", nvram_safe_get("usb_webactivex_x"),
-				"-s", nvram_safe_get("usb_webfresh_x"),
-				"-z", nvram_safe_get("time_zone"),
-				"-a", nvram_safe_get("usb_websecurity_x"),
-				"-r", "0",	// Record Time -r
-				NULL, NULL,	// Model -t
-				NULL, NULL, 	// Image Size -f
-				NULL, NULL, 	// Sense Vlaue -m 
-				NULL, NULL, 	// Sense Limit -c
-				NULL, NULL,
-				NULL};
-	char **arg;
-	pid_t pid;
-
-	if (nvram_match("usb_webenable_x", "0") || strlen(product)==0 || webflag==0) return 1;
-	for (arg = rcamd_argv; *arg; arg++);
-	
-	if (webflag == WEB_PWCWEB)
-	{
-		eval("insmod", "pwc", "power_save=0", "size=vga");
-		eval("insmod", "pwcx");
-		nvram_set("usb_webdriver_x", "0");
-
-		*arg++ = "-t";
-		*arg++ = "0";
-	}
-	else
-	{
-		eval("insmod", "i2c-core");
-		eval("insmod", "ov51x");
-		eval("insmod", "ov511_decomp");
-		eval("insmod", "ov518_decomp");
-		nvram_set("usb_webdriver_x", "1");
-
-		if (strstr(product, "8519"))
-		{
-			*arg++ = "-t";
-			*arg++ = "2";
-		}
-		else
-		{			
-			*arg++ = "-t";
-			*arg++ = "1";
-		}
-	}
-
-	// image size
-	if (nvram_match("usb_webimage_x", "0"))
-	{
-		*arg++ = "-f";
-
-		*arg++="640x480";
-	}
-	else if (nvram_match("usb_webimage_x", "1"))
-	{
-		*arg++ = "-f";
-		*arg++="320x240";
-	}
-	else if (nvram_match("usb_webimage_x", "2"))
-	{
-		*arg++ = "-f";
-		if (webflag==WEB_PWCWEB) *arg++="160x120";
-		else *arg++="176x144";
-	}
-	else
-	{
-		*arg++ = "-f";
-		*arg++ = "80x60";
-	}
-
-
-	if (nvram_match("usb_websense_x", "0"))
-	{	
-		*arg++ = "-m";
-		*arg++ = "150";
-		*arg++ = "-c";
-		*arg++ = "100";
-	}
-	else if (nvram_match("usb_websense_x", "1"))
-	{
-		*arg++ = "-m";
-		*arg++ = "100";
-		*arg++ = "-c";
-		*arg++ = "100";
-	}
-	else
-	{	
-		*arg++ = "-m";
-		*arg++ = "50";
-		*arg++ = "-c";
-		*arg++ = "100";
-	}
-	
-
-	//*arg++="-d";
-	//*arg++="7";
-	mkdir("/tmp/webcam", 0777);	
-	chdir("/tmp/webcam");
-
-	symlink("/www/Advanced_ShowTime_Widzard.asp", "/tmp/webcam/index.asp");
-	symlink("/www/Advanced_ShowTime_Widzard.asp", "/tmp/webcam/ShowWebCam.asp");
-	symlink("/www/ShowWebCamPic.asp", "/tmp/webcam/ShowWebCamPic.asp");
-	symlink("/www/graph", "/tmp/webcam/graph");
-	symlink("/www/general.js", "/tmp/webcam/general.js");
-	symlink("/www/overlib.js", "/tmp/webcam/overlib.js");
-	symlink("/www/style.css", "/tmp/webcam/style.css");
-	symlink("/www/netcam_mfc_activeX.cab", "/tmp/webcam/netcam_mfc_activeX.cab");
-	symlink("/var/tmp/display.jpg", "/tmp/webcam/display.jpg");
-
-	//char *httpd_argv[]={"httpd", 
-	//			nvram_safe_get("wan0_ifname"), 
-	//			nvram_safe_get("usb_webhttpport_x"),
-	//			NULL};
-	//_eval(httpd_argv, NULL, 0, &pid);
-	eval("httpd", nvram_safe_get("wan0_ifname"), nvram_safe_get("usb_webhttpport_x"));
-	chdir("/");
-	_eval(rcamd_argv, ">/dev/null", 0, &pid);
-
-	return 0;
-}
-
-int
-remove_webcam_main(int webflag)
-{
-	if (webflag == WEB_PWCWEB)
-	{
-		eval("rmmod", "pwc");
-	}
-	else
-	{
-		eval("rmmod", "i2c-core");
-		eval("rmmod", "ov511_decomp");
-		eval("rmmod", "ov518_decomp");
-		eval("rmmod", "ov51x");
-	}
-	nvram_set("usb_webdriver_x", "");
-	return 0;
-}
-
-
-int
-remove_usb_webcam(char *product, int webflag)
-{
-	char pidfile[32];
-	sprintf(pidfile, "/var/run/httpd-%s.pid", nvram_safe_get("usb_webhttpport_x"));
-
-	kill_pidfile(pidfile);
-	kill_pidfile("/var/run/rcamd.pid");
-
-	if (webflag == WEB_PWCWEB)
-	{
-		eval("rmmod", "pwc");
-	}
-	else
-	{
-		eval("rmmod", "i2c-core");
-		eval("rmmod", "ov511_decomp");
-		eval("rmmod", "ov518_decomp");
-		eval("rmmod", "ov51x");
-	}
-	nvram_set("usb_webdriver_x", "");
-
-	return 0;
-}
-
-
-int
-start_rcamd(void)
-{
-	char *rcamd_argv[] = {"rcamdmain", NULL};
-	pid_t pid;
-
-	return _eval(rcamd_argv, NULL, 0, &pid);
-}
-
-int
-stop_rcamd(void)
-{
-	eval("killall", "rcamdmain");
-	return 0;
 }
 
 
@@ -1761,7 +1554,6 @@ hotplug_usb(void)
 	char *action, *interface, *product;
 	int i;
 	int isweb;
-	char flag[6];
 
 #ifdef DEBUG
 	dprintf("%s-%s-%s\n",getenv("INTERFACE"),getenv("ACTION"),product=getenv("PRODUCT"));
@@ -1813,22 +1605,12 @@ hotplug_usb(void)
 
 		i=0;
 		isweb = WEB_NONE;
-		while(PWCLIST[i]!=NULL)
+		while(UVCLIST[i]!=NULL)
 		{
-			if (strstr(product, PWCLIST[i]))
+			if (strstr(product, UVCLIST[i]))
 			{
-				isweb = WEB_PWCWEB;
+				isweb = WEB_CAMERA;
 				goto usbhandler;
-			}
-			i++;
-		}
-		i=0;
-		while(OVLIST[i]!=NULL)
-		{
-			if (strstr(product, OVLIST[i]))
-			{
-				isweb = WEB_OVWEB;
-				goto usbhandler; 
 			}
 			i++;
 		}
@@ -1856,9 +1638,7 @@ usbhandler:
 			if (nvram_match("usb_web_device", ""))	
 				logmessage("USB webcam", "attached");
 
-			sprintf(flag, "%d", isweb);
 			nvram_set("usb_web_device", product);
-			nvram_set("usb_web_flag", flag);
 			nvram_set("usb_webdriver_x", "");
 		}
 	}
@@ -1881,9 +1661,10 @@ usbhandler:
 			{	
 				logmessage("USB webcam", "removed");
 				nvram_set("usb_web_device", "");
-				nvram_set("usb_web_flag", "");
 			}
-			remove_usb_webcam(product, isweb);
+#ifdef __CONFIG_RCAMD__
+			remove_usb_webcam(product);
+#endif
 		}
 	}
 	return 0;
