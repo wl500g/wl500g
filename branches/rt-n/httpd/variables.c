@@ -2254,8 +2254,6 @@
         
                 {"usb_webhttpcheck_x", "", validate_string, ARGV(""), FALSE, FALSE}, 
                          
-             {"usb_webactivex_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
-                         
                  {"usb_websecurity_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
               
                 {"usb_websecurity_date_x", "", validate_portrange, NULL, FALSE, FALSE},
