@@ -5920,7 +5920,7 @@ diff -urNBp a/drivers/media/video/v4l2-dev.c b/drivers/media/video/v4l2-dev.c
 +	vdev->dev.devt = MKDEV(VIDEO_MAJOR, vdev->minor);
 +	if (vdev->parent)
 +		vdev->dev.parent = vdev->parent;
-+	sprintf(&vdev->dev.bus_id, "%s%d", name_base, vdev->num);
++	snprintf(vdev->dev.bus_id, BUS_ID_SIZE, "%s%d", name_base, vdev->num);
 +	/* Register the release callback that will be called when the last
 +	   reference to the device goes away. */
 +	vdev->dev.release = v4l2_device_release;
