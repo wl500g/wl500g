@@ -1,0 +1,36 @@
+From 197a6b3c14a8be7101903118516e0e16ec843eb5
+From: Denys Vlasenko
+Date: Tue, 14 Sep 2010 10:57:05 +0000
+Subject: sleep: make it non-NOFORK. Fixes ^C in standalone shell
+
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+---
+diff --git a/coreutils/sleep.c b/coreutils/sleep.c
+index b983df4..12798d9 100644
+--- a/coreutils/sleep.c
++++ b/coreutils/sleep.c
+@@ -20,7 +20,7 @@
+ 
+ #include "libbb.h"
+ 
+-/* This is a NOFORK applet. Be very careful! */
++/* Do not make this applet NOFORK. It breaks ^C-ing of pauses in shells */
+ 
+ 
+ #if ENABLE_FEATURE_FANCY_SLEEP || ENABLE_FEATURE_FLOAT_SLEEP
+diff --git a/include/applets.src.h b/include/applets.src.h
+index 0e4f966..106b720 100644
+--- a/include/applets.src.h
++++ b/include/applets.src.h
+@@ -345,7 +345,8 @@ IF_SHA256SUM(APPLET_ODDNAME(sha256sum, md5_sha1_sum, _BB_DIR_USR_BIN, _BB_SUID_D
+ IF_SHA512SUM(APPLET_ODDNAME(sha512sum, md5_sha1_sum, _BB_DIR_USR_BIN, _BB_SUID_DROP, sha512sum))
+ IF_SHOWKEY(APPLET(showkey, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_SLATTACH(APPLET(slattach, _BB_DIR_SBIN, _BB_SUID_DROP))
+-IF_SLEEP(APPLET_NOFORK(sleep, sleep, _BB_DIR_BIN, _BB_SUID_DROP, sleep))
++/* Do not make this applet NOFORK. It breaks ^C-ing of pauses in shells */
++IF_SLEEP(APPLET(sleep, _BB_DIR_BIN, _BB_SUID_DROP))
+ IF_SOFTLIMIT(APPLET_ODDNAME(softlimit, chpst, _BB_DIR_USR_BIN, _BB_SUID_DROP, softlimit))
+ IF_SORT(APPLET_NOEXEC(sort, sort, _BB_DIR_USR_BIN, _BB_SUID_DROP, sort))
+ IF_SPLIT(APPLET(split, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+--
+cgit v0.8.2.1
