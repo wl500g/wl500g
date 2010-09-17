@@ -145,14 +145,12 @@ hotplug_usb_webcam(char *product, int webflag)
 	mkdir("/tmp/webcam", 0777);	
 	chdir("/tmp/webcam");
 
-	symlink("/www/Advanced_ShowTime_Widzard.asp", "/tmp/webcam/index.asp");
-	symlink("/www/Advanced_ShowTime_Widzard.asp", "/tmp/webcam/ShowWebCam.asp");
-	symlink("/www/ShowWebCamPic.asp", "/tmp/webcam/ShowWebCamPic.asp");
+	symlink("/www/ShowWebCam.asp", "/tmp/webcam/index.asp");
+	symlink("/www/ShowWebCam.asp", "/tmp/webcam/ShowWebCam.asp");
 	symlink("/www/graph", "/tmp/webcam/graph");
 	symlink("/www/general.js", "/tmp/webcam/general.js");
 	symlink("/www/overlib.js", "/tmp/webcam/overlib.js");
 	symlink("/www/style.css", "/tmp/webcam/style.css");
-	symlink("/www/netcam_mfc_activeX.cab", "/tmp/webcam/netcam_mfc_activeX.cab");
 	symlink("/var/tmp/display.jpg", "/tmp/webcam/display.jpg");
 
 	//char *httpd_argv[]={"httpd", 
