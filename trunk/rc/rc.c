@@ -145,6 +145,77 @@ build_ifnames(char *type, char *names, int *size)
 }	
 
 static void
+stb_set(void)
+{
+	int stb_idx = atoi(nvram_safe_get("wan_stb_x")) - 1;
+
+	if (stb_idx < 0 || stb_idx > 3)
+		return;
+
+	switch (router_model)
+	{
+		case MDL_RTN16:
+			{
+			/* Set LAN ports */
+			char *vlan1ports[] = {
+					"1 2 3 8*",	// LAN 2 + LAN 3 + LAN 4
+					"1 2 4 8*",	// LAN 1 + LAN 3 + LAN 4
+					"1 3 4 8*",	// LAN 1 + LAN 2 + LAN 4
+					"2 3 4 8*" };	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan2ports[] = {
+					"0 4 8",	// WAN + LAN 1
+					"0 3 8",	// WAN + LAN 2
+					"0 2 8",	// WAN + LAN 3
+					"0 1 8" };	// WAN + LAN 4
+			nvram_set("vlan1ports", vlan1ports[stb_idx]);
+			nvram_set("vlan2ports", vlan2ports[stb_idx]);
+			break;
+			}
+		case MDL_RTN12:
+		case MDL_RTN10:
+		case MDL_WL500GPV2:
+			{
+			/* Set LAN ports */
+			char *vlan0ports[] = {
+					"0 1 2 5*",	// LAN 2 + LAN 3 + LAN 4
+					"0 1 3 5*",	// LAN 1 + LAN 3 + LAN 4
+					"0 2 3 5*",	// LAN 1 + LAN 2 + LAN 4
+					"1 2 3 5*" };	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan1ports[] = {
+					"3 4 5",	// WAN + LAN 1
+					"2 4 5",	// WAN + LAN 2
+					"1 4 5",	// WAN + LAN 3
+					"4 0 5"};	// WAN + LAN 4
+			nvram_set("vlan0ports", vlan0ports[stb_idx]);
+			nvram_set("vlan1ports", vlan1ports[stb_idx]);
+			break;
+			}
+		case MDL_WL520GU:
+		case MDL_WL500GP:
+		case MDL_DIR320:
+			{
+			/* Set LAN ports */
+			char *vlan0ports[] = {
+					"2 3 4 5*",	// LAN 2 + LAN 3 + LAN 4
+					"1 3 4 5*",	// LAN 1 + LAN 3 + LAN 4
+					"1 2 4 5*",	// LAN 1 + LAN 2 + LAN 
+					"1 2 3 5*"};	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan1ports[] = {
+					"1 0 5",	// WAN + LAN 1
+					"2 0 5",	// WAN + LAN 2
+					"3 0 5",	// WAN + LAN 3
+					"4 0 5"};	// WAN + LAN 4
+			nvram_set("vlan0ports", vlan0ports[stb_idx]);
+			nvram_set("vlan1ports", vlan1ports[stb_idx]);
+			break;
+			}
+	}
+}
+
+static void
 early_defaults(void)
 {
 	/* wl700ge -- boardflags are not set correctly */
@@ -212,7 +283,11 @@ early_defaults(void)
 				nvram_set("wan0_ifnames", "vlan1");
 			}
 		}
-	}
+
+		/* STB port setting */
+		stb_set();
+
+	} // vlans
 
 	/* wl550ge -- missing wl0gpio values */
 	if (router_model == MDL_WL550GE && !nvram_get("wl0gpio0"))
