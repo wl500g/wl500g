@@ -283,41 +283,24 @@ function loadMode()
 
 	//alert(document.form.wan_dnsenable_x[0].checked);
 	//alert(document.form.wan_dnsenable_x[1].checked);
-	if (window.top.isModel() =="WLHDD")
-	{
-		if (document.form.wan_nat_x.value == '1')
-		{    	
-			document.form.x_Mode[0].checked = false;
-			document.form.x_Mode[1].checked = true;    	   
-		}
-		else
-		{
-			document.form.x_Mode[0].checked = true;
-			document.form.x_Mode[1].checked = false;         
-		}       
-
-	}        	         	
-	else
+	if (document.form.wan_nat_x.value == '1')
 	{    	
-		if (document.form.wan_nat_x.value == '1')
-		{    	
-			document.form.x_Mode[0].checked = true;
-			document.form.x_Mode[1].checked = false;    	
-			document.form.x_Mode[2].checked = false;    	    	    	    	  	       	    	    	    	
-		}
-		else if (document.form.wan_route_x.value == 'IP_Routed')
-		{
-			document.form.x_Mode[0].checked = false;
-			document.form.x_Mode[1].checked = true;
-			document.form.x_Mode[2].checked = false;      	    	
-		}
-		else
-		{
-			document.form.x_Mode[0].checked = false;
-			document.form.x_Mode[1].checked = false;
-			document.form.x_Mode[2].checked = true;  
-		}                                      
-	}	
+		document.form.x_Mode[0].checked = true;
+		document.form.x_Mode[1].checked = false;    	
+		document.form.x_Mode[2].checked = false;    	    	    	    	  	       	    	    	    	
+	}
+	else if (document.form.wan_route_x.value == 'IP_Routed')
+	{
+		document.form.x_Mode[0].checked = false;
+		document.form.x_Mode[1].checked = true;
+		document.form.x_Mode[2].checked = false;      	    	
+	}
+	else
+	{
+		document.form.x_Mode[0].checked = false;
+		document.form.x_Mode[1].checked = false;
+		document.form.x_Mode[2].checked = true;  
+	}                                      
 	//changeMode();    
 }
 
@@ -725,41 +708,23 @@ function saveMode(o)
 
 	document.form.next_page.value = 'Main_Operation.asp';
 
-	if (window.top.isModel() =="WLHDD")
-	{	
-		if (document.form.x_Mode[0].checked === true) //Access Point
-		{           	                
-			document.form.wan_nat_x.value = '0';
-			document.form.wan_proto.value = 'static';
-			document.form.wan_route_x.value = 'IP_Bridged';
-		}           
-		else if (document.form.x_Mode[1].checked === true) //Home Gateway
-		{             
-			document.form.wan_nat_x.value = '1';
-			document.form.wan_route_x.value = 'IP_Routed';       
-			document.form.wan_proto.value = 'pppoe';
-		}
-	}
-	else
-	{	   
-		if (document.form.x_Mode[2].checked === true) //Access Point
-		{           	                
-			document.form.wan_nat_x.value = '0';
-			document.form.wan_proto.value = 'static';
-			document.form.wan_route_x.value = 'IP_Bridged';
-		}       
-		else if (document.form.x_Mode[1].checked === true) //Router
-		{              
-			document.form.wan_nat_x.value = '0';
-			document.form.wan_proto.value = 'static';
-			document.form.wan_route_x.value = 'IP_Routed';
-		}   
-		else if (document.form.x_Mode[0].checked === true) //Home Gateway
-		{             
-			document.form.wan_nat_x.value = '1';
-			document.form.wan_route_x.value = 'IP_Routed';       
-			document.form.wan_proto.value = 'pppoe';
-		}
+	if (document.form.x_Mode[2].checked === true) //Access Point
+	{           	                
+		document.form.wan_nat_x.value = '0';
+		document.form.wan_proto.value = 'static';
+		document.form.wan_route_x.value = 'IP_Bridged';
+	}       
+	else if (document.form.x_Mode[1].checked === true) //Router
+	{              
+		document.form.wan_nat_x.value = '0';
+		document.form.wan_proto.value = 'static';
+		document.form.wan_route_x.value = 'IP_Routed';
+	}   
+	else if (document.form.x_Mode[0].checked === true) //Home Gateway
+	{             
+		document.form.wan_nat_x.value = '1';
+		document.form.wan_route_x.value = 'IP_Routed';       
+		document.form.wan_proto.value = 'pppoe';
 	}
 	o.value = "  Save  ";	
 	document.form.action_mode.value = "  Save  ";

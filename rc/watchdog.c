@@ -117,13 +117,7 @@ static int power_value	= 0;
 #else
 
 static int reset_mask = GPIO6;
-#ifdef MODEL_WLHDD
-static int reset_value = 0;
-/* GPIO4 is SDA, GPIO5 is SCL */
-#else
 static int reset_value = GPIO6;
-#endif
-
 static int ready_mask = GPIO0;	/* Ready or Power LED */
 static int ready_value = 0;
 static int setup_mask = 0;	/* EZ-Setup button */
@@ -269,7 +263,7 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off indication */
-#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 				LED_CONTROL(LED_READY, LED_READY_OFF);
 				break;
 #endif
@@ -293,7 +287,7 @@ void btn_check(void)
 		} else {
 			switch ((pressed - RESET_WAIT_COUNT) / RESET_STATE_COUNT) {
 			case 0: /* power off */
-#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 				alarmtimer(0, 0);
 				kill(1, SIGQUIT);
 				break;

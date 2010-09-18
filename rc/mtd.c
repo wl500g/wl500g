@@ -293,9 +293,7 @@ mtd_write(const char *path, const char *mtd)
 		(void) ioctl(mtd_fd, MEMUNLOCK, &erase_info);
 
 		if (
-#ifndef MODEL_WL331G
 		    ioctl(mtd_fd, MEMERASE, &erase_info) != 0 ||
-#endif
 		    write(mtd_fd, buf, count) != count) {
 			perror(mtd);
 			goto fail;

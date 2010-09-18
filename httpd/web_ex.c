@@ -2145,7 +2145,7 @@ void websSetVer(void)
 	char productid[13];
 	char fwver[12];
 
-	strcpy(productid, "WLHDD");
+	strcpy(productid, "WL500");
 	strcpy(fwver, "0.1.0.1");
 
 	if ((fp = fopen(MTD_DEV(1), "rb"))!=NULL)

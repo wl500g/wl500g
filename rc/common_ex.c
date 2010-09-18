@@ -86,7 +86,7 @@ void getsyspara(void)
 	char productid[13];
 	char fwver[12];
 
-	strcpy(productid, "WLHDD");
+	strcpy(productid, "WL500");
 	strcpy(fwver, "0.1.0.1");
 
 	if ((fp = fopen("/dev/mtd/1", "rb"))!=NULL)
