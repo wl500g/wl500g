@@ -1,7 +1,57 @@
-diff -urBp ucd-snmp.old/agent/mibgroup/mibII/interfaces.c ucd-snmp/agent/mibgroup/mibII/interfaces.c
---- ucd-snmp.old/agent/mibgroup/mibII/interfaces.c	2005-05-28 20:28:21.000000000 +0400
-+++ ucd-snmp/agent/mibgroup/mibII/interfaces.c	2010-01-16 22:42:10.000000000 +0300
-@@ -1229,6 +1229,97 @@ static struct ifnet *ifnetaddr, saveifne
+--- ucd-snmp.orig/agent/mibgroup/mibII/interfaces.c	2005-05-28 16:28:21.000000000 +0000
++++ ucd-snmp/agent/mibgroup/mibII/interfaces.c	2010-09-18 19:08:00.990000002 +0000
+@@ -197,29 +197,38 @@ void init_interfaces(void)
+  * Returns 1 to imply "other" type if name not recognized. 
+  */
+ static int
+-if_type_from_name( const char *pcch)
++if_type_from_name(const char *pcch, const int family)
+ {
+     typedef struct _match_if {
+     	int mi_type;
+     	const char *mi_name;
++    	int mi_family;
+     } *pmatch_if, match_if;
+     
+     static match_if lmatch_if[] = {
+-      { 24, "lo" },
+-      {  6, "eth" },
+-      { 23, "ppp" },
+-      { 28, "sl" },
+-      {  0, 0 }  /* end of list */
++      {  24, "lo",   ARPHRD_LOOPBACK },
++      {  24, NULL,   ARPHRD_LOOPBACK },
++      { 209, "br",   ARPHRD_ETHER },
++      { 135, "vlan", ARPHRD_ETHER },
++      { 237, "wmx",  ARPHRD_ETHER },
++      {   6, "eth",  ARPHRD_ETHER },
++      {   6, "eth",  0 },
++      {  23, "ppp",  ARPHRD_PPP },
++      {  23, NULL,   ARPHRD_PPP },
++      {  28, "sl",   0 },
++      { 131, NULL,   ARPHRD_SIT },
++      {  0, 0, 0 }  /* end of list */
+     };
+ 
+-    int ii, len;
++    int ii;
+     register pmatch_if pm;
+ 
+-    for (ii = 0, pm=lmatch_if; pm->mi_name; pm++) {
+-        len = strlen(pm->mi_name);
+-        if (0 == strncmp(pcch, pm->mi_name, len))
+-        {
+-            return (pm->mi_type);
++    for (ii = 0, pm=lmatch_if; pm->mi_name || pm->mi_family; pm++)
++    {
++	if ((!family || !pm->mi_family || family == pm->mi_family) &&
++	    (!pm->mi_name || !strncmp(pcch, pm->mi_name, strlen(pm->mi_name))))
++	{
++	    return (pm->mi_type);
+         }
+     }
+     return (1); /* in case search fails */
+@@ -1229,6 +1237,97 @@ static struct ifnet *ifnetaddr, saveifne
  static int saveIndex=0;
  static char saveName[16];
  
@@ -99,15 +149,38 @@ diff -urBp ucd-snmp.old/agent/mibgroup/mibII/interfaces.c ucd-snmp/agent/mibgrou
  void
  Interface_Scan_Init (void)
  {
-@@ -1364,8 +1455,13 @@ Interface_Scan_Init (void)
- 	}
- 	else {
- 	  nnew->if_type = if_type_from_name(nnew->if_name);
+@@ -1341,10 +1440,13 @@ Interface_Scan_Init (void)
+ 	  		? 0 : ifrq.ifr_flags;
+ 	
+ 	strcpy (ifrq.ifr_name, ifname);
+-	if (ioctl(fd, SIOCGIFHWADDR, &ifrq) < 0)
++	if (ioctl(fd, SIOCGIFHWADDR, &ifrq) < 0) {
+ 	  memset (nnew->if_hwaddr,(0), 6);
+-	else
++	  nnew->if_type = 0;
++	} else {
+ 	  memcpy (nnew->if_hwaddr, ifrq.ifr_hwaddr.sa_data, 6);
++	  nnew->if_type = ifrq.ifr_hwaddr.sa_family;
++	}
+ 	    
+ 	strcpy (ifrq.ifr_name, ifname);
+ 	nnew->if_metric = ioctl (fd, SIOCGIFMETRIC, &ifrq) < 0
+@@ -1361,11 +1463,17 @@ Interface_Scan_Init (void)
+ 	if (if_ptr) {
+ 	    nnew->if_type = if_ptr->type;
+ 	    nnew->if_speed = if_ptr->speed;
+-	}
+-	else {
+-	  nnew->if_type = if_type_from_name(nnew->if_name);
 -	  nnew->if_speed = nnew->if_type == 6 ? 10000000 : 
 -	    nnew->if_type == 24 ? 10000000 : 0;
-+	  nnew->if_speed = (nnew->if_type == 6) ? getIfSpeed(fd, ifrq) : 
-+	    nnew->if_type == 24 ? 10000000 : 
-+	    nnew->if_type ==  9 ?  4000000 : 0;
++	} else {
++	    nnew->if_type = if_type_from_name(nnew->if_name, nnew->if_type);
++	    nnew->if_speed = 
++		(nnew->if_type ==   6) ? getIfSpeed(fd, ifrq) : 
++		(nnew->if_type ==  24) ? 10000000 : 
++		(nnew->if_type == 237) ? 30000000 :
++		(nnew->if_type ==   9) ?  4000000 : 0;
 +	    /* Zero speed means link problem */
 +	    if (nnew->if_speed == 0 && nnew->if_type == 6 && nnew->if_flags & IFF_UP) {
 +		nnew->if_flags &= ~IFF_RUNNING;
