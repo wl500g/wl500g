@@ -309,54 +309,6 @@ if [ -n "$1" ]; then
 		cp -f ../target/usr/sbin/upnp_600g ../target/usr/sbin/upnp
 		cp -f ../target/sbin/lpd_600g ../target/sbin/lpd
 
-#################################################################### WLHDD
-        elif [ "$MODEL" = "WLHDD" ]; then
-                ### 6.1 default value ###
-		
-### CHUPA: Obsolete, left out..
-
-                ### 6.2 web page ###
-                cp -f ../web_$MODEL/Advanced_Wireless11g_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
-                cp -f ../web_$MODEL/Advanced_WAdvanced_Content.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
-# for afterburner (wl500gx/wlhdd function)
-                cp -f ../web_$MODEL/Advanced_ACL11g_Content.asp ../web_$MODEL/Advanced_ACL_Content.asp
-                cp -f ../web_$MODEL/Advanced_DMZIP11g_Content.asp ../web_$MODEL/Advanced_DMZIP_Content.asp
-
-                cp -f ../web_$MODEL/Advanced_OperationMode_Content_300g.asp ../web_$MODEL/Advanced_OperationMode_Content.asp
-
-                cp -f ../web_$MODEL/Advanced_DDNS_Content.asp ../web_$MODEL/Advanced_DDNS_Content.asp
-# DDNS shit has some custom adds as it seems, something for misc_conntrack but named for ntp?
-#		cp -f ../web_$MODEL/Advanced_NTP_Content.asp ../web_$MODEL/Advanced_NTP_Content.asp
-#	advanced_ntp_content should be added so this can be used in AP mode as well, as AP mode needs time too
-                cp -f ../web_$MODEL/Main_WStatus11g_Content.asp ../web_$MODEL/Main_WStatus_Content.asp
-                cp -f ../web_$MODEL/Main_Index_AccessPoint11g.asp ../web_$MODEL/Main_Index_AccessPoint.asp
-                cp -f ../web_$MODEL/Main_Index_HomeGateway11g.asp ../web_$MODEL/Main_Index_HomeGateway.asp
-# those 3 above are the pages shown at login, not really usefull IMHO
-                cp -f ../web_$MODEL/Main_Index_Router11g.asp ../web_$MODEL/Main_Index_Router.asp
-#                cp -f ../web_$MODEL/Main_AStatus11g_Content.asp ../web_$MODEL/Main_AStatus_Content.asp
-# disabled because now it did use WL300g stuff, while wl-hdd supports USB Printer, but did not show up in AP mode
-#                cp -f ../web_$MODEL/Main_GStatus11g_Content.asp ../web_$MODEL/Main_GStatus_Content.asp
-#                cp -f ../web_$MODEL/Main_RStatus11g_Content.asp ../web_$MODEL/Main_RStatus_Content.asp
-# router mode is not even used at WL-HDD nor WL300g
-                cp -f ../web_$MODEL/Advanced_Exposed_Content_SP.asp ../web_$MODEL/Advanced_Exposed_Content.asp
-# exposed_content seems to be obsolete as exposed_SP vervangen replaces it..?
-
-                ### 6.3 web graph ###
-# need new image, present at http://www.chupa.nl/www/asus etc..
-                cp -f ../web_$MODEL/graph/internet_all_300.gif ../web_$MODEL/graph/internet_all.gif
-                cp -f ../web_$MODEL/graph/internet_none_300.gif ../web_$MODEL/graph/internet_none.gif
-                cp -f ../web_$MODEL/graph/internet_some_300.gif ../web_$MODEL/graph/internet_some.gif
-                cp -f ../web_$MODEL/graph/wds_ap_300.gif ../web_$MODEL/graph/wds_ap.gif
-                cp -f ../web_$MODEL/graph/wds_mixed_connect_300.gif ../web_$MODEL/graph/wds_mixed_connect.gif
-                cp -f ../web_$MODEL/graph/wds_mixed_anony_300.gif ../web_$MODEL/graph/wds_mixed_anony.gif
-                cp -f ../web_$MODEL/graph/wds_mixed_both_300.gif ../web_$MODEL/graph/wds_mixed_both.gif
-                cp -f ../web_$MODEL/graph/wds_wds_connect_300.gif ../web_$MODEL/graph/wds_wds_connect.gif
-                cp -f ../web_$MODEL/graph/wds_wds_anony_300.gif ../web_$MODEL/graph/wds_wds_anony.gif
-                cp -f ../web_$MODEL/graph/wds_wds_both_300.gif ../web_$MODEL/graph/wds_wds_both.gif
-                cp -f ../web_$MODEL/graph/wf_g_300.gif ../web_$MODEL/graph/wf_g.gif
-                cp -f ../web_$MODEL/graph/wf_none_300.gif ../web_$MODEL/graph/wf_none.gif
-# graphs zouden 'klaar' moeten zijn voor draft versie, future: verkleinen en aanpassen voor wlhdd plaatjes
-#################################################################### WLHDD /
 	fi
 
 	### 7. Remove useless files in ./target/web/* ###

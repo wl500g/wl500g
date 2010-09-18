@@ -83,6 +83,21 @@
 							</select>
 						</td>
 					</tr>
+					<tr>
+						<td class="content_header_td" onmouseover="return overlib('Choose the LAN port to bridge to WAN port. If you have another device to connect to WAN but your ISP only provide one WAN link, you can specify some LAN port to receive packets from WAN port. For example, you can connect your IPTV Set-top box to the specified port and get the signal and IP address from your ISP directly. Do not enable this function if you use a manual configuration of vlan ports', LEFT);"
+							onmouseout="return nd();">
+							IPTV STB Port:
+						</td>
+						<td class="content_input_td">
+							<select name="wan_stb_x" class="content_input_fd">
+								<option class="content_input_fd" value="0" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "0","selected"); %>>None</option>
+								<option class="content_input_fd" value="1" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "1","selected"); %>>LAN1</option>
+								<option class="content_input_fd" value="2" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "2","selected"); %>>LAN2</option>
+								<option class="content_input_fd" value="3" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "3","selected"); %>>LAN3</option>
+								<option class="content_input_fd" value="4" <% nvram_match_x("Layer3Forwarding","wan_stb_x", "4","selected"); %>>LAN4</option>
+							</select>
+						</td>
+					</tr>
 				</table>
 			</td>
 		</tr>
