@@ -149,7 +149,7 @@ stb_set(void)
 {
 	int stbport = atoi(nvram_safe_get("wan_stb_x"));
 
-	if (stbport < 0 || stbport > 3)
+	if (stbport < 0 || stbport > 4)
 		return;
 	if (stbport == 0 && !nvram_match("vlan_set_x", "1"))
 		return;
