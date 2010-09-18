@@ -79,35 +79,11 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 
 void getsyspara(void)
 {
-	FILE *fp;
-	unsigned long *imagelen;
-	char dataPtr[4];
-	char verPtr[64];
 	char productid[13];
 	char fwver[12];
 
-	strcpy(productid, "WL500");
-	strcpy(fwver, "0.1.0.1");
+	get_fw_ver(productid, fwver);
 
-	if ((fp = fopen("/dev/mtd/1", "rb"))!=NULL)
-	{
-		if (fseek(fp, 4, SEEK_SET)!=0) goto write_ver;
-		fread(dataPtr, 1, 4, fp);
-		imagelen = (unsigned long *)dataPtr;
-
-		dprintf("image len %x\n", *imagelen);
-		if (fseek(fp, *imagelen - 64, SEEK_SET)!=0) goto write_ver;
-		dprintf("seek\n");
-		if (!fread(verPtr, 1, 64, fp)) goto write_ver;
-		dprintf("ver %x %x", verPtr[0], verPtr[1]);
-		strncpy(productid, verPtr + 4, 12);
-		productid[12] = 0;
-		sprintf(fwver, "%d.%d.%d.%d", verPtr[0], verPtr[1], verPtr[2], verPtr[3]);
-
-		dprintf("get fw ver: %s\n", productid);
-		fclose(fp);
-	}
-write_ver:
 	// its a ugle solution for Product ID
 	if (strstr(productid, "WL500gx"))
 		nvram_set("productid", "WL500g.Deluxe");
