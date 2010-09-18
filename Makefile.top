@@ -349,11 +349,6 @@ NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_extern
 endif
 
 modules_install-usb:
-ifeq ($(CONFIG_EMF),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/emf/emf.o \
-		$(SRCMODULESDIR)/drivers/net/igs/igs.o
-endif
 	# NLS
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/fs/nls/nls_cp950$(ko)
