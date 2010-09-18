@@ -7,9 +7,6 @@
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <SCRIPT LANGUAGE="JavaScript">
 
-var the_timeout = <% nvram_get_x("PrinterStatus","usb_webfresh_x"); %>;
-setTimeout("location.reload(true)", (the_timeout == 0 ? 1 : the_timeout) * 1000);
-
 function onClose()
 {
    window.close();
@@ -25,11 +22,7 @@ function loadWidzard()
 <body onLoad="loadWidzard()" bgcolor="#FFFFFF" text="#000066" link="#3333CC" vlink="#666699" alink="#990099">
 <form method="GET" name="form" action="webcam.cgi">  
 <input type="hidden" name="ImageSize" value="<% nvram_get_x("PrinterStatus","usb_webimage_x"); %>">
-<input type="hidden" name="CaptionString" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>">
-<input type="hidden" name="CameraMode" value="<% nvram_get_x("PrinterStatus","usb_webmode_x"); %>">
 <input type="hidden" name="CameraModel" value="<% nvram_get_x("PrinterStatus","usb_webdriver_x"); %>">
-<input type="hidden" name="CameraPort" value="<% nvram_get_x("PrinterStatus","usb_webport_x"); %>">
-<input type="hidden" name="xxx" value="<% nvram_get_x("LANHostConfig","lan_hwaddr"); %>">
 <!--mstheme-->
 <font>
 <table align="center" BORDER=1 CELLSPACING=0 CELLPADDING=0 BGCOLOR=#FFFFCC>
@@ -61,15 +54,12 @@ else
      }		     
 }
 
-//Caption = '<% nvram_get_x("PrinterStatus","x_WCaption"); %>';
-Caption = document.form.CaptionString.value;
+var image = 'http://' + '<% nvram_get_x("PrinterStatus","lan_ipaddr"); %>' + ':' + '<% nvram_get_x("PrinterStatus","usb_webhttpport_x"); %>' + '/?action=stream';
 
       	document.write('<tr>');
 	document.write('<td align="left" height="48" style="padding-top:2;padding-bottom:2;padding-left:2">');
 	document.write('<font face="MS Sans Serif" size="2" color="#000000">');
-	document.write('<b>');
-	document.write(Caption);
-	document.write('</b>');
+	document.write('<b>ZVMODELVZ Web Camera</b>');
 	document.write('</font>');
 	document.write('</td>');
 	document.write('<td align="right" style="padding-right:2">');
@@ -77,7 +67,7 @@ Caption = document.form.CaptionString.value;
 	document.write('</tr>');
 	document.write('<tr>');
 	document.write('<td align="center" colspan="3">');
-      	document.write('<img name="campicture" border="0" src="display.jpg" alt="Image is not ready" width="' + width + '" height="' + height + '">');
+      	document.write('<img name="campicture" border="0" src="' + image + '" alt="Image is not ready" width="' + width + '" height="' + height + '">');
       	document.write('</td>');
 	document.write('</tr>');       
 </script>       
