@@ -54,6 +54,8 @@ static void rc_signal(int sig);
 extern struct nvram_tuple router_defaults[];
 
 //static int restore_defaults_g=0;
+static int router_model;
+
 
 static int
 build_ifnames(char *type, char *names, int *size)
@@ -143,6 +145,89 @@ build_ifnames(char *type, char *names, int *size)
 }	
 
 static void
+stb_set(void)
+{
+	int stbport = atoi(nvram_safe_get("wan_stb_x"));
+
+	if (stbport < 0 || stbport > 3)
+		return;
+	if (stbport == 0 && !nvram_match("vlan_set_x", "1"))
+		return;
+
+	switch (router_model)
+	{
+		case MDL_RTN16:
+			{
+			/* Set LAN ports */
+			char *vlan1ports[] = {
+					"1 2 3 4 8*",	// Defaults
+					"1 2 3 8*",	// LAN 2 + LAN 3 + LAN 4
+					"1 2 4 8*",	// LAN 1 + LAN 3 + LAN 4
+					"1 3 4 8*",	// LAN 1 + LAN 2 + LAN 4
+					"2 3 4 8*" };	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan2ports[] = {
+					"0 8",		// Defaults
+					"0 4 8",	// WAN + LAN 1
+					"0 3 8",	// WAN + LAN 2
+					"0 2 8",	// WAN + LAN 3
+					"0 1 8" };	// WAN + LAN 4
+			nvram_set("vlan1ports", vlan1ports[stbport]);
+			nvram_set("vlan2ports", vlan2ports[stbport]);
+			break;
+			}
+		case MDL_RTN12:
+		case MDL_RTN10:
+		case MDL_WL500GPV2:
+			{
+			/* Set LAN ports */
+			char *vlan0ports[] = {
+					"0 1 2 3 5*",	// Defaults
+					"0 1 2 5*",	// LAN 2 + LAN 3 + LAN 4
+					"0 1 3 5*",	// LAN 1 + LAN 3 + LAN 4
+					"0 2 3 5*",	// LAN 1 + LAN 2 + LAN 4
+					"1 2 3 5*" };	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan1ports[] = {
+					"4 5",		// Defaults
+					"3 4 5",	// WAN + LAN 1
+					"2 4 5",	// WAN + LAN 2
+					"1 4 5",	// WAN + LAN 3
+					"4 0 5"};	// WAN + LAN 4
+			nvram_set("vlan0ports", vlan0ports[stbport]);
+			nvram_set("vlan1ports", vlan1ports[stbport]);
+			break;
+			}
+		case MDL_WL520GU:
+		case MDL_WL500GP:
+		case MDL_DIR320:
+			{
+			/* Set LAN ports */
+			char *vlan0ports[] = {
+					"1 2 3 4 5*",	// Defaults
+					"2 3 4 5*",	// LAN 2 + LAN 3 + LAN 4
+					"1 3 4 5*",	// LAN 1 + LAN 3 + LAN 4
+					"1 2 4 5*",	// LAN 1 + LAN 2 + LAN 
+					"1 2 3 5*"};	// LAN 1 + LAN 2 + LAN 3
+			/* Set WAN ports */
+			char *vlan1ports[] = {
+					"0 5",		// Defaults
+					"1 0 5",	// WAN + LAN 1
+					"2 0 5",	// WAN + LAN 2
+					"3 0 5",	// WAN + LAN 3
+					"4 0 5"};	// WAN + LAN 4
+			nvram_set("vlan0ports", vlan0ports[stbport]);
+			nvram_set("vlan1ports", vlan1ports[stbport]);
+			break;
+			}
+	}
+	if (stbport == 0)
+		nvram_unset("vlan_set_x");
+	else
+		nvram_set("vlan_set_x", "1");
+}
+
+static void
 early_defaults(void)
 {
 	/* wl700ge -- boardflags are not set correctly */
@@ -153,7 +238,7 @@ early_defaults(void)
 
 	if (nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		if (nvram_match("boardtype", "0x04cf"))
+		if (router_model == MDL_RTN16)
 		{
                         nvram_set("vlan1ports", "0 1 2 3 4 8*");
                         nvram_set("vlan2ports", "8");
@@ -163,11 +248,12 @@ early_defaults(void)
 			nvram_set("vlan0ports", "0 1 2 3 4 5*");
 			nvram_set("vlan1ports", "5");
 		}
+		nvram_set("vlan_set_x", "1");
 	}
 	else { /* router mode, use vlans */
 
 		/* fix Sentry5 config */
-		if (nvram_match("boardtype", "bcm95365r") && !nvram_get("vlan0ports"))
+		if (router_model == MDL_WL500GX && !nvram_get("vlan0ports"))
 		{
 			nvram_set("lan_ifname", "br0");
 			nvram_set("lan_ifnames", "vlan0 eth1");
@@ -240,26 +326,26 @@ early_defaults(void)
 		}
 
 		/* fix DLINK DIR-320 vlans */
-		if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+		if (router_model == MDL_DIR320 && !nvram_get("wan_ifname"))
 		{
-			if (!nvram_get("wan_ifname"))
-			{
-	        		nvram_unset( "vlan2ports" );
-	          		nvram_unset( "vlan2hwname" );
-				nvram_set("vlan1hwname", "et0");
-				nvram_set("vlan1ports", "0 5");
-				nvram_set("wandevs", "vlan1");
-				nvram_set("wan_ifname", "vlan1");
-				nvram_set("wan_ifnames", "vlan1");
-				nvram_set("wan0_ifname", "vlan1");
-				nvram_set("wan0_ifnames", "vlan1");
-			}
+        		nvram_unset( "vlan2ports" );
+          		nvram_unset( "vlan2hwname" );
+			nvram_set("vlan1hwname", "et0");
+			nvram_set("vlan1ports", "0 5");
+			nvram_set("wandevs", "vlan1");
+			nvram_set("wan_ifname", "vlan1");
+			nvram_set("wan_ifnames", "vlan1");
+			nvram_set("wan0_ifname", "vlan1");
+			nvram_set("wan0_ifnames", "vlan1");
 		}
-	}
+
+		/* STB port setting */
+		stb_set();
+
+	} // vlans
 
 	/* wl550ge -- missing wl0gpio values */
-	if (nvram_match("boardtype", "0x467") && nvram_match("boardnum", "45") &&
-		!nvram_get("wl0gpio0"))
+	if (router_model == MDL_WL550GE && !nvram_get("wl0gpio0"))
 	{
 		nvram_set("wl0gpio0", "2");
 		nvram_set("wl0gpio1", "0");
@@ -276,7 +362,7 @@ early_defaults(void)
 		nvram_set("wl0gpio1", "0x88");
 
 	/* wl500gp -- 16mb memory activated, 32 available */
-	if (nvram_match("boardtype", "0x042f") && nvram_match("boardnum", "45") &&
+	if (router_model == MDL_WL500GP &&
 	    nvram_match("sdram_init", "0x000b") && nvram_match("sdram_config", "0x0062"))
 	{
 		nvram_set("sdram_init", "0x0009");
@@ -284,15 +370,12 @@ early_defaults(void)
 	}
 
 	/* fix DIR-320 gpio */
-	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+	if (router_model == MDL_DIR320 && nvram_match("wl0gpio0", "255"))
 	{
-		if (nvram_match("wl0gpio0", "255"))
-		{
-			nvram_set("wl0gpio0", "8");
-			nvram_set("wl0gpio1", "0");
-			nvram_set("wl0gpio2", "0");
-			nvram_set("wl0gpio3", "0");
-		}
+		nvram_set("wl0gpio0", "8");
+		nvram_set("wl0gpio1", "0");
+		nvram_set("wl0gpio2", "0");
+		nvram_set("wl0gpio3", "0");
 	}
 
 	/* fix WL500W mac adresses for WAN port */
@@ -301,7 +384,7 @@ early_defaults(void)
 
 #if 0	/* leave it commented out until VLANs will work */
 	/* WL500W could have vlans enabled */
-	if (nvram_match("boardtype", "0x0472") && nvram_match("boardnum", "45"))
+	if (router_model == MDL_WL500W)
 	{
 		if (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN)
 		{
@@ -366,31 +449,6 @@ restore_defaults(void)
 		{ 0, 0, 0 }
 	};
 
-
-#ifdef MODEL_WL331G
-	struct nvram_tuple wl331g[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth1", 0 },
-		{ "wan_ifname", "eth0", 0 },
-		{ "wan_ifnames", "eth0", 0 },
-		{ "wan_nat_x", "1", 0},
-		{ "wan_route_x", "IP_Routed", 0},
-		{ 0, 0, 0 }
-	};
-#endif
-
-
-#ifdef MODEL_WLHDD
-	struct nvram_tuple wlhdd[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth2", 0 },
-		{ "wan_ifname", "eth1", 0 },
-		{ "wan_ifnames", "eth1", 0 },
-		{ "wan_nat_x", "0", 0},
-		{ "wan_route_x", "IP_Bridged", 0},
-		{ 0, 0, 0 }
-	};
-#endif
 
 #ifdef CONFIG_SENTRY5
 #include "rcs5.h"
@@ -482,15 +540,7 @@ canned_config:
 		LINUX_OVERRIDES();
 	}
 
-#ifdef MODEL_WL331G
-	linux_overrides = wl331g;
-#endif
-
-#ifdef MODEL_WLHDD
-	linux_overrides = wlhdd;
-#endif
-
-	if (nvram_match("boardtype", "bcm95365r"))
+	if (router_model == MDL_WL500GX)
 		linux_overrides = vlan;
 	
 	/* Restore defaults */
@@ -699,7 +749,7 @@ sysinit(void)
 	if (stat("/proc/modules", &tmp_stat) == 0 &&
 	    stat(buf, &tmp_stat) == 0) {
 		char module[80], *modules, *next;
-#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
 #elif defined(__CONFIG_EMF__)
 		modules = nvram_get("kernel_mods") ? : "emf igs et wl";
@@ -718,9 +768,7 @@ sysinit(void)
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 	settimeofday(&tv, &tz);
 
-#if defined(MODEL_WLHDD)
-	eval("insmod", "gpiortc", "sda_mask=0x10", "scl_mask=0x20");
-#elif defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
 #endif
 	
@@ -832,7 +880,7 @@ main_loop(void)
 		run_shell(1, 0);
 
 	/* Add vlan */
-	boardflags = nvram_match("boardtype", "bcm95365r") ? BFL_ENETVLAN :
+	boardflags = (router_model == MDL_WL500GX) ? BFL_ENETVLAN :
 		strtoul(nvram_safe_get("boardflags"), NULL, 0);
 
 	/* Add loopback */
@@ -950,6 +998,8 @@ main(int argc, char **argv)
 	char *base = strrchr(argv[0], '/');
 	
 	base = base ? base + 1 : argv[0];
+
+	router_model = get_model();
 
 	/* init */
 	if (!strcmp(base, "init")) {

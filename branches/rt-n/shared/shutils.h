@@ -18,6 +18,12 @@
 #include <string.h>
 #include <signal.h>
 
+#ifdef LINUX26
+ #define        MTD_DEV(arg)            "/dev/mtd"#arg
+#else
+ #define        MTD_DEV(arg)            "/dev/mtd/"#arg
+#endif
+
 /*
  * Checks if file exists
  * @param	fd	file descriptor
@@ -126,6 +132,17 @@ static inline char * strcat_r(const char *s1, const char *s2, char *buf)
 }	
 
 /*
+ * Search a string backwards for a set of characters
+ * This is the reverse version of strspn()
+ *
+ * @param       s       string to search backwards
+ * @param       accept  set of chars for which to search
+ * @return      number of characters in the trailing segment of s.
+ *              which consist only of characters from accept.
+ */
+extern size_t sh_strrspn(const char *s, const char *accept);
+
+/*
  * Parse the unit and subunit from an interface string such as wlXX or wlXX.YY
  *
  * @param	ifname	interface string to parse
@@ -166,6 +183,32 @@ extern int get_ipconfig_index(char *eth_ifname);
  */	
 extern char *
 get_bridged_interfaces(char *bridge_name);
+
+/*
+ * Get product id & fw version from flash
+ */
+extern int get_fw_ver(char *productid, char *fwver);
+
+enum {
+        MDL_UNKNOWN,
+	MDL_MN700,
+        MDL_WL700G,
+	MDL_WL500GX,
+	MDL_WL550GE,
+	MDL_WL320GE,
+	MDL_WL320GP,
+	MDL_WL330GE,
+	MDL_WL500GP,
+	MDL_WL500GPV2,
+	MDL_WL500W,
+	MDL_WL520GU,
+	MDL_DIR320,
+	MDL_RTN16,
+	MDL_RTN12,
+	MDL_RTN10,
+};
+
+extern int get_model(void);
 
 /* 
 		remove_from_list

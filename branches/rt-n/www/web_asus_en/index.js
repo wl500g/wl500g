@@ -33,8 +33,6 @@ function isModel() {
 	else if (pid.indexOf("WL300") != -1 || pid.indexOf("WL320") != -1 || 
 			pid.indexOf("WL330") != -1)
 		model = 'WL300';
-	else if (pid.indexOf("WLHDD") != -1)
-		model = 'WLHDD';
 
 	return model;
 }
@@ -185,7 +183,7 @@ function generateTree() {
 		// appendChild(aux1, generateDocEntry(0, "WLAN &amp; LAN Filter",
 		// "Advanced_DMZDLFilter_Content.asp", ""))
 		// }
-		if (isModel() == 'WL500' || isModel() == 'WLHDD' || isModel() == 'WL300') {
+		if (isModel() == 'WL500' || isModel() == 'WL300') {
 			appendChild(aux1, generateDocEntry(0, "MAC Filter", "Advanced_MACFilter_Content.asp", ""));
 		}
 	}

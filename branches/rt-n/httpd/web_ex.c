@@ -45,12 +45,6 @@
 #define sys_forcereboot() kill(1, SIGABRT)
 
 
-#ifdef LINUX26
- #define        MTD_DEV(arg)            "/dev/mtd"#arg
-#else
- #define        MTD_DEV(arg)            "/dev/mtd/"#arg
-#endif
-
 #define sys_upgrade(image) eval("write", image, MTD_DEV(1))
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
@@ -2138,35 +2132,11 @@ struct ej_handler ej_handlers[] = {
 
 void websSetVer(void)
 {
-	FILE *fp;
-	unsigned long *imagelen;
-	char dataPtr[4];
-	char verPtr[64];
 	char productid[13];
 	char fwver[12];
 
-	strcpy(productid, "WLHDD");
-	strcpy(fwver, "0.1.0.1");
+	get_fw_ver(productid, fwver);
 
-	if ((fp = fopen(MTD_DEV(1), "rb"))!=NULL)
-	{
-		if (fseek(fp, 4, SEEK_SET)!=0) goto write_ver;
-		fread(dataPtr, 1, 4, fp);
-		imagelen = (unsigned long *)dataPtr;
-
-		cprintf("image len %x\n", *imagelen);
-		if (fseek(fp, *imagelen - 64, SEEK_SET)!=0) goto write_ver;
-		cprintf("seek\n");
-		if (!fread(verPtr, 1, 64, fp)) goto write_ver;
-		cprintf("ver %x %x", verPtr[0], verPtr[1]);
-		strncpy(productid, verPtr + 4, 12);
-		productid[12] = 0;
-		sprintf(fwver, "%d.%d.%d.%d", verPtr[0], verPtr[1], verPtr[2], verPtr[3]);
-
-		cprintf("get fw ver: %s\n", productid);
-		fclose(fp);
-	}
-write_ver:
 	nvram_set_f("general.log", "productid", productid);
 	nvram_set_f("general.log", "firmver", fwver);	
 }
