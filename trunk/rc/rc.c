@@ -322,31 +322,6 @@ restore_defaults(void)
 	};
 
 
-#ifdef MODEL_WL331G
-	struct nvram_tuple wl331g[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth1", 0 },
-		{ "wan_ifname", "eth0", 0 },
-		{ "wan_ifnames", "eth0", 0 },
-		{ "wan_nat_x", "1", 0},
-		{ "wan_route_x", "IP_Routed", 0},
-		{ 0, 0, 0 }
-	};
-#endif
-
-
-#ifdef MODEL_WLHDD
-	struct nvram_tuple wlhdd[] = {
-		{ "lan_ifname", "br0", 0 },
-		{ "lan_ifnames", "eth2", 0 },
-		{ "wan_ifname", "eth1", 0 },
-		{ "wan_ifnames", "eth1", 0 },
-		{ "wan_nat_x", "0", 0},
-		{ "wan_route_x", "IP_Bridged", 0},
-		{ 0, 0, 0 }
-	};
-#endif
-
 #ifdef CONFIG_SENTRY5
 #include "rcs5.h"
 #else
@@ -436,14 +411,6 @@ canned_config:
 		/* override the above linux_overrides with a different table */
 		LINUX_OVERRIDES();
 	}
-
-#ifdef MODEL_WL331G
-	linux_overrides = wl331g;
-#endif
-
-#ifdef MODEL_WLHDD
-	linux_overrides = wlhdd;
-#endif
 
 	if (nvram_match("boardtype", "bcm95365r"))
 		linux_overrides = vlan;
@@ -631,7 +598,7 @@ sysinit(void)
 	if (stat("/proc/modules", &tmp_stat) == 0 &&
 	    stat(buf, &tmp_stat) == 0) {
 		char module[80], *modules, *next;
-#if defined(MODEL_WLHDD) || defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
 #elif defined(__CONFIG_EMF__)
 		modules = nvram_get("kernel_mods") ? : "emf igs et wl";
@@ -650,9 +617,7 @@ sysinit(void)
 	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 	settimeofday(&tv, &tz);
 
-#if defined(MODEL_WLHDD)
-	eval("insmod", "gpiortc", "sda_mask=0x10", "scl_mask=0x20");
-#elif defined(MODEL_WL700G)
+#if defined(MODEL_WL700G)
 	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
 #endif
 	
