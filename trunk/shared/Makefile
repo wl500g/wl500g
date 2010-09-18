@@ -22,7 +22,7 @@ CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
 CFLAGS	+= -fPIC -s -O2
 LDFLAGS += -L.
 
-OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o
+OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o utils.o
 
 ifeq ($(CONFIG_SENTRY5),y)
 include $(TOP)/shared/Makefiles5.mk

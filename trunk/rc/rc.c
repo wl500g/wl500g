@@ -54,6 +54,8 @@ static void rc_signal(int sig);
 extern struct nvram_tuple router_defaults[];
 
 //static int restore_defaults_g=0;
+static int router_model;
+
 
 static int
 build_ifnames(char *type, char *names, int *size)
@@ -153,7 +155,7 @@ early_defaults(void)
 
 	if (nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		if (nvram_match("boardtype", "0x04cf"))
+		if (router_model == MDL_RTN16)
 		{
                         nvram_set("vlan1ports", "0 1 2 3 4 8*");
                         nvram_set("vlan2ports", "8");
@@ -167,7 +169,7 @@ early_defaults(void)
 	else { /* router mode, use vlans */
 
 		/* fix Sentry5 config */
-		if (nvram_match("boardtype", "bcm95365r") && !nvram_get("vlan0ports"))
+		if (router_model == MDL_WL500GX && !nvram_get("vlan0ports"))
 		{
 			nvram_set("lan_ifname", "br0");
 			nvram_set("lan_ifnames", "vlan0 eth1");
@@ -195,7 +197,7 @@ early_defaults(void)
 		}
 
 		/* fix DLINK DIR-320 vlans */
-		if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+		if (router_model == MDL_DIR320)
 		{
 			if (!nvram_get("wan_ifname"))
 			{
@@ -213,8 +215,7 @@ early_defaults(void)
 	}
 
 	/* wl550ge -- missing wl0gpio values */
-	if (nvram_match("boardtype", "0x467") && nvram_match("boardnum", "45") &&
-		!nvram_get("wl0gpio0"))
+	if (router_model == MDL_WL550GE && !nvram_get("wl0gpio0"))
 	{
 		nvram_set("wl0gpio0", "2");
 		nvram_set("wl0gpio1", "0");
@@ -231,7 +232,7 @@ early_defaults(void)
 		nvram_set("wl0gpio1", "0x88");
 
 	/* wl500gp -- 16mb memory activated, 32 available */
-	if (nvram_match("boardtype", "0x042f") && nvram_match("boardnum", "45") &&
+	if (router_model == MDL_WL500GP &&
 	    nvram_match("sdram_init", "0x000b") && nvram_match("sdram_config", "0x0062"))
 	{
 		nvram_set("sdram_init", "0x0009");
@@ -239,7 +240,7 @@ early_defaults(void)
 	}
 
 	/* fix DIR-320 gpio */
-	if (nvram_match("boardtype", "0x048e") && !nvram_match("boardnum", "45"))
+	if (router_model == MDL_DIR320)
 	{
 		if (nvram_match("wl0gpio0", "255"))
 		{
@@ -256,7 +257,7 @@ early_defaults(void)
 
 #if 0	/* leave it commented out until VLANs will work */
 	/* WL500W could have vlans enabled */
-	if (nvram_match("boardtype", "0x0472") && nvram_match("boardnum", "45"))
+	if (router_model == MDL_WL500W)
 	{
 		if (strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN)
 		{
@@ -412,7 +413,7 @@ canned_config:
 		LINUX_OVERRIDES();
 	}
 
-	if (nvram_match("boardtype", "bcm95365r"))
+	if (router_model == MDL_WL500GX)
 		linux_overrides = vlan;
 	
 	/* Restore defaults */
@@ -729,7 +730,7 @@ main_loop(void)
 		run_shell(1, 0);
 
 	/* Add vlan */
-	boardflags = nvram_match("boardtype", "bcm95365r") ? BFL_ENETVLAN :
+	boardflags = (router_model == MDL_WL500GX) ? BFL_ENETVLAN :
 		strtoul(nvram_safe_get("boardflags"), NULL, 0);
 
 	/* Add loopback */
@@ -845,6 +846,8 @@ main(int argc, char **argv)
 	char *base = strrchr(argv[0], '/');
 	
 	base = base ? base + 1 : argv[0];
+
+	router_model = get_model();
 
 	/* init */
 	if (!strcmp(base, "init")) {

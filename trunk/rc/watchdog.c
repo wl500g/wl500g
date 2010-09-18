@@ -182,59 +182,43 @@ unsigned int gpio_read(char *dev)
 void gpio_init(void)
 {
 	// overrides based on nvram
-	if (nvram_match("boardnum", "mn700")) {
-		reset_mask = GPIO7, reset_value = 0;
-		ready_mask = GPIO6, ready_value = GPIO6;
-	} else
-	// wl550gE
-	if (nvram_match("boardtype", "0x467") && 
-		nvram_match("boardnum", "45")) 
-	{
-		reset_mask = GPIO1, reset_value = GPIO1;
-		ready_mask = GPIO2, ready_value = 0;
-		setup_mask = GPIO15, setup_value = GPIO15;
-	} else
-	// wl500gp
-	if (nvram_match("boardtype", "0x042f") && 
-		nvram_match("boardnum", "45")) 
-	{
-		reset_mask = GPIO0, reset_value = GPIO0;
-		ready_mask = GPIO1, ready_value = 0;
-		setup_mask = GPIO4, setup_value = GPIO4;
-	} else
-	// wl500w
-	if (nvram_match("boardtype", "0x0472") && 
-		nvram_match("boardnum", "45")) 
-	{
-		reset_mask = GPIO6, reset_value = GPIO6;
-		ready_mask = GPIO5, ready_value = 0;
-		setup_mask = GPIO7, setup_value = GPIO7;
-	} else
-	// wl700g
-	if (nvram_match("boardtype", "0x042f") && 
-		nvram_match("boardnum", "44")) 
-	{
-		reset_mask = GPIO0, reset_value = GPIO0;
-		ready_mask = GPIO1, ready_value = 0;
-		/* enable copy button too */
-		setup_mask = GPIO4 | GPIO6, setup_value = GPIO4;
-		power_mask = GPIO3, power_value = GPIO3;
-	} else
-	// wl520gU
-	if (nvram_match("boardtype", "0x48E") && 
-		nvram_match("boardnum", "45")) 
-	{
-		reset_mask = GPIO2, reset_value = 0;
-		ready_mask = GPIO0, ready_value = 0;
-		setup_mask = GPIO3, setup_value = 0;
-	} else
-	// DLINK DIR-320
-	if (nvram_match("boardtype", "0x048e") &&
-		!nvram_match("boardnum", "45"))
-	{
-		reset_mask = GPIO7, reset_value = 0;
-		ready_mask = GPIO1, ready_value = GPIO1;
-		setup_mask = GPIO6, setup_value = 0;
+	switch (get_model()) {
+		case MDL_MN700:
+			reset_mask = GPIO7, reset_value = 0;
+			ready_mask = GPIO6, ready_value = GPIO6;
+			break;
+		case MDL_WL550GE:
+			reset_mask = GPIO1, reset_value = GPIO1;
+			ready_mask = GPIO2, ready_value = 0;
+			setup_mask = GPIO15, setup_value = GPIO15;
+			break;
+		case MDL_WL500GP:
+			reset_mask = GPIO0, reset_value = GPIO0;
+			ready_mask = GPIO1, ready_value = 0;
+			setup_mask = GPIO4, setup_value = GPIO4;
+			break;
+		case MDL_WL500W:
+			reset_mask = GPIO6, reset_value = GPIO6;
+			ready_mask = GPIO5, ready_value = 0;
+			setup_mask = GPIO7, setup_value = GPIO7;
+			break;
+		case MDL_WL700G:
+			reset_mask = GPIO0, reset_value = GPIO0;
+			ready_mask = GPIO1, ready_value = 0;
+			/* enable copy button too */
+			setup_mask = GPIO4 | GPIO6, setup_value = GPIO4;
+			power_mask = GPIO3, power_value = GPIO3;
+			break;
+		case MDL_WL520GU:
+			reset_mask = GPIO2, reset_value = 0;
+			ready_mask = GPIO0, ready_value = 0;
+			setup_mask = GPIO3, setup_value = 0;
+			break;
+		case MDL_DIR320:
+			reset_mask = GPIO7, reset_value = 0;
+			ready_mask = GPIO1, ready_value = GPIO1;
+			setup_mask = GPIO6, setup_value = 0;
+			break;
 	}
 	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
 		reset_mask | setup_mask, ready_mask | power_mask);
