@@ -11,12 +11,14 @@ diff -urBp mjpg-streamer/mjpg-streamer/mjpg_streamer.c mjpg-streamer.pidfile/mjp
    fprintf(stderr, "-----------------------------------------------------------------------\n");
    fprintf(stderr, "Example #1:\n" \
                    " To open an UVC webcam \"/dev/video1\" and stream it via HTTP:\n" \
-@@ -139,6 +140,8 @@ void signal_handler(int sig)
+@@ -139,6 +140,10 @@ void signal_handler(int sig)
    LOG("done\n");
  
    closelog();
-+  if (global.pidfile)
++  if (global.pidfile) {
 +    unlink(global.pidfile);
++    free(global.pidfile);
++  }
    exit(0);
    return;
  }
