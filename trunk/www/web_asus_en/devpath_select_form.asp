@@ -50,7 +50,7 @@
 		{
 			var row=el.parentNode;
 			var path=row.children[1];
-			opener.document.forms[0].wan_modem_usbloc.value=path.innerHTML;
+			opener.changeUSBLoc( path.innerHTML );
 			self.close();
 		}
 		function fill_row(el, fill){
