@@ -69,8 +69,11 @@ int get_model(void)
 		return MDL_WL500W;
 	else if (nvram_match("boardtype", "0x48E") &&
 		 nvram_match("boardnum", "45")) {
-		if (strncmp(nvram_safe_get("hardware_version"), "WL520GU", 7) == 0)
+		char *hwver = nvram_safe_get("hardware_version");
+		if (strncmp(hwver, "WL520GU", 7) == 0)
 			return MDL_WL520GU;
+		else if (strncmp(hwver, "WL330GE", 7) == 0)
+			return MDL_WL330GE;
 		else
 			return MDL_WL500GPV2;
 	}

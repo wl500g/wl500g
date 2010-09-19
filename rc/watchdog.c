@@ -210,6 +210,7 @@ void gpio_init(void)
 			power_mask = GPIO3, power_value = GPIO3;
 			break;
 		case MDL_WL520GU:
+		case MDL_WL330GE:
 		case MDL_WL500GPV2:
 			reset_mask = GPIO2, reset_value = 0;
 			ready_mask = GPIO0, ready_value = 0;
