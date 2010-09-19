@@ -64,6 +64,24 @@
 			setDispModeById( 'DialupNO',	'block' );
 		}
 	}
+	function setUSBtts( val )
+	{
+		if(val===''){
+			inputCtrl(document.form.wan_modem_tts_port, 1);
+		}else{
+			inputCtrl(document.form.wan_modem_tts_port, 0);
+		}
+	}
+	function load_this_page()
+	{
+		setUSBtts(document.form.wan_modem_usbloc.value);
+		changeUSBConnectionType();
+	}
+	window.changeUSBLoc = function (value)
+	{
+		document.form.wan_modem_usbloc.value = value;
+		setUSBtts( value );
+	}
 	</script>
 
 	<style type="text/css">
@@ -74,7 +92,7 @@
 	</style>
 </head>
 <!--<body onload="load_body()" onunload="return unload_body();"> -->
-<body onload="changeUSBConnectionType();" onunload="return unload_body();">
+<body onload="load_this_page();" onunload="return unload_body();">
 	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
 	</div>
 	<form method="GET" name="form" action="apply.cgi">
@@ -245,13 +263,13 @@
 			</td>
 		</tr>
 		<tr>
-				<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. Press View button or see Status &amp; Log -> Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0). If blank, use default.')" 
-					onmouseout="return nd()"> USB device location ID: </td>
+			<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. Press View button or see Status &amp; Log -> Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0). If blank, use default.')" 
+				onmouseout="return nd()"> USB device location ID: </td>
 		<td class="content_input_td">
 			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
 				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
 				onblur="validate_string(this)"
-				onchange="if(this.value==''){inputCtrl(document.form.wan_modem_tts_port, 1);}else{inputCtrl(document.form.wan_modem_tts_port, 0);}">
+				onchange="setUSBtts(this.value)">
 			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select_devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
 		</td>
 		</tr>
