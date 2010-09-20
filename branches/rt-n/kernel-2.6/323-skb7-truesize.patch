@@ -1,0 +1,216 @@
+From 2d607ed6f46f421c3a52d239a0e5fdba6a2b4839
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sun, 5 Sep 2010 18:39:29 -0400
+Subject: [PATCH] [NET]: truesize setting fixes backports
+
+kernel.org commits
+406a1d868001423c85a3165288e566e65f424fe6 [AUDIT]: Increase skb->truesize in audit_expand
+1e34a11d55c9437775367d72ad03f9af99e78bd0 [IPV4]: Add missing skb->truesize increment in ip_append_page().
+f945fa7ad9c12a3356a3de7fb2143ccc2f2c3bca [INET]: Fix truesize setting in ip_append_data
+29ffe1a5c52dae13b6efead97aab9b058f38fce4 [INET]: Prevent out-of-sync truesize on ip_fragment slow path
+b2722b1c3a893ec6021508da15b32282ec79f4da ip_fragment: also adjust skb->truesize for packets not owned by a socket
+92a0acce186cde8ead56c6915d9479773673ea1a net: Kill skb_truesize_check(), it only catches false-positives.
+
+---
+ include/linux/skbuff.h  |    7 -------
+ include/net/sock.h      |    1 -
+ kernel/audit.c          |   10 +++++++---
+ net/core/skbuff.c       |    8 --------
+ net/core/stream.c       |    1 -
+ net/ipv4/ip_output.c    |   10 +++++++---
+ net/ipv6/ip6_output.c   |    8 +++++---
+ 7 files changed, 19 insertions(+), 26 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index e732387..9032390 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -377,13 +377,6 @@ extern void	      skb_over_panic(struct sk_buff *skb, int len,
+ 				     void *here);
+ extern void	      skb_under_panic(struct sk_buff *skb, int len,
+ 				      void *here);
+-extern void	      skb_truesize_bug(struct sk_buff *skb);
+-
+-static inline void skb_truesize_check(struct sk_buff *skb)
+-{
+-	if (unlikely((int)skb->truesize < sizeof(struct sk_buff) + skb->len))
+-		skb_truesize_bug(skb);
+-}
+ 
+ extern int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
+ 			int getfrag(void *from, char *to, int offset,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 8a71ab3..01d32ce 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -462,7 +462,6 @@ static inline void sk_stream_set_owner_r(struct sk_buff *skb, struct sock *sk)
+ 
+ static inline void sk_stream_free_skb(struct sock *sk, struct sk_buff *skb)
+ {
+-	skb_truesize_check(skb);
+ 	sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
+ 	sk->sk_wmem_queued   -= skb->truesize;
+ 	sk->sk_forward_alloc += skb->truesize;
+diff --git a/kernel/audit.c b/kernel/audit.c
+index d13276d..5b83ce4 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -1039,13 +1039,17 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+ static inline int audit_expand(struct audit_buffer *ab, int extra)
+ {
+ 	struct sk_buff *skb = ab->skb;
+-	int ret = pskb_expand_head(skb, skb_headroom(skb), extra,
+-				   ab->gfp_mask);
++	int oldtail = skb_tailroom(skb);
++	int ret = pskb_expand_head(skb, 0, extra, ab->gfp_mask);
++	int newtail = skb_tailroom(skb);
++
+ 	if (ret < 0) {
+ 		audit_log_lost("out of memory in audit_expand");
+ 		return 0;
+ 	}
+-	return skb_tailroom(skb);
++
++	skb->truesize += newtail - oldtail;
++	return newtail;
+ }
+ 
+ /*
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index b44df1e..569f7f6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -149,14 +149,6 @@ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
+ 	BUG();
+ }
+ 
+-void skb_truesize_bug(struct sk_buff *skb)
+-{
+-	printk(KERN_ERR "SKB BUG: Invalid truesize (%u) "
+-	       "len=%u, sizeof(sk_buff)=%Zd\n",
+-	       skb->truesize, skb->len, sizeof(struct sk_buff));
+-}
+-EXPORT_SYMBOL(skb_truesize_bug);
+-
+ /* 	Allocate a new skbuff. We do this ourselves so we can fill in a few
+  *	'private' fields and also do memory statistics to find all the
+  *	[BEEP] leaks.
+diff --git a/net/core/stream.c b/net/core/stream.c
+index 755bacb..553fcd0 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -176,7 +176,6 @@ void sk_stream_rfree(struct sk_buff *skb)
+ {
+ 	struct sock *sk = skb->sk;
+ 
+-	skb_truesize_check(skb);
+ 	atomic_sub(skb->truesize, &sk->sk_rmem_alloc);
+ 	sk->sk_forward_alloc += skb->truesize;
+ }
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 463e976..0329ff2 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -459,6 +459,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 	if (skb_shinfo(skb)->frag_list) {
+ 		struct sk_buff *frag;
+ 		int first_len = skb_pagelen(skb);
++		int truesizes = 0;
+ 
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -482,8 +483,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 				sock_hold(skb->sk);
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+-				skb->truesize -= frag->truesize;
+ 			}
++			truesizes += frag->truesize;
+ 		}
+ 
+ 		/* Everything is OK. Generate! */
+@@ -493,6 +494,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 		frag = skb_shinfo(skb)->frag_list;
+ 		skb_shinfo(skb)->frag_list = NULL;
+ 		skb->data_len = first_len - skb_headlen(skb);
++		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		iph->tot_len = htons(first_len);
+ 		iph->frag_off = htons(IP_MF);
+@@ -1005,8 +1007,6 @@ alloc_new_skb:
+ 
+ 				skb_fill_page_desc(skb, i, page, 0, 0);
+ 				frag = &skb_shinfo(skb)->frags[i];
+-				skb->truesize += PAGE_SIZE;
+-				atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
+ 			} else {
+ 				err = -EMSGSIZE;
+ 				goto error;
+@@ -1019,6 +1019,8 @@ alloc_new_skb:
+ 			frag->size += copy;
+ 			skb->len += copy;
+ 			skb->data_len += copy;
++			skb->truesize += copy;
++			atomic_add(copy, &sk->sk_wmem_alloc);
+ 		}
+ 		offset += copy;
+ 		length -= copy;
+@@ -1161,6 +1163,8 @@ ssize_t	ip_append_page(struct sock *sk, struct page *page,
+ 
+ 		skb->len += len;
+ 		skb->data_len += len;
++		skb->truesize += len;
++		atomic_add(len, &sk->sk_wmem_alloc);
+ 		offset += len;
+ 		size -= len;
+ 	}
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index c3a1002..bfbe852 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -612,6 +612,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 
+ 	if (skb_shinfo(skb)->frag_list) {
+ 		int first_len = skb_pagelen(skb);
++		int truesizes = 0;
+ 
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -634,7 +635,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 				sock_hold(skb->sk);
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+-				skb->truesize -= frag->truesize;
++				truesizes += frag->truesize;
+ 			}
+ 		}
+ 
+@@ -665,6 +666,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 
+ 		first_len = skb_pagelen(skb);
+ 		skb->data_len = first_len - skb_headlen(skb);
++		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		ipv6_hdr(skb)->payload_len = htons(first_len -
+ 						   sizeof(struct ipv6hdr));
+@@ -1317,8 +1319,6 @@ alloc_new_skb:
+ 
+ 				skb_fill_page_desc(skb, i, page, 0, 0);
+ 				frag = &skb_shinfo(skb)->frags[i];
+-				skb->truesize += PAGE_SIZE;
+-				atomic_add(PAGE_SIZE, &sk->sk_wmem_alloc);
+ 			} else {
+ 				err = -EMSGSIZE;
+ 				goto error;
+@@ -1331,6 +1331,8 @@ alloc_new_skb:
+ 			frag->size += copy;
+ 			skb->len += copy;
+ 			skb->data_len += copy;
++			skb->truesize += copy;
++			atomic_add(copy, &sk->sk_wmem_alloc);
+ 		}
+ 		offset += copy;
+ 		length -= copy;
+-- 
+1.6.5.GIT
+
