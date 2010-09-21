@@ -11,7 +11,6 @@
  *
  * $Id$
  */
-#ifdef MODEL_WL500GX
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -704,4 +703,3 @@ int stop_portmon()
     /* Stop linkscan */
     return 0;
 }
-#endif

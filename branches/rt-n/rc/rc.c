@@ -54,7 +54,7 @@ static void rc_signal(int sig);
 extern struct nvram_tuple router_defaults[];
 
 //static int restore_defaults_g=0;
-static int router_model;
+int router_model = MDL_UNKNOWN;
 
 
 static int
@@ -751,12 +751,14 @@ sysinit(void)
 	if (stat("/proc/modules", &tmp_stat) == 0 &&
 	    stat(buf, &tmp_stat) == 0) {
 		char module[80], *modules, *next;
+
+		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		modules = nvram_get("kernel_mods") ? : "ide-mod ide-probe-mod ide-disk et wl";
+		"ide-mod ide-probe-mod ide-disk et wl";
 #elif defined(__CONFIG_EMF__)
-		modules = nvram_get("kernel_mods") ? : "emf igs et wl";
+		"emf igs et wl";
 #else
-		modules = nvram_get("kernel_mods") ? : "et wl";
+		"et wl";
 #endif
 		foreach(module, modules, next)
 			eval("insmod", module);
