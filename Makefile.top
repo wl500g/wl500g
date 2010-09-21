@@ -174,7 +174,7 @@ netfilter_external_modules := ipt_layer7.o ip_set.o \
  ip_set_portmap.o ip_set_ipporthash.o ip_set_ipportiphash.o \
  ip_set_ipportnethash.o ip_set_setlist.o ipt_SET.o ipt_set.o \
  ip_conntrack_rtsp.o ip_nat_rtsp.o ip_conntrack_sip.o ip_nat_sip.o \
- ip6_conntrack_ftp.o
+ ip6_conntrack.o ip6_conntrack_ftp.o
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
