@@ -198,6 +198,8 @@ stb_set(void)
 			nvram_set("vlan1ports", vlan1ports[stbport]);
 			break;
 			}
+		case MDL_WL330GE:
+		case MDL_WL550GE:
 		case MDL_WL520GU:
 		case MDL_WL500GP:
 		case MDL_DIR320:
