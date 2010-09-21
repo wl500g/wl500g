@@ -38,7 +38,8 @@
 
 #include "mtd.h"
 
-#define BCM47XX_SOFTWARE_RESET  0x40		/* GPIO 6 */
+extern int router_model;
+
 #define RESET_WAIT		3		/* seconds */
 #define RESET_STATE		5		/* seconds */
 #define RESET_WAIT_COUNT	(RESET_WAIT * 10) /* 10 times a second */
@@ -63,110 +64,14 @@
 #define GPIO8 0x0100
 #define GPIO15 0x8000
 
-// failsafe defaults, independent of nvram state
-#if defined(MODEL_WL550GE) || defined(MODEL_WL320GE) || defined(MODEL_WL320GP)
-
-static int reset_mask	= GPIO1;
-static int reset_value	= GPIO1;
-static int ready_mask	= GPIO2;
-static int ready_value	= 0;
-static int setup_mask	= GPIO15;
-static int setup_value	= GPIO15;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#elif defined(MODEL_WL500GP)
-
-static int reset_mask	= GPIO0;
-static int reset_value	= GPIO0;
-static int ready_mask	= GPIO1;
-static int ready_value	= 0;
-static int setup_mask	= GPIO4;
-static int setup_value	= GPIO4;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#elif defined(MODEL_WL500W)
-
-static int reset_mask	= GPIO6;
-static int reset_value	= GPIO6;
-static int ready_mask	= GPIO5;
-static int ready_value	= 0;
-static int setup_mask	= GPIO7;
-static int setup_value	= GPIO7;
-static int power_mask	= 0;
-static int power_value	= 0;
-/* -robo_reset is GPIO0 */
-
-#elif defined(MODEL_RT_N10)
-
-static int reset_mask	= GPIO3;
-static int reset_value	= 0;
-static int ready_mask	= GPIO1;
-static int ready_value	= 0;
-static int setup_mask	= GPIO2;
-static int setup_value	= 0;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#elif defined(MODEL_RT_N12)
-
-static int reset_mask	= GPIO1;
-static int reset_value	= 0;
-static int ready_mask	= GPIO2;
-static int ready_value	= 0;
-static int setup_mask	= GPIO0;
-static int setup_value	= 0;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#elif defined(MODEL_RT_N16)
-
-static int reset_mask	= GPIO6;
-static int reset_value	= 0;
-static int ready_mask	= GPIO1;
-static int ready_value	= 0;
-static int setup_mask	= GPIO8;
-static int setup_value	= 0;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#elif defined(MODEL_WL700G)
-
-static int reset_mask	= GPIO0; /* PWR */
-static int reset_value	= GPIO0;
-static int ready_mask	= GPIO1; /* GPIO3 - PWR */
-static int ready_value	= 0;
-static int setup_mask	= GPIO4;
-static int setup_value	= GPIO4;
-static int power_mask	= GPIO3;	/* POWER button light */
-static int power_value  = GPIO3;
-/* copy is GPIO6, ez is GPIO4, pwr is GPIO0 */
-/* hwpower is GPIO7, pwr is GPIO3, -ready is GPIO1 */
-/* GPIO2 is SDA, GPIO5 is SCL */
-
-#elif defined(MODEL_WL520GU) || defined(MODEL_WL500GPV2) || defined(MODEL_WL330GE)
-
-static int reset_mask	= GPIO2;
-static int reset_value	= 0;
-static int ready_mask	= GPIO0;
-static int ready_value	= 0;
-static int setup_mask	= GPIO3;
-static int setup_value	= 0;
-static int power_mask	= 0;
-static int power_value	= 0;
-
-#else
-
-static int reset_mask = GPIO6;
-static int reset_value = GPIO6;
-static int ready_mask = GPIO0;	/* Ready or Power LED */
+static int reset_mask = 0;
+static int reset_value = 0;
+static int ready_mask = 0;	/* Ready or Power LED */
 static int ready_value = 0;
 static int setup_mask = 0;	/* EZ-Setup button */
 static int setup_value = 0;
 static int power_mask = 0;	/* POWER button light */
 static int power_value = 0;
-#endif
 
 #ifdef GPIOCTL
  #include <sys/ioctl.h>
@@ -280,11 +185,18 @@ unsigned int gpio_read(char *dev, unsigned int mask)
 void gpio_init(void)
 {
 	// overrides based on nvram
-	switch (get_model()) {
+	switch (router_model) {
 		case MDL_MN700:
 			reset_mask = GPIO7, reset_value = 0;
 			ready_mask = GPIO6, ready_value = GPIO6;
 			break;
+		case MDL_WL500GX:
+			reset_mask = GPIO6, reset_value = GPIO6;
+			ready_mask = GPIO0, ready_value = 0;
+			setup_mask = 0, setup_value = 0;
+			break;
+//		case MDL_WL320GE:
+//		case MDL_WL320GP:
 		case MDL_WL550GE:
 			reset_mask = GPIO1, reset_value = GPIO1;
 			ready_mask = GPIO2, ready_value = 0;
@@ -299,8 +211,12 @@ void gpio_init(void)
 			reset_mask = GPIO6, reset_value = GPIO6;
 			ready_mask = GPIO5, ready_value = 0;
 			setup_mask = GPIO7, setup_value = GPIO7;
+			/* -robo_reset is GPIO0 */
 			break;
 		case MDL_WL700G:
+			/* copy is GPIO6, ez is GPIO4, pwr is GPIO0 */
+			/* hwpower is GPIO7, pwr is GPIO3, -ready is GPIO1 */
+			/* GPIO2 is SDA, GPIO5 is SCL */
 			reset_mask = GPIO0, reset_value = GPIO0;
 			ready_mask = GPIO1, ready_value = 0;
 			/* enable copy button too */
@@ -323,6 +239,16 @@ void gpio_init(void)
 			reset_mask = GPIO6, reset_value = 0;
 			ready_mask = GPIO1, ready_value = 0;
 			setup_mask = GPIO8, setup_value = 0;
+			break;
+		case MDL_RTN12:
+			reset_mask = GPIO1, reset_value = 0;
+			ready_mask = GPIO2, ready_value = 0;
+			setup_mask = GPIO0, setup_value = 0;
+			break;
+		case MDL_RTN10:
+			reset_mask = GPIO3, reset_value = 0;
+			ready_mask = GPIO1, ready_value = 0;
+			setup_mask = GPIO2, setup_value = 0;
 			break;
 	}
 	gpio_write(GPIO_DEV_OUTEN, ready_mask | power_mask |
@@ -626,8 +552,8 @@ int svc_timecheck(void)
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
 int http_processcheck(void)
 {
-	char http_cmd[32];
-	char buf[256];
+//	char http_cmd[32];
+//	char buf[256];
 	char *httpd_pid = "/var/run/httpd.pid";
 
 	//printf("http check\n");
