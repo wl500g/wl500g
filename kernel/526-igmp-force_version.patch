@@ -1,0 +1,66 @@
+From 7998156344b0d93de61ff8e5d75e96500e43a571
+From: Bob Arendt
+Date: Mon, 13 Sep 2010 12:56:03 -0700
+Subject: [PATCH] ipv4: force_igmp_version ignored when a IGMPv3 query received
+
+After all these years, it turns out that the
+    /proc/sys/net/ipv4/conf/*/force_igmp_version
+parameter isn't fully implemented.
+
+*Symptom*:
+When set force_igmp_version to a value of 2, the kernel should only perform
+multicast IGMPv2 operations (IETF rfc2236).  An host-initiated Join message
+will be sent as a IGMPv2 Join message.  But if a IGMPv3 query message is
+received, the host responds with a IGMPv3 join message.  Per rfc3376 and
+rfc2236, a IGMPv2 host should treat a IGMPv3 query as a IGMPv2 query and
+respond with an IGMPv2 Join message.
+
+*Consequences*:
+This is an issue when a IGMPv3 capable switch is the querier and will only
+issue IGMPv3 queries (which double as IGMPv2 querys) and there's an
+intermediate switch that is only IGMPv2 capable.  The intermediate switch
+processes the initial v2 Join, but fails to recognize the IGMPv3 Join responses
+to the Query, resulting in a dropped connection when the intermediate v2-only
+switch times it out.
+
+*Identifying issue in the kernel source*:
+The issue is in this section of code (in net/ipv4/igmp.c), which is called when
+an IGMP query is received  (from mainline 2.6.36-rc3 gitweb):
+ ...
+A IGMPv3 query has a length >= 12 and no sources.  This routine will exit after
+line 880, setting the general query timer (random timeout between 0 and query
+response time).  This calls igmp_gq_timer_expire():
+...
+.. which only sends a v3 response.  So if a v3 query is received, the kernel
+always sends a v3 response.
+
+IGMP queries happen once every 60 sec (per vlan), so the traffic is low.  A
+IGMPv3 query *is* a strict superset of a IGMPv2 query, so this patch properly
+short circuit's the v3 behaviour.
+
+One issue is that this does not address force_igmp_version=1.  Then again, I've
+never seen any IGMPv1 multicast equipment in the wild.  However there is a lot
+of v2-only equipment. If it's necessary to support the IGMPv1 case as well:
+
+837         if (len == 8 || IGMP_V2_SEEN(in_dev) || IGMP_V1_SEEN(in_dev)) {
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/igmp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index a1ad0e7..1fdcacd 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -834,7 +834,7 @@ static void igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,
+ 	int			mark = 0;
+ 
+ 
+-	if (len == 8) {
++	if (len == 8 || IGMP_V2_SEEN(in_dev)) {
+ 		if (ih->code == 0) {
+ 			/* Alas, old v1 router presents here. */
+ 	
+-- 
+1.7.3
