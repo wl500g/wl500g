@@ -16,9 +16,10 @@
 #define __BCM535M_H_
 
 /* ROBO embedded device type */
-#define ROBO_DEV_5380 1
-#define ROBO_DEV_5365 2
-#define ROBO_DEV_5350 3
+#define ROBO_DEV_5380  1
+#define ROBO_DEV_5365  2
+#define ROBO_DEV_5350  3
+#define ROBO_DEV_53115 4
 
 /* BCM5325m GLOBAL PAGE REGISTER MAP */
 #ifndef _CFE_
@@ -603,15 +604,14 @@ typedef struct _ROBO_VLAN_READ_WRITE_STRUC_5350
 #define ROBO_VLAN_PORT6_DEF_TAG     0x1c /* 16b: VLAN Port 6 Default Tag Register */
 #define ROBO_VLAN_PORT7_DEF_TAG     0x1e /* 16b: VLAN Port 7 Default Tag Register */
 #define ROBO_VLAN_PORT8_DEF_TAG     0x20 /* 16b: VLAN Port 8 Default Tag Register */
+/* 53115 only */
+#define ROBO_DUPLEX_STAT_SUMMARY_53115 0x08 /* Duplex Status Summary: 16bit */
+#define ROBO_JUMBO_PAGE                0x40
+#define ROBO_JUMBO_CTRL                0x01 /* 32bit */
+#define ROBO_JUMBO_SIZE                0x05 /* 16bit */
 
 #ifndef _CFE_
 #pragma pack()
 #endif
 
-
 #endif /* !__BCM535M_H_ */
-
-
-
-
-
