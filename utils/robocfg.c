@@ -211,24 +211,39 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 
 u8 port[6] = { 0, 1, 2, 3, 4, 8 };
 char ports[] = "01234???5???????";
+char *speed[4] = { "10", "100", "1000" , "4" };
 char *rxtx[4] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
 char *stp[8] = { "none", "disable", "block", "listen", "learn", "forward", "6", "7" };
+char *jumbo[2] = { "off", "on" };
 
 struct {
 	char *name;
 	u16 bmcr;
-} media[5] = { { "auto", BMCR_ANENABLE | BMCR_ANRESTART }, 
-	{ "10HD", 0 }, { "10FD", BMCR_FULLDPLX },
-	{ "100HD", BMCR_SPEED100 }, { "100FD", BMCR_SPEED100 | BMCR_FULLDPLX } };
+} media[7] = {
+	{ "auto", BMCR_ANENABLE | BMCR_ANRESTART },
+	{ "10HD", 0 },
+	{ "10FD", BMCR_FULLDPLX },
+	{ "100HD", BMCR_SPEED100 },
+	{ "100FD", BMCR_SPEED100 | BMCR_FULLDPLX },
+	{ "1000HD", BMCR_SPEED1000 },
+	{ "1000FD", BMCR_SPEED1000 | BMCR_FULLDPLX }
+};
 
 struct {
 	char *name;
 	u16 value;
-} mdix[3] = { { "auto", 0x0000 }, { "on", 0x1800 }, { "off", 0x0800 } };
+	u16 value1;
+	u16 value2;
+	u16 value3;
+} mdix[3] = {
+	{ "auto", 0x0000, 0x0000, 0x8207, 0x0000 },
+	{ "on",   0x1800, 0x4000, 0x8007, 0x0080 },
+	{ "off",  0x0800, 0x4000, 0x8007, 0x0000 }
+};
 
 void usage()
 {
-	fprintf(stderr, "Broadcom BCM5325/535x/536x switch configuration utility\n"
+	fprintf(stderr, "Broadcom BCM5325/535x/536x/5311x switch configuration utility\n"
 		"Copyright (C) 2005-2008 Oleg I. Vdovikin (oleg@cs.msu.su)\n"
 		"Copyright (C) 2005 Dmitry 'dimss' Ivanov of \"Telecentrs\" (Riga, Latvia)\n\n"
 		"This program is distributed in the hope that it will be useful,\n"
@@ -241,8 +256,10 @@ void usage()
 			"\tshow -- show current config\n"
 			"\tshowmacs -- show known MAC addresses\n"
 			"\tswitch <enable|disable>\n"
-			"\tport <port_number> [state <%s|%s|%s|%s>]\n\t\t[stp %s|%s|%s|%s|%s|%s] [tag <vlan_tag>]\n"
-			"\t\t[media %s|%s|%s|%s|%s] [mdi-x %s|%s|%s]\n"
+			"\tport <port_number> [state <%s|%s|%s|%s>]\n"
+			"\t\t[stp %s|%s|%s|%s|%s|%s] [tag <vlan_tag>]\n"
+			"\t\t[media %s|%s|%s|%s|%s|%s|%s] [mdi-x %s|%s|%s]\n"
+			"\t\t[jumbo %s|%s]\n"
 			"\tvlan <vlan_number> [ports <ports_list>]\n"
 			"\tvlans <enable|disable|reset>\n\n"
 			"\tports_list should be one argument, space separated, quoted if needed,\n"
@@ -257,8 +274,9 @@ void usage()
 			"robocfg switch disable vlans enable reset vlan 0 ports \"1 2 3 4 5t\" vlan 1 ports \"0 5t\""
 			" port 0 state enabled stp none switch enable\n",
 			rxtx[0], rxtx[1], rxtx[2], rxtx[3], stp[0], stp[1], stp[2], stp[3], stp[4], stp[5],
-			media[0].name, media[1].name, media[2].name, media[3].name, media[4].name,
-			mdix[0].name, mdix[1].name, mdix[2].name);
+			media[0].name, media[1].name, media[2].name, media[3].name, media[4].name, media[5].name, media[6].name,
+			mdix[0].name, mdix[1].name, mdix[2].name,
+			jumbo[0], jumbo[1]);
 }
 
 int
@@ -387,8 +405,9 @@ main(int argc, char *argv[])
 					}
 				} else
 				if (strcasecmp(argv[i], "media") == 0 && ++i < argc) {
-					for (j = 0; j < 5 && strcasecmp(argv[i], media[j].name); j++);
-					if (j < 5) {
+					for (j = 0; j < 7 && strcasecmp(argv[i], media[j].name); j++);
+					if (j < ((robo535x == 4) ? 7 : 5)) {
+						/* change media */
                                     		mdio_write(&robo, port[index], MII_BMCR, media[j].bmcr);
 					} else {
 						fprintf(stderr, "Invalid media '%s'.\n", argv[i]);
@@ -398,8 +417,18 @@ main(int argc, char *argv[])
 				if (strcasecmp(argv[i], "mdi-x") == 0 && ++i < argc) {
 					for (j = 0; j < 3 && strcasecmp(argv[i], mdix[j].name); j++);
 					if (j < 3) {
-                                    		mdio_write(&robo, port[index], 0x1c, mdix[j].value |
-						    (mdio_read(&robo, port[index], 0x1c) & ~0x1800));
+						/* change mdi-x */
+						if (robo535x == 4) {
+							mdio_write(&robo, port[index], 0x10, mdix[j].value1 |
+							    (mdio_read(&robo, port[index], 0x10) & ~0x4000));
+							mdio_write(&robo, port[index], 0x18, 0x7007);
+							mdio_write(&robo, port[index], 0x18, mdix[j].value2 |
+							    (mdio_read(&robo, port[index], 0x18) & ~0x8207));
+							mdio_write(&robo, port[index], 0x1e, mdix[j].value3 |
+							    (mdio_read(&robo, port[index], 0x1e) & ~0x0080));
+						} else
+                                    		    mdio_write(&robo, port[index], 0x1c, mdix[j].value |
+							(mdio_read(&robo, port[index], 0x1c) & ~0x1800));
 					} else {
 						fprintf(stderr, "Invalid mdi-x '%s'.\n", argv[i]);
 						exit(1);
@@ -409,6 +438,18 @@ main(int argc, char *argv[])
 					j = atoi(argv[i]);
 					/* change vlan tag */
 					robo_write16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_PORT0_DEF_TAG + (index << 1), j);
+				} else
+				if (strcasecmp(argv[i], "jumbo") == 0 && ++i < argc) {
+					for (j = 0; j < 2 && strcasecmp(argv[i], jumbo[j]); j++);
+					if (robo535x == 4 && j < 2) {
+						/* change jumbo frame feature */
+						robo_write32(&robo, ROBO_JUMBO_PAGE, ROBO_JUMBO_CTRL,
+							(robo_read32(&robo, ROBO_JUMBO_PAGE, ROBO_JUMBO_CTRL) &
+							~(1 << port[index])) | (j << port[index]));
+					} else {
+						fprintf(stderr, "Invalid jumbo state '%s'.\n", argv[i]);
+						exit(1);
+					}
 				} else break;
 			}
 		} else
@@ -582,17 +623,23 @@ main(int argc, char *argv[])
 
 	for (i = 0; i < 6; i++) {
 		printf(robo_read16(&robo, ROBO_STAT_PAGE, ROBO_LINK_STAT_SUMMARY) & (1 << port[i]) ?
-			"Port %d: %s%s " : "Port %d:  DOWN ", i,
-			robo_read16(&robo, ROBO_STAT_PAGE, ROBO_SPEED_STAT_SUMMARY) & (1 << port[i]) ? "100" : " 10",
-			robo_read16(&robo, ROBO_STAT_PAGE, ROBO_DUPLEX_STAT_SUMMARY) & (1 << port[i]) ? "FD" : "HD");
-		
+			"Port %d: %4s%s " : "Port %d:   DOWN ", i,
+			speed[(robo535x == 4) ?
+				(robo_read32(&robo, ROBO_STAT_PAGE, ROBO_SPEED_STAT_SUMMARY) >> port[i] * 2) & 3 :
+				(robo_read16(&robo, ROBO_STAT_PAGE, ROBO_SPEED_STAT_SUMMARY) >> port[i]) & 1],
+			robo_read16(&robo, ROBO_STAT_PAGE, (robo535x == 4) ?
+				ROBO_DUPLEX_STAT_SUMMARY_53115 : ROBO_DUPLEX_STAT_SUMMARY) & (1 << port[i]) ? "FD" : "HD");
+
 		val16 = robo_read16(&robo, ROBO_CTRL_PAGE, port[i]);
-		
+
 		printf("%s stp: %s vlan: %d ", rxtx[val16 & 3], stp[(val16 >> 5) & 7],
 			robo_read16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_PORT0_DEF_TAG + (i << 1)));
-			
+
+		printf(robo535x == 4 ? "jumbo: %s " : "",
+			jumbo[(robo_read32(&robo, ROBO_JUMBO_PAGE, ROBO_JUMBO_CTRL) >> port[i]) & 1]);
+
 		robo_read(&robo, ROBO_STAT_PAGE, ROBO_LSA_PORT0 + port[i] * 6, mac, 3);
-		
+
 		printf("mac: %02x:%02x:%02x:%02x:%02x:%02x\n",
 			mac[2] >> 8, mac[2] & 255, mac[1] >> 8, mac[1] & 255, mac[0] >> 8, mac[0] & 255);
 	}
