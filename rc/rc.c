@@ -307,8 +307,7 @@ early_defaults(void)
 		}
 
 		/* fix RT-N12 / RT-N10 vlans */
-		if ((nvram_match("boardtype", "0x04CD") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201")) // N12
-		    || (nvram_match("boardtype", "0x04EC") && nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))) // N10
+		if (router_model == MDL_RTN12 || router_model == MDL_RTN10)
 		{
 			if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
 			{
