@@ -21,6 +21,9 @@
 #include <linuxver.h>
 
 /* assert and panic */
+#ifdef ASSERT
+ #undef ASSERT
+#endif
 #ifdef BCMDBG_ASSERT
 #define ASSERT(exp) \
 	do { if (!(exp)) osl_assert(#exp, __FILE__, __LINE__); } while (0)
