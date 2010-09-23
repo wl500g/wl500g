@@ -1,6 +1,6 @@
-diff -urB linux-2.4.37.orig/include/linux/etherdevice.h linux/include/linux/etherdevice.h
---- linux-2.4.37.orig/include/linux/etherdevice.h	2010-02-02 00:04:46.000000000 +0300
-+++ linux/include/linux/etherdevice.h	2010-06-28 14:09:24.000000000 +0400
+diff -urB a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+--- a/include/linux/etherdevice.h	2010-02-02 00:04:46.000000000 +0300
++++ b/include/linux/etherdevice.h	2010-06-28 14:09:24.000000000 +0400
 @@ -25,6 +25,7 @@
  #define _LINUX_ETHERDEVICE_H
  
@@ -45,9 +45,9 @@ diff -urB linux-2.4.37.orig/include/linux/etherdevice.h linux/include/linux/ethe
  #endif
  
  #endif	/* _LINUX_ETHERDEVICE_H */
-diff -urB linux-2.4.37.orig/include/linux/kernel.h linux/include/linux/kernel.h
---- linux-2.4.37.orig/include/linux/kernel.h	2008-12-15 16:25:13.000000000 +0300
-+++ linux/include/linux/kernel.h	2009-01-26 13:32:27.000000000 +0300
+diff -urB a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h	2008-12-15 16:25:13.000000000 +0300
++++ b/include/linux/kernel.h	2009-01-26 13:32:27.000000000 +0300
 @@ -27,8 +27,17 @@
  
  #define STACK_MAGIC	0xdeadbeef
@@ -121,9 +121,9 @@ diff -urB linux-2.4.37.orig/include/linux/kernel.h linux/include/linux/kernel.h
 +#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
 +
  #endif /* _LINUX_KERNEL_H */
-diff -urB linux-2.4.37.orig/include/linux/list.h linux/include/linux/list.h
---- linux-2.4.37.orig/include/linux/list.h	2009-01-26 13:32:30.000000000 +0300
-+++ linux/include/linux/list.h	2009-01-27 11:39:03.000000000 +0300
+diff -urB a/include/linux/list.h b/include/linux/list.h
+--- a/include/linux/list.h	2009-01-26 13:32:30.000000000 +0300
++++ b/include/linux/list.h	2009-01-27 11:39:03.000000000 +0300
 @@ -98,6 +98,29 @@
  }
  
@@ -376,8 +376,8 @@ diff -uBp a/include/linux/sched.h b/include/linux/sched.h
  	(p)->next_task->prev_task = (p)->prev_task; \
  	(p)->prev_task->next_task = (p)->next_task; \
 diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/include/linux/usb.h b/include/linux/usb.h
---- linux/include/linux/usb.h	2008-05-19 11:19:54.000000000 -0400
-+++ linux/include/linux/usb.h	2008-05-21 16:03:19.000000000 -0400
+--- b/include/linux/usb.h	2008-05-19 11:19:54.000000000 -0400
++++ b/include/linux/usb.h	2008-05-21 16:03:19.000000000 -0400
 @@ -225,6 +225,8 @@
  #define USB_MAXALTSETTING	128  /* Hard limit */
  #define USB_MAXINTERFACES	32
@@ -605,9 +605,9 @@ diff -uNr --exclude='.*' --exclude='*.o' --exclude='*~' a/include/linux/usb.h b/
  extern int usb_ifnum_to_ifpos(struct usb_device *dev, unsigned ifnum);
  extern struct usb_interface *usb_ifnum_to_if(struct usb_device *dev, unsigned ifnum);
  extern struct usb_endpoint_descriptor *usb_epnum_to_ep_desc(struct usb_device *dev, unsigned epnum);
-diff -uBN linux-2.4.37.orig/include/asm-generic/__ffs.h linux/include/asm-generic/__ffs.h
---- linux-2.4.37.orig/include/asm-generic/__ffs.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux/include/asm-generic/__ffs.h	2008-10-10 02:13:53.000000000 +0400
+diff -uBN a/include/asm-generic/__ffs.h b/include/asm-generic/__ffs.h
+--- a/include/asm-generic/__ffs.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/asm-generic/__ffs.h	2008-10-10 02:13:53.000000000 +0400
 @@ -0,0 +1,43 @@
 +#ifndef _ASM_GENERIC_BITOPS___FFS_H_
 +#define _ASM_GENERIC_BITOPS___FFS_H_
@@ -652,9 +652,9 @@ diff -uBN linux-2.4.37.orig/include/asm-generic/__ffs.h linux/include/asm-generi
 +}
 +
 +#endif /* _ASM_GENERIC_BITOPS___FFS_H_ */
-diff -uBN linux-2.4.37.orig/include/asm-generic/__fls.h linux/include/asm-generic/__fls.h
---- linux-2.4.37.orig/include/asm-generic/__fls.h	1970-01-01 03:00:00.000000000 +0300
-+++ linux/include/asm-generic/__fls.h	2008-10-10 02:13:53.000000000 +0400
+diff -uBN a/include/asm-generic/__fls.h b/include/asm-generic/__fls.h
+--- a/include/asm-generic/__fls.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/asm-generic/__fls.h	2008-10-10 02:13:53.000000000 +0400
 @@ -0,0 +1,43 @@
 +#ifndef _ASM_GENERIC_BITOPS___FLS_H_
 +#define _ASM_GENERIC_BITOPS___FLS_H_
@@ -699,17 +699,63 @@ diff -uBN linux-2.4.37.orig/include/asm-generic/__fls.h linux/include/asm-generi
 +}
 +
 +#endif /* _ASM_GENERIC_BITOPS___FLS_H_ */
-diff -uBN linux-2.4.37.orig/include/asm-mips/bitops.h linux/include/asm-mips/bitops.h
---- linux-2.4.37.orig/include/asm-mips/bitops.h	2009-07-20 17:12:10.000000000 +0400
-+++ linux/include/asm-mips/bitops.h	2009-07-22 17:32:39.000000000 +0400
-@@ -12,6 +12,7 @@
+diff -uB a/include/asm-generic/bitops.h b/include/asm-generic/bitops.h
+--- a/include/asm-generic/bitops.h
++++ b/include/asm-generic/bitops.h
+@@ -61,6 +61,16 @@
+ 
+ #define ffs(x) generic_ffs(x)
+ 
++/**
++ * fls - find last (most-significant) bit set
++ * @x: the word to search
++ *
++ * This is defined the same way as ffs.
++ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
++ */
++
++#define fls(x) generic_fls(x)
++
+ /*
+  * hweightN: returns the hamming weight (i.e. the number
+  * of bits set) of a N-bit word
+diff -uBN a/include/asm-mips/bitops.h b/include/asm-mips/bitops.h
+--- a/include/asm-mips/bitops.h	2009-07-20 17:12:10.000000000 +0400
++++ b/include/asm-mips/bitops.h	2009-07-22 17:32:39.000000000 +0400
+@@ -12,6 +12,8 @@
  #include <linux/config.h>
  #include <linux/types.h>
  #include <asm/byteorder.h>		/* sigh ... */
 +#include <asm-generic/__ffs.h>
++#include <asm-generic/__fls.h>
  
  #if (_MIPS_SZLONG == 32)
  #define SZLONG_LOG 5
+@@ -24,7 +26,6 @@
+ #ifdef __KERNEL__
+ 
+ #include <asm/sgidefs.h>
+-#include <asm/system.h>
+ 
+ /*
+  * clear_bit() doesn't provide any barrier for the compiler.
+@@ -620,6 +620,16 @@
+ 
+ #define ffs(x) generic_ffs(x)
+ 
++/**
++ * fls - find last (most-significant) bit set
++ * @x: the word to search
++ *
++ * This is defined the same way as ffs.
++ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
++ */
++
++#define fls(x) generic_fls(x)
++
+ /*
+  * find_next_zero_bit - find the first zero bit in a memory region
+  * @addr: The address to base the search on
 @@ -683,6 +684,50 @@
          find_next_zero_bit((addr), (size), 0)
  
@@ -761,9 +807,251 @@ diff -uBN linux-2.4.37.orig/include/asm-mips/bitops.h linux/include/asm-mips/bit
  /*
   * hweightN - returns the hamming weight of a N-bit word
   * @x: the word to weigh
-diff -uBN linux-2.4.37.orig/include/linux/in.h linux/include/linux/in.h
---- linux-2.4.37.orig/include/linux/in.h	2009-08-14 02:04:00.000000000 +0400
-+++ linux/include/linux/in.h	2009-09-08 12:17:46.000000000 +0400
+diff -uBNp a/include/linux/bitops.h b/include/linux/bitops.h
+--- a/include/linux/bitops.h
++++ b/include/linux/bitops.h
+@@ -37,6 +37,43 @@ static inline int generic_ffs(int x)
+ 	return r;
+ }
+ 
++/**
++ * fls - find last (most-significant) bit set
++ * @x: the word to search
++ *
++ * This is defined the same way as ffs.
++ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
++ */
++
++static inline int generic_fls(int x)
++{
++	int r = 32;
++
++	if (!x)
++		return 0;
++	if (!(x & 0xffff0000u)) {
++		x <<= 16;
++		r -= 16;
++	}
++	if (!(x & 0xff000000u)) {
++		x <<= 8;
++		r -= 8;
++	}
++	if (!(x & 0xf0000000u)) {
++		x <<= 4;
++		r -= 4;
++	}
++	if (!(x & 0xc0000000u)) {
++		x <<= 2;
++		r -= 2;
++	}
++	if (!(x & 0x80000000u)) {
++		x <<= 1;
++		r -= 1;
++	}
++	return r;
++}
++
+ /*
+  * hweightN: returns the hamming weight (i.e. the number
+  * of bits set) of a N-bit word
+@@ -68,5 +105,11 @@ static inline unsigned int generic_hweig
+ 
+ #include <asm/bitops.h>
+ 
++static inline unsigned fls_long(unsigned long l)
++{
++	if (sizeof(l) == 4)
++		return fls(l);
++	return __fls(l);
++}
+ 
+ #endif
+diff -uBNp a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -12,6 +12,7 @@
+ #include <linux/stddef.h>
+ #include <linux/types.h>
+ #include <linux/compiler.h>
++#include <linux/log2.h>
+ #include <asm/byteorder.h>
+ 
+ /* Optimization barrier */
+diff -uBNp /dev/null b/include/linux/log2.h
+--- /dev/null
++++ b/include/linux/log2.h
+@@ -0,0 +1,168 @@
++/* Integer base 2 logarithm calculation
++ *
++ * Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License, or (at your option) any later version.
++ */
++
++#ifndef _LINUX_LOG2_H
++#define _LINUX_LOG2_H
++
++#include <linux/types.h>
++#include <linux/bitops.h>
++
++/*
++ * deal with unrepresentable constant logarithms
++ */
++extern __attribute__((const, noreturn))
++int ____ilog2_NaN(void);
++
++/*
++ * non-constant log of base 2 calculators
++ * - the arch may override these in asm/bitops.h if they can be implemented
++ *   more efficiently than using fls() and fls64()
++ * - the arch is not required to handle n==0 if implementing the fallback
++ */
++#ifndef ARCH_HAS_ILOG2_U32
++static inline __attribute__((const))
++int __ilog2_u32(u32 n)
++{
++	return fls(n) - 1;
++}
++#endif
++
++#ifndef ARCH_HAS_ILOG2_U64
++static inline __attribute__((const))
++int __ilog2_u64(u64 n)
++{
++	return __fls(n) - 1;
++}
++#endif
++
++/*
++ *  Determine whether some value is a power of two, where zero is
++ * *not* considered a power of two.
++ */
++
++static inline __attribute__((const))
++int is_power_of_2(unsigned long n)
++{
++	return (n != 0 && ((n & (n - 1)) == 0));
++}
++
++/*
++ * round up to nearest power of two
++ */
++static inline __attribute__((const))
++unsigned long __roundup_pow_of_two(unsigned long n)
++{
++	return 1UL << fls_long(n - 1);
++}
++
++/**
++ * ilog2 - log of base 2 of 32-bit or a 64-bit unsigned value
++ * @n - parameter
++ *
++ * constant-capable log of base 2 calculation
++ * - this can be used to initialise global variables from constant data, hence
++ *   the massive ternary operator construction
++ *
++ * selects the appropriately-sized optimised version depending on sizeof(n)
++ */
++#define ilog2(n)				\
++(						\
++	__builtin_constant_p(n) ? (		\
++		(n) < 1 ? ____ilog2_NaN() :	\
++		(n) & (1ULL << 63) ? 63 :	\
++		(n) & (1ULL << 62) ? 62 :	\
++		(n) & (1ULL << 61) ? 61 :	\
++		(n) & (1ULL << 60) ? 60 :	\
++		(n) & (1ULL << 59) ? 59 :	\
++		(n) & (1ULL << 58) ? 58 :	\
++		(n) & (1ULL << 57) ? 57 :	\
++		(n) & (1ULL << 56) ? 56 :	\
++		(n) & (1ULL << 55) ? 55 :	\
++		(n) & (1ULL << 54) ? 54 :	\
++		(n) & (1ULL << 53) ? 53 :	\
++		(n) & (1ULL << 52) ? 52 :	\
++		(n) & (1ULL << 51) ? 51 :	\
++		(n) & (1ULL << 50) ? 50 :	\
++		(n) & (1ULL << 49) ? 49 :	\
++		(n) & (1ULL << 48) ? 48 :	\
++		(n) & (1ULL << 47) ? 47 :	\
++		(n) & (1ULL << 46) ? 46 :	\
++		(n) & (1ULL << 45) ? 45 :	\
++		(n) & (1ULL << 44) ? 44 :	\
++		(n) & (1ULL << 43) ? 43 :	\
++		(n) & (1ULL << 42) ? 42 :	\
++		(n) & (1ULL << 41) ? 41 :	\
++		(n) & (1ULL << 40) ? 40 :	\
++		(n) & (1ULL << 39) ? 39 :	\
++		(n) & (1ULL << 38) ? 38 :	\
++		(n) & (1ULL << 37) ? 37 :	\
++		(n) & (1ULL << 36) ? 36 :	\
++		(n) & (1ULL << 35) ? 35 :	\
++		(n) & (1ULL << 34) ? 34 :	\
++		(n) & (1ULL << 33) ? 33 :	\
++		(n) & (1ULL << 32) ? 32 :	\
++		(n) & (1ULL << 31) ? 31 :	\
++		(n) & (1ULL << 30) ? 30 :	\
++		(n) & (1ULL << 29) ? 29 :	\
++		(n) & (1ULL << 28) ? 28 :	\
++		(n) & (1ULL << 27) ? 27 :	\
++		(n) & (1ULL << 26) ? 26 :	\
++		(n) & (1ULL << 25) ? 25 :	\
++		(n) & (1ULL << 24) ? 24 :	\
++		(n) & (1ULL << 23) ? 23 :	\
++		(n) & (1ULL << 22) ? 22 :	\
++		(n) & (1ULL << 21) ? 21 :	\
++		(n) & (1ULL << 20) ? 20 :	\
++		(n) & (1ULL << 19) ? 19 :	\
++		(n) & (1ULL << 18) ? 18 :	\
++		(n) & (1ULL << 17) ? 17 :	\
++		(n) & (1ULL << 16) ? 16 :	\
++		(n) & (1ULL << 15) ? 15 :	\
++		(n) & (1ULL << 14) ? 14 :	\
++		(n) & (1ULL << 13) ? 13 :	\
++		(n) & (1ULL << 12) ? 12 :	\
++		(n) & (1ULL << 11) ? 11 :	\
++		(n) & (1ULL << 10) ? 10 :	\
++		(n) & (1ULL <<  9) ?  9 :	\
++		(n) & (1ULL <<  8) ?  8 :	\
++		(n) & (1ULL <<  7) ?  7 :	\
++		(n) & (1ULL <<  6) ?  6 :	\
++		(n) & (1ULL <<  5) ?  5 :	\
++		(n) & (1ULL <<  4) ?  4 :	\
++		(n) & (1ULL <<  3) ?  3 :	\
++		(n) & (1ULL <<  2) ?  2 :	\
++		(n) & (1ULL <<  1) ?  1 :	\
++		(n) & (1ULL <<  0) ?  0 :	\
++		____ilog2_NaN()			\
++				   ) :		\
++	(sizeof(n) <= 4) ?			\
++	__ilog2_u32(n) :			\
++	__ilog2_u64(n)				\
++ )
++
++/**
++ * roundup_pow_of_two - round the given value up to nearest power of two
++ * @n - parameter
++ *
++ * round the given value up to the nearest power of two
++ * - the result is undefined when n == 0
++ * - this can be used to initialise global variables from constant data
++ */
++#define roundup_pow_of_two(n)			\
++(						\
++	__builtin_constant_p(n) ? (		\
++		(n == 1) ? 1 :			\
++		(1UL << (ilog2((n) - 1) + 1))	\
++				   ) :		\
++	__roundup_pow_of_two(n)			\
++ )
++
++#endif /* _LINUX_LOG2_H */
+diff -uBN a/include/linux/in.h b/include/linux/in.h
+--- a/include/linux/in.h	2009-08-14 02:04:00.000000000 +0400
++++ b/include/linux/in.h	2009-09-08 12:17:46.000000000 +0400
 @@ -32,6 +32,7 @@
    IPPROTO_PUP = 12,		/* PUP protocol				*/
    IPPROTO_UDP = 17,		/* User Datagram Protocol		*/
