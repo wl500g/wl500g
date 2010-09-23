@@ -60,3 +60,12 @@
  	SELECT_DRIVE(drive);
  	ide_delay_50ms();
  	if (hwif->INB(IDE_SELECT_REG) != drive->select.all && !drive->present) {
+@@ -1224,7 +1224,7 @@ static void init_gendisk (ide_hwif_t *hw
+ 		 * IDE can do up to 128K per request == 256
+ 		 */
+ 		*max_sect++ = ((hwif->rqsize) ? hwif->rqsize : 128);
+-		*max_ra++ = vm_max_readahead;
++		*max_ra++ = ((128*4) >> (PAGE_SHIFT - 10)) - 1; /* sequential read with 4 requests 128k large DMA */
+ 	}
+ 
+ 	for (unit = 0; unit < units; ++unit)

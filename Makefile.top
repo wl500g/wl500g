@@ -297,9 +297,10 @@ modules_install-WL700g: modules_install
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o \
 		$(SRCMODULESDIR)/drivers/char/gpiortc.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-mod.o \
+		$(SRCMODULESDIR)/drivers/ide/ide-core.o \
 		$(SRCMODULESDIR)/drivers/ide/ide-disk.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-probe-mod.o
+		$(SRCMODULESDIR)/drivers/ide/ide-detect.o \
+		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx.o 
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
