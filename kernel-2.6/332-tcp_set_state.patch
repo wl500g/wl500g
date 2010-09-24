@@ -1,0 +1,152 @@
+From 490d5046930276aae50dd16942649bfc626056f7
+From: Ilpo JÃ¤rvinen
+Date: Sat, 12 Jan 2008 03:17:20 -0800
+Subject: [PATCH] [TCP]: Uninline tcp_set_state
+
+net/ipv4/tcp.c:
+  tcp_close_state | -226
+  tcp_done        | -145
+  tcp_close       | -564
+  tcp_disconnect  | -141
+ 4 functions changed, 1076 bytes removed, diff: -1076
+
+net/ipv4/tcp_input.c:
+  tcp_fin               |  -86
+  tcp_rcv_state_process | -164
+ 2 functions changed, 250 bytes removed, diff: -250
+
+net/ipv4/tcp_ipv4.c:
+  tcp_v4_connect | -209
+ 1 function changed, 209 bytes removed, diff: -209
+
+net/ipv4/arp.c:
+  arp_ignore |   +5
+ 1 function changed, 5 bytes added, diff: +5
+
+net/ipv6/tcp_ipv6.c:
+  tcp_v6_connect | -158
+ 1 function changed, 158 bytes removed, diff: -158
+
+net/sunrpc/xprtsock.c:
+  xs_sendpages |   -2
+ 1 function changed, 2 bytes removed, diff: -2
+
+net/dccp/ccids/ccid3.c:
+  ccid3_update_send_interval |   +7
+ 1 function changed, 7 bytes added, diff: +7
+
+net/ipv4/tcp.c:
+  tcp_set_state | +238
+ 1 function changed, 238 bytes added, diff: +238
+
+built-in.o:
+ 12 functions changed, 250 bytes added, 1695 bytes removed, diff: -1445
+
+I've no explanation why some unrelated changes seem to occur
+consistently as well (arp_ignore, ccid3_update_send_interval;
+I checked the arp_ignore asm and it seems to be due to some
+reordered of operation order causing some extra opcodes to be
+generated). Still, the benefits are pretty obvious from the
+codiff's results.
+
+Signed-off-by: Ilpo JÃ¤rvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/tcp.h |   35 +----------------------------------
+ net/ipv4/tcp.c    |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+), 34 deletions(-)
+
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 48081ad..306580c 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -926,40 +926,7 @@ static const char *statename[]={
+ 	"Close Wait","Last ACK","Listen","Closing"
+ };
+ #endif
+-
+-static inline void tcp_set_state(struct sock *sk, int state)
+-{
+-	int oldstate = sk->sk_state;
+-
+-	switch (state) {
+-	case TCP_ESTABLISHED:
+-		if (oldstate != TCP_ESTABLISHED)
+-			TCP_INC_STATS(TCP_MIB_CURRESTAB);
+-		break;
+-
+-	case TCP_CLOSE:
+-		if (oldstate == TCP_CLOSE_WAIT || oldstate == TCP_ESTABLISHED)
+-			TCP_INC_STATS(TCP_MIB_ESTABRESETS);
+-
+-		sk->sk_prot->unhash(sk);
+-		if (inet_csk(sk)->icsk_bind_hash &&
+-		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
+-			inet_put_port(&tcp_hashinfo, sk);
+-		/* fall through */
+-	default:
+-		if (oldstate==TCP_ESTABLISHED)
+-			TCP_DEC_STATS(TCP_MIB_CURRESTAB);
+-	}
+-
+-	/* Change state AFTER socket is unhashed to avoid closed
+-	 * socket sitting in hash tables.
+-	 */
+-	sk->sk_state = state;
+-
+-#ifdef STATE_TRACE
+-	SOCK_DEBUG(sk, "TCP sk=%p, State %s -> %s\n",sk, statename[oldstate],statename[state]);
+-#endif	
+-}
++extern void tcp_set_state(struct sock *sk, int state);
+ 
+ extern void tcp_done(struct sock *sk);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 34085e3..a0d373b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1652,6 +1652,41 @@ recv_urg:
+ 	goto out;
+ }
+ 
++void tcp_set_state(struct sock *sk, int state)
++{
++	int oldstate = sk->sk_state;
++
++	switch (state) {
++	case TCP_ESTABLISHED:
++		if (oldstate != TCP_ESTABLISHED)
++			TCP_INC_STATS(TCP_MIB_CURRESTAB);
++		break;
++
++	case TCP_CLOSE:
++		if (oldstate == TCP_CLOSE_WAIT || oldstate == TCP_ESTABLISHED)
++			TCP_INC_STATS(TCP_MIB_ESTABRESETS);
++
++		sk->sk_prot->unhash(sk);
++		if (inet_csk(sk)->icsk_bind_hash &&
++		    !(sk->sk_userlocks & SOCK_BINDPORT_LOCK))
++			inet_put_port(&tcp_hashinfo, sk);
++		/* fall through */
++	default:
++		if (oldstate==TCP_ESTABLISHED)
++			TCP_DEC_STATS(TCP_MIB_CURRESTAB);
++	}
++
++	/* Change state AFTER socket is unhashed to avoid closed
++	 * socket sitting in hash tables.
++	 */
++	sk->sk_state = state;
++
++#ifdef STATE_TRACE
++	SOCK_DEBUG(sk, "TCP sk=%p, State %s -> %s\n",sk, statename[oldstate],statename[state]);
++#endif
++}
++EXPORT_SYMBOL_GPL(tcp_set_state);
++
+ /*
+  *	State processing on a close. This implements the state shift for
+  *	sending our FIN frame. Note that we only send a FIN for some
+-- 
+1.7.3
