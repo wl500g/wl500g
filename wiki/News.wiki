@@ -6,7 +6,7 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
 ===wl500g-1.9.2.7-d (current)===
-  * kernel
+  * kernel 2.4.37.10
     * accel-pptp 0.8.5
     * mm/fs/net/nfs backports
     * nfs/usb fixes from [http://rhkernel.org RedHat] RHEL3 63.EL
@@ -18,9 +18,15 @@
 
   * pppd updates from upstream (up to 2010-08-24)
 
-  * busybox 1.17.2
+  * efficient multicast forwarding & igmp snooping.
 
   * 3g/cdma improvements & fixes
+
+  * rc:
+    * dhcp - add rfc3442 classless static routes support
+    * fix vlans mapping in bridged mode (issue 136)
+
+  * busybox 1.17.2
 
   * usb_modeswitch 1.1.4
     * usb-modeswitch-data 20100826
@@ -29,7 +35,11 @@
 
   * p910nd: IPv6 support
 
-  * samba: handle access flags
+  * samba:
+    * handle access flags
+    * patch from OpenWRT (fixing enhanced attribute errors on WinXP SP2)
+
+  * ucd-snmp: correct vlan/bridge/wimax/sip connections types
 
   * vsftpd 2.3.2
 
@@ -37,6 +47,8 @@
     * added www.tunnelbroker.net service
     * fix symbols escaping (Issue 51)
     * added ipv6 tunnel utilization graph
+    * allow choose of IPTV STB port
+    * restore Operation mode switch for WL320
 
 ===alpha RT-N16-1.9.2.7-rtn-`r1943` (2010-08-15)===
   * kernel
