@@ -1,0 +1,24 @@
+From ebec11dff1783023482a044a881aae5ebb020882
+From: Nguyễn Thái Ngọc Duy
+Date: Thu, 23 Sep 2010 13:18:41 +0000
+Subject: wget: flush output to network before receving reply
+
+
+Signed-off-by: Nguyễn Thái Ngọc Duy <pclouds@gmail.com>
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+---
+diff --git a/networking/wget.c b/networking/wget.c
+index 88bb09e..4521abf 100644
+--- a/networking/wget.c
++++ b/networking/wget.c
+@@ -737,6 +737,8 @@ int wget_main(int argc UNUSED_PARAM, char **argv)
+ 			fprintf(sfp, /* "Connection: close\r\n" */ "\r\n");
+ 		}
+ 
++		fflush(sfp);
++
+ 		/*
+ 		 * Retrieve HTTP response line and check for "200" status code.
+ 		 */
+--
+cgit v0.8.2.1
