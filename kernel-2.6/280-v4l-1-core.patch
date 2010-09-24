@@ -3454,7 +3454,7 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
  		case V4L2_CID_MPEG_AUDIO_MODE:
  			return mpeg_audio_mode;
  		case V4L2_CID_MPEG_AUDIO_MODE_EXTENSION:
-@@ -651,82 +381,186 @@ const char **v4l2_ctrl_get_menu(u32 id)
+@@ -651,82 +381,192 @@ const char **v4l2_ctrl_get_menu(u32 id)
  			return mpeg_stream_type;
  		case V4L2_CID_MPEG_STREAM_VBI_FMT:
  			return mpeg_stream_vbi_fmt;
@@ -3526,6 +3526,10 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
 +	case V4L2_CID_CHROMA_AGC:		return "Chroma AGC";
 +	case V4L2_CID_COLOR_KILLER:		return "Color Killer";
 +	case V4L2_CID_COLORFX:			return "Color Effects";
++	case V4L2_CID_AUTOBRIGHTNESS:		return "Brightness, Automatic";
++	case V4L2_CID_BAND_STOP_FILTER:		return "Band-Stop Filter";
++	case V4L2_CID_ROTATE:			return "Rotate";
++	case V4L2_CID_BG_COLOR:			return "Background Color";
  
  	/* MPEG controls */
 -	case V4L2_CID_MPEG_CLASS: 		name = "MPEG Encoder Controls"; break;
@@ -3607,6 +3611,8 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
 +	case V4L2_CID_FOCUS_ABSOLUTE:		return "Focus, Absolute";
 +	case V4L2_CID_FOCUS_RELATIVE:		return "Focus, Relative";
 +	case V4L2_CID_FOCUS_AUTO:		return "Focus, Automatic";
++	case V4L2_CID_IRIS_ABSOLUTE:		return "Iris, Absolute";
++	case V4L2_CID_IRIS_RELATIVE:		return "Iris, Relative";
 +	case V4L2_CID_ZOOM_ABSOLUTE:		return "Zoom, Absolute";
 +	case V4L2_CID_ZOOM_RELATIVE:		return "Zoom, Relative";
 +	case V4L2_CID_ZOOM_CONTINUOUS:		return "Zoom, Continuous";
@@ -3690,7 +3696,7 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
  	case V4L2_CID_MPEG_AUDIO_MODE:
  	case V4L2_CID_MPEG_AUDIO_MODE_EXTENSION:
  	case V4L2_CID_MPEG_AUDIO_EMPHASIS:
-@@ -736,11 +570,20 @@ int v4l2_ctrl_query_fill(struct v4l2_que
+@@ -736,15 +576,31 @@ int v4l2_ctrl_query_fill(struct v4l2_que
  	case V4L2_CID_MPEG_VIDEO_BITRATE_MODE:
  	case V4L2_CID_MPEG_STREAM_TYPE:
  	case V4L2_CID_MPEG_STREAM_VBI_FMT:
@@ -3711,7 +3717,18 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
  		qctrl->type = V4L2_CTRL_TYPE_CTRL_CLASS;
  		qctrl->flags |= V4L2_CTRL_FLAG_READ_ONLY;
  		min = max = step = def = 0;
-@@ -765,174 +608,88 @@ int v4l2_ctrl_query_fill(struct v4l2_que
+ 		break;
++	case V4L2_CID_BG_COLOR:
++		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
++		step = 1;
++		min = 0;
++		/* Max is calculated as RGB888 that is 2^24 */
++		max = 0xFFFFFF;
++		break;
+ 	default:
+ 		qctrl->type = V4L2_CTRL_TYPE_INTEGER;
+ 		break;
+@@ -765,174 +621,89 @@ int v4l2_ctrl_query_fill(struct v4l2_que
  	case V4L2_CID_CONTRAST:
  	case V4L2_CID_SATURATION:
  	case V4L2_CID_HUE:
@@ -3735,6 +3752,7 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
 +	case V4L2_CID_PAN_RELATIVE:
 +	case V4L2_CID_TILT_RELATIVE:
 +	case V4L2_CID_FOCUS_RELATIVE:
++	case V4L2_CID_IRIS_RELATIVE:
 +	case V4L2_CID_ZOOM_RELATIVE:
 +		qctrl->flags |= V4L2_CTRL_FLAG_WRITE_ONLY;
 +		break;
@@ -3939,7 +3957,7 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
     to high class IDs.
  
     This function returns the first ID that follows after the given ID.
-@@ -978,23 +735,48 @@ u32 v4l2_ctrl_next(const u32 * const * c
+@@ -978,23 +749,48 @@ u32 v4l2_ctrl_next(const u32 * const * c
  		return 0;
  	return **ctrl_classes;
  }
@@ -3994,7 +4012,7 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
  		return 0;
  	if (chip->ident == V4L2_IDENT_NONE) {
  		chip->ident = ident;
-@@ -1006,46 +788,231 @@ int v4l2_chip_ident_i2c_client(struct i2
+@@ -1006,46 +802,231 @@ int v4l2_chip_ident_i2c_client(struct i2
  	}
  	return 0;
  }
@@ -4014,15 +4032,15 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
  
 -EXPORT_SYMBOL(v4l2_norm_to_name);
 -EXPORT_SYMBOL(v4l2_video_std_construct);
--
++/* I2C Helper functions */
+ 
 -EXPORT_SYMBOL(v4l2_prio_init);
 -EXPORT_SYMBOL(v4l2_prio_change);
 -EXPORT_SYMBOL(v4l2_prio_open);
 -EXPORT_SYMBOL(v4l2_prio_close);
 -EXPORT_SYMBOL(v4l2_prio_max);
 -EXPORT_SYMBOL(v4l2_prio_check);
-+/* I2C Helper functions */
- 
+-
 -EXPORT_SYMBOL(v4l2_field_names);
 -EXPORT_SYMBOL(v4l2_type_names);
 -EXPORT_SYMBOL(v4l_printk_ioctl);
@@ -10259,7 +10277,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32         		width;
  	__u32			height;
  	__u32			pixelformat;
-@@ -268,58 +278,94 @@ struct v4l2_pix_format
+@@ -268,58 +278,107 @@ struct v4l2_pix_format
  	__u32			priv;		/* private data, depends on pixelformat */
  };
  
@@ -10281,19 +10299,11 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 -#define V4L2_PIX_FMT_YUV422P v4l2_fourcc('4','2','2','P') /* 16  YVU422 planar */
 -#define V4L2_PIX_FMT_YUV411P v4l2_fourcc('4','1','1','P') /* 16  YVU411 planar */
 -#define V4L2_PIX_FMT_Y41P    v4l2_fourcc('Y','4','1','P') /* 12  YUV 4:1:1     */
--
++/*      Pixel format         FOURCC                          depth  Description  */
+ 
 -/* two planes -- one Y, one Cr + Cb interleaved  */
 -#define V4L2_PIX_FMT_NV12    v4l2_fourcc('N','V','1','2') /* 12  Y/CbCr 4:2:0  */
 -#define V4L2_PIX_FMT_NV21    v4l2_fourcc('N','V','2','1') /* 12  Y/CrCb 4:2:0  */
-+/*      Pixel format         FOURCC                          depth  Description  */
- 
--/*  The following formats are not defined in the V4L2 specification */
--#define V4L2_PIX_FMT_YUV410  v4l2_fourcc('Y','U','V','9') /*  9  YUV 4:1:0     */
--#define V4L2_PIX_FMT_YUV420  v4l2_fourcc('Y','U','1','2') /* 12  YUV 4:2:0     */
--#define V4L2_PIX_FMT_YYUV    v4l2_fourcc('Y','Y','U','V') /* 16  YUV 4:2:2     */
--#define V4L2_PIX_FMT_HI240   v4l2_fourcc('H','I','2','4') /*  8  8-bit color   */
--#define V4L2_PIX_FMT_HM12    v4l2_fourcc('H','M','1','2') /*  8  YUV 4:2:0 16x16 macroblocks */
--#define V4L2_PIX_FMT_RGB444  v4l2_fourcc('R','4','4','4') /* 16  xxxxrrrr ggggbbbb */
 +/* RGB formats */
 +#define V4L2_PIX_FMT_RGB332  v4l2_fourcc('R', 'G', 'B', '1') /*  8  RGB-3-3-2     */
 +#define V4L2_PIX_FMT_RGB444  v4l2_fourcc('R', '4', '4', '4') /* 16  xxxxrrrr ggggbbbb */
@@ -10308,6 +10318,9 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +
 +/* Grey formats */
 +#define V4L2_PIX_FMT_GREY    v4l2_fourcc('G', 'R', 'E', 'Y') /*  8  Greyscale     */
++#define V4L2_PIX_FMT_Y4      v4l2_fourcc('Y', '0', '4', ' ') /*  4  Greyscale     */
++#define V4L2_PIX_FMT_Y6      v4l2_fourcc('Y', '0', '6', ' ') /*  6  Greyscale     */
++#define V4L2_PIX_FMT_Y10     v4l2_fourcc('Y', '1', '0', ' ') /* 10  Greyscale     */
 +#define V4L2_PIX_FMT_Y16     v4l2_fourcc('Y', '1', '6', ' ') /* 16  Greyscale     */
 +
 +/* Palette formats */
@@ -10333,6 +10346,14 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +#define V4L2_PIX_FMT_HI240   v4l2_fourcc('H', 'I', '2', '4') /*  8  8-bit color   */
 +#define V4L2_PIX_FMT_HM12    v4l2_fourcc('H', 'M', '1', '2') /*  8  YUV 4:2:0 16x16 macroblocks */
  
+-/*  The following formats are not defined in the V4L2 specification */
+-#define V4L2_PIX_FMT_YUV410  v4l2_fourcc('Y','U','V','9') /*  9  YUV 4:1:0     */
+-#define V4L2_PIX_FMT_YUV420  v4l2_fourcc('Y','U','1','2') /* 12  YUV 4:2:0     */
+-#define V4L2_PIX_FMT_YYUV    v4l2_fourcc('Y','Y','U','V') /* 16  YUV 4:2:2     */
+-#define V4L2_PIX_FMT_HI240   v4l2_fourcc('H','I','2','4') /*  8  8-bit color   */
+-#define V4L2_PIX_FMT_HM12    v4l2_fourcc('H','M','1','2') /*  8  YUV 4:2:0 16x16 macroblocks */
+-#define V4L2_PIX_FMT_RGB444  v4l2_fourcc('R','4','4','4') /* 16  xxxxrrrr ggggbbbb */
+-
 -/* see http://www.siliconimaging.com/RGB%20Bayer.htm */
 -#define V4L2_PIX_FMT_SBGGR8  v4l2_fourcc('B','A','8','1') /*  8  BGBG.. GRGR.. */
 +/* two planes -- one Y, one Cr + Cb interleaved  */
@@ -10345,7 +10366,11 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +#define V4L2_PIX_FMT_SBGGR8  v4l2_fourcc('B', 'A', '8', '1') /*  8  BGBG.. GRGR.. */
 +#define V4L2_PIX_FMT_SGBRG8  v4l2_fourcc('G', 'B', 'R', 'G') /*  8  GBGB.. RGRG.. */
 +#define V4L2_PIX_FMT_SGRBG8  v4l2_fourcc('G', 'R', 'B', 'G') /*  8  GRGR.. BGBG.. */
-+#define V4L2_PIX_FMT_SGRBG10 v4l2_fourcc('B', 'A', '1', '0') /* 10bit raw bayer */
++#define V4L2_PIX_FMT_SRGGB8  v4l2_fourcc('R', 'G', 'G', 'B') /*  8  RGRG.. GBGB.. */
++#define V4L2_PIX_FMT_SBGGR10 v4l2_fourcc('B', 'G', '1', '0') /* 10  BGBG.. GRGR.. */
++#define V4L2_PIX_FMT_SGBRG10 v4l2_fourcc('G', 'B', '1', '0') /* 10  GBGB.. RGRG.. */
++#define V4L2_PIX_FMT_SGRBG10 v4l2_fourcc('B', 'A', '1', '0') /* 10  GRGR.. BGBG.. */
++#define V4L2_PIX_FMT_SRGGB10 v4l2_fourcc('R', 'G', '1', '0') /* 10  RGRG.. GBGB.. */
 +	/* 10bit raw bayer DPCM compressed to 8 bits */
 +#define V4L2_PIX_FMT_SGRBG10DPCM8 v4l2_fourcc('B', 'D', '1', '0')
 +	/*
@@ -10370,6 +10395,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 -#define V4L2_PIX_FMT_PWC1     v4l2_fourcc('P','W','C','1') /* pwc older webcam */
 -#define V4L2_PIX_FMT_PWC2     v4l2_fourcc('P','W','C','2') /* pwc newer webcam */
 -#define V4L2_PIX_FMT_ET61X251 v4l2_fourcc('E','6','2','5') /* ET61X251 compression */
++#define V4L2_PIX_FMT_CPIA1    v4l2_fourcc('C', 'P', 'I', 'A') /* cpia1 YUV */
 +#define V4L2_PIX_FMT_WNVA     v4l2_fourcc('W', 'N', 'V', 'A') /* Winnov hw compress */
 +#define V4L2_PIX_FMT_SN9C10X  v4l2_fourcc('S', '9', '1', '0') /* SN9C10x compression */
 +#define V4L2_PIX_FMT_SN9C20X_I420 v4l2_fourcc('S', '9', '2', '0') /* SN9C20x YUV 4:2:0 */
@@ -10382,10 +10408,15 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +#define V4L2_PIX_FMT_SPCA561  v4l2_fourcc('S', '5', '6', '1') /* compressed GBRG bayer */
 +#define V4L2_PIX_FMT_PAC207   v4l2_fourcc('P', '2', '0', '7') /* compressed BGGR bayer */
 +#define V4L2_PIX_FMT_MR97310A v4l2_fourcc('M', '3', '1', '0') /* compressed BGGR bayer */
++#define V4L2_PIX_FMT_SN9C2028 v4l2_fourcc('S', 'O', 'N', 'X') /* compressed GBRG bayer */
 +#define V4L2_PIX_FMT_SQ905C   v4l2_fourcc('9', '0', '5', 'C') /* compressed RGGB bayer */
 +#define V4L2_PIX_FMT_PJPG     v4l2_fourcc('P', 'J', 'P', 'G') /* Pixart 73xx JPEG */
 +#define V4L2_PIX_FMT_OV511    v4l2_fourcc('O', '5', '1', '1') /* ov511 JPEG */
 +#define V4L2_PIX_FMT_OV518    v4l2_fourcc('O', '5', '1', '8') /* ov518 JPEG */
++#define V4L2_PIX_FMT_STV0680  v4l2_fourcc('S', '6', '8', '0') /* stv0680 bayer */
++#define V4L2_PIX_FMT_TM6000   v4l2_fourcc('T', 'M', '6', '0') /* tm5600/tm60x0 */
++#define V4L2_PIX_FMT_CIT_YYVYUY v4l2_fourcc('C', 'I', 'T', 'V') /* one line of Y then 1 line of VYUY */
++#define V4L2_PIX_FMT_KONICA420  v4l2_fourcc('K', 'O', 'N', 'I') /* YUV420 planar in blocks of 256 pixels */
  
  /*
   *	F O R M A T   E N U M E R A T I O N
@@ -10396,7 +10427,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		    index;             /* Format number      */
  	enum v4l2_buf_type  type;              /* buffer type        */
  	__u32               flags;
-@@ -329,27 +375,25 @@ struct v4l2_fmtdesc
+@@ -329,27 +388,25 @@ struct v4l2_fmtdesc
  };
  
  #define V4L2_FMT_FLAG_COMPRESSED 0x0001
@@ -10428,7 +10459,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32			min_width;	/* Minimum frame width [pixel] */
  	__u32			max_width;	/* Maximum frame width [pixel] */
  	__u32			step_width;	/* Frame width step size [pixel] */
-@@ -358,8 +402,7 @@ struct v4l2_frmsize_stepwise
+@@ -358,8 +415,7 @@ struct v4l2_frmsize_stepwise
  	__u32			step_height;	/* Frame height step size [pixel] */
  };
  
@@ -10438,7 +10469,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32			index;		/* Frame size number */
  	__u32			pixel_format;	/* Pixel format */
  	__u32			type;		/* Frame size type the device supports. */
-@@ -375,22 +418,19 @@ struct v4l2_frmsizeenum
+@@ -375,22 +431,19 @@ struct v4l2_frmsizeenum
  /*
   *	F R A M E   R A T E   E N U M E R A T I O N
   */
@@ -10464,7 +10495,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32			index;		/* Frame format index */
  	__u32			pixel_format;	/* Pixel format */
  	__u32			width;		/* Frame width */
-@@ -409,8 +449,7 @@ struct v4l2_frmivalenum
+@@ -409,8 +462,7 @@ struct v4l2_frmivalenum
  /*
   *	T I M E C O D E
   */
@@ -10474,7 +10505,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	type;
  	__u32	flags;
  	__u8	frames;
-@@ -435,96 +474,7 @@ struct v4l2_timecode
+@@ -435,96 +487,7 @@ struct v4l2_timecode
  #define V4L2_TC_USERBITS_8BITCHARS	0x0008
  /* The above is based on SMPTE timecodes */
  
@@ -10572,7 +10603,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	int quality;
  
  	int  APPn;              /* Number of APP segment to be written,
-@@ -556,16 +506,14 @@ struct v4l2_jpegcompression
+@@ -556,16 +519,14 @@ struct v4l2_jpegcompression
  /*
   *	M E M O R Y - M A P P I N G   B U F F E R S
   */
@@ -10591,7 +10622,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32			index;
  	enum v4l2_buf_type      type;
  	__u32			bytesused;
-@@ -599,13 +547,12 @@ struct v4l2_buffer
+@@ -599,13 +560,12 @@ struct v4l2_buffer
  /*
   *	O V E R L A Y   P R E V I E W
   */
@@ -10607,7 +10638,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	struct v4l2_pix_format	fmt;
  };
  /*  Flags for the 'capability' field. Read only */
-@@ -616,7 +563,6 @@ struct v4l2_framebuffer
+@@ -616,7 +576,6 @@ struct v4l2_framebuffer
  #define V4L2_FBUF_CAP_LOCAL_ALPHA	0x0010
  #define V4L2_FBUF_CAP_GLOBAL_ALPHA	0x0020
  #define V4L2_FBUF_CAP_LOCAL_INV_ALPHA	0x0040
@@ -10615,7 +10646,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  /*  Flags for the 'flags' field. */
  #define V4L2_FBUF_FLAG_PRIMARY		0x0001
  #define V4L2_FBUF_FLAG_OVERLAY		0x0002
-@@ -624,16 +570,13 @@ struct v4l2_framebuffer
+@@ -624,16 +583,13 @@ struct v4l2_framebuffer
  #define V4L2_FBUF_FLAG_LOCAL_ALPHA	0x0008
  #define V4L2_FBUF_FLAG_GLOBAL_ALPHA	0x0010
  #define V4L2_FBUF_FLAG_LOCAL_INV_ALPHA	0x0020
@@ -10634,7 +10665,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	struct v4l2_rect        w;
  	enum v4l2_field  	field;
  	__u32			chromakey;
-@@ -646,8 +589,7 @@ struct v4l2_window
+@@ -646,8 +602,7 @@ struct v4l2_window
  /*
   *	C A P T U R E   P A R A M E T E R S
   */
@@ -10644,7 +10675,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		   capability;	  /*  Supported modes */
  	__u32		   capturemode;	  /*  Current mode */
  	struct v4l2_fract  timeperframe;  /*  Time per frame in .1us units */
-@@ -660,8 +602,7 @@ struct v4l2_captureparm
+@@ -660,8 +615,7 @@ struct v4l2_captureparm
  #define V4L2_MODE_HIGHQUALITY	0x0001	/*  High quality imaging mode */
  #define V4L2_CAP_TIMEPERFRAME	0x1000	/*  timeperframe field is supported */
  
@@ -10654,7 +10685,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		   capability;	 /*  Supported modes */
  	__u32		   outputmode;	 /*  Current mode */
  	struct v4l2_fract  timeperframe; /*  Time per frame in seconds */
-@@ -778,8 +719,7 @@ typedef __u64 v4l2_std_id;
+@@ -778,8 +732,7 @@ typedef __u64 v4l2_std_id;
  #define V4L2_STD_ALL            (V4L2_STD_525_60	|\
  				 V4L2_STD_625_50)
  
@@ -10664,7 +10695,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		     index;
  	v4l2_std_id          id;
  	__u8		     name[24];
-@@ -791,8 +731,7 @@ struct v4l2_standard
+@@ -791,8 +744,7 @@ struct v4l2_standard
  /*
   *	V I D E O   I N P U T S
   */
@@ -10674,7 +10705,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	     index;		/*  Which input */
  	__u8	     name[32];		/*  Label */
  	__u32	     type;		/*  Type of input */
-@@ -812,6 +751,11 @@ struct v4l2_input
+@@ -812,6 +764,11 @@ struct v4l2_input
  #define V4L2_IN_ST_NO_SIGNAL   0x00000002
  #define V4L2_IN_ST_NO_COLOR    0x00000004
  
@@ -10686,7 +10717,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  /* field 'status' - analog */
  #define V4L2_IN_ST_NO_H_LOCK   0x00000100  /* No horizontal sync lock */
  #define V4L2_IN_ST_COLOR_KILL  0x00000200  /* Color killer is active */
-@@ -829,8 +773,7 @@ struct v4l2_input
+@@ -829,8 +786,7 @@ struct v4l2_input
  /*
   *	V I D E O   O U T P U T S
   */
@@ -10696,7 +10727,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	     index;		/*  Which output */
  	__u8	     name[32];		/*  Label */
  	__u32	     type;		/*  Type of output */
-@@ -847,25 +790,23 @@ struct v4l2_output
+@@ -847,25 +803,23 @@ struct v4l2_output
  /*
   *	C O N T R O L S
   */
@@ -10728,7 +10759,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32 ctrl_class;
  	__u32 count;
  	__u32 error_idx;
-@@ -876,14 +817,15 @@ struct v4l2_ext_controls
+@@ -876,14 +830,15 @@ struct v4l2_ext_controls
  /*  Values for ctrl_class field */
  #define V4L2_CTRL_CLASS_USER 0x00980000	/* Old-style 'user' controls */
  #define V4L2_CTRL_CLASS_MPEG 0x00990000	/* MPEG-compression controls */
@@ -10746,7 +10777,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		     id;
  	enum v4l2_ctrl_type  type;
  	__u8		     name[32];	/* Whatever */
-@@ -896,8 +838,7 @@ struct v4l2_queryctrl
+@@ -896,8 +851,7 @@ struct v4l2_queryctrl
  };
  
  /*  Used in the VIDIOC_QUERYMENU ioctl for querying menu items */
@@ -10756,7 +10787,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32		id;
  	__u32		index;
  	__u8		name[32];	/* Whatever */
-@@ -911,6 +852,7 @@ struct v4l2_querymenu
+@@ -911,6 +865,7 @@ struct v4l2_querymenu
  #define V4L2_CTRL_FLAG_UPDATE 		0x0008
  #define V4L2_CTRL_FLAG_INACTIVE 	0x0010
  #define V4L2_CTRL_FLAG_SLIDER 		0x0020
@@ -10764,7 +10795,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  
  /*  Query flag, to be ORed with the control ID */
  #define V4L2_CTRL_FLAG_NEXT_CTRL	0x80000000
-@@ -932,21 +874,46 @@ struct v4l2_querymenu
+@@ -932,21 +887,48 @@ struct v4l2_querymenu
  #define V4L2_CID_AUDIO_TREBLE		(V4L2_CID_BASE+8)
  #define V4L2_CID_AUDIO_MUTE		(V4L2_CID_BASE+9)
  #define V4L2_CID_AUDIO_LOUDNESS		(V4L2_CID_BASE+10)
@@ -10809,12 +10840,14 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +#define V4L2_CID_AUTOBRIGHTNESS			(V4L2_CID_BASE+32)
 +#define V4L2_CID_BAND_STOP_FILTER		(V4L2_CID_BASE+33)
 +
++#define V4L2_CID_ROTATE				(V4L2_CID_BASE+34)
++#define V4L2_CID_BG_COLOR			(V4L2_CID_BASE+35)
 +/* last CID + 1 */
-+#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+34)
++#define V4L2_CID_LASTP1                         (V4L2_CID_BASE+36)
  
  /*  MPEG-class control IDs defined by V4L2 */
  #define V4L2_CID_MPEG_BASE 			(V4L2_CTRL_CLASS_MPEG | 0x900)
-@@ -986,6 +953,8 @@ enum v4l2_mpeg_audio_encoding {
+@@ -986,6 +968,8 @@ enum v4l2_mpeg_audio_encoding {
  	V4L2_MPEG_AUDIO_ENCODING_LAYER_1 = 0,
  	V4L2_MPEG_AUDIO_ENCODING_LAYER_2 = 1,
  	V4L2_MPEG_AUDIO_ENCODING_LAYER_3 = 2,
@@ -10823,7 +10856,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  };
  #define V4L2_CID_MPEG_AUDIO_L1_BITRATE 		(V4L2_CID_MPEG_BASE+102)
  enum v4l2_mpeg_audio_l1_bitrate {
-@@ -1064,12 +1033,36 @@ enum v4l2_mpeg_audio_crc {
+@@ -1064,12 +1048,36 @@ enum v4l2_mpeg_audio_crc {
  	V4L2_MPEG_AUDIO_CRC_CRC16 = 1,
  };
  #define V4L2_CID_MPEG_AUDIO_MUTE 		(V4L2_CID_MPEG_BASE+109)
@@ -10862,7 +10895,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  };
  #define V4L2_CID_MPEG_VIDEO_ASPECT 		(V4L2_CID_MPEG_BASE+201)
  enum v4l2_mpeg_video_aspect {
-@@ -1093,7 +1086,7 @@ enum v4l2_mpeg_video_bitrate_mode {
+@@ -1093,7 +1101,7 @@ enum v4l2_mpeg_video_bitrate_mode {
  #define V4L2_CID_MPEG_VIDEO_MUTE 		(V4L2_CID_MPEG_BASE+210)
  #define V4L2_CID_MPEG_VIDEO_MUTE_YUV 		(V4L2_CID_MPEG_BASE+211)
  
@@ -10871,7 +10904,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  #define V4L2_CID_MPEG_CX2341X_BASE 				(V4L2_CTRL_CLASS_MPEG | 0x1000)
  #define V4L2_CID_MPEG_CX2341X_VIDEO_SPATIAL_FILTER_MODE 	(V4L2_CID_MPEG_CX2341X_BASE+0)
  enum v4l2_mpeg_cx2341x_video_spatial_filter_mode {
-@@ -1134,11 +1127,78 @@ enum v4l2_mpeg_cx2341x_video_median_filt
+@@ -1134,11 +1142,78 @@ enum v4l2_mpeg_cx2341x_video_median_filt
  #define V4L2_CID_MPEG_CX2341X_VIDEO_CHROMA_MEDIAN_FILTER_TOP 	(V4L2_CID_MPEG_CX2341X_BASE+10)
  #define V4L2_CID_MPEG_CX2341X_STREAM_INSERT_NAV_PACKETS 	(V4L2_CID_MPEG_CX2341X_BASE+11)
  
@@ -10952,7 +10985,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32                   index;
  	__u8			name[32];
  	enum v4l2_tuner_type    type;
-@@ -1152,8 +1212,7 @@ struct v4l2_tuner
+@@ -1152,8 +1227,7 @@ struct v4l2_tuner
  	__u32			reserved[4];
  };
  
@@ -10962,7 +10995,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32			index;
  	__u8			name[32];
  	__u32			capability;
-@@ -1170,6 +1229,7 @@ struct v4l2_modulator
+@@ -1170,6 +1244,7 @@ struct v4l2_modulator
  #define V4L2_TUNER_CAP_LANG2		0x0020
  #define V4L2_TUNER_CAP_SAP		0x0020
  #define V4L2_TUNER_CAP_LANG1		0x0040
@@ -10970,7 +11003,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  
  /*  Flags for the 'rxsubchans' field */
  #define V4L2_TUNER_SUB_MONO		0x0001
-@@ -1177,6 +1237,7 @@ struct v4l2_modulator
+@@ -1177,6 +1252,7 @@ struct v4l2_modulator
  #define V4L2_TUNER_SUB_LANG2		0x0004
  #define V4L2_TUNER_SUB_SAP		0x0004
  #define V4L2_TUNER_SUB_LANG1		0x0008
@@ -10978,7 +11011,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  
  /*  Values for the 'audmode' field */
  #define V4L2_TUNER_MODE_MONO		0x0000
-@@ -1186,19 +1247,46 @@ struct v4l2_modulator
+@@ -1186,19 +1262,46 @@ struct v4l2_modulator
  #define V4L2_TUNER_MODE_LANG1		0x0003
  #define V4L2_TUNER_MODE_LANG1_LANG2	0x0004
  
@@ -11029,7 +11062,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	index;
  	__u8	name[32];
  	__u32	capability;
-@@ -1213,8 +1301,7 @@ struct v4l2_audio
+@@ -1213,8 +1316,7 @@ struct v4l2_audio
  /*  Flags for the 'mode' field */
  #define V4L2_AUDMODE_AVL		0x00001
  
@@ -11039,7 +11072,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	index;
  	__u8	name[32];
  	__u32	capability;
-@@ -1278,8 +1365,7 @@ struct v4l2_encoder_cmd {
+@@ -1278,8 +1380,7 @@ struct v4l2_encoder_cmd {
   */
  
  /* Raw VBI */
@@ -11049,7 +11082,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32	sampling_rate;		/* in 1 Hz */
  	__u32	offset;
  	__u32	samples_per_line;
-@@ -1291,8 +1377,8 @@ struct v4l2_vbi_format
+@@ -1291,8 +1392,8 @@ struct v4l2_vbi_format
  };
  
  /*  VBI flags  */
@@ -11060,7 +11093,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  
  /* Sliced VBI
   *
-@@ -1301,8 +1387,7 @@ struct v4l2_vbi_format
+@@ -1301,8 +1402,7 @@ struct v4l2_vbi_format
   * notice in the definitive implementation.
   */
  
@@ -11070,7 +11103,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u16   service_set;
  	/* service_lines[0][...] specifies lines 0-23 (1-23 used) of the first field
  	   service_lines[1][...] specifies lines 0-23 (1-23 used) of the second field
-@@ -1326,8 +1411,7 @@ struct v4l2_sliced_vbi_format
+@@ -1326,8 +1426,7 @@ struct v4l2_sliced_vbi_format
  #define V4L2_SLICED_VBI_525             (V4L2_SLICED_CAPTION_525)
  #define V4L2_SLICED_VBI_625             (V4L2_SLICED_TELETEXT_B | V4L2_SLICED_VPS | V4L2_SLICED_WSS_625)
  
@@ -11080,7 +11113,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u16   service_set;
  	/* service_lines[0][...] specifies lines 0-23 (1-23 used) of the first field
  	   service_lines[1][...] specifies lines 0-23 (1-23 used) of the second field
-@@ -1338,8 +1422,7 @@ struct v4l2_sliced_vbi_cap
+@@ -1338,8 +1437,7 @@ struct v4l2_sliced_vbi_cap
  	__u32   reserved[3];    /* must be 0 */
  };
  
@@ -11090,7 +11123,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  	__u32   id;
  	__u32   field;          /* 0: first field, 1: second field */
  	__u32   line;           /* 1-23 */
-@@ -1348,32 +1431,75 @@ struct v4l2_sliced_vbi_data
+@@ -1348,32 +1446,75 @@ struct v4l2_sliced_vbi_data
  };
  
  /*
@@ -11121,7 +11154,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
 +} __attribute__ ((packed));
 +
 +struct v4l2_mpeg_vbi_itv0 {
-+	__le32 linemask[2]; /* Bitmasks of VBI service lines present */
++	__u32 linemask[2]; /* Bitmasks of VBI service lines present */
 +	struct v4l2_mpeg_vbi_itv0_line line[35];
 +} __attribute__ ((packed));
 +
@@ -11179,7 +11212,7 @@ diff -urNBp a/include/linux/videodev2.h b/include/linux/videodev2.h
  		struct v4l2_captureparm	capture;
  		struct v4l2_outputparm	output;
  		__u8	raw_data[200];  /* user-defined */
-@@ -1383,123 +1509,132 @@ struct v4l2_streamparm
+@@ -1383,123 +1524,132 @@ struct v4l2_streamparm
  /*
   *	A D V A N C E D   D E B U G G I N G
   *
