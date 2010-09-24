@@ -1,0 +1,69 @@
+[SOCK] Backport of "Avoid integer divides where not necessary ..."
+
+ 8df09ea3b8ccfe0c94844102d33fa46f57c08d9e [SOCK] Avoid integer divides where not necessary in include/net/sock.h
+ 21371f768bf7127ee45bfaadd17899df6a439e8f [SOCK] Avoid divides in sk_stream_pages() and __sk_stream_mem_reclaim()
+
+---
+ include/net/sock.h |    9 +++++----
+ net/core/stream.c  |    2 +-
+ 2 files changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 416bc99..e178b49 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -435,7 +435,7 @@ static inline int sk_acceptq_is_full(str
+  */
+ static inline int sk_stream_min_wspace(struct sock *sk)
+ {
+-	return sk->sk_wmem_queued / 2;
++	return sk->sk_wmem_queued >> 1;
+ }
+ 
+ static inline int sk_stream_wspace(struct sock *sk)
+@@ -698,10 +698,11 @@ extern void __sk_stream_mem_reclaim(stru
+ extern int sk_stream_mem_schedule(struct sock *sk, int size, int kind);
+ 
+ #define SK_STREAM_MEM_QUANTUM ((int)PAGE_SIZE)
++#define SK_STREAM_MEM_QUANTUM_SHIFT ilog2(SK_STREAM_MEM_QUANTUM)
+ 
+ static inline int sk_stream_pages(int amt)
+ {
+-	return (amt + SK_STREAM_MEM_QUANTUM - 1) / SK_STREAM_MEM_QUANTUM;
++	return (amt + SK_STREAM_MEM_QUANTUM - 1) >> SK_STREAM_MEM_QUANTUM_SHIFT;
+ }
+ 
+ static inline void sk_stream_mem_reclaim(struct sock *sk)
+@@ -1188,7 +1189,7 @@ static inline void sk_wake_async(struct 
+ static inline void sk_stream_moderate_sndbuf(struct sock *sk)
+ {
+ 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
+-		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued / 2);
++		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued >> 1);
+ 		sk->sk_sndbuf = max(sk->sk_sndbuf, SOCK_MIN_SNDBUF);
+ 	}
+ }
+@@ -1245,7 +1246,7 @@ static inline struct page *sk_stream_all
+  */
+ static inline int sock_writeable(const struct sock *sk) 
+ {
+-	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf / 2);
++	return atomic_read(&sk->sk_wmem_alloc) < (sk->sk_sndbuf >> 1);
+ }
+ 
+ static inline gfp_t gfp_any(void)
+diff --git a/net/core/stream.c b/net/core/stream.c
+index 5586879..bf188ff 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -196,7 +196,7 @@ EXPORT_SYMBOL(sk_stream_error);
+ 
+ void __sk_stream_mem_reclaim(struct sock *sk)
+ {
+-	atomic_sub(sk->sk_forward_alloc / SK_STREAM_MEM_QUANTUM,
++	atomic_sub(sk->sk_forward_alloc >> SK_STREAM_MEM_QUANTUM_SHIFT,
+ 		   sk->sk_prot->memory_allocated);
+ 	sk->sk_forward_alloc &= SK_STREAM_MEM_QUANTUM - 1;
+ 	if (*sk->sk_prot->memory_pressure &&
+-- 
+1.7.3
