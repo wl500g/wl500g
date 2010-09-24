@@ -1,0 +1,32 @@
+From 32aced7509cb20ef3ec67c9b56f5b55c41dd4f8d
+From: Rusty Russell
+Date: Fri, 28 Mar 2008 16:23:19 -0700
+Subject: [PATCH] [NET]: Don't send ICMP_FRAG_NEEDED for GSO packets
+
+Commit 9af3912ec9e30509b76cb376abb65a4d8af27df3 ("[NET] Move DF check
+to ip_forward") added a new check to send ICMP fragmentation needed
+for large packets.
+
+Unlike the check in ip_finish_output(), it doesn't check for GSO.
+
+Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/ip_forward.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 0b3b328..a4506c8 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -85,7 +85,7 @@ int ip_forward(struct sk_buff *skb)
+ 	if (opt->is_strictroute && rt->rt_dst != rt->rt_gateway)
+ 		goto sr_failed;
+ 
+-	if (unlikely(skb->len > dst_mtu(&rt->u.dst) &&
++	if (unlikely(skb->len > dst_mtu(&rt->u.dst) && !skb_is_gso(skb) &&
+ 	             (ip_hdr(skb)->frag_off & htons(IP_DF))) && !skb->local_df) {
+ 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
+ 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+-- 
+1.7.3
