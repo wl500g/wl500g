@@ -36,6 +36,7 @@ typedef u_int8_t u8;
 #include <linux/if.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
+#include <linux/types.h>
 #include <linux/mii.h>
 
 #include "etc53xx.h"
