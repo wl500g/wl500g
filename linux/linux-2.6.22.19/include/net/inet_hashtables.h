@@ -16,6 +16,7 @@
 
 
 #include <linux/interrupt.h>
+#include <linux/ip.h>
 #include <linux/ipv6.h>
 #include <linux/list.h>
 #include <linux/slab.h>
@@ -26,7 +27,6 @@
 
 #include <net/inet_connection_sock.h>
 #include <net/inet_sock.h>
-#include <net/route.h>
 #include <net/sock.h>
 #include <net/tcp_states.h>
 
@@ -80,8 +80,8 @@ struct inet_bind_bucket {
 	struct hlist_head	owners;
 };
 
-#define inet_bind_bucket_for_each(tb, node, head) \
-	hlist_for_each_entry(tb, node, head, node)
+#define inet_bind_bucket_for_each(tb, pos, head) \
+	hlist_for_each_entry(tb, pos, head, node)
 
 struct inet_bind_hashbucket {
 	spinlock_t		lock;
@@ -301,11 +301,6 @@ out:
 		wake_up(&hashinfo->lhash_wait);
 }
 
-static inline int inet_iif(const struct sk_buff *skb)
-{
-	return ((struct rtable *)skb->dst)->rt_iif;
-}
-
 extern struct sock *__inet_lookup_listener(struct inet_hashinfo *hashinfo,
 					   const __be32 daddr,
 					   const unsigned short hnum,
@@ -417,6 +412,22 @@ static inline struct sock *inet_lookup(struct inet_hashinfo *hashinfo,
 	local_bh_enable();
 
 	return sk;
+}
+
+static inline struct sock *__inet_lookup_skb(struct inet_hashinfo *hashinfo,
+					     struct sk_buff *skb,
+					     const __be16 sport,
+					     const __be16 dport)
+{
+	struct sock *sk;
+	const struct iphdr *iph = ip_hdr(skb);
+
+	if (unlikely(sk = skb_steal_sock(skb)))
+		return sk;
+	else
+		return __inet_lookup(hashinfo,
+				     iph->saddr, sport,
+				     iph->daddr, dport, inet_iif(skb));
 }
 
 extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
