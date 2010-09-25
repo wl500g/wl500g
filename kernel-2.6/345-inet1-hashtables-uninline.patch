@@ -1,0 +1,413 @@
+[INET]: Uninline some large hashtables functions
+
+ kernel.org commits
+ 152da81deb9a4870aeac352336184b2b14d4b2ba [INET]: Uninline the __inet_hash function.
+ 77a5ba55dab7b4ece12f37c717022819e3f77b44 [INET]: Uninline the __inet_lookup_established function.
+ 5ee31fc1ecdcbc234c8c56dcacef87c8e09909d8 [INET]: Consolidate inet(6)_hash_connect.
+ 5d8c0aa9433b09387d9021358baef7939f9b32c4 [INET]: Fix accidentally broken inet(6)_hash_connect's port offset calculations.
+
+---
+ include/net/inet_hashtables.h |   73 ++++-----------------------
+ net/dccp/ipv4.c               |    2 
+ net/ipv4/inet_hashtables.c    |  113 +++++++++++++++++++++++++++++++++++++-----
+ net/ipv4/tcp_ipv4.c           |    2 
+ net/ipv6/inet6_hashtables.c   |   93 ----------------------------------
+ 5 files changed, 116 insertions(+), 167 deletions(-)
+
+diff -urBp a/include/net/inet_hashtables.h b/include/net/inet_hashtables.h
+--- a/include/net/inet_hashtables.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/net/inet_hashtables.h	2010-09-24 12:54:37.000000000 +0400
+@@ -207,37 +207,14 @@ static inline void inet_listen_unlock(st
+ 		wake_up(&hashinfo->lhash_wait);
+ }
+ 
+-static inline void __inet_hash(struct inet_hashinfo *hashinfo,
+-			       struct sock *sk, const int listen_possible)
+-{
+-	struct hlist_head *list;
+-	rwlock_t *lock;
+-
+-	BUG_TRAP(sk_unhashed(sk));
+-	if (listen_possible && sk->sk_state == TCP_LISTEN) {
+-		list = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
+-		lock = &hashinfo->lhash_lock;
+-		inet_listen_wlock(hashinfo);
+-	} else {
+-		struct inet_ehash_bucket *head;
+-		sk->sk_hash = inet_sk_ehashfn(sk);
+-		head = inet_ehash_bucket(hashinfo, sk->sk_hash);
+-		list = &head->chain;
+-		lock = &head->lock;
+-		write_lock(lock);
+-	}
+-	__sk_add_node(sk, list);
+-	sock_prot_inc_use(sk->sk_prot);
+-	write_unlock(lock);
+-	if (listen_possible && sk->sk_state == TCP_LISTEN)
+-		wake_up(&hashinfo->lhash_wait);
+-}
++extern void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk);
++extern void __inet_hash_nolisten(struct inet_hashinfo *hinfo, struct sock *sk);
+ 
+ static inline void inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk)
+ {
+ 	if (sk->sk_state != TCP_CLOSE) {
+ 		local_bh_disable();
+-		__inet_hash(hashinfo, sk, 1);
++		__inet_hash(hashinfo, sk);
+ 		local_bh_enable();
+ 	}
+ }
+@@ -345,42 +322,9 @@ typedef __u64 __bitwise __addrpair;
+  *
+  * Local BH must be disabled here.
+  */
+-static inline struct sock *
+-	__inet_lookup_established(struct inet_hashinfo *hashinfo,
+-				  const __be32 saddr, const __be16 sport,
+-				  const __be32 daddr, const u16 hnum,
+-				  const int dif)
+-{
+-	INET_ADDR_COOKIE(acookie, saddr, daddr)
+-	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
+-	struct sock *sk;
+-	const struct hlist_node *node;
+-	/* Optimize here for direct hit, only listening connections can
+-	 * have wildcards anyways.
+-	 */
+-	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
+-	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
+-
+-	prefetch(head->chain.first);
+-	read_lock(&head->lock);
+-	sk_for_each(sk, node, &head->chain) {
+-		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+-			goto hit; /* You sunk my battleship! */
+-	}
+-
+-	/* Must check for a TIME_WAIT'er before going to listener hash. */
+-	sk_for_each(sk, node, &head->twchain) {
+-		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
+-			goto hit;
+-	}
+-	sk = NULL;
+-out:
+-	read_unlock(&head->lock);
+-	return sk;
+-hit:
+-	sock_hold(sk);
+-	goto out;
+-}
++extern struct sock * __inet_lookup_established(struct inet_hashinfo *hashinfo,
++		const __be32 saddr, const __be16 sport,
++		const __be32 daddr, const u16 hnum, const int dif);
+ 
+ static inline struct sock *
+ 	inet_lookup_established(struct inet_hashinfo *hashinfo,
+@@ -417,6 +361,11 @@ static inline struct sock *inet_lookup(s
+ 	return sk;
+ }
+ 
++extern int __inet_hash_connect(struct inet_timewait_death_row *death_row,
++		struct sock *sk, u32 port_offset,
++		int (*check_established)(struct inet_timewait_death_row *,
++			struct sock *, __u16, struct inet_timewait_sock **),
++		void (*hash)(struct inet_hashinfo *, struct sock *));
+ extern int inet_hash_connect(struct inet_timewait_death_row *death_row,
+ 			     struct sock *sk);
+ #endif /* _INET_HASHTABLES_H */
+diff -urBp a/net/dccp/ipv4.c b/net/dccp/ipv4.c
+--- a/net/dccp/ipv4.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/dccp/ipv4.c	2010-09-24 12:33:27.000000000 +0400
+@@ -410,7 +410,7 @@ struct sock *dccp_v4_request_recv_sock(s
+ 
+ 	dccp_sync_mss(newsk, dst_mtu(dst));
+ 
+-	__inet_hash(&dccp_hashinfo, newsk, 0);
++	__inet_hash_nolisten(&dccp_hashinfo, newsk);
+ 	__inet_inherit_port(&dccp_hashinfo, sk, newsk);
+ 
+ 	return newsk;
+diff -urBp a/net/ipv4/inet_hashtables.c b/net/ipv4/inet_hashtables.c
+--- a/net/ipv4/inet_hashtables.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv4/inet_hashtables.c	2010-09-24 12:54:37.000000000 +0400
+@@ -190,6 +190,43 @@ sherry_cache:
+ }
+ EXPORT_SYMBOL_GPL(__inet_lookup_listener);
+ 
++struct sock * __inet_lookup_established(struct inet_hashinfo *hashinfo,
++				  const __be32 saddr, const __be16 sport,
++				  const __be32 daddr, const u16 hnum,
++				  const int dif)
++{
++	INET_ADDR_COOKIE(acookie, saddr, daddr)
++	const __portpair ports = INET_COMBINED_PORTS(sport, hnum);
++	struct sock *sk;
++	const struct hlist_node *node;
++	/* Optimize here for direct hit, only listening connections can
++	 * have wildcards anyways.
++	 */
++	unsigned int hash = inet_ehashfn(daddr, hnum, saddr, sport);
++	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
++
++	prefetch(head->chain.first);
++	read_lock(&head->lock);
++	sk_for_each(sk, node, &head->chain) {
++		if (INET_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
++			goto hit; /* You sunk my battleship! */
++	}
++
++	/* Must check for a TIME_WAIT'er before going to listener hash. */
++	sk_for_each(sk, node, &head->twchain) {
++		if (INET_TW_MATCH(sk, hash, acookie, saddr, daddr, ports, dif))
++			goto hit;
++	}
++	sk = NULL;
++out:
++	read_unlock(&head->lock);
++	return sk;
++hit:
++	sock_hold(sk);
++	goto out;
++}
++EXPORT_SYMBOL_GPL(__inet_lookup_established);
++
+ /* called with local bh disabled */
+ static int __inet_check_established(struct inet_timewait_death_row *death_row,
+ 				    struct sock *sk, __u16 lport,
+@@ -266,11 +303,53 @@ static inline u32 inet_sk_port_offset(co
+ 					  inet->dport);
+ }
+ 
+-/*
+- * Bind a port for a connect operation and hash it.
+- */
+-int inet_hash_connect(struct inet_timewait_death_row *death_row,
+-		      struct sock *sk)
++void __inet_hash_nolisten(struct inet_hashinfo *hashinfo, struct sock *sk)
++{
++	struct hlist_head *list;
++	rwlock_t *lock;
++	struct inet_ehash_bucket *head;
++
++	BUG_TRAP(sk_unhashed(sk));
++
++	sk->sk_hash = inet_sk_ehashfn(sk);
++	head = inet_ehash_bucket(hashinfo, sk->sk_hash);
++	list = &head->chain;
++	lock = &head->lock;
++
++	write_lock(lock);
++	__sk_add_node(sk, list);
++	sock_prot_inc_use(sk->sk_prot);
++	write_unlock(lock);
++}
++EXPORT_SYMBOL_GPL(__inet_hash_nolisten);
++
++void __inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk)
++{
++	struct hlist_head *list;
++	rwlock_t *lock;
++
++	if (sk->sk_state != TCP_LISTEN) {
++		__inet_hash_nolisten(hashinfo, sk);
++		return;
++	}
++
++	BUG_TRAP(sk_unhashed(sk));
++	list = &hashinfo->listening_hash[inet_sk_listen_hashfn(sk)];
++	lock = &hashinfo->lhash_lock;
++
++	inet_listen_wlock(hashinfo);
++	__sk_add_node(sk, list);
++	sock_prot_inc_use(sk->sk_prot);
++	write_unlock(lock);
++	wake_up(&hashinfo->lhash_wait);
++}
++EXPORT_SYMBOL_GPL(__inet_hash);
++
++int __inet_hash_connect(struct inet_timewait_death_row *death_row,
++		struct sock *sk, u32 port_offset,
++		int (*check_established)(struct inet_timewait_death_row *,
++			struct sock *, __u16, struct inet_timewait_sock **),
++		void (*hash)(struct inet_hashinfo *, struct sock *))
+ {
+ 	struct inet_hashinfo *hinfo = death_row->hashinfo;
+ 	const unsigned short snum = inet_sk(sk)->num;
+@@ -285,7 +364,7 @@ int inet_hash_connect(struct inet_timewa
+ 		int i;
+ 		int port;
+ 		static u32 hint;
+-		u32 offset = hint + inet_sk_port_offset(sk);
++		u32 offset = hint + port_offset;
+ 		struct hlist_node *node;
+ 		struct inet_timewait_sock *tw = NULL;
+ 
+@@ -304,9 +383,8 @@ int inet_hash_connect(struct inet_timewa
+ 					BUG_TRAP(!hlist_empty(&tb->owners));
+ 					if (tb->fastreuse >= 0)
+ 						goto next_port;
+-					if (!__inet_check_established(death_row,
+-								      sk, port,
+-								      &tw))
++					if (!check_established(death_row, sk,
++								port, &tw))
+ 						goto ok;
+ 					goto next_port;
+ 				}
+@@ -334,7 +412,7 @@ ok:
+ 		inet_bind_hash(sk, tb, port);
+ 		if (sk_unhashed(sk)) {
+ 			inet_sk(sk)->sport = htons(port);
+-			__inet_hash(hinfo, sk, 0);
++			hash(hinfo, sk);
+ 		}
+ 		spin_unlock(&head->lock);
+ 
+@@ -351,17 +429,28 @@ ok:
+ 	tb  = inet_csk(sk)->icsk_bind_hash;
+ 	spin_lock_bh(&head->lock);
+ 	if (sk_head(&tb->owners) == sk && !sk->sk_bind_node.next) {
+-		__inet_hash(hinfo, sk, 0);
++		hash(hinfo, sk);
+ 		spin_unlock_bh(&head->lock);
+ 		return 0;
+ 	} else {
+ 		spin_unlock(&head->lock);
+ 		/* No definite answer... Walk to established hash table */
+-		ret = __inet_check_established(death_row, sk, snum, NULL);
++		ret = check_established(death_row, sk, snum, NULL);
+ out:
+ 		local_bh_enable();
+ 		return ret;
+ 	}
+ }
++EXPORT_SYMBOL_GPL(__inet_hash_connect);
++
++/*
++ * Bind a port for a connect operation and hash it.
++ */
++int inet_hash_connect(struct inet_timewait_death_row *death_row,
++		      struct sock *sk)
++{
++	return __inet_hash_connect(death_row, sk, inet_sk_port_offset(sk),
++			__inet_check_established, __inet_hash_nolisten);
++}
+ 
+ EXPORT_SYMBOL_GPL(inet_hash_connect);
+diff -urBp a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+--- a/net/ipv4/tcp_ipv4.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv4/tcp_ipv4.c	2010-09-24 12:33:27.000000000 +0400
+@@ -1473,7 +1473,7 @@ struct sock *tcp_v4_syn_recv_sock(struct
+ 	}
+ #endif
+ 
+-	__inet_hash(&tcp_hashinfo, newsk, 0);
++	__inet_hash_nolisten(&tcp_hashinfo, newsk);
+ 	__inet_inherit_port(&tcp_hashinfo, sk, newsk);
+ 
+ 	return newsk;
+diff -urBp a/net/ipv6/inet6_hashtables.c b/net/ipv6/inet6_hashtables.c
+--- a/net/ipv6/inet6_hashtables.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/ipv6/inet6_hashtables.c	2010-09-24 12:54:37.000000000 +0400
+@@ -247,97 +247,8 @@ static inline u32 inet6_sk_port_offset(c
+ int inet6_hash_connect(struct inet_timewait_death_row *death_row,
+ 		       struct sock *sk)
+ {
+-	struct inet_hashinfo *hinfo = death_row->hashinfo;
+-	const unsigned short snum = inet_sk(sk)->num;
+-	struct inet_bind_hashbucket *head;
+-	struct inet_bind_bucket *tb;
+-	int ret;
+-
+-	if (snum == 0) {
+-		const int low = sysctl_local_port_range[0];
+-		const int high = sysctl_local_port_range[1];
+-		const int range = high - low;
+-		int i, port;
+-		static u32 hint;
+-		const u32 offset = hint + inet6_sk_port_offset(sk);
+-		struct hlist_node *node;
+-		struct inet_timewait_sock *tw = NULL;
+-
+-		local_bh_disable();
+-		for (i = 1; i <= range; i++) {
+-			port = low + (i + offset) % range;
+-			head = &hinfo->bhash[inet_bhashfn(port, hinfo->bhash_size)];
+-			spin_lock(&head->lock);
+-
+-			/* Does not bother with rcv_saddr checks,
+-			 * because the established check is already
+-			 * unique enough.
+-			 */
+-			inet_bind_bucket_for_each(tb, node, &head->chain) {
+-				if (tb->port == port) {
+-					BUG_TRAP(!hlist_empty(&tb->owners));
+-					if (tb->fastreuse >= 0)
+-						goto next_port;
+-					if (!__inet6_check_established(death_row,
+-								       sk, port,
+-								       &tw))
+-						goto ok;
+-					goto next_port;
+-				}
+-			}
+-
+-			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
+-						     head, port);
+-			if (!tb) {
+-				spin_unlock(&head->lock);
+-				break;
+-			}
+-			tb->fastreuse = -1;
+-			goto ok;
+-
+-		next_port:
+-			spin_unlock(&head->lock);
+-		}
+-		local_bh_enable();
+-
+-		return -EADDRNOTAVAIL;
+-
+-ok:
+-		hint += i;
+-
+-		/* Head lock still held and bh's disabled */
+-		inet_bind_hash(sk, tb, port);
+-		if (sk_unhashed(sk)) {
+-			inet_sk(sk)->sport = htons(port);
+-			__inet6_hash(hinfo, sk);
+-		}
+-		spin_unlock(&head->lock);
+-
+-		if (tw) {
+-			inet_twsk_deschedule(tw, death_row);
+-			inet_twsk_put(tw);
+-		}
+-
+-		ret = 0;
+-		goto out;
+-	}
+-
+-	head = &hinfo->bhash[inet_bhashfn(snum, hinfo->bhash_size)];
+-	tb   = inet_csk(sk)->icsk_bind_hash;
+-	spin_lock_bh(&head->lock);
+-
+-	if (sk_head(&tb->owners) == sk && sk->sk_bind_node.next == NULL) {
+-		__inet6_hash(hinfo, sk);
+-		spin_unlock_bh(&head->lock);
+-		return 0;
+-	} else {
+-		spin_unlock(&head->lock);
+-		/* No definite answer... Walk to established hash table */
+-		ret = __inet6_check_established(death_row, sk, snum, NULL);
+-out:
+-		local_bh_enable();
+-		return ret;
+-	}
++	return __inet_hash_connect(death_row, sk, inet6_sk_port_offset(sk),
++			__inet6_check_established, __inet6_hash);
+ }
+ 
+ EXPORT_SYMBOL_GPL(inet6_hash_connect);
+-- 
