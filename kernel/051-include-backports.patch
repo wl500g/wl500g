@@ -847,18 +847,6 @@ diff -uBNp a/include/linux/bitops.h b/include/linux/bitops.h
  /*
   * hweightN: returns the hamming weight (i.e. the number
   * of bits set) of a N-bit word
-@@ -68,5 +105,11 @@ static inline unsigned int generic_hweig
- 
- #include <asm/bitops.h>
- 
-+static inline unsigned fls_long(unsigned long l)
-+{
-+	if (sizeof(l) == 4)
-+		return fls(l);
-+	return __fls(l);
-+}
- 
- #endif
 diff -uBNp a/include/linux/kernel.h b/include/linux/kernel.h
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
@@ -873,7 +861,7 @@ diff -uBNp a/include/linux/kernel.h b/include/linux/kernel.h
 diff -uBNp /dev/null b/include/linux/log2.h
 --- /dev/null
 +++ b/include/linux/log2.h
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,175 @@
 +/* Integer base 2 logarithm calculation
 + *
 + * Copyright (C) 2006 Red Hat, Inc. All Rights Reserved.
@@ -918,6 +906,13 @@ diff -uBNp /dev/null b/include/linux/log2.h
 +	return __fls(n) - 1;
 +}
 +#endif
++
++static inline unsigned fls_long(unsigned long l)
++{
++	if (sizeof(l) == 4)
++		return fls(l);
++	return __fls(l);
++}
 +
 +/*
 + *  Determine whether some value is a power of two, where zero is
@@ -1071,3 +1066,47 @@ diff -uBN a/include/linux/in.h b/include/linux/in.h
  
  /* BSD compatibility */
  #define IP_RECVRETOPTS	IP_RETOPTS
+diff -uB a/include/linux/types.h b/include/linux/types.h
+--- a/include/linux/types.h
++++ b/include/linux/types.h
+@@ -120,6 +120,12 @@
+ typedef		__s64		int64_t;
+ #endif
+ 
++/* this is a special 64bit data type that is 8-byte aligned */
++#define aligned_u64 __u64 __attribute__((aligned(8)))
++#define aligned_be64 __be64 __attribute__((aligned(8)))
++#define aligned_le64 __le64 __attribute__((aligned(8)))
++
++
+ #endif /* __KERNEL_STRICT_NAMES */
+ 
+ /*
+@@ -127,6 +133,27 @@
+  * any application/library that wants linux/types.h.
+  */
+ 
++#ifdef __CHECKER__
++#define __bitwise__ __attribute__((bitwise))
++#else
++#define __bitwise__
++#endif
++#ifdef __CHECK_ENDIAN__
++#define __bitwise __bitwise__
++#else
++#define __bitwise
++#endif
++
++typedef __u16 __bitwise __le16;
++typedef __u16 __bitwise __be16;
++typedef __u32 __bitwise __le32;
++typedef __u32 __bitwise __be32;
++typedef __u64 __bitwise __le64;
++typedef __u64 __bitwise __be64;
++
++typedef __u16 __bitwise __sum16;
++typedef __u32 __bitwise __wsum;
++
+ struct ustat {
+ 	__kernel_daddr_t	f_tfree;
+ 	__kernel_ino_t		f_tinode;
