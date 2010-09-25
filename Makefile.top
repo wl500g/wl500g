@@ -378,7 +378,9 @@ modules_install-usb:
 	# usb audio
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/sound/soundcore$(ko) \
+		$(SRCMODULESDIR)/sound/core/snd$(ko) \
 		$(SRCMODULESDIR)/sound/core/snd-*$(ko) \
+		$(SRCMODULESDIR)/sound/core/oss/snd-*$(ko) \
 		$(SRCMODULESDIR)/sound/usb/snd-usb-*$(ko) 
 	# NFS
 ifeq ($(CONFIG_NFS),y)
