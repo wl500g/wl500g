@@ -37,9 +37,8 @@ void __inet6_hash(struct inet_hashinfo *hashinfo,
 	} else {
 		unsigned int hash;
 		sk->sk_hash = hash = inet6_sk_ehashfn(sk);
-		hash &= (hashinfo->ehash_size - 1);
-		list = &hashinfo->ehash[hash].chain;
-		lock = &hashinfo->ehash[hash].lock;
+		list = &inet_ehash_bucket(hashinfo, hash)->chain;
+		lock = inet_ehash_lockp(hashinfo, hash);
 		write_lock(lock);
 	}
 
@@ -70,9 +69,10 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
 	 */
 	unsigned int hash = inet6_ehashfn(daddr, hnum, saddr, sport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hashinfo, hash);
+	rwlock_t *lock = inet_ehash_lockp(hashinfo, hash);
 
 	prefetch(head->chain.first);
-	read_lock(&head->lock);
+	read_lock(lock);
 	sk_for_each(sk, node, &head->chain) {
 		/* For IPV6 do the cheaper port and family tests first. */
 		if (INET6_MATCH(sk, hash, saddr, daddr, ports, dif))
@@ -92,12 +92,12 @@ struct sock *__inet6_lookup_established(struct inet_hashinfo *hashinfo,
 				goto hit;
 		}
 	}
-	read_unlock(&head->lock);
+	read_unlock(lock);
 	return NULL;
 
 hit:
 	sock_hold(sk);
-	read_unlock(&head->lock);
+	read_unlock(lock);
 	return sk;
 }
 EXPORT_SYMBOL(__inet6_lookup_established);
@@ -175,12 +175,13 @@ static int __inet6_check_established(struct inet_timewait_death_row *death_row,
 	const unsigned int hash = inet6_ehashfn(daddr, lport, saddr,
 						inet->dport);
 	struct inet_ehash_bucket *head = inet_ehash_bucket(hinfo, hash);
+	rwlock_t *lock = inet_ehash_lockp(hinfo, hash);
 	struct sock *sk2;
 	const struct hlist_node *node;
 	struct inet_timewait_sock *tw;
 
 	prefetch(head->chain.first);
-	write_lock(&head->lock);
+	write_lock(lock);
 
 	/* Check TIME-WAIT sockets first. */
 	sk_for_each(sk2, node, &head->twchain) {
@@ -216,7 +217,7 @@ unique:
 	__sk_add_node(sk, &head->chain);
 	sk->sk_hash = hash;
 	sock_prot_inc_use(sk->sk_prot);
-	write_unlock(&head->lock);
+	write_unlock(lock);
 
 	if (twp != NULL) {
 		*twp = tw;
@@ -231,7 +232,7 @@ unique:
 	return 0;
 
 not_unique:
-	write_unlock(&head->lock);
+	write_unlock(lock);
 	return -EADDRNOTAVAIL;
 }
 
@@ -247,97 +248,8 @@ static inline u32 inet6_sk_port_offset(const struct sock *sk)
 int inet6_hash_connect(struct inet_timewait_death_row *death_row,
 		       struct sock *sk)
 {
-	struct inet_hashinfo *hinfo = death_row->hashinfo;
-	const unsigned short snum = inet_sk(sk)->num;
-	struct inet_bind_hashbucket *head;
-	struct inet_bind_bucket *tb;
-	int ret;
-
-	if (snum == 0) {
-		const int low = sysctl_local_port_range[0];
-		const int high = sysctl_local_port_range[1];
-		const int range = high - low;
-		int i, port;
-		static u32 hint;
-		const u32 offset = hint + inet6_sk_port_offset(sk);
-		struct hlist_node *node;
-		struct inet_timewait_sock *tw = NULL;
-
-		local_bh_disable();
-		for (i = 1; i <= range; i++) {
-			port = low + (i + offset) % range;
-			head = &hinfo->bhash[inet_bhashfn(port, hinfo->bhash_size)];
-			spin_lock(&head->lock);
-
-			/* Does not bother with rcv_saddr checks,
-			 * because the established check is already
-			 * unique enough.
-			 */
-			inet_bind_bucket_for_each(tb, node, &head->chain) {
-				if (tb->port == port) {
-					BUG_TRAP(!hlist_empty(&tb->owners));
-					if (tb->fastreuse >= 0)
-						goto next_port;
-					if (!__inet6_check_established(death_row,
-								       sk, port,
-								       &tw))
-						goto ok;
-					goto next_port;
-				}
-			}
-
-			tb = inet_bind_bucket_create(hinfo->bind_bucket_cachep,
-						     head, port);
-			if (!tb) {
-				spin_unlock(&head->lock);
-				break;
-			}
-			tb->fastreuse = -1;
-			goto ok;
-
-		next_port:
-			spin_unlock(&head->lock);
-		}
-		local_bh_enable();
-
-		return -EADDRNOTAVAIL;
-
-ok:
-		hint += i;
-
-		/* Head lock still held and bh's disabled */
-		inet_bind_hash(sk, tb, port);
-		if (sk_unhashed(sk)) {
-			inet_sk(sk)->sport = htons(port);
-			__inet6_hash(hinfo, sk);
-		}
-		spin_unlock(&head->lock);
-
-		if (tw) {
-			inet_twsk_deschedule(tw, death_row);
-			inet_twsk_put(tw);
-		}
-
-		ret = 0;
-		goto out;
-	}
-
-	head = &hinfo->bhash[inet_bhashfn(snum, hinfo->bhash_size)];
-	tb   = inet_csk(sk)->icsk_bind_hash;
-	spin_lock_bh(&head->lock);
-
-	if (sk_head(&tb->owners) == sk && sk->sk_bind_node.next == NULL) {
-		__inet6_hash(hinfo, sk);
-		spin_unlock_bh(&head->lock);
-		return 0;
-	} else {
-		spin_unlock(&head->lock);
-		/* No definite answer... Walk to established hash table */
-		ret = __inet6_check_established(death_row, sk, snum, NULL);
-out:
-		local_bh_enable();
-		return ret;
-	}
+	return __inet_hash_connect(death_row, sk, inet6_sk_port_offset(sk),
+			__inet6_check_established, __inet6_hash);
 }
 
 EXPORT_SYMBOL_GPL(inet6_hash_connect);

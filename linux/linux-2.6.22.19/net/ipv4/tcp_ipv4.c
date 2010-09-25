@@ -1469,7 +1469,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 	}
 #endif
 
-	__inet_hash(&tcp_hashinfo, newsk, 0);
+	__inet_hash_nolisten(&tcp_hashinfo, newsk);
 	__inet_inherit_port(&tcp_hashinfo, sk, newsk);
 
 	return newsk;
@@ -2039,8 +2039,9 @@ static void *established_get_first(struct seq_file *seq)
 		struct sock *sk;
 		struct hlist_node *node;
 		struct inet_timewait_sock *tw;
+		rwlock_t *lock = inet_ehash_lockp(&tcp_hashinfo, st->bucket);
 
-		read_lock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
+		read_lock_bh(lock);
 		sk_for_each(sk, node, &tcp_hashinfo.ehash[st->bucket].chain) {
 			if (sk->sk_family != st->family) {
 				continue;
@@ -2057,7 +2058,7 @@ static void *established_get_first(struct seq_file *seq)
 			rc = tw;
 			goto out;
 		}
-		read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
+		read_unlock_bh(lock);
 		st->state = TCP_SEQ_STATE_ESTABLISHED;
 	}
 out:
@@ -2084,11 +2085,11 @@ get_tw:
 			cur = tw;
 			goto out;
 		}
-		read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
+		read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
 		st->state = TCP_SEQ_STATE_ESTABLISHED;
 
 		if (++st->bucket < tcp_hashinfo.ehash_size) {
-			read_lock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
+			read_lock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
 			sk = sk_head(&tcp_hashinfo.ehash[st->bucket].chain);
 		} else {
 			cur = NULL;
@@ -2196,7 +2197,7 @@ static void tcp_seq_stop(struct seq_file *seq, void *v)
 	case TCP_SEQ_STATE_TIME_WAIT:
 	case TCP_SEQ_STATE_ESTABLISHED:
 		if (v)
-			read_unlock_bh(&tcp_hashinfo.ehash[st->bucket].lock);
+			read_unlock_bh(inet_ehash_lockp(&tcp_hashinfo, st->bucket));
 		break;
 	}
 }
