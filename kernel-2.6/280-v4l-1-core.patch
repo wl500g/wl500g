@@ -2943,12 +2943,11 @@ diff -urNBp a/drivers/media/video/v4l2-common.c b/drivers/media/video/v4l2-commo
   * Makefile fix by "W. Michael Petullo" <mike@flyn.org>
   * 2.4 devfs support ported from 2.4 kernels by
   *  Dan Merillat <dan@merillat.org>
-@@ -56,21 +56,13 @@
+@@ -56,21 +56,12 @@
  #include <asm/pgtable.h>
  #include <asm/io.h>
  #include <asm/div64.h>
 -#include <linux/video_decoder.h>
-+#include <asm-generic/bitops/__fls.h>
  #define __OLD_VIDIOC_ /* To allow fixing old calls*/
  #include <media/v4l2-common.h>
 +#include <media/v4l2-device.h>
