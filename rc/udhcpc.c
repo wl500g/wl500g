@@ -105,14 +105,12 @@ bound(void)
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
 
 	/* rfc3442 classless static routes */
-	if ((value = getenv("staticroutes")))
+	value = getenv("staticroutes");
+	nvram_set(strcat_r(prefix, "routes_rfc", tmp), value);
+	if ((value = strstr(value, "0.0.0.0/0 ")))
 	{
-		nvram_set(strcat_r(prefix, "routes_rfc", tmp), trim_r(value));
-		if ((value = strstr(value, "0.0.0.0/0 ")))
-		{
-			value = strncpy(tmp, value, sizeof(tmp)) + strlen("0.0.0.0/0 ");
-			nvram_set(strcat_r(prefix, "gateway", tmp), strsep(&value, " "));
-		}
+		value = strncpy(tmp, value + strlen("0.0.0.0/0 "), sizeof(tmp));
+		nvram_set(strcat_r(prefix, "gateway", tmp), strsep(&value, " "));
 	}
 
 	/* classful static routes*/
