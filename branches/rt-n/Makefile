@@ -151,7 +151,10 @@ kernel-patch:
 	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
 
 kernel-extra-drivers:
-#	tar -C kernel-2.6/drivers/pwc-9.0.2 $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR)/drivers/usb -xf -
+	@for drv in kernel-2.6/drivers/* ; do \
+	    tar -C $$drv $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR) -xf - ; \
+	    echo " DRV `basename $$drv`"; \
+	done;
 
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
