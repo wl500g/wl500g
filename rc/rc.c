@@ -753,12 +753,12 @@ sysinit(void)
 
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		"ide-mod ide-probe-mod ide-disk et wl";
-#elif defined(__CONFIG_EMF__)
-		"emf igs et wl";
-#else
-		"et wl";
+		"ide-core ide-detect ide-disk aec62xx "
 #endif
+#if defined(__CONFIG_EMF__)
+		"emf igs "
+#endif
+		"et wl";
 		foreach(module, modules, next)
 			eval("insmod", module);
 	}

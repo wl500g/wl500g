@@ -267,28 +267,6 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	if (!nvram_match("dr_enable_x", "1"))
 		return;
 
-	/* rfc3442 classless static routes */
-	routes = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
-	if (*routes)
-	{
-		routes = strdup(routes);
-		for (tmp = routes; tmp && *tmp; )
-		{
-			ipaddr  = strsep(&tmp, "/");
-			bits    = atoi(strsep(&tmp, " "));
-			gateway = strsep(&tmp, " ");
-
-			if (gateway && bits > 0 && bits <= 32)
-			{
-				mask.s_addr = htonl(0xffffffff << (32 - bits));
-				strcpy(netmask, inet_ntoa(mask));
-				route_add(ifname, metric + 1, ipaddr, gateway, netmask);
-			}
-		}
-		free(routes);
-		return;
-	}
-
 	/* classful static routes */
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
 	for (tmp = routes; tmp && *tmp; )
@@ -301,9 +279,12 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	}
 	free(routes);
 
-	/* ms classless static routes */
-	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes_ms", buf)));
-	for (tmp = routes; tmp && *tmp; )
+	/* rfc3442 or ms classless static routes */
+	routes = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
+	if (!*routes)
+		routes = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
+
+	for (tmp = strdup(routes); tmp && *tmp; )
 	{
 		ipaddr  = strsep(&tmp, "/");
 		bits    = atoi(strsep(&tmp, " "));
