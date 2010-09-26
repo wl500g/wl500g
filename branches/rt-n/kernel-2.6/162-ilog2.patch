@@ -1,0 +1,271 @@
+Use of faster ilog2()
+
+ e57aa839cea13852e07ecb495692b602b11136c9 convert ill defined log2() to ilog2()
+ 13f14b4d8be225cbb11ff2be7c048590a9ccf87b Use ilog2() in fs/namespace.c
+ fcd84f2fca49166dab2dba259eca6e633585763f [MIPS] Fix __fls for non-MIPS32/MIPS64 cpus
+ ddc0d009947bf8645fa3543f4532063a787202da [MIPS] Get rid of __ilog2
+
+---
+ drivers/char/agp/hp-agp.c     |    9 ++------
+ drivers/char/agp/i460-agp.c   |    5 +---
+ drivers/char/agp/parisc-agp.c |    7 +-----
+ fs/ext4/super.c               |    6 +----
+ fs/namespace.c                |   43 +++++++++---------------------------------
+ include/asm-mips/bitops.h     |    9 ++++----
+ 6 files changed, 24 insertions(+), 55 deletions(-)
+
+diff -urBp a/drivers/char/agp/hp-agp.c b/drivers/char/agp/hp-agp.c
+--- a/drivers/char/agp/hp-agp.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/char/agp/hp-agp.c	2010-09-26 10:46:25.000000000 +0400
+@@ -14,15 +14,12 @@
+ #include <linux/pci.h>
+ #include <linux/init.h>
+ #include <linux/agp_backend.h>
++#include <linux/log2.h>
+ 
+ #include <asm/acpi-ext.h>
+ 
+ #include "agp.h"
+ 
+-#ifndef log2
+-#define log2(x)		ffz(~(x))
+-#endif
+-
+ #define HP_ZX1_IOC_OFFSET	0x1000  /* ACPI reports SBA, we want IOC */
+ 
+ /* HP ZX1 IOC registers */
+@@ -256,7 +253,7 @@ hp_zx1_configure (void)
+ 		readl(hp->ioc_regs+HP_ZX1_IMASK);
+ 		writel(hp->iova_base|1, hp->ioc_regs+HP_ZX1_IBASE);
+ 		readl(hp->ioc_regs+HP_ZX1_IBASE);
+-		writel(hp->iova_base|log2(HP_ZX1_IOVA_SIZE), hp->ioc_regs+HP_ZX1_PCOM);
++		writel(hp->iova_base|ilog2(HP_ZX1_IOVA_SIZE), hp->ioc_regs+HP_ZX1_PCOM);
+ 		readl(hp->ioc_regs+HP_ZX1_PCOM);
+ 	}
+ 
+@@ -284,7 +281,7 @@ hp_zx1_tlbflush (struct agp_memory *mem)
+ {
+ 	struct _hp_private *hp = &hp_private;
+ 
+-	writeq(hp->gart_base | log2(hp->gart_size), hp->ioc_regs+HP_ZX1_PCOM);
++	writeq(hp->gart_base | ilog2(hp->gart_size), hp->ioc_regs+HP_ZX1_PCOM);
+ 	readq(hp->ioc_regs+HP_ZX1_PCOM);
+ }
+ 
+diff -urBp a/drivers/char/agp/i460-agp.c b/drivers/char/agp/i460-agp.c
+--- a/drivers/char/agp/i460-agp.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/char/agp/i460-agp.c	2010-09-26 10:46:25.000000000 +0400
+@@ -13,6 +13,7 @@
+ #include <linux/string.h>
+ #include <linux/slab.h>
+ #include <linux/agp_backend.h>
++#include <linux/log2.h>
+ 
+ #include "agp.h"
+ 
+@@ -59,8 +60,6 @@
+  */
+ #define WR_FLUSH_GATT(index)	RD_GATT(index)
+ 
+-#define log2(x)			ffz(~(x))
+-
+ static struct {
+ 	void *gatt;				/* ioremap'd GATT area */
+ 
+@@ -148,7 +147,7 @@ static int i460_fetch_size (void)
+ 		 * values[i].size.
+ 		 */
+ 		values[i].num_entries = (values[i].size << 8) >> (I460_IO_PAGE_SHIFT - 12);
+-		values[i].page_order = log2((sizeof(u32)*values[i].num_entries) >> PAGE_SHIFT);
++		values[i].page_order = ilog2((sizeof(u32)*values[i].num_entries) >> PAGE_SHIFT);
+ 	}
+ 
+ 	for (i = 0; i < agp_bridge->driver->num_aperture_sizes; i++) {
+diff -urBp a/drivers/char/agp/parisc-agp.c b/drivers/char/agp/parisc-agp.c
+--- a/drivers/char/agp/parisc-agp.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/char/agp/parisc-agp.c	2010-09-26 10:46:25.000000000 +0400
+@@ -18,6 +18,7 @@
+ #include <linux/init.h>
+ #include <linux/klist.h>
+ #include <linux/agp_backend.h>
++#include <linux/log2.h>
+ 
+ #include <asm-parisc/parisc-device.h>
+ #include <asm-parisc/ropes.h>
+@@ -27,10 +28,6 @@
+ #define DRVNAME	"quicksilver"
+ #define DRVPFX	DRVNAME ": "
+ 
+-#ifndef log2
+-#define log2(x)		ffz(~(x))
+-#endif
+-
+ #define AGP8X_MODE_BIT		3
+ #define AGP8X_MODE		(1 << AGP8X_MODE_BIT)
+ 
+@@ -92,7 +89,7 @@ parisc_agp_tlbflush(struct agp_memory *m
+ {
+ 	struct _parisc_agp_info *info = &parisc_agp_info;
+ 
+-	writeq(info->gart_base | log2(info->gart_size), info->ioc_regs+IOC_PCOM);
++	writeq(info->gart_base | ilog2(info->gart_size), info->ioc_regs+IOC_PCOM);
+ 	readq(info->ioc_regs+IOC_PCOM);	/* flush */
+ }
+ 
+diff -urBp a/fs/ext4/super.c b/fs/ext4/super.c
+--- a/fs/ext4/super.c	2010-09-26 04:00:00.000000000 +0400
++++ b/fs/ext4/super.c	2010-09-26 10:46:25.000000000 +0400
+@@ -1401,8 +1401,6 @@ static void ext4_orphan_cleanup (struct
+ 	sb->s_flags = s_flags; /* Restore MS_RDONLY status */
+ }
+ 
+-#define log2(n) ffz(~(n))
+-
+ /*
+  * Maximal file size.  There is a direct, and {,double-,triple-}indirect
+  * block limit, and also a limit of (2^32 - 1) 512-byte sectors in i_blocks.
+@@ -1666,8 +1664,8 @@ static int ext4_fill_super (struct super
+ 	sbi->s_desc_per_block = blocksize / EXT4_DESC_SIZE(sb);
+ 	sbi->s_sbh = bh;
+ 	sbi->s_mount_state = le16_to_cpu(es->s_state);
+-	sbi->s_addr_per_block_bits = log2(EXT4_ADDR_PER_BLOCK(sb));
+-	sbi->s_desc_per_block_bits = log2(EXT4_DESC_PER_BLOCK(sb));
++	sbi->s_addr_per_block_bits = ilog2(EXT4_ADDR_PER_BLOCK(sb));
++	sbi->s_desc_per_block_bits = ilog2(EXT4_DESC_PER_BLOCK(sb));
+ 	for (i=0; i < 4; i++)
+ 		sbi->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
+ 	sbi->s_def_hash_version = es->s_def_hash_version;
+diff -urBp a/fs/namespace.c b/fs/namespace.c
+--- a/fs/namespace.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/namespace.c	2010-09-26 10:47:15.000000000 +0400
+@@ -25,17 +25,20 @@
+ #include <linux/security.h>
+ #include <linux/mount.h>
+ #include <linux/ramfs.h>
++#include <linux/log2.h>
+ #include <asm/uaccess.h>
+ #include <asm/unistd.h>
+ #include "pnode.h"
+ 
++#define HASH_SHIFT ilog2(PAGE_SIZE / sizeof(struct list_head))
++#define HASH_SIZE (1UL << HASH_SHIFT)
++
+ /* spinlock for vfsmount related operations, inplace of dcache_lock */
+ __cacheline_aligned_in_smp DEFINE_SPINLOCK(vfsmount_lock);
+ 
+ static int event;
+ 
+ static struct list_head *mount_hashtable __read_mostly;
+-static int hash_mask __read_mostly, hash_bits __read_mostly;
+ static struct kmem_cache *mnt_cache __read_mostly;
+ static struct rw_semaphore namespace_sem;
+ 
+@@ -47,8 +50,8 @@ static inline unsigned long hash(struct
+ {
+ 	unsigned long tmp = ((unsigned long)mnt / L1_CACHE_BYTES);
+ 	tmp += ((unsigned long)dentry / L1_CACHE_BYTES);
+-	tmp = tmp + (tmp >> hash_bits);
+-	return tmp & hash_mask;
++	tmp = tmp + (tmp >> HASH_SHIFT);
++	return tmp & (HASH_SIZE - 1);
+ }
+ 
+ struct vfsmount *alloc_vfsmnt(const char *name)
+@@ -1798,9 +1801,7 @@ static void __init init_mount_tree(void)
+ 
+ void __init mnt_init(unsigned long mempages)
+ {
+-	struct list_head *d;
+-	unsigned int nr_hash;
+-	int i;
++	unsigned u;
+ 	int err;
+ 
+ 	init_rwsem(&namespace_sem);
+@@ -1813,35 +1814,11 @@ void __init mnt_init(unsigned long mempa
+ 	if (!mount_hashtable)
+ 		panic("Failed to allocate mount hash table\n");
+ 
+-	/*
+-	 * Find the power-of-two list-heads that can fit into the allocation..
+-	 * We don't guarantee that "sizeof(struct list_head)" is necessarily
+-	 * a power-of-two.
+-	 */
+-	nr_hash = PAGE_SIZE / sizeof(struct list_head);
+-	hash_bits = 0;
+-	do {
+-		hash_bits++;
+-	} while ((nr_hash >> hash_bits) != 0);
+-	hash_bits--;
+-
+-	/*
+-	 * Re-calculate the actual number of entries and the mask
+-	 * from the number of bits we can fit.
+-	 */
+-	nr_hash = 1UL << hash_bits;
+-	hash_mask = nr_hash - 1;
++	printk("Mount-cache hash table entries: %lu\n", HASH_SIZE);
+ 
+-	printk("Mount-cache hash table entries: %d\n", nr_hash);
++	for (u = 0; u < HASH_SIZE; u++)
++		INIT_LIST_HEAD(&mount_hashtable[u]);
+ 
+-	/* And initialize the newly allocated array */
+-	d = mount_hashtable;
+-	i = nr_hash;
+-	do {
+-		INIT_LIST_HEAD(d);
+-		d++;
+-		i--;
+-	} while (i);
+ 	err = sysfs_init();
+ 	if (err)
+ 		printk(KERN_WARNING "%s: sysfs_init error: %d\n",
+diff -urBp a/include/asm-mips/bitops.h b/include/asm-mips/bitops.h
+--- a/include/asm-mips/bitops.h	2010-09-26 04:00:00.000000000 +0400
++++ b/include/asm-mips/bitops.h	2010-09-26 10:51:08.000000000 +0400
+@@ -456,7 +456,7 @@ static inline int test_and_change_bit(un
+  * Return the bit position (0..63) of the most significant 1 bit in a word
+  * Returns -1 if no 1 bit exists
+  */
+-static inline int __ilog2(unsigned long x)
++static inline unsigned long __fls(unsigned long x)
+ {
+ 	int lz;
+ 
+@@ -485,8 +485,6 @@ static inline int __ilog2(unsigned long
+ 	return 63 - lz;
+ }
+ 
+-#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
+-
+ /*
+  * __ffs - find first bit in word.
+  * @word: The word to search
+@@ -496,7 +494,7 @@ static inline int __ilog2(unsigned long
+  */
+ static inline unsigned long __ffs(unsigned long word)
+ {
+-	return __ilog2(word & -word);
++	return __fls(word & -word);
+ }
+ 
+ /*
+@@ -524,6 +522,8 @@ static inline int fls64(__u64 word)
+ #include <asm-generic/bitops/fls64.h>
+ #endif
+ 
++#if defined(CONFIG_CPU_MIPS32) || defined(CONFIG_CPU_MIPS64)
++
+ /*
+  * ffs - find first bit set.
+  * @word: The word to search
+@@ -543,6 +543,7 @@ static inline int ffs(int word)
+ #else
+ 
+ #include <asm-generic/bitops/__ffs.h>
++#include <asm-generic/bitops/__fls.h>
+ #include <asm-generic/bitops/ffs.h>
+ #include <asm-generic/bitops/fls.h>
+ #include <asm-generic/bitops/fls64.h>
+-- 
