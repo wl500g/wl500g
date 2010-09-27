@@ -30,28 +30,40 @@ function loadWidzard()
 <td>
 <table align="center" width="1" BORDER=0 CELLSPACING=0 CELLPADDING=0 BGCOLOR=#FFFFCC>
 <script language="JavaScript">
-if ( document.form.ImageSize.value == "0") // 640 X 480
+if ( document.form.ImageSize.value == "1") // 1600 X 1200
 {
-     width = 640;
-     height = 480;
+	width = 1600;
+	height = 1200;
 }
-else if ( document.form.ImageSize.value == "1") // 320 X 240
-{    
-     width = 320;
-     height = 240;	
-}
-else 
+else if ( document.form.ImageSize.value == "2") // 1280 X 1024
 {
-     if (document.form.CameraModel.value == "0" ) //PWC
-     {	
-     	width = 160;
-     	height = 120;
-     }
-     else
-     {
-     	width = 176;
-     	height = 144;
-     }		     
+	width = 1280;
+	height = 1024;
+}
+else if ( document.form.ImageSize.value == "3") // 1024 X 768
+{
+	width = 1024;
+	height = 768;
+}
+else if ( document.form.ImageSize.value == "4") // 800 X 600
+{
+	width = 800;
+	height = 600;
+}
+else if ( document.form.ImageSize.value == "5") // 640 X 480
+{
+	width = 640;
+	height = 480;
+}
+else if ( document.form.ImageSize.value == "6") // 320 X 240
+{
+	width = 320;
+	height = 240;
+}
+else
+{
+        width = 160;
+	height = 120;
 }
 
 var image = 'http://' + '<% nvram_get_x("PrinterStatus","lan_ipaddr"); %>' + ':' + '<% nvram_get_x("PrinterStatus","usb_webhttpport_x"); %>' + '/?action=stream';

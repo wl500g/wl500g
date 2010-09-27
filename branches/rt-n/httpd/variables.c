@@ -2228,11 +2228,19 @@
            	
               {"usb_webimage_x", "", validate_choice, ARGV(              
               
-                   "0:640 X 480",
+                   "1:1600 X 1200",
               
-                   "1:320 X 240",
+                   "2:1280 X 1024",
               
-                   "2:160 X 120",
+                   "3:1024 X 768",
+              
+                   "4:800 X 600",
+              
+                   "5:640 X 480",
+              
+                   "6:320 X 240",
+              
+                   "7:160 X 120",
               
               0), FALSE, FALSE},
            	
@@ -2250,8 +2258,6 @@
                                  
              {"usb_webfresh_x", "", validate_range, ARGV("1", "30", ""), FALSE, FALSE},
                                                 
-                    {"usb_webcaption_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
-                              
              {"usb_webhttpport_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
         
                 {"usb_webhttpcheck_x", "", validate_string, ARGV(""), FALSE, FALSE}, 

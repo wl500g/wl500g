@@ -290,15 +290,13 @@
 
 {"usb_webdriver_x", "0", 0},
 
-{"usb_webimage_x", "1", 0},
+{"usb_webimage_x", "6", 0},
 
 {"usb_websense_x", "1", 0},
 
 {"usb_webrectime_x", "0", 0},
 
 {"usb_webfresh_x", "1", 0},
-
-{"usb_webcaption_x", "Web Camera Live Demo!!!", 0},
 
 {"usb_webhttpport_x", "7776", 0},
 
