@@ -283,8 +283,8 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	routes = nvram_safe_get(strcat_r(prefix, "routes_rfc", buf));
 	if (!*routes)
 		routes = nvram_safe_get(strcat_r(prefix, "routes_ms", buf));
-
-	for (tmp = strdup(routes); tmp && *tmp; )
+	routes = strdup(routes);
+	for (tmp = routes; tmp && *tmp; )
 	{
 		ipaddr  = strsep(&tmp, "/");
 		bits    = atoi(strsep(&tmp, " "));
