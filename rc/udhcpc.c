@@ -86,7 +86,9 @@ bound(void)
 	char *wan_ifname = safe_getenv("interface");
 	char *value;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char route[] = "255.255.255.255/255";
 	int unit;
+	int gateway = 0;
 
 	if ((unit = wan_ifunit(wan_ifname)) < 0) 
 		strcpy(prefix, "wanx_");
@@ -97,27 +99,33 @@ bound(void)
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 	if ((value = getenv("subnet")))
 		nvram_set(strcat_r(prefix, "netmask", tmp), trim_r(value));
-        if ((value = getenv("router")))
+        if ((value = getenv("router"))) {
 		nvram_set(strcat_r(prefix, "gateway", tmp), trim_r(value));
+		gateway = 1;
+	}
 	if ((value = getenv("dns")))
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
-
-	/* rfc3442 classless static routes */
-	value = getenv("staticroutes");
-	nvram_set(strcat_r(prefix, "routes_rfc", tmp), value);
-	if ((value = strstr(value, "0.0.0.0/0 ")))
-	{
-		value = strncpy(tmp, value + strlen("0.0.0.0/0 "), sizeof(tmp));
-		nvram_set(strcat_r(prefix, "gateway", tmp), strsep(&value, " "));
-	}
 
 	/* classful static routes*/
 	nvram_set(strcat_r(prefix, "routes", tmp), getenv("routes"));
 
 	/* ms classless static routes*/
 	nvram_set(strcat_r(prefix, "routes_ms", tmp), getenv("msstaticroutes"));
+
+	/* rfc3442 classless static routes */
+	nvram_set(strcat_r(prefix, "routes_rfc", tmp), getenv("staticroutes"));
+
+	if (!gateway) {
+		foreach(route, nvram_safe_get(strcat_r(prefix, "routes_rfc", tmp)), value) {
+			if (gateway) {
+				nvram_set(strcat_r(prefix, "gateway", tmp), route);
+				break;
+			} else
+				gateway = !strcmp(route, "0.0.0.0/0");
+		}
+    	}
 
 #if 0
 	if ((value = getenv("hostname")))
