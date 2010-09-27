@@ -30,7 +30,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the size of image.', LEFT);" onMouseOut="return nd();">Image Size:
-           </td><td class="content_input_td"><select name="usb_webimage_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webimage_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webimage_x", "0","selected"); %>>640 X 480</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webimage_x", "1","selected"); %>>320 X 240</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_webimage_x", "2","selected"); %>>160 X 120</option></select><a href="javascript:openLink('x_WImageStatic')" class="content_input_link" name="x_WImageStatic_link">Preview
+           </td><td class="content_input_td"><select name="usb_webimage_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webimage_x')"><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webimage_x", "1","selected"); %>>1600 X 1200</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_webimage_x", "2","selected"); %>>1280 X 1024</option><option class="content_input_fd" value="3" <% nvram_match_x("PrinterStatus","usb_webimage_x", "3","selected"); %>>1024 X 768</option><option class="content_input_fd" value="4" <% nvram_match_x("PrinterStatus","usb_webimage_x", "4","selected"); %>>800 X 600</option><option class="content_input_fd" value="5" <% nvram_match_x("PrinterStatus","usb_webimage_x", "5","selected"); %>>640 X 480</option><option class="content_input_fd" value="6" <% nvram_match_x("PrinterStatus","usb_webimage_x", "6","selected"); %>>320 X 240</option><option class="content_input_fd" value="7" <% nvram_match_x("PrinterStatus","usb_webimage_x", "7","selected"); %>>160 X 120</option></select><a href="javascript:openLink('x_WImageStatic')" class="content_input_link" name="x_WImageStatic_link">Preview
              </a></td>
 </tr>
 <tr>
@@ -40,10 +40,6 @@
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the image refresh rate per second. The range of value is 1~30.', LEFT);" onMouseOut="return nd();">Frames Per Second:
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 30)" onKeyPress="return is_number(this)"></td>
-</tr>
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the string that will be the title displayed on your Webcam page.', LEFT);" onMouseOut="return nd();">Caption String:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="usb_webcaption_x" value="<% nvram_get_x("PrinterStatus","usb_webcaption_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port that http server listens on to communicate.', LEFT);" onMouseOut="return nd();">HTTP Port:
