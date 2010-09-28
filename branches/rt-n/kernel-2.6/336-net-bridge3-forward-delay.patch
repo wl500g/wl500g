@@ -1,0 +1,80 @@
+From f9c33296a1e1eba3386258dffebd3870fb0af45e
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 23 Sep 2010 01:36:20 -0400
+Subject: [PATCH] [BRIDGE]: Eliminate unnecessary forward delay, cosmetics
+
+02f44315dc4bce8a222564aa023c965efbeb73b5 [BRIDGE]: Fix typo in net/bridge/br_stp_if.c
+ef647f1300d69adb8223d970554d59d7e244db6d bridge: Eliminate unnecessary forward delay
+0bb32417ff0f6ac385e4eec3ef6641950bbb3694 bridge: avoid an extra space in br_fdb_update()
+
+---
+ net/bridge/br_fdb.c    |    2 +-
+ net/bridge/br_stp.c    |   25 ++++++++++++++-----
+ net/bridge/br_stp_if.c |    2 +-
+ 3 files changed, 20 insertions(+), 9 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 91bf29b..2327564 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -395,7 +395,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 		if (unlikely(fdb->is_local)) {
+ 			if (net_ratelimit())
+ 				printk(KERN_WARNING "%s: received packet with "
+-				       " own address as source address\n",
++				       "own address as source address\n",
+ 				       source->dev->name);
+ 		} else {
+ 			/* fastpath: update of existing entry */
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index e38034a..2e8b293 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -369,14 +369,25 @@ static void br_make_blocking(struct net_bridge_port *p)
+ /* called under bridge lock */
+ static void br_make_forwarding(struct net_bridge_port *p)
+ {
+-	if (p->state == BR_STATE_BLOCKING) {
+-		if (p->br->stp_enabled == BR_KERNEL_STP)
+-			p->state = BR_STATE_LISTENING;
+-		else
+-			p->state = BR_STATE_LEARNING;
++	struct net_bridge *br = p->br;
+ 
+-		br_log_state(p);
+-		mod_timer(&p->forward_delay_timer, jiffies + p->br->forward_delay);	}
++	if (p->state != BR_STATE_BLOCKING)
++		return;
++
++	if (br->forward_delay == 0) {
++		p->state = BR_STATE_FORWARDING;
++		br_topology_change_detection(br);
++		del_timer(&p->forward_delay_timer);
++	}
++	else if (p->br->stp_enabled == BR_KERNEL_STP)
++		p->state = BR_STATE_LISTENING;
++	else
++		p->state = BR_STATE_LEARNING;
++
++	br_log_state(p);
++
++	if (br->forward_delay != 0)
++		mod_timer(&p->forward_delay_timer, jiffies + br->forward_delay);
+ }
+ 
+ /* called under bridge lock */
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 1059ba3..f15550a 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -132,7 +132,7 @@ static void br_stp_start(struct net_bridge *br)
+ 	} else {
+ 		br->stp_enabled = BR_KERNEL_STP;
+ 		printk(KERN_INFO "%s: starting userspace STP failed, "
+-				"staring kernel STP\n", br->dev->name);
++				"starting kernel STP\n", br->dev->name);
+ 
+ 		/* To start timers on any ports left in blocking */
+ 		spin_lock_bh(&br->lock);
+-- 
+1.6.5.GIT
