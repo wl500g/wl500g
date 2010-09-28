@@ -13,7 +13,7 @@
 #
 
 UTILS := wl nas eapd mii-tool robocfg
-CFLAGS += -s -Os -I$(SRCBASE)/include -I$(LINUXDIR)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
+CFLAGS += -s -Os -I$(SRCBASE)/include -isystem$(LINUXDIR)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
 

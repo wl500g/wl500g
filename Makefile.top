@@ -438,9 +438,9 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 ifeq ($(CONFIG_WAVESERVER),y)
 	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
 endif
-	# Install binary Addons, if any
+	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
-            ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
+            ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
         fi )
         # Install modules into filesystem
 	$(MAKE) modules_install-$*
