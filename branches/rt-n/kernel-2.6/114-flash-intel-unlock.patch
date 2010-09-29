@@ -1,0 +1,31 @@
+From bbe828f0c4d78fe1cb6d463f187b1d567057ddc4
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 22 Sep 2010 00:28:24 -0400
+Subject: [PATCH] kernel: Intel flash unlock timeout fix (patch from dd-wrt)
+
+Intel flash unlock timeout fix: The time parameters to
+WAIT_TIMEOUT are in units of microseconds, so one second
+must be expressed as 1000000 not 1000000/HZ.
+
+Ref: http://svn.dd-wrt.com:8000/dd-wrt/changeset/15236
+
+---
+ drivers/mtd/chips/cfi_cmdset_0001.c  |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/mtd/chips/cfi_cmdset_0001.c b/drivers/mtd/chips/cfi_cmdset_0001.c
+index ff5cfa4..be2e842 100644
+--- a/drivers/mtd/chips/cfi_cmdset_0001.c
++++ b/drivers/mtd/chips/cfi_cmdset_0001.c
+@@ -1906,7 +1906,7 @@ static int __xipram do_xxlock_oneblock(struct map_info *map, struct flchip *chip
+ 	 * If Instant Individual Block Locking supported then no need
+ 	 * to delay.
+ 	 */
+-	udelay = (!extp || !(extp->FeatureSupport & (1 << 5))) ? 1000000/HZ : 0;
++	udelay = (!extp || !(extp->FeatureSupport & (1 << 5))) ? 1000000 : 0;
+ 
+ 	ret = WAIT_TIMEOUT(map, chip, adr, udelay);
+ 	if (ret) {
+-- 
+1.6.5.GIT
+
