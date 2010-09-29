@@ -40,6 +40,8 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 
 3eec0047d9bdd68fddef6539e77fee99ba2531f2 [TCP]: Fix mark_head_lost to ignore R-bit when trying to mark L
 261ab365fadd53ddc1b292b1663800e11fbf3e71 [TCP]: Another TAGBITS -> SACKED_ACKED|LOST conversion
+b3de7559afbb7a8a35b4be975a6adf6c5e3cdca0 tcp: fix TSO FACK loss marking in tcp_mark_head_lost
+
 ---
 
  net/ipv4/tcp_input.c |   31 +++++++++++++++++++++++++------
@@ -60,7 +62,7 @@ index 5573202..7d09587 100644
  
  	if (packets == 0)
  		return;
-@@ -1773,10 +1773,27 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+@@ -1773,10 +1773,28 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
  		/* this is not the most efficient way to do this... */
  		tp->lost_skb_hint = skb;
  		tp->lost_cnt_hint = cnt;
@@ -78,7 +80,8 @@ index 5573202..7d09587 100644
 +			cnt += tcp_skb_pcount(skb);
 +
 +		if (cnt > packets) {
-+			if (tp->rx_opt.sack_ok || (oldcnt >= packets))
++			if ((tp->rx_opt.sack_ok && !IsFack(tp)) ||
++			    (oldcnt >= packets))
 +				break;
 +
 +			mss = skb_shinfo(skb)->gso_size;
