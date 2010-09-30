@@ -5,10 +5,10 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r2174` (2010-09-30)===
   * kernel 2.4.37.10
     * accel-pptp 0.8.5
-    * mm/fs/net/nfs backports
+    * mm/fs/nfs/net/bridge backports
     * nfs/usb fixes from [http://rhkernel.org RedHat] RHEL3 63.EL
     * RFC 2385 (TCP MD5) patch by Hasso Teppe (EXPERIMENTAL)
     * usb-serial - !SiLabs CP210x Driver from [http://www.etheus.net/CP210x_Linux_Driver etheus.net] (EXPERIMENTAL)
@@ -27,6 +27,7 @@
     * fix vlans mapping in bridged mode (issue 136)
 
   * busybox 1.17.2
+    * bugfixes (ash, sleep, wget)
 
   * usb_modeswitch 1.1.4
     * usb-modeswitch-data 20100826
