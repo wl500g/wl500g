@@ -1,0 +1,43 @@
+From 5487796f0c9475586277a0a7a91211ce5746fa6a
+From: Sam Jansen
+Date: Mon, 19 Nov 2007 23:28:21 -0800
+Subject: [PATCH] [TCP]: Problem bug with sysctl_tcp_congestion_control function
+
+From: "Sam Jansen" <sjansen@google.com>
+
+sysctl_tcp_congestion_control seems to have a bug that prevents it
+from actually calling the tcp_set_default_congestion_control
+function. This is not so apparent because it does not return an error
+and generally the /proc interface is used to configure the default TCP
+congestion control algorithm.  This is present in 2.6.18 onwards and
+probably earlier, though I have not inspected 2.6.15--2.6.17.
+
+sysctl_tcp_congestion_control calls sysctl_string and expects a successful
+return code of 0. In such a case it actually sets the congestion control
+algorithm with tcp_set_default_congestion_control. Otherwise, it returns the
+value returned by sysctl_string. This was correct in 2.6.14, as sysctl_string
+returned 0 on success. However, sysctl_string was updated to return 1 on
+success around about 2.6.15 and sysctl_tcp_congestion_control was not updated.
+Even though sysctl_tcp_congestion_control returns 1, do_sysctl_strategy
+converts this return code to '0', so the caller never notices the error.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/sysctl_net_ipv4.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+index ffddd2b..bec6fe8 100644
+--- a/net/ipv4/sysctl_net_ipv4.c
++++ b/net/ipv4/sysctl_net_ipv4.c
+@@ -178,7 +178,7 @@ static int strategy_allowed_congestion_control(
+ 
+ 	tcp_get_available_congestion_control(tbl.data, tbl.maxlen);
+ 	ret = sysctl_string(&tbl, name, nlen, oldval, oldlenp, newval, newlen);
+-	if (ret == 0 && newval && newlen)
++	if (ret == 1 && newval && newlen)
+ 		ret = tcp_set_allowed_congestion_control(tbl.data);
+ 	kfree(tbl.data);
+ 
+-- 
+1.7.3
