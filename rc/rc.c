@@ -149,7 +149,7 @@ stb_set(void)
 {
 	int stbport = atoi(nvram_safe_get("wan_stb_x"));
 
-	if (stbport < 0 || stbport > 4)
+	if (stbport < 0 || stbport > 5)
 		return;
 	if (stbport == 0 && !nvram_match("vlan_set_x", "1"))
 		return;
@@ -164,14 +164,16 @@ stb_set(void)
 					"1 2 3 8*",	// LAN 2 + LAN 3 + LAN 4
 					"1 2 4 8*",	// LAN 1 + LAN 3 + LAN 4
 					"1 3 4 8*",	// LAN 1 + LAN 2 + LAN 4
-					"2 3 4 8*" };	// LAN 1 + LAN 2 + LAN 3
+					"2 3 4 8*",	// LAN 1 + LAN 2 + LAN 3
+					"3 4 8*"}	// LAN 1 + LAN 2
 			/* Set WAN ports */
 			char *vlan2ports[] = {
 					"0 8",		// Defaults
 					"0 4 8",	// WAN + LAN 1
 					"0 3 8",	// WAN + LAN 2
 					"0 2 8",	// WAN + LAN 3
-					"0 1 8" };	// WAN + LAN 4
+					"0 1 8",	// WAN + LAN 4
+					"0 1 2 8"};	// WAN + LAN 3 + LAN 4
 			nvram_set("vlan1ports", vlan1ports[stbport]);
 			nvram_set("vlan2ports", vlan2ports[stbport]);
 			break;
@@ -186,14 +188,16 @@ stb_set(void)
 					"0 1 2 5*",	// LAN 2 + LAN 3 + LAN 4
 					"0 1 3 5*",	// LAN 1 + LAN 3 + LAN 4
 					"0 2 3 5*",	// LAN 1 + LAN 2 + LAN 4
-					"1 2 3 5*" };	// LAN 1 + LAN 2 + LAN 3
+					"1 2 3 5*",	// LAN 1 + LAN 2 + LAN 3
+					"2 3 5*"};	// LAN 1 + LAN 2
 			/* Set WAN ports */
 			char *vlan1ports[] = {
 					"4 5",		// Defaults
 					"3 4 5",	// WAN + LAN 1
 					"2 4 5",	// WAN + LAN 2
 					"1 4 5",	// WAN + LAN 3
-					"4 0 5"};	// WAN + LAN 4
+					"0 4 5",	// WAN + LAN 4
+					"0 1 4 5"};	// WAN + LAN 3 + LAN 4
 			nvram_set("vlan0ports", vlan0ports[stbport]);
 			nvram_set("vlan1ports", vlan1ports[stbport]);
 			break;
@@ -209,15 +213,17 @@ stb_set(void)
 					"1 2 3 4 5*",	// Defaults
 					"2 3 4 5*",	// LAN 2 + LAN 3 + LAN 4
 					"1 3 4 5*",	// LAN 1 + LAN 3 + LAN 4
-					"1 2 4 5*",	// LAN 1 + LAN 2 + LAN 
-					"1 2 3 5*"};	// LAN 1 + LAN 2 + LAN 3
+					"1 2 4 5*",	// LAN 1 + LAN 2 + LAN 4
+					"1 2 3 5*",	// LAN 1 + LAN 2 + LAN 3
+					"1 2 5*"}	// LAN 1 + LAN 2
 			/* Set WAN ports */
 			char *vlan1ports[] = {
 					"0 5",		// Defaults
-					"1 0 5",	// WAN + LAN 1
-					"2 0 5",	// WAN + LAN 2
-					"3 0 5",	// WAN + LAN 3
-					"4 0 5"};	// WAN + LAN 4
+					"0 1 5",	// WAN + LAN 1
+					"0 2 5",	// WAN + LAN 2
+					"0 3 5",	// WAN + LAN 3
+					"0 4 5",	// WAN + LAN 4
+					"0 3 4 5"};	// WAN + LAN 3 + LAN4
 			nvram_set("vlan0ports", vlan0ports[stbport]);
 			nvram_set("vlan1ports", vlan1ports[stbport]);
 			break;

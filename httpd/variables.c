@@ -769,7 +769,7 @@
               
               0), FALSE, FALSE},
                              
-              {"wan_stb_x", "", validate_range, ARGV("0", "4"), FALSE, FALSE},
+              {"wan_stb_x", "", validate_range, ARGV("0", "5"), FALSE, FALSE},
 
       { 0, 0, 0, 0, 0, 0}
       };
