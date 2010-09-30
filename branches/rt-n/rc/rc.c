@@ -165,7 +165,7 @@ stb_set(void)
 					"1 2 4 8*",	// LAN 1 + LAN 3 + LAN 4
 					"1 3 4 8*",	// LAN 1 + LAN 2 + LAN 4
 					"2 3 4 8*",	// LAN 1 + LAN 2 + LAN 3
-					"3 4 8*"}	// LAN 1 + LAN 2
+					"3 4 8*"};	// LAN 1 + LAN 2
 			/* Set WAN ports */
 			char *vlan2ports[] = {
 					"0 8",		// Defaults
@@ -215,7 +215,7 @@ stb_set(void)
 					"1 3 4 5*",	// LAN 1 + LAN 3 + LAN 4
 					"1 2 4 5*",	// LAN 1 + LAN 2 + LAN 4
 					"1 2 3 5*",	// LAN 1 + LAN 2 + LAN 3
-					"1 2 5*"}	// LAN 1 + LAN 2
+					"1 2 5*"};	// LAN 1 + LAN 2
 			/* Set WAN ports */
 			char *vlan1ports[] = {
 					"0 5",		// Defaults
