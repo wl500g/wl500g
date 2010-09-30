@@ -31,6 +31,7 @@ IPROUTE2=iproute2-2.4.7-now-ss020116-try
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
+MINIUPNPD=miniupnpd-1.4.20100921
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
@@ -95,7 +96,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd ntfs-3g\
-	shared upnp utils wlconf www libbcmcrypto asustrx cdma
+	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -627,6 +628,17 @@ upnp:
 
 upnp-diff:
 	$(call make_diff,-BurpN,tools,gateway,upnp)
+
+miniupnpd_Patches := $(call patches_list,miniupnpd)
+
+$(TOP)/miniupnpd: miniupnpd/$(MINIUPNPD).tar.gz
+	rm -rf $(TOP)/$(MINIUPNPD) $@
+	tar -zxf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(MINIUPNPD) $(miniupnpd_Patches)
+	mv $(TOP)/$(MINIUPNPD) $@ && touch $@
+
+miniupnpd: $(TOP)/miniupnpd
+	@true
 
 $(TOP)/httpd:
 	[ -d $@ ] || \

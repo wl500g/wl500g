@@ -133,6 +133,7 @@ obj-$(CONFIG_NVRAM) += nvram
 obj-$(CONFIG_PPP) += ppp
 obj-$(CONFIG_UDHCPD) += udhcpd
 obj-$(CONFIG_UPNP) += upnp
+obj-$(CONFIG_MINIUPNPD) += miniupnpd
 obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
 
@@ -709,6 +710,9 @@ ntpclient-install: ntpclient
 	$(STRIP) $(INSTALLDIR)/ntpclient/usr/sbin/ntpclient
 
 upnp: netconf nvram shared
+
+miniupnpd: iptables
+	@true
 
 wlconf: nvram shared
 
