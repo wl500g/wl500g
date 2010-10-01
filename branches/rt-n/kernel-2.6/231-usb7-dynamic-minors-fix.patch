@@ -1,0 +1,121 @@
+From 0026e00523a85b90a92a93ddf6660939ecef3e54
+From: Alan Stern
+Date: Tue, 21 Sep 2010 15:01:53 -0400
+Subject: [PATCH] USB: fix bug in initialization of interface minor numbers
+
+Recent changes in the usbhid layer exposed a bug in usbcore.  If
+CONFIG_USB_DYNAMIC_MINORS is enabled then an interface may be assigned
+a minor number of 0.  However interfaces that aren't registered as USB
+class devices also have their minor number set to 0, during
+initialization.  As a result usb_find_interface() may return the
+wrong interface, leading to a crash.
+
+This patch (as1418) fixes the problem by initializing every
+interface's minor number to -1.  It also cleans up the
+usb_register_dev() function, which besides being somewhat awkwardly
+written, does not unwind completely on all its error paths.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Tested-by: Philip J. Turmel <philip@turmel.org>
+Tested-by: Gabriel Craciunescu <nix.or.die@googlemail.com>
+Tested-by: Alex Riesen <raa.lkml@gmail.com>
+Tested-by: Matthias Bayer <jackdachef@gmail.com>
+CC: Jiri Kosina <jkosina@suse.cz>
+Cc: stable <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ drivers/usb/core/file.c    |   35 ++++++++++++++++-------------------
+ drivers/usb/core/message.c |    1 +
+ 2 files changed, 17 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/usb/core/file.c b/drivers/usb/core/file.c
+index f06f5db..1e6ccef 100644
+--- a/drivers/usb/core/file.c
++++ b/drivers/usb/core/file.c
+@@ -144,9 +144,9 @@ void usb_major_cleanup(void)
+ int usb_register_dev(struct usb_interface *intf,
+ 		     struct usb_class_driver *class_driver)
+ {
+-	int retval = -EINVAL;
++	int retval;
+ 	int minor_base = class_driver->minor_base;
+-	int minor = 0;
++	int minor;
+ 	char name[BUS_ID_SIZE];
+ 	char *temp;
+ 
+@@ -158,12 +158,17 @@ int usb_register_dev(struct usb_interface *intf,
+ 	 */
+ 	minor_base = 0;
+ #endif
+-	intf->minor = -1;
+-
+-	dbg ("looking for a minor, starting at %d", minor_base);
+ 
+ 	if (class_driver->fops == NULL)
+-		goto exit;
++		return -EINVAL;
++	if (intf->minor >= 0)
++		return -EADDRINUSE;
++
++	retval = init_usb_class();
++	if (retval)
++		return retval;
++
++	dev_dbg(&intf->dev, "looking for a minor, starting at %d", minor_base);
+ 
+ 	down_write(&minor_rwsem);
+ 	for (minor = minor_base; minor < MAX_USB_MINORS; ++minor) {
+@@ -171,20 +176,12 @@ int usb_register_dev(struct usb_interface *intf,
+ 			continue;
+ 
+ 		usb_minors[minor] = class_driver->fops;
+-
+-		retval = 0;
++		intf->minor = minor;
+ 		break;
+ 	}
+ 	up_write(&minor_rwsem);
+-
+-	if (retval)
+-		goto exit;
+-
+-	retval = init_usb_class();
+-	if (retval)
+-		goto exit;
+-
+-	intf->minor = minor;
++	if (intf->minor < 0)
++		return -EXFULL;
+ 
+ 	/* create a usb class device for this usb interface */
+ 	snprintf(name, BUS_ID_SIZE, class_driver->name, minor - minor_base);
+@@ -197,11 +194,11 @@ int usb_register_dev(struct usb_interface *intf,
+ 				      MKDEV(USB_MAJOR, minor), "%s", temp);
+ 	if (IS_ERR(intf->usb_dev)) {
+ 		down_write(&minor_rwsem);
+-		usb_minors[intf->minor] = NULL;
++		usb_minors[minor] = NULL;
++		intf->minor = -1;
+ 		up_write(&minor_rwsem);
+ 		retval = PTR_ERR(intf->usb_dev);
+ 	}
+-exit:
+ 	return retval;
+ }
+ EXPORT_SYMBOL_GPL(usb_register_dev);
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 844683e..9f0ce7d 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1709,6 +1709,7 @@ free_interfaces:
+ 		intf->dev.groups = usb_interface_groups;
+ 		intf->dev.dma_mask = dev->dev.dma_mask;
+ 		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
++		intf->minor = -1;
+ 		device_initialize(&intf->dev);
+ 		mark_quiesced(intf);
+ 		sprintf(&intf->dev.bus_id[0], "%d-%s:%d.%d",
+-- 
+1.7.3
