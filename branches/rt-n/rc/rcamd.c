@@ -65,25 +65,22 @@ hotplug_usb_webcam(char *product)
 	// image size
 	switch (atoi(nvram_safe_get("usb_webimage_x")))
 	{
-		case 1:
-			res = "1600x1200";
-			break;
-		case 2:
+		case 5:
 			res = "1280x1024";
 			break;
-		case 3:
+		case 4:
 			res = "1024x768";
 			break;
-		case 4:
+		case 3:
 			res = "800x600";
 			break;
-		case 5:
+		case 2:
 			res = "640x480";
 			break;
-		case 6:
+		case 1:
 			res = "320x240";
 			break;
-		case 7:
+		case 0:
 		default:
 			res = "160x120";
 			break;

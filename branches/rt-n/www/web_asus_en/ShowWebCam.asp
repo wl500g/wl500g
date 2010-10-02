@@ -30,32 +30,27 @@ function loadWidzard()
 <td>
 <table align="center" width="1" BORDER=0 CELLSPACING=0 CELLPADDING=0 BGCOLOR=#FFFFCC>
 <script language="JavaScript">
-if ( document.form.ImageSize.value == "1") // 1600 X 1200
-{
-	width = 1600;
-	height = 1200;
-}
-else if ( document.form.ImageSize.value == "2") // 1280 X 1024
+if ( document.form.ImageSize.value == "5") // 1280 X 1024
 {
 	width = 1280;
 	height = 1024;
 }
-else if ( document.form.ImageSize.value == "3") // 1024 X 768
+else if ( document.form.ImageSize.value == "4") // 1024 X 768
 {
 	width = 1024;
 	height = 768;
 }
-else if ( document.form.ImageSize.value == "4") // 800 X 600
+else if ( document.form.ImageSize.value == "3") // 800 X 600
 {
 	width = 800;
 	height = 600;
 }
-else if ( document.form.ImageSize.value == "5") // 640 X 480
+else if ( document.form.ImageSize.value == "2") // 640 X 480
 {
 	width = 640;
 	height = 480;
 }
-else if ( document.form.ImageSize.value == "6") // 320 X 240
+else if ( document.form.ImageSize.value == "1") // 320 X 240
 {
 	width = 320;
 	height = 240;
