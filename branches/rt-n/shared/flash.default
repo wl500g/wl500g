@@ -290,6 +290,8 @@
 
 {"usb_webdriver_x", "0", 0},
 
+{"usb_webformat_x", "0", 0},
+
 {"usb_webimage_x", "1", 0},
 
 {"usb_websense_x", "1", 0},

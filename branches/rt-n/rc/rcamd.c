@@ -65,6 +65,9 @@ hotplug_usb_webcam(char *product)
 	// image size
 	switch (atoi(nvram_safe_get("usb_webimage_x")))
 	{
+		case 6:
+			res = "1600x1200";
+			break;
 		case 5:
 			res = "1280x1024";
 			break;
@@ -91,6 +94,8 @@ hotplug_usb_webcam(char *product)
 
 	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s", res, nvram_safe_get("usb_webfresh_x"));
 	sprintf(output_plugin_param, "output_http.so -p %s", nvram_safe_get("usb_webhttpport_x"));
+
+	if (nvram_match("usb_webformat_x", "1")) strcat(input_plugin_param," -y");
 
 	chdir("/tmp");
 
