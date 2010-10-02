@@ -24,10 +24,10 @@
 <td class="content_header_td">Enable Web Camera?
            </td><td class="content_input_td"><select name="usb_webenable_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webenable_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webenable_x", "0","selected"); %>>Disabled</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webenable_x", "1","selected"); %>>LAN Only</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_webenable_x", "2","selected"); %>>LAN and WAN</option></select></td>
 </tr>
-<tr>
+<!--<tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the driver used for your web camera.', LEFT);" onMouseOut="return nd();">Web Camera Driver:
            </td><td class="content_input_td"><select name="usb_webdriver_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webdriver_x')"><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "0","selected"); %>>PWC 9.0.2</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webdriver_x", "1","selected"); %>>OV51x 1.65-1.12</option></select></td>
-</tr>
+</tr>-->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the size of image.', LEFT);" onMouseOut="return nd();">Image Size:
            </td><td class="content_input_td"><select name="usb_webimage_x" class="content_input_fd" onChange="return change_common(this, 'PrinterStatus', 'usb_webimage_x')"><option class="content_input_fd" value="5" <% nvram_match_x("PrinterStatus","usb_webimage_x", "5","selected"); %>>1280 X 1024</option><option class="content_input_fd" value="4" <% nvram_match_x("PrinterStatus","usb_webimage_x", "4","selected"); %>>1024 X 768</option><option class="content_input_fd" value="3" <% nvram_match_x("PrinterStatus","usb_webimage_x", "3","selected"); %>>800 X 600</option><option class="content_input_fd" value="2" <% nvram_match_x("PrinterStatus","usb_webimage_x", "2","selected"); %>>640 X 480</option><option class="content_input_fd" value="1" <% nvram_match_x("PrinterStatus","usb_webimage_x", "1","selected"); %>>320 X 240</option><option class="content_input_fd" value="0" <% nvram_match_x("PrinterStatus","usb_webimage_x", "0","selected"); %>>160 X 120</option></select><a href="javascript:openLink('x_WImageStatic')" class="content_input_link" name="x_WImageStatic_link">Preview
