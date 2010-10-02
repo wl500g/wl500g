@@ -2226,6 +2226,14 @@
               
               0), FALSE, FALSE},
            	
+              {"usb_webformat_x", "", validate_choice, ARGV(              
+              
+                   "0:MJPEG",
+              
+                   "1:YUV",
+              
+              0), FALSE, FALSE},
+           	
               {"usb_webimage_x", "", validate_choice, ARGV(              
               
                    "0:160 X 120",
@@ -2239,6 +2247,8 @@
                    "4:1024 X 768",
               
                    "5:1280 X 1024",
+              
+                   "6:1600 X 1200",
               
               0), FALSE, FALSE},
            	
