@@ -4,18 +4,20 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 17 Feb 2010 21:25:57 -0500
 
 kernel.org commits
-8fccae2c95506270f74ee8429c273b0924e89c83
-a414f01ac2899f273ef8fe98fa44158ac12793f2
-f653398c86a1c104f0992bd788dd4bb065449be4
-84c95c9acf088c99d8793d78036b67faa5d0b851
-b5f54b07c06f6e438a4fee92c27423e880d8816b
+ 8fccae2c95506270f74ee8429c273b0924e89c83 sscanf(): fix %*s%n
+ a414f01ac2899f273ef8fe98fa44158ac12793f2 strcmp: fix overflow and possibly signedness error
+ f653398c86a1c104f0992bd788dd4bb065449be4 string: factorize skip_spaces and export it to be generally available
+ 84c95c9acf088c99d8793d78036b67faa5d0b851 string: on strstrip(), first remove leading spaces before running over str
+ b5f54b07c06f6e438a4fee92c27423e880d8816b parser: remove unnecessary strlen()
+ a11d2b64e1f2556953120d516241243ea365f0ae lib/string.c: simplify stricmp()
+
 ---
- include/linux/ctype.h  |    1 +
- include/linux/string.h |    1 +
- lib/parser.c           |   11 ++++--
- lib/string.c           |   39 +++++++++++++++-----
- lib/vsprintf.c         |    2 +-
- 5 files changed, 39 insertions(+), 15 deletions(-)
+ include/linux/ctype.h  |    1 
+ include/linux/string.h |    1 
+ lib/parser.c           |   11 ++++---
+ lib/string.c           |   73 +++++++++++++++++++++++++++++--------------------
+ lib/vsprintf.c         |    2 -
+ 5 files changed, 54 insertions(+), 34 deletions(-)
 
 diff --git a/include/linux/ctype.h b/include/linux/ctype.h
 index afa3639..cd51b3c 100644
@@ -70,7 +72,48 @@ diff --git a/lib/string.c b/lib/string.c
 index 5efafed..8f95ce2 100644
 --- a/lib/string.c
 +++ b/lib/string.c
-@@ -246,13 +246,17 @@ EXPORT_SYMBOL(strlcat);
+@@ -36,25 +36,21 @@ int strnicmp(const char *s1, const char
+ 	/* Yes, Virginia, it had better be unsigned */
+ 	unsigned char c1, c2;
+ 
+-	c1 = c2 = 0;
+-	if (len) {
+-		do {
+-			c1 = *s1;
+-			c2 = *s2;
+-			s1++;
+-			s2++;
+-			if (!c1)
+-				break;
+-			if (!c2)
+-				break;
+-			if (c1 == c2)
+-				continue;
+-			c1 = tolower(c1);
+-			c2 = tolower(c2);
+-			if (c1 != c2)
+-				break;
+-		} while (--len);
+-	}
++	if (!len)
++		return 0;
++
++	do {
++		c1 = *s1++;
++		c2 = *s2++;
++		if (!c1 || !c2)
++			break;
++		if (c1 == c2)
++			continue;
++		c1 = tolower(c1);
++		c2 = tolower(c2);
++		if (c1 != c2)
++			break;
++	} while (--len);
+ 	return (int)c1 - (int)c2;
+ }
+ EXPORT_SYMBOL(strnicmp);
+@@ -246,13 +242,17 @@ EXPORT_SYMBOL(strlcat);
  #undef strcmp
  int strcmp(const char *cs, const char *ct)
  {
@@ -91,7 +134,7 @@ index 5efafed..8f95ce2 100644
  }
  EXPORT_SYMBOL(strcmp);
  #endif
-@@ -266,14 +270,18 @@ EXPORT_SYMBOL(strcmp);
+@@ -266,14 +266,18 @@ EXPORT_SYMBOL(strcmp);
   */
  int strncmp(const char *cs, const char *ct, size_t count)
  {
@@ -113,7 +156,7 @@ index 5efafed..8f95ce2 100644
  }
  EXPORT_SYMBOL(strncmp);
  #endif
-@@ -330,6 +338,20 @@ EXPORT_SYMBOL(strnchr);
+@@ -330,6 +334,20 @@ EXPORT_SYMBOL(strnchr);
  #endif
  
  /**
@@ -134,7 +177,7 @@ index 5efafed..8f95ce2 100644
   * strstrip - Removes leading and trailing whitespace from @s.
   * @s: The string to be stripped.
   *
-@@ -342,8 +364,8 @@ char *strstrip(char *s)
+@@ -342,8 +360,8 @@ char *strstrip(char *s)
  	size_t size;
  	char *end;
  
@@ -144,7 +187,7 @@ index 5efafed..8f95ce2 100644
  	if (!size)
  		return s;
  
-@@ -352,9 +374,6 @@ char *strstrip(char *s)
+@@ -352,9 +370,6 @@ char *strstrip(char *s)
  		end--;
  	*(end + 1) = '\0';
  
@@ -169,4 +212,3 @@ index 0172902..1462f3f 100644
  				str++;
 -- 
 1.6.5.GIT
-
