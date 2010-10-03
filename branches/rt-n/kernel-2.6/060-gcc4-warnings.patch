@@ -1,0 +1,33 @@
+Fix gcc4 compile-time warnings
+
+ kernel.org commits
+ fc7b93800b48324667e218a4b6b784b853cf4dd7 [IPV4]: Fix inetpeer gcc-4.2 warnings
+
+---
+ net/ipv4/inetpeer.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/inetpeer.c b/net/ipv4/inetpeer.c
+index 6cbce96..771031d 100644
+--- a/net/ipv4/inetpeer.c
++++ b/net/ipv4/inetpeer.c
+@@ -158,7 +158,7 @@ static void unlink_from_unused(struct inet_peer *p)
+ #define lookup(_daddr,_stack) 					\
+ ({								\
+ 	struct inet_peer *u, **v;				\
+-	if (_stack) {						\
++	if (_stack != NULL) {					\
+ 		stackptr = _stack;				\
+ 		*stackptr++ = &peer_root;			\
+ 	}							\
+@@ -169,7 +169,7 @@ static void unlink_from_unused(struct inet_peer *p)
+ 			v = &u->avl_left;			\
+ 		else						\
+ 			v = &u->avl_right;			\
+-		if (_stack)					\
++		if (_stack != NULL)				\
+ 			*stackptr++ = v;			\
+ 		u = *v;						\
+ 	}							\
+-- 
+1.7.3.1
