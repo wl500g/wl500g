@@ -250,6 +250,11 @@ void gpio_init(void)
 			ready_mask = GPIO1, ready_value = 0;
 			setup_mask = GPIO2, setup_value = 0;
 			break;
+		case MDL_WNR3500L:
+			reset_mask = GPIO4, reset_value = 0;
+			ready_mask = GPIO3, ready_value = 0;
+			setup_mask = GPIO6, setup_value = 0;
+			break;
 	}
 	gpio_write(GPIO_DEV_OUTEN, ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
