@@ -92,10 +92,9 @@ hotplug_usb_webcam(char *product)
 //	mkdir("/tmp/webcam", 0777);
 //	symlink("/var/tmp/display.jpg", "/tmp/webcam/display.jpg");
 
-	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s", res, nvram_safe_get("usb_webfresh_x"));
+	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s %s", res, nvram_safe_get("usb_webfresh_x"),
+		(nvram_match("usb_webformat_x", "1") ? "-y" : ""));
 	sprintf(output_plugin_param, "output_http.so -p %s", nvram_safe_get("usb_webhttpport_x"));
-
-	if (nvram_match("usb_webformat_x", "1")) strcat(input_plugin_param," -y");
 
 	chdir("/tmp");
 
