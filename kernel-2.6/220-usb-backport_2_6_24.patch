@@ -28436,7 +28436,7 @@ diff --git a/drivers/usb/usb-skeleton.c b/drivers/usb/usb-skeleton.c
  		err ("%s - error, can't find device for minor %d",
  		     __FUNCTION__, subminor);
  		retval = -ENODEV;
-@@ -95,22 +95,33 @@ static int skel_open(struct inode *inode
+@@ -95,25 +95,37 @@ static int skel_open(struct inode *inode
  
  	dev = usb_get_intfdata(interface);
  	if (!dev) {
@@ -28477,6 +28477,10 @@ diff --git a/drivers/usb/usb-skeleton.c b/drivers/usb/usb-skeleton.c
  
  	/* save our object in the file's private structure */
  	file->private_data = dev;
++	mutex_unlock(&dev->io_mutex);
+ 
+ exit:
+ 	return retval;
 @@ -129,7 +140,7 @@ static int skel_release(struct inode *in
  
  	/* allow the device to be autosuspended */
