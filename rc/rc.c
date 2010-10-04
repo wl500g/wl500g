@@ -157,6 +157,7 @@ stb_set(void)
 	switch (router_model)
 	{
 		case MDL_RTN16:
+		case MDL_WNR3500L:
 			{
 			/* Set LAN ports */
 			char *vlan1ports[] = {
@@ -246,13 +247,15 @@ early_defaults(void)
 
 	if (nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		if (router_model == MDL_RTN16)
+		switch (router_model)
 		{
+		    case MDL_RTN16:
+		    case MDL_WNR3500L:
                         nvram_set("vlan1ports", "0 1 2 3 4 8*");
                         nvram_set("vlan2ports", "8");
-                }
-		else
-		{
+                        break;
+
+                    default:
 			nvram_set("vlan0ports", "0 1 2 3 4 5*");
 			nvram_set("vlan1ports", "5");
 		}
