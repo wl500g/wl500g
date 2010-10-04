@@ -2,14 +2,46 @@
 
 Настройка подключения 3G/CDMA модема
 
+= Содержание =
+ * [GUIUSBNetworkDevices3GCDMA#General_parameters General parameters]
+  * [GUIUSBNetworkDevices3GCDMA#Set_as_WAN_Connection_Type_by_default Set as WAN Connection Type by default]
+  * [GUIUSBNetworkDevices3GCDMA#Zero_CD_Configuration Zero CD Configuration]
+ * [GUIUSBNetworkDevices3GCDMA#Modem_options Modem options]
+  * [GUIUSBNetworkDevices3GCDMA#Modem_type Modem type]
+  * [GUIUSBNetworkDevices3GCDMA#Username Username]
+  * [GUIUSBNetworkDevices3GCDMA#Password Password]
+  * [GUIUSBNetworkDevices3GCDMA#APN APN]
+  * [GUIUSBNetworkDevices3GCDMA#Dial_Number Dial Number]
+  * [GUIUSBNetworkDevices3GCDMA#Call_on_Demand Call on Demand]
+  * [GUIUSBNetworkDevices3GCDMA#Idle_time_before_disconnect_(sec) Idle time before disconnect (sec)]
+  * [GUIUSBNetworkDevices3GCDMA#MTU MTU]
+  * [GUIUSBNetworkDevices3GCDMA#MRU MRU]
+ * [GUIUSBNetworkDevices3GCDMA#Custom_USB_device_parameters Custom USB device parameters]
+  * [GUIUSBNetworkDevices3GCDMA#USB_device_location_ID USB device location ID]
+  * [GUIUSBNetworkDevices3GCDMA#Autodetect_device Autodetect device]
+  * [GUIUSBNetworkDevices3GCDMA#USB_tts(ac)_port USB tts(ac) port]
+  * [GUIUSBNetworkDevices3GCDMA#USB_device_Vendor_ID_(0xabcd) USB device Vendor ID (0xabcd)]
+  * [GUIUSBNetworkDevices3GCDMA#USB_device_Product_ID_(0xefgh) USB device Product ID (0xefgh)]
+  * [GUIUSBNetworkDevices3GCDMA#USB_device_packet_size_(0_for_default) USB device packet size (0 for default)]
+  * [GUIUSBNetworkDevices3GCDMA#USB_device_serial_speed_(usually_921600) USB device serial speed (usually 921600)]
+ * [GUIUSBNetworkDevices3GCDMA#Additional_parameters Additional parameters]
+  * [GUIUSBNetworkDevices3GCDMA#Additional_AT_commands Additional AT commands]
+  * [GUIUSBNetworkDevices3GCDMA#Additional_pppd_options Additional pppd options]
+  * [GUIUSBNetworkDevices3GCDMA#Enable_USB-Serial_drivers Enable USB-Serial drivers]
+  * [GUIUSBNetworkDevices3GCDMA#Failure_event_script_name Failure event script name]
+  * [GUIUSBNetworkDevices3GCDMA#Max_number_of_reconnection_attempts Max number of reconnection attempts]
+-------
+
 = Введение =
 Параметры на этой странице позволяют настроить WAN-подключение с помощью USB-модемов и сотовых телефонов(dialup, GPRS/EDGE/UMTS/CDMA...).
 
 -------
-
+= General parameters =
 == Set as WAN Connection Type by default ==
 Флаг, позволяющий указать, что устройство 3G/CDMA является соединением WAN по умолчанию.
+
 Отмеченное состояние означает, что параметр *WAN Connection Type:* на странице *IP Config - WAN & LAN* установлен в значение *USB-Modem*. Если убрать этот флаг, то параметр *WAN Connection Type:* будет установлен в значение *Auto*.
+
 При изменения этого флага требуется перезагрузка маршрутизатора.
 
 == Zero CD Configuration ==
@@ -21,7 +53,7 @@
 
 Проверить подключилось ли устройство в режиме модема можно командой *cat /proc/bus/usb/devices* или воспользоваться страницей *Status & Log - Diagnostic Information*.
 
-Значение по умолчанию: Auto
+_Значение по умолчанию: Auto_
 -------
 = Modem options =
 == Modem type ==
@@ -32,7 +64,7 @@
  * Dialup – dialup-модемы для телефонных линий.
  * User defined – будет запущен скрипт дозвона, который должен находится в файле */usr/local/dial/dial*.
 
-Значение по умолчанию: GPRS/EDGE/UMTS/HSPDA
+_Значение по умолчанию: GPRS/EDGE/UMTS/HSPDA_
 
 == Username ==
 Имя пользователя. 
@@ -41,7 +73,7 @@
  * Билайн – beeline
  * Мегафон - gdata
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Password ==
 Пароль. 
@@ -50,45 +82,53 @@
  * Билайн – beeline
  * Мегафон - gdata
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 == APN ==
 Access Point Name – имя точки доступа
  * MTS – internet.mts.ru
  * Билайн – internet.beeline.ru
  * Мегафон - internet
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Dial Number ==
 Номер дозвона. Для GPRS/EDGE/UMTS/HSPDA модемов применяются номера `*99***1#` или `*99#`
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Call on Demand ==
 Режим дозвона по запросу. Если параметр установлен в Yes, то будет использован специальный режим, при котором будет установлено первичное соединение, однако модем будет подключаться к линии только при появлении запросов к внешней сети.
 
-Значение по умолчанию: No
+_Значение по умолчанию: No_
 
 == Idle time before disconnect (sec) ==
 Время простоя в секундах до отсоединения модема. Целесообразно использовать совместно с параметром Call on Demand – Yes.
 
-Значение по умолчанию: 60 секунд
+_Значение по умолчанию: 60 секунд_
 
 == MTU ==
 Maximum Transmission Unit
 
-Значение по умолчанию: 1492
+_Значение по умолчанию: 1492_
 
 == MRU ==
 Maximum Receive Unit
 
-Значение по умолчанию: 1492
+_Значение по умолчанию: 1492_
 -------
 = Custom USB device parameters =
+== USB device location ID ==
+Позволяет выбрать устройство в соответствии с физическим портом USB. В отличии от USB tts(ac) port выбранный номер не будет изменяться при добавлении других устройств.
+
+Допустим как непосредственный ввод, так и выбор в таблице, открывающейся при нажатии на кнопку View.
+
+Использование этого параметра исключает возможность использования USB tts(ac) port.
+
+_Значение по умолчанию: не установлено_
 == Autodetect device ==
 Определение идентификаторов USB-устройства VID:PID и записывание их значений.
 
-Значение по умолчанию: Yes
+_Значение по умолчанию: Yes_
 
 == USB tts(ac) port ==
 Номер канала, под которым присоединено устройство.
@@ -103,45 +143,50 @@ Maximum Receive Unit
 Список каналов, предоставляемых устройством, можно посмотреть после загрузки драйверов usbserial, acm, option командой *cat /proc/bus/usb/devpath* или воспользоваться страницей *Status & Log - Diagnostic Information*.
 
 В зависимости от типа устройства, номер канала может меняться. 
-Для большинства сотовых телефонов используется /dev/usb/acm/0 или /dev/ttyACM0. 
 
-Значение по умолчанию: 0
+Для большинства сотовых телефонов используется /dev/usb/acm/0 или /dev/ttyACM0.
+
+_Значение по умолчанию: 0_
 
 == USB device Vendor ID (0xabcd) ==
 Идентификатор производителя устройства. Параметр не обязателен. Указывается в шестнадцатеричном коде с обязательным префиксом 0x.
-Значение по умолчанию: не установлено
+
+_Значение по умолчанию: не установлено_
 
 == USB device Product ID (0xefgh) ==
 Идентификатор продукта. Параметр не обязателен. Указывается в шестнадцатеричном коде с обязательным префиксом 0x.
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == USB device packet size (0 for default) ==
 Размер пакета обмена данными с USB-устройством.
-Значение по умолчанию: 4096
+
+_Значение по умолчанию: 4096_
 
 == USB device serial speed (usually 921600) ==
 Скорость обмена данными с USB-устройством. В зависимости от используемого драйвера, указанное значение может игнорироваться.
 
-Значение по умолчанию: 921600
+_Значение по умолчанию: 921600_
 -------
 = Additional parameters =
 == Additional AT commands ==
 Дополнительные строки инициализации модема. Могут быть использованы команды указания приоритета типа сети, например 3G для модема ZTE 626: AT+ZSNT=0,0,2
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Additional pppd options ==
 Дополнительные опции pppd
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Enable USB-Serial drivers ==
 Перед началом дозвона подключает драйверы USB-Serial (pl2303, ftdi_sio)
-Значение по умолчанию: Yes
+
+_Значение по умолчанию: Yes_
 
 == Failure event script name ==
 Имя аварийного скрипта, вызываемого в случае, если соединение установить не удается. Может быть использован для оповещение о невозможности подключения или действий, связанных с перезагрузкой оборудования. Если имя не задано – будет предпринята попытка запустить пользовательский файл */usr/local/sbin/post-3g-failure*.
+
 Простейший вариант – имя reboot. Более сложный пример приводится http://wl500g.info/attachment.php?attachmentid=6704&d=1278335883
 
 Скрипт вызывается с параметрами:
@@ -151,9 +196,9 @@ Maximum Receive Unit
 
 Примечание: аварийный скрипт вызывается только в том случае, если израсходовано количество попыток подключения, задаваемое параметром Max number of reconnection attempts
 
-Значение по умолчанию: не установлено
+_Значение по умолчанию: не установлено_
 
 == Max number of reconnection attempts ==
 Максимальное количество попыток подключения модема. Если установлено 0 – количество попыток не ограничено.
 
-Значение по умолчанию: 0
+_Значение по умолчанию: 0_

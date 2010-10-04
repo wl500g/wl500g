@@ -2,10 +2,16 @@
 
 In this menu you're able to tune up WiMAX settings.
 
+= Index =
+ * [GUIUSBNetworkDevicesWiMAX#Introduction Introduction]
+ * [GUIUSBNetworkDevicesWiMAX#General_parameters General parameters]
+
+-------
 = Introduction =
 This page contains some additional WiMAX settings, all of them are not required.
 
 -------
+= General parameters =
 == Set as WAN Connection Type by default ==
 This checkbox allow to make WiMAX connection as default WAN. Checked state indicate that parameter *WAN Connection Type:* at page *IP Config - WAN & LAN* is *WiMAX*.  Unchecking of it will set parameter *WAN Connection Type:* to value *Auto*. Any changing of this checkbox requires router restart.
 
@@ -26,16 +32,16 @@ It's possible to add your own script * post-check-connection * to reflect connec
 Location and content rules are common and described in [UserScripts UserScripts FAQ]. Arguments:<br>
 $1 - WiMAX interface name
 
-The default value is: No
+_The default value is: No_
 
 == Time period, sec ==
 The amout of time between the connection checks, in seconds.
 It's not reccomended to set value lower then 60 seconds, it could make your WiMAX connection unworkable on unstable connections due constant restarts.
 
-The defalut value is: 60
+_The defalut value is: 60_
 
 == Restart dead connection ==
 When enabled, this setting allows to force reset WiMAX connection, if connection check fails with an error.
 It allows to keep your WiMAX modem in the active state.
 
-The default value is: No
+_The default value is: No_
