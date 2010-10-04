@@ -58,7 +58,7 @@ MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
-NTFS3G=ntfs-3g-2010.8.8
+NTFS3G=ntfs-3g-2010.10.2
 
 UCLIBC=uClibc-0.9.30.1
 
