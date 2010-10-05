@@ -65,7 +65,6 @@ UCLIBC=uClibc-0.9.30.1
 WL=wl-5.10.56.46
 NAS=nas-5.10.56.46
 LIBBCMCRYPTO=libbcmcrypto-5.20.41
-WLCONF=wlconf
 
 # tar has --exclude parameter ?
 TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
@@ -618,8 +617,11 @@ libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
 
-wlconf: $(WLCONF).tar.gz
-	tar -zxf $^ -C $(TOP)
+$(TOP)/wlconf:
+	tar -C brcm-src/ $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) -xf -
+
+wlconf: $(TOP)/wlconf
+	@true
 
 upnp:
 	[ -d $(TOP)/$@ ] || \
