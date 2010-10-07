@@ -13,7 +13,7 @@
 #
 
 UTILS := wl nas mii-tool robocfg 
-CFLAGS += -s -Os -I$(SRCBASE)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
+CFLAGS += -s -Os -I$(SRCBASE)/include -I$(TOP)/shared -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
 
@@ -33,8 +33,8 @@ nas: $(SRCBASE)/wl/mipsel-uclibc/nas_exe.o
 
 mii-tool: mii-tool.c mii.h
 
-pwrled: pwrled.o
-	$(CC) $(CFLAGS) -o $@ -L$(TOP)/nvram -lnvram $<
+pwrled: pwrled.c
+	$(CC) $(CFLAGS) -DHAVE_GETMODEL -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
 
 clean:
 	rm -f *.o *~ $(UTILS)
