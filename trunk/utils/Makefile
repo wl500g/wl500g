@@ -34,7 +34,8 @@ nas: $(SRCBASE)/wl/mipsel-uclibc/nas_exe.o
 mii-tool: mii-tool.c mii.h
 
 pwrled: pwrled.c
-	$(CC) $(CFLAGS) -DHAVE_GETMODEL -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
+#	$(CC) $(CFLAGS) -DHAVE_GETMODEL -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
+	$(CC) $(CFLAGS) -o $@ -L$(TOP)/nvram -lnvram $<
 
 clean:
 	rm -f *.o *~ $(UTILS)
