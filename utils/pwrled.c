@@ -122,7 +122,7 @@ struct platform_t platforms[] = {
 	[MDL_WL550GE]	= {"ASUS WL-550gE",		GPIO2, 0},
 	[MDL_WL700G]	= {"ASUS WL-700g",		GPIO1, GPIO1},
 	[MDL_RTN16]	= {"ASUS RT-N16",		GPIO1, 0},
-	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO1, 0},
+	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO2, 0},
 	[MDL_RTN10]	= {"ASUS RT-N10",		GPIO1, 0},
 	/* D-Link */
 	[MDL_DIR320]	= {"D-Link DIR-320",		GPIO0, GPIO0},
@@ -178,6 +178,12 @@ static int get_model(void)
 
 	if (startswith(nvram_get("pmon_ver"), "CFE")) {
 		if (!strcmp(boardnum, "45")) {
+			if (!strcmp(boardtype,"0x04cf"))
+				return MDL_RTN16;
+			if (!strcmp(boardtype,"0x04CD"))
+				return MDL_RTN12;
+			if (!strcmp(boardtype,"0x04EC"))
+				return MDL_RTN10;
 			if (!strcmp(boardtype,"0x042f"))
 				return MDL_WL500GP;
 			if (!strcmp(boardtype,"0x0472"))
