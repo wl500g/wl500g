@@ -1,0 +1,207 @@
+afc7b4c0d83ab82eb20cedae5d9676c3a21af4bf wc: add support for -m
+09e7dafbfe358bed5a3bbf45dc2369760c09a47e wc: preparatory patch, no logic changes
+
+function                                             old     new   delta
+wc_main                                              601     637     +36
+packed_usage                                       27357   27358      +1
+
+Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
+---
+diff --git a/coreutils/wc.c b/coreutils/wc.c
+--- a/coreutils/wc.c
++++ b/coreutils/wc.c
+@@ -7,7 +7,7 @@
+  * Licensed under GPLv2 or later, see file LICENSE in this tarball for details.
+  */
+ 
+-/* BB_AUDIT SUSv3 _NOT_ compliant -- option -m is not currently supported. */
++/* BB_AUDIT SUSv3 compliant. */
+ /* http://www.opengroup.org/onlinepubs/007904975/utilities/wc.html */
+ 
+ /* Mar 16, 2003      Manuel Novoa III   (mjn3@codepoet.org)
+@@ -19,10 +19,6 @@
+  *  3) no checking of ferror on EOF returns
+  *  4) isprint() wasn't considered when word counting.
+  *
+- * TODO:
+- *
+- * When locale support is enabled, count multibyte chars in the '-m' case.
+- *
+  * NOTES:
+  *
+  * The previous busybox wc attempted an optimization using stat for the
+@@ -40,8 +36,8 @@
+  *
+  * for which 'wc -c' should output '0'.
+  */
+-
+ #include "libbb.h"
++#include "unicode.h"
+ 
+ #if !ENABLE_LOCALE_SUPPORT
+ # undef isprint
+@@ -58,11 +54,39 @@
+ # define COUNT_FMT "u"
+ #endif
+ 
++/* We support -m even when UNICODE_SUPPORT is off,
++ * we just don't advertise it in help text,
++ * since it is the same as -c in this case.
++ */
++
++//usage:#define wc_trivial_usage
++//usage:       "[-c"IF_UNICODE_SUPPORT("m")"lwL] [FILE]..."
++//usage:
++//usage:#define wc_full_usage "\n\n"
++//usage:       "Count lines, words, and bytes for each FILE (or stdin)\n"
++//usage:     "\nOptions:"
++//usage:     "\n	-c	Count bytes"
++//usage:	IF_UNICODE_SUPPORT(
++//usage:     "\n	-m	Count characters"
++//usage:	)
++//usage:     "\n	-l	Count newlines"
++//usage:     "\n	-w	Count words"
++//usage:     "\n	-L	Print longest line length"
++//usage:
++//usage:#define wc_example_usage
++//usage:       "$ wc /etc/passwd\n"
++//usage:       "     31      46    1365 /etc/passwd\n"
++
++/* Order is important if we want to be compatible with
++ * column order in "wc -cmlwL" output:
++ */
+ enum {
+-	WC_LINES	= 0,
+-	WC_WORDS	= 1,
+-	WC_CHARS	= 2,
+-	WC_LENGTH	= 3
++	WC_LINES    = 0,
++	WC_WORDS    = 1,
++	WC_UNICHARS = 2,
++	WC_CHARS    = 3,
++	WC_LENGTH   = 4,
++	NUM_WCS     = 5,
+ };
+ 
+ int wc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
+@@ -72,13 +96,15 @@ int wc_main(int argc UNUSED_PARAM, char
+ 	const char *start_fmt = " %9"COUNT_FMT + 1;
+ 	const char *fname_fmt = " %s\n";
+ 	COUNT_T *pcounts;
+-	COUNT_T counts[4];
+-	COUNT_T totals[4];
++	COUNT_T counts[NUM_WCS];
++	COUNT_T totals[NUM_WCS];
+ 	int num_files;
+ 	smallint status = EXIT_SUCCESS;
+ 	unsigned print_type;
+ 
+-	print_type = getopt32(argv, "lwcL");
++	init_unicode();
++
++	print_type = getopt32(argv, "lwcmL");
+ 
+ 	if (print_type == 0) {
+ 		print_type = (1 << WC_LINES) | (1 << WC_WORDS) | (1 << WC_CHARS);
+@@ -99,7 +125,7 @@ int wc_main(int argc UNUSED_PARAM, char
+ 	pcounts = counts;
+ 
+ 	num_files = 0;
+-	while ((arg = *argv++) != 0) {
++	while ((arg = *argv++) != NULL) {
+ 		FILE *fp;
+ 		const char *s;
+ 		unsigned u;
+@@ -117,21 +143,28 @@ int wc_main(int argc UNUSED_PARAM, char
+ 		linepos = 0;
+ 		in_word = 0;
+ 
+-		do {
++		while (1) {
+ 			int c;
+ 			/* Our -w doesn't match GNU wc exactly... oh well */
+ 
+-			++counts[WC_CHARS];
+ 			c = getc(fp);
+ 			if (c == EOF) {
+ 				if (ferror(fp)) {
+ 					bb_simple_perror_msg(arg);
+ 					status = EXIT_FAILURE;
+ 				}
+-				--counts[WC_CHARS];
+ 				goto DO_EOF;		/* Treat an EOF as '\r'. */
+ 			}
+-			if (isprint_asciionly(c)) {
++
++			/* Cater for -c and -m */
++			++counts[WC_CHARS];
++			if (unicode_status != UNICODE_ON /* every byte is a new char */
++			 || (c & 0xc0) != 0x80 /* it isn't a 2nd+ byte of a Unicode char */
++			) {
++				++counts[WC_UNICHARS];
++			}
++
++			if (isprint_asciionly(c)) { /* FIXME: not unicode-aware */
+ 				++linepos;
+ 				if (!isspace(c)) {
+ 					in_word = 1;
+@@ -167,18 +200,18 @@ int wc_main(int argc UNUSED_PARAM, char
+ 			if (c == EOF) {
+ 				break;
+ 			}
+-		} while (1);
++		}
++
++		fclose_if_not_stdin(fp);
+ 
+ 		if (totals[WC_LENGTH] < counts[WC_LENGTH]) {
+ 			totals[WC_LENGTH] = counts[WC_LENGTH];
+ 		}
+ 		totals[WC_LENGTH] -= counts[WC_LENGTH];
+ 
+-		fclose_if_not_stdin(fp);
+-
+  OUTPUT:
+ 		/* coreutils wc tries hard to print pretty columns
+-		 * (saves results for all files, find max col len etc...)
++		 * (saves results for all files, finds max col len etc...)
+ 		 * we won't try that hard, it will bloat us too much */
+ 		s = start_fmt;
+ 		u = 0;
+@@ -188,7 +221,7 @@ int wc_main(int argc UNUSED_PARAM, char
+ 				s = " %9"COUNT_FMT; /* Ok... restore the leading space. */
+ 			}
+ 			totals[u] += pcounts[u];
+-		} while (++u < 4);
++		} while (++u < NUM_WCS);
+ 		printf(fname_fmt, arg);
+ 	}
+ 
+diff --git a/include/usage.src.h b/include/usage.src.h
+index 577eb57..e7e9269 100644
+--- a/include/usage.src.h
++++ b/include/usage.src.h
+@@ -4764,21 +4764,6 @@ INSERT
+      "\n" \
+      "\nUse 500ms to specify period in milliseconds" \
+ 
+-#define wc_trivial_usage \
+-       "[OPTIONS] [FILE]..."
+-#define wc_full_usage "\n\n" \
+-       "Print line, word, and byte counts for each FILE (or stdin),\n" \
+-       "and a total line if more than one FILE is specified\n" \
+-     "\nOptions:" \
+-     "\n	-c	Print the byte counts" \
+-     "\n	-l	Print the newline counts" \
+-     "\n	-L	Print the length of the longest line" \
+-     "\n	-w	Print the word counts" \
+-
+-#define wc_example_usage \
+-       "$ wc /etc/passwd\n" \
+-       "     31      46    1365 /etc/passwd\n"
+-
+ #define wget_trivial_usage \
+ 	IF_FEATURE_WGET_LONG_OPTIONS( \
+        "[-c|--continue] [-s|--spider] [-q|--quiet] [-O|--output-document FILE]\n" \
+--
+cgit v0.8.2.1
