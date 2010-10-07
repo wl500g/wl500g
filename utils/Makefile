@@ -12,7 +12,7 @@
 # $Id$
 #
 
-UTILS := wl nas eapd mii-tool robocfg
+UTILS := wl nas eapd mii-tool robocfg pwrled
 CFLAGS += -s -Os -I$(SRCBASE)/include -I$(TOP)/shared -isystem$(LINUXDIR)/include -Wall -Wl,-rpath /lib $(EXTRACFLAGS)
 
 vpath %.c $(SRCBASE)/tools/misc
@@ -39,8 +39,7 @@ mii-tool: mii-tool.c mii.h
 robocfg: robocfg.c etc53xx.h
 
 pwrled: pwrled.c
-#	$(CC) $(CFLAGS) -DHAVE_GETMODEL -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
-	$(CC) $(CFLAGS) -o $@ -L$(TOP)/nvram -lnvram $<
+	$(CC) $(CFLAGS) -DHAVE_GETMODEL -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
 
 clean:
 	rm -f *.o *~ $(UTILS)
