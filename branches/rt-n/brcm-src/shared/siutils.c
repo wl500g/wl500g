@@ -2303,12 +2303,13 @@ si_gpioreserve(si_t *sih, uint32 gpio_bitmask, uint8 priority)
 		ASSERT((BUSTYPE(sih->bustype) == SI_BUS) && (priority));
 		return -1;
 	}
+#if 0
 	/* make sure only one bit is set */
 	if ((!gpio_bitmask) || ((gpio_bitmask) & (gpio_bitmask - 1))) {
 		ASSERT((gpio_bitmask) && !((gpio_bitmask) & (gpio_bitmask - 1)));
 		return -1;
 	}
-
+#endif
 	/* already reserved */
 	if (si_gpioreservation & gpio_bitmask)
 		return -1;
@@ -2338,12 +2339,13 @@ si_gpiorelease(si_t *sih, uint32 gpio_bitmask, uint8 priority)
 		ASSERT((BUSTYPE(sih->bustype) == SI_BUS) && (priority));
 		return -1;
 	}
+#if 0
 	/* make sure only one bit is set */
 	if ((!gpio_bitmask) || ((gpio_bitmask) & (gpio_bitmask - 1))) {
 		ASSERT((gpio_bitmask) && !((gpio_bitmask) & (gpio_bitmask - 1)));
 		return -1;
 	}
-
+#endif
 	/* already released */
 	if (!(si_gpioreservation & gpio_bitmask))
 		return -1;
