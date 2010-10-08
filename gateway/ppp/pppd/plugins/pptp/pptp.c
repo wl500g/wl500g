@@ -198,7 +198,7 @@ static int pptp_start_client(void)
 		return -1;
 	}
 
-	sprintf(ppp_devnam,"pptp (%s)",pptp_server);
+	sprintf(ppp_devnam,"pptp (%s)", inet_ntoa(dst_addr.sa_addr.pptp.sin_addr));
 
 	return pptp_fd;
 }
