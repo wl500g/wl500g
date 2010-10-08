@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c
 --- linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c	2009-02-23 14:14:55.000000000 +0000
 +++ linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c	2010-01-18 18:41:18.000000000 +0000
-@@ -229,6 +229,11 @@ static struct mtd_partition bcm947xx_par
+@@ -229,6 +229,14 @@ static struct mtd_partition bcm947xx_par
  		.name = "nvram",
  		.size = 0,
  		.offset = 0
@@ -10,6 +10,9 @@ diff -BurpN linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c linux-2.
 +		.name = "flashfs",
 +		.size = 0,
 +		.offset = 0
++	},
++	{
++		.name = NULL
  	}
  };
  
@@ -56,12 +59,21 @@ diff -BurpN linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c linux-2.
 diff -BurpN linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c linux-2.6/drivers/mtd/devices/sflash.c
 --- linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c	2008-12-12 03:28:49.000000000 +0000
 +++ linux-2.6/drivers/mtd/devices/sflash.c	2010-01-18 18:41:42.000000000 +0000
-@@ -250,12 +250,15 @@ sflash_mtd_init(void)
+@@ -189,6 +189,7 @@ sflash_mtd_init(void)
+ 	struct pci_dev *dev = NULL;
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	struct mtd_partition *parts;
++	int i;
+ #endif
+ 
+ 	list_for_each_entry(dev, &((pci_find_bus(0, 0))->devices), bus_list) {
+@@ -250,12 +250,16 @@ sflash_mtd_init(void)
  
  #ifdef CONFIG_MTD_PARTITIONS
  	parts = init_mtd_partitions(&sflash.mtd, sflash.mtd.size);
 -	ret = add_mtd_partitions(&sflash.mtd, parts, 4);
-+	ret = add_mtd_partitions(&sflash.mtd, parts, 5);
++	for (i = 0; parts[i].name; i++);
++		ret = add_mtd_partitions(&sflash.mtd, parts, i);
 +#else
 +	ret = add_mtd_device(&sflash.mtd);
 +#endif
@@ -77,12 +89,22 @@ diff -BurpN linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c linux-2.6/drivers/
 diff -BurpN linux-2.6.22.19.orig/drivers/mtd/maps/bcm947xx-flash.c linux-2.6/drivers/mtd/maps/bcm947xx-flash.c
 --- linux-2.6.22.19.orig/drivers/mtd/maps/bcm947xx-flash.c	2008-12-12 03:28:49.000000000 +0000
 +++ linux-2.6/drivers/mtd/maps/bcm947xx-flash.c	2010-01-18 18:41:52.000000000 +0000
-@@ -136,7 +136,7 @@ init_bcm947xx_map(void)
+@@ -83,6 +83,7 @@ init_bcm947xx_map(void)
+ 	int ret = 0;
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	struct mtd_partition *parts;
++	int i;
+ #endif
+ 
+ 	spin_lock_irqsave(&sih_lock, flags);
+@@ -136,7 +136,8 @@ init_bcm947xx_map(void)
  
  #ifdef CONFIG_MTD_PARTITIONS
  	parts = init_mtd_partitions(bcm947xx_mtd, size);
 -	ret = add_mtd_partitions(bcm947xx_mtd, parts, 4);
-+	ret = add_mtd_partitions(bcm947xx_mtd, parts, 5);
++	for (i = 0; parts[i].name; i++);
++		ret = add_mtd_partitions(bcm947xx_mtd, parts, 5);
  	if (ret) {
  		printk(KERN_ERR "pflash: add_mtd_partitions failed\n");
  		goto fail;
+-- 
