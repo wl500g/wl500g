@@ -18,9 +18,9 @@
 #include "br_private_stp.h"
 
 /* since time values in bpdu are in jiffies and then scaled (1/256)
- * before sending, make sure that is at least one.
+ * before sending, make sure that is at least one STP tick.
  */
-#define MESSAGE_AGE_INCR	((HZ < 256) ? 1 : (HZ/256))
+#define MESSAGE_AGE_INCR	((HZ / 256) + 1)
 
 static const char *br_port_state_names[] = {
 	[BR_STATE_DISABLED] = "disabled",
@@ -297,6 +297,9 @@ static inline void br_topology_change_acknowledged(struct net_bridge *br)
 void br_topology_change_detection(struct net_bridge *br)
 {
 	int isroot = br_is_root_bridge(br);
+
+	if (br->stp_enabled != BR_KERNEL_STP)
+		return;
 
 	pr_info("%s: topology change detected, %s\n", br->dev->name,
 		isroot ? "propagating" : "sending tcn bpdu");

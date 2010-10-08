@@ -529,9 +529,6 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff **pskb,
 	struct sk_buff *skb = *pskb;
 	__u32 len = nf_bridge_encap_header_len(skb);
 
-	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
-		return NF_STOLEN;
-
 	if (unlikely(!pskb_may_pull(skb, len)))
 		goto out;
 
@@ -829,10 +826,6 @@ static unsigned int br_nf_post_routing(unsigned int hook, struct sk_buff **pskb,
 	nf_bridge_pull_encap_header(skb);
 	nf_bridge_save_header(skb);
 
-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
-	if (nf_bridge->netoutdev)
-		realoutdev = nf_bridge->netoutdev;
-#endif
 	NF_HOOK(pf, NF_IP_POST_ROUTING, skb, NULL, realoutdev,
 		br_nf_dev_queue_xmit);
 
