@@ -73,7 +73,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c linux-2.6/drivers/
  	parts = init_mtd_partitions(&sflash.mtd, sflash.mtd.size);
 -	ret = add_mtd_partitions(&sflash.mtd, parts, 4);
 +	for (i = 0; parts[i].name; i++);
-+		ret = add_mtd_partitions(&sflash.mtd, parts, i);
++	ret = add_mtd_partitions(&sflash.mtd, parts, i);
 +#else
 +	ret = add_mtd_device(&sflash.mtd);
 +#endif
@@ -103,7 +103,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/mtd/maps/bcm947xx-flash.c linux-2.6/dri
  	parts = init_mtd_partitions(bcm947xx_mtd, size);
 -	ret = add_mtd_partitions(bcm947xx_mtd, parts, 4);
 +	for (i = 0; parts[i].name; i++);
-+		ret = add_mtd_partitions(bcm947xx_mtd, parts, 5);
++	ret = add_mtd_partitions(bcm947xx_mtd, parts, i);
  	if (ret) {
  		printk(KERN_ERR "pflash: add_mtd_partitions failed\n");
  		goto fail;
