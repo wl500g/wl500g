@@ -8,6 +8,9 @@ b3e670443b7fb8a2d29831b62b44a039c283e351 USB: fix thread-unsafe anchor utiliy ro
 1fb2e0558781b07d2ecaabf94c81c17ac820d8f0 EHCI: reorganize isochronous scheduler routine
 ffda080353979273e8aa69fc1e6134f20643ae56 EHCI: add missing frame -> microframe conversion
 bccbefaae050186bed3bcc74b1fd1a9b8c6710b2 EHCI: simplify remainder computations
+d23356da714595b888686d22cd19061323c09190 USB: fix crash in uhci_scan_schedule
+1eba67a60d6c95f7eae94930ec369f2837bb5b12 USB: UHCI queue: use usb_endpoint_type()
+c0ad7291aae3f76920bdddbc517e20b8d4338ec2 USB: uhci: rm repeatedly evaluation for urbp->qh
 ...
 
 ---
@@ -844,10 +847,27 @@ index 1fd453b..2726ef8 100644
  	return retval;
  }
  
+@@ -734,6 +734,7 @@ static void uhci_stop(struct usb_hcd *hcd)
+ 		uhci_hc_died(uhci);
+ 	uhci_scan_schedule(uhci);
+ 	spin_unlock_irq(&uhci->lock);
++	synchronize_irq(hcd->irq);
+ 
+ 	del_timer_sync(&uhci->fsbr_timer);
+ 	release_uhci(uhci);
 diff --git a/drivers/usb/host/uhci-q.c b/drivers/usb/host/uhci-q.c
 index e170e65..c07e5e7 100644
 --- a/drivers/usb/host/uhci-q.c
 +++ b/drivers/usb/host/uhci-q.c
+@@ -264,7 +264,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
+ 	INIT_LIST_HEAD(&qh->node);
+ 
+ 	if (udev) {		/* Normal QH */
+-		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
++		qh->type = usb_endpoint_type(&hep->desc);
+ 		if (qh->type != USB_ENDPOINT_XFER_ISOC) {
+ 			qh->dummy_td = uhci_alloc_td(uhci);
+ 			if (!qh->dummy_td) {
 @@ -571,7 +571,7 @@ static void uhci_unlink_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
  	qh->unlink_frame = uhci->frame_number;
  
@@ -857,6 +877,14 @@ index e170e65..c07e5e7 100644
  		uhci_set_next_interrupt(uhci);
  
  	/* Move the QH from its old list to the end of the unlinking list */
+@@ -1430,7 +1430,6 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
+ 		goto err_submit_failed;
+ 
+ 	/* Add this URB to the QH */
+-	urbp->qh = qh;
+ 	list_add_tail(&urbp->node, &qh->queue);
+ 
+ 	/* If the new URB is the first and only one on this QH then either
 @@ -1676,7 +1676,7 @@ static int uhci_advance_check(struct uhci_hcd *uhci, struct uhci_qh *qh)
  			qh->advance_jiffies = jiffies;
  			goto done;
