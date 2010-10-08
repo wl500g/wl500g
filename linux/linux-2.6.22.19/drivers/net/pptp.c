@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/vmalloc.h>
 #include <linux/errno.h>
 #include <linux/netdevice.h>
 #include <linux/net.h>
@@ -39,11 +40,11 @@
 
 #include <asm/uaccess.h>
 
-#define DEBUG
-//#define CONFIG_GRE
+//#define DEBUG
+//#define CONFIG_NET_IPGRE_DEMUX
 
-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
-#include "gre.h"
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+#include <net/gre.h>
 #endif
 
 #define PPTP_DRIVER_VERSION "0.8.5"
@@ -476,8 +477,10 @@ static int pptp_rcv(struct sk_buff *skb)
 	if (skb->pkt_type != PACKET_HOST)
 		goto drop;
 
-	/*if (!pskb_may_pull(skb, 12))
-		goto drop;*/
+#if !defined(CONFIG_NET_IPGRE_DEMUX) && !defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (!pskb_may_pull(skb, 12))
+		goto drop;
+#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
 	iph = ip_hdr(skb);
@@ -636,6 +639,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 	po->chan.mtu -= PPTP_HEADER_OVERHEAD;
 
 	po->chan.hdrlen = 2+sizeof(struct pptp_gre_header);
+	po->chan.hdrlen += LL_MAX_HEADER + sizeof(struct iphdr);
 	error = ppp_register_channel(&po->chan);
 	if (error) {
 		printk(KERN_ERR "PPTP: failed to register PPP channel (%d)\n", error);
@@ -827,7 +831,7 @@ static struct pppox_proto pppox_pptp_proto = {
 #endif
 };
 
-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 static struct gre_protocol gre_pptp_protocol = {
 	.handler	= pptp_rcv,
 };
@@ -850,7 +854,7 @@ static int __init pptp_init_module(void)
 		return -ENOMEM;
 	}
 
-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 	if (gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP) < 0) {
 		printk(KERN_INFO "PPTP: can't add protocol\n");
 		goto out_free_mem;
@@ -879,7 +883,7 @@ out_unregister_sk_proto:
 	proto_unregister(&pptp_sk_proto);
 
 out_inet_del_protocol:
-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
 #else
 	inet_del_protocol(&net_pptp_protocol, IPPROTO_GRE);
@@ -893,7 +897,7 @@ out_free_mem:
 static void __exit pptp_exit_module(void)
 {
 	unregister_pppox_proto(PX_PROTO_PPTP);
-#if defined(CONFIG_GRE) || defined(CONFIG_GRE_MODULE)
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 	proto_unregister(&pptp_sk_proto);
 	gre_del_protocol(&gre_pptp_protocol, GREPROTO_PPTP);
 #else

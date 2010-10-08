@@ -8,7 +8,7 @@
 #include <linux/spinlock.h>
 #include <net/protocol.h>
 
-#include "gre.h"
+#include <net/gre.h>
 
 struct gre_protocol *gre_proto[GREPROTO_MAX] ____cacheline_aligned_in_smp;
 static DEFINE_SPINLOCK(gre_proto_lock);
@@ -116,13 +116,13 @@ static struct net_protocol net_gre_protocol = {
 	.handler	= gre_rcv,
 	.err_handler	= gre_err,
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,24)
-	.netns_ok=1,
+	.netns_ok	= 1,
 #endif
 };
 
 static int __init gre_init(void)
 {
-	printk(KERN_INFO "GRE over IPv4 demultiplexor driver");
+	printk(KERN_INFO "GRE over IPv4 demultiplexor driver\n");
 
 	if (inet_add_protocol(&net_gre_protocol, IPPROTO_GRE) < 0) {
 		printk(KERN_INFO "gre: can't add protocol\n");
