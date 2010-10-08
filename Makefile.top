@@ -247,7 +247,7 @@ FlashMaxSize = $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330g
 
 all: $(obj-y) 
 
-clean: $(obj-clean) config-clean
+clean: $(obj-clean) config-clean lzma-clean
 	rm -rf $(TARGETDIR)
 	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
 	$(MAKE) -C $(LINUXDIR) clean
@@ -258,8 +258,14 @@ distclean mrproper: clean
 lzma-lib:
 	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
 
+lzma-lib-clean:
+	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ clean
+
 lzma:
 	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc
+
+lzma-clean: lzma-lib-clean
+	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc clean
 
 loader:
 	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma
