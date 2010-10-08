@@ -10,10 +10,12 @@ a289d70d74c39a8e6938619f967fc6cd70ce1798
 84ebe1cdae56707b9aa1b40ae5aa7d817ba745f5
 6b69fe0c73c0f5a8dacf8f889db3cc9adee53649
 ec8d540969da9a70790e9028d57b5b577dd7aa77
+29b67497f256399c4aa2adec27ab7ba24bba44e8 [NETFILTER]: nf_ct_alloc_hashtable(): use __GFP_NOWARN
+
 ---
- net/netfilter/nf_conntrack_core.c      |   37 ++++++++++---------
- net/netfilter/nf_conntrack_proto_tcp.c |   25 ++++++++-----
- net/netfilter/xt_tcpudp.c              |    2 +-
+ net/netfilter/nf_conntrack_core.c      |   37 ++++++++++++++++-----------------
+ net/netfilter/nf_conntrack_proto_tcp.c |   25 ++++++++++++++--------
+ net/netfilter/xt_tcpudp.c              |    2 -
  3 files changed, 36 insertions(+), 28 deletions(-)
 
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
@@ -65,7 +67,7 @@ index 6ec5f41..9d4868f 100644
  #ifdef CONFIG_NF_CT_ACCT
  	if (do_acct) {
  		ct->counters[CTINFO2DIR(ctinfo)].packets++;
-@@ -1674,12 +1672,14 @@ void nf_conntrack_cleanup(void)
+@@ -1674,13 +1672,15 @@ void nf_conntrack_cleanup(void)
  	nf_conntrack_proto_fini();
  }
  
@@ -77,11 +79,13 @@ index 6ec5f41..9d4868f 100644
 +	unsigned int size, i;
  
  	*vmalloced = 0;
+-	hash = (void*)__get_free_pages(GFP_KERNEL,
 +
 +	size = *sizep = roundup(*sizep, PAGE_SIZE / sizeof(struct list_head));
- 	hash = (void*)__get_free_pages(GFP_KERNEL,
++	hash = (void*)__get_free_pages(GFP_KERNEL|__GFP_NOWARN,
  				       get_order(sizeof(struct list_head)
  						 * size));
+ 	if (!hash) {
 @@ -1712,7 +1712,7 @@ int set_hashsize(const char *val, struct kernel_param *kp)
  	if (!hashsize)
  		return -EINVAL;
@@ -200,4 +204,3 @@ index 46414b5..25b12d3 100644
  	return !(udpinfo->invflags & ~XT_UDP_INV_MASK);
 -- 
 1.6.5.GIT
-
