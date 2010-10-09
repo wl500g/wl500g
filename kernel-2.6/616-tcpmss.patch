@@ -4,10 +4,11 @@ Date: Fri, 19 Mar 2010 23:54:48 -0400
 Subject: [PATCH] Netfilter: TCPMSS target fixes
 
 kernel.org commits:
-170080645dac61816455afad807ffeb326ce79e8
-37c08387fc31a0fe7a570664c93be4f1c1bc0c94
-10a199394b8f9b4c4e0be6e14a61109a7d891b1b
-db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66
+170080645dac61816455afad807ffeb326ce79e8 [NETFILTER]: xt_TCPMSS: don't allow netfilter --setmss to increase mss
+37c08387fc31a0fe7a570664c93be4f1c1bc0c94 [NETFILTER]: xt_TCPMSS: consider reverse route's MTU in clamp-to-pmtu
+10a199394b8f9b4c4e0be6e14a61109a7d891b1b netfilter: xt_TCPMSS: SYN packets are allowed to contain data
+db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_reverse_mtu{4,6} into one function
+
 ---
  net/netfilter/xt_TCPMSS.c      |   76 +++++++++++++++----
  1 files changed, 60 insertions(+), 16 deletions(-)
