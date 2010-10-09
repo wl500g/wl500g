@@ -1,0 +1,51 @@
+From 8bdd663aba341c15cd2fa9dbd7061b8b387964dc
+From: Eric Dumazet
+Date: Sun, 15 Mar 2009 19:59:13 -0700
+Subject: [PATCH] net: reorder fields of struct socket
+
+On x86_64, its rather unfortunate that "wait_queue_head_t wait"
+field of "struct socket" spans two cache lines (assuming a 64
+bytes cache line in current cpus)
+
+offsetof(struct socket, wait)=0x30
+sizeof(wait_queue_head_t)=0x18
+
+This might explain why Kenny Chang noticed that his multicast workload
+was performing bad with 64 bit kernels, since more cache lines ping pongs
+were involved.
+
+This litle patch moves "wait" field next "fasync_list" so that both
+fields share a single cache line, to speedup sock_def_readable()
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/net.h |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 4515efa..4fc2ffd 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -109,12 +109,17 @@ enum sock_type {
+ struct socket {
+ 	socket_state		state;
+ 	unsigned long		flags;
+-	const struct proto_ops	*ops;
++
++	/*
++	 * Please keep fasync_list & wait fields in the same cache line
++	 */
+ 	struct fasync_struct	*fasync_list;
++	wait_queue_head_t	wait;
++
+ 	struct file		*file;
+ 	struct sock		*sk;
+-	wait_queue_head_t	wait;
+ 	short			type;
++	const struct proto_ops	*ops;
+ };
+ 
+ struct vm_area_struct;
+-- 
+1.7.3.1
