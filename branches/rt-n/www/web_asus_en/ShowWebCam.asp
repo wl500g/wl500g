@@ -30,7 +30,17 @@ function loadWidzard()
 <td>
 <table align="center" width="1" BORDER=0 CELLSPACING=0 CELLPADDING=0 BGCOLOR=#FFFFCC>
 <script language="JavaScript">
-if ( document.form.ImageSize.value == "6") // 1600 X 1200
+if ( document.form.ImageSize.value == "8") // 1920 X 1080
+{
+	width = 1920;
+	height = 1080;
+} 
+else if ( document.form.ImageSize.value == "7") // 1280 X 720
+{
+	width = 1280;
+	height = 720;
+}
+else if ( document.form.ImageSize.value == "6") // 1600 X 1200
 {
 	width = 1600;
 	height = 1200;

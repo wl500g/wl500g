@@ -2250,6 +2250,10 @@
               
                    "6:1600 X 1200",
               
+                   "7:1280 X 720",
+              
+                   "8:1920 X 1080",
+              
               0), FALSE, FALSE},
            	
               {"usb_websense_x", "", validate_choice, ARGV(              
