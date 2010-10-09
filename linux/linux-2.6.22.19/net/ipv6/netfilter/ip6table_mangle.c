@@ -66,7 +66,6 @@ static struct
 static struct xt_table packet_mangler = {
 	.name		= "mangle",
 	.valid_hooks	= MANGLE_VALID_HOOKS,
-	.lock		= RW_LOCK_UNLOCKED,
 	.me		= THIS_MODULE,
 	.af		= AF_INET6,
 };
@@ -120,7 +119,8 @@ ip6t_local_hook(unsigned int hook,
 		&& (memcmp(&ipv6_hdr(*pskb)->saddr, &saddr, sizeof(saddr))
 		    || memcmp(&ipv6_hdr(*pskb)->daddr, &daddr, sizeof(daddr))
 		    || (*pskb)->mark != mark
-		    || ipv6_hdr(*pskb)->hop_limit != hop_limit))
+		    || ipv6_hdr(*pskb)->hop_limit != hop_limit
+		    || flowlabel != *((u_int32_t *)ipv6_hdr(*pskb))))
 		return ip6_route_me_harder(*pskb) == 0 ? ret : NF_DROP;
 
 	return ret;

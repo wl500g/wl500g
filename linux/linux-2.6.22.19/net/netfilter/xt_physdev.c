@@ -33,10 +33,9 @@ match(const struct sk_buff *skb,
       unsigned int protoff,
       int *hotdrop)
 {
-	int i;
-	static const char nulldevname[IFNAMSIZ];
+	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	const struct xt_physdev_info *info = matchinfo;
-	unsigned int ret;
+	unsigned long ret;
 	const char *indev, *outdev;
 	struct nf_bridge_info *nf_bridge;
 
@@ -78,11 +77,7 @@ match(const struct sk_buff *skb,
 	if (!(info->bitmask & XT_PHYSDEV_OP_IN))
 		goto match_outdev;
 	indev = nf_bridge->physindev ? nf_bridge->physindev->name : nulldevname;
-	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned int); i++) {
-		ret |= (((const unsigned int *)indev)[i]
-			^ ((const unsigned int *)info->physindev)[i])
-			& ((const unsigned int *)info->in_mask)[i];
-	}
+	ret = ifname_compare_aligned(indev, info->physindev, info->in_mask);
 
 	if ((ret == 0) ^ !(info->invert & XT_PHYSDEV_OP_IN))
 		return NOMATCH;
@@ -92,13 +87,9 @@ match_outdev:
 		return MATCH;
 	outdev = nf_bridge->physoutdev ?
 		 nf_bridge->physoutdev->name : nulldevname;
-	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned int); i++) {
-		ret |= (((const unsigned int *)outdev)[i]
-			^ ((const unsigned int *)info->physoutdev)[i])
-			& ((const unsigned int *)info->out_mask)[i];
-	}
+	ret = ifname_compare_aligned(outdev, info->physoutdev, info->out_mask);
 
-	return (ret != 0) ^ !(info->invert & XT_PHYSDEV_OP_OUT);
+	return (!!ret ^ !(info->invert & XT_PHYSDEV_OP_OUT));
 }
 
 static int

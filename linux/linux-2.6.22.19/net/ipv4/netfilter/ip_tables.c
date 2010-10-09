@@ -73,25 +73,6 @@ do {								\
 
    Hence the start of any table is given by get_table() below.  */
 
-static unsigned long ifname_compare(const char *_a, const char *_b,
-				    const unsigned char *_mask)
-{
-	const unsigned long *a = (const unsigned long *)_a;
-	const unsigned long *b = (const unsigned long *)_b;
-	const unsigned long *mask = (const unsigned long *)_mask;
-	unsigned long ret;
-
-	ret = (a[0] ^ b[0]) & mask[0];
-	if (IFNAMSIZ > sizeof(unsigned long))
-		ret |= (a[1] ^ b[1]) & mask[1];
-	if (IFNAMSIZ > 2 * sizeof(unsigned long))
-		ret |= (a[2] ^ b[2]) & mask[2];
-	if (IFNAMSIZ > 3 * sizeof(unsigned long))
-		ret |= (a[3] ^ b[3]) & mask[3];
-	BUILD_BUG_ON(IFNAMSIZ > 4 * sizeof(unsigned long));
-	return ret;
-}
-
 /* Returns whether matches rule or not. */
 static inline int
 ip_packet_match(const struct iphdr *ip,
@@ -126,7 +107,7 @@ ip_packet_match(const struct iphdr *ip,
 		return 0;
 	}
 
-	ret = ifname_compare(indev, ipinfo->iniface, ipinfo->iniface_mask);
+	ret = ifname_compare_aligned(indev, ipinfo->iniface, ipinfo->iniface_mask);
 
 	if (FWINV(ret != 0, IPT_INV_VIA_IN)) {
 		dprintf("VIA in mismatch (%s vs %s).%s\n",
@@ -135,7 +116,7 @@ ip_packet_match(const struct iphdr *ip,
 		return 0;
 	}
 
-	ret = ifname_compare(outdev, ipinfo->outiface, ipinfo->outiface_mask);
+	ret = ifname_compare_aligned(outdev, ipinfo->outiface, ipinfo->outiface_mask);
 
 	if (FWINV(ret != 0, IPT_INV_VIA_OUT)) {
 		dprintf("VIA out mismatch (%s vs %s).%s\n",
@@ -249,7 +230,6 @@ ipt_do_table(struct sk_buff **pskb,
 	static const char nulldevname[IFNAMSIZ] __attribute__((aligned(sizeof(long))));
 	u_int16_t offset;
 	struct iphdr *ip;
-	u_int16_t datalen;
 	int hotdrop = 0;
 	/* Initializing verdict to NF_DROP keeps gcc happy. */
 	unsigned int verdict = NF_DROP;
@@ -260,10 +240,11 @@ ipt_do_table(struct sk_buff **pskb,
 
 	ip = ip_hdr(*pskb);
 
-	read_lock_bh(&table->lock);
 	IP_NF_ASSERT(table->valid_hooks & (1 << hook));
+	xt_info_rdlock_bh();
 	private = table->private;
-	table_base = (void *)private->entries[smp_processor_id()];
+	table_base = private->entries[smp_processor_id()];
+
 	e = get_entry(table_base, private->hook_entry[hook]);
 
 	if (e->target_offset <= sizeof(struct ipt_entry) &&
@@ -273,14 +254,13 @@ ipt_do_table(struct sk_buff **pskb,
 			int v = ((struct ipt_standard_target *)t)->verdict;
 			if ((v < 0) && (v != IPT_RETURN)) {
 				ADD_COUNTER(e->counters, ntohs(ip->tot_len), 1);
-				read_unlock_bh(&table->lock);
+				xt_info_rdunlock_bh();
 				return (unsigned)(-v) - 1;
 			}
 		}
 	}
 
 	/* Initialization */
-	datalen = (*pskb)->len - ip->ihl * 4;
 	indev = in ? in->name : nulldevname;
 	outdev = out ? out->name : nulldevname;
 	/* We handle fragments by dealing with the first fragment as
@@ -363,10 +343,13 @@ ipt_do_table(struct sk_buff **pskb,
 #endif
 				/* Target might have changed stuff. */
 				ip = ip_hdr(*pskb);
-				datalen = (*pskb)->len - ip->ihl * 4;
-
 				if (verdict == IPT_CONTINUE)
 					e = (void *)e + e->next_offset;
+				else if (verdict == IPT_RETURN) {		// added -- tomato
+					e = back;
+					back = get_entry(table_base, back->comefrom);
+					continue;
+				}
 				else
 					/* Verdict */
 					break;
@@ -377,8 +360,7 @@ ipt_do_table(struct sk_buff **pskb,
 			e = (void *)e + e->next_offset;
 		}
 	} while (!hotdrop);
-
-	read_unlock_bh(&table->lock);
+	xt_info_rdunlock_bh();
 
 #ifdef DEBUG_ALLOW_ALL
 	return NF_ACCEPT;
@@ -390,16 +372,11 @@ ipt_do_table(struct sk_buff **pskb,
 }
 
 /* All zeroes == unconditional rule. */
-static inline int
-unconditional(const struct ipt_ip *ip)
+static inline bool unconditional(const struct ipt_ip *ip)
 {
-	unsigned int i;
+	static const struct ipt_ip uncond;
 
-	for (i = 0; i < sizeof(*ip)/sizeof(__u32); i++)
-		if (((__u32 *)ip)[i])
-			return 0;
-
-	return 1;
+	return memcmp(ip, &uncond, sizeof(uncond)) == 0;
 }
 
 /* Figures out from what hook each rule can be called: returns 0 if
@@ -843,10 +820,13 @@ get_counters(const struct xt_table_info *t,
 
 	/* Instead of clearing (by a previous call to memset())
 	 * the counters and using adds, we set the counters
-	 * with data used by 'current' CPU
-	 * We dont care about preemption here.
+	 * with data used by 'current' CPU.
+	 *
+	 * Bottom half has to be disabled to prevent deadlock
+	 * if new softirq were to run and call ipt_do_table
 	 */
-	curcpu = raw_smp_processor_id();
+	local_bh_disable();
+	curcpu = smp_processor_id();
 
 	i = 0;
 	IPT_ENTRY_ITERATE(t->entries[curcpu],
@@ -859,12 +839,15 @@ get_counters(const struct xt_table_info *t,
 		if (cpu == curcpu)
 			continue;
 		i = 0;
+		xt_info_wrlock(cpu);
 		IPT_ENTRY_ITERATE(t->entries[cpu],
 				  t->size,
 				  add_entry_to_counter,
 				  counters,
 				  &i);
+		xt_info_wrunlock(cpu);
 	}
+	local_bh_enable();
 }
 
 static inline struct xt_counters * alloc_counters(struct xt_table *table)
@@ -877,15 +860,12 @@ static inline struct xt_counters * alloc_counters(struct xt_table *table)
 	   (other than comefrom, which userspace doesn't care
 	   about). */
 	countersize = sizeof(struct xt_counters) * private->number;
-	counters = vmalloc_node(countersize, numa_node_id());
+	counters = vmalloc(countersize);
 
 	if (counters == NULL)
 		return ERR_PTR(-ENOMEM);
 
-	/* First, sum counters... */
-	write_lock_bh(&table->lock);
 	get_counters(private, counters);
-	write_unlock_bh(&table->lock);
 
 	return counters;
 }
@@ -1042,7 +1022,8 @@ compat_calc_match(struct ipt_entry_match *m, int * size)
 	return 0;
 }
 
-static int compat_calc_entry(struct ipt_entry *e, struct xt_table_info *info,
+static int compat_calc_entry(struct ipt_entry *e,
+		const struct xt_table_info *info,
 		void *base, struct xt_table_info *newinfo)
 {
 	struct ipt_entry_target *t;
@@ -1070,22 +1051,17 @@ static int compat_calc_entry(struct ipt_entry *e, struct xt_table_info *info,
 	return 0;
 }
 
-static int compat_table_info(struct xt_table_info *info,
+static int compat_table_info(const struct xt_table_info *info,
 		struct xt_table_info *newinfo)
 {
 	void *loc_cpu_entry;
-	int i;
 
 	if (!newinfo || !info)
 		return -EINVAL;
 
-	memset(newinfo, 0, sizeof(struct xt_table_info));
-	newinfo->size = info->size;
-	newinfo->number = info->number;
-	for (i = 0; i < NF_IP_NUMHOOKS; i++) {
-		newinfo->hook_entry[i] = info->hook_entry[i];
-		newinfo->underflow[i] = info->underflow[i];
-	}
+	/* we dont care about newinfo->entries[] */
+	memcpy(newinfo, info, offsetof(struct xt_table_info, entries));
+	newinfo->initial_entries = 0;
 	loc_cpu_entry = info->entries[raw_smp_processor_id()];
 	return IPT_ENTRY_ITERATE(loc_cpu_entry, info->size,
 			compat_calc_entry, info, loc_cpu_entry, newinfo);
@@ -1241,8 +1217,9 @@ __do_replace(const char *name, unsigned int valid_hooks,
 	    (newinfo->number <= oldinfo->initial_entries))
 		module_put(t->me);
 
-	/* Get the old counters. */
+	/* Get the old counters, and synchronize with replace */
 	get_counters(oldinfo, counters);
+
 	/* Decrease module usage counts and free resource */
 	loc_cpu_old_entry = oldinfo->entries[raw_smp_processor_id()];
 	IPT_ENTRY_ITERATE(loc_cpu_old_entry, oldinfo->size, cleanup_entry,NULL);
@@ -1274,14 +1251,7 @@ do_replace(void __user *user, unsigned int len)
 	if (copy_from_user(&tmp, user, sizeof(tmp)) != 0)
 		return -EFAULT;
 
-	/* Hack: Causes ipchains to give correct error msg --RR */
-	if (len != sizeof(tmp) + tmp.size)
-		return -ENOPROTOOPT;
-
 	/* overflow check */
-	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
-			SMP_CACHE_BYTES)
-		return -ENOMEM;
 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
 		return -ENOMEM;
 
@@ -1321,20 +1291,11 @@ do_replace(void __user *user, unsigned int len)
 
 /* We're lazy, and add to the first CPU; overflow works its fey magic
  * and everything is OK. */
-static inline int
+static int
 add_counter_to_entry(struct ipt_entry *e,
 		     const struct xt_counters addme[],
 		     unsigned int *i)
 {
-#if 0
-	duprintf("add_counter: Entry %u %lu/%lu + %lu/%lu\n",
-		 *i,
-		 (long unsigned int)e->counters.pcnt,
-		 (long unsigned int)e->counters.bcnt,
-		 (long unsigned int)addme[*i].pcnt,
-		 (long unsigned int)addme[*i].bcnt);
-#endif
-
 	ADD_COUNTER(e->counters, addme[*i].bcnt, addme[*i].pcnt);
 
 	(*i)++;
@@ -1344,7 +1305,7 @@ add_counter_to_entry(struct ipt_entry *e,
 static int
 do_add_counters(void __user *user, unsigned int len, int compat)
 {
-	unsigned int i;
+	unsigned int i, curcpu;
 	struct xt_counters_info tmp;
 	struct xt_counters *paddc;
 	unsigned int num_counters;
@@ -1385,7 +1346,7 @@ do_add_counters(void __user *user, unsigned int len, int compat)
 	if (len != size + num_counters * sizeof(struct xt_counters))
 		return -EINVAL;
 
-	paddc = vmalloc_node(len - size, numa_node_id());
+	paddc = vmalloc(len - size);
 	if (!paddc)
 		return -ENOMEM;
 
@@ -1400,7 +1361,7 @@ do_add_counters(void __user *user, unsigned int len, int compat)
 		goto free;
 	}
 
-	write_lock_bh(&t->lock);
+	local_bh_disable();
 	private = t->private;
 	if (private->number != num_counters) {
 		ret = -EINVAL;
@@ -1409,14 +1370,17 @@ do_add_counters(void __user *user, unsigned int len, int compat)
 
 	i = 0;
 	/* Choose the copy that is on our node */
-	loc_cpu_entry = private->entries[raw_smp_processor_id()];
+	curcpu = smp_processor_id();
+	loc_cpu_entry = private->entries[curcpu];
+	xt_info_wrlock(curcpu);
 	IPT_ENTRY_ITERATE(loc_cpu_entry,
 			  private->size,
 			  add_counter_to_entry,
 			  paddc,
 			  &i);
+	xt_info_wrunlock(curcpu);
  unlock_up_free:
-	write_unlock_bh(&t->lock);
+	local_bh_enable();
 	xt_table_unlock(t);
 	module_put(t->me);
  free:
@@ -1808,13 +1772,8 @@ compat_do_replace(void __user *user, unsigned int len)
 	if (copy_from_user(&tmp, user, sizeof(tmp)) != 0)
 		return -EFAULT;
 
-	/* Hack: Causes ipchains to give correct error msg --RR */
-	if (len != sizeof(tmp) + tmp.size)
-		return -ENOPROTOOPT;
-
 	/* overflow check */
-	if (tmp.size >= (INT_MAX - sizeof(struct xt_table_info)) / NR_CPUS -
-			SMP_CACHE_BYTES)
+	if (tmp.size >= INT_MAX / num_possible_cpus())
 		return -ENOMEM;
 	if (tmp.num_counters >= INT_MAX / sizeof(struct xt_counters))
 		return -ENOMEM;
@@ -2111,7 +2070,7 @@ int ipt_register_table(struct xt_table *table, const struct ipt_replace *repl)
 {
 	int ret;
 	struct xt_table_info *newinfo;
-	static struct xt_table_info bootstrap
+	struct xt_table_info bootstrap
 		= { 0, 0, 0, { 0 }, { 0 }, { } };
 	void *loc_cpu_entry;
 
