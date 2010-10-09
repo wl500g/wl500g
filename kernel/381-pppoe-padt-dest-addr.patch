@@ -1,0 +1,15 @@
+diff -uBp a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+--- a/drivers/net/pppoe.c
++++ b/drivers/net/pppoe.c
+@@ -437,6 +437,10 @@ static int pppoe_disc_rcv(struct sk_buff
+ 	if (po) {
+ 		struct sock *sk = po->sk;
+ 
++		/* Check destination address */
++		if (memcmp(skb->mac.ethernet->h_dest, dev->dev_addr, ETH_ALEN))
++			goto abort;
++
+ 		bh_lock_sock(sk);
+ 
+ 		/* If the user has locked the socket, just ignore
+-- 
