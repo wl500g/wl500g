@@ -1839,10 +1839,13 @@ wlconf(char *name)
 	 * For a STA - Always
 	 */
 	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN) {
-		if (sta ||
-		    ((ap || apsta) && (nbw == WL_CHANSPEC_BW_40) && (bandtype == WLC_BAND_2G))) {
+		if (sta
+#ifdef I_AM_SURE_OBSS_IS_NOT_BROKEN
+		|| ((ap || apsta) && (nbw == WL_CHANSPEC_BW_40) && (bandtype == WLC_BAND_2G))
+#endif
+		) {
 			str = nvram_safe_get(strcat_r(prefix, "obss_coex", tmp));
-			if (!str) {
+			if (!*str) {
 				/* No nvram variable found, use the default */
 				str = nvram_default_get(strcat_r(prefix, "obss_coex", tmp));
 			}
@@ -1865,8 +1868,7 @@ wlconf(char *name)
 
 		if (obss_coex || channel == 0) {
 			if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN) {
-				chanspec_t chanspec;
-				int pref_chspec;
+				chanspec_t chanspec = 0;
 
 				if (channel != 0) {
 					/* assumes that initial chanspec has been set earlier */
@@ -1877,14 +1879,13 @@ wlconf(char *name)
 					/* We're not doing auto-channel, give the driver
 					 * the preferred chanspec.
 					 */
-					WL_IOVAR_GETINT(name, "chanspec", &pref_chspec);
-					WL_IOVAR_SETINT(name, "pref_chanspec", pref_chspec);
-				} else {
-					WL_IOVAR_SETINT(name, "pref_chanspec", 0);
+					WL_IOVAR_GETINT(name, "chanspec", (uint32*)&chanspec);
+					WL_IOVAR_SETINT(name, "pref_chanspec", (uint32)chanspec);
 				}
+
 				chanspec = wlconf_auto_chanspec(name);
 				if (chanspec != 0)
-					WL_IOVAR_SETINT(name, "chanspec", chanspec);
+					WL_IOVAR_SETINT(name, "chanspec", (uint32)chanspec);
 			} else {
 				/* select a channel */
 				val = wlconf_auto_channel(name);
