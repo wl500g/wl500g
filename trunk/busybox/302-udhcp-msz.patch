@@ -1,0 +1,148 @@
+udhcpc: Explicitly set DHCP_MAX_SIZE (option 57) for request, like for discover.
+
+diff -urBp busybox/networking/udhcp/common.h busybox.new/networking/udhcp/common.h
+--- busybox/networking/udhcp/common.h	2010-09-07 18:17:50.000000000 +0400
++++ busybox.new/networking/udhcp/common.h	2010-10-10 13:59:42.000000000 +0400
+@@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
+ int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
+ int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
+ 
+-int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac) FAST_FUNC;
++int udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac, uint16_t *mtu) FAST_FUNC;
+ 
+ int udhcp_listen_socket(/*uint32_t ip,*/ int port, const char *inf) FAST_FUNC;
+ 
+diff -urBp busybox/networking/udhcp/dhcpc.c busybox.new/networking/udhcp/dhcpc.c
+--- busybox/networking/udhcp/dhcpc.c	2010-07-25 23:14:17.000000000 +0400
++++ busybox.new/networking/udhcp/dhcpc.c	2010-10-10 19:08:44.000000000 +0400
+@@ -357,6 +357,23 @@ static void init_packet(struct dhcp_pack
+ 	) {
+ 		udhcp_add_binary_option(packet, client_config.vendorclass);
+ 	}
++	if (type == DHCPDISCOVER
++	 || type == DHCPREQUEST
++	) {
++		int max_packet;
++
++		if (type == DHCPDISCOVER) {
++			/* Explicitly saying that we want RFC-compliant packets helps
++			 * some buggy DHCP servers to NOT send bigger packets */
++			max_packet = 576;
++		} else {
++			max_packet = sizeof(struct ip_udp_dhcp_packet);
++			if (client_config.client_mtu > 0
++			 && max_packet > client_config.client_mtu)
++				max_packet = client_config.client_mtu;
++		}
++		udhcp_add_simple_option(packet, DHCP_MAX_SIZE, htons(max_packet));
++	}
+ }
+ 
+ static void add_client_options(struct dhcp_packet *packet)
+@@ -433,9 +450,6 @@ static int send_discover(uint32_t xid, u
+ 	packet.xid = xid;
+ 	if (requested)
+ 		udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
+-	/* Explicitly saying that we want RFC-compliant packets helps
+-	 * some buggy DHCP servers to NOT send bigger packets */
+-	udhcp_add_simple_option(&packet, DHCP_MAX_SIZE, htons(576));
+ 	add_client_options(&packet);
+ 
+ 	bb_info_msg("Sending discover...");
+@@ -923,7 +937,8 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 	if (udhcp_read_interface(client_config.interface,
+ 			&client_config.ifindex,
+ 			NULL,
+-			client_config.client_mac)
++			client_config.client_mac,
++			&client_config.client_mtu)
+ 	) {
+ 		return 1;
+ 	}
+@@ -982,7 +997,11 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 		 * member interfaces were added/removed or if the status of the
+ 		 * bridge changed).
+ 		 * Workaround: refresh it here before processing the next packet */
+-		udhcp_read_interface(client_config.interface, &client_config.ifindex, NULL, client_config.client_mac);
++		udhcp_read_interface(client_config.interface,
++				&client_config.ifindex,
++				NULL,
++				client_config.client_mac,
++				&client_config.client_mtu);
+ 
+ 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
+ 
+diff -urBp busybox/networking/udhcp/dhcpc.h busybox.new/networking/udhcp/dhcpc.h
+--- busybox/networking/udhcp/dhcpc.h	2010-10-09 23:57:14.000000000 +0400
++++ busybox.new/networking/udhcp/dhcpc.h	2010-10-10 19:04:52.000000000 +0400
+@@ -9,6 +9,7 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDD
+ 
+ struct client_config_t {
+ 	uint8_t client_mac[6];          /* Our mac address */
++	uint16_t client_mtu;		/* Our mtu */
+ 	char no_default_options;        /* Do not include default options in request */
+ 	IF_FEATURE_UDHCP_PORT(uint16_t port;)
+ 	int ifindex;                    /* Index number of the interface to use */
+diff -urBp busybox/networking/udhcp/dhcpd.c busybox.new/networking/udhcp/dhcpd.c
+--- busybox/networking/udhcp/dhcpd.c	2010-09-17 03:05:35.000000000 +0400
++++ busybox.new/networking/udhcp/dhcpd.c	2010-10-10 19:04:52.000000000 +0400
+@@ -357,7 +357,8 @@ int udhcpd_main(int argc UNUSED_PARAM, c
+ 	if (udhcp_read_interface(server_config.interface,
+ 			&server_config.ifindex,
+ 			&server_config.server_nip,
+-			server_config.server_mac)
++			server_config.server_mac,
++			NULL)
+ 	) {
+ 		retval = 1;
+ 		goto ret;
+diff -urBp busybox/networking/udhcp/dhcprelay.c busybox.new/networking/udhcp/dhcprelay.c
+--- busybox/networking/udhcp/dhcprelay.c	2010-10-09 23:57:14.000000000 +0400
++++ busybox.new/networking/udhcp/dhcprelay.c	2010-10-10 19:04:52.000000000 +0400
+@@ -267,7 +267,7 @@ int dhcprelay_main(int argc, char **argv
+ 	max_socket = init_sockets(client_ifaces, num_sockets, argv[2], fds);
+ 
+ 	/* Get our IP on server_iface */
+-	if (udhcp_read_interface(argv[2], NULL, &our_nip, NULL))
++	if (udhcp_read_interface(argv[2], NULL, &our_nip, NULL, NULL))
+ 		return 1;
+ 
+ 	/* Main loop */
+@@ -304,7 +304,7 @@ int dhcprelay_main(int argc, char **argv
+ 
+ 				/* Get our IP on corresponding client_iface */
+ //why? what if server can't route such IP?
+-				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.gateway_nip, NULL)) {
++				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.gateway_nip, NULL, NULL)) {
+ 					/* Fall back to our server_iface's IP */
+ //this makes more sense!
+ 					dhcp_msg.gateway_nip = our_nip;
+diff -urBp busybox/networking/udhcp/socket.c busybox.new/networking/udhcp/socket.c
+--- busybox/networking/udhcp/socket.c	2010-09-17 03:05:35.000000000 +0400
++++ busybox.new/networking/udhcp/socket.c	2010-10-10 19:04:52.000000000 +0400
+@@ -34,7 +34,7 @@
+ 
+ #include "common.h"
+ 
+-int FAST_FUNC udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac)
++int FAST_FUNC udhcp_read_interface(const char *interface, int *ifindex, uint32_t *nip, uint8_t *mac, uint16_t *mtu)
+ {
+ 	int fd;
+ 	struct ifreq ifr;
+@@ -76,6 +76,15 @@ int FAST_FUNC udhcp_read_interface(const
+ 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+ 	}
+ 
++	if (mtu) {
++		if (ioctl_or_warn(fd, SIOCGIFMTU, &ifr) != 0) {
++			close(fd);
++			return -1;
++		}
++		log1("Adapter mtu %d", ifr.ifr_mtu);
++		*mtu = ifr.ifr_mtu;
++	}
++
+ 	close(fd);
+ 	return 0;
+ }
+-- 
