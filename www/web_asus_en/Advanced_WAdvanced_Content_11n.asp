@@ -65,6 +65,7 @@
 <option class="content_input_fd" value="13" <% nvram_match_x("WLANConfig11b","wl_nmcsidx", "13","selected"); %>>13</option>
 <option class="content_input_fd" value="14" <% nvram_match_x("WLANConfig11b","wl_nmcsidx", "14","selected"); %>>14</option>
 <option class="content_input_fd" value="15" <% nvram_match_x("WLANConfig11b","wl_nmcsidx", "15","selected"); %>>15</option>
+<option class="content_input_fd" value="32" <% nvram_match_x("WLANConfig11b","wl_nmcsidx", "32","selected"); %>>32</option>
 </select></td>
 </tr>
 <tr>

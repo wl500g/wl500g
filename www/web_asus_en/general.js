@@ -2554,7 +2554,8 @@ function change_common(o, s, v)
 		{
 			if (o.value == "0") /* auto */
 				inputCtrl(document.form.wl_nctrlsb, 0);
-			else if (document.form.wl_nbw.value == "40")
+			else
+			if (document.form.wl_nbw.value == "40")
 				inputCtrl(document.form.wl_nctrlsb, 1);
 		}
 		else if (v == "wl_nbw")
@@ -2566,7 +2567,8 @@ function change_common(o, s, v)
 			}
 			else /* 40 MHz */
 			{
-				document.form.wl_nctrlsb.value = "lower";
+				if (document.form.wl_nctrlsb.value == "none")
+					document.form.wl_nctrlsb.value = "lower";
 				if (document.form.wl_channel.value == "0") /*Auto*/
 					inputCtrl(document.form.wl_nctrlsb, 0);
 				else
@@ -2587,7 +2589,8 @@ function change_common(o, s, v)
 			{
 				document.form.wl_nbw.value = "40";
 				inputCtrl(document.form.wl_nbw, 1);
-				document.form.wl_nctrlsb.value = "lower";
+				if (document.form.wl_nctrlsb.value == "none")
+					document.form.wl_nctrlsb.value = "lower";
 				if (document.form.wl_channel.value == "0") /*Auto*/
 					inputCtrl(document.form.wl_nctrlsb, 0);
 				else
