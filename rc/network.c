@@ -547,17 +547,20 @@ start_lan(void)
 #ifdef ASUS_EXT
 	/* 
 	* Configure DHCP connection. The DHCP client will run 
-	* 'udhcpc bound'/'udhcpc deconfig' upon finishing IP address 
+	* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
 	* renew and release.
 	*/
 	if (nvram_match("router_disable", "1"))
 	{
 		if (nvram_match("lan_proto_x", "1")) 
 		{
-			char *dhcp_argv[] = { "udhcpc",
+			char *dhcp_argv[] = { "/sbin/udhcpc",
 					      "-i", lan_ifname,
 					      "-p", "/var/run/udhcpc_lan.pid",
 					      "-s", "/tmp/landhcpc",
+#ifdef DEBUG
+					      "-vv", "-S",
+#endif
 					      NULL
 			};
 			pid_t pid;
@@ -791,7 +794,7 @@ start_wan(void)
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
-	symlink("/sbin/rc", "/tmp/udhcpc");
+	symlink("/sbin/rc", "/tmp/udhcpc.script");
 
 #ifdef __CONFIG_MODEM__
 	/* ppp contents */
@@ -952,11 +955,13 @@ start_wan(void)
 		 	if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) 
 		 	{
 				char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-				char *dhcp_argv[] = { "udhcpc",
+				char *dhcp_argv[] = { "/sbin/udhcpc",
 					      "-i", wan_ifname,
 					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-					      "-s", "/tmp/udhcpc",
 					      "-b",
+#ifdef DEBUG
+					      "-vv", "-S",
+#endif
 					      wan_hostname && *wan_hostname ? "-H" : NULL,
 					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
 					      NULL
@@ -1009,17 +1014,19 @@ start_wan(void)
 #endif
 		/* 
 		* Configure DHCP connection. The DHCP client will run 
-		* 'udhcpc bound'/'udhcpc deconfig' upon finishing IP address 
+		* 'udhcpc.script bound'/'udhcpc.script deconfig' upon finishing IP address 
 		* renew and release.
 		*/
 		else if (strcmp(wan_proto, "dhcp") == 0 ||
 			 strcmp(wan_proto, "bigpond") == 0 )
 		{
 			char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-			char *dhcp_argv[] = { "udhcpc",
+			char *dhcp_argv[] = { "/sbin/udhcpc",
 					      "-i", wan_ifname,
 					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-					      "-s", "/tmp/udhcpc",
+#ifdef DEBUG
+					      "-vv", "-S",
+#endif
 					      wan_hostname && *wan_hostname ? "-H" : NULL,
 					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
 					      NULL
@@ -1306,7 +1313,7 @@ stop_wan(char *ifname)
 	}
 
 	/* Remove dynamically created links */
-	unlink("/tmp/udhcpc");
+	unlink("/tmp/udhcpc.script");
 
 	unlink("/tmp/ppp/ip-up");
 	unlink("/tmp/ppp/ip-down");
