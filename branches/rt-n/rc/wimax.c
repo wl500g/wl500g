@@ -307,13 +307,12 @@ madwimax_up(char *ifname)
 
 	if (nvram_match(strcat_r(prefix, "wimax_ipaddr", tmp), "0.0.0.0"))
 	{
-		char *dhcp_argv[] = {"udhcpc",
+		char *dhcp_argv[] = {"/sbin/udhcpc",
 				     "-i", ifname,
 				     "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-				     "-s", "/tmp/udhcpc",
 				     "-b",
 #ifdef DEBUG
-				     "-S",
+				     "-vv", "-S",
 #endif
 				     NULL};
 		/* Start firewall */
