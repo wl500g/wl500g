@@ -256,16 +256,13 @@ void convert_asus_values()
 	nvram_set("wl0_nbw", nvram_safe_get("wl_nbw"));
 	/* 0 - 20Mhz, 1 - 40 Mhz, 2 - 20Mhz in 2.4G/40Mhz in 5G */
 	nvram_set("wl0_nbw_cap", nvram_match("wl_nbw", "20") ? "0" : "1");
-	if (nvram_match("wl_nbw", "40") && nvram_invmatch("wl_gmode","2"))
-		nvram_set("wl0_obss_coex", "1");
-	else
-		nvram_set("wl0_obss_coex", "0");
 	nvram_set("wl0_nctrlsb", nvram_safe_get("wl_nctrlsb"));
 	nvram_set("wl0_nband", nvram_safe_get("wl_nband"));
 	nvram_set("wl0_reg_mode", nvram_safe_get("wl_reg_mode"));
 	nvram_set("wl0_mimo_preamble", nvram_safe_get("wl_mimo_preamble"));
 	nvram_set("wl0_wme_apsd", nvram_safe_get("wl_wme_apsd"));
 	nvram_set("wl0_vlan_prio_mode", nvram_safe_get("wl_vlan_prio_mode"));
+	nvram_set("wl0_obss_coex", (nvram_match("wl_nbw", "40") && nvram_invmatch("wl_reg_mode", "off")) ? "1" : "0");
 
 	nvram_set("wl0_ssid", nvram_safe_get("wl_ssid"));
 	nvram_set("wl0_channel", nvram_safe_get("wl_channel"));
