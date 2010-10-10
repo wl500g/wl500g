@@ -965,8 +965,8 @@ main(int argc, char **argv)
 	else if ( !strcmp(base, "madwimax.events" ) )
 		return madwimax_main(argc, argv);
 #endif
-	/* udhcpc [ deconfig bound renew ] */
-	else if (!strcmp(base, "udhcpc"))
+	/* udhcpc.script [ deconfig bound renew ] */
+	else if (!strcmp(base, "udhcpc.script"))
 		return udhcpc_main(argc, argv);
 	/* restore default */
 	else if (!strcmp(base, "restore"))
@@ -1145,7 +1145,7 @@ main(int argc, char **argv)
 		wlan_update();
 		return 0;
 	}
-	/* udhcpc_ex [ deconfig bound renew ], for lan only */
+	/* landhcpc [ deconfig bound renew ], for lan only */
 	else if (!strcmp(base, "landhcpc"))
 		return udhcpc_ex_main(argc, argv);
 	else if (!strcmp(base, "bpa_connect"))
