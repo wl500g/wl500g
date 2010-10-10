@@ -236,17 +236,18 @@ void convert_asus_values()
 	/* setting completely (resets to auto), so we use something < 0 */
 	nvram_set("wl0_nmcsidx", nvram_match("wl_nmcsidx", "-1") ? 
 		"-2" : nvram_get("wl_nmcsidx"));
-	
+
 	/* override settings for 11n */
 	if (nvram_match("wl_gmode", "6"))	/* 11n */
 	{
+		nvram_set("wl0_nmcsidx", nvram_get("wl_nmcsidx"));
 		nvram_set("wl0_rate", "0");
 		nvram_set("wl0_nmode", "1");	/* on */
 		nvram_set("wl0_gmode", "1");	/* auto */
 		nvram_set("wl0_nreqd", "1");	/* on */
 	}
 	else if (nvram_match("wl_gmode","1"))	/* auto */
-	{	
+	{
 		nvram_set("wl0_nmode", "-1");	/* auto */
 	} else {
 		nvram_set("wl0_nmode", "0");	/* off */

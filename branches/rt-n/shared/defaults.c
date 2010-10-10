@@ -33,7 +33,7 @@ struct nvram_tuple router_defaults[] = {
 
 	/* Miscellaneous parameters */
 	{ "timer_interval", "3600", 0 },	/* Timer interval in seconds */
-	{ "ntp_server0", "time.nist.gov", 0 },	/* NTP server */
+	{ "ntp_server0", "pool.ntp.org", 0 },	/* NTP server */
 	{ "time_zone", "GMT0", 0 },		/* Time zone (GNU TZ format) */
 	{ "log_level", "0", 0 },		/* Bitmask 0:off 1:denied 2:accepted */
 	{ "upnp_enable", "1", 0 },		/* Start UPnP */

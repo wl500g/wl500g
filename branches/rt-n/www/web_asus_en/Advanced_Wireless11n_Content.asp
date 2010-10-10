@@ -32,7 +32,16 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the mode of 802.11g interface. Selecting Auto allows 802.11g and 802.11b to connect to your device. Selecting 54g Only maximizes performace, but 802.11b client is not allowed to connect to your device. If 54g Protection is checked, G-Mode protection of 11g traffic is enabled automatically in the presence of 11b traffic.', LEFT);" onMouseOut="return nd();">Wireless Mode:
-           </td><td class="content_input_td"><select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')"><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option><option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_gmode", "2","selected"); %>>802.11g Only</option><option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>Performance</option><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11b Only</option><option class="content_input_fd" value="5" <% nvram_match_x("WLANConfig11b","wl_gmode", "5","selected"); %>>54G LRS</option><option class="content_input_fd" value="6" <% nvram_match_x("WLANConfig11b","wl_gmode", "6","selected"); %>>802.11n Only</option></select><input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
+           </td><td class="content_input_td">
+           <select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')">
+           <option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","wl_gmode", "1","selected"); %>>Auto</option>
+           <option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","wl_gmode", "0","selected"); %>>802.11b Only</option>
+           <option class="content_input_fd" value="2" <% nvram_match_x("WLANConfig11b","wl_gmode", "2","selected"); %>>802.11g Only</option>
+           <option class="content_input_fd" value="6" <% nvram_match_x("WLANConfig11b","wl_gmode", "6","selected"); %>>802.11n Only</option>
+           <option class="content_input_fd" value="4" <% nvram_match_x("WLANConfig11b","wl_gmode", "4","selected"); %>>Performance</option>
+           <option class="content_input_fd" value="5" <% nvram_match_x("WLANConfig11b","wl_gmode", "5","selected"); %>>54G LRS</option>
+           </select>
+           <input type="checkbox" style="margin-left:30" name="wl_gmode_check" value="" onClick="return change_common_radio(this, 'WLANConfig11b', 'wl_gmode', '1')">54g Protection</input></td>
 </tr>
 <input type="hidden" name="wl_gmode_protection_x" value="<% nvram_get_x("WLANConfig11b","wl_gmode_protection_x"); %>">
 <tr>
