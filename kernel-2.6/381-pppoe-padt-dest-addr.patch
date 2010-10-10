@@ -1,15 +1,15 @@
 diff -uBp a/drivers/net/pppoe.c b/drivers/net/pppoe.c
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
-@@ -438,6 +438,10 @@ static int pppoe_disc_rcv(struct sk_buff
- 
- 		bh_lock_sock(sk);
+@@ -436,6 +436,10 @@ static int pppoe_disc_rcv(struct sk_buff
+ 	if (po) {
+ 		struct sock *sk = sk_pppox(po);
  
 +		/* Check destination address */
 +		if (memcmp(eth_hdr(skb)->h_dest, dev->dev_addr, ETH_ALEN))
 +			goto abort;
 +
+ 		bh_lock_sock(sk);
+ 
  		/* If the user has locked the socket, just ignore
- 		 * the packet.  With the way two rcv protocols hook into
- 		 * one socket family type, we cannot (easily) distinguish
 -- 
