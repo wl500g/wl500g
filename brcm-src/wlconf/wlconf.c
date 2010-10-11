@@ -1741,11 +1741,7 @@ wlconf(char *name)
 	WL_IOCTL(name, WLC_SET_BCNPRD, &val, sizeof(val));
 
 	/* Set beacon rotation */
-	str = nvram_get(strcat_r(prefix, "bcn_rotate", tmp));
-	if (!str) {
-		/* No nvram variable found, use the default */
-		str = nvram_default_get(strcat_r(prefix, "bcn_rotate", tmp));
-	}
+	str = nvram_safe_default_get(strcat_r(prefix, "bcn_rotate", tmp));
 	val = atoi(str);
 	wl_iovar_setint(name, "bcn_rotate", val);
 
@@ -1844,11 +1840,7 @@ wlconf(char *name)
 		|| ((ap || apsta) && (nbw == WL_CHANSPEC_BW_40) && (bandtype == WLC_BAND_2G))
 #endif
 		) {
-			str = nvram_safe_get(strcat_r(prefix, "obss_coex", tmp));
-			if (!*str) {
-				/* No nvram variable found, use the default */
-				str = nvram_default_get(strcat_r(prefix, "obss_coex", tmp));
-			}
+			str = nvram_safe_default_get(strcat_r(prefix, "obss_coex", tmp));
 			obss_coex = atoi(str);
 			WL_IOVAR_SETINT(name, "obss_coex", obss_coex);
 		}
