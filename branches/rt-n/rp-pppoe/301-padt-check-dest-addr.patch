@@ -3,17 +3,17 @@ Ignore PADT packets whose destination address isn't ours
 diff -uBp a/src/relay.c b/src/relay.c
 --- a/src/relay.c
 +++ b/src/relay.c
-@@ -959,6 +959,12 @@ relayHandlePADT(PPPoEInterface const *if
-     if (!sh) {
- 	return;
-     }
-+
+@@ -955,6 +955,12 @@ relayHandlePADT(PPPoEInterface const *if
+     SessionHash *sh;
+     PPPoESession *ses;
+ 
 +    /* Ignore PADT packets whose destination address isn't ours */
-+    if (memcmp(packet->ethHdr.h_dest, iface->mac, ETH_ALEN)) {
++    if (!(packet->ethHdr.h_dest[0] & 0xfe) &&
++         memcmp(packet->ethHdr.h_dest, iface->mac, ETH_ALEN)) {
 +        return;
 +    }
 +
-     /* Relay the PADT to the peer */
-     sh = sh->peer;
-     ses = sh->ses;
+     sh = findSession(packet->ethHdr.h_source, packet->session);
+     if (!sh) {
+ 	return;
 -- 
