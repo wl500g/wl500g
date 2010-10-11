@@ -35,11 +35,6 @@ struct nvram_tuple {
 };
 
 /*
- * Get default value for an NVRAM variable
- */
-extern char *nvram_default_get(const char *name);
-
-/*
  * Initialize NVRAM access. May be unnecessary or undefined on certain
  * platforms.
  */
@@ -75,12 +70,19 @@ extern char * nvram_get(const char *name);
  */
 extern int BCMINITFN(nvram_resetgpio_init)(void *sih);
 
+/*
+ * Get default value for an NVRAM variable
+ */
+extern char *nvram_default_get(const char *name);
+
 /* 
  * Get the value of an NVRAM variable.
  * @param	name	name of variable to get
  * @return	value of variable or NUL if undefined
  */
 #define nvram_safe_get(name) (nvram_get(name) ? : "")
+
+#define nvram_safe_default_get(name) (nvram_get(name) ? : (nvram_default_get(name) ? : ""))
 
 /*
  * Match an NVRAM variable.
