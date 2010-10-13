@@ -2,13 +2,10 @@ lib: hexdump updates from upstream
 
  3fc957721d18c93662f7d4dab455b80f53dd2641 lib: create common ascii hex array
  c67ae69b661f3c2fe1a9c8259bc948c68b082166 hexdump: remove the trailing space
+ eb9a9a56316f4fea98ee32873ccbf7098b7bd69b hex_dump: add missing "const" qualifiers
  db0fd97c270f1e80321f7ae55234643ca0978c54 lib/hexdump.c: reduce stack variable size and cleanups
 
 ---
- arch/sh/kernel/kgdb_stub.c |    8 --------
- include/linux/kernel.h     |   12 +++++++++++-
- lib/hexdump.c              |   41 +++++++++++++++++++++++++----------------
- 3 files changed, 36 insertions(+), 25 deletions(-)
 
 diff --git a/arch/sh/kernel/kgdb_stub.c b/arch/sh/kernel/kgdb_stub.c
 index d453c3a..832641b 100644
@@ -33,11 +30,16 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 index 4d46e29..792bf0a 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
-@@ -227,7 +227,17 @@ extern void print_hex_dump(const char *level, const char *prefix_str,
- 				void *buf, size_t len, bool ascii);
+@@ -223,10 +223,20 @@ extern void print_hex_dump(const char *level, const char *prefix_str,
+ 				char *linebuf, size_t linebuflen, bool ascii);
+ extern void print_hex_dump(const char *level, const char *prefix_str,
+ 				int prefix_type, int rowsize, int groupsize,
+-				void *buf, size_t len, bool ascii);
++				const void *buf, size_t len, bool ascii);
  extern void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
- 			void *buf, size_t len);
+-			void *buf, size_t len);
 -#define hex_asc(x)	"0123456789abcdef"[x]
++			const void *buf, size_t len);
 +
 +extern const char hex_asc[];
 +#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
@@ -142,9 +144,15 @@ diff --git a/lib/hexdump.c b/lib/hexdump.c
   *
   * Example output using %DUMP_PREFIX_OFFSET and 1-byte mode:
   * 0009ab42: 40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f  @ABCDEFGHIJKLMNO
-@@ -149,7 +157,7 @@ void print_hex_dump(const char *level, c
+@@ -145,11 +153,11 @@ void print_hex_dump(const char *level, c
+  */
+ void print_hex_dump(const char *level, const char *prefix_str, int prefix_type,
+ 			int rowsize, int groupsize,
+-			void *buf, size_t len, bool ascii)
++			const void *buf, size_t len, bool ascii)
  {
- 	u8 *ptr = buf;
+-	u8 *ptr = buf;
++	const u8 *ptr = buf;
  	int i, linelen, remaining = len;
 -	unsigned char linebuf[200];
 +	unsigned char linebuf[32 * 3 + 2 + 32 + 1];
@@ -169,8 +177,12 @@ diff --git a/lib/hexdump.c b/lib/hexdump.c
  			break;
  		case DUMP_PREFIX_OFFSET:
  			printk("%s%s%.8x: %s\n", level, prefix_str, i, linebuf);
-@@ -192,6 +201,6 @@ void print_hex_dump_bytes(const char *pr
- 			void *buf, size_t len)
+@@ -189,9 +198,9 @@ void print_hex_dump_bytes(const char *pr
+  * rowsize of 16, groupsize of 1, and ASCII output included.
+  */
+ void print_hex_dump_bytes(const char *prefix_str, int prefix_type,
+-			void *buf, size_t len)
++			const void *buf, size_t len)
  {
  	print_hex_dump(KERN_DEBUG, prefix_str, prefix_type, 16, 1,
 -			buf, len, 1);
