@@ -152,8 +152,10 @@ kernel-patch:
 
 kernel-extra-drivers:
 	@for drv in kernel-2.6/drivers/* ; do \
-	    tar -C $$drv $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR) -xf - ; \
-	    echo " DRV `basename $$drv`"; \
+	    if [ -d $$drv ]; then \
+		tar -C $$drv $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR) -xf - ; \
+		echo " DRV `basename $$drv`"; \
+	    fi; \
 	done;
 
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
