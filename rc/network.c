@@ -271,7 +271,7 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 	routes = strdup(nvram_safe_get(strcat_r(prefix, "routes", buf)));
 	for (tmp = routes; tmp && *tmp; )
 	{
-		ipaddr  = strsep(&tmp, " ");
+		ipaddr  = strsep(&tmp, "/");
 		gateway = strsep(&tmp, " ");
 
 		if (gateway && inet_addr_(ipaddr) != INADDR_ANY)
