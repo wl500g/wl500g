@@ -172,11 +172,15 @@ stop_telnetd(void)
 int
 start_dropbear(void)
 {
-	char *dropbear_argv[] = {"dropbearstart", NULL, NULL, NULL, NULL};
+	char *dropbear_argv[] = {"dropbearstart", NULL, NULL, NULL, NULL, NULL};
 	int i = 1;
 
 	if (nvram_match("ssh_enable", "0"))
 		return 0;
+
+	if (nvram_match("ssh_password_logins", "0")) {
+		dropbear_argv[i++] = "-s";
+	}
 
 	if (nvram_invmatch("ssh_port", "") && nvram_invmatch("ssh_port", "22"))
 	{

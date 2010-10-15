@@ -2380,6 +2380,7 @@
 	{"telnet_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"ssh_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"ssh_port", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
+	{"ssh_password_logins", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
 	{"lpr_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"raw_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"audio_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},

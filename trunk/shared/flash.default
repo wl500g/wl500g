@@ -425,6 +425,7 @@
 {"telnet_enable", "1", 0},
 {"ssh_enable", "0", 0},
 {"ssh_port", "22", 0},
+{"ssh_password_logins", "1", 0},
 {"recent_ssh_enable", "0", 0},
 {"recent_ftp_enable", "0", 0},
 {"recent_seconds", "600", 0},
