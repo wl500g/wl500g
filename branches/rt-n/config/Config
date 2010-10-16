@@ -150,10 +150,20 @@ config CONFIG_PPP
        depends on CONFIG_NAT
        default y
 
+choice
+       prompt "UPnP IGD server"
+       depends on CONFIG_NAT
+       default CONFIG_UPNP
+
 config CONFIG_UPNP
-       bool "UPnP IGD server"
-       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED && CONFIG_NAT
-       default y
+       bool "BCM UPnP"
+       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED
+
+config CONFIG_MINIUPNPD
+       bool "MiniUPnP"
+       depends on CONFIG_IPTABLES
+
+endchoice
 
 config CONFIG_NAS
        bool "802.1X/WPA network authenticator"
