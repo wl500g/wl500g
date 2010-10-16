@@ -370,6 +370,19 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_generic.c linux-2.6.22.19/drive
  	proto = PPP_PROTO(skb);
  	switch (proto) {
  	case PPP_VJC_COMP:
+@@ -1714,10 +1721,10 @@ ppp_decompress_frame(struct ppp *ppp, struct sk_buff *skb)
+ 
+ 		switch(ppp->rcomp->compress_proto) {
+ 		case CI_MPPE:
+-			obuff_size = ppp->mru + PPP_HDRLEN + 1;
++			obuff_size = ppp->mru_alloc + PPP_HDRLEN + 1;
+ 			break;
+ 		default:
+-			obuff_size = ppp->mru + PPP_HDRLEN;
++			obuff_size = ppp->mru_alloc + PPP_HDRLEN;
+ 			break;
+ 		}
+ 
 @@ -1750,7 +1751,14 @@ ppp_decompress_frame(struct ppp *ppp, st
  	return skb;
  
