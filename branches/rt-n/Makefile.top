@@ -175,13 +175,14 @@ obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
 obj-$(CONFIG_LLTD) += lltd
+obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
 
 obj-y += kernel
 
-# Exclude targets for non-USB router models
+# Exclude targets for non-USB routers or with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
 endif
 
 
@@ -488,6 +489,7 @@ MANPAGES-$(CONFIG_IPV6) += iptables/ip6tables.8 iptables/ip6tables-restore.8 ipt
 MANPAGES-$(CONFIG_INADYN) += inadyn/man/inadyn.conf.5 inadyn/man/inadyn.8
 MANPAGES-$(CONFIG_NTFS3G) += ntfs-3g/src/ntfs-3g.8
 MANPAGES-$(CONFIG_RIPD) += quagga/doc/ospfd.8 quagga/doc/ripd.8 quagga/doc/zebra.8
+MANPAGES-$(CONFIG_TCPDUMP) += tcpdump/tcpdump.1
 
 manpages-install:
 	$(MAKE) -C LPRng/man
@@ -1085,6 +1087,31 @@ LPRng-install:
 	install -D LPRng/src/lpd $(INSTALLDIR)/LPRng/usr/sbin/lpd
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
 
+
+libpcap/Makefile: libpcap/Makefile.in
+	cd libpcap && CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
+	    --with-pcap=linux --without-septel --without-dag \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
+
+libpcap: libpcap/Makefile
+	$(MAKE) -C $@
+
+libpcap-install:
+	@true
+
+tcpdump/Makefile: tcpdump/Makefile.in
+	cd tcpdump && CFLAGS="-g -Os $(EXTRACFLAGS) -DTCPDUMP_MINI" \
+	$(CONFIGURE) --prefix=/usr --without-crypto \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
+	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
+
+tcpdump: libpcap tcpdump/Makefile
+	$(MAKE) -C $@ TCPDUMP_MINI=1
+
+tcpdump-install:
+	install -D tcpdump/tcpdump $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
+	$(STRIP) $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
 
 image-%:
 	$(MAKE) rc MODEL="$*"

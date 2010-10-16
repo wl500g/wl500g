@@ -150,20 +150,10 @@ config CONFIG_PPP
        depends on CONFIG_NAT
        default y
 
-choice
-       prompt "UPnP IGD server"
-       depends on CONFIG_NAT
-       default CONFIG_UPNP
-
 config CONFIG_UPNP
-       bool "BCM UPnP"
-       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED
-
-config CONFIG_MINIUPNPD
-       bool "MiniUPnP"
-       depends on CONFIG_IPTABLES
-
-endchoice
+       bool "UPnP IGD server"
+       depends on CONFIG_NETCONF && CONFIG_NVRAM && CONFIG_SHARED && CONFIG_NAT
+       default y
 
 config CONFIG_NAS
        bool "802.1X/WPA network authenticator"
@@ -395,6 +385,12 @@ config CONFIG_LLTD
        default n
        help
        Include Link Layer Topology Discovery responder.
+
+config CONFIG_TCPDUMP
+       bool "tcpdump"
+       default y
+       help
+       Include tcpdump, a powerful command-line packet analyzer.
 
 config CONFIG_NTFS3G
        bool "NTFS-3G support"
