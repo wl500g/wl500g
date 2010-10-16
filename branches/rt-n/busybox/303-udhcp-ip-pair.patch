@@ -1,0 +1,42 @@
+Subject: Fixed option_ip_pair parsing
+
+function                                             old     new   delta
+xmalloc_optname_optval                               892     900      +8
+------------------------------------------------------------------------------
+(add/remove: 0/0 grow/shrink: 1/0 up/down: 8/0)                 Total: 8 bytes
+
+Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
+
+--- busybox.1.17.3/networking/udhcp/dhcpc.c	2010-10-13 19:52:04.000000000 +0000
++++ busybox/networking/udhcp/dhcpc.c	2010-10-16 23:17:57.388447000 +0000
+@@ -84,25 +84,26 @@ static int mton(uint32_t mask)
+ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_optflag *optflag, const char *opt_name)
+ {
+ 	unsigned upper_length;
+-	int len, type, optlen;
++	int len, type, optlen, origlen;
+ 	char *dest, *ret;
+ 
+ 	/* option points to OPT_DATA, need to go back and get OPT_LEN */
+ 	len = option[OPT_LEN - OPT_DATA];
+ 	type = optflag->flags & OPTION_TYPE_MASK;
+-	optlen = dhcp_option_lengths[type];
++	optlen = origlen = dhcp_option_lengths[type];
+ 	upper_length = len_of_option_as_string[type] * ((unsigned)len / (unsigned)optlen);
+ 
+ 	dest = ret = xmalloc(upper_length + strlen(opt_name) + 2);
+ 	dest += sprintf(ret, "%s=", opt_name);
+ 
+-	while (len >= optlen) {
++	while (len >= origlen) {
+ 		switch (type) {
+ 		case OPTION_IP_PAIR:
+ 			dest += sprint_nip(dest, "", option);
+ 			*dest++ = '/';
+-			option += 4;
+ 			optlen = 4;
++			option += optlen;
++			len -= optlen;
+ 		case OPTION_IP:
+ 			dest += sprint_nip(dest, "", option);
+ // TODO: it can be a list only if (optflag->flags & OPTION_LIST).
