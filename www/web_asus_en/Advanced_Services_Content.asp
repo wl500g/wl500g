@@ -53,6 +53,24 @@ you to perform advanced configuration.</td>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port number used by SSH protocol.', LEFT);" onMouseOut="return nd();">SSH Port:</td>
 <td class="content_input_td"><input type="text" maxlength="5" size="5" name="ssh_port" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "ssh_port"); %>" onBlur="validate_range(this, 1, 65535)" onKeyPress="return is_number(this)"></td>
 </tr>
+<tr>
+<td class="content_header_td"
+    onMouseOver="return overlib('This is disallow password login. You must use public key to login.', LEFT);"
+    onMouseOut="return nd();"
+    >Disable SSH password login:</td>
+<td class="content_input_td">
+    <input type="radio" name="ssh_password_logins" value="0"
+        class="content_input_fd"
+        onClick="return change_common_radio(this, 'PrinterStatus', 'ssh_password_logins', '1')"
+        <% nvram_match_x("PrinterStatus","ssh_password_logins", "0", "checked"); %>
+        >Yes</input>
+    <input type="radio" name="ssh_password_logins" value="1"
+        class="content_input_fd"
+        onClick="return change_common_radio(this, 'PrinterStatus', 'ssh_password_logins', '0')"
+        <% nvram_match_x("PrinterStatus","ssh_password_logins", "1", "checked"); %>
+        >No</input></td>
+</tr>
+<tr>
 <tr><td class="content_header_td" onMouseOver="return overlib('Enables Link Layer Topology Discovery daemon.', LEFT);" onMouseOut="return nd();">Enable LLTD responder:</td><td class="content_input_td"><input type="radio" value="1" name="lltd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lltd_enable', '1')" <% nvram_match_x("PrinterStatus","lltd_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="lltd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lltd_enable', '0')" <% nvram_match_x("PrinterStatus","lltd_enable", "0", "checked"); %>>No</input></td></tr>
 </table>
 </td>
