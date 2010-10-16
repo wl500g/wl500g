@@ -56,6 +56,8 @@ USBMODESWITCH=usb-modeswitch-1.1.4
 USBMODESWITCHDATA=usb-modeswitch-data-20100826
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
+TCPDUMP=tcpdump-4.1.1
+LIBPCAP=libpcap-1.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
 NTFS3G=ntfs-3g-2010.10.2
@@ -94,7 +96,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	ntpclient bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
-	scsi-idle libusb usb_modeswitch wimax lltd ntfs-3g\
+	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma
 	@echo
 	@echo Sources prepared for compilation
@@ -580,6 +582,28 @@ $(TOP)/lltd: lltd/$(LLTD).tar.bz2
 	mv $(TOP)/$(LLTD) $@ && touch $@
 
 lltd: $(TOP)/lltd
+	@true
+
+libpcap_Patches := $(call patches_list,tcpdump/libpcap)
+
+$(TOP)/libpcap: tcpdump/libpcap/$(LIBPCAP).tar.gz
+	rm -rf $(TOP)/$(LIBPCAP) $@
+	tar -zxf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(LIBPCAP) $(libpcap_Patches)
+	mv $(TOP)/$(LIBPCAP) $@ && touch $@
+
+libpcap: $(TOP)/libpcap
+	@true
+
+tcpdump_Patches := $(call patches_list,tcpdump)
+
+$(TOP)/tcpdump: tcpdump/$(TCPDUMP).tar.gz
+	rm -rf $(TOP)/$(TCPDUMP) $@
+	tar -zxf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(TCPDUMP) $(tcpdump_Patches)
+	mv $(TOP)/$(TCPDUMP) $@ && touch $@
+
+tcpdump: libpcap $(TOP)/tcpdump
 	@true
 
 hotplug2_Patches := $(call patches_list,hotplug2)
