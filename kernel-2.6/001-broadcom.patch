@@ -3408,15 +3408,17 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/time.c linux-2.6/arch/m
 +#include <bcmdevs.h>
 +
 +/* Global SB handle */
-+extern void *bcm947xx_sih;
++extern si_t *bcm947xx_sih;
 +extern spinlock_t bcm947xx_sih_lock;
 +
 +/* Convenience */
 +#define sih bcm947xx_sih
 +#define sih_lock bcm947xx_sih_lock
 +
++#define WATCHDOG_MIN	3000	/* milliseconds */
 +extern int panic_timeout;
 +static int watchdog = 0;
++
 +#ifndef	CONFIG_HWSIM
 +static u8 *mcr = NULL;
 +#endif /* CONFIG_HWSIM */
@@ -3446,10 +3448,8 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/time.c linux-2.6/arch/m
 +	watchdog = simple_strtoul(nvram_safe_get("watchdog"), NULL, 0);
 +
 +	/* Please set the watchdog to 3 sec if it is less than 3 but not equal to 0 */
-+	if (watchdog > 0) {
-+		if (watchdog < 3000)
-+			watchdog = 3000;
-+	}
++	if ((watchdog > 0) && (watchdog < WATCHDOG_MIN))
++		watchdog = WATCHDOG_MIN;
 +
 +	/* Set panic timeout in seconds */
 +	panic_timeout = watchdog / 1000;
@@ -3490,7 +3490,7 @@ diff -urBwNp linux-2.6.22/arch/mips/brcm-boards/bcm947xx/time.c linux-2.6/arch/m
 +		if (((si_t *)sih)->chip == BCM5354_CHIP_ID)
 +			si_watchdog(sih, WATCHDOG_CLOCK_5354 / 1000 * watchdog);
 +		else
-+			si_watchdog(sih, WATCHDOG_CLOCK / 1000 * watchdog);
++			si_watchdog_ms(sih, watchdog);
 +	}
 +
 +#ifdef	CONFIG_HWSIM
