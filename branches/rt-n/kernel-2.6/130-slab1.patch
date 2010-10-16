@@ -1893,7 +1893,7 @@ index 648f2c7..a81db8d 100644
  	struct kmem_cache *s;
  
 -	if (object == ZERO_SIZE_PTR)
-+	if (ZERO_OR_NULL_PTR(object))
++	if (unlikely(ZERO_OR_NULL_PTR(object)))
  		return 0;
  
 -	page = get_object_page(object);
