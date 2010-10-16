@@ -394,7 +394,6 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_generic.c linux-2.6.22.19/drive
  	init_ppp_file(&ppp->file, INTERFACE);
  	ppp->file.hdrlen = PPP_HDRLEN - 2;	/* don't count proto bytes */
  	for (i = 0; i < NUM_NP; ++i)
-diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_generic.c.orig linux-2.6.22.19/drivers/net/ppp_generic.c.orig
 diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe.c linux-2.6.22.19/drivers/net/ppp_mppe.c
 --- linux-2.6.22.19.orig/drivers/net/ppp_mppe.c	2008-02-25 23:59:40.000000000 +0000
 +++ linux-2.6.22.19/drivers/net/ppp_mppe.c	1970-01-01 00:00:00.000000000 +0000
@@ -2577,6 +2576,19 @@ diff -BurpN linux-2.6.22.19.orig/include/linux/crypto.h linux-2.6.22.19/include/
  static inline struct crypto_hash *crypto_alloc_hash(const char *alg_name,
  						    u32 type, u32 mask)
  {
+diff -BurpN a/include/linux/if_ppp.h b/include/linux/if_ppp.h
+--- a/include/linux/if_ppp.h	2010-10-16 11:34:47.000000000 +0400
++++ b/include/linux/if_ppp.h	2010-10-16 11:34:59.000000000 +0400
+@@ -72,8 +72,7 @@
+ #define SC_LOG_RAWIN	0x00080000	/* log all chars received */
+ #define SC_LOG_FLUSH	0x00100000	/* log all chars flushed */
+ #define	SC_SYNC		0x00200000	/* synchronous serial mode */
+-#define	SC_MUST_COMP    0x00400000	/* no uncompressed packets may be sent or received */
+-#define	SC_MASK		0x0f600fff	/* bits that user can change */
++#define	SC_MASK		0x0f200fff	/* bits that user can change */
+ 
+ /* state bits */
+ #define SC_XMIT_BUSY	0x10000000	/* (used by isdn_ppp?) */
 diff -BurpN linux-2.6.22.19.orig/include/linux/ppp-comp.h linux-2.6.22.19/include/linux/ppp-comp.h
 --- linux-2.6.22.19.orig/include/linux/ppp-comp.h	2008-02-25 23:59:40.000000000 +0000
 +++ linux-2.6.22.19/include/linux/ppp-comp.h	2010-05-05 18:44:30.000000000 +0000
