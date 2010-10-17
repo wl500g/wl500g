@@ -5,6 +5,33 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===beta RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
+  * kernel
+    * linux-mips.org updates 2.6.22.git-2010-10-15
+    * accel-pptp 0.8.5
+    * backports from upstream (mm, vfs, tty, net, netlink, netfilter, conntrack, nfs, cifs, hfsplus, usb)
+    * disable_ipv6 sysctl
+    * v4l: experimental support for UVC compatible webcams
+    * pppoe: ignore PADT packets whose destination address isn't ours
+
+  * efficient multicast forwarding & igmp snooping.
+
+  * wlconf: updated to fix 802.11n issues
+
+  * hub-ctrl utility
+
+  * quagga 0.99.17
+
+  * tcpdump 4.1.1
+
+  * ntfs-3g 2010.10.2
+
+  * mjpg-streamer !r103
+
+  * all utilities from trunk (1.9.2.7-d)
+
+  * bugfixes
+
 ===wl500g-1.9.2.7-d-`r2174` (2010-09-30)===
   * kernel 2.4.37.10
     * accel-pptp 0.8.5
