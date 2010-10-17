@@ -1,0 +1,14 @@
+#!/usr/bin/python
+
+# The general algorithm this program follows goes like this:
+#   Run tar to extract control from control.tar.gz from the package.
+#   Insert the filename, size, and md5 lines before the description.
+# Call it like this:
+#  find . -name \*.ipk | xargs -n 1 makePackage > Packages
+
+import sys
+import ipkg
+
+fn = sys.argv[1]
+pkg = ipkg.Package(fn)
+print pkg

@@ -1,0 +1,62 @@
+#!/bin/sh
+set -e
+
+# User-configurable options
+
+url=http://www.handhelds.org/cgi-bin/upload-package.cgi
+feed=unstable
+
+# The actual script
+
+if [ $# -lt 1 ] ; then
+	echo "Usage: $0 file.ipk [file2.ipk ...]" >&2
+	echo "Uploads packages to Familiar's $feed feed at handhelds.org" >&2
+	exit 1
+fi
+
+if [ -z `which curl` ] ; then
+	echo "Sorry: $0 requires curl which appears to not be available." >&2
+	exit 1
+fi
+
+for pkg in $* ; do
+	if [ ! -e "$pkg" ] ; then
+		echo "$pkg: No such file or directory"
+		exit 1;
+	fi
+	if [ ! -e "$pkg.asc" ] ; then
+		gpg -sb --armor $pkg
+	fi
+done
+
+for pkg in $* ; do
+	echo "Uploading ${pkg} to $feed feed"
+	case $pkg in
+	*.batch)
+		tarfile=/tmp/ipkg-upload.$$.tar
+		rm -rf $tarfile
+		tar cf $tarfile `awk '{ print $2 }' < ${pkg}`
+		curl \
+			-F feedname=${feed} \
+			-F datafilename=@${tarfile} \
+			-F batchfilename=@${pkg} \
+			-F signaturefilename=@${pkg}.asc \
+			$url 2>&1 | tee ${pkg}.upload.html | egrep "(Error|Warning):" | sed 's:</*p>::g;s:</*b>::g'
+		rm -f ${tarfile}
+		grep -i signature ${pkg}.upload.html
+		;;
+
+	*)
+		curl \
+			-F feedname=${feed} \
+			-F filename=@${pkg} \
+			-F signaturefilename=@${pkg}.asc \
+		        -F sourcefilename="" \
+			$url 2>&1 | tee ${pkg}.upload.html | egrep "(Error|Warning):" | sed 's:</*p>::g;s:</*b>::g'
+		grep -i signature ${pkg}.upload.html
+		;;
+	esac
+	
+	echo "Done. See complete results in ${pkg}.upload.html"
+done
+

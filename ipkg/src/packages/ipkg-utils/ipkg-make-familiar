@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+. /etc/ipkg.conf
+
+MKFSJFFS2_FLAGS="-p -e 0x40000"
+
+ipkg update
+
+if ! ipkg install $*; then
+	echo "ipkg-make-familiar: *** Crash and Burn ***"
+	exit 1
+fi
+
+echo "Creating familiar.jffs2"
+chown -R root:root $IPKG_ROOT
+cd $IPKG_ROOT
+mkfs.jffs2 $MKFSJFFS2_FLAGS > ../familiar.jffs2

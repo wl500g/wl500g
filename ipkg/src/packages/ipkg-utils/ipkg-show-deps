@@ -1,0 +1,89 @@
+#!/usr/bin/python
+# $Id: ipkg-show-deps,v 1.2 2004/03/06 13:08:33 pb Exp $
+
+import sys, os, posixpath
+from glob import glob
+import commands
+import ipkg
+import getopt
+import string
+import re
+
+verbose = 0
+
+def usage():
+     sys.stderr.write("%s [-p Packages] package ...\n" % (sys.argv[0],))
+     sys.exit(-1)
+
+packages_filename = "Packages"
+(opts, remaining_args) = getopt.getopt(sys.argv[1:], "hp:")
+for (optkey, optval) in opts:
+     if optkey == '-h': 
+          usage()
+     if optkey == '-p': 
+          packages_filename = optval
+
+if ( not remaining_args ):
+     usage()
+
+packages = ipkg.Packages()
+packages.read_packages_file(packages_filename)
+
+required = {}
+provider_hash = {}
+
+def split_list(str):
+     r = []
+     l = string.split(str, ",")
+     for i in l:
+          ll = string.split(i, "|")
+          for ii in ll:
+               ii = string.strip(ii)
+               r.append(ii)
+     return r
+
+for i in packages.packages.keys():
+     p = packages.packages[i]
+     if not provider_hash.has_key(p.package):
+          provider_hash[p.package] = []
+     provider_hash[p.package].append(p)
+     if p.provides:
+          provides = string.split(p.provides, ",")
+          for prov in provides:
+               prov = string.strip(prov)
+               if not provider_hash.has_key(prov):
+                    provider_hash[prov] = []
+               provider_hash[prov].append(p)
+
+def find_package(name):
+     if provider_hash.has_key(name):
+          return provider_hash[name]
+     return None
+
+def recurse(pkg):
+     required[pkg.package] = 1
+     if pkg.depends:
+          deps = split_list(pkg.depends)
+          for dep in deps:
+               dep = re.sub("\s*\(.*\)", "", dep)
+               dep = re.sub("\*$", "", dep)
+               newpkgs = find_package(dep)
+               if newpkgs:
+                    for newpkg in newpkgs:
+	                 if required.has_key(newpkg.package):
+			      return
+                    recurse(newpkgs[0])
+               else:
+                    sys.stderr.write("unsatisfied dependency of %s on '%s'\n" % (pkg.package, dep))
+
+for root in remaining_args:
+     pkgs = find_package(root)
+     if not pkgs:
+          sys.stderr.write("Can't find root package '%s'\n" % root)
+          sys.exit(-1)
+     for p in pkgs:
+          recurse(p)
+     
+for pkg in required.keys():
+     print pkg
+

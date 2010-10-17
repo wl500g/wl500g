@@ -1,0 +1,50 @@
+#!/bin/sh
+
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: $0: package.ipk filename ..."
+	exit 1
+fi
+
+if [ $# -eq 2 ]; then
+  ipkgfilename=$1
+  filename=$2
+else
+  echo "usage: $0 ipkgfilename filename"  
+  exit -1
+fi
+
+case $ipkgfilename in
+http:*)
+    wget -N $ipkgfilename
+    ipkgfilename=`basename $ipkgfilename`
+    echo eez http url $ipkgfilename
+;;
+ftp:*)
+    wget -N $ipkgfilename
+    ipkgfilename=`basename $ipkgfilename`
+    echo eez ftp url $ipkgfilename
+;;
+esac
+
+
+tmpdir=/tmp/ipkg-extract-$$
+mkdir $tmpdir
+
+pkgdir=$tmpdir/`basename $ipkgfilename | sed 's/.*\///;s/.ipk$//;s/.deb$//'`
+
+mkdir -p $pkgdir/CONTROL
+
+cur_dir=$PWD
+cd $pkgdir; (ar x $cur_dir/$ipkgfilename || tar zxf $cur_dir/$ipkgfilename) >& /dev/null
+cd $cur_dir
+
+tar xzf $pkgdir/data.tar.gz -C $pkgdir
+tar xzf $pkgdir/control.tar.gz -C $pkgdir/CONTROL
+rm -f $pkgdir/control.tar.gz $pkgdir/data.tar.gz $pkgdir/debian-binary
+
+cp $pkgdir/$filename `basename $filename`
+ls -l `basename $filename`
+file `basename $filename`
+rm -fr $tmpdir

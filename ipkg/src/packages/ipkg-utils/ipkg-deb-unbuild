@@ -1,0 +1,25 @@
+#!/bin/bash
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: $0 package_name"
+	exit 1
+fi
+
+## This script is a nasty hack... especially the cp of $filename. Yuck!
+
+filename="$1"
+basefile=`echo $filename | sed 's/.*\///'`
+pkg=`echo $basefile | sed 's/\.deb$//' | sed 's/\.ipk$//'`
+
+mkdir $pkg
+cp $filename $pkg
+cd $pkg
+ar -x $basefile
+tar xzf data.tar.gz
+mkdir DEBIAN
+cd DEBIAN
+tar xzf ../control.tar.gz
+cd ..
+rm -f control.tar.gz data.tar.gz debian-binary $basefile
+cd ../..

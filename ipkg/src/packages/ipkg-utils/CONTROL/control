@@ -1,0 +1,8 @@
+Package: ipkg-build
+Section: base
+Priority: optional
+Version: 1.7
+Architecture: all
+Maintainer: Carl Worth <cworth@handhelds.org>
+Depends: sed, grep, gzip, tar
+Description: Script for building .ipk packages for the ipkg system.

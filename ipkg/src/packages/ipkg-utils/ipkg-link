@@ -1,0 +1,126 @@
+#!/bin/sh
+#
+# <zaurus@bredband.net>
+# Modified by Aman Gupta <oz@themastermind1.net>
+
+usage () {
+	echo "Usage: "
+	echo "    $0 add    packagename (links \"packagename\" to root filesystem)"
+	echo "    $0 remove packagename (unlinks \"packagename\" from root filesystem)"
+	echo "    $0 list   mountpoint  (lists packages on \"mountpoint\", e.g. '/mnt/card')"
+	echo "    $0 mount  mountpoint  (links all packages on \"mountpoint\", e.g. '/mnt/card')"
+	echo "    $0 umount mountpoint  (unlinks all packages on \"mountpoint\", e.g. '/mnt/card')"
+	exit
+}
+
+findpackage () {
+	echo "*** Locating package"
+	# Does the list file exist?
+	if [ -e "/mnt/card/usr/lib/ipkg/info/$PACKAGE.list" ]; then
+		PREFIX="/mnt/card"
+	else
+		if [ -e "/mnt/cf/usr/lib/ipkg/info/$PACKAGE.list" ]; then
+			PREFIX="/mnt/cf"		
+		else
+			if [ -e "/mnt/ram/usr/lib/ipkg/info/$PACKAGE.list" ]; then
+				PREFIX="/mnt/ram"
+			else
+				echo "Package \"$PACKAGE\" not found."
+				exit
+			fi
+		fi
+	fi
+	files=`cat "$PREFIX/usr/lib/ipkg/info/$PACKAGE.list"`
+	echo "*** Found package on $PREFIX"
+}
+
+add () {
+	echo "*** Adding $PACKAGE"
+	echo "$files" |
+	while read line; do
+		if [ ! -e "$line" ]; then
+			# Only if it doesn't already exist.
+			if [ -d "$PREFIX$line" ]; then
+				# It's a directory.
+				`mkdir "$line"`
+			else
+				# It's a file.
+				`ln -s "$PREFIX$line" "$line"`
+			fi
+		fi
+	done
+}
+
+remove () {
+	echo "*** Removing $PACKAGE"
+	files=`cat "$PREFIX/usr/lib/ipkg/info/$PACKAGE.list" | sort -r`
+	echo "$files" |
+	while read line; do
+		if [ -e "$line" ]; then
+			# File/Directory exists.
+			if [ -d "$line" ]; then
+				# Directory.
+				contents=$(ls -1 "$line")
+				if [ ! "$contents" ]; then
+					# Empty directory
+					rmdir "$line"
+				fi
+			elif [ -L "$line" ]; then
+				rm "$line"
+			fi
+		fi
+	done
+}
+
+list () {
+	filelist=""
+	files=`ls -1 $LOCATION/usr/lib/ipkg/info/*.list`
+	for filename in $files; do
+		filename=${filename##*/}
+		filename=${filename%%.list}
+		filelist="$filelist $filename"
+	done
+}
+
+COMMAND=$1
+PACKAGE=$2
+LOCATION=$2
+
+if [ $# -ne 2 ]
+then
+	usage
+fi
+
+echo "*** Command: $COMMAND"
+case "$COMMAND" in
+	"add" )
+		findpackage
+		add
+		;;
+	"remove" )
+		findpackage
+		remove
+		;;
+	"list" )
+		list
+		for file in $filelist; do
+			echo $file
+		done
+		;;
+	"mount" )
+		list
+		for file in $filelist; do
+			$0 add $file
+		done
+		;;
+	"umount" )
+		list
+		for file in $filelist; do
+			$0 remove $file
+		done
+esac
+
+echo "*** Done."
+echo ""
+exit
+

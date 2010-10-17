@@ -1,0 +1,29 @@
+#!/bin/sh
+
+set -e
+
+if [ $# -lt 1 ]; then
+	echo "usage: $0: package.ipk"
+	exit 1
+fi
+
+while [ $# -gt 0 ]; do
+	filename=$1
+	shift
+
+	pkg=`echo $filename | sed 's/.*\///;s/.ipk$//;s/.deb$//'`
+
+	mkdir -p $pkg
+	mkdir -p $pkg/CONTROL
+
+        pkg_dir=$PWD
+        cd $pkg; (ar x ../$filename || tar zxf ../$filename) >& /dev/null
+        cd $pkg_dir
+
+	tar xzf $pkg/data.tar.gz -C $pkg
+	tar xzf $pkg/control.tar.gz -C $pkg/CONTROL
+	rm -f $pkg/control.tar.gz $pkg/data.tar.gz $pkg/debian-binary
+done
+
+
+

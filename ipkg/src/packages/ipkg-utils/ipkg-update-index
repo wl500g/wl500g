@@ -1,0 +1,24 @@
+#!/usr/bin/env python2.1
+
+import sys, os
+from glob import glob
+import commands
+import ipkg
+
+pkg_dir=sys.argv[1]
+pkg_filename = sys.argv[2]
+
+if ( not pkg_dir or not pkg_filename ):
+	sys.stderr.write("Usage: ipkg-update-index <package_directory> <pkgfilename>\n")
+	sys.exit(1)
+
+packages = ipkg.Packages()
+
+packages.read_packages_file(pkg_dir + '/Packages')
+
+names = packages.packages.keys()
+
+packages.add_package(ipkg.Package(pkg_filename))
+
+packages.write_packages_file(pkg_dir + '/Packages.new')
+os.rename(pkg_dir + '/Packages.new', pkg_dir + '/Packages')

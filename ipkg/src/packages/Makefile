@@ -17,7 +17,6 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-IPKG_UTILS=ipkg-utils-1.7
 IPKG_UTILS_PATCHES=ipkg-utils-1.7-ipkg_build_clean.patch \
 	ipkg-utils-1.7-ipkg_buildpackage.patch ipkg-utils-1.7-ipkg_tar_argument_order.patch
 
@@ -49,9 +48,10 @@ TARGET_CONFIGURE_OPTS= \
         STRIP=$(TARGET_STRIP) \
         CPPFLAGS="-mips32" 
 
-BUILD=$(shell (pwd -P))/$(TARGET_ARCH)
+TOP=$(shell (pwd -P))
+BUILD=$(TOP)/$(TARGET_ARCH)
 PACKAGES=$(BUILD)/packages
-IPKG_UTILS_DIR=$(BUILD)/ipkg-utils
+IPKG_UTILS_DIR=$(TOP)/ipkg-utils
 IPKG_BUILD=$(IPKG_UTILS_DIR)/ipkg-build -c -o root -g root
 
 all: prep ipkg-utils packages
@@ -64,13 +64,7 @@ packages: ipkg-ipk
 prep:
 	@mkdir -p $(PACKAGES)
 
-$(BUILD)/ipkg-utils: $(IPKG_UTILS).tar.gz $(IPKG_UTILS_PATCHES)
-	@rm -rf $(BUILD)/$(IPKG_UTILS) $(BUILD)/ipkg-utils
-	tar xzf $(IPKG_UTILS).tar.gz -C $(BUILD)
-	cat $(IPKG_UTILS_PATCHES) | patch -d $(BUILD)/$(IPKG_UTILS) -p1
-	mv $(BUILD)/$(IPKG_UTILS) $(BUILD)/ipkg-utils
-	
-ipkg-utils: $(BUILD)/ipkg-utils
+ipkg-utils: $(TOP)/ipkg-utils
 	@true
 
 $(BUILD)/ipkg/Makefile: $(IPKG).tar.gz $(IPKG_PATCHES)

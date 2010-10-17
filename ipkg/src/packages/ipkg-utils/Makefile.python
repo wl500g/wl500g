@@ -1,0 +1,7 @@
+
+
+install:
+	python setup.py build
+	python setup.py install
+	chmod a+rx ipkg-make-index
+	cp -f ipkg-make-index /usr/local/bin

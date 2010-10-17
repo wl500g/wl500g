@@ -1,0 +1,15 @@
+#!/bin/sh
+
+pkg1=$1
+dir1=`echo $pkg1 | sed s/.ipk//`
+dir1=`basename $dir1` 
+pkg2=$2
+dir2=`echo $pkg2 | sed s/.ipk//`
+dir2=`basename $dir2` 
+
+ipkg-unbuild $pkg2
+ipkg-unbuild $pkg1
+
+diff -urN $dir1 $dir2
+
+rm -fr $dir1 $dir2

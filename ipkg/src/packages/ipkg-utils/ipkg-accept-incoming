@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+INCOMING="/home/familiar/incoming"
+OUTGOING="/home/familiar/website/data/familiar/releases/unstable/binary/armv4l/"
+
+pkgs=`find -maxdepth 1 $INCOMING -name '*.ipk'`
+
+if [ -n "$pkgs" ]; then
+	for pkg in $pkgs; do
+		(cd $OUTGOING/unpacked; ipkg-unbuild $pkg)
+		mv $pkg $OUTGOING
+	done
+
+	cd $OUTGOING
+	ipkg-make-index . > Packages
+fi
+
