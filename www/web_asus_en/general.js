@@ -5,7 +5,6 @@ var change;
 var keyPressed;
 var wItem;
 var ip = "";
-var ip_addr = '<!--#echo var="REMOTE_ADDR"-->';
 var chanList = 0;
 var wep1, wep2, wep3, wep4;
 
