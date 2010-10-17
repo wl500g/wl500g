@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-IPKG_UTILS_PATCHES=ipkg-utils-1.7-ipkg_build_clean.patch \
+IPKG_UTILS_PATCHES= \
 	ipkg-utils-1.7-ipkg_buildpackage.patch ipkg-utils-1.7-ipkg_tar_argument_order.patch
 
 IPKG=ipkg-0.99.163
