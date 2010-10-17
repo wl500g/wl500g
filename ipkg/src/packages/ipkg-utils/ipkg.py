@@ -93,9 +93,9 @@ class Package:
             self.filename = os.path.basename(fn)
 	    ## sys.stderr.write("  extracting control.tar.gz from %s\n"% (fn,)) 
             if self.isdeb:
-                control = os.popen("ar p "+fn+" control.tar.gz | tar xfzO - '*control'","r")
+                control = os.popen("ar p "+fn+" control.tar.gz | tar --wildcards -xfzO - '*control'","r")
             else:
-                control = os.popen("tar xfzO "+fn+" '*control.tar.gz' | tar xfzO - '*control'","r")
+                control = os.popen("tar --wildcards -xzOf "+fn+" '*control.tar.gz' | tar --wildcards -xzOf - '*control'","r")
             line = control.readline()
             while 1:
                 if not line: break
@@ -122,7 +122,7 @@ class Package:
             if self.isdeb:
                 data = os.popen("ar p "+fn+" data.tar.gz | tar tfz -","r")
             else:
-                data = os.popen("tar xfzO "+fn+" '*data.tar.gz' | tar tfz -","r")
+                data = os.popen("tar --wildcards -xzOf "+fn+" '*data.tar.gz' | tar -tzf -","r")
             while 1:
                 line = data.readline()
                 if not line: break
@@ -251,7 +251,7 @@ class Package:
 	file.write(buf)
 
 	self._setup_scratch_area()
-	cmd = "cd %s ; tar cvfz %s/control.tar.gz control" % (self.meta_dir,
+	cmd = "cd %s ; tar -cvzf %s/control.tar.gz control" % (self.meta_dir,
 							      self.scratch_dir)
 
 	cmd_out, cmd_in, cmd_err = os.popen3(cmd)
@@ -266,7 +266,7 @@ class Package:
 	bits = "control.tar.gz"
 
 	if self.file_list:
-		cmd = "cd %s ; tar cvfz %s/data.tar.gz" % (self.file_dir,
+		cmd = "cd %s ; tar -cvzf %s/data.tar.gz" % (self.file_dir,
 					   		   self.scratch_dir)
 
 		cmd_out, cmd_in, cmd_err = os.popen3(cmd)
@@ -281,7 +281,7 @@ class Package:
 		bits = bits + " data.tar.gz"
 
 	file = "%s_%s_%s.ipk" % (self.package, self.version, self.architecture)
-	cmd = "cd %s ; tar cvfz %s/%s %s" % (self.scratch_dir,
+	cmd = "cd %s ; tar -cvzf %s/%s %s" % (self.scratch_dir,
 					     dirname,
 					     file,
 					     bits)
