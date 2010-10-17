@@ -46,10 +46,10 @@ for (optkey, optval) in opts:
      if optkey == '-r':
           old_filename = optval
 
-pkg_dir=remaining_args[0]
-
-if ( not pkg_dir ):
+if ( not remaining_args ):
      usage()
+
+pkg_dir=remaining_args[0]
 
 packages = ipkg.Packages()
 

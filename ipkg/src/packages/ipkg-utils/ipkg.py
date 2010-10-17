@@ -36,11 +36,14 @@ import tempfile
 import os
 import sys
 import glob
-import md5
 import re
 import string
 import commands
 from stat import ST_SIZE
+try:
+    from hashlib import md5
+except ImportError:
+    import md5
 
 class Package:
     """A class for creating objects to manipulate (e.g. create) ipkg
@@ -77,7 +80,7 @@ class Package:
 
             # compute the MD5.
             f = open(fn, "r")
-            sum = md5.new()
+            sum = md5()
             while 1:
                 data = f.read(1024)
                 if not data: break
