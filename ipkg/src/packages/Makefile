@@ -18,7 +18,7 @@
 #
 
 IPKG_UTILS_PATCHES= \
-	ipkg-utils-1.7-ipkg_buildpackage.patch ipkg-utils-1.7-ipkg_tar_argument_order.patch
+	ipkg-utils-1.7-ipkg_tar_argument_order.patch
 
 IPKG=ipkg-0.99.163
 #IPKG_PATCHES=ipkg-configure.patch ipkg-opt.patch
