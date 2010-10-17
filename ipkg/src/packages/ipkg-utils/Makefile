@@ -13,7 +13,7 @@ ipkg-compare-versions: ipkg-compare-versions.c
 install: ${UTILS}
 	cp ${UTILS} $(PREFIX)/bin
 	python setup.py install
-	chmod agu+rx ipkg-make-index
+	chmod a+rx ipkg-make-index
 	cp -f ipkg-make-index $(PREFIX)/bin
 
 binary: build

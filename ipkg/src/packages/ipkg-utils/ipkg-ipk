@@ -1,5 +1,0 @@
-#!/bin/sh
-echo "ipkg-ipk is now deprecated in favor of the new ipkg-build."
-echo "please use ipkg-build instead"
-
-exit 1
