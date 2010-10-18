@@ -1,0 +1,46 @@
+From 873bb31d1703aae080d1928b5928c0011a944485
+From: Pascal Bellard
+Date: Sun, 17 Oct 2010 22:54:51 +0000
+Subject: cpio: avoid 'not created: newer or same age file exists' message for dirs
+
+Signed-off-by: Pascal Bellard <pascal.bellard@ads-lu.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/archival/libunarchive/data_extract_all.c b/archival/libunarchive/data_extract_all.c
+index cc549cd..5fb1ab2 100644
+--- a/archival/libunarchive/data_extract_all.c
++++ b/archival/libunarchive/data_extract_all.c
+@@ -69,7 +69,9 @@ void FAST_FUNC data_extract_all(archive_handle_t *archive_handle)
+ 			}
+ 		}
+ 		else if (existing_sb.st_mtime >= file_header->mtime) {
+-			if (!(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)) {
++			if (!(archive_handle->ah_flags & ARCHIVE_EXTRACT_QUIET)
++			 && !S_ISDIR(file_header->mode)
++			) {
+ 				bb_error_msg("%s not created: newer or "
+ 					"same age file exists", file_header->name);
+ 			}
+diff --git a/testsuite/cpio.tests b/testsuite/cpio.tests
+index 05b92db..4cd441a 100755
+--- a/testsuite/cpio.tests
++++ b/testsuite/cpio.tests
+@@ -116,6 +116,16 @@ link
+ " "" ""
+ SKIP=
+ 
++# avoid 'not created: newer or same age file exists' message for directories
++rm -rf cpio.testdir cpio.testdir2 2>/dev/null
++mkdir cpio.testdir
++testing "cpio extracts in existing directory" \
++"$ECHO -ne '$hexdump' | bzcat | cpio -id 2>&1; echo \$?" \
++"\
++1 blocks
++0
++" "" ""
++SKIP=
+ 
+ # Clean up
+ rm -rf cpio.testdir cpio.testdir2 2>/dev/null
+--
+cgit v0.8.2.1
