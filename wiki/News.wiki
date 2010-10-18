@@ -4,6 +4,22 @@
 ===Detailed revision history===
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
+ 
+===wl500g-1.9.2.7-d (current)===
+  * kernel
+    * pptp: updated kernel driver, fixed undersized packets without gre demux driver
+    * pppoe: Ignore PADT packets whose destination address isn't ours
+    * minor tcp fix backport from 2.6
+
+  * busybox 1.17.3
+    * udhcp workarounds for Beeline(Corbina) ISP
+    * bugfixes (grep, wc, sendmail, awk )
+
+  * pwrled utility included
+
+  * bugfixes
+    * dropbear fixes from upstream (fake-rfc2553, libtommath)
+    * use pool.ntp.org as default clock sync source
 
 ===beta RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
   * kernel
