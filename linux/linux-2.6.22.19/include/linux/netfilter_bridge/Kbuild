@@ -2,6 +2,7 @@ header-y += ebt_among.h
 header-y += ebt_arp.h
 header-y += ebt_arpreply.h
 header-y += ebt_ip.h
+header-y += ebt_ip6.h
 header-y += ebt_limit.h
 header-y += ebt_log.h
 header-y += ebt_mark_m.h
