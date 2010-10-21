@@ -1,0 +1,49 @@
+From f04ca74ab5eb6ee57a573c6e1ab3e84d3f0a0af8
+From: Denys Vlasenko
+Date: Tue, 19 Oct 2010 21:08:33 +0000
+Subject: dmesg: more correct skipping of <N>; use faster putchar for most output
+
+function                                             old     new   delta
+dmesg_main                                           246     291     +45
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/dmesg.c b/util-linux/dmesg.c
+index 06a03d3..6e43a22 100644
+--- a/util-linux/dmesg.c
++++ b/util-linux/dmesg.c
+@@ -45,20 +45,25 @@ int dmesg_main(int argc UNUSED_PARAM, char **argv)
+ 	if (len == 0)
+ 		return EXIT_SUCCESS;
+ 
+-	/* Skip <#> at the start of lines, and make sure we end with a newline */
+ 
+ 	if (ENABLE_FEATURE_DMESG_PRETTY) {
+ 		int last = '\n';
+ 		int in = 0;
+ 
+-		do {
+-			if (last == '\n' && buf[in] == '<')
++		/* Skip <#> at the start of lines */
++		while (1) {
++			if (last == '\n' && buf[in] == '<') {
+ 				in += 3;
+-			else {
+-				last = buf[in++];
+-				bb_putchar(last);
++				if (in >= len)
++					break;
+ 			}
+-		} while (in < len);
++			last = buf[in];
++			putchar(last);
++			in++;
++			if (in >= len)
++				break;
++		}
++		/* Make sure we end with a newline */
+ 		if (last != '\n')
+ 			bb_putchar('\n');
+ 	} else {
+--
+cgit v0.8.2.1
