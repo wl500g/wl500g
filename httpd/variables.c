@@ -1573,7 +1573,7 @@
             
                 {"dhcp_end", "", validate_ipaddr, NULL, FALSE, FALSE},
                          
-             {"dhcp_lease", "", validate_range, ARGV("1", "86400", ""), FALSE, FALSE},
+             {"dhcp_lease", "", validate_range, ARGV("1", "604800", ""), FALSE, FALSE},
         
                 {"dhcp_gateway_x", "", validate_ipaddr, NULL, FALSE, FALSE},
             
