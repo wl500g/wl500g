@@ -2,7 +2,6 @@ TCP: misc. updates from upstream
 
  kernel.org commits
  1b6d427bb7eb69e6dc4f194a5b0f4a382a16ff82 [TCP]: Reduce sacked_out with reno when purging write_queue
- 882bebaaca4bb1484078d44ef011f918c0e1e14e [TCP]: tcp_simple_retransmit can cause S+L
  6c37e5de456987f5bc80879afde05aa120784095 TCP: avoid to send keepalive probes if receiving data
 
 ---
@@ -16,15 +15,6 @@ TCP: misc. updates from upstream
 diff -urBp a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h	2010-10-17 11:26:17.000000000 +0400
 +++ b/include/net/tcp.h	2010-10-17 11:23:06.000000000 +0400
-@@ -740,6 +740,8 @@ static inline unsigned int tcp_packets_i
- 	return (tp->packets_out - tp->left_out + tp->retrans_out);
- }
- 
-+extern int tcp_limit_reno_sacked(struct tcp_sock *tp);
-+
- /* If cwnd > ssthresh, we may raise ssthresh to be half-way to cwnd.
-  * The exception is rate halving phase, when cwnd is decreasing towards
-  * ssthresh.
 @@ -978,6 +980,14 @@ static inline int keepalive_time_when(co
  	return tp->keepalive_time ? : sysctl_tcp_keepalive_time;
  }
@@ -55,45 +45,6 @@ diff -urBp a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
 --- a/net/ipv4/tcp_input.c	2010-10-17 11:26:17.000000000 +0400
 +++ b/net/ipv4/tcp_input.c	2010-10-17 11:20:23.000000000 +0400
-@@ -1696,13 +1696,11 @@ static int tcp_time_to_recover(struct so
- 	return 0;
- }
- 
--/* If we receive more dupacks than we expected counting segments
-- * in assumption of absent reordering, interpret this as reordering.
-- * The only another reason could be bug in receiver TCP.
-+/* Limits sacked_out so that sum with lost_out isn't ever larger than
-+ * packets_out. Returns zero if sacked_out adjustement wasn't necessary.
-  */
--static void tcp_check_reno_reordering(struct sock *sk, const int addend)
-+int tcp_limit_reno_sacked(struct tcp_sock *tp)
- {
--	struct tcp_sock *tp = tcp_sk(sk);
- 	u32 holes;
- 
- 	holes = max(tp->lost_out, 1U);
-@@ -1710,8 +1708,20 @@ static void tcp_check_reno_reordering(st
- 
- 	if ((tp->sacked_out + holes) > tp->packets_out) {
- 		tp->sacked_out = tp->packets_out - holes;
--		tcp_update_reordering(sk, tp->packets_out + addend, 0);
-+		return 1;
- 	}
-+	return 0;
-+}
-+
-+/* If we receive more dupacks than we expected counting segments
-+ * in assumption of absent reordering, interpret this as reordering.
-+ * The only another reason could be bug in receiver TCP.
-+ */
-+static void tcp_check_reno_reordering(struct sock *sk, const int addend)
-+{
-+	struct tcp_sock *tp = tcp_sk(sk);
-+	if (tcp_limit_reno_sacked(tp))
-+		tcp_update_reordering(sk, tp->packets_out + addend, 0);
- }
- 
- /* Emulate SACKs for SACKless connection: account for a new dupack. */
 @@ -2142,7 +2152,7 @@ static void tcp_mtup_probe_success(struc
   */
  static void
@@ -103,7 +54,7 @@ diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  {
  	struct inet_connection_sock *icsk = inet_csk(sk);
  	struct tcp_sock *tp = tcp_sk(sk);
-@@ -2228,16 +2238,14 @@ tcp_fastretrans_alert(struct sock *sk, u
+@@ -2228,12 +2238,8 @@ tcp_fastretrans_alert(struct sock *sk, u
  		if (prior_snd_una == tp->snd_una) {
  			if (IsReno(tp) && is_dupack)
  				tcp_add_reno_sack(sk);
@@ -118,12 +69,6 @@ diff -urBp a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
  		break;
  	case TCP_CA_Loss:
  		if (flag&FLAG_DATA_ACKED)
- 			icsk->icsk_retransmits = 0;
-+		if (IsReno(tp) && flag & FLAG_SND_UNA_ADVANCED)
-+			tcp_reset_reno_sack(tp);
- 		if (!tcp_try_undo_loss(sk)) {
- 			tcp_moderate_cwnd(tp);
- 			tcp_xmit_retransmit_queue(sk);
 @@ -2532,6 +2540,9 @@ static int tcp_clean_rtx_queue(struct so
  		tcp_ack_update_rtt(sk, acked, seq_rtt);
  		tcp_ack_packets_out(sk);
@@ -156,16 +101,6 @@ diff -urBp a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
  /* People can turn this off for buggy TCP's found in printers etc. */
  int sysctl_tcp_retrans_collapse __read_mostly = 1;
  
-@@ -1729,6 +1732,9 @@ void tcp_simple_retransmit(struct sock *
- 	if (!lost)
- 		return;
- 
-+	if (IsReno(tp))
-+		tcp_limit_reno_sacked(tp);
-+
- 	tcp_sync_left_out(tp);
- 
- 	/* Don't muck with the congestion window here.
 diff -urBp a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
 --- a/net/ipv4/tcp_timer.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv4/tcp_timer.c	2010-10-17 11:23:06.000000000 +0400
