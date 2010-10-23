@@ -47,6 +47,10 @@ int udhcpc_ex_main(int argc, char **argv);
 /* ppp scripts */
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
+#ifdef __CONFIG_IPV6__
+int ip6up_main(int argc, char **argv);
+int ip6down_main(int argc, char **argv);
+#endif
 int ppp_ifunit(char *ifname);
 
 /* http functions */
