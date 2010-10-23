@@ -790,6 +790,10 @@ start_wan(void)
 	mkdir("/tmp/ppp", 0777);
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
+#ifdef __CONFIG_IPV6__
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
+	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
+#endif
 	symlink("/sbin/rc", "/tmp/udhcpc.script");
 
 #ifdef __CONFIG_MODEM__
@@ -1280,6 +1284,10 @@ stop_wan(char *ifname)
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");
 	eval("killall", "ip-down");
+#ifdef __CONFIG_IPV6__
+	eval("killall", "ipv6-up");
+	eval("killall", "ipv6-down");
+#endif
 #ifdef __CONFIG_XL2TPD__
 	eval("killall", "xl2tpd");
 #else
@@ -1313,6 +1321,10 @@ stop_wan(char *ifname)
 
 	unlink("/tmp/ppp/ip-up");
 	unlink("/tmp/ppp/ip-down");
+#ifdef __CONFIG_IPV6__
+	unlink("/tmp/ppp/ipv6-up");
+	unlink("/tmp/ppp/ipv6-down");
+#endif
 	rmdir("/tmp/ppp");
 
 #ifdef ASUS_EXT

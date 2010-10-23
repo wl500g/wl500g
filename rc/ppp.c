@@ -130,3 +130,18 @@ ipdown_main(int argc, char **argv)
 	return 0;
 }
 
+#ifdef __CONFIG_IPV6__
+int
+ip6up_main(int argc, char **argv);
+{
+	/* stub for now */
+	return 0;
+}
+
+int
+ip6down_main(int argc, char **argv);
+{
+	/* stub for now */
+	return 0;
+}
+#endif
