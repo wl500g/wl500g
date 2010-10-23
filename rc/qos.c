@@ -25,45 +25,36 @@
 #include <bcmnvram.h>
 #include <shutils.h>
 
-char tar[32];
-
-char *Ch_conv(char *proto_name, int idx)
+static char *Ch_conv(char *proto_name, int idx)
 {
-	char *proto;
 	char qos_name_x[32];
-	sprintf(qos_name_x, "%s%d", proto_name, idx);
+
+	snprintf(qos_name_x, sizeof(qos_name_x), "%s%d", proto_name, idx);
 	if (nvram_match(qos_name_x,""))
 	{
 		return NULL;
 	}
 	else 
 	{
-		proto=nvram_get(qos_name_x);
-		return proto;
+		return nvram_get(qos_name_x);
 	}
 }
 
-char *num_conv(int idx)
-{
-//	printf("Get number = %d \n", idx);
-	sprintf(tar, "%d", idx);
-//	printf("conver num=%d to string %s\n", idx, tar);
-	return(tar);
-}
-
-void tc_qdisc(char *move, char *network, char *idx)
+static void tc_qdisc(char *move, char *network, int idx)
 {
 //	printf("Making qdisc for %s ...\n", network);
 	char flowid[32];
-	sprintf(flowid, "%s%s", "1", idx);
+
+	snprintf(flowid, sizeof(flowid), "%s%d", "1", idx);
 	eval("tc","qdisc",move,"dev",network,"root","handle","1:","htb", "default",flowid);
 }
 
-void tc_class(char *network, char *idx, char *minBW, char *maxBW)
+static void tc_class(char *network, int idx, char *minBW, char *maxBW)
 {
 	char flowid[32];
 	char max_bw[32];
 	char min_bw[32];
+
 	if (maxBW==NULL)
 	{
 		maxBW="100000";
@@ -72,13 +63,13 @@ void tc_class(char *network, char *idx, char *minBW, char *maxBW)
 	{
 		minBW=maxBW;
 	}
-	sprintf(flowid, "%s%s", "1:1", idx);
+	snprintf(flowid, sizeof(flowid), "%s%d", "1:1", idx);
 	sprintf(max_bw, "%s%s", maxBW, "kbit");
 	sprintf(min_bw, "%s%s", minBW, "kbit");
 	eval("tc","class","add","dev",network,"parent","1:1","classid",flowid,"htb","rate",min_bw,"ceil",max_bw);
 }
 
-void tc_filter_D(char *network, char *ipaddr, char *port, char *idx)
+static void tc_filter_D(char *network, char *ipaddr, char *port, int idx)
 {
 	char flowid[32];
 	char flowid_lan[32];
@@ -88,8 +79,8 @@ void tc_filter_D(char *network, char *ipaddr, char *port, char *idx)
 	int urulenum=atoi(nvram_safe_get("qos_urulenum_x")); 
 	int idx_class_D80=rulenum+urulenum;
 
-	sprintf(flowid, "%s%s", "1:1", idx);
-	sprintf(flowid_lan, "%s%d", "1:1", idx_class_D80);
+	snprintf(flowid, sizeof(flowid), "%s%d", "1:1", idx);
+	snprintf(flowid_lan, sizeof(flowid_lan), "%s%d", "1:1", idx_class_D80);
 	sprintf(lan_ipaddr, "%s%s", (nvram_get("lan_ipaddr")), "/24");
 
 	if ((ipaddr==NULL)&&(port==NULL)) //Make default class if ip/port both are NULL
@@ -101,7 +92,7 @@ void tc_filter_D(char *network, char *ipaddr, char *port, char *idx)
 	{
 		if (atoi(port)==80) //solve when port=80, the translation rate on WL500gx will be slow
 		{
-			tc_class(network, num_conv(idx_class_D80), "10000", "10000");
+			tc_class(network, idx_class_D80, "10000", "10000");
 			eval("tc","filter","add","dev",network,"protocol","ip","parent","1:0","prio","2",\
 				"u32","match","ip","sport",port,"0xffff","match","ip","dst",lan_ipaddr,"flowid",flowid);
 			eval("tc","filter","add","dev",network,"protocol","ip","parent","1:0","prio","1",\
@@ -125,10 +116,11 @@ void tc_filter_D(char *network, char *ipaddr, char *port, char *idx)
 	}
 }
 
-void tc_filter_U(char *wan_ipaddr, char *network, char *port, char *idx)
+static void tc_filter_U(char *wan_ipaddr, char *network, char *port, int idx)
 {
 	char flowid[32];
-	sprintf(flowid, "%s%s", "1:1", idx);
+
+	snprintf(flowid, sizeof(flowid), "%s%d", "1:1", idx);
 	if (port==NULL)
 	{
 		eval("tc","filter","add","dev",network,"protocol","ip","parent","1:0","prio","3","u32","match","ip","src",wan_ipaddr,"flowid",flowid);
@@ -159,11 +151,11 @@ void start_qos(char *wan_ipaddr)
 		sprintf(net_name, "%s%d", "eth", idx);
 		//printf("Begin to initialize qdisc for Qos ...\n"); 
 		//initialize qdisc
-		tc_qdisc("del", net_name, num_conv(def));
+		tc_qdisc("del", net_name, def);
 		
 		//printf("starting Qdisc action ...\n");
 		//start making qdisc for QoS
-		tc_qdisc("add", net_name, num_conv(def));
+		tc_qdisc("add", net_name, def);
 
 		//printf("starting partation classes ... \n");
 		//make the top class 
@@ -173,26 +165,26 @@ void start_qos(char *wan_ipaddr)
 		//printf("starting making children classes ...\n");
 		for(idx_class_D=0; idx_class_D<=rulenum-1; idx_class_D++) //Download classes
 		{
-			tc_class(net_name, num_conv(idx_class_D),\
+			tc_class(net_name, idx_class_D,\
 				Ch_conv("qos_minbw_x", idx_class_D),Ch_conv("qos_maxbw_x", idx_class_D));
 		}
 		for(idx_class_U=0; idx_class_U<=urulenum-1; idx_class_U++) //Upload classes
 		{
-			tc_class(net_name, num_conv(idx_class_U+idx_class_D),\
+			tc_class(net_name, idx_class_U+idx_class_D,\
 				Ch_conv("qos_uminbw_x", idx_class_U), Ch_conv("qos_umaxbw_x", idx_class_U));
 		}
-		tc_class(net_name, num_conv(def),"100000","100000"); //default class
+		tc_class(net_name, def,"100000","100000"); //default class
 
 		//make filters
 		for(idx_filter_D=0; idx_filter_D<=rulenum-1; idx_filter_D++) //fit to download classes
 		{
 			tc_filter_D(net_name, Ch_conv("qos_ipaddr_x", idx_filter_D), \
-				Ch_conv("qos_port_x", idx_filter_D), num_conv(idx_filter_D));
+				Ch_conv("qos_port_x", idx_filter_D), idx_filter_D);
 		}
 		for(idx_filter_U=0; idx_filter_U<=urulenum-1; idx_filter_U++) //fit to upload classes
 		{
 			tc_filter_U(wan_ipaddr, net_name, \
-				Ch_conv("qos_uport_x", idx_filter_U), num_conv(idx_filter_U+idx_filter_D));
+				Ch_conv("qos_uport_x", idx_filter_U), idx_filter_U+idx_filter_D);
 		}
 		}
 	}
