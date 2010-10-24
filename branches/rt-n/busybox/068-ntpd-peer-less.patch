@@ -1,0 +1,46 @@
+From d678257c26e0993efc48ac4433d153e1e9dfc954
+From: Denys Vlasenko
+Date: Sun, 03 Oct 2010 23:20:44 +0000
+Subject: ntpd: allow peer-less (standalone stratum 1 server) operation
+
+Based on patch by Jean-Christophe Dubois (jcd@tribudubois.net)
+
+function                                             old     new   delta
+ntp_init                                             384     399     +15
+recv_and_process_client_pkt                          469     480     +11
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/networking/ntpd.c b/networking/ntpd.c
+index 6707e9b..ca4afa0 100644
+--- a/networking/ntpd.c
++++ b/networking/ntpd.c
+@@ -1765,6 +1765,10 @@ recv_and_process_client_pkt(void /*int fd*/)
+ 	/* this time was obtained between poll() and recv() */
+ 	msg.m_rectime = d_to_lfp(G.cur_time);
+ 	msg.m_xmttime = d_to_lfp(gettime1900d()); /* this instant */
++	if (G.peer_cnt == 0) {
++		/* we have no peers: "stratum 1 server" mode. reftime = our own time */
++		G.reftime = G.cur_time;
++	}
+ 	msg.m_reftime = d_to_lfp(G.reftime);
+ 	msg.m_orgtime = query_xmttime;
+ 	msg.m_rootdelay = d_to_sfp(G.rootdelay);
+@@ -1902,8 +1906,13 @@ static NOINLINE void ntp_init(char **argv)
+ 		bb_show_usage();
+ //	if (opts & OPT_x) /* disable stepping, only slew is allowed */
+ //		G.time_was_stepped = 1;
+-	while (peers)
+-		add_peers(llist_pop(&peers));
++	if (peers) {
++		while (peers)
++			add_peers(llist_pop(&peers));
++	} else {
++		/* -l but no peers: "stratum 1 server" mode */
++		G.stratum = 1;
++	}
+ 	if (!(opts & OPT_n)) {
+ 		bb_daemonize_or_rexec(DAEMON_DEVNULL_STDIO, argv);
+ 		logmode = LOGMODE_NONE;
+--
+cgit v0.8.2.1

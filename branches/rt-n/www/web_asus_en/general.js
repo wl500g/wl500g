@@ -5,7 +5,6 @@ var change;
 var keyPressed;
 var wItem;
 var ip = "";
-var ip_addr = '<!--#echo var="REMOTE_ADDR"-->';
 var chanList = 0;
 var wep1, wep2, wep3, wep4;
 
@@ -4216,7 +4215,7 @@ function changeDHCPClient()
 function change_ipv6_type(v)
 {
 	var frm = document.form;
-	if (v == "native")
+	if (v == "native" || v == "ppp")
 	{
 		inputCtrl(frm.ipv6_wan_addr, 1);
 		inputCtrl(frm.ipv6_wan_netsize, 1);

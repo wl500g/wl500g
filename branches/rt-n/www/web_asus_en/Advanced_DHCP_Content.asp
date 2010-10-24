@@ -42,7 +42,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the amount of connection time a network user be allowed with their current dynamic IP address.', LEFT);" onMouseOut="return nd();">Lease Time:
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dhcp_lease" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "dhcp_lease"); %>" onBlur="validate_range(this, 1, 86400)" onKeyPress="return is_number(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dhcp_lease" class="content_input_fd" value="<% nvram_get_x("LANHostConfig", "dhcp_lease"); %>" onBlur="validate_range(this, 1, 604800)" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IP address of gateway in your LAN. If you leave it blank, the IP address of ZVMODELVZ will be assigned.', LEFT);" onMouseOut="return nd();">Default Gateway:

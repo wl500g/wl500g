@@ -129,13 +129,12 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 	rt.rt_genmask.sa_family = AF_INET;
 		
 	if (ioctl(s, cmd, &rt) < 0)
-		goto err;
-	goto fexit;
+	{
+		ret = errno;
+		dprintf("route %s %s: %s\n", (cmd==SIOCADDRT)?"add":"del",
+			name, strerror(ret));
+	}
 
- err:
-	ret = errno;
-	perror(name);
- fexit:
 	close(s);
 	return ret;
 }
