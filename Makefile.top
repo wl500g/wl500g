@@ -182,7 +182,7 @@ obj-y += kernel
 
 # Exclude targets for non-USB routers or with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd quagga mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
 endif
 
 

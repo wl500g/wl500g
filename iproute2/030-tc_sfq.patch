@@ -1,5 +1,68 @@
-Add esfq scheduler functionality to sfq, like in 2.6 kernels
+Add esfq scheduler functionality to sfq
 
+--- a/include/linux/pkt_sched.h	2008-04-17 21:12:54.000000000 +0400
++++ b/include/linux/pkt_sched.h	2010-10-24 16:11:58.000000000 +0400
+@@ -144,26 +144,50 @@ enum
+ struct tc_sfq_qopt
+ {
+ 	unsigned	quantum;	/* Bytes per round allocated to flow */
+-	int		perturb_period;	/* Period of hash perturbation */
++	unsigned	perturb_period;	/* Period of hash perturbation */
+ 	__u32		limit;		/* Maximal packets in queue */
+ 	unsigned	divisor;	/* Hash divisor  */
+ 	unsigned	flows;		/* Maximal number of flows  */
++	unsigned	hash_kind;	/* Hash function to use for flow identification */
+ };
+ 
++enum
++{
++	TCA_SFQ_UNSPEC,
++	TCA_SFQ_COMPAT,
++	TCA_SFQ_QUANTUM,
++	TCA_SFQ_PERTURB,
++	TCA_SFQ_LIMIT,
++	TCA_SFQ_DIVISOR,
++	TCA_SFQ_FLOWS,
++	TCA_SFQ_HASH,
++	__TCA_SFQ_MAX,
++};
++
++#define TCA_SFQ_MAX (__TCA_SFQ_MAX - 1)
++
++enum
++{
++        TCA_SFQ_HASH_CLASSIC,
++        TCA_SFQ_HASH_DST,
++        TCA_SFQ_HASH_SRC,
++        TCA_SFQ_HASH_FWMARK,
++	/* conntrack */
++        TCA_SFQ_HASH_CTORIGDST,
++        TCA_SFQ_HASH_CTORIGSRC,
++        TCA_SFQ_HASH_CTREPLDST,
++        TCA_SFQ_HASH_CTREPLSRC,
++        TCA_SFQ_HASH_CTNATCHG,
++        __TCA_SFQ_HASH_MAX,
++};
++
++#define TCA_SFQ_HASH_MAX (__TCA_SFQ_HASH_MAX - 1)
++
+ struct tc_sfq_xstats
+ {
+ 	__s32		allot;
+ };
+ 
+-/*
+- *  NOTE: limit, divisor and flows are hardwired to code at the moment.
+- *
+- *	limit=flows=128, divisor=1024;
+- *
+- *	The only reason for this is efficiency, it is possible
+- *	to change these parameters in compile time.
+- */
+-
+ /* RED section */
+ 
+ enum
 --- iproute2-orig/tc/q_sfq.c	2002-01-11 04:04:27.000000000 +0000
 +++ iproute2/tc/q_sfq.c	2009-09-28 13:40:01.000000000 +0000
 @@ -8,6 +8,10 @@

@@ -27,7 +27,7 @@ DNSMASQ=dnsmasq-2.55
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.93
 SAMBA=samba-2.0.10
-IPROUTE2=iproute2-2.4.7-now-ss020116-try
+IPROUTE2=iproute2-2.6.25
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.3.8
@@ -245,7 +245,8 @@ iproute2_Patches := $(call patches_list,iproute2)
 $(TOP)/iproute2: iproute2/$(IPROUTE2).tar.bz2
 	@rm -rf $(TOP)/$@
 	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/iproute2 $(iproute2_Patches) && touch $@
+	$(PATCHER) -Z $(TOP)/$(IPROUTE2) $(iproute2_Patches)
+	mv $(TOP)/$(IPROUTE2) $@
 
 iproute2: $(TOP)/iproute2
 	@true

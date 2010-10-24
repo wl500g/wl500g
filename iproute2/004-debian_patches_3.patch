@@ -1,0 +1,148 @@
+Index: iproute2-2.6.25/doc/ip-cref.tex
+===================================================================
+--- iproute2-2.6.25.orig/doc/ip-cref.tex	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/doc/ip-cref.tex	2008-05-01 00:26:48.000000000 +0100
+@@ -1315,6 +1315,19 @@ peers are allowed to send to us.
+     If it is not given, Linux uses the value selected with \verb|sysctl|
+     variable \verb|net/ipv4/tcp_reordering|.
+ 
++\item \verb|hoplimit NUMBER|
++
++--- [2.5.74+ only] Hop limit on the path to this destination. If it is not
++    given, Linux uses the value selected with \verb|sysctl| variable
++    \verb|net/ipv4/ip_default_ttl|.
++
++\item \verb|initcwnd NUMBER|
++
++--- [2.5.70+ only] Initial congestion window size when establishing
++    connections to this destination. This value is multiplied with the
++    MSS (``Maximal Segment Size'') for the connection to get the actual
++    window size. If it is not given (or set to zero), Linux uses the
++    values specified in~\cite{RFC2414}.
+ 
+ 
+ \item \verb|nexthop NEXTHOP|
+@@ -2644,6 +2657,9 @@ http://www.cisco.com/univercd/cc/td/doc/
+ \bibitem{RFC-DHCP} R.~Droms.
+ ``Dynamic Host Configuration Protocol.'', RFC-2131
+ 
++\bibitem{RFC2414}  M.~Allman, S.~Floyd, C.~Partridge.
++``Increasing TCP's Initial Window'', RFC-2414.
++
+ \end{thebibliography}
+ 
+ 
+Index: iproute2-2.6.25/doc/Makefile
+===================================================================
+--- iproute2-2.6.25.orig/doc/Makefile	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/doc/Makefile	2008-05-01 00:26:48.000000000 +0100
+@@ -14,6 +14,7 @@ PAGESIZE=a4
+ PAGESPERPAGE=2
+ 
+ HTMLFILES=$(subst .sgml,.html,$(shell echo *.sgml))
++TXTFILES=$(subst .sgml,.txt,$(shell echo *.sgml))
+ DVIFILES=$(subst .ps,.dvi,$(PSFILES))
+ 
+ 
+@@ -23,6 +24,8 @@ pstwocol: $(PSFILES)
+ 
+ html: $(HTMLFILES)
+ 
++txt: $(TXTFILES)
++
+ dvi: $(DVIFILES)
+ 
+ print: $(PSFILES)
+@@ -47,9 +50,12 @@ print: $(PSFILES)
+ %.html: %.sgml
+ 	$(SGML2HTML) $<
+ 
++%.txt: %.html
++	lynx -nolist -dump $< > $@
++
+ install:
+ 	install -m 0644 $(shell echo *.tex) $(DESTDIR)$(DOCDIR)
+ 	install -m 0644 $(shell echo *.sgml) $(DESTDIR)$(DOCDIR)
+ 
+ clean:
+-	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES) *.html
++	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES) *.html $(TXTFILES)
+Index: iproute2-2.6.25/ip/iproute.c
+===================================================================
+--- iproute2-2.6.25.orig/ip/iproute.c	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/ip/iproute.c	2008-05-01 00:28:02.000000000 +0100
+@@ -73,7 +73,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ rtt TIME ] [ rttvar TIME ]\n");
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+-	fprintf(stderr, "           [ rto_min TIME ]\n");
++	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -780,6 +780,30 @@ int iproute_modify(int cmd, unsigned fla
+ 				invarg("\"reordering\" value is invalid\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_REORDERING, reord);
+ #endif
++#ifdef RTAX_HOPLIMIT
++		} else if (strcmp(*argv, "hoplimit") == 0) {
++			unsigned hoplim;
++			NEXT_ARG();
++			if (strcmp(*argv, "lock") == 0) {
++				mxlock |= (1<<RTAX_HOPLIMIT);
++				NEXT_ARG();
++			}
++			if (get_unsigned(&hoplim, *argv, 0))
++				invarg("\"hoplimit\" value is invalid\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_HOPLIMIT, hoplim);
++#endif
++#ifdef RTAX_INITCWND
++		} else if (strcmp(*argv, "initcwnd") == 0) {
++			unsigned initcwnd;
++			NEXT_ARG();
++			if (strcmp(*argv, "lock") == 0) {
++				mxlock |= (1<<RTAX_HOPLIMIT);
++				NEXT_ARG();
++			}
++			if (get_unsigned(&initcwnd, *argv, 0))
++				invarg("\"initcwnd\" value is invalid\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_INITCWND, initcwnd);
++#endif
+ 		} else if (strcmp(*argv, "rtt") == 0) {
+ 			unsigned rtt;
+ 			NEXT_ARG();
+Index: iproute2-2.6.25/ip/iptunnel.c
+===================================================================
+--- iproute2-2.6.25.orig/ip/iptunnel.c	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/ip/iptunnel.c	2008-05-01 00:26:48.000000000 +0100
+@@ -134,7 +134,7 @@ static int parse_args(int argc, char **a
+ 			NEXT_ARG();
+ 			p->o_flags |= GRE_KEY;
+ 			if (strchr(*argv, '.'))
+-				p->o_key = get_addr32(*argv);
++				p->i_key = get_addr32(*argv);
+ 			else {
+ 				if (get_unsigned(&uval, *argv, 0)<0) {
+ 					fprintf(stderr, "invalid value of \"okey\"\n");
+Index: iproute2-2.6.25/Makefile
+===================================================================
+--- iproute2-2.6.25.orig/Makefile	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/Makefile	2008-05-01 00:26:48.000000000 +0100
+@@ -48,7 +48,7 @@ install: all
+ 		$(DESTDIR)$(DOCDIR)/examples
+ 	install -m 0644 $(shell find examples/diffserv -maxdepth 1 -type f) \
+ 		$(DESTDIR)$(DOCDIR)/examples/diffserv
+-	@for i in $(SUBDIRS) doc; do $(MAKE) -C $$i install; done
++	@set -e; for i in $(SUBDIRS) doc; do $(MAKE) -C $$i install; done
+ 	install -m 0644 $(shell find etc/iproute2 -maxdepth 1 -type f) $(DESTDIR)$(CONFDIR)
+ 	install -m 0755 -d $(DESTDIR)$(MANDIR)/man8
+ 	install -m 0644 $(shell find man/man8 -maxdepth 1 -type f) $(DESTDIR)$(MANDIR)/man8
+@@ -65,7 +65,7 @@ snapshot:
+ 
+ clean:
+ 	rm -f cscope.*
+-	@for i in $(SUBDIRS) doc; \
++	@set -e; for i in $(SUBDIRS) doc; \
+ 	do $(MAKE) $(MFLAGS) -C $$i clean; done
+ 
+ clobber: clean

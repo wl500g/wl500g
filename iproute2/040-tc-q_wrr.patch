@@ -1,0 +1,460 @@
+Index: iproute2-2.6.25/include/linux/pkt_sched.h
+===================================================================
+--- iproute2-2.6.25.orig/include/linux/pkt_sched.h	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/include/linux/pkt_sched.h	2008-05-01 00:37:45.000000000 +0100
+@@ -482,4 +888,116 @@ struct tc_netem_corrupt
+ 
+ #define NETEM_DIST_SCALE	8192
+ 
++/* WRR section */
++
++/* Other includes */
++#include <linux/if_ether.h>
++
++// A sub weight and of a class
++// All numbers are represented as parts of (2^64-1).
++struct tc_wrr_class_weight {
++	__u64 val;	// Current value			(0 is not valid)
++	__u64 decr;	// Value pr bytes			(2^64-1 is not valid)
++	__u64 incr;	// Value pr seconds			(2^64-1 is not valid)
++	__u64 min;	// Minimal value			(0 is not valid)
++	__u64 max;	// Minimal value			(0 is not valid)
++
++// The time where the above information was correct:
++	time_t tim;
++};
++
++// Packet send when modifying a class:
++struct tc_wrr_class_modf {
++	// Not-valid values are ignored.
++	struct tc_wrr_class_weight weight1;
++	struct tc_wrr_class_weight weight2;
++};
++
++// Packet returned when quering a class:
++struct tc_wrr_class_stats {
++	char used;	// If this is false the information below is invalid
++
++	struct tc_wrr_class_modf class_modf;
++
++	unsigned char addr[ETH_ALEN];
++	char usemac;    // True if addr is a MAC address, else it is an IP address
++			// (this value is only for convience, it is always the same
++			//  value as in the qdisc)
++	int heappos;	// Current heap position or 0 if not in heap
++	__u64 penal_ls;	// Penalty value in heap (ls)
++	__u64 penal_ms;	// Penalty value in heap (ms)
++};
++
++// Qdisc-wide penalty information (boolean values - 2 not valid)
++struct tc_wrr_qdisc_weight {
++	char weight_mode;	// 0=No automatic change to weight
++				// 1=Decrease normally
++				// 2=Also multiply with number of machines
++				// 3=Instead multiply with priority divided
++				//   with priority of the other.
++				// -1=no change
++};
++
++// Packet send when modifing a qdisc:
++struct tc_wrr_qdisc_modf {
++	// Not-valid values are ignored:
++	struct tc_wrr_qdisc_weight weight1;
++	struct tc_wrr_qdisc_weight weight2;
++};
++
++// Packet send when creating a qdisc:
++struct tc_wrr_qdisc_crt {
++	struct tc_wrr_qdisc_modf qdisc_modf;
++
++	char srcaddr;	// 1=lookup source, 0=lookup destination
++	char usemac;	// 1=Classify on MAC addresses, 0=classify on IP
++	char usemasq;	// 1=Classify based on masqgrading - only valid
++			//   if usemac is zero
++	int bands_max;	// Maximal number of bands (i.e.: classes)
++	int proxy_maxconn;// If differnt from 0 then we support proxy remapping
++			// of packets. And this is the number of maximal
++			// concurrent proxy connections.
++};
++
++// Packet returned when quering a qdisc:
++struct tc_wrr_qdisc_stats {
++	struct tc_wrr_qdisc_crt qdisc_crt;
++	int proxy_curconn;
++	int nodes_in_heap;	// Current number of bands wanting to send something
++	int bands_cur;		// Current number of bands used (i.e.: MAC/IP addresses seen)
++	int bands_reused;	// Number of times this band has been reused.
++	int packets_requed;	// Number of times packets have been requeued.
++	__u64 priosum;		// Sum of priorities in heap where 1 is 2^32
++};
++
++struct tc_wrr_qdisc_modf_std {
++	// This indicates which of the tc_wrr_qdisc_modf structers this is:
++	char proxy; // 0=This struct
++
++	// Should we also change a class?
++	char change_class;
++
++	// Only valid if change_class is false
++	struct tc_wrr_qdisc_modf qdisc_modf;
++
++	// Only valid if change_class is true:
++	unsigned char addr[ETH_ALEN]; // Class to change (non-used bytes should be 0)
++	struct tc_wrr_class_modf class_modf; // The change
++};
++
++// Used for proxyrempping:
++struct tc_wrr_qdisc_modf_proxy {
++	// This indicates which of the tc_wrr_qdisc_modf structers this is:
++	char proxy;     // 1=This struct
++
++	// This is 1 if the proxyremap information should be reset
++	char reset;
++
++	// changec is the number of elements in changes.
++	int changec;
++
++	// This is an array of type ProxyRemapBlock:
++	long changes[0];
++};
++
+ #endif
+Index: iproute2-2.6.25/tc/Makefile
+===================================================================
+--- iproute2-2.6.25.orig/tc/Makefile	2008-05-01 00:17:55.000000000 +0100
++++ iproute2-2.6.25/tc/Makefile	2008-05-01 00:30:13.000000000 +0100
+@@ -13,6 +13,7 @@ TCMODULES += q_tbf.o
+ TCMODULES += q_cbq.o
+ #TCMODULES += q_rr.o
+ #TCMODULES += q_netem.o
++#TCMODULES += q_wrr.o
+ TCMODULES += f_rsvp.o
+ TCMODULES += f_u32.o
+ TCMODULES += f_route.o
+Index: iproute2-2.6.25/tc/q_wrr.c
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ iproute2-2.6.25/tc/q_wrr.c	2008-05-01 00:37:17.000000000 +0100
+@@ -0,0 +1,322 @@
++#include <stdio.h>
++#include <stdlib.h>
++#include <unistd.h>
++#include <syslog.h>
++#include <fcntl.h>
++#include <sys/socket.h>
++#include <netinet/in.h>
++#include <arpa/inet.h>
++#include <string.h>
++#include <math.h>
++
++#include "utils.h"
++#include "tc_util.h"
++
++#define usage() return(-1)
++
++// Returns -1 on error
++static int wrr_parse_qdisc_weight(int argc, char** argv,
++                              struct tc_wrr_qdisc_modf* opt) {
++  int i;
++
++  opt->weight1.weight_mode=-1;
++  opt->weight2.weight_mode=-1;
++
++  for(i=0; i<argc; i++) {
++    if(!memcmp(argv[i],"wmode1=",7)) {
++      opt->weight1.weight_mode=atoi(argv[i]+7);
++    } else if(!memcmp(argv[i],"wmode2=",7)) {
++      opt->weight2.weight_mode=atoi(argv[i]+7);
++    } else {
++      printf("Usage: ... [wmode1=0|1|2|3] [wmode2=0|1|2|3]\n");
++      return -1;
++    }
++  }
++  return 0;
++}
++
++static int wrr_parse_class_modf(int argc, char** argv,
++                                struct tc_wrr_class_modf* modf) {
++  int i;
++
++  if(argc<1) {
++    fprintf(stderr, "Usage: ... [weight1=val] [decr1=val] [incr1=val] [min1=val] [max1=val] [val2=val] ...\n");
++    fprintf(stderr, "  The values can be floating point like 0.42 or divisions like 42/100\n");
++    return -1;
++  }
++
++  // Set meaningless values:
++  modf->weight1.val=0;
++  modf->weight1.decr=(__u64)-1;
++  modf->weight1.incr=(__u64)-1;
++  modf->weight1.min=0;
++  modf->weight1.max=0;
++  modf->weight2.val=0;
++  modf->weight2.decr=(__u64)-1;
++  modf->weight2.incr=(__u64)-1;
++  modf->weight2.min=0;
++  modf->weight2.max=0;
++
++  // And read values:
++  for(i=0; i<argc; i++) {
++    char arg[80];
++    char* name,*value1=0,*value2=0;
++    long double f_val1,f_val2=1,value;
++    if(strlen(argv[i])>=sizeof(arg)) {
++      fprintf(stderr,"Argument too long: %s\n",argv[i]);
++      return -1;
++    }
++    strcpy(arg,argv[i]);
++
++    name=strtok(arg,"=");
++    if(name) value1=strtok(0,"/");
++    if(value1) value2=strtok(0,"");
++
++    if(!value1) {
++      fprintf(stderr,"No = found in argument: %s\n",argv[i]);
++      return -1;
++    }
++
++    f_val1=atof(value1);
++    if(value2) f_val2=atof(value2);
++
++    if(f_val2==0)  {
++      fprintf(stderr,"Division by 0\n");
++      return -1;
++    }
++
++    value=f_val1/f_val2;
++    if(value>1) value=1;
++    if(value<0) value=0;
++    value*=((__u64)-1);
++
++    // And find the value set
++    if(!strcmp(name,"weight1"))    modf->weight1.val=value;
++    else if(!strcmp(name,"decr1")) modf->weight1.decr=value;
++    else if(!strcmp(name,"incr1")) modf->weight1.incr=value;
++    else if(!strcmp(name,"min1"))  modf->weight1.min=value;
++    else if(!strcmp(name,"max1"))  modf->weight1.max=value;
++    else if(!strcmp(name,"weight2")) modf->weight2.val=value;
++    else if(!strcmp(name,"decr2")) modf->weight2.decr=value;
++    else if(!strcmp(name,"incr2")) modf->weight2.incr=value;
++    else if(!strcmp(name,"min2"))  modf->weight2.min=value;
++    else if(!strcmp(name,"max2"))  modf->weight2.max=value;
++    else {
++      fprintf(stderr,"illegal value: %s\n",name);
++      return -1;
++    }
++  }
++
++  return 0;
++}
++
++static int wrr_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n)
++{
++  if(n->nlmsg_flags & NLM_F_CREATE) {
++    // This is a create request:
++    struct tc_wrr_qdisc_crt opt;
++
++    int sour,dest,ip,mac,masq;
++
++    if(argc<4) {
++      fprintf(stderr, "Usage: ... wrr sour|dest ip|masq|mac maxclasses proxymaxcon [penalty-setup]\n");
++      return -1;
++    }
++
++    // Read sour/dest:
++    memset(&opt,0,sizeof(opt));
++    sour=!strcmp(argv[0],"sour");
++    dest=!strcmp(argv[0],"dest");
++
++    if(!sour && !dest) {
++      fprintf(stderr,"sour or dest must be specified\n");
++      return -1;
++    }
++
++    // Read ip/mac
++    ip=!strcmp(argv[1],"ip");
++    mac=!strcmp(argv[1],"mac");
++    masq=!strcmp(argv[1],"masq");
++
++    if(!ip && !mac && !masq) {
++      fprintf(stderr,"ip, masq or mac must be specified\n");
++      return -1;
++    }
++
++    opt.srcaddr=sour;
++    opt.usemac=mac;
++    opt.usemasq=masq;
++    opt.bands_max=atoi(argv[2]);
++
++    opt.proxy_maxconn=atoi(argv[3]);
++
++    // Read weights:
++    if(wrr_parse_qdisc_weight(argc-4,argv+4,&opt.qdisc_modf)<0) return -1;
++    if(opt.qdisc_modf.weight1.weight_mode==-1) opt.qdisc_modf.weight1.weight_mode=0;
++    if(opt.qdisc_modf.weight2.weight_mode==-1) opt.qdisc_modf.weight2.weight_mode=0;
++
++    addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++  } else {
++    struct tc_wrr_qdisc_modf_std opt;
++    char qdisc,class;
++
++    // This is a modify request:
++    if(argc<1) {
++      fprintf(stderr,"... qdisc ... or ... class ...\n");
++      return -1;
++    }
++
++    qdisc=!strcmp(argv[0],"qdisc");
++    class=!strcmp(argv[0],"class");
++
++    if(!qdisc && !class) {
++      fprintf(stderr,"qdisc or class must be specified\n");
++      return -1;
++    }
++
++    argc--;
++    argv++;
++
++    opt.proxy=0;
++
++    if(qdisc) {
++      opt.change_class=0;
++      if(wrr_parse_qdisc_weight(argc, argv, &opt.qdisc_modf)<0) return -1;
++    } else {
++      int a0,a1,a2,a3,a4=0,a5=0;
++
++      opt.change_class=1;
++
++      if(argc<1) {
++        fprintf(stderr,"... <mac>|<ip>|<masq> ...\n");
++        return -1;
++      }
++      memset(opt.addr,0,sizeof(opt.addr));
++
++      if((sscanf(argv[0],"%i.%i.%i.%i",&a0,&a1,&a2,&a3)!=4) &&
++         (sscanf(argv[0],"%x:%x:%x:%x:%x:%x",&a0,&a1,&a2,&a3,&a4,&a5)!=6)) {
++	fprintf(stderr,"Wrong format of mac or ip address\n");
++	return -1;
++      }
++
++      opt.addr[0]=a0; opt.addr[1]=a1; opt.addr[2]=a2;
++      opt.addr[3]=a3; opt.addr[4]=a4; opt.addr[5]=a5;
++
++      if(wrr_parse_class_modf(argc-1, argv+1, &opt.class_modf)<0) return -1;
++    }
++
++    addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++  }
++  return 0;
++}
++
++static int wrr_parse_copt(struct qdisc_util *qu, int argc, char **argv, struct nlmsghdr *n) {
++  struct tc_wrr_class_modf opt;
++
++  memset(&opt,0,sizeof(opt));
++  if(wrr_parse_class_modf(argc,argv,&opt)<0) return -1;
++
++  addattr_l(n, 1024, TCA_OPTIONS, &opt, sizeof(opt));
++  return 0;
++}
++
++static int wrr_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
++{
++	struct tc_wrr_qdisc_stats *qopt;
++
++	if (opt == NULL)
++		return 0;
++
++	if (RTA_PAYLOAD(opt)  < sizeof(*qopt))
++		return -1;
++	qopt = RTA_DATA(opt);
++
++	fprintf(f,"\n  (%s/%s) (maxclasses %i) (usedclasses %i) (reused classes %i)\n",
++	  qopt->qdisc_crt.srcaddr ? "sour" : "dest",
++	  qopt->qdisc_crt.usemac  ? "mac"  : (qopt->qdisc_crt.usemasq ? "masq" : "ip"),
++	  qopt->qdisc_crt.bands_max,
++	  qopt->bands_cur,
++	  qopt->bands_reused
++	  );
++
++	if(qopt->qdisc_crt.proxy_maxconn) {
++	  fprintf(f,"  (proxy maxcon %i) (proxy curcon %i)\n",
++	    qopt->qdisc_crt.proxy_maxconn,qopt->proxy_curconn);
++	}
++
++	fprintf(f,"  (waiting classes %i) (packets requeued %i) (priosum: %Lg)\n",
++	  qopt->nodes_in_heap,
++	  qopt->packets_requed,
++	  qopt->priosum/((long double)((__u32)-1))
++	  );
++
++	fprintf(f,"  (wmode1 %i) (wmode2 %i) \n",
++	  qopt->qdisc_crt.qdisc_modf.weight1.weight_mode,
++	  qopt->qdisc_crt.qdisc_modf.weight2.weight_mode);
++
++	return 0;
++}
++
++static int wrr_print_copt(struct qdisc_util *qu, FILE *f, struct rtattr *opt) {
++  struct tc_wrr_class_stats *copt;
++  long double d=(__u64)-1;
++
++  if (opt == NULL) return 0;
++
++  if (RTA_PAYLOAD(opt)  < sizeof(*copt))
++    return -1;
++  copt = RTA_DATA(opt);
++
++  if(!copt->used) {
++    fprintf(f,"(unused)");
++    return 0;
++  }
++
++  if(copt->usemac) {
++    fprintf(f,"\n  (address: %.2X:%.2X:%.2X:%.2X:%.2X:%.2X)\n",
++      copt->addr[0],copt->addr[1],copt->addr[2],
++      copt->addr[3],copt->addr[4],copt->addr[5]);
++  } else {
++    fprintf(f,"\n  (address: %i.%i.%i.%i)\n",copt->addr[0],copt->addr[1],copt->addr[2],copt->addr[3]);
++  }
++
++  fprintf(f,"  (total weight: %Lg) (current position: %i) (counters: %u %u : %u %u)\n",
++    (copt->class_modf.weight1.val/d)*(copt->class_modf.weight2.val/d),
++    copt->heappos,
++    (unsigned)(copt->penal_ms>>32),
++    (unsigned)(copt->penal_ms & 0xffffffffU),
++    (unsigned)(copt->penal_ls>>32),
++    (unsigned)(copt->penal_ls & 0xffffffffU)
++    );
++
++  fprintf(f,"  Pars 1: (weight %Lg) (decr: %Lg) (incr: %Lg) (min: %Lg) (max: %Lg)\n",
++    copt->class_modf.weight1.val/d,
++    copt->class_modf.weight1.decr/d,
++    copt->class_modf.weight1.incr/d,
++    copt->class_modf.weight1.min/d,
++    copt->class_modf.weight1.max/d);
++
++  fprintf(f,"  Pars 2: (weight %Lg) (decr: %Lg) (incr: %Lg) (min: %Lg) (max: %Lg)",
++    copt->class_modf.weight2.val/d,
++    copt->class_modf.weight2.decr/d,
++    copt->class_modf.weight2.incr/d,
++    copt->class_modf.weight2.min/d,
++    copt->class_modf.weight2.max/d);
++
++  return 0;
++}
++
++static int wrr_print_xstats(struct qdisc_util *qu, FILE *f, struct rtattr *xstats)
++{
++	return 0;
++}
++
++
++struct qdisc_util wrr_qdisc_util = {
++	.id = "wrr",
++	.parse_qopt = wrr_parse_opt,
++	.print_qopt = wrr_print_opt,
++	.print_xstats = wrr_print_xstats,
++	.parse_copt = wrr_parse_copt,
++	.print_copt = wrr_print_copt
++};
