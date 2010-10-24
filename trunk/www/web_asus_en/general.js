@@ -4215,7 +4215,7 @@ function changeDHCPClient()
 function change_ipv6_type(v)
 {
 	var frm = document.form;
-	if (v == "native")
+	if (v == "native" || v == "ppp")
 	{
 		inputCtrl(frm.ipv6_wan_addr, 1);
 		inputCtrl(frm.ipv6_wan_netsize, 1);

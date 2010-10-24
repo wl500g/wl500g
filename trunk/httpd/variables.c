@@ -4299,6 +4299,7 @@ struct variable variables_IPv6Config[] = {
 
 	{"ipv6_proto", "", validate_choice, ARGV(
 		"native:Native IPv6",
+		"ppp:IPv6 over PPP",
 		"tun6in4:IPv6-in-IPv4 Tunnel",
 		"tun6to4:IPv6-to-IPv4 Tunnel",
 	0), FALSE, FALSE},
