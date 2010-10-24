@@ -1573,7 +1573,7 @@
             
                 {"dhcp_end", "", validate_ipaddr, NULL, FALSE, FALSE},
                          
-             {"dhcp_lease", "", validate_range, ARGV("1", "86400", ""), FALSE, FALSE},
+             {"dhcp_lease", "", validate_range, ARGV("1", "604800", ""), FALSE, FALSE},
         
                 {"dhcp_gateway_x", "", validate_ipaddr, NULL, FALSE, FALSE},
             
@@ -4316,6 +4316,7 @@ struct variable variables_IPv6Config[] = {
 
 	{"ipv6_proto", "", validate_choice, ARGV(
 		"native:Native IPv6",
+		"ppp:IPv6 over PPP",
 		"tun6in4:IPv6-in-IPv4 Tunnel",
 		"tun6to4:IPv6-to-IPv4 Tunnel",
 	0), FALSE, FALSE},

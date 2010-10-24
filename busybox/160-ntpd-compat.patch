@@ -1,0 +1,69 @@
+diff -urBp a/include/usage.src.h busybox.new/include/usage.src.h
+--- a/include/usage.src.h	2010-07-25 22:48:26.000000000 +0400
++++ b/include/usage.src.h	2010-10-20 21:06:31.000000000 +0400
+@@ -3039,7 +3039,7 @@ INSERT
+        "Address:    127.0.0.1\n"
+ 
+ #define ntpd_trivial_usage \
+-	"[-dnqw"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
++	"[-dnqwt"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
+ #define ntpd_full_usage "\n\n" \
+        "NTP client/server\n" \
+      "\nOptions:" \
+@@ -3050,6 +3050,7 @@ INSERT
+ /* the user that it exists: user may use nice as well */ \
+ /*   "\n	-N	Run at high priority" */ \
+      "\n	-w	Do not set time (only query peers), implies -n" \
++     "\n	-t	Trust network and server, no RFC-4330 cross-checks" \
+ 	IF_FEATURE_NTPD_SERVER( \
+      "\n	-l	Run as server on port 123" \
+ 	) \
+diff -urBp a/networking/ntpd.c b/networking/ntpd.c
+--- a/networking/ntpd.c	2010-10-09 23:57:14.000000000 +0400
++++ b/networking/ntpd.c	2010-10-20 22:14:20.000000000 +0400
+@@ -235,9 +235,10 @@ enum {
+ 	/* Insert new options above this line. */
+ 	/* Non-compat options: */
+ 	OPT_w = (1 << 4),
+-	OPT_p = (1 << 5),
+-	OPT_S = (1 << 6),
+-	OPT_l = (1 << 7) * ENABLE_FEATURE_NTPD_SERVER,
++	OPT_t = (1 << 5),
++	OPT_p = (1 << 6),
++	OPT_S = (1 << 7),
++	OPT_l = (1 << 8) * ENABLE_FEATURE_NTPD_SERVER,
+ };
+ 
+ struct globals {
+@@ -866,6 +867,9 @@ fit(peer_t *p, double rd)
+ 		VERB3 bb_error_msg("peer %s unfit for selection: unreachable", p->p_dotted);
+ 		return 0;
+ 	}
++	if (option_mask32 & OPT_t) /* RFC-4330 check disabled */
++		return 1;
++
+ #if 0	/* we filter out such packets earlier */
+ 	if ((p->lastpkt_status & LI_ALARM) == LI_ALARM
+ 	 || p->lastpkt_stratum >= MAXSTRAT
+@@ -1548,9 +1552,10 @@ recv_and_process_peer_pkt(peer_t *p)
+ 		goto bail;
+ 	}
+ 
+-	if ((msg.m_status & LI_ALARM) == LI_ALARM
++	if (!(option_mask32 & OPT_t) /* RFC-4330 check enabled by default */
++	 && ((msg.m_status & LI_ALARM) == LI_ALARM
+ 	 || msg.m_stratum == 0
+-	 || msg.m_stratum > NTP_MAXSTRATUM
++	 || msg.m_stratum > NTP_MAXSTRATUM)
+ 	) {
+ // TODO: stratum 0 responses may have commands in 32-bit m_refid field:
+ // "DENY", "RSTR" - peer does not like us at all
+@@ -1895,7 +1900,7 @@ static NOINLINE void ntp_init(char **arg
+ 	opt_complementary = "dd:p::wn"; /* d: counter; p: list; -w implies -n */
+ 	opts = getopt32(argv,
+ 			"nqNx" /* compat */
+-			"wp:S:"IF_FEATURE_NTPD_SERVER("l") /* NOT compat */
++			"wtp:S:"IF_FEATURE_NTPD_SERVER("l") /* NOT compat */
+ 			"d" /* compat */
+ 			"46aAbgL", /* compat, ignored */
+ 			&peers, &G.script_name, &G.verbose);

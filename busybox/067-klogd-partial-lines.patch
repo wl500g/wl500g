@@ -1,0 +1,86 @@
+From 0016bcee374606e79c48a1a97479b0521f947942
+From: Denys Vlasenko
+Date: Tue, 19 Oct 2010 21:07:49 +0000
+Subject: klogd: do not log partial lines
+
+function                                             old     new   delta
+overlapping_strcpy                                    15      18      +3
+klogd_main                                           438     436      -2
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/libbb/safe_strncpy.c b/libbb/safe_strncpy.c
+index 8eb6a01..5eb0db0 100644
+--- a/libbb/safe_strncpy.c
++++ b/libbb/safe_strncpy.c
+@@ -20,8 +20,13 @@ char* FAST_FUNC safe_strncpy(char *dst, const char *src, size_t size)
+ /* Like strcpy but can copy overlapping strings. */
+ void FAST_FUNC overlapping_strcpy(char *dst, const char *src)
+ {
+-	while ((*dst = *src) != '\0') {
+-		dst++;
+-		src++;
++	/* Cheap optimization for dst == src case -
++	 * better to have it here than in many callers.
++	 */
++	if (dst != src) {
++		while ((*dst = *src) != '\0') {
++			dst++;
++			src++;
++		}
+ 	}
+ }
+diff --git a/sysklogd/klogd.c b/sysklogd/klogd.c
+index 6766b64..0d4c257 100644
+--- a/sysklogd/klogd.c
++++ b/sysklogd/klogd.c
+@@ -132,7 +132,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
+ 	int i = 0;
+ 	char *opt_c;
+ 	int opt;
+-	int used = 0;
++	int used;
+ 
+ 	opt = getopt32(argv, "c:n", &opt_c);
+ 	if (opt & OPT_LEVEL) {
+@@ -159,6 +159,7 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
+ 
+ 	syslog(LOG_NOTICE, "klogd started: %s", bb_banner);
+ 
++	used = 0;
+ 	while (1) {
+ 		int n;
+ 		int priority;
+@@ -175,22 +176,22 @@ int klogd_main(int argc UNUSED_PARAM, char **argv)
+ 		}
+ 		start[n] = '\0';
+ 
+-		/* klogctl buffer parsing modelled after code in dmesg.c */
+ 		/* Process each newline-terminated line in the buffer */
+ 		start = log_buffer;
+ 		while (1) {
+ 			char *newline = strchrnul(start, '\n');
+ 
+ 			if (*newline == '\0') {
+-				/* This line is incomplete... */
+-				if (start != log_buffer) {
+-					/* move it to the front of the buffer */
+-					overlapping_strcpy(log_buffer, start);
+-					used = newline - start;
+-					/* don't log it yet */
++				/* This line is incomplete */
++
++				/* move it to the front of the buffer */
++				overlapping_strcpy(log_buffer, start);
++				used = newline - start;
++				if (used < KLOGD_LOGBUF_SIZE-1) {
++					/* buffer isn't full */
+ 					break;
+ 				}
+-				/* ...but if buffer is full, log it anyway */
++				/* buffer is full, log it anyway */
+ 				used = 0;
+ 				newline = NULL;
+ 			} else {
+--
+cgit v0.8.2.1

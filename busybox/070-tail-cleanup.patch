@@ -1,0 +1,22 @@
+From 2348e09557c5ff9cac134cfeeffd149f90a44971 Mon Sep 17 00:00:00 2001
+From: Alexander Shishkin <virtuoso@slind.org>
+Date: Wed, 20 Oct 2010 22:25:45 +0000
+Subject: tail: free tailbuf upon cleaning up
+
+Signed-off-by: Alexander Shishkin <virtuoso@slind.org>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/coreutils/tail.c b/coreutils/tail.c
+index 44698f3..df881a3 100644
+--- a/coreutils/tail.c
++++ b/coreutils/tail.c
+@@ -346,6 +346,7 @@ int tail_main(int argc, char **argv)
+ 	}
+ 	if (ENABLE_FEATURE_CLEAN_UP) {
+ 		free(fds);
++		free(tailbuf);
+ 	}
+ 	return G.status;
+ }
+--
+cgit v0.8.2.1
