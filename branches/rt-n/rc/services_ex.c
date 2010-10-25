@@ -679,6 +679,10 @@ int
 start_usb(void)
 {
 	eval("insmod", "usbcore");
+	if (nvram_invmatch("usb20_disable_x", "1"))
+	{
+		eval("insmod", "ehci-hcd");
+	}
 	if (nvram_invmatch("usb20_disable_x", "2"))
 	{
 #ifdef LINUX26
@@ -688,10 +692,6 @@ start_usb(void)
 		eval("insmod", "usb-ohci");
 		eval("insmod", "usb-uhci");
 #endif
-	}
-	if (nvram_invmatch("usb20_disable_x", "1"))
-	{
-		eval("insmod", "ehci-hcd");
 	}
 
 	/* mount usbfs */
