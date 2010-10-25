@@ -353,6 +353,16 @@
 		</tr>
 		<tr>
 			<td class="content_header_td">
+				Device initial script:
+			</td>
+			<td class="content_input_td">
+				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_init_script"
+					value="<% nvram_get_x("3GConfig","wan_modem_init_script"); %>" onkeypress="return is_string(this)"
+					onblur="validate_string(this)">
+			</td>
+		</tr>
+		<tr>
+			<td class="content_header_td">
 				Additional AT commands:
 			</td>
 			<td class="content_input_td">
