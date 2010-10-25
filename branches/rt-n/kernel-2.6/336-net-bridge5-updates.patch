@@ -9,6 +9,7 @@ a598f6aebea2481531b0757ed90cfb0d8cf1d8f5 bridge: relay bridge multicast pkgs if 
 2bec008ca9fd009aa503b75344d1c22da9256141 bridge: use time_before() in br_fdb_cleanup()
 7b995651e373d6424f81db23f2ec503306dfd7f0 [BRIDGE]: Unshare skb upon entry
 9c2842bd94dd72d77bddb498bdd76342a0089168 [BRIDGE]: Remove SKB share checks in br_nf_pre_routing()
+1e253c3b8a1aeed51eef6fc366812f219b97de65 bridge: Forward reserved group addresses if !STP
 ---
 
  net/bridge/br_fdb.c       |    2 +-
@@ -56,7 +57,7 @@ index af417d9..972c9b7 100644
 -				return skb;
 -		}
 +		/* If STP is turned off, then forward */
-+		if (p->br->stp_enabled == BR_NO_STP && dest[5] == 0)
++		if (p->br->stp_enabled == BR_NO_STP)
 +			goto forward;
 +
 +		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
