@@ -167,6 +167,35 @@ hotplug_check_modem( char *interface, char *product, char *prefix )
 }
 
 void
+hotplug_exec_user_modem_init_script(char *sVid, char *sPid){
+    char **argv_user;
+    char *tok, *context, *delim=" "; int i;
+    char tmp[0x100];
+
+    tok = nvram_get("wan_modem_init_script");
+    if( tok && *tok ){
+	strncpy( tmp, tok, sizeof(tmp)-1 );
+	dprintf("prepare to execute %s", tmp);
+
+	argv_user=(char**)malloc((strlen(tmp)/2) * sizeof(char*));
+	tok=strtok_r(tmp, delim, &context);
+	for(i=0; tok ;i++, (tok=strtok_r(0, delim, &context))){
+
+	    if( !strcasecmp(tok, "$VID") )
+		argv_user[i]=sVid;
+	    else if( !strcasecmp(tok, "$PID") )
+		argv_user[i]=sPid;
+	    else
+		argv_user[i]=tok;
+	};
+	argv_user[i]=NULL;
+	_eval(argv_user, NULL, 0, NULL);
+	free((void*)argv_user);
+	dprintf("%s executed", tmp);
+    }
+}
+
+void
 hotplug_usb_modeswitch( char *interface, char *action, char *product )
 {
     int vid, pid;
@@ -275,6 +304,16 @@ hotplug_usb_modeswitch( char *interface, char *action, char *product )
 		_eval(argv_usb_modeswitch, NULL, 0, NULL);
 	    }
 	}
+
+	//******* exec user script ******************
+	char * sVid=sPath, *sPid=sPath+0x10;
+	if( parse_product_string( product, &vid, &pid ) ){
+		sprintf( sVid, "0x%04x", vid );
+		sprintf( sPid, "0x%04x", pid );
+	} else { 
+	    *sVid=*sPid=0;
+	}
+	hotplug_exec_user_modem_init_script(sVid, sPid);
 
     }
     dprintf("done");
