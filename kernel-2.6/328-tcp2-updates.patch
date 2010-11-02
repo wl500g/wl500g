@@ -3,18 +3,28 @@ TCP: misc. updates from upstream
  kernel.org commits
  1b6d427bb7eb69e6dc4f194a5b0f4a382a16ff82 [TCP]: Reduce sacked_out with reno when purging write_queue
  6c37e5de456987f5bc80879afde05aa120784095 TCP: avoid to send keepalive probes if receiving data
+ b9c4595bc4947faa236a849324fe3492e388d949 [TCP]: Don't panic if S+L skb is detected
 
 ---
- include/net/tcp.h     |   10 ++++++++++
+ include/net/tcp.h     |   10 +++++++++-
  net/ipv4/tcp.c        |    2 +-
- net/ipv4/tcp_input.c  |   39 +++++++++++++++++++++++++--------------
- net/ipv4/tcp_output.c |    6 ++++++
+ net/ipv4/tcp_input.c  |   15 +++++++--------
+ net/ipv4/tcp_output.c |    3 +++
  net/ipv4/tcp_timer.c  |    4 ++--
- 5 files changed, 44 insertions(+), 17 deletions(-)
+ 5 files changed, 22 insertions(+), 12 deletions(-)
 
 diff -urBp a/include/net/tcp.h b/include/net/tcp.h
 --- a/include/net/tcp.h	2010-10-17 11:26:17.000000000 +0400
 +++ b/include/net/tcp.h	2010-10-17 11:23:06.000000000 +0400
+@@ -757,7 +757,7 @@ static inline __u32 tcp_current_ssthresh
+ 
+ static inline void tcp_sync_left_out(struct tcp_sock *tp)
+ {
+-	BUG_ON(tp->rx_opt.sack_ok &&
++	WARN_ON(tp->rx_opt.sack_ok &&
+ 	       (tp->sacked_out + tp->lost_out > tp->packets_out));
+ 	tp->left_out = tp->sacked_out + tp->lost_out;
+ }
 @@ -978,6 +980,14 @@ static inline int keepalive_time_when(co
  	return tp->keepalive_time ? : sysctl_tcp_keepalive_time;
  }
