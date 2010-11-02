@@ -1078,27 +1078,6 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 }
 
 
-
-static const char * const apply_header =
-"<head>"
-"<title>ASUS Wireless AP/Router: Apply</title>"
-"<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">"
-"<style type=\"text/css\">"
-"body { background: white; color: black; font-family: arial, sans-serif; font-size: 9pt }"
-".title	{ font-family: arial, sans-serif; font-size: 13pt; font-weight: bold }"
-".subtitle { font-family: arial, sans-serif; font-size: 11pt }"
-".label { color: #306498; font-family: arial, sans-serif; font-size: 7pt }"
-"</style>"
-"</head>"
-"<body>"
-"<p>"
-"<span class=\"title\">APPLY</span><br>"
-"<span class=\"subtitle\">This screen notifies you of any errors "
-"that were detected while changing the router's settings.</span>"
-"<form method=\"get\" action=\"apply.cgi\">"
-"<p>"
-;
-
 static const char * const apply_footer =
 "<p>"
 "<input type=\"button\" name=\"action\" value=\"Continue\" OnClick=\"history.go(-1)\">"

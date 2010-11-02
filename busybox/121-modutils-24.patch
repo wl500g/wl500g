@@ -1,0 +1,40 @@
+Fix modutils-24 compilation warnings on platforms with both
+USE_GOT_ENTRIES & USE_PLT_ENTRIES undefined.
+
+diff -uBp a/modutils/modutils.h b/modutils/modutils.h
+--- a/modutils/modutils.h
++++ b/modutils/modutils.h
+@@ -68,6 +68,11 @@ const char *moderror(int err) FAST_FUNC;
+ 
+ #if ENABLE_FEATURE_2_4_MODULES
+ int FAST_FUNC bb_init_module_24(const char *module, const char *options);
++# if defined(USE_GOT_ENTRIES) || defined(USE_PLT_ENTRIES)
++# define PLTGOT_UNUSED_PARAM
++# else
++# define PLTGOT_UNUSED_PARAM	UNUSED_PARAM
++# endif
+ #endif
+ 
+ POP_SAVED_FUNCTION_VISIBILITY
+diff -uBp a/modutils/modutils-24.c b/modutils/modutils-24.c
+--- a/modutils/modutils-24.c
++++ b/modutils/modutils-24.c
+@@ -773,7 +773,7 @@ static enum obj_reloc
+ arch_apply_relocation(struct obj_file *f,
+ 		struct obj_section *targsec,
+ 		/*struct obj_section *symsec,*/
+-		struct obj_symbol *sym,
++		struct obj_symbol *sym PLTGOT_UNUSED_PARAM,
+ 		ElfW(RelM) *rel, ElfW(Addr) v)
+ {
+ #if defined(__arm__) || defined(__i386__) || defined(__mc68000__) \
+@@ -1742,7 +1742,7 @@ static struct obj_section *arch_xsect_in
+ 
+ #endif
+ 
+-static void arch_create_got(struct obj_file *f)
++static void arch_create_got(struct obj_file *f PLTGOT_UNUSED_PARAM)
+ {
+ #if defined(USE_GOT_ENTRIES) || defined(USE_PLT_ENTRIES)
+ 	struct arch_file *ifile = (struct arch_file *) f;
+-- 
