@@ -62,8 +62,14 @@ deconfig(void)
 {
 	char *wan_ifname = safe_getenv("interface");
 
-	ifconfig(wan_ifname, IFUP,
-		 "0.0.0.0", NULL);
+	if (nvram_match("wan0_ifname", wan_ifname)
+	&& (nvram_match("wan0_proto", "l2tp") || nvram_match("wan0_proto", "pptp")))
+	{
+		/* fix kernel route-loop issue */
+		logmessage("dhcp client", "skipping resetting IP address to 0.0.0.0");
+	} else
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+
 	expires(wan_ifname, 0);
 
 	wan_down(wan_ifname);
@@ -94,7 +100,7 @@ bound(void)
 		strcpy(prefix, "wanx_");
 	else
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-	
+
 	if ((value = getenv("ip")))
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
 	if ((value = getenv("subnet")))
@@ -164,9 +170,50 @@ bound(void)
 static int
 renew(void)
 {
-	/* XXX: add checks at some day... */
-	/* bound(); */
+	char *wan_ifname = safe_getenv("interface");
+	char *value;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+	int metric;
 
+	if ((unit = wan_ifunit(wan_ifname)) < 0) {
+		strcpy(prefix, "wanx_");
+		metric = 2;
+	} else {
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
+	}
+
+	if (!(value = getenv("subnet")) || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
+		return bound();
+	if (!(value = getenv("router")) || nvram_invmatch(strcat_r(prefix, "gateway", tmp), trim_r(value)))
+		return bound();
+
+	if ((value = getenv("dns")))
+		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+	if ((value = getenv("wins")))
+		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
+
+#if 0
+	if ((value = getenv("hostname")))
+		sethostname(trim_r(value), strlen(value) + 1);
+#endif
+
+	if ((value = getenv("domain")))
+		nvram_set(strcat_r(prefix, "domain", tmp), trim_r(value));
+	if ((value = getenv("lease"))) {
+		nvram_set(strcat_r(prefix, "lease", tmp), trim_r(value));
+		expires(wan_ifname, atoi(value));
+	}
+
+	update_resolvconf(wan_ifname, metric, 1);
+
+	//logmessage("dhcp client", "%s IP : %s from %s", 
+	//		udhcpstate, 
+	//		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
+	//		nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+
+	wanmessage("");
 	dprintf("done\n");
 	return 0;
 }

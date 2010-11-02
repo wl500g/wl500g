@@ -1338,7 +1338,7 @@ stop_wan(char *ifname)
 	dprintf("done\n");
 }
 
-static int 
+int
 update_resolvconf(char *ifname, int metric, int up)
 {
 	FILE *fp;
@@ -1430,9 +1430,9 @@ wan_up(char *wan_ifname)
 
 		/* start multicast router */
 		start_igmpproxy(wan_ifname);
-		
-		update_resolvconf(wan_ifname,2,1);
-		
+
+		update_resolvconf(wan_ifname, 2, 1);
+
 		return;
 	}
 
