@@ -194,7 +194,25 @@ Cleanup a lot of copy'n'paste code
  }
  // End PaN
  #endif // U2EC
-@@ -675,6 +568,7 @@ static void usblp_cleanup (struct usblp 
+@@ -559,9 +452,7 @@ static int usblp_check_status(struct usb
+ 	unsigned char status, newerr = 0;
+ 	int error;
+ 
+-	mutex_lock(&usblp->mut);
+ 	if ((error = usblp_read_status(usblp, usblp->statusbuf)) < 0) {
+-		mutex_unlock(&usblp->mut);
+ 		if (printk_ratelimit())
+ 			printk(KERN_ERR
+ 				"usblp%d: error %d reading printer status\n",
+@@ -569,7 +460,6 @@ static int usblp_check_status(struct usb
+ 		return 0;
+ 	}
+ 	status = *usblp->statusbuf;
+-	mutex_unlock(&usblp->mut);
+ 
+ 	if (~status & LP_PERRORP)
+ 		newerr = 3;
+@@ -675,6 +565,7 @@ static void usblp_cleanup (struct usblp 
  		remove_proc_entry(name, usblp_dir);
  		usblp->usblpid_file = NULL;
  	}
@@ -202,7 +220,7 @@ Cleanup a lot of copy'n'paste code
  #endif
  	/* End PaN */
  #endif // U2EC
-@@ -727,11 +621,7 @@ static unsigned int usblp_poll(struct fi
+@@ -727,11 +618,7 @@ static unsigned int usblp_poll(struct fi
  static long usblp_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
  {
  #ifdef U2EC
@@ -214,7 +232,7 @@ Cleanup a lot of copy'n'paste code
  #endif // U2EC
  	struct usblp *usblp = file->private_data;
  	int length, err, i;
-@@ -903,140 +793,9 @@ static long usblp_ioctl(struct file *fil
+@@ -903,140 +790,9 @@ static long usblp_ioctl(struct file *fil
  #ifdef U2EC
  			/*=================================================================================== PaN */
  			case LPGETID: /* get the DEVICE_ID string */
@@ -358,10 +376,21 @@ Cleanup a lot of copy'n'paste code
  					retval = -EFAULT;
  					goto done;
  				}
-@@ -1076,17 +835,6 @@ static long usblp_ioctl(struct file *fil
- 					retval = -EFAULT;
- 				*/
-                                 status = usblp_check_status(usblp, 0);
+@@ -1065,35 +821,9 @@ static long usblp_ioctl(struct file *fil
+                                 usblp_reset(usblp);
+ 				break;
+ 
+-			case LPGETSTATUS:
+-				/* OLD USB Code Removed by PaN for Printer Server 
+-				if (usblp_read_status(usblp, &status)) {
+-					err("usblp%d: failed reading printer status", usblp->minor);
+-					retval = -EIO;
+-					goto done;
+-				}
+-				if (copy_to_user ((int *)arg, &status, 2))
+-					retval = -EFAULT;
+-				*/
+-                                status = usblp_check_status(usblp, 0);
 -#if 0
 -				info("start=%s", usblpid_info.mfr);
 -				for (i=0; i< MAX_STATUS_TYPE; i++) {
@@ -373,10 +402,28 @@ Cleanup a lot of copy'n'paste code
 -				status=usblp_status_maping[i][status];
 -				info("STATUS=%x", status);
 -#endif
- 				status=0;
- 				if (copy_to_user ((int *)arg, &status, 2))
+-				status=0;
+-				if (copy_to_user ((int *)arg, &status, 2))
+-					retval = -EFAULT;
+-				break;
+-				
+ /*=================================================================== PaN for Printer Server */
+-#else	// U2EC	/* Marked by JY 20031118*/
++#endif //U2EC /* Marked by JY 20031118*/
++
+ 			case LPGETSTATUS:
+ 				if ((retval = usblp_read_status(usblp, usblp->statusbuf))) {
+ 					if (printk_ratelimit())
+@@ -1107,7 +837,7 @@ static long usblp_ioctl(struct file *fil
+ 				if (copy_to_user ((void __user *)arg, &status, sizeof(int)))
  					retval = -EFAULT;
-@@ -1128,7 +876,7 @@ done:
+ 				break;
+-#endif //U2EC /* Marked by JY 20031118*/
++
+ 			case LPABORT:
+ 				if (arg)
+ 					usblp->flags |= LP_ABORT;
+@@ -1128,7 +858,7 @@ done:
  /*********************************************************
  ** JYWeng 20031212: parsing the information of printers **
  *********************************************************/
@@ -385,7 +432,7 @@ Cleanup a lot of copy'n'paste code
  {
  	char *strtmp;
  	int i, unk = 0;
-@@ -1136,10 +884,8 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1136,10 +866,8 @@ void parseKeywords(char *str_dev_id, cha
  	if ( (strtmp = strstr(str_dev_id, keyword1)) == NULL) {
  		if ( (strtmp = strstr(str_dev_id, keyword2)) == NULL) {
  			for (i=0; i<7; i++) {
@@ -396,7 +443,7 @@ Cleanup a lot of copy'n'paste code
  			usblpid_info_data[i]='\0';
  			unk=1;
  			
-@@ -1153,11 +899,9 @@ void parseKeywords(char *str_dev_id, cha
+@@ -1153,11 +881,9 @@ void parseKeywords(char *str_dev_id, cha
  					
  	i=0;
  	while (unk==0 && strtmp[i] && strtmp[i] != ';') {
@@ -408,7 +455,25 @@ Cleanup a lot of copy'n'paste code
  	usblpid_info_data[i]='\0';
  
  	return;
-@@ -1663,6 +1407,10 @@ static int usblp_probe(struct usb_interf
+@@ -1344,15 +1070,16 @@ static int usblp_wwait(struct usblp *usb
+ 			break;
+ 
+ 		if (schedule_timeout(msecs_to_jiffies(1500)) == 0) {
++			mutex_lock(&usblp->mut);
+ 			if (usblp->flags & LP_ABORT) {
+ 				err = usblp_check_status(usblp, err);
++				mutex_unlock(&usblp->mut);
+ 				if (err == 1) {	/* Paper out */
+ 					rc = -ENOSPC;
+ 					break;
+ 				}
+ 			} else {
+ 				/* Prod the printer, Gentoo#251237. */
+-				mutex_lock(&usblp->mut);
+ 				usblp_read_status(usblp, usblp->statusbuf);
+ 				mutex_unlock(&usblp->mut);
+ 			}
+@@ -1663,6 +1390,10 @@ static int usblp_probe(struct usb_interf
  	}
  	usblp->usblpid_file->owner = THIS_MODULE;
  	/* get device id */
@@ -419,7 +484,7 @@ Cleanup a lot of copy'n'paste code
  	if (proc_get_usblpid(usblp) < 0) 
  		info("procfs: get usblpid error!");
  
-@@ -1681,6 +1429,7 @@ abort:
+@@ -1685,6 +1416,7 @@ abort:
  		kfree(usblp->readbuf);
  		kfree(usblp->statusbuf);
  		kfree(usblp->device_id_string);
@@ -427,3 +492,4 @@ Cleanup a lot of copy'n'paste code
  		kfree(usblp);
  	}
  	return retval;
+-- 
