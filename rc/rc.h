@@ -97,6 +97,7 @@ int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
 void stop_igmpproxy(void);
+int update_resolvconf(char *ifname, int metric, int up);
 
 /* services */
 int stop_service_main();
