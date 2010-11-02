@@ -1,0 +1,911 @@
+From 276a5fbbccd7b669d4f08cd28cd3b276dafb7e22
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 29 Oct 2010 19:41:12 -0400
+Subject: [PATCH] timerfd: new timerfd API
+
+ kernel.org commits
+ 5e05ad7d4e3b11f935998882b5d9c3b257137f1b timerfd: introduce a new hrtimer_forward_now() function
+ 4d672e7ac79b5ec5cdc90e450823441e20464691 timerfd: new timerfd API
+ f79c343e2e5ba82b9661e7287a42fac596bf367a timerfd: un-break CONFIG_TIMERFD
+ 46a56c5a02430f80ef73357aa1295875c1cef2a7 [PATCH] Fix timerfd breakage on avr32
+ 9692bd9c140618e3f6a2848900aee96c9cd8a65c [PATCH] timerfd: fix remaining architectures
+ 6783fe6253045bf5cbdf25e4be296f91437c5523 [MIPS] Wire up the timerfd_*() o32 system calls
+ 0cb845ec3719c4cc13cedb3f86002c37c50aff0a [PARISC] remove old timerfd syscall
+ c7d16736b8759f45a49d318bf3a8ca7fed7b6962 MIPS: Compat: Use generic 32-bit wrapers for sys_timerfd_{g,s}ettime
+ 45cc2b96f20fa27088a650587e5d9dc5fa5e32c0 [PATCH] fs/timerfd.c should #include <linux/syscalls.h>
+
+---
+ arch/alpha/kernel/systbls.S        |    2 +-
+ arch/arm/kernel/calls.S            |    2 +-
+ arch/avr32/kernel/syscall_table.S  |    2 +-
+ arch/ia64/kernel/entry.S           |    2 +-
+ arch/mips/kernel/scall32-o32.S     |    6 +-
+ arch/mips/kernel/scall64-64.S      |    6 +-
+ arch/mips/kernel/scall64-n32.S     |    8 +-
+ arch/mips/kernel/scall64-o32.S     |    6 +-
+ arch/parisc/kernel/syscall_table.S |    2 +-
+ arch/s390/kernel/compat_wrapper.S  |    8 -
+ arch/s390/kernel/syscalls.S        |    2 +-
+ arch/sh/kernel/syscalls.S          |    2 +-
+ arch/sh64/kernel/syscalls.S        |    2 +-
+ arch/sparc/kernel/systbls.S        |    2 +-
+ arch/sparc64/kernel/systbls.S      |    4 +-
+ fs/compat.c                        |   32 +++-
+ fs/timerfd.c                       |  208 +++++++++++++-------
+ include/asm-avr32/unistd.h         |    2 +-
+ include/asm-mips/unistd.h          |   22 ++-
+ include/asm-powerpc/systbl.h       |    2 +-
+ include/asm-sh/unistd.h            |    2 +-
+ include/asm-sh64/unistd.h          |    2 +-
+ include/linux/compat.h             |    7 +-
+ include/linux/hrtimer.h            |   13 +-
+ include/linux/syscalls.h           |    7 +-
+ init/Kconfig                       |    1 -
+ kernel/hrtimer.c                   |    9 +-
+ kernel/posix-timers.c              |    9 +-
+ kernel/sys_ni.c                    |    7 +-
+ 29 files changed, 249 insertions(+), 130 deletions(-)
+
+diff --git a/arch/alpha/kernel/systbls.S b/arch/alpha/kernel/systbls.S
+index 79de99e..ba914af 100644
+--- a/arch/alpha/kernel/systbls.S
++++ b/arch/alpha/kernel/systbls.S
+@@ -495,7 +495,7 @@ sys_call_table:
+ 	.quad sys_epoll_pwait
+ 	.quad sys_utimensat			/* 475 */
+ 	.quad sys_signalfd
+-	.quad sys_timerfd
++	.quad sys_ni_syscall
+ 	.quad sys_eventfd
+ 
+ 	.size sys_call_table, . - sys_call_table
+diff --git a/arch/arm/kernel/calls.S b/arch/arm/kernel/calls.S
+index a98d0c9..30eda03 100644
+--- a/arch/arm/kernel/calls.S
++++ b/arch/arm/kernel/calls.S
+@@ -359,7 +359,7 @@
+ 		CALL(sys_kexec_load)
+ 		CALL(sys_utimensat)
+ 		CALL(sys_signalfd)
+-/* 350 */	CALL(sys_timerfd)
++/* 350 */	CALL(sys_ni_syscall)
+ 		CALL(sys_eventfd)
+ #ifndef syscalls_counted
+ .equ syscalls_padding, ((NR_syscalls + 3) & ~3) - NR_syscalls
+diff --git a/arch/avr32/kernel/syscall_table.S b/arch/avr32/kernel/syscall_table.S
+index 75c81f2..478bda4 100644
+--- a/arch/avr32/kernel/syscall_table.S
++++ b/arch/avr32/kernel/syscall_table.S
+@@ -293,6 +293,6 @@ sys_call_table:
+ 	.long	sys_shmctl
+ 	.long	sys_utimensat
+ 	.long	sys_signalfd
+-	.long	sys_timerfd		/* 280 */
++	.long	sys_ni_syscall		/* 280, was sys_timerfd */
+ 	.long	sys_eventfd
+ 	.long	sys_ni_syscall		/* r8 is saturated at nr_syscalls */
+diff --git a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+index 95f5175..4eb4c94 100644
+--- a/arch/ia64/kernel/entry.S
++++ b/arch/ia64/kernel/entry.S
+@@ -1586,7 +1586,7 @@ sys_call_table:
+ 	data8 sys_epoll_pwait			// 1305
+ 	data8 sys_utimensat
+ 	data8 sys_signalfd
+-	data8 sys_timerfd
++	data8 sys_ni_syscall
+ 	data8 sys_eventfd
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
+diff --git a/arch/mips/kernel/scall32-o32.S b/arch/mips/kernel/scall32-o32.S
+index 24dbf13..eb0b013 100644
+--- a/arch/mips/kernel/scall32-o32.S
++++ b/arch/mips/kernel/scall32-o32.S
+@@ -667,8 +667,12 @@ einval:	li	v0, -ENOSYS
+ 	sys	sys_ioprio_get		2	/* 4315 */
+ 	sys	sys_utimensat		4
+ 	sys	sys_signalfd		3
+-	sys	sys_timerfd		4
++	sys	sys_ni_syscall		0
+ 	sys	sys_eventfd		1
++	sys	sys_ni_syscall		0	/* 4320 */
++	sys	sys_timerfd_create	2
++	sys	sys_timerfd_gettime	2
++	sys	sys_timerfd_settime	4
+ 	.endm
+ 
+ 	/* We pre-compute the number of _instruction_ bytes needed to
+diff --git a/arch/mips/kernel/scall64-64.S b/arch/mips/kernel/scall64-64.S
+index 9c34422..3029d6f 100644
+--- a/arch/mips/kernel/scall64-64.S
++++ b/arch/mips/kernel/scall64-64.S
+@@ -476,6 +476,10 @@ sys_call_table:
+ 	PTR	sys_ioprio_get
+ 	PTR	sys_utimensat			/* 5275 */
+ 	PTR	sys_signalfd
+-	PTR	sys_timerfd
++	PTR	sys_ni_syscall
+ 	PTR	sys_eventfd
++	PTR	sys_ni_syscall
++	PTR	sys_timerfd_create		/* 5280 */
++	PTR	sys_timerfd_gettime
++	PTR	sys_timerfd_settime
+ 	.size	sys_call_table,.-sys_call_table
+diff --git a/arch/mips/kernel/scall64-n32.S b/arch/mips/kernel/scall64-n32.S
+index b088ad3..530714d 100644
+--- a/arch/mips/kernel/scall64-n32.S
++++ b/arch/mips/kernel/scall64-n32.S
+@@ -403,12 +403,12 @@ EXPORT(sysn32_call_table)
+ 	PTR	sys_ioprio_get
+ 	PTR	compat_sys_utimensat
+ 	PTR	compat_sys_signalfd		/* 6280 */
+-	PTR	compat_sys_timerfd
++	PTR	sys_ni_syscall
+ 	PTR	sys_eventfd
+ 	PTR	sys_ni_syscall			/* sys_fallocate */
+-	PTR	sys_ni_syscall			/* sys_timerfd_create */
+-	PTR	sys_ni_syscall		/* 6285, compat_sys_timerfd_gettime */
+-	PTR	sys_ni_syscall			/* compat_sys_timerfd_settime */
++	PTR	sys_timerfd_create
++	PTR	compat_sys_timerfd_gettime	/* 6285 */
++	PTR	compat_sys_timerfd_settime
+ 	PTR	sys_ni_syscall			/* sys_signalfd4 */
+ 	PTR	sys_ni_syscall			/* sys_eventfd2 */
+ 	PTR	sys_ni_syscall			/* sys_epoll_create1 */
+diff --git a/arch/mips/kernel/scall64-o32.S b/arch/mips/kernel/scall64-o32.S
+index e40924a..564e1b6 100644
+--- a/arch/mips/kernel/scall64-o32.S
++++ b/arch/mips/kernel/scall64-o32.S
+@@ -522,6 +522,10 @@ sys_call_table:
+ 	PTR	sys_ioprio_get			/* 4315 */
+ 	PTR	compat_sys_utimensat
+ 	PTR	compat_sys_signalfd
+-	PTR	compat_sys_timerfd
++	PTR	sys_ni_syscall
+ 	PTR	sys_eventfd
++	PTR	sys_ni_syscall			/* 4320 */
++	PTR	sys_timerfd_create
++	PTR	compat_sys_timerfd_gettime
++	PTR	compat_sys_timerfd_settime
+ 	.size	sys_call_table,.-sys_call_table
+diff --git a/arch/parisc/kernel/syscall_table.S b/arch/parisc/kernel/syscall_table.S
+index 627f3c2..b3bf2ec 100644
+--- a/arch/parisc/kernel/syscall_table.S
++++ b/arch/parisc/kernel/syscall_table.S
+@@ -403,7 +403,7 @@
+ 	ENTRY_COMP(kexec_load)		/* 300 */
+ 	ENTRY_COMP(utimensat)
+ 	ENTRY_COMP(signalfd)
+-	ENTRY_COMP(timerfd)
++	ENTRY_SAME(ni_syscall)		/* was timerfd */
+ 	ENTRY_SAME(eventfd)
+ 
+ 	/* Nothing yet */
+diff --git a/arch/s390/kernel/compat_wrapper.S b/arch/s390/kernel/compat_wrapper.S
+index acc4154..0835e4b 100644
+--- a/arch/s390/kernel/compat_wrapper.S
++++ b/arch/s390/kernel/compat_wrapper.S
+@@ -1698,14 +1698,6 @@ compat_sys_signalfd_wrapper:
+ 	llgfr	%r4,%r4			# compat_size_t
+ 	jg	compat_sys_signalfd
+ 
+-	.globl	compat_sys_timerfd_wrapper
+-compat_sys_timerfd_wrapper:
+-	lgfr	%r2,%r2			# int
+-	lgfr	%r3,%r3			# int
+-	lgfr	%r4,%r4			# int
+-	llgtr	%r5,%r5			# struct compat_itimerspec *
+-	jg	compat_sys_timerfd
+-
+ 	.globl	sys_eventfd_wrapper
+ sys_eventfd_wrapper:
+ 	llgfr	%r2,%r2			# unsigned int
+diff --git a/arch/s390/kernel/syscalls.S b/arch/s390/kernel/syscalls.S
+index 738feb4..e0b58c2 100644
+--- a/arch/s390/kernel/syscalls.S
++++ b/arch/s390/kernel/syscalls.S
+@@ -325,5 +325,5 @@ SYSCALL(sys_utimes,sys_utimes,compat_sys_utimes_wrapper)
+ NI_SYSCALL							/* 314 sys_fallocate */
+ SYSCALL(sys_utimensat,sys_utimensat,compat_sys_utimensat_wrapper)	/* 315 */
+ SYSCALL(sys_signalfd,sys_signalfd,compat_sys_signalfd_wrapper)
+-SYSCALL(sys_timerfd,sys_timerfd,compat_sys_timerfd_wrapper)
++NI_SYSCALL						/* 317 old sys_timer_fd */
+ SYSCALL(sys_eventfd,sys_eventfd,sys_eventfd_wrapper)
+diff --git a/arch/sh/kernel/syscalls.S b/arch/sh/kernel/syscalls.S
+index 7db1c2d..9cef6a3 100644
+--- a/arch/sh/kernel/syscalls.S
++++ b/arch/sh/kernel/syscalls.S
+@@ -356,5 +356,5 @@ ENTRY(sys_call_table)
+ 	.long sys_epoll_pwait
+ 	.long sys_utimensat		/* 320 */
+ 	.long sys_signalfd
+-	.long sys_timerfd
++	.long sys_ni_syscall
+ 	.long sys_eventfd
+diff --git a/arch/sh64/kernel/syscalls.S b/arch/sh64/kernel/syscalls.S
+index a5c680d..0cdc9aa 100644
+--- a/arch/sh64/kernel/syscalls.S
++++ b/arch/sh64/kernel/syscalls.S
+@@ -376,5 +376,5 @@ sys_call_table:
+ 	.long sys_epoll_pwait
+ 	.long sys_utimensat
+ 	.long sys_signalfd
+-	.long sys_timerfd		/* 350 */
++	.long sys_ni_syscall		/* 350 */
+ 	.long sys_eventfd
+diff --git a/arch/sparc/kernel/systbls.S b/arch/sparc/kernel/systbls.S
+index 90b52d4..b14703b 100644
+--- a/arch/sparc/kernel/systbls.S
++++ b/arch/sparc/kernel/systbls.S
+@@ -80,7 +80,7 @@ sys_call_table:
+ /*295*/	.long sys_fchmodat, sys_faccessat, sys_pselect6, sys_ppoll, sys_unshare
+ /*300*/	.long sys_set_robust_list, sys_get_robust_list, sys_migrate_pages, sys_mbind, sys_get_mempolicy
+ /*305*/	.long sys_set_mempolicy, sys_kexec_load, sys_move_pages, sys_getcpu, sys_epoll_pwait
+-/*310*/	.long sys_utimensat, sys_signalfd, sys_timerfd, sys_eventfd
++/*310*/	.long sys_utimensat, sys_signalfd, sys_ni_syscall, sys_eventfd
+ 
+ #ifdef CONFIG_SUNOS_EMUL
+ 	/* Now the SunOS syscall table. */
+diff --git a/arch/sparc64/kernel/systbls.S b/arch/sparc64/kernel/systbls.S
+index 8765e32..5ac625a 100644
+--- a/arch/sparc64/kernel/systbls.S
++++ b/arch/sparc64/kernel/systbls.S
+@@ -81,7 +81,7 @@ sys_call_table32:
+ 	.word sys_fchmodat, sys_faccessat, compat_sys_pselect6, compat_sys_ppoll, sys_unshare
+ /*300*/	.word compat_sys_set_robust_list, compat_sys_get_robust_list, compat_sys_migrate_pages, compat_sys_mbind, compat_sys_get_mempolicy
+ 	.word compat_sys_set_mempolicy, compat_sys_kexec_load, compat_sys_move_pages, sys_getcpu, compat_sys_epoll_pwait
+-/*310*/	.word compat_sys_utimensat, compat_sys_signalfd, compat_sys_timerfd, sys_eventfd
++/*310*/	.word compat_sys_utimensat, compat_sys_signalfd, sys_ni_syscall, sys_eventfd
+ 
+ #endif /* CONFIG_COMPAT */
+ 
+@@ -153,7 +153,7 @@ sys_call_table:
+ 	.word sys_fchmodat, sys_faccessat, sys_pselect6, sys_ppoll, sys_unshare
+ /*300*/	.word sys_set_robust_list, sys_get_robust_list, sys_migrate_pages, sys_mbind, sys_get_mempolicy
+ 	.word sys_set_mempolicy, sys_kexec_load, sys_move_pages, sys_getcpu, sys_epoll_pwait
+-/*310*/	.word sys_utimensat, sys_signalfd, sys_timerfd, sys_eventfd
++/*310*/	.word sys_utimensat, sys_signalfd, sys_ni_syscall, sys_eventfd
+ 
+ #if defined(CONFIG_SUNOS_EMUL) || defined(CONFIG_SOLARIS_EMUL) || \
+     defined(CONFIG_SOLARIS_EMUL_MODULE)
+diff --git a/fs/compat.c b/fs/compat.c
+index 4db6216..3d06534 100644
+--- a/fs/compat.c
++++ b/fs/compat.c
+@@ -2232,19 +2232,41 @@ asmlinkage long compat_sys_signalfd(int ufd,
+ 
+ #ifdef CONFIG_TIMERFD
+ 
+-asmlinkage long compat_sys_timerfd(int ufd, int clockid, int flags,
+-				   const struct compat_itimerspec __user *utmr)
++asmlinkage long compat_sys_timerfd_settime(int ufd, int flags,
++				   const struct compat_itimerspec __user *utmr,
++				   struct compat_itimerspec __user *otmr)
+ {
++	int error;
+ 	struct itimerspec t;
+ 	struct itimerspec __user *ut;
+ 
+ 	if (get_compat_itimerspec(&t, utmr))
+ 		return -EFAULT;
+-	ut = compat_alloc_user_space(sizeof(*ut));
+-	if (copy_to_user(ut, &t, sizeof(t)))
++	ut = compat_alloc_user_space(2 * sizeof(struct itimerspec));
++	if (copy_to_user(&ut[0], &t, sizeof(t)))
+ 		return -EFAULT;
++	error = sys_timerfd_settime(ufd, flags, &ut[0], &ut[1]);
++	if (!error && otmr)
++		error = (copy_from_user(&t, &ut[1], sizeof(struct itimerspec)) ||
++			 put_compat_itimerspec(otmr, &t)) ? -EFAULT: 0;
++
++	return error;
++}
++
++asmlinkage long compat_sys_timerfd_gettime(int ufd,
++				   struct compat_itimerspec __user *otmr)
++{
++	int error;
++	struct itimerspec t;
++	struct itimerspec __user *ut;
+ 
+-	return sys_timerfd(ufd, clockid, flags, ut);
++	ut = compat_alloc_user_space(sizeof(struct itimerspec));
++	error = sys_timerfd_gettime(ufd, ut);
++	if (!error)
++		error = (copy_from_user(&t, ut, sizeof(struct itimerspec)) ||
++			 put_compat_itimerspec(otmr, &t)) ? -EFAULT: 0;
++
++	return error;
+ }
+ 
+ #endif /* CONFIG_TIMERFD */
+diff --git a/fs/timerfd.c b/fs/timerfd.c
+index 61983f3..5400524 100644
+--- a/fs/timerfd.c
++++ b/fs/timerfd.c
+@@ -20,18 +20,21 @@
+ #include <linux/hrtimer.h>
+ #include <linux/anon_inodes.h>
+ #include <linux/timerfd.h>
++#include <linux/syscalls.h>
+ 
+ struct timerfd_ctx {
+ 	struct hrtimer tmr;
+ 	ktime_t tintv;
+ 	wait_queue_head_t wqh;
++	u64 ticks;
+ 	int expired;
++	int clockid;
+ };
+ 
+ /*
+  * This gets called when the timer event triggers. We set the "expired"
+  * flag, but we do not re-arm the timer (in case it's necessary,
+- * tintv.tv64 != 0) until the timer is read.
++ * tintv.tv64 != 0) until the timer is accessed.
+  */
+ static enum hrtimer_restart timerfd_tmrproc(struct hrtimer *htmr)
+ {
+@@ -40,13 +43,24 @@ static enum hrtimer_restart timerfd_tmrproc(struct hrtimer *htmr)
+ 
+ 	spin_lock_irqsave(&ctx->wqh.lock, flags);
+ 	ctx->expired = 1;
++	ctx->ticks++;
+ 	wake_up_locked(&ctx->wqh);
+ 	spin_unlock_irqrestore(&ctx->wqh.lock, flags);
+ 
+ 	return HRTIMER_NORESTART;
+ }
+ 
+-static void timerfd_setup(struct timerfd_ctx *ctx, int clockid, int flags,
++static ktime_t timerfd_get_remaining(struct timerfd_ctx *ctx)
++{
++	ktime_t now, remaining;
++
++	now = ctx->tmr.base->get_time();
++	remaining = ktime_sub(ctx->tmr.expires, now);
++
++	return remaining.tv64 < 0 ? ktime_set(0, 0): remaining;
++}
++
++static void timerfd_setup(struct timerfd_ctx *ctx, int flags,
+ 			  const struct itimerspec *ktmr)
+ {
+ 	enum hrtimer_mode htmode;
+@@ -57,8 +71,9 @@ static void timerfd_setup(struct timerfd_ctx *ctx, int clockid, int flags,
+ 
+ 	texp = timespec_to_ktime(ktmr->it_value);
+ 	ctx->expired = 0;
++	ctx->ticks = 0;
+ 	ctx->tintv = timespec_to_ktime(ktmr->it_interval);
+-	hrtimer_init(&ctx->tmr, clockid, htmode);
++	hrtimer_init(&ctx->tmr, ctx->clockid, htmode);
+ 	ctx->tmr.expires = texp;
+ 	ctx->tmr.function = timerfd_tmrproc;
+ 	if (texp.tv64 != 0)
+@@ -83,7 +98,7 @@ static unsigned int timerfd_poll(struct file *file, poll_table *wait)
+ 	poll_wait(file, &ctx->wqh, wait);
+ 
+ 	spin_lock_irqsave(&ctx->wqh.lock, flags);
+-	if (ctx->expired)
++	if (ctx->ticks)
+ 		events |= POLLIN;
+ 	spin_unlock_irqrestore(&ctx->wqh.lock, flags);
+ 
+@@ -102,11 +117,11 @@ static ssize_t timerfd_read(struct file *file, char __user *buf, size_t count,
+ 		return -EINVAL;
+ 	spin_lock_irq(&ctx->wqh.lock);
+ 	res = -EAGAIN;
+-	if (!ctx->expired && !(file->f_flags & O_NONBLOCK)) {
++	if (!ctx->ticks && !(file->f_flags & O_NONBLOCK)) {
+ 		__add_wait_queue(&ctx->wqh, &wait);
+ 		for (res = 0;;) {
+ 			set_current_state(TASK_INTERRUPTIBLE);
+-			if (ctx->expired) {
++			if (ctx->ticks) {
+ 				res = 0;
+ 				break;
+ 			}
+@@ -121,22 +136,21 @@ static ssize_t timerfd_read(struct file *file, char __user *buf, size_t count,
+ 		__remove_wait_queue(&ctx->wqh, &wait);
+ 		__set_current_state(TASK_RUNNING);
+ 	}
+-	if (ctx->expired) {
+-		ctx->expired = 0;
+-		if (ctx->tintv.tv64 != 0) {
++	if (ctx->ticks) {
++		ticks = ctx->ticks;
++		if (ctx->expired && ctx->tintv.tv64) {
+ 			/*
+ 			 * If tintv.tv64 != 0, this is a periodic timer that
+ 			 * needs to be re-armed. We avoid doing it in the timer
+ 			 * callback to avoid DoS attacks specifying a very
+ 			 * short timer period.
+ 			 */
+-			ticks = (u64)
+-				hrtimer_forward(&ctx->tmr,
+-						hrtimer_cb_get_time(&ctx->tmr),
+-						ctx->tintv);
++			ticks += hrtimer_forward_now(&ctx->tmr,
++						     ctx->tintv) - 1;
+ 			hrtimer_restart(&ctx->tmr);
+-		} else
+-			ticks = 1;
++		}
++		ctx->expired = 0;
++		ctx->ticks = 0;
+ 	}
+ 	spin_unlock_irq(&ctx->wqh.lock);
+ 	if (ticks)
+@@ -150,76 +164,132 @@ static const struct file_operations timerfd_fops = {
+ 	.read		= timerfd_read,
+ };
+ 
+-asmlinkage long sys_timerfd(int ufd, int clockid, int flags,
+-			    const struct itimerspec __user *utmr)
++static struct file *timerfd_fget(int fd)
++{
++	struct file *file;
++
++	file = fget(fd);
++	if (!file)
++		return ERR_PTR(-EBADF);
++	if (file->f_op != &timerfd_fops) {
++		fput(file);
++		return ERR_PTR(-EINVAL);
++	}
++
++	return file;
++}
++
++asmlinkage long sys_timerfd_create(int clockid, int flags)
+ {
+-	int error;
++	int error, ufd;
+ 	struct timerfd_ctx *ctx;
+ 	struct file *file;
+ 	struct inode *inode;
+-	struct itimerspec ktmr;
+-
+-	if (copy_from_user(&ktmr, utmr, sizeof(ktmr)))
+-		return -EFAULT;
+ 
++	if (flags)
++		return -EINVAL;
+ 	if (clockid != CLOCK_MONOTONIC &&
+ 	    clockid != CLOCK_REALTIME)
+ 		return -EINVAL;
++
++	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
++	if (!ctx)
++		return -ENOMEM;
++
++	init_waitqueue_head(&ctx->wqh);
++	ctx->clockid = clockid;
++	hrtimer_init(&ctx->tmr, clockid, HRTIMER_MODE_ABS);
++
++	error = anon_inode_getfd(&ufd, &inode, &file, "[timerfd]",
++				 &timerfd_fops, ctx);
++	if (error) {
++		kfree(ctx);
++		return error;
++	}
++
++	return ufd;
++}
++
++asmlinkage long sys_timerfd_settime(int ufd, int flags,
++				    const struct itimerspec __user *utmr,
++				    struct itimerspec __user *otmr)
++{
++	struct file *file;
++	struct timerfd_ctx *ctx;
++	struct itimerspec ktmr, kotmr;
++
++	if (copy_from_user(&ktmr, utmr, sizeof(ktmr)))
++		return -EFAULT;
++
+ 	if (!timespec_valid(&ktmr.it_value) ||
+ 	    !timespec_valid(&ktmr.it_interval))
+ 		return -EINVAL;
+ 
+-	if (ufd == -1) {
+-		ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+-		if (!ctx)
+-			return -ENOMEM;
+-
+-		init_waitqueue_head(&ctx->wqh);
+-
+-		timerfd_setup(ctx, clockid, flags, &ktmr);
+-
+-		/*
+-		 * When we call this, the initialization must be complete, since
+-		 * anon_inode_getfd() will install the fd.
+-		 */
+-		error = anon_inode_getfd(&ufd, &inode, &file, "[timerfd]",
+-					 &timerfd_fops, ctx);
+-		if (error)
+-			goto err_tmrcancel;
+-	} else {
+-		file = fget(ufd);
+-		if (!file)
+-			return -EBADF;
+-		ctx = file->private_data;
+-		if (file->f_op != &timerfd_fops) {
+-			fput(file);
+-			return -EINVAL;
+-		}
+-		/*
+-		 * We need to stop the existing timer before reprogramming
+-		 * it to the new values.
+-		 */
+-		for (;;) {
+-			spin_lock_irq(&ctx->wqh.lock);
+-			if (hrtimer_try_to_cancel(&ctx->tmr) >= 0)
+-				break;
+-			spin_unlock_irq(&ctx->wqh.lock);
+-			cpu_relax();
+-		}
+-		/*
+-		 * Re-program the timer to the new value ...
+-		 */
+-		timerfd_setup(ctx, clockid, flags, &ktmr);
++	file = timerfd_fget(ufd);
++	if (IS_ERR(file))
++		return PTR_ERR(file);
++	ctx = file->private_data;
+ 
++	/*
++	 * We need to stop the existing timer before reprogramming
++	 * it to the new values.
++	 */
++	for (;;) {
++		spin_lock_irq(&ctx->wqh.lock);
++		if (hrtimer_try_to_cancel(&ctx->tmr) >= 0)
++			break;
+ 		spin_unlock_irq(&ctx->wqh.lock);
+-		fput(file);
++		cpu_relax();
+ 	}
+ 
+-	return ufd;
++	/*
++	 * If the timer is expired and it's periodic, we need to advance it
++	 * because the caller may want to know the previous expiration time.
++	 * We do not update "ticks" and "expired" since the timer will be
++	 * re-programmed again in the following timerfd_setup() call.
++	 */
++	if (ctx->expired && ctx->tintv.tv64)
++		hrtimer_forward_now(&ctx->tmr, ctx->tintv);
+ 
+-err_tmrcancel:
+-	hrtimer_cancel(&ctx->tmr);
+-	kfree(ctx);
+-	return error;
++	kotmr.it_value = ktime_to_timespec(timerfd_get_remaining(ctx));
++	kotmr.it_interval = ktime_to_timespec(ctx->tintv);
++
++	/*
++	 * Re-program the timer to the new value ...
++	 */
++	timerfd_setup(ctx, flags, &ktmr);
++
++	spin_unlock_irq(&ctx->wqh.lock);
++	fput(file);
++	if (otmr && copy_to_user(otmr, &kotmr, sizeof(kotmr)))
++		return -EFAULT;
++
++	return 0;
++}
++
++asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr)
++{
++	struct file *file;
++	struct timerfd_ctx *ctx;
++	struct itimerspec kotmr;
++
++	file = timerfd_fget(ufd);
++	if (IS_ERR(file))
++		return PTR_ERR(file);
++	ctx = file->private_data;
++
++	spin_lock_irq(&ctx->wqh.lock);
++	if (ctx->expired && ctx->tintv.tv64) {
++		ctx->expired = 0;
++		ctx->ticks +=
++			hrtimer_forward_now(&ctx->tmr, ctx->tintv) - 1;
++		hrtimer_restart(&ctx->tmr);
++	}
++	kotmr.it_value = ktime_to_timespec(timerfd_get_remaining(ctx));
++	kotmr.it_interval = ktime_to_timespec(ctx->tintv);
++	spin_unlock_irq(&ctx->wqh.lock);
++	fput(file);
++
++	return copy_to_user(otmr, &kotmr, sizeof(kotmr)) ? -EFAULT: 0;
+ }
+ 
+diff --git a/include/asm-avr32/unistd.h b/include/asm-avr32/unistd.h
+index 3b4e35b..8ec7a96 100644
+--- a/include/asm-avr32/unistd.h
++++ b/include/asm-avr32/unistd.h
+@@ -297,7 +297,7 @@
+ 
+ #define __NR_utimensat		278
+ #define __NR_signalfd		279
+-#define __NR_timerfd		280
++/* 280 was __NR_timerfd */
+ #define __NR_eventfd		281
+ 
+ #ifdef __KERNEL__
+diff --git a/include/asm-mips/unistd.h b/include/asm-mips/unistd.h
+index fb67a24..35eaf97 100644
+--- a/include/asm-mips/unistd.h
++++ b/include/asm-mips/unistd.h
+@@ -340,16 +340,20 @@
+ #define __NR_signalfd			(__NR_Linux + 317)
+ #define __NR_timerfd			(__NR_Linux + 318)
+ #define __NR_eventfd			(__NR_Linux + 319)
++/* #define __NR_fallocate		(__NR_Linux + 320) */
++#define __NR_timerfd_create		(__NR_Linux + 321)
++#define __NR_timerfd_gettime		(__NR_Linux + 322)
++#define __NR_timerfd_settime		(__NR_Linux + 323)
+ 
+ /*
+  * Offset of the last Linux o32 flavoured syscall
+  */
+-#define __NR_Linux_syscalls		319
++#define __NR_Linux_syscalls		323
+ 
+ #endif /* _MIPS_SIM == _MIPS_SIM_ABI32 */
+ 
+ #define __NR_O32_Linux			4000
+-#define __NR_O32_Linux_syscalls		319
++#define __NR_O32_Linux_syscalls		323
+ 
+ #if _MIPS_SIM == _MIPS_SIM_ABI64
+ 
+@@ -636,16 +640,20 @@
+ #define __NR_signalfd			(__NR_Linux + 276)
+ #define __NR_timerfd			(__NR_Linux + 277)
+ #define __NR_eventfd			(__NR_Linux + 278)
++/* #define __NR_fallocate		(__NR_Linux + 279) */
++#define __NR_timerfd_create		(__NR_Linux + 280)
++#define __NR_timerfd_gettime		(__NR_Linux + 281)
++#define __NR_timerfd_settime		(__NR_Linux + 282)
+ 
+ /*
+  * Offset of the last Linux 64-bit flavoured syscall
+  */
+-#define __NR_Linux_syscalls		278
++#define __NR_Linux_syscalls		282
+ 
+ #endif /* _MIPS_SIM == _MIPS_SIM_ABI64 */
+ 
+ #define __NR_64_Linux			5000
+-#define __NR_64_Linux_syscalls		278
++#define __NR_64_Linux_syscalls		282
+ 
+ #if _MIPS_SIM == _MIPS_SIM_NABI32
+ 
+@@ -937,9 +945,9 @@
+ #define __NR_timerfd			(__NR_Linux + 281)
+ #define __NR_eventfd			(__NR_Linux + 282)
+ /* #define __NR_fallocate		(__NR_Linux + 283) */
+-/* #define __NR_timerfd_create		(__NR_Linux + 284) */
+-/* #define __NR_timerfd_gettime		(__NR_Linux + 285) */
+-/* #define __NR_timerfd_settime		(__NR_Linux + 286) */
++#define __NR_timerfd_create		(__NR_Linux + 284)
++#define __NR_timerfd_gettime		(__NR_Linux + 285)
++#define __NR_timerfd_settime		(__NR_Linux + 286)
+ /* #define __NR_signalfd4		(__NR_Linux + 287) */
+ /* #define __NR_eventfd2		(__NR_Linux + 288) */
+ /* #define __NR_epoll_create1		(__NR_Linux + 289) */
+diff --git a/include/asm-powerpc/systbl.h b/include/asm-powerpc/systbl.h
+index 1cc3f9c..35f246c 100644
+--- a/include/asm-powerpc/systbl.h
++++ b/include/asm-powerpc/systbl.h
+@@ -309,6 +309,6 @@ SYSCALL_SPU(getcpu)
+ COMPAT_SYS(epoll_pwait)
+ COMPAT_SYS_SPU(utimensat)
+ COMPAT_SYS_SPU(signalfd)
+-COMPAT_SYS_SPU(timerfd)
++SYSCALL(ni_syscall)
+ SYSCALL_SPU(eventfd)
+ COMPAT_SYS_SPU(sync_file_range2)
+diff --git a/include/asm-sh/unistd.h b/include/asm-sh/unistd.h
+index 77bcb09..fe02f36 100644
+--- a/include/asm-sh/unistd.h
++++ b/include/asm-sh/unistd.h
+@@ -330,7 +330,7 @@
+ #define __NR_epoll_pwait	319
+ #define __NR_utimensat		320
+ #define __NR_signalfd		321
+-#define __NR_timerfd		322
++/* #define __NR_timerfd		322 removed */
+ #define __NR_eventfd		323
+ 
+ #define NR_syscalls 324
+diff --git a/include/asm-sh64/unistd.h b/include/asm-sh64/unistd.h
+index ea3adc6..628706b 100644
+--- a/include/asm-sh64/unistd.h
++++ b/include/asm-sh64/unistd.h
+@@ -372,7 +372,7 @@
+ #define __NR_epoll_pwait	347
+ #define __NR_utimensat		348
+ #define __NR_signalfd		349
+-#define __NR_timerfd		350
++/* #define __NR_timerfd		350		350 removed */
+ #define __NR_eventfd		351
+ 
+ #ifdef __KERNEL__
+diff --git a/include/linux/compat.h b/include/linux/compat.h
+index 0e69d2c..0a1033d 100644
+--- a/include/linux/compat.h
++++ b/include/linux/compat.h
+@@ -264,8 +264,11 @@ asmlinkage long compat_sys_utimensat(unsigned int dfd, char __user *filename,
+ asmlinkage long compat_sys_signalfd(int ufd,
+ 				const compat_sigset_t __user *sigmask,
+                                 compat_size_t sigsetsize);
+-asmlinkage long compat_sys_timerfd(int ufd, int clockid, int flags,
+-				const struct compat_itimerspec __user *utmr);
++asmlinkage long compat_sys_timerfd_settime(int ufd, int flags,
++				   const struct compat_itimerspec __user *utmr,
++				   struct compat_itimerspec __user *otmr);
++asmlinkage long compat_sys_timerfd_gettime(int ufd,
++				   struct compat_itimerspec __user *otmr);
+ 
+ #endif /* CONFIG_COMPAT */
+ #endif /* _LINUX_COMPAT_H */
+diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
+index 17c29dc..684f9b6 100644
+--- a/include/linux/hrtimer.h
++++ b/include/linux/hrtimer.h
+@@ -295,9 +295,16 @@ static inline int hrtimer_is_queued(struct hrtimer *timer)
+ }
+ 
+ /* Forward a hrtimer so it expires after now: */
+-extern unsigned long
++extern u64
+ hrtimer_forward(struct hrtimer *timer, ktime_t now, ktime_t interval);
+ 
++/* Forward a hrtimer so it expires after the hrtimer's current now */
++static inline u64 hrtimer_forward_now(struct hrtimer *timer,
++				      ktime_t interval)
++{
++	return hrtimer_forward(timer, timer->base->get_time(), interval);
++}
++
+ /* Precise sleep: */
+ extern long hrtimer_nanosleep(struct timespec *rqtp,
+ 			      struct timespec __user *rmtp,
+@@ -315,9 +322,9 @@ extern void hrtimer_run_queues(void);
+ extern void __init hrtimers_init(void);
+ 
+ #if BITS_PER_LONG < 64
+-extern unsigned long ktime_divns(const ktime_t kt, s64 div);
++extern u64 ktime_divns(const ktime_t kt, s64 div);
+ #else /* BITS_PER_LONG < 64 */
+-# define ktime_divns(kt, div)		(unsigned long)((kt).tv64 / (div))
++# define ktime_divns(kt, div)		(u64)((kt).tv64 / (div))
+ #endif
+ 
+ /* Show pending timers: */
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 83d0ec1..a45cbd9 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -607,8 +607,11 @@ asmlinkage long sys_set_robust_list(struct robust_list_head __user *head,
+ 				    size_t len);
+ asmlinkage long sys_getcpu(unsigned __user *cpu, unsigned __user *node, struct getcpu_cache __user *cache);
+ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask);
+-asmlinkage long sys_timerfd(int ufd, int clockid, int flags,
+-			    const struct itimerspec __user *utmr);
++asmlinkage long sys_timerfd_create(int clockid, int flags);
++asmlinkage long sys_timerfd_settime(int ufd, int flags,
++				    const struct itimerspec __user *utmr,
++				    struct itimerspec __user *otmr);
++asmlinkage long sys_timerfd_gettime(int ufd, struct itimerspec __user *otmr);
+ asmlinkage long sys_eventfd(unsigned int count);
+ 
+ int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
+diff --git a/init/Kconfig b/init/Kconfig
+index e21af66..a218f44 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -505,7 +505,6 @@ config SIGNALFD
+ config TIMERFD
+ 	bool "Enable timerfd() system call" if EMBEDDED
+ 	depends on ANON_INODES
+-	depends on BROKEN
+ 	default y
+ 	help
+ 	  Enable the timerfd() system call that allows to receive timer
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+index 25ebbc3..03006da 100644
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -286,7 +286,7 @@ EXPORT_SYMBOL_GPL(ktime_add_ns);
+ /*
+  * Divide a ktime value by a nanosecond value
+  */
+-unsigned long ktime_divns(const ktime_t kt, s64 div)
++u64 ktime_divns(const ktime_t kt, s64 div)
+ {
+ 	u64 dclc, inc, dns;
+ 	int sft = 0;
+@@ -301,7 +301,7 @@ unsigned long ktime_divns(const ktime_t kt, s64 div)
+ 	dclc >>= sft;
+ 	do_div(dclc, (unsigned long) div);
+ 
+-	return (unsigned long) dclc;
++	return dclc;
+ }
+ #endif /* BITS_PER_LONG >= 64 */
+ 
+@@ -632,10 +632,9 @@ void unlock_hrtimer_base(const struct hrtimer *timer, unsigned long *flags)
+  * Forward the timer expiry so it will expire in the future.
+  * Returns the number of overruns.
+  */
+-unsigned long
+-hrtimer_forward(struct hrtimer *timer, ktime_t now, ktime_t interval)
++u64 hrtimer_forward(struct hrtimer *timer, ktime_t now, ktime_t interval)
+ {
+-	unsigned long orun = 1;
++	u64 orun = 1;
+ 	ktime_t delta;
+ 
+ 	delta = ktime_sub(now, timer->expires);
+diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
+index 329ce01..f283d43 100644
+--- a/kernel/posix-timers.c
++++ b/kernel/posix-timers.c
+@@ -255,8 +255,9 @@ static void schedule_next_timer(struct k_itimer *timr)
+ 	if (timr->it.real.interval.tv64 == 0)
+ 		return;
+ 
+-	timr->it_overrun += hrtimer_forward(timer, timer->base->get_time(),
+-					    timr->it.real.interval);
++	timr->it_overrun += (unsigned int) hrtimer_forward(timer,
++						timer->base->get_time(),
++						timr->it.real.interval);
+ 
+ 	timr->it_overrun_last = timr->it_overrun;
+ 	timr->it_overrun = -1;
+@@ -385,7 +386,7 @@ static enum hrtimer_restart posix_timer_fn(struct hrtimer *timer)
+ 					now = ktime_add(now, kj);
+ 			}
+ #endif
+-			timr->it_overrun +=
++			timr->it_overrun += (unsigned int)
+ 				hrtimer_forward(timer, now,
+ 						timr->it.real.interval);
+ 			ret = HRTIMER_RESTART;
+@@ -660,7 +661,7 @@ common_timer_get(struct k_itimer *timr, struct itimerspec *cur_setting)
+ 	 */
+ 	if (iv.tv64 && (timr->it_requeue_pending & REQUEUE_PENDING ||
+ 	    (timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE))
+-		timr->it_overrun += hrtimer_forward(timer, now, iv);
++		timr->it_overrun += (unsigned int) hrtimer_forward(timer, now, iv);
+ 
+ 	remaining = ktime_sub(timer->expires, now);
+ 	/* Return 0 only, when the timer is expired and not pending */
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 7e11e2c..25228fa 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -144,7 +144,10 @@ cond_syscall(sys_ioprio_get);
+ 
+ /* New file descriptors */
+ cond_syscall(sys_signalfd);
+-cond_syscall(sys_timerfd);
+ cond_syscall(compat_sys_signalfd);
+-cond_syscall(compat_sys_timerfd);
++cond_syscall(sys_timerfd_create);
++cond_syscall(sys_timerfd_settime);
++cond_syscall(sys_timerfd_gettime);
++cond_syscall(compat_sys_timerfd_settime);
++cond_syscall(compat_sys_timerfd_gettime);
+ cond_syscall(sys_eventfd);
+-- 
+1.6.5.GIT
+
