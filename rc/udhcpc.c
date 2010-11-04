@@ -189,8 +189,10 @@ renew(void)
 	if (!(value = getenv("router")) || nvram_invmatch(strcat_r(prefix, "gateway", tmp), trim_r(value)))
 		return bound();
 
-	if ((value = getenv("dns")))
+	if ((value = getenv("dns")) && nvram_invmatch(strcat_r(prefix, "dns", tmp), trim_r(value))) {
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
+		update_resolvconf(wan_ifname, metric, 1);
+	}
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
 
@@ -205,8 +207,6 @@ renew(void)
 		nvram_set(strcat_r(prefix, "lease", tmp), trim_r(value));
 		expires(wan_ifname, atoi(value));
 	}
-
-	update_resolvconf(wan_ifname, metric, 1);
 
 	//logmessage("dhcp client", "%s IP : %s from %s", 
 	//		udhcpstate, 
