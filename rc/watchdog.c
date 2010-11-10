@@ -778,7 +778,7 @@ void watchdog(int signum)
 
 #ifdef __CONFIG_RCAMD__
 	/* web cam process */
-	if (nvram_invmatch("usb_web_device", ""))
+	if (nvram_invmatch("usb_web_device", "") && nvram_invmatch("usb_webenable_x", "0"))
 	{	
 		if (nvram_invmatch("usb_webdriver_x", ""))
 		{
