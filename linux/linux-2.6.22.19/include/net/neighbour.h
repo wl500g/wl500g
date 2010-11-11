@@ -97,15 +97,15 @@ struct neighbour
 	unsigned long		used;
 	unsigned long		confirmed;
 	unsigned long		updated;
+	rwlock_t		lock;
+	atomic_t		refcnt;
+	atomic_t		probes;
 	__u8			flags;
 	__u8			nud_state;
 	__u8			type;
 	__u8			dead;
-	atomic_t		probes;
-	rwlock_t		lock;
 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
 	struct hh_cache		*hh;
-	atomic_t		refcnt;
 	int			(*output)(struct sk_buff *skb);
 	struct sk_buff_head	arp_queue;
 	struct timer_list	timer;
