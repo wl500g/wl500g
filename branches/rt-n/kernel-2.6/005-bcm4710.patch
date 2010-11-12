@@ -110,6 +110,30 @@ diff -urBbwp '-x.*' '-x*.o' linux-N12/arch/mips/mm/c-r4k.c linux-2.6/arch/mips/m
  	probe_pcache();
  	setup_scache();
  
+diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
+--- a/drivers/serial/8250.c
++++ b/drivers/serial/8250.c
+@@ -342,6 +342,10 @@ static inline int map_8250_out_reg(struc
+ 
+ #endif
+ 
++#ifdef CONFIG_BCM47XX
++#include <asm/r4kcache.h>
++#endif
++
+ static unsigned int serial_in(struct uart_8250_port *up, int offset)
+ {
+ 	unsigned int tmp;
+@@ -392,6 +396,9 @@ serial_out(struct uart_8250_port *up, in
+ 
+ 	case UPIO_MEM:
+ 		writeb(value, up->port.membase + offset);
++#ifdef CONFIG_BCM47XX
++		BCM4710_DUMMY_RREG();
++#endif
+ 		break;
+ 
+ 	case UPIO_RM9000:
 diff -urBbwp '-x.*' '-x*.o' linux-N12/include/asm-mips/cacheflush.h linux-2.6/include/asm-mips/cacheflush.h
 --- linux-N12/include/asm-mips/cacheflush.h	2009-08-27 07:53:26.000000000 +0400
 +++ linux-2.6/include/asm-mips/cacheflush.h	2009-10-03 17:54:18.000000000 +0400
