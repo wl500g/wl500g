@@ -323,9 +323,9 @@ index ac22e3f..e18983c 100644
 --- a/net/ipv6/netfilter/Makefile
 +++ b/net/ipv6/netfilter/Makefile
 @@ -14,11 +14,9 @@ obj-$(CONFIG_IP6_NF_MATCH_OWNER) += ip6t_owner.o
+ obj-$(CONFIG_IP6_NF_MATCH_OWNER) += ip6t_owner.o
  obj-$(CONFIG_IP6_NF_FILTER) += ip6table_filter.o
  obj-$(CONFIG_IP6_NF_MANGLE) += ip6table_mangle.o
- obj-$(CONFIG_IP6_NF_TARGET_IMQ) += ip6t_IMQ.o
 -obj-$(CONFIG_IP6_NF_TARGET_HL) += ip6t_HL.o
  obj-$(CONFIG_IP6_NF_QUEUE) += ip6_queue.o
  obj-$(CONFIG_IP6_NF_TARGET_LOG) += ip6t_LOG.o
@@ -569,9 +569,9 @@ index 14d6b56..48dd803 100644
  obj-$(CONFIG_NETFILTER_XT_TARGET_CONNMARK) += xt_CONNMARK.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_DSCP) += xt_DSCP.o
 +obj-$(CONFIG_NETFILTER_XT_TARGET_HL) += xt_HL.o
+ obj-$(CONFIG_NETFILTER_XT_TARGET_IMQ) += xt_IMQ.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_MARK) += xt_MARK.o
  obj-$(CONFIG_NETFILTER_XT_TARGET_NFQUEUE) += xt_NFQUEUE.o
- obj-$(CONFIG_NETFILTER_XT_TARGET_NFLOG) += xt_NFLOG.o
 @@ -60,6 +61,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_DSCP) += xt_dscp.o
  obj-$(CONFIG_NETFILTER_XT_MATCH_DSCP) += xt_dscp.o
  obj-$(CONFIG_NETFILTER_XT_MATCH_ESP) += xt_esp.o
