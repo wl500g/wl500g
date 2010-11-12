@@ -1,4 +1,4 @@
-Update of linux-mips.org 2.6.22.19 -> 2.6.22.git-20101109
+Update of linux-mips.org 2.6.22.19 -> 2.6.22.git-20101110
 
 diff -urNBp linux-2.6.22.19-mips/arch/mips/arc/identify.c linux-2.6.22.19-mips-git/arch/mips/arc/identify.c
 --- linux-2.6.22.19-mips/arch/mips/arc/identify.c	2008-02-26 12:54:25.000000000 +0300
@@ -3180,6 +3180,28 @@ diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memcpy.S linux-2.6.22.19-mips-git
  #undef CONFIG_CPU_HAS_PREFETCH
  #endif
  #ifdef CONFIG_MIPS_MALTA
+diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/memset.S linux-2.6.22.19-mips-git/arch/mips/lib/memset.S
+--- linux-2.6.22.19-mips/arch/mips/lib/memset.S	2008-02-26 12:54:25.000000000 +0300
++++ linux-2.6.22.19-mips-git/arch/mips/lib/memset.S	2010-11-10 16:48:15.000000000 +0300
+@@ -147,16 +147,16 @@ first_fixup:
+ 
+ fwd_fixup:
+ 	PTR_L		t0, TI_TASK($28)
+-	LONG_L		t0, THREAD_BUADDR(t0)
+ 	andi		a2, 0x3f
++	LONG_L		t0, THREAD_BUADDR(t0)
+ 	LONG_ADDU	a2, t1
+ 	jr		ra
+ 	 LONG_SUBU	a2, t0
+ 
+ partial_fixup:
+ 	PTR_L		t0, TI_TASK($28)
+-	LONG_L		t0, THREAD_BUADDR(t0)
+ 	andi		a2, LONGMASK
++	LONG_L		t0, THREAD_BUADDR(t0)
+ 	LONG_ADDU	a2, t1
+ 	jr		ra
+ 	 LONG_SUBU	a2, t0
 diff -urNBp linux-2.6.22.19-mips/arch/mips/lib/ucmpdi2.c linux-2.6.22.19-mips-git/arch/mips/lib/ucmpdi2.c
 --- linux-2.6.22.19-mips/arch/mips/lib/ucmpdi2.c	2008-02-26 12:54:25.000000000 +0300
 +++ linux-2.6.22.19-mips-git/arch/mips/lib/ucmpdi2.c	2010-11-09 06:40:23.000000000 +0300
