@@ -614,6 +614,39 @@ function validate_range_sp(o, min, max)
 	return validate_range(o, min, max);
 }
 
+function validate_range_time(o, min, max)
+{
+	tt = min-1;
+
+	c = o.value.charAt(o.value.length-1).toLowerCase();
+	if (c<'0' || c>'9')
+	{
+		fac = 1;
+
+		switch(c)
+		{
+			case 'd':
+				fac *= 24;
+				/* fall though */
+			case 'h':
+				fac *= 60;
+				/* fall though */
+			case 'm':
+				fac *= 60;
+				/* fall though */
+			case 's':
+				tt = o.value.substring(0, o.value.length-1) * fac;
+		}
+	}
+	else tt = o.value;
+	if (!isNaN(tt) && tt>=min && tt<=max)
+		return true;
+
+	alert('Please enter a value between ' + min + ' to ' + max + ' seconds.');
+	o.focus();
+	return false;
+}
+
 function change_ipaddr(o)
 {
 	/*
@@ -1932,10 +1965,6 @@ function load_body()
 //	frm.current_page.value == "Advanced_RDHCP_Content.asp")
 //	{
 //	checkSubnet();
-//	}
-//	else if (frm.current_page.value == "Advanced_DMZDHCP_Content.asp")
-//	{
-//	checkDmzSubnet();
 //	}
 	else if (frm.current_page.value.indexOf("Advanced_DDNS_Content")!=-1)
 	{
