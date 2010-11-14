@@ -1,0 +1,24 @@
+From ec9fb3c831ef3fb4460cc4b8c35f991c5d47876b
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 11 Nov 2010 21:01:47 -0500
+Subject: [PATCH] bcm57xx: reduce size, reset bypass for Robo PHY
+
+---
+
+diff --git a/bcm57xx/sys/tigon3.c b/bcm57xx/sys/tigon3.c
+index 5a5ea47..7b6005d 100644
+--- a/bcm57xx/sys/tigon3.c
++++ b/bcm57xx/sys/tigon3.c
+@@ -8326,6 +8326,10 @@ LM_ResetPhy(LM_DEVICE_BLOCK *pDevice)
+     int j;
+     LM_UINT32 miireg;
+ 
++    /* Bypassing Reset when it's Robo PHY (from Broadcom Email 2008-4-9). */
++    if (pDevice->Flags & ROBO_SWITCH_FLAG)
++        return;
++
+     if (pDevice->PhyFlags & PHY_CHECK_TAPS_AFTER_RESET)
+     {
+         LM_ResetPhy_5703_4_5(pDevice, 5, 1);
+-- 
+1.6.5.GIT
