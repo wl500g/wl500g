@@ -49,7 +49,7 @@
 #define sys_upload(image) eval("nvram", "restore", image)
 #define sys_download(file) eval("nvram", "save", file)
 #define sys_restore(sid) eval("nvram_x","get",(sid))
-#define sys_commit(sid) nvram_commit();
+#define sys_commit(sid) (flashfs_commit(), nvram_commit())
 #define sys_default()   eval("erase", MTD_DEV(3))
 #define sys_nvram_set(param) eval("nvram", "set", param)
 
@@ -1048,6 +1048,34 @@ ej_load(int eid, webs_t wp, int argc, char_t **argv)
 	return (websWrite(wp, "%s", ""));
 }	
 
+int ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv)
+{
+    char *file;
+    int  fd, n;
+    char buf[2048 + 1];	/* aaa2ppp: imho size must be (n * minimum_io_size + 1) */
+    int  ret = 0;
+
+    if (ejArgs(argc, argv, "%s %s", &file) < 1) {
+	websError(wp, 400, "Insufficient args\n");
+	return -1;
+    }
+
+    fd = open(file, O_RDONLY);
+    if (fd == -1) {
+	ret = errno;
+	dprintf("ej_print_text_file: Can't open %s\n", file);
+	return 0; /* aaa2ppp: or return ret ? */
+    }
+
+    while ((n = read(fd, buf, (sizeof buf) - 1)) > 0) {
+	buf[n] = '\0';
+	ret = websWrite(wp, buf);
+    }
+
+    close(fd);
+    return ret;	
+}
+
 
 static void
 validate_cgi(webs_t wp, int sid, int groupFlag)
@@ -1115,6 +1143,71 @@ char *svc_pop_list(char *value, char key)
 
 
 static int
+flashfs_commit(void)
+{
+    if (nvram_match("flashfs_updated", "1")) {
+	nvram_unset("flashfs_updated");	/* aaa2ppp: It must be unset on start device too! */
+	eval("flashfs", "save");
+	eval("flashfs", "commit");
+	eval("flashfs", "enable");
+    }
+
+    return 0;
+}
+
+#define ROOT_SSH_DIR     "/usr/local/root/.ssh"
+#define AUTHORIZED_KEYS  ROOT_SSH_DIR"/authorized_keys"
+
+/* aaa2ppp: I would like so flashfs_update() to be */
+#define flashfs_update() (nvram_set("flashfs_updated", "1"))
+
+static int
+update_authorized_keys(webs_t wp)
+{
+    char *flag, *keys;
+    struct stf_opts  f_opts;
+    int f_flags;
+    int ret = 0;
+
+    /* if user not wants to change keys then do nothing */
+    flag = websGetVar(wp, "ssh_keys_change", "");
+    if (strcmp (flag, "1") != 0)
+	return 0;
+
+    /* if keys is't changed then do nothing */
+    flag = websGetVar(wp, "ssh_keys_changed", "");
+    if (strcmp(flag, "1") != 0)
+	return 0;
+
+    keys = websGetVar(wp, "ssh_keys", NULL);
+
+    /* if keys not defined then do nothing */
+    if (keys == NULL)
+	return 0;
+
+    /* if keys is empty then delete authorized_keys file */
+    if (*keys == '\0') {
+	if (unlink(AUTHORIZED_KEYS) == 0)
+	    ret = flashfs_update();
+	return ret;
+    }
+
+    /* else [re]write authorized_keys file */
+
+    mkdir(ROOT_SSH_DIR, 0700);
+
+    memset(&f_opts, 0, sizeof f_opts);
+    f_flags = STF_CHMOD|STF_TRIM|STF_SKIP_0LINE;
+    f_opts.mode = 0600;
+
+    if ((ret = save_text_to_file(keys, AUTHORIZED_KEYS, f_flags, &f_opts)) == 0)
+	ret = flashfs_update();
+
+    return ret;
+}
+
+
+static int
 apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg, 
 	  char_t *url, char_t *path, char_t *query)
 {
@@ -1150,6 +1243,13 @@ apply_cgi(webs_t wp, char_t *urlPrefix, char_t *webDir, int arg,
     
     //printf("Script: %s\n", script);
     cprintf("Apply: %s %s %s %s\n", value, current_url, next_url, websGetVar(wp, "group_id", ""));
+
+    if ( !strcmp (current_url, "Advanced_Services_Content.asp") &&
+        (!strcmp (value, " Apply ") || !strcmp (value, " Finish ")) )
+    {
+	/* aaa2ppp: How to handle an error here? */
+        update_authorized_keys(wp);
+    }
 
     if (!strcmp(value," Refresh "))
     {   
@@ -1333,6 +1433,158 @@ footer:
 
 	return 1;
 }
+
+int
+save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts)
+{
+    int ret = 0;
+
+    char real_path[PATH_MAX + 1];
+    char temp_file[PATH_MAX + 1];
+
+    int   fd;
+    struct stat sb;
+    mode_t mode;
+    uid_t  uid;
+    gid_t  gid;
+
+    FILE *fs;
+    size_t len;
+    char *line, *line_end;
+    int i;
+    char *eol = "\n";  
+
+    /* get real path of file if exists */
+    if (realpath(file, real_path) != NULL)
+	file = real_path;
+
+    /* Make temp-file in the same directory */
+
+    len = PATH_MAX;
+    temp_file[len] = '\0';    
+    strncpy(temp_file, file, len);
+
+    len = PATH_MAX - strlen(temp_file);
+    strncat(temp_file, ".XXXXXX", len);
+    
+    fd = mkstemp(temp_file);
+    if (fd == -1) {
+	ret = errno;
+	dprintf ("save_text_to_file: Can't make temp file %s\n", temp_file);
+	return ret;
+    }
+
+    /* mode/uid/gid by default */
+    mode = 0600;
+    uid  = geteuid();
+    gid  = getegid();
+
+    /* mode/uid/gid from options */
+    if (opts != NULL) {    
+	if (flags & STF_USE_MODE) mode = opts->mode;
+	if (flags & STF_USE_UID)  uid  = opts->uid;
+	if (flags & STF_USE_GID)  gid  = opts->gid;
+    }
+
+    /* mode/uid/gidif if old version of file is exists */ 
+    if ((flags & STF_INHERIT_PERM) && stat(file, &sb) == 0) {
+	if (flags & STF_INHERIT_MODE) mode = sb.st_mode;
+	if (flags & STF_INHERIT_UID)  uid  = sb.st_uid;
+	if (flags & STF_INHERIT_GID)  gid  = sb.st_gid;
+    }
+
+    /* chmod */
+    if (/*(flags & STF_CHMOD) &&*/ fchmod(fd, mode) == -1) {
+	ret = errno;
+	dprintf ("save_text_to_file: Can't chmod %04o for %s\n", mode, temp_file);
+	goto fail;
+    }
+
+    /* chown/chgrp */
+    if ((flags & STF_CHOWN) && fchown(fd, uid, gid) == -1) {
+	ret = errno;
+	dprintf ("save_text_to_file: Can't chown %d:%d for %s\n", uid, gid, temp_file);
+	if (ret != EPERM || (flags & STF_CHOWN_PERM_ERROR))
+	    goto fail;
+	ret = 0;
+    }
+
+    /* Save new version to temp-file */
+
+    fs = fdopen(fd, "w");
+    if (fs == NULL) {
+	ret = errno;
+	dprintf("save_text_to_file: Can't fdopen for %s\n", temp_file);
+	goto fail;
+    }	
+
+    if ((flags & STF_USE_EOL) && opts != NULL)
+	eol = opts->eol;
+
+    for (line = line_end = text, i = 1; line_end != NULL && *line != '\0'; line = line_end + 1) {
+	/* search end of line */
+	line_end = strchr(line, '\n');
+	len = (line_end == NULL) ? strlen(line) : line_end - line;
+
+	/* trim left blanks */ 
+	if (flags & STF_LTRIM)
+	    for (; len > 0 && isspace(line[0]); len--, line++);
+
+	/* trim rigth blanks */	    
+	if (flags & STF_RTRIM)
+	    for (; len > 0 && isspace(line[len-1]); len--);
+
+	/* skip empty line */	    
+	if (flags & STF_SKIP_0LINE && len == 0)
+	    continue;
+
+	/* print line number */	
+	if (flags & STF_LINE_NUM) {
+	    if (fprintf(fs, "%d: ", i++) < 0) {
+		ret = ferror(fs);
+		goto fail_write;
+	    }
+	}
+
+	/* print the line contents */	     
+	if (len > 0) {
+	    if (fwrite(line, len, 1, fs) == 0) {
+		ret = ferror(fs);
+		goto fail_write;
+	    }
+	}
+
+	/* finaly append eol */	
+	if (fputs(eol, fs) < 0) {
+	    ret = ferror(fs);
+	    goto fail_write;
+	}	
+    }
+    
+    if (fclose(fs) == EOF) {
+	ret = errno;
+	goto fail_close;
+    }
+    
+    /* Atomically replace a file with the new version */    
+
+    if (rename(temp_file, file) != 0) {
+	ret = errno;
+	dprintf("save_text_to_file: Can't replace file %s", file);
+	goto fail;
+    }
+
+    return ret;
+
+fail_write:
+    fclose(fs);        
+fail_close:
+    dprintf("save_text_to_file: Write error to %s\n", temp_file);
+fail:
+    unlink(temp_file);
+    return ret;        
+}
+
 
 
 #ifdef REMOVE_WL600
@@ -2105,6 +2357,7 @@ struct ej_handler ej_handlers[] = {
 	{ "uptime", ej_uptime},   
 	{ "nvram_dump", ej_dump},
 	{ "load_script", ej_load},
+	{ "print_text_file", ej_print_text_file},
 	{ NULL, NULL }
 };
 
