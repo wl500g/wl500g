@@ -70,7 +70,39 @@ you to perform advanced configuration.</td>
         <% nvram_match_x("PrinterStatus","ssh_password_logins", "1", "checked"); %>
         >No</input></td>
 </tr>
+
 <tr>
+<td class="content_header_td"
+    onMouseOver="return overlib('Input one key per row. Press \'Clear\' button to delete the keys.', LEFT);"
+    onMouseOut="return nd();"
+	>Change SSH public keys:</td>
+<td class="content_input_td">
+	<input type="radio" name="ssh_keys_change" value=1
+		class="content_input_fd"
+		onclick="this.form.ssh_keys.disabled=this.form.ssh_keys_clear.disabled=false;true;";
+		>Yes</input>
+	<input type="radio" name="ssh_keys_change" value=0 checked
+		class="content_input_fd"
+		onclick="this.form.ssh_keys.disabled=this.form.ssh_keys_clear.disabled=true;";
+		>No</input></td>
+</tr>
+
+<tr>
+<td class="content_content_td" colspan=2>
+	<!--<span class="content_header_td">Input one key per row:</span>-->
+	<input type="hidden" name="ssh_keys_changed" value=0>
+	<table border=0><tr>
+		<td class="content_content_td">
+			<textarea name="ssh_keys" cols=72 rows=8 disabled 
+				onchange="this.form.ssh_keys_changed.value=1;"
+				><% print_text_file("/usr/local/root/.ssh/authorized_keys"); %></textarea></td>
+		<td class="content_content_td" valign="top">
+			<input type="button" name="ssh_keys_clear" value="Clear" disabled
+				onclick="this.form.ssh_keys.value='';this.form.ssh_keys_changed.value=1;"
+				></td>
+	</tr></table>
+</tr>
+
 <tr><td class="content_header_td" onMouseOver="return overlib('Enables Link Layer Topology Discovery daemon.', LEFT);" onMouseOut="return nd();">Enable LLTD responder:</td><td class="content_input_td"><input type="radio" value="1" name="lltd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lltd_enable', '1')" <% nvram_match_x("PrinterStatus","lltd_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="lltd_enable" class="content_input_fd" onClick="return change_common_radio(this, 'PrinterStatus', 'lltd_enable', '0')" <% nvram_match_x("PrinterStatus","lltd_enable", "0", "checked"); %>>No</input></td></tr>
 </table>
 </td>

@@ -604,6 +604,18 @@ start_lan(void)
 	add_lan_routes(lan_ifname);
 #endif
 
+#ifdef __CONFIG_IPV6__
+	/* Configure LAN IPv6 address */
+	if (nvram_invmatch("ipv6_proto", "") && 
+	    nvram_invmatch("ipv6_proto", "tun6to4"))
+	{
+		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
+		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
+		if (*ip6_addr && *ip6_size)
+			eval( "ip", "-6", "addr", "add", ip6_addr, "/", ip6_size, "dev", nvram_safe_get("lan_ifname") );
+	}
+#endif
+
 #ifdef __CONFIG_EMF__
 	/* Start the EMF for this LAN */
 	start_emf(lan_ifname);
@@ -640,27 +652,6 @@ start_lan(void)
 	dprintf("%s %s\n",
 		nvram_safe_get("lan_ipaddr"),
 		nvram_safe_get("lan_netmask"));
-
-#ifdef __CONFIG_IPV6__
-	/* IPv6 address config */
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
-		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
-		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
-		if (*ip6_addr && *ip6_size)
-		{
-			char *ip6_net = (char*) malloc(INET6_ADDRSTRLEN);
-			strcpy( ip6_net, ip6_addr );
-			strcat( ip6_net, "/" );
-			strcat( ip6_net, ip6_size );
-
-			eval( "ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("lan_ifname") );
-
-			free( ip6_net );
-		}
-	}
-#endif
-
 }
 
 void
@@ -909,27 +900,12 @@ start_wan(void)
 #ifdef ASUS_EXT
 		if (unit==0)
 		{
-			FILE *fp;
-
 			/* Enable Forwarding */
-			if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+")))
-			{
-				fputc('1', fp);
-				fclose(fp);
-			} else
-				perror("/proc/sys/net/ipv4/ip_forward");
-
+			fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 #ifdef __CONFIG_IPV6__
 			/* Enable IPv6 Forwarding */
 			if (nvram_invmatch("ipv6_proto", ""))
-			{
-				if ((fp = fopen("/proc/sys/net/ipv6/conf/all/forwarding", "r+")))
-				{
-					fputc('1', fp);
-					fclose(fp);
-				} else
-					perror("/proc/sys/net/ipv6/conf/all/forwarding");
-			}
+				fputs_ex("/proc/sys/net/ipv6/conf/all/forwarding", "1");
 #endif
 		}
 
@@ -1116,118 +1092,8 @@ start_wan(void)
 	}
 
 #ifdef __CONFIG_IPV6__
-	/* IPv6 address config */
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
-		char *ip6_ifname = "sixtun";
-		char ip6_relay[INET6_ADDRSTRLEN] = "::";
-
-		char *ip6_addr = nvram_safe_get("ipv6_wan_addr");
-		char *ip6_size = nvram_safe_get("ipv6_wan_netsize");
-		char *ip6_router = nvram_safe_get("ipv6_wan_router");
-
-		/* Native IPv6 address */
-		if (nvram_match("ipv6_proto", "native"))
-		{
-			ip6_ifname = nvram_safe_get("wan0_ifname");
-
-		} else
-
-		/* Tunnel 6in4 & 6to4 */
-		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
-		{
-			char *sit_local = "0.0.0.0";
-			char *sit_remote = "any";
-
-			/* Tunnel 6in4 */
-			if (nvram_match("ipv6_proto", "tun6in4"))
-				sit_remote = nvram_safe_get("ipv6_sit_remote");
-			else
-
-			/* Tunnel 6to4 */
-			if (nvram_match("ipv6_proto", "tun6to4"))
-			{
-				sit_local = nvram_safe_get("ipv6_sit_local");
-				strcat(ip6_relay, nvram_safe_get("ipv6_sit_relay"));
-				ip6_router = ip6_relay;
-			}
-
-			/* Instantiate tunnel */
-			eval("ip", "tunnel", "add", ip6_ifname, "mode", "sit",
-				"local", sit_local, "remote", sit_remote,
-				"ttl", nvram_safe_get("ipv6_sit_ttl"));
-			/* Set MTU value */
-			eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", ip6_ifname);
-			/* Enable tunnel */
-			eval("ip", "link", "set", ip6_ifname, "up");
-		}
-
-		/* Configurate wanif IPv6 address */
-		if (*ip6_addr && *ip6_size)
-		{
-			char ip6_net[INET6_ADDRSTRLEN];
-
-			sprintf(ip6_net, "%s/%s", ip6_addr, ip6_size);
-        		eval("ip", "-6", "addr", "add", ip6_net, "dev", ip6_ifname);
-        	}
-
-        	/* Configurate remote IPv6 address (default gateway) */
-		if (*ip6_router)
-		{
-			int size;
-
-			if (nvram_match("ipv6_proto", "tun6to4"))
-				eval("ip", "-6", "route", "add", "2002::/16", "dev", ip6_ifname);
-			else
-			if ((sscanf(ip6_router, "%[^/]/%d", ip6_relay, &size) == 2) && (size < 128)) {
-				ip6_router = ip6_relay;
-				eval("ip", "-6", "route", "add", ip6_router, "dev", ip6_ifname);
-			}
-
-			eval("ip", "-6", "route", "add", "default",
-				"via", ip6_router, "dev", ip6_ifname);
-		}
-
-		/* IPv6 router advertisement daemon */
-		if (nvram_match("ipv6_radvd_enable", "1"))
-		{
-			FILE *radvdconf = fopen( "/etc/radvd.conf", "w" );
-			if (radvdconf != NULL)
-			{
-				int netsize = atoi(nvram_safe_get("ipv6_lan_netsize")), i = 15, n = netsize;
-				struct in6_addr addr;
-				char final[INET6_ADDRSTRLEN];
-
-				/* Convert for easy manipulation */
-				inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-
-				/* Clean complete bytes, starting from the end */
-				while (n >= 8)
-				{
-					addr.s6_addr[i--] = 0;
-					n -= 8;
-				}
-
-				/* Clear remaining bits */
-				if (i > 0)
-					addr.s6_addr[i] &= (255 << n);
-
-				/* Convert back to string representation */
-				inet_ntop(AF_INET6, &addr, final, INET6_ADDRSTRLEN);
-
-				/* And write out to config file */
-				fprintf( radvdconf,
-					"interface %s {\n"
-					" AdvSendAdvert on; prefix %s/%d { AdvOnLink on; AdvAutonomous on; };\n"
-					"};",
-					nvram_safe_get("lan_ifname"), final, netsize);
-				fclose(radvdconf);
-
-				/* Then start the radvd */
-				eval("radvd");
-			}
-		}
-	}
+	if (nvram_match("ipv6_proto", "native"))
+		wan6_up(nvram_safe_get("wan_ifname"));
 #endif
 
 #if defined(__CONFIG_MADWIMAX__) || defined( __CONFIG_MODEM__)
@@ -1235,7 +1101,6 @@ start_wan(void)
 #endif
 
 }
-
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 int 
@@ -1310,6 +1175,10 @@ stop_wan(char *ifname)
 
 	if (ifname)
 	{
+#ifdef __CONFIG_IPV6__
+		if (nvram_match("ipv6_proto", "native"))
+			wan6_down(ifname);
+#endif
 		wan_down(ifname);
 	} else
 	{
@@ -1363,11 +1232,13 @@ update_resolvconf(char *ifname, int metric, int up)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "") && nvram_invmatch("ipv6_dns1_x", ""))
- 	{
- 		next = nvram_safe_get("ipv6_dns1_x");
- 		fprintf(fp, "nameserver %s\n", next);
-		dprintf( "nameserver %s\n", next );
+	if (nvram_invmatch("ipv6_proto", ""))
+	{
+		foreach(word, nvram_safe_get("wan0_ipv6_dns"), next)
+		{
+			fprintf(fp, "nameserver %s\n", word);
+			dprintf( "nameserver %s\n", word );
+		}
 	}
 #endif
 
@@ -1490,6 +1361,11 @@ wan_up(char *wan_ifname)
 		add_wanx_routes(prefix, wan_ifname, 0);
 	}
 
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "native"))
+		wan6_up(wan_ifname);
+#endif
+
 	/* Add dns servers to resolv.conf */
 	update_resolvconf(wan_ifname, metric, 1 );
 
@@ -1542,6 +1418,11 @@ wan_down(char *wan_ifname)
 	
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
+#ifdef __CONFIG_IPV6__
+	if (nvram_invmatch("ipv6_proto", "native"))
+		wan6_down(wan_ifname);
+#endif
+
 	/* Remove default route to gateway if specified */
 	metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
 	if (nvram_match(strcat_r(prefix, "primary", tmp), "1"))
@@ -1565,6 +1446,144 @@ wan_down(char *wan_ifname)
 
 	dprintf("done\n");
 }
+
+#ifdef __CONFIG_IPV6__
+void
+wan6_up(char *wan_ifname)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char *wan6_ifname = "six0";
+	char *wan6_router;
+	struct in6_addr addr;
+	char addrstr[INET6_ADDRSTRLEN];
+
+	if (!nvram_invmatch("ipv6_proto", ""))
+		return;
+	/* Figure out nvram variable name prefix for this i/f */
+	if (wan_prefix(wan_ifname, prefix) < 0)
+		return;
+
+	/* Configure tunnel 6in4 & 6to4 */
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4"))
+	{
+		/* Instantiate tunnel */
+		eval("ip", "tunnel", "add", wan6_ifname, "mode", "sit",
+			"remote", nvram_match("ipv6_proto", "tun6to4") ? "any" : nvram_safe_get("ipv6_sit_remote"),
+			"local", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
+			"ttl", nvram_safe_get("ipv6_sit_ttl"));
+		/* Chage local address if any */
+		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
+			"local", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+		/* Set MTU value and enable tunnel */
+		eval("ip", "link", "set", "mtu", nvram_safe_get("ipv6_sit_mtu"), "dev", wan6_ifname, "up");
+	} else
+		wan6_ifname = wan_ifname;
+
+	/* Configure WAN IPv6 address */
+	inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &addr);
+	if (nvram_match("ipv6_proto", "tun6to4"))
+	{
+		addr.s6_addr16[0] = htons(0x2002);
+		inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
+	}
+	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+	if (atoi(nvram_safe_get("ipv6_wan_netsize")) > 0)
+	{
+		strcat(addrstr, "/");
+		strcat(addrstr, nvram_safe_get("ipv6_wan_netsize"));
+	}
+    	if (nvram_match("ipv6_proto", "tun6to4"))
+		eval("ip", "-6", "addr", "del", nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), "dev", wan6_ifname);
+	eval("ip", "-6", "addr", "add", addrstr, "dev", wan6_ifname);
+	nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
+
+	/* Configure WAN IPv6 specific routes */
+	wan6_router = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
+	if (nvram_match("ipv6_proto", "tun6to4"))
+	{
+		sprintf(addrstr, "::%s", nvram_safe_get("ipv6_sit_relay"));
+		wan6_router = addrstr;
+		eval("ip", "-6", "route", "add", "2002::/16", "dev", wan6_ifname);
+
+	} else if (*wan6_router)
+		eval("ip", "-6", "route", "add", wan6_router, "dev", wan6_ifname);
+
+	/* Configure WAN IPv6 default gateway */
+	if (*wan6_router)
+		eval("ip", "-6", "route", "add", "default", "via", wan6_router, "metric", "1");
+	else
+		eval("ip", "-6", "route", "add", "default", "dev", wan6_ifname, "metric", "1");
+
+	/* Reconfigure LAN IPv6 address */
+	if (nvram_match("ipv6_proto", "tun6to4"))
+	{
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+		addr.s6_addr16[0] = htons(0x2002);
+		inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
+    		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		if (atoi(nvram_safe_get("ipv6_lan_netsize")) > 0)
+		{
+			strcat(addrstr, "/");
+			strcat(addrstr, nvram_safe_get("ipv6_lan_netsize"));
+		}
+
+		eval("ip", "-6", "route", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
+		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
+		eval("ip", "-6", "addr", "add", addrstr, "dev", nvram_safe_get("lan_ifname"));
+
+		/* Notify radvd of change */
+		if (nvram_match("ipv6_radvd_enable", "1"))
+			eval("killall", "-1", "radvd");
+	}
+
+	/* Configure IPv6 DNS servers */
+	nvram_set(strcat_r(prefix, "ipv6_dns", tmp), nvram_safe_get("ipv6_dns1_x"));
+}
+
+void
+wan6_down(char *wan_ifname)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char *wan6_ifname = "six0";
+	char *wan6_router;
+
+	if (!nvram_invmatch("ipv6_proto", ""))
+		return;
+	/* Figure out nvram variable name prefix for this i/f */
+	if (wan_prefix(wan_ifname, prefix) < 0)
+		return;
+
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4"))
+	{
+		/* Disable tunnel */
+		eval("ip", "link", "set", "dev", wan6_ifname, "down");
+	} else
+		wan6_ifname = wan_ifname;
+
+        /* Delete WAN address */
+	eval("ip", "-6", "addr", "del", nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), "dev", wan6_ifname);
+	//nvram_unset(strcat_r(prefix, "ipv6_addr", tmp));
+
+	/* Delete WAN IPv6 specific routes */
+	wan6_router = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
+	if (nvram_match("ipv6_proto", "tun6to4"))
+		eval("ip", "-6", "route", "del", "2002::/16", "dev", wan6_ifname);
+	else
+	if (*wan6_router)
+		eval("ip", "-6", "route", "del", wan6_router, "dev", wan6_ifname);
+
+	/* Delete WAN IPv6 default gateway */
+	eval("ip", "-6", "route", "del", "default", "via", wan6_router, "metric", "1");
+
+	/* Delete IPv6 DNS servers */
+	nvram_unset(strcat_r(prefix, "ipv6_dns", tmp));
+
+	dprintf("done\n");
+
+}
+#endif
 
 #ifdef ASUS_EXT
 void

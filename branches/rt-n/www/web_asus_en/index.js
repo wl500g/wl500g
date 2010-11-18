@@ -170,19 +170,6 @@ function generateTree() {
 			// Filter", "Advanced_LFirewall_Content.asp", ""))
 		}
 
-		// if (isModel() != 'WL300' && isModel() != 'WL520' && isModel() !=
-		// 'SnapAP')
-		// {
-		// aux1 = appendChild(foldersTree, leafNode("Wireless Firewall"))
-		// appendChild(aux1, generateDocEntry(0, "Basic Config",
-		// "Advanced_DMZIP_Content.asp", ""))
-		// appendChild(aux1, generateDocEntry(0, "DHCP Server",
-		// "Advanced_DMZDHCP_Content.asp", ""))
-		// appendChild(aux1, generateDocEntry(0, "WLAN &amp; WAN Filter",
-		// "Advanced_DMZDWFilter_Content.asp", ""))
-		// appendChild(aux1, generateDocEntry(0, "WLAN &amp; LAN Filter",
-		// "Advanced_DMZDLFilter_Content.asp", ""))
-		// }
 		if (isModel() == 'WL500' || isModel() == 'WL300') {
 			appendChild(aux1, generateDocEntry(0, "MAC Filter", "Advanced_MACFilter_Content.asp", ""));
 		}

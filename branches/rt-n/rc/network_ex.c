@@ -156,6 +156,12 @@ int start_pppd(char *prefix)
 	fprintf(fp, "unit %s\n", 
 		nvram_get(strcat_r(prefix, "unit", tmp)) ? : "0");
 
+#ifdef __CONFIG_IPV6__
+	/* Enable IPv6 and IPv6CP */
+	if (nvram_match("ipv6_proto", "ppp"))
+		fprintf(fp, "+ipv6\n"); 
+#endif
+
 	/* user specific options */
 	fprintf(fp, "%s\n", 
 		nvram_safe_get(strcat_r(prefix, "pppoe_options_x", tmp)));

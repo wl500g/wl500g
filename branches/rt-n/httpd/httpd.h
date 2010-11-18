@@ -36,6 +36,42 @@ extern char * get_cgi(char *name);
 /* Regular file handler */
 extern void do_file(char *path, FILE *stream);
 
+/*
+** FLAGS of function save_text_to_file()
+*/
+#define STF_USE_MODE		0x0001L
+#define STF_USE_UID 		0x0002L
+#define STF_USE_GID 		0x0004L
+
+#define STF_INHERIT_MODE 	0x0008L
+#define STF_INHERIT_UID		0x0010L
+#define STF_INHERIT_GID 	0x0020L
+#define STF_INHERIT_PERM	(STF_INHERIT_MODE|STF_INHERIT_UID|STF_INHERIT_GID)
+
+#define STF_CHOWN_PERM_ERROR	0x0040L	/* if it not set EPERM error on chown will be ignored */
+
+#define STF_CHMOD		(STF_USE_MODE|STF_INHERIT_MODE)
+#define STF_CHOWN		(STF_USE_UID|STF_INHERIT_UID|STF_USE_GID|STF_INHERIT_GID)
+#define STF_CHGRP		(STF_USE_GID|STF_INHERIT_GID)
+
+#define STF_LTRIM		0x0100L
+#define STF_RTRIM		0x0200L
+#define STF_TRIM		(STF_LTRIM|STF_RTRIM)
+#define STF_SKIP_0LINE		0x1000L
+#define STF_LINE_NUM		0x2000L
+#define STF_USE_EOL		0x4000L
+
+/*
+** OPTIONS of function save_text_to_file()
+*/
+struct stf_opts {
+    mode_t mode;
+    uid_t  uid;
+    gid_t  gid;
+    char*  eol;
+};
+int save_text_to_file(char *text, char *file, int flags, struct stf_opts *opts);
+
 /* GoAhead 2.1 compatibility */
 typedef FILE * webs_t;
 typedef char char_t;
@@ -68,6 +104,7 @@ extern int ej_nat_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_route_table(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status(int eid, webs_t wp, int argc, char_t **argv);
 extern int ej_wl_status_nobr(int eid, webs_t wp, int argc, char_t **argv);
+extern int ej_print_text_file(int eid, webs_t wp, int argc, char_t **argv);
 
 extern int sys_renew(void);
 extern int sys_release(void);
