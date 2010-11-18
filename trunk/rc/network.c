@@ -644,16 +644,7 @@ start_lan(void)
 		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
 		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
 		if (*ip6_addr && *ip6_size)
-		{
-			char *ip6_net = (char*) malloc(INET6_ADDRSTRLEN);
-			strcpy( ip6_net, ip6_addr );
-			strcat( ip6_net, "/" );
-			strcat( ip6_net, ip6_size );
-
-			eval( "ip", "-6", "addr", "add", ip6_net, "dev", nvram_safe_get("lan_ifname") );
-
-			free( ip6_net );
-		}
+			eval( "ip", "-6", "addr", "add", ip6_addr, "/", ip6_size, "dev", nvram_safe_get("lan_ifname") );
 	}
 #endif
 
