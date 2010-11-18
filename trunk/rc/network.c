@@ -1525,6 +1525,10 @@ wan6_up(char *wan_ifname)
 		}
 		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
 		eval("ip", "-6", "addr", "add", addrstr, "dev", nvram_safe_get("lan_ifname"));
+
+		/* Notify radvd of change */
+		if (nvram_match("ipv6_radvd_enable", "1"))
+			eval("killall", "-1", "radvd");
 	}
 
 	/* Configure IPv6 DNS servers */
