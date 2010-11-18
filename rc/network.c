@@ -1480,7 +1480,7 @@ wan6_up(char *wan_ifname)
 	inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &addr);
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
-		addr.s6_addr16[0] = 0x2002;
+		addr.s6_addr16[0] = htons(0x2002);
 		inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
 	}
 	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
@@ -1515,7 +1515,7 @@ wan6_up(char *wan_ifname)
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-		addr.s6_addr16[0] = 0x2002;
+		addr.s6_addr16[0] = htons(0x2002);
 		inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
     		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 		if (atoi(nvram_safe_get("ipv6_lan_netsize")) > 0)
