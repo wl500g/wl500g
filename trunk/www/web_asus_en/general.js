@@ -758,7 +758,7 @@ function validate_ipaddr(o, v)
 	if (o.value.length===0)
 	{
 		if (v=='dhcp_start' || v=='dhcp_end' || v=='wan_ipaddr' ||
-				v=='ipv6_sit_remote' || v=='ipv6_sit_local' || v=='ipv6_sit_relay')
+		    v=='ipv6_sit_remote' || v=='ipv6_sit_local' || v=='ipv6_sit_relay')
 		{
 			alert("Fields can't be blank!!!");
 			o.focus();
@@ -862,6 +862,16 @@ function validate_ip6addr(o)
 	sep_cnt = 0; colonp = 0;
 	pos = 0;
 	len = o.value.length;
+
+	if (len===0)
+	{
+		if (v=='ipv6_lan_addr' || v=='ipv6_wan_addr')
+		{
+			alert("Fields can't be blank!!!");
+			o.focus();
+		}
+		return true;
+	}
 
 	for (i=0; i<len; i++)
 	{
