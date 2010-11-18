@@ -362,6 +362,9 @@ start_radvd(void)
 		"};");
 	fclose(fp);
 
+	/* Enable IPv6 forwarding */
+	fputs_ex("/proc/sys/net/ipv6/conf/all/forwarding", "1");
+
 	/* Then start the radvd */
 	ret = _eval(argv, NULL, 0, &pid);
 
