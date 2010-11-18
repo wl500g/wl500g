@@ -1228,10 +1228,13 @@ update_resolvconf(char *ifname, int metric, int up)
 	}
 
 #ifdef __CONFIG_IPV6__
-	foreach(word, nvram_get("wan0_ipv6_dns"), next)
+	if (nvram_invmatch("ipv6_proto", ""))
 	{
-		fprintf(fp, "nameserver %s\n", word);
-		dprintf( "nameserver %s\n", word );
+		foreach(word, nvram_get("wan0_ipv6_dns"), next)
+		{
+			fprintf(fp, "nameserver %s\n", word);
+			dprintf( "nameserver %s\n", word );
+		}
 	}
 #endif
 
@@ -1525,7 +1528,7 @@ wan6_up(char *wan_ifname)
 	}
 
 	/* Configure IPv6 DNS servers */
-	nvram_set(strcat_r(prefix, "ipv6_dns", tmp), nvram_safe_get("ipv6_dns1"));
+	nvram_set(strcat_r(prefix, "ipv6_dns", tmp), nvram_safe_get("ipv6_dns1_x"));
 }
 
 void
