@@ -84,8 +84,13 @@ void start_wan(void);
 void stop_wan(char *ifname);
 void wan_up(char *ifname);
 void wan_down(char *ifname);
+#ifdef __CONFIG_IPV6__
+void wan6_up(char *ifname);
+void wan6_down(char *ifname);
+#endif
 void lan_up_ex(char *lan_ifname);
 void lan_down_ex(char *lan_ifname);
+
 int hotplug_net(void);
 int wan_ifunit(char *ifname);
 int wan_primary_ifunit(void);
@@ -109,6 +114,10 @@ int stop_service_main();
 int start_httpd(void);
 int start_dhcpd(void);
 int stop_dhcpd(void);
+#ifdef __CONFIG_IPV6__
+int start_radvd(void);
+int stop_radvd(void);
+#endif
 int stop_snmpd(void);
 int start_pppd(char *prefix);
 void start_pppoe_relay(char *wan_if);

@@ -124,6 +124,15 @@ struct nvram_tuple router_defaults[] = {
 
 #ifdef __CONFIG_IPV6__
 	{ "ipv6_proto", "", 0 },
+ 	{ "ipv6_lan_addr", "", 0 },
+	{ "ipv6_lan_netsize", "64", 0 },
+ 	{ "ipv6_wan_addr", "", 0 },
+	{ "ipv6_wan_netsize", "64", 0 },
+ 	{ "ipv6_wan_router", "", 0 },
+ 	{ "ipv6_sit_remote", "", 0 },
+ 	{ "ipv6_sit_relay", "192.88.99.1", 0 },
+ 	{ "ipv6_sit_mtu", "1280", 0 },
+ 	{ "ipv6_sit_ttl", "64", 0 },
 	{ "ipv6_radvd_enable", "0", 0 },
 	{ "ipv6_dns1_x", "", 0 },
 #endif  /* __CONFIG_IPV6__ */

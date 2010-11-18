@@ -45,7 +45,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen in your local network. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">Static IPv6 address:
-           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get_x("IPv6Config","ipv6_lan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get_x("IPv6Config","ipv6_lan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_lan_addr')"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part. Most common value is 64', LEFT);" onMouseOut="return nd();">Netsize (bits of hostpart):
@@ -62,7 +62,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen on the WAN-port. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">Static or local IPv6 address:
-           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_addr" value="<% nvram_get_x("IPv6Config","ipv6_wan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_addr" value="<% nvram_get_x("IPv6Config","ipv6_wan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_wan_addr')"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part.', LEFT);" onMouseOut="return nd();">Netsize (bits of hostpart):
@@ -70,7 +70,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv6 gateway. All IPv6 traffic flowing out of the network will be directed to this host', LEFT);" onMouseOut="return nd();">Remote IPv6 gateway:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get_x("IPv6Config","ipv6_wan_router"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)">
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get_x("IPv6Config","ipv6_wan_router"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_wan_router')">
 	  </td>
 </tr>
 <tr class="content_section_header_tr">
@@ -79,24 +79,27 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNS Server:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this)">
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
 	  </td>
 </tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Tunnel IPv6 Setting
            </td>
-</tr><tr>
-<td class="content_header_td" onMouseOver="return overlib('The remote IPv4 endpoint for the 6in4 tunnel.', LEFT);" onMouseOut="return nd();">Remote IPv4 endpoint:
-          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_remote" value="<% nvram_get_x("IPv6Config","ipv6_sit_remote"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_remote')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
-	  </td>
 </tr>
+<!--
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The local IPv4 address for the tunnel', LEFT);" onMouseOut="return nd();">Local IPv4 address:
           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_local" value="<% nvram_get_x("IPv6Config","ipv6_sit_local"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_local')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>
+-->
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('The IPv4 anycast relay address for the 6to4 tunnel. Common value is 192.88.99.1', LEFT);" onMouseOut="return nd();">Relay IPv4 anycast relay:
+<td class="content_header_td" onMouseOver="return overlib('The remote IPv4 endpoint for the 6in4 tunnel.', LEFT);" onMouseOut="return nd();">6in4 IPv4 remote endpoint:
+          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_remote" value="<% nvram_get_x("IPv6Config","ipv6_sit_remote"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_remote')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
+	  </td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('The IPv4 anycast relay address for the 6to4 tunnel. Common value is 192.88.99.1', LEFT);" onMouseOut="return nd();">6to4 IPv4 anycast relay:
           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_relay" value="<% nvram_get_x("IPv6Config","ipv6_sit_relay"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_relay')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>

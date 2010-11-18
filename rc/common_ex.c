@@ -603,6 +603,10 @@ void convert_asus_values()
 	}
 
 #if defined(__CONFIG_IPV6__) && !defined(LINUX26)
+	nvram_unset("wan0_ipv6_addr");
+	nvram_unset("wan0_ipv6_dns");
+	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 #ifndef BROKEN_IPV6_CONNTRACK

@@ -280,6 +280,104 @@ int stop_dhcpd(void)
 
 #endif // __CONFIG_DNSMASQ__
 
+#ifdef __CONFIG_IPV6__
+int
+start_radvd(void)
+{
+	FILE *fp;
+	char *argv[] = {"radvd", NULL};
+	pid_t pid;
+	struct in6_addr addr;
+	int size, i, ret;
+	char addrstr[INET6_ADDRSTRLEN];
+
+	if (!nvram_invmatch("ipv6_proto", "") ||
+	    !nvram_match("ipv6_radvd_enable", "1"))
+		return 0;
+
+	/* Create radvd.conf */
+	if (!(fp = fopen("/etc/radvd.conf", "w"))) {
+		perror("/etc/radvd.conf");
+		return errno;
+	}
+
+	/* Convert for easy manipulation */
+	inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+	size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+	for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
+	{
+		if (ret >= 8)
+			addr.s6_addr[i--] = 0;
+		else
+			addr.s6_addr[i--] &= (0xff << ret);
+	}
+
+	/* Clean space for 2002:wwxx:yyzz */
+	if (nvram_match("ipv6_proto", "tun6to4"))
+	{
+		addr.s6_addr32[0] = 0;
+		addr.s6_addr16[2] = 0;
+	}
+
+	/* Convert back to string representation */
+	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+
+	/* Write out to config file */
+	fprintf(fp,
+		"interface %s {"
+		    "IgnoreIfMissing on;"
+		    "AdvSendAdvert on;"
+		    "prefix %s/%d {"
+			"AdvOnLink on;"
+			"AdvAutonomous on;", nvram_safe_get("lan_ifname"), addrstr, size);
+
+	if (nvram_match("ipv6_proto", "tun6to4"))
+	{
+		char *wan_ifname;
+
+		if (nvram_match("wan_proto", "pppoe") ||
+		    nvram_match("wan_proto", "pptp")  ||
+		    nvram_match("wan_proto", "l2tp"))
+			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
+		else
+#ifdef __CONFIG_MADWIMAX__
+		if (nvram_match("wan_proto", "wimax"))
+			wan_ifname = nvram_safe_get("wan0_wimax_ifname");
+		else
+#endif
+#ifdef __CONFIG_MODEM__
+		if (nvram_match("wan_proto", "usbmodem"))
+			wan_ifname = nvram_safe_get("wan0_pppoe_ifname");
+		else
+#endif
+		wan_ifname = nvram_safe_get("wan0_ifname");
+
+		fprintf(fp,
+			"Base6to4Interface %s;", wan_ifname);
+	}
+
+	fprintf(fp,
+		    "};"
+		"};");
+	fclose(fp);
+
+	/* Enable IPv6 forwarding */
+	fputs_ex("/proc/sys/net/ipv6/conf/all/forwarding", "1");
+
+	/* Then start the radvd */
+	ret = _eval(argv, NULL, 0, &pid);
+
+	dprintf("done\n");
+	return ret;
+}
+
+int
+stop_radvd(void)
+{
+	return eval("killall", "radvd");
+}
+#endif
+
 int
 ddns_updated_main()
 {
@@ -1690,7 +1788,7 @@ stop_service_main()
 	stop_dns();
 
 #ifdef __CONFIG_IPV6__
-	eval("killall", "radvd");
+	stop_radvd();
 #endif
 
 	stop_logger();
