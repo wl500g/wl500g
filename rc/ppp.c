@@ -134,14 +134,52 @@ ipdown_main(int argc, char **argv)
 int
 ip6up_main(int argc, char **argv)
 {
-	/* stub for now */
+	char *wan_ifname = safe_getenv("IFNAME");
+	char *value;
+	int unit;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+
+	if (!nvram_match("ipv6_proto", "ppp"))
+		return -1;
+
+	if ((unit = ppp_ifunit(wan_ifname)) < 0)
+		return -1;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+		return -1;
+
+	//if ((value = getenv("LLLOCAL")))
+	//	eval("ip", "-6", "addr", "add", value, "dev", wan_ifname);
+	if ((value = getenv("LLREMOTE")))
+		nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
+
+	wan6_up(wan_ifname);
+
 	return 0;
 }
 
 int
 ip6down_main(int argc, char **argv)
 {
-	/* stub for now */
+	char *wan_ifname = safe_getenv("IFNAME");
+	int unit;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+
+	if (!nvram_match("ipv6_proto", "ppp"))
+		return -1;
+
+	if ((unit = ppp_ifunit(wan_ifname)) < 0)
+		return -1;
+
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
+		return -1;
+
+	wan6_down(wan_ifname);
+
 	return 0;
 }
 #endif

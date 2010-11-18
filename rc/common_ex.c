@@ -581,6 +581,10 @@ void convert_asus_values()
 	}
 
 #ifdef __CONFIG_IPV6__
+	nvram_unset("wan0_ipv6_addr");
+	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_router"));
+	nvram_unset("wan0_ipv6_dns");
+
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 #ifndef BROKEN_IPV6_CONNTRACK
