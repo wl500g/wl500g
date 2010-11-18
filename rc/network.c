@@ -1500,10 +1500,10 @@ wan6_up(char *wan_ifname)
 	{
 		sprintf(addrstr, "::%s", nvram_safe_get("ipv6_sit_relay"));
 		wan6_router = addrstr;
-		eval("ip", "-6", "route", "add", "2002::/16", "dev", wan6_ifname, "metric", "1");
+		eval("ip", "-6", "route", "add", "2002::/16", "dev", wan6_ifname);
 
 	} else if (*wan6_router)
-		eval("ip", "-6", "route", "add", wan6_router, "dev", wan6_ifname, "metric", "1");
+		eval("ip", "-6", "route", "add", wan6_router, "dev", wan6_ifname);
 
 	/* Configure WAN IPv6 default gateway */
 	if (*wan6_router)
@@ -1523,6 +1523,8 @@ wan6_up(char *wan_ifname)
 			strcat(addrstr, "/");
 			strcat(addrstr, nvram_safe_get("ipv6_lan_netsize"));
 		}
+
+		eval("ip", "-6", "route", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
 		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
 		eval("ip", "-6", "addr", "add", addrstr, "dev", nvram_safe_get("lan_ifname"));
 
@@ -1563,10 +1565,10 @@ wan6_down(char *wan_ifname)
 	/* Delete WAN IPv6 specific routes */
 	wan6_router = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
 	if (nvram_match("ipv6_proto", "tun6to4"))
-		eval("ip", "-6", "route", "del", "2002::/16", "dev", wan6_ifname, "metric", "1");
+		eval("ip", "-6", "route", "del", "2002::/16", "dev", wan6_ifname);
 	else
 	if (*wan6_router)
-		eval("ip", "-6", "route", "del", wan6_router, "dev", wan6_ifname, "metric", "1");
+		eval("ip", "-6", "route", "del", wan6_router, "dev", wan6_ifname);
 
 	/* Delete WAN IPv6 default gateway */
 	eval("ip", "-6", "route", "del", "default", "via", wan6_router, "metric", "1");
