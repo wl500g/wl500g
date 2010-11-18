@@ -600,6 +600,18 @@ start_lan(void)
 	add_lan_routes(lan_ifname);
 #endif
 
+#ifdef __CONFIG_IPV6__
+	/* Configure LAN IPv6 address */
+	if (nvram_invmatch("ipv6_proto", "") && 
+	    nvram_invmatch("ipv6_proto", "tun6to4"))
+	{
+		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
+		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
+		if (*ip6_addr && *ip6_size)
+			eval( "ip", "-6", "addr", "add", ip6_addr, "/", ip6_size, "dev", nvram_safe_get("lan_ifname") );
+	}
+#endif
+
 #ifdef __CONFIG_EMF__
 	/* Start the EMF for this LAN */
 	start_emf(lan_ifname);
@@ -636,18 +648,6 @@ start_lan(void)
 	dprintf("%s %s\n",
 		nvram_safe_get("lan_ipaddr"),
 		nvram_safe_get("lan_netmask"));
-
-#ifdef __CONFIG_IPV6__
-	/* IPv6 address config */
-	if (nvram_invmatch("ipv6_proto", ""))
-	{
-		char *ip6_addr = nvram_safe_get("ipv6_lan_addr");
-		char *ip6_size = nvram_safe_get("ipv6_lan_netsize");
-		if (*ip6_addr && *ip6_size)
-			eval( "ip", "-6", "addr", "add", ip6_addr, "/", ip6_size, "dev", nvram_safe_get("lan_ifname") );
-	}
-#endif
-
 }
 
 void
