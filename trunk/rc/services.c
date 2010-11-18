@@ -382,6 +382,9 @@ start_services(void)
 	start_httpd();
 	start_dns();
 	start_dhcpd();
+#ifdef __CONFIG_IPV6__
+	start_radvd();
+#endif
 	start_snmpd();
 	start_upnp();
 	start_nas("lan");
@@ -405,6 +408,9 @@ stop_services(void)
 	stop_nas();
 	stop_upnp();
 	stop_snmpd();
+#ifdef __CONFIG_IPV6__
+	stop_radvd();
+#endif
 	stop_dhcpd();
 	stop_dns();
 	stop_httpd();
