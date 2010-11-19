@@ -55,7 +55,7 @@
 	    wan_ifname="<% nvram_get_x("IPConnection","wan0_pppoe_ifname"); %>";
 	}
 	if (ipv6_proto=="tun6in4" || ipv6_proto=="tun6in4") {
-	    ipv6_ifname="sixtun";
+	    ipv6_ifname="six0";
 	}
 
 	process_element("wan", wan_ifname);

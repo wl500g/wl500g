@@ -1074,8 +1074,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #ifndef BROKEN_IPV6_CONNTRACK
 	// Check internet traffic
 	if (nvram_match("fw_dos_x", "1")) {
-		if (nvram_invmatch("ipv6_proto", "native"))
-			fprintf(fp, "-A INPUT -i sixtun -m state --state NEW -j SECURITY\n");
+		if (nvram_match("ipv6_proto", "tun6in4") ||
+		    nvram_match("ipv6_proto", "tun6to4"))
+			fprintf(fp, "-A INPUT -i six0 -m state --state NEW -j SECURITY\n");
 		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
 		if (nvram_invmatch("wan0_ifname", wan_if))
 			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", nvram_get("wan0_ifname"));
@@ -1148,8 +1149,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #endif
 
         // Filter out invalid WAN->WAN connections
-	if (nvram_invmatch("ipv6_proto", "native"))
-		fprintf(fp, "-A FORWARD -o sixtun ! -i %s -j %s\n", lan_if, logdrop);
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4"))
+		fprintf(fp, "-A FORWARD -o six0 ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))
 		fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", nvram_get("wan0_ifname"), lan_if, logdrop);
