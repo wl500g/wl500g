@@ -602,14 +602,14 @@ void convert_asus_values()
 #endif
 	}
 
-#if defined(__CONFIG_IPV6__) && !defined(LINUX26)
+#ifdef __CONFIG_IPV6__
 	nvram_unset("wan0_ipv6_addr");
 	nvram_unset("wan0_ipv6_dns");
 	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
 
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
-#ifndef BROKEN_IPV6_CONNTRACK
+#if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");
 //		eval("insmod", "ip6t_TCPMSS");
