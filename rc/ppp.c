@@ -155,7 +155,7 @@ ip6up_main(int argc, char **argv)
 	if ((value = getenv("LLREMOTE")))
 		nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
 
-	wan6_up(wan_ifname);
+	wan6_up(wan_ifname, unit);
 
 	return 0;
 }
@@ -178,7 +178,7 @@ ip6down_main(int argc, char **argv)
 	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
 		return -1;
 
-	wan6_down(wan_ifname);
+	wan6_down(wan_ifname, unit);
 
 	return 0;
 }
