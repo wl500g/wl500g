@@ -85,8 +85,8 @@ void stop_wan(char *ifname);
 void wan_up(char *ifname);
 void wan_down(char *ifname);
 #ifdef __CONFIG_IPV6__
-void wan6_up(char *ifname);
-void wan6_down(char *ifname);
+void wan6_up(char *ifname, int unit);
+void wan6_down(char *ifname, int unit);
 #endif
 void lan_up_ex(char *lan_ifname);
 void lan_down_ex(char *lan_ifname);
