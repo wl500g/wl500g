@@ -603,6 +603,7 @@ void convert_asus_values()
 	}
 
 #ifdef __CONFIG_IPV6__
+	nvram_unset("lan_ipv6_addr");
 	nvram_unset("wan0_ipv6_addr");
 	nvram_unset("wan0_ipv6_dns");
 	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));

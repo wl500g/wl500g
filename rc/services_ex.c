@@ -1784,13 +1784,11 @@ stop_service_main()
 	stop_igmpproxy();
 	stop_upnp();
 	stop_snmpd();
-	stop_dhcpd();
-	stop_dns();
-
 #ifdef __CONFIG_IPV6__
 	stop_radvd();
 #endif
-
+	stop_dhcpd();
+	stop_dns();
 	stop_logger();
 
 	dprintf("done\n");
