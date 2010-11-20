@@ -1024,7 +1024,7 @@ start_wan(void)
 			};
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native"))
-				wan6_up(wan_ifname, unit);
+				wan6_up(wan_ifname, -1);
 #endif
 			/* start firewall */
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
@@ -1048,7 +1048,7 @@ start_wan(void)
 			wan_up(wan_ifname);
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native"))
-				wan6_up(wan_ifname, unit);
+				wan6_up(wan_ifname, -1);
 #endif
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
@@ -1537,8 +1537,15 @@ wan6_up(char *wan_ifname, int unit)
 	/* Configure WAN IPv6 default gateway */
 	if (*wan6_ipaddr)
 		eval("ip", "-6", "route", "add", "default", "via", wan6_ipaddr, "metric", "1");
-	else
-		eval("ip", "-6", "route", "add", "default", "dev", wan6_ifname, "metric", "1");
+	else {
+		char name[64];
+
+		/* Enable stateless autonfiguration */
+		sprintf(name, "/proc/sys/net/ipv6/conf/%s/accept_ra", wan6_ifname);
+		fputs_ex(name, "2");
+		sprintf(name, "/proc/sys/net/ipv6/conf/%s/forwarding", wan6_ifname);
+		fputs_ex(name, "2");
+	}
 
 	/* Reconfigure LAN IPv6 address */
 	if (nvram_match("ipv6_proto", "tun6to4"))
