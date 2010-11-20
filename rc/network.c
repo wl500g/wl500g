@@ -1533,8 +1533,6 @@ wan6_up(char *wan_ifname, int unit)
 	/* Configure WAN IPv6 default gateway */
 	if (*wan6_ipaddr)
 		eval("ip", "-6", "route", "add", "default", "via", wan6_ipaddr, "metric", "1");
-	else
-		eval("ip", "-6", "route", "add", "default", "dev", wan6_ifname, "metric", "1");
 
 	/* Reconfigure LAN IPv6 address */
 	if (nvram_match("ipv6_proto", "tun6to4"))
