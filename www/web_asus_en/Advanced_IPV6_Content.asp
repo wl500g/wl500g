@@ -86,13 +86,6 @@
 <td class="content_section_header_td" colspan="2">Tunnel IPv6 Setting
            </td>
 </tr>
-<!--
-<tr>
-<td class="content_header_td" onMouseOver="return overlib('The local IPv4 address for the tunnel', LEFT);" onMouseOut="return nd();">Local IPv4 address:
-          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_local" value="<% nvram_get_x("IPv6Config","ipv6_sit_local"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_local')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
-	  </td>
-</tr>
--->
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv4 endpoint for the 6in4 tunnel.', LEFT);" onMouseOut="return nd();">6in4 IPv4 remote endpoint:
           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_remote" value="<% nvram_get_x("IPv6Config","ipv6_sit_remote"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_remote')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
