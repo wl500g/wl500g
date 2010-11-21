@@ -4,7 +4,7 @@ kernel.org commits
 65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
 c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
 
-diff -BurpN linux.orig/net/ipv6/ipv6/addrconf.c linux/net/ipv6/ipv6/addrconf.c
+diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
 --- linux.orig/net/ipv6/addrconf.c	2010-11-18 00:00:00.000000000 +0000
 +++ linux/net/ipv6/addrconf.c	2010-11-20 15:56:16.750291000 +0000
 @@ -2733,7 +2733,8 @@ static void addrconf_dad_completed(struc
