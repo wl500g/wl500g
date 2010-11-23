@@ -694,7 +694,7 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" \
+	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" LDFLAGS="-Wl,-rpath /lib" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx \
 	    --disable-libutil --disable-loginfunc --disable-pututline --disable-pututxline
@@ -845,6 +845,9 @@ igmpproxy-clean:
 igmpproxy-install:
 	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+
+vsftpd:
+	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
