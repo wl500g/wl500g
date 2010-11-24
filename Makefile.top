@@ -732,7 +732,7 @@ ppp/Makefile: ppp/linux/Makefile.top
 	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
 
 ppp: ppp/Makefile
-	$(MAKE) -C $@ $(if $(CONFIG_IPV6),HAVE_INET6=y,)
+	$(MAKE) -C $@ MFLAGS="$(if $(CONFIG_IPV6),HAVE_INET6=y,) EXTRACFLAGS=\"$(EXTRACFLAGS)\" EXTRA_LDFLAGS=\"-Wl,-rpath /lib\""
 
 ppp-install: ppp
 	install -D ppp/pppd/pppd $(INSTALLDIR)/ppp/usr/sbin/pppd
@@ -781,7 +781,7 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" \
+	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" LDFLAGS="-Wl,-rpath /lib" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
 	    --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx \
 	    --disable-libutil --disable-loginfunc --disable-pututline --disable-pututxline
@@ -870,7 +870,7 @@ portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
 	$(STRIP) $(INSTALLDIR)/portmap/usr/sbin/portmap
 
-iproute2: .config
+iproute2: $(LINUXDIR)/include/linux/version.h
 	$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iproute2-install:
@@ -932,6 +932,9 @@ igmpproxy-clean:
 igmpproxy-install:
 	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
+
+vsftpd:
+	$(MAKE) -C $@ LDFLAGS="-Wl,-rpath /lib"
 
 vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
