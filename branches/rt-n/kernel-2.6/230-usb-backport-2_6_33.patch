@@ -241,9 +241,9 @@ diff -x'.*' -urNBp a/Documentation/feature-removal-schedule.txt b/Documentation/
 -
 ----------------------------
 -
- What:	Interrupt only SA_* flags
- When:	September 2007
- Why:	The interrupt related SA_* flags are replaced by IRQF_* to move them
+ What:	vm_ops.nopage
+ When:	Soon, provided in-kernel callers have been converted
+ Why:	This interface is replaced by vm_ops.fault, but it has been around
 diff -x'.*' -urNBp a/Documentation/kernel-parameters.txt b/Documentation/kernel-parameters.txt
 --- a/Documentation/kernel-parameters.txt	2008-02-26 02:59:40.000000000 +0300
 +++ b/Documentation/kernel-parameters.txt	2010-07-16 22:00:15.000000000 +0400
