@@ -1,0 +1,116 @@
+From 851a67b825540a8e00c0be3ee25e4627ba8b133b
+From: Peter Zijlstra
+Date: Thu, 11 Oct 2007 22:11:12 +0200
+Subject: [PATCH] lockdep: annotate rcu_read_{,un}lock{,_bh}
+
+lockdep annotate rcu_read_{,un}lock{,_bh} in order to catch imbalanced
+usage.
+
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+---
+ include/linux/lockdep.h  |    7 +++++++
+ include/linux/rcupdate.h |   14 ++++++++++++++
+ kernel/rcupdate.c        |    8 ++++++++
+ 3 files changed, 29 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
+index 9dc46db..f6279f6 100644
+--- a/include/linux/lockdep.h
++++ b/include/linux/lockdep.h
+@@ -253,6 +253,13 @@ extern void lockdep_init_map(struct lockdep_map *lock, const char *name,
+ 			     struct lock_class_key *key, int subclass);
+ 
+ /*
++ * To initialize a lockdep_map statically use this macro.
++ * Note that _name must not be NULL.
++ */
++#define STATIC_LOCKDEP_MAP_INIT(_name, _key) \
++	{ .name = (_name), .key = (void *)(_key), }
++
++/*
+  * Reinitialize a lock key - for cases where there is special locking or
+  * special initialization of locks so that the validator gets the scope
+  * of dependencies wrong: they are either too broad (they need a class-split)
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index fe17d7d..76c1a53 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -41,6 +41,7 @@
+ #include <linux/percpu.h>
+ #include <linux/cpumask.h>
+ #include <linux/seqlock.h>
++#include <linux/lockdep.h>
+ 
+ /**
+  * struct rcu_head - callback structure for use with RCU
+@@ -133,6 +134,15 @@ static inline void rcu_bh_qsctr_inc(int cpu)
+ extern int rcu_pending(int cpu);
+ extern int rcu_needs_cpu(int cpu);
+ 
++#ifdef CONFIG_DEBUG_LOCK_ALLOC
++extern struct lockdep_map rcu_lock_map;
++# define rcu_read_acquire()	lock_acquire(&rcu_lock_map, 0, 0, 2, 1, _THIS_IP_)
++# define rcu_read_release()	lock_release(&rcu_lock_map, 1, _THIS_IP_)
++#else
++# define rcu_read_acquire()	do { } while (0)
++# define rcu_read_release()	do { } while (0)
++#endif
++
+ /**
+  * rcu_read_lock - mark the beginning of an RCU read-side critical section.
+  *
+@@ -166,6 +176,7 @@ extern int rcu_needs_cpu(int cpu);
+ 	do { \
+ 		preempt_disable(); \
+ 		__acquire(RCU); \
++		rcu_read_acquire(); \
+ 	} while(0)
+ 
+ /**
+@@ -175,6 +186,7 @@ extern int rcu_needs_cpu(int cpu);
+  */
+ #define rcu_read_unlock() \
+ 	do { \
++		rcu_read_release(); \
+ 		__release(RCU); \
+ 		preempt_enable(); \
+ 	} while(0)
+@@ -204,6 +216,7 @@ extern int rcu_needs_cpu(int cpu);
+ 	do { \
+ 		local_bh_disable(); \
+ 		__acquire(RCU_BH); \
++		rcu_read_acquire(); \
+ 	} while(0)
+ 
+ /*
+@@ -213,6 +226,7 @@ extern int rcu_needs_cpu(int cpu);
+  */
+ #define rcu_read_unlock_bh() \
+ 	do { \
++		rcu_read_release(); \
+ 		__release(RCU_BH); \
+ 		local_bh_enable(); \
+ 	} while(0)
+diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
+index 2c2dd84..130214f 100644
+--- a/kernel/rcupdate.c
++++ b/kernel/rcupdate.c
+@@ -49,6 +49,14 @@
+ #include <linux/cpu.h>
+ #include <linux/mutex.h>
+ 
++#ifdef CONFIG_DEBUG_LOCK_ALLOC
++static struct lock_class_key rcu_lock_key;
++struct lockdep_map rcu_lock_map =
++	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock", &rcu_lock_key);
++
++EXPORT_SYMBOL_GPL(rcu_lock_map);
++#endif
++
+ /* Definition for rcupdate control block. */
+ static struct rcu_ctrlblk rcu_ctrlblk = {
+ 	.cur = -300,
+-- 
+1.7.3.2
