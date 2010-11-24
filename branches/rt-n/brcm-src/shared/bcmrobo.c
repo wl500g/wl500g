@@ -58,6 +58,7 @@
 #define PAGE_STATUS	0x01	/* Status page */
 #define PAGE_MMR	0x02	/* 5397 Management/Mirroring page */
 #define PAGE_VTBL	0x05	/* ARL/VLAN Table access page */
+#define PAGE_QOS	0x30
 #define PAGE_VLAN	0x34	/* VLAN page */
 #define PAGE_JUMBO	0x40	/* JUMBO frame page */
 
@@ -77,9 +78,17 @@
 #define REG_CTRL_SRST	0x79	/* Software reset control register */
 
 /* Status Page Registers */
-#define REG_STATUS_LINK	0x00	/* Link Status Summary */
+#define REG_STATUS_LINK		0x00	/* Link Status Summary, 16bit */
+#define REG_STATUS_SPEED	0x04	/* Port Speed Summary, 16bit (5395/53115 32bit) */
+#define REG_STATUS_DUPLEX	0x06	/* Duplex Status Summary, 16bit */
+#define REG_STATUS_DUPLEX_5395	0x08	/* 5395/53115 Duplex Status Summary, 16bit */
 
 #define REG_DEVICE_ID	0x30	/* 539x Device id: */
+
+#define REG_QOS_CTRL		0x00	/* QoS Control Register */
+#define REG_QOS_PRIO_CTRL	0x02	/* QoS Priority Control Register */
+#define REG_QOS_DSCP_ENABLE	0x06	/* QoS DiffServ Enable Register */
+#define REG_QOS_DSCP_PRIO	0x30	/* QoS DiffServ Priority Register */
 
 /* JUMBO Control Register */
 #define	REG_JUMBO_CTRL	0x01
