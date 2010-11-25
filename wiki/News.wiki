@@ -9,17 +9,24 @@
   * kernel
     * pptp: updated kernel driver, fixed undersized packets without gre demux driver
     * pppoe: Ignore PADT packets whose destination address isn't ours
-    * minor tcp fix backport from 2.6
+    * minor net, tcp backports from 2.6
+    * ipv6: accept RA and send RS while configured as router
 
-  * busybox 1.17.3
+  * web-UI + rc
+    * ipv6 support redesign
+    * allow suffixes(day,hour,minute) for DHCP lease time field, closes issue 169
+    * support edit of ssh(dropbear) public keys from web-UI, contributed by Alexander Panfilov
+
+  * busybox 1.17.4
     * udhcp workarounds for Beeline(Corbina) ISP
-    * bugfixes (grep, wc, sendmail, awk )
+    * bugfixes (grep, wc, sendmail, awk, seq, sort, dmesg, klogd, telnet, ls )
 
   * pwrled utility included
 
   * bugfixes
     * dropbear fixes from upstream (fake-rfc2553, libtommath)
     * use pool.ntp.org as default clock sync source
+    * inadyn: fix socket leak from new inadyn fork
 
 ===beta RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
   * kernel
