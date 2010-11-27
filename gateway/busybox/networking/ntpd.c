@@ -107,21 +107,21 @@
 
 #define RETRY_INTERVAL     5    /* on error, retry in N secs */
 #define RESPONSE_INTERVAL 15    /* wait for reply up to N secs */
-#define INITIAL_SAMPLES    4    /* how many samples do we want for init */
+#define INITIAL_SAMPLES    2    /* how many samples do we want for init */
 #define BAD_DELAY_GROWTH   4    /* drop packet if its delay grew by more than this */
 
 /* Clock discipline parameters and constants */
 
 /* Step threshold (sec). std ntpd uses 0.128.
  * Using exact power of 2 (1/8) results in smaller code */
-#define STEP_THRESHOLD  0.125
+#define STEP_THRESHOLD  0.25
 #define WATCH_THRESHOLD 128     /* stepout threshold (sec). std ntpd uses 900 (11 mins (!)) */
 /* NB: set WATCH_THRESHOLD to ~60 when debugging to save time) */
 //UNUSED: #define PANIC_THRESHOLD 1000    /* panic threshold (sec) */
 
 #define FREQ_TOLERANCE  0.000015 /* frequency tolerance (15 PPM) */
 #define BURSTPOLL       0       /* initial poll */
-#define MINPOLL         5       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
+#define MINPOLL         6       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
 /* If we got largish offset from a peer, cap next query interval
  * for this peer by this many seconds:
  */
@@ -130,7 +130,7 @@
  * then it is decreased _at once_. (If < 2^BIGPOLL, it will be decreased _eventually_).
  */
 #define BIGPOLL         10      /* 2^10 sec ~= 17 min */
-#define MAXPOLL         12      /* maximum poll interval (12: 1.1h, 17: 36.4h). std ntpd uses 17 */
+#define MAXPOLL         16      /* maximum poll interval (12: 1.1h, 17: 36.4h). std ntpd uses 17 */
 /* Actively lower poll when we see such big offsets.
  * With STEP_THRESHOLD = 0.125, it means we try to sync more aggressively
  * if offset increases over ~0.04 sec */
@@ -151,7 +151,7 @@
  * and when it goes below -POLLADJ_LIMIT, we poll_exp--.
  * (Bumped from 30 to 40 since otherwise I often see poll_exp going *2* steps down)
  */
-#define POLLADJ_LIMIT   40
+#define POLLADJ_LIMIT   36
 /* If offset < discipline_jitter * POLLADJ_GATE, then we decide to increase
  * poll interval (we think we can't improve timekeeping
  * by staying at smaller poll).
