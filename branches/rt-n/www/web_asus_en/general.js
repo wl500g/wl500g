@@ -2029,10 +2029,14 @@ function load_body()
 		if (frm.usb_webhttpcheck_x.value == "1")
 		{
 			frm.usb_webhttpport_x_check.checked = true;
+			inputCtrl(frm.usb_webhttp_username, 1);
+			inputCtrl(frm.usb_webhttp_passwd, 1);
 		}
 		else
 		{
 			frm.usb_webhttpport_x_check.checked = false;
+			inputCtrl(frm.usb_webhttp_username, 0);
+			inputCtrl(frm.usb_webhttp_passwd, 0);
 		}
 	}
 	else if (frm.current_page.value == "Advanced_DMZIP11g_Content.asp" ||
@@ -2755,10 +2759,14 @@ function change_common_radio(o, s, v, r)
 		if (frm.usb_webhttpport_x_check.checked)
 		{
 			frm.usb_webhttpcheck_x.value = "1";
+			inputCtrl(frm.usb_webhttp_username, 1);
+			inputCtrl(frm.usb_webhttp_passwd, 1);
 		}
 		else
 		{
 			frm.usb_webhttpcheck_x.value = "0";
+			inputCtrl(frm.usb_webhttp_username, 0);
+			inputCtrl(frm.usb_webhttp_passwd, 0);
 		}
 	}
 	else if (v=="lan_proto_x")
