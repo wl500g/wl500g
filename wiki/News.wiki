@@ -5,7 +5,7 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
  
-===wl500g-1.9.2.7-d (current)===
+===wl500g-1.9.2.7-d-`r2381` (2010-11-27)===
   * kernel
     * pptp: updated kernel driver, fixed undersized packets without gre demux driver
     * pppoe: Ignore PADT packets whose destination address isn't ours
