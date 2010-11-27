@@ -1,0 +1,18 @@
+diff -urBp a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
+--- a/arch/mips/math-emu/cp1emu.c	2010-11-09 06:40:23.000000000 +0300
++++ b/arch/mips/math-emu/cp1emu.c	2010-11-27 19:40:17.000000000 +0300
+@@ -1336,11 +1336,12 @@ int fpu_emulator_cop1Handler(struct pt_r
+ 			 * ieee754_csr.  But ieee754_csr.rm is ieee
+ 			 * library modes. (not mips rounding mode)
+ 			 */
++			unsigned int oldrm = ieee754_csr.rm;
+ 			/* convert to ieee library modes */
+ 			ieee754_csr.rm = ieee_rm[ieee754_csr.rm];
+ 			sig = cop1Emulate(xcp, ctx, fault_addr);
+ 			/* revert to mips rounding mode */
+-			ieee754_csr.rm = mips_rm[ieee754_csr.rm];
++			ieee754_csr.rm = oldrm;
+ 		}
+ 
+ 		if (has_fpu)
+-- 
