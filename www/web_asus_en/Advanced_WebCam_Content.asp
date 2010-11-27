@@ -50,6 +50,14 @@
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
 </tr>
 <input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get_x("PrinterStatus","usb_webhttpcheck_x"); %>">
+<tr>
+<td class="content_header_td">User Name:</td>
+<td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_username" value="<% nvram_get_x("PrinterStatus","usb_webhttp_username"); %>" onkeypress="return is_string(this)" onblur="validate_string(this)"></td>
+</tr>
+<tr>
+<td class="content_header_td">Password:</td>
+<td class="content_input_td"><input type="password" maxlength="32" class="content_input_fd" size="16" name="usb_webhttp_passwd" value="<% nvram_get_x("PrinterStatus","usb_webhttp_passwd"); %>" onblur="validate_string(this)"></td>
+</tr>
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">Security Mode Setting
             </td>

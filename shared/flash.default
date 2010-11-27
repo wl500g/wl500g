@@ -304,6 +304,10 @@
 
 {"usb_webhttpcheck_x", "0", 0},
 
+{"usb_webhttp_username", "", 0},
+
+{"usb_webhttp_passwd", "", 0},
+
 {"usb_websecurity_x", "0", 0},
 
 {"usb_websecurity_date_x", "1111111", 0},
