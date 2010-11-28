@@ -61,18 +61,18 @@
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_section_header_tr">
-<td class="content_section_header_td" colspan="2">Protection against Brute Force Attack for SSH and FTP Servers</td>
+<td class="content_section_header_td" colspan="2">Protection against Brute Force Attacks from WAN for SSH and FTP Servers</td>
 </tr>
 <tr>
-<td class="content_desc_td" colspan="2">Blocks attempts to login more than hitcount times within a period of time.
+<td class="content_desc_td" colspan="2">Blocks attempts to login from WAN more than hitcount times within a period of time.
 Remember: all attempts are counted, not only unsuccessful.</td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against Brute Force Attacks for SSH Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for SSH Server:</td>
+<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against WAN Brute Force Attacks for SSH Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for SSH Server:</td>
 <td class="content_input_td"><input type="radio" value="1" name="recent_ssh_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ssh_enable', '1')" <% nvram_match_x("FirewallConfig", "recent_ssh_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="recent_ssh_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ssh_enable', '0')" <% nvram_match_x("FirewallConfig", "recent_ssh_enable", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against Brute Force Attacks for FTP Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for FTP Server:</td>
+<td class="content_header_td" onMouseOver="return overlib('Enables Protection Against WAN Brute Force Attacks for FTP Server.', LEFT);" onMouseOut="return nd();">Enable Brute Force Protection for FTP Server:</td>
 <td class="content_input_td"><input type="radio" value="1" name="recent_ftp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ftp_enable', '1')" <% nvram_match_x("FirewallConfig", "recent_ftp_enable", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="recent_ftp_enable" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'recent_ftp_enable', '0')" <% nvram_match_x("FirewallConfig", "recent_ftp_enable", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
