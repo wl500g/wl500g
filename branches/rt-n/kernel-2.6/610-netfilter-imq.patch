@@ -736,7 +736,7 @@ diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
 diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
 --- /dev/null
 +++ b/net/netfilter/xt_IMQ.c
-@@ -0,0 +1,78 @@
+@@ -0,0 +1,79 @@
 +/*
 + * This target marks packets to be enqueued to an imq device
 + */
@@ -815,6 +815,7 @@ diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
 +MODULE_AUTHOR("http://www.linuximq.net");
 +MODULE_DESCRIPTION("Pseudo-driver for the intermediate queue device. See http://www.linuximq.net/ for more information.");
 +MODULE_LICENSE("GPL");
++MODULE_ALIAS("ipt_IMQ");
 diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
 --- a/net/sched/sch_generic.c
 +++ b/net/sched/sch_generic.c

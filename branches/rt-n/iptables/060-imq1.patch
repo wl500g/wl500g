@@ -5,7 +5,7 @@ Index: iptables-1.3.8/extensions/.IMQ-test6
 @@ -0,0 +1,3 @@
 +#!/bin/sh
 +# True if IMQ target patch is applied.
-+[ -f $KERNEL_DIR/net/ipv6/netfilter/ip6t_IMQ.c ] && echo IMQ
++[ -f $KERNEL_DIR/net/netfilter/xt_IMQ.c ] && echo IMQ
 Index: iptables-1.3.8/extensions/libip6t_IMQ.c
 ===================================================================
 --- /dev/null
@@ -119,7 +119,7 @@ Index: iptables-1.3.8/extensions/.IMQ-test
 @@ -0,0 +1,3 @@
 +#!/bin/sh
 +# True if IMQ target patch is applied.
-+[ -f $KERNEL_DIR/net/ipv4/netfilter/ipt_IMQ.c ] && echo IMQ
++[ -f $KERNEL_DIR/net/netfilter/xt_IMQ.c ] && echo IMQ
 Index: iptables-1.3.8/extensions/libipt_IMQ.c
 ===================================================================
 --- /dev/null
