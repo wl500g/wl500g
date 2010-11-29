@@ -1,0 +1,56 @@
+From dfe195fb79e88c334481f1362fef52f6d2e30b2d
+From: Benny Halevy
+Date: Tue, 5 Aug 2008 13:01:41 -0700
+Subject: [PATCH] mm: fix uninitialized variables for find_vma_prepare callers
+
+gcc 4.3.0 correctly emits the following warnings.
+When a vma covering addr is found, find_vma_prepare indeed returns without
+setting pprev, rb_link, and rb_parent.
+
+  mm/mmap.c: In function `insert_vm_struct':
+  mm/mmap.c:2085: warning: `rb_parent' may be used uninitialized in this function
+  mm/mmap.c:2085: warning: `rb_link' may be used uninitialized in this function
+  mm/mmap.c:2084: warning: `prev' may be used uninitialized in this function
+  mm/mmap.c: In function `copy_vma':
+  mm/mmap.c:2124: warning: `rb_parent' may be used uninitialized in this function
+  mm/mmap.c:2124: warning: `rb_link' may be used uninitialized in this function
+  mm/mmap.c:2123: warning: `prev' may be used uninitialized in this function
+  mm/mmap.c: In function `do_brk':
+  mm/mmap.c:1951: warning: `rb_parent' may be used uninitialized in this function
+  mm/mmap.c:1951: warning: `rb_link' may be used uninitialized in this function
+  mm/mmap.c:1949: warning: `prev' may be used uninitialized in this function
+  mm/mmap.c: In function `mmap_region':
+  mm/mmap.c:1092: warning: `rb_parent' may be used uninitialized in this function
+  mm/mmap.c:1092: warning: `rb_link' may be used uninitialized in this function
+  mm/mmap.c:1089: warning: `prev' may be used uninitialized in this function
+
+Hugh adds: in fact, none of find_vma_prepare's callers use those values
+when a vma is found to be already covering addr, it's either an error or
+an occasion to munmap and repeat.  Okay, let's quieten the compiler (but I
+would prefer it if pprev, rb_link and rb_parent were meaningful in that
+case, rather than whatever's in them from descending the tree).
+
+Signed-off-by: Benny Halevy <bhalevy@panasas.com>
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+Cc: "Ryan Hope" <rmh3093@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/mmap.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/mm/mmap.c b/mm/mmap.c
+index 245c3d6..971d0ed 100644
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -370,7 +370,7 @@ find_vma_prepare(struct mm_struct *mm, unsigned long addr,
+ 		if (vma_tmp->vm_end > addr) {
+ 			vma = vma_tmp;
+ 			if (vma_tmp->vm_start <= addr)
+-				return vma;
++				break;
+ 			__rb_link = &__rb_parent->rb_left;
+ 		} else {
+ 			rb_prev = __rb_parent;
+-- 
+1.7.3.2
