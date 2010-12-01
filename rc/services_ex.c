@@ -149,10 +149,12 @@ start_dns(void)
 	fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("lan_ipaddr"),
 			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "")) {
+	if (nvram_invmatch("ipv6_proto", ""))
+	{
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
-		fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
-			nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
+		if (nvram_invmatch("ipv6_lan_addr", ""))
+			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
+				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
 	}
 #endif
 	if (nvram_match("dhcp_static_x","1"))
