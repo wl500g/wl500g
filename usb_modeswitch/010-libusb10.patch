@@ -8,9 +8,24 @@ This patch allow to compile usb_modeswitch with libusb-1.0 if LIBUSB10 is define
 And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 
 
---- usb_modeswitch.orig/usb_modeswitch.c	2010-08-18 21:53:28.000000000 +0400
-+++ usb_modeswitch/usb_modeswitch.c	2010-08-26 20:53:37.803049050 +0400
-@@ -53,7 +53,126 @@
+diff -uBp usb-modeswitch.orig/Makefile usb_modeswitch/Makefile
+--- usb-modeswitch.orig/Makefile	2010-08-17 21:15:53.000000000 +0400
++++ usb_modeswitch/Makefile	2010-08-26 20:53:29.000000000 +0400
+@@ -1,8 +1,8 @@
+ PROG        = usb_modeswitch
+ VERS        = 1.1.4
+ CC          = gcc
+-CFLAGS      += -Wall
+-LIBS        = -l usb
++CFLAGS      += -Wall -DLIBUSB10
++LIBS        = -lusb-1.0
+ RM          = /bin/rm -f
+ OBJS        = usb_modeswitch.c
+ PREFIX      = $(DESTDIR)/usr
+diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
+--- usb-modeswitch.orig/usb_modeswitch.c	2010-11-29 02:03:32.000000000 +0300
++++ usb_modeswitch/usb_modeswitch.c	2010-12-01 16:13:05.000000000 +0300
+@@ -53,7 +53,130 @@
  #include <getopt.h>
  #include <syslog.h>
  
@@ -30,12 +45,16 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 +    #include <libusb.h>
 +    #include <unistd.h>
 +
++    #define USB_ENDPOINT_IN		LIBUSB_ENDPOINT_IN
++    #define USB_ENDPOINT_OUT		LIBUSB_ENDPOINT_OUT
 +    #define USB_ENDPOINT_TYPE_MASK	LIBUSB_ENDPOINT_ADDRESS_MASK
 +    #define USB_ENDPOINT_DIR_MASK	LIBUSB_ENDPOINT_DIR_MASK
 +    #define USB_ENDPOINT_TYPE_BULK	LIBUSB_TRANSFER_TYPE_BULK
 +    #define USB_TYPE_STANDARD		LIBUSB_REQUEST_TYPE_STANDARD
++    #define USB_TYPE_VENDOR		LIBUSB_REQUEST_TYPE_VENDOR
 +    #define USB_RECIP_DEVICE		LIBUSB_RECIPIENT_DEVICE
 +    #define USB_REQ_SET_FEATURE		LIBUSB_REQUEST_SET_FEATURE
++    #define USB_REQ_GET_CONFIGURATION	LIBUSB_REQUEST_GET_CONFIGURATION
 +
 +    #define LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
 +    #define LIBUSB_HAS_GET_DRIVER_NP
@@ -46,9 +65,9 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 +    #define usb_endpoint_descriptor	libusb_endpoint_descriptor
 +
 +    #define usb_init()		libusb_init ( &ctx )
-+    #define usb_set_debug(x)	libusb_set_debug( ctx, 3 );
-+    #define usb_find_busses()
-+    #define usb_find_devices()
++    #define usb_set_debug(x)	libusb_set_debug( ctx, 3 )
++    #define usb_find_busses()	(0)
++    #define usb_find_devices()	(0)
 +    #define usb_close		libusb_close
 +    #define usb_get_string_simple	libusb_get_string_descriptor_ascii
 +    #define usb_reset		libusb_reset_device
@@ -138,7 +157,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  #include "usb_modeswitch.h"
  
  #define LINE_DIM 1024
-@@ -388,8 +507,8 @@ int main(int argc, char **argv)
+@@ -392,8 +515,8 @@ int main(int argc, char **argv)
  		exit(0);
  	}
  	if (dev != NULL) {
@@ -149,32 +168,26 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  		SHOW_PROGRESS("Accessing device %03d on bus %03d ...\n", devnum, busnum);
  		devh = usb_open(dev);
  	} else {
-@@ -398,11 +517,22 @@ int main(int argc, char **argv)
- 	}
+@@ -405,8 +528,18 @@ int main(int argc, char **argv)
+ 	currentConfig = get_current_configuration();
  
  	/* Get class of default device/interface */
 +#ifndef LIBUSB10
  	defaultClass = dev->descriptor.bDeviceClass;
-+	int devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+ 	interfaceClass = get_interface0_class(dev, currentConfig);
 +#else
 +	struct libusb_device_descriptor descriptor;
 +	libusb_get_device_descriptor(dev, &descriptor);
 +	defaultClass = descriptor.bDeviceClass;
 +	struct libusb_config_descriptor *config;
 +	libusb_get_config_descriptor(dev, 0, &config);
-+	int devClass = config->interface[0].altsetting[0].bInterfaceClass;
++	interfaceClass = config->interface[0].altsetting[0].bInterfaceClass;
 +	libusb_free_config_descriptor(config);
 +#endif
- 	if (defaultClass == 0)
--		defaultClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
-+		defaultClass = devClass;
- 	else 
--		if (dev->config[0].interface[0].altsetting[0].bInterfaceClass == 8 && defaultClass != 8) {
-+		if (devClass == 8 && defaultClass != 8) {
- 			/* Weird device with default class other than 0 and differing interface class */
- 			SHOW_PROGRESS("Ambiguous Class/InterfaceClass: 0x%02x/0x08\n", defaultClass);
- 			defaultClass = 8;
-@@ -566,8 +696,21 @@ void deviceDescription ()
+ 	if (interfaceClass == -1) {
+ 		fprintf(stderr, "Error: getting the interface class failed. Aborting.\n\n");
+ 		exit(1);
+@@ -594,8 +727,21 @@ void deviceDescription ()
  	memset (iproduct, ' ', DESCR_MAX);
  	memset (iserial, ' ', DESCR_MAX);
  
@@ -198,7 +211,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"manufacturer\"\n");
  	} else
-@@ -576,8 +719,8 @@ void deviceDescription ()
+@@ -604,8 +750,8 @@ void deviceDescription ()
  	if (c)
  		memset((void*)c, '\0', 1);
  
@@ -209,7 +222,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"product\"\n");
  	} else
-@@ -586,8 +729,8 @@ void deviceDescription ()
+@@ -614,8 +760,8 @@ void deviceDescription ()
  	if (c)
  		memset((void*)c, '\0', 1);
  
@@ -220,7 +233,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"serial number\"\n");
  	} else
-@@ -810,7 +952,11 @@ int switchAltSetting ()
+@@ -838,7 +984,11 @@ int switchAltSetting ()
  
  	SHOW_PROGRESS("Changing to alt setting %i ...\n", AltSetting);
  	ret = usb_claim_interface(devh, Interface);
@@ -232,7 +245,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  	usb_release_interface(devh, Interface);
  	if (ret != 0) {
  		SHOW_PROGRESS(" Changing to alt setting returned error %d. Trying to continue\n", ret);
-@@ -827,7 +973,7 @@ void switchHuaweiMode ()
+@@ -855,7 +1005,7 @@ void switchHuaweiMode ()
  	int ret;
  
  	SHOW_PROGRESS("Sending Huawei control message ...\n");
@@ -241,7 +254,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  	if (ret != 0) {
  		fprintf(stderr, "Error: sending Huawei control message failed (error %d). Aborting.\n\n", ret);
  		exit(1);
-@@ -1058,7 +1204,7 @@ int checkSuccess()
+@@ -1103,7 +1253,7 @@ int checkSuccess()
  				devh = 0;
  				if (verbose) {
  					printf("\nFound target device %03d on bus %03d\n", \
@@ -250,7 +263,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  					printf("\nTarget device description data\n");
  					printf("-------------------------\n");
  					printf("Manufacturer: %s\n", imanufact);
-@@ -1152,8 +1298,10 @@ void release_usb_device(int dummy) {
+@@ -1203,8 +1353,10 @@ void release_usb_device(int dummy) {
  */
  struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode)
  {
@@ -262,7 +275,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  	int devClass;
  	struct usb_device* right_dev = NULL;
  
-@@ -1171,12 +1319,33 @@ struct usb_device* search_devices( int *
+@@ -1222,12 +1374,33 @@ struct usb_device* search_devices( int *
  	if (productList != '\0')
  		listcopy = malloc(strlen(productList)+1);
  
@@ -298,7 +311,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  				continue;
  			if (verbose)
  				printf ("   found matching vendor ID\n");
-@@ -1197,16 +1366,16 @@ struct usb_device* search_devices( int *
+@@ -1248,16 +1421,16 @@ struct usb_device* search_devices( int *
  					product += (unsigned char)buffer[0];
  					product <<= 8;
  					product += (unsigned char)buffer[1];
@@ -318,7 +331,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  								break;
  							}
  					}
-@@ -1216,7 +1385,7 @@ struct usb_device* search_devices( int *
+@@ -1267,7 +1440,7 @@ struct usb_device* search_devices( int *
  				}
  			/* Product ID is given */
  			} else
@@ -327,7 +340,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  					if (verbose)
  						printf ("   found matching product ID\n");
  					if (targetClass == 0) {
-@@ -1225,13 +1394,24 @@ struct usb_device* search_devices( int *
+@@ -1276,13 +1449,24 @@ struct usb_device* search_devices( int *
  						if (verbose)
  							printf ("   adding device\n");
  					} else {
@@ -355,7 +368,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  						if (devClass == targetClass) {
  							if (verbose)
  								printf ("   target class %02x matching\n", targetClass);
-@@ -1258,13 +1438,15 @@ struct usb_device* search_devices( int *
+@@ -1309,13 +1493,15 @@ struct usb_device* search_devices( int *
  					 * successCheck() and do probe for plausible new devnum/busnum
  					 */
  					if (busnum != -1)
@@ -372,7 +385,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  	}
  	if (productList != NULL)
  		free(listcopy);
-@@ -1280,8 +1462,15 @@ struct usb_device* search_devices( int *
+@@ -1331,8 +1517,15 @@ struct usb_device* search_devices( int *
  int find_first_bulk_output_endpoint(struct usb_device *dev)
  {
  	int i;
@@ -388,7 +401,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  
  	for(i=0;i < alt->bNumEndpoints;i++) {
  		ep=&(alt->endpoint[i]);
-@@ -1290,6 +1479,9 @@ int find_first_bulk_output_endpoint(stru
+@@ -1341,6 +1534,9 @@ int find_first_bulk_output_endpoint(stru
  			return ep->bEndpointAddress;
  		}
  	}
@@ -398,7 +411,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  
  	return 0;
  }
-@@ -1298,9 +1490,15 @@ int find_first_bulk_output_endpoint(stru
+@@ -1349,9 +1545,15 @@ int find_first_bulk_output_endpoint(stru
  int find_first_bulk_input_endpoint(struct usb_device *dev)
  {
  	int i;
@@ -415,7 +428,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  	for(i=0;i < alt->bNumEndpoints;i++) {
  		ep=&(alt->endpoint[i]);
  		if( ( (ep->bmAttributes & USB_ENDPOINT_TYPE_MASK) == USB_ENDPOINT_TYPE_BULK) &&
-@@ -1308,6 +1506,9 @@ int find_first_bulk_input_endpoint(struc
+@@ -1359,6 +1561,9 @@ int find_first_bulk_input_endpoint(struc
  			return ep->bEndpointAddress;
  		}
  	}
@@ -425,7 +438,23 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  
  	return 0;
  }
-@@ -1427,40 +1628,44 @@ int hexstr2bin(const char *hex, char *bu
+@@ -1379,6 +1584,7 @@ int get_current_configuration()
+ }
+ 
+ 
++#ifndef LIBUSB10
+ int get_interface0_class(struct usb_device *dev, int devconfig)
+ {
+ 	int i;
+@@ -1387,6 +1593,7 @@ int get_interface0_class(struct usb_devi
+ 			return dev->config[i].interface[0].altsetting[0].bInterfaceClass;
+ 	return -1;
+ }
++#endif
+ 
+ 
+ /* Parameter parsing */
+@@ -1502,41 +1709,45 @@ int hexstr2bin(const char *hex, char *bu
  void printVersion()
  {
  	char* version = VERSION;
@@ -463,6 +492,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 -	printf (" -S, --sierra-mode             apply a special procedure\n");
 -	printf (" -O, --sony-mode               apply a special procedure\n");
 -	printf (" -G, --gct-mode                apply a special procedure\n");
+-	printf (" -T, --kobil-mode              apply a special procedure\n");
 -	printf (" -R, --reset-usb               reset the device after all other actions\n");
 -	printf (" -Q, --quiet                   don't show progress or error messages\n");
 -	printf (" -W, --verbose                 print all settings and debug output\n");
@@ -491,6 +521,7 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 +		" -S, --sierra-mode             apply a special procedure\n"
 +		" -O, --sony-mode               apply a special procedure\n"
 +		" -G, --gct-mode                apply a special procedure\n"
++		" -T, --kobil-mode              apply a special procedure\n"
 +		" -R, --reset-usb               reset the device after all other actions\n"
 +		" -Q, --quiet                   don't show progress or error messages\n"
 +		" -W, --verbose                 print all settings and debug output\n"
@@ -502,8 +533,9 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 +		" -u, --configuration NUM       select USB configuration\n"
 +		" -a, --altsetting NUM          select alternative USB interface setting\n\n");
  }
---- usb_modeswitch.orig/usb_modeswitch.h	2010-08-17 21:27:22.000000000 +0400
-+++ usb_modeswitch/usb_modeswitch.h	2010-08-24 21:12:18.864913088 +0400
+diff -uBp usb-modeswitch.orig/usb_modeswitch.h usb_modeswitch/usb_modeswitch.h
+--- usb-modeswitch.orig/usb_modeswitch.h	2010-11-29 02:02:37.000000000 +0300
++++ usb_modeswitch/usb_modeswitch.h	2010-08-24 21:12:19.000000000 +0400
 @@ -24,7 +24,11 @@
  
  
@@ -517,16 +549,3 @@ And libusb0.1 or libusb-compat if LIBUSB10 is absent.
  
  void readConfigFile(const char *configFilename);
  void printConfig();
---- usb_modeswitch.orig/Makefile	2010-08-17 21:15:53.000000000 +0400
-+++ usb_modeswitch/Makefile	2010-08-26 20:53:28.539950632 +0400
-@@ -1,8 +1,8 @@
- PROG        = usb_modeswitch
- VERS        = 1.1.4
- CC          = gcc
--CFLAGS      += -Wall
--LIBS        = -l usb
-+CFLAGS      += -Wall -DLIBUSB10
-+LIBS        = -lusb-1.0
- RM          = /bin/rm -f
- OBJS        = usb_modeswitch.c
- PREFIX      = $(DESTDIR)/usr
