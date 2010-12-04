@@ -1,9 +1,7 @@
 <html>
 <head>
 <title>ASUS SpaceLink Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
 <meta http-equiv="Content-Type" content="text/html">
 <meta http-equiv="Expires" content="Fri, Jun 12 1981 00:00:00 GMT">
 <meta http-equiv="Cache-control" content="no-cache,must-revalidate">
@@ -14,7 +12,7 @@
 .wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt}
 -->
 </style>
-<script Language="JavaScript" src="general.js"></script>
+<script src="general.js"></script>
 </head>
 
 <body bgcolor="#FFFFFF" onLoad="load_body()">
@@ -43,10 +41,10 @@
             <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
         <li><b><a href="javascript:top.openBranch('Wireless')">Dual Band</a></b> supports 802.11a and 802.11g simultaneously.</li>  
         <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
-        <li><b><a href="javascript:top.openBranch('Status & Log')">Status &amp; Log</a></b> log status of system in details.</li>
+        <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
         <p><font face="Arial">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
         &nbsp;&nbsp;      
-        <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type="submit" value="NEXT" name="action">
+        <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" value="NEXT" name="action">
         </p>
         <p></p>
       </ul>

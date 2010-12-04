@@ -1,8 +1,8 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
@@ -14,7 +14,7 @@
 </tr>
 <tr>
 <td>
-<table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_section_header_tr">
 <td colspan="2">WAN IP Setting</td>
 </tr>
@@ -32,22 +32,22 @@
 </tr>
 <tr>
 <td>
-<table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
+<table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
 </td>
 </tr>
 <tr>
 <td>		
-<table width="618" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="618" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" type="submit" value="  Save  " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value="  Save  " name="action"></font></div> 
    </td>
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" type="submit" value=" Restore " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value=" Restore " name="action"></font></div> 
    </td>
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" type="submit" value=" Finish " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value=" Finish " name="action"></font></div> 
    </td>
 </tr>
 </table>
@@ -56,7 +56,7 @@
 
 <tr>
 <td>
-<table width="618" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="618" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   

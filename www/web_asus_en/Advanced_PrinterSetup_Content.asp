@@ -1,9 +1,9 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
-<script language="JavaScript" type="text/javascript" src="quick.js"></script>
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="quick.js"></script>
 </head>  
 <body bgcolor="#FFFFFF">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
@@ -13,7 +13,7 @@
     	
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td colspan="2"> System Setup - Printer Setup</td>
 <input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
@@ -29,7 +29,7 @@
 </td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Printer Model:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","ProductID"); %>" readonly="1"></td>
+		<td class="content_header_td" width="30">Printer Model:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","ProductID"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_input_td" colspan="2" width="614">

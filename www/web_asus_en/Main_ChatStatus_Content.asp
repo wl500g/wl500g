@@ -3,14 +3,13 @@
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 	<link rel="stylesheet" type="text/css" href="style.css" media="screen">
 
-	<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
+	<script type="text/javascript" src="overlib.js"></script>
 
-	<script language="JavaScript" type="text/javascript" src="general.js"></script>
+	<script type="text/javascript" src="general.js"></script>
 
 </head>
-	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;">
-	</div>
 <body onload="load_body()" onunload="return unload_body();">
+	<div id="overDiv" style="position: absolute; visibility: hidden; z-index: 1000;"></div>
 	<!-- Table for the conntent page -->
 	<form method="GET" name="form" action="apply.cgi">
 	<input type="hidden" name="current_page" value="Main_ChatStatus_Content.asp">

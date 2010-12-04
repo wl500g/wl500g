@@ -1,11 +1,11 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
@@ -22,7 +22,7 @@
 <tr bgcolor="#FFFFFF">
     <td class="content_desc_td">
     Click the <b>Restore</b> button to clear all settings and restore the factory defaults. Then, wait for the home gateway to reboot.</p>       
-    <p align="center" style="margin-bottom: 16"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrlOnly(this, 'Restore')" type="submit" value="Restore" name="action"></p>
+    <p align="center" style="margin-bottom: 16"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrlOnly(this, 'Restore')" type="submit" value="Restore" name="action"></p>
   </td></tr>
 </table>
 </td>

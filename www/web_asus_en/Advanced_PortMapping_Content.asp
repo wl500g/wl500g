@@ -1,11 +1,11 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
-<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <body onLoad="load_body()" onunLoad="return unload_body();">
+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
 <!-- Table for the conntent page -->	    
 <table width="666" border="0" cellpadding="1" cellspacing="0">     	      
@@ -15,7 +15,7 @@
 <input type="hidden" name="action_script" value="">
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">NAT Setting - Port Mapping</td>
 </tr>
@@ -29,19 +29,19 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 </tr>
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
 </td>
 </tr>
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0"></table>
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
 </td>
 </tr>
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
-<td class="content_list_header_td" width="60%" id="TriggerList">Mapped Port List<input type="hidden" name="IPConnection_TriggerCount_0" value="<% nvram_get_x("IPConnection", "TriggerCount"); %>" readonly="1"></td>
+<td class="content_list_header_td" width="60%" id="TriggerList">Mapped Port List<input type="hidden" name="IPConnection_TriggerCount_0" value="<% nvram_get_x("IPConnection", "TriggerCount"); %>" readonly></td>
 </tr>
 <table class="content_list_table" width="640" border="0" cellspacing="0" cellpadding="0">
 <tr>
@@ -58,22 +58,22 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 <td></td><td class="content_list_field_header_td" colspan="">Local IP</td><td class="content_list_field_header_td" colspan="">Mapped Port</td><td class="content_list_field_header_td" colspan="">Description</td><td class="content_list_field_header_td" colspan="">Action</td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_0" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_0"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_0" value="<% nvram_get_x("IPConnection","MappedInPort_0"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_0" value="<% nvram_get_x("IPConnection","MappedDescript_0"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('0')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_0", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_0"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_0" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_0"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_0" value="<% nvram_get_x("IPConnection","MappedInPort_0"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_0" value="<% nvram_get_x("IPConnection","MappedDescript_0"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('0')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_0", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_0"></font></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_1" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_1"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_1" value="<% nvram_get_x("IPConnection","MappedInPort_1"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_1" value="<% nvram_get_x("IPConnection","MappedDescript_1"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('1')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_1", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_1"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_1" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_1"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_1" value="<% nvram_get_x("IPConnection","MappedInPort_1"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_1" value="<% nvram_get_x("IPConnection","MappedDescript_1"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('1')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_1", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_1"></font></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_2" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_2"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_2" value="<% nvram_get_x("IPConnection","MappedInPort_2"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_2" value="<% nvram_get_x("IPConnection","MappedDescript_2"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('2')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_2", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_2"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_2" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_2"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_2" value="<% nvram_get_x("IPConnection","MappedInPort_2"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_2" value="<% nvram_get_x("IPConnection","MappedDescript_2"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('2')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_2", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_2"></font></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_3" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_3"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_3" value="<% nvram_get_x("IPConnection","MappedInPort_3"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_3" value="<% nvram_get_x("IPConnection","MappedDescript_3"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('3')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_3", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_3"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_3" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_3"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_3" value="<% nvram_get_x("IPConnection","MappedInPort_3"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_3" value="<% nvram_get_x("IPConnection","MappedDescript_3"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('3')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_3", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_3"></font></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_4" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_4"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_4" value="<% nvram_get_x("IPConnection","MappedInPort_4"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_4" value="<% nvram_get_x("IPConnection","MappedDescript_4"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('4')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_4", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_4"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_4" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_4"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_4" value="<% nvram_get_x("IPConnection","MappedInPort_4"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_4" value="<% nvram_get_x("IPConnection","MappedDescript_4"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('4')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_4", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_4"></font></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_5" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_5"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_5" value="<% nvram_get_x("IPConnection","MappedInPort_5"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_5" value="<% nvram_get_x("IPConnection","MappedDescript_5"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="return onSubmitApply('5')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_5", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_5"></font></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" size="15" name="IPConnection_MappedIP_5" class="content_input_fd" value="<% nvram_get_x("IPConnection","MappedIP_5"); %>" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="11" class="content_input_fd"  size="11" name="IPConnection_MappedInPort_5" value="<% nvram_get_x("IPConnection","MappedInPort_5"); %>" onKeyPress="return is_portrange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" class="content_input_fd" size="24" name="IPConnection_MappedDescript_5" value="<% nvram_get_x("IPConnection","MappedDescript_5"); %>"></td><td width="110"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return onSubmitApply('5')" type="submit" value="<% nvram_match_both_x("IPConnection","MappedAction_5", "Set", "Unset", "Set"); %>" name="IPConnection_MappedAction_5"></font></td>
 </tr>
 </table>
 </div>
@@ -88,17 +88,17 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 </tr>
 <tr>
 <td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
    </td>   
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
    </td>
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
    </td>    
 </tr>
 </table>
@@ -107,7 +107,7 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   
