@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20101128
+# Part of usb-modeswitch-data, version 20101202
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
@@ -7,14 +7,14 @@ ACTION!="add", GOTO="modeswitch_rules_end"
 
 # This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
 # will work only with wrapper from 1.1.4 and above (otherwise ignored)
-KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name '%p' '%s{idVendor}' '%s{idProduct}'", SYMLINK="%c"
+KERNEL=="ttyUSB*", DRIVERS=="option1|usbserial", PROGRAM="/usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher --symlink-name %p %s{idVendor} %s{idProduct}", SYMLINK="%c"
 
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
 # This adds the device ID to the "option" driver after a warm boot
 # in cases when the device is yet unknown to the driver
-ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", RUN+="usb_modeswitch --driver-bind '%p' '%s{idVendor}' '%s{idProduct}' '%E{PRODUCT}'"
+ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
 
 # Most known install partitions are on interface 0, one on 5, one on 9
 ATTRS{bInterfaceNumber}!="0[059]", GOTO="modeswitch_rules_end"
@@ -58,7 +58,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
+# Quirky Option devices, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
@@ -244,7 +244,7 @@ ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0cf", RUN+="usb_modeswitch '%b/%k'"
 # Sony Ericsson MD400
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d0e1", RUN+="usb_modeswitch '%b/%k'"
 
-# Rogers Rocket Stick (a Sony Ericsson device)
+# Sony Ericsson MD400G
 ATTRS{idVendor}=="0fce", ATTRS{idProduct}=="d103", RUN+="usb_modeswitch '%b/%k'"
 
 # GW D301 (Advinne AMC)
@@ -319,8 +319,14 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1521", RUN+="usb_modeswitch '%b/%k'"
 # Huawei R201
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1523", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei E1553
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1553", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei E173
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1557", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E173s
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1c0b", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Wireless devices
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5010", RUN+="usb_modeswitch '%b/%k'"
@@ -441,5 +447,8 @@ ATTRS{idVendor}=="1f28", ATTRS{idProduct}=="0021", RUN+="usb_modeswitch '%b/%k'"
 
 # Franklin Wireless U210
 ATTRS{idVendor}=="1fac", ATTRS{idProduct}=="0130", RUN+="usb_modeswitch '%b/%k'"
+
+# Linktop LW272/LW273 (BSNL Teracom)
+ATTRS{idVendor}=="230d", ATTRS{idProduct}=="0001", RUN+="usb_modeswitch '%b/%k'"
 
 LABEL="modeswitch_rules_end"
