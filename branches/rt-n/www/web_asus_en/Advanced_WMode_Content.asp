@@ -1,14 +1,12 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
 </head>  
-<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <body onLoad="load_body()" onunLoad="return unload_body();">
+<div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
 <!-- Table for the conntent page -->	    
 <table width="666" border="0" cellpadding="0" cellspacing="0">     	      
@@ -16,7 +14,7 @@
 <input type="hidden" name="current_page" value="Advanced_WMode_Content.asp"><input type="hidden" name="next_page" value="Advanced_ACL_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="WLANConfig11a;WLANConfig11b;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Wireless - Bridge</td>
 </tr>
@@ -25,7 +23,7 @@
 </tr>
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr>
 <td class="content_desc_td" colspan="2">Wireless bridge (also known as Wireless Distribution System or WDS) function allows you to connect to one or many APs through wireless.
          <div align="center">
@@ -40,7 +38,7 @@
 <td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
            </td><td class="content_input_td"><select name="wl_channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_channel')">   
 <% select_channel("WLANConfig11b"); %>
-                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get_x("Regulatory","x_RegulatoryDomain"); %>" readonly="1"></td>
+                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get_x("Regulatory","x_RegulatoryDomain"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Yes connects ZVMODELVZ to other APs listed in Remote Bridge List.', LEFT);" onMouseOut="return nd();">Connect to APs in Remote Bridge List?
@@ -55,10 +53,10 @@
 </tr>
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="RBRList">Remote Bridge List
-         <input type="hidden" name="wl_wdsnum_x_0" value="<% nvram_get_x("WLANConfig11b", "wl_wdsnum_x"); %>" readonly="1"></td><td width="10%">
+         <input type="hidden" name="wl_wdsnum_x_0" value="<% nvram_get_x("WLANConfig11b", "wl_wdsnum_x"); %>" readonly></td><td width="10%">
 <div align="center">
 <input class="inputSubmit" type="submit" onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="return markGroup(this, 'RBRList', 16, ' Add ');" name="RBRList" value="Add" size="12">
 </div>
@@ -101,17 +99,17 @@
 </tr>
 <tr>
 <td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp</b></font></td></tr>
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
    </td>  
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Finish ')" type="submit" value=" Finish " name="action"></font></div> 
    </td>
    <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
+   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Apply ')" type="submit" value=" Apply " name="action"></font></div> 
    </td>    
 </tr>
 </table>
@@ -120,7 +118,7 @@
 
 <tr>
 <td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
 </tr>                   

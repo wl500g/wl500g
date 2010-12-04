@@ -1,9 +1,7 @@
 <html>
 <head>
 <title>ASUS SpaceLink Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
 <meta http-equiv="Content-Type" content="text/html">
 <meta http-equiv="Expires" content="Fri, Jun 12 1981 00:00:00 GMT">
 <meta http-equiv="Cache-control" content="no-cache,must-revalidate">
@@ -14,7 +12,7 @@
 .wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt}
 -->
 </style>
-<script Language="JavaScript" src="general.js"></script>
+<script src="general.js"></script>
 </head>
 
 <body bgcolor="#FFFFFF" onLoad="load_body()">
@@ -43,10 +41,10 @@
           <p style="word-spacing: 0; margin-top: 0; margin-bottom: 0">
             <b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>
         <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>          
-        <li><b><a href="javascript:top.openBranch('Status & Log')">Status & Log</a></b> log status of system in details.</li>
+        <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
         <p><font face="Arial">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
         &nbsp;&nbsp;      
-        <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type="submit" onClick="onSubmitCtrl(this, 'NEXT')" value="Next" name="action">
+        <font style="color: #000000; font-size: 10pt;"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type="submit" onClick="onSubmitCtrl(this, 'NEXT')" value="Next" name="action">
         </p>
         <p></p>
       </ul>

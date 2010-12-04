@@ -451,9 +451,9 @@
 						</td>
 						<td class="content_input_td">
 
-							<script language="JavaScript" type="text/javascript" src="phrase.js"></script>
+							<script type="text/javascript" src="phrase.js"></script>
 
-							<script language="JavaScript" type="text/javascript" src="md5.js"></script>
+							<script type="text/javascript" src="md5.js"></script>
 
 							<input type="password" maxlength="64" size="32" name="wl_wpa_psk" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_wpa_psk"); %>" onkeyup="return is_wlphrase_q('WLANConfig11b', this)"
@@ -542,7 +542,7 @@
 		</tr>
 		<tr>
 			<td>
-				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="B0B0B0">
+				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr>
 						<td colspan="2" width="666" height="25" bgcolor="#FFBB00">
 						</td>

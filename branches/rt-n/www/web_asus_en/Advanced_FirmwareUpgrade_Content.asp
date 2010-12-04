@@ -1,13 +1,11 @@
 <head>
 <title>ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
 <meta http-equiv="Content-Type" content="text/html">
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
-<script language="JavaScript" type="text/javascript" src="overlib.js"></script>
-<script language="JavaScript" type="text/javascript" src="general.js"></script>
-<script language="JavaScript" type="text/javascript" src="quick.js"></script>
+<script type="text/javascript" src="overlib.js"></script>
+<script type="text/javascript" src="general.js"></script>
+<script type="text/javascript" src="quick.js"></script>
 </head>  
 <body bgcolor="#FFFFFF">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
@@ -17,7 +15,7 @@
     	
 <tr>
 <td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="E0E0E0">
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">System Setup - Firmware Upgrade</td>
 <input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
@@ -55,13 +53,13 @@
 </td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","productid"); %>" readonly="1"></td>
+		<td class="content_header_td" width="30">Product ID:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","productid"); %>" readonly></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","firmver"); %>" readonly="1"></td>
+		<td class="content_header_td" width="30">Firmware Version:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_get_f("general.log","firmver"); %>" readonly></td>
 </tr>
 <tr>
-		<td class="content_header_td" width="30">Firmware Release:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_dump("../.version",""); %>" readonly="1"></td>
+		<td class="content_header_td" width="30">Firmware Release:</td><td class="content_input_td" width="595"><input type="text" class="content_input_fd_ro" value="<% nvram_dump("../.version",""); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td" width="30">New Firmware File:</td><td class="content_input_td">  

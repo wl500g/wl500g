@@ -1,12 +1,10 @@
 <html>
 <head>
 <title>ASUS ZVMODELVZ Web Manager</title>
-<meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
 <meta http-equiv="Content-Type" content="text/html">
 <meta http-equiv="Pragma" content="no-cache">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen"></link>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <script language="javascript">
 function redirect() {
  setTimeout("redirect1()", 25000)

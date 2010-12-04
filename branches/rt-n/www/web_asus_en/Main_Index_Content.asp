@@ -10,7 +10,7 @@
 .wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt}
 -->
 </style>
-<script Language="JavaScript" src="general.js"></script>
+<script src="general.js"></script>
 </head>
 
 <body bgcolor="#FFFFFF" >
@@ -52,7 +52,7 @@
       </i>
         </p>
         <p><font face="Arial"> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;  
-        <font size="2"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut=buttonOut(this) onMouseOver=buttonOver(this) type=submit name="action" value="NEXT" >   
+        <font size="2"><b>Click NEXT to start Quick Setup</b></font>&nbsp; </font><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver=buttonOver(this) type=submit name="action" value="NEXT" >   
         </p>
         <p>¡@</p>
       </ul>
