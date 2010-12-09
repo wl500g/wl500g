@@ -1,7 +1,7 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html">
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 <script type="text/javascript" src="overlib.js"></script>
 <script type="text/javascript" src="general.js"></script>
@@ -10,17 +10,13 @@
 <body bgcolor="#FFFFFF">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="post" action="upgrade.cgi" enctype="multipart/form-data">
-<!-- Table for the conntent page -->	    
-<table width="660" border="0" cellpadding="1" cellspacing="0">     	      
-    	
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-<tr class="content_header_tr">
-<td class="content_header_td_title" colspan="2">System Setup - Firmware Upgrade</td>
 <input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
 <input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
 <input type="hidden" name="action_mode" value="">
+<!-- Table for the conntent page -->
+<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
+<tr class="content_header_tr">
+<td class="content_header_td_title" colspan="2">System Setup - Firmware Upgrade</td>
 </tr>
 <tr class="content_section_header_tr">
 <td id="Mode" class="content_section_header_td" colspan="2" width="614"> Follow instructions listed below:</td>
@@ -81,8 +77,6 @@
 </td>
 </tr>
 </table>
-</td>
-</tr>
-</table>
 </form>
 </body>
+</html>

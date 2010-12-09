@@ -1,3 +1,4 @@
+<html>
 <head>
 	<title>ZVMODELVZ Web Manager</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -38,11 +39,9 @@
 						</td>
 					</tr>
 					<tr bgcolor="#FFFFFF">
-						<td height="25" width="34%">
+						<td height="25" width="67%">
 						</td>
-						<td height="25" width="33%">
-						</td>
-						<td height="25" width="33%" style="text-align: center; font-family: 'Arial';">
+						<td height="25" style="text-align: center; font-family: 'Arial';">
 							<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 								onclick="onSubmitCtrl(this, ' Refresh ')" type="submit" value="Refresh" name="action">
 						</td>
@@ -50,3 +49,4 @@
 				</table>
 	</form>
 </body>
+</html>
