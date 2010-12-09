@@ -1,0 +1,68 @@
+Avoid an integer divides
+
+ 15ae02baf025750cd79ef3929c28f7083a088bd2 lib/extable.c: remove an expensive integer divide in search_extable()
+ dfd4f0ae2e111e2b93c295938c0e64ebbb69ae6e [TCP]: Avoid two divides in __tcp_grow_window()
+ b790cedd24a7f7d1639072b3faf35f1f56cb38ea [INET]: Avoid an integer divide in rt_garbage_collect()
+
+---
+ lib/extable.c        |    6 +++---
+ net/ipv4/route.c     |    4 ++--
+ net/ipv4/tcp_input.c |    4 ++--
+ 3 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/lib/extable.c b/lib/extable.c
+index 463f456..179c087 100644
+--- a/lib/extable.c
++++ b/lib/extable.c
+@@ -57,10 +57,10 @@ search_extable(const struct exception_table_entry *first,
+ 	while (first <= last) {
+ 		const struct exception_table_entry *mid;
+ 
+-		mid = (last - first) / 2 + first;
++		mid = ((last - first) >> 1) + first;
+ 		/*
+-		 * careful, the distance between entries can be
+-		 * larger than 2GB:
++		 * careful, the distance between value and insn
++		 * can be larger than MAX_LONG:
+ 		 */
+ 		if (mid->insn < value)
+ 			first = mid + 1;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index bc2d5f7..519bd24 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -289,8 +289,8 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	/* Optimize this! */
+-	int truesize = tcp_win_from_space(skb->truesize)/2;
+-	int window = tcp_win_from_space(sysctl_tcp_rmem[2])/2;
++	int truesize = tcp_win_from_space(skb->truesize) >> 1;
++	int window = tcp_win_from_space(sysctl_tcp_rmem[2]) >> 1;
+ 
+ 	while (tp->rcv_ssthresh <= window) {
+ 		if (truesize <= skb->len)
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 1cc6c23..933b093 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -851,14 +851,14 @@ static int rt_garbage_collect(void)
+ 			equilibrium = ipv4_dst_ops.gc_thresh;
+ 		goal = atomic_read(&ipv4_dst_ops.entries) - equilibrium;
+ 		if (goal > 0) {
+-			equilibrium += min_t(unsigned int, goal / 2, rt_hash_mask + 1);
++			equilibrium += min_t(unsigned int, goal >> 1, rt_hash_mask + 1);
+ 			goal = atomic_read(&ipv4_dst_ops.entries) - equilibrium;
+ 		}
+ 	} else {
+ 		/* We are in dangerous area. Try to reduce cache really
+ 		 * aggressively.
+ 		 */
+-		goal = max_t(unsigned int, goal / 2, rt_hash_mask + 1);
++		goal = max_t(unsigned int, goal >> 1, rt_hash_mask + 1);
+ 		equilibrium = atomic_read(&ipv4_dst_ops.entries) - goal;
+ 	}
+ 
+-- 
+1.7.3.2
