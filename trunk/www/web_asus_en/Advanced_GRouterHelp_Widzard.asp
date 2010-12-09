@@ -3,8 +3,6 @@
 
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
-<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
 <title>Route Edit Tips</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 
@@ -48,15 +46,15 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
   <tr>
     <td class="content_desc_td" width="532">   
     <p><font size="4"><b>Add/Delete entries</b></font></p>
-      <li>
+      <ul><li>
         <b>Add</b> : Input data into first row of table, then press <b>Add</b> to insert it. System will remind you if the table is full or required fields are not fill ok.
       </li> 
       <li>
         <b>Del</b> : Select one entry in table, or press <b>Ctrl</b> and select multiple entries in tables, then press <b>Del</b> to delete them.
-      </li> 
+      </li></ul> 
     <p><font size="4"><b>Input Format</b></font></p>        
       <p>The fields of a route rule are listed below:</p>           
-      <li>
+      <ul><li>
         <b>Network/Host IP</b> : It stands for the destination network or host of a route roule. So it could be a host address, such as "192.168.123.11" or a network address, such as "192.168.0.0".
       </li>       
       <li>
@@ -70,7 +68,7 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
       </li>  
        <li>
         <b>Interface</b> : Network interface that the route rule apply to.
-      </li>
+      </li></ul>
     <p align="right" style="margin-right:20"><input type="button" onClick="onClose()" value="Close" name="Close1">
         <p></p>
     </td>

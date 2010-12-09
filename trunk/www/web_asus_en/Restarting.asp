@@ -2,10 +2,8 @@
 <head>
 <title>ASUS ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Type" content="text/html">
 <meta http-equiv="Pragma" content="no-cache">
-<link rel="stylesheet" type="text/css" href="style.css" media="screen">
-<script language="javascript">
+<script type="text/javascript">
 function redirect() {
  setTimeout("redirect1()", 25000)
 }
@@ -15,10 +13,9 @@ function redirect1() {
 </script>
 </head>
 <body bgcolor="#FFFFFF" onLoad="redirect()">
-<span class="wounderline"></span>
 <table width="666" border="0" cellpadding="2" cellspacing="0" vspace="30" height="1">
   <tr bgcolor="#CCCCCC"> 
-    <td width="666" height="125"> 
+    <td width="666" height="125">
       <table width="660" height="125" cellpadding="2" cellspacing="0" border="0">
         <tbody>
         <tr> 
