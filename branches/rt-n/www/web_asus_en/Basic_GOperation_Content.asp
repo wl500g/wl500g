@@ -6,9 +6,7 @@
 	<link rel="stylesheet" type="text/css" href="style.css" media="screen">
 
 	<script type="text/javascript" src="overlib.js"></script>
-
 	<script type="text/javascript" src="general.js"></script>
-
 	<script type="text/javascript" src="quick.js"></script>
 
 	<style type="text/css">
@@ -16,6 +14,10 @@
 		{
 			height: 28px;
 		}
+	</style>
+
+	<style type="text/css">
+	div.c1 {text-align: center; font-family: Arial}
 	</style>
 </head>
 <body style='background-color: #FFFFFF' onload="loadQuick()">
@@ -85,9 +87,7 @@
 									<td width="500" height="100">
 									</td>
 									<td>
-										<div style='text-align: center; font-family: Arial'>
-											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
-												onclick="toPrevTag('Country')" type="hidden" value="Prev" name="action1">&nbsp;&nbsp;
+										<div class='c1'>
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 												onclick="toTag('Country')" type="button" value="Next" name="action">
 										</div>
@@ -154,7 +154,7 @@
 									<td width="444" height="100">
 									</td>
 									<td>
-										<div style='text-align: center; font-family: Arial;'>
+										<div class='c1'>
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 												onclick="toPrevTag('Broadband')" type="button" value="Prev" name="action">&nbsp;&nbsp;
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
@@ -211,7 +211,7 @@
 									<td width="444" height="100">
 									</td>
 									<td>
-										<div style='text-align: center; font-family: Arial;'>
+										<div class='c1'>
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 												onclick="toPrevTag('PPPoE')" type="button" value="Prev" name="action">&nbsp;&nbsp;
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
@@ -280,7 +280,7 @@
 									<td width="444" height="100">
 									</td>
 									<td>
-										<div style='text-align: center; font-family: Arial;'>
+										<div class='c1'>
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 												onclick="toPrevTag('MacHost')" type="button" value="Prev" name="action">&nbsp;&nbsp;
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
@@ -388,7 +388,7 @@
 									<td width="444" height="100">
 									</td>
 									<td>
-										<div style='text-align: center; font-family: Arial;'>
+										<div class='c1'>
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 												onclick="toPrevTag('WANSetting')" type="button" value="Prev" name="action">&nbsp;&nbsp;
 											<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
@@ -451,8 +451,6 @@
 						</td>
 						<td class="content_input_td">
 
-							<script type="text/javascript" src="phrase.js"></script>
-
 							<script type="text/javascript" src="md5.js"></script>
 
 							<input type="password" maxlength="64" size="32" name="wl_wpa_psk" class="content_input_fd"
@@ -461,10 +459,10 @@
 						</td>
 					</tr>
 					<tr>
-						<td class="style1">
+						<td class="content_header_td_less">
 							WEP Key 1 (10 or 26 hex digits):
 						</td>
-						<td class="style1">
+						<td class="content_input_td">
 							<input type="password" maxlength="32" size="32" name="wl_key1" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key1"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
 								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
@@ -525,12 +523,10 @@
 						</td>
 					</tr>
 					<tr bgcolor="#FFFFFF">
-						<td height="25" width="34%">
+						<td height="25" width="75%">
 						</td>
-						<td height="25" width="33%">
-						</td>
-						<td height="25" width="33%">
-							<div style='text-align: center; font-family: Arial;'>
+						<td height="25">
+							<div class='c1'>
 								<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
 									onclick="toPrevTag('Wireless')" type="button" value="Prev" name="action">&nbsp;&nbsp;&nbsp;&nbsp;
 								<input class="inputSubmit" onmouseout="buttonOut(this)" onmouseover="buttonOver(this)"
