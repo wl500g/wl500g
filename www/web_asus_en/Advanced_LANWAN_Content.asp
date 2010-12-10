@@ -25,9 +25,6 @@
 	<input type="hidden" name="action_script" value="">
 	<input type="hidden" name="wan_pppoe_txonly_x" value="<% nvram_get_x("PPPConnection","wan_pppoe_txonly_x"); %>">
 	<!-- Table for the conntent page -->
-	<table width="666" border="0" cellpadding="0" cellspacing="0">
-		<tr>
-			<td>
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 					<tr class="content_header_tr">
 						<td class="content_header_td_title" colspan="2">
@@ -101,12 +98,7 @@
 							</select>
 						</td>
 					</tr>
-				</table>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
+
 					<tr class="content_section_header_tr">
 						<td class="content_section_header_td" colspan="2">
 							WAN IP Setting
@@ -197,36 +189,7 @@
 								onkeypress="return is_ipaddr(this)" onkeyup="change_ipaddr(this)">
 						</td>
 					</tr>
-				</table>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
+
 					<tr class="content_section_header_tr">
 						<td class="content_section_header_td" colspan="2">
 							PPPoE, PPTP or L2TP Account
@@ -390,18 +353,7 @@
 								onblur="validate_string(this)">
 						</td>
 					</tr>
-				</table>
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
+
 					<tr class="content_section_header_tr">
 						<td class="content_section_header_td" colspan="2">
 							LAN IP Setting
@@ -443,34 +395,10 @@
 				</table>
 				<input type="hidden" name="dhcp_start" value="<% nvram_get_x("LANHostConfig","dhcp_start"); %>">
 				<input type="hidden" name="dhcp_end" value="<% nvram_get_x("LANHostConfig","dhcp_end"); %>">
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
-				<!--				<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
-				</table>-->
-			</td>
-		</tr>
-		<tr>
-			<td>
+				<!-- moget on top v etoi form'e perenesti?? -->
+
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-					<tr bgcolor="#CCCCCC">
-						<td colspan="3" style='font-family: "Arial"; font-size: 2pt;'>
-							<b>&nbsp;</b>
-						</td>
-					</tr>
+					<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 					<tr bgcolor="#FFFFFF">
 						<td id="Confirm" height="25" width="34%">
 							<div style='text-align: center; font-family: "Arial";'>
@@ -489,10 +417,7 @@
 						</td>
 					</tr>
 				</table>
-			</td>
-		</tr>
-		<tr>
-			<td>
+
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr>
 						<td colspan="2" width="616" height="25" bgcolor="#FFBB00">
@@ -523,9 +448,6 @@
 						</td>
 					</tr>
 				</table>
-			</td>
-		</tr>
-	</table>
 	</form>
 </body>
 </html>

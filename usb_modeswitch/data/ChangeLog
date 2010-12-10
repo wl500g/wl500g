@@ -1,4 +1,7 @@
 20101128:
+    added Huawei E1553 and E173s; fixed mutilated config of SE MD400G;
+    checked for further errors and omissions, small fixes
+20101128:
     added Nokia CS-17, Nokia CS-18, Qtronix EVDO 3G, GW D301, LG AD600,
     UTStarcom UMW190, AirPlus MCD-800, Linktop LW272/LW273;
     consolidated BandLuxe configuration; changed all recent Huawei configs

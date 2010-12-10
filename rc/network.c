@@ -1238,8 +1238,8 @@ update_resolvconf(char *ifname, int metric, int up)
 		return errno;
 	}
 
-	foreach(word, (nvram_get("wan0_dns") ? : 
-		nvram_safe_get("wanx_dns")), next) 
+	foreach(word, (*nvram_safe_get("wan0_dns") ? nvram_safe_get("wan0_dns") :
+		nvram_safe_get("wanx_dns")), next)
 	{
 		fprintf(fp, "nameserver %s\n", word);
 		dprintf( "nameserver %s\n", word );
