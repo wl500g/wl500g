@@ -1,7 +1,7 @@
 #!/bin/sh
 
 USERNAME=$(nvram get wan_modem_username)
-PASSWORD=$(nvram get wan_modem_password)
+PASSWORD=$(nvram get wan_modem_passwd)
 DIALNO=$(nvram get wan_modem_dialno)
 INIT=$(nvram get wan_modem_dialup_init)
 PORTSPEED=$(nvram get wan_modem_portspeed)

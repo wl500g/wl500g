@@ -1576,7 +1576,7 @@ struct variable variables_WiMaxConfig[] = {
 struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_type","", validate_range, ARGV("1", "12", ""), FALSE, FALSE},
 	{"wan_modem_username", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_password", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_passwd", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_usbloc", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_apn", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_dialno", "", validate_string, ARGV(""), TRUE, FALSE},
