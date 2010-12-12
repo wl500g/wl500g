@@ -180,8 +180,8 @@
 				Password:
 			</td>
 			<td class="content_input_td">
-				<input type="password" maxlength="256" class="content_input_fd" size="32" name="wan_modem_password"
-					value="<% nvram_get_x("3GConfig","wan_modem_password"); %>" onkeypress="return is_string(this)"
+				<input type="password" maxlength="256" class="content_input_fd" size="32" name="wan_modem_passwd"
+					value="<% nvram_get_x("3GConfig","wan_modem_passwd"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
 		</tr>
