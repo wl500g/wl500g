@@ -170,6 +170,7 @@ static char *device = 0;
 static int bidir = 0;
 static char *bindaddr = 0;
 static int log_to_stdout = 0;
+static int timeoutparam = -1;
 
 
 /* Helper function: convert a struct sockaddr address (IPv4 and IPv6) to a string */
@@ -208,7 +209,7 @@ uint16_t get_port(const struct sockaddr *sa)
 void usage(void)
 {
 	fprintf(stderr, "%s %s %s\n", progname, version, copyright);
-	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-bvd] [0|1|2]\n", progname);
+	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-t timeout] [-bvd] [0|1|2]\n", progname);
 	exit(1);
 }
 
@@ -400,11 +401,15 @@ int copy_stream(int fd, int lp)
 		struct timeval now;
 		struct timeval then;
 		struct timeval timeout;
+		struct timeval lastnetactivity;
 		int timer = 0;
 		Buffer_t printerToNetworkBuffer;
 		initBuffer(&printerToNetworkBuffer, lp, fd, 0);
 		fd_set readfds;
 		fd_set writefds;
+
+		if (timeoutparam > 0)
+			gettimeofday(&lastnetactivity, 0);
 		/* Finish when network sent EOF. */
 		/* Although the printer to network stream may not be finished (does this matter?) */
 		while (!networkToPrinterBuffer.eof_sent && !networkToPrinterBuffer.err) {
@@ -434,6 +439,8 @@ int copy_stream(int fd, int lp)
 				result = readBuffer(&networkToPrinterBuffer);
 				if (result > 0)
 					dolog(LOG_DEBUG,"read %d bytes from network\n",result);
+				if (timeoutparam > 0)
+					gettimeofday(&lastnetactivity, 0);
 			}
 			if (FD_ISSET(lp, &readfds)) {
 				/* Read printer data, but pace it more slowly. */
@@ -465,12 +472,21 @@ int copy_stream(int fd, int lp)
 					printerToNetworkBuffer.err = 0;
 					result = 0;
 					dolog(LOG_DEBUG,"network write error, discarding further printer data\n",result);
+					if (timeoutparam > 0)
+						gettimeofday(&lastnetactivity, 0);
 				}
 				else if (result > 0) {
 					if (printerToNetworkBuffer.outfd == -1)
 						dolog(LOG_DEBUG,"discarded %d bytes from printer\n",result);				
 					else
 						dolog(LOG_DEBUG,"wrote %d bytes to network\n",result);
+				}
+			}
+			if (timeoutparam > 0) {
+				gettimeofday(&now, 0);
+				if ((now.tv_sec - lastnetactivity.tv_sec) >= timeoutparam) {
+					networkToPrinterBuffer.eof_sent = 1;
+					printerToNetworkBuffer.err = 1;
 				}
 			}
 		}
@@ -687,7 +703,7 @@ int main(int argc, char *argv[])
 			progname = p + 1;
 	}
 	lpnumber = '0';
-	while ((c = getopt(argc, argv, "bdi:f:v")) != EOF) {
+	while ((c = getopt(argc, argv, "bdi:f:vt:")) != EOF) {
 		switch (c) {
 		case 'b':
 			bidir = 1;
@@ -703,6 +719,12 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			show_version();
+			break;
+		case 't':
+			if ((sscanf(optarg, "%d", &timeoutparam) != 1) || (timeoutparam <= 0)) {
+				fprintf(stderr, "invalid timeout value\n");
+				usage();
+			}
 			break;
 		default:
 			usage();
