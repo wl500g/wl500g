@@ -1,0 +1,107 @@
+--- p910nd-0.93/p910nd.c	2009-08-27 23:00:08.902285863 +0300
++++ p910nd-0.93_2/p910nd.c	2009-08-27 22:59:38.294869000 +0300
+@@ -140,11 +140,12 @@
+ static char *device = 0;
+ static int bidir = 0;
+ static char *bindaddr = 0;
++static int timeoutparam = -1;
+ 
+ void usage(void)
+ {
+ 	fprintf(stderr, "%s %s %s\n", progname, version, copyright);
+-	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-bv] [0|1|2]\n", progname);
++	fprintf(stderr, "Usage: %s [-f device] [-i bindaddr] [-t timeout] [-bv] [0|1|2]\n", progname);
+ 	exit(1);
+ }
+ 
+@@ -313,6 +314,8 @@
+ 		struct timeval now;
+ 		struct timeval then;
+ 		struct timeval timeout;
++		struct timeval lastnetactivity;
++		struct timeval *tv;
+ 		int timer = 0;
+ 		Buffer_t printerToNetworkBuffer;
+ 		initBuffer(&printerToNetworkBuffer, lp, fd, 0);
+@@ -323,10 +326,13 @@
+ 		FD_ZERO(&writefds);
+ 		FD_SET(lp, &readfds);
+ 		FD_SET(fd, &readfds);
++		if (timeoutparam > 0)
++			gettimeofday(&lastnetactivity, 0);
+ 		/* Finish when no longer reading fd, and no longer writing to lp. */
+ 		/* Although the printer to network stream may not be finished, that does not matter. */
+ 		while ((FD_ISSET(fd, &readfds)) || (FD_ISSET(lp, &writefds))) {
+ 			int maxfd = lp > fd ? lp : fd;
++			tv = NULL;
+ 			if (timer) {
+ 				/* Delay after reading from the printer, so the */
+ 				/* return stream cannot dominate. */
+@@ -342,18 +348,22 @@
+ 						timeout.tv_sec--;
+ 					}
+ 					FD_CLR(lp, &readfds);
++					tv = &timeout;
+ 				}
+ 			}
+-			if (timer) {
+-				result = select(maxfd + 1, &readfds, &writefds, 0, &timeout);
+-			} else {
+-				result = select(maxfd + 1, &readfds, &writefds, 0, 0);
++			if (tv == NULL && timeoutparam > 0) {
++				timeout.tv_sec = timeoutparam;
++				timeout.tv_usec = 0;
++				tv =  &timeout;
+ 			}
++			result = select(maxfd + 1, &readfds, &writefds, 0, tv);
+ 			if (result < 0)
+ 				return (result);
+ 			if (FD_ISSET(fd, &readfds)) {
+ 				/* Read network data. */
+ 				result = readBuffer(&networkToPrinterBuffer);
++				if (timeoutparam > 0)
++					gettimeofday(&lastnetactivity, 0);
+ 			}
+ 			if (FD_ISSET(lp, &readfds)) {
+ 				/* Read printer data, but pace it more slowly. */
+@@ -379,7 +389,18 @@
+ 				/* If socket write error, stop reading from printer */
+ 				if (result < 0)
+ 					networkToPrinterBuffer.eof = 1;
++				if (timeoutparam > 0)
++					gettimeofday(&lastnetactivity, 0);
+ 			}
++
++			if (timeoutparam > 0) {
++				gettimeofday(&now, 0);
++				if ((now.tv_sec - lastnetactivity.tv_sec) >= timeoutparam) {
++					networkToPrinterBuffer.eof = 1;
++					printerToNetworkBuffer.err = 1;
++				}
++			}
++
+ 			/* Prepare for next iteration. */
+ 			FD_ZERO(&readfds);
+ 			FD_ZERO(&writefds);
+@@ -571,7 +592,7 @@
+ 			progname = p + 1;
+ 	}
+ 	lpnumber = '0';
+-	while ((c = getopt(argc, argv, "bi:f:v")) != EOF) {
++	while ((c = getopt(argc, argv, "bi:f:vt:")) != EOF) {
+ 		switch (c) {
+ 		case 'b':
+ 			bidir = 1;
+@@ -585,6 +606,12 @@
+ 		case 'v':
+ 			show_version();
+ 			break;
++		case 't':
++			if ((sscanf(optarg, "%d", &timeoutparam) != 1) || (timeoutparam <= 0)) {
++				fprintf(stderr, "invalid timeout value\n");
++				usage();
++			}
++			break;
+ 		default:
+ 			usage();
+ 			break;
