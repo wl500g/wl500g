@@ -1,0 +1,160 @@
+From 3d13008e7345fa7a79d8f6438150dc15d6ba6e9d
+From: Eric Dumazet
+Date: Tue, 21 Sep 2010 08:47:45 +0000
+Subject: [PATCH] ip: fix truesize mismatch in ip fragmentation
+
+Special care should be taken when slow path is hit in ip_fragment() :
+
+When walking through frags, we transfert truesize ownership from skb to
+frags. Then if we hit a slow_path condition, we must undo this or risk
+uncharging frags->truesize twice, and in the end, having negative socket
+sk_wmem_alloc counter, or even freeing socket sooner than expected.
+
+Many thanks to Nick Bowler, who provided a very clean bug report and
+test program.
+
+Thanks to Jarek for reviewing my first patch and providing a V2
+
+While Nick bisection pointed to commit 2b85a34e911 (net: No more
+expensive sock_hold()/sock_put() on each tx), underlying bug is older
+(2.6.12-rc5)
+
+A side effect is to extend work done in commit b2722b1c3a893e
+(ip_fragment: also adjust skb->truesize for packets not owned by a
+socket) to ipv6 as well.
+
+Reported-and-bisected-by: Nick Bowler <nbowler@elliptictech.com>
+Tested-by: Nick Bowler <nbowler@elliptictech.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+CC: Jarek Poplawski <jarkao2@gmail.com>
+CC: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv4/ip_output.c    |   19 +++++++++++++------
+ net/ipv6/ip6_output.c   |   18 +++++++++++++-----
+ 2 files changed, 26 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 0329ff2..1f10229 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -457,9 +457,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 	 * we can switch to copy when see the first bad fragment.
+ 	 */
+ 	if (skb_shinfo(skb)->frag_list) {
+-		struct sk_buff *frag;
++		struct sk_buff *frag, *frag2;
+ 		int first_len = skb_pagelen(skb);
+-		int truesizes = 0;
+ 
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -472,11 +471,11 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 			if (frag->len > mtu ||
+ 			    ((frag->len & 7) && frag->next) ||
+ 			    skb_headroom(frag) < hlen)
+-			    goto slow_path;
++				goto slow_path_clean;
+ 
+ 			/* Partially cloned skb? */
+ 			if (skb_shared(frag))
+-				goto slow_path;
++				goto slow_path_clean;
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+@@ -484,7 +483,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+ 			}
+-			truesizes += frag->truesize;
++			skb->truesize -= frag->truesize;
+ 		}
+ 
+ 		/* Everything is OK. Generate! */
+@@ -494,7 +493,6 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 		frag = skb_shinfo(skb)->frag_list;
+ 		skb_shinfo(skb)->frag_list = NULL;
+ 		skb->data_len = first_len - skb_headlen(skb);
+-		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		iph->tot_len = htons(first_len);
+ 		iph->frag_off = htons(IP_MF);
+@@ -546,6 +544,15 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
+ 		}
+ 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
+ 		return err;
++
++slow_path_clean:
++		for (frag2 = skb_shinfo(skb)->frag_list; frag2; frag2 = frag2->next) {
++			if (frag2 == frag)
++				break;
++			frag2->sk = NULL;
++			frag2->destructor = NULL;
++			skb->truesize += frag2->truesize;
++		}
+ 	}
+ 
+ slow_path:
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 27460aa..dd15606 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -614,7 +614,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 
+ 	if (skb_shinfo(skb)->frag_list) {
+ 		int first_len = skb_pagelen(skb);
+-		int truesizes = 0;
++		struct sk_buff *frag2;
+ 
+ 		if (first_len - hlen > mtu ||
+ 		    ((first_len - hlen) & 7) ||
+@@ -626,19 +626,19 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 			if (frag->len > mtu ||
+ 			    ((frag->len & 7) && frag->next) ||
+ 			    skb_headroom(frag) < hlen)
+-			    goto slow_path;
++				goto slow_path_clean;
+ 
+ 			/* Partially cloned skb? */
+ 			if (skb_shared(frag))
+-				goto slow_path;
++				goto slow_path_clean;
+ 
+ 			BUG_ON(frag->sk);
+ 			if (skb->sk) {
+ 				sock_hold(skb->sk);
+ 				frag->sk = skb->sk;
+ 				frag->destructor = sock_wfree;
+-				truesizes += frag->truesize;
+ 			}
++			skb->truesize -= frag->truesize;
+ 		}
+ 
+ 		err = 0;
+@@ -668,7 +668,6 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 
+ 		first_len = skb_pagelen(skb);
+ 		skb->data_len = first_len - skb_headlen(skb);
+-		skb->truesize -= truesizes;
+ 		skb->len = first_len;
+ 		ipv6_hdr(skb)->payload_len = htons(first_len -
+ 						   sizeof(struct ipv6hdr));
+@@ -728,6 +727,15 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
+ 		IP6_INC_STATS(ip6_dst_idev(&rt->u.dst), IPSTATS_MIB_FRAGFAILS);
+ 		dst_release(&rt->u.dst);
+ 		return err;
++
++slow_path_clean:
++		for (frag2 = skb_shinfo(skb)->frag_list; frag2; frag2 = frag2->next) {
++			if (frag2 == frag)
++				break;
++			frag2->sk = NULL;
++			frag2->destructor = NULL;
++			skb->truesize += frag2->truesize;
++		}
+ 	}
+ 
+ slow_path:
+-- 
