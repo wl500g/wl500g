@@ -408,7 +408,7 @@ ddns_updated_main()
 	
 
 int 
-start_ddns(void)
+start_ddns(int forced)
 {
 	FILE *fp;
 	char *wan_ip, *ddns_cache;
@@ -424,8 +424,9 @@ start_ddns(void)
 
 	if ((wan_ip = nvram_safe_get("wan_ipaddr_t"))==NULL) return -1;
 
-	if (nvram_match("ddns_ipaddr", wan_ip) ||
-	   (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr"))))
+	if (!forced &&
+	    (nvram_match("ddns_ipaddr", wan_ip) ||
+	    (inet_addr(wan_ip) == inet_addr(nvram_safe_get("ddns_ipaddr")))))
 	{
 		logmessage("ddns", "IP address has not changed since the last update");
 		return 0;

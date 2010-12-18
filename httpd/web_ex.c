@@ -224,7 +224,7 @@ void sys_script(char *name)
 	}else if (strcmp(name,"eject-usb.sh")==0){
 		eval("rmstorage");
 	}else if (strcmp(name,"ddnsclient")==0){
-		eval("start_ddns");
+		eval("start_ddns", "1");
 	}else if (strstr(scmd, " ")==0) // no parameter, run script with eval
 	{
 		eval(scmd);
