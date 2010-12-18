@@ -1066,7 +1066,10 @@ main(int argc, char **argv)
 	/* ddns update ok */
 	else if (!strcmp(base, "start_ddns")) 
 	{
-		return start_ddns();
+		int forced = 0;
+		if (argc >= 2)
+			forced = atoi(argv[1]);
+		return start_ddns(forced);
 	}
 	/* send alarm */
 	else if (!strcmp(base, "sendalarm")) {
