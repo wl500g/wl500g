@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -8,12 +9,17 @@
 <body onLoad="load_body()" onunLoad="return unload_body();">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
+<input type="hidden" name="current_page" value="Advanced_WebCam_Content.asp">
+<input type="hidden" name="next_page" value="SaveRestart.asp">
+<input type="hidden" name="next_host" value="">
+<input type="hidden" name="sid_list" value="PrinterStatus;">
+<input type="hidden" name="group_id" value="">
+<input type="hidden" name="modified" value="0">
+<input type="hidden" name="action_mode" value="">
+<input type="hidden" name="first_time" value="">
+<input type="hidden" name="action_script" value="">
+<input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get_x("PrinterStatus","usb_webhttpcheck_x"); %>">
 <!-- Table for the conntent page -->	    
-<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-    	
-<input type="hidden" name="current_page" value="Advanced_WebCam_Content.asp"><input type="hidden" name="next_page" value="SaveRestart.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="PrinterStatus;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="first_time" value=""><input type="hidden" name="action_script" value="">
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">USB Application - Web Camera</td>
@@ -47,7 +53,6 @@
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port that http server listens on to communicate.', LEFT);" onMouseOut="return nd();">HTTP Port:
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
 </tr>
-<input type="hidden" name="usb_webhttpcheck_x" value="<% nvram_get_x("PrinterStatus","usb_webhttpcheck_x"); %>">
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port that server listens on to communicate with ActiveX clients. The ActiveX port CAN NOT be the same with HTTP port.', LEFT);" onMouseOut="return nd();">ActiveX Port:
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webactivex_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webactivex_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"></td>
@@ -133,32 +138,9 @@
            </td><td class="content_input_td"><input type="text" maxlength="21" class="content_input_fd" size="15" name="usb_webremote6_x" value="<% nvram_get_x("PrinterStatus","usb_webremote6_x"); %>" onBlur="return validate_ipaddrport(this, 'usb_webremote6_x')" onKeyPress="return is_ipaddrport(this)" onKeyUp="change_ipaddrport(this)"></td>
 </tr>
 </table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>		
+
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
    <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
@@ -171,11 +153,7 @@
    </td>    
 </tr>
 </table>
-</td>
-</tr>
 
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
@@ -193,9 +171,7 @@
     <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
 </tr>
 </table>
-</td>
-</tr>
 
-</table>
 </form>
 </body>
+</html>

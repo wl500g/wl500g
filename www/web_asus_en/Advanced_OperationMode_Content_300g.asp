@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -9,19 +10,15 @@
 <body bgcolor="#FFFFFF" onLoad="loadMode()">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
 <form method="GET" name="form" action="apply.cgi">
-<!-- Table for the conntent page -->
-<table width="660" border="0" cellpadding="0" cellspacing="0">
 <input type="hidden" name="current_page" value="Advanced_OperationMode_Content.asp">
-<input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
+<input type="hidden" name="next_page" value="SaveRestart.asp">
 <input type="hidden" name="next_host" value="">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="sid_list" value="Layer3Forwarding;IPConnection;">
 <input type="hidden" name="wan_proto" value="<% nvram_get_x("Layer3Forwarding","wan_proto"); %>">
 <input type="hidden" name="wan_route_x" value="<% nvram_get_x("IPConnection","wan_route_x"); %>">
 <input type="hidden" name="wan_nat_x" value="<% nvram_get_x("IPConnection","wan_nat_x"); %>">
-
-<tr>
-<td>
+<!-- Table for the conntent page -->
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">System Setup - Operation Mode</td>
@@ -55,8 +52,7 @@ Explaining with technical terms, gateway mode is , NAT is enabed, WAN connection
   </p>
 </td>
 </tr></table>
-</td>
-</tr>
-</table>
+
 </form>
 </body>
+</html>

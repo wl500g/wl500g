@@ -1,10 +1,7 @@
 <html>
 
 <head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Port Forwarding Widzard</title>
 
 <SCRIPT LANGUAGE="JavaScript">
@@ -165,7 +162,7 @@ function cancel()
 </head>
 
 <body  onLoad="loadWidzard()">
-<form method="POST" name="form" action="--WEBBOT-SELF--" ">  
+<form method="POST" name="form" action="--WEBBOT-SELF--">  
 <!--webbot bot="SaveResults" U-File="fpweb:///_private/form_results.txt"
 S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->  
 <table border="1" width="542">
@@ -184,7 +181,6 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
   </tr>
   <tr>
     <td width="532">
-      <div align="center">
         <center>
         <table border="2" width="98%" height="26" bordercolorlight="#008080" bordercolordark="#008080" bordercolor="#008080">
           <tr>
@@ -248,8 +244,7 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
             <td width="34%" height="20"><input type="button" value="Cancel" name="Cancel" onClick="cancel();"></td>
           </tr>
         </table>
-        </center>
-      </div>           
+        </center>       
      </td>
   </tr>
 </table>

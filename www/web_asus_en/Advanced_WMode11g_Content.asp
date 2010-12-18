@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
@@ -7,22 +8,19 @@
 <body onLoad="load_body()" onunLoad="return unload_body();">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
+<input type="hidden" name="current_page" value="Advanced_WMode11g_Content.asp">
+<input type="hidden" name="next_page" value="Advanced_ACL_Content.asp">
+<input type="hidden" name="next_host" value="">
+<input type="hidden" name="sid_list" value="WLANConfig11a;WLANConfig11b;">
+<input type="hidden" name="group_id" value="">
+<input type="hidden" name="modified" value="0">
+<input type="hidden" name="action_mode" value="">
+<input type="hidden" name="action_script" value="">
 <!-- Table for the conntent page -->	    
-<table width="666" border="0" cellpadding="0" cellspacing="0">     	      
-    	
-<input type="hidden" name="current_page" value="Advanced_WMode11g_Content.asp"><input type="hidden" name="next_page" value="Advanced_ACL_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="WLANConfig11a;WLANConfig11b;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0"><input type="hidden" name="action_mode" value=""><input type="hidden" name="action_script" value="">
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Wireless - Bridge</td>
 </tr>
-</table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Selecting Wireless Bridge disables access point functionality. Only wireless bridge (also known as Wireless Distribution System or WDS) functionality will be available. Selecting Access Point enables access point functionality. Wireless bridge functionality will still be available and wireless stations will be able to associate to the AP.', LEFT);" onMouseOut="return nd();">AP Mode:</td><td class="content_input_td"><select name="WLANConfig11b_x_APMode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'x_APMode')"><option class="content_input_fd" value="0" <% nvram_match_x("WLANConfig11b","x_APMode", "0","selected"); %>>Access Point</option><option class="content_input_fd" value="1" <% nvram_match_x("WLANConfig11b","x_APMode", "1","selected"); %>>Wireless Bridge</option></select></td>
 </tr>
@@ -47,12 +45,9 @@
 <td class="content_header_td">Remote Bridge 4:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr4" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr4"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
 </tr>
 </table>
-</td>
-</tr>
-<tr>
-<td>		
+	
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
    <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
@@ -65,11 +60,7 @@
    </td>    
 </tr>
 </table>
-</td>
-</tr>
 
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
@@ -87,53 +78,7 @@
     <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
 </tr>
 </table>
-</td>
-</tr>
 
-</table>
 </form>
 </body>
-<tr>
-<td>		
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
-<tr bgcolor="#FFFFFF">  
-   <td id ="Confirm" height="25" width="34%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
-   </td>  
-   <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Finish " name="action"></font></div> 
-   </td>
-   <td height="25" width="33%">  
-   <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Apply " name="action"></font></div> 
-   </td>    
-</tr>
-</table>
-</td>
-</tr>
-
-<tr>
-<td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr>
-    <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
-</tr>                   
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Restore: </td>
-    <td class="content_input_td_padding" align="left">Clear the above settings and restore the settings in effect.</td>
-</tr>
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Finish: </td>
-    <td class="content_input_td_padding" align="left">Confirm all settings and restart ZVMODELVZ now.</td>
-</tr>
-<tr bgcolor="#FFFFFF">
-    <td class="content_header_td_15" align="left">Apply: </td>
-    <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
-</tr>
-</table>
-</td>
-</tr>
-
-</table>
-</form>
-</body>
+</html>
