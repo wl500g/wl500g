@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
@@ -8,8 +9,6 @@
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 
 <form method="post" name="form" action="uploadCA.cgi" enctype="multipart/form-data">
-<!-- Table for the conntent page -->
-<table width="666" border="0" cellpadding="0" cellspacing="0">
 <input type="hidden" name="current_page" value="Advanced_WCertificate_Content.asp">
 <input type="hidden" name="next_page" value="SaveRestart.asp">
 <input type="hidden" name="next_host" value="">
@@ -18,9 +17,7 @@
 <input type="hidden" name="modified" value="0">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="action_script" value="">
-
-<tr>
-<td>
+<!-- Table for the conntent page -->
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="LocalCertDB">Certificate Database<input type="hidden" name="WLANAuthentication11a_CertDBNumberOfEntries_0" value="<% nvram_get_x("WLANAuthentication11a", "CertDBNumberOfEntries"); %>" readonly></td><td width="10%">
@@ -61,13 +58,9 @@
 </tr>
 </table>
 </table>
-</td>
-</tr>
 
-<tr>
-<td>		
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
    <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmit()" type="submit" value=" Restore " name="action"></font></div> 
@@ -80,11 +73,7 @@
    </td>    
 </tr>
 </table>
-</td>
-</tr>
 
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
@@ -102,9 +91,7 @@
     <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
 </tr>
 </table>
-</td>
-</tr>
 
-</table>
 </form>
 </body>
+</html>

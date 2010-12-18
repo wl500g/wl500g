@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
@@ -7,38 +8,26 @@
 <body onLoad="load_body()" onunLoad="return unload_body();">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="GET" name="form" action="apply.cgi">
-<!-- Table for the conntent page -->	    
-<table width="666" border="0" cellpadding="1" cellspacing="0">     	      
-    	
-<input type="hidden" name="current_page" value="Advanced_PortMapping_Content.asp"><input type="hidden" name="next_page" value="Advanced_VirtualServer_Content.asp"><input type="hidden" name="next_host" value=""><input type="hidden" name="sid_list" value="IPConnection;"><input type="hidden" name="group_id" value=""><input type="hidden" name="modified" value="0">
+<input type="hidden" name="current_page" value="Advanced_PortMapping_Content.asp">
+<input type="hidden" name="next_page" value="Advanced_VirtualServer_Content.asp">
+<input type="hidden" name="next_host" value="">
+<input type="hidden" name="sid_list" value="IPConnection;">
+<input type="hidden" name="group_id" value="">
+<input type="hidden" name="modified" value="0">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="action_script" value="">
-<tr>
-<td>
+<!-- Table for the conntent page -->	    
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">NAT Setting - Port Mapping</td>
 </tr>
 <tr>
 <td class="content_desc_td" colspan="2">
-Port Mappping function allows you to redirect certain incoming TCP and UDP ports to specific computer dynamically. These Port Mapping rules will be set or unset immediately each time you press Set(or Unset) button after description of the rule. But, if you like to save these settings permanently, please press Finish button to Save&Restart ZVMODELVZ after you have set your rules. 
+Port Mappping function allows you to redirect certain incoming TCP and UDP ports to specific computer dynamically. These Port Mapping rules will be set or unset immediately each time you press Set(or Unset) button after description of the rule. But, if you like to save these settings permanently, please press Finish button to Save&amp;Restart ZVMODELVZ after you have set your rules. 
 </td>
 </tr>
 </table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-<tr>
-<td>
+
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_list_header_tr">
 <td class="content_list_header_td" width="60%" id="TriggerList">Mapped Port List<input type="hidden" name="IPConnection_TriggerCount_0" value="<% nvram_get_x("IPConnection", "TriggerCount"); %>" readonly></td>
@@ -84,12 +73,9 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 </tr>
 </table>
 </table>
-</td>
-</tr>
-<tr>
-<td>		
+		
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 <tr bgcolor="#FFFFFF">  
    <td id ="Confirm" height="25" width="34%">  
    <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Restore ')" type="submit" value=" Restore " name="action"></font></div> 
@@ -102,11 +88,7 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
    </td>    
 </tr>
 </table>
-</td>
-</tr>
 
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 <tr>
     <td colspan="2" width="616" height="25" bgcolor="#FFBB00"></td> 
@@ -124,9 +106,7 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
     <td class="content_input_td_padding" align="left">Confirm above settings and continue.</td>
 </tr>
 </table>
-</td>
-</tr>
 
-</table>
 </form>
 </body>
+</html>
