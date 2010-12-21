@@ -42,13 +42,13 @@ diff -urBp a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
  		old_ht = fz->fz_hash;
  		fz->fz_hash = ht;
 @@ -218,7 +216,6 @@ fn_new_zone(struct fn_hash *table, int z
- 		kfree(fz);
+ 	if (!fz)
  		return NULL;
- 	}
--	memset(fz->fz_hash, 0, fz->fz_divisor * sizeof(struct hlist_head *));
- 	fz->fz_order = z;
- 	fz->fz_mask = inet_make_mask(z);
  
+-	memset(fz->fz_hash, 0, fz->fz_divisor * sizeof(struct hlist_head *));
+ 	fz->fz_divisor = z ? EMBEDDED_HASH_SIZE : 1;
+ 	fz->fz_hashmask = fz->fz_divisor - 1;
+ 	fz->fz_hash = fz->fz_embedded_hash;
 diff -urBp a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
 --- a/net/ipv4/fib_semantics.c
 +++ b/net/ipv4/fib_semantics.c
