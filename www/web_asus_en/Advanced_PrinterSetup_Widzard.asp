@@ -1,10 +1,7 @@
 <html>
 
 <head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta http-equiv="Content-Type" content="text/html">
-<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title>Printer Setup Tips</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
 
@@ -65,7 +62,7 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
         finish printer driver setting.</li> 
     </ol> 
     <p align="right" style="margin-right:20"><input type="button" onClick="onClose()" value="Close" name="Close1">    
-        <p>  </p>
+        <p></p>
     </td>
   </tr>
 </table>

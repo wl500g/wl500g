@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <link rel="stylesheet" type="text/css" href="style.css" media="screen">
@@ -8,26 +9,17 @@
 <body bgcolor="#FFFFFF">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="post" action="upgrade.cgi" enctype="multipart/form-data">
+<input type="hidden" name="current_page" value="Advanced_PrinterSetup_Content.asp">
+<input type="hidden" name="next_page" value="SaveRestart.asp">
 <!-- Table for the conntent page -->	    
-<table width="660" border="0" cellpadding="1" cellspacing="0">     	      
-    	
-<tr>
-<td>
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td colspan="2"> System Setup - Printer Setup</td>
-<input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
-<input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
 </tr>
 <tr class="content_section_header_tr">
 <td id="Mode" colspan="2" width="614"> Follow instructions listed below:</td>
 </tr>
 
-<tr>
-<td class="content_input_td" colspan="2" width="614">
-                ¡@
-</td>
-</tr>
 <tr>
 		<td class="content_header_td" width="30">Printer Model:</td><td class="content_input_td" width="595"><input type="text" value="<% nvram_get_f("general.log","ProductID"); %>" readonly></td>
 </tr>
@@ -50,15 +42,12 @@
               		<li>
               <p style="margin-top: 7"><font size="2">If you have installed ASUS 
               WLAN Homegateway Utilities, then execute 'Printer Setup Widzard' 
-              to complete your&nbsp; printer setting.</font>
+              to complete your printer setting.</font>
               </li>
               	</ol>
 </td>
 </tr>
 </table>
-</td>
-</tr>
-
-</table>
 </form>
 </body>
+</html>

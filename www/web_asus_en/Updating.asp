@@ -4,7 +4,6 @@
 <title>ASUS ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta http-equiv="Content-Type" content="text/html">
-<meta http-equiv="Pragma" content="no-cache">
 
 <script language="javascript">
 function redirect() {
@@ -14,12 +13,7 @@ function redirect1() {
  top.location="index.asp"
 }
 </script>
-
-<style type="text/css">
-<!--
-.wounderline {  font-family: "Arial", "Helvetica", "sans-serif"; text-decoration: none; color: #FFFFFF; font-size: 9pt}
--->
-</style>
+<link rel="stylesheet" type="text/css" href="style.css" media="screen">
 
 </head>
 <body bgcolor="#FFFFFF" onLoad="redirect()">
