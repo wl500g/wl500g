@@ -1,0 +1,100 @@
+From 97475f8b42e83be2966aa2d70ab9c98477701c53
+From: Maciej W. Rozycki
+Date: Sun, 10 Oct 2010 10:42:12 +0100
+Subject: [PATCH] MIPS: LD/SD o32 macro GAS fix update
+
+I am about to commit:
+
+http://sourceware.org/ml/binutils/2010-10/msg00033.html
+
+that fixes a problem with the LD/SD macro currently implemented by GAS for
+the o32 ABI in an inconsistent way.  This is best illustrated with a
+simple program, which I'm copying here from the message above for easier
+reference:
+
+$ cat ld.s
+	ld	$5,32767($4)
+	ld	$5,32768($4)
+
+This gets assebled into the following output:
+
+$ mips-linux-as -32 -mips3 -o ld.o ld.s
+$ mips-linux-objdump -d ld.o
+
+ld.o:     file format elf32-tradbigmips
+
+Disassembly of section .text:
+
+00000000 <.text>:
+   0:	dc857fff 	ld	a1,32767(a0)
+   4:	3c010001 	lui	at,0x1
+   8:	00810821 	addu	at,a0,at
+   c:	8c258000 	lw	a1,-32768(at)
+  10:	8c268004 	lw	a2,-32764(at)
+	...
+
+Oops!
+
+ The GAS fix makes the macro behave in a consistent way and pairs of LW/SW
+instructions to be output as appropriate regardless of the size of the
+offset associated with the address used.  The machine instruction is still
+available, but to reach it macros have to be disabled first.  This has a
+side effect of requiring the use of a machine-addressable memory operand.
+
+ As some platforms require 64-bit operations for accesses to some I/O
+registers LD/SD instructions are used in a couple of places in Linux
+regardless of the ABI selected.  Here's a fix for some pieces of code
+affected I've been able to track down.  The fix should be backwards
+compatible with all supported binutils releases in existence and can be
+used as a reference for any other places or off-tree code.  The use of the
+"R" constraint guarantees a machine-addressable operand.
+
+Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
+Cc: linux-mips@linux-mips.org
+Patchwork: https://patchwork.linux-mips.org/patch/1680/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+
+ include/asm-mips/io.h |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/include/asm-mips/io.h b/include/asm-mips/io.h
+index c98bf51..5b017f2 100644
+--- a/include/asm-mips/io.h
++++ b/include/asm-mips/io.h
+@@ -329,10 +329,14 @@ static inline void pfx##write##bwlq(type val,				\
+ 			"dsrl32	%L0, %L0, 0"			"\n\t"	\
+ 			"dsll32	%M0, %M0, 0"			"\n\t"	\
+ 			"or	%L0, %L0, %M0"			"\n\t"	\
++			".set	push"				"\n\t"	\
++			".set	noreorder"			"\n\t"	\
++			".set	nomacro"			"\n\t"	\
+ 			"sd	%L0, %2"			"\n\t"	\
++			".set	pop"				"\n\t"	\
+ 			".set	mips0"				"\n"	\
+ 			: "=r" (__tmp)					\
+-			: "0" (__val), "m" (*__mem));			\
++			: "0" (__val), "R" (*__mem));			\
+ 		if (irq)						\
+ 			local_irq_restore(__flags);			\
+ 	} else								\
+@@ -355,12 +359,16 @@ static inline type pfx##read##bwlq(const volatile void __iomem *mem)	\
+ 			local_irq_save(__flags);			\
+ 		__asm__ __volatile__(					\
+ 			".set	mips3"		"\t\t# __readq"	"\n\t"	\
++			".set	push"				"\n\t"	\
++			".set	noreorder"			"\n\t"	\
++			".set	nomacro"			"\n\t"	\
+ 			"ld	%L0, %1"			"\n\t"	\
++			".set	pop"				"\n\t"	\
+ 			"dsra32	%M0, %L0, 0"			"\n\t"	\
+ 			"sll	%L0, %L0, 0"			"\n\t"	\
+ 			".set	mips0"				"\n"	\
+ 			: "=r" (__val)					\
+-			: "m" (*__mem));				\
++			: "R" (*__mem));				\
+ 		if (irq)						\
+ 			local_irq_restore(__flags);			\
+ 	} else {							\
+-- 
+1.7.2.3
