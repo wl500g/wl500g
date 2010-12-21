@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -18,9 +19,6 @@
 <input type="hidden" name="first_time" value="">
 <input type="hidden" name="action_script" value="">
 <!-- Table for the conntent page -->
-<table width="666" border="0" cellpadding="0" cellspacing="0">
-<tr>
-<td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_header_tr">
 <td class="content_header_td_title" colspan="2">Status &amp; Log - WiMAX</td>
@@ -30,11 +28,6 @@
 <% nvram_dump("madwimax.log","madwimax.sh"); %>              
             </textarea></td>
 </tr>
-</table>
-</td>
-</tr>
-<tr><td>
-<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr class="content_section_header_tr">
 <td class="content_section_header_td" colspan="2">WiMAX Interface</td>
 </tr>
@@ -62,37 +55,19 @@
 <td class="content_header_td_less">Ping time (min/avr/max):
            </td><td class="content_input_td"><input type="text" size="36" class="content_input_fd_ro" name="wan_wimax_ping_t" value="<% nvram_get_f("wan.log","wan_wimax_ping_t"); %>" readonly></td>
 </tr>
-</table></td></tr>
-
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-
-<tr>
-<td>
-<table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0"></table>
-</td>
-</tr>
-
-<tr>
-<td>		
+</table>
+	
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2">&nbsp;</font></td></tr>
 <tr bgcolor="#FFFFFF">  
-   <td height="25" width="34%">  
+   <td height="25" width="67%">  
    </td>
-   <td height="25" width="33%">  
-   </td>
-   <td height="25" width="33%">  
+   <td height="25">  
    <div align="center"><font face="Arial"> <input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="onSubmitCtrl(this, ' Refresh ')" type="submit" value="Refresh" name="action"></font></div> 
    </td>
 </tr>
 </table>
-</td>
-</tr>
 
-</table>
 </form>
 </body>
+</html>

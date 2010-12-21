@@ -1389,7 +1389,7 @@ wan_up(char *wan_ifname)
 #ifdef ASUS_EXT
 	update_wan_status(1);
 	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
-	start_ddns();
+	start_ddns(0);
 	stop_upnp();
 	start_upnp();		
 	if (strcmp(wan_proto, "bigpond")==0) {

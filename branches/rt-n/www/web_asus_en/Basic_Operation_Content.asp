@@ -1,3 +1,4 @@
+<html>
 <head>
 <title>ZVMODELVZ Web Manager</title>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -9,8 +10,6 @@
 <body bgcolor="#FFFFFF" onLoad="loadQuick()">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>
 <form method="GET" name="form" action="apply.cgi">
-<!-- Table for the conntent page -->
-<table width="666" border="0" cellpadding="0" cellspacing="0">
 <input type="hidden" name="x_Mode" value="0">
 <input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
 <input type="hidden" name="next_page" value="Basic_HomeGateway_SaveRestart.asp">
@@ -29,6 +28,8 @@
 <input type="hidden" name="WLANConfig11a_WEPKey3" value="<% nvram_get_x("WLANConfig11a","WEPKey3"); %>">
 <input type="hidden" name="WLANConfig11a_WEPKey4" value="<% nvram_get_x("WLANConfig11a","WEPKey4"); %>">
 <input type="hidden" name="WLANConfig11a_WEPDefaultKey" value="<% nvram_get_x("WLANConfig11a","WEPDefaultKey"); %>">
+<!-- Table for the conntent page -->
+<table width="666" border="0" cellpadding="0" cellspacing="0">
 <tr>
 <td>
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
@@ -186,19 +187,19 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_header_td_less" onMouseOver="return overlib('Enable WEP to encrypt data which can avoid disclosure to eavesdroppers');" onMouseOut="return nd();">WEP:</td><td class="content_input_td"><select name="WLANConfig11b_WEPType" onChange="return change_wlweptype(this, 'WLANConfig11b')"><option value="None" <% nvram_match_x("WLANConfig11b","WEPType", "None","selected"); %>>None</option><option value="64bits" <% nvram_match_x("WLANConfig11b","WEPType", "64bits","selected"); %>>64bits</option><option value="128bits" <% nvram_match_x("WLANConfig11b","WEPType", "128bits","selected"); %>>128bits</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="phrase.js"></script><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get_x("WLANConfig11b","x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
+<td class="content_header_td_less" onMouseOver="return overlib('Give a magic word to generate the WEP keys automatically or leave this field blank and type in the keys manually.');" onMouseOut="return nd();">Phrase:</td><td class="content_input_td"><script type="text/javascript" src="md5.js"></script><input type="password" maxlength="64" size="32" name="WLANConfig11b_x_Phrase" value="<% nvram_get_x("WLANConfig11b","x_Phrase"); %>" onKeyUp="return is_wlphrase('WLANConfig11b',this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get_x("WLANConfig11b","WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
+<td class="content_header_td_less">WEP Key 1 (10 or 26 hex digits):</td><td class="content_input_td"><input type="password" maxlength="32" size="32" name="WLANConfig11b_WEPKey1" value="<% nvram_get_x("WLANConfig11b","WEPKey1"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get_x("WLANConfig11b","WEPKey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
+<td class="content_header_td_less">WEP Key 2 (10 or 26 hex digits):</td><td class="content_input_td"><input type="password" maxlength="32" size="32" name="WLANConfig11b_WEPKey2" value="<% nvram_get_x("WLANConfig11b","WEPKey2"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get_x("WLANConfig11b","WEPKey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
+<td class="content_header_td_less">WEP Key 3 (10 or 26 hex digits):</td><td class="content_input_td"><input type="password" maxlength="32" size="32" name="WLANConfig11b_WEPKey3" value="<% nvram_get_x("WLANConfig11b","WEPKey3"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
 </tr>
 <tr>
-<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="pssword" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get_x("WLANConfig11b","WEPKey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
+<td class="content_header_td_less">WEP Key 4 (10 or 26 hex digits):</td><td class="content_input_td"><input type="password" maxlength="32" size="32" name="WLANConfig11b_WEPKey4" value="<% nvram_get_x("WLANConfig11b","WEPKey4"); %>" onBlur="return validate_wlkey(this, 'WLANConfig11b')" onKeyPress="return is_wlkey('WLANConfig11b', this)"></td>
 </tr>
 <tr>
 <td class="content_header_td_less">Default Key:</td><td class="content_input_td"><select name="WLANConfig11b_WEPDefaultKey" onChange="return change_common(this, 'WLANConfig11b', 'WEPDefaultKey')"><option value="Key1" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key1","selected"); %>>Key1</option><option value="Key2" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key2","selected"); %>>Key2</option><option value="Key3" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key3","selected"); %>>Key3</option><option value="Key4" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key4","selected"); %>>Key4</option><option value="Key Rotation" <% nvram_match_x("WLANConfig11b","WEPDefaultKey", "Key Rotation","selected"); %>>Key Rotation</option></select></td>
@@ -210,13 +211,11 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <tr>
 <td>		
 <table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
-<tr bgcolor="#CCCCCC"><td colspan="3"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
+<tr bgcolor="#CCCCCC"><td colspan="2"><font face="arial" size="2"><b>&nbsp;</b></font></td></tr>
 <tr bgcolor="#FFFFFF">  
-   <td height="25" width="34%">  
+   <td height="25" width="65%">  
    </td>
-   <td height="25" width="33%">  
-   </td>
-   <td height="25" width="33%">  
+   <td height="25">  
    <div align="center">
    <font face="Arial"><input onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" onClick="toPrevTag('Wireless')" type="button" value="  Prev  " name="action"></font>&nbsp;&nbsp;&nbsp;&nbsp;
    <font face="Arial"><input class=inputSubmit onMouseOut="buttonOut(this)" onMouseOver="buttonOver(this)" type="submit" value=" Finish " name="action"  onClick="saveQuick(this)"></font></div>
@@ -238,4 +237,5 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <tr><td colspan="2" height="240"></td></tr>
 </table>
 </form>
-
+</body>
+</html>
