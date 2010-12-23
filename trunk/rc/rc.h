@@ -192,7 +192,7 @@ int usb_modem_check(char * prefix);
 int hotplug_check_modem(char *interface, char *product, char *prefix);
 #endif
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 void hotplug_network_device(char *interface, char *action, char *product);
 void hotplug_usb_modeswitch(char *interface, char *action, char *product);
 #endif
