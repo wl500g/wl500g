@@ -1,0 +1,125 @@
+proc: fix proc_dir_entry refcounting
+
+ 5a622f2d0f86b316b07b55a4866ecb5518dd1cf7 proc: fix proc_dir_entry refcounting
+ 8cc2bfd87fdd2f4a31f39c86f59df4b4be2c0adc PCI: kernel oops on access to pci proc file while hot-removal
+---
+
+ drivers/pci/proc.c      |    2 --
+ fs/proc/generic.c       |    9 ++-------
+ fs/proc/inode.c         |    9 ++-------
+ fs/proc/root.c          |    1 +
+ fs/reiserfs/procfs.c    |    6 ------
+ include/linux/proc_fs.h |    1 -
+ 6 files changed, 5 insertions(+), 23 deletions(-)
+
+diff --git a/drivers/pci/proc.c b/drivers/pci/proc.c
+index 449e890..68316b5 100644
+--- a/drivers/pci/proc.c
++++ b/drivers/pci/proc.c
+@@ -431,8 +431,6 @@ int pci_proc_detach_device(struct pci_dev *dev)
+ 	struct proc_dir_entry *e;
+ 
+ 	if ((e = dev->procent)) {
+-		if (atomic_read(&e->count))
+-			return -EBUSY;
+ 		remove_proc_entry(e->name, dev->bus->procdir);
+ 		dev->procent = NULL;
+ 	}
+diff --git a/fs/proc/generic.c b/fs/proc/generic.c
+index 5fccfe2..8d49838 100644
+--- a/fs/proc/generic.c
++++ b/fs/proc/generic.c
+@@ -595,6 +595,7 @@ static struct proc_dir_entry *proc_create(struct proc_dir_entry **parent,
+ 	ent->namelen = len;
+ 	ent->mode = mode;
+ 	ent->nlink = nlink;
++	atomic_set(&ent->count, 1);
+  out:
+ 	return ent;
+ }
+@@ -692,7 +693,6 @@ void free_proc_entry(struct proc_dir_entry *de)
+ 
+ /*
+  * Remove a /proc entry and free it if it's not currently in use.
+- * If it is in use, we set the 'deleted' flag.
+  */
+ void remove_proc_entry(const char *name, struct proc_dir_entry *parent)
+ {
+@@ -741,13 +741,8 @@ continue_removing:
+ 			parent->nlink--;
+ 		de->nlink = 0;
+ 		WARN_ON(de->subdir);
+-		if (!atomic_read(&de->count))
++		if (atomic_dec_and_test(&de->count))
+ 			free_proc_entry(de);
+-		else {
+-			de->deleted = 1;
+-			printk("remove_proc_entry: %s/%s busy, count=%d\n",
+-				parent->name, de->name, atomic_read(&de->count));
+-		}
+ 		break;
+ 	}
+ 	spin_unlock(&proc_subdir_lock);
+diff --git a/fs/proc/inode.c b/fs/proc/inode.c
+index abe6a3f..1a551d9 100644
+--- a/fs/proc/inode.c
++++ b/fs/proc/inode.c
+@@ -43,13 +43,8 @@ void de_put(struct proc_dir_entry *de)
+ 			return;
+ 		}
+ 
+-		if (atomic_dec_and_test(&de->count)) {
+-			if (de->deleted) {
+-				printk("de_put: deferred delete of %s\n",
+-					de->name);
+-				free_proc_entry(de);
+-			}
+-		}		
++		if (atomic_dec_and_test(&de->count))
++			free_proc_entry(de);
+ 		unlock_kernel();
+ 	}
+ }
+diff --git a/fs/proc/root.c b/fs/proc/root.c
+index ec9cb3b..81f99e6 100644
+--- a/fs/proc/root.c
++++ b/fs/proc/root.c
+@@ -207,6 +207,7 @@ struct proc_dir_entry proc_root = {
+ 	.name		= "/proc",
+ 	.mode		= S_IFDIR | S_IRUGO | S_IXUGO, 
+ 	.nlink		= 2, 
++	.count		= ATOMIC_INIT(1),
+ 	.proc_iops	= &proc_root_inode_operations, 
+ 	.proc_fops	= &proc_root_operations,
+ 	.parent		= &proc_root,
+diff --git a/fs/reiserfs/procfs.c b/fs/reiserfs/procfs.c
+index 9aa7a06..0011446 100644
+--- a/fs/reiserfs/procfs.c
++++ b/fs/reiserfs/procfs.c
+@@ -420,12 +420,6 @@ static void *r_start(struct seq_file *m, loff_t * pos)
+ 		return NULL;
+ 
+ 	up_write(&s->s_umount);
+-
+-	if (de->deleted) {
+-		deactivate_super(s);
+-		return NULL;
+-	}
+-
+ 	return s;
+ }
+ 
+diff --git a/include/linux/proc_fs.h b/include/linux/proc_fs.h
+index 523528d..a531682 100644
+--- a/include/linux/proc_fs.h
++++ b/include/linux/proc_fs.h
+@@ -77,7 +77,6 @@ struct proc_dir_entry {
+ 	read_proc_t *read_proc;
+ 	write_proc_t *write_proc;
+ 	atomic_t count;		/* use count */
+-	int deleted;		/* delete flag */
+ 	void *set;
+ };
+ 
+-- 
+1.7.3.4
