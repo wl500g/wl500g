@@ -2000,7 +2000,7 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 	return 1;
 }
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM)
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 void hotplug_network_device( char * interface, char * action, char * product )
 {
 	char *wan_ifname;
