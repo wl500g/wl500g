@@ -7,13 +7,12 @@ Details:
 This patch allow to compile usb_modeswitch with libusb-1.0 if LIBUSB10 is defined.
 And libusb0.1 or libusb-compat if LIBUSB10 is absent.
 
-
-diff -uBp usb-modeswitch.orig/Makefile usb_modeswitch/Makefile
---- usb-modeswitch.orig/Makefile	2010-08-17 21:15:53.000000000 +0400
-+++ usb_modeswitch/Makefile	2010-08-26 20:53:29.000000000 +0400
+diff -BurpN usb-modeswitch-1.1.6/Makefile usb-modeswitch/Makefile
+--- usb-modeswitch-1.1.6/Makefile	2010-12-22 18:33:20.000000000 +0000
++++ usb-modeswitch/Makefile	2010-12-23 18:37:40.346460002 +0000
 @@ -1,8 +1,8 @@
  PROG        = usb_modeswitch
- VERS        = 1.1.4
+ VERS        = 1.1.6
  CC          = gcc
 -CFLAGS      += -Wall
 -LIBS        = -l usb
@@ -22,9 +21,9 @@ diff -uBp usb-modeswitch.orig/Makefile usb_modeswitch/Makefile
  RM          = /bin/rm -f
  OBJS        = usb_modeswitch.c
  PREFIX      = $(DESTDIR)/usr
-diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
---- usb-modeswitch.orig/usb_modeswitch.c	2010-11-29 02:03:32.000000000 +0300
-+++ usb_modeswitch/usb_modeswitch.c	2010-12-01 16:13:05.000000000 +0300
+diff -BurpN usb-modeswitch-1.1.6/usb_modeswitch.c usb-modeswitch/usb_modeswitch.c
+--- usb-modeswitch-1.1.6/usb_modeswitch.c	2010-12-22 22:51:24.000000000 +0000
++++ usb-modeswitch/usb_modeswitch.c	2010-12-23 18:51:13.566460002 +0000
 @@ -53,7 +53,130 @@
  #include <getopt.h>
  #include <syslog.h>
@@ -169,7 +168,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  		devh = usb_open(dev);
  	} else {
 @@ -405,8 +528,18 @@ int main(int argc, char **argv)
- 	currentConfig = get_current_configuration();
+ 	currentConfig = get_current_configuration(devh);
  
  	/* Get class of default device/interface */
 +#ifndef LIBUSB10
@@ -187,7 +186,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	if (interfaceClass == -1) {
  		fprintf(stderr, "Error: getting the interface class failed. Aborting.\n\n");
  		exit(1);
-@@ -594,8 +727,21 @@ void deviceDescription ()
+@@ -605,8 +738,21 @@ void deviceDescription ()
  	memset (iproduct, ' ', DESCR_MAX);
  	memset (iserial, ' ', DESCR_MAX);
  
@@ -211,7 +210,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"manufacturer\"\n");
  	} else
-@@ -604,8 +750,8 @@ void deviceDescription ()
+@@ -615,8 +761,8 @@ void deviceDescription ()
  	if (c)
  		memset((void*)c, '\0', 1);
  
@@ -222,7 +221,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"product\"\n");
  	} else
-@@ -614,8 +760,8 @@ void deviceDescription ()
+@@ -625,8 +771,8 @@ void deviceDescription ()
  	if (c)
  		memset((void*)c, '\0', 1);
  
@@ -233,7 +232,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  		if (ret < 0)
  			fprintf(stderr, "Error: could not get description string \"serial number\"\n");
  	} else
-@@ -838,7 +984,11 @@ int switchAltSetting ()
+@@ -834,7 +980,11 @@ int switchAltSetting ()
  
  	SHOW_PROGRESS("Changing to alt setting %i ...\n", AltSetting);
  	ret = usb_claim_interface(devh, Interface);
@@ -245,7 +244,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	usb_release_interface(devh, Interface);
  	if (ret != 0) {
  		SHOW_PROGRESS(" Changing to alt setting returned error %d. Trying to continue\n", ret);
-@@ -855,7 +1005,7 @@ void switchHuaweiMode ()
+@@ -851,7 +1001,7 @@ void switchHuaweiMode ()
  	int ret;
  
  	SHOW_PROGRESS("Sending Huawei control message ...\n");
@@ -254,7 +253,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	if (ret != 0) {
  		fprintf(stderr, "Error: sending Huawei control message failed (error %d). Aborting.\n\n", ret);
  		exit(1);
-@@ -1103,7 +1253,7 @@ int checkSuccess()
+@@ -1099,7 +1249,7 @@ int checkSuccess()
  				devh = 0;
  				if (verbose) {
  					printf("\nFound target device %03d on bus %03d\n", \
@@ -263,9 +262,9 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  					printf("\nTarget device description data\n");
  					printf("-------------------------\n");
  					printf("Manufacturer: %s\n", imanufact);
-@@ -1203,8 +1353,10 @@ void release_usb_device(int dummy) {
+@@ -1199,8 +1349,10 @@ void release_usb_device(int dummy) {
  */
- struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int mode)
+ struct usb_device* search_devices( int *numFound, int vendor, int product, char* productList, int targetClass, int configuration, int mode)
  {
 +#ifndef LIBUSB10
  	struct usb_bus *bus;
@@ -274,8 +273,8 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
 +	char *listcopy=NULL, *token, buffer[2];
  	int devClass;
  	struct usb_device* right_dev = NULL;
- 
-@@ -1222,12 +1374,33 @@ struct usb_device* search_devices( int *
+ 	struct usb_dev_handle *testdevh;
+@@ -1219,12 +1371,33 @@ struct usb_device* search_devices( int *
  	if (productList != '\0')
  		listcopy = malloc(strlen(productList)+1);
  
@@ -311,7 +310,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  				continue;
  			if (verbose)
  				printf ("   found matching vendor ID\n");
-@@ -1248,16 +1421,16 @@ struct usb_device* search_devices( int *
+@@ -1245,16 +1418,16 @@ struct usb_device* search_devices( int *
  					product += (unsigned char)buffer[0];
  					product <<= 8;
  					product += (unsigned char)buffer[1];
@@ -331,7 +330,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  								break;
  							}
  					}
-@@ -1267,7 +1440,7 @@ struct usb_device* search_devices( int *
+@@ -1264,7 +1437,7 @@ struct usb_device* search_devices( int *
  				}
  			/* Product ID is given */
  			} else
@@ -339,36 +338,36 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
 +				if (product == idProduct) {
  					if (verbose)
  						printf ("   found matching product ID\n");
- 					if (targetClass == 0) {
-@@ -1276,13 +1449,24 @@ struct usb_device* search_devices( int *
- 						if (verbose)
+ 					if (targetClass == 0 && configuration == 0) {
+@@ -1274,13 +1447,24 @@ struct usb_device* search_devices( int *
  							printf ("   adding device\n");
  					} else {
+ 						if (targetClass != 0) {
 +#ifndef LIBUSB10
- 						devClass = dev->descriptor.bDeviceClass;
-+						int ifaceClass=dev->config[0].interface[0].altsetting[0].bInterfaceClass;
+ 							devClass = dev->descriptor.bDeviceClass;
++							int ifaceClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
 +#else
-+						struct libusb_device_descriptor descriptor;
-+						libusb_get_device_descriptor(dev, &descriptor);
-+						devClass = descriptor.bDeviceClass;
-+						struct libusb_config_descriptor *config;
-+						libusb_get_config_descriptor(dev, 0, &config);
-+						int ifaceClass = config->interface[0].altsetting[0].bInterfaceClass;
-+						libusb_free_config_descriptor(config);
++							struct libusb_device_descriptor descriptor;
++							libusb_get_device_descriptor(dev, &descriptor);
++							devClass = descriptor.bDeviceClass;
++							struct libusb_config_descriptor *config;
++							libusb_get_config_descriptor(dev, 0, &config);
++							int ifaceClass = config->interface[0].altsetting[0].bInterfaceClass;
++							libusb_free_config_descriptor(config);
 +#endif
- 						if (devClass == 0)
--							devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
-+							devClass = ifaceClass;
- 						else
- 							/* Check for some quirky devices */
--							if (devClass != dev->config[0].interface[0].altsetting[0].bInterfaceClass)
+ 							if (devClass == 0)
 -								devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
-+							if (devClass != ifaceClass)
 +								devClass = ifaceClass;
- 						if (devClass == targetClass) {
- 							if (verbose)
- 								printf ("   target class %02x matching\n", targetClass);
-@@ -1309,13 +1493,15 @@ struct usb_device* search_devices( int *
+ 							else
+ 								/* Check for some quirky devices */
+-								if (devClass != dev->config[0].interface[0].altsetting[0].bInterfaceClass)
+-									devClass = dev->config[0].interface[0].altsetting[0].bInterfaceClass;
++								if (devClass != ifaceClass)
++									devClass = ifaceClass;
+ 							if (devClass == targetClass) {
+ 								if (verbose)
+ 									printf ("   target class %02x matching\n", targetClass);
+@@ -1322,13 +1506,15 @@ struct usb_device* search_devices( int *
  					 * successCheck() and do probe for plausible new devnum/busnum
  					 */
  					if (busnum != -1)
@@ -385,7 +384,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	}
  	if (productList != NULL)
  		free(listcopy);
-@@ -1331,8 +1517,15 @@ struct usb_device* search_devices( int *
+@@ -1344,8 +1530,15 @@ struct usb_device* search_devices( int *
  int find_first_bulk_output_endpoint(struct usb_device *dev)
  {
  	int i;
@@ -401,7 +400,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
  	for(i=0;i < alt->bNumEndpoints;i++) {
  		ep=&(alt->endpoint[i]);
-@@ -1341,6 +1534,9 @@ int find_first_bulk_output_endpoint(stru
+@@ -1354,6 +1547,9 @@ int find_first_bulk_output_endpoint(stru
  			return ep->bEndpointAddress;
  		}
  	}
@@ -411,7 +410,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
  	return 0;
  }
-@@ -1349,9 +1545,15 @@ int find_first_bulk_output_endpoint(stru
+@@ -1362,9 +1558,15 @@ int find_first_bulk_output_endpoint(stru
  int find_first_bulk_input_endpoint(struct usb_device *dev)
  {
  	int i;
@@ -428,7 +427,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	for(i=0;i < alt->bNumEndpoints;i++) {
  		ep=&(alt->endpoint[i]);
  		if( ( (ep->bmAttributes & USB_ENDPOINT_TYPE_MASK) == USB_ENDPOINT_TYPE_BULK) &&
-@@ -1359,6 +1561,9 @@ int find_first_bulk_input_endpoint(struc
+@@ -1372,6 +1574,9 @@ int find_first_bulk_input_endpoint(struc
  			return ep->bEndpointAddress;
  		}
  	}
@@ -438,7 +437,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
  	return 0;
  }
-@@ -1379,6 +1584,7 @@ int get_current_configuration()
+@@ -1392,6 +1597,7 @@ int get_current_configuration(struct usb
  }
  
  
@@ -446,7 +445,7 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  int get_interface0_class(struct usb_device *dev, int devconfig)
  {
  	int i;
-@@ -1387,6 +1593,7 @@ int get_interface0_class(struct usb_devi
+@@ -1400,6 +1606,7 @@ int get_interface0_class(struct usb_devi
  			return dev->config[i].interface[0].altsetting[0].bInterfaceClass;
  	return -1;
  }
@@ -454,88 +453,21 @@ diff -uBp usb-modeswitch.orig/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
  
  /* Parameter parsing */
-@@ -1502,41 +1709,45 @@ int hexstr2bin(const char *hex, char *bu
- void printVersion()
- {
+@@ -1517,7 +1724,11 @@ void printVersion()
  	char* version = VERSION;
--	printf(" * usb_modeswitch: handle USB devices with multiple modes\n");
--	printf(" * Version %s (C) Josua Dietze 2010\n", version);
--	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
--	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
-+	printf(	" * usb_modeswitch: handle USB devices with multiple modes\n"
-+		" * Version %s (C) Josua Dietze 2010\n", version );
+ 	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n");
+ 	printf(" * Version %s (C) Josua Dietze 2010\n", version);
 +#ifndef LIBUSB10
-+	printf(	" * Based on libusb0 (0.1.12 and above)\n\n" );
+ 	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
 +#else
-+	printf(	" * Based on libusb10 (1.0.1 and above)\n\n" );
++	printf(" * Based on libusb10 (1.0.1 and above)\n\n");
 +#endif
-+	printf(	" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
+ 	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
  }
  
- void printHelp()
- {
--	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
--	printf (" -h, --help                    this help\n");
--	printf (" -e, --version                 print version information and exit\n");
--	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
--	printf (" -p, --default-product NUM     product ID of original mode (mandatory)\n");
--	printf (" -V, --target-vendor NUM       target mode vendor ID (optional)\n");
--	printf (" -P, --target-product NUM      target mode product ID (optional)\n");
--	printf (" -C, --target-class NUM        target mode device class (optional)\n");
--	printf (" -m, --message-endpoint NUM    direct the message transfer there (optional)\n");
--	printf (" -M, --message-content <msg>   message to send (hex number as string)\n");
--	printf (" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n");
--	printf (" -n, --need-response           read response to the message transfer (CSW)\n");
--	printf (" -r, --response-endpoint NUM   read response from there (optional)\n");
--	printf (" -d, --detach-only             detach the active driver, no further action\n");
--	printf (" -H, --huawei-mode             apply a special procedure\n");
--	printf (" -S, --sierra-mode             apply a special procedure\n");
--	printf (" -O, --sony-mode               apply a special procedure\n");
--	printf (" -G, --gct-mode                apply a special procedure\n");
--	printf (" -T, --kobil-mode              apply a special procedure\n");
--	printf (" -R, --reset-usb               reset the device after all other actions\n");
--	printf (" -Q, --quiet                   don't show progress or error messages\n");
--	printf (" -W, --verbose                 print all settings and debug output\n");
--	printf (" -D, --sysmode                 specific result and syslog message\n");
--	printf (" -s, --success NUM             check switching result after NUM secs\n");
--	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
--	printf (" -c, --config-file <filename>  load configuration from file\n\n");
--	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
--	printf (" -u, --configuration NUM       select USB configuration\n");
--	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
-+	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n"
-+		" -h, --help                    this help\n"
-+		" -e, --version                 print version information and exit\n"
-+		" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n"
-+		" -p, --default-product NUM     product ID of original mode (mandatory)\n"
-+		" -V, --target-vendor NUM       target mode vendor ID (optional)\n"
-+		" -P, --target-product NUM      target mode product ID (optional)\n"
-+		" -C, --target-class NUM        target mode device class (optional)\n"
-+		" -m, --message-endpoint NUM    direct the message transfer there (optional)\n"
-+		" -M, --message-content <msg>   message to send (hex number as string)\n"
-+		" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n"
-+		" -n, --need-response           read response to the message transfer (CSW)\n"
-+		" -r, --response-endpoint NUM   read response from there (optional)\n"
-+		" -d, --detach-only             detach the active driver, no further action\n"
-+		" -H, --huawei-mode             apply a special procedure\n"
-+		" -S, --sierra-mode             apply a special procedure\n"
-+		" -O, --sony-mode               apply a special procedure\n"
-+		" -G, --gct-mode                apply a special procedure\n"
-+		" -T, --kobil-mode              apply a special procedure\n"
-+		" -R, --reset-usb               reset the device after all other actions\n"
-+		" -Q, --quiet                   don't show progress or error messages\n"
-+		" -W, --verbose                 print all settings and debug output\n"
-+		" -D, --sysmode                 specific result and syslog message\n"
-+		" -s, --success NUM             check switching result after NUM secs\n"
-+		" -I, --no-inquire              do not get SCSI attributes (default on)\n\n"
-+		" -c, --config-file <filename>  load configuration from file\n\n"
-+		" -i, --interface NUM           select initial USB interface (default 0)\n"
-+		" -u, --configuration NUM       select USB configuration\n"
-+		" -a, --altsetting NUM          select alternative USB interface setting\n\n");
- }
-diff -uBp usb-modeswitch.orig/usb_modeswitch.h usb_modeswitch/usb_modeswitch.h
---- usb-modeswitch.orig/usb_modeswitch.h	2010-11-29 02:02:37.000000000 +0300
-+++ usb_modeswitch/usb_modeswitch.h	2010-08-24 21:12:19.000000000 +0400
+diff -BurpN usb-modeswitch-1.1.6/usb_modeswitch.h usb-modeswitch/usb_modeswitch.h
+--- usb-modeswitch-1.1.6/usb_modeswitch.h	2010-12-22 18:33:31.000000000 +0000
++++ usb-modeswitch/usb_modeswitch.h	2010-12-23 18:37:40.356460002 +0000
 @@ -24,7 +24,11 @@
  
  
