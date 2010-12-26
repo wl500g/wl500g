@@ -1,5 +1,4 @@
 <html>
-
 <head>
 <meta http-equiv="Content-Language" content="zh-tw">
 <meta http-equiv="Content-Type" content="text/html; charset=big5">
@@ -9,7 +8,7 @@
 
 <SCRIPT LANGUAGE="JavaScript">
 
-wItem = new Array(	
+wItem = new Array(
     new Array(
       new Array("User Defined", "0", "TCP"),
       new Array("ECHO", "7", "TCP"),
@@ -36,17 +35,16 @@ function loadWidzard()
 {
    funcIdx = "0";
    document.form.LocalIP.disabled = 0;
-   document.form.LocalIP.style.backgroundColor = "white";	    
+   document.form.LocalIP.style.backgroundColor = "white";
    document.form.LocalIP.focus();     
-   document.form.Description.value = "Virtual Server";  
+   document.form.Description.value = "Virtual Server";
 }
 
 function functionChange(o)
-{   
+{
   c = document.form.option.options.length;
-          
   for (i=0; i<c; i++)
-  {       
+  {
     	document.form.option.options[0].value = null;
     	document.form.option.options[0] = null;
   } 
@@ -76,30 +74,30 @@ function functionChange(o)
     {
         case "-1":
            document.form.LocalIP.disabled = 0;
-	   document.form.LocalIP.style.backgroundColor = "white";	     	         	   
+	   document.form.LocalIP.style.backgroundColor = "white";
 	   document.form.LocalPort.disabled = 0;
-	   document.form.LocalPort.style.backgroundColor = "white";	 
+	   document.form.LocalPort.style.backgroundColor = "white";
 	   document.form.Description.value = "User Defined";
 	   document.form.LocalIP.focus();   
-	   break
+	   break;
  	case "0": 
  	   document.form.LocalIP.disabled = 0;
 	   document.form.LocalIP.style.backgroundColor = "white"; 
 	   document.form.LocalPort.disabled = 0;
-	   document.form.LocalPort.style.backgroundColor = "white";	 	   
-	   document.form.Description.value = "Virtual Server";  
-	   document.form.LocalIP.focus();   
-	   break	
+	   document.form.LocalPort.style.backgroundColor = "white";
+	   document.form.Description.value = "Virtual Server";
+	   document.form.LocalIP.focus();
+	   break;
 	case "1":
 	   document.form.LocalIP.disabled = 0;
-	   document.form.LocalIP.style.backgroundColor = "white";	 
+	   document.form.LocalIP.style.backgroundColor = "white";
 	   document.form.LocalPort.disabled = 1;
-	   document.form.LocalPort.style.backgroundColor = "gray";	 	   	 
-	   document.form.Description.value = "Software DMZ Host";	   	   
-	   document.form.LocalIP.focus();   
-	   break
+	   document.form.LocalPort.style.backgroundColor = "gray";
+	   document.form.Description.value = "Software DMZ Host";
+	   document.form.LocalIP.focus();
+	   break;
 	default: 
-	   break;		
+	   break;
     }              
 }
 
@@ -110,30 +108,30 @@ function optionChange(o)
         {
 	    if (o.value == document.form.option.options[i].value)
 	    {
-	         optIdx = i;	
-	                	        	        
+	         optIdx = i;
+
 	         if (wItem[funcIdx][optIdx][2]=="TCP")
 	            document.form.Protocol.options[0].selected = 1;
 	         else   
 	            document.form.Protocol.options[1].selected = 1;
 	            
-	         document.form.LocalPort.value = wItem[funcIdx][optIdx][1];	        
+	         document.form.LocalPort.value = wItem[funcIdx][optIdx][1];
 	         
 	         switch (funcIdx)
     		 { 
  			case "0":
 	   		document.form.Description.value = "Virtual Server: ";  
-	   		document.form.LocalIP.focus();    
-	   		break			
+	   		document.form.LocalIP.focus();
+	   		break;
 			case "1":
 	   		document.form.Description.value = "Software DMZ Host: ";
 	   		document.form.LocalIP.focus();
-	   		break
+	   		break;
 			default: 
-	   		break;		
-    		 }       	         	         
+	   		break;
+    		 }
 	         document.form.Description.value += wItem[funcIdx][optIdx][0] + "(" + wItem[funcIdx][optIdx][1] + ")"; 	         
-	    }	    
+	    }
 	}   
     } 	
 }
@@ -165,7 +163,7 @@ function cancel()
 </head>
 
 <body  onLoad="loadWidzard()">
-<form method="POST" name="form" action="--WEBBOT-SELF--"">  
+<form method="POST" name="form" action="--WEBBOT-SELF--">  
 <!--webbot bot="SaveResults" U-File="fpweb:///_private/form_results.txt"
 S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->  
 <table border="1" width="542">
