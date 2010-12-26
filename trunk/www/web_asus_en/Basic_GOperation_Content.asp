@@ -8,14 +8,7 @@
 	<script type="text/javascript" src="overlib.js"></script>
 	<script type="text/javascript" src="general.js"></script>
 	<script type="text/javascript" src="quick.js"></script>
-
-	<style type="text/css">
-		.style1
-		{
-			height: 28px;
-		}
-	</style>
-
+	
 	<style type="text/css">
 	div.c1 {text-align: center; font-family: Arial}
 	</style>
@@ -463,7 +456,7 @@
 							WEP Key 1 (10 or 26 hex digits):
 						</td>
 						<td class="content_input_td">
-							<input type="password" maxlength="32" size="32" name="wl_key1" class="content_input_fd"
+							<input type="text" maxlength="32" size="32" name="wl_key1" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key1"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
 								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
@@ -473,7 +466,7 @@
 							WEP Key 2 (10 or 26 hex digits):
 						</td>
 						<td class="content_input_td">
-							<input type="password" maxlength="32" size="32" name="wl_key2" class="content_input_fd"
+							<input type="text" maxlength="32" size="32" name="wl_key2" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key2"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
 								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
@@ -483,7 +476,7 @@
 							WEP Key 3 (10 or 26 hex digits):
 						</td>
 						<td class="content_input_td">
-							<input type="password" maxlength="32" size="32" name="wl_key3" class="content_input_fd"
+							<input type="text" maxlength="32" size="32" name="wl_key3" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key3"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
 								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
@@ -493,7 +486,7 @@
 							WEP Key 4 (10 or 26 hex digits):
 						</td>
 						<td class="content_input_td">
-							<input type="password" maxlength="32" size="32" name="wl_key4" class="content_input_fd"
+							<input type="text" maxlength="32" size="32" name="wl_key4" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key4"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
 								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
@@ -519,7 +512,7 @@
 				<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
 					<tr bgcolor="#CCCCCC">
 						<td colspan="3" style='font-family: Arial; font-size: 2pt'>
-							<b>&nbsp;</b>
+							&nbsp;
 						</td>
 					</tr>
 					<tr bgcolor="#FFFFFF">
