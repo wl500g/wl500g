@@ -214,7 +214,11 @@ define SwitchConfParam
 	)
 endef
 
-FlashMaxSize = $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880,$(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g),7995392,$(if $(filter $(1),RT-N16),16384000,0)))
+FlashMaxSize = \
+    $(if $(filter $(1),WL520gc),1703936, \
+    $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
+    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g),7995392, \
+    $(if $(filter $(1),RT-N16),16384000,0)))) \
 
 #
 # Basic rules
@@ -290,16 +294,27 @@ endif
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
+ifeq ($(CONFIG_IPV6),y)
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
+endif
+
 modules_install-WL3%: modules_install
+	install -t $(MODULESDIR) \
+		$(NETFILTER_MODS_LIST)
 #	rm -rf $(MODULESDIR)/parport
 	@true
 
 modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
 	install -t $(MODULESDIR) \
+		$(NETFILTER_MODS_LIST)
+	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
 
 modules_install-WL700g: modules_install
+	install -t $(MODULESDIR) \
+		$(NETFILTER_MODS_LIST)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o \
@@ -311,23 +326,24 @@ modules_install-WL700g: modules_install
 
 modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
 	install -t $(MODULESDIR) \
+		$(NETFILTER_MODS_LIST)
+	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o \
 		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
 
-NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
-ifeq ($(CONFIG_IPV6),y)
-NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
-endif
+modules_install-WL520gc: modules_install
+	install -t $(MODULESDIR) \
+		$(NETFILTER_MODS_LIST)
 
 modules_install: .config
 	install -d $(MODULESDIR)
 	# network stuff
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/net/et/et.o \
-		$(SRCMODULESDIR)/drivers/net/wl/wl.o \
+		$(SRCMODULESDIR)/drivers/net/wl/wl.o
+	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/net/tun.o \
-		$(SRCMODULESDIR)/drivers/net/imq.o \
-		$(NETFILTER_MODS_LIST)
+		$(SRCMODULESDIR)/drivers/net/imq.o
 ifeq ($(CONFIG_EMF),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/net/emf/emf.o \
