@@ -10,8 +10,8 @@
 <body bgcolor="#FFFFFF">
 <div id="overDiv" style="position:absolute; visibility:hidden; z-index:1000;"></div>    
 <form method="post" action="upgrade.cgi" enctype="multipart/form-data">
-<input type="hidden" name="current_page" value="Basic_Operation_Content.asp">
-<input type="hidden" name="next_page" value="Basic_SaveRestart.asp">
+<input type="hidden" name="current_page" value="Advanced_FirmwareUpgrade_Content.asp">
+<input type="hidden" name="next_page" value="Updating.asp">
 <input type="hidden" name="action_mode" value="">
 <!-- Table for the conntent page -->
 <table width="666" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
