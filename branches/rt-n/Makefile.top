@@ -433,6 +433,8 @@ modules_install: .config
 	# other
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
+	# extra strip modules without params
+	$(STRIP) --remove-section=.comment --remove-section=.note --strip-unneeded $(MODULESDIR)/wl$(ko)
 
 install: package-$(MODEL)
 	@true
