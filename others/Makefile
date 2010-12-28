@@ -38,10 +38,11 @@ install: all
 	install -m 755 flashfs.sh $(INSTALLDIR)/sbin/flashfs
 	install -m 755 wshaper.sh $(INSTALLDIR)/sbin/wshaper
 	install -m 755 ipkg.sh $(INSTALLDIR)/usr/bin/ipkg.sh
+ifeq ($(CONFIG_SSHD),y)
 	install -m 755 dropbearstart.sh $(INSTALLDIR)/usr/sbin/dropbearstart
+endif
 ifeq ($(CONFIG_MADWIMAX),y)
 	install -m 755 wimax_check_connection.sh $(INSTALLDIR)/usr/sbin/wimax_check_connection.sh
 endif
 
 clean:
-
