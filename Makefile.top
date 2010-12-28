@@ -354,7 +354,7 @@ else
 		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
 endif
 
-modules_install-WL520gá: modules_install
+modules_install-WL520gc: modules_install
 	@true
 
 NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(ko) 2>/dev/null))
