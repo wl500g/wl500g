@@ -28,7 +28,7 @@
     * use pool.ntp.org as default clock sync source
     * inadyn: fix socket leak from new inadyn fork
 
-===beta RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
+===RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
   * kernel
     * linux-mips.org updates 2.6.22.git-2010-10-15
     * accel-pptp 0.8.5
