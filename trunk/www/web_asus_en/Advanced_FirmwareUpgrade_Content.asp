@@ -27,7 +27,7 @@
               	<ol>
               		<li>
               <p style="margin-top: 7">
-                    Check if any new version of firmware is available on <a href="http://wl500g.googlecode.com">WL500g project</a> website.
+                    Check if any new version of firmware is available on <a href="http://wl500g.googlecode.com" target="_parent">WL500g project</a> website.
               </li>
               		<li>
               <p style="margin-top: 7">
