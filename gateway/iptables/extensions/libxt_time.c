@@ -138,6 +138,7 @@ static time_t time_parse_date(const char *s, bool end)
 	tm.tm_hour = hour;
 	tm.tm_min  = minute;
 	tm.tm_sec  = second;
+	tm.tm_isdst = 0;
 	ret = mktime(&tm);
 	if (ret >= 0)
 		return ret;
