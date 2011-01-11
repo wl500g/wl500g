@@ -2152,6 +2152,7 @@ struct mime_handler mime_handlers[] = {
 	{ "**.css", "text/css", NULL, NULL, do_file, do_auth },
 	{ "**.gif", "image/gif", NULL, NULL, do_file, do_auth },
 	{ "**.jpg", "image/jpeg", NULL, NULL, do_file, do_auth },
+	{ "**.ico", "image/x-icon", NULL, NULL, do_file, do_auth },
 	{ "**.js",  "text/javascript", NULL, NULL, do_file, do_auth },
 	{ "**.cab", "text/txt", NULL, NULL, do_file, do_auth },
 	{ "**.cfg", "text/txt", NULL, NULL, do_prf_file, do_auth },
