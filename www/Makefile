@@ -34,6 +34,7 @@ install:
 	install -m 644 web_$(MODEL)/*.js $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.css $(INSTALLDIR)/www
 	install -m 644 web_$(MODEL)/*.svg $(INSTALLDIR)/www
+	install -m 644 web_$(MODEL)/*.ico $(INSTALLDIR)/www
 	install -d $(INSTALLDIR)/www/graph
 	install -m 644 web_$(MODEL)/$(PAGES_DIR) $(INSTALLDIR)/www/graph
 	rm -rf web
@@ -47,6 +48,7 @@ install-%:
 	install -m 644 web_$*/*.js www_$*
 	install -m 644 web_$*/*.css www_$*
 	install -m 644 web_$*/*.svg www_$*
+	install -m 644 web_$*/*.ico www_$*
 	install -d www_$*/graph
 	install -m 644 web_$*/$(PAGES_DIR) www_$*/graph
 
@@ -62,6 +64,7 @@ pages-%:
 	install -m 644 web_$*/*.js $(INSTALLDIR)/www
 	install -m 644 web_$*/*.css $(INSTALLDIR)/www
 	install -m 644 web_$*/*.svg $(INSTALLDIR)/www
+	install -m 644 web_$*/*.ico $(INSTALLDIR)/www
 	install -d $(INSTALLDIR)/www/graph
 	install -m 644 web_$*/$(PAGES_DIR) $(INSTALLDIR)/www/graph
 
