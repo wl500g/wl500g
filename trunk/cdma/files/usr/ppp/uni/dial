@@ -71,7 +71,7 @@ SAY	'Calling UMTS/GPRS'
 'OK'	'$initoptions'
 ''	'AT+CGDCONT=1,\"IP\",\"$apn\"'
 'OK'	'ATD$dialnumber'
-'CONNECT'a	''" > /tmp/ppp/peers/1.chat
+'CONNECT'	''" > /tmp/ppp/peers/1.chat
 
 write_dialup_file()
 {
