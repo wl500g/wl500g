@@ -1,0 +1,91 @@
+tcp: advertise MSS requested by user
+
+ f5fff5dc8a7a3f395b0525c02ba92c95d42b7390 tcp: advertise MSS requested by user
+ 7a1abd08d52fdeddb3e9a5a33f2f15cc6a5674d2 tcp: Increase TCP_MAXSEG socket option minimum.
+ c39508d6f118308355468314ff414644115a07f3 tcp: Make TCP_MAXSEG minimum more correct.
+
+---
+ net/ipv4/tcp.c        |    2 +-
+ net/ipv4/tcp_ipv4.c   |    4 ++++
+ net/ipv4/tcp_output.c |   12 ++++++++++--
+ 3 files changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2246,7 +2246,7 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
+ 		/* Values greater than interface MTU won't take effect. However
+ 		 * at the point when this call is done we typically don't yet
+ 		 * know which interface is going to be used */
+-		if (val < 8 || val > MAX_TCP_WINDOW) {
++		if (val < TCP_MIN_MSS || val > MAX_TCP_WINDOW) {
+ 			err = -EINVAL;
+ 			break;
+ 		}
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 3dfbc21..44aef1c 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1364,6 +1364,10 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
+ 	tcp_mtup_init(newsk);
+ 	tcp_sync_mss(newsk, dst_mtu(dst));
+ 	newtp->advmss = dst_metric(dst, RTAX_ADVMSS);
++	if (tcp_sk(sk)->rx_opt.user_mss &&
++	    tcp_sk(sk)->rx_opt.user_mss < newtp->advmss)
++		newtp->advmss = tcp_sk(sk)->rx_opt.user_mss;
++
+ 	tcp_initialize_rcv_mss(newsk);
+ 
+ #ifdef CONFIG_TCP_MD5SIG
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -2121,6 +2121,7 @@ struct sk_buff * tcp_make_synack(struct
+ 	struct tcp_md5sig_key *md5;
+ 	__u8 *md5_hash_location;
+ #endif
++	int mss;
+ 
+ 	skb = sock_wmalloc(sk, MAX_TCP_HEADER + 15, 1, GFP_ATOMIC);
+ 	if (skb == NULL)
+@@ -2131,6 +2132,10 @@ struct sk_buff * tcp_make_synack(struct
+ 
+ 	skb->dst = dst_clone(dst);
+ 
++	mss = dst_metric(dst, RTAX_ADVMSS);
++	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < mss)
++		mss = tp->rx_opt.user_mss;
++
+ 	tcp_header_size = (sizeof(struct tcphdr) + TCPOLEN_MSS +
+ 			   (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0) +
+ 			   (ireq->wscale_ok ? TCPOLEN_WSCALE_ALIGNED : 0) +
+@@ -2167,7 +2172,7 @@ struct sk_buff * tcp_make_synack(struct
+ 		req->window_clamp = tp->window_clamp ? : dst_metric(dst, RTAX_WINDOW);
+ 		/* tcp_full_space because it is guaranteed to be the first packet */
+ 		tcp_select_initial_window(tcp_full_space(sk),
+-			dst_metric(dst, RTAX_ADVMSS) - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
++			mss - (ireq->tstamp_ok ? TCPOLEN_TSTAMP_ALIGNED : 0),
+ 			&req->rcv_wnd,
+ 			&req->window_clamp,
+ 			ireq->wscale_ok,
+@@ -2179,7 +2184,7 @@ struct sk_buff * tcp_make_synack(struct
+ 	th->window = htons(min(req->rcv_wnd, 65535U));
+ 
+ 	TCP_SKB_CB(skb)->when = tcp_time_stamp;
+-	tcp_syn_build_options((__be32 *)(th + 1), dst_metric(dst, RTAX_ADVMSS), ireq->tstamp_ok,
++	tcp_syn_build_options((__be32 *)(th + 1), mss, ireq->tstamp_ok,
+ 			      ireq->sack_ok, ireq->wscale_ok, ireq->rcv_wscale,
+ 			      TCP_SKB_CB(skb)->when,
+ 			      req->ts_recent,
+@@ -2238,6 +2243,9 @@ static void tcp_connect_init(struct sock
+ 	if (!tp->window_clamp)
+ 		tp->window_clamp = dst_metric(dst, RTAX_WINDOW);
+ 	tp->advmss = dst_metric(dst, RTAX_ADVMSS);
++	if (tp->rx_opt.user_mss && tp->rx_opt.user_mss < tp->advmss)
++		tp->advmss = tp->rx_opt.user_mss;
++
+ 	tcp_initialize_rcv_mss(sk);
+ 
+ 	tcp_select_initial_window(tcp_full_space(sk),
+-- 
+1.7.3.5
