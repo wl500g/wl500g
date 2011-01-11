@@ -2081,24 +2081,43 @@ do_log_cgi(char *path, FILE *stream)
 	fputs("\r\n", stream); /* terminator */
 }
 
+struct cpu_jiff {
+	/* Linux 2.4.x has only first four */
+	unsigned long long user;
+	unsigned long long nice;
+	unsigned long long sys;
+	unsigned long long idle;
+	unsigned long long iowait;
+	unsigned long long irq;
+	unsigned long long softirq;
+	unsigned long long steal;
+	unsigned long long guest;
+};
+
 static void
 do_cpustat(char *url, FILE *stream)
 {
-	char line[256];
-	int i, llen;
-	char buffer[256];
-	int strbuffer = 0;
-	buffer[strbuffer++] = '\n';
-	FILE *in = fopen("/proc/stat", "rb");
-	if (in == NULL) return;
-	if (fgets(line, sizeof(line), in) == NULL) return;
-	llen = strlen(line);
-	for (i = 0; i < llen; i++) {
-		buffer[strbuffer++] = line[i];
+	FILE *fp;
+	char line[80];
+	struct cpu_jiff cpu;
+
+	fp = fopen("/proc/stat", "rb");
+	if (fp == NULL)
+		return;
+	memset(&cpu, 0, sizeof(cpu));
+
+	if (fgets(line, sizeof(line), fp)
+	 && sscanf(line, "cpu %llu %llu %llu %llu %llu %llu %llu %llu %llu",
+	    &cpu.user, &cpu.nice, &cpu.sys, &cpu.idle,
+	    &cpu.iowait, &cpu.irq, &cpu.softirq, &cpu.steal, &cpu.guest) >= 4)
+	{
+		/* procps 2.x does not count iowait as busy time */
+		cpu.user += cpu.nice;
+		cpu.sys += cpu.irq + cpu.softirq + cpu.steal + cpu.guest;
+		cpu.idle += cpu.iowait;
+		websWrite(stream, "%llu %llu %llu", cpu.user, cpu.sys, cpu.idle);
 	}
-	buffer[strbuffer] = 0;
-	fclose(in);
-	websWrite(stream, "%s", buffer);
+	fclose(fp);
 }
 
 static void

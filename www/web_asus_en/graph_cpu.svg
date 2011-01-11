@@ -157,13 +157,10 @@ function plot_cpu_data(obj) {
 	}
 
 	try {
-	 
-		var data=obj.content.split("\n");
-		var ugmt=(Date.parse(data[0]))/1000;
-		data=data[1].split(/\s+/);
-		var tot=parseInt(data[1])+parseInt(data[2])+parseInt(data[3])+parseInt(data[4]);
-		var idle=parseInt(data[4]);
-		var sys=parseInt(data[3]);
+		var data=obj.content.split(/\s+/);
+		var tot=parseInt(data[0])+parseInt(data[1])+parseInt(data[2]);
+		var sys=parseInt(data[1]);
+		var idle=parseInt(data[2]);
 	} catch (e) {
 		return;
 	}
