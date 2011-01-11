@@ -1,0 +1,56 @@
+From 9fc3bbb4a752f108cf096d96640f3b548bbbce6c
+From: Joel Sing
+Date: Mon, 3 Jan 2011 20:24:20 +0000
+Subject: [PATCH] ipv4/route.c: respect prefsrc for local routes
+
+The preferred source address is currently ignored for local routes,
+which results in all local connections having a src address that is the
+same as the local dst address. Fix this by respecting the preferred source
+address when it is provided for local routes.
+
+This bug can be demonstrated as follows:
+
+ # ifconfig dummy0 192.168.0.1
+ # ip route show table local | grep local.*dummy0
+ local 192.168.0.1 dev dummy0  proto kernel  scope host  src 192.168.0.1
+ # ip route change table local local 192.168.0.1 dev dummy0 \
+     proto kernel scope host src 127.0.0.1
+ # ip route show table local | grep local.*dummy0
+ local 192.168.0.1 dev dummy0  proto kernel  scope host  src 127.0.0.1
+
+We now establish a local connection and verify the source IP
+address selection:
+
+ # nc -l 192.168.0.1 3128 &
+ # nc 192.168.0.1 3128 &
+ # netstat -ant | grep 192.168.0.1:3128.*EST
+ tcp        0      0 192.168.0.1:3128        192.168.0.1:33228 ESTABLISHED
+ tcp        0      0 192.168.0.1:33228       192.168.0.1:3128  ESTABLISHED
+
+Signed-off-by: Joel Sing <jsing@google.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index df948b0..93bfd95 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2649,8 +2649,12 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 	free_res = 1;
+ 
+ 	if (res.type == RTN_LOCAL) {
+-		if (!fl.fl4_src)
+-			fl.fl4_src = fl.fl4_dst;
++		if (!fl.fl4_src) {
++			if (res.fi->fib_prefsrc)
++				fl.fl4_src = res.fi->fib_prefsrc;
++			else
++				fl.fl4_src = fl.fl4_dst;
++		}
+ 		if (dev_out)
+ 			dev_put(dev_out);
+ 		dev_out = &loopback_dev;
+-- 
+1.7.3.5
