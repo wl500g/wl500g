@@ -1125,6 +1125,17 @@ tcpdump-install:
 	install -D tcpdump/tcpdump $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
 	$(STRIP) $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
 
+sysfsutils/Makefile: sysfsutils/Makefile.in
+	cd sysfsutils && CFLAGS="-Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr
+
+sysfsutils: sysfsutils/Makefile
+	$(MAKE) -C $@
+
+sysfsutils-install:
+	install -D sysfsutils/lib/.libs/libsysfs.so $(INSTALLDIR)/sysfsutils/usr/lib/libsysfs.so
+	$(STRIP) $(INSTALLDIR)/sysfsutils/usr/lib/*.so
+
 image-%:
 	$(MAKE) rc MODEL="$*"
 	$(MAKE) package-$* MODEL="$*"

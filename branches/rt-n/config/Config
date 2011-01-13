@@ -462,6 +462,12 @@ config CONFIG_LIBUSB
        help
        Library for interfacing to the USB subsystem.
 
+config CONFIG_LIBSYSFS
+       bool "libsysfs"
+       default n
+       help
+       Library for interfacing to the system device information exposed through sysfs.
+
 endmenu
 
 menu "Environment"
