@@ -60,6 +60,7 @@ LIBPCAP=libpcap-1.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
 NTFS3G=ntfs-3g-2010.10.2
+SYSFSUTILS=sysfsutils-2.1.0
 
 UCLIBC=uClibc-0.9.30.1
 
@@ -96,7 +97,8 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	ntpclient bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
-	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma
+	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
+	sysfsutils
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -215,7 +217,6 @@ $(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
 
 ntfs-3g: $(TOP)/ntfs-3g
 	@true
-
 
 dropbear_Patches := $(call patches_list,dropbear)
 
@@ -627,6 +628,17 @@ $(TOP)/udev: udev/$(UDEV).tar.bz2
 	mv $(TOP)/$(UDEV) $@ && touch $@
 
 udev: $(TOP)/udev
+	@true
+
+sysfsutils_Patches := $(call patches_list,sysfsutils)
+
+$(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.gz
+	@rm -rf $(TOP)/$(SYSFSUTILS) $@
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(SYSFSUTILS) $(sysfsutils_Patches)
+	mv $(TOP)/$(SYSFSUTILS) $@ && touch $@
+
+sysfsutils: $(TOP)/sysfsutils
 	@true
 
 $(TOP)/others:
