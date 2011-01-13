@@ -1,0 +1,216 @@
+[MTD] Updates from 2.6 upstream
+
+ ce37ab42ad8b38ef2f36c31c6b4c39b87f36b792 [MTD] Always initialise mutex in new mtd_blktrans_dev.
+ 2606c79759e83fd8b1e45bc99b10e65a1dcf1602 [MTD] use list_for_each_entry() in add_mtd_device()
+ 856613c98c2f864994d5fb33a62b7a468f68ab9b [MTD] use list_for_each_entry() in del_mtd_device()
+ 71a928c0e52cedc43747c64b96a5f74592ab678f [MTD] Use list_for_each_entry[_safe] where appropriate.
+ 2cf3a11494b15949835ff92a7af15f979ac37bbd [MTD] fix use after free in register_mtd_blktrans
+
+---
+ drivers/mtd/mtd_blkdevs.c |   34 +++++++++++-----------------------
+ drivers/mtd/mtdcore.c     |   12 ++++--------
+ drivers/mtd/mtdpart.c     |   23 +++++++----------------
+ 3 files changed, 22 insertions(+), 47 deletions(-)
+
+diff -urBp a/drivers/mtd/mtd_blkdevs.c b/drivers/mtd/mtd_blkdevs.c
+--- a/drivers/mtd/mtd_blkdevs.c
++++ b/drivers/mtd/mtd_blkdevs.c
+@@ -212,7 +212,7 @@ struct block_device_operations mtd_blktr
+ int add_mtd_blktrans_dev(struct mtd_blktrans_dev *new)
+ {
+ 	struct mtd_blktrans_ops *tr = new->tr;
+-	struct list_head *this;
++	struct mtd_blktrans_dev *d;
+ 	int last_devnum = -1;
+ 	struct gendisk *gd;
+ 
+@@ -221,8 +221,7 @@ int add_mtd_blktrans_dev(struct mtd_blkt
+ 		BUG();
+ 	}
+ 
+-	list_for_each(this, &tr->devs) {
+-		struct mtd_blktrans_dev *d = list_entry(this, struct mtd_blktrans_dev, list);
++	list_for_each_entry(d, &tr->devs, list) {
+ 		if (new->devnum == -1) {
+ 			/* Use first free number */
+ 			if (d->devnum != last_devnum+1) {
+@@ -248,9 +247,9 @@ int add_mtd_blktrans_dev(struct mtd_blkt
+ 		return -EBUSY;
+ 	}
+ 
+-	mutex_init(&new->lock);
+ 	list_add_tail(&new->list, &tr->devs);
+  added:
++	mutex_init(&new->lock);
+ 	if (!tr->writesect)
+ 		new->readonly = 1;
+ 
+@@ -309,33 +308,24 @@ int del_mtd_blktrans_dev(struct mtd_blkt
+ 
+ static void blktrans_notify_remove(struct mtd_info *mtd)
+ {
+-	struct list_head *this, *this2, *next;
+-
+-	list_for_each(this, &blktrans_majors) {
+-		struct mtd_blktrans_ops *tr = list_entry(this, struct mtd_blktrans_ops, list);
+-
+-		list_for_each_safe(this2, next, &tr->devs) {
+-			struct mtd_blktrans_dev *dev = list_entry(this2, struct mtd_blktrans_dev, list);
++	struct mtd_blktrans_ops *tr;
++	struct mtd_blktrans_dev *dev, *next;
+ 
++	list_for_each_entry(tr, &blktrans_majors, list)
++		list_for_each_entry_safe(dev, next, &tr->devs, list)
+ 			if (dev->mtd == mtd)
+ 				tr->remove_dev(dev);
+-		}
+-	}
+ }
+ 
+ static void blktrans_notify_add(struct mtd_info *mtd)
+ {
+-	struct list_head *this;
++	struct mtd_blktrans_ops *tr;
+ 
+ 	if (mtd->type == MTD_ABSENT)
+ 		return;
+ 
+-	list_for_each(this, &blktrans_majors) {
+-		struct mtd_blktrans_ops *tr = list_entry(this, struct mtd_blktrans_ops, list);
+-
++	list_for_each_entry(tr, &blktrans_majors, list)
+ 		tr->add_mtd(tr, mtd);
+-	}
+-
+ }
+ 
+ static struct mtd_notifier blktrans_notifier = {
+@@ -382,11 +382,12 @@ int register_mtd_blktrans(struct mtd_blktrans_ops *tr)
+ 	tr->blkcore_priv->thread = kthread_run(mtd_blktrans_thread, tr,
+ 			"%sd", tr->name);
+ 	if (IS_ERR(tr->blkcore_priv->thread)) {
++		int ret = PTR_ERR(tr->blkcore_priv->thread);
+ 		blk_cleanup_queue(tr->blkcore_priv->rq);
+ 		unregister_blkdev(tr->major, tr->name);
+ 		kfree(tr->blkcore_priv);
+ 		mutex_unlock(&mtd_table_mutex);
+-		return PTR_ERR(tr->blkcore_priv->thread);
++		return ret;
+ 	}
+ 
+ 	INIT_LIST_HEAD(&tr->devs);
+@@ -406,7 +396,7 @@ int register_mtd_blktrans(struct mtd_blk
+ 
+ int deregister_mtd_blktrans(struct mtd_blktrans_ops *tr)
+ {
+-	struct list_head *this, *next;
++	struct mtd_blktrans_dev *dev, *next;
+ 
+ 	mutex_lock(&mtd_table_mutex);
+ 
+@@ -416,10 +406,8 @@ int deregister_mtd_blktrans(struct mtd_b
+ 	/* Remove it from the list of active majors */
+ 	list_del(&tr->list);
+ 
+-	list_for_each_safe(this, next, &tr->devs) {
+-		struct mtd_blktrans_dev *dev = list_entry(this, struct mtd_blktrans_dev, list);
++	list_for_each_entry_safe(dev, next, &tr->devs, list)
+ 		tr->remove_dev(dev);
+-	}
+ 
+ 	blk_cleanup_queue(tr->blkcore_priv->rq);
+ 	unregister_blkdev(tr->major, tr->name);
+diff -urBp a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+--- a/drivers/mtd/mtdcore.c
++++ b/drivers/mtd/mtdcore.c
+@@ -51,7 +51,7 @@ int add_mtd_device(struct mtd_info *mtd)
+ 
+ 	for (i=0; i < MAX_MTD_DEVICES; i++)
+ 		if (!mtd_table[i]) {
+-			struct list_head *this;
++			struct mtd_notifier *not;
+ 
+ 			mtd_table[i] = mtd;
+ 			mtd->index = i;
+@@ -70,10 +70,8 @@ int add_mtd_device(struct mtd_info *mtd)
+ 			DEBUG(0, "mtd: Giving out device %d to %s\n",i, mtd->name);
+ 			/* No need to get a refcount on the module containing
+ 			   the notifier, since we hold the mtd_table_mutex */
+-			list_for_each(this, &mtd_notifiers) {
+-				struct mtd_notifier *not = list_entry(this, struct mtd_notifier, list);
++			list_for_each_entry(not, &mtd_notifiers, list)
+ 				not->add(mtd);
+-			}
+ 
+ 			mutex_unlock(&mtd_table_mutex);
+ 			/* We _know_ we aren't being removed, because
+@@ -111,14 +109,12 @@ int del_mtd_device (struct mtd_info *mtd
+ 		       mtd->index, mtd->name, mtd->usecount);
+ 		ret = -EBUSY;
+ 	} else {
+-		struct list_head *this;
++		struct mtd_notifier *not;
+ 
+ 		/* No need to get a refcount on the module containing
+ 		   the notifier, since we hold the mtd_table_mutex */
+-		list_for_each(this, &mtd_notifiers) {
+-			struct mtd_notifier *not = list_entry(this, struct mtd_notifier, list);
++		list_for_each_entry(not, &mtd_notifiers, list)
+ 			not->remove(mtd);
+-		}
+ 
+ 		mtd_table[mtd->index] = NULL;
+ 
+diff -urBp a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
+--- a/drivers/mtd/mtdpart.c
++++ b/drivers/mtd/mtdpart.c
+@@ -288,22 +288,15 @@ static int part_block_markbad (struct mt
+ 
+ int del_mtd_partitions(struct mtd_info *master)
+ {
+-	struct list_head *node;
+-	struct mtd_part *slave;
++	struct mtd_part *slave, *next;
+ 
+-	for (node = mtd_partitions.next;
+-	     node != &mtd_partitions;
+-	     node = node->next) {
+-		slave = list_entry(node, struct mtd_part, list);
++	list_for_each_entry_safe(slave, next, &mtd_partitions, list)
+ 		if (slave->master == master) {
+-			struct list_head *prev = node->prev;
+-			__list_del(prev, node->next);
++			list_del(&slave->list);
+ 			if(slave->registered)
+ 				del_mtd_device(&slave->mtd);
+ 			kfree(slave);
+-			node = prev;
+ 		}
+-	}
+ 
+ 	return 0;
+ }
+@@ -496,18 +489,16 @@ static LIST_HEAD(part_parsers);
+ 
+ static struct mtd_part_parser *get_partition_parser(const char *name)
+ {
+-	struct list_head *this;
+-	void *ret = NULL;
+-	spin_lock(&part_parser_lock);
++	struct mtd_part_parser *p, *ret = NULL;
+ 
+-	list_for_each(this, &part_parsers) {
+-		struct mtd_part_parser *p = list_entry(this, struct mtd_part_parser, list);
++	spin_lock(&part_parser_lock);
+ 
++	list_for_each_entry(p, &part_parsers, list)
+ 		if (!strcmp(p->name, name) && try_module_get(p->owner)) {
+ 			ret = p;
+ 			break;
+ 		}
+-	}
++
+ 	spin_unlock(&part_parser_lock);
+ 
+ 	return ret;
+-- 
