@@ -994,16 +994,12 @@ libusb: libusb10 libusb/Makefile
 	$(MAKE) -C $@
 
 libusb-install:
-	install -D libusb/libusb/.libs/libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4.4.4
-	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so.*
-	ln -sf libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so.4
-	ln -sf libusb-0.1.so.4.4.4 $(INSTALLDIR)/libusb/usr/lib/libusb.so
+	install -D libusb/libusb/.libs/libusb-0.1.so $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so
+	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so
 
 libusb10-install:
-	install -D libusb10/libusb/.libs/libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0.0.0
-	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so.*
-	ln -sf libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so.0
-	ln -sf libusb-1.0.so.0.0.0 $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
+	install -D libusb10/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
+	$(STRIP) $(INSTALLDIR)/libusb10/usr/lib/*.so
 
 usb_modeswitch: libusb10
 	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Wall -Os $(EXTRACFLAGS) \
