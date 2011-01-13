@@ -1,0 +1,19 @@
+diff -uNB a/drivers/usb/Kconfig b/drivers/usb/Kconfig
+--- a/drivers/usb/Kconfig
++++ b/drivers/usb/Kconfig
+@@ -138,4 +138,6 @@
+ 
+ source "drivers/usb/gadget/Kconfig"
+ 
++source "drivers/usb/usbip/Kconfig"
++
+ endif # USB_SUPPORT
+diff -uNB a/drivers/usb/Makefile b/drivers/usb/Makefile
+--- a/drivers/usb/Makefile
++++ b/drivers/usb/Makefile
+@@ -51,3 +51,5 @@
+ 
+ obj-$(CONFIG_USB_ATM)		+= atm/
+ obj-$(CONFIG_USB_SPEEDTOUCH)	+= atm/
++
++obj-$(CONFIG_USB_IP_COMMON)	+= usbip/
