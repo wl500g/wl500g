@@ -109,6 +109,8 @@ config TEXTSEARCH_BM
 config TEXTSEARCH_FSM
 	tristate
 
+source "lib/xz/Kconfig"
+
 #
 # plist support is select#ed if needed
 #
