@@ -4,13 +4,13 @@ Date: Sun, 22 Aug 2010 15:44:16 -0400
 Subject: [PATCH] ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific interface (backport from upstream)
 
 kernel.org commits
-d68b82705a4a754e5773f412c6b8f1e65259bc8b
-778d80be52699596bf70e0eb0761cf5e1e46088d
-9bdd8d40c8c59435664af6049dabe24b7779b203
-71f6f6dfdf7c7a67462386d9ea05c1095a89c555
-5b2a19539c5f59c5a038d213ede723f0245d97cf
-64e724f62ab743d55229cd5e27ec8b068b68eb16
-a1ed05263b74921742b454ef52c30b609ec6940f
+d68b82705a4a754e5773f412c6b8f1e65259bc8b ipv6: Do not assign non-valid address on interface.
+778d80be52699596bf70e0eb0761cf5e1e46088d ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific interface.
+9bdd8d40c8c59435664af6049dabe24b7779b203 ipv6: Fix incorrect disable_ipv6 behavior
+71f6f6dfdf7c7a67462386d9ea05c1095a89c555 ipv6: Plug sk_buff leak in ipv6_rcv (net/ipv6/ip6_input.c)
+5b2a19539c5f59c5a038d213ede723f0245d97cf IPv6: addrconf timer race
+64e724f62ab743d55229cd5e27ec8b068b68eb16 ipv6: Don't add routes to ipv6 disabled interfaces.
+a1ed05263b74921742b454ef52c30b609ec6940f IPv6: preferred lifetime of address not getting updated
 ---
  Documentation/networking/ip-sysctl.txt |    4 +
  include/linux/ipv6.h                   |    2 +
