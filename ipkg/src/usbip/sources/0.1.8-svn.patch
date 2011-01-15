@@ -1,0 +1,863 @@
+diff -BurpN usbip-0.1.7/NEWS usbip-0.1.8-svn/NEWS
+--- usbip-0.1.7/NEWS	2009-01-13 18:04:21.000000000 +0000
++++ usbip-0.1.8-svn/NEWS	2009-02-18 13:45:46.730018000 +0000
+@@ -1,20 +1,27 @@
+ # vim:tw=78:ts=4:expandtab:ai:sw=4
+-# $Id: NEWS 86 2009-01-13 18:04:21Z hirofuchi $
++# $Id: NEWS 95 2009-02-18 13:45:46Z hirofuchi $
++
++usbip-0.1.8
++    - Cleanup: bind_driver to usbip_bind_driver
++    - Add: make the location of the vhci's status file configurable
++    - Fix: install binaries into sbin
++    - Add: add manpages
++    - Add: add --list2 option to bind_driver.
+ 
+ usbip-0.1.7
+-    - Remove: temporarily contributed auto-import-daemon code
++    - Remove: temporally remove contributed auto-import-daemon code
+     - Add: info about linux-staging
+ 
+ usbip-0.1.6
+-    - Fix: inet_shutdown()'s argment bug
++    - Fix: inet_shutdown()'s argument bug
+     - Add: support 2.6.24 and 2.6.25
+     - Add: compatibility code after 2.6.16 
+     - Add: the basic header cleanup for future other operating system
+            support
+-    - Add: some code that might fix reset issues (after 2.6.24 only)
+-    - Add: some code about power managment in 2.6.24
++    - Fix: some code that might fix reset issues (after 2.6.24 only)
++    - Add: some code about power management in 2.6.24
+     - Add: some code about tracking URBs in 2.6.24
+-    - Fix: connection termination caused by isochrounous urbs with no
++    - Fix: connection termination caused by isochronous urbs with no
+            isochronous descriptor
+ 
+ usbip-0.1.5
+@@ -109,7 +116,7 @@ usbip-20041207-0
+         support Low/Full speed mode (manual config only)
+         stub.ko
+             purge stub_list_priv.c
+-            suport unlink message
++            support unlink message
+ 
+ usbip-20041203-0
+     - minor fix
+diff -BurpN usbip-0.1.7/README usbip-0.1.8-svn/README
+--- usbip-0.1.7/README	2008-04-29 04:24:46.000000000 +0000
++++ usbip-0.1.8-svn/README	2009-02-18 14:13:37.253262000 +0000
+@@ -1,18 +1,18 @@
+ # vim:tw=78:ts=4:expandtab:ai:sw=4
+ #
+-# $Id: README 75 2008-04-29 04:24:46Z hirofuchi $
++# $Id: README 96 2009-02-18 14:13:37Z hirofuchi $
+ #
+ # Copyright (C) 2003-2008 Takahiro Hirofuchi
+ 
+ 
+ Overview
+     The USB/IP Project aims to develop a general USB device sharing system
+-    over IP network. To share USB devices between computers with their
+-    full functionality, USB/IP encapsulates "USB requests" into IP packets
+-    and transmits them between computers. Original USB device drivers and
++    over IP network. To share USB devices between computers with their full
++    functionality, USB/IP encapsulates "USB requests" into TCP/IP payloads and
++    transmits them between computers. Original USB device drivers and
+     applications can be also used for remote USB devices without any
+-    modification of them.  A computer can use remote USB devices as if
+-    they were directly attached; for example, we can ...
++    modification of them.  A computer can use remote USB devices as if they
++    were directly attached; for example, we can ...
+ 
+         - USB storage devices: fdisk, mkfs, mount/umount, file operations,
+           play a DVD movie and record a DVD-R media.  
+@@ -31,9 +31,9 @@ Overview
+     emulates a real USB host controller interface for virtual
+     attachment/detachment, enumeration and initialization of remote USB
+     devices. It encapsulates USB request blocks and then transmits USB/IP
+-    packets to a remote host. On the other host, the Stub driver is
++    requests to a remote host. On the other host, the Stub driver is
+     implemented as a USB per-device driver. The Stub driver decapsulates
+-    USB/IP packets into USB requests and then submit them to real USB
++    USB/IP requests into USB requests and then submit them to real USB
+     devices. 
+ 
+     For more information, please see http://usbip.sourceforge.net/ .
+diff -BurpN usbip-0.1.7/drivers/head/stub_dev.c usbip-0.1.8-svn/drivers/head/stub_dev.c
+--- usbip-0.1.7/drivers/head/stub_dev.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/stub_dev.c	2010-01-29 14:56:24.859412000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: stub_dev.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: stub_dev.c 149 2010-01-29 14:56:24Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -398,7 +398,11 @@ static int stub_probe(struct usb_interfa
+ {
+ 	struct usb_device *udev = interface_to_usbdev(interface);
+ 	struct stub_device *sdev = NULL;
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+ 	char *udev_busid = interface->dev.parent->bus_id;
++#else
++	char *udev_busid = dev_name(interface->dev.parent);
++#endif
+ 	int err = 0;
+ 
+ 	udbg("Enter\n");
+diff -BurpN usbip-0.1.7/drivers/head/stub_main.c usbip-0.1.8-svn/drivers/head/stub_main.c
+--- usbip-0.1.7/drivers/head/stub_main.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/stub_main.c	2010-01-29 13:28:19.733140000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: stub_main.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: stub_main.c 147 2010-01-29 13:28:19Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -25,7 +25,7 @@
+ #include "stub.h"
+ 
+ /* Version Information */
+-#define DRIVER_VERSION "$Id: stub_main.c 66 2008-04-20 13:19:42Z hirofuchi $"
++#define DRIVER_VERSION "$Id: stub_main.c 147 2010-01-29 13:28:19Z felfert $"
+ #define DRIVER_AUTHOR "Takahiro Hirofuchi"
+ #define DRIVER_DESC "Stub Driver for USB/IP"
+ 
+@@ -252,18 +252,17 @@ static int __init usb_stub_init(void)
+ 		return -ENOMEM;
+ 	}
+ 
++	info(DRIVER_DESC "" DRIVER_VERSION);
++
++	memset(busid_table, 0, sizeof(busid_table));
++	spin_lock_init(&busid_table_lock);
++
+ 	ret = usb_register(&stub_driver);
+ 	if (ret) {
+ 		uerr("usb_register failed %d\n", ret);
+ 		return ret;
+ 	}
+ 
+-
+-	info(DRIVER_DESC "" DRIVER_VERSION);
+-
+-	memset(busid_table, 0, sizeof(busid_table));
+-	spin_lock_init(&busid_table_lock);
+-
+ 	ret = driver_create_file(&stub_driver.drvwrap.driver, &driver_attr_match_busid);
+ 
+ 	if (ret) {
+diff -BurpN usbip-0.1.7/drivers/head/stub_rx.c usbip-0.1.8-svn/drivers/head/stub_rx.c
+--- usbip-0.1.7/drivers/head/stub_rx.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/stub_rx.c	2010-01-29 14:56:24.859412000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: stub_rx.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: stub_rx.c 149 2010-01-29 14:56:24Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -159,7 +159,11 @@ static int tweak_set_configuration_cmd(s
+ 	 * A user may need to set a special configuration value before
+ 	 * exporting the device.
+ 	 */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+ 	uinfo("set_configuration (%d) to %s\n", config, urb->dev->dev.bus_id);
++#else
++	uinfo("set_configuration (%d) to %s\n", config, dev_name(&urb->dev->dev));
++#endif
+ 	uinfo("but, skip!\n");
+ 
+ 	return 0;
+@@ -177,7 +181,11 @@ static int tweak_reset_device_cmd(struct
+ 	value = le16_to_cpu(req->wValue);
+ 	index = le16_to_cpu(req->wIndex);
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+ 	uinfo("reset_device (port %d) to %s\n", index, urb->dev->dev.bus_id);
++#else
++	uinfo("reset_device (port %d) to %s\n", index, dev_name(&urb->dev->dev));
++#endif
+ 
+ 	/* all interfaces should be owned by usbip driver, so just reset it. */
+ 	ret = usb_lock_device_for_reset(urb->dev, NULL);
+@@ -187,7 +195,11 @@ static int tweak_reset_device_cmd(struct
+ 	}
+ 
+ 	/* try to reset the device */
+-	ret = usb_reset_composite_device(urb->dev, NULL);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
++    ret = usb_reset_composite_device(urb->dev, NULL);
++#else
++	ret = usb_reset_device(urb->dev);
++#endif
+ 	if (ret < 0)
+ 		uerr("device reset\n");
+ 
+diff -BurpN usbip-0.1.7/drivers/head/usbip_common.c usbip-0.1.8-svn/drivers/head/usbip_common.c
+--- usbip-0.1.7/drivers/head/usbip_common.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/usbip_common.c	2010-02-08 17:41:12.284911000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: usbip_common.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: usbip_common.c 152 2010-02-08 17:41:12Z hschauhan2812 $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -27,7 +27,7 @@
+ #include "usbip_common.h"
+ 
+ /* version information */
+-#define DRIVER_VERSION "$Id: usbip_common.c 66 2008-04-20 13:19:42Z hirofuchi $"
++#define DRIVER_VERSION "$Id: usbip_common.c 152 2010-02-08 17:41:12Z hschauhan2812 $"
+ #define DRIVER_AUTHOR "Takahiro Hirofuchi <hirofuchi _at_ users.sourceforge.net>"
+ #define DRIVER_DESC "usbip common driver"
+ 
+@@ -55,10 +55,7 @@ static ssize_t show_flag(struct device *
+ static ssize_t store_flag(struct device *dev, struct device_attribute *attr,
+ 		const char *buf, size_t count)
+ {
+-	unsigned long flag;
+-
+-	sscanf(buf, "%lx", &flag);
+-	usbip_debug_flag = flag;
++	sscanf(buf, "%lx", &usbip_debug_flag);
+ 
+ 	return count;
+ }
+@@ -390,7 +387,7 @@ int usbip_thread(void *param)
+ 	unlock_kernel();
+ 
+ 	/* srv.rb must wait for rx_thread starting */
+-	complete(&ut->thread_done);
++	complete(&ut->thread_started);
+ 
+ 	/* start of while loop */
+ 	ut->loop_ops(ut);
+@@ -406,12 +404,17 @@ void usbip_start_threads(struct usbip_de
+ 	/*
+ 	 * threads are invoked per one device (per one connection).
+ 	 */
++    INIT_COMPLETION(ud->tcp_rx.thread_started);
++    INIT_COMPLETION(ud->tcp_tx.thread_started);
++    INIT_COMPLETION(ud->tcp_rx.thread_done);
++    INIT_COMPLETION(ud->tcp_tx.thread_done);
++
+ 	kernel_thread((int(*)(void *))usbip_thread, (void *)&ud->tcp_rx, 0);
+ 	kernel_thread((int(*)(void *))usbip_thread, (void *)&ud->tcp_tx, 0);
+ 
+ 	/* confirm threads are starting */
+-	wait_for_completion(&ud->tcp_rx.thread_done);
+-	wait_for_completion(&ud->tcp_tx.thread_done);
++	wait_for_completion(&ud->tcp_rx.thread_started);
++	wait_for_completion(&ud->tcp_tx.thread_started);
+ }
+ EXPORT_SYMBOL(usbip_start_threads);
+ 
+@@ -436,6 +439,7 @@ void usbip_task_init(struct usbip_task *
+ 		void (*loop_ops)(struct usbip_task *))
+ {
+ 	ut->thread = NULL;
++	init_completion(&ut->thread_started);
+ 	init_completion(&ut->thread_done);
+ 	ut->name = name;
+ 	ut->loop_ops = loop_ops;
+diff -BurpN usbip-0.1.7/drivers/head/usbip_common.h usbip-0.1.8-svn/drivers/head/usbip_common.h
+--- usbip-0.1.7/drivers/head/usbip_common.h	2008-04-29 03:31:43.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/usbip_common.h	2010-01-29 15:13:48.302830000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: usbip_common.h 68 2008-04-29 03:31:43Z hirofuchi $
++ * $Id: usbip_common.h 150 2010-01-29 15:13:48Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -300,6 +300,7 @@ struct usbip_device;
+ 
+ struct usbip_task {
+ 	struct task_struct *thread;
++	struct completion thread_started;
+ 	struct completion thread_done;
+ 	char *name;
+ 	void (*loop_ops)(struct usbip_task *);
+diff -BurpN usbip-0.1.7/drivers/head/usbip_event.c usbip-0.1.8-svn/drivers/head/usbip_event.c
+--- usbip-0.1.7/drivers/head/usbip_event.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/usbip_event.c	2010-01-29 15:13:48.302830000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: usbip_event.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: usbip_event.c 150 2010-01-29 15:13:48Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -38,7 +38,7 @@ void usbip_start_eh(struct usbip_device 
+ 
+ 	kernel_thread((int(*)(void *)) usbip_thread, (void *) eh, 0);
+ 
+-	wait_for_completion(&eh->thread_done);
++	wait_for_completion(&eh->thread_started);
+ }
+ EXPORT_SYMBOL(usbip_start_eh);
+ 
+diff -BurpN usbip-0.1.7/drivers/head/vhci_hcd.c usbip-0.1.8-svn/drivers/head/vhci_hcd.c
+--- usbip-0.1.7/drivers/head/vhci_hcd.c	2008-04-20 13:19:42.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/vhci_hcd.c	2010-02-07 16:56:04.691105000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: vhci_hcd.c 66 2008-04-20 13:19:42Z hirofuchi $
++ * $Id: vhci_hcd.c 151 2010-02-07 16:56:04Z hschauhan2812 $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -24,7 +24,7 @@
+ #include "usbip_common.h"
+ #include "vhci.h"
+ 
+-#define DRIVER_VERSION " $Id: vhci_hcd.c 66 2008-04-20 13:19:42Z hirofuchi $ "
++#define DRIVER_VERSION " $Id: vhci_hcd.c 151 2010-02-07 16:56:04Z hschauhan2812 $ "
+ #define DRIVER_AUTHOR "Takahiro Hirofuchi"
+ #define DRIVER_DESC "Virtual Host Controller Interface Driver for USB/IP"
+ #define DRIVER_LICENCE "GPL"
+@@ -58,7 +58,7 @@ static void vhci_stop(struct usb_hcd *hc
+ static int vhci_get_frame_number(struct usb_hcd *hcd);
+ 
+ static const char driver_name[] = "vhci_hcd";
+-static const char driver_desc[] = "USB/IP Virtual Host Contoroller";
++static const char driver_desc[] = "USB/IP Virtual Host Controller";
+ 
+ 
+ 
+@@ -416,14 +416,6 @@ static int vhci_hub_control(struct usb_h
+ 				case USB_PORT_FEAT_SUSPEND:
+ 					dbg_vhci_rh(" SetPortFeature: USB_PORT_FEAT_SUSPEND\n");
+ 					uerr(" not yet\n");
+-#if 0
+-					dum->port_status[rhport] |= (1 << USB_PORT_FEAT_SUSPEND);
+-					if (dum->driver->suspend) {
+-						spin_unlock (&dum->lock);
+-						dum->driver->suspend (&dum->gadget);
+-						spin_lock (&dum->lock);
+-					}
+-#endif
+ 					break;
+ 				case USB_PORT_FEAT_RESET:
+ 					dbg_vhci_rh(" SetPortFeature: USB_PORT_FEAT_RESET\n");
+@@ -432,12 +424,6 @@ static int vhci_hub_control(struct usb_h
+ 						dum->port_status[rhport] &= ~(USB_PORT_STAT_ENABLE
+ 								| USB_PORT_STAT_LOW_SPEED
+ 								| USB_PORT_STAT_HIGH_SPEED);
+-#if 0
+-						if (dum->driver) {
+-							dev_dbg (hardware, "disconnect\n");
+-							stop_activity (dum, dum->driver);
+-						}
+-#endif
+ 
+ 						/* FIXME test that code path! */
+ 					}
+@@ -1060,7 +1046,7 @@ static int vhci_hcd_probe(struct platfor
+ 	struct usb_hcd		*hcd;
+ 	int			ret;
+ 
+-	uinfo("proving...\n");
++	uinfo("probing...\n");
+ 
+ 	dbg_vhci_hc("name %s id %d\n", pdev->name, pdev->id);
+ 
+@@ -1076,7 +1062,11 @@ static int vhci_hcd_probe(struct platfor
+ 	 * Allocate and initialize hcd.
+ 	 * Our private data is also allocated automatically.
+ 	 */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+ 	hcd = usb_create_hcd(&vhci_hc_driver, &pdev->dev, pdev->dev.bus_id);
++#else
++	hcd = usb_create_hcd(&vhci_hc_driver, &pdev->dev, dev_name(&pdev->dev));
++#endif
+ 	if (!hcd) {
+ 		uerr("create hcd failed\n");
+ 		return -ENOMEM;
+diff -BurpN usbip-0.1.7/drivers/head/vhci_sysfs.c usbip-0.1.8-svn/drivers/head/vhci_sysfs.c
+--- usbip-0.1.7/drivers/head/vhci_sysfs.c	2008-04-24 11:51:43.000000000 +0000
++++ usbip-0.1.8-svn/drivers/head/vhci_sysfs.c	2010-01-29 14:56:24.859412000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: vhci_sysfs.c 67 2008-04-24 11:51:43Z hirofuchi $
++ * $Id: vhci_sysfs.c 149 2010-01-29 14:56:24Z felfert $
+  *
+  * Copyright (C) 2003-2008 Takahiro Hirofuchi
+  *
+@@ -123,7 +123,11 @@ static ssize_t show_status(struct device
+ 			out += sprintf(out, "%03u %08x ",
+ 					vdev->speed, vdev->devid);
+ 			out += sprintf(out, "%16p ", vdev->ud.tcp_socket);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
+ 			out += sprintf(out, "%s", vdev->udev->dev.bus_id);
++#else
++			out += sprintf(out, "%s", dev_name(&vdev->udev->dev));
++#endif
+ 
+ 		} else
+ 			out += sprintf(out, "000 000 000 0000000000000000 0-0");
+diff -BurpN usbip-0.1.7/src/README usbip-0.1.8-svn/src/README
+--- usbip-0.1.7/src/README	2008-04-29 03:34:00.000000000 +0000
++++ usbip-0.1.8-svn/src/README	2009-02-18 13:30:09.369113000 +0000
+@@ -41,13 +41,13 @@
+     server:# usbipd -D
+         - Start usbip daemon.
+ 
+-    server:# bind_driver --list
++    server:# usbip_bind_driver --list
+         - List driver assignments for usb devices.
+ 
+-    server:# bind_driver --usbip 1-2
++    server:# usbip_bind_driver --usbip 1-2
+         - Bind usbip.ko to the device of busid 1-2.
+         - A usb device 1-2 is now exportable to other hosts!
+-        - Use 'bind_driver --other 1-2' when you want to shutdown exporting
++        - Use 'usbip_bind_driver --other 1-2' when you want to shutdown exporting
+           and use the device locally. 
+ 
+ 
+@@ -83,7 +83,7 @@ usb-storage driver. To export this devic
+ "exportable"; the device is bound to usbip driver. Please remember you can not
+ export a usb hub.
+ 
+-   trois:# bind_driver --list
++   trois:# usbip_bind_driver --list
+    List USB devices
+    - busid 3-3.2 (04bb:0206)
+        3-3.2:1.0 -> usb-storage
+@@ -112,12 +112,12 @@ export a usb hub.
+ --------------------------------------------------------------------------------------------------------
+ Mark the device of busid 3-3.2 as exportable.
+ 
+-   trois:# bind_driver --usbip 3-3.2
++   trois:# usbip_bind_driver --usbip 3-3.2
+    ** (process:24621): DEBUG:  3-3.2:1.0   -> none 
+    ** (process:24621): DEBUG: write "add 3-3.2" to /sys/bus/usb/drivers/usbip/match_busid
+    ** Message: bind 3-3.2 to usbip, complete!
+    
+-   trois:# bind_driver --list
++   trois:# usbip_bind_driver --list
+    List USB devices
+    - busid 3-3.2 (04bb:0206)
+            3-3.2:1.0 -> usbip
+diff -BurpN usbip-0.1.7/src/cmd/Makefile.am usbip-0.1.8-svn/src/cmd/Makefile.am
+--- usbip-0.1.7/src/cmd/Makefile.am	2009-01-13 17:10:51.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/Makefile.am	2009-03-05 12:36:03.119000000 +0000
+@@ -1,19 +1,21 @@
+-# $Id: Makefile.am 85 2009-01-13 17:10:51Z hirofuchi $
++# $Id: Makefile.am 99 2009-03-05 12:36:03Z hirofuchi $
+ 
+-bin_PROGRAMS = usbip usbipd bind_driver
++sbin_PROGRAMS = usbip usbipd usbip_bind_driver
+ 
+ usbip_SOURCES = vhci_attach.c usbip_network.c usbip_network.h
+ usbipd_SOURCES = stub_server.c usbip_network.c usbip_network.h
+-bind_driver_SOURCES = bind-driver.c \
++usbip_bind_driver_SOURCES = bind-driver.c \
+ 		utils.c utils.h \
+ 		usbip_network.h usbip_network.c
+ 
+-#bind_driver_CFLAGS = -Wall -W -Wstrict-prototypes @PACKAGE_CFLAGS@
+-#bind_driver_LDADD = @PACKAGE_LIBS@
++dist_man_MANS = usbip.8 usbipd.8 usbip_bind_driver.8
++
++#usbip_bind_driver_CFLAGS = -Wall -W -Wstrict-prototypes @PACKAGE_CFLAGS@
++#usbip_bind_driver_LDADD = @PACKAGE_LIBS@
+ 
+ #AM_CPPFLAGS = -I../include -Wall -std=gnu99
+ INCLUDES = -I$(top_srcdir)/lib
+ LDADD = ../lib/libusbip.la @PACKAGE_LIBS@
+ EXTRA_CFLAGS = @EXTRA_CFLAGS@
+-AM_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) @PACKAGE_CFLAGS@
++AM_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) @PACKAGE_CFLAGS@ -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
+ 
+diff -BurpN usbip-0.1.7/src/cmd/bind-driver.c usbip-0.1.8-svn/src/cmd/bind-driver.c
+--- usbip-0.1.7/src/cmd/bind-driver.c	2009-01-13 17:10:51.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/bind-driver.c	2009-02-18 13:30:09.369113000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: bind-driver.c 85 2009-01-13 17:10:51Z hirofuchi $
++ * $Id: bind-driver.c 91 2009-02-18 13:30:09Z hirofuchi $
+  *
+  * Copyright (C) 2005-2007 Takahiro Hirofuchi
+  */
+@@ -16,6 +16,7 @@ static const struct option longopts[] = 
+ 	{"usbip",	required_argument,	NULL, 'u'},
+ 	{"other",	required_argument,	NULL, 'o'},
+ 	{"list",	no_argument,		NULL, 'l'},
++	{"list2",	no_argument,		NULL, 'L'},
+ 	{"help",	no_argument,		NULL, 'h'},
+ #if 0
+ 	{"allusbip",	no_argument,		NULL, 'a'},
+@@ -32,11 +33,12 @@ static const char match_busid_path[] = "
+ 
+ static void show_help(void)
+ {
+-	printf("Usage: bind-driver [OPTION]\n");
++	printf("Usage: usbip_bind_driver [OPTION]\n");
+ 	printf("Change driver binding for USB/IP.\n");
+ 	printf("  --usbip busid        make a device exportable\n");
+ 	printf("  --other busid        use a device by a local driver\n");
+ 	printf("  --list               print usb devices and their drivers\n");
++	printf("  --list2              print usb devices and their drivers in parseable mode\n");
+ 	printf("  --allusbip           make all devices exportable\n");
+ 
+ #if 0
+@@ -378,6 +380,50 @@ static int show_devices(void)
+ 	return 0;
+ }
+ 
++static int show_devices2(void)
++{
++	DIR *dir;
++
++	dir = opendir("/sys/bus/usb/devices/");
++	if (!dir)
++		g_error("opendir: %s", strerror(errno));
++
++	for (;;) {
++		struct dirent *dirent;
++		char *busid;
++
++		dirent = readdir(dir);
++		if (!dirent)
++			break;
++
++		busid = dirent->d_name;
++
++		if (is_usb_device(busid)) {
++			char name[100] = {'\0'};
++			char driver[100] =  {'\0'};
++			int conf, ninf = 0;
++			int i;
++
++			conf = read_bConfigurationValue(busid);
++			ninf = read_bNumInterfaces(busid);
++
++			getdevicename(busid, name, sizeof(name));
++
++			printf("busid=%s#usbid=%s#", busid, name);
++
++			for (i = 0; i < ninf; i++) {
++				getdriver(busid, conf, i, driver, sizeof(driver));
++				printf("%s:%d.%d=%s#", busid, conf, i, driver);
++			}
++			printf("\n");
++		}
++	}
++
++	closedir(dir);
++
++	return 0;
++}
++
+ 
+ #if 0
+ static int export_to(char *host, char *busid) {
+@@ -504,6 +550,7 @@ int main(int argc, char **argv)
+ 		cmd_use_by_usbip,
+ 		cmd_use_by_other,
+ 		cmd_list,
++		cmd_list2,
+ 		cmd_allusbip,
+ 		cmd_export_to,
+ 		cmd_unexport,
+@@ -517,7 +564,7 @@ int main(int argc, char **argv)
+ 		int c;
+ 		int index = 0;
+ 
+-		c = getopt_long(argc, argv, "u:o:hlae:x:b:", longopts, &index);
++		c = getopt_long(argc, argv, "u:o:hlLae:x:b:", longopts, &index);
+ 		if (c == -1)
+ 			break;
+ 
+@@ -533,6 +580,9 @@ int main(int argc, char **argv)
+ 			case 'l' :
+ 				cmd = cmd_list;
+ 				break;
++			case 'L' :
++				cmd = cmd_list2;
++				break;
+ 			case 'a' :
+ 				cmd = cmd_allusbip;
+ 				break;
+@@ -569,6 +619,9 @@ int main(int argc, char **argv)
+ 		case cmd_list:
+ 			show_devices();
+ 			break;
++		case cmd_list2:
++			show_devices2();
++			break;
+ #if 0
+ 		case cmd_allusbip:
+ 			allusbip();
+diff -BurpN usbip-0.1.7/src/cmd/usbip.8 usbip-0.1.8-svn/src/cmd/usbip.8
+--- usbip-0.1.7/src/cmd/usbip.8	1970-01-01 00:00:00.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/usbip.8	2009-02-18 13:45:46.730018000 +0000
+@@ -0,0 +1,71 @@
++.TH USBIP "8" "February 2009" "usbip" "System Administration Utilities"
++.SH NAME
++usbip \- manage USB/IP devices
++.SH SYNOPSIS
++.B usbip
++[\fIoptions\fR]
++
++.SH DESCRIPTION
++Devices exported by USB/IP servers can be listed, attached and
++detached using this program.
++
++.SH OPTIONS
++.HP
++\fB\-a\fR, \fB\-\-attach\fR <host> <bus_id>
++.IP
++Attach a remote USB device.
++.PP
++
++.HP
++\fB\-x\fR, \fB\-\-attachall\fR <host>
++.IP
++Attach all remote USB devices on the specific host.
++.PP
++
++.HP
++\fB\-d\fR, \fB\-\-detach\fR <ports>
++.IP
++Detach an imported USB device.
++.PP
++
++.HP
++\fB\-l\fR, \fB\-\-list\fR <hosts>
++.IP
++List exported USB devices.
++.PP
++
++.HP
++\fB\-p\fR, \fB\-\-port\fR
++.IP
++List virtual USB port status.
++.PP
++
++.HP
++\fB\-D\fR, \fB\-\-debug\fR
++.IP
++Print debugging information.
++.PP
++
++.HP
++\fB\-v\fR, \fB\-\-version\fR
++.IP
++Show version.
++.PP
++
++.SH EXAMPLES
++
++    client:# usbip --list server
++        - List exportable usb devices on the server.
++
++    client:# usbip --attach server 1-2
++        - Connect the remote USB device.
++
++    client:# usbip --port
++        - Show virtual port status.
++
++    client:# usbip --detach 0
++        - Detach the usb device.
++
++.SH "SEE ALSO"
++\fBusbipd\fP\fB(8)\fB\fP,
++\fBusbip_attach_driver\fP\fB(8)\fB\fP
+diff -BurpN usbip-0.1.7/src/cmd/usbip_bind_driver.8 usbip-0.1.8-svn/src/cmd/usbip_bind_driver.8
+--- usbip-0.1.7/src/cmd/usbip_bind_driver.8	1970-01-01 00:00:00.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/usbip_bind_driver.8	2009-03-05 12:31:08.562104000 +0000
+@@ -0,0 +1,42 @@
++.TH USBIP_BIND_DRIVER "8" "February 2009" "usbip" "System Administration Utilities"
++.SH NAME
++usbip_bind_driver \- change driver binding for USB/IP
++
++.SH SYNOPSIS
++.B usbip_bind_driver
++[\fIoptions\fR]
++
++.SH DESCRIPTION
++Driver bindings for USB devices can be changed using 
++this program. It is used to export and unexport USB 
++devices over USB/IP.
++
++.SH OPTIONS
++.TP
++\fB\-u\fR, \fB\-\-usbip\fR <busid>
++Make a device exportable
++.TP
++\fB\-o\fR, \fB\-\-other\fR <busid>
++Use a device by a local driver
++.TP
++\fB\-l\fR, \fB\-\-list\fR
++Print usb devices and their drivers
++.TP
++\fB\-L\fR, \fB\-\-list2\fR
++Print usb devices and their drivers in parseable mode
++
++.SH EXAMPLES
++
++    server:# usbip_bind_driver --list
++        - List driver assignments for usb devices.
++
++    server:# usbip_bind_driver --usbip 1-2
++        - Bind usbip.ko to the device of busid 1-2.
++        - A usb device 1-2 is now exportable to other hosts!
++
++    server:# usbip_bind_driver --other 1-2 
++        - Shutdown exporting and use the device locally.
++
++.SH "SEE ALSO"
++\fBusbip\fP\fB(8)\fB\fP,
++\fBusbipd\fP\fB(8)\fB\fP
+diff -BurpN usbip-0.1.7/src/cmd/usbipd.8 usbip-0.1.8-svn/src/cmd/usbipd.8
+--- usbip-0.1.7/src/cmd/usbipd.8	1970-01-01 00:00:00.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/usbipd.8	2009-02-18 13:45:46.730018000 +0000
+@@ -0,0 +1,62 @@
++.TH USBIP "8" "February 2009" "usbip" "System Administration Utilities"
++.SH NAME
++usbipd \- USB/IP server daemon
++.SH SYNOPSIS
++.B usbipd
++[\fIoptions\fR]
++
++.SH DESCRIPTION
++.B usbipd
++provides USB/IP clients access to exported USB devices.
++
++Devices have to explicitly be exported using
++.B usbip_bind_driver
++before usbipd makes them available to other hosts.
++
++The daemon accepts connections from USB/IP clients
++on TCP port 3240.
++
++.SH OPTIONS
++.HP
++\fB\-D\fR, \fB\-\-daemon\fR
++.IP
++Run as a daemon process.
++.PP
++
++.HP
++\fB\-d\fR, \fB\-\-debug\fR
++.IP
++Print debugging information.
++.PP
++
++.HP
++\fB\-v\fR, \fB\-\-version\fR
++.IP
++Show version.
++.PP
++
++.SH LIMITATIONS
++
++.B usbipd
++offers no authentication or authorization for USB/IP. Any
++USB/IP client can connect and use exported devices.
++
++.SH EXAMPLES
++
++    server:# modprobe usbip
++
++    server:# usbipd -D
++        - Start usbip daemon.
++
++    server:# usbip_bind_driver --list
++        - List driver assignments for usb devices.
++
++    server:# usbip_bind_driver --usbip 1-2
++        - Bind usbip.ko to the device of busid 1-2.
++        - A usb device 1-2 is now exportable to other hosts!
++        - Use 'usbip_bind_driver --other 1-2' when you want to shutdown exporting and use the device locally.
++
++.SH "SEE ALSO"
++\fBusbip\fP\fB(8)\fB\fP,
++\fBusbip_attach_driver\fP\fB(8)\fB\fP
++
+diff -BurpN usbip-0.1.7/src/cmd/vhci_attach.c usbip-0.1.8-svn/src/cmd/vhci_attach.c
+--- usbip-0.1.7/src/cmd/vhci_attach.c	2007-09-07 12:07:51.000000000 +0000
++++ usbip-0.1.8-svn/src/cmd/vhci_attach.c	2009-02-18 13:34:18.423883000 +0000
+@@ -1,5 +1,5 @@
+ /*
+- * $Id: vhci_attach.c 42 2007-09-07 12:07:51Z hirofuchi $
++ * $Id: vhci_attach.c 94 2009-02-18 13:34:18Z hirofuchi $
+  *
+  * Copyright (C) 2005-2007 Takahiro Hirofuchi
+  */
+@@ -17,7 +17,7 @@
+ #include <glib.h>
+ 
+ static const char version[] = PACKAGE_STRING
+-	" ($Id: vhci_attach.c 42 2007-09-07 12:07:51Z hirofuchi $)";
++	" ($Id: vhci_attach.c 94 2009-02-18 13:34:18Z hirofuchi $)";
+ 
+ 
+ /* /sys/devices/platform/vhci_hcd/usb6/6-1/6-1:1.1  -> 1 */
+@@ -84,9 +84,9 @@ static int record_connection(char *host,
+ 	char buff[MAX_BUFF+1];
+ 	int ret;
+ 
+-	mkdir("/tmp/vhci_hcd", 0700);
++	mkdir(VHCI_STATE_PATH, 0700);
+ 
+-	snprintf(path, PATH_MAX, "/tmp/vhci_hcd/port%d", rhport);
++	snprintf(path, PATH_MAX, VHCI_STATE_PATH"/port%d", rhport);
+ 
+ 	fd = open(path, O_WRONLY|O_CREAT|O_TRUNC, S_IRWXU);
+ 	if (fd < 0)
+@@ -111,7 +111,7 @@ static int read_record(int rhport, char 
+ 	FILE *file;
+ 	char path[PATH_MAX+1];
+ 
+-	snprintf(path, PATH_MAX, "/tmp/vhci_hcd/port%d", rhport);
++	snprintf(path, PATH_MAX, VHCI_STATE_PATH"/port%d", rhport);
+ 
+ 	file = fopen(path, "r");
+ 	if (!file) {
+diff -BurpN usbip-0.1.7/src/configure.ac usbip-0.1.8-svn/src/configure.ac
+--- usbip-0.1.7/src/configure.ac	2008-05-19 10:52:04.000000000 +0000
++++ usbip-0.1.8-svn/src/configure.ac	2009-01-13 18:26:13.802847000 +0000
+@@ -2,8 +2,8 @@
+ # Process this file with autoconf to produce a configure script.
+ 
+ AC_PREREQ(2.59)
+-AC_REVISION($Id: configure.ac 79 2008-05-19 10:52:04Z hirofuchi $)
+-AC_INIT(usbip, 0.1.7, usbip-devel@lists.sourceforge.net)
++AC_REVISION($Id: configure.ac 89 2009-01-13 18:26:13Z hirofuchi $)
++AC_INIT(usbip, 0.1.8, usbip-devel@lists.sourceforge.net)
+ AC_DEFINE(USBIP_VERSION, 0x000106, Numeric version number)
+ 
+ AC_CONFIG_SRCDIR([config.h.in])
+diff -BurpN usbip-0.1.7/src/lib/Makefile.am usbip-0.1.8-svn/src/lib/Makefile.am
+--- usbip-0.1.7/src/lib/Makefile.am	2007-03-09 13:33:29.000000000 +0000
++++ usbip-0.1.8-svn/src/lib/Makefile.am	2009-03-05 12:33:00.040230000 +0000
+@@ -5,6 +5,6 @@ libusbip_la_SOURCES = names.c names.h st
+ #INCLUDES = -I../include
+ #AM_CPPFLAGS = -I../include -Wall -std=gnu99
+ libusbip_la_LDFLAGS = -version-info 0:1:0
+-EXTRA_CFLAGS = @EXTRA_CLFAGS@
+-libusbip_la_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CLFAGS) -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
++EXTRA_CFLAGS = @EXTRA_CFLAGS@
++libusbip_la_CFLAGS = -Wall -W -Wstrict-prototypes -std=gnu99 $(EXTRA_CFLAGS) -DUSBIDS_FILE='"@USBIDS_DIR@/usb.ids"'
+ 
+diff -BurpN usbip-0.1.7/src/lib/usbip_common.h usbip-0.1.8-svn/src/lib/usbip_common.h
+--- usbip-0.1.7/src/lib/usbip_common.h	2008-05-19 11:14:14.000000000 +0000
++++ usbip-0.1.8-svn/src/lib/usbip_common.h	2009-02-18 13:34:18.423883000 +0000
+@@ -22,6 +22,9 @@
+ #define USBIDS_FILE "/usr/share/hwdata/usb.ids"
+ #endif
+ 
++#ifndef VHCI_STATE_PATH
++#define VHCI_STATE_PATH "/var/run/vhci_hcd"
++#endif
+ 
+ //#include <linux/usb_ch9.h>
+ enum usb_device_speed {

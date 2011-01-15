@@ -88,12 +88,12 @@ Package: usbip
 Architecture: mipsel
 Priority: optional
 Section: utility
-Version: 0.1.7-1
+Version: 0.1.7-2
 Maintainer: http://usbip.sourceforge.net
 Source: http://easynews.dl.sf.net/sourceforge/usbip/usbip-0.1.7.tar.gz
-Filename: usbip_0.1.7-1_mipsel.ipk
-Size: 158549
-MD5Sum: b51abb202c19f2295accc5cc2a564131
+Filename: usbip_0.1.7-2_mipsel.ipk
+Size: 159521
+MD5Sum: 51556fa1e66122eead3e33e43c6271a2
 Description: General USB device sharing system over IP network
 Depends: glib,sysfsutils
 Suggests: 

@@ -42,7 +42,7 @@ USBIP_CONFLICTS=
 #
 # USBIP_IPK_VERSION should be incremented when the ipk changes.
 #
-USBIP_IPK_VERSION=1
+USBIP_IPK_VERSION=2
 
 #
 # USBIP_CONFFILES should be a list of user-editable files
@@ -52,7 +52,7 @@ USBIP_CONFFILES=/opt/share/usbip/usb.ids
 # USBIP_PATCHES should list any patches, in the the order in
 # which they should be applied to the source code.
 #
-#USBIP_PATCHES=$(USBIP_SOURCE_DIR)/configure.patch
+USBIP_PATCHES=$(USBIP_SOURCE_DIR)/0.1.8-svn.patch
 
 #
 # If the compilation of the package requires additional
@@ -116,7 +116,7 @@ $(USBIP_BUILD_DIR)/.configured: $(DL_DIR)/$(USBIP_SOURCE) $(USBIP_PATCHES) make/
 	$(USBIP_UNZIP) $(DL_DIR)/$(USBIP_SOURCE) | tar -C $(BUILD_DIR) -xvf -
 	if test -n "$(USBIP_PATCHES)" ; \
 		then cat $(USBIP_PATCHES) | \
-		patch -d $(BUILD_DIR)/$(USBIP_DIR) -p0 ; \
+		patch -d $(BUILD_DIR)/$(USBIP_DIR) -p1 ; \
 	fi
 	if test "$(BUILD_DIR)/$(USBIP_DIR)" != "$(@D)" ; \
 		then mv $(BUILD_DIR)/$(USBIP_DIR) $(@D) ; \
