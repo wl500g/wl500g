@@ -69,3 +69,18 @@ Description: The NTFS-3G driver is a freely and commercially available
 Depends:
 Conflicts:
 
+Package: usbip
+Architecture: mipsel
+Priority: optional
+Section: utility
+Version: 0.1.7-1
+Maintainer: http://usbip.sourceforge.net
+Source: http://easynews.dl.sf.net/sourceforge/usbip/usbip-0.1.7.tar.gz
+Filename: usbip_0.1.7-1_mipsel.ipk
+Size: 158549
+MD5Sum: b51abb202c19f2295accc5cc2a564131
+Description: General USB device sharing system over IP network
+Depends: glib,sysfsutils
+Suggests: 
+Conflicts: 
+
