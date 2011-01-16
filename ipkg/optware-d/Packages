@@ -69,33 +69,3 @@ Description: The NTFS-3G driver is a freely and commercially available
 Depends:
 Conflicts:
 
-Package: sysfsutils
-Architecture: mipsel
-Priority: optional
-Section: sysadmin
-Version: 2.1.0-1
-Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
-Source: http://easynews.dl.sf.net/sourceforge/linux-diag/sysfsutils-2.1.0.tar.gz
-Filename: sysfsutils_2.1.0-1_mipsel.ipk
-Size: 32850
-MD5Sum: 20ec66f55100b5da6422b615cedd6811
-Description: A set of utilites built upon sysfs, a new virtual filesystem in Linux kernel versions 2.5+ that exposes system device tree. Including libsysfs and systool.
-Depends: 
-Suggests: 
-Conflicts: 
-
-Package: usbip
-Architecture: mipsel
-Priority: optional
-Section: utility
-Version: 0.1.7-2
-Maintainer: http://usbip.sourceforge.net
-Source: http://easynews.dl.sf.net/sourceforge/usbip/usbip-0.1.7.tar.gz
-Filename: usbip_0.1.7-2_mipsel.ipk
-Size: 159521
-MD5Sum: 51556fa1e66122eead3e33e43c6271a2
-Description: General USB device sharing system over IP network
-Depends: glib,sysfsutils
-Suggests: 
-Conflicts: 
-
