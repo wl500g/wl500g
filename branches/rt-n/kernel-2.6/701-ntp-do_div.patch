@@ -1,0 +1,46 @@
+From e48af19f56eb47a1f908ee8f16df9d246f955b21
+From: David Howells
+Date: Mon, 25 Feb 2008 18:31:57 +0100
+Subject: [PATCH] ntp: use unsigned input for do_div()
+
+The kernel NTP code shouldn't hand 64-bit *signed* values to do_div().  Make it
+instead hand 64-bit unsigned values.  This gets rid of a couple of warnings.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+Cc: Roman Zippel <zippel@linux-m68k.org>
+Cc: Ingo Molnar <mingo@elte.hu>
+Cc: john stultz <johnstul@us.ibm.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
+---
+ kernel/time/ntp.c |   12 +++++++-----
+ 1 files changed, 7 insertions(+), 5 deletions(-)
+
+diff --git a/kernel/time/ntp.c b/kernel/time/ntp.c
+index c88b591..d4bca92 100644
+--- a/kernel/time/ntp.c
++++ b/kernel/time/ntp.c
+@@ -342,14 +342,16 @@ int do_adjtimex(struct timex *txc)
+ 		    freq_adj = shift_right(freq_adj, time_constant * 2 +
+ 					   (SHIFT_PLL + 2) * 2 - SHIFT_NSEC);
+ 		    if (mtemp >= MINSEC && (time_status & STA_FLL || mtemp > MAXSEC)) {
++			u64 utemp64;
+ 			temp64 = time_offset << (SHIFT_NSEC - SHIFT_FLL);
+ 			if (time_offset < 0) {
+-			    temp64 = -temp64;
+-			    do_div(temp64, mtemp);
+-			    freq_adj -= temp64;
++			    utemp64 = -temp64;
++			    do_div(utemp64, mtemp);
++			    freq_adj -= utemp64;
+ 			} else {
+-			    do_div(temp64, mtemp);
+-			    freq_adj += temp64;
++			    utemp64 = temp64;
++			    do_div(utemp64, mtemp);
++			    freq_adj += utemp64;
+ 			}
+ 		    }
+ 		    freq_adj += time_freq;
+-- 
+1.7.3.5
