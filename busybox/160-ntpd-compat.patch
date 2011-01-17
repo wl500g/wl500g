@@ -5,8 +5,8 @@ diff -urBp a/include/usage.src.h busybox.new/include/usage.src.h
         "Address:    127.0.0.1\n"
  
  #define ntpd_trivial_usage \
--	"[-dnqw"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
-+	"[-dnqwt"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
+-	"[-dnqNw"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
++	"[-dnqNwt"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
  #define ntpd_full_usage "\n\n" \
         "NTP client/server\n" \
       "\nOptions:" \
@@ -42,7 +42,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
 +	if (option_mask32 & OPT_t) /* RFC-4330 check disabled */
 +		return 1;
 +
- #if 0	/* we filter out such packets earlier */
+ #if 0 /* we filter out such packets earlier */
  	if ((p->lastpkt_status & LI_ALARM) == LI_ALARM
  	 || p->lastpkt_stratum >= MAXSTRAT
 @@ -1548,9 +1552,10 @@ recv_and_process_peer_pkt(peer_t *p)
