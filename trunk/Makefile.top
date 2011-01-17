@@ -538,7 +538,7 @@ www www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
 
 radvd/Makefile: radvd/Makefile.in
-	cd radvd && CPPFLAGS="$(EXTRACFLAGS)" \
+	cd radvd && CFLAGS="-g -Os" CPPFLAGS="$(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=""
 
 radvd: radvd/Makefile
