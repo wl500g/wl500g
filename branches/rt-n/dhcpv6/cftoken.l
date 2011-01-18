@@ -1,5 +1,6 @@
 /*	$KAME: cftoken.l,v 1.35 2005/01/12 06:06:11 suz Exp $	*/
 
+%option noyywrap
 %{
 /*
  * Copyright (C) 2002 WIDE Project.
@@ -51,7 +52,9 @@
 #include "common.h"
 #include "y.tab.h"
 
+#define YY_NO_INPUT 1
 #define YY_NO_UNPUT 1
+#define NOCONFIG_DEBUG 1
 
 char *configfilename;
 int lineno = 1;
@@ -334,10 +337,9 @@ ecl		\}
 	}
 
 %%
+#ifndef NOCONFIG_DEBUG
 static void
-cfdebug_print(w, t, l)
-	char *w, *t;
-	int l;
+cfdebug_print(char *w, char *t, int l)
 {
 	if (w) {
 		dprintf(LOG_DEBUG, FNAME,
@@ -347,6 +349,9 @@ cfdebug_print(w, t, l)
 		    "<%d>[%s] (%d)", yy_start, t, l);
 	}
 }
+#else
+static void cfdebug_print(char *w, char *t, int l) {}
+#endif
 
 static void
 yyerror0(int level, char *s, va_list ap)
@@ -390,8 +395,7 @@ yywarn(char *s, ...)
 }
 
 int
-cfswitch_buffer(incl)
-	char *incl;
+cfswitch_buffer(char *incl)
 {
 	char *path = qstrdup(incl);
 	FILE *fp;
@@ -423,8 +427,7 @@ cfswitch_buffer(incl)
 }
 
 int
-cfparse(conf)
-	char *conf;
+cfparse(char *conf)
 {
 	configfilename = conf;
 	if ((yyin = fopen(configfilename, "r")) == NULL) {
