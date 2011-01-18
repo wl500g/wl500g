@@ -768,6 +768,15 @@ client6_ifctl(ifname, command)
 
 	switch(command) {
 	case DHCP6CTL_COMMAND_START:
+		/*
+		 * The ifid might have changed, so reset it before releasing the
+		 * lease.
+		 */
+		if (ifreset(ifp)) {
+			dprintf(LOG_NOTICE, FNAME, "failed to reset %s",
+			    ifname);
+			return (-1);
+		}
 		free_resources(ifp);
 		if (client6_start(ifp)) {
 			dprintf(LOG_NOTICE, FNAME, "failed to restart %s",
