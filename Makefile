@@ -632,9 +632,9 @@ udev: $(TOP)/udev
 
 sysfsutils_Patches := $(call patches_list,sysfsutils)
 
-$(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.gz
+$(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.bz2
 	@rm -rf $(TOP)/$(SYSFSUTILS) $@
-	tar -xzf $^ -C $(TOP)
+	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(SYSFSUTILS) $(sysfsutils_Patches)
 	mv $(TOP)/$(SYSFSUTILS) $@ && touch $@
 
