@@ -42,7 +42,7 @@ LDFLAGS=@LDFLAGS@
 LIBOBJS=@LIBOBJS@
 LIBS=	@LIBS@ @LEXLIB@
 CC=	@CC@
-TARGET=	dhcp6c dhcp6relay dhcp6ctl
+TARGET=	dhcp6c dhcp6relay
 
 INSTALL=@INSTALL@
 INSTALL_PROGRAM=@INSTALL_PROGRAM@
@@ -55,10 +55,9 @@ mandir=	@mandir@
 
 GENSRCS=cfparse.c cftoken.c
 CLIENTOBJS=	dhcp6c.o common.o config.o prefixconf.o dhcp6c_ia.o timer.o \
-	dhcp6c_script.o if.o base64.o auth.o dhcp6_ctl.o addrconf.o lease.o \
+	dhcp6c_script.o if.o base64.o auth.o addrconf.o lease.o \
 	$(GENSRCS:%.c=%.o)
 RELAYOBJS =	dhcp6relay.o dhcp6relay_script.o common.o timer.o
-CTLOBJS= dhcp6_ctlclient.o base64.o auth.o
 CLEANFILES+=	y.tab.h
 
 all:	$(TARGET)
@@ -66,8 +65,6 @@ dhcp6c:	$(CLIENTOBJS) $(LIBOBJS)
 	$(CC) $(LDFLAGS) -o dhcp6c $(CLIENTOBJS) $(LIBOBJS) $(LIBS)
 dhcp6relay: $(RELAYOBJS) $(LIBOBJS)
 	$(CC) $(LDFLAGS) -o $@ $(RELAYOBJS) $(LIBOBJS) $(LIBS)
-dhcp6ctl: $(CTLOBJS)
-	$(CC) $(LDFLAGS) -o $@ $(CTLOBJS) $(LIBOBJS) $(LIBS)
 
 cfparse.c y.tab.h: cfparse.y
 	@YACC@ -d cfparse.y
