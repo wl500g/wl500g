@@ -37,7 +37,7 @@ user= @user@
 group= @group@
 
 CFLAGS=	@CFLAGS@ @DEFS@ -DSYSCONFDIR=\"${sysconfdir}\" \
-	-DLOCALDBDIR=\"${localdbdir}\"
+	-DLOCALDBDIR=\"${localdbdir}\" $(EXTRA_CFLAGS)
 LDFLAGS=@LDFLAGS@
 LIBOBJS=@LIBOBJS@
 LIBS=	@LIBS@ @LEXLIB@
