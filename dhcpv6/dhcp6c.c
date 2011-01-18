@@ -73,8 +73,6 @@
 #include <common.h>
 #include <timer.h>
 #include <dhcp6c.h>
-#include <control.h>
-#include <dhcp6_ctl.h>
 #include <dhcp6c_ia.h>
 #include <prefixconf.h>
 #include <auth.h>
@@ -89,11 +87,7 @@ const dhcp6_mode_t dhcp6_mode = DHCP6_MODE_CLIENT;
 
 int sock;	/* inbound/outbound udp port */
 int rtsock;	/* routing socket */
-int ctlsock = -1;		/* control TCP port */
-char *ctladdr = DEFAULT_CLIENT_CONTROL_ADDR;
-char *ctlport = DEFAULT_CLIENT_CONTROL_PORT;
 
-#define DEFAULT_KEYFILE SYSCONFDIR "/dhcp6cctlkey"
 #define CTLSKEW 300
 
 static char *conffile = DHCP6C_CONF;
@@ -101,10 +95,6 @@ static char *conffile = DHCP6C_CONF;
 static const struct sockaddr_in6 *sa6_allagent;
 static struct duid client_duid;
 static char *pid_file = DHCP6C_PIDFILE;
-
-static char *ctlkeyfile = DEFAULT_KEYFILE;
-static struct keyinfo *ctlkey = NULL;
-static int ctldigestlen;
 
 static int infreq_mode = 0;
 
@@ -116,9 +106,7 @@ static void client6_init __P((void));
 static void client6_startall __P((int));
 static void free_resources __P((struct dhcp6_if *));
 static void client6_mainloop __P((void));
-static int client6_do_ctlcommand __P((char *, ssize_t));
 static void client6_reload __P((void));
-static int client6_ifctl __P((char *ifname, u_int16_t));
 static void check_exit __P((void));
 static void process_signals __P((void));
 static struct dhcp6_serverinfo *find_server __P((struct dhcp6_event *,
@@ -170,7 +158,7 @@ main(argc, argv)
 	else
 		progname++;
 
-	while ((ch = getopt(argc, argv, "c:dDfik:p:")) != -1) {
+	while ((ch = getopt(argc, argv, "c:dDfi:p:")) != -1) {
 		switch (ch) {
 		case 'c':
 			conffile = optarg;
@@ -186,9 +174,6 @@ main(argc, argv)
 			break;
 		case 'i':
 			infreq_mode = 1;
-			break;
-		case 'k':
-			ctlkeyfile = optarg;
 			break;
 		case 'p':
 			pid_file = optarg;
@@ -268,12 +253,6 @@ client6_init()
 	if (get_duid(DUID_FILE, &client_duid)) {
 		dprintf(LOG_ERR, FNAME, "failed to get a DUID");
 		exit(1);
-	}
-
-	if (dhcp6_ctl_authinit(ctlkeyfile, &ctlkey, &ctldigestlen) != 0) {
-		dprintf(LOG_NOTICE, FNAME,
-		    "failed initialize control message authentication");
-		/* run the server anyway */
 	}
 
 	memset(&hints, 0, sizeof(hints));
@@ -362,16 +341,6 @@ client6_init()
 	memcpy(&sa6_allagent_storage, res->ai_addr, res->ai_addrlen);
 	sa6_allagent = (const struct sockaddr_in6 *)&sa6_allagent_storage;
 	freeaddrinfo(res);
-
-	/* set up control socket */
-	if (ctlkey == NULL)
-		dprintf(LOG_NOTICE, FNAME, "skip opening control port");
-	else if (dhcp6_ctl_init(ctladdr, ctlport,
-	    DHCP6CTL_DEF_COMMANDQUEUELEN, &ctlsock)) {
-		dprintf(LOG_ERR, FNAME,
-		    "failed to initialize control channel");
-		exit(1);
-	}
 
 	if (signal(SIGHUP, client6_signal) == SIG_ERR) {
 		dprintf(LOG_WARNING, FNAME, "failed to set signal: %s",
@@ -528,11 +497,6 @@ client6_mainloop()
 		FD_ZERO(&r);
 		FD_SET(sock, &r);
 		maxsock = sock;
-		if (ctlsock >= 0) {
-			FD_SET(ctlsock, &r);
-			maxsock = (sock > ctlsock) ? sock : ctlsock;
-			(void)dhcp6_ctl_setreadfds(&r, &maxsock);
-		}
 
 		ret = select(maxsock + 1, &r, NULL, NULL, w);
 
@@ -551,13 +515,6 @@ client6_mainloop()
 		}
 		if (FD_ISSET(sock, &r))
 			client6_recv();
-		if (ctlsock >= 0) {
-			if (FD_ISSET(ctlsock, &r)) {
-				(void)dhcp6_ctl_acceptcommand(ctlsock,
-				    client6_do_ctlcommand);
-			}
-			(void)dhcp6_ctl_readcommand(&r);
-		}
 	}
 }
 
@@ -612,128 +569,6 @@ get_ifname(bpp, lenp, ifbuf, ifbuflen)
 	return (0);
 }
 
-static int
-client6_do_ctlcommand(buf, len)
-	char *buf;
-	ssize_t len;
-{
-	struct dhcp6ctl *ctlhead;
-	u_int16_t command, version;
-	u_int32_t p32, ts, ts0;
-	int commandlen;
-	char *bp;
-	char ifname[IFNAMSIZ];
-	time_t now;
-
-	memset(ifname, 0, sizeof(ifname));
-
-	ctlhead = (struct dhcp6ctl *)buf;
-
-	command = ntohs(ctlhead->command);
-	commandlen = (int)(ntohs(ctlhead->len));
-	version = ntohs(ctlhead->version);
-	if (len != sizeof(struct dhcp6ctl) + commandlen) {
-		dprintf(LOG_ERR, FNAME,
-		    "assumption failure: command length mismatch");
-		return (DHCP6CTL_R_FAILURE);
-	}
-
-	/* replay protection and message authentication */
-	if ((now = time(NULL)) < 0) {
-		dprintf(LOG_ERR, FNAME, "failed to get current time: %s",
-		    strerror(errno));
-		return (DHCP6CTL_R_FAILURE);
-	}
-	ts0 = (u_int32_t)now;
-	ts = ntohl(ctlhead->timestamp);
-	if (ts + CTLSKEW < ts0 || (ts - CTLSKEW) > ts0) {
-		dprintf(LOG_INFO, FNAME, "timestamp is out of range");
-		return (DHCP6CTL_R_FAILURE);
-	}
-
-	if (ctlkey == NULL) {	/* should not happen!! */
-		dprintf(LOG_ERR, FNAME, "no secret key for control channel");
-		return (DHCP6CTL_R_FAILURE);
-	}
-	if (dhcp6_verify_mac(buf, len, DHCP6CTL_AUTHPROTO_UNDEF,
-	    DHCP6CTL_AUTHALG_HMACMD5, sizeof(*ctlhead), ctlkey) != 0) {
-		dprintf(LOG_INFO, FNAME, "authentication failure");
-		return (DHCP6CTL_R_FAILURE);
-	}
-
-	bp = buf + sizeof(*ctlhead) + ctldigestlen;
-	commandlen -= ctldigestlen;
-
-	if (version > DHCP6CTL_VERSION) {
-		dprintf(LOG_INFO, FNAME, "unsupported version: %d", version);
-		return (DHCP6CTL_R_FAILURE);
-	}
-
-	switch (command) {
-	case DHCP6CTL_COMMAND_RELOAD:
-		if (commandlen != 0) {
-			dprintf(LOG_INFO, FNAME, "invalid command length "
-			    "for reload: %d", commandlen);
-			return (DHCP6CTL_R_DONE);
-		}
-		client6_reload();
-		break;
-	case DHCP6CTL_COMMAND_START:
-		if (get_val32(&bp, &commandlen, &p32))
-			return (DHCP6CTL_R_FAILURE);
-		switch (p32) {
-		case DHCP6CTL_INTERFACE:
-			if (get_ifname(&bp, &commandlen, ifname,
-			    sizeof(ifname))) {
-				return (DHCP6CTL_R_FAILURE);
-			}
-			if (client6_ifctl(ifname, DHCP6CTL_COMMAND_START))
-				return (DHCP6CTL_R_FAILURE);
-			break;
-		default:
-			dprintf(LOG_INFO, FNAME,
-			    "unknown start target: %ul", p32);
-			return (DHCP6CTL_R_FAILURE);
-		}
-		break;
-	case DHCP6CTL_COMMAND_STOP:
-		if (commandlen == 0) {
-			exit_ok = 1;
-			free_resources(NULL);
-			unlink(pid_file);
-			check_exit();
-		} else {
-			if (get_val32(&bp, &commandlen, &p32))
-				return (DHCP6CTL_R_FAILURE);
-
-			switch (p32) {
-			case DHCP6CTL_INTERFACE:
-				if (get_ifname(&bp, &commandlen, ifname,
-				    sizeof(ifname))) {
-					return (DHCP6CTL_R_FAILURE);
-				}
-				if (client6_ifctl(ifname,
-				    DHCP6CTL_COMMAND_STOP)) {
-					return (DHCP6CTL_R_FAILURE);
-				}
-				break;
-			default:
-				dprintf(LOG_INFO, FNAME,
-				    "unknown start target: %ul", p32);
-				return (DHCP6CTL_R_FAILURE);
-			}
-		}
-		break;
-	default:
-		dprintf(LOG_INFO, FNAME,
-		    "unknown control command: %d (len=%d)",
-		    (int)command, commandlen);
-		return (DHCP6CTL_R_FAILURE);
-	}
-
-  	return (DHCP6CTL_R_DONE);
-}
-
 static void
 client6_reload()
 {
@@ -747,57 +582,6 @@ client6_reload()
 	dprintf(LOG_NOTICE, FNAME, "client reloaded");
 
 	return;
-}
-
-static int
-client6_ifctl(ifname, command)
-	char *ifname;
-	u_int16_t command;
-{
-	struct dhcp6_if *ifp;
-
-	if ((ifp = find_ifconfbyname(ifname)) == NULL) {
-		dprintf(LOG_INFO, FNAME,
-		    "failed to find interface configuration for %s",
-		    ifname);
-		return (-1);
-	}
-
-	dprintf(LOG_DEBUG, FNAME, "%s interface %s",
-	    command == DHCP6CTL_COMMAND_START ? "start" : "stop", ifname);
-
-	switch(command) {
-	case DHCP6CTL_COMMAND_START:
-		/*
-		 * The ifid might have changed, so reset it before releasing the
-		 * lease.
-		 */
-		if (ifreset(ifp)) {
-			dprintf(LOG_NOTICE, FNAME, "failed to reset %s",
-			    ifname);
-			return (-1);
-		}
-		free_resources(ifp);
-		if (client6_start(ifp)) {
-			dprintf(LOG_NOTICE, FNAME, "failed to restart %s",
-			    ifname);
-			return (-1);
-		}
-		break;
-	case DHCP6CTL_COMMAND_STOP:
-		free_resources(ifp);
-		if (ifp->timer != NULL) {
-			dprintf(LOG_DEBUG, FNAME,
-			    "removed existing timer on %s", ifp->ifname);
-			dhcp6_remove_timer(&ifp->timer);
-		}
-		break;
-	default:		/* impossible case, should be a bug */
-		dprintf(LOG_ERR, FNAME, "unknown command: %d", (int)command);
-		break;
-	}
-
-	return (0);
 }
 
 static struct dhcp6_timer *
