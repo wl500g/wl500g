@@ -159,6 +159,7 @@ main(argc, argv)
 	char *progname;
 	FILE *pidfp;
 	struct dhcp6_if *ifp;
+	int fd;
 
 #ifndef HAVE_ARC4RANDOM
 	srandom(time(NULL) & getpid());
@@ -205,8 +206,12 @@ main(argc, argv)
 		exit(0);
 	}
 
-	if (foreground == 0)
+	if (foreground == 0) {
+		for (fd = 3; fd < 1024; fd++)
+			close(fd);
+
 		openlog(progname, LOG_NDELAY|LOG_PID, LOG_DAEMON);
+	}
 
 	setloglevel(debug);
 
