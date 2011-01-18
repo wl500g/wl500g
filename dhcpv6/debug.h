@@ -5,9 +5,7 @@
  * We do not want that. We redefine dprintf to our local implementation. */
 #include <stdio.h>
 #define dprintf my_dprintf
-#ifndef __P
-# define __P(x) x
-#endif
-extern void my_dprintf __P((int, const char *, const char *, ...));
+
+extern void my_dprintf (int, const char *, const char *, ...);
 
 #endif /* MY_DEBUG_H_ */
