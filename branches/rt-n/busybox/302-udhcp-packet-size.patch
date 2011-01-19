@@ -12,23 +12,6 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
 
 --- busybox.orig/networking/udhcp/common.h	2010-10-13 00:00:00.000000000 +0000
 +++ busybox/networking/udhcp/common.h	2010-10-13 19:10:29.684347002 +0000
-@@ -63,14 +63,14 @@ struct udp_dhcp_packet {
- } PACKED;
- 
- enum {
--	IP_UPD_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
-+	IP_UDP_DHCP_SIZE = sizeof(struct ip_udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
- 	UPD_DHCP_SIZE    = sizeof(struct udp_dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
- 	DHCP_SIZE        = sizeof(struct dhcp_packet) - CONFIG_UDHCPC_SLACK_FOR_BUGGY_SERVERS,
- };
- 
- /* Let's see whether compiler understood us right */
- struct BUG_bad_sizeof_struct_ip_udp_dhcp_packet {
--	char c[IP_UPD_DHCP_SIZE == 576 ? 1 : -1];
-+	char c[IP_UDP_DHCP_SIZE == 576 ? 1 : -1];
- };
- 
- 
 @@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
  int udhcp_sp_fd_set(fd_set *rfds, int extra_fd) FAST_FUNC;
  int udhcp_sp_read(const fd_set *rfds) FAST_FUNC;
@@ -46,13 +29,13 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  {
 +	int max_packet = sizeof(struct ip_udp_dhcp_packet);
 +
+ 	/* Fill in: op, htype, hlen, cookie fields; message type option: */
  	udhcp_init_header(packet, type);
- 	memcpy(packet->chaddr, client_config.client_mac, 6);
- 	if (client_config.clientid)
+ 
 @@ -357,6 +359,16 @@ static void init_packet(struct dhcp_pack
- 	) {
- 		udhcp_add_binary_option(packet, client_config.vendorclass);
- 	}
+	memcpy(packet->chaddr, client_config.client_mac, 6);
+ 	if (client_config.clientid)
+ 		udhcp_add_binary_option(packet, client_config.clientid);
 +	switch (type) {
 +	case DHCPDISCOVER:
 +		/* Explicitly saying that we want RFC-compliant packets helps
@@ -66,16 +49,6 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  }
  
  static void add_client_options(struct dhcp_packet *packet)
-@@ -433,9 +445,6 @@ static int send_discover(uint32_t xid, u
- 	packet.xid = xid;
- 	if (requested)
- 		udhcp_add_simple_option(&packet, DHCP_REQUESTED_IP, requested);
--	/* Explicitly saying that we want RFC-compliant packets helps
--	 * some buggy DHCP servers to NOT send bigger packets */
--	udhcp_add_simple_option(&packet, DHCP_MAX_SIZE, htons(576));
- 	add_client_options(&packet);
- 
- 	bb_info_msg("Sending discover...");
 @@ -923,7 +932,8 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  	if (udhcp_read_interface(client_config.interface,
  			&client_config.ifindex,
@@ -103,6 +76,16 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
  
  		/* Was opening raw or udp socket here
+@@ -1207,7 +1207,8 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 			if (udhcp_read_interface(client_config.interface,
+ 					&client_config.ifindex,
+ 					NULL,
+-					client_config.client_mac)
++					client_config.client_mac,
++					&client_config.client_mtu)
+ 			) {
+ 				return 1; /* iface is gone? */
+ 			}
 --- busybox.orig/networking/udhcp/dhcpc.h	2010-10-09 19:57:14.000000000 +0000
 +++ busybox/networking/udhcp/dhcpc.h	2010-10-13 18:20:36.324347002 +0000
 @@ -9,6 +9,7 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDD
@@ -128,7 +111,7 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
 --- busybox.orig/networking/udhcp/dhcprelay.c	2010-10-09 19:57:14.000000000 +0000
 +++ busybox/networking/udhcp/dhcprelay.c	2010-10-13 18:19:07.024347002 +0000
 @@ -267,7 +267,7 @@ int dhcprelay_main(int argc, char **argv
- 	max_socket = init_sockets(client_ifaces, num_sockets, argv[2], fds);
+ 	max_socket = init_sockets(iface_list, num_sockets, fds);
  
  	/* Get our IP on server_iface */
 -	if (udhcp_read_interface(argv[2], NULL, &our_nip, NULL))
@@ -136,37 +119,15 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  		return 1;
  
  	/* Main loop */
-@@ -304,7 +304,7 @@ int dhcprelay_main(int argc, char **argv
- 
- 				/* Get our IP on corresponding client_iface */
- //why? what if server can't route such IP?
--				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.gateway_nip, NULL)) {
-+				if (udhcp_read_interface(client_ifaces[i-1], NULL, &dhcp_msg.gateway_nip, NULL, NULL)) {
- 					/* Fall back to our server_iface's IP */
- //this makes more sense!
+@@ -351,7 +351,7 @@ int dhcprelay_main(int argc, char **argv
+ //   of the 'giaddr' field does not match one of the relay agent's
+ //   directly-connected logical interfaces, the BOOTREPLY messsage MUST be
+ //   silently discarded.
+-				if (udhcp_read_interface(iface_list[i], NULL, &dhcp_msg.gateway_nip, NULL)) {
++				if (udhcp_read_interface(iface_list[i], NULL, &dhcp_msg.gateway_nip, NULL, NULL)) {
+ 					/* Fall back to our IP on server iface */
+ // this makes more sense!
  					dhcp_msg.gateway_nip = our_nip;
---- busybox.orig/networking/udhcp/packet.c	2010-07-25 19:15:32.000000000 +0000
-+++ busybox/networking/udhcp/packet.c	2010-10-13 19:11:15.334347002 +0000
-@@ -225,16 +225,16 @@ int FAST_FUNC udhcp_send_raw_packet(stru
- 	packet.udp.len = htons(UPD_DHCP_SIZE - padding);
- 	/* for UDP checksumming, ip.len is set to UDP packet len */
- 	packet.ip.tot_len = packet.udp.len;
--	packet.udp.check = udhcp_checksum(&packet, IP_UPD_DHCP_SIZE - padding);
-+	packet.udp.check = udhcp_checksum(&packet, IP_UDP_DHCP_SIZE - padding);
- 	/* but for sending, it is set to IP packet len */
--	packet.ip.tot_len = htons(IP_UPD_DHCP_SIZE - padding);
-+	packet.ip.tot_len = htons(IP_UDP_DHCP_SIZE - padding);
- 	packet.ip.ihl = sizeof(packet.ip) >> 2;
- 	packet.ip.version = IPVERSION;
- 	packet.ip.ttl = IPDEFTTL;
- 	packet.ip.check = udhcp_checksum(&packet.ip, sizeof(packet.ip));
- 
- 	udhcp_dump_packet(dhcp_pkt);
--	result = sendto(fd, &packet, IP_UPD_DHCP_SIZE - padding, /*flags:*/ 0,
-+	result = sendto(fd, &packet, IP_UDP_DHCP_SIZE - padding, /*flags:*/ 0,
- 			(struct sockaddr *) &dest_sll, sizeof(dest_sll));
- 	msg = "sendto";
-  ret_close:
 --- busybox.orig/networking/udhcp/socket.c	2010-09-16 23:05:35.000000000 +0000
 +++ busybox/networking/udhcp/socket.c	2010-10-13 18:19:07.024347002 +0000
 @@ -34,7 +34,7 @@
