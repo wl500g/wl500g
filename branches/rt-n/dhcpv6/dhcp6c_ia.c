@@ -91,12 +91,8 @@ static char *iastr __P((iatype_t));
 static char *statestr __P((iastate_t));
 
 void
-update_ia(iatype, ialist, ifp, serverid, authparam)
-	iatype_t iatype;
-	struct dhcp6_list *ialist;
-	struct dhcp6_if *ifp;
-	struct duid *serverid;
-	struct authparam *authparam;
+update_ia(iatype_t iatype, struct dhcp6_list *ialist, struct dhcp6_if *ifp,
+	  struct duid *serverid, struct authparam *authparam)
 {
 	struct ia *ia;
 	struct ia_conf *iac;
@@ -279,9 +275,7 @@ update_ia(iatype, ialist, ifp, serverid, authparam)
 }
 
 static int
-update_authparam(ia, authparam)
-	struct ia *ia;
-	struct authparam *authparam;
+update_authparam(struct ia *ia, struct authparam *authparam)
 {
 	if (authparam == NULL)
 		return (0);
@@ -303,8 +297,7 @@ update_authparam(ia, authparam)
 }
 
 static void
-reestablish_ia(ia)
-	struct ia *ia;
+reestablish_ia(struct ia *ia)
 {
 	struct dhcp6_ia iaparam;
 	struct dhcp6_event *ev;
@@ -396,8 +389,7 @@ reestablish_ia(ia)
 }
 
 static void
-callback(ia)
-	struct ia *ia;
+callback(struct ia *ia)
 {
 	/* see if this IA is still valid.  if not, remove it. */
 	if (ia->ctl == NULL || !(*ia->ctl->isvalid)(ia->ctl)) {
@@ -408,8 +400,7 @@ callback(ia)
 }
 
 void
-release_all_ia(ifp)
-	struct dhcp6_if *ifp;
+release_all_ia(struct dhcp6_if *ifp)
 {
 	struct ia_conf *iac;
 	struct ia *ia, *ia_next;
@@ -433,8 +424,7 @@ release_all_ia(ifp)
 }
 
 static int
-release_ia(ia)
-	struct ia *ia;
+release_ia(struct ia *ia)
 {
 	struct dhcp6_ia iaparam;
 	struct dhcp6_event *ev;
@@ -506,8 +496,7 @@ release_ia(ia)
 }
 
 static void
-remove_ia(ia)
-	struct ia *ia;
+remove_ia(struct ia *ia)
 {
 	struct ia_conf *iac = ia->conf;
 	struct dhcp6_if *ifp = ia->ifp;
@@ -542,8 +531,7 @@ remove_ia(ia)
 }
 
 static struct dhcp6_timer *
-ia_timo(arg)
-	void *arg;
+ia_timo(void *arg)
 {
 	struct ia *ia = (struct ia *)arg;
 	struct dhcp6_ia iaparam;
@@ -680,12 +668,8 @@ ia_timo(arg)
 }
 
 static struct ia *
-get_ia(type, ifp, iac, iaparam, serverid)
-	iatype_t type;
-	struct dhcp6_if *ifp;
-	struct ia_conf *iac;
-	struct dhcp6_listval *iaparam;
-	struct duid *serverid;
+get_ia(iatype_t type, struct dhcp6_if *ifp, struct ia_conf *iac,
+	struct dhcp6_listval *iaparam, struct duid *serverid)
 {
 	struct ia *ia;
 	struct duid newserver;
@@ -724,10 +708,7 @@ get_ia(type, ifp, iac, iaparam, serverid)
 }
 
 static struct ia *
-find_ia(iac, type, iaid)
-	struct ia_conf *iac;
-	iatype_t type;
-	u_int32_t iaid;
+find_ia(struct ia_conf *iac, iatype_t type, u_int32_t iaid)
 {
 	struct ia *ia;
 
@@ -741,8 +722,7 @@ find_ia(iac, type, iaid)
 }
 
 static char *
-iastr(type)
-	iatype_t type;
+iastr(iatype_t type)
 {
 	switch (type) {
 	case IATYPE_PD:
@@ -755,8 +735,7 @@ iastr(type)
 }
 
 static char *
-statestr(state)
-	iastate_t state;
+statestr(iastate_t state)
 {
 	switch (state) {
 	case IAS_ACTIVE:

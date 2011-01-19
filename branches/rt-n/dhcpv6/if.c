@@ -54,8 +54,7 @@ extern int errno;
 struct dhcp6_if *dhcp6_if;
 
 struct dhcp6_if *
-ifinit(ifname)
-	char *ifname;
+ifinit(char *ifname)
 {
 	struct dhcp6_if *ifp;
 
@@ -127,8 +126,7 @@ ifinit(ifname)
 }
 
 int
-ifreset(ifp)
-	struct dhcp6_if *ifp;
+ifreset(struct dhcp6_if *ifp)
 {
 	unsigned int ifid;
 	u_int32_t linkid;
@@ -156,8 +154,7 @@ ifreset(ifp)
 }
 
 struct dhcp6_if *
-find_ifconfbyname(ifname)
-	char *ifname;
+find_ifconfbyname(char *ifname)
 {
 	struct dhcp6_if *ifp;
 
@@ -170,8 +167,7 @@ find_ifconfbyname(ifname)
 }
 
 struct dhcp6_if *
-find_ifconfbyid(id)
-	unsigned int id;
+find_ifconfbyid(unsigned int id)
 {
 	struct dhcp6_if *ifp;
 

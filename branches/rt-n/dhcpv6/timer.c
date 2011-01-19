@@ -64,9 +64,7 @@ dhcp6_timer_init()
 }
 
 struct dhcp6_timer *
-dhcp6_add_timer(timeout, timeodata)
-	struct dhcp6_timer *(*timeout) __P((void *));
-	void *timeodata;
+dhcp6_add_timer(struct dhcp6_timer *(*timeout) __P((void *)), void *timeodata)
 {
 	struct dhcp6_timer *newtimer;
 
@@ -91,8 +89,7 @@ dhcp6_add_timer(timeout, timeodata)
 }
 
 void
-dhcp6_remove_timer(timer)
-	struct dhcp6_timer **timer;
+dhcp6_remove_timer(struct dhcp6_timer **timer)
 {
 	LIST_REMOVE(*timer, link);
 	free(*timer);
@@ -100,9 +97,7 @@ dhcp6_remove_timer(timer)
 }
 
 void
-dhcp6_set_timer(tm, timer)
-	struct timeval *tm;
-	struct dhcp6_timer *timer;
+dhcp6_set_timer(struct timeval *tm, struct dhcp6_timer *timer)
 {
 	struct timeval now;
 
@@ -157,8 +152,7 @@ dhcp6_check_timer()
 }
 
 struct timeval *
-dhcp6_timer_rest(timer)
-	struct dhcp6_timer *timer;
+dhcp6_timer_rest(struct dhcp6_timer *timer)
 {
 	struct timeval now;
 	static struct timeval returnval; /* XXX */
@@ -175,8 +169,7 @@ dhcp6_timer_rest(timer)
 
 /* result = a + b */
 static void
-timeval_add(a, b, result)
-	struct timeval *a, *b, *result;
+timeval_add(struct timeval *a, struct timeval *b, struct timeval *result)
 {
 	long l;
 
@@ -192,13 +185,19 @@ timeval_add(a, b, result)
 
 /*
  * result = a - b
- * XXX: this function assumes that a >= b.
  */
 void
-timeval_sub(a, b, result)
-	struct timeval *a, *b, *result;
+timeval_sub(struct timeval *a, struct timeval *b, struct timeval *result)
 {
 	long l;
+
+        if (a->tv_sec < b->tv_sec ||
+            (a->tv_sec == b->tv_sec && a->tv_usec < b->tv_usec)) {
+                result->tv_sec = 0;
+                result->tv_usec = 0;
+
+                return;
+        }
 
 	if ((l = a->tv_usec - b->tv_usec) >= 0) {
 		result->tv_usec = l;
