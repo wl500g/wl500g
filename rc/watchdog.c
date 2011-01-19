@@ -313,7 +313,7 @@ int ntp_timesync(void)
 			if (tm.tm_year>100) // More than 2000
 			{
 				sync_interval = (atoi(nvram_safe_get("ntp_interval_x")) ? : 2) * 360;
-				logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_servers"));
+				logmessage("ntp client", "Synchronizing time with %s...", nvram_safe_get("ntp_server0"));
 
 				//stop_upnp();
 				//start_upnp();

@@ -6,7 +6,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  #define RETRY_INTERVAL  5       /* on error, retry in N secs */
  #define RESPONSE_INTERVAL 15    /* wait for reply up to N secs */
 -#define INITIAL_SAMPLES 4       /* how many samples do we want for init */
-+#define INITIAL_SAMPLES 1       /* how many samples do we want for init */
++#define INITIAL_SAMPLES 2       /* how many samples do we want for init */
  
  /* Clock discipline parameters and constants */
  
