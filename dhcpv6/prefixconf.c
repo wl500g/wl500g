@@ -141,7 +141,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 	if (pinfo->vltime != DHCP6_DURATION_INFINITE &&
 	    (pinfo->pltime == DHCP6_DURATION_INFINITE ||
 	    pinfo->pltime > pinfo->vltime)) {
-		dprintf(LOG_INFO, FNAME, "invalid prefix %s/%d: "
+		log_info("invalid prefix %s/%d: "
 		    "pltime (%lu) is larger than vltime (%lu)",
 		    in6addr2str(&pinfo->addr, 0), pinfo->plen,
 		    pinfo->pltime, pinfo->vltime);
@@ -150,7 +150,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 
 	if (iac_pd == NULL) {
 		if ((iac_pd = malloc(sizeof(*iac_pd))) == NULL) {
-			dprintf(LOG_NOTICE, FNAME, "memory allocation failed");
+			log_notice("memory allocation failed");
 			return (-1);
 		}
 		memset(iac_pd, 0, sizeof(*iac_pd));
@@ -172,7 +172,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 	/* search for the given prefix, and make a new one if it fails */
 	if ((sp = find_siteprefix(&iac_pd->siteprefix_head, pinfo, 1)) == NULL) {
 		if ((sp = malloc(sizeof(*sp))) == NULL) {
-			dprintf(LOG_NOTICE, FNAME, "memory allocation failed");
+			log_notice("memory allocation failed");
 			return (-1);
 		}
 		memset(sp, 0, sizeof(*sp));
@@ -192,7 +192,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 	/* update the prefix according to pinfo */
 	sp->prefix.pltime = pinfo->pltime;
 	sp->prefix.vltime = pinfo->vltime;
-	dprintf(LOG_DEBUG, FNAME, "%s a prefix %s/%d pltime=%lu, vltime=%lu",
+	log_debug("%s a prefix %s/%d pltime=%lu, vltime=%lu",
 	    spcreate ? "create" : "update",
 	    in6addr2str(&pinfo->addr, 0), pinfo->plen,
 	    pinfo->pltime, pinfo->vltime);
@@ -209,7 +209,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 			 * [RFC3633 Section 12.1]
 			 */
 			if (strcmp(pif->ifname, dhcpifp->ifname) == 0) {
-				dprintf(LOG_INFO, FNAME,
+				log_info(
 				    "skip %s as a prefix interface",
 				    dhcpifp->ifname);
 				continue;
@@ -235,7 +235,7 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 		if (sp->timer == NULL) {
 			sp->timer = dhcp6_add_timer(siteprefix_timo, sp);
 			if (sp->timer == NULL) {
-				dprintf(LOG_NOTICE, FNAME,
+				log_notice(
 				    "failed to add prefix timer");
 				remove_siteprefix(sp); /* XXX */
 				return (-1);
@@ -276,7 +276,7 @@ remove_siteprefix(sp)
 {
 	struct dhcp6_ifprefix *ip;
 
-	dprintf(LOG_DEBUG, FNAME, "remove a site prefix %s/%d",
+	log_debug("remove a site prefix %s/%d",
 	    in6addr2str(&sp->prefix.addr, 0), sp->prefix.plen);
 
 	if (sp->timer)
@@ -390,7 +390,7 @@ renew_data_free(evd)
 	struct dhcp6_list *ial;
 
 	if (evd->type != DHCP6_EVDATA_IAPD) {
-		dprintf(LOG_ERR, FNAME, "assumption failure");
+		log_error("assumption failure");
 		exit(1);
 	}
 
@@ -409,7 +409,7 @@ siteprefix_timo(arg)
 	struct ia *ia;
 	void (*callback)__P((struct ia *));
 
-	dprintf(LOG_DEBUG, FNAME, "prefix timeout for %s/%d",
+	log_debug("prefix timeout for %s/%d",
 	    in6addr2str(&sp->prefix.addr, 0), sp->prefix.plen);
 
 	ia = sp->ctl->iacpd_ia;
@@ -438,7 +438,7 @@ add_ifprefix(siteprefix, prefix, pconf)
 	int b, i;
 
 	if ((ifpfx = malloc(sizeof(*ifpfx))) == NULL) {
-		dprintf(LOG_NOTICE, FNAME,
+		log_notice(
 		    "failed to allocate memory for ifprefix");
 		return (-1);
 	}
@@ -456,13 +456,12 @@ add_ifprefix(siteprefix, prefix, pconf)
 	 * XXX: our current implementation assumes ifid len is a multiple of 8
 	 */
 	if ((pconf->ifid_len % 8) != 0) {
-		dprintf(LOG_ERR, FNAME,
-		    "assumption failure on the length of interface ID");
+		log_error("assumption failure on the length of interface ID");
 		goto bad;
 	}
 	if (ifpfx->plen + pconf->ifid_len < 0 ||
 	    ifpfx->plen + pconf->ifid_len > 128) {
-		dprintf(LOG_INFO, FNAME,
+		log_info(
 			"invalid prefix length %d + %d + %d",
 			prefix->plen, pconf->sla_len, pconf->ifid_len);
 		goto bad;

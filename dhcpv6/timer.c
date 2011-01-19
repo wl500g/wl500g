@@ -71,14 +71,14 @@ dhcp6_add_timer(timeout, timeodata)
 	struct dhcp6_timer *newtimer;
 
 	if ((newtimer = malloc(sizeof(*newtimer))) == NULL) {
-		dprintf(LOG_ERR, FNAME, "can't allocate memory");
+		log_error("can't allocate memory");
 		return (NULL);
 	}
 
 	memset(newtimer, 0, sizeof(*newtimer));
 
 	if (timeout == NULL) {
-		dprintf(LOG_ERR, FNAME, "timeout function unspecified");
+		log_error("timeout function unspecified");
 		exit(1);
 	}
 	newtimer->expire = timeout;
@@ -165,8 +165,7 @@ dhcp6_timer_rest(timer)
 
 	gettimeofday(&now, NULL);
 	if (TIMEVAL_LEQ(timer->tm, now)) {
-		dprintf(LOG_DEBUG, FNAME,
-		    "a timer must be expired, but not yet");
+		log_debug("a timer must be expired, but not yet");
 		returnval.tv_sec = returnval.tv_usec = 0;
 	} else
 		timeval_sub(&timer->tm, &now, &returnval);

@@ -122,7 +122,7 @@ update_address(ia, addr, dhcpifp, ctlp, callback)
 	if (addr->vltime != DHCP6_DURATION_INFINITE &&
 	    (addr->pltime == DHCP6_DURATION_INFINITE ||
 	    addr->pltime > addr->vltime)) {
-		dprintf(LOG_INFO, FNAME, "invalid address %s: "
+		log_info("invalid address %s: "
 		    "pltime (%lu) is larger than vltime (%lu)",
 		    in6addr2str(&addr->addr, 0),
 		    addr->pltime, addr->vltime);
@@ -131,7 +131,7 @@ update_address(ia, addr, dhcpifp, ctlp, callback)
 
 	if (iac_na == NULL) {
 		if ((iac_na = malloc(sizeof(*iac_na))) == NULL) {
-			dprintf(LOG_NOTICE, FNAME, "memory allocation failed");
+			log_notice("memory allocation failed");
 			return (-1);
 		}
 		memset(iac_na, 0, sizeof(*iac_na));
@@ -152,7 +152,7 @@ update_address(ia, addr, dhcpifp, ctlp, callback)
 	/* search for the given address, and make a new one if it fails */
 	if ((sa = find_addr(&iac_na->statefuladdr_head, addr)) == NULL) {
 		if ((sa = malloc(sizeof(*sa))) == NULL) {
-			dprintf(LOG_NOTICE, FNAME, "memory allocation failed");
+			log_notice("memory allocation failed");
 			return (-1);
 		}
 		memset(sa, 0, sizeof(*sa));
@@ -169,7 +169,7 @@ update_address(ia, addr, dhcpifp, ctlp, callback)
 	sa->addr.pltime = addr->pltime;
 	sa->addr.vltime = addr->vltime;
 	sa->dhcpif = dhcpifp;
-	dprintf(LOG_DEBUG, FNAME, "%s an address %s pltime=%lu, vltime=%lu",
+	log_debug("%s an address %s pltime=%lu, vltime=%lu",
 	    sacreate ? "create" : "update",
 	    in6addr2str(&addr->addr, 0), addr->pltime, addr->vltime);
 
@@ -194,8 +194,7 @@ update_address(ia, addr, dhcpifp, ctlp, callback)
 		if (sa->timer == NULL) {
 			sa->timer = dhcp6_add_timer(addr_timo, sa);
 			if (sa->timer == NULL) {
-				dprintf(LOG_NOTICE, FNAME,
-				    "failed to add stateful addr timer");
+				log_notice("failed to add stateful addr timer");
 				remove_addr(sa); /* XXX */
 				return (-1);
 			}
@@ -233,7 +232,7 @@ remove_addr(sa)
 {
 	int ret;
 
-	dprintf(LOG_DEBUG, FNAME, "remove an address %s",
+	log_debug("remove an address %s",
 	    in6addr2str(&sa->addr.addr, 0));
 
 	if (sa->timer)
@@ -343,7 +342,7 @@ na_renew_data_free(evd)
 	struct dhcp6_list *ial;
 
 	if (evd->type != DHCP6_EVDATA_IANA) {
-		dprintf(LOG_ERR, FNAME, "assumption failure");
+		log_error("assumption failure");
 		exit(1);
 	}
 
@@ -362,7 +361,7 @@ addr_timo(arg)
 	struct ia *ia;
 	void (*callback)__P((struct ia *));
 
-	dprintf(LOG_DEBUG, FNAME, "address timeout for %s",
+	log_debug("address timeout for %s",
 	    in6addr2str(&sa->addr.addr, 0));
 
 	ia = sa->ctl->iacna_ia;
