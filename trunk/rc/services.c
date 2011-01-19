@@ -353,20 +353,25 @@ int
 start_ntpc(void)
 {
 	pid_t pid;
-	char *servers = nvram_safe_get("ntp_servers");
-	
-	if (strlen(servers)) {
-		char *ntp_argv[] = {"ntpclient", "-h", servers, "-i", "3", "-c", "1", "-lst", NULL};
+	char *server0 = nvram_safe_get("ntp_server0"), *server1;
+	char *ntp_argv[] = {"ntpd", "-qt", "-p", server0, NULL, NULL, NULL};
+
+	if (strlen(server0) > 0) {
+		server1 = nvram_safe_get("ntp_server1");
+		if (strlen(server1) > 0) {
+			ntp_argv[4] = "-p";
+			ntp_argv[5] = server1;
+		}
 		_eval(ntp_argv, NULL, 0, &pid);
 	}
-	
+
 	return pid;
 }
 
 int
 stop_ntpc(void)
 {
-	int ret = eval("killall", "ntpclient");
+	int ret = eval("killall", "ntpd");
 
 	return ret;
 }

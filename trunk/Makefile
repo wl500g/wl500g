@@ -46,7 +46,6 @@ BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.2
 UDPXY=udpxy-1.0-Chipmunk-19
-NTPCLIENT=ntpclient-2007_365
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
@@ -89,7 +88,7 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd ucd-snmp igmpproxy vsftpd udpxy \
-	ntpclient bpalogin bridge ez-ipupdate inadyn httpd jpeg-6b lib LPRng \
+	bpalogin bridge ez-ipupdate inadyn httpd jpeg-6b lib LPRng \
 	misc netconf nvram others rc rcamdmips \
 	scsi-idle libusb usb_modeswitch wimax lltd \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma
@@ -449,15 +448,6 @@ $(TOP)/udpxy: $(UDPXY).tgz
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy
-	@true
-
-$(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
-	@rm -rf $(TOP)/$(NTPCLIENT) $@
-	tar -xjf $^ -C $(TOP)
-	[ ! -f $(NTPCLIENT).patch ] || $(PATCHER) -Z $(TOP)/$(NTPCLIENT) $(NTPCLIENT).patch
-	mv $(TOP)/$(NTPCLIENT) $@ && touch $@
-
-ntpclient: $(TOP)/ntpclient
 	@true
 
 $(TOP)/ez-ipupdate:

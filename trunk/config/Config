@@ -175,10 +175,6 @@ config CONFIG_EZC
        depends on CONFIG_HTTPD
        default y
 
-config CONFIG_NTP
-       bool "NTP client"
-       default y
-
 config CONFIG_DNSMASQ
        bool "DNS forwarder"
        depends on CONFIG_NAT
