@@ -132,9 +132,7 @@ usage()
 }
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch, pid;
 	char *progname;
@@ -235,8 +233,7 @@ main(argc, argv)
 }
 
 static struct prefix_list *
-make_prefix(pstr0)
-	char *pstr0;
+make_prefix(char *pstr0)
 {
 	struct prefix_list *pent;
 	char *p, *ep;
@@ -525,8 +522,7 @@ relay6_init(int ifnum, char *iflist[])
 }
 
 static void
-relay6_signal(sig)
-	int sig;
+relay6_signal(int sig)
 {
 
 	switch (sig) {
@@ -584,8 +580,7 @@ relay6_loop()
 }
 
 static void
-relay6_recv(s, fromclient)
-	int s, fromclient;
+relay6_recv(int s, int fromclient)
 {
 	ssize_t len;
 	struct sockaddr_storage from;
@@ -711,12 +706,8 @@ relay6_recv(s, fromclient)
 }
 
 static int
-make_msgcontrol(mh, ctlbuf, buflen, pktinfo, hlim)
-	struct msghdr *mh;
-	void *ctlbuf;
-	socklen_t buflen;
-	struct in6_pktinfo *pktinfo;
-	int hlim;
+make_msgcontrol(struct msghdr *mh, void *ctlbuf, socklen_t buflen,
+		struct in6_pktinfo *pktinfo, int hlim)
 {
 	struct cmsghdr *cm;
 	socklen_t controllen;
@@ -757,12 +748,8 @@ make_msgcontrol(mh, ctlbuf, buflen, pktinfo, hlim)
 }
 
 static void
-relay_to_server(dh6, len, from, ifname, ifid)
-	struct dhcp6 *dh6;
-	ssize_t len;
-	struct sockaddr_in6 *from;
-	char *ifname;
-	unsigned int ifid;
+relay_to_server(struct dhcp6 *dh6, ssize_t len, struct sockaddr_in6 *from,
+		char *ifname, unsigned int ifid)
 {
 	struct dhcp6_optinfo optinfo;
 	struct dhcp6_relay *dh6relay;
@@ -912,10 +899,7 @@ relay_to_server(dh6, len, from, ifname, ifid)
 }
 
 static void
-relay_to_client(dh6relay, len, from)
-	struct dhcp6_relay *dh6relay;
-	ssize_t len;
-	struct sockaddr *from;
+relay_to_client(struct dhcp6_relay *dh6relay, ssize_t len, struct sockaddr *from)
 {
 	struct dhcp6_optinfo optinfo;
 	struct sockaddr_in6 peer;

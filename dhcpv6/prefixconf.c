@@ -119,13 +119,9 @@ extern struct dhcp6_timer *client6_timo __P((void *));
 static int pd_ifaddrconf __P((ifaddrconf_cmd_t, struct dhcp6_ifprefix *ifpfx));
 
 int
-update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
-	struct ia *ia;
-	struct dhcp6_prefix *pinfo;
-	struct pifc_list *pifc;
-	struct dhcp6_if *dhcpifp;
-	struct iactl **ctlp;
-	void (*callback)__P((struct ia *));
+update_prefix(struct ia *ia, struct dhcp6_prefix *pinfo, struct pifc_list *pifc,
+		struct dhcp6_if * dhcpifp, struct iactl **ctlp,
+		void (*callback)__P((struct ia *)))
 {
 	struct iactl_pd *iac_pd = (struct iactl_pd *)*ctlp;
 	struct siteprefix *sp;
@@ -253,10 +249,8 @@ update_prefix(ia, pinfo, pifc, dhcpifp, ctlp, callback)
 }
 
 static struct siteprefix *
-find_siteprefix(head, prefix, match_plen)
-	struct siteprefix_list *head;
-	struct dhcp6_prefix *prefix;
-	int match_plen;
+find_siteprefix(struct siteprefix_list *head, struct dhcp6_prefix *prefix,
+		int match_plen)
 {
 	struct siteprefix *sp;
 
@@ -271,8 +265,7 @@ find_siteprefix(head, prefix, match_plen)
 }
 
 static void
-remove_siteprefix(sp)
-	struct siteprefix *sp;
+remove_siteprefix(struct siteprefix *sp)
 {
 	struct dhcp6_ifprefix *ip;
 
@@ -294,8 +287,7 @@ remove_siteprefix(sp)
 }
 
 static int
-isvalid(iac)
-	struct iactl *iac;
+isvalid(struct iactl *iac)
 {
 	struct iactl_pd *iac_pd = (struct iactl_pd *)iac;
 
@@ -305,8 +297,7 @@ isvalid(iac)
 }
 
 static u_int32_t
-duration(iac)
-	struct iactl *iac;
+duration(struct iactl *iac)
 {
 	struct iactl_pd *iac_pd = (struct iactl_pd *)iac;
 	struct siteprefix *sp;
@@ -330,8 +321,7 @@ duration(iac)
 }
 
 static void
-cleanup(iac)
-	struct iactl *iac;
+cleanup(struct iactl *iac)
 {
 	struct iactl_pd *iac_pd = (struct iactl_pd *)iac;
 	struct siteprefix *sp;
@@ -345,10 +335,8 @@ cleanup(iac)
 }
 
 static int
-renew_prefix(iac, iaparam, evdp, evd)
-	struct iactl *iac;
-	struct dhcp6_ia *iaparam;
-	struct dhcp6_eventdata **evdp, *evd;
+renew_prefix(struct iactl *iac, struct dhcp6_ia *iaparam,
+		struct dhcp6_eventdata **evdp, struct dhcp6_eventdata *evd)
 {
 	struct iactl_pd *iac_pd = (struct iactl_pd *)iac;
 	struct siteprefix *sp;
@@ -384,8 +372,7 @@ renew_prefix(iac, iaparam, evdp, evd)
 }
 
 static void
-renew_data_free(evd)
-	struct dhcp6_eventdata *evd;
+renew_data_free(struct dhcp6_eventdata *evd)
 {
 	struct dhcp6_list *ial;
 
@@ -402,8 +389,7 @@ renew_data_free(evd)
 }
 
 static struct dhcp6_timer *
-siteprefix_timo(arg)
-	void *arg;
+siteprefix_timo(void *arg)
 {
 	struct siteprefix *sp = (struct siteprefix *)arg;
 	struct ia *ia;
@@ -426,10 +412,8 @@ siteprefix_timo(arg)
 }
 
 static int
-add_ifprefix(siteprefix, prefix, pconf)
-	struct siteprefix *siteprefix;
-	struct dhcp6_prefix *prefix;
-	struct prefix_ifconf *pconf;
+add_ifprefix(struct siteprefix *siteprefix, struct dhcp6_prefix *prefix,
+		struct prefix_ifconf *pconf)
 {
 	struct dhcp6_ifprefix *ifpfx = NULL;
 	struct in6_addr *a;
@@ -504,9 +488,7 @@ add_ifprefix(siteprefix, prefix, pconf)
 #endif
 
 static int
-pd_ifaddrconf(cmd, ifpfx)
-	ifaddrconf_cmd_t cmd;
-	struct dhcp6_ifprefix *ifpfx;
+pd_ifaddrconf(ifaddrconf_cmd_t cmd, struct dhcp6_ifprefix *ifpfx)
 {
 	struct prefix_ifconf *pconf;
 

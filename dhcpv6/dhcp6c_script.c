@@ -73,10 +73,7 @@ static char bcmcsserver_str[] = "new_bcmcs_servers";
 static char bcmcsname_str[] = "new_bcmcs_name";
 
 int
-client6_script(scriptpath, state, optinfo)
-	char *scriptpath;
-	int state;
-	struct dhcp6_optinfo *optinfo;
+client6_script(char *scriptpath, int state, struct dhcp6_optinfo *optinfo)
 {
 	int i, dnsservers, ntpservers, dnsnamelen, envc, elen, ret = 0;
 	int sipservers, sipnamelen;
