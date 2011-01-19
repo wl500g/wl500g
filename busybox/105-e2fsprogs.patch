@@ -645,7 +645,7 @@ diff -BurpN busybox-1.17.1/include/applets.src.h busybox/include/applets.src.h
  IF_MKFS_VFAT(APPLET_ODDNAME(mkdosfs, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
 -IF_MKFS_EXT2(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
 +IF_MKE2FS(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
- IF_MKFIFO(APPLET(mkfifo, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+ IF_MKFIFO(APPLET_NOEXEC(mkfifo, mkfifo, _BB_DIR_USR_BIN, _BB_SUID_DROP, mkfifo))
 -IF_MKFS_EXT2(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
 -//IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
 +IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))

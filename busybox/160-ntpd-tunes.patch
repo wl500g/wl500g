@@ -6,7 +6,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  #define RETRY_INTERVAL  5       /* on error, retry in N secs */
  #define RESPONSE_INTERVAL 15    /* wait for reply up to N secs */
 -#define INITIAL_SAMPLES 4       /* how many samples do we want for init */
-+#define INITIAL_SAMPLES 1       /* how many samples do we want for init */
++#define INITIAL_SAMPLES 2       /* how many samples do we want for init */
  
  /* Clock discipline parameters and constants */
  
@@ -19,7 +19,7 @@ diff -urBp a/networking/ntpd.c b/networking/ntpd.c
  //UNUSED: #define PANIC_THRESHOLD 1000    /* panic threshold (sec) */
  
  #define FREQ_TOLERANCE  0.000015 /* frequency tolerance (15 PPM) */
- #define BURSTPOLL       0	/* initial poll */
+ #define BURSTPOLL       0       /* initial poll */
 -#define MINPOLL         5       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
 +#define MINPOLL         6       /* minimum poll interval. std ntpd uses 6 (6: 64 sec) */
  #define BIGPOLL         10      /* drop to lower poll at any trouble (10: 17 min) */

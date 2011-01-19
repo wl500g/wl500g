@@ -1162,7 +1162,7 @@ stop_wan(char *ifname)
 {
 	char name[80], *next, signal[] = "XXXX";
 	
-	eval("killall", "ntpclient");
+	eval("killall", "ntpd");
 
 	/* Shutdown and kill all possible tasks */
 	eval("killall", "ip-up");

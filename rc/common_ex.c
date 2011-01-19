@@ -97,7 +97,6 @@ void getsyspara(void)
 void convert_asus_values()
 {	
 	char macbuf[36];
-	char servers[64];
 	char ifnames[36];
 	char sbuf[64];
 	int i, num;
@@ -489,15 +488,6 @@ void convert_asus_values()
 	nvram_unset("wanx_dns");
 
 	convert_routes();
-
-	memset(servers, 0, sizeof(servers));
-
-	if (nvram_invmatch("ntp_server0", ""))
-		sprintf(servers, "%s%s ", servers, nvram_safe_get("ntp_server0"));
-	if (nvram_invmatch("ntp_server1", ""))
-		sprintf(servers, "%s%s ", servers, nvram_safe_get("ntp_server1"));
-
-	nvram_set("ntp_servers", servers);
 
 	if (nvram_match("wan_nat_x", "0") && nvram_match("wan_route_x", "IP_Bridged"))
 	{

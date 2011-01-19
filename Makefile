@@ -21,7 +21,7 @@ ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
-BUSYBOX=busybox-1.17.4
+BUSYBOX=busybox-1.18.2
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.55
 LPRNG=LPRng-3.8.22
@@ -39,7 +39,7 @@ PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_4
-RADVD=radvd-1.6
+RADVD=radvd-1.7
 QUAGGA=quagga-0.99.17
 L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.7
@@ -47,7 +47,6 @@ BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.2
 UDPXY=udpxy-1.0-Chipmunk-19
-NTPCLIENT=ntpclient-2007_365
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
@@ -94,7 +93,7 @@ all: prep custom
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
 	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
-	ntpclient bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
+	bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
@@ -477,15 +476,6 @@ $(TOP)/udpxy: $(UDPXY).tgz
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy
-	@true
-
-$(TOP)/ntpclient: $(NTPCLIENT).tar.bz2
-	@rm -rf $(TOP)/$(NTPCLIENT) $@
-	tar -xjf $^ -C $(TOP)
-	[ ! -f $(NTPCLIENT).patch ] || $(PATCHER) -Z $(TOP)/$(NTPCLIENT) $(NTPCLIENT).patch
-	mv $(TOP)/$(NTPCLIENT) $@ && touch $@
-
-ntpclient: $(TOP)/ntpclient
 	@true
 
 $(TOP)/ez-ipupdate:
