@@ -7,7 +7,7 @@ diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
  {
 -	int lp;
 +	int lp, open_sleep = 10;
- 	struct sockaddr_in client;
+ 	struct sockaddr_storage client;
  	socklen_t clientlen = sizeof(client);
  
 @@ -407,8 +406,11 @@ void one_job(int lpnumber)
@@ -27,11 +27,11 @@ diff -uBp p910nd-0.93/p910nd.c p910nd/p910nd.c
 @@ -422,6 +422,7 @@ void server(int lpnumber)
  	struct protoent *proto;
  #endif
- 	int netfd, fd, lp, one = 1;
+ 	int netfd = -1, fd, lp, one = 1;
 +	int open_sleep = 10;
  	socklen_t clientlen;
- 	struct sockaddr_in netaddr, client;
- 	char pidfilename[sizeof(PIDFILE)];
+ 	struct sockaddr_storage client;
+ 	struct addrinfo hints, *res, *ressave;
 @@ -521,8 +522,12 @@ void server(int lpnumber)
  		/*write(fd, "Printing", 8); */
  
