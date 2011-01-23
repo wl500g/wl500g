@@ -408,7 +408,8 @@ nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
 	h = __nf_conntrack_find(tuple);
 	if (h) {
 		ct = nf_ct_tuplehash_to_ctrack(h);
-		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
+		if (unlikely(nf_ct_is_dying(ct) ||
+			     !atomic_inc_not_zero(&ct->ct_general.use)))
 			h = NULL;
 	}
 	read_unlock_bh(&nf_conntrack_lock);
@@ -474,6 +475,16 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 	DEBUGP("Confirming conntrack %p\n", ct);
 
 	write_lock_bh(&nf_conntrack_lock);
+
+	/* We have to check the DYING flag inside the lock to prevent
+	   a race against nf_ct_get_next_corpse() possibly called from
+	   user context, else we insert an already 'dead' hash, blocking
+	   further use of that particular connection -JM */
+
+	if (unlikely(nf_ct_is_dying(ct))) {
+		write_unlock_bh(&nf_conntrack_lock);
+		return NF_ACCEPT;
+	}
 
 	/* See if there's one in the list already, including reverse:
 	   NAT could have grabbed it without realizing, since we're
