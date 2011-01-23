@@ -126,7 +126,7 @@ static void
 usage()
 {
 	fprintf(stderr,
-	    "usage: dhcp6relay [-dDf] [-b boundaddr] [-H hoplim] "
+	    "usage: dhcp6relay [-df] [-b boundaddr] [-H hoplim] "
 	    "[-r relay-IF] [-s serveraddr] [-p pidfile] [-S script] IF ...\n");
 	exit(0);
 }
@@ -144,16 +144,13 @@ main(int argc, char *argv[])
 	else
 		progname++;
 
-	while((ch = getopt(argc, argv, "b:dDfH:r:s:S:p:")) != -1) {
+	while((ch = getopt(argc, argv, "b:dfH:r:s:S:p:")) != -1) {
 		switch(ch) {
 		case 'b':
 			boundaddr = optarg;
 			break;
 		case 'd':
-			debug = 1;
-			break;
-		case 'D':
-			debug = 2;
+			debug++;
 			break;
 		case 'f':
 			foreground++;

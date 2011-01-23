@@ -37,7 +37,8 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl c Ar configfile
-.Op Fl Ddfi
+.Op Fl dfi
+.Op Fl D Ar LL|LLT
 .Op Fl p Ar pid-file
 .Ar interface
 .Op Ar interfaces...
@@ -62,9 +63,7 @@ Use
 .Ar configfile
 as the configuration file.
 .It Fl d
-Print debugging messages.
-.It Fl D
-Even more debugging information is printed.
+Print debugging messages (may be repeated).
 .It Fl f
 Foreground mode (useful when debugging).
 Although
@@ -87,6 +86,12 @@ is terminated.  (suits for a use in shell-script etc).
 Since the configuration is internally generated, you cannot provide a configuration in this mode.  If you want to have different actions for the stateless DHCPv6 information, you should write an appropriate configuration and invoke
 .Nm
 without this option.
+.It Fl D Ar LL|LLT
+Use
+.Ar LL
+or 
+.Ar LLT
+to override default(LLT) DUID type generation
 .It Fl p Ar pid-file
 Use
 .Ar pid-file

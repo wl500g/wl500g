@@ -119,6 +119,7 @@ sysdep_sa_len (const struct sockaddr *sa)
 
 extern int foreground;
 extern int debug_thresh;
+extern int duid_type;
 extern char *device;
 
 /* search option for dhcp6_find_listval() */

@@ -100,6 +100,7 @@ struct in6_ifreq {
 
 int foreground;
 int debug_thresh;
+int duid_type = 1;
 
 static int dhcp6_count_list __P((struct dhcp6_list *));
 static int in6_matchflags __P((struct sockaddr *, char *, int));
@@ -985,8 +986,8 @@ get_duid(idfile, duid)
 {
 	FILE *fp = NULL;
 	u_int16_t len = 0, hwtype;
-	struct dhcp6opt_duid_type1 *dp; /* we only support the type1 DUID */
-	char tmpbuf[256];	/* DUID should be no more than 256 bytes */
+	int hwlen = 0;
+	char tmpbuf[256];	/* HWID should be no more than 256 bytes */
 
 	if ((fp = fopen(idfile, "r")) == NULL && errno != ENOENT)
 		log_notice("failed to open DUID file: %s",
@@ -999,18 +1000,15 @@ get_duid(idfile, duid)
 			goto fail;
 		}
 	} else {
-		int l;
-
-		if ((l = gethwid(tmpbuf, sizeof(tmpbuf), NULL, &hwtype)) < 0) {
+		if ((hwlen = gethwid(tmpbuf, sizeof(tmpbuf), NULL, &hwtype)) < 0) {
 			log_info(
 			    "failed to get a hardware address");
 			goto fail;
 		}
-		len = l + sizeof(struct dhcp6opt_duid_type1);
+		len = hwlen + sizeof(union dhcp6opt_duid_type);
 	}
 
 	memset(duid, 0, sizeof(*duid));
-	duid->duid_len = len;
 	if ((duid->duid_id = (char *)malloc(len)) == NULL) {
 		log_error("failed to allocate memory");
 		goto fail;
@@ -1026,15 +1024,33 @@ get_duid(idfile, duid)
 		log_debug("extracted an existing DUID from %s: %s",
 		    idfile, duidstr(duid));
 	} else {
-		u_int64_t t64;
+		/* we only support the types 1,3 DUID */
+		switch (duid_type) {
+			case 1: {
+				u_int64_t t64;
+				struct dhcp6opt_duid_type1 *dp;
 
-		dp = (struct dhcp6opt_duid_type1 *)duid->duid_id;
-		dp->dh6_duid1_type = htons(1); /* type 1 */
-		dp->dh6_duid1_hwtype = htons(hwtype);
-		/* time is Jan 1, 2000 (UTC), modulo 2^32 */
-		t64 = (u_int64_t)(time(NULL) - 946684800);
-		dp->dh6_duid1_time = htonl((u_long)(t64 & 0xffffffff));
-		memcpy((void *)(dp + 1), tmpbuf, (len - sizeof(*dp)));
+				duid->duid_len = hwlen + sizeof(struct dhcp6opt_duid_type1);
+				dp = (struct dhcp6opt_duid_type1 *)duid->duid_id;
+				dp->dh6_duid1_type = htons(1); /* type 1 */
+				dp->dh6_duid1_hwtype = htons(hwtype);
+				/* time is Jan 1, 2000 (UTC), modulo 2^32 */
+				t64 = (u_int64_t)(time(NULL) - 946684800);
+				dp->dh6_duid1_time = htonl((u_long)(t64 & 0xffffffff));
+				memcpy((void *)(dp + 1), tmpbuf, hwlen);
+				break;
+				}
+			case 3: {
+				struct dhcp6opt_duid_type3 *dp;
+
+				duid->duid_len = hwlen + sizeof(struct dhcp6opt_duid_type3);
+				dp = (struct dhcp6opt_duid_type3 *)duid->duid_id;
+				dp->dh6_duid3_type = htons(3); /* type 3 */
+				dp->dh6_duid3_hwtype = htons(hwtype);
+				memcpy((void *)(dp + 1), tmpbuf, hwlen);
+				break;
+				}
+		}
 
 		log_debug("generated a new DUID: %s",
 		    duidstr(duid));
