@@ -133,7 +133,7 @@ struct dhcp6_timer *client6_timo __P((void *));
 int client6_start __P((struct dhcp6_if *));
 static void info_printf __P((const char *, ...));
 
-extern int client6_script __P((char *, int, struct dhcp6_optinfo *));
+extern int client6_script __P((struct dhcp6_if *, int, struct dhcp6_optinfo *));
 
 #define MAX_ELAPSED_TIME 0xffff
 
@@ -1622,7 +1622,7 @@ client6_recvreply(struct dhcp6_if *ifp, struct dhcp6 *dh6, ssize_t len,
 	 */
 	if (ifp->scriptpath != NULL && strlen(ifp->scriptpath) != 0) {
 		log_debug("executes %s", ifp->scriptpath);
-		client6_script(ifp->scriptpath, state, optinfo);
+		client6_script(ifp, state, optinfo);
 	}
 
 	dhcp6_remove_event(ev);
