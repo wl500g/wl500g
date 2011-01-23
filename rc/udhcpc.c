@@ -236,3 +236,72 @@ udhcpc_main(int argc, char **argv)
 		return 0;
 	else return deconfig();
 }
+
+#ifdef __CONFIG_IPV6__
+int dhcp6c_main(int argc, char **argv)
+{
+	char *wan_ifname = safe_getenv("interface");
+	char *dns6 = getenv("new_domain_name_servers");
+
+	if (dns6) {
+//TODO: Process new DNS records
+		update_resolvconf(wan_ifname, 2, 1);
+	}
+	// notify radvd of possible change
+	eval("killall", "-SIGHUP", "radvd");
+
+	return 0;
+}
+
+int start_dhcp6c(char *wan_ifname)
+{
+	FILE *fp;
+	pid_t pid;
+	int slasz, ret, is_wan6_valid;
+	struct in6_addr wan6_addr;
+	char *argv[] = { "/sbin/dhcp6c", "-d", "-D", "LL",  wan_ifname, NULL };
+
+	if (!nvram_match("ipv6_proto", "dhcp")) return 1;
+
+	stop_dhcp6c();
+
+	slasz = 64 - atoi(nvram_safe_get("ipv6_lan_netsize"));
+	if (slasz <= 0)
+		slasz = 0;
+	is_wan6_valid = inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &wan6_addr);
+
+	if ((fp = fopen("/etc/dhcp6c.conf", "w")) == NULL) {
+		perror("/etc/dhcp6c.conf");
+                return 2;
+        }
+	fprintf(fp, "interface %s {\n"
+		    " send ia-pd 0;\n"
+		    "%s"
+		    " send rapid-commit;\n"		/* May cause unexpected advertise in case of server don't support rapid-commit */
+		    " request domain-name-servers;\n"
+		    " script \"/tmp/dhcp6c.script\";\n"
+		    "};\n"
+		    "id-assoc pd 0 {\n"
+		    " prefix-interface %s {\n"
+		    "  sla-id 0;\n"
+		    "  sla-len %d;\n"
+		    " };\n"
+		    "};\n"
+		    "id-assoc na 0 {};\n",
+		    wan_ifname,
+		    (is_wan6_valid==1) ? "" : " send ia-na 0;\n",
+		    nvram_safe_get("lan_ifname"), slasz
+		);
+        fclose(fp);
+	ret = _eval(argv, NULL, 0, &pid);
+
+        return ret;
+}
+
+void stop_dhcp6c(void)
+{
+	eval("killall", "-SIGTERM", "dhcp6c.script");
+	kill_pidfile("/var/run/dhcp6c.pid");
+}
+
+#endif

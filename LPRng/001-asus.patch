@@ -3215,7 +3215,7 @@ diff -urNBp LPRng-3.8.22/src/common/lpd.c LPRng/src/common/lpd.c
 +#define UCHAR unsigned char
  
 -	^&*(*&^!!! &*())&*&*!!!  and again, I say, &*()(&*!!!
-+#define STATUS_FILE "/var/state/parport/svr_status"
++#define STATUS_FILE "/var/state/lpr_status"
  
 -	This means that if you fork/execve a child,  then you better make sure
 -	that you set up its signal/mask stuff correctly.

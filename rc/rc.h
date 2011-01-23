@@ -43,6 +43,11 @@ int rsrom_main(char *devname, unsigned int pos, int pflag);
 /* udhcpc scripts */
 int udhcpc_main(int argc, char **argv);
 int udhcpc_ex_main(int argc, char **argv);
+#ifdef __CONFIG_IPV6__
+int dhcp6c_main(int argc, char **argv);
+int start_dhcp6c(char *wan_ifname);
+void stop_dhcp6c(void);
+#endif
 
 /* ppp scripts */
 int ipup_main(int argc, char **argv);

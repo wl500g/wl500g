@@ -732,6 +732,7 @@ sysinit(void)
 	mkdir("/var/run", 0777);
 	mkdir("/var/spool", 0777);
 	mkdir("/var/spool/cron", 0777);
+	mkdir("/var/state", 0777);
 	mkdir("/var/tmp", 0777);
 	
 	/* /usr/local */
@@ -1037,6 +1038,8 @@ main(int argc, char **argv)
 		return ip6up_main(argc, argv);
 	else if (!strcmp(base, "ipv6-down"))
 		return ip6down_main(argc, argv);
+	else if (!strcmp(base, "dhcp6c.script"))
+		return dhcp6c_main(argc, argv);
 #endif
 #ifdef __CONFIG_MADWIMAX__
 	/* madwimax [ if-create if-up if-down if-release ] */

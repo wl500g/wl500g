@@ -607,7 +607,8 @@ start_lan(void)
 #ifdef __CONFIG_IPV6__
 	/* Configure LAN IPv6 address */
 	if (nvram_invmatch("ipv6_proto", "") && 
-	    nvram_invmatch("ipv6_proto", "tun6to4"))
+	    nvram_invmatch("ipv6_proto", "tun6to4") && 
+	    nvram_invmatch("ipv6_proto", "dhcp"))
 	{
 		struct in6_addr addr;
 		char addrstr[INET6_ADDRSTRLEN];
@@ -796,6 +797,7 @@ start_wan(void)
 #ifdef __CONFIG_IPV6__
 	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
 	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
+	symlink("/sbin/rc", "/tmp/dhcp6c.script");
 #endif
 	symlink("/sbin/rc", "/tmp/udhcpc.script");
 
@@ -935,7 +937,7 @@ start_wan(void)
 				nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp)),
 				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)));
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native"))
+			if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
 				wan6_up(wan_ifname, unit);
 #endif
 			/* start firewall */
@@ -1023,7 +1025,7 @@ start_wan(void)
 					      NULL
 			};
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native"))
+			if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
 				wan6_up(wan_ifname, -1);
 #endif
 			/* start firewall */
@@ -1046,10 +1048,6 @@ start_wan(void)
 				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 			/* We are done configuration */
 			wan_up(wan_ifname);
-#ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "native"))
-				wan6_up(wan_ifname, -1);
-#endif
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
@@ -1190,7 +1188,7 @@ stop_wan(char *ifname)
 	if (ifname)
 	{
 #ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "native"))
+		if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
 			wan6_down(ifname, -1);
 #endif
 		wan_down(ifname);
@@ -1211,6 +1209,7 @@ stop_wan(char *ifname)
 #ifdef __CONFIG_IPV6__
 	unlink("/tmp/ppp/ipv6-up");
 	unlink("/tmp/ppp/ipv6-down");
+	unlink("/tmp/dhcp6c.script");
 #endif
 	rmdir("/tmp/ppp");
 
@@ -1376,7 +1375,7 @@ wan_up(char *wan_ifname)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "native"))
+	if (nvram_invmatch("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
 		wan6_up(wan_ifname, -1);
 #endif
 
@@ -1433,7 +1432,7 @@ wan_down(char *wan_ifname)
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "native"))
+	if (nvram_invmatch("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
 		wan6_down(wan_ifname, -1);
 #endif
 
@@ -1521,7 +1520,15 @@ wan6_up(char *wan_ifname, int unit)
 			eval("ip", "-6", "addr", "del", wan6_ipaddr, "dev", wan6_ifname);
     		nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
 	}
-	eval("ip", "-6", "addr", "add", addrstr, "dev", wan6_ifname);
+
+	if (nvram_match("ipv6_proto", "dhcp"))
+	{
+		start_dhcp6c(wan6_ifname);
+	}
+	else
+	{
+		eval("ip", "-6", "addr", "add", addrstr, "dev", wan6_ifname);
+	}
 
 	/* Configure WAN IPv6 specific routes */
 	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_router", tmp));
@@ -1540,7 +1547,7 @@ wan6_up(char *wan_ifname, int unit)
 	else {
 		char name[64];
 
-		/* Enable stateless autonfiguration */
+		/* Enable stateless autoconfiguration */
 		sprintf(name, "/proc/sys/net/ipv6/conf/%s/accept_ra", wan6_ifname);
 		fputs_ex(name, "2");
 		sprintf(name, "/proc/sys/net/ipv6/conf/%s/forwarding", wan6_ifname);
@@ -1623,6 +1630,8 @@ wan6_down(char *wan_ifname, int unit)
 
 	/* Delete WAN IPv6 default gateway */
 	eval("ip", "-6", "route", "del", "default", "metric", "1");
+
+	stop_dhcp6c();
 
 	/* Delete IPv6 DNS servers */
 	nvram_unset(strcat_r(prefix, "ipv6_dns", tmp));
