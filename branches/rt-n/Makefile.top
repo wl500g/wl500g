@@ -599,7 +599,7 @@ radvd-install:
 dhcpv6/Makefile: dhcpv6/Makefile.in
 	cd dhcpv6 && CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-	$(CONFIGURE) --prefix="" --with-localdbdir=/var \
+	$(CONFIGURE) --prefix="" --with-localdbdir=/var/state \
 	 ac_cv_func_setpgrp_void=yes 
 
 dhcpv6: dhcpv6/Makefile

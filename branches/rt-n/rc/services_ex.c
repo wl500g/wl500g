@@ -151,7 +151,7 @@ start_dns(void)
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
-		if (nvram_invmatch("ipv6_lan_addr", ""))
+		if (nvram_invmatch("ipv6_lan_addr", "") && nvram_invmatch("ipv6_proto", "dhcp"))
 			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
 				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
 	}
@@ -303,26 +303,30 @@ start_radvd(void)
 		return errno;
 	}
 
-	/* Convert for easy manipulation */
-	inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-	size = atoi(nvram_safe_get("ipv6_lan_netsize"));
-	for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
-	{
-		if (ret >= 8)
-			addr.s6_addr[i--] = 0;
-		else
-			addr.s6_addr[i--] &= (0xff << ret);
-	}
+	if (nvram_match("ipv6_proto", "dhcp")) {
+		strcpy(addrstr, "::");
+	} else {
+		/* Convert for easy manipulation */
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+		size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+		for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
+		{
+			if (ret >= 8)
+				addr.s6_addr[i--] = 0;
+			else
+				addr.s6_addr[i--] &= (0xff << ret);
+		}
 
-	/* Clean space for 2002:wwxx:yyzz */
-	if (nvram_match("ipv6_proto", "tun6to4"))
-	{
-		addr.s6_addr32[0] = 0;
-		addr.s6_addr16[2] = 0;
-	}
+		/* Clean space for 2002:wwxx:yyzz */
+		if (nvram_match("ipv6_proto", "tun6to4"))
+		{
+			addr.s6_addr32[0] = 0;
+			addr.s6_addr16[2] = 0;
+		}
 
-	/* Convert back to string representation */
-	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+		/* Convert back to string representation */
+		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+	}
 
 	/* Write out to config file */
 	fprintf(fp,
@@ -804,8 +808,6 @@ start_usb(void)
 # else
 	eval("insmod", "printer");
 # endif
-	mkdir("/var/state", 0777);
-	mkdir("/var/state/parport", 0777);
 	if (!nvram_invmatch("lpr_enable", "1"))
 	{
 		char *lpd_argv[]={"lpd", NULL};
@@ -1789,6 +1791,7 @@ stop_service_main()
 	stop_snmpd();
 #ifdef __CONFIG_IPV6__
 	stop_radvd();
+	stop_dhcp6c();
 #endif
 	stop_dhcpd();
 	stop_dns();
