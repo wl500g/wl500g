@@ -73,7 +73,7 @@ static char bcmcsserver_str[] = "new_bcmcs_servers";
 static char bcmcsname_str[] = "new_bcmcs_name";
 
 int
-client6_script(char *scriptpath, int state, struct dhcp6_optinfo *optinfo)
+client6_script(struct dhcp6_if *ifp, int state, struct dhcp6_optinfo *optinfo)
 {
 	int i, dnsservers, ntpservers, dnsnamelen, envc, elen, ret = 0;
 	int sipservers, sipnamelen;
@@ -84,10 +84,7 @@ client6_script(char *scriptpath, int state, struct dhcp6_optinfo *optinfo)
 	char reason[] = "REASON=NBI";
 	struct dhcp6_listval *v;
 	pid_t pid, wpid;
-
-	/* if a script is not specified, do nothing */
-	if (scriptpath == NULL || strlen(scriptpath) == 0)
-		return -1;
+	char *scriptpath = ifp->scriptpath;
 
 	/* initialize counters */
 	dnsservers = 0;
@@ -101,7 +98,7 @@ client6_script(char *scriptpath, int state, struct dhcp6_optinfo *optinfo)
 	nispnamelen = 0;
 	bcmcsservers = 0;
 	bcmcsnamelen = 0;
-	envc = 2;     /* we at least include the reason and the terminator */
+	envc = 3;     /* we at least include the interface,reason and the terminator */
 
 	/* count the number of variables */
 	for (v = TAILQ_FIRST(&optinfo->dns_list); v; v = TAILQ_NEXT(v, link))
@@ -170,6 +167,8 @@ client6_script(char *scriptpath, int state, struct dhcp6_optinfo *optinfo)
 		ret = -1;
 		goto clean;
 	}
+	/* interface name */
+	asprintf(&envp[i++], "interface=%s", ifp->ifname);
 	/* "var=addr1 addr2 ... addrN" + null char for termination */
 	if (dnsservers) {
 		elen = sizeof (dnsserver_str) +
