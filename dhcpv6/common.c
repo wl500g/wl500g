@@ -993,12 +993,14 @@ get_duid(idfile, duid)
 		log_notice("failed to open DUID file: %s",
 		    idfile);
 
+	memset(duid, 0, sizeof(*duid));
 	if (fp) {
 		/* decode length */
 		if (fread(&len, sizeof(len), 1, fp) != 1) {
 			log_error("DUID file corrupted");
 			goto fail;
 		}
+		duid->duid_len = len;
 	} else {
 		if ((hwlen = gethwid(tmpbuf, sizeof(tmpbuf), NULL, &hwtype)) < 0) {
 			log_info(
@@ -1008,7 +1010,6 @@ get_duid(idfile, duid)
 		len = hwlen + sizeof(union dhcp6opt_duid_type);
 	}
 
-	memset(duid, 0, sizeof(*duid));
 	if ((duid->duid_id = (char *)malloc(len)) == NULL) {
 		log_error("failed to allocate memory");
 		goto fail;
