@@ -1687,7 +1687,7 @@ add_prefix(struct dhcp6_list *head, char *name, int type,
 	oprefix = *prefix0;
 
 	/* additional validation of parameters */
-	if (oprefix.plen < 0 || oprefix.plen > 128) {
+	if (oprefix.plen < 4 || oprefix.plen > 128) {
 		log_error("invalid prefix: %d", oprefix.plen);
 		return (-1);
 	}
