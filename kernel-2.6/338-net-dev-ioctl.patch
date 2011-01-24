@@ -1,0 +1,59 @@
+From 746e6ad23cd6fec2edce056e014a0eabeffa838c
+From: John Dykstra
+Date: Thu, 11 Jun 2009 20:57:21 -0700
+Subject: [PATCH] [PATCH] net core: Some interface flags not returned by SIOCGIFFLAGS
+
+Commit b00055aacdb172c05067612278ba27265fcd05ce " [NET] core: add
+RFC2863 operstate" defined new interface flag values.  Its
+documentation specified that these flags could be accessed from user
+space via SIOCGIFFLAGS.  However, this does not work because the new
+flags do not fit in that ioctl's argument width.
+
+Change the documentation to match the code's behavior.  Also change
+the source to explicitly show the truncation.  This _should_ have no
+effect on executable code, and did not with gcc 4.2.4 generating x86
+code.
+
+A new ioctl could be defined to return all interface flags to user
+space.  However, since this has been broken for three years with no
+one complaining, there doesn't seem much need.  They are still
+accessible via netlink.
+
+Reported-by:  "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
+Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ Documentation/networking/operstates.txt |    3 ---
+ net/core/dev.c                          |    2 +-
+ 2 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/Documentation/networking/operstates.txt b/Documentation/networking/operstates.txt
+index c9074f9..1a77a3c 100644
+--- a/Documentation/networking/operstates.txt
++++ b/Documentation/networking/operstates.txt
+@@ -38,9 +38,6 @@ ifinfomsg::if_flags & IFF_LOWER_UP:
+ ifinfomsg::if_flags & IFF_DORMANT:
+  Driver has signaled netif_dormant_on()
+ 
+-These interface flags can also be queried without netlink using the
+-SIOCGIFFLAGS ioctl.
+-
+ TLV IFLA_OPERSTATE
+ 
+ contains RFC2863 state of the interface in numeric representation:
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 11560e3..a09bf65 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2711,7 +2711,7 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm
+ 
+ 	switch (cmd) {
+ 		case SIOCGIFFLAGS:	/* Get interface flags */
+-			ifr->ifr_flags = dev_get_flags(dev);
++			ifr->ifr_flags = (short) dev_get_flags(dev);
+ 			return 0;
+ 
+ 		case SIOCGIFMETRIC:	/* Get the metric on the interface
+-- 
+1.7.3.5
