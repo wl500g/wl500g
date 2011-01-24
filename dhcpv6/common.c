@@ -1063,6 +1063,7 @@ get_duid(idfile, duid)
 			log_error("failed to open DUID file for save");
 			goto fail;
 		}
+		len = duid->duid_len;
 		if ((fwrite(&len, sizeof(len), 1, fp)) != 1) {
 			log_error("failed to save DUID");
 			goto fail;
@@ -1083,10 +1084,7 @@ get_duid(idfile, duid)
   fail:
 	if (fp)
 		fclose(fp);
-	if (duid->duid_id) {
-		free(duid->duid_id);
-		duid->duid_id = NULL; /* for safety */
-	}
+	duidfree(duid);
 	return (-1);
 }
 
