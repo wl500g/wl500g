@@ -1123,16 +1123,16 @@ vlan_setup:
 
 		/* Jumbo Frame control refister (Page 0x40, Address 0x01 */
 		if (nvram_match("jumbo_frame_enable", "1")) {
-			val8 = (( 1 << 0) |
-				( 1 << 1) |
-				( 1 << 2) |
-				( 1 << 3) |
-				( 1 << 4) 
+			val16 = (( 1 << 0) |
+				 ( 1 << 1) |
+				 ( 1 << 2) |
+				 ( 1 << 3) |
+				 ( 1 << 4) 
 				);
 		}
 		else
-			val8 = 0;
-		robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val8, sizeof(val8));
+			val16 = 0;
+		robo->ops->write_reg(robo, PAGE_JUMBO, REG_JUMBO_CTRL, &val16, sizeof(val16));
 	}
 
 	/* Disable management interface access */
