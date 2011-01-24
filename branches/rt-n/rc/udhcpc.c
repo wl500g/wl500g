@@ -257,7 +257,7 @@ int start_dhcp6c(char *wan_ifname)
 {
 	FILE *fp;
 	pid_t pid;
-	int slasz, ret, is_wan6_valid;
+	int sla_len, ret, is_wan6_valid;
 	struct in6_addr wan6_addr;
 	char *argv[] = { "/sbin/dhcp6c", "-d", "-D", "LL",  wan_ifname, NULL };
 
@@ -265,9 +265,11 @@ int start_dhcp6c(char *wan_ifname)
 
 	stop_dhcp6c();
 
-	slasz = 64 - atoi(nvram_safe_get("ipv6_lan_netsize"));
-	if (slasz <= 0)
-		slasz = 0;
+	sla_len = 64 - atoi(nvram_safe_get("ipv6_lan_netsize"));
+	if (sla_len <= 0)
+		sla_len = 0;
+	else if (sla_len > 16)
+		sla_len = 16;
 	is_wan6_valid = inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &wan6_addr);
 
 	if ((fp = fopen("/etc/dhcp6c.conf", "w")) == NULL) {
@@ -290,7 +292,7 @@ int start_dhcp6c(char *wan_ifname)
 		    "id-assoc na 0 {};\n",
 		    wan_ifname,
 		    (is_wan6_valid==1) ? "" : " send ia-na 0;\n",
-		    nvram_safe_get("lan_ifname"), slasz
+		    nvram_safe_get("lan_ifname"), sla_len
 		);
         fclose(fp);
 	ret = _eval(argv, NULL, 0, &pid);
