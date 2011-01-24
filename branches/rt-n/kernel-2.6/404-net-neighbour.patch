@@ -1,0 +1,44 @@
+From 46b13fc5c0f239f36e84665c73087d5fa86bfd86
+From: Eric Dumazet
+Date: Thu, 11 Nov 2010 06:57:19 +0000
+Subject: [PATCH] neigh: reorder struct neighbour
+
+It is important to move nud_state outside of the often modified cache
+line (because of refcnt), to reduce false sharing in neigh_event_send()
+
+This is a followup of commit 0ed8ddf4045f (neigh: Protect neigh->ha[]
+with a seqlock)
+
+This gives a 7% speedup on routing test with IP route cache disabled.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ include/net/neighbour.h |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/include/net/neighbour.h b/include/net/neighbour.h
+--- a/include/net/neighbour.h
++++ b/include/net/neighbour.h
+@@ -96,15 +96,15 @@ struct neighbour
+ 	unsigned long		used;
+ 	unsigned long		confirmed;
+ 	unsigned long		updated;
++	rwlock_t		lock;
++	atomic_t		refcnt;
++	atomic_t		probes;
+ 	__u8			flags;
+ 	__u8			nud_state;
+ 	__u8			type;
+ 	__u8			dead;
+-	atomic_t		probes;
+-	rwlock_t		lock;
+ 	unsigned char		ha[ALIGN(MAX_ADDR_LEN, sizeof(unsigned long))];
+ 	struct hh_cache		*hh;
+-	atomic_t		refcnt;
+ 	int			(*output)(struct sk_buff *skb);
+ 	struct sk_buff_head	arp_queue;
+ 	struct timer_list	timer;
+-- 
+1.7.3.5
