@@ -6700,7 +6700,7 @@ diff -urBwNp linux-2.6.22/drivers/net/et/Makefile linux-2.6/drivers/net/et/Makef
 diff -urBwNp linux-2.6.22/drivers/net/hnd/Kconfig linux-2.6/drivers/net/hnd/Kconfig
 --- linux-2.6.22/drivers/net/hnd/Kconfig	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/hnd/Kconfig	2008-12-12 06:29:21.000000000 +0300
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,65 @@
 +#
 +# Broadcom Home Networking Division (HND) driver configuration
 +#
@@ -6741,6 +6741,7 @@ diff -urBwNp linux-2.6.22/drivers/net/hnd/Kconfig linux-2.6/drivers/net/hnd/Kcon
 +config WL
 +	tristate "BCM43xx 802.11 Wireless support"
 +	depends on HND && !WL_EMULATOR
++#	select WIRELESS_EXT
 +choice
 +	prompt "Wireless feature variant"
 +	depends on HND && !WL_EMULATOR && WL
@@ -6992,7 +6993,7 @@ diff -urBwNp linux-2.6.22/drivers/net/Makefile linux-2.6/drivers/net/Makefile
 diff -urBwNp linux-2.6.22/drivers/net/wl/Makefile linux-2.6/drivers/net/wl/Makefile
 --- linux-2.6.22/drivers/net/wl/Makefile	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/wl/Makefile	2008-12-12 06:29:47.000000000 +0300
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,45 @@
 +#
 +# Makefile for the Broadcom wl driver
 +#
@@ -7012,6 +7013,9 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/Makefile linux-2.6/drivers/net/wl/Makef
 +TARGET := wl
 +WLCONF_H := wlconf.h
 +WLCONF_O := wlconf.o
++
++WL_PARTIAL_REBUILD := 0
++CONFIG_WL_APSTA := wlconfig_lx_shared
 +
 +# Generate list of supported variants
 +VLIST_BASE := AP STA APSTA
@@ -7344,7 +7348,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_dngl_onchip_g/Makefile linux-2.6/dri
 diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/wl_generic.mk
 --- linux-2.6.22/drivers/net/wl/wl_generic.mk	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/wl/wl_generic.mk	2008-12-12 06:29:47.000000000 +0300
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,82 @@
 +#
 +# Generic portion of the Broadcom wl driver makefile
 +#
@@ -7383,7 +7387,12 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/
 +         WLFILES += wl_bcm57emu.c
 +    endif
 +    
++ifeq ($(WL_PARTIAL_REBUILD),1)
++    WL_SOURCE   := wl_iw.c wl_linux.c
++else
 +    WL_SOURCE := $(WLFILES)
++endif
++
 +    WL_DFLAGS := $(WLFLAGS)
 +    # If source directory (src/wl/sys) exists, use sources to build objects
 +    WL_OBJS   := $(foreach file, $(WL_SOURCE), \
@@ -7405,18 +7414,22 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/
 +		    -I$(src)/$(SRCBASE)/wl/sys -finline-limit=2048 -Werror
 +    
 +    # wl-objs is for linking to wl.o
-+    $(TARGET)-objs := $(WLCONF_O) $(WL_OBJS)
-+    obj-$(CONFIG_WL) := $(TARGET).o
++    $(TARGET)-objs := $(WL_OBJS)
++ifeq ($(WL_PARTIAL_REBUILD),1)
++    $(TARGET)-objs += $(SRCBASE)/wl/linux/wl_prebuilt.o
++else
++    $(TARGET)-objs += $(WLCONF_O)
++endif
 +
 +else # SRCBASE/wl/sys doesn't exist
 +
 +    # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
 +    prebuilt := wl_$(wl_suffix).o
 +    $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
-+    obj-$(CONFIG_WL) := $(TARGET).o
 +
 +endif
 +
++obj-$(CONFIG_WL) := $(TARGET).o
 +
 +clean-files += $(SRCBASE)/wl/sys/*.o $(SRCBASE)/wl/sys/.*.*.cmd $(WLCONF_H) $(WLCONF_O)
 diff -urBwNp linux-2.6.22/drivers/net/wl/wl_high/Makefile linux-2.6/drivers/net/wl/wl_high/Makefile
