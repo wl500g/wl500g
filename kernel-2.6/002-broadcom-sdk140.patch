@@ -4,7 +4,6 @@ Updates from Broadcom SDK 5.10.140.0
  arch/mips/Kconfig                         |    4 
  arch/mips/brcm-boards/bcm947xx/Makefile   |    4 
  arch/mips/brcm-boards/bcm947xx/gen_gpio.c |  138 +++
- arch/mips/brcm-boards/bcm947xx/irq.c      |    8 
  arch/mips/mm/cache.c                      |   41 -
  arch/mips/mm/init.c                       |   64 +
  drivers/i2c/busses/i2c-gpio.c             |   24 
@@ -14,6 +13,7 @@ Updates from Broadcom SDK 5.10.140.0
  include/linux/i2c-id.h                    |    1 
  include/linux/rcupdate.h                  |   12 
  include/linux/spinlock_api_up.h           |   10 
+ kernel/irq/spurious.c                     |    4 
  kernel/softirq.c                          |    2 
  mm/highmem.c                              |   16 
  mm/page_alloc.c                           |    8 
@@ -31,7 +31,7 @@ Updates from Broadcom SDK 5.10.140.0
  sound/soc/codecs/wm8750.c                 |   19 
  sound/soc/codecs/wm8955.c                 | 1060 ++++++++++++++++++++++++++++++
  sound/soc/codecs/wm8955.h                 |   61 +
- 30 files changed, 3066 insertions(+), 58 deletions(-)
+ 30 files changed, 3058 insertions(+), 62 deletions(-)
 
 diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c
 --- linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c	1970-01-01 03:00:00.000000000 +0300
@@ -548,6 +548,27 @@ diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/spinlock_api_up.h 
  
  #define __UNLOCK_BH(lock) \
    do { preempt_enable_no_resched(); local_bh_enable(); __release(lock); (void)(lock); } while (0)
+diff -urNBp a/kernel/irq/spurious.c b/kernel/irq/spurious.c
+--- a/kernel/irq/spurious.c
++++ b/kernel/irq/spurious.c
+@@ -10,7 +10,6 @@
+ #include <linux/module.h>
+ #include <linux/kallsyms.h>
+ #include <linux/interrupt.h>
+-#include <linux/reboot.h>
+ 
+ static int irqfixup __read_mostly;
+ 
+@@ -193,9 +192,6 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
+ 		/*
+ 		 * The interrupt is stuck
+ 		 */
+-		/* reboot it */
+-		printk("IRQ error and try to reboot!\n");
+-		machine_restart(NULL);
+ 		__report_bad_irq(irq, desc, action_ret);
+ 		/*
+ 		 * Now kill the IRQ
 diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/kernel/softirq.c linux-2.6/kernel/softirq.c
 --- linux-2.6/kernel/softirq.c	2008-12-12 06:34:45.000000000 +0300
 +++ linux-2.6/kernel/softirq.c	2010-01-21 05:05:47.000000000 +0300
@@ -3562,3 +3583,4 @@ diff '-x*.o' '-x*.orig' '-x.*' -urBp linux-2.6/drivers/i2c/busses/i2c-gpio.c lin
  MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
  MODULE_LICENSE("GPL");
 +MODULE_ALIAS("platform:i2c-gpio");
+-- 
