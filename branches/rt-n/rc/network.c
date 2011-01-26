@@ -608,7 +608,7 @@ start_lan(void)
 	/* Configure LAN IPv6 address */
 	if (nvram_invmatch("ipv6_proto", "") && 
 	    nvram_invmatch("ipv6_proto", "tun6to4") && 
-	    nvram_invmatch("ipv6_proto", "dhcp"))
+	    nvram_invmatch("ipv6_proto", "dhcp6"))
 	{
 		struct in6_addr addr;
 		char addrstr[INET6_ADDRSTRLEN];
@@ -937,7 +937,7 @@ start_wan(void)
 				nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp)),
 				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)));
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, unit);
 #endif
 			/* start firewall */
@@ -1025,7 +1025,7 @@ start_wan(void)
 					      NULL
 			};
 #ifdef __CONFIG_IPV6__
-			if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, -1);
 #endif
 			/* start firewall */
@@ -1048,6 +1048,10 @@ start_wan(void)
 				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 			/* We are done configuration */
 			wan_up(wan_ifname);
+#ifdef __CONFIG_IPV6__
+			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
+				wan6_up(wan_ifname, -1);
+#endif
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
 #endif
@@ -1188,7 +1192,7 @@ stop_wan(char *ifname)
 	if (ifname)
 	{
 #ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
+		if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 			wan6_down(ifname, -1);
 #endif
 		wan_down(ifname);
@@ -1375,7 +1379,7 @@ wan_up(char *wan_ifname)
 	}
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
+	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
 		wan6_up(wan_ifname, -1);
 #endif
 
@@ -1432,7 +1436,7 @@ wan_down(char *wan_ifname)
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
 #ifdef __CONFIG_IPV6__
-	if (nvram_invmatch("ipv6_proto", "static") || nvram_match("ipv6_proto", "dhcp"))
+	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
 		wan6_down(wan_ifname, -1);
 #endif
 
@@ -1521,7 +1525,7 @@ wan6_up(char *wan_ifname, int unit)
     		nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
 	}
 
-	if (nvram_match("ipv6_proto", "dhcp"))
+	if (nvram_match("ipv6_proto", "dhcp6"))
 	{
 		start_dhcp6c(wan6_ifname);
 	}

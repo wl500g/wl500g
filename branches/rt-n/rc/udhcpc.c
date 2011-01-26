@@ -261,7 +261,7 @@ int start_dhcp6c(char *wan_ifname)
 	struct in6_addr wan6_addr;
 	char *argv[] = { "/sbin/dhcp6c", "-d", "-D", "LL",  wan_ifname, NULL };
 
-	if (!nvram_match("ipv6_proto", "dhcp")) return 1;
+	if (!nvram_match("ipv6_proto", "dhcp6")) return 1;
 
 	stop_dhcp6c();
 

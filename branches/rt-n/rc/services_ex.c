@@ -151,7 +151,7 @@ start_dns(void)
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
-		if (nvram_invmatch("ipv6_lan_addr", "") && nvram_invmatch("ipv6_proto", "dhcp"))
+		if (nvram_invmatch("ipv6_lan_addr", "") && nvram_invmatch("ipv6_proto", "dhcp6"))
 			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
 				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
 	}
@@ -303,7 +303,7 @@ start_radvd(void)
 		return errno;
 	}
 
-	if (nvram_match("ipv6_proto", "dhcp")) {
+	if (nvram_match("ipv6_proto", "dhcp6")) {
 		strcpy(addrstr, "::");
 	} else {
 		/* Convert for easy manipulation */
