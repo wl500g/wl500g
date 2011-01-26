@@ -1052,7 +1052,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	// Disable RH0 to block ping-pong of packets.
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
-	if (nvram_match("ipv6_proto", "dhcp"))
+	if (nvram_match("ipv6_proto", "dhcp6"))
 		fprintf(fp, "-A INPUT -p udp --dport 546 -j %s\n", logaccept);
 	// Allow ICMPv6
 	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);

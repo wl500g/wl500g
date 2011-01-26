@@ -865,7 +865,7 @@ function validate_ip6addr(o, v)
 
 	if (len===0)
 	{
-		if ((v=='ipv6_lan_addr' || v=='ipv6_wan_addr') && document.form.ipv6_proto.value!='dhcp')
+		if ((v=='ipv6_lan_addr' || v=='ipv6_wan_addr') && document.form.ipv6_proto.value!='dhcp6')
 		{
 			alert("Fields can't be blank!!!");
 			o.focus();
@@ -4262,7 +4262,7 @@ function changeDHCPClient()
 function change_ipv6_type(v)
 {
 	var frm = document.form;
-	if (v == "static" || v == "dhcp" || v == "ppp")
+	if (v == "native" || v == "dhcp6" || v == "ppp")
 	{
 		inputCtrl(frm.ipv6_wan_router, 1);
 		inputCtrl(frm.ipv6_dns1_x, 1);
