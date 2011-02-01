@@ -1,0 +1,129 @@
+From 0f476b6d91a1395bda6464e653ce66ea9bea7167
+From: Johannes Berg
+Date: Wed, 18 Jun 2008 09:29:37 +0200
+Subject: [PATCH] softirq: remove irqs_disabled warning from local_bh_enable
+
+There's no need to use local_irq_save() over local_irq_disable() in the
+local_bh_enable code since it is a bug to call it with irqs disabled and
+do_softirq will enable irqs if there is any pending work.
+
+Consolidate the code from local_bh_enable and ..._ip to avoid having a
+disconnect between them in the warnings they trigger that is currently
+there.
+
+Also always trigger the warning on in_irq(), not just in the
+trace-irqflags case.
+
+Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Cc: Michael Buesch <mb@bu3sch.de>
+Cc: David Ellingsworth <david@identd.dyndns.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+
+From 23bdd703a585a869f2eb32fb9f66749d0476d71e
+From: Ingo Molnar
+Date: Mon, 9 Jul 2007 18:52:00 +0200
+Subject: [PATCH] sched: do not set softirqs to nice +19
+
+do not set softirqs to nice +19. _If_ for whatever reason
+we missed to process some high-prio softirq and woke up
+ksoftirqd, we should give it a fair chance to actually
+get some work done, even if the system is under load.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+
+ kernel/softirq.c |   49 +++++++++++--------------------------------------
+ 1 file changed, 11 insertions(+), 38 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index 8677534..2cf2502 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -131,23 +131,17 @@ void _local_bh_enable(void)
+ 
+ EXPORT_SYMBOL(_local_bh_enable);
+ 
+-void local_bh_enable(void)
++static inline void _local_bh_enable_ip(unsigned long ip)
+ {
++	WARN_ON_ONCE(in_irq() || irqs_disabled());
+ #ifdef CONFIG_TRACE_IRQFLAGS
+-	unsigned long flags;
+-
+-	WARN_ON_ONCE(in_irq());
+-#endif
+-	WARN_ON_ONCE(irqs_disabled());
+-
+-#ifdef CONFIG_TRACE_IRQFLAGS
+-	local_irq_save(flags);
++	local_irq_disable();
+ #endif
+ 	/*
+ 	 * Are softirqs going to be turned on now:
+ 	 */
+ 	if (softirq_count() == SOFTIRQ_OFFSET)
+-		trace_softirqs_on((unsigned long)__builtin_return_address(0));
++		trace_softirqs_on(ip);
+ 	/*
+ 	 * Keep preemption disabled until we are done with
+ 	 * softirq processing:
+@@ -159,40 +153,20 @@ void local_bh_enable(void)
+ 
+ 	dec_preempt_count();
+ #ifdef CONFIG_TRACE_IRQFLAGS
+-	local_irq_restore(flags);
++	local_irq_enable();
+ #endif
+ 	preempt_check_resched();
+ }
++
++void local_bh_enable(void)
++{
++	_local_bh_enable_ip((unsigned long)__builtin_return_address(0));
++}
+ EXPORT_SYMBOL(local_bh_enable);
+ 
+ void local_bh_enable_ip(unsigned long ip)
+ {
+-#ifdef CONFIG_TRACE_IRQFLAGS
+-	unsigned long flags;
+-
+-	WARN_ON_ONCE(in_irq());
+-
+-	local_irq_save(flags);
+-#endif
+-	/*
+-	 * Are softirqs going to be turned on now:
+-	 */
+-	if (softirq_count() == SOFTIRQ_OFFSET)
+-		trace_softirqs_on(ip);
+-	/*
+-	 * Keep preemption disabled until we are done with
+-	 * softirq processing:
+- 	 */
+- 	sub_preempt_count(SOFTIRQ_OFFSET - 1);
+-
+-	if (unlikely(!in_interrupt() && local_softirq_pending()))
+-		do_softirq();
+-
+-	dec_preempt_count();
+-#ifdef CONFIG_TRACE_IRQFLAGS
+-	local_irq_restore(flags);
+-#endif
+-	preempt_check_resched();
++	_local_bh_enable_ip(ip);
+ }
+ EXPORT_SYMBOL(local_bh_enable_ip);
+ 
+@@ -488,7 +488,6 @@ void __init softirq_init(void)
+ 
+ static int ksoftirqd(void * __bind_cpu)
+ {
+-	set_user_nice(current, 19);
+ 	current->flags |= PF_NOFREEZE;
+ 
+ 	set_current_state(TASK_INTERRUPTIBLE);
+-- 
+1.7.3.5
