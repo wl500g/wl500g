@@ -1,0 +1,69 @@
+Minor sys_time() speedup
+
+ 4e44f3497d41db4c3b9051c61410dee8ae4fb49c sys_time() speedup
+ 2008220879af095d00ca27eb168a55c8595fbc0b Revert "sys_time() speedup"
+
+...
+But rather than using do_gettimeofday(), use the internal nanosecond
+resolution getnstimeofday(), which at least avoids one unnecessary
+conversion (since we really don't care about whether the fractional
+seconds are nanoseconds or microseconds - we'll just throw them away).
+
+---
+ kernel/time.c |   23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
+
+diff --git a/kernel/time.c b/kernel/time.c
+--- a/kernel/time.c
++++ b/kernel/time.c
+@@ -58,9 +58,9 @@ EXPORT_SYMBOL(sys_tz);
+ asmlinkage long sys_time(time_t __user * tloc)
+ {
+ 	time_t i;
+-	struct timeval tv;
++	struct timespec tv;
+ 
+-	do_gettimeofday(&tv);
++	getnstimeofday(&tv);
+ 	i = tv.tv_sec;
+ 
+ 	if (tloc) {
+@@ -373,12 +373,25 @@ void do_gettimeofday (struct timeval *tv
+ 
+ 	tv->tv_sec = sec;
+ 	tv->tv_usec = usec;
+-}
+ 
++	/*
++	 * Make sure xtime.tv_sec [returned by sys_time()] always
++	 * follows the gettimeofday() result precisely. This
++	 * condition is extremely unlikely, it can hit at most
++	 * once per second:
++	 */
++	if (unlikely(xtime.tv_sec != tv->tv_sec)) {
++		unsigned long flags;
++
++		write_seqlock_irqsave(&xtime_lock, flags);
++		update_wall_time();
++		write_sequnlock_irqrestore(&xtime_lock, flags);
++	}
++}
+ EXPORT_SYMBOL(do_gettimeofday);
+ 
++#else	/* CONFIG_TIME_INTERPOLATION */
+ 
+-#else
+ #ifndef CONFIG_GENERIC_TIME
+ /*
+  * Simulate gettimeofday using do_gettimeofday which only allows a timeval
+@@ -394,7 +407,7 @@ void getnstimeofday(struct timespec *tv)
+ }
+ EXPORT_SYMBOL_GPL(getnstimeofday);
+ #endif
+-#endif
++#endif	/* CONFIG_TIME_INTERPOLATION */
+ 
+ /* Converts Gregorian date to seconds since 1970-01-01 00:00:00.
+  * Assumes input in normal date format, i.e. 1980-12-31 23:59:59
+-- 
+1.7.4
