@@ -1,0 +1,50 @@
+
+ 2dbac10263b2f3c561de68b4c369bc679352ccee MIPS: Align .data.cacheline_aligned based on CONFIG_MIPS_L1_CACHE_SHIFT
+ cbdbe07f9d60b80c903bddf6533db839789925c7 [MIPS] tlbex.c: use __cacheline_aligned instead of __tlb_handler_align
+
+---
+ arch/mips/kernel/vmlinux.lds.S |    2 +-
+ arch/mips/mm/tlbex.c           |    9 +++------
+ 2 files changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+index afb119f..58738c8 100644
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -82,7 +82,7 @@ SECTIONS
+   . = ALIGN(_PAGE_SIZE);
+   __nosave_end = .;
+ 
+-  . = ALIGN(32);
++  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
+ 
+   _edata =  .;			/* End of data section */
+diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
+index 325bc73..21bcf08 100644
+--- a/arch/mips/mm/tlbex.c
++++ b/arch/mips/mm/tlbex.c
+@@ -1391,18 +1391,15 @@ static void __init build_r4000_tlb_refill_handler(void)
+ extern void tlb_do_page_fault_0(void);
+ extern void tlb_do_page_fault_1(void);
+ 
+-#define __tlb_handler_align \
+-	__attribute__((__aligned__(1 << CONFIG_MIPS_L1_CACHE_SHIFT)))
+-
+ /*
+  * 128 instructions for the fastpath handler is generous and should
+  * never be exceeded.
+  */
+ #define FASTPATH_SIZE 128
+ 
+-u32 __tlb_handler_align handle_tlbl[FASTPATH_SIZE];
+-u32 __tlb_handler_align handle_tlbs[FASTPATH_SIZE];
+-u32 __tlb_handler_align handle_tlbm[FASTPATH_SIZE];
++u32 handle_tlbl[FASTPATH_SIZE] __cacheline_aligned;
++u32 handle_tlbs[FASTPATH_SIZE] __cacheline_aligned;
++u32 handle_tlbm[FASTPATH_SIZE] __cacheline_aligned;
+ 
+ static void __cpuinit
+ iPTE_LW(u32 **p, struct label **l, unsigned int pte, unsigned int ptr)
+-- 
+1.7.3.5
