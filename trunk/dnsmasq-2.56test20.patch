@@ -29,3 +29,14 @@ diff -BurpN dnsmasq-2.51/src/config.h dnsmasq/src/config.h
  #endif
  
  /* This is for glibc 2.x */
+--- dnsmasq-2.56test20/src/cache.c	2010-12-17 21:15:48.000000000 +0000
++++ dnsmasq/src/cache.c	2011-02-02 11:27:26.497845003 +0000
+@@ -1109,7 +1109,7 @@ void dump_cache(time_t now)
+ 			 cache->flags & F_NXDOMAIN ? "X" : " ",
+ 			 cache->flags & F_HOSTS ? "H" : " ");
+ #ifdef HAVE_BROKEN_RTC
+-f	    p += sprintf(p, "%lu", cache->flags & F_IMMORTAL ? 0: (unsigned long)(cache->ttd - now));
++	    p += sprintf(p, "%lu", cache->flags & F_IMMORTAL ? 0: (unsigned long)(cache->ttd - now));
+ #else
+ 	    p += sprintf(p, "%s", cache->flags & F_IMMORTAL ? "\n" : ctime(&(cache->ttd)));
+ 	    /* ctime includes trailing \n - eat it */
