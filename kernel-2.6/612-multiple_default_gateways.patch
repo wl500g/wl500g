@@ -67,7 +67,7 @@
 @@ -1751,6 +1754,7 @@ static inline int __mkroute_input(struct
  		flags |= RTCF_DIRECTSRC;
  
- 	if (out_dev == in_dev && err && !(flags & (RTCF_NAT | RTCF_MASQ)) &&
+ 	if (out_dev == in_dev && err && !(flags & RTCF_MASQ) &&
 +	    !lsrc &&
  	    (IN_DEV_SHARED_MEDIA(out_dev) ||
  	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(*res))))
