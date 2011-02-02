@@ -28,7 +28,7 @@ struct icmp_err {
   unsigned	fatal:1;
 };
 
-extern struct icmp_err icmp_err_convert[];
+extern const struct icmp_err icmp_err_convert[];
 DECLARE_SNMP_STAT(struct icmp_mib, icmp_statistics);
 #define ICMP_INC_STATS(field)		SNMP_INC_STATS(icmp_statistics, field)
 #define ICMP_INC_STATS_BH(field)	SNMP_INC_STATS_BH(icmp_statistics, field)

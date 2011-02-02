@@ -667,8 +667,7 @@ struct tcp_congestion_ops {
 	/* lower bound for congestion window (optional) */
 	u32 (*min_cwnd)(const struct sock *sk);
 	/* do new cwnd calculation (required) */
-	void (*cong_avoid)(struct sock *sk, u32 ack,
-			   u32 rtt, u32 in_flight, int good_ack);
+	void (*cong_avoid)(struct sock *sk, u32 ack, u32 in_flight, int good_ack);
 	/* call before changing ca_state (optional) */
 	void (*set_state)(struct sock *sk, u8 new_state);
 	/* call when cwnd event occurs (optional) */
@@ -699,8 +698,7 @@ extern void tcp_slow_start(struct tcp_sock *tp);
 
 extern struct tcp_congestion_ops tcp_init_congestion_ops;
 extern u32 tcp_reno_ssthresh(struct sock *sk);
-extern void tcp_reno_cong_avoid(struct sock *sk, u32 ack,
-				u32 rtt, u32 in_flight, int flag);
+extern void tcp_reno_cong_avoid(struct sock *sk, u32 ack, u32 in_flight, int flag);
 extern u32 tcp_reno_min_cwnd(const struct sock *sk);
 extern struct tcp_congestion_ops tcp_reno;
 
@@ -1002,11 +1000,27 @@ static inline int tcp_fin_time(const struct sock *sk)
 	return fin_timeout;
 }
 
-static inline int tcp_paws_check(const struct tcp_options_received *rx_opt, int rst)
+static inline int tcp_paws_check(const struct tcp_options_received *rx_opt,
+				 int paws_win)
 {
-	if ((s32)(rx_opt->rcv_tsval - rx_opt->ts_recent) >= 0)
-		return 0;
-	if (get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS)
+	if ((s32)(rx_opt->ts_recent - rx_opt->rcv_tsval) <= paws_win)
+		return 1;
+	if (unlikely(get_seconds() >= rx_opt->ts_recent_stamp + TCP_PAWS_24DAYS))
+		return 1;
+	/*
+	 * Some OSes send SYN and SYNACK messages with tsval=0 tsecr=0,
+	 * then following tcp messages have valid values. Ignore 0 value,
+	 * or else 'negative' tsval might forbid us to accept their packets.
+	 */
+	if (!rx_opt->ts_recent)
+		return 1;
+	return 0;
+}
+
+static inline int tcp_paws_reject(const struct tcp_options_received *rx_opt,
+				  int rst)
+{
+	if (tcp_paws_check(rx_opt, 0))
 		return 0;
 
 	/* RST segments are not recommended to carry timestamp,

@@ -1113,6 +1113,14 @@ static inline void net_timestamp(struct sk_buff *skb)
 		skb->tstamp.tv64 = 0;
 }
 
+static inline int deliver_skb(struct sk_buff *skb,
+			      struct packet_type *pt_prev,
+			      struct net_device *orig_dev)
+{
+	atomic_inc(&skb->users);
+	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+}
+
 /*
  *	Support routine. Sends outgoing frames to any network
  *	taps currently in use.
@@ -1121,8 +1129,8 @@ static inline void net_timestamp(struct sk_buff *skb)
 static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct packet_type *ptype;
-
-	net_timestamp(skb);
+	struct sk_buff *skb2 = NULL;
+	struct packet_type *pt_prev = NULL;
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
@@ -1132,9 +1140,17 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 		if ((ptype->dev == dev || !ptype->dev) &&
 		    (ptype->af_packet_priv == NULL ||
 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
-			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
+			if (pt_prev) {
+				deliver_skb(skb2, pt_prev, skb->dev);
+				pt_prev = ptype;
+				continue;
+			}
+
+			skb2 = skb_clone(skb, GFP_ATOMIC);
 			if (!skb2)
 				break;
+
+			net_timestamp(skb2);
 
 			/* skb->nh should be correctly
 			   set by sender, so that the second statement is
@@ -1147,15 +1163,18 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 				if (net_ratelimit())
 					printk(KERN_CRIT "protocol %04x is "
 					       "buggy, dev %s\n",
-					       skb2->protocol, dev->name);
+					       ntohs(skb2->protocol),
+					       dev->name);
 				skb_reset_network_header(skb2);
 			}
 
 			skb2->transport_header = skb2->network_header;
 			skb2->pkt_type = PACKET_OUTGOING;
-			ptype->func(skb2, skb->dev, ptype, skb->dev);
+			pt_prev = ptype;
 		}
 	}
+	if (pt_prev)
+		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
 	rcu_read_unlock();
 }
 
@@ -1659,7 +1678,6 @@ int netif_rx(struct sk_buff *skb)
 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
 		if (queue->input_pkt_queue.qlen) {
 enqueue:
-			dev_hold(skb->dev);
 			__skb_queue_tail(&queue->input_pkt_queue, skb);
 			local_irq_restore(flags);
 			return NET_RX_SUCCESS;
@@ -1750,14 +1768,6 @@ static void net_tx_action(struct softirq_action *h)
 			}
 		}
 	}
-}
-
-static inline int deliver_skb(struct sk_buff *skb,
-			      struct packet_type *pt_prev,
-			      struct net_device *orig_dev)
-{
-	atomic_inc(&skb->users);
-	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
 }
 
 #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
@@ -1939,6 +1949,20 @@ out:
 	return ret;
 }
 
+/* Network device is going away, flush any packets still pending  */
+static void flush_backlog(void *arg)
+{
+	struct net_device *dev = arg;
+	struct softnet_data *queue = &__get_cpu_var(softnet_data);
+	struct sk_buff *skb, *tmp;
+
+	skb_queue_walk_safe(&queue->input_pkt_queue, skb, tmp)
+		if (skb->dev == dev) {
+			__skb_unlink(skb, &queue->input_pkt_queue);
+			kfree_skb(skb);
+		}
+}
+
 static int process_backlog(struct net_device *backlog_dev, int *budget)
 {
 	int work = 0;
@@ -1949,7 +1973,6 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
 	backlog_dev->weight = weight_p;
 	for (;;) {
 		struct sk_buff *skb;
-		struct net_device *dev;
 
 		local_irq_disable();
 		skb = __skb_dequeue(&queue->input_pkt_queue);
@@ -1957,11 +1980,7 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
 			goto job_done;
 		local_irq_enable();
 
-		dev = skb->dev;
-
 		netif_receive_skb(skb);
-
-		dev_put(dev);
 
 		work++;
 
@@ -3369,6 +3388,8 @@ void netdev_run_todo(void)
 		}
 
 		dev->reg_state = NETREG_UNREGISTERED;
+
+		on_each_cpu(flush_backlog, dev, 1, 1);
 
 		netdev_wait_allrefs(dev);
 

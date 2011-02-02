@@ -1403,6 +1403,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 		if (skb == tcp_send_head(sk))
 			break;
 		cnt += tcp_skb_pcount(skb);
+		TCP_SKB_CB(skb)->sacked &= ~TCPCB_LOST;
 		/*
 		 * Count the retransmission made on RTO correctly (only when
 		 * waiting for the first ACK and did not get it)...
@@ -1414,7 +1415,7 @@ static void tcp_enter_frto_loss(struct sock *sk, int allowed_segments, int flag)
 			/* ...enter this if branch just for the first segment */
 			flag |= FLAG_DATA_ACKED;
 		} else {
-			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_LOST|TCPCB_SACKED_RETRANS);
+			TCP_SKB_CB(skb)->sacked &= ~(TCPCB_SACKED_RETRANS);
 		}
 		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_SACKED_ACKED)) {
 
@@ -2357,11 +2358,11 @@ static inline void tcp_ack_update_rtt(struct sock *sk, const int flag,
 		tcp_ack_no_tstamp(sk, seq_rtt, flag);
 }
 
-static void tcp_cong_avoid(struct sock *sk, u32 ack, u32 rtt,
+static void tcp_cong_avoid(struct sock *sk, u32 ack,
 			   u32 in_flight, int good)
 {
 	const struct inet_connection_sock *icsk = inet_csk(sk);
-	icsk->icsk_ca_ops->cong_avoid(sk, ack, rtt, in_flight, good);
+	icsk->icsk_ca_ops->cong_avoid(sk, ack, in_flight, good);
 	tcp_sk(sk)->snd_cwnd_stamp = tcp_time_stamp;
 }
 
@@ -2850,6 +2851,7 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 	 * log. Something worked...
 	 */
 	sk->sk_err_soft = 0;
+	icsk->icsk_probes_out = 0;
 	tp->rcv_tstamp = tcp_time_stamp;
 	prior_packets = tp->packets_out;
 	if (!prior_packets)
@@ -2867,11 +2869,11 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 		/* Advance CWND, if state allows this. */
 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd &&
 		    tcp_may_raise_cwnd(sk, flag))
-			tcp_cong_avoid(sk, ack,  seq_rtt, prior_in_flight, 0);
+			tcp_cong_avoid(sk, ack, prior_in_flight, 0);
 		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets - tp->packets_out, flag);
 	} else {
 		if ((flag & FLAG_DATA_ACKED) && !frto_cwnd)
-			tcp_cong_avoid(sk, ack, seq_rtt, prior_in_flight, 1);
+			tcp_cong_avoid(sk, ack, prior_in_flight, 1);
 	}
 
 	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag&FLAG_NOT_DUP))
@@ -2880,8 +2882,6 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
 	return 1;
 
 no_queue:
-	icsk->icsk_probes_out = 0;
-
 	/* If this ack opens up a zero window, clear backoff.  It was
 	 * being used to time the probes, and is probably far higher than
 	 * it needs to be for normal retransmission.
@@ -3039,8 +3039,7 @@ static inline void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
 		 * Not only, also it occurs for expired timestamps.
 		 */
 
-		if ((s32)(tp->rx_opt.rcv_tsval - tp->rx_opt.ts_recent) >= 0 ||
-		   get_seconds() >= tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS)
+		if (tcp_paws_check(&tp->rx_opt, 0))
 			tcp_store_ts_recent(tp);
 	}
 }
@@ -3091,9 +3090,9 @@ static int tcp_disordered_ack(const struct sock *sk, const struct sk_buff *skb)
 static inline int tcp_paws_discard(const struct sock *sk, const struct sk_buff *skb)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
-	return ((s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) > TCP_PAWS_WINDOW &&
-		get_seconds() < tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS &&
-		!tcp_disordered_ack(sk, skb));
+
+	return !tcp_paws_check(&tp->rx_opt, TCP_PAWS_WINDOW) &&
+	       !tcp_disordered_ack(sk, skb);
 }
 
 /* Check segment sequence number for validity.
@@ -4619,7 +4618,8 @@ discard:
 	}
 
 	/* PAWS check. */
-	if (tp->rx_opt.ts_recent_stamp && tp->rx_opt.saw_tstamp && tcp_paws_check(&tp->rx_opt, 0))
+	if (tp->rx_opt.ts_recent_stamp && tp->rx_opt.saw_tstamp &&
+	    tcp_paws_reject(&tp->rx_opt, 0))
 		goto discard_and_undo;
 
 	if (th->syn) {

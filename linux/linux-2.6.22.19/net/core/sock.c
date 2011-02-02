@@ -210,7 +210,8 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
 		return -EDOM;
 
 	if (tv.tv_sec < 0) {
-		static int warned = 0;
+		static int warned __read_mostly;
+
 		*timeo_p = 0;
 		if (warned < 10 && net_ratelimit())
 			warned++;
@@ -970,6 +971,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 			/* It is still raw copy of parent, so invalidate
 			 * destructor and make plain sk_free() */
 			newsk->sk_destruct = NULL;
+			bh_unlock_sock(newsk);
 			sk_free(newsk);
 			newsk = NULL;
 			goto out;
@@ -1174,15 +1176,19 @@ static long sock_wait_for_wmem(struct sock * sk, long timeo)
  *	Generic send/receive buffer handlers
  */
 
-static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
-					    unsigned long header_len,
-					    unsigned long data_len,
-					    int noblock, int *errcode)
+struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+				     unsigned long data_len, int noblock,
+				     int *errcode)
 {
 	struct sk_buff *skb;
 	gfp_t gfp_mask;
 	long timeo;
 	int err;
+	int npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+
+	err = -EMSGSIZE;
+	if (npages > MAX_SKB_FRAGS)
+		goto failure;
 
 	gfp_mask = sk->sk_allocation;
 	if (gfp_mask & __GFP_WAIT)
@@ -1201,14 +1207,12 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
 			skb = alloc_skb(header_len, gfp_mask);
 			if (skb) {
-				int npages;
 				int i;
 
 				/* No pages, we're done... */
 				if (!data_len)
 					break;
 
-				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 				skb->truesize += data_len;
 				skb_shinfo(skb)->nr_frags = npages;
 				for (i = 0; i < npages; i++) {
@@ -1257,6 +1261,7 @@ failure:
 	*errcode = err;
 	return NULL;
 }
+EXPORT_SYMBOL(sock_alloc_send_pskb);
 
 struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
 				    int noblock, int *errcode)
