@@ -2,6 +2,7 @@ radix-tree updates from 2.6.35.4
 
 Additionally commits:
  27d20fddc8af539464fc3ba499d6a830054c3bd6 radix-tree: fix RCU bug (2010.11.11)
+ ac15ee691fe84cb46cbd2497ddcb10e246f7ee47 radix_tree: radix_tree_gang_lookup_tag_slot() may never return (2011.01.25)
 
 ---
  include/linux/radix-tree.h |   94 ++++-
@@ -649,7 +650,7 @@ diff --git a/lib/radix-tree.c a/lib/radix-tree.c
  
  	height = node->height;
  	if (index > radix_tree_maxindex(height))
-@@ -584,22 +610,219 @@ int radix_tree_tag_get(struct radix_tree
+@@ -584,22 +610,220 @@ int radix_tree_tag_get(struct radix_tree
  		 */
  		if (!tag_get(node, tag, offset))
  			saw_unset_tag = 1;
@@ -786,10 +787,11 @@ diff --git a/lib/radix-tree.c a/lib/radix-tree.c
 +		}
 +	}
 +	/*
-+	 * The iftag must have been set somewhere because otherwise
-+	 * we would return immediated at the beginning of the function
++	 * We need not to tag the root tag if there is no tag which is set with
++	 * settag within the range from *first_indexp to last_index.
 +	 */
-+	root_tag_set(root, settag);
++	if (tagged > 0)
++		root_tag_set(root, settag);
 +	*first_indexp = index;
 +
 +	return tagged;
