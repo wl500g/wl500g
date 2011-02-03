@@ -68,6 +68,8 @@
 		<option class="content_input_fd" value="WWW.DYNDNS.ORG(STATIC)" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DYNDNS.ORG(STATIC)","selected"); %>>WWW.DYNDNS.ORG(STATIC)</option>
 		<option class="content_input_fd" value="WWW.TZO.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TZO.COM","selected"); %>>WWW.TZO.COM</option>
 		<option class="content_input_fd" value="WWW.ZONEEDIT.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.ZONEEDIT.COM","selected"); %>>WWW.ZONEEDIT.COM</option>
+		<option class="content_input_fd" value="WWW.EASYDNS.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.EASYDNS.COM","selected"); %>>WWW.EASYDNS.COM</option>
+		<option class="content_input_fd" value="WWW.NO-IP.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.NO-IP.COM","selected"); %>>WWW.NO-IP.COM</option>
 		<option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option>
 		<option class="content_input_fd" value="WWW.TUNNELBROKER.NET" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TUNNELBROKER.NET","selected"); %>>WWW.TUNNELBROKER.NET</option>
 		</select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial

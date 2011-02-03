@@ -1,15 +1,5 @@
 Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for discover.
 
-function                                             old     new   delta
-init_packet                                          276     368     +92
-udhcp_read_interface                                 428     500     +72
-udhcpc_main                                         3808    3848     +40
-.rodata                                            83794   83806     +12
-------------------------------------------------------------------------------
-(add/remove: 0/0 grow/shrink: 4/0 up/down: 216/0)             Total: 216 bytes
-
-Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
-
 --- busybox.orig/networking/udhcp/common.h	2010-10-13 00:00:00.000000000 +0000
 +++ busybox/networking/udhcp/common.h	2010-10-13 19:10:29.684347002 +0000
 @@ -294,7 +294,7 @@ void udhcp_sp_setup(void) FAST_FUNC;
@@ -23,32 +13,18 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  
 --- busybox.orig/networking/udhcp/dhcpc.c	2010-10-13 19:03:43.534347002 +0000
 +++ busybox/networking/udhcp/dhcpc.c	2010-10-13 19:52:03.864347002 +0000
-@@ -343,6 +343,8 @@ static ALWAYS_INLINE uint32_t random_xid
- /* Initialize the packet with the proper defaults */
- static void init_packet(struct dhcp_packet *packet, char type)
- {
-+	int max_packet = sizeof(struct ip_udp_dhcp_packet);
-+
- 	/* Fill in: op, htype, hlen, cookie fields; message type option: */
- 	udhcp_init_header(packet, type);
+@@ -361,7 +361,10 @@ static void add_client_options(struct dh
+ 	uint8_t c;
+ 	int i, end, len;
  
-@@ -357,6 +359,16 @@ static void init_packet(struct dhcp_pack
-	memcpy(packet->chaddr, client_config.client_mac, 6);
- 	if (client_config.clientid)
- 		udhcp_add_binary_option(packet, client_config.clientid);
-+	switch (type) {
-+	case DHCPDISCOVER:
-+		/* Explicitly saying that we want RFC-compliant packets helps
-+		 * some buggy DHCP servers to NOT send bigger packets */
-+		max_packet = IP_UDP_DHCP_SIZE;
-+		/* Fall through */
-+	case DHCPREQUEST:
-+		if (max_packet < client_config.client_mtu)
-+			udhcp_add_simple_option(packet, DHCP_MAX_SIZE, htons(max_packet));
-+	}
- }
+-	udhcp_add_simple_option(packet, DHCP_MAX_SIZE, htons(IP_UDP_DHCP_SIZE));
++	len = sizeof(struct ip_udp_dhcp_packet);
++	if (client_config.client_mtu == 0 ||
++	    client_config.client_mtu > len)
++		udhcp_add_simple_option(packet, DHCP_MAX_SIZE, htons(len));
  
- static void add_client_options(struct dhcp_packet *packet)
+ 	/* Add a "param req" option with the list of options we'd like to have
+ 	 * from stubborn DHCP servers. Pull the data from the struct in common.c.
 @@ -923,7 +932,8 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  	if (udhcp_read_interface(client_config.interface,
  			&client_config.ifindex,
@@ -59,23 +35,6 @@ Signed-off-by: Vladislav Grishenko <themiron@mail.ru>
  	) {
  		return 1;
  	}
-@@ -978,6 +988,16 @@ int udhcpc_main(int argc UNUSED_PARAM, c
- 		/* silence "uninitialized!" warning */
- 		unsigned timestamp_before_wait = timestamp_before_wait;
- 
-+		/* When running on a bridge, the ifindex may have changed (e.g. if
-+		 * member interfaces were added/removed or if the status of the
-+		 * bridge changed). Interface mtu may have changed also.
-+		 * Workaround: refresh it here before processing the next packet */
-+		udhcp_read_interface(client_config.interface,
-+				&client_config.ifindex,
-+				NULL,
-+				client_config.client_mac,
-+				&client_config.client_mtu);
-+
- 		//bb_error_msg("sockfd:%d, listen_mode:%d", sockfd, listen_mode);
- 
- 		/* Was opening raw or udp socket here
 @@ -1207,7 +1207,8 @@ int udhcpc_main(int argc UNUSED_PARAM, c
  			if (udhcp_read_interface(client_config.interface,
  					&client_config.ifindex,

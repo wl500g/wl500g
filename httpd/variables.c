@@ -662,6 +662,8 @@ struct variable variables_LANHostConfig[] = {
 	"WWW.DYNDNS.ORG(STATIC)",
 	"WWW.TZO.COM",
 	"WWW.ZONEEDIT.COM",
+	"WWW.EASYDNS.COM",
+	"WWW.NO-IP.COM",
 	"WWW.DNSOMATIC.COM",
 	"WWW.TUNNELBROKER.NET",
 	0), FALSE, FALSE},
