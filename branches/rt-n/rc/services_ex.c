@@ -337,6 +337,13 @@ start_radvd(void)
 			"AdvOnLink on;"
 			"AdvAutonomous on;", nvram_safe_get("lan_ifname"), addrstr, size);
 
+#ifdef BROKEN_IPV6_CONNTRACK
+	/* Advertise tunnel MTU to avoid large packet issue */
+	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+		fprintf(fp,
+			"AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
+#endif
+
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
 		char *wan_ifname;
