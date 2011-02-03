@@ -338,7 +338,7 @@ start_radvd(void)
 	/* Advertise tunnel MTU to avoid large packet issue */
 	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		fprintf(fp,
-			"AdvLinkMTU %s", nvram_safe_get("ipv6_sit_mtu"));
+			"AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
 #endif
 
 	if (nvram_match("ipv6_proto", "tun6to4"))
