@@ -3519,6 +3519,10 @@ function openLink(s)
 			tourl = "http://signup.tzo.com";
 		else if (document.form.ddns_server_x.value == 'WWW.ZONEEDIT.COM')
 			tourl = "https://www.zoneedit.com/signup.html?";
+		else if (document.form.ddns_server_x.value == 'WWW.EASYDNS.COM')
+			tourl = "https://web.easydns.com/Open_Account/";
+		else if (document.form.ddns_server_x.value == 'WWW.NO-IP.COM')
+			tourl = "http://www.no-ip.com/newUser.php";
 		else if (document.form.ddns_server_x.value == 'WWW.DNSOMATIC.COM')
 			tourl = "https://www.dnsomatic.com/create/";
 		else if (document.form.ddns_server_x.value == 'WWW.TUNNELBROKER.NET')

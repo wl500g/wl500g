@@ -524,6 +524,8 @@ start_ddns(int forced)
 	//	strcpy(service, "default@justlinux.com");
 	else if (strcmp(server, "WWW.EASYDNS.COM") == 0)
 		strcpy(service, "default@easydns.com");
+	else if (strcmp(server, "WWW.NO-IP.COM") == 0)
+		strcpy(service, "default@no-ip.com");
 	else if (strcmp(server, "WWW.DNSOMATIC.COM") == 0)
 		strcpy(service, "default@dnsomatic.com");
 	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
