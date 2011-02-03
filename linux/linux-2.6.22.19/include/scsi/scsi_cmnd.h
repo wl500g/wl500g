@@ -90,7 +90,7 @@ struct scsi_cmnd {
 				   	   working on */
 
 #define SCSI_SENSE_BUFFERSIZE 	96
-	unsigned char sense_buffer[SCSI_SENSE_BUFFERSIZE];
+	unsigned char *sense_buffer;
 				/* obtained by REQUEST SENSE when
 				 * CHECK CONDITION is received on original
 				 * command (auto-sense) */
@@ -134,5 +134,8 @@ extern void scsi_kunmap_atomic_sg(void *virt);
 
 extern struct scatterlist *scsi_alloc_sgtable(struct scsi_cmnd *, gfp_t);
 extern void scsi_free_sgtable(struct scatterlist *, int);
+
+struct scsi_cmnd *scsi_allocate_command(gfp_t gfp_mask);
+void scsi_free_command(gfp_t gfp_mask, struct scsi_cmnd *cmd);
 
 #endif /* _SCSI_SCSI_CMND_H */
