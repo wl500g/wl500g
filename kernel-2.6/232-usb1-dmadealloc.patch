@@ -1,0 +1,72 @@
+From f75593ceaa08e6d27aec1a5de31cded19e850dd1
+From: Alan Stern
+Date: Thu, 6 Jan 2011 10:17:09 -0500
+Subject: [PATCH] USB: EHCI: fix DMA deallocation bug
+
+This patch (as1440) fixes a bug in ehci-hcd.  ehci->periodic_size is
+used to compute the size in a dma_alloc_coherent() call, but then it
+gets changed later on.  As a result, the corresponding call to
+dma_free_coherent() passes a different size from the original
+allocation.  Fix the problem by adjusting ehci->periodic_size before
+carrying out any of the memory allocations.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Tested-by: Larry Finger <Larry.Finger@lwfinger.net>
+CC: David Brownell <david-b@pacbell.net>
+CC: <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ drivers/usb/host/ehci-hcd.c |   19 ++++++++++++-------
+ 1 files changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
+index 6fee3cd..74dcf49 100644
+--- a/drivers/usb/host/ehci-hcd.c
++++ b/drivers/usb/host/ehci-hcd.c
+@@ -572,6 +572,8 @@ static int ehci_init(struct usb_hcd *hcd)
+ 	ehci->iaa_watchdog.function = ehci_iaa_watchdog;
+ 	ehci->iaa_watchdog.data = (unsigned long) ehci;
+ 
++	hcc_params = ehci_readl(ehci, &ehci->caps->hcc_params);
++
+ 	/*
+ 	 * hw default: 1K periodic list heads, one per frame.
+ 	 * periodic_size can shrink by USBCMD update if hcc_params allows.
+@@ -579,11 +581,20 @@ static int ehci_init(struct usb_hcd *hcd)
+ 	ehci->periodic_size = DEFAULT_I_TDPS;
+ 	INIT_LIST_HEAD(&ehci->cached_itd_list);
+ 	INIT_LIST_HEAD(&ehci->cached_sitd_list);
++
++	if (HCC_PGM_FRAMELISTLEN(hcc_params)) {
++		/* periodic schedule size can be smaller than default */
++		switch (EHCI_TUNE_FLS) {
++		case 0: ehci->periodic_size = 1024; break;
++		case 1: ehci->periodic_size = 512; break;
++		case 2: ehci->periodic_size = 256; break;
++		default:	BUG();
++		}
++	}
+ 	if ((retval = ehci_mem_init(ehci, GFP_KERNEL)) < 0)
+ 		return retval;
+ 
+ 	/* controllers may cache some of the periodic schedule ... */
+-	hcc_params = ehci_readl(ehci, &ehci->caps->hcc_params);
+ 	if (HCC_ISOC_CACHE(hcc_params))		// full frame cache
+ 		ehci->i_thresh = 2 + 8;
+ 	else					// N microframes cached
+@@ -637,12 +648,6 @@ static int ehci_init(struct usb_hcd *hcd)
+ 		/* periodic schedule size can be smaller than default */
+ 		temp &= ~(3 << 2);
+ 		temp |= (EHCI_TUNE_FLS << 2);
+-		switch (EHCI_TUNE_FLS) {
+-		case 0: ehci->periodic_size = 1024; break;
+-		case 1: ehci->periodic_size = 512; break;
+-		case 2: ehci->periodic_size = 256; break;
+-		default:	BUG();
+-		}
+ 	}
+ 	ehci->command = temp;
+ 
+-- 
+1.7.4
