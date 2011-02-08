@@ -217,8 +217,7 @@ mtd_write(const char *path, const char *mtd)
 	int ret = -1;
 
 	/* Examine TRX header */
-	fp = (strcmp(path, "-") == 0) ? stdin : fopen(path, "r");
-	if (fp >= 0)
+	if ((fp = fopen(path, "r")))
 		count = safe_fread(&trx, 1, sizeof(struct trx_header), fp);
 	else
 		count = http_get(path, (char *) &trx, sizeof(struct trx_header), 0);
