@@ -160,7 +160,7 @@ obj-$(CONFIG_NFSD) += nfs-utils
 obj-$(CONFIG_NFSD) += portmap
 obj-$(CONFIG_IPROUTE2) += iproute2
 obj-$(CONFIG_LOADER) += loader
-obj-$(CONFIG_IPV6) += radvd dhcpv6
+obj-$(CONFIG_IPV6) += radvd
 obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
@@ -595,18 +595,6 @@ radvd: radvd/Makefile
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
-
-dhcpv6/Makefile: dhcpv6/Makefile.in
-	cd dhcpv6 && CFLAGS="-Os -Wall $(EXTRACFLAGS) -D_GNU_SOURCE -ffunction-sections -fdata-sections" \
-	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-	$(CONFIGURE) --prefix="" --with-localdbdir=/var/state \
-	 ac_cv_func_setpgrp_void=yes 
-
-dhcpv6: dhcpv6/Makefile
-
-dhcpv6-install:
-	install -D dhcpv6/dhcp6c $(INSTALLDIR)/dhcpv6/sbin/dhcp6c
-	$(STRIP) $(INSTALLDIR)/dhcpv6/sbin/dhcp6c
 
 quagga/Makefile: quagga/Makefile.in
 	cd quagga && CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
