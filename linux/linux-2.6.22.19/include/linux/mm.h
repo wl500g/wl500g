@@ -259,7 +259,7 @@ struct inode;
 #ifdef CONFIG_DEBUG_VM
 #define VM_BUG_ON(cond) BUG_ON(cond)
 #else
-#define VM_BUG_ON(condition) do { } while(0)
+#define VM_BUG_ON(cond) do { (void)(cond); } while (0)
 #endif
 
 /*

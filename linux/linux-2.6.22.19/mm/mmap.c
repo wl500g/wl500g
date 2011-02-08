@@ -1010,6 +1010,10 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
 	} else {
 		switch (flags & MAP_TYPE) {
 		case MAP_SHARED:
+			/*
+			 * Ignore pgoff.
+			 */
+			pgoff = 0;
 			vm_flags |= VM_SHARED | VM_MAYSHARE;
 			break;
 		case MAP_PRIVATE:
@@ -1390,7 +1394,7 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 	if (mm) {
 		/* Check the cache first. */
 		/* (Cache hit rate is typically around 35%.) */
-		vma = mm->mmap_cache;
+		vma = ACCESS_ONCE(mm->mmap_cache);
 		if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
 			struct rb_node * rb_node;
 

@@ -263,7 +263,7 @@ static void destroy_compound_page(struct page *page, unsigned long order)
 	for (i = 1; i < nr_pages; i++) {
 		struct page *p = page + i;
 
-		if (unlikely(!PageTail(p) |
+		if (unlikely(!PageTail(p) ||
 				(p->first_page != page)))
 			bad_page(page);
 		__ClearPageTail(p);
@@ -2010,7 +2010,7 @@ static int __devinit zone_batchsize(struct zone *zone)
 	 * of pages of one half of the possible page colors
 	 * and the other with pages of the other colors.
 	 */
-	batch = (1 << (fls(batch + batch/2)-1)) - 1;
+	batch = rounddown_pow_of_two(batch + batch/2) - 1;
 
 	return batch;
 }
@@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(const char *tablename,
 			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
 				;
 			table = (void*) __get_free_pages(GFP_ATOMIC, order);
+			/*
+			 * If bucketsize is not a power-of-two, we may free
+			 * some pages at the end of hash table.
+			 */
+			if (table) {
+				unsigned long alloc_end = (unsigned long)table +
+						(PAGE_SIZE << order);
+				unsigned long used = (unsigned long)table +
+						PAGE_ALIGN(size);
+				split_page(virt_to_page(table), order);
+				while (used < alloc_end) {
+					free_page(used);
+					used += PAGE_SIZE;
+				}
+			}
 		}
 	} while (!table && size > PAGE_SIZE && --log2qty);
 

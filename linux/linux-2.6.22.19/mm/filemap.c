@@ -592,7 +592,7 @@ void fastcall __lock_page_nosync(struct page *page)
  * Is there a pagecache struct page at the given (mapping, offset) tuple?
  * If yes, increment its refcount and return it; if no, return NULL.
  */
-struct page * find_get_page(struct address_space *mapping, unsigned long offset)
+struct page * find_get_page(struct address_space *mapping, pgoff_t offset)
 {
 	struct page *page;
 
@@ -616,30 +616,31 @@ EXPORT_SYMBOL(find_get_page);
  * Returns zero if the page was not present. find_lock_page() may sleep.
  */
 struct page *find_lock_page(struct address_space *mapping,
-				unsigned long offset)
+				pgoff_t offset)
 {
 	struct page *page;
 
-	read_lock_irq(&mapping->tree_lock);
 repeat:
+	read_lock_irq(&mapping->tree_lock);
 	page = radix_tree_lookup(&mapping->page_tree, offset);
 	if (page) {
 		page_cache_get(page);
 		if (TestSetPageLocked(page)) {
 			read_unlock_irq(&mapping->tree_lock);
 			__lock_page(page);
-			read_lock_irq(&mapping->tree_lock);
 
 			/* Has the page been truncated while we slept? */
-			if (unlikely(page->mapping != mapping ||
-				     page->index != offset)) {
+			if (unlikely(page->mapping != mapping)) {
 				unlock_page(page);
 				page_cache_release(page);
 				goto repeat;
 			}
+			VM_BUG_ON(page->index != offset);
+			goto out;
 		}
 	}
 	read_unlock_irq(&mapping->tree_lock);
+out:
 	return page;
 }
 EXPORT_SYMBOL(find_lock_page);
@@ -662,7 +663,7 @@ EXPORT_SYMBOL(find_lock_page);
  * memory exhaustion.
  */
 struct page *find_or_create_page(struct address_space *mapping,
-		unsigned long index, gfp_t gfp_mask)
+		pgoff_t index, gfp_t gfp_mask)
 {
 	struct page *page, *cached_page = NULL;
 	int err;
@@ -796,7 +797,7 @@ EXPORT_SYMBOL(find_get_pages_tag);
  * and deadlock against the caller's locked page.
  */
 struct page *
-grab_cache_page_nowait(struct address_space *mapping, unsigned long index)
+grab_cache_page_nowait(struct address_space *mapping, pgoff_t index)
 {
 	struct page *page = find_get_page(mapping, index);
 
@@ -865,11 +866,10 @@ void do_generic_mapping_read(struct address_space *mapping,
 			     read_actor_t actor)
 {
 	struct inode *inode = mapping->host;
-	unsigned long index;
-	unsigned long offset;
-	unsigned long last_index;
-	unsigned long next_index;
-	unsigned long prev_index;
+	pgoff_t index;
+	pgoff_t last_index;
+	pgoff_t prev_index;
+	unsigned long offset;      /* offset into pagecache page */
 	unsigned int prev_offset;
 	struct page *cached_page;
 	int error;
@@ -877,7 +877,6 @@ void do_generic_mapping_read(struct address_space *mapping,
 
 	cached_page = NULL;
 	index = *ppos >> PAGE_CACHE_SHIFT;
-	next_index = index;
 	prev_index = ra.prev_index;
 	prev_offset = ra.prev_offset;
 	last_index = (*ppos + desc->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
@@ -885,7 +884,7 @@ void do_generic_mapping_read(struct address_space *mapping,
 
 	for (;;) {
 		struct page *page;
-		unsigned long end_index;
+		pgoff_t end_index;
 		loff_t isize;
 		unsigned long nr, ret;
 
@@ -1231,7 +1230,7 @@ int file_send_actor(read_descriptor_t * desc, struct page *page, unsigned long o
 
 static ssize_t
 do_readahead(struct address_space *mapping, struct file *filp,
-	     unsigned long index, unsigned long nr)
+	     pgoff_t index, unsigned long nr)
 {
 	if (!mapping || !mapping->a_ops || !mapping->a_ops->readpage)
 		return -EINVAL;
@@ -1251,8 +1250,8 @@ asmlinkage ssize_t sys_readahead(int fd, loff_t offset, size_t count)
 	if (file) {
 		if (file->f_mode & FMODE_READ) {
 			struct address_space *mapping = file->f_mapping;
-			unsigned long start = offset >> PAGE_CACHE_SHIFT;
-			unsigned long end = (offset + count - 1) >> PAGE_CACHE_SHIFT;
+			pgoff_t start = offset >> PAGE_CACHE_SHIFT;
+			pgoff_t end = (offset + count - 1) >> PAGE_CACHE_SHIFT;
 			unsigned long len = end - start + 1;
 			ret = do_readahead(mapping, file, start, len);
 		}
@@ -1262,7 +1261,6 @@ asmlinkage ssize_t sys_readahead(int fd, loff_t offset, size_t count)
 }
 
 #ifdef CONFIG_MMU
-static int FASTCALL(page_cache_read(struct file * file, unsigned long offset));
 /**
  * page_cache_read - adds requested page to the page cache if not already there
  * @file:	file to read
@@ -1271,7 +1269,7 @@ static int FASTCALL(page_cache_read(struct file * file, unsigned long offset));
  * This adds the requested page to the page cache if it isn't already there,
  * and schedules an I/O to read in its contents from disk.
  */
-static int fastcall page_cache_read(struct file * file, unsigned long offset)
+static int fastcall page_cache_read(struct file * file, pgoff_t offset)
 {
 	struct address_space *mapping = file->f_mapping;
 	struct page *page; 
@@ -1507,7 +1505,7 @@ EXPORT_SYMBOL(generic_file_mmap);
 EXPORT_SYMBOL(generic_file_readonly_mmap);
 
 static struct page *__read_cache_page(struct address_space *mapping,
-				unsigned long index,
+				pgoff_t index,
 				int (*filler)(void *,struct page*),
 				void *data)
 {
@@ -1548,7 +1546,7 @@ repeat:
  * after submitting it to the filler.
  */
 struct page *read_cache_page_async(struct address_space *mapping,
-				unsigned long index,
+				pgoff_t index,
 				int (*filler)(void *,struct page*),
 				void *data)
 {
@@ -1596,7 +1594,7 @@ EXPORT_SYMBOL(read_cache_page_async);
  * If the page does not get brought uptodate, return -EIO.
  */
 struct page *read_cache_page(struct address_space *mapping,
-				unsigned long index,
+				pgoff_t index,
 				int (*filler)(void *,struct page*),
 				void *data)
 {
