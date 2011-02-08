@@ -259,7 +259,7 @@ int start_dhcp6c(char *wan_ifname)
 	pid_t pid;
 	int sla_len, ret, is_wan6_valid;
 	struct in6_addr wan6_addr;
-	char *argv[] = { "/sbin/dhcp6c", "-d", "-D", "LL",  wan_ifname, NULL };
+	char *argv[] = { "/sbin/dhcp6c", "-v", "-D", "LL",  wan_ifname, NULL };
 
 	if (!nvram_match("ipv6_proto", "dhcp6")) return 1;
 
@@ -289,7 +289,7 @@ int start_dhcp6c(char *wan_ifname)
 		    "  sla-len %d;\n"
 		    " };\n"
 		    "};\n"
-		    "id-assoc na 0 {};\n",
+		    "id-assoc na 0 { };\n",
 		    wan_ifname,
 		    (is_wan6_valid==1) ? "" : " send ia-na 0;\n",
 		    nvram_safe_get("lan_ifname"), sla_len
