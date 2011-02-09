@@ -305,6 +305,7 @@ start_radvd(void)
 
 	if (nvram_match("ipv6_proto", "dhcp6")) {
 		strcpy(addrstr, "::");
+		size = 64;
 	} else {
 		/* Convert for easy manipulation */
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
