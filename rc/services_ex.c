@@ -303,13 +303,16 @@ start_radvd(void)
 		return errno;
 	}
 
+	size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+	if (size < 8 || size > 120) {
+		size = 64;
+		nvram_set("ipv6_lan_netsize","64");
+	}
 	if (nvram_match("ipv6_proto", "dhcp6")) {
 		strcpy(addrstr, "::");
-		size = 64;
 	} else {
 		/* Convert for easy manipulation */
 		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-		size = atoi(nvram_safe_get("ipv6_lan_netsize"));
 		for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
 		{
 			if (ret >= 8)
