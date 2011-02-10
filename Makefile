@@ -145,7 +145,7 @@ kernel-mrproper:
 
 kernel-patch:
 	@echo Preparing kernel ...
-#	@$(PATCHER) -Z $(KERNEL_DIR) kernel-2.6/buildhost.patch
+	@$(PATCHER) -Z $(KERNEL_DIR) kernel-2.6/buildhost.patch
 	$(MAKE) -C $(KERNEL_DIR) mrproper
 	@echo Patching kernel...
 	@$(PATCHER) -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)

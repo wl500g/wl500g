@@ -1,0 +1,56 @@
+From 31110ebbec8688c6e9597b641101afc94e1c762a
+From: Sam Ravnborg
+Date: Sat, 13 Dec 2008 23:00:45 +0100
+Subject: [PATCH] kbuild: fix make incompatibility
+
+"Paul Smith" <psmith@gnu.org> reported that we would fail
+to build with a new check that may be enabled in an
+upcoming version of make.
+
+The error was:
+
+      Makefile:442: *** mixed implicit and normal rules.  Stop.
+
+The problem is that we did stuff like this:
+
+config %config: ...
+
+The solution was simple - the above was split into two with identical
+prerequisites and commands.
+With only three lines it was not worth to try to avoid the duplication.
+
+Cc: "Paul Smith" <psmith@gnu.org>
+Signed-off-by: Sam Ravnborg <sam@ravnborg.org>
+
+---
+
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -439,7 +439,11 @@ ifeq ($(config-targets),1)
+ include $(srctree)/arch/$(ARCH)/Makefile
+ export KBUILD_DEFCONFIG
+ 
+-config %config: scripts_basic outputmakefile FORCE
++config: scripts_basic outputmakefile FORCE
++	$(Q)mkdir -p include/linux include/config
++	$(Q)$(MAKE) $(build)=scripts/kconfig $@
++
++%config: scripts_basic outputmakefile FORCE
+ 	$(Q)mkdir -p include/linux include/config
+ 	$(Q)$(MAKE) $(build)=scripts/kconfig $@
+ 
+@@ -1493,7 +1497,10 @@ endif
+ 	$(Q)$(MAKE) $(build)=$(build-dir) $(target-dir)$(notdir $@)
+ 
+ # Modules
+-/ %/: prepare scripts FORCE
++/: prepare scripts FORCE
++	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
++	$(build)=$(build-dir)
++%/: prepare scripts FORCE
+ 	$(Q)$(MAKE) KBUILD_MODULES=$(if $(CONFIG_MODULES),1) \
+ 	$(build)=$(build-dir)
+ %.ko: prepare scripts FORCE
+-- 
+1.7.4
