@@ -4,7 +4,38 @@
 ===Detailed revision history===
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
- 
+
+===wl500g-1.9.2.7-d (current)=== 
+  * kernel 2.4.37.11
+
+  * busybox 1.18.2
+    * prefer ipv4 addresses from DNS queries
+    * dhcpc: fixed huge packets breakage (beeline)
+
+  * dnsmasq 2.56rc2
+
+  * pppd
+    * Debian patches (dont-exit-pado-timeout, adaptive_echos, radius_mtu)
+    * pptp/l2tp: force nameserver refresh with pre-0.9.31 uClibc
+
+  * udpxy 1.0-Chipmunk-19
+
+  * ipv6: advertise tunnel MTU to avoid large packet issue
+
+  * radvd 1.7
+
+  * usb-modeswitch 1.1.6
+    * usb-modeswitch-data 2010-12-22
+
+  * p910nd 0.94
+
+  * www
+    * syntax and style enhancements contributed by Anatoly Sotskov
+
+  * 3g/cdma: fix uni/dial script.
+
+  * DynDNS: add easydns and no-ip support
+
 ===wl500g-1.9.2.7-d-`r2381` (2010-11-27)===
   * kernel
     * pptp: updated kernel driver, fixed undersized packets without gre demux driver
