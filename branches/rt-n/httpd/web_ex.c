@@ -1834,6 +1834,7 @@ do_webcam_cgi(char *url, FILE *stream)
 	do_file(pic, stream);
 }
 
+#ifndef FLASH_DIRECT
 static int chk_fw_image(FILE *fifo, int len)
 {
 	char hdr_buf[8];
@@ -1865,14 +1866,41 @@ static int chk_fw_image(FILE *fifo, int len)
 
 	return -2;
 }
+#endif
 
 static void
 do_upgrade_post(char *url, FILE *stream, int len, char *boundary)
 {
-	char upload_file[]="/tmp/linux.trx";
+	char upload_file[] = "/tmp/linux.trx";
+#ifdef FLASH_DIRECT
+	char *argv[] = {"write", upload_file, MTD_DEV(1), NULL};
+	pid_t pid;
+	int ret;
+#endif
 
 	eval("stopservice");
+
+#ifdef FLASH_DIRECT
+	signal(SIGTERM, SIG_IGN);
+	signal(SIGINT, SIG_IGN);
+	signal(SIGHUP, SIG_IGN);
+	signal(SIGQUIT, SIG_IGN);
+
+	ret = mkfifo(upload_file, S_IRWXU);
+	if (ret != 0) goto err;
+
+	ret = _eval(argv, ">/dev/null", 0, &pid);
+	if (ret != 0) goto err;
+
+	cprintf("Flashing new FW image\n");
+	ret = do_upload_file(upload_file, url, stream, len, boundary, NULL);
+
+err:
+	fcntl(fileno(stream), F_SETOWN, -ret);
+	if (pid != -1) waitpid(pid, &ret, 0);
+#else
 	do_upload_file(upload_file, url, stream, len, boundary, chk_fw_image);
+#endif
 }
 
 static void
@@ -1883,12 +1911,14 @@ do_upgrade_cgi(char *url, FILE *stream)
 	ret = fcntl(fileno(stream), F_GETOWN, 0);
 
 	/* Reboot if successful */
-	if (ret == 0){
+	if (ret == 0) {
+#ifndef FLASH_DIRECT
 		websApply(stream, "Updating.asp"); 
 		cprintf("Flashing new FW image\n");
 		sys_upgrade("/tmp/linux.trx");
+#endif
 		sys_forcereboot();
-	}else{
+	} else {
 		websApply(stream, "UpdateError.asp");
 		unlink("/tmp/linux.trx");
 	}
@@ -1987,14 +2017,15 @@ do_upload_file(	char *upload_file, char *url, FILE *stream, int len,
 	cprintf("Uploading %d\n", len);
 
 	/* Pipe the rest to the FIFO */
-	while (len > 0){
+	while (len > 0) {
 		count = fread(buf, 1, MIN(len, sizeof(buf)), stream);
-		fwrite(buf, 1, count, fifo);
+		if (fwrite(buf, 1, count, fifo) != count) goto err;
 		len -= count;
 		total += count;
 	}
 	fread(buf, 1, boundary, stream);
 	fflush(fifo);
+
 	if (validate)
 		ret = (*validate)(fifo, total);
 	else

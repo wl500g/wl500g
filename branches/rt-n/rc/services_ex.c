@@ -336,17 +336,18 @@ start_radvd(void)
 	fprintf(fp,
 		"interface %s {"
 		    "IgnoreIfMissing on;"
-		    "AdvSendAdvert on;"
-		    "prefix %s/%d {"
-			"AdvOnLink on;"
-			"AdvAutonomous on;", nvram_safe_get("lan_ifname"), addrstr, size);
-
+		    "AdvSendAdvert on;", nvram_safe_get("lan_ifname"));
 #ifdef BROKEN_IPV6_CONNTRACK
 	/* Advertise tunnel MTU to avoid large packet issue */
 	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
 		fprintf(fp,
-			"AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
+		    "AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
+
 #endif
+	fprintf(fp,
+		    "prefix %s/%d {"
+			"AdvOnLink on;"
+			"AdvAutonomous on;", addrstr, size);
 
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
