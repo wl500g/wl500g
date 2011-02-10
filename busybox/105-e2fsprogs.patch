@@ -37,6 +37,19 @@ diff -BurpN busybox-1.17.1/e2fsprogs/Config.src busybox/e2fsprogs/Config.src
  	help
  	  tune2fs allows the system administrator to adjust various tunable
  	  filesystem parameters on Linux ext2/ext3 filesystems.
+@@ -61,12 +61,4 @@ config E2LABEL
+ 	  e2label will display or change the filesystem label on the ext2
+ 	  filesystem located on device.
+ 
+-config FINDFS
+-	bool "findfs"
+-	default n
+-	depends on TUNE2FS
+-	help
+-	  findfs will search the disks in the system looking for a filesystem
+-	  which has a label matching label or a UUID equal to uuid.
+-
+ endmenu
 diff -BurpN busybox-1.17.1/e2fsprogs/Kbuild.src busybox/e2fsprogs/Kbuild.src
 --- busybox-1.17.1/e2fsprogs/Kbuild.src	2010-07-06 02:25:53.000000000 +0000
 +++ busybox/e2fsprogs/Kbuild.src	2010-07-25 18:48:32.000000000 +0000
