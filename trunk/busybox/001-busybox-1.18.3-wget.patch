@@ -1,0 +1,11 @@
+--- busybox-1.18.3/networking/wget.c
++++ busybox-1.18.3-wget/networking/wget.c
+@@ -446,7 +446,7 @@ static FILE* prepare_ftp_session(FILE **
+ 
+ static void NOINLINE retrieve_file_data(FILE *dfp, int output_fd)
+ {
+-	char buf[4*1024]; /* made bigger to speed up local xfers */
++	char buf[512];
+ #if ENABLE_FEATURE_WGET_STATUSBAR || ENABLE_FEATURE_WGET_TIMEOUT
+ # if ENABLE_FEATURE_WGET_TIMEOUT
+ 	unsigned second_cnt;

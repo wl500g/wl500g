@@ -21,7 +21,7 @@ ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux
 
-BUSYBOX=busybox-1.18.2
+BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.56rc2
 LPRNG=LPRng-3.8.22
