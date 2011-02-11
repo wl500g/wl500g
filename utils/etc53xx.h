@@ -356,6 +356,8 @@ typedef struct _ROBO_ARL_SEARCH_RESULT_MCAST_STRUC
 #define NUM_VLAN_TABLE_ENTRIES_5350 16  /* number of entries in VLAN table */
 #define ARL_TABLE_ADDR_5350 0x1c00      /* offset of ARL table start (5350) */
 #endif
+#define NUM_ARL_TABLE_ENTRIES_53115 4096 /* number of entries in ARL table (53115) */
+#define NUM_VLAN_TABLE_ENTRIES_53115 4096 /* number of entries in VLAN table */
 typedef struct _ROBO_MEM_ACCESS_CTRL_STRUC
 {
     unsigned int    memAddr:14; /* 64-bit memory address */
