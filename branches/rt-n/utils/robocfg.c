@@ -343,8 +343,8 @@ main(int argc, char *argv[])
 		if (strcasecmp(argv[i], "showmacs") == 0)
 		{
 			/* show MAC table of switch */
-			u16 buf[5];
-			int idx, base_vlan;
+			u16 buf[6];
+			int idx, off, base_vlan;
 
 			base_vlan = 0; /*get_vid_by_idx(&robo, 0);*/
 
@@ -352,29 +352,39 @@ main(int argc, char *argv[])
 				"--------------------------------------\n"
 				"VLAN  MAC                Type     Port\n"
 				"--------------------------------------\n");
-			if (robo535x == 4) {
-				printf("*** Not ready for BCM53115!\n");
-			} else {
 			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_RW_CTRL, 0x81);
-			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_SEARCH_CTRL, 0x80);
-			for( idx = 0; idx < (robo535x ? 
+			robo_write16(&robo, ROBO_ARLIO_PAGE, (robo535x == 4) ?
+			    ROBO_ARL_SEARCH_CTRL_53115 : ROBO_ARL_SEARCH_CTRL, 0x80);
+			for (idx = 0; idx < (robo535x && (robo535x != 4) ?
 				NUM_ARL_TABLE_ENTRIES_5350 : NUM_ARL_TABLE_ENTRIES); idx++)
 			{
-				robo_read(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_SEARCH_RESULT, 
-					buf, robo535x ? 4 : 5);
-				if (buf[3] & 0x8000 /* valid */)
+				if (robo535x == 4)
+				{
+					off = (idx & 0x01) << 4;
+					if (!off && (robo_read16(&robo, ROBO_ARLIO_PAGE,
+					    ROBO_ARL_SEARCH_CTRL_53115) & 0x80) == 0) break;
+					robo_read(&robo, ROBO_ARLIO_PAGE,
+					    ROBO_ARL_SEARCH_RESULT_53115 + off, buf, 4);
+					robo_read(&robo, ROBO_ARLIO_PAGE,
+					    ROBO_ARL_SEARCH_RESULT_EXT_53115 + off, &buf[4], 2);
+				} else
+					robo_read(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_SEARCH_RESULT, 
+					    buf, robo535x ? 4 : 5);
+				if ((robo535x == 4) ? (buf[5] & 0x01) : (buf[3] & 0x8000) /* valid */)
 				{
 					printf("%04i  %02x:%02x:%02x:%02x:%02x:%02x  %7s  %c\n",
-						(base_vlan | ((buf[3] >> 5) & 0x0F) | 
+						(base_vlan | (robo535x == 4) ?
+						    (base_vlan | (buf[3] & 0xfff)) :
+						    ((buf[3] >> 5) & 0x0f) |
 							(robo535x ? 0 : ((buf[4] & 0x0f) << 4))),
 						buf[2] >> 8, buf[2] & 255, 
 						buf[1] >> 8, buf[1] & 255,
 						buf[0] >> 8, buf[0] & 255,
-						((buf[3] & 0x4000) ? "STATIC" : "DYNAMIC"),
-						ports[buf[3] & 0x0F]
+						((robo535x == 4 ?
+						    (buf[4] & 0x8000) : (buf[3] & 0x4000)) ? "STATIC" : "DYNAMIC"),
+						ports[buf[robo535x == 4 ? 4 : 3] & 0x0f]
 					);
 				}
-			}
 			}
 			i++;
 		} else
