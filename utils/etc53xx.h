@@ -318,6 +318,11 @@ typedef struct _ROBO_ARL_SEARCH_RESULT_MCAST_STRUC
 #define ROBO_ARL_SEARCH_RESULT_EXT 0x2c /* ARL Search Result Extension (5350): 8bit */
 #define ROBO_ARL_VID_ENTRY0       0x30 /* ARL VID Entry 0: 64bit */
 #define ROBO_ARL_VID_ENTRY1       0x32 /* ARL VID Entry 1: 64bit */
+#define ROBO_ARL_SEARCH_CTRL_53115       0x50 /* ARL Search Control: 8bit */
+#define ROBO_ARL_SEARCH_ADDR_53115       0x51 /* ARL Search Address: 16bit */
+#define ROBO_ARL_SEARCH_RESULT_53115     0x60 /* ARL Search Result: 64bit */
+#define ROBO_ARL_SEARCH_RESULT_EXT_53115 0x68 /* ARL Search Result Extension (53115): 16bit */
+
 /* BCM5395/5397/5398/53115 */
 #define ROBO_VTBL_ACCESS          0x60 /* VLAN table access: 8bit */
 #define ROBO_VTBL_INDX            0x61 /* VLAN table address index: 16bit */
