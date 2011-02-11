@@ -355,7 +355,8 @@ main(int argc, char *argv[])
 			robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_ARL_RW_CTRL, 0x81);
 			robo_write16(&robo, ROBO_ARLIO_PAGE, (robo535x == 4) ?
 			    ROBO_ARL_SEARCH_CTRL_53115 : ROBO_ARL_SEARCH_CTRL, 0x80);
-			for (idx = 0; idx < (robo535x && (robo535x != 4) ?
+			for (idx = 0; idx < ((robo535x == 4) ?
+				NUM_ARL_TABLE_ENTRIES_53115 : robo535x ?
 				NUM_ARL_TABLE_ENTRIES_5350 : NUM_ARL_TABLE_ENTRIES); idx++)
 			{
 				if (robo535x == 4)
