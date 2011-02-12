@@ -1,7 +1,7 @@
 # Choose uclibc version.
 
 choice
-	prompt "uClibc Version" if TOOLCHAINOPTS
+	prompt "uClibc Version"
 	default UCLIBC_VERSION_0_9_29
 	help
 	  Select the version of uClibc you wish to use.
@@ -20,12 +20,11 @@ endchoice
 
 config UCLIBC_ENABLE_DEBUG
 	bool "Build with debug information"
-	depends on TOOLCHAINOPTS
 	default n
 
 config UCLIBC_EXTRA_VERSION
 	string
-	prompt "Extra uClibc version" if TOOLCHAINOPTS
+	prompt "Extra uClibc version"
 	default "snapshot"   if UCLIBC_VERSION_SNAPSHOT
 	default ".1"         if UCLIBC_VERSION_0_9_30
 	default ""

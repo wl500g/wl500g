@@ -1,18 +1,8 @@
 #
-config NATIVE_TOOLCHAIN
-	bool
-	prompt "Use host's toolchain" if DEVEL && BROKEN
-	default n
-	help
-		If enabled, OpenWrt will compile using your existing toolchain instead of compiling one
-
-menuconfig TOOLCHAINOPTS
-	bool "Toolchain Options" if DEVEL
-	depends !NATIVE_TOOLCHAIN
 
 menuconfig EXTRA_TARGET_ARCH
 	bool
-	prompt "Enable an extra toolchain target architecture" if TOOLCHAINOPTS
+	prompt "Enable an extra toolchain target architecture"
 	default n
 	help
 	  Some builds may require a 'biarch' toolchain. This option
@@ -45,28 +35,28 @@ source "toolchain/uClibc/Config.in"
 
 config GDB
 	bool
-	prompt "Build gdb" if TOOLCHAINOPTS
+	prompt "Build gdb"
 	default n
 	help
 		Enable if you want to build the gdb
 
 config LARGEFILE
 	bool
-	prompt "Enable large file (files > 2 GB) support?" if TOOLCHAINOPTS
+	prompt "Enable large file (files > 2 GB) support?"
 	default y
 	help
 		Enable large file (files > 2 GB) support
 
 config SHADOW_PASSWORDS
 	bool
-	prompt "Enable shadow password support?" if TOOLCHAINOPTS
+	prompt "Enable shadow password support?"
 	default y
 	help
 		Enable shadow password support.
 
 config SOFT_FLOAT
 	bool
-	prompt "Use software floating point by default" if TOOLCHAINOPTS
+	prompt "Use software floating point by default"
 	default y
 	depends on (arm || armeb || powerpc) && !HAS_FPU
 	help
@@ -79,7 +69,7 @@ config SOFT_FLOAT
 
 config TARGET_OPTIMIZATION
 	string
-	prompt "Target Optimizations" if TOOLCHAINOPTS
+	prompt "Target Optimizations"
 	default "-O2 -pipe -march=i686 -funit-at-a-time" if TARGET_x86_mediacenter
 	default "-O2 -pipe -march=i486 -funit-at-a-time" if TARGET_x86
 	default "-Os -pipe -march=i486 -funit-at-a-time" if TARGET_rdc
