@@ -15,22 +15,6 @@ ifndef DEBUG
 endif
 
 SRCBASE=../../../..
-ifeq ($(PLATFORM), mipsel)
-    export PATH:=/projects/hnd/tools/linux/hndtools-mipsel-linux/bin:${PATH}
-    TARGET_PREFIX = mipsel-linux-
-    CFLAGS += -DMIPS
-else
-    TARGET_PREFIX =
-endif
-
-CC = $(TARGET_PREFIX)gcc
-AS = $(TARGET_PREFIX)as
-AR = $(TARGET_PREFIX)ar
-LD = $(TARGET_PREFIX)ld
-CCPP = $(TARGET_PREFIX)g++
-COMPILER = $(TARGET_PREFIX)g++
-STRIP = $(TARGET_PREFIX)strip
-SIZE = $(TARGET_PREFIX)size
 
 VPATH.h = .:..:../../include:$(SRCBASE)/include:$(TOP)/shared
 
@@ -117,8 +101,8 @@ ifneq ($(DEBUG),1)
 endif
 	$(SIZE)  $(TARGET)
 
-clean: 
-	rm -rf obj 
+clean:
+	rm -rf obj
 	rm -f upnp
 	$(MAKE) -C ../../upnp/linux clean
 ifneq ($(BUILD_LIBS),)
@@ -126,6 +110,9 @@ ifneq ($(BUILD_LIBS),)
 	$(MAKE) -C $(TOP)/iptables clean
 	$(MAKE) -C $(TOP)/nvram clean
 endif
+
+distclean:
+	$(MAKE) -C ../../upnp/linux distclean
 
 fptest: fptest.o
 	$(CC) -o fptest fptest.o $(LIBS)

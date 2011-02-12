@@ -312,7 +312,7 @@ extern void http_error(UFILE *, http_error_t error_code);
 extern void http_response(UFILE *, http_error_t, const char *, int );
 extern void soap_register_errors(Error *errors);
 
-#ifdef VXWORKS
+#if defined(VXWORKS)
 #include "wsIntrn.h"
 #include "utils.h"
 

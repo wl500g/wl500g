@@ -290,17 +290,7 @@ kernel-image: $(LINUXDIR)/.config
 	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc; \
 	fi )
 
-$(LINUXDIR)/fs/fuse/Makefile:
-	cd $(LINUXDIR)/fs/fuse && \
-	$(CONFIGURE) --enable-kernel-module --with-kernel=$(LINUXDIR) CC=$(CROSS_COMPILE)gcc-3.4.6
-
-fuse-driver: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
-	cd $(LINUXDIR)/fs/fuse && $(MAKE)
-
 kernel-deps-y := kernel-image kernel-modules
-ifneq ($(CONFIG_LINUX_26),y)
-kernel-deps-y += fuse-driver
-endif
 
 kernel: $(kernel-deps-y)
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed
@@ -318,7 +308,6 @@ endif
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
 	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules ; \
-	    cd $(LINUXDIR)/fs/fuse && $(MAKE) install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules; \
 	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/* -F $(LINUXDIR)/System.map; \
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build

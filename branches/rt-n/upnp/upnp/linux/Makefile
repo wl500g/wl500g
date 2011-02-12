@@ -15,16 +15,6 @@ ifndef DEBUG
 endif
 SRCBASE=../../../..
 
-CC = $(TARGET_PREFIX)gcc
-AS = $(TARGET_PREFIX)as
-AR = $(TARGET_PREFIX)ar
-LD = $(TARGET_PREFIX)ld
-CCPP = $(TARGET_PREFIX)g++
-COMPILER = $(TARGET_PREFIX)g++
-STRIP = $(TARGET_PREFIX)strip
-SIZE = $(TARGET_PREFIX)size
-RANLIB = $(TARGET_PREFIX)ranlib
-
 VPATH.h=.:..:../../include:$(SRCBASE)/include:$(TOP)/shared
 
 vpath %.c .:..:$(TOP)/shared:$(SRCBASE)/shared/netconf
@@ -69,10 +59,11 @@ $(TARGET) : $(SOURCES.OBJ)
 	$(RANLIB) $(TARGET)
 	$(SIZE)  $(TARGET)
 
-clean: 
-	rm -rf obj 
+clean:
+	rm -rf obj
 
-
+distclean:
+	rm -f $(TARGET)
 
 timertest: $(OBJDIR)/linux_timer.o $(OBJDIR)/timertest.o
 	$(CC) $(OBJDIR)/linux_timer.o $(OBJDIR)/timertest.o -o timertest
