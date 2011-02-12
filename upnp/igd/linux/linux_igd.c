@@ -17,13 +17,13 @@
 #include <signal.h>
 #include <signal.h>
 
-#define __KERNEL__
-#include <asm/types.h>
+#include "upnp_dbg.h"
+#include "upnp_osl.h"
+
+#include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
 
-#include "upnp_dbg.h"
-#include "upnp_osl.h"
 #include "upnp.h"
 #include "../igd/igd.h"
 #include "shutils.h"

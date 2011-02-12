@@ -13,11 +13,11 @@
 #
 
 UPNP	:= igd/linux
-CFLAGS	+= -g -O2 $(EXTRACFLAGS)
+CFLAGS	+= -g -O2 -Dlinux $(EXTRACFLAGS)
 #DEBUG	:= 1
 export CFLAGS
 
-all: upnp
+all: $(UPNP)/upnp
 
 install: all
 	install -d $(INSTALLDIR)/usr/sbin
@@ -28,7 +28,8 @@ clean:
 	$(MAKE) -C $(UPNP) clean
 	rm -f $(UPNP)/upnp
 
-upnp: FORCE
-	$(MAKE) -C $(UPNP) DEBUG=$(DEBUG) SRCBASE=$(SRCBASE) TOP=$(TOP) TARGET_PREFIX=$(CROSS_COMPILE)
+distclean: clean
+	$(MAKE) -C $(UPNP) distclean
 
-FORCE:
+$(UPNP)/upnp:
+	$(MAKE) -C $(UPNP) DEBUG=$(DEBUG) SRCBASE=$(SRCBASE) TOP=$(TOP)
