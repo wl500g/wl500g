@@ -652,12 +652,9 @@ wlconf: $(TOP)/wlconf
 	@true
 
 upnp:
-	[ -d $(TOP)/$@ ] || \
-		tar -xjf $@.tar.bz2 -C $(TOP)
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - upnp | tar -C $(TOP) -xf -
 	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
-
-upnp-diff:
-	$(call make_diff,-BurpN,tools,gateway,upnp)
 
 miniupnpd_Patches := $(call patches_list,miniupnpd)
 
