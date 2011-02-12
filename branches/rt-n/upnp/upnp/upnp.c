@@ -95,6 +95,9 @@ int upnp_main(PDeviceTemplate pdevtmpl, char *ifname)
 
     signal(SIGINT, interrupt_handler);
     signal(SIGTERM, interrupt_handler);
+    
+    /* prevent socket errors to cause termination */
+    signal(SIGPIPE, SIG_IGN);
 
     memset(&timer, 0, sizeof(timer));
     timer.it_interval.tv_sec = 30;

@@ -192,9 +192,17 @@ void device_xml(PDevice pdev, UFILE *up)
 
     // generate XML for any subdevices in this device.
     device_devicelist(pdev, up);
-	
+
     if (ISROOT(pdev)) {
-	uprintf(up, "<presentationURL>http://%s</presentationURL>\r\n", nvram_safe_get("lan_ipaddr"));
+	char buffer[32];
+	char *url = nvram_safe_get("lan_ipaddr");
+	int port = atoi(nvram_safe_get("http_lanport"));
+
+	if (*url && port && port != 80) {
+	    sprintf(buffer, "%s:%d", url, port);
+	    url = buffer;
+	}
+	uprintf(up, "<presentationURL>http://%s</presentationURL>\r\n", url);
     }
 
     uprintf(up, "</device>\r\n");

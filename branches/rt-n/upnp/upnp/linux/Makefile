@@ -25,9 +25,9 @@ STRIP = $(TARGET_PREFIX)strip
 SIZE = $(TARGET_PREFIX)size
 RANLIB = $(TARGET_PREFIX)ranlib
 
-VPATH.h=.:..:../../include:$(SRCBASE)/include:$(SRCBASE)/router/shared
+VPATH.h=.:..:../../include:$(SRCBASE)/include:$(TOP)/shared
 
-vpath %.c .:..:$(SRCBASE)/router/shared:$(SRCBASE)/shared/netconf
+vpath %.c .:..:$(TOP)/shared:$(SRCBASE)/shared/netconf
 vpath %.h $(VPATH.h)
 
 ifeq ($(DEBUG),1)

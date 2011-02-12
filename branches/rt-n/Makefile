@@ -651,10 +651,12 @@ $(TOP)/wlconf:
 wlconf: $(TOP)/wlconf
 	@true
 
-upnp:
+$(TOP)/upnp:
 	[ -d $@ ] || \
 		tar -C . $(TAR_EXCL_SVN) -cf - upnp | tar -C $(TOP) -xf -
-	[ ! -f $@.diff ] || $(PATCHER) -Z $(TOP) $@.diff
+
+upnp: $(TOP)/upnp
+	@true
 
 miniupnpd_Patches := $(call patches_list,miniupnpd)
 

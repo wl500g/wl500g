@@ -78,7 +78,7 @@ int WANPPPConnection_ConfigureConnection(UFILE *uclient, PService psvc, PAction 
     } else {
 	nvram_set("wan_pppoe_username", ac->params[0].value);
 	nvram_set("wan_pppoe_passwd", ac->params[1].value);
-	nvram_commit();
+	req_nvram_commit(0);
     }
 
     return success;
@@ -91,7 +91,7 @@ int WANPPPConnection_SetIdleDisconnectTime(UFILE *uclient, PService psvc, PActio
     uint success = TRUE; /* assume no error will occur */
 
     nvram_set("wan_pppoe_idletime", ac->params[0].value);
-    nvram_commit();
+    req_nvram_commit(0);
 
     return success;
 }
@@ -107,7 +107,7 @@ int WANPPPConnection_RequestConnection(UFILE *uclient, PService psvc, PAction ac
 
     printf("PPP_CONNECTING %s\n", tmp);
 
-    nvram_commit();
+    req_nvram_commit(0);
     pppoe_up();
     
     return TRUE;

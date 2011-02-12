@@ -23,13 +23,11 @@
 
 #define INCLUDE_LAYER3
 #define INCLUDE_IPCONNECTION
-#define INCLUDE_PPPCONNECTION
-
-
+/* #define INCLUDE_PPPCONNECTION -- really broken */
 
 extern int WANDevice_Init(PDevice pdev, device_state_t state, va_list ap);
 extern int LANDevice_Init(PDevice pdev, device_state_t state, va_list ap);
-extern int IGDevice_Init(PDevice igdev, device_state_t state);
+extern int IGDevice_Init(PDevice igdev, device_state_t state, va_list ap);
 
 
 /* Global structure for storing the state table for this device */

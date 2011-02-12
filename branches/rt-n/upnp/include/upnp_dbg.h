@@ -16,6 +16,8 @@
 #ifndef _upnp_dbg_
 #define _upnp_dbg_
 
+#if !defined(DEBUG)
+
 #define	UPNP_MAPPING(args)
 #define	UPNP_ERROR(args)
 #define	UPNP_TRACE(args) 
@@ -45,7 +47,39 @@
 #define UPNP_TRACE_ACTION_ON()	0
 #define UPNP_DUMP_ACTION_ON()	0
 
+#else	// defined(DEBUG)
 
+#define dbgprintf(args...)			fprintf(stderr, args)
 
+#define	UPNP_MAPPING(args...)			dbgprintf args
+#define	UPNP_ERROR(args...)			dbgprintf args
+#define	UPNP_TRACE(args...) 			dbgprintf args
+#define	UPNP_PRHDRS(i, s, h, p, n, l)
+#define	UPNP_PRPKT(m, b, n)
+#define	UPNP_INFORM(args...)			dbgprintf args
+#define UPNP_TRACE_ACTION(svc, ac)
+#define	UPNP_HTTP(args)
+#define	UPNP_SOCKET(args...)			dbgprintf args
+
+#define UPNP_MAPPING_ON()	0
+#define UPNP_RESPONSE_ON()	0
+#define UPNP_ERROR_ON()		0
+#define UPNP_PRHDRS_ON()	0
+#define UPNP_PRPKT_ON()		0
+#define UPNP_INFORM_ON()	0
+#define UPNP_PRINTRX_ON()	0
+#define UPNP_PRINTTX_ON()	0
+#define UPNP_HTTP_TRACE_ON()	0
+#define UPNP_HTTP_HDRS_ON()	0
+
+#define	UPNP_PREVENT(args)
+#define	UPNP_SUBSCRIBE(args)
+
+#define UPNP_ACTION(psvc, ac, args, nargs)
+#define UPNP_RESPONSE(ns, ac, args, nargs)
+#define UPNP_TRACE_ACTION_ON()	0
+#define UPNP_DUMP_ACTION_ON()	0
+
+#endif	// defined(DEBUG)
 
 #endif /* _upnp_dbg_ */

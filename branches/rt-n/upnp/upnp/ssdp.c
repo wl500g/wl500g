@@ -87,7 +87,7 @@ void ssdp_receive(caction_t flag, struct net_connection *nc, struct iface *pif)
     struct sockaddr_in srcaddr;
     int nbytes, addrlen;
     
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     if (flag == CONNECTION_RECV) {
 	addrlen = sizeof(srcaddr);
 	memset(&srcaddr, 0, addrlen);
@@ -113,7 +113,7 @@ static void process_msearch_all(char *st, struct iface *pif, struct sockaddr *sr
 {
     PDevice pdev;
 
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     forall_devices(pdev) {
 	advertise_device(pdev, SSDP_REPLY, pif, srcaddr,  addrlen);
     }
@@ -136,7 +136,7 @@ static void process_msearch_rootdevice(char *st, struct iface *pif, struct socka
     char tmpbuf[100];
     PDevice pdev;
     
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     if ((upkt = usopen(NULL, 0))) {
 	
 	for (pdev = root_devices; pdev; pdev = pdev->next) {
@@ -159,7 +159,7 @@ static void process_msearch_uuid(char *st, struct iface *pif, struct sockaddr *s
     UFILE *upkt;
     PDevice pdev;
 
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     if ((upkt = usopen(NULL, 0))) {
 	if ((pdev = find_dev_by_udn(st)) != NULL) {
 
@@ -182,7 +182,7 @@ static void process_msearch_devicetype(char *st, struct iface *pif, struct socka
     PDevice pdev;
     char tmpbuf[100];
 
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     if ((upkt = usopen(NULL, 0))) {
 	forall_devices(pdev) {
 	    if (strcmp(pdev->template->type, st) == 0) {
@@ -211,7 +211,7 @@ static void process_msearch_service(char *st, struct iface *pif, struct sockaddr
     PService psvc;
     char tmpbuf[100];
     
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     p = strstr(st, ":service:");
     if (p) {
 	name = p+strlen(":service:");
@@ -258,7 +258,7 @@ static void process_msearch(char *msg, struct iface *pif, struct sockaddr *srcad
     char *man = NULL;  // the MAN: header
     long int mxval;
 
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     if ( (body = strstr(msg, "\r\n\r\n" )) != NULL )
 	body += 4;
     else if ( (body = strstr(msg, "\r\n" )) != NULL )
@@ -410,7 +410,7 @@ static void ssdp_packet(
     time_t now;
     char date[100];
 
-    UPNP_TRACE((__FUNCTION__ "\n"));
+    UPNP_TRACE(("%s\n", __FUNCTION__));
     switch (ptype) {
     case SSDP_REPLY:
 	uprintf(up, "HTTP/1.1 200 OK\r\n");

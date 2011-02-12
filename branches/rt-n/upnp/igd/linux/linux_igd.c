@@ -169,13 +169,13 @@ uint osl_max_bitrates(char *devname, ulong *rx, ulong *tx)
 		speed = 0;
 	    }
 	} else {
-	    UPNP_ERROR(("ioctl(SIOCETHTOOL) failed in " __FUNCTION__));
+	    UPNP_ERROR(("ioctl(SIOCETHTOOL) failed in %s", __FUNCTION__));
 	}
 
 	/* close the control socket */
 	close(fd);
     } else {
-	UPNP_ERROR(("cannot open socket in " __FUNCTION__));
+	UPNP_ERROR(("cannot open socket in %s", __FUNCTION__));
     }
 
     *rx = *tx = speed;
@@ -378,32 +378,14 @@ bool osl_wan_isup(char *devname)
 {
     struct in_addr inaddr = {0};
     bool status = FALSE;
-	char tmp[100];
 
-    if (strcasecmp(nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "proto")), "disabled") != 0) {
-#ifdef REMOVE
-	if (osl_ifaddr(nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "ifname")), &inaddr)) 
+	if (osl_ifaddr(devname, &inaddr)) 
 	{
 	    if (inaddr.s_addr != 0) {
 		status = TRUE;
 	    }
 	}
-#else
-	char *wan_if;
 
-	if (nvram_match(tmp, "pppoe") || nvram_match(tmp, "pptp"))
-		wan_if = nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "pppoe_ifname"));
-	else
-		wan_if = nvram_safe_get(igd_pri_wan_var(tmp, sizeof(tmp), "ifname"));
-
-	if (osl_ifaddr(wan_if, &inaddr)) 
-	{
-		if (inaddr.s_addr != 0) {
-			status = TRUE;
-	    	}		
-	}
-#endif 
-    }
     return status;
 }
 

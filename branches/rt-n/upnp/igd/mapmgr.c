@@ -95,7 +95,7 @@ static bool mapmgr_add_map(map_set_t *pset, mapping_t *m)
     for (i = 0; i < NFDBITS; i++) {
 	if (!FD_ISSET(i, &ports.map) && !FD_ISSET(i, &ranges.map) ) {
 	    foundit = set_forward_port(i, (netconf_nat_t*)m);
-	    nvram_commit();
+	    req_nvram_commit(0);
 	    FD_SET(i, &pset->map);
 	    pset->count++;
 	    break;
@@ -118,7 +118,7 @@ static bool mapmgr_delete_map(map_set_t *pset, int n)
 		FD_CLR(i, &pset->map);
 		pset->count--;
 		foundit = del_forward_port(i);
-		nvram_commit();
+		req_nvram_commit(0);
 		break;
 	    }
 	}
