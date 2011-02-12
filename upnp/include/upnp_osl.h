@@ -23,6 +23,7 @@
 
 /* forward declaration - defined in upnp.h */
 struct _if_stats;
+struct iface;
 
 
 typedef enum { OSL_LINK_DOWN = 0, OSL_LINK_UP = 1 } osl_link_t;
@@ -40,5 +41,6 @@ extern void osl_igd_enable(char *devname);
 extern bool osl_wan_isup(char *devname);
 extern bool osl_lan_isup(char *devname);
 extern bool osl_set_macaddr(char *devname, char spoofed[]);
+extern int osl_join_multicast(struct iface *pif, int fd, ulong ipaddr, ushort port);
 
 #endif	/* _upnp_osl_h_ */

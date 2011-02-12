@@ -43,6 +43,56 @@ extern struct net_connection *net_connections;
 extern int global_exit_now;
 extern struct iface *global_lans;
 
+#include <syslog.h>
+#include <bcmnvram.h>
+
+static timer_t t_nvram1;
+static volatile int nvcommit_state = 0;
+
+
+#ifdef DEBUG
+static void logmessage(char *fmt, ...)
+{
+    va_list args;
+    char buf[512];
+
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    openlog("UPNP", 0, 0);
+    syslog(0, buf);
+    closelog();
+}
+#else
+ #define logmessage(...)
+#endif
+
+static inline void do_nvram_commit()
+{
+    logmessage("do nvram_commit");
+
+    nvcommit_state = 2;
+    nvram_commit();
+    nvcommit_state = 0;
+}
+
+void req_nvram_commit(int force)
+{
+    if (nvcommit_state != 2) {
+	if (force)
+	    do_nvram_commit();
+	else
+	    nvcommit_state = 1;
+    }
+}
+
+static void nvram_commit_helper(timer_t t, void *arg)
+{
+    if (nvcommit_state == 1)
+	do_nvram_commit();
+}
+
 static void
 reap(int sig)
 {
@@ -56,12 +106,12 @@ reap(int sig)
 int main(int argc, char *argv[])
 {
     extern char g_wandevs[];
-    extern char g_landevs[];
     extern DeviceTemplate IGDeviceTemplate;
     char **argp = &argv[1];
     char *wanif = NULL;
     char *lanif = NULL;
     int daemonize = 0;
+    struct itimerspec timer;
 
     while (argp < &argv[argc]) {
 	if (strcasecmp(*argp, "-L") == 0) {
@@ -96,11 +146,19 @@ int main(int argc, char *argv[])
 	   a SIGTERM after sending SIGUSR1 to the dhcp process (to
 	   renew a lease).  Ignore SIGTERM to avoid being killed when
 	   this happens.  */
-	//	signal(SIGTERM, SIG_IGN);
+	signal(SIGTERM, SIG_IGN);
 	signal(SIGUSR1, SIG_IGN);
+
+	memset(&timer, 0, sizeof(timer));
+        timer.it_interval.tv_sec = 60;
+        timer.it_value.tv_sec = 60;
+        t_nvram1 = enqueue_event(&timer, (event_callback_t) nvram_commit_helper, NULL);
 
 	fprintf(stderr, "calling upnp_main\n");
 	upnp_main(&IGDeviceTemplate, lanif);
+
+	timer_delete(t_nvram1);
+
     }
     
     return 0;

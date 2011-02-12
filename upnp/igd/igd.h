@@ -68,9 +68,9 @@ typedef struct _WANCommonPrivateData {
 
 } WANCommonPrivateData, *PWANCommonPrivateData;
 
-extern void osl_igd_disable(char *ifname);
-extern void osl_igd_enable(char *ifname);
+extern void bump_generation();
 extern char *igd_pri_wan_var(char *prefix, int len, char *var);
+extern void req_nvram_commit(int force);
 
 #define SOAP_CONNECTIONNOTCONFIGURED	706 
 #define SOAP_DISCONNECTINPROGRESS	707 
@@ -80,22 +80,5 @@ extern char *igd_pri_wan_var(char *prefix, int len, char *var);
 #define SOAP_NOSUCHENTRYINARRAY		714 
 #define SOAP_CONFLICTINMAPPINGENTRY	718 
 #define SOAP_ONLYPERMANENTLEASESSUPPORTED	725
-
-#if defined(linux)
-
-/* Allow some time for the page to reload before killing ourselves */
-static int
-kill_after(pid_t pid, int sig, unsigned int after)
-{
-	if (fork() == 0) {
-		sleep(after);
-		return kill(pid, sig);
-	}
-	return 0;
-}
-#define sys_restart() kill_after(1, SIGHUP, 3)
-#define sys_reboot() kill_after(1, SIGTERM, 3)
-
-#endif /* linux */
 
 #endif /* _igd_h_ */

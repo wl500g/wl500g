@@ -17,6 +17,9 @@
 extern char *getsvcval(PService psvc, int i);
 extern void soap_response(UFILE*, const char *, const char *, const char *, pvar_entry_t, int);
 
+const char *type2str(vartype_t type);
+
+
 PService init_service(PServiceTemplate svctmpl, PDevice pdev)
 {
     PService psvc;
@@ -87,12 +90,11 @@ void mark_changed(PService psvc, int varindex)
  */
 void service_xml(PService psvc, UFILE *up)
 {
-    const char *type2str(vartype_t type);
     PFSVCXML func;
     PVarTemplate pv;
     PAction *ac;
     PParam pa;
-    char *tstr;
+    const char *tstr;
 
     uprintf(up, 
 	    "<?xml version=\"1.0\"?>\r\n"

@@ -126,7 +126,6 @@ int AddPortMapping( UFILE *uclient, PService psvc, PAction ac, pvar_entry_t args
     bool found_match;
     netconf_nat_t e;
     mapping_t mapping;
-    char *wan_ip;
 
     // bypass port mapping when NAT is disabled
     if (nvram_invmatch("wan_nat_x", "1")) return 0;
@@ -137,15 +136,9 @@ int AddPortMapping( UFILE *uclient, PService psvc, PAction ac, pvar_entry_t args
 	    continue;
 	} 
 
-	if (nvram_invmatch("wan_ipaddr_t", ""))
-	{
-	     wan_ip = nvram_safe_get("wan_ipaddr_t");
-	}
-	else wan_ip = ac->params[0].value;
-    
 	parse_status = (int) parse_dnat(&e, 
 					ac->params[2].value, /* NewProtocol */
-					wan_ip, //ac->params[0].value, /* NewRemoteHost */
+					ac->params[0].value, /* NewRemoteHost */
 					ac->params[1].value, NULL, /* NewExternalPort */
 					ac->params[4].value, /* NewInternalClient */
 					ac->params[3].value, NULL /* NewInternalPort */
@@ -312,8 +305,6 @@ int GetSpecificPortMappingEntry(UFILE *uclient, PService psvc, PAction ac, pvar_
     static char Enabled[2];
     static char Description[60];
 
-printf("Get Port: [%s]\n", ac->params[0].value);
-
     parse_status = (int) parse_dnat(&e, 
 			       ac->params[2].value,	/* NewProtocol */
 			       ac->params[0].value,	/* NewRemoteHost */
@@ -400,18 +391,10 @@ netconf_nat_t *parse_dnat(netconf_nat_t *entry, const char *Protocol,
     entry->match.src.ports[1] = htons(0xffff);
 
     // parse the external ip address
-    // 2004/07/12 by Joey, change to src ip match
     if (strlen(RemoteHost)) 
     {
-	inet_aton("255.255.255.255", &entry->match.dst.netmask);
-	inet_aton(RemoteHost , &entry->match.dst.ipaddr);
-    }
-    else if (nvram_invmatch("wan_ipaddr_t", ""))
-    {
-    	// set the destination ip address
-    	// 2004/07/12, by Joey, set dst ip 
-	inet_aton("255.255.255.255", &entry->match.dst.netmask);
-	inet_aton(nvram_safe_get("wan_ipaddr_t"), &entry->match.dst.ipaddr);
+	inet_aton("255.255.255.255", &entry->match.src.netmask);
+	inet_aton(RemoteHost, &entry->match.src.ipaddr);
     }
 
     // parse the external ports

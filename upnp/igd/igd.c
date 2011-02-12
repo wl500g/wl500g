@@ -18,6 +18,24 @@
 
 #include <signal.h>
 
+#if defined(linux)
+
+/* Allow some time for the page to reload before killing ourselves */
+static int
+kill_after(pid_t pid, int sig, unsigned int after)
+{
+        if (fork() == 0) {
+                sleep(after);
+                return kill(pid, sig);
+        }
+        return 0;
+}
+#define sys_restart() kill_after(1, SIGHUP, 3)
+#define sys_reboot() kill_after(1, SIGTERM, 3)
+
+#endif /* linux */
+
+
 extern DeviceTemplate LANDeviceTemplate;
 extern DeviceTemplate WANDeviceTemplate;
 
@@ -44,7 +62,9 @@ Error IGDErrors[] = {
 int IGDevice_Init(PDevice igdev, device_state_t state, va_list ap)
 {
     char *wan_ifname = &g_wandevs[0];
+#if INCLUDE_LANDEVICE
     char *lan_ifname = &g_landevs[0];
+#endif
     PDevice subdev;
 
     switch (state) {
@@ -93,7 +113,7 @@ int WANDevice_Init(PDevice pdev, device_state_t state, va_list ap)
 	if (ifname) {
 	    pdata = (PWANDevicePrivateData) malloc(sizeof(WANDevicePrivateData));
 	    if (pdata) {
-		strcpy(pdata->ifname, nvram_safe_get("wan_ifname"));
+		strcpy(pdata->ifname, ifname);
 		pdev->opaque = (void *) pdata;
 	    }
 	}
@@ -111,7 +131,7 @@ int WANDevice_Init(PDevice pdev, device_state_t state, va_list ap)
 
 int LANDevice_Init(PDevice pdev, device_state_t state, va_list ap)
 {
-    PWANDevicePrivateData pdata;
+    PLANDevicePrivateData pdata;
     char *ifname = NULL;
 
     switch (state) {

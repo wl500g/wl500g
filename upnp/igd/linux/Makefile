@@ -32,7 +32,7 @@ COMPILER = $(TARGET_PREFIX)g++
 STRIP = $(TARGET_PREFIX)strip
 SIZE = $(TARGET_PREFIX)size
 
-VPATH.h = .:..:../../include:$(SRCBASE)/include:$(SRCBASE)/router/shared
+VPATH.h = .:..:../../include:$(SRCBASE)/include:$(TOP)/shared
 
 vpath %.c .:..:$(SRCBASE)/shared/netconf
 vpath %.h $(VPATH.h)
@@ -65,8 +65,8 @@ SOURCES.OBJ := $(SOURCES)
 SOURCES.OBJ := $(patsubst %.c,$(OBJDIR)/%.o,$(SOURCES.OBJ))
 
 TARGET = upnp
-LIBS = -L../../upnp/linux -L$(SRCBASE)/router/netconf \
-	-L$(SRCBASE)/router/nvram -L$(SRCBASE)/router/shared -lupnp -lnetconf -lnvram -lshared
+LIBS = -L../../upnp/linux -L$(TOP)/netconf \
+	-L$(TOP)/nvram -L$(TOP)/shared -lupnp -lnetconf -lnvram -lshared
 
 all : $(OBJDIR) $(TARGET)
 
@@ -89,20 +89,20 @@ ifneq ($(BUILD_LIBS),)
 
 $(TARGET) :: libnetconf.so
 
-$(TARGET) :: $(SRCBASE)/router/iptables/libiptables.a 
+$(TARGET) :: $(TOP)/iptables/libiptables.a 
 
-$(TARGET) :: $(SRCBASE)/router/nvram/libnvram.a 
+$(TARGET) :: $(TOP)/nvram/libnvram.a 
 
-$(SRCBASE)/router/iptables/libiptables.a : FORCE
-	$(MAKE) -C $(SRCBASE)/router/iptables PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
-$(SRCBASE)/router/nvram/libnvram.a : FORCE
-	$(MAKE) -C $(SRCBASE)/router/nvram PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+$(TOP)/iptables/libiptables.a : FORCE
+	$(MAKE) -C $(TOP)/iptables PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+$(TOP)/nvram/libnvram.a : FORCE
+	$(MAKE) -C $(TOP)/nvram PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
 
-$(SRCBASE)/router/netconf/libnetconf.so : $(SRCBASE)/router/iptables/libiptables.a FORCE
-	$(MAKE) -C $(SRCBASE)/router/netconf DEBUG=1 PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+$(TOP)/netconf/libnetconf.so : $(TOP)/iptables/libiptables.a FORCE
+	$(MAKE) -C $(TOP)/netconf DEBUG=1 PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
 
-libnetconf.so : $(SRCBASE)/router/netconf/libnetconf.so
-	#	cp $(SRCBASE)/router/netconf/libnetconf.so /router/usr/lib/
+libnetconf.so : $(TOP)/netconf/libnetconf.so
+	#	cp $(TOP)/netconf/libnetconf.so /router/usr/lib/
 
 endif
 
@@ -122,9 +122,9 @@ clean:
 	rm -f upnp
 	$(MAKE) -C ../../upnp/linux clean
 ifneq ($(BUILD_LIBS),)
-	$(MAKE) -C $(SRCBASE)/router/netconf clean
-	$(MAKE) -C $(SRCBASE)/router/iptables clean
-	$(MAKE) -C $(SRCBASE)/router/nvram clean
+	$(MAKE) -C $(TOP)/netconf clean
+	$(MAKE) -C $(TOP)/iptables clean
+	$(MAKE) -C $(TOP)/nvram clean
 endif
 
 fptest: fptest.o

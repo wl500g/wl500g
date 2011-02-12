@@ -424,7 +424,7 @@ static struct net_connection *make_gena_connection(PService psvc, PSubscription 
 
     optval.l_onoff = 1;
     optval.l_linger = 0;
-    setsockopt(sr, SOL_SOCKET, SO_LINGER, &optval, sizeof (optval));
+    setsockopt(fd, SOL_SOCKET, SO_LINGER, &optval, sizeof (optval));
 
     // if we have not yet resolved the address of this host, do so now.
     // cache the result in the subscription.

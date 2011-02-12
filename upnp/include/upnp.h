@@ -24,7 +24,7 @@
 // #define  HTTP_PORT 80
 
 // number of seconds to wait before refershing device advertisements.
-#define SSDP_REFRESH   30
+#define SSDP_REFRESH   60
 #define UPNP_REFRESH   ((SSDP_REFRESH * 2)/3)
 #define NOTIFY_RECEIPT_TIMEOUT 30
 #define HTTP_REQUEST_TIMEOUT   15

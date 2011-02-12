@@ -474,7 +474,7 @@ static int ForceTermination(UFILE *uclient, PService psvc, PAction ac, pvar_entr
 {
     uint success = TRUE; /* assume no error will occur */
     PWANIPConnectionData pdata = (PWANIPConnectionData) psvc->opaque;
-    PWANDevicePrivateData pdevdata = (PWANDevicePrivateData) psvc->device->parent->opaque;
+    //PWANDevicePrivateData pdevdata = (PWANDevicePrivateData) psvc->device->parent->opaque;
     char wanproto[100];
 
     /* Our ConnectionType is always IP_Routed, so I don't need to check that here. */
@@ -490,7 +490,7 @@ static int ForceTermination(UFILE *uclient, PService psvc, PAction ac, pvar_entr
 	/* Save the wan_proto into NVRAM to restore when the igd is enabled */
 	nvram_set("upnp_wan_proto", nvram_safe_get(wanproto));
 	nvram_set(wanproto, "disabled");
-	nvram_commit();
+	req_nvram_commit(1);
 	igd_restart(3);
     }
     
@@ -513,7 +513,7 @@ static int RequestConnection(UFILE *uclient, PService psvc, PAction ac, pvar_ent
 	    nvram_set(wanproto, "dhcp");	/* pick dhcp as defualt */
 	else
 	    nvram_set(wanproto, str);
-	nvram_commit();
+	req_nvram_commit(1);
 	igd_restart(3);
 	pdata->connection_status = IP_CONNECTING;
 	pdata->connection_timeout = CONNECTION_TIMEOUT;
