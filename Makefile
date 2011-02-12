@@ -97,7 +97,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils dhcpv6
+	sysfsutils
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -355,13 +355,6 @@ $(TOP)/radvd: radvd/$(RADVD).tar.gz
 	mv $(TOP)/$(RADVD) $@
 
 radvd: $(TOP)/radvd
-	@true
-
-$(TOP)/dhcpv6:
-	@rm -rf $(TOP)/dhcpv6
-	tar -C . $(TAR_EXCL_SVN) -cf - dhcpv6 | tar -C $(TOP) -xf -
-
-dhcpv6: $(TOP)/dhcpv6
 	@true
 
 quagga_Patches := $(call patches_list,quagga)
