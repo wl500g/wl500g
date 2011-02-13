@@ -1196,21 +1196,6 @@ diff -urBp a/drivers/scsi/ultrastor.c b/drivers/scsi/ultrastor.c
      my_mscp->length_of_scsi_cdbs = SCpnt->cmd_len;
      memcpy(my_mscp->scsi_cdbs, SCpnt->cmnd, my_mscp->length_of_scsi_cdbs);
      my_mscp->adapter_status = 0;
-diff -urBp a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
---- a/drivers/usb/core/hub.c	2011-02-12 22:16:14.000000000 +0300
-+++ b/drivers/usb/core/hub.c	2011-02-10 22:04:18.000000000 +0300
-@@ -2396,11 +2396,6 @@ hub_port_init (struct usb_hub *hub, stru
- 		udev->ttport = hdev->ttport;
- 	} else if (udev->speed != USB_SPEED_HIGH
- 			&& hdev->speed == USB_SPEED_HIGH) {
--		if (!hub->tt.hub) {
--			dev_err(&udev->dev, "parent hub has no TT\n");
--			retval = -EINVAL;
--			goto fail;
--		}
- 		udev->tt = &hub->tt;
- 		udev->ttport = port1;
- 	}
 diff -urBp a/drivers/usb/storage/isd200.c b/drivers/usb/storage/isd200.c
 --- a/drivers/usb/storage/isd200.c	2010-07-16 22:00:15.000000000 +0400
 +++ b/drivers/usb/storage/isd200.c	2011-02-12 22:13:18.000000000 +0300
@@ -1245,14 +1230,12 @@ diff -urBp a/include/scsi/scsi_cmnd.h b/include/scsi/scsi_cmnd.h
  				/* obtained by REQUEST SENSE when
  				 * CHECK CONDITION is received on original
  				 * command (auto-sense) */
-@@ -139,6 +139,9 @@ extern void scsi_free_sgtable(struct scs
- extern int scsi_dma_map(struct scsi_cmnd *cmd);
- extern void scsi_dma_unmap(struct scsi_cmnd *cmd);
+@@ -139,4 +139,7 @@ extern void scsi_free_sgtable(struct scs
+ extern struct scatterlist *scsi_alloc_sgtable(struct scsi_cmnd *, gfp_t);
+ extern void scsi_free_sgtable(struct scatterlist *, int);
  
 +struct scsi_cmnd *scsi_allocate_command(gfp_t gfp_mask);
 +void scsi_free_command(gfp_t gfp_mask, struct scsi_cmnd *cmd);
 +
- #define scsi_sg_count(cmd) ((cmd)->use_sg)
- #define scsi_sglist(cmd) ((struct scatterlist *)(cmd)->request_buffer)
- #define scsi_bufflen(cmd) ((cmd)->request_bufflen)
+ #endif /* _SCSI_SCSI_CMND_H */
 -- 
