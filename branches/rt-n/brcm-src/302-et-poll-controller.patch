@@ -1,5 +1,5 @@
 --- src/et.orig/sys/et_linux.c	2011-01-24 22:49:33.000000000 +0000
-+++ src/et/sys/et_linux.c	2011-02-11 22:25:31.216375002 +0000
++++ src/et/sys/et_linux.c	2011-02-13 17:12:10.140000002 +0000
 @@ -130,6 +130,9 @@ static int et_poll(struct net_device *de
  static void et_dpc(ulong data);
  #endif /* BCM_NAPI */
@@ -20,7 +20,26 @@
  
  	if (register_netdev(dev)) {
  		ET_ERROR(("et%d: register_netdev() failed\n", unit));
-@@ -1374,3 +1380,19 @@ et_phywr(et_info_t *et, uint phyaddr, ui
+@@ -504,14 +510,18 @@ et_start(struct sk_buff *skb, struct net
+ 	ET_TRACE(("et%d: et_start: len %d\n", et->etc->unit, skb->len));
+ 	ET_LOG("et%d: et_start: len %d", et->etc->unit, skb->len);
+ 
++#ifndef BCM_NAPI
+ 	ET_LOCK(et);
++#endif
+ 
+ 	/* put it on the tx queue and call sendnext */
+ 	__skb_queue_tail(&et->txq[q], skb);
+ 	et->etc->txq_state |= (1 << q);
+ 	et_sendnext(et);
+ 
++#ifndef BCM_NAPI
+ 	ET_UNLOCK(et);
++#endif
+ 
+ 	ET_LOG("et%d: et_start ret\n", et->etc->unit, 0);
+ 
+@@ -1374,3 +1384,19 @@ et_phywr(et_info_t *et, uint phyaddr, ui
  	et->etc->chops->phywr(et->etc->ch, phyaddr, reg, val);
  	ET_UNLOCK(et);
  }
