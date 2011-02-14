@@ -682,7 +682,7 @@ main(int argc, char *argv[])
 			/* actual read */
 			val32 = robo_read32(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ENTRY_5395);
 			if ((val32)) {
-				printf("%3d: vlan%d:", i, i);
+				printf("%4d: vlan%d:", i, i);
 				for (j = 0; j <= 8; j++) {
 					if (val32 & (1 << j)) {
 						printf(" %d%s", j, (val32 & (1 << (j + 9))) ? 
@@ -699,7 +699,7 @@ main(int argc, char *argv[])
 				val16 = (robo535x == 3)
 					? ((val32 & 0xff000) >> 12)
 					: ((val32 & 0xff000) >> 12) << 4;
-				printf("%3d: vlan%d:", i, val16 | i);
+				printf("%4d: vlan%d:", i, val16 | i);
 				for (j = 0; j < 6; j++) {
 					if (val32 & (1 << j)) {
 						printf(" %d%s", j, (val32 & (1 << (j + 6))) ? 
@@ -713,7 +713,7 @@ main(int argc, char *argv[])
 			/* actual read */
 			val16 = robo_read16(&robo, ROBO_VLAN_PAGE, ROBO_VLAN_READ);
 			if ((val16 & (1 << 14)) /* valid */) {
-				printf("%3d: vlan%d:", i, i);
+				printf("%4d: vlan%d:", i, i);
 				for (j = 0; j < 6; j++) {
 					if (val16 & (1 << j)) {
 						printf(" %d%s", j, (val16 & (1 << (j + 7))) ? 
