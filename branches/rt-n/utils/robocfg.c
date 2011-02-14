@@ -210,7 +210,7 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 	return 1;
 }
 
-u8 port[6] = { 0, 1, 2, 3, 4, 8 };
+u8 port[9] = { 0, 1, 2, 3, 4, 8, 0, 0, 8};
 char ports[] = "01234???5???????";
 char *speed[4] = { "10", "100", "1000" , "4" };
 char *rxtx[4] = { "enabled", "rx_disabled", "tx_disabled", "disabled" };
@@ -287,7 +287,7 @@ main(int argc, char *argv[])
 	u32 val32;
 	u16 mac[3];
 	int i = 0, j;
-	int robo535x = 0; /* 0 - 5365, 1 - 5325, 3 - 5356, 4 - 53115 */
+	int robo535x = 0; /* 0 - 5365, 1 - 5325/5352/5354, 3 - 5356, 4 - 53115 */
 	u32 phyid;
 	
 	static robo_t robo;
@@ -383,7 +383,8 @@ main(int argc, char *argv[])
 						buf[0] >> 8, buf[0] & 255,
 						((robo535x == 4 ?
 						    (buf[4] & 0x8000) : (buf[3] & 0x4000)) ? "STATIC" : "DYNAMIC"),
-						ports[buf[robo535x == 4 ? 4 : 3] & 0x0f]
+						((robo535x == 4) ?
+						    '0'+(buf[4] & 0x0f) : ports[buf[3] & 0x0f])
 					);
 				}
 			}
@@ -534,12 +535,12 @@ main(int argc, char *argv[])
 		} else
 		if (strcasecmp(argv[i], "vlans") == 0 && (i + 1) < argc)
 		{
-			if (robo535x == 4) {
-				printf("*** Not ready for BCM53115!\n");
-				break;
-			}
 			while (++i < argc) {
 				if (strcasecmp(argv[i], "reset") == 0) {
+					if (robo535x == 4) {
+						robo_write16(&robo, ROBO_ARLIO_PAGE, ROBO_VTBL_ACCESS_5395,
+									 (1 << 7) /* start */ | 2 /* flush */);
+					} else
 					/* reset vlan validity bit */
 					for (j = 0; j <= ((robo535x == 1) ? VLAN_ID_MAX5350 : VLAN_ID_MAX); j++) 
 					{
@@ -635,7 +636,8 @@ main(int argc, char *argv[])
 
 	for (i = 0; i < 6; i++) {
 		printf(robo_read16(&robo, ROBO_STAT_PAGE, ROBO_LINK_STAT_SUMMARY) & (1 << port[i]) ?
-			"Port %d: %4s%s " : "Port %d:   DOWN ", i,
+			"Port %d: %4s%s " : "Port %d:   DOWN ",
+			(robo535x == 4) ? port[i] : i,
 			speed[(robo535x == 4) ?
 				(robo_read32(&robo, ROBO_STAT_PAGE, ROBO_SPEED_STAT_SUMMARY) >> port[i] * 2) & 3 :
 				(robo_read16(&robo, ROBO_STAT_PAGE, ROBO_SPEED_STAT_SUMMARY) >> port[i]) & 1],
@@ -665,7 +667,9 @@ main(int argc, char *argv[])
 		(val16 & (1 << 5)) ? " mac_hash" : "");
 	
 	/* scan VLANs */
-	for (i = 0; i <= ((robo535x < 4) ? VLAN_ID_MAX5350 : VLAN_ID_MAX); i++) {
+	for (i = 0; i <= ((robo535x == 4) ? VLAN_ID_MAX5395 /* slow, needs rework, but how? */ :
+			  (robo535x ? VLAN_ID_MAX5350 : VLAN_ID_MAX)); i++)
+	{
 		/* issue read */
 		val16 = (i) /* vlan */ | (0 << 12) /* read */ | (1 << 13) /* enable */;
 		

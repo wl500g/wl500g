@@ -545,6 +545,7 @@ typedef struct _ROBO_VLAN_CTRL0_STRUC
 #define VLAN_ID_HIGH_BITS 0             /* static high bits in table access reg */
 #define VLAN_ID_MAX 255                 /* max VLAN id */
 #define VLAN_ID_MAX5350 15              /* max VLAN id (5350) */
+#define VLAN_ID_MAX5395 4094            /* max VLAN id (5395) */
 #define VLAN_ID_MASK VLAN_ID_MAX        /* VLAN id mask */
 #ifdef BCM5380
 #define VLAN_UNTAG_SHIFT 13             /* for postioning untag bits in write reg */
