@@ -773,10 +773,13 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 dropbear/config.h: dropbear/config.h.in
-	cd dropbear && CPPFLAGS="$(EXTRACFLAGS)" LDFLAGS="-Wl,-rpath /lib" \
+	cd dropbear && CPPFLAGS="-DARGTYPE=3 $(EXTRACFLAGS)" \
+	    LDFLAGS="-Wl,-rpath /lib" \
 	    $(CONFIGURE) --disable-zlib --disable-shadow \
-	    --disable-lastlog --disable-utmp --disable-utmpx --disable-wtmp --disable-wtmpx \
-	    --disable-libutil --disable-loginfunc --disable-pututline --disable-pututxline
+	    --disable-lastlog --disable-utmp --disable-utmpx \
+	    --disable-wtmp --disable-wtmpx \
+	    --disable-libutil --disable-loginfunc --disable-pututline \
+	    --disable-pututxline
 
 dropbear: dropbear/config.h
 	$(MAKE) -C $@ PROGRAMS="dropbear dbclient scp dropbearkey dropbearconvert" MULTI=1 SCPPROGRESS=1
