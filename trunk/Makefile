@@ -23,7 +23,7 @@ export KERNEL_DIR := $(ROOT)/linux/linux
 
 BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.52
-DNSMASQ=dnsmasq-2.56rc2
+DNSMASQ=dnsmasq-2.56
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.94
 SAMBA=samba-2.0.10
@@ -240,17 +240,13 @@ $(TOP)/iproute2: iproute2/$(IPROUTE2).tar.bz2
 iproute2: $(TOP)/iproute2
 	@true
 
-$(TOP)/dnsmasq: $(DNSMASQ).tar.gz
+dnsmasq_Patches := $(call patches_list,dnsmasq)
+
+$(TOP)/dnsmasq: dnsmasq/$(DNSMASQ).tar.gz
 	@rm -rf $(TOP)/$(DNSMASQ) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(DNSMASQ) $(DNSMASQ).patch
+	$(PATCHER) -Z $(TOP)/$(DNSMASQ) $(dnsmasq_Patches)
 	mv $(TOP)/$(DNSMASQ) $@ && touch $@
-
-dnsmasq-diff: $(DNSMASQ).tar.gz
-	@rm -rf $(TOP)/$(DNSMASQ)
-	tar -xzf $^ -C $(TOP)
-	-$(MAKE) -C $(TOP)/dnsmasq clean
-	-(cd $(TOP) && $(DIFF) -BurpN $(DNSMASQ) dnsmasq) > $(DNSMASQ).patch
 
 dnsmasq: $(TOP)/dnsmasq
 	@true
