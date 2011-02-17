@@ -1293,7 +1293,6 @@ int do_command6(int argc, char *argv[], char **table, struct ip6tc_handle **hand
 	struct in6_addr *saddrs = NULL, *daddrs = NULL;
 
 	int c, verbose = 0;
-	unsigned i;
 	const char *chain = NULL;
 	const char *shostnetworkmask = NULL, *dhostnetworkmask = NULL;
 	const char *policy = NULL, *newname = NULL;
@@ -2001,12 +2000,8 @@ int do_command6(int argc, char *argv[], char **table, struct ip6tc_handle **hand
 		e = NULL;
 	}
 
-	for (i = 0; i < nsaddrs; i++)
-		free(&saddrs[i]);
-
-	for (i = 0; i < ndaddrs; i++)
-		free(&daddrs[i]);
-
+	free(saddrs);
+	free(daddrs);
 	xtables_free_opts(1);
 
 	return ret;
