@@ -279,20 +279,10 @@ mksquashfs-lzma: lzma-lib
 		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
 kernel-modules: $(LINUXDIR)/.config
-	( . $(LINUXDIR)/.config ; \
-	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc; \
-	fi )
+	$(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc
 
-kernel-image: $(LINUXDIR)/.config
-	( . $(LINUXDIR)/.config ; \
-	if [ "$${CONFIG_EMBEDDED_RAMDISK}" = "" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc; \
-	fi )
-
-kernel-deps-y := kernel-image kernel-modules
-
-kernel: $(kernel-deps-y)
+kernel: $(LINUXDIR)/.config
+	$(MAKE) -C $(LINUXDIR) CC=$(CROSS_COMPILE)gcc
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed
 
 kernel-clean:
