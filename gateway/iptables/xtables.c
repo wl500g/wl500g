@@ -1079,7 +1079,7 @@ static struct in_addr *host_to_ipaddr(const char *name, unsigned int *naddr)
 
 		while (host->h_addr_list[*naddr] != NULL)
 			++*naddr;
-		addr = xtables_calloc(*naddr, sizeof(struct in_addr) * *naddr);
+		addr = xtables_calloc(*naddr, sizeof(struct in_addr));
 		for (i = 0; i < *naddr; i++)
 			memcpy(&addr[i], host->h_addr_list[i],
 			       sizeof(struct in_addr));
