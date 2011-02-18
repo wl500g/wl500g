@@ -12,7 +12,7 @@ This is a little how-to on how to set up an IPv6 over IPv4 tunnel via Hurricane 
   * [GUIIPconfigIPv6Tunnelhowto#Finished_Example Finished Example]
  * [GUIIPconfigIPv6Tunnelhowto#Configuring_Clients Configuring Clients]
   * [GUIIPconfigIPv6Tunnelhowto#Windows_XP Windows XP]
-  * [GUIIPconfigIPv6Tunnelhowto#Windows_Vista/7 Windows_Vista/7
+  * [GUIIPconfigIPv6Tunnelhowto#Windows_Vista or 7 Windows_Vista or 7
   * [GUIIPconfigIPv6Tunnelhowto#Linux Linux]
  * [GUIIPconfigIPv6Tunnelhowto#Trying_out_IPv6 Trying out IPv6]
 
@@ -108,7 +108,7 @@ Before you can browse IPv6 sites you might need to restart your browser, after f
 
  You might need to reboot again if you had to tick it yourself.
 
- == Windows Vista/7 ==
+ == Windows Vista or 7 ==
  IPv6 is installed by default in this operating system.
   * Simply turn of and on your network card to get an address
   * Or Unplug your ethernet cable for a few seconds
