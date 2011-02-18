@@ -17,6 +17,7 @@
     * IP Config
       * WAN & LAN
       * IPv6
+       * [GUIIPconfigIPv6Tunnelhowto IPv6-in-IPv4 Tunnel Setup]
       * SNMP
       * DHCP Server
       * Route
