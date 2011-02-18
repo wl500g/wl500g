@@ -23,7 +23,7 @@ export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
 BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.52
-DNSMASQ=dnsmasq-2.56
+DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.94
 SAMBA=samba-2.0.10
@@ -45,7 +45,7 @@ L2TP=rp-l2tp-0.4
 XL2TPD=xl2tpd-1.2.7
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
-VSFTPD=vsftpd-2.3.2
+VSFTPD=vsftpd-2.3.4
 UDPXY=udpxy-1.0-Chipmunk-19
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
