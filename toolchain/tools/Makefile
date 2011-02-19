@@ -15,7 +15,6 @@ tools-$(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4) += gmp mpfr
 $(curdir)/builddirs := $(tools-y)
 
 # builddir dependencies
-$(curdir)/squashfs/compile := $(curdir)/lzma/install
 $(curdir)/mpfr/compile := $(curdir)/gmp/install
 
 # preparatory work
