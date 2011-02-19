@@ -73,6 +73,14 @@ endif
 # Create addtional symlinks
 	ln -sf $(ARCH)-linux-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-linux-cc
 	ln -sf $(ARCH)-linux-uclibc-g\+\+	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-g\+\+
+	ln -sf $(ARCH)-linux-uclibc-addr2line	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-addr2line
+	ln -sf $(ARCH)-linux-uclibc-as		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-as
+	ln -sf $(ARCH)-linux-uclibc-c\+\+filt	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-c\+\+filt
+	ln -sf $(ARCH)-linux-uclibc-gcov	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gcov
+	ln -sf $(ARCH)-linux-uclibc-gprof	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gprof
+	ln -sf $(ARCH)-linux-uclibc-readelf	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-readelf
+	ln -sf $(ARCH)-linux-uclibc-c\+\+	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-c\+\+
+	ln -sf $(ARCH)-linux-uclibc-cpp		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-cpp
 	ln -sf $(ARCH)-linux-uclibc-ar		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-ar
 	ln -sf $(ARCH)-linux-uclibc-gcc		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gcc
 	ln -sf $(ARCH)-linux-uclibc-gcc-$(GCCV)	$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-gcc-$(GCCV)

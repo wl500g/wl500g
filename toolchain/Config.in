@@ -12,14 +12,15 @@ config HAVE_DOT_CONFIG
 
 #source "target/Config.in"
 
-config TARGET_BOARD
-        string
-	default "brcm-2.6"
-
 config LINUX_2_4
         bool
 	prompt "Kernel 2.4 features only"
 	default y
+
+config TARGET_BOARD
+        string
+	default "brcm-2.4" if LINUX_2_4
+	default "brcm-2.6" if !LINUX_2_4
 
 config mipsel
         bool
@@ -59,13 +60,6 @@ config AUTOREBUILD
 	default y
 	help
 		Automatically rebuild packages when their files change
-
-config BUILD_SUFFIX
-	string
-	prompt "Build suffix to append to the BUILD_DIR variable" if DEVEL
-	default ""
-	help
-		Build suffix to append to the BUILD_DIR variable, i.e: build_dir_suffix
 
 config TAR_VERBOSITY
 	bool

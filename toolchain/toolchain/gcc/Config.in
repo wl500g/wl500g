@@ -2,7 +2,7 @@
 
 choice
 	prompt "GCC compiler Version"
-	default GCC_VERSION_4_1_2
+	default GCC_VERSION_4_3_5
 	help
 	  Select the version of gcc you wish to use.
 
@@ -17,6 +17,9 @@ choice
 
 	config GCC_VERSION_4_3_5
 		bool "gcc 4.3.5"
+
+	config GCC_VERSION_4_4_5
+		bool "gcc 4.4.5"
 
 endchoice
 
@@ -45,7 +48,7 @@ config SSP_SUPPORT
 
 config TLS_SUPPORT
 	bool
-	depends !GCC_VERSION_3_4_6 && !LINUX_2_4
+	depends !GCC_VERSION_3_4_6 && !LINUX_2_4 && UCLIBC_VERSION_0_9_32
 	prompt "Enable Thread-local storage (TLS) support"
 	default n
 	help

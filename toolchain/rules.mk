@@ -32,11 +32,10 @@ _SINGLE=MAKEFLAGS=$(space)
 ARCH:=$(call qstrip,$(shell echo $(CONFIG_ARCH) | sed -e 's/i[3-9]86/i386/'))
 BOARD:=$(call qstrip,$(CONFIG_TARGET_BOARD))
 TARGET_OPTIMIZATION:=$(call qstrip,$(CONFIG_TARGET_OPTIMIZATION))
-BUILD_SUFFIX:=$(call qstrip,$(CONFIG_BUILD_SUFFIX))
 GCCV:=$(call qstrip,$(CONFIG_GCC_VERSION))
 SUBDIR:=$(patsubst $(TOPDIR)/%,%,${CURDIR})
 ifneq ($(CONFIG_LINUX_2_4),y)
-  TGTSUFFIX:=-K26
+  TGT_SUFFIX:=-K26
 endif
 
 OPTIMIZE_FOR_CPU=$(ARCH)
@@ -46,12 +45,12 @@ BIN_DIR:=$(TOPDIR)/bin
 INCLUDE_DIR:=$(TOPDIR)/include
 SCRIPT_DIR:=$(TOPDIR)/scripts
 BUILD_DIR_BASE:=$(TOPDIR)/build_dir
-BUILD_DIR:=$(BUILD_DIR_BASE)/$(ARCH)$(if $(BUILD_SUFFIX),_$(BUILD_SUFFIX))
+BUILD_DIR:=$(BUILD_DIR_BASE)/$(ARCH)
 BUILD_DIR_HOST:=$(BUILD_DIR_BASE)/host
 BUILD_DIR_TOOLCHAIN:=$(BUILD_DIR_BASE)/toolchain-$(ARCH)_gcc$(GCCV)
 STAGING_DIR:=$(TOPDIR)/staging_dir/$(ARCH)
 STAGING_DIR_HOST:=$(TOPDIR)/staging_dir/host
-TOOLCHAIN_DIR:=/opt/brcm/hndtools-$(ARCH)-uclibc-$(GCCV)$(TGTSUFFIX)
+TOOLCHAIN_DIR:=/opt/brcm/hndtools-$(ARCH)-uclibc-$(GCCV)$(TGT_SUFFIX)
 #TOOLCHAIN_DIR:=$(TOPDIR)/staging_dir/toolchain-$(ARCH)_gcc$(GCCV)
 PACKAGE_DIR:=$(BIN_DIR)/packages/$(ARCH)
 STAMP_DIR:=$(BUILD_DIR)/stamp

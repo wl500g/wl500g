@@ -82,6 +82,12 @@ ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4),)
 		--disable-decimal-float
 endif
 
+ifneq ($(CONFIG_GCC_VERSION_4_4),)
+  ifneq ($(CONFIG_mips)$(CONFIG_mipsel),)
+    GCC_CONFIGURE += --with-mips-plt
+  endif
+endif
+
 ifneq ($(CONFIG_SSP_SUPPORT),)
   GCC_CONFIGURE+= \
 		--enable-libssp
