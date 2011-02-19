@@ -502,9 +502,11 @@ start_lan(void)
 		close(s);
 	}
 
+#ifdef LINUX26 // TODO: Make et version specific?
 	/* set the packet size */
 	if (nvram_match("jumbo_frame_enable", "1"))
 		eval("et", "robowr", "0x40", "0x05", nvram_safe_get("jumbo_frame_size"));
+#endif
 
 #ifdef WPA2_WMM
 	/* Set QoS mode */
