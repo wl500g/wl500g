@@ -5,18 +5,21 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===wl500g-1.9.2.7-d (current)=== 
+===wl500g-1.9.2.7-d-`r2624` (2011-02-19)=== 
   * kernel 2.4.37.11
 
-  * busybox 1.18.2
+  * busybox 1.18.3
     * prefer ipv4 addresses from DNS queries
-    * dhcpc: fixed huge packets breakage (beeline)
+    * dhcpc: fixed huge packets breakage (beeline ISP)
+    * bugfixes (wget, modutils24)
 
-  * dnsmasq 2.56rc2
+  * dnsmasq 2.57
 
   * pppd
     * Debian patches (dont-exit-pado-timeout, adaptive_echos, radius_mtu)
     * pptp/l2tp: force nameserver refresh with pre-0.9.31 uClibc
+
+  * vsftpd 2.3.4
 
   * udpxy 1.0-Chipmunk-19
 
@@ -35,6 +38,8 @@
   * 3g/cdma: fix uni/dial script.
 
   * DynDNS: add easydns and no-ip support
+
+  * iptables bugfixes from TomatoUSB project
 
 ===wl500g-1.9.2.7-d-`r2381` (2010-11-27)===
   * kernel
