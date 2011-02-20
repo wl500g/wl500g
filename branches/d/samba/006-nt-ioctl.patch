@@ -1,0 +1,11 @@
+--- samba/source/smbd/nttrans.c.orig	2008-02-25 09:28:41.000000000 +0300
++++ samba/source/smbd/nttrans.c	2008-02-25 10:09:34.000000000 +0300
+@@ -2513,7 +2513,7 @@
+   static BOOL logged_message = False;
+ 
+   if(!logged_message) {
+-    DEBUG(0,("call_nt_transact_ioctl: Currently not implemented.\n"));
++    DEBUG(3,("call_nt_transact_ioctl: Currently not implemented.\n"));
+     logged_message = True; /* Only print this once... */
+   }
+   return(ERROR(ERRSRV,ERRnosupport));

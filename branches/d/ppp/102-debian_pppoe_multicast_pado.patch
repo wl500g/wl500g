@@ -1,0 +1,14 @@
+diff -urBp ppp-2.4.5-pre/pppd/plugins/rp-pppoe/discovery.c ppp/pppd/plugins/rp-pppoe/discovery.c
+--- ppp-2.4.5-pre/pppd/plugins/rp-pppoe/discovery.c	2008-11-26 13:02:29.000000000 +0300
++++ ppp/pppd/plugins/rp-pppoe/discovery.c	2009-02-09 16:41:16.000000000 +0300
+@@ -329,8 +329,8 @@ waitForPADO(PPPoEConnection *conn, int t
+ 	if (!packetIsForMe(conn, &packet)) continue;
+ 
+ 	if (packet.code == CODE_PADO) {
+-	    if (NOT_UNICAST(packet.ethHdr.h_source)) {
+-		error("Ignoring PADO packet from non-unicast MAC address");
++	    if (BROADCAST(packet.ethHdr.h_source)) {
++		error("Ignoring PADO packet from broadcast MAC address");
+ 		continue;
+ 	    }
+ 	    if (conn->req_peer
