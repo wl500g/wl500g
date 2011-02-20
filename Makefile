@@ -131,13 +131,13 @@ lzma: $(ROOT)/lzma
 	@true
 
 wl:
-	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
-	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src/$(NAS).tbz2
+	tar -C $(ROOT) --recursive-unlink -xjf brcm-src-2.6/$(WL).tar.bz2
+	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src-2.6/$(NAS).tbz2
 
-brcm_Patches := $(call patches_list,brcm-src)
+brcm_Patches := $(call patches_list,brcm-src-2.6)
 
 brcm-shared:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C brcm-src-2.6 $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -642,7 +642,7 @@ libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
 	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
 
 $(TOP)/wlconf:
-	tar -C brcm-src/ $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) -xf -
+	tar -C brcm-src-2.6/ $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) -xf -
 
 wlconf: $(TOP)/wlconf
 	@true
