@@ -637,9 +637,9 @@ $(TOP)/lib:
 
 lib: $(TOP)/lib
 
-libbcmcrypto: $(LIBBCMCRYPTO).tar.gz
+libbcmcrypto: brcm-src-2.6/$(LIBBCMCRYPTO).tar.gz
 	tar -zxf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO).patch
+	$(PATCHER) $(TOP)/libbcmcrypto brcm-src-2.6/$(LIBBCMCRYPTO).patch
 
 $(TOP)/wlconf:
 	tar -C brcm-src-2.6/ $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) -xf -
