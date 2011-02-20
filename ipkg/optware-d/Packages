@@ -1,3 +1,17 @@
+Package: fuse-lib
+Architecture: mipsel
+Priority: optional
+Section: lib
+Version: 2.8.5-oleg
+Maintainer: Ryzhov Alexander
+Source: http://fuse.sourceforge.net/
+Filename: fuse-lib_2.8.5-oleg_mipsel.ipk
+Size: 432375
+MD5Sum: 2602258edb09cfd90571b34b586a209a
+Description: With FUSE it is possible to implement a fully functional filesystem in a userspace program.
+Depends: 
+Conflicts: 
+
 Package: ipkg
 Version: 0.99.163-2
 Section: base
@@ -68,4 +82,18 @@ Description: The NTFS-3G driver is a freely and commercially available
  and Windows 7 file systems. 
 Depends:
 Conflicts:
+
+Package: owfs
+Architecture: mipsel
+Priority: optional
+Section: comm
+Version: 2.8p6-2-oleg
+Maintainer: Ryzhov Alexander
+Source: http://owfs.org/
+Filename: owfs_2.8p6-2-oleg_mipsel.ipk
+Size: 1580285
+MD5Sum: 0adc72f4242fe3c85f912697b68eec0f
+Description: OWFS is a 1-Wire File System
+Depends: fuse-lib
+Conflicts: 
 
