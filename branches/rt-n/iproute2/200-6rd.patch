@@ -1,0 +1,212 @@
+This patch provides iproute2 facilities to configure 6rd tunnel. To
+configure a 6rd tunnel, you need to configure a sit tunnel and set
+6rd prefix as following :
+
+  ip tunnel add sit1 mode sit local a.b.c.d ttl 64
+  ip tunnel 6rd dev sit1 6rd-prefix xxxx:yyyy::/z
+
+Optionally you can provide a relay prefix :
+
+  ip tunnel 6rd dev sit1 6rd-relay_prefix e.f.g.h/i
+
+Finally you can reset previous tunnel settings :
+
+  ip tunnel 6rd dev sit1 6rd-reset
+
+Signed-off-by: Alexandre Cassen <acassen@freebox.fr>
+
+--- 
+ include/linux/if_tunnel.h |   11 +++++++
+ ip/iptunnel.c             |   64 +++++++++++++++++++++++++++++++++++++++++++++-
+ ip/tunnel.c               |   27 +++++++++++++++++++
+ ip/tunnel.h               |    2 +
+ 4 files changed, 103 insertions(+), 1 deletion(-)
+
+diff -urBp iproute2.orig/include/linux/if_tunnel.h iproute2/include/linux/if_tunnel.h
+--- iproute2.orig/include/linux/if_tunnel.h	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/include/linux/if_tunnel.h	2011-02-21 20:20:01.000000000 +0300
+@@ -7,6 +7,10 @@
+ #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
+ #define SIOCDELTUNNEL   (SIOCDEVPRIVATE + 2)
+ #define SIOCCHGTUNNEL   (SIOCDEVPRIVATE + 3)
++#define SIOCGET6RD      (SIOCDEVPRIVATE + 8)
++#define SIOCADD6RD      (SIOCDEVPRIVATE + 9)
++#define SIOCDEL6RD      (SIOCDEVPRIVATE + 10)
++#define SIOCCHG6RD      (SIOCDEVPRIVATE + 11)
+ 
+ #define GRE_CSUM	__constant_htons(0x8000)
+ #define GRE_ROUTING	__constant_htons(0x4000)
+@@ -31,4 +35,11 @@ struct ip_tunnel_parm
+ 	struct iphdr		iph;
+ };
+ 
++struct ip_tunnel_6rd {
++	struct in6_addr		prefix;
++	__be32			relay_prefix;
++	__u16			prefixlen;
++	__u16			relay_prefixlen;
++};
++
+ #endif /* _IF_TUNNEL_H_ */
+diff -urBp iproute2.orig/ip/iptunnel.c iproute2/ip/iptunnel.c
+--- iproute2.orig/ip/iptunnel.c	2008-05-01 03:26:48.000000000 +0400
++++ iproute2/ip/iptunnel.c	2011-02-21 20:16:46.000000000 +0300
+@@ -38,9 +38,10 @@ static void usage(void) __attribute__((n
+ 
+ static void usage(void)
+ {
+-	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
++	fprintf(stderr, "Usage: ip tunnel { add | change | del | show | 6rd } [ NAME ]\n");
+ 	fprintf(stderr, "          [ mode { ipip | gre | sit | isatap } ] [ remote ADDR ] [ local ADDR ]\n");
+ 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
++	fprintf(stderr, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
+ 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
+ 	fprintf(stderr, "\n");
+ 	fprintf(stderr, "Where: NAME := STRING\n");
+@@ -313,11 +314,13 @@ static int do_del(int argc, char **argv)
+ 
+ static void print_tunnel(struct ip_tunnel_parm *p)
+ {
++	struct ip_tunnel_6rd ip6rd;
+ 	char s1[1024];
+ 	char s2[1024];
+ 	char s3[64];
+ 	char s4[64];
+ 
++	memset(&ip6rd, 0, sizeof(ip6rd));
+ 	inet_ntop(AF_INET, &p->i_key, s3, sizeof(s3));
+ 	inet_ntop(AF_INET, &p->o_key, s4, sizeof(s4));
+ 
+@@ -354,6 +357,17 @@ static void print_tunnel(struct ip_tunne
+ 	if (!(p->iph.frag_off&htons(IP_DF)))
+ 		printf(" nopmtudisc");
+ 
++	if (p->iph.protocol == IPPROTO_IPV6 && !tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
++		printf(" 6rd-prefix %s/%u ",
++		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
++		       ip6rd.prefixlen);
++		if (ip6rd.relay_prefix) {
++			printf("6rd-relay_prefix %s/%u ",
++			       format_host(AF_INET, 4, &ip6rd.relay_prefix, s1, sizeof(s1)),
++			       ip6rd.relay_prefixlen);
++		}
++	}
++
+ 	if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) && p->o_key == p->i_key)
+ 		printf(" key %s", s3);
+ 	else if ((p->i_flags|p->o_flags)&GRE_KEY) {
+@@ -470,6 +484,52 @@ static int do_show(int argc, char **argv
+ 	return 0;
+ }
+ 
++static int do_6rd(int argc, char **argv)
++{
++	struct ip_tunnel_6rd ip6rd;
++	int devname = 0;
++	int cmd = 0;
++	char medium[IFNAMSIZ];
++	inet_prefix prefix;
++
++	memset(&ip6rd, 0, sizeof(ip6rd));
++	memset(&medium, 0, sizeof(medium));
++
++	while (argc > 0) {
++		if (strcmp(*argv, "6rd-prefix") == 0) {
++			NEXT_ARG();
++			if (get_prefix(&prefix, *argv, AF_INET6))
++				invarg("invalid 6rd_prefix\n", *argv);
++			cmd = SIOCADD6RD;
++			memcpy(&ip6rd.prefix, prefix.data, 16);
++			ip6rd.prefixlen = prefix.bitlen;
++		} else if (strcmp(*argv, "6rd-relay_prefix") == 0) {
++			NEXT_ARG();
++			if (get_prefix(&prefix, *argv, AF_INET))
++				invarg("invalid 6rd-relay_prefix\n", *argv);
++			cmd = SIOCADD6RD;
++			memcpy(&ip6rd.relay_prefix, prefix.data, 4);
++			ip6rd.relay_prefixlen = prefix.bitlen;
++		} else if (strcmp(*argv, "6rd-reset") == 0) {
++			cmd = SIOCDEL6RD;
++		} else if (strcmp(*argv, "dev") == 0) {
++			NEXT_ARG();
++			strncpy(medium, *argv, IFNAMSIZ-1);
++			devname++;
++		} else {
++			fprintf(stderr,"%s: Invalid 6RD parameter.\n", *argv);
++			exit(-1);
++		}
++		argc--; argv++;
++	}
++	if (devname == 0) {
++		fprintf(stderr, "Must specify dev.\n");
++		exit(-1);
++	}
++
++	return tnl_6rd_ioctl(cmd, medium, &ip6rd);
++}
++
+ int do_iptunnel(int argc, char **argv)
+ {
+ 	switch (preferred_family) {
+@@ -501,6 +561,8 @@ int do_iptunnel(int argc, char **argv)
+ 		    matches(*argv, "lst") == 0 ||
+ 		    matches(*argv, "list") == 0)
+ 			return do_show(argc-1, argv+1);
++		if (matches(*argv, "6rd") == 0)
++			return do_6rd(argc-1, argv+1);
+ 		if (matches(*argv, "help") == 0)
+ 			usage();
+ 	} else
+diff -urBp iproute2.orig/ip/tunnel.c iproute2/ip/tunnel.c
+--- iproute2.orig/ip/tunnel.c	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/ip/tunnel.c	2011-02-21 20:16:46.000000000 +0300
+@@ -26,6 +26,7 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <errno.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
+@@ -167,3 +168,29 @@ int tnl_del_ioctl(const char *basedev, c
+ 	close(fd);
+ 	return err;
+ }
++
++static int tnl_gen_ioctl(int cmd, const char *name, void *p, int skiperr)
++{
++	struct ifreq ifr;
++	int fd;
++	int err;
++
++	strncpy(ifr.ifr_name, name, IFNAMSIZ);
++	ifr.ifr_ifru.ifru_data = p;
++	fd = socket(preferred_family, SOCK_DGRAM, 0);
++	err = ioctl(fd, cmd, &ifr);
++	if (err && errno != skiperr)
++		perror("ioctl");
++	close(fd);
++	return err;
++}
++
++int tnl_6rd_ioctl(int cmd, const char *name, void *p)
++{
++	return tnl_gen_ioctl(cmd, name, p, -1);
++}
++
++int tnl_ioctl_get_6rd(const char *name, void *p)
++{
++	return tnl_gen_ioctl(SIOCGET6RD, name, p, EINVAL);
++}
+diff -urBp iproute2.orig/ip/tunnel.h iproute2/ip/tunnel.h
+--- iproute2.orig/ip/tunnel.h	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/ip/tunnel.h	2011-02-21 20:11:13.000000000 +0300
+@@ -31,5 +31,7 @@ char * tnl_ioctl_get_ifname(int idx);
+ int tnl_get_ioctl(const char *basedev, void *p);
+ int tnl_add_ioctl(int cmd, const char *basedev, const char *name, void *p);
+ int tnl_del_ioctl(const char *basedev, const char *name, void *p);
++int tnl_6rd_ioctl(int cmd, const char *name, void *p);
++int tnl_ioctl_get_6rd(const char *name, void *p);
+ 
+ #endif
+-- 
