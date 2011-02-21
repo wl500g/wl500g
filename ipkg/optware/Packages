@@ -1,3 +1,16 @@
+Package: binkd
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 1.0.0
+Maintainer: Ryzhov Alexander
+Source: ftp://cvs.happy.kiev.ua/pub/fidosoft/mailer/binkd/binkd098.zip
+Filename: binkd_1.0.0_mipsel.ipk
+Size: 93011
+MD5Sum: 657814fd247484c92398dd310091d2e1
+Description: BinkD is multiplatform Fido Mailer
+Depends: zlib, bzip2
+Conflicts: 
 
 Package: cpulimit
 Architecture: mipsel
@@ -87,6 +100,21 @@ MD5Sum: bba76bc793c8439c9da13d05f2153dce
 Description: Highly Portable Tosser is a full-featured FTN tosser.
 Depends: 
 Conflicts: 
+Package: libconfig
+Architecture: mipsel
+Priority: optional
+Section: lib
+Version: 1.4.6-1
+Maintainer: Alexander Ryzhov
+Source: http://www.hyperrealm.com/libconfig/libconfig-1.4.6.tar.gz
+Filename: libconfig_1.4.6-1_mipsel.ipk
+Size: 110827
+MD5Sum: 8f0496fa0370cc59c92379adf3307871
+Description: Libconfig is a simple library for processing structured configuration files. 
+ This file format is more compact and more readable than XML. And unlike XML, it is type-aware, 
+ so it is not necessary to do string parsing in application code.
+Depends: 
+Conflicts:
 
 Package: mc
 Architecture: mipsel
@@ -191,6 +219,19 @@ Depends: libpcap
 Suggests: 
 Conflicts: 
 
+Package: shakespeer
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 0.9.11-487
+Maintainer: ilia maslakov, Andrey aka Reyter
+Source: http://shakespeer.bzero.se/
+Filename: shakespeer_0.9.11-487_mipsel.ipk
+Size: 3873828
+MD5Sum: 7b33c43ca91e47fefa9c78a9eed9602e
+Description: ShakesPeer is a Direct Connect client.
+Depends: expat, libevent
+Conflicts: 
 
 Package: sysfsutils
 Architecture: mipsel
@@ -222,6 +263,19 @@ Depends: gettext, psmisc
 Suggests: 
 Conflicts: 
 
+Package: tmux
+Architecture: mipsel
+Priority: optional
+Section: term
+Version: 1.4
+Maintainer: Alexander Ryzhov
+Source: http://tmux.sourceforge.net/
+Filename: tmux_1.4_mipsel.ipk
+Size: 175625
+MD5Sum: 67daca619a7cb510c3f12674994355d1
+Description: tmux is a terminal multiplexer: it enables a number of terminals (or windows), each running a separate program, to be created, accessed, and controlled from a single screen.
+Depends: libevent, ncurses
+Conflicts: 
 
 Package: transmission
 Architecture: mipsel
@@ -234,21 +288,6 @@ Filename: transmission_2.21-1_mipsel.ipk
 Size: 1931606
 MD5Sum: e71887cb559f20aa3efd07991bdaf63f
 Description: Lightweight BitTorrent client and daemon, with web interface bundled.
-Depends: openssl, libcurl, libevent, zlib
-Suggests: 
-Conflicts: 
-
-Package: transmission-leecher-mod
-Architecture: mipsel
-Priority: optional
-Section: net
-Version: 2.01
-Maintainer: ryzhov_al@hotbox.ru
-Source: http://mirrors.m0k.org/transmission/files/transmission-2.01.tar.bz2
-Filename: transmission-leecher-mod_2.01_mipsel.ipk
-Size: 901987
-MD5Sum: 567f67cb1cc31066664cc441ce28a9d6
-Description: Lightweight BitTorrent client and daemon, with web interface bundled. Includes leecher mod patch from http://www.seba14.org/2010/07/25/transmission-176-leecher-mod-patch/
 Depends: openssl, libcurl, libevent, zlib
 Suggests: 
 Conflicts: 
