@@ -1,0 +1,203 @@
+Subject: Draft of RFC5969 IPv6 6RD support
+ Originally from OpenWRT
+ TODO: OPTION_6RD parse optimization
+
+ function                                             old     new   delta
+ xmalloc_optname_optval                               944    1240    +296
+ .rodata                                            84807   84832     +25
+ dhcp_option_strings                                  203     211      +8
+ dhcp_optflags                                         60      64      +4
+ len_of_option_as_string                               10      11      +1
+ dhcp_option_lengths                                   10      11      +1
+ ------------------------------------------------------------------------------
+ (add/remove: 0/0 grow/shrink: 6/0 up/down: 335/0)             Total: 335 bytes
+
+diff --git a/networking/udhcp/Config.src b/networking/udhcp/Config.src
+index 750a53a..b458a0e 100644
+--- a/networking/udhcp/Config.src
++++ b/networking/udhcp/Config.src
+@@ -113,6 +113,13 @@ config FEATURE_UDHCP_RFC3397
+ 	  search lists via option 119, specified in RFC 3397,
+ 	  and SIP servers option 120, specified in RFC 3361.
+ 
++config FEATURE_UDHCP_RFC5969
++	bool "Support for RFC5969 IPv6 Rapid Deployment (6RD)"
++	default y
++	depends on FEATURE_IPV6 && UDHCPC
++	help
++	  None.
++
+ config UDHCPC_DEFAULT_SCRIPT
+ 	string "Absolute path to config script"
+ 	default "/usr/share/udhcpc/default.script"
+diff --git a/networking/udhcp/common.c b/networking/udhcp/common.c
+index 0a60261..00c1a3a 100644
+--- a/networking/udhcp/common.c
++++ b/networking/udhcp/common.c
+@@ -56,6 +56,10 @@ const struct dhcp_optflag dhcp_optflags[] = {
+ #endif
+ 	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0x79 }, /* DHCP_STATIC_ROUTES */
+ 	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
++#if ENABLE_FEATURE_UDHCP_RFC5969
++	{ OPTION_6RD                              , 0xd4 }, /* DHCP_6RD           */
++	{ OPTION_6RD                              , 0x96 }, /* DHCP_COMCAST_6RD   */
++#endif
+ 	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */
+ 
+ 	/* Options below have no match in dhcp_option_strings[],
+@@ -119,6 +123,10 @@ const char dhcp_option_strings[] ALIGN1 =
+ // is not handled yet by "string->option" conversion code:
+ 	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
+ 	"msstaticroutes""\0"/* DHCP_MS_STATIC_ROUTES */
++#if ENABLE_FEATURE_UDHCP_RFC5969
++	"6rd" "\0"         /* DHCP_6RD            */
++	"6rd" "\0"         /* DHCP_COMCAST_6RD    */
++#endif
+ 	"wpad" "\0"        /* DHCP_WPAD           */
+ 	;
+ 
+@@ -146,6 +154,9 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
+ 	[OPTION_S32] =     4,
+ 	/* Just like OPTION_STRING, we use minimum length here */
+ 	[OPTION_STATIC_ROUTES] = 5,
++#if ENABLE_FEATURE_UDHCP_RFC5969
++	[OPTION_6RD] =    22,
++#endif
+ };
+ 
+ 
+diff --git a/networking/udhcp/common.h b/networking/udhcp/common.h
+index f8f18ff..fe2bd31 100644
+--- a/networking/udhcp/common.h
++++ b/networking/udhcp/common.h
+@@ -92,6 +92,9 @@ enum {
+ 	OPTION_DNS_STRING,  /* RFC1035 compressed domain name list */
+ 	OPTION_SIP_SERVERS,
+ #endif
++#if ENABLE_FEATURE_UDHCP_RFC5969
++	OPTION_6RD,
++#endif
+ 
+ 	OPTION_TYPE_MASK = 0x0f,
+ 	/* Client requests this option by default */
+@@ -146,6 +149,8 @@ enum {
+ //#define DHCP_SIP_SERVERS      0x78 /* RFC 3361. flag byte, then: 0: domain names, 1: IP addrs */
+ //#define DHCP_STATIC_ROUTES    0x79 /* RFC 3442. (mask,ip,router) tuples */
+ //#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
++//#define DHCP_6RD              0xd4 /* RFC 5969 6RD option */
++//#define DHCP_COMCAST_6RD      0x96 /* Comcast ISP RFC 5969 compatible 6RD option */
+ //#define DHCP_WPAD             0xfc /* MSIE's Web Proxy Autodiscovery Protocol */
+ #define DHCP_END                0xff
+ 
+diff --git a/networking/udhcp/dhcpc.c b/networking/udhcp/dhcpc.c
+index d97a404..5bea92a 100644
+--- a/networking/udhcp/dhcpc.c
++++ b/networking/udhcp/dhcpc.c
+@@ -45,6 +45,9 @@ static const uint8_t len_of_option_as_string[] = {
+ 	[OPTION_IP              ] = sizeof("255.255.255.255 "),
+ 	[OPTION_IP_PAIR         ] = sizeof("255.255.255.255 ") * 2,
+ 	[OPTION_STATIC_ROUTES   ] = sizeof("255.255.255.255/32 255.255.255.255 "),
++#if ENABLE_FEATURE_UDHCP_RFC5969
++	[OPTION_6RD             ] = sizeof("32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 "),
++#endif
+ 	[OPTION_STRING          ] = 1,
+ #if ENABLE_FEATURE_UDHCP_RFC3397
+ 	[OPTION_DNS_STRING      ] = 1, /* unused */
+@@ -68,6 +71,25 @@ static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
+ 	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
+ }
+ 
++#if ENABLE_FEATURE_UDHCP_RFC5969
++static int sprint_nip6(char *dest, const char *pre, const uint8_t *ip)
++{
++	int len = 0;
++	int off;
++	uint16_t word;
++
++	len += sprintf(dest, "%s", pre);
++
++	for (off = 0; off < 16; off += 2)
++	{
++		move_from_unaligned16(word, &ip[off]);
++		len += sprintf(dest+len, "%s%04X", off ? ":" : "", htons(word));
++	}
++
++	return len;
++}
++#endif
++
+ /* really simple implementation, just count the bits */
+ static int mton(uint32_t mask)
+ {
+@@ -215,6 +237,71 @@ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_
+ 			}
+ 			return ret;
+ #endif
++#if ENABLE_FEATURE_UDHCP_RFC5969
++		case OPTION_6RD:
++			/* Option binary format:
++			 *  0                   1                   2                   3
++			 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++			 *  |  OPTION_6RD   | option-length |  IPv4MaskLen  |  6rdPrefixLen |
++			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++			 *  |                                                               |
++			 *  |                           6rdPrefix                           |
++			 *  |                          (16 octets)                          |
++			 *  |                                                               |
++			 *  |                                                               |
++			 *  |                                                               |
++			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++			 *  |                     6rdBRIPv4Address(es)                      |
++			 *  .                                                               .
++			 *  .                                                               .
++			 *  .                                                               .
++			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
++			 *
++			 * We convert it to a string "IPv4MaskLen 6rdPrefixLen 6rdPrefix 6rdBRIPv4Address"
++			 */
++
++			/* Sanity check: ensure that our length is at least 22 bytes, that
++			 * IPv4MaskLen is <= 32, 6rdPrefixLen <= 128 and that the sum of
++			 * (32 - IPv4MaskLen) + 6rdPrefixLen is less than or equal to 128.
++			 * If any of these requirements is not fulfilled, return with empty
++			 * value.
++			 */
++			if ((len >= 22) && (*option <= 32) && (*(option+1) <= 128) &&
++			    (((32 - *option) + *(option+1)) <= 128))
++			{
++				/* IPv4MaskLen */
++				dest += sprintf(dest, "%u ", *option++);
++				len--;
++
++				/* 6rdPrefixLen */
++				dest += sprintf(dest, "%u ", *option++);
++				len--;
++
++				/* 6rdPrefix */
++				dest += sprint_nip6(dest, "", option);
++				option += 16;
++				len -= 16;
++
++				/* 6rdBRIPv4Addresses */
++				while (len >= 4)
++				{
++					dest += sprint_nip(dest, " ", option);
++					option += 4;
++					len -= 4;
++
++					/* the code to determine the option size fails to work with
++					 * lengths that are not a multiple of the minimum length,
++					 * adding all advertised 6rdBRIPv4Addresses here would
++					 * overflow the destination buffer, therefore skip the rest
++					 * for now
++					 */
++					break;
++				}
++			}
++
++			return ret;
++#endif
+ 		} /* switch */
+ 		option += optlen;
+ 		len -= optlen;
