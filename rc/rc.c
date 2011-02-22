@@ -1038,6 +1038,11 @@ main(int argc, char **argv)
 		return ip6up_main(argc, argv);
 	else if (!strcmp(base, "ipv6-down"))
 		return ip6down_main(argc, argv);
+#endif
+	/* udhcpc.script [ deconfig bound renew ] */
+	else if (!strcmp(base, "udhcpc.script"))
+		return udhcpc_main(argc, argv);
+#ifdef __CONFIG_IPV6__
 	else if (!strcmp(base, "dhcp6c.script"))
 		return dhcp6c_main(argc, argv);
 #endif
@@ -1046,9 +1051,6 @@ main(int argc, char **argv)
 	else if ( !strcmp(base, "madwimax.events" ) )
 		return madwimax_main(argc, argv);
 #endif
-	/* udhcpc.script [ deconfig bound renew ] */
-	else if (!strcmp(base, "udhcpc.script"))
-		return udhcpc_main(argc, argv);
 	/* restore default */
 	else if (!strcmp(base, "restore"))
 	{

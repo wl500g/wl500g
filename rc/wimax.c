@@ -307,18 +307,10 @@ madwimax_up(char *ifname)
 
 	if (nvram_match(strcat_r(prefix, "wimax_ipaddr", tmp), "0.0.0.0"))
 	{
-		char *dhcp_argv[] = {"/sbin/udhcpc",
-				     "-i", ifname,
-				     "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-				     "-b",
-#ifdef DEBUG
-				     "-vv", "-S",
-#endif
-				     NULL};
 		/* Start firewall */
 		start_firewall_ex(ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 		/* Start dhcp daemon */
-		_eval(dhcp_argv, NULL, 0, NULL);
+		start_udhcpc(ifname, unit);
 		/* Update wan information for null DNS server */
 		update_wan_status(1);
 		wanmessage("Can not get IP from server");
