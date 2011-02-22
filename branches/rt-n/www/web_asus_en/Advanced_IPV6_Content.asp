@@ -31,11 +31,12 @@
 <td class="content_header_td">WAN IPv6 Connection Type:
 	    </td><td class="content_input_td"><select name="ipv6_proto" class="content_input_fd" onChange="return change_common(this, 'IPv6Config', 'ipv6_proto')">
 	    <option class="content_input_fd" value="" <% nvram_match_x("IPv6Config","ipv6_proto", "","selected"); %>>Disabled</option>
-	    <option class="content_input_fd" value="native" <% nvram_match_x("IPv6Config","ipv6_proto", "native","selected"); %>>Native Static IPv6</option>
-	    <option class="content_input_fd" value="dhcp6" <% nvram_match_x("IPv6Config","ipv6_proto", "dhcp6","selected"); %>>DHCPv6 with Prefix Delegation</option>
-	    <option class="content_input_fd" value="ppp" <% nvram_match_x("IPv6Config","ipv6_proto", "ppp","selected"); %>>IPv6 over PPP</option>
-	    <option class="content_input_fd" value="tun6in4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6in4","selected"); %>>IPv6-in-IPv4 Tunnel</option>
-	    <option class="content_input_fd" value="tun6to4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6to4","selected"); %>>IPv6-to-IPv4 Tunnel</option>
+	    <option class="content_input_fd" value="native" <% nvram_match_x("IPv6Config","ipv6_proto", "native","selected"); %>>Native</option>
+	    <option class="content_input_fd" value="dhcp6" <% nvram_match_x("IPv6Config","ipv6_proto", "dhcp6","selected"); %>>DHCPv6</option>
+	    <option class="content_input_fd" value="ppp" <% nvram_match_x("IPv6Config","ipv6_proto", "ppp","selected"); %>>PPPv6</option>
+	    <option class="content_input_fd" value="tun6in4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6in4","selected"); %>>6in4 tunnel</option>
+	    <option class="content_input_fd" value="tun6to4" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6to4","selected"); %>>6to4 tunnel</option>
+	    <option class="content_input_fd" value="tun6rd" <% nvram_match_x("IPv6Config","ipv6_proto", "tun6rd","selected"); %>>6RD tunnel</option>
 	    </select></td>
 </tr>
 
