@@ -356,8 +356,8 @@ NORET_TYPE void ATTRIB_NORET die(const char * str, struct pt_regs * regs)
 	do_exit(SIGSEGV);
 }
 
-extern const struct exception_table_entry __start___dbe_table[];
-extern const struct exception_table_entry __stop___dbe_table[];
+extern struct exception_table_entry __start___dbe_table[];
+extern struct exception_table_entry __stop___dbe_table[];
 
 __asm__(
 "	.section	__dbe_table, \"a\"\n"
@@ -1115,9 +1115,8 @@ unsigned long vi_handlers[64];
 void *set_except_vector(int n, void *addr)
 {
 	unsigned long handler = (unsigned long) addr;
-	unsigned long old_handler = exception_handlers[n];
+	unsigned long old_handler = xchg(&exception_handlers[n], handler);
 
-	exception_handlers[n] = handler;
 	if (n == 0 && cpu_has_divec) {
 		*(volatile u32 *)(ebase + 0x200) = 0x08000000 |
 		                                 (0x03ffffff & (handler >> 2));
@@ -1580,4 +1579,6 @@ void __init trap_init(void)
 
 	flush_icache_range(ebase, ebase + 0x400);
 	flush_tlb_handlers();
+
+	sort_extable(__start___dbe_table, __stop___dbe_table);
 }

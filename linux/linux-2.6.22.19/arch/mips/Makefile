@@ -12,7 +12,8 @@
 # for "archclean" cleaning up for this architecture.
 #
 
-cflags-y :=
+cflags-y := -ffunction-sections
+cflags-y += $(call cc-option, -mno-check-zero-division)
 
 #
 # Select the object file format to substitute into the linker script.
@@ -140,6 +141,8 @@ cflags-$(CONFIG_CPU_SB1)	+= $(call cc-option,-march=sb1,-march=r5000) \
 cflags-$(CONFIG_CPU_R8000)	+= -march=r8000 -Wa,--trap
 cflags-$(CONFIG_CPU_R10000)	+= $(call cc-option,-march=r10000,-march=r8000) \
 			-Wa,--trap
+
+cflags-$(CONFIG_CPU_MIPS32)	+= -mno-branch-likely
 
 ifdef CONFIG_CPU_SB1
 ifdef CONFIG_SB1_PASS_1_WORKAROUNDS
