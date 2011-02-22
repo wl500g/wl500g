@@ -1,0 +1,35 @@
+USB: Do not reject devices in case of buggy USB hub reports incorrect power limits
+
+diff -urBp a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
+--- a/drivers/usb/core/generic.c	2011-02-11 03:00:00.000000000 +0300
++++ b/drivers/usb/core/generic.c	2011-02-21 16:16:28.000000000 +0300
+@@ -99,7 +99,6 @@ int usb_choose_configuration(struct usb_
+ 		/* Rule out configs that draw too much bus current */
+ 		if (c->desc.bMaxPower * 2 > udev->bus_mA) {
+ 			insufficient_power++;
+-			continue;
+ 		}
+ 
+ 		/* When the first config's first interface is one of Microsoft's
+@@ -135,7 +134,7 @@ int usb_choose_configuration(struct usb_
+ 	}
+ 
+ 	if (insufficient_power > 0)
+-		dev_info(&udev->dev, "rejected %d configuration%s "
++		dev_warn(&udev->dev, "%d configuration%s can be unstable"
+ 			"due to insufficient available bus power\n",
+ 			insufficient_power, plural(insufficient_power));
+ 
+diff -urBp a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+--- a/drivers/usb/core/hub.c	2011-02-11 14:01:33.000000000 +0300
++++ b/drivers/usb/core/hub.c	2011-02-21 16:12:15.000000000 +0300
+@@ -2761,7 +2761,7 @@ static void hub_port_connect_change(stru
+ 		 * on the parent.
+ 		 */
+ 		if (udev->descriptor.bDeviceClass == USB_CLASS_HUB
+-				&& udev->bus_mA <= 100) {
++				&& udev->bus_mA < 100) {
+ 			u16	devstat;
+ 
+ 			status = usb_get_status(udev, USB_RECIP_DEVICE, 0,
+-- 
