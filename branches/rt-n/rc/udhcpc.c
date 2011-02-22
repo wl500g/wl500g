@@ -144,6 +144,12 @@ bound(void)
 		expires(wan_ifname, atoi(value));
 	}
 
+#ifdef __CONFIG_IPV6__
+	if ((value = getenv("6rd")) == NULL)
+		value = getenv("comcast6rd");
+	nvram_set(strcat_r(prefix, "ipv6_6rd", tmp), value);
+#endif
+
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
 		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
@@ -208,6 +214,11 @@ renew(void)
 		expires(wan_ifname, atoi(value));
 	}
 
+	if (unit == 0) {
+		/* Update wan information for current DNS server */
+		update_wan_status(1);
+	}
+
 	//logmessage("dhcp client", "%s IP : %s from %s", 
 	//		udhcpstate, 
 	//		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
@@ -237,8 +248,68 @@ udhcpc_main(int argc, char **argv)
 	else return deconfig();
 }
 
+int
+start_udhcpc(char *wan_ifname, int unit)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char *wan_hostname;
+	char *dhcp_argv[] = {
+		"/sbin/udhcpc",
+		"-i", wan_ifname,
+		"-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
+		"-b",
+		NULL, NULL,	/* -H wan_hostname	*/
+		NULL, NULL,	/* -O routes		*/
+		NULL, NULL,	/* -O staticroutes	*/
+		NULL, NULL,	/* -O msstaticroutes	*/
 #ifdef __CONFIG_IPV6__
-int dhcp6c_main(int argc, char **argv)
+		NULL, NULL,	/* -O 6rd		*/
+		NULL, NULL,	/* -O comcast6rd	*/
+#endif
+#ifdef DEBUG
+		NULL,		/* -vvS			*/
+#endif
+		NULL
+	};
+	int index = 6;		/* first NULL index	*/
+
+	/* We have to trust unit */
+	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
+	if (wan_hostname) {
+		dhcp_argv[index++] = "-H";
+		dhcp_argv[index++] = wan_hostname;
+	}
+
+	if (nvram_match("dr_enable_x", "1")) {
+		dhcp_argv[index++] = "-O";
+		dhcp_argv[index++] = "routes";
+		dhcp_argv[index++] = "-O";
+		dhcp_argv[index++] = "staticroutes";
+		dhcp_argv[index++] = "-O";
+		dhcp_argv[index++] = "msstaticroutes";
+	}
+
+#ifdef __CONFIG_IPV6__
+	if (nvram_match("ipv6_proto", "tun6rd")) {
+		dhcp_argv[index++] = "-O";
+		dhcp_argv[index++] = "6rd";
+		dhcp_argv[index++] = "-O";
+		dhcp_argv[index++] = "comcast6rd";
+	}
+#endif
+
+#ifdef DEBUG
+	dhcp_argv[index++] = "-vvS";
+#endif
+
+	return _eval(dhcp_argv, NULL, 0, NULL);
+}
+
+#ifdef __CONFIG_IPV6__
+int
+dhcp6c_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("interface");
 	char *dns6 = getenv("new_domain_name_servers");
@@ -253,7 +324,8 @@ int dhcp6c_main(int argc, char **argv)
 	return 0;
 }
 
-int start_dhcp6c(char *wan_ifname)
+int
+start_dhcp6c(char *wan_ifname)
 {
 	FILE *fp;
 	pid_t pid;
@@ -300,7 +372,8 @@ int start_dhcp6c(char *wan_ifname)
         return ret;
 }
 
-void stop_dhcp6c(void)
+void
+stop_dhcp6c(void)
 {
 	eval("killall", "-SIGTERM", "dhcp6c.script");
 	kill_pidfile("/var/run/dhcp6c.pid");

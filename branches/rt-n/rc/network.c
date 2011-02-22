@@ -774,7 +774,6 @@ start_wan(void)
 	char eabuf[32];
 	int s;
 	struct ifreq ifr;
-	pid_t pid;
 
 	/* check if we need to setup WAN */
 	if (nvram_match("router_disable", "1"))
@@ -950,20 +949,8 @@ start_wan(void)
 		 	/* launch dhcp client and wait for lease forawhile */
 		 	if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) 
 		 	{
-				char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-				char *dhcp_argv[] = { "/sbin/udhcpc",
-					      "-i", wan_ifname,
-					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-					      "-b",
-#ifdef DEBUG
-					      "-vv", "-S",
-#endif
-					      wan_hostname && *wan_hostname ? "-H" : NULL,
-					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
-					      NULL
-				};
 				/* Start dhcp daemon */
-				_eval(dhcp_argv, NULL, 0, NULL);
+				start_udhcpc(wan_ifname, unit);
 		 	} else {
 			 	/* setup static wan routes via physical device */
 				add_routes("wan_", "route", wan_ifname);
@@ -1016,25 +1003,14 @@ start_wan(void)
 		else if (strcmp(wan_proto, "dhcp") == 0 ||
 			 strcmp(wan_proto, "bigpond") == 0 )
 		{
-			char *wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-			char *dhcp_argv[] = { "/sbin/udhcpc",
-					      "-i", wan_ifname,
-					      "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-#ifdef DEBUG
-					      "-vv", "-S",
-#endif
-					      wan_hostname && *wan_hostname ? "-H" : NULL,
-					      wan_hostname && *wan_hostname ? wan_hostname : NULL,
-					      NULL
-			};
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, -1);
 #endif
-			/* start firewall */
+			/* Start firewall */
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 			/* Start dhcp daemon */
-			_eval(dhcp_argv, NULL, 0, &pid);
+			start_udhcpc(wan_ifname, unit);
 			/* Update wan information for null DNS server */
 			update_wan_status(1);
 #ifdef ASUS_EXT
