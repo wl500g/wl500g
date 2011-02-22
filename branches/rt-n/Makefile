@@ -38,7 +38,7 @@ ACCEL-PPTP=accel-pptp-git-20100829
 PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.0.9
-PORTMAP=portmap_4
+PORTMAP=portmap_6
 RADVD=radvd-1.7
 QUAGGA=quagga-0.99.17
 L2TP=rp-l2tp-0.4
@@ -317,17 +317,19 @@ nfs-utils_Patches := $(call patches_list,nfs-utils)
 
 $(TOP)/nfs-utils: nfs-utils/$(NFSUTILS).tar.bz2
 	@rm -rf $(TOP)/$(NFSUTILS) $@
-	tar -xjf nfs-utils/$(NFSUTILS).tar.bz2 -C $(TOP)
+	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(NFSUTILS) $(nfs-utils_Patches)
 	mv $(TOP)/$(NFSUTILS) $@
 
 nfs-utils: $(TOP)/nfs-utils
 	@true
 
-$(TOP)/portmap: $(PORTMAP).tar.gz
+portmap_Patches := $(call patches_list,portmap)
+
+$(TOP)/portmap: portmap/$(PORTMAP).tar.gz
 	@rm -rf $(TOP)/$(PORTMAP) $@
 	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(PORTMAP) $(PORTMAP).patch
+	$(PATCHER) -Z $(TOP)/$(PORTMAP) $(portmap_Patches)
 	mv $(TOP)/$(PORTMAP) $@
 
 portmap: $(TOP)/portmap
