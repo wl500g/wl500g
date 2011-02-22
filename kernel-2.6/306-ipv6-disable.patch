@@ -1,7 +1,6 @@
-From 81d4c59df3fecbb336427950fc8ba02948f6f35d 
+Subject: [PATCH] ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific interface (backport from upstream)
 From: Fedor <fedork@ubuntu.(none)>
 Date: Sun, 22 Aug 2010 15:44:16 -0400
-Subject: [PATCH] ipv6: Add disable_ipv6 sysctl to disable IPv6 operaion on specific interface (backport from upstream)
 
 kernel.org commits
 d68b82705a4a754e5773f412c6b8f1e65259bc8b ipv6: Do not assign non-valid address on interface.
@@ -11,19 +10,23 @@ d68b82705a4a754e5773f412c6b8f1e65259bc8b ipv6: Do not assign non-valid address o
 5b2a19539c5f59c5a038d213ede723f0245d97cf IPv6: addrconf timer race
 64e724f62ab743d55229cd5e27ec8b068b68eb16 ipv6: Don't add routes to ipv6 disabled interfaces.
 a1ed05263b74921742b454ef52c30b609ec6940f IPv6: preferred lifetime of address not getting updated
+fe7ca2e1e847b65c12d245cbf402af89da96888a IPv6: add "disable" module parameter support to ipv6.ko
+56d417b12e57dfe11c9b7ba4bea3882c62a55815 IPv6: Add 'autoconf' and 'disable_ipv6' module parameters
+
 ---
- Documentation/networking/ip-sysctl.txt |    4 +
- include/linux/ipv6.h                   |    2 +
- net/ipv6/addrconf.c                    |  101 +++++++++++++++----
- net/ipv6/ip6_input.c                   |    7 +-
- net/ipv6/ip6_output.c                  |    7 ++
- 5 files changed, 95 insertions(+), 26 deletions(-)
+ Documentation/networking/ip-sysctl.txt |   11 ++
+ Documentation/networking/ipv6.txt      |   72 ++++++++++++++
+ include/linux/ipv6.h                   |   10 ++
+ net/ipv6/addrconf.c                    |  163 ++++++++++++++++++++++++++++-----
+ net/ipv6/af_inet6.c                    |   36 ++++++-
+ net/ipv6/ip6_input.c                   |    7 -
+ net/ipv6/ip6_output.c                  |    7 +
+ 7 files changed, 275 insertions(+), 31 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index af6a63a..5086702 100644
 --- a/Documentation/networking/ip-sysctl.txt
 +++ b/Documentation/networking/ip-sysctl.txt
-@@ -985,6 +985,10 @@ max_addresses - INTEGER
+@@ -985,6 +985,17 @@ max_addresses - INTEGER
  	autoconfigured addresses.
  	Default: 16
  
@@ -31,14 +34,105 @@ index af6a63a..5086702 100644
 +	Disable IPv6 operation.
 +	Default: FALSE (enable IPv6 operation)
 +
++	When this value is changed from 1 to 0 (IPv6 is being enabled),
++	it will dynamically create a link-local address on the given
++	interface and start Duplicate Address Detection, if necessary.
++
++	When this value is changed from 0 to 1 (IPv6 is being disabled),
++	it will dynamically delete all address on the given interface.
++
  icmp/*:
  ratelimit - INTEGER
  	Limit the maximal rates for sending ICMPv6 packets.
+diff --git a/Documentation/networking/ipv6.txt b/Documentation/networking/ipv6.txt
+--- a/Documentation/networking/ipv6.txt
++++ b/Documentation/networking/ipv6.txt
+@@ -0,0 +1,72 @@
++
++Options for the ipv6 module are supplied as parameters at load time.
++
++Module options may be given as command line arguments to the insmod
++or modprobe command, but are usually specified in either the
++/etc/modules.conf or /etc/modprobe.conf configuration file, or in a
++distro-specific configuration file.
++
++The available ipv6 module parameters are listed below.  If a parameter
++is not specified the default value is used.
++
++The parameters are as follows:
++
++disable
++
++	Specifies whether to load the IPv6 module, but disable all
++	its functionality.  This might be used when another module
++	has a dependency on the IPv6 module being loaded, but no
++	IPv6 addresses or operations are desired.
++
++	The possible values and their effects are:
++
++	0
++		IPv6 is enabled.
++
++		This is the default value.
++
++	1
++		IPv6 is disabled.
++
++		No IPv6 addresses will be added to interfaces, and
++		it will not be possible to open an IPv6 socket.
++
++		A reboot is required to enable IPv6.
++
++autoconf
++
++	Specifies whether to enable IPv6 address autoconfiguration
++	on all interfaces.  This might be used when one does not wish
++	for addresses to be automatically generated from prefixes
++	received in Router Advertisements.
++
++	The possible values and their effects are:
++
++	0
++		IPv6 address autoconfiguration is disabled on all interfaces.
++
++		Only the IPv6 loopback address (::1) and link-local addresses
++		will be added to interfaces.
++
++	1
++		IPv6 address autoconfiguration is enabled on all interfaces.
++
++		This is the default value.
++
++disable_ipv6
++
++	Specifies whether to disable IPv6 on all interfaces.
++	This might be used when no IPv6 addresses are desired.
++
++	The possible values and their effects are:
++
++	0
++		IPv6 is enabled on all interfaces.
++
++		This is the default value.
++
++	1
++		IPv6 is disabled on all interfaces.
++
++		No IPv6 addresses will be added to interfaces.
++
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
 index 648bd1f..fdf37bb 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
-@@ -181,6 +181,7 @@ struct ipv6_devconf {
+@@ -144,6 +144,7 @@ struct ipv6hdr {
+ 	struct	in6_addr	daddr;
+ };
+ 
++#ifdef __KERNEL__
+ /*
+  * This structure contains configuration options per IPv6 link.
+  */
+@@ -181,9 +181,17 @@ struct ipv6_devconf {
  #ifdef CONFIG_IPV6_OPTIMISTIC_DAD
  	__s32		optimistic_dad;
  #endif
@@ -46,6 +140,16 @@ index 648bd1f..fdf37bb 100644
  	void		*sysctl;
  };
  
++struct ipv6_params {
++	__s32 disable_ipv6;
++	__s32 autoconf;
++};
++extern struct ipv6_params ipv6_defaults;
++#endif
++
+ /* index values for the variables in ipv6_devconf */
+ enum {
+ 	DEVCONF_FORWARDING = 0,
 @@ -211,6 +212,7 @@ enum {
  	DEVCONF_PROXY_NDP,
  	DEVCONF_OPTIMISTIC_DAD,
@@ -259,6 +363,75 @@ index 6d614c0..3ce8e32 100644
  }
  
  static inline size_t inet6_if_nlmsg_size(void)
+@@ -3922,6 +3922,68 @@ static int addrconf_sysctl_forward_strat
+ 	return 1;
+ }
+ 
++static void dev_disable_change(struct inet6_dev *idev)
++{
++	if (!idev || !idev->dev)
++		return;
++
++	if (idev->cnf.disable_ipv6)
++		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
++	else
++		addrconf_notify(NULL, NETDEV_UP, idev->dev);
++}
++
++static int addrconf_disable_ipv6(struct ctl_table *table, int *valp, int old)
++{
++	if (valp == &ipv6_devconf_dflt.disable_ipv6)
++		return 0;
++
++	if (!rtnl_trylock()) {
++		/* Restore the original values before restarting */
++		*valp = old;
++		return restart_syscall();
++	}
++
++	if (valp == &ipv6_devconf.disable_ipv6) {
++		struct net_device *dev;
++		struct inet6_dev *idev;
++
++		read_lock(&dev_base_lock);
++		for_each_netdev(dev) {
++			rcu_read_lock();
++			idev = __in6_dev_get(dev);
++			if (idev) {
++				int changed = (!idev->cnf.disable_ipv6) ^ (!*valp);
++				idev->cnf.disable_ipv6 = *valp;
++				if (changed)
++					dev_disable_change(idev);
++			}
++			rcu_read_unlock();
++		}
++		read_unlock(&dev_base_lock);
++	}
++
++	rtnl_unlock();
++	return 0;
++}
++
++static int addrconf_sysctl_disable(ctl_table *ctl, int write, struct file * filp,
++			   void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	int *valp = ctl->data;
++	int val = *valp;
++	loff_t pos = *ppos;
++	int ret;
++
++	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
++
++	if (write)
++		ret = addrconf_disable_ipv6(ctl, valp, val);
++	if (ret)
++		*ppos = pos;
++	return ret;
++}
++
+ static struct addrconf_sysctl_table
+ {
+ 	struct ctl_table_header *sysctl_header;
 @@ -4052,6 +4101,14 @@ static struct addrconf_sysctl_table
  		},
  #endif
@@ -268,12 +441,86 @@ index 6d614c0..3ce8e32 100644
 +			.data		=	&ipv6_devconf.disable_ipv6,
 +			.maxlen		=	sizeof(int),
 +			.mode		=	0644,
-+			.proc_handler	=	&proc_dointvec,
++			.proc_handler	=	&addrconf_sysctl_disable,
 +		},
 +		{
  			.ctl_name	=	0,	/* sentinel */
  		}
  	},
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -80,6 +80,22 @@ int sysctl_ipv6_bindv6only __read_mostly
+ static struct list_head inetsw6[SOCK_MAX];
+ static DEFINE_SPINLOCK(inetsw6_lock);
+ 
++struct ipv6_params ipv6_defaults = {
++	.disable_ipv6 = 0,
++	.autoconf = 1,
++};
++
++static int disable_ipv6_mod = 0;
++
++module_param_named(disable, disable_ipv6_mod, int, 0444);
++MODULE_PARM_DESC(disable, "Disable IPv6 module such that it is non-functional");
++
++module_param_named(disable_ipv6, ipv6_defaults.disable_ipv6, int, 0444);
++MODULE_PARM_DESC(disable_ipv6, "Disable IPv6 on all interfaces");
++
++module_param_named(autoconf, ipv6_defaults.autoconf, int, 0444);
++MODULE_PARM_DESC(autoconf, "Enable IPv6 address autoconfiguration on all interfaces");
++
+ static __inline__ struct ipv6_pinfo *inet6_sk_generic(struct sock *sk)
+ {
+ 	const int offset = sk->sk_prot->obj_size - sizeof(struct ipv6_pinfo);
+@@ -753,7 +769,7 @@ static int __init inet6_init(void)
+ {
+ 	struct sk_buff *dummy_skb;
+ 	struct list_head *r;
+-	int err;
++	int err = 0;
+ 
+ 	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
+ 
+@@ -766,6 +782,17 @@ static int __init inet6_init(void)
+ #endif
+ #endif
+ 
++	/* Register the socket-side information for inet6_create.  */
++	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
++		INIT_LIST_HEAD(r);
++
++	if (disable_ipv6_mod) {
++		printk(KERN_INFO
++		       "IPv6: Loaded, but administratively disabled, "
++		       "reboot required to enable\n");
++		goto out;
++	}
++
+ 	err = proto_register(&tcpv6_prot, 1);
+ 	if (err)
+ 		goto out;
+@@ -783,10 +810,6 @@ static int __init inet6_init(void)
+ 		goto out_unregister_udplite_proto;
+ 
+ 
+-	/* Register the socket-side information for inet6_create.  */
+-	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
+-		INIT_LIST_HEAD(r);
+-
+ 	/* We MUST register RAW sockets before we create the ICMP6,
+ 	 * IGMP6, or NDISC control sockets.
+ 	 */
+@@ -920,6 +943,9 @@ module_init(inet6_init);
+ 
+ static void __exit inet6_exit(void)
+ {
++	if (disable_ipv6_mod)
++		return;
++
+ 	/* First of all disallow new sockets creation. */
+ 	sock_unregister(PF_INET6);
+ 	/* Disallow any further netlink messages */
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
 index 30a5cb1..487b09c 100644
 --- a/net/ipv6/ip6_input.c
@@ -320,4 +567,3 @@ index 83017b4..c3a1002 100644
  		return ip6_fragment(skb, ip6_output2);
 -- 
 1.6.5.GIT
-
