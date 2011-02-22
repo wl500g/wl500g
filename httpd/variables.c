@@ -1578,11 +1578,12 @@ struct action actions_LANHostConfig[] = {
 struct variable variables_IPv6Config[] = {
 
 	{"ipv6_proto", "", validate_choice, ARGV(
-	"native:Static IPv6",
-	"dhcp6:Automatic IPv6",
-	"ppp:IPv6 over PPP",
-	"tun6in4:IPv6-in-IPv4 Tunnel",
-	"tun6to4:IPv6-to-IPv4 Tunnel",
+	"native:Native",
+	"dhcp6:DHCPv6",
+	"ppp:PPPv6",
+	"tun6in4:6in4 tunnel",
+	"tun6to4:6to4 tunnel",
+	"tun6rd:6rd tunnel",
 	0), FALSE, FALSE},
 	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_lan_netsize", "", validate_range, ARGV("1", "128"), FALSE, FALSE},
