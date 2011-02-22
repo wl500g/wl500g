@@ -163,8 +163,12 @@ kernel-extra-drivers:
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
-asustrx:
-	tar -C $(ROOT) -xjf asustrx.tar.bz2 
+$(ROOT)/asustrx:
+	@rm -rf $@
+	tar -C . $(TAR_EXCL_SVN) -cf - asustrx | tar -C $(ROOT) -xf -
+
+asustrx: $(ROOT)/asustrx
+	@true
 
 $(TOP)/loader:
 	@rm -rf $(TOP)/loader
