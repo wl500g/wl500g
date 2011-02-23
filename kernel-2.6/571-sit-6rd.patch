@@ -101,14 +101,17 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  	select INET6_TUNNEL
 --- linux-2.6.22.19.orig/net/ipv6/sit.c	2011-02-19 05:00:00.000000000 +0500
 +++ linux-2.6.22.19/net/ipv6/sit.c	2011-02-21 16:09:43.906738000 +0500
-@@ -146,6 +146,21 @@ static void ipip6_tunnel_link(struct ip_
+@@ -146,6 +146,24 @@ static void ipip6_tunnel_link(struct ip_
  	write_unlock_bh(&ipip6_lock);
  }
  
-+static void ipip6_tunnel_clone_6rd(struct ip_tunnel *t)
++static void ipip6_tunnel_clone_6rd(struct net_device *dev)
 +{
 +#ifdef CONFIG_IPV6_SIT_6RD
-+	if (t->dev == ipip6_fb_tunnel_dev) {
++	struct ip_tunnel *t = netdev_priv(dev);
++
++	/* NB: not t->dev due it isn't inited yet */
++	if (dev == ipip6_fb_tunnel_dev) {
 +		ipv6_addr_set(&t->ip6rd.prefix, htonl(0x20020000), 0, 0, 0);
 +		t->ip6rd.relay_prefix = 0;
 +		t->ip6rd.prefixlen = 16;
@@ -123,15 +126,15 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  static struct ip_tunnel * ipip6_tunnel_locate(struct ip_tunnel_parm *parms, int create)
  {
  	__be32 remote = parms->iph.daddr;
-@@ -181,6 +196,7 @@ static struct ip_tunnel * ipip6_tunnel_l
+@@ -186,6 +204,7 @@ static struct ip_tunnel * ipip6_tunnel_l
  	nt = netdev_priv(dev);
  	dev->init = ipip6_tunnel_init;
  	nt->parms = *parms;
-+	ipip6_tunnel_clone_6rd(nt);
++	ipip6_tunnel_clone_6rd(dev);
  
  	if (register_netdevice(dev) < 0) {
  		free_netdev(dev);
-@@ -402,17 +418,41 @@ out:
+@@ -407,17 +426,41 @@ out:
  	return 0;
  }
  
@@ -177,7 +180,7 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  	return dst;
  }
  
-@@ -447,7 +487,7 @@ static int ipip6_tunnel_xmit(struct sk_b
+@@ -452,7 +495,7 @@ static int ipip6_tunnel_xmit(struct sk_b
  		goto tx_error;
  
  	if (!dst)
@@ -186,7 +189,7 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  
  	if (!dst) {
  		struct neighbour *neigh = NULL;
-@@ -598,9 +638,15 @@ ipip6_tunnel_ioctl (struct net_device *d
+@@ -604,9 +647,15 @@ ipip6_tunnel_ioctl (struct net_device *d
  	int err = 0;
  	struct ip_tunnel_parm p;
  	struct ip_tunnel *t;
@@ -202,7 +205,7 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  		t = NULL;
  		if (dev == ipip6_fb_tunnel_dev) {
  			if (copy_from_user(&p, ifr->ifr_ifru.ifru_data, sizeof(p))) {
-@@ -611,9 +657,25 @@ ipip6_tunnel_ioctl (struct net_device *d
+@@ -617,9 +666,25 @@ ipip6_tunnel_ioctl (struct net_device *d
  		}
  		if (t == NULL)
  			t = netdev_priv(dev);
@@ -231,7 +234,7 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  		break;
  
  	case SIOCADDTUNNEL:
-@@ -691,6 +753,54 @@ ipip6_tunnel_ioctl (struct net_device *d
+@@ -697,6 +762,54 @@ ipip6_tunnel_ioctl (struct net_device *d
  		err = 0;
  		break;
  
@@ -277,7 +280,7 @@ IPv6 6RD (IPv6 Rapid Deployment) support
 +			t->ip6rd.prefixlen = ip6rd.prefixlen;
 +			t->ip6rd.relay_prefixlen = ip6rd.relay_prefixlen;
 +		} else
-+			ipip6_tunnel_clone_6rd(t);
++			ipip6_tunnel_clone_6rd(dev);
 +
 +		err = 0;
 +		break;
@@ -286,11 +289,11 @@ IPv6 6RD (IPv6 Rapid Deployment) support
  	default:
  		err = -EINVAL;
  	}
-@@ -841,6 +951,7 @@ static int __init sit_init(void)
+@@ -847,6 +960,7 @@ static int __init sit_init(void)
  	}
  
  	ipip6_fb_tunnel_dev->init = ipip6_fb_tunnel_init;
-+	ipip6_tunnel_clone_6rd(netdev_priv(ipip6_fb_tunnel_dev));
++	ipip6_tunnel_clone_6rd(ipip6_fb_tunnel_dev);
  
  	if ((err =  register_netdev(ipip6_fb_tunnel_dev)))
  		goto err2;
