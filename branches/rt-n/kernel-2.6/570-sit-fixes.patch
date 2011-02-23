@@ -2,13 +2,31 @@ IPv6 sit fixes from upstream
 
  kernel.org commits
  36ca34cc3b8335eb1fe8bd9a1d0a2592980c3f02 sit: Add missing kfree_skb() on pskb_may_pull() failure.
+ 8db99e5717507729a9eb49108facb7e528340376 sit: Fail to create tunnel, if it already exists
  8945a808f7d5efd21fa9fb6055d2dd7887bdd9d8 sit: Allow ip fragmentation when using nopmtudisc to fix package loss
  292f4f3ce4b57f17a667cb34c72bca081dcc0281 sit: Clean up DF code by copying from IPIP
  6dcdd1b3694a4fa2b85167a9c860c7613a7553c7 net/ipv6/sit.c: return unhandled skb to tunnel4_rcv
 
 --- linux-2.6.22.19.orig/net/ipv6/sit.c	2011-02-21 00:00:00.000000000 +0000
 +++ linux-2.6.22.19/net/ipv6/sit.c	2011-02-21 12:04:25.796738000 +0000
-@@ -394,10 +394,11 @@ static int ipip6_rcv(struct sk_buff *skb
+
+@@ -155,8 +155,13 @@ static struct ip_tunnel * ipip6_tunnel_l
+ 	char name[IFNAMSIZ];
+ 
+ 	for (tp = __ipip6_bucket(parms); (t = *tp) != NULL; tp = &t->next) {
+-		if (local == t->parms.iph.saddr && remote == t->parms.iph.daddr)
+-			return t;
++		if (local == t->parms.iph.saddr &&
++		    remote == t->parms.iph.daddr) {
++			if (create)
++				return NULL;
++			else
++				return t;
++		}
+ 	}
+ 	if (!create)
+ 		goto failed;
+@@ -394,10 +399,11 @@ static int ipip6_rcv(struct sk_buff *skb
  		return 0;
  	}
  
@@ -22,7 +40,7 @@ IPv6 sit fixes from upstream
  	return 0;
  }
  
-@@ -427,6 +428,7 @@ static int ipip6_tunnel_xmit(struct sk_b
+@@ -427,6 +433,7 @@ static int ipip6_tunnel_xmit(struct sk_b
  	struct iphdr  *tiph = &tunnel->parms.iph;
  	struct ipv6hdr *iph6 = ipv6_hdr(skb);
  	u8     tos = tunnel->parms.iph.tos;
@@ -30,7 +48,7 @@ IPv6 sit fixes from upstream
  	struct rtable *rt;     			/* Route to the other host */
  	struct net_device *tdev;			/* Device to other host */
  	struct iphdr  *iph;			/* Our new IP header */
-@@ -498,25 +500,28 @@ static int ipip6_tunnel_xmit(struct sk_b
+@@ -498,25 +505,28 @@ static int ipip6_tunnel_xmit(struct sk_b
  		goto tx_error;
  	}
  
@@ -75,7 +93,7 @@ IPv6 sit fixes from upstream
  	}
  
  	if (tunnel->err_count > 0) {
-@@ -563,11 +568,7 @@ static int ipip6_tunnel_xmit(struct sk_b
+@@ -564,11 +574,7 @@ static int ipip6_tunnel_xmit(struct sk_b
  	iph 			=	ip_hdr(skb);
  	iph->version		=	4;
  	iph->ihl		=	sizeof(struct iphdr)>>2;
