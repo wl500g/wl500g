@@ -733,8 +733,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// ping of death
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	#ifdef __CONFIG_IPV6__
-	// pass ipv6-in-ipv4 tunnel packets
-	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+	// pass ipv6 tunnel packets
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
 	#endif
 	// drop attacks!!!
@@ -805,7 +807,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 
 	#ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+		if (nvram_match("ipv6_proto", "tun6in4") ||
+		    nvram_match("ipv6_proto", "tun6to4") ||
+		    nvram_match("ipv6_proto", "tun6rd"))
 		{
 			if (nvram_match("ipv6_proto", "tun6in4") && !nvram_invmatch("misc_ping_x", "0")) {
 				char *sit_remote = nvram_safe_get("ipv6_sit_remote");
@@ -1077,7 +1081,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// Check internet traffic
 	if (nvram_match("fw_dos_x", "1")) {
 		if (nvram_match("ipv6_proto", "tun6in4") ||
-		    nvram_match("ipv6_proto", "tun6to4"))
+		    nvram_match("ipv6_proto", "tun6to4") ||
+		    nvram_match("ipv6_proto", "tun6rd"))
 			fprintf(fp, "-A INPUT -i six0 -m state --state NEW -j SECURITY\n");
 		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
 		if (nvram_invmatch("wan0_ifname", wan_if))
@@ -1135,9 +1140,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Clamp TCP MSS to PMTU of WAN interface */
-//	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4")) {
+//	if (nvram_match("ipv6_proto", "tun6in4") ||
+//	    nvram_match("ipv6_proto", "tun6to4") ||
+//	    nvram_match("ipv6_proto", "tun6rd"))
 //		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-//	}
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
@@ -1152,7 +1158,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
         // Filter out invalid WAN->WAN connections
 	if (nvram_match("ipv6_proto", "tun6in4") ||
-	    nvram_match("ipv6_proto", "tun6to4"))
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A FORWARD -o six0 ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))

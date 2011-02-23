@@ -324,7 +324,8 @@ start_radvd(void)
 		/* Clean space for 2002:wwxx:yyzz */
 		if (nvram_match("ipv6_proto", "tun6to4"))
 		{
-			addr.s6_addr32[0] = 0;
+			addr.s6_addr16[0] = htons(2002);
+			addr.s6_addr16[1] = 0;
 			addr.s6_addr16[2] = 0;
 		}
 
@@ -339,10 +340,11 @@ start_radvd(void)
 		    "AdvSendAdvert on;", nvram_safe_get("lan_ifname"));
 #ifdef BROKEN_IPV6_CONNTRACK
 	/* Advertise tunnel MTU to avoid large packet issue */
-	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp,
 		    "AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
-
 #endif
 	fprintf(fp,
 		    "prefix %s/%d {"

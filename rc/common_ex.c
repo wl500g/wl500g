@@ -598,6 +598,7 @@ void convert_asus_values()
 	nvram_unset("wan0_ipv6_addr");
 	nvram_unset("wan0_ipv6_dns");
 	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+	nvram_set("wan0_ipv6_relay", nvram_safe_get("ipv6_sit_relay"));
 
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
