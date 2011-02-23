@@ -4268,6 +4268,7 @@ function change_ipv6_type(v)
 	var frm = document.form;
 	if (v == "native" || v == "dhcp6" || v == "ppp")
 	{
+		inputCtrl(frm.ipv6_wan_netsize, 1);
 		inputCtrl(frm.ipv6_wan_router, 1);
 		inputCtrl(frm.ipv6_dns1_x, 1);
 		inputCtrl(frm.ipv6_sit_remote, 0);
@@ -4278,6 +4279,7 @@ function change_ipv6_type(v)
 	}
 	else if (v == "tun6in4")
 	{
+		inputCtrl(frm.ipv6_wan_netsize, 1);
 		inputCtrl(frm.ipv6_wan_router, 1);
 		inputCtrl(frm.ipv6_dns1_x, 1);
 		inputCtrl(frm.ipv6_sit_remote, 1);
@@ -4290,6 +4292,7 @@ function change_ipv6_type(v)
 	}
 	else if(v == "tun6to4")
 	{
+		inputCtrl(frm.ipv6_wan_netsize, 0);
 		inputCtrl(frm.ipv6_wan_router, 0);
 		inputCtrl(frm.ipv6_dns1_x, 1);
 		inputCtrl(frm.ipv6_sit_remote, 0);
@@ -4301,8 +4304,20 @@ function change_ipv6_type(v)
 			frm.ipv6_sit_relay.value = "192.88.99.1";
 		inputRCtrl1(frm.ipv6_radvd_enable, 1);
 	}
+	else if(v == "tun6rd")
+	{
+		inputCtrl(frm.ipv6_wan_netsize, 1);
+		inputCtrl(frm.ipv6_wan_router, 0);
+		inputCtrl(frm.ipv6_dns1_x, 1);
+		inputCtrl(frm.ipv6_sit_remote, 0);
+		inputCtrl(frm.ipv6_sit_relay, 1);
+		inputCtrl(frm.ipv6_sit_mtu, 1);
+		inputCtrl(frm.ipv6_sit_ttl, 1);
+		inputRCtrl1(frm.ipv6_radvd_enable, 1);
+	}
 	else
 	{
+		inputCtrl(frm.ipv6_wan_netsize, 1);
 		inputCtrl(frm.ipv6_wan_router, 0);
 		inputCtrl(frm.ipv6_dns1_x, 0);
 		inputCtrl(frm.ipv6_sit_remote, 0);
