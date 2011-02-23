@@ -98,6 +98,18 @@
 	  </td>
 </tr>
 <tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('The border IPv4 router address for the 6RD tunnel.', LEFT);" onMouseOut="return nd();">6RD border router:
+          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_6rd_router" value="<% nvram_get_x("IPv6Config","ipv6_6rd_router"); %>" onBlur="return validate_ipaddr(this, 'ipv6_6rd_router')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
+	  </td>
+</tr>
+<tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('The number of high-order bits of IPv4 WAN addresses within a given 6RD domain', LEFT);" onMouseOut="return nd();">6RD IPv4 mask length:
+          </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_6rd_ip4size" value="<% nvram_get_x("IPv6Config","ipv6_6rd_ip4size"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 0, 32)">
+	  </td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('The Maximum Transfer Unit for the tunnel. Common value is 1280.', LEFT);" onMouseOut="return nd();">Tunnel MTU:
           </td><td class="content_input_td"><input type="text" maxlength="4" class="content_input_fd" size="5" name="ipv6_sit_mtu" value="<% nvram_get_x("IPv6Config","ipv6_sit_mtu"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1280, 1492)">
 	  </td>
