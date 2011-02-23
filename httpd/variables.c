@@ -1592,6 +1592,8 @@ struct variable variables_IPv6Config[] = {
 	{"ipv6_wan_router", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_sit_remote", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"ipv6_sit_relay", "", validate_ipaddr, NULL, FALSE, FALSE},
+ 	{"ipv6_6rd_router", "", validate_ipaddr, NULL, FALSE, FALSE},
+ 	{"ipv6_6rd_ip4size", "", validate_range, ARGV("0", "32"), FALSE, FALSE},
 	{"ipv6_sit_mtu", "", validate_range, ARGV("0", "1480"), FALSE, FALSE},
 	{"ipv6_sit_ttl", "", validate_range, ARGV("0", "255"), FALSE, FALSE},
 	{"ipv6_radvd_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
