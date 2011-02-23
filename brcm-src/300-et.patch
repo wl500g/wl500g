@@ -1,6 +1,6 @@
-diff -urB et-4.108.9/sys/etc47xx.c et/sys/etc47xx.c
---- et-4.108.9/sys/etc47xx.c	2007-03-20 15:22:00.000000000 +0300
-+++ et/sys/etc47xx.c	2009-03-21 22:17:24.000000000 +0300
+diff -urB src/et-4.108.9/sys/etc47xx.c src/et/sys/etc47xx.c
+--- src/et-4.108.9/sys/etc47xx.c	2007-03-20 15:22:00.000000000 +0300
++++ src/et/sys/etc47xx.c	2009-03-21 22:17:24.000000000 +0300
 @@ -96,7 +96,7 @@
  static void chipphyadvertise(struct bcm4xxx *ch, uint phyaddr);
  
@@ -100,9 +100,9 @@ diff -urB et-4.108.9/sys/etc47xx.c et/sys/etc47xx.c
  }
  
  /* set selected capability bits in autonegotiation advertisement */
-diff -urB et-4.108.9/sys/etc.c et/sys/etc.c
---- et-4.108.9/sys/etc.c	2007-03-20 15:22:00.000000000 +0300
-+++ et/sys/etc.c	2009-03-28 20:30:32.000000000 +0300
+diff -urB src/et-4.108.9/sys/etc.c src/et/sys/etc.c
+--- src/et-4.108.9/sys/etc.c	2007-03-20 15:22:00.000000000 +0300
++++ src/et/sys/etc.c	2009-03-28 20:30:32.000000000 +0300
 @@ -320,6 +366,7 @@
  void
  etc_watchdog(etc_info_t *etc)
@@ -196,9 +196,9 @@ diff -urB et-4.108.9/sys/etc.c et/sys/etc.c
  	}
  
  	/* keep emac txcontrol duplex bit consistent with current phy duplex */
-diff -urB et-4.108.9/sys/et_dbg.h et/sys/et_dbg.h
---- et-4.108.9/sys/et_dbg.h	2007-03-20 15:22:00.000000000 +0300
-+++ et/sys/et_dbg.h	2009-03-21 22:17:24.000000000 +0300
+diff -urB src/et-4.108.9/sys/et_dbg.h src/et/sys/et_dbg.h
+--- src/et-4.108.9/sys/et_dbg.h	2007-03-20 15:22:00.000000000 +0300
++++ src/et/sys/et_dbg.h	2009-03-21 22:17:24.000000000 +0300
 @@ -16,8 +16,8 @@
  #ifndef _et_dbg_
  #define _et_dbg_
@@ -210,9 +210,9 @@ diff -urB et-4.108.9/sys/et_dbg.h et/sys/et_dbg.h
  #define	ET_PRHDR(msg, eh, len, unit)
  #define	ET_PRPKT(msg, buf, len, unit)
  
-diff -urB et-4.108.9/sys/et_linux.c et/sys/et_linux.c
---- et-4.108.9/sys/et_linux.c	2007-03-20 15:22:00.000000000 +0300
-+++ et/sys/et_linux.c	2009-03-28 14:16:10.000000000 +0300
+diff -urB src/et-4.108.9/sys/et_linux.c src/et/sys/et_linux.c
+--- src/et-4.108.9/sys/et_linux.c	2007-03-20 15:22:00.000000000 +0300
++++ src/et/sys/et_linux.c	2009-03-28 14:16:10.000000000 +0300
 @@ -36,6 +36,7 @@
  #ifdef SIOCETHTOOL
  #include <linux/ethtool.h>

@@ -123,17 +123,13 @@ $(ROOT)/lzma: $(LZMA).tbz2
 lzma: $(ROOT)/lzma
 	@true
 
-et:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - et | tar -C $(ROOT) --recursive-unlink -xf -
-	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
-
 wl:
 	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
 
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -160,7 +156,7 @@ kernel-extra-drivers:
 	  $(PATCHER) -Z $(KERNEL_DIR)/fs/fuse kernel/drivers/fuse-2.5.3.patch; \
 	fi
 
-kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
+kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 	cp -p kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
