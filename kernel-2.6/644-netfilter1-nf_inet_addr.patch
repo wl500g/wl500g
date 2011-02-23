@@ -1,0 +1,531 @@
+From 90a78aec318fd8908ef81aee6d0f77718845d590
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sat, 29 Jan 2011 00:35:49 -0500
+Subject: [PATCH] [NETFILTER]: use nf_inet_addr union
+
+ Backport from kernel.org commits
+ 643a2c15a407faf08101a20e1a3461160711899d [NETFILTER]: Introduce nf_inet_address
+ 22c2d8bca212a655c120fd6617328ffa3480afad [NETFILTER]: xt_connlimit: use the new union nf_inet_addr
+ 7b33ed22194d8f0dbcf682f5cdf5b9c2ef551e7c [NETFILTER]: Use __u32 in struct nf_inet_addr
+ b8beedd25d3913d45b8330a08ab88fdf90eb54b8 [NETFILTER]: Add nf_inet_addr_cmp()
+
+---
+ include/linux/netfilter.h                    |   11 ++++++-
+ include/linux/netfilter/nf_conntrack_h323.h  |    6 ++--
+ include/linux/netfilter/xt_connlimit.h       |   11 +++++--
+ include/net/netfilter/nf_conntrack_expect.h  |    4 +-
+ include/net/netfilter/nf_conntrack_tuple.h   |   25 +++-----------
+ net/ipv4/netfilter/nf_nat_h323.c             |   10 +++---
+ net/netfilter/nf_conntrack_expect.c          |    4 +-
+ net/netfilter/nf_conntrack_ftp.c             |    2 +-
+ net/netfilter/nf_conntrack_h323_main.c       |   34 ++++++++++----------
+ net/netfilter/nf_conntrack_sip.c             |    8 ++--
+ net/netfilter/xt_connlimit.c                 |   25 +++++++-------
+ 11 files changed, 70 insertions(+), 70 deletions(-)
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 819705b..8857ddb 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -48,7 +48,7 @@
+ #endif
+ 
+ union nf_inet_addr {
+-	u_int32_t	all[4];
++	__u32		all[4];
+ 	__be32		ip;
+ 	__be32		ip6[4];
+ 	struct in_addr	in;
+@@ -58,6 +58,15 @@ union nf_inet_addr {
+ #ifdef __KERNEL__
+ #ifdef CONFIG_NETFILTER
+ 
++static inline int nf_inet_addr_cmp(const union nf_inet_addr *a1,
++				   const union nf_inet_addr *a2)
++{
++	return a1->all[0] == a2->all[0] &&
++	       a1->all[1] == a2->all[1] &&
++	       a1->all[2] == a2->all[2] &&
++	       a1->all[3] == a2->all[3];
++}
++
+ extern void netfilter_init(void);
+ 
+ /* Largest hook number + 1 */
+diff --git a/include/linux/netfilter/nf_conntrack_h323.h b/include/linux/netfilter/nf_conntrack_h323.h
+index 08e2f49..511c761 100644
+--- a/include/linux/netfilter/nf_conntrack_h323.h
++++ b/include/linux/netfilter/nf_conntrack_h323.h
+@@ -31,7 +31,7 @@ struct nf_conn;
+ 
+ extern int get_h225_addr(struct nf_conn *ct, unsigned char *data,
+ 			 TransportAddress *taddr,
+-			 union nf_conntrack_address *addr, __be16 *port);
++			 union nf_inet_addr *addr, __be16 *port);
+ extern void nf_conntrack_h245_expect(struct nf_conn *new,
+ 				     struct nf_conntrack_expect *this);
+ extern void nf_conntrack_q931_expect(struct nf_conn *new,
+@@ -39,12 +39,12 @@ extern void nf_conntrack_q931_expect(struct nf_conn *new,
+ extern int (*set_h245_addr_hook) (struct sk_buff **pskb,
+ 				  unsigned char **data, int dataoff,
+ 				  H245_TransportAddress *taddr,
+-				  union nf_conntrack_address *addr,
++				  union nf_inet_addr *addr,
+ 				  __be16 port);
+ extern int (*set_h225_addr_hook) (struct sk_buff **pskb,
+ 				  unsigned char **data, int dataoff,
+ 				  TransportAddress *taddr,
+-				  union nf_conntrack_address *addr,
++				  union nf_inet_addr *addr,
+ 				  __be16 port);
+ extern int (*set_sig_addr_hook) (struct sk_buff **pskb,
+ 				 struct nf_conn *ct,
+diff --git a/include/linux/netfilter/xt_connlimit.h b/include/linux/netfilter/xt_connlimit.h
+index 7c72bdc..b97bf2d 100644
+--- a/include/linux/netfilter/xt_connlimit.h
++++ b/include/linux/netfilter/xt_connlimit.h
+@@ -5,9 +5,14 @@ struct xt_connlimit_data;
+ 
+ struct xt_connlimit_info {
+ 	union {
+-		u_int32_t mask; /* compat */
+-		u_int32_t v4_mask;
+-		u_int32_t v6_mask[4];
++		union nf_inet_addr _mask;
++#ifndef __KERNEL__
++		union {
++			__be32 mask; /* compat */
++			__be32 v4_mask;
++			__be32 v6_mask[4];
++		};
++#endif
+ 	};
+ 	unsigned int limit, inverse;
+ 
+diff --git a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
+index 173c7c1..4432558 100644
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -70,8 +70,8 @@ void nf_conntrack_unexpect_related(struct nf_conntrack_expect *exp);
+    nf_conntrack_expect_related.  You will have to call put afterwards. */
+ struct nf_conntrack_expect *nf_conntrack_expect_alloc(struct nf_conn *me);
+ void nf_conntrack_expect_init(struct nf_conntrack_expect *, int,
+-			      union nf_conntrack_address *,
+-			      union nf_conntrack_address *,
++			      union nf_inet_addr *,
++			      union nf_inet_addr *,
+ 			      u_int8_t, __be16 *, __be16 *);
+ void nf_conntrack_expect_put(struct nf_conntrack_expect *exp);
+ int nf_conntrack_expect_related(struct nf_conntrack_expect *expect);
+diff --git a/include/net/netfilter/nf_conntrack_tuple.h b/include/net/netfilter/nf_conntrack_tuple.h
+index 67e8246..ad0cc32 100644
+--- a/include/net/netfilter/nf_conntrack_tuple.h
++++ b/include/net/netfilter/nf_conntrack_tuple.h
+@@ -10,6 +10,7 @@
+ #ifndef _NF_CONNTRACK_TUPLE_H
+ #define _NF_CONNTRACK_TUPLE_H
+ 
++#include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/nf_conntrack_tuple_common.h>
+ 
+ /* A `tuple' is a structure containing the information to uniquely
+@@ -20,15 +21,7 @@
+   "non-manipulatable" lines, for the benefit of the NAT code.
+ */
+ 
+-#define NF_CT_TUPLE_L3SIZE	4
+-
+-/* The l3 protocol-specific manipulable parts of the tuple: always in
+-   network order! */
+-union nf_conntrack_address {
+-	u_int32_t all[NF_CT_TUPLE_L3SIZE];
+-	__be32 ip;
+-	__be32 ip6[4];
+-};
++#define NF_CT_TUPLE_L3SIZE	ARRAY_SIZE(((union nf_inet_addr *)NULL)->all)
+ 
+ /* The protocol-specific manipulable parts of the tuple: always in
+    network order! */
+@@ -57,7 +50,7 @@ union nf_conntrack_man_proto
+ /* The manipulable part of the tuple. */
+ struct nf_conntrack_man
+ {
+-	union nf_conntrack_address u3;
++	union nf_inet_addr u3;
+ 	union nf_conntrack_man_proto u;
+ 	/* Layer 3 protocol */
+ 	u_int16_t l3num;
+@@ -70,7 +63,7 @@ struct nf_conntrack_tuple
+ 
+ 	/* These are the parts of the tuple which are fixed. */
+ 	struct {
+-		union nf_conntrack_address u3;
++		union nf_inet_addr u3;
+ 		union {
+ 			/* Add other protocols here. */
+ 			u_int16_t all;
+@@ -125,10 +118,7 @@ struct nf_conntrack_tuple_hash
+ static inline int __nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
+ 					  const struct nf_conntrack_tuple *t2)
+ { 
+-	return (t1->src.u3.all[0] == t2->src.u3.all[0] &&
+-		t1->src.u3.all[1] == t2->src.u3.all[1] &&
+-		t1->src.u3.all[2] == t2->src.u3.all[2] &&
+-		t1->src.u3.all[3] == t2->src.u3.all[3] &&
++	return (nf_inet_addr_cmp(&t1->src.u3, &t2->src.u3) &&
+ 		t1->src.u.all == t2->src.u.all &&
+ 		t1->src.l3num == t2->src.l3num);
+ }
+@@ -136,10 +126,7 @@ static inline int __nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
+ static inline int __nf_ct_tuple_dst_equal(const struct nf_conntrack_tuple *t1,
+ 					  const struct nf_conntrack_tuple *t2)
+ {
+-	return (t1->dst.u3.all[0] == t2->dst.u3.all[0] &&
+-		t1->dst.u3.all[1] == t2->dst.u3.all[1] &&
+-		t1->dst.u3.all[2] == t2->dst.u3.all[2] &&
+-		t1->dst.u3.all[3] == t2->dst.u3.all[3] &&
++	return (nf_inet_addr_cmp(&t1->dst.u3, &t2->dst.u3) &&
+ 		t1->dst.u.all == t2->dst.u.all &&
+ 		t1->dst.protonum == t2->dst.protonum);
+ }
+diff --git a/net/ipv4/netfilter/nf_nat_h323.c b/net/ipv4/netfilter/nf_nat_h323.c
+index c5d2a2d..b1150c2 100644
+--- a/net/ipv4/netfilter/nf_nat_h323.c
++++ b/net/ipv4/netfilter/nf_nat_h323.c
+@@ -84,7 +84,7 @@ static int set_addr(struct sk_buff **pskb,
+ static int set_h225_addr(struct sk_buff **pskb,
+ 			 unsigned char **data, int dataoff,
+ 			 TransportAddress *taddr,
+-			 union nf_conntrack_address *addr, __be16 port)
++			 union nf_inet_addr *addr, __be16 port)
+ {
+ 	return set_addr(pskb, data, dataoff, taddr->ipAddress.ip,
+ 			addr->ip, port);
+@@ -94,7 +94,7 @@ static int set_h225_addr(struct sk_buff **pskb,
+ static int set_h245_addr(struct sk_buff **pskb,
+ 			 unsigned char **data, int dataoff,
+ 			 H245_TransportAddress *taddr,
+-			 union nf_conntrack_address *addr, __be16 port)
++			 union nf_inet_addr *addr, __be16 port)
+ {
+ 	return set_addr(pskb, data, dataoff,
+ 			taddr->unicastAddress.iPAddress.network,
+@@ -111,7 +111,7 @@ static int set_sig_addr(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int i;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 
+ 	for (i = 0; i < count; i++) {
+ 		if (get_h225_addr(ct, *data, &taddr[i], &addr, &port)) {
+@@ -165,7 +165,7 @@ static int set_ras_addr(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int i;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 
+ 	for (i = 0; i < count; i++) {
+ 		if (get_h225_addr(ct, *data, &taddr[i], &addr, &port) &&
+@@ -419,7 +419,7 @@ static int nat_q931(struct sk_buff **pskb, struct nf_conn *ct,
+ 	struct nf_ct_h323_master *info = &nfct_help(ct)->help.ct_h323_info;
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	u_int16_t nated_port = ntohs(port);
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 
+ 	/* Set expectations for NAT */
+ 	exp->saved_proto.tcp.port = exp->tuple.dst.u.tcp.port;
+diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+index 46f60fd..14747e9 100644
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -201,8 +201,8 @@ struct nf_conntrack_expect *nf_conntrack_expect_alloc(struct nf_conn *me)
+ EXPORT_SYMBOL_GPL(nf_conntrack_expect_alloc);
+ 
+ void nf_conntrack_expect_init(struct nf_conntrack_expect *exp, int family,
+-			      union nf_conntrack_address *saddr,
+-			      union nf_conntrack_address *daddr,
++			      union nf_inet_addr *saddr,
++			      union nf_inet_addr *daddr,
+ 			      u_int8_t proto, __be16 *src, __be16 *dst)
+ {
+ 	int len;
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 8735b40..23cd80b 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -364,7 +364,7 @@ static int help(struct sk_buff **pskb,
+ 	unsigned int matchlen, matchoff;
+ 	struct nf_ct_ftp_master *ct_ftp_info = &nfct_help(ct)->help.ct_ftp_info;
+ 	struct nf_conntrack_expect *exp;
+-	union nf_conntrack_address *daddr;
++	union nf_inet_addr *daddr;
+ 	struct nf_conntrack_man cmd = {};
+ 	unsigned int i;
+ 	int found = 0, ends_in_nl;
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index cc0f1aa..3a8b248 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -56,12 +56,12 @@ MODULE_PARM_DESC(callforward_filter, "only create call forwarding expectations "
+ int (*set_h245_addr_hook) (struct sk_buff **pskb,
+ 			   unsigned char **data, int dataoff,
+ 			   H245_TransportAddress *taddr,
+-			   union nf_conntrack_address *addr, __be16 port)
++			   union nf_inet_addr *addr, __be16 port)
+ 			   __read_mostly;
+ int (*set_h225_addr_hook) (struct sk_buff **pskb,
+ 			   unsigned char **data, int dataoff,
+ 			   TransportAddress *taddr,
+-			   union nf_conntrack_address *addr, __be16 port)
++			   union nf_inet_addr *addr, __be16 port)
+ 			   __read_mostly;
+ int (*set_sig_addr_hook) (struct sk_buff **pskb,
+ 			  struct nf_conn *ct,
+@@ -222,7 +222,7 @@ static int get_tpkt_data(struct sk_buff **pskb, unsigned int protoff,
+ /****************************************************************************/
+ static int get_h245_addr(struct nf_conn *ct, unsigned char *data,
+ 			 H245_TransportAddress *taddr,
+-			 union nf_conntrack_address *addr, __be16 *port)
++			 union nf_inet_addr *addr, __be16 *port)
+ {
+ 	unsigned char *p;
+ 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+@@ -265,7 +265,7 @@ static int expect_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int ret = 0;
+ 	__be16 port;
+ 	__be16 rtp_port, rtcp_port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *rtp_exp;
+ 	struct nf_conntrack_expect *rtcp_exp;
+ 	typeof(nat_rtp_rtcp_hook) nat_rtp_rtcp;
+@@ -338,7 +338,7 @@ static int expect_t120(struct sk_buff **pskb,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 	typeof(nat_t120_hook) nat_t120;
+ 
+@@ -635,7 +635,7 @@ static struct nf_conntrack_helper nf_conntrack_helper_h245 __read_mostly = {
+ /****************************************************************************/
+ int get_h225_addr(struct nf_conn *ct, unsigned char *data,
+ 		  TransportAddress *taddr,
+-		  union nf_conntrack_address *addr, __be16 *port)
++		  union nf_inet_addr *addr, __be16 *port)
+ {
+ 	unsigned char *p;
+ 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+@@ -674,7 +674,7 @@ static int expect_h245(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 	typeof(nat_h245_hook) nat_h245;
+ 
+@@ -716,8 +716,8 @@ static int expect_h245(struct sk_buff **pskb, struct nf_conn *ct,
+ 
+ /* If the calling party is on the same side of the forward-to party,
+  * we don't need to track the second call */
+-static int callforward_do_filter(union nf_conntrack_address *src,
+-				 union nf_conntrack_address *dst,
++static int callforward_do_filter(union nf_inet_addr *src,
++				 union nf_inet_addr *dst,
+ 				 int family)
+ {
+ 	struct nf_afinfo *afinfo;
+@@ -784,7 +784,7 @@ static int expect_callforwarding(struct sk_buff **pskb,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 	typeof(nat_callforwarding_hook) nat_callforwarding;
+ 
+@@ -840,7 +840,7 @@ static int process_setup(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int ret;
+ 	int i;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	typeof(set_h225_addr_hook) set_h225_addr;
+ 
+ 	DEBUGP("nf_ct_q931: Setup\n");
+@@ -1219,7 +1219,7 @@ static unsigned char *get_udp_data(struct sk_buff **pskb, unsigned int protoff,
+ 
+ /****************************************************************************/
+ static struct nf_conntrack_expect *find_expect(struct nf_conn *ct,
+-					       union nf_conntrack_address *addr,
++					       union nf_inet_addr *addr,
+ 					       __be16 port)
+ {
+ 	struct nf_conntrack_expect *exp;
+@@ -1261,7 +1261,7 @@ static int expect_q931(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int ret = 0;
+ 	int i;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 	typeof(nat_q931_hook) nat_q931;
+ 
+@@ -1331,7 +1331,7 @@ static int process_gcf(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 
+ 	DEBUGP("nf_ct_ras: GCF\n");
+@@ -1492,7 +1492,7 @@ static int process_arq(struct sk_buff **pskb, struct nf_conn *ct,
+ 	struct nf_ct_h323_master *info = &nfct_help(ct)->help.ct_h323_info;
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	typeof(set_h225_addr_hook) set_h225_addr;
+ 
+ 	DEBUGP("nf_ct_ras: ARQ\n");
+@@ -1534,7 +1534,7 @@ static int process_acf(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 	typeof(set_sig_addr_hook) set_sig_addr;
+ 
+@@ -1597,7 +1597,7 @@ static int process_lcf(struct sk_buff **pskb, struct nf_conn *ct,
+ 	int dir = CTINFO2DIR(ctinfo);
+ 	int ret = 0;
+ 	__be16 port;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_expect *exp;
+ 
+ 	DEBUGP("nf_ct_ras: LCF\n");
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index fcd12c0..d6e1197 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -253,7 +253,7 @@ static int skp_digits_len(struct nf_conn *ct, const char *dptr,
+ }
+ 
+ static int parse_addr(struct nf_conn *ct, const char *cp, const char **endp,
+-		      union nf_conntrack_address *addr, const char *limit)
++		      union nf_inet_addr *addr, const char *limit)
+ {
+ 	const char *end;
+ 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+@@ -281,7 +281,7 @@ static int parse_addr(struct nf_conn *ct, const char *cp, const char **endp,
+ static int epaddr_len(struct nf_conn *ct, const char *dptr,
+ 		      const char *limit, int *shift)
+ {
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	const char *aux = dptr;
+ 
+ 	if (!parse_addr(ct, dptr, &dptr, &addr, limit)) {
+@@ -372,7 +372,7 @@ EXPORT_SYMBOL_GPL(ct_sip_get_info);
+ static int set_expected_rtp(struct sk_buff **pskb,
+ 			    struct nf_conn *ct,
+ 			    enum ip_conntrack_info ctinfo,
+-			    union nf_conntrack_address *addr,
++			    union nf_inet_addr *addr,
+ 			    __be16 port,
+ 			    const char *dptr)
+ {
+@@ -409,7 +409,7 @@ static int sip_help(struct sk_buff **pskb,
+ 		    enum ip_conntrack_info ctinfo)
+ {
+ 	int family = ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.l3num;
+-	union nf_conntrack_address addr;
++	union nf_inet_addr addr;
+ 	unsigned int dataoff, datalen;
+ 	const char *dptr;
+ 	int ret = NF_ACCEPT;
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index 035b22b..f3aa27a 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -49,10 +49,10 @@ static inline unsigned int connlimit_iphash(u_int32_t addr)
+ }
+ 
+ static inline unsigned int
+-connlimit_iphash6(const union nf_conntrack_address *addr,
+-                  const union nf_conntrack_address *mask)
++connlimit_iphash6(const union nf_inet_addr *addr,
++                  const union nf_inet_addr *mask)
+ {
+-	union nf_conntrack_address res;
++	union nf_inet_addr res;
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i)
+@@ -73,14 +73,14 @@ static inline bool already_closed(const struct nf_conn *conn)
+ }
+ 
+ static inline unsigned int
+-same_source_net(const union nf_conntrack_address *addr,
+-		const union nf_conntrack_address *mask,
+-		const union nf_conntrack_address *u3, unsigned int family)
++same_source_net(const union nf_inet_addr *addr,
++		const union nf_inet_addr *mask,
++		const union nf_inet_addr *u3, unsigned int family)
+ {
+ 	if (family == AF_INET) {
+ 		return (addr->ip & mask->ip) == (u3->ip & mask->ip);
+ 	} else {
+-		union nf_conntrack_address lh, rh;
++		union nf_inet_addr lh, rh;
+ 		unsigned int i;
+ 
+ 		for (i = 0; i < ARRAY_SIZE(addr->ip6); ++i) {
+@@ -94,8 +94,8 @@ same_source_net(const union nf_conntrack_address *addr,
+ 
+ static int count_them(struct xt_connlimit_data *data,
+ 		      const struct nf_conntrack_tuple *tuple,
+-		      const union nf_conntrack_address *addr,
+-		      const union nf_conntrack_address *mask,
++		      const union nf_inet_addr *addr,
++		      const union nf_inet_addr *mask,
+ 		      const struct xt_match *match)
+ {
+ 	struct nf_conntrack_tuple_hash *found;
+@@ -177,7 +177,7 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
+              int *hotdrop)
+ {
+ 	const struct xt_connlimit_info *info = matchinfo;
+-	union nf_conntrack_address addr, mask;
++	union nf_inet_addr addr;
+ 	struct nf_conntrack_tuple tuple;
+ 	const struct nf_conntrack_tuple *tuple_ptr = &tuple;
+ 	enum ip_conntrack_info ctinfo;
+@@ -205,15 +205,14 @@ connlimit_mt(const struct sk_buff *skb, const struct net_device *in,
+ 	if (match->family == AF_INET6) {
+ 		const struct ipv6hdr *iph = ipv6_hdr(skb);
+ 		memcpy(&addr.ip6, &iph->saddr, sizeof(iph->saddr));
+-		memcpy(&mask.ip6, info->v6_mask, sizeof(info->v6_mask));
+ 	} else {
+ 		const struct iphdr *iph = ip_hdr(skb);
+ 		addr.ip = iph->saddr;
+-		mask.ip = info->v4_mask;
+ 	}
+ 
+ 	spin_lock_bh(&info->data->lock);
+-	connections = count_them(info->data, tuple_ptr, &addr, &mask, match);
++	connections = count_them(info->data, tuple_ptr, &addr,
++	                         &info->_mask, match);
+ 	spin_unlock_bh(&info->data->lock);
+ 
+ 	if (connections < 0) {
+-- 
+1.6.5.GIT
