@@ -4274,7 +4274,7 @@ function change_ipv6_type(v)
 		inputCtrl(frm.ipv6_sit_remote, 0);
 		inputCtrl(frm.ipv6_sit_relay, 0);
 		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ipvsize, 0);
+		inputCtrl(frm.ipv6_6rd_ip4size, 0);
 		inputCtrl(frm.ipv6_sit_mtu, 0);
 		inputCtrl(frm.ipv6_sit_ttl, 0);
 		inputRCtrl1(frm.ipv6_radvd_enable, 1);
@@ -4287,7 +4287,7 @@ function change_ipv6_type(v)
 		inputCtrl(frm.ipv6_sit_remote, 1);
 		inputCtrl(frm.ipv6_sit_relay, 0);
 		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ipvsize, 0);
+		inputCtrl(frm.ipv6_6rd_ip4size, 0);
 		inputCtrl(frm.ipv6_sit_mtu, 1);
 		inputCtrl(frm.ipv6_sit_ttl, 1);
 		if (frm.ipv6_sit_remote.value == "0.0.0.0")
@@ -4302,7 +4302,7 @@ function change_ipv6_type(v)
 		inputCtrl(frm.ipv6_sit_remote, 0);
 		inputCtrl(frm.ipv6_sit_relay, 1);
 		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ipvsize, 0);
+		inputCtrl(frm.ipv6_6rd_ip4size, 0);
 		inputCtrl(frm.ipv6_sit_mtu, 1);
 		inputCtrl(frm.ipv6_sit_ttl, 1);
 		if (frm.ipv6_sit_relay.value == "0.0.0.0" ||
@@ -4318,7 +4318,7 @@ function change_ipv6_type(v)
 		inputCtrl(frm.ipv6_sit_remote, 0);
 		inputCtrl(frm.ipv6_sit_relay, 0);
 		inputCtrl(frm.ipv6_6rd_router, 1);
-		inputCtrl(frm.ipv6_6rd_ipvsize, 1);
+		inputCtrl(frm.ipv6_6rd_ip4size, 1);
 		inputCtrl(frm.ipv6_sit_mtu, 1);
 		inputCtrl(frm.ipv6_sit_ttl, 1);
 		inputRCtrl1(frm.ipv6_radvd_enable, 1);
@@ -4331,7 +4331,7 @@ function change_ipv6_type(v)
 		inputCtrl(frm.ipv6_sit_remote, 0);
 		inputCtrl(frm.ipv6_sit_relay, 0);
 		inputCtrl(frm.ipv6_6rd_router, 0);
-		inputCtrl(frm.ipv6_6rd_ipvsize, 0);
+		inputCtrl(frm.ipv6_6rd_ip4size, 0);
 		inputCtrl(frm.ipv6_sit_mtu, 0);
 		inputCtrl(frm.ipv6_sit_ttl, 0);
 		inputRCtrl1(frm.ipv6_radvd_enable, 0);

@@ -99,7 +99,7 @@
 </tr>
 <tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('The border IPv4 router address for the 6RD tunnel.', LEFT);" onMouseOut="return nd();">6RD border router:
+<td class="content_header_td" onMouseOver="return overlib('The IPv4 border router address for the 6RD tunnel.', LEFT);" onMouseOut="return nd();">6RD IPv4 border router:
           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_6rd_router" value="<% nvram_get_x("IPv6Config","ipv6_6rd_router"); %>" onBlur="return validate_ipaddr(this, 'ipv6_6rd_router')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>
