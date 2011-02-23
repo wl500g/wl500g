@@ -1,0 +1,42 @@
+ipv6: Fix tcp_v6_send_reset() - it didn't set skb transport header
+
+ a8fdf2b331b38d61fb5f11f3aec4a4f9fb2dedcb ipv6: Fix tcp_v6_send_response(): it didn't set skb transport header
+ 6651ffc8e8bdd5fb4b7d1867c6cfebb4f309512c ipv6: Fix tcp_v6_send_response transport header setting.
+
+From: Cosmin Ratiu <cratiu@ixiacom.com>
+Date: Thu, 3 Sep 2009 20:44:38 -0700
+
+Here is a patch which fixes an issue observed when using TCP over IPv6
+and AH from IPsec.
+
+When a connection gets closed the 4-way method and the last ACK from
+the server gets dropped, the subsequent FINs from the client do not
+get ACKed because tcp_v6_send_response does not set the transport
+header pointer. This causes ah6_output to try to allocate a lot of
+memory, which typically fails, so the ACKs never make it out of the
+stack.
+
+I have reproduced the problem on kernel 2.6.7, but after looking at
+the latest kernel it seems the problem is still there.
+
+Signed-off-by: Cosmin Ratiu <cratiu@ixiacom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv6/tcp_ipv6.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 65aecf2..3aae0f2 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1003,6 +1003,7 @@ static void tcp_v6_send_reset(struct sk_buff *skb, u32 seq, u32 ack, u32 win,
+ 	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
+ 
+ 	t1 = (struct tcphdr *) skb_push(buff, tot_len);
++	skb_reset_transport_header(buff);
+ 
+ 	/* Swap the send and the receive. */
+ 	memset(t1, 0, sizeof(*t1));
+-- 
+1.7.4.1
