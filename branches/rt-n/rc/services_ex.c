@@ -324,7 +324,7 @@ start_radvd(void)
 		/* Clean space for 2002:wwxx:yyzz */
 		if (nvram_match("ipv6_proto", "tun6to4"))
 		{
-			addr.s6_addr16[0] = htons(2002);
+			addr.s6_addr16[0] = htons(0x2002);
 			addr.s6_addr16[1] = 0;
 			addr.s6_addr16[2] = 0;
 		}
