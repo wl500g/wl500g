@@ -6,10 +6,14 @@ IPv6 sit fixes from upstream
  8945a808f7d5efd21fa9fb6055d2dd7887bdd9d8 sit: Allow ip fragmentation when using nopmtudisc to fix package loss
  292f4f3ce4b57f17a667cb34c72bca081dcc0281 sit: Clean up DF code by copying from IPIP
  6dcdd1b3694a4fa2b85167a9c860c7613a7553c7 net/ipv6/sit.c: return unhandled skb to tunnel4_rcv
+ 8a4a50f98bc13670bee94c40b94bc169e1263cd9 [IPV6] sit: Rebinding of SIT tunnels to other interfaces
 
---- linux-2.6.22.19.orig/net/ipv6/sit.c	2011-02-21 00:00:00.000000000 +0000
-+++ linux-2.6.22.19/net/ipv6/sit.c	2011-02-21 12:04:25.796738000 +0000
+---
+ net/ipv6/sit.c |  117 ++++++++++++++++++++++++++++++++-------------------------
+ 1 file changed, 66 insertions(+), 51 deletions(-)
 
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
 @@ -155,8 +155,13 @@ static struct ip_tunnel * ipip6_tunnel_l
  	char name[IFNAMSIZ];
  
@@ -106,3 +110,105 @@ IPv6 sit fixes from upstream
  	iph->protocol		=	IPPROTO_IPV6;
  	iph->tos		=	INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
  	iph->daddr		=	rt->rt_dst;
+@@ -592,6 +598,42 @@ tx_error:
+ 	return 0;
+ }
+ 
++static void ipip6_tunnel_bind_dev(struct net_device *dev)
++{
++	struct net_device *tdev = NULL;
++	struct ip_tunnel *tunnel;
++	struct iphdr *iph;
++
++	tunnel = netdev_priv(dev);
++	iph = &tunnel->parms.iph;
++
++	if (iph->daddr) {
++		struct flowi fl = { .nl_u = { .ip4_u =
++					      { .daddr = iph->daddr,
++						.saddr = iph->saddr,
++						.tos = RT_TOS(iph->tos) } },
++				    .oif = tunnel->parms.link,
++				    .proto = IPPROTO_IPV6 };
++		struct rtable *rt;
++		if (!ip_route_output_key(&rt, &fl)) {
++			tdev = rt->u.dst.dev;
++			ip_rt_put(rt);
++		}
++		dev->flags |= IFF_POINTOPOINT;
++	}
++
++	if (!tdev && tunnel->parms.link)
++		tdev = __dev_get_by_index(tunnel->parms.link);
++
++	if (tdev) {
++		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
++		dev->mtu = tdev->mtu - sizeof(struct iphdr);
++		if (dev->mtu < IPV6_MIN_MTU)
++			dev->mtu = IPV6_MIN_MTU;
++	}
++	dev->iflink = tunnel->parms.link;
++}
++
+ static int
+ ipip6_tunnel_ioctl (struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+@@ -663,6 +705,11 @@ ipip6_tunnel_ioctl (struct net_device *d
+ 			if (cmd == SIOCCHGTUNNEL) {
+ 				t->parms.iph.ttl = p.iph.ttl;
+ 				t->parms.iph.tos = p.iph.tos;
++				if (t->parms.link != p.link) {
++					t->parms.link = p.link;
++					ipip6_tunnel_bind_dev(dev);
++					netdev_state_change(dev);
++				}
+ 			}
+ 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &t->parms, sizeof(p)))
+ 				err = -EFAULT;
+@@ -732,12 +779,9 @@ static void ipip6_tunnel_setup(struct ne
+ 
+ static int ipip6_tunnel_init(struct net_device *dev)
+ {
+-	struct net_device *tdev = NULL;
+ 	struct ip_tunnel *tunnel;
+-	struct iphdr *iph;
+ 
+ 	tunnel = netdev_priv(dev);
+-	iph = &tunnel->parms.iph;
+ 
+ 	tunnel->dev = dev;
+ 	strcpy(tunnel->parms.name, dev->name);
+@@ -745,31 +789,7 @@ static int ipip6_tunnel_init(struct net_
+ 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+ 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
+ 
+-	if (iph->daddr) {
+-		struct flowi fl = { .nl_u = { .ip4_u =
+-					      { .daddr = iph->daddr,
+-						.saddr = iph->saddr,
+-						.tos = RT_TOS(iph->tos) } },
+-				    .oif = tunnel->parms.link,
+-				    .proto = IPPROTO_IPV6 };
+-		struct rtable *rt;
+-		if (!ip_route_output_key(&rt, &fl)) {
+-			tdev = rt->u.dst.dev;
+-			ip_rt_put(rt);
+-		}
+-		dev->flags |= IFF_POINTOPOINT;
+-	}
+-
+-	if (!tdev && tunnel->parms.link)
+-		tdev = __dev_get_by_index(tunnel->parms.link);
+-
+-	if (tdev) {
+-		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
+-		dev->mtu = tdev->mtu - sizeof(struct iphdr);
+-		if (dev->mtu < IPV6_MIN_MTU)
+-			dev->mtu = IPV6_MIN_MTU;
+-	}
+-	dev->iflink = tunnel->parms.link;
++	ipip6_tunnel_bind_dev(dev);
+ 
+ 	return 0;
+ }
+-- 
