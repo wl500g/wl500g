@@ -252,11 +252,12 @@ int
 start_udhcpc(char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char pid[] = "/var/run/udhcpcXXXXXXXXXX.pid";
 	char *wan_hostname;
 	char *dhcp_argv[] = {
 		"/sbin/udhcpc",
 		"-i", wan_ifname,
-		"-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
+		"-p", (snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit), pid),
 		"-b",
 		NULL, NULL,	/* -H wan_hostname	*/
 		NULL, NULL,	/* -O routes		*/
@@ -276,8 +277,8 @@ start_udhcpc(char *wan_ifname, int unit)
 	/* We have to trust unit */
 	snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	wan_hostname = nvram_get(strcat_r(prefix, "hostname", tmp));
-	if (wan_hostname) {
+	wan_hostname = nvram_safe_get(strcat_r(prefix, "hostname", tmp));
+	if (*wan_hostname) {
 		dhcp_argv[index++] = "-H";
 		dhcp_argv[index++] = wan_hostname;
 	}
