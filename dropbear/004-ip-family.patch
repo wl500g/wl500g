@@ -164,17 +164,6 @@ diff -urBp dropbear.orig/svr-main.c dropbear/svr-main.c
  				sockcount - sockpos,
  				&errstring, maxfd);
  
-diff -urBp dropbear.orig/svr-main.c.orig dropbear/svr-main.c.orig
---- dropbear.orig/svr-main.c.orig	2011-02-24 17:21:44.000000000 +0300
-+++ dropbear/svr-main.c.orig	2011-02-25 03:00:00.000000000 +0300
-@@ -118,6 +118,7 @@ void main_noinetd() {
- 	int childsock;
- 	int childpipe[2];
- 
-+	memset(listensocks, 0, sizeof(listensocks));
- 	/* Note: commonsetup() must happen before we daemon()ise. Otherwise
- 	   daemon() will chdir("/"), and we won't be able to find local-dir
- 	   hostkeys. */
 diff -urBp dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
 --- dropbear.orig/svr-runopts.c	2011-02-24 17:21:44.000000000 +0300
 +++ dropbear/svr-runopts.c	2011-02-25 10:28:27.000000000 +0300
