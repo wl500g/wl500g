@@ -22,7 +22,7 @@ export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
 BUSYBOX=busybox-1.18.3
-DROPBEAR=dropbear-0.52
+DROPBEAR=dropbear-0.53
 DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
