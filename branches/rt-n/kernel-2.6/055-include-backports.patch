@@ -105,6 +105,83 @@ diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
  #endif
  
  #define WARN_ON_ONCE(condition)	({				\
+diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
+--- a/include/linux/compiler-gcc4.h
++++ b/include/linux/compiler-gcc4.h
+@@ -23,3 +19,21 @@
+  * code
+  */
+ #define uninitialized_var(x) x = x
++
++#if __GNUC_MINOR__ >= 3
++/* Mark functions as cold. gcc will assume any path leading to a call
++   to them will be unlikely.  This means a lot of manual unlikely()s
++   are unnecessary now for any paths leading to the usual suspects
++   like BUG(), printk(), panic() etc. [but let's keep them for now for
++   older compilers]
++
++   Early snapshots of gcc 4.3 don't support this and we can't detect this
++   in the preprocessor, but we can live with this because they're unreleased.
++   Maketime probing would be overkill here.
++
++   gcc also has a __attribute__((__hot__)) to move hot functions into
++   a special section, but I don't see any sense in this right now in
++   the kernel context */
++#define __cold			__attribute__((__cold__))
++
++#endif
+diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -15,8 +15,8 @@
+ # define __acquire(x)	__context__(x,1)
+ # define __release(x)	__context__(x,-1)
+ # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
+-extern void __chk_user_ptr(const void __user *);
+-extern void __chk_io_ptr(const void __iomem *);
++extern void __chk_user_ptr(const volatile void __user *);
++extern void __chk_io_ptr(const volatile void __iomem *);
+ #else
+ # define __user
+ # define __kernel
+@@ -174,4 +247,37 @@ extern void __chk_io_ptr(const void __io
+ # define __attribute_const__	/* unimplemented */
+ #endif
+ 
++/*
++ * Tell gcc if a function is cold. The compiler will assume any path
++ * directly leading to the call is unlikely.
++ */
++
++#ifndef __cold
++#define __cold
++#endif
++
++/* Simple shorthand for a section definition */
++#ifndef __section
++# define __section(S) __attribute__ ((__section__(#S)))
++#endif
++
++/* Are two types/vars the same type (ignoring qualifiers)? */
++#ifndef __same_type
++# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
++#endif
++
++/*
++ * Prevent the compiler from merging or refetching accesses.  The compiler
++ * is also forbidden from reordering successive instances of ACCESS_ONCE(),
++ * but only when the compiler is aware of some particular ordering.  One way
++ * to make the compiler aware of ordering is to put the two invocations of
++ * ACCESS_ONCE() in different C statements.
++ *
++ * This macro does absolutely -nothing- to prevent the CPU from reordering,
++ * merging, or refetching absolutely anything at any time.  Its main intended
++ * use is to mediate communication between process-level code and irq/NMI
++ * handlers, all running on the same CPU.
++ */
++#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
++
+ #endif /* __LINUX_COMPILER_H */
 diff -uBp a/include/linux/device.h b/include/linux/device.h
 --- a/include/linux/device.h
 +++ b/include/linux/device.h
@@ -150,6 +227,24 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
  
+@@ -107,7 +107,7 @@ extern int cond_resched(void);
+ extern struct atomic_notifier_head panic_notifier_list;
+ extern long (*panic_blink)(long time);
+ NORET_TYPE void panic(const char * fmt, ...)
+-	__attribute__ ((NORET_AND format (printf, 1, 2)));
++	__attribute__ ((NORET_AND format (printf, 1, 2))) __cold;
+ extern void oops_enter(void);
+ extern void oops_exit(void);
+ extern int oops_may_print(void);
+@@ -212,7 +212,7 @@ extern enum system_states {
+ #define TAINT_BAD_PAGE			(1<<5)
+ #define TAINT_USER			(1<<6)
+ 
+-extern void dump_stack(void);
++extern void dump_stack(void) __cold;
+ 
+ enum {
+ 	DUMP_PREFIX_NONE,
 @@ -295,6 +295,24 @@ static inline int __attribute__ ((format
  	(void) (&_x == &_y);		\
  	_x > _y ? _x : _y; })
