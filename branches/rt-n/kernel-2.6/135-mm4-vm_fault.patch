@@ -2854,7 +2854,7 @@ index 4e3f53d..5f50d73 100644
 +	if (vma->vm_private_data && !(vma->vm_flags & VM_NONLINEAR))
 +		goto out;
 +
-+	if (!vma->vm_flags & VM_CAN_NONLINEAR)
++	if (!(vma->vm_flags & VM_CAN_NONLINEAR))
 +		goto out;
 +
 +	if (end <= start || start < vma->vm_start || end > vma->vm_end)
