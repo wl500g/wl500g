@@ -206,6 +206,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 	skb->mac_header = ~0U;
 #endif
+	skb->vlan_tci = 0;
 	/* make sure we initialize shinfo sequentially */
 	shinfo = skb_shinfo(skb);
 	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));
@@ -424,6 +425,8 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #endif
 	new->tc_index	= old->tc_index;
 #endif
+	new->vlan_tci		= old->vlan_tci;
+
 	skb_copy_secmark(new, old);
 }
 
