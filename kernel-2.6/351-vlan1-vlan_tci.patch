@@ -1,0 +1,121 @@
+Backport of "vlan: Don't store VLAN tag in cb"
+
+ Use a real skb member to store the skb to avoid clashes with qdiscs,
+ which are allowed to use the cb area themselves. As currently only real
+ devices that consume the skb set the NETIF_F_HW_VLAN_TX flag, no explicit
+ invalidation is neccessary.
+
+---
+ include/linux/if_vlan.h |   37 ++++++++++---------------------------
+ include/linux/skbuff.h  |    3 +++
+ net/core/skbuff.c       |    3 +++
+ 3 files changed, 16 insertions(+), 27 deletions(-)
+
+diff -urBp a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -160,17 +160,8 @@ static inline __u32 vlan_get_ingress_pri
+ 	return vip->ingress_priority_map[(vlan_tag >> 13) & 0x7];
+ }
+ 
+-/* VLAN tx hw acceleration helpers. */
+-struct vlan_skb_tx_cookie {
+-	u32	magic;
+-	u32	vlan_tag;
+-};
+-
+-#define VLAN_TX_COOKIE_MAGIC	0x564c414e	/* "VLAN" in ascii. */
+-#define VLAN_TX_SKB_CB(__skb)	((struct vlan_skb_tx_cookie *)&((__skb)->cb[0]))
+-#define vlan_tx_tag_present(__skb) \
+-	(VLAN_TX_SKB_CB(__skb)->magic == VLAN_TX_COOKIE_MAGIC)
+-#define vlan_tx_tag_get(__skb)	(VLAN_TX_SKB_CB(__skb)->vlan_tag)
++#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci)
++#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci)
+ 
+ /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
+ static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
+@@ -277,16 +268,11 @@ static inline struct sk_buff *__vlan_put
+  * @skb: skbuff to tag
+  * @tag: VLAN tag to insert
+  *
+- * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
++ * Puts the VLAN TCI in @skb->vlan_tci and lets the device do the rest
+  */
+-static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
++static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, u16 vlan_tci)
+ {
+-	struct vlan_skb_tx_cookie *cookie;
+-
+-	cookie = VLAN_TX_SKB_CB(skb);
+-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
+-	cookie->vlan_tag = tag;
+-
++	skb->vlan_tci = vlan_tci;
+ 	return skb;
+ }
+ 
+@@ -334,18 +320,15 @@ static inline int __vlan_get_tag(struct
+  * @skb: skbuff to query
+  * @tag: buffer to store vlaue
+  * 
+- * Returns error if @skb->cb[] is not set correctly
++ * Returns error if @skb->vlan_tci is not set correctly
+  */
+-static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, unsigned short *tag)
++static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, u16 *vlan_tci)
+ {
+-	struct vlan_skb_tx_cookie *cookie;
+-
+-	cookie = VLAN_TX_SKB_CB(skb);
+-	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
+-		*tag = cookie->vlan_tag;
++	if (vlan_tx_tag_present(skb)) {
++		*vlan_tci = skb->vlan_tci;
+ 		return 0;
+ 	} else {
+-		*tag = 0;
++		*vlan_tci = 0;
+ 		return -EINVAL;
+ 	}
+ }
+diff -urBp a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2011-02-26 15:31:59.000000000 +0300
++++ b/include/linux/skbuff.h	2011-02-26 14:31:21.000000000 +0300
+@@ -237,6 +240,7 @@ typedef unsigned char *sk_buff_data_t;
+  *	@dma_cookie: a cookie to one of several possible DMA operations
+  *		done by skb DMA functions
+  *	@secmark: security marking
++ *	@vlan_tci: vlan tag control information
+  */
+ 
+ struct sk_buff {
+@@ -316,6 +320,8 @@ struct sk_buff {
+ 				*data;
+ 	unsigned int		truesize;
+ 	atomic_t		users;
++
++	__u16			vlan_tci;
+ };
+ 
+ #ifdef __KERNEL__
+diff -urBp a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -206,6 +206,7 @@ struct sk_buff *__alloc_skb(unsigned int
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+ 	skb->mac_header = ~0U;
+ #endif
++	skb->vlan_tci = 0;
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+ 	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));
+@@ -423,6 +424,8 @@ static void __copy_skb_header(struct sk_
+ #endif
+ 	new->tc_index	= old->tc_index;
+ #endif
++	new->vlan_tci		= old->vlan_tci;
++
+ 	skb_copy_secmark(new, old);
+ }
+ 
+-- 
