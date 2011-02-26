@@ -1076,7 +1076,7 @@ LPRng-install:
 
 
 libpcap/Makefile: libpcap/Makefile.in
-	cd libpcap && CFLAGS="-g -Os $(EXTRACFLAGS)" \
+	cd libpcap && CFLAGS="-g -Os -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
 	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
 	    --with-pcap=linux --without-septel --without-dag \
 	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
