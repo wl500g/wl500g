@@ -243,9 +243,9 @@ $(TOP)/ucd-snmp: ucd-snmp/$(UCDSNMP).tar.gz
 ucd-snmp: $(TOP)/ucd-snmp
 	@true
 
-iproute2_Patches := $(call patches_list,iproute2)
+iproute2_Patches := $(call patches_list,iproute2-2.6)
 
-$(TOP)/iproute2: iproute2/$(IPROUTE2).tar.bz2
+$(TOP)/iproute2: iproute2-2.6/$(IPROUTE2).tar.bz2
 	@rm -rf $(TOP)/$@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(IPROUTE2) $(iproute2_Patches)
