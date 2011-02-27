@@ -1577,6 +1577,7 @@ wan6_up(char *wan_ifname, int unit)
 			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan_addr);
 			addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
 			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
+			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
 		}
 		if (size > 0)
