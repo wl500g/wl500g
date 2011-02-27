@@ -427,8 +427,8 @@ void convert_asus_values()
 #endif
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_pppoe_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_pppoe_gateway", nvram_get("wan_gateway"));
 		
@@ -442,8 +442,8 @@ void convert_asus_values()
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_wimax_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_wimax_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
 		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
@@ -459,8 +459,8 @@ void convert_asus_values()
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_modem_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_modem_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_modem_gateway", nvram_get("wan_gateway"));
 		/* current interface address (dhcp + firewall) */
