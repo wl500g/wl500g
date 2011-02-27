@@ -343,7 +343,7 @@ start_dhcp6c(char *wan_ifname)
 		sla_len = 0;
 	else if (sla_len > 16)
 		sla_len = 16;
-	is_wan6_valid = inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &wan6_addr);
+	is_wan6_valid = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan6_addr);
 
 	if ((fp = fopen("/etc/dhcp6c.conf", "w")) == NULL) {
 		perror("/etc/dhcp6c.conf");
@@ -364,7 +364,7 @@ start_dhcp6c(char *wan_ifname)
 		    "};\n"
 		    "id-assoc na 0 { };\n",
 		    wan_ifname,
-		    (is_wan6_valid==1) ? "" : " send ia-na 0;\n",
+		    (is_wan6_valid > 0) ? "" : " send ia-na 0;\n",
 		    nvram_safe_get("lan_ifname"), sla_len
 		);
         fclose(fp);

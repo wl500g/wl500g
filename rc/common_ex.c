@@ -600,8 +600,17 @@ void convert_asus_values()
 	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
 	nvram_set("wan0_ipv6_relay", nvram_safe_get("ipv6_sit_relay"));
 
+	nvram_unset("wan_ipv6_addr_t");
+
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
+		char addrstr[INET6_ADDRSTRLEN];
+
+		sprintf(addrstr, "%s/%s",
+		    nvram_safe_get("ipv6_wan_addr"),
+		    nvram_safe_get("ipv6_wan_netsize"));
+		nvram_set("wan0_ipv6_addr", addrstr);
+
 #if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
 		eval("insmod", "ip6_conntrack");
 		eval("insmod", "ip6t_state");

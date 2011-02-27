@@ -616,14 +616,13 @@ start_lan(void)
 	{
 		struct in6_addr addr;
 		char addrstr[INET6_ADDRSTRLEN];
+		int size;
 
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
     		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
-		if (atoi(nvram_safe_get("ipv6_lan_netsize")) > 0)
-		{
-			strcat(addrstr, "/");
-			strcat(addrstr, nvram_safe_get("ipv6_lan_netsize"));
-		}
+    		size = atoi(nvram_safe_get("ipv6_lan_netsize"));
+    		if (size > 0)
+    			sprintf(addrstr, "%s/%d", addrstr, size);
 		eval("ip", "-6", "addr", "add", addrstr, "dev", lan_ifname);
 		nvram_set("lan_ipv6_addr", addrstr);
 	}
@@ -1452,6 +1451,7 @@ wan6_up(char *wan_ifname, int unit)
 	char *wan6_ifname = "six0";
 	char *wan6_ipaddr;
 	struct in6_addr addr;
+	struct in_addr addr4;
 	char addrstr[INET6_ADDRSTRLEN];
 	int size;
 
@@ -1492,12 +1492,13 @@ wan6_up(char *wan_ifname, int unit)
 		wan6_ifname = wan_ifname;
 
 	/* Prepare WAN IPv6 address */
-	inet_pton(AF_INET6, nvram_safe_get("ipv6_wan_addr"), &addr);
+	size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
+	addr4.s_addr = ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
 		addr.s6_addr16[0] = htons(0x2002);
-		inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
 		size = 16;
+		ipv6_map6rd(&addr, size, &addr4, 0);
 	} else
 	if (nvram_match("ipv6_proto", "tun6rd"))
 	{
@@ -1510,7 +1511,7 @@ wan6_up(char *wan_ifname, int unit)
 		sprintf(addrstr, "%s/%d", addrstr, size);
 
 	/* Check if WAN address changed */
-	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp));
+	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr_t", tmp));
 	if (strcmp(addrstr, wan6_ipaddr) != 0)
 	{
 		/* Delete old 6to4 address and route */
@@ -1518,7 +1519,7 @@ wan6_up(char *wan_ifname, int unit)
 		    nvram_match("ipv6_proto", "tun6to4") ||
 		    nvram_match("ipv6_proto", "tun6rd")))
 			eval("ip", "-6", "addr", "del", wan6_ipaddr, "dev", wan6_ifname);
-    		nvram_set(strcat_r(prefix, "ipv6_addr", tmp), addrstr);
+    		nvram_set(strcat_r(prefix, "ipv6_addr_t", tmp), addrstr);
 	}
 
 	/* Configure WAN IPv6 address */
@@ -1560,11 +1561,11 @@ wan6_up(char *wan_ifname, int unit)
 		char *lan6_ifname = nvram_safe_get("lan_ifname");
 		char *lan6_ipaddr = nvram_safe_get("lan_ipv6_addr");
 
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
+		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
 		if (nvram_match("ipv6_proto", "tun6to4"))
 		{
 			addr.s6_addr16[0] = htons(0x2002);
-			inet_aton(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), (struct in_addr*)&addr.s6_addr16[1]);
+			ipv6_map6rd(&addr, 16, &addr4, 0);
     			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
     			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
     		} else {
@@ -1635,10 +1636,10 @@ wan6_down(char *wan_ifname, int unit)
 	eval("ip", "-6", "route", "del", "default", "metric", "1");
 
         /* Delete WAN address */
-	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp));
+	wan6_ipaddr = nvram_safe_get(strcat_r(prefix, "ipv6_addr_t", tmp));
 	if (*wan6_ipaddr)
 		eval("ip", "-6", "addr", "del", wan6_ipaddr, "dev", wan6_ifname);
-	nvram_unset(strcat_r(prefix, "ipv6_addr", tmp));
+	nvram_unset(strcat_r(prefix, "ipv6_addr_t", tmp));
 
 	/* Delete IPv6 DNS servers */
 	nvram_unset(strcat_r(prefix, "ipv6_dns", tmp));
