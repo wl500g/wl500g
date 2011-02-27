@@ -79,10 +79,6 @@ define make_diff
     diffstat $(4).diff
 endef
 
-MIPS_Kernel_Patches:=$(call patches_list,kernel-2.6/linux-mips)
-OPENWRT_Kernel_Patches:=$(call patches_list,kernel-2.6/openwrt)
-OUR_Kernel_Patches:=$(call patches_list, kernel-2.6)
-
 all: prep custom
 	@true
 
@@ -115,7 +111,7 @@ config: $(TOP)/config
 	@true
 
 $(TOP)/.config: config shared
-	$(MAKE) -C $(KERNEL_DIR) include/linux/version.h
+	$(MAKE) -C kernel-2.6 version
 	$(MAKE) -C $(TOP) .config
 
 $(ROOT)/lzma: $(LZMA).tbz2
@@ -133,27 +129,16 @@ brcm-shared:
 	$(MAKE) -C brcm-src-2.6 $@
 
 kernel-mrproper:
-	$(MAKE) -C $(KERNEL_DIR) mrproper
+	$(MAKE) -C kernel-2.6 mrproper
 
 kernel-patch:
-	@echo Preparing kernel ...
-	@$(PATCHER) -Z $(KERNEL_DIR) kernel-2.6/buildhost.patch
-	$(MAKE) -C $(KERNEL_DIR) mrproper
-	@echo Patching kernel...
-	@$(PATCHER) -Z $(KERNEL_DIR) $(MIPS_Kernel_Patches)
-#	@$(PATCHER) -Z $(KERNEL_DIR) $(OPENWRT_Kernel_Patches)
-	@$(PATCHER) -Z $(KERNEL_DIR) $(OUR_Kernel_Patches)
+	$(MAKE) -C kernel-2.6 patch
 
 kernel-extra-drivers:
-	@for drv in kernel-2.6/drivers/* ; do \
-	    if [ -d $$drv ]; then \
-		tar -C $$drv $(TAR_EXCL_SVN) -cf - . | tar -C $(KERNEL_DIR) -xf - ; \
-		echo " DRV `basename $$drv`"; \
-	    fi; \
-	done;
+	$(MAKE) -C kernel-2.6 extra-drivers
 
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
-	cp kernel-2.6/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
+	$(MAKE) -C kernel-2.6 config
 
 $(ROOT)/asustrx:
 	@rm -rf $@
