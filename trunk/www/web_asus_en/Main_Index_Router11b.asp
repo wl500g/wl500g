@@ -12,7 +12,7 @@
 <body bgcolor="#FFFFFF" onLoad="load_body()">
 <form method="GET" name="form" action="apply.cgi">
 <input type="hidden" name="current_page" value="Main_Index_Router.asp">
-<input type="hidden" name="next_page" value="Basic_ROperation_Content.asp">
+<input type="hidden" name="next_page" value="Basic_GOperation_Content.asp">
 <input type="hidden" name="action_mode" value="">
 <input type="hidden" name="next_host" value="">
 
