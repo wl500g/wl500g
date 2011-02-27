@@ -19,7 +19,10 @@
 
 export ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
+
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
+KERNEL=kernel-2.6
+BRCM-SRC=brcm-src-2.6
 
 BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.53
@@ -111,7 +114,7 @@ config: $(TOP)/config
 	@true
 
 $(TOP)/.config: config shared
-	$(MAKE) -C kernel-2.6 version
+	$(MAKE) -C $(KERNEL) version
 	$(MAKE) -C $(TOP) .config
 
 $(ROOT)/lzma: $(LZMA).tbz2
@@ -123,22 +126,22 @@ lzma: $(ROOT)/lzma
 	@true
 
 wl:
-	$(MAKE) -C brcm-src-2.6 $@
+	$(MAKE) -C $(BRCM-SRC) $@
 
 brcm-shared:
-	$(MAKE) -C brcm-src-2.6 $@
+	$(MAKE) -C $(BRCM-SRC) $@
 
 kernel-mrproper:
-	$(MAKE) -C kernel-2.6 mrproper
+	$(MAKE) -C $(KERNEL) mrproper
 
 kernel-patch:
-	$(MAKE) -C kernel-2.6 patch
+	$(MAKE) -C $(KERNEL) patch
 
 kernel-extra-drivers:
-	$(MAKE) -C kernel-2.6 extra-drivers
+	$(MAKE) -C $(KERNEL) extra-drivers
 
 kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
-	$(MAKE) -C kernel-2.6 config
+	$(MAKE) -C $(KERNEL) config
 
 $(ROOT)/asustrx:
 	@rm -rf $@
@@ -621,10 +624,10 @@ $(TOP)/lib:
 lib: $(TOP)/lib
 
 libbcmcrypto:
-	$(MAKE) -C brcm-src-2.6 $@
+	$(MAKE) -C $(BRCM-SRC) $@
 
 wlconf:
-	$(MAKE) -C brcm-src-2.6 $@
+	$(MAKE) -C $(BRCM-SRC) $@
 
 $(TOP)/upnp:
 	[ -d $@ ] || \
