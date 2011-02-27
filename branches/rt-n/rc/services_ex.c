@@ -290,7 +290,7 @@ start_radvd(void)
 	char *argv[] = {"radvd", NULL};
 	pid_t pid;
 	struct in6_addr addr;
-	int size, i, ret;
+	int size, ret;
 	char addrstr[INET6_ADDRSTRLEN];
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
@@ -312,21 +312,14 @@ start_radvd(void)
 		strcpy(addrstr, "::");
 	} else {
 		/* Convert for easy manipulation */
-		inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
-		for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
-		{
-			if (ret >= 8)
-				addr.s6_addr[i--] = 0;
-			else
-				addr.s6_addr[i--] &= (0xff << ret);
-		}
+		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
+		ipv6_prefix(&addr, size);
 
-		/* Clean space for 2002:wwxx:yyzz */
+		/* Clean ipv6 space for ipv4 part */
 		if (nvram_match("ipv6_proto", "tun6to4"))
 		{
 			addr.s6_addr16[0] = htons(0x2002);
-			addr.s6_addr16[1] = 0;
-			addr.s6_addr16[2] = 0;
+			ipv6_map6rd(&addr, 16, NULL, 0);
 		}
 
 		/* Convert back to string representation */
