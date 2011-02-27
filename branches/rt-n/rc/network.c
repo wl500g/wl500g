@@ -1503,9 +1503,7 @@ wan6_up(char *wan_ifname, int unit)
 	if (nvram_match("ipv6_proto", "tun6rd"))
 	{
 //TODO: add 6RD prefix
-		size = atoi(nvram_safe_get("ipv6_wan_netsize"));
-	} else
-		size = atoi(nvram_safe_get("ipv6_wan_netsize"));
+	}
 	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 	if (size > 0)
 		sprintf(addrstr, "%s/%d", addrstr, size);
