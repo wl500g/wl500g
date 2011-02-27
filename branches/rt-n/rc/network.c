@@ -238,7 +238,7 @@ add_routes(char *prefix, char *var, char *ifname)
 		if (!gateway || !metric)
 			continue;
 			
-		if (inet_addr_(gateway) == INADDR_ANY) 
+		if (ip_addr(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wanx_gateway");
 
 		m = atoi(metric) + 1;
@@ -275,7 +275,7 @@ add_wanx_routes(char *prefix, char *ifname, int metric)
 		ipaddr  = strsep(&tmp, "/");
 		gateway = strsep(&tmp, " ");
 
-		if (gateway && inet_addr_(ipaddr) != INADDR_ANY)
+		if (gateway && ip_addr(ipaddr) != INADDR_ANY)
 			route_add(ifname, metric + 1, ipaddr, gateway, netmask);
 	}
 	free(routes);
@@ -326,7 +326,7 @@ del_routes(char *prefix, char *var, char *ifname)
 		if (!gateway || !metric)
 			continue;
 			
-		if (inet_addr_(gateway) == INADDR_ANY) 
+		if (ip_addr(gateway) == INADDR_ANY) 
 			gateway = nvram_safe_get("wanx_gateway");
 		
 		dprintf("add %s\n", ifname);
@@ -956,7 +956,7 @@ start_wan(void)
 			 	/* setup static wan routes via physical device */
 				add_routes("wan_", "route", wan_ifname);
 				/* and set default route if specified with metric 1 */
-				if (inet_addr_(nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))) &&
+				if (ip_addr(nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))) &&
 				    !nvram_match("wan_heartbeat_x", ""))
 					route_add(wan_ifname, 2, "0.0.0.0", 
 						nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp)), "0.0.0.0");
@@ -1276,11 +1276,11 @@ wan_up(char *wan_ifname)
 		/* and one supplied via DHCP */
 		add_wanx_routes("wanx_", wan_ifname, 0);
 		
-		gateway = inet_addr_(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
+		gateway = ip_addr(nvram_safe_get("wan_gateway")) != INADDR_ANY ?
 			nvram_get("wan_gateway") : nvram_safe_get("wanx_gateway");
 
 		/* and default route with metric 1 */
-		if (inet_addr_(gateway) != INADDR_ANY)
+		if (ip_addr(gateway) != INADDR_ANY)
 		{
 			char word[100], *next;
 

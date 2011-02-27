@@ -23,7 +23,12 @@
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 /* common */
-in_addr_t inet_addr_(const char *cp);
+in_addr_t ip_addr(const char *cp);
+#ifdef __CONFIG_IPV6__
+int ipv6_addr(const char *str, struct in6_addr *addr);
+int ipv6_prefix(struct in6_addr *addr6, int netsize);
+int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size);
+#endif
 char *trim_r(char *str);
 void logmessage(char *logheader, char *fmt, ...);
 void wanmessage(char *fmt, ...);

@@ -542,10 +542,10 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
    	// 	fprintf(fp, "-A PREROUTING -i %s -j LOG --log-prefix ALERT --log-level 4\n", wan_if);
 
 	/* VSERVER chain */
-	if (inet_addr_(wan_ip))
+	if (ip_addr(wan_ip))
 		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wan_ip);
 
-	if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+	if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wanx_ipaddr")))
    		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", nvram_get("wanx_ipaddr"));
       
    	if (nvram_match("misc_http_x", "1"))
@@ -627,7 +627,7 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 			}     				        				}	
 	}	
 
-   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && inet_addr_(wan_ip))
+   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && ip_addr(wan_ip))
 	{
 		#define BASEPORT 6112
 		#define BASEPORT_NEW 10000
@@ -648,11 +648,11 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 
 	if (nvram_match("wan_nat_x", "1"))
 	{
-		if (inet_addr_(wan_ip))
+		if (ip_addr(wan_ip))
    			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
 
    		/* masquerade physical WAN port connection */
-		if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+		if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wanx_ipaddr")))
 			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", 
 	   			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"));
 

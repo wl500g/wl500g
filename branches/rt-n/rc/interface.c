@@ -35,14 +35,14 @@
 #include <rc.h>
 
 in_addr_t
-inet_addr_(const char *cp)
+ip_addr(const char *str)
 {
-	struct in_addr a;
+	struct in_addr addr;
 
-	if (!inet_aton(cp, &a))
-		return INADDR_ANY;
-	else
-		return a.s_addr;
+	if (inet_aton(str, &addr))
+		return addr.s_addr;
+
+	return INADDR_ANY;
 }
 
 int
@@ -251,5 +251,74 @@ stop_vlan(void)
 	}
 
 	return 0;
+}
+#endif
+
+#ifdef __CONFIG_IPV6__
+int
+ipv6_addr(const char *str, struct in6_addr *addr)
+{
+	char addrstr[INET6_ADDRSTRLEN];
+	char *tmp = addrstr;
+	int ret = 128;
+
+	strncpy(addrstr, str, sizeof(addrstr));
+	strsep(&tmp, "/");
+
+	if (inet_pton(AF_INET6, addrstr, &addr) != 1)
+		return -1;
+
+	if (tmp != NULL) {
+		ret = strtol(tmp, NULL, 10);
+		if (errno || ret < 0 || ret > 128)
+			ret = 128;
+	}
+	return ret;
+}
+
+int
+ipv6_prefix(struct in6_addr *addr6, int netsize)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+
+	if (netsize >= 128)
+		return 0;
+
+	if (m)
+		addr6->s6_addr32[i++] &= htonl(0xffffffffUL << (32 - m));
+	while (i < 4)
+		addr6->s6_addr32[i++] = 0;
+
+	return netsize;
+}
+
+int
+ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+	int ret = netsize + 32 - ip4size;
+	u_int32_t addr = 0;
+	u_int32_t mask = 0xffffffffUL << ip4size;
+
+	if (netsize > 128 || ip4size > 32 || ret > 128)
+		return 0;
+
+	if (ip4size == 32)
+		return netsize;
+
+	if (addr4)
+		addr = ntohl(addr4->s_addr) << ip4size;
+
+	addr6->s6_addr32[i] &= ~htonl(mask >> m);
+	addr6->s6_addr32[i] |= htonl(addr >> m);
+	if (m) {
+		i++;
+		addr6->s6_addr32[i] &= ~htonl(mask << (32 - m));
+		addr6->s6_addr32[i] |= htonl(addr << (32 - m));
+	}
+
+	return ret;
 }
 #endif
