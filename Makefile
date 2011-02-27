@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-ROOT := $(shell (cd .. && pwd -P))
+export ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 
@@ -63,14 +63,10 @@ SYSFSUTILS=sysfsutils-2.1.0
 
 UCLIBC=uClibc-0.9.30.1
 
-WL=wl-5.10.56.46
-NAS=nas-5.10.56.46
-LIBBCMCRYPTO=libbcmcrypto-5.20.41
-
 # tar has --exclude parameter ?
-TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
+export TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
 
-PATCHER := $(shell pwd)/patch.sh
+export PATCHER := $(shell pwd)/patch.sh
 
 define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch 2>/dev/null)
@@ -131,14 +127,10 @@ lzma: $(ROOT)/lzma
 	@true
 
 wl:
-	tar -C $(ROOT) --recursive-unlink -xjf brcm-src-2.6/$(WL).tar.bz2
-	tar -C $(ROOT)/wl/mipsel-uclibc -xjf brcm-src-2.6/$(NAS).tbz2
-
-brcm_Patches := $(call patches_list,brcm-src-2.6)
+	$(MAKE) -C brcm-src-2.6 $@
 
 brcm-shared:
-	tar -C brcm-src-2.6 $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
-	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
+	$(MAKE) -C brcm-src-2.6 $@
 
 kernel-mrproper:
 	$(MAKE) -C $(KERNEL_DIR) mrproper
@@ -643,15 +635,11 @@ $(TOP)/lib:
 
 lib: $(TOP)/lib
 
-libbcmcrypto: brcm-src-2.6/$(LIBBCMCRYPTO).tar.gz
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/libbcmcrypto brcm-src-2.6/$(LIBBCMCRYPTO).patch
+libbcmcrypto:
+	$(MAKE) -C brcm-src-2.6 $@
 
-$(TOP)/wlconf:
-	tar -C brcm-src-2.6/ $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) -xf -
-
-wlconf: $(TOP)/wlconf
-	@true
+wlconf:
+	$(MAKE) -C brcm-src-2.6 $@
 
 $(TOP)/upnp:
 	[ -d $@ ] || \
