@@ -256,7 +256,7 @@ stop_vlan(void)
 
 #ifdef __CONFIG_IPV6__
 int
-ipv6_addr(const char *str, struct in6_addr *addr)
+ipv6_addr(const char *str, struct in6_addr *addr6)
 {
 	char addrstr[INET6_ADDRSTRLEN];
 	char *tmp = addrstr;
@@ -265,7 +265,7 @@ ipv6_addr(const char *str, struct in6_addr *addr)
 	strncpy(addrstr, str, sizeof(addrstr));
 	strsep(&tmp, "/");
 
-	if (inet_pton(AF_INET6, addrstr, &addr) != 1)
+	if (inet_pton(AF_INET6, addrstr, addr6) != 1)
 		return -1;
 
 	if (tmp != NULL) {
