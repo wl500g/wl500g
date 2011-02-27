@@ -1453,7 +1453,7 @@ wan6_up(char *wan_ifname, int unit)
 	struct in6_addr addr;
 	struct in_addr addr4;
 	char addrstr[INET6_ADDRSTRLEN];
-	int size;
+	int size, addr4masklen;
 
 	if (!nvram_invmatch("ipv6_proto", ""))
 		return;
@@ -1465,7 +1465,7 @@ wan6_up(char *wan_ifname, int unit)
 	if (wan_prefix(wan_ifname, prefix) < 0)
 		return;
 
-	/* Configure tunnel 6in4 & 6to4 */
+	/* Configure tunnel 6in4 & 6to4 & 6rd */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
 	    nvram_match("ipv6_proto", "tun6rd"))
@@ -1479,11 +1479,14 @@ wan6_up(char *wan_ifname, int unit)
 		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
 			"local", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 #ifdef LINUX26
-//TODO: add 6RD prefix
 		if (nvram_match("ipv6_proto", "tun6rd"))
 		{
-//			eval("ip", "tunnel", "6rd", "dev", wan6_ifname,
-//				"6rd-prefix", PREFIX);
+			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
+			ipv6_prefix(&addr, size);
+			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
+			sprintf(addrstr, "%s/%d", addrstr, size);
+			eval("ip", "tunnel", "6rd", "dev", wan6_ifname,
+				"6rd-prefix", addrstr);
 		}
 #endif
 		/* Set MTU value and enable tunnel */
@@ -1502,7 +1505,9 @@ wan6_up(char *wan_ifname, int unit)
 	} else
 	if (nvram_match("ipv6_proto", "tun6rd"))
 	{
-//TODO: add 6RD prefix
+//TODO: implement 6RD prefix copy into wan_addr
+		addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
+		ipv6_map6rd(&addr, size, &addr4, addr4masklen);
 	}
 	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 	if (size > 0)
@@ -1567,7 +1572,11 @@ wan6_up(char *wan_ifname, int unit)
     			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
     			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
     		} else {
-//TODO: add 6RD prefix
+//TODO: implement 6RD prefix copy into wan_addr
+			struct in6_addr wan_addr;
+			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan_addr);
+			addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
+			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
 			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
 		}
 		if (size > 0)

@@ -282,7 +282,7 @@ ipv6_prefix(struct in6_addr *addr6, int netsize)
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;
 
-	if (netsize >= 128)
+	if (netsize > 128)
 		return 0;
 
 	if (m)
@@ -291,6 +291,23 @@ ipv6_prefix(struct in6_addr *addr6, int netsize)
 		addr6->s6_addr32[i++] = 0;
 
 	return netsize;
+}
+
+int
+ipv6_prefix_zero(struct in6_addr *addr6, int netsize)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+
+	if (netsize > 128)
+		return 0;
+
+	if (m)
+		addr6->s6_addr32[i--] &= htonl(0xffffffffUL >> m);
+	while (i >= 0)
+		addr6->s6_addr32[i--] = 0;
+
+	return 128 - netsize;
 }
 
 int
