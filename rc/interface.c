@@ -277,7 +277,7 @@ ipv6_addr(const char *str, struct in6_addr *addr6)
 }
 
 int
-ipv6_prefix(struct in6_addr *addr6, int netsize)
+ipv6_network(struct in6_addr *addr6, int netsize)
 {
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;
@@ -294,7 +294,7 @@ ipv6_prefix(struct in6_addr *addr6, int netsize)
 }
 
 int
-ipv6_prefix_zero(struct in6_addr *addr6, int netsize)
+ipv6_host(struct in6_addr *addr6, int netsize)
 {
 	int i = netsize >> 5;
 	int m = netsize & 0x1f;

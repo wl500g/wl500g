@@ -26,8 +26,8 @@
 in_addr_t ip_addr(const char *cp);
 #ifdef __CONFIG_IPV6__
 int ipv6_addr(const char *str, struct in6_addr *addr6);
-int ipv6_prefix(struct in6_addr *addr6, int netsize);
-int ipv6_prefix_zero(struct in6_addr *addr6, int netsize);
+int ipv6_network(struct in6_addr *addr6, int netsize);
+int ipv6_host(struct in6_addr *addr6, int netsize);
 int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size);
 #endif
 char *trim_r(char *str);
