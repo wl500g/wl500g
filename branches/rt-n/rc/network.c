@@ -1453,7 +1453,7 @@ wan6_up(char *wan_ifname, int unit)
 	struct in6_addr addr;
 	struct in_addr addr4;
 	char addrstr[INET6_ADDRSTRLEN];
-	int size, addr4masklen;
+	int size, addr4masklen = 0;
 
 	if (!nvram_invmatch("ipv6_proto", ""))
 		return;
@@ -1465,6 +1465,8 @@ wan6_up(char *wan_ifname, int unit)
 	if (wan_prefix(wan_ifname, prefix) < 0)
 		return;
 
+	addr4.s_addr = ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+
 	/* Configure tunnel 6in4 & 6to4 & 6rd */
 	if (nvram_match("ipv6_proto", "tun6in4") ||
 	    nvram_match("ipv6_proto", "tun6to4") ||
@@ -1473,20 +1475,33 @@ wan6_up(char *wan_ifname, int unit)
 		/* Instantiate tunnel */
 		eval("ip", "tunnel", "add", wan6_ifname, "mode", "sit",
 			"remote", nvram_match("ipv6_proto", "tun6in4") ? nvram_safe_get("ipv6_sit_remote") : "any",
-			"local", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
+			"local", inet_ntoa(addr4),
 			"ttl", nvram_safe_get("ipv6_sit_ttl"));
 		/* Chage local address if any */
 		eval("ip", "tunnel", "change", wan6_ifname, "mode", "sit",
-			"local", nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+			"local", inet_ntoa(addr4));
 #ifdef LINUX26
 		if (nvram_match("ipv6_proto", "tun6rd"))
 		{
+			char netstr[sizeof("255.255.255.255/32")] = "0.0.0.0/0";
+
 			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
-			ipv6_prefix(&addr, size);
+			ipv6_network(&addr, size);
 			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 			sprintf(addrstr, "%s/%d", addrstr, size);
+
+			addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
+			if (addr4masklen > 0 && addr4masklen <= 32)
+			{
+				struct in_addr net;
+				net.s_addr = addr4.s_addr &
+				    htonl(0xffffffffUL << (32 - addr4masklen));
+				sprintf(netstr, "%s/%d", inet_ntoa(net), addr4masklen);
+			}
+
 			eval("ip", "tunnel", "6rd", "dev", wan6_ifname,
-				"6rd-prefix", addrstr);
+				"6rd-prefix", addrstr,
+				"6rd-relay_prefix", netstr);
 		}
 #endif
 		/* Set MTU value and enable tunnel */
@@ -1496,7 +1511,6 @@ wan6_up(char *wan_ifname, int unit)
 
 	/* Prepare WAN IPv6 address */
 	size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &addr);
-	addr4.s_addr = ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
 	if (nvram_match("ipv6_proto", "tun6to4"))
 	{
 		addr.s6_addr16[0] = htons(0x2002);
@@ -1506,7 +1520,6 @@ wan6_up(char *wan_ifname, int unit)
 	if (nvram_match("ipv6_proto", "tun6rd"))
 	{
 //TODO: implement 6RD prefix copy into wan_addr
-		addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
 		ipv6_map6rd(&addr, size, &addr4, addr4masklen);
 	}
 	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
@@ -1573,9 +1586,8 @@ wan6_up(char *wan_ifname, int unit)
     			size = atoi(nvram_safe_get("ipv6_lan_netsize"));
     		} else {
 //TODO: implement 6RD prefix copy into wan_addr
-			struct in6_addr wan_addr;
-			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan_addr);
-			addr4masklen = atoi(nvram_safe_get(strcat_r(prefix, "ipv6_ip4size", tmp)));
+			struct in6_addr wan6_addr;
+			size = ipv6_addr(nvram_safe_get(strcat_r(prefix, "ipv6_addr", tmp)), &wan6_addr);
 			ipv6_map6rd(&addr, size, &addr4, addr4masklen);
 			inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 			size = atoi(nvram_safe_get("ipv6_lan_netsize"));

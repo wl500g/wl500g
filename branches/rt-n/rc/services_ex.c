@@ -313,7 +313,7 @@ start_radvd(void)
 	} else {
 		/* Convert for easy manipulation */
 		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
-		ipv6_prefix(&addr, size);
+		ipv6_network(&addr, size);
 
 		/* Clean and/or fill ipv6 prefix space */
 		if (nvram_match("ipv6_proto", "tun6to4"))
@@ -327,7 +327,7 @@ start_radvd(void)
 			struct in6_addr wan_addr;
 			int prefix_size = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan_addr);
 			int addr4masklen = atoi(nvram_safe_get("wan0_ipv6_ip4size"));
-			ipv6_prefix_zero(&addr, prefix_size);
+			ipv6_host(&addr, prefix_size);
 			ipv6_map6rd(&addr, prefix_size, NULL, addr4masklen);
 		}
 
