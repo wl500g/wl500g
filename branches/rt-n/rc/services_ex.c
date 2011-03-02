@@ -893,6 +893,7 @@ stop_usb(void)
 		eval("killall", "mountd");
 		eval("killall", "-9", "nfsd");
 		eval("killall", "-9", "lockd");
+		eval("killall", "statd");
 		eval("killall", "portmap");
 		
 		eval("rmmod", "nfsd");
