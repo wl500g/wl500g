@@ -1,0 +1,53 @@
+From 1df0af76700c7f75ea43006ad6d450cdeeb6244f
+From: Alexey Fomenko
+Date: Wed, 02 Mar 2011 03:13:21 +0000
+Subject: don't leak malloced variables in the loop; remove double alloc
+
+Signed-off-by: Alexey Fomenko <ext-alexey.fomenko@nokia.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/networking/ifupdown.c b/networking/ifupdown.c
+index 59df4e8..c7b560b 100644
+--- a/networking/ifupdown.c
++++ b/networking/ifupdown.c
+@@ -1220,13 +1220,13 @@ int ifupdown_main(int argc UNUSED_PARAM, char **argv)
+ 				/* ifup */
+ 				if (iface_state) {
+ 					bb_error_msg("interface %s already configured", iface);
+-					continue;
++					goto next;
+ 				}
+ 			} else {
+ 				/* ifdown */
+ 				if (!iface_state) {
+ 					bb_error_msg("interface %s not configured", iface);
+-					continue;
++					goto next;
+ 				}
+ 			}
+ 			llist_free(state_list, free);
+@@ -1316,6 +1316,9 @@ int ifupdown_main(int argc UNUSED_PARAM, char **argv)
+ 			fclose(state_fp);
+ 			llist_free(state_list, free);
+ 		}
++ next:
++		free(iface);
++		free(liface);
+ 	}
+ 
+ 	return any_failures;
+diff --git a/networking/nameif.c b/networking/nameif.c
+index d02c2c1..6cf1c50 100644
+--- a/networking/nameif.c
++++ b/networking/nameif.c
+@@ -156,7 +156,7 @@ int nameif_main(int argc, char **argv)
+ 
+ 	if (argc) {
+ 		while (*argv) {
+-			char *ifname = xstrdup(*argv++);
++			char *ifname = *argv++;
+ 			prepend_new_eth_table(&clist, ifname, *argv++);
+ 		}
+ 	} else {
+--
+cgit v0.8.2.1
