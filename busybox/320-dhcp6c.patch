@@ -5289,8 +5289,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/netw
 +	  and forwards these requests to a different interface.
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp6c.c
 --- busybox.orig/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.c	2011-02-10 18:20:03.000000000 +0300
-@@ -0,0 +1,1540 @@
++++ busybox/networking/udhcp/dhcp6c.c	2011-03-02 20:41:17.000000000 +0300
+@@ -0,0 +1,1541 @@
 +/*
 + * DHCPv6 client
 + *
@@ -5395,7 +5395,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +static void client6_startall(int);
 +static void free_resources(struct dhcp6_if *);
 +static void client6_mainloop(void);
-+static void check_exit(void);
++static void check_exit(int);
 +static struct dhcp6_serverinfo *find_server(struct dhcp6_event *,
 +						 struct duid *);
 +static struct dhcp6_serverinfo *select_server(struct dhcp6_event *);
@@ -5660,20 +5660,22 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +	}
 +}
 +
-+static void check_exit(void)
++static void check_exit(int force)
 +{
 +	struct dhcp6_if *ifp;
 +
-+	if (!bb_got_signal)
-+		return;
++	if (!force) {
++		if (!bb_got_signal)
++			return;
 +
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
++		for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
 +		/*
 +		 * Check if we have an outstanding event.  If we do, we cannot
 +		 * exit for now.
 +		 */
-+		if (!TAILQ_EMPTY(&ifp->event_list))
-+			return;
++			if (!TAILQ_EMPTY(&ifp->event_list))
++				return;
++		}
 +	}
 +
 +	/* We have no existing event.  Do exit. */
@@ -5695,7 +5697,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +			switch (bb_got_signal) {
 +			case SIGQUIT:
 +			case SIGTERM:
-+				check_exit();
++				check_exit(1);
 +				break;
 +			case SIGHUP:
 +				bb_info_msg("restarting");
@@ -5762,7 +5764,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +		dhcp6_remove_event(ev);
 +
 +		if (state == DHCP6S_RELEASE)
-+			check_exit();
++			check_exit(0);
 +
 +		return (NULL);
 +	}
@@ -6618,14 +6620,13 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +		 * by the server.
 +		 * [RFC3315 Section 18.1.8]
 +		 */
-+		check_exit();
++		check_exit(0);
 +	}
 +
 +	log1("got an expected reply, sleeping.");
 +
 +	if (option_mask32 & OPT_i) {
-+		bb_got_signal = SIGTERM;
-+		check_exit();
++		check_exit(1);
 +	}
 +	return (0);
 +}
