@@ -33,7 +33,7 @@ SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.6.25
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
-IPTABLES=iptables-1.3.8
+IPTABLES=iptables-1.4.3.2
 MINIUPNPD=miniupnpd-1.4.20100921
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
@@ -285,13 +285,13 @@ $(TOP)/samba: samba/$(SAMBA).tar.bz2
 samba: $(TOP)/samba
 	@true
 
-iptables_Patches := $(call patches_list,iptables)
+iptables_Patches := $(call patches_list,iptables-2.6)
 
-$(TOP)/iptables: iptables/$(IPTABLES).tar.bz2
+$(TOP)/iptables: iptables-2.6/$(IPTABLES).tar.bz2
 	@rm -rf $(TOP)/$(IPTABLES) $@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(IPTABLES) $(iptables_Patches)
-	chmod a+x $(TOP)/$(IPTABLES)/extensions/.*-test $(TOP)/$(IPTABLES)/extensions/.*-test6
+	@-chmod a+x $(TOP)/$(IPTABLES)/extensions/.*-test $(TOP)/$(IPTABLES)/extensions/.*-test6
 	mv $(TOP)/$(IPTABLES) $@ && touch $@
 
 iptables: $(TOP)/iptables

@@ -1,0 +1,23 @@
+diff -uB a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
+--- a/include/linux/netfilter_ipv4/ip_tables.h
++++ b/include/linux/netfilter_ipv4/ip_tables.h
+@@ -56,6 +56,7 @@
+ #define IPT_F_FRAG		0x01	/* Set if rule is a fragment rule */
+ #define IPT_F_GOTO		0x02	/* Set if jump is a goto */
+ #define IPT_F_MASK		0x03	/* All possible flag bits mask. */
++#define IPT_F_NO_DEF_MATCH	0x80	/* Internal: no default match rules present */
+ 
+ /* Values for "inv" field in struct ipt_ip. */
+ #define IPT_INV_VIA_IN		0x01	/* Invert the sense of IN IFACE. */
+diff --git a/libiptc/libip4tc.c b/libiptc/libip4tc.c
+--- a/libiptc/libip4tc.c
++++ b/libiptc/libip4tc.c
+@@ -189,7 +189,7 @@ is_same(const STRUCT_ENTRY *a, const STRUCT_ENTRY *b, unsigned char *matchmask)
+ 	    || a->ip.smsk.s_addr != b->ip.smsk.s_addr
+ 	    || a->ip.dmsk.s_addr != b->ip.dmsk.s_addr
+ 	    || a->ip.proto != b->ip.proto
+-	    || a->ip.flags != b->ip.flags
++	    || (a->ip.flags & ~IPT_F_NO_DEF_MATCH) != (b->ip.flags & ~IPT_F_NO_DEF_MATCH)
+ 	    || a->ip.invflags != b->ip.invflags)
+ 		return NULL;
+ 

@@ -1041,6 +1041,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* SECURITY chain */
 
+#ifndef LINUX26		// xtables!
 	// sync-flood protection
 	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
 	// furtive port scanner
@@ -1051,6 +1052,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	// drop attacks!!!
 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
+#endif //LINUX26
 
 	/* INPUT chain */
 
@@ -1059,7 +1061,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	if (nvram_match("ipv6_proto", "dhcp6"))
 		fprintf(fp, "-A INPUT -p udp --dport 546 -j %s\n", logaccept);
 	// Allow ICMPv6
-	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -p ipv6-icmp ! --icmpv6-type echo-request -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
 	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);

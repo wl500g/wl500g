@@ -28,10 +28,18 @@
 #define ETH_ALEN ETHER_ADDR_LEN
 #include <linux/netfilter_ipv4/ipt_mac.h>
 #include <linux/netfilter_ipv4/ipt_state.h>
-#include <linux/netfilter_ipv4/ipt_time.h>
+#ifdef LINUX26
+# include <linux/netfilter/xt_time.h>
+# define ipt_time_info xt_time_info
+#else
+# include <linux/netfilter_ipv4/ipt_time.h>
+#endif
 #include <linux/netfilter_ipv4/ipt_TCPMSS.h>
 #include <linux/netfilter_ipv4/ipt_LOG.h>
 #include <linux/netfilter_ipv4/ip_autofw.h>
+#ifdef WEBSTRFILTER
+# include <linux/netfilter_ipv4/ipt_webstr.h>
+#endif
 
 /* ipt_entry alignment attribute */
 #define IPT_ALIGNED ((aligned (__alignof__ (struct ipt_entry))))
