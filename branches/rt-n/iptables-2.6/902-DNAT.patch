@@ -1,4 +1,4 @@
-From: Patrick McHardy <kaber@trash.net>
+From: Patrick McHardy
 Date: Fri, 6 Nov 2009 16:15:07 +0000 (+0100)
 Subject: DNAT: fix incorrect check during parsing
 X-Git-Tag: v1.4.6~4
