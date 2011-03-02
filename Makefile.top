@@ -679,9 +679,9 @@ iptables: $(LINUXDIR)/include/linux/version.h iptables/Makefile
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
-	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/extensions/libxt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
+	install -d $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install iptables/extensions/libxt_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
 	install -D iptables/.libs/iptables-multi $(INSTALLDIR)/iptables/usr/sbin/iptables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
@@ -690,13 +690,13 @@ ifeq ($(CONFIG_IPTABLES),y)
 	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2
 	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so
 ifeq ($(CONFIG_IPV6),y)
-	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
+	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
 	install iptables/.libs/ip6tables-multi $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-restore
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-save
 endif
-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so $(INSTALLDIR)/iptables/usr/lib/iptables/libxt*.so
+	$(STRIP) $(INSTALLDIR)/iptables/usr/libexec/xtables/libip*.so $(INSTALLDIR)/iptables/usr/libexec/xtables/libxt*.so
 else
         # So that generic rule does not take precedence
 	@true
