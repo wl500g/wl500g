@@ -232,7 +232,15 @@ diff -BurN iptables-1.4.3/Makefile.in iptables/Makefile.in
  xtables.pc: $(top_builddir)/config.status $(srcdir)/xtables.pc.in
  	cd $(top_builddir) && $(SHELL) ./config.status $@
  install-libLTLIBRARIES: $(lib_LTLIBRARIES)
-@@ -536,12 +536,14 @@ libiptc/$(am__dirstamp):
+@@ -530,18 +530,22 @@ clean-libLTLIBRARIES:
+ 	  echo "rm -f \"$${dir}/so_locations\""; \
+ 	  rm -f "$${dir}/so_locations"; \
+ 	done
++clean-libLIBRARIES:
++	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+ libiptc/$(am__dirstamp):
+ 	@$(MKDIR_P) libiptc
+ 	@: > libiptc/$(am__dirstamp)
  libiptc/$(DEPDIR)/$(am__dirstamp):
  	@$(MKDIR_P) libiptc/$(DEPDIR)
  	@: > libiptc/$(DEPDIR)/$(am__dirstamp)
