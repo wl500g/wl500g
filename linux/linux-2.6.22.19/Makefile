@@ -543,6 +543,10 @@ ifdef CONFIG_DEBUG_SECTION_MISMATCH
 CFLAGS += $(call cc-option, -fno-inline-functions-called-once)
 endif
 
+ifneq (CONFIG_FRAME_WARN,0)
+CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
+endif
+
 # Force gcc to behave correct even for buggy distributions
 CFLAGS          += $(call cc-option, -fno-stack-protector)
 
