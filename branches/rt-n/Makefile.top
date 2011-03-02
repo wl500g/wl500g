@@ -668,26 +668,35 @@ cdma-install:
 	install -d $(INSTALLDIR)/cdma
 	$(MAKE) -C cdma install
 
+iptables/Makefile: iptables/Makefile.in
+	cd iptables && CFLAGS="-Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --with-pic --with-kernel=$(LINUXDIR) \
+	 $(if $(CONFIG_IPV6),,--disable-ipv6) \
+	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE"
 
-iptables: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
+iptables: $(LINUXDIR)/include/linux/version.h iptables/Makefile
+	$(MAKE) -C $@ EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
 	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
 	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
+	install iptables/extensions/libxt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
+	install -D iptables/.libs/iptables-multi $(INSTALLDIR)/iptables/usr/sbin/iptables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-save
+	install -D iptables/.libs/libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2.0.0
+	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2
+	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so
 ifeq ($(CONFIG_IPV6),y)
 	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	install iptables/.libs/ip6tables-multi $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-restore
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-save
 endif
-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so
+	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so $(INSTALLDIR)/iptables/usr/lib/iptables/libxt*.so
 else
         # So that generic rule does not take precedence
 	@true
@@ -769,7 +778,7 @@ dropbear/config.h: dropbear/config.h.in
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
 	    --disable-libutil --disable-loginfunc --disable-pututline \
-	    --disable-pututxline
+	    --disable-pututxline --enable-bundled-libtom
 
 dropbear: dropbear/config.h
 	$(MAKE) -C $@ PROGRAMS="dropbear dbclient scp dropbearkey dropbearconvert" MULTI=1 SCPPROGRESS=1

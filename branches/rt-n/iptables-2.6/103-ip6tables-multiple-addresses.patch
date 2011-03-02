@@ -1,0 +1,99 @@
+[PATCH] iptables: fix ip6tables so that writes rules for EACH of a hostname's addresses
+
+From: Wes Campaigne <westacular>
+Date: Thu, 17 Feb 2011 08:06:58 -0500
+
+For ipv4/iptables, a rule is created for all resolved addresses. This seems
+correct.
+
+For ipv6, at the resolving step, the code only grabbed the first address,
+instead of all of them, even though all the backend code for handling multiple
+addresses is there. It's not clear why, but even current git of ip6tables still
+has this odd limitation.
+
+---
+ ip6tables.c |    8 ++------
+ xtables.c   |   22 ++++++++++------------
+ 2 files changed, 12 insertions(+), 18 deletions(-)
+
+diff --git a/xtables.c b/xtables.c
+--- a/xtables.c
++++ b/xtables.c
+@@ -546,17 +546,17 @@ host_to_ip6addr(const char *name, unsigned int *naddr)
+ static struct in6_addr *
+ host_to_ip6addr(const char *name, unsigned int *naddr)
+ {
+-	static struct in6_addr *addr;
+ 	struct addrinfo hints;
+ 	struct addrinfo *res;
++	struct addrinfo *p;
++	struct in6_addr *addr;
+ 	int err;
++	unsigned int i;
+ 
+ 	memset(&hints, 0, sizeof(hints));
+ 	hints.ai_flags    = AI_CANONNAME;
+ 	hints.ai_family   = AF_INET6;
+ 	hints.ai_socktype = SOCK_RAW;
+-	hints.ai_protocol = IPPROTO_IPV6;
+-	hints.ai_next     = NULL;
+ 
+ 	*naddr = 0;
+ 	if ((err = getaddrinfo(name, NULL, &hints, &res)) != 0) {
+@@ -1290,20 +1290,20 @@ host_to_ip6addr(const char *name, unsign
+ #endif
+ 		return NULL;
+ 	} else {
+-		if (res->ai_family != AF_INET6 ||
+-		    res->ai_addrlen != sizeof(struct sockaddr_in6))
+-			return NULL;
+-
++		/* Find length of address-chain */
++		for(p = res; p != NULL; p = p->ai_next)
++			++(*naddr);
+ #ifdef DEBUG
+ 		fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen,
+ 		        ip6addr_to_numeric(&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr));
+ #endif
+-		/* Get the first element of the address-chain */
+-		addr = xtables_malloc(sizeof(struct in6_addr));
+-		memcpy(addr, &((const struct sockaddr_in6 *)res->ai_addr)->sin6_addr,
+-		       sizeof(struct in6_addr));
++		addr = xtables_calloc(*naddr, sizeof(struct in6_addr));
++		i = 0;
++		for(p = res; p != NULL; p = p->ai_next)
++			memcpy(&(addr[i++]), (struct in6_addr *)
++				&((struct sockaddr_in6 *)p->ai_addr)->sin6_addr,
++				sizeof(struct in6_addr));
+ 		freeaddrinfo(res);
+-		*naddr = 1;
+ 		return addr;
+ 	}
+ 
+diff --git a/ip6tables.c b/ip6tables.c
+--- a/ip6tables.c
++++ b/ip6tables.c
+@@ -1293,7 +1293,6 @@
+ 	struct in6_addr *saddrs = NULL, *daddrs = NULL;
+ 
+ 	int c, verbose = 0;
+-	unsigned i;
+ 	const char *chain = NULL;
+ 	const char *shostnetworkmask = NULL, *dhostnetworkmask = NULL;
+ 	const char *policy = NULL, *newname = NULL;
+@@ -2000,12 +2000,8 @@ int do_command6(int argc, char *argv[], 
+ 		e = NULL;
+ 	}
+ 
+-	for (i = 0; i < nsaddrs; i++)
+-		free(&saddrs[i]);
+-
+-	for (i = 0; i < ndaddrs; i++)
+-		free(&daddrs[i]);
+-
++	free(saddrs);
++	free(daddrs);
+ 	xtables_free_opts(1);
+ 
+ 	return ret;
+-- 
