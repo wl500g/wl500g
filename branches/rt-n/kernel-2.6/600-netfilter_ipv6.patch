@@ -1,0 +1,19 @@
+diff -uB a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+--- a/include/linux/netfilter_ipv6.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/netfilter_ipv6.h	2011-03-02 13:53:56.000000000 +0300
+@@ -70,6 +70,8 @@
+ 	NF_IP6_PRI_LAST = INT_MAX,
+ };
+ 
++#ifdef  __KERNEL__
++
+ #ifdef CONFIG_NETFILTER
+ extern int ip6_route_me_harder(struct sk_buff *skb);
+ extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+@@ -82,4 +84,6 @@
+ static inline void ipv6_netfilter_fini(void) { return; }
+ #endif /* CONFIG_NETFILTER */
+ 
++#endif /* __KERNEL__ */
++
+ #endif /*__LINUX_IP6_NETFILTER_H*/
