@@ -24,6 +24,7 @@ export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
 IPROUTE2=iproute2-2.6
+IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.53
@@ -33,7 +34,6 @@ P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
-IPTABLES=iptables-1.4.3.2
 MINIUPNPD=miniupnpd-1.4.20100921
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
@@ -277,17 +277,8 @@ $(TOP)/samba: samba/$(SAMBA).tar.bz2
 samba: $(TOP)/samba
 	@true
 
-iptables_Patches := $(call patches_list,iptables-2.6)
-
-$(TOP)/iptables: iptables-2.6/$(IPTABLES).tar.bz2
-	@rm -rf $(TOP)/$(IPTABLES) $@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(IPTABLES) $(iptables_Patches)
-	@-chmod a+x $(TOP)/$(IPTABLES)/extensions/.*-test $(TOP)/$(IPTABLES)/extensions/.*-test6
-	mv $(TOP)/$(IPTABLES) $@ && touch $@
-
-iptables: $(TOP)/iptables
-	@true
+iptables:
+	$(MAKE) -C $(IPTABLES) $@
 
 nfs-utils_Patches := $(call patches_list,nfs-utils)
 
