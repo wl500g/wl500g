@@ -1633,7 +1633,8 @@ hotplug_usb(void)
 	{
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 		/* communication device */
-		if (strncmp(interface, "255/", 4) == 0)
+		if (strncmp(interface, "255/" ,4) == 0 ||
+		    strncmp(interface, "2/", 2) == 0)
 		{
 			hotplug_network_device( interface, action, product );
 		}

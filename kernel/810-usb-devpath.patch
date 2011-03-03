@@ -281,7 +281,7 @@ diff -BurpN linux-2.4.37.2/drivers/usb/printer.c linux/drivers/usb/printer.c
 diff -urbBN linux-2.4.37/drivers/usb/serial/usbserial.c linux.cdma/drivers/usb/serial/usbserial.c
 --- linux-2.4.37/drivers/usb/serial/usbserial.c	2008-12-04 19:13:37.000000000 +0300
 +++ linux.cdma/drivers/usb/serial/usbserial.c	2008-12-04 19:16:55.000000000 +0300
-@@ -1430,6 +1430,9 @@
+@@ -1430,6 +1430,9 @@ static void * usb_serial_probe(
  	int max_endpoints;
  	const struct usb_device_id *id_pattern = NULL;
  	unsigned long flags;
@@ -291,7 +291,7 @@ diff -urbBN linux-2.4.37/drivers/usb/serial/usbserial.c linux.cdma/drivers/usb/s
  
  	/* loop through our list of known serial converters, and see if this
  	   device matches. */
-@@ -1662,6 +1663,10 @@
+@@ -1662,6 +1663,10 @@ static void * usb_serial_probe(
  		tty_register_devfs (&serial_tty_driver, 0, serial->port[i].number);
  		info("%s converter now attached to ttyUSB%d (or usb/tts/%d for devfs)", 
  		     type->name, serial->port[i].number, serial->port[i].number);
@@ -302,7 +302,7 @@ diff -urbBN linux-2.4.37/drivers/usb/serial/usbserial.c linux.cdma/drivers/usb/s
  	}
  
  	return serial; /* success */
-@@ -1755,6 +1758,9 @@
+@@ -1755,6 +1758,9 @@ static void usb_serial_disconnect(
  
  		for (i = 0; i < serial->num_ports; ++i) {
  			tty_unregister_devfs (&serial_tty_driver, serial->port[i].number);
@@ -311,6 +311,15 @@ diff -urbBN linux-2.4.37/drivers/usb/serial/usbserial.c linux.cdma/drivers/usb/s
 +#endif
  			info("%s converter now disconnected from ttyUSB%d", serial->type->name, serial->port[i].number);
  		}
+ 
+@@ -1907,7 +1907,7 @@ void usb_serial_deregister(
+ 		serial = serial_table[i];
+ 		if ((serial != NULL) && (serial->type == device)) {
+ 			usb_driver_release_interface (&usb_serial_driver, serial->interface);
+-			usb_serial_disconnect (NULL, serial);
++			usb_serial_disconnect (serial->dev, serial);
+ 		}
+ 	}
  
 diff -urbBN linux-2.4.37/drivers/usb/usb.c linux.cdma/drivers/usb/usb.c
 --- linux-2.4.37/drivers/usb/usb.c	2008-12-04 19:13:37.000000000 +0300
