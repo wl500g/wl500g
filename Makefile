@@ -23,6 +23,7 @@ export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux-2.6
 KERNEL=kernel-2.6
 BRCM-SRC=brcm-src-2.6
+IPROUTE2=iproute2-2.6
 
 BUSYBOX=busybox-1.18.3
 DROPBEAR=dropbear-0.53
@@ -30,7 +31,6 @@ DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
-IPROUTE2=iproute2-2.6.25
 #E2FSPROGS=e2fsprogs-1.35
 UCDSNMP=ucd-snmp-3.6.2
 IPTABLES=iptables-1.4.3.2
@@ -223,16 +223,8 @@ $(TOP)/ucd-snmp: ucd-snmp/$(UCDSNMP).tar.gz
 ucd-snmp: $(TOP)/ucd-snmp
 	@true
 
-iproute2_Patches := $(call patches_list,iproute2-2.6)
-
-$(TOP)/iproute2: iproute2-2.6/$(IPROUTE2).tar.bz2
-	@rm -rf $(TOP)/$@
-	tar -xjf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(IPROUTE2) $(iproute2_Patches)
-	mv $(TOP)/$(IPROUTE2) $@
-
-iproute2: $(TOP)/iproute2
-	@true
+iproute2:
+	$(MAKE) -C $(IPROUTE2) $@
 
 dnsmasq_Patches := $(call patches_list,dnsmasq)
 
