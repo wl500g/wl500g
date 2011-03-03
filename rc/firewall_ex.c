@@ -990,11 +990,17 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* logaccept chain */
 	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
+#ifdef LINUX26
+		  " --log-macdecode "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
 	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
+#ifdef LINUX26
+		  " --log-macdecode "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 	
@@ -1183,6 +1189,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #else
 	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
 #endif
+#ifdef LINUX26
+		  " --log-macdecode "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
@@ -1191,6 +1200,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
 #else
 	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
+#endif
+#ifdef LINUX26
+		  " --log-macdecode "
 #endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
