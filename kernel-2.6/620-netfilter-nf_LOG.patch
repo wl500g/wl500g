@@ -1,0 +1,1060 @@
+From dfc23ce13cfc1aa042e4df84fb627f17e8958394
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 24 Feb 2011 22:06:45 -0500
+Subject: [PATCH] [NETFILTER]: {ip,ip6}t_LOG: enhancements from upstream
+
+kernel.org commits
+17dfc93f6d7e5792c9c36dd70c8612721a091ae8 [NETFILTER]: {ip,ip6}t_LOG: log GID
+36e2a1b0f7f2598e38952494b91490f58aa221c8 [NETFILTER]: {ip,ip6}t_LOG: print MARK value in log output
+f0d57a54aa9fdf3a4d9435d44c69b20388ad0b3b netfilter: ipt_LOG/ip6t_LOG: use more appropriate log level as default
+cf377eb4aeded926375d4d0fe0b66ba95f0521e1 netfilter: ipt_LOG/ip6t_LOG: remove comparison within loop
+7eb9282cd0efac08b8377cbd5037ba297c77e3f7 netfilter: ipt_LOG/ip6t_LOG: add option to print decoded MAC header
+a8defca048fd11eb2d1a17ab61a60a856292dd4e netfilter: ipt_LOG: add bufferisation to call printk() once
+eecc545856c8a0f27783a440d25f4ceaa1f95ce8 netfilter: add missing xt_log.h file
+
+---
+ include/linux/netfilter_ipv4/ipt_LOG.h  |    3 +-
+ include/linux/netfilter_ipv6/ip6t_LOG.h |    3 +-
+ include/net/netfilter/xt_log.h          |   54 +++++
+ net/ipv4/netfilter/ipt_LOG.c            |  193 ++++++++++-------
+ net/ipv6/netfilter/ip6t_LOG.c           |  231 +++++++++++---------
+ 5 files changed, 302 insertions(+), 182 deletions(-)
+ create mode 100644 include/net/netfilter/xt_log.h
+
+diff --git a/include/linux/netfilter_ipv4/ipt_LOG.h b/include/linux/netfilter_ipv4/ipt_LOG.h
+index 90fa652..dcdbadf 100644
+--- a/include/linux/netfilter_ipv4/ipt_LOG.h
++++ b/include/linux/netfilter_ipv4/ipt_LOG.h
+@@ -7,7 +7,8 @@
+ #define IPT_LOG_IPOPT		0x04	/* Log IP options */
+ #define IPT_LOG_UID		0x08	/* Log UID owning local socket */
+ #define IPT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
+-#define IPT_LOG_MASK		0x1f
++#define IPT_LOG_MACDECODE	0x20	/* Decode MAC header */
++#define IPT_LOG_MASK		0x2f
+ 
+ struct ipt_log_info {
+ 	unsigned char level;
+diff --git a/include/linux/netfilter_ipv6/ip6t_LOG.h b/include/linux/netfilter_ipv6/ip6t_LOG.h
+index 0d0119b..9dd5579 100644
+--- a/include/linux/netfilter_ipv6/ip6t_LOG.h
++++ b/include/linux/netfilter_ipv6/ip6t_LOG.h
+@@ -7,7 +7,8 @@
+ #define IP6T_LOG_IPOPT		0x04	/* Log IP options */
+ #define IP6T_LOG_UID		0x08	/* Log UID owning local socket */
+ #define IP6T_LOG_NFLOG		0x10	/* Unsupported, don't use */
+-#define IP6T_LOG_MASK		0x1f
++#define IP6T_LOG_MACDECODE	0x20	/* Decode MAC header */
++#define IP6T_LOG_MASK		0x2f
+ 
+ struct ip6t_log_info {
+ 	unsigned char level;
+diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
+new file mode 100644
+index 0000000..0dfb34a
+--- /dev/null
++++ b/include/net/netfilter/xt_log.h
+@@ -0,0 +1,54 @@
++#define S_SIZE (1024 - (sizeof(unsigned int) + 1))
++
++struct sbuff {
++	unsigned int	count;
++	char		buf[S_SIZE + 1];
++};
++static struct sbuff emergency, *emergency_ptr = &emergency;
++
++static int sb_add(struct sbuff *m, const char *f, ...)
++{
++	va_list args;
++	int len;
++
++	if (likely(m->count < S_SIZE)) {
++		va_start(args, f);
++		len = vsnprintf(m->buf + m->count, S_SIZE - m->count, f, args);
++		va_end(args);
++		if (likely(m->count + len < S_SIZE)) {
++			m->count += len;
++			return 0;
++		}
++	}
++	m->count = S_SIZE;
++	printk_once(KERN_ERR KBUILD_MODNAME " please increase S_SIZE\n");
++	return -1;
++}
++
++static struct sbuff *sb_open(void)
++{
++	struct sbuff *m = kmalloc(sizeof(*m), GFP_ATOMIC);
++
++	if (unlikely(!m)) {
++		local_bh_disable();
++		do {
++			m = xchg(&emergency_ptr, NULL);
++		} while (!m);
++	}
++	m->count = 0;
++	return m;
++}
++
++static void sb_close(struct sbuff *m)
++{
++	m->buf[m->count] = 0;
++	printk("%s\n", m->buf);
++
++	if (likely(m != &emergency))
++		kfree(m);
++	else {
++		xchg(&emergency_ptr, m);
++		local_bh_enable();
++	}
++}
++
+diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
+index 361be2b..970fe61 100644
+--- a/net/ipv4/netfilter/ipt_LOG.c
++++ b/net/ipv4/netfilter/ipt_LOG.c
+@@ -13,6 +13,7 @@
+ #include <linux/module.h>
+ #include <linux/spinlock.h>
+ #include <linux/skbuff.h>
++#include <linux/if_arp.h>
+ #include <linux/ip.h>
+ #include <net/icmp.h>
+ #include <net/udp.h>
+@@ -22,10 +23,11 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv4/ipt_LOG.h>
++#include <net/netfilter/xt_log.h>
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+-MODULE_DESCRIPTION("iptables syslog logging module");
++MODULE_DESCRIPTION("Xtables: IPv4 packet logging to syslog");
+ 
+ #if 0
+ #define DEBUGP printk
+@@ -33,11 +35,9 @@ MODULE_DESCRIPTION("iptables syslog logging module");
+ #define DEBUGP(format, args...)
+ #endif
+ 
+-/* Use lock to serialize, so printks don't overlap */
+-static DEFINE_SPINLOCK(log_lock);
+-
+ /* One level of recursion won't kill us */
+-static void dump_packet(const struct nf_loginfo *info,
++static void dump_packet(struct sbuff *m,
++			const struct nf_loginfo *info,
+ 			const struct sk_buff *skb,
+ 			unsigned int iphoff)
+ {
+@@ -51,32 +51,32 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 	ih = skb_header_pointer(skb, iphoff, sizeof(_iph), &_iph);
+ 	if (ih == NULL) {
+-		printk("TRUNCATED");
++		sb_add(m, "TRUNCATED");
+ 		return;
+ 	}
+ 
+ 	/* Important fields:
+ 	 * TOS, len, DF/MF, fragment offset, TTL, src, dst, options. */
+ 	/* Max length: 40 "SRC=255.255.255.255 DST=255.255.255.255 " */
+-	printk("SRC=%u.%u.%u.%u DST=%u.%u.%u.%u ",
++	sb_add(m, "SRC=%u.%u.%u.%u DST=%u.%u.%u.%u ",
+ 	       NIPQUAD(ih->saddr), NIPQUAD(ih->daddr));
+ 
+ 	/* Max length: 46 "LEN=65535 TOS=0xFF PREC=0xFF TTL=255 ID=65535 " */
+-	printk("LEN=%u TOS=0x%02X PREC=0x%02X TTL=%u ID=%u ",
++	sb_add(m, "LEN=%u TOS=0x%02X PREC=0x%02X TTL=%u ID=%u ",
+ 	       ntohs(ih->tot_len), ih->tos & IPTOS_TOS_MASK,
+ 	       ih->tos & IPTOS_PREC_MASK, ih->ttl, ntohs(ih->id));
+ 
+ 	/* Max length: 6 "CE DF MF " */
+ 	if (ntohs(ih->frag_off) & IP_CE)
+-		printk("CE ");
++		sb_add(m, "CE ");
+ 	if (ntohs(ih->frag_off) & IP_DF)
+-		printk("DF ");
++		sb_add(m, "DF ");
+ 	if (ntohs(ih->frag_off) & IP_MF)
+-		printk("MF ");
++		sb_add(m, "MF ");
+ 
+ 	/* Max length: 11 "FRAG:65535 " */
+ 	if (ntohs(ih->frag_off) & IP_OFFSET)
+-		printk("FRAG:%u ", ntohs(ih->frag_off) & IP_OFFSET);
++		sb_add(m, "FRAG:%u ", ntohs(ih->frag_off) & IP_OFFSET);
+ 
+ 	if ((logflags & IPT_LOG_IPOPT)
+ 	    && ih->ihl * 4 > sizeof(struct iphdr)) {
+@@ -87,15 +87,15 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		op = skb_header_pointer(skb, iphoff+sizeof(_iph),
+ 					optsize, _opt);
+ 		if (op == NULL) {
+-			printk("TRUNCATED");
++			sb_add(m, "TRUNCATED");
+ 			return;
+ 		}
+ 
+ 		/* Max length: 127 "OPT (" 15*4*2chars ") " */
+-		printk("OPT (");
++		sb_add(m, "OPT (");
+ 		for (i = 0; i < optsize; i++)
+-			printk("%02X", op[i]);
+-		printk(") ");
++			sb_add(m, "%02X", op[i]);
++		sb_add(m, ") ");
+ 	}
+ 
+ 	switch (ih->protocol) {
+@@ -103,7 +103,7 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		struct tcphdr _tcph, *th;
+ 
+ 		/* Max length: 10 "PROTO=TCP " */
+-		printk("PROTO=TCP ");
++		sb_add(m, "PROTO=TCP ");
+ 
+ 		if (ntohs(ih->frag_off) & IP_OFFSET)
+ 			break;
+@@ -112,41 +112,41 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		th = skb_header_pointer(skb, iphoff + ih->ihl * 4,
+ 					sizeof(_tcph), &_tcph);
+ 		if (th == NULL) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+ 
+ 		/* Max length: 20 "SPT=65535 DPT=65535 " */
+-		printk("SPT=%u DPT=%u ",
++		sb_add(m, "SPT=%u DPT=%u ",
+ 		       ntohs(th->source), ntohs(th->dest));
+ 		/* Max length: 30 "SEQ=4294967295 ACK=4294967295 " */
+ 		if (logflags & IPT_LOG_TCPSEQ)
+-			printk("SEQ=%u ACK=%u ",
++			sb_add(m, "SEQ=%u ACK=%u ",
+ 			       ntohl(th->seq), ntohl(th->ack_seq));
+ 		/* Max length: 13 "WINDOW=65535 " */
+-		printk("WINDOW=%u ", ntohs(th->window));
++		sb_add(m, "WINDOW=%u ", ntohs(th->window));
+ 		/* Max length: 9 "RES=0x3F " */
+-		printk("RES=0x%02x ", (u8)(ntohl(tcp_flag_word(th) & TCP_RESERVED_BITS) >> 22));
++		sb_add(m, "RES=0x%02x ", (u8)(ntohl(tcp_flag_word(th) & TCP_RESERVED_BITS) >> 22));
+ 		/* Max length: 32 "CWR ECE URG ACK PSH RST SYN FIN " */
+ 		if (th->cwr)
+-			printk("CWR ");
++			sb_add(m, "CWR ");
+ 		if (th->ece)
+-			printk("ECE ");
++			sb_add(m, "ECE ");
+ 		if (th->urg)
+-			printk("URG ");
++			sb_add(m, "URG ");
+ 		if (th->ack)
+-			printk("ACK ");
++			sb_add(m, "ACK ");
+ 		if (th->psh)
+-			printk("PSH ");
++			sb_add(m, "PSH ");
+ 		if (th->rst)
+-			printk("RST ");
++			sb_add(m, "RST ");
+ 		if (th->syn)
+-			printk("SYN ");
++			sb_add(m, "SYN ");
+ 		if (th->fin)
+-			printk("FIN ");
++			sb_add(m, "FIN ");
+ 		/* Max length: 11 "URGP=65535 " */
+-		printk("URGP=%u ", ntohs(th->urg_ptr));
++		sb_add(m, "URGP=%u ", ntohs(th->urg_ptr));
+ 
+ 		if ((logflags & IPT_LOG_TCPOPT)
+ 		    && th->doff * 4 > sizeof(struct tcphdr)) {
+@@ -159,15 +159,15 @@ static void dump_packet(const struct nf_loginfo *info,
+ 						iphoff+ih->ihl*4+sizeof(_tcph),
+ 						optsize, _opt);
+ 			if (op == NULL) {
+-				printk("TRUNCATED");
++				sb_add(m, "TRUNCATED");
+ 				return;
+ 			}
+ 
+ 			/* Max length: 127 "OPT (" 15*4*2chars ") " */
+-			printk("OPT (");
++			sb_add(m, "OPT (");
+ 			for (i = 0; i < optsize; i++)
+-				printk("%02X", op[i]);
+-			printk(") ");
++				sb_add(m, "%02X", op[i]);
++			sb_add(m, ") ");
+ 		}
+ 		break;
+ 	}
+@@ -177,9 +177,9 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 		if (ih->protocol == IPPROTO_UDP)
+ 			/* Max length: 10 "PROTO=UDP "     */
+-			printk("PROTO=UDP " );
++			sb_add(m, "PROTO=UDP " );
+ 		else	/* Max length: 14 "PROTO=UDPLITE " */
+-			printk("PROTO=UDPLITE ");
++			sb_add(m, "PROTO=UDPLITE ");
+ 
+ 		if (ntohs(ih->frag_off) & IP_OFFSET)
+ 			break;
+@@ -188,13 +188,13 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		uh = skb_header_pointer(skb, iphoff+ih->ihl*4,
+ 					sizeof(_udph), &_udph);
+ 		if (uh == NULL) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+ 
+ 		/* Max length: 20 "SPT=65535 DPT=65535 " */
+-		printk("SPT=%u DPT=%u LEN=%u ",
++		sb_add(m, "SPT=%u DPT=%u LEN=%u ",
+ 		       ntohs(uh->source), ntohs(uh->dest),
+ 		       ntohs(uh->len));
+ 		break;
+@@ -220,7 +220,7 @@ static void dump_packet(const struct nf_loginfo *info,
+ 			    [ICMP_ADDRESSREPLY] = 12 };
+ 
+ 		/* Max length: 11 "PROTO=ICMP " */
+-		printk("PROTO=ICMP ");
++		sb_add(m, "PROTO=ICMP ");
+ 
+ 		if (ntohs(ih->frag_off) & IP_OFFSET)
+ 			break;
+@@ -229,19 +229,19 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		ich = skb_header_pointer(skb, iphoff + ih->ihl * 4,
+ 					 sizeof(_icmph), &_icmph);
+ 		if (ich == NULL) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+ 
+ 		/* Max length: 18 "TYPE=255 CODE=255 " */
+-		printk("TYPE=%u CODE=%u ", ich->type, ich->code);
++		sb_add(m, "TYPE=%u CODE=%u ", ich->type, ich->code);
+ 
+ 		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+ 		if (ich->type <= NR_ICMP_TYPES
+ 		    && required_len[ich->type]
+ 		    && skb->len-iphoff-ih->ihl*4 < required_len[ich->type]) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+@@ -250,19 +250,19 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		case ICMP_ECHOREPLY:
+ 		case ICMP_ECHO:
+ 			/* Max length: 19 "ID=65535 SEQ=65535 " */
+-			printk("ID=%u SEQ=%u ",
++			sb_add(m, "ID=%u SEQ=%u ",
+ 			       ntohs(ich->un.echo.id),
+ 			       ntohs(ich->un.echo.sequence));
+ 			break;
+ 
+ 		case ICMP_PARAMETERPROB:
+ 			/* Max length: 14 "PARAMETER=255 " */
+-			printk("PARAMETER=%u ",
++			sb_add(m, "PARAMETER=%u ",
+ 			       ntohl(ich->un.gateway) >> 24);
+ 			break;
+ 		case ICMP_REDIRECT:
+ 			/* Max length: 24 "GATEWAY=255.255.255.255 " */
+-			printk("GATEWAY=%u.%u.%u.%u ",
++			sb_add(m, "GATEWAY=%u.%u.%u.%u ",
+ 			       NIPQUAD(ich->un.gateway));
+ 			/* Fall through */
+ 		case ICMP_DEST_UNREACH:
+@@ -270,16 +270,16 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		case ICMP_TIME_EXCEEDED:
+ 			/* Max length: 3+maxlen */
+ 			if (!iphoff) { /* Only recurse once. */
+-				printk("[");
+-				dump_packet(info, skb,
++				sb_add(m, "[");
++				dump_packet(m, info, skb,
+ 					    iphoff + ih->ihl*4+sizeof(_icmph));
+-				printk("] ");
++				sb_add(m, "] ");
+ 			}
+ 
+ 			/* Max length: 10 "MTU=65535 " */
+ 			if (ich->type == ICMP_DEST_UNREACH
+ 			    && ich->code == ICMP_FRAG_NEEDED)
+-				printk("MTU=%u ", ntohs(ich->un.frag.mtu));
++				sb_add(m, "MTU=%u ", ntohs(ich->un.frag.mtu));
+ 		}
+ 		break;
+ 	}
+@@ -291,26 +291,26 @@ static void dump_packet(const struct nf_loginfo *info,
+ 			break;
+ 
+ 		/* Max length: 9 "PROTO=AH " */
+-		printk("PROTO=AH ");
++		sb_add(m, "PROTO=AH ");
+ 
+ 		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+ 		ah = skb_header_pointer(skb, iphoff+ih->ihl*4,
+ 					sizeof(_ahdr), &_ahdr);
+ 		if (ah == NULL) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+ 
+ 		/* Length: 15 "SPI=0xF1234567 " */
+-		printk("SPI=0x%x ", ntohl(ah->spi));
++		sb_add(m, "SPI=0x%x ", ntohl(ah->spi));
+ 		break;
+ 	}
+ 	case IPPROTO_ESP: {
+ 		struct ip_esp_hdr _esph, *eh;
+ 
+ 		/* Max length: 10 "PROTO=ESP " */
+-		printk("PROTO=ESP ");
++		sb_add(m, "PROTO=ESP ");
+ 
+ 		if (ntohs(ih->frag_off) & IP_OFFSET)
+ 			break;
+@@ -319,28 +319,34 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		eh = skb_header_pointer(skb, iphoff+ih->ihl*4,
+ 					sizeof(_esph), &_esph);
+ 		if (eh == NULL) {
+-			printk("INCOMPLETE [%u bytes] ",
++			sb_add(m, "INCOMPLETE [%u bytes] ",
+ 			       skb->len - iphoff - ih->ihl*4);
+ 			break;
+ 		}
+ 
+ 		/* Length: 15 "SPI=0xF1234567 " */
+-		printk("SPI=0x%x ", ntohl(eh->spi));
++		sb_add(m, "SPI=0x%x ", ntohl(eh->spi));
+ 		break;
+ 	}
+ 	/* Max length: 10 "PROTO 255 " */
+ 	default:
+-		printk("PROTO=%u ", ih->protocol);
++		sb_add(m, "PROTO=%u ", ih->protocol);
+ 	}
+ 
+ 	/* Max length: 15 "UID=4294967295 " */
+ 	if ((logflags & IPT_LOG_UID) && !iphoff && skb->sk) {
+ 		read_lock_bh(&skb->sk->sk_callback_lock);
+ 		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
+-			printk("UID=%u ", skb->sk->sk_socket->file->f_uid);
++			sb_add(m, "UID=%u GID=%u ",
++				skb->sk->sk_socket->file->f_uid,
++				skb->sk->sk_socket->file->f_gid);
+ 		read_unlock_bh(&skb->sk->sk_callback_lock);
+ 	}
+ 
++	/* Max length: 16 "MARK=0xFFFFFFFF " */
++	if (!iphoff && skb->mark)
++		sb_add(m, "MARK=0x%x ", skb->mark);
++
+ 	/* Proto    Max log string length */
+ 	/* IP:      40+46+6+11+127 = 230 */
+ 	/* TCP:     10+max(25,20+30+13+9+32+11+127) = 252 */
+@@ -356,11 +362,48 @@ static void dump_packet(const struct nf_loginfo *info,
+ 	/* maxlen = 230+   91  + 230 + 252 = 803 */
+ }
+ 
++static void dump_mac_header(struct sbuff *m,
++			    const struct nf_loginfo *info,
++			    const struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++	unsigned int logflags = 0;
++
++	if (info->type == NF_LOG_TYPE_LOG)
++		logflags = info->u.log.logflags;
++
++	if (!(logflags & IPT_LOG_MACDECODE))
++		goto fallback;
++
++	switch (dev->type) {
++	case ARPHRD_ETHER:
++		sb_add(m, "MACSRC=%pM MACDST=%pM MACPROTO=%04x ",
++		       eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
++		       ntohs(eth_hdr(skb)->h_proto));
++		return;
++	default:
++		break;
++	}
++
++fallback:
++	sb_add(m, "MAC=");
++	if (dev->hard_header_len &&
++	    skb->mac_header != skb->network_header) {
++		const unsigned char *p = skb_mac_header(skb);
++		unsigned int i;
++
++		sb_add(m, "%02x", *p++);
++		for (i = 1; i < dev->hard_header_len; i++, p++)
++			sb_add(m, ":%02x", *p);
++	}
++	sb_add(m, " ");
++}
++
+ static struct nf_loginfo default_loginfo = {
+ 	.type	= NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+-			.level    = 0,
++			.level    = 5,
+ 			.logflags = NF_LOG_MASK,
+ 		},
+ 	},
+@@ -375,11 +418,12 @@ ipt_log_packet(unsigned int pf,
+ 	       const struct nf_loginfo *loginfo,
+ 	       const char *prefix)
+ {
++	struct sbuff *m = sb_open();
++
+ 	if (!loginfo)
+ 		loginfo = &default_loginfo;
+ 
+-	spin_lock_bh(&log_lock);
+-	printk("<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
++	sb_add(m, "<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
+ 	       prefix,
+ 	       in ? in->name : "",
+ 	       out ? out->name : "");
+@@ -389,30 +433,19 @@ ipt_log_packet(unsigned int pf,
+ 		struct net_device *physoutdev = skb->nf_bridge->physoutdev;
+ 
+ 		if (physindev && in != physindev)
+-			printk("PHYSIN=%s ", physindev->name);
++			sb_add(m, "PHYSIN=%s ", physindev->name);
+ 		if (physoutdev && out != physoutdev)
+-			printk("PHYSOUT=%s ", physoutdev->name);
++			sb_add(m, "PHYSOUT=%s ", physoutdev->name);
+ 	}
+ #endif
+ 
+-	if (in && !out) {
+-		/* MAC logging for input chain only. */
+-		printk("MAC=");
+-		if (skb->dev && skb->dev->hard_header_len
+-		    && skb->mac_header != skb->network_header) {
+-			int i;
+-			const unsigned char *p = skb_mac_header(skb);
+-			for (i = 0; i < skb->dev->hard_header_len; i++,p++)
+-				printk("%02x%c", *p,
+-				       i==skb->dev->hard_header_len - 1
+-				       ? ' ':':');
+-		} else
+-			printk(" ");
+-	}
++	/* MAC logging for input path only. */
++	if (in && !out)
++		dump_mac_header(m, loginfo, skb);
++
++	dump_packet(m, loginfo, skb, 0);
+ 
+-	dump_packet(loginfo, skb, 0);
+-	printk("\n");
+-	spin_unlock_bh(&log_lock);
++	sb_close(m);
+ }
+ 
+ static unsigned int
+diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
+index a7a2517..4e54be8 100644
+--- a/net/ipv6/netfilter/ip6t_LOG.c
++++ b/net/ipv6/netfilter/ip6t_LOG.c
+@@ -23,9 +23,10 @@
+ #include <linux/netfilter.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter_ipv6/ip6_tables.h>
++#include <net/netfilter/xt_log.h>
+ 
+ MODULE_AUTHOR("Jan Rekorajski <baggins@pld.org.pl>");
+-MODULE_DESCRIPTION("IP6 tables LOG target module");
++MODULE_DESCRIPTION("Xtables: IPv6 packet logging to syslog");
+ MODULE_LICENSE("GPL");
+ 
+ struct in_device;
+@@ -38,11 +39,9 @@ struct in_device;
+ #define DEBUGP(format, args...)
+ #endif
+ 
+-/* Use lock to serialize, so printks don't overlap */
+-static DEFINE_SPINLOCK(log_lock);
+-
+ /* One level of recursion won't kill us */
+-static void dump_packet(const struct nf_loginfo *info,
++static void dump_packet(struct sbuff *m,
++			const struct nf_loginfo *info,
+ 			const struct sk_buff *skb, unsigned int ip6hoff,
+ 			int recurse)
+ {
+@@ -60,15 +59,15 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 	ih = skb_header_pointer(skb, ip6hoff, sizeof(_ip6h), &_ip6h);
+ 	if (ih == NULL) {
+-		printk("TRUNCATED");
++		sb_add(m, "TRUNCATED");
+ 		return;
+ 	}
+ 
+ 	/* Max length: 88 "SRC=0000.0000.0000.0000.0000.0000.0000.0000 DST=0000.0000.0000.0000.0000.0000.0000.0000 " */
+-	printk("SRC=" NIP6_FMT " DST=" NIP6_FMT " ", NIP6(ih->saddr), NIP6(ih->daddr));
++	sb_add(m, "SRC=" NIP6_FMT " DST=" NIP6_FMT " ", NIP6(ih->saddr), NIP6(ih->daddr));
+ 
+ 	/* Max length: 44 "LEN=65535 TC=255 HOPLIMIT=255 FLOWLBL=FFFFF " */
+-	printk("LEN=%Zu TC=%u HOPLIMIT=%u FLOWLBL=%u ",
++	sb_add(m, "LEN=%Zu TC=%u HOPLIMIT=%u FLOWLBL=%u ",
+ 	       ntohs(ih->payload_len) + sizeof(struct ipv6hdr),
+ 	       (ntohl(*(__be32 *)ih) & 0x0ff00000) >> 20,
+ 	       ih->hop_limit,
+@@ -82,34 +81,34 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 		hp = skb_header_pointer(skb, ptr, sizeof(_hdr), &_hdr);
+ 		if (hp == NULL) {
+-			printk("TRUNCATED");
++			sb_add(m, "TRUNCATED");
+ 			return;
+ 		}
+ 
+ 		/* Max length: 48 "OPT (...) " */
+ 		if (logflags & IP6T_LOG_IPOPT)
+-			printk("OPT ( ");
++			sb_add(m, "OPT ( ");
+ 
+ 		switch (currenthdr) {
+ 		case IPPROTO_FRAGMENT: {
+ 			struct frag_hdr _fhdr, *fh;
+ 
+-			printk("FRAG:");
++			sb_add(m, "FRAG:");
+ 			fh = skb_header_pointer(skb, ptr, sizeof(_fhdr),
+ 						&_fhdr);
+ 			if (fh == NULL) {
+-				printk("TRUNCATED ");
++				sb_add(m, "TRUNCATED ");
+ 				return;
+ 			}
+ 
+ 			/* Max length: 6 "65535 " */
+-			printk("%u ", ntohs(fh->frag_off) & 0xFFF8);
++			sb_add(m, "%u ", ntohs(fh->frag_off) & 0xFFF8);
+ 
+ 			/* Max length: 11 "INCOMPLETE " */
+ 			if (fh->frag_off & htons(0x0001))
+-				printk("INCOMPLETE ");
++				sb_add(m, "INCOMPLETE ");
+ 
+-			printk("ID:%08x ", ntohl(fh->identification));
++			sb_add(m, "ID:%08x ", ntohl(fh->identification));
+ 
+ 			if (ntohs(fh->frag_off) & 0xFFF8)
+ 				fragment = 1;
+@@ -123,7 +122,7 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		case IPPROTO_HOPOPTS:
+ 			if (fragment) {
+ 				if (logflags & IP6T_LOG_IPOPT)
+-					printk(")");
++					sb_add(m, ")");
+ 				return;
+ 			}
+ 			hdrlen = ipv6_optlen(hp);
+@@ -134,10 +133,10 @@ static void dump_packet(const struct nf_loginfo *info,
+ 				struct ip_auth_hdr _ahdr, *ah;
+ 
+ 				/* Max length: 3 "AH " */
+-				printk("AH ");
++				sb_add(m, "AH ");
+ 
+ 				if (fragment) {
+-					printk(")");
++					sb_add(m, ")");
+ 					return;
+ 				}
+ 
+@@ -148,13 +147,13 @@ static void dump_packet(const struct nf_loginfo *info,
+ 					 * Max length: 26 "INCOMPLETE [65535
+ 					 *  bytes] )"
+ 					 */
+-					printk("INCOMPLETE [%u bytes] )",
++					sb_add(m, "INCOMPLETE [%u bytes] )",
+ 					       skb->len - ptr);
+ 					return;
+ 				}
+ 
+ 				/* Length: 15 "SPI=0xF1234567 */
+-				printk("SPI=0x%x ", ntohl(ah->spi));
++				sb_add(m, "SPI=0x%x ", ntohl(ah->spi));
+ 
+ 			}
+ 
+@@ -165,10 +164,10 @@ static void dump_packet(const struct nf_loginfo *info,
+ 				struct ip_esp_hdr _esph, *eh;
+ 
+ 				/* Max length: 4 "ESP " */
+-				printk("ESP ");
++				sb_add(m, "ESP ");
+ 
+ 				if (fragment) {
+-					printk(")");
++					sb_add(m, ")");
+ 					return;
+ 				}
+ 
+@@ -178,23 +177,23 @@ static void dump_packet(const struct nf_loginfo *info,
+ 				eh = skb_header_pointer(skb, ptr, sizeof(_esph),
+ 							&_esph);
+ 				if (eh == NULL) {
+-					printk("INCOMPLETE [%u bytes] )",
++					sb_add(m, "INCOMPLETE [%u bytes] )",
+ 					       skb->len - ptr);
+ 					return;
+ 				}
+ 
+ 				/* Length: 16 "SPI=0xF1234567 )" */
+-				printk("SPI=0x%x )", ntohl(eh->spi) );
++				sb_add(m, "SPI=0x%x )", ntohl(eh->spi) );
+ 
+ 			}
+ 			return;
+ 		default:
+ 			/* Max length: 20 "Unknown Ext Hdr 255" */
+-			printk("Unknown Ext Hdr %u", currenthdr);
++			sb_add(m, "Unknown Ext Hdr %u", currenthdr);
+ 			return;
+ 		}
+ 		if (logflags & IP6T_LOG_IPOPT)
+-			printk(") ");
++			sb_add(m, ") ");
+ 
+ 		currenthdr = hp->nexthdr;
+ 		ptr += hdrlen;
+@@ -205,7 +204,7 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		struct tcphdr _tcph, *th;
+ 
+ 		/* Max length: 10 "PROTO=TCP " */
+-		printk("PROTO=TCP ");
++		sb_add(m, "PROTO=TCP ");
+ 
+ 		if (fragment)
+ 			break;
+@@ -213,40 +212,40 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+ 		th = skb_header_pointer(skb, ptr, sizeof(_tcph), &_tcph);
+ 		if (th == NULL) {
+-			printk("INCOMPLETE [%u bytes] ", skb->len - ptr);
++			sb_add(m, "INCOMPLETE [%u bytes] ", skb->len - ptr);
+ 			return;
+ 		}
+ 
+ 		/* Max length: 20 "SPT=65535 DPT=65535 " */
+-		printk("SPT=%u DPT=%u ",
++		sb_add(m, "SPT=%u DPT=%u ",
+ 		       ntohs(th->source), ntohs(th->dest));
+ 		/* Max length: 30 "SEQ=4294967295 ACK=4294967295 " */
+ 		if (logflags & IP6T_LOG_TCPSEQ)
+-			printk("SEQ=%u ACK=%u ",
++			sb_add(m, "SEQ=%u ACK=%u ",
+ 			       ntohl(th->seq), ntohl(th->ack_seq));
+ 		/* Max length: 13 "WINDOW=65535 " */
+-		printk("WINDOW=%u ", ntohs(th->window));
++		sb_add(m, "WINDOW=%u ", ntohs(th->window));
+ 		/* Max length: 9 "RES=0x3C " */
+-		printk("RES=0x%02x ", (u_int8_t)(ntohl(tcp_flag_word(th) & TCP_RESERVED_BITS) >> 22));
++		sb_add(m, "RES=0x%02x ", (u_int8_t)(ntohl(tcp_flag_word(th) & TCP_RESERVED_BITS) >> 22));
+ 		/* Max length: 32 "CWR ECE URG ACK PSH RST SYN FIN " */
+ 		if (th->cwr)
+-			printk("CWR ");
++			sb_add(m, "CWR ");
+ 		if (th->ece)
+-			printk("ECE ");
++			sb_add(m, "ECE ");
+ 		if (th->urg)
+-			printk("URG ");
++			sb_add(m, "URG ");
+ 		if (th->ack)
+-			printk("ACK ");
++			sb_add(m, "ACK ");
+ 		if (th->psh)
+-			printk("PSH ");
++			sb_add(m, "PSH ");
+ 		if (th->rst)
+-			printk("RST ");
++			sb_add(m, "RST ");
+ 		if (th->syn)
+-			printk("SYN ");
++			sb_add(m, "SYN ");
+ 		if (th->fin)
+-			printk("FIN ");
++			sb_add(m, "FIN ");
+ 		/* Max length: 11 "URGP=65535 " */
+-		printk("URGP=%u ", ntohs(th->urg_ptr));
++		sb_add(m, "URGP=%u ", ntohs(th->urg_ptr));
+ 
+ 		if ((logflags & IP6T_LOG_TCPOPT)
+ 		    && th->doff * 4 > sizeof(struct tcphdr)) {
+@@ -259,15 +258,15 @@ static void dump_packet(const struct nf_loginfo *info,
+ 						ptr + sizeof(struct tcphdr),
+ 						optsize, _opt);
+ 			if (op == NULL) {
+-				printk("OPT (TRUNCATED)");
++				sb_add(m, "OPT (TRUNCATED)");
+ 				return;
+ 			}
+ 
+ 			/* Max length: 127 "OPT (" 15*4*2chars ") " */
+-			printk("OPT (");
++			sb_add(m, "OPT (");
+ 			for (i =0; i < optsize; i++)
+-				printk("%02X", op[i]);
+-			printk(") ");
++				sb_add(m, "%02X", op[i]);
++			sb_add(m, ") ");
+ 		}
+ 		break;
+ 	}
+@@ -277,9 +276,9 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 		if (currenthdr == IPPROTO_UDP)
+ 			/* Max length: 10 "PROTO=UDP "     */
+-			printk("PROTO=UDP " );
++			sb_add(m, "PROTO=UDP " );
+ 		else	/* Max length: 14 "PROTO=UDPLITE " */
+-			printk("PROTO=UDPLITE ");
++			sb_add(m, "PROTO=UDPLITE ");
+ 
+ 		if (fragment)
+ 			break;
+@@ -287,12 +286,12 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+ 		uh = skb_header_pointer(skb, ptr, sizeof(_udph), &_udph);
+ 		if (uh == NULL) {
+-			printk("INCOMPLETE [%u bytes] ", skb->len - ptr);
++			sb_add(m, "INCOMPLETE [%u bytes] ", skb->len - ptr);
+ 			return;
+ 		}
+ 
+ 		/* Max length: 20 "SPT=65535 DPT=65535 " */
+-		printk("SPT=%u DPT=%u LEN=%u ",
++		sb_add(m, "SPT=%u DPT=%u LEN=%u ",
+ 		       ntohs(uh->source), ntohs(uh->dest),
+ 		       ntohs(uh->len));
+ 		break;
+@@ -301,7 +300,7 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		struct icmp6hdr _icmp6h, *ic;
+ 
+ 		/* Max length: 13 "PROTO=ICMPv6 " */
+-		printk("PROTO=ICMPv6 ");
++		sb_add(m, "PROTO=ICMPv6 ");
+ 
+ 		if (fragment)
+ 			break;
+@@ -309,18 +308,18 @@ static void dump_packet(const struct nf_loginfo *info,
+ 		/* Max length: 25 "INCOMPLETE [65535 bytes] " */
+ 		ic = skb_header_pointer(skb, ptr, sizeof(_icmp6h), &_icmp6h);
+ 		if (ic == NULL) {
+-			printk("INCOMPLETE [%u bytes] ", skb->len - ptr);
++			sb_add(m, "INCOMPLETE [%u bytes] ", skb->len - ptr);
+ 			return;
+ 		}
+ 
+ 		/* Max length: 18 "TYPE=255 CODE=255 " */
+-		printk("TYPE=%u CODE=%u ", ic->icmp6_type, ic->icmp6_code);
++		sb_add(m, "TYPE=%u CODE=%u ", ic->icmp6_type, ic->icmp6_code);
+ 
+ 		switch (ic->icmp6_type) {
+ 		case ICMPV6_ECHO_REQUEST:
+ 		case ICMPV6_ECHO_REPLY:
+ 			/* Max length: 19 "ID=65535 SEQ=65535 " */
+-			printk("ID=%u SEQ=%u ",
++			sb_add(m, "ID=%u SEQ=%u ",
+ 				ntohs(ic->icmp6_identifier),
+ 				ntohs(ic->icmp6_sequence));
+ 			break;
+@@ -331,44 +330,101 @@ static void dump_packet(const struct nf_loginfo *info,
+ 
+ 		case ICMPV6_PARAMPROB:
+ 			/* Max length: 17 "POINTER=ffffffff " */
+-			printk("POINTER=%08x ", ntohl(ic->icmp6_pointer));
++			sb_add(m, "POINTER=%08x ", ntohl(ic->icmp6_pointer));
+ 			/* Fall through */
+ 		case ICMPV6_DEST_UNREACH:
+ 		case ICMPV6_PKT_TOOBIG:
+ 		case ICMPV6_TIME_EXCEED:
+ 			/* Max length: 3+maxlen */
+ 			if (recurse) {
+-				printk("[");
+-				dump_packet(info, skb, ptr + sizeof(_icmp6h),
+-					    0);
+-				printk("] ");
++				sb_add(m, "[");
++				dump_packet(m, info, skb,
++					    ptr + sizeof(_icmp6h), 0);
++				sb_add(m, "] ");
+ 			}
+ 
+ 			/* Max length: 10 "MTU=65535 " */
+ 			if (ic->icmp6_type == ICMPV6_PKT_TOOBIG)
+-				printk("MTU=%u ", ntohl(ic->icmp6_mtu));
++				sb_add(m, "MTU=%u ", ntohl(ic->icmp6_mtu));
+ 		}
+ 		break;
+ 	}
+ 	/* Max length: 10 "PROTO=255 " */
+ 	default:
+-		printk("PROTO=%u ", currenthdr);
++		sb_add(m, "PROTO=%u ", currenthdr);
+ 	}
+ 
+ 	/* Max length: 15 "UID=4294967295 " */
+ 	if ((logflags & IP6T_LOG_UID) && recurse && skb->sk) {
+ 		read_lock_bh(&skb->sk->sk_callback_lock);
+ 		if (skb->sk->sk_socket && skb->sk->sk_socket->file)
+-			printk("UID=%u ", skb->sk->sk_socket->file->f_uid);
++			sb_add(m, "UID=%u GID=%u ",
++				skb->sk->sk_socket->file->f_uid,
++				skb->sk->sk_socket->file->f_gid);
+ 		read_unlock_bh(&skb->sk->sk_callback_lock);
+ 	}
++
++	/* Max length: 16 "MARK=0xFFFFFFFF " */
++	if (!recurse && skb->mark)
++		sb_add(m, "MARK=0x%x ", skb->mark);
++}
++
++static void dump_mac_header(struct sbuff *m,
++			    const struct nf_loginfo *info,
++			    const struct sk_buff *skb)
++{
++	struct net_device *dev = skb->dev;
++	unsigned int logflags = 0;
++
++	if (info->type == NF_LOG_TYPE_LOG)
++		logflags = info->u.log.logflags;
++
++	if (!(logflags & IP6T_LOG_MACDECODE))
++		goto fallback;
++
++	switch (dev->type) {
++	case ARPHRD_ETHER:
++		sb_add(m, "MACSRC=%pM MACDST=%pM MACPROTO=%04x ",
++		       eth_hdr(skb)->h_source, eth_hdr(skb)->h_dest,
++		       ntohs(eth_hdr(skb)->h_proto));
++		return;
++	default:
++		break;
++	}
++
++fallback:
++	sb_add(m, "MAC=");
++	if (dev->hard_header_len &&
++	    skb->mac_header != skb->network_header) {
++		const unsigned char *p = skb_mac_header(skb);
++		unsigned int len = dev->hard_header_len;
++		unsigned int i;
++
++		if (dev->type == ARPHRD_SIT &&
++		    (p -= ETH_HLEN) < skb->head)
++			p = NULL;
++
++		if (p != NULL) {
++			sb_add(m, "%02x", *p++);
++			for (i = 1; i < len; i++)
++				sb_add(m, ":%02x", p[i]);
++		}
++		sb_add(m, " ");
++
++		if (dev->type == ARPHRD_SIT) {
++			const struct iphdr *iph =
++				(struct iphdr *)skb_mac_header(skb);
++			sb_add(m, "TUNNEL=%pI4->%pI4 ", &iph->saddr, &iph->daddr);
++		}
++	} else
++		sb_add(m, " ");
+ }
+ 
+ static struct nf_loginfo default_loginfo = {
+ 	.type	= NF_LOG_TYPE_LOG,
+ 	.u = {
+ 		.log = {
+-			.level	  = 0,
++			.level	  = 5,
+ 			.logflags = NF_LOG_MASK,
+ 		},
+ 	},
+@@ -383,48 +439,23 @@ ip6t_log_packet(unsigned int pf,
+ 		const struct nf_loginfo *loginfo,
+ 		const char *prefix)
+ {
++	struct sbuff *m = sb_open();
++
+ 	if (!loginfo)
+ 		loginfo = &default_loginfo;
+ 
+-	spin_lock_bh(&log_lock);
+-	printk("<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
+-		prefix,
+-		in ? in->name : "",
+-		out ? out->name : "");
+-	if (in && !out) {
+-		unsigned int len;
+-		/* MAC logging for input chain only. */
+-		printk("MAC=");
+-		if (skb->dev && (len = skb->dev->hard_header_len) &&
+-		    skb->mac_header != skb->network_header) {
+-			const unsigned char *p = skb_mac_header(skb);
+-			int i;
+-
+-			if (skb->dev->type == ARPHRD_SIT &&
+-			    (p -= ETH_HLEN) < skb->head)
+-				p = NULL;
+-
+-			if (p != NULL) {
+-				for (i = 0; i < len; i++)
+-					printk("%02x%s", p[i],
+-					       i == len - 1 ? "" : ":");
+-			}
+-			printk(" ");
+-
+-			if (skb->dev->type == ARPHRD_SIT) {
+-				const struct iphdr *iph =
+-					(struct iphdr *)skb_mac_header(skb);
+-				printk("TUNNEL=%u.%u.%u.%u->%u.%u.%u.%u ",
+-				       NIPQUAD(iph->saddr),
+-				       NIPQUAD(iph->daddr));
+-			}
+-		} else
+-			printk(" ");
+-	}
++	sb_add(m, "<%d>%sIN=%s OUT=%s ", loginfo->u.log.level,
++	       prefix,
++	       in ? in->name : "",
++	       out ? out->name : "");
++
++	/* MAC logging for input path only. */
++	if (in && !out)
++		dump_mac_header(m, loginfo, skb);
++
++	dump_packet(m, loginfo, skb, skb_network_offset(skb), 1);
+ 
+-	dump_packet(loginfo, skb, skb_network_offset(skb), 1);
+-	printk("\n");
+-	spin_unlock_bh(&log_lock);
++	sb_close(m);
+ }
+ 
+ static unsigned int
+-- 
+1.6.5.GIT
