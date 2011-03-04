@@ -36,6 +36,9 @@
 					</textarea>
 				</td>
 			</tr>
+			<tr><td>
+				<input type="button" value="USSD" onClick="window.open('modem_ussd.asp','Perform_USSD','width=800,height=400,left=150,top=200,scrollbars=1')"> 
+			</td></tr>
 		</table>
 
 		<table width="666" border="1" cellpadding="0" cellspacing="0" bordercolor="#B0B0B0">
