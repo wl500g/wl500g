@@ -50,7 +50,7 @@ INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-1.1.6
+USBMODESWITCH=usb-modeswitch-1.1.7
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 
