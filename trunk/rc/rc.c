@@ -692,7 +692,7 @@ sysinit(void)
 
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		"ide-core ide-detect ide-disk aec62xx "
+		"ide-core aec62xx ide-detect ide-disk "
 #endif
 #if defined(__CONFIG_EMF__)
 		"emf igs "
