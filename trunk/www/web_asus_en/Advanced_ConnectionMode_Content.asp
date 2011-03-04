@@ -12,36 +12,18 @@
 	<script type="text/javascript" src="quick.js"></script>
 
 	<script type="text/javascript">
-	var sCDMA	= 0;
-	var sGPRS	= 1;
-	var sDialup	= 3;
-	var sUser	= 99;
+	var sCDMA	= "C";
+	var sGPRS	= "W";
+	var sUser	= "USR";
 
-	var usb_connection_types= new Array();
-	usb_connection_types[  0 ] = sCDMA;
-	usb_connection_types[  1 ] = sGPRS;
-	usb_connection_types[  3 ] = sDialup;
-	usb_connection_types[ 99 ] = sUser;
-	
 	function isModeUsed(mode)
 	{
-		if ( USBConType() == mode )
-				return 1;
+		if ( document.form.wan_modem_type.value == mode )
+			return 1;
 		else
-				return 0;
-	}		
-	function USBConType()
-	{
-		var ctype = "";
-		var idx = document.form.wan_modem_type.value;
-		try{
-		    ctype = usb_connection_types [ idx ];
-		} catch (e) {
-		}
-		
-		return ctype;
+			return 0;
 	}
-	
+
 	function setDispModeById( id, mode )
 	{
 		try{
@@ -49,9 +31,9 @@
 			section.style.display = mode;
 		} catch (e){}
 	}
-	
+
 	function changeUSBConnectionType()
-	{		
+	{
 		setDispModeById( 'APN',		'none' );
 		setDispModeById( 'DialupNO',	'none' );
 
@@ -59,28 +41,28 @@
 		{
 			setDispModeById( 'APN',			'block' );
 			setDispModeById( 'DialupNO',	'block' );
-		} else if (isModeUsed(sDialup))
-		{
-			setDispModeById( 'DialupNO',	'block' );
-		}
+		} 
 	}
-	function setUSBtts( val )
-	{
-		if(val===''){
-			inputCtrl(document.form.wan_modem_tts_port, 1);
-		}else{
-			inputCtrl(document.form.wan_modem_tts_port, 0);
-		}
-	}
+
 	function load_this_page()
 	{
-		setUSBtts(document.form.wan_modem_usbloc.value);
+//		setUSBtts(document.form.wan_modem_usbloc.value);
 		changeUSBConnectionType();
 	}
-	window.changeUSBLoc = function (value)
+	window.changeUSBparams = function (value)
 	{
-		document.form.wan_modem_usbloc.value = value;
-		setUSBtts( value );
+		//value is associated array
+		var frm=document.form;
+		if(value){
+			frm.wan_modem_usbloc.value = value.loc;
+			frm.wan_modem_vid.value = "0x"+value.vid;
+			frm.wan_modem_pid.value = "0x"+value.pid;
+			frm.wan_modem_pdata.value = value.data;
+			frm.wan_modem_pui.value = value.ui;
+			frm.wan_modem_type.value = value.type;
+			changeUSBConnectionType();
+		}
+		inputRCtrl2(frm.wan_modem_autodetect, 0);
 	}
 	</script>
 
@@ -154,13 +136,11 @@
 			</td>
 			<td class="content_input_td">
 				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;">
-					<option class="content_input_fd" value="0" <%nvram_match_x("3GConfig","wan_modem_type",  "0","selected"); %>>
+					<option class="content_input_fd" value="C" <%nvram_match_x("3GConfig","wan_modem_type",  "C","selected"); %>>
 						CDMA/EVDO</option>
-					<option class="content_input_fd" value="1" <%nvram_match_x("3GConfig","wan_modem_type", "1","selected"); %>>
+					<option class="content_input_fd" value="W" <%nvram_match_x("3GConfig","wan_modem_type", "W","selected"); %>>
 						GPRS/EDGE/UMTS/HSPDA</option>
-					<option class="content_input_fd" value="3" <%nvram_match_x("3GConfig","wan_modem_type", "3","selected"); %>>
-						Dialup</option>
-					<option class="content_input_fd" value="99" <%nvram_match_x("3GConfig","wan_modem_type", "99","selected"); %>>
+					<option class="content_input_fd" value="USR" <%nvram_match_x("3GConfig","wan_modem_type", "USR","selected"); %>>
 						User defined</option>
 				</select>
 			</td>
@@ -220,8 +200,8 @@
 				Call on Demand
 			</td>
 			<td class="content_input_td">
-				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '1')" <% nvram_match_x("3GConfig","wan_modem_demand", "1", "checked"); %>>Yes
 				<input type="radio" value="0" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '0')" <% nvram_match_x("3GConfig","wan_modem_demand", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_demand" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_demand', '1')" <% nvram_match_x("3GConfig","wan_modem_demand", "1", "checked"); %>>Yes
 			</td>
 		</tr>
 		<tr>
@@ -263,47 +243,57 @@
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. Press View button or see Status &amp; Log -> Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0). If blank, use default.')" 
-				onmouseout="return nd()"> USB device location ID: </td>
-		<td class="content_input_td">
-			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
-				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
-				onblur="validate_string(this)"
-				onchange="setUSBtts(this.value)">
-			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select_devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
-		</td>
-		</tr>
-		<tr>
 			<td class="content_header_td" onmouseover="return overlib('Detect VID:PID every time at usb-modem plugging.')"
 				onmouseout="return nd()">
 				Autodetect device
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '1')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %>>Yes
 				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '0')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '1')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %>>Yes
+			</td>
+		</tr>
+
+		<tr>
+			<td class="content_header_td" onmouseover="return overlib('Select parameters for connected USB modem')" 
+				onmouseout="return nd()"> View connected modems</td>
+		<td class="content_input_td">
+			<input type="button" value="View" onClick="window.open('devpath_select_form.asp','Select_devpath','width=800,height=200,left=150,top=200,scrollbars=1')"> 
+		</td>
+		</tr>
+
+		<tr>
+			<td class="content_header_td" onmouseover="return overlib('USB device location in USB tree. Press View button or see Status &amp; Log -> Diagnostic Info -> USB devfs Devices and find the ID in the second column (eg 1.1.0). If blank, use default.')" 
+				onmouseout="return nd()"> USB device location ID: </td>
+		<td class="content_input_td">
+			<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_usbloc"
+				value="<% nvram_get_x("LANHostConfig","wan_modem_usbloc"); %>" onkeypress="return is_string(this)"
+				onblur="validate_string(this)">
+		</td>
+		</tr>
+
+		<tr>
+			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify data port manually. If Autodetect device option is enabled, the router will define it automatically.')"
+				onmouseout="return nd()">
+				Data port:
+			</td>
+			<td class="content_input_td">
+				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pdata"
+					value="<% nvram_get_x("3GConfig","wan_modem_pdata"); %>" onkeypress="return is_string(this)"
+					onblur="validate_string(this)">
 			</td>
 		</tr>
 		<tr>
-			<td class="content_header_td">
-				USB tts(ac) port:
+			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify user interface port manually. If Autodetect device option is enabled, the router will define it automatically.')"
+				onmouseout="return nd()">
+				User interface port:
 			</td>
 			<td class="content_input_td">
-				<select name="wan_modem_tts_port" class="content_input_fd" onChange="return change_common(this, '3GConfig', 'wan_modem_tts_port')">
-					<option class="content_input_fd" value="0" <%nvram_match_x("3GConfig","wan_modem_tts_port", "0","selected"); %>>
-						0</option>
-					<option class="content_input_fd" value="1" <%nvram_match_x("3GConfig","wan_modem_tts_port", "1","selected"); %>>
-						1</option>
-					<option class="content_input_fd" value="2" <%nvram_match_x("3GConfig","wan_modem_tts_port", "2","selected"); %>>
-						2</option>
-					<option class="content_input_fd" value="3" <%nvram_match_x("3GConfig","wan_modem_tts_port", "3","selected"); %>>
-						3</option>
-					<option class="content_input_fd" value="4" <%nvram_match_x("3GConfig","wan_modem_tts_port", "4","selected"); %>>
-						4</option>
-					<option class="content_input_fd" value="5" <%nvram_match_x("3GConfig","wan_modem_tts_port", "5","selected"); %>>
-						5</option>
-				</select>
+				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pui"
+					value="<% nvram_get_x("3GConfig","wan_modem_pui"); %>" onkeypress="return is_string(this)"
+					onblur="validate_string(this)">
 			</td>
 		</tr>
+
 		<tr>
 			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify USB vendor ID manually. If Autodetect device option is enabled, the router will define it automatically.')"
 				onmouseout="return nd()">
@@ -318,7 +308,7 @@
 		<tr>
 			<td class="content_header_td" onmouseover="return overlib('This field allows you to specify USB product ID manually. If Autodetect device option is enabled, the router will define it automatically.')"
 				onmouseout="return nd()">
-				USB device Product ID (0xefgh):
+				USB device Product ID (0xef01):
 			</td>
 			<td class="content_input_td">
 				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_pid"
@@ -387,10 +377,10 @@
 				Enable USB-Serial drivers
 			</td>
 			<td class="content_input_td">
-				<input type="radio" value="1" name="wan_modem_serial_enable" class="content_input_fd"
-					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '1')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "1", "checked"); %>>Yes
 				<input type="radio" value="0" name="wan_modem_serial_enable" class="content_input_fd"
 					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '0')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "0", "checked"); %>>No
+				<input type="radio" value="1" name="wan_modem_serial_enable" class="content_input_fd"
+					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '1')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "1", "checked"); %>>Yes
 			</td>
 		</tr>
 		<tr>

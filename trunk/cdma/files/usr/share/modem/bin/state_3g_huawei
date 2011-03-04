@@ -1,0 +1,207 @@
+#!/bin/sh
+
+#  Modem Status script for WCDMA modem HUAWEI
+#  ver. 1.007 beta 27.02.2011
+#  by dlukanidin
+
+source /usr/share/modem/bin/state_3g_common
+
+getModemInfo() {
+	port=$1
+	getModem $port
+	modem="Modem: $res"
+	getSysInfoHuawei $port
+	sysinfo="SysInfo: $res"
+	getOps $port
+	ops="Operator: $res"
+	getSysCfgHuawei $port
+	syscfg="SysCfg: $res"
+	res=$(echo -e "$modem\n$sysinfo\n$ops\n$syscfg\n")
+}
+
+getTrafficInfo() {
+	port=$1
+	interface=$2
+	getTraffic $port $interface
+	traf="$res"
+	getDSFLOWqry $port
+	res="$traf$res"
+}
+
+getRequestInfo() {
+	port=$1
+	req=$2
+	if [ -z $req ]; then
+		res="Error: no request"
+		return 1
+	fi
+	if [ "${req:0:2}" == "AT" ] || [ "${req:0:2}" == "at" ]; then
+		skipFlow $port
+		doCommand $port "$req" 30
+		res="Answer from $req : $answer"
+	else
+		getBalanceHuawei $port $req
+		res="USSD $req : $res"
+	fi
+}
+
+# huawei specific functions
+
+getSysInfoHuawei(){
+	doCommand $port "AT\^SYSINFO" 2 "SYSINFO:"
+	ret=$?
+	if [ $ret == 0 ]; then
+		answer=$(echo -n $answer | cut -f2 -d:)
+		case $(echo -n $answer | cut -f1 -d,) in
+		  0) sys1="no access" ;;
+		  1) sys1="limited access" ;;
+		  2) sys1="normal access" ;;
+		  3) sys1="limited access area" ;;
+		  4) sys1="power saving" ;;
+		  *) sys1="other access" ;;
+		esac
+		case $(echo -n $answer | cut -f3 -d,) in
+		  0) sys2="home network" ;;
+		  1) sys2="roaming" ;;
+		  *) sys2="other roaming" ;;
+		esac
+		case $(echo -n $answer | cut -f5 -d,) in
+		  0) sys3="invalid SIM or PIN blocked" ;;
+		  1) sys3="normal SIM" ;;
+		  2) sys3="SIM not valid in CS mode" ;;
+		  3) sys3="SIM not valid in PS mode" ;;
+		  4) sys3="SIM not valid in PS or CS mode" ;;
+		  *) sys3="unknown SIM" ;;
+		esac
+		case $(echo -n $answer | cut -f4 -d,) in
+		  0) sys4="no network" ;;
+		  1) sys4="APMs" ;;
+		  2) sys4="CDMA" ;;
+		  3) sys4="GSM/GPRS" ;;
+		  4) sys4="HDR" ;;
+		  5) sys4="WCDMA" ;;
+		  6) sys4="GPS" ;;
+		  *) sys4="other network" ;;
+		esac
+		case $(echo -n $answer | cut -f7 -d,) in
+		  0) sys5="no mode" ;;
+		  1) sys5="GSM" ;;
+		  2) sys5="GPRS" ;;
+		  3) sys5="EDGE" ;;
+		  4) sys5="WCDMA" ;;
+		  5) sys5="HSDPA" ;;
+		  6) sys5="HSUPA" ;;
+		  7) sys5="HSPA" ;;
+		  8) sys5="HSPA+" ;;
+		  *) sys5="other mode" ;;
+		esac
+		res=$sys4"("$sys5") : "$sys2" : "$sys1" : "$sys3
+	else
+		res="unknown"
+	fi
+	return $ret
+}
+
+getSysCfgHuawei(){
+	doCommand $port "AT\^SYSCFG?" 2 "SYSCFG:"
+	ret=$?
+	if [ $ret == 0 ]; then
+		answer=$(echo -n $answer | cut -f2 -d:)
+		case ${answer:0:4} in
+		  "13,1") sys1="GSM only" ;;
+		  "14,2") sys1="WCDMA only" ;;
+		  "2,1,") sys1="Auto-GSM prefered" ;;
+		  "2,2,") sys1="Auto-WCDMA prefered" ;;
+		  *) sys1="other mode" ;;
+		esac
+		case $(echo -n $answer | cut -f4 -d,) in
+		  0) sys2="Roaming Not Supported" ;;
+		  1) sys2="Roaming Supported" ;;
+		  *) sys2="Roaming unknown" ;;
+		esac
+		res=$sys1"("$sys2")"
+	else
+		res="unknown"
+	fi
+	return $ret
+}
+
+getBalanceHuawei(){
+	if [ -z $2 ]; then encodePDU "*100#"; else encodePDU $2; fi
+	doCommand $port "AT+CUSD=1,$res,15" 2
+	getFlow $1 "CUSD" 8 "CUSD:"
+	ret=$?
+	if [ $ret == 0 ]; then
+		rep=$(echo -n $answer | cut -f2 -d,)
+		coding=$(echo -n $answer | cut -f3 -d,)
+		case $coding in
+		  "72" | "128") codeUNItoUTF8 $rep ;;
+		  15) decodePDU $rep ;;
+		   *) res=$rep ;;
+		esac
+	else
+		res="unknown"
+	fi
+	return $ret
+}
+
+getDSFLOWqry(){
+	doCommand $1 "AT\^DSFLOWQRY" 2 "DSFLOWQRY:"
+	ret=$?
+	if [ $ret != 0 ]; then
+		res="
+Session Connection time: no info :
+Total Connection time: no info :
+Total Sent data	  : no info :
+Total Received data  : no info :"
+		return $ret
+	fi
+	rpt=$(echo -n $answer | cut -f2 -d:)
+	val=$(echo -n "$rpt" | cut -f1 -d,)
+	let "time=$(printf "%d" 0x$val)"
+	let "time=((sec=$time % 60 , $time / 60))"
+	let "time=((min=$time % 60 , $time / 60))"
+	let "time=((hrs=$time % 24 , $time / 24))"
+	time=$time" days "$hrs" hours "$min" min "$sec" sec"
+	val=$(echo -n "$rpt" | cut -f4 -d,)
+	let "ttime=$(printf "%d" 0x$val)"
+	let "ttime=((sec=$ttime % 60 , $ttime / 60))"
+	let "ttime=((min=$ttime % 60 , $ttime / 60))"
+	let "ttime=((hrs=$ttime % 24 , $ttime / 24))"
+	ttime=$ttime" days "$hrs" hours "$min" min "$sec" sec"
+	val=$(echo -n "$rpt" | cut -f5 -d,)
+	scaleTraffic "$(printf "%d" 0x$val)" " B"; ttrans_data=$res
+	val=$(echo -n "$rpt" | cut -f6 -d,)
+	scaleTraffic "$(printf "%d" 0x$val)" " B"; trec_data=$res
+	res="
+Session Connection time: $time :
+Total Connection time: $ttime :
+Total Sent data : $ttrans_data :
+Total Received data : $trec_data :"
+}
+
+# main()
+
+case $2 in
+	i) getModemInfo $1
+	   echo "$res"
+	   ;;
+	s) getRSSI $1
+	   echo "$res"
+	   ;;
+	t) getTrafficInfo $1 "Point-to-Point"
+	   echo "$res"
+	   ;;
+	r) getRequestInfo $1 $3
+	   ret=$?
+	   if [ $ret != 0 ]; then
+		   echo "$res"
+		   exit 3
+	   fi
+	   echo "$res"
+	   ;;
+	*) echo "Error: bad command $2"
+	   exit 4
+	   ;;
+esac
+

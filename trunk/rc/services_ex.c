@@ -1618,13 +1618,15 @@ int hotplug_usb_mass(char *product)
 int
 hotplug_usb(void)
 {
-	char *action, *interface, *product;
+	char *action, *interface, *product, *device;
 	int i;
 	int isweb;
 	char flag[6];
 
+	if( !(device=getenv("DEVICE")) ) device="";
 #ifdef DEBUG
-	dprintf("%s-%s-%s\n",getenv("INTERFACE"),getenv("ACTION"),product=getenv("PRODUCT"));
+	dprintf("%s-%s-%s. Dev:%s\n",getenv("INTERFACE"),getenv("ACTION"),
+		product=getenv("PRODUCT"), device);
 #endif
 	if( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
@@ -1636,7 +1638,7 @@ hotplug_usb(void)
 		if (strncmp(interface, "255/" ,4) == 0 ||
 		    strncmp(interface, "2/", 2) == 0)
 		{
-			hotplug_network_device( interface, action, product );
+			hotplug_network_device( interface, action, product, device );
 		}
 #endif
 		/* usb storage */
@@ -1645,7 +1647,7 @@ hotplug_usb(void)
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
 #if defined(__CONFIG_MODEM__)
-			hotplug_usb_modeswitch( interface, action, product );
+			hotplug_usb_modeswitch( interface, action, product, device );
 #endif
 			if (scsi_host)
 				scsi_host_no = atoi(scsi_host);

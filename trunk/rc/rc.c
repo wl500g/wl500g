@@ -971,6 +971,11 @@ main(int argc, char **argv)
 	else if ( !strcmp(base, "madwimax.events" ) )
 		return madwimax_main(argc, argv);
 #endif
+#ifdef __CONFIG_MODEM__
+	/* lsmodem [-s|-j] [-c config] */
+	else if ( !strcmp(base, "lsmodem" ) )
+		return lsmodem_main(argc, argv);
+#endif
 	/* udhcpc.script [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc.script"))
 		return udhcpc_main(argc, argv);
