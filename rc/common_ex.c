@@ -524,8 +524,10 @@ void convert_asus_values()
 
 	// clean some temp variables
 	nvram_set("usb_ftp_device", "");
+#if defined(MODEL_WL700G)
 	/* force mounting (boot_local and wl-hdd) */
-	nvram_set("usb_storage_device", "");
+	nvram_set("usb_storage_device", "ide");
+#endif
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
