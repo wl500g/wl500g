@@ -54,21 +54,9 @@
 #include <asm/io.h>
 #include <asm/bitops.h>
 
-static int __ide_end_request(ide_drive_t *drive, struct request *rq,
-			     int uptodate, int nr_sectors)
+int ide_end_rq(ide_drive_t *drive, struct request *rq, int error,
+	       unsigned int nr_bytes)
 {
-	int ret = 1;
-
-	/*
-	 * if failfast is set on a request, override number of sectors and
-	 * complete the whole request right now
-	 */
-	if (blk_noretry_request(rq) && end_io_error(uptodate))
-		nr_sectors = rq->hard_nr_sectors;
-
-	if (!blk_fs_request(rq) && end_io_error(uptodate) && !rq->errors)
-		rq->errors = -EIO;
-
 	/*
 	 * decide whether to reenable DMA -- 3 is a random magic for now,
 	 * if we DMA timeout more than 3 times, just stay in PIO
@@ -78,17 +66,9 @@ static int __ide_end_request(ide_drive_t *drive, struct request *rq,
 		HWGROUP(drive)->hwif->ide_dma_on(drive);
 	}
 
-	if (!end_that_request_first(rq, uptodate, nr_sectors)) {
-		add_disk_randomness(rq->rq_disk);
-		if (!list_empty(&rq->queuelist))
-			blkdev_dequeue_request(rq);
-		HWGROUP(drive)->rq = NULL;
-		end_that_request_last(rq, uptodate);
-		ret = 0;
-	}
-
-	return ret;
+	return blk_end_request(rq, error, nr_bytes);
 }
+EXPORT_SYMBOL_GPL(ide_end_rq);
 
 /**
  *	ide_end_request		-	complete an IDE I/O
@@ -103,26 +83,37 @@ static int __ide_end_request(ide_drive_t *drive, struct request *rq,
 
 int ide_end_request (ide_drive_t *drive, int uptodate, int nr_sectors)
 {
-	struct request *rq;
-	unsigned long flags;
-	int ret = 1;
+	unsigned int nr_bytes = nr_sectors << 9;
+	struct request *rq = HWGROUP(drive)->rq;
+	int rc, error = 0;
+
+	if (!nr_bytes) {
+		if (blk_pc_request(rq))
+			nr_bytes = rq->data_len;
+		else
+			nr_bytes = rq->hard_cur_sectors << 9;
+	}
 
 	/*
-	 * room for locking improvements here, the calls below don't
-	 * need the queue lock held at all
+	 * if failfast is set on a request, override number of sectors
+	 * and complete the whole request right now
 	 */
-	spin_lock_irqsave(&ide_lock, flags);
-	rq = HWGROUP(drive)->rq;
+	if (blk_noretry_request(rq) && uptodate <= 0)
+		nr_bytes = rq->hard_nr_sectors << 9;
 
-	if (!nr_sectors)
-		nr_sectors = rq->hard_cur_sectors;
+	if (blk_fs_request(rq) == 0 && uptodate <= 0 && rq->errors == 0)
+		rq->errors = -EIO;
 
-	ret = __ide_end_request(drive, rq, uptodate, nr_sectors);
+	if (uptodate <= 0)
+		error = uptodate ? uptodate : -EIO;
 
-	spin_unlock_irqrestore(&ide_lock, flags);
-	return ret;
+	rc = ide_end_rq(drive, rq, error, nr_bytes);
+	if (rc == 0)
+		drive->hwif->hwgroup->rq = NULL;
+
+	return rc;
 }
-EXPORT_SYMBOL(ide_end_request);
+EXPORT_SYMBOL_GPL(ide_end_request);
 
 /*
  * Power Management state machine. This one is rather trivial for now,
@@ -231,62 +222,6 @@ static ide_startstop_t ide_start_power_step(ide_drive_t *drive, struct request *
 	return ide_stopped;
 }
 
-/**
- *	ide_end_dequeued_request	-	complete an IDE I/O
- *	@drive: IDE device for the I/O
- *	@uptodate:
- *	@nr_sectors: number of sectors completed
- *
- *	Complete an I/O that is no longer on the request queue. This
- *	typically occurs when we pull the request and issue a REQUEST_SENSE.
- *	We must still finish the old request but we must not tamper with the
- *	queue in the meantime.
- *
- *	NOTE: This path does not handle barrier, but barrier is not supported
- *	on ide-cd anyway.
- */
-
-int ide_end_dequeued_request(ide_drive_t *drive, struct request *rq,
-			     int uptodate, int nr_sectors)
-{
-	unsigned long flags;
-	int ret = 1;
-
-	spin_lock_irqsave(&ide_lock, flags);
-
-	BUG_ON(!blk_rq_started(rq));
-
-	/*
-	 * if failfast is set on a request, override number of sectors and
-	 * complete the whole request right now
-	 */
-	if (blk_noretry_request(rq) && end_io_error(uptodate))
-		nr_sectors = rq->hard_nr_sectors;
-
-	if (!blk_fs_request(rq) && end_io_error(uptodate) && !rq->errors)
-		rq->errors = -EIO;
-
-	/*
-	 * decide whether to reenable DMA -- 3 is a random magic for now,
-	 * if we DMA timeout more than 3 times, just stay in PIO
-	 */
-	if (drive->state == DMA_PIO_RETRY && drive->retry_pio <= 3) {
-		drive->state = 0;
-		HWGROUP(drive)->hwif->ide_dma_on(drive);
-	}
-
-	if (!end_that_request_first(rq, uptodate, nr_sectors)) {
-		add_disk_randomness(rq->rq_disk);
-		if (blk_rq_tagged(rq))
-			blk_queue_end_tag(drive->queue, rq);
-		end_that_request_last(rq, uptodate);
-		ret = 0;
-	}
-	spin_unlock_irqrestore(&ide_lock, flags);
-	return ret;
-}
-EXPORT_SYMBOL_GPL(ide_end_dequeued_request);
-
 
 /**
  *	ide_complete_pm_request - end the current Power Management request
@@ -311,10 +246,11 @@ static void ide_complete_pm_request (ide_drive_t *drive, struct request *rq)
 		drive->blocked = 0;
 		blk_start_queue(drive->queue);
 	}
-	blkdev_dequeue_request(rq);
-	HWGROUP(drive)->rq = NULL;
-	end_that_request_last(rq, 1);
 	spin_unlock_irqrestore(&ide_lock, flags);
+
+	HWGROUP(drive)->rq = NULL;
+	if (blk_end_request(rq, 0, 0))
+		BUG();
 }
 
 /*
@@ -442,12 +378,12 @@ void ide_end_drive_cmd (ide_drive_t *drive, u8 stat, u8 err)
 		return;
 	}
 
-	spin_lock_irqsave(&ide_lock, flags);
-	blkdev_dequeue_request(rq);
 	HWGROUP(drive)->rq = NULL;
 	rq->errors = err;
-	end_that_request_last(rq, !rq->errors);
-	spin_unlock_irqrestore(&ide_lock, flags);
+
+	if (unlikely(blk_end_request(rq, (rq->errors ? -EIO : 0),
+				       blk_rq_bytes(rq))))
+		BUG();
 }
 
 EXPORT_SYMBOL(ide_end_drive_cmd);
@@ -836,7 +772,8 @@ void ide_init_sg_cmd(ide_drive_t *drive, struct request *rq)
 	ide_hwif_t *hwif = drive->hwif;
 
 	hwif->nsect = hwif->nleft = rq->nr_sectors;
-	hwif->cursg = hwif->cursg_ofs = 0;
+	hwif->cursg_ofs = 0;
+	hwif->cursg = NULL;
 }
 
 EXPORT_SYMBOL_GPL(ide_init_sg_cmd);

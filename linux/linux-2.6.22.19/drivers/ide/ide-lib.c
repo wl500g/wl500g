@@ -154,7 +154,7 @@ EXPORT_SYMBOL_GPL(ide_pio_timings);
  * Black list. Some drives incorrectly report their maximal PIO mode,
  * at least in respect to CMD640. Here we keep info on some known drives.
  */
-static struct ide_pio_info {
+static const struct ide_pio_info {
 	const char	*name;
 	int		pio;
 } ide_pio_blacklist [] = {
@@ -240,7 +240,7 @@ static struct ide_pio_info {
 
 static int ide_scan_pio_blacklist (char *model)
 {
-	struct ide_pio_info *p;
+	const struct ide_pio_info *p;
 
 	for (p = ide_pio_blacklist; p->name != NULL; p++) {
 		if (strncmp(p->name, model, strlen(p->name)) == 0)
