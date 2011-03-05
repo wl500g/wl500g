@@ -214,7 +214,7 @@ void gpio_init(void)
 			/* -robo_reset is GPIO0 */
 			break;
 		case MDL_WL700G:
-			/* copy is GPIO6, ez is GPIO4, pwr is GPIO0 */
+			/* copy is GPIO6, ez is GPIO4, pwr-btn is GPIO0 */
 			/* hwpower is GPIO7, pwr is GPIO3, -ready is GPIO1 */
 			/* GPIO2 is SDA, GPIO5 is SCL */
 			reset_mask = GPIO0, reset_value = GPIO0;

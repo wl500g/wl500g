@@ -763,7 +763,13 @@ sysinit(void)
 
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		"ide-core ide-detect ide-disk aec62xx "
+		"ide-core aec62xx "
+# ifdef LINUX26
+		"ide-generic "
+# else
+		"ide-detect "
+# endif
+		"ide-disk "
 #endif
 #if defined(__CONFIG_EMF__)
 		"emf igs "
@@ -783,8 +789,9 @@ sysinit(void)
 
 #if defined(MODEL_WL700G)
 	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
+	usleep(100000);
 #endif
-	
+
 	if (exists("/dev/misc/rtc"))
 		eval("/sbin/hwclock", "-s");
 
