@@ -311,6 +311,14 @@ else
 		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(ko)
 endif
 
+modules_install-WL700g: modules_install-WL500gp
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/char/gpiortc$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/ide-core$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/ide-disk$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/ide-generic$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx$(ko) 
+
 modules_install-RT-N10 modules_install-RT-N12: modules_install
 	@true
 
