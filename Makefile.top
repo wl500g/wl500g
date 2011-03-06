@@ -316,7 +316,6 @@ modules_install-WL700g: modules_install-WL500gp
 		$(SRCMODULESDIR)/drivers/char/gpiortc$(ko) \
 		$(SRCMODULESDIR)/drivers/ide/ide-core$(ko) \
 		$(SRCMODULESDIR)/drivers/ide/ide-disk$(ko) \
-		$(SRCMODULESDIR)/drivers/ide/ide-generic$(ko) \
 		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx$(ko) 
 
 modules_install-RT-N10 modules_install-RT-N12: modules_install
@@ -1147,6 +1146,7 @@ images:
 	#make images-WL500W
 	#make images-WL520gu
 	#make images-WL500gpv2
+	#make images-WL700g
 
 
 #
