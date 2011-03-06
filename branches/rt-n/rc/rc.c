@@ -764,9 +764,7 @@ sysinit(void)
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
 		"ide-core aec62xx "
-# ifdef LINUX26
-		"ide-generic "
-# else
+# ifndef LINUX26
 		"ide-detect "
 # endif
 		"ide-disk "
