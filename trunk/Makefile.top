@@ -987,7 +987,7 @@ images:
 	make images-WL520gu
 	make images-WL500gpv2
 	make images-WL330gE
-	#make images-WL700g
+	make images-WL700g
 
 #
 # Generic rules
