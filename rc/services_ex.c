@@ -1290,7 +1290,7 @@ umount_all_part(char *product, int scsi_host_no)
 	if (scsi_host_no != -1)
 	{
 	    // umount all partitions from specific scsi host only
-	    char discs_path[64], parts[128];
+	    char discs_path[128], parts[128];
 	    char scsi_dev_link[256];
 	    char buf[256];
 	    FILE *part_fp;
@@ -1298,6 +1298,74 @@ umount_all_part(char *product, int scsi_host_no)
 	    int t_host_no;
 	    int len;
 
+#ifdef LINUX26
+	/* /sys/bus/scsi/devices/<host_no>:x:x:x/block:[sda|sdb|...] */
+	    if ((usb_dev_disc = opendir("/sys/bus/scsi/devices")))
+    	    {
+		DIR *dir_disc;
+		FILE *prod_fp;
+
+		while ((dp = readdir(usb_dev_disc))) {
+		    if (sscanf(dp->d_name, "%d:%*s:%*s:%*s", &t_host_no) != 1)
+			continue;
+
+		    /* check for product id */
+		    snprintf(scsi_dev_link, sizeof(scsi_dev_link), "%s/%s/product", "/sys/bus/scsi/devices", dp->d_name);
+		    if ((prod_fp = fopen(scsi_dev_link, "r")) == NULL)
+			continue;
+		    if (fgets(buf, sizeof(buf), prod_fp)) {
+			if (strncasecmp(product, buf, strlen(product)) != 0) {
+			    fclose(prod_fp);
+			    continue;
+			}
+		    }
+		    fclose(prod_fp);
+
+		    /* find corresponding block device */
+		    len = 0;
+		    snprintf(discs_path, sizeof(discs_path), "%s/%s", "/sys/bus/scsi/devices", dp->d_name);
+		    if ((dir_disc = opendir(discs_path))) {
+			while ((dp = readdir(dir_disc))) {
+				if (strncmp(dp->d_name, "block:", 6) == 0)
+                                             break;
+			}
+			strncpy(scsi_dev_link, dp->d_name + 6, sizeof(scsi_dev_link));
+			len = strlen(scsi_dev_link);
+			closedir(dir_disc);
+		    }
+		    if (len == 0)
+			continue;
+
+		    /* We have found a disc that is on this controller.
+            	     * Loop thru all the partitions on this disc.
+	             */
+		    if ((part_fp = fopen("/proc/partitions", "r")))
+		    {
+			while (fgets(buf, sizeof(buf) - 1, part_fp))
+			{
+			    if (sscanf(buf, " %*s %*s %*s %s", parts) == 1)
+			    {
+				if (strncmp(parts, scsi_dev_link, len) == 0)
+				{
+				    snprintf(umount_dir, sizeof(umount_dir), "/dev/%s", parts);
+				    if ((mnt = findmntent(umount_dir)))
+				    {
+					if (!umount(mnt->mnt_dir))
+					    unlink(mnt->mnt_dir);
+				    }
+				    else
+					umount(umount_dir);
+				}
+			    }
+			}
+			fclose(part_fp);
+		    } /* partitions loop */
+
+		}
+		closedir(usb_dev_disc);
+	    }
+#else /* !LINUX26 */
+	/* ../scsi/host#/bus0/target0/lun# */
 	    if ((usb_dev_disc = opendir("/dev/discs")))
     	    {
 		while ((dp = readdir(usb_dev_disc))) {
@@ -1311,6 +1379,7 @@ umount_all_part(char *product, int scsi_host_no)
 		    scsi_dev_link[len] = '\0';
 		    if (strncmp(scsi_dev_link, "../scsi/host", 12))
                     	continue;
+
 		    t_host_no = atoi(scsi_dev_link + 12);
 		    if (t_host_no != scsi_host_no)
                     	continue;
@@ -1342,6 +1411,8 @@ umount_all_part(char *product, int scsi_host_no)
 		}
 		closedir(usb_dev_disc);
             }
+#endif /* LINUX26 */
+
 	}
 	else if ((dir_to_open = opendir("/tmp/mnt")))
 	{
@@ -1696,13 +1767,17 @@ hotplug_usb(void)
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{
+#ifdef LINUX26
+			int scsi_host_no = 0;
+#else
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
+			if (scsi_host)
+				scsi_host_no = atoi(scsi_host);
+#endif /* LINUX26 */
 #if defined(__CONFIG_MODEM__)
 			hotplug_usb_modeswitch( interface, action, product );
 #endif
-			if (scsi_host)
-				scsi_host_no = atoi(scsi_host);
 			if (strcmp(action, "add") == 0)
 				nvram_set("usb_storage_device", product);
 			else
