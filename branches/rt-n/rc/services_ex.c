@@ -1278,7 +1278,11 @@ void restart_smbd()
 }
 
 
-/*to unmount all partitions*/
+/* unmount partitions
+ *  scsi_host_no = -1	- all partitions (regardless product)
+ *               = -2	- partitions related to device specified by product (2.6 only)
+ *              >=  0	- partitions on device with specified scsi host
+ */
 static int
 umount_all_part(char *product, int scsi_host_no)
 {
@@ -1309,6 +1313,14 @@ umount_all_part(char *product, int scsi_host_no)
 		    if (sscanf(dp->d_name, "%d:%*s:%*s:%*s", &t_host_no) != 1)
 			continue;
 
+		    /* check for scsi host number */
+		    if (scsi_host_no >= 0) {
+			if (scsi_host_no != t_host_no)
+			    continue;
+			else
+			    goto dev_found;
+		    }
+
 		    /* check for product id */
 		    snprintf(scsi_dev_link, sizeof(scsi_dev_link), "%s/%s/product", "/sys/bus/scsi/devices", dp->d_name);
 		    if ((prod_fp = fopen(scsi_dev_link, "r")) == NULL)
@@ -1321,6 +1333,7 @@ umount_all_part(char *product, int scsi_host_no)
 		    }
 		    fclose(prod_fp);
 
+dev_found:
 		    /* find corresponding block device */
 		    len = 0;
 		    snprintf(discs_path, sizeof(discs_path), "%s/%s", "/sys/bus/scsi/devices", dp->d_name);
@@ -1448,12 +1461,13 @@ remove_usb_mass(char *product, int scsi_host_no)
 			eval("killall", "smbd");
 			eval("killall", "nmbd");
 		}
+		nvram_set("usb_ftp_device", "");
 
 		sleep(1);
-		umount_all_part(product, scsi_host_no);
-		nvram_set("usb_ftp_device", "");
-		logmessage("USB storage", "removed");
 	}
+
+	umount_all_part(product, scsi_host_no);
+	logmessage("USB storage", "removed");
 	return 0;
 }
 
@@ -1770,7 +1784,7 @@ hotplug_usb(void)
 		if (strncmp(interface, "8/", 2) == 0)
 		{
 #ifdef LINUX26
-			int scsi_host_no = 0;
+			int scsi_host_no = -2;
 #else
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
