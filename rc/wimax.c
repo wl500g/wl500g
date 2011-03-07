@@ -290,8 +290,7 @@ madwimax_release(char *ifname)
 }
 
 //if-up
-int
-madwimax_up(char *ifname)
+static int madwimax_up(char *ifname)
 {
 	char tmp[100];
 	char prefix[] = "wanXXXXXXXXXX_";
@@ -331,8 +330,7 @@ madwimax_up(char *ifname)
 }
 
 //if-down
-int
-madwimax_down(char *ifname)
+static int madwimax_down(char *ifname)
 {
 	char tmp[100];
 	int unit;
@@ -385,8 +383,7 @@ hotplug_check_wimax( char * interface, char * product, char * prefix )
 		return 0;
 };
 
-int
-madwimax_main(int argc, char **argv)
+int madwimax_main(int argc, char **argv)
 {
 
 	if (argc != 3)

@@ -76,7 +76,6 @@ int proc_check_pid(const char *pidfile);
 int console_init(void);
 pid_t run_shell(int timeout, int nowait);
 void signal_init(void);
-void fatal_signal(int sig);
 void preshutdown_system(void);
 void child_reap(int sig);
 

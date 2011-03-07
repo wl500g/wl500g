@@ -214,8 +214,7 @@ static int fatal_signals[] = {
 	SIGTERM,	/* reboot */
 };
 
-void
-fatal_signal(int sig)
+static void fatal_signal(int sig)
 {
 	char *message = NULL;
 	

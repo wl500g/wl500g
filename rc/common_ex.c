@@ -32,7 +32,6 @@
 #define XSTR(s) STR(s)
 #define STR(s) #s
 
-static char list[2048];
 
 /* remove space in the end of string */
 char *trim_r(char *str)
@@ -100,7 +99,9 @@ void convert_asus_values()
 	char ifnames[36];
 	char sbuf[64];
 	int i, num;
+	char *list;
 
+	list = malloc(2048);
 	getsyspara();
 	/* convert country code from regulation_domain */
 	convert_country();
@@ -638,6 +639,7 @@ void convert_asus_values()
 
 	update_lan_status(1);
 
+	free(list);
 	dprintf("end map\n");
 }
 

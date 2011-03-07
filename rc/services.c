@@ -142,8 +142,7 @@ stop_dns(void)
 }	
 #endif /* !ASUS_EXT */
 
-int
-start_telnetd(void)
+static int start_telnetd(void)
 {
 	int ret;
 	
@@ -160,8 +159,7 @@ start_telnetd(void)
 	return ret;
 }
 
-int
-stop_telnetd(void)
+static int stop_telnetd(void)
 {
 	int ret = eval("killall", "telnetd");
 
@@ -169,8 +167,7 @@ stop_telnetd(void)
 	return ret;
 }
 
-int
-start_dropbear(void)
+static int start_dropbear(void)
 {
 	char *dropbear_argv[] = {"dropbearstart", NULL, NULL, NULL, NULL, NULL};
 	int i = 1;
@@ -199,8 +196,7 @@ start_dropbear(void)
 	return ret;
 }
 
-int
-stop_dropbear(void)
+static int stop_dropbear(void)
 {
 	int ret = eval("killall", "dropbear");
 
@@ -208,8 +204,7 @@ stop_dropbear(void)
 	return ret;
 }
 
-int
-start_snmpd(void)
+static int start_snmpd(void)
 {
 	static char *snmpd_conf = "/tmp/snmpd.conf";
 	
@@ -239,8 +234,7 @@ start_snmpd(void)
 	return ret;
 }
 
-int
-stop_snmpd(void)
+int stop_snmpd(void)
 {
 	int ret = eval("killall", "snmpd");
 
@@ -248,8 +242,7 @@ stop_snmpd(void)
 	return ret;
 }
 
-int
-start_httpd(void)
+int start_httpd(void)
 {
 	int ret;
 
@@ -267,8 +260,7 @@ start_httpd(void)
 	return ret;
 }
 
-int
-stop_httpd(void)
+static int stop_httpd(void)
 {
 	int ret = eval("killall", "httpd");
 

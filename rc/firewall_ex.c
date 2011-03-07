@@ -29,37 +29,25 @@
 
 #define foreach_x(x)	for(i=0; i<atoi(nvram_safe_get(x)); i++)
 
-char *g_buf;
-char g_buf_pool[1024];
+static char *g_buf;
+static char g_buf_pool[1024];
 
 /* Forwards */
-int porttrigger_setting(FILE *fp, char *lan_if);
+static int porttrigger_setting(FILE *fp, char *lan_if);
 
-void g_buf_init()
+static void g_buf_init()
 {
 	g_buf = g_buf_pool;
 }
 
-char *g_buf_alloc(char *g_buf_now)
+static char *g_buf_alloc(char *g_buf_now)
 {
 	g_buf += strlen(g_buf_now)+1;
 
 	return(g_buf_now);
 }
 
-void nvram_unsets(char *name, int count)
-{
-	char itemname_arr[32];
-	int i;
-
-	for(i=0; i<count; i++)
-	{
-		sprintf(itemname_arr, "%s%d", name, i);
-		nvram_unset(itemname_arr);
-	}
-}
-
-char *proto_conv(char *proto_name, int idx)
+static char *proto_conv(char *proto_name, int idx)
 {	
 	char *proto;
 	char itemname_arr[32];
@@ -75,7 +63,7 @@ char *proto_conv(char *proto_name, int idx)
 	return (g_buf_alloc(g_buf));
 }
 
-char *protoflag_conv(char *proto_name, int idx, int isFlag)
+static char *protoflag_conv(char *proto_name, int idx, int isFlag)
 {	
 	char *proto;
 	char itemname_arr[32];
@@ -140,7 +128,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 }
 #endif
 
-char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
+static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 {
 	char *port, *strptr;
 	char itemname_arr[32];
@@ -191,7 +179,7 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 	return(g_buf_alloc(g_buf));
 }
 
-char *portrange_conv(char *port_name, int idx)
+static char *portrange_conv(char *port_name, int idx)
 {
 	char itemname_arr[32];
 	
@@ -245,7 +233,7 @@ char *iprange_conv(char *ip_name, int idx)
 }
 #endif
 
-char *iprange_ex_conv(char *ip_name, int idx)
+static char *iprange_ex_conv(char *ip_name, int idx)
 {
 	char *ip;
 	char itemname_arr[32];
@@ -290,7 +278,7 @@ char *iprange_ex_conv(char *ip_name, int idx)
 	return(g_buf_alloc(g_buf));
 }
 
-char *ip_conv(char *ip_name, int idx)
+static char *ip_conv(char *ip_name, int idx)
 {	
 	char itemname_arr[32];
 
@@ -300,7 +288,7 @@ char *ip_conv(char *ip_name, int idx)
 }
 
 
-char *general_conv(char *ip_name, int idx)
+static char *general_conv(char *ip_name, int idx)
 {	
 	char itemname_arr[32];
 
@@ -309,7 +297,8 @@ char *general_conv(char *ip_name, int idx)
 	return(g_buf_alloc(g_buf));
 }
 
-char *filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dstip, char *dstport)
+static char *filter_conv(char *proto, char *flag, char *srcip, char *srcport,
+			 char *dstip, char *dstport)
 {
 	char newstr[64];
 
@@ -362,7 +351,7 @@ char *filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dst
 	//printf("str: %s\n", g_buf);
 }
 
-void timematch_conv(char *mstr, char *nv_date, char *nv_time)
+static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 {	
 	char *datestr[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	char timestart[6], timestop[6];
@@ -418,15 +407,13 @@ no_match:
 	mstr[0] = 0;
 	return;
 }
-
-void
-p(int step)
+/*
+void p(int step)
 {
 	dprintf("P: %d %s\n", step, g_buf);
 }
-
-void 
-ip2class(char *lan_ip, char *netmask, char *buf)
+*/
+static void ip2class(char *lan_ip, char *netmask, char *buf)
 {
 	unsigned int val, ip;
 	struct in_addr in;
@@ -443,8 +430,9 @@ ip2class(char *lan_ip, char *netmask, char *buf)
 	dprintf("%s", buf);	
 }
 
-void
-write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *lan_class, char *logaccept, char *logdrop)
+static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
+				char *lan_if, char *lan_ip, char *lan_class,
+				char *logaccept, char *logdrop)
 {
 	char name[] = "forward_portXXXXXXXXXX", value[512];
         char *wan_port0, *wan_port1, *lan_ipaddr, *lan_port0, *lan_port1, *proto;
@@ -520,7 +508,7 @@ write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan
 }
 
 
-void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
 	FILE *fp;
         char lan_class[32];
@@ -688,8 +676,8 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
  *     ACCEPT -> FORWARD ACCEPT 
  */
 
-int
-filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip,
+			  char *logaccept, char *logdrop)
 {
 
 	FILE *fp, *fp1;
@@ -1216,7 +1204,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	return 0;
 }
 
-int porttrigger_setting(FILE *fp, char *lan_if)
+static int porttrigger_setting(FILE *fp, char *lan_if)
 {
 	netconf_app_t apptarget, *app;
 	int i;
@@ -1406,29 +1394,6 @@ portmapping_main(int argc, char *argv[])
 	}		
 }
 #endif	
-
-#ifndef __CONFIG_DNSMASQ__
-void write_static_leases(char *file)
-{
-	FILE *fp;
-	char *ip, *mac;
-	int i;
-
-	fp=fopen(file, "w");
-
-	if (fp==NULL) return;
-	
-	g_buf_init();
-			
-       	foreach_x("dhcp_staticnum_x")
-       	{	               			
-            	ip = general_conv("dhcp_staticip_x", i);
-		mac = general_conv("dhcp_staticmac_x", i);
-		fprintf(fp, "%s,%s\r\n", ip, mac);
-	}
-	fclose(fp);
-}
-#endif
 
 void convert_routes(void)
 {

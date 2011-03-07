@@ -34,7 +34,7 @@
 
 #define logs(s) syslog(LOG_NOTICE, s)
 
-void filecat(FILE *fp, char *catted)
+static void filecat(FILE *fp, char *catted)
 {
 	FILE *cfp;
 	char line[1024];
@@ -51,7 +51,7 @@ void filecat(FILE *fp, char *catted)
 	return;
 }
 
-char *nslookup(char *name, int qtype, char *ret, size_t retsize)
+static char *nslookup(char *name, int qtype, char *ret, size_t retsize)
 {
 	unsigned char	reply[1024];	/* Reply buffer */
 	char		host[MAXDNAME];
