@@ -204,12 +204,13 @@ int hotplug_check_wimax(char *interface, char *product, char *prefix);
 int start_modem_dial(char *prefix);
 int stop_modem_dial(char *prefix);
 int usb_modem_check(char * prefix);
-int hotplug_check_modem(char *interface, char *product, char *prefix);
+int hotplug_check_modem(char *interface, char *product, char *device, char *prefix);
+int lsmodem_main(int argc, char **argv);
 #endif
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_network_device(char *interface, char *action, char *product);
-void hotplug_usb_modeswitch(char *interface, char *action, char *product);
+void hotplug_network_device(char *interface, char *action, char *product, char *device);
+void hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device);
 #endif
 
 enum
