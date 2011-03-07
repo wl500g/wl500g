@@ -48,7 +48,6 @@
 //#define USBCOPY_SUPPORT 1
 
 char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
-char buf_g[512];
 
 
 #ifdef __CONFIG_WAVESERVER__
@@ -60,23 +59,6 @@ static int stop_lltd(void);
 
 void diag_PaN(void)
 {
-	FILE *fp;
-        
-	/* dump pci device */
-	fp=fopen("/proc/pci", "r");
-	if (fp!=NULL)
-	{
-		while(fgets(buf_g, sizeof(buf_g), fp))
-		{
-			if(strstr(buf_g, "PCI device"))
-				fprintf(stderr, buf_g);
-		}
-		fclose(fp);
-	}
-
-
-#ifdef PRINTER_SUPPORT
-#endif
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
@@ -740,7 +722,7 @@ int hotplug_usb(void)
 }
 #else
 
-int start_nfsd(void)
+static int start_nfsd(void)
 {
 	struct stat	st_buf;
 	FILE 		*fp;
@@ -960,7 +942,7 @@ stop_usb(void)
 	return 0;
 }
 
-void start_script(void)
+static void start_script(void)
 {
 //	pid_t pid;
 	FILE *fp;
@@ -985,7 +967,7 @@ void start_script(void)
 }
 
 /* get full storage path */
-char *nvram_storage_path(char *var)
+static char *nvram_storage_path(char *var)
 {
 	static char buf[256];
 	char *val = nvram_safe_get(var);
@@ -1156,7 +1138,7 @@ int restart_ftpd()
 	return 0;
 }
 
-void restart_smbd()
+static void restart_smbd()
 {
 	FILE *fp;
 	DIR *dir = NULL;
@@ -1525,7 +1507,7 @@ static struct mntent *findmntent(char *file)
 	return mnt;
 }
 
-char *detect_fs_type(const char *device)
+static char *detect_fs_type(const char *device)
 {
 	int fd;
 	unsigned char buf[4096];
@@ -1582,8 +1564,7 @@ char *detect_fs_type(const char *device)
 #define MOUNT_VAL_RW 	2
 #define MOUNT_VAL_DUP 	3
 
-int
-mount_r(char *mnt_dev, char *mnt_dir)
+static int mount_r(char *mnt_dev, char *mnt_dir)
 {
 	struct mntent *mnt = findmntent(mnt_dev);
 	char *type;

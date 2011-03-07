@@ -250,6 +250,7 @@ static const REG_DMN_ENUM_FREQ_TABLE regDmnEnum5Turbo[] = {
     {152,160}}}      
 };
 
+#ifdef REMOVE
 /* "Worldwide", 1-13
    "Thailand", "Israel", "Jordan", "China", "Japan", "USA", "Europe", "USA Low", "Japan High", "All" */
    
@@ -266,6 +267,7 @@ static const char *br_name[] =
 	"Israel",
 	"Europe"	
 };
+#endif
 
 static const REG_DMN_ENUM_FREQ_TABLE regDmnEnum2[] = {
     {DEBUG_REG_DMN, 1, 0, "NONE", {
@@ -458,7 +460,7 @@ wlanGetCcEntries(A_UINT16 channelFlags)
     }
 }
 
-void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
+static void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
 {
     char reg[5];
         
@@ -478,13 +480,14 @@ void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
 }
 
 
+#ifdef REMOVE
 /***********************************************************
  * RefreshBRCountry
  *
  * Print out the channel list based only on the given reg
  * domain and turbo mode
  */
-void
+static void
 RefreshBRCountry(char *regDmnName, char *country, char *country_code)
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;
@@ -528,7 +531,7 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
     strcpy(country, "WorldWide");
     return;    
 }
-
+#endif
 
 /***********************************************************
  * RefreshChannelList
@@ -536,7 +539,7 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
  * Print out the channel list based only on the given reg
  * domain and turbo mode
  */
-void
+static void
 RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;

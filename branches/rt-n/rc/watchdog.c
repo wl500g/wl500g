@@ -92,11 +92,8 @@ static int power_value = 0;
 #define LED_CONTROL(led,flag) gpio_write(GPIO_DEV_OUT, led, flag)
 
 static struct itimerval itv; 
-int watchdog_period=0;
-long sync_interval=-1; // every 30 seconds a unit
-int sync_flag=0;
-long timestamp_g=0;
-int stacheck_interval=-1;
+static long sync_interval = -1; // every 30 seconds a unit
+static int stacheck_interval = -1;
 
 /* forwards */
 #ifdef __CONFIG_RCAMD__
@@ -421,12 +418,12 @@ enum
 	ACTIVEITEMS
 } ACTIVE;
 
-int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
-int extStatus[ACTIVEITEMS] = { 0, 0, 0};
-char svcDate[ACTIVEITEMS][10];
-char svcTime[ACTIVEITEMS][20];
+static int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
+static int extStatus[ACTIVEITEMS] = { 0, 0, 0};
+static char svcDate[ACTIVEITEMS][10];
+static char svcTime[ACTIVEITEMS][20];
 
-int timecheck_item(char *activeDate, char *activeTime)
+static int timecheck_item(char *activeDate, char *activeTime)
 {
 	#define DAYSTART (0)
 	#define DAYEND (60*60*23+60*59+59) //86399
@@ -480,7 +477,7 @@ int timecheck_item(char *activeDate, char *activeTime)
 /* 1. URL filter 			*/
 /* 2. WEB Camera Security filter 	*/
 
-int svc_timecheck(void)
+static int svc_timecheck(void)
 {
 	int activeFlag, activeNow;
 
@@ -555,7 +552,7 @@ int svc_timecheck(void)
 }	
 	
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
-int http_processcheck(void)
+static int http_processcheck(void)
 {
 //	char http_cmd[32];
 //	char buf[256];
@@ -581,7 +578,7 @@ int http_processcheck(void)
 #ifdef USB_SUPPORT
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-int usb_communication_device_processcheck(void)
+static int usb_communication_device_processcheck(void)
 {
   	char *wan_ifname;
 	char *wan_proto;
@@ -743,9 +740,11 @@ static void sta_check(void)
  *      3. http-process
  *      4. usb hotplug status
  */
-void watchdog(int signum)
+static void watchdog(int signum)
 {
+	static int watchdog_period = 0;
 	time_t now;
+
 	/* handle button */
 	if (reset_mask) btn_check();
 	/* handle ezsetup */

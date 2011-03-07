@@ -47,8 +47,8 @@ typedef u_int8_t u8;
 #include <semaphore.h>
 #include <fcntl.h>
 
-void lan_up(char *lan_ifname);
-int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
+static void lan_up(char *lan_ifname);
+static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
 
 #if !defined(__UCLIBC_MAJOR__) \
  || __UCLIBC_MAJOR__ > 0 \
@@ -57,8 +57,8 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
 
 #define HOTPLUG_DEV_START
 sem_t * hotplug_sem;
-void
-hotplug_sem_open()
+
+void hotplug_sem_open()
 {
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
 	if( hotplug_sem == SEM_FAILED ){
@@ -97,8 +97,7 @@ hotplug_sem_unlock()
 #endif
 
 #ifdef __CONFIG_EMF__
-void
-emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *mgrp, *ifname;
@@ -121,8 +120,7 @@ emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-void
-emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *ifname;
@@ -144,8 +142,7 @@ emf_uffp_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-void
-emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
+static void emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
 {
         char word[256], *next;
         char *ifname;
@@ -167,8 +164,7 @@ emf_rtport_update(char *lan_ifname, char *lan_port_ifname, bool add)
         return;
 }
 
-void
-start_emf(char *lan_ifname)
+static void start_emf(char *lan_ifname)
 {
         char word[256], *next;
         char *mgrp, *ifname;
@@ -1097,8 +1093,7 @@ start_wan(void)
 }
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-int 
-stop_usb_communication_devices(void)
+static int stop_usb_communication_devices(void)
 {
   	char *wan_ifname;
 	char *wan_proto;
@@ -1669,8 +1664,7 @@ wan6_down(char *wan_ifname, int unit)
 #endif
 
 #ifdef ASUS_EXT
-void
-lan_up(char *lan_ifname)
+static void lan_up(char *lan_ifname)
 {
 	FILE *fp;
 	char word[100], *next;
@@ -1993,7 +1987,7 @@ wan_primary_ifunit(void)
 }
 
 // return 0 if failed
-int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
+static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 {
 	int timeout = 5;
 	int s, pid;

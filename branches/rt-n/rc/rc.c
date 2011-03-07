@@ -838,8 +838,7 @@ rc_signal(int sig)
 }
 
 /* Timer procedure */
-int
-do_timer(void)
+static int do_timer(void)
 {
 	time_t now;
 	struct tm gm, local;
@@ -968,7 +967,7 @@ main_loop(void)
 #endif
 			eval("/usr/local/sbin/post-boot");
 #ifdef ASUS_EXT
-			sleep(3);
+			sleep(1);
 			diag_PaN();
 #endif
 			/* Fall through */

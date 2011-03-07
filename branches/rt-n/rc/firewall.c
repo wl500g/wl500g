@@ -30,8 +30,6 @@
 
 #ifndef ASUS_EXT
 
-extern void g_buf_init();
-
 /* Add filter to specified table */
 static void
 add_filter(netconf_filter_t *filter, int dir)
@@ -170,8 +168,6 @@ start_firewall(void)
 		}
 
 		// LAN/WAN filter		
-		g_buf_init();
-
 		num = atoi(nvram_safe_get("macfilter_num_x"));
 
 		for(i=0;i<num;i++)
@@ -337,4 +333,4 @@ start_firewall2(char *wan_ifname)
 	return 0;
 }
 
-#endif
+#endif /* ASUS_EXT */
