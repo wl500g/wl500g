@@ -1,43 +1,273 @@
-#!/bin/sh
+#!/bin/bash
 
-ROOT_DIR=/usr
+# Universal 3G/CDMA moden connection script
+# ver 2.103 alfa 01.03.2011
+# by dlukanidin
 
-if [ "$(nvram get wan_modem_enable_x)" = "0" ]; then
- if [ -z "$(nvram get wan_modem_dial_first)" ]; then
-   $(nvram set wan_modem_dial_first="1")
-   exit
- fi
+
+# Path
+devpath_name='/proc/bus/usb/devpath'
+modem_conf_name='/usr/share/modem/modems.conf'
+tmp_name='/tmp/dial.tmp'
+peers_path='/tmp/ppp/peers/'
+log_name='/tmp/chat.log'
+user_script_name='/usr/local/dial/dial'
+def_failure_script="/usr/local/sbin/post-3g-failure"
+
+load_drivers(){
+	if [ "$(lsmod | grep $acm_module)" = "" ]; then
+		if [ "$kernel" = "2.4" ]; then
+			insmod $acm_module $maxpacket_size
+		else
+			insmod $acm_module
+		fi
+	fi
+	if [ "$(lsmod | grep 'usbserial')" = "" ]; then
+		insmod usbserial
+		insmod option
+	fi
+	if [ "$pl2303_ftdi_enable" = "1" ] && [ "$(lsmod | grep 'pl2303')" != "" ]; then
+		insmod pl2303
+		insmod ftdi_sio
+	fi
+	return 0;
+}
+
+init_global() {
+	kernel="$(uname -r)"
+	kernel=${kernel:0:3}
+
+	if [ "$kernel" = "2.4" ]; then
+		tts_port_path="/dev/usb/tts/"
+		acm_port_path="/dev/usb/acm/"
+		acm_module="acm"
+	else
+		tts_port_path="/dev/ttyUSB"
+		acm_port_path="/dev/ttyACM"
+		acm_module="cdc-acm"
+	fi
+
+	maxpacket_size=$(nvram get ${set_pref}packetsize)
+	maxpacket_size=${maxpacket_size:-0}
+	if [ $maxpacket_size -gt 128 ]; then
+		maxpacket_size="maxSize=$maxpacket_size"
+	else
+		maxpacket_size=""
+	fi
+
+	pl2303_ftdi_enable=$(nvram get ${set_pref}serial_enable)
+	failure_script_name=$(nvram get ${set_pref}onfailure)
+	[ -z "$failure_script_name" ] && failure_script_name=$def_failure_script
+}
+
+get_usb_structure(){
+	number_of_modems=0
+	lsmodem -c $modem_conf_name > $tmp_name
+	while read line; do
+		let "number_of_modems += 1"
+		name=modem_$number_of_modems
+		eval $name=\$line
+	done < $tmp_name
+}
+
+check_usb_config(){
+	dialenabled=$(nvram get ${wan_pref}dial_enabled)
+	prepared=$(nvram get ${wan_pref}prepared)
+	iface=$(nvram get ${wan_pref}unit)
+
+	type=$(nvram get ${set_pref}type)
+	dialnumber=$(nvram get ${set_pref}dialno)
+	apn=$(nvram get ${set_pref}apn)
+	dialupinit=$(nvram get ${set_pref}dialup_init)
+
+	user=$(nvram get ${set_pref}username)
+	pass=$(nvram get ${set_pref}passwd)
+	demand=$(nvram get ${set_pref}demand)
+	idle=$(nvram get ${set_pref}idle)
+	mtu=$(nvram get ${set_pref}mtu)
+	mru=$(nvram get ${set_pref}mru)
+	baud=$(nvram get ${set_pref}portspeed)
+	pppdoptions=$(nvram get ${set_pref}options)
+	maxfail=$(nvram get ${set_pref}maxfail)
+
+	dataport=$(nvram get ${set_pref}pdata)
+	uiport=$(nvram get ${set_pref}pui)
+	auto=$(nvram get ${set_pref}apn)
+
+	nv_vid=$(nvram get ${set_pref}vid)
+	nv_pid=$(nvram get ${set_pref}pid)
+	nv_loc=$(nvram get ${set_pref}usbloc)
+	usbdev="${tts_port_path}0"
+	
+	for i in $(seq $number_of_modems); do
+		name=modem_$i
+		eval modem=\$$name
+		loc=$(echo -n $modem | cut -d: -f7)
+		vid=$(echo -n $modem | cut -d: -f2)
+		pid=$(echo -n $modem | cut -d: -f3)
+		if [ "0x$vid" == "$nv_vid" ] && [ "0x$pid" == "$nv_pid" ]; then
+			if [ "$loc" == "$nv_loc" ] || [ "$auto" == "1" ]; then
+				loc="${nv_loc}.${dataport}"
+				usbdev=$(grep ": $loc :" "$devpath_name" | awk -F':' '{print $1}')
+				loc="${nv_loc}.${uiport}"
+				uidev=$(grep ": $loc :" "$devpath_name" | awk -F':' '{print $1}')
+				nvram set "${set_pref}port_ui=$uidev"
+				break;
+			fi
+		fi
+	done
+}
+
+write_chat_scenario() {
+	if [ "$type" == "C" ]; then
+
+echo "ABORT '~'
+ABORT 'BUSY'
+ABORT 'NO CARRIER'
+ABORT 'ERROR'
+ABORT 'NO DIAL TONE'
+ABORT 'NO ANSWER'
+ABORT 'DELAYED'
+REPORT 'CONNECT'
+'' 'ATZ'
+SAY 'Calling CDMA/EVDO'
+'OK' '$dialupinit'
+'' 'ATDT#777'
+'CONNECT' 'ATO'
+'' ''" > "${peers_path}${wan_pref}chat"
+
+	else
+	
+echo "ABORT '~'
+ABORT 'BUSY'
+ABORT 'NO CARRIER'
+ABORT 'ERROR'
+REPORT 'CONNECT'
+'' 'ATZ'
+SAY 'Calling WCDMA/UMTS/GPRS'
+'OK' '$dialupinit'
+'' 'AT+CGDCONT=1,\"IP\",\"$apn\"'
+'OK' 'ATD$dialnumber'
+'CONNECT' ''" > "${peers_path}${wan_pref}chat"
+
+	fi
+}
+
+write_pppd_scenario() {
+	
+echo "debug
+$usbdev
+$baud
+crtscts
+noipdefault
+ipcp-accept-local
+lcp-echo-interval 60
+lcp-echo-failure 6
+mtu $mtu
+mru $mru
+usepeerdns
+noauth
+holdoff 5
+maxfail $maxfail
+nodetach
+persist
+unit $iface
+novj nobsdcomp novjccomp nopcomp noaccomp" > "${peers_path}${wan_pref}pppd"
+
+	[ -z "$user" ] || echo "user '$user'" >> "${peers_path}${wan_pref}pppd"
+	[ -z "$pass" ] || echo "password '$pass'" >> "${peers_path}${wan_pref}pppd"
+
+	if [ -z "$demand" ]; then demand="0"; fi
+	if [ "$demand" != "0" ]; then
+		if [ -z "$idle" ]; then idle="600"; fi
+		echo "demand idle $idle" >> "${peers_path}${wan_pref}pppd"
+	fi
+	if [ ! -z "$pppdoptions" ]; then
+		echo "$pppdoptions" >> "${peers_path}${wan_pref}pppd"
+	fi
+	echo "connect \"${peers_path}${wan_pref}chat.sh\"" >> "${peers_path}${wan_pref}pppd"
+}
+
+write_chat_script() {
+
+echo -e "#!/bin/sh
+chat  -s -S -V -t 10 -f ${peers_path}${wan_pref}chat 2>>$log_name
+res=\$?
+if [ \$res = 4 ]; then
+	echo \"<<< ${wan_pref}chat.sh >>> Modem session is up, force reconnect\" >>$log_name
+	return 0;
+fi
+return \$res" > "${peers_path}${wan_pref}chat.sh"
+
+	chmod +x "${peers_path}${wan_pref}chat.sh"
+}
+
+write_ping_script() {
+
+echo -e "#!/bin/sh
+pingaddr=\"8.8.8.8\"
+for i in \$(seq 4); do
+	usleep 500000
+	ping -I ppp$iface -c 1 \$pingaddr >> $log_name
+	usleep 500000
+done" > "${peers_path}${wan_pref}ping.sh"
+	
+	chmod +x "${peers_path}${wan_pref}ping.sh"
+}
+
+clear_all() {
+	rm "${peers_path}${wan_pref}ping.sh"
+	rm "${peers_path}${wan_pref}chat.sh"
+	rm "${peers_path}${wan_pref}pppd"
+	rm "${peers_path}${wan_pref}chat"
+}
+
+terminate_all() {
+    clear_all
+    exit 0
+}
+
+# main
+
+wan_pref=$1
+# set_pref="${wan_pref}modem_"
+set_pref="wan_modem_"
+
+init_global
+load_drivers
+get_usb_structure
+check_usb_config
+if [ "$dialenabled" != "1" ] || [ "$prepared" != "1" ]; then
+	exit 1
 fi
 
-if [ -z "$(nvram get wan_modem_enable_x)" ]; then
-  nvram set wan_modem_enable_x=1
-fi
-
-if [ -n "$1" ]; then
-  dialmode=$1
+if [ "$type" == "USR" ] && [ -e "$user_script_name" ]; then
+	source "$user_script_name"
 else
-  dialmode="$(nvram get wan_modem_type)"
+	trap terminate_all SIGHUP SIGINT SIGTERM
+
+	write_chat_scenario
+	write_pppd_scenario
+	write_chat_script
+	write_ping_script
+
+	while true; do
+		sleep 1
+		if [ "$demand" != "0" ]; then
+			killall ${wan_pref}ping.sh
+			${peers_path}${wan_pref}ping.sh &
+		fi
+
+		pppd call ${wan_pref}pppd >> $log_name 2>&1
+		res=$?
+		echo "${wan_pref}pppd exit code: $res, try to reconnect $usbdev." >> $log_name
+		logger "${wan_pref}pppd exit code: $res"
+		sleep 1
+
+		if [ -e $failure_script_name ]; then
+			$failure_script_name $iface $usbdev $res
+		fi
+	done
+	clear_all
 fi
 
-if [ -z "$dialmode" ]; then
-        dialmode="1"
-fi
-
-case "$dialmode" in
-	0)	dialdir=$ROOT_DIR/ppp/uni
-		;;
-	1)	dialdir=$ROOT_DIR/ppp/uni
-		;;
-	3)	dialdir=$ROOT_DIR/ppp/dialup
-		;;
-	99)	dialdir=$ROOT_DIR/local/dial
-		;;
-	*)	echo Other
-		;;
-esac	
-
-if [ ! -z $dialdir ]; then
-#	cd $dialdir
-#	./dial $dialmode $2
-	source "$dialdir/dial"
-fi

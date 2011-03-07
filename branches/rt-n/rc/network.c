@@ -805,7 +805,6 @@ start_wan(void)
 
 #ifdef __CONFIG_MODEM__
 	/* ppp contents */
-//	eval("cp", "-dpR", "/usr/ppp", "/tmp");	
 	mkdir("/tmp/ppp/peers", 0777);
 #endif
 
@@ -2038,11 +2037,11 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 }
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_network_device( char * interface, char * action, char * product )
+void hotplug_network_device(char * interface, char * action, char * product, char *device)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	char *device;
+	char *dev_vidpid;
 	int unit;
 	int found=0;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
@@ -2076,7 +2075,7 @@ void hotplug_network_device( char * interface, char * action, char * product )
 		    } else 
 #endif
 #ifdef __CONFIG_MODEM__
-		    if( hotplug_check_modem( interface, product, prefix ) ){
+		    if( hotplug_check_modem( interface, product, device, prefix ) ){
 			found = 2;
 		    }
 #else
@@ -2088,8 +2087,8 @@ void hotplug_network_device( char * interface, char * action, char * product )
 		    hotplug_sem_lock();
 		    if ( action_add )
 		    {
-			device = nvram_get( strcat_r(prefix, "usb_device", tmp) );
-			if ( !device || !*device )
+			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+			if ( !dev_vidpid || !*dev_vidpid )
 			{
 #ifdef __CONFIG_MADWIMAX__
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
@@ -2105,7 +2104,7 @@ void hotplug_network_device( char * interface, char * action, char * product )
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
 #ifdef HOTPLUG_DEV_START
-				start_modem_dial( prefix );
+				usb_modem_check(prefix);
 #endif
 			    }
 #else
