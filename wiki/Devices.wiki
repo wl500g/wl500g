@@ -25,7 +25,7 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||WL-330gE||BCM5354 240MHz||SoC||802.11g (SoC)||16MB SDR 16bit||4MB||N/A||1.9.2.7-d||
 ||_Generation 2.2_||
 ||RT-N10||BCM5356 300MHz||SoC||802.11n (SoC)||16MB SDR 16bit||4MB||N/A||1.9.2.7-rtn||
-||RT-N10 B1||RT3050F 384Mhz !RaLink||SoC||802.11n (SoC)||32Mb SDR 16bit||4Mb||N/A||no||
+||RT-N10 B1 (RT-N10+)||RT3050F 384Mhz !RaLink||SoC||802.11n (SoC)||32Mb SDR 16bit||4Mb||N/A||no||
 ||RT-N11||RDC-3211 (AMRISC 20010)||IP175C IC+||802.11n (RT2760)||8MB SDR 16bit||2MB||N/A||no||
 ||RT-N13||RT2880F 266MHz !RaLink||IP175C IC+||802.11n (RT2820L)||32MB SDR 32bit||4MB||N/A||no||
 ||RT-N15||RT2880F 266MHz !RaLink||RTL8366SR Realtek||802.11n (RT2820L)||32MB SDR 32bit||4MB||N/A||no||
