@@ -17,7 +17,7 @@ menu "Base Features"
 
 config CONFIG_RC
        bool "Router control (rc)"
-       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_BUSYBOX
+       depends on CONFIG_NVRAM && CONFIG_SHARED
        default y
        help
        rc is a compact replacement for traditional SysV init. rc
@@ -43,16 +43,8 @@ config CONFIG_LIBBCM
        help
        Answer Y for shared functions for accesing Broadcom h/w
 
-config CONFIG_BUSYBOX
-       bool "BusyBox"
-       default y
-       help
-       BusyBox combines tiny versions of many common UNIX utilities into
-       a single small executable.
-
 config CONFIG_BUSYBOX_CONFIG
        string "BusyBox default configuration"
-       depends on CONFIG_BUSYBOX
        default "defconfig"
        help
        Override the default BusyBox configuration. File must exist in busybox/sysdeps/linux.
@@ -175,18 +167,12 @@ config CONFIG_EZC
        depends on CONFIG_HTTPD
        default y
 
-config CONFIG_DNSMASQ
-       bool "DNS forwarder"
-       depends on CONFIG_NAT
-       default y
-
 config CONFIG_UTILS
        bool "Broadcom driver utilities"
        default y
 
 config CONFIG_ETC
        bool "SysV init scripts"
-       depends on CONFIG_BUSYBOX
        default n
        help
        SysV init scripts.
@@ -267,10 +253,6 @@ config CONFIG_OTHERS
 config CONFIG_BPALOGIN
 	bool "Big Pond Broadband support"
 	default y
-
-config CONFIG_WAVESERVER
-	bool "CONFIG_WAVESERVER"
-	default n
 endmenu
 
 menu "Custom firmware features"
