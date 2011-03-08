@@ -80,7 +80,6 @@ start_dhcpd(void)
 int
 stop_dhcpd(void)
 {
-	char sigusr1[] = "-XX";
 	int ret;
 
 /*
@@ -96,9 +95,9 @@ stop_dhcpd(void)
 * would have to release current IP and to request a new one which causes 
 * a no-IP gap in between.
 */
-	sprintf(sigusr1, "-%d", SIGUSR1);
-	eval("killall", sigusr1, "udhcpd");
-	ret = eval("killall", "udhcpd");
+	killall("udhcpd", -SIGUSR1);
+	usleep(10000);
+	ret = killall("udhcpd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -132,7 +131,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	int ret = eval("killall", "dnsmasq");
+	int ret = killall("dnsmasq", 0);
 	
 	/* Remove resolv.conf */
 	unlink("/tmp/resolv.conf");
@@ -161,7 +160,7 @@ static int start_telnetd(void)
 
 static int stop_telnetd(void)
 {
-	int ret = eval("killall", "telnetd");
+	int ret = killall("telnetd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -198,7 +197,7 @@ static int start_dropbear(void)
 
 static int stop_dropbear(void)
 {
-	int ret = eval("killall", "dropbear");
+	int ret = killall("dropbear", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -236,7 +235,7 @@ static int start_snmpd(void)
 
 int stop_snmpd(void)
 {
-	int ret = eval("killall", "snmpd");
+	int ret = killall("snmpd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -262,7 +261,7 @@ int start_httpd(void)
 
 static int stop_httpd(void)
 {
-	int ret = eval("killall", "httpd");
+	int ret = killall("httpd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -278,7 +277,7 @@ start_upnp(void)
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
 	
-	ret = eval("killall", "-SIGUSR1", "upnp");
+	ret = killall("upnp", -SIGUSR1);
 	if (ret != 0) {
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
@@ -307,7 +306,7 @@ stop_upnp(void)
 	int ret = 0;
 
 	if (nvram_invmatch("upnp_enable", "0"))
-	    ret = eval("killall", "upnp");
+	    ret = killall("upnp", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -343,10 +342,10 @@ start_nas(char *type)
 int
 stop_nas(void)
 {
-	int ret = eval("killall", "nas");
+	int ret = killall("nas", 0);
 
 #ifdef __CONFIG_BCMWL5__
-        eval("killall", "eapd");
+        killall("eapd", 0);
 #endif
 	dprintf("done\n");
 	return ret;
@@ -374,7 +373,7 @@ start_ntpc(void)
 int
 stop_ntpc(void)
 {
-	int ret = eval("killall", "ntpd");
+	int ret = killall("ntpd", 0);
 
 	return ret;
 }

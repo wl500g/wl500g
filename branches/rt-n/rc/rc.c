@@ -774,7 +774,7 @@ sysinit(void)
 #endif
 		"et wl";
 		foreach(module, modules, next)
-			eval("insmod", module);
+			insmod(module, NULL);
 	}
 
 	/* Update kernel timezone and time */
@@ -786,7 +786,7 @@ sysinit(void)
 	settimeofday(&tv, &tz);
 
 #if defined(MODEL_WL700G)
-	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
+	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
 	usleep(100000);
 #endif
 

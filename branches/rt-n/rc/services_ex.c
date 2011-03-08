@@ -249,7 +249,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	return eval("killall", "dnsmasq");
+	return killall("dnsmasq", 0);
 }
 
 int start_dhcpd(void)
@@ -378,7 +378,7 @@ start_radvd(void)
 int
 stop_radvd(void)
 {
-	return eval("killall", "radvd");
+	return killall("radvd", 0);
 }
 #endif
 
@@ -574,9 +574,9 @@ start_ddns(int forced)
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
 #ifdef __CONFIG_EZIPUPDATE__
-		eval("killall", "-SIGQUIT", "ez-ipupdate");
+		killall("ez-ipupdate", -SIGQUIT);
 #elif __CONFIG_INADYN__
-		eval("killall", "inadyn");
+		killall("inadyn", 0);
 #endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
@@ -587,9 +587,9 @@ int
 stop_ddns(void)
 {
 #ifdef __CONFIG_EZIPUPDATE__
-	int ret = eval("killall", "-SIGQUIT", "ez-ipupdate");
+	int ret = killall("ez-ipupdate", -SIGQUIT);
 #elif __CONFIG_INADYN__
-	int ret = eval("killall", "inadyn");
+	int ret = killall("inadyn", 0);
 #endif
 
 	dprintf("done\n");
@@ -634,11 +634,12 @@ start_logger(void)
 int
 stop_logger(void)
 {
-	int ret1 = eval("killall", "klogd");
-	int ret2 = eval("killall", "syslogd");
+	int ret = killall("klogd", 0);
+
+	ret |= killall("syslogd", 0);
 
 	dprintf("done\n");
-	return (ret1|ret2);
+	return (ret);
 }
 
 int 
@@ -669,7 +670,7 @@ stop_misc(void)
 {
 	int ret;
 
-	ret = eval("killall", "watchdog");
+	ret = killall("watchdog", 0);
 	stop_ntpc();
 	stop_ddns();
 	stop_lltd();
@@ -700,7 +701,7 @@ static int
 stop_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
-	eval("killall", "lld2d");
+	killall("lld2d", 0);
 #endif
 	return 0;
 }
@@ -783,19 +784,19 @@ int restart_nfsd(void)
 int 
 start_usb(void)
 {
-	eval("insmod", "usbcore");
+	insmod("usbcore", NULL);
 	if (nvram_invmatch("usb20_disable_x", "1"))
 	{
-		eval("insmod", "ehci-hcd");
+		insmod("ehci-hcd", NULL);
 	}
 	if (nvram_invmatch("usb20_disable_x", "2"))
 	{
 #ifdef LINUX26
-		eval("insmod", "ohci-hcd");
-		eval("insmod", "uhci-hcd");
+		insmod("ohci-hcd", NULL);
+		insmod("uhci-hcd", NULL);
 #else
-		eval("insmod", "usb-ohci");
-		eval("insmod", "usb-uhci");
+		insmod("usb-ohci", NULL);
+		insmod("usb-uhci", NULL);
 #endif
 	}
 
@@ -804,9 +805,9 @@ start_usb(void)
 
 #ifdef PRINTER_SUPPORT
 # ifdef LINUX26
-	eval("insmod", "usblp");
+	insmod("usblp", NULL);
 # else
-	eval("insmod", "printer");
+	insmod("printer", NULL);
 # endif
 	if (!nvram_invmatch("lpr_enable", "1"))
 	{
@@ -824,8 +825,8 @@ start_usb(void)
 #ifdef AUDIO_SUPPORT
 	if (!nvram_invmatch("audio_enable", "1"))
 	{
-		eval("insmod", "soundcore");
-		eval("insmod", "audio");
+		insmod("soundcore", NULL);
+		insmod("audio", NULL);
 		start_audio();
 	}
 #endif
@@ -840,27 +841,27 @@ start_usb(void)
 
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("insmod", "scsi_mod");
-		eval("insmod", "sd_mod");
-		eval("insmod", "usb-storage");
+		insmod("scsi_mod", NULL);
+		insmod("sd_mod", NULL);
+		insmod("usb-storage", NULL);
 #ifdef __CONFIG_NTFS3G__
 		if (nvram_match("usb_ntfs3g_enable", "1"))
 		{
-			eval("insmod", "fuse");
+			insmod("fuse", NULL);
 		}
 		else
 #endif
-		eval("insmod", "ntfs");
+		insmod("ntfs", NULL);
 	}	
 #endif
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
-		eval("insmod", "sunrpc");
-		eval("insmod", "lockd");
+		insmod("sunrpc", NULL);
+		insmod("lockd", NULL);
 #ifdef LINUX26
-		eval("insmod", "exportfs");
+		insmod("exportfs", NULL);
 #endif
-		eval("insmod", "nfsd");
+		insmod("nfsd", NULL);
 		
 		start_nfsd();
 	}
@@ -872,39 +873,39 @@ stop_usb(void)
 {
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
-		eval("killall", "mountd");
-		eval("killall", "-9", "nfsd");
-		eval("killall", "-9", "lockd");
-		eval("killall", "statd");
-		eval("killall", "portmap");
+		killall("mountd", 0);
+		killall("nfsd", -9);
+		killall("lockd", -9);
+		killall("statd", 0);
+		killall("portmap", 0);
 		
-		eval("rmmod", "nfsd");
+		rmmod("nfsd");
 #ifdef LINUX26
-		eval("rmmod", "exportfs");
+		rmmod("exportfs");
 #endif
-		eval("rmmod", "lockd");
-		eval("rmmod", "sunrpc");
+		rmmod("lockd");
+		rmmod("sunrpc");
 	}
 	
 #ifdef MASSSTORAGE_SUPPORT
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("killall", "vsftpd");
-		eval("killall", "smbd");
-		eval("killall", "nmbd");
-		eval("killall", "ntfs-3g");
+		killall("vsftpd", 0);
+		killall("smbd", 0);
+		killall("nmbd", 0);
+		killall("ntfs-3g", 0);
 		umount_all_part(NULL, -1);
-		eval("rmmod", "usb-storage");
-		eval("rmmod", "sd_mod");
-		eval("rmmod", "scsi_mod");
+		rmmod("usb-storage");
+		rmmod("sd_mod");
+		rmmod("scsi_mod");
 #ifdef __CONFIG_NTFS3G__
 		if (nvram_match("usb_ntfs3g_enable", "1"))
 		{
-			eval("rmmod", "fuse");
+			rmmod("fuse");
 		}
 		else
 #endif
-			eval("rmmod", "ntfs");
+			rmmod("ntfs");
 	}
 #endif
 #ifdef __CONFIG_RCAMD__
@@ -914,31 +915,31 @@ stop_usb(void)
 	}
 #endif
 #ifdef AUDIO_SUPPORT
-	eval("rmmod", "audio");
-	eval("rmmod", "soundcore");
+	rmmod("audio");
+	rmmod("soundcore");
 	stop_audio();
 #endif
 #ifdef PRINTER_SUPPORT	
-	eval("killall", "lpd");
-	eval("killall", "p910nd");
+	killall("lpd", 0);
+	killall("p910nd", 0);
 # ifdef LINUX26
-        eval("rmmod", "usblp");
+        rmmod("usblp");
 # else
-	eval("rmmod", "printer");
+	rmmod("printer");
 # endif
 #endif	
 
 	umount("/proc/bus/usb");
 
-	eval("rmmod", "ehci-hcd");
+	rmmod("ehci-hcd");
 #ifdef LINUX26
-	eval("rmmod", "uhci-hcd");
-	eval("rmmod", "ohci-hcd");
+	rmmod("uhci-hcd");
+	rmmod("ohci-hcd");
 #else
-	eval("rmmod", "usb-uhci");
-	eval("rmmod", "usb-ohci");
+	rmmod("usb-uhci");
+	rmmod("usb-ohci");
 #endif
-	eval("rmmod", "usbcore");
+	rmmod("usbcore");
 	return 0;
 }
 
@@ -989,7 +990,7 @@ int restart_ftpd()
 	char tmp[256];
 	FILE *fp, *f;
 
-	eval("killall", "vsftpd");
+	killall("vsftpd", 0);
 	
 	mkdir_if_none(vsftpd_users);
 
@@ -1437,11 +1438,11 @@ remove_usb_mass(char *product, int scsi_host_no)
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
-			eval("killall", "vsftpd");
+			killall("vsftpd", 0);
 		}
 		if (nvram_invmatch("usb_smbenable_x", "0")) {
-			eval("killall", "smbd");
-			eval("killall", "nmbd");
+			killall("smbd", 0);
+			killall("nmbd", 0);
 		}
 		nvram_set("usb_ftp_device", "");
 
@@ -1994,7 +1995,7 @@ int
 stop_audio(void)
 {
 #ifdef __CONFIG_WAVESERVER__
-	eval("killall", "waveserver");
+	killall("waveserver", 0);
 #endif
 	return 0;
 }

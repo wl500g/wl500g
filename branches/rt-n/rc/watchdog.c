@@ -630,7 +630,7 @@ static int refresh_rcamd(void)
 	}
 	else
 	{
-		eval("killall", "mjpg_streamer");
+		killall("mjpg_streamer", 0);
 	}
 
 	return hotplug_usb_webcam(nvram_safe_get("usb_web_device"));
@@ -641,7 +641,7 @@ static int refresh_rcamd(void)
 #ifdef __CONFIG_WAVESERVER__
 int refresh_wave(void)
 {
-	eval("killall", "waveserver");
+	killall("waveserver", 0);
 
 	kill_pidfile_s("/var/run/waveservermain.pid", SIGUSR1);
 	return 0;

@@ -389,8 +389,8 @@ start_igmpproxy(char *wan_ifname)
 void
 stop_igmpproxy()
 {
-	eval("killall", "igmpproxy");
-	eval("killall", "udpxy");
+	killall("igmpproxy", 0);
+	killall("udpxy", 0);
 }
 
 void
@@ -672,7 +672,7 @@ stop_lan(void)
 
 #ifndef ASUS_EXT
 	/* Stop the syslogd daemon */
-	eval("killall", "syslogd");
+	killall("syslogd", 0);
 #endif
 
 	/* Remove static routes */
@@ -1135,32 +1135,32 @@ static int stop_usb_communication_devices(void)
 void
 stop_wan(char *ifname)
 {
-	char name[80], *next, signal[] = "XXXX";
-	
-	eval("killall", "ntpd");
+	char name[80], *next;
+
+	killall("ntpd", 0);
 
 	/* Shutdown and kill all possible tasks */
-	eval("killall", "ip-up");
-	eval("killall", "ip-down");
+	killall("ip-up", 0);
+	killall("ip-down", 0);
 #ifdef __CONFIG_IPV6__
-	eval("killall", "ipv6-up");
-	eval("killall", "ipv6-down");
+	killall("ipv6-up", 0);
+	killall("ipv6-down", 0);
 #endif
 #ifdef __CONFIG_XL2TPD__
-	eval("killall", "xl2tpd");
+	killall("xl2tpd", 0);
 #else
-	eval("killall", "l2tpd");
+	killall("l2tpd", 0);
 #endif
-	eval("killall", "pppd");
+	killall("pppd", 0);
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	stop_usb_communication_devices();
 #endif
-	snprintf(signal, sizeof(signal), "-%d", SIGUSR2);
-	eval("killall", signal, "udhcpc");
-	eval("killall", "udhcpc");
+	killall("udhcpc", -SIGUSR2);
+	usleep(10000);
+	killall("udhcpc", 0);
 	stop_igmpproxy();
-	eval("killall", "pppoe-relay");
+	killall("pppoe-relay", 0);
 
 	if (ifname)
 	{
@@ -1235,7 +1235,7 @@ update_resolvconf(char *ifname, int metric, int up)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	eval("killall", "-1", "dnsmasq");
+	killall("dnsmasq", -1);
 
 	return 0;
 }
@@ -1601,7 +1601,7 @@ wan6_up(char *wan_ifname, int unit)
 
 		/* Notify radvd of change */
 		if (nvram_match("ipv6_radvd_enable", "1"))
-			eval("killall", "-1", "radvd");
+			killall("radvd", -1);
 	}
 
 	/* Configure IPv6 DNS servers */
@@ -1698,7 +1698,7 @@ static void lan_up(char *lan_ifname)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	eval("killall", "-1", "dnsmasq");
+	killall("dnsmasq", -1);
 	
 	/* Sync time */
 	//start_ntpc();
@@ -1753,7 +1753,7 @@ lan_up_ex(char *lan_ifname)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	eval("killall", "-1", "dnsmasq");
+	killall("dnsmasq", -1);
 	
 	/* Sync time */
 	//start_ntpc();
