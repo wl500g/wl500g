@@ -392,7 +392,7 @@ int ntp_timesync(void)
 			localtime_r(&now, &local);
 			tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
 			settimeofday(NULL, &tz);
-			memcpy(&tm, localtime(&now), sizeof(struct tm));
+			localtime_r(&now, &tm);
 
 			if (tm.tm_year>100) // More than 2000
 			{
