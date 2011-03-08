@@ -341,7 +341,7 @@ static void print_modem_info(int format, dev_usb *dev_list)
 
 	if (format == FORMAT_JSON) puts("[");
 
-	for(dev = dev_list; dev; dev = dev->next)
+	for (dev = dev_list; dev; dev = dev->next)
 		if ( dev->type == TYPE_CDMA || dev->type == TYPE_WCDMA )
 			switch (format) {
 			case FORMAT_SHORT:
@@ -646,7 +646,7 @@ hotplug_exec_user_modem_init_script(char *sVid, char *sPid, char *sDevice)
 
 		argv_user = (char**)malloc((strlen(tmp)/2) * sizeof(char*));
 		tok = strtok_r(tmp, delim, &context);
-		for(i = 0; tok ; i++, (tok = strtok_r(0, delim, &context))) {
+		for (i = 0; tok ; i++, (tok = strtok_r(0, delim, &context))) {
 
 			if (!strcasecmp(tok, "$VID"))
 				argv_user[i] = sVid;

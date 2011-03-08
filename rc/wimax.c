@@ -375,7 +375,7 @@ hotplug_check_wimax( char * interface, char * product, char * prefix )
 	if (strncmp(product, "4e8/6761", 8) == 0 ||
 	    strncmp(product, "4e9/6761", 8) == 0 ||
 	    strncmp(product, "4e8/6731", 8) == 0 ||
-	    strncmp(product, "4e8/6780", 8) == 0){
+	    strncmp(product, "4e8/6780", 8) == 0) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), "Samsung CMC-730 chip");
 		return 1;
 	}

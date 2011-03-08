@@ -40,7 +40,7 @@ char *trim_r(char *str)
 
 	i=strlen(str);
 
-	while(i>=1)
+	while (i>=1)
 	{
 		if (*(str+i-1) == ' ' || *(str+i-1) == 0x0a || *(str+i-1) == 0x0d) *(str+i-1)=0x0;
 		else break;
@@ -64,7 +64,7 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 	j=0;
 	if (strlen(mac)!=0) 
 	{
-		for(i=0; i<12; i++)
+		for (i=0; i<12; i++)
 		{		
 			if (i!=0&&i%2==0) buf[j++] = ':';
 			buf[j++] = mac[i];
@@ -375,7 +375,7 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_wdsnum_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
 
@@ -395,7 +395,7 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_macnum_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_maclist_x", i, macbuf));
 			
@@ -573,7 +573,7 @@ void convert_asus_values()
 #endif
 	nvram_set("no_br", "0");
 
-	if(nvram_invmatch("sp_battle_ips", "0"))
+	if (nvram_invmatch("sp_battle_ips", "0"))
 	{
 		insmod("ip_nat_starcraft", NULL);
 		insmod("ipt_NETMAP", NULL);

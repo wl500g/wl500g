@@ -61,13 +61,13 @@ sem_t * hotplug_sem;
 void hotplug_sem_open()
 {
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
-	if( hotplug_sem == SEM_FAILED ){
+	if ( hotplug_sem == SEM_FAILED ) {
 #ifdef DEBUG
-		if(errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+		if (errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
 #endif
 		hotplug_sem = sem_open( "/hotplug_sem", 0 );
 #ifdef DEBUG
-		if(errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+		if (errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
 #endif
 	}
 }
@@ -75,19 +75,19 @@ void hotplug_sem_open()
 void
 hotplug_sem_close()
 {
-	if(hotplug_sem) sem_close( hotplug_sem );
+	if (hotplug_sem) sem_close( hotplug_sem );
 }
 
 void
 hotplug_sem_lock()
 {
-	if(hotplug_sem) sem_wait( hotplug_sem );
+	if (hotplug_sem) sem_wait( hotplug_sem );
 }
 
 void
 hotplug_sem_unlock()
 {
-	if(hotplug_sem) sem_post( hotplug_sem );
+	if (hotplug_sem) sem_post( hotplug_sem );
 }
 #else
 #define hotplug_sem_open()
@@ -967,7 +967,7 @@ start_wan(void)
 			/* Pretend that the WAN interface is up */
 			if (demand) 
 			{
-				if( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
+				if ( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
 			}
 #ifdef ASUS_EXT
 			nvram_set("wan_ifname_t", wan_ifname);
@@ -976,7 +976,7 @@ start_wan(void)
 #endif
 
 #ifdef __CONFIG_MADWIMAX__
-		else if (strcmp(wan_proto, "wimax") == 0){
+		else if (strcmp(wan_proto, "wimax") == 0) {
 			// wait for usb-device initializing
 			sleep(1);
 			/* launch wimax daemon */
@@ -1054,7 +1054,7 @@ start_wan(void)
 			hotplug_sem_lock();
 			nvram_set( strcat_r(prefix, "prepared", tmp), "1" );
 			
-			if( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) )
+			if ( nvram_match( strcat_r(prefix, "dial_enabled", tmp), "1" ) )
 			{
 				/* launch ppp client daemon */
 				start_modem_dial(prefix);
@@ -1071,7 +1071,7 @@ start_wan(void)
 			/* Pretend that the WAN interface is up */
 			if (demand)
 			{
-				if( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
+				if ( ! wait_for_ifup( prefix, wan_ifname, &ifr ) ) continue;
 			}
 		}
 #endif
@@ -1101,7 +1101,7 @@ static int stop_usb_communication_devices(void)
 	int unit;
 
 	/* Start each configured and enabled wan connection and its undelying i/f */
-	for( unit=0; unit<MAX_NVPARSE; unit++) 
+	for (unit=0; unit<MAX_NVPARSE; unit++)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -1115,14 +1115,11 @@ static int stop_usb_communication_devices(void)
 			continue;
 
 #ifdef __CONFIG_MADWIMAX__
-		if( !strcmp(wan_proto, "wimax")) stop_wimax(prefix);
-		else
-#else
-		{}
+		if (!strcmp(wan_proto, "wimax")) stop_wimax(prefix);
 #endif
 #ifdef __CONFIG_MODEM__
-		if( !strcmp(wan_proto, "usbmodem")){
-		    nvram_unset( strcat_r(prefix, "prepared", tmp));
+		if (!strcmp(wan_proto, "usbmodem")) {
+		    nvram_unset(strcat_r(prefix, "prepared", tmp));
 		     stop_modem_dial(prefix); 
 		}
 #endif
@@ -1310,7 +1307,7 @@ wan_up(char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 		 || strcmp(wan_proto, "wimax") == 0
 #endif
-		){
+		) {
 			/* the gateway is in the local network */
 			route_add(wan_ifname, 0, nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 				NULL, "255.255.255.255");
@@ -1337,7 +1334,7 @@ wan_up(char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
-	){
+	) {
 		nvram_set("wanx_gateway", nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
 		add_routes("wan_", "route", wan_ifname);
 	}
@@ -1347,7 +1344,7 @@ wan_up(char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 	     || strcmp(wan_proto, "wimax") == 0 
 #endif
-	){
+	) {
 		add_wanx_routes(prefix, wan_ifname, 0);
 	}
 
@@ -1386,7 +1383,7 @@ wan_up(char *wan_ifname)
 #ifdef __CONFIG_MADWIMAX__
 	    || strcmp(wan_proto, "wimax") == 0
 #endif
-	){
+	) {
 		start_igmpproxy(wan_ifname);
 	}
 
@@ -2062,21 +2059,21 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 
 		dprintf("%s %s \n\n\n\n\n", wan_ifname, wan_proto);
 
-		if( !found ){
+		if (!found) {
 #ifdef __CONFIG_MADWIMAX__
-		    if( hotplug_check_wimax( interface, product, prefix ) ){
+		    if ( hotplug_check_wimax( interface, product, prefix ) ) {
 			found = 1;
 		    } else 
 #endif
 #ifdef __CONFIG_MODEM__
-		    if( hotplug_check_modem( interface, product, device, prefix ) ){
+		    if ( hotplug_check_modem( interface, product, device, prefix ) ) {
 			found = 2;
 		    }
 #else
 		    {}
 #endif
 		}
-		if( found )
+		if (found)
 		{
 		    hotplug_sem_lock();
 		    if ( action_add )

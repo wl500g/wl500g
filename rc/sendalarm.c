@@ -42,7 +42,7 @@ static void filecat(FILE *fp, char *catted)
 
 	if ((cfp=fopen(catted, "r"))==NULL) return;
 
-	while((i=fread(line, 1, sizeof(line), cfp)))
+	while ((i=fread(line, 1, sizeof(line), cfp)))
 	{
 		//printf("write: %s\n", line);
 		fwrite(line, 1, i, fp);
@@ -208,7 +208,7 @@ sendalarm_main(int argc, char *argv[])
 
 	if (nvram_match("usb_webattach_x", "1"))
 	{	
-		for(i=1;i<argc;i++)
+		for (i=1;i<argc;i++)
 		{
 			strcpy(image, argv[i]);
 			
