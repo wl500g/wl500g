@@ -100,10 +100,6 @@ if [ -n "$1" ]; then
 		sed -ri '/IPV6/d' ../web_$MODEL/index.js
 	fi
 
-	if [ "$CONFIG_WAVESERVER" != "y" ]; then
-		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
-	fi
-
 	if [ "$CONFIG_LLTD" != "y" ]; then
 		sed -ri '/LLTD responder/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi

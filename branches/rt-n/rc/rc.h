@@ -167,7 +167,6 @@ int remove_storage_main(int scsi_host_no);
 int restart_ftpd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);
-int waveserver_main(void);
 int service_handle(void);
 int mkdir_if_none(char *dir);
 void diag_PaN(void);

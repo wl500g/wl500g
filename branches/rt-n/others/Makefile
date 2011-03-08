@@ -23,7 +23,6 @@ install: all
 	install -m 644 profile $(INSTALLDIR)/usr/etc
 	install -m 644 ipkg.conf $(INSTALLDIR)/usr/etc
 	install -m 644 mdev.conf $(INSTALLDIR)/usr/etc
-	#install waveserver $(INSTALLDIR)/usr/sbin/waveserver
 	
 	ln -sf /tmp/settings $(INSTALLDIR)/www/WL500g.Premium.cfg
 	ln -sf /tmp/settings $(INSTALLDIR)/www/WL700g.cfg

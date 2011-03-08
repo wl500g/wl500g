@@ -483,28 +483,6 @@ static int svc_timecheck(void)
 
 	activeFlag = 0;
 
-#ifndef __CONFIG_DNSMASQ__
-	/* Initialize */
-	if (svcStatus[URLACTIVE]==-1 && nvram_invmatch("url_enable_x", "0"))
-	{
-		strcpy(svcDate[URLACTIVE], nvram_safe_get("url_date_x"));
-		strcpy(svcTime[URLACTIVE], nvram_safe_get("url_time_x"));
-		svcStatus[URLACTIVE] = -2;
-	}	
-
-	if (svcStatus[URLACTIVE]!=-1)
-	{
-		activeNow = timecheck_item(svcDate[URLACTIVE], svcTime[URLACTIVE]);	
-		if (activeNow!=svcStatus[URLACTIVE])
-		{
-			//printf("url time change: %d\n", activeNow);
-			svcStatus[URLACTIVE] = activeNow;
-			//stop_dns();
-			//start_dns();
-		}
-	}
-#endif
-
 #ifdef __CONFIG_RCAMD__
 	if (svcStatus[WEBACTIVE]==-1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
@@ -550,7 +528,7 @@ static int svc_timecheck(void)
 	//printf("svc : %d %d %d\n", svcStatus[0], svcStatus[1], svcStatus[2]);
 	return 0;
 }	
-	
+
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
 static int http_processcheck(void)
 {
@@ -635,19 +613,10 @@ static int refresh_rcamd(void)
 
 	return hotplug_usb_webcam(nvram_safe_get("usb_web_device"));
 }
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
 
-#ifdef __CONFIG_WAVESERVER__
-int refresh_wave(void)
-{
-	killall("waveserver", 0);
-
-	kill_pidfile_s("/var/run/waveservermain.pid", SIGUSR1);
-	return 0;
-}
-#endif
-#endif
+#endif /* USB_SUPPORT */
 
 static void catch_sig(int sig)
 {

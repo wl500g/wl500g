@@ -33,7 +33,6 @@ OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
 
 #CFLAGS += -DBROKEN_IPV6_CONNTRACK
 
-OBJS-$(CONFIG_WAVESERVER) += waveserver.o
 OBJS-$(CONFIG_NETCONF) += firewall_ex.o
 OBJS-$(CONFIG_MADWIMAX) += wimax.o
 OBJS-$(CONFIG_MODEM) += usbmodem.o
@@ -82,9 +81,6 @@ install: all
 ifeq ($(CONFIG_RCAMD),y)
 	ln -sf rc $(INSTALLDIR)/sbin/rcamdmain
 	ln -sf rc $(INSTALLDIR)/sbin/rmwebcam
-endif
-ifeq ($(CONFIG_WAVESERVER),y)
-	ln -sf rc $(INSTALLDIR)/sbin/waveservermain
 endif
 	ln -sf rc $(INSTALLDIR)/sbin/bpa_connect
 	ln -sf rc $(INSTALLDIR)/sbin/bpa_disconnect

@@ -1196,12 +1196,6 @@ main(int argc, char **argv)
 			scsi_host = atoi(argv[1]);
 		return (remove_storage_main(scsi_host));
 	}
-#ifdef __CONFIG_WAVESERVER__
-	/* run waveserver */
-	else if (!strcmp(base, "waveservermain")) {
-		return (waveserver_main());
-	}
-#endif
 	/* run ftp server */
 	else if (!strcmp(base, "start_ftpd")) {
 		return (restart_ftpd());

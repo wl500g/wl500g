@@ -50,9 +50,6 @@
 char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
 
 
-#ifdef __CONFIG_WAVESERVER__
-static int remove_usb_audio(char *product);
-#endif
 static int umount_all_part(char *product, int scsi_host_no);
 static struct mntent *findmntent(char *file);
 static int stop_lltd(void);
@@ -81,7 +78,6 @@ fappend(char *name, FILE *f)
 	return size;
 }
 
-#ifdef __CONFIG_DNSMASQ__
 int
 start_dns(void)
 {
@@ -262,7 +258,6 @@ int stop_dhcpd(void)
 	return 0;
 }
 
-#endif // __CONFIG_DNSMASQ__
 
 #ifdef __CONFIG_IPV6__
 int
@@ -1825,9 +1820,6 @@ usbhandler:
 			if (nvram_match("usb_audio_device", ""))
 				logmessage("USB audio", "attached");
 			nvram_set("usb_audio_device", product);
-#ifdef __CONFIG_WAVESERVER__
-			refresh_wave();
-#endif
 		}
 		else
 		{
@@ -1846,9 +1838,6 @@ usbhandler:
 		}
 		else if(isweb==WEB_AUDIO)
 		{
-#ifdef __CONFIG_WAVESERVER__
-			remove_usb_audio(product);
-#endif
 			nvram_set("usb_audio_device", "");
 		}
 		else
@@ -1962,41 +1951,20 @@ int service_handle(void)
 	return 0;
 }
 
-#ifdef __CONFIG_WAVESERVER__
 int hotplug_usb_audio(char *product)
 {
-	char *wave_argv[]={"waveserver", NULL};
-	pid_t pid;
-
-	if (strlen(product)==0) return 1;
-	return _eval(wave_argv, ">/dev/null", 0, &pid);
+	return 0;
 }
-
-static int remove_usb_audio(char *product)
-{
-	return stop_audio();
-}
-#endif
 
 int
 start_audio(void)
 {
-#ifdef __CONFIG_WAVESERVER__
-	char *wave_argv[] = {"waveservermain", NULL};
-	pid_t pid;
-
-	return _eval(wave_argv, NULL, 0, &pid);
-#else
 	return 0;
-#endif
 }
 
 int
 stop_audio(void)
 {
-#ifdef __CONFIG_WAVESERVER__
-	killall("waveserver", 0);
-#endif
 	return 0;
 }
 

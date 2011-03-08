@@ -18,7 +18,7 @@ RELEASE=1.9.2.7-rtn
 
 
 MODEL=RT-N16
-# WL500gp, WL500gpv2, WL500W, RT-N10, RT-N12, RT-N16
+# WL500gp, WL500gpv2, WL500W, WL700g, RT-N10, RT-N12, RT-N16
 
 #
 # asus trx trailer
@@ -114,6 +114,7 @@ endif
 CONFIG_LINUX_26=y
 export CONFIG_LINUX_26
 
+obj-y += busybox dnsmasq
 obj-$(CONFIG_HTTPD) += httpd
 obj-$(CONFIG_RC) += rc
 obj-$(CONFIG_LIBBCM) += libbcm
@@ -123,8 +124,6 @@ obj-$(CONFIG_GLIBC) += lib
 obj-$(CONFIG_UCLIBC) += lib
 obj-$(CONFIG_WLCONF) += wlconf
 obj-$(CONFIG_BRIDGE) += bridge
-obj-$(CONFIG_BUSYBOX) += busybox
-obj-$(CONFIG_DNSMASQ) += dnsmasq
 obj-$(CONFIG_IPTABLES) += iptables
 obj-$(CONFIG_LIBIPT) += iptables
 obj-$(CONFIG_NETCONF) += netconf
@@ -146,11 +145,8 @@ obj-$(CONFIG_RCAMD) += mjpg-streamer
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
-obj-$(CONFIG_WAVESERVER) += waveserver
-obj-$(CONFIG_EMF) += emf
-obj-$(CONFIG_EMF) += igs
-obj-$(CONFIG_LINUX_26) += udev
-obj-$(CONFIG_LINUX_26) += hotplug2
+obj-$(CONFIG_EMF) += emf igs
+obj-$(CONFIG_LINUX_26) += udev hotplug2
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -436,10 +432,6 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	$(MAKE) -C libbcmcrypto optimize
         # Install (and possibly optimize) C library
 	$(MAKE) lib-install
-	# statically linked ASUS shit
-ifeq ($(CONFIG_WAVESERVER),y)
-	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
-endif
 	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
             ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
