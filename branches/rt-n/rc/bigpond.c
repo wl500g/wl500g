@@ -32,33 +32,33 @@ start_bpalogin(void)
 	char authdomain[80];
 	char buf[254];
 
-	if(nvram_invmatch("wan_heartbeat_x", "")){
+	if (nvram_invmatch("wan_heartbeat_x", "")) {
 		snprintf(authserver, sizeof(authserver), "%s", nvram_safe_get("wan_heartbeat_x"));
 		snprintf(authdomain, sizeof(authdomain), "%s", "");
 	}
-	else if(nvram_invmatch("wan0_domain", " ") && nvram_invmatch("wan0_domain", ""))
+	else if (nvram_invmatch("wan0_domain", " ") && nvram_invmatch("wan0_domain", ""))
 	{	
 		snprintf(authserver, sizeof(authserver), "%s", "sm-server");
 		snprintf(authdomain, sizeof(authdomain), "%s", nvram_safe_get("wan0_domain"));
 	}
 #ifdef REMOVE
-	else if(nvram_match("wan0_domain", "nsw.bigpond.net.au")){            // NSW
+	else if (nvram_match("wan0_domain", "nsw.bigpond.net.au")) {            // NSW
 		snprintf(authserver, sizeof(authserver), "%s", "spr3");
 		snprintf(authdomain, sizeof(authdomain), "%s", "nsw-remote.bigpond.net.au");
 	}
-	else if(nvram_match("wan0_domain", "vic.bigpond.net.au")){           // Victoria
+	else if (nvram_match("wan0_domain", "vic.bigpond.net.au")) {           // Victoria
 		snprintf(authserver, sizeof(authserver), "%s", "mer3");
 		snprintf(authdomain, sizeof(authdomain), "%s", "vic-remote.bigpond.net.au");
 	}
-	else if(nvram_match("wan0_domain","qld.bigpond.net.au")){            // Queensland
+	else if (nvram_match("wan0_domain","qld.bigpond.net.au")) {            // Queensland
 		snprintf(authserver, sizeof(authserver), "%s", "bcr3");
 		snprintf(authdomain, sizeof(authdomain), "%s", "qld-remote.bigpond.net.au");
 	}
-	else if(nvram_match("wan0_domain", "sa.bigpond.net.au")){            // South Austrialia
+	else if (nvram_match("wan0_domain", "sa.bigpond.net.au")) {            // South Austrialia
 		snprintf(authserver, sizeof(authserver), "%s", "afr3");
 		snprintf(authdomain, sizeof(authdomain), "%s", "sa-remote.bigpond.net.au");
 	}
-	else if(nvram_match("wan0_domain", "wa.bigpond.net.au")){            // Western Austrialia
+	else if (nvram_match("wan0_domain", "wa.bigpond.net.au")) {            // Western Austrialia
 		snprintf(authserver, sizeof(authserver), "%s", "pwr3");
 		snprintf(authdomain, sizeof(authdomain), "%s", "wa-remote.bigpond.net.au");
 	}
@@ -92,7 +92,7 @@ start_bpalogin(void)
 	fclose(fp);
 	
 	//mkdir("/tmp/ppp", 0777);
-	if((fp = fopen("/tmp/bpa_connect_success", "r"))){
+	if ((fp = fopen("/tmp/bpa_connect_success", "r"))) {
 		ret = eval("bpalogin", "-c", "/tmp/bpalogin.conf", "-t");
 		fclose(fp);	
 	}

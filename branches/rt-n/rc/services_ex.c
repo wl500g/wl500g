@@ -1452,7 +1452,7 @@ remove_usb_mass(char *product, int scsi_host_no)
 int mkdir_if_none(char *dir)
 {
 	DIR *dp;
-	if(!(dp=opendir(dir)))
+	if (!(dp=opendir(dir)))
 		return(mkdir(dir, 0777));
 	closedir(dp);
 	return 0;
@@ -1639,7 +1639,7 @@ int hotplug_usb_mass(char *product)
 	dir_to_open = usb_dev_disc = usb_dev_part = NULL;
 	
 	// Mount USB to system
-	if((usb_dev_disc = opendir("/dev/discs")))
+	if ((usb_dev_disc = opendir("/dev/discs")))
 	{
 		eval("/usr/local/sbin/pre-mount", product);
 
@@ -1651,12 +1651,12 @@ int hotplug_usb_mass(char *product)
 		
 		while ((dp=readdir(usb_dev_disc)))
 		{
-			if(!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
 
 			sprintf(usb_disc, "/dev/discs/%s", dp->d_name);
 
-			if((usb_dev_part = opendir(usb_disc)))
+			if ((usb_dev_part = opendir(usb_disc)))
 			{
 				while ((dp_disc=readdir(usb_dev_part)))
 				{
@@ -1717,11 +1717,11 @@ int hotplug_usb_mass(char *product)
 		eval("/usr/local/sbin/post-mount", product, mnt_dir);
 	}
 
-	if(usb_dev_disc)
+	if (usb_dev_disc)
 		closedir(usb_dev_disc);
-	if(usb_dev_part)
+	if (usb_dev_part)
 		closedir(usb_dev_part);
-	if(dir_to_open)
+	if (dir_to_open)
 		closedir(dir_to_open);
 
 	return 0;
@@ -1739,12 +1739,12 @@ hotplug_usb(void)
 	int i;
 	int isweb;
 
-	if( !(device=getenv("DEVICE")) ) device="";
+	if ( !(device=getenv("DEVICE")) ) device="";
 #ifdef DEBUG
 	dprintf("%s-%s-%s. Dev:%s\n",getenv("INTERFACE"),getenv("ACTION"),
 		product=getenv("PRODUCT"), device);
 #endif
-	if( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
+	if ( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
 
 	if ((product=getenv("PRODUCT")))
@@ -1787,7 +1787,7 @@ hotplug_usb(void)
 			isweb = WEB_AUDIO;
 			goto usbhandler;
 		}
-		else if(strncmp(interface, "1/", 2)==0)
+		else if (strncmp(interface, "1/", 2)==0)
 			return 0;
 
 		/* ignore hubs */
@@ -1796,7 +1796,7 @@ hotplug_usb(void)
 
 		i=0;
 		isweb = WEB_NONE;
-		while(UVCLIST[i]!=NULL)
+		while (UVCLIST[i] != NULL)
 		{
 			if (strstr(product, UVCLIST[i]))
 			{
@@ -1836,7 +1836,7 @@ usbhandler:
 		{
 			/* old usb-storage handler */
 		}
-		else if(isweb==WEB_AUDIO)
+		else if (isweb==WEB_AUDIO)
 		{
 			nvram_set("usb_audio_device", "");
 		}
@@ -1893,10 +1893,10 @@ int service_handle(void)
 
 	service = nvram_get("rc_service");
 
-	if(!service)
+	if (!service)
 		kill(1, SIGHUP);
 
-	if(strstr(service,"wan_disconnect")!=NULL)
+	if (strstr(service,"wan_disconnect")!=NULL)
 	{
 		cprintf("wan disconnect\n");
 

@@ -558,7 +558,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
              
     regDmnEnum = regDmnCode;
     
-    for(i=0; i<RDMAPPING_SIZE; i++)
+    for (i=0; i<RDMAPPING_SIZE; i++)
     {
     	if (RDMapping[i][0] == regDmnCode)
     	   break;
@@ -583,7 +583,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
             for (j = 0; j < pCcTable[i].entries; j++) 
             {                   	     	
                 /* Find this channel's entry */
-                for(searchChannel = pCcTable[i].chanGroup[j].lowChannel;
+                for (searchChannel = pCcTable[i].chanGroup[j].lowChannel;
                     searchChannel <= pCcTable[i].chanGroup[j].highChannel;
                     searchChannel += channelSpread)
                 {   
@@ -640,7 +640,7 @@ void convert_country(void)
     strcpy(country, nvram_safe_get("wl_country"));	
 
     i=0;
-    while(countrylist[i]!=NULL)
+    while (countrylist[i]!=NULL)
     {
 	if (strcmp(countrylist[i], country)==0) 
 	{
@@ -677,7 +677,7 @@ void convert_country(void)
     i=0;
 
     *chanListStr='\0';
-    while(chanList[i]!=-1)
+    while (chanList[i]!=-1)
     {
          if (i==0) sprintf(chanListStr, "%d", chanList[i]);
 	 else sprintf(chanListStr, "%s %d", chanListStr, chanList[i]);
@@ -717,7 +717,7 @@ void sync_mac(char *devname, char *mac)
 	
 	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0 )
 	{
-		for(i=0;i<6;i++)
+		for (i=0;i<6;i++)
 		{
 			//printf(" %x %x \n", buf[8+i], macstr[i]);
 		}
@@ -835,7 +835,7 @@ wlan_update()
 #endif
 		wsrom_main("eth2", 114, 0x0249);
 	}
-	else if(nvram_match("productid", "WL500g.Deluxe"))
+	else if (nvram_match("productid", "WL500g.Deluxe"))
 	{	
 		// ver 2.2
 		wsrom_main("eth1", 104, 0x0046);

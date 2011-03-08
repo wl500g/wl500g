@@ -170,7 +170,7 @@ start_firewall(void)
 		// LAN/WAN filter		
 		num = atoi(nvram_safe_get("macfilter_num_x"));
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{	
 			if (ether_atoe(mac_conv("macfilter_list_x", i, var), filter.match.mac.octet))
 			{

@@ -40,7 +40,7 @@ base64enc(const char *p, char *buf, int len)
 		"0123456789+/";
 	char *s = buf;
 
-        while(*p) {
+        while (*p) {
 		if (s >= buf+len-4)
 			break;
                 *(s++) = al[(*p >> 2) & 0x3F];

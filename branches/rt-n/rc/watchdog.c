@@ -564,7 +564,7 @@ static int usb_communication_device_processcheck(void)
 	int unit;
 
 	/* Start each configured and enabled wan connection and its undelying i/f */
-	for( unit=0; unit<MAX_NVPARSE; unit++) 
+	for ( unit=0; unit<MAX_NVPARSE; unit++) 
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -577,13 +577,10 @@ static int usb_communication_device_processcheck(void)
 		if (!wan_proto || !strcmp(wan_proto, "disabled"))
 			continue;
 #ifdef __CONFIG_MADWIMAX__
-		if( !strcmp(wan_proto, "wimax")) madwimax_check(prefix);
-		else
-#else
-		{}
+		if (!strcmp(wan_proto, "wimax")) madwimax_check(prefix);
 #endif
 #ifdef __CONFIG_MODEM__
-		if( !strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
+		if (!strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
 #endif
 	}
 	return 0;

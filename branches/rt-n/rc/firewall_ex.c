@@ -27,7 +27,7 @@
 #include <netconf.h>
 #include <nvparse.h>
 
-#define foreach_x(x)	for(i=0; i<atoi(nvram_safe_get(x)); i++)
+#define foreach_x(x)	for (i=0; i<atoi(nvram_safe_get(x)); i++)
 
 static char *g_buf;
 static char g_buf_pool[1024];
@@ -55,10 +55,10 @@ static char *proto_conv(char *proto_name, int idx)
 	sprintf(itemname_arr,"%s%d", proto_name, idx);
 	proto=nvram_get(itemname_arr);
 		
-	if(!strncasecmp(proto, "Both", 3)) strcpy(g_buf, "both");
-	else if(!strncasecmp(proto, "TCP", 3)) strcpy(g_buf, "tcp");
-	else if(!strncasecmp(proto, "UDP", 3)) strcpy(g_buf, "udp");
-	else if(!strncasecmp(proto, "OTHER", 5)) strcpy(g_buf, "other");
+	if (!strncasecmp(proto, "Both", 3)) strcpy(g_buf, "both");
+	else if (!strncasecmp(proto, "TCP", 3)) strcpy(g_buf, "tcp");
+	else if (!strncasecmp(proto, "UDP", 3)) strcpy(g_buf, "udp");
+	else if (!strncasecmp(proto, "OTHER", 5)) strcpy(g_buf, "other");
 	else strcpy(g_buf,"tcp");
 	return (g_buf_alloc(g_buf));
 }
@@ -75,12 +75,12 @@ static char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	
 	if (!isFlag)
 	{		
-		if(strncasecmp(proto, "UDP", 3)==0) strcpy(g_buf, "udp");
+		if (strncasecmp(proto, "UDP", 3)==0) strcpy(g_buf, "udp");
 		else strcpy(g_buf, "tcp");
 	}
 	else
 	{	
-		if(strlen(proto)>3)
+		if (strlen(proto)>3)
 		{
 			strcpy(g_buf, proto+4);
 		}			
@@ -100,13 +100,13 @@ char *portrange_ex_conv(char *port_name, int idx)
 
 	strcpy(g_buf, "");
 	
-	if(!strncmp(port, ">", 1)) {
+	if (!strncmp(port, ">", 1)) {
 		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
 	}
-	else if(!strncmp(port, "=", 1)) {
+	else if (!strncmp(port, "=", 1)) {
 		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
 	}
-	else if(!strncmp(port, "<", 1)) {
+	else if (!strncmp(port, "<", 1)) {
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
 	}
 	else if ((strptr=strchr(port, ':')) != NULL)
@@ -115,7 +115,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 		strptr = strchr(itemname_arr, ':');
 		sprintf(g_buf, "%d-%d", atoi(itemname_arr), atoi(strptr+1));		
 	}
-	else if(*port)
+	else if (*port)
 	{
 		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
 	}
@@ -138,24 +138,24 @@ static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 
 	strcpy(g_buf, "");
 	
-	if(!strncmp(port, ">", 1)) 
+	if (!strncmp(port, ">", 1)) 
 	{
 		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
 		*start=atoi(port+1);
 		*end=65535;
 	}
-	else if(!strncmp(port, "=", 1)) 
+	else if (!strncmp(port, "=", 1)) 
 	{
 		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
 		*start=*end=atoi(port+1);
 	}
-	else if(!strncmp(port, "<", 1)) 
+	else if (!strncmp(port, "<", 1)) 
 	{
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
 		*start=1;
 		*end=atoi(port+1);
 	}
-	else if( (strptr=strchr(port, ':')) != NULL)
+	else if ( (strptr=strchr(port, ':')) != NULL)
 	{		
 		strcpy(itemname_arr, port);
 		strptr = strchr(itemname_arr, ':');
@@ -163,7 +163,7 @@ static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 		*start=atoi(itemname_arr);
 		*end=atoi(strptr+1);
 	}
-	else if(*port)
+	else if (*port)
 	{
 		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
 		*start=atoi(port);
@@ -204,7 +204,7 @@ char *iprange_conv(char *ip_name, int idx)
 	// scan all ip string
 	i=j=k=0;
 	
-	while(*(ip+i))
+	while (*(ip+i))
 	{
 		if (*(ip+i)=='*') 
 		{
@@ -249,7 +249,7 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 	i=j=k=0;
 	mask=32;
 	
-	while(*(ip+i))
+	while (*(ip+i))
 	{
 		if (*(ip+i)=='*') 
 		{
@@ -271,7 +271,7 @@ static char *iprange_ex_conv(char *ip_name, int idx)
 
 	if (mask==32)
 		sprintf(g_buf, "%s", startip);
-	else if(mask==0)
+	else if (mask==0)
 		strcpy(g_buf, "");
 	else sprintf(g_buf, "%s/%d", startip, mask);
 
@@ -386,7 +386,7 @@ static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 
 	head=1;
 
-	for(i=0;i<7;i++)
+	for (i=0;i<7;i++)
 	{
 		if (*(date+i)=='1')
 		{
@@ -440,7 +440,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 	int i;
 
 	/* Set wan_port0-wan_port1>lan_ipaddr:lan_port0-lan_port1,proto,enable,desc */
-	for(i=0 ; i<MAX_NVPARSE ; i++)
+	for (i=0 ; i<MAX_NVPARSE ; i++)
 	{
 		snprintf(name, sizeof(name), "forward_port%d", i);
 
@@ -488,18 +488,18 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 			lan_port1 = lan_port0;
 
 		/* skip if it's disabled */
-		if( strcmp(enable, "off") == 0 )
+		if ( strcmp(enable, "off") == 0 )
 			continue;
 
 		/* -A PREROUTING -p tcp -m tcp --dport 823 -j DNAT 
 		                 --to-destination 192.168.1.88:23  */
-		if( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
+		if ( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
 		{
 	   		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 					, wan_port0, lan_ipaddr, lan_port0);
 		}
-		if( !strcmp(proto,"udp") || !strcmp(proto,"both") ){
+		if ( !strcmp(proto,"udp") || !strcmp(proto,"both") ) {
 	   		fprintf(fp, "-A VSERVER -p udp -m udp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 				  	, wan_port0, lan_ipaddr, lan_port0);
@@ -526,7 +526,7 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 	  	":VSERVER - [0:0]\n");
 
 	//Log	
-   	//if(nvram_match("misc_natlog_x", "1"))
+   	//if (nvram_match("misc_natlog_x", "1"))
    	// 	fprintf(fp, "-A PREROUTING -i %s -j LOG --log-prefix ALERT --log-level 4\n", wan_if);
 
 	/* VSERVER chain */
@@ -693,7 +693,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:BRUTE - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
 
 	// FILTER from LAN to WAN Source MAC
-	if(nvram_invmatch("macfilter_enable_x", "0") && 
+	if (nvram_invmatch("macfilter_enable_x", "0") && 
 		nvram_invmatch("macfilter_enable_x", "disabled"))
 	{   		
 		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
@@ -838,7 +838,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	 || nvram_match("wan_proto", "usbmodem")
 #endif
  
-        ){
+        ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	}
 
@@ -855,7 +855,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
 
 	// FILTER from LAN to WAN
-	if(nvram_match("fw_lw_enable_x", "1"))
+	if (nvram_match("fw_lw_enable_x", "1"))
 	{   		
 		char lanwan_timematch[128];
 		char ptr[32], *icmplist;
@@ -900,7 +900,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	}
 
 	// Filter from WAN to LAN
-	if(nvram_match("fw_wl_enable_x", "1"))
+	if (nvram_match("fw_wl_enable_x", "1"))
 	{   		
 		char wanlan_timematch[128];
 		char ptr[32], *icmplist;
@@ -945,7 +945,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 		nvram_match("fw_wl_enable_x", "1") ?
 		nvram_match("filter_vs_default_x", "DROP") : FALSE) ? logdrop : logaccept);
 
-	if(nvram_match("fw_wl_enable_x", "1"))
+	if (nvram_match("fw_wl_enable_x", "1"))
 	{   		
 		// Default
 		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if, 
@@ -996,7 +996,7 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
 
 		timematch_conv(timef, "url_date_x", "url_time_x");
-		for(i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
+		for (i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
 		{
 			memset(nvname, 0, sizeof(nvname));
 			sprintf(nvname, "url_keyword_x%d", i);
@@ -1331,21 +1331,21 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
-		if( (fp=fopen("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", "r+")) ){
+		if ( (fp=fopen("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", "r+")) ) {
 			fputs(nvram_safe_get("misc_conntrack_x"), fp);
 			fclose(fp);
 		} else
 			perror("/proc/sys/net/ipv4/netfilter/ip_conntrack_max");
 	}	
 #ifdef XBOX_SUPPORT
-	if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+")) ){
+	if ((fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+"))) {
 		fprintf(fp, "%d %d", 65, 180);
 		fclose(fp);
 	} else
 		perror("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts");
 #endif
 
-	if( (fp=fopen("/proc/sys/net/ipv4/ip_forward", "r+")) ){
+	if ((fp=fopen("/proc/sys/net/ipv4/ip_forward", "r+"))) {
 		fputc('1', fp);
 		fclose(fp);
 	} else
