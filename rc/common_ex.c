@@ -77,6 +77,42 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 	return(buf);
 }
 
+/* load kernel module, trailing NULL in arguments list required! */
+int insmod(char *module, ...)
+{
+        char *argv[8] = { "insmod", module, NULL };
+	int i = 2;
+	va_list ap;
+
+	va_start(ap, module);
+	while (i < 7 && (argv[i] = va_arg(ap, char *)) != NULL) {
+		++i;
+	}
+	va_end(ap);
+	argv[i] = NULL;
+        return _eval(argv, ">/dev/null", 0, NULL);
+}
+
+int rmmod(char *module)
+{
+	return eval("rmmod", module);
+}
+
+int killall(char *program, int sig)
+{
+	char sigstr[6];
+        char *argv[] = { "killall", NULL, NULL, NULL };
+
+	if (sig != 0) {
+		snprintf(sigstr, sizeof(sigstr), "%d", sig);
+		argv[1] = sigstr;
+		argv[2] = program;
+	}
+	else
+		argv[1] = program;
+        return _eval(argv, ">/dev/null", 0, NULL);
+}
+
 void getsyspara(void)
 {
 	char productid[13];
@@ -539,16 +575,16 @@ void convert_asus_values()
 
 	if(nvram_invmatch("sp_battle_ips", "0"))
 	{
-		eval("insmod", "ip_nat_starcraft");
-		eval("insmod", "ipt_NETMAP");
+		insmod("ip_nat_starcraft", NULL);
+		insmod("ipt_NETMAP", NULL);
 	}
 
 #ifdef WEBSTRFILTER
 	if (nvram_match("url_enable_x", "1")) {
 		#ifdef LINUX26
-		eval("insmod", "xt_webstr");
+		insmod("xt_webstr", NULL);
 		#else
-		eval("insmod", "ipt_webstr");
+		insmod("ipt_webstr", NULL);
 		#endif
 	}
 #endif
@@ -558,7 +594,7 @@ void convert_asus_values()
 		char *cpname = nvram_safe_get("usb_smbcset_x");
 
 		sprintf(sbuf, "nls_%s%s", (atoi(cpname) > 0) ? "cp" : "", cpname);
-		eval("insmod", sbuf);
+		insmod(sbuf, NULL);
 	}
 
         //2005/09/22 insmod FTP module
@@ -568,21 +604,21 @@ void convert_asus_values()
 
                 sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
 		#ifdef LINUX26
-                eval("insmod", "nf_conntrack_ftp", ports);
-                eval("insmod", "nf_nat_ftp", ports);
+                insmod("nf_conntrack_ftp", ports, NULL);
+                insmod("nf_nat_ftp", ports, NULL);
 		#else
-                eval("insmod", "ip_conntrack_ftp", ports);
-                eval("insmod", "ip_nat_ftp", ports);
+                insmod("ip_conntrack_ftp", ports, NULL);
+                insmod("ip_nat_ftp", ports, NULL);
 		#endif
         }
         else
         {
 		#ifdef LINUX26
-                eval("insmod", "nf_conntrack_ftp");
-                eval("insmod", "nf_nat_ftp");
+                insmod("nf_conntrack_ftp", NULL);
+                insmod("nf_nat_ftp", NULL);
 		#else
-                eval("insmod", "ip_conntrack_ftp");
-                eval("insmod", "ip_nat_ftp");
+                insmod("ip_conntrack_ftp", NULL);
+                insmod("ip_nat_ftp", NULL);
 		#endif
         }
 
@@ -590,9 +626,9 @@ void convert_asus_values()
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 	{
 #if defined(LINUX26)
-		eval("insmod", "xt_recent");
+		insmod("xt_recent", NULL);
 #else
-		eval("insmod", "ipt_recent");
+		insmod("ipt_recent", NULL);
 #endif
 	}
 
@@ -618,9 +654,9 @@ void convert_asus_values()
 		nvram_set("wan0_ipv6_addr", addrstr);
 
 #if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
-		eval("insmod", "ip6_conntrack");
-		eval("insmod", "ip6t_state");
-//		eval("insmod", "ip6t_TCPMSS");
+		insmod("ip6_conntrack", NULL);
+		insmod("ip6t_state", NULL);
+//		insmod("ip6t_TCPMSS", NULL);
 #endif
 	} else {
 		fputs_ex("/proc/sys/net/ipv6/conf/all/disable_ipv6", "1");

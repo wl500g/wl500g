@@ -120,7 +120,7 @@ start_wimax(char *prefix)
 
 	if (wimax_modem(prefix))
 	{
-		eval("insmod", "tun");
+		insmod("tun", NULL);
 		sleep(1);
 		symlink("/sbin/rc", wimax_events);
 		ret = _eval(wmx_argv, NULL, 0, NULL);
@@ -140,10 +140,10 @@ stop_wimax(char *prefix)
 
 	dprintf( "%s", prefix );
 
-	eval("killall", "madwimax");
+	killall("madwimax", 0);
 	sleep(1);
 	unlink(wimax_events);
-	eval("rmmod", "tun");
+	rmmod("tun");
 
 	return 0;
 }

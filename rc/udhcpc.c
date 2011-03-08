@@ -320,7 +320,7 @@ dhcp6c_main(int argc, char **argv)
 		update_resolvconf(wan_ifname, 2, 1);
 	}
 	// notify radvd of possible change
-	eval("killall", "-SIGHUP", "radvd");
+	killall("radvd", -SIGHUP);
 
 	return 0;
 }
@@ -376,7 +376,7 @@ start_dhcp6c(char *wan_ifname)
 void
 stop_dhcp6c(void)
 {
-	eval("killall", "-SIGTERM", "dhcp6c.script");
+	killall("dhcp6c.script", -SIGTERM);
 	kill_pidfile("/var/run/dhcp6c.pid");
 }
 

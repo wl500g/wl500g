@@ -28,21 +28,21 @@
 int
 start_rcamd(void)
 {
-	eval("insmod", "videodev");
-	eval("insmod", "v4l2-common");
-	eval("insmod", "input-core");
-	eval("insmod", "uvcvideo");
+	insmod("videodev", NULL);
+	insmod("v4l2-common", NULL);
+	insmod("input-core", NULL);
+	insmod("uvcvideo", NULL);
 	return 0;
 }
 
 int
 stop_rcamd(void)
 {
-	eval("killall", "mjpg_streamer");
-	eval("rmmod", "uvcvideo");
-	eval("rmmod", "input-core");
-	eval("rmmod", "v4l2-common");
-	eval("rmmod", "videodev");
+	killall("mjpg_streamer", 0);
+	rmmod("uvcvideo");
+	rmmod("input-core");
+	rmmod("v4l2-common");
+	rmmod("videodev");
 	return 0;
 }
 

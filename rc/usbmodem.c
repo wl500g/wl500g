@@ -616,12 +616,12 @@ hotplug_check_modem( char *interface, char *product, char *device, char *prefix 
 
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
-		eval("insmod", "usbserial");
-		eval("insmod", "option");
+		insmod("usbserial", NULL);
+		insmod("option", NULL);
 #ifndef LINUX26
-		eval("insmod", "acm");
+		insmod("acm", NULL);
 #else
-		eval("insmod", "cdc-acm");
+		insmod("cdc-acm", NULL);
 #endif
 	}
 
