@@ -1,0 +1,44 @@
+From 86cf0364bd58e07646a23a1128e4a9ea79189579
+From: Denys Vlasenko
+Date: Tue, 08 Mar 2011 11:44:02 +0000
+Subject: printenv: fix environ == NULL segfault
+
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/coreutils/printenv.c b/coreutils/printenv.c
+index 33be5c0..d0fb716 100644
+--- a/coreutils/printenv.c
++++ b/coreutils/printenv.c
+@@ -19,9 +19,14 @@ int printenv_main(int argc UNUSED_PARAM, char **argv)
+ 
+ 	/* no variables specified, show whole env */
+ 	if (!argv[1]) {
+-		int e = 0;
+-		while (environ[e])
+-			puts(environ[e++]);
++		char **e = environ;
++
++		/* environ can be NULL! (for example, after clearenv())
++		 * Check for that:
++		 */
++		if (e)
++			while (*e)
++				puts(*e++);
+ 	} else {
+ 		/* search for specified variables and print them out if found */
+ 		char *arg, *env;
+diff --git a/coreutils/test.c b/coreutils/test.c
+index 8248a1e..2d245be 100644
+--- a/coreutils/test.c
++++ b/coreutils/test.c
+@@ -45,7 +45,7 @@
+ /* This is a NOFORK applet. Be very careful! */
+ 
+ /* test_main() is called from shells, and we need to be extra careful here.
+- * This is true regardless of PREFER_APPLETS and STANDALONE_SHELL
++ * This is true regardless of PREFER_APPLETS and SH_STANDALONE
+  * state. */
+ 
+ /* test(1) accepts the following grammar:
+--
+cgit v0.8.2.1
