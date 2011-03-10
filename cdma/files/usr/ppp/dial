@@ -172,6 +172,7 @@ maxfail $maxfail
 nodetach
 persist
 unit $iface
+linkname $iface
 novj nobsdcomp novjccomp nopcomp noaccomp" > "${peers_path}${wan_pref}pppd"
 
 	[ -z "$user" ] || echo "user '$user'" >> "${peers_path}${wan_pref}pppd"
