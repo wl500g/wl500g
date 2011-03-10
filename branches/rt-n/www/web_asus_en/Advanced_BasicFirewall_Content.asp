@@ -56,7 +56,7 @@
            </td><td class="content_input_td"><input type="radio" value="1" name="misc_ping_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'misc_ping_x', '1')" <% nvram_match_x("FirewallConfig","misc_ping_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="misc_ping_x" class="content_input_fd" onClick="return change_common_radio(this, 'FirewallConfig', 'misc_ping_x', '0')" <% nvram_match_x("FirewallConfig","misc_ping_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (1024-16384).', LEFT);" onMouseOut="return nd();">Number of connections to track:
+<td class="content_header_td" onMouseOver="return overlib('Specifies number of simultaneous connections tracked by router (256-65535).', LEFT);" onMouseOut="return nd();">Number of connections to track:
            </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="misc_conntrack_x" value="<% nvram_get_x("FirewallConfig","misc_conntrack_x"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 256, 65535)"></td>
 </tr>
 
