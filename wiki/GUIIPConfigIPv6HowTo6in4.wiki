@@ -1,4 +1,4 @@
-#summary IPv6 tunnel how-to from Hurricane Electric#
+#summary IPv6 tunnel how-to from Hurricane Electric
 
 This is a little how-to on how to set up an IPv6 over IPv4 tunnel via Hurricane Electric.
 
