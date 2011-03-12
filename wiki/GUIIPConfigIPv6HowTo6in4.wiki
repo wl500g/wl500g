@@ -74,11 +74,11 @@ The other values are not required for setting up our tunnel.
 == Enter the data ==
 To start configuring, visit your router's web-gui: IP Config -> IPv6:
  # At "WAN IPv6 Connection Type" choose "IP6-in-IPv4 Tunnel" or "6in4 Tunnel"
- # At "Static or local IPv6 address" enter the routed IPv6 prefix without the /64
+ # At "Static IPv6 address" enter the routed IPv6 prefix without the /64
  # At "Netsize (bits of hostpart)" enter the value: 64
   * This is the trailing /64 at the end of the routed IPv6 prefix
  # At "Enable router advertisements" select "Yes"
- # At "Static IPv6 address" enter the client IPv6 address without the /64
+ # At "Static or local IPv6 address" enter the client IPv6 address without the /64
  # At "Netsize (bits of hostpart)" enter the value: 64
   * This is the trailing /64 at the end of the client IPv6 address
  # At "Remote IPv6 gateway" enter the server IPv6 address without the /64
