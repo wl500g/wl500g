@@ -274,17 +274,26 @@ mksquashfs-lzma: lzma-lib
 	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
 		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
-kernel-modules: $(LINUXDIR)/.config
+MIPSREV := $(if $(filter RT-N%,$(MODEL)),MIPS32r2,MIPS32r1)
+
+$(LINUXDIR)/.stamp-$(MIPSREV): $(LINUXDIR)/.config
+	@-rm -f $(LINUXDIR)/.stamp-*
+	$(call SwitchConfParam,$<,CONFIG_CPU_MIPS32_R1,$(if $(filter WL%,$(MODEL)),y,n))
+	$(call SwitchConfParam,$<,CONFIG_CPU_MIPS32_R2,$(if $(filter RT-N%,$(MODEL)),y,n))
+	touch $@
+
+kernel-modules: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc
 
-kernel: $(LINUXDIR)/.config
+kernel: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) CC=$(CROSS_COMPILE)gcc
 	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
+	@-rm -f $(LINUXDIR)/.stamp-*
 
-kernel-install: lzma
+kernel-install: kernel lzma $(PLATFORMDIR)/vmlinuz
 ifeq ($(CONFIG_LOADER),y)
 	cat $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/piggy | \
 		$(LZMADIR)/LZMA_Alone/lzma e -si -so -lc1 -lp2 -pb2 > $(PLATFORMDIR)/vmlinuz
@@ -496,7 +505,7 @@ ifeq ($(CONFIG_IPV6),y)
 endif
 
 modules: kernel-install
-	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
+	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE)-$(subst .stamp-,,$(notdir $(wildcard $(LINUXDIR)/.stamp-*))).tgz .
 
 manpages: manpages-install
 	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
@@ -546,8 +555,6 @@ oldconfig: oldconf
 $(LINUXDIR)/.config: .config
 	cp $(LINUXDIR)/arch/mips/defconfig-bcm947xx $@
 	$(call SwitchConfParam,$@,CONFIG_IPV6,$(if $(CONFIG_IPV6),y,n))
-	$(call SwitchConfParam,$@,CONFIG_CPU_MIPS32_R1,$(if $(filter WL%,$(MODEL)),y,n))
-	$(call SwitchConfParam,$@,CONFIG_CPU_MIPS32_R2,$(if $(filter RT-N%,$(MODEL)),y,n))
 
 #
 # Overrides
@@ -1136,7 +1143,6 @@ images:
 	make images-RT-N10
 	#make images-WL500gp
 	#make images-WL500W
-	#make images-WL520gu
 	#make images-WL500gpv2
 	#make images-WL700g
 
