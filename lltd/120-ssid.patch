@@ -42,7 +42,7 @@ diff -BurpN lltd.orig/src/tlv.c lltd/src/tlv.c
  
      /* Finally, do the switch component */
 -    if (Switch_Component != 0xFFFFFFFF)
-+    if (&ctbl->link_speed != 0xFFFFFFFF)
++    if (ctbl->link_speed != 0xFFFFFFFF)
      {
          *buf++ = (uint8_t) Switch_Component;        // type
          *buf++ = 4;                                 // length
