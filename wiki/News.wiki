@@ -5,6 +5,37 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn-`r2775` (2010-10-17)===
+  * All changes from trunk (1.9.2.7-d)
+
+  * kernel
+    * linux-mips.org updates 2.6.22.git-2010-11-10
+    * backports from upstream (IPv6, bridge, mm, net, vfs, netfilter, scsi, netlink)
+    * netfilter: xt_IMQ, xt_LOG, xt_webstr, xt_time
+    * USB/IP driver
+    * netconsole support(wired only)
+
+  * iproute2 2.6.25
+    * fixes from upstream
+
+  * iptables 1.4.3.2
+    * fixes from upstream
+
+  * 6rd, DHCPv6 support
+
+  * robocfg - improve BCM53115 support
+
+  * dropbear 0.53.1
+
+  * ntfs-3g 2011.1.15
+
+  * usb_modeswitch 1.1.7 & usb-modeswitch-data 2011-02-27
+
+  * bugfixes
+    * busybox (klogd, ls, mount, more)
+    * 3g/cdma
+    * lltd
+
 ===wl500g-1.9.2.7-d-`r2624` (2011-02-19)=== 
   * kernel 2.4.37.11
 
@@ -64,7 +95,7 @@
     * use pool.ntp.org as default clock sync source
     * inadyn: fix socket leak from new inadyn fork
 
-===RT-N16-1.9.2.7-rtn-`r2274` (2010-10-17)===
+===RT-N-1.9.2.7-rtn-`r2274` (2010-10-17)===
   * kernel
     * linux-mips.org updates 2.6.22.git-2010-10-15
     * accel-pptp 0.8.5
