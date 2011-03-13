@@ -1,0 +1,24 @@
+xtables: Do not load ip_tables/ip6_tables module during match/target
+ revision check in case of successful ioctl call.
+
+diff -urBp a/xtables.c b/xtables.c
+--- a/xtables.c
++++ b/xtables.c
+@@ -672,12 +672,15 @@ static int compatible_revision(const cha
+ 		exit(1);
+ 	}
+ 
+-	xtables_load_ko(xtables_modprobe_program, true);
+-
+ 	strcpy(rev.name, name);
+ 	rev.revision = revision;
+ 
+ 	max_rev = getsockopt(sockfd, afinfo->ipproto, opt, &rev, &s);
++	if (max_rev < 0 && errno == ENOPROTOOPT) {
++		xtables_load_ko(xtables_modprobe_program, true);
++		/* Retry after insmod */
++		max_rev = getsockopt(sockfd, afinfo->ipproto, opt, &rev, &s);
++	}
+ 	if (max_rev < 0) {
+ 		/* Definitely don't support this? */
+ 		if (errno == ENOENT || errno == EPROTONOSUPPORT) {
