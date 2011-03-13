@@ -492,12 +492,12 @@ stop_modem_dial(char *prefix)
 	ret = 0;
 
 	sprintf(tmp, "/var/run/%s.pid", prefix);
-	dprintf("checking %s\n", tmp);
+	dprintf("kill %s\n", tmp);
 	kill_pidfile(tmp);
 	unlink(tmp);
 
-	sprintf(tmp, "/var/run/ppp-%d.pid", unit);
-	dprintf("checking %s\n", tmp);
+	sprintf(tmp, "/var/run/ppp%d.pid", unit);
+	dprintf("kill %s\n", tmp);
 	kill_pidfile(tmp);
 	//		nvram_set("wan0_dial_enabled", "0");
 

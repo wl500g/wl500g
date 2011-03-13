@@ -172,7 +172,6 @@ maxfail $maxfail
 nodetach
 persist
 unit $iface
-linkname $iface
 novj nobsdcomp novjccomp nopcomp noaccomp" > "${peers_path}${wan_pref}pppd"
 
 	[ -z "$user" ] || echo "user '$user'" >> "${peers_path}${wan_pref}pppd"
@@ -224,8 +223,10 @@ clear_all() {
 }
 
 terminate_all() {
-    clear_all
-    exit 0
+#	kill `ps | grep -E "pppd.+${wan_pref}pppd" | awk '{print $1}'`
+	kill $PPPD_PID
+	clear_all
+	exit 0
 }
 
 # main
@@ -259,7 +260,9 @@ else
 			${peers_path}${wan_pref}ping.sh &
 		fi
 
-		pppd call ${wan_pref}pppd >> $log_name 2>&1
+		pppd call ${wan_pref}pppd >> $log_name 2>&1 &
+		PPPD_PID=$!
+		wait $PPPD_PID
 		res=$?
 		echo "${wan_pref}pppd exit code: $res, try to reconnect $usbdev." >> $log_name
 		logger "${wan_pref}pppd exit code: $res"
