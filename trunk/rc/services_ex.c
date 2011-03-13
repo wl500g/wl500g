@@ -1633,10 +1633,11 @@ hotplug_usb(void)
 
 	if ((product=getenv("PRODUCT")))
 	{
+		// see http://www.usb.org/developers/defined_class
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 		/* communication device */
-		if (strncmp(interface, "255/" ,4) == 0 ||
-		    strncmp(interface, "2/", 2) == 0)
+		if (strncmp(interface, "255/" ,4) == 0 || // Vendor specific
+			strncmp(interface, "2/", 2) == 0) // Communications and CDC Control
 		{
 			hotplug_network_device( interface, action, product, device );
 		}
