@@ -26,10 +26,12 @@
 #define TYPE_MEM	'M'
 #define TYPE_ZEROCD	'Z'
 
-#define CLASS_ACM	2
-#define CLASS_ICLS	0
-#define CLASS_HUB	9
-#define CLASS_MEM	8
+// see http://www.usb.org/developers/defined_class
+#define CLASS_ICLS	0x00
+#define CLASS_ACM	0x02
+#define CLASS_MEM	0x08
+#define CLASS_HUB	0x09
+#define CLASS_MISC	0xEF
 #define CLASS_MOD	0xFF
 
 #define BUF_LEN		512
@@ -66,6 +68,8 @@ typedef struct {
 	int port;	///< connection port on the parent hub
 	int number;	///< this device number
 	int cls;	///< device class
+	int sub;	///< device subclass
+	int prot;	///< protocol type
 	int vid;	///< vendor id
 	int pid;	///< product id
 	char *manuf;	///< manufacturer name
@@ -175,6 +179,8 @@ static dev_usb *get_usb_list(char *fn_dev)
 				break;
 			case 'D':
 				dev->cls = get_hex_par(vbuf, "Cls=");
+				dev->sub = get_hex_par(vbuf, "Sub=");
+				dev->prot = get_hex_par(vbuf, "Prot=");
 				break;
 			case 'P':
 				dev->vid = get_hex_par(vbuf, "Vendor=");
@@ -253,6 +259,10 @@ static int search_modems_in_list(dev_usb *list, int vid, int pid)
 					count++;
 				}
 				break;
+			case CLASS_MISC:
+				// checking for Interface Association Descriptor ECN
+				if (!(dev->sub == 0x02 && dev->prot == 0x01))
+					break;
 			case CLASS_ICLS:
 				// class in IFACE
 				for (i = dev->ifs; i; i = i->next) {
@@ -482,12 +492,12 @@ stop_modem_dial(char *prefix)
 	ret = 0;
 
 	sprintf(tmp, "/var/run/%s.pid", prefix);
-	dprintf("checking %s\n", tmp);
+	dprintf("kill %s\n", tmp);
 	kill_pidfile(tmp);
 	unlink(tmp);
 
-	sprintf(tmp, "/var/run/ppp-%d.pid", unit);
-	dprintf("checking %s\n", tmp);
+	sprintf(tmp, "/var/run/ppp%d.pid", unit);
+	dprintf("kill %s\n", tmp);
 	kill_pidfile(tmp);
 	//		nvram_set("wan0_dial_enabled", "0");
 
