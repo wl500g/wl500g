@@ -655,7 +655,7 @@ void convert_asus_values()
 
 #if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
 		insmod("ip6_conntrack", NULL);
-		insmod("ip6t_state", NULL);
+//		insmod("ip6t_state", NULL);
 //		insmod("ip6t_TCPMSS", NULL);
 #endif
 	} else {
