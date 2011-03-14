@@ -69,19 +69,22 @@ ipup_main(int argc, char **argv)
 		return errno;
 	}
 	fclose(fp);
-	
+
 	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
 		return -1;
 
 	if ((value = getenv("IPLOCAL"))) {
+		if (nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value))
+			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
 		ifconfig(wan_ifname, IFUP,
-			 value, "255.255.255.255");
+			 value, "255.255.255.255", getenv("IPREMOTE"));
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), value);
 		nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
 	}
 
         if ((value = getenv("IPREMOTE")))
 		nvram_set(strcat_r(prefix, "gateway", tmp), value);
+
 	strcpy(buf, "");
 	if (getenv("DNS1"))
 		sprintf(buf, "%s", getenv("DNS1"));

@@ -46,7 +46,7 @@ ip_addr(const char *str)
 }
 
 int
-ifconfig(char *name, int flags, char *addr, char *netmask)
+ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
@@ -58,18 +58,27 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 
 	/* Set interface name */
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
-	
+
 	/* Set interface flags */
 	ifr.ifr_flags = flags;
 	if (ioctl(s, SIOCSIFFLAGS, &ifr) < 0)
 		goto err;
-	
+
 	/* Set IP address */
 	if (addr && *addr) {
 		inet_aton(addr, &in_addr);
 		sin_addr(&ifr.ifr_addr).s_addr = in_addr.s_addr;
 		ifr.ifr_addr.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFADDR, &ifr) < 0)
+			goto err;
+	}
+
+	/* Set IP peer address */
+	if (peer && *peer) {
+		inet_aton(peer, &in_addr);
+		sin_addr(&ifr.ifr_dstaddr).s_addr = in_addr.s_addr;
+		ifr.ifr_addr.sa_family = AF_INET;
+		if (ioctl(s, SIOCSIFDSTADDR, &ifr) < 0)
 			goto err;
 	}
 
@@ -156,7 +165,7 @@ void
 config_loopback(void)
 {
 	/* Bring up loopback interface */
-	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
+	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0", NULL);
 
 	/* Add to routing table */
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
@@ -211,7 +220,7 @@ start_vlan(void)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr))
 			continue;
 		if (!(ifr.ifr_flags & IFF_UP))
-			ifconfig(ifr.ifr_name, IFUP, 0, 0);
+			ifconfig(ifr.ifr_name, IFUP, NULL, NULL, NULL);
 		/* create the VLAN interface */
 		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);

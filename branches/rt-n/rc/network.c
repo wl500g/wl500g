@@ -423,7 +423,7 @@ start_lan(void)
 		foreach(name, nvram_safe_get("lan_ifnames"), next) {
 #endif
 			/* Bring up interface */
-			ifconfig(name, IFUP, NULL, NULL);
+			ifconfig(name, IFUP, NULL, NULL, NULL);
 			/* Set the logical bridge address to that of the first interface */
 			if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 				continue;
@@ -461,7 +461,7 @@ start_lan(void)
 				snprintf(wl_name, sizeof(wl_name), "wl%d_mode", unit);
 				/* Receive all multicast frames in WET mode */
 				if (nvram_match(wl_name, "wet"))
-					ifconfig(name, IFUP | IFF_ALLMULTI, NULL, NULL);
+					ifconfig(name, IFUP | IFF_ALLMULTI, NULL, NULL, NULL);
 				/* Do not attach the main wl i/f if in wds mode */
 				if (nvram_invmatch(wl_name, "wds")) {
 					eval("brctl", "addif", lan_ifname, name);
@@ -476,7 +476,7 @@ start_lan(void)
 	/* specific non-bridged lan i/f */
 	else if (strcmp(lan_ifname, "")) {
 		/* Bring up interface */
-		ifconfig(lan_ifname, IFUP, NULL, NULL);
+		ifconfig(lan_ifname, IFUP, NULL, NULL, NULL);
 		/* config wireless i/f */
 		if (!eval("wlconf", lan_ifname, "up")) {
 			char tmp[100], prefix[] = "wanXXXXXXXXXX_";
@@ -486,7 +486,7 @@ start_lan(void)
 			snprintf(prefix, sizeof(prefix), "wl%d_", unit);
 			/* Receive all multicast frames in WET mode */
 			if (nvram_match(strcat_r(prefix, "mode", tmp), "wet"))
-				ifconfig(lan_ifname, IFUP | IFF_ALLMULTI, NULL, NULL);
+				ifconfig(lan_ifname, IFUP | IFF_ALLMULTI, NULL, NULL, NULL);
 		}
 	}
 	/* Get current LAN hardware address */
@@ -567,7 +567,8 @@ start_lan(void)
 
 			/* Bring up and configure LAN interface */
 			ifconfig(lan_ifname, IFUP,
-		 		nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+		 		nvram_safe_get("lan_ipaddr"),
+		 		nvram_safe_get("lan_netmask"), NULL);
 
 			symlink("/sbin/rc", "/tmp/landhcpc");
 
@@ -578,7 +579,8 @@ start_lan(void)
 		{
 			/* Bring up and configure LAN interface */
 			ifconfig(lan_ifname, IFUP,
-		 		nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+		 		nvram_safe_get("lan_ipaddr"),
+		 		nvram_safe_get("lan_netmask"), NULL);
 			lan_up(lan_ifname);
 
 			update_lan_status(1);
@@ -588,7 +590,8 @@ start_lan(void)
 	{
 		/* Bring up and configure LAN interface */
 		ifconfig(lan_ifname, IFUP,
-		 	nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+		 	nvram_safe_get("lan_ipaddr"),
+		 	nvram_safe_get("lan_netmask"), NULL);
 		/* Install lan specific static routes */
 		add_lan_routes(lan_ifname);
 
@@ -597,7 +600,8 @@ start_lan(void)
 #else
 	/* Bring up and configure LAN interface */
 	ifconfig(lan_ifname, IFUP,
-		 nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
+		 nvram_safe_get("lan_ipaddr"),
+		 nvram_safe_get("lan_netmask"), NULL);
 
 	/* Install lan specific static routes */
 	add_lan_routes(lan_ifname);
@@ -679,7 +683,7 @@ stop_lan(void)
 	del_lan_routes(lan_ifname);
 
 	/* Bring down LAN interface */
-	ifconfig(lan_ifname, 0, NULL, NULL);
+	ifconfig(lan_ifname, 0, NULL, NULL, NULL);
 
 	/* Bring down bridged interfaces */
 	if (strncmp(lan_ifname, "br", 2) == 0) {
@@ -696,7 +700,7 @@ stop_lan(void)
 		foreach(name, nvram_safe_get("lan_ifnames"), next) {
 #endif
 			eval("wlconf", name, "down");
-			ifconfig(name, 0, NULL, NULL);
+			ifconfig(name, 0, NULL, NULL, NULL);
 			eval("brctl", "delif", lan_ifname, name);
 		}
 		eval("brctl", "delbr", lan_ifname);
@@ -853,7 +857,7 @@ start_wan(void)
 		if (bcmp(eabuf, ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN))
 		{
 			/* current hardware address is different than user specified */
-			ifconfig(wan_ifname, 0, NULL, NULL);
+			ifconfig(wan_ifname, 0, NULL, NULL, NULL);
 		}
 
 		/* Configure i/f only once, specially for wireless i/f shared by multiple connections */
@@ -881,7 +885,7 @@ start_wan(void)
 			}
 
 			/* Bring up i/f */
-			ifconfig(wan_ifname, IFUP, NULL, NULL);
+			ifconfig(wan_ifname, IFUP, NULL, NULL, NULL);
 
 			/* do wireless specific config */
 			if (!eval("wlconf", wan_ifname, "up")) {
@@ -932,7 +936,7 @@ start_wan(void)
 			/* Bring up WAN interface */
 			ifconfig(wan_ifname, IFUP, 
 				nvram_get(strcat_r(prefix, "pppoe_ipaddr", tmp)),
-				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)));
+				nvram_get(strcat_r(prefix, "pppoe_netmask", tmp)), NULL);
 #ifdef __CONFIG_IPV6__
 			if (nvram_match("ipv6_proto", "native") || nvram_match("ipv6_proto", "dhcp6"))
 				wan6_up(wan_ifname, unit);
@@ -1019,7 +1023,7 @@ start_wan(void)
 			/* Assign static IP address to i/f */
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
-				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
 			/* We are done configuration */
 			wan_up(wan_ifname);
 #ifdef __CONFIG_IPV6__
@@ -1045,7 +1049,7 @@ start_wan(void)
 			/* Bring up WAN interface */
 			ifconfig(wan_ifname, IFUP, 
 				nvram_get(strcat_r(prefix, "ipaddr", tmp)),
-				nvram_get(strcat_r(prefix, "netmask", tmp)));
+				nvram_get(strcat_r(prefix, "netmask", tmp)), NULL);
 
 			/* start firewall */
 			start_firewall_ex(nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)),
@@ -1171,7 +1175,7 @@ stop_wan(char *ifname)
 		/* Bring down WAN interfaces */
 		foreach(name, nvram_safe_get("wan_ifnames"), next)
 		{
-			ifconfig(name, 0, NULL, NULL);
+			ifconfig(name, 0, NULL, NULL, NULL);
 		}
 	}
 
@@ -1898,7 +1902,7 @@ hotplug_net(void)
 	if (!strcmp(action, "register")) {
 #endif
 		/* Bring up the interface and add to the bridge */
-		ifconfig(interface, IFUP, NULL, NULL);
+		ifconfig(interface, IFUP, NULL, NULL, NULL);
 
 #ifdef __CONFIG_EMF__
                 if (nvram_match("emf_enable", "1")) {
@@ -1993,7 +1997,7 @@ static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 	char *ping_argv[] = { "ping", "-c1", "", NULL};
 
 	/* Wait for pppx to be created */
-	while (ifconfig(wan_ifname, IFUP, NULL, NULL) && timeout--)
+	while (ifconfig(wan_ifname, IFUP, NULL, NULL, NULL) && timeout--)
 		sleep(1);
 
 	/* Retrieve IP info */

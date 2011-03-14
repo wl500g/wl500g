@@ -338,13 +338,13 @@ vlan_configure(void)
 
     /* now create vlan i/f's */
     /* need to bring up the underlying switch i/f to create vlans */
-    ifconfig(lan_ifbase_realdev, IFUP, 0, 0);      
+    ifconfig(lan_ifbase_realdev, IFUP, NULL, NULL, NULL);
     
     if (bBrcmTag)
     {
 		/* create brcm tag device for wan */
         bcm_reg_brcmtag_dev(lan_ifbase_realdev, "t", vlan_boards[board_index].wan_port);
-        ifconfig(wan_ifbase, IFUP, 0, 0);
+        ifconfig(wan_ifbase, IFUP, NULL, NULL, NULL);
     }
   
     /* first, wan vlan.  note, must also configure wan here, in case */
@@ -360,7 +360,7 @@ vlan_configure(void)
     /* Bring up WAN interface */
     ifconfig(nvram_safe_get(strcat_r(prefix, "ifname", tmp)), IFUP,
         nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-        nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+        nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
     /* now configure wan vlan and enable vlans */
     sprintf(port,"%d",vlan_boards[board_index].wan_port);
     eval("vconfig","add_port",vlan_wan,port);
@@ -414,7 +414,7 @@ vlan_configure(void)
     }
     /* now assign 0.0.0.0 ip address to i/f underlying vlans */
 	if (bBrcmTag)
-        ifconfig(lan_ifbase_realdev, IFUP, "0.0.0.0", "0.0.0.0");   
+        ifconfig(lan_ifbase_realdev, IFUP, "0.0.0.0", "0.0.0.0", NULL);
 
     /* now lan vlan */
     for (i = vlan_boards[board_index].lan_port_start;
@@ -589,8 +589,9 @@ vlan_deconfigure(void)
 
 	/* vlan is non-zero, that means that eth0 is wan port */
 	if (vlan_boards[board_index].vlan_devno)
-	      ifconfig("eth0", IFUP, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-          nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+	      ifconfig("eth0", IFUP,
+		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
+		nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
 
     /* now bring down brcm tag device for wan device */
     if (brcm_tag_driver_enabled)
