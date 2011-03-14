@@ -16,6 +16,10 @@
 #include <linux/backing-dev.h>
 #include <linux/mutex.h>
 
+#if defined(__mips__) && defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
+#define DCACHE_BUG
+#endif
+
 /** Max number of pages that can be used in a single read request */
 #define FUSE_MAX_PAGES_PER_REQ 32
 
