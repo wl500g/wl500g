@@ -302,12 +302,11 @@ static void skb_release_data(struct sk_buff *skb)
 /*
  *	Free an skbuff by memory without cleaning the state.
  */
-void kfree_skbmem(struct sk_buff *skb)
+static void kfree_skbmem(struct sk_buff *skb)
 {
 	struct sk_buff *other;
 	atomic_t *fclone_ref;
 
-	skb_release_data(skb);
 	switch (skb->fclone) {
 	case SKB_FCLONE_UNAVAILABLE:
 		kmem_cache_free(skbuff_head_cache, skb);
@@ -334,16 +333,8 @@ void kfree_skbmem(struct sk_buff *skb)
 	}
 }
 
-/**
- *	__kfree_skb - private function
- *	@skb: buffer
- *
- *	Free an sk_buff. Release anything attached to the buffer.
- *	Clean the state. This is an internal helper function. Users should
- *	always call kfree_skb
- */
-
-void __kfree_skb(struct sk_buff *skb)
+/* Free everything but the sk_buff shell. */
+static void skb_release_all(struct sk_buff *skb)
 {
 	dst_release(skb->dst);
 #ifdef CONFIG_XFRM
@@ -367,7 +358,21 @@ void __kfree_skb(struct sk_buff *skb)
 	skb->tc_verd = 0;
 #endif
 #endif
+	skb_release_data(skb);
+}
 
+/**
+ *	__kfree_skb - private function
+ *	@skb: buffer
+ *
+ *	Free an sk_buff. Release anything attached to the buffer.
+ *	Clean the state. This is an internal helper function. Users should
+ *	always call kfree_skb
+ */
+
+void __kfree_skb(struct sk_buff *skb)
+{
+	skb_release_all(skb);
 	kfree_skbmem(skb);
 }
 
@@ -455,6 +460,23 @@ static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
 	return n;
 #undef C
 }
+
+/**
+ *	skb_morph	-	morph one skb into another
+ *	@dst: the skb to receive the contents
+ *	@src: the skb to supply the contents
+ *
+ *	This is identical to skb_clone except that the target skb is
+ *	supplied by the user.
+ *
+ *	The target skb is returned upon exit.
+ */
+struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
+{
+	skb_release_all(dst);
+	return __skb_clone(dst, src);
+}
+EXPORT_SYMBOL_GPL(skb_morph);
 
 /**
  *	skb_clone	-	duplicate an sk_buff
