@@ -50,7 +50,7 @@ ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
-	struct in_addr in_addr, in_netmask, in_broadaddr;
+	struct in_addr in_addr, in_netmask, in_broadaddr, in_peer;
 
 	/* Open a raw socket to the kernel */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
@@ -75,9 +75,9 @@ ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 
 	/* Set IP peer address */
 	if (peer && *peer) {
-		inet_aton(peer, &in_addr);
-		sin_addr(&ifr.ifr_dstaddr).s_addr = in_addr.s_addr;
-		ifr.ifr_addr.sa_family = AF_INET;
+		inet_aton(peer, &in_peer);
+		sin_addr(&ifr.ifr_dstaddr).s_addr = in_peer.s_addr;
+		ifr.ifr_dstaddr.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFDSTADDR, &ifr) < 0)
 			goto err;
 	}
