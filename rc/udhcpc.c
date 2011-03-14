@@ -68,7 +68,7 @@ deconfig(void)
 		/* fix kernel route-loop issue */
 		logmessage("dhcp client", "skipping resetting IP address to 0.0.0.0");
 	} else
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
 
 	expires(wan_ifname, 0);
 
@@ -94,6 +94,7 @@ bound(void)
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char route[] = "255.255.255.255/255";
 	int unit;
+	int changed = 0;
 	int gateway = 0;
 
 	if ((unit = wan_ifunit(wan_ifname)) < 0) 
@@ -101,13 +102,15 @@ bound(void)
 	else
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-	if ((value = getenv("ip")))
+	if ((value = getenv("ip"))) {
+		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
+	}
 	if ((value = getenv("subnet")))
 		nvram_set(strcat_r(prefix, "netmask", tmp), trim_r(value));
         if ((value = getenv("router"))) {
-		nvram_set(strcat_r(prefix, "gateway", tmp), trim_r(value));
 		gateway = 1;
+		nvram_set(strcat_r(prefix, "gateway", tmp), trim_r(value));
 	}
 	if ((value = getenv("dns")))
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
@@ -150,9 +153,11 @@ bound(void)
 	nvram_set(strcat_r(prefix, "ipv6_6rd", tmp), value);
 #endif
 
+	if (changed && unit >= 0)
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
 
 	wan_up(wan_ifname);
 
@@ -181,23 +186,21 @@ renew(void)
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 	int metric;
+	int changed = 0;
 
-	if ((unit = wan_ifunit(wan_ifname)) < 0) {
+	if ((unit = wan_ifunit(wan_ifname)) < 0)
 		strcpy(prefix, "wanx_");
-		metric = 2;
-	} else {
+	else
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		metric = atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp)));
-	}
 
 	if (!(value = getenv("subnet")) || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
 		return bound();
 	if (!(value = getenv("router")) || nvram_invmatch(strcat_r(prefix, "gateway", tmp), trim_r(value)))
 		return bound();
 
-	if ((value = getenv("dns")) && nvram_invmatch(strcat_r(prefix, "dns", tmp), trim_r(value))) {
+	if ((value = getenv("dns"))) {
+		changed = nvram_invmatch(strcat_r(prefix, "dns", tmp), trim_r(value));
 		nvram_set(strcat_r(prefix, "dns", tmp), trim_r(value));
-		update_resolvconf(wan_ifname, metric, 1);
 	}
 	if ((value = getenv("wins")))
 		nvram_set(strcat_r(prefix, "wins", tmp), trim_r(value));
@@ -214,10 +217,13 @@ renew(void)
 		expires(wan_ifname, atoi(value));
 	}
 
-	if (unit == 0) {
-		/* Update wan information for current DNS server */
-		update_wan_status(1);
+	if (changed) {
+		metric = (unit >= 0) ? atoi(nvram_safe_get(strcat_r(prefix, "priority", tmp))) : 2;
+		update_resolvconf(wan_ifname, metric, 1);
 	}
+
+	if (changed && unit >= 0)
+		update_wan_status(1);
 
 	//logmessage("dhcp client", "%s IP : %s from %s", 
 	//		udhcpstate, 
