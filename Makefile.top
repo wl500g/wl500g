@@ -678,7 +678,7 @@ iptables/Makefile: iptables/Makefile.in
 	cd iptables && CFLAGS="-Os $(EXTRACFLAGS)" \
 	$(CONFIGURE) --prefix=/usr --with-pic --with-kernel=$(LINUXDIR) \
 	 $(if $(CONFIG_IPV6),,--disable-ipv6) \
-	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE"
+	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE state"
 
 iptables: $(LINUXDIR)/include/linux/version.h iptables/Makefile
 	$(MAKE) -C $@ EXTRA_LDFLAGS="-Wl,-rpath /lib"
