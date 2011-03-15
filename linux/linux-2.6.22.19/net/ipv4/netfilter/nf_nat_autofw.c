@@ -109,6 +109,7 @@ autofw_expect(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 	newexp->expectfn = autofw_expect;
 	newexp->helper = NULL;
 	newexp->flags = 0;
+	newexp->class = NF_CT_EXPECT_CLASS_DEFAULT;
 
 	/*
 	 * exp->timeout.expires will set as
@@ -119,8 +120,22 @@ autofw_expect(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 		nf_conntrack_expect_put(newexp);
 }
 
+static const struct nf_conntrack_expect_policy autofw_exp_policy = {
+	.max_expected		= 0,
+	.timeout		= 5 * 60,
+};
 
-static struct nf_conntrack_helper autofw_helper;
+static struct nf_conntrack_helper autofw_helper __read_mostly = {
+	.me			= THIS_MODULE,
+	.help			= autofw_help,
+	.expect_policy		= &autofw_exp_policy,
+	.name			= "autofw",
+	.tuple.dst.u3.ip	= 0xFFFFFFFF,
+	.tuple.dst.protonum	= 0xFF,
+	.mask.dst.u3.ip		= 0xFFFFFFFF,
+	.mask.dst.protonum	= 0xFF,
+	.tuple.src.u3.ip	= 0xFFFFFFFF,
+};
 
 static unsigned int
 autofw_target(struct sk_buff *skb,
@@ -156,9 +171,6 @@ autofw_target(struct sk_buff *skb,
 	if (!exp)
 		goto out;
 
-	helper->me = THIS_MODULE;
-	helper->timeout = 5 * 60;
-
 	exp->tuple.src.u3.ip = iph->daddr;
 	exp->tuple.dst.protonum = info->proto;
 	exp->mask.src.u3.ip = 0xFFFFFFFF;
@@ -179,6 +191,7 @@ autofw_target(struct sk_buff *skb,
 	exp->expectfn = autofw_expect;
 	exp->helper = NULL;
 	exp->flags = 0;
+	exp->class = NF_CT_EXPECT_CLASS_DEFAULT;
 
 	/*
 	 * exp->timeout.expires will set as
@@ -232,25 +245,16 @@ static int __init ip_autofw_init(void)
 {
 	int ret;
 
-	autofw_helper.name = "autofw";
-	autofw_helper.tuple.dst.u3.ip = 0xFFFFFFFF;
-	autofw_helper.tuple.dst.protonum = 0xFF;
-	autofw_helper.mask.dst.u3.ip = 0xFFFFFFFF;
-	autofw_helper.mask.dst.protonum = 0xFF;
-	autofw_helper.tuple.src.u3.ip = 0xFFFFFFFF;
-	autofw_helper.me = THIS_MODULE;
-	autofw_helper.timeout = 5 * 60;
-	autofw_helper.help = autofw_help;
-
 	ret = nf_conntrack_helper_register(&autofw_helper);
-	if (ret)
-		nf_conntrack_helper_unregister(&autofw_helper);
+	if (ret < 0)
+		return ret;
 
 	return xt_register_target(&autofw);
 }
 
 static void __exit ip_autofw_fini(void)
 {
+	nf_conntrack_helper_unregister(&autofw_helper);
 	xt_unregister_target(&autofw);
 }
 
