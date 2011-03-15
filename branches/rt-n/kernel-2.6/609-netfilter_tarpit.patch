@@ -36,7 +36,7 @@
  obj-$(CONFIG_NETFILTER_XT_TARGET_CHAOS) += xt_CHAOS.o
 --- /dev/null
 +++ b/net/netfilter/xt_TARPIT.c
-@@ -0,0 +1,280 @@
+@@ -0,0 +1,279 @@
 +/*
 + * Kernel module to capture and hold incoming TCP connections using
 + * no local per-connection resources.
@@ -240,14 +240,13 @@
 +	kfree_skb(nskb);
 +}
 +
-+static unsigned int xt_tarpit_target(struct sk_buff **pskb,
++static unsigned int xt_tarpit_target(struct sk_buff *skb,
 +                                     const struct net_device *in,
 +                                     const struct net_device *out,
 +                                     unsigned int hooknum,
 +                                     const struct xt_target *target,
 +                                     const void *targinfo)
 +{
-+	const struct sk_buff *skb = *pskb;
 +	const struct iphdr *iph   = ip_hdr(skb);
 +	struct rtable *rt         = (void *)skb->dst;
 +
@@ -278,16 +277,16 @@
 +	return NF_DROP;
 +}
 +
-+static bool xt_tarpit_check(const char *tablename, const void *entry,
++static int xt_tarpit_check(const char *tablename, const void *entry,
 +                            const struct xt_target *target, void *targinfo,
 +                            unsigned int hook_mask)
 +{
-+	bool invalid;
++	int invalid;
 +
 +	if (strcmp(tablename, "raw") == 0 && hook_mask == NF_IP_PRE_ROUTING)
-+		return true;
++		return 1;
 +	if (strcmp(tablename, "filter") != 0)
-+		return false;
++		return 0;
 +	invalid = hook_mask & ~((1 << NF_IP_LOCAL_IN) | (1 << NF_IP_FORWARD));
 +	return !invalid;
 +}

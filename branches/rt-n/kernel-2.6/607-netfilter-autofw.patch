@@ -150,7 +150,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +#define DEBUGP(format, args...)
 +
 +static int
-+autofw_help(struct sk_buff **pskb,
++autofw_help(struct sk_buff *skb,
 +	unsigned int protoff,
 +	struct nf_conn *ct,
 +	enum ip_conntrack_info ctinfo)
@@ -237,7 +237,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +static struct nf_conntrack_helper autofw_helper;
 +
 +static unsigned int
-+autofw_target(struct sk_buff **pskb,
++autofw_target(struct sk_buff *skb,
 +	const struct net_device *in,
 +	const struct net_device *out,
 +	unsigned int hooknum,
@@ -245,7 +245,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +	const void *targinfo)
 +{
 +	const struct ip_autofw_info *info = targinfo;
-+	const struct iphdr *iph = ip_hdr(*pskb);
++	const struct iphdr *iph = ip_hdr(skb);
 +	int ret;
 +	struct nf_conntrack_helper *helper;
 +	struct nf_conntrack_expect *exp;
@@ -254,7 +254,7 @@ diff -urBwNp linux-2.6.22/net/ipv4/netfilter/nf_nat_autofw.c linux-2.6/net/ipv4/
 +	struct nf_conn_help *help;
 +	int count;
 +
-+	ct = nf_ct_get(*pskb, &ctinfo);
++	ct = nf_ct_get(skb, &ctinfo);
 +	if (!ct)
 +		goto out;
 +

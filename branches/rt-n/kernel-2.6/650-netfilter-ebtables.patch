@@ -9,16 +9,13 @@ Subject: [PATCH] netfilter: ebtables: add IPv6 support, fix ebtable targets retu
  93f65158723ceb7078ee9a0fd4830c0de00f4b9e netfilter: ebtables: add IPv6 support
 
 ---
- include/linux/netfilter_bridge/ebt_ip6.h |   40 ++++++
- include/linux/netfilter_bridge/ebt_log.h |    3 +-
- net/bridge/netfilter/Kconfig             |    9 ++
- net/bridge/netfilter/Makefile            |    1 +
- net/bridge/netfilter/ebt_dnat.c          |    2 +-
- net/bridge/netfilter/ebt_ip6.c           |  144 ++++++++++++++++++++
- net/bridge/netfilter/ebt_log.c           |   65 +++++++--
- net/bridge/netfilter/ebt_redirect.c      |    2 +-
- net/bridge/netfilter/ebt_snat.c          |    2 +-
- 9 files changed, 249 insertions(+), 19 deletions(-)
+ include/linux/netfilter_bridge/ebt_ip6.h |   40 ++++++++
+ include/linux/netfilter_bridge/ebt_log.h |    3 
+ net/bridge/netfilter/Kconfig             |    9 +
+ net/bridge/netfilter/Makefile            |    1 
+ net/bridge/netfilter/ebt_ip6.c           |  144 +++++++++++++++++++++++++++++++
+ net/bridge/netfilter/ebt_log.c           |   65 ++++++++++---
+ 6 files changed, 246 insertions(+), 16 deletions(-)
  create mode 100644 include/linux/netfilter_bridge/ebt_ip6.h
  create mode 100644 net/bridge/netfilter/ebt_ip6.c
 
@@ -114,19 +111,6 @@ index 905087e..0d8fb54 100644
  obj-$(CONFIG_BRIDGE_EBT_LIMIT) += ebt_limit.o
  obj-$(CONFIG_BRIDGE_EBT_MARK) += ebt_mark_m.o
  obj-$(CONFIG_BRIDGE_EBT_PKTTYPE) += ebt_pkttype.o
-diff --git a/net/bridge/netfilter/ebt_dnat.c b/net/bridge/netfilter/ebt_dnat.c
-index 4582659..b5ea45d 100644
---- a/net/bridge/netfilter/ebt_dnat.c
-+++ b/net/bridge/netfilter/ebt_dnat.c
-@@ -24,7 +24,7 @@ static int ebt_target_dnat(struct sk_buff **pskb, unsigned int hooknr,
- 
- 		nskb = skb_copy(*pskb, GFP_ATOMIC);
- 		if (!nskb)
--			return NF_DROP;
-+			return EBT_DROP;
- 		if ((*pskb)->sk)
- 			skb_set_owner_w(nskb, (*pskb)->sk);
- 		kfree_skb(*pskb);
 diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
 new file mode 100644
 index 0000000..0a94eac
@@ -370,31 +354,5 @@ index 984e9c6..82807cf 100644
  
  	if ((bitmask & EBT_LOG_ARP) &&
  	    ((eth_hdr(skb)->h_proto == htons(ETH_P_ARP)) ||
-diff --git a/net/bridge/netfilter/ebt_redirect.c b/net/bridge/netfilter/ebt_redirect.c
-index 9f378ea..dea03fe 100644
---- a/net/bridge/netfilter/ebt_redirect.c
-+++ b/net/bridge/netfilter/ebt_redirect.c
-@@ -25,7 +25,7 @@ static int ebt_target_redirect(struct sk_buff **pskb, unsigned int hooknr,
- 
- 		nskb = skb_copy(*pskb, GFP_ATOMIC);
- 		if (!nskb)
--			return NF_DROP;
-+			return EBT_DROP;
- 		if ((*pskb)->sk)
- 			skb_set_owner_w(nskb, (*pskb)->sk);
- 		kfree_skb(*pskb);
-diff --git a/net/bridge/netfilter/ebt_snat.c b/net/bridge/netfilter/ebt_snat.c
-index a507221..b79e50c 100644
---- a/net/bridge/netfilter/ebt_snat.c
-+++ b/net/bridge/netfilter/ebt_snat.c
-@@ -26,7 +26,7 @@ static int ebt_target_snat(struct sk_buff **pskb, unsigned int hooknr,
- 
- 		nskb = skb_copy(*pskb, GFP_ATOMIC);
- 		if (!nskb)
--			return NF_DROP;
-+			return EBT_DROP;
- 		if ((*pskb)->sk)
- 			skb_set_owner_w(nskb, (*pskb)->sk);
- 		kfree_skb(*pskb);
 -- 
 1.6.5.GIT

@@ -367,12 +367,12 @@ diff --git a/drivers/net/imq.c b/drivers/net/imq.c
 +	.outfn = imq_nf_queue,
 +};
 +
-+static unsigned int imq_nf_hook(unsigned int hook, struct sk_buff **pskb,
++static unsigned int imq_nf_hook(unsigned int hook, struct sk_buff *skb,
 +				const struct net_device *indev,
 +				const struct net_device *outdev,
 +				int (*okfn)(struct sk_buff *))
 +{
-+	if ((*pskb)->imq_flags & IMQ_F_ENQUEUE)
++	if (skb->imq_flags & IMQ_F_ENQUEUE)
 +		return NF_QUEUE;
 +
 +	return NF_ACCEPT;
@@ -746,7 +746,7 @@ diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
 +#include <linux/netfilter/xt_IMQ.h>
 +#include <linux/imq.h>
 +
-+static unsigned int imq_target(struct sk_buff **pskb,
++static unsigned int imq_target(struct sk_buff *skb,
 +			       const struct net_device *in,
 +			       const struct net_device *out,
 +			       unsigned int hooknum,
@@ -755,7 +755,7 @@ diff --git a/net/netfilter/xt_IMQ.c b/net/netfilter/xt_IMQ.c
 +{
 +	struct xt_imq_info *mr = (struct xt_imq_info*)targinfo;
 +
-+	(*pskb)->imq_flags = mr->todev | IMQ_F_ENQUEUE;
++	skb->imq_flags = mr->todev | IMQ_F_ENQUEUE;
 +
 +	return XT_CONTINUE;
 +}
