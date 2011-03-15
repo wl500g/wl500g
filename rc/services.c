@@ -319,7 +319,10 @@ start_nas(char *type)
                 return 1;
 
 #ifdef __CONFIG_BCMWL5__
+	setenv("UDP_BIND_IP", "127.0.0.1", 1);
         eval("eapd");
+        unsetenv("UDP_BIND_IP");
+        usleep(100000);
         eval("nas");
 #else
 	char cfgfile[64];
