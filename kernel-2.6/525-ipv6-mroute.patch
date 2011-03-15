@@ -567,7 +567,7 @@ new file mode 100644
 index 0000000..4a499d3
 --- /dev/null
 +++ b/net/ipv6/ip6mr.c
-@@ -0,0 +1,1675 @@
+@@ -0,0 +1,1674 @@
 +/*
 + *	Linux IPv6 multicast routing support for BSD pim6sd
 + *	Based on net/ipv4/ipmr.c.
@@ -949,9 +949,8 @@ index 0000000..4a499d3
 +#ifdef CONFIG_IPV6_PIMSM_V2
 +static int reg_vif_num = -1;
 +
-+static int pim6_rcv(struct sk_buff **pskb)
++static int pim6_rcv(struct sk_buff *skb)
 +{
-+	struct sk_buff *skb = (*pskb);
 +	struct pimreghdr *pim;
 +	struct ipv6hdr   *encap;
 +	struct net_device  *reg_dev = NULL;

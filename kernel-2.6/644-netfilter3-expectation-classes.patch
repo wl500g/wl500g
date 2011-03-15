@@ -171,8 +171,8 @@ diff -urNBp a/net/ipv4/netfilter/nf_nat_autofw.c b/net/ipv4/netfilter/nf_nat_aut
 +};
  
  static unsigned int
- autofw_target(struct sk_buff **pskb,
-@@ -158,9 +173,6 @@ autofw_target(struct sk_buff **pskb,
+ autofw_target(struct sk_buff *skb,
+@@ -158,9 +173,6 @@ autofw_target(struct sk_buff *skb,
  	if (!exp)
  		goto out;
  
@@ -182,7 +182,7 @@ diff -urNBp a/net/ipv4/netfilter/nf_nat_autofw.c b/net/ipv4/netfilter/nf_nat_aut
  	exp->tuple.src.u3.ip = iph->daddr;
  	exp->tuple.dst.protonum = info->proto;
  	exp->mask.src.u3.ip = 0xFFFFFFFF;
-@@ -181,6 +193,7 @@ autofw_target(struct sk_buff **pskb,
+@@ -181,6 +193,7 @@ autofw_target(struct sk_buff *skb,
  	exp->expectfn = autofw_expect;
  	exp->helper = NULL;
  	exp->flags = 0;
@@ -230,7 +230,7 @@ diff -urNBp a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat
  #include <net/netfilter/nf_conntrack_helper.h>
  #include <net/netfilter/nf_nat_helper.h>
  
-@@ -1267,11 +1268,15 @@ static int help(struct sk_buff **pskb, u
+@@ -1267,11 +1268,15 @@ static int help(struct sk_buff *skb, u
  	return ret;
  }
  
@@ -895,7 +895,7 @@ diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rts
  
 +static struct nf_conntrack_expect_policy rtsp_exp_policy;
 +
- unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
+ unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
  				 enum ip_conntrack_info ctinfo,
  				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
 @@ -130,7 +132,7 @@ rtsp_parse_message(char* ptcp, uint tcpl
@@ -916,7 +916,7 @@ diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rts
  		return 0;
  	}
  	
-@@ -333,7 +335,7 @@ help_out(struct sk_buff **pskb, unsigned
+@@ -333,7 +335,7 @@ help_out(struct sk_buff *skb, unsigned
  
  		be_loport = htons(expinfo.loport);
  
@@ -925,9 +925,9 @@ diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rts
  			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
  			IPPROTO_UDP, NULL, &be_loport); 
  
-@@ -358,7 +360,7 @@ help_out(struct sk_buff **pskb, unsigned
+@@ -358,7 +360,7 @@ help_out(struct sk_buff *skb, unsigned
  			/* pass the request off to the nat helper */
- 			ret = nf_nat_rtsp_hook(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+ 			ret = nf_nat_rtsp_hook(skb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
  		else if (nf_conntrack_expect_related(exp) != 0) {
 -			INFOP("nf_conntrack_expect_related failed\n");
 +			DEBUGP("nf_conntrack_expect_related failed\n");

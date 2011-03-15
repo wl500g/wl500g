@@ -614,7 +614,7 @@ index 0000000..bbfa1cd
 +MODULE_LICENSE("GPL");
 +
 +static unsigned int
-+ttl_tg(struct sk_buff **pskb,
++ttl_tg(struct sk_buff *skb,
 +       const struct net_device *in, const struct net_device *out,
 +       unsigned int hooknum, const struct xt_target *target,
 +       const void *targinfo)
@@ -623,10 +623,10 @@ index 0000000..bbfa1cd
 +	const struct ipt_TTL_info *info = targinfo;
 +	int new_ttl;
 +
-+	if (!skb_make_writable(pskb, (*pskb)->len))
++	if (!skb_make_writable(skb, skb->len))
 +		return NF_DROP;
 +
-+	iph = ip_hdr(*pskb);
++	iph = ip_hdr(skb);
 +
 +	switch (info->mode) {
 +		case IPT_TTL_SET:
@@ -657,7 +657,7 @@ index 0000000..bbfa1cd
 +}
 +
 +static unsigned int
-+hl_tg6(struct sk_buff **pskb,
++hl_tg6(struct sk_buff *skb,
 +       const struct net_device *in, const struct net_device *out,
 +       unsigned int hooknum, const struct xt_target *target,
 +       const void *targinfo)
@@ -666,10 +666,10 @@ index 0000000..bbfa1cd
 +	const struct ip6t_HL_info *info = targinfo;
 +	int new_hl;
 +
-+	if (!skb_make_writable(pskb, (*pskb)->len))
++	if (!skb_make_writable(skb, skb->len))
 +		return NF_DROP;
 +
-+	ip6h = ipv6_hdr(*pskb);
++	ip6h = ipv6_hdr(skb);
 +
 +	switch (info->mode) {
 +		case IP6T_HL_SET:
