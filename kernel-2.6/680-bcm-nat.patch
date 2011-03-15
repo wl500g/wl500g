@@ -207,7 +207,7 @@
 +		if (ct->status & statusbit) {
 +			struct nf_conntrack_tuple target;
 +
-+			if (skb_make_writable(skb, 0))
++			if (!skb_make_writable(skb, 0))
 +					return NF_DROP;
 +
 +			if (skb->dst == NULL && mtype == IP_NAT_MANIP_SRC) {
