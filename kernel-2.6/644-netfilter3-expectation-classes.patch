@@ -1,0 +1,1070 @@
+Subject: [PATCH] [NETFILTER]: nf_conntrack: introduce expectation classes and policies, support inactive expectations
+From: Patrick McHardy
+
+ kernel.org commits
+ 6002f266b3e7f0acc2d5158cddbed41730b02e82 [NETFILTER]: nf_conntrack: introduce expectation classes and policies
+ 359b9ab614aba71c2c3bc047efbd6d12dd4a2b9e [NETFILTER]: nf_conntrack_expect: support inactive expectations
+ b87921bdf25485afd8f5a5f25e86b5acef32a9cf netfilter: nf_conntrack: show helper and class in /proc/net/nf_conntrack_expect
+ ef1a5a50bbd509b8697dcd4d13017e9e0053867b [NETFILTER]: nf_conntrack: fix incorrect check for expectations
+
+These changes to be used by upcoming SIP conntrack backports.
+
+---
+From d2f2fc99eb1a469dd46c55f206c647a39f956c88
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 17 Jun 2010 00:50:44 -0400
+Subject: [PATCH] RTSP conntrack: this is still needed for 2.6.22
+
+2.6.23 kernel.org commit d4156e8cd93f5772483928aaf4960120caebd789
+removed masks from helpers, but 2.6.22 still has them.
+
+
+From 6688c9b89a0c5e21b3404466567aebec21ebc9e6
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 6 Oct 2010 00:25:23 -0400
+Subject: [PATCH] rtsp conntrack [K26]: silence some debug messages, other helpers don't log them
+
+
+From d4525462f66e2074616f1cedcc8390d1c90722cc
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 24 Feb 2011 00:51:38 -0500
+Subject: [PATCH] nf_conntrack: fix incorrect check for expectations
+
+Ref: kernel.org commit ef1a5a50bbd509b8697dcd4d13017e9e0053867b
+
+This fixes the local backport commit 56753b9352e9e2547e24ccf1e826c3f3bc638b07.
+Upstream fix is different, but not applicable to our kernel since we don't
+have per-conntrack expectations list.
+
+---
+ include/net/netfilter/nf_conntrack.h        |    5 +-
+ include/net/netfilter/nf_conntrack_expect.h |   16 +++++-
+ include/net/netfilter/nf_conntrack_helper.h |    5 --
+ net/ipv4/netfilter/nf_nat_autofw.c          |   36 ++++++++-------
+ net/ipv4/netfilter/nf_nat_snmp_basic.c      |   12 +++--
+ net/netfilter/nf_conntrack_amanda.c         |   13 +++--
+ net/netfilter/nf_conntrack_core.c           |    8 ++-
+ net/netfilter/nf_conntrack_expect.c         |   66 ++++++++++++++++++++++------
+ net/netfilter/nf_conntrack_ftp.c            |   10 ++--
+ net/netfilter/nf_conntrack_h323_main.c      |   66 +++++++++++++++++-----------
+ net/netfilter/nf_conntrack_helper.c         |    3 -
+ net/netfilter/nf_conntrack_irc.c            |   10 ++--
+ net/netfilter/nf_conntrack_netbios_ns.c     |    9 ++-
+ net/netfilter/nf_conntrack_pptp.c           |   14 ++++-
+ net/netfilter/nf_conntrack_rtsp.c           |   19 +++++---
+ net/netfilter/nf_conntrack_sane.c           |   13 +++--
+ net/netfilter/nf_conntrack_sip.c            |   10 ++--
+ net/netfilter/nf_conntrack_tftp.c           |   13 +++--
+ 18 files changed, 226 insertions(+), 102 deletions(-)
+
+diff -urNBp a/include/net/netfilter/nf_conntrack_expect.h b/include/net/netfilter/nf_conntrack_expect.h
+--- a/include/net/netfilter/nf_conntrack_expect.h
++++ b/include/net/netfilter/nf_conntrack_expect.h
+@@ -48,10 +48,22 @@ struct nf_conntrack_expect
+ 	/* Direction relative to the master connection. */
+ 	enum ip_conntrack_dir dir;
+ #endif
++
++	/* Expectation class */
++	unsigned int class;
++};
++
++struct nf_conntrack_expect_policy
++{
++	unsigned int	max_expected;
++	unsigned int	timeout;
++	const char	*name;
+ };
+ 
+-#define NF_CT_EXPECT_PERMANENT 0x1
++#define NF_CT_EXPECT_CLASS_DEFAULT	0
+ 
++#define NF_CT_EXPECT_PERMANENT	0x1
++#define NF_CT_EXPECT_INACTIVE	0x2
+ 
+ struct nf_conntrack_expect *
+ __nf_conntrack_expect_find(const struct nf_conntrack_tuple *tuple);
+@@ -69,7 +81,7 @@ void nf_conntrack_unexpect_related(struc
+ /* Allocate space for an expectation: this is mandatory before calling
+    nf_conntrack_expect_related.  You will have to call put afterwards. */
+ struct nf_conntrack_expect *nf_conntrack_expect_alloc(struct nf_conn *me);
+-void nf_conntrack_expect_init(struct nf_conntrack_expect *, int,
++void nf_conntrack_expect_init(struct nf_conntrack_expect *, unsigned int, int,
+ 			      union nf_inet_addr *,
+ 			      union nf_inet_addr *,
+ 			      u_int8_t, __be16 *, __be16 *);
+diff -urNBp a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -94,6 +94,9 @@ do {									\
+ 
+ struct nf_conntrack_helper;
+ 
++/* Must be kept in sync with the classes defined by helpers */
++#define NF_CT_MAX_EXPECT_CLASSES	1
++
+ /* nf_conn feature for connections that have a helper */
+ struct nf_conn_help {
+ 	/* Helper. if any */
+@@ -102,7 +105,7 @@ struct nf_conn_help {
+ 	union nf_conntrack_help help;
+ 
+ 	/* Current number of expected connections */
+-	unsigned int expecting;
++	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
+ };
+ 
+ 
+diff -urNBp a/include/net/netfilter/nf_conntrack_helper.h b/include/net/netfilter/nf_conntrack_helper.h
+--- a/include/net/netfilter/nf_conntrack_helper.h
++++ b/include/net/netfilter/nf_conntrack_helper.h
+@@ -19,9 +19,7 @@ struct nf_conntrack_helper
+ 
+ 	const char *name;		/* name of the module */
+ 	struct module *me;		/* pointer to self */
+-	unsigned int max_expected;	/* Maximum number of concurrent 
+-					 * expected connections */
+-	unsigned int timeout;		/* timeout for expecteds */
++	const struct nf_conntrack_expect_policy *expect_policy;
+ 
+ 	/* Mask of things we will help (compared against server response) */
+ 	struct nf_conntrack_tuple tuple;
+@@ -37,6 +35,7 @@ struct nf_conntrack_helper
+ 	void (*destroy)(struct nf_conn *ct);
+ 
+ 	int (*to_nfattr)(struct sk_buff *skb, const struct nf_conn *ct);
++	unsigned int expect_class_max;
+ };
+ 
+ extern struct nf_conntrack_helper *
+diff -urNBp a/net/ipv4/netfilter/nf_nat_autofw.c b/net/ipv4/netfilter/nf_nat_autofw.c
+--- a/net/ipv4/netfilter/nf_nat_autofw.c
++++ b/net/ipv4/netfilter/nf_nat_autofw.c
+@@ -111,6 +111,7 @@ autofw_expect(struct nf_conn *ct, struct
+ 	newexp->expectfn = autofw_expect;
+ 	newexp->helper = NULL;
+ 	newexp->flags = 0;
++	newexp->class = NF_CT_EXPECT_CLASS_DEFAULT;
+ 
+ 	/*
+ 	 * exp->timeout.expires will set as
+@@ -121,8 +122,22 @@ autofw_expect(struct nf_conn *ct, struct
+ 		nf_conntrack_expect_put(newexp);
+ }
+ 
++static const struct nf_conntrack_expect_policy autofw_exp_policy = {
++	.max_expected		= 0,
++	.timeout		= 5 * 60,
++};
+ 
+-static struct nf_conntrack_helper autofw_helper;
++static struct nf_conntrack_helper autofw_helper __read_mostly = {
++	.me			= THIS_MODULE,
++	.help			= autofw_help,
++	.expect_policy		= &autofw_exp_policy,
++	.name			= "autofw",
++	.tuple.dst.u3.ip	= 0xFFFFFFFF,
++	.tuple.dst.protonum	= 0xFF,
++	.mask.dst.u3.ip		= 0xFFFFFFFF,
++	.mask.dst.protonum	= 0xFF,
++	.tuple.src.u3.ip	= 0xFFFFFFFF,
++};
+ 
+ static unsigned int
+ autofw_target(struct sk_buff **pskb,
+@@ -158,9 +173,6 @@ autofw_target(struct sk_buff **pskb,
+ 	if (!exp)
+ 		goto out;
+ 
+-	helper->me = THIS_MODULE;
+-	helper->timeout = 5 * 60;
+-
+ 	exp->tuple.src.u3.ip = iph->daddr;
+ 	exp->tuple.dst.protonum = info->proto;
+ 	exp->mask.src.u3.ip = 0xFFFFFFFF;
+@@ -181,6 +193,7 @@ autofw_target(struct sk_buff **pskb,
+ 	exp->expectfn = autofw_expect;
+ 	exp->helper = NULL;
+ 	exp->flags = 0;
++	exp->class = NF_CT_EXPECT_CLASS_DEFAULT;
+ 
+ 	/*
+ 	 * exp->timeout.expires will set as
+@@ -234,25 +247,16 @@ static int __init ip_autofw_init(void)
+ {
+ 	int ret;
+ 
+-	autofw_helper.name = "autofw";
+-	autofw_helper.tuple.dst.u3.ip = 0xFFFFFFFF;
+-	autofw_helper.tuple.dst.protonum = 0xFF;
+-	autofw_helper.mask.dst.u3.ip = 0xFFFFFFFF;
+-	autofw_helper.mask.dst.protonum = 0xFF;
+-	autofw_helper.tuple.src.u3.ip = 0xFFFFFFFF;
+-	autofw_helper.me = THIS_MODULE;
+-	autofw_helper.timeout = 5 * 60;
+-	autofw_helper.help = autofw_help;
+-
+ 	ret = nf_conntrack_helper_register(&autofw_helper);
+-	if (ret)
+-		nf_conntrack_helper_unregister(&autofw_helper);
++	if (ret < 0)
++		return ret;
+ 
+ 	return xt_register_target(&autofw);
+ }
+ 
+ static void __exit ip_autofw_fini(void)
+ {
++	nf_conntrack_helper_unregister(&autofw_helper);
+ 	xt_unregister_target(&autofw);
+ }
+ 
+diff -urNBp a/net/ipv4/netfilter/nf_nat_snmp_basic.c b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+--- a/net/ipv4/netfilter/nf_nat_snmp_basic.c
++++ b/net/ipv4/netfilter/nf_nat_snmp_basic.c
+@@ -50,6 +50,7 @@
+ #include <net/udp.h>
+ 
+ #include <net/netfilter/nf_nat.h>
++#include <net/netfilter/nf_conntrack_expect.h>
+ #include <net/netfilter/nf_conntrack_helper.h>
+ #include <net/netfilter/nf_nat_helper.h>
+ 
+@@ -1267,11 +1268,15 @@ static int help(struct sk_buff **pskb, u
+ 	return ret;
+ }
+ 
++static const struct nf_conntrack_expect_policy snmp_exp_policy = {
++	.max_expected	= 0,
++	.timeout	= 180,
++};
++
+ static struct nf_conntrack_helper snmp_helper __read_mostly = {
+-	.max_expected		= 0,
+-	.timeout		= 180,
+ 	.me			= THIS_MODULE,
+ 	.help			= help,
++	.expect_policy		= &snmp_exp_policy,
+ 	.name			= "snmp",
+ 	.tuple.src.l3num	= AF_INET,
+ 	.tuple.src.u.udp.port	= __constant_htons(SNMP_PORT),
+@@ -1282,10 +1287,9 @@ static struct nf_conntrack_helper snmp_h
+ };
+ 
+ static struct nf_conntrack_helper snmp_trap_helper __read_mostly = {
+-	.max_expected		= 0,
+-	.timeout		= 180,
+ 	.me			= THIS_MODULE,
+ 	.help			= help,
++	.expect_policy		= &snmp_exp_policy,
+ 	.name			= "snmp_trap",
+ 	.tuple.src.l3num	= AF_INET,
+ 	.tuple.src.u.udp.port	= __constant_htons(SNMP_TRAP_PORT),
+diff -urNBp a/net/netfilter/nf_conntrack_amanda.c b/net/netfilter/nf_conntrack_amanda.c
+--- a/net/netfilter/nf_conntrack_amanda.c
++++ b/net/netfilter/nf_conntrack_amanda.c
+@@ -148,7 +148,7 @@ static int amanda_help(struct sk_buff **
+ 			goto out;
+ 		}
+ 		tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+-		nf_conntrack_expect_init(exp, family,
++		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
+ 					 &tuple->src.u3, &tuple->dst.u3,
+ 					 IPPROTO_TCP, NULL, &port);
+ 
+@@ -165,29 +165,32 @@ out:
+ 	return ret;
+ }
+ 
++static const struct nf_conntrack_expect_policy amanda_exp_policy = {
++	.max_expected		= 3,
++	.timeout		= 180,
++};
++
+ static struct nf_conntrack_helper amanda_helper[2] __read_mostly = {
+ 	{
+ 		.name			= "amanda",
+-		.max_expected		= 3,
+-		.timeout		= 180,
+ 		.me			= THIS_MODULE,
+ 		.help			= amanda_help,
+ 		.tuple.src.l3num	= AF_INET,
+ 		.tuple.src.u.udp.port	= __constant_htons(10080),
+ 		.tuple.dst.protonum	= IPPROTO_UDP,
++		.expect_policy		= &amanda_exp_policy,
+ 		.mask.src.l3num		= 0xFFFF,
+ 		.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+ 	},
+ 	{
+ 		.name			= "amanda",
+-		.max_expected		= 3,
+-		.timeout		= 180,
+ 		.me			= THIS_MODULE,
+ 		.help			= amanda_help,
+ 		.tuple.src.l3num	= AF_INET6,
+ 		.tuple.src.u.udp.port	= __constant_htons(10080),
+ 		.tuple.dst.protonum	= IPPROTO_UDP,
++		.expect_policy		= &amanda_exp_policy,
+ 		.mask.src.l3num		= 0xFFFF,
+ 		.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1021,6 +1021,12 @@ int nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_invert_tuplepr);
+ 
++static const u8 expecting_none[NF_CT_MAX_EXPECT_CLASSES] = { 0 };
++static inline int nfct_help_expecting(struct nf_conn_help *help)
++{
++	return (memcmp(&(help->expecting), &expecting_none, sizeof(help->expecting)) != 0);
++}
++
+ /* Alter reply tuple (maybe alter helper).  This is for NAT, and is
+    implicitly racy: see __nf_conntrack_confirm */
+ void nf_conntrack_alter_reply(struct nf_conn *ct,
+@@ -1036,7 +1042,7 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
+ 	NF_CT_DUMP_TUPLE(newreply);
+ 
+ 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *newreply;
+-	if (!ct->master && help && help->expecting == 0) {
++	if (!ct->master && help && nfct_help_expecting(help) == 0) {
+ 		struct nf_conntrack_helper *helper;
+ 		helper = __nf_ct_helper_find(newreply);
+ 		if (helper)
+
+diff -urNBp a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
+--- a/net/netfilter/nf_conntrack_expect.c
++++ b/net/netfilter/nf_conntrack_expect.c
+@@ -42,7 +42,7 @@ void nf_ct_unlink_expect(struct nf_connt
+ 
+ 	list_del(&exp->list);
+ 	NF_CT_STAT_INC(expect_delete);
+-	master_help->expecting--;
++	master_help->expecting[exp->class]--;
+ 	nf_conntrack_expect_put(exp);
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_unlink_expect);
+@@ -91,9 +91,15 @@ EXPORT_SYMBOL_GPL(nf_conntrack_expect_fi
+ struct nf_conntrack_expect *
+ find_expectation(const struct nf_conntrack_tuple *tuple)
+ {
+-	struct nf_conntrack_expect *exp;
++	struct nf_conntrack_expect *i, *exp = NULL;
+ 
+-	exp = __nf_conntrack_expect_find(tuple);
++	list_for_each_entry(i, &nf_conntrack_expect_list, list) {
++		if (!(i->flags & NF_CT_EXPECT_INACTIVE) &&
++		    nf_ct_tuple_mask_cmp(tuple, &i->tuple, &i->mask)) {
++			exp = i;
++			break;
++		}
++	}
+ 	if (!exp)
+ 		return NULL;
+ 
+@@ -123,7 +129,7 @@ void nf_ct_remove_expectations(struct nf
+ 	struct nf_conn_help *help = nfct_help(ct);
+ 
+ 	/* Optimization: most connection never expect any others. */
+-	if (!help || help->expecting == 0)
++	if (!help)
+ 		return;
+ 
+ 	list_for_each_entry_safe(i, tmp, &nf_conntrack_expect_list, list) {
+@@ -166,7 +172,7 @@ static inline int expect_clash(const str
+ static inline int expect_matches(const struct nf_conntrack_expect *a,
+ 				 const struct nf_conntrack_expect *b)
+ {
+-	return a->master == b->master
++	return a->master == b->master && a->class == b->class
+ 		&& nf_ct_tuple_equal(&a->tuple, &b->tuple)
+ 		&& nf_ct_tuple_equal(&a->mask, &b->mask);
+ }
+@@ -200,7 +206,8 @@ struct nf_conntrack_expect *nf_conntrack
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_expect_alloc);
+ 
+-void nf_conntrack_expect_init(struct nf_conntrack_expect *exp, int family,
++void nf_conntrack_expect_init(struct nf_conntrack_expect *exp, unsigned int class,
++			      int family,
+ 			      union nf_inet_addr *saddr,
+ 			      union nf_inet_addr *daddr,
+ 			      u_int8_t proto, __be16 *src, __be16 *dst)
+@@ -213,6 +220,7 @@ void nf_conntrack_expect_init(struct nf_
+ 		len = 16;
+ 
+ 	exp->flags = 0;
++	exp->class = class;
+ 	exp->expectfn = NULL;
+ 	exp->helper = NULL;
+ 	exp->tuple.src.l3num = family;
+@@ -278,13 +286,15 @@ EXPORT_SYMBOL_GPL(nf_conntrack_expect_pu
+ static void nf_conntrack_expect_insert(struct nf_conntrack_expect *exp)
+ {
+ 	struct nf_conn_help *master_help = nfct_help(exp->master);
++	const struct nf_conntrack_expect_policy *p;
+ 
+ 	atomic_inc(&exp->use);
+-	master_help->expecting++;
++	master_help->expecting[exp->class]++;
+ 	list_add(&exp->list, &nf_conntrack_expect_list);
+ 
+ 	setup_timer(&exp->timeout, expectation_timed_out, (unsigned long)exp);
+-	exp->timeout.expires = jiffies + master_help->helper->timeout * HZ;
++	p = &master_help->helper->expect_policy[exp->class];
++	exp->timeout.expires = jiffies + p->timeout * HZ;
+ 	add_timer(&exp->timeout);
+ 
+ 	exp->id = ++nf_conntrack_expect_next_id;
+@@ -293,12 +303,13 @@ static void nf_conntrack_expect_insert(s
+ }
+ 
+ /* Race with expectations being used means we could have none to find; OK. */
+-static void evict_oldest_expect(struct nf_conn *master)
++static void evict_oldest_expect(struct nf_conn *master,
++				struct nf_conntrack_expect *new)
+ {
+ 	struct nf_conntrack_expect *i;
+ 
+ 	list_for_each_entry_reverse(i, &nf_conntrack_expect_list, list) {
+-		if (i->master == master) {
++		if (i->master == master && i->class == new->class) {
+ 			if (del_timer(&i->timeout)) {
+ 				nf_ct_unlink_expect(i);
+ 				nf_conntrack_expect_put(i);
+@@ -311,17 +322,20 @@ static void evict_oldest_expect(struct n
+ static inline int refresh_timer(struct nf_conntrack_expect *i)
+ {
+ 	struct nf_conn_help *master_help = nfct_help(i->master);
++	const struct nf_conntrack_expect_policy *p;
+ 
+ 	if (!del_timer(&i->timeout))
+ 		return 0;
+ 
+-	i->timeout.expires = jiffies + master_help->helper->timeout*HZ;
++	p = &master_help->helper->expect_policy[i->class];
++	i->timeout.expires = jiffies + p->timeout * HZ;
+ 	add_timer(&i->timeout);
+ 	return 1;
+ }
+ 
+ int nf_conntrack_expect_related(struct nf_conntrack_expect *expect)
+ {
++	const struct nf_conntrack_expect_policy *p;
+ 	struct nf_conntrack_expect *i;
+ 	struct nf_conn *master = expect->master;
+ 	struct nf_conn_help *master_help = nfct_help(master);
+@@ -347,9 +361,15 @@ int nf_conntrack_expect_related(struct n
+ 		}
+ 	}
+ 	/* Will be over limit? */
+-	if (master_help->helper->max_expected &&
+-	    master_help->expecting >= master_help->helper->max_expected)
+-		evict_oldest_expect(master);
++	p = &master_help->helper->expect_policy[expect->class];
++	if (p->max_expected &&
++	    master_help->expecting[expect->class] >= p->max_expected) {
++		evict_oldest_expect(master, expect);
++		if (master_help->expecting[expect->class] >= p->max_expected) {
++			ret = -EMFILE;
++			goto out;
++		}
++	}
+ 
+ 	nf_conntrack_expect_insert(expect);
+ 	nf_conntrack_expect_event(IPEXP_NEW, expect);
+@@ -402,6 +422,8 @@ static void exp_seq_stop(struct seq_file
+ static int exp_seq_show(struct seq_file *s, void *v)
+ {
+ 	struct nf_conntrack_expect *expect = v;
++	struct nf_conntrack_helper *helper;
++	char *delim = "";
+ 
+ 	if (expect->timeout.function)
+ 		seq_printf(s, "%ld ", timer_pending(&expect->timeout)
+@@ -415,6 +437,22 @@ static int exp_seq_show(struct seq_file
+ 		    __nf_ct_l3proto_find(expect->tuple.src.l3num),
+ 		    __nf_ct_l4proto_find(expect->tuple.src.l3num,
+ 				       expect->tuple.dst.protonum));
++
++	if (expect->flags & NF_CT_EXPECT_PERMANENT) {
++		seq_printf(s, "PERMANENT");
++		delim = ",";
++	}
++	if (expect->flags & NF_CT_EXPECT_INACTIVE)
++		seq_printf(s, "%sINACTIVE", delim);
++
++	helper = rcu_dereference(nfct_help(expect->master)->helper);
++	if (helper) {
++		seq_printf(s, "%s%s", expect->flags ? " " : "", helper->name);
++		if (helper->expect_policy[expect->class].name)
++			seq_printf(s, "/%s",
++				   helper->expect_policy[expect->class].name);
++	}
++
+ 	return seq_putc(s, '\n');
+ }
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -487,7 +487,7 @@ static int help(struct sk_buff **pskb,
+ 		daddr = &cmd.u3;
+ 	}
+ 
+-	nf_conntrack_expect_init(exp, cmd.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, cmd.l3num,
+ 			  &ct->tuplehash[!dir].tuple.src.u3, daddr,
+ 			  IPPROTO_TCP, NULL, &cmd.u.tcp.port);
+ 
+@@ -521,6 +521,11 @@ out_update_nl:
+ static struct nf_conntrack_helper ftp[MAX_PORTS][2];
+ static char ftp_names[MAX_PORTS][2][sizeof("ftp-65535")];
+ 
++static const struct nf_conntrack_expect_policy ftp_exp_policy = {
++	.max_expected	= 1,
++	.timeout	= 5 * 60,
++};
++
+ /* don't make this __exit, since it's called from __init ! */
+ static void nf_conntrack_ftp_fini(void)
+ {
+@@ -563,8 +568,7 @@ static int __init nf_conntrack_ftp_init(
+ 			ftp[i][j].mask.src.l3num = 0xFFFF;
+ 			ftp[i][j].mask.src.u.tcp.port = htons(0xFFFF);
+ 			ftp[i][j].mask.dst.protonum = 0xFF;
+-			ftp[i][j].max_expected = 1;
+-			ftp[i][j].timeout = 5 * 60;	/* 5 Minutes */
++			ftp[i][j].expect_policy = &ftp_exp_policy;
+ 			ftp[i][j].me = THIS_MODULE;
+ 			ftp[i][j].help = help;
+ 			tmpname = &ftp_names[i][j][0];
+diff -urNBp a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -284,7 +284,8 @@ static int expect_rtp_rtcp(struct sk_buf
+ 	/* Create expect for RTP */
+ 	if ((rtp_exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(rtp_exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(rtp_exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3,
+ 				 &ct->tuplehash[!dir].tuple.dst.u3,
+ 				 IPPROTO_UDP, NULL, &rtp_port);
+@@ -294,7 +295,8 @@ static int expect_rtp_rtcp(struct sk_buf
+ 		nf_conntrack_expect_put(rtp_exp);
+ 		return -1;
+ 	}
+-	nf_conntrack_expect_init(rtcp_exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(rtcp_exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3,
+ 				 &ct->tuplehash[!dir].tuple.dst.u3,
+ 				 IPPROTO_UDP, NULL, &rtcp_port);
+@@ -351,7 +353,8 @@ static int expect_t120(struct sk_buff **
+ 	/* Create expect for T.120 connections */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3,
+ 				 &ct->tuplehash[!dir].tuple.dst.u3,
+ 				 IPPROTO_TCP, NULL, &port);
+@@ -620,16 +623,20 @@ static int h245_help(struct sk_buff **ps
+ }
+ 
+ /****************************************************************************/
++static const struct nf_conntrack_expect_policy h245_exp_policy = {
++	.max_expected	= H323_RTP_CHANNEL_MAX * 4 + 2 /* T.120 */,
++	.timeout	= 240,
++};
++
+ static struct nf_conntrack_helper nf_conntrack_helper_h245 __read_mostly = {
+ 	.name			= "H.245",
+ 	.me			= THIS_MODULE,
+-	.max_expected		= H323_RTP_CHANNEL_MAX * 4 + 2 /* T.120 */,
+-	.timeout		= 240,
+ 	.tuple.src.l3num	= AF_UNSPEC,
+ 	.tuple.dst.protonum	= IPPROTO_UDP,
+ 	.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 	.mask.dst.protonum	= 0xFF,
+-	.help			= h245_help
++	.help			= h245_help,
++	.expect_policy		= &h245_exp_policy,
+ };
+ 
+ /****************************************************************************/
+@@ -687,7 +694,8 @@ static int expect_h245(struct sk_buff **
+ 	/* Create expect for h245 connection */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3,
+ 				 &ct->tuplehash[!dir].tuple.dst.u3,
+ 				 IPPROTO_TCP, NULL, &port);
+@@ -804,7 +812,8 @@ static int expect_callforwarding(struct
+ 	/* Create expect for the second call leg */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3, &addr,
+ 				 IPPROTO_TCP, NULL, &port);
+ 	exp->helper = nf_conntrack_helper_q931;
+@@ -1169,34 +1178,36 @@ static int q931_help(struct sk_buff **ps
+ }
+ 
+ /****************************************************************************/
++static const struct nf_conntrack_expect_policy q931_exp_policy = {
++	/* T.120 and H.245 */
++	.max_expected		= H323_RTP_CHANNEL_MAX * 4 + 4,
++	.timeout		= 240,
++};
++
+ static struct nf_conntrack_helper nf_conntrack_helper_q931[] __read_mostly = {
+ 	{
+ 		.name			= "Q.931",
+ 		.me			= THIS_MODULE,
+-					  /* T.120 and H.245 */
+-		.max_expected		= H323_RTP_CHANNEL_MAX * 4 + 4,
+-		.timeout		= 240,
+ 		.tuple.src.l3num	= AF_INET,
+ 		.tuple.src.u.tcp.port	= __constant_htons(Q931_PORT),
+ 		.tuple.dst.protonum	= IPPROTO_TCP,
+ 		.mask.src.l3num		= 0xFFFF,
+ 		.mask.src.u.tcp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+-		.help			= q931_help
++		.help			= q931_help,
++		.expect_policy		= &q931_exp_policy,
+ 	},
+ 	{
+ 		.name			= "Q.931",
+ 		.me			= THIS_MODULE,
+-					  /* T.120 and H.245 */
+-		.max_expected		= H323_RTP_CHANNEL_MAX * 4 + 4,
+-		.timeout		= 240,
+ 		.tuple.src.l3num	= AF_INET6,
+ 		.tuple.src.u.tcp.port	= __constant_htons(Q931_PORT),
+ 		.tuple.dst.protonum	= IPPROTO_TCP,
+ 		.mask.src.l3num		= 0xFFFF,
+ 		.mask.src.u.tcp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+-		.help			= q931_help
++		.help			= q931_help,
++		.expect_policy		= &q931_exp_policy,
+ 	},
+ };
+ 
+@@ -1279,7 +1290,8 @@ static int expect_q931(struct sk_buff **
+ 	/* Create expect for Q.931 */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 gkrouted_only ? /* only accept calls from GK? */
+ 					&ct->tuplehash[!dir].tuple.src.u3 :
+ 					NULL,
+@@ -1351,7 +1363,8 @@ static int process_gcf(struct sk_buff **
+ 	/* Need new expect */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3, &addr,
+ 				 IPPROTO_UDP, NULL, &port);
+ 	exp->helper = nf_conntrack_helper_ras;
+@@ -1556,7 +1569,8 @@ static int process_acf(struct sk_buff **
+ 	/* Need new expect */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3, &addr,
+ 				 IPPROTO_TCP, NULL, &port);
+ 	exp->flags = NF_CT_EXPECT_PERMANENT;
+@@ -1609,7 +1623,8 @@ static int process_lcf(struct sk_buff **
+ 	/* Need new expect for call signal */
+ 	if ((exp = nf_conntrack_expect_alloc(ct)) == NULL)
+ 		return -1;
+-	nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[!dir].tuple.src.l3num,
+ 				 &ct->tuplehash[!dir].tuple.src.u3, &addr,
+ 				 IPPROTO_TCP, NULL, &port);
+ 	exp->flags = NF_CT_EXPECT_PERMANENT;
+@@ -1749,12 +1764,15 @@ static int ras_help(struct sk_buff **psk
+ }
+ 
+ /****************************************************************************/
++static const struct nf_conntrack_expect_policy ras_exp_policy = {
++	.max_expected		= 32,
++	.timeout		= 240,
++};
++
+ static struct nf_conntrack_helper nf_conntrack_helper_ras[] __read_mostly = {
+ 	{
+ 		.name			= "RAS",
+ 		.me			= THIS_MODULE,
+-		.max_expected		= 32,
+-		.timeout		= 240,
+ 		.tuple.src.l3num	= AF_INET,
+ 		.tuple.src.u.udp.port	= __constant_htons(RAS_PORT),
+ 		.tuple.dst.protonum	= IPPROTO_UDP,
+@@ -1762,12 +1780,11 @@ static struct nf_conntrack_helper nf_con
+ 		.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+ 		.help			= ras_help,
++		.expect_policy		= &ras_exp_policy,
+ 	},
+ 	{
+ 		.name			= "RAS",
+ 		.me			= THIS_MODULE,
+-		.max_expected		= 32,
+-		.timeout		= 240,
+ 		.tuple.src.l3num	= AF_INET6,
+ 		.tuple.src.u.udp.port	= __constant_htons(RAS_PORT),
+ 		.tuple.dst.protonum	= IPPROTO_UDP,
+@@ -1775,6 +1792,7 @@ static struct nf_conntrack_helper nf_con
+ 		.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 		.mask.dst.protonum	= 0xFF,
+ 		.help			= ras_help,
++		.expect_policy		= &ras_exp_policy,
+ 	},
+ };
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_helper.c b/net/netfilter/nf_conntrack_helper.c
+--- a/net/netfilter/nf_conntrack_helper.c
++++ b/net/netfilter/nf_conntrack_helper.c
+@@ -102,7 +102,8 @@ int nf_conntrack_helper_register(struct
+ {
+ 	int size, ret;
+ 
+-	BUG_ON(me->timeout == 0);
++	BUG_ON(me->expect_policy == NULL);
++	BUG_ON(me->expect_class_max >= NF_CT_MAX_EXPECT_CLASSES);
+ 
+ 	size = ALIGN(sizeof(struct nf_conn), __alignof__(struct nf_conn_help)) +
+ 	       sizeof(struct nf_conn_help);
+diff -urNBp a/net/netfilter/nf_conntrack_irc.c b/net/netfilter/nf_conntrack_irc.c
+--- a/net/netfilter/nf_conntrack_irc.c	2008-02-26 02:59:40.000000000 +0300
++++ b/net/netfilter/nf_conntrack_irc.c	2011-02-23 18:39:12.000000000 +0300
+@@ -191,7 +191,8 @@ static int help(struct sk_buff **pskb, u
+ 			}
+ 			tuple = &ct->tuplehash[!dir].tuple;
+ 			port = htons(dcc_port);
+-			nf_conntrack_expect_init(exp, tuple->src.l3num,
++			nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT,
++						 tuple->src.l3num,
+ 						 NULL, &tuple->dst.u3,
+ 						 IPPROTO_TCP, NULL, &port);
+ 
+@@ -214,6 +215,7 @@ static int help(struct sk_buff **pskb, u
+ 
+ static struct nf_conntrack_helper irc[MAX_PORTS] __read_mostly;
+ static char irc_names[MAX_PORTS][sizeof("irc-65535")] __read_mostly;
++static struct nf_conntrack_expect_policy irc_exp_policy;
+ 
+ static void nf_conntrack_irc_fini(void);
+ 
+@@ -227,6 +229,9 @@ static int __init nf_conntrack_irc_init(
+ 		return -EINVAL;
+ 	}
+ 
++	irc_exp_policy.max_expected = max_dcc_channels;
++	irc_exp_policy.timeout = dcc_timeout;
++
+ 	irc_buffer = kmalloc(65536, GFP_KERNEL);
+ 	if (!irc_buffer)
+ 		return -ENOMEM;
+@@ -242,8 +247,7 @@ static int __init nf_conntrack_irc_init(
+ 		irc[i].mask.src.l3num = 0xFFFF;
+ 		irc[i].mask.src.u.tcp.port = htons(0xFFFF);
+ 		irc[i].mask.dst.protonum = 0xFF;
+-		irc[i].max_expected = max_dcc_channels;
+-		irc[i].timeout = dcc_timeout;
++		irc[i].expect_policy = &irc_exp_policy;
+ 		irc[i].me = THIS_MODULE;
+ 		irc[i].help = help;
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_netbios_ns.c b/net/netfilter/nf_conntrack_netbios_ns.c
+--- a/net/netfilter/nf_conntrack_netbios_ns.c
++++ b/net/netfilter/nf_conntrack_netbios_ns.c
+@@ -89,6 +89,7 @@ static int help(struct sk_buff **pskb, u
+ 
+ 	exp->expectfn             = NULL;
+ 	exp->flags                = NF_CT_EXPECT_PERMANENT;
++	exp->class		  = NF_CT_EXPECT_CLASS_DEFAULT;
+ 	exp->helper               = NULL;
+ 
+ 	nf_conntrack_expect_related(exp);
+@@ -99,6 +100,10 @@ out:
+ 	return NF_ACCEPT;
+ }
+ 
++static struct nf_conntrack_expect_policy exp_policy = {
++	.max_expected	= 1,
++};
++
+ static struct nf_conntrack_helper helper __read_mostly = {
+ 	.name			= "netbios-ns",
+ 	.tuple.src.l3num	= AF_INET,
+@@ -107,14 +112,14 @@ static struct nf_conntrack_helper helper
+ 	.mask.src.l3num		= 0xFFFF,
+ 	.mask.src.u.udp.port	= __constant_htons(0xFFFF),
+ 	.mask.dst.protonum	= 0xFF,
+-	.max_expected		= 1,
+ 	.me			= THIS_MODULE,
+ 	.help			= help,
++	.expect_policy		= &exp_policy,
+ };
+ 
+ static int __init nf_conntrack_netbios_ns_init(void)
+ {
+-	helper.timeout = timeout;
++	exp_policy.timeout = timeout;
+ 	return nf_conntrack_helper_register(&helper);
+ }
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_pptp.c b/net/netfilter/nf_conntrack_pptp.c
+--- a/net/netfilter/nf_conntrack_pptp.c
++++ b/net/netfilter/nf_conntrack_pptp.c
+@@ -211,7 +211,8 @@ static int exp_gre(struct nf_conn *ct, _
+ 
+ 	/* original direction, PNS->PAC */
+ 	dir = IP_CT_DIR_ORIGINAL;
+-	nf_conntrack_expect_init(exp_orig, ct->tuplehash[dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp_orig, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[dir].tuple.src.l3num,
+ 				 &ct->tuplehash[dir].tuple.src.u3,
+ 				 &ct->tuplehash[dir].tuple.dst.u3,
+ 				 IPPROTO_GRE, &peer_callid, &callid);
+@@ -219,7 +220,8 @@ static int exp_gre(struct nf_conn *ct, _
+ 
+ 	/* reply direction, PAC->PNS */
+ 	dir = IP_CT_DIR_REPLY;
+-	nf_conntrack_expect_init(exp_reply, ct->tuplehash[dir].tuple.src.l3num,
++	nf_conntrack_expect_init(exp_reply, NF_CT_EXPECT_CLASS_DEFAULT,
++				 ct->tuplehash[dir].tuple.src.l3num,
+ 				 &ct->tuplehash[dir].tuple.src.u3,
+ 				 &ct->tuplehash[dir].tuple.dst.u3,
+ 				 IPPROTO_GRE, &callid, &peer_callid);
+@@ -576,12 +578,15 @@ conntrack_pptp_help(struct sk_buff **psk
+ 	return ret;
+ }
+ 
++static const struct nf_conntrack_expect_policy pptp_exp_policy = {
++	.max_expected	= 2,
++	.timeout	= 5 * 60,
++};
++
+ /* control protocol helper */
+ static struct nf_conntrack_helper pptp __read_mostly = {
+ 	.name			= "pptp",
+ 	.me			= THIS_MODULE,
+-	.max_expected		= 2,
+-	.timeout		= 5 * 60,
+ 	.tuple.src.l3num	= AF_INET,
+ 	.tuple.src.u.tcp.port	= __constant_htons(PPTP_CONTROL_PORT),
+ 	.tuple.dst.protonum	= IPPROTO_TCP,
+@@ -590,6 +595,7 @@ static struct nf_conntrack_helper pptp _
+ 	.mask.dst.protonum	= 0xff,
+ 	.help			= conntrack_pptp_help,
+ 	.destroy		= pptp_destroy_siblings,
++	.expect_policy		= &pptp_exp_policy,
+ };
+ 
+ static int __init nf_conntrack_pptp_init(void)
+diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rtsp.c
+--- a/net/netfilter/nf_conntrack_rtsp.c
++++ b/net/netfilter/nf_conntrack_rtsp.c
+@@ -75,6 +75,8 @@ MODULE_PARM_DESC(setup_timeout, "timeout
+ static char *rtsp_buffer;
+ static DEFINE_SPINLOCK(rtsp_buffer_lock);
+ 
++static struct nf_conntrack_expect_policy rtsp_exp_policy;
++
+ unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
+ 				 enum ip_conntrack_info ctinfo,
+ 				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
+@@ -130,7 +132,7 @@ rtsp_parse_message(char* ptcp, uint tcpl
+ 			break;
+ 		}
+ 		if (lineoff+linelen > tcplen) {
+-			INFOP("!! overrun !!\n");
++			DEBUGP("!! overrun !!\n");
+ 			break;
+ 		}
+ 		
+@@ -178,7 +180,7 @@ rtsp_parse_transport(char* ptran, uint t
+ 	
+ 	if (tranlen < 10 || !iseol(ptran[tranlen-1]) ||
+ 	    nf_strncasecmp(ptran, "Transport:", 10) != 0) {
+-		INFOP("sanity check failed\n");
++		DEBUGP("sanity check failed\n");
+ 		return 0;
+ 	}
+ 	
+@@ -333,7 +335,7 @@ help_out(struct sk_buff **pskb, unsigned
+ 
+ 		be_loport = htons(expinfo.loport);
+ 
+-		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
++		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, ct->tuplehash[!dir].tuple.src.l3num,
+ 			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
+ 			IPPROTO_UDP, NULL, &be_loport); 
+ 
+@@ -358,7 +360,7 @@ help_out(struct sk_buff **pskb, unsigned
+ 			/* pass the request off to the nat helper */
+ 			ret = nf_nat_rtsp_hook(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+ 		else if (nf_conntrack_expect_related(exp) != 0) {
+-			INFOP("nf_conntrack_expect_related failed\n");
++			DEBUGP("nf_conntrack_expect_related failed\n");
+ 			ret  = NF_DROP;
+ 		}
+ 		nf_conntrack_expect_put(exp);
+@@ -470,6 +472,9 @@ init(void)
+ 		return -EBUSY;
+ 	}
+ 
++	rtsp_exp_policy.max_expected = max_outstanding;
++	rtsp_exp_policy.timeout = setup_timeout;
++
+ 	rtsp_buffer = kmalloc(65536, GFP_KERNEL);
+ 	if (!rtsp_buffer) 
+ 		return -ENOMEM;
+@@ -485,8 +490,10 @@ init(void)
+ 		hlpr->tuple.src.l3num = AF_INET;
+ 		hlpr->tuple.src.u.tcp.port = htons(ports[i]);
+ 		hlpr->tuple.dst.protonum = IPPROTO_TCP;
+-		hlpr->max_expected = max_outstanding;
+-		hlpr->timeout = setup_timeout;
++		hlpr->mask.src.l3num = 0xFFFF;
++		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
++		hlpr->mask.dst.protonum = 0xFF;
++		hlpr->expect_policy = &rtsp_exp_policy;
+ 		hlpr->me = THIS_MODULE;
+ 		hlpr->help = help;
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_sane.c b/net/netfilter/nf_conntrack_sane.c
+--- a/net/netfilter/nf_conntrack_sane.c
++++ b/net/netfilter/nf_conntrack_sane.c
+@@ -148,10 +148,9 @@ static int help(struct sk_buff **pskb,
+ 	}
+ 
+ 	tuple = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+-	nf_conntrack_expect_init(exp, family,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
+ 				 &tuple->src.u3, &tuple->dst.u3,
+-				 IPPROTO_TCP,
+-				 NULL, &reply->port);
++				 IPPROTO_TCP, NULL, &reply->port);
+ 
+ 	DEBUGP("nf_ct_sane: expect: ");
+ 	NF_CT_DUMP_TUPLE(&exp->tuple);
+@@ -171,6 +170,11 @@ out:
+ static struct nf_conntrack_helper sane[MAX_PORTS][2];
+ static char sane_names[MAX_PORTS][2][sizeof("sane-65535")];
+ 
++static const struct nf_conntrack_expect_policy sane_exp_policy = {
++	.max_expected	= 1,
++	.timeout	= 5 * 60,
++};
++
+ /* don't make this __exit, since it's called from __init ! */
+ static void nf_conntrack_sane_fini(void)
+ {
+@@ -210,8 +214,7 @@ static int __init nf_conntrack_sane_init
+ 			sane[i][j].tuple.dst.protonum = IPPROTO_TCP;
+ 			sane[i][j].mask.src.u.tcp.port = 0xFFFF;
+ 			sane[i][j].mask.dst.protonum = 0xFF;
+-			sane[i][j].max_expected = 1;
+-			sane[i][j].timeout = 5 * 60;	/* 5 Minutes */
++			sane[i][j].expect_policy = &sane_exp_policy;
+ 			sane[i][j].me = THIS_MODULE;
+ 			sane[i][j].help = help;
+ 			tmpname = &sane_names[i][j][0];
+diff -urNBp a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -385,7 +385,7 @@ static int set_expected_rtp(struct sk_bu
+ 	exp = nf_conntrack_expect_alloc(ct);
+ 	if (exp == NULL)
+ 		return NF_DROP;
+-	nf_conntrack_expect_init(exp, family,
++	nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
+ 				 &ct->tuplehash[!dir].tuple.src.u3, addr,
+ 				 IPPROTO_UDP, NULL, &port);
+ 
+@@ -481,6 +481,11 @@ out:
+ static struct nf_conntrack_helper sip[MAX_PORTS][2] __read_mostly;
+ static char sip_names[MAX_PORTS][2][sizeof("sip-65535")] __read_mostly;
+ 
++static const struct nf_conntrack_expect_policy sip_exp_policy = {
++	.max_expected	= 2,
++	.timeout	= 3 * 60,
++};
++
+ static void nf_conntrack_sip_fini(void)
+ {
+ 	int i, j;
+@@ -513,8 +518,7 @@ static int __init nf_conntrack_sip_init(
+ 			sip[i][j].mask.src.l3num = 0xFFFF;
+ 			sip[i][j].mask.src.u.udp.port = htons(0xFFFF);
+ 			sip[i][j].mask.dst.protonum = 0xFF;
+-			sip[i][j].max_expected = 2;
+-			sip[i][j].timeout = 3 * 60; /* 3 minutes */
++			sip[i][j].expect_policy = &sip_exp_policy;
+ 			sip[i][j].me = THIS_MODULE;
+ 			sip[i][j].help = sip_help;
+ 
+diff -urNBp a/net/netfilter/nf_conntrack_tftp.c b/net/netfilter/nf_conntrack_tftp.c
+--- a/net/netfilter/nf_conntrack_tftp.c
++++ b/net/netfilter/nf_conntrack_tftp.c
+@@ -70,10 +70,9 @@ static int tftp_help(struct sk_buff **ps
+ 		if (exp == NULL)
+ 			return NF_DROP;
+ 		tuple = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+-		nf_conntrack_expect_init(exp, family,
++		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, family,
+ 					 &tuple->src.u3, &tuple->dst.u3,
+-					 IPPROTO_UDP,
+-					 NULL, &tuple->dst.u.udp.port);
++					 IPPROTO_UDP, NULL, &tuple->dst.u.udp.port);
+ 
+ 		DEBUGP("expect: ");
+ 		NF_CT_DUMP_TUPLE(&exp->tuple);
+@@ -102,6 +101,11 @@ static int tftp_help(struct sk_buff **ps
+ static struct nf_conntrack_helper tftp[MAX_PORTS][2] __read_mostly;
+ static char tftp_names[MAX_PORTS][2][sizeof("tftp-65535")] __read_mostly;
+ 
++static const struct nf_conntrack_expect_policy tftp_exp_policy = {
++	.max_expected	= 1,
++	.timeout	= 5 * 60,
++};
++
+ static void nf_conntrack_tftp_fini(void)
+ {
+ 	int i, j;
+@@ -131,8 +135,7 @@ static int __init nf_conntrack_tftp_init
+ 			tftp[i][j].mask.src.l3num = 0xFFFF;
+ 			tftp[i][j].mask.dst.protonum = 0xFF;
+ 			tftp[i][j].mask.src.u.udp.port = htons(0xFFFF);
+-			tftp[i][j].max_expected = 1;
+-			tftp[i][j].timeout = 5 * 60; /* 5 minutes */
++			tftp[i][j].expect_policy = &tftp_exp_policy;
+ 			tftp[i][j].me = THIS_MODULE;
+ 			tftp[i][j].help = tftp_help;
+ 
+-- 
