@@ -116,6 +116,11 @@ static int udp_error(struct sk_buff *skb, unsigned int dataoff,
 		return -NF_ACCEPT;
 	}
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (nf_conntrack_fastnat)
+		return NF_ACCEPT;
+#endif
+
 	/* Packet with no checksum */
 	if (!hdr->check)
 		return NF_ACCEPT;

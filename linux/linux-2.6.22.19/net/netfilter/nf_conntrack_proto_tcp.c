@@ -787,6 +787,11 @@ static int tcp_error(struct sk_buff *skb,
 		return -NF_ACCEPT;
 	}
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (nf_conntrack_fastnat)
+		return NF_ACCEPT;
+#endif
+
 	/* Checksum invalid? Ignore.
 	 * We skip checking packets on the outgoing path
 	 * because the checksum is assumed to be correct.

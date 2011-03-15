@@ -146,13 +146,13 @@
 #include <linux/mroute.h>
 #include <linux/netlink.h>
 
- /*
-  *	SNMP management statistics
-  */
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int nf_conntrack_fastnat;
+#endif
+
 /*
  *	SNMP management statistics
  */
-
 DEFINE_SNMP_STAT(struct ipstats_mib, ip_statistics) __read_mostly;
 
 /*
@@ -428,6 +428,9 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	}
 
 	/* Remove any debris in the socket control block */
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (!nf_conntrack_fastnat)
+#endif
 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
 
 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,

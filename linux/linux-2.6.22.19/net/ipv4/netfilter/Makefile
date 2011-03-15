@@ -18,6 +18,9 @@ obj-$(CONFIG_NF_CONNTRACK_IPV4) += nf_conntrack_ipv4.o
 
 obj-$(CONFIG_NF_NAT) += nf_nat.o
 
+# Broadcom NAT
+obj-$(CONFIG_BCM_NAT) += bcm_nat.o
+
 # NAT helpers (nf_conntrack)
 obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
 obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o

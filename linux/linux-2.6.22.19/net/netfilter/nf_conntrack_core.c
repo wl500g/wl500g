@@ -30,6 +30,11 @@
 #include <linux/socket.h>
 #include <linux/mm.h>
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#include <net/ip.h>
+#include <linux/tcp.h>
+#endif
+
 #include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_l3proto.h>
 #include <net/netfilter/nf_conntrack_l4proto.h>
@@ -74,6 +79,31 @@ static int nf_conntrack_vmalloc __read_mostly;
 
 DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+int nf_conntrack_fastnat __read_mostly = 0;
+#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
+atomic_t nf_conntrack_fastnat_http __read_mostly = ATOMIC_INIT(0);
+#endif
+
+typedef int (*bcmNatHitHook)(struct sk_buff *skb);
+typedef int (*bcmNatBindHook)(struct nf_conn *ct,
+	enum ip_conntrack_info ctinfo,
+	struct sk_buff *skb,
+	struct nf_conntrack_l3proto *l3proto,
+	struct nf_conntrack_l4proto *l4proto);
+
+bcmNatHitHook bcm_nat_hit_hook __read_mostly = NULL;
+bcmNatBindHook bcm_nat_bind_hook __read_mostly = NULL;
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(bcm_nat_hit_hook);
+EXPORT_SYMBOL(bcm_nat_bind_hook);
+#endif
+EXPORT_SYMBOL(nf_conntrack_fastnat);
+#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
+EXPORT_SYMBOL(nf_conntrack_fastnat_http);
+#endif
+#endif
 
 /*
  * This scheme offers various size of "struct nf_conn" dependent on
@@ -314,6 +344,22 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 	return l4proto->invert_tuple(inverse, orig);
 }
 EXPORT_SYMBOL_GPL(nf_ct_invert_tuple);
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#ifndef CONFIG_BCM_NAT_MODULE
+inline
+#endif
+int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+	const struct nf_conntrack_tuple *orig,
+	const struct nf_conntrack_l3proto *l3proto,
+	const struct nf_conntrack_l4proto *l4proto)
+{
+	return nf_ct_invert_tuple(inverse, orig, l3proto,l4proto);
+}
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(bcm_nf_ct_invert_tuple);
+#endif
+#endif
 
 static void
 clean_from_lists(struct nf_conn *ct)
@@ -872,6 +918,11 @@ resolve_normal_ct(struct sk_buff *skb,
 	return ct;
 }
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int
+nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
+#endif
+
 unsigned int
 nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 {
@@ -883,6 +934,9 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 	u_int8_t protonum;
 	int set_reply = 0;
 	int ret;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn_nat *nat = NULL;
+#endif
 
 	/* Previously seen (loopback or untracked)?  Ignore. */
 	if (skb->nfct) {
@@ -900,6 +954,19 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 		NF_CT_STAT_INC_ATOMIC(invalid);
 		return -ret;
 	}
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (pf == PF_INET && nf_conntrack_fastnat) {
+		/* Gather fragments. */
+		if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+			if (nf_ct_ipv4_gather_frags(skb,
+						hooknum == NF_IP_PRE_ROUTING ?
+						IP_DEFRAG_CONNTRACK_IN :
+						IP_DEFRAG_CONNTRACK_OUT))
+				return NF_STOLEN;
+		}
+	}
+#endif
 
 	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
 
@@ -940,8 +1007,61 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 		return -ret;
 	}
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (pf == PF_INET)
+		nat = nfct_nat(ct);
+
+	if (nat &&
+	    nf_conntrack_fastnat && bcm_nat_bind_hook &&
+	    (hooknum == NF_IP_PRE_ROUTING /*|| hooknum == NF_IP_FORWARD*/) &&
+	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_ESTABLISHED + IP_CT_IS_REPLY) &&
+	    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+		struct nf_conn_help *help = nfct_help(ct);
+		struct nf_conntrack_tuple *t1, *t2;
+
+		if ((nat->info.nat_type & BCM_FASTNAT_DENY) || help->helper)
+			goto pass;
+
+#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
+		if (atomic_read(&nf_conntrack_fastnat_http) && protonum == IPPROTO_TCP &&
+		    CTINFO2DIR(ctinfo) == IP_CT_DIR_ORIGINAL) {
+			struct tcphdr _tcph, *tcph;
+			unsigned char _data[5], *data;
+
+			if (nat->info.nat_type & BCM_FASTNAT_HTTP)
+				goto pass;
+
+			/* For URL filter; RFC-HTTP: GET, POST, HEAD */
+			if ((tcph = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph)) &&
+			    (data = skb_header_pointer(skb, dataoff + tcph->doff*4, sizeof(_data), &_data)) &&
+			    (memcmp(data, "GET ", sizeof("GET ")-1) == 0 ||
+			     memcmp(data, "POST ", sizeof("POST ")-1) == 0 ||
+			     memcmp(data, "HEAD ", sizeof("HEAD ")-1) == 0)) {
+				nat->info.nat_type |= BCM_FASTNAT_HTTP;
+				goto pass;
+			}
+		}
+#endif
+		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
+			t1->src.u3.ip == t2->dst.u3.ip &&
+			t1->dst.u.all == t2->src.u.all &&
+			t1->src.u.all == t2->dst.u.all)) {
+			ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
+		}
+	}
+	pass:
+#endif
+
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
+	{
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+		if (nat && hooknum == NF_IP_LOCAL_OUT)
+			nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif
 		nf_conntrack_event_cache(IPCT_STATUS, skb);
+	}
 
 	return ret;
 }

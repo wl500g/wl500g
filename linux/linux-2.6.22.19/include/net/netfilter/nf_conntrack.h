@@ -296,6 +296,15 @@ extern int nf_conntrack_checksum;
 extern atomic_t nf_conntrack_count;
 extern int nf_conntrack_max;
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#define BCM_FASTNAT_DENY 1
+#define BCM_FASTNAT_HTTP 2
+extern int nf_conntrack_fastnat;
+#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
+extern atomic_t nf_conntrack_fastnat_http;
+#endif
+#endif
+
 DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 #define NF_CT_STAT_INC(count) (__get_cpu_var(nf_conntrack_stat).count++)
 #define NF_CT_STAT_INC_ATOMIC(count)			\

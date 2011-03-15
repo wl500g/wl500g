@@ -128,6 +128,14 @@ config NF_NAT_NEEDED
 	depends on NF_NAT
 	default y
 
+config BCM_NAT
+	tristate "Broadcom fast NAT support"
+	depends on NF_CONNTRACK && NF_NAT
+	default y
+	help
+	  This helps packets pass through netfilter faster when a packet
+	  is an established or reply traffic.
+
 config IP_NF_TARGET_MASQUERADE
 	tristate "MASQUERADE target support"
 	depends on NF_NAT

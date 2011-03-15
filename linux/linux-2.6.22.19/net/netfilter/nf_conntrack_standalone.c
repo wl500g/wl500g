@@ -359,6 +359,26 @@ static ctl_table nf_ct_sysctl_table[] = {
 		.extra1		= &log_invalid_proto_min,
 		.extra2		= &log_invalid_proto_max,
 	},
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	{
+		.ctl_name	= NET_NF_CONNTRACK_FASTNAT,
+		.procname	= "nf_conntrack_fastnat",
+		.data		= &nf_conntrack_fastnat,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
+	{
+		.ctl_name	= NET_NF_CONNTRACK_FASTNAT,
+		.procname	= "nf_conntrack_fastnat_http",
+		.data		= &nf_conntrack_fastnat_http,
+		.maxlen		= sizeof(int),
+		.mode		= 0444,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#endif
 
 	{ .ctl_name = 0 }
 };

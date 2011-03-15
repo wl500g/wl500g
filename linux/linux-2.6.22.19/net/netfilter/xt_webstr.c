@@ -45,6 +45,10 @@
 #include <net/sock.h>
 #include <net/ipv6.h>
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#include <net/netfilter/nf_conntrack.h>
+#endif
+
 typedef char *(*proc_xt_search_t) (char *, char *, int, int);
 
 static proc_xt_search_t search;
@@ -418,15 +422,30 @@ static bool checkentry(const struct xt_mtchk_param *par)
 	/* pattern length */
 	if (info->len < 1)
 		return false;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (par->family == NFPROTO_IPV4)
+		atomic_inc(&nf_conntrack_fastnat_http);
+#endif
 
        return true;
 }
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+static void destroy(const struct xt_mtdtor_param *par)
+{
+	if (par->family == NFPROTO_IPV4)
+		atomic_dec(&nf_conntrack_fastnat_http);
+}
+#endif
 
 static struct xt_match xt_webstr_match = {
 	.name		= "webstr",
 	.family		= NFPROTO_UNSPEC,
 	.match		= webstr_mt,
 	.checkentry	= checkentry,
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	.destroy	= destroy,
+#endif
 	.matchsize	= sizeof(struct xt_webstr_info),
 	.proto		= IPPROTO_TCP,
 	.me		= THIS_MODULE

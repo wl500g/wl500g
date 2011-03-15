@@ -23,6 +23,11 @@
 
 #include "nf_internals.h"
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+typedef int (*bcmNatHitHook)(struct sk_buff *skb);
+extern bcmNatHitHook bcm_nat_hit_hook;
+#endif
+
 static DEFINE_MUTEX(afinfo_mutex);
 
 const struct nf_afinfo *nf_afinfo[NFPROTO_NUMPROTO] __read_mostly;
@@ -133,6 +138,13 @@ unsigned int nf_iterate(struct list_head *head,
 	list_for_each_continue_rcu(*i, head) {
 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+		if (!elem->hook) {
+			NFDEBUG("nf_hook_slow: elem is empty return NF_DROP\n");
+			return NF_DROP;
+		}
+#endif
+
 		if (hook_thresh > elem->priority)
 			continue;
 
@@ -140,6 +152,12 @@ unsigned int nf_iterate(struct list_head *head,
 		   reference here, since function can't sleep. --RR */
 repeat:
 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+		if (verdict == NF_FAST_NAT)
+			return NF_FAST_NAT;
+#endif
+
 		if (verdict != NF_ACCEPT) {
 #ifdef CONFIG_NETFILTER_DEBUG
 			if (unlikely((verdict & NF_VERDICT_MASK)
@@ -177,6 +195,16 @@ int nf_hook_slow(int pf, unsigned int hook, struct sk_buff *skb,
 next_hook:
 	verdict = nf_iterate(&nf_hooks[pf][hook], skb, hook, indev,
 			     outdev, &elem, okfn, hook_thresh);
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (verdict == NF_FAST_NAT) {
+		if (bcm_nat_hit_hook)
+			ret = bcm_nat_hit_hook(skb);
+		else {
+			kfree_skb(skb);
+			ret = -EPERM;
+		}
+	} else
+#endif
 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
 		ret = 1;
 		goto unlock;

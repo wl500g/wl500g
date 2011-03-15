@@ -56,6 +56,9 @@ struct nf_nat_multi_range_compat
 struct nf_nat_info
 {
 	struct list_head bysource;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	u_int32_t nat_type;
+#endif
 	struct nf_nat_seq seq[IP_CT_DIR_MAX];
 };
 

@@ -43,6 +43,9 @@ connmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 	enum ip_conntrack_info ctinfo;
 	struct nf_conn *ct;
 	u_int32_t newmark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn_nat *nat;
+#endif
 
 	ct = nf_ct_get(skb, &ctinfo);
 	if (ct == NULL)
@@ -53,6 +56,10 @@ connmark_tg(struct sk_buff *skb, const struct xt_action_param *par)
 		newmark = (ct->mark & ~info->ctmask) ^ info->ctmark;
 		if (ct->mark != newmark) {
 			ct->mark = newmark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+			if ((nat = nfct_nat(ct)) != NULL)
+				nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif
 			nf_conntrack_event_cache(IPCT_MARK, skb);
 		}
 		break;

@@ -392,6 +392,23 @@ manip_pkt(u_int16_t proto,
 	return true;
 }
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#ifndef CONFIG_BCM_NAT_MODULE
+inline
+#endif
+int bcm_manip_pkt(u_int16_t proto,
+	struct sk_buff *skb,
+	unsigned int iphdroff,
+	const struct nf_conntrack_tuple *target,
+	enum nf_nat_manip_type maniptype)
+{
+	return manip_pkt(proto, skb, iphdroff, target, maniptype);
+}
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(bcm_manip_pkt);
+#endif
+#endif
+
 /* Do packet manipulations according to nf_nat_setup_info. */
 unsigned int nf_nat_packet(struct nf_conn *ct,
 			   enum ip_conntrack_info ctinfo,
