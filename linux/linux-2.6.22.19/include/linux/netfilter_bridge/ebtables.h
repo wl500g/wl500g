@@ -247,7 +247,7 @@ struct ebt_target
 	struct list_head list;
 	const char name[EBT_FUNCTION_MAXNAMELEN];
 	/* returns one of the standard EBT_* verdicts */
-	unsigned int (*target)(struct sk_buff **pskb,
+	unsigned int (*target)(struct sk_buff *skb,
 		const struct net_device *in, const struct net_device *out,
 		unsigned int hook_num, const struct xt_target *target,
 		const void *targinfo);
@@ -302,7 +302,7 @@ struct ebt_table
 		     ~(__alignof__(struct ebt_replace)-1))
 extern int ebt_register_table(struct ebt_table *table);
 extern void ebt_unregister_table(struct ebt_table *table);
-extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff **pskb,
+extern unsigned int ebt_do_table(unsigned int hook, struct sk_buff *skb,
    const struct net_device *in, const struct net_device *out,
    struct ebt_table *table);
 
