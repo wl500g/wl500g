@@ -267,21 +267,23 @@ stop_vlan(void)
 int
 ipv6_addr(const char *str, struct in6_addr *addr6)
 {
-	char addrstr[INET6_ADDRSTRLEN];
-	char *tmp = addrstr;
+	char addrstr[INET6_ADDRSTRLEN] = "::/0";
+	char *last, *tmp = addrstr;
 	int ret = 128;
 
-	strncpy(addrstr, str, sizeof(addrstr));
+	if (str && *str)
+		strncpy(addrstr, str, sizeof(addrstr));
 	strsep(&tmp, "/");
 
 	if (inet_pton(AF_INET6, addrstr, addr6) != 1)
 		return -1;
 
-	if (tmp != NULL) {
-		ret = strtol(tmp, NULL, 10);
-		if (errno || ret < 0 || ret > 128)
-			ret = 128;
+	if (tmp && *tmp) {
+		ret = strtol(tmp, &last, 10);
+		if (*last || ret < 0 || ret > 128)
+			ret = -1;
 	}
+
 	return ret;
 }
 
