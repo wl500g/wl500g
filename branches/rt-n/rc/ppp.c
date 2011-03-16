@@ -138,7 +138,7 @@ int
 ip6up_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
-	char *value;
+	//char *value;
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
@@ -155,8 +155,8 @@ ip6up_main(int argc, char **argv)
 
 	//if ((value = getenv("LLLOCAL")))
 	//	eval("ip", "-6", "addr", "add", value, "dev", wan_ifname);
-	if ((value = getenv("LLREMOTE")))
-		nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
+	//if ((value = getenv("LLREMOTE")))
+	//	nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
 
 	wan6_up(wan_ifname, unit);
 
