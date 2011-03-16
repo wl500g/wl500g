@@ -847,14 +847,15 @@ function validate_ipaddr(o, v)
 
 function validate_ip6addr(o, v)
 {
-	is_ip6 = true;
-	sep_cnt = 0; colonp = 0;
-	pos = 0;
-	len = o.value.length;
+	// thanks http://www.intermapper.com
+	var regex = /^((([0-9a-f]{1,4}:){7}([0-9a-f]{1,4}|:))|(([0-9a-f]{1,4}:){6}(:[0-9a-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){5}(((:[0-9a-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9a-f]{1,4}:){4}(((:[0-9a-f]{1,4}){1,3})|((:[0-9a-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){3}(((:[0-9a-f]{1,4}){1,4})|((:[0-9a-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){2}(((:[0-9a-f]{1,4}){1,5})|((:[0-9a-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9a-f]{1,4}:){1}(((:[0-9a-f]{1,4}){1,6})|((:[0-9a-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9a-f]{1,4}){1,7})|((:[0-9a-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?$/i;
 
-	if (len===0)
+	if (o.value.length===0)
 	{
-		if ((v=='ipv6_lan_addr' || v=='ipv6_wan_addr') && document.form.ipv6_proto.value!='dhcp6')
+		p=document.form.ipv6_proto.value;
+		if ((v=='ipv6_lan_addr' && (p=="native" || p=="ppp" || p=="tun6in4")) ||
+		    (v=='ipv6_wan_addr' && p=="tun6in4") ||
+		    (v=='ipv6_wan_router' && p=="tun6in4"))
 		{
 			alert("Fields can't be blank!!!");
 			o.focus();
@@ -862,39 +863,7 @@ function validate_ip6addr(o, v)
 		return true;
 	}
 
-	for (i=0; i<len; i++)
-	{
-		c=o.value.charAt(i);
-		if (c==':')
-		{
-			sep_cnt++;
-			if (i > pos)
-				num = parseInt(o.value.substring(pos, i), 16);
-			else
-			{
-				num = 0;
-				if (colonp != 0)
-					is_ip6 = false;
-				colonp = sep_cnt;
-			}
-			if (sep_cnt > 7 || num > 0xffff)
-			{
-				is_ip6 = false;
-				break;
-			}
-			pos = i+1;
-		}
-		else if (!(c>='0'&&c<='9') && !(c>='a'&&c<='f') && !(c>='A'&&c<='F'))
-		{
-			is_ip6 = false;
-			break;
-		}
-	}
-	if (pos < len){ // Check final part
-		if (parseInt(o.value.substring(pos, len), 16) > 0xffff)
-			is_ip6 = false;
-	}
-	if (!is_ip6 || (sep_cnt != 7 && colonp == 0))
+	if (!regex.test(o.value))
 	{
 		alert(o.value + ' is not a valid IPv6 address!');
 		o.focus();
