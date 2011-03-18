@@ -1,0 +1,44 @@
+From 4a2b9c3756077c05dd8666e458a751d2248b61b6
+From: Dan Siemon
+Date: Tue, 15 Mar 2011 13:56:07 +0000
+Subject: [PATCH] net_sched: fix ip_tos2prio
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: 8bit
+
+ECN support incorrectly maps ECN BESTEFFORT packets to TC_PRIO_FILLER
+(1) instead of TC_PRIO_BESTEFFORT (0)
+
+This means ECN enabled flows are placed in pfifo_fast/prio low priority
+band, giving ECN enabled flows [ECT(0) and CE codepoints] higher drop
+probabilities.
+
+This is rather unfortunate, given we would like ECN being more widely
+used.
+
+Ref : http://www.coverfire.com/archives/2011/03/13/pfifo_fast-and-ecn/
+
+Signed-off-by: Dan Siemon <dan@coverfire.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Dave TÃ¤ht <d@taht.net>
+Cc: Jonathan Morton <chromatix99@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 209989c..870b518 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -204,7 +204,7 @@ static struct dst_ops ipv4_dst_ops = {
+ 
+ __u8 ip_tos2prio[16] = {
+ 	TC_PRIO_BESTEFFORT,
+-	ECN_OR_COST(FILLER),
++	ECN_OR_COST(BESTEFFORT),
+ 	TC_PRIO_BESTEFFORT,
+ 	ECN_OR_COST(BESTEFFORT),
+ 	TC_PRIO_BULK,
+-- 
+1.7.4.1
