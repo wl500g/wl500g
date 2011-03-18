@@ -195,20 +195,20 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_stats_in6);
 #endif
 
 /* /proc */
+int udp_seq_open(struct inode *inode, struct file *file);
+
 struct udp_seq_afinfo {
-	struct module		*owner;
-	char			*name;
-	sa_family_t		family;
-	struct hlist_head	*hashtable;
-	int 			(*seq_show) (struct seq_file *m, void *v);
-	struct file_operations	*seq_fops;
+	char				*name;
+	sa_family_t			family;
+	struct hlist_head		*hashtable;
+	const struct file_operations	*seq_fops;
+	struct seq_operations		seq_ops;
 };
 
 struct udp_iter_state {
 	sa_family_t		family;
 	struct hlist_head	*hashtable;
 	int			bucket;
-	struct seq_operations	seq_ops;
 };
 
 #ifdef CONFIG_PROC_FS

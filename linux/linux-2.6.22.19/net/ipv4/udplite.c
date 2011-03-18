@@ -80,14 +80,23 @@ static struct inet_protosw udplite4_protosw = {
 };
 
 #ifdef CONFIG_PROC_FS
-static struct file_operations udplite4_seq_fops;
+
+static const struct file_operations udplite_afinfo_seq_fops = {
+	.owner    = THIS_MODULE,
+	.open     = udp_seq_open,
+	.read     = seq_read,
+	.llseek   = seq_lseek,
+	.release  = seq_release_private
+};
+
 static struct udp_seq_afinfo udplite4_seq_afinfo = {
-	.owner		= THIS_MODULE,
 	.name		= "udplite",
 	.family		= AF_INET,
 	.hashtable	= udplite_hash,
-	.seq_show	= udp4_seq_show,
-	.seq_fops	= &udplite4_seq_fops,
+	.seq_fops	= &udplite_afinfo_seq_fops,
+	.seq_ops	= {
+		.show		= udp4_seq_show,
+	},
 };
 #endif
 

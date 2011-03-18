@@ -83,14 +83,23 @@ void __init udplitev6_init(void)
 }
 
 #ifdef CONFIG_PROC_FS
-static struct file_operations udplite6_seq_fops;
+
+static const struct file_operations udplite6_afinfo_seq_fops = {
+	.owner    = THIS_MODULE,
+	.open     = udp_seq_open,
+	.read     = seq_read,
+	.llseek   = seq_lseek,
+	.release  = seq_release_private
+};
+
 static struct udp_seq_afinfo udplite6_seq_afinfo = {
-	.owner		= THIS_MODULE,
 	.name		= "udplite6",
 	.family		= AF_INET6,
 	.hashtable	= udplite_hash,
-	.seq_show	= udp6_seq_show,
-	.seq_fops	= &udplite6_seq_fops,
+	.seq_fops	= &udplite6_afinfo_seq_fops,
+	.seq_ops	= {
+		.show		= udp6_seq_show,
+	},
 };
 
 int __init udplite6_proc_init(void)

@@ -2108,36 +2108,23 @@ static void tcp_seq_stop(struct seq_file *seq, void *v)
 	}
 }
 
-static int tcp_seq_open(struct inode *inode, struct file *file)
+int tcp_seq_open(struct inode *inode, struct file *file)
 {
 	struct tcp_seq_afinfo *afinfo = PDE(inode)->data;
-	struct seq_file *seq;
 	struct tcp_iter_state *s;
-	int rc;
 
 	if (unlikely(afinfo == NULL))
 		return -EINVAL;
 
-	s = kzalloc(sizeof(*s), GFP_KERNEL);
+	s = __seq_open_private(file, &afinfo->seq_ops,
+				sizeof(struct tcp_iter_state));
 	if (!s)
 		return -ENOMEM;
 	s->family		= afinfo->family;
-	s->seq_ops.start	= tcp_seq_start;
-	s->seq_ops.next		= tcp_seq_next;
-	s->seq_ops.show		= afinfo->seq_show;
-	s->seq_ops.stop		= tcp_seq_stop;
 
-	rc = seq_open(file, &s->seq_ops);
-	if (rc)
-		goto out_kfree;
-	seq	     = file->private_data;
-	seq->private = s;
-out:
-	return rc;
-out_kfree:
-	kfree(s);
-	goto out;
+	return 0;
 }
+EXPORT_SYMBOL(tcp_seq_open);
 
 int tcp_proc_register(struct tcp_seq_afinfo *afinfo)
 {
@@ -2146,11 +2133,9 @@ int tcp_proc_register(struct tcp_seq_afinfo *afinfo)
 
 	if (!afinfo)
 		return -EINVAL;
-	afinfo->seq_fops->owner		= afinfo->owner;
-	afinfo->seq_fops->open		= tcp_seq_open;
-	afinfo->seq_fops->read		= seq_read;
-	afinfo->seq_fops->llseek	= seq_lseek;
-	afinfo->seq_fops->release	= seq_release_private;
+	afinfo->seq_ops.start		= tcp_seq_start;
+	afinfo->seq_ops.next		= tcp_seq_next;
+	afinfo->seq_ops.stop		= tcp_seq_stop;
 
 	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
 	if (p)
@@ -2165,7 +2150,6 @@ void tcp_proc_unregister(struct tcp_seq_afinfo *afinfo)
 	if (!afinfo)
 		return;
 	proc_net_remove(afinfo->name);
-	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
 }
 
 static void get_openreq4(struct sock *sk, struct request_sock *req,
@@ -2294,13 +2278,21 @@ out:
 	return 0;
 }
 
-static struct file_operations tcp4_seq_fops;
+static const struct file_operations tcp_afinfo_seq_fops = {
+	.owner   = THIS_MODULE,
+	.open    = tcp_seq_open,
+	.read    = seq_read,
+	.llseek  = seq_lseek,
+	.release = seq_release_private
+};
+
 static struct tcp_seq_afinfo tcp4_seq_afinfo = {
-	.owner		= THIS_MODULE,
 	.name		= "tcp",
 	.family		= AF_INET,
-	.seq_show	= tcp4_seq_show,
-	.seq_fops	= &tcp4_seq_fops,
+	.seq_fops	= &tcp_afinfo_seq_fops,
+	.seq_ops	= {
+		.show		= tcp4_seq_show,
+	},
 };
 
 int __init tcp4_proc_init(void)

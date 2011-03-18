@@ -1002,14 +1002,22 @@ int udp6_seq_show(struct seq_file *seq, void *v)
 	return 0;
 }
 
-static struct file_operations udp6_seq_fops;
+static const struct file_operations udp6_afinfo_seq_fops = {
+	.owner    = THIS_MODULE,
+	.open     = udp_seq_open,
+	.read     = seq_read,
+	.llseek   = seq_lseek,
+	.release  = seq_release_private
+};
+
 static struct udp_seq_afinfo udp6_seq_afinfo = {
-	.owner		= THIS_MODULE,
 	.name		= "udp6",
 	.family		= AF_INET6,
 	.hashtable	= udp_hash,
-	.seq_show	= udp6_seq_show,
-	.seq_fops	= &udp6_seq_fops,
+	.seq_fops	= &udp6_afinfo_seq_fops,
+	.seq_ops	= {
+		.show		= udp6_seq_show,
+	},
 };
 
 int __init udp6_proc_init(void)

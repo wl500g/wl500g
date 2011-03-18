@@ -1335,12 +1335,13 @@ enum tcp_seq_states {
 	TCP_SEQ_STATE_TIME_WAIT,
 };
 
+int tcp_seq_open(struct inode *inode, struct file *file);
+
 struct tcp_seq_afinfo {
-	struct module		*owner;
-	char			*name;
-	sa_family_t		family;
-	int			(*seq_show) (struct seq_file *m, void *v);
-	struct file_operations	*seq_fops;
+	char				*name;
+	sa_family_t			family;
+	const struct file_operations	*seq_fops;
+	struct seq_operations		seq_ops;
 };
 
 struct tcp_iter_state {
@@ -1348,7 +1349,6 @@ struct tcp_iter_state {
 	enum tcp_seq_states	state;
 	struct sock		*syn_wait_sk;
 	int			bucket, sbucket, num, uid;
-	struct seq_operations	seq_ops;
 };
 
 extern int tcp_proc_register(struct tcp_seq_afinfo *afinfo);
