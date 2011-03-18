@@ -1,0 +1,1002 @@
+[FS] seq_file: Introduce the seq_open_private()
+
+ kernel.org commits
+ 39699037a5c94d7cd1363dfe48a50c78c643fd9a [FS] seq_file: Introduce the seq_open_private()
+ cf7732e4cc14b56d593ff53352673e1fd5e3ba52 [NET]: Make core networking code use seq_open_private
+ e2da59133880976586b2d9d81d798222ecafa566 [NETFILTER]: Make netfilter code use the seq_open_private
+ a662d4cb50d3976d2c9c9bac34119d0036e31d21 [IRDA]: Make the IRDA use the seq_open_private()
+ ec931035194709d0cde647d1c347bbf9634eec25 [SUNRPC]: Make the sunrpc use the seq_open_private()
+ dda61925f84d89e2f2a4597d6298a05a2bc05c20 [UDP]: Move seq_ops from udp_iter_state to udp_seq_afinfo.
+
+---
+ fs/seq_file.c                                         |   33 +++++++++++++
+ include/linux/seq_file.h                              |    2 
+ include/net/udp.h                                     |    3 -
+ net/ipv4/arp.c                                        |   20 --------
+ net/ipv4/fib_hash.c                                   |   20 --------
+ net/ipv4/fib_trie.c                                   |   42 +----------------
+ net/ipv4/igmp.c                                       |   38 +--------------
+ net/ipv4/ipmr.c                                       |   43 +-----------------
+ net/ipv4/ipvs/ip_vs_ctl.c                             |   20 --------
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c |   18 -------
+ net/ipv4/raw.c                                        |   20 --------
+ net/ipv4/route.c                                      |   19 -------
+ net/ipv4/udp.c                                        |   14 +++--
+ net/ipv4/udplite.c                                    |    4 +
+ net/ipv6/addrconf.c                                   |   20 --------
+ net/ipv6/anycast.c                                    |   20 --------
+ net/ipv6/ip6_flowlabel.c                              |   20 --------
+ net/ipv6/mcast.c                                      |   40 +---------------
+ net/ipv6/raw.c                                        |   17 -------
+ net/ipv6/udp.c                                        |    4 +
+ net/ipv6/udplite.c                                    |    4 +
+ net/irda/irlap.c                                      |   26 +---------
+ net/irda/irlmp.c                                      |   21 --------
+ net/irda/irttp.c                                      |   21 --------
+ net/netfilter/nf_conntrack_standalone.c               |   18 -------
+ net/netfilter/nfnetlink_log.c                         |   18 -------
+ net/netfilter/nfnetlink_queue.c                       |   18 -------
+ net/netlink/af_netlink.c                              |   11 ----
+ net/sunrpc/cache.c                                    |   12 -----
+ net/unix/af_unix.c                                    |   20 --------
+ 30 files changed, 107 insertions(+), 479 deletions(-)
+
+diff --git a/fs/seq_file.c b/fs/seq_file.c
+--- a/fs/seq_file.c
++++ b/fs/seq_file.c
+@@ -425,6 +425,39 @@ int seq_release_private(struct inode *in
+ }
+ EXPORT_SYMBOL(seq_release_private);
+ 
++void *__seq_open_private(struct file *f, const struct seq_operations *ops,
++		int psize)
++{
++	int rc;
++	void *private;
++	struct seq_file *seq;
++
++	private = kzalloc(psize, GFP_KERNEL);
++	if (private == NULL)
++		goto out;
++
++	rc = seq_open(f, ops);
++	if (rc < 0)
++		goto out_free;
++
++	seq = f->private_data;
++	seq->private = private;
++	return private;
++
++out_free:
++	kfree(private);
++out:
++	return NULL;
++}
++EXPORT_SYMBOL(__seq_open_private);
++
++int seq_open_private(struct file *filp, const struct seq_operations *ops,
++		int psize)
++{
++	return __seq_open_private(filp, ops, psize) ? 0 : -ENOMEM;
++}
++EXPORT_SYMBOL(seq_open_private);
++
+ int seq_putc(struct seq_file *m, char c)
+ {
+ 	if (m->count < m->size) {
+diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
+--- a/include/linux/seq_file.h
++++ b/include/linux/seq_file.h
+@@ -46,6 +46,8 @@ int seq_path(struct seq_file *, struct v
+ 
+ int single_open(struct file *, int (*)(struct seq_file *, void *), void *);
+ int single_release(struct inode *, struct file *);
++void *__seq_open_private(struct file *, const struct seq_operations *, int);
++int seq_open_private(struct file *, const struct seq_operations *, int);
+ int seq_release_private(struct inode *, struct file *);
+ 
+ #define SEQ_START_TOKEN ((void *)1)
+diff --git a/include/net/udp.h b/include/net/udp.h
+--- a/include/net/udp.h
++++ b/include/net/udp.h
+@@ -155,15 +155,14 @@ struct udp_seq_afinfo {
+ 	char			*name;
+ 	sa_family_t		family;
+ 	struct hlist_head	*hashtable;
+-	int 			(*seq_show) (struct seq_file *m, void *v);
+ 	struct file_operations	*seq_fops;
++	struct seq_operations	seq_ops;
+ };
+ 
+ struct udp_iter_state {
+ 	sa_family_t		family;
+ 	struct hlist_head	*hashtable;
+ 	int			bucket;
+-	struct seq_operations	seq_ops;
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1350,24 +1350,8 @@ static const struct seq_operations arp_s
+ 
+ static int arp_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct neigh_seq_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &arp_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &arp_seq_ops,
++			sizeof(struct neigh_seq_state));
+ }
+ 
+ static const struct file_operations arp_seq_fops = {
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -1042,24 +1042,8 @@ static const struct seq_operations fib_s
+ 
+ static int fib_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct fib_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &fib_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &fib_seq_ops,
++			sizeof(struct fib_iter_state));
+ }
+ 
+ static const struct file_operations fib_seq_fops = {
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -2358,25 +2358,8 @@ static const struct seq_operations fib_t
+ 
+ static int fib_trie_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct fib_trie_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &fib_trie_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &fib_trie_seq_ops,
++			sizeof(struct fib_trie_iter));
+ }
+ 
+ static const struct file_operations fib_trie_fops = {
+@@ -2479,25 +2462,8 @@ static const struct seq_operations fib_r
+ 
+ static int fib_route_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct fib_trie_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &fib_route_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &fib_route_seq_ops,
++			sizeof(struct fib_trie_iter));
+ }
+ 
+ static const struct file_operations fib_route_fops = {
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -2411,23 +2411,8 @@ static const struct seq_operations igmp_
+ 
+ static int igmp_mc_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct igmp_mc_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &igmp_mc_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &igmp_mc_seq_ops,
++			sizeof(struct igmp_mc_iter_state));
+ }
+ 
+ static const struct file_operations igmp_mc_seq_fops = {
+@@ -2585,23 +2570,8 @@ static const struct seq_operations igmp_
+ 
+ static int igmp_mcf_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct igmp_mcf_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &igmp_mcf_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &igmp_mcf_seq_ops,
++			sizeof(struct igmp_mcf_iter_state));
+ }
+ 
+ static const struct file_operations igmp_mcf_seq_fops = {
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -1684,26 +1684,8 @@ static const struct seq_operations ipmr_
+ 
+ static int ipmr_vif_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct ipmr_vif_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &ipmr_vif_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	s->ct = 0;
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
+-
++	return seq_open_private(file, &ipmr_vif_seq_ops,
++			sizeof(struct ipmr_vif_iter));
+ }
+ 
+ static const struct file_operations ipmr_vif_fops = {
+@@ -1847,25 +1829,8 @@ static const struct seq_operations ipmr_
+ 
+ static int ipmr_mfc_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct ipmr_mfc_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &ipmr_mfc_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
+-
++	return seq_open_private(file, &ipmr_mfc_seq_ops,
++			sizeof(struct ipmr_mfc_iter));
+ }
+ 
+ static const struct file_operations ipmr_mfc_fops = {
+diff --git a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+--- a/net/ipv4/ipvs/ip_vs_ctl.c
++++ b/net/ipv4/ipvs/ip_vs_ctl.c
+@@ -1792,24 +1792,8 @@ static struct seq_operations ip_vs_info_
+ 
+ static int ip_vs_info_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct ip_vs_iter *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &ip_vs_info_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &ip_vs_info_seq_ops,
++			sizeof(struct ip_vs_iter));
+ }
+ 
+ static const struct file_operations ip_vs_info_fops = {
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -175,23 +175,8 @@ static struct seq_operations ct_seq_ops 
+ 
+ static int ct_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	struct ct_iter_state *st;
+-	int ret;
+-
+-	st = kmalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
+-	if (st == NULL)
+-		return -ENOMEM;
+-	ret = seq_open(file, &ct_seq_ops);
+-	if (ret)
+-		goto out_free;
+-	seq          = file->private_data;
+-	seq->private = st;
+-	memset(st, 0, sizeof(struct ct_iter_state));
+-	return ret;
+-out_free:
+-	kfree(st);
+-	return ret;
++	return seq_open_private(file, &ct_seq_ops,
++			sizeof(struct ct_iter_state));
+ }
+ 
+ static const struct file_operations ct_file_ops = {
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -908,24 +908,8 @@ static const struct seq_operations raw_s
+ 
+ static int raw_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct raw_iter_state *s;
+-
+-	s = kzalloc(sizeof(*s), GFP_KERNEL);
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &raw_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &raw_seq_ops,
++			sizeof(struct raw_iter_state));
+ }
+ 
+ static const struct file_operations raw_seq_fops = {
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -378,23 +378,8 @@ static const struct seq_operations rt_ca
+ 
+ static int rt_cache_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct rt_cache_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &rt_cache_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-	seq          = file->private_data;
+-	seq->private = s;
+-	memset(s, 0, sizeof(*s));
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &rt_cache_seq_ops,
++			sizeof(struct rt_cache_iter_state));
+ }
+ 
+ static const struct file_operations rt_cache_seq_fops = {
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1551,12 +1551,8 @@ static int udp_seq_open(struct inode *in
+ 		goto out;
+ 	s->family		= afinfo->family;
+ 	s->hashtable		= afinfo->hashtable;
+-	s->seq_ops.start	= udp_seq_start;
+-	s->seq_ops.next		= udp_seq_next;
+-	s->seq_ops.show		= afinfo->seq_show;
+-	s->seq_ops.stop		= udp_seq_stop;
+ 
+-	rc = seq_open(file, &s->seq_ops);
++	rc = seq_open(file, &afinfo->seq_ops);
+ 	if (rc)
+ 		goto out_kfree;
+ 
+@@ -1583,6 +1579,10 @@ int udp_proc_register(struct udp_seq_afi
+ 	afinfo->seq_fops->llseek	= seq_lseek;
+ 	afinfo->seq_fops->release	= seq_release_private;
+ 
++	afinfo->seq_ops.start		= udp_seq_start;
++	afinfo->seq_ops.next		= udp_seq_next;
++	afinfo->seq_ops.stop		= udp_seq_stop;
++
+ 	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
+ 	if (p)
+ 		p->data = afinfo;
+@@ -1641,8 +1641,10 @@ static struct udp_seq_afinfo udp4_seq_af
+ 	.name		= "udp",
+ 	.family		= AF_INET,
+ 	.hashtable	= udp_hash,
+-	.seq_show	= udp4_seq_show,
+ 	.seq_fops	= &udp4_seq_fops,
++	.seq_ops	= {
++		.show		= udp4_seq_show,
++	},
+ };
+ 
+ int __init udp4_proc_init(void)
+diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
+--- a/net/ipv4/udplite.c
++++ b/net/ipv4/udplite.c
+@@ -86,8 +86,10 @@ static struct udp_seq_afinfo udplite4_se
+ 	.name		= "udplite",
+ 	.family		= AF_INET,
+ 	.hashtable	= udplite_hash,
+-	.seq_show	= udp4_seq_show,
+ 	.seq_fops	= &udplite4_seq_fops,
++	.seq_ops	= {
++		.show		= udp4_seq_show,
++	},
+ };
+ #endif
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2889,24 +2889,8 @@ static struct seq_operations if6_seq_ops
+ 
+ static int if6_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct if6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &if6_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &if6_seq_ops,
++			sizeof(struct if6_iter_state));
+ }
+ 
+ static const struct file_operations if6_fops = {
+diff --git a/net/ipv6/anycast.c b/net/ipv6/anycast.c
+--- a/net/ipv6/anycast.c
++++ b/net/ipv6/anycast.c
+@@ -549,24 +549,8 @@ static struct seq_operations ac6_seq_ops
+ 
+ static int ac6_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct ac6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &ac6_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &ac6_seq_ops,
++			sizeof(struct ac6_iter_state));
+ }
+ 
+ static const struct file_operations ac6_seq_fops = {
+diff --git a/net/ipv6/ip6_flowlabel.c b/net/ipv6/ip6_flowlabel.c
+--- a/net/ipv6/ip6_flowlabel.c
++++ b/net/ipv6/ip6_flowlabel.c
+@@ -657,24 +657,8 @@ static struct seq_operations ip6fl_seq_o
+ 
+ static int ip6fl_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct ip6fl_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &ip6fl_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &ip6fl_seq_ops,
++			sizeof(struct ip6fl_iter_state));
+ }
+ 
+ static const struct file_operations ip6fl_seq_fops = {
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2435,24 +2435,8 @@ static struct seq_operations igmp6_mc_se
+ 
+ static int igmp6_mc_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct igmp6_mc_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &igmp6_mc_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &igmp6_mc_seq_ops,
++			sizeof(struct igmp6_mc_iter_state));
+ }
+ 
+ static const struct file_operations igmp6_mc_seq_fops = {
+@@ -2609,24 +2593,8 @@ static struct seq_operations igmp6_mcf_s
+ 
+ static int igmp6_mcf_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct igmp6_mcf_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &igmp6_mcf_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &igmp6_mcf_seq_ops,
++			sizeof(struct igmp6_mcf_iter_state));
+ }
+ 
+ static const struct file_operations igmp6_mcf_seq_fops = {
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1279,21 +1279,8 @@ static struct seq_operations raw6_seq_op
+ 
+ static int raw6_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct raw6_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
+-	if (!s)
+-		goto out;
+-	rc = seq_open(file, &raw6_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-	seq = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &raw6_seq_ops,
++			sizeof(struct raw6_iter_state));
+ }
+ 
+ static const struct file_operations raw6_seq_fops = {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -969,8 +969,10 @@ static struct udp_seq_afinfo udp6_seq_af
+ 	.name		= "udp6",
+ 	.family		= AF_INET6,
+ 	.hashtable	= udp_hash,
+-	.seq_show	= udp6_seq_show,
+ 	.seq_fops	= &udp6_seq_fops,
++	.seq_ops	= {
++		.show		= udp6_seq_show,
++	},
+ };
+ 
+ int __init udp6_proc_init(void)
+diff --git a/net/ipv6/udplite.c b/net/ipv6/udplite.c
+--- a/net/ipv6/udplite.c
++++ b/net/ipv6/udplite.c
+@@ -89,8 +89,10 @@ static struct udp_seq_afinfo udplite6_se
+ 	.name		= "udplite6",
+ 	.family		= AF_INET6,
+ 	.hashtable	= udplite_hash,
+-	.seq_show	= udp6_seq_show,
+ 	.seq_fops	= &udplite6_seq_fops,
++	.seq_ops	= {
++		.show		= udp6_seq_show,
++	},
+ };
+ 
+ int __init udplite6_proc_init(void)
+diff --git a/net/irda/irlap.c b/net/irda/irlap.c
+--- a/net/irda/irlap.c
++++ b/net/irda/irlap.c
+@@ -1219,29 +1219,11 @@ static struct seq_operations irlap_seq_o
+ 
+ static int irlap_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct irlap_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
++	if (irlap == NULL)
++		return -EINVAL;
+ 
+-	if (!s)
+-		goto out;
+-
+-	if (irlap == NULL) {
+-		rc = -EINVAL;
+-		goto out_kfree;
+-	}
+-
+-	rc = seq_open(file, &irlap_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &irlap_seq_ops,
++			sizeof(struct irlap_iter_state));
+ }
+ 
+ const struct file_operations irlap_seq_fops = {
+diff --git a/net/irda/irlmp.c b/net/irda/irlmp.c
+--- a/net/irda/irlmp.c
++++ b/net/irda/irlmp.c
+@@ -2003,27 +2003,10 @@ static struct seq_operations irlmp_seq_o
+ 
+ static int irlmp_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct irlmp_iter_state *s;
+-
+ 	IRDA_ASSERT(irlmp != NULL, return -EINVAL;);
+ 
+-	s = kmalloc(sizeof(*s), GFP_KERNEL);
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &irlmp_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &irlmp_seq_ops,
++			sizeof(struct irlmp_iter_state));
+ }
+ 
+ const struct file_operations irlmp_seq_fops = {
+diff --git a/net/irda/irttp.c b/net/irda/irttp.c
+--- a/net/irda/irttp.c
++++ b/net/irda/irttp.c
+@@ -1875,25 +1875,8 @@ static struct seq_operations irttp_seq_o
+ 
+ static int irttp_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	struct irttp_iter_state *s;
+-
+-	s = kzalloc(sizeof(*s), GFP_KERNEL);
+-	if (!s)
+-		goto out;
+-
+-	rc = seq_open(file, &irttp_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = s;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(s);
+-	goto out;
++	return seq_open_private(file, &irttp_seq_ops,
++			sizeof(struct irttp_iter_state));
+ }
+ 
+ const struct file_operations irttp_seq_fops = {
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -201,23 +201,8 @@ static struct seq_operations ct_seq_ops 
+ 
+ static int ct_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	struct ct_iter_state *st;
+-	int ret;
+-
+-	st = kmalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
+-	if (st == NULL)
+-		return -ENOMEM;
+-	ret = seq_open(file, &ct_seq_ops);
+-	if (ret)
+-		goto out_free;
+-	seq          = file->private_data;
+-	seq->private = st;
+-	memset(st, 0, sizeof(struct ct_iter_state));
+-	return ret;
+-out_free:
+-	kfree(st);
+-	return ret;
++	return seq_open_private(file, &ct_seq_ops,
++			sizeof(struct ct_iter_state));
+ }
+ 
+ static const struct file_operations ct_file_ops = {
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -971,22 +971,8 @@ static struct seq_operations nful_seq_op
+ 
+ static int nful_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	struct iter_state *is;
+-	int ret;
+-
+-	is = kzalloc(sizeof(*is), GFP_KERNEL);
+-	if (!is)
+-		return -ENOMEM;
+-	ret = seq_open(file, &nful_seq_ops);
+-	if (ret < 0)
+-		goto out_free;
+-	seq = file->private_data;
+-	seq->private = is;
+-	return ret;
+-out_free:
+-	kfree(is);
+-	return ret;
++	return seq_open_private(file, &nful_seq_ops,
++			sizeof(struct iter_state));
+ }
+ 
+ static const struct file_operations nful_file_ops = {
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -1053,22 +1053,8 @@ static struct seq_operations nfqnl_seq_o
+ 
+ static int nfqnl_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	struct iter_state *is;
+-	int ret;
+-
+-	is = kzalloc(sizeof(*is), GFP_KERNEL);
+-	if (!is)
+-		return -ENOMEM;
+-	ret = seq_open(file, &nfqnl_seq_ops);
+-	if (ret < 0)
+-		goto out_free;
+-	seq = file->private_data;
+-	seq->private = is;
+-	return ret;
+-out_free:
+-	kfree(is);
+-	return ret;
++	return seq_open_private(file, &nfqnl_seq_ops,
++			sizeof(struct iter_state));
+ }
+ 
+ static const struct file_operations nfqnl_file_ops = {
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -1760,22 +1760,13 @@ static struct seq_operations netlink_seq
+ 
+ static int netlink_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+ 	struct nl_seq_iter *iter;
+-	int err;
+ 
+-	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
++	iter = __seq_open_private(file, &netlink_seq_ops, sizeof(*iter));
+ 	if (!iter)
+ 		return -ENOMEM;
+ 
+-	err = seq_open(file, &netlink_seq_ops);
+-	if (err) {
+-		kfree(iter);
+-		return err;
+-	}
+ 
+-	seq = file->private_data;
+-	seq->private = iter;
+ 	return 0;
+ }
+ 
+diff --git a/net/sunrpc/cache.c b/net/sunrpc/cache.c
+--- a/net/sunrpc/cache.c
++++ b/net/sunrpc/cache.c
+@@ -1219,23 +1219,15 @@ static struct seq_operations cache_conte
+ 
+ static int content_open(struct inode *inode, struct file *file)
+ {
+-	int res;
+ 	struct handle *han;
+ 	struct cache_detail *cd = PDE(inode)->data;
+ 
+-	han = kmalloc(sizeof(*han), GFP_KERNEL);
++	han = __seq_open_private(file, &cache_content_op, sizeof(*han));
+ 	if (han == NULL)
+ 		return -ENOMEM;
+ 
+ 	han->cd = cd;
+-
+-	res = seq_open(file, &cache_content_op);
+-	if (res)
+-		kfree(han);
+-	else
+-		((struct seq_file *)file->private_data)->private = han;
+-
+-	return res;
++	return 0;
+ }
+ 
+ static const struct file_operations content_file_operations = {
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -2084,25 +2084,7 @@ static struct seq_operations unix_seq_op
+ 
+ static int unix_seq_open(struct inode *inode, struct file *file)
+ {
+-	struct seq_file *seq;
+-	int rc = -ENOMEM;
+-	int *iter = kmalloc(sizeof(int), GFP_KERNEL);
+-
+-	if (!iter)
+-		goto out;
+-
+-	rc = seq_open(file, &unix_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-
+-	seq	     = file->private_data;
+-	seq->private = iter;
+-	*iter = 0;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(iter);
+-	goto out;
++	return seq_open_private(file, &unix_seq_ops, sizeof(int));
+ }
+ 
+ static const struct file_operations unix_seq_fops = {
+-- 

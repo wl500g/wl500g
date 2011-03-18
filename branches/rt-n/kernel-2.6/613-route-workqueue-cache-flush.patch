@@ -56,25 +56,6 @@ index a64857b..016faf4 100644
  }
  
  static struct rtable *rt_cache_get_idx(struct seq_file *seq, loff_t pos)
-@@ -379,8 +380,9 @@ static int rt_cache_seq_open(struct inode *inode, struct file *file)
- {
- 	struct seq_file *seq;
- 	int rc = -ENOMEM;
--	struct rt_cache_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+	struct rt_cache_iter_state *s;
- 
-+	s = kzalloc(sizeof(*s), GFP_KERNEL);
- 	if (!s)
- 		goto out;
- 	rc = seq_open(file, &rt_cache_seq_ops);
-@@ -388,7 +390,6 @@ static int rt_cache_seq_open(struct inode *inode, struct file *file)
- 		goto out_kfree;
- 	seq          = file->private_data;
- 	seq->private = s;
--	memset(s, 0, sizeof(*s));
- out:
- 	return rc;
- out_kfree:
 @@ -624,7 +625,36 @@ static struct rtable **rt_remove_balanced_route(struct rtable **chain_head,
  #endif /* CONFIG_IP_ROUTE_MULTIPATH_CACHED */
  
