@@ -61,7 +61,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv4/netfilter/ipt_MASQUERADE.c            |    6 
  net/ipv4/netfilter/ipt_NETMAP.c                |    8 
  net/ipv4/netfilter/ipt_REDIRECT.c              |    6 
- net/ipv4/netfilter/ipt_REJECT.c                |   22 +-
+ net/ipv4/netfilter/ipt_REJECT.c                |   20 +-
  net/ipv4/netfilter/ipt_SAME.c                  |    4 
  net/ipv4/netfilter/ipt_TOS.c                   |    8 
  net/ipv4/netfilter/ipt_ULOG.c                  |    4 
@@ -86,7 +86,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv4/netfilter/nf_nat_snmp_basic.c         |   14 -
  net/ipv4/netfilter/nf_nat_standalone.c         |   62 +++---
  net/ipv4/netfilter/nf_nat_tftp.c               |    2 
- net/ipv4/xfrm4_output.c                        |    4 
+ net/ipv4/xfrm4_output.c                        |    2 
  net/ipv6/exthdrs.c                             |   64 ++----
  net/ipv6/icmp.c                                |    5 
  net/ipv6/ip6_input.c                           |    4 
@@ -106,7 +106,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/ipv6/udp_impl.h                            |    2 
  net/ipv6/udplite.c                             |    4 
  net/ipv6/xfrm6_input.c                         |    4 
- net/ipv6/xfrm6_output.c                        |    4 
+ net/ipv6/xfrm6_output.c                        |    2 
  net/netfilter/core.c                           |   46 +---
  net/netfilter/nf_conntrack_amanda.c            |   20 +-
  net/netfilter/nf_conntrack_core.c              |   30 +--
@@ -135,7 +135,7 @@ netfilter: Replace sk_buff ** with sk_buff *
  net/sched/act_ipt.c                            |    6 
  net/sched/sch_ingress.c                        |    5 
  net/sctp/ipv6.c                                |    4 
- 126 files changed, 1003 insertions(+), 1138 deletions(-)
+ 126 files changed, 1000 insertions(+), 1135 deletions(-)
 
 diff -urBp a/include/linux/if_bridge.h b/include/linux/if_bridge.h
 --- a/include/linux/if_bridge.h	2008-02-26 02:59:40.000000000 +0300
@@ -1922,9 +1922,9 @@ diff -urBp a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
 --- a/net/ipv4/netfilter/ipt_REJECT.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv4/netfilter/ipt_REJECT.c	2011-03-14 16:32:13.000000000 +0300
 @@ -137,7 +137,7 @@ static void send_reset(struct sk_buff *o
- 	   )
- 		addr_type = RTN_LOCAL;
+ 	nskb->dst = dst_clone(oldskb->dst);
  
+ 	nskb->protocol = htons(ETH_P_IP);
 -	if (ip_route_me_harder(&nskb, addr_type))
 +	if (ip_route_me_harder(nskb, addr_type))
  		goto free_nskb;
@@ -1939,15 +1939,6 @@ diff -urBp a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
  			   const struct net_device *in,
  			   const struct net_device *out,
  			   unsigned int hooknum,
-@@ -179,7 +179,7 @@ static unsigned int reject(struct sk_buf
- 
- 	/* Our naive response construction doesn't deal with IP
- 	   options, and probably shouldn't try. */
--	if (ip_hdrlen(*pskb) != sizeof(struct iphdr))
-+	if (ip_hdrlen(skb) != sizeof(struct iphdr))
- 		return NF_DROP;
- 
- 	/* WARNING: This code causes reentry within iptables.
 @@ -187,28 +187,28 @@ static unsigned int reject(struct sk_buf
  	   must return an absolute verdict. --RR */
  	switch (reject->with) {
@@ -3957,15 +3948,6 @@ diff -urBp a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
 diff -urBp a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
 --- a/net/ipv4/xfrm4_output.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv4/xfrm4_output.c	2011-03-14 16:32:14.000000000 +0300
-@@ -105,7 +105,7 @@ static int xfrm4_output_finish2(struct s
- 	while (likely((err = xfrm4_output_one(skb)) == 0)) {
- 		nf_reset(skb);
- 
--		err = nf_hook(PF_INET, NF_IP_LOCAL_OUT, &skb, NULL,
-+		err = nf_hook(PF_INET, NF_IP_LOCAL_OUT, skb, NULL,
- 			      skb->dst->dev, dst_output);
- 		if (unlikely(err != 1))
- 			break;
 @@ -113,7 +113,7 @@ static int xfrm4_output_finish2(struct s
  		if (!skb->dst->xfrm)
  			return dst_output(skb);
@@ -4812,15 +4794,6 @@ diff -urBp a/net/ipv6/xfrm6_input.c b/net/ipv6/xfrm6_input.c
 diff -urBp a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
 --- a/net/ipv6/xfrm6_output.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/net/ipv6/xfrm6_output.c	2011-03-14 16:32:14.000000000 +0300
-@@ -111,7 +111,7 @@ static int xfrm6_output_finish2(struct s
- 	while (likely((err = xfrm6_output_one(skb)) == 0)) {
- 		nf_reset(skb);
- 
--		err = nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, &skb, NULL,
-+		err = nf_hook(PF_INET6, NF_IP6_LOCAL_OUT, skb, NULL,
- 			      skb->dst->dev, dst_output);
- 		if (unlikely(err != 1))
- 			break;
 @@ -119,7 +119,7 @@ static int xfrm6_output_finish2(struct s
  		if (!skb->dst->xfrm)
  			return dst_output(skb);
