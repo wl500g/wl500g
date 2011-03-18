@@ -12,18 +12,17 @@ ba419aff2cda91680e5d4d3eeff95df49bd2edec [NETFILTER]: nf_conntrack: optimize __n
 9f0d1a004d8d8c33d337d2b1cc9f0dc941cab627 [NETFILTER] nf_conntrack_expect.c: kmalloc + memset conversion to kzalloc
 dd00cc486ab1c17049a535413d1751ef3482141c some kmalloc/memset ->kzalloc (tree wide)
 443a70d50bdc212e1292778e264ce3d0a85b896f netfilter: nf_conntrack: padding breaks conntrack hash on ARM
+
 ---
- include/net/netfilter/nf_conntrack.h           |    3 +-
- include/net/netfilter/nf_conntrack_tuple.h     |   25 +++------
- net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 +-
- net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 +-
- netfilter/nf_conntrack_l3proto_ipv4_compat.c   |    3 +-
+ include/net/netfilter/nf_conntrack.h           |    3 -
+ include/net/netfilter/nf_conntrack_tuple.h     |   25 +++--------
+ net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 
  net/ipv4/netfilter/nf_nat_core.c               |   11 +++-
- net/netfilter/nf_conntrack_core.c              |   57 ++++++++++++-------
- net/netfilter/nf_conntrack_netlink.c           |    4 +-
- net/netfilter/nf_conntrack_standalone.c        |    6 +--
- net/netfilter/xt_connlimit.c                   |    2 +-
- 10 files changed, 60 insertions(+), 55 deletions(-)
+ net/netfilter/nf_conntrack_core.c              |   56 ++++++++++++++++---------
+ net/netfilter/nf_conntrack_netlink.c           |    4 -
+ net/netfilter/xt_connlimit.c                   |    2 
+ 8 files changed, 57 insertions(+), 48 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
 index 41f4ec3..93000f6 100644
@@ -128,27 +127,6 @@ index 318d915..f7454e6 100644
  	tuple.src.u3.ip = inet->rcv_saddr;
  	tuple.src.u.tcp.port = inet->sport;
  	tuple.dst.u3.ip = inet->daddr;
-diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index 89f933e..344cb9c 100644
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-@@ -182,7 +182,7 @@ static int ct_open(struct inode *inode, struct file *file)
- 	struct ct_iter_state *st;
- 	int ret;
- 
--	st = kmalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
-+	st = kzalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
- 	if (st == NULL)
- 		return -ENOMEM;
- 	ret = seq_open(file, &ct_seq_ops);
-@@ -190,7 +190,6 @@ static int ct_open(struct inode *inode, struct file *file)
- 		goto out_free;
- 	seq          = file->private_data;
- 	seq->private = st;
--	memset(st, 0, sizeof(struct ct_iter_state));
- 	return ret;
- out_free:
- 	kfree(st);
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 index 669ba4b..bf22a71 100644
 --- a/net/ipv4/netfilter/nf_nat_core.c
@@ -322,27 +300,6 @@ index d0fe3d7..d3a9e60 100644
  
  	if (h == NULL) {
  		write_unlock_bh(&nf_conntrack_lock);
-diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 3c64f36..9703bbb 100644
---- a/net/netfilter/nf_conntrack_standalone.c
-+++ b/net/netfilter/nf_conntrack_standalone.c
-@@ -308,7 +308,7 @@ static int ct_open_track(struct inode *inode, struct file *file)
- 	struct ct_iter_state *st;
- 	int ret;
- 
--	st = kmalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
-+	st = kzalloc(sizeof(struct ct_iter_state), GFP_KERNEL);
- 	if (st == NULL)
- 		return -ENOMEM;
- 	ret = seq_open(file, &ct_seq_ops_track);
-@@ -316,7 +316,6 @@ static int ct_open_track(struct inode *inode, struct file *file)
- 		goto out_free;
- 	seq          = file->private_data;
- 	seq->private = st;
--	memset(st, 0, sizeof(struct ct_iter_state));
- 	return ret;
- out_free:
- 	kfree(st);
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
 index b7d45e9..035b22b 100644
 --- a/net/netfilter/xt_connlimit.c
