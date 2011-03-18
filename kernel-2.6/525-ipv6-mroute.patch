@@ -527,9 +527,9 @@ index 487b09c..4188d59 100644
 +			ip6_mr_input(skb2);
  		}
  	}
++out:
  #endif
 -
-+out:
  	if (likely(deliver)) {
  		ip6_input(skb);
  		return 0;
@@ -567,7 +567,7 @@ new file mode 100644
 index 0000000..4a499d3
 --- /dev/null
 +++ b/net/ipv6/ip6mr.c
-@@ -0,0 +1,1674 @@
+@@ -0,0 +1,1641 @@
 +/*
 + *	Linux IPv6 multicast routing support for BSD pim6sd
 + *	Based on net/ipv4/ipmr.c.
@@ -786,25 +786,8 @@ index 0000000..4a499d3
 +
 +static int ip6mr_vif_open(struct inode *inode, struct file *file)
 +{
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+	struct ipmr_vif_iter *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+
-+	if (!s)
-+		goto out;
-+
-+	rc = seq_open(file, &ip6mr_vif_seq_ops);
-+	if (rc)
-+		goto out_kfree;
-+
-+	s->ct = 0;
-+	seq = file->private_data;
-+	seq->private = s;
-+out:
-+	return rc;
-+out_kfree:
-+	kfree(s);
-+	goto out;
++	return seq_open_private(file, &ip6mr_vif_seq_ops,
++				sizeof(struct ipmr_vif_iter));
 +}
 +
 +static struct file_operations ip6mr_vif_fops = {
@@ -917,24 +900,8 @@ index 0000000..4a499d3
 +
 +static int ipmr_mfc_open(struct inode *inode, struct file *file)
 +{
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+	struct ipmr_mfc_iter *s = kzalloc(sizeof(*s), GFP_KERNEL);
-+
-+	if (!s)
-+		goto out;
-+
-+	rc = seq_open(file, &ipmr_mfc_seq_ops);
-+	if (rc)
-+		goto out_kfree;
-+
-+	seq = file->private_data;
-+	seq->private = s;
-+out:
-+	return rc;
-+out_kfree:
-+	kfree(s);
-+	goto out;
++	return seq_open_private(file, &ipmr_mfc_seq_ops,
++				sizeof(struct ipmr_mfc_iter));
 +}
 +
 +static struct file_operations ip6mr_mfc_fops = {
