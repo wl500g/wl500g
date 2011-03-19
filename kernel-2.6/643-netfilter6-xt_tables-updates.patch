@@ -1,4 +1,3 @@
-From e0809c390d7c6fb8f30424a81ceb5dcd7fcd8a00
 From: Fedor <fedork@ubuntu.(none)>
 Date: Tue, 28 Sep 2010 11:27:23 -0400
 Subject: [NETFILTER]: iptables: lock free counters, and other backports from 2.6.30
@@ -28,6 +27,7 @@ eacc17fb64f03b6c268aaf6cea320100d19d8af5 netfilter: xt_physdev: unfold two loops
 b8dfe498775de912116f275680ddb57c8799d9ef netfilter: factorize ifname_compare()
 9c8222b9e71b690c8388bb0ebe5c3e5a1469e884 netfilter: x_tables: remove unneeded initializations
 e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
+42046e2e45c109ba703993c510401a11f716c8df netfilter: x_tables: return -ENOENT for non-existant matches/targets
 ---
 
  include/linux/netfilter/x_tables.h        |  142 ++++++++++++++++++++-
@@ -48,13 +48,13 @@ e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
  net/ipv6/netfilter/ip6table_filter.c      |    1 
  net/ipv6/netfilter/ip6table_mangle.c      |    1 
  net/ipv6/netfilter/ip6table_raw.c         |    1 
- net/netfilter/x_tables.c                  |   38 ++++-
+ net/netfilter/x_tables.c                  |   42 ++++--
  net/netfilter/xt_hashlimit.c              |    6 
  net/netfilter/xt_limit.c                  |   42 ++++--
  net/netfilter/xt_physdev.c                |   20 --
  net/netfilter/xt_quota.c                  |   33 ++++
  net/netfilter/xt_statistic.c              |   31 +++-
- 24 files changed, 487 insertions(+), 374 deletions(-)
+ 24 files changed, 489 insertions(+), 376 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
 index 7e733a6..acfa700 100644
@@ -1467,9 +1467,26 @@ index 0acda45..03477a8 100644
  	.af = AF_INET6,
  };
 diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 0eb2504..442401d 100644
 --- a/net/netfilter/x_tables.c
 +++ b/net/netfilter/x_tables.c
+@@ -190,7 +190,7 @@ EXPORT_SYMBOL(xt_unregister_matches);
+ struct xt_match *xt_find_match(u8 af, const char *name, u8 revision)
+ {
+ 	struct xt_match *m;
+-	int err = 0;
++	int err = -ENOENT;
+ 
+ 	if (mutex_lock_interruptible(&xt[af].mutex) != 0)
+ 		return ERR_PTR(-EINTR);
+@@ -235,7 +235,7 @@ EXPORT_SYMBOL_GPL(xt_request_find_match);
+ struct xt_target *xt_find_target(u8 af, const char *name, u8 revision)
+ {
+ 	struct xt_target *t;
+-	int err = 0;
++	int err = -ENOENT;
+ 
+ 	if (mutex_lock_interruptible(&xt[af].mutex) != 0)
+ 		return ERR_PTR(-EINTR);
 @@ -493,7 +493,7 @@ struct xt_table_info *xt_alloc_table_info(unsigned int size)
  	if ((SMP_ALIGN(size) >> PAGE_SHIFT) + 2 > num_physpages)
  		return NULL;
