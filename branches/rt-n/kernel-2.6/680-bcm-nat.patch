@@ -154,7 +154,7 @@
 +	       skb->dst->dev->mtu : dst_mtu(skb->dst);
 +}
 +
-+static inline int
++static int
 +bcm_fast_path(struct sk_buff *skb)
 +{
 +	if (skb->dst == NULL) {
@@ -179,7 +179,7 @@
 +	return -EINVAL;
 +}
 +
-+static inline int
++static int
 +bcm_do_bindings(struct nf_conn *ct,
 +	enum ip_conntrack_info ctinfo,
 +	struct sk_buff *skb,
@@ -478,7 +478,7 @@
  	}
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	if (pf == PF_INET) {
++	if (pf == PF_INET && ipv4_conntrack_fastnat) {
 +		/* Gather fragments. */
 +		if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
 +			if (nf_ct_ipv4_gather_frags(skb,
@@ -532,29 +532,51 @@
  }
 --- a/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-13 05:00:00.000000000 +0500
 +++ b/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-14 17:46:34.153163002 +0500
-@@ -1403,7 +1403,11 @@ struct nf_conntrack_l4proto nf_conntrack
- 	.print_conntrack 	= tcp_print_conntrack,
- 	.packet 		= tcp_packet,
- 	.new 			= tcp_new,
+@@ -33,6 +33,10 @@
+ #define DEBUGP(format, args...)
+ #endif
+ 
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	.error			= NULL,
-+#else
- 	.error			= tcp_error,
++extern int ipv4_conntrack_fastnat;
 +#endif
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
- 	.to_nfattr		= tcp_to_nfattr,
- 	.from_nfattr		= nfattr_to_tcp,
++
+ /* Protects conntrack->proto.tcp */
+ static DEFINE_RWLOCK(tcp_lock);
+ 
+@@ -759,6 +763,11 @@ static int tcp_error(struct sk_buff *skb
+ 	unsigned int tcplen = skb->len - dataoff;
+ 	u_int8_t tcpflags;
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if (ipv4_conntrack_fastnat)
++		return NF_ACCEPT;
++#endif
++
+ 	/* Smaller that minimal TCP header? */
+ 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
+ 	if (th == NULL) {
 --- a/net/netfilter/nf_conntrack_proto_udp.c	2011-03-13 05:00:00.000000000 +0500
 +++ b/net/netfilter/nf_conntrack_proto_udp.c	2011-03-14 17:45:59.873163002 +0500
-@@ -194,7 +194,11 @@ struct nf_conntrack_l4proto nf_conntrack
- 	.print_tuple		= udp_print_tuple,
- 	.packet			= udp_packet,
- 	.new			= udp_new,
+@@ -23,6 +23,10 @@
+ #include <net/netfilter/nf_conntrack_l4proto.h>
+ #include <net/netfilter/nf_conntrack_ecache.h>
+ 
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	.error                  = NULL,
-+#else
- 	.error			= udp_error,
++extern int ipv4_conntrack_fastnat;
 +#endif
- #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
- 	.tuple_to_nfattr	= nf_ct_port_tuple_to_nfattr,
- 	.nfattr_to_tuple	= nf_ct_port_nfattr_to_tuple,
++
+ static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
+ static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
+ 
+@@ -97,6 +101,11 @@ static int udp_error(struct sk_buff *skb
+ 	unsigned int udplen = skb->len - dataoff;
+ 	struct udphdr _hdr, *hdr;
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if (ipv4_conntrack_fastnat)
++		return NF_ACCEPT;
++#endif
++
+ 	/* Header is too small? */
+ 	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
+ 	if (hdr == NULL) {
