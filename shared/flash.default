@@ -88,6 +88,8 @@
 
 {"misc_natlog_x", "0", 0},
 
+{"misc_fastnat_x", "1", 0},
+
 {"misc_http_x", "0", 0},
 
 {"misc_httpport_x", "8080", 0},
