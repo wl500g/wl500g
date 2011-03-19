@@ -390,7 +390,7 @@
  	rcu_read_unlock();
  	return ret;
 --- a/net/netfilter/nf_conntrack_core.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/netfilter/nf_conntrack_core.c	2011-03-14 20:58:24.093163002 +0500
++++ b/net/netfilter/nf_conntrack_core.c	2011-03-19 21:53:05.993163002 +0500
 @@ -30,6 +30,10 @@
  #include <linux/socket.h>
  #include <linux/mm.h>
@@ -462,18 +462,17 @@
  unsigned int
  nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
  {
-@@ -848,6 +892,10 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -848,6 +891,9 @@ nf_conntrack_in(int pf, unsigned int hoo
  	u_int8_t protonum;
  	int set_reply = 0;
  	int ret;
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	struct nf_conn_nat *nat;
-+	struct nf_conn_help *help;
++	struct nf_conn_nat *nat = NULL;
 +#endif
  
  	/* Previously seen (loopback or untracked)?  Ignore. */
  	if (skb->nfct) {
-@@ -863,6 +911,19 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -863,6 +909,19 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
@@ -493,36 +492,40 @@
  	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
  
  	/* It may be an special packet, error, unclean...
-@@ -902,8 +964,35 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -902,8 +961,39 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
 -	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	help = nfct_help(ct);
-+	nat = nfct_nat(ct);
-+	if (pf == PF_INET && ipv4_conntrack_fastnat && bcm_nat_bind_hook
-+	&& !(nat->info.nat_type & BCM_FASTNAT_DENY)
-+	&& !help->helper
-+	&& (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY)
-+	&& (hooknum == NF_IP_PRE_ROUTING)
-+	&& (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
-+		struct nf_conntrack_tuple *t1, *t2;
++	if (pf == PF_INET)
++		nat = nfct_nat(ct);
 +
-+		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-+		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-+		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
-+			t1->src.u3.ip == t2->dst.u3.ip &&
-+			t1->dst.u.all == t2->src.u.all &&
-+			t1->src.u.all == t2->dst.u.all)) {
-+			ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
++	if (nat && hooknum == NF_IP_PRE_ROUTING &&
++	    ipv4_conntrack_fastnat && bcm_nat_bind_hook) {
++		struct nf_conn_help *help = nfct_help(ct);
++
++		if (!(nat->info.nat_type & BCM_FASTNAT_DENY) &&
++		    !help->helper &&
++		    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY) &&
++		    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
++			struct nf_conntrack_tuple *t1, *t2;
++
++			t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++			t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++			if (!(t1->dst.u3.ip == t2->src.u3.ip &&
++				t1->src.u3.ip == t2->dst.u3.ip &&
++				t1->dst.u.all == t2->src.u.all &&
++				t1->src.u.all == t2->dst.u.all)) {
++				ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
++			}
 +		}
 +	}
 +#endif
 +
 +	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+		if (pf == PF_INET && hooknum == NF_IP_LOCAL_OUT)
++		if (nat && hooknum == NF_IP_LOCAL_OUT)
 +			nat->info.nat_type |= BCM_FASTNAT_DENY;
 +#endif
  		nf_conntrack_event_cache(IPCT_STATUS, skb);
