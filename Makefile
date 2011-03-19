@@ -140,7 +140,7 @@ kernel-patch:
 kernel-extra-drivers:
 	$(MAKE) -C $(KERNEL) extra-drivers
 
-kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
+kernel: lzma wl brcm-shared kernel-extra-drivers kernel-patch
 	$(MAKE) -C $(KERNEL) config
 
 $(ROOT)/asustrx:
