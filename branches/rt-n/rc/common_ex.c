@@ -673,6 +673,12 @@ void convert_asus_values()
 	}
 #endif
 
+#if defined(LINUX26) && defined(QOS)
+	/* Kinda smart fast nat management */
+	fputs_ex("/net/ipv4/netfilter/ip_conntrack_fastnat",
+	    (nvram_match("wan_nat_x", "1") && !nvram_match("qos_enable_x", "1")) ? "1" : "0");
+#endif
+
 	update_lan_status(1);
 
 	free(list);
