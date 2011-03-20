@@ -1,0 +1,143 @@
+From 2e77d89b2fa8e3f8325b8ce7893ec3645f41aff5
+From: Eric Dumazet
+Date: Mon, 24 Nov 2008 15:52:46 -0800
+Subject: [PATCH] net: avoid a pair of dst_hold()/dst_release() in ip_append_data()
+
+We can reduce pressure on dst entry refcount that slowdown UDP transmit
+path on SMP machines. This pressure is visible on RTP servers when
+delivering content to mediagateways, especially big ones, handling
+thousand of streams. Several cpus send UDP frames to the same
+destination, hence use the same dst entry.
+
+This patch makes ip_append_data() eventually steal the refcount its
+callers had to take on the dst entry.
+
+This doesnt avoid all refcounting, but still gives speedups on SMP,
+on UDP/RAW transmit path
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/net/ip.h     |    2 +-
+ net/ipv4/icmp.c      |    8 ++++----
+ net/ipv4/ip_output.c |   11 ++++++++---
+ net/ipv4/raw.c       |    2 +-
+ net/ipv4/udp.c       |    2 +-
+ 5 files changed, 15 insertions(+), 10 deletions(-)
+
+diff --git a/include/net/ip.h b/include/net/ip.h
+index bc026ec..ddef10c 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -110,7 +110,7 @@ extern int		ip_append_data(struct sock *sk,
+ 						   int odd, struct sk_buff *skb),
+ 				void *from, int len, int protolen,
+ 				struct ipcm_cookie *ipc,
+-				struct rtable *rt,
++				struct rtable **rt,
+ 				unsigned int flags);
+ extern int		ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb);
+ extern ssize_t		ip_append_page(struct sock *sk, struct page *page,
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 21e497e..7b88be9 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -321,7 +321,7 @@ static int icmp_glue_bits(void *from, char *to, int offset, int len, int odd,
+ }
+ 
+ static void icmp_push_reply(struct icmp_bxm *icmp_param,
+-			    struct ipcm_cookie *ipc, struct rtable *rt)
++			    struct ipcm_cookie *ipc, struct rtable **rt)
+ {
+ 	struct sk_buff *skb;
+ 
+@@ -392,7 +392,7 @@ static void icmp_reply(struct icmp_bxm *icmp_param, struct sk_buff *skb)
+ 	}
+ 	if (icmpv4_xrlim_allow(net, rt, icmp_param->data.icmph.type,
+ 			       icmp_param->data.icmph.code))
+-		icmp_push_reply(icmp_param, &ipc, rt);
++		icmp_push_reply(icmp_param, &ipc, &rt);
+ 	ip_rt_put(rt);
+ out_unlock:
+ 	icmp_xmit_unlock(sk);
+@@ -635,7 +635,7 @@ route_done:
+ 		icmp_param.data_len = room;
+ 	icmp_param.head_len = sizeof(struct icmphdr);
+ 
+-	icmp_push_reply(&icmp_param, &ipc, rt);
++	icmp_push_reply(&icmp_param, &ipc, &rt);
+ ende:
+ 	ip_rt_put(rt);
+ out_unlock:
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index 46d7be2..5516825 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -778,7 +778,7 @@ int ip_append_data(struct sock *sk,
+ 		   int getfrag(void *from, char *to, int offset, int len,
+ 			       int odd, struct sk_buff *skb),
+ 		   void *from, int length, int transhdrlen,
+-		   struct ipcm_cookie *ipc, struct rtable *rt,
++		   struct ipcm_cookie *ipc, struct rtable **rtp,
+ 		   unsigned int flags)
+ {
+ 	struct inet_sock *inet = inet_sk(sk);
+@@ -793,6 +793,7 @@ int ip_append_data(struct sock *sk,
+ 	int offset = 0;
+ 	unsigned int maxfraglen, fragheaderlen;
+ 	int csummode = CHECKSUM_NONE;
++	struct rtable *rt;
+ 
+ 	if (flags&MSG_PROBE)
+ 		return 0;
+@@ -812,7 +813,11 @@ int ip_append_data(struct sock *sk,
+ 			inet->cork.flags |= IPCORK_OPT;
+ 			inet->cork.addr = ipc->addr;
+ 		}
+-		dst_hold(&rt->u.dst);
++		rt = *rtp;
++		/*
++		 * We steal reference to this route, caller should not release it
++		 */
++		*rtp = NULL;
+ 		inet->cork.fragsize = mtu = inet->pmtudisc == IP_PMTUDISC_PROBE ?
+ 					    rt->u.dst.dev->mtu :
+ 					    dst_mtu(rt->u.dst.path);
+@@ -1391,7 +1396,7 @@ void ip_send_reply(struct sock *sk, struct sk_buff *skb, struct ip_reply_arg *ar
+ 	sk->sk_protocol = ip_hdr(skb)->protocol;
+ 	sk->sk_bound_dev_if = arg->bound_dev_if;
+ 	ip_append_data(sk, ip_reply_glue_bits, arg->iov->iov_base, len, 0,
+-		       &ipc, rt, MSG_DONTWAIT);
++		       &ipc, &rt, MSG_DONTWAIT);
+ 	if ((skb = skb_peek(&sk->sk_write_queue)) != NULL) {
+ 		if (arg->csumoffset >= 0)
+ 			*((__sum16 *)skb_transport_header(skb) +
+diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
+index 998fcff..dff8bc4 100644
+--- a/net/ipv4/raw.c
++++ b/net/ipv4/raw.c
+@@ -572,7 +572,7 @@ back_from_confirm:
+ 			ipc.addr = rt->rt_dst;
+ 		lock_sock(sk);
+ 		err = ip_append_data(sk, ip_generic_getfrag, msg->msg_iov, len, 0,
+-					&ipc, rt, msg->msg_flags);
++					&ipc, &rt, msg->msg_flags);
+ 		if (err)
+ 			ip_flush_pending_frames(sk);
+ 		else if (!(msg->msg_flags & MSG_MORE))
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index da869ce..5491144 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -719,7 +719,7 @@ do_append_data:
+ 	up->len += ulen;
+ 	getfrag  =  is_udplite ?  udplite_getfrag : ip_generic_getfrag;
+ 	err = ip_append_data(sk, getfrag, msg->msg_iov, ulen,
+-			sizeof(struct udphdr), &ipc, rt,
++			sizeof(struct udphdr), &ipc, &rt,
+ 			corkreq ? msg->msg_flags|MSG_MORE : msg->msg_flags);
+ 	if (err)
+ 		udp_flush_pending_frames(sk);
+-- 
+1.7.4.1
