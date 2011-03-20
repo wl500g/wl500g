@@ -85,9 +85,9 @@ typedef struct {
 } dev_usb;
 
 /// read decimal parameter with name 'pname' from vbuf
-#define get_int_par(vbuf, pname)	get_numeric_par(vbuf, pname, 10)
+#define get_int_par(vbuf, pname)	get_numeric_par(vbuf, pname, 10, NULL)
 /// read hex parameter with name 'pname' from vbuf
-#define get_hex_par(vbuf, pname)	get_numeric_par(vbuf, pname, 16)
+#define get_hex_par(vbuf, pname)	get_numeric_par(vbuf, pname, 16, NULL)
 
 static void modem_get_script_name(char *filename)
 {
@@ -109,12 +109,13 @@ static char *get_str_par(char *vbuf, char *pname)
 }
 
 /// read numeric parameter with name 'pname' from vbuf
-static int get_numeric_par(char *vbuf, char *pname, int base)
+static int get_numeric_par(char *vbuf, char *pname, int base, char **num_str)
 {
 	char *ptr;
 
 	if ((ptr = strstr(vbuf,pname)) == NULL) return -1;
 	ptr += strlen(pname);
+	if (num_str) *num_str=ptr;
 	return strtol(ptr, NULL, base);
 }
 
@@ -157,6 +158,8 @@ static dev_usb *get_usb_list(char *fn_dev)
 		else skip = 0;
 
 		if (dev == NULL && *vbuf != 'T') continue;
+
+//		dprintf("%s", vbuf);
 
 		switch (*vbuf) {
 			case 'T':
@@ -247,6 +250,8 @@ static int search_modems_in_list(dev_usb *list, int vid, int pid)
 					sprintf(dev->loc,"%d",dev->port+1);
 			}
 		}
+		dprintf("dev:%04x:%04x\tprod:%s\tloc:%s\tcls:%x\tsub:%x\tprot:%x",
+			dev->vid,dev->pid,dev->prod, dev->loc, dev->cls, dev->sub, dev->prot);
 		// get type
 		switch (dev->cls) {
 			case CLASS_HUB: dev->type = TYPE_HUB; break;
@@ -409,37 +414,52 @@ void free_dev_list(dev_usb *list)
 	}
 }
 
-/// get usb-device by environment DEVICE
-static dev_usb *get_usb_by_location_env(char *device, dev_usb *list)
+/// get usb-device number and usb-bus from environment DEVICE
+int get_bus_num_from_devstr(char *device, int *bus, int *num)
 {
-	int bus, dev;
 	char *ptr;
-	dev_usb *usb_dev, *result;
+	int result = 0;
 
-	result = 0;
-
-	ptr = device+strlen(device)-1;
-	while (ptr >= device && *ptr != '/') ptr--;
+	ptr = strrchr (device, '/');
 	if (ptr > device) {
-		dev = atoi(ptr+1);
+		*num = atoi(ptr+1);
 		ptr--;
 		while (ptr >= device && *ptr != '/') ptr--;
 		if (ptr > device) {
-			bus = atoi(ptr+1);
-			dprintf("%s	%d	%d", device, bus, dev);
-			for (usb_dev = list; usb_dev; usb_dev=usb_dev->next) {
-				dprintf("%x/%x	%s	%d/%d", 
-					usb_dev->vid, usb_dev->pid, usb_dev->loc,
-					usb_dev->bus, usb_dev->number);
+			*bus = atoi(ptr+1);
 
-				if (usb_dev->bus == bus && usb_dev->number == dev &&
-					(usb_dev->type == 'W' || usb_dev->type == 'C')) {
-					result = usb_dev;
-					break;
-				}
+			dprintf("device: %s\t%d\t%d", device, *bus, *num);
+
+			result = 1;
+		}
+	}
+	
+	return result;
+}
+
+/// get usb-device by environment DEVICE
+static dev_usb *get_usb_by_location_env(char *device, dev_usb *list)
+{
+	int bus, dev_num;
+	dev_usb *usb_dev, *result;
+
+	result = NULL;
+
+	dprintf("%s",device);
+	if (get_bus_num_from_devstr (device, &bus, &dev_num)) {
+		for (usb_dev = list; usb_dev; usb_dev=usb_dev->next) {
+			dprintf("%x/%x	%s	%d/%d", 
+				usb_dev->vid, usb_dev->pid, usb_dev->loc,
+				usb_dev->bus, usb_dev->number);
+
+			if (usb_dev->bus == bus && usb_dev->number == dev_num &&
+				(usb_dev->type == 'W' || usb_dev->type == 'C')) {
+				result = usb_dev;
+				break;
 			}
 		}
 	}
+	dprintf("done\n");
 	return result;
 }
 
@@ -524,6 +544,52 @@ parse_product_string(char *product, int *vid, int *pid)
 	return res;
 }
 
+
+/// wait for device appearance in /proc/bus/usb/devices
+int wait_for_dev_appearance(int vid, int pid, char *device)
+{
+	FILE *fp = NULL;
+	char *vbuf = NULL, *ptr;
+	dev_usb dev;
+	int result, rep_counter, dev_bus, dev_num;
+
+	const int max_time = 10;  //max wait in seconds
+	const int rep_time = 100; //iteration time in milliseconds
+
+	result = 0;
+	rep_counter = max_time*1000/rep_time;
+
+	if (!get_bus_num_from_devstr (device, &dev_bus, &dev_num) ||
+		(vbuf = malloc (BUF_LEN)) == NULL ) return result;
+
+	for (;!result && rep_counter && !usleep(rep_time*1000) && 
+		(fp = fopen(MODEM_DEVICES_FILE, "rt")); rep_counter--) {
+		memset(&dev, 0, sizeof(dev));
+		while (fgets (vbuf, BUF_LEN, fp) != 0) {
+			if (*vbuf == 'T'){
+				memset(&dev, 0, sizeof(dev));
+				dev.bus = get_numeric_par(vbuf, "Bus=", 10, &ptr);
+				dev.number = get_int_par(ptr, "Dev#=");
+			} else if (*vbuf == 'P'){
+				dev.vid = get_numeric_par(vbuf, "Vendor=", 16, &ptr);
+				dev.pid = get_hex_par(ptr, "ProdID=");
+
+				if (dev.vid == vid && dev.pid == pid && 
+					dev.number == dev_num && dev.bus == dev_bus) {
+					result = 1;
+					break;
+				}
+			}
+		}
+		fclose (fp);
+	}
+	dprintf("rep_counter %d", max_time*1000/rep_time-rep_counter);
+
+	free (vbuf);
+
+	return result;
+}
+
 int
 hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 {
@@ -531,7 +597,7 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 	char *str1, *str2;
 	char tmp[200];
 	char stored_product[40];
-	int vid, pid;
+	int vid, pid, hp_vid, hp_pid;
 	dev_usb *list, *found_dev;
 	dev_conf *conf_list;
 
@@ -548,15 +614,20 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 	str2 = nvram_safe_get("wan_modem_pid");
 	sscanf(str2, "%x", &pid);
 
-	sprintf(stored_product, "%x/%x", vid, pid);
+	dprintf("stored: %x/%x, found: %s, autodetect: %d", vid, pid, product, autodetect);
 
-	dprintf("stored: %s, found: %s, autodetect: %d", stored_product, product, autodetect);
+	sscanf(product, "%x/%x", &hp_vid, &hp_pid);
+
+	if (!wait_for_dev_appearance(hp_vid, hp_pid, device)){
+		dprintf("device not found in /proc/bus/usb/devices");
+		return 0;
+	}
 
 	found_dev = NULL;
 
 	list = get_usb_list(MODEM_DEVICES_FILE);
 	if (autodetect == 0) {
-		if (strncmp(product, stored_product, strlen(stored_product)) == 0 &&
+		if (vid == hp_vid && pid == hp_pid &&
 			search_modems_in_list(list, 0, 0) > 0) {
 				//		str1 = nvram_prefix_get("modem_usbloc");
 				str1 = nvram_safe_get("wan_modem_usbloc");
@@ -571,6 +642,7 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 		}
 	} else {
 		if (search_modems_in_list(list, 0, 0) > 0) {
+			dprintf("get_config_list");
 			conf_list = get_config_list(MODEM_CONFIG_FILE);
 			for (found_dev = list; found_dev; found_dev = found_dev->next) {
 				check_config(found_dev, conf_list);
