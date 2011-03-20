@@ -32,6 +32,7 @@
 #define        EMF_LOG_WARN         (1 << 2)
 #define        EMF_LOG_INFO         (1 << 3)
 #define        EMF_LOG_MFDB         (1 << 4)
+#define        EMF_LOG_PKTS         (1 << 5)
 
 #define        EMF_LOG_LVL          (EMF_LOG_ERROR | \
 	                             EMF_LOG_WARN  | \
