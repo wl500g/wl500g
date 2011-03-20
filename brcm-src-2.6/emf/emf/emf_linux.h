@@ -16,6 +16,7 @@
 #define EMF_MAX_INST          8
 
 #ifdef EMFDBG
+#if (EMF_LOG_LVL & EMF_LOG_PKTS)
 #define EMF_DUMP_PKT(data) \
 { \
 	int32 i; \
@@ -23,6 +24,10 @@
 		printk("%02x ", (data)[i]); \
 	printk("\n"); \
 }
+#else
+#define EMF_DUMP_PKT(data)
+#endif
+
 #else /* EMFDBG */
 #define EMF_DUMP_PKT(data)
 #endif /* EMFDBG */
