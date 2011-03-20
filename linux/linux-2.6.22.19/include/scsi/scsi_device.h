@@ -115,6 +115,7 @@ struct scsi_device {
 				     * because we did a bus reset. */
 	unsigned use_10_for_rw:1; /* first try 10-byte read / write */
 	unsigned use_10_for_ms:1; /* first try 10-byte mode sense/select */
+	unsigned use_16_for_rw:1; /* Use read/write(16) over read/write(10) */
 	unsigned skip_ms_page_8:1;	/* do not use MODE SENSE page 0x08 */
 	unsigned skip_ms_page_3f:1;	/* do not use MODE SENSE page 0x3f */
 	unsigned use_192_bytes_for_3f:1; /* ask for 192 bytes from page 0x3f */
@@ -128,6 +129,8 @@ struct scsi_device {
 	unsigned retry_hwerror:1;	/* Retry HARDWARE_ERROR */
 	unsigned last_sector_bug:1;	/* do not use multisector accesses on
 					   SD_LAST_BUGGY_SECTORS */
+	unsigned no_read_capacity_16:1; /* Avoid READ_CAPACITY_16 cmds */
+	unsigned broken_fua:1;		/* Don't set FUA bit */
 
 	unsigned int device_blocked;	/* Device returned QUEUE_FULL. */
 

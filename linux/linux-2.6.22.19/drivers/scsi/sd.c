@@ -48,6 +48,7 @@
 #include <linux/delay.h>
 #include <linux/mutex.h>
 #include <asm/uaccess.h>
+#include <asm/unaligned.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -86,8 +87,8 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_DISK);
 MODULE_ALIAS_SCSI_DEVICE(TYPE_MOD);
 MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 
-static DEFINE_IDR(sd_index_idr);
 static DEFINE_SPINLOCK(sd_index_lock);
+static DEFINE_IDA(sd_index_ida);
 
 /* This semaphore is used to mediate the 0->1 reference get in the
  * face of object destruction (i.e. we can't allow a get on an
@@ -450,7 +451,7 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
 
 	SCpnt->cmnd[1] = 0;
 	
-	if (block > 0xffffffff) {
+	if (sdp->use_16_for_rw) {
 		SCpnt->cmnd[0] += READ_16 - READ_6;
 		SCpnt->cmnd[1] |= blk_fua_rq(rq) ? 0x8 : 0;
 		SCpnt->cmnd[2] = sizeof(block) > 4 ? (unsigned char) (block >> 56) & 0xff : 0;
@@ -1161,6 +1162,10 @@ repeat:
 	retries = 3;
 	do {
 		if (longrc) {
+			if (sdp->no_read_capacity_16) {
+				longrc = 0;
+				goto repeat;
+			}
 			memset((void *) cmd, 0, 16);
 			cmd[0] = SERVICE_ACTION_IN;
 			cmd[1] = SAI_READ_CAPACITY_16;
@@ -1216,11 +1221,19 @@ repeat:
 	}	
 	
 	if (!longrc) {
-		sector_size = (buffer[4] << 24) |
-			(buffer[5] << 16) | (buffer[6] << 8) | buffer[7];
-		if (buffer[0] == 0xff && buffer[1] == 0xff &&
-		    buffer[2] == 0xff && buffer[3] == 0xff) {
-			if(sizeof(sdkp->capacity) > 4) {
+		unsigned long long lba = get_unaligned_be32(&buffer[0]);
+		sector_size = get_unaligned_be32(&buffer[4]);
+
+		if (lba == 0xffffffff) {
+			if (sdp->no_read_capacity_16) {
+			/* Some buggy (usb cardreader) devices return an lba of
+			   0xffffffff when the want to report a size of 0 (with
+			   which they really mean no media is present) */
+				sdkp->capacity = 0;
+				goto got_data;
+			}
+
+			if (sizeof(sdkp->capacity) > 4) {
 				sd_printk(KERN_NOTICE, sdkp, "Very big device. "
 					  "Trying to use READ CAPACITY(16).\n");
 				longrc = 1;
@@ -1232,22 +1245,11 @@ repeat:
 			sdkp->capacity = 0;
 			goto got_data;
 		}
-		sdkp->capacity = 1 + (((sector_t)buffer[0] << 24) |
-			(buffer[1] << 16) |
-			(buffer[2] << 8) |
-			buffer[3]);			
+		sdkp->capacity = 1 + (sector_t )lba;
 	} else {
-		sdkp->capacity = 1 + (((u64)buffer[0] << 56) |
-			((u64)buffer[1] << 48) |
-			((u64)buffer[2] << 40) |
-			((u64)buffer[3] << 32) |
-			((sector_t)buffer[4] << 24) |
-			((sector_t)buffer[5] << 16) |
-			((sector_t)buffer[6] << 8)  |
-			(sector_t)buffer[7]);
-			
-		sector_size = (buffer[8] << 24) |
-			(buffer[9] << 16) | (buffer[10] << 8) | buffer[11];
+		sdkp->capacity = 1 + get_unaligned_be64(&buffer[0]);
+
+		sector_size = get_unaligned_be32(&buffer[8]);
 	}	
 
 	/* Some devices are known to return the total number of blocks,
@@ -1320,6 +1322,8 @@ got_data:
 				  (unsigned long long)sdkp->capacity,
 				  hard_sector, (unsigned long long)mb);
 	}
+
+	sdp->use_16_for_rw = (sdkp->capacity > 0xffffffff);
 
 	/* Rescale capacity to 512-byte units */
 	if (sector_size == 4096)
@@ -1488,7 +1492,10 @@ sd_read_cache_type(struct scsi_disk *sdkp, unsigned char *buffer)
 		}
 
 		sdkp->DPOFUA = (data.device_specific & 0x10) != 0;
-		if (sdkp->DPOFUA && !sdkp->device->use_10_for_rw) {
+		if (sdp->broken_fua) {
+			sd_printk(KERN_NOTICE, sdkp, "Disabling FUA\n");
+			sdkp->DPOFUA = 0;
+		} else if (sdkp->DPOFUA && !sdkp->device->use_10_for_rw) {
 			sd_printk(KERN_NOTICE, sdkp,
 				  "Uses READ/WRITE(6), disabling FUA\n");
 			sdkp->DPOFUA = 0;
@@ -1628,17 +1635,21 @@ static int sd_probe(struct device *dev)
 	if (!gd)
 		goto out_free;
 
-	if (!idr_pre_get(&sd_index_idr, GFP_KERNEL))
-		goto out_put;
+	do {
+		if (!ida_pre_get(&sd_index_ida, GFP_KERNEL))
+			goto out_put;
 
-	spin_lock(&sd_index_lock);
-	error = idr_get_new(&sd_index_idr, NULL, &index);
-	spin_unlock(&sd_index_lock);
+		spin_lock(&sd_index_lock);
+		error = ida_get_new(&sd_index_ida, &index);
+		spin_unlock(&sd_index_lock);
+	} while (error == -EAGAIN);
 
-	if (index >= SD_MAX_DISKS)
-		error = -EBUSY;
 	if (error)
 		goto out_put;
+
+	error = -EBUSY;
+	if (index >= SD_MAX_DISKS)
+		goto out_free_index;
 
 	sdkp->device = sdp;
 	sdkp->driver = &sd_template;
@@ -1659,7 +1670,7 @@ static int sd_probe(struct device *dev)
 	strncpy(sdkp->cdev.class_id, sdp->sdev_gendev.bus_id, BUS_ID_SIZE);
 
 	if (class_device_add(&sdkp->cdev))
-		goto out_put;
+		goto out_free_index;
 
 	get_device(&sdp->sdev_gendev);
 
@@ -1708,6 +1719,10 @@ static int sd_probe(struct device *dev)
 
 	return 0;
 
+ out_free_index:
+	spin_lock(&sd_index_lock);
+	ida_remove(&sd_index_ida, index);
+	spin_unlock(&sd_index_lock);
  out_put:
 	put_disk(gd);
  out_free:
@@ -1758,7 +1773,7 @@ static void scsi_disk_release(struct class_device *cdev)
 	struct gendisk *disk = sdkp->disk;
 	
 	spin_lock(&sd_index_lock);
-	idr_remove(&sd_index_idr, sdkp->index);
+	ida_remove(&sd_index_ida, sdkp->index);
 	spin_unlock(&sd_index_lock);
 
 	disk->private_data = NULL;
