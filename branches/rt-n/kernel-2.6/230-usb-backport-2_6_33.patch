@@ -814,9 +814,9 @@ diff -x'.*' -urNBp a/drivers/scsi/sd.c b/drivers/scsi/sd.c
 +static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 +static void sd_print_result(struct scsi_disk *, int);
 +
- static DEFINE_IDR(sd_index_idr);
- static DEFINE_SPINLOCK(sd_index_lock);
+ static DEFINE_IDA(sd_index_ida);
  
+ /* This semaphore is used to mediate the 0->1 reference get in the
 @@ -273,11 +289,6 @@ static int sd_major(int major_idx)
  	}
  }
