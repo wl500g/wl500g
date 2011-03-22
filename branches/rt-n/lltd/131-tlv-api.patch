@@ -1,0 +1,29 @@
+--- lltd.orig/src/tlv.c	2011-03-22 22:28:28.000000000 +0000
++++ lltd/src/tlv.c	2011-03-22 22:31:27.019739002 +0000
+@@ -460,7 +460,7 @@ write_assns_t(int number, void *data, ui
+     }
+ 
+     /* seek to the supplied offset, if possible */
+-    if (offset_index >= assns->assn_cnt)
++    if (offset_index && offset_index >= assns->assn_cnt)
+     {
+         warn("write-assns-list: Offset too big, empty list written\n");
+         *buf++ = (uint8_t)0;
+@@ -540,7 +540,7 @@ write_comptbl_t(int number, void *data, 
+     *buf++ = (uint8_t)0;
+     
+     /* then do the sub-tlvs in order, starting with the bridge component */
+-    if (Bridge_Component != 0xFF)
++    if (ctbl->bridge_behavior != 0xFF)
+     {
+         *buf++ = (uint8_t) Bridge_Component;        // type
+         *buf++ = 1;                                 // length
+@@ -572,7 +572,7 @@ write_comptbl_t(int number, void *data, 
+     }
+ 
+     /* Finally, do the switch component */
+-    if (Switch_Component != 0xFFFFFFFF)
++    if (ctbl->link_speed != 0xFFFFFFFF)
+     {
+         *buf++ = (uint8_t) Switch_Component;        // type
+         *buf++ = 4;                                 // length
