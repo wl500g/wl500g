@@ -255,6 +255,9 @@ main(int argc, char **argv)
     g_procnetdev = fopen("/proc/net/dev","r");
     if (g_procnetdev<0)
         die("fopen of /proc/net/dev failed\n");
+#ifdef USE_IPV6
+    g_procnetinet6 = fopen("/proc/net/if_inet6","r");
+#endif
 #endif
 
     /* Initialize the timers (inactivity timers are init'd when session is created) */

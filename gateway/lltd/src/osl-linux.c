@@ -725,7 +725,48 @@ get_ipv6addr(void *data)
 {
 /*    TLVDEF( ipv6addr_t,       ipv6addr,            ,   8,  Access_unset ) */
 
+#ifdef USE_IPV6
     ipv6addr_t* ipv6addr = (ipv6addr_t*) data;
+    char	dflt_if[] = {"br0"};
+    char       *interface = g_interface;
+    FILE *netinet6;
+    char addr6[40], devname[20];
+    int plen, scope, dad_status, if_idx;
+    char addr6p[8][5];
+    int found = 0;
+
+#if CAN_FOPEN_IN_SELECT_LOOP
+    netinet6 = fopen("/proc/net/if_inet6", "r");
+#else
+    netinet6 = g_procnetinet6;
+#endif
+    if (netinet6 <= 0)
+	return TLV_GET_FAILED;
+
+    if (interface == NULL) interface = dflt_if;
+    while (fscanf(netinet6, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
+	addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
+	addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
+	&dad_status, devname) != EOF)
+    {
+	scope = scope & 0x00f0;
+	if (strcmp(devname, interface) != 0 || scope != 0x20)
+	    continue;
+	sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
+	    addr6p[0], addr6p[1], addr6p[2], addr6p[3],
+	    addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
+	inet_pton(AF_INET6, addr6, (struct sockaddr *) ipv6addr);
+	found = 1;
+	break;
+    }
+
+#if CAN_FOPEN_IN_SELECT_LOOP
+    fclose(netinet6);
+#endif
+
+    if (found)
+	return TLV_GET_SUCCEEDED;
+#endif
 
     return TLV_GET_FAILED;
 }
