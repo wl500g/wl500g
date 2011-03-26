@@ -320,7 +320,7 @@ diff '-x.*' -urNBp a/drivers/usb/serial/bus.c b/drivers/usb/serial/bus.c
 +	{
 +		int ifnum = port->serial->interface->cur_altsetting->desc.bInterfaceNumber;
 +
-+    	        usb_register_devpath(port->serial->dev, ifnum+minor*10, usb_serial_tty_driver->name, minor);
++		usb_register_devpath(port->serial->dev, ifnum, usb_serial_tty_driver->name, minor);
 +	}
 +#endif
 +
