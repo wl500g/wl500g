@@ -302,7 +302,8 @@ else
 endif
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules ; \
+	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules \
+	     INSTALL_MOD_STRIP="--strip-debug -x -R .comment -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo" ; \
 	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/* -F $(LINUXDIR)/System.map; \
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
@@ -424,7 +425,7 @@ modules_install: .config
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
 	# extra strip modules without params
-	$(STRIP) --remove-section=.comment --remove-section=.note --strip-unneeded $(MODULESDIR)/wl$(ko)
+	$(STRIP) --strip-unneeded $(MODULESDIR)/wl$(ko)
 
 install: package-$(MODEL)
 	@true
