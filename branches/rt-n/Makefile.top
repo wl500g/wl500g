@@ -1031,7 +1031,7 @@ lltd-install: lltd
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
-	    PROGRAMS=udevtrigger
+	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
 
 udev-install:
 	install -d $(TARGETDIR)
