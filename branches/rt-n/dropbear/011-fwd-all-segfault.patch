@@ -1,0 +1,25 @@
+diff -urBp dropbear-0.53/svr-tcpfwd.c dropbear/svr-tcpfwd.c
+--- dropbear-0.53/svr-tcpfwd.c	2011-02-25 10:28:27.000000000 +0300
++++ dropbear/svr-tcpfwd.c	2011-03-27 11:18:54.000000000 +0400
+@@ -210,15 +210,13 @@ static int svr_remotetcpreq() {
+ 	tcpinfo->chantype = &svr_chan_tcpremote;
+ 	tcpinfo->tcp_type = forwarded;
+ 
+-	if (!opts.listen_fwd_all 
+-			|| (strcmp(tcpinfo->listenaddr, "localhost") == 0) ) {
+-        // NULL means "localhost only"
+-        tcpinfo->listenaddr = NULL;
++	if (!opts.listen_fwd_all || (strcmp(bindaddr, "localhost") == 0) ) {
++		// NULL means "localhost only"
++    		tcpinfo->listenaddr = NULL;
++	}
++	else {
++		tcpinfo->listenaddr = bindaddr;
+ 	}
+-    else
+-    {
+-        tcpinfo->listenaddr = bindaddr;
+-    }
+ 
+ 	ret = listen_tcpfwd(tcpinfo);
+ 
