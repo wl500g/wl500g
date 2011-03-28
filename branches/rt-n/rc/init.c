@@ -200,7 +200,7 @@ shutdown_system(void)
 	eval("wl", "radio", "off");
 }
 
-static int fatal_signals[] = {
+static const int fatal_signals[] = {
 	SIGQUIT,	/* halt */
 	SIGILL,
 	SIGABRT,
@@ -216,7 +216,7 @@ static int fatal_signals[] = {
 
 static void fatal_signal(int sig)
 {
-	char *message = NULL;
+	const char *message = NULL;
 	
 	switch (sig) {
 	case SIGQUIT: message = "Quit"; break;

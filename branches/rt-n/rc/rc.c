@@ -684,11 +684,6 @@ sysinit(void)
 	char buf[PATH_MAX];
 	struct utsname name;
 	struct stat tmp_stat;
-	
-	time_t now;
-	struct tm gm, local;
-	struct timezone tz;
-	struct timeval tv = { 0 };
 	struct rlimit lim;
 
 	/* set default hardlimit */
@@ -777,13 +772,7 @@ sysinit(void)
 			insmod(module, NULL);
 	}
 
-	/* Update kernel timezone and time */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(&tv, &tz);
+	update_tztime(1);
 
 #if defined(MODEL_WL700G)
 	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
@@ -797,7 +786,7 @@ sysinit(void)
 }
 
 /* States */
-enum {
+enum RC_STATES {
 	RESTART,
 	STOP,
 	START,
@@ -805,7 +794,7 @@ enum {
 	IDLE,
 	SERVICE,
 };
-static int state = START;
+static int rc_state = START;
 static int signalled = -1;
 
 
@@ -813,7 +802,7 @@ static int signalled = -1;
 static void
 rc_signal(int sig)
 {
-	if (state == IDLE) {	
+	if (rc_state == IDLE) {	
 		if (sig == SIGHUP) {
 			dprintf("signalling RESTART\n");
 			signalled = RESTART;
@@ -840,10 +829,6 @@ rc_signal(int sig)
 /* Timer procedure */
 static int do_timer(void)
 {
-	time_t now;
-	struct tm gm, local;
-	struct timezone tz;
-
 #ifndef ASUS_EXT
 	int interval = atoi(nvram_safe_get("timer_interval"));
 
@@ -855,13 +840,7 @@ static int do_timer(void)
 	/* Sync time */
 	start_ntpc();
 #endif
-	/* Update kernel timezone */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(NULL, &tz);
+	update_tztime(0);
 #ifndef ASUS_EXT
 	alarm(interval);
 #endif
@@ -918,11 +897,11 @@ main_loop(void)
 	
 	/* Loop forever */
 	for (;;) {
-		switch (state) {
+		switch (rc_state) {
 		case SERVICE:
 			dprintf("SERVICE\n");
 			service_handle();
-			state = IDLE;
+			rc_state = IDLE;
 			break;
 		case RESTART:
 			dprintf("RESTART\n");
@@ -940,8 +919,8 @@ main_loop(void)
 			if (boardflags & BFL_ENETVLAN)
 				stop_vlan();
 
-			if (state == STOP) {
-				state = IDLE;
+			if (rc_state == STOP) {
+				rc_state = IDLE;
 				break;
 			}
 			/* Fall through */
@@ -977,7 +956,7 @@ main_loop(void)
 			/* Fall through */
 		case IDLE:
 			dprintf("IDLE\n");
-			state = IDLE;
+			rc_state = IDLE;
 			/* Wait for user input or state change */
 			while (signalled == -1) {
 				if (!noconsole && (!shell_pid || kill(shell_pid, 0) != 0))
@@ -985,7 +964,7 @@ main_loop(void)
 				else
 					sigsuspend(&sigset);
 			}
-			state = signalled;
+			rc_state = signalled;
 			signalled = -1;
 			break;
 		default:
@@ -1025,7 +1004,7 @@ main(int argc, char **argv)
 	}
 
 	/* Set TZ for all rc programs */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
+	setenv_tz();
 
 #ifdef DEBUG
 	cprintf("rc applet: %s %s %s",

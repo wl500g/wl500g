@@ -30,21 +30,27 @@
 #define foreach_x(x)	for (i=0; i<atoi(nvram_safe_get(x)); i++)
 
 static char *g_buf;
-static char g_buf_pool[1024];
+#define G_BUF_TOTAL	1024
 
 /* Forwards */
 static int porttrigger_setting(FILE *fp, char *lan_if);
 
+
 static void g_buf_init()
 {
+	static char *g_buf_pool = NULL;
+
+	if (g_buf_pool == NULL)
+		g_buf_pool = malloc(G_BUF_TOTAL);
+
 	g_buf = g_buf_pool;
 }
 
 static char *g_buf_alloc(char *g_buf_now)
 {
-	g_buf += strlen(g_buf_now)+1;
+	g_buf += strlen(g_buf_now) + 1;
 
-	return(g_buf_now);
+	return (g_buf_now);
 }
 
 static char *proto_conv(char *proto_name, int idx)
@@ -1287,7 +1293,6 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 {
 	DIR *dir;
 	struct dirent *file;
-	FILE *fp;
 	char name[NAME_MAX];
 	char logaccept[32], logdrop[32];
 	char *mcast_ifname = nvram_get("wan0_ifname");
@@ -1303,13 +1308,11 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 		if (strncmp(file->d_name, ".", NAME_MAX) != 0 &&
 		    strncmp(file->d_name, "..", NAME_MAX) != 0) {
 			sprintf(name, "/proc/sys/net/ipv4/conf/%s/rp_filter", file->d_name);
-			if (!(fp = fopen(name, "r+"))) {
-				perror(name);
+			if (!fputs_ex(name,
+				(mcast_ifname && 
+				 strncmp(file->d_name, mcast_ifname, NAME_MAX) == 0)
+				? "0" : "1"))
 				break;
-			}
-			fputc(mcast_ifname && strncmp(file->d_name, 
-				mcast_ifname, NAME_MAX) == 0 ? '0' : '1', fp);
-			fclose(fp);
 		}
 	}
 	closedir(dir);
@@ -1331,25 +1334,14 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
-		if ( (fp=fopen("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", "r+")) ) {
-			fputs(nvram_safe_get("misc_conntrack_x"), fp);
-			fclose(fp);
-		} else
-			perror("/proc/sys/net/ipv4/netfilter/ip_conntrack_max");
-	}	
+		fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_max",
+				nvram_safe_get("misc_conntrack_x"));
+	}
 #ifdef XBOX_SUPPORT
-	if ((fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+"))) {
-		fprintf(fp, "%d %d", 65, 180);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts");
+	fputs_ex("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "65 180");
 #endif
 
-	if ((fp=fopen("/proc/sys/net/ipv4/ip_forward", "r+"))) {
-		fputc('1', fp);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_forward");
+	fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 
 	if (nvram_invmatch("wan0_ifname", wan_if))
 		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip, 

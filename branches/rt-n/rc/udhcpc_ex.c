@@ -28,7 +28,7 @@
 #include <shutils.h>
 #include <rc.h>
 
-static char udhcpstate[8];
+static char udhcpstate[12];
 
 static int
 expires(char *lan_ifname, unsigned int in)

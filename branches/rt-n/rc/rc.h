@@ -45,6 +45,8 @@ int fputs_ex(char *name, char *value);
 int insmod(char *module, ...);
 int rmmod(char *module);
 int killall(char *program, int sig);
+void setenv_tz();
+time_t update_tztime(int is_resettm);
 
 int wsrom_main(char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(char *devname, unsigned int pos, int pflag);
@@ -213,12 +215,5 @@ int lsmodem_main(int argc, char **argv);
 void hotplug_network_device(char *interface, char *action, char *product, char *device);
 void hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device);
 #endif
-
-enum
-{
-	WEB_NONE = 0,
-	WEB_CAMERA,
-	WEB_AUDIO
-} WEBTYPE;
 
 #endif /* _rc_h_ */
