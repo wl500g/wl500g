@@ -98,8 +98,6 @@ static int stacheck_interval = -1;
 /* forwards */
 #ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag);
-#else
-inline static int notice_rcamd(int flag) { return 0; }
 #endif
 
 #ifdef GPIOCTL
@@ -372,11 +370,6 @@ void inline refresh_ntpc(void)
 
 int ntp_timesync(void)
 {
-	time_t now;
-	struct tm tm;	
-	struct tm gm, local;
-	struct timezone tz;
-
 	//if (nvram_match("router_disable", "1")) return 0;
 	
 	if (sync_interval!=-1)
@@ -385,13 +378,10 @@ int ntp_timesync(void)
 
 	    	if (sync_interval==0)
 		{
-			/* Update kernel timezone */
-			setenv("TZ", nvram_safe_get("time_zone"), 1);
-			time(&now);
-			gmtime_r(&now, &gm);
-			localtime_r(&now, &local);
-			tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-			settimeofday(NULL, &tz);
+			time_t now;
+			struct tm tm;
+
+			now = update_tztime(0);
 			localtime_r(&now, &tm);
 
 			if (tm.tm_year>100) // More than 2000
@@ -406,17 +396,17 @@ int ntp_timesync(void)
 
 			refresh_ntpc();	
 		}
-	}	
+	}
 	return 0;
 }
 
-enum 
+enum ACTIVE
 {
 	URLACTIVE=0,
 	WEBACTIVE,
 	RADIOACTIVE,
 	ACTIVEITEMS
-} ACTIVE;
+};
 
 static int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
 static int extStatus[ACTIVEITEMS] = { 0, 0, 0};
@@ -484,7 +474,7 @@ static int svc_timecheck(void)
 	activeFlag = 0;
 
 #ifdef __CONFIG_RCAMD__
-	if (svcStatus[WEBACTIVE]==-1 && 
+	if (svcStatus[WEBACTIVE] == -1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
 	{	
@@ -493,30 +483,30 @@ static int svc_timecheck(void)
 		svcStatus[WEBACTIVE] = -2;
 	}
 
-	if (svcStatus[WEBACTIVE]!=-1)
+	if (svcStatus[WEBACTIVE] != -1)
 	{
 		activeNow = timecheck_item(svcDate[WEBACTIVE], svcTime[WEBACTIVE]);
-		if (activeNow!=svcStatus[WEBACTIVE])
+		if (activeNow != svcStatus[WEBACTIVE])
 		{
 			svcStatus[WEBACTIVE] = activeNow;
 
-			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE]=-1;
-		}	
+			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE] = -1;
+		}
 	}
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
-	if (svcStatus[RADIOACTIVE]==-1 && nvram_invmatch("wl_radio_x", "0"))
-	{	
+	if (svcStatus[RADIOACTIVE] == -1 && nvram_invmatch("wl_radio_x", "0"))
+	{
 		strcpy(svcDate[RADIOACTIVE], nvram_safe_get("wl_radio_date_x"));
 		strcpy(svcTime[RADIOACTIVE], nvram_safe_get("wl_radio_time_x"));
 		svcStatus[RADIOACTIVE] = -2;
 	}
 
 
-	if (svcStatus[RADIOACTIVE]!=-1)
+	if (svcStatus[RADIOACTIVE] != -1)
 	{
 		activeNow = timecheck_item(svcDate[RADIOACTIVE], svcTime[RADIOACTIVE]);
-		if (activeNow!=svcStatus[RADIOACTIVE])
+		if (activeNow != svcStatus[RADIOACTIVE])
 		{
 			svcStatus[RADIOACTIVE] = activeNow;
 
@@ -592,6 +582,7 @@ static int notice_rcamd(int flag)
 {
 	int ret;
 
+//TODO: mjpg-streamer start/stop control
 //	ret = kill_pidfile_s("/var/run/rcamd.pid", flag ? SIGUSR1 : SIGUSR2);
 
 	return (ret == 0);
@@ -627,7 +618,7 @@ static void catch_sig(int sig)
 	{
 		dprintf("Get Signal: %d %d %d\n", svcStatus[WEBACTIVE], extStatus[WEBACTIVE], sig);
 
-#ifdef USB_SUPPORT
+#ifdef __CONFIG_RCAMD__
 		FILE *fp;
 		char command[256], *cmd_ptr;
 
@@ -652,8 +643,8 @@ static void catch_sig(int sig)
 			notice_rcamd(1);
 			extStatus[WEBACTIVE] = 0;
 		}
-#endif // USB_SUPPORT
-	}	
+#endif /* __CONFIG_RCAMD__ */
+	}
 }
 
 static void sta_check(void)
@@ -759,7 +750,7 @@ static void watchdog(int signum)
 			svcStatus[WEBACTIVE] = -1;
 		}
 	}
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
 	/* storage process */
 	if (nvram_invmatch("usb_storage_device", ""))
@@ -767,7 +758,7 @@ static void watchdog(int signum)
 		hotplug_usb_mass(nvram_safe_get("usb_storage_device"));
 		nvram_set("usb_storage_device", "");
 	}
-#endif
+#endif /* USB_SUPPORT */
 
 	/* station or ethernet bridge handler */
 	sta_check();

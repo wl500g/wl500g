@@ -348,7 +348,7 @@ del_lan_routes(char *lan_ifname)
 static void
 start_igmpproxy(char *wan_ifname)
 {
-	static char *igmpproxy_conf = "/etc/igmpproxy.conf";
+	const char *igmpproxy_conf = "/etc/igmpproxy.conf";
 	struct stat	st_buf;
 	FILE 		*fp;
 
@@ -383,7 +383,7 @@ start_igmpproxy(char *wan_ifname)
 		fclose(fp);
 	}
 	
-	eval("/usr/sbin/igmpproxy", igmpproxy_conf);
+	eval("/usr/sbin/igmpproxy", (char *)igmpproxy_conf);
 }
 
 void

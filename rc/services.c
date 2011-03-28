@@ -205,7 +205,7 @@ static int stop_dropbear(void)
 
 static int start_snmpd(void)
 {
-	static char *snmpd_conf = "/tmp/snmpd.conf";
+	const char *snmpd_conf = "/tmp/snmpd.conf";
 	
 	int ret;
 	FILE *fp;
@@ -227,7 +227,7 @@ static int start_snmpd(void)
 
 	fclose(fp);
 	
-	ret = eval("snmpd", "-c", snmpd_conf);
+	ret = eval("snmpd", "-c", (char *)snmpd_conf);
 
 	dprintf("done\n");
 	return ret;

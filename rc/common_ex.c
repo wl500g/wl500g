@@ -128,6 +128,33 @@ void getsyspara(void)
 	nvram_set("firmver", trim_r(fwver));
 }
 
+void setenv_tz()
+{
+	static char TZ_env[64];
+
+	snprintf(TZ_env, sizeof(TZ_env), "TZ=%s", nvram_safe_get("time_zone"));
+	TZ_env[sizeof(TZ_env)-1] = '\0';
+	putenv(TZ_env);
+}
+
+time_t update_tztime(int is_resettm)
+{
+	time_t now;
+	struct tm gm, local;
+	struct timezone tz;
+	struct timeval tv = { 0 };
+
+	/* Update kernel timezone and time */
+	setenv_tz();
+	time(&now);
+	gmtime_r(&now, &gm);
+	localtime_r(&now, &local);
+	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
+	settimeofday(is_resettm ? &tv : NULL, &tz);
+
+	return now;
+}
+
 /* This function is used to map nvram value from asus to Broadcom */
 void convert_asus_values()
 {	

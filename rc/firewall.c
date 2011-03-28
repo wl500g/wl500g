@@ -70,7 +70,6 @@ start_firewall(void)
 {
 	DIR *dir;
 	struct dirent *file;
-	FILE *fp;
 	char name[NAME_MAX];
 	netconf_filter_t filter;
 	netconf_app_t app;
@@ -88,12 +87,8 @@ start_firewall(void)
 		if (strncmp(file->d_name, ".", NAME_MAX) != 0 &&
 		    strncmp(file->d_name, "..", NAME_MAX) != 0) {
 			sprintf(name, "/proc/sys/net/ipv4/conf/%s/rp_filter", file->d_name);
-			if (!(fp = fopen(name, "r+"))) {
-				perror(name);
+			if (!(fputs_ex(name, "1")))
 				break;
-			}
-			fputc('1', fp);
-			fclose(fp);
 		}
 	}
 	if (dir)
@@ -215,11 +210,7 @@ start_firewall(void)
 	 */
 
 	/* Enable IP masquerading */
-	if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+"))) {
-		fputc('1', fp);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_forward");
+	fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 
 	/* Application specific port forwards */
 	for (i = 0; i < MAX_NVPARSE; i++) {

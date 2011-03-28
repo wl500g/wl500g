@@ -37,17 +37,21 @@
 #include "lp.h"
 #include "nvparse.h"
 
-#define logs(s) syslog(LOG_NOTICE, s)
 
 #ifdef USB_SUPPORT
 #define PRINTER_SUPPORT 1
-#define MASSSTORAGE_SUPPORT 1
 #define AUDIO_SUPPORT 1
 #endif
 
-//#define USBCOPY_SUPPORT 1
 
-char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
+static const char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
+
+enum WEB_TYPE
+{
+	WEB_NONE = 0,
+	WEB_CAMERA,
+	WEB_AUDIO
+};
 
 
 static int umount_all_part(char *product, int scsi_host_no);
@@ -547,21 +551,21 @@ start_ddns(int forced)
 
 	if (strlen(service)>0)
 	{
+		char *ddns_argv[] = {
 #ifdef __CONFIG_EZIPUPDATE__
-		char *ddns_argv[] = {"ez-ipupdate", 
+		    "ez-ipupdate",
 		    "-d", "-1",
 		    "-c", "/etc/ddns.conf",
 		    "-e", "/sbin/ddns_updated",
 		    "-b", "/tmp/ddns.cache",
-		    NULL};
 #elif __CONFIG_INADYN__
-		char *ddns_argv[] = {"inadyn", 
+		    "inadyn",
 		    "--background", "--iterations", "1",
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
-		    NULL};
 #endif
+		    NULL };
 		pid_t pid;
 
 		dprintf("ddns update %s %s\n", server, service);
@@ -831,7 +835,6 @@ start_usb(void)
 		start_rcamd();
 	}
 #endif
-#ifdef MASSSTORAGE_SUPPORT
 	mkdir("/tmp/mnt", 0755);
 
 	if (!nvram_match("usb_storage_x", "0"))
@@ -848,7 +851,7 @@ start_usb(void)
 #endif
 		insmod("ntfs", NULL);
 	}	
-#endif
+
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
 		insmod("sunrpc", NULL);
@@ -882,7 +885,7 @@ stop_usb(void)
 		rmmod("sunrpc");
 	}
 	
-#ifdef MASSSTORAGE_SUPPORT
+
 	if (!nvram_match("usb_storage_x", "0"))
 	{
 		killall("vsftpd", 0);
@@ -902,7 +905,7 @@ stop_usb(void)
 #endif
 			rmmod("ntfs");
 	}
-#endif
+
 #ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{

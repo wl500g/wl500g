@@ -30,9 +30,7 @@
 #include <netconf.h>
 #include <shutils.h>
 #include <rc.h>
-#include <syslog.h>
 
-#define logs(s) syslog(LOG_NOTICE, s)
 
 static void filecat(FILE *fp, char *catted)
 {
@@ -183,7 +181,7 @@ sendalarm_main(int argc, char *argv[])
 
 	if (!serverhost)
 	{
-		logs("send email alarm, but can not resolve ip of email server!");
+		logmessage("sendalarm", "send email alarm, but can not resolve ip of email server!");
 		return -2;
 	}
 	else
@@ -235,7 +233,7 @@ sendalarm_main(int argc, char *argv[])
 	system(command);
 	
 	// log
-	logs("send mail alert");
+	logmessage("sendalarm", "send mail alert");
 	kill_pidfile_s("/var/run/watchdog.pid", SIGUSR2);
 
 	// clean temp file
