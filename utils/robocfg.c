@@ -591,13 +591,20 @@ main(int argc, char *argv[])
 
 			i += 3;
 		} else
-		if (strcasecmp(argv[i], "robord") == 0 && (i + 1) < argc)
+		if (strncasecmp(argv[i], "robord", 6) == 0 && (i + 1) < argc)
 		{
 			long pagereg = strtol(argv[i + 1], NULL, 0);
+			int size = strtol(argv[i] + 6, NULL, 0);
+			u16 buf[8];
 
-			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
-				robo_read16(&robo, pagereg >> 8, pagereg & 255));
+			printf("Page 0x%02x, Reg 0x%02x: ",
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255));
+
+			size = (size > 0 && size <= sizeof(buf) * 8) ? (size + 15) >> 4 : 1;
+			robo_read(&robo, pagereg >> 8, pagereg & 255, buf, size);
+			while (size > 0)
+				printf("%04x", buf[--size]);
+			printf("\n");
 
 			i += 2;
 		} else
