@@ -14,6 +14,27 @@ c0ad7291aae3f76920bdddbc517e20b8d4338ec2 USB: uhci: rm repeatedly evaluation for
 ...
 
 ---
+ drivers/usb/core/driver.c     |    7 -
+ drivers/usb/core/endpoint.c   |    9 +-
+ drivers/usb/core/generic.c    |    4 
+ drivers/usb/core/hcd-pci.c    |    8 +
+ drivers/usb/core/hcd.c        |   26 +++++-
+ drivers/usb/core/hcd.h        |    1 
+ drivers/usb/core/hub.c        |    8 +
+ drivers/usb/core/quirks.c     |    3 
+ drivers/usb/core/urb.c        |   50 +++++-------
+ drivers/usb/host/Kconfig      |   11 +-
+ drivers/usb/host/ehci-hcd.c   |    8 +
+ drivers/usb/host/ehci-pci.c   |    1 
+ drivers/usb/host/ehci-sched.c |  173 +++++++++++++++++++-----------------------
+ drivers/usb/host/ehci.h       |    4 
+ drivers/usb/host/uhci-debug.c |    3 
+ drivers/usb/host/uhci-hcd.c   |   26 +++---
+ drivers/usb/host/uhci-q.c     |    7 -
+ drivers/usb/serial/ftdi_sio.c |    4 
+ drivers/usb/serial/ftdi_sio.h |   11 ++
+ include/linux/usb/quirks.h    |    4 
+ 20 files changed, 206 insertions(+), 162 deletions(-)
 
 diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
 index 8078f96..8c4c6dd 100644
