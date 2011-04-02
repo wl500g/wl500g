@@ -1,0 +1,67 @@
+From 295c9d12e25bc2dbdd8b42bd67a1f7120f0631a1
+From: Alan Stern
+Date: Sun, 17 Oct 2010 06:57:06 +0200
+Subject: [PATCH] Linux: cancel URBs in reverse order
+
+In a multi-URB transfer, URBs should be cancelled in reverse order of
+submission. This prevents races that might otherwise occur (after URB N
+is cancelled, data may be transferred for URB N+1 before it too can be
+cancelled). Fixes #8.
+---
+ libusb/os/linux_usbfs.c |   16 +++++++++-------
+ 1 files changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index 071c1ac..867893c 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1454,7 +1454,9 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
+ 			if (COMPLETED_EARLY == tpriv->reap_action)
+ 				return 0;
+ 
+-			for (j = 0; j < i; j++) {
++			/* The URBs are discarded in reverse order of
++			 * submission, to avoid races. */
++			for (j = i - 1; j >= 0; j--) {
+ 				int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &urbs[j]);
+ 				if (tmp && errno != EINVAL)
+ 					usbi_warn(TRANSFER_CTX(transfer),
+@@ -1611,7 +1613,7 @@ static int submit_iso_transfer(struct usbi_transfer *itransfer)
+ 			/* The URBs we haven't submitted yet we count as already
+ 			 * retired. */
+ 			tpriv->num_retired = num_urbs - i;
+-			for (j = 0; j < i; j++) {
++			for (j = i - 1; j >= 0; j--) {
+ 				int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, urbs[j]);
+ 				if (tmp && errno != EINVAL)
+ 					usbi_warn(TRANSFER_CTX(transfer),
+@@ -1734,7 +1736,7 @@ static int cancel_bulk_transfer(struct usbi_transfer *itransfer)
+ 		return LIBUSB_ERROR_NOT_FOUND;
+ 
+ 	tpriv->reap_action = CANCELLED;
+-	for (i = 0; i < tpriv->num_urbs; i++) {
++	for (i = tpriv->num_urbs - 1; i >= 0; i--) {
+ 		int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &tpriv->urbs[i]);
+ 		if (tmp && errno != EINVAL)
+ 			usbi_warn(TRANSFER_CTX(transfer),
+@@ -1756,7 +1758,7 @@ static int cancel_iso_transfer(struct usbi_transfer *itransfer)
+ 		return LIBUSB_ERROR_NOT_FOUND;
+ 
+ 	tpriv->reap_action = CANCELLED;
+-	for (i = 0; i < tpriv->num_urbs; i++) {
++	for (i = tpriv->num_urbs - 1; i >= 0; i--) {
+ 		int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, tpriv->iso_urbs[i]);
+ 		if (tmp && errno != EINVAL)
+ 			usbi_warn(TRANSFER_CTX(transfer),
+@@ -1926,7 +1928,7 @@ cancel_remaining:
+ 		/* we have to cancel the remaining urbs and wait for their completion
+ 		 * before reporting results */
+ 		tpriv->reap_action = COMPLETED_EARLY;
+-		for (i = urb_idx + 1; i < tpriv->num_urbs; i++) {
++		for (i = tpriv->num_urbs - 1; i > urb_idx; i--) {
+ 			/* remaining URBs with continuation flag are automatically
+ 			 * cancelled by the kernel */
+ 			if (tpriv->urbs[i].flags & USBFS_URB_BULK_CONTINUATION)
+-- 
+1.7.3.2
+
