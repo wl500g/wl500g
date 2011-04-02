@@ -10886,7 +10886,7 @@ diff -x'.*' -urNBp a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
  MODULE_AUTHOR (DRIVER_AUTHOR);
  MODULE_LICENSE ("GPL");
  
-@@ -970,20 +1074,47 @@ static int __init ehci_hcd_init(void)
+@@ -970,40 +1074,67 @@ static int __init ehci_hcd_init(void)
  {
  	int retval = 0;
  
@@ -10915,45 +10915,59 @@ diff -x'.*' -urNBp a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
 +
  #ifdef PLATFORM_DRIVER
  	retval = platform_driver_register(&PLATFORM_DRIVER);
--	if (retval < 0)
-+	if (retval < 0) {
-+#ifdef DEBUG
-+		debugfs_remove(ehci_debug_root);
-+		ehci_debug_root = NULL;
-+#endif
- 		return retval;
-+	}
+ 	if (retval < 0)
+-		return retval;
++		goto clean0;
  #endif
  
  #ifdef PCI_DRIVER
  	retval = pci_register_driver(&PCI_DRIVER);
- 	if (retval < 0) {
-+#ifdef DEBUG
-+		debugfs_remove(ehci_debug_root);
-+		ehci_debug_root = NULL;
-+#endif
- #ifdef PLATFORM_DRIVER
- 		platform_driver_unregister(&PLATFORM_DRIVER);
+-	if (retval < 0) {
+-#ifdef PLATFORM_DRIVER
+-		platform_driver_unregister(&PLATFORM_DRIVER);
+-#endif
+-		return retval;
+-	}
++	if (retval < 0)
++		goto clean1;
  #endif
-@@ -994,12 +1125,18 @@ static int __init ehci_hcd_init(void)
+ 
  #ifdef PS3_SYSTEM_BUS_DRIVER
  	retval = ps3_ehci_driver_register(&PS3_SYSTEM_BUS_DRIVER);
- 	if (retval < 0) {
+-	if (retval < 0) {
+-#ifdef PLATFORM_DRIVER
+-		platform_driver_unregister(&PLATFORM_DRIVER);
++	if (retval < 0)
++		goto clean2;
++#endif
++
++	return retval;
++
++#ifdef PS3_SYSTEM_BUS_DRIVER
++        ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
++clean2:
+ #endif
+ #ifdef PCI_DRIVER
+-		pci_unregister_driver(&PCI_DRIVER);
++	pci_unregister_driver(&PCI_DRIVER);
++clean1:
+ #endif
+-		return retval;
+-	}
++#ifdef PLATFORM_DRIVER
++	platform_driver_unregister(&PLATFORM_DRIVER);
++clean0:
+ #endif
+-
 +#ifdef DEBUG
 +		debugfs_remove(ehci_debug_root);
 +		ehci_debug_root = NULL;
-+#endif
- #ifdef PLATFORM_DRIVER
- 		platform_driver_unregister(&PLATFORM_DRIVER);
- #endif
- #ifdef PCI_DRIVER
- 		pci_unregister_driver(&PCI_DRIVER);
- #endif
 +err_debug:
++#endif
 +	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
- 		return retval;
- 	}
- #endif
+ 	return retval;
+ }
+ module_init(ehci_hcd_init);
 @@ -1019,6 +1156,10 @@ static void __exit ehci_hcd_cleanup(void
  #ifdef PS3_SYSTEM_BUS_DRIVER
  	ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);

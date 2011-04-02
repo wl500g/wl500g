@@ -9,7 +9,7 @@
 diff -urBp a/drivers/usb/host/ehci-dbg.c b/drivers/usb/host/ehci-dbg.c
 --- a/drivers/usb/host/ehci-dbg.c
 +++ b/drivers/usb/host/ehci-dbg.c
-@@ -924,45 +924,33 @@ static inline void create_debug_files (s
+@@ -924,45 +924,30 @@ static inline void create_debug_files (s
  
  	ehci->debug_dir = debugfs_create_dir(bus->bus_name, ehci_debug_root);
  	if (!ehci->debug_dir)
@@ -28,9 +28,6 @@ diff -urBp a/drivers/usb/host/ehci-dbg.c b/drivers/usb/host/ehci-dbg.c
 +						    &debug_registers_fops))
 +		goto file_error;
 +
-+	if (!debugfs_create_file("lpm", S_IRUGO|S_IWUGO, ehci->debug_dir, bus,
-+						    &debug_lpm_fops))
-+		goto file_error;
  
 -	ehci->debug_async = debugfs_create_file("async", S_IRUGO,
 -						ehci->debug_dir, bus,
