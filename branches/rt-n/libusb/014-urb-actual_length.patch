@@ -1,0 +1,75 @@
+From 07df377a5df25e9c1811b554dc00eb8c40e5b995
+From: Alan Stern
+Date: Sun, 17 Oct 2010 04:17:32 +0200
+Subject: [PATCH] Linux: report correct value for urb->actual_length
+
+Transferred bytes are returned correctly by the kernel for every URB,
+even when an error occurs.  Hence they should always be included in
+the transfer statistics.  The same is true for isochronous packet
+length and status.
+
+[stuge: set itransfer->transferred so data is stored at correct offset]
+---
+ libusb/os/linux_usbfs.c |   24 +++++++++---------------
+ 1 files changed, 9 insertions(+), 15 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index d0c05c1..071c1ac 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1863,9 +1863,7 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
+ 		goto out_unlock;
+ 	}
+ 
+-	if (urb->status == 0 || urb->status == -EREMOTEIO ||
+-			(urb->status == -EOVERFLOW && urb->actual_length > 0))
+-		itransfer->transferred += urb->actual_length;
++	itransfer->transferred += urb->actual_length;
+ 
+ 	/* Many of these errors can occur on *any* urb of a multi-urb
+ 	 * transfer.  When they do, we tear down the rest of the transfer.
+@@ -1979,16 +1977,14 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
+ 	usbi_dbg("handling completion status %d of iso urb %d/%d", urb->status,
+ 		urb_idx, num_urbs);
+ 
+-	if (urb->status == 0) {
+-		/* copy isochronous results back in */
++	/* copy isochronous results back in */
+ 
+-		for (i = 0; i < urb->number_of_packets; i++) {
+-			struct usbfs_iso_packet_desc *urb_desc = &urb->iso_frame_desc[i];
+-			struct libusb_iso_packet_descriptor *lib_desc =
+-				&transfer->iso_packet_desc[tpriv->iso_packet_offset++];
+-			lib_desc->status = urb_desc->status;
+-			lib_desc->actual_length = urb_desc->actual_length;
+-		}
++	for (i = 0; i < urb->number_of_packets; i++) {
++		struct usbfs_iso_packet_desc *urb_desc = &urb->iso_frame_desc[i];
++		struct libusb_iso_packet_descriptor *lib_desc =
++			&transfer->iso_packet_desc[tpriv->iso_packet_offset++];
++		lib_desc->status = urb_desc->status;
++		lib_desc->actual_length = urb_desc->actual_length;
+ 	}
+ 
+ 	tpriv->num_retired++;
+@@ -2057,8 +2053,7 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
+ 	usbi_mutex_lock(&itransfer->lock);
+ 	usbi_dbg("handling completion status %d", urb->status);
+ 
+-	if (urb->status == 0)
+-		itransfer->transferred += urb->actual_length;
++	itransfer->transferred += urb->actual_length;
+ 
+ 	if (tpriv->reap_action == CANCELLED) {
+ 		if (urb->status != 0 && urb->status != -ENOENT)
+@@ -2072,7 +2067,6 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
+ 
+ 	switch (urb->status) {
+ 	case 0:
+-		itransfer->transferred = urb->actual_length;
+ 		status = LIBUSB_TRANSFER_COMPLETED;
+ 		break;
+ 	case -ENOENT: /* cancelled */
+-- 
+1.7.3.2
+
