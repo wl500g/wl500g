@@ -16,11 +16,10 @@ ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 endif
 
-CFLAGS	+= -DASUS_EXT $(GLOBAL_OPTIONS)
+CFLAGS	+= -s -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
 CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include -Wall
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG -DDEBUG_TO_SYSLOG
-CFLAGS	+= -s -O2 $(EXTRACFLAGS)
 LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt -lpthread -Wl,-rpath /lib
 
 MODEL := $(patsubst -DMODEL_%,%,$(filter -DMODEL_%,$(GLOBAL_OPTIONS)))

@@ -387,7 +387,7 @@ static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 	i+=2;
 	timestop[i]=0;
 
-	sprintf(mstr, "-m time --timestart %s:00 --timestop %s:00 --days ",
+	sprintf(mstr, "-m time --timestart %s --timestop %s --weekdays ",
 			timestart, timestop);
 
 	head=1;
@@ -440,7 +440,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 				char *lan_if, char *lan_ip, char *lan_class,
 				char *logaccept, char *logdrop)
 {
-	char name[] = "forward_portXXXXXXXXXX", value[512];
+	char name[NV_FORWARD_PORT_MAXLEN], value[512];
         char *wan_port0, *wan_port1, *lan_ipaddr, *lan_port0, *lan_port1, *proto;
         char *enable, *desc;
 	int i;

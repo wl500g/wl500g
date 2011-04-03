@@ -128,11 +128,19 @@ print_fw(netconf_fw_t *fw)
 
 	/* Match local time */
 	if (fw->match.secs[0] || fw->match.secs[1]) {
-		char *days[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-		if (fw->match.days[0] < 7 && fw->match.days[1] < 7)
-			printf(" %s-%s",
-			       days[fw->match.days[0]], days[fw->match.days[1]]);
-		if (fw->match.secs[0] < (24 * 60 * 60) && fw->match.days[1] < (24 * 60 * 60))
+		const char *days[] = { NULL, "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+		unsigned nbdays = 0;
+		int i;
+
+		for (i = 1; i <= 7; ++i)
+			if (fw->match.days & (1 << i)) {
+				if (nbdays > 0)
+                            		printf(",%s", days[i]);
+				else
+                            		printf("%s", days[i]);
+				++nbdays;
+			}
+		if (fw->match.secs[0] < (24 * 60 * 60) && fw->match.secs[1] < (24 * 60 * 60))
 			printf(" %02d:%02d:%02d-%02d:%02d:%02d",
 			       fw->match.secs[0] / (60 * 60), (fw->match.secs[0] / 60) % 60, fw->match.secs[0] % 60,
 			       fw->match.secs[1] / (60 * 60), (fw->match.secs[1] / 60) % 60, fw->match.secs[1] % 60);

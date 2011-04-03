@@ -310,12 +310,9 @@ netconf_get_fw(netconf_fw_t *fw_list)
 					break;
 				}
 				if (time) {
-					unsigned int *days = (unsigned int *) &time[1];
-
-					fw->match.days[0] = days[0];
-					fw->match.days[1] = days[1];
-					fw->match.secs[0] = time->time_start;
-					fw->match.secs[1] = time->time_stop;
+					fw->match.days    = time->weekdays_match;
+					fw->match.secs[0] = time->daytime_start;
+					fw->match.secs[1] = time->daytime_stop;
 				}
 
 				/* Set target type */
@@ -573,12 +570,9 @@ netconf_fw_index(const netconf_fw_t *fw)
 					if (!time)
 						continue;
 					else {
-						unsigned int *days = (unsigned int *) &time[1];
-
-						if (fw->match.days[0] != days[0] ||
-						    fw->match.days[1] != days[1] ||
-						    fw->match.secs[0] != time->time_start ||
-						    fw->match.secs[1] != time->time_stop)
+						if (fw->match.days != time->weekdays_match ||
+						    fw->match.secs[0] != time->daytime_start ||
+						    fw->match.secs[1] != time->daytime_stop)
 							continue;
 					}
 				}
@@ -945,13 +939,9 @@ netconf_add_fw(netconf_fw_t *fw)
 	/* Match by local time */
 	if (fw->match.secs[0] || fw->match.secs[1]) {
 		struct ipt_time_info *time;
-		unsigned int *days;
-		int i;
 
-		if (fw->match.secs[0] >= (24 * 60 * 60) || fw->match.secs[1] >= (24 * 60 * 60) ||
-		    fw->match.days[0] >= 7 || fw->match.days[1] >= 7) {
-			fprintf(stderr, "invalid time %d-%d:%d-%d\n",
-				fw->match.days[0], fw->match.days[1],
+		if (fw->match.secs[0] >= (24 * 60 * 60) || fw->match.secs[1] >= (24 * 60 * 60) ) {
+			fprintf(stderr, "invalid time %d-%d\n",
 				fw->match.secs[0], fw->match.secs[1]);
 			goto err;
 		}
@@ -959,15 +949,16 @@ netconf_add_fw(netconf_fw_t *fw)
 		if (!(match = netconf_append_match(&entry, "time", sizeof(struct ipt_time_info) + 8)))
 			goto err;
 		time = (struct ipt_time_info *) &match->data[0];
-		days = (unsigned int *) &time[1];
-		days[0] = fw->match.days[0];
-		days[1] = fw->match.days[1];
 
-		for (i = fw->match.days[0]; i != fw->match.days[1]; i = (i + 1) % 7)
-			time->days_match |= (1 << i);
-		time->days_match |= (1 << fw->match.days[1]);
-		time->time_start = fw->match.secs[0];
-		time->time_stop = fw->match.secs[1];
+		time->weekdays_match = fw->match.days;
+		time->daytime_start = fw->match.secs[0];
+		time->daytime_stop = fw->match.secs[1];
+#ifdef LINUX26
+		time->flags |= XT_TIME_LOCAL_TZ;
+		time->monthdays_match = XT_TIME_ALL_MONTHDAYS;
+		time->date_start = 0;
+		time->date_stop  = INT_MAX;
+#endif
 	}
 
 #ifdef WEBSTRFILTER

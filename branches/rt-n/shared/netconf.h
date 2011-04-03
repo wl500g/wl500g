@@ -61,8 +61,8 @@ typedef struct _netconf_match_t {
 	} in, out;
 	int state;			/* Match by packet state */
 	int flags;			/* Match flags */
-	uint days[2];			/* Match by day of the week (local time) (0 == Sunday) */
-	uint secs[2];			/* Match by time of day (local time) (0 == 12:00 AM) */
+	u_int8_t days;			/* Match by day of the week (local time) (0 == Sunday) */
+	u_int32_t secs[2];		/* Match by time of day (local time) (0 == 12:00 AM) */
 
         /* +++ Match by module name. Cherry Cho added in 2007/12/27. +++ */
 	uint module_num;
