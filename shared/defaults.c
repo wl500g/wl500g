@@ -107,7 +107,6 @@ struct nvram_tuple router_defaults[] = {
 	/* Filters */
 	{ "filter_maclist", "", 0 },		/* xx:xx:xx:xx:xx:xx ... */
 	{ "filter_macmode", "deny", 0 },	/* "allow" only, "deny" only, or "disabled" (allow all) */
-	{ "filter_client0", "", 0 },		/* [lan_ipaddr0-lan_ipaddr1|*]:lan_port0-lan_port1,proto,enable,day_start-day_end,sec_start-sec_end,desc */
 
 	/* Port forwards */
 	{ "dmz_ipaddr", "", 0 },		/* x.x.x.x (equivalent to 0-60999>dmz_ipaddr:0-60999) */

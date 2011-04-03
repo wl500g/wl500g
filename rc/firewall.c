@@ -115,20 +115,6 @@ start_firewall(void)
 	 * Forward drops
 	 */
 
-	/* Client filters */
-	for (i = 0; i < MAX_NVPARSE; i++) {
-		netconf_filter_t start, end;
-
-		if (get_filter_client(i, &start, &end) && !(start.match.flags & NETCONF_DISABLED)) {
-			while (ntohl(start.match.src.ipaddr.s_addr) <= ntohl(end.match.src.ipaddr.s_addr)) {
-				/* Override target */
-				start.target = log_drop;
-				add_filter(&start, NETCONF_FORWARD);
-				start.match.src.ipaddr.s_addr = htonl(ntohl(start.match.src.ipaddr.s_addr) + 1);
-			}
-		}
-	}
-
 	/* Filter by MAC address */
 	if (!nvram_match("filter_macmode", "disabled")) {
 		memset(&filter, 0, sizeof(filter));

@@ -491,7 +491,6 @@ restore_defaults(void)
 	if (restore_defaults) {
 		char tmp[100], prefix[] = "wlXXXXXXXXXX_";
 		for (i = 0; i < MAX_NVPARSE; i++) {
-			del_filter_client(i);
 			del_forward_port(i);
 			del_autofw_port(i);
 			snprintf(prefix, sizeof(prefix), "wl%d_", i);

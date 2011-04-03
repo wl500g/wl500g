@@ -203,7 +203,7 @@ obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
 # defaults
 export LANGUAGE := "EN"
-GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM
+GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
 
 LZMADIR=$(SRCBASE)/lzma/CPP/7zip/Compress
 
@@ -1153,7 +1153,7 @@ images:
 #
 
 %:
-	[ ! -d $* ] || $(MAKE) -C $*  EXTRACFLAGS="$(EXTRACFLAGS)"
+	[ ! -d $* ] || $(MAKE) -C $* GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 %-clean:
 	[ ! -d $* ] || $(MAKE) -C $* clean
