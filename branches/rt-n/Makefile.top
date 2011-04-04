@@ -274,6 +274,14 @@ mksquashfs-lzma: lzma-lib
 	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
 		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
+$(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma
+ifeq ($(CONFIG_LOADER),y)
+	$(MAKE) -C loader vmlinuz-install LZMA=$(LZMADIR)/LZMA_Alone/lzma DESTDIR=$(PLATFORMDIR)
+else
+	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed vmlinuz
+	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
+endif
+
 MIPSREV := $(if $(filter RT-N%,$(MODEL)),MIPS32r2,MIPS32r1)
 
 $(LINUXDIR)/.stamp-$(MIPSREV): $(LINUXDIR)/.config
@@ -287,19 +295,12 @@ kernel-modules: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 
 kernel: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) CC=$(CROSS_COMPILE)gcc
-	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
 	@-rm -f $(LINUXDIR)/.stamp-*
 
-kernel-install: kernel lzma $(PLATFORMDIR)/vmlinuz
-ifeq ($(CONFIG_LOADER),y)
-	cat $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/piggy | \
-		$(LZMADIR)/LZMA_Alone/lzma e -si -so -lc1 -lp2 -pb2 > $(PLATFORMDIR)/vmlinuz
-else
-	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
-endif
+kernel-install: kernel $(PLATFORMDIR)/vmlinuz
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
 	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules \
