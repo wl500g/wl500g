@@ -1138,8 +1138,6 @@ stop_wan(char *ifname)
 {
 	char name[80], *next;
 
-	killall("ntpd", 0);
-
 	/* Shutdown and kill all possible tasks */
 	killall("ip-up", 0);
 	killall("ip-down", 0);
