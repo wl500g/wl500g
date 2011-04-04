@@ -271,7 +271,6 @@ del_autofw_port(int which)
 	return (nvram_unset(name) == 0) ? TRUE : FALSE;
 }
 
-#ifndef ASUS_EXT
 bool
 valid_forward_port(const netconf_nat_t *nat)
 {
@@ -447,7 +446,6 @@ set_forward_port(int which, const netconf_nat_t *nat)
 
 	return TRUE;
 }
-#endif /* ASUS_EXT */
 
 bool
 del_forward_port(int which)
