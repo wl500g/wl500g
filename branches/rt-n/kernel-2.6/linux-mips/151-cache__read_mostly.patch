@@ -45,5 +45,19 @@ index acd3f2c..8ad1d56 100644
  EXPORT_SYMBOL(mips_io_port_base);
  
  /*
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -84,6 +84,10 @@ SECTIONS
+ 
+   . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
++
++  /* rarely changed data like cpu maps */
++  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
++  .data.read_mostly : { *(.data.read_mostly) }
+ 
+   _edata =  .;			/* End of data section */
+ 
 -- 
 1.7.4
