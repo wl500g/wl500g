@@ -49,6 +49,10 @@ dep:
 
 install:
 
+vmlinuz-install:
+	$(OBJCOPY) $(LINUXDIR)/vmlinux piggy
+	cat piggy | $(LZMA) e $(DESTDIR)/vmlinuz -si -lc1 -lp2 -pb2
+
 loader.gz: loader
 	gzip -nc9 $< > $@
 
@@ -73,7 +77,8 @@ decompress: decompress.lds $(COBJECTS)
 decompress.lds: decompress.lds.in Makefile
 	@sed "$(SEDFLAGS)" < $< > $@
 
+
 mrproper: clean
 
 clean:
-	rm -f loader.gz loader decompress loader.lds decompress.lds *.o *.image
+	rm -f loader.gz loader decompress loader.lds decompress.lds *.o *.image piggy
