@@ -51,7 +51,7 @@ install:
 
 vmlinuz-install:
 	$(OBJCOPY) $(LINUXDIR)/vmlinux piggy
-	cat piggy | $(LZMA) e $(DESTDIR)/vmlinuz -si -lc1 -lp2 -pb2
+	$(LZMA) e piggy $(DESTDIR)/vmlinuz -eos -lc1 -lp2 -pb2
 
 loader.gz: loader
 	gzip -nc9 $< > $@
