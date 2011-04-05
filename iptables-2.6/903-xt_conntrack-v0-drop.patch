@@ -1,6 +1,6 @@
 diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt_conntrack.c
 --- iptables.orig/extensions/libxt_conntrack.c	2011-03-13 19:29:49.000000000 +0000
-+++ iptables/extensions/libxt_conntrack.c	2011-03-13 21:17:41.513163002 +0000
++++ iptables/extensions/libxt_conntrack.c	2011-04-05 18:02:09.000000000 +0400
 @@ -46,18 +46,6 @@ static void conntrack_mt_help(void)
  "    --ctdir {ORIGINAL|REPLY}   Flow direction of packet\n");
  }
@@ -20,7 +20,142 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static const struct option conntrack_mt_opts[] = {
  	{.name = "ctstate",       .has_arg = true, .val = '1'},
  	{.name = "ctproto",       .has_arg = true, .val = '2'},
-@@ -287,156 +275,6 @@ conntrack_ps_expires(struct xt_conntrack
+@@ -75,46 +63,6 @@ static const struct option conntrack_mt_
+ 	{.name = NULL},
+ };
+ 
+-static int
+-parse_state(const char *state, size_t len, struct xt_conntrack_info *sinfo)
+-{
+-	if (strncasecmp(state, "INVALID", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_INVALID;
+-	else if (strncasecmp(state, "NEW", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_BIT(IP_CT_NEW);
+-	else if (strncasecmp(state, "ESTABLISHED", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED);
+-	else if (strncasecmp(state, "RELATED", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_BIT(IP_CT_RELATED);
+-	else if (strncasecmp(state, "UNTRACKED", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_UNTRACKED;
+-	else if (strncasecmp(state, "SNAT", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_SNAT;
+-	else if (strncasecmp(state, "DNAT", len) == 0)
+-		sinfo->statemask |= XT_CONNTRACK_STATE_DNAT;
+-	else
+-		return 0;
+-	return 1;
+-}
+-
+-static void
+-parse_states(const char *arg, struct xt_conntrack_info *sinfo)
+-{
+-	const char *comma;
+-
+-	while ((comma = strchr(arg, ',')) != NULL) {
+-		if (comma == arg || !parse_state(arg, comma-arg, sinfo))
+-			xtables_error(PARAMETER_PROBLEM, "Bad ctstate \"%s\"", arg);
+-		arg = comma+1;
+-	}
+-	if (!*arg)
+-		xtables_error(PARAMETER_PROBLEM, "\"--ctstate\" requires a list of "
+-					      "states with no spaces, e.g. "
+-					      "ESTABLISHED,RELATED");
+-	if (strlen(arg) == 0 || !parse_state(arg, strlen(arg), sinfo))
+-		xtables_error(PARAMETER_PROBLEM, "Bad ctstate \"%s\"", arg);
+-}
+-
+ static bool
+ conntrack_ps_state(struct xt_conntrack_mtinfo2 *info, const char *state,
+                    size_t z)
+@@ -154,41 +102,6 @@ conntrack_ps_states(struct xt_conntrack_
+ 		xtables_error(PARAMETER_PROBLEM, "Bad ctstate \"%s\"", arg);
+ }
+ 
+-static int
+-parse_status(const char *status, size_t len, struct xt_conntrack_info *sinfo)
+-{
+-	if (strncasecmp(status, "NONE", len) == 0)
+-		sinfo->statusmask |= 0;
+-	else if (strncasecmp(status, "EXPECTED", len) == 0)
+-		sinfo->statusmask |= IPS_EXPECTED;
+-	else if (strncasecmp(status, "SEEN_REPLY", len) == 0)
+-		sinfo->statusmask |= IPS_SEEN_REPLY;
+-	else if (strncasecmp(status, "ASSURED", len) == 0)
+-		sinfo->statusmask |= IPS_ASSURED;
+-#ifdef IPS_CONFIRMED
+-	else if (strncasecmp(status, "CONFIRMED", len) == 0)
+-		sinfo->statusmask |= IPS_CONFIRMED;
+-#endif
+-	else
+-		return 0;
+-	return 1;
+-}
+-
+-static void
+-parse_statuses(const char *arg, struct xt_conntrack_info *sinfo)
+-{
+-	const char *comma;
+-
+-	while ((comma = strchr(arg, ',')) != NULL) {
+-		if (comma == arg || !parse_status(arg, comma-arg, sinfo))
+-			xtables_error(PARAMETER_PROBLEM, "Bad ctstatus \"%s\"", arg);
+-		arg = comma+1;
+-	}
+-
+-	if (strlen(arg) == 0 || !parse_status(arg, strlen(arg), sinfo))
+-		xtables_error(PARAMETER_PROBLEM, "Bad ctstatus \"%s\"", arg);
+-}
+-
+ static bool
+ conntrack_ps_status(struct xt_conntrack_mtinfo2 *info, const char *status,
+                     size_t z)
+@@ -224,45 +137,6 @@ conntrack_ps_statuses(struct xt_conntrac
+ 		xtables_error(PARAMETER_PROBLEM, "Bad ctstatus \"%s\"", arg);
+ }
+ 
+-static unsigned long
+-parse_expire(const char *s)
+-{
+-	unsigned int len;
+-
+-	if (!xtables_strtoui(s, NULL, &len, 0, UINT32_MAX))
+-		xtables_error(PARAMETER_PROBLEM, "expire value invalid: \"%s\"\n", s);
+-	else
+-		return len;
+-}
+-
+-/* If a single value is provided, min and max are both set to the value */
+-static void
+-parse_expires(const char *s, struct xt_conntrack_info *sinfo)
+-{
+-	char *buffer;
+-	char *cp;
+-
+-	buffer = strdup(s);
+-	if ((cp = strchr(buffer, ':')) == NULL)
+-		sinfo->expires_min = sinfo->expires_max =
+-			parse_expire(buffer);
+-	else {
+-		*cp = '\0';
+-		cp++;
+-
+-		sinfo->expires_min = buffer[0] ? parse_expire(buffer) : 0;
+-		sinfo->expires_max = cp[0]
+-			? parse_expire(cp)
+-			: (unsigned long)-1;
+-	}
+-	free(buffer);
+-
+-	if (sinfo->expires_min > sinfo->expires_max)
+-		xtables_error(PARAMETER_PROBLEM,
+-		           "expire min. range value `%lu' greater than max. "
+-		           "range value `%lu'", sinfo->expires_min, sinfo->expires_max);
+-}
+-
+ static void
+ conntrack_ps_expires(struct xt_conntrack_mtinfo2 *info, const char *s)
+ {
+@@ -287,156 +161,6 @@ conntrack_ps_expires(struct xt_conntrack
  	info->expires_max = max;
  }
  
@@ -177,7 +312,129 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static int
  conntrack_mt_parse(int c, bool invert, unsigned int *flags,
                     struct xt_conntrack_mtinfo2 *info)
-@@ -1052,12 +890,6 @@ conntrack_dump(const struct xt_conntrack
+@@ -834,121 +558,6 @@ conntrack_dump_addr(const union nf_inet_
+ }
+ 
+ static void
+-print_addr(const struct in_addr *addr, const struct in_addr *mask,
+-           int inv, int numeric)
+-{
+-	char buf[BUFSIZ];
+-
+-	if (inv)
+-	       	printf("! ");
+-
+-	if (mask->s_addr == 0L && !numeric)
+-		printf("%s ", "anywhere");
+-	else {
+-		if (numeric)
+-			strcpy(buf, xtables_ipaddr_to_numeric(addr));
+-		else
+-			strcpy(buf, xtables_ipaddr_to_anyname(addr));
+-		strcat(buf, xtables_ipmask_to_numeric(mask));
+-		printf("%s ", buf);
+-	}
+-}
+-
+-static void
+-matchinfo_print(const void *ip, const struct xt_entry_match *match, int numeric, const char *optpfx)
+-{
+-	const struct xt_conntrack_info *sinfo = (const void *)match->data;
+-
+-	if(sinfo->flags & XT_CONNTRACK_STATE) {
+-        	if (sinfo->invflags & XT_CONNTRACK_STATE)
+-                	printf("! ");
+-		printf("%sctstate ", optpfx);
+-		print_state(sinfo->statemask);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_PROTO) {
+-        	if (sinfo->invflags & XT_CONNTRACK_PROTO)
+-                	printf("! ");
+-		printf("%sctproto ", optpfx);
+-		printf("%u ", sinfo->tuple[IP_CT_DIR_ORIGINAL].dst.protonum);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_ORIGSRC) {
+-		if (sinfo->invflags & XT_CONNTRACK_ORIGSRC)
+-			printf("! ");
+-		printf("%sctorigsrc ", optpfx);
+-
+-		print_addr(
+-		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_ORIGINAL].src.ip,
+-		    &sinfo->sipmsk[IP_CT_DIR_ORIGINAL],
+-		    false,
+-		    numeric);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_ORIGDST) {
+-		if (sinfo->invflags & XT_CONNTRACK_ORIGDST)
+-			printf("! ");
+-		printf("%sctorigdst ", optpfx);
+-
+-		print_addr(
+-		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_ORIGINAL].dst.ip,
+-		    &sinfo->dipmsk[IP_CT_DIR_ORIGINAL],
+-		    false,
+-		    numeric);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_REPLSRC) {
+-		if (sinfo->invflags & XT_CONNTRACK_REPLSRC)
+-			printf("! ");
+-		printf("%sctreplsrc ", optpfx);
+-
+-		print_addr(
+-		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_REPLY].src.ip,
+-		    &sinfo->sipmsk[IP_CT_DIR_REPLY],
+-		    false,
+-		    numeric);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_REPLDST) {
+-		if (sinfo->invflags & XT_CONNTRACK_REPLDST)
+-			printf("! ");
+-		printf("%sctrepldst ", optpfx);
+-
+-		print_addr(
+-		    (struct in_addr *)&sinfo->tuple[IP_CT_DIR_REPLY].dst.ip,
+-		    &sinfo->dipmsk[IP_CT_DIR_REPLY],
+-		    false,
+-		    numeric);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_STATUS) {
+-        	if (sinfo->invflags & XT_CONNTRACK_STATUS)
+-                	printf("! ");
+-		printf("%sctstatus ", optpfx);
+-		print_status(sinfo->statusmask);
+-	}
+-
+-	if(sinfo->flags & XT_CONNTRACK_EXPIRES) {
+-        	if (sinfo->invflags & XT_CONNTRACK_EXPIRES)
+-                	printf("! ");
+-		printf("%sctexpire ", optpfx);
+-
+-        	if (sinfo->expires_max == sinfo->expires_min)
+-                	printf("%lu ", sinfo->expires_min);
+-        	else
+-                	printf("%lu:%lu ", sinfo->expires_min, sinfo->expires_max);
+-	}
+-
+-	if (sinfo->flags & XT_CONNTRACK_DIRECTION) {
+-		if (sinfo->invflags & XT_CONNTRACK_DIRECTION)
+-			printf("%sctdir REPLY ", optpfx);
+-		else
+-			printf("%sctdir ORIGINAL ", optpfx);
+-	}
+-
+-}
+-
+-static void
+ conntrack_dump(const struct xt_conntrack_mtinfo2 *info, const char *prefix,
+                unsigned int family, bool numeric)
+ {
+@@ -1052,12 +661,6 @@ conntrack_dump(const struct xt_conntrack
  	}
  }
  
@@ -190,7 +447,7 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static void
  conntrack1_mt4_print(const void *ip, const struct xt_entry_match *match,
                       int numeric)
-@@ -1094,11 +926,6 @@ conntrack_mt6_print(const void *ip, cons
+@@ -1094,11 +697,6 @@ conntrack_mt6_print(const void *ip, cons
  	conntrack_dump((const void *)match->data, "", NFPROTO_IPV6, numeric);
  }
  
@@ -202,7 +459,7 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static void conntrack_mt_save(const void *ip,
                                const struct xt_entry_match *match)
  {
-@@ -1131,21 +958,6 @@ conntrack1_mt6_save(const void *ip, cons
+@@ -1131,21 +729,6 @@ conntrack1_mt6_save(const void *ip, cons
  	conntrack_dump(&up, "--", NFPROTO_IPV6, true);
  }
  
@@ -224,7 +481,7 @@ diff -BurpN iptables.orig/extensions/libxt_conntrack.c iptables/extensions/libxt
  static struct xtables_match conntrack_mt_v1_reg = {
  	.version       = XTABLES_VERSION,
  	.name          = "conntrack",
-@@ -1208,7 +1020,6 @@ static struct xtables_match conntrack_mt
+@@ -1208,7 +791,6 @@ static struct xtables_match conntrack_mt
  
  void _init(void)
  {
