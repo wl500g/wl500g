@@ -6128,8 +6128,8 @@ diff -urNBp a/drivers/media/video/uvc/uvc_v4l2.c b/drivers/media/video/uvc/uvc_v
 +
 diff -urNBp a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_video.c
 --- a/drivers/media/video/uvc/uvc_video.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/drivers/media/video/uvc/uvc_video.c	2010-09-13 14:36:27.000000000 +0400
-@@ -0,0 +1,1220 @@
++++ b/drivers/media/video/uvc/uvc_video.c	2011-04-07 21:36:27.000000000 +0400
+@@ -0,0 +1,1224 @@
 +/*
 + *      uvc_video.c  --  USB Video Class driver - Video handling
 + *
@@ -6197,15 +6197,19 @@ diff -urNBp a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_
 +static void uvc_fixup_video_ctrl(struct uvc_streaming *stream,
 +	struct uvc_streaming_control *ctrl)
 +{
-+	struct uvc_format *format;
++	struct uvc_format *format = NULL;
 +	struct uvc_frame *frame = NULL;
 +	unsigned int i;
 +
-+	if (ctrl->bFormatIndex <= 0 ||
-+	    ctrl->bFormatIndex > stream->nformats)
-+		return;
++	for (i = 0; i < stream->nformats; ++i) {
++		if (stream->format[i].index == ctrl->bFormatIndex) {
++			format = &stream->format[i];
++			break;
++		}
++	}
 +
-+	format = &stream->format[ctrl->bFormatIndex - 1];
++	if (format == NULL)
++		return;
 +
 +	for (i = 0; i < format->nframes; ++i) {
 +		if (format->frame[i].bFrameIndex == ctrl->bFrameIndex) {
