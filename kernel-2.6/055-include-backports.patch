@@ -257,6 +257,25 @@ diff --git a/include/linux/kernel.h b/include/linux/kernel.h
  
  enum {
  	DUMP_PREFIX_NONE,
+@@ -267,6 +267,18 @@
+ }
+ #endif
+ 
++#define pr_emerg(fmt,arg...) \
++        printk(KERN_EMERG fmt, ##arg)
++#define pr_alert(fmt,arg...) \
++        printk(KERN_ALERT fmt, ##arg)
++#define pr_crit(fmt,arg...) \
++        printk(KERN_CRIT fmt, ##arg)
++#define pr_err(fmt,arg...) \
++        printk(KERN_ERR fmt, ##arg)
++#define pr_warning(fmt,arg...) \
++        printk(KERN_WARNING fmt, ##arg)
++#define pr_notice(fmt,arg...) \
++        printk(KERN_NOTICE fmt, ##arg)
+ #define pr_info(fmt,arg...) \
+ 	printk(KERN_INFO fmt,##arg)
+ 
 @@ -295,6 +295,24 @@ static inline int __attribute__ ((format
  	(void) (&_x == &_y);		\
  	_x > _y ? _x : _y; })
@@ -624,4 +643,20 @@ diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
 +
 +#endif
 +#endif
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -153,6 +153,12 @@
+ #define TASK_NONINTERACTIVE	64
+ #define TASK_DEAD		128
+ 
++#define task_is_traced(task)    (((task)->state & TASK_TRACED) != 0)
++#define task_is_stopped(task)   (((task)->state & TASK_STOPPED) != 0)
++#define task_is_dead(task)	((task)->exit_state != 0)
++#define task_is_stopped_or_traced(task) \
++			(((task)->state & (TASK_STOPPED | TASK_TRACED)) != 0)
++
+ #define __set_task_state(tsk, state_value)		\
+ 	do { (tsk)->state = (state_value); } while (0)
+ #define set_task_state(tsk, state_value)		\
 -- 
