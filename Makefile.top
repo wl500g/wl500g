@@ -824,7 +824,7 @@ utils: shared
 
 rp-l2tp/Makefile: rp-l2tp/Makefile.in
 	cd rp-l2tp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr
+	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc
 
 rp-l2tp: ppp rp-l2tp/Makefile
 

@@ -1,0 +1,12 @@
+--- rp-l2tp-0.4/tunnel.c	2009-09-02 17:00:06.000000000 +0000
++++ rp-l2tp/tunnel.c	2011-04-09 19:41:02.000000000 +0000
+@@ -1220,6 +1236,9 @@ tunnel_process_received_datagram(l2tp_tu
+     case MESSAGE_ICCN:
+ 	l2tp_session_handle_ICCN(ses, dgram);
+ 	return;
++    case MESSAGE_HELLO:
++	tunnel_setup_hello(tunnel);
++	return;
+     }
+ }
+ 
