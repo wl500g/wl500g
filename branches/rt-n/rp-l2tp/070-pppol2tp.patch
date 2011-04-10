@@ -5,8 +5,8 @@ diff -BurpN rp-l2tp-0.4/handlers/Makefile.in rp-l2tp/handlers/Makefile.in
  
  OBJS=pty.o sync-pppd.o dstring.o
  SRCS=$(OBJS:.o=.c)
--CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -Wall
-+CFLAGS=-g -O2 -I.. -I../libevent -I../../libevent -I. -Wall
+-CFLAGS=@CFLAGS@ -I.. -I../@LIBEVENT@ -Wall
++CFLAGS=@CFLAGS@ -I.. -I../@LIBEVENT@ -I. -Wall
  
  all: $(HANDLERS) l2tp-control
  
@@ -363,8 +363,8 @@ diff -BurpN rp-l2tp-0.4/handlers/sync-pppd.c rp-l2tp/handlers/sync-pppd.c
      }
 +    }
  
-    /* Fork */
-    pid = fork();
+     /* Fork */
+     pid = fork();
 @@ -312,8 +352,6 @@ establish_session(l2tp_session *ses)
      }
  
