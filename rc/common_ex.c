@@ -359,11 +359,14 @@ void convert_asus_values()
 
 	if (nvram_invmatch("wl_mode_ex", "ap"))
 	{
+#ifndef __CONFIG_BCMWL5__
 		int wepidx=atoi(nvram_safe_get("wl0_key"));
 		char wepname[16];
+#endif
 
 		sprintf(sbuf, "wl join \"%s\"", nvram_safe_get("wl0_ssid"));
 
+#ifndef __CONFIG_BCMWL5__
 		// key ??
 		if (nvram_match("wl0_auth_mode", "psk"))
 		{
@@ -374,13 +377,28 @@ void convert_asus_values()
 			sprintf(wepname, "wl0_key%d", wepidx);
 			sprintf(sbuf, "%s key %s", sbuf, nvram_safe_get(wepname));
 		}
-		
+#endif
 		sprintf(sbuf, "%s imode bss", sbuf);
-		
+
+#ifndef __CONFIG_BCMWL5__
 		if (nvram_match("wl_auth_mode", "psk"))
 			sprintf(sbuf, "%s amode wpapsk", sbuf);
+#else
+		if (nvram_match("wl_auth_mode", "psk") && nvram_match("wl_wpa_mode", "1"))
+			sprintf(sbuf, "%s amode wpapsk", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "psk") && nvram_match("wl_wpa_mode", "2"))
+			sprintf(sbuf, "%s amode wpa2psk", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "wpa"))
+			sprintf(sbuf, "%s amode wpa", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "wpa2"))
+			sprintf(sbuf, "%s amode wpa2", sbuf);
+#endif
 		else if (nvram_match("wl_auth_mode", "shared"))
 			sprintf(sbuf, "%s amode shared", sbuf);
+
 		else sprintf(sbuf, "%s amode open", sbuf);
 
 		nvram_set("wl0_join", sbuf);
