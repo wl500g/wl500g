@@ -76,7 +76,7 @@ diff --git a/libc/sysdeps/linux/common/bits/uClibc_mutex.h b/libc/sysdeps/linux/
  #define __UCLIBC_MUTEX_LOCK_CANCEL_UNSAFE(M)								\
  		__pthread_mutex_lock(&(M))
  
-@@ -44,6 +47,7 @@
+@@ -34,7 +37,8 @@
  #define __UCLIBC_MUTEX_CONDITIONAL_LOCK(M,C)								\
  	do {												\
  		struct _pthread_cleanup_buffer __infunc_pthread_cleanup_buffer;				\
@@ -86,7 +86,7 @@ diff --git a/libc/sysdeps/linux/common/bits/uClibc_mutex.h b/libc/sysdeps/linux/
  			_pthread_cleanup_push_defer(&__infunc_pthread_cleanup_buffer,			\
  					   (void (*) (void *))__pthread_mutex_unlock,			\
  										&(M));			\
-@@ -54,7 +59,7 @@
+@@ -43,7 +47,7 @@
  		((void)0)
  
  #define __UCLIBC_MUTEX_CONDITIONAL_UNLOCK(M,C)								\
@@ -95,7 +95,7 @@ diff --git a/libc/sysdeps/linux/common/bits/uClibc_mutex.h b/libc/sysdeps/linux/
  			_pthread_cleanup_pop_restore(&__infunc_pthread_cleanup_buffer,1);		\
  		}											\
  	} while (0)
-@@ -121,6 +121,7 @@
+@@ -69,6 +73,7 @@
  #define __UCLIBC_MUTEX_STATIC(M,I)			extern void *__UCLIBC_MUTEX_DUMMY_ ## M
  #define __UCLIBC_MUTEX_EXTERN(M)			extern void *__UCLIBC_MUTEX_DUMMY_ ## M
  
