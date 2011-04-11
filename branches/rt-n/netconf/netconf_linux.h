@@ -38,7 +38,12 @@
 #include <linux/netfilter_ipv4/ipt_LOG.h>
 #include <linux/netfilter_ipv4/ip_autofw.h>
 #ifdef WEBSTRFILTER
-# include <linux/netfilter_ipv4/ipt_webstr.h>
+# ifdef LINUX26
+#  include <linux/netfilter/xt_webstr.h>
+#  define ipt_webstr_info xt_webstr_info
+# else
+#  include <linux/netfilter_ipv4/ipt_webstr.h>
+# endif
 #endif
 
 /* ipt_entry alignment attribute */
