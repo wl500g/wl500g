@@ -358,7 +358,35 @@
  static DEFINE_MUTEX(afinfo_mutex);
  
  struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
-@@ -140,6 +145,12 @@ unsigned int nf_iterate(struct list_head
+@@ -126,6 +131,13 @@ unsigned int nf_iterate(struct list_head
+ {
+ 	unsigned int verdict;
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if (!skb) {
++		NFDEBUG("nf_hook_slow, skb is empty return NF_STOP\n");
++		return NF_STOP;
++	}
++#endif
++
+ 	/*
+ 	 * The caller must not block between calls to this
+ 	 * function because of risk of continuing from deleted element.
+@@ -133,6 +145,13 @@ unsigned int nf_iterate(struct list_head
+ 	list_for_each_continue_rcu(*i, head) {
+ 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++		if (!elem->hook) {
++			NFDEBUG("nf_hook_slow: elem is empty return NF_DROP\n");
++			return NF_DROP;
++		}
++#endif
++
+ 		if (hook_thresh > elem->priority)
+ 			continue;
+ 
+@@ -140,6 +159,12 @@ unsigned int nf_iterate(struct list_head
  		   reference here, since function can't sleep. --RR */
  repeat:
  		verdict = elem->hook(hook, skb, indev, outdev, okfn);
@@ -371,7 +399,7 @@
  		if (verdict != NF_ACCEPT) {
  #ifdef CONFIG_NETFILTER_DEBUG
  			if (unlikely((verdict & NF_VERDICT_MASK)
-@@ -189,6 +200,17 @@ next_hook:
+@@ -189,6 +214,17 @@ next_hook:
  			      verdict >> NF_VERDICT_BITS))
  			goto next_hook;
  	}
