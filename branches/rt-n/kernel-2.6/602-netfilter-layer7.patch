@@ -1513,7 +1513,7 @@ diff --git a/net/netfilter/regexp/regsub.c b/net/netfilter/regexp/regsub.c
 diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 --- /dev/null
 +++ b/net/netfilter/xt_layer7.c
-@@ -0,0 +1,655 @@
+@@ -0,0 +1,656 @@
 +/*
 +  Kernel module to match application layer (OSI layer 7) data in connections.
 +
@@ -1893,6 +1893,7 @@ diff --git a/net/netfilter/xt_layer7.c b/net/netfilter/xt_layer7.c
 +	}
 +
 +	if(copy_from_user(foo, buffer, count)) {
++		kfree(foo);
 +		return -EFAULT;
 +	}
 +
