@@ -2207,8 +2207,6 @@ static int irlap_state_nrm_s(struct irlap_cb *self, IRLAP_EVENT event,
 static int irlap_state_sclose(struct irlap_cb *self, IRLAP_EVENT event,
 			      struct sk_buff *skb, struct irlap_info *info)
 {
-	int ret = 0;
-
 	IRDA_DEBUG(1, "%s()\n", __FUNCTION__);
 
 	IRDA_ASSERT(self != NULL, return -ENODEV;);
@@ -2269,7 +2267,6 @@ static int irlap_state_sclose(struct irlap_cb *self, IRLAP_EVENT event,
 		IRDA_DEBUG(1, "%s(), Unknown event %d, (%s)\n", __FUNCTION__,
 			   event, irlap_event[event]);
 
-		ret = -EINVAL;
 		break;
 	}
 
