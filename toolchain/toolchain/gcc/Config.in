@@ -18,8 +18,8 @@ choice
 	config GCC_VERSION_4_3_5
 		bool "gcc 4.3.5"
 
-	config GCC_VERSION_4_4_5
-		bool "gcc 4.4.5"
+	config GCC_VERSION_4_4_6
+		bool "gcc 4.4.6"
 
 endchoice
 
