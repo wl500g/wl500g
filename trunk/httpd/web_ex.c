@@ -76,8 +76,11 @@ static int ej_select_country(int eid, webs_t wp, int argc, char_t **argv);
 static int wl_channels_in_country(char *abbrev, int channels[]);
 static int wl_channels_in_country_asus(char *abbrev, int channels[]);
 
-extern char ibuf2[WLC_IOCTL_MAXLEN];
+#ifdef USE_JSON
+int js0n(unsigned char *js, unsigned int len, unsigned short *out);
+#endif
 
+extern char ibuf2[WLC_IOCTL_MAXLEN];
 
 #define ACTION_UPGRADE_OK   0
 #define ACTION_UPGRADE_FAIL 1
@@ -1018,14 +1021,16 @@ validate_cgi(webs_t wp, int sid, int groupFlag)
 	/* Validate and set variables in table order */
 	for (v = GetVariables(sid); v->name != NULL; v++){
 		//printf("Name: %s %d\n", v->name, sid);
-		sprintf(name, "%s", v->name);
+		strcpy(name, v->name);
 
 		if ((value = websGetVar(wp, name, NULL))){ 
 			if (strcmp(v->longname, "Group")==0){
 
 			}else{
 				//printf("set: %s %s\n", v->name, value);
-				nvram_set_x(GetServiceId(sid), v->name, value);
+				nvram_set_x(
+					NULL, //GetServiceId(sid), // unused value !!!
+					v->name, value);
 			}   
 		}     
 	}
@@ -1638,9 +1643,9 @@ nvram_add_group_table(webs_t wp, char *serviceId, struct variable *v, int count)
 		}   
 
 		if (fieldCount==0)
-			sprintf(bufs,"%s", buf);
+			strcpy(bufs, buf);
 		else
-			sprintf(bufs,"%s%s",bufs, buf);
+			strcat(bufs, buf);
 
 		fieldCount++;
 	}
@@ -2196,6 +2201,121 @@ do_svgfile(char *url, FILE *stream)
 	do_file(path, stream);
 }
 
+#ifdef USE_JSON
+static void
+do_json_get(char *url, FILE *stream)
+{
+	char *buf, *name, str[0x1000];
+	char *eq_pos, *str_cp;
+	int len, tmp;
+
+	*str = 0;
+
+	buf = (char*)malloc (NVRAM_SPACE);
+	fputc ('{', stream);
+	nvram_getall (buf, NVRAM_SPACE);
+	for (name = buf; *name; name += strlen (name) + 1){
+		//fwrite(buf, 1, res, stream);
+		if (*str) strcpy (str,",\"");
+		else strcpy (str,"\"");
+
+		eq_pos = strchr (name, '=');
+		if (eq_pos) {
+			len = eq_pos-name;
+			tmp = strlen(str);
+			memcpy (str + tmp,name, len);
+			str[len + tmp] = 0;
+			strcat (str,"\":\"");
+			if (!strstr(str, "passwd") && !strstr(str, "psk")) {
+				for (str_cp = str + strlen(str); *++eq_pos; str_cp++) {
+					switch (*eq_pos){
+					case '\"': *str_cp++ = '\\'; *str_cp = '\"'; break;
+					case '\\': *str_cp++ = '\\'; *str_cp = '\\'; break;
+					case '/' : *str_cp++ = '\\'; *str_cp = '/'; break;
+					case '\b': *str_cp++ = '\\'; *str_cp = 'b'; break;
+					case '\f': *str_cp++ = '\\'; *str_cp = 'f'; break;
+					case '\n': *str_cp++ = '\\'; *str_cp = 'n'; break;
+					case '\r': *str_cp++ = '\\'; *str_cp = 'r'; break;
+					case '\t': *str_cp++ = '\\'; *str_cp = 't'; break;
+					default: *str_cp = *eq_pos;
+					}
+				}
+				*str_cp = 0;
+			} else {
+				strcat (str, "****");
+			}
+		} else {
+			strcat (str,name);
+			strcat (str,"\":\"");
+		}
+		strcat (str,"\"");
+		fputs (str, stream);
+	}
+
+	fputc ('}', stream);
+	fflush (stream);
+	free (buf);
+}
+
+static void
+do_json_set(char *url, FILE *stream, int len, char *boundary)
+{
+	char upload_file[] = "/tmp/params.json";
+
+	unsigned char *buf;
+	unsigned short *res;
+	char name[0x800],val[0x800];
+	char *str1, *str2;
+
+	size_t l, i, tmp_len;
+	buf = malloc (len + 1);
+	l = fread (buf, 1, len, stream);
+
+	buf[l] = 0;
+
+	//*********** debug only !!!! ***************
+	FILE *file=fopen(upload_file, "w");
+	if(file){fwrite(buf, 1, l, file); fclose(file);}
+	// ******************************************
+
+	res = malloc (l);
+	memset (res,0,l);
+	js0n (buf,l,res);
+	//printf("returned %d\n",ret);
+	for (i = 0; res[i]; i += 2) {
+		//printf("%d: at %d len %d is %.*s\n",i,res[i],res[i+1],res[i+1],buf+res[i]);
+		strncpy (name, buf+res[i], (tmp_len = MIN(res[i+1], sizeof(name)-1)));
+		name[tmp_len] = '\0';
+		if( res[(i += 2)] ){
+			strncpy (val, buf+res[i], (tmp_len = MIN(res[i+1], sizeof(val)-1)));
+			val[tmp_len] = '\0';
+
+			for (str1 = val, str2 = val; *str1; str1++, str2++ ){
+				if (*str1 == '\\') {
+					switch(*++str1) {
+					case '\"':
+					case '\\':
+					case '/': *str2 = *str1; break;
+					case 'b': *str2 = '\b'; break;
+					case 'f': *str2 = '\f'; break;
+					case 'n': *str2 = '\n'; break;
+					case 'r': *str2 = '\r'; break;
+					case 't': *str2 = '\t'; break;
+					}
+				} else {
+					*str2 = *str1;
+				}
+			};
+			*str2 = '\0';
+			nvram_set (name, val);
+		}
+	}
+
+	free (buf);
+	free (res);
+}
+#endif
+
 struct mime_handler mime_handlers[] = {
 	{ "**.asp", "text/html", no_cache, NULL, do_ej, do_auth },
 	{ "**.htm", "text/html", no_cache, NULL, do_ej, do_auth },
@@ -2216,6 +2336,10 @@ struct mime_handler mime_handlers[] = {
 	{ "**.svg*", "image/svg+xml", NULL, NULL, do_svgfile, do_auth },
 	{ "fetchif.cgi*", "text/html", no_cache, NULL, do_fetchif, do_auth },
 	{ "cpu.cgi*", "text/html", no_cache, NULL, do_cpustat, do_auth },
+#ifdef USE_JSON
+	{ "json_get.cgi", "application/json", no_cache, NULL, do_json_get, do_auth },
+	{ "json_set.cgi", "application/json", no_cache, do_json_set, NULL, do_auth },
+#endif
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
