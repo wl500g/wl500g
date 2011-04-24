@@ -136,12 +136,12 @@
 			</td>
 			<td class="content_input_td">
 				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;">
+					<option class="content_input_fd" value="USR" <%nvram_match_x("3GConfig","wan_modem_type", "USR","selected"); %>>
+						User defined</option>
 					<option class="content_input_fd" value="C" <%nvram_match_x("3GConfig","wan_modem_type",  "C","selected"); %>>
 						CDMA/EVDO</option>
 					<option class="content_input_fd" value="W" <%nvram_match_x("3GConfig","wan_modem_type", "W","selected"); %>>
 						GPRS/EDGE/UMTS/HSPDA</option>
-					<option class="content_input_fd" value="USR" <%nvram_match_x("3GConfig","wan_modem_type", "USR","selected"); %>>
-						User defined</option>
 				</select>
 			</td>
 		</tr>
