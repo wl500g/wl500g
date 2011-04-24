@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Universal 3G/CDMA moden connection script
-# ver 2.103 alfa 01.03.2011
+# ver 2.104 beta 22.04.2011
 # by dlukanidin
 
 
@@ -246,6 +246,10 @@ fi
 if [ "$type" == "USR" ] && [ -e "$user_script_name" ]; then
 	source "$user_script_name"
 else
+	if [ "$type" != "C" ] && [ "$type" != "W" ]; then
+		echo "Error: bad modem type=$type." >> $log_name
+		exit 2
+	fi
 	trap terminate_all SIGHUP SIGINT SIGTERM
 
 	write_chat_scenario
