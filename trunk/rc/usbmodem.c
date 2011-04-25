@@ -354,8 +354,9 @@ static int check_config(dev_usb *dev, dev_conf *conf_list)
 static void print_modem_info(int format, dev_usb *dev_list)
 {
 	dev_usb *dev;
+	int flag = 0;
 
-	if (format == FORMAT_JSON) puts("[");
+	if (format == FORMAT_JSON) printf("[");
 
 	for (dev = dev_list; dev; dev = dev->next) {
 		if (dev->type == TYPE_CDMA || dev->type == TYPE_WCDMA)
@@ -366,8 +367,11 @@ static void print_modem_info(int format, dev_usb *dev_list)
 				break;
 
 			case FORMAT_JSON:
-				printf(	"{'wan':'0','vid':'%04x','pid':'%04x','type':'%c',"
-					"'data':'%d','ui':'%d','loc':'%s','manuf':'%s','prod':'%s'},\n",
+				if (flag) printf(",");
+				else flag = 1;
+
+				printf(	"{\"wan\":\"0\",\"vid\":\"%04x\",\"pid\":\"%04x\",\"type\":\"%c\","
+					"\"data\":\"%d\",\"ui\":\"%d\",\"loc\":\"%s\",\"manuf\":\"%s\",\"prod\":\"%s\"}",
 					dev->vid, dev->pid, dev->type, dev->data_port, dev->ui_port,
 					dev->loc, dev->manuf, dev->prod);
 				break;
@@ -378,7 +382,7 @@ static void print_modem_info(int format, dev_usb *dev_list)
 					dev->loc, dev->manuf, dev->prod);
 		}
 	}
-	if (format == FORMAT_JSON) puts("]");
+	if (format == FORMAT_JSON) printf("]");
 }
 
 /// free memory from conf_list
