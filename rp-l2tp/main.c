@@ -23,6 +23,7 @@ static char const RCSID[] =
 #include <signal.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <syslog.h>
 
 static void
 usage(int argc, char *argv[], int exitcode)
@@ -63,6 +64,7 @@ main(int argc, char *argv[])
 	}
     }
 
+    openlog(argv[0], LOG_PID, LOG_DAEMON);
     l2tp_random_init();
     l2tp_tunnel_init(es);
     l2tp_peer_init();
