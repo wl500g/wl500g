@@ -322,6 +322,7 @@ establish_session(l2tp_session *ses)
         flags = fcntl(s_pty, F_GETFL);
         if (flags == -1 || fcntl(s_pty, F_SETFL, flags | O_NONBLOCK) == -1) {
             l2tp_set_errmsg("Unable to set PPPoL2TP socket nonblock.");
+	    close(s_pty);
 	    free(sl);
             return -1;
         }
@@ -338,6 +339,7 @@ establish_session(l2tp_session *ses)
         sax.pppol2tp.d_session = ses->assigned_id;
         if (connect(s_pty, (struct sockaddr *)&sax, sizeof(sax)) < 0) {
             l2tp_set_errmsg("Unable to connect PPPoL2TP socket.");
+	    close(s_pty);
 	    free(sl);
             return -1;
         }
@@ -359,6 +361,8 @@ establish_session(l2tp_session *ses)
     /* Fork */
     pid = fork();
     if (pid == (pid_t) -1) {
+	if (m_pty >= 0) close(m_pty);
+	close(s_pty);
 	free(sl);
 	return -1;
     }
