@@ -44,7 +44,7 @@ NFSUTILS=nfs-utils-1.0.9
 PORTMAP=portmap_6
 RADVD=radvd-1.7
 QUAGGA=quagga-0.99.17
-L2TP=rp-l2tp-0.4
+L2TP=rp-l2tp
 XL2TPD=xl2tpd-1.2.8
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
@@ -358,13 +358,8 @@ $(TOP)/ppp: ppp/$(PPP).tar.bz2
 ppp: $(TOP)/ppp
 	@true
 
-rp-l2tp_Patches := $(call patches_list,rp-l2tp)
-
 $(TOP)/rp-l2tp:
-	@rm -rf $(TOP)/$(L2TP) $@
-	tar -xzf rp-l2tp/$(L2TP).tar.gz -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(L2TP) $(rp-l2tp_Patches)
-	mv $(TOP)/$(L2TP) $@
+	tar -C . $(TAR_EXCL_SVN) -cf - $(L2TP) | tar -C $(TOP) -xf -
 
 rp-l2tp: $(TOP)/rp-l2tp
 	@true
