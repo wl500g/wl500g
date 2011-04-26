@@ -1826,7 +1826,7 @@ l2tp_tunnel_delete_session(l2tp_session *ses, char const *reason, int may_reesta
 {
     l2tp_tunnel *tunnel = ses->tunnel;
 
-    if (may_reestablish && ses->state < TUNNEL_ESTABLISHED &&
+    if (may_reestablish && ses->state < SESSION_ESTABLISHED &&
 	tunnel->peer && tunnel->peer->persist &&
 	(tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail))
     {
