@@ -18,23 +18,26 @@ all: libevent.a
 
 libevent.a: $(OBJS)
 	rm -f libevent.a
-	ar -cq libevent.a $(OBJS)
+	@AR@ -cq libevent.a $(OBJS)
 	@RANLIB@ libevent.a
 
 event.o: event.c $(HDRS)
-	gcc $(CFLAGS) -c -o event.o event.c
+	@CC@ $(CFLAGS) -c -o event.o event.c
 
 hash.o: hash.c $(HDRS)
-	gcc $(CFLAGS) -c -o hash.o hash.c
+	@CC@ $(CFLAGS) -c -o hash.o hash.c
 
 event_sig.o: event_sig.c $(HDRS)
-	gcc $(CFLAGS) -c -o event_sig.o event_sig.c
+	@CC@ $(CFLAGS) -c -o event_sig.o event_sig.c
 
 event_tcp.o: event_tcp.c $(HDRS)
-	gcc $(CFLAGS) -c -o event_tcp.o event_tcp.c
+	@CC@ $(CFLAGS) -c -o event_tcp.o event_tcp.c
 
 clean: FORCE
 	rm -f *.a *.o *~
+
+distclean: clean
+	rm -f Makefile
 
 FORCE:
 
