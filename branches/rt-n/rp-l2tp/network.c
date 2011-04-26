@@ -67,6 +67,10 @@ l2tp_network_init(EventSelector *es)
 	return -1;
     }
 
+    flags = 1;
+    setsockopt(Sock, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof(flags));
+    setsockopt(Sock, SOL_SOCKET, SO_NO_CHECK, &flags, sizeof(flags));
+
     me.sin_family = AF_INET;
     me.sin_addr = Settings.listen_addr;
     me.sin_port = htons((uint16_t) Settings.listen_port);
