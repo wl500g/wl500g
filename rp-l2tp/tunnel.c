@@ -677,7 +677,7 @@ l2tp_tunnel_handle_received_control_datagram(l2tp_dgram *dgram,
 
     if (!tunnel) {
 	/* TODO: Send error message back? */
-	DBG(l2tp_db(DBG_TUNNEL, "Invalid control message - unknown tunnel ID %d",
+	DBG(l2tp_db(DBG_TUNNEL, "Invalid control message - unknown tunnel ID %d\n",
 		   (int) dgram->tid));
 	return;
     }
