@@ -183,7 +183,8 @@ close_session(l2tp_session *ses, char const *reason, int may_reestablish)
     sl->event = NULL;
 
     /* Re-establish session if desired */
-    if (may_reestablish && tunnel->peer->persist && tunnel->peer->fail < tunnel->peer->maxfail) {
+    if (may_reestablish && tunnel->peer->persist && 
+        (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) {
         struct timeval t;
 
         t.tv_sec = tunnel->peer->holdoff;
@@ -214,8 +215,21 @@ slave_exited(pid_t pid, int status, void *data)
 
     if (sl->fd >= 0) close(sl->fd);
     if (sl->event) Event_DelHandler(sl->es, sl->event);
+    sl->fd = -1;
+    sl->event = NULL;
 
     if (ses) {
+        l2tp_tunnel *tunnel = ses->tunnel;
+        
+        /* Re-establish session if desired */
+        if (tunnel->peer->persist) {
+            struct timeval t;
+
+            t.tv_sec = tunnel->peer->holdoff;
+            t.tv_usec = 0;
+            Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
+        }
+        
 	ses->private = NULL;
 	l2tp_session_send_CDN(ses, RESULT_GENERAL_REQUEST, 0,
 			      "pppd process exited");
