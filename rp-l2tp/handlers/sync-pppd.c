@@ -151,6 +151,10 @@ handle_frame(l2tp_session *ses,
     int n;
 
     if (!sl) return;
+    if (kernel_mode) {
+	l2tp_set_errmsg("Attempt to write %d bytes to kernel tunnel fd.", len);
+	return;
+    }
 
     /* Add framing bytes */
     *--buf = 0x03;
