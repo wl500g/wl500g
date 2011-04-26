@@ -535,7 +535,8 @@ l2tp_dgram_send_to_wire(l2tp_dgram const *dgram,
     unsigned char *len_ptr = NULL;
 
     DBG(l2tp_db(DBG_XMIT_RCV,
-	   "dgram_send_to_wire() -> %s\n",
+	   "dgram_send_to_wire(%s:%d) -> %s\n", 
+	   inet_ntoa(to->sin_addr), ntohs(to->sin_port),
 	   l2tp_debug_describe_dgram(dgram)));
     buf[0] = dgram->bits;
     buf[1] = dgram->version;
