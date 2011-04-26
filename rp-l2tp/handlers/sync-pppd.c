@@ -34,6 +34,8 @@ static char const RCSID[] =
 #define MAX_FDS 256
 
 extern int pty_get(int *mfp, int *sfp);
+static int establish_tunnel(l2tp_tunnel *tun);
+static void close_tunnel(l2tp_tunnel *tun);
 static int establish_session(l2tp_session *ses);
 static void close_session(l2tp_session *ses, char const *reason, int may_reestablish);
 static void handle_frame(l2tp_session *ses, unsigned char *buf, size_t len);
@@ -55,7 +57,16 @@ static char *pppd_path = NULL;
 static l2tp_call_ops my_ops = {
     establish_session,
     close_session,
-    handle_frame
+    handle_frame,
+    establish_tunnel,
+    close_tunnel
+};
+
+/* Tunnel private info */
+struct master {
+    EventSelector *es;		/* Event selector */
+    int fd;			/* Tunnel UDP socket for event-handler loop */
+    EventHandler *event;	/* Event handler */
 };
 
 /* The slave process */
@@ -232,7 +243,7 @@ slave_exited(pid_t pid, int status, void *data)
 
     if (ses) {
         l2tp_tunnel *tunnel = ses->tunnel;
-        
+
         /* Re-establish session if desired */
         if (tunnel->peer->persist) {
             struct timeval t;
@@ -302,9 +313,11 @@ establish_session(l2tp_session *ses)
     struct sockaddr_pppol2tp sax;
     pid_t pid;
     EventSelector *es = ses->tunnel->es;
+    struct master *tun = ses->tunnel->private;
     struct slave *sl = malloc(sizeof(struct slave));
     int i, flags;
     char unit[32], fdstr[10];
+    char tidstr[10], sidstr[10];
 
     ses->private = NULL;
     if (!sl) return -1;
@@ -313,6 +326,10 @@ establish_session(l2tp_session *ses)
 
     /* Get pty */
     if (kernel_mode) {
+	if (!tun) {
+	    free(sl);
+	    return -1;
+	}
         s_pty = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
         if (s_pty < 0) {
             l2tp_set_errmsg("Unable to allocate PPPoL2TP socket.");
@@ -329,7 +346,7 @@ establish_session(l2tp_session *ses)
         sax.sa_family = AF_PPPOX;
         sax.sa_protocol = PX_PROTO_OL2TP;
         sax.pppol2tp.pid = 0;
-        sax.pppol2tp.fd = Sock;
+        sax.pppol2tp.fd = tun->fd;
         sax.pppol2tp.addr.sin_addr.s_addr = ses->tunnel->peer_addr.sin_addr.s_addr;
         sax.pppol2tp.addr.sin_port = ses->tunnel->peer_addr.sin_port;
         sax.pppol2tp.addr.sin_family = AF_INET;
@@ -475,6 +492,78 @@ establish_session(l2tp_session *ses)
 
     /* Doh.. execl failed */
     _exit(1);
+}
+
+static int establish_tunnel(l2tp_tunnel *tunnel)
+{
+    EventSelector *es = tunnel->es;
+    struct master *tun;
+    struct sockaddr_in addr;
+    int fd = -1;
+    int flags;
+
+    if (!kernel_mode)
+	return 0;
+
+    tunnel->private = NULL;
+    tun = malloc(sizeof(struct master));
+    if (!tun) return -1;
+
+    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+	l2tp_set_errmsg("Unable to allocate tunnel UDP socket: %s");
+	goto err;
+    }
+
+    flags = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof(flags));
+    setsockopt(fd, SOL_SOCKET, SO_NO_CHECK, &flags, sizeof(flags));
+
+    addr.sin_family = AF_INET;
+    addr.sin_addr = Settings.listen_addr;
+    addr.sin_port = htons((uint16_t) Settings.listen_port);
+    if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	l2tp_set_errmsg("Unable to bind tunnel UDP socket.");
+	goto err;
+    }
+
+    addr = tunnel->peer_addr;
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	l2tp_set_errmsg("Unable to connect tunnel UDP socket.");
+	goto err;
+    }
+
+    flags = fcntl(fd, F_GETFL);
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+	l2tp_set_errmsg("Unable to set tunnel UDP socket nonblock.");
+	goto err;
+    }
+
+    tunnel->private = tun;
+    tun->es = es;
+    tun->fd = fd;
+    tun->event = Event_AddHandler(es, fd, EVENT_FLAG_READABLE,
+				  network_readable, NULL);
+    return 0;
+
+err:
+    if (fd >= 0) close(fd);
+    if (tun) free(tun);
+    return -1;
+}
+
+static void close_tunnel(l2tp_tunnel *tunnel)
+{
+    struct master *tun = tunnel->private;
+
+    if (!kernel_mode || !tun)
+	return;
+
+    tunnel->private = NULL;
+    if (tun->fd >= 0) close(tun->fd);
+    if (tun->event) Event_DelHandler(tun->es, tun->event);
+
+    free(tun);
 }
 
 static l2tp_lns_handler my_lns_handler = {
