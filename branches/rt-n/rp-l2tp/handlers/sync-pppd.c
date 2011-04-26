@@ -33,6 +33,9 @@ static char const RCSID[] =
 
 #define MAX_FDS 256
 
+/* Use management tunnel socket under 2.6.23+ */
+/* #define PPPOL2TP_V1 */
+
 extern int pty_get(int *mfp, int *sfp);
 static int establish_tunnel(l2tp_tunnel *tun);
 static void close_tunnel(l2tp_tunnel *tun);
@@ -66,6 +69,9 @@ static l2tp_call_ops my_ops = {
 struct master {
     EventSelector *es;		/* Event selector */
     int fd;			/* Tunnel UDP socket for event-handler loop */
+#ifdef PPPOL2TP_V1
+    int m_fd;			/* Tunnel PPPO2TP socket */
+#endif
     EventHandler *event;	/* Event handler */
 };
 
@@ -506,6 +512,10 @@ static int establish_tunnel(l2tp_tunnel *tunnel)
     struct master *tun;
     struct sockaddr_in addr;
     int fd = -1;
+#ifdef PPPOL2TP_V1
+    struct sockaddr_pppol2tp sax;
+    int m_fd = -1;
+#endif
     int flags;
 
     if (!kernel_mode)
@@ -545,15 +555,51 @@ static int establish_tunnel(l2tp_tunnel *tunnel)
 	goto err;
     }
 
+#ifdef PPPOL2TP_V1
+    m_fd = socket(AF_PPPOX, SOCK_DGRAM, PX_PROTO_OL2TP);
+    if (m_fd < 0) {
+        l2tp_set_errmsg("Unable to allocate tunnel PPPoL2TP socket.");
+        goto err;
+    }
+
+    flags = fcntl(m_fd, F_GETFL);
+    if (flags < 0 || fcntl(m_fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+	l2tp_set_errmsg("Unable to set tunnel PPPoL2TP socket nonblock.");
+	goto err;
+    }
+
+    sax.sa_family = AF_PPPOX;
+    sax.sa_protocol = PX_PROTO_OL2TP;
+    sax.pppol2tp.pid = 0;
+    sax.pppol2tp.fd = fd;
+    sax.pppol2tp.addr.sin_addr.s_addr = tunnel->peer_addr.sin_addr.s_addr;
+    sax.pppol2tp.addr.sin_port = tunnel->peer_addr.sin_port;
+    sax.pppol2tp.addr.sin_family = AF_INET;
+    sax.pppol2tp.s_tunnel  = tunnel->my_id;
+    sax.pppol2tp.s_session = 0;
+    sax.pppol2tp.d_tunnel  = tunnel->assigned_id;
+    sax.pppol2tp.d_session = 0;
+    if (connect(m_fd, (struct sockaddr *)&sax, sizeof(sax)) < 0) {
+	l2tp_set_errmsg("Unable to connect tunnel PPPoL2TP socket.");
+	goto err;
+    }
+#endif
+
     tunnel->private = tun;
     tun->es = es;
     tun->fd = fd;
+#ifdef PPPOL2TP_V1
+    tun->m_fd = m_fd;
+#endif
     tun->event = Event_AddHandler(es, fd, EVENT_FLAG_READABLE,
 				  network_readable, NULL);
     return 0;
 
 err:
     if (fd >= 0) close(fd);
+#ifdef PPPOL2TP_V1
+    if (m_fd >= 0) close(tun->m_fd);
+#endif
     if (tun) free(tun);
     return -1;
 }
@@ -566,6 +612,9 @@ static void close_tunnel(l2tp_tunnel *tunnel)
 	return;
 
     tunnel->private = NULL;
+#ifdef PPPOL2TP_V1
+    if (tun->m_fd >= 0) close(tun->m_fd);
+#endif
     if (tun->fd >= 0) close(tun->fd);
     if (tun->event) Event_DelHandler(tun->es, tun->event);
 
