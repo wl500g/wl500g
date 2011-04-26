@@ -32,10 +32,6 @@ static char const RCSID[] =
 int Sock = -1;
 
 static EventHandler *NetworkReadHandler = NULL;
-static void network_readable(EventSelector *es,
-			     int fd,
-			     unsigned int flags,
-			     void *data);
 char Hostname[MAX_HOSTNAME];
 
 /**********************************************************************
@@ -104,16 +100,15 @@ l2tp_network_init(EventSelector *es)
 * %DESCRIPTION:
 *  Called when a packet arrives on the UDP socket.
 ***********************************************************************/
-static void
+void
 network_readable(EventSelector *es,
 		 int fd,
 		 unsigned int flags,
 		 void *data)
 {
     l2tp_dgram *dgram;
-
     struct sockaddr_in from;
-    dgram = l2tp_dgram_take_from_wire(&from);
+    dgram = l2tp_dgram_take_from_wire(fd, &from);
     if (!dgram) return;
 
     /* It's a control packet if we get here */

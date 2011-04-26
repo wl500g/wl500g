@@ -294,6 +294,7 @@ l2tp_dgram_free(l2tp_dgram *dgram)
 /**********************************************************************
 * %FUNCTION: dgram_take_from_wire
 * %ARGUMENTS:
+*  fd   -- socket to read from
 *  from -- set to address of peer.
 * %RETURNS:
 *  NULL on error, allocated datagram otherwise.
@@ -304,7 +305,7 @@ l2tp_dgram_free(l2tp_dgram *dgram)
 *  returning to select loop each time if there's lots of traffic.
 ***********************************************************************/
 l2tp_dgram *
-l2tp_dgram_take_from_wire(struct sockaddr_in *from)
+l2tp_dgram_take_from_wire(int fd, struct sockaddr_in *from)
 {
     /* EXTRA_HEADER_ROOM bytes for other headers like PPPoE, etc. */
 
@@ -337,7 +338,7 @@ l2tp_dgram_take_from_wire(struct sockaddr_in *from)
     while(1) {
 	if (--iters <= 0) return NULL;
 	framelen = -1;
-	r = recvfrom(Sock, buf, MAX_PACKET_LEN, 0,
+	r = recvfrom(fd, buf, MAX_PACKET_LEN, 0,
 		     (struct sockaddr *) from, &len);
 	if (r <= 0) {
 	    return NULL;
@@ -509,8 +510,8 @@ l2tp_dgram_take_from_wire(struct sockaddr_in *from)
 	    (unsigned int) msg[1];
     }
     DBG(l2tp_db(DBG_XMIT_RCV,
-	   "dgram_take_from_wire() -> %s\n",
-	   l2tp_debug_describe_dgram(dgram)));
+	   "dgram_take_from_wire(%d) -> %s\n",
+	   fd, l2tp_debug_describe_dgram(dgram)));
     return dgram;
 }
 
