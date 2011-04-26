@@ -316,7 +316,7 @@ l2tp_dgram_take_from_wire(struct sockaddr_in *from)
     unsigned char *payload;
     unsigned char *tidptr;
     uint16_t tid, sid;
-    uint16_t cache_tid, cache_sid;
+    uint16_t cache_tid = 0, cache_sid = 0;
     l2tp_tunnel *tunnel;
     l2tp_session *ses = NULL;
     int mandatory, hidden, err;
