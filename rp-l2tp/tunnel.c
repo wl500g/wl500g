@@ -1120,16 +1120,6 @@ tunnel_handle_StopCCN(l2tp_tunnel *tunnel,
     l2tp_session *ses;
     void *cursor;
 
-    if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
-        (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
-    {
-	struct timeval t;
-
-	t.tv_sec = tunnel->peer->holdoff;
-	t.tv_usec = 0;
-	Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
-    }
-
     /* Shut down all the sessions */
     for (ses = hash_start(&tunnel->sessions_by_my_id, &cursor);
 	 ses ;
@@ -1805,6 +1795,17 @@ l2tp_tunnel_delete_session(l2tp_session *ses, char const *reason, int may_reesta
 {
     l2tp_tunnel *tunnel = ses->tunnel;
 
+    if (may_reestablish && ses->state < TUNNEL_ESTABLISHED &&
+	tunnel->peer && tunnel->peer->persist &&
+	(tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail))
+    {
+	struct timeval t;
+
+	t.tv_sec = tunnel->peer->holdoff;
+	t.tv_usec = 0;
+	Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
+    }
+
     hash_remove(&tunnel->sessions_by_my_id, ses);
     l2tp_session_free(ses, reason, may_reestablish);
 
@@ -1908,15 +1909,9 @@ void
 l2tp_tunnel_stop_tunnel(l2tp_tunnel *tunnel,
 			char const *reason)
 {
-    struct timeval t;
-
     /* Do not send StopCCN if we've received one already */
-    if (tunnel->state == TUNNEL_RECEIVED_STOP_CCN && tunnel->hello_handler) {
-	t.tv_sec = 0;
-	t.tv_usec = 100000;
-	Event_ChangeTimeout(tunnel->hello_handler, t);
-    } else
-    if (tunnel->state != TUNNEL_SENT_STOP_CCN) {
+    if (tunnel->state != TUNNEL_RECEIVED_STOP_CCN &&
+	tunnel->state != TUNNEL_SENT_STOP_CCN) {
 	tunnel_send_StopCCN(tunnel, RESULT_SHUTTING_DOWN, 0, reason);
     }
 }
