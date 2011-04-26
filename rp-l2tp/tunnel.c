@@ -1897,9 +1897,15 @@ void
 l2tp_tunnel_stop_tunnel(l2tp_tunnel *tunnel,
 			char const *reason)
 {
+    struct timeval t;
+
     /* Do not send StopCCN if we've received one already */
-    if (tunnel->state != TUNNEL_RECEIVED_STOP_CCN &&
-	tunnel->state != TUNNEL_SENT_STOP_CCN) {
+    if (tunnel->state == TUNNEL_RECEIVED_STOP_CCN && tunnel->hello_handler) {
+	t.tv_sec = 0;
+	t.tv_usec = 100000;
+	Event_ChangeTimeout(tunnel->hello_handler, t);
+    } else
+    if (tunnel->state != TUNNEL_SENT_STOP_CCN) {
 	tunnel_send_StopCCN(tunnel, RESULT_SHUTTING_DOWN, 0, reason);
     }
 }

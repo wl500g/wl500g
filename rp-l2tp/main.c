@@ -39,6 +39,13 @@ usage(int argc, char *argv[], int exitcode)
     exit(exitcode);
 }
 
+static void
+sighandler(int signum)
+{
+    l2tp_cleanup();
+    exit(EXIT_FAILURE);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -113,6 +120,9 @@ main(int argc, char *argv[])
 	    if (i > 2) close(i);
 	}
     }
+
+    signal(SIGTERM, sighandler);
+    signal(SIGINT, sighandler);
 
     while(1) {
 	i = Event_HandleEvent(es);

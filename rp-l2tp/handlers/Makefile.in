@@ -14,7 +14,7 @@ HANDLERS=sync-pppd.so cmd.so
 
 OBJS=pty.o sync-pppd.o dstring.o
 SRCS=$(OBJS:.o=.c)
-CFLAGS=@CFLAGS@ -I.. -I../@LIBEVENT@ -Wall
+CFLAGS=@CFLAGS@ -I.. -I../@LIBEVENT@ -I. -Wall
 
 all: $(HANDLERS) l2tp-control
 
