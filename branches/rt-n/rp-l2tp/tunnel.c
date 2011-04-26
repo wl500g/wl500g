@@ -598,7 +598,7 @@ tunnel_send_SCCRQ(l2tp_tunnel *tunnel)
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
 		  sizeof(u32), VENDOR_IETF, AVP_FRAMING_CAPABILITIES, &u32);
 
-    hostname = tunnel->peer->hostname ? tunnel->peer->hostname : Hostname;
+    hostname = tunnel->peer->hostname[0] ? tunnel->peer->hostname : Hostname;
 
     /* Host name */
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
@@ -820,7 +820,7 @@ tunnel_handle_SCCRQ(l2tp_dgram *dgram,
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
 		  sizeof(u32), VENDOR_IETF, AVP_FRAMING_CAPABILITIES, &u32);
 
-    hostname = tunnel->peer->hostname ? tunnel->peer->hostname : Hostname;
+    hostname = tunnel->peer->hostname[0] ? tunnel->peer->hostname : Hostname;
 
     /* Host name */
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
