@@ -14,7 +14,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: cmd.c,v 1.3 2003/07/04 14:17:20 dskoll Exp $";
+"$Id$";
 
 #include "l2tp.h"
 #include "dstring.h"

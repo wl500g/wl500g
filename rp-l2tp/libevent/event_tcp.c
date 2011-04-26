@@ -12,7 +12,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: event_tcp.c,v 1.3 2003/01/11 16:10:41 dskoll Exp $";
+"$Id$";
 
 #include "event_tcp.h"
 #include <unistd.h>

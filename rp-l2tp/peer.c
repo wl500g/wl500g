@@ -14,7 +14,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: peer.c,v 1.5 2003/12/22 14:57:33 dskoll Exp $";
+"$Id$";
 
 #include "l2tp.h"
 #include <stddef.h>

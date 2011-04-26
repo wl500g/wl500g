@@ -14,7 +14,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: options.c,v 1.4 2003/06/11 02:16:34 dossy Exp $";
+"$Id$";
 
 #include "l2tp.h"
 #include <string.h>

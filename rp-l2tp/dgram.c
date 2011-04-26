@@ -14,7 +14,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: dgram.c,v 1.3 2003/01/11 05:29:03 dossy Exp $";
+"$Id$";
 
 #include "l2tp.h"
 #include "md5.h"
