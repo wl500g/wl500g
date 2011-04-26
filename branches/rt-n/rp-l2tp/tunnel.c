@@ -16,7 +16,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: tunnel.c,v 1.6 2003/12/22 14:57:33 dskoll Exp $";
+"$Id$";
 
 #include "l2tp.h"
 #include <stddef.h>

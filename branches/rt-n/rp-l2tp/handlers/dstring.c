@@ -15,7 +15,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: dstring.c,v 1.2 2002/09/30 19:45:00 dskoll Exp $";
+"$Id$";
 
 #define INITIAL_SIZE 128
 #define GROW_FACTOR 2

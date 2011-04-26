@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Tar up a releasable archive
-# $Id: make-release.sh,v 1.3 2004/05/16 04:08:40 dskoll Exp $
+# $Id$
 
 VERSION=`grep '^VERSION=' Makefile.in | sed -e 's/VERSION=//'`
 

@@ -14,7 +14,7 @@
 ***********************************************************************/
 
 static char const RCSID[] =
-"$Id: utils.c,v 1.2 2002/09/30 19:45:00 dskoll Exp $";
+"$Id$";
 
 #include <sys/types.h>
 #include <sys/stat.h>
