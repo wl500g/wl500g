@@ -343,6 +343,13 @@ establish_session(l2tp_session *ses)
 	free(sl);
 	return -1;
     }
+	if (fcntl(m_pty, F_SETFD, FD_CLOEXEC) == -1) {
+	    l2tp_set_errmsg("Unable to set FD_CLOEXEC");
+	    close(m_pty);
+	    close(s_pty);
+	    free(sl);
+	    return -1;
+	}
     }
 
     /* Fork */
