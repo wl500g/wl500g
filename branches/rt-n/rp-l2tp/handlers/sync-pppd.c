@@ -361,6 +361,8 @@ establish_session(l2tp_session *ses)
             return -1;
         }
 	snprintf (fdstr, sizeof(fdstr), "%d", s_pty);
+	snprintf (tidstr, sizeof(tidstr), "%d", ses->tunnel->my_id);
+	snprintf (sidstr, sizeof(sidstr), "%d", ses->my_id);
     } else {
 	if (pty_get(&m_pty, &s_pty) < 0) {
 	    free(sl);
@@ -472,6 +474,10 @@ establish_session(l2tp_session *ses)
 	    PUSH_LNS_OPT("pppol2tp");
 	    PUSH_LNS_OPT(fdstr);
 	    PUSH_LNS_OPT("pppol2tp_lns_mode");
+	    PUSH_LNS_OPT("pppol2tp_tunnel_id");
+	    PUSH_LNS_OPT(tidstr);
+	    PUSH_LNS_OPT("pppol2tp_session_id");
+	    PUSH_LNS_OPT(sidstr);
 	}
         /* push peer specific options */
         lns_opt = ses->tunnel->peer->lns_options;
