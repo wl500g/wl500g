@@ -68,7 +68,7 @@ main(int argc, char *argv[])
     l2tp_peer_init();
     l2tp_debug_set_bitmask(debugmask);
 
-    if (l2tp_parse_config_file(es, "/etc/l2tp/l2tp.conf") < 0) {
+    if (l2tp_parse_config_file(es, SYSCONFDIR"/l2tp/l2tp.conf") < 0) {
 	l2tp_die();
     }
 
