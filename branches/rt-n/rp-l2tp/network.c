@@ -38,19 +38,6 @@ static void network_readable(EventSelector *es,
 			     void *data);
 char Hostname[MAX_HOSTNAME];
 
-static void
-sigint_handler(int sig)
-{
-    static int count = 0;
-
-    count++;
-    fprintf(stderr, "In sigint handler: %d\n", count);
-    if (count < 5) {
-	l2tp_cleanup();
-    }
-    exit(1);
-}
-
 /**********************************************************************
 * %FUNCTION: network_init
 * %ARGUMENTS:
@@ -70,7 +57,6 @@ l2tp_network_init(EventSelector *es)
     gethostname(Hostname, sizeof(Hostname));
     Hostname[sizeof(Hostname)-1] = 0;
 
-    Event_HandleSignal(es, SIGINT, sigint_handler);
     if (Sock >= 0) {
 	if (NetworkReadHandler) {
 	    Event_DelHandler(es, NetworkReadHandler);

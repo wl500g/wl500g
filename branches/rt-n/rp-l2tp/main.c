@@ -42,7 +42,13 @@ usage(int argc, char *argv[], int exitcode)
 static void
 sighandler(int signum)
 {
-    l2tp_cleanup();
+    static int count = 0;
+
+    count++;
+    fprintf(stderr, "Caught signal %d times\n", count);
+    if (count < 5) {
+	l2tp_cleanup();
+    }
     exit(EXIT_FAILURE);
 }
 
@@ -121,8 +127,8 @@ main(int argc, char *argv[])
 	}
     }
 
-    signal(SIGTERM, sighandler);
-    signal(SIGINT, sighandler);
+    Event_HandleSignal(es, SIGINT, sighandler);
+    Event_HandleSignal(es, SIGTERM, sighandler);
 
     while(1) {
 	i = Event_HandleEvent(es);
