@@ -966,6 +966,17 @@ tunnel_handle_timeout(EventSelector *es,
     if (tunnel->retransmissions >= MAX_RETRANSMISSIONS) {
 	l2tp_set_errmsg("Too many retransmissions on tunnel (%s); closing down",
 		   l2tp_debug_tunnel_to_str(tunnel));
+		   
+	if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
+	    (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
+	{
+	    struct timeval t;
+
+	    t.tv_sec = tunnel->peer->holdoff;
+	    t.tv_usec = 0;
+	    Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
+	}
+	
 	/* Close tunnel... */
 	tunnel_free(tunnel);
 	return;
@@ -1060,6 +1071,16 @@ tunnel_handle_StopCCN(l2tp_tunnel *tunnel,
     int err;
     l2tp_session *ses;
     void *cursor;
+
+    if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
+        (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
+    {
+	struct timeval t;
+
+	t.tv_sec = tunnel->peer->holdoff;
+	t.tv_usec = 0;
+	Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
+    }
 
     /* Shut down all the sessions */
     for (ses = hash_start(&tunnel->sessions_by_my_id, &cursor);
