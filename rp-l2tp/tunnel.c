@@ -1236,6 +1236,9 @@ tunnel_process_received_datagram(l2tp_tunnel *tunnel,
     case MESSAGE_ICCN:
 	l2tp_session_handle_ICCN(ses, dgram);
 	return;
+    case MESSAGE_HELLO:
+	tunnel_setup_hello(tunnel);
+	return;
     }
 }
 
