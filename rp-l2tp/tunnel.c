@@ -456,6 +456,7 @@ tunnel_new(EventSelector *es)
     tunnel->my_id = tunnel_make_tid();
     tunnel->ssthresh = 1;
     tunnel->cwnd = 1;
+    tunnel->private = NULL;
 
     hash_insert(&tunnels_by_my_id, tunnel);
     DBG(l2tp_db(DBG_TUNNEL, "tunnel_new() -> %s\n", l2tp_debug_tunnel_to_str(tunnel)));
@@ -495,6 +496,13 @@ tunnel_free(l2tp_tunnel *tunnel)
     while(tunnel->xmit_queue_head) {
 	tunnel_dequeue_head(tunnel);
     }
+
+    DBG(l2tp_db(DBG_TUNNEL, "tunnel_close(%s) ops: %p\n",
+	l2tp_debug_tunnel_to_str(tunnel), tunnel->call_ops));
+    if (tunnel->call_ops && tunnel->call_ops->tunnel_close) {
+	tunnel->call_ops->tunnel_close(tunnel);
+    }
+
     route_del(&tunnel->rt);
     memset(tunnel, 0, sizeof(l2tp_tunnel));
     free(tunnel);
@@ -546,6 +554,7 @@ tunnel_establish(l2tp_peer *peer, EventSelector *es)
 
     tunnel->peer = peer;
     tunnel->peer_addr = peer_addr;
+    tunnel->call_ops = tunnel->peer->lac_ops;
 
     DBG(l2tp_db(DBG_TUNNEL, "tunnel_establish(%s) -> %s (%s)\n",
 	    l2tp_debug_tunnel_to_str(tunnel),
@@ -1345,6 +1354,15 @@ tunnel_handle_SCCRP(l2tp_tunnel *tunnel,
     /* Extract tunnel params */
     if (tunnel_set_params(tunnel, dgram) < 0) return;
 
+    DBG(l2tp_db(DBG_TUNNEL, "tunnel_establish(%s) ops: %p\n",
+	l2tp_debug_tunnel_to_str(tunnel), tunnel->call_ops));
+    if (tunnel->call_ops && tunnel->call_ops->tunnel_establish &&
+	tunnel->call_ops->tunnel_establish(tunnel) < 0) {
+	tunnel_send_StopCCN(tunnel, RESULT_GENERAL_ERROR, ERROR_VENDOR_SPECIFIC,
+			    "%s", l2tp_get_errmsg());
+	return;
+    }
+
     tunnel_set_state(tunnel, TUNNEL_ESTABLISHED);
     tunnel_setup_hello(tunnel);
 
@@ -1443,6 +1461,10 @@ tunnel_set_params(l2tp_tunnel *tunnel,
 	tunnel_send_StopCCN(tunnel, RESULT_NOAUTH, ERROR_OK, "%s", l2tp_get_errmsg());
 	return -1;
     }
+
+    /* Setup LNS call ops if LAC wasn't set before */
+    if (!tunnel->call_ops)
+	tunnel->call_ops = tunnel->peer->lns_ops;
 
     /* Pull out and examine AVP's */
     while(1) {
@@ -1659,6 +1681,15 @@ tunnel_handle_SCCCN(l2tp_tunnel *tunnel,
 				"Incorrect challenge response");
 	    return;
 	}
+    }
+
+    DBG(l2tp_db(DBG_TUNNEL, "tunnel_establish(%s) ops: %p\n",
+	l2tp_debug_tunnel_to_str(tunnel), tunnel->call_ops));
+    if (tunnel->call_ops && tunnel->call_ops->tunnel_establish &&
+	tunnel->call_ops->tunnel_establish(tunnel) < 0) {
+	tunnel_send_StopCCN(tunnel, RESULT_GENERAL_ERROR, ERROR_VENDOR_SPECIFIC,
+			    "%s", l2tp_get_errmsg());
+	return;
     }
 
     tunnel_set_state(tunnel, TUNNEL_ESTABLISHED);
