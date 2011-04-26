@@ -134,6 +134,8 @@ typedef struct l2tp_tunnel_t {
     unsigned char expected_response[MD5LEN]; /* Expected resp. to challenge */
     int state;			/* Tunnel state */
     struct rtentry rt;		/* Route added to destination */
+    struct l2tp_call_ops_t *call_ops; /* Call ops                      */
+    void *private;		/* Private data for call-op's use */
 } l2tp_tunnel;
 
 /* A session within a tunnel */
@@ -174,6 +176,14 @@ typedef struct l2tp_call_ops_t {
     /* Called when a PPP frame arrives over tunnel */
     void (*handle_ppp_frame)(l2tp_session *ses, unsigned char *buf,
 			     size_t len);
+
+    /* Called once tunnel has been established (LAC) or when we want
+       to establish tunnel (LNS) */
+    int (*tunnel_establish)(l2tp_tunnel *tun);
+
+    /* Called when tunnel must be closed.  May be called without
+       established() being called if tunnel could not be established.*/
+    void (*tunnel_close)(l2tp_tunnel *tun);
 } l2tp_call_ops;
 
 /* an LNS handler */
