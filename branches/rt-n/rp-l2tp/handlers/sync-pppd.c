@@ -343,10 +343,10 @@ establish_session(l2tp_session *ses)
         }
 	snprintf (fdstr, sizeof(fdstr), "%d", s_pty);
     } else {
-    if (pty_get(&m_pty, &s_pty) < 0) {
-	free(sl);
-	return -1;
-    }
+	if (pty_get(&m_pty, &s_pty) < 0) {
+	    free(sl);
+	    return -1;
+	}
 	if (fcntl(m_pty, F_SETFD, FD_CLOEXEC) == -1) {
 	    l2tp_set_errmsg("Unable to set FD_CLOEXEC");
 	    close(m_pty);
