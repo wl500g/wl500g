@@ -1325,7 +1325,7 @@ tunnel_send_ZLB(l2tp_tunnel *tunnel)
 	return;
     }
     dgram->Nr = tunnel->Nr;
-    dgram->Ns = tunnel->Ns;
+    dgram->Ns = tunnel->Ns_on_wire;
     l2tp_dgram_send_to_wire(dgram, &tunnel->peer_addr);
     l2tp_dgram_free(dgram);
 }
