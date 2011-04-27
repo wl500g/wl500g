@@ -358,21 +358,7 @@
  static DEFINE_MUTEX(afinfo_mutex);
  
  struct nf_afinfo *nf_afinfo[NPROTO] __read_mostly;
-@@ -126,6 +131,13 @@ unsigned int nf_iterate(struct list_head
- {
- 	unsigned int verdict;
- 
-+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+	if (!skb) {
-+		NFDEBUG("nf_hook_slow, skb is empty return NF_STOP\n");
-+		return NF_STOP;
-+	}
-+#endif
-+
- 	/*
- 	 * The caller must not block between calls to this
- 	 * function because of risk of continuing from deleted element.
-@@ -133,6 +145,13 @@ unsigned int nf_iterate(struct list_head
+@@ -133,6 +138,13 @@ unsigned int nf_iterate(struct list_head
  	list_for_each_continue_rcu(*i, head) {
  		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
  
@@ -386,7 +372,7 @@
  		if (hook_thresh > elem->priority)
  			continue;
  
-@@ -140,6 +159,12 @@ unsigned int nf_iterate(struct list_head
+@@ -140,6 +152,12 @@ unsigned int nf_iterate(struct list_head
  		   reference here, since function can't sleep. --RR */
  repeat:
  		verdict = elem->hook(hook, skb, indev, outdev, okfn);
@@ -399,7 +385,7 @@
  		if (verdict != NF_ACCEPT) {
  #ifdef CONFIG_NETFILTER_DEBUG
  			if (unlikely((verdict & NF_VERDICT_MASK)
-@@ -189,6 +214,17 @@ next_hook:
+@@ -189,6 +207,17 @@ next_hook:
  			      verdict >> NF_VERDICT_BITS))
  			goto next_hook;
  	}
@@ -574,18 +560,18 @@
  /* Protects conntrack->proto.tcp */
  static DEFINE_RWLOCK(tcp_lock);
  
-@@ -759,6 +763,11 @@ static int tcp_error(struct sk_buff *skb
- 	unsigned int tcplen = skb->len - dataoff;
- 	u_int8_t tcpflags;
+@@ -776,6 +780,11 @@ static int tcp_error(struct sk_buff *skb
+ 		return -NF_ACCEPT;
+ 	}
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +	if (ipv4_conntrack_fastnat)
 +		return NF_ACCEPT;
 +#endif
 +
- 	/* Smaller that minimal TCP header? */
- 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
- 	if (th == NULL) {
+ 	/* Checksum invalid? Ignore.
+ 	 * We skip checking packets on the outgoing path
+ 	 * because the checksum is assumed to be correct.
 --- a/net/netfilter/nf_conntrack_proto_udp.c	2011-03-13 05:00:00.000000000 +0500
 +++ b/net/netfilter/nf_conntrack_proto_udp.c	2011-03-14 17:45:59.873163002 +0500
 @@ -23,6 +23,10 @@
@@ -599,15 +585,15 @@
  static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
  static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
  
-@@ -97,6 +101,11 @@ static int udp_error(struct sk_buff *skb
- 	unsigned int udplen = skb->len - dataoff;
- 	struct udphdr _hdr, *hdr;
+@@ -114,6 +118,11 @@ static int udp_error(struct sk_buff *skb
+ 		return -NF_ACCEPT;
+ 	}
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +	if (ipv4_conntrack_fastnat)
 +		return NF_ACCEPT;
 +#endif
 +
- 	/* Header is too small? */
- 	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
- 	if (hdr == NULL) {
+ 	/* Packet with no checksum */
+ 	if (!hdr->check)
+ 		return NF_ACCEPT;
