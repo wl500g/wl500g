@@ -3539,6 +3539,8 @@ function openLink(s)
 			tourl = "https://www.dnsomatic.com/create/";
 		else if (document.form.ddns_server_x.value == 'WWW.TUNNELBROKER.NET')
 			tourl = "http://www.tunnelbroker.net/register.php";
+		else if (document.form.ddns_server_x.value == 'DNS.HE.NET')
+			tourl = "http://ipv6.he.net/certification/register.php";
 		else
 			return;
 

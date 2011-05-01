@@ -528,6 +528,8 @@ start_ddns(int forced)
 		strcpy(service, "default@dnsomatic.com");
 	else if (strcmp(server, "WWW.TUNNELBROKER.NET") == 0)
 		strcpy(service, "ipv6tb@he.net");
+	else if (strcmp(server, "DNS.HE.NET") == 0)
+		strcpy(service, "dyndns@he.net");
 	else strcpy(service, "default@dyndns.org");
 #endif
 
