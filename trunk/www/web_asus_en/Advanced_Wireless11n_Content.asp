@@ -30,12 +30,6 @@
            </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="wl_ssid" value="<% nvram_get_x("WLANConfig11b","wl_ssid"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
-           </td><td class="content_input_td"><select name="wl_channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_channel')">   
-<% select_channel("WLANConfig11b"); %>
-                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get_x("Regulatory","x_RegulatoryDomain"); %>" readonly></td>
-</tr>
-<tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the mode of 802.11g interface. Selecting Auto allows 802.11g and 802.11b to connect to your device. Selecting 54g Only maximizes performace, but 802.11b client is not allowed to connect to your device. If 54g Protection is checked, G-Mode protection of 11g traffic is enabled automatically in the presence of 11b traffic.', LEFT);" onMouseOut="return nd();">Wireless Mode:
            </td><td class="content_input_td">
            <select name="wl_gmode" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_gmode')">
@@ -53,11 +47,17 @@
            </td><td class="content_input_td"><select name="wl_nbw" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nbw')"><option class="content_input_fd" value="20" <% nvram_match_x("WLANConfig11b","wl_nbw", "20","selected"); %>>20MHz</option><option class="content_input_fd" value="40" <% nvram_match_x("WLANConfig11b","wl_nbw", "40","selected"); %>>40MHz</option></select></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field indicates the method of a choice of the channel for 802.11n interface. For 40MHz bandwidth, select value Lower or Upper, and for 20MHz bandwidth only None.', LEFT);" onMouseOut="return nd();">802.11n SubChannel:
+<td class="content_header_td" onMouseOver="return overlib('Select the operating radio channel', LEFT);" onMouseOut="return nd();">Channel:
+           </td><td class="content_input_td"><select name="wl_channel" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_channel')">   
+<% select_channel("WLANConfig11b"); %>
+                </select><input type="hidden" maxlength="15" size="15" name="x_RegulatoryDomain" value="<% nvram_get_x("Regulatory","x_RegulatoryDomain"); %>" readonly></td>
+</tr>
+<tr>
+<td class="content_header_td" onMouseOver="return overlib('Select the 40MHz bandwidth subchannel for 802.11n interface.', LEFT);" onMouseOut="return nd();">SubChannel:
            </td><td class="content_input_td"><select name="wl_nctrlsb" class="content_input_fd" onChange="return change_common(this, 'WLANConfig11b', 'wl_nctrlsb')">
 <option class="content_input_fd" value="none" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "none","selected"); %>>None</option>
-<option class="content_input_fd" value="lower" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "lower","selected"); %>>Lower</option>
-<option class="content_input_fd" value="upper" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "upper","selected"); %>>Upper</option>
+<option class="content_input_fd" value="lower" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "lower","selected"); %>></option>
+<option class="content_input_fd" value="upper" <% nvram_match_x("WLANConfig11b","wl_nctrlsb", "upper","selected"); %>></option>
 </select></td>
 </tr>
 <tr>
