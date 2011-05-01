@@ -1330,6 +1330,20 @@ function add_option(o, s, f)
 	}
 }
 
+function add_option_text(o, t, s, f)
+{
+	tail = o.options.length;
+
+	o.options[tail] = new Option(s);
+	o.options[tail].text = t;
+	o.options[tail].value = s;
+
+	if (f==1)
+	{
+		o.options[tail].selected = 1;
+	}
+}
+
 function add_option_match(o, s, f)
 {
 	tail = o.options.length;
@@ -1692,8 +1706,7 @@ function load_body()
 		}
 		else if (window.top.isBand() == 'n')
 		{
-			if (frm.wl_channel.value == "0")
-				inputCtrl(frm.wl_nctrlsb, 0);
+			insert_subchannel_options();
 		}
 
 		masq_wepkey();
@@ -2502,6 +2515,37 @@ function setup_script(s)
 	}
 }
 
+function insert_subchannel_options()
+{
+	var wl_mode = document.form.wl_gmode.value;
+	var wl_nctrlsb = document.form.wl_nctrlsb;
+	var wl_options = wl_nctrlsb.options;
+	value = wl_nctrlsb.value;
+	wl_options.length = 1;
+	wl_options[0].text = "None";
+	wl_options[0].value = "none";
+	if ((wl_mode == "1" || wl_mode == "6") && document.form.wl_nbw.value == "40")
+	{
+		var wl_channel = 1*document.form.wl_channel.value;
+		var wl_channels = document.form.wl_channel.options.length;
+		if (value != "lower" && value != "upper") value = "lower";
+		if (wl_channel >= 1+4 && wl_channel < wl_channels) {
+			selected = (value == "upper" ||  wl_channel >= wl_channels-4) ? 1 : 0;
+			add_option_text(wl_nctrlsb, wl_channel-4, "upper", selected);
+		}
+		if (wl_channel >= 1 && wl_channel < wl_channels-4) {
+			selected = (value == "lower" ||  wl_channel < 1+4) ? 1 : 0;
+			add_option_text(wl_nctrlsb, wl_channel+4, "lower", selected);
+		}
+		if (wl_options.length == 1)
+			add_option_text(wl_nctrlsb, "Auto", value, 1);
+		inputCtrl(wl_nctrlsb, 1);
+	} else {
+		wl_options[0].selected = 1;
+		inputCtrl(wl_nctrlsb, 0);
+	}
+}
+
 function change_common(o, s, v)
 {
 	change = 1;
@@ -2590,28 +2634,11 @@ function change_common(o, s, v)
 		}
 		else if (v == "wl_channel")
 		{
-			if (o.value == "0") /* auto */
-				inputCtrl(document.form.wl_nctrlsb, 0);
-			else
-			if (document.form.wl_nbw.value == "40")
-				inputCtrl(document.form.wl_nctrlsb, 1);
+			insert_subchannel_options();
 		}
 		else if (v == "wl_nbw")
 		{
-			if (o.value == "20") /* 20 MHz */
-			{
-				document.form.wl_nctrlsb.value = "none";
-				inputCtrl(document.form.wl_nctrlsb, 0);
-			}
-			else /* 40 MHz */
-			{
-				if (document.form.wl_nctrlsb.value == "none")
-					document.form.wl_nctrlsb.value = "lower";
-				if (document.form.wl_channel.value == "0") /*Auto*/
-					inputCtrl(document.form.wl_nctrlsb, 0);
-				else
-					inputCtrl(document.form.wl_nctrlsb, 1);
-			}
+			insert_subchannel_options();
 		}
 		else if (v == "wl_nctrlsb")
 		{
@@ -2627,20 +2654,13 @@ function change_common(o, s, v)
 			{
 				document.form.wl_nbw.value = "40";
 				inputCtrl(document.form.wl_nbw, 1);
-				if (document.form.wl_nctrlsb.value == "none")
-					document.form.wl_nctrlsb.value = "lower";
-				if (document.form.wl_channel.value == "0") /*Auto*/
-					inputCtrl(document.form.wl_nctrlsb, 0);
-				else
-					inputCtrl(document.form.wl_nctrlsb, 1);
 			}
 			else /* 802.11g Only, 802.11b Only, ... */
 			{
 				document.form.wl_nbw.value = "20";
 				inputCtrl(document.form.wl_nbw, 0);
-				document.form.wl_nctrlsb.value = "none";
-				inputCtrl(document.form.wl_nctrlsb, 0);
 			}
+			insert_subchannel_options();
 		}
 	}
 	else if (s=="LANHostConfig" && v=="time_zone")
