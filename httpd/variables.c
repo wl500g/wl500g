@@ -666,6 +666,7 @@ struct variable variables_LANHostConfig[] = {
 	"WWW.NO-IP.COM",
 	"WWW.DNSOMATIC.COM",
 	"WWW.TUNNELBROKER.NET",
+	"DNS.HE.NET",
 	0), FALSE, FALSE},
 	{"ddns_username_x", "", validate_string, ARGV("32"), FALSE, FALSE},
 	{"ddns_passwd_x", "", validate_string, ARGV("32"), FALSE, FALSE},
