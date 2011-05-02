@@ -27,10 +27,10 @@ diff -BurpN inadyn.orig/include/dyndns.h inadyn/include/dyndns.h
 +/* HE tunnelbroker.com specific update request format */
 +#define HE_IPV6TB_UPDATE_MY_IP_REQUEST_FORMAT \
 +    "GET %s" \
-+	"ipv4b=%s&" \
-+	"user_id=%s&" \
++	"ip=%s&" \
++	"apikey=%s&" \
 +	"pass=%s&" \
-+	"tunnel_id=%s " \
++	"tid=%s " \
 +	 "HTTP/1.0\r\n" \
 +	"Host: %s\r\n" \
 +	"User-Agent: "DYNDNS_AGENT_NAME " " DYNDNS_EMAIL_ADDR"\r\n\r\n"
@@ -277,7 +277,7 @@ diff -BurpN inadyn.orig/src/dyndns.c inadyn/src/dyndns.c
 +{
 +	(void) p_ok_string;
 +	return ((strstr(p_rsp, p_self->info[infnr].my_ip_address.name) != NULL) ||
-+		(strstr(p_rsp, "already in use") != NULL));
++		(strstr(p_rsp, "already") != NULL));
 +}
 +
  static RC_TYPE do_update_alias_table(DYN_DNS_CLIENT *p_self)
