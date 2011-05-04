@@ -511,6 +511,7 @@ static int establish_tunnel(l2tp_tunnel *tunnel)
     EventSelector *es = tunnel->es;
     struct master *tun;
     struct sockaddr_in addr;
+    socklen_t sock_len;
     int fd = -1;
 #ifdef PPPOL2TP_V1
     struct sockaddr_pppol2tp sax;
@@ -531,12 +532,33 @@ static int establish_tunnel(l2tp_tunnel *tunnel)
 	goto err;
     }
 
+    addr = tunnel->peer_addr;
+    if (connect(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
+	l2tp_set_errmsg("Unable to connect tunnel UDP socket.");
+	goto err;
+    }
+
+    sock_len = sizeof(struct sockaddr_in);
+    if ((getsockname(fd, (struct sockaddr*) &addr, &sock_len) < 0) ||
+        (sock_len != sizeof(struct sockaddr_in))) {
+	l2tp_set_errmsg("Unable to get name of tunnel UDP socket");
+	goto err;
+    }
+    close(fd);
+
+    fd = socket(PF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+	l2tp_set_errmsg("Unable to allocate tunnel UDP socket: %s");
+	goto err;
+    }
+
     flags = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &flags, sizeof(flags));
     setsockopt(fd, SOL_SOCKET, SO_NO_CHECK, &flags, sizeof(flags));
 
+    /* Already set by getsockname
     addr.sin_family = AF_INET;
-    addr.sin_addr = Settings.listen_addr;
+    addr.sin_addr = Settings.listen_addr; */
     addr.sin_port = htons((uint16_t) Settings.listen_port);
     if (bind(fd, (struct sockaddr *) &addr, sizeof(addr)) < 0) {
 	l2tp_set_errmsg("Unable to bind tunnel UDP socket.");
