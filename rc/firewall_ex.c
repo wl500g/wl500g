@@ -520,9 +520,7 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
         char lan_class[32];
 	int i;
 	int wan_port;
-	char dstips[32], dstports[12];
-     				
-	
+
 	if ((fp=fopen("/tmp/nat_rules", "w"))==NULL) return;
 
 	fprintf(fp, "*nat\n"
@@ -560,6 +558,8 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 	// Port forwarding or Virtual Server
    	if (nvram_match("wan_nat_x", "1") && nvram_match("vts_enable_x", "1"))
    	{     		
+		char srcips[64], dstips[64];
+
    		g_buf_init();
    				     		
      		foreach_x("vts_num_x")
@@ -569,57 +569,42 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 			char *port;
 			char *lport;
 			char *dstip;
+			char *srcip;
 
      			proto = proto_conv("vts_proto_x", i);
 			protono = portrange_conv("vts_protono_x", i);
 			port = portrange_conv("vts_port_x", i);
 			lport = portrange_conv("vts_lport_x", i);
 			dstip = ip_conv("vts_ipaddr_x", i);
+			srcip = ip_conv("vts_sipaddr_x", i);
 
-			if (lport!=NULL && strlen(lport)!=0) 
-			{
-				sprintf(dstips, "%s:%s", dstip, lport);
-				sprintf(dstports, "%s", lport);
-			}
+			if (srcip != NULL && strlen(srcip) != 0)
+				snprintf(srcips, sizeof(srcips), "-s %s", srcip);
 			else
-			{
-				sprintf(dstips, "%s:%s", dstip, port);
-				sprintf(dstports, "%s", port);
-			}
-     				
+				srcips[0] = '\0';
+
+			if (lport != NULL && strlen(lport) != 0)
+				snprintf(dstips, sizeof(dstips), "--to-destination %s:%s", dstip, lport);
+			else
+				snprintf(dstips, sizeof(dstips), "--to %s", dstip);
+
 			if (strcmp(proto, "tcp")==0 || strcmp(proto, "both")==0)
 			{
-				if (lport!=NULL && strlen(lport)!=0) 
-				{
-					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT --to-destination %s\n", 
-					port, dstips);
-				}
-				else
-				{
-					fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s -j DNAT --to %s\n", 
-					port, dstip);
-				}
-			}     				
-				
+				fprintf(fp, "-A VSERVER -p tcp -m tcp %s --dport %s -j DNAT %s\n", 
+					srcips, port, dstips);
+			}
 			if (strcmp(proto, "udp")==0 || strcmp(proto, "both")==0)
 			{
-				if (lport!=NULL && strlen(lport)!=0) 
-				{
-					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT --to-destination %s\n", 
-					port, dstips);
-				}
-				else
-				{
-					fprintf(fp, "-A VSERVER -p udp -m udp --dport %s -j DNAT --to %s\n", 
-					port, dstip);
-				}
-			}     				        			
+				fprintf(fp, "-A VSERVER -p udp -m udp %s --dport %s -j DNAT %s\n", 
+					srcips, port, dstips);
+			}
 			if (strcmp(proto, "other")==0)
 			{
-				fprintf(fp, "-A VSERVER -p %s -j DNAT --to %s\n",
-					protono, dstip);
-			}     				        				}	
-	}	
+				fprintf(fp, "-A VSERVER -p %s %s -j DNAT --to %s\n",
+					protono, srcips, dstip);
+			}
+		}
+	}
 
    	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && ip_addr(wan_ip))
 	{
