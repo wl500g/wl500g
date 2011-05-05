@@ -81,6 +81,14 @@ diff -BurpN linux.orig/drivers/net/pptp.c linux/drivers/net/pptp.c
  
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
  	iph = ip_hdr(skb);
+@@ -889,6 +889,7 @@ static int pptp_connect(struct socket *s
+ 	po->chan.mtu-=PPTP_HEADER_OVERHEAD;
+ 
+ 	po->chan.hdrlen=2+sizeof(struct pptp_gre_header);
++	po->chan.hdrlen += NET_SKB_PAD + sizeof(struct iphdr);
+ 	error = ppp_register_channel(&po->chan);
+ 	if (error){
+ 		printk(KERN_ERR "PPTP: failed to register PPP channel (%d)\n",error);
 @@ -1124,7 +1129,7 @@ static struct pppox_proto pppox_pptp_pro
  #endif
  };
