@@ -10,16 +10,17 @@ f7977793240d836e60ff413e94e6914f08e10941 speed up madvise_need_mmap_write() usag
 c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
 0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
 a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_mkwrite()
+369f2389e7d03022abdd25e298bffb9613cd0e54 writeback: remove unnecessary wait in throttle_vm_writeout()
 
 ---
- include/linux/writeback.h  |    2 +-
- mm/filemap.c               |    9 +++++----
- mm/madvise.c               |    6 ++++--
- mm/memory.c                |    9 +++++++--
- mm/mempool.c               |    3 +++
- mm/page-writeback.c        |    4 ++--
- mm/page_alloc.c            |   15 +++++++++++++++
- 7 files changed, 37 insertions(+), 11 deletions(-)
+ include/linux/writeback.h |    2 +-
+ mm/filemap.c              |    9 +++++----
+ mm/madvise.c              |    6 ++++--
+ mm/memory.c               |    9 +++++++--
+ mm/mempool.c              |    3 +++
+ mm/page-writeback.c       |   22 ++++++++++------------
+ mm/page_alloc.c           |   15 +++++++++++++++
+ 7 files changed, 45 insertions(+), 21 deletions(-)
 
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 index 4ef4d22..b4af6bc 100644
@@ -166,7 +167,6 @@ index cc1ca86..3e8f1fe 100644
  	if (pool->curr_nr < pool->min_nr) {
  		spin_lock_irqsave(&pool->lock, flags);
 diff --git a/mm/page-writeback.c b/mm/page-writeback.c
-index 5e36868..4820146 100644
 --- a/mm/page-writeback.c
 +++ b/mm/page-writeback.c
 @@ -274,9 +274,9 @@ static void balance_dirty_pages(struct address_space *mapping)
@@ -181,6 +181,38 @@ index 5e36868..4820146 100644
  		struct address_space *mapping = page_mapping(page);
  
  		if (mapping)
+@@ -502,16 +502,6 @@ void throttle_vm_writeout(gfp_t gfp_mask)
+ 	long background_thresh;
+ 	long dirty_thresh;
+ 
+-	if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO)) {
+-		/*
+-		 * The caller might hold locks which can prevent IO completion
+-		 * or progress in the filesystem.  So we cannot just sit here
+-		 * waiting for IO to complete.
+-		 */
+-		congestion_wait(WRITE, HZ/10);
+-		return;
+-	}
+-
+         for ( ; ; ) {
+ 		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
+ 
+@@ -525,6 +515,14 @@ void throttle_vm_writeout(gfp_t gfp_mask)
+ 			global_page_state(NR_WRITEBACK) <= dirty_thresh)
+                         	break;
+                 congestion_wait(WRITE, HZ/10);
++
++		/*
++		 * The caller might hold locks which can prevent IO completion
++		 * or progress in the filesystem.  So we cannot just sit here
++		 * waiting for IO to complete.
++		 */
++		if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO))
++			break;
+         }
+ }
+ 
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
 index d6bb02b..e51d51c 100644
 --- a/mm/page_alloc.c
