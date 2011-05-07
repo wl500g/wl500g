@@ -41,13 +41,26 @@
 		{
 			setDispModeById( 'APN',			'block' );
 			setDispModeById( 'DialupNO',	'block' );
-		} 
+		}
+	}
+
+	function change_autodetect_dev()
+	{
+		var frm = document.form;
+		var flag=0;
+		if(get_radio_value(frm.wan_modem_autodetect)=="0") flag=1;
+		inputCtrl2(frm.wan_modem_usbloc, flag);
+		inputCtrl2(frm.wan_modem_pdata, flag);
+		inputCtrl2(frm.wan_modem_pui, flag);
+		inputCtrl2(frm.wan_modem_vid, flag);
+		inputCtrl2(frm.wan_modem_pid, flag);
 	}
 
 	function load_this_page()
 	{
 //		setUSBtts(document.form.wan_modem_usbloc.value);
 		changeUSBConnectionType();
+		change_autodetect_dev();
 	}
 	window.changeUSBparams = function (value)
 	{
@@ -61,8 +74,9 @@
 			frm.wan_modem_pui.value = value.ui;
 			frm.wan_modem_type.value = value.type;
 			changeUSBConnectionType();
+			inputRCtrl2(frm.wan_modem_autodetect, 0);
+			change_autodetect_dev();
 		}
-		inputRCtrl2(frm.wan_modem_autodetect, 0);
 	}
 	</script>
 
@@ -248,8 +262,8 @@
 				Autodetect device
 			</td>
 			<td class="content_input_td" nowrap>
-				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '0')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %>>No
-				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_common_radio(this, '3GConfig', 'wan_modem_autodetect', '1')" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %>>Yes
+				<input type="radio" value="0" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match_x("3GConfig","wan_modem_autodetect", "0", "checked"); %> >No
+				<input type="radio" value="1" name="wan_modem_autodetect" class="content_input_fd" onClick="return change_autodetect_dev()" <% nvram_match_x("3GConfig","wan_modem_autodetect", "1", "checked"); %> >Yes
 			</td>
 		</tr>
 
