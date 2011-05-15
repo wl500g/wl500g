@@ -13,9 +13,15 @@
 #
 
 UPNP	:= igd/linux
-CFLAGS	+= -g -O2 -Dlinux $(EXTRACFLAGS)
 #DEBUG	:= 1
-export CFLAGS
+ifeq ($(DEBUG),1)
+CFLAGS += -g -DDEBUG
+else
+CFLAGS	+= -s -O2 -Dlinux $(EXTRACFLAGS)
+endif
+CFLAGS += -Wall -Wunused
+#CFLAGS += --trace-includes
+export CFLAGS DEBUG
 
 all: $(UPNP)/upnp
 
@@ -32,4 +38,4 @@ distclean: clean
 	$(MAKE) -C $(UPNP) distclean
 
 $(UPNP)/upnp:
-	$(MAKE) -C $(UPNP) DEBUG=$(DEBUG) SRCBASE=$(SRCBASE) TOP=$(TOP)
+	$(MAKE) -C $(UPNP) SRCBASE=$(SRCBASE) TOP=$(TOP)

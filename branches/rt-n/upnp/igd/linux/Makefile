@@ -10,10 +10,6 @@
 # $Id$
 #
 
-ifndef DEBUG
-#export DEBUG=1
-endif
-
 SRCBASE=../../../..
 
 VPATH.h = .:..:../../include:$(SRCBASE)/include:$(TOP)/shared
@@ -22,14 +18,7 @@ vpath %.c .:..:$(SRCBASE)/shared/netconf
 vpath %.h $(VPATH.h)
 
 
-ifeq ($(DEBUG),1)
-CFLAGS += -g -DDEBUG -UNDEBUG -DBCMDBG
-else
-CFLAGS += -O2 -DNDEBUG
-endif
 CFLAGS += -I$(subst :, -I,$(VPATH.h))
-CFLAGS += -Wall -Wunused 
-#CFLAGS += --trace-includes
 OBJDIR=obj
 
 # compile in the generic UPNP IGD files.
@@ -78,12 +67,12 @@ $(TARGET) :: $(TOP)/iptables/libiptables.a
 $(TARGET) :: $(TOP)/nvram/libnvram.a 
 
 $(TOP)/iptables/libiptables.a : FORCE
-	$(MAKE) -C $(TOP)/iptables PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+	$(MAKE) -C $(TOP)/iptables SRCBASE=../.. TOP=..
 $(TOP)/nvram/libnvram.a : FORCE
-	$(MAKE) -C $(TOP)/nvram PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+	$(MAKE) -C $(TOP)/nvram SRCBASE=../.. TOP=..
 
 $(TOP)/netconf/libnetconf.so : $(TOP)/iptables/libiptables.a FORCE
-	$(MAKE) -C $(TOP)/netconf DEBUG=1 PLATFORM=x86 CC=$(CC) LD=$(LD) SRCBASE=../.. TOP=..
+	$(MAKE) -C $(TOP)/netconf SRCBASE=../.. TOP=..
 
 libnetconf.so : $(TOP)/netconf/libnetconf.so
 	#	cp $(TOP)/netconf/libnetconf.so /router/usr/lib/
@@ -92,13 +81,10 @@ endif
 
 
 ../../upnp/linux/libupnp.a : FORCE
-	$(MAKE) -C ../../upnp/linux DEBUG=$(DEBUG) PLATFORM=x86 CC=$(CC) LD=$(LD) VENDOR=$(VENDOR)
+	$(MAKE) -C ../../upnp/linux
 
 $(TARGET) :: ../../upnp/linux/libupnp.a  $(SOURCES.OBJ)
 	$(CC) -o $(TARGET) $(SOURCES.OBJ) $(LIBS)
-ifneq ($(DEBUG),1)
-	$(STRIP)  $(TARGET)
-endif
 	$(SIZE)  $(TARGET)
 
 clean:
