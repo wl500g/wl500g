@@ -17,9 +17,9 @@ UPNP	:= igd/linux
 ifeq ($(DEBUG),1)
 CFLAGS += -g -DDEBUG
 else
-CFLAGS	+= -s -O2 -Dlinux $(EXTRACFLAGS)
+CFLAGS	+= -s -O2
 endif
-CFLAGS += -Wall -Wunused
+CFLAGS +=  -Dlinux $(EXTRACFLAGS) -Wall -Wunused
 #CFLAGS += --trace-includes
 export CFLAGS DEBUG
 
