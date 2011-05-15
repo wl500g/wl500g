@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     init_event_queue(40);
 
     if (lanif == NULL || wanif == NULL) {
-	fprintf(stderr, "usage: %s -L lan_ifname -W wan_ifname\n", argv[0]);
+	fprintf(stderr, "usage: %s -L lan_ifname -W wan_ifname [-D]\n", argv[0]);
     } else {
 	if (daemonize && daemon(1, 1) == -1) {
 	    perror("daemon");
