@@ -1,65 +1,31 @@
-diff -urBp radvd-1.6/Makefile.in radvd/Makefile.in
---- radvd-1.6/Makefile.in	2010-03-05 15:17:00.000000000 +0300
-+++ radvd/Makefile.in	2010-07-05 19:37:43.000000000 +0400
-@@ -222,7 +222,7 @@ COMMON_SRC = log.c socket.c recv.c util.
- radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
- 	device.c device-common.c privsep.c gram.y gram.h scanner.l
- 
--radvd_LDADD = -lfl
-+#radvd_LDADD = -lfl
- EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
- YFLAGS = -d
- radvdump_SOURCES = $(COMMON_SRC) radvdump.c
-diff -urBp radvd-1.6/radvd.c radvd/radvd.c
---- radvd-1.6/radvd.c	2010-01-28 16:34:26.000000000 +0300
-+++ radvd/radvd.c	2010-07-05 19:39:30.000000000 +0400
-@@ -551,6 +551,7 @@ drop_root_privileges(const char *usernam
+diff -urBp radvd-1.8/radvd.c radvd/radvd.c
+--- radvd-1.8/radvd.c	2011-05-07 06:26:00.000000000 +0300
++++ radvd/radvd.c	2011-05-15 17:07:00.000000000 +0400
+@@ -740,6 +740,7 @@ drop_root_privileges(const char *usernam
  int
  check_conffile_perm(const char *username, const char *conf_file)
  {
 +#if CHECK_PERM
- 	struct stat *st = NULL;
+ 	struct stat stbuf;
  	struct passwd *pw = NULL;
  	FILE *fp = fopen(conf_file, "r");
-@@ -593,6 +594,9 @@ errorout:
- 	if (st)
- 		free(st);
- 	return(-1);
-+#else
-+        return 0;
+@@ -771,6 +772,7 @@ check_conffile_perm(const char *username, 
+ 		return (-1);
+         }
+ 
 +#endif
+         return 0;
  }
  
  int
-diff -urBp radvd-1.7/scanner.l radvd/scanner.l
---- radvd-1.7/scanner.l	2011-01-08 19:39:05.000000000 +0300
-+++ radvd/scanner.l	2011-01-17 16:10:05.000000000 +0300
-@@ -13,7 +13,10 @@
-  *   may request it from <pekkas@netcore.fi>.
-  *
-  */
-+%option noyywrap
-+
+diff -urBp radvd-1.8/scanner.l radvd/scanner.l
+--- radvd-1.8/scanner.l	2011-05-07 06:26:00.000000000 +0300
++++ radvd/scanner.l	2011-05-15 17:10:05.000000000 +0300
+@@ -13,6 +13,7 @@
+ %option nounput noinput noyywrap
+ 
  %{
 +#include <string.h>
  #include "config.h"
  #include "includes.h"
- #include "radvd.h"
-@@ -22,6 +25,8 @@
- extern char *conf_file;
- 
- int num_lines = 1;
-+
-+#define YY_NO_INPUT
- %}
- 
- digit		[0-9]
-@@ -34,7 +39,7 @@ addr2		{hexdigit}{1,4}(":"{hexdigit}{1,4
- addr3		({hexdigit}{1,4}":"){7}{hexdigit}{1,4}
- addr		({addr1}|{addr2}|{addr3}|"::")
- whitespace	([ \t])+
--string		[a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\]{1,255}
-+string		([a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\])+
- %%
- 
- #.*$			{/* ignore comments */}
+ #include "log.h"
