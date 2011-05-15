@@ -10,9 +10,6 @@
 # $Id$
 #
 
-ifndef DEBUG
-#export DEBUG=1
-endif
 SRCBASE=../../../..
 
 VPATH.h=.:..:../../include:$(SRCBASE)/include:$(TOP)/shared
@@ -20,14 +17,7 @@ VPATH.h=.:..:../../include:$(SRCBASE)/include:$(TOP)/shared
 vpath %.c .:..:$(TOP)/shared:$(SRCBASE)/shared/netconf
 vpath %.h $(VPATH.h)
 
-ifeq ($(DEBUG),1)
-CFLAGS += -g -DDEBUG -UNDEBUG -DBCMDBG
-else
-CFLAGS += -O2 -DNDEBUG
-endif
 CFLAGS += -I$(subst :, -I,$(VPATH.h))
-CFLAGS += -Wall -Wunused 
-#CFLAGS += --trace-includes
 OBJDIR=obj
 
 SOURCES = upnp.c ssdp.c http.c gena.c soap.c \
