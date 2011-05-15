@@ -5,11 +5,12 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (Current)===
+===RT-N-1.9.2.7-rtn-`r2972` (2011-05-15)===
   * kernel
     * backports from upstream (IPv6, net, netfilter, netlink, usb, USB/IP)
     * netfilter: xt_conntrack rev.2 , xt_time from upstream
     * fast-nat module (originally from Broadcom, use 'nvram set misc_fastnat_x=0' to disable it)
+    * l2tp - speedup
 
   * rp-l2tp - enhancement & fixes
 
