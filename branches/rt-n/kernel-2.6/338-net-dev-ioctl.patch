@@ -1,32 +1,10 @@
-From 746e6ad23cd6fec2edce056e014a0eabeffa838c
-From: John Dykstra
-Date: Thu, 11 Jun 2009 20:57:21 -0700
-Subject: [PATCH] [PATCH] net core: Some interface flags not returned by SIOCGIFFLAGS
-
-Commit b00055aacdb172c05067612278ba27265fcd05ce " [NET] core: add
-RFC2863 operstate" defined new interface flag values.  Its
-documentation specified that these flags could be accessed from user
-space via SIOCGIFFLAGS.  However, this does not work because the new
-flags do not fit in that ioctl's argument width.
-
-Change the documentation to match the code's behavior.  Also change
-the source to explicitly show the truncation.  This _should_ have no
-effect on executable code, and did not with gcc 4.2.4 generating x86
-code.
-
-A new ioctl could be defined to return all interface flags to user
-space.  However, since this has been broken for three years with no
-one complaining, there doesn't seem much need.  They are still
-accessible via netlink.
-
-Reported-by:  "Fredrik Arnerup" <fredrik.arnerup@edgeware.tv>
-Signed-off-by: John Dykstra <john.dykstra1@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ 746e6ad23cd6fec2edce056e014a0eabeffa838c net core: Some interface flags not returned by SIOCGIFFLAGS
+ 41c31f318a5209922d051e293c61e4724daad11c networking: inappropriate ioctl operation should return ENOTTY
 
 ---
  Documentation/networking/operstates.txt |    3 ---
- net/core/dev.c                          |    2 +-
- 2 files changed, 1 insertions(+), 4 deletions(-)
+ net/core/dev.c                          |    6 +++---
+ 2 files changed, 3 insertions(+), 6 deletions(-)
 
 diff --git a/Documentation/networking/operstates.txt b/Documentation/networking/operstates.txt
 index c9074f9..1a77a3c 100644
@@ -55,5 +33,23 @@ index 11560e3..a09bf65 100644
  			return 0;
  
  		case SIOCGIFMETRIC:	/* Get the metric on the interface
+@@ -3041,7 +3041,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 			/* Set the per device memory buffer space.
+ 			 * Not applicable in our case */
+ 		case SIOCSIFLINK:
+-			return -EINVAL;
++			return -ENOTTY;
+ 
+ 		/*
+ 		 *	Unknown or private ioctl.
+@@ -3062,7 +3062,7 @@ int dev_ioctl(struct net *net, unsigned int cmd, void __user *arg)
+ 			/* Take care of Wireless Extensions */
+ 			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
+ 				return wext_handle_ioctl(&ifr, cmd, arg);
+-			return -EINVAL;
++			return -ENOTTY;
+ 	}
+ }
+ 
 -- 
 1.7.3.5
