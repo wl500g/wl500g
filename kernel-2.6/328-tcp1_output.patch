@@ -1,5 +1,4 @@
 Subject: [PATCH] tcp_output: minor fixes and optimization from upstream
-From a3f3d7ecca463470f44916b9c2a309edfbec406e
 From: Ilpo JÃ¤rvinen
 Date: Sat, 17 Apr 2010 14:43:44 -0400
 
@@ -12,13 +11,13 @@ Date: Sat, 17 Apr 2010 14:43:44 -0400
  4e67d876ce07471e02be571038d5435a825f0215 [TCP]: NAGLE_PUSH seems to be a wrong way around
  0e3a4803aa06cd7bc2cfc1d04289df4f6027640a [TCP]: Force TSO splits to MSS boundaries
  5ea3a7480606cef06321cd85bc5113c72d2c7c68 [TCP]: Prevent sending past receiver window with TSO (at last skb)
+ 02276f3c962fd408fa9d441251067845f948bfcf tcp: fix corner case issue in segmentation during rexmitting
 
 ---
- net/ipv4/tcp_output.c   |   92 ++++++++++----------
- 1 files changed, 47 insertions(+), 45 deletions(-)
+ net/ipv4/tcp_output.c |   94 ++++++++++++++++++++++++++------------------------
+ 1 file changed, 49 insertions(+), 45 deletions(-)
 
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index eee57e6..561e16a 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -949,13 +949,37 @@ static void tcp_cwnd_validate(struct sock *sk)
@@ -209,6 +208,14 @@ index eee57e6..561e16a 100644
  			window = free_space;
  	}
  
+@@ -1921,6 +1921,8 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)
+ 	if (skb->len > cur_mss) {
+ 		if (tcp_fragment(sk, skb, cur_mss, cur_mss))
+ 			return -ENOMEM; /* We'll try again later. */
++	} else {
++		tcp_init_tso_segs(sk, skb, cur_mss);
+ 	}
+ 
+ 	/* Collapse two adjacent packets if worthwhile and we can. */
 -- 
 1.6.5.GIT
-
