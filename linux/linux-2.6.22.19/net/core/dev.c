@@ -2706,7 +2706,7 @@ static int dev_ifsioc(struct ifreq *ifr, unsigned int cmd)
 
 	switch (cmd) {
 		case SIOCGIFFLAGS:	/* Get interface flags */
-			ifr->ifr_flags = dev_get_flags(dev);
+			ifr->ifr_flags = (short) dev_get_flags(dev);
 			return 0;
 
 		case SIOCSIFFLAGS:	/* Set interface flags */
@@ -2992,7 +2992,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Set the per device memory buffer space.
 			 * Not applicable in our case */
 		case SIOCSIFLINK:
-			return -EINVAL;
+			return -ENOTTY;
 
 		/*
 		 *	Unknown or private ioctl.
@@ -3013,7 +3013,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Take care of Wireless Extensions */
 			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
 				return wext_handle_ioctl(&ifr, cmd, arg);
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 
