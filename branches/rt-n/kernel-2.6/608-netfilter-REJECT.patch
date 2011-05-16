@@ -4,11 +4,12 @@ netfilter: ip{6}t_REJECT: Updates from upstream
  98b0e84aaaf2be6c40998d011c9db96ea6498e20 netfilter: ipt_REJECT: postpone the checksum calculation.
  b46ffb854554ff939701bdd492b81558da5706fc netfilter: fix ipt_REJECT TCP RST routing for indev == outdev
  499031ac8a3df6738f6186ded9da853e8ea18253 netfilter: ip6t_REJECT: fix a dst leak in ipv6 REJECT
+ 4319cc0cf5bb894b7368008cdf6dd20eb8868018 netfilter: IPv6: initialize TOS field in REJECT target module
 
 ---
- ipv4/netfilter/ipt_REJECT.c  |  110 ++++++++++++++-----------------------------
- ipv6/netfilter/ip6t_REJECT.c |    6 +-
- 2 files changed, 42 insertions(+), 74 deletions(-)
+ net/ipv4/netfilter/ipt_REJECT.c  |  110 +++++++++++++--------------------------
+ net/ipv6/netfilter/ip6t_REJECT.c |   10 ++-
+ 2 files changed, 45 insertions(+), 75 deletions(-)
 
 diff -urBp a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
 --- a/net/ipv4/netfilter/ipt_REJECT.c
@@ -176,6 +177,15 @@ diff -urBp a/net/ipv4/netfilter/ipt_REJECT.c b/net/ipv4/netfilter/ipt_REJECT.c
 diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
 --- a/net/ipv6/netfilter/ip6t_REJECT.c
 +++ b/net/ipv6/netfilter/ip6t_REJECT.c
+@@ -45,6 +45,8 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
+ 	unsigned int otcplen, hh_len;
+ 	int tcphoff, needs_ack;
+ 	struct ipv6hdr *oip6h = ipv6_hdr(oldskb), *ip6h;
++#define DEFAULT_TOS_VALUE	0x0U
++	const __u8 tclass = DEFAULT_TOS_VALUE;
+ 	struct dst_entry *dst = NULL;
+ 	u8 proto;
+ 	struct flowi fl;
 @@ -97,9 +97,11 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
  	fl.fl_ip_dport = otcph.source;
  	security_skb_classify_flow(oldskb, &fl);
@@ -190,4 +200,13 @@ diff --git a/net/ipv6/netfilter/ip6t_REJECT.c b/net/ipv6/netfilter/ip6t_REJECT.c
  		return;
  
  	hh_len = (dst->dev->hard_header_len + 15)&~15;
+@@ -124,7 +126,7 @@ static void send_reset(struct net *net, struct sk_buff *oldskb)
+ 	skb_put(nskb, sizeof(struct ipv6hdr));
+ 	skb_reset_network_header(nskb);
+ 	ip6h = ipv6_hdr(nskb);
+-	ip6h->version = 6;
++	*(__be32 *)ip6h =  htonl(0x60000000 | (tclass << 20));
+ 	ip6h->hop_limit = dst_metric(dst, RTAX_HOPLIMIT);
+ 	ip6h->nexthdr = IPPROTO_TCP;
+ 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
 -- 
