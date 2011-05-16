@@ -461,7 +461,6 @@
 {"wan_modem_packetsize","4096",0},
 {"wan_modem_autodetect", "1", 0},
 {"wan_modem_portspeed","921600", 0},
-{"wan_modem_tts_port","0", 0},
 {"wan_modem_type","1", 0},
 {"wan_modem_demand","0", 0},
 {"wan_modem_idle","60", 0},
