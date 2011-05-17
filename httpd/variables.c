@@ -1627,6 +1627,7 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_vid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_pid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_portspeed", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_usbserial", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_packetsize", "", validate_range, ARGV("0", "16384", ""), TRUE, FALSE},
 	{"wan_modem_zerocd_mode", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_dialup_init", "", validate_string, ARGV(""), TRUE, FALSE},
