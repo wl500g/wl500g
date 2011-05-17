@@ -1600,7 +1600,7 @@ wan6_up(char *wan_ifname, int unit)
 
 		/* Notify radvd of change */
 		if (nvram_match("ipv6_radvd_enable", "1"))
-			killall("radvd", -1);
+			killall("radvd", -SIGHUP);
 	}
 
 	/* Configure IPv6 DNS servers */
