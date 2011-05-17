@@ -1,5 +1,5 @@
 diff -x'.*' -x'*.o' -urNBp busybox.orig/include/applets.src.h busybox/include/applets.src.h
---- busybox.orig/include/applets.src.h	2011-02-11 12:10:15.000000000 +0300
+--- busybox.orig/include/applets.src.h	2011-05-17 15:25:24.000000000 +0400
 +++ busybox/include/applets.src.h	2011-02-05 13:41:12.000000000 +0300
 @@ -112,6 +112,8 @@ IF_DELUSER(APPLET(deluser, _BB_DIR_BIN, 
  IF_DEVFSD(APPLET(devfsd, _BB_DIR_SBIN, _BB_SUID_DROP))
@@ -542,8 +542,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/base64.h busybox/networ
 +int base64_decodestring(const char *, char *, size_t);
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/common6.c
 --- busybox.orig/networking/udhcp/common6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.c	2011-02-11 15:40:05.000000000 +0300
-@@ -0,0 +1,2444 @@
++++ busybox/networking/udhcp/common6.c	2011-05-17 18:11:40.000000000 +0400
+@@ -0,0 +1,2430 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
 + * All rights reserved.
@@ -853,7 +853,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +		    DHCP6_LISTVAL_ADDR6, &valaddr, 0)) {
 +			char a[INET6_ADDRSTRLEN];
 +
-+			sprint_nip6(a, &valaddr);
++			sprint_nip6(a, (const uint8_t *)&valaddr);
 +			bb_info_msg("duplicated %s address (%s)",
 +			    dhcp6optstr(type), a);
 +			continue;
@@ -1076,7 +1076,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	int error = -1;
 +
 +	if (getifaddrs(&ifap) != 0) {
-+		bb_error_msg("getifaddrs failed: %s", strerror(errno));
++		bb_perror_msg("getifaddrs");
 +		return (-1);
 +	}
 +
@@ -1189,21 +1189,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	*cp = 0xff << (8 - plen);
 +
 +	return (0);
-+}
-+
-+
-+int sprint_nip6(char *dest, const struct in6_addr *in6)
-+{
-+	int i, len = 0;
-+	uint16_t word;
-+
-+	for (i = 0; i < 16; i += 2)
-+	{
-+		move_from_unaligned16(word, &((const uint8_t *)in6)[i]);
-+		len += sprintf(dest + len, "%s%04X", i ? ":" : "", htons(word));
-+	}
-+
-+	return len;
 +}
 +
 +int get_duid(const char *idfile, struct duid *duid, int duid_type)
@@ -1959,7 +1944,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +			/* clear padding bits in the prefix address */
 +			prefix6_mask(&iapd_prefix.addr, iapd_prefix.plen);
 +
-+			sprint_nip6(a, &iapd_prefix.addr),
++			
++			sprint_nip6(a, (const uint8_t *)&iapd_prefix.addr),
 +			log2("  IA_PD prefix: %s/%d pltime=%u vltime=%u",
 +			    a, iapd_prefix.plen,
 +			    iapd_prefix.pltime, iapd_prefix.vltime);
@@ -2004,7 +1990,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +			memcpy(&ia_addr.addr, &opt_ia_addr.dh6_ia_addr_addr,
 +			    sizeof(ia_addr.addr));
 +
-+			sprint_nip6(a, &ia_addr.addr);
++			sprint_nip6(a, (const uint8_t *)&ia_addr.addr);
 +			log2("  IA_NA address: %s pltime=%u vltime=%u",
 +			    a, ia_addr.pltime, ia_addr.vltime);
 +
@@ -2949,7 +2935,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +
 +	cp = duidbuf;
 +	rest = COMMON_BUFSIZE / 2;
-+	for (i = 0; i < duid->duid_len && i <= 128; i++) {
++	for (i = 0; i < duid->duid_len && i < 128; i++) {
 +		n = snprintf(cp, rest, "%s%02x", i == 0 ? "" : ":",
 +		    duid->duid_id[i] & 0xff);
 +		if (n < 0)
@@ -2990,8 +2976,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/networking/udhcp/common6.h
 --- busybox.orig/networking/udhcp/common6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.h	2011-02-11 15:50:09.000000000 +0300
-@@ -0,0 +1,182 @@
++++ busybox/networking/udhcp/common6.h	2011-05-17 17:51:38.000000000 +0400
+@@ -0,0 +1,181 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
 + * All rights reserved.
@@ -3119,7 +3105,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/netwo
 +struct authparam *copy_authparam(struct authparam *);
 +int getifaddr(struct in6_addr *, char *, const struct in6_addr *, int, int);
 +int prefix6_mask(struct in6_addr *, int);
-+int sprint_nip6(char *, const struct in6_addr *);
 +int get_duid(const char *, struct duid *, int);
 +void dhcp6_init_options(struct dhcp6_optinfo *);
 +void dhcp6_clear_options(struct dhcp6_optinfo *);
@@ -3176,8 +3161,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/netwo
 +#endif
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/config6.c
 --- busybox.orig/networking/udhcp/config6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.c	2011-02-11 15:44:38.000000000 +0300
-@@ -0,0 +1,1756 @@
++++ busybox/networking/udhcp/config6.c	2011-05-17 18:12:10.000000000 +0400
+@@ -0,0 +1,1754 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
 + * All rights reserved.
@@ -3289,8 +3274,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +		struct cf_list *cfl;
 +
 +		if (if_nametoindex(ifp->name) == 0) {
-+			bb_error_msg("invalid interface(%s): %s",
-+			    ifp->name, strerror(errno));
++			bb_perror_msg("invalid interface(%s)", ifp->name);
 +			goto bad;
 +		}
 +
@@ -3482,9 +3466,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +
 +	/* validate and copy ifname */
 +	if (if_nametoindex(cfl0->ptr) == 0) {
-+		bb_error_msg("%s:%d invalid interface (%s): %s",
++		bb_perror_msg("%s:%d invalid interface (%s)",
 +		    client6_config.conffile, cfl0->line,
-+		    (char *)cfl0->ptr, strerror(errno));
++		    (char *)cfl0->ptr);
 +		goto bad;
 +	}
 +	pif->ifname = xstrdup(cfl0->ptr);
@@ -3812,8 +3796,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	}
 +
 +	if (getifaddrs(&ifap) < 0) {
-+		bb_error_msg("getifaddrs failed: %s",
-+		    strerror(errno));
++		bb_perror_msg("getifaddrs");
 +		return (-1);
 +	}
 +
@@ -4224,8 +4207,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	if (!IN6_ARE_ADDR_EQUAL(&prefix0->addr, &oprefix.addr)) {
 +		char p0[INET6_ADDRSTRLEN];
 +
-+		sprint_nip6(p0, &prefix0->addr);
-+		sprint_nip6(p, &oprefix.addr);
++		sprint_nip6(p0, (const uint8_t *)&prefix0->addr);
++		sprint_nip6(p, (const uint8_t *)&oprefix.addr);
 +		bb_info_msg("prefix %s/%d for %s "
 +		    "has a trailing garbage.  It should be %s/%d",
 +		    p0, prefix0->plen, name, p, oprefix.plen);
@@ -4236,14 +4219,14 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	if (IN6_IS_ADDR_MULTICAST(&oprefix.addr) ||
 +	    IN6_IS_ADDR_LINKLOCAL(&oprefix.addr) ||
 +	    IN6_IS_ADDR_SITELOCAL(&oprefix.addr)) {
-+		sprint_nip6(p, &oprefix.addr);
++		sprint_nip6(p, (const uint8_t *)&oprefix.addr);
 +		bb_error_msg("invalid prefix address: %s", p);
 +		return (-1);
 +	}
 +
 +	/* prefix duplication check */
 +	if (dhcp6_find_listval(head, type, &oprefix, 0)) {
-+		sprint_nip6(p, &oprefix.addr);
++		sprint_nip6(p, (const uint8_t *)&oprefix.addr);
 +		if (type == DHCP6_LISTVAL_PREFIX6) {
 +			bb_info_msg("duplicated prefix: %s/%d for %s",
 +			    p, oprefix.plen, name);
@@ -4258,7 +4241,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	if (oprefix.vltime != DHCP6_DURATION_INFINITE &&
 +	    (oprefix.pltime == DHCP6_DURATION_INFINITE ||
 +	    oprefix.pltime > oprefix.vltime)) {
-+		sprint_nip6(p, &oprefix.addr);
++		sprint_nip6(p, (const uint8_t *)&oprefix.addr);
 +		bb_info_msg(
 +		    "%s/%d has larger preferred lifetime "
 +		    "than valid lifetime",
@@ -4439,7 +4422,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +struct dhcp_options {
 +    const char *optname;
 +    int optval;
-+    uint16_t paramt; /* 0-none, 1-string, 2-integer */
++    uint8_t paramt; /* 0-none, 1-string, 2-integer */
 +};
 +
 +static const struct dhcp_options dhcp_option_list[] = {
@@ -4936,8 +4919,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +}
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/config6.h
 --- busybox.orig/networking/udhcp/config6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.h	2011-02-07 19:48:27.000000000 +0300
-@@ -0,0 +1,309 @@
++++ busybox/networking/udhcp/config6.h	2011-05-17 15:44:36.000000000 +0400
+@@ -0,0 +1,310 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
 + * All rights reserved.
@@ -5238,7 +5221,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.h busybox/netwo
 +
 +
 +struct dhcp6_if *if6init(char *);
-+int ifreset(struct dhcp6_if *);
++int if6reset(struct dhcp6_if *);
++int sock6_init(struct addrinfo *res);
 +
 +struct dhcp6_if *find_ifconf_byid(unsigned int );
 +struct prefix_ifconf *find_prefixifconf(char *);
@@ -5248,7 +5232,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.h busybox/netwo
 +
 +int FAST_FUNC read_config6(const char *file);
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/networking/udhcp/Config.src
---- busybox.orig/networking/udhcp/Config.src	2011-02-11 12:10:15.000000000 +0300
+--- busybox.orig/networking/udhcp/Config.src	2011-05-17 15:25:24.000000000 +0400
 +++ busybox/networking/udhcp/Config.src	2011-02-11 12:10:37.000000000 +0300
 @@ -82,7 +82,7 @@ config UDHCP_DEBUG
  	int "Maximum verbosity level for udhcp applets (0..9)"
@@ -5259,7 +5243,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/netw
  	help
  	  Verbosity can be increased with multiple -v options.
  	  This option controls how high it can be cranked up.
-@@ -130,3 +130,27 @@ config UDHCPC_SLACK_FOR_BUGGY_SERVERS
+@@ -137,3 +137,27 @@ config UDHCPC_SLACK_FOR_BUGGY_SERVERS
  	    maximum size of entire IP packet, and sends packets which are
  	    28 bytes too large.
  	  Seednet (ISP) VDSL: sends packets 2 bytes too large.
@@ -5289,8 +5273,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/netw
 +	  and forwards these requests to a different interface.
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp6c.c
 --- busybox.orig/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.c	2011-03-02 20:41:17.000000000 +0300
-@@ -0,0 +1,1541 @@
++++ busybox/networking/udhcp/dhcp6c.c	2011-05-17 18:12:46.000000000 +0400
+@@ -0,0 +1,1500 @@
 +/*
 + * DHCPv6 client
 + *
@@ -5525,54 +5509,15 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +	if (error) {
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
-+	csock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-+	if (csock < 0) {
-+		bb_error_msg_and_die("socket(csock): %s", strerror(errno));
-+	}
-+	if (setsockopt(csock, SOL_SOCKET, SO_REUSEPORT,
-+		       &on, sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(SO_REUSEPORT): %s", strerror(errno));
-+	}
-+#ifdef IPV6_RECVPKTINFO
-+	if (setsockopt(csock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_RECVPKTINFO): %s",
-+			strerror(errno));
-+	}
-+#else
-+	if (setsockopt(csock, IPPROTO_IPV6, IPV6_PKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_PKTINFO): %s",
-+			strerror(errno));
-+	}
-+#endif
++	csock = sock6_init(res);
 +	if (setsockopt(csock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &on,
 +		       sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_MULTICAST_LOOP): %s",
-+		    strerror(errno));
++		bb_perror_msg_and_die("setsockopt(IPV6_MULTICAST_LOOP)");
 +	}
-+#ifdef IPV6_V6ONLY
-+	if (setsockopt(csock, IPPROTO_IPV6, IPV6_V6ONLY,
-+	    &on, sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_V6ONLY): %s",
-+		    strerror(errno));
-+	}
-+#endif
-+
-+	/*
-+	 * According RFC3315 2.2, only the incoming port should be bound to UDP
-+	 * port 546.  However, to have an interoperability with some servers,
-+	 * the outgoing port is also bound to the DH6PORT_DOWNSTREAM.
-+	 */
-+	if (bind(csock, res->ai_addr, res->ai_addrlen) < 0) {
-+		bb_error_msg_and_die("bind: %s", strerror(errno));
-+	}
-+	freeaddrinfo(res);
 +
 +	/* open a routing socket to watch the routing table */
 +	if ((rtsock = socket(PF_ROUTE, SOCK_RAW, 0)) < 0) {
-+		bb_error_msg_and_die("open a routing socket: %s",
-+		    strerror(errno));
++		bb_perror_msg_and_die("open a routing socket");
 +	}
 +
 +	memset(&hints, 0, sizeof(hints));
@@ -5581,8 +5526,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +	hints.ai_protocol = IPPROTO_UDP;
 +	error = getaddrinfo(DH6ADDR_ALLAGENT, DH6PORT_UPSTREAM, &hints, &res);
 +	if (error) {
-+		bb_error_msg_and_die("getaddrinfo: %s",
-+		    gai_strerror(error));
++		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
 +	memcpy(&G.sa6_allagent, res->ai_addr, res->ai_addrlen);
 +	freeaddrinfo(res);
@@ -5623,7 +5567,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +	}
 +
 +	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
-+		if (isrestart &&ifreset(ifp)) {
++		if (isrestart && if6reset(ifp)) {
 +			bb_info_msg("failed to reset %s", ifp->ifname);
 +			continue; /* XXX: try to recover? */
 +		}
@@ -5719,8 +5663,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +		switch (ret) {
 +		case -1:
 +			if (errno != EINTR) {
-+				bb_error_msg_and_die("select: %s",
-+				    strerror(errno));
++				bb_perror_msg_and_die("select");
 +			}
 +			continue;
 +		case 0:	/* timeout */
@@ -6208,7 +6151,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +
 +	if (sendto(csock, G.sbuf, len, 0, (struct sockaddr *)&dst,
 +	    sysdep_sa_len((struct sockaddr *)&dst)) == -1) {
-+		bb_error_msg("transmit failed: %s", strerror(errno));
++		bb_perror_msg("sendto");
 +		goto end;
 +	}
 +
@@ -6246,7 +6189,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +	mhdr.msg_control = (caddr_t)G.cmsgbuf;
 +	mhdr.msg_controllen = sizeof(G.cmsgbuf);
 +	if ((len = recvmsg(csock, &mhdr, 0)) < 0) {
-+		bb_error_msg("recvmsg: %s", strerror(errno));
++		bb_perror_msg("recvmsg");
 +		return;
 +	}
 +
@@ -6541,7 +6484,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +
 +		for (d = TAILQ_FIRST(&optinfo->dns_list); d;
 +		     d = TAILQ_NEXT(d, link), i++) {
-+			sprint_nip6(a, &d->val_addr6);
++			sprint_nip6(a, (const uint8_t *)&d->val_addr6);
 +			log1("nameserver[%d] %s", i, a);
 +		}
 +	}
@@ -6881,7 +6824,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networ
 +int dhcp6_script(const char *scriptpath, char **envp);
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/dhcp6c_ia.c
 --- busybox.orig/networking/udhcp/dhcp6c_ia.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_ia.c	2011-02-09 14:46:47.000000000 +0300
++++ busybox/networking/udhcp/dhcp6c_ia.c	2011-05-17 18:13:22.000000000 +0400
 @@ -0,0 +1,913 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -6984,7 +6927,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +
 +static int iapref_renew(struct iactl *, struct dhcp6_ia *,
 +        struct dhcp6_eventdata *);
-+static int pref_isvalid(struct iactl *);
++static ALWAYS_INLINE int pref_isvalid(struct iactl *);
 +static uint32_t pref_duration(struct iactl *);
 +static void pref_cleanup(struct iactl *);
 +static struct dhcp6_timer *iapref_timo(void *);
@@ -7056,7 +6999,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +				iapdc = (struct iapd_conf *)iac;
 +				if (update_prefix6(IATYPE_PD, ia, siav,
 +				    &iapdc->iapd_pif_list, ifp, &ia->ctl)) {
-+					sprint_nip6(p, &siav->val_prefix6.addr);
++					sprint_nip6(p, (const uint8_t *)&siav->val_prefix6.addr);
 +					bb_error_msg("failed to update a prefix %s/%d",
 +					    p, siav->val_prefix6.plen);
 +				}
@@ -7064,7 +7007,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +			case DHCP6_LISTVAL_STATEFULADDR6:
 +				if (update_prefix6(IATYPE_NA, ia, siav,
 +				    NULL, ifp, &ia->ctl)) {
-+					sprint_nip6(p, &siav->val_statefuladdr6.addr);
++					sprint_nip6(p, (const uint8_t *)&siav->val_statefuladdr6.addr);
 +					bb_error_msg("failed to update an address %s",
 +					    p);
 +				}
@@ -7462,7 +7405,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +         * lifetime is greater than the valid lifetime.
 +	 * [RFC3315 22.6] 
 +	 */
-+	sprint_nip6(p, &pinfo.addr);
++	sprint_nip6(p, (const uint8_t *)&pinfo.addr);
 +	if (pinfo.vltime != DHCP6_DURATION_INFINITE &&
 +	    (pinfo.pltime == DHCP6_DURATION_INFINITE ||
 +	    pinfo.pltime > pinfo.vltime)) {
@@ -7582,7 +7525,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 +	char a[INET6_ADDRSTRLEN];
 +
-+	sprint_nip6(a, &sp->pa.addr);
++	sprint_nip6(a, (const uint8_t *)&sp->pa.addr);
 +	log2("remove an address %s/%d", a, sp->pa.plen);
 +#endif
 +
@@ -7608,7 +7551,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +	return ret;
 +}
 +
-+static int pref_isvalid(struct iactl *iac)
++static ALWAYS_INLINE int pref_isvalid(struct iactl *iac)
 +{
 +	if (TAILQ_EMPTY(&iac->iaprefix_head))
 +		return (0);	/* this IA is invalid */
@@ -7691,7 +7634,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 +	char a[INET6_ADDRSTRLEN];
 +
-+	sprint_nip6(a, &sp->pa.addr);
++	sprint_nip6(a, (const uint8_t *)&sp->pa.addr);
 +	log1("address timeout for %s/%d", a, sp->pa.plen);
 +#endif
 +
@@ -7875,7 +7818,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/net
 +void release_all_ia(struct dhcp6_if *);
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox/networking/udhcp/dhcp6c_script.c
 --- busybox.orig/networking/udhcp/dhcp6c_script.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_script.c	2011-02-09 13:43:16.000000000 +0300
++++ busybox/networking/udhcp/dhcp6c_script.c	2011-05-17 18:12:38.000000000 +0400
 @@ -0,0 +1,313 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -8013,7 +7956,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox
 +				    strcat(*curr, " ");
 +				    break;
 +			    case DHCP6_LISTVAL_ADDR6:
-+				    sprint_nip6(a, &v->val_addr6);
++				    sprint_nip6(a, (const uint8_t *)&v->val_addr6);
 +				    strcat(*curr, a);
 +				    strcat(*curr, " ");
 +				    break;
@@ -8101,13 +8044,13 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox
 +			goto out;
 +		switch (siav->type) {
 +		case DHCP6_LISTVAL_STATEFULADDR6:
-+			sprint_nip6(a, &siav->val_statefuladdr6.addr);
++			sprint_nip6(a, (const uint8_t *)&siav->val_statefuladdr6.addr);
 +			len += snprintf(s + len, IASTR_MAXSIZE - len,
 +			    "%s%s", comma, a);
 +			break;
 +
 +		case DHCP6_LISTVAL_PREFIX6:
-+			sprint_nip6(a, &siav->val_prefix6.addr);
++			sprint_nip6(a, (const uint8_t *)&siav->val_prefix6.addr);
 +			len += snprintf(s + len, IASTR_MAXSIZE - len,
 +			    "%s%s/%d", comma, a, siav->val_prefix6.plen);
 +			break;
@@ -8589,8 +8532,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/network
 +#endif /*__DHCP6_H_DEFINED*/
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/dhcp6relay.c
 --- busybox.orig/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6relay.c	2011-02-09 16:43:21.000000000 +0300
-@@ -0,0 +1,925 @@
++++ busybox/networking/udhcp/dhcp6relay.c	2011-05-17 18:12:56.000000000 +0400
+@@ -0,0 +1,872 @@
 +/*
 + * DHCPv6 relay
 + *
@@ -8697,7 +8640,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +
 +	int ssock;		/* socket for relaying to servers */
 +	int csock;		/* socket for clients */
-+	int maxfd;		/* maxi file descriptor for select(2) */
 +
 +	char rmsgctlbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
 +	u_char relaybuf[sizeof(struct dhcp6_relay) + BUFSIZ];
@@ -8713,7 +8655,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +#define rmhiov		(G.rmhiov      )
 +#define ssock		(G.ssock       )
 +#define csock		(G.csock       )
-+#define maxfd		(G.maxfd       )
 +#define INIT_G() do { \
 +	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
 +	mhops = DHCP6_RELAY_MULTICAST_HOPS; \
@@ -8830,56 +8771,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	return (0);
 +}
 +
-+static int socket6_init(struct addrinfo *res)
-+{
-+	int sock, on;
-+
-+	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-+	if (sock < 0) {
-+		bb_error_msg_and_die("socket: %s", strerror(errno));
-+	}
-+	if (sock > maxfd)
-+		maxfd = sock;
-+
-+	/*
-+	 * Both a relay and a client may run on a single node.  If we need to
-+	 * listen on the downstream port, we need REUSEPORT to avoid conflict.
-+	 */
-+	on = 1;
-+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT,
-+	    &on, sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(SO_REUSEPORT): %s",
-+		    strerror(errno));
-+	}
-+#ifdef IPV6_V6ONLY
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
-+	    &on, sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_V6ONLY): %s",
-+		    strerror(errno));
-+	}
-+#endif
-+	if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
-+		bb_error_msg_and_die("bind: %s", strerror(errno));
-+	}
-+	freeaddrinfo(res);
-+
-+	on = 1;
-+#ifdef IPV6_RECVPKTINFO
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_RECVPKTINFO): %s",
-+			strerror(errno));
-+	}
-+#else
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_error_msg_and_die("setsockopt(IPV6_PKTINFO): %s",
-+			strerror(errno));
-+	}
-+#endif
-+	return sock;
-+}
-+
 +static void relay6_init(int ifnum, char *iflist[])
 +{
 +	struct addrinfo hints;
@@ -8900,8 +8791,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	if (res->ai_family != PF_INET6 ||
 +	    res->ai_addrlen < sizeof(sa6_server)) {
 +		/* this should be impossible, but check for safety */
-+		bb_error_msg_and_die("getaddrinfo returned a bogus address: %s",
-+		    strerror(errno));
++		bb_perror_msg_and_die("getaddrinfo returned a bogus address");
 +	}
 +	/* XXX: assume only one DHCPv6 server address */
 +	memcpy(&sa6_server, res->ai_addr, sizeof(sa6_server));
@@ -8925,7 +8815,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	if (error) {
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
-+	csock = socket6_init(res);
++	csock = sock6_init(res);
 +
 +	hints.ai_flags = 0;
 +	error = getaddrinfo(DH6ADDR_ALLAGENT, 0, &hints, &res2);
@@ -8951,8 +8841,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +
 +		if (setsockopt(csock, IPPROTO_IPV6, IPV6_JOIN_GROUP,
 +		    &mreq6, sizeof(mreq6))) {
-+			bb_error_msg_and_die("setsockopt(IPV6_JOIN_GROUP): %s",
-+			     strerror(errno));
++			bb_error_msg_and_die("setsockopt(IPV6_JOIN_GROUP)");
 +		}
 +		TAILQ_INSERT_TAIL(&G.ifids_list, ifd, ilink);
 +		iflist++;
@@ -8976,7 +8865,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
 +	memcpy(&sa6_client, res->ai_addr, sizeof(sa6_client));
-+	ssock = socket6_init(res);
++	ssock = sock6_init(res);
 +
 +	bb_signals(0 + (1 << SIGTERM), record_signo);
 +}
@@ -8984,7 +8873,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +static void relay6_loop(void)
 +{
 +	fd_set readfds;
-+	int e;
++	int e, maxsock;
 +
 +	while (!bb_got_signal) {
 +
@@ -8993,12 +8882,13 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +		FD_SET(csock, &readfds);
 +		FD_SET(ssock, &readfds);
 +
-+		e = select(maxfd + 1, &readfds, NULL, NULL, NULL);
++		maxsock = MAX(csock, ssock);
++		e = select(maxsock + 1, &readfds, NULL, NULL, NULL);
 +		switch (e) {
 +		case 0:		/* impossible in our situation */
 +		case -1:
 +			if (errno != EINTR) {
-+				bb_error_msg_and_die("select: %s", strerror(errno));
++				bb_error_msg_and_die("select");
 +				/* NOTREACHED */
 +			}
 +			continue;
@@ -9031,7 +8921,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	rmh.msg_namelen = sizeof(from);
 +
 +	if ((len = recvmsg(s, &rmh, 0)) < 0) {
-+		bb_error_msg("recvmsg: %s", strerror(errno));
++		bb_perror_msg("recvmsg");
 +		return;
 +	}
 +
@@ -9301,8 +9191,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	}
 +
 +	if ((cc = sendmsg(ssock, &mh, 0)) < 0) {
-+		bb_error_msg("sendmsg %s failed: %s",
-+		    xmalloc_sockaddr2dotted_noport((struct sockaddr *)&sa6_server), strerror(errno));
++		bb_perror_msg("sendmsg %s failed",
++		    xmalloc_sockaddr2dotted_noport((struct sockaddr *)&sa6_server));
 +	} else if (cc != relaylen) {
 +		bb_error_msg("failed to send a complete packet to %s",
 +		    xmalloc_sockaddr2dotted_noport((struct sockaddr *)&sa6_server));
@@ -9333,8 +9223,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
 +	char a1[INET6_ADDRSTRLEN], a2[INET6_ADDRSTRLEN];
 +
-+	sprint_nip6(a1, &dh6relay->dh6relay_linkaddr);
-+	sprint_nip6(a2, &dh6relay->dh6relay_peeraddr);
++	sprint_nip6(a1, (const uint8_t *)&dh6relay->dh6relay_linkaddr);
++	sprint_nip6(a2, (const uint8_t *)&dh6relay->dh6relay_peeraddr);
 +	log1("dhcp6 relay reply: hop=%d, linkaddr=%s, peeraddr=%s",
 +	    dh6relay->dh6relay_hcnt, a1, a2);
 +#endif
@@ -9444,7 +9334,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	a = xmalloc_sockaddr2dotted_noport((struct sockaddr *)&peer);
 +	/* send packet */
 +	if ((cc = sendmsg(csock, &mh, 0)) < 0) {
-+		bb_error_msg("sendmsg to %s failed: %s", a, strerror(errno));
++		bb_perror_msg("sendmsg to %s failed", a);
 +	} else if (cc != optinfo.relaymsg_len) {
 +		bb_info_msg("failed to send a complete packet to %s", a);
 +	} else {
@@ -9490,7 +9380,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	int retval = -1;
 +
 +	if (getifaddrs(&ifap) != 0) {
-+		bb_error_msg("getifaddrs failed: %s", strerror(errno));
++		bb_perror_msg("getifaddrs");
 +		return (-1);
 +	}
 +
@@ -9518,8 +9408,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +}
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networking/udhcp/if6.c
 --- busybox.orig/networking/udhcp/if6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/if6.c	2011-02-07 20:24:17.000000000 +0300
-@@ -0,0 +1,465 @@
++++ busybox/networking/udhcp/if6.c	2011-05-17 15:50:42.000000000 +0400
+@@ -0,0 +1,502 @@
 +/*	$KAME: if.c,v 1.6 2005/09/16 11:30:15 suz Exp $	*/
 +
 +/*
@@ -9608,7 +9498,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	TAILQ_INIT(&ifp->event_list);
 +	ifp->ifname = xstrdup(ifname);
 +
-+	if (ifreset(ifp))
++	if (if6reset(ifp))
 +		goto fail;
 +
 +	TAILQ_INIT(&ifp->reqopt_list);
@@ -9623,8 +9513,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +		struct sockaddr_in6 *sin6;
 +
 +		if (getifaddrs(&ifap) < 0) {
-+			bb_error_msg("getifaddrs failed: %s",
-+			    strerror(errno));
++			bb_perror_msg("getifaddrs");
 +			goto fail;
 +		}
 +
@@ -9657,14 +9546,13 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	return (NULL);
 +}
 +
-+int ifreset(struct dhcp6_if *ifp)
++int if6reset(struct dhcp6_if *ifp)
 +{
 +	unsigned int ifid;
 +	uint32_t linkid;
 +
 +	if ((ifid = if_nametoindex(ifp->ifname)) == 0) {
-+		bb_error_msg("invalid interface(%s): %s",
-+			ifp->ifname, strerror(errno));
++		bb_perror_msg("invalid interface(%s)", ifp->ifname);
 +		return (-1);
 +	}
 +
@@ -9682,6 +9570,49 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	ifp->linkid = linkid;
 +
 +	return (0);
++}
++
++int sock6_init(struct addrinfo *res)
++{
++	int sock, on = 1;
++
++	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
++	if (sock < 0) {
++		bb_perror_msg_and_die("socket");
++	}
++	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT,
++		       &on, sizeof(on)) < 0) {
++		bb_perror_msg_and_die("setsockopt(SO_REUSEPORT)");
++	}
++#ifdef IPV6_RECVPKTINFO
++	if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on,
++		       sizeof(on)) < 0) {
++		bb_perror_msg_and_die("setsockopt(IPV6_RECVPKTINFO)");
++	}
++#else
++	if (setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &on,
++		       sizeof(on)) < 0) {
++		bb_perror_msg_and_die("setsockopt(IPV6_PKTINFO)");
++	}
++#endif
++#ifdef IPV6_V6ONLY
++	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
++	    &on, sizeof(on)) < 0) {
++		bb_perror_msg_and_die("setsockopt(IPV6_V6ONLY)");
++	}
++#endif
++
++	/*
++	 * According RFC3315 2.2, only the incoming port should be bound to UDP
++	 * port 546.  However, to have an interoperability with some servers,
++	 * the outgoing port is also bound to the DH6PORT_DOWNSTREAM.
++	 */
++	if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
++		bb_perror_msg_and_die("bind");
++	}
++	freeaddrinfo(res);
++
++	return sock;
 +}
 +
 +static struct dhcp6_if *find_ifconf_byname(char *ifname)
@@ -9939,8 +9870,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	}
 +
 +	if ((s = socket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-+		bb_error_msg("can't open a temporary socket: %s",
-+		    strerror(errno));
++		bb_error_msg("can't open a temporary socket");
 +		return (-1);
 +	}
 +
@@ -9949,8 +9879,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	memset(&ifr, 0, sizeof(ifr));
 +	strncpy(ifr.ifr_name, ifname, IFNAMSIZ - 1);
 +	if (ioctl(s, SIOGIFINDEX, &ifr) < 0) {
-+		bb_error_msg("failed to get the index of %s: %s",
-+		    ifname, strerror(errno));
++		bb_perror_msg("failed to get the index of %s", ifname);
 +		close(s); 
 +		return (-1); 
 +	}
@@ -9959,8 +9888,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	req.ifr6_ifindex = ifr.ifr_ifindex;
 +
 +	if (ioctl(s, ioctl_cmd, &req)) {
-+		bb_error_msg("failed to %s an address on %s: %s",
-+		    cmdstr, ifname, strerror(errno));
++		bb_perror_msg("failed to %s an address on %s", cmdstr, ifname);
 +		close(s);
 +		if (errno == EEXIST) /* Ignore address duplicate */
 +			return (0);
@@ -9971,8 +9899,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	strncpy(req.lifr_name, ifname, sizeof(req.lifr_name));
 +	memcpy(&req.lifr_addr, addr, sizeof(*addr));
 +	if (ioctl(s, SIOCSLIFADDR, &req) == -1) {
-+		bb_info_msg("failed to %s new address on %s: %s",
-+		    cmdstr, ifname, strerror(errno));
++		bb_perror_msg("failed to %s new address on %s", cmdstr, ifname);
 +		close(s);
 +		return (-1);
 +	}
@@ -9986,7 +9913,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +}
 +
 diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Kbuild.src busybox/networking/udhcp/Kbuild.src
---- busybox.orig/networking/udhcp/Kbuild.src	2011-02-11 12:10:15.000000000 +0300
+--- busybox.orig/networking/udhcp/Kbuild.src	2011-05-17 15:25:24.000000000 +0400
 +++ busybox/networking/udhcp/Kbuild.src	2011-02-11 12:10:37.000000000 +0300
 @@ -17,5 +17,12 @@ lib-$(CONFIG_UDHCPD)     += dhcpd.o arpp
  lib-$(CONFIG_DUMPLEASES) += dumpleases.o
