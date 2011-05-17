@@ -1,0 +1,59 @@
+From 72211e90501f954f586481c25521c3724cda3cc7
+From: Ilpo JÃ¤rvinen
+Date: Sat, 14 Mar 2009 14:23:04 +0000
+Subject: [PATCH] tcp: don't check mtu probe completion in the loop
+
+It seems that no variables clash such that we couldn't do
+the check just once later on. Therefore move it.
+
+Also kill dead obvious comment, dead argument and add
+unlikely since this mtu probe does not happen too often.
+
+Signed-off-by: Ilpo JÃ¤rvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv4/tcp_input.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b7d02c5..311c30f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2836,7 +2836,7 @@ static void tcp_mtup_probe_failed(struct sock *sk)
+ 	icsk->icsk_mtup.probe_size = 0;
+ }
+ 
+-static void tcp_mtup_probe_success(struct sock *sk, struct sk_buff *skb)
++static void tcp_mtup_probe_success(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+@@ -3219,13 +3219,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			acked_pcount = tcp_skb_pcount(skb);
+ 		}
+ 
+-		/* MTU probing checks */
+-		if (icsk->icsk_mtup.probe_size) {
+-			if (!after(tp->mtu_probe.probe_seq_end, TCP_SKB_CB(skb)->end_seq)) {
+-				tcp_mtup_probe_success(sk, skb);
+-			}
+-		}
+-
+ 		if (sacked) {
+ 			if (sacked & TCPCB_RETRANS) {
+ 				tp->retrans_out -= acked_pcount;
+@@ -3287,6 +3281,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 		const struct tcp_congestion_ops *ca_ops
+ 			= inet_csk(sk)->icsk_ca_ops;
+ 
++		if (unlikely(icsk->icsk_mtup.probe_size &&
++			     !after(tp->mtu_probe.probe_seq_end, tp->snd_una))) {
++			tcp_mtup_probe_success(sk);
++		}
++
+ 		tcp_ack_update_rtt(sk, acked, seq_rtt);
+ 		tcp_ack_packets_out(sk);
+ 
+-- 
+1.7.5.1
