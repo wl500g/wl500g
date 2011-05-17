@@ -108,9 +108,9 @@ check_usb_config(){
 		if [ "0x$vid" == "$nv_vid" ] && [ "0x$pid" == "$nv_pid" ]; then
 			if [ "$loc" == "$nv_loc" ] || [ "$auto" == "1" ]; then
 				loc="${nv_loc}.${dataport}"
-				usbdev=$(grep ": $loc" "$devpath_name" | awk -F':' '{print $1}')
+				usbdev=$(grep ": $loc " "$devpath_name" | awk -F':' '{print $1}')
 				loc="${nv_loc}.${uiport}"
-				uidev=$(grep ": $loc" "$devpath_name" | awk -F':' '{print $1}')
+				uidev=$(grep ": $loc " "$devpath_name" | awk -F':' '{print $1}')
 				nvram set "${set_pref}port_ui=$uidev"
 				break;
 			fi
