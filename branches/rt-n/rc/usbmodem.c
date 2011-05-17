@@ -596,6 +596,7 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 	int ret = 0;
 	char *str1, *str2;
 	char tmp[200];
+	char tmp2[20];
 	char stored_product[40];
 	int vid, pid, hp_vid, hp_pid;
 	dev_usb *list, *found_dev;
@@ -682,8 +683,15 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
 
-		insmod("usbserial", NULL);
-		insmod("option", NULL);
+		if (nvram_match("wan_modem_usbserial", "1")) {
+			sprintf(stored_product, "product=0x%x", found_dev->pid);
+			sprintf(tmp, "vendor=0x%x", found_dev->vid);
+			snprintf(tmp2, sizeof(tmp2), "maxSize=%s", nvram_safe_get("wan_modem_packetsize"));
+			eval("insmod", "usbserial", tmp, stored_product, tmp2);
+		} else {
+			eval("insmod", "usbserial");
+		}
+		eval("insmod", "option");
 #ifndef LINUX26
 		insmod("acm", NULL);
 #else

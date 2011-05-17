@@ -56,6 +56,12 @@
 		inputCtrl2(frm.wan_modem_pid, flag);
 	}
 
+	function disable_autodetect()
+	{
+		inputRCtrl2(document.form.wan_modem_autodetect, 0);
+		change_autodetect_dev();
+	}
+
 	function load_this_page()
 	{
 //		setUSBtts(document.form.wan_modem_usbloc.value);
@@ -74,8 +80,7 @@
 			frm.wan_modem_pui.value = value.ui;
 			frm.wan_modem_type.value = value.type;
 			changeUSBConnectionType();
-			inputRCtrl2(frm.wan_modem_autodetect, 0);
-			change_autodetect_dev();
+			disable_autodetect();
 		}
 	}
 	</script>
@@ -149,7 +154,7 @@
 				Modem type:
 			</td>
 			<td class="content_input_td">
-				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;">
+				<select name="wan_modem_type" class="content_input_fd" onchange="changeUSBConnectionType();window.top.pageChanged = 1;disable_autodetect();">
 					<option class="content_input_fd" value="USR" <%nvram_match_x("3GConfig","wan_modem_type", "USR","selected"); %>>
 						User defined</option>
 					<option class="content_input_fd" value="C" <%nvram_match_x("3GConfig","wan_modem_type",  "C","selected"); %>>
@@ -330,6 +335,18 @@
 					onblur="validate_string(this)">
 			</td>
 		</tr>
+
+		<tr>
+			<td class="content_header_td" onmouseover="return overlib('Use this mode only if common drivers option/acm does not work.')"
+				onmouseout="return nd()">
+				Legacy usbserial support
+			</td>
+			<td class="content_input_td" nowrap>
+				<input type="radio" value="0" name="wan_modem_usbserial" class="content_input_fd" <% nvram_match_x("3GConfig","wan_modem_usbserial", "0", "checked"); %> >No
+				<input type="radio" value="1" name="wan_modem_usbserial" class="content_input_fd" <% nvram_match_x("3GConfig","wan_modem_usbserial", "1", "checked"); %> >Yes
+			</td>
+		</tr>
+
 		<tr>
 			<td class="content_header_td">
 				USB device packet size (0 for default):
