@@ -11,11 +11,9 @@
 #include <linux/capability.h>
 #include <linux/errno.h>
 #include <linux/linkage.h>
-#include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/mman.h>
 #include <linux/ptrace.h>
-#include <linux/sched.h>
 #include <linux/string.h>
 #include <linux/syscalls.h>
 #include <linux/file.h>
@@ -26,7 +24,6 @@
 #include <linux/msg.h>
 #include <linux/shm.h>
 #include <linux/compiler.h>
-#include <linux/module.h>
 
 #include <asm/branch.h>
 #include <asm/cachectl.h>
@@ -53,76 +50,6 @@ asmlinkage int sys_pipe(nabi_no_regargs volatile struct pt_regs regs)
 	res = fd[0];
 out:
 	return res;
-}
-
-unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
-
-EXPORT_SYMBOL(shm_align_mask);
-
-#define COLOUR_ALIGN(addr,pgoff)				\
-	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
-	 (((pgoff) << PAGE_SHIFT) & shm_align_mask))
-
-unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
-	unsigned long len, unsigned long pgoff, unsigned long flags)
-{
-	struct vm_area_struct * vmm;
-	int do_color_align;
-	unsigned long task_size;
-
-#ifdef CONFIG_32BIT
-	task_size = TASK_SIZE;
-#else /* Must be CONFIG_64BIT*/
-	task_size = test_thread_flag(TIF_32BIT_ADDR) ? TASK_SIZE32 : TASK_SIZE;
-#endif
-
-	if (len > task_size)
-		return -ENOMEM;
-
-	if (flags & MAP_FIXED) {
-		/* Even MAP_FIXED mappings must reside within task_size.  */
-		if (task_size - len < addr)
-			return -EINVAL;
-
-		/*
-		 * We do not accept a shared mapping if it would violate
-		 * cache aliasing constraints.
-		 */
-		if ((flags & MAP_SHARED) &&
-		    ((addr - (pgoff << PAGE_SHIFT)) & shm_align_mask))
-			return -EINVAL;
-		return addr;
-	}
-
-	do_color_align = 0;
-	if (filp || (flags & MAP_SHARED))
-		do_color_align = 1;
-	if (addr) {
-		if (do_color_align)
-			addr = COLOUR_ALIGN(addr, pgoff);
-		else
-			addr = PAGE_ALIGN(addr);
-		vmm = find_vma(current->mm, addr);
-		if (task_size - len >= addr &&
-		    (!vmm || addr + len <= vmm->vm_start))
-			return addr;
-	}
-	addr = TASK_UNMAPPED_BASE;
-	if (do_color_align)
-		addr = COLOUR_ALIGN(addr, pgoff);
-	else
-		addr = PAGE_ALIGN(addr);
-
-	for (vmm = find_vma(current->mm, addr); ; vmm = vmm->vm_next) {
-		/* At this point:  (!vmm || addr < vmm->vm_end). */
-		if (task_size - len < addr)
-			return -ENOMEM;
-		if (!vmm || addr + len <= vmm->vm_start)
-			return addr;
-		addr = vmm->vm_end;
-		if (do_color_align)
-			addr = COLOUR_ALIGN(addr, pgoff);
-	}
 }
 
 /* common code for old and new mmaps */

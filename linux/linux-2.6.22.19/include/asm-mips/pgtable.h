@@ -395,6 +395,7 @@ static inline int io_remap_pfn_range(struct vm_area_struct *vma,
  * constraints placed on us by the cache architecture.
  */
 #define HAVE_ARCH_UNMAPPED_AREA
+#define HAVE_ARCH_UNMAPPED_AREA_TOPDOWN
 
 /*
  * No page table caches to initialise
