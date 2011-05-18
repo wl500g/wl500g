@@ -1,7 +1,241 @@
-diff -x'.*' -x'*.o' -urNBp busybox.orig/include/applets.src.h busybox/include/applets.src.h
---- busybox.orig/include/applets.src.h	2011-05-17 15:25:24.000000000 +0400
+diff -urNBp busybox.orig/examples/udhcp/dhcp6c.conf busybox/examples/udhcp/dhcp6c.conf
+--- busybox.orig/examples/udhcp/dhcp6c.conf	1970-01-01 03:00:00.000000000 +0300
++++ busybox/examples/udhcp/dhcp6c.conf	2011-05-18 19:49:07.000000000 +0400
+@@ -0,0 +1,230 @@
++# Sample dhcp6c configuration file (/etc/dhcp6c.conf)
++# Values shown are defaults
++#
++# NB! Major limitation of busybox applet
++#  - both keyword & it's arguments MUST reside on the same line
++
++# Interface statement
++#  An interface statement specifies configuration parameters on the interface.
++#  The generic format of an interface statement is as follows:
++#
++#  interface interface { substatements };
++#     send send-options ;
++#			This statement specifies DHCPv6 options to be sent to the
++#			server(s).  Some options can only appear in particular
++#			messages according to the specification, in which case
++#			the appearance of the options is limited to be compliant
++#			with the specification.
++#
++#			send-options is a comma-separated list of options, each
++#			of which should be specified as described above. Multiple
++#			send statements can also be specified, in which case
++#			all the specified options will be sent.
++#
++#	rapid-commit
++#			When rapid-commit is specified, dhcp6c will include a
++#			rapid-commit option in solicit messages and wait for an
++#			immediate reply instead of advertisements.
++#	ia-pd ID
++#			When ia-pd is specified, dhcp6c will initiate prefix del-
++#			egation as a requesting router by including an IA_PD
++#			option with the specified ID in solicit messages.
++#	ia-na ID
++#			When ia-na is specified, dhcp6c will initiate stateful
++#			address assignment by including an IA_NA option with the
++#			specified ID in solicit messages.
++#	authentication authname
++#			means an authentication option. authname is a string specifying
++#			parameters of the authentication protocol. An authentication
++#			statement for authname must be provided.
++#			In either case, a corresponding identity association
++#			statement must exist with the same ID.
++#
++#     request request-options;
++#			This statement specifies DHCPv6 options to be included in
++#			an option-request option. request-options is a comma
++#			separated list of options, which can consist of the fol-
++#			lowing options.
++#
++#		domain-name-servers
++#			requests a list of Domain Name Server addresses.
++#		domain-name
++#			requests a DNS search path.
++#		ntp-servers
++#			requests a list of NTP server addresses. As of
++#			this writing, the option type for this option is
++#			not officially assigned. dhcp6c will reject this
++#			option unless it is explicitly built to accept
++#			the option.
++#		sip-server-address
++#			requests a list of SIP server addresses.
++#		sip-domain-name
++#			requests a SIP server domain name.
++#		nis-server-address
++#			requests a list of NIS server addresses.
++#		nis-domain-name
++#			requests a NIS domain name.
++#		nisp-server-address
++#			requests a list of NIS+ server addresses.
++#		nisp-domain-name
++#			requests a NIS+ domain name.
++#		bcmcs-server-address
++#			requests a list of BCMCS server addresses.
++#		bcmcs-domain-name
++#			requests a BCMCS domain name.
++#		refreshtime
++#			means an information refresh time option. This
++#			can only be specified when sent with information
++#			request messages; dhcp6c will ignore this option
++#			for other messages.
++#			Multiple request statements can also be specified, in
++#			which case all the specified options will be requested.
++#     information-only;
++#  			This statement specifies dhcp6c to only exchange informa-
++#			tional configuration parameters with servers. A list of
++#			DNS server addresses is an example of such parameters.
++#			This statement is useful when the client does not need
++#			stateful configuration parameters such as IPv6 addresses
++#			or prefixes.
++#     script "script-name";
++#			This statement specifies a path to script invoked by
++#			dhcp6c on a certain condition including when the daemon
++#			receives a reply message. script-name must be the absolute
++#			path from root to the script file, be a regular
++#			file, and be created by the same owner who runs the daemon.
++#
++# Identity association statement
++#  Identity association (IA) is a key notion of DHCPv6. An IA is uniquely
++#  identified in a client by a pair of IA type and IA identifier (IAID). An
++#  IA is associated with configuration information dependent on the IA type.
++#  An identity association statement defines a single IA with some client-
++#  side configuration parameters. Its format is as follows:
++#
++#  id-assoc type [ID] { substatements };
++#		type is a string for the type of this IA. The current implemen-
++#		tation supports <oq>na<cq> (non-temporary address allocation) <oq>pd<cq>
++#		(prefix delegation) for the IA type. ID is a decimal number of
++#		IAID. If omitted, the value 0 will be used by default.
++#		substatements is a sequence of statements that specifies configu-
++#		ration parameters for this IA. Each statement may or may not be
++#		specific to the type of IA.
++#
++#	The followings are possible substatements for an IA of type na.
++#     address ipv6-address pltime [vltime];
++#			specifies an address and related parameters that the
++#			client wants to be allocated. Multiple addresses can be
++#			specified, each of which is described as a separate
++#			address substatement. dhcp6c will include all the
++#			addresses (and related parameters) in Solicit messages,
++#			as an IA_NA prefix option encapsulated in the correspond-
++#			ing IA_NA option. Note, however, that the server may or
++#			may not respect the specified prefix parameters.
++#	The followings are possible substatements for an IA of type pd.
++#     prefix_interface_statement
++#			specifies the client's local configuration of how dele-
++#			gated prefixes should be used (see below).
++#     prefix ipv6-prefix pltime [vltime];
++#			specifies a prefix and related parameters that the client
++#			wants to be delegated. Multiple prefixes can be speci-
++#			fied, each of which is described as a separate prefix
++#			substatement. dhcp6c will include all the prefixes (and
++#			related parameters) in Solicit messages, as an IA_PD pre-
++#			fix option encapsulated in the corresponding IA_PD
++#			option. Note, however, that the server may or may not
++#			respect the specified prefix parameters.
++#
++# Prefix interface statement
++#  A prefix interface statement specifies configuration parameters of pre-
++#  fixes on local interfaces that are derived from delegated prefixes. A
++#  prefix interface statement can only appear as a substatement of an iden-
++#  tity association statement with the type pd. The generic format of an
++#  interface statement is as follows:
++#
++#  prefix-interface interface { substatements };
++#		When an IPv6 prefix is delegated from a DHCPv6 server, dhcp6c
++#		will assign a prefix on the interface unless the interface
++#		receives the DHCPv6 message that contains the prefix with the
++#		delegated prefix and the parameters provided in substatements.
++#		Possible substatements are as follows:
++#     sla-id ID ;
++#			This statement specifies the identifier value of the
++#			site-level aggregator (SLA) on the interface.
++#     sla-len length ;
++#			This statement specifies the length of the SLA ID in
++#			bits. length must be a decimal number between 0 and 128.
++#			If the length is not specified by this statement, the
++#			default value 16 will be used.
++#
++# Authentication statement
++#  An authentication statement defines a set of authentication parameters
++#  used in DHCPv6 exchanges with the server(s). The format of an authenti-
++#  cation statement is as follows:
++#
++#  authentication authname { substatements };
++#		authname is a string which is unique among all authentication
++#		statements in the configuration file. It will specify a particu-
++#		lar set of authentication parameters when authentication option
++#		is specified in the interface statement. Possible substatements
++#		of the authentication statement are as follows:
++#     protocol authprotocol ;
++#			specifies the authentication protocol. Currently, the
++#			only available protocol as authprotocol is delayed, which
++#			means the DHCPv6 delayed authentication protocol.
++#     algorithm authalgorithm ;
++#			specifies the algorithm for this authentication. Cur-
++#			rently, the only available algorithm is HMAC-MD5, which
++#			can be specified as one of the followings: hmac-md5,
++#			HMAC-MD5, hmacmd5, or HMACMD5. This substatement can be
++#			omitted. In this case, HMAC-MD5 will be used as the
++#			algorithm.
++#     rdm replay-detection-method ;
++#			specifies the replay protection method for this authenti-
++#			cation. Currently, the only available method is
++#			monocounter, which means the use of a monotonically
++#			increasing counter. If this method is specified, dhcp6c
++#			will use an NTP-format timestamp when it authenticates
++#			the message. This substatement can be omitted, in which
++#			case monocounter will be used as the method.
++#
++# Keyinfo statement
++#  A keyinfo statement defines a secret key shared with the server(s) to
++#  authenticate DHCPv6 messages. The format of a keyinfo statement is as
++#  follows:
++#
++#  keyinfo keyname { substatements };
++#		keyname is an arbitrary string. It does not affect client's
++#		behavior but is provided for readability of log messages. Possi-
++#		ble substatements of the keyinfo statement are as follows:
++#     realm "realmname" ;
++#			specifies the DHCP realm. realmname is an arbitrary
++#			string, but is typically expected to be a domain name
++#			like "kame.net" .
++#     keyid ID ;
++#			specifies the key identifier, ID, as a decimal number. A
++#			secret key is uniquely identified within the client by
++#			the DHCP realm and the key identifier.
++#     secret "secret-value" ;
++#			specifies the shared secret of this key. "secret-value"
++#			is a base-64 encoded string of the secret.
++#     expire "expiration-time" ;
++#			specifies the expiration time of this key.
++#			"expiration-time" should be formatted in one of the fol-
++#			lowings: yyyy-mm-dd HH:MM, mm-dd HH:MM, or HH:MM, where
++#			yyyy is the year with century (e.g., 2004), mm is the
++#			month, dd is the day of the month, HH is the hour of
++#			24-hour clock, and MM is the minute, each of which is
++#			given as a decimal number. Additionally, a special key-
++#			word forever can be specified as expiration-time, which
++#			means the key has an infinite lifetime and never expires.
++#			This substatement can be omitted, in which case forever
++#			will be used by default.
++
++
++interface ppp0 {
++  send ia-pd 0;
++};
++id-assoc pd {
++  prefix-interface ne0 {
++   sla-id 1;
++  };
++};
+diff -urNBp busybox.orig/include/applets.src.h busybox/include/applets.src.h
+--- busybox.orig/include/applets.src.h	2010-07-25 22:48:26.000000000 +0400
 +++ busybox/include/applets.src.h	2011-02-05 13:41:12.000000000 +0300
-@@ -112,6 +112,8 @@ IF_DELUSER(APPLET(deluser, _BB_DIR_BIN, 
+@@ -112,6 +112,8 @@ IF_DELUSER(APPLET(deluser, _BB_DIR_BIN,
  IF_DEVFSD(APPLET(devfsd, _BB_DIR_SBIN, _BB_SUID_DROP))
  IF_DEVMEM(APPLET(devmem, _BB_DIR_SBIN, _BB_SUID_DROP))
  IF_DF(APPLET(df, _BB_DIR_BIN, _BB_SUID_DROP))
@@ -10,9 +244,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/include/applets.src.h busybox/include/ap
  IF_DHCPRELAY(APPLET(dhcprelay, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
  IF_DIFF(APPLET(diff, _BB_DIR_USR_BIN, _BB_SUID_DROP))
  IF_DIRNAME(APPLET_NOFORK(dirname, dirname, _BB_DIR_USR_BIN, _BB_SUID_DROP, dirname))
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/auth6.c busybox/networking/udhcp/auth6.c
+diff -urNBp busybox.orig/networking/udhcp/auth6.c busybox/networking/udhcp/auth6.c
 --- busybox.orig/networking/udhcp/auth6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/auth6.c	2011-02-09 16:58:45.000000000 +0300
++++ busybox/networking/udhcp/auth6.c	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,265 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -279,9 +513,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/auth6.c busybox/network
 +	return (memcmp(digest, newdigest, MD5_DIGESTLENGTH));
 +}
 +
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/auth6.h busybox/networking/udhcp/auth6.h
+diff -urNBp busybox.orig/networking/udhcp/auth6.h busybox/networking/udhcp/auth6.h
 --- busybox.orig/networking/udhcp/auth6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/auth6.h	2011-02-09 16:24:26.000000000 +0300
++++ busybox/networking/udhcp/auth6.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,51 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -334,9 +568,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/auth6.h busybox/network
 +int dhcp6_verify_mac(char *, ssize_t, int, int, size_t,
 +    struct keyinfo *);
 +int dhcp6_auth_replaycheck(int, uint64_t, uint64_t);
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/base64.c busybox/networking/udhcp/base64.c
+diff -urNBp busybox.orig/networking/udhcp/base64.c busybox/networking/udhcp/base64.c
 --- busybox.orig/networking/udhcp/base64.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/base64.c	2011-02-07 19:48:27.000000000 +0300
++++ busybox/networking/udhcp/base64.c	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,168 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -506,9 +740,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/base64.c busybox/networ
 +		return (-1);
 +	return (ctx.dst - result);
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/base64.h busybox/networking/udhcp/base64.h
+diff -urNBp busybox.orig/networking/udhcp/base64.h busybox/networking/udhcp/base64.h
 --- busybox.orig/networking/udhcp/base64.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/base64.h	2011-02-07 19:48:27.000000000 +0300
++++ busybox/networking/udhcp/base64.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,30 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -540,10 +774,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/base64.h busybox/networ
 + */
 +
 +int base64_decodestring(const char *, char *, size_t);
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/common6.c
+diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/common6.c
 --- busybox.orig/networking/udhcp/common6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.c	2011-05-17 18:11:40.000000000 +0400
-@@ -0,0 +1,2430 @@
++++ busybox/networking/udhcp/common6.c	2011-05-18 21:14:44.000000000 +0400
+@@ -0,0 +1,2335 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
 + * All rights reserved.
@@ -605,16 +839,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +/* dhcp6c.c */
 +extern struct dhcp6_timer *client6_timo(void *);
 +extern void destruct_iadata(struct dhcp6_eventdata *evd);
-+/* if6.c */
-+extern ssize_t gethwid(char *, int, const char *, uint16_t *);
 +
 +#define MAXDNAME 255
 +
 +static ALWAYS_INLINE int dhcp6_count_list(struct dhcp6_list *);
-+#if /*ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
-+static ssize_t dnsencode(const char *, char *, size_t);
-+#endif
-+static char *dnsdecode(u_char **, u_char *, char *, size_t);
 +static int copyout_option(char *, char *, struct dhcp6_listval *);
 +static int copyin_option(int, struct dhcp6opt *, struct dhcp6opt *,
 +    struct dhcp6_list *);
@@ -895,43 +1123,58 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +}
 +#endif
 +
++/* Domain names stored in RFC1035 format */
++#if ENABLE_FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY
 +static int dhcp6_get_domain(int optlen, void *cp, dhcp6_listval_type_t type,
 +			    struct dhcp6_list *list)
 +{
-+	void *val;
++	char *names, *p, *n;
 +
-+	val = cp;
-+	while (val < cp + optlen) {
-+		struct dhcp6_vbuf vb;
-+		char name[MAXDNAME + 1];
-+
-+		if (dnsdecode((u_char **)(void *)&val,
-+		    (u_char *)(cp + optlen), name, sizeof(name)) == NULL) {
-+			bb_info_msg("failed to decode a %s domain name",
++	names = dname_dec(cp, optlen, "");
++	if (names == NULL) {
++		bb_info_msg("failed to decode a %s domain name",
 +			    dhcp6optstr(type));
-+			return -1;
-+		}
++		return -1;
++	}
 +
-+		vb.dv_len = strlen(name) + 1;
-+		vb.dv_buf = name;
++	p = names;
++	while (*p) {
++		struct dhcp6_vbuf vb;
++
++		n = strchrnul(p, ' ');
++		vb.dv_buf = p;
++		vb.dv_len = n - p;
++		if (*n)
++			*(n++) = '\0';
 +
 +		if (dhcp6_add_listval(list,
 +		    DHCP6_LISTVAL_VBUF, &vb, NULL) == NULL) {
-+			return -1;
++			free(names);
++			return -2;
 +		}
++		p = n;
 +	}
++	free(names);
 +
 +	return 0;
 +}
++#else
++static ALWAYS_INLINE int dhcp6_get_domain(int optlen __attribute__((unused)),
++    void *cp __attribute__((unused)),
++    dhcp6_listval_type_t type __attribute__((unused)),
++    struct dhcp6_list *list __attribute__((unused)))
++{
++    return 0;
++}
++#endif /* FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY */
 +
 +#if /*ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
 +static int dhcp6_set_domain(dhcp6_listval_type_t type, struct dhcp6_list *list,
 +			 struct dhcp6opt **p, struct dhcp6opt *optep, int *len)
 +{
-+	int optlen = 0;
++	int rest, optlen = 0;
 +	struct dhcp6_listval *d;
-+	char *tmpbuf;
-+	char name[MAXDNAME], *cp, *ep;
++	char *tmpbuf, *cp;
 +
 +	if (TAILQ_EMPTY(list))
 +		return 0;
@@ -948,34 +1191,38 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +		return -1;
 +	}
 +	cp = tmpbuf;
-+	ep = cp + optlen;
++	rest = optlen;
 +	for (d = TAILQ_FIRST(list); d; d = TAILQ_NEXT(d, link)) {
++		uint8_t *name;
 +		int nlen;
 +
-+		nlen = dnsencode((const char *)d->val_vbuf.dv_buf,
-+		    name, sizeof(name));
-+		if (nlen < 0) {
++		name = dname_enc(NULL, 0, (const char *)d->val_vbuf.dv_buf, &nlen);
++		if (name == NULL) {
 +			bb_error_msg("failed to encode a %s domain name",
 +			    dhcp6optstr(type));
-+			free(tmpbuf);
-+			return -1;
++			goto fail;
 +		}
-+		if (ep - cp < nlen) {
++		if (rest < nlen) {
 +			bb_error_msg("buffer length for %s domain name is too short",
 +			    dhcp6optstr(type));
-+			free(tmpbuf);
-+			return -1;
++			goto fail;
 +		}
 +		memcpy(cp, name, nlen);
++		free(name);
 +		cp += nlen;
++		rest -= nlen;
 +	}
-+	if (copy_option(type, cp - tmpbuf, tmpbuf, p, optep, len) != 0) {
-+		free(tmpbuf);
-+		return -1;
-+	}
-+	free(tmpbuf);
 +
++	if (copy_option(type, optlen - rest, tmpbuf, p, optep, len) != 0) {
++		goto fail;
++	}
++
++	free(tmpbuf);
 +	return 0;
++
++fail:
++	free(tmpbuf);
++	return -1;
 +}
 +#endif
 +
@@ -1196,7 +1443,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	FILE *fp = NULL;
 +	uint16_t len = 0, hwtype = 1;
 +	int hwlen = 0;
-+	char tmpbuf[128];	/* HWID should be no more than 128 bytes */
++	char tmpbuf[64];	/* HWID should be no more than 64 bytes */
 +
 +	if ((fp = fopen(idfile, "r")) == NULL && errno != ENOENT)
 +		bb_info_msg("failed to open DUID file: %s", idfile);
@@ -1257,8 +1504,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +				}
 +		}
 +
-+		log1("generated a new DUID: %s",
-+		    duidstr(duid));
++		log1("generated a new DUID: %s", duidstr(duid));
 +	}
 +
 +	/* save the (new) ID to the file for next time */
@@ -1837,56 +2083,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	return (-1);
 +}
 +
-+static char *dnsdecode(u_char **sp, u_char *ep, char *buf, size_t bufsiz)
-+{
-+	int i, l, len;
-+	u_char *cp;
-+	char tmpbuf[MAXDNAME + 1];
-+
-+	cp = *sp;
-+	*buf = '\0';
-+	i = 0;			/* XXX: appease gcc */
-+
-+	if (cp >= ep)
-+		return (NULL);
-+	len = 0;
-+	while (cp < ep) {
-+		i = *cp;
-+		if (i == 0 || cp != *sp) {
-+			len++;
-+			if (len >= bufsiz)
-+				return (NULL);	/* result overrun */
-+			strcat(buf, ".");
-+		}
-+		if (i == 0)
-+			break;
-+		cp++;
-+
-+		if (i > 0x3f)
-+			return (NULL); /* invalid label */
-+
-+		if (i > ep - cp)
-+			return (NULL); /* source overrun */
-+		while (i-- > 0 && cp < ep) {
-+			if (!isprint_asciionly(*cp)) /* we don't accept non-printables */
-+				return (NULL);
-+			l = snprintf(tmpbuf, sizeof(tmpbuf), "%c" , *cp);
-+			if (l >= sizeof(tmpbuf) || l < 0)
-+				return (NULL);
-+			len += l;
-+			if (len >= bufsiz)
-+				return (NULL); /* result overrun */
-+			strcat(buf, tmpbuf);
-+			cp++;
-+		}
-+	}
-+	if (i != 0)
-+		return (NULL);	/* not terminated */
-+	cp++;
-+	*sp = cp;
-+	return (buf);
-+}
-+
 +static int copyin_option(int type, struct dhcp6opt *p, struct dhcp6opt *ep,
 +			 struct dhcp6_list *list)
 +{
@@ -2443,63 +2639,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	return (-1);
 +}
 +
-+#if /* ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
-+static ssize_t dnsencode(const char *name, char *buf, size_t buflen)
-+{
-+	char *cp, *ep;
-+	const char *p, *q;
-+	int i;
-+	int namelen = strlen(name);
-+
-+	cp = buf;
-+	ep = cp + buflen;
-+
-+	/* if not certain about my name, return an empty buffer */
-+	if (namelen == 0)
-+		return (0);
-+
-+	p = name;
-+	while (cp < ep && p < name + namelen) {
-+		i = 0;
-+		for (q = p; q < name + namelen && *q && *q != '.'; q++)
-+			i++;
-+		/* result does not fit into buf */
-+		if (cp + i + 1 >= ep)
-+			goto fail;
-+		/*
-+		 * DNS label length restriction, RFC1035 page 8.
-+		 * "i == 0" case is included here to avoid returning
-+		 * 0-length label on "foo..bar".
-+		 */
-+		if (i <= 0 || i >= 64)
-+			goto fail;
-+		*cp++ = i;
-+		if (!isalpha(p[0]) || !isalnum(p[i - 1]))
-+			goto fail;
-+		while (i > 0) {
-+			if (!isalnum(*p) && *p != '-')
-+				goto fail;
-+			if (isupper(*p))
-+				*cp++ = tolower(*p++);
-+			else
-+				*cp++ = *p++;
-+			i--;
-+		}
-+		p = q;
-+		if (p < name + namelen && *p == '.')
-+			p++;
-+	}
-+	/* termination */
-+	if (cp + 1 >= ep)
-+		goto fail;
-+	*cp++ = '\0';
-+	return (cp - buf);
-+
-+ fail:
-+	return (-1);
-+}
-+#endif /* ENABLE_DHCP6S || ENABLE_DHCP6RELAY */
-+
 +/*
 + * Construct a DHCPv6 option along with sub-options in the wire format.
 + * If the packet buffer is NULL, just calculate the length of the option
@@ -2974,10 +3113,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.c busybox/netwo
 +	}
 +}
 +
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/networking/udhcp/common6.h
+diff -urNBp busybox.orig/networking/udhcp/common6.h busybox/networking/udhcp/common6.h
 --- busybox.orig/networking/udhcp/common6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.h	2011-05-17 17:51:38.000000000 +0400
-@@ -0,0 +1,181 @@
++++ busybox/networking/udhcp/common6.h	2011-05-18 19:49:07.000000000 +0400
+@@ -0,0 +1,182 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
 + * All rights reserved.
@@ -3128,7 +3267,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/netwo
 +void duidfree(struct duid *);
 +int ifaddrconf(ifaddrconf_cmd_t, char *, struct sockaddr_in6 *,
 +			   int, int, int);
-+
++/* if6.c */
++extern ssize_t gethwid(char *, int, const char *, uint16_t *);
 +
 +/*
 + * compat hacks in case libc and kernel get out of sync:
@@ -3159,10 +3299,22 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/common6.h busybox/netwo
 +#    endif
 +#  endif
 +#endif
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/config6.c
+diff -urNBp busybox.orig/networking/udhcp/common.h busybox/networking/udhcp/common.h
+--- busybox.orig/networking/udhcp/common.h	2011-05-18 20:37:42.000000000 +0400
++++ busybox/networking/udhcp/common.h	2011-05-18 16:11:59.000000000 +0400
+@@ -195,7 +195,7 @@ uint8_t *udhcp_get_option(struct dhcp_pa
+ int udhcp_end_option(uint8_t *optionptr) FAST_FUNC;
+ void udhcp_add_binary_option(struct dhcp_packet *packet, uint8_t *addopt) FAST_FUNC;
+ void udhcp_add_simple_option(struct dhcp_packet *packet, uint8_t code, uint32_t data) FAST_FUNC;
+-#if ENABLE_FEATURE_UDHCP_RFC3397
++#if ENABLE_FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY
+ char *dname_dec(const uint8_t *cstr, int clen, const char *pre) FAST_FUNC;
+ uint8_t *dname_enc(const uint8_t *cstr, int clen, const char *src, int *retlen) FAST_FUNC;
+ #endif
+diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/config6.c
 --- busybox.orig/networking/udhcp/config6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.c	2011-05-17 18:12:10.000000000 +0400
-@@ -0,0 +1,1754 @@
++++ busybox/networking/udhcp/config6.c	2011-05-18 21:11:12.000000000 +0400
+@@ -0,0 +1,1717 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
 + * All rights reserved.
@@ -3455,9 +3607,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	for (pif = TAILQ_FIRST(&iapdc->iapd_pif_list); pif;
 +	    pif = TAILQ_NEXT(pif, link)) {
 +		if (strcmp(pif->ifname, cfl0->ptr) == 0) {
-+			bb_info_msg("%s:%d "
-+			    "duplicated prefix interface: %s",
-+			    client6_config.conffile, cfl0->line, (char *)cfl0->ptr);
++			bb_info_msg("%s:%d duplicated prefix interface: %s",
++			    client6_config.conffile, cfl0->line,
++			    (char *)cfl0->ptr);
 +			return (0); /* ignore it */
 +		}
 +	}
@@ -3476,8 +3628,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	pif->ifid_len = IFID_LEN_DEFAULT;
 +	pif->sla_len = SLA_LEN_DEFAULT;
 +	if (get_default_ifid(pif)) {
-+		bb_info_msg(
-+		    "failed to get default IF ID for %s", pif->ifname);
++		bb_info_msg("failed to get IF ID for %s", pif->ifname);
 +		goto bad;
 +	}
 +
@@ -3489,9 +3640,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +		case IFPARAM_SLA_LEN:
 +			pif->sla_len = (int)cfl->num;
 +			if (pif->sla_len < 0 || pif->sla_len > 128) {
-+				bb_error_msg("%s:%d "
-+				    "invalid SLA length: %d",
-+				    client6_config.conffile, cfl->line, pif->sla_len); 
++				bb_error_msg("%s:%d invalid SLA length: %d",
++				    client6_config.conffile, cfl->line,
++				    pif->sla_len);
 +				goto bad;
 +			}
 +			break;
@@ -3785,72 +3936,34 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +/* we currently only construct EUI-64 based interface ID */
 +static int get_default_ifid(struct prefix_ifconf *pif)
 +{
-+	struct ifaddrs *ifa, *ifap;
-+#ifdef __linux__
-+	struct sockaddr_ll *sll;
-+#endif
++	uint16_t hwtype;
++	int len;
++	char buf[64];
 +
 +	if (pif->ifid_len < 64) {
 +		bb_error_msg("ID length too short");
 +		return (-1);
 +	}
 +
-+	if (getifaddrs(&ifap) < 0) {
-+		bb_perror_msg("getifaddrs");
-+		return (-1);
++	if ((len = gethwid(buf, sizeof(buf), pif->ifname, &hwtype)) < 0)
++		return (-2);
++	if (len < 6) {
++		bb_error_msg("link layer address is too short (%s)",
++				pif->ifname);
++		return (-2);
 +	}
 +
-+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-+		char *cp;
++	memset(pif->ifid, 0, sizeof(pif->ifid));
++	pif->ifid[8]  = buf[0] ^ 0x02; /* reverse the u/l bit*/
++	pif->ifid[9]  = buf[1];
++	pif->ifid[10] = buf[2];
++	pif->ifid[11] = 0xff;
++	pif->ifid[12] = 0xfe;
++	pif->ifid[13] = buf[3];
++	pif->ifid[14] = buf[4];
++	pif->ifid[15] = buf[5];
 +
-+		if (strcmp(ifa->ifa_name, pif->ifname) != 0)
-+			continue;
-+
-+		if (ifa->ifa_addr == NULL)
-+			continue;
-+
-+#ifdef __linux__
-+		if (ifa->ifa_addr->sa_family != AF_PACKET)
-+			continue;
-+
-+		sll = (struct sockaddr_ll *)ifa->ifa_addr;
-+		if (sll->sll_halen < 6) {
-+			bb_info_msg(
-+			    "link layer address is too short (%s)",
-+			    pif->ifname);
-+			goto fail;
-+		}
-+
-+		memset(pif->ifid, 0, sizeof(pif->ifid));
-+		cp = (char *)(sll->sll_addr);
-+#else // TODO!!!
-+		cp = (char *)"000001";
-+#endif
-+		pif->ifid[8] = cp[0];
-+		pif->ifid[8] ^= 0x02; /* reverse the u/l bit*/
-+		pif->ifid[9] = cp[1];
-+		pif->ifid[10] = cp[2];
-+		pif->ifid[11] = 0xff;
-+		pif->ifid[12] = 0xfe;
-+		pif->ifid[13] = cp[3];
-+		pif->ifid[14] = cp[4];
-+		pif->ifid[15] = cp[5];
-+
-+		break;
-+	}
-+
-+	if (ifa == NULL) {
-+		bb_info_msg(
-+		    "cannot find interface information for %s", pif->ifname);
-+		goto fail;
-+	}
-+
-+	freeifaddrs(ifap);
 +	return (0);
-+
-+  fail:
-+	freeifaddrs(ifap);
-+	return (-1);
 +}
 +
 +static void configure_cleanup(void)
@@ -4421,26 +4534,28 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +
 +struct dhcp_options {
 +    const char *optname;
-+    int optval;
-+    uint8_t paramt; /* 0-none, 1-string, 2-integer */
++    const int optval;
++    const uint8_t paramt; /* 0-none, 1-string, 2-integer */
 +};
 +
 +static const struct dhcp_options dhcp_option_list[] = {
 +    { "rapid-commit",             DHCPOPT_RAPID_COMMIT,  0 },
 +    { "ia-pd",                    DHCPOPT_IA_PD,         2 },
 +    { "ia-na",                    DHCPOPT_IA_NA,         2 },
-+    { "domain-name-servers",      DHCPOPT_DNS,           0 },
-+    { "domain-name",              DHCPOPT_DNSNAME,       0 },
-+    { "sip-server-address",       DHCPOPT_SIP,           0 },
-+    { "sip-server-domain-name",   DHCPOPT_SIPNAME,       0 },
-+    { "ntp-servers",              DHCPOPT_NTP,           0 },
-+    { "nis-server-address",       DHCPOPT_NIS,           0 },
-+    { "nis-domain-name",          DHCPOPT_NISNAME,       0 },
-+    { "nisp-server-address",      DHCPOPT_NISP,          0 },
-+    { "nisp-domain-name",         DHCPOPT_NISPNAME,      0 },
-+    { "bcmcs-server-address",     DHCPOPT_BCMCS,         0 },
-+    { "bcmcs-server-domain-name", DHCPOPT_BCMCSNAME,     0 },
 +    { "authentication",           DHCPOPT_AUTHINFO,      1 },
++    { "domain-name-servers",      DHCPOPT_DNS,           0 },
++    { "ntp-servers",              DHCPOPT_NTP,           0 },
++    { "sip-server-address",       DHCPOPT_SIP,           0 },
++    { "nis-server-address",       DHCPOPT_NIS,           0 },
++    { "nisp-server-address",      DHCPOPT_NISP,          0 },
++    { "bcmcs-server-address",     DHCPOPT_BCMCS,         0 },
++#if ENABLE_FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY
++    { "domain-name",              DHCPOPT_DNSNAME,       0 },
++    { "sip-server-domain-name",   DHCPOPT_SIPNAME,       0 },
++    { "nis-domain-name",          DHCPOPT_NISNAME,       0 },
++    { "nisp-domain-name",         DHCPOPT_NISPNAME,      0 },
++    { "bcmcs-server-domain-name", DHCPOPT_BCMCSNAME,     0 },
++#endif
 +};
 +
 +static int FAST_FUNC create_iface(int lineno, int kw_ind __attribute__((unused)), char **varr, int cnt)
@@ -4837,13 +4952,13 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +		    if (strcasecmp(token[i], k[j].keyword) == 0) {
 +			if (k[j].handler != NULL) {
 +			    /* scan for ';' statement trailer */
-+			    int pos;
++			    char *lc;
 +			    for (m = i+1; m < n; m++) {
 +				if (strcmp(token[m], "{") == 0 || strcmp(token[m], ";") == 0)
 +				    break;
-+				pos = strlen(token[m]) - 1;
-+				if (token[m][pos] == ';') {
-+				    token[m][pos] = '\0';
++				lc = last_char_is(token[m], ';');
++				if (lc) {
++				    *lc = '\0';
 +				    m++;
 +				    break;
 +				}
@@ -4917,9 +5032,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.c busybox/netwo
 +	cf_cleanup();
 +	return (-1);
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/config6.h
+diff -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/config6.h
 --- busybox.orig/networking/udhcp/config6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.h	2011-05-17 15:44:36.000000000 +0400
++++ busybox/networking/udhcp/config6.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,310 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -5231,8 +5346,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/config6.h busybox/netwo
 +struct keyinfo *find_key(char *, size_t, uint32_t);
 +
 +int FAST_FUNC read_config6(const char *file);
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/networking/udhcp/Config.src
---- busybox.orig/networking/udhcp/Config.src	2011-05-17 15:25:24.000000000 +0400
+diff -urNBp busybox.orig/networking/udhcp/Config.src busybox/networking/udhcp/Config.src
+--- busybox.orig/networking/udhcp/Config.src	2011-05-18 20:37:42.000000000 +0400
 +++ busybox/networking/udhcp/Config.src	2011-02-11 12:10:37.000000000 +0300
 @@ -82,7 +82,7 @@ config UDHCP_DEBUG
  	int "Maximum verbosity level for udhcp applets (0..9)"
@@ -5271,10 +5386,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Config.src busybox/netw
 +	help
 +	  dhcp6relay listens for DHCPv6 requests on one or more interfaces
 +	  and forwards these requests to a different interface.
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp6c.c
+diff -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp6c.c
 --- busybox.orig/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.c	2011-05-17 18:12:46.000000000 +0400
-@@ -0,0 +1,1500 @@
++++ busybox/networking/udhcp/dhcp6c.c	2011-05-18 19:49:07.000000000 +0400
+@@ -0,0 +1,1498 @@
 +/*
 + * DHCPv6 client
 + *
@@ -5385,9 +5500,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +static struct dhcp6_serverinfo *select_server(struct dhcp6_event *);
 +static void client6_recv(void);
 +static int client6_recvadvert(struct dhcp6_if *, struct dhcp6_event *,
-+				   ssize_t, struct dhcp6_optinfo *);
++				   struct dhcp6_optinfo *);
 +static int client6_recvreply(struct dhcp6_if *, struct dhcp6_event *,
-+				  ssize_t, struct dhcp6_optinfo *);
++				  struct dhcp6_optinfo *);
 +static struct dhcp6_event *find_event_withid(struct dhcp6_if *,
 +						  uint32_t);
 +static int construct_confdata(struct dhcp6_if *, struct dhcp6_event *);
@@ -5493,7 +5608,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +void client6_init(void)
 +{
 +	struct addrinfo hints, *res;
-+	int error, on = 1;
++	int error;
 +
 +	/* get our DUID */
 +	if (get_duid(DUID_FILE, &client_duid, duid_type)) {
@@ -5510,8 +5625,8 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
 +	csock = sock6_init(res);
-+	if (setsockopt(csock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &on,
-+		       sizeof(on)) < 0) {
++	if (setsockopt(csock, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, &const_int_1,
++			sizeof(const_int_1)) < 0) {
 +		bb_perror_msg_and_die("setsockopt(IPV6_MULTICAST_LOOP)");
 +	}
 +
@@ -6269,7 +6384,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +
 +#if ENABLE_FEATURE_DHCP6_AUTH
 +	/* validate authentication */
-+	if (process_auth(ev->authparam, dh6, authlen, optinfo)) {
++	if (process_auth(ev->authparam, dh6, len, &optinfo)) {
 +		bb_error_msg("failed to process authentication");
 +		goto fail;
 +	}
@@ -6277,10 +6392,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +
 +	switch (dh6->dh6_msgtype) {
 +	case DH6_ADVERTISE:
-+		client6_recvadvert(ifp, ev, len, &optinfo);
++		client6_recvadvert(ifp, ev, &optinfo);
 +		break;
 +	case DH6_REPLY:
-+		client6_recvreply(ifp, ev, len, &optinfo);
++		client6_recvreply(ifp, ev, &optinfo);
 +		break;
 +	}
 +
@@ -6290,7 +6405,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +}
 +
 +static int client6_recvadvert(struct dhcp6_if *ifp, struct dhcp6_event *ev,
-+				ssize_t authlen DHCP6_AUTH_ATTR((unused)),
 +				struct dhcp6_optinfo *optinfo)
 +{
 +	struct dhcp6_serverinfo *newserver, **sp;
@@ -6432,7 +6546,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +}
 +
 +static int client6_recvreply(struct dhcp6_if *ifp, struct dhcp6_event *ev,
-+				ssize_t authlen DHCP6_AUTH_ATTR((unused)),
 +				struct dhcp6_optinfo *optinfo)
 +{
 +	struct dhcp6_listval *lv;
@@ -6775,9 +6888,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networ
 +}
 +#endif /* ENABLE_FEATURE_DHCP6_AUTH*/
 +
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networking/udhcp/dhcp6c.h
+diff -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networking/udhcp/dhcp6c.h
 --- busybox.orig/networking/udhcp/dhcp6c.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.h	2011-02-07 19:48:27.000000000 +0300
++++ busybox/networking/udhcp/dhcp6c.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,43 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -6822,10 +6935,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networ
 +char **fill_envp_client6(struct dhcp6_optinfo *optinfo, char *ifname);
 +char **fill_envp_relay6(struct dhcp6_optinfo *optinfo, char *clientaddr);
 +int dhcp6_script(const char *scriptpath, char **envp);
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/dhcp6c_ia.c
+diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/dhcp6c_ia.c
 --- busybox.orig/networking/udhcp/dhcp6c_ia.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_ia.c	2011-05-17 18:13:22.000000000 +0400
-@@ -0,0 +1,913 @@
++++ busybox/networking/udhcp/dhcp6c_ia.c	2011-05-18 19:49:07.000000000 +0400
+@@ -0,0 +1,912 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
 + * All rights reserved.
@@ -7141,8 +7254,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +
 +	if (dhcpstate == DHCP6S_RELEASE ||
 +	    dhcpstate == DHCP6S_REQUEST ||
-+	    dhcpstate == DHCP6S_RENEW
-+	    ) {
++	    dhcpstate == DHCP6S_RENEW   ) {
 +		if (duidcpy(&ev->serverid, &ia->serverid))
 +			goto fail;
 +	}
@@ -7739,9 +7851,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/net
 +	return (ifaddrconf(cmd, sa->u.dhcpif->ifname, &sin6, 128,
 +		sa->pa.pltime, sa->pa.vltime));
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/networking/udhcp/dhcp6c_ia.h
+diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/networking/udhcp/dhcp6c_ia.h
 --- busybox.orig/networking/udhcp/dhcp6c_ia.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_ia.h	2011-02-09 14:36:01.000000000 +0300
++++ busybox/networking/udhcp/dhcp6c_ia.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,73 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -7816,10 +7928,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/net
 +void update_ia(iatype_t, struct dhcp6_list *,
 +	struct dhcp6_if *, struct duid *, struct authparam *);
 +void release_all_ia(struct dhcp6_if *);
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox/networking/udhcp/dhcp6c_script.c
+diff -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox/networking/udhcp/dhcp6c_script.c
 --- busybox.orig/networking/udhcp/dhcp6c_script.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_script.c	2011-05-17 18:12:38.000000000 +0400
-@@ -0,0 +1,313 @@
++++ busybox/networking/udhcp/dhcp6c_script.c	2011-05-18 21:16:33.000000000 +0400
+@@ -0,0 +1,306 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
 + * All rights reserved.
@@ -8070,34 +8182,27 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox
 +}
 +#endif /* ENABLE_DHCP6RELAY */
 +
-+static int ALWAYS_INLINE safefile(const char *path)
++static int safefile(const char *path)
 +{
 +	struct stat s;
-+	uid_t myuid;
++	uid_t myuid = getuid();
 +
 +	/* no setuid */
-+	if (getuid() != geteuid()) {
++	if (myuid != geteuid()) {
 +		bb_info_msg("setuid'ed execution not allowed");
 +		return (-1);
 +	}
 +
-+	if (lstat(path, &s) != 0)
++	if (access(path, X_OK) || lstat(path, &s))
 +		return (-1);
 +
-+	/* the file must be owned by the running uid */
-+	myuid = getuid();
-+	if (s.st_uid != myuid) {
-+		bb_info_msg("%s has invalid owner uid", path);
++	if (!S_ISREG(s.st_mode) && !S_ISLNK(s.st_mode)) {
 +		return (-1);
 +	}
 +
-+	switch (s.st_mode & S_IFMT) {
-+	case S_IFREG:
-+	case S_IFLNK:
-+		break;
-+	default:
-+		bb_info_msg("%s is an invalid file type 0x%o",
-+		    path, (s.st_mode & S_IFMT));
++	/* the file must be owned by the running uid */
++	if (s.st_uid != myuid) {
++		bb_info_msg("script has invalid owner uid");
 +		return (-1);
 +	}
 +
@@ -8133,9 +8238,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox
 +	}
 +	return 0;
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/networking/udhcp/dhcp6.h
+diff -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/networking/udhcp/dhcp6.h
 --- busybox.orig/networking/udhcp/dhcp6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6.h	2011-02-07 19:48:27.000000000 +0300
++++ busybox/networking/udhcp/dhcp6.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,393 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -8530,9 +8635,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/network
 +enum { DHCP6_AUTHRDM_UNDEF = -1, DHCP6_AUTHRDM_MONOCOUNTER = 0 };
 +
 +#endif /*__DHCP6_H_DEFINED*/
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/dhcp6relay.c
+diff -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/dhcp6relay.c
 --- busybox.orig/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6relay.c	2011-05-17 18:12:56.000000000 +0400
++++ busybox/networking/udhcp/dhcp6relay.c	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,872 @@
 +/*
 + * DHCPv6 relay
@@ -9406,10 +9511,10 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/ne
 +	freeifaddrs(ifap);
 +	return (retval);
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networking/udhcp/if6.c
+diff -urNBp busybox.orig/networking/udhcp/if6.c busybox/networking/udhcp/if6.c
 --- busybox.orig/networking/udhcp/if6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/if6.c	2011-05-17 15:50:42.000000000 +0400
-@@ -0,0 +1,502 @@
++++ busybox/networking/udhcp/if6.c	2011-05-18 19:49:07.000000000 +0400
+@@ -0,0 +1,489 @@
 +/*	$KAME: if.c,v 1.6 2005/09/16 11:30:15 suz Exp $	*/
 +
 +/*
@@ -9481,7 +9586,6 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +};
 +#endif
 +
-+ssize_t gethwid(char *, int, const char *, uint16_t *);
 +
 +static struct dhcp6_if *find_ifconf_byname(char *ifname);
 +
@@ -9574,30 +9678,20 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +
 +int sock6_init(struct addrinfo *res)
 +{
-+	int sock, on = 1;
++	int sock;
 +
 +	sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 +	if (sock < 0) {
 +		bb_perror_msg_and_die("socket");
 +	}
-+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT,
-+		       &on, sizeof(on)) < 0) {
++	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &const_int_1,
++			sizeof(const_int_1)) < 0) {
 +		bb_perror_msg_and_die("setsockopt(SO_REUSEPORT)");
 +	}
-+#ifdef IPV6_RECVPKTINFO
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_RECVPKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_perror_msg_and_die("setsockopt(IPV6_RECVPKTINFO)");
-+	}
-+#else
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_PKTINFO, &on,
-+		       sizeof(on)) < 0) {
-+		bb_perror_msg_and_die("setsockopt(IPV6_PKTINFO)");
-+	}
-+#endif
++	socket_want_pktinfo(sock);
 +#ifdef IPV6_V6ONLY
-+	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
-+	    &on, sizeof(on)) < 0) {
++	if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &const_int_1,
++			sizeof(const_int_1)) < 0) {
 +		bb_perror_msg_and_die("setsockopt(IPV6_V6ONLY)");
 +	}
 +#endif
@@ -9607,9 +9701,7 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	 * port 546.  However, to have an interoperability with some servers,
 +	 * the outgoing port is also bound to the DH6PORT_DOWNSTREAM.
 +	 */
-+	if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
-+		bb_perror_msg_and_die("bind");
-+	}
++	xbind(sock, res->ai_addr, res->ai_addrlen);
 +	freeaddrinfo(res);
 +
 +	return sock;
@@ -9912,9 +10004,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/if6.c busybox/networkin
 +	return (0);
 +}
 +
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Kbuild.src busybox/networking/udhcp/Kbuild.src
---- busybox.orig/networking/udhcp/Kbuild.src	2011-05-17 15:25:24.000000000 +0400
-+++ busybox/networking/udhcp/Kbuild.src	2011-02-11 12:10:37.000000000 +0300
+diff -urNBp busybox.orig/networking/udhcp/Kbuild.src busybox/networking/udhcp/Kbuild.src
+--- busybox.orig/networking/udhcp/Kbuild.src	2011-03-13 04:45:06.000000000 +0300
++++ busybox/networking/udhcp/Kbuild.src	2011-05-18 13:22:17.000000000 +0400
 @@ -17,5 +17,12 @@ lib-$(CONFIG_UDHCPD)     += dhcpd.o arpp
  lib-$(CONFIG_DUMPLEASES) += dumpleases.o
  lib-$(CONFIG_DHCPRELAY)  += dhcprelay.o
@@ -9922,15 +10014,15 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/Kbuild.src busybox/netw
 +lib-$(CONFIG_DHCP6C)     += common6.o common.o
 +
 +lib-$(CONFIG_DHCP6C)     += dhcp6c.o config6.o dhcp6c_script.o dhcp6c_ia.o if6.o timer.o
-+lib-$(CONFIG_DHCP6RELAY) += dhcp6relay.o
++lib-$(CONFIG_DHCP6RELAY) += dhcp6relay.o domain_codec.o
 +
 +lib-$(CONFIG_FEATURE_DHCP6_AUTH)    += auth6.o base64.o
 +
  lib-$(CONFIG_FEATURE_UDHCPC_ARPING) += arpping.o
  lib-$(CONFIG_FEATURE_UDHCP_RFC3397) += domain_codec.o
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/timer.c busybox/networking/udhcp/timer.c
+diff -urNBp busybox.orig/networking/udhcp/timer.c busybox/networking/udhcp/timer.c
 --- busybox.orig/networking/udhcp/timer.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/timer.c	2011-02-07 22:32:32.000000000 +0300
++++ busybox/networking/udhcp/timer.c	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,146 @@
 +/*	$KAME: timer.c,v 1.6 2003/07/31 23:25:59 jinmei Exp $	*/
 +
@@ -10078,9 +10170,9 @@ diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/timer.c busybox/network
 +	} else
 +		return (timer->t - now);
 +}
-diff -x'.*' -x'*.o' -urNBp busybox.orig/networking/udhcp/timer.h busybox/networking/udhcp/timer.h
+diff -urNBp busybox.orig/networking/udhcp/timer.h busybox/networking/udhcp/timer.h
 --- busybox.orig/networking/udhcp/timer.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/timer.h	2011-02-07 19:48:27.000000000 +0300
++++ busybox/networking/udhcp/timer.h	2011-05-18 19:49:07.000000000 +0400
 @@ -0,0 +1,50 @@
 +/*	$KAME: timer.h,v 1.1 2002/05/16 06:04:08 jinmei Exp $	*/
 +
