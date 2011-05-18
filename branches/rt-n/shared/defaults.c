@@ -157,7 +157,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_radio", "1", 0 },			/* Enable (1) or disable (0) radio */
 	{ "wl_closed", "0", 0 },		/* Closed (hidden) network */
 	{ "wl_ap_isolate", "0", 0 },            /* AP isolate mode */
-	{ "wl_wmf_bss_enable", "0", 0 },	/* WMF Enable/Disable */
+	{ "wl_wmf_bss_enable", "1", 0 },	/* WMF Enable/Disable */
 	{ "wl_rxchain_pwrsave_enable", "1", 0 },	/* Rxchain powersave enable */
 	{ "wl_rxchain_pwrsave_quiet_time", "1800", 0 },	/* Quiet time for power save */
 	{ "wl_rxchain_pwrsave_pps", "10", 0 },	/* Packets per second threshold for power save */

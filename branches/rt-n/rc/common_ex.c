@@ -327,6 +327,7 @@ void convert_asus_values()
 	nvram_set("wl0_wme_apsd", nvram_safe_get("wl_wme_apsd"));
 	nvram_set("wl0_vlan_prio_mode", nvram_safe_get("wl_vlan_prio_mode"));
 	nvram_set("wl0_obss_coex", (nvram_match("wl_nbw", "40") && nvram_invmatch("wl_reg_mode", "off")) ? "1" : "0");
+	nvram_set("wl0_wmf_bss_enable", nvram_safe_get("wl_wmf_bss_enable"));
 #endif
 	nvram_set("wl0_ssid", nvram_safe_get("wl_ssid"));
 	nvram_set("wl0_channel", nvram_safe_get("wl_channel"));
