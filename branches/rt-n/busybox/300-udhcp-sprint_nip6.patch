@@ -13,7 +13,7 @@
  /* 2nd param is "struct option_set**" */
 --- a/networking/udhcp/common.c
 +++ b/networking/udhcp/common.c
-@@ -328,6 +339,24 @@ int FAST_FUNC udhcp_str2nip(const char *
+@@ -328,6 +339,23 @@ int FAST_FUNC udhcp_str2nip(const char *
  	return 1;
  }
  
@@ -24,13 +24,12 @@
 +
 +	for (i = 0; i < 16; i += 2)
 +	{
-+		if (i > 0) {
-+			*(dest + len) = ':';
-+			++len;
-+		}
++		if (i > 0)
++			dest[len++] = ':';
 +		bin2hex(dest + len, &ip6[i], 2);
 +		len += 4;
 +	}
++	dest[len] = '\0';
 +
 +	return len;
 +}
