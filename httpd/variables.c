@@ -824,6 +824,7 @@ struct variable variables_WLANConfig11b[] = {
 	{"wl_leddc", "0x640000", validate_string, ARGV(""), FALSE, FALSE},
 	{"wl_wme_apsd", "on", validate_string, ARGV(""), FALSE, FALSE},
 	{"wl_sta_retry_time", "5", validate_string, ARGV(""), FALSE, FALSE},
+	{"wl_wmf_bss_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"RBRList", "Group", validate_group, ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x"), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
