@@ -169,7 +169,7 @@ diff -BurpN iptables-1.3.8/extensions/libxt_webstr.c iptables/extensions/libxt_w
 +}
 +
 +static struct xtables_match webstr = { 
-+	.family		= AF_UNSPEC,
++	.family		= NFPROTO_UNSPEC,
 +	.name		= "webstr",
 +	.version	= XTABLES_VERSION,
 +	.size		= XT_ALIGN(sizeof(struct xt_webstr_info)),

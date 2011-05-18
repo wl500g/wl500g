@@ -84,7 +84,7 @@ diff -uNBp /dev/null iptables/extensions/libxt_IMQ.c
 +}
 +
 +static struct xtables_target imq = {
-+	.family		= AF_UNSPEC,
++	.family		= NFPROTO_UNSPEC,
 +	.name		= "IMQ",
 +	.version	= XTABLES_VERSION,
 +	.size		= XT_ALIGN(sizeof(struct xt_imq_info)),
