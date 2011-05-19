@@ -1127,10 +1127,10 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Clamp TCP MSS to PMTU of WAN interface */
-//	if (nvram_match("ipv6_proto", "tun6in4") ||
-//	    nvram_match("ipv6_proto", "tun6to4") ||
-//	    nvram_match("ipv6_proto", "tun6rd"))
-//		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
+		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	/* Accept related connections, skip rest of checks */
 	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
