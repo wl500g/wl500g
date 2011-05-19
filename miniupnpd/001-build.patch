@@ -1,0 +1,26 @@
+diff -urBp miniupnpd-1.5.20110309/Makefile.linux miniupnpd/Makefile.linux
+--- miniupnpd-1.5.20110309/Makefile.linux	2011-03-09 18:31:00.000000000 +0300
++++ miniupnpd/Makefile.linux	2011-05-19 17:55:42.000000000 +0400
+@@ -17,7 +17,7 @@
+ # $ IPTABLESPATH=/path/to/iptables-1.4.1 make -f Makefile.linux
+ #
+ #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
+-CFLAGS ?= -Wall -Os -D_GNU_SOURCE
++CFLAGS ?= -Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS)
+ CC ?= gcc
+ RM = rm -f
+ INSTALL = install
+@@ -58,12 +58,8 @@ IPTABLESVERSION3 := $(shell echo $(IPTAB
+ TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
+ ifeq ($(TEST), 1)
+ CFLAGS := $(CFLAGS) -DIPTABLES_143
+-# the following sucks, but works
+-#LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+-LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
+-else
+-LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
+ endif
++LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
+ else
+ # check for system-wide iptables files. Test if iptables version >= 1.4.3
+ TEST := $(shell test -f /usr/include/iptables/internal.h && grep -q "\#define IPTABLES_VERSION" /usr/include/iptables/internal.h && echo 1)

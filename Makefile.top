@@ -719,7 +719,15 @@ netconf: iptables
 upnp: netconf nvram shared
 
 miniupnpd: iptables
-	@true
+	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
+	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) miniupnpd
+
+miniupnpd-install:
+	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+
+miniupnpd-clean:
+	$(MAKE) -C miniupnpd -f Makefile.linux clean
 
 wlconf: nvram shared
 
