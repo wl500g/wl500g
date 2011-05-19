@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
@@ -273,12 +274,22 @@ start_upnp(void)
 	char *wan_ifname, *wan_proto;
 	int ret;
 	char var[100], prefix[] = "wanXXXXXXXXXX_";
+#ifdef __CONFIG_MINIUPNPD__
+	FILE *fp;
+	char *lan_addr, *lan_url;
+	int lan_mask;
+	unsigned int val;
+#endif
 
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
-	
+
+#ifndef __CONFIG_MINIUPNPD__
 	ret = killall("upnp", -SIGUSR1);
-	if (ret != 0) {
+	if (ret != 0)
+#endif
+
+	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
 		wan_ifname = nvram_match("upnp_enable", "1") &&
@@ -291,10 +302,67 @@ start_upnp(void)
 			nvram_safe_get(strcat_r(prefix, "wimax_ifname", var)) :
 #endif
 			nvram_safe_get(strcat_r(prefix, "ifname", var));
-	    ret = eval("upnp", "-D",
-		       "-L", nvram_safe_get("lan_ifname"),
-		       "-W", wan_ifname);
+#ifdef __CONFIG_MINIUPNPD__
+		lan_addr = nvram_safe_get("lan_ipaddr");
+		lan_mask = 0;
+		lan_url = lan_addr;
 
+		val = (unsigned int) inet_addr(nvram_safe_get("lan_netmask"));
+		for (val = ntohl(val); val; lan_mask++) val <<= 1;
+
+		ret = atoi(nvram_safe_get("http_lanport"));
+		if (ret && ret != 80) {
+			sprintf(var, "%s:%d", lan_addr, ret);
+			lan_url = var;
+		}
+
+		/* Touch leases file */
+		if (!(fp = fopen("/tmp/upnp.leases", "a"))) {
+			perror("/tmp/upnp.leases");
+			return errno;
+		}
+		fclose(fp);
+
+		/* Write configuration file */
+		if (!(fp = fopen("/etc/miniupnpd.conf", "w"))) {
+			perror("/etc/miniupnpd.conf");
+			return errno;
+		}
+
+		fprintf(fp, "# automagically generated\n"
+			"ext_ifname=%s\n"
+			"listening_ip=%s/%d\n"
+			"port=0\n"
+			"enable_natpmp=yes\n"
+			"enable_upnp=yes\n"
+			"upnp_forward_chain=UPNP\n"
+			"upnp_nat_chain=UPNP\n"
+			"lease_file=/tmp/upnp.leases\n"
+		/*	"bitrate_up=0\n" */
+		/*	"bitrate_down=0\n" */
+			"secure_mode=no\n"
+			"presentation_url=http://%s/\n"
+			"system_uptime=yes\n"
+			"notify_interval=60\n"
+			"clean_ruleset_interval=600\n"
+		/*TODO: generate UUID
+			"uuid=fc4ec57e-b051-11db-88f8-0060085db3f6\n" */
+			"model_number=%s\n"
+			"allow 1024-65535 %s/%d 1024-65535\n"
+			"deny 0-65535 0.0.0.0/0 0-65535\n",
+			wan_ifname,
+			lan_addr, lan_mask,
+			lan_url,
+			nvram_safe_get("productid"),
+			lan_addr, lan_mask);
+		fclose(fp);
+
+		ret = eval("miniupnpd");
+#else
+		ret = eval("upnp", "-D",
+			   "-L", nvram_safe_get("lan_ifname"),
+			   "-W", wan_ifname);
+#endif
 	}
 	dprintf("done\n");
 	return ret;
@@ -306,7 +374,11 @@ stop_upnp(void)
 	int ret = 0;
 
 	if (nvram_invmatch("upnp_enable", "0"))
-	    ret = killall("upnp", 0);
+#ifdef __CONFIG_MINIUPNPD__
+		ret = killall("miniupnpd", 0);
+#else
+		ret = killall("upnp", 0);
+#endif
 
 	dprintf("done\n");
 	return ret;
