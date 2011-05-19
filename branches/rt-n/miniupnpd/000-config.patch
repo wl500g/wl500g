@@ -62,7 +62,7 @@
 +#define ENABLE_EVENTS
 +
 +/* include interface name in pf and ipf rules */
-+#define USE_IFNAME_IN_RULES
++/*#define USE_IFNAME_IN_RULES*/
 +
 +/* Experimental NFQUEUE support. */
 +/*#define ENABLE_NFQUEUE*/
