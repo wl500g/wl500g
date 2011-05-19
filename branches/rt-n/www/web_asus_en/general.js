@@ -2009,6 +2009,16 @@ function load_body()
 			inputCtrl(frm.usb_webhttp_username, 0);
 			inputCtrl(frm.usb_webhttp_passwd, 0);
 		}
+		
+		if (frm.usb_webformat_x.value == "0") /* MJPEG */
+		{
+			inputCtrl(frm.usb_webquality_x, 0);
+		}
+		else /* YUV */
+		{
+			inputCtrl(frm.usb_webquality_x, 1);
+		}
+
 	}
 	else if (frm.current_page.value == "Advanced_DMZIP11g_Content.asp" ||
 			frm.current_page.value == "Advanced_DMZIP_Content.asp")
@@ -2634,6 +2644,17 @@ function change_common(o, s, v)
 		{
 			inputCtrl2(document.form.time_zone, 0);
 			document.form.time_zone.value = opts[opts.selectedIndex].value;
+		}
+	}
+	else if (v == "usb_webformat_x")
+	{
+		if (o.value == "0") /* MJPEG */
+		{
+			inputCtrl(document.form.usb_webquality_x, 0);
+		}
+		else /* YUV */
+		{
+			inputCtrl(document.form.usb_webquality_x, 1);
 		}
 	}
 	return true;

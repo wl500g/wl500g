@@ -302,6 +302,8 @@
 
 {"usb_webfresh_x", "1", 0},
 
+{"usb_webquality_x", "50", 0},
+
 {"usb_webhttpport_x", "7776", 0},
 
 {"usb_webhttpcheck_x", "0", 0},
