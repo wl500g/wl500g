@@ -50,6 +50,10 @@
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webfresh_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webfresh_x"); %>" onBlur="validate_range(this, 1, 30)" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
+<td class="content_header_td" onMouseOver="return overlib('This field indicates the JPEG compression quality in percent. The range of value is 1~100.', LEFT);" onMouseOut="return nd();">JPEG compression quality:
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webquality_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webquality_x"); %>" onBlur="validate_range(this, 1, 100)" onKeyPress="return is_number(this)"></td>
+</tr>
+<tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the port that http server listens on to communicate.', LEFT);" onMouseOut="return nd();">HTTP Port:
            </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="usb_webhttpport_x" class="content_input_fd" value="<% nvram_get_x("PrinterStatus", "usb_webhttpport_x"); %>" onBlur="validate_range(this, 1024, 65535)" onKeyPress="return is_number(this)"><input type="checkbox" style="margin-left:30" name="usb_webhttpport_x_check" value="" onClick="return change_common_radio(this, 'PrinterStatus', 'usb_webhttpport_x', '1')">Password Checking</input></td>
 </tr>

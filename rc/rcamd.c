@@ -49,7 +49,7 @@ stop_rcamd(void)
 int
 hotplug_usb_webcam(char *product)
 {
-	char input_plugin_param[256], output_plugin_param[256], security[256];
+	char input_plugin_param[256], output_plugin_param[256], security[128], jpg_param[32];
 	char *rcamd_argv[]={"mjpg_streamer", "-b",
 				"-p", "/var/run/rcamd.pid",
 				"-i", input_plugin_param,
@@ -100,12 +100,24 @@ hotplug_usb_webcam(char *product)
 
 	if (nvram_match("usb_webhttpcheck_x","1"))
 	{
-		sprintf(security, "-c %s:%s", nvram_safe_get("usb_webhttp_username"), nvram_safe_get("usb_webhttp_passwd"));
+		snprintf(security, sizeof(security), "-c %s:%s",
+			nvram_safe_get("usb_webhttp_username"),
+			nvram_safe_get("usb_webhttp_passwd"));
 	}
+	else
+		security[0] = '\0';
 
-	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s %s", res, nvram_safe_get("usb_webfresh_x"),
-		(nvram_match("usb_webformat_x", "1") ? "-y" : ""));
-	sprintf(output_plugin_param, "output_http.so -p %s %s", nvram_safe_get("usb_webhttpport_x"),(nvram_match("usb_webhttpcheck_x","1") ? security : ""));
+	if (nvram_match("usb_webformat_x", "1"))
+	{
+		sprintf(jpg_param, "-y -q %s",
+			nvram_safe_default_get("usb_webquality_x"));
+	}
+	else
+		jpg_param[0] = '\0';
+
+	sprintf(input_plugin_param,  "input_uvc.so -r %s -f %s %s", res,
+		nvram_safe_get("usb_webfresh_x"), jpg_param);
+	sprintf(output_plugin_param, "output_http.so -p %s %s", nvram_safe_get("usb_webhttpport_x"), security);
 
 	chdir("/tmp");
 

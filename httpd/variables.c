@@ -891,6 +891,7 @@ struct variable variables_PrinterStatus[] = {
               0), FALSE, FALSE},
                        {"usb_webrectime_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
              {"usb_webfresh_x", "", validate_range, ARGV("1", "30", ""), FALSE, FALSE},
+             {"usb_webquality_x", "", validate_range, ARGV("1", "100", ""), FALSE, FALSE},
              {"usb_webhttpport_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
                 {"usb_webhttpcheck_x", "", validate_string, ARGV(""), FALSE, FALSE},
  
