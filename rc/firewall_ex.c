@@ -436,6 +436,7 @@ static void ip2class(char *lan_ip, char *netmask, char *buf)
 	dprintf("%s", buf);	
 }
 
+#ifndef __CONFIG_MINIUPNPD__
 static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 				char *lan_if, char *lan_ip, char *lan_class,
 				char *logaccept, char *logdrop)
@@ -512,7 +513,7 @@ static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
 		}
 	}
 }
-
+#endif
 
 static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
@@ -527,7 +528,11 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 	       	":PREROUTING ACCEPT [0:0]\n"
 	       	":POSTROUTING ACCEPT [0:0]\n"
 	  	":OUTPUT ACCEPT [0:0]\n"
-	  	":VSERVER - [0:0]\n");
+	  	":VSERVER - [0:0]\n"
+#ifdef __CONFIG_MINIUPNPD__
+		":UPNP - [0:0]\n"
+#endif
+	);
 
 	//Log	
    	//if (nvram_match("misc_natlog_x", "1"))
@@ -550,9 +555,14 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 	}
 
    	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("upnp_enable", "0"))
-   	{     		
+   	{
+#ifdef __CONFIG_MINIUPNPD__
+		/* Call UPNP chain */
+		fprintf(fp, "-A VSERVER -j UPNP\n");
+#else
 		// upnp port forward
         	write_upnp_forward(fp, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
+#endif
 	}
 
 	// Port forwarding or Virtual Server
@@ -648,7 +658,12 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
 	fclose(fp);
 
 	eval("iptables-restore", "/tmp/nat_rules");
+
+#ifdef __CONFIG_MINIUPNPD__
+	/* TODO: kick miniupnpd to reload lease file */
+#endif
 }
+
 /* Rules for LW Filter and MAC Filter
  * MAC ACCEPT
  *     ACCEPT -> MACS
@@ -666,7 +681,6 @@ static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, 
  *     DROP -> FORWARD DROP
  *     ACCEPT -> FORWARD ACCEPT 
  */
-
 static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip,
 			  char *logaccept, char *logdrop)
 {
@@ -681,7 +695,18 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 	
 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
 
-	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:BRUTE - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
+	fprintf(fp, "*filter\n"
+		":INPUT ACCEPT [0:0]\n"
+		":FORWARD ACCEPT [0:0]\n"
+		":OUTPUT ACCEPT [0:0]\n"
+		":MACS - [0:0]\n"
+		":SECURITY - [0:0]\n"
+		":BRUTE - [0:0]\n"
+#ifdef __CONFIG_MINIUPNPD__
+		":UPNP - [0:0]\n"
+#endif
+		":logaccept - [0:0]\n"
+		":logdrop - [0:0]\n");
 
 	// FILTER from LAN to WAN Source MAC
 	if (nvram_invmatch("macfilter_enable_x", "0") && 
