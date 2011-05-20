@@ -145,7 +145,7 @@ config CONFIG_PPP
 choice
        prompt "UPnP IGD server"
        depends on CONFIG_NAT
-       default CONFIG_UPNP
+       default CONFIG_MINIUPNPD
 
 config CONFIG_UPNP
        bool "BCM UPnP"
