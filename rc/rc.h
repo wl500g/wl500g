@@ -24,6 +24,7 @@
 
 /* common */
 in_addr_t ip_addr(const char *cp);
+void ip2class(char *lan_ip, char *netmask, char *buf);
 #ifdef __CONFIG_IPV6__
 int ipv6_addr(const char *str, struct in6_addr *addr6);
 int ipv6_network(struct in6_addr *addr6, int netsize);

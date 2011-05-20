@@ -276,9 +276,8 @@ start_upnp(void)
 	char var[100], prefix[] = "wanXXXXXXXXXX_";
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
-	char *lan_addr, *lan_url;
-	int lan_mask;
-	unsigned int val;
+	char *lan_addr, *lan_mask, lan_class[32];
+	char *lan_url;
 #endif
 
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
@@ -304,12 +303,10 @@ start_upnp(void)
 			nvram_safe_get(strcat_r(prefix, "ifname", var));
 #ifdef __CONFIG_MINIUPNPD__
 		lan_addr = nvram_safe_get("lan_ipaddr");
-		lan_mask = 0;
+		lan_mask = nvram_safe_get("lan_netmask");
+		ip2class(lan_addr, lan_mask, lan_class);
+
 		lan_url = lan_addr;
-
-		val = (unsigned int) inet_addr(nvram_safe_get("lan_netmask"));
-		for (val = ntohl(val); val; lan_mask++) val <<= 1;
-
 		ret = atoi(nvram_safe_get("http_lanport"));
 		if (ret && ret != 80) {
 			sprintf(var, "%s:%d", lan_addr, ret);
@@ -331,7 +328,7 @@ start_upnp(void)
 
 		fprintf(fp, "# automagically generated\n"
 			"ext_ifname=%s\n"
-			"listening_ip=%s/%d\n"
+			"listening_ip=%s/%s\n"
 			"port=0\n"
 			"enable_natpmp=yes\n"
 			"enable_upnp=yes\n"
@@ -348,13 +345,13 @@ start_upnp(void)
 		/*TODO: generate UUID
 			"uuid=fc4ec57e-b051-11db-88f8-0060085db3f6\n" */
 			"model_number=%s\n"
-			"allow 1024-65535 %s/%d 1024-65535\n"
+			"allow 1024-65535 %s/%s 1024-65535\n"
 			"deny 0-65535 0.0.0.0/0 0-65535\n",
 			wan_ifname,
 			lan_addr, lan_mask,
 			lan_url,
 			nvram_safe_get("productid"),
-			lan_addr, lan_mask);
+			lan_class, lan_mask);
 		fclose(fp);
 
 		ret = eval("miniupnpd");

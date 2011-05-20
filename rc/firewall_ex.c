@@ -419,22 +419,6 @@ void p(int step)
 	dprintf("P: %d %s\n", step, g_buf);
 }
 */
-static void ip2class(char *lan_ip, char *netmask, char *buf)
-{
-	unsigned int val, ip;
-	struct in_addr in;
-	int i=0;
-
-	val = (unsigned int)inet_addr(netmask);
-	ip = (unsigned int)inet_addr(lan_ip);
-	in.s_addr = ip & val;
-
-        for (val = ntohl(val); val; i++) 
-        	val <<= 1;
-       
-        sprintf(buf, "%s/%d", inet_ntoa(in), i);
-	dprintf("%s", buf);	
-}
 
 #ifndef __CONFIG_MINIUPNPD__
 static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
