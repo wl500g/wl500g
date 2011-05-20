@@ -1,0 +1,12 @@
+--- miniupnpd.orig/miniupnpd.c	2011-05-20 17:02:15.922521000 +0000
++++ miniupnpd/miniupnpd.c	2011-05-20 17:01:41.872521000 +0000
+@@ -1478,6 +1478,9 @@ main(int argc, char * * argv)
+ 			}
+ #endif
+ 			should_send_public_address_change_notif = 0;
++#ifdef ENABLE_LEASEFILE
++			reload_from_lease_file();
++#endif
+ 		}
+ 	}	/* end of main loop */
+ 
