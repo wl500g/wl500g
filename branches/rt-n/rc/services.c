@@ -280,14 +280,18 @@ start_upnp(void)
 	char *lan_url;
 #endif
 
-	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
+	if (nvram_match("router_disable", "1"))
 		return 0;
+	if (nvram_match("upnp_enable", "0")
+#ifdef __CONFIG_MINIUPNPD__
+	 && nvram_match("natpmp_enable", "0")
+#endif
+	)	return 0;
 
 #ifndef __CONFIG_MINIUPNPD__
 	ret = killall("upnp", -SIGUSR1);
 	if (ret != 0)
 #endif
-
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
@@ -330,8 +334,8 @@ start_upnp(void)
 			"ext_ifname=%s\n"
 			"listening_ip=%s/%s\n"
 			"port=0\n"
-			"enable_natpmp=yes\n"
-			"enable_upnp=yes\n"
+			"enable_upnp=%s\n"
+			"enable_natpmp=%s\n"
 			"upnp_forward_chain=UPNP\n"
 			"upnp_nat_chain=UPNP\n"
 			"lease_file=/tmp/upnp.leases\n"
@@ -345,13 +349,15 @@ start_upnp(void)
 		/*TODO: generate UUID
 			"uuid=fc4ec57e-b051-11db-88f8-0060085db3f6\n" */
 			"model_number=%s\n"
-			"allow 1024-65535 %s/%s 1024-65535\n"
+			"allow 1024-65535 %s 1024-65535\n"
 			"deny 0-65535 0.0.0.0/0 0-65535\n",
 			wan_ifname,
 			lan_addr, lan_mask,
+			nvram_match("upnp_enable", "0") ? "no" : "yes",
+			nvram_match("natpmp_enable", "0") ? "no" : "yes",
 			lan_url,
 			nvram_safe_get("productid"),
-			lan_class, lan_mask);
+			lan_class);
 		fclose(fp);
 
 		ret = eval("miniupnpd");
