@@ -718,7 +718,10 @@ netconf: iptables
 
 upnp: netconf nvram shared
 
-miniupnpd: iptables
+miniupnpd/config.h:
+	cd miniupnpd && ./genconfig.sh
+
+miniupnpd: iptables miniupnpd/config.h
 	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
 	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) miniupnpd
 
