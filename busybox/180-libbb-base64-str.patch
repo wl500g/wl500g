@@ -1,0 +1,93 @@
+diff -urNBp busybox.orig/include/libbb.h busybox/include/libbb.h
+--- busybox.orig/include/libbb.h	2010-07-25 22:48:26.000000000 +0400
++++ busybox/include/libbb.h	2011-05-20 15:57:00.000000000 +0400
+@@ -1520,6 +1520,7 @@ enum {
+ 	BASE64_FLAG_NO_STOP_CHAR = 0x80,
+ };
+ void FAST_FUNC read_base64(FILE *src_stream, FILE *dst_stream, int flags);
++int FAST_FUNC decode_base64(const char *src, char *dst, int dstlen);
+ 
+ typedef struct md5_ctx_t {
+ 	uint8_t wbuffer[64]; /* always correctly aligned for uint64_t */
+diff -urNBp busybox.orig/libbb/uuencode.c busybox/libbb/uuencode.c
+--- busybox.orig/libbb/uuencode.c	2011-03-13 04:45:06.000000000 +0300
++++ busybox/libbb/uuencode.c	2011-05-20 15:51:52.000000000 +0400
+@@ -143,3 +143,78 @@ void FAST_FUNC read_base64(FILE *src_str
+ 			fputc(translated[2] << 6 | translated[3], dst_stream);
+ 	} /* while (1) */
+ }
++
++/*
++ * Decode base64 encoded string.
++ */
++int FAST_FUNC decode_base64(const char *src, char *buf, int buflen)
++{
++	int len = 0;
++	int term_count = 0;
++
++	while (1) {
++		unsigned char translated[4];
++		int count = 0;
++
++		/* Process one group of 4 chars */
++		while (count < 4) {
++			char *table_ptr;
++			int ch;
++
++			/* Get next _valid_ character.
++			 * bb_uuenc_tbl_base64[] contains this string:
++			 *  0         1         2         3         4         5         6
++			 *  012345678901234567890123456789012345678901234567890123456789012345
++			 * "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\n"
++			 */
++			do {
++				ch = *(src++);
++				if (ch == '\0') {
++					if (count == 0)
++						return len;
++					else
++						/* truncated base64 input */
++						return -1;
++				}
++				table_ptr = strchr(bb_uuenc_tbl_base64, ch);
++//Note that then we may need to still allow '\r' (for mail processing)
++			} while (!table_ptr);
++
++			/* Convert encoded character to decimal */
++			ch = table_ptr - bb_uuenc_tbl_base64;
++
++			if (ch == 65 /* '\n' */) {
++				/* Terminating "====" line? */
++				if (term_count == 4)
++					return len; /* yes */
++				term_count = 0;
++				continue;
++			}
++			/* ch is 64 if char was '=', otherwise 0..63 */
++			translated[count] = ch & 63; /* 64 -> 0 */
++			if (ch == 64) {
++				term_count++;
++				break;
++			}
++			count++;
++			term_count = 0;
++		}
++
++		/* Merge 6 bit chars to 8 bit.
++		 * count can be < 4 when we decode the tail:
++		 * "eQ==" -> "y", not "y NUL NUL"
++		 */
++		len += (count - 1);
++		if (len > buflen)
++			/* output buffer too small */
++			return -2;
++		if (count > 1)
++			*(buf++) = translated[0] << 2 | translated[1] >> 4;
++		if (count > 2)
++			*(buf++) = translated[1] << 4 | translated[2] >> 2;
++		if (count > 3)
++			*(buf++) = translated[2] << 6 | translated[3];
++	} /* while (1) */
++
++	return len;
++}
