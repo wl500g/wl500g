@@ -302,6 +302,7 @@ valid_forward_port(const netconf_nat_t *nat)
 	return TRUE;
 }
 
+#ifdef __CONFIG_UPNP__
 bool
 get_forward_port(int which, netconf_nat_t *nat)
 {
@@ -446,6 +447,7 @@ set_forward_port(int which, const netconf_nat_t *nat)
 
 	return TRUE;
 }
+#endif /* __CONFIG_UPNP__ */
 
 bool
 del_forward_port(int which)
