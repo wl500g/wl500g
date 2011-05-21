@@ -1,0 +1,20 @@
+Don't write to syslog _before_ opening it
+
+--- a/miniupnpd.c
++++ b/miniupnpd.c
+@@ -1080,7 +1080,6 @@ main(int argc, char * * argv)
+ 	/* variables used for the unused-rule cleanup process */
+ 	struct rule_state * rule_list = 0;
+ 	struct timeval checktime = {0, 0};
+-	syslog(LOG_INFO, "SNet version started");
+ 
+ 
+ 	memset(snotify, 0, sizeof(snotify));
+@@ -1090,6 +1089,7 @@ main(int argc, char * * argv)
+ #endif
+ 	if(init(argc, argv, &v) != 0)
+ 		return 1;
++	syslog(LOG_INFO, "SNet version started");
+ 
+ 	LIST_INIT(&upnphttphead);
+ #ifdef USE_MINIUPNPDCTL
