@@ -380,6 +380,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			goto err;
 		}
+		iptc_free(handle);
 	}
 
 	return 0;
@@ -673,6 +674,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			return -errno;
 		}
+		iptc_free(handle);
 
 		if (entry)
 			break;
@@ -1137,10 +1139,15 @@ netconf_del_fw(netconf_fw_t *fw)
 	    !iptc_delete_num_entry(chain, num, handle) ||
 	    !iptc_commit(handle)) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
-		return errno;
+		goto err;
 	}
 
-	return 0;
+	errno = 0;
+
+ err:
+	if (handle)
+		iptc_free(handle);
+	return errno;
 }
 
 /*
@@ -1336,13 +1343,14 @@ netconf_reset_chain(char *table, char *chain)
 
 	/* Flush entries and commit */
 	if (!iptc_flush_entries(chain, handle) ||
-	    !iptc_commit(handle))
+	    !iptc_commit(handle)) {
+		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		goto err;
+	}
 
-	return 0;
+	errno = 0;
 
  err:
-	fprintf(stderr, "%s\n", iptc_strerror(errno));
 	if (handle)
 		iptc_free(handle);
 	return errno;
