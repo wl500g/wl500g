@@ -75,3 +75,16 @@
  #define ROOTDEV_MODELURL			OS_URL
  
  #define WANDEV_FRIENDLYNAME			"WANDevice"
+--- a/upnpglobalvars.c
++++ b/upnpglobalvars.c
+@@ -76,8 +76,8 @@ const char * tag = 0;
+ #ifdef USE_NETFILTER
+ /* chain name to use, both in the nat table
+  * and the filter table */
+-const char * miniupnpd_nat_chain = "MINIUPNPD";
+-const char * miniupnpd_forward_chain = "MINIUPNPD";
++const char * miniupnpd_nat_chain = "UPNP";
++const char * miniupnpd_forward_chain = "UPNP";
+ #endif
+ #ifdef ENABLE_NFQUEUE
+ int nfqueue = -1;
