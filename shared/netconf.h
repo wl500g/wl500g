@@ -31,6 +31,9 @@
 #define NETCONF_ESTABLISHED	0x02	/* Packet is related to an existing connection */
 #define NETCONF_RELATED		0x04	/* Packet is part of an established connection */
 #define NETCONF_NEW		0x08	/* Packet is trying to establish a new connection */
+#define NETCONF_UNTRACKED	0x10	/* Packet is untracked */
+#define NETCONF_STATE_SNAT	0x20	/* Packet is nated from source */
+#define NETCONF_STATE_DNAT	0x40	/* Packet is nated to desination */
 
 /* Supported match flags */
 #define	NETCONF_INV_SRCIP	0x01	/* Invert the sense of source IP address */
@@ -180,6 +183,9 @@ typedef struct _netconf_app_t {
 
 #define netconf_list_for_each(pos, head) \
 	for ((pos) = (head)->next; (pos) != (head); (pos) = (pos)->next)
+
+#define netconf_list_for_each_reverse(pos, head) \
+	for ((pos) = (head)->prev; (pos) != (head); (pos) = (pos)->prev)
 
 #define netconf_list_free(head) do { \
 	typeof (head) pos, next; \
