@@ -73,7 +73,7 @@
 #else /* EMFDBG */
 
 #define EMF_DEBUG(fmt, args...)
-#define EMF_ERROR(fmt, args...)     printf(fmt, ##args)
+#define EMF_ERROR(fmt, args...)     printf("emf:" fmt, ##args)
 #define EMF_WARN(fmt, args...)
 #define EMF_INFO(fmt, args...)
 #define EMF_MFDB(fmt, args...)
