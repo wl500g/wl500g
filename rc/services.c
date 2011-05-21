@@ -336,11 +336,7 @@ start_upnp(void)
 			"port=0\n"
 			"enable_upnp=%s\n"
 			"enable_natpmp=%s\n"
-			"upnp_forward_chain=UPNP\n"
-			"upnp_nat_chain=UPNP\n"
 			"lease_file=/tmp/upnp.leases\n"
-		/*	"bitrate_up=0\n" */
-		/*	"bitrate_down=0\n" */
 			"secure_mode=no\n"
 			"presentation_url=http://%s/\n"
 			"system_uptime=yes\n"
