@@ -60,7 +60,7 @@
 #else /* IGSDBG */
 
 #define IGS_DEBUG(fmt, args...)
-#define IGS_ERROR(fmt, args...)         printf(fmt, ##args)
+#define IGS_ERROR(fmt, args...)         printf("igs:" fmt, ##args)
 #define IGS_WARN(fmt, args...)
 #define IGS_INFO(fmt, args...)
 #define IGS_IGSDB(fmt, args...)
