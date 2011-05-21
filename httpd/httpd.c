@@ -97,6 +97,21 @@ typedef union {
 #endif
 } usockaddr;
 
+#include "queue.h"
+#define MAX_CONN_ACCEPT 64
+#define MAX_CONN_TIMEOUT 60
+
+typedef struct conn_item {
+	TAILQ_ENTRY(conn_item) entry;
+	int fd;
+	usockaddr usa;
+} conn_item_t;
+
+typedef struct conn_list {
+	TAILQ_HEAD(, conn_item) head;
+	int count;
+} conn_list_t;
+
 /* Globals. */
 static FILE *conn_fp;
 static char auth_userid[AUTH_MAX];
@@ -732,9 +747,10 @@ int main(int argc, char **argv)
 {
 	usockaddr usa;
 	int listen_fd;
-	int conn_fd;
 	socklen_t sz = sizeof(usa);
 	char pidfile[32];
+	fd_set active_rfds;
+	conn_list_t pool;
 
 	server_port = atoi(nvram_get_x("", "http_lanport"));
 	if (server_port)
@@ -787,21 +803,88 @@ int main(int argc, char **argv)
 	}
 #endif
 
+	/* Init connection pool */
+	FD_ZERO(&active_rfds);
+	TAILQ_INIT(&pool.head);
+	pool.count = 0;
+
 	/* Loop forever handling requests */
 	for (;;) {
-		if ((conn_fd = accept(listen_fd, &usa.sa, &sz)) < 0) {
-			perror("accept");
+		int max_fd, count;
+		struct timeval tv;
+		fd_set rfds;
+		conn_item_t *item, *next;
+
+		rfds = active_rfds;
+		if (pool.count < MAX_CONN_ACCEPT) {
+			FD_SET(listen_fd, &rfds);
+			max_fd = listen_fd;
+		} else  max_fd = -1;
+		TAILQ_FOREACH(item, &pool.head, entry)
+			max_fd = (item->fd > max_fd) ? item->fd : max_fd;
+
+		/* Wait for new connection or incoming request */
+		tv.tv_sec = MAX_CONN_TIMEOUT;
+		tv.tv_usec = 0;
+		while ((count = select(max_fd + 1, &rfds, NULL, NULL, &tv)) < 0 && errno == EINTR)
+			continue;
+		if (count < 0) {
+			perror("select");
 			return errno;
 		}
-		if (!(conn_fp = fdopen(conn_fd, "r+"))) {
-			perror("fdopen");
-			return errno;
-		}		
-		http_login_cache(&usa);
-		handle_request();
-		fflush(conn_fp);
-		fclose(conn_fp);
-		close(conn_fd);
+
+		/* Check and accept new connection */
+		if (count && FD_ISSET(listen_fd, &rfds)) {
+			item = malloc(sizeof(*item));
+			if (item == NULL) {
+				perror("malloc");
+				return errno;
+			}
+			while ((item->fd = accept(listen_fd, &item->usa.sa, &sz)) < 0 && item->fd == EINTR)
+				continue;
+			if (item->fd < 0) {
+				perror("accept");
+				return errno;
+			}
+
+			/* Add to active connections */
+			FD_SET(item->fd, &active_rfds);
+			TAILQ_INSERT_TAIL(&pool.head, item, entry);
+			pool.count++;
+
+			/* Continue waiting over again */
+			continue;
+		}
+
+		/* Check and process pending or expired requests */
+		TAILQ_FOREACH_SAFE(item, &pool.head, entry, next) {
+			if (count && !FD_ISSET(item->fd, &rfds))
+				continue;
+
+			/* Delete from active connections */
+			FD_CLR(item->fd, &active_rfds);
+			TAILQ_REMOVE(&pool.head, item, entry);
+			pool.count--;
+
+			/* Process request if any or close timed out */
+			if (count) {
+				if (!(conn_fp = fdopen(item->fd, "r+"))) {
+					perror("fdopen");
+					return errno;
+				}
+				http_login_cache(&item->usa);
+				handle_request();
+				fflush(conn_fp);
+				fclose(conn_fp);
+
+				/* Skip the rest of */
+				if (--count == 0)
+					next = NULL;
+			} else
+				close(item->fd);
+
+			free(item);
+		}
 	}
 
 	shutdown(listen_fd, 2);
