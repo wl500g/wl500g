@@ -31,8 +31,11 @@
 #ifdef LINUX26
 # include <linux/netfilter/xt_time.h>
 # define ipt_time_info xt_time_info
+# include <linux/netfilter/xt_conntrack.h>
+# define ipt_conntrack_info xt_conntrack_mtinfo2
 #else
 # include <linux/netfilter_ipv4/ipt_time.h>
+# include <linux/netfilter_ipv4/ipt_conntrack.h>
 #endif
 #include <linux/netfilter_ipv4/ipt_TCPMSS.h>
 #include <linux/netfilter_ipv4/ipt_LOG.h>

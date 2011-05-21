@@ -70,7 +70,7 @@ static const char * ipt_filter_chain_name[] = {
 /* ipt nat chain name appropriate for target (indexed by netconf_nat_t.target) */
 static const char * ipt_nat_chain_name[] = { 
 	NULL, NULL, NULL, NULL,
-	"POSTROUTING", "PREROUTING", "POSTROUTING"
+	"POSTROUTING", "PREROUTING", "POSTROUTING", "POSTROUTING"
 };
 
 /* Returns a netconf_dir index */
@@ -79,7 +79,8 @@ filter_dir(const char *name)
 {
 	if (strncmp(name, "INPUT", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_IN;
-	else if (strncmp(name, "FORWARD", IPT_FUNCTION_MAXNAMELEN) == 0)
+	else if (strncmp(name, "FORWARD", IPT_FUNCTION_MAXNAMELEN) == 0 ||
+		 strncmp(name, "UPNP", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_FORWARD;
 	else if (strncmp(name, "OUTPUT", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_OUT;
@@ -159,8 +160,9 @@ netconf_get_fw(netconf_fw_t *fw_list)
 		for (chain = iptc_first_chain(handle); chain; chain = iptc_next_chain(handle)) {
 
 			if (strcmp(chain, "INPUT") && strcmp(chain, "FORWARD") && strcmp(chain, "OUTPUT") &&
-			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING") && strcmp(chain, "VSERVER"))
-				continue;		
+			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING") &&
+			    strcmp(chain, "VSERVER") && strcmp(chain, "UPNP"))
+				continue;
 
 			/* Search all entries */
 			for (entry = iptc_first_rule(chain, handle); entry; entry = iptc_next_rule(entry, handle)) {
@@ -174,6 +176,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
 				const struct ipt_entry_target *target;
 				struct ipt_mac_info *mac = NULL;
 				struct ipt_state_info *state = NULL;
+				struct ipt_conntrack_info *conntrack = NULL;
 				struct ipt_time_info *time = NULL;
 
 				/* Only know about TCP/UDP */
@@ -181,8 +184,8 @@ netconf_get_fw(netconf_fw_t *fw_list)
 					continue;
 
 				/* Only know about target types in the specified tables */
-				if (!netconf_valid_target(num) ||
-				    strncmp(ipt_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
+				if (!netconf_valid_target(num) || (ipt_table_name[num] &&
+				    strncmp(ipt_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0))
 					continue;
 
 				/* Only know about specified target types */
@@ -227,9 +230,9 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						break;
 					}
 
+					fw->match.ipproto = IPPROTO_TCP;
 					if (tcp) {
 						/* Match ports stored in host order for some stupid reason */
-						fw->match.ipproto = IPPROTO_TCP;
 						fw->match.src.ports[0] = htons(tcp->spts[0]);
 						fw->match.src.ports[1] = htons(tcp->spts[1]);
 						fw->match.dst.ports[0] = htons(tcp->dpts[0]);
@@ -251,9 +254,9 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						break;
 					}
 
+					fw->match.ipproto = IPPROTO_UDP;
 					if (udp) {
 						/* Match ports stored in host order for some stupid reason */
-						fw->match.ipproto = IPPROTO_UDP;
 						fw->match.src.ports[0] = htons(udp->spts[0]);
 						fw->match.src.ports[1] = htons(udp->spts[1]);
 						fw->match.dst.ports[0] = htons(udp->dpts[0]);
@@ -283,12 +286,24 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Get packet state */
 				for_each_ipt_match(match, entry) {
-					if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) != 0)
-						continue;
-			
-					state = (struct ipt_state_info *) &match->data[0];
-					break;
+					if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) == 0) {
+						state = (struct ipt_state_info *) &match->data[0];
+						break;
+					} else
+					if (strncmp(match->u.user.name, "conntrack", IPT_FUNCTION_MAXNAMELEN) == 0) {
+						conntrack = (struct ipt_conntrack_info *) &match->data[0];
+						break;
+					}
 				}
+				if (conntrack && (conntrack->match_flags & XT_CONNTRACK_STATE)) {
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_INVALID) ? NETCONF_INVALID : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED)) ? NETCONF_ESTABLISHED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_RELATED)) ? NETCONF_RELATED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_NEW)) ? NETCONF_NEW : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_UNTRACKED) ? NETCONF_UNTRACKED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_SNAT) ? NETCONF_STATE_SNAT : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_DNAT) ? NETCONF_STATE_DNAT : 0;
+				} else
 				if (state) {
 					fw->match.state |= (state->statemask & IPT_STATE_INVALID) ? NETCONF_INVALID : 0;
 					fw->match.state |= (state->statemask & IPT_STATE_BIT(IP_CT_ESTABLISHED)) ? NETCONF_ESTABLISHED : 0;
@@ -321,8 +336,10 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Get filter target information */
 				if (filter) {
-					if (!netconf_valid_dir(filter->dir = filter_dir(chain)))
+					if (!netconf_valid_dir(filter->dir = filter_dir(chain))) {
+						fprintf(stderr, "error direction in %s\n", chain);
 						goto err;
+					}
 				}
 
 				/* Get NAT target information */
@@ -432,9 +449,13 @@ netconf_fw_index(const netconf_fw_t *fw)
 		for (chain = iptc_first_chain(handle); chain; chain = iptc_next_chain(handle)) {
 
 			/* Only consider specified chains */
-			if (filter && strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0)
+			if (filter &&
+			    strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0 &&
+			    strncmp(chain, "UPNP", sizeof(ipt_chainlabel)) != 0)
 				continue;
-			else if (nat && strncmp(chain, get_nat_chain_name(fw), sizeof(ipt_chainlabel)) != 0)
+			else if (nat &&
+			    strncmp(chain, get_nat_chain_name(fw), sizeof(ipt_chainlabel)) != 0 &&
+			    strncmp(chain, "UPNP", sizeof(ipt_chainlabel)) != 0)
 				continue;
 			else if (app && strncmp(chain, "PREROUTING", sizeof(ipt_chainlabel)) != 0)
 				continue;
@@ -445,6 +466,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 				const struct ipt_entry_target *target;
 				struct ipt_mac_info *mac = NULL;
 				struct ipt_state_info *state = NULL;
+				struct ipt_conntrack_info *conntrack = NULL;
 				struct ipt_time_info *time = NULL;
 
 				/* Only know about TCP/UDP */
@@ -478,7 +500,12 @@ netconf_fw_index(const netconf_fw_t *fw)
 						tcp = (struct ipt_tcp *) &match->data[0];
 						break;
 					}
-			
+
+					if (!tcp && 
+					    !fw->match.src.ports[0] && !fw->match.src.ports[1] &&
+					    !fw->match.dst.ports[0] && !fw->match.dst.ports[1])
+						goto pass;
+
 					/* Match ports stored in host order for some stupid reason */
 					if (!tcp ||
 					    tcp->spts[0] != ntohs(fw->match.src.ports[0]) ||
@@ -504,6 +531,11 @@ netconf_fw_index(const netconf_fw_t *fw)
 						break;
 					}
 
+					if (!udp && 
+					    !fw->match.src.ports[0] && !fw->match.src.ports[1] &&
+					    !fw->match.dst.ports[0] && !fw->match.dst.ports[1])
+						goto pass;
+
 					/* Match ports stored in host order for some stupid reason */
 					if (!udp ||
 					    udp->spts[0] != ntohs(fw->match.src.ports[0]) ||
@@ -516,7 +548,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 					    lxor(udp->invflags & IPT_UDP_INV_DSTPT, fw->match.flags & NETCONF_INV_DSTPT))
 						continue;
 				}
-
+			pass:
 				/* Compare source MAC addresses */
 				if (!ETHER_ISNULLADDR(fw->match.mac.octet)) {
 					for_each_ipt_match(match, entry) {
@@ -537,13 +569,25 @@ netconf_fw_index(const netconf_fw_t *fw)
 				/* Compare packet states */
 				if (fw->match.state) {
 					for_each_ipt_match(match, entry) {
-						if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) != 0)
-							continue;
-			
-						state = (struct ipt_state_info *) &match->data[0];
-						break;
+						if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) == 0) {
+							state = (struct ipt_state_info *) &match->data[0];
+							break;
+						} else
+						if (strncmp(match->u.user.name, "conntrack", IPT_FUNCTION_MAXNAMELEN) == 0) {
+							conntrack = (struct ipt_conntrack_info *) &match->data[0];
+							break;
+						}
 					}
-			
+					if (conntrack && (conntrack->match_flags & XT_CONNTRACK_STATE)) { if (
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_INVALID, fw->match.state & NETCONF_INVALID) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED), fw->match.state & NETCONF_ESTABLISHED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_RELATED), fw->match.state & NETCONF_RELATED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_NEW), fw->match.state & NETCONF_NEW) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_UNTRACKED, fw->match.state & NETCONF_UNTRACKED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_SNAT, fw->match.state & NETCONF_STATE_SNAT) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_DNAT, fw->match.state & NETCONF_STATE_DNAT))
+						continue;
+					} else
 					if (!state ||
 					    lxor(state->statemask & IPT_STATE_INVALID, fw->match.state & NETCONF_INVALID) ||
 					    lxor(state->statemask & IPT_STATE_BIT(IP_CT_ESTABLISHED), fw->match.state & NETCONF_ESTABLISHED) ||

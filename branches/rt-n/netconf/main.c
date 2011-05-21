@@ -53,6 +53,8 @@ print_fw(netconf_fw_t *fw)
 		printf(" tcp");
 	else if (fw->match.ipproto == IPPROTO_UDP)
 		printf(" udp");
+	else if (fw->match.ipproto != IPPROTO_IP)
+		printf(" proto %d", fw->match.ipproto);
 
 	/* Match source IP address */
 	if (fw->match.src.ipaddr.s_addr & fw->match.src.netmask.s_addr) {
@@ -122,6 +124,18 @@ print_fw(netconf_fw_t *fw)
 		}
 		if (fw->match.state & NETCONF_NEW) {
 			printf("%sNEW", sep);
+			sep = ",";
+		}
+		if (fw->match.state & NETCONF_UNTRACKED) {
+			printf("%sUNTRACKED", sep);
+			sep = ",";
+		}
+		if (fw->match.state & NETCONF_STATE_SNAT) {
+			printf("%sSNAT", sep);
+			sep = ",";
+		}
+		if (fw->match.state & NETCONF_STATE_DNAT) {
+			printf("%sDNAT", sep);
 			sep = ",";
 		}
 	}
@@ -197,7 +211,7 @@ main(int argc, char **argv)
 	if ((ret = netconf_get_fw(&fw_list)))
 		return ret;
 
-	netconf_list_for_each(fw, &fw_list) {
+	netconf_list_for_each_reverse(fw, &fw_list) {
 		assert(netconf_fw_exists(fw));
 		print_fw(fw);
 	}
