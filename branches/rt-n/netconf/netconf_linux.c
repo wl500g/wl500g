@@ -32,8 +32,8 @@
 #include <typedefs.h>
 #include <proto/ethernet.h>
 #include "netconf_linux.h"
+#include <bcmconfig.h>
 #include <netconf.h>
-
 
 /* Loops over each match in the ipt_entry */
 #define for_each_ipt_match(match, entry) \
@@ -59,7 +59,7 @@ const char *netconf_target_name[] = {
 };
 
 /* ipt target data size (indexed by netconf_fw_t.target) */
-static const size_t ipt_target_size[] = {
+static const size_t netconf_target_size[] = {
 	sizeof(int), sizeof(int), sizeof(int), sizeof(int),
 	sizeof(struct ip_nat_multi_range), sizeof(struct ip_nat_multi_range), sizeof(struct ip_nat_multi_range), sizeof(struct ip_autofw_info)
 };
@@ -696,6 +696,38 @@ netconf_fw_exists(netconf_fw_t *fw)
 }
 
 /*
+ * Get an array of the current NAT entries
+ * @param	nat_array	array of NAT entries
+ * @param	space		Pointer to size of nat_array in bytes
+ * @return 0 on success and errno on failure
+ */
+int
+netconf_get_nat(netconf_nat_t *nat_array, int *space)
+{
+	netconf_fw_t *fw, fw_list;
+	int ret;
+	int found = 0;
+
+	if ((ret = netconf_get_fw(&fw_list)))
+		return ret;
+
+	netconf_list_for_each(fw, &fw_list) {
+		if (netconf_valid_nat(fw->target)) {
+			found++;
+			if (*space && *space >= (found * sizeof(netconf_nat_t)))
+				memcpy(&nat_array[found - 1], (netconf_nat_t *) fw, sizeof(netconf_nat_t));
+		}
+	}
+
+	if (!*space)
+		*space = found * sizeof(netconf_nat_t);
+
+	netconf_list_free(&fw_list);
+	return 0;
+}
+
+#if !defined(ASUS_EXT) || defined(__CONFIG_UPNP__)
+/*
  * Allocate and append a match structure to an existing ipt_entry
  * @param	pentry			pointer to pointer to initialized ipt_entry
  * @param	name			name of match
@@ -1024,7 +1056,7 @@ netconf_add_fw(netconf_fw_t *fw)
 #endif
 
 	/* Allocate target */
-	if (!(target = netconf_append_target(&entry, netconf_target_name[fw->target], ipt_target_size[fw->target])))
+	if (!(target = netconf_append_target(&entry, netconf_target_name[fw->target], netconf_target_size[fw->target])))
 		goto err;
 
 	if (!(handle = iptc_init(netconf_table_name[fw->target]))) {
@@ -1198,37 +1230,6 @@ netconf_del_nat(netconf_nat_t *nat_list)
 }
 
 /*
- * Get an array of the current NAT entries
- * @param	nat_array	array of NAT entries
- * @param	space		Pointer to size of nat_array in bytes
- * @return 0 on success and errno on failure
- */
-int
-netconf_get_nat(netconf_nat_t *nat_array, int *space)
-{
-	netconf_fw_t *fw, fw_list;
-	int ret;
-	int found = 0;
-	
-	if ((ret = netconf_get_fw(&fw_list)))
-		return ret;
-		
-	netconf_list_for_each(fw, &fw_list) {
-		if (netconf_valid_nat(fw->target)) {
-			found++;
-			if (*space && *space >= (found * sizeof(netconf_nat_t)))
-				memcpy(&nat_array[found - 1], (netconf_nat_t *) fw, sizeof(netconf_nat_t));
-		}
-	}
-
-	if (!*space)
-		*space = found * sizeof(netconf_nat_t);
-
-	netconf_list_free(&fw_list);
-	return 0;
-}			
-
-/*
  * Add a filter entry or list of filter entries
  * @param	filter_list	filter entry or list of filter entries
  * @return	0 on success and errno on failure
@@ -1280,6 +1281,7 @@ netconf_get_filter(netconf_filter_t *filter_array, int *space)
 	netconf_list_free(&fw_list);
 	return 0;
 }			
+#endif /* !defined(ASUS_EXT) || defined(__CONFIG_UPNP__) */
 
 #ifndef ASUS_EXT
 /*
