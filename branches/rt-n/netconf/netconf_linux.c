@@ -42,18 +42,20 @@
 	     (match) = (struct ipt_entry_match *) ((int) (match) + (match)->u.match_size))
 
 /* Supported ipt table names */
-static const char *ipt_table_names[] = { "filter", "nat", NULL };
+static const char *netconf_table_names[] = { "filter", "nat", NULL };
 
 /* ipt table name appropriate for target (indexed by netconf_fw_t.target) */
-static const char * ipt_table_name[] = {
+const char *netconf_table_name[] = {
 	"filter", "filter", "filter", "filter",
-	"nat", "nat", "nat", "nat"
+	"nat", "nat", "nat", "nat",
+	NULL
 };
 
 /* ipt target name (indexed by netconf_fw_t.target) */
-static const char * ipt_target_name[] = {
+const char *netconf_target_name[] = {
 	"DROP", "ACCEPT", "logdrop", "logaccept",
-	"SNAT", "DNAT", "MASQUERADE", "autofw"
+	"SNAT", "DNAT", "MASQUERADE", "autofw",
+	NULL
 };
 
 /* ipt target data size (indexed by netconf_fw_t.target) */
@@ -146,7 +148,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
 	netconf_list_init(fw_list);
 
 	/* Search all default tables */
-	for (table = &ipt_table_names[0]; *table; table++) {
+	for (table = &netconf_table_names[0]; *table; table++) {
 
 		if (strcmp(*table, "filter") && strcmp(*table, "nat"))
 			continue;		
@@ -184,8 +186,8 @@ netconf_get_fw(netconf_fw_t *fw_list)
 					continue;
 
 				/* Only know about target types in the specified tables */
-				if (!netconf_valid_target(num) || (ipt_table_name[num] &&
-				    strncmp(ipt_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0))
+				if (!netconf_valid_target(num) || (netconf_table_name[num] &&
+				    strncmp(netconf_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0))
 					continue;
 
 				/* Only know about specified target types */
@@ -218,6 +220,8 @@ netconf_get_fw(netconf_fw_t *fw_list)
 				fw->match.flags |= (entry->ip.invflags & IPT_INV_VIA_IN) ? NETCONF_INV_IN : 0;
 				fw->match.flags |= (entry->ip.invflags & IPT_INV_VIA_OUT) ? NETCONF_INV_OUT : 0;
 
+				fw->match.ipproto = entry->ip.proto;
+
 				/* Get TCP port(s) */
 				if (entry->ip.proto == IPPROTO_TCP) {
 					struct ipt_tcp *tcp = NULL;
@@ -230,7 +234,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						break;
 					}
 
-					fw->match.ipproto = IPPROTO_TCP;
 					if (tcp) {
 						/* Match ports stored in host order for some stupid reason */
 						fw->match.src.ports[0] = htons(tcp->spts[0]);
@@ -254,7 +257,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						break;
 					}
 
-					fw->match.ipproto = IPPROTO_UDP;
 					if (udp) {
 						/* Match ports stored in host order for some stupid reason */
 						fw->match.src.ports[0] = htons(udp->spts[0]);
@@ -264,11 +266,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						fw->match.flags |= (udp->invflags & IPT_UDP_INV_SRCPT) ? NETCONF_INV_SRCPT : 0;
 						fw->match.flags |= (udp->invflags & IPT_UDP_INV_DSTPT) ? NETCONF_INV_DSTPT : 0;
 					}
-				}
-				
-				/* Simple protocol match */
-				else if (entry->ip.proto != IPPROTO_IP) {
-					fw->match.ipproto = entry->ip.proto;
 				}
 
 				/* Get source MAC address */
@@ -436,10 +433,10 @@ netconf_fw_index(const netconf_fw_t *fw)
 	}
 
 	/* Search all default tables */
-	for (table = &ipt_table_names[0]; *table; table++) {
+	for (table = &netconf_table_names[0]; *table; table++) {
 
 		/* Only consider specified tables */
-		if (strncmp(ipt_table_name[fw->target], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
+		if (strncmp(netconf_table_name[fw->target], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
 			continue;
 
 		if (!(handle = iptc_init(*table))) {
@@ -1027,10 +1024,10 @@ netconf_add_fw(netconf_fw_t *fw)
 #endif
 
 	/* Allocate target */
-	if (!(target = netconf_append_target(&entry, ipt_target_name[fw->target], ipt_target_size[fw->target])))
+	if (!(target = netconf_append_target(&entry, netconf_target_name[fw->target], ipt_target_size[fw->target])))
 		goto err;
 
-	if (!(handle = iptc_init(ipt_table_name[fw->target]))) {
+	if (!(handle = iptc_init(netconf_table_name[fw->target]))) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		goto err;
 	}
@@ -1138,7 +1135,7 @@ netconf_del_fw(netconf_fw_t *fw)
 		return EINVAL;
 		
 	/* Commit changes */
-	if (!(handle = iptc_init(ipt_table_name[fw->target])) ||
+	if (!(handle = iptc_init(netconf_table_name[fw->target])) ||
 	    !iptc_delete_num_entry(chain, num, handle) ||
 	    !iptc_commit(handle)) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
