@@ -381,6 +381,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
 			goto err;
 		}
 		iptc_free(handle);
+		handle = NULL;
 	}
 
 	return 0;
@@ -675,6 +676,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 			return -errno;
 		}
 		iptc_free(handle);
+		handle = NULL;
 
 		if (entry)
 			break;
@@ -1282,6 +1284,7 @@ netconf_get_filter(netconf_filter_t *filter_array, int *space)
 	return 0;
 }			
 
+#ifndef ASUS_EXT
 /*
  * Generates an ipt_entry with an optional match and one target
  * @param match_name		match name
@@ -1493,4 +1496,5 @@ netconf_clamp_mss_to_pmtu(void)
 
 	free(entry);
 	return 0;
-}	
+}
+#endif /* ASUS_EXT */
