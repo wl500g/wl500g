@@ -164,7 +164,10 @@ static dev_usb *get_usb_list(char *fn_dev)
 		switch (*vbuf) {
 			case 'T':
 				if ( (dev = malloc(sizeof(dev_usb))) == NULL ||
-					memset(dev,0,sizeof(dev_usb)) == NULL) return NULL;
+					memset(dev,0,sizeof(dev_usb)) == NULL) {
+					list = NULL;
+					goto out;
+				}
 
 				dev->type = TYPE_NO;
 				dev->bus = get_int_par(vbuf, "Bus=");
@@ -203,8 +206,10 @@ static dev_usb *get_usb_list(char *fn_dev)
 				}
 				break;
 			case 'I':
-				if ((i = malloc(sizeof(ifs_usb))) == NULL)
-					return NULL;
+				if ((i = malloc(sizeof(ifs_usb))) == NULL) {
+					list = NULL;
+					goto out;
+				}
 				i->number = get_int_par(vbuf, "If#=");
 				i->endpoints = get_int_par(vbuf, "#EPs=");
 				i->cls = get_hex_par(vbuf, "Cls=");
@@ -223,6 +228,8 @@ static dev_usb *get_usb_list(char *fn_dev)
 				break;
 		}
 	}
+
+out:
 	free(vbuf);
 	fclose(fp);
 	return list;
@@ -533,6 +540,7 @@ parse_product_string(char *product, int *vid, int *pid)
 	*vid = 0; *pid = 0;
 
 	strncpy(tmp, product, sizeof(tmp)-1);
+	tmp[sizeof(tmp)-1] = '\0';
 	str1 = strchr(tmp, '/');
 	if (str1) {
 		*str1 = 0; str1++;
