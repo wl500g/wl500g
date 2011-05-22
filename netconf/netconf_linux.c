@@ -190,16 +190,16 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Only know about specified target types */
 				if (netconf_valid_filter(num))
-					fw = (netconf_fw_t *) (filter = calloc(1, sizeof(netconf_filter_t)));
+					fw = (netconf_fw_t *) (filter = malloc(sizeof(netconf_filter_t)));
 				else if (netconf_valid_nat(num))
-					fw = (netconf_fw_t *) (nat = calloc(1, sizeof(netconf_nat_t)));
+					fw = (netconf_fw_t *) (nat = malloc(sizeof(netconf_nat_t)));
 				else if (num == NETCONF_APP)
-					fw = (netconf_fw_t *) (app = calloc(1, sizeof(netconf_app_t)));
+					fw = (netconf_fw_t *) (app = malloc(sizeof(netconf_app_t)));
 				else
 					continue;
 
 				if (!fw) {
-					perror("calloc");
+					perror("malloc");
 					goto err;
 				}
 				netconf_list_add(fw, fw_list);
@@ -791,7 +791,6 @@ netconf_get_target(const struct ipt_entry *ce, struct iptc_handle *h)
 static int
 insert_entry(const char *chain, struct ipt_entry *entry, struct iptc_handle *handle)
 {
-	int i;
 	struct ipt_ip blank;
 	const struct ipt_entry *rule;
 
@@ -810,6 +809,8 @@ insert_entry(const char *chain, struct ipt_entry *entry, struct iptc_handle *han
 	/* If accepting insert after the last drop but before the first default policy */
 	else if (!strcmp(netconf_get_target(entry, handle), "ACCEPT") ||
 		 !strcmp(netconf_get_target(entry, handle), "logaccept")) {
+		int i;
+
 		for (i = 0, rule = iptc_first_rule(chain, handle); rule; i++, rule = iptc_next_rule(rule, handle)) {
 			if ((strcmp(netconf_get_target(rule, handle), "DROP") &&
 			     strcmp(netconf_get_target(rule, handle), "logdrop")) ||
@@ -863,8 +864,8 @@ netconf_add_fw(netconf_fw_t *fw)
 		return EINVAL;
 
 	/* Allocate entry */
-	if (!(entry = calloc(1, sizeof(struct ipt_entry)))) {
-		perror("calloc");
+	if (!(entry = malloc(sizeof(struct ipt_entry)))) {
+		perror("malloc");
 		return errno;
 	}
 
@@ -1300,8 +1301,8 @@ netconf_generate_entry(const char *match_name, const void *match_data, size_t ma
 	struct ipt_entry_target *target;
 
 	/* Allocate entry */
-	if (!(entry = calloc(1, sizeof(struct ipt_entry)))) {
-		perror("calloc");
+	if (!(entry = malloc(sizeof(struct ipt_entry)))) {
+		perror("malloc");
 		return NULL;
 	}
 
@@ -1403,6 +1404,7 @@ netconf_reset_fw(void)
 	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Drop packet */
 	if (!(entry = netconf_generate_entry(NULL, NULL, 0, "DROP", &unused, sizeof(unused))))
@@ -1413,6 +1415,7 @@ netconf_reset_fw(void)
 	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Log packet */
 	strncpy(log.prefix, "ACCEPT ", sizeof(log.prefix));
@@ -1424,6 +1427,7 @@ netconf_reset_fw(void)
 	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Accept packet */
 	if (!(entry = netconf_generate_entry(NULL, NULL, 0, "ACCEPT", &unused, sizeof(unused))))
@@ -1434,14 +1438,13 @@ netconf_reset_fw(void)
 	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	return 0;
 
  err:
-	if (entry)
-		free(entry);
-	if (handle)
-		iptc_free(handle);
+	free(entry);
+	iptc_free(handle);
 	fprintf(stderr, "%s\n", iptc_strerror(errno));
 	return errno;
 }
