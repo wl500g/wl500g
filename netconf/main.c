@@ -214,7 +214,7 @@ main(int argc, char **argv)
 		if (netconf_fw_exists(fw))
 			print_fw(fw);
 		else {
-			printf("NO rule for table '%s' target '%s' ??!\n",
+			printf("*BUG* rule for table '%s' target '%s' NOT found!\n",
 				netconf_table_name[fw->target],
 				netconf_target_name[fw->target]);
 		}
