@@ -36,11 +36,10 @@ print_fw(netconf_fw_t *fw)
 	netconf_filter_t *filter;
 	netconf_nat_t *nat;
 	netconf_app_t *app;
-	const char *target_name[] = { "DROP", "ACCEPT", "logdrop", "logaccept", "SNAT", "DNAT", "MASQUERADE", "autofw" };
 	const char *filter_dir_name[] = { "IN", "FORWARD", "OUT" };
 
 	/* Target name */
-	printf("%s", target_name[fw->target]);
+	printf("%s", netconf_target_name[fw->target]);
 
 	/* Filter direction */
 	if (netconf_valid_filter(fw->target)) {
@@ -212,8 +211,13 @@ main(int argc, char **argv)
 		return ret;
 
 	netconf_list_for_each_reverse(fw, &fw_list) {
-		assert(netconf_fw_exists(fw));
-		print_fw(fw);
+		if (netconf_fw_exists(fw))
+			print_fw(fw);
+		else {
+			printf("NO rule for table '%s' target '%s' ??!\n",
+				netconf_table_name[fw->target],
+				netconf_target_name[fw->target]);
+		}
 	}
 
 	netconf_list_free(&fw_list);

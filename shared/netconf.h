@@ -110,6 +110,11 @@ enum netconf_target {
 	NETCONF_TARGET_MAX
 };
 
+/* ipt target name (indexed by netconf_fw_t.target) */
+extern const char *netconf_target_name[];
+/* ipt table name appropriate for target (indexed by netconf_fw_t.target) */
+extern const char *netconf_table_name[];
+
 #define netconf_valid_filter(target) \
 	((target) == NETCONF_DROP || (target) == NETCONF_ACCEPT || \
 	 (target) == NETCONF_LOG_DROP || (target) == NETCONF_LOG_ACCEPT)
