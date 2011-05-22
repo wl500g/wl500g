@@ -97,3 +97,22 @@ Description: OWFS is a 1-Wire File System
 Depends: fuse-lib
 Conflicts: 
 
+Package: valgrind
+Architecture: mipsel
+Priority: optional
+Section: devel
+Version: 3.6.1
+Maintainer: http://www.valgrind.org/
+Source: http://www.valgrind.org/downloads/valgrind-3.6.1.tar.bz2
+Filename: valgrind_3.6.1_mipsel.ipk
+Size: 9386127
+MD5Sum: c77d31683192fbe42ae1088227914765
+Description: Valgrind is an award-winning instrumentation framework for building dynamic
+ analysis tools. There are Valgrind tools that can automatically detect many
+ memory management and threading bugs, and profile your programs in detail. You
+ can also use Valgrind to build new tools.
+ .
+ NB! MIPS32r2 platform only !!!
+Depends:
+Conflicts:
+
