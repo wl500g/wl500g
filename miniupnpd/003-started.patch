@@ -4,7 +4,7 @@
  	}
  
  	openlog("miniupnpd", openlog_option, LOG_MINIUPNPD);
-+	syslog(LOG_INFO, "SNet version started");
++	syslog(LOG_INFO, "version " MINIUPNPD_VERSION " started");
  
  	if(!debug_flag)
  	{
