@@ -297,6 +297,6 @@ extern int netconf_clamp_mss_to_pmtu(void);
  * get NAT chain name taking in account
  * wildcard DNAT (virtual servers)
  */
-extern const char *get_nat_chain_name(const netconf_fw_t *fw)
+extern const char *get_nat_chain_name(const netconf_fw_t *fw);
 
 #endif /* _netconf_h_ */
