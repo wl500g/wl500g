@@ -64,7 +64,7 @@ config CONFIG_BRIDGE
 
 config CONFIG_HTTPD
        bool "Web server"
-       depends on CONFIG_NVRAM && CONFIG_SHARED
+       depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_NETCONF
        default y
        help
        Answer Y for basic web configuration support.
