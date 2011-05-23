@@ -390,7 +390,7 @@ int add_partition(struct gendisk *disk, int part, sector_t start, sector_t len, 
 	if (disk->part[part - 1])
 		return -EBUSY;
 
-	p = kmalloc(sizeof(*p), GFP_KERNEL);
+	p = kzalloc(sizeof(*p), GFP_KERNEL);
 	if (!p)
 		return -ENOMEM;
 	
@@ -398,7 +398,6 @@ int add_partition(struct gendisk *disk, int part, sector_t start, sector_t len, 
 		err = -ENOMEM;
 		goto out0;
 	}
-	memset(p, 0, sizeof(*p));
 	p->start_sect = start;
 	p->nr_sects = len;
 	p->partno = part;
