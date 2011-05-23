@@ -180,16 +180,16 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Only know about specified target types */
 				if (netconf_valid_filter(num))
-					fw = (netconf_fw_t *) (filter = malloc(sizeof(netconf_filter_t)));
+					fw = (netconf_fw_t *) (filter = calloc(1, sizeof(netconf_filter_t)));
 				else if (netconf_valid_nat(num))
-					fw = (netconf_fw_t *) (nat = malloc(sizeof(netconf_nat_t)));
+					fw = (netconf_fw_t *) (nat = calloc(1, sizeof(netconf_nat_t)));
 				else if (num == NETCONF_APP)
-					fw = (netconf_fw_t *) (app = malloc(sizeof(netconf_app_t)));
+					fw = (netconf_fw_t *) (app = calloc(1, sizeof(netconf_app_t)));
 				else
 					continue;
 
 				if (!fw) {
-					perror("malloc");
+					perror("calloc");
 					goto err;
 				}
 				netconf_list_add(fw, fw_list);
@@ -883,8 +883,8 @@ netconf_add_fw(netconf_fw_t *fw)
 		return EINVAL;
 
 	/* Allocate entry */
-	if (!(entry = malloc(sizeof(struct ipt_entry)))) {
-		perror("malloc");
+	if (!(entry = calloc(1, sizeof(struct ipt_entry)))) {
+		perror("calloc");
 		return errno;
 	}
 
@@ -1291,8 +1291,8 @@ netconf_generate_entry(const char *match_name, const void *match_data, size_t ma
 	struct ipt_entry_target *target;
 
 	/* Allocate entry */
-	if (!(entry = malloc(sizeof(struct ipt_entry)))) {
-		perror("malloc");
+	if (!(entry = calloc(1, sizeof(struct ipt_entry)))) {
+		perror("calloc");
 		return NULL;
 	}
 

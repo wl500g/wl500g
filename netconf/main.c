@@ -212,22 +212,9 @@ main(int argc, char **argv)
 		return ret;
 
 	netconf_list_for_each_reverse(fw, &fw_list) {
-		if (netconf_fw_exists(fw))
-			print_fw(fw);
-		else {
-			const char *chain;
-
-			if (netconf_valid_filter(fw->target))
-				chain = filter_dir_name[((netconf_filter_t *)fw)->dir];
-			else if (netconf_valid_nat(fw->target))
-				chain = get_nat_chain_name(fw);
-			else
-				chain = "PREROUTING";
-			printf("*BUG* rule for table '%s', target '%s', chain '%s' NOT found!\n",
-				netconf_table_name[fw->target],
-				netconf_target_name[fw->target],
-				chain);
-		}
+		if (!netconf_fw_exists(fw))
+		    printf("*BUG* wrong rule: ");
+		print_fw(fw);
 	}
 
 	netconf_list_free(&fw_list);
