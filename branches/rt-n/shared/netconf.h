@@ -99,7 +99,7 @@ enum netconf_webstr_type	/* Cherry Cho added in 2007/12/28. */
 
 /* Supported firewall target types */
 enum netconf_target {
-	NETCONF_DROP,			/* Drop packet (filter) */
+	NETCONF_DROP=0,			/* Drop packet (filter) */
 	NETCONF_ACCEPT,			/* Accept packet (filter) */
 	NETCONF_LOG_DROP,		/* Log and drop packet (filter) */
 	NETCONF_LOG_ACCEPT,		/* Log and accept packet (filter) */
@@ -287,7 +287,16 @@ extern int netconf_del_filter(netconf_filter_t *filter_list);
  */
 extern int netconf_get_filter(netconf_filter_t *filter_array, int *space);
 
+/*
+ * Clamp TCP MSS value to PMTU of interface (for masquerading through PPPoE)
+ * @return      0 on success and errno on failure
+ */
 extern int netconf_clamp_mss_to_pmtu(void);
 
+/*
+ * get NAT chain name taking in account
+ * wildcard DNAT (virtual servers)
+ */
+extern const char *get_nat_chain_name(const netconf_fw_t *fw)
 
 #endif /* _netconf_h_ */

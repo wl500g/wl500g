@@ -31,3 +31,5 @@ libnetconf.so: netconf_linux.o
 
 netconf: main.o libnetconf.so
 	$(CC) -o $@ $< $(LDFLAGS) -lnetconf
+
+netconf_linux.o: netconf_linux.c netconf_linux.h $(TOP)/shared/netconf.h
