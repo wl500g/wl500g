@@ -6,15 +6,17 @@ kernel.org commits
 88f8349164cf4035e63db9e6f484e0ce9cb17e47 [IPV4] fib_semantics: kmalloc + memset conversion to kzalloc
 3015a347dcd470fcc8becf1f84b0502391a3c0e0 [IPV4] fib_hash: kmalloc + memset conversion to kzalloc
 f1673ca52c04f1b311abe03fd67cd4d650d19435 [INET]: kmalloc+memset -> kzalloc in frag_alloc_queue
----
+ea72912c888661d1a847f1b1450643d4114097cf [NETLINK]: kzalloc() conversion
 
- net/ipv4/fib_hash.c                     |    7 ++-----
- net/ipv4/fib_semantics.c                |   10 +++-------
- net/ipv4/ip_fragment.c                  |    7 +------
- net/ipv4/ip_options.c                   |    7 ++-----
- net/ipv4/raw.c                          |    4 ++--
- net/ipv6/netfilter/nf_conntrack_reasm.c |    7 +++----
- 6 files changed, 13 insertions(+), 29 deletions(-)
+---
+ ipv4/fib_hash.c                     |    7 ++-----
+ ipv4/fib_semantics.c                |   10 +++-------
+ ipv4/ip_fragment.c                  |    7 +------
+ ipv4/ip_options.c                   |    7 ++-----
+ ipv4/raw.c                          |    4 ++--
+ ipv6/netfilter/nf_conntrack_reasm.c |    7 +++----
+ netlink/af_netlink.c                |   13 ++++++-------
+ 7 files changed, 19 insertions(+), 36 deletions(-)
 
 diff -urBp a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
 --- a/net/ipv4/fib_hash.c
@@ -171,4 +173,56 @@ diff -urBp a/net/ipv6/netfilter/nf_conntrack_reasm.c b/net/ipv6/netfilter/nf_con
  	fq->id = id;
  	ipv6_addr_copy(&fq->saddr, src);
  	ipv6_addr_copy(&fq->daddr, dst);
---
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -237,13 +237,14 @@ found:
+ 	return sk;
+ }
+ 
+-static inline struct hlist_head *nl_pid_hash_alloc(size_t size)
++static inline struct hlist_head *nl_pid_hash_zalloc(size_t size)
+ {
+ 	if (size <= PAGE_SIZE)
+-		return kmalloc(size, GFP_ATOMIC);
++		return kzalloc(size, GFP_ATOMIC);
+ 	else
+ 		return (struct hlist_head *)
+-			__get_free_pages(GFP_ATOMIC, get_order(size));
++			__get_free_pages(GFP_ATOMIC | __GFP_ZERO,
++					 get_order(size));
+ }
+ 
+ static inline void nl_pid_hash_free(struct hlist_head *table, size_t size)
+@@ -272,11 +273,10 @@ static int nl_pid_hash_rehash(struct nl_pid_hash *hash, int grow)
+ 		size *= 2;
+ 	}
+ 
+-	table = nl_pid_hash_alloc(size);
++	table = nl_pid_hash_zalloc(size);
+ 	if (!table)
+ 		return 0;
+ 
+-	memset(table, 0, size);
+ 	otable = hash->table;
+ 	hash->table = table;
+ 	hash->mask = mask;
+@@ -1919,7 +1919,7 @@ static int __init netlink_proto_init(void)
+ 	for (i = 0; i < MAX_LINKS; i++) {
+ 		struct nl_pid_hash *hash = &nl_table[i].hash;
+ 
+-		hash->table = nl_pid_hash_alloc(1 * sizeof(*hash->table));
++		hash->table = nl_pid_hash_zalloc(1 * sizeof(*hash->table));
+ 		if (!hash->table) {
+ 			while (i-- > 0)
+ 				nl_pid_hash_free(nl_table[i].hash.table,
+@@ -1927,7 +1927,6 @@ static int __init netlink_proto_init(void)
+ 			kfree(nl_table);
+ 			goto panic;
+ 		}
+-		memset(hash->table, 0, 1 * sizeof(*hash->table));
+ 		hash->max_shift = order;
+ 		hash->shift = 0;
+ 		hash->mask = 0;
+-- 
+1.7.5.2

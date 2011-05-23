@@ -1,7 +1,7 @@
 diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol2tp.c
 --- linux-2.6.22.orig/drivers/net/pppol2tp.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6/drivers/net/pppol2tp.c	2011-05-13 19:21:40.962729000 +0000
-@@ -0,0 +1,2698 @@
+@@ -0,0 +1,2696 @@
 +/*****************************************************************************
 + * Linux PPP over L2TP (PPPoX/PPPoL2TP) Sockets
 + *
@@ -1750,13 +1750,11 @@ diff -BurpN linux-2.6.22.orig/drivers/net/pppol2tp.c linux-2.6/drivers/net/pppol
 +
 +	/* Allocate and initialize a new session context.
 +	 */
-+	session = kmalloc(sizeof(struct pppol2tp_session), GFP_KERNEL);
++	session = kzalloc(sizeof(struct pppol2tp_session), GFP_KERNEL);
 +	if (session == NULL) {
 +		error = -ENOMEM;
 +		goto end;
 +	}
-+
-+	memset(session, 0, sizeof(struct pppol2tp_session));
 +
 +	skb_queue_head_init(&session->reorder_q);
 +

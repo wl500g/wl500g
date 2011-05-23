@@ -1241,7 +1241,7 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe.h linux-2.6.22.19/drivers/
 diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/drivers/net/ppp_mppe_mppc.c
 --- linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c	1970-01-01 00:00:00.000000000 +0000
 +++ linux-2.6.22.19/drivers/net/ppp_mppe_mppc.c	2010-05-05 19:04:55.000000000 +0000
-@@ -0,0 +1,1299 @@
+@@ -0,0 +1,1298 @@
 +/*
 + * ppp_mppe_mppc.c - MPPC/MPPE "compressor/decompressor" module.
 + *
@@ -1458,13 +1458,12 @@ diff -BurpN linux-2.6.22.19.orig/drivers/net/ppp_mppe_mppc.c linux-2.6.22.19/dri
 +	return NULL;
 +    }
 +
-+    state = (struct ppp_mppe_state *)kmalloc(sizeof(*state), GFP_KERNEL);
++    state = (struct ppp_mppe_state *)kzalloc(sizeof(*state), GFP_KERNEL);
 +    if (state == NULL) {
 +	printk(KERN_ERR "%s: cannot allocate space for %scompressor\n", fname,
 +	       comp ? "" : "de");
 +	return NULL;
 +    }
-+    memset(state, 0, sizeof(struct ppp_mppe_state));
 +
 +    state->mppc = options[5] & MPPE_MPPC;	/* Do we use MPPC? */
 +    state->mppe = options[5] & (MPPE_128BIT | MPPE_56BIT |
