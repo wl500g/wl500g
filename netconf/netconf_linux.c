@@ -70,7 +70,7 @@ static const char * ipt_filter_chain_name[] = {
 };
 
 /* ipt nat chain name appropriate for target (indexed by netconf_nat_t.target) */
-static const char * ipt_nat_chain_name[] = { 
+static const char *netconf_nat_chain_name[] = { 
 	NULL, NULL, NULL, NULL,
 	"POSTROUTING", "PREROUTING", "POSTROUTING", "POSTROUTING"
 };
@@ -95,40 +95,28 @@ static int
 target_num(const struct ipt_entry *entry, struct iptc_handle *handle)
 {
 	const char *name = iptc_get_target(entry, handle);
+	int i;
 
 	if (!name)
 		return -1;
 
-	if (strncmp(name, "DROP", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_DROP;
-	else if (strncmp(name, "ACCEPT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_ACCEPT;
-	else if (strncmp(name, "logdrop", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_LOG_DROP;
-	else if (strncmp(name, "logaccept", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_LOG_ACCEPT;
-	else if (strncmp(name, "SNAT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_SNAT;
-	else if (strncmp(name, "DNAT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_DNAT;
-	else if (strncmp(name, "MASQUERADE", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_MASQ;
-	else if (strncmp(name, "autofw", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_APP;
-	else
-		return -1;
+	for (i = NETCONF_DROP; i < NETCONF_TARGET_MAX; i++) {
+		if (strncmp(name, netconf_target_name[i], IPT_FUNCTION_MAXNAMELEN) == 0)
+			return i;
+	}
+	return -ENOENT;
 }
 
 /*
  * get NAT chain name taking in account
  * wildcard DNAT (virtual servers)
  */
-static const char *
+const char *
 get_nat_chain_name(const netconf_fw_t *fw)
 {
 	return (fw->target == NETCONF_DNAT && 
 			fw->match.dst.ipaddr.s_addr == INADDR_ANY) ? 
-		"VSERVER" : ipt_nat_chain_name[fw->target];
+		"VSERVER" : netconf_nat_chain_name[fw->target];
 }
 
 /*

@@ -30,13 +30,14 @@
 	!((min) == 0 && (max) == 0xffff) \
 )
 
+static const char *filter_dir_name[] = { "IN", "FORWARD", "OUT" };
+
 static void
 print_fw(netconf_fw_t *fw)
 {
 	netconf_filter_t *filter;
 	netconf_nat_t *nat;
 	netconf_app_t *app;
-	const char *filter_dir_name[] = { "IN", "FORWARD", "OUT" };
 
 	/* Target name */
 	printf("%s", netconf_target_name[fw->target]);
@@ -214,9 +215,18 @@ main(int argc, char **argv)
 		if (netconf_fw_exists(fw))
 			print_fw(fw);
 		else {
-			printf("*BUG* rule for table '%s' target '%s' NOT found!\n",
+			const char *chain;
+
+			if (netconf_valid_filter(fw->target))
+				chain = filter_dir_name[((netconf_filter_t *)fw)->dir];
+			else if (netconf_valid_nat(fw->target))
+				chain = get_nat_chain_name(fw);
+			else
+				chain = "PREROUTING";
+			printf("*BUG* rule for table '%s', target '%s', chain '%s' NOT found!\n",
 				netconf_table_name[fw->target],
-				netconf_target_name[fw->target]);
+				netconf_target_name[fw->target],
+				chain);
 		}
 	}
 
