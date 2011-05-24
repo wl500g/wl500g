@@ -1,0 +1,103 @@
+diff -urBp miniupnpd.orig/miniupnpd.c miniupnpd/miniupnpd.c
+--- miniupnpd.orig/miniupnpd.c	2011-05-20 21:01:42.000000000 +0400
++++ miniupnpd/miniupnpd.c	2011-05-24 16:32:31.000000000 +0400
+@@ -25,7 +25,9 @@
+ #include <ctype.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
++#include <net/if.h>
+ #include <netinet/in.h>
++#include <sys/ioctl.h>
+ #include <arpa/inet.h>
+ #include <fcntl.h>
+ #include <sys/file.h>
+@@ -549,6 +551,38 @@ parselanaddr(struct lan_addr_s * lan_add
+ 	return 0;
+ }
+ 
++void gen_default_uuid()
++{
++	int fd;
++	unsigned char *mac;
++	struct ifreq ifr;
++
++	memset(&ifr, 0, sizeof(ifr));
++	strncpy(ifr.ifr_name, ext_if_name, IFNAMSIZ);
++
++	if ((fd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
++		goto fail;
++	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
++		close(fd);
++		goto fail;
++	}
++	close(fd);
++	mac = ifr.ifr_hwaddr.sa_data;
++	/* Fill it like an old upnp */
++	snprintf(uuidvalue+5, UUID_MAX_LEN - 5 + 1,
++		"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000",
++		mac[0], mac[1], mac[2], mac[3],
++		mac[4], mac[5],
++		mac[0], mac[1],
++		mac[2], mac[3],
++		mac[4], mac[5]);
++	return;
++
++fail:
++	strncpy(uuidvalue+5, "00000000-0000-0000-0000-000000000000",
++		UUID_MAX_LEN - 5 + 1);
++}
++
+ /* init phase :
+  * 1) read configuration file
+  * 2) read command line arguments
+@@ -664,7 +698,7 @@ init(int argc, char * * argv, struct run
+ 				break;
+ 			case UPNPUUID:
+ 				strncpy(uuidvalue+5, ary_options[i].value,
+-				        strlen(uuidvalue+5) + 1);
++				        UUID_MAX_LEN - 5 + 1);
+ 				break;
+ 			case UPNPSERIAL:
+ 				strncpy(serialnumber, ary_options[i].value, SERIALNUMBER_MAX_LEN);
+@@ -750,7 +784,7 @@ init(int argc, char * * argv, struct run
+ 			break;
+ 		case 'u':
+ 			if(i+1 < argc)
+-				strncpy(uuidvalue+5, argv[++i], strlen(uuidvalue+5) + 1);
++				strncpy(uuidvalue+5, argv[++i], UUID_MAX_LEN - 5 + 1);
+ 			else
+ 				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
+ 			break;
+@@ -902,6 +936,9 @@ init(int argc, char * * argv, struct run
+ 		goto print_usage;
+ 	}
+ 
++	if (strlen(uuidvalue) <= 5)
++		gen_default_uuid();
++
+ 	if(debug_flag)
+ 	{
+ 		pid = getpid();
+diff -urBp miniupnpd.orig/upnpglobalvars.c miniupnpd/upnpglobalvars.c
+--- miniupnpd.orig/upnpglobalvars.c	2011-05-24 04:00:00.000000000 +0400
++++ miniupnpd/upnpglobalvars.c	2011-05-20 16:31:39.000000000 +0400
+@@ -48,7 +48,7 @@ int runtime_flags = 0;
+ 
+ const char * pidfilename = "/var/run/miniupnpd.pid";
+ 
+-char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
++char uuidvalue[UUID_MAX_LEN] = "uuid:";
+ char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
+ 
+ char modelnumber[MODELNUMBER_MAX_LEN] = "1";
+diff -urBp miniupnpd.orig/upnpglobalvars.h miniupnpd/upnpglobalvars.h
+--- miniupnpd.orig/upnpglobalvars.h	2011-03-09 18:31:00.000000000 +0300
++++ miniupnpd/upnpglobalvars.h	2011-05-20 16:31:34.000000000 +0400
+@@ -54,6 +54,7 @@ extern int runtime_flags;
+ 
+ extern const char * pidfilename;
+ 
++#define UUID_MAX_LEN (42)
+ extern char uuidvalue[];
+ 
+ #define SERIALNUMBER_MAX_LEN (10)

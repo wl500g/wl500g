@@ -342,8 +342,6 @@ start_upnp(void)
 			"system_uptime=yes\n"
 			"notify_interval=60\n"
 			"clean_ruleset_interval=600\n"
-		/*TODO: generate UUID
-			"uuid=fc4ec57e-b051-11db-88f8-0060085db3f6\n" */
 			"model_number=%s\n"
 			"allow 1024-65535 %s 1024-65535\n"
 			"deny 0-65535 0.0.0.0/0 0-65535\n",
