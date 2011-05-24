@@ -1,6 +1,6 @@
 diff -urNBp busybox.orig/examples/udhcp/dhcp6c.conf busybox/examples/udhcp/dhcp6c.conf
 --- busybox.orig/examples/udhcp/dhcp6c.conf	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/examples/udhcp/dhcp6c.conf	2011-05-22 11:24:25.000000000 +0400
++++ busybox/examples/udhcp/dhcp6c.conf	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,230 @@
 +# Sample dhcp6c configuration file (/etc/dhcp6c.conf)
 +# Values shown are defaults
@@ -246,7 +246,7 @@ diff -urNBp busybox.orig/include/applets.src.h busybox/include/applets.src.h
  IF_DIRNAME(APPLET_NOFORK(dirname, dirname, _BB_DIR_USR_BIN, _BB_SUID_DROP, dirname))
 diff -urNBp busybox.orig/networking/udhcp/auth6.c busybox/networking/udhcp/auth6.c
 --- busybox.orig/networking/udhcp/auth6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/auth6.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/auth6.c	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,265 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -515,7 +515,7 @@ diff -urNBp busybox.orig/networking/udhcp/auth6.c busybox/networking/udhcp/auth6
 +
 diff -urNBp busybox.orig/networking/udhcp/auth6.h busybox/networking/udhcp/auth6.h
 --- busybox.orig/networking/udhcp/auth6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/auth6.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/auth6.h	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,51 @@
 +/*
 + * Copyright (C) 2004 WIDE Project.
@@ -570,7 +570,7 @@ diff -urNBp busybox.orig/networking/udhcp/auth6.h busybox/networking/udhcp/auth6
 +int dhcp6_auth_replaycheck(int, uint64_t, uint64_t);
 diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/common6.c
 --- busybox.orig/networking/udhcp/common6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/common6.c	2011-05-24 20:23:05.000000000 +0400
 @@ -0,0 +1,2338 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -1913,7 +1913,7 @@ diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/com
 +			/* copy and convert option values */
 +			memcpy(&opt_iapd_prefix, p, sizeof(opt_iapd_prefix));
 +			if (opt_iapd_prefix.dh6_iapd_prefix_prefix_len > 128) {
-+				bb_info_msg("invalid prefix length (%d)",
++				bb_info_msg("invalid prefix length: %d",
 +				    opt_iapd_prefix.dh6_iapd_prefix_prefix_len);
 +				goto malformed;
 +			}
@@ -1934,8 +1934,8 @@ diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/com
 +
 +			if (dhcp6_find_listval(list, DHCP6_LISTVAL_PREFIX6,
 +			    &iapd_prefix, 0)) {
-+				bb_info_msg("duplicated IA_PD prefix %s/%d",
-+				    a, iapd_prefix.plen );
++				bb_info_msg("duplicated %s %s/%d",
++				    dhcp6optstr(opt), a, iapd_prefix.plen );
 +				goto nextoption;
 +			}
 +
@@ -2873,7 +2873,7 @@ diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/com
 +}
 +#undef duidbuf
 +
-+const char *iastr(dh6copts_t type)
++const char *iastr(dh6cnfopts_t type)
 +{
 +	switch (type) {
 +	case DHCPOPT_IA_PD:
@@ -2912,7 +2912,7 @@ diff -urNBp busybox.orig/networking/udhcp/common6.c busybox/networking/udhcp/com
 +#endif
 diff -urNBp busybox.orig/networking/udhcp/common6.h busybox/networking/udhcp/common6.h
 --- busybox.orig/networking/udhcp/common6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/common6.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/common6.h	2011-05-24 20:23:10.000000000 +0400
 @@ -0,0 +1,183 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -3057,7 +3057,7 @@ diff -urNBp busybox.orig/networking/udhcp/common6.h busybox/networking/udhcp/com
 +const char *dhcp6msgstr(int);
 +const char *dhcp6_stcodestr(uint16_t);
 +char *duidstr(struct duid *);
-+const char *iastr(dh6copts_t);
++const char *iastr(dh6cnfopts_t);
 +const char *dhcp6_event_statestr(struct dhcp6_event *);
 +int get_rdvalue(int, void *, size_t);
 +int duidcpy(struct duid *, struct duid *);
@@ -3111,8 +3111,8 @@ diff -urNBp busybox.orig/networking/udhcp/common.h busybox/networking/udhcp/comm
  #endif
 diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/config6.c
 --- busybox.orig/networking/udhcp/config6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.c	2011-05-22 11:47:43.000000000 +0400
-@@ -0,0 +1,1581 @@
++++ busybox/networking/udhcp/config6.c	2011-05-24 20:23:18.000000000 +0400
+@@ -0,0 +1,1515 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
 + * All rights reserved.
@@ -3166,8 +3166,6 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +#include "auth6.h"
 +
 +
-+enum { DHCPOPTCODE_SEND, DHCPOPTCODE_REQUEST, DHCPOPTCODE_ALLOW };
-+
 +static int add_pd_pif(struct iapd_conf *, struct cf_list *);
 +static int add_options(int, struct dhcp6_if *, struct cf_list *);
 +static int add_prefix(struct dhcp6_list *, const char *, int,
@@ -3179,7 +3177,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +static int get_default_ifid(struct prefix_ifconf *);
 +
 +static int configure_interface(struct cf_namelist *);
-+static int configure_ia(struct cf_namelist *, dh6copts_t);
++static int configure_ia(struct cf_namelist *, dh6cnfopts_t);
 +#if ENABLE_FEATURE_DHCP6_AUTH
 +static int configure_keys(struct cf_namelist *);
 +static int configure_authinfo(struct cf_namelist *);
@@ -3210,20 +3208,11 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +		for (cfl = cnl->params; cfl; cfl = cfl->next) {
 +			switch (cfl->type) {
 +			case DECL_REQUEST:
-+				if (add_options(DHCPOPTCODE_REQUEST,
-+						ifp, cfl->list)) {
-+					goto bad;
-+				}
-+				break;
 +			case DECL_SEND:
-+				if (add_options(DHCPOPTCODE_SEND,
-+						ifp, cfl->list)) {
-+					goto bad;
-+				}
-+				break;
++#if 0 /*ENABLE_DHCP6S*/
 +			case DECL_ALLOW:
-+				if (add_options(DHCPOPTCODE_ALLOW,
-+						ifp, cfl->list)) {
++#endif
++				if (add_options(cfl->type, ifp, cfl->list)) {
 +					goto bad;
 +				}
 +				break;
@@ -3260,7 +3249,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +	return (-1);
 +}
 +
-+static int configure_ia(struct cf_namelist *ialist, dh6copts_t iatype)
++static int configure_ia(struct cf_namelist *ialist, dh6cnfopts_t iatype)
 +{
 +	struct cf_namelist *iap;
 +	struct ia_conf *iac = NULL;
@@ -3316,7 +3305,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +					break;
 +				case IACONF_PREFIX:
 +					if (add_prefix(&pdp->iapd_prefix_list,
-+					    "IAPD", DHCP6_LISTVAL_PREFIX6,
++					    "IA_PD", DHCP6_LISTVAL_PREFIX6,
 +					    cfl->ptr)) {
 +						bb_error_msg("failed "
 +							"to configure prefix");
@@ -3333,7 +3322,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +				switch (cfl->type) {
 +				case IACONF_ADDR:
 +					if (add_prefix(&nap->iana_address_list,
-+					    "IANA", DHCP6_LISTVAL_STATEFULADDR6,
++					    "IA_NA", DHCP6_LISTVAL_STATEFULADDR6,
 +					    cfl->ptr)) {
 +						bb_error_msg("failed "
 +							"to configure address");
@@ -3797,11 +3786,9 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +	}
 +}
 +
-+static int add_options(int opcode, struct dhcp6_if *ifp,
-+			struct cf_list *cfl0)
++static int add_options(int opcode, struct dhcp6_if *ifp, struct cf_list *cfl0)
 +{
 +	struct cf_list *cfl;
-+	int opttype;
 +	struct ia_conf *iac;
 +#if ENABLE_FEATURE_DHCP6_AUTH
 +	struct authinfo *ainfo;
@@ -3811,27 +3798,22 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +		switch (cfl->type) {
 +		case DHCPOPT_RAPID_COMMIT:
 +			switch (opcode) {
-+			case DHCPOPTCODE_SEND:
++			case DECL_SEND:
 +				ifp->send_flags |= DHCIFF_RAPID_COMMIT;
 +				break;
-+			case DHCPOPTCODE_ALLOW:
++#if 0 /*ENABLE_DHCP6S*/
++			case DECL_ALLOW:
 +				ifp->allow_flags |= DHCIFF_RAPID_COMMIT;
 +				break;
++#endif
 +			default:
-+				bb_error_msg("invalid operation (%d) "
-+				    "for option type (%d)",
-+				    opcode, cfl->type);
-+				return (-1);
++				goto inv_op;
 +			}
 +			break;
 +#if ENABLE_FEATURE_DHCP6_AUTH
 +		case DHCPOPT_AUTHINFO:
-+			if (opcode != DHCPOPTCODE_SEND) {
-+				bb_error_msg("invalid operation (%d) "
-+				    "for option type (%d)",
-+				    opcode, cfl->type);
-+				return (-1);
-+			}
++			if (opcode != DECL_SEND)
++				goto inv_op;
 +			ainfo = find_authinfo(client6_config.auth_list, cfl->ptr);
 +			if (ainfo == NULL) {
 +				bb_error_msg("%s:%d auth info (%s) is not defined",
@@ -3851,27 +3833,20 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +#endif /* ENABLE_FEATURE_DHCP6_AUTH */
 +		case DHCPOPT_IA_PD:
 +		case DHCPOPT_IA_NA:
-+			switch (opcode) {
-+			case DHCPOPTCODE_SEND:
-+				iac = find_iaconf(&client6_config.ia_allconflist, cfl->type,
++			if (opcode != DECL_SEND)
++				goto inv_op;
++			iac = find_iaconf(&client6_config.ia_allconflist, cfl->type,
 +				    (uint32_t)cfl->num);
-+				if (iac == NULL) {
-+					bb_error_msg("%s:%d "
-+					    "IA_%s (%llu) is not defined",
-+					    client6_config.conffile, cfl->line,
-+					    iastr(cfl->type), cfl->num);
++			if (iac == NULL) {
++				bb_error_msg("%s:%d IA_%s (%llu) is not defined",
++					client6_config.conffile, cfl->line,
++					iastr(cfl->type), cfl->num);
 +					return (-1);
-+				}
-+
-+				TAILQ_REMOVE(&client6_config.ia_allconflist, iac, link);
-+				TAILQ_INSERT_TAIL(&ifp->iaconf_list, iac, link);
-+
-+				break;
-+			default:
-+				bb_error_msg("invalid operation (%d) "
-+				    "for option type (%d)", opcode, cfl->type);
-+				break;
 +			}
++
++			TAILQ_REMOVE(&client6_config.ia_allconflist, iac, link);
++			TAILQ_INSERT_TAIL(&ifp->iaconf_list, iac, link);
++
 +			break;
 +		case DHCPOPT_SIP:
 +		case DHCPOPT_SIPNAME:
@@ -3885,71 +3860,24 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +		case DHCPOPT_BCMCS:
 +		case DHCPOPT_BCMCSNAME:
 +		case DHCPOPT_REFRESHTIME:
-+			switch (cfl->type) {
-+			case DHCPOPT_SIP:
-+				opttype = DH6OPT_SIP_SERVER_A;
-+				break;
-+			case DHCPOPT_SIPNAME:
-+				opttype = DH6OPT_SIP_SERVER_D;
-+				break;
-+			case DHCPOPT_DNS:
-+				opttype = DH6OPT_DNS;
-+				break;
-+			case DHCPOPT_DNSNAME:
-+				opttype = DH6OPT_DNSNAME;
-+				break;
-+			case DHCPOPT_NTP:
-+				opttype = DH6OPT_NTP;
-+				break;
-+			case DHCPOPT_NIS:
-+				opttype = DH6OPT_NIS_SERVERS;
-+				break;
-+			case DHCPOPT_NISNAME:
-+				opttype = DH6OPT_NIS_DOMAIN_NAME;
-+				break;
-+			case DHCPOPT_NISP:
-+				opttype = DH6OPT_NISP_SERVERS;
-+				break;
-+			case DHCPOPT_NISPNAME:
-+				opttype = DH6OPT_NISP_DOMAIN_NAME;
-+				break;
-+			case DHCPOPT_BCMCS:
-+				opttype = DH6OPT_BCMCS_SERVER_A;
-+				break;
-+			case DHCPOPT_BCMCSNAME:
-+				opttype = DH6OPT_BCMCS_SERVER_D;
-+				break;
-+			case DHCPOPT_REFRESHTIME:
-+				opttype = DH6OPT_REFRESHTIME;
-+				break;
++			if (opcode != DECL_REQUEST)
++				goto inv_op;
++			if (dhcp6_find_listval(&ifp->reqopt_list,
++					DHCP6_LISTVAL_NUM, &cfl->type, 0) != NULL) {
++				bb_info_msg("duplicate request option (%s)",
++				    dhcp6optstr(cfl->type));
++				goto next; /* ignore it */
 +			}
-+			switch (opcode) {
-+			case DHCPOPTCODE_REQUEST:
-+				if (dhcp6_find_listval(&ifp->reqopt_list,
-+					DHCP6_LISTVAL_NUM, &opttype, 0)
-+				    != NULL) {
-+					bb_info_msg(
-+					    "duplicated requested option: %s",
-+					    dhcp6optstr(opttype));
-+					goto next; /* ignore it */
-+				}
-+				if (dhcp6_add_listval(&ifp->reqopt_list,
-+				    DHCP6_LISTVAL_NUM, &opttype, NULL)
-+				    == NULL) {
-+					bb_error_msg("failed to "
-+					    "configure an option");
-+					return (-1);
-+				}
-+				break;
-+			default:
-+				bb_error_msg("invalid operation (%d) "
-+				    "for option type (%d)", opcode, cfl->type);
-+				break;
++			if (dhcp6_add_listval(&ifp->reqopt_list,
++					DHCP6_LISTVAL_NUM, &cfl->type, NULL) == NULL) {
++				bb_error_msg("failed to configure an option");
++				return (-1);
 +			}
 +			break;
 +		default:
-+			bb_error_msg("%s:%d unsupported option type: %d",
-+			    client6_config.conffile, cfl->line, cfl->type);
++			bb_error_msg("%s:%d unsupported option (%s)",
++				client6_config.conffile, cfl->line,
++				dhcp6optstr(cfl->type));
 +			return (-1);
 +		}
 +
@@ -3958,6 +3886,12 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +	}
 +
 +	return (0);
++
++inv_op:
++	bb_error_msg("%s:%d invalid operation (%d) for option (%s)",
++		    client6_config.conffile, cfl->line,
++		    opcode, dhcp6optstr(cfl->type));
++	return (-1);
 +}
 +
 +static int add_prefix(struct dhcp6_list *head, const char *name, int type,
@@ -3970,7 +3904,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +
 +	/* additional validation of parameters */
 +	if (oprefix.plen < 4 || oprefix.plen > 128) {
-+		bb_error_msg("invalid prefix: %d", oprefix.plen);
++		bb_error_msg("invalid prefix length: %d", oprefix.plen);
 +		return (-1);
 +	}
 +	/* clear trailing bits */
@@ -4680,7 +4614,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +	if (configure_interface(client6_config.iflist_head))
 +		goto cf_fail;
 +
-+	/* clear unused IA configuration */
++	/* unused IA configurations */
 +	if (!TAILQ_EMPTY(&client6_config.ia_allconflist)) {
 +		bb_info_msg("some IA defined but not used!");
 +	}
@@ -4696,8 +4630,8 @@ diff -urNBp busybox.orig/networking/udhcp/config6.c busybox/networking/udhcp/con
 +}
 diff -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/config6.h
 --- busybox.orig/networking/udhcp/config6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/config6.h	2011-05-22 11:24:25.000000000 +0400
-@@ -0,0 +1,310 @@
++++ busybox/networking/udhcp/config6.h	2011-05-24 20:23:23.000000000 +0400
+@@ -0,0 +1,319 @@
 +/*
 + * Copyright (C) 2002 WIDE Project.
 + * All rights reserved.
@@ -4730,24 +4664,33 @@ diff -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/con
 +#include "timer.h"
 +
 +typedef enum {
-+       DECL_SEND, DECL_ALLOW, DECL_INFO_ONLY, DECL_REQUEST, DECL_DUID,
-+       DECL_PREFIX, DECL_PREFERENCE, DECL_SCRIPT, DECL_DELAYEDKEY,
-+       DECL_ADDRESS,
-+       DECL_RANGE, DECL_ADDRESSPOOL,
-+       IFPARAM_SLA_ID, IFPARAM_SLA_LEN,
-+       DHCPOPT_RAPID_COMMIT, DHCPOPT_AUTHINFO,
-+       DHCPOPT_DNS, DHCPOPT_DNSNAME,
-+       DHCPOPT_IA_PD, DHCPOPT_IA_NA, DHCPOPT_NTP,
-+       DHCPOPT_REFRESHTIME,
-+       DHCPOPT_NIS, DHCPOPT_NISNAME, 
-+       DHCPOPT_NISP, DHCPOPT_NISPNAME, 
-+       DHCPOPT_BCMCS, DHCPOPT_BCMCSNAME, 
-+       CFLISTENT_GENERIC,
-+       IACONF_PIF, IACONF_PREFIX, IACONF_ADDR,
-+       DHCPOPT_SIP, DHCPOPT_SIPNAME,
-+       AUTHPARAM_PROTO, AUTHPARAM_ALG, AUTHPARAM_RDM, AUTHPARAM_KEY,
-+       KEYPARAM_REALM, KEYPARAM_KEYID, KEYPARAM_SECRET, KEYPARAM_EXPIRE
-+} dh6copts_t;
++	DHCPOPT_IA_NA		= DH6OPT_IA_NA,
++	DHCPOPT_AUTHINFO	= DH6OPT_AUTH,
++	DHCPOPT_RAPID_COMMIT	= DH6OPT_RAPID_COMMIT,
++	DHCPOPT_SIPNAME		= DH6OPT_SIP_SERVER_D,
++	DHCPOPT_SIP		= DH6OPT_SIP_SERVER_A,
++	DHCPOPT_DNS		= DH6OPT_DNS,
++	DHCPOPT_DNSNAME		= DH6OPT_DNSNAME,
++	DHCPOPT_IA_PD		= DH6OPT_IA_PD,
++	DHCPOPT_NIS		= DH6OPT_NIS_SERVERS,
++	DHCPOPT_NISP		= DH6OPT_NISP_SERVERS,
++	DHCPOPT_NISNAME		= DH6OPT_NIS_DOMAIN_NAME,
++	DHCPOPT_NISPNAME	= DH6OPT_NISP_DOMAIN_NAME,
++	DHCPOPT_NTP		= DH6OPT_NTP,
++	DHCPOPT_REFRESHTIME	= DH6OPT_REFRESHTIME,
++	DHCPOPT_BCMCSNAME	= DH6OPT_BCMCS_SERVER_D,
++	DHCPOPT_BCMCS		= DH6OPT_BCMCS_SERVER_A,
++
++	DECL_SEND = 100, DECL_REQUEST, DECL_SCRIPT, DECL_INFO_ONLY,
++/* server only start */
++	DECL_ALLOW, DECL_DUID, DECL_PREFIX, DECL_PREFERENCE,
++	DECL_DELAYEDKEY, DECL_ADDRESS, DECL_RANGE, DECL_ADDRESSPOOL,
++/* server only  end */
++	IACONF_PIF, IACONF_PREFIX, IACONF_ADDR,
++	IFPARAM_SLA_ID, IFPARAM_SLA_LEN,
++	AUTHPARAM_PROTO, AUTHPARAM_ALG, AUTHPARAM_RDM, AUTHPARAM_KEY,
++	KEYPARAM_REALM, KEYPARAM_KEYID, KEYPARAM_SECRET, KEYPARAM_EXPIRE
++} dh6cnfopts_t;
 +
 +/* definitions of tail-queue types */
 +TAILQ_HEAD(ia_conflist, ia_conf);
@@ -4857,7 +4800,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/con
 +	TAILQ_ENTRY(dhcp6_eventdata) link;
 +
 +	struct dhcp6_event *event;
-+	dh6copts_t type;
++	dh6cnfopts_t type;
 +	void *data;
 +};
 +
@@ -4895,7 +4838,7 @@ diff -urNBp busybox.orig/networking/udhcp/config6.h busybox/networking/udhcp/con
 +struct ia_conf {
 +	TAILQ_ENTRY(ia_conf) link;
 +	/*struct ia_conf *next;*/
-+	dh6copts_t type;
++	dh6cnfopts_t type;
 +	uint32_t iaid;
 +
 +	TAILQ_HEAD(, ia) iadata; /* struct ia is an opaque type */
@@ -5050,7 +4993,7 @@ diff -urNBp busybox.orig/networking/udhcp/Config.src busybox/networking/udhcp/Co
 +	  and forwards these requests to a different interface.
 diff -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp6c.c
 --- busybox.orig/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6c.c	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,1484 @@
 +/*
 + * DHCPv6 client
@@ -5540,7 +5483,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp
 +
 +			if (construct_reqdata(ifp,
 +			    &ev->current_server->optinfo, ev)) {
-+				bb_info_msg("failed to construct request data");
++				bb_info_msg("failed to construct request");
 +				break;
 +			}
 +		}
@@ -6159,7 +6102,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp
 +		if (duidcpy(&ev->serverid, &ev->current_server->optinfo.serverID))
 +			return (-1); /* XXX: better recovery? */
 +		if (construct_reqdata(ifp, &ev->current_server->optinfo, ev)) {
-+			bb_info_msg("failed to construct request data");
++			bb_info_msg("failed to construct request");
 +			return (-1); /* XXX */
 +		}
 +
@@ -6538,7 +6481,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c.c busybox/networking/udhcp/dhcp
 +
 diff -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networking/udhcp/dhcp6c.h
 --- busybox.orig/networking/udhcp/dhcp6c.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6c.h	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,43 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -6585,7 +6528,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c.h busybox/networking/udhcp/dhcp
 +int dhcp6_script(const char *scriptpath, char **envp);
 diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/dhcp6c_ia.c
 --- busybox.orig/networking/udhcp/dhcp6c_ia.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_ia.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6c_ia.c	2011-05-24 20:23:28.000000000 +0400
 @@ -0,0 +1,896 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -6666,9 +6609,9 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +static int prepare_iaevent(struct ia *, int);
 +static int reestablish_ia(struct ia *);
 +static void remove_ia(struct ia *);
-+static struct ia *get_ia(dh6copts_t, struct dhcp6_if *, struct ia_conf *,
++static struct ia *get_ia(dh6cnfopts_t, struct dhcp6_if *, struct ia_conf *,
 +    struct dhcp6_listval *, struct duid *);
-+static struct ia *find_ia(struct ia_conf *, dh6copts_t, uint32_t);
++static struct ia *find_ia(struct ia_conf *, dh6cnfopts_t, uint32_t);
 +static struct dhcp6_timer *ia_timo(void *);
 +
 +#if ENABLE_FEATURE_DHCP6_AUTH
@@ -6678,11 +6621,11 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +static const char *iastatestr(iastate_t);
 +#endif
 +
-+static int update_prefix6(dh6copts_t, struct ia *, struct dhcp6_listval *,
++static int update_prefix6(dh6cnfopts_t, struct ia *, struct dhcp6_listval *,
 +        struct pifc_list *, struct dhcp6_if *, struct iactl **);
 +static struct iaprefix *find_iaprefix(struct iaprefix_list *,
 +    struct dhcp6_prefix *, int);
-+static int remove_iaprefix(struct iaprefix *, dh6copts_t);
++static int remove_iaprefix(struct iaprefix *, dh6cnfopts_t);
 +
 +static int iapref_renew(struct iactl *, struct dhcp6_ia *,
 +        struct dhcp6_eventdata *);
@@ -6697,7 +6640,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +static int na_ifaddrconf(ifaddrconf_cmd_t, struct iaprefix *);
 +
 +
-+void update_ia(dh6copts_t iatype, struct dhcp6_list *ialist, struct dhcp6_if *ifp,
++void update_ia(dh6cnfopts_t iatype, struct dhcp6_list *ialist, struct dhcp6_if *ifp,
 +	  struct duid *serverid,
 +	  struct authparam *authparam DHCP6_AUTH_ATTR((unused)))
 +{
@@ -6947,7 +6890,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +	    iastr(ia->conf->type), ia->conf->iaid);
 +
 +	if (ia->state != IAS_RENEW && ia->state != IAS_REBIND) {
-+		bb_error_msg_and_die("internal error (invalid IA status)");
++		bb_error_msg_and_die("invalid IA status");
 +	}
 +
 +	/* we don't need a timer for the IA (see comments in ia_timo()) */
@@ -7045,7 +6988,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +		return (NULL);
 +}
 +
-+static struct ia *get_ia(dh6copts_t type, struct dhcp6_if *ifp,
++static struct ia *get_ia(dh6cnfopts_t type, struct dhcp6_if *ifp,
 +	struct ia_conf *iac, struct dhcp6_listval *iaparam,
 +	struct duid *serverid)
 +{
@@ -7078,7 +7021,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +	return (ia);
 +}
 +
-+static struct ia *find_ia(struct ia_conf *iac, dh6copts_t type, uint32_t iaid)
++static struct ia *find_ia(struct ia_conf *iac, dh6cnfopts_t type, uint32_t iaid)
 +{
 +	struct ia *ia;
 +
@@ -7123,7 +7066,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +#endif
 +
 +
-+static int update_prefix6(dh6copts_t type, struct ia *ia, struct dhcp6_listval *lv,
++static int update_prefix6(dh6cnfopts_t type, struct ia *ia, struct dhcp6_listval *lv,
 +		struct pifc_list *pifc,	struct dhcp6_if * dhcpifp,
 +		struct iactl **ctlp)
 +{
@@ -7265,7 +7208,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +	return (NULL);
 +}
 +
-+static int remove_iaprefix(struct iaprefix *sp, dh6copts_t type)
++static int remove_iaprefix(struct iaprefix *sp, dh6cnfopts_t type)
 +{
 +	int ret = 0;
 +#if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 1
@@ -7421,12 +7364,12 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +	 * XXX: our current implementation assumes ifid len is a multiple of 8
 +	 */
 +	if ((pconf->ifid_len % 8) != 0) {
-+		bb_error_msg("assumption failure on the length of interface ID");
++		bb_error_msg("length of interface ID must be multiple of 8");
 +		goto bad;
 +	}
 +	if (ifpfx->plen + pconf->ifid_len < 0 ||
 +	    ifpfx->plen + pconf->ifid_len > 128) {
-+		bb_info_msg("invalid prefix length %d + %d + %d",
++		bb_info_msg("invalid prefix length: %d + %d + %d",
 +			prefix->plen, pconf->sla_len, pconf->ifid_len);
 +		goto bad;
 +	}
@@ -7485,7 +7428,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.c busybox/networking/udhcp/d
 +}
 diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/networking/udhcp/dhcp6c_ia.h
 --- busybox.orig/networking/udhcp/dhcp6c_ia.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_ia.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6c_ia.h	2011-05-24 20:23:35.000000000 +0400
 @@ -0,0 +1,73 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -7551,18 +7494,18 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_ia.h busybox/networking/udhcp/d
 +struct iactl {
 +	struct ia *iactl_ia;	/* back pointer to IA */
 +
-+	dh6copts_t type;
++	dh6cnfopts_t type;
 +
 +        struct pifc_list *pifc_head;
 +        struct iaprefix_list iaprefix_head;
 +};
 +
-+void update_ia(dh6copts_t, struct dhcp6_list *,
++void update_ia(dh6cnfopts_t, struct dhcp6_list *,
 +	struct dhcp6_if *, struct duid *, struct authparam *);
 +void release_all_ia(struct dhcp6_if *);
 diff -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox/networking/udhcp/dhcp6c_script.c
 --- busybox.orig/networking/udhcp/dhcp6c_script.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6c_script.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6c_script.c	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,306 @@
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -7872,7 +7815,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6c_script.c busybox/networking/udh
 +}
 diff -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/networking/udhcp/dhcp6.h
 --- busybox.orig/networking/udhcp/dhcp6.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6.h	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,393 @@
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -8269,7 +8212,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6.h busybox/networking/udhcp/dhcp6
 +#endif /*__DHCP6_H_DEFINED*/
 diff -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/dhcp6relay.c
 --- busybox.orig/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/dhcp6relay.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/dhcp6relay.c	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,867 @@
 +/*
 + * DHCPv6 relay
@@ -8898,7 +8841,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/
 +	    (struct dhcp6opt *)(dh6relay + 1),
 +	    (struct dhcp6opt *)(G.relaybuf + sizeof(G.relaybuf)),
 +	    &optinfo)) < 0) {
-+		bb_error_msg("failed to construct relay options");
++		bb_error_msg("failed to construct options");
 +		goto out;
 +	}
 +	relaylen += optlen;
@@ -9140,7 +9083,7 @@ diff -urNBp busybox.orig/networking/udhcp/dhcp6relay.c busybox/networking/udhcp/
 +}
 diff -urNBp busybox.orig/networking/udhcp/if6.c busybox/networking/udhcp/if6.c
 --- busybox.orig/networking/udhcp/if6.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/if6.c	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/if6.c	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,474 @@
 +/*	$KAME: if.c,v 1.6 2005/09/16 11:30:15 suz Exp $	*/
 +
@@ -9634,8 +9577,8 @@ diff -urNBp busybox.orig/networking/udhcp/Kbuild.src busybox/networking/udhcp/Kb
  lib-$(CONFIG_FEATURE_UDHCP_RFC3397) += domain_codec.o
 diff -urNBp busybox.orig/networking/udhcp/timer.c busybox/networking/udhcp/timer.c
 --- busybox.orig/networking/udhcp/timer.c	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/timer.c	2011-05-22 11:24:25.000000000 +0400
-@@ -0,0 +1,146 @@
++++ busybox/networking/udhcp/timer.c	2011-05-24 19:32:14.000000000 +0400
+@@ -0,0 +1,145 @@
 +/*	$KAME: timer.c,v 1.6 2003/07/31 23:25:59 jinmei Exp $	*/
 +
 +/*
@@ -9684,7 +9627,6 @@ diff -urNBp busybox.orig/networking/udhcp/timer.c busybox/networking/udhcp/timer
 +#include "common.h"
 +#include "dhcp6.h"
 +#include "config6.h"
-+#include "common6.h"
 +#include "timer.h"
 +
 +#define MILLION 1000000
@@ -9784,7 +9726,7 @@ diff -urNBp busybox.orig/networking/udhcp/timer.c busybox/networking/udhcp/timer
 +}
 diff -urNBp busybox.orig/networking/udhcp/timer.h busybox/networking/udhcp/timer.h
 --- busybox.orig/networking/udhcp/timer.h	1970-01-01 03:00:00.000000000 +0300
-+++ busybox/networking/udhcp/timer.h	2011-05-22 11:24:25.000000000 +0400
++++ busybox/networking/udhcp/timer.h	2011-05-24 19:32:14.000000000 +0400
 @@ -0,0 +1,50 @@
 +/*	$KAME: timer.h,v 1.1 2002/05/16 06:04:08 jinmei Exp $	*/
 +
