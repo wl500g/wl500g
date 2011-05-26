@@ -564,7 +564,7 @@ $(LINUXDIR)/.config: .config
 
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
-rc: netconf shared nvram $(EXTRA_LIBS)
+rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
 	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
