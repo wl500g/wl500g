@@ -10,7 +10,7 @@ diff -urBp miniupnpd-1.5.20110309/Makefile.linux miniupnpd/Makefile.linux
  CC ?= gcc
  RM = rm -f
  INSTALL = install
-@@ -58,12 +58,8 @@ IPTABLESVERSION3 := $(shell echo $(IPTAB
+@@ -58,11 +58,6 @@ IPTABLESVERSION3 := $(shell echo $(IPTAB
  TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
  ifeq ($(TEST), 1)
  CFLAGS := $(CFLAGS) -DIPTABLES_143
@@ -20,7 +20,14 @@ diff -urBp miniupnpd-1.5.20110309/Makefile.linux miniupnpd/Makefile.linux
 -else
 -LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
  endif
-+LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
  else
  # check for system-wide iptables files. Test if iptables version >= 1.4.3
- TEST := $(shell test -f /usr/include/iptables/internal.h && grep -q "\#define IPTABLES_VERSION" /usr/include/iptables/internal.h && echo 1)
+@@ -110,7 +109,7 @@
+ 	sed -i -e "s/^uuid=[-0-9a-f]*/uuid=`($(STAGING_DIR_HOST)/bin/genuuid||$(STAGING_DIR_HOST)/bin/uuidgen) 2>/dev/null`/" miniupnpd.conf
+ endif
+ 
+-miniupnpd:	$(BASEOBJS) $(LNXOBJS) $(NETFILTEROBJS) $(LIBS)
++miniupnpd:	$(BASEOBJS) $(LNXOBJS) $(NETFILTEROBJS)
+ 
+ testupnpdescgen:	$(TESTUPNPDESCGENOBJS)
+ 
