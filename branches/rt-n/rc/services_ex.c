@@ -44,8 +44,6 @@
 #endif
 
 
-static const char *UVCLIST[] = {"41e","458","45e","46d","471","4f2","64e","ac8","c45","174f", NULL};
-
 enum WEB_TYPE
 {
 	WEB_NONE = 0,
@@ -1737,6 +1735,8 @@ int hotplug_usb_mass(char *product)
 /* usb-storage, sd_mod, scsi_mod, videodev are there if functions are enabled */
 /* pwc, ov511 i2c, depends on current status */
 
+static const char *UVCLIST[] = {"46d/8c1/", "46d/8c2/", "46d/8c3/", "46d/8c5/", "46d/8c6/", "46d/8c7/", NULL};
+
 int
 hotplug_usb(void)
 {
@@ -1746,8 +1746,8 @@ hotplug_usb(void)
 
 	if ( !(device=getenv("DEVICE")) ) device="";
 #ifdef DEBUG
-	dprintf("%s-%s-%s. Dev:%s\n",getenv("INTERFACE"),getenv("ACTION"),
-		product=getenv("PRODUCT"), device);
+	dprintf("%s-%s-%s. Dev:%s\n",getenv("ACTION"),getenv("INTERFACE"),
+		getenv("PRODUCT"), device);
 #endif
 	if ( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
@@ -1800,16 +1800,20 @@ hotplug_usb(void)
 		if (strncmp(interface, "9/", 2)==0)
 			return 0;
 
-		i=0;
+		i = 0;
 		isweb = WEB_NONE;
-		while (UVCLIST[i] != NULL)
-		{
-			if (strstr(product, UVCLIST[i]))
-			{
-				isweb = WEB_CAMERA;
-				goto usbhandler;
+		if (strcmp(interface, "14/1/0") == 0) { // Video
+			isweb = WEB_CAMERA;
+			goto usbhandler;
+		}
+		if (strcmp(interface, "255/1/0") == 0) { // Vendor specific
+			while (UVCLIST[i] != NULL) {
+				if (strncmp(product, UVCLIST[i], strlen(UVCLIST[i])) == 0) {
+					isweb = WEB_CAMERA;
+					goto usbhandler;
+				}
+				i++;
 			}
-			i++;
 		}
 	}
 	else return 0;
