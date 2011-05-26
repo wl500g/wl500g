@@ -277,6 +277,7 @@ start_upnp(void)
 #ifdef __CONFIG_MINIUPNPD__
 	FILE *fp;
 	char *lan_addr, *lan_mask, lan_class[32];
+	uint8_t lan_mac[16];
 	char *lan_url;
 #endif
 
@@ -309,6 +310,8 @@ start_upnp(void)
 		lan_addr = nvram_safe_get("lan_ipaddr");
 		lan_mask = nvram_safe_get("lan_netmask");
 		ip2class(lan_addr, lan_mask, lan_class);
+		memset(lan_mac, 0, sizeof(lan_mac));
+		ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
 
 		lan_url = lan_addr;
 		ret = atoi(nvram_safe_get("http_lanport"));
@@ -342,6 +345,7 @@ start_upnp(void)
 			"system_uptime=yes\n"
 			"notify_interval=60\n"
 			"clean_ruleset_interval=600\n"
+			"uuid=%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000\n"
 			"model_number=%s\n"
 			"allow 1024-65535 %s 1024-65535\n"
 			"deny 0-65535 0.0.0.0/0 0-65535\n",
@@ -350,6 +354,7 @@ start_upnp(void)
 			nvram_match("upnp_enable", "0") ? "no" : "yes",
 			nvram_match("natpmp_enable", "0") ? "no" : "yes",
 			lan_url,
+			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5], lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
 			nvram_safe_get("productid"),
 			lan_class);
 		fclose(fp);
