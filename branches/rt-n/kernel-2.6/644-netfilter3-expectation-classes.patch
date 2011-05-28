@@ -10,21 +10,6 @@ From: Patrick McHardy
 These changes to be used by upcoming SIP conntrack backports.
 
 ---
-From d2f2fc99eb1a469dd46c55f206c647a39f956c88
-From: Fedor <fedork@ubuntu.(none)>
-Date: Thu, 17 Jun 2010 00:50:44 -0400
-Subject: [PATCH] RTSP conntrack: this is still needed for 2.6.22
-
-2.6.23 kernel.org commit d4156e8cd93f5772483928aaf4960120caebd789
-removed masks from helpers, but 2.6.22 still has them.
-
-
-From 6688c9b89a0c5e21b3404466567aebec21ebc9e6
-From: Fedor <fedork@ubuntu.(none)>
-Date: Wed, 6 Oct 2010 00:25:23 -0400
-Subject: [PATCH] rtsp conntrack [K26]: silence some debug messages, other helpers don't log them
-
-
 From d4525462f66e2074616f1cedcc8390d1c90722cc
 From: Fedor <fedork@ubuntu.(none)>
 Date: Thu, 24 Feb 2011 00:51:38 -0500
@@ -898,43 +883,16 @@ diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rts
  unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
  				 enum ip_conntrack_info ctinfo,
  				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
-@@ -130,7 +132,7 @@ rtsp_parse_message(char* ptcp, uint tcpl
- 			break;
- 		}
- 		if (lineoff+linelen > tcplen) {
--			INFOP("!! overrun !!\n");
-+			DEBUGP("!! overrun !!\n");
- 			break;
- 		}
- 		
-@@ -178,7 +180,7 @@ rtsp_parse_transport(char* ptran, uint t
- 	
- 	if (tranlen < 10 || !iseol(ptran[tranlen-1]) ||
- 	    nf_strncasecmp(ptran, "Transport:", 10) != 0) {
--		INFOP("sanity check failed\n");
-+		DEBUGP("sanity check failed\n");
- 		return 0;
- 	}
- 	
-@@ -333,7 +335,7 @@ help_out(struct sk_buff *skb, unsigned
+@@ -336,7 +338,7 @@ help_out(struct sk_buff *skb, unsigned c
  
  		be_loport = htons(expinfo.loport);
  
 -		nf_conntrack_expect_init(exp, ct->tuplehash[!dir].tuple.src.l3num,
 +		nf_conntrack_expect_init(exp, NF_CT_EXPECT_CLASS_DEFAULT, ct->tuplehash[!dir].tuple.src.l3num,
- 			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3,
- 			IPPROTO_UDP, NULL, &be_loport); 
- 
-@@ -358,7 +360,7 @@ help_out(struct sk_buff *skb, unsigned
- 			/* pass the request off to the nat helper */
- 			ret = nf_nat_rtsp_hook(skb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
- 		else if (nf_conntrack_expect_related(exp) != 0) {
--			INFOP("nf_conntrack_expect_related failed\n");
-+			DEBUGP("nf_conntrack_expect_related failed\n");
- 			ret  = NF_DROP;
- 		}
- 		nf_conntrack_expect_put(exp);
-@@ -470,6 +472,9 @@ init(void)
+ 			/* media stream source can be different from the RTSP server address
+ 			&ct->tuplehash[!dir].tuple.src.u3, &ct->tuplehash[!dir].tuple.dst.u3, */
+ 			NULL, &ct->tuplehash[!dir].tuple.dst.u3,
+@@ -474,6 +476,9 @@ init(void)
  		return -EBUSY;
  	}
  
@@ -944,15 +902,12 @@ diff -urNBp a/net/netfilter/nf_conntrack_rtsp.c b/net/netfilter/nf_conntrack_rts
  	rtsp_buffer = kmalloc(65536, GFP_KERNEL);
  	if (!rtsp_buffer) 
  		return -ENOMEM;
-@@ -485,8 +490,10 @@ init(void)
- 		hlpr->tuple.src.l3num = AF_INET;
- 		hlpr->tuple.src.u.tcp.port = htons(ports[i]);
- 		hlpr->tuple.dst.protonum = IPPROTO_TCP;
+@@ -492,8 +497,7 @@ init(void)
+ 		hlpr->mask.src.l3num = 0xFFFF;
+ 		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
+ 		hlpr->mask.dst.protonum = 0xFF;
 -		hlpr->max_expected = max_outstanding;
 -		hlpr->timeout = setup_timeout;
-+		hlpr->mask.src.l3num = 0xFFFF;
-+		hlpr->mask.src.u.tcp.port = htons(0xFFFF);
-+		hlpr->mask.dst.protonum = 0xFF;
 +		hlpr->expect_policy = &rtsp_exp_policy;
  		hlpr->me = THIS_MODULE;
  		hlpr->help = help;
