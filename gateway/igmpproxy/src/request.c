@@ -194,7 +194,7 @@ void sendGroupSpecificMemberQuery(void *argument) {
 void sendGeneralMembershipQuery() {
     struct  Config  *conf = getCommonConfig();
     struct  IfDesc  *Dp;
-    int             Ix;
+    unsigned        Ix;
 
     // Loop through all downstream vifs...
     for ( Ix = 0; (Dp = getIfByIx(Ix)); Ix++ ) {
