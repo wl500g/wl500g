@@ -1,0 +1,55 @@
+From 21347456abfbf5bc7fcace7327476736bbb28abe
+From: Jarek Poplawski
+Date: Sat, 9 Feb 2008 23:44:00 -0800
+Subject: [PATCH] [NET_SCHED] sch_htb: htb_requeue fix
+
+htb_requeue() enqueues skbs for which htb_classify() returns NULL.
+This is wrong because such skbs could be handled by NET_CLS_ACT code,
+and the decision could be different than earlier in htb_enqueue().
+So htb_requeue() is changed to work and look more like htb_enqueue().
+
+Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/sched/sch_htb.c |   13 ++++++++++---
+ 1 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index e1a579e..795c761 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -609,14 +609,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ /* TODO: requeuing packet charges it to policers again !! */
+ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ {
++	int ret;
+ 	struct htb_sched *q = qdisc_priv(sch);
+-	int ret = NET_XMIT_SUCCESS;
+ 	struct htb_class *cl = htb_classify(skb, sch, &ret);
+ 	struct sk_buff *tskb;
+ 
+-	if (cl == HTB_DIRECT || !cl) {
++	if (cl == HTB_DIRECT) {
+ 		/* enqueue to helper queue */
+-		if (q->direct_queue.qlen < q->direct_qlen && cl) {
++		if (q->direct_queue.qlen < q->direct_qlen) {
+ 			__skb_queue_head(&q->direct_queue, skb);
+ 		} else {
+ 			__skb_queue_head(&q->direct_queue, skb);
+@@ -625,6 +625,13 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+ 			sch->qstats.drops++;
+ 			return NET_XMIT_CN;
+ 		}
++#ifdef CONFIG_NET_CLS_ACT
++	} else if (!cl) {
++		if (ret == NET_XMIT_BYPASS)
++			sch->qstats.drops++;
++		kfree_skb(skb);
++		return ret;
++#endif
+ 	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
+ 		   NET_XMIT_SUCCESS) {
+ 		sch->qstats.drops++;
+-- 
+1.7.5.2
