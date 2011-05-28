@@ -1,6 +1,6 @@
+Subject: Restrict igmp reports for downstream interfaces (wrt #2833339)
 From: Grinch <grinch79@users.sourceforge.net>
 Date: Sun, 16 Aug 2009 14:58:26 +0000 (+0500)
-Subject: Restrict igmp reports for downstream interfaces (wrt #2833339)
 X-Git-Url: http://igmpproxy.git.sourceforge.net/git/gitweb.cgi?p=igmpproxy%2Figmpproxy;a=commitdiff_plain;h=65f777e7f66b55239d935c1cf81bb5abc0f6c89f
 
 Restrict igmp reports for downstream interfaces (wrt #2833339)
@@ -14,11 +14,29 @@ As whitelisting can be accomplished quite easy I wrote a litte patch, which
 is attached to this request.
 ---
 
+Subject: [PATCH] Restrict igmp reports forwarding to upstream interface
+From bcd7c648e86d97263c931de53a008c9629e7797e
+From: Stefan Becker <stefan.becker@nokia.com>
+Date: Fri, 11 Dec 2009 21:08:57 +0200
+
+Utilize the new "whitelist" keyword also on the upstream interface definition.
+If specified then only whitelisted multicast groups will be forwarded upstream.
+
+This can be used to avoid publishing private multicast groups to the world,
+e.g. SSDP from a UPnP server on the internal network.
+
+---
+ doc/igmpproxy.conf.5.in |   24 ++++++++++++++++++++++++
+ src/config.c            |   23 ++++++++++++++++++++++-
+ src/igmpproxy.h         |    1 +
+ src/request.c           |   20 ++++++++++++++++----
+ src/rttable.c           |   17 +++++++++++++++++
+ 5 files changed, 80 insertions(+), 5 deletions(-)
+
 diff --git a/doc/igmpproxy.conf.5.in b/doc/igmpproxy.conf.5.in
-index a4ea7d0..56efa22 100644
 --- a/doc/igmpproxy.conf.5.in
 +++ b/doc/igmpproxy.conf.5.in
-@@ -116,6 +116,25 @@ This is especially useful for the upstream interface, since the source for multi
+@@ -116,6 +116,30 @@ This is especially useful for the upstream interface, since the source for multi
  traffic is often from a remote location. Any number of altnet parameters can be specified.
  .RE
  
@@ -40,6 +58,11 @@ index a4ea7d0..56efa22 100644
 +possible, as this list is parsed for every membership report and therefore this increases igmp
 +response times. Often used or large groups should be defined first, as parsing ends as soon as
 +a group matches an entry.
++
++You may also specify whitelist entries for the upstream interface. Only igmp membership reports
++for explicitely whitelisted multicast groups will be sent out on the upstream interface. This
++is useful if you want to use multicast groups only between your downstream interfaces, like SSDP
++from a UPnP server.
 +.RE
  
  .SH EXAMPLE
@@ -156,3 +179,32 @@ index e3589f6..89b91de 100644
      } else {
          // Log the state of the interface the report was recieved on.
          my_log(LOG_INFO, 0, "Mebership report was recieved on %s. Ignoring.",
+diff --git a/src/rttable.c b/src/rttable.c
+index f0701a8..77dd791 100644
+--- a/src/rttable.c
++++ b/src/rttable.c
+@@ -117,6 +117,23 @@ void sendJoinLeaveUpstream(struct RouteTable* route, int join) {
+         my_log(LOG_ERR, 0 ,"FATAL: Unable to get Upstream IF.");
+     }
+ 
++    // Check if there is a white list for the upstram VIF
++    if (upstrIf->allowedgroups != NULL) {
++      uint32_t           group = route->group;
++        struct SubnetList* sn;
++
++        // Check if this Request is legit to be forwarded to upstream
++        for(sn = upstrIf->allowedgroups; sn != NULL; sn = sn->next)
++            if((group & sn->subnet_mask) == sn->subnet_addr)
++                // Forward is OK...
++                break;
++
++        if (sn == NULL) {
++	    my_log(LOG_INFO, 0, "The group address %s may not be forwarded upstream. Ignoring.", inetFmt(group, s1));
++            return;
++        }
++    }
++
+     // Send join or leave request...
+     if(join) {
+ 
+-- 
