@@ -607,7 +607,6 @@ print_firewall(const struct ip6t_entry *fw,
 {
 	struct xtables_target *target = NULL;
 	const struct ip6t_entry_target *t;
-	u_int8_t flags;
 	char buf[BUFSIZ];
 
 	if (!ip6tc_is_chain(targname, handle))
@@ -617,7 +616,6 @@ print_firewall(const struct ip6t_entry *fw,
 		         XTF_LOAD_MUST_SUCCEED);
 
 	t = ip6t_get_target((struct ip6t_entry *)fw);
-	flags = fw->ipv6.flags;
 
 	if (format & FMT_LINENUMBERS)
 		printf(FMT("%-4u ", "%u "), num);
