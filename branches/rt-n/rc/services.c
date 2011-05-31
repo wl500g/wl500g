@@ -281,13 +281,8 @@ start_upnp(void)
 	char *lan_url;
 #endif
 
-	if (nvram_match("router_disable", "1"))
+	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
-	if (nvram_match("upnp_enable", "0")
-#ifdef __CONFIG_MINIUPNPD__
-	 && nvram_match("natpmp_enable", "0")
-#endif
-	)	return 0;
 
 #ifndef __CONFIG_MINIUPNPD__
 	ret = killall("upnp", -SIGUSR1);
@@ -351,7 +346,7 @@ start_upnp(void)
 			"deny 0-65535 0.0.0.0/0 0-65535\n",
 			wan_ifname,
 			lan_addr, lan_mask,
-			nvram_match("upnp_enable", "0") ? "no" : "yes",
+			/*nvram_match("upnp_enable", "0") ? "no" :*/ "yes",
 			nvram_match("natpmp_enable", "0") ? "no" : "yes",
 			lan_url,
 			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5], lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
