@@ -172,6 +172,8 @@ asmlinkage long sys_lookup_dcookie(u64 cookie64, char __user * buf, size_t len)
 	/* FIXME: (deleted) ? */
 	path = d_path(&dcs->path, kbuf, PAGE_SIZE);
 
+	mutex_unlock(&dcookie_mutex);
+
 	if (IS_ERR(path)) {
 		err = PTR_ERR(path);
 		goto out_free;
@@ -188,6 +190,7 @@ asmlinkage long sys_lookup_dcookie(u64 cookie64, char __user * buf, size_t len)
 
 out_free:
 	kfree(kbuf);
+	return err;
 out:
 	mutex_unlock(&dcookie_mutex);
 	return err;
