@@ -26,7 +26,7 @@
 +	{
 +		if (i > 0)
 +			dest[len++] = ':';
-+		bin2hex(dest + len, &ip6[i], 2);
++		bin2hex(dest + len, (const char * )&ip6[i], 2);
 +		len += 4;
 +	}
 +	dest[len] = '\0';
