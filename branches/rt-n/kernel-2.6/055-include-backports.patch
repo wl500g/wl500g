@@ -108,7 +108,7 @@ diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
 diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
 --- a/include/linux/compiler-gcc4.h
 +++ b/include/linux/compiler-gcc4.h
-@@ -23,3 +19,21 @@
+@@ -23,3 +19,35 @@
   * code
   */
  #define uninitialized_var(x) x = x
@@ -129,6 +129,20 @@ diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
 +   the kernel context */
 +#define __cold			__attribute__((__cold__))
 +
++
++#if __GNUC_MINOR__ >= 5
++/*
++ * Mark a position in code as unreachable.  This can be used to
++ * suppress control flow warnings after asm blocks that transfer
++ * control elsewhere.
++ *
++ * Early snapshots of gcc 4.5 don't support this and we can't detect
++ * this in the preprocessor, but we can live with this because they're
++ * unreleased.  Really, we need to have autoconf for the kernel.
++ */
++#define unreachable() __builtin_unreachable()
++#endif
++
 +#endif
 diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
 --- a/include/linux/compiler.h
@@ -144,6 +158,18 @@ diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
  #else
  # define __user
  # define __kernel
+@@ -144,6 +144,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
+ # define barrier() __memory_barrier()
+ #endif
+ 
++/* Unreachable code */
++#ifndef unreachable
++# define unreachable() do { } while (1)
++#endif
++
+ #ifndef RELOC_HIDE
+ # define RELOC_HIDE(ptr, off)					\
+   ({ unsigned long __ptr;					\
 @@ -174,4 +247,37 @@ extern void __chk_io_ptr(const void __io
  # define __attribute_const__	/* unimplemented */
  #endif
