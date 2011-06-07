@@ -1,3 +1,17 @@
+Package: 25volt
+Architecture: mipsel
+Priority: optional
+Section: comm
+Version: 1.0
+Maintainer: Ryzhov Alexander
+Source: http://25volt.ru/
+Filename: 25volt_1.0_mipsel.ipk
+Size: 4156
+MD5Sum: 68e550dda7db8551dd6dfe35976f9d47
+Description: 25volt is POWERCOM Imperial UPS monitoring utility
+Depends: libusb
+Conflicts: 
+
 Package: binkd
 Architecture: mipsel
 Priority: optional
@@ -11,6 +25,21 @@ MD5Sum: 657814fd247484c92398dd310091d2e1
 Description: BinkD is multiplatform Fido Mailer
 Depends: zlib, bzip2
 Conflicts: 
+
+Package: bluez4
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 4.91-1
+Maintainer: Ryzhov Alexander (ryzhov_al@hotbox.ru)
+Source: http://www.kernel.org/pub/linux/bluetooth/bluez-4.91.tar.gz
+Filename: bluez4_4.91-1_mipsel.ipk
+Size: 531003
+MD5Sum: d74ecbeacb892d0acc2e4485da685124
+Description: Official Linux Bluetooth protocol stack
+Depends: dbus, expat, glib
+Suggests: 
+Conflicts: bluez2-libs, bluez2-utils, bluez-hcidump, bluez-libs, bluez-utils
 
 Package: cpulimit
 Architecture: mipsel
@@ -39,6 +68,21 @@ Size: 6539
 MD5Sum: 7346b0a562afef25f8303982996e25ff
 Description: Tool that allows to abort TCP/IP connections routed over the firewall or router on which it is run
 Depends: 
+Suggests: 
+Conflicts: 
+
+Package: dbus
+Architecture: mipsel
+Priority: optional
+Section: misc
+Version: 1.2.16-2
+Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
+Source: http://dbus.freedesktop.org/releases/dbus/dbus-1.2.16.tar.gz
+Filename: dbus_1.2.16-2_mipsel.ipk
+Size: 328386
+MD5Sum: 1ddf2b66ad23fbe122d7363155d3915e
+Description: D-Bus is a message bus system, a simple way for applications to talk to one another.
+Depends: expat, adduser
 Suggests: 
 Conflicts: 
 
@@ -189,6 +233,21 @@ Description: A pico like editor with UTF-8 support
 Depends: ncursesw
 Conflicts: 
 
+Package: obexd
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 0.40-1
+Maintainer: Ryzhov Alexander <ryzhov_al@hotbox.ru>
+Source: http://www.kernel.org/pub/linux/bluetooth/obexd-0.40.tar.gz
+Filename: obexd_0.40-1_mipsel.ipk
+Size: 106310
+MD5Sum: 195fc22fb278d038fdf3af2c085d84c5
+Description: OBEX Server and Client
+Depends: bluez4, dbus, glib, openobex
+Suggests: 
+Conflicts: 
+
 Package: palantir
 Architecture: mipsel
 Priority: optional
@@ -219,6 +278,20 @@ Depends: libpcap
 Suggests: 
 Conflicts: 
 
+Package: pshare
+Architecture: mipsel
+Priority: optional
+Section: base
+Version: 0.0.2
+Maintainer: Anton Burdinuk <clark15b@gmail.com>
+Filename: pshare_0.0.2_mipsel.ipk
+Size: 33524
+MD5Sum: ed4fe816cc213c5fbb0c6a37bfd9dd54
+Description: UPnP Playlist Browser http://ps3muxer.org/pshare.html
+Depends:
+Suggests:
+Conflicts:
+
 Package: shakespeer
 Architecture: mipsel
 Priority: optional
@@ -248,19 +321,18 @@ Depends:
 Suggests: 
 Conflicts: 
 
-Package: tinyproxy
+Package: temper
 Architecture: mipsel
 Priority: optional
-Section: net
-Version: 1.8.2-1
-Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
-Source: http://www.banu.com/pub/tinyproxy/1.6/tinyproxy-1.6.4.tar.gz
-Filename: tinyproxy_1.8.2-1_mipsel.ipk
-Size: 76250
-MD5Sum: c300de3d31eb95f513574e0533baa337
-Description: Tinyproxy is a fast light-weight HTTP proxy.
-Depends: gettext, psmisc
-Suggests: 
+Section: comm
+Version: 1.0
+Maintainer: Ryzhov Alexander
+Source: 
+Filename: temper_1.0-1_mipsel.ipk
+Size: 4670
+MD5Sum: 6edab5e654a3a94e1f8376b178f34308
+Description: The USB temperature data logger for a cheap USB thermometer dongle
+Depends: libusb
 Conflicts: 
 
 Package: tmux
@@ -275,21 +347,6 @@ Size: 175625
 MD5Sum: 67daca619a7cb510c3f12674994355d1
 Description: tmux is a terminal multiplexer: it enables a number of terminals (or windows), each running a separate program, to be created, accessed, and controlled from a single screen.
 Depends: libevent, ncurses
-Conflicts: 
-
-Package: transmission
-Architecture: mipsel
-Priority: optional
-Section: net
-Version: 2.21-1
-Maintainer: ryzhov_al@hotbox.ru
-Source: http://download.transmissionbt.com/files//transmission-2.21.tar.bz2
-Filename: transmission_2.21-1_mipsel.ipk
-Size: 1931606
-MD5Sum: e71887cb559f20aa3efd07991bdaf63f
-Description: Lightweight BitTorrent client and daemon, with web interface bundled.
-Depends: openssl, libcurl, libevent, zlib
-Suggests: 
 Conflicts: 
 
 Package: umurmur
