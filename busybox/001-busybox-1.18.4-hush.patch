@@ -158,3 +158,26 @@
  			break;
  		case '&':
  			if (done_word(&dest, &ctx)) {
+@@ -7292,7 +7313,10 @@ static int run_list(struct pipe *pi)
+ #endif
+ #if ENABLE_HUSH_LOOPS
+ 		/* Beware of "while false; true; do ..."! */
+-		if (pi->next && pi->next->res_word == RES_DO) {
++		if (pi->next
++		 && (pi->next->res_word == RES_DO || pi->next->res_word == RES_DONE)
++		/* (the second check above is needed for "while ...; do \n done" case) */
++		) {
+ 			if (rword == RES_WHILE) {
+ 				if (rcode) {
+ 					/* "while false; do...done" - exitcode 0 */
+--- busybox-1.18.4/shell/hush_test/hush-misc/while3.right
++++ busybox-1.18.4-hush/shell/hush_test/hush-misc/while3.right
+@@ -0,0 +1 @@
++OK:0
+--- busybox-1.18.4/shell/hush_test/hush-misc/while3.tests
++++ busybox-1.18.4-hush/shell/hush_test/hush-misc/while3.tests
+@@ -0,0 +1,4 @@
++while false; do
++    # bash will require at least ":" here...
++done
++echo OK:$?
