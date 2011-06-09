@@ -588,7 +588,8 @@ static ssize_t tun_do_read(struct tun_struct *tun,
 
 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
 
-	add_wait_queue(&tun->wq.wait, &wait);
+	if (unlikely(!noblock))
+		add_wait_queue(&tun->wq.wait, &wait);
 	while (len) {
 		current->state = TASK_INTERRUPTIBLE;
 
@@ -615,7 +616,8 @@ static ssize_t tun_do_read(struct tun_struct *tun,
 	}
 
 	current->state = TASK_RUNNING;
-	remove_wait_queue(&tun->wq.wait, &wait);
+	if (unlikely(!noblock))
+		remove_wait_queue(&tun->wq.wait, &wait);
 
 	return ret;
 }
