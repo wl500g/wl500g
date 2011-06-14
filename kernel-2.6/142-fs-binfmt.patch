@@ -1,0 +1,85 @@
+From 752015d1b0683a8c623ebfe4c62893413e9b30d3
+From: Roland McGrath
+Date: Tue, 8 Sep 2009 19:49:40 -0700
+Subject: [PATCH] binfmt_elf: fix PT_INTERP bss handling
+
+In fs/binfmt_elf.c, load_elf_interp() calls padzero() for .bss even if
+the PT_LOAD has no PROT_WRITE and no .bss.  This generates EFAULT.
+
+Here is a small test case.  (Yes, there are other, useful PT_INTERP
+which have only .text and no .data/.bss.)
+
+	----- ptinterp.S
+	_start: .globl _start
+		 nop
+		 int3
+	-----
+	$ gcc -m32 -nostartfiles -nostdlib -o ptinterp ptinterp.S
+	$ gcc -m32 -Wl,--dynamic-linker=ptinterp -o hello hello.c
+	$ ./hello
+	Segmentation fault  # during execve() itself
+
+	After applying the patch:
+	$ ./hello
+	Trace trap  # user-mode execution after execve() finishes
+
+If the ELF headers are actually self-inconsistent, then dying is fine.
+But having no PROT_WRITE segment is perfectly normal and correct if
+there is no segment with p_memsz > p_filesz (i.e. bss).  John Reiser
+suggested checking for PROT_WRITE in the bss logic.  I think it makes
+most sense to simply apply the bss logic only when there is bss.
+
+This patch looks less trivial than it is due to some reindentation.
+It just moves the "if (last_bss > elf_bss) {" test up to include the
+partial-page bss logic as well as the more-pages bss logic.
+
+Reported-by: John Reiser <jreiser@bitwagon.com>
+Signed-off-by: Roland McGrath <roland@redhat.com>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/binfmt_elf.c |   28 ++++++++++++++--------------
+ 1 files changed, 14 insertions(+), 14 deletions(-)
+
+diff --git a/fs/binfmt_elf.c b/fs/binfmt_elf.c
+index b7c1603..7c1e65d 100644
+--- a/fs/binfmt_elf.c
++++ b/fs/binfmt_elf.c
+@@ -501,22 +501,22 @@ static unsigned long load_elf_interp(struct elfhdr *interp_elf_ex,
+ 		}
+ 	}
+ 
+-	/*
+-	 * Now fill out the bss section.  First pad the last page up
+-	 * to the page boundary, and then perform a mmap to make sure
+-	 * that there are zero-mapped pages up to and including the 
+-	 * last bss page.
+-	 */
+-	if (padzero(elf_bss)) {
+-		error = -EFAULT;
+-		goto out_close;
+-	}
++	if (last_bss > elf_bss) {
++		/*
++		 * Now fill out the bss section.  First pad the last page up
++		 * to the page boundary, and then perform a mmap to make sure
++		 * that there are zero-mapped pages up to and including the
++		 * last bss page.
++		 */
++		if (padzero(elf_bss)) {
++			error = -EFAULT;
++			goto out_close;
++		}
+ 
+-	/* What we have mapped so far */
+-	elf_bss = ELF_PAGESTART(elf_bss + ELF_MIN_ALIGN - 1);
++		/* What we have mapped so far */
++		elf_bss = ELF_PAGESTART(elf_bss + ELF_MIN_ALIGN - 1);
+ 
+-	/* Map the last of the bss segment */
+-	if (last_bss > elf_bss) {
++		/* Map the last of the bss segment */
+ 		down_write(&current->mm->mmap_sem);
+ 		error = do_brk(elf_bss, last_bss - elf_bss);
+ 		up_write(&current->mm->mmap_sem);
+-- 
+1.7.4.4
