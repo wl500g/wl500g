@@ -529,6 +529,8 @@ static int check_ctrlrecip(struct dev_state *ps, unsigned int requesttype, unsig
 	index &= 0xff;
 	switch (requesttype & USB_RECIP_MASK) {
 	case USB_RECIP_ENDPOINT:
+		if ((index & ~USB_DIR_IN) == 0)
+			return 0;
 		if ((ret = findintfep(ps->dev, index)) >= 0)
 			ret = checkintf(ps, ret);
 		break;

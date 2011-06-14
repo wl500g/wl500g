@@ -122,6 +122,7 @@ struct ehci_hcd {			/* one per controller */
 	struct timer_list	watchdog;
 	unsigned long		actions;
 	unsigned		stamp;
+	unsigned		periodic_stamp;
 	unsigned		random_frame;
 	unsigned long		next_statechange;
 	ktime_t			last_periodic_enable;
@@ -219,7 +220,7 @@ struct ehci_caps {
 #define HCC_PGM_FRAMELISTLEN(p) ((p)&(1 << 1))  /* true: periodic_size changes*/
 #define HCC_64BIT_ADDR(p)       ((p)&(1))       /* true: can use 64-bit addr */
 	u8		portroute [8];	 /* nibbles for routing - offset 0xC */
-} __attribute__ ((packed));
+};
 
 
 /* Section 2.3 Host Controller Operational Registers */
@@ -297,7 +298,7 @@ struct ehci_regs {
 #define PORT_CSC	(1<<1)		/* connect status change */
 #define PORT_CONNECT	(1<<0)		/* device connected */
 #define PORT_RWC_BITS   (PORT_CSC | PORT_PEC | PORT_OCC)
-} __attribute__ ((packed));
+};
 
 #define USBMODE		0x68		/* USB Device mode */
 #define USBMODE_SDIS	(1<<3)		/* Stream disable */
@@ -328,7 +329,7 @@ struct ehci_dbg_port {
 	u32	data47;
 	u32	address;
 #define DBGP_EPADDR(dev,ep)	(((dev)<<8)|(ep))
-} __attribute__ ((packed));
+};
 
 /*-------------------------------------------------------------------------*/
 
@@ -492,6 +493,7 @@ struct ehci_qh {
 	unsigned short		start;		/* where polling starts */
 #define NO_FRAME ((unsigned short)~0)			/* pick new start */
 	struct usb_device	*dev;		/* access to TT */
+	unsigned		is_out:1;	/* bulk or intr OUT */
 	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
 };
 
