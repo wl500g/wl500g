@@ -1,12 +1,14 @@
 gcc 4.4 fixes from upstream
 
  1d965fe0eb435b3f9a10538815f6a68de0aef03c reiserfs: fix warnings with gcc 4.4
+ ea6b101d8a3ea4e1dec29df31188c2f9852296fe include/linux/compiler-gcc.h: use __same_type() in  __must_be_array()
 
 ---
- fs/reiserfs/do_balan.c      |    5 +---
- fs/reiserfs/lbalance.c      |   10 +++++----
- include/linux/reiserfs_fs.h |   47 ++++++++++++++++++++++++++++++++++++--------
- 3 files changed, 47 insertions(+), 15 deletions(-)
+ fs/reiserfs/do_balan.c       |    5 +---
+ fs/reiserfs/lbalance.c       |   10 +++++----
+ include/linux/compiler-gcc.h |    3 --
+ include/linux/reiserfs_fs.h  |   47 +++++++++++++++++++++++++++++++++++--------
+ 4 files changed, 48 insertions(+), 17 deletions(-)
 
 diff --git a/fs/reiserfs/do_balan.c b/fs/reiserfs/do_balan.c
 index 4beb964..128d3f7 100644
@@ -59,6 +61,19 @@ index 381750a..03d85cb 100644
  				/* the last item is directory  */
  				/* len = numbers of directory entries in this item */
  				len = ih_entry_count(ih);
+diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -23,8 +23,7 @@
+     (typeof(ptr)) (__ptr + (off)); })
+ 
+ /* &a[0] degrades to a pointer: a different type from an array */
+-#define __must_be_array(a) \
+-  BUILD_BUG_ON_ZERO(__builtin_types_compatible_p(typeof(a), typeof(&a[0])))
++#define __must_be_array(a) BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
+ 
+ #define inline		inline		__attribute__((always_inline))
+ #define __inline__	__inline__	__attribute__((always_inline))
 diff --git a/include/linux/reiserfs_fs.h b/include/linux/reiserfs_fs.h
 index 2245c78..dd31e7b 100644
 --- a/include/linux/reiserfs_fs.h
