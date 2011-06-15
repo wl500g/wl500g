@@ -1371,7 +1371,6 @@ int nfs_wb_all(struct inode *inode)
 		.bdi = mapping->backing_dev_info,
 		.sync_mode = WB_SYNC_ALL,
 		.nr_to_write = LONG_MAX,
-		.for_writepages = 1,
 		.range_cyclic = 1,
 	};
 	int ret;
