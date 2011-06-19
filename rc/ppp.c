@@ -28,7 +28,7 @@
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 /*
 * parse ifname to retrieve unit #

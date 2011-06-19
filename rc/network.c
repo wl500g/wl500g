@@ -35,17 +35,18 @@ typedef u_int8_t u8;
 #include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
+#include <semaphore.h>
+#include <fcntl.h>
+
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
 #include <wlutils.h>
 #include <nvparse.h>
-#include <rc.h>
 #include <bcmutils.h>
 #include <etioctl.h>
 #include <bcmparams.h>
-#include <semaphore.h>
-#include <fcntl.h>
+#include "rc.h"
 
 static void lan_up(char *lan_ifname);
 static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );

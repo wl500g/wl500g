@@ -243,7 +243,9 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 								int nvifname_buf_len );
 
 /* Check for a blank character; that is, a space or a tab */
-#define isblank(c) ((c) == ' ' || (c) == '\t')
+#ifndef isblank
+# define isblank(c) ((c) == ' ' || (c) == '\t')
+#endif
 
 /* Strip trailing CR/NL from string <s> */
 #define chomp(s) ({ \

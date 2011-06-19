@@ -19,9 +19,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <signal.h>
+
 #include <shutils.h>
 #include <bcmnvram.h>
-#include <rc.h>
+#include "rc.h"
 
 int
 start_bpalogin(void)

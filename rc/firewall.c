@@ -24,9 +24,9 @@
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
 #include <netconf.h>
 #include <nvparse.h>
+#include "rc.h"
 
 #ifndef ASUS_EXT
 

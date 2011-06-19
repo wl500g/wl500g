@@ -10,11 +10,12 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <time.h>
+
 #include <shutils.h>
-#include <rc.h>
 #include <wlioctl.h>
 #include <wlutils.h>
 #include <bcmnvram.h>
+#include "rc.h"
 
 #define A_UCHAR  unsigned char
 #define A_UINT8  unsigned char

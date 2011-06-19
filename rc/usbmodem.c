@@ -6,12 +6,12 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
-#include <sys/stat.h>
+#include "rc.h"
 
 #include <nvparse.h>
 

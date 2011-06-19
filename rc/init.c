@@ -31,7 +31,7 @@
 #include <sys/time.h>
 
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 #define loop_forever() do { sleep(1); } while (1)
 #define SHELL "/bin/sh"
