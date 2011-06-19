@@ -1,0 +1,16 @@
+printf %hhd is broken
+
+ https://bugs.busybox.net/show_bug.cgi?id=1783
+
+diff -durpN uClibc-0.9.31/libc/stdio/_load_inttype.c uClibc-0.9.31-hhdfix/libc/stdio/_load_inttype.c
+--- uClibc-0.9.31/libc/stdio/_load_inttype.c	2010-04-02 08:34:27.000000000 -0700
++++ uClibc-0.9.31-hhdfix/libc/stdio/_load_inttype.c	2010-05-17 01:11:55.000000000 -0700
+@@ -57,7 +57,7 @@ uintmax_t _load_inttype(int desttype, re
+ 		{
+ 			int x;
+ 			x = *((int *) src);
+-			if (desttype == __PA_FLAG_CHAR) x = (char) x;
++			if (desttype == __PA_FLAG_CHAR) x = (signed char) x;
+ #if SHRT_MAX != INT_MAX
+ 			if (desttype == PA_FLAG_SHORT) x = (short int) x;
+ #endif

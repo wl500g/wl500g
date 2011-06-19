@@ -1,0 +1,32 @@
+From 6b76a7129903ab3726ec0217349b526262bec3ac Mon Sep 17 00:00:00 2001
+From: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+Date: Tue, 14 Jun 2011 14:48:51 +0000
+Subject: libdl: search for ELF_RTYPE_CLASS_DLSYM in dlsym()
+
+On FDPIC platforms, functions are passed by function descriptor, not by
+pointers. If you don't specify ELF_RTYPE_CLASS_DLSYM when calling
+_dl_find_hash() the return value from dlsym() will be a pointer not a
+function descriptor, crashing the program.
+
+The bug was introduced when TLS support was added in
+534661b91c98492995274c364c8177c45efc63db
+
+Closes bug#3433
+
+Signed-off-by: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+---
+diff --git a/ldso/libdl/libdl.c b/ldso/libdl/libdl.c
+index 52c77b0..f59889c 100644
+--- a/ldso/libdl/libdl.c
++++ b/ldso/libdl/libdl.c
+@@ -667,7 +667,7 @@ void *dlsym(void *vhandle, const char *name)
+ 	tpnt = NULL;
+ 	if (handle == _dl_symbol_tables)
+ 		tpnt = handle->dyn; /* Only search RTLD_GLOBAL objs if global object */
+-	ret = _dl_find_hash(name2, handle, tpnt, 0, &sym_ref);
++	ret = _dl_find_hash(name2, handle, tpnt, ELF_RTYPE_CLASS_DLSYM, &sym_ref);
+ 
+ #if defined(USE_TLS) && USE_TLS && defined SHARED
+ 	if (sym_ref.tpnt) {
+--
+cgit v0.9.0.1-2-gef13

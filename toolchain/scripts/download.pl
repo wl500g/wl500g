@@ -139,8 +139,6 @@ foreach my $mirror (@ARGV) {
 	}
 }
 
-push @mirrors, 'http://downloads.openwrt.org/sources';
-
 while (!$ok) {
 	my $mirror = shift @mirrors;
 	$mirror or die "No more mirrors to try - giving up.\n";

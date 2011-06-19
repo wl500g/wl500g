@@ -9,25 +9,39 @@
 use warnings;
 use strict;
 
-my @arg = @ARGV;
+my @arg;
+my $PREFIX = "CONFIG_";
 
-sub load_config($) {
+sub set_config($$$$) {
+	my $config = shift;
+	my $idx = shift;
+	my $newval = shift;
+	my $mod_plus = shift;
+
+	if (!defined($config->{$idx}) or !$mod_plus or
+	    $config->{$idx} eq '#undef' or $newval eq 'y') {
+		$config->{$idx} = $newval;
+	}
+}
+
+sub load_config($$) {
 	my $file = shift;
+	my $mod_plus = shift;
 	my %config;
 
 	open FILE, "$file" or die "can't open file";
 	while (<FILE>) {
 		chomp;
-		/^CONFIG_(.+?)=(.+)/ and do {
-			$config{$1} = $2;
+		/^$PREFIX(.+?)=(.+)/ and do {
+			set_config(\%config, $1, $2, $mod_plus);
 			next;
 		};
-		/^# CONFIG_(.+?) is not set/ and do {
-			$config{$1} = "#undef";
+		/^# $PREFIX(.+?) is not set/ and do {
+			set_config(\%config, $1, "#undef", $mod_plus);
 			next;
 		};
 		/^#/ and next;
-		/^(.+)$/ and print "WARNING: can't parse line: $1\n";
+		/^(.+)$/ and warn "WARNING: can't parse line: $1\n";
 	}
 	return \%config;
 }
@@ -66,13 +80,15 @@ sub config_add($$$) {
 	return \%config;
 }
 
-sub config_diff($$) {
+sub config_diff($$$) {
 	my $cfg1 = shift;
 	my $cfg2 = shift;
+	my $new_only = shift;
 	my %config;
 	
 	foreach my $config (keys %$cfg2) {
 		if (!defined($cfg1->{$config}) or $cfg1->{$config} ne $cfg2->{$config}) {
+			next if $new_only and !defined($cfg1->{$config}) and $cfg2->{$config} eq '#undef';
 			$config{$config} = $cfg2->{$config};
 		}
 	}
@@ -93,10 +109,10 @@ sub config_sub($$) {
 sub print_cfgline($$) {
 	my $name = shift;
 	my $val = shift;
-	if ($val eq '#undef') {
-		print "# CONFIG_$name is not set\n";
+	if ($val eq '#undef' or $val eq 'n') {
+		print "# $PREFIX$name is not set\n";
 	} else {
-		print "CONFIG_$name=$val\n";
+		print "$PREFIX$name=$val\n";
 	}
 }
 
@@ -110,14 +126,13 @@ sub dump_config($) {
 	}
 }
 
-sub parse_expr($);
-
-sub parse_expr($) {
+sub parse_expr {
 	my $pos = shift;
+	my $mod_plus = shift;
 	my $arg = $arg[$$pos++];
-	
+
 	die "Parse error" if (!$arg);
-	
+
 	if ($arg eq '&') {
 		my $arg1 = parse_expr($pos);
 		my $arg2 = parse_expr($pos);
@@ -128,20 +143,36 @@ sub parse_expr($) {
 		return config_add($arg1, $arg2, 0);
 	} elsif ($arg =~ /^m\+/) {
 		my $arg1 = parse_expr($pos);
-		my $arg2 = parse_expr($pos);
+		my $arg2 = parse_expr($pos, 1);
 		return config_add($arg1, $arg2, 1);
 	} elsif ($arg eq '>') {
 		my $arg1 = parse_expr($pos);
 		my $arg2 = parse_expr($pos);
-		return config_diff($arg1, $arg2);
+		return config_diff($arg1, $arg2, 0);
+	} elsif ($arg eq '>+') {
+		my $arg1 = parse_expr($pos);
+		my $arg2 = parse_expr($pos);
+		return config_diff($arg1, $arg2, 1);
 	} elsif ($arg eq '-') {
 		my $arg1 = parse_expr($pos);
 		my $arg2 = parse_expr($pos);
 		return config_sub($arg1, $arg2);
 	} else {
-		return load_config($arg);
+		return load_config($arg, $mod_plus);
 	}
 }
+
+while (@ARGV > 0 and $ARGV[0] =~ /^-\w+$/) {
+	my $cmd = shift @ARGV;
+	if ($cmd =~ /^-n$/) {
+		$PREFIX = "";
+	} elsif ($cmd =~ /^-p$/) {
+		$PREFIX = shift @ARGV;
+	} else {
+		die "Invalid option: $cmd\n";
+	}
+}
+@arg = @ARGV;
 
 my $pos = 0;
 dump_config(parse_expr(\$pos));

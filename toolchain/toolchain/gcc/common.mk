@@ -39,7 +39,7 @@ ifeq ($(PKG_VERSION),4.4.6)
   PKG_MD5SUM:=ab525d429ee4425050a554bc9247d6c4
 endif
 
-PATCH_DIR=./patches/$(PKG_VERSION)
+PATCH_DIR=../patches/$(PKG_VERSION)
 PKG_SOURCE_URL:=ftp://ftp.fu-berlin.de/unix/languages/gcc/releases/gcc-$(PKG_VERSION) \
 	http://mirrors.rcn.net/pub/sourceware/gcc/releases/gcc-$(PKG_VERSION) \
 	ftp://ftp.gnu.org/gnu/gcc/releases/gcc-$(PKG_VERSION)
@@ -49,9 +49,16 @@ BUILD_DIR_HOST:=$(BUILD_DIR_TOOLCHAIN)
 
 include $(INCLUDE_DIR)/host-build.mk
 
-STAMP_BUILT:=$(TOOLCHAIN_DIR)/stamp/.gcc-initial_installed
-PKG_BUILD_DIR1:=$(PKG_BUILD_DIR)-initial
-PKG_BUILD_DIR2:=$(PKG_BUILD_DIR)-final
+PKG_SOURCE_DIR:=$(PKG_BUILD_DIR)
+GCC_BUILD_DIR:=$(PKG_BUILD_DIR)-$(GCC_VARIANT)
+ifneq ($(GCC_VARIANT),minimal)
+	PKG_BUILD_DIR:=$(GCC_BUILD_DIR)
+endif
+
+STAMP_PREPARED:=$(PKG_BUILD_DIR)/.prepared
+STAMP_BUILT:=$(GCC_BUILD_DIR)/.built
+STAMP_CONFIGURED:=$(GCC_BUILD_DIR)/.configured
+STAMP_INSTALLED:=$(TOOLCHAIN_DIR)/stamp/.gcc_$(GCC_VARIANT)_installed
 
 SEP:=,
 TARGET_LANGUAGES:="c$(if $(CONFIG_INSTALL_LIBSTDCPP),$(SEP)c++)$(if $(CONFIG_INSTALL_LIBGCJ),$(SEP)java)"
@@ -59,10 +66,11 @@ TARGET_LANGUAGES:="c$(if $(CONFIG_INSTALL_LIBSTDCPP),$(SEP)c++)$(if $(CONFIG_INS
 EXTRA_TARGET=$(if $(CONFIG_EXTRA_TARGET_ARCH),--enable-biarch --enable-targets=$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_NAME))-linux-uclibc)
 
 export libgcc_cv_fixed_point=no
+export glibcxx_cv_c99_math_tr1=no
 
 GCC_CONFIGURE:= \
 	SHELL="$(BASH)" \
-	$(PKG_BUILD_DIR)/configure \
+	$(PKG_SOURCE_DIR)/configure \
 		--prefix=$(TOOLCHAIN_DIR) \
 		--build=$(GNU_HOST_NAME) \
 		--host=$(GNU_HOST_NAME) \
@@ -85,6 +93,11 @@ ifneq ($(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4),)
 		--disable-decimal-float
 endif
 
+ifneq ($(CONFIG_GCC_VERSION_4_5),)
+  GCC_CONFIGURE+= \
+		--with-mpc=$(TOPDIR)/staging_dir/host 
+endif
+
 ifneq ($(CONFIG_GCC_VERSION_4_4),)
   ifneq ($(CONFIG_mips)$(CONFIG_mipsel),)
     GCC_CONFIGURE += --with-mips-plt
@@ -105,28 +118,6 @@ ifneq ($(CONFIG_EXTRA_TARGET_ARCH),)
 		--enable-targets=$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_NAME))-linux-$(TARGET_SUFFIX)
 endif
 
-GCC_CONFIGURE_STAGE1:= \
-	$(GCC_CONFIGURE) \
-		--with-newlib \
-		--with-sysroot=$(BUILD_DIR_HOST)/uClibc_dev/ \
-		--enable-languages=c \
-		--disable-shared \
-		--disable-threads \
-
-GCC_CONFIGURE_STAGE2:= \
-	$(GCC_CONFIGURE) \
-		--enable-languages=$(TARGET_LANGUAGES) \
-		--enable-shared \
-		--enable-threads \
-
-ifneq ($(CONFIG_TLS_SUPPORT),)
-  GCC_CONFIGURE_STAGE2+= \
-		--enable-tls
-else
-  GCC_CONFIGURE_STAGE2+= \
-		--disable-tls
-endif
-
 GCC_MAKE:= \
 	export SHELL="$(BASH)"; \
 	$(MAKE) \
@@ -138,110 +129,22 @@ define Build/SetToolchainInfo
 	$(SED) 's,GCC_VERSION=.*,GCC_VERSION=$(PKG_VERSION),' $(TOOLCHAIN_DIR)/info.mk
 endef
 
-
-define Stage1/Configure
-	mkdir -p $(PKG_BUILD_DIR1)
-	(cd $(PKG_BUILD_DIR1); rm -f config.cache; \
-		$(GCC_CONFIGURE_STAGE1) \
-	);
-endef
-
-define Stage1/Compile
-	$(GCC_MAKE) -C $(PKG_BUILD_DIR1) all-gcc \
-	    $(if $(GCC_BUILD_TARGET_LIBGCC),all-target-libgcc)
-endef
-
-define Stage1/Install
-	$(GCC_MAKE) -C $(PKG_BUILD_DIR1) install-gcc \
-	    $(if $(GCC_BUILD_TARGET_LIBGCC),install-target-libgcc)
-
-	# XXX: glibc insists on linking against libgcc_eh
-	( cd $(TOOLCHAIN_DIR)/lib/gcc/$(REAL_GNU_TARGET_NAME)/$(PKG_VERSION) ; \
-	    [ -e libgcc_eh.a ] || ln -sf libgcc.a libgcc_eh.a ; \
-	    cp libgcc.a libgcc_initial.a; \
-	)
-endef
-
-define Stage2/Configure
-	mkdir -p $(PKG_BUILD_DIR2) $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)
-	# Important!  Required for limits.h to be fixed.
-	rm -rf $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)/sys-include
-	ln -sf ../include $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)/sys-include
-	rm -rf $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)/lib
-	ln -sf ../lib $(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME)/lib
-	(cd $(PKG_BUILD_DIR2); rm -f config.cache; \
-		$(GCC_CONFIGURE_STAGE2) \
-	);
-endef
-
-define Stage2/Compile
-	$(GCC_MAKE) -C $(PKG_BUILD_DIR2) all
-endef
-
-define SetupExtraArch
-	for app in $(TOOLCHAIN_DIR)/bin/$(OPTIMIZE_FOR_CPU)*-{gcc,gcc-*,g++}; do \
-		[ -e $$$$app ] || continue; \
-		old_base=$$$$(basename $$$$app); \
-		new_base=$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_NAME))-$$$${old_base##$(OPTIMIZE_FOR_CPU)-}; \
-		sed -e "s/@CC_BASE@/$$$$old_base/" \
-			-e 's/@EXTRA_ARCH_OPTS@/$(call qstrip,$(CONFIG_EXTRA_TARGET_ARCH_OPTS))/' \
-			 ./files/alternate-arch-cc.in > \
-			 $(TOOLCHAIN_DIR)/bin/$$$$new_base; \
-		chmod a+x $(TOOLCHAIN_DIR)/bin/$$$$new_base; \
-	done
-endef
-
-define Stage2/Install
-	$(GCC_MAKE) -C $(PKG_BUILD_DIR2) install
-	# Set up the symlinks to enable lying about target name.
-	set -e; \
-	(cd $(TOOLCHAIN_DIR); \
-		ln -sf $(REAL_GNU_TARGET_NAME) $(GNU_TARGET_NAME); \
-		cd bin; \
-		for app in $(REAL_GNU_TARGET_NAME)-* ; do \
-			ln -sf $$$${app} \
-		   	$(GNU_TARGET_NAME)$$$${app##$(REAL_GNU_TARGET_NAME)}; \
-		done; \
-	);
-	$(if $(CONFIG_EXTRA_TARGET_ARCH),$(call SetupExtraArch))
-	$(RSTRIP) $(TOOLCHAIN_DIR)/libexec/gcc/$(REAL_GNU_TARGET_NAME)/$(PKG_VERSION)
-	-$(RSTRIP) $(TOOLCHAIN_DIR)/libexec/gcc/$(REAL_GNU_TARGET_NAME)/$(PKG_VERSION)/install-tools
-endef
-
-
-
 define Build/Prepare
-	$(call Build/Prepare/Default)
-	$(call Build/SetToolchainInfo)
-	$(CP) $(SCRIPT_DIR)/config.{guess,sub} $(PKG_BUILD_DIR)/
-	$(SED) 's,^MULTILIB_OSDIRNAMES,# MULTILIB_OSDIRNAMES,' $(PKG_BUILD_DIR)/gcc/config/*/t-*
-	#(cd $(PKG_BUILD_DIR)/libstdc++-v3; autoconf;);
-	$(SED) 's,gcc_no_link=yes,gcc_no_link=no,' $(PKG_BUILD_DIR)/libstdc++-v3/configure
+	mkdir -p $(GCC_BUILD_DIR)
 endef
 
 define Build/Configure
-	$(call Stage1/Configure)
-endef
-
-define Build/Compile
-	$(call Stage1/Compile)
-	$(call Stage1/Install)
-endef
-
-define Build/Install
-	$(call Stage2/Configure)
-	$(call Stage2/Compile)
-	$(call Stage2/Install)
+	(cd $(GCC_BUILD_DIR) && rm -f config.cache; \
+		$(GCC_CONFIGURE) \
+	);
 endef
 
 define Build/Clean
 	rm -rf \
-		$(PKG_BUILD_DIR) \
-		$(PKG_BUILD_DIR1) \
-		$(PKG_BUILD_DIR2) \
+		$(STAGING_DIR_HOST)/stamp/.gcc_* \
+		$(STAGING_DIR_HOST)/stamp/.binutils_* \
+		$(GCC_BUILD_DIR) \
 		$(TOOLCHAIN_DIR)/$(REAL_GNU_TARGET_NAME) \
 		$(TOOLCHAIN_DIR)/bin/$(REAL_GNU_TARGET_NAME)-gc* \
 		$(TOOLCHAIN_DIR)/bin/$(REAL_GNU_TARGET_NAME)-c*
 endef
-
-$(eval $(call HostBuild))

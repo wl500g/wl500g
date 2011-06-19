@@ -6,22 +6,41 @@
 #
 # Main makefile for the toolchain
 #
+# Steps:
+# 1) toolchain/binutils/install
+#    build & install binutils
+# 2) toolchain/gcc/prepare
+#    build & install a minimal gcc, needed for steps 3 & 4
+# 3) toolchain/kernel-headers/install
+#    install kernel headers, needed for step 4
+# 4) toolchain/libc/prepare
+#    build & install libc headers & support files, needed for step 5
+# 5) toolchain/gcc/compile
+#    build & install an initial gcc, needed for step 6
+# 6) toolchain/libc/compile
+#    build & install the final libc
+# 7) toolchain/gcc/install
+#    build & install the final gcc
+# 8) toolchain/libc/install
+#    build & install libc utilities
+#
 curdir:=toolchain
 
 # subdirectories to descend into
-$(curdir)/builddirs := kernel-headers $(if $(CONFIG_GDB),gdb) $(if $(CONFIG_NATIVE_TOOLCHAIN),,binutils gcc uClibc)
+$(curdir)/builddirs := kernel-headers $(if $(CONFIG_GDB),gdb) binutils gcc/minimal gcc/initial gcc/final uClibc
 $(curdir)/builddirs-compile:=. $(filter-out kernel-headers,$($(curdir)/builddirs))
 $(curdir)/builddirs-install:=$($(curdir)/builddirs-compile)
 
 # builddir dependencies
 $(curdir)/uClibc/prepare:=$(curdir)/kernel-headers/prepare
-ifeq ($(CONFIG_NATIVE_TOOLCHAIN),)
-  $(curdir)/binutils/prepare:=$(curdir)/uClibc/prepare
-  $(curdir)/gcc/prepare:=$(curdir)/binutils/install
-  $(curdir)/uClibc/compile:=$(curdir)/gcc/compile
-  $(curdir)/gcc/install:=$(curdir)/uClibc/compile
-  $(curdir)/uClibc/install:=$(curdir)/gcc/install
-endif
+$(curdir)/gcc/minimal/compile:=$(curdir)/binutils/install
+$(curdir)/kernel-headers/prepare:=$(curdir)/gcc/minimal/install
+$(curdir)/gcc/initial/compile:=$(curdir)/uClibc/prepare
+$(curdir)/gcc/initial/prepare:=$(curdir)/gcc/minimal/prepare
+$(curdir)/gcc/final/prepare:=$(curdir)/gcc/initial/prepare
+$(curdir)/uClibc/compile:=$(curdir)/gcc/initial/install
+$(curdir)/gcc/final/compile:=$(curdir)/uClibc/compile
+$(curdir)/uClibc/install:=$(curdir)/gcc/final/install
 
 $(TOOLCHAIN_DIR)/info.mk: .config
 	@for dir in $(TOOLCHAIN_DIR); do ( \

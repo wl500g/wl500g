@@ -2,10 +2,10 @@
 
 choice
 	prompt "uClibc Version"
-	default UCLIBC_VERSION_0_9_29
+	default UCLIBC_VERSION_0_9_30
 	help
 	  Select the version of uClibc you wish to use.
-	  Default is 0.9.29 .
+	  Default is 0.9.30 .
 
 	config UCLIBC_VERSION_SNAPSHOT
 		bool "uClibc snapshot"
@@ -15,19 +15,13 @@ choice
 
 	config UCLIBC_VERSION_0_9_30
 		bool "uClibc 0.9.30"
+
+	config UCLIBC_VERSION_0_9_32
+		depends !LINUX_2_4
+		bool "uClibc 0.9.32"
 endchoice
 
 
 config UCLIBC_ENABLE_DEBUG
 	bool "Build with debug information"
 	default n
-
-config UCLIBC_EXTRA_VERSION
-	string
-	prompt "Extra uClibc version"
-	default "snapshot"   if UCLIBC_VERSION_SNAPSHOT
-	default ".1"         if UCLIBC_VERSION_0_9_30
-	default ""
-	help
-	    Default for version 0.9.28 is ".02", for daily snapshot it's just "snapshot"
-	    For all other versions the default string is empty.

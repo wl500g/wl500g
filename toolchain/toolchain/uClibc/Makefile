@@ -58,6 +58,11 @@ UCLIBC_TARGET_ARCH:=$(shell echo $(ARCH) | sed -e s'/-.*//' \
 		-e 's/cris.*/cris/' \
 )
 
+GEN_CONFIG=$(SCRIPT_DIR)/kconfig.pl -n \
+	$(if $(wildcard $(CONFIG_DIR)/common),'+' $(CONFIG_DIR)/common) \
+	$(if $(CONFIG_UCLIBC_ENABLE_DEBUG),$(if $(wildcard $(CONFIG_DIR)/debug),'+' $(CONFIG_DIR)/debug)) \
+	$(CONFIG_DIR)/$(ARCH)$(if $(wildcard $(CONFIG_DIR)/$(ARCH).$(BOARD)),.$(BOARD))
+
 define Build/Prepare/Snapshot
 	$(PKG_UNPACK)
 	rm -Rf $(PKG_BUILD_DIR)
@@ -73,7 +78,7 @@ ifeq ($(PKG_VERSION_SNAPSHOT),y)
 else
 	$(call Build/Prepare/Default)
 endif
-	$(CP) ./$(CONFIG_DIR)/$(ARCH)$(if $(wildcard $(CONFIG_DIR)/$(ARCH).$(BOARD)),.$(BOARD)) $(PKG_BUILD_DIR)/.config
+	$(GEN_CONFIG) > $(PKG_BUILD_DIR)/.config
 	$(SED) 's,^KERNEL_HEADERS=.*,KERNEL_HEADERS=\"$(LINUX_HEADERS_DIR)/include\",g' \
 		-e 's,.*UCLIBC_HAS_FPU.*,UCLIBC_HAS_FPU=$(if $(CONFIG_SOFT_FLOAT),n\nUCLIBC_HAS_FLOATS=y\nUCLIBC_HAS_SOFT_FLOAT=y,y),g' \
 		-e 's,^.*UCLIBC_HAS_LFS.*,UCLIBC_HAS_LFS=$(if $(CONFIG_LARGEFILE),y,n),g' \
@@ -103,6 +108,7 @@ endif
 		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/asm-generic $(PKG_BUILD_DIR)/include/ ; \
 		cp -pLR $(BUILD_DIR_TOOLCHAIN)/linux/include/linux $(PKG_BUILD_DIR)/include/ ; \
 	fi;
+	$(MAKE) -C $(PKG_BUILD_DIR) oldconfig KBUILD_HAVE_NLS= HOSTCFLAGS="-DKBUILD_NO_NLS"
 	$(MAKE) -C $(PKG_BUILD_DIR)/extra/config conf KBUILD_HAVE_NLS= HOSTCFLAGS="-DKBUILD_NO_NLS"
 	PATH=$(TARGET_PATH) $(MAKE) -C $(PKG_BUILD_DIR) \
 		PREFIX=$(BUILD_DIR_HOST)/uClibc_dev/ \
@@ -111,7 +117,9 @@ endif
 		HOSTCC="$(HOSTCC)" \
 		CC="$(TARGET_CC)" \
 		CPU_CFLAGS="$(TARGET_CFLAGS)" \
-		pregen install_headers;
+		ARCH="$(CONFIG_ARCH)" \
+		pregen \
+		install_headers
 endef
 
 define Build/Configure
