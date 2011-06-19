@@ -26,10 +26,11 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
+
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 
 static void filecat(FILE *fp, char *catted)

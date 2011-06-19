@@ -32,8 +32,8 @@
 #include <shutils.h>
 #include <wlutils.h>
 #include <nvparse.h>
-#include <rc.h>
 #include <bcmutils.h>
+#include "rc.h"
 
 
 int start_pppd(char *prefix)

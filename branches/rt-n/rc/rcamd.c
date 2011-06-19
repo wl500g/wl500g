@@ -19,11 +19,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <stdarg.h>
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
-#include <stdarg.h>
+#include "rc.h"
 
 int
 start_rcamd(void)

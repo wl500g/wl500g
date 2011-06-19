@@ -28,11 +28,12 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <proto/ethernet.h>
+
 #include <shutils.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
 #include <bcmparams.h>
-#include <rc.h>
+#include "rc.h"
 
 in_addr_t
 ip_addr(const char *str)

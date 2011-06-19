@@ -20,15 +20,15 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
-#include <stdarg.h>
 #include <wlioctl.h>
 #include <wlutils.h>
 #include <netconf.h>
 #include <nvparse.h>
+#include "rc.h"
 
 #ifdef LINUX26
  #define GPIOCTL

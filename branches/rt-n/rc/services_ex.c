@@ -20,10 +20,6 @@
 #include <sys/fcntl.h>
 #include <dirent.h>
 #include <sys/mount.h>
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <rc.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,9 +29,14 @@
 #include <crypt.h>
 #endif
 #include <mntent.h>
+
+#include <bcmnvram.h>
+#include <netconf.h>
+#include <shutils.h>
+#include <nvparse.h>
+#include "rc.h"
 #include "iboxcom.h"
 #include "lp.h"
-#include "nvparse.h"
 
 
 #ifdef USB_SUPPORT
