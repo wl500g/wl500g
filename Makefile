@@ -26,7 +26,7 @@ BRCM-SRC=brcm-src-2.6
 IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
-BUSYBOX=busybox-1.18.4
+BUSYBOX=busybox-1.18.5
 DROPBEAR=dropbear-0.53.1
 DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
@@ -49,12 +49,12 @@ XL2TPD=xl2tpd-1.2.8
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.4
-UDPXY=udpxy-1.0-Chipmunk-19
+UDPXY=udpxy-1.0-Chipmunk-20
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-1.1.7
+USBMODESWITCH=usb-modeswitch-1.1.8
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 TCPDUMP=tcpdump-4.1.1
@@ -422,10 +422,12 @@ $(TOP)/pptp: pptp/$(PPTP).tar.gz
 pptp: $(TOP)/pptp
 	@true
 
-$(TOP)/udpxy: $(UDPXY).tgz
+udpxy_Patches := $(call patches_list,udpxy)
+
+$(TOP)/udpxy: udpxy/$(UDPXY).tgz
 	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
+	$(PATCHER) -Z $(TOP)/$(UDPXY) $(udpxy_Patches)
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy

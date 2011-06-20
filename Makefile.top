@@ -1012,7 +1012,7 @@ libusb10-install:
 
 usb_modeswitch: libusb10
 	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Wall -Os $(EXTRACFLAGS) \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -DLIBUSB10"
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
 
 usb_modeswitch-install:
 	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
