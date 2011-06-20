@@ -5620,9 +5620,9 @@ index 380a7ae..44874d4 100644
  	data->inode	  = inode;
  	data->cred	  = first->wb_context->cred;
 @@ -1221,7 +1226,7 @@ nfs_commit_list(struct inode *inode, struct list_head *head, int how)
- 		nfs_list_remove_request(req);
- 		nfs_mark_request_commit(req);
  		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
+ 		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
+ 				BDI_RECLAIMABLE);
 -		nfs_clear_page_writeback(req);
 +		nfs_clear_page_tag_locked(req);
  	}
