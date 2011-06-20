@@ -247,6 +247,13 @@ EXPORT_SYMBOL(unlock_super);
  */
 void __fsync_super(struct super_block *sb)
 {
+	/*
+	 * This should be safe, as we require bdi backing to actually
+	 * write out data in the first place
+	 */
+	if (!sb->s_bdi)
+		return 0;
+
 	sync_inodes_sb(sb, 0);
 	DQUOT_SYNC(sb);
 	lock_super(sb);
@@ -387,7 +394,7 @@ EXPORT_SYMBOL(drop_super);
 static inline void write_super(struct super_block *sb)
 {
 	lock_super(sb);
-	if (sb->s_root && sb->s_dirt)
+	if (sb->s_root && sb->s_bdi && sb->s_dirt)
 		if (sb->s_op->write_super)
 			sb->s_op->write_super(sb);
 	unlock_super(sb);
@@ -718,6 +725,12 @@ static int set_bdev_super(struct super_block *s, void *data)
 {
 	s->s_bdev = data;
 	s->s_dev = s->s_bdev->bd_dev;
+
+	/*
+	 * We set the bdi here to the queue backing, file systems can
+	 * overwrite this in ->fill_super()
+	 */
+	s->s_bdi = &bdev_get_queue(s->s_bdev)->backing_dev_info;
 	return 0;
 }
 

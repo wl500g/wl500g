@@ -157,9 +157,7 @@ static struct inode *alloc_inode(struct super_block *sb)
 		if (sb->s_bdev) {
 			struct backing_dev_info *bdi;
 
-			bdi = sb->s_bdev->bd_inode_backing_dev_info;
-			if (!bdi)
-				bdi = sb->s_bdev->bd_inode->i_mapping->backing_dev_info;
+			bdi = sb->s_bdev->bd_inode->i_mapping->backing_dev_info;
 			mapping->backing_dev_info = bdi;
 		}
 		inode->i_private = NULL;

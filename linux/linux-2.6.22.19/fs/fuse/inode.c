@@ -401,6 +401,7 @@ static int fuse_show_options(struct seq_file *m, struct vfsmount *mnt)
 static struct fuse_conn *new_conn(void)
 {
 	struct fuse_conn *fc;
+	int err;
 
 	fc = kzalloc(sizeof(*fc), GFP_KERNEL);
 	if (fc) {
@@ -416,10 +417,17 @@ static struct fuse_conn *new_conn(void)
 		atomic_set(&fc->num_waiting, 0);
 		fc->bdi.ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
 		fc->bdi.unplug_io_fn = default_unplug_io_fn;
+		err = bdi_init(&fc->bdi);
+		if (err) {
+			kfree(fc);
+			fc = NULL;
+			goto out;
+		}
 		fc->reqctr = 0;
 		fc->blocked = 1;
 		get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
 	}
+out:
 	return fc;
 }
 
@@ -429,6 +437,7 @@ void fuse_conn_put(struct fuse_conn *fc)
 		if (fc->destroy_req)
 			fuse_request_free(fc->destroy_req);
 		mutex_destroy(&fc->inst_mutex);
+		bdi_destroy(&fc->bdi);
 		kfree(fc);
 	}
 }
@@ -561,6 +570,8 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	fc = new_conn();
 	if (!fc)
 		return -ENOMEM;
+
+	sb->s_bdi = &fc->bdi;
 
 	fc->flags = d.flags;
 	fc->user_id = d.user_id;

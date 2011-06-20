@@ -61,6 +61,12 @@ static inline s64 percpu_counter_read_positive(struct percpu_counter *fbc)
 	return 1;
 }
 
+static inline s64 percpu_counter_sum_positive(struct percpu_counter *fbc)
+{
+	s64 ret = percpu_counter_sum(fbc);
+	return ret < 0 ? 0 : ret;
+}
+
 #else
 
 struct percpu_counter {
@@ -96,6 +102,11 @@ static inline s64 percpu_counter_read_positive(struct percpu_counter *fbc)
 
 static inline s64 percpu_counter_sum(struct percpu_counter *fbc)
 {
+	return percpu_counter_read(fbc);
+}
+
+static inline s64 percpu_counter_sum_positive(struct percpu_counter *fbc)
+{
 	return percpu_counter_read_positive(fbc);
 }
 
@@ -109,6 +120,11 @@ static inline void percpu_counter_inc(struct percpu_counter *fbc)
 static inline void percpu_counter_dec(struct percpu_counter *fbc)
 {
 	percpu_counter_mod(fbc, -1);
+}
+
+static inline void percpu_counter_sub(struct percpu_counter *fbc, s64 amount)
+{
+	percpu_counter_mod(fbc, -amount);
 }
 
 #endif /* _LINUX_PERCPU_COUNTER_H */
