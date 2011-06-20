@@ -45,7 +45,7 @@ XL2TPD=xl2tpd-1.2.7
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.4
-UDPXY=udpxy-1.0-Chipmunk-19
+UDPXY=udpxy-1.0-Chipmunk-20
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
@@ -432,10 +432,12 @@ $(TOP)/pptp: pptp/$(PPTP).tar.gz
 pptp: $(TOP)/pptp
 	@true
 
-$(TOP)/udpxy: $(UDPXY).tgz
+udpxy_Patches := $(call patches_list,udpxy)
+
+$(TOP)/udpxy: udpxy/$(UDPXY).tgz
 	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
+	$(PATCHER) -Z $(TOP)/$(UDPXY) $(udpxy_Patches)
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy
