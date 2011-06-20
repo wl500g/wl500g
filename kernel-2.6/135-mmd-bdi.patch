@@ -1,0 +1,1280 @@
+mm: BDI updates from upstream
+
+ kernel.org commits
+ 8f8a68ee486e1c81eaead3c521822bf86142d380 remove mm/backing-dev.c:congestion_wait_interruptible()
+ d688abf50bd5a30d2c44dea2a72dd59052cd3cce move page writeback acounting out of macros
+ e0bf68ddec4f4f90e5871404be4f1854c17f3120 mm: bdi init hooks
+ b2e8fb6efa209c82203c79b491b5bc952d44aa57 mm: scalable bdi statistics counters
+ c9e51e4180696aa67915ec5665e4ec74125565de mm: count reclaimable pages per BDI
+ 69cb51d18c1ed593009d9a620cac49d0dcf15dc8 mm: count writeback pages per BDI
+ 04fbfdc14e5f48463820d6b9807daa5e9c92c51f mm: per device dirty threshold
+ 5fce25a9df4865bdd5e3dc4853b269dc1677a02a mm: speed up writeback ramp-up on clean systems
+ 8c0863403f109a43d7000b4646da4818220d501f dirty page balancing: Get rid of broken unmapped_ratio logic
+ fc3ba692a4d19019387c5acaea63131f9eab05dd mm: Add NR_WRITEBACK_TEMP counter
+ dd5656e59ca7b25fb60a22f9079905ed0da5ed0c mm: bdi: export bdi_writeout_inc()
+
+---
+
+diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
+--- a/block/ll_rw_blk.c
++++ b/block/ll_rw_blk.c
+@@ -1803,6 +1803,7 @@ static void blk_release_queue(struct kob
+ 
+ 	blk_trace_shutdown(q);
+ 
++	bdi_destroy(&q->backing_dev_info);
+ 	kmem_cache_free(requestq_cachep, q);
+ }
+ 
+@@ -1856,21 +1857,27 @@ static struct kobj_type queue_ktype;
+ request_queue_t *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
+ {
+ 	request_queue_t *q;
++	int err;
+ 
+ 	q = kmem_cache_alloc_node(requestq_cachep,
+ 				gfp_mask | __GFP_ZERO, node_id);
+ 	if (!q)
+ 		return NULL;
+ 
++	q->backing_dev_info.unplug_io_fn = blk_backing_dev_unplug;
++	q->backing_dev_info.unplug_io_data = q;
++	err = bdi_init(&q->backing_dev_info);
++	if (err) {
++		kmem_cache_free(requestq_cachep, q);
++		return NULL;
++	}
++
+ 	init_timer(&q->unplug_timer);
+ 
+ 	snprintf(q->kobj.name, KOBJ_NAME_LEN, "%s", "queue");
+ 	q->kobj.ktype = &queue_ktype;
+ 	kobject_init(&q->kobj);
+ 
+-	q->backing_dev_info.unplug_io_fn = blk_backing_dev_unplug;
+-	q->backing_dev_info.unplug_io_data = q;
+-
+ 	mutex_init(&q->sysfs_lock);
+ 
+ 	return q;
+diff --git a/drivers/base/node.c b/drivers/base/node.c
+--- a/drivers/base/node.c
++++ b/drivers/base/node.c
+@@ -63,6 +63,7 @@ static ssize_t node_read_meminfo(struct 
+ 		       "Node %d PageTables:   %8lu kB\n"
+ 		       "Node %d NFS_Unstable: %8lu kB\n"
+ 		       "Node %d Bounce:       %8lu kB\n"
++		       "Node %d WritebackTmp: %8lu kB\n"
+ 		       "Node %d Slab:         %8lu kB\n"
+ 		       "Node %d SReclaimable: %8lu kB\n"
+ 		       "Node %d SUnreclaim:   %8lu kB\n",
+@@ -85,6 +86,7 @@ static ssize_t node_read_meminfo(struct 
+ 		       nid, K(node_page_state(nid, NR_PAGETABLE)),
+ 		       nid, K(node_page_state(nid, NR_UNSTABLE_NFS)),
+ 		       nid, K(node_page_state(nid, NR_BOUNCE)),
++		       nid, K(node_page_state(nid, NR_WRITEBACK_TEMP)),
+ 		       nid, K(node_page_state(nid, NR_SLAB_RECLAIMABLE) +
+ 				node_page_state(nid, NR_SLAB_UNRECLAIMABLE)),
+ 		       nid, K(node_page_state(nid, NR_SLAB_RECLAIMABLE)),
+diff --git a/drivers/block/rd.c b/drivers/block/rd.c
+--- a/drivers/block/rd.c
++++ b/drivers/block/rd.c
+@@ -424,6 +424,9 @@ static void __exit rd_cleanup(void)
+ 		blk_cleanup_queue(rd_queue[i]);
+ 	}
+ 	unregister_blkdev(RAMDISK_MAJOR, "ramdisk");
++
++	bdi_destroy(&rd_file_backing_dev_info);
++	bdi_destroy(&rd_backing_dev_info);
+ }
+ 
+ /*
+@@ -432,7 +435,19 @@ static void __exit rd_cleanup(void)
+ static int __init rd_init(void)
+ {
+ 	int i;
+-	int err = -ENOMEM;
++	int err;
++
++	err = bdi_init(&rd_backing_dev_info);
++	if (err)
++		goto out2;
++
++	err = bdi_init(&rd_file_backing_dev_info);
++	if (err) {
++		bdi_destroy(&rd_backing_dev_info);
++		goto out2;
++	}
++
++	err = -ENOMEM;
+ 
+ 	if (rd_blocksize > PAGE_SIZE || rd_blocksize < 512 ||
+ 			(rd_blocksize & (rd_blocksize-1))) {
+@@ -486,6 +501,9 @@ out:
+ 		put_disk(rd_disks[i]);
+ 		blk_cleanup_queue(rd_queue[i]);
+ 	}
++	bdi_destroy(&rd_backing_dev_info);
++	bdi_destroy(&rd_file_backing_dev_info);
++out2:
+ 	return err;
+ }
+ 
+diff --git a/drivers/char/mem.c b/drivers/char/mem.c
+--- a/drivers/char/mem.c
++++ b/drivers/char/mem.c
+@@ -977,6 +977,11 @@ static struct class *mem_class;
+ static int __init chr_dev_init(void)
+ {
+ 	int i;
++	int err;
++
++	err = bdi_init(&zero_bdi);
++	if (err)
++		return err;
+ 
+ 	if (register_chrdev(MEM_MAJOR,"mem",&memory_fops))
+ 		printk("unable to get major %d for memory devs\n", MEM_MAJOR);
+diff --git a/fs/buffer.c b/fs/buffer.c
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -726,6 +726,8 @@ int __set_page_dirty_buffers(struct page
+ 	if (page->mapping) {	/* Race with truncate? */
+ 		if (mapping_cap_account_dirty(mapping)) {
+ 			__inc_zone_page_state(page, NR_FILE_DIRTY);
++			__inc_bdi_stat(mapping->backing_dev_info,
++					BDI_RECLAIMABLE);
+ 			task_io_account_write(PAGE_CACHE_SIZE);
+ 		}
+ 		radix_tree_tag_set(&mapping->page_tree,
+diff --git a/fs/char_dev.c b/fs/char_dev.c
+--- a/fs/char_dev.c
++++ b/fs/char_dev.c
+@@ -546,6 +546,7 @@ static struct kobject *base_probe(dev_t 
+ void __init chrdev_init(void)
+ {
+ 	cdev_map = kobj_map_init(base_probe, &chrdevs_lock);
++	bdi_init(&directly_mappable_cdev_bdi);
+ }
+ 
+ 
+diff --git a/fs/configfs/configfs_internal.h b/fs/configfs/configfs_internal.h
+--- a/fs/configfs/configfs_internal.h
++++ b/fs/configfs/configfs_internal.h
+@@ -55,6 +55,8 @@ extern int configfs_is_root(struct confi
+ 
+ extern struct inode * configfs_new_inode(mode_t mode, struct configfs_dirent *);
+ extern int configfs_create(struct dentry *, int mode, int (*init)(struct inode *));
++extern int configfs_inode_init(void);
++extern void configfs_inode_exit(void);
+ 
+ extern int configfs_create_file(struct config_item *, const struct configfs_attribute *);
+ extern int configfs_make_dirent(struct configfs_dirent *,
+diff --git a/fs/configfs/inode.c b/fs/configfs/inode.c
+--- a/fs/configfs/inode.c
++++ b/fs/configfs/inode.c
+@@ -256,4 +256,12 @@ void configfs_hash_and_remove(struct den
+ 	mutex_unlock(&dir->d_inode->i_mutex);
+ }
+ 
++int __init configfs_inode_init(void)
++{
++	return bdi_init(&configfs_backing_dev_info);
++}
+ 
++void __exit configfs_inode_exit(void)
++{
++	bdi_destroy(&configfs_backing_dev_info);
++}
+diff --git a/fs/configfs/mount.c b/fs/configfs/mount.c
+--- a/fs/configfs/mount.c
++++ b/fs/configfs/mount.c
+@@ -154,8 +154,16 @@ static int __init configfs_init(void)
+ 		subsystem_unregister(&config_subsys);
+ 		kmem_cache_destroy(configfs_dir_cachep);
+ 		configfs_dir_cachep = NULL;
++		goto out;
+ 	}
+ 
++	err = configfs_inode_init();
++	if (err) {
++		unregister_filesystem(&configfs_fs_type);
++		subsystem_unregister(&config_subsys);
++		kmem_cache_destroy(configfs_dir_cachep);
++		configfs_dir_cachep = NULL;
++	}
+ out:
+ 	return err;
+ }
+@@ -166,6 +174,7 @@ static void __exit configfs_exit(void)
+ 	subsystem_unregister(&config_subsys);
+ 	kmem_cache_destroy(configfs_dir_cachep);
+ 	configfs_dir_cachep = NULL;
++	configfs_inode_exit();
+ }
+ 
+ MODULE_AUTHOR("Oracle");
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -401,6 +401,7 @@ static int fuse_show_options(struct seq_
+ static struct fuse_conn *new_conn(void)
+ {
+ 	struct fuse_conn *fc;
++	int err;
+ 
+ 	fc = kzalloc(sizeof(*fc), GFP_KERNEL);
+ 	if (fc) {
+@@ -416,10 +417,17 @@ static struct fuse_conn *new_conn(void)
+ 		atomic_set(&fc->num_waiting, 0);
+ 		fc->bdi.ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
+ 		fc->bdi.unplug_io_fn = default_unplug_io_fn;
++		err = bdi_init(&fc->bdi);
++		if (err) {
++			kfree(fc);
++			fc = NULL;
++			goto out;
++		}
+ 		fc->reqctr = 0;
+ 		fc->blocked = 1;
+ 		get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
+ 	}
++out:
+ 	return fc;
+ }
+ 
+@@ -429,6 +437,7 @@ void fuse_conn_put(struct fuse_conn *fc)
+ 		if (fc->destroy_req)
+ 			fuse_request_free(fc->destroy_req);
+ 		mutex_destroy(&fc->inst_mutex);
++		bdi_destroy(&fc->bdi);
+ 		kfree(fc);
+ 	}
+ }
+diff --git a/fs/hugetlbfs/inode.c b/fs/hugetlbfs/inode.c
+--- a/fs/hugetlbfs/inode.c
++++ b/fs/hugetlbfs/inode.c
+@@ -802,11 +802,15 @@ static int __init init_hugetlbfs_fs(void
+ 	int error;
+ 	struct vfsmount *vfsmount;
+ 
++	error = bdi_init(&hugetlbfs_backing_dev_info);
++	if (error)
++		return error;
++
+ 	hugetlbfs_inode_cachep = kmem_cache_create("hugetlbfs_inode_cache",
+ 					sizeof(struct hugetlbfs_inode_info),
+ 					0, 0, init_once, NULL);
+ 	if (hugetlbfs_inode_cachep == NULL)
+-		return -ENOMEM;
++		goto out2;
+ 
+ 	error = register_filesystem(&hugetlbfs_fs_type);
+ 	if (error)
+@@ -824,6 +828,8 @@ static int __init init_hugetlbfs_fs(void
+  out:
+ 	if (error)
+ 		kmem_cache_destroy(hugetlbfs_inode_cachep);
++ out2:
++	bdi_destroy(&hugetlbfs_backing_dev_info);
+ 	return error;
+ }
+ 
+@@ -831,6 +837,7 @@ static void __exit exit_hugetlbfs_fs(voi
+ {
+ 	kmem_cache_destroy(hugetlbfs_inode_cachep);
+ 	unregister_filesystem(&hugetlbfs_fs_type);
++	bdi_destroy(&hugetlbfs_backing_dev_info);
+ }
+ 
+ module_init(init_hugetlbfs_fs)
+diff --git a/fs/nfs/client.c b/fs/nfs/client.c
+--- a/fs/nfs/client.c
++++ b/fs/nfs/client.c
+@@ -669,6 +670,10 @@ static int nfs_probe_fsinfo(struct nfs_s
+ 		goto out_error;
+ 
+ 	nfs_server_set_fsinfo(server, &fsinfo);
++	error = bdi_init(&server->backing_dev_info);
++	if (error)
++		goto out_error;
++
+ 
+ 	/* Get some general file system info */
+ 	if (server->namelen == 0) {
+@@ -751,6 +756,7 @@ void nfs_free_server(struct nfs_server *
+ 	nfs_put_client(server->nfs_client);
+ 
+ 	nfs_free_iostats(server->io_stats);
++	bdi_destroy(&server->backing_dev_info);
+ 	kfree(server);
+ 	nfs_release_automount_timer();
+ 	dprintk("<-- nfs_free_server()\n");
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -465,6 +465,7 @@ nfs_mark_request_commit(struct nfs_page 
+ 			NFS_PAGE_TAG_COMMIT);
+ 	spin_unlock(&inode->i_lock);
+ 	inc_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
++	inc_bdi_stat(req->wb_page->mapping->backing_dev_info, BDI_RECLAIMABLE);
+ 	__mark_inode_dirty(inode, I_DIRTY_DATASYNC);
+ }
+ 
+@@ -551,6 +552,8 @@ static void nfs_cancel_commit_list(struc
+ 	while(!list_empty(head)) {
+ 		req = nfs_list_entry(head->next);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
++		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++				BDI_RECLAIMABLE);
+ 		nfs_list_remove_request(req);
+ 		clear_bit(PG_NEED_COMMIT, &(req)->wb_flags);
+ 		nfs_inode_remove_request(req);
+@@ -1228,6 +1231,8 @@ nfs_commit_list(struct inode *inode, str
+ 		nfs_list_remove_request(req);
+ 		nfs_mark_request_commit(req);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
++		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++				BDI_RECLAIMABLE);
+ 		nfs_clear_page_writeback(req);
+ 	}
+ 	return -ENOMEM;
+@@ -1253,6 +1258,8 @@ static void nfs_commit_done(struct rpc_t
+ 		nfs_list_remove_request(req);
+ 		clear_bit(PG_NEED_COMMIT, &(req)->wb_flags);
+ 		dec_zone_page_state(req->wb_page, NR_UNSTABLE_NFS);
++		dec_bdi_stat(req->wb_page->mapping->backing_dev_info,
++				BDI_RECLAIMABLE);
+ 
+ 		dprintk("NFS: commit (%s/%Ld %d@%Ld)",
+ 			req->wb_context->path.dentry->d_inode->i_sb->s_id,
+diff --git a/fs/ocfs2/dlm/dlmfs.c b/fs/ocfs2/dlm/dlmfs.c
+--- a/fs/ocfs2/dlm/dlmfs.c
++++ b/fs/ocfs2/dlm/dlmfs.c
+@@ -588,13 +588,17 @@ static int __init init_dlmfs_fs(void)
+ 
+ 	dlmfs_print_version();
+ 
++	status = bdi_init(&dlmfs_backing_dev_info);
++	if (status)
++		return status;
++
+ 	dlmfs_inode_cache = kmem_cache_create("dlmfs_inode_cache",
+ 				sizeof(struct dlmfs_inode_private),
+ 				0, (SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT|
+ 					SLAB_MEM_SPREAD),
+ 				dlmfs_init_once, NULL);
+ 	if (!dlmfs_inode_cache)
+-		return -ENOMEM;
++		goto bail;
+ 	cleanup_inode = 1;
+ 
+ 	user_dlm_worker = create_singlethread_workqueue("user_dlm");
+@@ -611,6 +615,7 @@ bail:
+ 			kmem_cache_destroy(dlmfs_inode_cache);
+ 		if (cleanup_worker)
+ 			destroy_workqueue(user_dlm_worker);
++		bdi_destroy(&dlmfs_backing_dev_info);
+ 	} else
+ 		printk("OCFS2 User DLM kernel interface loaded\n");
+ 	return status;
+@@ -624,6 +629,8 @@ static void __exit exit_dlmfs_fs(void)
+ 	destroy_workqueue(user_dlm_worker);
+ 
+ 	kmem_cache_destroy(dlmfs_inode_cache);
++
++	bdi_destroy(&dlmfs_backing_dev_info);
+ }
+ 
+ MODULE_AUTHOR("Oracle");
+diff --git a/fs/proc/proc_misc.c b/fs/proc/proc_misc.c
+--- a/fs/proc/proc_misc.c
++++ b/fs/proc/proc_misc.c
+@@ -171,6 +171,7 @@ static int meminfo_read_proc(char *page,
+ 		"PageTables:   %8lu kB\n"
+ 		"NFS_Unstable: %8lu kB\n"
+ 		"Bounce:       %8lu kB\n"
++		"WritebackTmp: %8lu kB\n"
+ 		"CommitLimit:  %8lu kB\n"
+ 		"Committed_AS: %8lu kB\n"
+ 		"VmallocTotal: %8lu kB\n"
+@@ -202,6 +203,7 @@ static int meminfo_read_proc(char *page,
+ 		K(global_page_state(NR_PAGETABLE)),
+ 		K(global_page_state(NR_UNSTABLE_NFS)),
+ 		K(global_page_state(NR_BOUNCE)),
++		K(global_page_state(NR_WRITEBACK_TEMP)),
+ 		K(allowed),
+ 		K(committed),
+ 		(unsigned long)VMALLOC_TOTAL >> 10,
+diff --git a/fs/ramfs/inode.c b/fs/ramfs/inode.c
+--- a/fs/ramfs/inode.c
++++ b/fs/ramfs/inode.c
+@@ -223,7 +223,17 @@ module_exit(exit_ramfs_fs)
+ 
+ int __init init_rootfs(void)
+ {
+-	return register_filesystem(&rootfs_fs_type);
++	int err;
++
++	err = bdi_init(&ramfs_backing_dev_info);
++	if (err)
++		return err;
++
++	err = register_filesystem(&rootfs_fs_type);
++	if (err)
++		bdi_destroy(&ramfs_backing_dev_info);
++
++	return err;
+ }
+ 
+ MODULE_LICENSE("GPL");
+diff --git a/fs/sysfs/inode.c b/fs/sysfs/inode.c
+--- a/fs/sysfs/inode.c
++++ b/fs/sysfs/inode.c
+@@ -44,6 +44,11 @@ void sysfs_delete_inode(struct inode *in
+ 	return generic_delete_inode(inode);
+ }
+ 
++int __init sysfs_inode_init(void)
++{
++	return bdi_init(&sysfs_backing_dev_info);
++}
++
+ int sysfs_setattr(struct dentry * dentry, struct iattr * iattr)
+ {
+ 	struct inode * inode = dentry->d_inode;
+diff --git a/fs/sysfs/mount.c b/fs/sysfs/mount.c
+--- a/fs/sysfs/mount.c
++++ b/fs/sysfs/mount.c
+@@ -98,6 +98,10 @@ int __init sysfs_init(void)
+ 	if (!sysfs_dir_cachep)
+ 		goto out;
+ 
++	err = sysfs_inode_init();
++	if (err)
++		goto out_err;
++
+ 	err = register_filesystem(&sysfs_fs_type);
+ 	if (!err) {
+ 		sysfs_mount = kern_mount(&sysfs_fs_type);
+diff --git a/fs/sysfs/sysfs.h b/fs/sysfs/sysfs.h
+--- a/fs/sysfs/sysfs.h
++++ b/fs/sysfs/sysfs.h
+@@ -32,6 +32,7 @@ extern void sysfs_remove_subdir(struct d
+ extern const unsigned char * sysfs_get_name(struct sysfs_dirent *sd);
+ extern void sysfs_drop_dentry(struct sysfs_dirent *sd, struct dentry *parent);
+ extern int sysfs_setattr(struct dentry *dentry, struct iattr *iattr);
++int sysfs_inode_init(void);
+ 
+ extern spinlock_t sysfs_lock;
+ extern struct rw_semaphore sysfs_rename_sem;
+diff --git a/include/linux/backing-dev.h b/include/linux/backing-dev.h
+--- a/include/linux/backing-dev.h
++++ b/include/linux/backing-dev.h
+@@ -8,6 +8,9 @@
+ #ifndef _LINUX_BACKING_DEV_H
+ #define _LINUX_BACKING_DEV_H
+ 
++#include <linux/percpu_counter.h>
++#include <linux/log2.h>
++#include <linux/proportions.h>
+ #include <asm/atomic.h>
+ 
+ struct page;
+@@ -24,6 +27,14 @@ enum bdi_state {
+ 
+ typedef int (congested_fn)(void *, int);
+ 
++enum bdi_stat_item {
++	BDI_RECLAIMABLE,
++	BDI_WRITEBACK,
++	NR_BDI_STAT_ITEMS
++};
++
++#define BDI_STAT_BATCH (8*(1+ilog2(nr_cpu_ids)))
++
+ struct backing_dev_info {
+ 	unsigned long ra_pages;	/* max readahead in PAGE_CACHE_SIZE units */
+ 	unsigned long state;	/* Always use atomic bitops on this */
+@@ -32,8 +43,92 @@ struct backing_dev_info {
+ 	void *congested_data;	/* Pointer to aux data for congested func */
+ 	void (*unplug_io_fn)(struct backing_dev_info *, struct page *);
+ 	void *unplug_io_data;
++
++	struct percpu_counter bdi_stat[NR_BDI_STAT_ITEMS];
++
++	struct prop_local_percpu completions;
++	int dirty_exceeded;
+ };
+ 
++int bdi_init(struct backing_dev_info *bdi);
++void bdi_destroy(struct backing_dev_info *bdi);
++
++static inline void __add_bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item, s64 amount)
++{
++	percpu_counter_mod(&bdi->bdi_stat[item], amount);
++}
++
++static inline void __inc_bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	__add_bdi_stat(bdi, item, 1);
++}
++
++static inline void inc_bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	unsigned long flags;
++
++	local_irq_save(flags);
++	__inc_bdi_stat(bdi, item);
++	local_irq_restore(flags);
++}
++
++static inline void __dec_bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	__add_bdi_stat(bdi, item, -1);
++}
++
++static inline void dec_bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	unsigned long flags;
++
++	local_irq_save(flags);
++	__dec_bdi_stat(bdi, item);
++	local_irq_restore(flags);
++}
++
++static inline s64 bdi_stat(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	return percpu_counter_read_positive(&bdi->bdi_stat[item]);
++}
++
++static inline s64 __bdi_stat_sum(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	return percpu_counter_sum_positive(&bdi->bdi_stat[item]);
++}
++
++static inline s64 bdi_stat_sum(struct backing_dev_info *bdi,
++		enum bdi_stat_item item)
++{
++	s64 sum;
++	unsigned long flags;
++
++	local_irq_save(flags);
++	sum = __bdi_stat_sum(bdi, item);
++	local_irq_restore(flags);
++
++	return sum;
++}
++
++extern void bdi_writeout_inc(struct backing_dev_info *bdi);
++
++/*
++ * maximal error of a stat counter.
++ */
++static inline unsigned long bdi_stat_error(struct backing_dev_info *bdi)
++{
++#ifdef CONFIG_SMP
++	return nr_cpu_ids * BDI_STAT_BATCH;
++#else
++	return 1;
++#endif
++}
+ 
+ /*
+  * Flags in backing_dev_info::capability
+@@ -93,7 +186,6 @@ static inline int bdi_rw_congested(struc
+ void clear_bdi_congested(struct backing_dev_info *bdi, int rw);
+ void set_bdi_congested(struct backing_dev_info *bdi, int rw);
+ long congestion_wait(int rw, long timeout);
+-long congestion_wait_interruptible(int rw, long timeout);
+ void congestion_end(int rw);
+ 
+ #define bdi_cap_writeback_dirty(bdi) \
+diff --git a/include/linux/mmzone.h b/include/linux/mmzone.h
+--- a/include/linux/mmzone.h
++++ b/include/linux/mmzone.h
+@@ -64,6 +64,7 @@ enum zone_stat_item {
+ 	NR_UNSTABLE_NFS,	/* NFS unstable pages */
+ 	NR_BOUNCE,
+ 	NR_VMSCAN_WRITE,
++	NR_WRITEBACK_TEMP,	/* Writeback using temporary buffers */
+ #ifdef CONFIG_NUMA
+ 	NUMA_HIT,		/* allocated in intended node */
+ 	NUMA_MISS,		/* allocated in non intended node */
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -181,37 +181,15 @@ static inline void SetPageUptodate(struc
+ #define __SetPagePrivate(page)  __set_bit(PG_private, &(page)->flags)
+ #define __ClearPagePrivate(page) __clear_bit(PG_private, &(page)->flags)
+ 
++/*
++ * Only test-and-set exist for PG_writeback.  The unconditional operators are
++ * risky: they bypass page accounting.
++ */
+ #define PageWriteback(page)	test_bit(PG_writeback, &(page)->flags)
+-#define SetPageWriteback(page)						\
+-	do {								\
+-		if (!test_and_set_bit(PG_writeback,			\
+-				&(page)->flags))			\
+-			inc_zone_page_state(page, NR_WRITEBACK);	\
+-	} while (0)
+-#define TestSetPageWriteback(page)					\
+-	({								\
+-		int ret;						\
+-		ret = test_and_set_bit(PG_writeback,			\
+-					&(page)->flags);		\
+-		if (!ret)						\
+-			inc_zone_page_state(page, NR_WRITEBACK);	\
+-		ret;							\
+-	})
+-#define ClearPageWriteback(page)					\
+-	do {								\
+-		if (test_and_clear_bit(PG_writeback,			\
+-				&(page)->flags))			\
+-			dec_zone_page_state(page, NR_WRITEBACK);	\
+-	} while (0)
+-#define TestClearPageWriteback(page)					\
+-	({								\
+-		int ret;						\
+-		ret = test_and_clear_bit(PG_writeback,			\
+-				&(page)->flags);			\
+-		if (ret)						\
+-			dec_zone_page_state(page, NR_WRITEBACK);	\
+-		ret;							\
+-	})
++#define TestSetPageWriteback(page) test_and_set_bit(PG_writeback,	\
++							&(page)->flags)
++#define TestClearPageWriteback(page) test_and_clear_bit(PG_writeback,	\
++							&(page)->flags)
+ 
+ #define PageBuddy(page)		test_bit(PG_buddy, &(page)->flags)
+ #define __SetPageBuddy(page)	__set_bit(PG_buddy, &(page)->flags)
+diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
+--- a/include/linux/percpu_counter.h
++++ b/include/linux/percpu_counter.h
+@@ -61,6 +61,12 @@ static inline s64 percpu_counter_read_po
+ 	return 1;
+ }
+ 
++static inline s64 percpu_counter_sum_positive(struct percpu_counter *fbc)
++{
++	s64 ret = percpu_counter_sum(fbc);
++	return ret < 0 ? 0 : ret;
++}
++
+ #else
+ 
+ struct percpu_counter {
+@@ -96,6 +102,11 @@ static inline s64 percpu_counter_read_po
+ 
+ static inline s64 percpu_counter_sum(struct percpu_counter *fbc)
+ {
++	return percpu_counter_read(fbc);
++}
++
++static inline s64 percpu_counter_sum_positive(struct percpu_counter *fbc)
++{
+ 	return percpu_counter_read_positive(fbc);
+ }
+ 
+diff --git a/include/linux/writeback.h b/include/linux/writeback.h
+--- a/include/linux/writeback.h
++++ b/include/linux/writeback.h
+@@ -99,6 +99,10 @@ extern int dirty_expire_interval;
+ extern int block_dump;
+ extern int laptop_mode;
+ 
++extern int dirty_ratio_handler(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos);
++
+ struct ctl_table;
+ struct file;
+ int dirty_writeback_centisecs_handler(struct ctl_table *, int, struct file *,
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -684,7 +684,7 @@ static ctl_table vm_table[] = {
+ 		.data		= &vm_dirty_ratio,
+ 		.maxlen		= sizeof(vm_dirty_ratio),
+ 		.mode		= 0644,
+-		.proc_handler	= &proc_dointvec_minmax,
++		.proc_handler	= &dirty_ratio_handler,
+ 		.strategy	= &sysctl_intvec,
+ 		.extra1		= &zero,
+ 		.extra2		= &one_hundred,
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -5,6 +5,34 @@
+ #include <linux/sched.h>
+ #include <linux/module.h>
+ 
++int bdi_init(struct backing_dev_info *bdi)
++{
++	int i;
++	int err;
++
++	for (i = 0; i < NR_BDI_STAT_ITEMS; i++) {
++		percpu_counter_init(&bdi->bdi_stat[i], 0);
++	}
++
++	bdi->dirty_exceeded = 0;
++	err = prop_local_init_percpu(&bdi->completions);
++
++
++	return err;
++}
++EXPORT_SYMBOL(bdi_init);
++
++void bdi_destroy(struct backing_dev_info *bdi)
++{
++	int i;
++
++	for (i = 0; i < NR_BDI_STAT_ITEMS; i++)
++		percpu_counter_destroy(&bdi->bdi_stat[i]);
++
++	prop_local_destroy_percpu(&bdi->completions);
++}
++EXPORT_SYMBOL(bdi_destroy);
++
+ static wait_queue_head_t congestion_wqh[2] = {
+ 		__WAIT_QUEUE_HEAD_INITIALIZER(congestion_wqh[0]),
+ 		__WAIT_QUEUE_HEAD_INITIALIZER(congestion_wqh[1])
+@@ -55,22 +83,6 @@ long congestion_wait(int rw, long timeou
+ }
+ EXPORT_SYMBOL(congestion_wait);
+ 
+-long congestion_wait_interruptible(int rw, long timeout)
+-{
+-	long ret;
+-	DEFINE_WAIT(wait);
+-	wait_queue_head_t *wqh = &congestion_wqh[rw];
+-
+-	prepare_to_wait(wqh, &wait, TASK_INTERRUPTIBLE);
+-	if (signal_pending(current))
+-		ret = -ERESTARTSYS;
+-	else
+-		ret = io_schedule_timeout(timeout);
+-	finish_wait(wqh, &wait);
+-	return ret;
+-}
+-EXPORT_SYMBOL(congestion_wait_interruptible);
+-
+ /**
+  * congestion_end - wake up sleepers on a congested backing_dev_info
+  * @rw: READ or WRITE
+diff --git a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c
++++ b/mm/page-writeback.c
+@@ -2,6 +2,7 @@
+  * mm/page-writeback.c
+  *
+  * Copyright (C) 2002, Linus Torvalds.
++ * Copyright (C) 2007 Red Hat, Inc., Peter Zijlstra <pzijlstr@redhat.com>
+  *
+  * Contains functions related to writing back dirty pages at the
+  * address_space level.
+@@ -49,8 +50,6 @@
+  */
+ static long ratelimit_pages = 32;
+ 
+-static int dirty_exceeded __cacheline_aligned_in_smp;	/* Dirty mem may be over limit */
+-
+ /*
+  * When balance_dirty_pages decides that the caller needs to perform some
+  * non-background writeback, this is how many pages it will attempt to write.
+@@ -103,6 +102,114 @@ EXPORT_SYMBOL(laptop_mode);
+ static void background_writeout(unsigned long _min_pages);
+ 
+ /*
++ * Scale the writeback cache size proportional to the relative writeout speeds.
++ *
++ * We do this by keeping a floating proportion between BDIs, based on page
++ * writeback completions [end_page_writeback()]. Those devices that write out
++ * pages fastest will get the larger share, while the slower will get a smaller
++ * share.
++ *
++ * We use page writeout completions because we are interested in getting rid of
++ * dirty pages. Having them written out is the primary goal.
++ *
++ * We introduce a concept of time, a period over which we measure these events,
++ * because demand can/will vary over time. The length of this period itself is
++ * measured in page writeback completions.
++ *
++ */
++static struct prop_descriptor vm_completions;
++
++static unsigned long determine_dirtyable_memory(void);
++
++/*
++ * couple the period to the dirty_ratio:
++ *
++ *   period/2 ~ roundup_pow_of_two(dirty limit)
++ */
++static int calc_period_shift(void)
++{
++	unsigned long dirty_total;
++
++	dirty_total = (vm_dirty_ratio * determine_dirtyable_memory()) / 100;
++	return 2 + ilog2(dirty_total - 1);
++}
++
++/*
++ * update the period when the dirty ratio changes.
++ */
++int dirty_ratio_handler(struct ctl_table *table, int write,
++		struct file *filp, void __user *buffer, size_t *lenp,
++		loff_t *ppos)
++{
++	int old_ratio = vm_dirty_ratio;
++	int ret = proc_dointvec_minmax(table, write, filp, buffer, lenp, ppos);
++	if (ret == 0 && write && vm_dirty_ratio != old_ratio) {
++		int shift = calc_period_shift();
++		prop_change_shift(&vm_completions, shift);
++	}
++	return ret;
++}
++
++/*
++ * Increment the BDI's writeout completion count and the global writeout
++ * completion count. Called from test_clear_page_writeback().
++ */
++static inline void __bdi_writeout_inc(struct backing_dev_info *bdi)
++{
++	__prop_inc_percpu(&vm_completions, &bdi->completions);
++}
++
++void bdi_writeout_inc(struct backing_dev_info *bdi)
++{
++	unsigned long flags;
++
++	local_irq_save(flags);
++	__bdi_writeout_inc(bdi);
++	local_irq_restore(flags);
++}
++EXPORT_SYMBOL_GPL(bdi_writeout_inc);
++
++/*
++ * Obtain an accurate fraction of the BDI's portion.
++ */
++static void bdi_writeout_fraction(struct backing_dev_info *bdi,
++		long *numerator, long *denominator)
++{
++	if (bdi_cap_writeback_dirty(bdi)) {
++		prop_fraction_percpu(&vm_completions, &bdi->completions,
++				numerator, denominator);
++	} else {
++		*numerator = 0;
++		*denominator = 1;
++	}
++}
++
++/*
++ * Clip the earned share of dirty pages to that which is actually available.
++ * This avoids exceeding the total dirty_limit when the floating averages
++ * fluctuate too quickly.
++ */
++static void
++clip_bdi_dirty_limit(struct backing_dev_info *bdi, long dirty, long *pbdi_dirty)
++{
++	long avail_dirty;
++
++	avail_dirty = dirty -
++		(global_page_state(NR_FILE_DIRTY) +
++		 global_page_state(NR_WRITEBACK) +
++		 global_page_state(NR_UNSTABLE_NFS) +
++		 global_page_state(NR_WRITEBACK_TEMP));
++
++	if (avail_dirty < 0)
++		avail_dirty = 0;
++
++	avail_dirty += bdi_stat(bdi, BDI_RECLAIMABLE) +
++		bdi_stat(bdi, BDI_WRITEBACK);
++
++	*pbdi_dirty = min(*pbdi_dirty, avail_dirty);
++}
++
++/*
+  * Work out the current dirty-memory clamping and background writeout
+  * thresholds.
+  *
+@@ -158,25 +255,17 @@ static unsigned long determine_dirtyable
+ }
+ 
+ static void
+-get_dirty_limits(long *pbackground, long *pdirty,
+-					struct address_space *mapping)
++get_dirty_limits(long *pbackground, long *pdirty, long *pbdi_dirty,
++		 struct backing_dev_info *bdi)
+ {
+ 	int background_ratio;		/* Percentages */
+ 	int dirty_ratio;
+-	int unmapped_ratio;
+ 	long background;
+ 	long dirty;
+ 	unsigned long available_memory = determine_dirtyable_memory();
+ 	struct task_struct *tsk;
+ 
+-	unmapped_ratio = 100 - ((global_page_state(NR_FILE_MAPPED) +
+-				global_page_state(NR_ANON_PAGES)) * 100) /
+-					available_memory;
+-
+ 	dirty_ratio = vm_dirty_ratio;
+-	if (dirty_ratio > unmapped_ratio / 2)
+-		dirty_ratio = unmapped_ratio / 2;
+-
+ 	if (dirty_ratio < 5)
+ 		dirty_ratio = 5;
+ 
+@@ -193,6 +282,22 @@ get_dirty_limits(long *pbackground, long
+ 	}
+ 	*pbackground = background;
+ 	*pdirty = dirty;
++
++	if (bdi) {
++		u64 bdi_dirty = dirty;
++		long numerator, denominator;
++
++		/*
++		 * Calculate this BDI's share of the dirty ratio.
++		 */
++		bdi_writeout_fraction(bdi, &numerator, &denominator);
++
++		bdi_dirty *= numerator;
++		do_div(bdi_dirty, denominator);
++
++		*pbdi_dirty = bdi_dirty;
++		clip_bdi_dirty_limit(bdi, dirty, pbdi_dirty);
++	}
+ }
+ 
+ /*
+@@ -204,9 +309,11 @@ get_dirty_limits(long *pbackground, long
+  */
+ static void balance_dirty_pages(struct address_space *mapping)
+ {
+-	long nr_reclaimable;
++	long nr_reclaimable, bdi_nr_reclaimable;
++	long nr_writeback, bdi_nr_writeback;
+ 	long background_thresh;
+ 	long dirty_thresh;
++	long bdi_thresh;
+ 	unsigned long pages_written = 0;
+ 	unsigned long write_chunk = sync_writeback_pages();
+ 
+@@ -221,15 +328,30 @@ static void balance_dirty_pages(struct a
+ 			.range_cyclic	= 1,
+ 		};
+ 
+-		get_dirty_limits(&background_thresh, &dirty_thresh, mapping);
++		get_dirty_limits(&background_thresh, &dirty_thresh,
++				&bdi_thresh, bdi);
++
+ 		nr_reclaimable = global_page_state(NR_FILE_DIRTY) +
+ 					global_page_state(NR_UNSTABLE_NFS);
+-		if (nr_reclaimable + global_page_state(NR_WRITEBACK) <=
+-			dirty_thresh)
+-				break;
++		nr_writeback = global_page_state(NR_WRITEBACK);
++
++		bdi_nr_reclaimable = bdi_stat(bdi, BDI_RECLAIMABLE);
++		bdi_nr_writeback = bdi_stat(bdi, BDI_WRITEBACK);
++
++		if (bdi_nr_reclaimable + bdi_nr_writeback <= bdi_thresh)
++			break;
++
++		/*
++		 * Throttle it only when the background writeback cannot
++		 * catch-up. This avoids (excessively) small writeouts
++		 * when the bdi limits are ramping up.
++		 */
++		if (nr_reclaimable + nr_writeback <
++				(background_thresh + dirty_thresh) / 2)
++			break;
+ 
+-		if (!dirty_exceeded)
+-			dirty_exceeded = 1;
++		if (!bdi->dirty_exceeded)
++			bdi->dirty_exceeded = 1;
+ 
+ 		/* Note: nr_reclaimable denotes nr_dirty + nr_unstable.
+ 		 * Unstable writes are a feature of certain networked
+@@ -237,26 +359,42 @@ static void balance_dirty_pages(struct a
+ 		 * written to the server's write cache, but has not yet
+ 		 * been flushed to permanent storage.
+ 		 */
+-		if (nr_reclaimable) {
++		if (bdi_nr_reclaimable) {
+ 			writeback_inodes(&wbc);
+-			get_dirty_limits(&background_thresh,
+-					 	&dirty_thresh, mapping);
+-			nr_reclaimable = global_page_state(NR_FILE_DIRTY) +
+-					global_page_state(NR_UNSTABLE_NFS);
+-			if (nr_reclaimable +
+-				global_page_state(NR_WRITEBACK)
+-					<= dirty_thresh)
+-						break;
+ 			pages_written += write_chunk - wbc.nr_to_write;
+-			if (pages_written >= write_chunk)
+-				break;		/* We've done our duty */
++			get_dirty_limits(&background_thresh, &dirty_thresh,
++				       &bdi_thresh, bdi);
+ 		}
++
++		/*
++		 * In order to avoid the stacked BDI deadlock we need
++		 * to ensure we accurately count the 'dirty' pages when
++		 * the threshold is low.
++		 *
++		 * Otherwise it would be possible to get thresh+n pages
++		 * reported dirty, even though there are thresh-m pages
++		 * actually dirty; with m+n sitting in the percpu
++		 * deltas.
++		 */
++		if (bdi_thresh < 2*bdi_stat_error(bdi)) {
++			bdi_nr_reclaimable = bdi_stat_sum(bdi, BDI_RECLAIMABLE);
++			bdi_nr_writeback = bdi_stat_sum(bdi, BDI_WRITEBACK);
++		} else if (bdi_nr_reclaimable) {
++			bdi_nr_reclaimable = bdi_stat(bdi, BDI_RECLAIMABLE);
++			bdi_nr_writeback = bdi_stat(bdi, BDI_WRITEBACK);
++		}
++
++		if (bdi_nr_reclaimable + bdi_nr_writeback <= bdi_thresh)
++			break;
++		if (pages_written >= write_chunk)
++			break;		/* We've done our duty */
++
+ 		congestion_wait(WRITE, HZ/10);
+ 	}
+ 
+-	if (nr_reclaimable + global_page_state(NR_WRITEBACK)
+-		<= dirty_thresh && dirty_exceeded)
+-			dirty_exceeded = 0;
++	if (bdi_nr_reclaimable + bdi_nr_writeback < bdi_thresh &&
++			bdi->dirty_exceeded)
++		bdi->dirty_exceeded = 0;
+ 
+ 	if (writeback_in_progress(bdi))
+ 		return;		/* pdflush is already working this queue */
+@@ -270,7 +408,9 @@ static void balance_dirty_pages(struct a
+ 	 * background_thresh, to keep the amount of dirty memory low.
+ 	 */
+ 	if ((laptop_mode && pages_written) ||
+-	     (!laptop_mode && (nr_reclaimable > background_thresh)))
++			(!laptop_mode && (global_page_state(NR_FILE_DIRTY)
++					  + global_page_state(NR_UNSTABLE_NFS)
++					  > background_thresh)))
+ 		pdflush_operation(background_writeout, 0);
+ }
+ 
+@@ -306,7 +446,7 @@ void balance_dirty_pages_ratelimited_nr(
+ 	unsigned long *p;
+ 
+ 	ratelimit = ratelimit_pages;
+-	if (dirty_exceeded)
++	if (mapping->backing_dev_info->dirty_exceeded)
+ 		ratelimit = 8;
+ 
+ 	/*
+@@ -332,7 +472,7 @@ void throttle_vm_writeout(gfp_t gfp_mask
+ 	long dirty_thresh;
+ 
+         for ( ; ; ) {
+-		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
++		get_dirty_limits(&background_thresh, &dirty_thresh, NULL, NULL);
+ 
+                 /*
+                  * Boost the allowable dirty threshold a bit for page
+@@ -375,7 +515,7 @@ static void background_writeout(unsigned
+ 		long background_thresh;
+ 		long dirty_thresh;
+ 
+-		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
++		get_dirty_limits(&background_thresh, &dirty_thresh, NULL, NULL);
+ 		if (global_page_state(NR_FILE_DIRTY) +
+ 			global_page_state(NR_UNSTABLE_NFS) < background_thresh
+ 				&& min_pages <= 0)
+@@ -583,9 +723,14 @@ static struct notifier_block __cpuinitda
+  */
+ void __init page_writeback_init(void)
+ {
++	int shift;
++
+ 	mod_timer(&wb_timer, jiffies + dirty_writeback_interval);
+ 	writeback_set_ratelimit();
+ 	register_cpu_notifier(&ratelimit_nb);
++
++	shift = calc_period_shift();
++	prop_descriptor_init(&vm_completions, shift);
+ }
+ 
+ /**
+@@ -842,6 +987,8 @@ int __set_page_dirty_nobuffers(struct pa
+ 			BUG_ON(mapping2 != mapping);
+ 			if (mapping_cap_account_dirty(mapping)) {
+ 				__inc_zone_page_state(page, NR_FILE_DIRTY);
++				__inc_bdi_stat(mapping->backing_dev_info,
++						BDI_RECLAIMABLE);
+ 				task_io_account_write(PAGE_CACHE_SIZE);
+ 			}
+ 			radix_tree_tag_set(&mapping->page_tree,
+@@ -975,6 +1122,8 @@ int clear_page_dirty_for_io(struct page 
+ 		 */
+ 		if (TestClearPageDirty(page)) {
+ 			dec_zone_page_state(page, NR_FILE_DIRTY);
++			dec_bdi_stat(mapping->backing_dev_info,
++					BDI_RECLAIMABLE);
+ 			return 1;
+ 		}
+ 		return 0;
+@@ -989,18 +1138,26 @@ int test_clear_page_writeback(struct pag
+ 	int ret;
+ 
+ 	if (mapping) {
++		struct backing_dev_info *bdi = mapping->backing_dev_info;
+ 		unsigned long flags;
+ 
+ 		write_lock_irqsave(&mapping->tree_lock, flags);
+ 		ret = TestClearPageWriteback(page);
+-		if (ret)
++		if (ret) {
+ 			radix_tree_tag_clear(&mapping->page_tree,
+ 						page_index(page),
+ 						PAGECACHE_TAG_WRITEBACK);
++			if (bdi_cap_writeback_dirty(bdi)) {
++				__dec_bdi_stat(bdi, BDI_WRITEBACK);
++				__bdi_writeout_inc(bdi);
++			}
++		}
+ 		write_unlock_irqrestore(&mapping->tree_lock, flags);
+ 	} else {
+ 		ret = TestClearPageWriteback(page);
+ 	}
++	if (ret)
++		dec_zone_page_state(page, NR_WRITEBACK);
+ 	return ret;
+ }
+ 
+@@ -1010,14 +1167,18 @@ int test_set_page_writeback(struct page 
+ 	int ret;
+ 
+ 	if (mapping) {
++		struct backing_dev_info *bdi = mapping->backing_dev_info;
+ 		unsigned long flags;
+ 
+ 		write_lock_irqsave(&mapping->tree_lock, flags);
+ 		ret = TestSetPageWriteback(page);
+-		if (!ret)
++		if (!ret) {
+ 			radix_tree_tag_set(&mapping->page_tree,
+ 						page_index(page),
+ 						PAGECACHE_TAG_WRITEBACK);
++			if (bdi_cap_writeback_dirty(bdi))
++				__inc_bdi_stat(bdi, BDI_WRITEBACK);
++		}
+ 		if (!PageDirty(page))
+ 			radix_tree_tag_clear(&mapping->page_tree,
+ 						page_index(page),
+@@ -1026,6 +1187,8 @@ int test_set_page_writeback(struct page 
+ 	} else {
+ 		ret = TestSetPageWriteback(page);
+ 	}
++	if (!ret)
++		inc_zone_page_state(page, NR_WRITEBACK);
+ 	return ret;
+ 
+ }
+diff --git a/mm/readahead.c b/mm/readahead.c
+--- a/mm/readahead.c
++++ b/mm/readahead.c
+@@ -260,6 +260,12 @@ out:
+  * the request (I/O request > max_readahead).
+  */
+ 
++static int __init readahead_init(void)
++{
++	return bdi_init(&default_backing_dev_info);
++}
++subsys_initcall(readahead_init);
++
+ /*
+  * do_page_cache_readahead actually reads a chunk of disk.  It allocates all
+  * the pages first, then submits them all for I/O. This avoids the very bad
+diff --git a/mm/shmem.c b/mm/shmem.c
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -2457,6 +2457,10 @@ static int __init init_tmpfs(void)
+ {
+ 	int error;
+ 
++	error = bdi_init(&shmem_backing_dev_info);
++	if (error)
++		goto out4;
++
+ 	error = init_inodecache();
+ 	if (error)
+ 		goto out3;
+@@ -2481,6 +2485,8 @@ out1:
+ out2:
+ 	destroy_inodecache();
+ out3:
++	bdi_destroy(&shmem_backing_dev_info);
++out4:
+ 	shm_mnt = ERR_PTR(error);
+ 	return error;
+ }
+diff --git a/mm/swap.c b/mm/swap.c
+--- a/mm/swap.c
++++ b/mm/swap.c
+@@ -29,6 +29,7 @@
+ #include <linux/percpu.h>
+ #include <linux/cpu.h>
+ #include <linux/notifier.h>
++#include <linux/backing-dev.h>
+ #include <linux/init.h>
+ 
+ /* How many pages do we try to swap or page in/out together? */
+@@ -505,6 +506,10 @@ void __init swap_setup(void)
+ {
+ 	unsigned long megs = num_physpages >> (20 - PAGE_SHIFT);
+ 
++#ifdef CONFIG_SWAP
++	bdi_init(swapper_space.backing_dev_info);
++#endif
++
+ 	/* Use a smaller cluster for small-memory machines */
+ 	if (megs < 16)
+ 		page_cluster = 2;
+diff --git a/mm/truncate.c b/mm/truncate.c
+--- a/mm/truncate.c
++++ b/mm/truncate.c
+@@ -72,6 +72,8 @@ void cancel_dirty_page(struct page *page
+ 		struct address_space *mapping = page->mapping;
+ 		if (mapping && mapping_cap_account_dirty(mapping)) {
+ 			dec_zone_page_state(page, NR_FILE_DIRTY);
++			dec_bdi_stat(mapping->backing_dev_info,
++					BDI_RECLAIMABLE);
+ 			if (account_size)
+ 				task_io_account_cancelled_write(account_size);
+ 		}
+diff --git a/mm/vmstat.c b/mm/vmstat.c
+--- a/mm/vmstat.c
++++ b/mm/vmstat.c
+@@ -490,6 +490,7 @@ static const char * const vmstat_text[] 
+ 	"nr_unstable",
+ 	"nr_bounce",
+ 	"nr_vmscan_write",
++	"nr_writeback_temp",
+ 
+ #ifdef CONFIG_NUMA
+ 	"numa_hit",
+-- 
