@@ -16,9 +16,9 @@ unchanged variables in code which calls setjmp may be clobbered (including the r
 +	* reload1.c (reload_as_needed): Invalidate all reload
 +	registers when crossing a setjmp-type call.
 +
- 2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+ 2011-06-10  Steven Bosscher  <steven@gcc.gnu.org>
  
- 	PR target/43700
+ 	Backport from mainline
 --- gcc-4_4-branch/gcc/reload.c	2011/06/17 11:19:21	175143
 +++ gcc-4_4-branch/gcc/reload.c	2011/06/17 11:20:01	175144
 @@ -6731,6 +6731,15 @@
