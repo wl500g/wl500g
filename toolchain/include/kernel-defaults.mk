@@ -65,36 +65,6 @@ define Kernel/Configure/Default
 	rm -rf $(KERNEL_BUILD_DIR)/modules
 endef
 
-define Kernel/CompileModules/Default
-	rm -f $(LINUX_DIR)/vmlinux $(LINUX_DIR)/System.map
-	$(MAKE) $(KERNEL_MAKEOPTS) modules
-endef
-
-ifeq ($(KERNEL),2.6)
-  ifeq ($(CONFIG_TARGET_ROOTFS_INITRAMFS),y)
-    define Kernel/SetInitramfs
-		mv $(LINUX_DIR)/.config $(LINUX_DIR)/.config.old
-		grep -v INITRAMFS $(LINUX_DIR)/.config.old > $(LINUX_DIR)/.config
-		echo 'CONFIG_INITRAMFS_SOURCE="$(strip $(TARGET_DIR) $(INITRAMFS_EXTRA_FILES))"' >> $(LINUX_DIR)/.config
-		echo 'CONFIG_INITRAMFS_ROOT_UID=$(shell id -u)' >> $(LINUX_DIR)/.config
-		echo 'CONFIG_INITRAMFS_ROOT_GID=$(shell id -g)' >> $(LINUX_DIR)/.config
-    endef
-  else
-    define Kernel/SetInitramfs
-		mv $(LINUX_DIR)/.config $(LINUX_DIR)/.config.old
-		grep -v INITRAMFS $(LINUX_DIR)/.config.old > $(LINUX_DIR)/.config
-		rm -f $(TARGET_DIR)/init
-		echo 'CONFIG_INITRAMFS_SOURCE=""' >> $(LINUX_DIR)/.config
-    endef
-  endif
-endif
-define Kernel/CompileImage/Default
-	$(call Kernel/SetInitramfs)
-	$(MAKE) $(KERNEL_MAKEOPTS) $(KERNELNAME)
-	$(KERNEL_CROSS)objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUX_DIR)/vmlinux $(LINUX_KERNEL)
-	$(KERNEL_CROSS)objcopy -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUX_DIR)/vmlinux $(KERNEL_BUILD_DIR)/vmlinux.elf
-endef
-
 define Kernel/Clean/Default
 	rm -f $(KERNEL_BUILD_DIR)/linux-$(LINUX_VERSION)/.configured
 	rm -f $(LINUX_KERNEL)

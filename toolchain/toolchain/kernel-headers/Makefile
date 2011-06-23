@@ -31,20 +31,7 @@ LINUX_DIR := $(PKG_BUILD_DIR)
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/kernel-defaults.mk
 
-define Build/Configure/cris
-	ln -sf $(PKG_BUILD_DIR)/include/asm-cris/arch-v10 $(PKG_BUILD_DIR)/include/asm-cris/arch
-	ln -sf $(PKG_BUILD_DIR)/include/asm-cris/arch-v10 $(PKG_BUILD_DIR)/arch/cris/arch
-endef
-
-define Build/Configure/powerpc
-	$(CP) $(PKG_BUILD_DIR)/include/asm-ppc/* $(PKG_BUILD_DIR)/include/asm-powerpc/
-	rm -rf $(PKG_BUILD_DIR)/include/asm-ppc
-	ln -s $(PKG_BUILD_DIR)/include/asm-powerpc $(PKG_BUILD_DIR)/include/asm-ppc
-endef
-
-ifneq (,$(findstring uml,$(BOARD)))
-  LINUX_KARCH:=$(ARCH)
-endif
+LINUX_KARCH:=$(ARCH)
 
 KMAKE := $(MAKE) -C $(PKG_BUILD_DIR) \
 	ARCH=$(LINUX_KARCH) \
@@ -57,7 +44,6 @@ define Build/Prepare
 	ln -sf linux-$(LINUX_VERSION) $(LINUX_HEADERS_DIR)
 	yes '' | $(KMAKE) oldconfig
 	$(KMAKE) include/linux/version.h include/asm
-	$(call Build/Configure/$(ARCH))
 endef
 
 define Build/Configure
