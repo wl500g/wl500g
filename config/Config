@@ -427,6 +427,12 @@ config CONFIG_LIBRESOLV
        Functions in this library provide for creating, sending, and
        interpreting packets to the Internet domain name servers.
 
+config CONFIG_LIBRT
+       bool "librt"
+       default n
+       help
+       librt is POSIX.1b realtime extensions library
+
 config CONFIG_LIBUTIL
        bool "libutil"
        default n
