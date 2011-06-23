@@ -52,7 +52,6 @@ VSFTPD=vsftpd-2.3.4
 UDPXY=udpxy-1.0-Chipmunk-20
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
-LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
 USBMODESWITCH=usb-modeswitch-1.1.8
 MADWIMAX=madwimax-0.1.1
@@ -483,13 +482,7 @@ $(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
 scsi-idle: $(TOP)/scsi-idle
 	@true
 
-$(TOP)/libusb: libusb/$(LIBUSB).tar.bz2
-	@rm -rf $(TOP)/$(LIBUSB) $@
-	tar -jxf $^ -C $(TOP)
-	[ ! -f libusb/$(LIBUSB).patch ] || $(PATCHER) -Z $(TOP)/$(LIBUSB) libusb/$(LIBUSB).patch
-	mv $(TOP)/$(LIBUSB) $@ && touch $@
-
-libusb: $(TOP)/libusb10 $(TOP)/libusb
+libusb: $(TOP)/libusb10
 	@true
 
 libusb10_Patches := $(call patches_list,libusb)
