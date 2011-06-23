@@ -177,7 +177,7 @@ obj-y += kernel
 
 # Exclude targets for non-USB routers or with small flash-memory
 ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
-obj-y := $(filter-out LPRng libusb libusb10 madwimax nfs-utils p910nd quagga mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
+obj-y := $(filter-out LPRng libusb10 madwimax nfs-utils p910nd quagga mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
 endif
 
 
@@ -992,19 +992,6 @@ libusb10/Makefile: libusb10/Makefile.in
 
 libusb10: libusb10/Makefile
 	$(MAKE) -C $@
-
-libusb/Makefile: libusb/Makefile.in
-	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr \
-	    LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
-	    LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
-
-libusb: libusb10 libusb/Makefile
-	$(MAKE) -C $@
-
-libusb-install:
-	install -D libusb/libusb/.libs/libusb-0.1.so $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so
-	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so
 
 libusb10-install:
 	install -D libusb10/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
