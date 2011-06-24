@@ -7,12 +7,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=bison
-PKG_VERSION:=2.3
+PKG_VERSION:=2.4.3
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=ftp://ftp.gnu.org/gnu/$(PKG_NAME)
-PKG_MD5SUM:=22327efdd5080e2b1acb6e560a04b43a
-PKG_CAT:=zcat
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
+PKG_SOURCE_URL:=@GNU/$(PKG_NAME)
+PKG_MD5SUM:=c1d3ea81bc370dbd43b6f0b2cd21287e
+PKG_CAT:=bzcat
 
 include $(INCLUDE_DIR)/host-build.mk
 
@@ -25,8 +25,7 @@ define Build/Install
 endef
 
 define Build/Clean
-	$(MAKE) -C $(PKG_BUILD_DIR) uninstall
-	$(MAKE) -C $(PKG_BUILD_DIR) clean
+	-$(MAKE) -C $(PKG_BUILD_DIR) uninstall
 	$(call Build/Clean/Default)
 endef
 
