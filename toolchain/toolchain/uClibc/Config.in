@@ -8,6 +8,7 @@ choice
 	  Default is 0.9.30 .
 
 	config UCLIBC_VERSION_SNAPSHOT
+		depends !LINUX_2_4
 		bool "uClibc snapshot"
 
 	config UCLIBC_VERSION_0_9_29
