@@ -759,13 +759,18 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 	char sFileName[0x7F];
 	char sPath[0x7F];
 
+#define CNT_VE_STR 2
 	char *sMaList[] = {
+		// names for sVe=...
 		"Option",
+		"GT",
+
+		// names for uMa=...
 		"AnyDATA",
 		"SAMSUNG",
 		"Vertex",
 		"SSE",
-		"Philips"
+		"Philips",
 		"Wisue"
 	};
 
@@ -827,7 +832,7 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 									if (ready == 1) {
 										for (i = 0; i < i_size; i++) {
 											if (strncmp(sManufacturer, sMaList[i], strlen(sMaList[i])) == 0) {
-												if (i == 0) strcat (sFileName, ":sVe=");
+												if (i < CNT_VE_STR) strcat (sFileName, ":sVe=");
 												else strcat (sFileName, ":uMa=");
 
 												strcat(sFileName, sMaList[i]);
