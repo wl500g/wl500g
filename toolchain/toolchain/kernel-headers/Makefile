@@ -31,7 +31,7 @@ LINUX_DIR := $(PKG_BUILD_DIR)
 include $(INCLUDE_DIR)/host-build.mk
 include $(INCLUDE_DIR)/kernel-defaults.mk
 
-LINUX_KARCH:=$(ARCH)
+#LINUX_KARCH:=$(ARCH)
 
 KMAKE := $(MAKE) -C $(PKG_BUILD_DIR) \
 	ARCH=$(LINUX_KARCH) \
@@ -40,7 +40,6 @@ KMAKE := $(MAKE) -C $(PKG_BUILD_DIR) \
 
 define Build/Prepare
 	$(call Kernel/Prepare/Default)
-	$(SED) 's/@expr length/@-expr length/' $(PKG_BUILD_DIR)/Makefile
 	ln -sf linux-$(LINUX_VERSION) $(LINUX_HEADERS_DIR)
 	yes '' | $(KMAKE) oldconfig
 	$(KMAKE) include/linux/version.h include/asm
