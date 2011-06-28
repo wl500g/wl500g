@@ -32,8 +32,8 @@ endif
 ifeq ($(PKG_VERSION),4.2.4)
   PKG_MD5SUM:=d79f553e7916ea21c556329eacfeaa16
 endif
-ifeq ($(PKG_VERSION),4.3.5)
-  PKG_MD5SUM:=e588cfde3bf323f82918589b94f14a15
+ifeq ($(PKG_VERSION),4.3.6)
+  PKG_MD5SUM:=55ddf934bc9f8d1eaff7a77e7d598a85
 endif
 ifeq ($(PKG_VERSION),4.4.6)
   PKG_MD5SUM:=ab525d429ee4425050a554bc9247d6c4
