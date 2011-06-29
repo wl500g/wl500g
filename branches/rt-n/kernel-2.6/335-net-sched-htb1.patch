@@ -1,25 +1,24 @@
-From 21347456abfbf5bc7fcace7327476736bbb28abe
-From: Jarek Poplawski
-Date: Sat, 9 Feb 2008 23:44:00 -0800
-Subject: [PATCH] [NET_SCHED] sch_htb: htb_requeue fix
+[NET_SCHED] Updates from upstream
 
-htb_requeue() enqueues skbs for which htb_classify() returns NULL.
-This is wrong because such skbs could be handled by NET_CLS_ACT code,
-and the decision could be different than earlier in htb_enqueue().
-So htb_requeue() is changed to work and look more like htb_enqueue().
-
-Signed-off-by: Jarek Poplawski <jarkao2@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
+ 21347456abfbf5bc7fcace7327476736bbb28abe sch_htb: htb_requeue fix
+ 3ba08b00e0d8413d79be9cab8ec085ceb6ae6fd6 sch_htb: remove from event queue in htb_parent_to_leaf()
+ 69747650c814a8a79fef412c7416adf823293a3e pkt_sched: Fix return value corruption in HTB and TBF.
 
 ---
- net/sched/sch_htb.c |   13 ++++++++++---
- 1 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index e1a579e..795c761 100644
 --- a/net/sched/sch_htb.c
 +++ b/net/sched/sch_htb.c
-@@ -609,14 +609,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -632,7 +632,7 @@ static int htb_enqueue(struct sk_buff *s
+ 		   NET_XMIT_SUCCESS) {
+ 		sch->qstats.drops++;
+ 		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
++		return ret;
+ 	} else {
+ 		cl->bstats.packets++;
+ 		cl->bstats.bytes += skb->len;
+@@ -648,14 +648,14 @@ static int htb_enqueue(struct sk_buff *s
  /* TODO: requeuing packet charges it to policers again !! */
  static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
  {
@@ -37,7 +36,7 @@ index e1a579e..795c761 100644
  			__skb_queue_head(&q->direct_queue, skb);
  		} else {
  			__skb_queue_head(&q->direct_queue, skb);
-@@ -625,6 +625,13 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
+@@ -664,11 +664,18 @@ static int htb_requeue(struct sk_buff *s
  			sch->qstats.drops++;
  			return NET_XMIT_CN;
  		}
@@ -50,6 +49,60 @@ index e1a579e..795c761 100644
 +#endif
  	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
  		   NET_XMIT_SUCCESS) {
+ 		sch->qstats.drops++;
+ 		cl->qstats.drops++;
+-		return NET_XMIT_DROP;
++		return ret;
+ 	} else
+ 		htb_activate(q, cl);
+ 
+@@ -1251,12 +1258,16 @@ static inline int htb_parent_last_child(
+ 	return 1;
+ }
+ 
+-static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
++static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
++			       struct Qdisc *new_q)
+ {
+ 	struct htb_class *parent = cl->parent;
+ 
+ 	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
+ 
++	if (parent->cmode != HTB_CAN_SEND)
++		htb_safe_rb_erase(&parent->pq_node, q->wait_pq + parent->level);
++
+ 	parent->level = 0;
+ 	memset(&parent->un.inner, 0, sizeof(parent->un.inner));
+ 	INIT_LIST_HEAD(&parent->un.leaf.drop_list);
+@@ -1356,7 +1367,7 @@ static int htb_delete(struct Qdisc *sch,
+ 		htb_deactivate(q, cl);
+ 
+ 	if (last_child)
+-		htb_parent_to_leaf(cl, new_q);
++		htb_parent_to_leaf(q, cl, new_q);
+ 
+ 	if (--cl->refcnt == 0)
+ 		htb_destroy_class(sch, cl);
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -140,15 +140,8 @@ static int tbf_enqueue(struct sk_buff *s
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (skb->len > q->max_size) {
+-		sch->qstats.drops++;
+-#ifdef CONFIG_NET_CLS_POLICE
+-		if (sch->reshape_fail == NULL || sch->reshape_fail(skb, sch))
+-#endif
+-			kfree_skb(skb);
+-
+-		return NET_XMIT_DROP;
+-	}
++	if (skb->len > q->max_size)
++		return qdisc_reshape_fail(skb, sch);
+ 
+ 	if ((ret = q->qdisc->enqueue(skb, q->qdisc)) != 0) {
  		sch->qstats.drops++;
 -- 
 1.7.5.2
