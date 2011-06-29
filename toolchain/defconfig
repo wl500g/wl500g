@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# toolchain version:  (r3083)
-# Wed Jun 15 23:49:32 2011
+# toolchain version:  (r3112)
+# Tue Jun 28 21:17:38 2011
 #
 CONFIG_HAVE_DOT_CONFIG=y
 # CONFIG_LINUX_2_4 is not set
@@ -18,9 +18,10 @@ CONFIG_EXTERNAL_KERNEL_TREE="/home/lly/Wl500/rt-n/linux/linux-2.6/"
 # CONFIG_EXTRA_TARGET_ARCH is not set
 # CONFIG_BINUTILS_VERSION_2_17 is not set
 # CONFIG_BINUTILS_VERSION_2_19_1 is not set
-CONFIG_BINUTILS_VERSION_2_20_1=y
+# CONFIG_BINUTILS_VERSION_2_20_1 is not set
+CONFIG_BINUTILS_VERSION_2_21_1=y
 CONFIG_EXTRA_BINUTILS_CONFIG_OPTIONS=""
-CONFIG_BINUTILS_VERSION="2.20.1"
+CONFIG_BINUTILS_VERSION="2.21.1"
 # CONFIG_GCC_VERSION_3_4_6 is not set
 # CONFIG_GCC_VERSION_4_1_2 is not set
 # CONFIG_GCC_VERSION_4_2_4 is not set
