@@ -1,22 +1,12 @@
-From 2ee97caf0a6602f749ddbfdb1449e383e1212707
-From: Cornelia Huck
-Date: Wed, 18 Jul 2007 01:43:47 -0700
-Subject: [PATCH] Driver core: check return code of sysfs_create_link()
-
-Check for return value of sysfs_create_link() in device_add() and
-device_rename().  Add helper functions device_add_class_symlinks() and
-device_remove_class_symlinks() to make the code easier to read.
-
-[akpm@linux-foundation.org: fix unused var warnings]
-
-Signed-off-by: Cornelia Huck <cornelia.huck@de.ibm.com>
-Acked-by: Jeff Garzik <jeff@garzik.org>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+ 2ee97caf0a6602f749ddbfdb1449e383e1212707 Driver core: check return code of sysfs_create_link()
+ 1f5681aae8feadd113644c9e077152416c12b75c driver core: properly get driver in device_release_driver
+ ab71c6f0767bcbc618f3db51f668d5b951c00b60 driver core: fix kernel doc of device_release_driver
+ ef2c51746dc89c2326ce522f8fb8a57695780e75 Driver core: fix race in __device_release_driver
 
 ---
- drivers/base/core.c |  145 +++++++++++++++++++++++++++++++++++++--------------
- 1 files changed, 105 insertions(+), 40 deletions(-)
+ drivers/base/core.c |  145 +++++++++++++++++++++++++++++++++++++---------------
+ drivers/base/dd.c   |   22 +++----
+ 2 files changed, 115 insertions(+), 52 deletions(-)
 
 diff --git a/drivers/base/core.c b/drivers/base/core.c
 --- a/drivers/base/core.c
@@ -235,5 +225,58 @@ diff --git a/drivers/base/core.c b/drivers/base/core.c
  
  	return error;
  }
+diff --git a/drivers/base/dd.c b/drivers/base/dd.c
+--- a/drivers/base/dd.c
++++ b/drivers/base/dd.c
+@@ -281,17 +281,10 @@ int driver_attach(struct device_driver *
+ 	return bus_for_each_dev(drv->bus, NULL, drv, __driver_attach);
+ }
+ 
+-/**
+- *	device_release_driver - manually detach device from driver.
+- *	@dev:	device.
+- *
+- *	Manually detach device from driver.
+- *
++/*
+  *	__device_release_driver() must be called with @dev->sem held.
+- *	When called for a USB interface, @dev->parent->sem must be held
+- *	as well.
++ *	When called for a USB interface, @dev->parent->sem must be held as well.
+  */
+-
+ static void __device_release_driver(struct device * dev)
+ {
+ 	struct device_driver * drv;
+@@ -298,10 +291,8 @@ static void __device_release_driver(stru
+ 
+ 	drv = dev->driver;
+ 	if (drv) {
+-		get_driver(drv);
+ 		driver_sysfs_remove(dev);
+ 		sysfs_remove_link(&dev->kobj, "driver");
+-		klist_remove(&dev->knode_driver);
+ 
+ 		if (dev->bus)
+ 			blocking_notifier_call_chain(&dev->bus->bus_notifier,
+@@ -314,10 +305,17 @@ static void __device_release_driver(stru
+ 			drv->remove(dev);
+ 		devres_release_all(dev);
+ 		dev->driver = NULL;
+-		put_driver(drv);
++		klist_remove(&dev->knode_driver);
+ 	}
+ }
+ 
++/**
++ *	device_release_driver - manually detach device from driver.
++ *	@dev:	device.
++ *
++ *	Manually detach device from driver.
++ *	When called for a USB interface, @dev->parent->sem must be held.
++ */
+ void device_release_driver(struct device * dev)
+ {
+ 	/*
 -- 
 1.7.4.4
