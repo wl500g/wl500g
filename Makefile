@@ -32,7 +32,7 @@ DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
-#E2FSPROGS=e2fsprogs-1.35
+E2FSPROGS=e2fsprogs-1.41.14
 UCDSNMP=ucd-snmp-3.6.2
 MINIUPNPD=miniupnpd-1.5.20110309
 PPP=ppp-2.4.5
@@ -91,7 +91,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils
+	sysfsutils e2fsprogs
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -584,6 +584,18 @@ $(TOP)/sysfsutils: sysfsutils/$(SYSFSUTILS).tar.bz2
 	mv $(TOP)/$(SYSFSUTILS) $@ && touch $@
 
 sysfsutils: $(TOP)/sysfsutils
+	@true
+
+e2fsprogs_Patches := $(call patches_list,e2fsprogs)
+
+$(TOP)/e2fsprogs: e2fsprogs/$(E2FSPROGS).tar.bz2
+	@rm -rf $(TOP)/$(E2FSPROGS) $@
+	tar -xjf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(E2FSPROGS) $(e2fsprogs_Patches)
+	cp e2fsprogs/e2fsck.conf $(TOP)/$(E2FSPROGS)/e2fsck/e2fsck.conf
+	mv $(TOP)/$(E2FSPROGS) $@ && touch $@
+
+e2fsprogs: $(TOP)/e2fsprogs
 	@true
 
 $(TOP)/others:
