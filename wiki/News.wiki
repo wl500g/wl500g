@@ -19,12 +19,21 @@
 
   * miniupnpd 1.5.20110309 - replacement for obsolete upnpd
 
+  * udpxy 1.0-Chipmunk-20
+
+  * 3g/cdma fixes
+    * usb-modeswitch 1.1.8
+
   * web-UI + rc
     * control jpeg compression level for webcam in YUV mode
     * improve webcam detection
     * set clamp TCP MSS to PMTU for IPv6 tunnels
 
   * wireless igmp snooping (WMF)
+
+  * bugfixes
+    * libnetconf: fixes caused by iptables upgrade 1.3 -> 1.4 in r2716
+    * LPRng: attempt to fix hardcoded by ASUS device paths (untested)
 
 ===RT-N-1.9.2.7-rtn-`r2972` (2011-05-15)===
   * kernel
