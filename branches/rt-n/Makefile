@@ -60,7 +60,7 @@ TCPDUMP=tcpdump-4.1.1
 LIBPCAP=libpcap-1.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
-NTFS3G=ntfs-3g_ntfsprogs-2011.4.12
+NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.3
 SYSFSUTILS=sysfsutils-2.1.0
 
 UCLIBC=uClibc-0.9.30.1
