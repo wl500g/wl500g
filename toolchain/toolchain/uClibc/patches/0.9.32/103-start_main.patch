@@ -1,0 +1,92 @@
+ Add compatibility with old uClibc versions less than 0.9.28 but newer than 0.9.15
+  dl-hash.c name mapper adds thunk to  __uClibc_start_main  function
+
+diff -urBp a/ldso/include/dl-hash.h b/ldso/include/dl-hash.h
+--- a/ldso/include/dl-hash.h	2008-11-03 18:41:17.000000000 +0300
++++ b/ldso/include/dl-hash.h	2009-08-29 22:00:58.000000000 +0400
+@@ -112,6 +112,8 @@ extern struct elf_resolve * _dl_add_elf_
+ 	DL_LOADADDR_TYPE loadaddr, unsigned long * dynamic_info,
+ 	unsigned long dynamic_addr, unsigned long dynamic_size);
+ 
++extern void _dl_hash_init(void);
++
+ extern char *_dl_find_hash(const char *name, struct dyn_elf *rpnt,
+ 		struct elf_resolve *mytpnt, int type_class,
+ 		struct symbol_ref *symbol);
+diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
+--- a/ldso/ldso/dl-hash.c	2008-11-18 17:01:35.000000000 +0300
++++ b/ldso/ldso/dl-hash.c	2009-09-06 08:59:16.000000000 +0400
+@@ -264,6 +264,32 @@ _dl_lookup_sysv_hash(struct elf_resolve
+ 	return NULL;
+ }
+ 
++/* Add compatibility with old uClibc versions less than 0.9.28 but newer than 0.9.15 */
++static const char *_Start_Old_main_name;
++static Elf_Symndx _Start_Old_main_hash;
++
++static void (*_uClibc_main)(void *main, int argc, char **argv,
++	     void (*app_init)(void), void (*app_fini)(void),
++	     void (*rtld_fini)(void), void *stack_end) = NULL;
++static int (*_main)(int argc, char **argv, char **envp) = NULL;
++
++static void __uClibc_start_main(int argc, char **argv, char **envp,
++            void (*app_fini)(void), void (*app_init)(void))
++{
++    (*_uClibc_main)(_main, argc, argv, app_init, app_fini, NULL, NULL);
++}
++
++/* Init globals */
++void _dl_hash_init(void)
++{
++    _Start_Old_main_name = "__uClibc_start_main\0";
++#ifdef __LDSO_GNU_HASH_SUPPORT__
++    _Start_Old_main_hash = _dl_gnu_hash((const unsigned char *) _Start_Old_main_name);
++#else
++    _Start_Old_main_hash = _dl_elf_hash((const unsigned char *) _Start_Old_main_name);
++#endif
++}
++
+ /*
+  * This function resolves externals, and this is either called when we process
+  * relocations or when we call an entry in the PLT table for the first time.
+@@ -322,6 +348,10 @@ char *_dl_find_hash(const char *name, st
+ 			if (sym != NULL)
+ 				/* If sym has been found, do not search further */
+ 				break;
++
++			/* Check for unresolved old main entry */
++			if (gnu_hash_number == _Start_Old_main_hash)
++				goto chk_old_main;
+ 		} else {
+ #endif
+ 		/* Use the old SysV-style hash table */
+@@ -333,6 +363,16 @@ char *_dl_find_hash(const char *name, st
+ 		sym = _dl_lookup_sysv_hash(tpnt, symtab, elf_hash_number, name, type_class);
+ 		if (sym != NULL)
+ 			break;
++
++		if (elf_hash_number == _Start_Old_main_hash) {
++ chk_old_main:
++				if (_dl_strcmp(name, _Start_Old_main_name) == 0) {
++					_main = _dl_find_hash("main", rpnt, mytpnt, type_class, NULL);
++					_uClibc_main = _dl_find_hash("__uClibc_main", rpnt, mytpnt, type_class, NULL);
++					_dl_debug_early("__uClibc_start_main thunk: __uClibc_main=%x, main=%x\n", _uClibc_main, _main);
++					return (char *) &__uClibc_start_main;
++				}
++		}
+ #ifdef __LDSO_GNU_HASH_SUPPORT__
+ 		}
+ #endif
+diff -urBp a/ldso/ldso/ldso.c b/ldso/ldso/ldso.c
+--- a/ldso/ldso/ldso.c	2009-02-23 11:38:23.000000000 +0300
++++ b/ldso/ldso/ldso.c	2009-08-29 21:45:38.000000000 +0400
+@@ -245,6 +245,9 @@ void _dl_get_ready_to_run(struct elf_res
+        _dl_populate_reltypes_tab();
+ #endif
+ 
++	/* Perform custom init of global vars in dl-hash */
++	_dl_hash_init();
++
+ 	/* Find the runtime load address of the main executable.  This may be
+ 	 * different from what the ELF header says for ET_DYN/PIE executables.
+ 	 */
