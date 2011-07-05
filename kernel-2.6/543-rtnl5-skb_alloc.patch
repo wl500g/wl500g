@@ -1,0 +1,59 @@
+From 57e1ab6eaddc9f2c358cd4afb497cda6e3c6821a
+From: Eric Dumazet
+Date: Tue, 16 Nov 2010 20:36:42 +0000
+Subject: [PATCH] igmp: refine skb allocations
+
+IGMP allocates MTU sized skbs. This may fail for large MTU (order-2
+allocations), so add a fallback to try lower sizes.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ net/ipv4/igmp.c |   17 +++++++++++++----
+ 1 files changed, 13 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 50f6bc1..e0e77e2 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -300,6 +300,8 @@ igmp_scount(struct ip_mc_list *pmc, int type, int gdeleted, int sdeleted)
+ 	return scount;
+ }
+ 
++#define igmp_skb_size(skb) (*(unsigned int *)((skb)->cb))
++
+ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
+ {
+ 	struct sk_buff *skb;
+@@ -308,9 +310,16 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
+ 	struct iphdr *pip;
+ 	struct igmpv3_report *pig;
+ 
+-	skb = alloc_skb(size + LL_RESERVED_SPACE(dev), GFP_ATOMIC);
+-	if (skb == NULL)
+-		return NULL;
++	while (1) {
++		skb = alloc_skb(size + LL_RESERVED_SPACE(dev),
++				GFP_ATOMIC | __GFP_NOWARN);
++		if (skb)
++			break;
++		size >>= 1;
++		if (size < 256)
++			return NULL;
++	}
++	igmp_skb_size(skb) = size;
+ 
+ 	{
+ 		struct flowi fl = { .oif = dev->ifindex,
+@@ -399,7 +408,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ip_mc_list *pmc,
+ 	return skb;
+ }
+ 
+-#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? (skb)->dev->mtu - (skb)->len : \
++#define AVAILABLE(skb) ((skb) ? ((skb)->dev ? igmp_skb_size(skb) - (skb)->len : \
+ 	skb_tailroom(skb)) : 0)
+ 
+ static struct sk_buff *add_grec(struct sk_buff *skb, struct ip_mc_list *pmc,
+-- 
+1.7.4.4
