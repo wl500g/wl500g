@@ -1,5 +1,5 @@
-From 6b76a7129903ab3726ec0217349b526262bec3ac Mon Sep 17 00:00:00 2001
-From: Bernhard Reutner-Fischer <rep.dot.nop@gmail.com>
+From 6b76a7129903ab3726ec0217349b526262bec3ac
+From: Bernhard Reutner-Fischer
 Date: Tue, 14 Jun 2011 14:48:51 +0000
 Subject: libdl: search for ELF_RTYPE_CLASS_DLSYM in dlsym()
 
