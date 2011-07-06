@@ -11,6 +11,20 @@ ldso/ldso/dl-tls.c:1028:24: error: initialization makes pointer from integer wit
 
 Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
 ---
+
+Subject: ldso_tls: MIPS: fix compiler warning due to missing prototypes
+
+Fix compiler warning (as below)
+
+In file included from ldso/libdl/libdl.c:121:
+./ldso/ldso/mips/elfinterp.c: In function '_dl_parse_relocation_information':
+./ldso/ldso/mips/elfinterp.c:245: warning: implicit declaration of function 'TLS_DTPREL_VALUE'
+./ldso/ldso/mips/elfinterp.c:245: warning: nested extern declaration of 'TLS_DTPREL_VALUE'
+./ldso/ldso/mips/elfinterp.c:256: warning: implicit declaration of function 'TLS_TPREL_VALUE'
+./ldso/ldso/mips/elfinterp.c:256: warning: nested extern declaration of 'TLS_TPREL_VALUE'
+
+Signed-off-by: Leonid Lisovskiy <lly@sf.net>
+---
 diff --git a/ldso/ldso/dl-tls.c b/ldso/ldso/dl-tls.c
 index 43dd5a0..362efbb 100644
 --- a/ldso/ldso/dl-tls.c
@@ -24,5 +38,22 @@ index 43dd5a0..362efbb 100644
  	if(__builtin_expect (lossage != NULL, 0)) {
  		_dl_debug_early("cannot set up thread-local storage: %s\n", lossage);
  		_dl_exit(30);
+diff --git a/ldso/libdl/libdl.c b/ldso/libdl/libdl.c
+--- a/ldso/libdl/libdl.c
++++ b/ldso/libdl/libdl.c
+@@ -41,12 +41,12 @@
+ 
+ #if defined(USE_TLS) && USE_TLS
+ #include <ldsodefs.h>
++#include <dl-tls.h>
+ extern void _dl_add_to_slotinfo(struct link_map  *l);
+ #endif
+ 
+ #ifdef SHARED
+ # if defined(USE_TLS) && USE_TLS
+-# include <dl-tls.h>
+ extern struct link_map *_dl_update_slotinfo(unsigned long int req_modid);
+ # endif
+ 
 --
 cgit v0.9.0.1-2-gef13
