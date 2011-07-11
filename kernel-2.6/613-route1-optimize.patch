@@ -7,11 +7,9 @@ kernel.org commits:
 c0b8c32b1c96afc9b32b717927330025cc1c501e IPV4: use xor rather than multiple ands for route compare
 1294fc4a4868d7e83ff749597fbf4e9d5f4d1aa0 IPV4: route use jhash3
 e88ff22a7ed88b499a0235a2b69425efdb300ef5
-1018b5c01636c7c6bda31a719bda34fc631db29a ipv4: Set rt->rt_iif more sanely on output routes.
-
 ---
- route.c |   99 +++++++++++++++++++++++++++++++---------------------------------
- 1 file changed, 49 insertions(+), 50 deletions(-)
+ net/ipv4/route.c |   97 +++++++++++------------
+ 1 files changed, 48 insertions(+), 49 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
 index d2e2e1c..9d4b02a 100644
@@ -167,15 +165,6 @@ index d2e2e1c..9d4b02a 100644
  {
  	struct rtable *rth;
  	struct in_device *in_dev;
-@@ -2248,7 +2248,7 @@ static struct rtable *__mkroute_output(const struct fib_result *res,
- 	rth->fl.mark    = oldflp->mark;
- 	rth->rt_dst	= fl->fl4_dst;
- 	rth->rt_src	= fl->fl4_src;
--	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
-+	rth->rt_iif	= 0;
- 	/* get references to the devices that are to be hold by the routing
- 	   cache entry */
- 	rth->u.dst.dev	= dev_out;
 @@ -2314,12 +2313,12 @@ static inline int __mkroute_output(struct rtable **result,
  	return err;
  }
@@ -214,4 +203,3 @@ index d2e2e1c..9d4b02a 100644
  {
  #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
  	unsigned char hop;
--- 
