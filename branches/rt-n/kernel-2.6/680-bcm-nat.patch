@@ -1,5 +1,5 @@
---- a/include/linux/netfilter.h	2011-03-13 05:00:00.000000000 +0500
-+++ b/include/linux/netfilter.h	2011-03-14 17:49:47.333163002 +0500
+--- a/include/linux/netfilter.h	2011-07-12 08:14:14.988095000 +0000
++++ b/include/linux/netfilter.h	2011-03-14 12:49:47.000000000 +0000
 @@ -21,7 +21,12 @@
  #define NF_STOLEN 2
  #define NF_QUEUE 3
@@ -13,8 +13,8 @@
  #define NF_MAX_VERDICT NF_STOP
  
  /* we overload the higher bits for encoding auxiliary data such as the queue
---- a/include/linux/sysctl.h	2008-02-26 04:59:40.000000000 +0500
-+++ b/include/linux/sysctl.h	2011-03-14 17:49:09.073163002 +0500
+--- a/include/linux/sysctl.h	2011-07-12 08:14:14.998095000 +0000
++++ b/include/linux/sysctl.h	2011-03-14 12:49:09.000000000 +0000
 @@ -530,6 +530,9 @@ enum
   	NET_IPV4_NF_CONNTRACK_SCTP_TIMEOUT_SHUTDOWN_ACK_SENT=26,
  	NET_IPV4_NF_CONNTRACK_COUNT=27,
@@ -25,8 +25,8 @@
  };
   
  /* /proc/sys/net/ipv6 */
---- a/include/net/netfilter/nf_nat.h	2008-02-26 04:59:40.000000000 +0500
-+++ b/include/net/netfilter/nf_nat.h	2011-03-14 19:07:25.203163002 +0500
+--- a/include/net/netfilter/nf_nat.h	2011-07-12 08:14:15.018095000 +0000
++++ b/include/net/netfilter/nf_nat.h	2011-03-14 14:07:25.000000000 +0000
 @@ -56,6 +56,9 @@ struct nf_nat_multi_range_compat
  struct nf_nat_info
  {
@@ -37,9 +37,32 @@
  	struct nf_nat_seq seq[IP_CT_DIR_MAX];
  };
  
---- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 05:00:00.000000000 +0500
-+++ b/net/ipv4/netfilter/bcm_nat.c	2011-03-14 20:43:59.733163002 +0500
-@@ -0,0 +1,206 @@
+--- a/net/ipv4/ip_input.c	2011-07-11 17:06:59.598095000 +0000
++++ b/net/ipv4/ip_input.c	2011-07-11 19:47:06.438095000 +0000
+@@ -146,6 +146,10 @@
+ #include <linux/mroute.h>
+ #include <linux/netlink.h>
+ 
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++extern int ipv4_conntrack_fastnat;
++#endif
++
+ /*
+  *	SNMP management statistics
+  */
+@@ -437,6 +441,9 @@ int ip_rcv(struct sk_buff *skb, struct n
+ 	}
+ 
+ 	/* Remove any debris in the socket control block */
++#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
++	if (!ipv4_conntrack_fastnat)
++#endif
+ 	memset(IPCB(skb), 0, sizeof(struct inet_skb_parm));
+ 
+ 	return NF_HOOK(PF_INET, NF_IP_PRE_ROUTING, skb, dev, NULL,
+--- a/net/ipv4/netfilter/bcm_nat.c	1970-01-01 00:00:00.000000000 +0000
++++ b/net/ipv4/netfilter/bcm_nat.c	2011-07-11 19:44:07.418095000 +0000
+@@ -0,0 +1,199 @@
 +/*
 + * Packet matching code.
 + *
@@ -92,21 +115,15 @@
 +	return 1;
 +};
 +
-+extern
-+#ifndef MODULE
-+inline
-+#endif
-+int bcm_manip_pkt(u_int16_t proto,
++extern int
++bcm_manip_pkt(u_int16_t proto,
 +	struct sk_buff *skb,
 +	unsigned int iphdroff,
 +	const struct nf_conntrack_tuple *target,
 +	enum nf_nat_manip_type maniptype);
 +
-+extern
-+#ifndef MODULE
-+inline
-+#endif
-+int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
++extern int
++bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 +	const struct nf_conntrack_tuple *orig,
 +	const struct nf_conntrack_l3proto *l3proto,
 +	const struct nf_conntrack_l4proto *l4proto);
@@ -134,14 +151,13 @@
 +		} while (read_seqretry(&hh->hh_lock, seq));
 +
 +		skb_push(skb, hh_len);
-+		ret = hh->hh_output(skb); 
-+		if (ret==1) 
-+			return 0; /* Don't return 1 */
-+	} else if (dst->neighbour) {
-+		ret = dst->neighbour->output(skb);  
-+		if (ret==1) 
-+			return 0; /* Don't return 1 */
-+	}
++		ret = hh->hh_output(skb);
++	} else if (dst->neighbour)
++		ret = dst->neighbour->output(skb);
++
++	/* Don't return 1 */
++	if (ret == 1)
++		return 0;
 +	return ret;
 +}
 +
@@ -246,8 +262,8 @@
 +module_init(bcm_nat_init);
 +module_exit(bcm_nat_fini);
 +MODULE_LICENSE("Proprietary");
---- a/net/ipv4/netfilter/Kconfig	2010-05-17 21:31:42.000000000 +0600
-+++ b/net/ipv4/netfilter/Kconfig	2011-03-14 17:43:42.653163002 +0500
+--- a/net/ipv4/netfilter/Kconfig	2011-07-12 08:14:15.018095000 +0000
++++ b/net/ipv4/netfilter/Kconfig	2011-03-14 12:43:42.000000000 +0000
 @@ -174,6 +174,14 @@ config NF_NAT_NEEDED
  	depends on NF_NAT
  	default y
@@ -263,8 +279,8 @@
  config IP_NF_TARGET_MASQUERADE
  	tristate "MASQUERADE target support"
  	depends on NF_NAT
---- a/net/ipv4/netfilter/Makefile	2010-05-17 21:28:19.000000000 +0600
-+++ b/net/ipv4/netfilter/Makefile	2011-03-14 17:58:38.553163002 +0500
+--- a/net/ipv4/netfilter/Makefile	2011-07-12 08:14:15.018095000 +0000
++++ b/net/ipv4/netfilter/Makefile	2011-03-14 12:58:38.000000000 +0000
 @@ -18,6 +18,9 @@ obj-$(CONFIG_NF_CONNTRACK_IPV4) += nf_co
  
  obj-$(CONFIG_NF_NAT) += nf_nat.o
@@ -275,21 +291,21 @@
  # NAT helpers (nf_conntrack)
  obj-$(CONFIG_NF_NAT_AMANDA) += nf_nat_amanda.o
  obj-$(CONFIG_NF_NAT_FTP) += nf_nat_ftp.o
---- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-03-14 20:42:58.603163002 +0500
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-07-12 08:14:15.028095000 +0000
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c	2011-07-11 19:45:04.548095000 +0000
 @@ -30,6 +30,11 @@
  #define DEBUGP(format, args...)
  #endif
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+int ipv4_conntrack_fastnat = 1;
++int ipv4_conntrack_fastnat __read_mostly = 1;
 +EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
 +#endif
 +
  static int ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
  			     struct nf_conntrack_tuple *tuple)
  {
-@@ -63,7 +68,10 @@ static int ipv4_print_tuple(struct seq_f
+@@ -63,7 +68,11 @@ static int ipv4_print_tuple(struct seq_f
  }
  
  /* Returns new sk_buff, or NULL */
@@ -297,11 +313,12 @@
 +#if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
 +static
 +#endif
-+int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
++int
++nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
  {
  	int err;
  
-@@ -302,6 +310,16 @@ static ctl_table ip_ct_sysctl_table[] = 
+@@ -302,6 +311,16 @@ static ctl_table ip_ct_sysctl_table[] =
  		.extra1		= &log_invalid_proto_min,
  		.extra2		= &log_invalid_proto_max,
  	},
@@ -318,9 +335,9 @@
  	{
  		.ctl_name	= 0
  	}
---- a/net/ipv4/netfilter/nf_nat_core.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/ipv4/netfilter/nf_nat_core.c	2011-03-14 20:42:43.803163002 +0500
-@@ -392,6 +392,23 @@ manip_pkt(u_int16_t proto,
+--- a/net/ipv4/netfilter/nf_nat_core.c	2011-07-12 08:14:15.028095000 +0000
++++ b/net/ipv4/netfilter/nf_nat_core.c	2011-07-11 19:41:27.758095000 +0000
+@@ -392,6 +392,24 @@ manip_pkt(u_int16_t proto,
  	return 1;
  }
  
@@ -328,7 +345,8 @@
 +#ifndef CONFIG_BCM_NAT_MODULE
 +inline
 +#endif
-+int bcm_manip_pkt(u_int16_t proto,
++int
++bcm_manip_pkt(u_int16_t proto,
 +	struct sk_buff *skb,
 +	unsigned int iphdroff,
 +	const struct nf_conntrack_tuple *target,
@@ -344,8 +362,8 @@
  /* Do packet manipulations according to nf_nat_setup_info. */
  unsigned int nf_nat_packet(struct nf_conn *ct,
  			   enum ip_conntrack_info ctinfo,
---- a/net/netfilter/core.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/netfilter/core.c	2011-03-14 17:48:17.213163002 +0500
+--- a/net/netfilter/core.c	2011-07-12 08:14:15.028095000 +0000
++++ b/net/netfilter/core.c	2011-03-14 12:48:17.000000000 +0000
 @@ -23,6 +23,11 @@
  
  #include "nf_internals.h"
@@ -403,25 +421,26 @@
  unlock:
  	rcu_read_unlock();
  	return ret;
---- a/net/netfilter/nf_conntrack_core.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/netfilter/nf_conntrack_core.c	2011-03-19 21:53:05.993163002 +0500
-@@ -30,6 +30,10 @@
+--- a/net/netfilter/nf_conntrack_core.c	2011-07-12 08:14:15.028095000 +0000
++++ b/net/netfilter/nf_conntrack_core.c	2011-07-11 19:52:44.668095000 +0000
+@@ -30,6 +30,11 @@
  #include <linux/socket.h>
  #include <linux/mm.h>
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +#include <net/ip.h>
++#include <linux/tcp.h>
 +#endif
 +
  #include <net/netfilter/nf_conntrack.h>
  #include <net/netfilter/nf_conntrack_l3proto.h>
  #include <net/netfilter/nf_conntrack_l4proto.h>
-@@ -76,6 +80,25 @@ static unsigned int nf_conntrack_next_id
+@@ -76,6 +81,25 @@ static unsigned int nf_conntrack_next_id
  DEFINE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
  EXPORT_PER_CPU_SYMBOL(nf_conntrack_stat);
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+#define	BCM_FASTNAT_DENY 1
++#define BCM_FASTNAT_DENY 1
 +extern int ipv4_conntrack_fastnat;
 +
 +typedef int (*bcmNatHitHook)(struct sk_buff *skb);
@@ -431,8 +450,8 @@
 +	struct nf_conntrack_l3proto *l3proto,
 +	struct nf_conntrack_l4proto *l4proto);
 +
-+bcmNatHitHook bcm_nat_hit_hook = NULL;
-+bcmNatBindHook bcm_nat_bind_hook = NULL;
++bcmNatHitHook bcm_nat_hit_hook __read_mostly = NULL;
++bcmNatBindHook bcm_nat_bind_hook __read_mostly = NULL;
 +#ifdef CONFIG_BCM_NAT_MODULE
 +EXPORT_SYMBOL(bcm_nat_hit_hook);
 +EXPORT_SYMBOL(bcm_nat_bind_hook);
@@ -442,7 +461,7 @@
  /*
   * This scheme offers various size of "struct nf_conn" dependent on
   * features(helper, nat, ...)
-@@ -287,6 +310,22 @@ nf_ct_invert_tuple(struct nf_conntrack_t
+@@ -287,6 +311,23 @@ nf_ct_invert_tuple(struct nf_conntrack_t
  }
  EXPORT_SYMBOL_GPL(nf_ct_invert_tuple);
  
@@ -450,7 +469,8 @@
 +#ifndef CONFIG_BCM_NAT_MODULE
 +inline
 +#endif
-+int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
++int
++bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 +	const struct nf_conntrack_tuple *orig,
 +	const struct nf_conntrack_l3proto *l3proto,
 +	const struct nf_conntrack_l4proto *l4proto)
@@ -465,18 +485,19 @@
  static void
  clean_from_lists(struct nf_conn *ct)
  {
-@@ -837,6 +876,10 @@ resolve_normal_ct(struct sk_buff *skb,
+@@ -837,6 +878,11 @@ resolve_normal_ct(struct sk_buff *skb,
  	return ct;
  }
  
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-+extern int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
++extern int
++nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
 +#endif
 +
  unsigned int
  nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
  {
-@@ -848,6 +891,9 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -848,6 +894,9 @@ nf_conntrack_in(int pf, unsigned int hoo
  	u_int8_t protonum;
  	int set_reply = 0;
  	int ret;
@@ -486,7 +507,7 @@
  
  	/* Previously seen (loopback or untracked)?  Ignore. */
  	if (skb->nfct) {
-@@ -863,6 +909,19 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -863,6 +912,19 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
@@ -506,38 +527,55 @@
  	l4proto = __nf_ct_l4proto_find((u_int16_t)pf, protonum);
  
  	/* It may be an special packet, error, unclean...
-@@ -902,8 +961,39 @@ nf_conntrack_in(int pf, unsigned int hoo
+@@ -902,8 +964,57 @@ nf_conntrack_in(int pf, unsigned int hoo
  		return -ret;
  	}
  
--	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +	if (pf == PF_INET)
 +		nat = nfct_nat(ct);
 +
-+	if (nat && hooknum == NF_IP_PRE_ROUTING &&
-+	    ipv4_conntrack_fastnat && bcm_nat_bind_hook) {
++	if (nat &&
++	    ipv4_conntrack_fastnat && bcm_nat_bind_hook &&
++	    (hooknum == NF_IP_PRE_ROUTING /*|| hooknum == NF_IP_FORWARD*/) &&
++	    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY) &&
++	    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
 +		struct nf_conn_help *help = nfct_help(ct);
++		struct nf_conntrack_tuple *t1, *t2;
 +
-+		if (!(nat->info.nat_type & BCM_FASTNAT_DENY) &&
-+		    !help->helper &&
-+		    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY) &&
-+		    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
-+			struct nf_conntrack_tuple *t1, *t2;
++		if ((nat->info.nat_type & BCM_FASTNAT_DENY) || help->helper)
++			goto pass;
 +
-+			t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-+			t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-+			if (!(t1->dst.u3.ip == t2->src.u3.ip &&
-+				t1->src.u3.ip == t2->dst.u3.ip &&
-+				t1->dst.u.all == t2->src.u.all &&
-+				t1->src.u.all == t2->dst.u.all)) {
-+				ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
++#if defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR) || defined(CONFIG_NETFILTER_XT_MATCH_WEBSTR_MODULE)
++		if (ipv4_conntrack_fastnat > 1 && protonum == IPPROTO_TCP ) {
++			struct tcphdr _tcph, *tcph;
++			unsigned char _data[2], *data;
++
++			/* For URL filter; RFC-HTTP: GET, POST, HEAD */
++			if ((tcph = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph)) &&
++			    (data = skb_header_pointer(skb, dataoff + tcph->doff*4, sizeof(_data), &_data)) &&
++			    ((data[0] == 'G' && data[1] == 'E') ||
++			     (data[0] == 'P' && data[1] == 'O') ||
++			     (data[0] == 'H' && data[1] == 'E'))) {
++				nat->info.nat_type |= BCM_FASTNAT_DENY;
++				goto pass;
 +			}
 +		}
++#endif
++		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
++		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
++		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
++			t1->src.u3.ip == t2->dst.u3.ip &&
++			t1->dst.u.all == t2->src.u.all &&
++			t1->src.u.all == t2->dst.u.all)) {
++			ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
++		}
 +	}
++	pass:
 +#endif
 +
-+	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
+ 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status))
++	{
 +#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 +		if (nat && hooknum == NF_IP_LOCAL_OUT)
 +			nat->info.nat_type |= BCM_FASTNAT_DENY;
@@ -547,8 +585,8 @@
  
  	return ret;
  }
---- a/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-14 17:46:34.153163002 +0500
+--- a/net/netfilter/nf_conntrack_proto_tcp.c	2011-07-12 08:14:15.038095000 +0000
++++ b/net/netfilter/nf_conntrack_proto_tcp.c	2011-03-14 12:46:34.000000000 +0000
 @@ -33,6 +33,10 @@
  #define DEBUGP(format, args...)
  #endif
@@ -572,8 +610,8 @@
  	/* Checksum invalid? Ignore.
  	 * We skip checking packets on the outgoing path
  	 * because the checksum is assumed to be correct.
---- a/net/netfilter/nf_conntrack_proto_udp.c	2011-03-13 05:00:00.000000000 +0500
-+++ b/net/netfilter/nf_conntrack_proto_udp.c	2011-03-14 17:45:59.873163002 +0500
+--- a/net/netfilter/nf_conntrack_proto_udp.c	2011-07-12 08:14:15.038095000 +0000
++++ b/net/netfilter/nf_conntrack_proto_udp.c	2011-03-14 12:45:59.000000000 +0000
 @@ -23,6 +23,10 @@
  #include <net/netfilter/nf_conntrack_l4proto.h>
  #include <net/netfilter/nf_conntrack_ecache.h>
