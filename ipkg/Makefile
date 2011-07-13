@@ -1,4 +1,4 @@
-REPOSITORIES=optware optware-d
+REPOSITORIES=optware optware-d optware-rtn
 
 all: $(REPOSITORIES)
 
