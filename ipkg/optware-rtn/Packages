@@ -1,0 +1,118 @@
+Package: fuse-lib
+Architecture: mipsel
+Priority: optional
+Section: lib
+Version: 2.8.5-oleg
+Maintainer: Ryzhov Alexander
+Source: http://fuse.sourceforge.net/
+Filename: fuse-lib_2.8.5-oleg_mipsel.ipk
+Size: 432375
+MD5Sum: 2602258edb09cfd90571b34b586a209a
+Description: With FUSE it is possible to implement a fully functional filesystem in a userspace program.
+Depends: 
+Conflicts: 
+
+Package: ipkg
+Version: 0.99.163-2
+Section: base
+Priority: required
+Essential: yes
+Architecture: mipsel
+Maintainer: Pierluigi Frullani <pigi@frumar.it>
+Source: http://www.handhelds.org/packages/ipkg/ipkg-0.99.163-2.tar.gz
+Filename: ipkg_0.99.163-2_mipsel.ipk
+Size: 72833
+MD5Sum: fdd821f2821de1a9adb3c522bbde798b
+Description: lightweight package management system
+ ipkg is the Itsy Package Management System, for handling
+ installation and removal of packages on a system. It can
+ recursively follow dependencies and download all packages
+ necessary to install a particular package.
+ .
+ ipkg knows how to install both .ipk and .deb packages.
+ .
+ ipkg is intended to serve the same functions (and more) for
+ Familiar that dpkg and apt serve for Debian, (while taking
+ up much less space).
+
+
+Package: ipset
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 3.2
+Maintainer: http://ipset.netfilter.org/
+Filename: ipset_3.2_mipsel.ipk
+Size: 49737
+MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
+Description: ipset administration tool for IP sets.
+Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
+Depends:
+Conflicts:
+
+Package: ipset
+Architecture: mipsel
+Priority: optional
+Section: net
+Version: 4.2
+Maintainer: http://ipset.netfilter.org/
+Filename: ipset_4.2_mipsel.ipk
+Size: 47068
+MD5Sum: 559ce4cb48a2d9c3efc924e593f346c0
+Description: ipset administration tool for IP sets.
+Source: http://ipset.netfilter.org/ipset-4.2.tar.bz2
+Depends:
+Conflicts:
+
+Package: ntfs-3g
+Architecture: mipsel
+Priority: optional
+Section: system
+Version: 2010.10.2
+Maintainer: http://www.tuxera.com/support/forums/
+Source: http://tuxera.com/opensource/ntfs-3g-2010.10.2.tgz
+Filename: ntfs-3g_2010.10.2_mipsel.ipk
+Size: 201319
+MD5Sum: 38d1a937b4f09e9aa58725e64e0b65f5
+Description: The NTFS-3G driver is a freely and commercially available
+ and supported read/write NTFS driver
+ for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
+ operating systems. It provides safe and fast handling of the Windows XP,
+ Windows Server 2003, Windows 2000, Windows Vista, Windows Server 2008
+ and Windows 7 file systems. 
+Depends:
+Conflicts:
+
+Package: owfs
+Architecture: mipsel
+Priority: optional
+Section: comm
+Version: 2.8p6-2-oleg
+Maintainer: Ryzhov Alexander
+Source: http://owfs.org/
+Filename: owfs_2.8p6-2-oleg_mipsel.ipk
+Size: 1580285
+MD5Sum: 0adc72f4242fe3c85f912697b68eec0f
+Description: OWFS is a 1-Wire File System
+Depends: fuse-lib
+Conflicts: 
+
+Package: valgrind
+Architecture: mipsel
+Priority: optional
+Section: devel
+Version: 3.6.1
+Maintainer: http://www.valgrind.org/
+Source: http://www.valgrind.org/downloads/valgrind-3.6.1.tar.bz2
+Filename: valgrind_3.6.1_mipsel.ipk
+Size: 9386127
+MD5Sum: c77d31683192fbe42ae1088227914765
+Description: Valgrind is an award-winning instrumentation framework for building dynamic
+ analysis tools. There are Valgrind tools that can automatically detect many
+ memory management and threading bugs, and profile your programs in detail. You
+ can also use Valgrind to build new tools.
+ .
+ NB! MIPS32r2 platform only !!!
+Depends:
+Conflicts:
+
