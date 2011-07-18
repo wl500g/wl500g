@@ -1,17 +1,3 @@
-Package: fuse-lib
-Architecture: mipsel
-Priority: optional
-Section: lib
-Version: 2.8.5-oleg
-Maintainer: Ryzhov Alexander
-Source: http://fuse.sourceforge.net/
-Filename: fuse-lib_2.8.5-oleg_mipsel.ipk
-Size: 432375
-MD5Sum: 2602258edb09cfd90571b34b586a209a
-Description: With FUSE it is possible to implement a fully functional filesystem in a userspace program.
-Depends: 
-Conflicts: 
-
 Package: ipkg
 Version: 0.99.163-2
 Section: base
@@ -40,20 +26,6 @@ Package: ipset
 Architecture: mipsel
 Priority: optional
 Section: net
-Version: 3.2
-Maintainer: http://ipset.netfilter.org/
-Filename: ipset_3.2_mipsel.ipk
-Size: 49737
-MD5Sum: 112efd9e9ddcee4cf1c3a6e333603611
-Description: ipset administration tool for IP sets.
-Source: http://ipset.netfilter.org/ipset-3.2.tar.bz2
-Depends:
-Conflicts:
-
-Package: ipset
-Architecture: mipsel
-Priority: optional
-Section: net
 Version: 4.2
 Maintainer: http://ipset.netfilter.org/
 Filename: ipset_4.2_mipsel.ipk
@@ -61,25 +33,6 @@ Size: 47068
 MD5Sum: 559ce4cb48a2d9c3efc924e593f346c0
 Description: ipset administration tool for IP sets.
 Source: http://ipset.netfilter.org/ipset-4.2.tar.bz2
-Depends:
-Conflicts:
-
-Package: ntfs-3g
-Architecture: mipsel
-Priority: optional
-Section: system
-Version: 2010.10.2
-Maintainer: http://www.tuxera.com/support/forums/
-Source: http://tuxera.com/opensource/ntfs-3g-2010.10.2.tgz
-Filename: ntfs-3g_2010.10.2_mipsel.ipk
-Size: 201319
-MD5Sum: 38d1a937b4f09e9aa58725e64e0b65f5
-Description: The NTFS-3G driver is a freely and commercially available
- and supported read/write NTFS driver
- for Linux, Mac OS X, FreeBSD, NetBSD, OpenSolaris, QNX, Haiku, and other
- operating systems. It provides safe and fast handling of the Windows XP,
- Windows Server 2003, Windows 2000, Windows Vista, Windows Server 2008
- and Windows 7 file systems. 
 Depends:
 Conflicts:
 
