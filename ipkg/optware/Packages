@@ -189,21 +189,6 @@ Depends: file, libexif, libstdc++, ossp-js, sqlite, zlib, expat
 Suggests: 
 Conflicts: 
 
-Package: microdc2
-Architecture: mipsel
-Priority: optional
-Section: net
-Version: 0.15.6-1-rus-multihub
-Maintainer: NSLU2 Linux <nslu2-linux@yahoogroups.com>
-Source: http://savio.km.ua/download/microdc2/microdc2-0.15.6.tar.gz
-Filename: microdc2_0.15.6-1-rus-multihub_mipsel.ipk
-Size: 182271
-MD5Sum: 844e1ce4c1d6775b465304c8abfdb03d
-Description: A command-line based Direct Connect client with russian and slave mode patches.
-Depends: libxml2, readline, zlib
-Suggests: 
-Conflicts: 
-
 Package: mldonkey
 Architecture: mipsel
 Priority: optional
