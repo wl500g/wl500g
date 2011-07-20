@@ -6,26 +6,27 @@ Date: Wed, 28 Apr 2010 18:25:28 -0400
 kernel.org commits
 
 From: Herbert Xu <herbert@gondor.apana.org.au>
-db7bf6d97c6956b7eb0f22131cb5c37bd41f33c0
-9355ec23397af32799038d0e8edbfa5b6f425c27
-d9cc20484e5e48c6a5deb4387c20fd45bfbdde8c
-7b797d5b150775d717cb03b5ada28b8bad99afab
-21d0c83302fb742b7ffb6089d40196166102f5ed
-392fdb0e35055b96faa9c1cd6ab537805337cdce
-bc6cffd177f9266af38dba96a2cea06c1e7ff932
+db7bf6d97c6956b7eb0f22131cb5c37bd41f33c0 [PPP] pppoe: Fix data clobbering in __pppoe_xmit and return value
+9355ec23397af32799038d0e8edbfa5b6f425c27 [PPP] pppoe: Fill in header directly in __pppoe_xmit
+d9cc20484e5e48c6a5deb4387c20fd45bfbdde8c [NET] skbuff: Add skb_cow_head
+7b797d5b150775d717cb03b5ada28b8bad99afab [PPP] generic: Call skb_cow_head before scribbling over skb
+21d0c83302fb742b7ffb6089d40196166102f5ed [PPP] pppoe: Fix double-free on skb after transmit failure
+392fdb0e35055b96faa9c1cd6ab537805337cdce net pppoe: Check packet length on all receive paths
+bc6cffd177f9266af38dba96a2cea06c1e7ff932 pppoe: Unshare skb before anything else
 
 From: Stephen Hemminger <shemminger@vyatta.com>
-2645a3c3761ac25498db2e627271016c849c68e1
+2645a3c3761ac25498db2e627271016c849c68e1 pppoe: warning fix
 
 From: Al Viro <viro@zeniv.linux.org.uk>:
-b963dc1df78399a2166c2e6e3eb726a2dc98cf11
+b963dc1df78399a2166c2e6e3eb726a2dc98cf11 pppoe: endianness
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-72fc939789dbe7ca091b50b686d45ac0df15417a
+72fc939789dbe7ca091b50b686d45ac0df15417a pppoe: fix /proc/net/pppoe
 
 From: David S. Miller <davem@davemloft.net>
-263e69cbc9e5a9e7bcf6a24f641ef0717d1ae4df
-d6301d3dd1c287b32132dda15272a50c11e92a14
+263e69cbc9e5a9e7bcf6a24f641ef0717d1ae4df pppoe: Fix socket leak.
+d6301d3dd1c287b32132dda15272a50c11e92a14 net: Increase default NET_SKB_PAD to 32.
+
 ---
  drivers/net/ppp_generic.c |   14 +--
  drivers/net/pppoe.c       |  121 ++++++++------------
