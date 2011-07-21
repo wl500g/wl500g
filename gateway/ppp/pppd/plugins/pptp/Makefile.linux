@@ -31,7 +31,7 @@ install: all
 pptp.o: pptp.c
 	$(CC) $(CFLAGS) -I../../.. -c -o $@ -fPIC $^
 
-libplugin.a: dirutil.o orckit_quirks.o pptp_callmgr.o pptp_ctrl.o pptp_quirks.o util.o vector.o
+libplugin.a: dirutil.o orckit_quirks.o pptp_callmgr.o pptp_ctrl.o pptp_quirks.o util.o vector.o inststr.o
 	$(AR) -rc $@ $^
 
 clean:
