@@ -49,6 +49,7 @@
 #include <net/if.h>
 #include <net/ethernet.h>
 #include <linux/if_pppox.h>
+#include "inststr.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -305,17 +306,30 @@ static int open_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int w
 }
 
 /*** call the call manager main ***********************************************/
-static void launch_callmgr(int call_id,struct in_addr inetaddr, char *phonenr,int window)
+static void launch_callmgr(int call_id, struct in_addr inetaddr, char *phonenr, int window)
 {
-			char win[10];
-			char call[10];
-      char *my_argv[9] = { "pptp", inet_ntoa(inetaddr), "--call_id",call,"--phone",phonenr,"--window",win,NULL };
-      char buf[128];
-      sprintf(win,"%u",window);
-      sprintf(call,"%u",call_id);
-      snprintf(buf, sizeof(buf), "pptp: call manager for %s", my_argv[1]);
-      //inststr(argc, argv, envp, buf);
-      exit(callmgr_main(8, my_argv, environ));
+	char win[10];
+	char call[10];
+	char *my_argv[9] = { "pptp", inet_ntoa(inetaddr), "--call_id", call, "--phone", phonenr, "--window", win, NULL };
+	char buf[128];
+	int argc = 0;
+	char **argv = environ;
+
+	sprintf(win, "%u", window);
+	sprintf(call, "%u", call_id);
+	snprintf(buf, sizeof(buf), "pptp: call manager for %s", my_argv[1]);
+
+	if (argv && *argv)
+		argv--;
+	if (argv && *argv == NULL && progname)
+	do {
+		argv--;
+		argc++;
+	} while (argv && *argv && *argv > progname);
+	if (argv && *argv == progname)
+		inststr(argc, argv, environ, buf);
+
+	exit(callmgr_main(8, my_argv, environ));
 }
 
 /*** exchange data with the call manager  *************************************/
