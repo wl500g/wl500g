@@ -1,0 +1,59 @@
+From a2f827c7c28c955ad49b32909452e42ccfc5e5c1
+From: Kevin Cernekee
+Date: Sun, 24 Jul 2011 08:19:13 +0000
+Subject: ldso/mips: dlsym() incorrectly matches undefined symbols
+
+check_match() relies on checking for (sym->st_value == 0) to see if the
+symbol is undefined.  This works reasonably well on most architectures,
+such as ARM or i386:
+
+$ readelf -s /lib32/libcap.so.2 | grep -E "\<malloc\>"
+    17: 00000000     0 FUNC    GLOBAL DEFAULT  UND malloc@GLIBC_2.0 (2)
+
+However, on MIPS, libbfd puts nonzero data in the st_value field to
+facilitate resetting the symbol's GOT entry if the library that defines
+the symbol gets unloaded:
+
+$ mipsel-linux-readelf -s libfoo.so | grep -E "\<malloc\>"
+    74: 00003140     0 FUNC    GLOBAL DEFAULT  UND malloc
+
+This can cause check_match to report a false positive when examining the
+external symbol reference.  Consequently dlsym() will return a bad pointer
+to the caller.
+
+Use the special MIPS logic from glibc-ports-2.13 to avoid this situation.
+
+Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
+---
+diff --git a/ldso/ldso/dl-hash.c b/ldso/ldso/dl-hash.c
+index 2ec883a..9b67156 100644
+--- a/ldso/ldso/dl-hash.c
++++ b/ldso/ldso/dl-hash.c
+@@ -188,6 +188,10 @@ check_match (const ElfW(Sym) *sym, char *strtab, const char* undef_name, int typ
+ 		 */
+ 		return NULL;
+ #endif
++#ifdef ARCH_SKIP_RELOC
++	if (ARCH_SKIP_RELOC(type_class, sym))
++		return NULL;
++#endif
+ 	if (_dl_strcmp(strtab + sym->st_name, undef_name) != 0)
+ 		return NULL;
+ 
+diff --git a/ldso/ldso/mips/dl-sysdep.h b/ldso/ldso/mips/dl-sysdep.h
+index 80c089a..e61c6ec 100644
+--- a/ldso/ldso/mips/dl-sysdep.h
++++ b/ldso/ldso/mips/dl-sysdep.h
+@@ -113,6 +113,9 @@ else if ((dpnt->d_tag == DT_MIPS_RLD_MAP) && (dpnt->d_un.d_ptr)) \
+      *(ElfW(Addr) *)(dpnt->d_un.d_ptr) =  (ElfW(Addr)) debug_addr; \
+ } while (0)
+ 
++#define ARCH_SKIP_RELOC(type_class, sym) \
++     ((sym)->st_shndx == SHN_UNDEF && !((sym)->st_other & STO_MIPS_PLT))
++
+ /* Initialization sequence for the application/library GOT.  */
+ #define INIT_GOT(GOT_BASE,MODULE)						\
+ do {										\
+--
+cgit v0.9.0.1-2-gef13

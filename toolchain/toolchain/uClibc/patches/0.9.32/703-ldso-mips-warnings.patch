@@ -1,0 +1,44 @@
+From 966adfe8ed0364ae32cc80d375d736298972d031
+From: Kevin Cernekee
+Date: Sun, 24 Jul 2011 08:19:14 +0000
+Subject: ldso/mips: Clean up warnings
+
+Trivial fixes for these warnings:
+
+  CC ldso/libdl/libdl.oS
+In file included from ldso/ldso/ldso.c:46:0:
+ldso/ldso/mips/elfinterp.c:88:1: warning: no previous prototype for '__dl_runtime_pltresolve'
+ldso/ldso/ldso.c: In function '_dl_get_ready_to_run':
+ldso/ldso/ldso.c:475:5: warning: assignment makes pointer from integer without a cast
+In file included from ldso/ldso/ldso.c:1097:0:
+ldso/ldso/dl-elf.c: In function '_dl_load_elf_shared_library':
+ldso/ldso/dl-elf.c:811:3: warning: assignment makes pointer from integer without a cast
+
+Signed-off-by: Kevin Cernekee <cernekee@gmail.com>
+Signed-off-by: Carmelo Amoroso <carmelo.amoroso@st.com>
+---
+diff --git a/ldso/ldso/mips/dl-sysdep.h b/ldso/ldso/mips/dl-sysdep.h
+index e61c6ec..6041245 100644
+--- a/ldso/ldso/mips/dl-sysdep.h
++++ b/ldso/ldso/mips/dl-sysdep.h
+@@ -130,7 +130,7 @@ do {										\
+ 	GOT_BASE[0] = (unsigned long) _dl_runtime_resolve;			\
+ 	GOT_BASE[1] = (unsigned long) MODULE;					\
+ 										\
+-	pltgot = MODULE->dynamic_info[DT_MIPS_PLTGOT_IDX];			\
++	pltgot = (unsigned long *) MODULE->dynamic_info[DT_MIPS_PLTGOT_IDX];	\
+ 	if (pltgot) {								\
+ 		pltgot[0] = (unsigned long) _dl_runtime_pltresolve;		\
+ 		pltgot[1] = (unsigned long) MODULE;				\
+@@ -159,6 +159,9 @@ unsigned long __dl_runtime_resolve(unsigned long sym_index,
+ 	unsigned long old_gpreg);
+ 
+ struct elf_resolve;
++unsigned long __dl_runtime_pltresolve(struct elf_resolve *tpnt,
++	int reloc_entry);
++
+ void _dl_perform_mips_global_got_relocations(struct elf_resolve *tpnt, int lazy);
+ 
+ /* 4096 bytes alignment */
+--
+cgit v0.9.0.1-2-gef13
