@@ -4,7 +4,14 @@
 
 --- gcc-4_4-branch/gcc/ChangeLog	2011/07/19 19:27:30	176481
 +++ gcc-4_4-branch/gcc/ChangeLog	2011/07/19 19:28:41	176482
-@@ -1,3 +1,17 @@
+@@ -1,3 +1,24 @@
++2011-07-21  Jakub Jelinek  <jakub@redhat.com>
++
++	PR middle-end/48973
++	* expr.c (expand_expr_real_1) <case TRUTH_ANDIF_EXPR>: If
++	the comparison has a single bit signed type, use
++	constm1_rtx instead of const1_rtx for true value.
++
 +2011-07-19  Jakub Jelinek  <jakub@redhat.com>
 +
 +	Backport from mainline
@@ -51,6 +58,17 @@
  	  emit_label (op1);
  	  return temp;
  	}
+@@ -9166,7 +9166,9 @@
+       jumpifnot (exp, op1, -1);
+ 
+       if (target)
+-	emit_move_insn (target, const1_rtx);
++	emit_move_insn (target,
++			TYPE_PRECISION (type) == 1 && !TYPE_UNSIGNED (type)
++			? constm1_rtx : const1_rtx);
+ 
+       emit_label (op1);
+       return ignore ? const0_rtx : target;
 @@ -9757,7 +9761,7 @@
    rtx op0, op1;
    enum insn_code icode;
