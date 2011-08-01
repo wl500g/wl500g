@@ -469,4 +469,5 @@
 {"wan_modem_maxfail","0", 0},
 {"wan_modem_serial_enable","1", 0},
 {"wan_modem_zerocd_mode","Auto",0},
+{"wan_modem_usbserial","0", 0},
 #endif
