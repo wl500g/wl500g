@@ -772,6 +772,10 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 
 	char *argv_usb_modeswitch[] = {
 		"usb_modeswitch",
+#ifdef DEBUG
+		"-W",
+#endif
+		"-D",
 		"-c",
 		sPath,
 		NULL
