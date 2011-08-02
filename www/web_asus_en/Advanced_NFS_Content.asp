@@ -55,7 +55,7 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="80" name="usb_nfslist_x_0" onKeyPress="return is_string()"></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="160" class="content_input_list_fd" size="80" name="usb_nfslist_x_0" onKeyPress="return is_string()"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="x_ExportsList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'; width: 100%">
