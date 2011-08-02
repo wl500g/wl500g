@@ -28,6 +28,6 @@ diff -BurpN xl2tpd-1.2.4/l2tp.h xl2tpd/l2tp.h
  
 -#define CONTROL_PIPE "/var/run/xl2tpd/l2tp-control"
 +#define CONTROL_PIPE "/var/run/l2tp-control"
+ #define CONTROL_PIPE_MESSAGE_SIZE 1024
  
  #define BINARY "xl2tpd"
- #define SERVER_VERSION "xl2tpd-1.2.4"
