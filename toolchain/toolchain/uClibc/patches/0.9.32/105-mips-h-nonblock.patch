@@ -1,0 +1,87 @@
+[PATCH] fix _CLOEXEC and _NONBLOCK for mips in signalfd/timerfd/inotify headers
+
+Ref.:
+ http://git.uclibc.org/uClibc/commit/?id=f87898ca4a7d4b7171779c06ff1f4848efeee431
+ http://lists.uclibc.org/pipermail/uclibc/2011-August/045611.html
+
+---
+ include/sys/signalfd.h                  |    9 +++++++++
+ libc/sysdeps/linux/common/sys/inotify.h |   10 ++++++++++
+ libc/sysdeps/linux/common/sys/timerfd.h |   10 ++++++++++
+ 3 files changed, 29 insertions(+)
+
+diff --git a/include/sys/signalfd.h b/include/sys/signalfd.h
+--- a/include/sys/signalfd.h
++++ b/include/sys/signalfd.h
+@@ -64,6 +64,15 @@ enum
+ # define SFD_NONBLOCK SFD_NONBLOCK
+   };
+ 
++#elif defined __mips__
++enum
++  {
++    SFD_CLOEXEC = 02000000,
++# define SFD_CLOEXEC SFD_CLOEXEC
++    SFD_NONBLOCK = 0200
++# define SFD_NONBLOCK SFD_NONBLOCK
++  };
++
+ #else
+ enum
+   {
+diff --git a/libc/sysdeps/linux/common/sys/inotify.h b/libc/sysdeps/linux/common/sys/inotify.h
+--- a/libc/sysdeps/linux/common/sys/inotify.h
++++ b/libc/sysdeps/linux/common/sys/inotify.h
+@@ -23,6 +23,15 @@
+ 
+ 
+ /* Flags for the parameter of inotify_init1.  */
++#if defined __mips__
++enum
++  {
++    IN_CLOEXEC = 02000000,
++# define IN_CLOEXEC IN_CLOEXEC
++    IN_NONBLOCK = 0200
++# define IN_NONBLOCK IN_NONBLOCK
++  };
++#else
+ enum
+   {
+     IN_CLOEXEC = 02000000,
+@@ -30,6 +39,7 @@ enum
+     IN_NONBLOCK = 04000
+ #define IN_NONBLOCK IN_NONBLOCK
+   };
++#endif
+ 
+ 
+ /* Structure describing an inotify event.  */
+diff --git a/libc/sysdeps/linux/common/sys/timerfd.h b/libc/sysdeps/linux/common/sys/timerfd.h
+--- a/libc/sysdeps/linux/common/sys/timerfd.h
++++ b/libc/sysdeps/linux/common/sys/timerfd.h
+@@ -23,6 +23,15 @@
+ 
+ 
+ /* Bits to be set in the FLAGS parameter of `timerfd_create'.  */
++#if defined __mips__
++enum
++  {
++    TFD_CLOEXEC = 02000000,
++# define TFD_CLOEXEC TFD_CLOEXEC
++    TFD_NONBLOCK = 0200
++# define TFD_NONBLOCK TFD_NONBLOCK
++  };
++#else
+ enum
+   {
+     TFD_CLOEXEC = 02000000,
+@@ -30,6 +39,7 @@ enum
+     TFD_NONBLOCK = 04000
+ #define TFD_NONBLOCK TFD_NONBLOCK
+   };
++#endif
+ 
+ 
+ /* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
+--
+cgit v0.9.0.1-2-gef13
