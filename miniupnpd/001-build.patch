@@ -5,8 +5,8 @@ diff -urBp miniupnpd-1.5.20110309/Makefile.linux miniupnpd/Makefile.linux
  # $ IPTABLESPATH=/path/to/iptables-1.4.1 make -f Makefile.linux
  #
  #CFLAGS = -Wall -O -D_GNU_SOURCE -g -DDEBUG
--CFLAGS ?= -Wall -Os -D_GNU_SOURCE
-+CFLAGS ?= -Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS)
+-CFLAGS ?= -Wall -Os -D_GNU_SOURCE -fno-strict-aliasing -Wstrict-prototypes 
++CFLAGS ?= -Wall -Os -D_GNU_SOURCE -fno-strict-aliasing -Wstrict-prototypes $(EXTRACFLAGS)
  CC ?= gcc
  RM = rm -f
  INSTALL = install
@@ -15,8 +15,8 @@ diff -urBp miniupnpd-1.5.20110309/Makefile.linux miniupnpd/Makefile.linux
  ifeq ($(TEST), 1)
  CFLAGS := $(CFLAGS) -DIPTABLES_143
 -# the following sucks, but works
--#LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
--LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
+-LIBS = $(IPTABLESPATH)/libiptc/.libs/libip4tc.o
+-#LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
 -else
 -LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
  endif
