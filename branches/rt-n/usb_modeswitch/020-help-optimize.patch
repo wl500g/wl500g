@@ -2,17 +2,17 @@ Optimize help
 
 --- usb-modeswitch-1.1.8/usb_modeswitch.c
 +++ usb-modeswitch/usb_modeswitch.c
-@@ -1823,43 +1823,43 @@ int hexstr2bin(const char *hex, char *bu
+@@ -1616,43 +1752,43 @@ int hexstr2bin(const char *hex, char *bu
  void printVersion()
  {
  	char* version = VERSION;
 -	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n");
 -	printf(" * Version %s (C) Josua Dietze 2011\n", version);
+-	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
+-	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 +	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n"
 +	       " * Version %s (C) Josua Dietze 2011\n", version);
--	printf(" * Based on libusb10 (1.0.1 and above)\n\n");
 +	printf(" * Based on libusb10 (1.0.1 and above)\n\n"
--	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 +	       " ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
  }
  
