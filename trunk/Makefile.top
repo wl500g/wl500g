@@ -349,8 +349,6 @@ ifeq ($(CONFIG_EMF),y)
 		$(SRCMODULESDIR)/drivers/net/igs/igs.o
 endif
 	# NLS
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/nls/nls_cp950.o
 	# generic usb
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/usbcore.o \
