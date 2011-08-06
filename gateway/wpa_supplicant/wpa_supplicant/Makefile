@@ -3,8 +3,9 @@ CC=gcc
 endif
 
 ifndef CFLAGS
-CFLAGS = -MMD -O2 -Wall -g
+CFLAGS = -MMD -Wall -g
 endif
+CFLAGS += $(EXTRACFLAGS)
 
 export LIBDIR ?= /usr/local/lib/
 export BINDIR ?= /usr/local/sbin/
