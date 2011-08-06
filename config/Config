@@ -386,6 +386,12 @@ config CONFIG_NTFS3G
        help
        NTFS-3G support.
 
+config CONFIG_EAPOL
+       bool "EAP-MD5 authorization support"
+       default n
+       help
+       EAP-MD5 authorization support.
+
 endmenu
 
 menu "Additional C libraries"

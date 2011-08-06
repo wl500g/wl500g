@@ -1,0 +1,13 @@
+--- a/wpa_supplicant/Makefile
++++ b/wpa_supplicant/Makefile
+@@ -3,8 +3,9 @@
+ endif
+ 
+ ifndef CFLAGS
+-CFLAGS = -MMD -O2 -Wall -g
++CFLAGS = -MMD -Wall -g
+ endif
++CFLAGS += $(EXTRACFLAGS)
+ 
+ export LIBDIR ?= /usr/local/lib/
+ export BINDIR ?= /usr/local/sbin/

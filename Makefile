@@ -62,6 +62,7 @@ HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
 NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.4
 SYSFSUTILS=sysfsutils-2.1.0
+WPA_SUPPLICANT=wpa_supplicant-0.6.10
 
 UCLIBC=uClibc-0.9.30.1
 
@@ -91,7 +92,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils e2fsprogs
+	sysfsutils e2fsprogs wpa_supplicant
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -630,6 +631,18 @@ $(TOP)/miniupnpd: miniupnpd/$(MINIUPNPD).tar.gz
 	mv $(TOP)/$(MINIUPNPD) $@ && touch $@
 
 miniupnpd: $(TOP)/miniupnpd
+	@true
+
+wpa_supplicant_Patches := $(call patches_list,wpa_supplicant)
+
+$(TOP)/wpa_supplicant: wpa_supplicant/$(WPA_SUPPLICANT).tar.gz
+	rm -rf $(TOP)/$(WPA_SUPPLICANT) $@
+	tar -zxf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(WPA_SUPPLICANT) $(wpa_supplicant_Patches)
+	cp -p wpa_supplicant/wpa_supplicant.config $(TOP)/$(WPA_SUPPLICANT)/wpa_supplicant/.config
+	mv $(TOP)/$(WPA_SUPPLICANT) $@ && touch $@
+
+wpa_supplicant: $(TOP)/wpa_supplicant
 	@true
 
 $(TOP)/httpd:

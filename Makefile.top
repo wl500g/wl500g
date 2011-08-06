@@ -167,6 +167,7 @@ obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
+obj-$(CONFIG_EAPOL) += wpa_supplicant
 obj-$(CONFIG_LLTD) += lltd
 obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
@@ -1030,6 +1031,17 @@ lltd-install: lltd
 	install -D -m 0644 lltd/lld2d.conf $(INSTALLDIR)/lltd/usr/etc/lld2d.conf
 	[ ! -f lltd/icons/$(MODEL).ico ] || \
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
+
+wpa_supplicant:
+	$(MAKE) -C $@/wpa_supplicant EXTRACFLAGS="-Os $(EXTRACFLAGS)"
+
+wpa_supplicant-install: wpa_supplicant
+	install -D wpa_supplicant/wpa_supplicant/wpa_supplicant $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_supplicant
+	install -D wpa_supplicant/wpa_supplicant/wpa_cli $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_cli
+	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
+
+wpa_supplicant-clean:
+	$(MAKE) -C wpa_supplicant/wpa_supplicant clean
 
 udev:
 	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \

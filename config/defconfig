@@ -76,6 +76,7 @@ CONFIG_MODEM=y
 CONFIG_LLTD=y
 CONFIG_TCPDUMP=y
 CONFIG_NTFS3G=y
+CONFIG_EAPOL=y
 
 #
 # Additional C libraries
