@@ -183,7 +183,7 @@ vsftpd_Patches := $(call patches_list,vsftpd)
 
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	@rm -rf $(TOP)/$(VSFTPD) $@
-	tar -xzf vsftpd/$(VSFTPD).tar.gz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(VSFTPD) $(vsftpd_Patches)
 	mv $(TOP)/$(VSFTPD) $@
 
@@ -194,7 +194,7 @@ ntfs-3g_Patches := $(call patches_list,ntfs-3g)
 
 $(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
 	@rm -rf $(TOP)/$(NTFS3G) $@
-	tar -xzf ntfs-3g/$(NTFS3G).tgz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(NTFS3G) $(ntfs-3g_Patches)
 	mv $(TOP)/$(NTFS3G) $@
 
@@ -256,12 +256,6 @@ $(TOP)/p910nd: p910nd/$(P910ND).tar.bz2
 	$(PATCHER) -Z $(TOP)/$(P910ND) $(p910nd_Patches)
 	mv $(TOP)/$(P910ND) $@ && touch $@
 
-p910nd-diff:
-	@rm -rf $(TOP)/$(P910ND)
-	tar -xjf $(P910ND).tar.bz2 -C $(TOP)
-	-rm -f $(TOP)/p910nd/p910nd
-	-cd $(TOP) && $(DIFF) -BurpN $(P910ND) p910nd > $(P910ND).patch
-
 p910nd: $(TOP)/p910nd
 	@true
 
@@ -302,10 +296,12 @@ $(TOP)/portmap: portmap/$(PORTMAP).tar.gz
 portmap: $(TOP)/portmap
 	@true
 
-$(TOP)/bridge:
+bridge_Patches := $(call patches_list,bridge-utils)
+
+$(TOP)/bridge: bridge-utils/$(BRIDGE).tar.gz
 	@rm -rf $(TOP)/$(BRIDGE) $@
-	tar -xzf $(BRIDGE).tar.gz -C $(TOP)
-	[ ! -f $(BRIDGE).patch ] || $(PATCHER) -Z $(TOP)/$(BRIDGE) $(BRIDGE).patch
+	tar -xzf $^ -C $(TOP)
+	$(PATCHER) -Z $(TOP)/$(BRIDGE) $(bridge_Patches)
 	mv $(TOP)/$(BRIDGE) $@
 
 bridge: $(TOP)/bridge
@@ -315,7 +311,7 @@ radvd_Patches := $(call patches_list,radvd)
 
 $(TOP)/radvd: radvd/$(RADVD).tar.gz
 	@rm -rf $(TOP)/$(RADVD) $@
-	tar -xzf radvd/$(RADVD).tar.gz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(RADVD) $(radvd_Patches)
 	mv $(TOP)/$(RADVD) $@
 
@@ -326,7 +322,7 @@ quagga_Patches := $(call patches_list,quagga)
 
 $(TOP)/quagga: quagga/$(QUAGGA).tar.gz
 	@rm -rf $(TOP)/$(QUAGGA) $@
-	tar -xzf quagga/$(QUAGGA).tar.gz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(QUAGGA) $(quagga_Patches)
 	mv $(TOP)/$(QUAGGA) $@
 
@@ -366,9 +362,9 @@ rp-l2tp: $(TOP)/rp-l2tp
 
 xl2tpd_Patches := $(call patches_list,xl2tpd)
 
-$(TOP)/xl2tpd:
+$(TOP)/xl2tpd: xl2tpd/$(XL2TPD).tar.gz
 	@rm -rf $(TOP)/$(XL2TPD) $@
-	tar -xzf xl2tpd/$(XL2TPD).tar.gz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(XL2TPD) $(xl2tpd_Patches)
 	mv $(TOP)/$(XL2TPD) $@
 
@@ -404,7 +400,7 @@ igmpproxy_Patches := $(call patches_list,igmpproxy)
 
 $(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
 	@rm -rf $(TOP)/igmpproxy
-	tar -xzf igmpproxy/$(IGMPPROXY).tar.gz -C $(TOP)
+	tar -xzf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
 	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
 
@@ -452,7 +448,7 @@ inadyn: $(TOP)/inadyn
 	@true
 
 $(TOP)/bpalogin: bpalogin.tar.bz2
-	tar -xjf bpalogin.tar.bz2 -C $(TOP)
+	tar -xjf $^ -C $(TOP)
 	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
 
 bpalogin: $(TOP)/bpalogin
@@ -467,17 +463,21 @@ $(TOP)/mjpg-streamer: mjpg-streamer/mjpg-streamer-r103.tar.bz2
 mjpg-streamer: $(TOP)/mjpg-streamer
 	@true
 
-$(TOP)/jpeg-8b: jpegsrc.v8b.tar.bz2
+libjpeg_Patches := $(call patches_list,libjpeg)
+
+$(TOP)/jpeg-8b: libjpeg/jpegsrc.v8b.tar.bz2
 	tar -xjf $^ -C $(TOP)
-	[ ! -f jpeg-8b.patch ] || $(PATCHER) -Z $@ jpeg-8b.patch
+	$(PATCHER) -Z $@ $(libjpeg_Patches)
 
 libjpeg: $(TOP)/jpeg-8b
 	@true
 
-$(TOP)/scsi-idle: $(SCSIIDLE).tar.gz
+scsi_idle_Patches := $(call patches_list,scsi-idle)
+
+$(TOP)/scsi-idle: scsi-idle/$(SCSIIDLE).tar.gz
 	@rm -rf $(TOP)/$(SCSIIDLE) $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(SCSIIDLE).patch ] || $(PATCHER) -Z $(TOP)/$(SCSIIDLE) $(SCSIIDLE).patch
+	$(PATCHER) -Z $(TOP)/$(SCSIIDLE) $(scsi_idle_Patches)
 	mv $(TOP)/$(SCSIIDLE) $@ && touch $@
 
 scsi-idle: $(TOP)/scsi-idle
@@ -498,7 +498,7 @@ modeswitch_Patches := $(call patches_list,usb_modeswitch)
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
-	tar -jxf usb_modeswitch/$(USBMODESWITCH).tar.bz2  -C $(TOP)
+	tar -jxf @^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) $(modeswitch_Patches)
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
