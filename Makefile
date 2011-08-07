@@ -60,7 +60,7 @@ TCPDUMP=tcpdump-4.1.1
 LIBPCAP=libpcap-1.1.1
 HOTPLUG2=hotplug2-0.9
 UDEV=udev-113
-NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.4
+NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.6
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
 
@@ -364,7 +364,7 @@ xl2tpd_Patches := $(call patches_list,xl2tpd)
 
 $(TOP)/xl2tpd: xl2tpd/$(XL2TPD).tar.gz
 	@rm -rf $(TOP)/$(XL2TPD) $@
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(XL2TPD) $(xl2tpd_Patches)
 	mv $(TOP)/$(XL2TPD) $@
 
