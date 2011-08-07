@@ -183,7 +183,7 @@ vsftpd_Patches := $(call patches_list,vsftpd)
 
 $(TOP)/vsftpd: vsftpd/$(VSFTPD).tar.gz
 	@rm -rf $(TOP)/$(VSFTPD) $@
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(VSFTPD) $(vsftpd_Patches)
 	mv $(TOP)/$(VSFTPD) $@
 
@@ -194,7 +194,7 @@ ntfs-3g_Patches := $(call patches_list,ntfs-3g)
 
 $(TOP)/ntfs-3g: ntfs-3g/$(NTFS3G).tgz
 	@rm -rf $(TOP)/$(NTFS3G) $@
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(NTFS3G) $(ntfs-3g_Patches)
 	mv $(TOP)/$(NTFS3G) $@
 
@@ -311,7 +311,7 @@ radvd_Patches := $(call patches_list,radvd)
 
 $(TOP)/radvd: radvd/$(RADVD).tar.gz
 	@rm -rf $(TOP)/$(RADVD) $@
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(RADVD) $(radvd_Patches)
 	mv $(TOP)/$(RADVD) $@
 
@@ -322,7 +322,7 @@ quagga_Patches := $(call patches_list,quagga)
 
 $(TOP)/quagga: quagga/$(QUAGGA).tar.gz
 	@rm -rf $(TOP)/$(QUAGGA) $@
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(QUAGGA) $(quagga_Patches)
 	mv $(TOP)/$(QUAGGA) $@
 
@@ -400,7 +400,7 @@ igmpproxy_Patches := $(call patches_list,igmpproxy)
 
 $(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
 	@rm -rf $(TOP)/igmpproxy
-	tar -xzf @^ -C $(TOP)
+	tar -xzf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(IGMPPROXY) $(igmpproxy_Patches)
 	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
 
@@ -498,7 +498,7 @@ modeswitch_Patches := $(call patches_list,usb_modeswitch)
 
 $(TOP)/usb_modeswitch: usb_modeswitch/$(USBMODESWITCH).tar.bz2
 	rm -rf $(TOP)/$(USBMODESWITCH) $@
-	tar -jxf @^ -C $(TOP)
+	tar -jxf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(USBMODESWITCH) $(modeswitch_Patches)
 	$(MAKE) -C $(TOP)/$(USBMODESWITCH) clean
 	mv $(TOP)/$(USBMODESWITCH) $@ && touch $@
