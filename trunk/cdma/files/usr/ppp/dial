@@ -15,7 +15,7 @@ user_script_name='/usr/local/dial/dial'
 def_failure_script="/usr/local/sbin/post-3g-failure"
 
 load_drivers(){
-	if [ "$(lsmod | grep $acm_module)" = "" ]; then
+	if [ "$(lsmod | grep $acm_int_name)" = "" ]; then
 		if [ "$kernel" = "2.4" ]; then
 			insmod $acm_module $maxpacket_size
 		else
@@ -41,10 +41,12 @@ init_global() {
 		tts_port_path="/dev/usb/tts/"
 		acm_port_path="/dev/usb/acm/"
 		acm_module="acm"
+		acm_int_name=$acm_module
 	else
 		tts_port_path="/dev/ttyUSB"
 		acm_port_path="/dev/ttyACM"
 		acm_module="cdc-acm"
+		acm_int_name="cdc_acm"
 	fi
 
 	maxpacket_size=$(nvram get ${set_pref}packetsize)
