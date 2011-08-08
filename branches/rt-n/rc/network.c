@@ -57,18 +57,16 @@ static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
  || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
 
 #define HOTPLUG_DEV_START
-sem_t * hotplug_sem;
+sem_t * hotplug_sem = SEM_FAILED;
 
 void hotplug_sem_open()
 {
 	hotplug_sem = sem_open( "/hotplug_sem", O_CREAT | O_EXCL, S_IRWXU | S_IRWXG, 1 );
 	if ( hotplug_sem == SEM_FAILED ) {
-#ifdef DEBUG
-		if (errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
-#endif
 		hotplug_sem = sem_open( "/hotplug_sem", 0 );
 #ifdef DEBUG
-		if (errno) dprintf( "%p, %s", hotplug_sem, strerror(errno) );
+		if (hotplug_sem == SEM_FAILED)
+			dprintf( "Semaphore error: %p, %s", hotplug_sem, strerror(errno) );
 #endif
 	}
 }
@@ -76,25 +74,38 @@ void hotplug_sem_open()
 void
 hotplug_sem_close()
 {
-	if (hotplug_sem) sem_close( hotplug_sem );
+	if (hotplug_sem != SEM_FAILED) {
+		sem_close( hotplug_sem );
+		hotplug_sem = SEM_FAILED;
+	}
 }
 
 void
 hotplug_sem_lock()
 {
-	if (hotplug_sem) sem_wait( hotplug_sem );
+	if (hotplug_sem != SEM_FAILED) sem_wait( hotplug_sem );
+	else dprintf("sem_lock with empty semaphore");
+}
+
+int
+hotplug_sem_trylock()
+{
+	if (hotplug_sem != SEM_FAILED)
+		return sem_trywait( hotplug_sem ) != -1;
+	return 1;
 }
 
 void
 hotplug_sem_unlock()
 {
-	if (hotplug_sem) sem_post( hotplug_sem );
+	if (hotplug_sem != SEM_FAILED) sem_post( hotplug_sem );
 }
 #else
-#define hotplug_sem_open()
-#define hotplug_sem_close()
-#define hotplug_sem_lock()
-#define hotplug_sem_unlock()
+void hotplug_sem_open() {}
+void hotplug_sem_close() {}
+void hotplug_sem_lock() {}
+int hotplug_sem_lock() {return 1;}
+void hotplug_sem_unlock() {}
 #endif
 
 #ifdef __CONFIG_EMF__
@@ -2039,16 +2050,29 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 	int unit;
 	int found=0;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	char tmp_str[100];
+	char str_devusb[100];
 
 	dprintf( "%s %s %s", interface, action, product );
 
 	int action_add = (strcmp(action, "add") == 0);
 
+	snprintf(str_devusb, sizeof(str_devusb), "%s : %s", product, device);
+
 	hotplug_sem_open();
+	hotplug_sem_lock();
+
+	// prevent multiple processing of the same device
+	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (dev_vidpid)
+			found = (strcmp(dev_vidpid, str_devusb) == 0);
+		if (found) dprintf("already processed\n");
+	}
 
 	/* Start each configured and enabled wan connection and its undelying i/f */
-	for (unit = 0; unit < MAX_NVPARSE; unit ++) 
+	if (!found) for (unit = 0; unit < MAX_NVPARSE; unit ++) 
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
@@ -2079,13 +2103,13 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 #endif
 			} else {
 				dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
-				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
-				found = (strcmp(dev_vidpid, tmp_str) == 0);
+				if (dev_vidpid)
+					found = (strcmp(dev_vidpid, str_devusb) == 0);
 			}
 		}
 		if (found)
 		{
-		    hotplug_sem_lock();
+
 		    if (action_add)
 		    {
 			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
@@ -2094,8 +2118,7 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 #ifdef __CONFIG_MADWIMAX__
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
-				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
-				nvram_set(strcat_r(prefix, "usb_device", tmp), tmp_str );
+				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
 #ifdef HOTPLUG_DEV_START
 				start_wimax( prefix );
 #endif
@@ -2104,10 +2127,9 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
-				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
-				nvram_set(strcat_r(prefix, "usb_device", tmp), tmp_str );
+				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
 #ifdef HOTPLUG_DEV_START
-				//usb_modem_check(prefix);
+				usb_modem_check(prefix);
 #endif
 			    }
 #else
@@ -2134,11 +2156,10 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 #endif
 		    }
 
-		    hotplug_sem_unlock();
-
 		    break;
 		}
 	}
+	hotplug_sem_unlock();
 	hotplug_sem_close();
 
 	dprintf("done");

@@ -100,6 +100,13 @@ static int stacheck_interval = -1;
 static int notice_rcamd(int flag);
 #endif
 
+#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
+void hotplug_sem_open();
+void hotplug_sem_close();
+int  hotplug_sem_trylock();
+void hotplug_sem_unlock();
+#endif
+
 #ifdef GPIOCTL
 
 static int tgpio_open ()
@@ -548,31 +555,37 @@ static int http_processcheck(void)
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 static int usb_communication_device_processcheck(void)
 {
-  	char *wan_ifname;
+	char *wan_ifname;
 	char *wan_proto;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	int unit;
 
-	/* Start each configured and enabled wan connection and its undelying i/f */
-	for ( unit=0; unit<MAX_NVPARSE; unit++) 
-	{
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	hotplug_sem_open();
+	if (hotplug_sem_trylock()) {
+		/* Start each configured and enabled wan connection and its undelying i/f */
+		for ( unit=0; unit<MAX_NVPARSE; unit++) 
+		{
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-		/* make sure the connection exists and is enabled */ 
-		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
-		if (!wan_ifname)
-			continue;
+			/* make sure the connection exists and is enabled */ 
+			wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+			if (!wan_ifname)
+				continue;
 
-		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
-		if (!wan_proto || !strcmp(wan_proto, "disabled"))
-			continue;
+			wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+			if (!wan_proto || !strcmp(wan_proto, "disabled"))
+				continue;
 #ifdef __CONFIG_MADWIMAX__
-		if (!strcmp(wan_proto, "wimax")) madwimax_check(prefix);
+			if (!strcmp(wan_proto, "wimax")) madwimax_check(prefix);
 #endif
 #ifdef __CONFIG_MODEM__
-		if (!strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
+			if (!strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
 #endif
+		}
+		hotplug_sem_unlock();
 	}
+	hotplug_sem_close();
+
 	return 0;
 }
 #endif

@@ -42,6 +42,86 @@
 
 #define nvram_prefix_get(name) (nvram_get(strcat_r(prefix, name, tmp)) ? : "")
 
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
+void hotplug_sem_open();
+void hotplug_sem_close();
+void hotplug_sem_lock();
+void hotplug_sem_unlock();
+
+int hotplug_check_prev_zerocd_processed(char *product, char *device)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char str_devusb[100];
+	int found = 0, unit;
+	char *dev_vidpid;
+
+	snprintf(str_devusb, sizeof(str_devusb), "zerocd: %s : %s", product, device);
+
+	hotplug_sem_open();
+	hotplug_sem_lock();
+
+	// prevent multiple processing of the same device
+	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (dev_vidpid)
+			found = (strcmp(dev_vidpid, str_devusb) == 0);
+#ifdef _DEBUG
+		if (found) dprintf("already processed\n");
+#endif
+	}
+
+	if (!found ) for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (!dev_vidpid) {
+			nvram_set( strcat_r(prefix, "usb_device", tmp), str_devusb );
+			break;
+		}
+	}
+
+	hotplug_sem_unlock();
+	hotplug_sem_close();
+
+	if (found) return 1;
+	else return 0;
+}
+void hotplug_release_zerocd_processed(char *product, char *device)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char str_devusb[100];
+	int unit;
+	char *dev_vidpid;
+
+	snprintf(str_devusb, sizeof(str_devusb), "zerocd: %s : %s", product, device);
+
+	hotplug_sem_open();
+	hotplug_sem_lock();
+
+	// prevent multiple processing of the same device
+	for (unit = 0; unit < MAX_NVPARSE; unit ++)
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (dev_vidpid && strcmp(dev_vidpid, str_devusb) == 0) {
+			nvram_unset( strcat_r(prefix, "usb_device", tmp) );
+			break;
+		}
+	}
+
+	hotplug_sem_unlock();
+	hotplug_sem_close();
+	dprintf("done: %s\n", device );
+}
+#else
+#define hotplug_check_prev_zerocd_processed(product,device) 1
+#define hotplug_release_zerocd_processed(product,device)
+#endif
+
 /// Modems config file element
 typedef struct {
 	int vid;	///< vendor id
@@ -782,7 +862,7 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 	};
 	*sPath = '\0';
 
-	if (strcmp(action, "add") == 0) {
+	if (strcmp(action, "add") == 0 && !hotplug_check_prev_zerocd_processed(product,device)) {
 		if (nvram_match("wan_modem_zerocd_mode", "UserDefined")) {
 			strcpy(sPath, "/usr/local/etc/usb_modeswitch.conf");
 		} else if (nvram_match("wan_modem_zerocd_mode", "Auto")) {
@@ -877,7 +957,8 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 			*sVid = *sPid = '\0';
 		}
 		hotplug_exec_user_modem_init_script(sVid, sPid, device);
-
+	} else if(strcmp(action, "remove") == 0 ) {
+		hotplug_release_zerocd_processed(product, device);
 	}
 	dprintf("done");
 }
