@@ -1559,9 +1559,14 @@ out_unlock:
 slab_empty:
 	if (prior)
 		/*
-		 * Slab still on the partial list.
+		 * Slab on the partial list.
 		 */
 		remove_partial(s, page);
+#ifdef CONFIG_SLUB_DEBUG
+	else
+		/* Slab must be on the full list */
+		remove_full(s, page);
+#endif
 
 	slab_unlock(page);
 	discard_slab(s, page);
