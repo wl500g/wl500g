@@ -21,6 +21,8 @@ linux 3.0 backports
  2 files changed
 
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
+--- a/drivers/usb/serial/option.c
++++ b/drivers/usb/serial/option.c
 @@ -28,7 +28,7 @@
    device features.
  */
