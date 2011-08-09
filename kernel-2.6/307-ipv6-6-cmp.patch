@@ -3,7 +3,11 @@
  kernel.org commits:
  fed85383ac34d82e96f227ce49ce68117cec23a0 [IPV6]: Use XOR and OR rather than mutiple ands for ipv6 address comparisons.
  d57b8fb8a8f94bdf467a4435be7d8bbebf87fe2a ipv6: Use __fls() instead of fls() in __ipv6_addr_diff().
+
 ---
+ include/net/addrconf.h |   14 ++++++--------
+ include/net/ipv6.h     |   24 +++++++++++-------------
+ 2 files changed, 17 insertions(+), 21 deletions(-)
 
 diff --git a/include/net/addrconf.h b/include/net/addrconf.h
 --- a/include/net/addrconf.h
