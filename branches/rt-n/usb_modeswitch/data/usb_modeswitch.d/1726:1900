@@ -1,6 +1,5 @@
+########################################################
 # Axesstel MV110
-#
-# Contributor: Iguana
 
 DefaultVendor= 0x1726
 DefaultProduct=0x1900
