@@ -30,6 +30,8 @@
 
 #define M_COUNTER_OVERFLOW		(1UL      << 31)
 
+static int (*save_perf_irq)(void);
+
 #ifdef CONFIG_MIPS_MT_SMP
 #define WHAT		(M_TC_EN_VPE | M_PERFCTL_VPEID(smp_processor_id()))
 #define vpe_id()	smp_processor_id()
@@ -322,6 +324,7 @@ static int __init mipsxx_init(void)
 		return -ENODEV;
 	}
 
+	save_perf_irq = perf_irq;
 	perf_irq = mipsxx_perfcount_handler;
 
 	return 0;
@@ -335,7 +338,7 @@ static void mipsxx_exit(void)
 #endif
 	reset_counters(counters);
 
-	perf_irq = null_perf_irq;
+	perf_irq = save_perf_irq;
 }
 
 struct op_mips_model op_model_mipsxx_ops = {

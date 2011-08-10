@@ -7,6 +7,10 @@
 extern int raw_show_trace;
 extern unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
 				  unsigned long pc, unsigned long *ra);
+extern unsigned long unwind_stack_by_address(unsigned long stack_page,
+					     unsigned long *sp,
+					     unsigned long pc,
+					     unsigned long *ra);
 #else
 #define raw_show_trace 1
 #define unwind_stack(task, sp, pc, ra)	0
@@ -40,5 +44,15 @@ static __always_inline void prepare_frametrace(struct pt_regs *regs)
 		"=m" (regs->regs[29]), "=m" (regs->regs[31])
 		: : "memory");
 }
+
+struct user_stackframe {
+	unsigned long sp;
+	unsigned long pc;
+	unsigned long ra;
+};
+
+int unwind_user_frame(struct user_stackframe *old_frame,
+			const unsigned int max_instr_check);
+
 
 #endif /* _ASM_STACKTRACE_H */

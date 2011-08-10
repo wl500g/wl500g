@@ -10,7 +10,6 @@
 #ifndef OP_IMPL_H
 #define OP_IMPL_H 1
 
-extern int null_perf_irq(void);
 extern int (*perf_irq)(void);
 
 /* Per-counter configuration as set via oprofilefs.  */
@@ -36,5 +35,7 @@ struct op_mips_model {
 	char *cpu_type;
 	unsigned char num_counters;
 };
+
+void op_mips_backtrace(struct pt_regs * const regs, unsigned int depth);
 
 #endif
