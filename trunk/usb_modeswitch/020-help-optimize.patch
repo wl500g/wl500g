@@ -1,8 +1,8 @@
 Optimize help
 
---- usb-modeswitch-1.1.8/usb_modeswitch.c
+--- usb-modeswitch-1.1.9/usb_modeswitch.c
 +++ usb-modeswitch/usb_modeswitch.c
-@@ -1616,43 +1752,43 @@ int hexstr2bin(const char *hex, char *bu
+@@ -1822,44 +1822,44 @@ int hexstr2bin(const char *hex, char *bu
  void printVersion()
  {
  	char* version = VERSION;
@@ -39,6 +39,7 @@ Optimize help
 -	printf (" -N, --sequans-mode            apply a special procedure\n");
 -	printf (" -A, --mobileaction-mode       apply a special procedure\n");
 -	printf (" -T, --kobil-mode              apply a special procedure\n");
+-	printf (" -L, --cisco-mode              apply a special procedure\n");
 -	printf (" -R, --reset-usb               reset the device after all other actions\n");
 -	printf (" -Q, --quiet                   don't show progress or error messages\n");
 -	printf (" -W, --verbose                 print all settings and debug output\n");
@@ -70,6 +71,7 @@ Optimize help
 +	        " -N, --sequans-mode            apply a special procedure\n"
 +	        " -A, --mobileaction-mode       apply a special procedure\n"
 +	        " -T, --kobil-mode              apply a special procedure\n"
++	        " -L, --cisco-mode              apply a special procedure\n"
 +	        " -R, --reset-usb               reset the device after all other actions\n"
 +	        " -Q, --quiet                   don't show progress or error messages\n"
 +	        " -W, --verbose                 print all settings and debug output\n"
