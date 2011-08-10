@@ -61,10 +61,10 @@ void sym_init(void)
 	if (p)
 		sym_add_default(sym, p);
 
-	sym = sym_lookup("OPENWRTVERSION", 0);
+	sym = sym_lookup("TOOLCHAINVERSION", 0);
 	sym->type = S_STRING;
 	sym->flags |= SYMBOL_AUTO;
-	p = getenv("OPENWRTVERSION");
+	p = getenv("TOOLCHAINVERSION");
 	if (p)
 		sym_add_default(sym, p);
 

@@ -12,7 +12,7 @@ define Package/Default
   DEPENDS:=
   PROVIDES:=
   EXTRA_DEPENDS:=
-  MAINTAINER:=OpenWrt Developers Team <openwrt-devel@openwrt.org>
+  MAINTAINER:=
   SOURCE:=$(patsubst $(TOPDIR)/%,%,${shell pwd})
   ifneq ($(PKG_VERSION),)
     ifneq ($(PKG_RELEASE),)

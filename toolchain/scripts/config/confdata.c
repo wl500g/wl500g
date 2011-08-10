@@ -419,7 +419,7 @@ int conf_write(const char *name)
 	out = fopen(newname, "w");
 	if (!out)
 		return 1;
-	sym = sym_lookup("OPENWRTVERSION", 0);
+	sym = sym_lookup("TOOLCHAINVERSION", 0);
 	sym_calc_value(sym);
 	time(&now);
 	env = getenv("KCONFIG_NOTIMESTAMP");
@@ -428,7 +428,7 @@ int conf_write(const char *name)
 
 	fprintf(out, _("#\n"
 		       "# Automatically generated make config: don't edit\n"
-		       "# toolchain version: %s\n"
+		       "# toolchain version: (%s)\n"
 		       "%s%s"
 		       "#\n"),
 		     sym_get_string_value(sym),

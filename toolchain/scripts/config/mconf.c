@@ -1082,9 +1082,9 @@ int main(int ac, char **av)
 	conf_parse(av[1]);
 	conf_read(NULL);
 
-	sym = sym_lookup("OPENWRTVERSION", 0);
+	sym = sym_lookup("TOOLCHAINVERSION", 0);
 	sym_calc_value(sym);
-	sprintf(menu_backtitle, _("Toolchain %s Configuration"),
+	sprintf(menu_backtitle, _("Toolchain (%s) Configuration"),
 		sym_get_string_value(sym));
 
 	mode = getenv("MENUCONFIG_MODE");

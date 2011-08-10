@@ -17,8 +17,8 @@ else
   REVISION:=$(shell $(TOPDIR)/scripts/getver.sh)
 endif
 
-OPENWRTVERSION:=$(if $(REVISION), ($(REVISION)))
-export OPENWRTVERSION
+TOOLCHAINVERSION:=$(REVISION)
+export TOOLCHAINVERSION
 export IS_TTY=$(shell tty -s && echo 1 || echo 0)
 
 ifeq ($(FORCE),)
