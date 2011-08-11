@@ -3,13 +3,9 @@ USB: Updates from upstream
  fc427a5a4bf3be770d7fbd933474957062049f1f USB: EHCI: Remove dead code from ehci-sched.c
  1e12c910eed82da6971f1c0421a069c680faba2e EHCI: don't rescan interrupt QHs needlessly
  3824c1ddaf744be44b170a335332b9d6afe79254 USB: core: Tolerate protocol stall during hub and port status read
+ e04f5f7e423018bcec84c11af2058cdce87816f3 EHCI: fix direction handling for interrupt data toggles
 
 ---
- drivers/usb/core/hub.c        |    6 ++++--
- drivers/usb/host/ehci-q.c     |    1 +
- drivers/usb/host/ehci-sched.c |   17 ++++++++++-------
- drivers/usb/host/ehci.h       |    1 +
- 4 files changed, 16 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 --- a/drivers/usb/core/hub.c
@@ -37,6 +33,15 @@ diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
 diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
 --- a/drivers/usb/host/ehci-q.c
 +++ b/drivers/usb/host/ehci-q.c
+@@ -103,7 +103,7 @@ qh_update (struct ehci_hcd *ehci, struct ehci_qh *qh, struct ehci_qtd *qtd)
+ 	if (!(hw->hw_info1 & cpu_to_hc32(ehci, 1 << 14))) {
+ 		unsigned	is_out, epnum;
+ 
+-		is_out = !(qtd->hw_token & cpu_to_hc32(ehci, 1 << 8));
++		is_out = qh->is_out;
+ 		epnum = (hc32_to_cpup(ehci, &hw->hw_info1) >> 8) & 0x0f;
+ 		if (unlikely (!usb_gettoggle (qh->dev, epnum, is_out))) {
+ 			hw->hw_token &= ~cpu_to_hc32(ehci, QTD_TOGGLE);
 @@ -826,6 +826,7 @@ qh_make (
  				is_input, 0,
  				hb_mult(maxp) * max_packet(maxp)));
@@ -45,6 +50,14 @@ diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
  
  		if (urb->dev->speed == USB_SPEED_HIGH) {
  			qh->c_usecs = 0;
+@@ -946,6 +946,7 @@ done:
+ 	hw = qh->hw;
+ 	hw->hw_info1 = cpu_to_hc32(ehci, info1);
+ 	hw->hw_info2 = cpu_to_hc32(ehci, info2);
++	qh->is_out = !is_input;
+ 	usb_settoggle (urb->dev, usb_pipeendpoint (urb->pipe), !is_input, 1);
+ 	qh_refresh (ehci, qh);
+ 	return qh;
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
@@ -111,5 +124,13 @@ diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
  	unsigned		random_frame;
  	unsigned long		next_statechange;
  	ktime_t			last_periodic_enable;
+@@ -377,6 +377,7 @@ struct ehci_qh {
+ 
+ #define NO_FRAME ((unsigned short)~0)			/* pick new start */
+ 	struct usb_device	*dev;		/* access to TT */
++	unsigned		is_out:1;	/* bulk or intr OUT */
+ 	unsigned		clearing_tt:1;	/* Clear-TT-Buf in progress */
+ };
+ 
 -- 
 1.7.4.4
