@@ -110,7 +110,7 @@ index 599bfcf..2cddb9a 100644
  	s->refcount = 1;
  #ifdef CONFIG_NUMA
  	s->remote_node_defrag_ratio = 100;
-@@ -3312,6 +3327,26 @@ static ssize_t order_show(struct kmem_cache *s, char *buf)
+@@ -3312,6 +3327,25 @@ static ssize_t order_show(struct kmem_cache *s, char *buf)
  }
  SLAB_ATTR_RO(order);
  
@@ -123,11 +123,10 @@ index 599bfcf..2cddb9a 100644
 +				 size_t length)
 +{
 +	unsigned long min;
-+	int err;
 +
-+	err = strict_strtoul(buf, 10, &min);
-+	if (err)
-+		return err;
++	min = simple_strtoul(buf, NULL, 10);
++	if (min < 1)
++		return -EINVAL;
 +
 +	set_min_partial(s, min);
 +	return length;
