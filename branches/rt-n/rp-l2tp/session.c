@@ -563,7 +563,7 @@ l2tp_session_handle_ICRP(l2tp_session *ses,
     /* TODO: Speed, etc. are faked for now. */
 
     /* Connect speed */
-    u32 = htonl(57600);
+    u32 = htonl(100000000);
     l2tp_dgram_add_avp(dgram, tunnel, MANDATORY,
 		  sizeof(u32), VENDOR_IETF, AVP_TX_CONNECT_SPEED, &u32);
 
