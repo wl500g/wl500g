@@ -449,7 +449,7 @@ tunnel_new(EventSelector *es)
 
     memset(tunnel, 0, sizeof(l2tp_tunnel));
     l2tp_session_hash_init(&tunnel->sessions_by_my_id);
-    tunnel->rws = 4;
+    tunnel->rws = 8;
     tunnel->peer_rws = 1;
     tunnel->es = es;
     tunnel->timeout = 1;
