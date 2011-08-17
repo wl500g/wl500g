@@ -723,6 +723,12 @@ void convert_asus_values()
 	/* Kinda smart fast nat management */
 	fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
 	    nvram_match("misc_fastnat_x", "0") || !nvram_match("wan_nat_x", "1") ||
+#ifdef __CONFIG_MADWIMAX__
+	    nvram_match("wan_proto", "wimax") ||
+#endif
+#ifdef __CONFIG_MODEM__
+	    nvram_match("wan_proto", "usbmodem") ||
+#endif
 	    nvram_match("qos_enable_x", "1") ? "0" :
 #ifdef WEBSTRFILTER
 	    nvram_match("url_enable_x", "1") ? "2" :
