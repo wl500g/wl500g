@@ -78,6 +78,8 @@
 
 {"wan_stb_x", "0", 0},
 
+{"wan_auth_x", "", 0 },
+
 {"ddns_status_t", "", 0},
 
 {"fw_enable_x", "1", 0},
