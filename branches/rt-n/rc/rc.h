@@ -178,6 +178,12 @@ int mkdir_if_none(char *dir);
 void diag_PaN(void);
 int wlan_update();
 
+/* auth */
+int start_wpa_supplicant();
+int stop_wpa_supplicant();
+int start_telenet();
+int stop_telenet();
+
 /* firewall */
 #ifdef __CONFIG_NETCONF__
 int start_firewall(void);
