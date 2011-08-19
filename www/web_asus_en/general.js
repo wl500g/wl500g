@@ -4081,8 +4081,9 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
 		inputCtrl(frm.wan_gateway, 1);
-		inputCtrl(frm.wan_pppoe_username, 0);
-		inputCtrl(frm.wan_pppoe_passwd, 0);
+		inputCtrl(frm.wan_auth_x, 1);
+		inputCtrl(frm.wan_pppoe_username, frm.wan_auth_x.value == "" ? 0 : 1);
+		inputCtrl(frm.wan_pppoe_passwd, frm.wan_auth_x.value == "" ? 0 : 1);
 		inputCtrl(frm.wan_pppoe_idletime, 0);
 		inputCtrl(frm.wan_pppoe_mtu, 0);
 		inputCtrl(frm.wan_pppoe_mru, 0);
@@ -4102,6 +4103,7 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
 		inputCtrl(frm.wan_gateway, 1);
+		inputCtrl(frm.wan_auth_x, 0);
 		inputCtrl(frm.wan_pppoe_username, 1);
 		inputCtrl(frm.wan_pppoe_passwd, 1);
 		inputCtrl(frm.wan_pppoe_idletime, 1);
@@ -4123,6 +4125,7 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
 		inputCtrl(frm.wan_gateway, 1);
+		inputCtrl(frm.wan_auth_x, 0);
 		inputCtrl(frm.wan_pppoe_username, 1);
 		inputCtrl(frm.wan_pppoe_passwd, 1);
 		inputCtrl(frm.wan_pppoe_idletime, 1);
@@ -4143,6 +4146,7 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
 		inputCtrl(frm.wan_gateway, 1);
+		inputCtrl(frm.wan_auth_x, 0);
 		inputCtrl(frm.wan_pppoe_username, 1);
 		inputCtrl(frm.wan_pppoe_passwd, 1);
 		inputCtrl(frm.wan_pppoe_idletime, 0);
@@ -4164,6 +4168,7 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 0);
 		inputCtrl(frm.wan_netmask, 0);
 		inputCtrl(frm.wan_gateway, 0);
+		inputCtrl(frm.wan_auth_x, 0);
 		inputCtrl(frm.wan_pppoe_username, 1);
 		inputCtrl(frm.wan_pppoe_passwd, 1);
 		inputCtrl(frm.wan_pppoe_idletime, 0);
@@ -4185,6 +4190,7 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 1);
 		inputCtrl(frm.wan_netmask, 1);
 		inputCtrl(frm.wan_gateway, 1);
+		inputCtrl(frm.wan_auth_x, 0);
 		inputCtrl(frm.wan_pppoe_username, 0);
 		inputCtrl(frm.wan_pppoe_passwd, 0);
 		inputCtrl(frm.wan_pppoe_idletime, 0);
@@ -4205,8 +4211,9 @@ function change_wan_type(v)
 		inputCtrl(frm.wan_ipaddr, 0);
 		inputCtrl(frm.wan_netmask, 0);
 		inputCtrl(frm.wan_gateway, 0);
-		inputCtrl(frm.wan_pppoe_username, 0);
-		inputCtrl(frm.wan_pppoe_passwd, 0);
+		inputCtrl(frm.wan_auth_x, 1);
+		inputCtrl(frm.wan_pppoe_username, frm.wan_auth_x.value == "" ? 0 : 1);
+		inputCtrl(frm.wan_pppoe_passwd, frm.wan_auth_x.value == "" ? 0 : 1);
 		inputCtrl(frm.wan_pppoe_idletime, 0);
 		inputCtrl(frm.wan_pppoe_idletime_check, 0);
 		inputCtrl(frm.wan_pppoe_mtu, 0);
