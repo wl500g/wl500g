@@ -63,6 +63,8 @@ void stop_dhcp6c(void);
 #endif
 
 /* ppp scripts */
+int authup_main(int argc, char **argv);
+int authdown_main(int argc, char **argv);
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
@@ -107,6 +109,7 @@ void wan6_down(char *ifname, int unit);
 #endif
 void lan_up_ex(char *lan_ifname);
 void lan_down_ex(char *lan_ifname);
+int wan_prefix(char *ifname, char *prefix);
 
 int hotplug_net(void);
 int wan_ifunit(char *ifname);
