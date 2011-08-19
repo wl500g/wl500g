@@ -29,7 +29,7 @@ STAMP := .stamp-$(MODEL)
 OBJS-y := rc.o init.o interface.o network.o services.o udhcpc.o ppp.o \
     crc.o mtd.o common_ex.o network_ex.o firewall.o services_ex.o \
     manu_ex.o http_ex.o watchdog.o sendalarm.o udhcpc_ex.o \
-    bigpond.o qos.o
+    bigpond.o qos.o auth.o
 
 #CFLAGS += -DBROKEN_IPV6_CONNTRACK
 
