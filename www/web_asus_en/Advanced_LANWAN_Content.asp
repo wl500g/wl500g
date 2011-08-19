@@ -196,6 +196,19 @@
 						</td>
 					</tr>
 					<tr>
+						<td class="content_header_td" onmouseover="return overlib('Choose the additional authentication, if it's required', LEFT);"
+							onmouseout="return nd();">
+							Authenitcation:
+						</td>
+						<td class="content_input_td">
+							<select name="wan_auth_x" class="content_input_fd" onchange="return change_common(document.form.wan_proto.value, 'Layer3Forwarding', 'wan_proto')">
+								<option class="content_input_fd" value="" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "","selected"); %>>None</option>
+								<option class="content_input_fd" value="eap-md5" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "eap-md5","selected"); %>>802.1x MD5</option>
+								<option class="content_input_fd" value="telenet" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "telenet","selected"); %>>KabiNET</option>
+							</select>
+						</td>
+					</tr>
+					<tr>
 						<td class="content_header_td" onmouseover="return overlib('This field is only available, when you set WAN Connection Type as PPPoE.', LEFT);"
 							onmouseout="return nd();">
 							User Name:
