@@ -186,3 +186,39 @@ ip6down_main(int argc, char **argv)
 	return 0;
 }
 #endif
+
+/*
+ * Called after the remote/local system successfully authenticates itself.
+ * It is executed with the parameters:
+ * interface-name peer-name user-name tty-device speed
+ * Note: that this script is not executed if the peer doesn't authenticate itself,
+ * for example when the noauth option is used.
+ */
+int
+authup_main(int argc, char **argv)
+{
+	char *wan_ifname = argv[1];
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if (wan_ifname == NULL ||
+	    wan_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
+
+	return 0;
+}
+
+/*
+ * Called when link goes down, if auth-up was previously executed
+ */
+int
+authdown_main(int argc, char **argv)
+{
+	char *wan_ifname = argv[1];
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if (wan_ifname == NULL ||
+	    wan_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
+
+	return 0;
+}

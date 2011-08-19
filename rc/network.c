@@ -724,7 +724,7 @@ stop_lan(void)
 	dprintf("done\n");
 }
 
-static int
+int
 wan_prefix(char *ifname, char *prefix)
 {
 	int unit;
@@ -806,6 +806,8 @@ start_wan(void)
 
 	/* Create links */
 	mkdir("/tmp/ppp", 0777);
+	symlink("/sbin/rc", "/tmp/ppp/auth-up");
+	symlink("/sbin/rc", "/tmp/ppp/auth-down");
 	symlink("/sbin/rc", "/tmp/ppp/ip-up");
 	symlink("/sbin/rc", "/tmp/ppp/ip-down");
 #ifdef __CONFIG_IPV6__
@@ -1151,6 +1153,8 @@ stop_wan(char *ifname)
 	char name[80], *next;
 
 	/* Shutdown and kill all possible tasks */
+	killall("auth-up", 0);
+	killall("auth-down", 0);
 	killall("ip-up", 0);
 	killall("ip-down", 0);
 #ifdef __CONFIG_IPV6__
@@ -1191,14 +1195,15 @@ stop_wan(char *ifname)
 
 	/* Remove dynamically created links */
 	unlink("/tmp/udhcpc.script");
-
-	unlink("/tmp/ppp/ip-up");
-	unlink("/tmp/ppp/ip-down");
 #ifdef __CONFIG_IPV6__
+	unlink("/tmp/dhcp6c.script");
 	unlink("/tmp/ppp/ipv6-up");
 	unlink("/tmp/ppp/ipv6-down");
-	unlink("/tmp/dhcp6c.script");
 #endif
+	unlink("/tmp/ppp/ip-up");
+	unlink("/tmp/ppp/ip-down");
+	unlink("/tmp/ppp/auth-up");
+	unlink("/tmp/ppp/auth-down");
 	rmdir("/tmp/ppp");
 
 #ifdef ASUS_EXT
