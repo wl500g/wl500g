@@ -326,6 +326,9 @@ struct variable variables_Layer3Forwarding[] = {
 #ifdef __CONFIG_MADWIMAX__
 	"wimax:WiMAX",
 #endif
+#ifdef __CONFIG_MODEM__
+	"usbmodem:USB Modem",
+#endif
 	0), FALSE, FALSE},
 	{"wan_mode_x", "", validate_choice, ARGV("0:Disabled","1:Enabled","2:Auto",0), FALSE, FALSE},
 	{"wan_etherspeed_x", "", validate_choice, ARGV(
@@ -336,6 +339,11 @@ struct variable variables_Layer3Forwarding[] = {
 	"100full:100Mpbs full-duplex",
 	0), FALSE, FALSE},
 	{"wan_stb_x", "", validate_range, ARGV("0", "5"), FALSE, FALSE},
+	{"wan_auth_x", "", validate_choice, ARGV(
+	":None",
+	"eap-md5:802.1x MD5",
+	"telenet:KabiNET",
+        0), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
 
