@@ -168,6 +168,7 @@ obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
 obj-$(CONFIG_EAPOL) += wpa_supplicant
+obj-$(CONFIG_LANAUTH) += lanauth
 obj-$(CONFIG_LLTD) += lltd
 obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
