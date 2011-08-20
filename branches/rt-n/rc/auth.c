@@ -12,6 +12,7 @@
 #include <shutils.h>
 #include "rc.h"
 
+#ifdef __CONFIG_EAPOL__
 int
 start_wpa_supplicant(void)
 {
@@ -23,15 +24,18 @@ stop_wpa_supplicant(void)
 {
 	return 0;
 }
+#endif
 
+#ifdef __CONFIG_TELENET__
 int
-start_telenet(void)
+start_lanauth(void)
 {
 	return 0;
 }
 
 int
-stop_telenet(void)
+stop_lanauth(void)
 {
 	return 0;
 }
+#endif
