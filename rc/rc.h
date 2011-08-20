@@ -179,10 +179,14 @@ void diag_PaN(void);
 int wlan_update();
 
 /* auth */
+#ifdef __CONFIG_EAPOL__
 int start_wpa_supplicant();
 int stop_wpa_supplicant();
-int start_telenet();
-int stop_telenet();
+#endif
+#ifdef __CONFIG_TELENET__
+int start_lanauth();
+int stop_lanauth();
+#endif
 
 /* firewall */
 #ifdef __CONFIG_NETCONF__

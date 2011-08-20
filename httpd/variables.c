@@ -341,8 +341,12 @@ struct variable variables_Layer3Forwarding[] = {
 	{"wan_stb_x", "", validate_range, ARGV("0", "5"), FALSE, FALSE},
 	{"wan_auth_x", "", validate_choice, ARGV(
 	":None",
+#ifdef __CONFIG_EAPOL__
 	"eap-md5:802.1x MD5",
+#endif
+#ifdef __CONFIG_TELENET__
 	"telenet:KabiNET",
+#endif
         0), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
