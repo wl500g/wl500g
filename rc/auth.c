@@ -14,7 +14,7 @@
 
 #ifdef __CONFIG_EAPOL__
 int
-start_wpa_supplicant(void)
+start_wpa_supplicant(char *prefix)
 {
 	return 0;
 }
@@ -28,14 +28,25 @@ stop_wpa_supplicant(void)
 
 #ifdef __CONFIG_TELENET__
 int
-start_lanauth(void)
+start_lanauth(char *prefix)
 {
-	return 0;
+	char tmp[100];
+	char *lanauth_argv[] = {
+		"lanauth",
+	    /*	"-v", protocol,	   */
+	    /*	"-l", acces level, */
+		"-p", nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)),
+		nvram_invmatch("wan_heartbeat_x", "") ? "-s" : NULL,
+		nvram_safe_get("wan_heartbeat_x"),
+   		NULL
+	};
+
+	return _eval(lanauth_argv, NULL, 0, NULL);
 }
 
 int
 stop_lanauth(void)
 {
-	return 0;
+	return killall("lanauth", 0);
 }
 #endif
