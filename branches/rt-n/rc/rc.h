@@ -180,12 +180,12 @@ int wlan_update();
 
 /* auth */
 #ifdef __CONFIG_EAPOL__
-int start_wpa_supplicant();
-int stop_wpa_supplicant();
+int start_wpa_supplicant(char *prefix);
+int stop_wpa_supplicant(void);
 #endif
 #ifdef __CONFIG_TELENET__
-int start_lanauth();
-int stop_lanauth();
+int start_lanauth(char *prefix);
+int stop_lanauth(void);
 #endif
 
 /* firewall */
