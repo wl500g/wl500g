@@ -386,11 +386,21 @@ config CONFIG_NTFS3G
        help
        NTFS-3G support.
 
+menu "Authentication support"
+
 config CONFIG_EAPOL
-       bool "EAP-MD5 authorization support"
+       bool "Wired 802.1x MD5 support"
        default n
        help
-       EAP-MD5 authorization support.
+       Wired 802.1x MD5 authentication support.
+
+config CONFIG_TELENET
+       bool "ISP KabiNET support"
+       default n
+       help
+       ISP KabiNET authentication support.
+
+endmenu
 
 endmenu
 

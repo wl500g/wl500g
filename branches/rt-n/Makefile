@@ -92,7 +92,7 @@ custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 ipt
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
 	scsi-idle libusb usb_modeswitch wimax lltd tcpdump ntfs-3g \
 	shared upnp miniupnpd utils wlconf www libbcmcrypto asustrx cdma \
-	sysfsutils e2fsprogs wpa_supplicant
+	sysfsutils e2fsprogs wpa_supplicant lanauth
 	@echo
 	@echo Sources prepared for compilation
 	@echo
@@ -643,6 +643,13 @@ $(TOP)/wpa_supplicant: wpa_supplicant/$(WPA_SUPPLICANT).tar.gz
 	mv $(TOP)/$(WPA_SUPPLICANT) $@ && touch $@
 
 wpa_supplicant: $(TOP)/wpa_supplicant
+	@true
+
+$(TOP)/lanauth:
+	[ -d $@ ] || \
+		tar -C . $(TAR_EXCL_SVN) -cf - lanauth | tar -C $(TOP) -xf -
+
+lanauth: $(TOP)/lanauth
 	@true
 
 $(TOP)/httpd:
