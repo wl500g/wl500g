@@ -1022,8 +1022,8 @@ start_wan(void)
 #endif
 			/* Start firewall */
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
-			/* Start authenticator */
-			start_auth(prefix);
+			/* (Re)start pre-authenticator */
+			start_auth(prefix, 0);
 			/* Start dhcp daemon */
 			start_dhcpc(wan_ifname, unit);
 			/* Update wan information for null DNS server */
@@ -1040,8 +1040,8 @@ start_wan(void)
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
 				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
-			/* Start authenticator */
-			start_auth(prefix);
+			/* (Re)start pre-authenticator */
+			start_auth(prefix, 0);
 			/* We are done configuration */
 			wan_up(wan_ifname);
 #ifdef __CONFIG_IPV6__
@@ -1182,7 +1182,7 @@ stop_wan(char *ifname)
 	killall("pppoe-relay", 0);
 
 	/* Stop authenticator */
-	stop_auth();
+	stop_auth(NULL, 0);
 
 	if (ifname)
 	{
@@ -1385,16 +1385,15 @@ wan_up(char *wan_ifname)
 	/* Sync time */
 	//start_ntpc();
 
+	/* (Re)start post-authenticator */
+	start_auth(prefix, 1);
+
 #ifdef ASUS_EXT
 	update_wan_status(1);
 	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
 	start_ddns(0);
 	stop_upnp();
-	start_upnp();		
-	if (strcmp(wan_proto, "bigpond")==0) {
-		stop_bpalogin();
-		start_bpalogin();
-	}
+	start_upnp();
 #endif
 	
 #ifdef QOS
@@ -1431,6 +1430,9 @@ wan_down(char *wan_ifname)
 	
 	dprintf("%s %s\n", wan_ifname, wan_proto);
 
+	/* Stop authenticator */
+	stop_auth(prefix, 1);
+
 #ifdef __CONFIG_IPV6__
 	if (nvram_invmatch("ipv6_proto", "native") && nvram_invmatch("ipv6_proto", "dhcp6"))
 		wan6_down(wan_ifname, -1);
@@ -1453,8 +1455,6 @@ wan_down(char *wan_ifname)
 
 #ifdef ASUS_EXT
 	update_wan_status(0);
-
-	if (strcmp(wan_proto, "bigpond")==0) stop_bpalogin();
 #endif
 
 	dprintf("done\n");

@@ -14,7 +14,7 @@
 
 #ifdef __CONFIG_EAPOL__
 int
-start_wpa_supplicant(char *prefix)
+start_wpa_supplicant(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
@@ -27,6 +27,12 @@ start_wpa_supplicant(char *prefix)
 	    "-c", options,
 	    NULL
 	};
+
+	if (restart)
+	{
+		stop_wpa_supplicant();
+		sleep(1);
+	}
 
 	/* Generate options file */
 	if ((fp = fopen(options, "w")) == NULL) {
@@ -61,7 +67,7 @@ stop_wpa_supplicant(void)
 
 #ifdef __CONFIG_TELENET__
 int
-start_lanauth(char *prefix)
+start_lanauth(char *prefix, int restart)
 {
 	char tmp[100];
 	char *lanauth_argv[] = {
@@ -73,6 +79,12 @@ start_lanauth(char *prefix)
 		nvram_safe_get("wan_heartbeat_x"),
    		NULL
 	};
+
+	if (restart)
+	{
+		stop_lanauth();
+		sleep(1);
+	}
 
 	/* Start lanauth */
 	return _eval(lanauth_argv, NULL, 0, NULL);
@@ -86,35 +98,65 @@ stop_lanauth(void)
 #endif
 
 int
-start_auth(char *prefix)
+start_auth(char *prefix, int wan_up)
 {
 	char tmp[100];
+	char *wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
 	char *wan_auth = nvram_safe_get(strcat_r(prefix, "auth_x", tmp));
-	int ret;
+	int ret = 0;
 
+	if (strcmp(wan_proto, "static") == 0 ||
+	    strcmp(wan_proto, "dhcp") == 0)
+	{
 #ifdef __CONFIG_EAPOL__
-	if (strcmp(wan_auth, "eap-md5") == 0)
-		ret = start_wpa_supplicant(prefix);
-	else
+		if (strcmp(wan_auth, "eap-md5") == 0 && !wan_up)
+			ret = start_wpa_supplicant(prefix, 1);
 #endif
 #ifdef __CONFIG_TELENET__
-	if (strcmp(wan_auth, "telenet") == 0)
-		ret = start_lanauth(prefix);
-	else
+		if (strcmp(wan_auth, "telenet") == 0 && wan_up)
+			ret = start_lanauth(prefix, 1);
 #endif
-	ret = 0;
+	}
+/* TODO: ugly, remake bigpond as auth, not wan proto */
+	if (strcmp(wan_proto, "bigpond") == 0)
+	{
+		if (wan_up)
+		{
+			stop_bpalogin();
+			ret = start_bpalogin();
+		}
+	}
 
 	return ret;
 }
 
 int
-stop_auth(void)
+stop_auth(char *prefix, int wan_down)
 {
+	char tmp[100];
+	char *wan_proto = prefix ? nvram_safe_get(strcat_r(prefix, "proto", tmp)) : NULL;
+	char *wan_auth = prefix ? nvram_safe_get(strcat_r(prefix, "auth_x", tmp)) : NULL;
+
+	if (wan_proto == NULL ||
+	    strcmp(wan_proto, "static") == 0 ||
+	    strcmp(wan_proto, "dhcp") == 0)
+	{
 #ifdef __CONFIG_EAPOL__
-	stop_wpa_supplicant();
+		if ((!wan_auth || strcmp(wan_auth, "eap-md5") == 0) && !wan_down)
+			stop_wpa_supplicant();
 #endif
 #ifdef __CONFIG_TELENET__
-	stop_lanauth();
+		if ((!wan_auth || strcmp(wan_auth, "telenet") == 0) && wan_down)
+			stop_lanauth();
 #endif
+	}
+/* TODO: ugly, remake bigpond as auth, not wan proto */
+	if (wan_proto == NULL ||
+	    strcmp(wan_proto, "bigpond") == 0)
+	{
+		if (wan_down)
+			stop_bpalogin();
+	}
+
 	return 0;
 }
