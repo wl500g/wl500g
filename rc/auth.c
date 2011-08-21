@@ -44,8 +44,8 @@ start_wpa_supplicant(char *prefix)
 		"	password=\"%s\"\n"
 		"	eapol_flags=0\n"
 		"}\n",
-		nvram_safe_get(strcat_r(prefix, "pppoe_username", tmp)),
-		nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)));
+		nvram_safe_get(strcat_r(prefix, "auth_username", tmp)),
+		nvram_safe_get(strcat_r(prefix, "auth_passwd", tmp)));
 	fclose(fp);
 
 	/* Start wpa_supplicant */
@@ -68,7 +68,7 @@ start_lanauth(char *prefix)
 		"/usr/sbin/lanauth",
 	    /*	"-v", protocol,	   */
 	    /*	"-l", acces level, */
-		"-p", nvram_safe_get(strcat_r(prefix, "pppoe_passwd", tmp)),
+		"-p", nvram_safe_get(strcat_r(prefix, "auth_passwd", tmp)),
 		nvram_invmatch("wan_heartbeat_x", "") ? "-s" : NULL,
 		nvram_safe_get("wan_heartbeat_x"),
    		NULL
