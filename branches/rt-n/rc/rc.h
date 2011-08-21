@@ -54,7 +54,7 @@ int rsrom_main(char *devname, unsigned int pos, int pflag);
 
 /* udhcpc scripts */
 int udhcpc_main(int argc, char **argv);
-int start_udhcpc(char *wan_ifname, int unit);
+int start_dhcpc(char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv);

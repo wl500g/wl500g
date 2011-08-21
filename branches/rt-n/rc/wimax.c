@@ -309,7 +309,7 @@ static int madwimax_up(char *ifname)
 		/* Start firewall */
 		start_firewall_ex(ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 		/* Start dhcp daemon */
-		start_udhcpc(ifname, unit);
+		start_dhcpc(ifname, unit);
 		/* Update wan information for null DNS server */
 		update_wan_status(1);
 		wanmessage("Can not get IP from server");

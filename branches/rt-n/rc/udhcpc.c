@@ -255,7 +255,7 @@ udhcpc_main(int argc, char **argv)
 }
 
 int
-start_udhcpc(char *wan_ifname, int unit)
+start_dhcpc(char *wan_ifname, int unit)
 {
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 	char pid[] = "/var/run/udhcpcXXXXXXXXXX.pid";

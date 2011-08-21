@@ -963,7 +963,7 @@ start_wan(void)
 		 	if (nvram_match(strcat_r(prefix, "pppoe_ipaddr", tmp), "0.0.0.0")) 
 		 	{
 				/* Start dhcp daemon */
-				start_udhcpc(wan_ifname, unit);
+				start_dhcpc(wan_ifname, unit);
 		 	} else {
 			 	/* setup static wan routes via physical device */
 				add_routes("wan_", "route", wan_ifname);
@@ -1023,7 +1023,7 @@ start_wan(void)
 			/* Start firewall */
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 			/* Start dhcp daemon */
-			start_udhcpc(wan_ifname, unit);
+			start_dhcpc(wan_ifname, unit);
 			/* Update wan information for null DNS server */
 			update_wan_status(1);
 #ifdef ASUS_EXT
