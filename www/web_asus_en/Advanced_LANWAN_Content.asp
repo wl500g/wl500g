@@ -198,7 +198,7 @@
 					<tr>
 						<td class="content_header_td" onmouseover="return overlib('Choose the additional authentication, if it's required', LEFT);"
 							onmouseout="return nd();">
-							Authenitcation:
+							Authentication:
 						</td>
 						<td class="content_input_td">
 							<select name="wan_auth_x" class="content_input_fd" onchange="return change_common(document.form.wan_proto.value, 'Layer3Forwarding', 'wan_proto')">
