@@ -1022,6 +1022,8 @@ start_wan(void)
 #endif
 			/* Start firewall */
 			start_firewall_ex(wan_ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
+			/* Start authenticator */
+			start_auth(prefix);
 			/* Start dhcp daemon */
 			start_dhcpc(wan_ifname, unit);
 			/* Update wan information for null DNS server */
@@ -1038,6 +1040,8 @@ start_wan(void)
 			ifconfig(wan_ifname, IFUP,
 				 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), 
 				 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
+			/* Start authenticator */
+			start_auth(prefix);
 			/* We are done configuration */
 			wan_up(wan_ifname);
 #ifdef __CONFIG_IPV6__
@@ -1176,6 +1180,9 @@ stop_wan(char *ifname)
 	killall("udhcpc", 0);
 	stop_igmpproxy();
 	killall("pppoe-relay", 0);
+
+	/* Stop authenticator */
+	stop_auth();
 
 	if (ifname)
 	{

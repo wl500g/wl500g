@@ -179,6 +179,8 @@ void diag_PaN(void);
 int wlan_update();
 
 /* auth */
+int start_auth(char *prefix);
+int stop_auth(void);
 #ifdef __CONFIG_EAPOL__
 int start_wpa_supplicant(char *prefix);
 int stop_wpa_supplicant(void);
