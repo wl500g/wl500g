@@ -3626,7 +3626,7 @@ function changeWEPType()
 	inputCtrl(document.form.wl_key, flag);
 }
 
-/* Used when Authenication Method is changed */
+/* Used when Authentication Method is changed */
 function changeAuthType()
 {
 	if (document.form.wl_auth_mode.value == "shared")
