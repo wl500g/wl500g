@@ -84,3 +84,37 @@ stop_lanauth(void)
 	return killall("lanauth", 0);
 }
 #endif
+
+int
+start_auth(char *prefix)
+{
+	char tmp[100];
+	char *wan_auth = nvram_safe_get(strcat_r(prefix, "auth_x", tmp));
+	int ret;
+
+#ifdef __CONFIG_EAPOL__
+	if (strcmp(wan_auth, "eap-md5") == 0)
+		ret = start_wpa_supplicant(prefix);
+	else
+#endif
+#ifdef __CONFIG_TELENET__
+	if (strcmp(wan_auth, "telenet") == 0)
+		ret = start_lanauth(prefix);
+	else
+#endif
+	ret = 0;
+
+	return ret;
+}
+
+int
+stop_auth(void)
+{
+#ifdef __CONFIG_EAPOL__
+	stop_wpa_supplicant();
+#endif
+#ifdef __CONFIG_TELENET__
+	stop_lanauth();
+#endif
+	return 0;
+}
