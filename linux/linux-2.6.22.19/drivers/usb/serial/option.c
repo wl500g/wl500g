@@ -488,7 +488,7 @@ static const struct option_blacklist_info zte_k3765_z_blacklist = {
 	.reason = OPTION_BLACKLIST_SENDSETUP
 };
 
-static const struct usb_device_id option_ids[] = {
+static struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_COLT) },
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA) },
 	{ USB_DEVICE(OPTION_VENDOR_ID, OPTION_PRODUCT_RICOLA_LIGHT) },
@@ -1047,6 +1047,8 @@ static const struct usb_device_id option_ids[] = {
 	{ USB_DEVICE(CELOT_VENDOR_ID, CELOT_PRODUCT_CT680M) }, /* CT-650 CDMA 450 1xEVDO modem */
 	{ USB_DEVICE(ONDA_VENDOR_ID, ONDA_MT825UP) }, /* ONDA MT825UP modem */
 	{ USB_DEVICE_AND_INTERFACE_INFO(SAMSUNG_VENDOR_ID, SAMSUNG_PRODUCT_GT_B3730, USB_CLASS_CDC_DATA, 0x00, 0x00) }, /* Samsung GT-B3730 LTE USB modem.*/
+
+	{ }, /* Reserved element for user specified VID/PID */
 	{ } /* Terminating entry */
 };
 MODULE_DEVICE_TABLE(usb, option_ids);
@@ -1099,6 +1101,8 @@ static struct usb_serial_driver option_1port_device = {
 };
 
 static int debug;
+static __u16 vendor  = 0;
+static __u16 product = 0;
 
 /* per port private data */
 
@@ -1131,6 +1135,24 @@ struct option_port_private {
 static int __init option_init(void)
 {
 	int retval;
+	int found = 0, i;
+
+	/* Add user specified VID/PID to reserved element of table. */
+	if (vendor && product) {
+		for (i = 0; i < sizeof(option_ids)/sizeof(option_ids[0]) - 2; i++) {
+			if( (option_ids[i].idVendor == vendor) &&
+			    (option_ids[i].idProduct == product) ){
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			option_ids[i].idVendor = vendor;
+			option_ids[i].idProduct = product;
+			option_ids[i].match_flags = USB_DEVICE_ID_MATCH_DEVICE;
+		}
+	}
+
 	retval = usb_serial_register(&option_1port_device);
 	if (retval)
 		goto failed_1port_device_register;
@@ -1824,3 +1846,7 @@ MODULE_LICENSE("GPL");
 
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug messages");
+module_param(vendor, ushort, 0);
+MODULE_PARM_DESC(vendor, "User specified USB idVendor");
+module_param(product, ushort, 0);
+MODULE_PARM_DESC(product, "User specified USB idProduct");
