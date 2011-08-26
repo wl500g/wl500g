@@ -7,8 +7,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=binutils
-PKG_VERSION:=$(strip $(subst ",, $(CONFIG_BINUTILS_VERSION)))
-#"))
+PKG_VERSION:=$(strip $(subst ",, $(CONFIG_BINUTILS_VERSION)))#"))
 
 PKG_SOURCE_URL:=http://ftp.gnu.org/gnu/binutils/ \
 	ftp://gatekeeper.dec.com/pub/GNU/ \
@@ -21,6 +20,13 @@ PKG_SOURCE:=binutils-$(PKG_VERSION).tar.bz2
 PATCH_DIR:=./patches/$(PKG_VERSION)
 STAGING_DIR_HOST:=$(TOOLCHAIN_DIR)
 BUILD_DIR_HOST:=$(BUILD_DIR_TOOLCHAIN)
+
+ifeq ($(PKG_VERSION),2.20.1)
+  PKG_SOURCE:=binutils-2.20.1a.tar.bz2
+endif
+ifeq ($(PKG_VERSION),2.21.1)
+  PKG_SOURCE:=binutils-2.21.1a.tar.bz2
+endif
 
 include $(INCLUDE_DIR)/host-build.mk
 
