@@ -816,6 +816,9 @@ start_wan(void)
 	symlink("/sbin/rc", "/tmp/dhcp6c.script");
 #endif
 	symlink("/sbin/rc", "/tmp/udhcpc.script");
+#ifdef __CONFIG_EAPOL__
+	symlink("/sbin/rc", "/tmp/wpa_cli.script");
+#endif
 
 #ifdef __CONFIG_MODEM__
 	/* ppp contents */
@@ -1201,6 +1204,9 @@ stop_wan(char *ifname)
 	}
 
 	/* Remove dynamically created links */
+#ifdef __CONFIG_EAPOL__
+	unlink("/tmp/wpa_cli.script");
+#endif
 	unlink("/tmp/udhcpc.script");
 #ifdef __CONFIG_IPV6__
 	unlink("/tmp/dhcp6c.script");
