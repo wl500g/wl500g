@@ -1,0 +1,111 @@
+--- wpa_supplicant-0.6.10/src/drivers/driver_roboswitch.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-08-26 12:37:39.782895001 +0000
+@@ -17,6 +17,7 @@
+ #include <linux/if.h>
+ #include <linux/sockios.h>
+ #include <linux/if_ether.h>
++#include <linux/if_vlan.h>
+ #include <linux/mii.h>
+ 
+ #include "common.h"
+@@ -66,6 +67,7 @@ struct wpa_driver_roboswitch_data {
+ 	void *ctx;
+ 	struct l2_packet_data *l2;
+ 	char ifname[IFNAMSIZ + 1];
++	char iforig[IFNAMSIZ + 1];
+ 	u8 own_addr[ETH_ALEN];
+ 	struct ifreq ifr;
+ 	int fd, is_5350;
+@@ -208,20 +210,16 @@ static int wpa_driver_roboswitch_get_bss
+ static int wpa_driver_roboswitch_set_param(void *priv, const char *param)
+ {
+ 	struct wpa_driver_roboswitch_data *drv = priv;
+-	char *sep;
+ 
+ 	if (param == NULL || os_strstr(param, "multicast_only=1") == NULL) {
+-		sep = drv->ifname + os_strlen(drv->ifname);
+-		*sep = '.';
+-		drv->l2 = l2_packet_init(drv->ifname, NULL, ETH_P_ALL,
++		drv->l2 = l2_packet_init(drv->iforig, NULL, ETH_P_ALL,
+ 					 wpa_driver_roboswitch_receive, drv,
+ 					 1);
+ 		if (drv->l2 == NULL) {
+ 			wpa_printf(MSG_INFO, "%s: Unable to listen on %s",
+-				   __func__, drv->ifname);
++				   __func__, drv->iforig);
+ 			return -1;
+ 		}
+-		*sep = '\0';
+ 		l2_packet_get_own_addr(drv->l2, drv->own_addr);
+ 	} else {
+ 		wpa_printf(MSG_DEBUG, "%s: Ignoring unicast frames", __func__);
+@@ -350,7 +348,7 @@ static int wpa_driver_roboswitch_leave(s
+ static void * wpa_driver_roboswitch_init(void *ctx, const char *ifname)
+ {
+ 	struct wpa_driver_roboswitch_data *drv;
+-	char *sep;
++	struct vlan_ioctl_args ifv;
+ 	u16 vlan = 0, _read[2];
+ 
+ 	drv = os_zalloc(sizeof(*drv));
+@@ -358,35 +356,6 @@ static void * wpa_driver_roboswitch_init
+ 	drv->ctx = ctx;
+ 	drv->own_addr[0] = '\0';
+ 
+-	/* copy ifname and take a pointer to the second to last character */
+-	sep = drv->ifname +
+-	      os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname)) - 2;
+-	/* find the '.' seperating <interface> and <vlan> */
+-	while (sep > drv->ifname && *sep != '.') sep--;
+-	if (sep <= drv->ifname) {
+-		wpa_printf(MSG_INFO, "%s: No <interface>.<vlan> pair in "
+-			   "interface name %s", __func__, drv->ifname);
+-		os_free(drv);
+-		return NULL;
+-	}
+-	*sep = '\0';
+-	while (*++sep) {
+-		if (*sep < '0' || *sep > '9') {
+-			wpa_printf(MSG_INFO, "%s: Invalid vlan specification "
+-				   "in interface name %s", __func__, ifname);
+-			os_free(drv);
+-			return NULL;
+-		}
+-		vlan *= 10;
+-		vlan += *sep - '0';
+-		if (vlan > ROBO_VLAN_MAX) {
+-			wpa_printf(MSG_INFO, "%s: VLAN out of range in "
+-				   "interface name %s", __func__, ifname);
+-			os_free(drv);
+-			return NULL;
+-		}
+-	}
+-
+ 	drv->fd = socket(PF_INET, SOCK_DGRAM, 0);
+ 	if (drv->fd < 0) {
+ 		wpa_printf(MSG_INFO, "%s: Unable to create socket", __func__);
+@@ -394,6 +363,24 @@ static void * wpa_driver_roboswitch_init
+ 		return NULL;
+ 	}
+ 
++	os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
++	os_strlcpy(drv->iforig, ifname, sizeof(drv->iforig));
++
++	os_memset(&ifv, 0, sizeof(ifv));
++	os_strlcpy(ifv.device1, ifname, sizeof(ifv.device1));
++	ifv.cmd = GET_VLAN_REALDEV_NAME_CMD;
++	if (ioctl(drv->fd, SIOCGIFVLAN, &ifv) >= 0) {
++		os_strlcpy(drv->ifname, ifv.u.device2, sizeof(drv->ifname));
++		ifv.cmd = GET_VLAN_VID_CMD;
++		if (ioctl(drv->fd, SIOCGIFVLAN, &ifv) < 0) {
++			perror("ioctl[SIOCGIFVLAN]");
++			os_free(drv);
++			return NULL;
++		}
++		vlan = ifv.u.VID;
++		wpa_printf(MSG_INFO, "%s: Got VLAN %d on real interface %s", __func__, vlan, drv->ifname);
++	};
++
+ 	os_memset(&drv->ifr, 0, sizeof(drv->ifr));
+ 	os_strlcpy(drv->ifr.ifr_name, drv->ifname, IFNAMSIZ);
+ 	if (ioctl(drv->fd, SIOCGMIIPHY, &drv->ifr) < 0) {
