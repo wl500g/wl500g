@@ -1028,6 +1028,10 @@ main(int argc, char **argv)
 	/* udhcpc.script [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc.script"))
 		return udhcpc_main(argc, argv);
+#ifdef __CONFIG_EAPOL__
+	else if (!strcmp(base, "wpa_cli.script"))
+		return wpacli_main(argc, argv);
+#endif
 #ifdef __CONFIG_IPV6__
 	else if (!strcmp(base, "dhcp6c.script"))
 		return dhcp6c_main(argc, argv);

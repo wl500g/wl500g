@@ -21,12 +21,19 @@ start_wpa_supplicant(char *prefix, int restart)
 	char *options = "/etc/wpa_supplicant.conf";
 	char *wpa_argv[] = {
 	    "/usr/sbin/wpa_supplicant",
-	    "-B",
+	    "-B", "-W",
 	    "-D", "roboswitch", /* RT-N16? */
 	    "-i", nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
 	    "-c", options,
 	    NULL
 	};
+	char *cli_argv[] = {
+	    "/usr/sbin/wpa_cli",
+	    "-B",
+	    "-a", "/tmp/wpa_cli.script",
+	    NULL
+	};
+	int ret;
 
 	if (restart)
 	{
@@ -55,13 +62,47 @@ start_wpa_supplicant(char *prefix, int restart)
 	fclose(fp);
 
 	/* Start wpa_supplicant */
-	return _eval(wpa_argv, NULL, 0, NULL);
+	ret = _eval(wpa_argv, NULL, 0, NULL);
+	_eval(cli_argv, NULL, 0, NULL);
+
+	return ret;
 }
 
 int
 stop_wpa_supplicant(void)
 {
-	return killall("wpa_supplicant", 0);
+	killall("wpa_supplicant", 0);
+	killall("wpa_cli", 0);
+
+	return 0;
+}
+
+int
+wpacli_main(int argc, char **argv)
+{
+	char tmp[100];
+	char prefix[] = "wanXXXXXXXXXX_";
+	int unit, state;
+
+	if (!argv[1] || (unit = wan_ifunit(argv[1])) < 0)
+		return EINVAL;
+	sprintf(prefix, "wan%d_", unit);
+
+	if (!nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5"))
+		return 0;
+
+	state = (strncmp(argv[2], "CONNECTED", sizeof("CONNECTED")) == 0);
+	if (state &&
+	    nvram_match(strcat_r(prefix, "proto", tmp), "dhcp"))
+	{
+		/* Renew DHCP lease */
+		snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
+		kill_pidfile_s(tmp, -SIGUSR1);
+	}
+
+	logmessage("auth client", state ? "connected" : "disconnected");
+
+	return 0;
 }
 #endif
 
