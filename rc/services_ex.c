@@ -272,6 +272,7 @@ start_radvd(void)
 	struct in6_addr addr;
 	int size, ret;
 	char addrstr[INET6_ADDRSTRLEN];
+	char *dnsstr = NULL;
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
 	    !nvram_match("ipv6_radvd_enable", "1"))
@@ -328,6 +329,8 @@ start_radvd(void)
 		fprintf(fp,
 		    "AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
 #endif
+
+	/* Prefix */
 	fprintf(fp,
 		    "prefix %s/%d {"
 			"AdvOnLink on;"
@@ -353,14 +356,26 @@ start_radvd(void)
 		else
 #endif
 		wan_ifname = nvram_safe_get("wan0_ifname");
-
 		fprintf(fp,
 			"Base6to4Interface %s;", wan_ifname);
+
+	}
+	fprintf(fp, "};");
+
+	/* RDNSS */
+	if (nvram_invmatch("ipv6_dns1_x", ""))
+		dnsstr = nvram_safe_get("ipv6_dns1_x");
+	else
+	if (nvram_invmatch("ipv6_lan_addr", "") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6"))
+		dnsstr = nvram_safe_get("ipv6_lan_addr");
+	if (dnsstr && *dnsstr)
+	{
+		fprintf(fp,
+		    "RDNSS %s {};", dnsstr);
 	}
 
-	fprintf(fp,
-		    "};"
-		"};");
+	fprintf(fp, "};");
 	fclose(fp);
 
 	/* Enable IPv6 forwarding */
