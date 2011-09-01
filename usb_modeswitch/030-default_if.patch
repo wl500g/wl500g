@@ -25,12 +25,18 @@ index 73d7e5d..701dbda 100644
  
  
  static struct option long_options[] = {
-@@ -437,6 +437,9 @@ int main(int argc, char **argv)
+@@ -437,6 +437,15 @@ int main(int argc, char **argv)
  			defaultClass = 8;
  		}
  
-+   if (Interface == -1)
-+      Interface = dev->config[0].interface[0].altsetting[0].bInterfaceNumber;
++   if (Interface == -1) {
++		struct libusb_config_descriptor *config;
++
++		if (libusb_get_active_config_descriptor(dev, &config) < 0)
++			Interface = 0;
++		else
++			Interface = config[0].interface[0].altsetting[0].bInterfaceNumber;
++	}
 +
  	/* Check or get endpoints */
  	if (strlen(MessageContent) || InquireDevice || CiscoMode) {
