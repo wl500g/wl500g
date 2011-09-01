@@ -1,20 +1,12 @@
-From: OGAWA Hirofumi
-Subject: [PATCH] fat: gcc 4.3 warning fix, fix the race of read/write FAT12 entry
-Subject: [PATCH] fat: set of patches from newer kernel versions
-
-From: Linus Torvalds
-Subject: [PATCH] fat: replace BKL with superblock lock
-
-From: Daniel Taylor
-Subject: [PATCH] vfat: fs/partitions/msdos: add support for large disks
+fat: set of patches from newer kernel versions
 
 kernel.org commits:
-9aacd599342fdfc1fb9422f37e900609b7a46249
-98283bb49c6c8c070ebde9f47489d3e9a83c1323
-8f5934278d1d86590244c2791b28f77d67466007
-9c20616c385ebeaa30257ef5d35e8f346db4ee32
-5f22ca9b13551debea77a407a8d06cd9c6f15238
-3fbf586cf7f245392142e5407c2a56f1cff979b6
+9aacd599342fdfc1fb9422f37e900609b7a46249 fat: gcc 4.3 warning fix
+98283bb49c6c8c070ebde9f47489d3e9a83c1323 fat: fix the race of read/write FAT12 entry
+8f5934278d1d86590244c2791b28f77d67466007 Replace BKL with superblock lock in fat/msdos/vfat
+9c20616c385ebeaa30257ef5d35e8f346db4ee32 Make FAT users happier by not deadlocking
+5f22ca9b13551debea77a407a8d06cd9c6f15238 vfat: fix 'sync' mount deadlock due to BKL->lock_super conversion
+3fbf586cf7f245392142e5407c2a56f1cff979b6 fs/partitions/msdos: add support for large disks
 
 See http://lkml.org/lkml/2008/4/20/170 (patches 1-9)
 
