@@ -2724,58 +2724,39 @@ void page_put_link(struct dentry *dentry, struct nameidata *nd, void *cookie)
 	}
 }
 
-int __page_symlink(struct inode *inode, const char *symname, int len,
-		gfp_t gfp_mask)
+/*
+ * The nofs argument instructs pagecache_write_begin to pass AOP_FLAG_NOFS
+ */
+int __page_symlink(struct inode *inode, const char *symname, int len, int nofs)
 {
 	struct address_space *mapping = inode->i_mapping;
 	struct page *page;
+	void *fsdata;
 	int err;
 	char *kaddr;
+	unsigned int flags = AOP_FLAG_UNINTERRUPTIBLE;
+	if (nofs)
+		flags |= AOP_FLAG_NOFS;
 
 retry:
-	err = -ENOMEM;
-	page = find_or_create_page(mapping, 0, gfp_mask);
-	if (!page)
-		goto fail;
-	err = mapping->a_ops->prepare_write(NULL, page, 0, len-1);
-	if (err == AOP_TRUNCATED_PAGE) {
-		page_cache_release(page);
-		goto retry;
-	}
+	err = pagecache_write_begin(NULL, mapping, 0, len-1,
+				flags, &page, &fsdata);
 	if (err)
-		goto fail_map;
+		goto fail;
+
 	kaddr = kmap_atomic(page, KM_USER0);
 	memcpy(kaddr, symname, len-1);
 	kunmap_atomic(kaddr, KM_USER0);
-	err = mapping->a_ops->commit_write(NULL, page, 0, len-1);
-	if (err == AOP_TRUNCATED_PAGE) {
-		page_cache_release(page);
-		goto retry;
-	}
-	if (err)
-		goto fail_map;
-	/*
-	 * Notice that we are _not_ going to block here - end of page is
-	 * unmapped, so this will only try to map the rest of page, see
-	 * that it is unmapped (typically even will not look into inode -
-	 * ->i_size will be enough for everything) and zero it out.
-	 * OTOH it's obviously correct and should make the page up-to-date.
-	 */
-	if (!PageUptodate(page)) {
-		err = mapping->a_ops->readpage(NULL, page);
-		if (err != AOP_TRUNCATED_PAGE)
-			wait_on_page_locked(page);
-	} else {
-		unlock_page(page);
-	}
-	page_cache_release(page);
+
+	err = pagecache_write_end(NULL, mapping, 0, len-1, len-1,
+							page, fsdata);
 	if (err < 0)
 		goto fail;
+	if (err < len-1)
+		goto retry;
+
 	mark_inode_dirty(inode);
 	return 0;
-fail_map:
-	unlock_page(page);
-	page_cache_release(page);
 fail:
 	return err;
 }
@@ -2783,7 +2764,7 @@ fail:
 int page_symlink(struct inode *inode, const char *symname, int len)
 {
 	return __page_symlink(inode, symname, len,
-			mapping_gfp_mask(inode->i_mapping));
+			!(mapping_gfp_mask(inode->i_mapping) & __GFP_FS));
 }
 
 const struct inode_operations page_symlink_inode_operations = {

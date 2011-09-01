@@ -743,18 +743,35 @@ ext2_readpages(struct file *file, struct address_space *mapping,
 	return mpage_readpages(mapping, pages, nr_pages, ext2_get_block);
 }
 
-static int
-ext2_prepare_write(struct file *file, struct page *page,
-			unsigned from, unsigned to)
+int __ext2_write_begin(struct file *file, struct address_space *mapping,
+		loff_t pos, unsigned len, unsigned flags,
+		struct page **pagep, void **fsdata)
 {
-	return block_prepare_write(page,from,to,ext2_get_block);
+	return block_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+							ext2_get_block);
 }
 
 static int
-ext2_nobh_prepare_write(struct file *file, struct page *page,
-			unsigned from, unsigned to)
+ext2_write_begin(struct file *file, struct address_space *mapping,
+		loff_t pos, unsigned len, unsigned flags,
+		struct page **pagep, void **fsdata)
 {
-	return nobh_prepare_write(page,from,to,ext2_get_block);
+	*pagep = NULL;
+	return __ext2_write_begin(file, mapping, pos, len, flags, pagep,fsdata);
+}
+
+static int
+ext2_nobh_write_begin(struct file *file, struct address_space *mapping,
+		loff_t pos, unsigned len, unsigned flags,
+		struct page **pagep, void **fsdata)
+{
+	/*
+	 * Dir-in-pagecache still uses ext2_write_begin. Would have to rework
+	 * directory handling code to pass around offsets rather than struct
+	 * pages in order to make this work easily.
+	 */
+	return nobh_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
+							ext2_get_block);
 }
 
 static int ext2_nobh_writepage(struct page *page,
@@ -790,8 +807,8 @@ const struct address_space_operations ext2_aops = {
 	.readpages		= ext2_readpages,
 	.writepage		= ext2_writepage,
 	.sync_page		= block_sync_page,
-	.prepare_write		= ext2_prepare_write,
-	.commit_write		= generic_commit_write,
+	.write_begin		= ext2_write_begin,
+	.write_end		= generic_write_end,
 	.bmap			= ext2_bmap,
 	.direct_IO		= ext2_direct_IO,
 	.writepages		= ext2_writepages,
@@ -809,8 +826,8 @@ const struct address_space_operations ext2_nobh_aops = {
 	.readpages		= ext2_readpages,
 	.writepage		= ext2_nobh_writepage,
 	.sync_page		= block_sync_page,
-	.prepare_write		= ext2_nobh_prepare_write,
-	.commit_write		= nobh_commit_write,
+	.write_begin		= ext2_nobh_write_begin,
+	.write_end		= nobh_write_end,
 	.bmap			= ext2_bmap,
 	.direct_IO		= ext2_direct_IO,
 	.writepages		= ext2_writepages,
@@ -1026,7 +1043,8 @@ void ext2_truncate(struct inode *inode)
 	if (mapping_is_xip(inode->i_mapping))
 		xip_truncate_page(inode->i_mapping, inode->i_size);
 	else if (test_opt(inode->i_sb, NOBH))
-		nobh_truncate_page(inode->i_mapping, inode->i_size);
+		nobh_truncate_page(inode->i_mapping,
+				inode->i_size, ext2_get_block);
 	else
 		block_truncate_page(inode->i_mapping,
 				inode->i_size, ext2_get_block);

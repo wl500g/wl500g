@@ -503,7 +503,7 @@ written-back to storage typically in whole pages, however the
 address_space has finer control of write sizes.
 
 The read process essentially only requires 'readpage'.  The write
-process is more complicated and uses prepare_write/commit_write or
+process is more complicated and uses write_begin/write_end or
 set_page_dirty to write data into the address_space, and writepage,
 sync_page, and writepages to writeback data to storage.
 
@@ -532,8 +532,12 @@ struct address_space_operations {
 	int (*set_page_dirty)(struct page *page);
 	int (*readpages)(struct file *filp, struct address_space *mapping,
 			struct list_head *pages, unsigned nr_pages);
-	int (*prepare_write)(struct file *, struct page *, unsigned, unsigned);
-	int (*commit_write)(struct file *, struct page *, unsigned, unsigned);
+	int (*write_begin)(struct file *, struct address_space *mapping,
+				loff_t pos, unsigned len, unsigned flags,
+				struct page **pagep, void **fsdata);
+	int (*write_end)(struct file *, struct address_space *mapping,
+				loff_t pos, unsigned len, unsigned copied,
+				struct page *page, void *fsdata);
 	sector_t (*bmap)(struct address_space *, sector_t);
 	int (*invalidatepage) (struct page *, unsigned long);
 	int (*releasepage) (struct page *, int);
@@ -602,32 +606,40 @@ struct address_space_operations {
 	readpages is only used for read-ahead, so read errors are
   	ignored.  If anything goes wrong, feel free to give up.
 
-  prepare_write: called by the generic write path in VM to set up a write
-  	request for a page.  This indicates to the address space that
-  	the given range of bytes is about to be written.  The
-  	address_space should check that the write will be able to
-  	complete, by allocating space if necessary and doing any other
-  	internal housekeeping.  If the write will update parts of
-  	any basic-blocks on storage, then those blocks should be
-  	pre-read (if they haven't been read already) so that the
-  	updated blocks can be written out properly.
-	The page will be locked.  If prepare_write wants to unlock the
-  	page it, like readpage, may do so and return
-  	AOP_TRUNCATED_PAGE.
-	In this case the prepare_write will be retried one the lock is
-  	regained.
+  write_begin:
+	Called by the generic buffered write code to ask the filesystem to
+	prepare to write len bytes at the given offset in the file. The
+	address_space should check that the write will be able to complete,
+	by allocating space if necessary and doing any other internal
+	housekeeping.  If the write will update parts of any basic-blocks on
+	storage, then those blocks should be pre-read (if they haven't been
+	read already) so that the updated blocks can be written out properly.
 
-	Note: the page _must not_ be marked uptodate in this function
-	(or anywhere else) unless it actually is uptodate right now. As
-	soon as a page is marked uptodate, it is possible for a concurrent
-	read(2) to copy it to userspace.
+        The filesystem must return the locked pagecache page for the specified
+	offset, in *pagep, for the caller to write into.
 
-  commit_write: If prepare_write succeeds, new data will be copied
-        into the page and then commit_write will be called.  It will
-        typically update the size of the file (if appropriate) and
-        mark the inode as dirty, and do any other related housekeeping
-        operations.  It should avoid returning an error if possible -
-        errors should have been handled by prepare_write.
+	It must be able to cope with short writes (where the length passed to
+	write_begin is greater than the number of bytes copied into the page).
+
+	flags is a field for AOP_FLAG_xxx flags, described in
+	include/linux/fs.h.
+
+        A void * may be returned in fsdata, which then gets passed into
+        write_end.
+
+        Returns 0 on success; < 0 on failure (which is the error code), in
+	which case write_end is not called.
+
+  write_end: After a successful write_begin, and data copy, write_end must
+        be called. len is the original len passed to write_begin, and copied
+        is the amount that was able to be copied (copied == len is always true
+	if write_begin was called with the AOP_FLAG_UNINTERRUPTIBLE flag).
+
+        The filesystem must take care of unlocking the page and releasing it
+        refcount, and updating i_size.
+
+        Returns < 0 on failure, otherwise the number of bytes (<= 'copied')
+        that were able to be copied into pagecache.
 
   bmap: called by the VFS to map a logical block offset within object to
   	physical block number. This method is used by the FIBMAP

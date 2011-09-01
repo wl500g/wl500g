@@ -96,6 +96,9 @@ unsigned find_get_pages_contig(struct address_space *mapping, pgoff_t start,
 unsigned find_get_pages_tag(struct address_space *mapping, pgoff_t *index,
 			int tag, unsigned int nr_pages, struct page **pages);
 
+struct page *grab_cache_page_write_begin(struct address_space *mapping,
+			pgoff_t index, unsigned flags);
+
 /*
  * Returns locked page at given index in given cache, creating it if needed.
  */
@@ -219,6 +222,9 @@ static inline int fault_in_pages_writeable(char __user *uaddr, int size)
 {
 	int ret;
 
+	if (unlikely(size == 0))
+		return 0;
+
 	/*
 	 * Writing zeroes into userspace here is OK, because we know that if
 	 * the zero gets there, we'll be overwriting it.
@@ -238,19 +244,25 @@ static inline int fault_in_pages_writeable(char __user *uaddr, int size)
 	return ret;
 }
 
-static inline void fault_in_pages_readable(const char __user *uaddr, int size)
+static inline int fault_in_pages_readable(const char __user *uaddr, int size)
 {
 	volatile char c;
 	int ret;
+
+	if (unlikely(size == 0))
+		return 0;
 
 	ret = __get_user(c, uaddr);
 	if (ret == 0) {
 		const char __user *end = uaddr + size - 1;
 
 		if (((unsigned long)uaddr & PAGE_MASK) !=
-				((unsigned long)end & PAGE_MASK))
-		 	__get_user(c, end);
+				((unsigned long)end & PAGE_MASK)) {
+		 	ret = __get_user(c, end);
+			(void)c;
+		}
 	}
+	return ret;
 }
 
 #endif /* _LINUX_PAGEMAP_H */

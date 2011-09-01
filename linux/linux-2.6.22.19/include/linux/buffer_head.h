@@ -205,11 +205,22 @@ void block_invalidatepage(struct page *page, unsigned long offset);
 int block_write_full_page(struct page *page, get_block_t *get_block,
 				struct writeback_control *wbc);
 int block_read_full_page(struct page*, get_block_t*);
+int block_write_begin(struct file *, struct address_space *,
+				loff_t, unsigned, unsigned,
+				struct page **, void **, get_block_t*);
+int block_write_end(struct file *, struct address_space *,
+				loff_t, unsigned, unsigned,
+				struct page *, void *);
+int generic_write_end(struct file *, struct address_space *,
+				loff_t, unsigned, unsigned,
+				struct page *, void *);
+void page_zero_new_buffers(struct page *page, unsigned from, unsigned to);
 int block_is_partially_uptodate(struct page *page, read_descriptor_t *desc,
 				unsigned long from);
 int block_prepare_write(struct page*, unsigned, unsigned, get_block_t*);
-int cont_prepare_write(struct page*, unsigned, unsigned, get_block_t*,
-				loff_t *);
+int cont_write_begin(struct file *, struct address_space *, loff_t,
+			unsigned, unsigned, struct page **, void **,
+			get_block_t *, loff_t *);
 int generic_cont_expand(struct inode *inode, loff_t size);
 int generic_cont_expand_simple(struct inode *inode, loff_t size);
 int block_commit_write(struct page *page, unsigned from, unsigned to);
@@ -220,9 +231,13 @@ sector_t generic_block_bmap(struct address_space *, sector_t, get_block_t *);
 int generic_commit_write(struct file *, struct page *, unsigned, unsigned);
 int block_truncate_page(struct address_space *, loff_t, get_block_t *);
 int file_fsync(struct file *, struct dentry *, int);
-int nobh_prepare_write(struct page*, unsigned, unsigned, get_block_t*);
-int nobh_commit_write(struct file *, struct page *, unsigned, unsigned);
-int nobh_truncate_page(struct address_space *, loff_t);
+int nobh_write_begin(struct file *, struct address_space *,
+				loff_t, unsigned, unsigned,
+				struct page **, void **, get_block_t*);
+int nobh_write_end(struct file *, struct address_space *,
+				loff_t, unsigned, unsigned,
+				struct page *, void *);
+int nobh_truncate_page(struct address_space *, loff_t, get_block_t *);
 int nobh_writepage(struct page *page, get_block_t *get_block,
                         struct writeback_control *wbc);
 

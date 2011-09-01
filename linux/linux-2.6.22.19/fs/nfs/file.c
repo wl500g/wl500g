@@ -286,27 +286,50 @@ nfs_fsync(struct file *file, struct dentry *dentry, int datasync)
 }
 
 /*
- * This does the "real" work of the write. The generic routine has
- * allocated the page, locked it, done all the page alignment stuff
- * calculations etc. Now we should just copy the data from user
- * space and write it back to the real medium..
+ * This does the "real" work of the write. We must allocate and lock the
+ * page to be sent back to the generic routine, which then copies the
+ * data from user space.
  *
  * If the writer ends up delaying the write, the writer needs to
  * increment the page use counts until he is done with the page.
  */
-static int nfs_prepare_write(struct file *file, struct page *page, unsigned offset, unsigned to)
+static int nfs_write_begin(struct file *file, struct address_space *mapping,
+			loff_t pos, unsigned len, unsigned flags,
+			struct page **pagep, void **fsdata)
 {
-	return nfs_flush_incompatible(file, page);
+	int ret;
+	pgoff_t index;
+	struct page *page;
+	index = pos >> PAGE_CACHE_SHIFT;
+
+	page = grab_cache_page_write_begin(mapping, index, flags);
+	if (!page)
+		return -ENOMEM;
+	*pagep = page;
+
+	ret = nfs_flush_incompatible(file, page);
+	if (ret) {
+		unlock_page(page);
+		page_cache_release(page);
+	}
+	return ret;
 }
 
-static int nfs_commit_write(struct file *file, struct page *page, unsigned offset, unsigned to)
+static int nfs_write_end(struct file *file, struct address_space *mapping,
+			loff_t pos, unsigned len, unsigned copied,
+			struct page *page, void *fsdata)
 {
-	long status;
+	unsigned offset = pos & (PAGE_CACHE_SIZE - 1);
+	int status;
 
 	lock_kernel();
-	status = nfs_updatepage(file, page, offset, to-offset);
+	status = nfs_updatepage(file, page, offset, copied);
 	unlock_kernel();
-	return status;
+
+	unlock_page(page);
+	page_cache_release(page);
+
+	return status < 0 ? status : copied;
 }
 
 static void nfs_invalidate_page(struct page *page, unsigned long offset)
@@ -334,8 +357,8 @@ const struct address_space_operations nfs_file_aops = {
 	.set_page_dirty = nfs_set_page_dirty,
 	.writepage = nfs_writepage,
 	.writepages = nfs_writepages,
-	.prepare_write = nfs_prepare_write,
-	.commit_write = nfs_commit_write,
+	.write_begin = nfs_write_begin,
+	.write_end = nfs_write_end,
 	.invalidatepage = nfs_invalidate_page,
 	.releasepage = nfs_release_page,
 #ifdef CONFIG_NFS_DIRECTIO
