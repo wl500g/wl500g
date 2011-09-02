@@ -35,6 +35,10 @@ mm: buffered write iterator
  d5c5f84ba9b9138b03ba90f1b7f83a379cfaea6a jfs: convert to new aops
  b4585729f0b616c95aacafb8c8cb5e1af0d4242f adfs: convert to new aops
  f2b6a16eb8f5b4851b01625a21e0c71207c2ce77 affs: convert to new aops
+ 15b4650e55e06d2cc05115767551cd3ace875431 afs: convert to new aops
+ 7765ec26ae1c01bb29bedf910e4efcced8cc81d2 gfs2: convert to new aops
+ ba9d8cec6c7165e440f9b2413a0464cf3c12fb25 reiserfs: convert to new aops
+ 4899f9c852564ce7b6d0ca932ac6674bf471fd28 nfs: convert to new aops
  674b892ede247ef4fb8d00918f02e29c32b9bbaf mm: restore KERNEL_DS optimisations
  124d3b7041f9a0ca7c43a6293e1cae4576c32fd5 fix writev regression: pan hanging unkillable and un-straceable
  f7009264c519603b8ec67c881bd368a56703cfc9 iov_iter_advance() fix
@@ -48,6 +52,9 @@ mm: buffered write iterator
  drivers/block/loop.c              |   75 +--
  fs/adfs/inode.c                   |   14 
  fs/affs/file.c                    |  103 +++--
+ fs/afs/file.c                     |    4 
+ fs/afs/internal.h                 |    8 
+ fs/afs/write.c                    |  131 ++----
  fs/bfs/file.c                     |   12 
  fs/block_dev.c                    |   26 -
  fs/buffer.c                       |  399 +++++++++++++-------
@@ -59,6 +66,7 @@ mm: buffered write iterator
  fs/ext4/inode.c                   |  173 ++++++---
  fs/fat/inode.c                    |   27 -
  fs/fuse/file.c                    |   48 +-
+ fs/gfs2/ops_address.c             |  211 ++++++-----
  fs/hfs/extent.c                   |   19 
  fs/hfs/inode.c                    |   18 
  fs/hfsplus/extents.c              |   21 -
@@ -74,9 +82,13 @@ mm: buffered write iterator
  fs/minix/minix.h                  |    3 
  fs/mpage.c                        |   10 
  fs/namei.c                        |   46 --
+ fs/nfs/file.c                     |   47 +-
  fs/qnx4/inode.c                   |   18 
  fs/ramfs/file-mmu.c               |    4 
  fs/ramfs/file-nommu.c             |    4 
+ fs/reiserfs/inode.c               |  176 ++++++++-
+ fs/reiserfs/ioctl.c               |   10 
+ fs/reiserfs/xattr.c               |   16 
  fs/smbfs/file.c                   |   32 +
  fs/splice.c                       |   69 ---
  fs/sysfs/inode.c                  |    4 
@@ -96,7 +108,7 @@ mm: buffered write iterator
  mm/filemap_xip.c                  |   17 
  mm/readahead.c                    |   24 -
  mm/shmem.c                        |   34 +
- 53 files changed, 1885 insertions(+), 1095 deletions(-)
+ 61 files changed, 2281 insertions(+), 1302 deletions(-)
 
 diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
 --- a/Documentation/filesystems/Locking
@@ -525,6 +537,250 @@ diff --git a/fs/affs/file.c b/fs/affs/file.c
  		mark_inode_dirty(inode);
  		return;
  	} else if (inode->i_size == AFFS_I(inode)->mmu_private)
+diff --git a/fs/afs/file.c b/fs/afs/file.c
+--- a/fs/afs/file.c
++++ b/fs/afs/file.c
+@@ -50,8 +50,8 @@ const struct address_space_operations afs_fs_aops = {
+ 	.launder_page	= afs_launder_page,
+ 	.releasepage	= afs_releasepage,
+ 	.invalidatepage	= afs_invalidatepage,
+-	.prepare_write	= afs_prepare_write,
+-	.commit_write	= afs_commit_write,
++	.write_begin	= afs_write_begin,
++	.write_end	= afs_write_end,
+ 	.writepage	= afs_writepage,
+ 	.writepages	= afs_writepages,
+ };
+diff --git a/fs/afs/internal.h b/fs/afs/internal.h
+--- a/fs/afs/internal.h
++++ b/fs/afs/internal.h
+@@ -728,8 +728,12 @@ extern int afs_volume_release_fileserver(struct afs_vnode *,
+  */
+ extern int afs_set_page_dirty(struct page *);
+ extern void afs_put_writeback(struct afs_writeback *);
+-extern int afs_prepare_write(struct file *, struct page *, unsigned, unsigned);
+-extern int afs_commit_write(struct file *, struct page *, unsigned, unsigned);
++extern int afs_write_begin(struct file *file, struct address_space *mapping,
++			loff_t pos, unsigned len, unsigned flags,
++			struct page **pagep, void **fsdata);
++extern int afs_write_end(struct file *file, struct address_space *mapping,
++			loff_t pos, unsigned len, unsigned copied,
++			struct page *page, void *fsdata);
+ extern int afs_writepage(struct page *, struct writeback_control *);
+ extern int afs_writepages(struct address_space *, struct writeback_control *);
+ extern int afs_write_inode(struct inode *, int);
+diff --git a/fs/afs/write.c b/fs/afs/write.c
+--- a/fs/afs/write.c
++++ b/fs/afs/write.c
+@@ -84,15 +84,23 @@ void afs_put_writeback(struct afs_writeback *wb)
+  * partly or wholly fill a page that's under preparation for writing
+  */
+ static int afs_fill_page(struct afs_vnode *vnode, struct key *key,
+-			 unsigned start, unsigned len, struct page *page)
++			 loff_t pos, unsigned len, struct page *page)
+ {
++	loff_t i_size;
++	unsigned eof;
+ 	int ret;
+ 
+-	_enter(",,%u,%u", start, len);
++	_enter(",,%llu,%u", (unsigned long long)pos, len);
+ 
+-	ASSERTCMP(start + len, <=, PAGE_SIZE);
++	ASSERTCMP(len, <=, PAGE_CACHE_SIZE);
+ 
+-	ret = afs_vnode_fetch_data(vnode, key, start, len, page);
++	i_size = i_size_read(&vnode->vfs_inode);
++	if (pos + len > i_size)
++		eof = i_size;
++	else
++		eof = PAGE_CACHE_SIZE;
++
++	ret = afs_vnode_fetch_data(vnode, key, 0, eof, page);
+ 	if (ret < 0) {
+ 		if (ret == -ENOENT) {
+ 			_debug("got NOENT from server"
+@@ -107,109 +115,55 @@ static int afs_fill_page(struct afs_vnode *vnode, struct key *key,
+ }
+ 
+ /*
+- * prepare a page for being written to
+- */
+-static int afs_prepare_page(struct afs_vnode *vnode, struct page *page,
+-			    struct key *key, unsigned offset, unsigned to)
+-{
+-	unsigned eof, tail, start, stop, len;
+-	loff_t i_size, pos;
+-	void *p;
+-	int ret;
+-
+-	_enter("");
+-
+-	if (offset == 0 && to == PAGE_SIZE)
+-		return 0;
+-
+-	p = kmap_atomic(page, KM_USER0);
+-
+-	i_size = i_size_read(&vnode->vfs_inode);
+-	pos = (loff_t) page->index << PAGE_SHIFT;
+-	if (pos >= i_size) {
+-		/* partial write, page beyond EOF */
+-		_debug("beyond");
+-		if (offset > 0)
+-			memset(p, 0, offset);
+-		if (to < PAGE_SIZE)
+-			memset(p + to, 0, PAGE_SIZE - to);
+-		kunmap_atomic(p, KM_USER0);
+-		return 0;
+-	}
+-
+-	if (i_size - pos >= PAGE_SIZE) {
+-		/* partial write, page entirely before EOF */
+-		_debug("before");
+-		tail = eof = PAGE_SIZE;
+-	} else {
+-		/* partial write, page overlaps EOF */
+-		eof = i_size - pos;
+-		_debug("overlap %u", eof);
+-		tail = max(eof, to);
+-		if (tail < PAGE_SIZE)
+-			memset(p + tail, 0, PAGE_SIZE - tail);
+-		if (offset > eof)
+-			memset(p + eof, 0, PAGE_SIZE - eof);
+-	}
+-
+-	kunmap_atomic(p, KM_USER0);
+-
+-	ret = 0;
+-	if (offset > 0 || eof > to) {
+-		/* need to fill one or two bits that aren't going to be written
+-		 * (cover both fillers in one read if there are two) */
+-		start = (offset > 0) ? 0 : to;
+-		stop = (eof > to) ? eof : offset;
+-		len = stop - start;
+-		_debug("wr=%u-%u av=0-%u rd=%u@%u",
+-		       offset, to, eof, start, len);
+-		ret = afs_fill_page(vnode, key, start, len, page);
+-	}
+-
+-	_leave(" = %d", ret);
+-	return ret;
+-}
+-
+-/*
+  * prepare to perform part of a write to a page
+- * - the caller holds the page locked, preventing it from being written out or
+- *   modified by anyone else
+  */
+-int afs_prepare_write(struct file *file, struct page *page,
+-		      unsigned offset, unsigned to)
++int afs_write_begin(struct file *file, struct address_space *mapping,
++		    loff_t pos, unsigned len, unsigned flags,
++		    struct page **pagep, void **fsdata)
+ {
+ 	struct afs_writeback *candidate, *wb;
+ 	struct afs_vnode *vnode = AFS_FS_I(file->f_dentry->d_inode);
++	struct page *page;
+ 	struct key *key = file->private_data;
+-	pgoff_t index;
++	unsigned from = pos & (PAGE_CACHE_SIZE - 1);
++	unsigned to = from + len;
++	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
+ 	int ret;
+ 
+ 	_enter("{%x:%u},{%lx},%u,%u",
+-	       vnode->fid.vid, vnode->fid.vnode, page->index, offset, to);
++	       vnode->fid.vid, vnode->fid.vnode, index, from, to);
+ 
+ 	candidate = kzalloc(sizeof(*candidate), GFP_KERNEL);
+ 	if (!candidate)
+ 		return -ENOMEM;
+ 	candidate->vnode = vnode;
+-	candidate->first = candidate->last = page->index;
+-	candidate->offset_first = offset;
++	candidate->first = candidate->last = index;
++	candidate->offset_first = from;
+ 	candidate->to_last = to;
+ 	candidate->usage = 1;
+ 	candidate->state = AFS_WBACK_PENDING;
+ 	init_waitqueue_head(&candidate->waitq);
+ 
++	page = __grab_cache_page(mapping, index);
++	if (!page) {
++		kfree(candidate);
++		return -ENOMEM;
++	}
++	*pagep = page;
++	/* page won't leak in error case: it eventually gets cleaned off LRU */
++
+ 	if (!PageUptodate(page)) {
+ 		_debug("not up to date");
+-		ret = afs_prepare_page(vnode, page, key, offset, to);
++		ret = afs_fill_page(vnode, key, pos, len, page);
+ 		if (ret < 0) {
+ 			kfree(candidate);
+ 			_leave(" = %d [prep]", ret);
+ 			return ret;
+ 		}
++		SetPageUptodate(page);
+ 	}
+ 
+ try_again:
+-	index = page->index;
+ 	spin_lock(&vnode->writeback_lock);
+ 
+ 	/* see if this page is already pending a writeback under a suitable key
+@@ -242,8 +196,8 @@ try_again:
+ subsume_in_current_wb:
+ 	_debug("subsume");
+ 	ASSERTRANGE(wb->first, <=, index, <=, wb->last);
+-	if (index == wb->first && offset < wb->offset_first)
+-		wb->offset_first = offset;
++	if (index == wb->first && from < wb->offset_first)
++		wb->offset_first = from;
+ 	if (index == wb->last && to > wb->to_last)
+ 		wb->to_last = to;
+ 	spin_unlock(&vnode->writeback_lock);
+@@ -289,17 +243,17 @@ flush_conflicting_wb:
+ /*
+  * finalise part of a write to a page
+  */
+-int afs_commit_write(struct file *file, struct page *page,
+-		     unsigned offset, unsigned to)
++int afs_write_end(struct file *file, struct address_space *mapping,
++		  loff_t pos, unsigned len, unsigned copied,
++		  struct page *page, void *fsdata)
+ {
+ 	struct afs_vnode *vnode = AFS_FS_I(file->f_dentry->d_inode);
+ 	loff_t i_size, maybe_i_size;
+ 
+-	_enter("{%x:%u},{%lx},%u,%u",
+-	       vnode->fid.vid, vnode->fid.vnode, page->index, offset, to);
++	_enter("{%x:%u},{%lx}",
++	       vnode->fid.vid, vnode->fid.vnode, page->index);
+ 
+-	maybe_i_size = (loff_t) page->index << PAGE_SHIFT;
+-	maybe_i_size += to;
++	maybe_i_size = pos + copied;
+ 
+ 	i_size = i_size_read(&vnode->vfs_inode);
+ 	if (maybe_i_size > i_size) {
+@@ -310,12 +264,13 @@ int afs_commit_write(struct file *file, struct page *page,
+ 		spin_unlock(&vnode->writeback_lock);
+ 	}
+ 
+-	SetPageUptodate(page);
+ 	set_page_dirty(page);
+ 	if (PageDirty(page))
+ 		_debug("dirtied");
++	unlock_page(page);
++	page_cache_release(page);
+ 
+-	return 0;
++	return copied;
+ }
+ 
+ /*
 diff --git a/fs/bfs/file.c b/fs/bfs/file.c
 --- a/fs/bfs/file.c
 +++ b/fs/bfs/file.c
@@ -2045,6 +2301,313 @@ diff --git a/fs/fuse/file.c b/fs/fuse/file.c
  	.readpages	= fuse_readpages,
  	.set_page_dirty	= fuse_set_page_dirty,
  	.bmap		= fuse_bmap,
+diff --git a/fs/gfs2/ops_address.c b/fs/gfs2/ops_address.c
+--- a/fs/gfs2/ops_address.c
++++ b/fs/gfs2/ops_address.c
+@@ -17,6 +17,7 @@
+ #include <linux/mpage.h>
+ #include <linux/fs.h>
+ #include <linux/writeback.h>
++#include <linux/swap.h>
+ #include <linux/gfs2_ondisk.h>
+ #include <linux/lm_interface.h>
+ 
+@@ -349,45 +350,49 @@ out_unlock:
+ }
+ 
+ /**
+- * gfs2_prepare_write - Prepare to write a page to a file
++ * gfs2_write_begin - Begin to write to a file
+  * @file: The file to write to
+- * @page: The page which is to be prepared for writing
+- * @from: From (byte range within page)
+- * @to: To (byte range within page)
++ * @mapping: The mapping in which to write
++ * @pos: The file offset at which to start writing
++ * @len: Length of the write
++ * @flags: Various flags
++ * @pagep: Pointer to return the page
++ * @fsdata: Pointer to return fs data (unused by GFS2)
+  *
+  * Returns: errno
+  */
+ 
+-static int gfs2_prepare_write(struct file *file, struct page *page,
+-			      unsigned from, unsigned to)
++static int gfs2_write_begin(struct file *file, struct address_space *mapping,
++			    loff_t pos, unsigned len, unsigned flags,
++			    struct page **pagep, void **fsdata)
+ {
+-	struct gfs2_inode *ip = GFS2_I(page->mapping->host);
+-	struct gfs2_sbd *sdp = GFS2_SB(page->mapping->host);
++	struct gfs2_inode *ip = GFS2_I(mapping->host);
++	struct gfs2_sbd *sdp = GFS2_SB(mapping->host);
+ 	unsigned int data_blocks, ind_blocks, rblocks;
+ 	int alloc_required;
+ 	int error = 0;
+-	loff_t pos = ((loff_t)page->index << PAGE_CACHE_SHIFT) + from;
+-	loff_t end = ((loff_t)page->index << PAGE_CACHE_SHIFT) + to;
+ 	struct gfs2_alloc *al;
+-	unsigned int write_len = to - from;
++	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
++	unsigned from = pos & (PAGE_CACHE_SIZE - 1);
++	unsigned to = from + len;
++	struct page *page;
+ 
+-
+-	gfs2_holder_init(ip->i_gl, LM_ST_EXCLUSIVE, GL_ATIME|LM_FLAG_TRY_1CB, &ip->i_gh);
++	gfs2_holder_init(ip->i_gl, LM_ST_EXCLUSIVE, GL_ATIME, &ip->i_gh);
+ 	error = gfs2_glock_nq_atime(&ip->i_gh);
+-	if (unlikely(error)) {
+-		if (error == GLR_TRYFAILED) {
+-			unlock_page(page);
+-			error = AOP_TRUNCATED_PAGE;
+-			yield();
+-		}
++	if (unlikely(error))
+ 		goto out_uninit;
+-	}
+ 
+-	gfs2_write_calc_reserv(ip, write_len, &data_blocks, &ind_blocks);
++	error = -ENOMEM;
++	page = __grab_cache_page(mapping, index);
++	*pagep = page;
++	if (!page)
++		goto out_unlock;
++
++	gfs2_write_calc_reserv(ip, len, &data_blocks, &ind_blocks);
+ 
+-	error = gfs2_write_alloc_required(ip, pos, write_len, &alloc_required);
++	error = gfs2_write_alloc_required(ip, pos, len, &alloc_required);
+ 	if (error)
+-		goto out_unlock;
++		goto out_putpage;
+ 
+ 
+ 	ip->i_alloc.al_requested = 0;
+@@ -420,7 +425,7 @@ static int gfs2_prepare_write(struct file *file, struct page *page,
+ 		goto out_trans_fail;
+ 
+ 	if (gfs2_is_stuffed(ip)) {
+-		if (end > sdp->sd_sb.sb_bsize - sizeof(struct gfs2_dinode)) {
++		if (pos + len > sdp->sd_sb.sb_bsize - sizeof(struct gfs2_dinode)) {
+ 			error = gfs2_unstuff_dinode(ip, page);
+ 			if (error == 0)
+ 				goto prepare_write;
+@@ -443,6 +448,10 @@ out_qunlock:
+ out_alloc_put:
+ 			gfs2_alloc_put(ip);
+ 		}
++out_putpage:
++		page_cache_release(page);
++		if (pos + len > ip->i_inode.i_size)
++			vmtruncate(&ip->i_inode, ip->i_inode.i_size);
+ out_unlock:
+ 		gfs2_glock_dq_m(1, &ip->i_gh);
+ out_uninit:
+@@ -478,65 +487,117 @@ static void adjust_fs_space(struct inode *inode)
+ }
+ 
+ /**
+- * gfs2_commit_write - Commit write to a file
++ * gfs2_stuffed_write_end - Write end for stuffed files
++ * @inode: The inode
++ * @dibh: The buffer_head containing the on-disk inode
++ * @pos: The file position
++ * @len: The length of the write
++ * @copied: How much was actually copied by the VFS
++ * @page: The page
++ *
++ * This copies the data from the page into the inode block after
++ * the inode data structure itself.
++ *
++ * Returns: errno
++ */
++static int gfs2_stuffed_write_end(struct inode *inode, struct buffer_head *dibh,
++				  loff_t pos, unsigned len, unsigned copied,
++				  struct page *page)
++{
++	struct gfs2_inode *ip = GFS2_I(inode);
++	struct gfs2_sbd *sdp = GFS2_SB(inode);
++	u64 to = pos + copied;
++	void *kaddr;
++	unsigned char *buf = dibh->b_data + sizeof(struct gfs2_dinode);
++	struct gfs2_dinode *di = (struct gfs2_dinode *)dibh->b_data;
++
++	BUG_ON((pos + len) > (dibh->b_size - sizeof(struct gfs2_dinode)));
++	kaddr = kmap_atomic(page, KM_USER0);
++	memcpy(buf + pos, kaddr + pos, copied);
++	memset(kaddr + pos + copied, 0, len - copied);
++	flush_dcache_page(page);
++	kunmap_atomic(kaddr, KM_USER0);
++
++	if (!PageUptodate(page))
++		SetPageUptodate(page);
++	unlock_page(page);
++	page_cache_release(page);
++
++	if (inode->i_size < to) {
++		i_size_write(inode, to);
++		ip->i_di.di_size = inode->i_size;
++		di->di_size = cpu_to_be64(inode->i_size);
++		mark_inode_dirty(inode);
++	}
++
++	if (inode == sdp->sd_rindex)
++		adjust_fs_space(inode);
++
++	brelse(dibh);
++	gfs2_trans_end(sdp);
++	gfs2_glock_dq(&ip->i_gh);
++	gfs2_holder_uninit(&ip->i_gh);
++	return copied;
++}
++
++/**
++ * gfs2_write_end
+  * @file: The file to write to
+- * @page: The page containing the data
+- * @from: From (byte range within page)
+- * @to: To (byte range within page)
++ * @mapping: The address space to write to
++ * @pos: The file position
++ * @len: The length of the data
++ * @copied:
++ * @page: The page that has been written
++ * @fsdata: The fsdata (unused in GFS2)
++ *
++ * The main write_end function for GFS2. We have a separate one for
++ * stuffed files as they are slightly different, otherwise we just
++ * put our locking around the VFS provided functions.
+  *
+  * Returns: errno
+  */
+ 
+-static int gfs2_commit_write(struct file *file, struct page *page,
+-			     unsigned from, unsigned to)
++static int gfs2_write_end(struct file *file, struct address_space *mapping,
++			  loff_t pos, unsigned len, unsigned copied,
++			  struct page *page, void *fsdata)
+ {
+ 	struct inode *inode = page->mapping->host;
+ 	struct gfs2_inode *ip = GFS2_I(inode);
+ 	struct gfs2_sbd *sdp = GFS2_SB(inode);
+-	int error = -EOPNOTSUPP;
+ 	struct buffer_head *dibh;
+ 	struct gfs2_alloc *al = &ip->i_alloc;
+ 	struct gfs2_dinode *di;
++	unsigned int from = pos & (PAGE_CACHE_SIZE - 1);
++	unsigned int to = from + len;
++	int ret;
+ 
+-	if (gfs2_assert_withdraw(sdp, gfs2_glock_is_locked_by_me(ip->i_gl)))
+-                goto fail_nounlock;
++	BUG_ON(gfs2_glock_is_locked_by_me(ip->i_gl) == 0);
+ 
+-	error = gfs2_meta_inode_buffer(ip, &dibh);
+-	if (error)
+-		goto fail_endtrans;
++	ret = gfs2_meta_inode_buffer(ip, &dibh);
++	if (unlikely(ret)) {
++		unlock_page(page);
++		page_cache_release(page);
++		goto failed;
++	}
+ 
+ 	gfs2_trans_add_bh(ip->i_gl, dibh, 1);
+-	di = (struct gfs2_dinode *)dibh->b_data;
+-
+-	if (gfs2_is_stuffed(ip)) {
+-		u64 file_size;
+-		void *kaddr;
+ 
+-		file_size = ((u64)page->index << PAGE_CACHE_SHIFT) + to;
++	if (gfs2_is_stuffed(ip))
++		return gfs2_stuffed_write_end(inode, dibh, pos, len, copied, page);
+ 
+-		kaddr = kmap_atomic(page, KM_USER0);
+-		memcpy(dibh->b_data + sizeof(struct gfs2_dinode) + from,
+-		       kaddr + from, to - from);
+-		kunmap_atomic(kaddr, KM_USER0);
++	if (sdp->sd_args.ar_data == GFS2_DATA_ORDERED || gfs2_is_jdata(ip))
++		gfs2_page_add_databufs(ip, page, from, to);
+ 
+-		SetPageUptodate(page);
++	ret = generic_write_end(file, mapping, pos, len, copied, page, fsdata);
+ 
+-		if (inode->i_size < file_size) {
+-			i_size_write(inode, file_size);
++	if (likely(ret >= 0)) {
++		copied = ret;
++		if  ((pos + copied) > inode->i_size) {
++			di = (struct gfs2_dinode *)dibh->b_data;
++			ip->i_di.di_size = inode->i_size;
++			di->di_size = cpu_to_be64(inode->i_size);
+ 			mark_inode_dirty(inode);
+ 		}
+-	} else {
+-		if (sdp->sd_args.ar_data == GFS2_DATA_ORDERED ||
+-		    gfs2_is_jdata(ip))
+-			gfs2_page_add_databufs(ip, page, from, to);
+-		error = generic_commit_write(file, page, from, to);
+-		if (error)
+-			goto fail;
+-	}
+-
+-	if (ip->i_di.di_size < inode->i_size) {
+-		ip->i_di.di_size = inode->i_size;
+-		di->di_size = cpu_to_be64(inode->i_size);
+ 	}
+ 
+ 	if (inode == sdp->sd_rindex)
+@@ -544,33 +605,15 @@ static int gfs2_commit_write(struct file *file, struct page *page,
+ 
+ 	brelse(dibh);
+ 	gfs2_trans_end(sdp);
++failed:
+ 	if (al->al_requested) {
+ 		gfs2_inplace_release(ip);
+ 		gfs2_quota_unlock(ip);
+ 		gfs2_alloc_put(ip);
+ 	}
+-	unlock_page(page);
+-	gfs2_glock_dq_m(1, &ip->i_gh);
+-	lock_page(page);
++	gfs2_glock_dq(&ip->i_gh);
+ 	gfs2_holder_uninit(&ip->i_gh);
+-	return 0;
+-
+-fail:
+-	brelse(dibh);
+-fail_endtrans:
+-	gfs2_trans_end(sdp);
+-	if (al->al_requested) {
+-		gfs2_inplace_release(ip);
+-		gfs2_quota_unlock(ip);
+-		gfs2_alloc_put(ip);
+-	}
+-	unlock_page(page);
+-	gfs2_glock_dq_m(1, &ip->i_gh);
+-	lock_page(page);
+-	gfs2_holder_uninit(&ip->i_gh);
+-fail_nounlock:
+-	ClearPageUptodate(page);
+-	return error;
++	return ret;
+ }
+ 
+ /**
+@@ -799,8 +842,8 @@ const struct address_space_operations gfs2_file_aops = {
+ 	.readpage = gfs2_readpage,
+ 	.readpages = gfs2_readpages,
+ 	.sync_page = block_sync_page,
+-	.prepare_write = gfs2_prepare_write,
+-	.commit_write = gfs2_commit_write,
++	.write_begin = gfs2_write_begin,
++	.write_end = gfs2_write_end,
+ 	.bmap = gfs2_bmap,
+ 	.invalidatepage = gfs2_invalidatepage,
+ 
 diff --git a/fs/hfs/extent.c b/fs/hfs/extent.c
 --- a/fs/hfs/extent.c
 +++ b/fs/hfs/extent.c
@@ -2900,6 +3463,81 @@ diff --git a/fs/mpage.c b/fs/mpage.c
  	BUG_ON(!list_empty(pages));
  	if (bio)
  		mpage_bio_submit(READ, bio);
+diff --git a/fs/nfs/file.c b/fs/nfs/file.c
+--- a/fs/nfs/file.c
++++ b/fs/nfs/file.c
+@@ -306,27 +306,50 @@ nfs_fsync(struct file *file, struct dentry *dentry, int datasync)
+ }
+ 
+ /*
+- * This does the "real" work of the write. The generic routine has
+- * allocated the page, locked it, done all the page alignment stuff
+- * calculations etc. Now we should just copy the data from user
+- * space and write it back to the real medium..
++ * This does the "real" work of the write. We must allocate and lock the
++ * page to be sent back to the generic routine, which then copies the
++ * data from user space.
+  *
+  * If the writer ends up delaying the write, the writer needs to
+  * increment the page use counts until he is done with the page.
+  */
+-static int nfs_prepare_write(struct file *file, struct page *page, unsigned offset, unsigned to)
++static int nfs_write_begin(struct file *file, struct address_space *mapping,
++			loff_t pos, unsigned len, unsigned flags,
++			struct page **pagep, void **fsdata)
+ {
+-	return nfs_flush_incompatible(file, page);
++	int ret;
++	pgoff_t index;
++	struct page *page;
++	index = pos >> PAGE_CACHE_SHIFT;
++
++	page = __grab_cache_page(mapping, index);
++	if (!page)
++		return -ENOMEM;
++	*pagep = page;
++
++	ret = nfs_flush_incompatible(file, page);
++	if (ret) {
++		unlock_page(page);
++		page_cache_release(page);
++	}
++	return ret;
+ }
+ 
+-static int nfs_commit_write(struct file *file, struct page *page, unsigned offset, unsigned to)
++static int nfs_write_end(struct file *file, struct address_space *mapping,
++			loff_t pos, unsigned len, unsigned copied,
++			struct page *page, void *fsdata)
+ {
+-	long status;
++	unsigned offset = pos & (PAGE_CACHE_SIZE - 1);
++	int status;
+ 
+ 	lock_kernel();
+-	status = nfs_updatepage(file, page, offset, to-offset);
++	status = nfs_updatepage(file, page, offset, copied);
+ 	unlock_kernel();
+-	return status;
++
++	unlock_page(page);
++	page_cache_release(page);
++
++	return status < 0 ? status : copied;
+ }
+ 
+ static void nfs_invalidate_page(struct page *page, unsigned long offset)
+@@ -354,8 +377,8 @@ const struct address_space_operations nfs_file_aops = {
+ 	.set_page_dirty = __set_page_dirty_nobuffers,
+ 	.writepage = nfs_writepage,
+ 	.writepages = nfs_writepages,
+-	.prepare_write = nfs_prepare_write,
+-	.commit_write = nfs_commit_write,
++	.write_begin = nfs_write_begin,
++	.write_end = nfs_write_end,
+ 	.invalidatepage = nfs_invalidate_page,
+ 	.releasepage = nfs_release_page,
+ #ifdef CONFIG_NFS_DIRECTIO
 diff --git a/fs/namei.c b/fs/namei.c
 --- a/fs/namei.c
 +++ b/fs/namei.c
@@ -3032,6 +3670,283 @@ diff --git a/fs/ramfs/file-nommu.c b/fs/ramfs/file-nommu.c
  	.set_page_dirty		= __set_page_dirty_no_writeback,
  };
  
+diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
+--- a/fs/reiserfs/inode.c
++++ b/fs/reiserfs/inode.c
+@@ -17,11 +17,12 @@
+ #include <linux/mpage.h>
+ #include <linux/writeback.h>
+ #include <linux/quotaops.h>
++#include <linux/swap.h>
+ 
+-static int reiserfs_commit_write(struct file *f, struct page *page,
+-				 unsigned from, unsigned to);
+-static int reiserfs_prepare_write(struct file *f, struct page *page,
+-				  unsigned from, unsigned to);
++int reiserfs_commit_write(struct file *f, struct page *page,
++			  unsigned from, unsigned to);
++int reiserfs_prepare_write(struct file *f, struct page *page,
++			   unsigned from, unsigned to);
+ 
+ void reiserfs_delete_inode(struct inode *inode)
+ {
+@@ -2550,8 +2551,71 @@ static int reiserfs_writepage(struct page *page, struct writeback_control *wbc)
+ 	return reiserfs_write_full_page(page, wbc);
+ }
+ 
+-static int reiserfs_prepare_write(struct file *f, struct page *page,
+-				  unsigned from, unsigned to)
++static int reiserfs_write_begin(struct file *file,
++				struct address_space *mapping,
++				loff_t pos, unsigned len, unsigned flags,
++				struct page **pagep, void **fsdata)
++{
++	struct inode *inode;
++	struct page *page;
++	pgoff_t index;
++	int ret;
++	int old_ref = 0;
++
++	index = pos >> PAGE_CACHE_SHIFT;
++	page = __grab_cache_page(mapping, index);
++	if (!page)
++		return -ENOMEM;
++	*pagep = page;
++
++	inode = mapping->host;
++	reiserfs_wait_on_write_block(inode->i_sb);
++	fix_tail_page_for_writing(page);
++	if (reiserfs_transaction_running(inode->i_sb)) {
++		struct reiserfs_transaction_handle *th;
++		th = (struct reiserfs_transaction_handle *)current->
++		    journal_info;
++		BUG_ON(!th->t_refcount);
++		BUG_ON(!th->t_trans_id);
++		old_ref = th->t_refcount;
++		th->t_refcount++;
++	}
++	ret = block_write_begin(file, mapping, pos, len, flags, pagep, fsdata,
++				reiserfs_get_block);
++	if (ret && reiserfs_transaction_running(inode->i_sb)) {
++		struct reiserfs_transaction_handle *th = current->journal_info;
++		/* this gets a little ugly.  If reiserfs_get_block returned an
++		 * error and left a transacstion running, we've got to close it,
++		 * and we've got to free handle if it was a persistent transaction.
++		 *
++		 * But, if we had nested into an existing transaction, we need
++		 * to just drop the ref count on the handle.
++		 *
++		 * If old_ref == 0, the transaction is from reiserfs_get_block,
++		 * and it was a persistent trans.  Otherwise, it was nested above.
++		 */
++		if (th->t_refcount > old_ref) {
++			if (old_ref)
++				th->t_refcount--;
++			else {
++				int err;
++				reiserfs_write_lock(inode->i_sb);
++				err = reiserfs_end_persistent_transaction(th);
++				reiserfs_write_unlock(inode->i_sb);
++				if (err)
++					ret = err;
++			}
++		}
++	}
++	if (ret) {
++		unlock_page(page);
++		page_cache_release(page);
++	}
++	return ret;
++}
++
++int reiserfs_prepare_write(struct file *f, struct page *page,
++			   unsigned from, unsigned to)
+ {
+ 	struct inode *inode = page->mapping->host;
+ 	int ret;
+@@ -2604,8 +2668,100 @@ static sector_t reiserfs_aop_bmap(struct address_space *as, sector_t block)
+ 	return generic_block_bmap(as, block, reiserfs_bmap);
+ }
+ 
+-static int reiserfs_commit_write(struct file *f, struct page *page,
+-				 unsigned from, unsigned to)
++static int reiserfs_write_end(struct file *file, struct address_space *mapping,
++			      loff_t pos, unsigned len, unsigned copied,
++			      struct page *page, void *fsdata)
++{
++	struct inode *inode = page->mapping->host;
++	int ret = 0;
++	int update_sd = 0;
++	struct reiserfs_transaction_handle *th;
++	unsigned start;
++
++
++	reiserfs_wait_on_write_block(inode->i_sb);
++	if (reiserfs_transaction_running(inode->i_sb))
++		th = current->journal_info;
++	else
++		th = NULL;
++
++	start = pos & (PAGE_CACHE_SIZE - 1);
++	if (unlikely(copied < len)) {
++		if (!PageUptodate(page))
++			copied = 0;
++
++		page_zero_new_buffers(page, start + copied, start + len);
++	}
++	flush_dcache_page(page);
++
++	reiserfs_commit_page(inode, page, start, start + copied);
++
++	/* generic_commit_write does this for us, but does not update the
++	 ** transaction tracking stuff when the size changes.  So, we have
++	 ** to do the i_size updates here.
++	 */
++	pos += copied;
++	if (pos > inode->i_size) {
++		struct reiserfs_transaction_handle myth;
++		reiserfs_write_lock(inode->i_sb);
++		/* If the file have grown beyond the border where it
++		   can have a tail, unmark it as needing a tail
++		   packing */
++		if ((have_large_tails(inode->i_sb)
++		     && inode->i_size > i_block_size(inode) * 4)
++		    || (have_small_tails(inode->i_sb)
++			&& inode->i_size > i_block_size(inode)))
++			REISERFS_I(inode)->i_flags &= ~i_pack_on_close_mask;
++
++		ret = journal_begin(&myth, inode->i_sb, 1);
++		if (ret) {
++			reiserfs_write_unlock(inode->i_sb);
++			goto journal_error;
++		}
++		reiserfs_update_inode_transaction(inode);
++		inode->i_size = pos;
++		/*
++		 * this will just nest into our transaction.  It's important
++		 * to use mark_inode_dirty so the inode gets pushed around on the
++		 * dirty lists, and so that O_SYNC works as expected
++		 */
++		mark_inode_dirty(inode);
++		reiserfs_update_sd(&myth, inode);
++		update_sd = 1;
++		ret = journal_end(&myth, inode->i_sb, 1);
++		reiserfs_write_unlock(inode->i_sb);
++		if (ret)
++			goto journal_error;
++	}
++	if (th) {
++		reiserfs_write_lock(inode->i_sb);
++		if (!update_sd)
++			mark_inode_dirty(inode);
++		ret = reiserfs_end_persistent_transaction(th);
++		reiserfs_write_unlock(inode->i_sb);
++		if (ret)
++			goto out;
++	}
++
++      out:
++	unlock_page(page);
++	page_cache_release(page);
++	return ret == 0 ? copied : ret;
++
++      journal_error:
++	if (th) {
++		reiserfs_write_lock(inode->i_sb);
++		if (!update_sd)
++			reiserfs_update_sd(th, inode);
++		ret = reiserfs_end_persistent_transaction(th);
++		reiserfs_write_unlock(inode->i_sb);
++	}
++
++	goto out;
++}
++
++int reiserfs_commit_write(struct file *f, struct page *page,
++			  unsigned from, unsigned to)
+ {
+ 	struct inode *inode = page->mapping->host;
+ 	loff_t pos = ((loff_t) page->index << PAGE_CACHE_SHIFT) + to;
+@@ -2999,8 +3155,8 @@ const struct address_space_operations reiserfs_address_space_operations = {
+ 	.releasepage = reiserfs_releasepage,
+ 	.invalidatepage = reiserfs_invalidatepage,
+ 	.sync_page = block_sync_page,
+-	.prepare_write = reiserfs_prepare_write,
+-	.commit_write = reiserfs_commit_write,
++	.write_begin = reiserfs_write_begin,
++	.write_end = reiserfs_write_end,
+ 	.bmap = reiserfs_aop_bmap,
+ 	.direct_IO = reiserfs_direct_IO,
+ 	.set_page_dirty = reiserfs_set_page_dirty,
+diff --git a/fs/reiserfs/ioctl.c b/fs/reiserfs/ioctl.c
+--- a/fs/reiserfs/ioctl.c
++++ b/fs/reiserfs/ioctl.c
+@@ -128,6 +128,10 @@ long reiserfs_compat_ioctl(struct file *file, unsigned int cmd,
+ }
+ #endif
+ 
++int reiserfs_commit_write(struct file *f, struct page *page,
++			  unsigned from, unsigned to);
++int reiserfs_prepare_write(struct file *f, struct page *page,
++			   unsigned from, unsigned to);
+ /*
+ ** reiserfs_unpack
+ ** Function try to convert tail from direct item into indirect.
+@@ -175,15 +179,13 @@ static int reiserfs_unpack(struct inode *inode, struct file *filp)
+ 	if (!page) {
+ 		goto out;
+ 	}
+-	retval =
+-	    mapping->a_ops->prepare_write(NULL, page, write_from, write_from);
++	retval = reiserfs_prepare_write(NULL, page, write_from, write_from);
+ 	if (retval)
+ 		goto out_unlock;
+ 
+ 	/* conversion can change page contents, must flush */
+ 	flush_dcache_page(page);
+-	retval =
+-	    mapping->a_ops->commit_write(NULL, page, write_from, write_from);
++	retval = reiserfs_commit_write(NULL, page, write_from, write_from);
+ 	REISERFS_I(inode)->i_flags |= i_nopack_mask;
+ 
+       out_unlock:
+diff --git a/fs/reiserfs/xattr.c b/fs/reiserfs/xattr.c
+--- a/fs/reiserfs/xattr.c
++++ b/fs/reiserfs/xattr.c
+@@ -426,6 +426,12 @@ static inline __u32 xattr_hash(const char *msg, int len)
+ 	return csum_partial(msg, len, 0);
+ }
+ 
++int reiserfs_commit_write(struct file *f, struct page *page,
++			  unsigned from, unsigned to);
++int reiserfs_prepare_write(struct file *f, struct page *page,
++			   unsigned from, unsigned to);
++
++
+ /* Generic extended attribute operations that can be used by xa plugins */
+ 
+ /*
+@@ -512,15 +518,15 @@ reiserfs_xattr_set(struct inode *inode, const char *name, const void *buffer,
+ 			rxh->h_hash = cpu_to_le32(xahash);
+ 		}
+ 
+-		err = mapping->a_ops->prepare_write(fp, page, page_offset,
+-						    page_offset + chunk + skip);
++		err = reiserfs_prepare_write(fp, page, page_offset,
++					    page_offset + chunk + skip);
+ 		if (!err) {
+ 			if (buffer)
+ 				memcpy(data + skip, buffer + buffer_pos, chunk);
+ 			err =
+-			    mapping->a_ops->commit_write(fp, page, page_offset,
+-							 page_offset + chunk +
+-							 skip);
++			    reiserfs_commit_write(fp, page, page_offset,
++						  page_offset + chunk +
++						  skip);
+ 		}
+ 		unlock_page(page);
+ 		reiserfs_put_page(page);
 diff --git a/fs/smbfs/file.c b/fs/smbfs/file.c
 --- a/fs/smbfs/file.c
 +++ b/fs/smbfs/file.c
