@@ -53,7 +53,7 @@
             </td>
 </tr>
 <tr>
-<td class="content_desc_td" colspan="2">Dynamic-DNS (DDNS) allows you to export your server to Internet with an unique name, even though you have no static IP address. Currently, serveral DDNS clients are embedded in ZVMODELVZ. You can click Free Trial below to start with a free trial account.
+<td class="content_desc_td" colspan="2">Dynamic-DNS (DDNS) allows you to export your server to Internet with an unique name, even though you have no static IP address. Currently, several DDNS clients are embedded in ZVMODELVZ. You can click Free Trial below to start with a free trial account.
          </td>
 </tr>
 <tr>

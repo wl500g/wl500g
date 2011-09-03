@@ -34,7 +34,7 @@
         <li><b><a href="javascript:top.openBranch('Web Camera')">Web Camera</a></b> real-time monitor with an add-on Web Camera.</li>  
         <li><b><a href="javascript:openWidzard('Advanced_PrinterSetup_Widzard.asp', 'About Printer Setup')">Printer Sharing</a></b> all computers share the same printer.</li> 
         <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
-        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protects LAN or Wireless environment through flexible filter rule setting.</li>    
         <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
 		</ul>
 		<p align="center">

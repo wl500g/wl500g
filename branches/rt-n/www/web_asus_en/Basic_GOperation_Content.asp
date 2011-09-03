@@ -174,9 +174,9 @@
 					</tr>
 					<tr>
 						<td class="content_desc_td" colspan="2" height="50">
-							If you apply an account with dynamic IP. You must get user account and password
+							If you apply an account with dynamic IP, you must get user account and password
 							from your ISP. Please fill this data into the following fields carefully. Or, if
-							you apply an ADSL account with static IP, just ignore user name and pasword information.
+							you apply an ADSL account with static IP, just ignore user name and password information.
 						</td>
 					</tr>
 					<tr>
