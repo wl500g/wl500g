@@ -68,7 +68,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td  class="content_section_header_td" colspan="2">Set your account to ISP</td>
 </tr>
 <tr>
-<td class="content_desc_td" colspan="2" height="50">If you apply an ADSL account with dynamic IP. You must get user account and password from your ISP. Please fill this data into the following fields carefully. Or, if you apply an ADSL account with static IP, just ignore user name and pasword information.</td>
+<td class="content_desc_td" colspan="2" height="50">If you apply an ADSL account with dynamic IP, you must get user account and password from your ISP. Please fill this data into the following fields carefully. Or, if you apply an ADSL account with static IP, just ignore user name and password information.</td>
 </tr>
 <tr>
 <td class="content_header_td_less">Connect with static IP?</td><td class="content_input_td"><input type="radio" value="1" name="x_ADSLType" onClick="changeADSLType()">Yes</input><input type="radio" value="0" name="x_ADSLType" onClick="changeADSLType()">No</input></td>
@@ -178,7 +178,7 @@ ZVMODELVZ supports two kinds of connection to Internet through its WAN port. Ple
 <td class="content_section_header_td" colspan="2">Configure Wireless Interface</td>
 </tr>
 <tr>
-<td class="content_desc_td" colspan="2" height="50">First step for setting yor wireless interface is to give it a name, called SSID. In addition, if you like to protect transmitted data, please select WEP protection and assign WEP keys for data transmission. Your wireless setting will be applied into both 802.11a and 802.11b interfaces.</td>
+<td class="content_desc_td" colspan="2" height="50">First step for setting your wireless interface is to give it a name, called SSID. In addition, if you like to protect transmitted data, please select WEP protection and assign WEP keys for data transmission. Your wireless setting will be applied into both 802.11a and 802.11b interfaces.</td>
 </tr>
 <tr>
 <td class="content_header_td_less" onMouseOver="return overlib('Assign an identification string, consisting of up to 32 characters, for your WLAN');" onMouseOut="return nd();">SSID:</td><td class="content_input_td"><input type="text" maxlength="32" size="32" name="WLANConfig11b_SSID" value="<% nvram_get_x("WLANConfig11b","SSID"); %>"></td>

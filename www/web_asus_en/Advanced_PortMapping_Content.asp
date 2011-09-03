@@ -23,7 +23,7 @@
 </tr>
 <tr>
 <td class="content_desc_td" colspan="2">
-Port Mappping function allows you to redirect certain incoming TCP and UDP ports to specific computer dynamically. These Port Mapping rules will be set or unset immediately each time you press Set(or Unset) button after description of the rule. But, if you like to save these settings permanently, please press Finish button to Save&amp;Restart ZVMODELVZ after you have set your rules. 
+Port Mapping function allows you to redirect certain incoming TCP and UDP ports to specific computer dynamically. These Port Mapping rules will be set or unset immediately each time you press Set(or Unset) button after description of the rule. But, if you like to save these settings permanently, please press Finish button to Save&amp;Restart ZVMODELVZ after you have set your rules. 
 </td>
 </tr>
 </table>
@@ -41,7 +41,7 @@ Port Mappping function allows you to redirect certain incoming TCP and UDP ports
 <div align="center">
 <table class="content_list_value_table" border="1" cellspacing="0" cellpadding="0">
 <tr>
-<td></td><td class="content_list_field_header_td" colspan="2">Well-Known Applications:</td><td class="content_list_field_header_td" colspan="2"><select name="IPConnection_MappedKnownApps" class="content_input_fd" onChange="change_widzard(this, 'MapppedKnownApps');"><option value="User Defined">User Defined</option></select></td>
+<td></td><td class="content_list_field_header_td" colspan="2">Well-Known Applications:</td><td class="content_list_field_header_td" colspan="2"><select name="IPConnection_MappedKnownApps" class="content_input_fd" onChange="change_widzard(this, 'MappedKnownApps');"><option value="User Defined">User Defined</option></select></td>
 </tr>
 <tr>
 <td></td><td class="content_list_field_header_td" colspan="">Local IP</td><td class="content_list_field_header_td" colspan="">Mapped Port</td><td class="content_list_field_header_td" colspan="">Description</td><td class="content_list_field_header_td" colspan="">Action</td><td></td>

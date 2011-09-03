@@ -7,7 +7,7 @@
 
 <SCRIPT LANGUAGE="JavaScript">
 
-function loadWidzard()
+function loadWizard()
 {
    
 }
@@ -31,7 +31,7 @@ function onClose()
 
 </head>
 
-<body  onLoad="loadWidzard()">
+<body  onLoad="loadWizard()">
 <form method="POST" name="form" action="--WEBBOT-SELF--" ">  
 <!--webbot bot="SaveResults" U-File="fpweb:///_private/form_results.txt"
 S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->  
@@ -50,14 +50,14 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
     <p>On each computer sharing the printer:</p>
     <ol>
       <li>
-        If you have installed <b>ASUS Wireless Homegateway Utilities</b>, please  
+        If you have installed <b>ASUS Wireless Home Gateway Utilities</b>, please  
         go to Step 3. Otherwise, insert the ASUS SpaceLink Dual Band Home Gateway Utilities CD-ROM  
         disk in your CD-ROM drive. Run the SETUP.EXE file from the CD-ROM.&nbsp; 
       </li> 
       <li>Please wait until the Welcome dialog box appears, and select <b>Install  
         ASUS Wireless Homegateway Utilities</b>. When the setup program is  
         completed, click <b>Finish</b>.</li> 
-      <li>Execute <b>Printer Setup Widzard</b> in <b>Start Menu - Program Files  
+      <li>Execute <b>Printer Setup Wizard</b> in <b>Start Menu - Program Files  
         - ASUS Utility - Dual Band Homegateway</b>. And follow its procedures to  
         finish printer driver setting.</li> 
     </ol> 

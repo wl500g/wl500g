@@ -21,7 +21,7 @@ function redirect1() {
           <td bgcolor="#FF0000" height="50" width="652"><b><font size="5" face="Arial" color="#FFFFFF">Firmware Upgrade Fail !</font></b></td>
         </tr>
         <tr> 
-          <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial">Firmware upgrade fail. It may result from incorrect image or error transmission. Please check the version of firmare and try again.<br><br></font></td>
+          <td width="652" height="25" bgcolor="#FFFFFF" colspan="2"><font face="Arial">Firmware upgrade fail. It may result from incorrect image or error transmission. Please check the version of firmware and try again.<br><br></font></td>
         </tr>
         </tbody> 
       </table>
