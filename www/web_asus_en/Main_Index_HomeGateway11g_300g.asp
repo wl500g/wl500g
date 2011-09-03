@@ -32,7 +32,7 @@
         <li><b><a href="javascript:top.openBranch('Quick Setup')">Quick Setup</a></b> allows users to complete basic setting by just answering several questions.</li>     
         <li><b><a href="javascript:top.openBranch('Wireless')">802.11g and WPA</a></b> supports up to 54Mbps transmission rate, backward compatibility with 802.11b and interoperable security enhancement.</li>        
         <li><b><a href="javascript:top.openBranch('NAT Setting')">IP Sharing</a></b> all computers share the same IP to Internet.</li>    
-        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protect LAN or Wireless environment through flexible filter rule setting.</li>    
+        <li><b><a href="javascript:top.openBranch('Internet Firewall')">Internet Firewall</a></b> protects LAN or Wireless environment through flexible filter rule setting.</li>    
         <li><b><a href="javascript:top.openBranch('Status &amp; Log')">Status &amp; Log</a></b> log status of system in details.</li>
         </ul>
 		<p align="center">
