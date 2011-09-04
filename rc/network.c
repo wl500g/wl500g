@@ -51,10 +51,7 @@ typedef u_int8_t u8;
 static void lan_up(char *lan_ifname);
 static int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr );
 
-#if !defined(__UCLIBC_MAJOR__) \
- || __UCLIBC_MAJOR__ > 0 \
- || __UCLIBC_MINOR__ > 9 \
- || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
+#ifdef RC_SEMAPHORE_ENABLED
 
 #define HOTPLUG_DEV_START
 sem_t * hotplug_sem = SEM_FAILED;
@@ -2147,7 +2144,8 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 			    {
 				nvram_set(strcat_r(prefix, "usb_device", tmp), str_devusb );
 #ifdef HOTPLUG_DEV_START
-				usb_modem_check(prefix);
+				// now starts from hotplug usb-serial
+				//usb_modem_check(prefix);
 #endif
 			    }
 #else

@@ -100,13 +100,6 @@ static int stacheck_interval = -1;
 static int notice_rcamd(int flag);
 #endif
 
-#if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_sem_open();
-void hotplug_sem_close();
-int  hotplug_sem_trylock();
-void hotplug_sem_unlock();
-#endif
-
 #ifdef GPIOCTL
 
 static int tgpio_open ()
@@ -553,15 +546,21 @@ static int http_processcheck(void)
 #ifdef USB_SUPPORT
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-static int usb_communication_device_processcheck(void)
+int usb_communication_device_processcheck(int wait_flag)
 {
 	char *wan_ifname;
 	char *wan_proto;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	int unit;
+	int unit, enable;
 
 	hotplug_sem_open();
-	if (hotplug_sem_trylock()) {
+	if (wait_flag) {
+		enable = 1;
+		hotplug_sem_lock();
+	} else {
+		enable = hotplug_sem_trylock();
+	}
+	if (enable) {
 		/* Start each configured and enabled wan connection and its undelying i/f */
 		for ( unit=0; unit<MAX_NVPARSE; unit++) 
 		{
@@ -742,7 +741,7 @@ static void watchdog(int signum)
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	/* madwimax and 3g/cdma process */
-	usb_communication_device_processcheck();
+	usb_communication_device_processcheck(0);
 #endif
 
 #ifdef __CONFIG_RCAMD__

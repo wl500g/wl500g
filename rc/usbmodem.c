@@ -42,14 +42,7 @@
 
 #define nvram_prefix_get(name) (nvram_get(strcat_r(prefix, name, tmp)) ? : "")
 
-#if !defined(__UCLIBC_MAJOR__) \
- || __UCLIBC_MAJOR__ > 0 \
- || __UCLIBC_MINOR__ > 9 \
- || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
-void hotplug_sem_open();
-void hotplug_sem_close();
-void hotplug_sem_lock();
-void hotplug_sem_unlock();
+#ifdef RC_SEMAPHORE_ENABLED
 
 int hotplug_check_prev_zerocd_processed(char *product, char *device)
 {
@@ -572,6 +565,7 @@ start_modem_dial(char *prefix)
 			nvram_set(strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)));
 			nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");
 		}
+		nvram_set("wan_status_t", "Connecting...");
 		ret = _eval(argv, NULL, 0, &pid);
 		if (pid) {
 			sprintf(tmp, "/var/run/%s.pid", prefix);
