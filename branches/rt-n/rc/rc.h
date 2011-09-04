@@ -22,6 +22,13 @@
 
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
+    #define RC_SEMAPHORE_ENABLED
+#endif
+
 /* common */
 in_addr_t ip_addr(const char *cp);
 void ip2class(char *lan_ip, char *netmask, char *buf);
@@ -231,6 +238,13 @@ int lsmodem_main(int argc, char **argv);
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 void hotplug_network_device(char *interface, char *action, char *product, char *device);
 void hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device);
+int usb_communication_device_processcheck(int wait_flag);
+
+void hotplug_sem_open();
+void hotplug_sem_close();
+void hotplug_sem_lock();
+int  hotplug_sem_trylock();
+void hotplug_sem_unlock();
 #endif
 
 #endif /* _rc_h_ */

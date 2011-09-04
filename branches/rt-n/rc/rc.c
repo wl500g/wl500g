@@ -1115,6 +1115,10 @@ main(int argc, char **argv)
 		if (argc >= 2) {
 		#ifdef LINUX26
 			eval("/sbin/mdev");
+		#if defined(__CONFIG_MODEM__) && defined(RC_SEMAPHORE_ENABLED)
+			if (!strcmp(argv[1], "usb-serial"))
+				return usb_communication_device_processcheck(1);
+		#endif
 		#endif
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
@@ -1131,6 +1135,7 @@ main(int argc, char **argv)
 			return EINVAL;
 		}
 	}
+
 
 #ifdef ASUS_EXT
 	/* ddns update ok */
