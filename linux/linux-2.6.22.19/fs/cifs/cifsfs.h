@@ -98,7 +98,7 @@ extern ssize_t	cifs_listxattr(struct dentry *, char *, size_t);
 extern long cifs_ioctl(struct file *filep, unsigned int cmd, unsigned long arg);
 
 #ifdef CONFIG_CIFS_EXPERIMENTAL
-extern struct export_operations cifs_export_ops;
+extern const struct export_operations cifs_export_ops;
 #endif /* EXPERIMENTAL */
 
 #define CIFS_VERSION   "1.54"
