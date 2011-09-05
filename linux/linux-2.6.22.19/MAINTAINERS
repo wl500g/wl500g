@@ -3001,6 +3001,11 @@ M:	corey@world.std.com
 L:	linux-wireless@vger.kernel.org
 S:	Maintained
 
+RAMDISK RAM BLOCK DEVICE DRIVER
+P:	Nick Piggin
+M:	npiggin@suse.de
+S:	Maintained
+
 RANDOM NUMBER DRIVER
 P:	Matt Mackall
 M:	mpm@selenic.com
