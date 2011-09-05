@@ -244,6 +244,29 @@ diff -uBp a/include/linux/device.h b/include/linux/device.h
  #ifdef CONFIG_NUMA
  static inline int dev_to_node(struct device *dev)
  {
+diff --git a/include/linux/err.h b/include/linux/err.h
+--- a/include/linux/err.h
++++ b/include/linux/err.h
+@@ -34,6 +34,19 @@ static inline long IS_ERR(const void *pt
+ 	return IS_ERR_VALUE((unsigned long)ptr);
+ }
+ 
++/**
++ * ERR_CAST - Explicitly cast an error-valued pointer to another pointer type
++ * @ptr: The pointer to cast.
++ *
++ * Explicitly cast an error-valued pointer to another pointer type in such a
++ * way as to make it clear that's what's going on.
++ */
++static inline void *ERR_CAST(const void *ptr)
++{
++	/* cast away the const */
++	return (void *) ptr;
++}
++
+ #endif
+ 
+ #endif /* _LINUX_ERR_H */
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
