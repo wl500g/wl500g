@@ -37,7 +37,7 @@ kmem_alloc(size_t size, unsigned int __nocast flags)
 #ifdef DEBUG
 	if (unlikely(!(flags & KM_LARGE) && (size > PAGE_SIZE))) {
 		printk(KERN_WARNING "Large %s attempt, size=%ld\n",
-			__FUNCTION__, (long)size);
+			__func__, (long)size);
 		dump_stack();
 	}
 #endif
@@ -52,7 +52,7 @@ kmem_alloc(size_t size, unsigned int __nocast flags)
 		if (!(++retries % 100))
 			printk(KERN_ERR "XFS: possible memory allocation "
 					"deadlock in %s (mode:0x%x)\n",
-					__FUNCTION__, lflags);
+					__func__, lflags);
 		congestion_wait(WRITE, HZ/50);
 	} while (1);
 }
@@ -90,13 +90,12 @@ kmem_zalloc_greedy(size_t *size, size_t minsize, size_t maxsize,
 }
 
 void
-kmem_free(void *ptr, size_t size)
+kmem_free(const void *ptr)
 {
-	if (((unsigned long)ptr < VMALLOC_START) ||
-	    ((unsigned long)ptr >= VMALLOC_END)) {
+	if (!is_vmalloc_addr(ptr)) {
 		kfree(ptr);
 	} else {
-		vfree(ptr);
+		vfree((void *)ptr);
 	}
 }
 
@@ -111,7 +110,7 @@ kmem_realloc(void *ptr, size_t newsize, size_t oldsize,
 		if (new)
 			memcpy(new, ptr,
 				((oldsize < newsize) ? oldsize : newsize));
-		kmem_free(ptr, oldsize);
+		kmem_free(ptr);
 	}
 	return new;
 }
@@ -130,7 +129,7 @@ kmem_zone_alloc(kmem_zone_t *zone, unsigned int __nocast flags)
 		if (!(++retries % 100))
 			printk(KERN_ERR "XFS: possible memory allocation "
 					"deadlock in %s (mode:0x%x)\n",
-					__FUNCTION__, lflags);
+					__func__, lflags);
 		congestion_wait(WRITE, HZ/50);
 	} while (1);
 }

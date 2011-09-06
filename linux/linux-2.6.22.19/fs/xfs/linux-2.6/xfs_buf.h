@@ -63,9 +63,36 @@ typedef enum {
 
 	/* flags used only internally */
 	_XBF_PAGE_CACHE = (1 << 17),/* backed by pagecache		   */
-	_XBF_KMEM_ALLOC = (1 << 18),/* backed by kmem_alloc()		   */
+	_XBF_PAGES = (1 << 18),	    /* backed by refcounted pages	   */
 	_XBF_RUN_QUEUES = (1 << 19),/* run block device task queue	   */
 	_XBF_DELWRI_Q = (1 << 21),   /* buffer on delwri queue		   */
+
+	/*
+	 * Special flag for supporting metadata blocks smaller than a FSB.
+	 *
+	 * In this case we can have multiple xfs_buf_t on a single page and
+	 * need to lock out concurrent xfs_buf_t readers as they only
+	 * serialise access to the buffer.
+	 *
+	 * If the FSB size >= PAGE_CACHE_SIZE case, we have no serialisation
+	 * between reads of the page. Hence we can have one thread read the
+	 * page and modify it, but then race with another thread that thinks
+	 * the page is not up-to-date and hence reads it again.
+	 *
+	 * The result is that the first modifcation to the page is lost.
+	 * This sort of AGF/AGI reading race can happen when unlinking inodes
+	 * that require truncation and results in the AGI unlinked list
+	 * modifications being lost.
+	 */
+	_XBF_PAGE_LOCKED = (1 << 22),
+
+	/*
+	 * If we try a barrier write, but it fails we have to communicate
+	 * this to the upper layers.  Unfortunately b_error gets overwritten
+	 * when the buffer is re-issued so we have to add another flag to
+	 * keep this information.
+	 */
+	_XFS_BARRIER_FAILED = (1 << 23),
 } xfs_buf_flags_t;
 
 typedef enum {
@@ -138,12 +165,11 @@ typedef struct xfs_buf {
 	xfs_buf_iodone_t	b_iodone;	/* I/O completion function */
 	xfs_buf_relse_t		b_relse;	/* releasing function */
 	xfs_buf_bdstrat_t	b_strat;	/* pre-write function */
-	struct semaphore	b_iodonesema;	/* Semaphore for I/O waiters */
+	struct completion	b_iowait;	/* queue for I/O waiters */
 	void			*b_fspriv;
 	void			*b_fspriv2;
 	void			*b_fspriv3;
 	unsigned short		b_error;	/* error code on I/O */
-	unsigned short		b_locked;	/* page array is locked */
 	unsigned int		b_page_count;	/* size of page array */
 	unsigned int		b_offset;	/* page offset in first page */
 	struct page		**b_pages;	/* array of page pointers */
@@ -334,7 +360,7 @@ extern void xfs_buf_trace(xfs_buf_t *, char *, void *, void *);
 #define XFS_BUF_CPSEMA(bp)	(xfs_buf_cond_lock(bp) == 0)
 #define XFS_BUF_VSEMA(bp)	xfs_buf_unlock(bp)
 #define XFS_BUF_PSEMA(bp,x)	xfs_buf_lock(bp)
-#define XFS_BUF_V_IODONESEMA(bp) up(&bp->b_iodonesema);
+#define XFS_BUF_FINISH_IOWAIT(bp)	complete(&bp->b_iowait);
 
 #define XFS_BUF_SET_TARGET(bp, target)	((bp)->b_target = (target))
 #define XFS_BUF_TARGET(bp)		((bp)->b_target)
@@ -388,11 +414,15 @@ static inline int XFS_bwrite(xfs_buf_t *bp)
 	return error;
 }
 
-static inline int xfs_bdwrite(void *mp, xfs_buf_t *bp)
+/*
+ * No error can be returned from xfs_buf_iostart for delwri
+ * buffers as they are queued and no I/O is issued.
+ */
+static inline void xfs_bdwrite(void *mp, xfs_buf_t *bp)
 {
 	bp->b_strat = xfs_bdstrat_cb;
 	bp->b_fspriv3 = mp;
-	return xfs_buf_iostart(bp, XBF_DELWRI | XBF_ASYNC);
+	(void)xfs_buf_iostart(bp, XBF_DELWRI | XBF_ASYNC);
 }
 
 #define XFS_bdstrat(bp) xfs_buf_iorequest(bp)
@@ -407,7 +437,7 @@ static inline int xfs_bdwrite(void *mp, xfs_buf_t *bp)
  *	Handling of buftargs.
  */
 extern xfs_buftarg_t *xfs_alloc_buftarg(struct block_device *, int);
-extern void xfs_free_buftarg(xfs_buftarg_t *, int);
+extern void xfs_free_buftarg(xfs_buftarg_t *);
 extern void xfs_wait_buftarg(xfs_buftarg_t *);
 extern int xfs_setsize_buftarg(xfs_buftarg_t *, unsigned int, unsigned int);
 extern int xfs_flush_buftarg(xfs_buftarg_t *, int);

@@ -25,6 +25,8 @@ struct xfs_inode;
 struct xfs_mount;
 struct xfs_trans;
 
+extern kmem_zone_t	*xfs_bmap_free_item_zone;
+
 /*
  * DELTA: describe a change to the in-core extent list.
  *
@@ -52,12 +54,23 @@ typedef struct xfs_bmap_free_item
 
 /*
  * Header for free extent list.
+ *
+ * xbf_low is used by the allocator to activate the lowspace algorithm -
+ * when free space is running low the extent allocator may choose to
+ * allocate an extent from an AG without leaving sufficient space for
+ * a btree split when inserting the new extent.  In this case the allocator
+ * will enable the lowspace algorithm which is supposed to allow further
+ * allocations (such as btree splits and newroots) to allocate from
+ * sequential AGs.  In order to avoid locking AGs out of order the lowspace
+ * algorithm will start searching for free space from AG 0.  If the correct
+ * transaction reservations have been made then this algorithm will eventually
+ * find all the space it needs.
  */
 typedef	struct xfs_bmap_free
 {
 	xfs_bmap_free_item_t	*xbf_first;	/* list of to-be-free extents */
 	int			xbf_count;	/* count of items on list */
-	int			xbf_low;	/* kludge: alloc in low mode */
+	int			xbf_low;	/* alloc in low mode */
 } xfs_bmap_free_t;
 
 #define	XFS_BMAP_MAX_NMAP	4
@@ -144,12 +157,14 @@ extern ktrace_t	*xfs_bmap_trace_buf;
  */
 void
 xfs_bmap_trace_exlist(
-	char			*fname,		/* function name */
+	const char		*fname,		/* function name */
 	struct xfs_inode	*ip,		/* incore inode pointer */
 	xfs_extnum_t		cnt,		/* count of entries in list */
 	int			whichfork);	/* data or attr fork */
+#define	XFS_BMAP_TRACE_EXLIST(ip,c,w)	\
+	xfs_bmap_trace_exlist(__func__,ip,c,w)
 #else
-#define	xfs_bmap_trace_exlist(f,ip,c,w)
+#define	XFS_BMAP_TRACE_EXLIST(ip,c,w)
 #endif
 
 /*
@@ -333,7 +348,7 @@ xfs_bunmapi(
  */
 int						/* error code */
 xfs_getbmap(
-	bhv_desc_t		*bdp,		/* XFS behavior descriptor*/
+	xfs_inode_t		*ip,
 	struct getbmap		*bmv,		/* user bmap structure */
 	void			__user *ap,	/* pointer to user's array */
 	int			iflags);	/* interface flags */
@@ -376,7 +391,7 @@ xfs_check_nostate_extents(
  * entry (null if none).  Else, *lastxp will be set to the index
  * of the found entry; *gotp will contain the entry.
  */
-xfs_bmbt_rec_t *
+xfs_bmbt_rec_host_t *
 xfs_bmap_search_multi_extents(struct xfs_ifork *, xfs_fileoff_t, int *,
 			xfs_extnum_t *, xfs_bmbt_irec_t *, xfs_bmbt_irec_t *);
 

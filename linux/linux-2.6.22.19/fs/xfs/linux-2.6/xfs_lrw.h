@@ -18,10 +18,7 @@
 #ifndef __XFS_LRW_H__
 #define __XFS_LRW_H__
 
-struct bhv_desc;
-struct bhv_vnode;
 struct xfs_mount;
-struct xfs_iocore;
 struct xfs_inode;
 struct xfs_bmbt_irec;
 struct xfs_buf;
@@ -53,7 +50,6 @@ struct xfs_iomap;
 #define	XFS_INVAL_CACHED	18
 #define	XFS_DIORD_ENTER		19
 #define	XFS_DIOWR_ENTER		20
-#define	XFS_SENDFILE_ENTER	21
 #define	XFS_WRITEPAGE_ENTER	22
 #define	XFS_RELEASEPAGE_ENTER	23
 #define	XFS_INVALIDPAGE_ENTER	24
@@ -62,39 +58,20 @@ struct xfs_iomap;
 #define	XFS_IOMAP_UNWRITTEN	27
 #define XFS_SPLICE_READ_ENTER	28
 #define XFS_SPLICE_WRITE_ENTER	29
-extern void xfs_rw_enter_trace(int, struct xfs_iocore *,
-				void *, size_t, loff_t, int);
-extern void xfs_inval_cached_trace(struct xfs_iocore *,
-				xfs_off_t, xfs_off_t, xfs_off_t, xfs_off_t);
+extern void xfs_rw_enter_trace(int, struct xfs_inode *,
+		void *, size_t, loff_t, int);
+extern void xfs_inval_cached_trace(struct xfs_inode *,
+		xfs_off_t, xfs_off_t, xfs_off_t, xfs_off_t);
 #else
-#define xfs_rw_enter_trace(tag, io, data, size, offset, ioflags)
-#define xfs_inval_cached_trace(io, offset, len, first, last)
+#define xfs_rw_enter_trace(tag, ip, data, size, offset, ioflags)
+#define xfs_inval_cached_trace(ip, offset, len, first, last)
 #endif
 
-/*
- * Maximum count of bmaps used by read and write paths.
- */
-#define	XFS_MAX_RW_NBMAPS	4
-
-extern int xfs_bmap(struct bhv_desc *, xfs_off_t, ssize_t, int,
-			struct xfs_iomap *, int *);
-extern int xfsbdstrat(struct xfs_mount *, struct xfs_buf *);
+/* errors from xfsbdstrat() must be extracted from the buffer */
+extern void xfsbdstrat(struct xfs_mount *, struct xfs_buf *);
 extern int xfs_bdstrat_cb(struct xfs_buf *);
 extern int xfs_dev_is_read_only(struct xfs_mount *, char *);
 
-extern int xfs_zero_eof(struct bhv_vnode *, struct xfs_iocore *, xfs_off_t,
-				xfs_fsize_t);
-extern ssize_t xfs_read(struct bhv_desc *, struct kiocb *,
-				const struct iovec *, unsigned int,
-				loff_t *, int, struct cred *);
-extern ssize_t xfs_write(struct bhv_desc *, struct kiocb *,
-				const struct iovec *, unsigned int,
-				loff_t *, int, struct cred *);
-extern ssize_t xfs_splice_read(struct bhv_desc *, struct file *, loff_t *,
-				struct pipe_inode_info *, size_t, int, int,
-				struct cred *);
-extern ssize_t xfs_splice_write(struct bhv_desc *, struct pipe_inode_info *,
-				struct file *, loff_t *, size_t, int, int,
-				struct cred *);
+extern int xfs_zero_eof(struct xfs_inode *, xfs_off_t, xfs_fsize_t);
 
 #endif	/* __XFS_LRW_H__ */

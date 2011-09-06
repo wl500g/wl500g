@@ -23,6 +23,7 @@
 #include "xfs_inum.h"
 #include "xfs_trans.h"
 #include "xfs_sb.h"
+#include "xfs_ag.h"
 #include "xfs_dmapi.h"
 #include "xfs_mount.h"
 #include "xfs_buf_item.h"
@@ -377,7 +378,6 @@ xfs_buf_item_unpin(
 	xfs_mount_t	*mp;
 	xfs_buf_t	*bp;
 	int		freed;
-	SPLDECL(s);
 
 	bp = bip->bli_buf;
 	ASSERT(bp != NULL);
@@ -408,8 +408,8 @@ xfs_buf_item_unpin(
 			XFS_BUF_SET_FSPRIVATE(bp, NULL);
 			XFS_BUF_CLR_IODONE_FUNC(bp);
 		} else {
-			AIL_LOCK(mp,s);
-			xfs_trans_delete_ail(mp, (xfs_log_item_t *)bip, s);
+			spin_lock(&mp->m_ail_lock);
+			xfs_trans_delete_ail(mp, (xfs_log_item_t *)bip);
 			xfs_buf_item_relse(bp);
 			ASSERT(XFS_BUF_FSPRIVATE(bp, void *) == NULL);
 		}
@@ -580,8 +580,8 @@ xfs_buf_item_unlock(
 	 * If the buf item isn't tracking any data, free it.
 	 * Otherwise, if XFS_BLI_HOLD is set clear it.
 	 */
-	if (xfs_count_bits(bip->bli_format.blf_data_map,
-			      bip->bli_format.blf_map_size, 0) == 0) {
+	if (xfs_bitmap_empty(bip->bli_format.blf_data_map,
+			     bip->bli_format.blf_map_size)) {
 		xfs_buf_item_relse(bp);
 	} else if (hold) {
 		bip->bli_flags &= ~XFS_BLI_HOLD;
@@ -645,7 +645,12 @@ xfs_buf_item_push(
 	bp = bip->bli_buf;
 
 	if (XFS_BUF_ISDELAYWRITE(bp)) {
-		xfs_bawrite(bip->bli_item.li_mountp, bp);
+		int	error;
+		error = xfs_bawrite(bip->bli_item.li_mountp, bp);
+		if (error)
+			xfs_fs_cmn_err(CE_WARN, bip->bli_item.li_mountp,
+			"xfs_buf_item_push: pushbuf error %d on bip %p, bp %p",
+					error, bip, bp);
 	} else {
 		xfs_buf_relse(bp);
 	}
@@ -727,12 +732,13 @@ xfs_buf_item_init(
 	bip->bli_item.li_ops = &xfs_buf_item_ops;
 	bip->bli_item.li_mountp = mp;
 	bip->bli_buf = bp;
+	xfs_buf_hold(bp);
 	bip->bli_format.blf_type = XFS_LI_BUF;
 	bip->bli_format.blf_blkno = (__int64_t)XFS_BUF_ADDR(bp);
 	bip->bli_format.blf_len = (ushort)BTOBB(XFS_BUF_COUNT(bp));
 	bip->bli_format.blf_map_size = map_size;
 #ifdef XFS_BLI_TRACE
-	bip->bli_trace = ktrace_alloc(XFS_BLI_TRACE_SIZE, KM_SLEEP);
+	bip->bli_trace = ktrace_alloc(XFS_BLI_TRACE_SIZE, KM_NOFS);
 #endif
 
 #ifdef XFS_TRANS_DEBUG
@@ -862,6 +868,21 @@ xfs_buf_item_dirty(
 	return (bip->bli_flags & XFS_BLI_DIRTY);
 }
 
+STATIC void
+xfs_buf_item_free(
+	xfs_buf_log_item_t	*bip)
+{
+#ifdef XFS_TRANS_DEBUG
+	kmem_free(bip->bli_orig);
+	kmem_free(bip->bli_logged);
+#endif /* XFS_TRANS_DEBUG */
+
+#ifdef XFS_BLI_TRACE
+	ktrace_free(bip->bli_trace);
+#endif
+	kmem_zone_free(xfs_buf_item_zone, bip);
+}
+
 /*
  * This is called when the buf log item is no longer needed.  It should
  * free the buf log item associated with the given buffer and clear
@@ -882,18 +903,8 @@ xfs_buf_item_relse(
 	    (XFS_BUF_IODONE_FUNC(bp) != NULL)) {
 		XFS_BUF_CLR_IODONE_FUNC(bp);
 	}
-
-#ifdef XFS_TRANS_DEBUG
-	kmem_free(bip->bli_orig, XFS_BUF_COUNT(bp));
-	bip->bli_orig = NULL;
-	kmem_free(bip->bli_logged, XFS_BUF_COUNT(bp) / NBBY);
-	bip->bli_logged = NULL;
-#endif /* XFS_TRANS_DEBUG */
-
-#ifdef XFS_BLI_TRACE
-	ktrace_free(bip->bli_trace);
-#endif
-	kmem_zone_free(xfs_buf_item_zone, bip);
+	xfs_buf_rele(bp);
+	xfs_buf_item_free(bip);
 }
 
 
@@ -1051,7 +1062,7 @@ xfs_buf_iodone_callbacks(
 			   anyway. */
 			XFS_BUF_SET_BRELSE_FUNC(bp,xfs_buf_error_relse);
 			XFS_BUF_DONE(bp);
-			XFS_BUF_V_IODONESEMA(bp);
+			XFS_BUF_FINISH_IOWAIT(bp);
 		}
 		return;
 	}
@@ -1112,10 +1123,10 @@ xfs_buf_iodone(
 	xfs_buf_log_item_t	*bip)
 {
 	struct xfs_mount	*mp;
-	SPLDECL(s);
 
 	ASSERT(bip->bli_buf == bp);
 
+	xfs_buf_rele(bp);
 	mp = bip->bli_item.li_mountp;
 
 	/*
@@ -1127,23 +1138,12 @@ xfs_buf_iodone(
 	 *
 	 * Either way, AIL is useless if we're forcing a shutdown.
 	 */
-	AIL_LOCK(mp,s);
+	spin_lock(&mp->m_ail_lock);
 	/*
 	 * xfs_trans_delete_ail() drops the AIL lock.
 	 */
-	xfs_trans_delete_ail(mp, (xfs_log_item_t *)bip, s);
-
-#ifdef XFS_TRANS_DEBUG
-	kmem_free(bip->bli_orig, XFS_BUF_COUNT(bp));
-	bip->bli_orig = NULL;
-	kmem_free(bip->bli_logged, XFS_BUF_COUNT(bp) / NBBY);
-	bip->bli_logged = NULL;
-#endif /* XFS_TRANS_DEBUG */
-
-#ifdef XFS_BLI_TRACE
-	ktrace_free(bip->bli_trace);
-#endif
-	kmem_zone_free(xfs_buf_item_zone, bip);
+	xfs_trans_delete_ail(mp, (xfs_log_item_t *)bip);
+	xfs_buf_item_free(bip);
 }
 
 #if defined(XFS_BLI_TRACE)

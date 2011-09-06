@@ -221,13 +221,14 @@ xfs_alloc_delrec(
 			 */
 			bno = be32_to_cpu(agf->agf_roots[cur->bc_btnum]);
 			agf->agf_roots[cur->bc_btnum] = *lpp;
-			be32_add(&agf->agf_levels[cur->bc_btnum], -1);
+			be32_add_cpu(&agf->agf_levels[cur->bc_btnum], -1);
 			mp->m_perag[be32_to_cpu(agf->agf_seqno)].pagf_levels[cur->bc_btnum]--;
 			/*
 			 * Put this buffer/block on the ag's freelist.
 			 */
-			if ((error = xfs_alloc_put_freelist(cur->bc_tp,
-					cur->bc_private.a.agbp, NULL, bno)))
+			error = xfs_alloc_put_freelist(cur->bc_tp,
+					cur->bc_private.a.agbp, NULL, bno, 1);
+			if (error)
 				return error;
 			/*
 			 * Since blocks move to the free list without the
@@ -549,8 +550,9 @@ xfs_alloc_delrec(
 	/*
 	 * Free the deleting block by putting it on the freelist.
 	 */
-	if ((error = xfs_alloc_put_freelist(cur->bc_tp, cur->bc_private.a.agbp,
-			NULL, rbno)))
+	error = xfs_alloc_put_freelist(cur->bc_tp,
+					 cur->bc_private.a.agbp, NULL, rbno, 1);
+	if (error)
 		return error;
 	/*
 	 * Since blocks move to the free list without the coordination
@@ -1254,9 +1256,9 @@ xfs_alloc_lshift(
 	/*
 	 * Bump and log left's numrecs, decrement and log right's numrecs.
 	 */
-	be16_add(&left->bb_numrecs, 1);
+	be16_add_cpu(&left->bb_numrecs, 1);
 	xfs_alloc_log_block(cur->bc_tp, lbp, XFS_BB_NUMRECS);
-	be16_add(&right->bb_numrecs, -1);
+	be16_add_cpu(&right->bb_numrecs, -1);
 	xfs_alloc_log_block(cur->bc_tp, rbp, XFS_BB_NUMRECS);
 	/*
 	 * Slide the contents of right down one entry.
@@ -1320,8 +1322,9 @@ xfs_alloc_newroot(
 	/*
 	 * Get a buffer from the freelist blocks, for the new root.
 	 */
-	if ((error = xfs_alloc_get_freelist(cur->bc_tp, cur->bc_private.a.agbp,
-			&nbno)))
+	error = xfs_alloc_get_freelist(cur->bc_tp,
+					cur->bc_private.a.agbp, &nbno, 1);
+	if (error)
 		return error;
 	/*
 	 * None available, we fail.
@@ -1343,7 +1346,7 @@ xfs_alloc_newroot(
 
 		agf = XFS_BUF_TO_AGF(cur->bc_private.a.agbp);
 		agf->agf_roots[cur->bc_btnum] = cpu_to_be32(nbno);
-		be32_add(&agf->agf_levels[cur->bc_btnum], 1);
+		be32_add_cpu(&agf->agf_levels[cur->bc_btnum], 1);
 		seqno = be32_to_cpu(agf->agf_seqno);
 		mp->m_perag[seqno].pagf_levels[cur->bc_btnum]++;
 		xfs_alloc_log_agf(cur->bc_tp, cur->bc_private.a.agbp,
@@ -1555,9 +1558,9 @@ xfs_alloc_rshift(
 	/*
 	 * Decrement and log left's numrecs, bump and log right's numrecs.
 	 */
-	be16_add(&left->bb_numrecs, -1);
+	be16_add_cpu(&left->bb_numrecs, -1);
 	xfs_alloc_log_block(cur->bc_tp, lbp, XFS_BB_NUMRECS);
-	be16_add(&right->bb_numrecs, 1);
+	be16_add_cpu(&right->bb_numrecs, 1);
 	xfs_alloc_log_block(cur->bc_tp, rbp, XFS_BB_NUMRECS);
 	/*
 	 * Using a temporary cursor, update the parent key values of the
@@ -1604,8 +1607,9 @@ xfs_alloc_split(
 	 * Allocate the new block from the freelist.
 	 * If we can't do it, we're toast.  Give up.
 	 */
-	if ((error = xfs_alloc_get_freelist(cur->bc_tp, cur->bc_private.a.agbp,
-			&rbno)))
+	error = xfs_alloc_get_freelist(cur->bc_tp,
+					 cur->bc_private.a.agbp, &rbno, 1);
+	if (error)
 		return error;
 	if (rbno == NULLAGBLOCK) {
 		*stat = 0;
@@ -1639,7 +1643,7 @@ xfs_alloc_split(
 	 */
 	if ((be16_to_cpu(left->bb_numrecs) & 1) &&
 	    cur->bc_ptrs[level] <= be16_to_cpu(right->bb_numrecs) + 1)
-		be16_add(&right->bb_numrecs, 1);
+		be16_add_cpu(&right->bb_numrecs, 1);
 	i = be16_to_cpu(left->bb_numrecs) - be16_to_cpu(right->bb_numrecs) + 1;
 	/*
 	 * For non-leaf blocks, copy keys and addresses over to the new block.
@@ -1685,7 +1689,7 @@ xfs_alloc_split(
 	 * Adjust numrecs, sibling pointers.
 	 */
 	lbno = XFS_DADDR_TO_AGBNO(cur->bc_mp, XFS_BUF_ADDR(lbp));
-	be16_add(&left->bb_numrecs, -(be16_to_cpu(right->bb_numrecs)));
+	be16_add_cpu(&left->bb_numrecs, -(be16_to_cpu(right->bb_numrecs)));
 	right->bb_rightsib = left->bb_rightsib;
 	left->bb_rightsib = cpu_to_be32(rbno);
 	right->bb_leftsib = cpu_to_be32(lbno);

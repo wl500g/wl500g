@@ -28,6 +28,8 @@
 #include "xfs_mount.h"
 #include "xfs_quota.h"
 #include "xfs_error.h"
+#include "xfs_clnt.h"
+
 
 STATIC struct xfs_dquot *
 xfs_dqvopchown_default(
@@ -47,24 +49,23 @@ xfs_mount_reset_sbqflags(xfs_mount_t *mp)
 {
 	int			error;
 	xfs_trans_t		*tp;
-	unsigned long		s;
 
 	mp->m_qflags = 0;
 	/*
 	 * It is OK to look at sb_qflags here in mount path,
-	 * without SB_LOCK.
+	 * without m_sb_lock.
 	 */
 	if (mp->m_sb.sb_qflags == 0)
 		return 0;
-	s = XFS_SB_LOCK(mp);
+	spin_lock(&mp->m_sb_lock);
 	mp->m_sb.sb_qflags = 0;
-	XFS_SB_UNLOCK(mp, s);
+	spin_unlock(&mp->m_sb_lock);
 
 	/*
 	 * if the fs is readonly, let the incore superblock run
 	 * with quotas off but don't flush the update out to disk
 	 */
-	if (XFS_MTOVFS(mp)->vfs_flag & VFS_RDONLY)
+	if (mp->m_flags & XFS_MOUNT_RDONLY)
 		return 0;
 #ifdef QUOTADEBUG
 	xfs_fs_cmn_err(CE_NOTE, mp, "Writing superblock quota changes");
@@ -110,7 +111,7 @@ xfs_noquota_init(
 	return error;
 }
 
-xfs_qmops_t	xfs_qmcore_stub = {
+static struct xfs_qmops xfs_qmcore_stub = {
 	.xfs_qminit		= (xfs_qminit_t) xfs_noquota_init,
 	.xfs_qmdone		= (xfs_qmdone_t) fs_noerr,
 	.xfs_qmmount		= (xfs_qmmount_t) fs_noerr,
@@ -124,4 +125,30 @@ xfs_qmops_t	xfs_qmcore_stub = {
 	.xfs_dqvoprename	= (xfs_dqvoprename_t) fs_noerr,
 	.xfs_dqvopchown		= xfs_dqvopchown_default,
 	.xfs_dqvopchownresv	= (xfs_dqvopchownresv_t) fs_noerr,
+	.xfs_dqstatvfs		= (xfs_dqstatvfs_t) fs_noval,
+	.xfs_dqsync		= (xfs_dqsync_t) fs_noerr,
+	.xfs_quotactl		= (xfs_quotactl_t) fs_nosys,
 };
+
+int
+xfs_qmops_get(struct xfs_mount *mp, struct xfs_mount_args *args)
+{
+	if (args->flags & (XFSMNT_UQUOTA | XFSMNT_PQUOTA | XFSMNT_GQUOTA)) {
+#ifdef CONFIG_XFS_QUOTA
+		mp->m_qm_ops = &xfs_qmcore_xfs;
+#else
+		cmn_err(CE_WARN,
+			"XFS: qouta support not available in this kernel.");
+		return EINVAL;
+#endif
+	} else {
+		mp->m_qm_ops = &xfs_qmcore_stub;
+	}
+
+	return 0;
+}
+
+void
+xfs_qmops_put(struct xfs_mount *mp)
+{
+}

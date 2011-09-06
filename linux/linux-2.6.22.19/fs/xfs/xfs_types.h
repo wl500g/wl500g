@@ -151,18 +151,6 @@ typedef __uint8_t	xfs_arch_t;	/* architecture of an xfs fs */
  */
 #define MAXNAMELEN	256
 
-typedef struct xfs_dirent {		/* data from readdir() */
-	xfs_ino_t	d_ino;		/* inode number of entry */
-	xfs_off_t	d_off;		/* offset of disk directory entry */
-	unsigned short	d_reclen;	/* length of this record */
-	char		d_name[1];	/* name of file */
-} xfs_dirent_t;
-
-#define DIRENTBASESIZE		(((xfs_dirent_t *)0)->d_name - (char *)0)
-#define DIRENTSIZE(namelen)	\
-	((DIRENTBASESIZE + (namelen) + \
-		sizeof(xfs_off_t)) & ~(sizeof(xfs_off_t) - 1))
-
 typedef enum {
 	XFS_LOOKUP_EQi, XFS_LOOKUP_LEi, XFS_LOOKUP_GEi
 } xfs_lookup_t;
@@ -171,5 +159,10 @@ typedef enum {
 	XFS_BTNUM_BNOi, XFS_BTNUM_CNTi, XFS_BTNUM_BMAPi, XFS_BTNUM_INOi,
 	XFS_BTNUM_MAX
 } xfs_btnum_t;
+
+struct xfs_name {
+	const char	*name;
+	int		len;
+};
 
 #endif	/* __XFS_TYPES_H__ */

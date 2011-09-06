@@ -22,8 +22,9 @@
 
 #define CYCLE_LSN(lsn) ((uint)((lsn)>>32))
 #define BLOCK_LSN(lsn) ((uint)(lsn))
+
 /* this is used in a spot where we might otherwise double-endian-flip */
-#define CYCLE_LSN_DISK(lsn) (((uint *)&(lsn))[0])
+#define CYCLE_LSN_DISK(lsn) (((__be32 *)&(lsn))[0])
 
 #ifdef __KERNEL__
 /*
@@ -141,13 +142,14 @@ int	  _xfs_log_force(struct xfs_mount *mp,
 			 xfs_lsn_t	lsn,
 			 uint		flags,
 			 int		*log_forced);
-#define xfs_log_force(mp, lsn, flags) \
-	_xfs_log_force(mp, lsn, flags, NULL);
+void	  xfs_log_force(struct xfs_mount	*mp,
+			xfs_lsn_t		lsn,
+			uint			flags);
 int	  xfs_log_mount(struct xfs_mount	*mp,
 			struct xfs_buftarg	*log_target,
 			xfs_daddr_t		start_block,
 			int		 	num_bblocks);
-int	  xfs_log_mount_finish(struct xfs_mount *mp, int);
+int	  xfs_log_mount_finish(struct xfs_mount *mp);
 void	  xfs_log_move_tail(struct xfs_mount	*mp,
 			    xfs_lsn_t		tail_lsn);
 int	  xfs_log_notify(struct xfs_mount	*mp,

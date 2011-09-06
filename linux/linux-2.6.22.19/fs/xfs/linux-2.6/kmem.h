@@ -58,7 +58,7 @@ extern void *kmem_alloc(size_t, unsigned int __nocast);
 extern void *kmem_zalloc(size_t, unsigned int __nocast);
 extern void *kmem_zalloc_greedy(size_t *, size_t, size_t, unsigned int __nocast);
 extern void *kmem_realloc(void *, size_t, size_t, unsigned int __nocast);
-extern void  kmem_free(void *, size_t);
+extern void  kmem_free(const void *);
 
 /*
  * Zone interfaces
@@ -122,7 +122,7 @@ kmem_shake_deregister(kmem_shaker_t shrinker)
 static inline int
 kmem_shake_allow(gfp_t gfp_mask)
 {
-	return (gfp_mask & __GFP_WAIT);
+	return (gfp_mask & __GFP_WAIT) != 0;
 }
 
 #endif /* __XFS_SUPPORT_KMEM_H__ */

@@ -30,14 +30,9 @@ struct xfs_trans;
 #define	XFS_IALLOC_BLOCKS(mp)	(mp)->m_ialloc_blks
 
 /*
- * For small block file systems, move inodes in clusters of this size.
- * When we don't have a lot of memory, however, we go a bit smaller
- * to reduce the number of AGI and ialloc btree blocks we need to keep
- * around for xfs_dilocate().  We choose which one to use in
- * xfs_mount_int().
+ * Move inodes in clusters of this size.
  */
 #define	XFS_INODE_BIG_CLUSTER_SIZE	8192
-#define	XFS_INODE_SMALL_CLUSTER_SIZE	4096
 #define	XFS_INODE_CLUSTER_SIZE(mp)	(mp)->m_inode_cluster_size
 
 /*
@@ -148,6 +143,16 @@ xfs_ialloc_read_agi(
 	struct xfs_trans *tp,		/* transaction pointer */
 	xfs_agnumber_t	agno,		/* allocation group number */
 	struct xfs_buf	**bpp);		/* allocation group hdr buf */
+
+/*
+ * Read in the allocation group header to initialise the per-ag data
+ * in the mount structure
+ */
+int
+xfs_ialloc_pagi_init(
+	struct xfs_mount *mp,		/* file system mount structure */
+	struct xfs_trans *tp,		/* transaction pointer */
+        xfs_agnumber_t  agno);		/* allocation group number */
 
 #endif	/* __KERNEL__ */
 

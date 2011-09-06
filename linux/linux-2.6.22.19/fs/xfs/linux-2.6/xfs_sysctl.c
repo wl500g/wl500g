@@ -210,6 +210,17 @@ static ctl_table xfs_table[] = {
 		.extra1		= &xfs_params.inherit_nodfrg.min,
 		.extra2		= &xfs_params.inherit_nodfrg.max
 	},
+	{
+		.ctl_name	= XFS_FILESTREAM_TIMER,
+		.procname	= "filestream_centisecs",
+		.data		= &xfs_params.fstrm_timer.val,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec_minmax,
+		.strategy	= &sysctl_intvec,
+		.extra1		= &xfs_params.fstrm_timer.min,
+		.extra2		= &xfs_params.fstrm_timer.max,
+	},
 	/* please keep this the last entry */
 #ifdef CONFIG_PROC_FS
 	{
@@ -248,15 +259,17 @@ static ctl_table xfs_root_table[] = {
 	{}
 };
 
-void
+int
 xfs_sysctl_register(void)
 {
 	xfs_table_header = register_sysctl_table(xfs_root_table);
+	if (!xfs_table_header)
+		return -ENOMEM;
+	return 0;
 }
 
 void
 xfs_sysctl_unregister(void)
 {
-	if (xfs_table_header)
-		unregister_sysctl_table(xfs_table_header);
+	unregister_sysctl_table(xfs_table_header);
 }

@@ -126,11 +126,11 @@ xfs_write_sync_logforce(
 		 * when we return.
 		 */
 		if (iip && iip->ili_last_lsn) {
-			xfs_log_force(mp, iip->ili_last_lsn,
-					XFS_LOG_FORCE | XFS_LOG_SYNC);
+			error = _xfs_log_force(mp, iip->ili_last_lsn,
+					XFS_LOG_FORCE | XFS_LOG_SYNC, NULL);
 		} else if (xfs_ipincount(ip) > 0) {
-			xfs_log_force(mp, (xfs_lsn_t)0,
-					XFS_LOG_FORCE | XFS_LOG_SYNC);
+			error = _xfs_log_force(mp, (xfs_lsn_t)0,
+					XFS_LOG_FORCE | XFS_LOG_SYNC, NULL);
 		}
 
 	} else {
@@ -178,18 +178,15 @@ xfs_write_sync_logforce(
  * the shop, make sure that absolutely nothing persistent happens to
  * this filesystem after this point.
  */
-
 void
 xfs_do_force_shutdown(
-	bhv_desc_t	*bdp,
+	xfs_mount_t	*mp,
 	int		flags,
 	char		*fname,
 	int		lnnum)
 {
 	int		logerror;
-	xfs_mount_t	*mp;
 
-	mp = XFS_BHVTOM(bdp);
 	logerror = flags & SHUTDOWN_LOG_IO_ERROR;
 
 	if (!(flags & SHUTDOWN_FORCE_UMOUNT)) {
@@ -317,7 +314,7 @@ xfs_bioerror_relse(
 		 * ASYNC buffers.
 		 */
 		XFS_BUF_ERROR(bp, EIO);
-		XFS_BUF_V_IODONESEMA(bp);
+		XFS_BUF_FINISH_IOWAIT(bp);
 	} else {
 		xfs_buf_relse(bp);
 	}

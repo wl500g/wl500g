@@ -421,13 +421,13 @@ xfs_trans_apply_dquot_deltas(
 				       (xfs_qcnt_t) -qtrx->qt_icount_delta);
 #endif
 			if (totalbdelta)
-				be64_add(&d->d_bcount, (xfs_qcnt_t)totalbdelta);
+				be64_add_cpu(&d->d_bcount, (xfs_qcnt_t)totalbdelta);
 
 			if (qtrx->qt_icount_delta)
-				be64_add(&d->d_icount, (xfs_qcnt_t)qtrx->qt_icount_delta);
+				be64_add_cpu(&d->d_icount, (xfs_qcnt_t)qtrx->qt_icount_delta);
 
 			if (totalrtbdelta)
-				be64_add(&d->d_rtbcount, (xfs_qcnt_t)totalrtbdelta);
+				be64_add_cpu(&d->d_rtbcount, (xfs_qcnt_t)totalrtbdelta);
 
 			/*
 			 * Get any default limits in use.
@@ -834,7 +834,7 @@ xfs_trans_reserve_quota_nblks(
 	ASSERT(ip->i_ino != mp->m_sb.sb_uquotino);
 	ASSERT(ip->i_ino != mp->m_sb.sb_gquotino);
 
-	ASSERT(XFS_ISLOCKED_INODE_EXCL(ip));
+	ASSERT(xfs_isilocked(ip, XFS_ILOCK_EXCL));
 	ASSERT(XFS_IS_QUOTA_RUNNING(ip->i_mount));
 	ASSERT((flags & ~(XFS_QMOPT_FORCE_RES | XFS_QMOPT_ENOSPC)) ==
 				XFS_TRANS_DQ_RES_RTBLKS ||

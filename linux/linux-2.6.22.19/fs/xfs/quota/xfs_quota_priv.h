@@ -27,11 +27,6 @@
 /* Number of dquots that fit in to a dquot block */
 #define XFS_QM_DQPERBLK(mp)	((mp)->m_quotainfo->qi_dqperchunk)
 
-#define XFS_ISLOCKED_INODE(ip)		(ismrlocked(&(ip)->i_lock, \
-					    MR_UPDATE | MR_ACCESS) != 0)
-#define XFS_ISLOCKED_INODE_EXCL(ip)	(ismrlocked(&(ip)->i_lock, \
-					    MR_UPDATE) != 0)
-
 #define XFS_DQ_IS_ADDEDTO_TRX(t, d)	((d)->q_transp == (t))
 
 #define XFS_QI_MPLRECLAIMS(mp)	((mp)->m_quotainfo->qi_dqreclaims)
@@ -162,9 +157,6 @@ for ((dqp) = (qlist)->qh_next; (dqp) != (xfs_dquot_t *)(qlist); \
 					 (tp)->t_dqinfo->dqa_grpdquots)
 #define XFS_IS_SUSER_DQUOT(dqp)		\
 	(!((dqp)->q_core.d_id))
-
-#define XFS_PURGE_INODE(ip)		\
-	IRELE(ip);
 
 #define DQFLAGTO_TYPESTR(d)	(((d)->dq_flags & XFS_DQ_USER) ? "USR" : \
 				 (((d)->dq_flags & XFS_DQ_GROUP) ? "GRP" : \

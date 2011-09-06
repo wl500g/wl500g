@@ -32,19 +32,20 @@
 #include "xfs_btree.h"
 #include "xfs_acl.h"
 #include "xfs_attr.h"
+#include "xfs_vnodeops.h"
 
 #include <linux/capability.h>
 #include <linux/posix_acl_xattr.h>
 
-STATIC int	xfs_acl_setmode(bhv_vnode_t *, xfs_acl_t *, int *);
+STATIC int	xfs_acl_setmode(struct inode *, xfs_acl_t *, int *);
 STATIC void     xfs_acl_filter_mode(mode_t, xfs_acl_t *);
 STATIC void	xfs_acl_get_endian(xfs_acl_t *);
 STATIC int	xfs_acl_access(uid_t, gid_t, xfs_acl_t *, mode_t, cred_t *);
 STATIC int	xfs_acl_invalid(xfs_acl_t *);
 STATIC void	xfs_acl_sync_mode(mode_t, xfs_acl_t *);
-STATIC void	xfs_acl_get_attr(bhv_vnode_t *, xfs_acl_t *, int, int, int *);
-STATIC void	xfs_acl_set_attr(bhv_vnode_t *, xfs_acl_t *, int, int *);
-STATIC int	xfs_acl_allow_set(bhv_vnode_t *, int);
+STATIC void	xfs_acl_get_attr(struct inode *, xfs_acl_t *, int, int, int *);
+STATIC void	xfs_acl_set_attr(struct inode *, xfs_acl_t *, int, int *);
+STATIC int	xfs_acl_allow_set(struct inode *, int);
 
 kmem_zone_t *xfs_acl_zone;
 
@@ -54,7 +55,7 @@ kmem_zone_t *xfs_acl_zone;
  */
 int
 xfs_acl_vhasacl_access(
-	bhv_vnode_t	*vp)
+	struct inode	*vp)
 {
 	int		error;
 
@@ -67,11 +68,11 @@ xfs_acl_vhasacl_access(
  */
 int
 xfs_acl_vhasacl_default(
-	bhv_vnode_t	*vp)
+	struct inode	*vp)
 {
 	int		error;
 
-	if (!VN_ISDIR(vp))
+	if (!S_ISDIR(vp->i_mode))
 		return 0;
 	xfs_acl_get_attr(vp, NULL, _ACL_TYPE_DEFAULT, ATTR_KERNOVAL, &error);
 	return (error == 0);
@@ -206,7 +207,7 @@ posix_acl_xfs_to_xattr(
 
 int
 xfs_acl_vget(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	void		*acl,
 	size_t		size,
 	int		kind)
@@ -216,7 +217,6 @@ xfs_acl_vget(
 	posix_acl_xattr_header	*ext_acl = acl;
 	int			flags = 0;
 
-	VN_HOLD(vp);
 	if(size) {
 		if (!(_ACL_ALLOC(xfs_acl))) {
 			error = ENOMEM;
@@ -237,19 +237,11 @@ xfs_acl_vget(
 			error = EINVAL;
 			goto out;
 		}
-		if (kind == _ACL_TYPE_ACCESS) {
-			bhv_vattr_t	va;
-
-			va.va_mask = XFS_AT_MODE;
-			error = bhv_vop_getattr(vp, &va, 0, sys_cred);
-			if (error)
-				goto out;
-			xfs_acl_sync_mode(va.va_mode, xfs_acl);
-		}
+		if (kind == _ACL_TYPE_ACCESS)
+			xfs_acl_sync_mode(XFS_I(vp)->i_d.di_mode, xfs_acl);
 		error = -posix_acl_xfs_to_xattr(xfs_acl, ext_acl, size);
 	}
 out:
-	VN_RELE(vp);
 	if(xfs_acl)
 		_ACL_FREE(xfs_acl);
 	return -error;
@@ -257,27 +249,26 @@ out:
 
 int
 xfs_acl_vremove(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	int		kind)
 {
 	int		error;
 
-	VN_HOLD(vp);
 	error = xfs_acl_allow_set(vp, kind);
 	if (!error) {
-		error = bhv_vop_attr_remove(vp, kind == _ACL_TYPE_DEFAULT?
+		error = xfs_attr_remove(XFS_I(vp),
+						kind == _ACL_TYPE_DEFAULT?
 						SGI_ACL_DEFAULT: SGI_ACL_FILE,
-						ATTR_ROOT, sys_cred);
+						ATTR_ROOT);
 		if (error == ENOATTR)
 			error = 0;	/* 'scool */
 	}
-	VN_RELE(vp);
 	return -error;
 }
 
 int
 xfs_acl_vset(
-	bhv_vnode_t		*vp,
+	struct inode		*vp,
 	void			*acl,
 	size_t			size,
 	int			kind)
@@ -303,14 +294,14 @@ xfs_acl_vset(
 		return 0;
 	}
 
-	VN_HOLD(vp);
 	error = xfs_acl_allow_set(vp, kind);
-	if (error)
-		goto out;
 
 	/* Incoming ACL exists, set file mode based on its value */
-	if (kind == _ACL_TYPE_ACCESS)
-		xfs_acl_setmode(vp, xfs_acl, &basicperms);
+	if (!error && kind == _ACL_TYPE_ACCESS)
+		error = xfs_acl_setmode(vp, xfs_acl, &basicperms);
+
+	if (error)
+		goto out;
 
 	/*
 	 * If we have more than std unix permissions, set up the actual attr.
@@ -321,11 +312,10 @@ xfs_acl_vset(
 	if (!basicperms) {
 		xfs_acl_set_attr(vp, xfs_acl, kind, &error);
 	} else {
-		xfs_acl_vremove(vp, _ACL_TYPE_ACCESS);
+		error = -xfs_acl_vremove(vp, _ACL_TYPE_ACCESS);
 	}
 
 out:
-	VN_RELE(vp);
 	_ACL_FREE(xfs_acl);
 	return -error;
 }
@@ -338,14 +328,14 @@ xfs_acl_iaccess(
 {
 	xfs_acl_t	*acl;
 	int		rval;
+	struct xfs_name	acl_name = {SGI_ACL_FILE, SGI_ACL_FILE_SIZE};
 
 	if (!(_ACL_ALLOC(acl)))
 		return -1;
 
 	/* If the file has no ACL return -1. */
 	rval = sizeof(xfs_acl_t);
-	if (xfs_attr_fetch(ip, SGI_ACL_FILE, SGI_ACL_FILE_SIZE,
-			(char *)acl, &rval, ATTR_ROOT | ATTR_KERNACCESS, cr)) {
+	if (xfs_attr_fetch(ip, &acl_name, (char *)acl, &rval, ATTR_ROOT)) {
 		_ACL_FREE(acl);
 		return -1;
 	}
@@ -367,50 +357,17 @@ xfs_acl_iaccess(
 
 STATIC int
 xfs_acl_allow_set(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	int		kind)
 {
-	bhv_vattr_t	va;
-	int		error;
-
-	if (vp->v_inode.i_flags & (S_IMMUTABLE|S_APPEND))
+	if (vp->i_flags & (S_IMMUTABLE|S_APPEND))
 		return EPERM;
-	if (kind == _ACL_TYPE_DEFAULT && !VN_ISDIR(vp))
+	if (kind == _ACL_TYPE_DEFAULT && !S_ISDIR(vp->i_mode))
 		return ENOTDIR;
-	if (vp->v_vfsp->vfs_flag & VFS_RDONLY)
+	if (vp->i_sb->s_flags & MS_RDONLY)
 		return EROFS;
-	va.va_mask = XFS_AT_UID;
-	error = bhv_vop_getattr(vp, &va, 0, NULL);
-	if (error)
-		return error;
-	if (va.va_uid != current->fsuid && !capable(CAP_FOWNER))
+	if (XFS_I(vp)->i_d.di_uid != current->fsuid && !capable(CAP_FOWNER))
 		return EPERM;
-	return error;
-}
-
-/*
- * The access control process to determine the access permission:
- *	if uid == file owner id, use the file owner bits.
- *	if gid == file owner group id, use the file group bits.
- *	scan ACL for a matching user or group, and use matched entry
- *	permission. Use total permissions of all matching group entries,
- *	until all acl entries are exhausted. The final permission produced
- *	by matching acl entry or entries needs to be & with group permission.
- *	if not owner, owning group, or matching entry in ACL, use file
- *	other bits.  
- */
-STATIC int
-xfs_acl_capability_check(
-	mode_t		mode,
-	cred_t		*cr)
-{
-	if ((mode & ACL_READ) && !capable_cred(cr, CAP_DAC_READ_SEARCH))
-		return EACCES;
-	if ((mode & ACL_WRITE) && !capable_cred(cr, CAP_DAC_OVERRIDE))
-		return EACCES;
-	if ((mode & ACL_EXECUTE) && !capable_cred(cr, CAP_DAC_OVERRIDE))
-		return EACCES;
-
 	return 0;
 }
 
@@ -435,7 +392,6 @@ xfs_acl_access(
 
 	matched.ae_tag = 0;	/* Invalid type */
 	matched.ae_perm = 0;
-	md >>= 6;	/* Normalize the bits for comparison */
 
 	for (i = 0; i < fap->acl_cnt; i++) {
 		/*
@@ -517,7 +473,8 @@ xfs_acl_access(
 		break;
 	}
 
-	return xfs_acl_capability_check(md, cr);
+	/* EACCES tells generic_permission to check for capability overrides */
+	return EACCES;
 }
 
 /*
@@ -603,7 +560,7 @@ xfs_acl_get_endian(
  */
 STATIC void
 xfs_acl_get_attr(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	xfs_acl_t	*aclp,
 	int		kind,
 	int		flags,
@@ -613,9 +570,10 @@ xfs_acl_get_attr(
 
 	ASSERT((flags & ATTR_KERNOVAL) ? (aclp == NULL) : 1);
 	flags |= ATTR_ROOT;
-	*error = bhv_vop_attr_get(vp, kind == _ACL_TYPE_ACCESS ?
+	*error = xfs_attr_get(XFS_I(vp),
+					kind == _ACL_TYPE_ACCESS ?
 					SGI_ACL_FILE : SGI_ACL_DEFAULT,
-					(char *)aclp, &len, flags, sys_cred);
+					(char *)aclp, &len, flags);
 	if (*error || (flags & ATTR_KERNOVAL))
 		return;
 	xfs_acl_get_endian(aclp);
@@ -626,7 +584,7 @@ xfs_acl_get_attr(
  */
 STATIC void
 xfs_acl_set_attr(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	xfs_acl_t	*aclp,
 	int		kind,
 	int		*error)
@@ -651,19 +609,19 @@ xfs_acl_set_attr(
 		INT_SET(newace->ae_perm, ARCH_CONVERT, ace->ae_perm);
 	}
 	INT_SET(newacl->acl_cnt, ARCH_CONVERT, aclp->acl_cnt);
-	*error = bhv_vop_attr_set(vp, kind == _ACL_TYPE_ACCESS ?
+	*error = xfs_attr_set(XFS_I(vp),
+				kind == _ACL_TYPE_ACCESS ?
 				SGI_ACL_FILE: SGI_ACL_DEFAULT,
-				(char *)newacl, len, ATTR_ROOT, sys_cred);
+				(char *)newacl, len, ATTR_ROOT);
 	_ACL_FREE(newacl);
 }
 
 int
 xfs_acl_vtoacl(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	xfs_acl_t	*access_acl,
 	xfs_acl_t	*default_acl)
 {
-	bhv_vattr_t	va;
 	int		error = 0;
 
 	if (access_acl) {
@@ -672,16 +630,10 @@ xfs_acl_vtoacl(
 		 * be obtained for some reason, invalidate the access ACL.
 		 */
 		xfs_acl_get_attr(vp, access_acl, _ACL_TYPE_ACCESS, 0, &error);
-		if (!error) {
-			/* Got the ACL, need the mode... */
-			va.va_mask = XFS_AT_MODE;
-			error = bhv_vop_getattr(vp, &va, 0, sys_cred);
-		}
-
 		if (error)
 			access_acl->acl_cnt = XFS_ACL_NOT_PRESENT;
 		else /* We have a good ACL and the file mode, synchronize. */
-			xfs_acl_sync_mode(va.va_mode, access_acl);
+			xfs_acl_sync_mode(XFS_I(vp)->i_d.di_mode, access_acl);
 	}
 
 	if (default_acl) {
@@ -698,8 +650,8 @@ xfs_acl_vtoacl(
  */
 int
 xfs_acl_inherit(
-	bhv_vnode_t	*vp,
-	bhv_vattr_t	*vap,
+	struct inode	*vp,
+	mode_t		mode,
 	xfs_acl_t	*pdaclp)
 {
 	xfs_acl_t	*cacl;
@@ -727,8 +679,10 @@ xfs_acl_inherit(
 		return ENOMEM;
 
 	memcpy(cacl, pdaclp, sizeof(xfs_acl_t));
-	xfs_acl_filter_mode(vap->va_mode, cacl);
-	xfs_acl_setmode(vp, cacl, &basicperms);
+	xfs_acl_filter_mode(mode, cacl);
+	error = xfs_acl_setmode(vp, cacl, &basicperms);
+	if (error)
+		goto out_error;
 
 	/*
 	 * Set the Default and Access ACL on the file.  The mode is already
@@ -737,10 +691,11 @@ xfs_acl_inherit(
 	 * If the new file is a directory, its default ACL is a copy of
 	 * the containing directory's default ACL.
 	 */
-	if (VN_ISDIR(vp))
+	if (S_ISDIR(vp->i_mode))
 		xfs_acl_set_attr(vp, pdaclp, _ACL_TYPE_DEFAULT, &error);
 	if (!error && !basicperms)
 		xfs_acl_set_attr(vp, cacl, _ACL_TYPE_ACCESS, &error);
+out_error:
 	_ACL_FREE(cacl);
 	return error;
 }
@@ -754,14 +709,14 @@ xfs_acl_inherit(
  */
 STATIC int
 xfs_acl_setmode(
-	bhv_vnode_t	*vp,
+	struct inode	*vp,
 	xfs_acl_t	*acl,
 	int		*basicperms)
 {
-	bhv_vattr_t	va;
+	struct iattr	iattr;
 	xfs_acl_entry_t	*ap;
 	xfs_acl_entry_t	*gap = NULL;
-	int		i, error, nomask = 1;
+	int		i, nomask = 1;
 
 	*basicperms = 1;
 
@@ -772,29 +727,25 @@ xfs_acl_setmode(
 	 * Copy the u::, g::, o::, and m:: bits from the ACL into the
 	 * mode.  The m:: bits take precedence over the g:: bits.
 	 */
-	va.va_mask = XFS_AT_MODE;
-	error = bhv_vop_getattr(vp, &va, 0, sys_cred);
-	if (error)
-		return error;
-
-	va.va_mask = XFS_AT_MODE;
-	va.va_mode &= ~(S_IRWXU|S_IRWXG|S_IRWXO);
+	iattr.ia_valid = ATTR_MODE;
+	iattr.ia_mode = XFS_I(vp)->i_d.di_mode;
+	iattr.ia_mode &= ~(S_IRWXU|S_IRWXG|S_IRWXO);
 	ap = acl->acl_entry;
 	for (i = 0; i < acl->acl_cnt; ++i) {
 		switch (ap->ae_tag) {
 		case ACL_USER_OBJ:
-			va.va_mode |= ap->ae_perm << 6;
+			iattr.ia_mode |= ap->ae_perm << 6;
 			break;
 		case ACL_GROUP_OBJ:
 			gap = ap;
 			break;
 		case ACL_MASK:	/* more than just standard modes */
 			nomask = 0;
-			va.va_mode |= ap->ae_perm << 3;
+			iattr.ia_mode |= ap->ae_perm << 3;
 			*basicperms = 0;
 			break;
 		case ACL_OTHER:
-			va.va_mode |= ap->ae_perm;
+			iattr.ia_mode |= ap->ae_perm;
 			break;
 		default:	/* more than just standard modes */
 			*basicperms = 0;
@@ -805,9 +756,9 @@ xfs_acl_setmode(
 
 	/* Set the group bits from ACL_GROUP_OBJ if there's no ACL_MASK */
 	if (gap && nomask)
-		va.va_mode |= gap->ae_perm << 3;
+		iattr.ia_mode |= gap->ae_perm << 3;
 
-	return bhv_vop_setattr(vp, &va, 0, sys_cred);
+	return xfs_setattr(XFS_I(vp), &iattr, 0, sys_cred);
 }
 
 /*

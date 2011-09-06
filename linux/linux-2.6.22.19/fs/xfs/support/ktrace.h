@@ -18,8 +18,6 @@
 #ifndef __XFS_SUPPORT_KTRACE_H__
 #define __XFS_SUPPORT_KTRACE_H__
 
-#include <spin.h>
-
 /*
  * Trace buffer entry structure.
  */
@@ -31,9 +29,9 @@ typedef struct ktrace_entry {
  * Trace buffer header structure.
  */
 typedef struct ktrace {
-	lock_t		kt_lock;	/* mutex to guard counters */
 	int		kt_nentries;	/* number of entries in trace buf */
-	int		kt_index;	/* current index in entries */
+	atomic_t	kt_index;	/* current index in entries */
+	unsigned int	kt_index_mask;
 	int		kt_rollover;
 	ktrace_entry_t	*kt_entries;	/* buffer of entries */
 } ktrace_t;

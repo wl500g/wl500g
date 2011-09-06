@@ -30,17 +30,16 @@ struct xfs_mount;
  */
 
 #define XLOG_MIN_ICLOGS		2
-#define XLOG_MED_ICLOGS		4
 #define XLOG_MAX_ICLOGS		8
 #define XLOG_HEADER_MAGIC_NUM	0xFEEDbabe	/* Invalid cycle number */
 #define XLOG_VERSION_1		1
 #define XLOG_VERSION_2		2		/* Large IClogs, Log sunit */
 #define XLOG_VERSION_OKBITS	(XLOG_VERSION_1 | XLOG_VERSION_2)
-#define XLOG_RECORD_BSIZE	(16*1024)	/* eventually 32k */
+#define XLOG_MIN_RECORD_BSIZE	(16*1024)	/* eventually 32k */
 #define XLOG_BIG_RECORD_BSIZE	(32*1024)	/* 32k buffers */
 #define XLOG_MAX_RECORD_BSIZE	(256*1024)
 #define XLOG_HEADER_CYCLE_SIZE	(32*1024)	/* cycle data in header */
-#define XLOG_RECORD_BSHIFT	14		/* 16384 == 1 << 14 */
+#define XLOG_MIN_RECORD_BSHIFT	14		/* 16384 == 1 << 14 */
 #define XLOG_BIG_RECORD_BSHIFT	15		/* 32k == 1 << 15 */
 #define XLOG_MAX_RECORD_BSHIFT	18		/* 256k == 1 << 18 */
 #define XLOG_BTOLSUNIT(log, b)  (((b)+(log)->l_mp->m_sb.sb_logsunit-1) / \
@@ -50,35 +49,25 @@ struct xfs_mount;
 #define XLOG_HEADER_SIZE	512
 
 #define XLOG_REC_SHIFT(log) \
-	BTOBB(1 << (XFS_SB_VERSION_HASLOGV2(&log->l_mp->m_sb) ? \
+	BTOBB(1 << (xfs_sb_version_haslogv2(&log->l_mp->m_sb) ? \
 	 XLOG_MAX_RECORD_BSHIFT : XLOG_BIG_RECORD_BSHIFT))
 #define XLOG_TOTAL_REC_SHIFT(log) \
-	BTOBB(XLOG_MAX_ICLOGS << (XFS_SB_VERSION_HASLOGV2(&log->l_mp->m_sb) ? \
+	BTOBB(XLOG_MAX_ICLOGS << (xfs_sb_version_haslogv2(&log->l_mp->m_sb) ? \
 	 XLOG_MAX_RECORD_BSHIFT : XLOG_BIG_RECORD_BSHIFT))
 
-/*
- *  set lsns
- */
 
-#define ASSIGN_ANY_LSN_HOST(lsn,cycle,block)  \
-    { \
-	(lsn) = ((xfs_lsn_t)(cycle)<<32)|(block); \
-    }
-#define ASSIGN_ANY_LSN_DISK(lsn,cycle,block)  \
-    { \
-	INT_SET(((uint *)&(lsn))[0], ARCH_CONVERT, (cycle)); \
-	INT_SET(((uint *)&(lsn))[1], ARCH_CONVERT, (block)); \
-    }
-#define ASSIGN_LSN(lsn,log) \
-    ASSIGN_ANY_LSN_DISK(lsn,(log)->l_curr_cycle,(log)->l_curr_block);
+static inline xfs_lsn_t xlog_assign_lsn(uint cycle, uint block)
+{
+	return ((xfs_lsn_t)cycle << 32) | block;
+}
 
-#define XLOG_SET(f,b)		(((f) & (b)) == (b))
-
-#define GET_CYCLE(ptr, arch) \
-    (INT_GET(*(uint *)(ptr), arch) == XLOG_HEADER_MAGIC_NUM ? \
-	 INT_GET(*((uint *)(ptr)+1), arch) : \
-	 INT_GET(*(uint *)(ptr), arch) \
-    )
+static inline uint xlog_get_cycle(char *ptr)
+{
+	if (be32_to_cpu(*(__be32 *)ptr) == XLOG_HEADER_MAGIC_NUM)
+		return be32_to_cpu(*((__be32 *)ptr + 1));
+	else
+		return be32_to_cpu(*(__be32 *)ptr);
+}
 
 #define BLK_AVG(blk1, blk2)	((blk1+blk2) >> 1)
 
@@ -97,19 +86,10 @@ struct xfs_mount;
  *
  * this has endian issues, of course.
  */
-
-#ifndef XFS_NATIVE_HOST
-#define GET_CLIENT_ID(i,arch) \
-    ((i) & 0xff)
-#else
-#define GET_CLIENT_ID(i,arch) \
-    ((i) >> 24)
-#endif
-
-#define GRANT_LOCK(log)		mutex_spinlock(&(log)->l_grant_lock)
-#define GRANT_UNLOCK(log, s)	mutex_spinunlock(&(log)->l_grant_lock, s)
-#define LOG_LOCK(log)		mutex_spinlock(&(log)->l_icloglock)
-#define LOG_UNLOCK(log, s)	mutex_spinunlock(&(log)->l_icloglock, s)
+static inline uint xlog_get_client_id(__be32 i)
+{
+	return be32_to_cpu(i) >> 24;
+}
 
 #define xlog_panic(args...)	cmn_err(CE_PANIC, ## args)
 #define xlog_exit(args...)	cmn_err(CE_PANIC, ## args)
@@ -250,22 +230,6 @@ typedef __uint32_t xlog_tid_t;
 
 /* Ticket reservation region accounting */ 
 #define XLOG_TIC_LEN_MAX	15
-#define XLOG_TIC_RESET_RES(t) ((t)->t_res_num = \
-				(t)->t_res_arr_sum = (t)->t_res_num_ophdrs = 0)
-#define XLOG_TIC_ADD_OPHDR(t) ((t)->t_res_num_ophdrs++)
-#define XLOG_TIC_ADD_REGION(t, len, type)				\
-	do {								\
-		if ((t)->t_res_num == XLOG_TIC_LEN_MAX) { 		\
-			/* add to overflow and start again */		\
-			(t)->t_res_o_flow += (t)->t_res_arr_sum;	\
-			(t)->t_res_num = 0;				\
-			(t)->t_res_arr_sum = 0;				\
-		}							\
-		(t)->t_res_arr[(t)->t_res_num].r_len = (len);		\
-		(t)->t_res_arr[(t)->t_res_num].r_type = (type);		\
-		(t)->t_res_arr_sum += (len);				\
-		(t)->t_res_num++;					\
-	} while (0)
 
 /*
  * Reservation region
@@ -278,8 +242,8 @@ typedef struct xlog_res {
 } xlog_res_t;
 
 typedef struct xlog_ticket {
-	sv_t		   t_sema;	 /* sleep on this semaphore      : 20 */
- 	struct xlog_ticket *t_next;	 /*			         :4|8 */
+	sv_t		   t_wait;	 /* ticket wait queue            : 20 */
+	struct xlog_ticket *t_next;	 /*			         :4|8 */
 	struct xlog_ticket *t_prev;	 /*				 :4|8 */
 	xlog_tid_t	   t_tid;	 /* transaction identifier	 : 4  */
 	int		   t_curr_res;	 /* current reservation in bytes : 4  */
@@ -302,11 +266,11 @@ typedef struct xlog_ticket {
 
 
 typedef struct xlog_op_header {
-	xlog_tid_t oh_tid;	/* transaction id of operation	:  4 b */
-	int	   oh_len;	/* bytes in data region		:  4 b */
-	__uint8_t  oh_clientid;	/* who sent me this		:  1 b */
-	__uint8_t  oh_flags;	/*				:  1 b */
-	ushort	   oh_res2;	/* 32 bit align			:  2 b */
+	__be32	   oh_tid;	/* transaction id of operation	:  4 b */
+	__be32	   oh_len;	/* bytes in data region		:  4 b */
+	__u8	   oh_clientid;	/* who sent me this		:  1 b */
+	__u8	   oh_flags;	/*				:  1 b */
+	__u16	   oh_res2;	/* 32 bit align			:  2 b */
 } xlog_op_header_t;
 
 
@@ -324,25 +288,25 @@ typedef struct xlog_op_header {
 #endif
 
 typedef struct xlog_rec_header {
-	uint	  h_magicno;	/* log record (LR) identifier		:  4 */
-	uint	  h_cycle;	/* write cycle of log			:  4 */
-	int	  h_version;	/* LR version				:  4 */
-	int	  h_len;	/* len in bytes; should be 64-bit aligned: 4 */
-	xfs_lsn_t h_lsn;	/* lsn of this LR			:  8 */
-	xfs_lsn_t h_tail_lsn;	/* lsn of 1st LR w/ buffers not committed: 8 */
-	uint	  h_chksum;	/* may not be used; non-zero if used	:  4 */
-	int	  h_prev_block; /* block number to previous LR		:  4 */
-	int	  h_num_logops;	/* number of log operations in this LR	:  4 */
-	uint	  h_cycle_data[XLOG_HEADER_CYCLE_SIZE / BBSIZE];
+	__be32	  h_magicno;	/* log record (LR) identifier		:  4 */
+	__be32	  h_cycle;	/* write cycle of log			:  4 */
+	__be32	  h_version;	/* LR version				:  4 */
+	__be32	  h_len;	/* len in bytes; should be 64-bit aligned: 4 */
+	__be64	  h_lsn;	/* lsn of this LR			:  8 */
+	__be64	  h_tail_lsn;	/* lsn of 1st LR w/ buffers not committed: 8 */
+	__be32	  h_chksum;	/* may not be used; non-zero if used	:  4 */
+	__be32	  h_prev_block; /* block number to previous LR		:  4 */
+	__be32	  h_num_logops;	/* number of log operations in this LR	:  4 */
+	__be32	  h_cycle_data[XLOG_HEADER_CYCLE_SIZE / BBSIZE];
 	/* new fields */
-	int       h_fmt;        /* format of log record                 :  4 */
-	uuid_t    h_fs_uuid;    /* uuid of FS                           : 16 */
-	int       h_size;	/* iclog size				:  4 */
+	__be32    h_fmt;        /* format of log record                 :  4 */
+	uuid_t	  h_fs_uuid;    /* uuid of FS                           : 16 */
+	__be32	  h_size;	/* iclog size				:  4 */
 } xlog_rec_header_t;
 
 typedef struct xlog_rec_ext_header {
-	uint	  xh_cycle;	/* write cycle of log			: 4 */
-	uint	  xh_cycle_data[XLOG_HEADER_CYCLE_SIZE / BBSIZE]; /*	: 256 */
+	__be32	  xh_cycle;	/* write cycle of log			: 4 */
+	__be32	  xh_cycle_data[XLOG_HEADER_CYCLE_SIZE / BBSIZE]; /*	: 256 */
 } xlog_rec_ext_header_t;
 
 #ifdef __KERNEL__
@@ -351,7 +315,7 @@ typedef struct xlog_rec_ext_header {
  *	xlog_rec_header_t into the reserved space.
  * - ic_data follows, so a write to disk can start at the beginning of
  *	the iclog.
- * - ic_forcesema is used to implement synchronous forcing of the iclog to disk.
+ * - ic_forcewait is used to implement synchronous forcing of the iclog to disk.
  * - ic_next is the pointer to the next iclog in the ring.
  * - ic_bp is a pointer to the buffer used to write this incore log to disk.
  * - ic_log is a pointer back to the global log structure.
@@ -361,25 +325,43 @@ typedef struct xlog_rec_ext_header {
  * - ic_offset is the current number of bytes written to in this iclog.
  * - ic_refcnt is bumped when someone is writing to the log.
  * - ic_state is the state of the iclog.
+ *
+ * Because of cacheline contention on large machines, we need to separate
+ * various resources onto different cachelines. To start with, make the
+ * structure cacheline aligned. The following fields can be contended on
+ * by independent processes:
+ *
+ *	- ic_callback_*
+ *	- ic_refcnt
+ *	- fields protected by the global l_icloglock
+ *
+ * so we need to ensure that these fields are located in separate cachelines.
+ * We'll put all the read-only and l_icloglock fields in the first cacheline,
+ * and move everything else out to subsequent cachelines.
  */
 typedef struct xlog_iclog_fields {
-	sv_t			ic_forcesema;
-	sv_t			ic_writesema;
+	sv_t			ic_force_wait;
+	sv_t			ic_write_wait;
 	struct xlog_in_core	*ic_next;
 	struct xlog_in_core	*ic_prev;
 	struct xfs_buf		*ic_bp;
 	struct log		*ic_log;
-	xfs_log_callback_t	*ic_callback;
-	xfs_log_callback_t	**ic_callback_tail;
-#ifdef XFS_LOG_TRACE
-	struct ktrace		*ic_trace;
-#endif
 	int			ic_size;
 	int			ic_offset;
-	int			ic_refcnt;
 	int			ic_bwritecnt;
 	ushort_t		ic_state;
 	char			*ic_datap;	/* pointer to iclog data */
+#ifdef XFS_LOG_TRACE
+	struct ktrace		*ic_trace;
+#endif
+
+	/* Callback structures need their own cacheline */
+	spinlock_t		ic_callback_lock ____cacheline_aligned_in_smp;
+	xfs_log_callback_t	*ic_callback;
+	xfs_log_callback_t	**ic_callback_tail;
+
+	/* reference counts need their own cacheline */
+	atomic_t		ic_refcnt ____cacheline_aligned_in_smp;
 } xlog_iclog_fields_t;
 
 typedef union xlog_in_core2 {
@@ -396,13 +378,14 @@ typedef struct xlog_in_core {
 /*
  * Defines to save our code from this glop.
  */
-#define	ic_forcesema	hic_fields.ic_forcesema
-#define ic_writesema	hic_fields.ic_writesema
+#define	ic_force_wait	hic_fields.ic_force_wait
+#define ic_write_wait	hic_fields.ic_write_wait
 #define	ic_next		hic_fields.ic_next
 #define	ic_prev		hic_fields.ic_prev
 #define	ic_bp		hic_fields.ic_bp
 #define	ic_log		hic_fields.ic_log
 #define	ic_callback	hic_fields.ic_callback
+#define	ic_callback_lock hic_fields.ic_callback_lock
 #define	ic_callback_tail hic_fields.ic_callback_tail
 #define	ic_trace	hic_fields.ic_trace
 #define	ic_size		hic_fields.ic_size
@@ -420,55 +403,11 @@ typedef struct xlog_in_core {
  * that round off problems won't occur when releasing partial reservations.
  */
 typedef struct log {
-	/* The following block of fields are changed while holding icloglock */
-	sema_t			l_flushsema;    /* iclog flushing semaphore */
-	int			l_flushcnt;	/* # of procs waiting on this
-						 * sema */
-	int			l_ticket_cnt;	/* free ticket count */
-	int			l_ticket_tcnt;	/* total ticket count */
-	int			l_covered_state;/* state of "covering disk
-						 * log entries" */
-	xlog_ticket_t		*l_freelist;    /* free list of tickets */
-	xlog_ticket_t		*l_unmount_free;/* kmem_free these addresses */
-	xlog_ticket_t		*l_tail;        /* free list of tickets */
-	xlog_in_core_t		*l_iclog;       /* head log queue	*/
-	lock_t			l_icloglock;    /* grab to change iclog state */
-	xfs_lsn_t		l_tail_lsn;     /* lsn of 1st LR with unflushed
-						 * buffers */
-	xfs_lsn_t		l_last_sync_lsn;/* lsn of last LR on disk */
+	/* The following fields don't need locking */
 	struct xfs_mount	*l_mp;	        /* mount point */
 	struct xfs_buf		*l_xbuf;        /* extra buffer for log
 						 * wrapping */
 	struct xfs_buftarg	*l_targ;        /* buftarg of log */
-	xfs_daddr_t		l_logBBstart;   /* start block of log */
-	int			l_logsize;      /* size of log in bytes */
-	int			l_logBBsize;    /* size of log in BB chunks */
-	int			l_curr_cycle;   /* Cycle number of log writes */
-	int			l_prev_cycle;   /* Cycle number before last
-						 * block increment */
-	int			l_curr_block;   /* current logical log block */
-	int			l_prev_block;   /* previous logical log block */
-	int			l_iclog_size;	/* size of log in bytes */
-	int			l_iclog_size_log; /* log power size of log */
-	int			l_iclog_bufs;	/* number of iclog buffers */
-
-	/* The following field are used for debugging; need to hold icloglock */
-	char			*l_iclog_bak[XLOG_MAX_ICLOGS];
-
-	/* The following block of fields are changed while holding grant_lock */
-	lock_t			l_grant_lock;
-	xlog_ticket_t		*l_reserve_headq;
-	xlog_ticket_t		*l_write_headq;
-	int			l_grant_reserve_cycle;
-	int			l_grant_reserve_bytes;
-	int			l_grant_write_cycle;
-	int			l_grant_write_bytes;
-
-	/* The following fields don't need locking */
-#ifdef XFS_LOG_TRACE
-	struct ktrace		*l_trace;
-	struct ktrace		*l_grant_trace;
-#endif
 	uint			l_flags;
 	uint			l_quotaoffs_flag; /* XFS_DQ_*, for QUOTAOFFs */
 	struct xfs_buf_cancel	**l_buf_cancel_table;
@@ -477,6 +416,47 @@ typedef struct log {
 	uint			l_sectbb_log;   /* log2 of sector size in BBs */
 	uint			l_sectbb_mask;  /* sector size (in BBs)
 						 * alignment mask */
+	int			l_iclog_size;	/* size of log in bytes */
+	int			l_iclog_size_log; /* log power size of log */
+	int			l_iclog_bufs;	/* number of iclog buffers */
+	xfs_daddr_t		l_logBBstart;   /* start block of log */
+	int			l_logsize;      /* size of log in bytes */
+	int			l_logBBsize;    /* size of log in BB chunks */
+
+	/* The following block of fields are changed while holding icloglock */
+	sv_t			l_flush_wait ____cacheline_aligned_in_smp;
+						/* waiting for iclog flush */
+	int			l_covered_state;/* state of "covering disk
+						 * log entries" */
+	xlog_in_core_t		*l_iclog;       /* head log queue	*/
+	spinlock_t		l_icloglock;    /* grab to change iclog state */
+	xfs_lsn_t		l_tail_lsn;     /* lsn of 1st LR with unflushed
+						 * buffers */
+	xfs_lsn_t		l_last_sync_lsn;/* lsn of last LR on disk */
+	int			l_curr_cycle;   /* Cycle number of log writes */
+	int			l_prev_cycle;   /* Cycle number before last
+						 * block increment */
+	int			l_curr_block;   /* current logical log block */
+	int			l_prev_block;   /* previous logical log block */
+
+	/* The following block of fields are changed while holding grant_lock */
+	spinlock_t		l_grant_lock ____cacheline_aligned_in_smp;
+	xlog_ticket_t		*l_reserve_headq;
+	xlog_ticket_t		*l_write_headq;
+	int			l_grant_reserve_cycle;
+	int			l_grant_reserve_bytes;
+	int			l_grant_write_cycle;
+	int			l_grant_write_bytes;
+
+#ifdef XFS_LOG_TRACE
+	struct ktrace		*l_grant_trace;
+#endif
+
+	/* The following field are used for debugging; need to hold icloglock */
+#ifdef DEBUG
+	char			*l_iclog_bak[XLOG_MAX_ICLOGS];
+#endif
+
 } xlog_t;
 
 #define XLOG_FORCED_SHUTDOWN(log)	((log)->l_flags & XLOG_IO_ERROR)
@@ -488,13 +468,15 @@ extern int	 xlog_find_tail(xlog_t	*log,
 				xfs_daddr_t *head_blk,
 				xfs_daddr_t *tail_blk);
 extern int	 xlog_recover(xlog_t *log);
-extern int	 xlog_recover_finish(xlog_t *log, int mfsi_flags);
+extern int	 xlog_recover_finish(xlog_t *log);
 extern void	 xlog_pack_data(xlog_t *log, xlog_in_core_t *iclog, int);
 extern void	 xlog_recover_process_iunlinks(xlog_t *log);
 
 extern struct xfs_buf *xlog_get_bp(xlog_t *, int);
 extern void	 xlog_put_bp(struct xfs_buf *);
 extern int	 xlog_bread(xlog_t *, xfs_daddr_t, int, struct xfs_buf *);
+
+extern kmem_zone_t	*xfs_log_ticket_zone;
 
 /* iclog tracing */
 #define XLOG_TRACE_GRAB_FLUSH  1

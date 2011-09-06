@@ -18,6 +18,8 @@
 #ifndef __XFS_SUPER_H__
 #define __XFS_SUPER_H__
 
+#include <linux/exportfs.h>
+
 #ifdef CONFIG_XFS_DMAPI
 # define vfs_insertdmapi(vfs)	vfs_insertops(vfsp, &xfs_dmops)
 # define vfs_initdmapi()	dmapi_init()
@@ -48,13 +50,7 @@ extern void xfs_qm_exit(void);
 # define set_posix_acl_flag(sb)	do { } while (0)
 #endif
 
-#ifdef CONFIG_XFS_SECURITY
-# define XFS_SECURITY_STRING	"security attributes, "
-# define ENOSECURITY		0
-#else
-# define XFS_SECURITY_STRING
-# define ENOSECURITY		EOPNOTSUPP
-#endif
+#define XFS_SECURITY_STRING	"security attributes, "
 
 #ifdef CONFIG_XFS_RT
 # define XFS_REALTIME_STRING	"realtime, "
@@ -105,16 +101,14 @@ struct block_device;
 
 extern __uint64_t xfs_max_file_offset(unsigned int);
 
-extern void xfs_initialize_vnode(bhv_desc_t *, bhv_vnode_t *, bhv_desc_t *, int);
-
 extern void xfs_flush_inode(struct xfs_inode *);
 extern void xfs_flush_device(struct xfs_inode *);
 
-extern int  xfs_blkdev_get(struct xfs_mount *, const char *,
-				struct block_device **);
-extern void xfs_blkdev_put(struct block_device *);
 extern void xfs_blkdev_issue_flush(struct xfs_buftarg *);
 
-extern struct export_operations xfs_export_operations;
+extern const struct export_operations xfs_export_operations;
+extern struct xattr_handler *xfs_xattr_handlers[];
+
+#define XFS_M(sb)		((struct xfs_mount *)((sb)->s_fs_info))
 
 #endif	/* __XFS_SUPER_H__ */
