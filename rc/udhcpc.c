@@ -264,14 +264,14 @@ start_dhcpc(char *wan_ifname, int unit)
 		"/sbin/udhcpc",
 		"-i", wan_ifname,
 		"-p", (snprintf(pid, sizeof(pid), "/var/run/udhcpc%d.pid", unit), pid),
-		"-b",
+		"-bN60",
 		NULL, NULL,	/* -H wan_hostname	*/
-		NULL, NULL,	/* -O routes		*/
-		NULL, NULL,	/* -O staticroutes	*/
-		NULL, NULL,	/* -O msstaticroutes	*/
+		NULL,		/* -O routes		*/
+		NULL,		/* -O staticroutes	*/
+		NULL,		/* -O msstaticroutes	*/
 #ifdef __CONFIG_IPV6__
-		NULL, NULL,	/* -O 6rd		*/
-		NULL, NULL,	/* -O comcast6rd	*/
+		NULL,		/* -O 6rd		*/
+		NULL,		/* -O comcast6rd	*/
 #endif
 #ifdef DEBUG
 		NULL,		/* -vvS			*/
@@ -290,23 +290,17 @@ start_dhcpc(char *wan_ifname, int unit)
 	}
 
 	if (nvram_match("dr_enable_x", "1")) {
-		dhcp_argv[index++] = "-O";
-		dhcp_argv[index++] = "routes";
-		dhcp_argv[index++] = "-O";
-		dhcp_argv[index++] = "staticroutes";
-		dhcp_argv[index++] = "-O";
-		dhcp_argv[index++] = "msstaticroutes";
+		dhcp_argv[index++] = "-O33";	/* "routes" */
+		dhcp_argv[index++] = "-O121";	/* "staticroutes" */
+		dhcp_argv[index++] = "-O249";   /* "msstaticroutes" */
 	}
 
 #ifdef __CONFIG_IPV6__
 	if (nvram_match("ipv6_proto", "tun6rd")) {
-		dhcp_argv[index++] = "-O";
-		dhcp_argv[index++] = "6rd";
-		dhcp_argv[index++] = "-O";
-		dhcp_argv[index++] = "comcast6rd";
+		dhcp_argv[index++] = "-O212";	/* "6rd" */
+		dhcp_argv[index++] = "-O150";	/* "comcast6rd" */
 	}
 #endif
-
 #ifdef DEBUG
 	dhcp_argv[index++] = "-vvS";
 #endif
