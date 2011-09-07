@@ -32,6 +32,50 @@ exportfs: Updates from upstream
  39655164405940d4818224a085e35420e2f97aed exportfs: make struct export_operations const
 
 ---
+ Documentation/filesystems/Exporting |  113 ++-----
+ fs/cifs/cifsfs.h                    |    2 
+ fs/cifs/export.c                    |    3 
+ fs/efs/namei.c                      |   32 ++
+ fs/efs/super.c                      |    2 
+ fs/exportfs/expfs.c                 |  526 ++++++++++++++++--------------------
+ fs/ext2/super.c                     |   37 +-
+ fs/ext3/super.c                     |   38 +-
+ fs/ext4/super.c                     |   38 +-
+ fs/fat/inode.c                      |   27 -
+ fs/gfs2/ops_export.c                |   87 +++--
+ fs/isofs/export.c                   |   69 ++--
+ fs/isofs/isofs.h                    |    3 
+ fs/jfs/jfs_inode.h                  |    6 
+ fs/jfs/namei.c                      |   35 ++
+ fs/jfs/super.c                      |    7 
+ fs/libfs.c                          |   88 ++++++
+ fs/nfsd/export.c                    |  105 ++++---
+ fs/nfsd/nfs4idmap.c                 |   13 
+ fs/nfsd/nfs4proc.c                  |    7 
+ fs/nfsd/nfs4xdr.c                   |    2 
+ fs/nfsd/nfsfh.c                     |   93 ++----
+ fs/nfsd/vfs.c                       |   14 
+ fs/ntfs/namei.c                     |   80 ++---
+ fs/ntfs/ntfs.h                      |    2 
+ fs/ocfs2/export.c                   |   67 +---
+ fs/ocfs2/export.h                   |    4 
+ fs/reiserfs/inode.c                 |   63 +---
+ fs/reiserfs/super.c                 |    7 
+ fs/squashfs/inode.c                 |    1 
+ fs/udf/namei.c                      |  138 +++++++++
+ fs/udf/super.c                      |    1 
+ fs/udf/udfdecl.h                    |    1 
+ include/linux/efs_fs.h              |    1 
+ include/linux/exportfs.h            |  152 ++++++++++
+ include/linux/fs.h                  |  116 -------
+ include/linux/nfsd/export.h         |    9 
+ include/linux/reiserfs_fs.h         |   12 
+ include/linux/sunrpc/svc.h          |    1 
+ include/linux/sunrpc/svcauth.h      |    1 
+ mm/shmem.c                          |   38 +-
+ net/sunrpc/auth_gss/svcauth_gss.c   |   21 +
+ net/sunrpc/svcauth_unix.c           |    4 
+ 43 files changed, 1167 insertions(+), 899 deletions(-)
 
 diff --git a/Documentation/filesystems/Exporting b/Documentation/filesystems/Exporting
 --- a/Documentation/filesystems/Exporting
