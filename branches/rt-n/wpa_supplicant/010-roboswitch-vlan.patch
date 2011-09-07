@@ -1,5 +1,5 @@
 --- wpa_supplicant-0.6.10/src/drivers/driver_roboswitch.c	2010-01-12 14:55:02.000000000 +0000
-+++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-08-26 15:11:23.000000000 +0000
++++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-09-07 05:32:45.483897002 +0000
 @@ -17,6 +17,7 @@
  #include <linux/if.h>
  #include <linux/sockios.h>
@@ -8,15 +8,49 @@
  #include <linux/mii.h>
  
  #include "common.h"
-@@ -66,6 +67,7 @@ struct wpa_driver_roboswitch_data {
+@@ -56,6 +57,7 @@
+ #define ROBO_VLAN_ACCESS_5350	0x06	/* VLAN table access register (5350) */
+ #define ROBO_VLAN_READ		0x0c	/* VLAN read register */
+ #define ROBO_VLAN_MAX		0xff	/* Maximum number of VLANs */
++#define ROBO_VLAN_MAX_5350	0x0f	/* Maximum number of VLANs (5350) */
+ 
+ 
+ static const u8 pae_group_addr[ETH_ALEN] =
+@@ -64,9 +66,12 @@ static const u8 pae_group_addr[ETH_ALEN]
+ 
+ struct wpa_driver_roboswitch_data {
  	void *ctx;
++#ifdef NO_RSV_MULTICAST_FWD
  	struct l2_packet_data *l2;
- 	char ifname[IFNAMSIZ + 1];
-+	char ifrobo[IFNAMSIZ + 1];
+-	char ifname[IFNAMSIZ + 1];
  	u8 own_addr[ETH_ALEN];
++	char ifrecv[IFNAMSIZ + 1];
++#endif
++	char ifname[IFNAMSIZ + 1];
  	struct ifreq ifr;
  	int fd, is_5350;
-@@ -208,11 +210,8 @@ static int wpa_driver_roboswitch_get_bss
+ 	u16 ports;
+@@ -177,6 +182,7 @@ static int wpa_driver_roboswitch_write(s
+ }
+ 
+ 
++#ifdef NO_RSV_MULTICAST_FWD
+ static void wpa_driver_roboswitch_receive(void *priv, const u8 *src_addr,
+ 					  const u8 *buf, size_t len)
+ {
+@@ -188,6 +194,7 @@ static void wpa_driver_roboswitch_receiv
+ 					len - 14);
+ 	}
+ }
++#endif
+ 
+ 
+ static int wpa_driver_roboswitch_get_ssid(void *priv, u8 *ssid)
+@@ -205,23 +212,20 @@ static int wpa_driver_roboswitch_get_bss
+ }
+ 
+ 
++#ifdef NO_RSV_MULTICAST_FWD
  static int wpa_driver_roboswitch_set_param(void *priv, const char *param)
  {
  	struct wpa_driver_roboswitch_data *drv = priv;
@@ -25,29 +59,41 @@
  	if (param == NULL || os_strstr(param, "multicast_only=1") == NULL) {
 -		sep = drv->ifname + os_strlen(drv->ifname);
 -		*sep = '.';
- 		drv->l2 = l2_packet_init(drv->ifname, NULL, ETH_P_ALL,
+-		drv->l2 = l2_packet_init(drv->ifname, NULL, ETH_P_ALL,
++		drv->l2 = l2_packet_init(drv->ifrecv, NULL, ETH_P_ALL,
  					 wpa_driver_roboswitch_receive, drv,
  					 1);
-@@ -221,7 +220,6 @@ static int wpa_driver_roboswitch_set_par
- 				   __func__, drv->ifname);
+ 		if (drv->l2 == NULL) {
+ 			wpa_printf(MSG_INFO, "%s: Unable to listen on %s",
+-				   __func__, drv->ifname);
++				   __func__, drv->ifrecv);
  			return -1;
  		}
 -		*sep = '\0';
  		l2_packet_get_own_addr(drv->l2, drv->own_addr);
  	} else {
  		wpa_printf(MSG_DEBUG, "%s: Ignoring unicast frames", __func__);
-@@ -350,7 +348,7 @@ static int wpa_driver_roboswitch_leave(s
+@@ -236,6 +240,7 @@ static const char * wpa_driver_roboswitc
+ 	struct wpa_driver_roboswitch_data *drv = priv;
+ 	return drv->ifname;
+ }
++#endif
+ 
+ 
+ static int wpa_driver_roboswitch_join(struct wpa_driver_roboswitch_data *drv,
+@@ -350,42 +355,18 @@ static int wpa_driver_roboswitch_leave(s
  static void * wpa_driver_roboswitch_init(void *ctx, const char *ifname)
  {
  	struct wpa_driver_roboswitch_data *drv;
 -	char *sep;
 +	struct vlan_ioctl_args ifv;
  	u16 vlan = 0, _read[2];
++	int vlan_found = 0, i;
  
  	drv = os_zalloc(sizeof(*drv));
-@@ -358,35 +356,6 @@ static void * wpa_driver_roboswitch_init
+ 	if (drv == NULL) return NULL;
  	drv->ctx = ctx;
- 	drv->own_addr[0] = '\0';
+-	drv->own_addr[0] = '\0';
  
 -	/* copy ifname and take a pointer to the second to last character */
 -	sep = drv->ifname +
@@ -77,35 +123,147 @@
 -			return NULL;
 -		}
 -	}
--
++#ifdef NO_RSV_MULTICAST_FWD
++	drv->own_addr[0] = '\0';
++	os_strlcpy(drv->ifrecv, ifname, sizeof(drv->ifrecv));
++#endif
+ 
  	drv->fd = socket(PF_INET, SOCK_DGRAM, 0);
  	if (drv->fd < 0) {
- 		wpa_printf(MSG_INFO, "%s: Unable to create socket", __func__);
-@@ -394,8 +363,26 @@ static void * wpa_driver_roboswitch_init
+@@ -394,18 +375,34 @@ static void * wpa_driver_roboswitch_init
  		return NULL;
  	}
  
-+	os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
-+	os_strlcpy(drv->ifrobo, ifname, sizeof(drv->ifrobo));
-+
 +	os_memset(&ifv, 0, sizeof(ifv));
 +	os_strlcpy(ifv.device1, ifname, sizeof(ifv.device1));
 +	ifv.cmd = GET_VLAN_REALDEV_NAME_CMD;
 +	if (ioctl(drv->fd, SIOCGIFVLAN, &ifv) >= 0) {
-+		os_strlcpy(drv->ifrobo, ifv.u.device2, sizeof(drv->ifname));
++		os_strlcpy(drv->ifname, ifv.u.device2, sizeof(drv->ifname));
 +		ifv.cmd = GET_VLAN_VID_CMD;
 +		if (ioctl(drv->fd, SIOCGIFVLAN, &ifv) < 0) {
 +			perror("ioctl[SIOCGIFVLAN]");
-+			os_free(drv);
-+			return NULL;
++			goto error;
 +		}
 +		vlan = ifv.u.VID;
-+		wpa_printf(MSG_INFO, "%s: Got VLAN %d on real interface %s", __func__, vlan, drv->ifrobo);
-+	};
++		vlan_found = 1;
++	} else
++	if (scanf(ifname, "%16[^.].%u", drv->ifname, &vlan) == 2) {
++		vlan_found = 1;
++	} else
++		os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
 +
  	os_memset(&drv->ifr, 0, sizeof(drv->ifr));
--	os_strlcpy(drv->ifr.ifr_name, drv->ifname, IFNAMSIZ);
-+	os_strlcpy(drv->ifr.ifr_name, drv->ifrobo, IFNAMSIZ);
+ 	os_strlcpy(drv->ifr.ifr_name, drv->ifname, IFNAMSIZ);
  	if (ioctl(drv->fd, SIOCGMIIPHY, &drv->ifr) < 0) {
  		perror("ioctl[SIOCGMIIPHY]");
- 		os_free(drv);
+-		os_free(drv);
+-		return NULL;
++		goto error;
+ 	}
+ 	if (if_mii(&drv->ifr)->phy_id != ROBO_PHY_ADDR) {
+ 		wpa_printf(MSG_INFO, "%s: Invalid phy address (not a "
+ 			   "RoboSwitch?)", __func__);
+-		os_free(drv);
+-		return NULL;
++		goto error;
+ 	}
+ 
+ 	/* set and read back to see if the register can be used */
+@@ -416,20 +413,42 @@ static void * wpa_driver_roboswitch_init
+ 				   _read + 1, 1);
+ 	drv->is_5350 = _read[0] == _read[1];
+ 
+-	/* set the read bit */
+-	vlan |= 1 << 13;
+-	wpa_driver_roboswitch_write(drv, ROBO_VLAN_PAGE,
+-				    drv->is_5350 ? ROBO_VLAN_ACCESS_5350
+-						 : ROBO_VLAN_ACCESS,
+-				    &vlan, 1);
+-	wpa_driver_roboswitch_read(drv, ROBO_VLAN_PAGE, ROBO_VLAN_READ, _read,
+-				   drv->is_5350 ? 2 : 1);
+-	if (!(drv->is_5350 ? _read[1] & (1 << 4) : _read[0] & (1 << 14))) {
++	for (i = vlan; i < drv->is_5350 ? ROBO_VLAN_MAX_5350 : ROBO_VLAN_MAX; i++) {
++		/* set the read bit */
++		u16 val16 = i | 1 << 13;
++		wpa_driver_roboswitch_write(drv, ROBO_VLAN_PAGE,
++					    drv->is_5350 ? ROBO_VLAN_ACCESS_5350
++							 : ROBO_VLAN_ACCESS,
++					    &val16, 1);
++		wpa_driver_roboswitch_read(drv, ROBO_VLAN_PAGE, ROBO_VLAN_READ,
++					   _read, drv->is_5350 ? 2 : 1);
++		/* is vlan enabled */
++		if (drv->is_5350 ? _read[1] & (1 << 4) : _read[0] & (1 << 14)) {
++			if (vlan_found)
++				break;
++			/* is cpu port untagged */
++			if (drv->is_5350 ? (_read[0] & (1 << 5) && _read[0] & (1 << 11))
++					 : (_read[0] & (1 << 5) && _read[0] & (1 << 12))) {
++				vlan = i;
++				vlan_found = 1;
++				break;
++			}
++		} else
++		if (vlan_found) {
++			vlan_found = 0;
++			break;
++		}
++	}
++
++	if (vlan_found) {
++		wpa_printf(MSG_INFO, "%s: Using VLAN %d on RoboSwitch interface "
++				     "%s", __func__, vlan, drv->ifname);
++	} else {
+ 		wpa_printf(MSG_INFO, "%s: Could not get port information for "
+-				     "VLAN %d", __func__, vlan & ~(1 << 13));
+-		os_free(drv);
+-		return NULL;
++				     "VLAN %d", __func__, vlan);
++		goto error;
+ 	}
++
+ 	drv->ports = _read[0] & 0x001F;
+ 	/* add the MII port */
+ 	drv->ports |= 1 << 8;
+@@ -435,14 +454,18 @@ static void * wpa_driver_roboswitch_init
+ 	drv->ports |= 1 << 8;
+ 	if (wpa_driver_roboswitch_join(drv, drv->ports, pae_group_addr) < 0) {
+ 		wpa_printf(MSG_INFO, "%s: Unable to join PAE group", __func__);
+-		os_free(drv);
+-		return NULL;
++		goto error;
+ 	} else {
+ 		wpa_printf(MSG_DEBUG, "%s: Added PAE group address to "
+ 			   "RoboSwitch ARL", __func__);
+ 	}
+ 
+ 	return drv;
++
++error:
++	close(drv->fd);
++	os_free(drv);
++	return NULL;
+ }
+ 
+ 
+@@ -450,10 +473,12 @@ static void wpa_driver_roboswitch_deinit
+ {
+ 	struct wpa_driver_roboswitch_data *drv = priv;
+ 
++#ifdef NO_RSV_MULTICAST_FWD
+ 	if (drv->l2) {
+ 		l2_packet_deinit(drv->l2);
+ 		drv->l2 = NULL;
+ 	}
++#endif
+ 	if (wpa_driver_roboswitch_leave(drv, drv->ports, pae_group_addr) < 0) {
+ 		wpa_printf(MSG_DEBUG, "%s: Unable to leave PAE group",
+ 			   __func__);
+@@ -471,6 +496,8 @@ const struct wpa_driver_ops wpa_driver_r
+ 	.get_bssid = wpa_driver_roboswitch_get_bssid,
+ 	.init = wpa_driver_roboswitch_init,
+ 	.deinit = wpa_driver_roboswitch_deinit,
++#ifdef NO_RSV_MULTICAST_FWD
+ 	.set_param = wpa_driver_roboswitch_set_param,
+ 	.get_ifname = wpa_driver_roboswitch_get_ifname,
++#endif
+ };
