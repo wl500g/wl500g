@@ -1,0 +1,11 @@
+--- wpa_supplicant.new/src/eap_peer/eap_md5.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/src/eap_peer/eap_md5.c	2011-09-06 09:55:01.863897002 +0000
+@@ -76,7 +76,7 @@ static struct wpabuf * eap_md5_process(s
+ 
+ 	wpa_printf(MSG_DEBUG, "EAP-MD5: Generating Challenge Response");
+ 	ret->methodState = METHOD_DONE;
+-	ret->decision = DECISION_UNCOND_SUCC;
++	ret->decision = DECISION_COND_SUCC;
+ 	ret->allowNotifications = TRUE;
+ 
+ 	resp = eap_msg_alloc(EAP_VENDOR_IETF, EAP_TYPE_MD5, 1 + CHAP_MD5_LEN,
