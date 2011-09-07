@@ -16,9 +16,6 @@
 #include <linux/pagemap.h>
 #include <linux/file.h>
 #include <linux/slab.h>
-#ifdef DCACHE_BUG
-#include <asm-mips/cacheflush.h>
-#endif
 
 MODULE_ALIAS_MISCDEV(FUSE_MINOR);
 
@@ -45,6 +42,14 @@ static void fuse_request_init(struct fuse_req *req)
 struct fuse_req *fuse_request_alloc(void)
 {
 	struct fuse_req *req = kmem_cache_alloc(fuse_req_cachep, GFP_KERNEL);
+	if (req)
+		fuse_request_init(req);
+	return req;
+}
+
+struct fuse_req *fuse_request_alloc_nofs(void)
+{
+	struct fuse_req *req = kmem_cache_alloc(fuse_req_cachep, GFP_NOFS);
 	if (req)
 		fuse_request_init(req);
 	return req;
@@ -132,7 +137,7 @@ static struct fuse_req *get_reserved_req(struct fuse_conn *fc,
 	struct fuse_file *ff = file->private_data;
 
 	do {
-		wait_event(fc->blocked_waitq, ff->reserved_req);
+		wait_event(fc->reserved_req_waitq, ff->reserved_req);
 		spin_lock(&fc->lock);
 		if (ff->reserved_req) {
 			req = ff->reserved_req;
@@ -158,7 +163,7 @@ static void put_reserved_req(struct fuse_conn *fc, struct fuse_req *req)
 	fuse_request_init(req);
 	BUG_ON(ff->reserved_req);
 	ff->reserved_req = req;
-	wake_up(&fc->blocked_waitq);
+	wake_up_all(&fc->reserved_req_waitq);
 	spin_unlock(&fc->lock);
 	fput(file);
 }
@@ -204,6 +209,55 @@ void fuse_put_request(struct fuse_conn *fc, struct fuse_req *req)
 	}
 }
 
+static unsigned len_args(unsigned numargs, struct fuse_arg *args)
+{
+	unsigned nbytes = 0;
+	unsigned i;
+
+	for (i = 0; i < numargs; i++)
+		nbytes += args[i].size;
+
+	return nbytes;
+}
+
+static u64 fuse_get_unique(struct fuse_conn *fc)
+{
+	fc->reqctr++;
+	/* zero is special */
+	if (fc->reqctr == 0)
+		fc->reqctr = 1;
+
+	return fc->reqctr;
+}
+
+static void queue_request(struct fuse_conn *fc, struct fuse_req *req)
+{
+	req->in.h.unique = fuse_get_unique(fc);
+	req->in.h.len = sizeof(struct fuse_in_header) +
+		len_args(req->in.numargs, (struct fuse_arg *) req->in.args);
+	list_add_tail(&req->list, &fc->pending);
+	req->state = FUSE_REQ_PENDING;
+	if (!req->waiting) {
+		req->waiting = 1;
+		atomic_inc(&fc->num_waiting);
+	}
+	wake_up(&fc->waitq);
+	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
+}
+
+static void flush_bg_queue(struct fuse_conn *fc)
+{
+	while (fc->active_background < FUSE_MAX_BACKGROUND &&
+	       !list_empty(&fc->bg_queue)) {
+		struct fuse_req *req;
+
+		req = list_entry(fc->bg_queue.next, struct fuse_req, list);
+		list_del(&req->list);
+		fc->active_background++;
+		queue_request(fc, req);
+	}
+}
+
 /*
  * This function is called when a request is finished.  Either a reply
  * has arrived or it was aborted (and not yet sent) or some error
@@ -227,22 +281,25 @@ static void request_end(struct fuse_conn *fc, struct fuse_req *req)
 			fc->blocked = 0;
 			wake_up_all(&fc->blocked_waitq);
 		}
+		if (fc->num_background == FUSE_CONGESTION_THRESHOLD &&
+		    fc->connected) {
+			clear_bdi_congested(&fc->bdi, READ);
+			clear_bdi_congested(&fc->bdi, WRITE);
+		}
 		fc->num_background--;
+		fc->active_background--;
+		flush_bg_queue(fc);
 	}
 	spin_unlock(&fc->lock);
-	dput(req->dentry);
-	mntput(req->vfsmount);
-	if (req->file)
-		fput(req->file);
 	wake_up(&req->waitq);
 	if (end)
 		end(fc, req);
-	else
-		fuse_put_request(fc, req);
+	fuse_put_request(fc, req);
 }
 
 static void wait_answer_interruptible(struct fuse_conn *fc,
 				      struct fuse_req *req)
+	__releases(fc->lock) __acquires(fc->lock)
 {
 	if (signal_pending(current))
 		return;
@@ -259,8 +316,8 @@ static void queue_interrupt(struct fuse_conn *fc, struct fuse_req *req)
 	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
 }
 
-/* Called with fc->lock held.  Releases, and then reacquires it. */
 static void request_wait_answer(struct fuse_conn *fc, struct fuse_req *req)
+	__releases(fc->lock) __acquires(fc->lock)
 {
 	if (!fc->no_interrupt) {
 		/* Any signal may interrupt this */
@@ -276,28 +333,41 @@ static void request_wait_answer(struct fuse_conn *fc, struct fuse_req *req)
 			queue_interrupt(fc, req);
 	}
 
-	if (req->force) {
-		spin_unlock(&fc->lock);
-		wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
-		spin_lock(&fc->lock);
-	} else {
+	if (!req->force) {
 		sigset_t oldset;
 
 		/* Only fatal signals may interrupt this */
 		block_sigs(&oldset);
 		wait_answer_interruptible(fc, req);
 		restore_sigs(&oldset);
+
+		if (req->aborted)
+			goto aborted;
+		if (req->state == FUSE_REQ_FINISHED)
+			return;
+
+		/* Request is not yet in userspace, bail out */
+		if (req->state == FUSE_REQ_PENDING) {
+			list_del(&req->list);
+			__fuse_put_request(req);
+			req->out.h.error = -EINTR;
+			return;
+		}
 	}
 
-	if (req->aborted)
-		goto aborted;
-	if (req->state == FUSE_REQ_FINISHED)
- 		return;
+	/*
+	 * Either request is already in userspace, or it was forced.
+	 * Wait it out.
+	 */
+	spin_unlock(&fc->lock);
+	wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
+	spin_lock(&fc->lock);
 
-	req->out.h.error = -EINTR;
-	req->aborted = 1;
+	if (!req->aborted)
+		return;
 
  aborted:
+	BUG_ON(req->state != FUSE_REQ_FINISHED);
 	if (req->locked) {
 		/* This is uninterruptible sleep, because data is
 		   being copied to/from the buffers of req.  During
@@ -308,50 +378,6 @@ static void request_wait_answer(struct fuse_conn *fc, struct fuse_req *req)
 		wait_event(req->waitq, !req->locked);
 		spin_lock(&fc->lock);
 	}
-	if (req->state == FUSE_REQ_PENDING) {
-		list_del(&req->list);
-		__fuse_put_request(req);
-	} else if (req->state == FUSE_REQ_SENT) {
-		spin_unlock(&fc->lock);
-		wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
-		spin_lock(&fc->lock);
-	}
-}
-
-static unsigned len_args(unsigned numargs, struct fuse_arg *args)
-{
-	unsigned nbytes = 0;
-	unsigned i;
-
-	for (i = 0; i < numargs; i++)
-		nbytes += args[i].size;
-
-	return nbytes;
-}
-
-static u64 fuse_get_unique(struct fuse_conn *fc)
- {
- 	fc->reqctr++;
- 	/* zero is special */
- 	if (fc->reqctr == 0)
- 		fc->reqctr = 1;
-
-	return fc->reqctr;
-}
-
-static void queue_request(struct fuse_conn *fc, struct fuse_req *req)
-{
-	req->in.h.unique = fuse_get_unique(fc);
-	req->in.h.len = sizeof(struct fuse_in_header) +
-		len_args(req->in.numargs, (struct fuse_arg *) req->in.args);
-	list_add_tail(&req->list, &fc->pending);
-	req->state = FUSE_REQ_PENDING;
-	if (!req->waiting) {
-		req->waiting = 1;
-		atomic_inc(&fc->num_waiting);
-	}
-	wake_up(&fc->waitq);
-	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
 }
 
 void request_send(struct fuse_conn *fc, struct fuse_req *req)
@@ -373,16 +399,26 @@ void request_send(struct fuse_conn *fc, struct fuse_req *req)
 	spin_unlock(&fc->lock);
 }
 
+static void request_send_nowait_locked(struct fuse_conn *fc,
+				       struct fuse_req *req)
+{
+	req->background = 1;
+	fc->num_background++;
+	if (fc->num_background == FUSE_MAX_BACKGROUND)
+		fc->blocked = 1;
+	if (fc->num_background == FUSE_CONGESTION_THRESHOLD) {
+		set_bdi_congested(&fc->bdi, READ);
+		set_bdi_congested(&fc->bdi, WRITE);
+	}
+	list_add_tail(&req->list, &fc->bg_queue);
+	flush_bg_queue(fc);
+}
+
 static void request_send_nowait(struct fuse_conn *fc, struct fuse_req *req)
 {
 	spin_lock(&fc->lock);
 	if (fc->connected) {
-		req->background = 1;
-		fc->num_background++;
-		if (fc->num_background == FUSE_MAX_BACKGROUND)
-			fc->blocked = 1;
-
-		queue_request(fc, req);
+		request_send_nowait_locked(fc, req);
 		spin_unlock(&fc->lock);
 	} else {
 		req->out.h.error = -ENOTCONN;
@@ -400,6 +436,17 @@ void request_send_background(struct fuse_conn *fc, struct fuse_req *req)
 {
 	req->isreply = 1;
 	request_send_nowait(fc, req);
+}
+
+/*
+ * Called under fc->lock
+ *
+ * fc->connected must have been checked previously
+ */
+void request_send_background_locked(struct fuse_conn *fc, struct fuse_req *req)
+{
+	req->isreply = 1;
+	request_send_nowait_locked(fc, req);
 }
 
 /*
@@ -485,9 +532,6 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 {
 	unsigned long offset;
 	int err;
-#ifdef DCACHE_BUG
-	struct vm_area_struct *vma;
-#endif
 
 	unlock_request(cs->fc, cs->req);
 	fuse_copy_finish(cs);
@@ -499,22 +543,14 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 		cs->nr_segs --;
 	}
 	down_read(&current->mm->mmap_sem);
-#ifdef DCACHE_BUG
-	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
-			     &cs->pg, &vma);
-#else
 	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
 			     &cs->pg, NULL);
-#endif
 	up_read(&current->mm->mmap_sem);
 	if (err < 0)
 		return err;
 	BUG_ON(err != 1);
 	offset = cs->addr % PAGE_SIZE;
 	cs->mapaddr = kmap_atomic(cs->pg, KM_USER0);
-#ifdef DCACHE_BUG
-	flush_cache_page(vma, cs->addr, page_to_pfn(cs->pg));
-#endif
 	cs->buf = cs->mapaddr + offset;
 	cs->len = min(PAGE_SIZE - offset, cs->seglen);
 	cs->seglen -= cs->len;
@@ -527,11 +563,6 @@ static int fuse_copy_fill(struct fuse_copy_state *cs)
 static int fuse_copy_do(struct fuse_copy_state *cs, void **val, unsigned *size)
 {
 	unsigned ncpy = min(*size, cs->len);
-#ifdef DCACHE_BUG
-	// patch from mailing list, it is very important, otherwise,
-	// can't mount, or ls mount point will hang
-	flush_cache_all();
-#endif
 	if (val) {
 		if (cs->write)
 			memcpy(cs->buf, *val, ncpy);
@@ -757,11 +788,12 @@ static ssize_t fuse_dev_read(struct kiocb *iocb, const struct iovec *iov,
 	fuse_copy_finish(&cs);
 	spin_lock(&fc->lock);
 	req->locked = 0;
-	if (!err && req->aborted)
-		err = -ENOENT;
+	if (req->aborted) {
+		request_end(fc, req);
+		return -ENODEV;
+	}
 	if (err) {
-		if (!req->aborted)
-			req->out.h.error = -EIO;
+		req->out.h.error = -EIO;
 		request_end(fc, req);
 		return err;
 	}
@@ -956,6 +988,7 @@ static void end_requests(struct fuse_conn *fc, struct list_head *head)
  * locked).
  */
 static void end_io_requests(struct fuse_conn *fc)
+	__releases(fc->lock) __acquires(fc->lock)
 {
 	while (!list_empty(&fc->io)) {
 		struct fuse_req *req =
@@ -969,11 +1002,11 @@ static void end_io_requests(struct fuse_conn *fc)
 		wake_up(&req->waitq);
 		if (end) {
 			req->end = NULL;
-			/* The end function will consume this reference */
 			__fuse_get_request(req);
 			spin_unlock(&fc->lock);
 			wait_event(req->waitq, !req->locked);
 			end(fc, req);
+			fuse_put_request(fc, req);
 			spin_lock(&fc->lock);
 		}
 	}
