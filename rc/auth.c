@@ -97,7 +97,7 @@ wpacli_main(int argc, char **argv)
 	{
 		/* Renew DHCP lease */
 		snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
-		kill_pidfile_s(tmp, -SIGUSR1);
+		kill_pidfile_s(tmp, SIGUSR1);
 	}
 
 	logmessage("auth client", state ? "connected" : "disconnected");
