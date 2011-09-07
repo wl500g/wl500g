@@ -990,6 +990,7 @@ static int wpa_config_parse_eap(const struct parse_data *data,
 }
 
 
+#ifndef NO_CONFIG_WRITE
 static char * wpa_config_write_eap(const struct parse_data *data,
 				   struct wpa_ssid *ssid)
 {
@@ -1023,6 +1024,7 @@ static char * wpa_config_write_eap(const struct parse_data *data,
 
 	return buf;
 }
+#endif
 
 
 static int wpa_config_parse_password(const struct parse_data *data,
@@ -1089,6 +1091,7 @@ static int wpa_config_parse_password(const struct parse_data *data,
 }
 
 
+#ifndef NO_CONFIG_WRITE
 static char * wpa_config_write_password(const struct parse_data *data,
 					struct wpa_ssid *ssid)
 {
@@ -1111,6 +1114,7 @@ static char * wpa_config_write_password(const struct parse_data *data,
 
 	return buf;
 }
+#endif
 #endif /* IEEE8021X_EAPOL */
 
 

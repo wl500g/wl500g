@@ -37,6 +37,7 @@ struct wpa_config * wpa_config_read(const char *name)
 
 int wpa_config_write(const char *name, struct wpa_config *config)
 {
+#ifndef CONFIG_NO_CONFIG_WRITE
 	struct wpa_ssid *ssid;
 	struct wpa_config_blob *blob;
 
@@ -54,4 +55,7 @@ int wpa_config_write(const char *name, struct wpa_config *config)
 	}
 
 	return 0;
+#else /* CONFIG_NO_CONFIG_WRITE */
+	return -1;
+#endif /* CONFIG_NO_CONFIG_WRITE */
 }
