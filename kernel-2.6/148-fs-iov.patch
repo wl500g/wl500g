@@ -53,6 +53,8 @@ mm: buffered write iterator
  efdc31319d43050a5742fb690b1a4beb68092a94 nobh: nobh_write_end fix
  5b41e74ad1b0bf7bc51765ae74e5dc564afc3e48 vfs: fix data leak in nobh_write_end()
  460bcf57b128ce1c0dd553d905fedc097f9955c6 Fix nobh_truncate_page() to not pass stack garbage to get_block()
+ 54566b2c1594c2326a645a3551f9d989f7ba3c5e fs: symlink write_begin allocation context fix
+ c8236db9cd7aa492dcfcdcca702638e704abed49 mm: mark page accessed before we write_end()
 
 ---
  Documentation/filesystems/Locking |   17 
@@ -73,7 +75,9 @@ mm: buffered write iterator
  fs/ext2/ext2.h                    |    3 
  fs/ext2/inode.c                   |   40 +-
  fs/ext3/inode.c                   |  161 ++++++--
+ fs/ext3/namei.c                   |    3 
  fs/ext4/inode.c                   |  173 ++++++---
+ fs/ext4/namei.c                   |    3 
  fs/fat/inode.c                    |   29 -
  fs/fuse/file.c                    |   48 +-
  fs/gfs2/ops_address.c             |  211 +++++++----
@@ -91,7 +95,7 @@ mm: buffered write iterator
  fs/minix/inode.c                  |   21 -
  fs/minix/minix.h                  |    3 
  fs/mpage.c                        |   10 
- fs/namei.c                        |   46 --
+ fs/namei.c                        |   57 +--
  fs/nfs/file.c                     |   49 +-
  fs/ocfs2/file.c                   |    3 
  fs/qnx4/inode.c                   |   20 -
@@ -112,14 +116,14 @@ mm: buffered write iterator
  fs/xfs/linux-2.6/xfs_aops.c       |   19 -
  fs/xfs/linux-2.6/xfs_lrw.c        |   35 -
  include/linux/buffer_head.h       |   25 +
- include/linux/fs.h                |   69 +++
- include/linux/pagemap.h           |   13 
- mm/filemap.c                      |  510 ++++++++++++++++------------
+ include/linux/fs.h                |   74 +++-
+ include/linux/pagemap.h           |   14 
+ mm/filemap.c                      |  516 +++++++++++++++++-----------
  mm/filemap.h                      |  103 -----
  mm/filemap_xip.c                  |   17 
  mm/readahead.c                    |   24 -
  mm/shmem.c                        |   34 +
- 64 files changed, 2349 insertions(+), 1558 deletions(-)
+ 66 files changed, 2370 insertions(+), 1566 deletions(-)
 
 diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
 --- a/Documentation/filesystems/Locking
@@ -508,7 +512,7 @@ diff --git a/fs/affs/file.c b/fs/affs/file.c
 -	size = inode->i_size;
 +
 +	index = pos >> PAGE_CACHE_SHIFT;
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +	*pagep = page;
@@ -779,7 +783,7 @@ diff --git a/fs/afs/write.c b/fs/afs/write.c
  	candidate->state = AFS_WBACK_PENDING;
  	init_waitqueue_head(&candidate->waitq);
  
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page) {
 +		kfree(candidate);
 +		return -ENOMEM;
@@ -1072,7 +1076,7 @@ diff --git a/fs/buffer.c b/fs/buffer.c
 +	page = *pagep;
 +	if (page == NULL) {
 +		ownpage = 1;
-+		page = __grab_cache_page(mapping, index);
++		page = grab_cache_page_write_begin(mapping, index, flags);
 +		if (!page) {
 +			status = -ENOMEM;
 +			goto out;
@@ -1495,7 +1499,7 @@ diff --git a/fs/buffer.c b/fs/buffer.c
 +	from = pos & (PAGE_CACHE_SIZE - 1);
 +	to = from + len;
 +
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +	*pagep = page;
@@ -1958,7 +1962,7 @@ diff --git a/fs/cifs/file.c b/fs/cifs/file.c
 -	if (PageUptodate(page))
 +	cFYI(1, ("write_begin from %lld len %d", (long long)pos, len));
 +
-+	*pagep = __grab_cache_page(mapping, index);
++	*pagep = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!*pagep)
 +		return -ENOMEM;
 +
@@ -2399,7 +2403,7 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
 +	to = from + len;
  
  retry:
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +	*pagep = page;
@@ -2664,6 +2668,19 @@ diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
  	.set_page_dirty	= ext3_journalled_set_page_dirty,
  	.bmap		= ext3_bmap,
  	.invalidatepage	= ext3_invalidatepage,
+diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
+--- a/fs/ext3/namei.c
++++ b/fs/ext3/namei.c
+@@ -2219,8 +2219,7 @@ retry:
+ 		 * We have a transaction open.  All is sweetness.  It also sets
+ 		 * i_size in generic_commit_write().
+ 		 */
+-		err = __page_symlink(inode, symname, l,
+-				mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS);
++		err = __page_symlink(inode, symname, l, 1);
+ 		if (err) {
+ 			drop_nlink(inode);
+ 			ext3_mark_inode_dirty(handle, inode);
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
@@ -2695,7 +2712,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 -	if (IS_ERR(handle)) {
 -		ret = PTR_ERR(handle);
 -		goto out;
-+ 	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 + 	if (!page)
 + 		return -ENOMEM;
 + 	*pagep = page;
@@ -2962,6 +2979,19 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
  	.set_page_dirty	= ext4_journalled_set_page_dirty,
  	.bmap		= ext4_bmap,
  	.invalidatepage	= ext4_invalidatepage,
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -2213,8 +2213,7 @@ retry:
+ 		 * We have a transaction open.  All is sweetness.  It also sets
+ 		 * i_size in generic_commit_write().
+ 		 */
+-		err = __page_symlink(inode, symname, l,
+-				mapping_gfp_mask(inode->i_mapping) & ~__GFP_FS);
++		err = __page_symlink(inode, symname, l, 1);
+ 		if (err) {
+ 			drop_nlink(inode);
+ 			ext4_mark_inode_dirty(handle, inode);
 diff --git a/fs/fat/inode.c b/fs/fat/inode.c
 --- a/fs/fat/inode.c
 +++ b/fs/fat/inode.c
@@ -3177,7 +3207,7 @@ diff --git a/fs/gfs2/ops_address.c b/fs/gfs2/ops_address.c
  
 -	gfs2_write_calc_reserv(ip, write_len, &data_blocks, &ind_blocks);
 +	error = -ENOMEM;
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	*pagep = page;
 +	if (!page)
 +		goto out_unlock;
@@ -3605,7 +3635,7 @@ diff --git a/fs/hostfs/hostfs_kern.c b/fs/hostfs/hostfs_kern.c
 - out:
 -	kunmap(page);
 -	return err;
-+	*pagep = __grab_cache_page(mapping, index);
++	*pagep = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!*pagep)
 +		return -ENOMEM;
 +	return 0;
@@ -3791,7 +3821,7 @@ diff --git a/fs/jffs2/file.c b/fs/jffs2/file.c
  	int ret = 0;
  
 -	D1(printk(KERN_DEBUG "jffs2_prepare_write()\n"));
-+	pg = __grab_cache_page(mapping, index);
++	pg = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!pg)
 +		return -ENOMEM;
 +	*pagep = pg;
@@ -4005,7 +4035,7 @@ diff --git a/fs/libfs.c b/fs/libfs.c
 +	index = pos >> PAGE_CACHE_SHIFT;
 +	from = pos & (PAGE_CACHE_SIZE - 1);
 +
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +
@@ -4280,13 +4310,25 @@ diff --git a/fs/mpage.c b/fs/mpage.c
 diff --git a/fs/namei.c b/fs/namei.c
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -2729,53 +2729,29 @@ int __page_symlink(struct inode *inode, 
+@@ -2724,58 +2724,39 @@ void page_put_link(struct dentry *dentry
+ 	}
+ }
+ 
+-int __page_symlink(struct inode *inode, const char *symname, int len,
+-		gfp_t gfp_mask)
++/*
++ * The nofs argument instructs pagecache_write_begin to pass AOP_FLAG_NOFS
++ */
++int __page_symlink(struct inode *inode, const char *symname, int len, int nofs)
  {
  	struct address_space *mapping = inode->i_mapping;
  	struct page *page;
 +	void *fsdata;
  	int err;
  	char *kaddr;
++	unsigned int flags = AOP_FLAG_UNINTERRUPTIBLE;
++	if (nofs)
++		flags |= AOP_FLAG_NOFS;
  
  retry:
 -	err = -ENOMEM;
@@ -4299,7 +4341,7 @@ diff --git a/fs/namei.c b/fs/namei.c
 -		goto retry;
 -	}
 +	err = pagecache_write_begin(NULL, mapping, 0, len-1,
-+				AOP_FLAG_UNINTERRUPTIBLE, &page, &fsdata);
++				flags, &page, &fsdata);
  	if (err)
 -		goto fail_map;
 +		goto fail;
@@ -4345,6 +4387,15 @@ diff --git a/fs/namei.c b/fs/namei.c
  fail:
  	return err;
  }
+@@ -2783,7 +2764,7 @@ fail:
+ int page_symlink(struct inode *inode, const char *symname, int len)
+ {
+ 	return __page_symlink(inode, symname, len,
+-			mapping_gfp_mask(inode->i_mapping));
++			!(mapping_gfp_mask(inode->i_mapping) & __GFP_FS));
+ }
+ 
+ const struct inode_operations page_symlink_inode_operations = {
 diff --git a/fs/nfs/file.c b/fs/nfs/file.c
 --- a/fs/nfs/file.c
 +++ b/fs/nfs/file.c
@@ -4375,7 +4426,7 @@ diff --git a/fs/nfs/file.c b/fs/nfs/file.c
 +	struct page *page;
 +	index = pos >> PAGE_CACHE_SHIFT;
 +
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +	*pagep = page;
@@ -4537,7 +4588,7 @@ diff --git a/fs/reiserfs/inode.c b/fs/reiserfs/inode.c
 +	int old_ref = 0;
 +
 +	index = pos >> PAGE_CACHE_SHIFT;
-+	page = __grab_cache_page(mapping, index);
++	page = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!page)
 +		return -ENOMEM;
 +	*pagep = page;
@@ -4791,7 +4842,7 @@ diff --git a/fs/smbfs/file.c b/fs/smbfs/file.c
 +			struct page **pagep, void **fsdata)
 +{
 +	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
-+	*pagep = __grab_cache_page(mapping, index);
++	*pagep = grab_cache_page_write_begin(mapping, index, flags);
 +	if (!*pagep)
 +		return -ENOMEM;
  	return 0;
@@ -5503,17 +5554,20 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
   *
   * address_space_operation functions return these large constants to indicate
   * special semantics to the caller.  These are much larger than the bytes in a
-@@ -391,6 +391,9 @@ enum positive_aop_returns {
+@@ -391,6 +391,12 @@ enum positive_aop_returns {
  	AOP_TRUNCATED_PAGE	= 0x80001,
  };
  
 +#define AOP_FLAG_UNINTERRUPTIBLE	0x0001 /* will not do a short write */
 +#define AOP_FLAG_CONT_EXPAND		0x0002 /* called from cont_expand */
++#define AOP_FLAG_NOFS			0x0004 /* used by filesystem to direct
++						* helper code (eg buffer layer)
++						* to clear GFP_FS from alloc */
 +
  /*
   * oh the beauties of C type declarations.
   */
-@@ -420,6 +423,39 @@ typedef struct {
+@@ -420,6 +426,39 @@ typedef struct {
  typedef int (*read_actor_t)(read_descriptor_t *, struct page *,
  		unsigned long, unsigned long);
  
@@ -5553,7 +5607,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  struct address_space_operations {
  	int (*writepage)(struct page *page, struct writeback_control *wbc);
  	int (*readpage)(struct file *, struct page *);
-@@ -434,12 +470,13 @@ struct address_space_operations {
+@@ -434,12 +473,13 @@ struct address_space_operations {
  	int (*readpages)(struct file *filp, struct address_space *mapping,
  			struct list_head *pages, unsigned nr_pages);
  
@@ -5573,7 +5627,7 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  	/* Unfortunately this kludge is needed for FIBMAP. Don't use it */
  	sector_t (*bmap)(struct address_space *, sector_t);
  	void (*invalidatepage) (struct page *, unsigned long);
-@@ -456,6 +493,18 @@ struct address_space_operations {
+@@ -456,6 +496,18 @@ struct address_space_operations {
  					unsigned long);
  };
  
@@ -5592,7 +5646,16 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
  struct backing_dev_info;
  struct address_space {
  	struct inode		*host;		/* owner: inode, block_device */
-@@ -1912,6 +1961,12 @@ extern int simple_prepare_write(struct f
+@@ -1869,7 +1921,7 @@ extern int page_readlink(struct dentry *
+ extern void *page_follow_link_light(struct dentry *, struct nameidata *);
+ extern void page_put_link(struct dentry *, struct nameidata *, void *);
+ extern int __page_symlink(struct inode *inode, const char *symname, int len,
+-		gfp_t gfp_mask);
++		int nofs);
+ extern int page_symlink(struct inode *inode, const char *symname, int len);
+ extern const struct inode_operations page_symlink_inode_operations;
+ extern int generic_readlink(struct dentry *, char __user *, int);
+@@ -1912,6 +1964,12 @@ extern int simple_prepare_write(struct f
  			unsigned offset, unsigned to);
  extern int simple_commit_write(struct file *file, struct page *page,
  				unsigned offset, unsigned to);
@@ -5608,16 +5671,17 @@ diff --git a/include/linux/fs.h b/include/linux/fs.h
 diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
 --- a/include/linux/pagemap.h
 +++ b/include/linux/pagemap.h
-@@ -96,6 +96,8 @@ unsigned find_get_pages_contig(struct ad
+@@ -96,6 +96,9 @@ unsigned find_get_pages_contig(struct ad
  unsigned find_get_pages_tag(struct address_space *mapping, pgoff_t *index,
  			int tag, unsigned int nr_pages, struct page **pages);
  
-+struct page *__grab_cache_page(struct address_space *mapping, pgoff_t index);
++struct page *grab_cache_page_write_begin(struct address_space *mapping,
++			pgoff_t index, unsigned flags);
 +
  /*
   * Returns locked page at given index in given cache, creating it if needed.
   */
-@@ -218,6 +220,9 @@ static inline int fault_in_pages_writeab
+@@ -218,6 +221,9 @@ static inline int fault_in_pages_writeab
  {
  	int ret;
  
@@ -5627,7 +5691,7 @@ diff --git a/include/linux/pagemap.h b/include/linux/pagemap.h
  	/*
  	 * Writing zeroes into userspace here is OK, because we know that if
  	 * the zero gets there, we'll be overwriting it.
-@@ -237,19 +242,23 @@ static inline int fault_in_pages_writeab
+@@ -237,19 +243,23 @@ static inline int fault_in_pages_writeab
  	return ret;
  }
  
@@ -6038,7 +6102,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  ssize_t
  generic_file_direct_write(struct kiocb *iocb, const struct iovec *iov,
  		unsigned long *nr_segs, loff_t pos, loff_t *ppos,
-@@ -1860,151 +1965,143 @@ generic_file_direct_write(struct kiocb *
+@@ -1860,151 +1965,149 @@ generic_file_direct_write(struct kiocb *
  }
  EXPORT_SYMBOL(generic_file_direct_write);
  
@@ -6050,7 +6114,8 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 + * Find or create a page at the given pagecache position. Return the locked
 + * page. This function is specifically for buffered writes.
 + */
-+struct page *__grab_cache_page(struct address_space *mapping, pgoff_t index)
++struct page *grab_cache_page_write_begin(struct address_space *mapping,
++					pgoff_t index, unsigned flags)
  {
 -	struct file *file = iocb->ki_filp;
 -	struct address_space * mapping = file->f_mapping;
@@ -6077,15 +6142,19 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 -		buf = cur_iov->iov_base + iov_base;
 +	int status;
 +	struct page *page;
++	gfp_t gfp_notmask = 0;
++	if (flags & AOP_FLAG_NOFS)
++		gfp_notmask = __GFP_FS;
 +repeat:
 +	page = find_lock_page(mapping, index);
 +	if (likely(page))
 +		return page;
 +
-+	page = page_cache_alloc(mapping);
++	page = __page_cache_alloc(mapping_gfp_mask(mapping) & ~gfp_notmask);
 +	if (!page)
 +		return NULL;
-+	status = add_to_page_cache_lru(page, mapping, index, GFP_KERNEL);
++	status = add_to_page_cache_lru(page, mapping, index,
++						GFP_KERNEL & ~gfp_notmask);
 +	if (unlikely(status)) {
 +		page_cache_release(page);
 +		if (status == -EEXIST)
@@ -6094,7 +6163,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  	}
 +	return page;
 +}
-+EXPORT_SYMBOL(__grab_cache_page);
++EXPORT_SYMBOL(grab_cache_page_write_begin);
 +
 +static ssize_t generic_perform_write(struct file *file,
 +				struct iov_iter *i, loff_t pos)
@@ -6194,6 +6263,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 -			page_cache_release(page);
 -			if (status == AOP_TRUNCATED_PAGE)
 -				continue;
++		mark_page_accessed(page);
 +		status = a_ops->write_end(file, mapping, pos, bytes, copied,
 +						page, fsdata);
 +		if (unlikely(status < 0))
@@ -6306,7 +6376,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  		if (unlikely((file->f_flags & O_SYNC) || IS_SYNC(inode))) {
  			if (!a_ops->writepage || !is_sync_kiocb(iocb))
  				status = generic_osync_inode(inode, mapping,
-@@ -2020,7 +2117,6 @@ zero_length_segment:
+@@ -2020,7 +2123,6 @@ zero_length_segment:
  	if (unlikely(file->f_flags & O_DIRECT) && written)
  		status = filemap_write_and_wait(mapping);
  
