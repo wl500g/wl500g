@@ -63,7 +63,8 @@ start_wpa_supplicant(char *prefix, int restart)
 
 	/* Start wpa_supplicant */
 	ret = _eval(wpa_argv, NULL, 0, NULL);
-	_eval(cli_argv, NULL, 0, NULL);
+	if (ret == 0)
+		_eval(cli_argv, NULL, 0, NULL);
 
 	return ret;
 }
@@ -82,7 +83,7 @@ wpacli_main(int argc, char **argv)
 {
 	char tmp[100];
 	char prefix[] = "wanXXXXXXXXXX_";
-	int unit, state;
+	int unit;
 
 	if (!argv[1] || (unit = wan_ifunit(argv[1])) < 0)
 		return EINVAL;
@@ -91,16 +92,15 @@ wpacli_main(int argc, char **argv)
 	if (!nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5"))
 		return 0;
 
-	state = (strncmp(argv[2], "CONNECTED", sizeof("CONNECTED")) == 0);
-	if (state &&
-	    nvram_match(strcat_r(prefix, "proto", tmp), "dhcp"))
+	if (nvram_match(strcat_r(prefix, "proto", tmp), "dhcp") &&
+	    strncmp(argv[2], "EAP-SUCCESS", sizeof("EAP-SUCCESS")) == 0)
 	{
 		/* Renew DHCP lease */
 		snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
 		kill_pidfile_s(tmp, SIGUSR1);
 	}
 
-	logmessage("auth client", state ? "connected" : "disconnected");
+	logmessage("auth client", "%s", argv[2]);
 
 	return 0;
 }
