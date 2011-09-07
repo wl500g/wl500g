@@ -1430,6 +1430,10 @@ static void wpa_cli_action_process(const char *msg)
 			wpa_cli_connected = 0;
 			wpa_cli_exec(action_file, ctrl_ifname, "DISCONNECTED");
 		}
+	} else if (str_match(pos, WPA_EVENT_EAP_SUCCESS)) {
+		wpa_cli_exec(action_file, ctrl_ifname, "EAP-SUCCESS");
+	} else if (str_match(pos, WPA_EVENT_EAP_FAILURE)) {
+		wpa_cli_exec(action_file, ctrl_ifname, "EAP-FAILURE");
 	} else if (str_match(pos, WPA_EVENT_TERMINATING)) {
 		printf("wpa_supplicant is terminating - stop monitoring\n");
 		wpa_cli_quit = 1;
