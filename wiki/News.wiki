@@ -5,6 +5,44 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
+===RT-N-1.9.2.7-rtn (current)===
+  * uClibc 0.9.32 with Native Posix Threads Layer (ATTENTION! possible old binaries incompatibility, especially using libpthreads)
+
+  * kernel
+    * backports from upstream - mm(buffered write iterator), raid/md, exportfs, IPv6, vlan, igmp, nfs, pppoe, ehci, usbip
+    * bcmnat update
+    * usb-serial: use specified endpoint size for bulk_out too
+    * MIPS: Update linux-mips.org patches up to git 2011-08-20
+    * UDF backport from 2.6.32.46
+    * xfs backport from 2.6.27.59
+    * sys_fallocate() implementation (xfs only, no uClibc support yet)
+
+  * rc
+    * add ppp-auth handlers
+    * preliminary 802.1x MD5 and KabiNET authentication support
+    * ipv6: advertise RDNSS
+    * TZ: excluding and transferring Russian DST into GMT offsets accordingly to Federal Law
+
+  * rp-l2tp
+    * set rws to 8 like in windows client
+    * specify 100Mbps connection speed
+
+  * 3g/cdma fixes & updates
+    * usb-modeswitch 1.1.9
+    * prevent multiple hotplug processing of endpoints from the same device
+    * dialing on usb-serial event
+    * option driver backports
+
+  * dnsmasq 2.58
+
+  * miniupnpd 1.6
+
+  * ntfs-3g 2011.4.12AR.6
+
+  * bugfixes
+    * accel-pptp fixes and updates
+    * busybox: Fix bug 4069 - sed with in-place operation (-i switch)
+
 ===RT-N-1.9.2.7-rtn-`r3121` (2011-07-03)===
   * kernel
     * backports from upstream (IPv6, net, netfilter, UVC, net schedulers, usb, mtd, writeback, bdi)
