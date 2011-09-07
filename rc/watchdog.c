@@ -95,6 +95,12 @@ static struct itimerval itv;
 static long sync_interval = -1; // every 30 seconds a unit
 static int stacheck_interval = -1;
 
+/* Private et.o ioctls */
+#define SIOCGETCROBORD		(SIOCDEVPRIVATE + 14)
+#define SIOCSETCROBOWR		(SIOCDEVPRIVATE + 15)
+static int wan_phystatus = 1;	// assume it's was up before start
+static int wan_phyport = -1;
+
 /* forwards */
 #ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag);
@@ -257,6 +263,35 @@ void gpio_init(void)
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
 		reset_mask | setup_mask, 0);
 #endif
+}
+
+static int phy_status(char *wan_if, int port)
+{
+	struct ifreq ifr;
+	int fd;
+	int args[2];
+	int ret = 0;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, wan_if, sizeof(ifr.ifr_name));
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0)
+		return ret;
+
+	args[0] = 0x10000;
+	ifr.ifr_data = (caddr_t) args;
+	if (ioctl(fd, SIOCGETCROBORD, (caddr_t)&ifr) < 0) {
+		perror("ioctl(SIOCGETCROBORD)");
+		goto error;
+	}
+
+	if (args[1] & (1 << port))
+		ret = 1;
+
+error:
+	close(fd);
+	return ret;
 }
 
 static void
@@ -698,6 +733,22 @@ static void sta_check(void)
 	return;
 }
 
+static void link_check(void)
+{
+	int status;
+
+	/* Skip if wan port is unknown/not set */
+	if (wan_phyport < 0)
+		return;
+
+	status = phy_status("eth0", wan_phyport);
+	if (wan_phystatus == status)
+		return;
+	wan_phystatus = status;
+
+	logmessage("WAN port", "cable %s", status ? "connected" : "disconnected");
+}
+
 /* wathchdog is runned in NORMAL_PERIOD, 1 seconds
  * check in each NORMAL_PERIOD
  *	1. button
@@ -718,9 +769,12 @@ static void watchdog(int signum)
 	if (reset_mask) btn_check();
 	/* handle ezsetup */
 	if (setup_mask) setup_check();
-	
+
 	/* if timer is set to less than 1 sec, then bypass the following */
 	if (itv.it_value.tv_sec==0) return;
+
+	/* handle WAN port link */
+	link_check();
 
 	watchdog_period = (watchdog_period+1) %10;
 	if (watchdog_period) return;
@@ -844,6 +898,10 @@ watchdog_main()
 	/* Start sync time */
 	sync_interval=1;
 	start_ntpc();
+
+	/* Is WAN port link required */
+	if (!nvram_match("router_disable", "1"))
+		wan_phyport = ethernet_port(nvram_safe_get("wan_ifname"));
 
 	/* set timer */
 	alarmtimer(NORMAL_PERIOD, 0);

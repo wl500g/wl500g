@@ -286,4 +286,20 @@ void setup_ethernet(char *wan_if)
 		}
 		else eval("et", "-i", wan_if, "speed", speed);
 	}
-} 
+}
+
+int ethernet_port(char *wan_if)
+{
+	char tmp[16];
+	int ret = -1;
+
+	if (strncmp(wan_if, "vlan", 4) == 0)
+	{
+		char *ports = nvram_safe_get(strcat_r(wan_if, "ports", tmp));
+		tmp[0] = ports[0]; // copy single digit
+		tmp[1] = '\0';
+		ret = atoi(tmp);
+	} /* ... */
+
+	return ret;
+}

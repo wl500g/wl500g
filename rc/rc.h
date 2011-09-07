@@ -125,6 +125,7 @@ int start_bpalogin(void);
 int stop_bpalogin(void);
 void start_qos(char *wan_ipaddr);
 void setup_ethernet(char *wan_if);
+int ethernet_port(char *wan_if);
 int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
