@@ -735,6 +735,7 @@ static void sta_check(void)
 
 static void link_check(void)
 {
+	int unit = 0;
 	int status;
 
 	/* Skip if wan port is unknown/not set */
@@ -745,6 +746,28 @@ static void link_check(void)
 	if (wan_phystatus == status)
 		return;
 	wan_phystatus = status;
+
+	if (status)
+	{
+		char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+		char *wan_proto;
+
+		sprintf(prefix, "wan%d_", unit);
+		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
+
+#ifdef __CONFIG_EAPOL__
+		if (nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5")
+		&& (strcmp(wan_proto, "static") == 0 ||
+		    strcmp(wan_proto, "dhcp") == 0))
+			killall("wpa_supplicant", -SIGUSR2);
+		else
+#endif
+		if (strcmp(wan_proto, "dhcp") == 0)
+		{
+			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
+			kill_pidfile_s(tmp, SIGUSR1);
+		}
+	}
 
 	logmessage("WAN port", "cable %s", status ? "connected" : "disconnected");
 }
