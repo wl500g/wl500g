@@ -611,6 +611,22 @@ static void wpa_supplicant_reconfig(int sig, void *eloop_ctx,
 }
 
 
+static void wpa_supplicant_reassociate(int sig, void *eloop_ctx,
+				       void *signal_ctx)
+{
+	struct wpa_global *global = eloop_ctx;
+	struct wpa_supplicant *wpa_s;
+	wpa_printf(MSG_DEBUG, "Signal %d received - reassociating", sig);
+	for (wpa_s = global->ifaces; wpa_s; wpa_s = wpa_s->next) {
+		wpa_s->disconnected = 0;
+		wpa_s->reassociate = 1;
+		wpa_s->scan_runs = 0;
+		wpa_supplicant_req_scan(wpa_s, 0, 0);
+		wpa_msg(wpa_s, MSG_DEBUG, "Reassociation completed");
+	}
+}
+
+
 static wpa_cipher cipher_suite2driver(int cipher)
 {
 	switch (cipher) {
@@ -2150,6 +2166,7 @@ int wpa_supplicant_run(struct wpa_global *global)
 
 	eloop_register_signal_terminate(wpa_supplicant_terminate, NULL);
 	eloop_register_signal_reconfig(wpa_supplicant_reconfig, NULL);
+	eloop_register_signal_reassociate(wpa_supplicant_reassociate, NULL);
 
 	eloop_run();
 

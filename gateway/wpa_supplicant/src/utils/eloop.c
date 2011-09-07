@@ -442,6 +442,17 @@ int eloop_register_signal_reconfig(eloop_signal_handler handler,
 }
 
 
+int eloop_register_signal_reassociate(eloop_signal_handler handler,
+				      void *user_data)
+{
+#ifdef CONFIG_NATIVE_WINDOWS
+	return 0;
+#else /* CONFIG_NATIVE_WINDOWS */
+	return eloop_register_signal(SIGUSR2, handler, user_data);
+#endif /* CONFIG_NATIVE_WINDOWS */
+}
+
+
 void eloop_run(void)
 {
 	fd_set *rfds, *wfds, *efds;

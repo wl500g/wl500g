@@ -288,6 +288,24 @@ int eloop_register_signal_reconfig(eloop_signal_handler handler,
 				   void *user_data);
 
 /**
+ * eloop_register_signal_reassociate - Register handler for reassociate signals
+ * @handler: Callback function to be called when the signal is received
+ * @user_data: Callback context data (signal_ctx)
+ * Returns: 0 on success, -1 on failure
+ *
+ * Signals are 'global' events and there is no local eloop_data pointer like
+ * with other handlers. The global user_data pointer registered with
+ * eloop_init() will be used as eloop_ctx for signal handlers.
+ *
+ * This function is a more portable version of eloop_register_signal() since
+ * the knowledge of exact details of the signals is hidden in eloop
+ * implementation. In case of operating systems using signal(), this function
+ * registers a handler for SIGUSR2.
+ */
+int eloop_register_signal_reassociate(eloop_signal_handler handler,
+				      void *user_data);
+
+/**
  * eloop_run - Start the event loop
  *
  * Start the event loop and continue running as long as there are any

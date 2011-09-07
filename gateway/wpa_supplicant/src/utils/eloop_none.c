@@ -311,6 +311,18 @@ int eloop_register_signal_reconfig(void (*handler)(int sig, void *eloop_ctx,
 }
 
 
+int eloop_register_signal_reassociate(void (*handler)(int sig, void *eloop_ctx,
+						      void *signal_ctx)
+				      void *user_data)
+{
+#if 0
+	/* TODO: for example */
+	return eloop_register_signal(SIGUSR2, handler, user_data);
+#endif
+	return 0;
+}
+
+
 void eloop_run(void)
 {
 	int i;

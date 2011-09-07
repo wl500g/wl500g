@@ -354,6 +354,7 @@ int main(int argc, char *argv[])
 	eloop_register_timeout(0, 100000, eapol_test_poll, &wpa_s, NULL);
 	eloop_register_signal_terminate(eapol_test_terminate, NULL);
 	eloop_register_signal_reconfig(eapol_test_terminate, NULL);
+	eloop_register_signal_reassociate(eapol_test_terminate, NULL);
 	eloop_run();
 
 	if (preauth_test.auth_timed_out)

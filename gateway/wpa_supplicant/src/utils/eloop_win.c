@@ -454,6 +454,14 @@ int eloop_register_signal_reconfig(eloop_signal_handler handler,
 }
 
 
+int eloop_register_signal_reassociate(eloop_signal_handler handler,
+				      void *user_data)
+{
+	/* TODO */
+	return 0;
+}
+
+
 void eloop_run(void)
 {
 	struct os_time tv, now;
