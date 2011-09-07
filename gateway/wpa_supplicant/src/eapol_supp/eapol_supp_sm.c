@@ -1822,9 +1822,9 @@ struct eapol_sm *eapol_sm_init(struct eapol_ctx *ctx)
 	sm->portControl = Auto;
 
 	/* Supplicant PAE state machine */
-	sm->heldPeriod = 60;
-	sm->startPeriod = 30;
-	sm->maxStart = 3;
+	sm->heldPeriod = 30;
+	sm->startPeriod = 5;
+	sm->maxStart = 8;
 
 	/* Supplicant Backend state machine */
 	sm->authPeriod = 30;
