@@ -4,12 +4,91 @@ md: Updates from upstream
  a35e63efa1fb18c6f20f38e3ddf3f8ffbcf0f6e7 md: fix deadlock in md/raid1 and md/raid10 when handling a read error
  1c830532f6b44d10a1743ccd00e990c6b83396f5 md: fix possible raid1/raid10 deadlock on read error during resync
  a07e6ab41be179cf1ed728a4f41368435508b550 md: the md RAID10 resync thread could cause a md RAID10 array deadlock
+ 8311c29d40235062a843f4a8e8a70a44af6fe4c9 md: reduce CPU wastage on idle md array with a write-intent bitmap
 
 ---
- drivers/md/raid1.c  |   74 +++++++++++++++++++++++++++++++++++-----------------
- drivers/md/raid10.c |   74 +++++++++++++++++++++++++++++++++++-----------------
- 2 files changed, 100 insertions(+), 48 deletions(-)
+ drivers/md/bitmap.c         |   17 +++++++++-
+ drivers/md/raid1.c          |   74 +++++++++++++++++++++++++++++---------------
+ drivers/md/raid10.c         |   74 +++++++++++++++++++++++++++++---------------
+ include/linux/raid/bitmap.h |    2 +
+ 4 files changed, 118 insertions(+), 49 deletions(-)
 
+diff --git a/drivers/md/bitmap.c b/drivers/md/bitmap.c
+--- a/drivers/md/bitmap.c
++++ b/drivers/md/bitmap.c
+@@ -1011,6 +1011,11 @@ int bitmap_daemon_work(struct bitmap *bi
+ 	if (time_before(jiffies, bitmap->daemon_lastrun + bitmap->daemon_sleep*HZ))
+ 		return 0;
+ 	bitmap->daemon_lastrun = jiffies;
++	if (bitmap->allclean) {
++		bitmap->mddev->thread->timeout = MAX_SCHEDULE_TIMEOUT;
++		return 0;
++	}
++	bitmap->allclean = 1;
+ 
+ 	for (j = 0; j < bitmap->chunks; j++) {
+ 		bitmap_counter_t *bmc;
+@@ -1039,6 +1044,7 @@ int bitmap_daemon_work(struct bitmap *bi
+ 					default:
+ 						bitmap_file_kick(bitmap);
+ 					}
++					bitmap->allclean = 0;
+ 				}
+ 				continue;
+ 			}
+@@ -1070,6 +1076,9 @@ int bitmap_daemon_work(struct bitmap *bi
+ /*
+   if (j < 100) printk("bitmap: j=%lu, *bmc = 0x%x\n", j, *bmc);
+ */
++			if (*bmc)
++				bitmap->allclean = 0;
++
+ 			if (*bmc == 2) {
+ 				*bmc=1; /* maybe clear the bit next time */
+ 				set_page_attr(bitmap, page, BITMAP_PAGE_CLEAN);
+@@ -1104,6 +1113,9 @@ int bitmap_daemon_work(struct bitmap *bi
+ 		}
+ 	}
+ 
++	if (bitmap->allclean == 0)
++		bitmap->mddev->thread->timeout = bitmap->daemon_sleep * HZ;
++
+ 	return err;
+ }
+ 
+@@ -1200,6 +1212,7 @@ int bitmap_startwrite(struct bitmap *bit
+ 			sectors -= blocks;
+ 		else sectors = 0;
+ 	}
++	bitmap->allclean = 0;
+ 	return 0;
+ }
+ 
+@@ -1270,6 +1283,7 @@ int bitmap_start_sync(struct bitmap *bit
+ 		}
+ 	}
+ 	spin_unlock_irq(&bitmap->lock);
++	bitmap->allclean = 0;
+ 	return rv;
+ }
+ 
+@@ -1306,6 +1320,7 @@ void bitmap_end_sync(struct bitmap *bitm
+ 	}
+  unlock:
+ 	spin_unlock_irqrestore(&bitmap->lock, flags);
++	bitmap->allclean = 0;
+ }
+ 
+ void bitmap_close_sync(struct bitmap *bitmap)
+@@ -1349,7 +1364,7 @@ static void bitmap_set_memory_bits(struc
+ 		set_page_attr(bitmap, page, BITMAP_PAGE_CLEAN);
+ 	}
+ 	spin_unlock_irq(&bitmap->lock);
+-
++	bitmap->allclean = 0;
+ }
+ 
+ /* dirty the memory and file bits for bitmap chunks "s" to "e" */
 diff --git a/drivers/md/raid10.c b/drivers/md/raid10.c
 --- a/drivers/md/raid10.c
 +++ b/drivers/md/raid10.c
@@ -260,4 +339,16 @@ diff --git a/drivers/md/raid1.c b/drivers/md/raid1.c
  	if (unplug)
  		unplug_slaves(mddev);
  }
+diff --git a/include/linux/raid/bitmap.h b/include/linux/raid/bitmap.h
+--- a/include/linux/raid/bitmap.h
++++ b/include/linux/raid/bitmap.h
+@@ -235,6 +235,8 @@ struct bitmap {
+ 
+ 	unsigned long flags;
+ 
++	int allclean;
++
+ 	unsigned long max_write_behind; /* write-behind mode */
+ 	atomic_t behind_writes;
+ 
 -- 
