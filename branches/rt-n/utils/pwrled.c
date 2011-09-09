@@ -115,6 +115,7 @@ enum {
 	MDL_RTN16,
 	MDL_RTN12,
 	MDL_RTN10,
+	MDL_RTN10U,
 	MDL_WNR3500L,
 };
 #endif
@@ -139,6 +140,7 @@ struct platform_t platforms[] = {
 	[MDL_RTN16]	= {"ASUS RT-N16",		GPIO1, 0},
 	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO2, 0},
 	[MDL_RTN10]	= {"ASUS RT-N10",		GPIO1, 0},
+	[MDL_RTN10U]	= {"ASUS RT-N10U",		GPIO1, 0},
 	/* D-Link */
 	[MDL_DIR320]	= {"D-Link DIR-320",		GPIO0, GPIO0},
 	/* Microsoft */
@@ -228,6 +230,8 @@ static int get_model(void)
 				return MDL_RTN12;
 			if (!strcmp(boardtype,"0x04EC"))
 				return MDL_RTN10;
+			if (!strcmp(boardtype,"0x0550"))
+				return MDL_RTN10U;
 			if (!strcmp(boardtype,"0x042f"))
 				return MDL_WL500GP;
 			if (!strcmp(boardtype,"0x0472"))
