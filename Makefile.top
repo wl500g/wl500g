@@ -18,7 +18,7 @@ RELEASE=1.9.2.7-rtn
 
 
 MODEL=RT-N16
-# WL500gp, WL500gpv2, WL500W, WL700g, RT-N10, RT-N12, RT-N16
+# WL500gp, WL500gpv2, WL500W, WL700g, RT-N10, RT-N10U, RT-N12, RT-N16
 
 #
 # asus trx trailer
@@ -236,7 +236,7 @@ endef
 FlashMaxSize = \
     $(if $(filter $(1),WL520gc),1703936, \
     $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
-    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g),7995392, \
+    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U),7995392, \
     $(if $(filter $(1),RT-N16),16384000,0)))) \
 
 #
@@ -331,7 +331,7 @@ modules_install-WL700g: modules_install-WL500gp
 modules_install-RT-N10 modules_install-RT-N12: modules_install
 	@true
 
-modules_install-RT-N16: modules_install modules_install-usb
+modules_install-RT-N10U modules_install-RT-N16: modules_install modules_install-usb
 ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
@@ -1188,6 +1188,7 @@ images:
 	make images-RT-N16
 	make images-RT-N12
 	make images-RT-N10
+	#make images-RT-N10U
 	#make images-WL500gp
 	#make images-WL500W
 	#make images-WL500gpv2
