@@ -239,7 +239,7 @@ if [ -n "$1" ]; then
 	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] \
 		|| [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] \
 		|| [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
-		|| [ "$MODEL" = "RT-N12" ] || \
+		|| [ "$MODEL" = "RT-N12" ] \
 		|| [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ] \
 		|| [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
 		### 6.1 default value ###
