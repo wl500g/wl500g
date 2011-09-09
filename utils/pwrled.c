@@ -140,7 +140,7 @@ struct platform_t platforms[] = {
 	[MDL_RTN16]	= {"ASUS RT-N16",		GPIO1, 0},
 	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO2, 0},
 	[MDL_RTN10]	= {"ASUS RT-N10",		GPIO1, 0},
-	[MDL_RTN10U]	= {"ASUS RT-N10U",		GPIO1, 0},
+	[MDL_RTN10U]	= {"ASUS RT-N10U",		GPIO6, 0},
 	/* D-Link */
 	[MDL_DIR320]	= {"D-Link DIR-320",		GPIO0, GPIO0},
 	/* Microsoft */
