@@ -89,6 +89,9 @@ int get_model(void)
 	else if (nvram_match("boardtype", "0x04EC") &&
 		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))
 		return MDL_RTN10;
+	else if (nvram_match("boardtype", "0x0550") &&
+		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1102"))
+		return MDL_RTN10U;
 	else if (nvram_match("boardtype", "0x04CF") &&
 		 nvram_match("boardnum", "3500") &&
 		 (nvram_match("boardrev", "02") || nvram_match("boardrev", "0x1213")))
