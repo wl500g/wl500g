@@ -53,22 +53,36 @@ extern int router_model;
 #define STACHECK_PERIOD_CONNECT 60/5		/* 30 seconds */
 #define STACHECK_PERIOD_DISCONNECT 5/5		/* 5 seconds */
 
-#define GPIO0 0x0001
-#define GPIO1 0x0002
-#define GPIO2 0x0004
-#define GPIO3 0x0008
-#define GPIO4 0x0010
-#define GPIO5 0x0020
-#define GPIO6 0x0040
-#define GPIO7 0x0080
-#define GPIO8 0x0100
-#define GPIO15 0x8000
+#define GPIO0  0x00000001
+#define GPIO1  0x00000002
+#define GPIO2  0x00000004
+#define GPIO3  0x00000008
+#define GPIO4  0x00000010
+#define GPIO5  0x00000020
+#define GPIO6  0x00000040
+#define GPIO7  0x00000080
+#define GPIO8  0x00000100
+#define GPIO9  0x00000200
+#define GPIO10 0x00000400
+#define GPIO11 0x00000800
+#define GPIO12 0x00001000
+#define GPIO13 0x00002000
+#define GPIO14 0x00004000
+#define GPIO15 0x00008000
+#define GPIO16 0x00010000
+#define GPIO17 0x00020000
+#define GPIO18 0x00040000
+#define GPIO19 0x00080000
+#define GPIO20 0x00100000
+#define GPIO21 0x00200000
+#define GPIO22 0x00400000
+#define GPIO23 0x00800000
 
 static int reset_mask = 0;
 static int reset_value = 0;
 static int ready_mask = 0;	/* Ready or Power LED */
 static int ready_value = 0;
-static int setup_mask = 0;	/* EZ-Setup button */
+static int setup_mask = 0;	/* EZ-Setup/WPS button */
 static int setup_value = 0;
 static int power_mask = 0;	/* POWER button light */
 static int power_value = 0;
