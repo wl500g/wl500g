@@ -247,10 +247,14 @@ void gpio_init(void)
 			setup_mask = GPIO0, setup_value = 0;
 			break;
 		case MDL_RTN10:
-		case MDL_RTN10U:
 			reset_mask = GPIO3, reset_value = 0;
 			ready_mask = GPIO1, ready_value = 0;
 			setup_mask = GPIO2, setup_value = 0;
+			break;
+		case MDL_RTN10U:
+			reset_mask = GPIO21, reset_value = 0;
+			ready_mask = GPIO6, ready_value = 0;
+			setup_mask = GPIO20, setup_value = 0;
 			break;
 		case MDL_WNR3500L:
 			reset_mask = GPIO4, reset_value = 0;
