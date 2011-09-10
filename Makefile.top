@@ -501,7 +501,7 @@ manpages-install:
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man5 \
 	    $(filter %.5,$(MANPAGES-y))
 ifeq ($(CONFIG_NFSD),y)
-	for subdir in exportfs lockd mountd nfsd statd; do \
+	for subdir in exportfs mountd nfsd statd; do \
 	$(MAKE) -C nfs-utils/utils/$${subdir} install-man DESTDIR=$(PLATFORMDIR)/ datarootdir=manpages ; \
 	done
 endif
@@ -868,8 +868,9 @@ samba-clean:
 
 nfs-utils/Makefile: nfs-utils/Makefile.in
 	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
-	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
-	    --disable-gss --disable-rquotad
+	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 --disable-ipv6 \
+	    --disable-uuid --disable-gss --disable-rquotad --disable-mount \
+		--without-tcp-wrappers
 
 nfs-utils: nfs-utils/Makefile
 	$(MAKE) -C $@
@@ -877,7 +878,6 @@ nfs-utils: nfs-utils/Makefile
 nfs-utils-install:
 	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
 	install -D nfs-utils/utils/mountd/mountd $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
-	install -D nfs-utils/utils/lockd/lockd $(INSTALLDIR)/nfs-utils/usr/sbin/lockd
 	install -D nfs-utils/utils/exportfs/exportfs $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
 	install -D nfs-utils/utils/showmount/showmount $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
 	install -D nfs-utils/utils/statd/statd $(INSTALLDIR)/nfs-utils/usr/sbin/statd

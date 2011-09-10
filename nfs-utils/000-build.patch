@@ -2,78 +2,11 @@ diff -urNBp nfs-utils-1.0.9/Makefile.in nfs-utils/Makefile.in
 --- nfs-utils-1.0.9/Makefile.in	2006-07-08 04:06:49.000000000 +0400
 +++ nfs-utils/Makefile.in	2010-03-22 20:32:18.000000000 +0300
 @@ -222,7 +222,7 @@ statduser = @statduser@
- statedir = @statedir@
- sysconfdir = @sysconfdir@
- target_alias = @target_alias@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ AUTOMAKE_OPTIONS = foreign
 -SUBDIRS = tools support utils linux-nfs
 +SUBDIRS = support utils linux-nfs
  MAINTAINERCLEANFILES = Makefile.in
  EXTRA_DIST = \
  	autogen.sh \
-diff -urB nfs-utils.orig/support/export/Makefile.in nfs-utils/support/export/Makefile.in
---- nfs-utils.orig/support/export/Makefile.in	2006-07-08 04:06:44.000000000 +0400
-+++ nfs-utils/support/export/Makefile.in	2010-03-22 20:48:46.000000000 +0300
-@@ -223,7 +223,7 @@
- statedir = @statedir@
- sysconfdir = @sysconfdir@
- target_alias = @target_alias@
--RPCGEN = $(top_builddir)/tools/rpcgen/rpcgen
-+RPCGEN = rpcgen
- GENFILES_CLNT = mount_clnt.c
- GENFILES_XDR = mount_xdr.c
- GENFILES_H = mount.h
-@@ -508,15 +508,15 @@
- $(RPCGEN):
- 	make -C $(top_srcdir)/tools/rpcgen all
- 
--$(GENFILES_CLNT): %_clnt.c: %.x $(RPCGEN)
-+$(GENFILES_CLNT): %_clnt.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -l -o $@ $<
- 
--$(GENFILES_XDR): %_xdr.c: %.x $(RPCGEN)
-+$(GENFILES_XDR): %_xdr.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -c -o $@ $<
- 
--$(GENFILES_H): %.h: %.x $(RPCGEN)
-+$(GENFILES_H): %.h: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -h -o $@ $<
- 	rm -f $(top_builddir)/support/include/mount.h
-diff -urB nfs-utils.orig/utils/statd/Makefile.in nfs-utils/utils/statd/Makefile.in
---- nfs-utils.orig/utils/statd/Makefile.in	2010-03-22 20:27:40.000000000 +0300
-+++ nfs-utils/utils/statd/Makefile.in	2010-03-22 20:49:13.000000000 +0300
-@@ -229,7 +229,7 @@
- sysconfdir = @sysconfdir@
- target_alias = @target_alias@
- man8_MANS = statd.man
--RPCGEN = $(top_builddir)/tools/rpcgen/rpcgen
-+RPCGEN = rpcgen
- GENFILES_CLNT = sm_inter_clnt.c
- GENFILES_SVC = sm_inter_svc.c
- GENFILES_XDR = sm_inter_xdr.c
-@@ -596,19 +596,19 @@
- $(RPCGEN):
- 	make -C ../../tools/rpcgen all
- 
--$(GENFILES_CLNT): %_clnt.c: %.x $(RPCGEN)
-+$(GENFILES_CLNT): %_clnt.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -l -o $@ $<
- 
--$(GENFILES_SVC): %_svc.c: %.x $(RPCGEN)
-+$(GENFILES_SVC): %_svc.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -m -o $@ $<
- 
--$(GENFILES_XDR): %_xdr.c: %.x $(RPCGEN)
-+$(GENFILES_XDR): %_xdr.c: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -c -o $@ $<
- 
--$(GENFILES_H): %.h: %.x $(RPCGEN)
-+$(GENFILES_H): %.h: %.x
- 	test -f $@ && rm -rf $@ || true
- 	$(RPCGEN) -h -o $@ $<
- 
