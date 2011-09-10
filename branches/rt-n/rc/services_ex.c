@@ -778,7 +778,6 @@ static int start_nfsd(void)
 	}
 
 	eval("/usr/sbin/portmap");
-	eval("/usr/sbin/lockd");
 	eval("/usr/sbin/statd");
 	eval("/usr/sbin/nfsd");
 	eval("/usr/sbin/mountd");
@@ -889,7 +888,6 @@ stop_usb(void)
 	{	
 		killall("mountd", 0);
 		killall("nfsd", -9);
-		killall("lockd", -9);
 		killall("statd", 0);
 		killall("portmap", 0);
 		

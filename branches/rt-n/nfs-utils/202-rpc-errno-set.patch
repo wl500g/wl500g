@@ -1,0 +1,69 @@
+From 3339c1f73c05fc9b5cf51e14a2033ec38f671334
+From: Steve Dickson
+Date: Wed, 15 Jul 2009 07:58:22 -0400
+Subject: [PATCH] errno not be set on RPC errors
+
+Changed both nfs_advise_umount() and nfs_gp_ping() to
+set the errno by calling CLNT_GETERR() after a CLNT_CALL()
+error. Also added code to rpc_strerror() that will log
+the errno value, when set, via strerror().
+
+These changes added essential information to the error message
+making it much easier to detect errorsuch as "Connection refused"
+
+Signed-off-by: Steve Dickson <steved@redhat.com>
+---
+ support/nfs/getport.c |    6 +++++-
+ utils/mount/error.c   |   12 +++++++++---
+ utils/mount/network.c |   10 +++++++---
+ 3 files changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/support/nfs/getport.c b/support/nfs/getport.c
+index 4d4b1c4..4bdf556 100644
+--- a/support/nfs/getport.c
++++ b/support/nfs/getport.c
+@@ -398,6 +398,10 @@ static int nfs_gp_ping(CLIENT *client, struct timeval timeout)
+ 			   (xdrproc_t)xdr_void, NULL,
+ 			   timeout);
+ 
++	if (status != RPC_SUCCESS) {
++		rpc_createerr.cf_stat = status;
++		CLNT_GETERR(client, &rpc_createerr.cf_error);
++	}
+ 	return (int)(status == RPC_SUCCESS);
+ }
+ 
+@@ -530,7 +534,7 @@ static unsigned long nfs_gp_pmap_getport(CLIENT *client,
+ 
+ 	if (status != RPC_SUCCESS) {
+ 		rpc_createerr.cf_stat = status;
+-		clnt_geterr(client, &rpc_createerr.cf_error);
++		CLNT_GETERR(client, &rpc_createerr.cf_error);
+ 		port = 0;
+ 	} else if (port == 0)
+ 		rpc_createerr.cf_stat = RPC_PROGNOTREGISTERED;
+diff --git a/utils/mount/error.c b/utils/mount/error.c
+index 4cc9e09..1b64bd7 100644
+--- a/utils/mount/error.c
++++ b/utils/mount/error.c
+@@ -70,9 +70,15 @@ static int rpc_strerror(int spos)
+ 			pos = snprintf(tmp, (erreob - tmp),
+ 					_("System Error: %s"),
+ 						strerror(cf_errno));
+-		else
+-			pos = snprintf(tmp, (erreob - tmp),
+-					_("RPC Error:%s"), estr);
++		else {
++			if (cf_errno) 
++				pos = snprintf(tmp, (erreob - tmp),
++					_("RPC Error:%s; errno = %s"), 
++					estr, strerror(cf_errno));
++			else
++				pos = snprintf(tmp, (erreob - tmp),
++						_("RPC Error:%s"), estr);
++		}
+ 	}
+ 	return pos;
+ }
+-- 
+1.7.4.1

@@ -21,7 +21,7 @@ diff -urNBp nfs-utils-1.0.9/support/lib/Makefile nfs-utils/support/lib/Makefile
 +NFSOBJS = ../nfs/exports.o ../nfs/rmtab.o ../nfs/xio.o ../nfs/closeall.o \
 +	  ../nfs/rpcmisc.o ../nfs/rpcdispatch.o ../nfs/xlog.o ../nfs/xcommon.o ../nfs/wildmat.o \
 +	  ../nfs/nfssvc.o ../nfs/nfsclient.o ../nfs/nfsexport.o ../nfs/getfh.o ../nfs/nfsctl.o \
-+	  ../nfs/lockdsvc.o ../nfs/svc_socket.o ../nfs/cacheio.o
++	  ../nfs/rpc_socket.o ../nfs/svc_socket.o ../nfs/cacheio.o ../nfs/getport.o
 +EXPOBJS = ../export/mount_clnt.o ../export/mount_xdr.o ../export/client.o ../export/export.o ../export/hostname.o \
 +	  ../export/nfsctl.o ../export/rmtab.o ../export/xtab.o
 +MSCOBJS = ../misc/from_local.o ../misc/mountpoint.o
@@ -41,9 +41,9 @@ diff -urNBp nfs-utils-1.0.9/support/Makefile.in nfs-utils/support/Makefile.in
 --- nfs-utils-1.0.9/support/Makefile.in	2006-07-08 04:06:44.000000000 +0400
 +++ nfs-utils/support/Makefile.in	2010-03-22 20:32:14.000000000 +0300
 @@ -207,7 +207,7 @@ statduser = @statduser@
- statedir = @statedir@
- sysconfdir = @sysconfdir@
  target_alias = @target_alias@
+ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
 -SUBDIRS = export include misc nfs
 +SUBDIRS = export include misc nfs lib
  MAINTAINERCLEANFILES = Makefile.in
@@ -131,13 +131,13 @@ diff -urNBp nfs-utils-1.0.9/utils/mountd/Makefile.in nfs-utils/utils/mountd/Make
  DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
 @@ -236,9 +235,7 @@ KPREFIX = @kprefix@
  mountd_SOURCES = mountd.c mount_dispatch.c auth.c rmtab.c cache.c \
- 		 svc_run.c mountd.h
+ 		 svc_run.c fsloc.c mountd.h
  
 -mountd_LDADD = ../../support/export/libexport.a \
 -	       ../../support/nfs/libnfs.a \
 -	       ../../support/misc/libmisc.a \
 +mountd_LDADD = -L../../support/lib/ -lnfs \
- 	       $(LIBBSD) $(LIBWRAP) $(LIBNSL)
+ 	       $(LIBBSD) $(LIBWRAP) $(LIBNSL) $(LIBBLKID)
  
  mountd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
 diff -urNBp nfs-utils-1.0.9/utils/showmount/Makefile.in nfs-utils/utils/showmount/Makefile.in
@@ -150,7 +150,7 @@ diff -urNBp nfs-utils-1.0.9/utils/showmount/Makefile.in nfs-utils/utils/showmoun
 -showmount_DEPENDENCIES = ../../support/export/libexport.a \
 -	../../support/nfs/libnfs.a ../../support/misc/libmisc.a
 +showmount_DEPENDENCIES = ../../support/lib/libnfs.so
- DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
+ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
  depcomp = $(SHELL) $(top_srcdir)/depcomp
  am__depfiles_maybe = depfiles
 @@ -226,9 +225,7 @@ target_alias = @target_alias@
@@ -168,15 +168,15 @@ diff -urNBp nfs-utils-1.0.9/utils/statd/Makefile.in nfs-utils/utils/statd/Makefi
 --- nfs-utils-1.0.9/utils/statd/Makefile.in	2010-03-22 20:49:13.000000000 +0300
 +++ nfs-utils/utils/statd/Makefile.in	2010-03-22 20:27:40.000000000 +0300
 @@ -60,8 +60,7 @@ am_statd_OBJECTS = callback.$(OBJEXT) no
- 	sm_inter_svc.$(OBJEXT) sm_inter_xdr.$(OBJEXT)
+ 	sm_inter_clnt.$(OBJEXT) sm_inter_svc.$(OBJEXT) \
+ 	sm_inter_xdr.$(OBJEXT)
  statd_OBJECTS = $(am_statd_OBJECTS)
- am__DEPENDENCIES_1 =
 -statd_DEPENDENCIES = ../../support/export/libexport.a \
 -	../../support/nfs/libnfs.a ../../support/misc/libmisc.a \
 +statd_DEPENDENCIES = ../../support/lib/libnfs.so \
  	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
- DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/support/include
- depcomp = $(SHELL) $(top_srcdir)/depcomp
+ dist_sbinSCRIPT_INSTALL = $(INSTALL_SCRIPT)
+ SCRIPTS = $(dist_sbin_SCRIPTS)
 @@ -244,9 +243,7 @@ statd_SOURCES = callback.c notlist.c log
  	        notlist.h statd.h system.h version.h sm_inter.h
  
