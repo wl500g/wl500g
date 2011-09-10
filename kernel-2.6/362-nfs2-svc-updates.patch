@@ -1,39 +1,46 @@
-commit 354ecbb9dd89c21708b319da8c4ffd3dd6e6811d
-Author: Dr. David Alan Gilbert
-Date:   Sat Aug 25 16:09:27 2007 +0100
+nfsd: svc updates from upstream
 
-    knfsd: Add source address to sunrpc svc errors
-    
-    This patch adds the address of the client that caused an error in
-    sunrpc/svc.c so that you get errors that look like:
-    
-    svc: 192.168.66.28, port=709: unknown version (3 for prog 100003, nfsd)
-    
-    I've seen machines which get bunches of unknown version or similar
-    errors from time to time, and while the recent patch to add the service
-    helps to find which service has the wrong version it doesn't help find
-    the potentially bad client.
-    
-    The patch is against a checkout of Linus's git tree made on 2007-08-24.
-    
-    One observation is that the svc_print_addr function prints to a buffer
-    which in this case makes life a little more complex; it just feels as if
-    there must be lots of places that print a connection address - is there
-    a better function to use anywhere?
-    
-    I think actually there are a few places with semi duplicated code; e.g.
-    one_sock_name switches on the address family but only currently has
-    IPV4; I wonder how many other places are similar.
-    
-    Signed-off-by: Dave Gilbert <linux@treblig.org>
-    Cc: Randy Dunlap <randy.dunlap@oracle.com>
-    Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
-    Acked-by:  Neil Brown <neilb@suse.de>
+ kernel.org commits
+ 354ecbb9dd89c21708b319da8c4ffd3dd6e6811d knfsd: Add source address to sunrpc svc errors
+ 87d26ea7771ad637035e6bd5a2700d81ee9162da nfsd: more careful input validation in nfsctl write methods
+ 15ddb4aec54422ead137b03ea4e9b3f5db3f7cc2 NFSD: don't report compiled-out versions as present
 
 ---
- net/sunrpc/svc.c |   40 ++++++++++++++++++++++++++++++----------
- 1 file changed, 30 insertions(+), 10 deletions(-)
 
+diff --git a/fs/nfsd/nfsctl.c b/fs/nfsd/nfsctl.c
+--- a/fs/nfsd/nfsctl.c
++++ b/fs/nfsd/nfsctl.c
+@@ -304,6 +304,9 @@ static ssize_t write_filehandle(struct file *file, char *buf, size_t size)
+ 	struct auth_domain *dom;
+ 	struct knfsd_fh fh;
+ 
++	if (size == 0)
++		return -EINVAL;
++
+ 	if (buf[size-1] != '\n')
+ 		return -EINVAL;
+ 	buf[size-1] = 0;
+@@ -663,7 +666,7 @@ static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
+ 	char *recdir;
+ 	int len, status;
+ 
+-	if (size > PATH_MAX || buf[size-1] != '\n')
++	if (size == 0 || size > PATH_MAX || buf[size-1] != '\n')
+ 		return -EINVAL;
+ 	buf[size-1] = 0;
+ 
+diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
+--- a/fs/nfsd/nfssvc.c
++++ b/fs/nfsd/nfssvc.c
+@@ -120,7 +120,7 @@ u32 nfsd_supported_minorversion;
+ int nfsd_vers(int vers, enum vers_op change)
+ {
+ 	if (vers < NFSD_MINVERS || vers >= NFSD_NRVERS)
+-		return -1;
++		return 0;
+ 	switch(change) {
+ 	case NFSD_SET:
+ 		nfsd_versions[vers] = nfsd_version[vers];
 diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
 index 55ea6df..a4a6bf7 100644
 --- a/net/sunrpc/svc.c
