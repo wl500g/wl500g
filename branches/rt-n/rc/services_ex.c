@@ -798,13 +798,14 @@ int restart_nfsd(void)
 
 static int stop_nfsd(void)
 {
-#ifdef LINUX26
-	umount("/proc/fs/nfsd");
-#endif
 	killall("mountd", 0);
 	killall("nfsd", -9);
 	killall("statd", 0);
 	killall("portmap", 0);
+
+#ifdef LINUX26
+	umount("/proc/fs/nfsd");
+#endif
 
 	return 0;
 }
