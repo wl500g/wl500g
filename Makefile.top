@@ -869,7 +869,7 @@ samba-clean:
 nfs-utils/Makefile: nfs-utils/Makefile.in
 	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
 	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 --disable-ipv6 \
-	    --disable-uuid --disable-gss --disable-rquotad --disable-mount \
+	    --disable-uuid --disable-gss --disable-mount \
 		--without-tcp-wrappers
 
 nfs-utils: nfs-utils/Makefile
