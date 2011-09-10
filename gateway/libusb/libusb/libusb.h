@@ -1205,7 +1205,10 @@ void libusb_unlock_event_waiters(libusb_context *ctx);
 int libusb_wait_for_event(libusb_context *ctx, struct timeval *tv);
 
 int libusb_handle_events_timeout(libusb_context *ctx, struct timeval *tv);
+int libusb_handle_events_timeout_completed(libusb_context *ctx,
+	struct timeval *tv, int *completed);
 int libusb_handle_events(libusb_context *ctx);
+int libusb_handle_events_completed(libusb_context *ctx, int *completed);
 int libusb_handle_events_locked(libusb_context *ctx, struct timeval *tv);
 int libusb_pollfds_handle_timeouts(libusb_context *ctx);
 int libusb_get_next_timeout(libusb_context *ctx, struct timeval *tv);
