@@ -1,0 +1,119 @@
+commit 354ecbb9dd89c21708b319da8c4ffd3dd6e6811d
+Author: Dr. David Alan Gilbert
+Date:   Sat Aug 25 16:09:27 2007 +0100
+
+    knfsd: Add source address to sunrpc svc errors
+    
+    This patch adds the address of the client that caused an error in
+    sunrpc/svc.c so that you get errors that look like:
+    
+    svc: 192.168.66.28, port=709: unknown version (3 for prog 100003, nfsd)
+    
+    I've seen machines which get bunches of unknown version or similar
+    errors from time to time, and while the recent patch to add the service
+    helps to find which service has the wrong version it doesn't help find
+    the potentially bad client.
+    
+    The patch is against a checkout of Linus's git tree made on 2007-08-24.
+    
+    One observation is that the svc_print_addr function prints to a buffer
+    which in this case makes life a little more complex; it just feels as if
+    there must be lots of places that print a connection address - is there
+    a better function to use anywhere?
+    
+    I think actually there are a few places with semi duplicated code; e.g.
+    one_sock_name switches on the address family but only currently has
+    IPV4; I wonder how many other places are similar.
+    
+    Signed-off-by: Dave Gilbert <linux@treblig.org>
+    Cc: Randy Dunlap <randy.dunlap@oracle.com>
+    Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
+    Acked-by:  Neil Brown <neilb@suse.de>
+
+---
+ net/sunrpc/svc.c |   40 ++++++++++++++++++++++++++++++----------
+ 1 file changed, 30 insertions(+), 10 deletions(-)
+
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index 55ea6df..a4a6bf7 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -777,6 +777,30 @@ svc_register(struct svc_serv *serv, int proto, unsigned short port)
+ }
+ 
+ /*
++ * Printk the given error with the address of the client that caused it.
++ */
++static int
++__attribute__ ((format (printf, 2, 3)))
++svc_printk(struct svc_rqst *rqstp, const char *fmt, ...)
++{
++	va_list args;
++	int 	r;
++	char 	buf[RPC_MAX_ADDRBUFLEN];
++
++	if (!net_ratelimit())
++		return 0;
++
++	printk(KERN_WARNING "svc: %s: ",
++		svc_print_addr(rqstp, buf, sizeof(buf)));
++
++	va_start(args, fmt);
++	r = vprintk(fmt, args);
++	va_end(args);
++
++	return r;
++}
++
++/*
+  * Process the RPC request.
+  */
+ int
+@@ -963,14 +987,13 @@ svc_process(struct svc_rqst *rqstp)
+ 	return 0;
+ 
+ err_short_len:
+-	if (net_ratelimit())
+-		printk("svc: short len %Zd, dropping request\n", argv->iov_len);
++	svc_printk(rqstp, "short len %Zd, dropping request\n",
++			argv->iov_len);
+ 
+ 	goto dropit;			/* drop request */
+ 
+ err_bad_dir:
+-	if (net_ratelimit())
+-		printk("svc: bad direction %d, dropping request\n", dir);
++	svc_printk(rqstp, "bad direction %d, dropping request\n", dir);
+ 
+ 	serv->sv_stats->rpcbadfmt++;
+ 	goto dropit;			/* drop request */
+@@ -1000,8 +1023,7 @@ err_bad_prog:
+ 	goto sendit;
+ 
+ err_bad_vers:
+-	if (net_ratelimit())
+-		printk("svc: unknown version (%d for prog %d, %s)\n",
++	svc_printk(rqstp, "unknown version (%d for prog %d, %s)\n",
+ 		       vers, prog, progp->pg_name);
+ 
+ 	serv->sv_stats->rpcbadfmt++;
+@@ -1011,16 +1033,14 @@ err_bad_vers:
+ 	goto sendit;
+ 
+ err_bad_proc:
+-	if (net_ratelimit())
+-		printk("svc: unknown procedure (%d)\n", proc);
++	svc_printk(rqstp, "unknown procedure (%d)\n", proc);
+ 
+ 	serv->sv_stats->rpcbadfmt++;
+ 	svc_putnl(resv, RPC_PROC_UNAVAIL);
+ 	goto sendit;
+ 
+ err_garbage:
+-	if (net_ratelimit())
+-		printk("svc: failed to decode args\n");
++	svc_printk(rqstp, "failed to decode args\n");
+ 
+ 	rpc_stat = rpc_garbage_args;
+ err_bad:
+-- 
