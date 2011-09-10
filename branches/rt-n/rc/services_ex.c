@@ -748,6 +748,7 @@ static int start_nfsd(void)
 	mkdir("/var/lib/nfs", 0755);
 # ifdef LINUX26
 	mkdir("/var/lib/nfs/v4recovery", 0755);
+	mount("nfsd", "/proc/fs/nfsd", "nfsd", MS_MGC_VAL, NULL);
 # endif
 	close(creat("/var/lib/nfs/etab", 0644));
 	close(creat("/var/lib/nfs/xtab", 0644));
@@ -793,6 +794,19 @@ int restart_nfsd(void)
 	eval("/usr/sbin/exportfs", "-a");
 
 	return 0;	
+}
+
+static int stop_nfsd(void)
+{
+#ifdef LINUX26
+	umount("/proc/fs/nfsd");
+#endif
+	killall("mountd", 0);
+	killall("nfsd", -9);
+	killall("statd", 0);
+	killall("portmap", 0);
+
+	return 0;
 }
 
 int 
@@ -886,11 +900,8 @@ stop_usb(void)
 {
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
-		killall("mountd", 0);
-		killall("nfsd", -9);
-		killall("statd", 0);
-		killall("portmap", 0);
-		
+		stop_nfsd();
+
 		rmmod("nfsd");
 #ifdef LINUX26
 		rmmod("exportfs");
