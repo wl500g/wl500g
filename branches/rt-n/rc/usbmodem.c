@@ -675,7 +675,7 @@ int wait_for_dev_appearance(int vid, int pid, char *device)
 int
 hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 {
-	int ret = 0;
+	int ret = 0, i;
 	char *str1, *str2;
 	char tmp[200];
 	char stored_product[40];
@@ -763,17 +763,28 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 
 	if (ret && found_dev) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
-		eval("insmod", "usbserial");
-		if (nvram_match("wan_modem_usbserial", "1")) {
+		if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
+
+		if (!exists("/sys/module/option")) {
 			sprintf(stored_product, "product=0x%x", found_dev->pid);
 			sprintf(tmp, "vendor=0x%x", found_dev->vid);
-			eval("insmod", "option", tmp, stored_product);
-		} else
-			eval("insmod", "option");
+			insmod("option", tmp, stored_product, NULL);
+			dprintf("load option with %s %s", tmp, stored_product);
+			for(i=0; i<500 && !exists("/sys/module/option"); i++)
+				usleep(10000);
+		} else {
+			FILE * fnew_id = fopen("/sys/bus/usb-serial/drivers/option1/new_id", "a");
+			if (fnew_id) {
+				fprintf(fnew_id, "0x%x 0x%x\n", found_dev->vid, found_dev->pid);
+				fclose(fnew_id);
+			} else {
+				dprintf( "Option file open error: %s", strerror(errno) );
+			}
+		}
 #ifndef LINUX26
 		insmod("acm", NULL);
 #else
-		insmod("cdc-acm", NULL);
+		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
 #endif
 	}
 
