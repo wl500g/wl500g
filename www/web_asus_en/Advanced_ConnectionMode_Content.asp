@@ -337,27 +337,6 @@
 		</tr>
 
 		<tr>
-			<td class="content_header_td" onmouseover="return overlib('Use this mode only if common drivers option/acm does not work.')"
-				onmouseout="return nd()">
-				Legacy usbserial support
-			</td>
-			<td class="content_input_td" nowrap>
-				<input type="radio" value="0" name="wan_modem_usbserial" class="content_input_fd" <% nvram_match_x("3GConfig","wan_modem_usbserial", "0", "checked"); %> >No
-				<input type="radio" value="1" name="wan_modem_usbserial" class="content_input_fd" <% nvram_match_x("3GConfig","wan_modem_usbserial", "1", "checked"); %> >Yes
-			</td>
-		</tr>
-
-		<tr>
-			<td class="content_header_td">
-				USB device packet size (0 for default):
-			</td>
-			<td class="content_input_td">
-				<input type="text" maxlength="256" class="content_input_fd" size="32" name="wan_modem_packetsize"
-					value="<% nvram_get_x("3GConfig","wan_modem_packetsize"); %>" onkeypress="return is_number(this)"
-					onblur="validate_range(this,0,16384)">
-			</td>
-		</tr>
-		<tr>
 			<td class="content_header_td">
 				USB device serial speed (usually 921600):
 			</td>
