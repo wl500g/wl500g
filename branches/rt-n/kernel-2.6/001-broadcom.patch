@@ -6575,7 +6575,7 @@ diff -urBwNp linux-2.6.22/drivers/net/bcm57xx/Makefile linux-2.6/drivers/net/bcm
 +
 +endif
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +else
 +# Normal makefile
@@ -6625,7 +6625,7 @@ diff -urBwNp linux-2.6.22/drivers/net/emf/Makefile linux-2.6/drivers/net/emf/Mak
 +
 +obj-$(CONFIG_EMF) := emf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +else
 +# Normal makefile
@@ -6676,7 +6676,7 @@ diff -urBwNp linux-2.6.22/drivers/net/et/Makefile linux-2.6/drivers/net/et/Makef
 +et-objs := $(ETSRCDIR)/linux/et.o
 +endif
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +else
 +# Normal makefile
@@ -6692,7 +6692,7 @@ diff -urBwNp linux-2.6.22/drivers/net/et/Makefile linux-2.6/drivers/net/et/Makef
 diff -urBwNp linux-2.6.22/drivers/net/hnd/Kconfig linux-2.6/drivers/net/hnd/Kconfig
 --- linux-2.6.22/drivers/net/hnd/Kconfig	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/hnd/Kconfig	2008-12-12 06:29:21.000000000 +0300
-@@ -0,0 +1,65 @@
+@@ -0,0 +1,86 @@
 +#
 +# Broadcom Home Networking Division (HND) driver configuration
 +#
@@ -6754,6 +6754,27 @@ diff -urBwNp linux-2.6.22/drivers/net/hnd/Kconfig linux-2.6/drivers/net/hnd/Kcon
 +config WL_USE_HIGH
 +	bool "Config file for high/bmac split variant"
 +endchoice
++config WL_AP
++	string "Config file for basic AP variant"
++	default "wlconfig_lx_router_ap"
++config WL_AP_SDSTD
++	string "Config file for basic AP sdstd variant"
++	default "wlconfig_lx_router_ap_sdstd"
++config WL_STA
++	string "Config file for basic STA variant"
++	default "wlconfig_lx_router_sta"
++config WL_APSTA
++	string "Config file for basic APSTA variant"
++	default "wlconfig_lx_router_apsta"
++config WL_AP_ONCHIP_G
++	string "Config file for AP 1chipG variant"
++	default "wlconfig_lx_router_ap_1chipG"
++config WL_STA_ONCHIP_G
++	string "Config file for STA 1chipG variant"
++	default "wlconfig_lx_router_sta_1chipG"
++config WL_HIGH
++	string "Config file for high/bmac split variant"
++	default "wlconfig_lx_router_high"
 +config EMF
 +	tristate "Efficient Multicast Forwarding & IGMP Snooping Layers"
 +	depends on NETFILTER
@@ -6938,7 +6959,7 @@ diff -urBwNp linux-2.6.22/drivers/net/igs/Makefile linux-2.6/drivers/net/igs/Mak
 +
 +obj-$(CONFIG_EMF) := igs.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +else
 +# Normal makefile
@@ -6985,7 +7006,7 @@ diff -urBwNp linux-2.6.22/drivers/net/Makefile linux-2.6/drivers/net/Makefile
 diff -urBwNp linux-2.6.22/drivers/net/wl/Makefile linux-2.6/drivers/net/wl/Makefile
 --- linux-2.6.22/drivers/net/wl/Makefile	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/wl/Makefile	2008-12-12 06:29:47.000000000 +0300
-@@ -0,0 +1,45 @@
+@@ -0,0 +1,63 @@
 +#
 +# Makefile for the Broadcom wl driver
 +#
@@ -7007,19 +7028,29 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/Makefile linux-2.6/drivers/net/wl/Makef
 +WLCONF_O := wlconf.o
 +
 +WL_PARTIAL_REBUILD := 0
-+CONFIG_WL_APSTA := wlconfig_lx_shared
 +
 +# Generate list of supported variants
-+VLIST_BASE := AP STA APSTA
++#VLIST_BASE := AP STA APSTA
++VLIST_BASE := APSTA
 +
-+ifeq ($(CONFIG_WL_USE_HIGH),y)
-+VLIST += HIGH
-+else
++ifeq ($(CONFIG_WL_USE_AP_SDSTD),y)
++  VLIST_BASE   += AP_SDSTD
++endif
++
 +VLIST          += $(VLIST_BASE)
++
++ifeq ($(CONFIG_WL_USBAP),y)
++# Do variants because we need two drivers for dual band operation
++WL_VARIANTS	:= 1
++VLIST		+= HIGH
++# Note that we don't use CONFIG_WL_USE_HIGH because we need to leave WL_SUFFIX for
++# the other driver. HIGH driver is always called wl_high and loaded upon hotplut
++# event.
++endif
++
 +ifeq ($(BUILD_WL_ONCHIP_G),true)
 +  VLIST        += $(foreach base,$(VLIST_BASE),$(base)_ONCHIP_G)
 +endif # BUILD_WL_ONCHIP_G
-+endif
 +
 +
 +# Set suffix and config based on the selected variant
@@ -7028,6 +7059,14 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/Makefile linux-2.6/drivers/net/wl/Makef
 +
 +# Module file names use lowercase of the suffix
 +wl_suffix := $(shell echo "$(WL_SUFFIX)" | tr A-Z a-z)
++
++
++# For PREBUILD and postbuild w/WLSRC, compile variants in subdirs
++# Subdir names use lowercase versions of the variant suffixes
++wlsubdirs := $(addprefix wl_,$(foreach v,$(VLIST),$(shell echo "$(v)/" | tr A-Z a-z)))
++
++
++#subdir-$(CONFIG_WL) += $(wlsubdirs)
 +
 +
 +include $(src)/wl_generic.mk
@@ -7062,7 +7101,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_ap/Makefile linux-2.6/drivers/net/wl
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7105,7 +7144,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_ap_onchip_g/Makefile linux-2.6/drive
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7148,7 +7187,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_ap_sdstd/Makefile linux-2.6/drivers/
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7191,7 +7230,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_apsta/Makefile linux-2.6/drivers/net
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7234,7 +7273,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_apsta_onchip_g/Makefile linux-2.6/dr
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7282,7 +7321,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_dngl/Makefile linux-2.6/drivers/net/
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7325,7 +7364,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_dngl_onchip_g/Makefile linux-2.6/dri
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7339,8 +7378,8 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_dngl_onchip_g/Makefile linux-2.6/dri
 +endif
 diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/wl_generic.mk
 --- linux-2.6.22/drivers/net/wl/wl_generic.mk	1970-01-01 03:00:00.000000000 +0300
-+++ linux-2.6/drivers/net/wl/wl_generic.mk	2008-12-12 06:29:47.000000000 +0300
-@@ -0,0 +1,82 @@
++++ linux-2.6/drivers/net/wl/wl_generic.mk	2011-05-12 06:29:47.000000000 +0300
+@@ -0,0 +1,112 @@
 +#
 +# Generic portion of the Broadcom wl driver makefile
 +#
@@ -7388,7 +7427,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/
 +    WL_DFLAGS := $(WLFLAGS)
 +    # If source directory (src/wl/sys) exists, use sources to build objects
 +    WL_OBJS   := $(foreach file, $(WL_SOURCE), \
-+                 $(if $(wildcard $(src)/$(SRCBASE)/wl/sys/$(file)), \
++		 $(if $(wildcard $(src)/$(SRCBASE)/wl/sys/$(file)), \
 +		 $(addprefix $(SRCBASE)/wl/sys/, $(patsubst %.c,%.o,$(file)))))
 +    WL_OBJS   += $(foreach file, $(WL_SOURCE), \
 +		 $(if $(wildcard $(src)/$(SRCBASE)/bcmcrypto/$(file)), \
@@ -7405,13 +7444,22 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/
 +    EXTRA_CFLAGS += -DDMA $(WL_DFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE)/wl/linux \
 +		    -I$(src)/$(SRCBASE)/wl/sys -finline-limit=2048 -Werror
 +    
++    # If the PHY_HAL flag is defined we look in directory wl/phy for the
++    # phy source files.
++    ifneq ($(findstring PHY_HAL,$(WL_DFLAGS)),)
++        WL_OBJS   += $(foreach file, $(WL_SOURCE), \
++		     $(if $(wildcard $(src)/$(SRCBASE)/wl/phy/$(file)), \
++		     $(addprefix $(SRCBASE)/wl/phy/, $(patsubst %.c,%.o,$(file)))))
++        EXTRA_CFLAGS += -I$(src)/$(SRCBASE)/wl/phy
++    endif
++
 +    # wl-objs is for linking to wl.o
-+    $(TARGET)-objs := $(WL_OBJS)
 +ifeq ($(WL_PARTIAL_REBUILD),1)
-+    $(TARGET)-objs += $(SRCBASE)/wl/linux/wl_prebuilt.o
++    $(TARGET)-objs := $(SRCBASE)/wl/linux/wl_prebuilt.o
 +else
-+    $(TARGET)-objs += $(WLCONF_O)
++    $(TARGET)-objs := $(WLCONF_O)
 +endif
++    $(TARGET)-objs += $(WL_OBJS)
 +
 +else # SRCBASE/wl/sys doesn't exist
 +
@@ -7423,7 +7471,27 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_generic.mk linux-2.6/drivers/net/wl/
 +
 +obj-$(CONFIG_WL) := $(TARGET).o
 +
-+clean-files += $(SRCBASE)/wl/sys/*.o $(SRCBASE)/wl/sys/.*.*.cmd $(WLCONF_H) $(WLCONF_O)
++
++#WL_CONF_H: wlconf.h
++
++UPDATESH   := $(WLCFGDIR)/diffupdate.sh
++
++WLTUNEFILE ?= wltunable_lx_router.h
++
++$(obj)/$(WLCONF_O): $(obj)/$(WLCONF_H) FORCE
++
++$(obj)/$(WLCONF_H): $(WLCFGDIR)/$(WLTUNEFILE) FORCE
++	[ ! -f $@ ] || chmod +w $@
++	@echo "check and update config file"
++	@echo $(if $(VLIST),"VLIST          = $(VLIST)")
++	@echo "CONFIG_WL_CONF = $(CONFIG_WL_CONF)"
++	@echo "WLTUNEFILE     = $(WLTUNEFILE)"
++	cp $< wltemp
++	$(UPDATESH) wltemp $@
++
++FORCE:
++
++clean-files += $(SRCBASE)/wl/sys/*.o $(SRCBASE)/wl/phy/*.o $(SRCBASE)/wl/sys/.*.*.cmd $(SRCBASE)/wl/phy/.*.*.cmd $(WLCONF_H) $(WLCONF_O)
 diff -urBwNp linux-2.6.22/drivers/net/wl/wl_high/Makefile linux-2.6/drivers/net/wl/wl_high/Makefile
 --- linux-2.6.22/drivers/net/wl/wl_high/Makefile	1970-01-01 03:00:00.000000000 +0300
 +++ linux-2.6/drivers/net/wl/wl_high/Makefile	2008-12-12 06:29:48.000000000 +0300
@@ -7445,7 +7513,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_high/Makefile linux-2.6/drivers/net/
 +SRCBASE := ../../../../../..
 +
 +ifeq ($(CONFIG_WL_HIGH),)
-+CONFIG_WL_AP := "wlconfig_lx_router_high"
++CONFIG_WL_HIGH := "wlconfig_lx_router_high"
 +endif
 +CONFIG_WL_CONF = $(CONFIG_WL_HIGH)
 +
@@ -7455,7 +7523,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_high/Makefile linux-2.6/drivers/net/
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7498,7 +7566,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_sta/Makefile linux-2.6/drivers/net/w
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7541,7 +7609,7 @@ diff -urBwNp linux-2.6.22/drivers/net/wl/wl_sta_onchip_g/Makefile linux-2.6/driv
 +WLCONF_H := ../wlconf.h
 +WLCONF_O := ../wlconf.o
 +
-+ifneq ($(KERNELRELEASE),)
++ifneq ($(KERNELVERSION),)
 +# kbuild part of makefile
 +include $(src)/../wl_generic.mk
 +else
@@ -7804,13 +7872,13 @@ diff -urBwNp linux-2.6.22/Makefile linux-2.6/Makefile
 +endif #CONFIG_WL_EMULATOR
 +
 +#ifdef BCMINTERNAL
-+BCMINTERNAL := y
++##BCMINTERNAL := y
 +ifeq ("$(strip $(BCMINTERNAL))","y")
 +AFLAGS += -DBCMINTERNAL
 +ASFLAGS += -DBCMINTERNAL
 +CFLAGS += -DBCMINTERNAL
 +#ifdef BCMDBG
-+BCMDBG := y
++##BCMDBG := y
 +ifeq ("$(strip $(BCMDBG))","y")
 +AFLAGS += -DBCMDBG
 +ASFLAGS += -DBCMDBG
