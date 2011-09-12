@@ -381,17 +381,6 @@
 					value="<% nvram_get_x("3GConfig","wan_modem_options"); %>" onkeypress="return is_string(this)"
 					onblur="validate_string(this)">
 			</td>
-		</tr>		
-		<tr>
-			<td class="content_header_td">
-				Enable USB-Serial drivers
-			</td>
-			<td class="content_input_td">
-				<input type="radio" value="0" name="wan_modem_serial_enable" class="content_input_fd"
-					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '0')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "0", "checked"); %>>No
-				<input type="radio" value="1" name="wan_modem_serial_enable" class="content_input_fd"
-					onClick="return change_common_radio(this, '3GConfig', 'wan_modem_serial_enable', '1')" <% nvram_match_x("3GConfig","wan_modem_serial_enable", "1", "checked"); %>>Yes
-			</td>
 		</tr>
 		<tr>
 			<td class="content_header_td">

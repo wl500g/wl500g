@@ -475,6 +475,5 @@
 {"wan_modem_mtu","1492", 0},
 {"wan_modem_mru","1492", 0},
 {"wan_modem_maxfail","0", 0},
-{"wan_modem_serial_enable","1", 0},
 {"wan_modem_zerocd_mode","Auto",0},
 #endif

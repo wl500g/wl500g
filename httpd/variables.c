@@ -1651,7 +1651,6 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_idle", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_mtu", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_mru", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_serial_enable", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_onfailure", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_maxfail", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_init_script", "", validate_string, ARGV(""), TRUE, FALSE},
