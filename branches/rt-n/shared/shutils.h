@@ -221,7 +221,7 @@ extern int get_model(void);
 
 		@return	error code
 */
-extern int remove_from_list( char *name, char *list, int listsize );
+extern int remove_from_list(const char *name, char *list, int listsize);
 
 /*
 		add_to_list
@@ -234,7 +234,7 @@ extern int remove_from_list( char *name, char *list, int listsize );
 
 		@return	error code
 */
-extern int add_to_list( char *name, char *list, int listsize );
+extern int add_to_list(const char *name, char *list, int listsize);
 
 extern char *find_in_list(const char *haystack, const char *needle);
 

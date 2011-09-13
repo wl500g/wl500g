@@ -161,6 +161,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_closed", "0", 0 },		/* Closed (hidden) network */
 	{ "wl_ap_isolate", "0", 0 },            /* AP isolate mode */
 	{ "wl_wmf_bss_enable", "1", 0 },	/* WMF Enable/Disable */
+	{ "wl_mcast_regen_bss_enable", "1", 0 },	/* MCAST REGEN Enable/Disable */
 	{ "wl_rxchain_pwrsave_enable", "1", 0 },	/* Rxchain powersave enable */
 	{ "wl_rxchain_pwrsave_quiet_time", "1800", 0 },	/* Quiet time for power save */
 	{ "wl_rxchain_pwrsave_pps", "10", 0 },	/* Packets per second threshold for power save */
@@ -205,6 +206,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_nband", "2", 0},			/* N-BAND */
 	{ "wl_nmcsidx", "-1", 0},		/* MCS Index for N - rate */
 	{ "wl_nmode", "-1", 0},			/* N-mode */
+	{ "wl_rifs_advert", "auto", 0},		/* RIFS mode advertisement */
 	{ "wl_vlan_prio_mode", "off", 0},	/* VLAN Priority support */
 
 #ifdef __CONFIG_BCMWL5__
@@ -214,6 +216,7 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_txstreams", "0", 0},              /* 802.11n Tx Streams 0, 0 is invalid, WLCONF will
 						 * change it to a radio appropriate default
 						 */
+	{ "wl_stbc_tx", "auto", 0 },	/* Default STBC TX setting */
 	{ "wl_ampdu", "auto", 0 },		/* Default AMPDU setting */
 	/* Default AMPDU retry limit per-tid setting */
 	{ "wl_ampdu_rtylimit_tid", "5 5 5 5 5 5 5 5", 0 },
@@ -279,6 +282,10 @@ struct nvram_tuple router_defaults[] = {
 	{ "wl_bss_maxassoc", "128", 0},		/* Max associations driver could support */
 
 	{ "wl_unit", "0", 0 },			/* Last configured interface */
+	{ "wl_sta_retry_time", "5", 0 },	/* Seconds between association attempts */
+#ifdef BCMDBG
+	{ "wl_nas_dbg", "0", 0 },		/* Enable/Disable NAS Debugging messages */
+#endif
 
 #ifdef __CONFIG_EMF__
 	/* EMF defaults */

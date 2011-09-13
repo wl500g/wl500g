@@ -426,7 +426,7 @@ sh_strrspn(const char *s, const char *accept)
 
 		@return	error code
 */
-int remove_from_list( char *name, char *list, int listsize )
+int remove_from_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
@@ -479,7 +479,7 @@ int remove_from_list( char *name, char *list, int listsize )
 
 		@return	error code
 */
-int add_to_list( char *name, char *list, int listsize )
+int add_to_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
