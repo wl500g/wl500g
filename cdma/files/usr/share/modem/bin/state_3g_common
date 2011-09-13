@@ -1,0 +1,347 @@
+#!/bin/sh
+
+#  Modem Status script common functions
+#  ver. 1.009 beta 27.02.2011
+#  by dlukanidin
+
+doCommand() {
+	answer="no answer"
+	if [ ! -e $1 ] ; then   
+		return 10	# device do not exist
+	fi
+	for i in $(seq  0 4); do
+		chat -t $3 -e ABORT 'ERROR' '' $2 'OK' '' <$1 >$1 2>/tmp/chat.tmp
+		code=$?
+		if [ "$code" == "0" ] ; then
+			if [ -z "$4" ]; then
+				answer=`cat /tmp/chat.tmp`
+			else
+				answer=`grep $4 /tmp/chat.tmp`
+			fi
+			return $code	# chat status
+		fi
+	done
+	if [ "$code" == "4" ] ; then
+		answer="ERROR"
+	fi
+	return $code	# chat status
+}
+
+skipFlow(){
+	cat $1 >/tmp/chat.tmp 2>/tmp/chat.tmp &
+	pid=$!
+	usleep 300000
+	kill $pid
+}
+
+getFlow(){
+	answer="no answer"
+	if [ ! -e $1 ] ; then   
+		return 10
+	fi
+	for i in $(seq  0 4); do
+		chat -t $3 -e $2 '' '^' '' <$1 >$1 2>/tmp/chat.tmp
+		code=$?
+		if [ "$code" == "0" ] ; then
+			answer=`grep $4 /tmp/chat.tmp | cut -f2 -d:`
+			return $code
+		fi
+	done
+	return $code
+}
+
+checkFlow(){
+	answer="no answer"
+	if [ ! -e $1 ] ; then   
+		return 10
+	fi
+	for i in $(seq  0 $2); do
+		chat -t 1 -e '\r' '' <$1 >$1 2>/tmp/chat.tmp
+		answer=`grep $3 /tmp/chat.tmp`
+		if [ ! -z "$answer" ]; then
+			answer=$(echo -n "$answer" | cut -f2 -d:)
+			return $code
+		fi
+		sleep 1
+	done
+	return $code
+}
+
+codeUNItoUTF8(){
+	str=$1
+	strlen=${#str}
+	let "strlen -= 2"
+	str=${str:1:$strlen}
+	res=""
+	while [ ! -z $str ]; do
+		i=${str:0:4}
+		str=${str:4}
+		j=$(printf "%d" 0x$i)
+		if [ $j -lt 128 ]; then
+			k="\\"$(printf "%03o" $j)
+			if [ $k = "\\012" ] || [ $k = "\\015" ]; then k="\\040"; fi
+			res=$res$(printf "%b" $k)
+		elif [ $j -lt 2048 ]; then
+			let "k=(j & 63) | 128" 
+			let "l=((j >> 6) & 31) | 192" 
+			k="\\"$(printf "%03o" $k)
+			l="\\"$(printf "%03o" $l)
+			res=$res$(printf "%b" $l)$(printf "%b" $k)
+		else
+			let "k=(j & 63) | 128" 
+			let "l=((j >> 6) & 63) | 128" 
+			let "m=((j >> 12) & 15) | 224" 
+			k="\\"$(printf "%03o" $k)
+			l="\\"$(printf "%03o" $l)
+			m="\\"$(printf "%03o" $m)
+			res=$res$(printf "%b" $m)$(printf "%b" $l)$(printf "%b" $k)
+		fi
+	done
+}
+
+decodePDU(){
+	str=$1
+	strlen=${#str}
+	let "strlen -= 2"
+	str=${str:1:$strlen}
+	res=""
+	b=0
+	d=0
+	while [ ! -z $str ]; do
+		byte=$(printf "%d" 0x${str:0:2})
+		str=${str:2}
+		let "c=(($byte & ((1 << 7-$d)-1)) << $d) | $b"
+		let "b=$byte >> (7-$d)"
+		k="\\"$(printf "%03o" $c)
+		res=$res$(printf "%b" $k)
+		let "d += 1"
+		if [ $d == 7 ]; then
+			k="\\"$(printf "%03o" $b)
+			res=$res$(printf "%b" $k)
+			b=0
+			d=0
+		fi
+	done
+}
+
+encodePDU(){
+	str=$1
+	res=""
+	let "len=${#str}-1"
+	for chr in $(seq  0 $len); do
+		let "chr2=$chr+1"
+		let "t=$chr%8+1"
+		if [ "$t" -ne 8 ]; then
+			byte=$(printf "%d" "'${str:$chr:1}")
+			let "c=$byte>>($chr%8)"
+			let "c2=(1<<$t)-1"
+			byte2=$(printf "%d" "'${str:$chr2:1}")
+			let "b=$byte2 & $c2"
+			let "c=$b<<(8-$t) | $c"
+			res=$res$(printf "%02X" $c)
+		fi
+	done
+}
+
+scaleBitError(){
+	if [ -z $1 ]; then
+		res='no value'
+		return
+	fi
+	case $1 in
+		0) res="less than 0.2%" ;;
+		1) res="0.2-0.4%" ;;
+		2) res="0.4-0.8%" ;;
+		3) res="0.8-1.6%" ;;
+		4) res="1.6-3.2%" ;;
+		5) res="3.2-6.4%" ;;
+		6) res="6.4-12.8%" ;;
+		7) res="12.8-25.6%" ;;
+		*) res="not detectable" ;;
+	esac
+}
+
+scaleRSSI() {
+	rpt=$1
+	if [ -z $rpt ]; then
+		val='no value'
+		db_value='---'
+		p_value='--'
+	elif [ $rpt == 99 ]; then
+		val='NO SIGNAL'
+		db_value='---'
+		p_value='--'
+	else
+		let "db_value = -113 + $rpt * 2"
+		let "p_value = $rpt * 100 / 30"
+		val=$rpt
+	fi
+	res="$rpt : $db_value dBm : $p_value %"
+}
+
+getRSSI(){
+	port=$1
+	doCommand $port "AT+CSQ" 2 "CSQ:"
+	ret=$?
+	if [ $ret != 0 ]; then
+		res="Signal : no info : Bit Error : no info"
+		return $ret
+	fi
+	answer=$(echo -n $answer | cut -f2 -d:)
+	rpt=$(echo -n $answer | cut -f1 -d,)
+	scaleRSSI $rpt
+	sig=$res
+	ber=$(echo -n $answer | cut -f2 -d,)
+	scaleBitError $ber
+	ber=$res
+	res="Signal : $sig : Bit Error : $ber"
+	return $ret
+}
+
+getModem(){
+	doCommand $1 "ATI" 2
+	ret=$?
+	if [ $ret == 0 ]; then
+		Manufacturer=$(echo "$answer" | grep Man | cut -f2 -d:)
+		Model=$(echo "$answer" | grep Mod | cut -f2 -d:)
+		res=$Manufacturer" "$Model
+	else
+		res="unknown"
+	fi
+	return $ret
+}
+
+getOps(){
+	port=$1
+	doCommand $port "AT+COPS=3,0" 2
+	doCommand $port "AT+COPS?" 2 "COPS:"
+	ret=$?
+	if [ $ret == 0 ]; then
+		answer=$(echo -n $answer | cut -f2 -d:)
+		sys1=$(echo -n $answer | cut -f3 -d,)
+		case $(echo -n $answer | cut -f4 -d,) in
+		  0) sys2="GSM" ;;
+		  1) sys2="Compact GSM" ;;
+		  2) sys2="3G" ;;
+		  3) sys2="3G/HSDPA" ;;
+		  4) sys2="3G/HSUPA" ;;
+		  5) sys2="3G/HSDPA+HSUPA" ;;
+		  *) sys2="other access" ;;
+		esac
+		res=$sys1"("$sys2")"
+	else
+		res="unknown"
+	fi
+	return $ret
+}
+
+findFloatPart() {
+	res="00"
+	if ! isdigit $1; then return 1; fi
+	let "res=($1 % 1024) / 10"
+	if [ $res -gt 99 ]; then res=99; fi
+	if [ $res -lt 10 ]; then res="0$res"; fi
+	return 0
+}
+
+scaleTraffic(){
+	Penta="0.8881784"
+	Terra="0.9094947"
+	Giga="0.9313226"
+	Mega="0.9536743"
+	Kilo="0.9765625"
+
+	str=$1
+	nm=$2
+	mls=""
+	if [ "${nm:0:1}" == " " ]; then
+		mls=" "
+		nm=${nm:1}
+	fi
+	estr=$(printf "%e" $str)
+	e=$(echo -n $estr | cut -f2 -d'+')
+	f=$(echo -n $estr | cut -f1 -d'e')
+	if [ "${e:0:1}" == "0" ]; then e=${e:1}; fi
+	if [ "$e" -gt "15" ]; then
+		let "e=$e - 15"
+		if [ "$e" -gt "3" ]; then res="Value too big"; return 1; fi
+		ml=P; i=$Penta
+	elif [ "$e" -gt "12" ]; then
+		let "e=$e - 12"; ml=T; i=$Terra
+	elif [ "$e" -gt "9" ]; then
+		let "e=$e - 9"; ml=G; i=$Giga
+	elif [ "$e" -gt "6" ]; then
+		let "e=$e - 6"; ml=M; i=$Mega
+	elif [ "$e" -gt "3" ]; then
+		let "e=$e - 3"; ml=K; i=$Kilo
+	else
+		ml=""; i=1
+	fi
+	res=$(echo $f"e+"$e $i | awk '{printf("%0.2f", $1 * $2)}')
+	res="$res$mls$ml$nm"
+}
+
+getIfaceInfo() {
+	traf=$(grep $1 /proc/net/dev)
+	tstamp=$(cat /proc/uptime)
+	rec=0
+	tra=0
+	tim=0
+	if [ -z "$traf" ]; then return 1; fi
+	traf=$(echo -n $traf | awk -F':' '{print $2}')
+	rec=$(echo -n $traf | awk '{print $1}')
+	tra=$(echo -n $traf | awk '{print $9}')
+	tstamp=$(echo -n $tstamp | awk '{print $1}')
+	tim=${tstamp/'.'}
+	return 0
+}
+
+getSessionInfo() {
+	if [ $old_tim = 0 ];then return 1; fi
+	scaleTraffic $tra " B"
+	tx=$res
+	scaleTraffic $rec " B"
+	rx=$res
+	let "tm=$tim-$old_tim"
+	let "up_rate=($tra-$old_tra) * 800 / $tm"
+	findFloatPart $up_rate
+	let "up_rate /= 1024"
+	up_rate="$up_rate.$res Kb/s"
+	let "down_rate=($rec-$old_rec) * 800 / $tm"
+	findFloatPart $down_rate
+	let "down_rate /= 1024"
+	down_rate="$down_rate.$res Kb/s"
+	return 0
+}
+
+getTraffic() {
+	iface=$(ifconfig | grep $2 | cut -f1 -d' ')
+	if [ -z "$iface" ]; then
+		res="Interface $2 not connected"
+		return 1
+	fi
+	getIfaceInfo $iface
+	old=$(nvram get wan_modem_old_traf)
+	if [ -z $old ]; then
+		nvram set wan_modem_old_traf="$tim:$rec:$tra"
+		res="Speed calculation in progress, repeat please"
+		return 0
+	else
+		old_tim=$(echo -n $old | cut -f1 -d:)
+		old_rec=$(echo -n $old | cut -f2 -d:)
+		old_tra=$(echo -n $old | cut -f3 -d:)
+	fi
+	getSessionInfo
+	nvram set wan_modem_old_traf="$tim:$rec:$tra"
+	res="Up:$up_rate, Dn:$down_rate, Tx:$tx, Rx:$rx"
+}
+
+isdigit (){
+  [ $# -eq 1 ] || return 1
+  case $1 in
+  *[!0-9]*|"") return 1;;
+            *) return 0;;
+  esac
+}
+
+

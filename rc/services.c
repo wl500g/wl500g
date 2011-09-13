@@ -352,9 +352,10 @@ stop_nas(void)
 int
 start_ntpc(void)
 {
-	pid_t pid;
+	pid_t pid = 0;
 	char *server0 = nvram_safe_get("ntp_server0"), *server1;
 	char *ntp_argv[] = {"ntpd", "-qt", "-p", server0, NULL, NULL, NULL};
+	FILE *fp;
 
 	if (strlen(server0) > 0) {
 		server1 = nvram_safe_get("ntp_server1");
@@ -363,6 +364,13 @@ start_ntpc(void)
 			ntp_argv[5] = server1;
 		}
 		_eval(ntp_argv, NULL, 0, &pid);
+
+		/* write pid */
+		if (pid && (fp = fopen("/var/run/ntpc.pid", "w")) != NULL)
+		{
+			fprintf(fp, "%d", pid);
+			fclose(fp);
+		}
 	}
 
 	return pid;
@@ -371,7 +379,9 @@ start_ntpc(void)
 int
 stop_ntpc(void)
 {
-	int ret = eval("killall", "ntpd");
+	int ret = kill_pidfile("/var/run/ntpc.pid");
+	if (ret == 0)
+		unlink("/var/run/ntpc.pid");
 
 	return ret;
 }

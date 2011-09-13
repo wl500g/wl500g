@@ -797,7 +797,6 @@ start_wan(void)
 
 #ifdef __CONFIG_MODEM__
 	/* ppp contents */
-//	eval("cp", "-dpR", "/usr/ppp", "/tmp");	
 	mkdir("/tmp/ppp/peers", 0777);
 #endif
 
@@ -1965,14 +1964,15 @@ int wait_for_ifup( char * prefix, char * wan_ifname, struct ifreq * ifr )
 }
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-void hotplug_network_device( char * interface, char * action, char * product )
+void hotplug_network_device(char * interface, char * action, char * product, char *device)
 {
 	char *wan_ifname;
 	char *wan_proto;
-	char *device;
+	char *dev_vidpid;
 	int unit;
 	int found=0;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char tmp_str[100];
 
 	dprintf( "%s %s %s", interface, action, product );
 
@@ -1996,32 +1996,39 @@ void hotplug_network_device( char * interface, char * action, char * product )
 
 		dprintf("%s %s \n\n\n\n\n", wan_ifname, wan_proto);
 
-		if( !found ){
+		if (!found) {
+			if (action_add) {
 #ifdef __CONFIG_MADWIMAX__
-		    if( hotplug_check_wimax( interface, product, prefix ) ){
-			found = 1;
-		    } else 
+			    if ( hotplug_check_wimax( interface, product, prefix ) ) {
+				found = 1;
+			    } else 
 #endif
 #ifdef __CONFIG_MODEM__
-		    if( hotplug_check_modem( interface, product, prefix ) ){
-			found = 2;
-		    }
+			    if ( hotplug_check_modem( interface, product, device, prefix ) ) {
+				found = 2;
+			    }
 #else
-		    {}
+			    {}
 #endif
+			} else {
+				dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
+				found = (strcmp(dev_vidpid, tmp_str) == 0);
+			}
 		}
-		if( found )
+		if (found)
 		{
 		    hotplug_sem_lock();
-		    if ( action_add )
+		    if (action_add)
 		    {
-			device = nvram_get( strcat_r(prefix, "usb_device", tmp) );
-			if ( !device || !*device )
+			dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+			if ( !dev_vidpid || !*dev_vidpid ) 
 			{
 #ifdef __CONFIG_MADWIMAX__
 			    if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
 			    {
-				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
+				nvram_set(strcat_r(prefix, "usb_device", tmp), tmp_str );
 #ifdef HOTPLUG_DEV_START
 				start_wimax( prefix );
 #endif
@@ -2030,26 +2037,29 @@ void hotplug_network_device( char * interface, char * action, char * product )
 #ifdef __CONFIG_MODEM__
 			    if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
 			    {
-				nvram_set(strcat_r(prefix, "usb_device", tmp), product );
+				snprintf(tmp_str, sizeof(tmp_str), "%s : %s", product, device);
+				nvram_set(strcat_r(prefix, "usb_device", tmp), tmp_str );
 #ifdef HOTPLUG_DEV_START
-				start_modem_dial( prefix );
+				//usb_modem_check(prefix);
 #endif
 			    }
 #else
 			    {}
 #endif
 			}
-		    } else {
+		    } else if (found) {
 #ifdef __CONFIG_MADWIMAX__
-			if ( found==1 && strcmp(wan_proto, "wimax") == 0 )
+			if ( strcmp(wan_proto, "wimax") == 0 )
 			{
 			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
 			} else
 #endif
 #ifdef __CONFIG_MODEM__
-			if ( found==2 && strcmp(wan_proto, "usbmodem") == 0 )
+			if ( strcmp(wan_proto, "usbmodem") == 0 )
 			{
 			    nvram_unset(strcat_r(prefix, "usb_device", tmp) );
+			    nvram_unset(strcat_r(prefix, "usb_device_name", tmp) );
 			    stop_modem_dial(prefix);
 			}
 #else

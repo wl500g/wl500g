@@ -41,7 +41,7 @@
               </li>
               		<li>
               <p style="margin-top: 7"><font size="2">If you have installed ASUS 
-              WLAN Homegateway Utilities, then execute 'Printer Setup Widzard' 
+              WLAN Homegateway Utilities, then execute 'Printer Setup Wizard' 
               to complete your printer setting.</font>
               </li>
               	</ol>

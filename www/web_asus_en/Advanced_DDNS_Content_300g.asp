@@ -53,7 +53,7 @@
             </td>
 </tr>
 <tr>
-<td class="content_desc_td" colspan="2">Dynamic-DNS (DDNS) allows you to export your server to Internet with an unique name, even though you have no static IP address. Currently, serveral DDNS clients are embedded in ZVMODELVZ. You can click Free Trial below to start with a free trial account.
+<td class="content_desc_td" colspan="2">Dynamic-DNS (DDNS) allows you to export your server to Internet with an unique name, even though you have no static IP address. Currently, several DDNS clients are embedded in ZVMODELVZ. You can click Free Trial below to start with a free trial account.
          </td>
 </tr>
 <tr>
@@ -72,6 +72,7 @@
 		<option class="content_input_fd" value="WWW.NO-IP.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.NO-IP.COM","selected"); %>>WWW.NO-IP.COM</option>
 		<option class="content_input_fd" value="WWW.DNSOMATIC.COM" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.DNSOMATIC.COM","selected"); %>>WWW.DNSOMATIC.COM</option>
 		<option class="content_input_fd" value="WWW.TUNNELBROKER.NET" <% nvram_match_x("LANHostConfig","ddns_server_x", "WWW.TUNNELBROKER.NET","selected"); %>>WWW.TUNNELBROKER.NET</option>
+		<option class="content_input_fd" value="DNS.HE.NET" <% nvram_match_x("LANHostConfig","ddns_server_x", "DNS.HE.NET","selected"); %>>DNS.HE.NET</option>
 		</select><a href="javascript:openLink('x_DDNSServer')" class="content_input_link" name="x_DDNSServer_link">Free Trial
              </a></td>
 </tr>

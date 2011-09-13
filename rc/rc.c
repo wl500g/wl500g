@@ -692,7 +692,7 @@ sysinit(void)
 
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		"ide-core ide-detect ide-disk aec62xx "
+		"ide-core aec62xx ide-detect ide-disk "
 #endif
 #if defined(__CONFIG_EMF__)
 		"emf igs "
@@ -970,6 +970,11 @@ main(int argc, char **argv)
 	/* madwimax [ if-create if-up if-down if-release ] */
 	else if ( !strcmp(base, "madwimax.events" ) )
 		return madwimax_main(argc, argv);
+#endif
+#ifdef __CONFIG_MODEM__
+	/* lsmodem [-s|-j] [-c config] */
+	else if ( !strcmp(base, "lsmodem" ) )
+		return lsmodem_main(argc, argv);
 #endif
 	/* udhcpc.script [ deconfig bound renew ] */
 	else if (!strcmp(base, "udhcpc.script"))

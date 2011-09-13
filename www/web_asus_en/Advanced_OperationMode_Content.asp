@@ -33,7 +33,7 @@ ZVMODELVZ supports three operation modes to meet different requirements from dif
 <td class="content_desc_td">
 In this mode, we suppose you use ZVMODELVZ to connect to Internet through ADSL or Cable Modem. And, there are many people in your environment share the same IP to ISP.
 <p></p>
-Explaining with technical terms, gateway mode is , NAT is enabed, WAN connection is allowed by using PPPoE, or DHCP client, or static IP. In addition, some features which are useful for home user, such as UPnP and DDNS, are supported.
+Explaining with technical terms, gateway mode is , NAT is enabled, WAN connection is allowed by using PPPoE, or DHCP client, or static IP. In addition, some features which are useful for home user, such as UPnP and DDNS, are supported.
 </td>
 </tr>
 <tr>
@@ -41,7 +41,7 @@ Explaining with technical terms, gateway mode is , NAT is enabed, WAN connection
 <td class="content_desc_td">
 In Router mode, we suppose you use ZVMODELVZ to connect to LAN in your company. So, you can set up routing protocol to meet your requirement in office.
 <p></p>
-Explaining with technical terms, router mode is, NAT is disabled, static routing protocol are allowed to set.
+Explaining with technical terms, router mode is, NAT is disabled, static routing protocols are allowed to set.
 </td>
 </tr>
 <tr>
@@ -49,7 +49,7 @@ Explaining with technical terms, router mode is, NAT is disabled, static routing
 <td class="content_desc_td">
 In Access Point mode, all 5 Ethernet ports and wireless devices are set to locate in the same local area network. Those WAN related functions are not supported here.
 <p></p>
-Explaining with technical terms, access point mode is, NAT is disabled, one wan port and four lan ports of ZVMODELVZ are bridged together.
+Explaining with technical terms, access point mode is, NAT is disabled, one WAN port and four LAN ports of ZVMODELVZ are bridged together.
 </td>
 </tr>
 <tr>

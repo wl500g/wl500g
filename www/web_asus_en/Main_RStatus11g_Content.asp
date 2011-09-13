@@ -26,7 +26,7 @@
 <td class="content_header_td_title" colspan="2">Status &amp; Log - Status</td>
 </tr>
 <tr>
-<td class="content_header_td_less" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">Sytem Time:
+<td class="content_header_td_less" onMouseOver="return overlib('Elapsed time since system boot', LEFT);" onMouseOut="return nd();">System Time:
            </td><td class="content_input_td"><input type="text" size="48" class="content_input_fd" value="<% uptime(); %>" readonly></td>
 </tr>
 

@@ -90,6 +90,9 @@ endif
 	ln -sf rc $(INSTALLDIR)/sbin/start_ddns
 	ln -sf rc $(INSTALLDIR)/sbin/start_ftpd
 	ln -sf rc $(INSTALLDIR)/sbin/wlan_update
+ifeq ($(CONFIG_MODEM),y)
+	ln -sf rc $(INSTALLDIR)/sbin/lsmodem
+endif
 
 
 $(STAMP):

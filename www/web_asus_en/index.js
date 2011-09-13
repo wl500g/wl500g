@@ -259,7 +259,7 @@ function clickOnFolderLink(folderName) {
 			top.folderFrame.location = "Basic_AOperation_Content.asp";
 		else if (mode == 'Router')
 			// top.folderFrame.location="Basic_Operation_Content.asp#WANSetting"
-			top.folderFrame.location = "Basic_ROperation_Content.asp";
+			top.folderFrame.location = "Basic_GOperation_Content.asp";
 		else
 			// top.folderFrame.location="Basic_Operation_Content.asp#Wireless"
 			top.folderFrame.location = "Basic_GOperation_Content.asp";

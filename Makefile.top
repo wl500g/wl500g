@@ -349,8 +349,6 @@ ifeq ($(CONFIG_EMF),y)
 		$(SRCMODULESDIR)/drivers/net/igs/igs.o
 endif
 	# NLS
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/nls/nls_cp950.o
 	# generic usb
 	install -t $(MODULESDIR) \
 		$(SRCMODULESDIR)/drivers/usb/usbcore.o \
@@ -395,7 +393,7 @@ install: package-$(MODEL)
 
 package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.config mksquashfs-lzma
 	$(MAKE) www-pages-$*
-        # Install binaries into target directory
+	# Install binaries into target directory
 	rm -rf $(TARGETDIR) && install -d $(TARGETDIR)
 	echo $(RELEASE) > $(TARGETDIR)/.version
 	for dir in $(wildcard $(patsubst %,$(INSTALLDIR)/%,$(obj-y))) $(INSTALLDIR)/www ; do \
@@ -403,7 +401,7 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	done
 	# Optimize crypto library
 	$(MAKE) -C libbcmcrypto optimize
-        # Install (and possibly optimize) C library
+	# Install (and possibly optimize) C library
 	$(MAKE) lib-install
 	# statically linked ASUS shit
 ifeq ($(CONFIG_WAVESERVER),y)
@@ -411,11 +409,11 @@ ifeq ($(CONFIG_WAVESERVER),y)
 endif
 	# Install binary Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
-            ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
-        fi )
-        # Install modules into filesystem
+	    ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
+	fi )
+	# Install modules into filesystem
 	$(MAKE) modules_install-$*
-        # Prepare filesystem
+	# Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
 	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
@@ -482,14 +480,14 @@ manpages: manpages-install
 conf mconf:
 	$(MAKE) -C config
 	@./config/$@ ./config/Config
-        # Also configure kernel
+	# Also configure kernel
 	$(MAKE) k$@
 
 oldconf: .config
 	$(MAKE) -C config
 	@./config/conf -o ./config/Config
 	$(MAKE) shared-clean rc-clean httpd-clean
-        # Also configure kernel
+	# Also configure kernel
 	$(MAKE) k$@
 
 kconf:
@@ -532,7 +530,7 @@ rc: netconf shared nvram $(EXTRA_LIBS)
 rc-install:
 	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z]' '[A-Z]')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
-www www-%:
+www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
 
 radvd/Makefile: radvd/Makefile.in
@@ -630,7 +628,7 @@ ifeq ($(CONFIG_IPV6),y)
 endif
 	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so
 else
-        # So that generic rule does not take precedence
+	# So that generic rule does not take precedence
 	@true
 endif
 
@@ -824,7 +822,7 @@ utils: shared
 
 rp-l2tp/Makefile: rp-l2tp/Makefile.in
 	cd rp-l2tp && CFLAGS="-g -O2 $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr
+	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc
 
 rp-l2tp: ppp rp-l2tp/Makefile
 
@@ -905,7 +903,7 @@ libusb10-install:
 
 usb_modeswitch: libusb10
 	$(MAKE) -C $@ CC=$(CC) CFLAGS="-Wall -Os $(EXTRACFLAGS) \
-	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0 -DLIBUSB10"
+	    -I$(TOP)/libusb10/libusb -L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
 
 usb_modeswitch-install:
 	install -D usb_modeswitch/usb_modeswitch $(INSTALLDIR)/usb_modeswitch/usr/sbin/usb_modeswitch
@@ -987,7 +985,7 @@ images:
 	make images-WL520gu
 	make images-WL500gpv2
 	make images-WL330gE
-	#make images-WL700g
+	make images-WL700g
 
 #
 # Generic rules

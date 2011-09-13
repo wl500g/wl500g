@@ -21,11 +21,11 @@ ROOT := $(shell (cd .. && pwd -P))
 export TOP := $(ROOT)/gateway
 export KERNEL_DIR := $(ROOT)/linux/linux
 
-BUSYBOX=busybox-1.18.3
+BUSYBOX=busybox-1.18.5
 DROPBEAR=dropbear-0.52
 DNSMASQ=dnsmasq-2.57
 LPRNG=LPRng-3.8.22
-P910ND=p910nd-0.94
+P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
 IPROUTE2=iproute2-2.4.7-now-ss020116-try
 #E2FSPROGS=e2fsprogs-1.35
@@ -45,12 +45,12 @@ XL2TPD=xl2tpd-1.2.7
 BRIDGE=bridge-utils-1.0.6
 IGMPPROXY=igmpproxy-0.1
 VSFTPD=vsftpd-2.3.4
-UDPXY=udpxy-1.0-Chipmunk-19
+UDPXY=udpxy-1.0-Chipmunk-20
 INADYN=inadyn-1.96.3
 SCSIIDLE=scsi-idle-2.4.23
 LIBUSB=libusb-compat-0.1.3
 LIBUSB10=libusb-1.0.8
-USBMODESWITCH=usb-modeswitch-1.1.6
+USBMODESWITCH=usb-modeswitch-1.1.9
 MADWIMAX=madwimax-0.1.1
 LLTD=LLTD-PortingKit
 
@@ -123,17 +123,13 @@ $(ROOT)/lzma: $(LZMA).tbz2
 lzma: $(ROOT)/lzma
 	@true
 
-et:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - et | tar -C $(ROOT) --recursive-unlink -xf -
-	$(PATCHER) -Z $(ROOT)/et brcm-src/$(ET).patch
-
 wl:
 	tar -C $(ROOT) --recursive-unlink -xjf brcm-src/$(WL).tar.bz2
 
 brcm_Patches := $(call patches_list,brcm-src)
 
 brcm-shared:
-	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf | tar -C $(ROOT) --recursive-unlink -xf -
+	tar -C brcm-src $(TAR_EXCL_SVN) -cf - include rts shared emf et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
 kernel-mrproper:
@@ -160,7 +156,7 @@ kernel-extra-drivers:
 	  $(PATCHER) -Z $(KERNEL_DIR)/fs/fuse kernel/drivers/fuse-2.5.3.patch; \
 	fi
 
-kernel: lzma et wl brcm-shared kernel-patch kernel-extra-drivers
+kernel: lzma wl brcm-shared kernel-patch kernel-extra-drivers
 	cp -p kernel/kernel.config $(KERNEL_DIR)/arch/mips/defconfig-bcm947xx
 
 asustrx:
@@ -436,10 +432,12 @@ $(TOP)/pptp: pptp/$(PPTP).tar.gz
 pptp: $(TOP)/pptp
 	@true
 
-$(TOP)/udpxy: $(UDPXY).tgz
+udpxy_Patches := $(call patches_list,udpxy)
+
+$(TOP)/udpxy: udpxy/$(UDPXY).tgz
 	@rm -rf $(TOP)/$(UDPXY) $@
 	tar -xzf $^ -C $(TOP)
-	[ ! -f $(UDPXY).patch ] || $(PATCHER) -Z $(TOP)/$(UDPXY) $(UDPXY).patch
+	$(PATCHER) -Z $(TOP)/$(UDPXY) $(udpxy_Patches)
 	mv $(TOP)/$(UDPXY) $@ && touch $@
 
 udpxy: $(TOP)/udpxy

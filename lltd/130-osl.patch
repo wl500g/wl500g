@@ -1,32 +1,38 @@
-diff -BurpN lltd.orig/src/globals.h lltd/src/globals.h
---- lltd.orig/src/globals.h	2006-08-03 04:47:48.000000000 +0000
-+++ lltd/src/globals.h	2010-07-04 17:23:13.000000000 +0000
-@@ -127,6 +127,9 @@ GLOBAL	uint		g_opcode;		/* opcode from b
-     /* then we don't need a global to keep the stream open all the time...*/
- #else
- GLOBAL FILE            *g_procnetdev;
-+#ifdef USE_IPV6
-+GLOBAL FILE            *g_procnetinet6;
-+#endif
- #endif
+diff -BurpN lltd.orig/src/lld2d_types.h lltd/src/lld2d_types.h
+--- lltd.orig/src/lld2d_types.h	2006-08-03 04:47:48.000000000 +0000
++++ lltd/src/lld2d_types.h	2011-03-22 18:14:13.000000000 +0000
+@@ -31,6 +31,15 @@ typedef struct in6_addr ipv6addr_t;
+ /* our own (hopefully portable) 2-byte char type */
+ typedef uint16_t ucs2char_t;
  
-     /* Current Transmit Credit (CTC), and needs for this event's response */
-diff -BurpN lltd.orig/src/main.c lltd/src/main.c
---- lltd.orig/src/main.c	2006-08-03 04:47:48.000000000 +0000
-+++ lltd/src/main.c	2010-07-04 17:23:16.000000000 +0000
-@@ -255,6 +255,9 @@ main(int argc, char **argv)
-     g_procnetdev = fopen("/proc/net/dev","r");
-     if (g_procnetdev<0)
-         die("fopen of /proc/net/dev failed\n");
-+#ifdef USE_IPV6
-+    g_procnetinet6 = fopen("/proc/net/if_inet6","r");
-+#endif
- #endif
++typedef struct {
++    uint8_t ssid[32];
++    uint8_t ssidLen;
++} __attribute__ ((packed)) ssid_t;
++
++typedef struct {
++    etheraddr_t bssid[6];
++    uint8_t     count;
++} __attribute__ ((packed)) aplineage_t;
  
-     /* Initialize the timers (inactivity timers are init'd when session is created) */
+ /* Process-level event management structure for io & timers */
+ 
+@@ -95,4 +104,12 @@ typedef enum {
+ 
+ #define NUM_SEES 1024	/* how many recvee_desc_t we keep */
+ 
++#define WPM_UNKNOW          0x00
++#define WPM_FHSS_24G        0x01
++#define WPM_DSSS_24G        0x02
++#define WPM_IR_BASEDBAND    0x03
++#define WPM_OFDM_5G         0x04
++#define WPM_HRDSSS          0x05
++#define WPM_ERP             0x06
++
+ #endif	/*** LLD2D_TYPES_H ***/
 diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
---- lltd.orig/src/osl-linux.c	2006-09-14 06:55:38.000000000 +0000
-+++ lltd/src/osl-linux.c	2010-07-04 17:27:22.000000000 +0000
+--- lltd.orig/src/osl-linux.c	2011-03-22 20:41:01.000000000 +0000
++++ lltd/src/osl-linux.c	2011-03-22 20:58:30.329739002 +0000
 @@ -22,7 +22,7 @@
  #include <sys/socket.h>
  #include <features.h>
@@ -46,7 +52,7 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
  # include <linux/wireless.h>
  #else /* ! HAVE_WIRELESS */
    /* still want struct ifreq and friends */
-@@ -63,6 +66,13 @@
+@@ -63,6 +66,12 @@
  
  #include "packetio.h"
  
@@ -56,30 +62,51 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +#include <wlutils.h>
 +#endif
 +
-+
  /* helper functions */
  
  /* Convert from name "interface" to its index, or die on error. */
-@@ -546,6 +556,7 @@ get_wireless_mode(void *data)
+@@ -542,13 +551,14 @@ get_physical_medium(void *data)
+ int
+ get_wireless_mode(void *data)
+ {
+-/*    TLVDEF( uint32_t,         wireless_mode,       ,   4,  Access_unset ) */
++/*    TLVDEF( uint8_t,         wireless_mode,       ,   4,  Access_unset ) */
  
-     uint32_t* wl_mode = (uint32_t*) data;
+-    uint32_t* wl_mode = (uint32_t*) data;
++    uint8_t* wl_mode = (uint8_t*) data;
++    int ret;
  
 +#ifndef BCM_WIRELESS
      int rqfd;
      struct iwreq req;
-     int ret;
-@@ -605,6 +616,10 @@ get_wireless_mode(void *data)
+-    int ret;
+ 
+     memset(&req, 0, sizeof(req));
+     strncpy(req.ifr_ifrn.ifrn_name, g_osl->wireless_if, sizeof(req.ifr_ifrn.ifrn_name));
+@@ -605,6 +615,22 @@ get_wireless_mode(void *data)
          END_TRACE
  	return TLV_GET_FAILED;
      }
 +#else
-+    *wl_mode = 2;
++    int infra;
++
++    ret = wl_ioctl(g_osl->wireless_if, WLC_GET_INFRA, &infra, sizeof(infra));
++
++    if (ret != 0)
++    {
++	if (errno != EOPNOTSUPP)
++	    warn("get_wireless_mode: get mode failed: %s\n",
++		 strerror(errno));
++        return TLV_GET_FAILED;
++    }
++
++    *wl_mode = (infra) ? 1 : 0;
 +#endif
 +
      IF_TRACED(TRC_TLVINFO)
          printf("get_wireless_mode(): wireless_mode=%d\n", *wl_mode);
      END_TRACE
-@@ -625,13 +640,15 @@ get_bssid(void *data)
+@@ -625,13 +651,15 @@ get_bssid(void *data)
  /*    TLVDEF( etheraddr_t, bssid,               ,   5,  Access_unset ) */
  
      etheraddr_t* bssid = (etheraddr_t*) data;
@@ -97,7 +124,7 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
      if (ret != 0)
      {
  	/* We don't whine about "Operation Not Supported" since that
-@@ -648,8 +665,20 @@ get_bssid(void *data)
+@@ -648,8 +676,18 @@ get_bssid(void *data)
  	     req.u.ap_addr.sa_family);
          return TLV_GET_FAILED;
      }
@@ -108,8 +135,6 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +
 +    if (ret != 0)
 +    {
-+	/* We don't whine about "Operation Not Supported" since that
-+	 * just means the interface does not have wireless extensions. */
 +	if (errno != EOPNOTSUPP)
 +	    warn("get_bssid: get associated Access Point MAC failed: %s\n",
 +		 strerror(errno));
@@ -119,7 +144,7 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
  
      IF_TRACED(TRC_TLVINFO)
          printf("get_bssid(): bssid=" ETHERADDR_FMT "\n", ETHERADDR_PRINT(bssid));
-@@ -664,9 +693,59 @@ get_ssid(void *data)
+@@ -664,9 +702,60 @@ get_ssid(void *data)
  {
  /*    TLVDEF( ssid_t,           ssid,                ,   6,  Access_unset ) */
  
@@ -160,6 +185,7 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +    wlc_ssid_t req;
 +
 +    ret = wl_ioctl(g_osl->wireless_if, WLC_GET_SSID, &req, sizeof(req));
++
 +    if (ret != 0)
 +    {
 +	if (errno != EOPNOTSUPP)
@@ -181,81 +207,49 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
  }
  
  #endif /* HAVE_WIRELESS */
-@@ -725,7 +804,49 @@ get_ipv6addr(void *data)
- {
- /*    TLVDEF( ipv6addr_t,       ipv6addr,            ,   8,  Access_unset ) */
- 
-+#ifdef USE_IPV6
-     ipv6addr_t* ipv6addr = (ipv6addr_t*) data;
-+    char	dflt_if[] = {"br0"};
-+    char       *interface = g_interface;
-+    FILE *netinet6;
-+    char addr6[40], devname[20];
-+    int plen, scope, dad_status, if_idx;
-+    char addr6p[8][5];
-+    int found = 0;
-+
-+#if CAN_FOPEN_IN_SELECT_LOOP
-+    netinet6 = fopen("/proc/net/if_inet6", "r");
-+#else
-+    netinet6 = g_procnetinet6;
-+#endif
-+    if (netinet6 <= 0)
-+	return TLV_GET_FAILED;
-+
-+    if (interface == NULL) interface = dflt_if;
-+    while (fscanf(netinet6, "%4s%4s%4s%4s%4s%4s%4s%4s %08x %02x %02x %02x %20s\n",
-+	addr6p[0], addr6p[1], addr6p[2], addr6p[3], addr6p[4],
-+	addr6p[5], addr6p[6], addr6p[7], &if_idx, &plen, &scope,
-+	&dad_status, devname) != EOF)
-+    {
-+	scope = scope & 0x00f0;
-+	if (strcmp(devname, interface) != 0 ||
-+	    (scope != 0x00 && scope != 0x20)) continue;
-+	sprintf(addr6, "%s:%s:%s:%s:%s:%s:%s:%s",
-+	    addr6p[0], addr6p[1], addr6p[2], addr6p[3],
-+	    addr6p[4], addr6p[5], addr6p[6], addr6p[7]);
-+	inet_pton(AF_INET6, addr6, (struct sockaddr *) ipv6addr);
-+	found = 1;
-+	if (scope == 0x00) // global link
-+	    break;
-+    }
-+
-+#if CAN_FOPEN_IN_SELECT_LOOP
-+    fclose(netinet6);
-+#endif
-+
-+    if (found)
-+	return TLV_GET_SUCCEEDED;
-+#endif
- 
-     return TLV_GET_FAILED;
- }
-@@ -900,8 +1021,10 @@ get_support_info(void *data)
+@@ -941,8 +1030,19 @@ get_support_info(void *data)
  /*    TLVDEF( ucs2char_t,       support_info,    [32], 0x10, Access_unset ) // RLS: was "contact_info" */
  
      ucs2char_t * support = (ucs2char_t*) data;
 +    char* support_info = "http://wl500g.googlecode.com/";
++    /* because I am a fool, and can't remember how to refer to the sizeof a structure
++     * element directly, there is an unnecessary declaration here... */
++    tlv_info_t* fool;
  
 -    return TLV_GET_FAILED;
-+    util_copy_ascii_to_ucs2(support, (strlen(support_info)+1)*2, support_info);
++    util_copy_ascii_to_ucs2(support, sizeof(fool->support_info), support_info);
++
++    IF_TRACED(TRC_TLVINFO)
++	size_t len = strlen(support_info);
++        dbgprintf("get_support_info(): space=" FMT_SIZET ", len=" FMT_SIZET ", support info = %s\n",
++                   sizeof(fool->support_info), len, support_info);
++    END_TRACE
 +    return TLV_GET_SUCCEEDED;
  }
  
  
-@@ -911,8 +1034,10 @@ get_friendly_name(void *data)
+@@ -952,8 +1052,19 @@ get_friendly_name(void *data)
  /*    TLVDEF( ucs2char_t,       friendly_name,   [32], 0x11, Access_unset ) */
  
      ucs2char_t * fname = (ucs2char_t*) data;
-+    char* friendly_name = "ASUS Wireless Router";
++    char *friendly_name = "ASUS Wireless Router";
++    /* because I am a fool, and can't remember how to refer to the sizeof a structure
++     * element directly, there is an unnecessary declaration here... */
++    tlv_info_t* fool;
  
 -    return TLV_GET_FAILED;
-+    util_copy_ascii_to_ucs2(fname, (strlen(friendly_name)+1)*2, friendly_name);
++    util_copy_ascii_to_ucs2(fname, sizeof(fool->friendly_name), friendly_name);
++
++    IF_TRACED(TRC_TLVINFO)
++	size_t len = strlen(friendly_name);
++        dbgprintf("get_friendly_name(): space=" FMT_SIZET ", len=" FMT_SIZET ", friendly name = %s\n",
++                   sizeof(fool->friendly_name), len, friendly_name);
++    END_TRACE
 +    return TLV_GET_SUCCEEDED;
  }
  
  
-@@ -964,7 +1089,14 @@ get_wl_physical_medium(void *data)
+@@ -1005,7 +1116,12 @@ get_wl_physical_medium(void *data)
  
      uint8_t* wpm = (uint8_t*) data;
  
@@ -265,13 +259,11 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +    IF_TRACED(TRC_TLVINFO)
 +        printf("get_wl_physical_medium(): wl_physical_medium=%d\n", *wpm);
 +    END_TRACE
-+
-+    //return TLV_GET_FAILED;
 +    return TLV_GET_SUCCEEDED;
  }
  
  
-@@ -973,15 +1105,22 @@ get_accesspt_assns(void *data)
+@@ -1014,15 +1130,22 @@ get_accesspt_assns(void *data)
  {
  /*    TLVDEF( assns_t,           accesspt_assns,      , 0x16, Access_unset ) // RLS: Large_TLV */
  
@@ -299,14 +291,23 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
          assns->assn_cnt = 0;
      }
  
-@@ -998,14 +1137,47 @@ get_accesspt_assns(void *data)
+@@ -1031,7 +1154,7 @@ get_accesspt_assns(void *data)
+      */
+     gettimeofday(&now, NULL);
+ 
+-    if ((now.tv_sec - assns->collection_time.tv_sec) > 2)
++    if ((now.tv_sec - assns->collection_time.tv_sec) > 5)
+     {
+         assns->assn_cnt = 0;
+     }
+@@ -1039,14 +1162,47 @@ get_accesspt_assns(void *data)
      /* Force a re-assessment, whenever the count is zero */
      if (assns->assn_cnt == 0)
      {
 -        uint8_t         dummyMAC[6] = {0x00,0x02,0x44,0xA4,0x46,0xF1};
 +	/* buffers and length */
-+	auth_size = sizeof(auth->count) + MAX_STA_COUNT*sizeof(etheraddr_t);
-+	auth = (struct maclist*)malloc(auth_size);
++	auth_size = sizeof(auth->count) + MAX_STA_COUNT*sizeof(auth->ea[0]);
++	auth = (struct maclist*)xmalloc(auth_size);
 +
 +	//strcpy((char*)auth, "authe_sta_list");
 +	//ret = wl_ioctl(g_osl->wireless_if, WLC_GET_VAR, auth, auth_size);
@@ -318,17 +319,11 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +	    if (errno != EOPNOTSUPP)
 +    		warn("get_accesspt_assns: get authe_sta_list faild: %s\n",
 +    		    strerror(errno));
-+	    if(auth) free(auth);
++	    if (auth) xfree(auth);
 +
 +	    return TLV_GET_FAILED;
 +	}
- 
--        /* fill the allocated buffer with 1 association-table-entry, with everything in network byte order */
--        memcpy(&assns->table[0].MACaddr, &dummyMAC, sizeof(etheraddr_t));
--        assns->table[0].MOR = htons(108);       // units of 1/2 Mb per sec
--        assns->table[0].PHYtype = 0x02;         // DSSS 2.4 GHZ (802.11g)
--        assns->assn_cnt = 1;
--        assns->collection_time = now;
++
 +        for(i = 0; i < auth->count; i++)
 +	{
 +	    //strcpy((char*)&sta, "sta_info");
@@ -340,28 +335,36 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
 +	    //	uint32 f = sta->flags;
 +	    //}
 +
-+	    memcpy(&assns->table[i].MACaddr, &auth->ea[i], sizeof(etheraddr_t));
++	    memcpy(&assns->table[i].MACaddr, &auth->ea[i], sizeof(auth->ea[0]));
 +	    assns->table[i].MOR = htons(108);       // units of 1/2 Mb per sec
-+	    assns->table[i].PHYtype = 0x02;         // DSSS 2.4 GHZ (802.11g)
++	    assns->table[i].PHYtype = WPM_DSSS_24G; // DSSS 2.4 GHZ (802.11g)
 +	    IF_TRACED(TRC_TLVINFO)
 +		printf("get_accesspt_assns(): assoc=" ETHERADDR_FMT "\n", ETHERADDR_PRINT((etheraddr_t*)&auth->ea[i]));
 +	    END_TRACE
 +	}
 +	assns->assn_cnt = auth->count;
 +	assns->collection_time = now;
-+
-+	if(auth) free(auth);
+ 
+-        /* fill the allocated buffer with 1 association-table-entry, with everything in network byte order */
+-        memcpy(&assns->table[0].MACaddr, &dummyMAC, sizeof(etheraddr_t));
+-        assns->table[0].MOR = htons(108);       // units of 1/2 Mb per sec
+-        assns->table[0].PHYtype = 0x02;         // DSSS 2.4 GHZ (802.11g)
+-        assns->assn_cnt = 1;
+-        assns->collection_time = now;
++	if (auth) xfree(auth);
      }
  
      return TLV_GET_SUCCEEDED;
-@@ -1103,13 +1275,16 @@ get_component_tbl(void *data)
+@@ -1140,7 +1296,7 @@ get_component_tbl(void *data)
+ 
+     comptbl_t    *cmptbl = (comptbl_t*)data;
+     
+-    uint16_t    cur_mode;
++    uint8_t     cur_mode;
      etheraddr_t bssid;
      
      cmptbl->version = 1;
--    cmptbl->bridge_behavior = 0;            // all packets transiting the bridge are seen by Responder
-+    cmptbl->bridge_behavior = 0x00;
-     cmptbl->link_speed = htonl((uint32_t)(100000000/100));     // units of 100bps
-     cmptbl->radio_cnt = 1;
+@@ -1150,7 +1306,10 @@ get_component_tbl(void *data)
      cmptbl->radios = &my_radio;
  
      cmptbl->radios->MOR = htons((uint16_t)(54000000/500000));  // units of 1/2 Mb/sec
@@ -373,3 +376,165 @@ diff -BurpN lltd.orig/src/osl-linux.c lltd/src/osl-linux.c
      if (get_wireless_mode((void*)&cur_mode) == TLV_GET_FAILED)
      {
          cur_mode = 2;   // default is "automatic or unknown"
+@@ -1164,3 +1323,54 @@ get_component_tbl(void *data)
+ 
+     return TLV_GET_SUCCEEDED;
+ }
++
++int
++get_repeaterAP_lineage(void *data)
++{
++/*    TLVDEF( comptbl_t,    repeaterAP_lineage,  , 0x1B, Access_unset, TRUE ) */
++
++    aplineage_t* root_ap_bssid = (aplineage_t*) data;
++    int ret;
++
++#ifndef BCM_WIRELESS
++    int rqfd;
++    struct iwreq req;
++
++    memset(&req, 0, sizeof(req));
++    strncpy(req.ifr_ifrn.ifrn_name, g_osl->wireless_if, sizeof(req.ifr_ifrn.ifrn_name));
++    rqfd = socket(AF_INET,SOCK_DGRAM,0);
++    if (rqfd<0)
++    {
++        warn("get_wl_physical_medium: FAILED creating request socket for \'%s\' : %s\n",g_osl->wireless_if,strerror(errno));
++        return FALSE;
++    }
++    req.u.data.flags = RT_OID_GET_REPEATER_AP_LINEAGE;
++    req.u.data.pointer = (void*)malloc(sizeof(etheraddr_t));
++    memset(req.u.data.pointer, 0, sizeof(etheraddr_t));
++    ret = ioctl(rqfd, RT_PRIV_IOCTL, &req);
++    close(rqfd);
++    if (ret != 0)
++    {
++    	/* We don't whine about "Operation Not Supported" since that
++    	 * just means the interface does not have wireless extensions. */
++    	if (errno != EOPNOTSUPP  &&  errno != EFAULT)
++    	    warn("get_wl_physical_medium: get wireless phy mode failed: Error %d, %s\n",
++    		 errno,strerror(errno));
++    	return TLV_GET_FAILED;
++    }
++	printf("\n!! req.u.data.length = %d, sizeof(etheraddr_t) = %d !!\n\n", req.u.data.length, sizeof(etheraddr_t));
++    if (req.u.data.length == sizeof(etheraddr_t))
++    {
++        memcpy(&root_ap_bssid->bssid[0], req.u.data.pointer, sizeof(etheraddr_t));
++        root_ap_bssid->count = 1;
++    }
++    else
++#endif
++        root_ap_bssid->count = 0;
++
++    IF_TRACED(TRC_TLVINFO)
++        printf("get_repeaterAP_lineage(): root ap mac =" ETHERADDR_FMT "\n", ETHERADDR_PRINT(&root_ap_bssid->bssid[0]));
++    END_TRACE
++
++    return TLV_GET_SUCCEEDED;
++}
+diff -BurpN lltd.orig/src/tlv.c lltd/src/tlv.c
+--- lltd.orig/src/tlv.c	2006-10-16 06:24:56.000000000 +0000
++++ lltd/src/tlv.c	2011-03-22 20:44:22.329739002 +0000
+@@ -591,6 +591,68 @@ write_comptbl_t(int number, void *data, 
+     return bytes_used;
+ }
+ 
++static int
++write_ssid_t(int number, void *data, uint8_t *buf, int bytes_free, bool_t isHello, bool_t isLarge, size_t offset)
++{
++    if (bytes_free < (int)(2 + sizeof(ssid_t)))
++	    return 0;
++
++    IF_TRACED(TRC_TLVINFO)
++        dbgprintf("write_ssid_t(%s): ssid=%s\n", isLarge?"LTLV":"TLV",
++                  SSID_PRINT(((ssid_t*)data)));
++    END_TRACE
++
++    if (isHello)
++    {
++        /* write hdr in Hello-tlv format */
++        *buf = (uint8_t)number;
++        if (isLarge)
++        {
++            *(buf+1) = 0;
++            return 2;
++        } else {
++            *(buf+1) = SSID_LEN((ssid_t*)data);
++        }
++    } else {
++        /* write in QueryLargeTlvResp LTLV format */
++        /* replace: *(uint16_t*)buf = htons(sizeof(etheraddr_t)); with: */
++        g_short_reorder_buffer = htons(SSID_LEN((ssid_t*)data));
++        memcpy(buf, &g_short_reorder_buffer, 2);
++    }
++    /* replace: *((etheraddr_t*)(buf+2)) = *(etheraddr_t*)data; with: */
++    memcpy(buf+2, data, SSID_LEN((ssid_t*)data));
++    return SSID_LEN((ssid_t*)data) + 2;
++}
++
++static int
++write_aplineage_t(int number, void *data, uint8_t *buf, int bytes_free, bool_t isHello, bool_t isLarge, size_t offset)
++{
++    aplineage_t* root_ap_bssid = (aplineage_t*) data;
++
++    if (bytes_free < (int)(2 + sizeof(ssid_t)))
++	    return 0;
++
++    IF_TRACED(TRC_TLVINFO)
++        printf("write_aplineage_t: tlvnum:%d  isHello:%s  isLarge:%s  offset:" FMT_SIZET "\n",
++               number, isHello==TRUE?"true":"false", isLarge==TRUE?"true":"false", offset);
++    END_TRACE
++
++    if (isHello)
++    {
++        /* write hdr in Hello-tlv format */
++        *buf = (uint8_t)number;
++        if (root_ap_bssid->count == 0)
++        {
++            *(buf+1) = 0;
++            return 2;
++        } else
++            *(buf+1) = root_ap_bssid->count*sizeof(etheraddr_t);
++    }
++
++    /* replace: *((etheraddr_t*)(buf+2)) = *(etheraddr_t*)data; with: */
++    memcpy(buf+2, data, root_ap_bssid->count*sizeof(etheraddr_t));
++    return ((root_ap_bssid->count*sizeof(etheraddr_t)) + 2);
++}
+ 
+ void *(NotUsed[]) = {write_uint16_t,write_ipv6addr_t};
+ 
+diff -BurpN lltd.orig/src/tlvdef.h lltd/src/tlvdef.h
+--- lltd.orig/src/tlvdef.h	2006-09-14 05:27:18.000000000 +0000
++++ lltd/src/tlvdef.h	2011-03-22 20:10:25.000000000 +0000
+@@ -28,7 +28,7 @@
+     TLVDEF( uint32_t,     physical_medium,     ,   3,  Access_unset, TRUE )
+     TLVDEF( uint8_t,      wireless_mode,       ,   4,  Access_unset, TRUE )
+     TLVDEF( etheraddr_t,  bssid,               ,   5,  Access_unset, TRUE )
+-//    TLVDEF( ssid_t,       ssid,                ,   6,  Access_unset, TRUE )
++    TLVDEF( ssid_t,       ssid,                ,   6,  Access_unset, TRUE )
+     TLVDEF( ipv4addr_t,   ipv4addr,            ,   7,  Access_unset, TRUE )
+     TLVDEF( ipv6addr_t,   ipv6addr,            ,   8,  Access_unset, TRUE )
+     TLVDEF( uint16_t,     max_op_rate,         ,   9,  Access_unset, TRUE )
+@@ -43,7 +43,8 @@
+     TLVDEF( ucs2char_t,   hw_id,          [200], 0x13, Access_unset, FALSE ) // 400 bytes long, max
+     TLVDEF( uint32_t,     qos_flags,           , 0x14, Access_unset, TRUE )
+     TLVDEF( uint8_t,      wl_physical_medium,  , 0x15, Access_unset, TRUE )
+-    TLVDEF( assns_t,      accesspt_assns,      , 0x16, Access_unset, FALSE ) // RLS: Large_TLV only
++    TLVDEF( assns_t,      accesspt_assns,      , 0x16, Access_dynamic, FALSE ) // RLS: Large_TLV only
+     TLVDEF( lg_icon_t,    jumbo_icon,          , 0x18, Access_dynamic, FALSE ) // RLS: Large_TLV only
+     TLVDEF( uint16_t,     sees_max,            , 0x19, Access_unset, TRUE )
+     TLVDEF( comptbl_t,    component_tbl,       , 0x1A, Access_unset, FALSE ) // RLS: Large_TLV only
++    TLVDEF( aplineage_t,  repeaterAP_lineage,  , 0x1B, Access_dynamic, TRUE )
+diff -BurpN lltd.orig/src/util.h lltd/src/util.h
+--- lltd.orig/src/util.h	2006-08-03 04:47:48.000000000 +0000
++++ lltd/src/util.h	2010-07-04 12:23:42.000000000 +0000
+@@ -94,6 +94,9 @@ extern void util_use_syslog(void);
+ #define ETHERADDR_PRINT(e) (e)->a[0], (e)->a[1], (e)->a[2],\
+                            (e)->a[3], (e)->a[4], (e)->a[5]
+ 
++#define SSID_PRINT(e)   (e)->ssid
++#define SSID_LEN(e)     (e)->ssidLen
++
+ #define timeval_add_ms(tv, ms) \
+ do {						\
+     (tv)->tv_usec += (ms) * 1000;		\

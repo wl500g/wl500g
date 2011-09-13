@@ -2,7 +2,7 @@
 
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Port Forwarding Widzard</title>
+<title>Port Forwarding Wizard</title>
 
 <SCRIPT LANGUAGE="JavaScript">
 
@@ -28,7 +28,7 @@ wItem = new Array(
 var funcIdx, optIdx;
 
 
-function loadWidzard()
+function loadWizard()
 {
    funcIdx = "0";
    document.form.LocalIP.disabled = 0;
@@ -161,14 +161,14 @@ function cancel()
 
 </head>
 
-<body  onLoad="loadWidzard()">
+<body  onLoad="loadWizard()">
 <form method="POST" name="form" action="--WEBBOT-SELF--">  
 <!--webbot bot="SaveResults" U-File="fpweb:///_private/form_results.txt"
 S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->  
 <table border="1" width="542">
   <tr>
     <td bgcolor="#FF9933" bordercolor="#FF9933" width="532"><font face="Arial" size="5" color="#FFFFFF"><b>Virtual 
-      Server Widzard</b></font></td>
+      Server Wizard</b></font></td>
   </tr>
   <tr>
     <td width="532"><p><font face="Arial" size="2">To make services, like WWW, FTP, provided  
