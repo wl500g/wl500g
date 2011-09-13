@@ -198,7 +198,10 @@ extern int osl_error(int bcmerror);
 #include <linux/string.h>	/* for mem*, str* */
 
 #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
+#ifndef printf
 #define	printf(fmt, args...)	printk(fmt , ## args)
+#endif
+
 #include <linux/kernel.h>	/* for vsn/printf's */
 #include <linux/string.h>	/* for mem*, str* */
 /* bcopy's: Linux kernel doesn't provide these (anymore) */

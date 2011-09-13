@@ -16,7 +16,7 @@
 
 #define TRX_MAGIC	0x30524448	/* "HDR0" */
 #define TRX_VERSION	1		/* Version 1 */
-#define TRX_MAX_LEN	0x3B0000	/* Max length */
+#define TRX_MAX_LEN	0x7A0000	/* Max length */
 #define TRX_NO_HEADER	1		/* Do not write TRX header */
 #define TRX_GZ_FILES	0x2     /* Contains up to TRX_MAX_OFFSET individual gzip files */
 #define TRX_MAX_OFFSET	3		/* Max number of individual files */
