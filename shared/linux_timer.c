@@ -15,7 +15,11 @@
 /*
 * debug facilities
 */
+#ifdef BCMDBG
+#define TIMER_DEBUG	1 /* Turn on the debug */
+#else
 #define TIMER_DEBUG	0 /* Turn off the debug */
+#endif
 #if TIMER_DEBUG
 #define TIMERDBG(fmt, args...) printf("%s: " fmt "\n", __FUNCTION__ , ## args)
 #else

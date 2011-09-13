@@ -450,7 +450,6 @@
 {"wl_mimo_preamble", "mm", 0},
 {"wl_leddc","0x640000",0},
 {"wl_wme_apsd","on",0},
-{"wl_sta_retry_time","5",0},
 {"wl_reg_mode", "d", 0},
 
 /* Jumbo frame for N16 only */
