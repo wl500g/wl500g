@@ -1,5 +1,5 @@
 --- wpa_supplicant-0.6.10/src/drivers/driver_roboswitch.c	2010-01-12 14:55:02.000000000 +0000
-+++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-09-10 12:08:13.833897002 +0000
++++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-09-13 10:34:36.603897002 +0000
 @@ -17,6 +17,7 @@
  #include <linux/if.h>
  #include <linux/sockios.h>
@@ -24,18 +24,21 @@
  
  
  static const u8 pae_group_addr[ETH_ALEN] =
-@@ -66,9 +76,8 @@ struct wpa_driver_roboswitch_data {
+@@ -64,11 +74,11 @@ static const u8 pae_group_addr[ETH_ALEN]
+ 
+ struct wpa_driver_roboswitch_data {
  	void *ctx;
- 	struct l2_packet_data *l2;
+-	struct l2_packet_data *l2;
++	struct l2_packet_data *l2, *l2_vlan;
  	char ifname[IFNAMSIZ + 1];
--	u8 own_addr[ETH_ALEN];
+ 	u8 own_addr[ETH_ALEN];
  	struct ifreq ifr;
 -	int fd, is_5350;
 +	int fd, model;
  	u16 ports;
  };
  
-@@ -93,11 +102,11 @@ static void wpa_driver_roboswitch_addr_b
+@@ -93,11 +103,11 @@ static void wpa_driver_roboswitch_addr_b
  
  
  static u16 wpa_driver_roboswitch_mdio_read(
@@ -49,7 +52,7 @@
  	mii->reg_num = reg;
  
  	if (ioctl(drv->fd, SIOCGMIIREG, &drv->ifr) < 0) {
-@@ -136,8 +145,8 @@ static int wpa_driver_roboswitch_reg(str
+@@ -136,8 +146,8 @@ static int wpa_driver_roboswitch_reg(str
  
  	/* check if operation completed */
  	for (i = 0; i < ROBO_MII_RETRY_MAX; ++i) {
@@ -60,7 +63,7 @@
  			return 0;
  	}
  	/* timeout */
-@@ -155,8 +164,8 @@ static int wpa_driver_roboswitch_read(st
+@@ -155,8 +165,8 @@ static int wpa_driver_roboswitch_read(st
  		return -1;
  
  	for (i = 0; i < len; ++i) {
@@ -71,16 +74,55 @@
  	}
  
  	return 0;
-@@ -183,7 +192,7 @@ static void wpa_driver_roboswitch_receiv
+@@ -183,13 +193,46 @@ static void wpa_driver_roboswitch_receiv
  	struct wpa_driver_roboswitch_data *drv = priv;
  
  	if (len > 14 && WPA_GET_BE16(buf + 12) == ETH_P_EAPOL &&
 -	    os_memcmp(buf, drv->own_addr, ETH_ALEN) == 0) {
-+	    os_memcmp(buf, pae_group_addr, ETH_ALEN) == 0) {
++	    (os_memcmp(buf, drv->own_addr, ETH_ALEN) == 0 ||
++	     os_memcmp(buf, pae_group_addr, ETH_ALEN) == 0)) {
  		wpa_supplicant_rx_eapol(drv->ctx, src_addr, buf + 14,
  					len - 14);
  	}
-@@ -205,39 +214,6 @@ static int wpa_driver_roboswitch_get_bss
+ }
+ 
+ 
++static int wpa_driver_roboswitch_send(void *priv, const u8 *dest, u16 proto,
++				      const u8 *data, size_t data_len)
++{
++	struct wpa_driver_roboswitch_data *drv = priv;
++	struct {
++		struct l2_ethhdr eth;
++		u8 data[0];
++	} STRUCT_PACKED *msg;
++	size_t msg_len;
++	int res;
++
++	if (drv->l2 == NULL)
++		return -1;
++
++	msg_len = sizeof(msg->eth) + data_len;
++	msg = os_malloc(msg_len);
++	if (msg == NULL)
++		return -1;
++
++	os_memset(&msg->eth, 0, sizeof(msg->eth));
++	os_memcpy(msg->eth.h_dest, dest, ETH_ALEN);
++	os_memcpy(msg->eth.h_source, drv->own_addr, ETH_ALEN);
++	msg->eth.h_proto = host_to_be16(proto);
++	os_memcpy(msg->data, data, data_len);
++
++	res = l2_packet_send(drv->l2, dest, proto, (u8 *) msg, msg_len);
++	os_free(msg);
++
++	return res;
++}
++
++
+ static int wpa_driver_roboswitch_get_ssid(void *priv, u8 *ssid)
+ {
+ 	ssid[0] = 0;
+@@ -205,36 +248,10 @@ static int wpa_driver_roboswitch_get_bss
  }
  
  
@@ -111,16 +153,15 @@
 -
 -
 -static const char * wpa_driver_roboswitch_get_ifname(void *priv)
--{
--	struct wpa_driver_roboswitch_data *drv = priv;
--	return drv->ifname;
--}
--
--
- static int wpa_driver_roboswitch_join(struct wpa_driver_roboswitch_data *drv,
- 				      u16 ports, const u8 *addr)
++static const u8 * wpa_driver_roboswitch_get_mac_addr(void *priv)
  {
-@@ -350,42 +326,18 @@ static int wpa_driver_roboswitch_leave(s
+ 	struct wpa_driver_roboswitch_data *drv = priv;
+-	return drv->ifname;
++	return drv->own_addr;
+ }
+ 
+ 
+@@ -350,42 +367,17 @@ static int wpa_driver_roboswitch_leave(s
  static void * wpa_driver_roboswitch_init(void *ctx, const char *ifname)
  {
  	struct wpa_driver_roboswitch_data *drv;
@@ -128,12 +169,11 @@
 -	u16 vlan = 0, _read[2];
 +	struct vlan_ioctl_args ifv;
 +	u32 phyid;
-+	u16 vlan = 0;
++	u16 vlan, i;
 +	union {
-+	    u32 val32;
-+	    u16 val16[2];
++		u32 val32;
++		u16 val16[2];
 +	} u;
-+	int vlan_found = 0, i;
  
  	drv = os_zalloc(sizeof(*drv));
  	if (drv == NULL) return NULL;
@@ -171,7 +211,7 @@
  
  	drv->fd = socket(PF_INET, SOCK_DGRAM, 0);
  	if (drv->fd < 0) {
-@@ -394,55 +346,146 @@ static void * wpa_driver_roboswitch_init
+@@ -394,55 +386,160 @@ static void * wpa_driver_roboswitch_init
  		return NULL;
  	}
  
@@ -186,16 +226,14 @@
 +			goto error;
 +		}
 +		vlan = ifv.u.VID;
-+		vlan_found = 1;
 +	} else
-+	if (sscanf(ifname, "vlan%u", (unsigned int *) &vlan) == 2) {
++	if (sscanf(ifname, "vlan%hu", &vlan) == 2) {
 +		os_strlcpy(drv->ifname, "eth0", sizeof(drv->ifname));
-+		vlan_found = 1;
 +	} else
-+	if (sscanf(ifname, "%16[^.].%u", drv->ifname, (unsigned int *) &vlan) == 2) {
-+		vlan_found = 1;
-+	} else
++	if (sscanf(ifname, "%16[^.].%hu", drv->ifname, &vlan) != 2) {
 +		os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
++		vlan = (u16) -1;
++	}
 +
  	os_memset(&drv->ifr, 0, sizeof(drv->ifr));
  	os_strlcpy(drv->ifr.ifr_name, drv->ifname, IFNAMSIZ);
@@ -243,43 +281,53 @@
 +	} else
 +		drv->model = BCM536x;
 +
-+	for (i = vlan; i < (drv->model == BCM536x) ? ROBO_VLAN_MAX : ROBO_VLAN_MAX_5350; i++) {
++	if (vlan != (u16) -1 &&
++	    vlan > ((drv->model == BCM536x) ? ROBO_VLAN_MAX
++					    : ROBO_VLAN_MAX_5350)) {
++		wpa_printf(MSG_INFO, "%s: VLAN %d out of range on interface "
++				     "%s", __func__, vlan, drv->ifname);
++		goto error;
++	}
++
++	i = (vlan == (u16) -1) ? 0 : vlan;
++	for ( ; i <= ((drv->model == BCM536x) ? ROBO_VLAN_MAX
++	    				      : ROBO_VLAN_MAX_5350); i++) {
++		u.val16[0] = i;
 +		/* set the read bit */
-+		u.val16[0] = i | 1 << 13;
++		u.val16[0] |= (1 << 13);
 +		wpa_driver_roboswitch_write(drv, ROBO_VLAN_PAGE,
 +					    (drv->model == BCM536x) ? ROBO_VLAN_ACCESS
 +								    : ROBO_VLAN_ACCESS_5350,
 +					    &u.val16[0], 1);
 +		wpa_driver_roboswitch_read(drv, ROBO_VLAN_PAGE, ROBO_VLAN_READ,
 +					   &u.val16[0], (drv->model == BCM536x) ? 1 : 2);
-+
 +		/* is vlan enabled */
 +		if (drv->model == BCM536x &&
 +		    u.val16[0] & (1 << 14)) {
-+			if (vlan_found)
++			if (vlan != (u16) -1)
 +				break;
 +                        if (u.val16[0] & (1 << 5) && u.val16[0] & (1 << 12)) {
 +				vlan = i;
-+				vlan_found = 1;
 +				break;
 +			}
 +		} else
 +		if (drv->model & BCM535x &&
 +		    u.val32 & (1 << ((drv->model == BCM5356) ? 24 : 20))) {
-+			if (vlan_found)
++			if (vlan != (u16) -1)
 +				break;
 +			if (u.val32 & (1 << 5) && u.val32 & (1 << 11)) {
-+				vlan = i | (drv->model == BCM5356) ?
-+				       (u.val32 & 0xff000) >> 12 :
-+				       (u.val32 & 0xff000) >> 8;
-+				vlan_found = 1;
++				vlan = i;
++				vlan |= (drv->model == BCM5356) ?
++					(u.val32 & 0xff000) >> 12 :
++					(u.val32 & 0xff000) >> 8;
 +				break;
 +			}
 +		} else
-+		/* vlan was specified */
-+		if (vlan_found) {
-+			vlan_found = 0;
-+			break;
++		/* is vlan specified */
++		if (vlan != (u16) -1) {
++			wpa_printf(MSG_INFO, "%s: Could not get port information for "
++					     "VLAN %d", __func__, vlan);
++			goto error;
 +		}
 +	}
  
@@ -292,22 +340,43 @@
 -	wpa_driver_roboswitch_read(drv, ROBO_VLAN_PAGE, ROBO_VLAN_READ, _read,
 -				   drv->is_5350 ? 2 : 1);
 -	if (!(drv->is_5350 ? _read[1] & (1 << 4) : _read[0] & (1 << 14))) {
-+	if (vlan_found) {
-+		wpa_printf(MSG_INFO, "%s: Use VLAN %d on RoboSwitch interface "
-+				     "%s", __func__, vlan, drv->ifname);
-+	} else {
- 		wpa_printf(MSG_INFO, "%s: Could not get port information for "
+-		wpa_printf(MSG_INFO, "%s: Could not get port information for "
 -				     "VLAN %d", __func__, vlan & ~(1 << 13));
 -		os_free(drv);
 -		return NULL;
-+				     "VLAN %d", __func__, vlan);
++	if (vlan == (u16) -1) {
++		wpa_printf(MSG_INFO, "%s: Unable to find VLAN for "
++				     "interface %s", __func__, drv->ifname);
 +		goto error;
  	}
 -	drv->ports = _read[0] & 0x001F;
++	wpa_printf(MSG_DEBUG, "%s: Used VLAN %d ports on RoboSwitch interface "
++			      "%s", __func__, vlan, drv->ifname);
 +
++	/* even if empty */
 +	drv->ports = u.val16[0] & 0x001f;
  	/* add the MII port */
  	drv->ports |= 1 << 8;
++
++	drv->l2 = l2_packet_init(drv->ifname, NULL, ETH_P_EAPOL,
++				 wpa_driver_roboswitch_receive, drv,
++				 1);
++	if (drv->l2 == NULL) {
++		wpa_printf(MSG_INFO, "%s: Unable to listen on %s",
++			   __func__, drv->ifname);
++		goto error;
++	}
++	l2_packet_get_own_addr(drv->l2, drv->own_addr);
++
++	if (os_strcmp(drv->ifname, ifname) != 0) {
++		/* may fail for not existent vlanX or ethX.X */
++		drv->l2_vlan = l2_packet_init(ifname, NULL, ETH_P_EAPOL,
++					      wpa_driver_roboswitch_receive,
++					      drv, 1);
++		if (drv->l2_vlan)
++			l2_packet_get_own_addr(drv->l2_vlan, drv->own_addr);
++	}
++
  	if (wpa_driver_roboswitch_join(drv, drv->ports, pae_group_addr) < 0) {
  		wpa_printf(MSG_INFO, "%s: Unable to join PAE group", __func__);
 -		os_free(drv);
@@ -318,20 +387,6 @@
  			   "RoboSwitch ARL", __func__);
  	}
  
-+	if (os_strcmp(drv->ifname, ifname) != 0) {
-+		drv->l2 = l2_packet_init(drv->ifname, NULL, ETH_P_EAPOL,
-+					 wpa_driver_roboswitch_receive, drv,
-+					 1);
-+		if (drv->l2 == NULL) {
-+			wpa_printf(MSG_INFO, "%s: Unable to listen on %s",
-+				   __func__, drv->ifname);
-+			goto error;
-+		} else {
-+			wpa_printf(MSG_DEBUG, "%s: Listen multicast on "
-+				   "interface %s", __func__, drv->ifname);
-+		}
-+	}
-+
  	return drv;
 +
 +error:
@@ -341,10 +396,23 @@
  }
  
  
-@@ -471,6 +514,4 @@ const struct wpa_driver_ops wpa_driver_r
+@@ -454,6 +551,10 @@ static void wpa_driver_roboswitch_deinit
+ 		l2_packet_deinit(drv->l2);
+ 		drv->l2 = NULL;
+ 	}
++	if (drv->l2_vlan) {
++		l2_packet_deinit(drv->l2_vlan);
++		drv->l2_vlan = NULL;
++	}
+ 	if (wpa_driver_roboswitch_leave(drv, drv->ports, pae_group_addr) < 0) {
+ 		wpa_printf(MSG_DEBUG, "%s: Unable to leave PAE group",
+ 			   __func__);
+@@ -471,6 +572,6 @@ const struct wpa_driver_ops wpa_driver_r
  	.get_bssid = wpa_driver_roboswitch_get_bssid,
  	.init = wpa_driver_roboswitch_init,
  	.deinit = wpa_driver_roboswitch_deinit,
 -	.set_param = wpa_driver_roboswitch_set_param,
 -	.get_ifname = wpa_driver_roboswitch_get_ifname,
++	.get_mac_addr = wpa_driver_roboswitch_get_mac_addr,
++	.send_eapol = wpa_driver_roboswitch_send,
  };
