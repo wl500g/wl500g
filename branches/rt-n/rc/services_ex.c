@@ -1935,17 +1935,16 @@ int service_handle(void)
 	if (strstr(service,"wan_disconnect")!=NULL)
 	{
 		cprintf("wan disconnect\n");
-
 		logmessage("wan", "disconnected manually");
 
 		if (nvram_match("wan0_proto", "dhcp") ||
-			nvram_match("wan0_proto", "bigpond"))
-		{		
+		    nvram_match("wan0_proto", "bigpond"))
+		{
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
 			kill_pidfile_s(tmp, SIGUSR2);
 		}
 		else 
-		{			
+		{
 			stop_wan(nvram_invmatch("wan_ifname_t", "") ? nvram_safe_get("wan_ifname_t") : NULL);
 		}
 	}
@@ -1955,8 +1954,15 @@ int service_handle(void)
 		logmessage("wan", "connected manually");
 		setup_ethernet(nvram_safe_get("wan_ifname"));
 
+#ifdef __CONFIG_EAPOL__
+		if (nvram_match("wan0_auth_x", "eap-md5")
+		&& (nvram_match("wan0_proto", "static") == 0 ||
+		    nvram_match("wan0_proto", "dhcp") == 0))
+			killall("wpa_supplicant", -SIGUSR2);
+		else
+#endif
 		if (nvram_match("wan0_proto", "dhcp") ||
-			nvram_match("wan0_proto", "bigpond"))
+		    nvram_match("wan0_proto", "bigpond"))
 		{
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
 			kill_pidfile_s(tmp, SIGUSR1);
