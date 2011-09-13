@@ -2,6 +2,9 @@
 	<head>
 	<script type="text/javascript" src="general.js"></script>
 	<script type="text/javascript">
+		var modemInfo;
+		var col_ar=["loc", "vid","pid", "type", "data","ui", "manuf", "prod"];
+
 		function get_syscmd_out(xhr)
 		{
 			var url = "http://"+window.location.host+"/syscmd_out.asp";
@@ -13,7 +16,7 @@
 		}
 		function get_html()
 		{
-			var url=getCmdExecUrl( window.location.host, "check_devpath" );
+			var url=getCmdExecUrl( window.location.host, "lsmodem -j" );
 			getHTTPRequest( url, get_syscmd_out );
 		}
 		function onfail()
@@ -23,24 +26,22 @@
 
 		function generate_table( data_str )
 		{
-
 			var str="<table class='sel_devpath'>\n\
-				<tr><th>Device path</th><th>USB Location</th><th colspan='2'>Info</th></tr>";
-
-			var ar=data_str.split( "\n" );
-			for(var i in ar ){
-				var str1=ar[i];
-				if(i==0 || !str1.length)continue;
+				<tr><th>USB<br>Location</th><th colspan='2'>VID/PID</th><th>Type</th><th>Data<br>port</th><th>User<br>interface<br>port</th><th colspan='2'>Info</th></tr>";
+			var ar=eval(data_str);
+			if( ar ){
+			    modemInfo=ar;
+			    for(var i=0; i<ar.length; i++){
+				var item=ar[i];
+				if(!item) continue;
 				str+="<tr>";
-				var col_ar=str1.split( " : " );
-				if( col_ar.length ){
-				    for(var j in col_ar ){
-					str+="<td onclick='select_td(this)' onmouseover='fill_row(this, 1)' onmouseout='fill_row(this, 0)'>";
-					str+=col_ar[j];
-					str+="</td>";
-				    }
-				};
+				for(var j=0;j<col_ar.length;j++){
+				    str+="<td onclick='select_td(this)' onmouseover='fill_row(this, 1)' onmouseout='fill_row(this, 0)'>";
+				    str+=item[col_ar[j]];
+				    str+="</td>";
+				}
 				str+="</tr>";
+			    }
 			}
 			str+="</table>";
 
@@ -49,8 +50,14 @@
 		function select_td(el)
 		{
 			var row=el.parentNode;
-			var path=row.children[1];
-			opener.changeUSBLoc( path.innerHTML );
+			var loc=row.children[0].innerHTML;
+			var ar=modemInfo;
+			for(var i=0; i<ar.length; i++){
+				if(ar[i] && ar[i].loc==loc){
+					opener.changeUSBparams( ar[i] );
+					break;
+				}
+			}
 			self.close();
 		}
 		function fill_row(el, fill){

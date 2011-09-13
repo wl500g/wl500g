@@ -18,6 +18,7 @@ struct variable variables_IPConnection_ExposedIPList[] = {
 }; 
 
 struct variable variables_IPConnection_VSList[] = {
+	{"vts_sipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"vts_port_x", "12", validate_portrange, NULL, FALSE, 0x0},
 	{"vts_ipaddr_x", "16", validate_ipaddr, NULL, FALSE, 0x0},
 	{"vts_lport_x", "7", validate_range, ARGV("0","4294927695"), FALSE, 0x0},
@@ -666,6 +667,7 @@ struct variable variables_LANHostConfig[] = {
 	"WWW.NO-IP.COM",
 	"WWW.DNSOMATIC.COM",
 	"WWW.TUNNELBROKER.NET",
+	"DNS.HE.NET",
 	0), FALSE, FALSE},
 	{"ddns_username_x", "", validate_string, ARGV("32"), FALSE, FALSE},
 	{"ddns_passwd_x", "", validate_string, ARGV("32"), FALSE, FALSE},
@@ -1586,11 +1588,13 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_vid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_pid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_portspeed", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_usbserial", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_packetsize", "", validate_range, ARGV("0", "16384", ""), TRUE, FALSE},
 	{"wan_modem_zerocd_mode", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_dialup_init", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_options", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_tts_port", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_pdata", "", validate_string, ARGV(""), TRUE, FALSE},
+	{"wan_modem_pui", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_standard", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_demand", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_idle", "", validate_string, ARGV(""), TRUE, FALSE},

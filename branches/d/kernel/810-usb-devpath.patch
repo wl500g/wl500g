@@ -113,21 +113,21 @@ diff -urbBN linux-2.4.37/drivers/usb/devpath.c linux.cdma/drivers/usb/devpath.c
 +	for (tmp = usb_devpath_list.next; tmp != &usb_devpath_list; tmp = tmp->next) {
 +		struct usb_devpath *devpath = list_entry(tmp, struct usb_devpath, devpath_list);
 +		
-+		start += sprintf(start, "/dev/%s : %s.%d", devpath->devfs, devpath->dev->devpath, devpath->index);
++		start += sprintf(start, "/dev/%s : %s.%d ", devpath->devfs, devpath->dev->devpath, devpath->index);
 +		
 +		if (devpath->dev->descriptor.iManufacturer) {
 +			if (usb_string(devpath->dev, devpath->dev->descriptor.iManufacturer, infobuf, 128) > 0)
-+				start += sprintf(start, " : Manufacturer=\"%.100s\"", infobuf);
++				start += sprintf(start, ": Manufacturer=\"%.100s\" ", infobuf);
 +		}
 +		
 +		if (devpath->dev->descriptor.iProduct) {
 +			if (usb_string(devpath->dev, devpath->dev->descriptor.iProduct, infobuf, 128) > 0)
-+				start += sprintf(start, " : Product=\"%.100s\"", infobuf);
++				start += sprintf(start, ": Product=\"%.100s\" ", infobuf);
 +		}
 +#ifdef ALLOW_SERIAL_NUMBER
 +		if (devpath->dev->descriptor.iSerialNumber) {
 +			if (usb_string(devpath->dev, devpath->dev->descriptor.iSerialNumber, infobuf, 128) > 0)
-+				start += sprintf(start, " : SerialNumber=\"%.100s\"", infobuf);
++				start += sprintf(start, ": SerialNumber=\"%.100s\" ", infobuf);
 +		}
 +#endif
 +		start += sprintf(start, "\n");

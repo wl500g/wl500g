@@ -19,7 +19,7 @@
 	<form method="GET" name="form" action="apply.cgi">
 	<input type="hidden" name="x_Mode" value="0">
 	<input type="hidden" name="current_page" value="Basic_GOperation_Content.asp">
-	<input type="hidden" name="next_page" value="Basic_HomeGateway_SaveRestart.asp">
+	<input type="hidden" name="next_page" value="SaveRestart.asp">
 	<input type="hidden" name="next_host" value="">
 	<input type="hidden" name="sid_list" value="Layer3Forwarding;IPConnection;PPPConnection;WLANConfig11a;WLANConfig11b;LANHostConfig;FirewallConfig;">
 	<input type="hidden" name="action_mode" value="">
@@ -174,9 +174,9 @@
 					</tr>
 					<tr>
 						<td class="content_desc_td" colspan="2" height="50">
-							If you apply an account with dynamic IP. You must get user account and password
+							If you apply an account with dynamic IP, you must get user account and password
 							from your ISP. Please fill this data into the following fields carefully. Or, if
-							you apply an ADSL account with static IP, just ignore user name and pasword information.
+							you apply an ADSL account with static IP, just ignore user name and password information.
 						</td>
 					</tr>
 					<tr>

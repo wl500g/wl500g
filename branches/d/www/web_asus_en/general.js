@@ -1330,6 +1330,20 @@ function add_option(o, s, f)
 	}
 }
 
+function add_option_text(o, t, s, f)
+{
+	tail = o.options.length;
+
+	o.options[tail] = new Option(s);
+	o.options[tail].text = t;
+	o.options[tail].value = s;
+
+	if (f==1)
+	{
+		o.options[tail].selected = 1;
+	}
+}
+
 function add_option_match(o, s, f)
 {
 	tail = o.options.length;
@@ -1595,35 +1609,40 @@ function TimeZoneList()
 			"CET-1CEST,M3.5.0,M10.5.0/3|(GMT+1DST) Amsterdam,Berlin,Madrid,Paris,Rome",
 			"UCT-1|(GMT+1) Algiers",
 			"EET-2EEST,M3.5.0/3,M10.5.0/4|(GMT+2DST) Athens,Helsinki,Kiev",
-			"EET-2EEST,M3.5.0,M10.5.0/3|(GMT+2DST) Kaliningrad,Minsk",
+			"EET-2EEST,M3.5.0,M10.5.0/3|(GMT+2DST) Minsk",
 			"UCT-2|(GMT+2) Jerusalem,Pretoria",
-			"MSK-3MSD,M3.5.0,M10.5.0/3|(GMT+3DST) Moscow,St.Petersburg,Volgograd",
+			"KALT-3|(GMT+3) Kaliningrad",
 			"AST-3|(GMT+3) Aden,Bahrain,Kuwait,Qatar,Riyadh",
 			"IRST-3:30|(GMT+3:30) Tehran",
-			"SAMT-4SAMST,M3.5.0,M10.5.0/3|(GMT+4DST) Izhevsk,Samara,Yerevan",
+			"MSK-4|(GMT+4) Moscow,St.Petersburg,Volgograd",
+			"SAMT-4|(GMT+4) Izhevsk,Samara",
+			"AMT-4AMST,M3.5.0,M10.5.0/3|(GMT+4DST) Yerevan",
 			"AZT-4AZST,M3.5.0/4,M10.5.0/5|(GMT+4DST) Baku",
 			"UCT-4|(GMT+4) Dubai,Muscat,Tbilisi",
 			"AFT-4:30|(GMT+4:30) Kabul",
-			"YEKT-5YEKST,M3.5.0,M10.5.0/3|(GMT+5DST) Yekaterinburg",
 			"UCT-5|(GMT+5) Aqtobe,Ashgabat,Dushanbe,Karachi,Oral,Tashkent",
 			"IST-5:30|(GMT+5:30) Calcutta,Colombo",
-			"OMST-6OMSST,M3.5.0,M10.5.0/3|(GMT+6DST) Novosibirsk,Omsk",
+			"YEKT-6|(GMT+6) Yekaterinburg",
 			"UCT-6|(GMT+6) Almaty,Bishkek,Dhaka,Qyzylorda,Thimphu",
-			"KRAT-7KRAST,M3.5.0,M10.5.0/3|(GMT+7DST) Krasnoyarsk",
+			"OMST-7|(GMT+7) Omsk, Tomsk, Altaj",
+			"NOVT-7|(GMT+7) Novosibirsk, Novokuznetsk",
 			"UCT-7|(GMT+7) Jakarta,Bangkok,Vientiane,Phnom_Penh",
-			"IRKT-8IRKST,M3.5.0,M10.5.0/3|(GMT+8DST) Irkutsk",
+			"KRAT-8|(GMT+8) Krasnoyarsk",
 			"UCT-8|(GMT+8) Shanghai,Hong_Kong,Taipei,Singapore,Ulaanbaatar,Perth",
-			"YAKT-9YAKST,M3.5.0,M10.5.0/3|(GMT+9DST) Yakutsk",
+			"IRKT-9|(GMT+9) Irkutsk",
 			"UCT-9|(GMT+9) Dili,Jayapura,Pyongyang,Seoul,Tokyo",
 			"CST-9:30CST,M10.5.0,M3.5.0/3|(GMT+9:30DST) Adelaide",
 			"CST-9:30|(GMT+9:30) Darwin",
-			"VLAT-10VLAST,M3.5.0,M10.5.0/3|(GMT+10DST) Vladivostok,Sakhalin",
+			"YAKT-10|(GMT+10) Yakutsk",
 			"EST-10EST,M10.5.0,M3.5.0/3|(GMT+10DST) Melbourne",
 			"EST-10EST,M10.1.0,M3.5.0/3|(GMT+10DST) Hobart",
 			"EST-10|(GMT+10) Brisbane",
-			"MAGT-11MAGST,M3.5.0,M10.5.0/3|(GMT+11DST) Magadan",
-			"PETT-12PETST,M3.5.0,M10.5.0/3|(GMT+12DST) Anadyr,Kamchatka",
-	"NZST-12NZDT,M10.1.0,M3.3.0/3|(GMT+12DST) Auckland" );
+			"VLAT-11|(GMT+11) Vladivostok",
+			"SAKT-11|(GMT+11) Sakhalin",
+			"MAGT-12|(GMT+12) Magadan",
+			"PETT-12|(GMT+12) Kamchatka",
+			"ANAT-12|(GMT+12) Anadyr",
+			"NZST-12NZDT,M10.1.0,M3.3.0/3|(GMT+12DST) Auckland" );
 	list = document.form.TimeZoneList;
 	free_options(list);
 	add_option_x(list, "manual", "Manual", 1);
@@ -1692,8 +1711,7 @@ function load_body()
 		}
 		else if (window.top.isBand() == 'n')
 		{
-			if (frm.wl_channel.value == "0")
-				inputCtrl(frm.wl_nctrlsb, 0);
+			insert_subchannel_options();
 		}
 
 		masq_wepkey();
@@ -2502,6 +2520,37 @@ function setup_script(s)
 	}
 }
 
+function insert_subchannel_options()
+{
+	var wl_mode = document.form.wl_gmode.value;
+	var wl_nctrlsb = document.form.wl_nctrlsb;
+	var wl_options = wl_nctrlsb.options;
+	value = wl_nctrlsb.value;
+	wl_options.length = 1;
+	wl_options[0].text = "None";
+	wl_options[0].value = "none";
+	if ((wl_mode == "1" || wl_mode == "6") && document.form.wl_nbw.value == "40")
+	{
+		var wl_channel = 1*document.form.wl_channel.value;
+		var wl_channels = document.form.wl_channel.options.length;
+		if (value != "lower" && value != "upper") value = "lower";
+		if (wl_channel >= 1+4 && wl_channel < wl_channels) {
+			selected = (value == "upper" ||  wl_channel >= wl_channels-4) ? 1 : 0;
+			add_option_text(wl_nctrlsb, wl_channel-4, "upper", selected);
+		}
+		if (wl_channel >= 1 && wl_channel < wl_channels-4) {
+			selected = (value == "lower" ||  wl_channel < 1+4) ? 1 : 0;
+			add_option_text(wl_nctrlsb, wl_channel+4, "lower", selected);
+		}
+		if (wl_options.length == 1)
+			add_option_text(wl_nctrlsb, "Auto", value, 1);
+		inputCtrl(wl_nctrlsb, 1);
+	} else {
+		wl_options[0].selected = 1;
+		inputCtrl(wl_nctrlsb, 0);
+	}
+}
+
 function change_common(o, s, v)
 {
 	change = 1;
@@ -2590,28 +2639,11 @@ function change_common(o, s, v)
 		}
 		else if (v == "wl_channel")
 		{
-			if (o.value == "0") /* auto */
-				inputCtrl(document.form.wl_nctrlsb, 0);
-			else
-			if (document.form.wl_nbw.value == "40")
-				inputCtrl(document.form.wl_nctrlsb, 1);
+			insert_subchannel_options();
 		}
 		else if (v == "wl_nbw")
 		{
-			if (o.value == "20") /* 20 MHz */
-			{
-				document.form.wl_nctrlsb.value = "none";
-				inputCtrl(document.form.wl_nctrlsb, 0);
-			}
-			else /* 40 MHz */
-			{
-				if (document.form.wl_nctrlsb.value == "none")
-					document.form.wl_nctrlsb.value = "lower";
-				if (document.form.wl_channel.value == "0") /*Auto*/
-					inputCtrl(document.form.wl_nctrlsb, 0);
-				else
-					inputCtrl(document.form.wl_nctrlsb, 1);
-			}
+			insert_subchannel_options();
 		}
 		else if (v == "wl_nctrlsb")
 		{
@@ -2627,20 +2659,13 @@ function change_common(o, s, v)
 			{
 				document.form.wl_nbw.value = "40";
 				inputCtrl(document.form.wl_nbw, 1);
-				if (document.form.wl_nctrlsb.value == "none")
-					document.form.wl_nctrlsb.value = "lower";
-				if (document.form.wl_channel.value == "0") /*Auto*/
-					inputCtrl(document.form.wl_nctrlsb, 0);
-				else
-					inputCtrl(document.form.wl_nctrlsb, 1);
 			}
 			else /* 802.11g Only, 802.11b Only, ... */
 			{
 				document.form.wl_nbw.value = "20";
 				inputCtrl(document.form.wl_nbw, 0);
-				document.form.wl_nctrlsb.value = "none";
-				inputCtrl(document.form.wl_nctrlsb, 0);
 			}
+			insert_subchannel_options();
 		}
 	}
 	else if (s=="LANHostConfig" && v=="time_zone")
@@ -3519,6 +3544,8 @@ function openLink(s)
 			tourl = "https://www.dnsomatic.com/create/";
 		else if (document.form.ddns_server_x.value == 'WWW.TUNNELBROKER.NET')
 			tourl = "http://www.tunnelbroker.net/register.php";
+		else if (document.form.ddns_server_x.value == 'DNS.HE.NET')
+			tourl = "http://ipv6.he.net/certification/register.php";
 		else
 			return;
 

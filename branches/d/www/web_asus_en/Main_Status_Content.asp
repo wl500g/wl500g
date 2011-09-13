@@ -23,7 +23,7 @@
 <td>
 <table width="618" border="2" cellpadding="0" cellspacing="0" bordercolor="#E0E0E0">
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Elapsed time since system boot');" onMouseOut="return nd();">Sytem Up Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","UpTime"); %>" readonly></td>
+<td class="content_header_td" onMouseOver="return overlib('Elapsed time since system boot');" onMouseOut="return nd();">System Up Time:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","UpTime"); %>" readonly></td>
 </tr>
 <tr>
 <td class="content_header_td">Product ID:</td><td class="content_input_td"><input type="text" value="<% nvram_get_f("general.log","ProductID"); %>" readonly></td>

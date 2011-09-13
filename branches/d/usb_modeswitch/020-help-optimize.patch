@@ -1,29 +1,24 @@
 Optimize help
 
---- usb-modeswitch-1.1.6/usb_modeswitch.c
+--- usb-modeswitch-1.1.9/usb_modeswitch.c
 +++ usb-modeswitch/usb_modeswitch.c
-@@ -1722,45 +1722,45 @@ int hexstr2bin(const char *hex, char *bu
+@@ -1822,44 +1822,44 @@ int hexstr2bin(const char *hex, char *bu
  void printVersion()
  {
  	char* version = VERSION;
 -	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n");
--	printf(" * Version %s (C) Josua Dietze 2010\n", version);
-+	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n"
-+	       " * Version %s (C) Josua Dietze 2010\n", version);
- #ifndef LIBUSB10
+-	printf(" * Version %s (C) Josua Dietze 2011\n", version);
 -	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
-+	printf(" * Based on libusb0 (0.1.12 and above)\n\n"
- #else
--	printf(" * Based on libusb10 (1.0.1 and above)\n\n");
-+	printf(" * Based on libusb10 (1.0.1 and above)\n\n"
- #endif
 -	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
++	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n"
++	       " * Version %s (C) Josua Dietze 2011\n", version);
++	printf(" * Based on libusb10 (1.0.1 and above)\n\n"
 +	       " ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
  }
  
  void printHelp()
  {
--	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n");
+-	printf ("\nUsage: usb_modeswitch [-hvpVPmMrndHSOGATRIQWDiua] [-c filename]\n\n");
 -	printf (" -h, --help                    this help\n");
 -	printf (" -e, --version                 print version information and exit\n");
 -	printf (" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n");
@@ -41,44 +36,50 @@ Optimize help
 -	printf (" -S, --sierra-mode             apply a special procedure\n");
 -	printf (" -O, --sony-mode               apply a special procedure\n");
 -	printf (" -G, --gct-mode                apply a special procedure\n");
+-	printf (" -N, --sequans-mode            apply a special procedure\n");
+-	printf (" -A, --mobileaction-mode       apply a special procedure\n");
 -	printf (" -T, --kobil-mode              apply a special procedure\n");
+-	printf (" -L, --cisco-mode              apply a special procedure\n");
 -	printf (" -R, --reset-usb               reset the device after all other actions\n");
 -	printf (" -Q, --quiet                   don't show progress or error messages\n");
 -	printf (" -W, --verbose                 print all settings and debug output\n");
 -	printf (" -D, --sysmode                 specific result and syslog message\n");
--	printf (" -s, --success NUM             check switching result after NUM secs\n");
+-	printf (" -s, --success <seconds>       switching result check with timeout\n");
 -	printf (" -I, --no-inquire              do not get SCSI attributes (default on)\n\n");
 -	printf (" -c, --config-file <filename>  load configuration from file\n\n");
 -	printf (" -i, --interface NUM           select initial USB interface (default 0)\n");
 -	printf (" -u, --configuration NUM       select USB configuration\n");
 -	printf (" -a, --altsetting NUM          select alternative USB interface setting\n\n");
-+	printf ("Usage: usb_modeswitch [-hvpVPmMrdHn] [-c filename]\n\n"
-+		" -h, --help                    this help\n"
-+		" -e, --version                 print version information and exit\n"
-+		" -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n"
-+		" -p, --default-product NUM     product ID of original mode (mandatory)\n"
-+		" -V, --target-vendor NUM       target mode vendor ID (optional)\n"
-+		" -P, --target-product NUM      target mode product ID (optional)\n"
-+		" -C, --target-class NUM        target mode device class (optional)\n"
-+		" -m, --message-endpoint NUM    direct the message transfer there (optional)\n"
-+		" -M, --message-content <msg>   message to send (hex number as string)\n"
-+		" -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n"
-+		" -n, --need-response           read response to the message transfer (CSW)\n"
-+		" -r, --response-endpoint NUM   read response from there (optional)\n"
-+		" -d, --detach-only             detach the active driver, no further action\n"
-+		" -H, --huawei-mode             apply a special procedure\n"
-+		" -S, --sierra-mode             apply a special procedure\n"
-+		" -O, --sony-mode               apply a special procedure\n"
-+		" -G, --gct-mode                apply a special procedure\n"
-+		" -T, --kobil-mode              apply a special procedure\n"
-+		" -R, --reset-usb               reset the device after all other actions\n"
-+		" -Q, --quiet                   don't show progress or error messages\n"
-+		" -W, --verbose                 print all settings and debug output\n"
-+		" -D, --sysmode                 specific result and syslog message\n"
-+		" -s, --success NUM             check switching result after NUM secs\n"
-+		" -I, --no-inquire              do not get SCSI attributes (default on)\n\n"
-+		" -c, --config-file <filename>  load configuration from file\n\n"
-+		" -i, --interface NUM           select initial USB interface (default 0)\n"
-+		" -u, --configuration NUM       select USB configuration\n"
-+		" -a, --altsetting NUM          select alternative USB interface setting\n\n");
++	printf ("\nUsage: usb_modeswitch [-hvpVPmMrndHSOGATRIQWDiua] [-c filename]\n\n"
++	        " -h, --help                    this help\n"
++	        " -e, --version                 print version information and exit\n"
++	        " -v, --default-vendor NUM      vendor ID of original mode (mandatory)\n"
++	        " -p, --default-product NUM     product ID of original mode (mandatory)\n"
++	        " -V, --target-vendor NUM       target mode vendor ID (optional)\n"
++	        " -P, --target-product NUM      target mode product ID (optional)\n"
++	        " -C, --target-class NUM        target mode device class (optional)\n"
++	        " -m, --message-endpoint NUM    direct the message transfer there (optional)\n"
++	        " -M, --message-content <msg>   message to send (hex number as string)\n"
++	        " -2 <msg>, -3 <msg>            additional messages to send (-n recommended)\n"
++	        " -n, --need-response           read response to the message transfer (CSW)\n"
++	        " -r, --response-endpoint NUM   read response from there (optional)\n"
++	        " -d, --detach-only             detach the active driver, no further action\n"
++	        " -H, --huawei-mode             apply a special procedure\n"
++	        " -S, --sierra-mode             apply a special procedure\n"
++	        " -O, --sony-mode               apply a special procedure\n"
++	        " -G, --gct-mode                apply a special procedure\n"
++	        " -N, --sequans-mode            apply a special procedure\n"
++	        " -A, --mobileaction-mode       apply a special procedure\n"
++	        " -T, --kobil-mode              apply a special procedure\n"
++	        " -L, --cisco-mode              apply a special procedure\n"
++	        " -R, --reset-usb               reset the device after all other actions\n"
++	        " -Q, --quiet                   don't show progress or error messages\n"
++	        " -W, --verbose                 print all settings and debug output\n"
++	        " -D, --sysmode                 specific result and syslog message\n"
++	        " -s, --success <seconds>       switching result check with timeout\n"
++	        " -I, --no-inquire              do not get SCSI attributes (default on)\n\n"
++	        " -c, --config-file <filename>  load configuration from file\n\n"
++	        " -i, --interface NUM           select initial USB interface (default 0)\n"
++	        " -u, --configuration NUM       select USB configuration\n"
++	        " -a, --altsetting NUM          select alternative USB interface setting\n\n");
  }

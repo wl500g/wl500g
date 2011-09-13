@@ -46,7 +46,7 @@ S-Format="TEXT/CSV" S-Label-Fields="TRUE" -->
     <td class="content_desc_td" width="532">   
     <p><font size="4"><b>Add/Delete entries</b></font></p>
       <ul><li>
-        <b>Add</b> : Input data into first row of table, then press <b>Add</b> to insert it. System will remind you if the table is full or required fields are not fill ok.
+        <b>Add</b> : Input data into first row of table, then press <b>Add</b> to insert it. System will remind you if the table is full or required fields are incorrectly filled.
       </li> 
       <li>
         <b>Del</b> : Select one entry in table, or press <b>Ctrl</b> and select multiple entries in tables, then press <b>Del</b> to delete them.

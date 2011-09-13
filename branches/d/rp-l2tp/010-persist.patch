@@ -75,3 +75,20 @@ diff -BurpN rp-l2tp-0.4/tunnel.c rp-l2tp/tunnel.c
  	/* Close tunnel... */
  	tunnel_free(tunnel);
  	return;
+@@ -1061,6 +1072,16 @@ tunnel_handle_StopCCN(l2tp_tunnel *tunne
+     l2tp_session *ses;
+     void *cursor;
+ 
++    if (tunnel->state < TUNNEL_ESTABLISHED && tunnel->peer && tunnel->peer->persist && 
++        (tunnel->peer->maxfail == 0 || tunnel->peer->fail++ < tunnel->peer->maxfail)) 
++    {
++	struct timeval t;
++
++	t.tv_sec = tunnel->peer->holdoff;
++	t.tv_usec = 0;
++	Event_AddTimerHandler(tunnel->es, t, l2tp_tunnel_reestablish, tunnel->peer);
++    }
++
+     /* Shut down all the sessions */
+     for (ses = hash_start(&tunnel->sessions_by_my_id, &cursor);
+ 	 ses ;

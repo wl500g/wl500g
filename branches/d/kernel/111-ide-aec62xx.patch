@@ -1,0 +1,168 @@
+ide: aec62xx: Fixes from 2.6 upstream
+
+ kernel.org commits
+ 826a1b6502d0d1d67fc41043fc831e90f2ef5835 aec62xx: fix PIO/DMA setup issues
+ df95f5ab5834a543ddef0e85785e17347cf4c89d aec62xx: remove ->init_setup
+ b48d08177fe635a549aaf63eef508be1de069ebf aec62xx: Fix kernel oops in driver's probe function
+
+diff -uBp a/drivers/ide/pci/aec62xx.c b/drivers/ide/pci/aec62xx.c
+--- a/drivers/ide/pci/aec62xx.c	2007-01-14 13:06:05.000000000 +0300
++++ b/drivers/ide/pci/aec62xx.c	2010-10-05 19:12:36.000000000 +0400
+@@ -312,18 +312,8 @@ static int config_chipset_for_dma (ide_d
+ 
+ static void aec62xx_tune_drive (ide_drive_t *drive, u8 pio)
+ {
+-	u8 speed = 0;
+-	u8 new_pio = XFER_PIO_0 + ide_get_best_pio_mode(drive, 255, 5, NULL);
+-
+-	switch(pio) {
+-		case 5:		speed = new_pio; break;
+-		case 4:		speed = XFER_PIO_4; break;
+-		case 3:		speed = XFER_PIO_3; break;
+-		case 2:		speed = XFER_PIO_2; break;
+-		case 1:		speed = XFER_PIO_1; break;
+-		default:	speed = XFER_PIO_0; break;
+-	}
+-	(void) aec62xx_tune_chipset(drive, speed);
++	pio = ide_get_best_pio_mode(drive, pio, 4, NULL);
++	(void) aec62xx_tune_chipset(drive, pio + XFER_PIO_0);
+ }
+ 
+ static int aec62xx_config_drive_xfer_rate (ide_drive_t *drive)
+@@ -366,7 +356,7 @@ try_dma_modes:
+ 	} else if ((id->capability & 8) || (id->field_valid & 2)) {
+ fast_ata_pio:
+ no_dma_set:
+-		aec62xx_tune_drive(drive, 5);
++		aec62xx_tune_drive(drive, 255);
+ 		return hwif->ide_dma_off_quietly(drive);
+ 	}
+ 	/* IORDY not supported */
+@@ -514,11 +504,10 @@ static void __init init_hwif_aec62xx (id
+ 
+ 	hwif->ultra_mask = 0x7f;
+ 	hwif->mwdma_mask = 0x07;
+-	hwif->swdma_mask = 0x07;
+ 
+ 	hwif->ide_dma_check	= &aec62xx_config_drive_xfer_rate;
+ 	hwif->ide_dma_lostirq	= &aec62xx_irq_timeout;
+-	hwif->ide_dma_timeout	= &aec62xx_irq_timeout;
++
+ 	if (!noautodma)
+ 		hwif->autodma = 1;
+ 	hwif->drives[0].autodma = hwif->autodma;
+@@ -549,30 +538,6 @@ static void __init init_dma_aec62xx (ide
+ 
+ extern void ide_setup_pci_device(struct pci_dev *, ide_pci_device_t *);
+ 
+-static void __init init_setup_aec62xx (struct pci_dev *dev, ide_pci_device_t *d)
+-{
+-	ide_setup_pci_device(dev, d);
+-}
+-
+-static void __init init_setup_aec6x80 (struct pci_dev *dev, ide_pci_device_t *d)
+-{
+-#ifndef CONFIG_BCM947XX /* Causes OOPS on BCM4780 */
+-	unsigned long bar4reg = pci_resource_start(dev, 4);
+-
+-	if (inb(bar4reg+2) & 0x10) {
+-		strcpy(d->name, "AEC6880");
+-		if (dev->device == PCI_DEVICE_ID_ARTOP_ATP865R)
+-			strcpy(d->name, "AEC6880R");
+-	} else {
+-		strcpy(d->name, "AEC6280");
+-		if (dev->device == PCI_DEVICE_ID_ARTOP_ATP865R)
+-			strcpy(d->name, "AEC6280R");
+-	}
+-
+-#endif
+-	ide_setup_pci_device(dev, d);
+-}
+-
+ /**
+  *	aec62xx_init_one	-	called when a AEC is found
+  *	@dev: the aec62xx device
+@@ -584,11 +549,26 @@ static void __init init_setup_aec6x80 (s
+  
+ static int __devinit aec62xx_init_one(struct pci_dev *dev, const struct pci_device_id *id)
+ {
+-	ide_pci_device_t *d = &aec62xx_chipsets[id->driver_data];
++	ide_pci_device_t d;
++	u8 idx = id->driver_data;
++	int err;
++
++	err = pci_enable_device(dev);
++	if (err)
++		return err;
++
++	d = aec62xx_chipsets[idx];
++
++	if (idx == 3 || idx == 4) {
++		unsigned long dma_base = pci_resource_start(dev, 4);
++
++		if (inb(dma_base + 2) & 0x10) {
++			d.name = (idx == 4) ? "AEC6880R" : "AEC6880";
++//			d.ultra_mask = 0x7f; /* udma0-6 */
++		}
++	}
+ 
+-	if (dev->device != d->device)
+-		BUG();
+-	d->init_setup(dev, d);
++	ide_setup_pci_device(dev, &d);
+ 	MOD_INC_USE_COUNT;
+ 	return 0;
+ }
+diff -uBp a/drivers/ide/pci/aec62xx.h b/drivers/ide/pci/aec62xx.h
+--- a/drivers/ide/pci/aec62xx.h	2010-10-05 18:55:08.000000000 +0400
++++ b/drivers/ide/pci/aec62xx.h	2010-10-05 19:08:50.000000000 +0400
+@@ -88,8 +88,6 @@ static ide_pci_host_proc_t aec62xx_procs
+ };
+ #endif /* DISPLAY_AEC62XX_TIMINGS && CONFIG_PROC_FS */
+ 
+-static void init_setup_aec6x80(struct pci_dev *, ide_pci_device_t *);
+-static void init_setup_aec62xx(struct pci_dev *, ide_pci_device_t *);
+ static unsigned int init_chipset_aec62xx(struct pci_dev *, const char *);
+ static void init_hwif_aec62xx(ide_hwif_t *);
+ static void init_dma_aec62xx(ide_hwif_t *, unsigned long);
+@@ -99,7 +97,6 @@ static ide_pci_device_t aec62xx_chipsets
+ 		.vendor		= PCI_VENDOR_ID_ARTOP,
+ 		.device		= PCI_DEVICE_ID_ARTOP_ATP850UF,
+ 		.name		= "AEC6210",
+-		.init_setup	= init_setup_aec62xx,
+ 		.init_chipset	= init_chipset_aec62xx,
+ 		.init_iops	= NULL,
+ 		.init_hwif	= init_hwif_aec62xx,
+@@ -113,7 +110,6 @@ static ide_pci_device_t aec62xx_chipsets
+ 		.vendor		= PCI_VENDOR_ID_ARTOP,
+ 		.device		= PCI_DEVICE_ID_ARTOP_ATP860,
+ 		.name		= "AEC6260",
+-		.init_setup	= init_setup_aec62xx,
+ 		.init_chipset	= init_chipset_aec62xx,
+ 		.init_iops	= NULL,
+ 		.init_hwif	= init_hwif_aec62xx,
+@@ -127,7 +123,6 @@ static ide_pci_device_t aec62xx_chipsets
+ 		.vendor		= PCI_VENDOR_ID_ARTOP,
+ 		.device		= PCI_DEVICE_ID_ARTOP_ATP860R,
+ 		.name		= "AEC6260R",
+-		.init_setup	= init_setup_aec62xx,
+ 		.init_chipset	= init_chipset_aec62xx,
+ 		.init_iops	= NULL,
+ 		.init_hwif	= init_hwif_aec62xx,
+@@ -141,7 +136,6 @@ static ide_pci_device_t aec62xx_chipsets
+ 		.vendor		= PCI_VENDOR_ID_ARTOP,
+ 		.device		= PCI_DEVICE_ID_ARTOP_ATP865,
+ 		.name		= "AEC6X80",
+-		.init_setup	= init_setup_aec6x80,
+ 		.init_chipset	= init_chipset_aec62xx,
+ 		.init_iops	= NULL,
+ 		.init_hwif	= init_hwif_aec62xx,
+@@ -155,7 +149,6 @@ static ide_pci_device_t aec62xx_chipsets
+ 		.vendor		= PCI_VENDOR_ID_ARTOP,
+ 		.device		= PCI_DEVICE_ID_ARTOP_ATP865R,
+ 		.name		= "AEC6X80R",
+-		.init_setup	= init_setup_aec6x80,
+ 		.init_chipset	= init_chipset_aec62xx,
+ 		.init_iops	= NULL,
+ 		.init_hwif	= init_hwif_aec62xx,
+-- 
