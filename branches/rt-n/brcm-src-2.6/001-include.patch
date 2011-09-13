@@ -13,9 +13,9 @@ diff -urB src/include.orig/linux_osl.h src/include/linux_osl.h
 --- src/include.orig/linux_osl.h	2009-08-27 07:52:23.000000000 +0400
 +++ src/include/linux_osl.h	2009-10-10 20:49:25.000000000 +0400
 @@ -159,7 +159,10 @@
-  */
  #ifndef BINOSL
  
+ #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
 +#ifndef printf
  #define	printf(fmt, args...)	printk(fmt , ## args)
 +#endif
