@@ -81,7 +81,7 @@
 <td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="32" name="wl_wdslist_x_0" onKeyPress="return is_hwaddr()"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="RBRList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
+<td></td><td colspan="10"><select size="8" name="RBRList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
 <% nvram_get_table_x("WLANConfig11b","RBRList"); %>
 </select></td>
 </tr>
