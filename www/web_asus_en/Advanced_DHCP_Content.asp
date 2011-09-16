@@ -118,7 +118,7 @@
 	<td class="content_list_input_td" colspan=""><input type="text" maxlength="32" class="content_input_list_fd" size="32" name="dhcp_staticname_x_0" onKeyPress="return is_string()"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("LANHostConfig","ManualDHCPList"); %>
 </select></td>
 </tr>

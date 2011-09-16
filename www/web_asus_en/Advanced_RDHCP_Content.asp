@@ -107,7 +107,7 @@
 <td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="12" name="dhcp_staticmac_x_0" onKeyPress="return is_hwaddr()"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="dhcp_staticip_x_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt' ; width: 100%;">
+<td></td><td colspan="10"><select size="4" name="ManualDHCPList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("LANHostConfig","ManualDHCPList"); %>
 </select></td>
 </tr>

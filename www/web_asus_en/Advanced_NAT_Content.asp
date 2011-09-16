@@ -62,7 +62,7 @@
 <td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="TCP" <% nvram_match_list_x("IPConnection","", "TCP","selected", 0); %>>TCP</option><option value="UDP" <% nvram_match_list_x("IPConnection","", "UDP","selected", 0); %>>UDP</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" size="5" class="content_input_list_fd" name="_0" onKeyPress="return is_number(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="24" size="24" name="_0" class="content_input_list_fd" onKeyPress="return is_string(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="10" size="5" class="content_input_list_fd" name="_0" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="PortMappingList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="PortMappingList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("IPConnection","PortMappingList"); %>
 </select></td>
 </tr>

@@ -65,7 +65,7 @@
 <td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="qos_ipaddr_x_0" onKeyPress="return is_iprange(this)" onKeyUp="change_iprange(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="10" size="10" class="content_input_list_fd" name="qos_port_x_0" onKeyPress="return is_number(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="10" size="7" class="content_input_list_fd" name="qos_maxbw_x_0" onKeyPress="return is_number(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="10" size="7" class="content_input_list_fd" name="qos_minbw_x_0" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="x_QRuleList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="x_QRuleList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("PrinterStatus","x_QRuleList"); %>
 </select></td>
 </tr>

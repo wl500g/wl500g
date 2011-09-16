@@ -62,7 +62,7 @@
 <td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_hwaddr()"></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="64bits" <% nvram_match_list_x("DeviceSecurity11a","", "64bits","selected", 0); %>>64bits</option><option value="128bits" <% nvram_match_list_x("DeviceSecurity11a","", "128bits","selected", 0); %>>128bits</option><option value="152bits" <% nvram_match_list_x("DeviceSecurity11a","", "152bits","selected", 0); %>>152bits</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="32" class="content_input_list_fd" size="32" name="_0" onKeyPress="return is_wlkey(this, 'DeviceSecurity11a')" onKeyUp="return change_wlkey(this, 'DeviceSecurity11a')"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="AESList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="AESList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("DeviceSecurity11a","AESList"); %>
 </select></td>
 </tr>
