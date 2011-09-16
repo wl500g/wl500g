@@ -97,13 +97,13 @@ hotplug_sem_unlock()
 {
 	if (hotplug_sem != SEM_FAILED) sem_post( hotplug_sem );
 }
-#else
+#else /* !RC_SEMAPHORE_ENABLED */
 void hotplug_sem_open() {}
 void hotplug_sem_close() {}
 void hotplug_sem_lock() {}
-int hotplug_sem_lock() {return 1;}
+int hotplug_sem_trylock() {return 1;}
 void hotplug_sem_unlock() {}
-#endif
+#endif /* RC_SEMAPHORE_ENABLED */
 
 #ifdef __CONFIG_EMF__
 static void emf_mfdb_update(char *lan_ifname, char *lan_port_ifname, bool add)
