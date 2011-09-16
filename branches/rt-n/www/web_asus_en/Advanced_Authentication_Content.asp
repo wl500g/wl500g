@@ -97,7 +97,7 @@
 <td></td><td class="content_list_input_td" colspan=""><select name="WLANAuthentication11a_LocalSecretType_0" class="content_input_list_fd"><option value="Password" <% nvram_match_list_x("WLANAuthentication11a","LocalSecretType", "Password","selected", 0); %>>Password</option><option value="Certificate" <% nvram_match_list_x("WLANAuthentication11a","LocalSecretType", "Certificate","selected", 0); %>>Certificate</option></select></td><td class="content_list_input_td" colspan=""><select name="WLANAuthentication11a_LocalSecretAuthType_0" class="content_input_list_fd"><option value="EAP_MD5" <% nvram_match_list_x("WLANAuthentication11a","LocalSecretAuthType", "EAP_MD5","selected", 0); %>>EAP_MD5</option><option value="EAP_TLS" <% nvram_match_list_x("WLANAuthentication11a","LocalSecretAuthType", "EAP_TLS","selected", 0); %>>EAP_TLS</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="16" size="18" name="WLANAuthentication11a_AuthDBUsername_0" class="content_input_list_fd" onKeyPress="is_string(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="16" size="18" name="WLANAuthentication11a_AuthDBSecret_0" class="content_input_list_fd" onKeyPress="is_string(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="WLANAuthentication11a_LocalAuthDB_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="WLANAuthentication11a_LocalAuthDB_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("WLANAuthentication11a","LocalAuthDB"); %>
 </select></td>
 </tr>

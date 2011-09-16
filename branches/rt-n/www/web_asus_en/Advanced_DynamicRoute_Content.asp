@@ -224,7 +224,7 @@
 <td></td><td class="content_list_input_td" colspan=""><select name="_0" class="content_input_list_fd"><option value="IN" <% nvram_match_list_x("RouterConfig","", "IN","selected", 0); %>>IN</option><option value="OUT" <% nvram_match_list_x("RouterConfig","", "OUT","selected", 0); %>>OUT</option></select></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="14" name="_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="4" name="RipOffset_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="4" name="RipOffset_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("RouterConfig","RipOffset"); %>
 </select></td>
 </tr>

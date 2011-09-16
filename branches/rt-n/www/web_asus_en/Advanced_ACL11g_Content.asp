@@ -66,7 +66,7 @@
 	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="40" name="wl_macdesc_x_0" onKeyPress="return is_string()"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="ACLList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("DeviceSecurity11a","ACLList"); %>
 </select></td>
 </tr>
