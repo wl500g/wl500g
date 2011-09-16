@@ -26,8 +26,8 @@ define patches_list
 endef
 
 wl:
-	tar -C $(ROOT) --recursive-unlink -xjf $(WL$).tar.bz2
-	tar -C $(ROOT)/wl/mipsel-uclibc -xjf $(NAS).tbz2
+	tar -C $(ROOT) --recursive-unlink -xjf wl/$(WL$).tar.bz2
+	tar -C $(ROOT)/wl/mipsel-uclibc -xjf wl/$(NAS).tbz2
 
 brcm_Patches := $(call patches_list,.)
 
@@ -35,11 +35,11 @@ brcm-shared:
 	tar -C . $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
-libbcmcrypto: $(LIBBCMCRYPTO$).tar.gz
+libbcmcrypto: router/libbcmcrypto/$(LIBBCMCRYPTO$).tar.gz
 	tar -zxf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/libbcmcrypto $(LIBBCMCRYPTO$(kext)).patch
+	$(PATCHER) $(TOP)/libbcmcrypto router/libbcmcrypto/$(LIBBCMCRYPTO).patch
 
 wlconf:
-	tar -C . $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) --recursive-unlink -xf -
+	tar -C router $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) --recursive-unlink -xf -
 
 .PHONY: wl brcm-shared libbcmcrypto wlconf

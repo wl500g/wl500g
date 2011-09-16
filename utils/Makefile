@@ -25,14 +25,29 @@ endif
 
 all: $(UTILS)
 
+ifneq ($(wildcard $(SRCBASE)/wl/mipsel-uclibc/wl_exe.o),)
+wl: $(SRCBASE)/wl/mipsel-uclibc/wl_exe.o
+	$(CC) $(CFLAGS) -o $@ $<
+else
 wl: $(SRCBASE)/wl/mipsel-uclibc/wl
 	cp -p $< $@
+endif
 
+ifneq ($(wildcard $(SRCBASE)/wl/mipsel-uclibc/nas_exe.o),)
+nas: $(SRCBASE)/wl/mipsel-uclibc/nas_exe.o
+	$(CC) $(CFLAGS) -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram -L$(TOP)/libbcmcrypto -lbcmcrypto $<
+else
 nas: $(SRCBASE)/wl/mipsel-uclibc/nas
 	cp -p $< $@
+endif
 
+ifneq ($(wildcard $(SRCBASE)/wl/mipsel-uclibc/eapd_exe.o),)
+eapd: $(SRCBASE)/wl/mipsel-uclibc/eapd_exe.o
+	$(CC) $(CFLAGS) -o $@ -L$(TOP)/shared -lshared -L$(TOP)/nvram -lnvram $<
+else
 eapd: $(SRCBASE)/wl/mipsel-uclibc/eapd
 	cp -p $< $@
+endif
 
 mii-tool: mii-tool.c mii.h
 
