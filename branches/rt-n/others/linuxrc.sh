@@ -41,31 +41,29 @@ mount -t tmpfs -o noatime devfs /dev
 mknod -m 0600 /dev/console c 5 1
 mknod -m 0666 /dev/null c 1 3
 mknod -m 0640 /dev/nvram c 253 0
-mkdir -m 0755 /dev/pts
-mount -t devpts devpts /dev/pts
-mkdir -m 01755 /dev/shm
 # coldplug udev
 /sbin/mdev -s
 ln -sf /proc/self/fd /dev/fd
 ln -sf /proc/self/fd/0 /dev/stdin
 ln -sf /proc/self/fd/1 /dev/stdout
 ln -sf /proc/self/fd/2 /dev/stderr
-# /tmp
-mount -t tmpfs -o noatime tmpfs /tmp
 
 # set hotplug to mdev
 echo /sbin/mdev > /proc/sys/kernel/hotplug
 
 # ide modules for WL700g
-if [ "$(nvram get boardtype)" = "0x042f" -o "$(nvram get boardnum)" = "44" ]; then
+if [ "$(nvram get boardtype)" = "0x042f" -a "$(nvram get boardnum)" = "44" ]; then
+	WL700=yes
 	insmod ide-core && insmod aec62xx && insmod ide-detect && insmod ide-disk
 fi
 
 # usb modules
 if [ ! -b "$boot_dev" ]; then
 	insmod usbcore
-	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd
-	[ "$(nvram get usb20_disable_x)" -ne 2 ] && (insmod ohci-hcd; insmod uhci-hcd)
+	usb21=$(nvram get usb20_disable_x)
+	[ -z "$usb21"] && usb21="0"
+	[ "$usb21" -ne 1 ] && insmod ehci-hcd
+	[ "$usb21" -ne 2 ] && (insmod ohci-hcd; insmod uhci-hcd)
 	sleep 2s
 	insmod scsi_mod && insmod sd_mod && insmod usb-storage
 	# wait for initialization to complete
@@ -74,12 +72,12 @@ if [ ! -b "$boot_dev" ]; then
 	done
 fi
 
-# wait for disc appear, max 20 sec
+# wait for disc appear, max 15 sec
 i=0
 while [ -z "$(ls -l /sys/class/scsi_disk/)" ]; do
 	sleep 1s
 	i=$((i + 1))
-	if [ $i -gt 20 ]; then
+	if [ $i -gt 15 ]; then
 		break
 	fi
 done
@@ -99,6 +97,9 @@ echo /sbin/hotplug > /proc/sys/kernel/hotplug
 if [ -d /mnt/mnt ]; then
 	cd /mnt
 	pivot_root . mnt
+	umount /mnt/dev
+	umount /mnt/sys
+	umount /mnt/proc
 	exec chroot . sbin/init <dev/null >dev/null 2>&1
 fi
 
@@ -114,10 +115,8 @@ rmmod uhci-hcd
 rmmod ohci-hcd
 rmmod ehci-hcd
 rmmod usbcore
-rmmod ide-disk && rmmod ide-detect && rmmod aec62xx && rmmod ide-core
+[ ! -z "$WL700" ] && rmmod ide-disk && rmmod ide-detect && rmmod aec62xx && rmmod ide-core
 
-umount /tmp
-umount /dev/pts
 umount /dev
 umount /sys
 umount /proc
