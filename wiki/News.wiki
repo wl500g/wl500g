@@ -5,23 +5,26 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
 
-===RT-N-1.9.2.7-rtn (current)===
+===RT-N-1.9.2.7-rtn-`r3300` (2011-09-16)===
   * uClibc 0.9.32 with Native Posix Threads Layer (ATTENTION! possible old binaries incompatibility, especially using libpthreads)
 
   * kernel
-    * backports from upstream - mm(buffered write iterator), raid/md, exportfs, IPv6, vlan, igmp, nfs, pppoe, ehci, usbip
+    * backports from upstream - mm(buffered write iterator), raid/md, exportfs, IPv6, vlan, igmp, nfs, pppoe, ehci, usbip, oom
     * bcmnat update
     * usb-serial: use specified endpoint size for bulk_out too
     * MIPS: Update linux-mips.org patches up to git 2011-08-20
     * UDF backport from 2.6.32.46
-    * xfs backport from 2.6.27.59
+    * xfs, FUSE backport from 2.6.27.59
     * sys_fallocate() implementation (xfs only, no uClibc support yet)
+    * disable NFSv4 for now
 
   * rc
     * add ppp-auth handlers
     * preliminary 802.1x MD5 and KabiNET authentication support
     * ipv6: advertise RDNSS
+    * fixed dhcp lease renew after (re)auth
     * TZ: excluding and transferring Russian DST into GMT offsets accordingly to Federal Law
+    * wan port link status watchdog
 
   * rp-l2tp
     * set rws to 8 like in windows client
@@ -32,6 +35,7 @@
     * prevent multiple hotplug processing of endpoints from the same device
     * dialing on usb-serial event
     * option driver backports
+    * using the driver 'option' only with explicit VID PID. Exclude usb-legacy mode.
 
   * dnsmasq 2.58
 
@@ -39,9 +43,16 @@
 
   * ntfs-3g 2011.4.12AR.6
 
+  * nfs-utils 1.1.6
+
+  * busybox
+    * bugfixes from upstream (sed, awk, ping6)
+    * udhcpc: allow -O OPT take numeric params, add -N renew timeout option
+
   * bugfixes
     * accel-pptp fixes and updates
-    * busybox: Fix bug 4069 - sed with in-place operation (-i switch)
+    * wpa_supplicant fixes and updates
+    * Make /linuxrc usable for root fs from external USB drive (issue 133)
 
 ===RT-N-1.9.2.7-rtn-`r3121` (2011-07-03)===
   * kernel
