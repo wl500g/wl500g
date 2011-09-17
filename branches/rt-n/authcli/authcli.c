@@ -1,6 +1,15 @@
+/*
+*
+*  Copyright (c) ISP "Convex"
+*  Copyright (c) 2007 spiritus (sirspiritus@yandex.ru)
+*  Copyright (c) 2009 theMIROn (themiron@mail.ru)
+*
+*/
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,231 +18,292 @@
 #include <syslog.h>
 #include <sys/param.h>
 #include <sys/resource.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <pwd.h>
 #include <time.h>
 #include <errno.h>
 #include "sha1.h"
 #include "authd2.h"
 
-#define  MESSAGE_NO      0
-#define  MESSAGE_ACCEPT  1
-#define  MESSAGE_REJECT  2
+static char AREANAME[MAXAREANAME_L+1];
+static char USERNAME[MAXUSERNAME_L+1];
+static char HOSTNAME[] = "172.20.255.1";
+static char MKEY[SHA1KEYL*2+1];
+static unsigned char NKEY[SHA1KEYL];
 
-#define VERSION 255
+static unsigned a_passnd = A_PASSND3 | (AUTH_VERSION<<16);
 
-char AREANAME[80]="";
-char USERNAME[80]="";
-char HOSTNAME[]="172.20.255.1";
-char MKEY[80]="";
-unsigned char NKEY[20];
+static volatile int loop_flag  = 1;
 
-unsigned a_passnd=A_PASSND3|(VERSION<<16);
+// child process PID
+static int child_pid = 0;
+// current client IP
+static char* pstrclientip = NULL;
+
+static char *conf_name = DEFAULT_CONF_PATH;
+static char *pid_name  = DEFAULT_PID_PATH;
+static char *info_name = DEFAULT_INFO_PATH;
+static char *user_name = UNPRIV_USERNAME;
 
 #define AHEX(a) ((a)<='9'?((a)-'0'):(a)-'A'+10)
 
-int readconfig(void)
+/*******************************************************
+ *
+ *           Read configuration function
+ *
+ *******************************************************/
+
+static int readconfig(void)
 {
-FILE *f;
-char buf[256];
-int i;
+    FILE *f;
+    char buf[256], *p;
+    int i;
 
-  MKEY[0]=0;
-  f=fopen( DEFAULT_CONF_PATH,"r");
-  if( !f ) return 0;
+    AREANAME[0] = '\0';
+    USERNAME[0] = '\0';
+    MKEY[0] = '\0';
+    memset(NKEY, 0, sizeof(NKEY));
 
-  while( !feof(f) ) {
+    f = fopen(conf_name, "r");
+    if (!f) return 0;
 
-    fscanf(f,"%s\n",buf);
+    while (!feof(f)) {
+	fscanf(f, "%255s\n", buf);
 
-    if( strstr(buf,"key") ) {
-	  i=0;
-      while(buf[i]!='=')i++;
-	  i++;
-	  strncpy(MKEY,(buf+i),40);
-      for( i=0;i<20;i++ ) {
-        NKEY[i] = AHEX(MKEY[i*2])*16 + AHEX(MKEY[i*2+1]);
-      }
+	if (!strncmp(buf, "key",3)) {
+	    if ((p = strchr(buf, '='))) {
+		strncpy(MKEY, p+1, sizeof(MKEY)-1);
+		MKEY[sizeof(MKEY)-1] = '\0';
+		for (i=0; i<(sizeof(MKEY)-1) && MKEY[i]; i++) {
+		      NKEY[i] = AHEX(MKEY[i*2])*16 + AHEX(MKEY[i*2+1]);
+		}
+	    }
+	} else
+	if (!strncmp(buf, "area", 4)) {
+	    if ((p = strchr(buf, '='))) {
+		strncpy(AREANAME, p+1, MAXAREANAME_L);
+		AREANAME[MAXAREANAME_L] = '\0';
+	    }
+	} else
+	if (!strncmp(buf, "user", 4)) {
+	    if ((p = strchr(buf, '='))) {
+		strncpy(USERNAME, p+1, MAXUSERNAME_L);
+		USERNAME[MAXUSERNAME_L] = '\0';
+	    }
+	}
     }
-
-    if( strstr(buf,"area") ) {
-	  i=0;while(buf[i]!='=')i++;
-	  i++;
-	  strncpy(AREANAME,(buf+i),20);
-    }
-
-    if( strstr(buf,"user") ) {
-	  i=0;
-      while(buf[i]!='=')i++;
-	  i++;
-	  strncpy(USERNAME,(buf+i),20);
-    }
-/*
-    if( strstr(buf,"password") ) {
-	  i=0;while(buf[i]!='=')i++;
-	  i++;
-      if( buf[i]!=0 ) {
-    	strncpy((char*)passwd,(buf+i),20);
-      }
-    }
-*/
-  }
-  fclose(f);
-  return ( MKEY[0]!=0 );
+    fclose(f);
+    return (MKEY[0] != 0);
 }
-
 
 /*******************************************************
 *
-*  Function which provide log messages
+*            Logging functions
 *
 *******************************************************/
-void syslog_authd(int pr,  char *msg)
-{
-  
-  
-  #ifdef DEBUG
-    openlog("authcli", LOG_PID | LOG_CONS | LOG_PERROR, LOG_DAEMON);
-  #else
-    openlog("authcli", LOG_PID | LOG_CONS, LOG_DAEMON);
-  #endif
 
-    syslog(pr,msg);
+static void log_common(int prio, const char *fmt, va_list ap)
+{
+    char buf[256];
+
+    vsnprintf(buf, sizeof(buf), fmt, ap);
+    openlog(DAEMON_NAME, LOG_PID | LOG_CONS, LOG_DAEMON);
+    syslog(prio, buf);
     closelog();
-
 }
 
-
-int loop_flag  = 1;
-
-void authcli_stop(int sig)
+static void log_msg(char *fmt, ...)
 {
-  syslog_authd(LOG_NOTICE,"Recived SIGINT. Authcli stoped.");
-  loop_flag=0;	
+    va_list ap;
+
+    va_start(ap, fmt);
+    log_common(LOG_NOTICE, fmt, ap);
+    va_end(ap);
 }
 
-void authcli_term(int sig)
+static void log_err(char *fmt, ...)
 {
-  syslog_authd(LOG_NOTICE,"Recived SIGTERM. Authcli stoped.");
-  loop_flag=0;	
+    va_list ap;
+
+    va_start(ap, fmt);
+    log_common(LOG_ERR, fmt, ap);
+    va_end(ap);
 }
 
-void authcli_hup(int sig)
+#ifdef DEBUG
+static void log_dbg(char *fmt, ...)
 {
-  syslog_authd(LOG_NOTICE,"Recived SIGHUP. Please, use stop and start with new settings.");
+    va_list ap;
+
+    va_start(ap, fmt);
+    log_common(LOG_DEBUG,fmt,ap);
+    va_end(ap);
 }
+#else
+#define log_dbg(fmt, ...)
+#endif
 
-
-void prmsg(unsigned char*m)
+static void authcli_term(int sig)
 {
-  int i;
-  for( i=0;i<20;i++ ) printf( "%X",(int)m[i] );
+    log_msg("signal %d received. %s stoped.", sig, DAEMON_NAME);
+    loop_flag = 0;
+    if (child_pid) kill(child_pid, SIGKILL);  // kill faststart child
 }
 
+static void authcli_hup(int sig)
+{
+    log_msg("SIGHUP received. Please, use stop and then start to reconfigure.");
+}
+
+static void authcli_child(int sig) 
+{
+    pid_t pid;
+    while (((pid = waitpid(-1, NULL, WNOHANG)) > 0) ||
+	    (pid < 0 && errno == EINTR));
+}
 
 /*******************************************************
 *
-*  Function which create socked for accept
+*  Function which creates socket for accept
 *
 *******************************************************/
 
-int make_socket (unsigned short int port)
+static int make_socket(unsigned short int port)
 {
-  int sock;
-  struct sockaddr_in name;
+    int sock;
+    struct sockaddr_in name;
 
-  /* Create the socket */
-  sock = socket (PF_INET, SOCK_STREAM, 0);
+    /* Create the socket */
+    sock = socket (PF_INET, SOCK_STREAM, 0);
 
-  /* If socet is't created then exit with EXIT_FAILURE */
-  if( sock < 0 ) {
-    syslog_authd( LOG_ERR, "can't create main socket" );
-    exit (EXIT_FAILURE);
-  }
+    /* If socet is't created then exit with EXIT_FAILURE */
+    if (sock < 0) {
+	log_err("can't create main socket");
+	exit(EXIT_FAILURE);
+    }
 
-  /* Give the socket a name */
-  name.sin_family = AF_INET;
-  name.sin_port = htons (port);
-  name.sin_addr.s_addr = htonl (INADDR_ANY);
-  if (bind(sock, (struct sockaddr*)&name, sizeof(name)) < 0) {
-    syslog_authd( LOG_ERR, "can't bind to main socket" );
-    exit (EXIT_FAILURE);
-  }
+    /* Bind socket to port */
+    name.sin_family = AF_INET;
+    name.sin_port = htons(port);
+    name.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(sock, (struct sockaddr*)&name, sizeof(name)) < 0) {
+	log_msg("can't bind to main socket");
+	exit (EXIT_FAILURE);
+    }
 
-  return sock;
+    return sock;
 }
 
-
-
-int read_message (int fd, struct message * msg)
+static int recv_message(int fd, struct message * msg)
+/*
+ *  Receive message from remote host
+ *
+ *  Result	Status
+ *  -1   	Network error or inalid message received
+ *   0		Remote host closed connection
+ *   1		Success
+ */
 {
-  int  nb;
+    int  nb;
 
-  nb = read (fd, msg, sizeof(struct message) );
+    nb = recv(fd, msg, sizeof(*msg), 0);
 
-  #ifdef DEBUG
-    char buf[128];
-    sprintf( buf, "recv msg: %X%X %X len %d", *(unsigned*)msg->msg, *((unsigned*)msg->msg+1) ,msg->atr, nb);
-    syslog_authd( LOG_DEBUG, buf );
-  #endif
+    if (nb > 0)
+	log_dbg("message received: attr %04X msg %X %X %X len %d",
+	    msg->attr, msg->dword[0], msg->dword[1], msg->dword[2], nb);
 
-  if( nb<0 ) {  /* Read error */
-    return 0;
-  } else if( nb!=sizeof(struct message)) {
-    return 0;
-  }
+    if (nb == 0) {		/* Remote host closed connection. exit with err */
+	log_dbg("host %s closed connection", pstrclientip);
+	return 0;
+    } else
+    if (nb < 0) {		/* Read error */
+	#ifdef LOG_INVALID_MESSAGES
+	log_err("error reading message from %s: %s", pstrclientip, strerror(errno));
+	#endif
+	return -1;
+    } else
+    if (nb != sizeof(*msg)) {	/* Message size mismatch */
+	#ifdef LOG_INVALID_MESSAGES
+        log_err("invalid message received from %s: attr %04X msg %X %X %X len %d",
+	    pstrclientip, msg->attr, msg->dword[0], msg->dword[1], msg->dword[2], nb);
+	#endif
+	return -1;
+    }
 
-  return 1;
+    return 1;
 }
 
-
-
-int write_message (int fd, struct message * msg)
+static int send_message(int fd, struct message * msg)
+/*
+ *  Send message to remote host
+ *
+ *  Result	Status
+ *  -1   	Network error or invalid message received
+ *   1		Success
+ */
 {
-  int  nb;
+    int  nb;
 
-  nb = write (fd, msg, sizeof(struct message) );
-  if (nb < 0) {
-    return 0;
-  }
+    nb = send(fd, msg, sizeof(*msg), 0);
 
-  #ifdef DEBUG
-    char buf[128];
-    sprintf( buf, "send msg: %X%X %X", *(unsigned*)msg->msg, *((unsigned*)msg->msg+1) ,msg->atr);
-    syslog_authd( LOG_DEBUG, buf );
-  #endif
+    if (nb > 0)
+	log_dbg("sending message: attr %04X msg %X %X %X len %d",
+	    msg->attr, msg->dword[0], msg->dword[1], msg->dword[2], sizeof(*msg));
 
-  return 1;
+    if (nb <= 0) {
+	#ifdef LOG_INVALID_MESSAGES
+	log_err("error sending message to %s: %s", pstrclientip, strerror(errno));
+	#endif
+	return -1;
+    }
+
+    return 1;
 }
 
-int init_sockaddr (
-  struct sockaddr_in *name,
-  const char *host,
-  unsigned short int port )
+inline int init_sockaddr(
+    struct sockaddr_in *name,
+    const char *host,
+    unsigned short int port)
 {
-struct hostent *hostinfo;
-unsigned long addr;
+    bzero(name, sizeof(struct sockaddr_in));
+    name->sin_family = AF_INET;
+    name->sin_port = htons(port);
+    name->sin_addr.s_addr = inet_addr(host);
 
-  bzero( name, sizeof(struct sockaddr_in) );
-  name->sin_family = AF_INET;
-  name->sin_port = htons (port);
-  addr = inet_addr( HOSTNAME );
-  name->sin_addr = *(struct in_addr *) (&addr);
-  return 1;
+    return 1;
 }
 
-void ThreadFastStartReq(void)
+static void request_auth_child(void)
 {
-int sock;
-struct sockaddr_in servername;
+    int sock;
+    int ret;
+    struct sockaddr_in serveraddr;
 
-  sock = socket (PF_INET, SOCK_STREAM, 0);
-  if( (sock>0) && init_sockaddr(&servername,HOSTNAME,SERV_TCP_PORT) ) {
-    connect(sock,(struct sockaddr*) &servername, sizeof(servername));
-    send(sock,"IMAL", 4, 0);
-    close(sock);
-  }
+    sock = socket (PF_INET, SOCK_STREAM, 0);
+    if ((sock > 0) && init_sockaddr(&serveraddr, HOSTNAME, SERV_TCP_PORT)) {
+	log_dbg("connecting to auth server at %s", inet_ntoa(serveraddr.sin_addr));
+
+	while(1) {
+	    ret = connect(sock, (struct sockaddr*) &serveraddr, sizeof(serveraddr));
+	    if (ret == ENETUNREACH) {
+		log_dbg("network unreachable - reconnecting");
+		sleep(RECONNECT_DELAY);
+	    } else
+	       break;
+	}
+
+	if (!ret) {
+	    log_dbg("sending init request");
+	    send(sock, "IMAL", 4, 0);
+	} else
+	    log_dbg("connect error: %s", strerror(errno));
+	close(sock);
+    }
 }
-
-
 
 /*******************************************************
 *
@@ -242,190 +312,258 @@ struct sockaddr_in servername;
 *******************************************************/
 int main(int argc, char *argv[])
 {
-  int  message_flag = MESSAGE_NO; // This flag for syslog
-  int  sockfd, i, res, cs;
-  struct sockaddr_in serv_addr, cli_addr;
-  char s[17],temptext[128];
-  char buf[1280];
-  int  fd;
-  struct  rlimit  flim;
-  int     sock, newsock;
-  fd_set  active_fd_set, read_fd_set;
-  struct  sockaddr_in  clientname;
-  size_t  size;
-  FILE *fpid;
+    int auth_state = AUTH_NONE;
+    char cryptobuf[SHA1KEYL*2];
+    char buf[256];
+    int i, res, nullfd;
+    int sock, newsock;
+    fd_set active_fd_set, read_fd_set;
+    struct sockaddr_in clientaddr;
+    size_t size;
+    FILE *fd;
+    /*  previous balance and limit status  */
+    int balance = 0, limit = 0;
+    int opt;
 
-
-  /* Read comand promt */
-/*  if( argc<2 ) {
-    fprintf(stderr, "usage: passwd\n");
-    syslog_authd(LOG_ERR, "please, use: authcli password");
-    exit(1);
-  }
-*/
-
-  if( !readconfig() ) {
-    fprintf(stderr, "Error reading config file %s\n", DEFAULT_CONF_PATH);
-    syslog_authd(LOG_ERR, "Error reading config file");
-    exit(1);
-  }
-
-  /* Create the socket and set it up to accept connections */
-  sock = make_socket (SERV_TCP_PORT);
-  if( listen(sock, 3) < 0 ) {
-    syslog_authd( LOG_ERR, "can't listen to main socket" );
-    exit (EXIT_FAILURE);
-  }
-
-  /*  Daemon is started. Write PID file */
-  {
-    int pid = getpid();
-    if (pid<0)
-    {
-      syslog_authd(LOG_ERR, "Can't get pid: pid error.");
-      exit(1);
+    while ((opt = getopt(argc, argv, ":c:p:i:u:h")) != -1) {
+	switch (opt) {
+	    case 'c':
+		conf_name = optarg;
+		break;
+	    case 'p':
+		pid_name = optarg;
+		break;
+	    case 'i':
+		info_name = optarg;
+		break;
+	    case 'u':
+		user_name = optarg;
+		break;
+	    case ':':
+		log_err("wrong parameters");
+	    case 'h':
+	    default:
+		fprintf(stderr,
+		    "usage: %s [options]\n"
+		    "options:\n"
+		    "  -c <conf_file>\n"
+		    "  -p <pid_file>\n"
+		    "  -c <info_file>\n"
+		    "  -u <user_name>\n", DAEMON_NAME);
+		exit(EXIT_FAILURE);
+	}
     }
 
-    fpid=fopen(DEFAUL_PID_PATH, "w");
-
-    if (fpid==NULL)
-    {
-      syslog_authd(LOG_ERR, "Can't create pid file.");
-      exit(1);
+    if (!readconfig()) {
+        sprintf(buf, "can't read configuration file %s: %s\n", conf_name, strerror(errno));
+	fprintf(stderr, buf);
+	log_err(buf);
+	exit (EXIT_FAILURE);
     }
 
-    sprintf( buf, "%d", pid );
-    fwrite( buf, strlen(buf), 1, fpid);
-    fclose( fpid);
+    /* close standard I/O handles */
+    nullfd = open("/dev/null", O_RDWR);
+    if (nullfd < 0) {
+	perror("/dev/null");
+    } else {
+	dup2(nullfd,0);
+	dup2(nullfd,1);
+	dup2(nullfd,2);
+	close(nullfd);
+    }
 
-    /*  Set stop signal */
-    signal(SIGINT,authcli_stop);
-    signal(SIGTERM,authcli_term);
-    
+    if(fork()) {
+	exit(EXIT_SUCCESS);
+    }
+
+    /* Daemon is started */
+
+    /* Create the socket and set it up to accept connections */
+    sock = make_socket(SERV_TCP_PORT);
+    if (listen(sock, 3) < 0) {
+	log_err("can't listen to main socket");
+	exit(EXIT_FAILURE);
+    }
+
+    /* Set stop signal */
+    signal(SIGINT, authcli_term);
+    signal(SIGTERM, authcli_term);
+    signal(SIGQUIT, authcli_term);
+
+    /* Set SIGCHLD */
+    signal(SIGCHLD, authcli_child);
+
     /* Set SIGHUP */
-    signal(SIGHUP,authcli_hup);
+    signal(SIGHUP, authcli_hup);
 
-    sprintf( buf, "authcli v.%.2f started.",VERSION/100. );
-    syslog_authd(LOG_NOTICE, buf);
-  }
-  
-  if( fork() ){
-    ThreadFastStartReq();
-    exit(0);
-  }
-  
+    log_msg("%s v.%.2f started.", DAEMON_NAME, VERSION/100.);
+    log_msg("listening on TCP port %d", SERV_TCP_PORT);
 
-  /* Initialize the set of active sockets */
-  FD_ZERO (&active_fd_set);
-  FD_SET  (sock, &active_fd_set);
-
-
-  while (loop_flag)
-  {
-    /* Block until input arrives on one or more active sockets */
-    read_fd_set = active_fd_set;
-    if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
-      #ifdef DEBUG
-	sprintf( buf, "errno %d select",errno );
-        syslog_authd( LOG_DEBUG, buf );
-      #endif
-      continue;
+    /*  Write PID file */
+    if (pid_name) {
+	pid_t pid = getpid();
+	if (pid < 0) {
+	    log_err("can't get pid");
+	    exit(EXIT_FAILURE);
+	}
+	fd = fopen(pid_name, "w");
+	if (fd != NULL) {
+	    fprintf(fd, "%d", pid);
+	    fclose(fd);
+	} else
+	    log_err("can't create pid file %s: %s", pid_name, strerror(errno));
     }
 
-    /* Service all the sockets with input pending */
-    for (i = 0; i < FD_SETSIZE; i++)
-    {
-      if (FD_ISSET(i,&read_fd_set))
-      {
-        if (i == sock) {  /* New connection request on original socket.  */
+    /* Switch to unpriviledged account */
+    if (user_name) {
+	struct passwd* ppwd;
 
-          size = sizeof(clientname);
-          if( (newsock = accept(sock,(struct sockaddr*)&clientname, &size)) < 0) { 
-            syslog_authd( LOG_ERR, "error on accept" );
-            exit (EXIT_FAILURE);
-          }
+	ppwd = getpwnam(user_name); 
+	if (ppwd) {
+	    log_dbg("switching to unprivileged user \'%s\' (UID %d, GID %d)",
+		user_name, ppwd->pw_uid, ppwd->pw_gid);
+	    setuid(ppwd->pw_uid);
+	    setgid(ppwd->pw_gid);
+	} else
+	    log_dbg("can't switch to unprivileged user \'%s\'", user_name);
+    }
 
-          #ifdef DEBUG
-            syslog_authd( LOG_DEBUG, "new connection" );
-	  #endif
+    child_pid = fork();
+    if (!child_pid) {
+	sleep(1);  // wait for parent network init
+	request_auth_child();
+	exit(EXIT_SUCCESS);
+    }
 
-          FD_SET (newsock, &active_fd_set);
+    /* Initialize the set of active sockets */
+    FD_ZERO(&active_fd_set);
+    FD_SET(sock, &active_fd_set);
 
-        } else {           /* Data arriving on an already-connected socket */
-	  struct message ms,mr;
-    	  struct client *c;
-	  unsigned char rez[20];
-
-          #ifdef DEBUG
-            syslog_authd( LOG_DEBUG, "Reciving the data" );
-	  #endif
-
-          if( !read_message(i, &mr) ) {
-            syslog_authd( LOG_NOTICE, "Error reading msg");
-	    close(i);
-            FD_CLR (i, &active_fd_set);
+    while (loop_flag) {
+	/* Block until input arrives on one or more active sockets */
+	read_fd_set = active_fd_set;
+	if (select(FD_SETSIZE, &read_fd_set, NULL, NULL, NULL) < 0) {
+	    log_dbg("select error: %s", strerror(errno));
 	    continue;
-	  }
+	}
 
-          if( mr.atr == A_KEYSND ) {
+	/* Service all the sockets with input pending */
+	for (i = 0; i < FD_SETSIZE; i++) {
+	    if (FD_ISSET(i, &read_fd_set)) {
+		if (i == sock) {  /* New connection request on original socket.  */
+		    size = sizeof(clientaddr);
+		    if ((newsock = accept(sock, (struct sockaddr*)&clientaddr, (void*)&size)) < 0) {
+        		log_err("error accepting connection");
+			exit(EXIT_FAILURE);
+		    }
 
-	    ms.atr = a_passnd;
-	    a_passnd = A_PASSND2 | (VERSION<<16);
+		    pstrclientip = inet_ntoa(clientaddr.sin_addr);
+		    log_dbg("new connection from %s", pstrclientip);
 
-	    memcpy(temptext, mr.msg,  SHA1KEYL );
-	    memcpy(temptext+SHA1KEYL, NKEY, SHA1KEYL );
-            sha1encode_strn( temptext, SHA1KEYL*2, ms.msg);
+		    FD_SET(newsock, &active_fd_set);
 
-            if( !write_message(i, &ms) ) {
-              close(i);
-              FD_CLR (i, &active_fd_set);
-              syslog_authd( LOG_NOTICE, "Error writing msg");
-	      continue;
-	    }
+		} else {  /* Data arriving on an already-connected socket */
+		    struct message mr, ms;
 
-	  } else if( mr.atr==A_PASASQ ) {
-	    int bal,lim;    
-	  
-	    if( ((int*)mr.msg)[0] == 1 ) {
-	      bal = ((int*)mr.msg)[1];
-	      lim = ((int*)mr.msg)[2];
-	      if( bal<lim ) {
-		sprintf( buf, "Low balance %.2f",bal/100. );
-	        syslog_authd( LOG_NOTICE, buf );
-	      } else {
-		if (message_flag!=MESSAGE_ACCEPT) {
-		  sprintf( buf, "balance %.2f",bal/100. );
-	          syslog_authd( LOG_NOTICE, buf );
- 	        }
-	      }
-	    if (message_flag!=MESSAGE_ACCEPT)
-	    {
-	      syslog_authd( LOG_NOTICE, "key accepted");
-	      message_flag=MESSAGE_ACCEPT;
-	    }
+		    log_dbg("receiving data");
 
+		    memset((void*)&mr, 0, sizeof(mr)); // clear message structure before recv
+		    res = recv_message(i, &mr);
+		    if (res < 1) {
+			if (res != 0) {
+			    #ifndef LOG_INVALID_MESSAGES
+			    log_err("error receiving auth message");
+			    #endif
+			}
+        		close(i);
+        		FD_CLR(i, &active_fd_set);
+			continue;
+		    }
 
-	    }
-	    
-	    close(i);
-            FD_CLR (i, &active_fd_set);
-	  } else {
-	    if (message_flag!=MESSAGE_REJECT)
-	    {
-              syslog_authd( LOG_NOTICE, "key rejected");
-	      message_flag=MESSAGE_REJECT;
-	    }
-	    close(i);
-            FD_CLR (i, &active_fd_set);
-	  }
+		    if(mr.attr == A_KEYSND) {
+                	memset((void*)&ms, 0, sizeof(ms)); // clear send buffer
+			ms.attr = a_passnd;
+			a_passnd = A_PASSND2 | (AUTH_VERSION<<16);
 
+			memcpy(cryptobuf, mr.challenge,  SHA1KEYL);
+			memcpy(cryptobuf+SHA1KEYL, NKEY, SHA1KEYL);
+			sha1encode_strn((unsigned char*)cryptobuf, SHA1KEYL*2, ms.response);
 
-        }
-      } /* end if */
-    } /* end for */
-  } /* end while */
+			if (!send_message(i, &ms)) {
+			    #ifndef LOG_INVALID_MESSAGES
+			    log_msg("error sending auth message");
+			    #endif
+			    close(i);
+			    FD_CLR(i, &active_fd_set);
+			}
+			continue;
+		    } else
+
+		    if (mr.attr == A_PASASQ) {
+			int balance_cur, limit_cur;
+
+			if (mr.auth.result == AUTH_ACCEPT) {
+			    balance_cur = mr.auth.balance;
+			    limit_cur = mr.auth.limit;
+
+			    /* log balance only if it has been changed or if this is the
+			     * first time we've got auth accept message	*/
+			    if ((balance_cur != balance) || (limit_cur != limit) || 
+				(auth_state != AUTH_ACCEPT)) {
+				/* dump info */
+				if (info_name) {
+				    fd = fopen(info_name, "w");
+				    if (fd != NULL) {
+					fprintf(fd,
+					    "BALANCE=%.2f\n"
+					    "LIMIT=%.2f\n",
+					    balance_cur/100., limit_cur/100.);
+					fclose(fd);
+				    } else
+					log_err("can't create info file %s: %s", info_name, strerror(errno));
+				}
+				if (balance_cur < limit_cur) {
+				    log_msg("low balance %.2f",balance_cur/100.);
+				} else {
+				    log_msg("balance %.2f",balance_cur/100.);
+				}
+				balance = balance_cur;
+				limit = limit_cur;
+			    }
+
+			    if (auth_state != AUTH_ACCEPT) {
+				log_msg("auth key accepted");
+				auth_state = AUTH_ACCEPT;
+			    }
+			}
+		    } else
+
+		    if (mr.attr == A_PASNEG) {
+			log_msg("invalid password");
+                	auth_state = AUTH_REJECT;
+                    } else
+
+		    if (mr.attr == A_WRNVER) {
+			log_msg("wrong client version");
+		    } else
+
+		    if (auth_state != AUTH_REJECT) {
+		        log_msg("auth key rejected");
+		        auth_state = AUTH_REJECT;
+		    }
+
+		    close(i);
+		    FD_CLR(i, &active_fd_set);
+		}
+	    } /* end if */
+	} /* end for */
+    } /* end while */
+
+    /* Clean up pid and info files
+     * Note: Take care of unprivileged user permissions */
+    if (info_name)
+	unlink(info_name);
+    if (pid_name)
+	unlink(pid_name);
+    return 0;
 }
-
-
-
-
