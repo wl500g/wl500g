@@ -204,7 +204,8 @@
 							<select name="wan_auth_x" class="content_input_fd" onchange="return change_common(document.form.wan_proto, 'Layer3Forwarding', 'wan_proto')">
 								<option class="content_input_fd" value="" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "","selected"); %>>None</option>
 								<option class="content_input_fd" value="eap-md5" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "eap-md5","selected"); %>>802.1x MD5</option>
-								<option class="content_input_fd" value="telenet" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "telenet","selected"); %>>KabiNET</option>
+								<option class="content_input_fd" value="telenet" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "telenet","selected"); %>>ISP KabiNET</option>
+								<option class="content_input_fd" value="convex" <% nvram_match_x("Layer3Forwarding","wan_auth_x", "convex","selected"); %>>ISP Convex</option>
 							</select>
 						</td>
 					</tr>

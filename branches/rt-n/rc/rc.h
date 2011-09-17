@@ -198,6 +198,10 @@ int wpacli_main(int argc, char **argv);
 int start_lanauth(char *prefix, int restart);
 int stop_lanauth(void);
 #endif
+#ifdef __CONFIG_CONVEX__
+int start_authcli(char *prefix, int restart);
+int stop_authcli(void);
+#endif
 
 /* firewall */
 #ifdef __CONFIG_NETCONF__

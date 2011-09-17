@@ -761,6 +761,13 @@ static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip
 		{
 			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
 		}
+	#ifdef __CONFIG_CONVEX__
+		if (nvram_match("wan0_auth_x", "convex")
+		&& (nvram_match("wan0_proto", "static") || nvram_match("wan0_proto", "dhcp")))
+		{
+			fprintf(fp, "-A INPUT -p tcp --dport 6326 -j %s\n", logaccept);
+		}
+	#endif
 
 		// Firewall between WAN and Local
 		if (nvram_match("ssh_enable", "1"))

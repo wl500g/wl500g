@@ -138,6 +138,55 @@ stop_lanauth(void)
 }
 #endif
 
+#ifdef __CONFIG_CONVEX__
+int
+start_authcli(char *prefix, int restart)
+{
+	FILE *fp;
+	char tmp[100];
+	char *options = "/etc/authcliw.conf";
+	char *authcli_argv[] = {
+		"/usr/sbin/authcli",
+		"-c", options,
+	    /*	"-p", pid_file,    */
+	    /*	"-c", info_name,   */
+	    	"-u", "nobody",
+   		NULL
+	};
+
+	if (restart)
+	{
+		stop_authcli();
+		sleep(1);
+	}
+
+	/* Generate options file */
+	if ((fp = fopen(options, "w")) == NULL) {
+		perror(options);
+		return -1;
+	}
+	fprintf(fp,
+		"area=%s\r\n"
+		"user=%s\r\n"
+		"key=%s\r\n",
+		nvram_invmatch("wan_heartbeat_x", "") ?
+		    nvram_safe_get("wan_heartbeat_x") : "convex",
+		nvram_safe_get(strcat_r(prefix, "auth_username", tmp)),
+		nvram_safe_get(strcat_r(prefix, "auth_passwd", tmp)));
+	fclose(fp);
+
+	/* Start authcli */
+	return _eval(authcli_argv, NULL, 0, NULL);
+}
+
+int
+stop_authcli(void)
+{
+	return killall("authcli", 0);
+}
+#endif
+
+
 int
 start_auth(char *prefix, int wan_up)
 {
@@ -156,6 +205,10 @@ start_auth(char *prefix, int wan_up)
 #ifdef __CONFIG_TELENET__
 		if (strcmp(wan_auth, "telenet") == 0 && wan_up)
 			ret = start_lanauth(prefix, 1);
+#endif
+#ifdef __CONFIG_CONVEX__
+		if (strcmp(wan_auth, "convex") == 0 && wan_up)
+			ret = start_authcli(prefix, 1);
 #endif
 	}
 /* TODO: ugly, remake bigpond as auth, not wan proto */
@@ -189,6 +242,10 @@ stop_auth(char *prefix, int wan_down)
 #ifdef __CONFIG_TELENET__
 		if ((!wan_auth || strcmp(wan_auth, "telenet") == 0) && wan_down)
 			stop_lanauth();
+#endif
+#ifdef __CONFIG_CONVEX__
+		if ((!wan_auth || strcmp(wan_auth, "convex") == 0) && wan_down)
+			stop_authcli();
 #endif
 	}
 /* TODO: ugly, remake bigpond as auth, not wan proto */
