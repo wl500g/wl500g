@@ -82,7 +82,7 @@ CONFIG_NTFS3G=y
 #
 CONFIG_EAPOL=y
 CONFIG_TELENET=y
-CONFIG_CONVEX=n
+CONFIG_CONVEX=y
 
 #
 # Additional C libraries
