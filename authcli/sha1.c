@@ -5,6 +5,7 @@
 
 #include "sha1.h"
 #include "globals.h"
+#include <string.h>
 
 // work structure
 typedef struct

@@ -2,7 +2,8 @@
 #define _Message_Digests_Globals_
 
 extern unsigned char	PADDING[64];
-typedef unsigned long ULONG;
+// long = 64 bit on AMD64, so using uint for compatibility
+typedef unsigned int ULONG;
 
 // ROTATE_LEFT rotates x left n bits - C style workaround for circularly
 // shifting (rotating)
