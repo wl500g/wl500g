@@ -400,6 +400,12 @@ config CONFIG_TELENET
        help
        ISP KabiNET authentication support.
 
+config CONFIG_CONVEX
+       bool "ISP Convex support"
+       default n
+       help
+       ISP Convex authentication support.
+
 endmenu
 
 endmenu

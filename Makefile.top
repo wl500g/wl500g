@@ -169,6 +169,7 @@ obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
 obj-$(CONFIG_EAPOL) += wpa_supplicant
 obj-$(CONFIG_TELENET) += lanauth
+obj-$(CONFIG_CONVEX) += authcli
 obj-$(CONFIG_LLTD) += lltd
 obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
