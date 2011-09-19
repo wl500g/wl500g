@@ -110,8 +110,9 @@ static void print_tunnel(struct ip6_tnl_parm *p)
 		printf(" dscp inherit");
 }
 
-static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
+static int parse_args(int argc, char **argv, int cmd, struct ip6_tnl_parm *p)
 {
+	int count = 0;
 	char medium[IFNAMSIZ];
 
 	memset(medium, 0, sizeof(medium));
@@ -211,7 +212,15 @@ static int parse_args(int argc, char **argv, struct ip6_tnl_parm *p)
 			if (p->name[0])
 				duparg2("name", *argv);
 			strncpy(p->name, *argv, IFNAMSIZ - 1);
+			if (cmd == SIOCCHGTUNNEL && count == 0) {
+				struct ip6_tnl_parm old_p;
+				memset(&old_p, 0, sizeof(old_p));
+				if (tnl_get_ioctl(*argv, &old_p))
+					return -1;
+				*p = old_p;
+			}
 		}
+		count++;
 		argc--; argv++;
 	}
 	if (medium[0]) {
@@ -336,7 +345,7 @@ static int do_show(int argc, char **argv)
 
 	ip6_tnl_parm_init(&p, 0);
 
-        if (parse_args(argc, argv, &p) < 0)
+        if (parse_args(argc, argv, SIOCGETTUNNEL, &p) < 0)
                 return -1;
 
 	if (!p.name[0] || show_stats)
@@ -357,7 +366,7 @@ static int do_add(int cmd, int argc, char **argv)
 
 	ip6_tnl_parm_init(&p, 1);
 
-	if (parse_args(argc, argv, &p) < 0)
+	if (parse_args(argc, argv, cmd, &p) < 0)
 		return -1;
 
 	return tnl_add_ioctl(cmd,
@@ -371,7 +380,7 @@ static int do_del(int argc, char **argv)
 
 	ip6_tnl_parm_init(&p, 1);
 
-	if (parse_args(argc, argv, &p) < 0)
+	if (parse_args(argc, argv, SIOCDELTUNNEL, &p) < 0)
 		return -1;
 
 	return tnl_del_ioctl(p.name[0] ? p.name : "ip6tnl0", p.name, &p);
