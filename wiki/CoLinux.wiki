@@ -178,6 +178,8 @@ net stop colinux
 
 == Compilling firmware ==
 
+See [CompilingCustomFirmware] for details
+
 Sample install.sh
 
 *install.sh*
@@ -187,7 +189,7 @@ inst=`pwd -P`
 mkdir $inst/broadcom/src/linux -p
 mkdir /opt/brcm -p
 svn checkout http://wl500g.googlecode.com/svn/trunk/ $inst/broadcom/src/1.9.2.7-d
-tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-2.tar.bz2
+tar -C /opt/brcm -jxvf hndtools-mipsel-uclibc-4.3.5-3.tar.bz2
 ln -sf /opt/brcm/hndtools-mipsel-uclibc-4.3.5 /opt/brcm/hndtools-mipsel-uclibc
 rm -rf $inst/broadcom/src/linux/linux
 tar -C $inst/broadcom/src/linux -jxvf linux-2.4.37.11.tar.bz2
