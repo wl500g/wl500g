@@ -74,7 +74,7 @@ fi
 
 # wait for disc appear, max 15 sec
 i=0
-while [ -z "$(ls -l /sys/class/scsi_disk/)" ]; do
+while [ -z "$(ls /sys/class/scsi_disk/)" -a -z "$(ls /sys/bus/ide/devices/ 2>/dev/null)" ]; do
 	sleep 1s
 	i=$((i + 1))
 	if [ $i -gt 15 ]; then
