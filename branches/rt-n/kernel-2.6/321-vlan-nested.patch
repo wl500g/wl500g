@@ -19,8 +19,8 @@ index 7a36878..4f99bb8 100644
  	 */
  
 -	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
-+	if (veth->h_vlan_proto != htons(ETH_P_8021Q) ||
-+		VLAN_DEV_INFO(dev)->flags & 1 /* VLAN_FLAG_REORDER_HDR */) {
++	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q) ||
++		(VLAN_DEV_INFO(dev)->flags & 1 /* VLAN_FLAG_REORDER_HDR */)) {
  		int orig_headroom = skb_headroom(skb);
  		unsigned short veth_TCI;
  
