@@ -278,6 +278,8 @@ static const char rcsid[] _U_ =
 typedef int		socklen_t;
 #endif
 
+#undef IW_MODE_MONITOR
+
 #ifndef MSG_TRUNC
 /*
  * This is being compiled on a system that lacks MSG_TRUNC; define it
