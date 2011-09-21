@@ -47,6 +47,7 @@ enum _control_cmd_type {
 
 struct _globals {
   int stop;
+  char *pidfile;
 
   /* signal fresh frames */
   pthread_mutex_t db;

@@ -62,7 +62,8 @@ void help(char *progname)
                   "  -o | --output \"<output-plugin.so> [parameters]\"\n" \
                   " [-h | --help ]........: display this help\n" \
                   " [-v | --version ].....: display version information\n" \
-                  " [-b | --background]...: fork to the background, daemon mode\n", progname);
+                  " [-b | --background]...: fork to the background, daemon mode\n" \
+                  " [-p | --pidfile <filename>]\n", progname);
   fprintf(stderr, "-----------------------------------------------------------------------\n");
   fprintf(stderr, "Example #1:\n" \
                   " To open an UVC webcam \"/dev/video1\" and stream it via HTTP:\n" \
@@ -139,6 +140,10 @@ void signal_handler(int sig)
   LOG("done\n");
 
   closelog();
+  if (global.pidfile) {
+    unlink(global.pidfile);
+    free(global.pidfile);
+  }
   exit(0);
   return;
 }
@@ -198,6 +203,7 @@ int main(int argc, char *argv[])
   global.outcnt = 0;
 
   global.control = control;
+  global.pidfile = NULL;
 
   /* parameter parsing */
   while(1) {
@@ -214,6 +220,8 @@ int main(int argc, char *argv[])
       {"version", no_argument, 0, 0},
       {"b", no_argument, 0, 0},
       {"background", no_argument, 0, 0},
+      {"p", required_argument, 0, 0},
+      {"pidfile", required_argument, 0, 0},
       {0, 0, 0, 0}
     };
 
@@ -258,6 +266,12 @@ int main(int argc, char *argv[])
       case 8:
       case 9:
         daemon=1;
+        break;
+
+      /* p, pidfile */
+      case 10:
+      case 11:
+        global.pidfile = strdup(optarg);
         break;
 
       default:
@@ -392,6 +406,17 @@ int main(int argc, char *argv[])
   for(i=0; i<global.outcnt; i++) {
     syslog(LOG_INFO, "starting output plugin: %s (ID: %02d)", global.out[i].plugin, global.out[i].param.id);
     global.out[i].run(global.out[i].param.id);
+  }
+
+  if (global.pidfile) {
+    FILE *fp;
+    pid_t mypid = getpid();
+
+    if ((fp=fopen(global.pidfile, "w")) != NULL)
+    {
+        fprintf(fp, "%d", mypid);
+        fclose(fp);
+    }
   }
 
   /* wait for signals */
