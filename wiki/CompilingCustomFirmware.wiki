@@ -40,11 +40,11 @@ fi
   # Checking out proper firmware sources
     * 1.9.2.7-d branch
 {{{
-svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/1.9.2.7-d
+svn checkout http://wl500g.googlecode.com/svn/branches/d/ /whatever-you-want/broadcom/src/1.9.2.7-d
 }}}
     * 1.9.2.7-rtn branch
 {{{
-svn checkout http://wl500g.googlecode.com/svn/branches/rt-n/ /whatever-you-want/broadcom/src/1.9.2.7-rtn
+svn checkout http://wl500g.googlecode.com/svn/trunk/ /whatever-you-want/broadcom/src/1.9.2.7-rtn
 }}}
   # Add the path to the toolchain (it can be introduced to the personal ~/.profile for convenience)
 {{{
