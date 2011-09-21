@@ -33,7 +33,7 @@ endif
 # ports. You can find out by running "rpcinfo -p"; if all mountd and NIS
 # daemons use a port >= 1024 you should probably disable the next line.
 
-CPPFLAGS += -DCHECK_PORT
+#CPPFLAGS += -DCHECK_PORT
 
 # The portmap daemon runs a uid=1/gid=1 by default.  You can change that
 # be defining DAEMON_UID and DAMEON_GID to numbers, or RPCUSER to a
@@ -120,7 +120,7 @@ CPPFLAGS += -DIGNORE_SIGCHLD	# AIX 4.x, HP-UX 9.x
 
 CPPFLAGS += -DFACILITY=$(FACILITY)
 CFLAGS   ?= -O2
-CFLAGS   += -Wall -Wstrict-prototypes
+CFLAGS   += -Wall -Wstrict-prototypes $(EXTRACFLAGS)
 
 all:	portmap pmap_dump pmap_set portmap.man
 

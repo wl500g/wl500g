@@ -39,12 +39,14 @@
 #include <rpc/pmap_prot.h>
 #include <syslog.h>
 #include <netdb.h>
+#include <pwd.h>
+#include <sys/types.h>
 #include <sys/signal.h>
 #ifdef SYSV40
 #include <netinet/in.h>
 #include <rpc/rpcent.h>
 #endif
-#include <tcpd.h>
+//#include <tcpd.h>
 #include <arpa/inet.h>
 #include <grp.h>
 
