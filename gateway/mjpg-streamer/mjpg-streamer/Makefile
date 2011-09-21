@@ -12,6 +12,8 @@
 # $ sudo make DESTDIR=/some/path install
 DESTDIR = /usr
 
+PLUGIN_LIB_DIR = $(DESTDIR)/lib/mjpg-streamer
+
 # set the compiler to use
 #CC = gcc
 
@@ -74,7 +76,7 @@ $(APP_BINARY): $(OBJECTS)
 	$(CC) -o $@ $(CFLAGS) $(LFLAGS) $(OBJECTS)
 
 .c.o:
-	$(CC) -c -o $@ $(CFLAGS) $<
+	$(CC) -c -o $@ $(CFLAGS) -DPLUGIN_LIB_DIR=\"$(PLUGIN_LIB_DIR)\" $<
 
 # cleanup
 clean:
