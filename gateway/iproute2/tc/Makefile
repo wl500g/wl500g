@@ -14,6 +14,7 @@ TCMODULES += q_tbf.o
 TCMODULES += q_cbq.o
 #TCMODULES += q_rr.o
 #TCMODULES += q_netem.o
+#TCMODULES += q_wrr.o
 TCMODULES += f_rsvp.o
 TCMODULES += f_u32.o
 TCMODULES += f_route.o
