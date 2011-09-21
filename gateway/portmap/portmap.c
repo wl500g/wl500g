@@ -376,6 +376,8 @@ main(int argc, char **argv)
 		if (chroot(chroot_path) < 0) {
 			syslog(LOG_ERR, "couldn't do chroot");
 			exit(1);
+		} else {
+			chdir(chroot_path);
 		}
 	}
 	check_startup();
