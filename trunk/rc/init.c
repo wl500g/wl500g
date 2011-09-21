@@ -31,7 +31,7 @@
 #include <sys/time.h>
 
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 #define loop_forever() do { sleep(1); } while (1)
 #define SHELL "/bin/sh"
@@ -177,11 +177,11 @@ shutdown_system(void)
 
 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
 #ifdef __CONFIG_XL2TPD__
-	eval("killall", "xl2tpd");
+	killall("xl2tpd", 0);
 #else
-	eval("killall", "l2tpd");
+	killall("l2tpd", 0);
 #endif
-	eval("killall", "pppd");
+	killall("pppd", 0);
 
 	if (exists("/dev/misc/rtc"))
 		eval("/sbin/hwclock", "-w");
@@ -200,7 +200,7 @@ shutdown_system(void)
 	eval("wl", "radio", "off");
 }
 
-static int fatal_signals[] = {
+static const int fatal_signals[] = {
 	SIGQUIT,	/* halt */
 	SIGILL,
 	SIGABRT,
@@ -214,10 +214,9 @@ static int fatal_signals[] = {
 	SIGTERM,	/* reboot */
 };
 
-void
-fatal_signal(int sig)
+static void fatal_signal(int sig)
 {
-	char *message = NULL;
+	const char *message = NULL;
 	
 	switch (sig) {
 	case SIGQUIT: message = "Quit"; break;

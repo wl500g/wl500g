@@ -14,11 +14,11 @@
 
 include .config
 
-RELEASE=1.9.2.7-d
+RELEASE=1.9.2.7-rtn
 
 
-MODEL=WL500gp
-# WL500gx, WL550gE, WL500gp, WL500gpv2, WL500W
+MODEL=RT-N16
+# WL500gp, WL500gpv2, WL500W, WL700g, RT-N10, RT-N10U, RT-N12, RT-N16
 
 #
 # asus trx trailer
@@ -92,21 +92,27 @@ export INSTALLDIR := $(PLATFORMDIR)/install
 export TARGETDIR := $(PLATFORMDIR)/target
 
 # Determine kernel version
-LINUX_KERNEL=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/version.h)))
+kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
+
+LINUX_KERNEL=$(call kver,version.h)
+ifeq ($(LINUX_KERNEL),)
+LINUX_KERNEL=$(call kver,utsrelease.h)
+endif
 export MODULESDIR := $(TARGETDIR)/lib/modules/$(LINUX_KERNEL)
 SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
 
 # always build libbcmcrypto, required by nas
 obj-y += libbcmcrypto 
 
-ifeq ($(CONFIG_LIBUSB),y)
 obj-$(CONFIG_LIBUSB) += libusb10
-endif
 
 #
 # Configuration
 #
+CONFIG_LINUX_26=y
+export CONFIG_LINUX_26
 
+obj-y += kernel busybox dnsmasq e2fsprogs
 obj-$(CONFIG_HTTPD) += httpd
 obj-$(CONFIG_RC) += rc
 obj-$(CONFIG_LIBBCM) += libbcm
@@ -116,8 +122,6 @@ obj-$(CONFIG_GLIBC) += lib
 obj-$(CONFIG_UCLIBC) += lib
 obj-$(CONFIG_WLCONF) += wlconf
 obj-$(CONFIG_BRIDGE) += bridge
-obj-$(CONFIG_BUSYBOX) += busybox
-obj-$(CONFIG_DNSMASQ) += dnsmasq
 obj-$(CONFIG_IPTABLES) += iptables
 obj-$(CONFIG_LIBIPT) += iptables
 obj-$(CONFIG_NETCONF) += netconf
@@ -134,14 +138,13 @@ obj-$(CONFIG_PPTP) += pptp
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
-obj-$(CONFIG_JPEG6B) += jpeg-6b
-obj-$(CONFIG_RCAMD) += rcamdmips
+obj-$(CONFIG_LIBJPEG) += jpeg-8b
+obj-$(CONFIG_RCAMD) += mjpg-streamer
 obj-$(CONFIG_LPRNG) += LPRng
 obj-$(CONFIG_OTHERS) += others
 obj-$(CONFIG_BPALOGIN) += bpalogin
-obj-$(CONFIG_WAVESERVER) += waveserver
-obj-$(CONFIG_EMF) += emf
-obj-$(CONFIG_EMF) += igs
+obj-$(CONFIG_EMF) += emf igs
+obj-$(CONFIG_LINUX_26) += udev hotplug2
 
 # custom firmware
 obj-$(CONFIG_SSHD) += dropbear
@@ -156,32 +159,50 @@ obj-$(CONFIG_SNMP) += ucd-snmp
 obj-$(CONFIG_L2TP) += rp-l2tp
 obj-$(CONFIG_XL2TPD) += xl2tpd
 obj-$(CONFIG_IGMPPROXY) += igmpproxy
+obj-$(CONFIG_RIPD) += quagga
 obj-$(CONFIG_VSFTPD) += vsftpd
+obj-$(CONFIG_NTFS3G) += ntfs-3g
 obj-$(CONFIG_INADYN) += inadyn
 obj-$(CONFIG_SCSIIDLE) += scsi-idle
 obj-$(CONFIG_USBMODESWITCH) += usb_modeswitch
 obj-$(CONFIG_MADWIMAX) += madwimax
 obj-$(CONFIG_MODEM) += cdma
+obj-$(CONFIG_EAPOL) += wpa_supplicant
+obj-$(CONFIG_TELENET) += lanauth
+obj-$(CONFIG_CONVEX) += authcli
 obj-$(CONFIG_LLTD) += lltd
+obj-$(CONFIG_TCPDUMP) += tcpdump libpcap
 obj-y += udpxy
 
-obj-y += kernel
+# Exclude targets for non-USB routers or with small flash-memory
+ifeq ($(filter RT-N10 RT-N12,$(MODEL)),$(MODEL))
+obj-y := $(filter-out LPRng e2fsprogs libusb10 madwimax nfs-utils p910nd quagga mjpg-streamer samba scsi-idle cdma usb_modeswitch vsftpd tcpdump ntfs-3g,$(obj-y))
+endif
+
+
+
+# Kernel modules extension
+ifeq ($(CONFIG_LINUX_26),y)
+EXTRACFLAGS += -DLINUX26
+ko=.ko
+else
+ko=.o
+endif
 
 # Netfilter modules NOT to include in main FW
-netfilter_external_modules := ipt_layer7.o ip_set.o \
- ip_set_ipmap.o ip_set_iptree.o ip_set_iptreemap.o ip_set_macipmap.o \
- ip_set_nethash.o ip_set_iphash.o \
- ip_set_portmap.o ip_set_ipporthash.o ip_set_ipportiphash.o \
- ip_set_ipportnethash.o ip_set_setlist.o ipt_SET.o ipt_set.o \
- ip_conntrack_rtsp.o ip_nat_rtsp.o ip_conntrack_sip.o ip_nat_sip.o \
- ip6_conntrack.o ip6_conntrack_ftp.o
+netfilter_external_modules := {xt,ipt}_layer7$(ko) ip_set$(ko) \
+ ip_set_ipmap$(ko) ip_set_iptree$(ko) ip_set_iptreemap$(ko) \
+ ip_set_macipmap$(ko) ip_set_nethash$(ko) ip_set_iphash$(ko) \
+ ip_set_portmap$(ko) ip_set_ipporthash$(ko) ip_set_ipportiphash$(ko) \
+ ip_set_ipportnethash$(ko) ip_set_setlist$(ko) \
+ ipt_SET$(ko) ipt_set$(ko)
 
 obj-clean := $(foreach obj,$(obj-y) $(obj-n),$(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
 # defaults
 export LANGUAGE := "EN"
-GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM
+GLOBAL_OPTIONS := -DUSB_SUPPORT -DQOS -DWPA2_WMM -DASUS_EXT
 
 LZMADIR=$(SRCBASE)/lzma/CPP/7zip/Compress
 
@@ -216,7 +237,7 @@ endef
 FlashMaxSize = \
     $(if $(filter $(1),WL520gc),1703936, \
     $(if $(filter $(1),WL500gx WL550gE WL320gE WL320gP WL520gu WL330gE RT-N10 RT-N12),3801880, \
-    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g),7995392, \
+    $(if $(filter $(1),WL500gp WL500W WL500gpv2 WL700g RT-N10U),7995392, \
     $(if $(filter $(1),RT-N16),16384000,0)))) \
 
 #
@@ -228,10 +249,15 @@ all: $(obj-y)
 clean: $(obj-clean) config-clean lzma-clean
 	rm -rf $(TARGETDIR)
 	rm -f $(PLATFORMDIR)/vmlinuz $(PLATFORMDIR)/target.cramfs
-	$(MAKE) -C $(LINUXDIR) clean
 
-distclean mrproper: clean
+mrproper: clean
 	rm -f .config $(LINUXDIR)/.config
+
+distclean:
+	for subdir in $(obj-y); do \
+		$(MAKE) -C $$subdir distclean; \
+	done
+
 
 lzma-lib:
 	$(MAKE) -C $(LZMADIR)/LZMA_Lib/ CC=$(HOSTCC) CXX=$(HOSTCXX)
@@ -246,147 +272,165 @@ lzma-clean: lzma-lib-clean
 	$(MAKE) -C $(LZMADIR)/LZMA_Alone/ -f makefile.gcc clean
 
 loader:
-	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C $@ LZMAPATH=$(SRCBASE)/lzma/C/Compress/Lzma
 
-mksquashfs-lzma: lzma-lib $(LINUXDIR)/scripts/squashfs/mksquashfs-lzma
+mksquashfs-lzma: lzma-lib
 	$(MAKE) -C $(LINUXDIR)/scripts/squashfs mksquashfs-lzma \
 		LZMAPATH=$(LZMADIR)/LZMA_Lib CC=$(HOSTCC) CXX=$(HOSTCXX)
 
+$(PLATFORMDIR)/vmlinuz: $(LINUXDIR)/vmlinux lzma
+ifeq ($(CONFIG_LOADER),y)
+	$(MAKE) -C loader vmlinuz-install LZMA=$(LZMADIR)/LZMA_Alone/lzma DESTDIR=$(PLATFORMDIR)
+else
+	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed vmlinuz
+	cp $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
+endif
 
-kernel-modules: $(LINUXDIR)/.config
-	( . $(LINUXDIR)/.config ; \
-	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc-3.4.6; \
-	fi )
+MIPSREV := $(if $(filter RT-N%,$(MODEL)),MIPS32r2,MIPS32r1)
 
-kernel-image: $(LINUXDIR)/.config
-	( . $(LINUXDIR)/.config ; \
-	if [ "$${CONFIG_EMBEDDED_RAMDISK}" = "" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage CC=$(CROSS_COMPILE)gcc-3.4.6; \
-	fi )
+$(LINUXDIR)/.stamp-$(MIPSREV): $(LINUXDIR)/.config
+	@-rm -f $(LINUXDIR)/.stamp-*
+	$(call SwitchConfParam,$<,CONFIG_CPU_MIPS32_R1,$(if $(filter WL%,$(MODEL)),y,n))
+	$(call SwitchConfParam,$<,CONFIG_CPU_MIPS32_R2,$(if $(filter RT-N%,$(MODEL)),y,n))
+	touch $@
 
-$(LINUXDIR)/fs/fuse/Makefile:
-	cd $(LINUXDIR)/fs/fuse && \
-	$(CONFIGURE) --enable-kernel-module --with-kernel=$(LINUXDIR) CC=$(CROSS_COMPILE)gcc-3.4.6
+kernel-modules: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
+	$(MAKE) -C $(LINUXDIR) modules CC=$(CROSS_COMPILE)gcc
 
-fuse-driver: $(LINUXDIR)/.config $(LINUXDIR)/fs/fuse/Makefile
-	cd $(LINUXDIR)/fs/fuse && $(MAKE)
-
-kernel: kernel-image kernel-modules fuse-driver
-	@true
+kernel: $(LINUXDIR)/.stamp-$(MIPSREV) $(LINUXDIR)/.config
+	$(MAKE) -C $(LINUXDIR) CC=$(CROSS_COMPILE)gcc
 
 kernel-clean:
 	$(MAKE) -C $(LINUXDIR) clean
+	@-rm -f $(LINUXDIR)/.stamp-*
 
-kernel-install: lzma
-ifeq ($(CONFIG_LOADER),y)
-	cat $(LINUXDIR)/arch/mips/bcm947xx/compressed/piggy | \
-		$(LZMADIR)/LZMA_Alone/lzma e -si -so -lc1 -lp2 -pb2 > $(PLATFORMDIR)/vmlinuz
-else
-	cp $(LINUXDIR)/arch/mips/bcm947xx/compressed/vmlinuz $(PLATFORMDIR)/
-endif
+kernel-install: kernel $(PLATFORMDIR)/vmlinuz
 	( . $(LINUXDIR)/.config ; \
 	if [ "$${CONFIG_MODULES}" = "y" ] ; then \
-	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules ; \
-	    cd $(LINUXDIR)/fs/fuse && $(MAKE) install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules; \
+	    $(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(PLATFORMDIR)/modules \
+	     INSTALL_MOD_STRIP="--strip-debug -x -R .comment -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo" ; \
 	    $(TOP)/busybox/examples/depmod.pl -b $(PLATFORMDIR)/modules/lib/modules/* -F $(LINUXDIR)/System.map; \
 	fi )
 	rm -f $(PLATFORMDIR)/modules/lib/modules/*/build
 
-NETFILTER_MODS_LIST:=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*.o 2>/dev/null))
-ifeq ($(CONFIG_IPV6),y)
-NETFILTER_MODS_LIST+=$(filter-out $(patsubst %.o,\%/%.o,$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*.o 2>/dev/null))
+modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install modules_install-usb
+ifeq ($(CONFIG_LINUX_26),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/host/uhci-hcd$(ko)
+else
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci$(ko)
 endif
 
-modules_install-WL3%: modules_install
+modules_install-WL700g: modules_install-WL500gp
 	install -t $(MODULESDIR) \
-		$(NETFILTER_MODS_LIST)
-#	rm -rf $(MODULESDIR)/parport
+		$(SRCMODULESDIR)/drivers/char/gpiortc$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/ide-core$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/ide-disk$(ko) \
+		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx$(ko) 
+
+modules_install-RT-N10 modules_install-RT-N12: modules_install
 	@true
 
-modules_install-WL500gx modules_install-WL500gp modules_install-WL500W: modules_install
+modules_install-RT-N10U modules_install-RT-N16: modules_install modules_install-usb
+ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
-		$(NETFILTER_MODS_LIST)
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
+else
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
+endif
 
-modules_install-WL700g: modules_install
+modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install modules_install-usb
+ifeq ($(CONFIG_LINUX_26),y)
 	install -t $(MODULESDIR) \
-		$(NETFILTER_MODS_LIST)
+		$(SRCMODULESDIR)/drivers/usb/host/ohci-hcd$(ko) 
+else
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-uhci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o \
-		$(SRCMODULESDIR)/drivers/char/gpiortc.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-core.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-disk.o \
-		$(SRCMODULESDIR)/drivers/ide/ide-detect.o \
-		$(SRCMODULESDIR)/drivers/ide/pci/aec62xx.o 
-
-modules_install-WL550gE modules_install-WL520gu modules_install-WL500gpv2: modules_install
-	install -t $(MODULESDIR) \
-		$(NETFILTER_MODS_LIST)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci.o \
-		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd.o 
+		$(SRCMODULESDIR)/drivers/usb/host/usb-ohci$(ko)
+endif
 
 modules_install-WL520gc: modules_install
+	@true
+
+NETFILTER_MODS_LIST:=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/netfilter/*$(ko) 2>/dev/null))
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv4/netfilter/*$(ko) 2>/dev/null))
+ifeq ($(CONFIG_IPV6),y)
+NETFILTER_MODS_LIST+=$(filter-out $(patsubst %$(ko),\%/%$(ko),$(netfilter_external_modules)),$(shell ls -1 $(SRCMODULESDIR)/net/ipv6/netfilter/*$(ko) 2>/dev/null))
+endif
+
+modules_install-usb:
+	# NLS
 	install -t $(MODULESDIR) \
-		$(NETFILTER_MODS_LIST)
+		$(SRCMODULESDIR)/fs/nls/nls_cp950$(ko)
+	# generic usb
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/core/usbcore$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/host/ehci-hcd$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/class/usblp$(ko)
+	# usb storage
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage$(ko) \
+		$(SRCMODULESDIR)/drivers/scsi/sd_mod$(ko) \
+		$(SRCMODULESDIR)/drivers/scsi/scsi_mod$(ko)
+	# usb serial
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/usb/serial/usbserial$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/pl2303$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/serial/option$(ko) \
+		$(SRCMODULESDIR)/drivers/usb/class/cdc-acm$(ko) 
+	# usb webcams
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/drivers/media/video/videodev$(ko) \
+		$(SRCMODULESDIR)/drivers/media/video/v4l2-common$(ko) \
+		$(SRCMODULESDIR)/drivers/media/video/uvc/uvcvideo$(ko) \
+		$(SRCMODULESDIR)/drivers/input/input-core$(ko) 
+	# usb audio
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/sound/soundcore$(ko) \
+		$(SRCMODULESDIR)/sound/core/snd$(ko) \
+		$(SRCMODULESDIR)/sound/core/snd-*$(ko) \
+		$(SRCMODULESDIR)/sound/core/oss/snd-*$(ko) \
+		$(SRCMODULESDIR)/sound/usb/snd-usb-*$(ko) 
+	# NFS
+ifeq ($(CONFIG_NFS),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/nfs/nfs$(ko)
+endif
+	# NFS
+ifeq ($(CONFIG_NFSD),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/lockd/lockd$(ko) \
+		$(SRCMODULESDIR)/fs/exportfs/exportfs$(ko)    \
+		$(SRCMODULESDIR)/fs/nfsd/nfsd$(ko)    \
+		$(SRCMODULESDIR)/net/sunrpc/sunrpc$(ko)
+endif
+	# fs
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/ntfs/ntfs$(ko)
+ifeq ($(CONFIG_NTFS3G),y)
+	install -t $(MODULESDIR) \
+		$(SRCMODULESDIR)/fs/fuse/fuse$(ko)
+endif
 
 modules_install: .config
 	install -d $(MODULESDIR)
 	# network stuff
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/et/et.o \
-		$(SRCMODULESDIR)/drivers/net/wl/wl.o
+		$(SRCMODULESDIR)/drivers/net/et/et$(ko) \
+		$(SRCMODULESDIR)/drivers/net/wl/wl$(ko) \
+		$(SRCMODULESDIR)/drivers/net/emf/emf$(ko) \
+		$(SRCMODULESDIR)/drivers/net/igs/igs$(ko) \
+		$(SRCMODULESDIR)/drivers/net/tun$(ko) \
+		$(SRCMODULESDIR)/drivers/net/imq$(ko) \
+		$(SRCMODULESDIR)/drivers/connector/cn$(ko) \
+		$(NETFILTER_MODS_LIST)
+	# other
 	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/tun.o \
-		$(SRCMODULESDIR)/drivers/net/imq.o
-ifeq ($(CONFIG_EMF),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/net/emf/emf.o \
-		$(SRCMODULESDIR)/drivers/net/igs/igs.o
-endif
-	# NLS
-	# generic usb
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/usbcore.o \
-		$(SRCMODULESDIR)/drivers/usb/printer.o
-	# usb storage
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/storage/usb-storage.o \
-		$(SRCMODULESDIR)/drivers/scsi/sd_mod.o \
-		$(SRCMODULESDIR)/drivers/scsi/scsi_mod.o
-	# usb serial
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/serial/usbserial.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/pl2303.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/ftdi_sio.o \
-		$(SRCMODULESDIR)/drivers/usb/serial/option.o \
-		$(SRCMODULESDIR)/drivers/usb/acm.o 
-	# usb webcams
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/media/video/videodev.o \
-		$(SRCMODULESDIR)/drivers/usb/ov51x.o \
-		$(SRCMODULESDIR)/drivers/usb/ov511_decomp.o \
-		$(SRCMODULESDIR)/drivers/usb/ov518_decomp.o \
-		$(SRCMODULESDIR)/drivers/usb/pwc.o \
-		$(SRCMODULESDIR)/drivers/usb/pwcx.o
-	# usb audio
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/drivers/usb/audio.o \
-		$(SRCMODULESDIR)/drivers/sound/soundcore.o
-ifeq ($(CONFIG_NFSD),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/lockd/*.o \
-		$(SRCMODULESDIR)/fs/nfsd/*.o	\
-		$(SRCMODULESDIR)/net/sunrpc/*.o
-endif
-ifeq ($(CONFIG_NFS),y)
-	install -t $(MODULESDIR) \
-		$(SRCMODULESDIR)/fs/nfs/*.o
-endif
+		$(SRCMODULESDIR)/lib/libcrc32c$(ko)
+	# extra strip modules without params
+	$(STRIP) --strip-unneeded $(MODULESDIR)/wl$(ko)
 
 install: package-$(MODEL)
 	@true
@@ -403,19 +447,17 @@ package-%: $(filter-out lib-install www-install,$(obj-install)) $(LINUXDIR)/.con
 	$(MAKE) -C libbcmcrypto optimize
 	# Install (and possibly optimize) C library
 	$(MAKE) lib-install
-	# statically linked ASUS shit
-ifeq ($(CONFIG_WAVESERVER),y)
-	$(STRIP) others/waveserver -o $(TARGETDIR)/usr/sbin/waveserver
-endif
-	# Install binary Addons, if any
+	# Install Addons, if any
 	@-( if [ -d $(SRCBASE)/router/Addon ]; then \
-	    ( cp -dup $(SRCBASE)/router/Addon/* $(TARGETDIR)/usr/sbin/ ) \
+	    ( cp -dupR $(SRCBASE)/router/Addon/* $(TARGETDIR) ) \
 	fi )
 	# Install modules into filesystem
 	$(MAKE) modules_install-$*
 	# Prepare filesystem
 	cd $(TARGETDIR) && $(TOP)/misc/rootprep.sh
-	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs -all-root -noappend -nopad
+        # Make rootfs image
+	$(LINUXDIR)/scripts/squashfs/mksquashfs-lzma $(TARGETDIR) $(PLATFORMDIR)/target.cramfs \
+		-all-root -noappend -nopad -pf $(TOP)/misc/rootprep.files
 	rm -f $(PLATFORMDIR)/$*-$(RELEASE).trx
 	$(MAKE) -C $(SRCBASE)/asustrx CC=$(HOSTCC)
 ifeq ($(CONFIG_LOADER),y)
@@ -447,6 +489,7 @@ MANPAGES-$(CONFIG_IPV6) += iptables/ip6tables.8 iptables/ip6tables-restore.8 ipt
 MANPAGES-$(CONFIG_INADYN) += inadyn/man/inadyn.conf.5 inadyn/man/inadyn.8
 MANPAGES-$(CONFIG_NTFS3G) += ntfs-3g/src/ntfs-3g.8
 MANPAGES-$(CONFIG_RIPD) += quagga/doc/ospfd.8 quagga/doc/ripd.8 quagga/doc/zebra.8
+MANPAGES-$(CONFIG_TCPDUMP) += tcpdump/tcpdump.1
 
 manpages-install:
 	$(MAKE) -C LPRng/man
@@ -459,7 +502,7 @@ manpages-install:
 	install --mode=0644 -t $(PLATFORMDIR)/manpages/man/man5 \
 	    $(filter %.5,$(MANPAGES-y))
 ifeq ($(CONFIG_NFSD),y)
-	for subdir in exportfs lockd mountd nfsd statd; do \
+	for subdir in exportfs mountd nfsd statd; do \
 	$(MAKE) -C nfs-utils/utils/$${subdir} install-man DESTDIR=$(PLATFORMDIR)/ datarootdir=manpages ; \
 	done
 endif
@@ -468,7 +511,7 @@ ifeq ($(CONFIG_IPV6),y)
 endif
 
 modules: kernel-install
-	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
+	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE)-$(subst .stamp-,,$(notdir $(wildcard $(LINUXDIR)/.stamp-*))).tgz .
 
 manpages: manpages-install
 	tar -C $(PLATFORMDIR)/$@ -czf $(PLATFORMDIR)/$@-$(RELEASE).tgz .
@@ -497,10 +540,11 @@ kmconf:
 	$(MAKE) -C $(LINUXDIR) menuconfig
 
 koldconf: $(LINUXDIR)/.config
-	$(MAKE) -C $(LINUXDIR) oldconfig
+	@true
 
 $(LINUXDIR)/include/linux/version.h: $(LINUXDIR)/.config
 	$(MAKE) -C $(LINUXDIR) include/linux/version.h
+	$(MAKE) -C $(LINUXDIR) include/linux/autoconf.h
 
 # Convenience
 config: conf
@@ -524,11 +568,11 @@ $(LINUXDIR)/.config: .config
 
 httpd: netconf shared nvram $(EXTRA_LIBS)
 
-rc: netconf shared nvram $(EXTRA_LIBS)
-	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z]' '[A-Z]')" EXTRACFLAGS="$(EXTRACFLAGS)"
+rc: $(if $(CONFIG_UPNP),netconf,) shared nvram $(EXTRA_LIBS)
+	$(MAKE) -C $@ GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 rc-install:
-	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z]' '[A-Z]')" EXTRACFLAGS="$(EXTRACFLAGS)"
+	$(MAKE) -C rc install INSTALLDIR=$(INSTALLDIR)/rc GLOBAL_OPTIONS="$(GLOBAL_OPTIONS) -DMODEL_$(shell echo $(MODEL) | tr '[a-z][:punct:]' '[A-Z]_')" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 www-%:
 	$(MAKE) -C www $* INSTALLDIR=$(INSTALLDIR)/www
@@ -542,6 +586,34 @@ radvd: radvd/Makefile
 radvd-install:
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
+
+quagga/Makefile: quagga/Makefile.in
+	cd quagga && CFLAGS="-g -Os -std=gnu99 -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --localstatedir=/var/run --sysconfdir=/etc/quagga/ \
+	 --disable-bgp-announce --disable-ipv6 --enable-multipath=8 \
+	 $(if $(CONFIG_LINUX_26),,--enable-linux24-tcp-md5) \
+	 --disable-vtysh --disable-bgpd --disable-watchquagga \
+	 --disable-static --enable-pie=no \
+	 quagga_cv_ipforward_method=proc \
+	 ac_cv_func_realloc_0_nonnull=yes ac_cv_func_malloc_0_nonnull=yes \
+	 ac_cv_have_decl_CLOCK_MONOTONIC=no
+
+quagga: quagga/Makefile
+
+quagga-install:
+	install -D quagga/ripd/.libs/ripd $(INSTALLDIR)/quagga/usr/sbin/ripd
+	install -D quagga/ospfd/.libs/ospfd $(INSTALLDIR)/quagga/usr/sbin/ospfd
+	install -D quagga/ospfd/.libs/libospf.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libospf.so.0.0.0
+	ln -sf libospf.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libospf.so.0
+	ln -sf libospf.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libospf.so
+	install -D quagga/zebra/.libs/zebra $(INSTALLDIR)/quagga/usr/sbin/zebra
+	install -D quagga/lib/.libs/libzebra.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libzebra.so.0.0.0
+	ln -sf libzebra.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libzebra.so.0
+	ln -sf libzebra.so.0.0.0 $(INSTALLDIR)/quagga/usr/lib/libzebra.so
+	$(STRIP) $(INSTALLDIR)/quagga/usr/sbin/ripd $(INSTALLDIR)/quagga/usr/sbin/ospfd \
+	 $(INSTALLDIR)/quagga/usr/sbin/zebra \
+	 $(INSTALLDIR)/quagga/usr/lib/libospf.so.0.0.0 \
+	 $(INSTALLDIR)/quagga/usr/lib/libzebra.so.0.0.0
 
 bridge/Makefile: bridge/Makefile.in
 	cd bridge && CFLAGS="-g -Os $(EXTRACFLAGS)" \
@@ -590,6 +662,7 @@ bpalogin-install:
 
 busybox/.config: .config
 	cp -fp busybox/sysdeps/linux/$(CONFIG_BUSYBOX_CONFIG) $@
+	$(call SwitchConfParam,$@,CONFIG_MDEV,$(if $(CONFIG_LINUX_26),y,n))
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
 	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))
 	$(MAKE) -C busybox oldconfig
@@ -607,26 +680,35 @@ cdma-install:
 	install -d $(INSTALLDIR)/cdma
 	$(MAKE) -C cdma install
 
+iptables/Makefile: iptables/Makefile.in
+	cd iptables && CFLAGS="-Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --with-pic --with-kernel=$(LINUXDIR) \
+	 $(if $(CONFIG_IPV6),,--disable-ipv6) \
+	 blacklist_modules="dscp DSCP rateest RATEEST realm SECMARK socket sctp TRACE state"
 
-iptables: $(LINUXDIR)/include/linux/version.h
-	$(MAKE) -C $@ BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib" DO_MULTI=1
+iptables: $(LINUXDIR)/include/linux/version.h iptables/Makefile
+	$(MAKE) -C $@ EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 iptables-install: iptables
 ifeq ($(CONFIG_IPTABLES),y)
-	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
+	install -d $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install iptables/extensions/libipt_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install iptables/extensions/libxt_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install -D iptables/.libs/iptables-multi $(INSTALLDIR)/iptables/usr/sbin/iptables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/iptables
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-restore
 	ln -sf iptables $(INSTALLDIR)/iptables/usr/sbin/iptables-save
+	install -D iptables/.libs/libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2.0.0
+	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so.2
+	ln -sf libxtables.so.2.0.0 $(INSTALLDIR)/iptables/usr/lib/libxtables.so
 ifeq ($(CONFIG_IPV6),y)
-	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/lib/iptables
-	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
+	install iptables/extensions/libip6t_*.so $(INSTALLDIR)/iptables/usr/libexec/xtables
+	install iptables/.libs/ip6tables-multi $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-restore
 	ln -sf ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables-save
 endif
-	$(STRIP) $(INSTALLDIR)/iptables/usr/lib/iptables/libip*.so
+	$(STRIP) $(INSTALLDIR)/iptables/usr/libexec/xtables/libip*.so $(INSTALLDIR)/iptables/usr/libexec/xtables/libxt*.so
 else
 	# So that generic rule does not take precedence
 	@true
@@ -640,8 +722,21 @@ netconf: iptables
 
 upnp: netconf nvram shared
 
-miniupnpd: iptables
-	@true
+miniupnpd/config.h:
+	cd miniupnpd && ./genconfig.sh
+
+miniupnpd: iptables miniupnpd/config.h
+	$(MAKE) -C $@ -f Makefile.linux EXTRACFLAGS="$(EXTRACFLAGS)" \
+	    IPTABLESPATH=$(TOP)/iptables ARCH=$(PLATFORM) \
+	    $(if $(CONFIG_NETCONF),LDFLAGS="-L$(TOP)/netconf -lnetconf",LDFLAGS="-liptc") \
+	    miniupnpd
+
+miniupnpd-install:
+	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+	$(STRIP) $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
+
+miniupnpd-clean:
+	$(MAKE) -C miniupnpd -f Makefile.linux clean
 
 wlconf: nvram shared
 
@@ -708,7 +803,7 @@ dropbear/config.h: dropbear/config.h.in
 	    --disable-lastlog --disable-utmp --disable-utmpx \
 	    --disable-wtmp --disable-wtmpx \
 	    --disable-libutil --disable-loginfunc --disable-pututline \
-	    --disable-pututxline
+	    --disable-pututxline --enable-bundled-libtom
 
 dropbear: dropbear/config.h
 	$(MAKE) -C $@ PROGRAMS="dropbear dbclient scp dropbearkey dropbearconvert" MULTI=1 SCPPROGRESS=1
@@ -774,8 +869,9 @@ samba-clean:
 
 nfs-utils/Makefile: nfs-utils/Makefile.in
 	cd nfs-utils && CPPFLAGS="$(EXTRACFLAGS)" knfsd_cv_bsd_signals=no \
-	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 \
-	    --disable-gss --disable-rquotad
+	$(CONFIGURE) --enable-nfsv3 --disable-nfsv4 --disable-ipv6 \
+	    --disable-uuid --disable-gss --disable-mount \
+		--without-tcp-wrappers
 
 nfs-utils: nfs-utils/Makefile
 	$(MAKE) -C $@
@@ -783,12 +879,14 @@ nfs-utils: nfs-utils/Makefile
 nfs-utils-install:
 	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
 	install -D nfs-utils/utils/mountd/mountd $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
-	install -D nfs-utils/utils/lockd/lockd $(INSTALLDIR)/nfs-utils/usr/sbin/lockd
 	install -D nfs-utils/utils/exportfs/exportfs $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
 	install -D nfs-utils/utils/showmount/showmount $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
 	install -D nfs-utils/utils/statd/statd $(INSTALLDIR)/nfs-utils/usr/sbin/statd
 	install -D nfs-utils/support/lib/libnfs.so $(INSTALLDIR)/nfs-utils/usr/lib/libnfs.so
 	$(STRIP) $(INSTALLDIR)/nfs-utils/usr/sbin/* $(INSTALLDIR)/nfs-utils/usr/lib/libnfs.so
+
+portmap: portmap/Makefile
+	$(MAKE) -C $@  EXTRACFLAGS="$(EXTRACFLAGS)" NO_TCP_WRAPPER=y RPCUSER=rpc
 
 portmap-install:
 	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
@@ -864,6 +962,21 @@ vsftpd-install:
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 	$(STRIP) $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
 
+ntfs-3g/Makefile: ntfs-3g/Makefile.in
+	cd ntfs-3g && $(CONFIGURE) --enable-shared=no --enable-static=no \
+	--disable-library --disable-ldconfig --disable-mount-helper \
+	--with-fuse=internal
+
+ntfs-3g: ntfs-3g/Makefile
+
+ntfs-3g-install:
+	install -D ntfs-3g/src/ntfs-3g $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g
+	$(STRIP) $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g
+	install -D ntfs-3g/src/ntfs-3g.probe $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g.probe
+	$(STRIP) $(INSTALLDIR)/ntfs-3g/usr/sbin/ntfs-3g.probe
+	@mkdir -p $(INSTALLDIR)/ntfs-3g/sbin
+	ln -sf ../usr/sbin/ntfs-3g $(INSTALLDIR)/ntfs-3g/sbin/mount.ntfs-3g
+
 udpxy:
 	$(MAKE) -C $@ release CDEFS="-O2 $(EXTRACFLAGS)"
 
@@ -883,19 +996,6 @@ libusb10/Makefile: libusb10/Makefile.in
 
 libusb10: libusb10/Makefile
 	$(MAKE) -C $@
-
-libusb/Makefile: libusb/Makefile.in
-	cd libusb && CFLAGS="-Wall -Os $(EXTRACFLAGS)" \
-	$(CONFIGURE) --prefix=/usr \
-	    LIBUSB_1_0_CFLAGS="-I$(TOP)/libusb10/libusb" \
-	    LIBUSB_1_0_LIBS="-L$(TOP)/libusb10/libusb/.libs -lusb-1.0"
-
-libusb: libusb10 libusb/Makefile
-	$(MAKE) -C $@
-
-libusb-install:
-	install -D libusb/libusb/.libs/libusb-0.1.so $(INSTALLDIR)/libusb/usr/lib/libusb-0.1.so
-	$(STRIP) $(INSTALLDIR)/libusb/usr/lib/*.so
 
 libusb10-install:
 	install -D libusb10/libusb/.libs/libusb-1.0.so $(INSTALLDIR)/libusb10/usr/lib/libusb-1.0.so
@@ -934,6 +1034,32 @@ lltd-install: lltd
 	[ ! -f lltd/icons/$(MODEL).ico ] || \
 	    install -D -m 0644 lltd/icons/$(MODEL).ico $(INSTALLDIR)/lltd/usr/share/lld2d/icon.ico
 
+wpa_supplicant:
+	$(MAKE) -C $@/wpa_supplicant EXTRACFLAGS="-Os $(EXTRACFLAGS)"
+
+wpa_supplicant-install: wpa_supplicant
+	install -D wpa_supplicant/wpa_supplicant/wpa_supplicant $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_supplicant
+	install -D wpa_supplicant/wpa_supplicant/wpa_cli $(INSTALLDIR)/wpa_supplicant/usr/sbin/wpa_cli
+	$(STRIP) $(INSTALLDIR)/wpa_supplicant/usr/sbin/*
+
+wpa_supplicant-clean:
+	$(MAKE) -C wpa_supplicant/wpa_supplicant clean
+
+udev:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)" \
+	    PROGRAMS=udevtrigger LIBUDEV="" udevtrigger
+
+udev-install:
+	install -d $(TARGETDIR)
+	$(MAKE) -C udev DESTDIR=$(INSTALLDIR) prefix=/udev install-udevtrigger
+
+hotplug2:
+	$(MAKE) -C $@ CROSS_COMPILE=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
+
+hotplug2-install:
+	$(MAKE) -C hotplug2 install PREFIX=$(INSTALLDIR)/hotplug2 SUBDIRS=""
+	$(MAKE) -C hotplug2/examples install PREFIX=$(INSTALLDIR)/hotplug2/usr KERNELVER=$(LINUX_KERNEL)
+
 emf:
 	$(MAKE) -C $(SRCBASE)/emf/emfconf CROSS=$(CROSS_COMPILE) EXTRACFLAGS="$(EXTRACFLAGS)"
 
@@ -946,8 +1072,25 @@ igs:
 igs-install:
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
-rcamdmips:
-	$(MAKE) -C $@ LINUXKERNELSRC=$(LINUXDIR) EXTRACFLAGS="$(EXTRACFLAGS)"
+mjpg-streamer: jpeg-8b
+	$(MAKE) -C mjpg-streamer/mjpg-streamer CC=$(CC) EXTRACFLAGS="-I$(LINUXDIR)/include -I$(TOP)/jpeg-8b $(EXTRACFLAGS)" LIBS=$(TOP)/jpeg-8b/.libs/libjpeg.a
+
+mjpg-streamer-install:
+	$(MAKE) -C mjpg-streamer/mjpg-streamer DESTDIR=$(INSTALLDIR)/mjpg-streamer/usr install
+	$(STRIP) $(INSTALLDIR)/mjpg-streamer/usr/bin/mjpg_streamer $(INSTALLDIR)/mjpg-streamer/usr/lib/mjpg-streamer/*.so
+
+mjpg-streamer-clean:
+	$(MAKE) -C mjpg-streamer/mjpg-streamer clean
+
+jpeg-8b/Makefile: jpeg-8b/Makefile.in
+	cd jpeg-8b && CC=$(CC) CPPFLAGS="-fPIC $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --disable-shared
+
+jpeg-8b: jpeg-8b/Makefile
+	$(MAKE) -C $@ libjpeg.la
+
+jpeg-8b-install:
+	@true
 
 LPRng/Makefile: LPRng/Makefile.in
 	cd LPRng && CC=$(CC) CPPFLAGS="$(EXTRACFLAGS) -DWINDOW_1 -DTEST_WRITE -DNODEBUG -DLPR_with_ASUS" \
@@ -964,6 +1107,73 @@ LPRng-install:
 	$(STRIP) $(INSTALLDIR)/LPRng/usr/sbin/lpd
 
 
+libpcap/Makefile: libpcap/Makefile.in
+	cd libpcap && CFLAGS="-g -Os -isystem$(LINUXDIR)/include $(EXTRACFLAGS)" \
+	$(CONFIGURE) --disable-shared --enable-static --disable-yydebug \
+	    --with-pcap=linux --without-septel --without-dag \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) ac_cv_linux_vers=2
+
+libpcap: libpcap/Makefile
+	$(MAKE) -C $@
+
+libpcap-install:
+	@true
+
+tcpdump/Makefile: tcpdump/Makefile.in
+	cd tcpdump && CFLAGS="-g -Os $(EXTRACFLAGS) -DTCPDUMP_MINI" \
+	$(CONFIGURE) --prefix=/usr --without-crypto \
+	    $(if $(CONFIG_IPV6),--enable-ipv6,) \
+	    ac_cv_linux_vers=2 td_cv_buggygetaddrinfo=no
+
+tcpdump: libpcap tcpdump/Makefile
+	$(MAKE) -C $@ TCPDUMP_MINI=1
+
+tcpdump-install:
+	install -D tcpdump/tcpdump $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
+	$(STRIP) $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
+
+sysfsutils/Makefile: sysfsutils/Makefile.in
+	cd sysfsutils && CFLAGS="-Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr
+
+sysfsutils: sysfsutils/Makefile
+	$(MAKE) -C $@
+
+sysfsutils-install:
+	install -D sysfsutils/lib/.libs/libsysfs.so $(INSTALLDIR)/sysfsutils/usr/lib/libsysfs.so
+	$(STRIP) $(INSTALLDIR)/sysfsutils/usr/lib/*.so
+
+e2fsprogs/Makefile: e2fsprogs/Makefile.in
+	cd e2fsprogs && CFLAGS="-Os $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --sysconfdir=/etc --enable-elf-shlibs \
+		$(if $(CONFIG_LINUX_26),,--disable-tls) \
+		--disable-rpath --disable-nls \
+		--disable-debugfs --disable-imager --disable-resizer --disable-uuidd
+
+e2fsprogs: e2fsprogs/Makefile
+	$(MAKE) -C $@
+
+e2fsprogs-install:
+	install -D e2fsprogs/lib/libblkid.so.1.0 $(INSTALLDIR)/e2fsprogs/usr/lib/libblkid.so.1.0
+	install -D e2fsprogs/lib/libcom_err.so.2.1 $(INSTALLDIR)/e2fsprogs/usr/lib/libcom_err.so.2.1
+	install -D e2fsprogs/lib/libe2p.so.2.3 $(INSTALLDIR)/e2fsprogs/usr/lib/libe2p.so.2.3
+	install -D e2fsprogs/lib/libext2fs.so.2.4 $(INSTALLDIR)/e2fsprogs/usr/lib/libext2fs.so.2.4
+	install -D e2fsprogs/lib/libuuid.so.1.2 $(INSTALLDIR)/e2fsprogs/usr/lib/libuuid.so.1.2
+	$(STRIP) $(INSTALLDIR)/e2fsprogs/usr/lib/*.so.*
+	ln -sf libblkid.so.1.0 $(INSTALLDIR)/e2fsprogs/usr/lib/libblkid.so.1
+	ln -sf libcom_err.so.2.1 $(INSTALLDIR)/e2fsprogs/usr/lib/libcom_err.so.2
+	ln -sf libe2p.so.2.3 $(INSTALLDIR)/e2fsprogs/usr/lib/libe2p.so.2
+	ln -sf libext2fs.so.2.4 $(INSTALLDIR)/e2fsprogs/usr/lib/libext2fs.so.2
+	ln -sf libuuid.so.1.2 $(INSTALLDIR)/e2fsprogs/usr/lib/libuuid.so.1
+	install -D e2fsprogs/e2fsck/e2fsck $(INSTALLDIR)/e2fsprogs/usr/sbin/e2fsck
+	install -D e2fsprogs/misc/mke2fs $(INSTALLDIR)/e2fsprogs/usr/sbin/mke2fs
+	$(STRIP) $(INSTALLDIR)/e2fsprogs/usr/sbin/*
+	ln -sf e2fsck $(INSTALLDIR)/e2fsprogs/usr/sbin/fsck.ext2
+	ln -sf e2fsck $(INSTALLDIR)/e2fsprogs/usr/sbin/fsck.ext3
+	ln -sf mke2fs $(INSTALLDIR)/e2fsprogs/usr/sbin/mkfs.ext2
+	ln -sf mke2fs $(INSTALLDIR)/e2fsprogs/usr/sbin/mkfs.ext3
+	install -D -m 0644 e2fsprogs/e2fsck/e2fsck.conf $(INSTALLDIR)/e2fsprogs/usr/etc/e2fsck.conf
+
 image-%:
 	$(MAKE) rc MODEL="$*"
 	$(MAKE) package-$* MODEL="$*"
@@ -976,23 +1186,22 @@ images-%:
 	#make image-$* LANGUAGE="JP"
 
 images:
-	make images-WL500gx
-	make images-WL550gE
-	make images-WL320gE
-	make images-WL320gP
-	make images-WL500gp
-	make images-WL500W
-	make images-WL520gu
-	make images-WL500gpv2
-	make images-WL330gE
-	make images-WL700g
+	make images-RT-N16
+	make images-RT-N12
+	make images-RT-N10
+	#make images-RT-N10U
+	#make images-WL500gp
+	#make images-WL500W
+	#make images-WL500gpv2
+	#make images-WL700g
+
 
 #
 # Generic rules
 #
 
 %:
-	[ ! -d $* ] || $(MAKE) -C $*  EXTRACFLAGS="$(EXTRACFLAGS)"
+	[ ! -d $* ] || $(MAKE) -C $* GLOBAL_OPTIONS="$(GLOBAL_OPTIONS)" EXTRACFLAGS="$(EXTRACFLAGS)"
 
 %-clean:
 	[ ! -d $* ] || $(MAKE) -C $* clean
@@ -1004,5 +1213,4 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
 .PHONY: all clean distclean mrproper install package
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
-.PHONY: mksquashfs-lzma
 .PHONY: dummy

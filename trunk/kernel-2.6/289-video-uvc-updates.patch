@@ -1,0 +1,71 @@
+UVC driver updates from upstream
+
+ 507910799160e85eac5e7729e0d2f1ba26f6a8cf [media] uvcvideo: Add support for V4L2_PIX_FMT_RGB565
+ f411f103822379bab356345430f097bdae3440e5 [media] uvcvideo: Return -ERANGE when userspace sets an unsupported menu entry
+
+---
+ drivers/media/video/uvc/uvc_ctrl.c   |   17 +++++++++++++++++
+ drivers/media/video/uvc/uvc_driver.c |    5 +++++
+ drivers/media/video/uvc/uvcvideo.h   |    3 +++
+ 3 files changed, 25 insertions(+)
+
+diff --git a/drivers/media/video/uvc/uvc_ctrl.c b/drivers/media/video/uvc/uvc_ctrl.c
+index 0dc2a9f..a4db26f 100644
+--- a/drivers/media/video/uvc/uvc_ctrl.c
++++ b/drivers/media/video/uvc/uvc_ctrl.c
+@@ -1221,6 +1221,23 @@ int uvc_ctrl_set(struct uvc_video_chain *chain,
+ 		if (xctrl->value < 0 || xctrl->value >= mapping->menu_count)
+ 			return -ERANGE;
+ 		value = mapping->menu_info[xctrl->value].value;
++
++		/* Valid menu indices are reported by the GET_RES request for
++		 * UVC controls that support it.
++		 */
++		if (ctrl->info->flags & UVC_CONTROL_GET_RES) {
++			if (!ctrl->cached) {
++				ret = uvc_ctrl_populate_cache(chain, ctrl);
++				if (ret < 0)
++					return ret;
++			}
++
++			step = mapping->get(mapping, UVC_GET_RES,
++					uvc_ctrl_data(ctrl, UVC_CTRL_DATA_RES));
++			if (!(step & value))
++				return -ERANGE;
++		}
++
+ 		break;
+ 
+ 	default:
+diff --git a/drivers/media/video/uvc/uvc_driver.c b/drivers/media/video/uvc/uvc_driver.c
+index 6459b8c..61e5137 100644
+--- a/drivers/media/video/uvc/uvc_driver.c
++++ b/drivers/media/video/uvc/uvc_driver.c
+@@ -103,6 +103,11 @@ static struct uvc_format_desc uvc_fmts[] = {
+ 		.guid		= UVC_GUID_FORMAT_BY8,
+ 		.fcc		= V4L2_PIX_FMT_SBGGR8,
+ 	},
++	{
++		.name		= "RGB565",
++		.guid		= UVC_GUID_FORMAT_RGBP,
++		.fcc		= V4L2_PIX_FMT_RGB565,
++	},
+ };
+ 
+ /* ------------------------------------------------------------------------
+diff --git a/drivers/media/video/uvc/uvcvideo.h b/drivers/media/video/uvc/uvcvideo.h
+index 18d7667..cd58ea8 100644
+--- a/drivers/media/video/uvc/uvcvideo.h
++++ b/drivers/media/video/uvc/uvcvideo.h
+@@ -176,6 +176,9 @@ struct uvc_xu_control_query {
+ #define UVC_GUID_FORMAT_BY8 \
+ 	{ 'B',  'Y',  '8',  ' ', 0x00, 0x00, 0x10, 0x00, \
+ 	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}
++#define UVC_GUID_FORMAT_RGBP \
++	{ 'R',  'G',  'B',  'P', 0x00, 0x00, 0x10, 0x00, \
++	 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}
+ 
+ /* ------------------------------------------------------------------------
+  * Driver specific constants.
+-- 
+1.7.5.2

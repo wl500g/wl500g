@@ -1,0 +1,139 @@
+diff -uB quagga/configure quagga.new/configure
+--- quagga/configure
++++ quagga.new/configure
+@@ -30839,6 +30839,99 @@
+ 
+ "
+ if test "x$ac_cv_have_decl_CLOCK_MONOTONIC" = x""yes; then :
++  echo "$as_me:$LINENO: checking for clock_gettime" >&5
++echo $ECHO_N "checking for clock_gettime... $ECHO_C" >&6
++if test "${ac_cv_func_clock_gettime+set}" = set; then
++  echo $ECHO_N "(cached) $ECHO_C" >&6
++else
++  cat >conftest.$ac_ext <<_ACEOF
++/* confdefs.h.  */
++_ACEOF
++cat confdefs.h >>conftest.$ac_ext
++cat >>conftest.$ac_ext <<_ACEOF
++/* end confdefs.h.  */
++/* Define clock_gettime to an innocuous variant, in case <limits.h> declares clock_gettime.
++   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
++#define clock_gettime innocuous_clock_gettime
++
++/* System header to define __stub macros and hopefully few prototypes,
++    which can conflict with char clock_gettime (); below.
++    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
++    <limits.h> exists even on freestanding compilers.  */
++
++#ifdef __STDC__
++# include <limits.h>
++#else
++# include <assert.h>
++#endif
++
++#undef clock_gettime
++
++/* Override any gcc2 internal prototype to avoid an error.  */
++#ifdef __cplusplus
++extern "C"
++{
++#endif
++/* We use char because int might match the return type of a gcc2
++   builtin and then its argument prototype would still apply.  */
++char clock_gettime ();
++/* The GNU C library defines this for functions which it implements
++    to always fail with ENOSYS.  Some functions are actually named
++    something starting with __ and the normal name is an alias.  */
++#if defined (__stub_clock_gettime) || defined (__stub___clock_gettime)
++choke me
++#else
++char (*f) () = clock_gettime;
++#endif
++#ifdef __cplusplus
++}
++#endif
++
++int
++main ()
++{
++return f != clock_gettime;
++  ;
++  return 0;
++}
++_ACEOF
++rm -f conftest.$ac_objext conftest$ac_exeext
++if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
++  (eval $ac_link) 2>conftest.er1
++  ac_status=$?
++  grep -v '^ *+' conftest.er1 >conftest.err
++  rm -f conftest.er1
++  cat conftest.err >&5
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); } &&
++	 { ac_try='test -z "$ac_c_werror_flag"
++			 || test ! -s conftest.err'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; } &&
++	 { ac_try='test -s conftest$ac_exeext'
++  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
++  (eval $ac_try) 2>&5
++  ac_status=$?
++  echo "$as_me:$LINENO: \$? = $ac_status" >&5
++  (exit $ac_status); }; }; then
++  ac_cv_func_clock_gettime=yes
++else
++  echo "$as_me: failed program was:" >&5
++sed 's/^/| /' conftest.$ac_ext >&5
++
++ac_cv_func_clock_gettime=no
++fi
++rm -f conftest.err conftest.$ac_objext \
++      conftest$ac_exeext conftest.$ac_ext
++fi
++echo "$as_me:$LINENO: result: $ac_cv_func_clock_gettime" >&5
++echo "${ECHO_T}$ac_cv_func_clock_gettime" >&6
++if test $ac_cv_func_clock_gettime = yes; then
++  :
++else
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for clock_gettime in -lrt" >&5
+ $as_echo_n "checking for clock_gettime in -lrt... " >&6; }
+ if test "${ac_cv_lib_rt_clock_gettime+set}" = set; then :
+@@ -30881,7 +30994,7 @@
+ 
+ 
+ $as_echo "#define HAVE_CLOCK_MONOTONIC /**/" >>confdefs.h
+-
++fi
+ 
+ else
+   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+diff -uB quagga/configure.ac quagga.new/configure.ac
+--- quagga/configure.ac
++++ quagga.new/configure.ac
+@@ -1355,8 +1355,9 @@
+ dnl checking for clock_time monotonic struct and call
+ dnl --------------------------------------
+ AC_CHECK_DECL(CLOCK_MONOTONIC,
+-	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
+-	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
++	[AC_CHECK_FUNC([clock_gettime],,
++		[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])]
++	)AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
+ ], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
+ 
+ dnl -------------------
+diff -uB quagga/Makefile.in quagga.new/Makefile.in
+--- quagga/Makefile.in
++++ quagga.new/Makefile.in
+@@ -279,7 +279,7 @@
+ 
+ $(top_srcdir)/configure:  $(am__configure_deps)
+ 	$(am__cd) $(srcdir) && $(AUTOCONF)
+-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
++$(ACLOCAL_M4):
+ 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+ $(am__aclocal_m4_deps):
+ 

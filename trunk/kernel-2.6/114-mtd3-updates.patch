@@ -1,0 +1,318 @@
+mtd: Updates from upstream
+
+ 646fd12784d506180353005f40f90bcf08c84a3e cache invalidation error for buffered write
+ f8e30e447c692aaa728c65930ebc0146f65e1e7b mtd/chips: add missing set_current_state() to cfi_{amdstd,staa}_sync()
+ 100f2341e305f98de3aa12fb472771ab029cbda7 mtd: fix hang-up in cfi erase and read contention
+ 5c8d2607756a63ddf5b2f2dd368851b8febe4e72 mtd: remove duplicate assignment of chip->state
+ 33b53716bc4b3ff3da2bc41581226424443f9d5a mtd: create function to perform large allocations
+ 3e45cf5e85a4f344fc4c8c901ac057a2402db125 mtd: mtdchar: retry large buffer allocations
+ d80f2666b5373f195deae57c9f33a5abb8053d37 drivers/mtd: Use kmemdup
+
+---
+ drivers/mtd/chips/cfi_cmdset_0001.c |   17 +++++-------
+ drivers/mtd/chips/cfi_cmdset_0002.c |    6 +---
+ drivers/mtd/chips/cfi_cmdset_0020.c |    2 +
+ drivers/mtd/mtdchar.c               |   50 ++++++++++++++++--------------------
+ drivers/mtd/mtdconcat.c             |    3 --
+ drivers/mtd/mtdcore.c               |   49 +++++++++++++++++++++++++++++++++++
+ include/linux/mtd/mtd.h             |    2 +
+ 7 files changed, 87 insertions(+), 42 deletions(-)
+
+diff --git a/drivers/mtd/chips/cfi_cmdset_0001.c b/drivers/mtd/chips/cfi_cmdset_0001.c
+--- a/drivers/mtd/chips/cfi_cmdset_0001.c
++++ b/drivers/mtd/chips/cfi_cmdset_0001.c
+@@ -765,12 +765,9 @@ static int get_chip(struct map_info *map
+ 			        break;
+ 
+ 			if (time_after(jiffies, timeo)) {
+-				/* Urgh. Resume and pretend we weren't here.  */
+-				map_write(map, CMD(0xd0), adr);
+-				/* Make sure we're in 'read status' mode if it had finished */
+-				map_write(map, CMD(0x70), adr);
+-				chip->state = FL_ERASING;
+-				chip->oldstate = FL_READY;
++				/* Urgh. Resume and pretend we weren't here.
++				 * Make sure we're in 'read status' mode if it had finished */
++				put_chip(map, chip, adr);
+ 				printk(KERN_ERR "%s: Chip not ready after erase "
+ 				       "suspended: status = 0x%lx\n", map->name, status.x[0]);
+ 				return -EIO;
+@@ -851,7 +848,6 @@ static void put_chip(struct map_info *ma
+ 
+ 	switch(chip->oldstate) {
+ 	case FL_ERASING:
+-		chip->state = chip->oldstate;
+ 		/* What if one interleaved chip has finished and the
+ 		   other hasn't? The old code would leave the finished
+ 		   one in READY mode. That's bad, and caused -EROFS
+@@ -1487,9 +1483,12 @@ static int __xipram do_write_buffer(stru
+ 	int ret, wbufsize, word_gap, words;
+ 	const struct kvec *vec;
+ 	unsigned long vec_seek;
++	unsigned long initial_adr;
++	int initial_len = len;
+ 
+ 	wbufsize = cfi_interleave(cfi) << cfi->cfiq->MaxBufWriteSize;
+ 	adr += chip->start;
++	initial_adr = adr;
+ 	cmd_adr = adr & ~(wbufsize-1);
+ 
+ 	/* Let's determine this according to the interleave only once */
+@@ -1502,7 +1501,7 @@ static int __xipram do_write_buffer(stru
+ 		return ret;
+ 	}
+ 
+-	XIP_INVAL_CACHED_RANGE(map, adr, len);
++	XIP_INVAL_CACHED_RANGE(map, initial_adr, initial_len);
+ 	ENABLE_VPP(map);
+ 	xip_disable(map, chip, cmd_adr);
+ 
+@@ -1593,7 +1592,7 @@ static int __xipram do_write_buffer(stru
+ 	chip->state = FL_WRITING;
+ 
+ 	ret = INVAL_CACHE_AND_WAIT(map, chip, cmd_adr,
+-				   adr, len,
++				   initial_adr, initial_len,
+ 				   &chip->buffer_write_time);
+ 	if (ret) {
+ 		map_write(map, CMD(0x70), cmd_adr);
+diff --git a/drivers/mtd/chips/cfi_cmdset_0002.c b/drivers/mtd/chips/cfi_cmdset_0002.c
+--- a/drivers/mtd/chips/cfi_cmdset_0002.c
++++ b/drivers/mtd/chips/cfi_cmdset_0002.c
+@@ -567,9 +567,7 @@ static int get_chip(struct map_info *map
+ 				 * there was an error (so leave the erase
+ 				 * routine to recover from it) or we trying to
+ 				 * use the erase-in-progress sector. */
+-				map_write(map, CMD(0x30), chip->in_progress_block_addr);
+-				chip->state = FL_ERASING;
+-				chip->oldstate = FL_READY;
++				put_chip(map, chip, adr);
+ 				printk(KERN_ERR "MTD %s(): chip not ready after erase suspend\n", __func__);
+ 				return -EIO;
+ 			}
+@@ -615,7 +613,6 @@ static void put_chip(struct map_info *ma
+ 
+ 	switch(chip->oldstate) {
+ 	case FL_ERASING:
+-		chip->state = chip->oldstate;
+ 		map_write(map, CMD(0x30), chip->in_progress_block_addr);
+ 		chip->oldstate = FL_READY;
+ 		chip->state = FL_ERASING;
+@@ -1773,6 +1770,7 @@ static void cfi_amdstd_sync (struct mtd_
+ 
+ 		default:
+ 			/* Not an idle state */
++			set_current_state(TASK_UNINTERRUPTIBLE);
+ 			add_wait_queue(&chip->wq, &wait);
+ 
+ 			spin_unlock(chip->mutex);
+diff --git a/drivers/mtd/chips/cfi_cmdset_0020.c b/drivers/mtd/chips/cfi_cmdset_0020.c
+--- a/drivers/mtd/chips/cfi_cmdset_0020.c
++++ b/drivers/mtd/chips/cfi_cmdset_0020.c
+@@ -298,6 +298,7 @@ static inline int do_read_onechip(struct
+ 				/* make sure we're in 'read status' mode */
+ 				map_write(map, CMD(0x70), cmd_addr);
+ 				chip->state = FL_ERASING;
++				wake_up(&chip->wq);
+ 				spin_unlock_bh(chip->mutex);
+ 				printk(KERN_ERR "Chip not ready after erase "
+ 				       "suspended: status = 0x%lx\n", status.x[0]);
+@@ -1015,6 +1016,7 @@ static void cfi_staa_sync (struct mtd_in
+ 
+ 		default:
+ 			/* Not an idle state */
++			set_current_state(TASK_UNINTERRUPTIBLE);
+ 			add_wait_queue(&chip->wq, &wait);
+ 
+ 			spin_unlock_bh(chip->mutex);
+diff --git a/drivers/mtd/mtdchar.c b/drivers/mtd/mtdchar.c
+--- a/drivers/mtd/mtdchar.c
++++ b/drivers/mtd/mtdchar.c
+@@ -145,10 +145,23 @@ static int mtd_close(struct inode *inode
+ 	return 0;
+ } /* mtd_close */
+ 
+-/* FIXME: This _really_ needs to die. In 2.5, we should lock the
+-   userspace buffer down and use it directly with readv/writev.
+-*/
+-#define MAX_KMALLOC_SIZE 0x20000
++/* Back in June 2001, dwmw2 wrote:
++ *
++ *   FIXME: This _really_ needs to die. In 2.5, we should lock the
++ *   userspace buffer down and use it directly with readv/writev.
++ *
++ * The implementation below, using mtd_kmalloc_up_to, mitigates
++ * allocation failures when the system is under low-memory situations
++ * or if memory is highly fragmented at the cost of reducing the
++ * performance of the requested transfer due to a smaller buffer size.
++ *
++ * A more complex but more memory-efficient implementation based on
++ * get_user_pages and iovecs to cover extents of those pages is a
++ * longer-term goal, as intimated by dwmw2 above. However, for the
++ * write case, this requires yet more complex head and tail transfer
++ * handling when those head and tail offsets and sizes are such that
++ * alignment requirements are not met in the NAND subdriver.
++ */
+ 
+ static ssize_t mtd_read(struct file *file, char __user *buf, size_t count,loff_t *ppos)
+ {
+@@ -158,6 +171,7 @@ static ssize_t mtd_read(struct file *fil
+ 	size_t total_retlen=0;
+ 	int ret=0;
+ 	int len;
++	size_t size = count;
+ 	char *kbuf;
+ 
+ 	DEBUG(MTD_DEBUG_LEVEL0,"MTD_read\n");
+@@ -168,23 +182,12 @@ static ssize_t mtd_read(struct file *fil
+ 	if (!count)
+ 		return 0;
+ 
+-	/* FIXME: Use kiovec in 2.5 to lock down the user's buffers
+-	   and pass them directly to the MTD functions */
+-
+-	if (count > MAX_KMALLOC_SIZE)
+-		kbuf=kmalloc(MAX_KMALLOC_SIZE, GFP_KERNEL);
+-	else
+-		kbuf=kmalloc(count, GFP_KERNEL);
+-
++	kbuf = mtd_kmalloc_up_to(mtd, &size);
+ 	if (!kbuf)
+ 		return -ENOMEM;
+ 
+ 	while (count) {
+-
+-		if (count > MAX_KMALLOC_SIZE)
+-			len = MAX_KMALLOC_SIZE;
+-		else
+-			len = count;
++		len = min_t(size_t, count, size);
+ 
+ 		switch (mfi->mode) {
+ 		case MTD_MODE_OTP_FACTORY:
+@@ -247,6 +250,7 @@ static ssize_t mtd_write(struct file *fi
+ {
+ 	struct mtd_file_info *mfi = file->private_data;
+ 	struct mtd_info *mtd = mfi->mtd;
++	size_t size = count;
+ 	char *kbuf;
+ 	size_t retlen;
+ 	size_t total_retlen=0;
+@@ -264,20 +268,12 @@ static ssize_t mtd_write(struct file *fi
+ 	if (!count)
+ 		return 0;
+ 
+-	if (count > MAX_KMALLOC_SIZE)
+-		kbuf=kmalloc(MAX_KMALLOC_SIZE, GFP_KERNEL);
+-	else
+-		kbuf=kmalloc(count, GFP_KERNEL);
+-
++	kbuf = mtd_kmalloc_up_to(mtd, &size);
+ 	if (!kbuf)
+ 		return -ENOMEM;
+ 
+ 	while (count) {
+-
+-		if (count > MAX_KMALLOC_SIZE)
+-			len = MAX_KMALLOC_SIZE;
+-		else
+-			len = count;
++		len = min_t(size_t, count, size);
+ 
+ 		if (copy_from_user(kbuf, buf, len)) {
+ 			kfree(kbuf);
+diff --git a/drivers/mtd/mtdconcat.c b/drivers/mtd/mtdconcat.c
+--- a/drivers/mtd/mtdconcat.c
++++ b/drivers/mtd/mtdconcat.c
+@@ -184,10 +184,9 @@ concat_writev(struct mtd_info *mtd, cons
+ 	}
+ 
+ 	/* make a copy of vecs */
+-	vecs_copy = kmalloc(sizeof(struct kvec) * count, GFP_KERNEL);
++	vecs_copy = kmemdup(vecs, sizeof(struct kvec) * count, GFP_KERNEL);
+ 	if (!vecs_copy)
+ 		return -ENOMEM;
+-	memcpy(vecs_copy, vecs, sizeof(struct kvec) * count);
+ 
+ 	entry_low = 0;
+ 	for (i = 0; i < concat->num_subdev; i++) {
+diff --git a/drivers/mtd/mtdcore.c b/drivers/mtd/mtdcore.c
+--- a/drivers/mtd/mtdcore.c
++++ b/drivers/mtd/mtdcore.c
+@@ -321,6 +321,54 @@ int default_mtd_writev(struct mtd_info *
+ 	return ret;
+ }
+ 
++/**
++ * mtd_kmalloc_up_to - allocate a contiguous buffer up to the specified size
++ * @size: A pointer to the ideal or maximum size of the allocation. Points
++ *        to the actual allocation size on success.
++ *
++ * This routine attempts to allocate a contiguous kernel buffer up to
++ * the specified size, backing off the size of the request exponentially
++ * until the request succeeds or until the allocation size falls below
++ * the system page size. This attempts to make sure it does not adversely
++ * impact system performance, so when allocating more than one page, we
++ * ask the memory allocator to avoid re-trying, swapping, writing back
++ * or performing I/O.
++ *
++ * Note, this function also makes sure that the allocated buffer is aligned to
++ * the MTD device's min. I/O unit, i.e. the "mtd->writesize" value.
++ *
++ * This is called, for example by mtd_{read,write} and jffs2_scan_medium,
++ * to handle smaller (i.e. degraded) buffer allocations under low- or
++ * fragmented-memory situations where such reduced allocations, from a
++ * requested ideal, are allowed.
++ *
++ * Returns a pointer to the allocated buffer on success; otherwise, NULL.
++ */
++void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size)
++{
++	gfp_t flags = __GFP_NOWARN | __GFP_WAIT |
++		       __GFP_NORETRY;
++	size_t min_alloc = max_t(size_t, mtd->writesize, PAGE_SIZE);
++	void *kbuf;
++
++	*size = min_t(size_t, *size, KMALLOC_MAX_SIZE);
++
++	while (*size > min_alloc) {
++		kbuf = kmalloc(*size, flags);
++		if (kbuf)
++			return kbuf;
++
++		*size >>= 1;
++		*size = ALIGN(*size, mtd->writesize);
++	}
++
++	/*
++	 * For the last resort allocation allow 'kmalloc()' to do all sorts of
++	 * things (write-back, dropping caches, etc) by using GFP_KERNEL.
++	 */
++	return kmalloc(*size, GFP_KERNEL);
++}
++
+ EXPORT_SYMBOL_GPL(add_mtd_device);
+ EXPORT_SYMBOL_GPL(del_mtd_device);
+ EXPORT_SYMBOL_GPL(get_mtd_device);
+@@ -329,6 +377,7 @@ EXPORT_SYMBOL_GPL(put_mtd_device);
+ EXPORT_SYMBOL_GPL(register_mtd_user);
+ EXPORT_SYMBOL_GPL(unregister_mtd_user);
+ EXPORT_SYMBOL_GPL(default_mtd_writev);
++EXPORT_SYMBOL_GPL(mtd_kmalloc_up_to);
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+diff --git a/include/linux/mtd/mtd.h b/include/linux/mtd/mtd.h
+--- a/include/linux/mtd/mtd.h
++++ b/include/linux/mtd/mtd.h
+@@ -348,6 +348,8 @@ int default_mtd_writev(struct mtd_info *mtd, const struct kvec *vecs,
+ int default_mtd_readv(struct mtd_info *mtd, struct kvec *vecs,
+ 		      unsigned long count, loff_t from, size_t *retlen);
+ 
++void *mtd_kmalloc_up_to(const struct mtd_info *mtd, size_t *size);
++
+ #ifdef CONFIG_MTD_PARTITIONS
+ void mtd_erase_callback(struct erase_info *instr);
+ #else
+-- 
+1.7.4.4

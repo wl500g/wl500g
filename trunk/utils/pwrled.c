@@ -1,5 +1,5 @@
 /*
- * pwrled v.0.4.20101007
+ * pwrled v.0.5.20101007
  * Copyright (c) 2007 Dmitriy I. Balakin <http://mam0n.ru>
  * Copyright (c) 2009 theMIROn <http://wl500g.googlecode.com>
  *
@@ -29,7 +29,7 @@
 
 #include <bcmnvram.h>
 
-#define PWRLED_VERSION_STRING "0.4.20101007"
+#define PWRLED_VERSION_STRING "0.5.20101007"
 
 #ifdef HAVE_GETMODEL
 #include <shutils.h>
@@ -44,6 +44,20 @@
 #define GPIO6 0x0040
 #define GPIO7 0x0080
 #define GPIO15 0x8000
+
+#ifdef LINUX26
+#define GPIOCTL
+#else
+#undef GPIOCTL
+#endif
+
+#ifdef GPIOCTL
+#include <sys/ioctl.h>
+#include <linux_gpio.h>
+#define GPIO_DEV_OUT	GPIO_IOC_OUT
+#else
+#define GPIO_DEV_OUT	"/dev/gpio/out"
+#endif
 
 static inline int startswith(char *source, char *cmp) { return !strncmp(source,cmp,strlen(cmp)); }
 
@@ -101,6 +115,8 @@ enum {
 	MDL_RTN16,
 	MDL_RTN12,
 	MDL_RTN10,
+	MDL_RTN10U,
+	MDL_WNR3500L,
 };
 #endif
 
@@ -124,10 +140,13 @@ struct platform_t platforms[] = {
 	[MDL_RTN16]	= {"ASUS RT-N16",		GPIO1, 0},
 	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO2, 0},
 	[MDL_RTN10]	= {"ASUS RT-N10",		GPIO1, 0},
+	[MDL_RTN10U]	= {"ASUS RT-N10U",		GPIO6, 0},
 	/* D-Link */
 	[MDL_DIR320]	= {"D-Link DIR-320",		GPIO0, GPIO0},
 	/* Microsoft */
 	[MDL_MN700]	= {"Microsoft MN-700",		GPIO6, GPIO6},
+	/* Netgear */
+	[MDL_WNR3500L]	= {"Netgear WNR3500L",		GPIO3, GPIO3},
 	{NULL, 0, 0},
 };
 
@@ -136,10 +155,36 @@ static int pwr_mask  = -1;
 static int pwr_value = -1;
 static int running   = 1;
 
-static void gpio_out(char *dev, int mask, int value)
+#ifdef GPIOCTL
+static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int value)
+{
+	struct gpio_ioctl gpio;
+
+	gpio.val = value;
+	gpio.mask = mask;
+
+	if (ioctl(fd, gpioreg, &gpio) < 0) {
+		printf ("Invalid gpioreg %d\n", gpioreg);
+		return -1;
+	}
+	return gpio.val;
+}
+
+static void gpio_out(unsigned int mask, unsigned int value)
+{
+	int fd = open("/dev/gpio", O_RDWR);
+	if (fd != -1)
+	{
+		tgpio_ioctl(fd, GPIO_IOC_RESERVE, mask, mask);
+		tgpio_ioctl(fd, GPIO_IOC_OUT, mask, value & mask);
+		close(fd);
+	}
+}
+#else
+static void gpio_out(unsigned int mask, unsigned int value)
 {
 	unsigned int val = 0;
-	int fd = open(dev, O_RDWR);
+	int fd = open("/dev/gpio/out", , O_RDWR);
 	if (fd != -1) {
 		if (read(fd, &val, sizeof(val)) == sizeof(val)) {
 			val = (val & ~mask) | (value & mask);
@@ -148,6 +193,7 @@ static void gpio_out(char *dev, int mask, int value)
 		close(fd);
 	}
 }
+#endif
 
 #ifndef HAVE_GETMODEL
 static int get_model(void)
@@ -184,6 +230,8 @@ static int get_model(void)
 				return MDL_RTN12;
 			if (!strcmp(boardtype,"0x04EC"))
 				return MDL_RTN10;
+			if (!strcmp(boardtype,"0x0550"))
+				return MDL_RTN10U;
 			if (!strcmp(boardtype,"0x042f"))
 				return MDL_WL500GP;
 			if (!strcmp(boardtype,"0x0472"))
@@ -202,6 +250,10 @@ static int get_model(void)
 		if (!strcmp(boardnum, "44")) {
 			if (!strcmp(boardtype,"0x042f"))
 				return MDL_WL700G;
+		} else
+		if (!strcmp(boardnum, "3500")) {
+			if (!strcmp(boardtype,"0x04CF"))
+				return MDL_WNR3500L;
 		}
 		if (!strcmp(boardtype,"0x048e"))
 			return MDL_DIR320;
@@ -236,12 +288,12 @@ static int init()
 
 static void pwr_on()
 {
-	gpio_out("/dev/gpio/out", pwr_mask, pwr_value);
+	gpio_out(pwr_mask, pwr_value);
 }
 
 static void pwr_off()
 {
-	gpio_out("/dev/gpio/out", pwr_mask, ~pwr_value);
+	gpio_out(pwr_mask, ~pwr_value);
 }
 
 static void play_alarm(struct preset_t *p)

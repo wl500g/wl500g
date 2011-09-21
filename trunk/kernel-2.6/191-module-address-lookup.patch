@@ -1,0 +1,608 @@
+From ecbc2e5ab7860a959c35404d36ddb09f56bdf2b1
+From: Fedor Kozhevnikov <fedork@ubuntu.(none)>
+Date: Fri, 8 Apr 2011 02:22:52 -0400
+Subject: [PATCH] kernel: kallsyms/module: updates from upstream
+
+kernel.org commits
+a3b81113fb6658629f4ebaabf8dd3067cd341020 remove support for un-needed _extratext section
+9281acea6a3687ff0f262e0be31eac34895b95d7 kallsyms: make KSYM_NAME_LEN include space for trailing '\0'
+cb2a52052cebe4716e83b9d2e53682ba00f67de6 modules: de-mutex more symbol lookup paths in the module code
+6dd06c9fbe025f542bce4cdb91790c0f91962722 module: make module_address_lookup safe
+2fc9c4e18f94431e7eb77d97edb2a995b46fba55 kallsyms: fix potential overflow in binary search
+ea01e798e2d27fd04142e0473ca36570fa9d9218 module: reduce module image and resident size
+966c8c12dc9e77f931e2281ba25d2f0244b06949 sprint_symbol(): use less stack
+ffb4ba76a25ab6c9deeec33e4f58395586ca747c [module] Don't let gcc inline load_module()
+9c24624727f6d6c460e45762a408ca5f5b9b8ef2 KSYM_SYMBOL_LEN fixes
+
+---
+ arch/parisc/kernel/unwind.c    |    2 -
+ fs/proc/base.c                 |    2 -
+ include/asm-generic/sections.h |    2 -
+ include/asm-powerpc/kprobes.h  |    4 +-
+ include/linux/kallsyms.h       |    6 ++--
+ include/linux/module.h         |   20 ++++++++-----
+ kernel/kallsyms.c              |   61 ++++++++++++++++++-----------------------
+ kernel/lockdep.c               |    4 +-
+ kernel/module.c                |   60 ++++++++++++++++++++++++----------------
+ kernel/time/timer_list.c       |    2 -
+ kernel/time/timer_stats.c      |    2 -
+ mm/slab.c                      |    2 -
+ mm/slub.c                      |    2 -
+ scripts/kallsyms.c             |   28 ++++++++----------
+ 14 files changed, 100 insertions(+), 97 deletions(-)
+
+diff --git a/arch/parisc/kernel/unwind.c b/arch/parisc/kernel/unwind.c
+index 3221677..cf780cb 100644
+--- a/arch/parisc/kernel/unwind.c
++++ b/arch/parisc/kernel/unwind.c
+@@ -242,7 +242,7 @@ static void unwind_frame_regs(struct unwind_frame_info *info)
+ #ifdef CONFIG_KALLSYMS
+ 		/* Handle some frequent special cases.... */
+ 		{
+-			char symname[KSYM_NAME_LEN+1];
++			char symname[KSYM_NAME_LEN];
+ 			char *modname;
+ 
+ 			kallsyms_lookup(info->ip, NULL, NULL, &modname,
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index 3983852..5d64c42 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -279,7 +279,7 @@ static int proc_pid_auxv(struct task_struct *task, char *buffer)
+ static int proc_pid_wchan(struct task_struct *task, char *buffer)
+ {
+ 	unsigned long wchan;
+-	char symname[KSYM_NAME_LEN+1];
++	char symname[KSYM_NAME_LEN];
+ 
+ 	wchan = get_wchan(task);
+ 
+diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
+index 962cad7..8feeae1 100644
+--- a/include/asm-generic/sections.h
++++ b/include/asm-generic/sections.h
+@@ -8,8 +8,6 @@ extern char _data[], _sdata[], _edata[];
+ extern char __bss_start[], __bss_stop[];
+ extern char __init_begin[], __init_end[];
+ extern char _sinittext[], _einittext[];
+-extern char _sextratext[] __attribute__((weak));
+-extern char _eextratext[] __attribute__((weak));
+ extern char _end[];
+ extern char __per_cpu_start[], __per_cpu_end[];
+ extern char __kprobes_text_start[], __kprobes_text_end[];
+diff --git a/include/asm-powerpc/kprobes.h b/include/asm-powerpc/kprobes.h
+index b0e40ff..9537fda 100644
+--- a/include/asm-powerpc/kprobes.h
++++ b/include/asm-powerpc/kprobes.h
+@@ -65,10 +65,10 @@ typedef unsigned int kprobe_opcode_t;
+ 		} else if (name[0] != '.')				\
+ 			addr = *(kprobe_opcode_t **)addr;		\
+ 	} else {							\
+-		char dot_name[KSYM_NAME_LEN+1];				\
++		char dot_name[KSYM_NAME_LEN];				\
+ 		dot_name[0] = '.';					\
+ 		dot_name[1] = '\0';					\
+-		strncat(dot_name, name, KSYM_NAME_LEN);			\
++		strncat(dot_name, name, KSYM_NAME_LEN - 2);		\
+ 		addr = (kprobe_opcode_t *)kallsyms_lookup_name(dot_name); \
+ 	}								\
+ }
+diff --git a/include/linux/kallsyms.h b/include/linux/kallsyms.h
+index 5f06527..f73de6f 100644
+--- a/include/linux/kallsyms.h
++++ b/include/linux/kallsyms.h
+@@ -7,9 +7,9 @@
+ 
+ #include <linux/errno.h>
+ 
+-#define KSYM_NAME_LEN 127
+-#define KSYM_SYMBOL_LEN (sizeof("%s+%#lx/%#lx [%s]") + KSYM_NAME_LEN +	\
+-			 2*(BITS_PER_LONG*3/10) + MODULE_NAME_LEN + 1)
++#define KSYM_NAME_LEN 128
++#define KSYM_SYMBOL_LEN (sizeof("%s+%#lx/%#lx [%s]") + (KSYM_NAME_LEN - 1) + \
++			 2*(BITS_PER_LONG*3/10) + (MODULE_NAME_LEN - 1) + 1)
+ 
+ #ifdef CONFIG_KALLSYMS
+ /* Lookup the address for a symbol. Returns 0 if not found. */
+diff --git a/include/linux/module.h b/include/linux/module.h
+index e6e0f86..31d2a59 100644
+--- a/include/linux/module.h
++++ b/include/linux/module.h
+@@ -190,7 +190,7 @@ void *__symbol_get_gpl(const char *symbol);
+ 	extern typeof(sym) sym;					\
+ 	__CRC_SYMBOL(sym, sec)					\
+ 	static const char __kstrtab_##sym[]			\
+-	__attribute__((section("__ksymtab_strings")))		\
++	__attribute__((section("__ksymtab_strings"), aligned(1))) \
+ 	= MODULE_SYMBOL_PREFIX #sym;                    	\
+ 	static const struct kernel_symbol __ksymtab_##sym	\
+ 	__attribute_used__					\
+@@ -452,11 +452,14 @@ do {									     \
+ 	}								     \
+ } while(0)
+ 
+-/* For kallsyms to ask for address resolution.  NULL means not found. */
++/* For kallsyms to ask for address resolution.  namebuf should be at
++ * least KSYM_NAME_LEN long: a pointer to namebuf is returned if
++ * found, otherwise NULL. */
+ const char *module_address_lookup(unsigned long addr,
+-				  unsigned long *symbolsize,
+-				  unsigned long *offset,
+-				  char **modname);
++			    unsigned long *symbolsize,
++			    unsigned long *offset,
++			    char **modname,
++			    char *namebuf);
+ int lookup_module_symbol_name(unsigned long addr, char *symname);
+ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size, unsigned long *offset, char *modname, char *name);
+ 
+@@ -523,9 +526,10 @@ static inline void module_put(struct module *module)
+ 
+ /* For kallsyms to ask for address resolution.  NULL means not found. */
+ static inline const char *module_address_lookup(unsigned long addr,
+-						unsigned long *symbolsize,
+-						unsigned long *offset,
+-						char **modname)
++					  unsigned long *symbolsize,
++					  unsigned long *offset,
++					  char **modname,
++					  char *namebuf)
+ {
+ 	return NULL;
+ }
+diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
+index fed5441..1623f6c 100644
+--- a/kernel/kallsyms.c
++++ b/kernel/kallsyms.c
+@@ -48,14 +48,6 @@ static inline int is_kernel_inittext(unsigned long addr)
+ 	return 0;
+ }
+ 
+-static inline int is_kernel_extratext(unsigned long addr)
+-{
+-	if (addr >= (unsigned long)_sextratext
+-	    && addr <= (unsigned long)_eextratext)
+-		return 1;
+-	return 0;
+-}
+-
+ static inline int is_kernel_text(unsigned long addr)
+ {
+ 	if (addr >= (unsigned long)_stext && addr <= (unsigned long)_etext)
+@@ -75,8 +67,7 @@ static int is_ksym_addr(unsigned long addr)
+ 	if (all_var)
+ 		return is_kernel(addr);
+ 
+-	return is_kernel_text(addr) || is_kernel_inittext(addr) ||
+-		is_kernel_extratext(addr);
++	return is_kernel_text(addr) || is_kernel_inittext(addr);
+ }
+ 
+ /* expand a compressed symbol data into the resulting uncompressed string,
+@@ -152,7 +143,7 @@ static unsigned int get_symbol_offset(unsigned long pos)
+ /* Lookup the address for this symbol. Returns 0 if not found. */
+ unsigned long kallsyms_lookup_name(const char *name)
+ {
+-	char namebuf[KSYM_NAME_LEN+1];
++	char namebuf[KSYM_NAME_LEN];
+ 	unsigned long i;
+ 	unsigned int off;
+ 
+@@ -180,7 +171,7 @@ static unsigned long get_symbol_pos(unsigned long addr,
+ 	high = kallsyms_num_syms;
+ 
+ 	while (high - low > 1) {
+-		mid = (low + high) / 2;
++		mid = low + (high - low) / 2;
+ 		if (kallsyms_addresses[mid] <= addr)
+ 			low = mid;
+ 		else
+@@ -228,10 +219,11 @@ static unsigned long get_symbol_pos(unsigned long addr,
+ int kallsyms_lookup_size_offset(unsigned long addr, unsigned long *symbolsize,
+ 				unsigned long *offset)
+ {
++	char namebuf[KSYM_NAME_LEN];
+ 	if (is_ksym_addr(addr))
+ 		return !!get_symbol_pos(addr, symbolsize, offset);
+ 
+-	return !!module_address_lookup(addr, symbolsize, offset, NULL);
++	return !!module_address_lookup(addr, symbolsize, offset, NULL, namebuf);
+ }
+ 
+ /*
+@@ -246,9 +238,7 @@ const char *kallsyms_lookup(unsigned long addr,
+ 			    unsigned long *offset,
+ 			    char **modname, char *namebuf)
+ {
+-	const char *msym;
+-
+-	namebuf[KSYM_NAME_LEN] = 0;
++	namebuf[KSYM_NAME_LEN - 1] = 0;
+ 	namebuf[0] = 0;
+ 
+ 	if (is_ksym_addr(addr)) {
+@@ -263,17 +253,14 @@ const char *kallsyms_lookup(unsigned long addr,
+ 	}
+ 
+ 	/* see if it's in a module */
+-	msym = module_address_lookup(addr, symbolsize, offset, modname);
+-	if (msym)
+-		return strncpy(namebuf, msym, KSYM_NAME_LEN);
+-
+-	return NULL;
++	return module_address_lookup(addr, symbolsize, offset, modname,
++				     namebuf);
+ }
+ 
+ int lookup_symbol_name(unsigned long addr, char *symname)
+ {
+ 	symname[0] = '\0';
+-	symname[KSYM_NAME_LEN] = '\0';
++	symname[KSYM_NAME_LEN - 1] = '\0';
+ 
+ 	if (is_ksym_addr(addr)) {
+ 		unsigned long pos;
+@@ -291,7 +278,7 @@ int lookup_symbol_attrs(unsigned long addr, unsigned long *size,
+ 			unsigned long *offset, char *modname, char *name)
+ {
+ 	name[0] = '\0';
+-	name[KSYM_NAME_LEN] = '\0';
++	name[KSYM_NAME_LEN - 1] = '\0';
+ 
+ 	if (is_ksym_addr(addr)) {
+ 		unsigned long pos;
+@@ -312,18 +299,24 @@ int sprint_symbol(char *buffer, unsigned long address)
+ 	char *modname;
+ 	const char *name;
+ 	unsigned long offset, size;
+-	char namebuf[KSYM_NAME_LEN+1];
++	int len;
+ 
+-	name = kallsyms_lookup(address, &size, &offset, &modname, namebuf);
++	name = kallsyms_lookup(address, &size, &offset, &modname, buffer);
+ 	if (!name)
+ 		return sprintf(buffer, "0x%lx", address);
+-	else {
+-		if (modname)
+-			return sprintf(buffer, "%s+%#lx/%#lx [%s]", name, offset,
+-				size, modname);
+-		else
+-			return sprintf(buffer, "%s+%#lx/%#lx", name, offset, size);
+-	}
++
++	if (name != buffer)
++		strcpy(buffer, name);
++	len = strlen(buffer);
++	buffer += len;
++
++	if (modname)
++		len += sprintf(buffer, "+%#lx/%#lx [%s]",
++						offset, size, modname);
++	else
++		len += sprintf(buffer, "+%#lx/%#lx", offset, size);
++
++	return len;
+ }
+ 
+ /* Look up a kernel symbol and print it to the kernel messages. */
+@@ -343,8 +336,8 @@ struct kallsym_iter
+ 	unsigned long value;
+ 	unsigned int nameoff; /* If iterating in core kernel symbols */
+ 	char type;
+-	char name[KSYM_NAME_LEN+1];
+-	char module_name[MODULE_NAME_LEN + 1];
++	char name[KSYM_NAME_LEN];
++	char module_name[MODULE_NAME_LEN];
+ 	int exported;
+ };
+ 
+diff --git a/kernel/lockdep.c b/kernel/lockdep.c
+index 072cf25..dead746 100644
+--- a/kernel/lockdep.c
++++ b/kernel/lockdep.c
+@@ -379,7 +379,7 @@ get_usage_chars(struct lock_class *class, char *c1, char *c2, char *c3, char *c4
+ 
+ static void print_lock_name(struct lock_class *class)
+ {
+-	char str[KSYM_NAME_LEN + 1], c1, c2, c3, c4;
++	char str[KSYM_NAME_LEN], c1, c2, c3, c4;
+ 	const char *name;
+ 
+ 	get_usage_chars(class, &c1, &c2, &c3, &c4);
+@@ -401,7 +401,7 @@ static void print_lock_name(struct lock_class *class)
+ static void print_lockdep_cache(struct lockdep_map *lock)
+ {
+ 	const char *name;
+-	char str[KSYM_NAME_LEN + 1];
++	char str[KSYM_NAME_LEN];
+ 
+ 	name = lock->name;
+ 	if (!name)
+diff --git a/kernel/module.c b/kernel/module.c
+index 6b25d3a..df2d83e 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1558,7 +1558,7 @@ static inline void add_kallsyms(struct module *mod,
+ 
+ /* Allocate and load the module: note that size of section 0 is always
+    zero, and we rely on this for optional sections. */
+-static struct module *load_module(void __user *umod,
++static noinline struct module *load_module(void __user *umod,
+ 				  unsigned long len,
+ 				  const char __user *uargs)
+ {
+@@ -1683,8 +1683,9 @@ static struct module *load_module(void __user *umod,
+ 	unwindex = find_sec(hdr, sechdrs, secstrings, ARCH_UNWIND_SECTION_NAME);
+ #endif
+ 
+-	/* Don't keep modinfo section */
++	/* Don't keep modinfo and version sections. */
+ 	sechdrs[infoindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
++	sechdrs[versindex].sh_flags &= ~(unsigned long)SHF_ALLOC;
+ #ifdef CONFIG_KALLSYMS
+ 	/* Keep symbol and string tables for decoding later. */
+ 	sechdrs[symindex].sh_flags |= SHF_ALLOC;
+@@ -2110,32 +2111,41 @@ static const char *get_ksymbol(struct module *mod,
+ 	return mod->strtab + mod->symtab[best].st_name;
+ }
+ 
+-/* For kallsyms to ask for address resolution.  NULL means not found.
+-   We don't lock, as this is used for oops resolution and races are a
+-   lesser concern. */
++/* For kallsyms to ask for address resolution.  NULL means not found.  Careful
++ * not to lock to avoid deadlock on oopses, simply disable preemption. */
+ const char *module_address_lookup(unsigned long addr,
+-				  unsigned long *size,
+-				  unsigned long *offset,
+-				  char **modname)
++			    unsigned long *size,
++			    unsigned long *offset,
++			    char **modname,
++			    char *namebuf)
+ {
+ 	struct module *mod;
++	const char *ret = NULL;
+ 
++	preempt_disable();
+ 	list_for_each_entry(mod, &modules, list) {
+ 		if (within(addr, mod->module_init, mod->init_size)
+ 		    || within(addr, mod->module_core, mod->core_size)) {
+ 			if (modname)
+ 				*modname = mod->name;
+-			return get_ksymbol(mod, addr, size, offset);
++			ret = get_ksymbol(mod, addr, size, offset);
++			break;
+ 		}
+ 	}
+-	return NULL;
++	/* Make a copy in here where it's safe */
++	if (ret) {
++		strncpy(namebuf, ret, KSYM_NAME_LEN - 1);
++		ret = namebuf;
++	}
++	preempt_enable();
++	return ret;
+ }
+ 
+ int lookup_module_symbol_name(unsigned long addr, char *symname)
+ {
+ 	struct module *mod;
+ 
+-	mutex_lock(&module_mutex);
++	preempt_disable();
+ 	list_for_each_entry(mod, &modules, list) {
+ 		if (within(addr, mod->module_init, mod->init_size) ||
+ 		    within(addr, mod->module_core, mod->core_size)) {
+@@ -2144,13 +2154,13 @@ int lookup_module_symbol_name(unsigned long addr, char *symname)
+ 			sym = get_ksymbol(mod, addr, NULL, NULL);
+ 			if (!sym)
+ 				goto out;
+-			strlcpy(symname, sym, KSYM_NAME_LEN + 1);
+-			mutex_unlock(&module_mutex);
++			strlcpy(symname, sym, KSYM_NAME_LEN);
++			preempt_enable();
+ 			return 0;
+ 		}
+ 	}
+ out:
+-	mutex_unlock(&module_mutex);
++	preempt_enable();
+ 	return -ERANGE;
+ }
+ 
+@@ -2159,7 +2169,7 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
+ {
+ 	struct module *mod;
+ 
+-	mutex_lock(&module_mutex);
++	preempt_disable();
+ 	list_for_each_entry(mod, &modules, list) {
+ 		if (within(addr, mod->module_init, mod->init_size) ||
+ 		    within(addr, mod->module_core, mod->core_size)) {
+@@ -2169,15 +2179,15 @@ int lookup_module_symbol_attrs(unsigned long addr, unsigned long *size,
+ 			if (!sym)
+ 				goto out;
+ 			if (modname)
+-				strlcpy(modname, mod->name, MODULE_NAME_LEN + 1);
++				strlcpy(modname, mod->name, MODULE_NAME_LEN);
+ 			if (name)
+-				strlcpy(name, sym, KSYM_NAME_LEN + 1);
+-			mutex_unlock(&module_mutex);
++				strlcpy(name, sym, KSYM_NAME_LEN);
++			preempt_enable();
+ 			return 0;
+ 		}
+ 	}
+ out:
+-	mutex_unlock(&module_mutex);
++	preempt_enable();
+ 	return -ERANGE;
+ }
+ 
+@@ -2186,21 +2196,21 @@ int module_get_kallsym(unsigned int symnum, unsigned long *value, char *type,
+ {
+ 	struct module *mod;
+ 
+-	mutex_lock(&module_mutex);
++	preempt_disable();
+ 	list_for_each_entry(mod, &modules, list) {
+ 		if (symnum < mod->num_symtab) {
+ 			*value = mod->symtab[symnum].st_value;
+ 			*type = mod->symtab[symnum].st_info;
+ 			strlcpy(name, mod->strtab + mod->symtab[symnum].st_name,
+-				KSYM_NAME_LEN + 1);
+-			strlcpy(module_name, mod->name, MODULE_NAME_LEN + 1);
++				KSYM_NAME_LEN);
++			strlcpy(module_name, mod->name, MODULE_NAME_LEN);
+ 			*exported = is_exported(name, mod);
+-			mutex_unlock(&module_mutex);
++			preempt_enable();
+ 			return 0;
+ 		}
+ 		symnum -= mod->num_symtab;
+ 	}
+-	mutex_unlock(&module_mutex);
++	preempt_enable();
+ 	return -ERANGE;
+ }
+ 
+@@ -2223,6 +2233,7 @@ unsigned long module_kallsyms_lookup_name(const char *name)
+ 	unsigned long ret = 0;
+ 
+ 	/* Don't lock: we're in enough trouble already. */
++	preempt_disable();
+ 	if ((colon = strchr(name, ':')) != NULL) {
+ 		*colon = '\0';
+ 		if ((mod = find_module(name)) != NULL)
+@@ -2233,6 +2244,7 @@ unsigned long module_kallsyms_lookup_name(const char *name)
+ 			if ((ret = mod_find_symname(mod, name)) != 0)
+ 				break;
+ 	}
++	preempt_enable();
+ 	return ret;
+ }
+ #endif /* CONFIG_KALLSYMS */
+diff --git a/kernel/time/timer_list.c b/kernel/time/timer_list.c
+index 7ea87d9..fdb2e03 100644
+--- a/kernel/time/timer_list.c
++++ b/kernel/time/timer_list.c
+@@ -38,7 +38,7 @@ DECLARE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases);
+ 
+ static void print_name_offset(struct seq_file *m, void *sym)
+ {
+-	char symname[KSYM_NAME_LEN+1];
++	char symname[KSYM_NAME_LEN];
+ 
+ 	if (lookup_symbol_name((unsigned long)sym, symname) < 0)
+ 		SEQ_printf(m, "<%p>", sym);
+diff --git a/kernel/time/timer_stats.c b/kernel/time/timer_stats.c
+index 5717cfb..591669f 100644
+--- a/kernel/time/timer_stats.c
++++ b/kernel/time/timer_stats.c
+@@ -266,7 +266,7 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
+ 
+ static void print_name_offset(struct seq_file *m, unsigned long addr)
+ {
+-	char symname[KSYM_NAME_LEN+1];
++	char symname[KSYM_NAME_LEN];
+ 
+ 	if (lookup_symbol_name(addr, symname) < 0)
+ 		seq_printf(m, "<%p>", (void *)addr);
+diff --git a/mm/slab.c b/mm/slab.c
+index 8ab07e8..eb6a5a2 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -4364,7 +4364,7 @@ static void show_symbol(struct seq_file *m, unsigned long address)
+ {
+ #ifdef CONFIG_KALLSYMS
+ 	unsigned long offset, size;
+-	char modname[MODULE_NAME_LEN + 1], name[KSYM_NAME_LEN + 1];
++	char modname[MODULE_NAME_LEN], name[KSYM_NAME_LEN];
+ 
+ 	if (lookup_symbol_attrs(address, &size, &offset, modname, name) == 0) {
+ 		seq_printf(m, "%s+%#lx/%#lx", name, offset, size);
+diff --git a/mm/slub.c b/mm/slub.c
+index 2cddb9a..4090ad4 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -3129,7 +3129,7 @@ static int list_locations(struct kmem_cache *s, char *buf,
+ 	for (i = 0; i < t.count; i++) {
+ 		struct location *l = &t.loc[i];
+ 
+-		if (n > PAGE_SIZE - 100)
++		if (n > PAGE_SIZE - KSYM_SYMBOL_LEN - 100)
+ 			break;
+ 		n += sprintf(buf + n, "%7ld ", l->count);
+ 
+diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
+index 8b809b2..4451991 100644
+--- a/scripts/kallsyms.c
++++ b/scripts/kallsyms.c
+@@ -31,7 +31,7 @@
+ #include <string.h>
+ #include <ctype.h>
+ 
+-#define KSYM_NAME_LEN		127
++#define KSYM_NAME_LEN		128
+ 
+ 
+ struct sym_entry {
+@@ -43,7 +43,7 @@ struct sym_entry {
+ 
+ static struct sym_entry *table;
+ static unsigned int table_size, table_cnt;
+-static unsigned long long _text, _stext, _etext, _sinittext, _einittext, _sextratext, _eextratext;
++static unsigned long long _text, _stext, _etext, _sinittext, _einittext;
+ static int all_symbols = 0;
+ static char symbol_prefix_char = '\0';
+ 
+@@ -101,10 +101,6 @@ static int read_symbol(FILE *in, struct sym_entry *s)
+ 		_sinittext = s->addr;
+ 	else if (strcmp(sym, "_einittext") == 0)
+ 		_einittext = s->addr;
+-	else if (strcmp(sym, "_sextratext") == 0)
+-		_sextratext = s->addr;
+-	else if (strcmp(sym, "_eextratext") == 0)
+-		_eextratext = s->addr;
+ 	else if (toupper(stype) == 'A')
+ 	{
+ 		/* Keep these useful absolute symbols */
+@@ -167,18 +163,18 @@ static int symbol_valid(struct sym_entry *s)
+ 	 * and inittext sections are discarded */
+ 	if (!all_symbols) {
+ 		if ((s->addr < _stext || s->addr > _etext)
+-		    && (s->addr < _sinittext || s->addr > _einittext)
+-		    && (s->addr < _sextratext || s->addr > _eextratext))
++		    && (s->addr < _sinittext || s->addr > _einittext))
+ 			return 0;
+ 		/* Corner case.  Discard any symbols with the same value as
+-		 * _etext _einittext or _eextratext; they can move between pass
+-		 * 1 and 2 when the kallsyms data are added.  If these symbols
+-		 * move then they may get dropped in pass 2, which breaks the
+-		 * kallsyms rules.
++		 * _etext _einittext; they can move between pass 1 and 2 when
++		 * the kallsyms data are added.  If these symbols move then
++		 * they may get dropped in pass 2, which breaks the kallsyms
++		 * rules.
+ 		 */
+-		if ((s->addr == _etext && strcmp((char*)s->sym + offset, "_etext")) ||
+-		    (s->addr == _einittext && strcmp((char*)s->sym + offset, "_einittext")) ||
+-		    (s->addr == _eextratext && strcmp((char*)s->sym + offset, "_eextratext")))
++		if ((s->addr == _etext &&
++				strcmp((char *)s->sym + offset, "_etext")) ||
++		    (s->addr == _einittext &&
++				strcmp((char *)s->sym + offset, "_einittext")))
+ 			return 0;
+ 	}
+ 
+@@ -254,7 +250,7 @@ static void write_src(void)
+ 	unsigned int i, k, off;
+ 	unsigned int best_idx[256];
+ 	unsigned int *markers;
+-	char buf[KSYM_NAME_LEN+1];
++	char buf[KSYM_NAME_LEN];
+ 
+ 	printf("#include <asm/types.h>\n");
+ 	printf("#if BITS_PER_LONG == 64\n");
+-- 
+1.6.5.GIT

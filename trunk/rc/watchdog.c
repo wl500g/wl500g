@@ -20,15 +20,23 @@
 #include <string.h>
 #include <sys/types.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
-#include <stdarg.h>
 #include <wlioctl.h>
 #include <wlutils.h>
 #include <netconf.h>
 #include <nvparse.h>
+#include "rc.h"
+
+#ifdef LINUX26
+ #define GPIOCTL
+#else
+ #undef GPIOCTL
+#endif
+
+#include "mtd.h"
 
 extern int router_model;
 
@@ -45,51 +53,125 @@ extern int router_model;
 #define STACHECK_PERIOD_CONNECT 60/5		/* 30 seconds */
 #define STACHECK_PERIOD_DISCONNECT 5/5		/* 5 seconds */
 
-#define GPIO0 0x0001
-#define GPIO1 0x0002
-#define GPIO2 0x0004
-#define GPIO3 0x0008
-#define GPIO4 0x0010
-#define GPIO5 0x0020
-#define GPIO6 0x0040
-#define GPIO7 0x0080
-#define GPIO15 0x8000
+#define GPIO0  0x00000001
+#define GPIO1  0x00000002
+#define GPIO2  0x00000004
+#define GPIO3  0x00000008
+#define GPIO4  0x00000010
+#define GPIO5  0x00000020
+#define GPIO6  0x00000040
+#define GPIO7  0x00000080
+#define GPIO8  0x00000100
+#define GPIO9  0x00000200
+#define GPIO10 0x00000400
+#define GPIO11 0x00000800
+#define GPIO12 0x00001000
+#define GPIO13 0x00002000
+#define GPIO14 0x00004000
+#define GPIO15 0x00008000
+#define GPIO16 0x00010000
+#define GPIO17 0x00020000
+#define GPIO18 0x00040000
+#define GPIO19 0x00080000
+#define GPIO20 0x00100000
+#define GPIO21 0x00200000
+#define GPIO22 0x00400000
+#define GPIO23 0x00800000
 
 static int reset_mask = 0;
 static int reset_value = 0;
 static int ready_mask = 0;	/* Ready or Power LED */
 static int ready_value = 0;
-static int setup_mask = 0;	/* EZ-Setup button */
+static int setup_mask = 0;	/* EZ-Setup/WPS button */
 static int setup_value = 0;
 static int power_mask = 0;	/* POWER button light */
 static int power_value = 0;
 
+#ifdef GPIOCTL
+ #include <sys/ioctl.h>
+ #include <linux_gpio.h>
+ #define GPIO_DEV_IN	GPIO_IOC_IN
+ #define GPIO_DEV_OUT	GPIO_IOC_OUT
+ #define GPIO_DEV_OUTEN	GPIO_IOC_OUTEN
+#else
+ #define GPIO_DEV_IN	"/dev/gpio/in"
+ #define GPIO_DEV_OUT	"/dev/gpio/out"
+ #define GPIO_DEV_OUTEN	"/dev/gpio/outen"
+#endif
 
 #define LED_READY_ON 	(ready_value)
-#define LED_READY_OFF 	(~ready_value)
+#define LED_READY_OFF	(~ready_value)
 #define LED_READY	ready_mask
 
-#define LED_CONTROL(led,flag) gpio_write("/dev/gpio/out", led, flag)
+#define LED_CONTROL(led,flag) gpio_write(GPIO_DEV_OUT, led, flag)
 
 static struct itimerval itv; 
-int watchdog_period=0;
-long sync_interval=-1; // every 30 seconds a unit
-int sync_flag=0;
-long timestamp_g=0;
-int stacheck_interval=-1;
+static long sync_interval = -1; // every 30 seconds a unit
+static int stacheck_interval = -1;
+
+/* Private et.o ioctls */
+#define SIOCGETCROBORD		(SIOCDEVPRIVATE + 14)
+#define SIOCSETCROBOWR		(SIOCDEVPRIVATE + 15)
+static int wan_phystatus = 1;	// assume it's was up before start
+static int wan_phyport = -1;
 
 /* forwards */
 #ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag);
-#else
-inline static int notice_rcamd(int flag) { return 0; }
 #endif
 
-void gpio_write(char *dev, int mask, int value)
+#ifdef GPIOCTL
+
+static int tgpio_open ()
+{
+	int fd = open("/dev/gpio", O_RDWR);
+	if (fd < 0)
+		printf ("Failed to open /dev/gpio\n");
+	return fd;
+}
+
+static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int value)
+{
+	struct gpio_ioctl gpio;
+
+	gpio.val = value;
+	gpio.mask = mask;
+
+	if (ioctl(fd, gpioreg, &gpio) < 0) {
+		printf ("Invalid gpioreg %d\n", gpioreg);
+		return -1;
+	}
+	return gpio.val;
+}
+
+void gpio_write(int gpioreg, unsigned int mask, unsigned int value)
+{
+	int fd = tgpio_open();
+	if (fd != -1)
+	{
+		tgpio_ioctl(fd, GPIO_IOC_RESERVE, mask, mask);
+		tgpio_ioctl(fd, gpioreg, mask, value & mask);
+		close(fd);
+	}
+}
+
+unsigned int gpio_read(int gpioreg, unsigned int mask)
 {
 	unsigned int val = 0;
+	int fd = tgpio_open();
+	if (fd != -1)
+	{
+		val = tgpio_ioctl(fd, gpioreg, mask, 0);
+		close(fd);
+	}
+	return val & mask;
+}
+#else
+
+void gpio_write(char *dev, unsigned int mask, unsigned int value)
+{
+	unsigned long val;
 	int fd = open(dev, O_RDWR);
-	
 	if (fd != -1)
 	{
 		if (read(fd, &val, sizeof(val)) == sizeof(val))
@@ -101,20 +183,18 @@ void gpio_write(char *dev, int mask, int value)
 	}
 }
 
-unsigned int gpio_read(char *dev)
+unsigned int gpio_read(char *dev, unsigned int mask)
 {
 	unsigned int val = 0;
 	int fd = open(dev, O_RDONLY);
-	
-	if (fd != -1) 
+	if (fd != -1)
 	{
 		read(fd, &val, sizeof(val));
 		close(fd);
 	}
-	
-	return val;
+	return val & mask;
 }
-
+#endif
 
 /* Functions used to control led and button */
 void gpio_init(void)
@@ -170,11 +250,67 @@ void gpio_init(void)
 			ready_mask = GPIO1, ready_value = GPIO1;
 			setup_mask = GPIO6, setup_value = 0;
 			break;
+		case MDL_RTN16:
+			reset_mask = GPIO6, reset_value = 0;
+			ready_mask = GPIO1, ready_value = 0;
+			setup_mask = GPIO8, setup_value = 0;
+			break;
+		case MDL_RTN12:
+			reset_mask = GPIO1, reset_value = 0;
+			ready_mask = GPIO2, ready_value = 0;
+			setup_mask = GPIO0, setup_value = 0;
+			break;
+		case MDL_RTN10:
+			reset_mask = GPIO3, reset_value = 0;
+			ready_mask = GPIO1, ready_value = 0;
+			setup_mask = GPIO2, setup_value = 0;
+			break;
+		case MDL_RTN10U:
+			reset_mask = GPIO21, reset_value = 0;
+			ready_mask = GPIO6, ready_value = 0;
+			setup_mask = GPIO20, setup_value = 0;
+			break;
+		case MDL_WNR3500L:
+			reset_mask = GPIO4, reset_value = 0;
+			ready_mask = GPIO3, ready_value = GPIO3;
+			setup_mask = GPIO6, setup_value = 0;
+			break;
 	}
-	gpio_write("/dev/gpio/outen", ready_mask | power_mask | 
+	gpio_write(GPIO_DEV_OUTEN, ready_mask | power_mask |
 		reset_mask | setup_mask, ready_mask | power_mask);
+#ifndef GPIOCTL
 	gpio_write("/dev/gpio/control", ready_mask | power_mask |
 		reset_mask | setup_mask, 0);
+#endif
+}
+
+static int phy_status(char *wan_if, int port)
+{
+	struct ifreq ifr;
+	int fd;
+	int args[2];
+	int ret = 0;
+
+	memset(&ifr, 0, sizeof(ifr));
+	strncpy(ifr.ifr_name, wan_if, sizeof(ifr.ifr_name));
+
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (fd < 0)
+		return ret;
+
+	args[0] = 0x10000;
+	ifr.ifr_data = (caddr_t) args;
+	if (ioctl(fd, SIOCGETCROBORD, (caddr_t)&ifr) < 0) {
+		perror("ioctl(SIOCGETCROBORD)");
+		goto error;
+	}
+
+	if (args[1] & (1 << port))
+		ret = 1;
+
+error:
+	close(fd);
+	return ret;
 }
 
 static void
@@ -190,7 +326,7 @@ void btn_check(void)
 {
 	static int pressed;
 
-	if ((gpio_read("/dev/gpio/in") & reset_mask) == reset_value)
+	if (gpio_read(GPIO_DEV_IN, reset_mask) == reset_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < RESET_WAIT_COUNT) {
@@ -229,7 +365,7 @@ void btn_check(void)
 #endif
 			case 1:	/* restore to defaults */
 				alarmtimer(0, 0);
-				eval("erase", "/dev/mtd/3");
+				eval("erase", MTD_DEV(3));
 				kill(1, SIGTERM);
 				break;
 			}
@@ -242,7 +378,7 @@ void setup_check(void)
 {
 	static int pressed;
 
-	if ((gpio_read("/dev/gpio/in") & setup_mask) == setup_value)
+	if (gpio_read(GPIO_DEV_IN, setup_mask) == setup_value)
 	{
 		/* Whenever it is pushed steady */
 		if (++pressed < SETUP_WAIT_COUNT) {
@@ -288,11 +424,6 @@ void inline refresh_ntpc(void)
 
 int ntp_timesync(void)
 {
-	time_t now;
-	struct tm tm;	
-	struct tm gm, local;
-	struct timezone tz;
-
 	//if (nvram_match("router_disable", "1")) return 0;
 	
 	if (sync_interval!=-1)
@@ -301,14 +432,11 @@ int ntp_timesync(void)
 
 	    	if (sync_interval==0)
 		{
-			/* Update kernel timezone */
-			setenv("TZ", nvram_safe_get("time_zone"), 1);
-			time(&now);
-			gmtime_r(&now, &gm);
-			localtime_r(&now, &local);
-			tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-			settimeofday(NULL, &tz);
-			memcpy(&tm, localtime(&now), sizeof(struct tm));
+			time_t now;
+			struct tm tm;
+
+			now = update_tztime(0);
+			localtime_r(&now, &tm);
 
 			if (tm.tm_year>100) // More than 2000
 			{
@@ -322,24 +450,24 @@ int ntp_timesync(void)
 
 			refresh_ntpc();	
 		}
-	}	
+	}
 	return 0;
 }
 
-enum 
+enum ACTIVE
 {
 	URLACTIVE=0,
 	WEBACTIVE,
 	RADIOACTIVE,
 	ACTIVEITEMS
-} ACTIVE;
+};
 
-int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
-int extStatus[ACTIVEITEMS] = { 0, 0, 0};
-char svcDate[ACTIVEITEMS][10];
-char svcTime[ACTIVEITEMS][20];
+static int svcStatus[ACTIVEITEMS] = { -1, -1, -1};
+static int extStatus[ACTIVEITEMS] = { 0, 0, 0};
+static char svcDate[ACTIVEITEMS][10];
+static char svcTime[ACTIVEITEMS][20];
 
-int timecheck_item(char *activeDate, char *activeTime)
+static int timecheck_item(char *activeDate, char *activeTime)
 {
 	#define DAYSTART (0)
 	#define DAYEND (60*60*23+60*59+59) //86399
@@ -393,36 +521,14 @@ int timecheck_item(char *activeDate, char *activeTime)
 /* 1. URL filter 			*/
 /* 2. WEB Camera Security filter 	*/
 
-int svc_timecheck(void)
+static int svc_timecheck(void)
 {
 	int activeFlag, activeNow;
 
 	activeFlag = 0;
 
-#ifndef __CONFIG_DNSMASQ__
-	/* Initialize */
-	if (svcStatus[URLACTIVE]==-1 && nvram_invmatch("url_enable_x", "0"))
-	{
-		strcpy(svcDate[URLACTIVE], nvram_safe_get("url_date_x"));
-		strcpy(svcTime[URLACTIVE], nvram_safe_get("url_time_x"));
-		svcStatus[URLACTIVE] = -2;
-	}	
-
-	if (svcStatus[URLACTIVE]!=-1)
-	{
-		activeNow = timecheck_item(svcDate[URLACTIVE], svcTime[URLACTIVE]);	
-		if (activeNow!=svcStatus[URLACTIVE])
-		{
-			//printf("url time change: %d\n", activeNow);
-			svcStatus[URLACTIVE] = activeNow;
-			//stop_dns();
-			//start_dns();
-		}
-	}
-#endif
-
 #ifdef __CONFIG_RCAMD__
-	if (svcStatus[WEBACTIVE]==-1 && 
+	if (svcStatus[WEBACTIVE] == -1 && 
 		nvram_invmatch("usb_webenable_x", "0") &&
 		nvram_invmatch("usb_websecurity_x", "0"))
 	{	
@@ -431,30 +537,30 @@ int svc_timecheck(void)
 		svcStatus[WEBACTIVE] = -2;
 	}
 
-	if (svcStatus[WEBACTIVE]!=-1)
+	if (svcStatus[WEBACTIVE] != -1)
 	{
 		activeNow = timecheck_item(svcDate[WEBACTIVE], svcTime[WEBACTIVE]);
-		if (activeNow!=svcStatus[WEBACTIVE])
+		if (activeNow != svcStatus[WEBACTIVE])
 		{
 			svcStatus[WEBACTIVE] = activeNow;
 
-			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE]=-1;
-		}	
+			if (!notice_rcamd(svcStatus[WEBACTIVE])) svcStatus[WEBACTIVE] = -1;
+		}
 	}
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
-	if (svcStatus[RADIOACTIVE]==-1 && nvram_invmatch("wl_radio_x", "0"))
-	{	
+	if (svcStatus[RADIOACTIVE] == -1 && nvram_invmatch("wl_radio_x", "0"))
+	{
 		strcpy(svcDate[RADIOACTIVE], nvram_safe_get("wl_radio_date_x"));
 		strcpy(svcTime[RADIOACTIVE], nvram_safe_get("wl_radio_time_x"));
 		svcStatus[RADIOACTIVE] = -2;
 	}
 
 
-	if (svcStatus[RADIOACTIVE]!=-1)
+	if (svcStatus[RADIOACTIVE] != -1)
 	{
 		activeNow = timecheck_item(svcDate[RADIOACTIVE], svcTime[RADIOACTIVE]);
-		if (activeNow!=svcStatus[RADIOACTIVE])
+		if (activeNow != svcStatus[RADIOACTIVE])
 		{
 			svcStatus[RADIOACTIVE] = activeNow;
 
@@ -466,12 +572,12 @@ int svc_timecheck(void)
 	//printf("svc : %d %d %d\n", svcStatus[0], svcStatus[1], svcStatus[2]);
 	return 0;
 }	
-	
+
 /* Sometimes, httpd becomes inaccessible, try to re-run it */
-int http_processcheck(void)
+static int http_processcheck(void)
 {
-	char http_cmd[32];
-	char buf[256];
+//	char http_cmd[32];
+//	char buf[256];
 	char *httpd_pid = "/var/run/httpd.pid";
 
 	//printf("http check\n");
@@ -487,23 +593,6 @@ int http_processcheck(void)
 		start_httpd();
 	}
 
-	if (nvram_invmatch("usb_webdriver_x", ""))
-	{						
-		sprintf(http_cmd, "http://127.0.0.1:%s/", nvram_safe_get("usb_webhttpport_x"));
-		//logmessage("webcam", "webcam httpd die checking %s\n", http_cmd);
-
-		if (!http_check(http_cmd, buf, sizeof(buf), 0))
-		{
-			dprintf("http rerun\n");
-			sprintf(buf, "/var/run/httpd-%s.pid", nvram_safe_get("usb_webhttpport_x"));
-			kill_pidfile(buf);
-			//logmessage("webcam", "webcam httpd rerun\n");
-
-			chdir("/tmp/webcam");
-			eval("httpd", nvram_safe_get("wan0_ifname"), nvram_safe_get("usb_webhttpport_x"));
-			chdir("/");
-		}
-	}
 	return 0;
 }
 
@@ -511,36 +600,45 @@ int http_processcheck(void)
 #ifdef USB_SUPPORT
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
-int usb_communication_device_processcheck(void)
+int usb_communication_device_processcheck(int wait_flag)
 {
-  	char *wan_ifname;
+	char *wan_ifname;
 	char *wan_proto;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
-	int unit;
+	int unit, enable;
 
-	/* Start each configured and enabled wan connection and its undelying i/f */
-	for( unit=0; unit<MAX_NVPARSE; unit++) 
-	{
-		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+	hotplug_sem_open();
+	if (wait_flag) {
+		enable = 1;
+		hotplug_sem_lock();
+	} else {
+		enable = hotplug_sem_trylock();
+	}
+	if (enable) {
+		/* Start each configured and enabled wan connection and its undelying i/f */
+		for ( unit=0; unit<MAX_NVPARSE; unit++) 
+		{
+			snprintf(prefix, sizeof(prefix), "wan%d_", unit);
 
-		/* make sure the connection exists and is enabled */ 
-		wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
-		if (!wan_ifname)
-			continue;
+			/* make sure the connection exists and is enabled */ 
+			wan_ifname = nvram_get(strcat_r(prefix, "ifname", tmp));
+			if (!wan_ifname)
+				continue;
 
-		wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
-		if (!wan_proto || !strcmp(wan_proto, "disabled"))
-			continue;
+			wan_proto = nvram_get(strcat_r(prefix, "proto", tmp));
+			if (!wan_proto || !strcmp(wan_proto, "disabled"))
+				continue;
 #ifdef __CONFIG_MADWIMAX__
-		if( !strcmp(wan_proto, "wimax")) madwimax_check(prefix);
-		else
-#else
-		{}
+			if (!strcmp(wan_proto, "wimax")) madwimax_check(prefix);
 #endif
 #ifdef __CONFIG_MODEM__
-		if( !strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
+			if (!strcmp(wan_proto, "usbmodem")) usb_modem_check(prefix);
 #endif
+		}
+		hotplug_sem_unlock();
 	}
+	hotplug_sem_close();
+
 	return 0;
 }
 #endif
@@ -548,13 +646,11 @@ int usb_communication_device_processcheck(void)
 #ifdef __CONFIG_RCAMD__
 static int notice_rcamd(int flag)
 {
-	int ret = -1;
+	int ret;
 
-	if (flag)
-		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1);
-	else
-		ret = kill_pidfile_s("/var/run/rcamd.pid", SIGUSR2);
-	
+//TODO: mjpg-streamer start/stop control
+//	ret = kill_pidfile_s("/var/run/rcamd.pid", flag ? SIGUSR1 : SIGUSR2);
+
 	return (ret == 0);
 }
 
@@ -563,28 +659,18 @@ static int refresh_rcamd(void)
 	if (kill_pidfile_s("/var/run/rcamd.pid", SIGUSR1) == 0)
 	{
 		unlink("/var/run/rcamd.pid");
-	}			
-	else 
-	{	
-		eval("killall", "rcamd");
+	}
+	else
+	{
+		killall("mjpg_streamer", 0);
 	}
 
-	kill_pidfile_s("/var/run/rcamdmain.pid", SIGUSR1);
-	return 0;
+	return hotplug_usb_webcam(nvram_safe_get("usb_web_device"));
 }
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
 
-#ifdef __CONFIG_WAVESERVER__
-int refresh_wave(void)
-{
-	eval("killall", "waveserver");
-
-	kill_pidfile_s("/var/run/waveservermain.pid", SIGUSR1);
-	return 0;
-}
-#endif
-#endif
+#endif /* USB_SUPPORT */
 
 static void catch_sig(int sig)
 {
@@ -598,7 +684,7 @@ static void catch_sig(int sig)
 	{
 		dprintf("Get Signal: %d %d %d\n", svcStatus[WEBACTIVE], extStatus[WEBACTIVE], sig);
 
-#ifdef USB_SUPPORT
+#ifdef __CONFIG_RCAMD__
 		FILE *fp;
 		char command[256], *cmd_ptr;
 
@@ -623,8 +709,8 @@ static void catch_sig(int sig)
 			notice_rcamd(1);
 			extStatus[WEBACTIVE] = 0;
 		}
-#endif // USB_SUPPORT
-	}	
+#endif /* __CONFIG_RCAMD__ */
+	}
 }
 
 static void sta_check(void)
@@ -666,6 +752,46 @@ static void sta_check(void)
 	return;
 }
 
+static void link_check(void)
+{
+	int unit = 0;
+	int status;
+
+	/* Skip if wan port is unknown/not set */
+	if (wan_phyport < 0)
+		return;
+
+	status = phy_status("eth0", wan_phyport);
+	if (wan_phystatus == status)
+		return;
+	wan_phystatus = status;
+
+	if (status)
+	{
+		char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+		char *wan_proto;
+
+		sprintf(prefix, "wan%d_", unit);
+		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", tmp));
+
+#ifdef __CONFIG_EAPOL__
+		if (nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5")
+		&& (strcmp(wan_proto, "static") == 0 ||
+		    strcmp(wan_proto, "dhcp") == 0))
+			killall("wpa_supplicant", -SIGUSR2);
+		else
+#endif
+		if (strcmp(wan_proto, "dhcp") == 0 ||
+		    strcmp(wan_proto, "bigpond") == 0)
+		{
+			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", unit);
+			kill_pidfile_s(tmp, SIGUSR1);
+		}
+	}
+
+	logmessage("WAN port", "cable %s", status ? "connected" : "disconnected");
+}
+
 /* wathchdog is runned in NORMAL_PERIOD, 1 seconds
  * check in each NORMAL_PERIOD
  *	1. button
@@ -677,16 +803,21 @@ static void sta_check(void)
  *      3. http-process
  *      4. usb hotplug status
  */
-void watchdog(int signum)
+static void watchdog(int signum)
 {
+	static int watchdog_period = 0;
 	time_t now;
+
 	/* handle button */
 	if (reset_mask) btn_check();
 	/* handle ezsetup */
 	if (setup_mask) setup_check();
-	
+
 	/* if timer is set to less than 1 sec, then bypass the following */
 	if (itv.it_value.tv_sec==0) return;
+
+	/* handle WAN port link */
+	link_check();
 
 	watchdog_period = (watchdog_period+1) %10;
 	if (watchdog_period) return;
@@ -707,12 +838,12 @@ void watchdog(int signum)
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	/* madwimax and 3g/cdma process */
-	usb_communication_device_processcheck();
+	usb_communication_device_processcheck(0);
 #endif
 
 #ifdef __CONFIG_RCAMD__
 	/* web cam process */
-	if (nvram_invmatch("usb_web_device", ""))
+	if (nvram_invmatch("usb_web_device", "") && nvram_invmatch("usb_webenable_x", "0"))
 	{	
 		if (nvram_invmatch("usb_webdriver_x", ""))
 		{
@@ -723,16 +854,12 @@ void watchdog(int signum)
 		}				
 		else
 		{	
-			//hotplug_usb_webcam(nvram_safe_get("usb_web_device"), 
-			//	   atoi(nvram_safe_get("usb_web_flag")));
-			//nvram_set("usb_web_device", "");
-			//nvram_set("usb_web_flag", "");
 			// reset WEBCAM status	
 			refresh_rcamd();
 			svcStatus[WEBACTIVE] = -1;
 		}
 	}
-#endif
+#endif /* __CONFIG_RCAMD__ */
 
 	/* storage process */
 	if (nvram_invmatch("usb_storage_device", ""))
@@ -740,7 +867,7 @@ void watchdog(int signum)
 		hotplug_usb_mass(nvram_safe_get("usb_storage_device"));
 		nvram_set("usb_storage_device", "");
 	}
-#endif
+#endif /* USB_SUPPORT */
 
 	/* station or ethernet bridge handler */
 	sta_check();
@@ -753,7 +880,7 @@ poweron_main(int argc, char *argv[])
 	gpio_init();
 	
 	if (power_mask) {
-		gpio_write("/dev/gpio/out", power_mask,	power_value);
+		gpio_write(GPIO_DEV_OUT, power_mask, power_value);
 		/* sleep to allow hdd to spin up */
 		sleep(2);
 	}
@@ -765,8 +892,7 @@ static volatile int running = 1;
 
 static void readyoff(int sig)
 {
-	gpio_write("/dev/gpio/out", ready_mask, ~ready_value);
-	
+	gpio_write(GPIO_DEV_OUT, ready_mask, ~ready_value);
 	running = 0;
 }
 
@@ -809,12 +935,16 @@ watchdog_main()
 	signal(SIGCHLD, child_reap);
 
 	/* turn on POWER and READY LEDs */
-	gpio_write("/dev/gpio/out", power_mask | ready_mask,
+	gpio_write(GPIO_DEV_OUT, power_mask | ready_mask,
 		power_value | ready_value);
 
 	/* Start sync time */
 	sync_interval=1;
 	start_ntpc();
+
+	/* Is WAN port link required */
+	if (!nvram_match("router_disable", "1"))
+		wan_phyport = ethernet_port(nvram_safe_get("wan_ifname"));
 
 	/* set timer */
 	alarmtimer(NORMAL_PERIOD, 0);

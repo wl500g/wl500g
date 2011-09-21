@@ -1,0 +1,292 @@
+Subject: [PATCH] slab/slub: a few more patches from upstream
+From cc24df367bf41a342522e96b19dc84088ad266e8
+From: Fedor <fedork@ubuntu.(none)>
+Date: Mon, 19 Apr 2010 12:34:03 -0400
+
+---
+ include/linux/slab.h     |    2 +-
+ include/linux/slub_def.h |    2 +
+ mm/slab.c                |   34 ++++++++++----
+ mm/slub.c                |   48 +++++++++++++-------
+ 4 files changed, 60 insertions(+), 26 deletions(-)
+
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index 1df3c71..6fe526f 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -253,7 +253,7 @@ extern void *__kmalloc_node_track_caller(size_t, gfp_t, int, void *);
+ #define kmalloc_node_track_caller(size, flags, node) \
+ 	kmalloc_track_caller(size, flags)
+ 
+-#endif /* DEBUG_SLAB */
++#endif /* CONFIG_NUMA */
+ 
+ /*
+  * Shortcuts
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+index a5d495e..e34c303 100644
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -86,10 +86,12 @@ static inline int kmalloc_index(size_t size)
+ 	if (size <= KMALLOC_MIN_SIZE)
+ 		return KMALLOC_SHIFT_LOW;
+ 
++#if KMALLOC_MIN_SIZE <= 64
+ 	if (size > 64 && size <= 96)
+ 		return 1;
+ 	if (size > 128 && size <= 192)
+ 		return 2;
++#endif
+ 	if (size <=          8) return 3;
+ 	if (size <=         16) return 4;
+ 	if (size <=         32) return 5;
+diff --git a/mm/slab.c b/mm/slab.c
+index 37559a2..eda3ac6 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -879,6 +879,7 @@ static void __slab_error(const char *function, struct kmem_cache *cachep,
+   */
+ 
+ static int use_alien_caches __read_mostly = 1;
++static int numa_platform __read_mostly = 1;
+ static int __init noaliencache_setup(char *s)
+ {
+ 	use_alien_caches = 0;
+@@ -982,7 +983,6 @@ static int transfer_objects(struct array_cache *to,
+ 
+ 	from->avail -= nr;
+ 	to->avail += nr;
+-	to->touched = 1;
+ 	return nr;
+ }
+ 
+@@ -1159,7 +1159,7 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
+ 	struct kmem_cache *cachep;
+ 	struct kmem_list3 *l3 = NULL;
+ 	int node = cpu_to_node(cpu);
+-	int memsize = sizeof(struct kmem_list3);
++	const int memsize = sizeof(struct kmem_list3);
+ 
+ 	switch (action) {
+ 	case CPU_LOCK_ACQUIRE:
+@@ -1220,13 +1220,18 @@ static int __cpuinit cpuup_callback(struct notifier_block *nfb,
+ 				shared = alloc_arraycache(node,
+ 					cachep->shared * cachep->batchcount,
+ 					0xbaadf00d);
+-				if (!shared)
++				if (!shared) {
++					kfree(nc);
+ 					goto bad;
++				}
+ 			}
+ 			if (use_alien_caches) {
+                                 alien = alloc_alien_cache(node, cachep->limit);
+-                                if (!alien)
+-                                        goto bad;
++                                if (!alien) {
++					kfree(shared);
++					kfree(nc);
++					goto bad;
++				}
+                         }
+ 			cachep->array[cpu] = nc;
+ 			l3 = cachep->nodelists[node];
+@@ -1411,8 +1416,10 @@ void __init kmem_cache_init(void)
+ 	int order;
+ 	int node;
+ 
+-	if (num_possible_nodes() == 1)
++	if (num_possible_nodes() == 1) {
+ 		use_alien_caches = 0;
++		numa_platform = 0;
++	}
+ 
+ 	for (i = 0; i < NUM_INIT_LISTS; i++) {
+ 		kmem_list3_init(&initkmem_list3[i]);
+@@ -2587,7 +2594,7 @@ static struct slab *alloc_slabmgmt(struct kmem_cache *cachep, void *objp,
+ 	if (OFF_SLAB(cachep)) {
+ 		/* Slab management obj is off-slab. */
+ 		slabp = kmem_cache_alloc_node(cachep->slabp_cache,
+-					      local_flags & ~GFP_THISNODE, nodeid);
++					      local_flags, nodeid);
+ 		if (!slabp)
+ 			return NULL;
+ 	} else {
+@@ -2952,8 +2959,10 @@ retry:
+ 	spin_lock(&l3->list_lock);
+ 
+ 	/* See if we can refill from the shared array */
+-	if (l3->shared && transfer_objects(ac, l3->shared, batchcount))
++	if (l3->shared && transfer_objects(ac, l3->shared, batchcount)) {
++		l3->shared->touched = 1;
+ 		goto alloc_done;
++	}
+ 
+ 	while (batchcount > 0) {
+ 		struct list_head *entry;
+@@ -3557,7 +3566,14 @@ static inline void __cache_free(struct kmem_cache *cachep, void *objp)
+ 	check_irq_off();
+ 	objp = cache_free_debugcheck(cachep, objp, __builtin_return_address(0));
+ 
+-	if (cache_free_alien(cachep, objp))
++	/*
++	 * Skip calling cache_free_alien() when the platform is not numa.
++	 * This will avoid cache misses that happen while accessing slabp (which
++	 * is per page memory  reference) to get nodeid. Instead use a global
++	 * variable to skip the call, which is mostly likely to be present in
++	 * the cache.
++	 */
++	if (numa_platform && cache_free_alien(cachep, objp))
+ 		return;
+ 
+ 	if (likely(ac->avail < ac->limit)) {
+diff --git a/mm/slub.c b/mm/slub.c
+index c2ef23b..25f47c8 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -245,9 +245,12 @@ static int sysfs_slab_add(struct kmem_cache *);
+ static int sysfs_slab_alias(struct kmem_cache *, const char *);
+ static void sysfs_slab_remove(struct kmem_cache *);
+ #else
+-static int sysfs_slab_add(struct kmem_cache *s) { return 0; }
+-static int sysfs_slab_alias(struct kmem_cache *s, const char *p) { return 0; }
+-static void sysfs_slab_remove(struct kmem_cache *s) {}
++static inline int sysfs_slab_add(struct kmem_cache *s) { return 0; }
++static inline int sysfs_slab_alias(struct kmem_cache *s, const char *p) { return 0; }
++static inline void sysfs_slab_remove(struct kmem_cache *s)
++{
++	kfree(s);
++}
+ #endif
+ 
+ /********************************************************************
+@@ -376,18 +379,12 @@ static struct track *get_track(struct kmem_cache *s, void *object,
+ static void set_track(struct kmem_cache *s, void *object,
+ 				enum track_item alloc, void *addr)
+ {
+-	struct track *p;
++	struct track *p = get_track(s, object, alloc);
+ 
+-	if (s->offset)
+-		p = object + s->offset + sizeof(void *);
+-	else
+-		p = object + s->inuse;
+-
+-	p += alloc;
+ 	if (addr) {
+ 		p->addr = addr;
+ 		p->cpu = smp_processor_id();
+-		p->pid = current ? current->pid : -1;
++		p->pid = current->pid;
+ 		p->when = jiffies;
+ 	} else
+ 		memset(p, 0, sizeof(struct track));
+@@ -1488,6 +1485,7 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
+ 	void **object;
+ 	unsigned long flags;
+ 
++	might_sleep_if(gfpflags & __GFP_WAIT);
+ 	local_irq_save(flags);
+ 	page = s->cpu_slab[smp_processor_id()];
+ 	if (unlikely(!page || !page->lockless_freelist ||
+@@ -1501,7 +1499,7 @@ static void __always_inline *slab_alloc(struct kmem_cache *s,
+ 	}
+ 	local_irq_restore(flags);
+ 
+-	if (unlikely((gfpflags & __GFP_ZERO) && object))
++	if (unlikely(gfpflags & __GFP_ZERO) && object)
+ 		memset(object, 0, length);
+ 
+ 	return object;
+@@ -1752,7 +1750,7 @@ static inline int calculate_order(int size)
+ 	 * Doh this slab cannot be placed using slub_max_order.
+ 	 */
+ 	order = slab_order(size, 1, MAX_ORDER, 1);
+-	if (order <= MAX_ORDER)
++	if (order < MAX_ORDER)
+ 		return order;
+ 	return -ENOSYS;
+ }
+@@ -1973,6 +1971,7 @@ static int calculate_sizes(struct kmem_cache *s)
+ 	 * on bootup.
+ 	 */
+ 	align = calculate_alignment(flags, align, s->objsize);
++	s->align = align;
+ 
+ 	/*
+ 	 * SLUB stores one object immediately after another beginning from
+@@ -2156,7 +2155,6 @@ void kmem_cache_destroy(struct kmem_cache *s)
+ 		if (s->flags & SLAB_DESTROY_BY_RCU)
+ 			rcu_barrier();
+ 		sysfs_slab_remove(s);
+-		kfree(s);
+ 	}
+ 	up_write(&slub_lock);
+ }
+@@ -2185,6 +2183,7 @@ __setup("slub_min_order=", setup_slub_min_order);
+ static int __init setup_slub_max_order(char *str)
+ {
+ 	get_option (&str, &slub_max_order);
++	slub_max_order = min(slub_max_order, MAX_ORDER - 1);
+ 
+ 	return 1;
+ }
+@@ -2532,8 +2531,6 @@ void __init kmem_cache_init(void)
+ 		create_kmalloc_cache(&kmalloc_caches[1],
+ 				"kmalloc-96", 96, GFP_KERNEL);
+ 		caches++;
+-	}
+-	if (KMALLOC_MIN_SIZE <= 128) {
+ 		create_kmalloc_cache(&kmalloc_caches[2],
+ 				"kmalloc-192", 192, GFP_KERNEL);
+ 		caches++;
+@@ -2563,6 +2560,16 @@ void __init kmem_cache_init(void)
+ 	for (i = 8; i < KMALLOC_MIN_SIZE;i++)
+ 		size_index[(i - 1) / 8] = KMALLOC_SHIFT_LOW;
+ 
++	if (KMALLOC_MIN_SIZE == 128) {
++		/*
++		 * The 192 byte sized cache is not used if the alignment
++		 * is 128 byte. Redirect kmalloc to use the 256 byte cache
++		 * instead.
++		 */
++		for (i = 128 + 8; i <= 192; i += 8)
++			size_index[(i - 1) / 8] = 8;
++	}
++
+ 	slab_state = UP;
+ 
+ 	/* Provide the correct kmalloc names now that the caches are up */
+@@ -3614,6 +3621,13 @@ static ssize_t slab_attr_store(struct kobject *kobj,
+ 	return err;
+ }
+ 
++static void kmem_cache_release(struct kobject *kobj)
++{
++	struct kmem_cache *s = to_slab(kobj);
++
++	kfree(s);
++}
++
+ static struct sysfs_ops slab_sysfs_ops = {
+ 	.show = slab_attr_show,
+ 	.store = slab_attr_store,
+@@ -3621,6 +3635,7 @@ static struct sysfs_ops slab_sysfs_ops = {
+ 
+ static struct kobj_type slab_ktype = {
+ 	.sysfs_ops = &slab_sysfs_ops,
++	.release = kmem_cache_release,
+ };
+ 
+ static int uevent_filter(struct kset *kset, struct kobject *kobj)
+@@ -3722,6 +3737,7 @@ static void sysfs_slab_remove(struct kmem_cache *s)
+ {
+ 	kobject_uevent(&s->kobj, KOBJ_REMOVE);
+ 	kobject_del(&s->kobj);
++	kobject_put(&s->kobj);
+ }
+ 
+ /*
+-- 
+1.6.5.GIT
+

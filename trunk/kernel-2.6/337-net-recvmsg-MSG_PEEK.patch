@@ -1,0 +1,81 @@
+Subject: [PATCH] tcp: Fix recvmsg MSG_PEEK influence of blocking behavior.
+From 518a09ef11f8454f4676125d47c3e775b300c6a5
+From: David S. Miller
+Date: Wed, 5 Nov 2008 03:36:01 -0800
+
+Vito Caputo noticed that tcp_recvmsg() returns immediately from
+partial reads when MSG_PEEK is used.  In particular, this means that
+SO_RCVLOWAT is not respected.
+
+Simply remove the test.  And this matches the behavior of several
+other systems, including BSD.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+Subject: [PATCH] tcp: fix MSG_PEEK race check
+From 775273131810caa41dfc7f9e552ea5d8508caf40
+From: Ilpo Jarvinen
+Date: Sun, 10 May 2009 20:32:34 +0000
+
+Commit 518a09ef11 (tcp: Fix recvmsg MSG_PEEK influence of
+blocking behavior) lets the loop run longer than the race check
+did previously expect, so we need to be more careful with this
+check and consider the work we have been doing.
+
+I tried my best to deal with urg hole madness too which happens
+here:
+	if (!sock_flag(sk, SOCK_URGINLINE)) {
+		++*seq;
+		...
+by using additional offset by one but I certainly have very
+little interest in testing that part.
+
+Signed-off-by: Ilpo JÃ¤rvinen <ilpo.jarvinen@helsinki.fi>
+Tested-by: Frans Pop <elendil@planet.nl>
+Tested-by: Ian Zimmermann <itz@buug.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index eccb716..c5aca0b 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -1321,6 +1321,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	long timeo;
+ 	struct task_struct *user_recv = NULL;
+ 	int copied_early = 0;
++	u32 urg_hole = 0;
+ 
+ 	lock_sock(sk);
+ 
+@@ -1374,8 +1374,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 			    sk->sk_state == TCP_CLOSE ||
+ 			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
+ 			    !timeo ||
+-			    signal_pending(current) ||
+-			    (flags & MSG_PEEK))
++			    signal_pending(current))
+ 				break;
+ 		} else {
+ 			if (sock_flag(sk, SOCK_DONE))
+@@ -1532,7 +1533,8 @@ do_prequeue:
+ 				}
+ 			}
+ 		}
+-		if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
++		if ((flags & MSG_PEEK) &&
++		    (peek_seq - copied - urg_hole != tp->copied_seq)) {
+ 			if (net_ratelimit())
+ 				printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
+ 				       current->comm, current->pid);
+@@ -1553,6 +1555,7 @@ do_prequeue:
+ 				if (!urg_offset) {
+ 					if (!sock_flag(sk, SOCK_URGINLINE)) {
+ 						++*seq;
++						urg_hole++;
+ 						offset++;
+ 						used--;
+ 						if (!used)
+-- 
+1.7.1

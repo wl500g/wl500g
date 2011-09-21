@@ -1,0 +1,55 @@
+From d139d7ffd0c1e81e2a809909b4f8b121a0dc119a
+From: Miklos Szeredi
+Date: Thu, 18 Oct 2007 03:07:00 -0700
+Subject: [PATCH] VFS: allow filesystems to implement atomic open+truncate
+
+Add a new attribute flag ATTR_OPEN, with the meaning: "truncation was
+initiated by open() due to the O_TRUNC flag".
+
+This way filesystems wanting to implement truncation within their ->open()
+method can ignore such truncate requests.
+
+This is a quick & dirty hack, but it comes for free.
+
+Signed-off-by: Miklos Szeredi <mszeredi@suse.cz>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Andreas Dilger <adilger@clusterfs.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/namei.c         |    6 ++++--
+ include/linux/fs.h |    1 +
+ 2 files changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/fs/namei.c b/fs/namei.c
+index 464eecc..1e5c716 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -1659,8 +1659,10 @@ int may_open(struct nameidata *nd, int acc_mode, int flag)
+ 		error = locks_verify_locked(inode);
+ 		if (!error) {
+ 			DQUOT_INIT(inode);
+-			
+-			error = do_truncate(dentry, 0, ATTR_MTIME|ATTR_CTIME, NULL);
++
++			error = do_truncate(dentry, 0,
++					    ATTR_MTIME|ATTR_CTIME|ATTR_OPEN,
++					    NULL);
+ 		}
+ 		put_write_access(inode);
+ 		if (error)
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index e3fc5db..6a4d170 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -330,6 +330,7 @@ typedef void (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
+ 
+ #define ATTR_KILL_SGID	4096
+ #define ATTR_FILE	8192
++#define ATTR_OPEN	32768	/* Truncating from open(O_TRUNC) */
+ 
+ /*
+  * This is the Inode Attributes structure, used for notify_change().  It
+-- 
+1.7.4.4

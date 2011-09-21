@@ -1,7 +1,7 @@
 /*
  * MTD utility functions
  *
- * Copyright 2004, Broadcom Corporation
+ * Copyright 2006, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,11 +9,19 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id$
+ * $Id: mtd.h,v 1.1.1.1 2008/07/21 09:17:42 james26_jang Exp $
  */
 
 #ifndef _mtd_h_
 #define _mtd_h_
+
+#ifdef LINUX26
+ #define	MTD_DEV(arg)		"/dev/mtd"#arg
+ #define	MTD_BLKDEV(arg)		"/dev/mtdblock"#arg
+#else
+ #define	MTD_DEV(arg)		"/dev/mtd/"#arg
+ #define	MTD_BLKDEV(arg)		"/dev/mtdblock/"#arg
+#endif
 
 /*
  * Open an MTD device

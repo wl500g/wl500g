@@ -326,6 +326,9 @@ struct variable variables_Layer3Forwarding[] = {
 #ifdef __CONFIG_MADWIMAX__
 	"wimax:WiMAX",
 #endif
+#ifdef __CONFIG_MODEM__
+	"usbmodem:USB Modem",
+#endif
 	0), FALSE, FALSE},
 	{"wan_mode_x", "", validate_choice, ARGV("0:Disabled","1:Enabled","2:Auto",0), FALSE, FALSE},
 	{"wan_etherspeed_x", "", validate_choice, ARGV(
@@ -336,6 +339,15 @@ struct variable variables_Layer3Forwarding[] = {
 	"100full:100Mpbs full-duplex",
 	0), FALSE, FALSE},
 	{"wan_stb_x", "", validate_range, ARGV("0", "5"), FALSE, FALSE},
+	{"wan_auth_x", "", validate_choice, ARGV(
+	":None",
+#ifdef __CONFIG_EAPOL__
+	"eap-md5:802.1x MD5",
+#endif
+#ifdef __CONFIG_TELENET__
+	"telenet:KabiNET",
+#endif
+        0), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
 
@@ -824,9 +836,11 @@ struct variable variables_WLANConfig11b[] = {
 	{"wl_leddc", "0x640000", validate_string, ARGV(""), FALSE, FALSE},
 	{"wl_wme_apsd", "on", validate_string, ARGV(""), FALSE, FALSE},
 	{"wl_sta_retry_time", "5", validate_string, ARGV(""), FALSE, FALSE},
+	{"wl_wmf_bss_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"RBRList", "Group", validate_group, ARGV(variables_WLANConfig11b_RBRList, "16", "32", "wl_wdsnum_x"), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
+
 
 struct variable variables_DeviceSecurity11b[] = {
 	{"", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
@@ -858,25 +872,59 @@ struct variable variables_PrinterStatus[] = {
 	{"x_PrinterStatus", "Status", NULL, ARGV("printer_status.log","printer_status_t"), FALSE, FALSE},
 	{"x_PrinterUser", "Status", NULL, ARGV("printer_status.log","printer_user_t"), FALSE, FALSE},
 	{"", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_webenable_x", "", validate_choice, ARGV("0:Disabled","1:LAN Only","2:LAN and WAN",0), FALSE, FALSE},
-	{"usb_webdriver_x", "", validate_choice, ARGV("0:PWC 8.8","1:OV511 2.10",0), FALSE, FALSE},
-	{"usb_webimage_x", "", validate_choice, ARGV("0:640 X 480","1:320 X 240","2:160 X 120",0), FALSE, FALSE},
-	{"usb_websense_x", "", validate_choice, ARGV("0:Low","1:Medium","2:High",0), FALSE, FALSE},
-	{"usb_webrectime_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},
-	{"usb_webfresh_x", "", validate_range, ARGV("1", "65535", ""), FALSE, FALSE},
-	{"usb_webcaption_x", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_webhttpport_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
-	{"usb_webhttpcheck_x", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_webactivex_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
-	{"usb_websecurity_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"usb_websecurity_date_x", "", validate_portrange, NULL, FALSE, FALSE},
-	{"usb_websecurity_time_x", "", validate_portrange, NULL, FALSE, FALSE},
-	{"usb_websendto_x", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_webmserver_x", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_websubject_x", "", validate_string, ARGV(""), FALSE, FALSE},
-	{"usb_webattach_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},
-	{"", "", validate_choice, ARGV("0:None","1:PIN 1","2:PIN 2",0), FALSE, FALSE},
-	{"usb_webremote_x", "", validate_choice, ARGV("0:LAN Only",0), FALSE, FALSE},
+	{"usb_webenable_x", "", validate_choice, ARGV(              
+                   "0:Disabled",
+                   "1:LAN Only",
+                   "2:LAN and WAN",
+              0), FALSE, FALSE},
+	{"usb_webdriver_x", "", validate_choice, ARGV(              
+                   "0:PWC 8.8",
+                   "1:OV511 2.10",
+              0), FALSE, FALSE},
+	{"usb_webformat_x", "", validate_choice, ARGV(              
+                   "0:MJPEG",
+                   "1:YUV",
+              0), FALSE, FALSE},
+	{"usb_webimage_x", "", validate_choice, ARGV(              
+                   "0:160 X 120",
+                   "1:320 X 240",
+                   "2:640 X 480",
+                   "3:800 X 600",
+                   "4:1024 X 768",
+                   "5:1280 X 1024",
+                   "6:1600 X 1200",
+                   "7:1280 X 720",
+                   "8:1920 X 1080",
+              0), FALSE, FALSE},
+	{"usb_websense_x", "", validate_choice, ARGV(              
+                   "0:Low",
+                   "1:Medium",
+                   "2:High",
+              0), FALSE, FALSE},
+                       {"usb_webrectime_x", "", validate_range, ARGV("0","65535"), FALSE, FALSE},                                                                                            
+             {"usb_webfresh_x", "", validate_range, ARGV("1", "30", ""), FALSE, FALSE},
+             {"usb_webquality_x", "", validate_range, ARGV("1", "100", ""), FALSE, FALSE},
+             {"usb_webhttpport_x", "", validate_range, ARGV("1024", "65535", ""), FALSE, FALSE},
+                {"usb_webhttpcheck_x", "", validate_string, ARGV(""), FALSE, FALSE},
+ 
+                {"usb_webhttp_username", "", validate_string, ARGV("32"), FALSE, FALSE},
+                {"usb_webhttp_passwd", "", validate_string, ARGV("32"), FALSE, FALSE},
+
+                 {"usb_websecurity_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+                {"usb_websecurity_date_x", "", validate_portrange, NULL, FALSE, FALSE},
+                {"usb_websecurity_time_x", "", validate_portrange, NULL, FALSE, FALSE},
+                    {"usb_websendto_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+                    {"usb_webmserver_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+                    {"usb_websubject_x", "", validate_string, ARGV(""), FALSE, FALSE},                                                                                                                   
+                 {"usb_webattach_x", "", validate_range, ARGV("0","1"), FALSE, FALSE},                                                       
+              {"", "", validate_choice, ARGV(              
+                   "0:None",
+                   "1:PIN 1",
+                   "2:PIN 2",
+              0), FALSE, FALSE},
+              {"usb_webremote_x", "", validate_choice, ARGV(              
+                   "0:LAN Only",
+              0), FALSE, FALSE},
 	{"usb_webremote1_x", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"usb_webremote2_x", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"usb_webremote3_x", "", validate_ipaddr, NULL, FALSE, FALSE},
@@ -928,6 +976,7 @@ struct variable variables_PrinterStatus[] = {
 	{"audio_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{"usb20_disable_x", "", validate_range, ARGV("0","2"), FALSE, FALSE},
 	{"lltd_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
+	{"usb_ntfs3g_enable", "", validate_range, ARGV("0","1"), FALSE, FALSE},
 	{ 0, 0, 0, 0, 0, 0}
 };
 
@@ -1545,10 +1594,12 @@ struct action actions_LANHostConfig[] = {
 struct variable variables_IPv6Config[] = {
 
 	{"ipv6_proto", "", validate_choice, ARGV(
-	"native:Native IPv6",
-	"ppp:IPv6 over PPP",
-	"tun6in4:IPv6-in-IPv4 Tunnel",
-	"tun6to4:IPv6-to-IPv4 Tunnel",
+	"native:Native",
+	"dhcp6:DHCPv6",
+	"ppp:PPPv6",
+	"tun6in4:6in4 tunnel",
+	"tun6to4:6to4 tunnel",
+	"tun6rd:6rd tunnel",
 	0), FALSE, FALSE},
 	{"ipv6_lan_addr", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_lan_netsize", "", validate_range, ARGV("1", "128"), FALSE, FALSE},
@@ -1557,6 +1608,8 @@ struct variable variables_IPv6Config[] = {
 	{"ipv6_wan_router", "", validate_string, ARGV("40"), FALSE, FALSE},
 	{"ipv6_sit_remote", "", validate_ipaddr, NULL, FALSE, FALSE},
 	{"ipv6_sit_relay", "", validate_ipaddr, NULL, FALSE, FALSE},
+ 	{"ipv6_6rd_router", "", validate_ipaddr, NULL, FALSE, FALSE},
+ 	{"ipv6_6rd_ip4size", "", validate_range, ARGV("0", "32"), FALSE, FALSE},
 	{"ipv6_sit_mtu", "", validate_range, ARGV("0", "1480"), FALSE, FALSE},
 	{"ipv6_sit_ttl", "", validate_range, ARGV("0", "255"), FALSE, FALSE},
 	{"ipv6_radvd_enable", "", validate_range, ARGV("0", "1"), FALSE, FALSE},
@@ -1588,8 +1641,6 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_vid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_pid", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_portspeed", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_usbserial", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_packetsize", "", validate_range, ARGV("0", "16384", ""), TRUE, FALSE},
 	{"wan_modem_zerocd_mode", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_dialup_init", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_options", "", validate_string, ARGV(""), TRUE, FALSE},
@@ -1600,7 +1651,6 @@ struct variable variables_3GConfigvariables_3GConfig[] = {
 	{"wan_modem_idle", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_mtu", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_mru", "", validate_string, ARGV(""), TRUE, FALSE},
-	{"wan_modem_serial_enable", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_onfailure", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_maxfail", "", validate_string, ARGV(""), TRUE, FALSE},
 	{"wan_modem_init_script", "", validate_string, ARGV(""), TRUE, FALSE},

@@ -1,0 +1,52 @@
+ipv6: protocol for address routes
+
+ f410a1fba7afa79d2992620e874a343fdba28332 ipv6: protocol for address routes
+ 4f72427998b105392e60bae7a6798a0c96fe4f0a IPv6: set RTPROT_KERNEL to initial route
+
+---
+ net/ipv6/addrconf.c |    1 +
+ net/ipv6/route.c |    3 +++
+ 2 files changed, 4 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index e2d3b758..7b6a584 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -1688,6 +1688,7 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
+ 		.fc_expires = expires,
+ 		.fc_dst_len = plen,
+ 		.fc_flags = RTF_UP | flags,
++		.fc_protocol = RTPROT_KERNEL,
+ 	};
+ 
+ 	ipv6_addr_copy(&cfg.fc_dst, pfx);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 1394ddb..032a5ec 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -137,6 +137,7 @@ static struct rt6_info ip6_null_entry_template = {
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol  = RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
+@@ -159,6 +160,7 @@ static struct rt6_info ip6_prohibit_entry_template = {
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol  = RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
+@@ -176,6 +178,7 @@ static struct rt6_info ip6_blk_hole_entry_template = {
+ 		}
+ 	},
+ 	.rt6i_flags	= (RTF_REJECT | RTF_NONEXTHOP),
++	.rt6i_protocol  = RTPROT_KERNEL,
+ 	.rt6i_metric	= ~(u32) 0,
+ 	.rt6i_ref	= ATOMIC_INIT(1),
+ };
+-- 
+1.7.3.5

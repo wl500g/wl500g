@@ -1,0 +1,52 @@
+From 35036348a823d6c94771628a62656853c635091c
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 22 Jan 2010 00:30:31 -0500
+Subject: [PATCH] VFS: fix a race in lease-breaking during truncate, check for null in dentry_open
+
+From newer kernel:
+http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.32.y.git;a=commitdiff;h=9700382c3c9ff3e673e587084d76eedb3ba88668
+---
+
+ fs/open.c |   16 +++++++++-------
+ 1 file changed, 9 insertions(+), 7 deletions(-)
+
+diff --git a/fs/open.c b/fs/open.c
+index be6a457..080f7e5 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -255,24 +255,26 @@ static long do_sys_truncate(const char __user * path, loff_t length)
+ 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode))
+ 		goto dput_and_out;
+ 
++	error = get_write_access(inode);
++	if (error)
++		goto dput_and_out;
++
+ 	/*
+-	 * Make sure that there are no leases.
++	 * Make sure that there are no leases.  get_write_access() protects
++	 * against the truncate racing with a lease-granting setlease().
+ 	 */
+ 	error = break_lease(inode, FMODE_WRITE);
+ 	if (error)
+-		goto dput_and_out;
+-
+-	error = get_write_access(inode);
+-	if (error)
+-		goto dput_and_out;
++		goto put_write_and_out;
+ 
+ 	error = locks_verify_truncate(inode, NULL, length);
+ 	if (!error) {
+ 		DQUOT_INIT(inode);
+ 		error = do_truncate(nd.dentry, length, 0, NULL);
+ 	}
+-	put_write_access(inode);
+ 
++put_write_and_out:
++	put_write_access(inode);
+ dput_and_out:
+ 	path_release(&nd);
+ out:
+-- 
+1.6.5.GIT

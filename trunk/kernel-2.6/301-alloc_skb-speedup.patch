@@ -1,0 +1,68 @@
+From ec7d2f2cf3a1b76202986519ec4f8ec75b2de232 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 5 May 2010 01:07:37 -0700
+Subject: [PATCH] net: __alloc_skb() speedup
+
+With following patch I can reach maximum rate of my pktgen+udpsink
+simulator :
+- 'old' machine : dual quad core E5450  @3.00GHz
+- 64 UDP rx flows (only differ by destination port)
+- RPS enabled, NIC interrupts serviced on cpu0
+- rps dispatched on 7 other cores. (~130.000 IPI per second)
+- SLAB allocator (faster than SLUB in this workload)
+- tg3 NIC
+- 1.080.000 pps without a single drop at NIC level.
+
+Idea is to add two prefetchw() calls in __alloc_skb(), one to prefetch
+first sk_buff cache line, the second to prefetch the shinfo part.
+
+Also using one memset() to initialize all skb_shared_info fields instead
+of one by one to reduce number of instructions, using long word moves.
+
+All skb_shared_info fields before 'dataref' are cleared in
+__alloc_skb().
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/skbuff.h |    7 ++++++-
+ net/core/skbuff.c      |   21 +++++----------------
+ 2 files changed, 11 insertions(+), 17 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 8b9c109..a9b0e1f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -157,12 +157,14 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
+ 	if (!skb)
+ 		goto out;
++	prefetchw(skb);
+ 
+ 	size = SKB_DATA_ALIGN(size);
+ 	data = kmalloc_node_track_caller(size + sizeof(struct skb_shared_info),
+ 			gfp_mask, node);
+ 	if (!data)
+ 		goto nodata;
++	prefetchw(data + size);
+ 
+ 	/*
+ 	 * See comment in sk_buff definition, just before the 'tail' member
+@@ -180,13 +182,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ #endif
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
++	memset(shinfo, 0, offsetof(struct skb_shared_info, frags));
+ 	atomic_set(&shinfo->dataref, 1);
+-	shinfo->nr_frags  = 0;
+-	shinfo->gso_size = 0;
+-	shinfo->gso_segs = 0;
+-	shinfo->gso_type = 0;
+-	shinfo->ip6_frag_id = 0;
+-	shinfo->frag_list = NULL;
+ 
+ 	if (fclone) {
+ 		struct sk_buff *child = skb + 1;
+-- 
+1.7.2
+

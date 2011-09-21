@@ -1,0 +1,266 @@
+Subject: [PATCH] NET, Netfilter: minor optimization backports from 2.6 upstream
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sun, 23 Jan 2011 23:25:24 -0500
+
+ kernel.org commits
+ 2783ef23128ad0a4b34e4121c1f7ff664785712f udp: Fix potential wrong ip_hdr(skb) pointers
+ 9ce01461028d595a6f1cd724fbd7a0dd70464fe4 tcp: get rid of two unnecessary u16s in TCP skb flags copying
+ 794dbc1d712e181a9eb8d1ae799ed7c526963a7c netfilter: nf_nat: use local variable hdrlen
+ 2452a99dc0496a90abd0090c280671370c0f3e1c netfilter: nf_nat: don't check if the tuple is unique when there isn't any other choice
+ c36952e524b2b898a3c9e9b137f64d72d43cd393 netfilter: nf_nat_core: merge the same lines
+ 99ad3c53b36a056a472927de9c79eda231ecc6fe netfilter: nf_nat_core: don't check if the tuple is used if there is no other choice
+ f31e8d4982653b39fe312f9938be0f49dd9ab5fa netfilter: ctnetlink: fix loop in ctnetlink_get_conntrack()
+ b23909695c33f53df5f1d16696b1aa5b874c1904 netfilter: nf_conntrack: fix the hash random initializing race
+
+---
+ net/ipv4/netfilter/nf_nat_core.c       |   39 +++++++++++++++------------------
+ net/ipv4/netfilter/nf_nat_proto_gre.c  |    4 +--
+ net/ipv4/netfilter/nf_nat_proto_icmp.c |    4 +--
+ net/ipv4/netfilter/nf_nat_proto_tcp.c  |    4 +--
+ net/ipv4/netfilter/nf_nat_proto_udp.c  |    4 +--
+ net/ipv4/tcp_output.c                  |    4 +--
+ net/ipv4/udp.c                         |    6 +++--
+ net/netfilter/nf_conntrack_core.c      |    3 --
+ net/netfilter/nf_conntrack_netlink.c   |    3 +-
+ 9 files changed, 35 insertions(+), 36 deletions(-)
+
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index a459fce..27c5887 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -526,17 +526,18 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	rcu_read_lock();
+ 	proto = __nf_nat_proto_find(orig_tuple->dst.protonum);
+ 
+-	/* Change protocol info to have some randomization */
+-	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM) {
+-		proto->unique_tuple(tuple, range, maniptype, ct);
+-		goto out;
+-	}
+-
+ 	/* Only bother mapping if it's not already in range and unique */
+-	if ((!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) ||
+-	     proto->in_range(tuple, maniptype, &range->min, &range->max)) &&
+-	    !nf_nat_used_tuple(tuple, ct))
+-		goto out;
++	if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
++		if (range->flags & IP_NAT_RANGE_PROTO_SPECIFIED) {
++			if (proto->in_range(tuple, maniptype, &range->min,
++					    &range->max) &&
++			    (range->min.all == range->max.all ||
++			     !nf_nat_used_tuple(tuple, ct)))
++				goto out;
++		} else if (!nf_nat_used_tuple(tuple, ct)) {
++			goto out;
++		}
++	}
+ 
+ 	/* Last change: get protocol to try to obtain unique tuple. */
+ 	proto->unique_tuple(tuple, range, maniptype, ct);
+@@ -717,7 +718,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	if (!skb_make_writable(pskb, hdrlen + sizeof(*inside)))
+ 		return 0;
+ 
+-	inside = (void *)(*pskb)->data + ip_hdrlen(*pskb);
++	inside = (void *)(*pskb)->data + hdrlen;
+ 
+ 	/* We're actually going to mangle it beyond trivial checksum
+ 	   adjustment, so make sure the current checksum is correct. */
+@@ -746,12 +747,10 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	/* rcu_read_lock()ed by nf_hook_slow */
+ 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
+ 
+-	if (!nf_ct_get_tuple(*pskb,
+-			     ip_hdrlen(*pskb) + sizeof(struct icmphdr),
+-			     (ip_hdrlen(*pskb) +
++	if (!nf_ct_get_tuple(*pskb, hdrlen + sizeof(struct icmphdr),
++			     (hdrlen +
+ 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
+-			     (u_int16_t)AF_INET,
+-			     inside->ip.protocol,
++			     (u_int16_t)AF_INET, inside->ip.protocol,
+ 			     &inner, l3proto, l4proto))
+ 		return 0;
+ 
+@@ -760,15 +759,13 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
+ 	   pass all hooks (locally-generated ICMP).  Consider incoming
+ 	   packet: PREROUTING (DST manip), routing produces ICMP, goes
+ 	   through POSTROUTING (which must correct the DST manip). */
+-	if (!manip_pkt(inside->ip.protocol, pskb,
+-		       ip_hdrlen(*pskb) + sizeof(inside->icmp),
+-		       &ct->tuplehash[!dir].tuple,
+-		       !manip))
++	if (!manip_pkt(inside->ip.protocol, pskb, hdrlen + sizeof(inside->icmp),
++		       &ct->tuplehash[!dir].tuple, !manip))
+ 		return 0;
+ 
+ 	if ((*pskb)->ip_summed != CHECKSUM_PARTIAL) {
+ 		/* Reloading "inside" here since manip_pkt inner. */
+-		inside = (void *)(*pskb)->data + ip_hdrlen(*pskb);
++		inside = (void *)(*pskb)->data + hdrlen;
+ 		inside->icmp.checksum = 0;
+ 		inside->icmp.checksum =
+ 			csum_fold(skb_checksum(*pskb, hdrlen,
+diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
+index f046fa3..ba04633 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_gre.c
++++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
+@@ -93,9 +93,9 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 
+ 	DEBUGP("min = %u, range_size = %u\n", min, range_size);
+ 
+-	for (i = 0; i < range_size; i++, key++) {
++	for (i = 0; ; ++key) {
+ 		*keyptr = htons(min + key % range_size);
+-		if (!nf_nat_used_tuple(tuple, conntrack))
++		if (++i == range_size || !nf_nat_used_tuple(tuple, conntrack))
+ 			return 1;
+ 	}
+ 
+diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+index f71ef9b..2286cf6 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
+@@ -42,10 +42,10 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED))
+ 		range_size = 0xFFFF;
+ 
+-	for (i = 0; i < range_size; i++, id++) {
++	for (i = 0; ; ++id) {
+ 		tuple->src.u.icmp.id = htons(ntohs(range->min.icmp.id) +
+ 					     (id % range_size));
+-		if (!nf_nat_used_tuple(tuple, ct))
++		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+ 			return 1;
+ 	}
+ 	return 0;
+diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+index 123c959..aefedb6 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
+@@ -79,9 +79,9 @@ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 		port =  net_random();
+ 
+-	for (i = 0; i < range_size; i++, port++) {
++	for (i = 0; ; ++port) {
+ 		*portptr = htons(min + port % range_size);
+-		if (!nf_nat_used_tuple(tuple, ct))
++		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+ 			return 1;
+ 	}
+ 	return 0;
+diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
+index 1c4c70e..f951cd3 100644
+--- a/net/ipv4/netfilter/nf_nat_proto_udp.c
++++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
+@@ -77,9 +77,9 @@ udp_unique_tuple(struct nf_conntrack_tuple *tuple,
+ 	if (range->flags & IP_NAT_RANGE_PROTO_RANDOM)
+ 		port = net_random();
+ 
+-	for (i = 0; i < range_size; i++, port++) {
++	for (i = 0; ; ++port) {
+ 		*portptr = htons(min + port % range_size);
+-		if (!nf_nat_used_tuple(tuple, ct))
++		if (++i == range_size || !nf_nat_used_tuple(tuple, ct))
+ 			return 1;
+ 	}
+ 	return 0;
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 4e15c8e..92897de 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -608,7 +608,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
+ 	struct sk_buff *buff;
+ 	int nsize, old_factor;
+ 	int nlen;
+-	u16 flags;
++	u8 flags;
+ 
+ 	BUG_ON(len > skb->len);
+ 
+@@ -1130,7 +1130,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+ {
+ 	struct sk_buff *buff;
+ 	int nlen = skb->len - len;
+-	u16 flags;
++	u8 flags;
+ 
+ 	/* All of a TSO frame must be composed of paged data.  */
+ 	if (skb->len != skb->data_len)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 4162a10..db621a2 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1139,8 +1139,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 	struct udphdr *uh = udp_hdr(skb);
+ 	unsigned short ulen;
+ 	struct rtable *rt = (struct rtable*)skb->dst;
+-	__be32 saddr = ip_hdr(skb)->saddr;
+-	__be32 daddr = ip_hdr(skb)->daddr;
++	__be32 saddr, daddr;
+ 
+ 	/*
+ 	 *  Validate the packet.
+@@ -1162,6 +1161,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 	if (udp4_csum_init(skb, uh, proto))
+ 		goto csum_error;
+ 
++	saddr = ip_hdr(skb)->saddr;
++	daddr = ip_hdr(skb)->daddr;
++
+ 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
+ 		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index df3eedb..4c0ad9b 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -65,8 +65,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
+ /* This avoids calling kmem_cache_create() with same name simultaneously */
+ static DEFINE_MUTEX(nf_ct_cache_mutex);
+ 
+-static int nf_conntrack_hash_rnd_initted;
+-static unsigned int nf_conntrack_hash_rnd;
++static unsigned int nf_conntrack_hash_rnd __read_mostly;
+ 
+ static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+ 				  unsigned int size, unsigned int rnd)
+@@ -574,9 +573,18 @@ struct nf_conn *__nf_conntrack_alloc(
+	struct nf_conn *conntrack = NULL;
+ 	struct nf_conntrack_helper *helper;
+ 
+-	if (unlikely(!nf_conntrack_hash_rnd_initted)) {
+-		get_random_bytes(&nf_conntrack_hash_rnd, 4);
+-		nf_conntrack_hash_rnd_initted = 1;
++	if (unlikely(!nf_conntrack_hash_rnd)) {
++		unsigned int rand;
++
++		/*
++		 * Why not initialize nf_conntrack_rnd in a "init()" function ?
++		 * Because there isn't enough entropy when system initializing,
++		 * and we initialize it as late as possible.
++		 */
++		do {
++			get_random_bytes(&rand, sizeof(rand));
++		} while (!rand);
++		cmpxchg(&nf_conntrack_hash_rnd, 0, rand);
+ 	}
+ 
+ 	/* We don't want any race condition at early drop stage */
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index d3a9e60..6c9cbb6 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -772,7 +772,8 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ free:
+ 	kfree_skb(skb2);
+ out:
+-	return err;
++	/* this avoids a loop in nfnetlink. */
++	return err == -EAGAIN ? -ENOBUFS : err;
+ }
+ 
+ static inline int
+-- 
+1.6.5.GIT

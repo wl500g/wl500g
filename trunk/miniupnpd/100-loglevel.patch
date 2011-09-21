@@ -1,0 +1,57 @@
+Reduce logging spam patches from Tomato-RT
+
+diff -urBp a/natpmp.c b/natpmp.c
+--- a/natpmp.c	2010-05-11 20:20:02.000000000 +0400
++++ b/natpmp.c	2011-05-19 21:05:53.000000000 +0400
+@@ -209,8 +209,7 @@ void ProcessIncomingNATPMPPacket(int s)
+ 					r = _upnp_delete_redir(eport, proto);
+ 					/*syslog(LOG_DEBUG, "%hu %d r=%d", eport, proto, r);*/
+ 					if(r<0) {
+-						syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s",
+-						       eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
++						//syslog(LOG_ERR, "Failed to remove NAT-PMP mapping eport %hu, protocol %s", eport, (proto==IPPROTO_TCP)?"TCP":"UDP");
+ 						resp[3] = 2;	/* Not Authorized/Refused */
+ 					}
+ 				}
+@@ -328,7 +328,7 @@ int CleanExpiredNATPMP()
+ 	/* remove redirection then search for next one:) */
+ 	if(_upnp_delete_redir(nextnatpmptoclean_eport, nextnatpmptoclean_proto)<0)
+ 		return -1;
+-	syslog(LOG_INFO, "Expired NAT-PMP mapping port %hu %s removed",
++	syslog(LOG_NOTICE, "Expired NAT-PMP mapping port %hu %s removed",
+ 	       nextnatpmptoclean_eport,
+ 	       nextnatpmptoclean_proto==IPPROTO_TCP?"TCP":"UDP");
+ 	return ScanNATPMPforExpiration();
+diff -urBp a/upnpevents.c b/upnpevents.c
+--- a/upnpevents.c	2009-12-22 20:22:13.000000000 +0300
++++ b/upnpevents.c	2011-05-19 21:04:45.000000000 +0400
+@@ -319,7 +319,7 @@ static void upnp_event_send(struct upnp_
+ 	       "upnp_event_send", obj->buffer + obj->sent);
+ 	i = send(obj->s, obj->buffer + obj->sent, obj->tosend - obj->sent, 0);
+ 	if(i<0) {
+-		syslog(LOG_NOTICE, "%s: send(): %m", "upnp_event_send");
++		syslog(LOG_DEBUG, "%s: send(): %m", "upnp_event_send");
+ 		obj->state = EError;
+ 		return;
+ 	}
+@@ -336,7 +336,7 @@ static void upnp_event_recv(struct upnp_
+ 	int n;
+ 	n = recv(obj->s, obj->buffer, obj->buffersize, 0);
+ 	if(n<0) {
+-		syslog(LOG_ERR, "%s: recv(): %m", "upnp_event_recv");
++		syslog(LOG_DEBUG, "%s: recv(): %m", "upnp_event_recv");
+ 		obj->state = EError;
+ 		return;
+ 	}
+diff -urBp a/upnphttp.c b/upnphttp.c
+--- a/upnphttp.c	2009-02-13 22:38:34.000000000 +0300
++++ b/upnphttp.c	2011-05-19 21:05:47.000000000 +0400
+@@ -431,7 +431,7 @@ ProcessHttpQuery_upnphttp(struct upnphtt
+ #endif
+ 		else
+ 		{
+-			syslog(LOG_NOTICE, "%s not found, responding ERROR 404", HttpUrl);
++			syslog(LOG_INFO, "%s not found, responding ERROR 404", HttpUrl);
+ 			Send404(h);
+ 		}
+ 	}

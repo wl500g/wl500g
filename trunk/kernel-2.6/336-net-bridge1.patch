@@ -1,0 +1,100 @@
+Subject: [PATCH] BRIDGE: upstream patches: packets leaking out of disabled/blocked ports, fix net_device refcnt leaks
+From 403fbd33c6c57916eaa1286ee6c55402f8577677
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 28 Apr 2010 15:17:41 -0400
+
+kernel.org commits
+df1c0b8468b34628ed12b103804a4576cd9af8bb (Stephen Hemminger)
+2dc2f207fb251666d2396fe1a69272b307ecc333 (Patrick McHardy)
+---
+ net/bridge/br_fdb.c       |    5 +++
+ net/bridge/br_input.c     |    3 +-
+ net/bridge/br_netfilter.c |   27 ++++++++++++++++++++
+ 3 files changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 3fc6972..91bf29b 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -384,6 +384,11 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
+ 	if (hold_time(br) == 0)
+ 		return;
+ 
++	/* ignore packets unless we are using this port */
++	if (!(source->state == BR_STATE_LEARNING ||
++	      source->state == BR_STATE_FORWARDING))
++		return;
++
+ 	fdb = fdb_find(head, addr);
+ 	if (likely(fdb)) {
+ 		/* attempt to update an entry for a local interface */
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index fb2c7cc..2adbbe4 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -101,9 +101,8 @@ static int br_handle_local_finish(struct sk_buff *skb)
+ {
+ 	struct net_bridge_port *p = rcu_dereference(skb->dev->br_port);
+ 
+-	if (p && p->state != BR_STATE_DISABLED)
++	if (p)
+ 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source);
+-
+ 	return 0;	 /* process further */
+ }
+ 
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 3ee2022..424d407 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -142,6 +142,23 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
+ 	return skb->nf_bridge;
+ }
+ 
++static inline struct nf_bridge_info *nf_bridge_unshare(struct sk_buff *skb)
++{
++	struct nf_bridge_info *nf_bridge = skb->nf_bridge;
++
++	if (atomic_read(&nf_bridge->use) > 1) {
++		struct nf_bridge_info *tmp = nf_bridge_alloc(skb);
++
++		if (tmp) {
++			memcpy(tmp, nf_bridge, sizeof(struct nf_bridge_info));
++			atomic_set(&tmp->use, 1);
++			nf_bridge_put(nf_bridge);
++		}
++		nf_bridge = tmp;
++	}
++	return nf_bridge;
++}
++
+ static inline void nf_bridge_push_encap_header(struct sk_buff *skb)
+ {
+ 	unsigned int len = nf_bridge_encap_header_len(skb);
+@@ -638,6 +655,11 @@ static unsigned int br_nf_forward_ip(unsigned int hook, struct sk_buff **pskb,
+ 	if (!skb->nf_bridge)
+ 		return NF_ACCEPT;
+ 
++	/* Need exclusive nf_bridge_info since we might have multiple
++	 * different physoutdevs. */
++	if (!nf_bridge_unshare(skb))
++		return NF_DROP;
++
+ 	parent = bridge_parent(out);
+ 	if (!parent)
+ 		return NF_DROP;
+@@ -721,6 +743,11 @@ static unsigned int br_nf_local_out(unsigned int hook, struct sk_buff **pskb,
+ 	if (!skb->nf_bridge)
+ 		return NF_ACCEPT;
+ 
++	/* Need exclusive nf_bridge_info since we might have multiple
++	 * different physoutdevs. */
++	if (!nf_bridge_unshare(skb))
++		return NF_DROP;
++
+ 	nf_bridge = skb->nf_bridge;
+ 	if (!(nf_bridge->mask & BRNF_BRIDGED_DNAT))
+ 		return NF_ACCEPT;
+-- 
+1.6.5.GIT
+

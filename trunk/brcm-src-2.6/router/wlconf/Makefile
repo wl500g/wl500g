@@ -1,0 +1,34 @@
+#
+# Router Wireless Interface Configuration Utility Makefile
+#
+# Copyright (C) 2009, Broadcom Corporation
+# All Rights Reserved.
+# 
+# This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+# the contents of this file may not be disclosed to third parties, copied
+# or duplicated in any form, in whole or in part, without the prior
+# written permission of Broadcom Corporation.
+#
+# $Id: Makefile,v 1.7 2004/08/24 22:21:10 Exp $
+#
+
+CFLAGS	+= -I. -I$(TOP)/shared -I$(SRCBASE)/include -Wall
+#CFLAGS	+= -g -DDEBUG
+CFLAGS	+= -s -O2 $(EXTRACFLAGS)
+LDFLAGS	+= -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+
+
+OBJS := wlconf.o
+
+all: wlconf
+
+clean:
+	rm -f *.o wlconf
+
+install: all
+	install -d $(INSTALLDIR)/usr/sbin
+	install wlconf $(INSTALLDIR)/usr/sbin
+	$(STRIP) $(INSTALLDIR)/usr/sbin/wlconf
+
+wlconf: $(OBJS)
+	$(CC) -o $@ $^ $(LDFLAGS)

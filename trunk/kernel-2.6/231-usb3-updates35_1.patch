@@ -1,0 +1,982 @@
+From 5401347a013e463ff8045ca615029e5b70260af9 Mon Sep 17 00:00:00 2001
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 11 Aug 2010 04:17:43 -0400
+Subject: [PATCH] USB: backports from kernel post-2.6.35.1 upstream (2010-08-11)
+
+Includes
+b3e670443b7fb8a2d29831b62b44a039c283e351 USB: fix thread-unsafe anchor utiliy routines
+1fb2e0558781b07d2ecaabf94c81c17ac820d8f0 EHCI: reorganize isochronous scheduler routine
+ffda080353979273e8aa69fc1e6134f20643ae56 EHCI: add missing frame -> microframe conversion
+bccbefaae050186bed3bcc74b1fd1a9b8c6710b2 EHCI: simplify remainder computations
+d23356da714595b888686d22cd19061323c09190 USB: fix crash in uhci_scan_schedule
+1eba67a60d6c95f7eae94930ec369f2837bb5b12 USB: UHCI queue: use usb_endpoint_type()
+c0ad7291aae3f76920bdddbc517e20b8d4338ec2 USB: uhci: rm repeatedly evaluation for urbp->qh
+...
+
+---
+ drivers/usb/core/driver.c     |    7 -
+ drivers/usb/core/endpoint.c   |    9 +-
+ drivers/usb/core/generic.c    |    4 
+ drivers/usb/core/hcd-pci.c    |    8 +
+ drivers/usb/core/hcd.c        |   26 +++++-
+ drivers/usb/core/hcd.h        |    1 
+ drivers/usb/core/hub.c        |    8 +
+ drivers/usb/core/quirks.c     |    3 
+ drivers/usb/core/urb.c        |   50 +++++-------
+ drivers/usb/host/Kconfig      |   11 +-
+ drivers/usb/host/ehci-hcd.c   |    8 +
+ drivers/usb/host/ehci-pci.c   |    1 
+ drivers/usb/host/ehci-sched.c |  173 +++++++++++++++++++-----------------------
+ drivers/usb/host/ehci.h       |    4 
+ drivers/usb/host/uhci-debug.c |    3 
+ drivers/usb/host/uhci-hcd.c   |   26 +++---
+ drivers/usb/host/uhci-q.c     |    7 -
+ drivers/usb/serial/ftdi_sio.c |    4 
+ drivers/usb/serial/ftdi_sio.h |   11 ++
+ include/linux/usb/quirks.h    |    4 
+ 20 files changed, 206 insertions(+), 162 deletions(-)
+
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+index 8078f96..8c4c6dd 100644
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -1667,17 +1667,14 @@ static int usb_resume(struct device *dev)
+ 	return status;
+ }
+ 
+-#else
+-
+-#define usb_suspend	NULL
+-#define usb_resume	NULL
+-
+ #endif /* CONFIG_PM */
+ 
+ struct bus_type usb_bus_type = {
+ 	.name =		"usb",
+ 	.match =	usb_device_match,
+ 	.uevent =	usb_uevent,
++#ifdef CONFIG_PM
+ 	.suspend =	usb_suspend,
+ 	.resume =	usb_resume,
++#endif
+ };
+diff --git a/drivers/usb/core/endpoint.c b/drivers/usb/core/endpoint.c
+index d9befe4..ce6767a 100644
+--- a/drivers/usb/core/endpoint.c
++++ b/drivers/usb/core/endpoint.c
+@@ -95,16 +95,21 @@ static ssize_t show_ep_interval(struct device *dev,
+ 
+ 	switch (ep->desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) {
+ 	case USB_ENDPOINT_XFER_CONTROL:
+-		if (ep->udev->speed == USB_SPEED_HIGH) 	/* uframes per NAK */
++		if (ep->udev->speed == USB_SPEED_HIGH)
++			/* uframes per NAK */
+ 			interval = ep->desc->bInterval;
+ 		break;
++
+ 	case USB_ENDPOINT_XFER_ISOC:
+ 		interval = 1 << (ep->desc->bInterval - 1);
+ 		break;
++
+ 	case USB_ENDPOINT_XFER_BULK:
+-		if (ep->udev->speed == USB_SPEED_HIGH && !in) /* uframes per NAK */
++		if (ep->udev->speed == USB_SPEED_HIGH && !in)
++			/* uframes per NAK */
+ 			interval = ep->desc->bInterval;
+ 		break;
++
+ 	case USB_ENDPOINT_XFER_INT:
+ 		if (ep->udev->speed == USB_SPEED_HIGH)
+ 			interval = 1 << (ep->desc->bInterval - 1);
+diff --git a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
+index cff2ec2..058bc57 100644
+--- a/drivers/usb/core/generic.c
++++ b/drivers/usb/core/generic.c
+@@ -105,8 +105,10 @@ int usb_choose_configuration(struct usb_device *udev)
+ 		/* When the first config's first interface is one of Microsoft's
+ 		 * pet nonstandard Ethernet-over-USB protocols, ignore it unless
+ 		 * this kernel has enabled the necessary host side driver.
++		 * But: Don't ignore it if it's the only config.
+ 		 */
+-		if (i == 0 && desc && (is_rndis(desc) || is_activesync(desc))) {
++		if (i == 0 && num_configs > 1 && desc &&
++				(is_rndis(desc) || is_activesync(desc))) {
+ #if !defined(CONFIG_USB_NET_RNDIS_HOST) && !defined(CONFIG_USB_NET_RNDIS_HOST_MODULE)
+ 			continue;
+ #else
+diff --git a/drivers/usb/core/hcd-pci.c b/drivers/usb/core/hcd-pci.c
+index a4301dc..2eccfd6 100644
+--- a/drivers/usb/core/hcd-pci.c
++++ b/drivers/usb/core/hcd-pci.c
+@@ -173,6 +173,14 @@ void usb_hcd_pci_remove(struct pci_dev *dev)
+ 	if (!hcd)
+ 		return;
+ 
++	/* Fake an interrupt request in order to give the driver a chance
++	 * to test whether the controller hardware has been removed (e.g.,
++	 * cardbus physical eject).
++	 */
++	local_irq_disable();
++	usb_hcd_irq(0, hcd);
++	local_irq_enable();
++
+ 	usb_remove_hcd(hcd);
+ 	if (hcd->driver->flags & HCD_MEMORY) {
+ 		iounmap(hcd->regs);
+diff --git a/drivers/usb/core/hcd.c b/drivers/usb/core/hcd.c
+index b1ab1c3..50a9413 100644
+--- a/drivers/usb/core/hcd.c
++++ b/drivers/usb/core/hcd.c
+@@ -573,7 +573,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
+ 	unsigned long	flags;
+ 	char		buffer[4];	/* Any root hubs with > 31 ports? */
+ 
+-	if (unlikely(!hcd->rh_registered))
++	if (unlikely(!hcd->rh_pollable))
+ 		return;
+ 	if (!hcd->uses_new_polling && !hcd->status_urb)
+ 		return;
+@@ -1839,6 +1839,7 @@ int usb_add_hcd(struct usb_hcd *hcd,
+ 		dev_err(hcd->self.controller, "can't setup\n");
+ 		goto err_hcd_driver_setup;
+ 	}
++	hcd->rh_pollable = 1;
+ 
+ 	/* NOTE: root hub and controller capabilities may not be the same */
+ 	if (device_can_wakeup(hcd->self.controller)
+@@ -1892,14 +1893,16 @@ int usb_add_hcd(struct usb_hcd *hcd,
+ 	return retval;
+ 
+ err_register_root_hub:
++	hcd->rh_pollable = 0;
++	hcd->poll_rh = 0;
++	del_timer_sync(&hcd->rh_timer);
+ 	hcd->driver->stop(hcd);
+ err_hcd_driver_start:
+ 	if (hcd->irq >= 0)
+ 		free_irq(irqnum, hcd);
+ err_request_irq:
+ err_hcd_driver_setup:
+-	hcd->self.root_hub = NULL;
+-	usb_put_dev(rhdev);
++	usb_put_dev(hcd->self.root_hub);
+ err_allocate_root_hub:
+ 	usb_deregister_bus(&hcd->self);
+ err_register_bus:
+@@ -1918,7 +1921,10 @@ EXPORT_SYMBOL_GPL(usb_add_hcd);
+  */
+ void usb_remove_hcd(struct usb_hcd *hcd)
+ {
++	struct usb_device *rhdev = hcd->self.root_hub;
++
+ 	dev_info(hcd->self.controller, "remove, state %x\n", hcd->state);
++	usb_get_dev(rhdev);
+ 
+ 	if (HC_IS_RUNNING (hcd->state))
+ 		hcd->state = HC_STATE_QUIESCING;
+@@ -1933,17 +1939,29 @@ void usb_remove_hcd(struct usb_hcd *hcd)
+ #endif
+ 
+ 	mutex_lock(&usb_bus_list_lock);
+-	usb_disconnect(&hcd->self.root_hub);
++	usb_disconnect(&rhdev);		/* Sets rhdev to NULL */
+ 	mutex_unlock(&usb_bus_list_lock);
+ 
++	/* Prevent any more root-hub status calls from the timer.
++	 * The HCD might still restart the timer (if a port status change
++	 * interrupt occurs), but usb_hcd_poll_rh_status() won't invoke
++	 * the hub_status_data() callback.
++	 */
++	hcd->rh_pollable = 0;
++	hcd->poll_rh = 0;
++	del_timer_sync(&hcd->rh_timer);
++
+ 	hcd->driver->stop(hcd);
+ 	hcd->state = HC_STATE_HALT;
+ 
++	/* In case the HCD restarted the timer, stop it again. */
+ 	hcd->poll_rh = 0;
+ 	del_timer_sync(&hcd->rh_timer);
+ 
+ 	if (hcd->irq >= 0)
+ 		free_irq(hcd->irq, hcd);
++
++	usb_put_dev(hcd->self.root_hub);
+ 	usb_deregister_bus(&hcd->self);
+ 	hcd_buffer_destroy(hcd);
+ }
+diff --git a/drivers/usb/core/hcd.h b/drivers/usb/core/hcd.h
+index 4bc85f6..0813d79 100644
+--- a/drivers/usb/core/hcd.h
++++ b/drivers/usb/core/hcd.h
+@@ -89,6 +89,7 @@ struct usb_hcd {
+ #define HCD_FLAG_SAW_IRQ	0x00000002
+ 
+ 	unsigned		rh_registered:1;/* is root hub registered? */
++	unsigned		rh_pollable:1;	/* may we poll the root hub? */
+ 
+ 	/* The next flag is a stopgap, to be removed when all the HCDs
+ 	 * support the new root-hub polling mechanism. */
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 5f01531..1187794 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -19,6 +19,7 @@
+ #include <linux/ioctl.h>
+ #include <linux/usb.h>
+ #include <linux/usbdevice_fs.h>
++#include <linux/usb/quirks.h>
+ #include <linux/kthread.h>
+ #include <linux/mutex.h>
+ #include <linux/freezer.h>
+@@ -1520,9 +1521,6 @@ int usb_new_device(struct usb_device *udev)
+ 	if (udev->parent)
+ 		usb_autoresume_device(udev->parent);
+ 
+-	/* Determine quirks */
+-	usb_detect_quirks(udev);
+-
+ 	err = usb_get_configuration(udev);
+ 	if (err < 0) {
+ 		dev_err(&udev->dev, "can't read configurations, error %d\n",
+@@ -2735,6 +2733,10 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
+ 		if (status < 0)
+ 			goto loop;
+ 
++		usb_detect_quirks(udev);
++		if (udev->quirks & USB_QUIRK_DELAY_INIT)
++			msleep(1000);
++
+ 		/* consecutive bus-powered hubs aren't reliable; they can
+ 		 * violate the voltage drop budget.  if the new child has
+ 		 * a "powered" LED, users should notice we didn't enable it
+diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
+index 2f67cec..70c0193 100644
+--- a/drivers/usb/core/quirks.c
++++ b/drivers/usb/core/quirks.c
+@@ -38,6 +38,9 @@ static const struct usb_device_id usb_quirk_list[] = {
+ 	/* Creative SB Audigy 2 NX */
+ 	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
++	/* Logitech Harmony 700-series */
++	{ USB_DEVICE(0x046d, 0xc122), .driver_info = USB_QUIRK_DELAY_INIT },
++
+ 	/* Philips PSC805 audio device */
+ 	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
+diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
+index c79942d..107f5df 100644
+--- a/drivers/usb/core/urb.c
++++ b/drivers/usb/core/urb.c
+@@ -137,6 +137,16 @@ void usb_anchor_urb(struct urb *urb, struct usb_anchor *anchor)
+ }
+ EXPORT_SYMBOL_GPL(usb_anchor_urb);
+ 
++/* Callers must hold anchor->lock */
++static void __usb_unanchor_urb(struct urb *urb, struct usb_anchor *anchor)
++{
++	urb->anchor = NULL;
++	list_del(&urb->anchor_list);
++	usb_put_urb(urb);
++	if (list_empty(&anchor->urb_list))
++		wake_up(&anchor->wait);
++}
++
+ /**
+  * usb_unanchor_urb - unanchors an URB
+  * @urb: pointer to the urb to anchor
+@@ -156,17 +166,14 @@ void usb_unanchor_urb(struct urb *urb)
+ 		return;
+ 
+ 	spin_lock_irqsave(&anchor->lock, flags);
+-	if (unlikely(anchor != urb->anchor)) {
+-		/* we've lost the race to another thread */
+-		spin_unlock_irqrestore(&anchor->lock, flags);
+-		return;
+-	}
+-	urb->anchor = NULL;
+-	list_del(&urb->anchor_list);
++	/*
++	 * At this point, we could be competing with another thread which
++	 * has the same intention. To protect the urb from being unanchored
++	 * twice, only the winner of the race gets the job.
++	 */
++	if (likely(anchor == urb->anchor))
++		__usb_unanchor_urb(urb, anchor);
+ 	spin_unlock_irqrestore(&anchor->lock, flags);
+-	usb_put_urb(urb);
+-	if (list_empty(&anchor->urb_list))
+-		wake_up(&anchor->wait);
+ }
+ EXPORT_SYMBOL_GPL(usb_unanchor_urb);
+ 
+@@ -713,20 +720,11 @@ EXPORT_SYMBOL_GPL(usb_unpoison_anchored_urbs);
+ void usb_unlink_anchored_urbs(struct usb_anchor *anchor)
+ {
+ 	struct urb *victim;
+-	unsigned long flags;
+ 
+-	spin_lock_irqsave(&anchor->lock, flags);
+-	while (!list_empty(&anchor->urb_list)) {
+-		victim = list_entry(anchor->urb_list.prev, struct urb,
+-				    anchor_list);
+-		usb_get_urb(victim);
+-		spin_unlock_irqrestore(&anchor->lock, flags);
+-		/* this will unanchor the URB */
++	while ((victim = usb_get_from_anchor(anchor)) != NULL) {
+ 		usb_unlink_urb(victim);
+ 		usb_put_urb(victim);
+-		spin_lock_irqsave(&anchor->lock, flags);
+ 	}
+-	spin_unlock_irqrestore(&anchor->lock, flags);
+ }
+ EXPORT_SYMBOL_GPL(usb_unlink_anchored_urbs);
+ 
+@@ -763,12 +761,11 @@ struct urb *usb_get_from_anchor(struct usb_anchor *anchor)
+ 		victim = list_entry(anchor->urb_list.next, struct urb,
+ 				    anchor_list);
+ 		usb_get_urb(victim);
+-		spin_unlock_irqrestore(&anchor->lock, flags);
+-		usb_unanchor_urb(victim);
++		__usb_unanchor_urb(victim, anchor);
+ 	} else {
+-		spin_unlock_irqrestore(&anchor->lock, flags);
+ 		victim = NULL;
+ 	}
++	spin_unlock_irqrestore(&anchor->lock, flags);
+ 
+ 	return victim;
+ }
+@@ -790,12 +787,7 @@ void usb_scuttle_anchored_urbs(struct usb_anchor *anchor)
+ 	while (!list_empty(&anchor->urb_list)) {
+ 		victim = list_entry(anchor->urb_list.prev, struct urb,
+ 				    anchor_list);
+-		usb_get_urb(victim);
+-		spin_unlock_irqrestore(&anchor->lock, flags);
+-		/* this may free the URB */
+-		usb_unanchor_urb(victim);
+-		usb_put_urb(victim);
+-		spin_lock_irqsave(&anchor->lock, flags);
++		__usb_unanchor_urb(victim, anchor);
+ 	}
+ 	spin_unlock_irqrestore(&anchor->lock, flags);
+ }
+diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
+index fbda484..5585cab 100644
+--- a/drivers/usb/host/Kconfig
++++ b/drivers/usb/host/Kconfig
+@@ -42,8 +42,9 @@ config USB_EHCI_ROOT_HUB_TT
+ 	  from ARC, and has since changed hands a few times.
+ 
+ config USB_EHCI_TT_NEWSCHED
+-	bool "Improved Transaction Translator scheduling (EXPERIMENTAL)"
+-	depends on USB_EHCI_HCD && EXPERIMENTAL
++	bool "Improved Transaction Translator scheduling"
++	depends on USB_EHCI_HCD
++	default y
+ 	---help---
+ 	  This changes the periodic scheduling code to fill more of the low
+ 	  and full speed bandwidth available from the Transaction Translator
+@@ -54,9 +55,11 @@ config USB_EHCI_TT_NEWSCHED
+ 	  If you have multiple periodic low/fullspeed devices connected to a
+ 	  highspeed USB hub which is connected to a highspeed USB Host
+ 	  Controller, and some of those devices will not work correctly
+-	  (possibly due to "ENOSPC" or "-28" errors), say Y.
++	  (possibly due to "ENOSPC" or "-28" errors), say Y.  Conversely, if
++	  you have only one such device and it doesn't work, you could try
++	  saying N.
+ 
+-	  If unsure, say N.
++	  If unsure, say Y.
+ 
+ config USB_EHCI_BIG_ENDIAN_MMIO
+ 	bool
+diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
+index b162436..b7e6fe0 100644
+--- a/drivers/usb/host/ehci-hcd.c
++++ b/drivers/usb/host/ehci-hcd.c
+@@ -80,7 +80,13 @@ static const char	hcd_name [] = "ehci_hcd";
+ #define	EHCI_TUNE_RL_TT		0
+ #define	EHCI_TUNE_MULT_HS	1	/* 1-3 transactions/uframe; 4.10.3 */
+ #define	EHCI_TUNE_MULT_TT	1
+-#define	EHCI_TUNE_FLS		2	/* (small) 256 frame schedule */
++/*
++ * Some drivers think it's safe to schedule isochronous transfers more than
++ * 256 ms into the future (partly as a result of an old bug in the scheduling
++ * code).  In an attempt to avoid trouble, we will use a minimum scheduling
++ * length of 512 frames instead of 256.
++ */
++#define	EHCI_TUNE_FLS		1	/* (medium) 512-frame schedule */
+ 
+ #define EHCI_IAA_MSECS		10		/* arbitrary */
+ #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
+diff --git a/drivers/usb/host/ehci-pci.c b/drivers/usb/host/ehci-pci.c
+index cb40770..91917d6 100644
+--- a/drivers/usb/host/ehci-pci.c
++++ b/drivers/usb/host/ehci-pci.c
+@@ -132,6 +132,7 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
+ 		break;
+ 	case PCI_VENDOR_ID_INTEL:
+ 		ehci->need_io_watchdog = 0;
++		ehci->fs_i_thresh = 1;
+ 		if (pdev->device == 0x27cc) {
+ 			ehci->broken_periodic = 1;
+ 			ehci_info(ehci, "using broken periodic workaround\n");
+diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
+index 4d4e78a..ab9e3f0 100644
+--- a/drivers/usb/host/ehci-sched.c
++++ b/drivers/usb/host/ehci-sched.c
+@@ -1075,15 +1075,6 @@ iso_stream_put(struct ehci_hcd *ehci, struct ehci_iso_stream *stream)
+ 		if (stream->ep)
+ 			stream->ep->hcpriv = NULL;
+ 
+-		if (stream->rescheduled) {
+-			ehci_info (ehci, "ep%d%s-iso rescheduled "
+-				"%lu times in %lu seconds\n",
+-				stream->bEndpointAddress, is_in ? "in" : "out",
+-				stream->rescheduled,
+-				((jiffies - stream->start)/HZ)
+-				);
+-		}
+-
+ 		kfree(stream);
+ 	}
+ }
+@@ -1396,30 +1387,25 @@ iso_stream_schedule (
+ 	struct ehci_iso_stream	*stream
+ )
+ {
+-	u32			now, next, start, period;
++	u32			now, next, start, period, span;
+ 	int			status;
+ 	unsigned		mod = ehci->periodic_size << 3;
+ 	struct ehci_iso_sched	*sched = urb->hcpriv;
+-	struct pci_dev		*pdev;
+ 
+-	if (sched->span > (mod - SCHEDULE_SLOP)) {
+-		ehci_dbg (ehci, "iso request %p too long\n", urb);
+-		status = -EFBIG;
+-		goto fail;
++	period = urb->interval;
++	span = sched->span;
++	if (!stream->highspeed) {
++		period <<= 3;
++		span <<= 3;
+ 	}
+ 
+-	if ((stream->depth + sched->span) > mod) {
+-		ehci_dbg (ehci, "request %p would overflow (%d+%d>%d)\n",
+-			urb, stream->depth, sched->span, mod);
++	if (span > mod - SCHEDULE_SLOP) {
++		ehci_dbg (ehci, "iso request %p too long\n", urb);
+ 		status = -EFBIG;
+ 		goto fail;
+ 	}
+ 
+-	period = urb->interval;
+-	if (!stream->highspeed)
+-		period <<= 3;
+-
+-	now = ehci_readl(ehci, &ehci->regs->frame_index) % mod;
++	now = ehci_readl(ehci, &ehci->regs->frame_index) & (mod - 1);
+ 
+ 	/* Typical case: reuse current schedule, stream is still active.
+ 	 * Hopefully there are no gaps from the host falling behind
+@@ -1427,34 +1413,35 @@ iso_stream_schedule (
+ 	 * slot in the schedule, implicitly assuming URB_ISO_ASAP.
+ 	 */
+ 	if (likely (!list_empty (&stream->td_list))) {
+-		pdev = to_pci_dev(ehci_to_hcd(ehci)->self.controller);
+-		start = stream->next_uframe;
++		u32	excess;
+ 
+ 		/* For high speed devices, allow scheduling within the
+-		 * isochronous scheduling threshold.  For full speed devices,
+-		 * don't. (Work around for Intel ICH9 bug.)
++		 * isochronous scheduling threshold.  For full speed devices
++		 * and Intel PCI-based controllers, don't (work around for
++		 * Intel ICH9 bug).
+ 		 */
+-		if (!stream->highspeed &&
+-				pdev->vendor == PCI_VENDOR_ID_INTEL)
++		if (!stream->highspeed && ehci->fs_i_thresh)
+ 			next = now + ehci->i_thresh;
+ 		else
+ 			next = now;
+ 
+-		/* Fell behind (by up to twice the slop amount)? */
+-		if (((start - next) & (mod - 1)) >=
+-				mod - 2 * SCHEDULE_SLOP)
+-			start += period * DIV_ROUND_UP(
+-					(next - start) & (mod - 1),
+-					period);
+-
+-		/* Tried to schedule too far into the future? */
+-		if (unlikely(((start - now) & (mod - 1)) + sched->span
+-					>= mod - 2 * SCHEDULE_SLOP)) {
++		/* Fell behind (by up to twice the slop amount)?
++		 * We decide based on the time of the last currently-scheduled
++		 * slot, not the time of the next available slot.
++		 */
++		excess = (stream->next_uframe - period - next) & (mod - 1);
++		if (excess >= mod - 2 * SCHEDULE_SLOP)
++			start = next + excess - mod + period *
++					DIV_ROUND_UP(mod - excess, period);
++		else
++			start = next + excess + period;
++		if (start - now >= mod) {
++			ehci_dbg(ehci, "request %p would overflow (%d+%d >= %d)\n",
++					urb, start - now - period, period,
++					mod);
+ 			status = -EFBIG;
+ 			goto fail;
+ 		}
+-		stream->next_uframe = start;
+-		goto ready;
+ 	}
+ 
+ 	/* need to schedule; when's the next (u)frame we could start?
+@@ -1463,51 +1450,60 @@ iso_stream_schedule (
+ 	 * can also help high bandwidth if the dma and irq loads don't
+ 	 * jump until after the queue is primed.
+ 	 */
+-	start = SCHEDULE_SLOP + (now & ~0x07);
+-	start %= mod;
+-	stream->next_uframe = start;
+-
+-	/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
+-
+-	/* find a uframe slot with enough bandwidth */
+-	for (; start < (stream->next_uframe + period); start++) {
+-		int		enough_space;
+-
+-		/* check schedule: enough space? */
+-		if (stream->highspeed)
+-			enough_space = itd_slot_ok (ehci, mod, start,
+-					stream->usecs, period);
+-		else {
+-			if ((start % 8) >= 6)
+-				continue;
+-			enough_space = sitd_slot_ok (ehci, mod, stream,
+-					start, sched, period);
++	else {
++		start = SCHEDULE_SLOP + (now & ~0x07);
++
++		/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
++
++		/* find a uframe slot with enough bandwidth */
++		next = start + period;
++		for (; start < next; start++) {
++
++			/* check schedule: enough space? */
++			if (stream->highspeed) {
++				if (itd_slot_ok(ehci, mod, start,
++						stream->usecs, period))
++					break;
++			} else {
++				if ((start % 8) >= 6)
++					continue;
++				if (sitd_slot_ok(ehci, mod, stream,
++						start, sched, period))
++					break;
++			}
+ 		}
+ 
+-		/* schedule it here if there's enough bandwidth */
+-		if (enough_space) {
+-			stream->next_uframe = start % mod;
+-			goto ready;
++		/* no room in the schedule */
++		if (start == next) {
++			ehci_dbg(ehci, "iso resched full %p (now %d max %d)\n",
++				urb, now, now + mod);
++			status = -ENOSPC;
++			goto fail;
+ 		}
+ 	}
+ 
+-	/* no room in the schedule */
+-	ehci_dbg (ehci, "iso %ssched full %p (now %d max %d)\n",
+-		list_empty (&stream->td_list) ? "" : "re",
+-		urb, now, now + mod);
+-	status = -ENOSPC;
++	/* Tried to schedule too far into the future? */
++	if (unlikely(start - now + span - period
++				>= mod - 2 * SCHEDULE_SLOP)) {
++		ehci_dbg(ehci, "request %p would overflow (%d+%d >= %d)\n",
++				urb, start - now, span - period,
++				mod - 2 * SCHEDULE_SLOP);
++		status = -EFBIG;
++		goto fail;
++	}
+ 
+-fail:
+-	iso_sched_free (stream, sched);
+-	urb->hcpriv = NULL;
+-	return status;
++	stream->next_uframe = start & (mod - 1);
+ 
+-ready:
+ 	/* report high speed start in uframes; full speed, in frames */
+ 	urb->start_frame = stream->next_uframe;
+ 	if (!stream->highspeed)
+ 		urb->start_frame >>= 3;
+ 	return 0;
++
++ fail:
++	iso_sched_free(stream, sched);
++	urb->hcpriv = NULL;
++	return status;
+ }
+ 
+ /*-------------------------------------------------------------------------*/
+@@ -1602,7 +1598,7 @@ itd_link_urb (
+ 	struct ehci_iso_sched	*iso_sched = urb->hcpriv;
+ 	struct ehci_itd		*itd;
+ 
+-	next_uframe = stream->next_uframe % mod;
++	next_uframe = stream->next_uframe & (mod - 1);
+ 
+ 	if (unlikely (list_empty(&stream->td_list))) {
+ 		ehci_to_hcd(ehci)->self.bandwidth_allocated
+@@ -1613,7 +1609,6 @@ itd_link_urb (
+ 			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out",
+ 			urb->interval,
+ 			next_uframe >> 3, next_uframe & 0x7);
+-		stream->start = jiffies;
+ 	}
+ 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs++;
+ 
+@@ -1639,14 +1634,13 @@ itd_link_urb (
+ 		itd_patch(ehci, itd, iso_sched, packet, uframe);
+ 
+ 		next_uframe += stream->interval;
+-		stream->depth += stream->interval;
+-		next_uframe %= mod;
++		next_uframe &= mod - 1;
+ 		packet++;
+ 
+ 		/* link completed itds into the schedule */
+ 		if (((next_uframe >> 3) != frame)
+ 				|| packet == urb->number_of_packets) {
+-			itd_link (ehci, frame % ehci->periodic_size, itd);
++			itd_link(ehci, frame & (ehci->periodic_size - 1), itd);
+ 			itd = NULL;
+ 		}
+ 	}
+@@ -1695,7 +1689,6 @@ itd_complete (
+ 
+ 		t = hc32_to_cpup(ehci, &itd->hw_transaction [uframe]);
+ 		itd->hw_transaction [uframe] = 0;
+-		stream->depth -= stream->interval;
+ 
+ 		/* report transfer status */
+ 		if (unlikely (t & ISO_ERRS)) {
+@@ -2024,9 +2017,8 @@ sitd_link_urb (
+ 			"sched devp %s ep%d%s-iso [%d] %dms/%04x\n",
+ 			urb->dev->devpath, stream->bEndpointAddress & 0x0f,
+ 			(stream->bEndpointAddress & USB_DIR_IN) ? "in" : "out",
+-			(next_uframe >> 3) % ehci->periodic_size,
++			(next_uframe >> 3) & (ehci->periodic_size - 1),
+ 			stream->interval, hc32_to_cpu(ehci, stream->splits));
+-		stream->start = jiffies;
+ 	}
+ 	ehci_to_hcd(ehci)->self.bandwidth_isoc_reqs++;
+ 
+@@ -2047,13 +2039,12 @@ sitd_link_urb (
+ 		sitd->urb = urb;
+ 
+ 		sitd_patch(ehci, stream, sitd, sched, packet);
+-		sitd_link (ehci, (next_uframe >> 3) % ehci->periodic_size,
++		sitd_link(ehci, (next_uframe >> 3) & (ehci->periodic_size - 1),
+ 				sitd);
+ 
+ 		next_uframe += stream->interval << 3;
+-		stream->depth += stream->interval << 3;
+ 	}
+-	stream->next_uframe = next_uframe % mod;
++	stream->next_uframe = next_uframe & (mod - 1);
+ 
+ 	/* don't need that schedule data any more */
+ 	iso_sched_free (stream, sched);
+@@ -2111,7 +2102,6 @@ sitd_complete (
+ 		desc->actual_length = desc->length - SITD_LENGTH(t);
+ 		urb->actual_length += desc->actual_length;
+ 	}
+-	stream->depth -= stream->interval << 3;
+ 
+ 	/* handle completion now? */
+ 	if ((urb_index + 1) != urb->number_of_packets)
+@@ -2263,7 +2253,7 @@ scan_periodic (struct ehci_hcd *ehci)
+ 	now_uframe = ehci->next_uframe;
+ 	if (HC_IS_RUNNING(ehci_to_hcd(ehci)->state)) {
+ 		clock = ehci_readl(ehci, &ehci->regs->frame_index);
+-		clock_frame = (clock >> 3) % ehci->periodic_size;
++		clock_frame = (clock >> 3) & (ehci->periodic_size - 1);
+ 	} else  {
+ 		clock = now_uframe + mod - 1;
+ 		clock_frame = -1;
+@@ -2272,7 +2262,7 @@ scan_periodic (struct ehci_hcd *ehci)
+ 		free_cached_lists(ehci);
+ 		ehci->clock_frame = clock_frame;
+ 	}
+-	clock %= mod;
++	clock &= mod - 1;
+ 	clock_frame = clock >> 3;
+ 
+ 	for (;;) {
+@@ -2361,7 +2351,7 @@ restart:
+ 				 * frame is current.
+ 				 */
+ 				if (((frame == clock_frame) ||
+-				     (((frame + 1) % ehci->periodic_size)
++				     (((frame + 1) & (ehci->periodic_size - 1))
+ 				      == clock_frame))
+ 				    && live
+ 				    && (q.sitd->hw_results &
+@@ -2428,7 +2418,8 @@ restart:
+ 					|| ehci->periodic_sched == 0)
+ 				break;
+ 			ehci->next_uframe = now_uframe;
+-			now = ehci_readl(ehci, &ehci->regs->frame_index) % mod;
++			now = ehci_readl(ehci, &ehci->regs->frame_index) &
++					(mod - 1);
+ 			if (now_uframe == now)
+ 				break;
+ 
+@@ -2441,7 +2432,7 @@ restart:
+ 			}
+ 		} else {
+ 			now_uframe++;
+-			now_uframe %= mod;
++			now_uframe &= mod - 1;
+ 		}
+ 	}
+ }
+diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
+index 0937c33..30cd891 100644
+--- a/drivers/usb/host/ehci.h
++++ b/drivers/usb/host/ehci.h
+@@ -135,6 +135,7 @@ struct ehci_hcd {			/* one per controller */
+ 	unsigned		big_endian_desc:1;
+ 	unsigned		need_io_watchdog:1;
+ 	unsigned		broken_periodic:1;
++	unsigned		fs_i_thresh:1;	/* Intel iso scheduling */
+ 
+ 	u8			sbrn;		/* packed release number */
+ 
+@@ -531,15 +532,12 @@ struct ehci_iso_stream {
+ 	u32			refcount;
+ 	u8			bEndpointAddress;
+ 	u8			highspeed;
+-	u16			depth;		/* depth in uframes */
+ 	struct list_head	td_list;	/* queued itds/sitds */
+ 	struct list_head	free_list;	/* list of unused itds/sitds */
+ 	struct usb_device	*udev;
+ 	struct usb_host_endpoint *ep;
+ 
+ 	/* output of (re)scheduling */
+-	unsigned long		start;		/* jiffies */
+-	unsigned long		rescheduled;
+ 	int			next_uframe;
+ 	__hc32			splits;
+ 
+diff --git a/drivers/usb/host/uhci-debug.c b/drivers/usb/host/uhci-debug.c
+index e52b954..3101a8a 100644
+--- a/drivers/usb/host/uhci-debug.c
++++ b/drivers/usb/host/uhci-debug.c
+@@ -16,7 +16,6 @@
+ 
+ #include "uhci-hcd.h"
+ 
+-#define uhci_debug_operations (* (const struct file_operations *) NULL)
+ static struct dentry *uhci_debugfs_root;
+ 
+ #ifdef DEBUG
+@@ -563,7 +562,6 @@ static int uhci_debug_release(struct inode *inode, struct file *file)
+ 	return 0;
+ }
+ 
+-#undef uhci_debug_operations
+ static const struct file_operations uhci_debug_operations = {
+ 	.owner =	THIS_MODULE,
+ 	.open =		uhci_debug_open,
+@@ -571,6 +569,7 @@ static const struct file_operations uhci_debug_operations = {
+ 	.read =		uhci_debug_read,
+ 	.release =	uhci_debug_release,
+ };
++#define UHCI_DEBUG_OPS
+ 
+ #endif	/* CONFIG_DEBUG_FS */
+ 
+diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
+index 1fd453b..2726ef8 100644
+--- a/drivers/usb/host/uhci-hcd.c
++++ b/drivers/usb/host/uhci-hcd.c
+@@ -589,7 +589,7 @@ static int uhci_start(struct usb_hcd *hcd)
+ 	struct uhci_hcd *uhci = hcd_to_uhci(hcd);
+ 	int retval = -EBUSY;
+ 	int i;
+-	struct dentry *dentry;
++	struct dentry __maybe_unused *dentry;
+ 
+ 	hcd->uses_new_polling = 1;
+ 
+@@ -599,18 +599,16 @@ static int uhci_start(struct usb_hcd *hcd)
+ 	INIT_LIST_HEAD(&uhci->idle_qh_list);
+ 	init_waitqueue_head(&uhci->waitqh);
+ 
+-	if (DEBUG_CONFIGURED) {
+-		dentry = debugfs_create_file(hcd->self.bus_name,
+-				S_IFREG|S_IRUGO|S_IWUSR, uhci_debugfs_root,
+-				uhci, &uhci_debug_operations);
+-		if (!dentry) {
+-			dev_err(uhci_dev(uhci), "couldn't create uhci "
+-					"debugfs entry\n");
+-			retval = -ENOMEM;
+-			goto err_create_debug_entry;
+-		}
+-		uhci->dentry = dentry;
++#ifdef UHCI_DEBUG_OPS
++	dentry = debugfs_create_file(hcd->self.bus_name,
++			S_IFREG|S_IRUGO|S_IWUSR, uhci_debugfs_root,
++			uhci, &uhci_debug_operations);
++	if (!dentry) {
++		dev_err(uhci_dev(uhci), "couldn't create uhci debugfs entry\n");
++		return -ENOMEM;
+ 	}
++	uhci->dentry = dentry;
++#endif
+ 
+ 	uhci->frame = dma_alloc_coherent(uhci_dev(uhci),
+ 			UHCI_NUMFRAMES * sizeof(*uhci->frame),
+@@ -691,7 +689,9 @@ static int uhci_start(struct usb_hcd *hcd)
+ 
+ 	configure_hc(uhci);
+ 	uhci->is_initialized = 1;
++	spin_lock_irq(&uhci->lock);
+ 	start_rh(uhci);
++	spin_unlock_irq(&uhci->lock);
+ 	return 0;
+ 
+ /*
+@@ -722,7 +722,6 @@ err_alloc_frame_cpu:
+ err_alloc_frame:
+ 	debugfs_remove(uhci->dentry);
+ 
+-err_create_debug_entry:
+ 	return retval;
+ }
+ 
+@@ -734,6 +734,7 @@ static void uhci_stop(struct usb_hcd *hcd)
+ 		uhci_hc_died(uhci);
+ 	uhci_scan_schedule(uhci);
+ 	spin_unlock_irq(&uhci->lock);
++	synchronize_irq(hcd->irq);
+ 
+ 	del_timer_sync(&uhci->fsbr_timer);
+ 	release_uhci(uhci);
+diff --git a/drivers/usb/host/uhci-q.c b/drivers/usb/host/uhci-q.c
+index e170e65..c07e5e7 100644
+--- a/drivers/usb/host/uhci-q.c
++++ b/drivers/usb/host/uhci-q.c
+@@ -264,7 +264,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
+ 	INIT_LIST_HEAD(&qh->node);
+ 
+ 	if (udev) {		/* Normal QH */
+-		qh->type = hep->desc.bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
++		qh->type = usb_endpoint_type(&hep->desc);
+ 		if (qh->type != USB_ENDPOINT_XFER_ISOC) {
+ 			qh->dummy_td = uhci_alloc_td(uhci);
+ 			if (!qh->dummy_td) {
+@@ -571,7 +571,7 @@ static void uhci_unlink_qh(struct uhci_hcd *uhci, struct uhci_qh *qh)
+ 	qh->unlink_frame = uhci->frame_number;
+ 
+ 	/* Force an interrupt so we know when the QH is fully unlinked */
+-	if (list_empty(&uhci->skel_unlink_qh->node))
++	if (list_empty(&uhci->skel_unlink_qh->node) || uhci->is_stopped)
+ 		uhci_set_next_interrupt(uhci);
+ 
+ 	/* Move the QH from its old list to the end of the unlinking list */
+@@ -1430,7 +1430,6 @@ static int uhci_urb_enqueue(struct usb_hcd *hcd,
+ 		goto err_submit_failed;
+ 
+ 	/* Add this URB to the QH */
+-	urbp->qh = qh;
+ 	list_add_tail(&urbp->node, &qh->queue);
+ 
+ 	/* If the new URB is the first and only one on this QH then either
+@@ -1676,7 +1676,7 @@ static int uhci_advance_check(struct uhci_hcd *uhci, struct uhci_qh *qh)
+ 			qh->advance_jiffies = jiffies;
+ 			goto done;
+ 		}
+-		ret = 0;
++		ret = uhci->is_stopped;
+ 	}
+ 
+ 	/* The queue hasn't advanced; check for timeout */
+diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
+index a2c9ebe..1ca539e 100644
+--- a/drivers/usb/serial/ftdi_sio.c
++++ b/drivers/usb/serial/ftdi_sio.c
+@@ -153,6 +153,9 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_5_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_6_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_7_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_USINT_CAT_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_USINT_WKEY_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_USINT_RS232_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ACTZWAVE_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_IRTRANS_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_IPLUS_PID) },
+@@ -739,6 +742,7 @@ static struct usb_device_id id_table_combined [] = {
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ USB_DEVICE(FTDI_VID, XVERVE_SIGNALYZER_SH4_PID),
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, SEGWAY_RMP200_PID) },
+ 	{ },					/* Optional parameter entry */
+ 	{ }					/* Terminating entry */
+ };
+diff --git a/drivers/usb/serial/ftdi_sio.h b/drivers/usb/serial/ftdi_sio.h
+index 6544cbd..3798bc2 100644
+--- a/drivers/usb/serial/ftdi_sio.h
++++ b/drivers/usb/serial/ftdi_sio.h
+@@ -384,6 +384,11 @@
+ 
+ #define FTDI_NXTCAM_PID		0xABB8 /* NXTCam for Mindstorms NXT */
+ 
++/* US Interface Navigator (http://www.usinterface.com/) */
++#define FTDI_USINT_CAT_PID	0xb810	/* Navigator CAT and 2nd PTT lines */
++#define FTDI_USINT_WKEY_PID	0xb811	/* Navigator WKEY and FSK lines */
++#define FTDI_USINT_RS232_PID	0xb812	/* Navigator RS232 and CONFIG lines */
++
+ /* OOCDlink by Joern Kaipf <joernk@web.de>
+  * (http://www.joernonline.de/dw/doku.php?id=start&idx=projects:oocdlink) */
+ #define FTDI_OOCDLINK_PID	0xbaf8	/* Amontec JTAGkey */
+@@ -1025,6 +1030,12 @@
+ #define XVERVE_SIGNALYZER_SH4_PID	0xBCA4
+ 
+ /*
++ * Segway Robotic Mobility Platform USB interface (using VID 0x0403)
++ * Submitted by John G. Rogers
++ */
++#define SEGWAY_RMP200_PID	0xe729
++
++/*
+  *   BmRequestType:  1100 0000b
+  *   bRequest:       FTDI_E2_READ
+  *   wValue:         0
+diff --git a/include/linux/usb/quirks.h b/include/linux/usb/quirks.h
+index 4a98379..2454e79 100644
+--- a/include/linux/usb/quirks.h
++++ b/include/linux/usb/quirks.h
+@@ -22,3 +22,7 @@
+ /* device has more interface descriptions than the bNumInterfaces count,
+    and can't handle talking to these interfaces */
+ #define USB_QUIRK_HONOR_BNUMINTERFACES	0x00000020
++
++/* device needs a pause during initialization, after we read the device
++   descriptor */
++#define USB_QUIRK_DELAY_INIT		0x00000040
+-- 
+1.6.5.GIT

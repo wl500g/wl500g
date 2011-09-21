@@ -28,7 +28,7 @@
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 /*
 * parse ifname to retrieve unit #
@@ -69,19 +69,22 @@ ipup_main(int argc, char **argv)
 		return errno;
 	}
 	fclose(fp);
-	
+
 	if (!nvram_get(strcat_r(prefix, "ifname", tmp)))
 		return -1;
 
 	if ((value = getenv("IPLOCAL"))) {
+		if (nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value))
+			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
 		ifconfig(wan_ifname, IFUP,
-			 value, "255.255.255.255");
+			 value, "255.255.255.255", getenv("IPREMOTE"));
 		nvram_set(strcat_r(prefix, "ipaddr", tmp), value);
 		nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.255.255");
 	}
 
         if ((value = getenv("IPREMOTE")))
 		nvram_set(strcat_r(prefix, "gateway", tmp), value);
+
 	strcpy(buf, "");
 	if (getenv("DNS1"))
 		sprintf(buf, "%s", getenv("DNS1"));
@@ -135,7 +138,7 @@ int
 ip6up_main(int argc, char **argv)
 {
 	char *wan_ifname = safe_getenv("IFNAME");
-	char *value;
+	//char *value;
 	int unit;
 	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
 
@@ -152,8 +155,8 @@ ip6up_main(int argc, char **argv)
 
 	//if ((value = getenv("LLLOCAL")))
 	//	eval("ip", "-6", "addr", "add", value, "dev", wan_ifname);
-	if ((value = getenv("LLREMOTE")))
-		nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
+	//if ((value = getenv("LLREMOTE")))
+	//	nvram_set(strcat_r(prefix, "ipv6_router", tmp), value);
 
 	wan6_up(wan_ifname, unit);
 
@@ -183,3 +186,39 @@ ip6down_main(int argc, char **argv)
 	return 0;
 }
 #endif
+
+/*
+ * Called after the remote/local system successfully authenticates itself.
+ * It is executed with the parameters:
+ * interface-name peer-name user-name tty-device speed
+ * Note: that this script is not executed if the peer doesn't authenticate itself,
+ * for example when the noauth option is used.
+ */
+int
+authup_main(int argc, char **argv)
+{
+	char *wan_ifname = argv[1];
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if (wan_ifname == NULL ||
+	    wan_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
+
+	return 0;
+}
+
+/*
+ * Called when link goes down, if auth-up was previously executed
+ */
+int
+authdown_main(int argc, char **argv)
+{
+	char *wan_ifname = argv[1];
+	char prefix[] = "wanXXXXXXXXXX_";
+
+	if (wan_ifname == NULL ||
+	    wan_prefix(wan_ifname, prefix) < 0)
+		return EINVAL;
+
+	return 0;
+}

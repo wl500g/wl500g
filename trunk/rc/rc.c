@@ -157,6 +157,7 @@ stb_set(void)
 	switch (router_model)
 	{
 		case MDL_RTN16:
+		case MDL_WNR3500L:
 			{
 			/* Set LAN ports */
 			char *vlan1ports[] = {
@@ -180,6 +181,7 @@ stb_set(void)
 			}
 		case MDL_RTN12:
 		case MDL_RTN10:
+		case MDL_RTN10U:
 		case MDL_WL500GPV2:
 			{
 			/* Set LAN ports */
@@ -246,13 +248,15 @@ early_defaults(void)
 
 	if (nvram_match("wan_route_x", "IP_Bridged"))
 	{
-		if (router_model == MDL_RTN16)
+		switch (router_model)
 		{
+		    case MDL_RTN16:
+		    case MDL_WNR3500L:
                         nvram_set("vlan1ports", "0 1 2 3 4 8*");
                         nvram_set("vlan2ports", "8");
-                }
-		else
-		{
+                        break;
+
+                    default:
 			nvram_set("vlan0ports", "0 1 2 3 4 5*");
 			nvram_set("vlan1ports", "5");
 		}
@@ -267,7 +271,7 @@ early_defaults(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifname", "vlan1");
 			nvram_set("wan_ifnames", "vlan1");
-
+		
 			nvram_set("vlan0hwname", "et0");
 			nvram_set("vlan0ports", "1 2 3 4 5*");
 			nvram_set("vlan1hwname", "et0");
@@ -282,10 +286,55 @@ early_defaults(void)
 			nvram_set("wandevs", "vlan1");
 			nvram_set("wan_ifname", "vlan1");
 			nvram_set("wan_ifnames", "vlan1");
-
+		
 			/* data should be tagged for WAN port too */
 			nvram_set("vlan1ports",
 				nvram_match("vlan1ports", "0 5u") ? "0 5" : "4 5");
+		}
+
+		/* USE 0x04cf for N16(BCM4718) *
+		 * RT-N16, WAN=0, LAN1~4=4~1 CPU port=8 */
+		if (nvram_match("boardtype", "0x04cf"))
+		{
+			if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
+			{
+	        		nvram_unset( "vlan0ports" );
+	        		nvram_unset( "vlan0hwname" );
+	        		nvram_unset( "br0_ifnames" );
+				nvram_set("vlan1ports", "1 2 3 4 8*");
+				nvram_set("vlan2ports", "0 8");
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("vlan2hwname", "et0");
+				nvram_set("landevs", "vlan1 wl0");
+				nvram_set("lan_ifnames", "vlan1 eth1");
+				nvram_set("wandevs", "vlan2");
+				nvram_set("wan_ifname", "vlan2");
+				nvram_set("wan_ifnames", "vlan2");
+				nvram_set("wan0_ifname", "vlan2");
+				nvram_set("wan0_ifnames", "vlan2");
+				nvram_set("wlan_ifname", "eth1");
+			}
+		}
+
+		/* fix RT-N12 / RT-N10 / RT-N10U vlans */
+		if (router_model == MDL_RTN12 ||
+		    router_model == MDL_RTN10 || router_model == MDL_RTN10U)
+		{
+			if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
+			{
+				nvram_set("vlan0ports", "0 1 2 3 5*");
+				nvram_set("vlan1ports", "4 5");
+				nvram_set("vlan0hwname", "et0");
+				nvram_set("vlan1hwname", "et0");
+				nvram_set("landevs", "vlan0 wl0");
+				nvram_set("lan_ifnames", "vlan0 eth1");
+				nvram_set("wandevs", "vlan1");
+				nvram_set("wan_ifname", "vlan1");
+				nvram_set("wan_ifnames", "vlan1");
+				nvram_set("wan0_ifname", "vlan1");
+				nvram_set("wan0_ifnames", "vlan1");
+				nvram_set("wlan_ifname", "eth1");
+			}
 		}
 
 		/* fix DLINK DIR-320 vlans */
@@ -444,7 +493,6 @@ restore_defaults(void)
 	if (restore_defaults) {
 		char tmp[100], prefix[] = "wlXXXXXXXXXX_";
 		for (i = 0; i < MAX_NVPARSE; i++) {
-			del_filter_client(i);
 			del_forward_port(i);
 			del_autofw_port(i);
 			snprintf(prefix, sizeof(prefix), "wl%d_", i);
@@ -526,7 +574,7 @@ canned_config:
 
 	/* Always set OS defaults */
 	nvram_set("os_name", "linux");
-	nvram_set("os_version", EPI_ROUTER_VERSION_STR);
+	nvram_set("os_version", EPI_VERSION_STR);
 	nvram_set("os_date", __DATE__);
 
 	nvram_set("is_modified", "0");
@@ -637,11 +685,6 @@ sysinit(void)
 	char buf[PATH_MAX];
 	struct utsname name;
 	struct stat tmp_stat;
-	
-	time_t now;
-	struct tm gm, local;
-	struct timezone tz;
-	struct timeval tv = { 0 };
 	struct rlimit lim;
 
 	/* set default hardlimit */
@@ -651,6 +694,29 @@ sysinit(void)
 
 	/* /proc */
 	mount("proc", "/proc", "proc", MS_MGC_VAL, NULL);
+
+#ifdef LINUX26
+	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+
+	/* populate /dev */
+	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
+	mknod("/dev/null", S_IFCHR | 0666, makedev(1, 3));
+	eval("/sbin/mdev", "-s");
+
+	/* /dev/pts */
+	mkdir("/dev/pts", 0755);
+	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
+
+	/* /dev/shm */
+	mkdir("/dev/shm", S_ISVTX | 0755);
+	
+	/* extra links */
+	symlink("/proc/self/fd", "/dev/fd");
+	symlink("/proc/self/fd/0", "/dev/stdin");
+	symlink("/proc/self/fd/1", "/dev/stdout");
+	symlink("/proc/self/fd/2", "/dev/stderr");
+#endif
 
 	/* /tmp */
 	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
@@ -662,6 +728,7 @@ sysinit(void)
 	mkdir("/var/run", 0777);
 	mkdir("/var/spool", 0777);
 	mkdir("/var/spool/cron", 0777);
+	mkdir("/var/state", 0777);
 	mkdir("/var/tmp", 0777);
 	
 	/* /usr/local */
@@ -692,28 +759,27 @@ sysinit(void)
 
 		modules = nvram_get("kernel_mods") ? : 
 #if defined(MODEL_WL700G)
-		"ide-core aec62xx ide-detect ide-disk "
+		"ide-core aec62xx "
+# ifndef LINUX26
+		"ide-detect "
+# endif
+		"ide-disk "
 #endif
 #if defined(__CONFIG_EMF__)
 		"emf igs "
 #endif
 		"et wl";
 		foreach(module, modules, next)
-			eval("insmod", module);
+			insmod(module, NULL);
 	}
 
-	/* Update kernel timezone and time */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(&tv, &tz);
+	update_tztime(1);
 
 #if defined(MODEL_WL700G)
-	eval("insmod", "gpiortc", "sda_mask=0x04", "scl_mask=0x20");
+	insmod("gpiortc", "sda_mask=0x04", "scl_mask=0x20", NULL);
+	usleep(100000);
 #endif
-	
+
 	if (exists("/dev/misc/rtc"))
 		eval("/sbin/hwclock", "-s");
 
@@ -721,7 +787,7 @@ sysinit(void)
 }
 
 /* States */
-enum {
+enum RC_STATES {
 	RESTART,
 	STOP,
 	START,
@@ -729,7 +795,7 @@ enum {
 	IDLE,
 	SERVICE,
 };
-static int state = START;
+static int rc_state = START;
 static int signalled = -1;
 
 
@@ -737,7 +803,7 @@ static int signalled = -1;
 static void
 rc_signal(int sig)
 {
-	if (state == IDLE) {	
+	if (rc_state == IDLE) {	
 		if (sig == SIGHUP) {
 			dprintf("signalling RESTART\n");
 			signalled = RESTART;
@@ -762,13 +828,8 @@ rc_signal(int sig)
 }
 
 /* Timer procedure */
-int
-do_timer(void)
+static int do_timer(void)
 {
-	time_t now;
-	struct tm gm, local;
-	struct timezone tz;
-
 #ifndef ASUS_EXT
 	int interval = atoi(nvram_safe_get("timer_interval"));
 
@@ -780,13 +841,7 @@ do_timer(void)
 	/* Sync time */
 	start_ntpc();
 #endif
-	/* Update kernel timezone */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
-	time(&now);
-	gmtime_r(&now, &gm);
-	localtime_r(&now, &local);
-	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
-	settimeofday(NULL, &tz);
+	update_tztime(0);
 #ifndef ASUS_EXT
 	alarm(interval);
 #endif
@@ -843,11 +898,11 @@ main_loop(void)
 	
 	/* Loop forever */
 	for (;;) {
-		switch (state) {
+		switch (rc_state) {
 		case SERVICE:
 			dprintf("SERVICE\n");
 			service_handle();
-			state = IDLE;
+			rc_state = IDLE;
 			break;
 		case RESTART:
 			dprintf("RESTART\n");
@@ -865,8 +920,8 @@ main_loop(void)
 			if (boardflags & BFL_ENETVLAN)
 				stop_vlan();
 
-			if (state == STOP) {
-				state = IDLE;
+			if (rc_state == STOP) {
+				rc_state = IDLE;
 				break;
 			}
 			/* Fall through */
@@ -883,14 +938,16 @@ main_loop(void)
 			//}
 			start_services();
 			start_wan();
+#ifndef __CONFIG_BCMWL5__
 			start_nas("wan");
+#endif
 
 #ifdef ASUS_EXT
 			start_misc();
 #endif
 			eval("/usr/local/sbin/post-boot");
 #ifdef ASUS_EXT
-			sleep(3);
+			sleep(1);
 			diag_PaN();
 #endif
 			/* Fall through */
@@ -900,7 +957,7 @@ main_loop(void)
 			/* Fall through */
 		case IDLE:
 			dprintf("IDLE\n");
-			state = IDLE;
+			rc_state = IDLE;
 			/* Wait for user input or state change */
 			while (signalled == -1) {
 				if (!noconsole && (!shell_pid || kill(shell_pid, 0) != 0))
@@ -908,7 +965,7 @@ main_loop(void)
 				else
 					sigsuspend(&sigset);
 			}
-			state = signalled;
+			rc_state = signalled;
 			signalled = -1;
 			break;
 		default:
@@ -948,7 +1005,7 @@ main(int argc, char **argv)
 	}
 
 	/* Set TZ for all rc programs */
-	setenv("TZ", nvram_safe_get("time_zone"), 1);
+	setenv_tz();
 
 #ifdef DEBUG
 	cprintf("rc applet: %s %s %s",
@@ -966,6 +1023,21 @@ main(int argc, char **argv)
 	else if (!strcmp(base, "ipv6-down"))
 		return ip6down_main(argc, argv);
 #endif
+	else if (!strcmp(base, "auth-up"))
+		return authup_main(argc, argv);
+	else if (!strcmp(base, "auth-down"))
+		return authdown_main(argc, argv);
+	/* udhcpc.script [ deconfig bound renew ] */
+	else if (!strcmp(base, "udhcpc.script"))
+		return udhcpc_main(argc, argv);
+#ifdef __CONFIG_EAPOL__
+	else if (!strcmp(base, "wpa_cli.script"))
+		return wpacli_main(argc, argv);
+#endif
+#ifdef __CONFIG_IPV6__
+	else if (!strcmp(base, "dhcp6c.script"))
+		return dhcp6c_main(argc, argv);
+#endif
 #ifdef __CONFIG_MADWIMAX__
 	/* madwimax [ if-create if-up if-down if-release ] */
 	else if ( !strcmp(base, "madwimax.events" ) )
@@ -976,9 +1048,6 @@ main(int argc, char **argv)
 	else if ( !strcmp(base, "lsmodem" ) )
 		return lsmodem_main(argc, argv);
 #endif
-	/* udhcpc.script [ deconfig bound renew ] */
-	else if (!strcmp(base, "udhcpc.script"))
-		return udhcpc_main(argc, argv);
 	/* restore default */
 	else if (!strcmp(base, "restore"))
 	{
@@ -1046,10 +1115,21 @@ main(int argc, char **argv)
 	/* hotplug [event] */
 	else if (!strcmp(base, "hotplug")) {
 		if (argc >= 2) {
+		#ifdef LINUX26
+			eval("/sbin/mdev");
+		#if defined(__CONFIG_MODEM__) && defined(RC_SEMAPHORE_ENABLED)
+			if (!strcmp(argv[1], "usb-serial"))
+				return usb_communication_device_processcheck(1);
+		#endif
+		#endif
 			if (!strcmp(argv[1], "net"))
 				return hotplug_net();
 #ifdef ASUS_EXT
-			else if(!strcmp(argv[1], "usb"))
+		#ifdef LUNUX26
+			else if (!strcmp(argv[1], "usb"))
+		#else
+			else if (!strcmp(argv[1], "usb") || !strcmp(argv[1], "block"))
+		#endif
 				return hotplug_usb();
 #endif
 		} else {
@@ -1057,6 +1137,7 @@ main(int argc, char **argv)
 			return EINVAL;
 		}
 	}
+
 
 #ifdef ASUS_EXT
 	/* ddns update ok */
@@ -1093,12 +1174,12 @@ main(int argc, char **argv)
 	/* remove webcam module */
 	else if (!strcmp(base, "rmwebcam")) {
 		if (argc >= 2)
-			return (remove_webcam_main(atoi(argv[1])));
+			return (remove_usb_webcam(nvram_safe_get("usb_web_device")));
 		else return EINVAL;
 	}
 	/* run rcamd */
 	else if (!strcmp(base, "rcamdmain")) {
-		return (rcamd_main());
+		return (hotplug_usb_webcam(nvram_safe_get("usb_web_device")));
 	}
 #endif
 	/* remove usbstorage module */
@@ -1108,12 +1189,6 @@ main(int argc, char **argv)
 			scsi_host = atoi(argv[1]);
 		return (remove_storage_main(scsi_host));
 	}
-#ifdef __CONFIG_WAVESERVER__
-	/* run waveserver */
-	else if (!strcmp(base, "waveservermain")) {
-		return (waveserver_main());
-	}
-#endif
 	/* run ftp server */
 	else if (!strcmp(base, "start_ftpd")) {
 		return (restart_ftpd());

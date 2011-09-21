@@ -1,0 +1,34 @@
+--- a/drivers/usb/serial/usb-serial.c
++++ b/drivers/usb/serial/usb-serial.c
+@@ -58,6 +58,7 @@ static struct usb_driver usb_serial_driv
+    drivers depend on it.
+ */
+ 
++static ushort maxSize = 0;
+ static int debug;
+ static struct usb_serial *serial_table[SERIAL_TTY_MINORS];	/* initially all NULL */
+ static DEFINE_MUTEX(table_lock);
+@@ -946,6 +947,8 @@ int usb_serial_probe(struct usb_interfac
+ 			goto probe_error;
+ 		}
+ 		buffer_size = le16_to_cpu(endpoint->wMaxPacketSize);
++		if (buffer_size < maxSize)
++			buffer_size = maxSize;
+ 		port->bulk_in_size = buffer_size;
+ 		port->bulk_in_endpointAddress = endpoint->bEndpointAddress;
+ 		port->bulk_in_buffer = kmalloc (buffer_size, GFP_KERNEL);
+@@ -970,6 +973,8 @@ int usb_serial_probe(struct usb_interfac
+ 			goto probe_error;
+ 		}
+ 		buffer_size = le16_to_cpu(endpoint->wMaxPacketSize);
++		if (buffer_size < maxSize)
++			buffer_size = maxSize;
+ 		port->bulk_out_size = buffer_size;
+ 		port->bulk_out_endpointAddress = endpoint->bEndpointAddress;
+ 		port->bulk_out_buffer = kmalloc (buffer_size, GFP_KERNEL);
+@@ -1383,3 +1388,5 @@ MODULE_LICENSE("GPL");
+ 
+ module_param(debug, bool, S_IRUGO | S_IWUSR);
+ MODULE_PARM_DESC(debug, "Debug enabled or not");
++module_param(maxSize, ushort, 0);
++MODULE_PARM_DESC(maxSize, "User specified USB endpoint size");

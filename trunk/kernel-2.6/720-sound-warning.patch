@@ -1,0 +1,33 @@
+From bc9abce0de0b180817bc7e9f73145ef0b6a464ef
+From: Miguel Boton
+Date: Sun, 13 Jan 2008 12:03:53 +0100
+Subject: [PATCH] [ALSA] fix compilation warning in GCC
+
+'snd_shutdown_f_ops' is not a pointer so its address will never be NULL.
+GCC will complain because 'fops_get' will do an unnecessary check because
+'&snd_shutdown_f_ops' is always true.
+
+Signed-off-by: Miguel Boton <mboton@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Takashi Iwai <tiwai@suse.de>
+Signed-off-by: Jaroslav Kysela <perex@perex.cz>
+---
+ sound/core/init.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/sound/core/init.c b/sound/core/init.c
+index dc06e79..e3338d6 100644
+--- a/sound/core/init.c
++++ b/sound/core/init.c
+@@ -339,8 +339,8 @@ int snd_card_disconnect(struct snd_card *card)
+ 		list_add(&mfile->shutdown_list, &shutdown_files);
+ 		spin_unlock(&shutdown_lock);
+ 
+-		fops_get(&snd_shutdown_f_ops);
+ 		mfile->file->f_op = &snd_shutdown_f_ops;
++		fops_get(mfile->file->f_op);
+ 		
+ 		mfile = mfile->next;
+ 	}
+-- 
+1.7.4.1

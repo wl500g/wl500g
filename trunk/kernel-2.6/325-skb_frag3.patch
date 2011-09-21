@@ -1,0 +1,36 @@
+From be139f75e2bdd069a9f2429339a042021e53159d
+From: Thomas Chenault
+Date: Mon, 18 May 2009 21:43:27 -0700
+Subject: [PATCH] net: fix skb_seq_read returning wrong offset/length for page frag data
+
+[ Upstream commit 995b337952cdf7e05d288eede580257b632a8343 ]
+
+When called with a consumed value that is less than skb_headlen(skb)
+bytes into a page frag, skb_seq_read() incorrectly returns an
+offset/length relative to skb->data. Ensure that data which should come
+from a page frag does.
+
+Signed-off-by: Thomas Chenault <thomas_chenault@dell.com>
+Tested-by: Shyam Iyer <shyam_iyer@dell.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ net/core/skbuff.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 0675991..7832287 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -1992,7 +1992,7 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ next_skb:
+ 	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+ 
+-	if (abs_offset < block_limit) {
++	if (abs_offset < block_limit && !st->frag_data) {
+ 		*data = st->cur_skb->data + (abs_offset - st->stepped_offset);
+ 		return block_limit - abs_offset;
+ 	}
+-- 
+1.7.0.2
+

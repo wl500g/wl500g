@@ -78,6 +78,8 @@
 
 {"wan_stb_x", "0", 0},
 
+{"wan_auth_x", "", 0 },
+
 {"ddns_status_t", "", 0},
 
 {"fw_enable_x", "1", 0},
@@ -87,6 +89,8 @@
 {"fw_log_x", "none", 0},
 
 {"misc_natlog_x", "0", 0},
+
+{"misc_fastnat_x", "1", 0},
 
 {"misc_http_x", "0", 0},
 
@@ -264,8 +268,6 @@
 
 {"wl_gmode_protection_x", "0", 0},
 
-{"wl_crypto", "0", 0},
-
 {"wl_wep_x", "0", 0},
 
 {"wl_phrase_x", "", 0},
@@ -284,13 +286,15 @@
 
 {"wl_radio_power_x", "50", 0},
 
-{"wl_preauth", "1", 0},
+{"wl_preauth", "disabled", 0},
 
 {"wl_wdslist_x", "", 0},
 
-{"usb_webenable_x", "1", 0},
+{"usb_webenable_x", "0", 0},
 
 {"usb_webdriver_x", "0", 0},
+
+{"usb_webformat_x", "0", 0},
 
 {"usb_webimage_x", "1", 0},
 
@@ -300,13 +304,15 @@
 
 {"usb_webfresh_x", "1", 0},
 
-{"usb_webcaption_x", "Web Camera Live Demo!!!", 0},
+{"usb_webquality_x", "50", 0},
 
 {"usb_webhttpport_x", "7776", 0},
 
 {"usb_webhttpcheck_x", "0", 0},
 
-{"usb_webactivex_x", "7777", 0},
+{"usb_webhttp_username", "", 0},
+
+{"usb_webhttp_passwd", "", 0},
 
 {"usb_websecurity_x", "0", 0},
 
@@ -436,17 +442,19 @@
 {"audio_enable", "0", 0},
 {"usb20_disable_x", "0", 0},
 {"lltd_enable", "1", 0},
+#ifdef __CONFIG_NTFS3G__
+{"usb_ntfs3g_enable", "0", 0},
+#endif
 
 {"wl_nbw","40",0},
-{"wl_nctrlsb","lower",0},
-{"wl_nband","2",0},
-{"wl_nmcsidx","-1",0},
-{"wl_nmode","-1",0},
+{"wl_mimo_preamble", "mm", 0},
 {"wl_leddc","0x640000",0},
 {"wl_wme_apsd","on",0},
-{"wl_sta_retry_time","5",0},
 {"wl_reg_mode", "d", 0},
-{"wl_wpa_mode", "0", 0},
+
+/* Jumbo frame for N16 only */
+{"jumbo_frame_enable", "0", 0 },
+{"jumbo_frame_size", "2000", 0 },
 
 #ifdef __CONFIG_MADWIMAX__
 {"wan_wimax_ifname", "", 0 },
@@ -458,7 +466,6 @@
 #endif
 
 #ifdef __CONFIG_MODEM__
-{"wan_modem_packetsize","4096",0},
 {"wan_modem_autodetect", "1", 0},
 {"wan_modem_portspeed","921600", 0},
 {"wan_modem_type","1", 0},
@@ -467,7 +474,5 @@
 {"wan_modem_mtu","1492", 0},
 {"wan_modem_mru","1492", 0},
 {"wan_modem_maxfail","0", 0},
-{"wan_modem_serial_enable","1", 0},
 {"wan_modem_zerocd_mode","Auto",0},
-{"wan_modem_usbserial","0", 0},
 #endif

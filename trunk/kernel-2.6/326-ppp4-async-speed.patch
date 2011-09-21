@@ -1,0 +1,32 @@
+From 208f2037ae4a2f23fe5f232d25f4030b3a35c3ed
+From: fangxiaozhi
+Date: Tue, 17 Nov 2009 04:02:24 -0800
+Subject: [PATCH] net: PPP buffer too small for higher speed connections
+
+1. This patch is based on the kernel of 2.6.32-rc7
+
+2. In this patch, we enlarge the out buffer size to optimize the
+   upload speed for the ppp connection. Then it can support the upload of
+   HSUPA data cards.
+
+Signed-off-by: fangxiaozhi <huananhu@huawei.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ drivers/net/ppp_async.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 30b1b33..c311fa6 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -36,7 +36,7 @@
+ 
+ #define PPP_VERSION	"2.4.2"
+ 
+-#define OBUFSIZE	256
++#define OBUFSIZE	4096
+ 
+ /* Structure for storing local state. */
+ struct asyncppp {
+-- 
+1.7.2

@@ -58,7 +58,7 @@ wl_ioctl(char *name, int cmd, void *buf, int len)
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
 	ifr.ifr_data = (caddr_t) &ioc;
 	if ((ret = ioctl(s, SIOCDEVPRIVATE, &ifr)) < 0)
-		if (cmd != WLC_GET_MAGIC)
+		if (cmd != WLC_GET_MAGIC && cmd != WLC_GET_BSSID)
 			perror(ifr.ifr_name);
 
 	/* cleanup */

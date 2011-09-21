@@ -80,7 +80,8 @@ int get_model(void)
 	else if (nvram_match("boardtype", "0x048e") &&
 		 !nvram_match("boardnum", "45"))
 		return MDL_DIR320;
-	else if (nvram_match("boardtype", "0x04cf"))
+	else if (nvram_match("boardtype", "0x04cf") &&
+		 nvram_match("boardnum", "45"))
 		return MDL_RTN16;
 	else if (nvram_match("boardtype", "0x04CD") &&
 		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1201"))
@@ -88,6 +89,13 @@ int get_model(void)
 	else if (nvram_match("boardtype", "0x04EC") &&
 		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1402"))
 		return MDL_RTN10;
+	else if (nvram_match("boardtype", "0x0550") &&
+		 nvram_match("boardnum", "45") && nvram_match("boardrev", "0x1102"))
+		return MDL_RTN10U;
+	else if (nvram_match("boardtype", "0x04CF") &&
+		 nvram_match("boardnum", "3500") &&
+		 (nvram_match("boardrev", "02") || nvram_match("boardrev", "0x1213")))
+		return MDL_WNR3500L;
 
 	return MDL_UNKNOWN;
 }

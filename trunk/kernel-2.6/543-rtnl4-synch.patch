@@ -1,0 +1,902 @@
+[NET]: make netlink user -> kernel interface synchronious
+
+ kernel.org commits
+ cd40b7d3983c708aabe3d3008ec64ffce56d33b0 [NET]: make netlink user -> kernel interface synchronious
+ 28f7b0360f46eeb9eeee63d03bb5484918a54837 [NETLINK]: fib_frontend build fixes
+ 6cf92e98a48ba4bd5aeb8932b3844d3f8eacac76 [CONNECTOR]: Fix a spurious kfree_skb() call
+ d883a0367149506e8b7a3f31891d1ea30b9377f3 [IPV4]: OOPS with NETLINK_FIB_LOOKUP netlink socket
+
+---
+ drivers/connector/connector.c       |   19 ----
+ drivers/scsi/scsi_netlink.c         |   25 ------
+ drivers/scsi/scsi_transport_iscsi.c |   84 ++++++++------------
+ fs/ecryptfs/netlink.c               |   14 ---
+ include/linux/connector.h           |    2 
+ include/linux/netlink.h             |    2 
+ include/net/netlink.h               |    6 -
+ kernel/audit.c                      |   12 --
+ net/core/rtnetlink.c                |   12 --
+ net/decnet/netfilter/dn_rtmsg.c     |   14 ---
+ net/ipv4/fib_frontend.c             |   28 +++---
+ net/ipv4/inet_diag.c                |   12 --
+ net/ipv4/netfilter/ip_queue.c       |   17 ----
+ net/ipv6/netfilter/ip6_queue.c      |   17 ----
+ net/netfilter/nfnetlink.c           |   18 ----
+ net/netlink/af_netlink.c            |  148 +++++++++++-------------------------
+ net/netlink/genetlink.c             |   18 ----
+ net/xfrm/xfrm_user.c                |   13 ---
+ 18 files changed, 139 insertions(+), 322 deletions(-)
+
+diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
+--- a/drivers/connector/connector.c
++++ b/drivers/connector/connector.c
+@@ -218,7 +218,7 @@ static void cn_rx_skb(struct sk_buff *__
+ 		    skb->len < nlh->nlmsg_len ||
+ 		    nlh->nlmsg_len > CONNECTOR_MAX_MSG_SIZE) {
+ 			kfree_skb(skb);
+-			goto out;
++			return;
+ 		}
+ 
+ 		len = NLMSG_ALIGN(nlh->nlmsg_len);
+@@ -229,21 +229,6 @@ static void cn_rx_skb(struct sk_buff *__
+ 		if (err < 0)
+ 			kfree_skb(skb);
+ 	}
+-
+-out:
+-	kfree_skb(__skb);
+-}
+-
+-/*
+- * Netlink socket input callback - dequeues the skbs and calls the
+- * main netlink receiving function.
+- */
+-static void cn_input(struct sock *sk, int len)
+-{
+-	struct sk_buff *skb;
+-
+-	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL)
+-		cn_rx_skb(skb);
+ }
+ 
+ /*
+@@ -442,7 +427,7 @@ static int __devinit cn_init(void)
+ 	struct cn_dev *dev = &cdev;
+ 	int err;
+ 
+-	dev->input = cn_input;
++	dev->input = cn_rx_skb;
+ 	dev->id.idx = cn_idx;
+ 	dev->id.val = cn_val;
+ 
+diff --git a/drivers/scsi/scsi_netlink.c b/drivers/scsi/scsi_netlink.c
+--- a/drivers/scsi/scsi_netlink.c
++++ b/drivers/scsi/scsi_netlink.c
+@@ -64,7 +64,7 @@ scsi_nl_rcv_msg(struct sk_buff *skb)
+ 
+ 		if (nlh->nlmsg_type != SCSI_TRANSPORT_MSG) {
+ 			err = -EBADMSG;
+-			goto next_msg;
++			return;
+ 		}
+ 
+ 		hdr = NLMSG_DATA(nlh);
+@@ -99,27 +99,6 @@ next_msg:
+ 
+ 
+ /**
+- * scsi_nl_rcv_msg -
+- *    Receive handler for a socket. Extracts a received message buffer from
+- *    the socket, and starts message processing.
+- *
+- * @sk:		socket
+- * @len:	unused
+- *
+- **/
+-static void
+-scsi_nl_rcv(struct sock *sk, int len)
+-{
+-	struct sk_buff *skb;
+-
+-	while ((skb = skb_dequeue(&sk->sk_receive_queue))) {
+-		scsi_nl_rcv_msg(skb);
+-		kfree_skb(skb);
+-	}
+-}
+-
+-
+-/**
+  * scsi_nl_rcv_event -
+  *    Event handler for a netlink socket.
+  *
+@@ -168,7 +147,7 @@ scsi_netlink_init(void)
+ 	}
+ 
+ 	scsi_nl_sock = netlink_kernel_create(NETLINK_SCSITRANSPORT,
+-				SCSI_NL_GRP_CNT, scsi_nl_rcv, NULL,
++				SCSI_NL_GRP_CNT, scsi_nl_rcv_msg, NULL,
+ 				THIS_MODULE);
+ 	if (!scsi_nl_sock) {
+ 		printk(KERN_ERR "%s: register of recieve handler failed\n",
+diff --git a/drivers/scsi/scsi_transport_iscsi.c b/drivers/scsi/scsi_transport_iscsi.c
+--- a/drivers/scsi/scsi_transport_iscsi.c
++++ b/drivers/scsi/scsi_transport_iscsi.c
+@@ -1059,61 +1059,49 @@ iscsi_if_recv_msg(struct sk_buff *skb, s
+ }
+ 
+ /*
+- * Get message from skb (based on rtnetlink_rcv_skb).  Each message is
+- * processed by iscsi_if_recv_msg.  Malformed skbs with wrong lengths or
+- * invalid creds are discarded silently.
++ * Get message from skb.  Each message is processed by iscsi_if_recv_msg.
++ * Malformed skbs with wrong lengths or invalid creds are not processed.
+  */
+ static void
+-iscsi_if_rx(struct sock *sk, int len)
++iscsi_if_rx(struct sk_buff *skb)
+ {
+-	struct sk_buff *skb;
+-
+ 	mutex_lock(&rx_queue_mutex);
+-	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
+-		if (NETLINK_CREDS(skb)->uid) {
+-			skb_pull(skb, skb->len);
+-			goto free_skb;
++	while (skb->len >= NLMSG_SPACE(0)) {
++		int err;
++		uint32_t rlen;
++		struct nlmsghdr	*nlh;
++		struct iscsi_uevent *ev;
++
++		nlh = nlmsg_hdr(skb);
++		if (nlh->nlmsg_len < sizeof(*nlh) ||
++		    skb->len < nlh->nlmsg_len) {
++			break;
+ 		}
+ 
+-		while (skb->len >= NLMSG_SPACE(0)) {
+-			int err;
+-			uint32_t rlen;
+-			struct nlmsghdr	*nlh;
+-			struct iscsi_uevent *ev;
+-
+-			nlh = nlmsg_hdr(skb);
+-			if (nlh->nlmsg_len < sizeof(*nlh) ||
+-			    skb->len < nlh->nlmsg_len) {
+-				break;
+-			}
+-
+-			ev = NLMSG_DATA(nlh);
+-			rlen = NLMSG_ALIGN(nlh->nlmsg_len);
+-			if (rlen > skb->len)
+-				rlen = skb->len;
+-
+-			err = iscsi_if_recv_msg(skb, nlh);
+-			if (err) {
+-				ev->type = ISCSI_KEVENT_IF_ERROR;
+-				ev->iferror = err;
+-			}
+-			do {
+-				/*
+-				 * special case for GET_STATS:
+-				 * on success - sending reply and stats from
+-				 * inside of if_recv_msg(),
+-				 * on error - fall through.
+-				 */
+-				if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
+-					break;
+-				err = iscsi_if_send_reply(
+-					NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
+-					nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
+-			} while (err < 0 && err != -ECONNREFUSED);
+-			skb_pull(skb, rlen);
++		ev = NLMSG_DATA(nlh);
++		rlen = NLMSG_ALIGN(nlh->nlmsg_len);
++		if (rlen > skb->len)
++			rlen = skb->len;
++
++		err = iscsi_if_recv_msg(skb, nlh);
++		if (err) {
++			ev->type = ISCSI_KEVENT_IF_ERROR;
++			ev->iferror = err;
+ 		}
+-free_skb:
+-		kfree_skb(skb);
++		do {
++			/*
++			 * special case for GET_STATS:
++			 * on success - sending reply and stats from
++			 * inside of if_recv_msg(),
++			 * on error - fall through.
++			 */
++			if (ev->type == ISCSI_UEVENT_GET_STATS && !err)
++				break;
++			err = iscsi_if_send_reply(
++				NETLINK_CREDS(skb)->pid, nlh->nlmsg_seq,
++				nlh->nlmsg_type, 0, 0, ev, sizeof(*ev));
++		} while (err < 0 && err != -ECONNREFUSED);
++		skb_pull(skb, rlen);
+ 	}
+ 	mutex_unlock(&rx_queue_mutex);
+ }
+diff --git a/fs/ecryptfs/netlink.c b/fs/ecryptfs/netlink.c
+--- a/fs/ecryptfs/netlink.c
++++ b/fs/ecryptfs/netlink.c
+@@ -165,22 +165,10 @@ static int ecryptfs_process_nl_quit(stru
+  * it to its desired netlink context element and wake up the process
+  * that is waiting for a response.
+  */
+-static void ecryptfs_receive_nl_message(struct sock *sk, int len)
++static void ecryptfs_receive_nl_message(struct sk_buff *skb)
+ {
+-	struct sk_buff *skb;
+ 	struct nlmsghdr *nlh;
+-	int rc = 0;	/* skb_recv_datagram requires this */
+ 
+-receive:
+-	skb = skb_recv_datagram(sk, 0, 0, &rc);
+-	if (rc == -EINTR)
+-		goto receive;
+-	else if (rc < 0) {
+-		ecryptfs_printk(KERN_ERR, "Error occurred while "
+-				"receiving eCryptfs netlink message; "
+-				"rc = [%d]\n", rc);
+-		return;
+-	}
+ 	nlh = nlmsg_hdr(skb);
+ 	if (!NLMSG_OK(nlh, skb->len)) {
+ 		ecryptfs_printk(KERN_ERR, "Received corrupt netlink "
+diff --git a/include/linux/connector.h b/include/linux/connector.h
+--- a/include/linux/connector.h
++++ b/include/linux/connector.h
+@@ -153,7 +153,7 @@ struct cn_dev {
+ 
+ 	u32 seq, groups;
+ 	struct sock *nls;
+-	void (*input) (struct sock * sk, int len);
++	void (*input) (struct sk_buff *skb);
+ 
+ 	struct cn_queue_dev *cbdev;
+ };
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -172,7 +172,7 @@ struct netlink_skb_parms
+ 
+ 
+ extern struct sock *netlink_kernel_create(int unit, unsigned int groups,
+-					  void (*input)(struct sock *sk, int len),
++					  void (*input)(struct sk_buff *skb),
+ 					  struct mutex *cb_mutex,
+ 					  struct module *module);
+ extern int __netlink_change_ngroups(struct sock *sk, unsigned int groups);
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -214,9 +214,9 @@ struct nl_info {
+ 	u32			pid;
+ };
+ 
+-extern void		netlink_run_queue(struct sock *sk, unsigned int *qlen,
+-					  int (*cb)(struct sk_buff *,
+-						    struct nlmsghdr *));
++extern int		netlink_rcv_skb(struct sk_buff *skb,
++					int (*cb)(struct sk_buff *,
++						  struct nlmsghdr *));
+ extern int		nlmsg_notify(struct sock *sk, struct sk_buff *skb,
+ 				     u32 pid, unsigned int group, int report,
+ 				     gfp_t flags);
+diff --git a/kernel/audit.c b/kernel/audit.c
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -765,18 +765,10 @@ static void audit_receive_skb(struct sk_
+ }
+ 
+ /* Receive messages from netlink socket. */
+-static void audit_receive(struct sock *sk, int length)
++static void audit_receive(struct sk_buff  *skb)
+ {
+-	struct sk_buff  *skb;
+-	unsigned int qlen;
+-
+ 	mutex_lock(&audit_cmd_mutex);
+-
+-	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
+-		skb = skb_dequeue(&sk->sk_receive_queue);
+-		audit_receive_skb(skb);
+-		kfree_skb(skb);
+-	}
++	audit_receive_skb(skb);
+ 	mutex_unlock(&audit_cmd_mutex);
+ }
+ 
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1225,15 +1225,11 @@ static int rtnetlink_rcv_msg(struct sk_b
+ 	return doit(skb, nlh, (void *)&rta_buf[0]);
+ }
+ 
+-static void rtnetlink_rcv(struct sock *sk, int len)
++static void rtnetlink_rcv(struct sk_buff *skb)
+ {
+-	unsigned int qlen = 0;
+-
+-	do {
+-		rtnl_lock();
+-		netlink_run_queue(sk, &qlen, &rtnetlink_rcv_msg);
+-		rtnl_unlock();
+-	} while (qlen);
++	rtnl_lock();
++	netlink_rcv_skb(skb, &rtnetlink_rcv_msg);
++	rtnl_unlock();
+ }
+ 
+ static int rtnetlink_event(struct notifier_block *this, unsigned long event, void *ptr)
+diff --git a/net/decnet/netfilter/dn_rtmsg.c b/net/decnet/netfilter/dn_rtmsg.c
+--- a/net/decnet/netfilter/dn_rtmsg.c
++++ b/net/decnet/netfilter/dn_rtmsg.c
+@@ -115,17 +115,6 @@ static inline void dnrmg_receive_user_sk
+ 	RCV_SKB_FAIL(-EINVAL);
+ }
+ 
+-static void dnrmg_receive_user_sk(struct sock *sk, int len)
+-{
+-	struct sk_buff *skb;
+-	unsigned int qlen = skb_queue_len(&sk->sk_receive_queue);
+-
+-	for (; qlen && (skb = skb_dequeue(&sk->sk_receive_queue)); qlen--) {
+-		dnrmg_receive_user_skb(skb);
+-		kfree_skb(skb);
+-	}
+-}
+-
+ static struct nf_hook_ops dnrmg_ops = {
+ 	.hook		= dnrmg_hook,
+ 	.pf		= PF_DECnet,
+@@ -138,7 +127,8 @@ static int __init dn_rtmsg_init(void)
+ 	int rv = 0;
+ 
+ 	dnrmg = netlink_kernel_create(NETLINK_DNRTMSG, DNRNG_NLGRP_MAX,
+-				      dnrmg_receive_user_sk, NULL, THIS_MODULE);
++				      dnrmg_receive_user_skb,
++				      NULL, THIS_MODULE);
+ 	if (dnrmg == NULL) {
+ 		printk(KERN_ERR "dn_rtmsg: Cannot create netlink socket");
+ 		return -ENOMEM;
+diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
+--- a/net/ipv4/fib_frontend.c
++++ b/net/ipv4/fib_frontend.c
+@@ -49,6 +49,8 @@
+ 
+ #define FFprint(a...) printk(KERN_DEBUG a)
+ 
++static struct sock *fibnl;
++
+ #ifndef CONFIG_IP_MULTIPLE_TABLES
+ 
+ struct fib_table *ip_fib_local_table;
+@@ -788,24 +790,22 @@ static void nl_fib_lookup(struct fib_res
+ 	}
+ }
+ 
+-static void nl_fib_input(struct sock *sk, int len)
++static void nl_fib_input(struct sk_buff *skb)
+ {
+-	struct sk_buff *skb = NULL;
+-	struct nlmsghdr *nlh = NULL;
+ 	struct fib_result_nl *frn;
+-	u32 pid;
++	struct nlmsghdr *nlh;
+ 	struct fib_table *tb;
+-
+-	skb = skb_dequeue(&sk->sk_receive_queue);
+-	if (skb == NULL)
+-		return;
++	u32 pid;
+ 
+ 	nlh = nlmsg_hdr(skb);
+ 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
+-	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
+-		kfree_skb(skb);
++	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
+ 		return;
+-	}
++
++	skb = skb_clone(skb, GFP_KERNEL);
++	if (skb == NULL)
++		return;
++	nlh = nlmsg_hdr(skb);
+ 
+ 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
+ 	tb = fib_get_table(frn->tb_id_in);
+@@ -815,13 +815,13 @@ static void nl_fib_input(struct sock *sk
+ 	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
+ 	NETLINK_CB(skb).pid = 0;         /* from kernel */
+ 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
+-	netlink_unicast(sk, skb, pid, MSG_DONTWAIT);
++	netlink_unicast(fibnl, skb, pid, MSG_DONTWAIT);
+ }
+ 
+ static void nl_fib_lookup_init(void)
+ {
+-      netlink_kernel_create(NETLINK_FIB_LOOKUP, 0, nl_fib_input, NULL,
+-      			    THIS_MODULE);
++	fibnl = netlink_kernel_create(NETLINK_FIB_LOOKUP, 0,
++				      nl_fib_input, NULL, THIS_MODULE);
+ }
+ 
+ static void fib_disable_ip(struct net_device *dev, int force)
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -838,15 +838,11 @@ static int inet_diag_rcv_msg(struct sk_b
+ 
+ static DEFINE_MUTEX(inet_diag_mutex);
+ 
+-static void inet_diag_rcv(struct sock *sk, int len)
++static void inet_diag_rcv(struct sk_buff *skb)
+ {
+-	unsigned int qlen = 0;
+-
+-	do {
+-		mutex_lock(&inet_diag_mutex);
+-		netlink_run_queue(sk, &qlen, &inet_diag_rcv_msg);
+-		mutex_unlock(&inet_diag_mutex);
+-	} while (qlen);
++	mutex_lock(&inet_diag_mutex);
++	netlink_rcv_skb(skb, &inet_diag_rcv_msg);
++	mutex_unlock(&inet_diag_mutex);
+ }
+ 
+ static DEFINE_SPINLOCK(inet_diag_register_lock);
+diff --git a/net/ipv4/netfilter/ip_queue.c b/net/ipv4/netfilter/ip_queue.c
+--- a/net/ipv4/netfilter/ip_queue.c
++++ b/net/ipv4/netfilter/ip_queue.c
+@@ -476,7 +476,7 @@ ipq_dev_drop(int ifindex)
+ #define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
+ 
+ static inline void
+-ipq_rcv_skb(struct sk_buff *skb)
++__ipq_rcv_skb(struct sk_buff *skb)
+ {
+ 	int status, type, pid, flags, nlmsglen, skblen;
+ 	struct nlmsghdr *nlh;
+@@ -534,19 +534,10 @@ ipq_rcv_skb(struct sk_buff *skb)
+ }
+ 
+ static void
+-ipq_rcv_sk(struct sock *sk, int len)
++ipq_rcv_skb(struct sk_buff *skb)
+ {
+-	struct sk_buff *skb;
+-	unsigned int qlen;
+-
+ 	mutex_lock(&ipqnl_mutex);
+-
+-	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
+-		skb = skb_dequeue(&sk->sk_receive_queue);
+-		ipq_rcv_skb(skb);
+-		kfree_skb(skb);
+-	}
+-
++	__ipq_rcv_skb(skb);
+ 	mutex_unlock(&ipqnl_mutex);
+ }
+ 
+@@ -667,7 +658,7 @@ static int __init ip_queue_init(void)
+ 	struct proc_dir_entry *proc;
+ 
+ 	netlink_register_notifier(&ipq_nl_notifier);
+-	ipqnl = netlink_kernel_create(NETLINK_FIREWALL, 0, ipq_rcv_sk,
++	ipqnl = netlink_kernel_create(NETLINK_FIREWALL, 0, ipq_rcv_skb,
+ 				      NULL, THIS_MODULE);
+ 	if (ipqnl == NULL) {
+ 		printk(KERN_ERR "ip_queue: failed to create netlink socket\n");
+diff --git a/net/ipv6/netfilter/ip6_queue.c b/net/ipv6/netfilter/ip6_queue.c
+--- a/net/ipv6/netfilter/ip6_queue.c
++++ b/net/ipv6/netfilter/ip6_queue.c
+@@ -466,7 +466,7 @@ ipq_dev_drop(int ifindex)
+ #define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
+ 
+ static inline void
+-ipq_rcv_skb(struct sk_buff *skb)
++__ipq_rcv_skb(struct sk_buff *skb)
+ {
+ 	int status, type, pid, flags, nlmsglen, skblen;
+ 	struct nlmsghdr *nlh;
+@@ -524,19 +524,10 @@ ipq_rcv_skb(struct sk_buff *skb)
+ }
+ 
+ static void
+-ipq_rcv_sk(struct sock *sk, int len)
++ipq_rcv_skb(struct sk_buff *skb)
+ {
+-	struct sk_buff *skb;
+-	unsigned int qlen;
+-
+ 	mutex_lock(&ipqnl_mutex);
+-
+-	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
+-		skb = skb_dequeue(&sk->sk_receive_queue);
+-		ipq_rcv_skb(skb);
+-		kfree_skb(skb);
+-	}
+-
++	__ipq_rcv_skb(skb);
+ 	mutex_unlock(&ipqnl_mutex);
+ }
+ 
+@@ -657,7 +648,7 @@ static int __init ip6_queue_init(void)
+ 	struct proc_dir_entry *proc;
+ 
+ 	netlink_register_notifier(&ipq_nl_notifier);
+-	ipqnl = netlink_kernel_create(NETLINK_IP6_FW, 0, ipq_rcv_sk, NULL,
++	ipqnl = netlink_kernel_create(NETLINK_IP6_FW, 0, ipq_rcv_skb, NULL,
+ 				      THIS_MODULE);
+ 	if (ipqnl == NULL) {
+ 		printk(KERN_ERR "ip6_queue: failed to create netlink socket\n");
+diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
+--- a/net/netfilter/nfnetlink.c
++++ b/net/netfilter/nfnetlink.c
+@@ -49,11 +49,6 @@ static void nfnl_lock(void)
+ 	mutex_lock(&nfnl_mutex);
+ }
+ 
+-static int nfnl_trylock(void)
+-{
+-	return !mutex_trylock(&nfnl_mutex);
+-}
+-
+ static void __nfnl_unlock(void)
+ {
+ 	mutex_unlock(&nfnl_mutex);
+@@ -241,16 +236,11 @@ static int nfnetlink_rcv_msg(struct sk_b
+ 	}
+ }
+ 
+-static void nfnetlink_rcv(struct sock *sk, int len)
++static void nfnetlink_rcv(struct sk_buff *skb)
+ {
+-	unsigned int qlen = 0;
+-
+-	do {
+-		if (nfnl_trylock())
+-			return;
+-		netlink_run_queue(sk, &qlen, nfnetlink_rcv_msg);
+-		__nfnl_unlock();
+-	} while (qlen);
++	nfnl_lock();
++	netlink_rcv_skb(skb, &nfnetlink_rcv_msg);
++	nfnl_unlock();
+ }
+ 
+ static void __exit nfnetlink_exit(void)
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -79,7 +79,7 @@ struct netlink_sock {
+ 	struct netlink_callback	*cb;
+ 	struct mutex		*cb_mutex;
+ 	struct mutex		cb_def_mutex;
+-	void			(*data_ready)(struct sock *sk, int bytes);
++	void			(*netlink_rcv)(struct sk_buff *skb);
+ 	struct module		*module;
+ };
+ 
+@@ -121,7 +121,6 @@ static DECLARE_WAIT_QUEUE_HEAD(nl_table_
+ 
+ static int netlink_dump(struct sock *sk);
+ static void netlink_destroy_callback(struct netlink_callback *cb);
+-static void netlink_queue_skip(struct nlmsghdr *nlh, struct sk_buff *skb);
+ 
+ static DEFINE_RWLOCK(nl_table_lock);
+ static atomic_t nl_table_users = ATOMIC_INIT(0);
+@@ -698,19 +697,17 @@ static void netlink_overrun(struct sock
+ 
+ static struct sock *netlink_getsockbypid(struct sock *ssk, u32 pid)
+ {
+-	int protocol = ssk->sk_protocol;
+ 	struct sock *sock;
+ 	struct netlink_sock *nlk;
+ 
+-	sock = netlink_lookup(protocol, pid);
++	sock = netlink_lookup(ssk->sk_protocol, pid);
+ 	if (!sock)
+ 		return ERR_PTR(-ECONNREFUSED);
+ 
+ 	/* Don't bother queuing skb if kernel socket has no input function */
+ 	nlk = nlk_sk(sock);
+-	if ((nlk->pid == 0 && !nlk->data_ready) ||
+-	    (sock->sk_state == NETLINK_CONNECTED &&
+-	     nlk->dst_pid != nlk_sk(ssk)->pid)) {
++	if (sock->sk_state == NETLINK_CONNECTED &&
++	    nlk->dst_pid != nlk_sk(ssk)->pid) {
+ 		sock_put(sock);
+ 		return ERR_PTR(-ECONNREFUSED);
+ 	}
+@@ -824,7 +821,34 @@ static inline struct sk_buff *netlink_tr
+ 	return skb;
+ }
+ 
+-int netlink_unicast(struct sock *ssk, struct sk_buff *skb, u32 pid, int nonblock)
++static inline void netlink_rcv_wake(struct sock *sk)
++{
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	if (skb_queue_empty(&sk->sk_receive_queue))
++		clear_bit(0, &nlk->state);
++	if (!test_bit(0, &nlk->state))
++		wake_up_interruptible(&nlk->wait);
++}
++
++static inline int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb)
++{
++	int ret;
++	struct netlink_sock *nlk = nlk_sk(sk);
++
++	ret = -ECONNREFUSED;
++	if (nlk->netlink_rcv != NULL) {
++		ret = skb->len;
++		skb_set_owner_r(skb, sk);
++		nlk->netlink_rcv(skb);
++	}
++	kfree_skb(skb);
++	sock_put(sk);
++	return ret;
++}
++
++int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
++		    u32 pid, int nonblock)
+ {
+ 	struct sock *sk;
+ 	int err;
+@@ -839,6 +863,9 @@ retry:
+ 		kfree_skb(skb);
+ 		return PTR_ERR(sk);
+ 	}
++	if (nlk_sk(sk)->pid == 0)
++		return netlink_unicast_kernel(sk, skb);
++
+ 	err = netlink_attachskb(sk, skb, nonblock, &timeo, ssk);
+ 	if (err == 1)
+ 		goto retry;
+@@ -1128,16 +1155,6 @@ static void netlink_cmsg_recv_pktinfo(st
+ 	put_cmsg(msg, SOL_NETLINK, NETLINK_PKTINFO, sizeof(info), &info);
+ }
+ 
+-static inline void netlink_rcv_wake(struct sock *sk)
+-{
+-	struct netlink_sock *nlk = nlk_sk(sk);
+-
+-	if (skb_queue_empty(&sk->sk_receive_queue))
+-		clear_bit(0, &nlk->state);
+-	if (!test_bit(0, &nlk->state))
+-		wake_up_interruptible(&nlk->wait);
+-}
+-
+ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 			   struct msghdr *msg, size_t len)
+ {
+@@ -1285,11 +1302,7 @@ out:
+ 
+ static void netlink_data_ready(struct sock *sk, int len)
+ {
+-	struct netlink_sock *nlk = nlk_sk(sk);
+-
+-	if (nlk->data_ready)
+-		nlk->data_ready(sk, len);
+-	netlink_rcv_wake(sk);
++	BUG();
+ }
+ 
+ /*
+@@ -1300,7 +1313,7 @@ static void netlink_data_ready(struct so
+ 
+ struct sock *
+ netlink_kernel_create(int unit, unsigned int groups,
+-		      void (*input)(struct sock *sk, int len),
++		      void (*input)(struct sk_buff *skb),
+ 		      struct mutex *cb_mutex, struct module *module)
+ {
+ 	struct socket *sock;
+@@ -1329,7 +1342,7 @@ netlink_kernel_create(int unit, unsigned
+ 	sk = sock->sk;
+ 	sk->sk_data_ready = netlink_data_ready;
+ 	if (input)
+-		nlk_sk(sk)->data_ready = input;
++		nlk_sk(sk)->netlink_rcv = input;
+ 
+ 	if (netlink_insert(sk, 0))
+ 		goto out_sock_release;
+@@ -1527,12 +1540,7 @@ int netlink_dump_start(struct sock *ssk,
+ 
+ 	netlink_dump(sk);
+ 	sock_put(sk);
+-
+-	/* We successfully started a dump, by returning -EINTR we
+-	 * signal the queue mangement to interrupt processing of
+-	 * any netlink messages so userspace gets a chance to read
+-	 * the results. */
+-	return -EINTR;
++	return 0;
+ }
+ 
+ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
+@@ -1568,13 +1576,15 @@ void netlink_ack(struct sk_buff *in_skb,
+ 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).pid, MSG_DONTWAIT);
+ }
+ 
+-static int netlink_rcv_skb(struct sk_buff *skb, int (*cb)(struct sk_buff *,
++int netlink_rcv_skb(struct sk_buff *skb, int (*cb)(struct sk_buff *,
+ 						     struct nlmsghdr *))
+ {
+ 	struct nlmsghdr *nlh;
+ 	int err;
+ 
+ 	while (skb->len >= nlmsg_total_size(0)) {
++		int msglen;
++
+ 		nlh = nlmsg_hdr(skb);
+ 		err = 0;
+ 
+@@ -1590,84 +1600,20 @@ static int netlink_rcv_skb(struct sk_buf
+ 			goto skip;
+ 
+ 		err = cb(skb, nlh);
+-		if (err == -EINTR) {
+-			/* Not an error, but we interrupt processing */
+-			netlink_queue_skip(nlh, skb);
+-			return err;
+-		}
+ skip:
+ 		if (nlh->nlmsg_flags & NLM_F_ACK || err)
+ 			netlink_ack(skb, nlh, err);
+ 
+-		netlink_queue_skip(nlh, skb);
++		msglen = NLMSG_ALIGN(nlh->nlmsg_len);
++		if (msglen > skb->len)
++			msglen = skb->len;
++		skb_pull(skb, msglen);
+ 	}
+ 
+ 	return 0;
+ }
+ 
+ /**
+- * nelink_run_queue - Process netlink receive queue.
+- * @sk: Netlink socket containing the queue
+- * @qlen: Place to store queue length upon entry
+- * @cb: Callback function invoked for each netlink message found
+- *
+- * Processes as much as there was in the queue upon entry and invokes
+- * a callback function for each netlink message found. The callback
+- * function may refuse a message by returning a negative error code
+- * but setting the error pointer to 0 in which case this function
+- * returns with a qlen != 0.
+- *
+- * qlen must be initialized to 0 before the initial entry, afterwards
+- * the function may be called repeatedly until qlen reaches 0.
+- *
+- * The callback function may return -EINTR to signal that processing
+- * of netlink messages shall be interrupted. In this case the message
+- * currently being processed will NOT be requeued onto the receive
+- * queue.
+- */
+-void netlink_run_queue(struct sock *sk, unsigned int *qlen,
+-		       int (*cb)(struct sk_buff *, struct nlmsghdr *))
+-{
+-	struct sk_buff *skb;
+-
+-	if (!*qlen || *qlen > skb_queue_len(&sk->sk_receive_queue))
+-		*qlen = skb_queue_len(&sk->sk_receive_queue);
+-
+-	for (; *qlen; (*qlen)--) {
+-		skb = skb_dequeue(&sk->sk_receive_queue);
+-		if (netlink_rcv_skb(skb, cb)) {
+-			if (skb->len)
+-				skb_queue_head(&sk->sk_receive_queue, skb);
+-			else {
+-				kfree_skb(skb);
+-				(*qlen)--;
+-			}
+-			break;
+-		}
+-
+-		kfree_skb(skb);
+-	}
+-}
+-
+-/**
+- * netlink_queue_skip - Skip netlink message while processing queue.
+- * @nlh: Netlink message to be skipped
+- * @skb: Socket buffer containing the netlink messages.
+- *
+- * Pulls the given netlink message off the socket buffer so the next
+- * call to netlink_queue_run() will not reconsider the message.
+- */
+-static void netlink_queue_skip(struct nlmsghdr *nlh, struct sk_buff *skb)
+-{
+-	int msglen = NLMSG_ALIGN(nlh->nlmsg_len);
+-
+-	if (msglen > skb->len)
+-		msglen = skb->len;
+-
+-	skb_pull(skb, msglen);
+-}
+-
+-/**
+  * nlmsg_notify - send a notification netlink message
+  * @sk: netlink socket to use
+  * @skb: notification message
+@@ -1939,7 +1885,7 @@ panic:
+ core_initcall(netlink_proto_init);
+ 
+ EXPORT_SYMBOL(netlink_ack);
+-EXPORT_SYMBOL(netlink_run_queue);
++EXPORT_SYMBOL(netlink_rcv_skb);
+ EXPORT_SYMBOL(netlink_broadcast);
+ EXPORT_SYMBOL(netlink_dump_start);
+ EXPORT_SYMBOL(netlink_kernel_create);
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -27,11 +27,6 @@ static void genl_lock(void)
+ 	mutex_lock(&genl_mutex);
+ }
+ 
+-static int genl_trylock(void)
+-{
+-	return !mutex_trylock(&genl_mutex);
+-}
+-
+ static void genl_unlock(void)
+ {
+ 	mutex_unlock(&genl_mutex);
+@@ -479,16 +474,11 @@ static int genl_rcv_msg(struct sk_buff *
+ 	return ops->doit(skb, &info);
+ }
+ 
+-static void genl_rcv(struct sock *sk, int len)
++static void genl_rcv(struct sk_buff *skb)
+ {
+-	unsigned int qlen = 0;
+-
+-	do {
+-		if (genl_trylock())
+-			return;
+-		netlink_run_queue(sk, &qlen, genl_rcv_msg);
+-		genl_unlock();
+-	} while (qlen && genl_sock && genl_sock->sk_receive_queue.qlen);
++	genl_lock();
++	netlink_rcv_skb(skb, &genl_rcv_msg);
++	genl_unlock();
+ }
+ 
+ /**************************************************************************
+diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
+--- a/net/xfrm/xfrm_user.c
++++ b/net/xfrm/xfrm_user.c
+@@ -2020,16 +2020,11 @@ static int xfrm_user_rcv_msg(struct sk_b
+ 	return link->doit(skb, nlh, xfrma);
+ }
+ 
+-static void xfrm_netlink_rcv(struct sock *sk, int len)
++static void xfrm_netlink_rcv(struct sk_buff *skb)
+ {
+-	unsigned int qlen = 0;
+-
+-	do {
+-		mutex_lock(&xfrm_cfg_mutex);
+-		netlink_run_queue(sk, &qlen, &xfrm_user_rcv_msg);
+-		mutex_unlock(&xfrm_cfg_mutex);
+-
+-	} while (qlen);
++	mutex_lock(&xfrm_cfg_mutex);
++	netlink_rcv_skb(skb, &xfrm_user_rcv_msg);
++	mutex_unlock(&xfrm_cfg_mutex);
+ }
+ 
+ static int build_expire(struct sk_buff *skb, struct xfrm_state *x, struct km_event *c)
+-- 

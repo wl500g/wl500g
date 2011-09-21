@@ -1,0 +1,2582 @@
+From 6d34e6d31d967eef634b54acb980a2d55d2f5a4a
+From: Fedor <fedork@ubuntu.(none)>
+Date: Tue, 5 Jan 2010 04:47:20 -0500
+Subject: [PATCH] ext2: cross-port of the ext3 reservations code from 2.6.24 (improves the performance a lot)
+
+---
+ fs/ext2/balloc.c    | 1305 ++++++++++++++++----
+ fs/ext2/ext2.h      |   36 +-
+ fs/ext2/file.c      |    7 +-
+ fs/ext2/ialloc.c    |    5 +-
+ fs/ext2/inode.c     |  524 +++++----
+ fs/ext2/ioctl.c     |   45 +
+ fs/ext2/super.c     |   41 +-
+ fs/ext2/xattr.c     |    3 +-
+ include/linux/ext2_fs.h |   23 +-
+ include/linux/ext2_fs_sb.h     |   50 +
+ 10 files changed, 1554 insertions(+), 485 deletions(-)
+
+diff --git a/fs/ext2/balloc.c b/fs/ext2/balloc.c
+index baf71dd..538c221 100644
+--- a/fs/ext2/balloc.c
++++ b/fs/ext2/balloc.c
+@@ -94,41 +94,6 @@ error_out:
+ 	return bh;
+ }
+ 
+-/*
+- * Set sb->s_dirt here because the superblock was "logically" altered.  We
+- * need to recalculate its free blocks count and flush it out.
+- */
+-static int reserve_blocks(struct super_block *sb, int count)
+-{
+-	struct ext2_sb_info *sbi = EXT2_SB(sb);
+-	struct ext2_super_block *es = sbi->s_es;
+-	unsigned free_blocks;
+-	unsigned root_blocks;
+-
+-	free_blocks = percpu_counter_read_positive(&sbi->s_freeblocks_counter);
+-	root_blocks = le32_to_cpu(es->s_r_blocks_count);
+-
+-	if (free_blocks < count)
+-		count = free_blocks;
+-
+-	if (free_blocks < root_blocks + count && !capable(CAP_SYS_RESOURCE) &&
+-	    sbi->s_resuid != current->fsuid &&
+-	    (sbi->s_resgid == 0 || !in_group_p (sbi->s_resgid))) {
+-		/*
+-		 * We are too close to reserve and we are not privileged.
+-		 * Can we allocate anything at all?
+-		 */
+-		if (free_blocks > root_blocks)
+-			count = free_blocks - root_blocks;
+-		else
+-			return 0;
+-	}
+-
+-	percpu_counter_mod(&sbi->s_freeblocks_counter, -count);
+-	sb->s_dirt = 1;
+-	return count;
+-}
+-
+ static void release_blocks(struct super_block *sb, int count)
+ {
+ 	if (count) {
+@@ -139,25 +104,7 @@ static void release_blocks(struct super_block *sb, int count)
+ 	}
+ }
+ 
+-static int group_reserve_blocks(struct ext2_sb_info *sbi, int group_no,
+-	struct ext2_group_desc *desc, struct buffer_head *bh, int count)
+-{
+-	unsigned free_blocks;
+-
+-	if (!desc->bg_free_blocks_count)
+-		return 0;
+-
+-	spin_lock(sb_bgl_lock(sbi, group_no));
+-	free_blocks = le16_to_cpu(desc->bg_free_blocks_count);
+-	if (free_blocks < count)
+-		count = free_blocks;
+-	desc->bg_free_blocks_count = cpu_to_le16(free_blocks - count);
+-	spin_unlock(sb_bgl_lock(sbi, group_no));
+-	mark_buffer_dirty(bh);
+-	return count;
+-}
+-
+-static void group_release_blocks(struct super_block *sb, int group_no,
++static void group_adjust_blocks(struct super_block *sb, int group_no,
+ 	struct ext2_group_desc *desc, struct buffer_head *bh, int count)
+ {
+ 	if (count) {
+@@ -173,7 +120,306 @@ static void group_release_blocks(struct super_block *sb, int group_no,
+ 	}
+ }
+ 
+-/* Free given blocks, update quota and i_blocks field */
++/*
++ * The reservation window structure operations
++ * --------------------------------------------
++ * Operations include:
++ * dump, find, add, remove, is_empty, find_next_reservable_window, etc.
++ *
++ * We use a red-black tree to represent per-filesystem reservation
++ * windows.
++ *
++ */
++
++/**
++ * __rsv_window_dump() -- Dump the filesystem block allocation reservation map
++ * @rb_root:		root of per-filesystem reservation rb tree
++ * @verbose:		verbose mode
++ * @fn:			function which wishes to dump the reservation map
++ *
++ * If verbose is turned on, it will print the whole block reservation
++ * windows(start, end). Otherwise, it will only print out the "bad" windows,
++ * those windows that overlap with their immediate neighbors.
++ */
++#if 1
++static void __rsv_window_dump(struct rb_root *root, int verbose,
++			      const char *fn)
++{
++	struct rb_node *n;
++	struct ext2_reserve_window_node *rsv, *prev;
++	int bad;
++
++restart:
++	n = rb_first(root);
++	bad = 0;
++	prev = NULL;
++
++	printk("Block Allocation Reservation Windows Map (%s):\n", fn);
++	while (n) {
++		rsv = rb_entry(n, struct ext2_reserve_window_node, rsv_node);
++		if (verbose)
++			printk("reservation window 0x%p "
++				"start: %lu, end: %lu\n",
++				rsv, rsv->rsv_start, rsv->rsv_end);
++		if (rsv->rsv_start && rsv->rsv_start >= rsv->rsv_end) {
++			printk("Bad reservation %p (start >= end)\n",
++			       rsv);
++			bad = 1;
++		}
++		if (prev && prev->rsv_end >= rsv->rsv_start) {
++			printk("Bad reservation %p (prev->end >= start)\n",
++			       rsv);
++			bad = 1;
++		}
++		if (bad) {
++			if (!verbose) {
++				printk("Restarting reservation walk in verbose mode\n");
++				verbose = 1;
++				goto restart;
++			}
++		}
++		n = rb_next(n);
++		prev = rsv;
++	}
++	printk("Window map complete.\n");
++	if (bad)
++		BUG();
++}
++#define rsv_window_dump(root, verbose) \
++	__rsv_window_dump((root), (verbose), __FUNCTION__)
++#else
++#define rsv_window_dump(root, verbose) do {} while (0)
++#endif
++
++/**
++ * goal_in_my_reservation()
++ * @rsv:		inode's reservation window
++ * @grp_goal:		given goal block relative to the allocation block group
++ * @group:		the current allocation block group
++ * @sb:			filesystem super block
++ *
++ * Test if the given goal block (group relative) is within the file's
++ * own block reservation window range.
++ *
++ * If the reservation window is outside the goal allocation group, return 0;
++ * grp_goal (given goal block) could be -1, which means no specific
++ * goal block. In this case, always return 1.
++ * If the goal block is within the reservation window, return 1;
++ * otherwise, return 0;
++ */
++static int
++goal_in_my_reservation(struct ext2_reserve_window *rsv, ext2_grpblk_t grp_goal,
++			unsigned int group, struct super_block * sb)
++{
++	ext2_fsblk_t group_first_block, group_last_block;
++
++	group_first_block = ext2_group_first_block_no(sb, group);
++	group_last_block = group_first_block + EXT2_BLOCKS_PER_GROUP(sb) - 1;
++
++	if ((rsv->_rsv_start > group_last_block) ||
++	    (rsv->_rsv_end < group_first_block))
++		return 0;
++	if ((grp_goal >= 0) && ((grp_goal + group_first_block < rsv->_rsv_start)
++		|| (grp_goal + group_first_block > rsv->_rsv_end)))
++		return 0;
++	return 1;
++}
++
++/**
++ * search_reserve_window()
++ * @rb_root:		root of reservation tree
++ * @goal:		target allocation block
++ *
++ * Find the reserved window which includes the goal, or the previous one
++ * if the goal is not in any window.
++ * Returns NULL if there are no windows or if all windows start after the goal.
++ */
++static struct ext2_reserve_window_node *
++search_reserve_window(struct rb_root *root, ext2_fsblk_t goal)
++{
++	struct rb_node *n = root->rb_node;
++	struct ext2_reserve_window_node *rsv;
++
++	if (!n)
++		return NULL;
++
++	do {
++		rsv = rb_entry(n, struct ext2_reserve_window_node, rsv_node);
++
++		if (goal < rsv->rsv_start)
++			n = n->rb_left;
++		else if (goal > rsv->rsv_end)
++			n = n->rb_right;
++		else
++			return rsv;
++	} while (n);
++	/*
++	 * We've fallen off the end of the tree: the goal wasn't inside
++	 * any particular node.  OK, the previous node must be to one
++	 * side of the interval containing the goal.  If it's the RHS,
++	 * we need to back up one.
++	 */
++	if (rsv->rsv_start > goal) {
++		n = rb_prev(&rsv->rsv_node);
++		rsv = rb_entry(n, struct ext2_reserve_window_node, rsv_node);
++	}
++	return rsv;
++}
++
++/*
++ * ext2_rsv_window_add() -- Insert a window to the block reservation rb tree.
++ * @sb:			super block
++ * @rsv:		reservation window to add
++ *
++ * Must be called with rsv_lock held.
++ */
++void ext2_rsv_window_add(struct super_block *sb,
++		    struct ext2_reserve_window_node *rsv)
++{
++	struct rb_root *root = &EXT2_SB(sb)->s_rsv_window_root;
++	struct rb_node *node = &rsv->rsv_node;
++	ext2_fsblk_t start = rsv->rsv_start;
++
++	struct rb_node ** p = &root->rb_node;
++	struct rb_node * parent = NULL;
++	struct ext2_reserve_window_node *this;
++
++	while (*p)
++	{
++		parent = *p;
++		this = rb_entry(parent, struct ext2_reserve_window_node, rsv_node);
++
++		if (start < this->rsv_start)
++			p = &(*p)->rb_left;
++		else if (start > this->rsv_end)
++			p = &(*p)->rb_right;
++		else {
++			rsv_window_dump(root, 1);
++			BUG();
++		}
++	}
++
++	rb_link_node(node, parent, p);
++	rb_insert_color(node, root);
++}
++
++/**
++ * rsv_window_remove() -- unlink a window from the reservation rb tree
++ * @sb:			super block
++ * @rsv:		reservation window to remove
++ *
++ * Mark the block reservation window as not allocated, and unlink it
++ * from the filesystem reservation window rb tree. Must be called with
++ * rsv_lock held.
++ */
++static void rsv_window_remove(struct super_block *sb,
++			      struct ext2_reserve_window_node *rsv)
++{
++	rsv->rsv_start = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++	rsv->rsv_end = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++	rsv->rsv_alloc_hit = 0;
++	rb_erase(&rsv->rsv_node, &EXT2_SB(sb)->s_rsv_window_root);
++}
++
++/*
++ * rsv_is_empty() -- Check if the reservation window is allocated.
++ * @rsv:		given reservation window to check
++ *
++ * returns 1 if the end block is EXT2_RESERVE_WINDOW_NOT_ALLOCATED.
++ */
++static inline int rsv_is_empty(struct ext2_reserve_window *rsv)
++{
++	/* a valid reservation end block could not be 0 */
++	return (rsv->_rsv_end == EXT2_RESERVE_WINDOW_NOT_ALLOCATED);
++}
++
++/**
++ * ext2_init_block_alloc_info()
++ * @inode:		file inode structure
++ *
++ * Allocate and initialize the  reservation window structure, and
++ * link the window to the ext2 inode structure at last
++ *
++ * The reservation window structure is only dynamically allocated
++ * and linked to ext2 inode the first time the open file
++ * needs a new block. So, before every ext2_new_block(s) call, for
++ * regular files, we should check whether the reservation window
++ * structure exists or not. In the latter case, this function is called.
++ * Fail to do so will result in block reservation being turned off for that
++ * open file.
++ *
++ * This function is called from ext2_get_blocks_handle(), also called
++ * when setting the reservation window size through ioctl before the file
++ * is open for write (needs block allocation).
++ *
++ * Needs truncate_mutex protection prior to calling this function.
++ */
++void ext2_init_block_alloc_info(struct inode *inode)
++{
++	struct ext2_inode_info *ei = EXT2_I(inode);
++	struct ext2_block_alloc_info *block_i = ei->i_block_alloc_info;
++	struct super_block *sb = inode->i_sb;
++
++	block_i = kmalloc(sizeof(*block_i), GFP_NOFS);
++	if (block_i) {
++		struct ext2_reserve_window_node *rsv = &block_i->rsv_window_node;
++
++		rsv->rsv_start = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++		rsv->rsv_end = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++
++	 	/*
++		 * if filesystem is mounted with NORESERVATION, the goal
++		 * reservation window size is set to zero to indicate
++		 * block reservation is off
++		 */
++		if (!test_opt(sb, RESERVATION))
++			rsv->rsv_goal_size = 0;
++		else
++			rsv->rsv_goal_size = EXT2_DEFAULT_RESERVE_BLOCKS;
++		rsv->rsv_alloc_hit = 0;
++		block_i->last_alloc_logical_block = 0;
++		block_i->last_alloc_physical_block = 0;
++	}
++	ei->i_block_alloc_info = block_i;
++}
++
++/**
++ * ext2_discard_reservation()
++ * @inode:		inode
++ *
++ * Discard(free) block reservation window on last file close, or truncate
++ * or at last iput().
++ *
++ * It is being called in three cases:
++ * 	ext2_release_file(): last writer closes the file
++ * 	ext2_clear_inode(): last iput(), when nobody links to this file.
++ * 	ext2_truncate(): when the block indirect map is about to change.
++ */
++void ext2_discard_reservation(struct inode *inode)
++{
++	struct ext2_inode_info *ei = EXT2_I(inode);
++	struct ext2_block_alloc_info *block_i = ei->i_block_alloc_info;
++	struct ext2_reserve_window_node *rsv;
++	spinlock_t *rsv_lock = &EXT2_SB(inode->i_sb)->s_rsv_window_lock;
++
++	if (!block_i)
++		return;
++
++	rsv = &block_i->rsv_window_node;
++	if (!rsv_is_empty(&rsv->rsv_window)) {
++		spin_lock(rsv_lock);
++		if (!rsv_is_empty(&rsv->rsv_window))
++			rsv_window_remove(inode->i_sb, rsv);
++		spin_unlock(rsv_lock);
++	}
++}
++
++/**
++ * ext2_free_blocks_sb() -- Free given blocks and update quota and i_blocks
++ * @inode:		inode
++ * @block:		start physcial block to free
++ * @count:		number of blocks to free
++ */
+ void ext2_free_blocks (struct inode * inode, unsigned long block,
+ 		       unsigned long count)
+ {
+@@ -248,7 +494,7 @@ do_more:
+ 	if (sb->s_flags & MS_SYNCHRONOUS)
+ 		sync_dirty_buffer(bitmap_bh);
+ 
+-	group_release_blocks(sb, block_group, desc, bh2, group_freed);
++	group_adjust_blocks(sb, block_group, desc, bh2, group_freed);
+ 	freed += group_freed;
+ 
+ 	if (overflow) {
+@@ -262,16 +508,46 @@ error_return:
+ 	DQUOT_FREE_BLOCK(inode, freed);
+ }
+ 
+-static int grab_block(spinlock_t *lock, char *map, unsigned size, int goal)
++/**
++ * bitmap_search_next_usable_block()
++ * @start:		the starting block (group relative) of the search
++ * @bh:			bufferhead contains the block group bitmap
++ * @maxblocks:		the ending block (group relative) of the reservation
++ *
++ * The bitmap search --- search forward through the actual bitmap on disk until
++ * we find a bit free.
++ */
++static ext2_grpblk_t
++bitmap_search_next_usable_block(ext2_grpblk_t start, struct buffer_head *bh,
++					ext2_grpblk_t maxblocks)
+ {
+-	int k;
+-	char *p, *r;
++	ext2_grpblk_t next;
+ 
+-	if (!ext2_test_bit(goal, map))
+-		goto got_it;
++	next = ext2_find_next_zero_bit(bh->b_data, maxblocks, start);
++	if (next >= maxblocks)
++		return -1;
++	return next;
++}
+ 
+-repeat:
+-	if (goal) {
++/**
++ * find_next_usable_block()
++ * @start:		the starting block (group relative) to find next
++ * 			allocatable block in bitmap.
++ * @bh:			bufferhead contains the block group bitmap
++ * @maxblocks:		the ending block (group relative) for the search
++ *
++ * Find an allocatable block in a bitmap.  We perform the "most
++ * appropriate allocation" algorithm of looking for a free block near
++ * the initial goal; then for a free byte somewhere in the bitmap;
++ * then for any free bit in the bitmap.
++ */
++static ext2_grpblk_t
++find_next_usable_block(int start, struct buffer_head *bh, int maxblocks)
++{
++	ext2_grpblk_t here, next;
++	char *p, *r;
++
++	if (start > 0) {
+ 		/*
+ 		 * The goal was occupied; search forward for a free 
+ 		 * block within the next XX blocks.
+@@ -280,244 +556,807 @@ repeat:
+ 		 * less than EXT2_BLOCKS_PER_GROUP. Aligning up to the
+ 		 * next 64-bit boundary is simple..
+ 		 */
+-		k = (goal + 63) & ~63;
+-		goal = ext2_find_next_zero_bit(map, k, goal);
+-		if (goal < k)
+-			goto got_it;
++		ext2_grpblk_t end_goal = (start + 63) & ~63;
++		if (end_goal > maxblocks)
++			end_goal = maxblocks;
++		here = ext2_find_next_zero_bit(bh->b_data, end_goal, start);
++		if (here < end_goal)
++			return here;
++		ext2_debug("Bit not found near goal\n");
++	}
++
++	here = start;
++	if (here < 0)
++		here = 0;
++
++	p = ((char *)bh->b_data) + (here >> 3);
++	r = memscan(p, 0, ((maxblocks + 7) >> 3) - (here >> 3));
++	next = (r - ((char *)bh->b_data)) << 3;
++
++	if (next < maxblocks && next >= here)
++		return next;
++
++	here = bitmap_search_next_usable_block(here, bh, maxblocks);
++	return here;
++}
++
++/*
++ * ext2_try_to_allocate()
++ * @sb:			superblock
++ * @handle:		handle to this transaction
++ * @group:		given allocation block group
++ * @bitmap_bh:		bufferhead holds the block bitmap
++ * @grp_goal:		given target block within the group
++ * @count:		target number of blocks to allocate
++ * @my_rsv:		reservation window
++ *
++ * Attempt to allocate blocks within a give range. Set the range of allocation
++ * first, then find the first free bit(s) from the bitmap (within the range),
++ * and at last, allocate the blocks by claiming the found free bit as allocated.
++ *
++ * To set the range of this allocation:
++ * 	if there is a reservation window, only try to allocate block(s)
++ * 	from the file's own reservation window;
++ * 	Otherwise, the allocation range starts from the give goal block,
++ * 	ends at the block group's last block.
++ *
++ * If we failed to allocate the desired block then we may end up crossing to a
++ * new bitmap.
++ */
++static int
++ext2_try_to_allocate(struct super_block *sb, int group,
++			struct buffer_head *bitmap_bh, ext2_grpblk_t grp_goal,
++			unsigned long *count,
++			struct ext2_reserve_window *my_rsv)
++{
++	ext2_fsblk_t group_first_block;
++       	ext2_grpblk_t start, end;
++	unsigned long num = 0;
++
++	/* we do allocation within the reservation window if we have a window */
++	if (my_rsv) {
++		group_first_block = ext2_group_first_block_no(sb, group);
++		if (my_rsv->_rsv_start >= group_first_block)
++			start = my_rsv->_rsv_start - group_first_block;
++		else
++			/* reservation window cross group boundary */
++			start = 0;
++		end = my_rsv->_rsv_end - group_first_block + 1;
++		if (end > EXT2_BLOCKS_PER_GROUP(sb))
++			/* reservation window crosses group boundary */
++			end = EXT2_BLOCKS_PER_GROUP(sb);
++		if ((start <= grp_goal) && (grp_goal < end))
++			start = grp_goal;
++		else
++			grp_goal = -1;
++	} else {
++		if (grp_goal > 0)
++			start = grp_goal;
++		else
++			start = 0;
++		end = EXT2_BLOCKS_PER_GROUP(sb);
++	}
++
++	BUG_ON(start > EXT2_BLOCKS_PER_GROUP(sb));
++
++repeat:
++	if (grp_goal < 0) {
++		grp_goal = find_next_usable_block(start, bitmap_bh, end);
++		if (grp_goal < 0)
++			goto fail_access;
++		if (!my_rsv) {
++			int i;
++
++			for (i = 0; i < 7 && grp_goal > start &&
++					!ext2_test_bit(grp_goal - 1,
++					     		bitmap_bh->b_data);
++			     		i++, grp_goal--)
++				;
++		}
++	}
++	start = grp_goal;
++
++	if (ext2_set_bit_atomic(sb_bgl_lock(EXT2_SB(sb), group), grp_goal,
++			       				bitmap_bh->b_data)) {
++		/*
++		 * The block was allocated by another thread, or it was
++		 * allocated and then freed by another thread
++		 */
++		start++;
++		grp_goal++;
++		if (start >= end)
++			goto fail_access;
++		goto repeat;
++	}
++	num++;
++	grp_goal++;
++	while (num < *count && grp_goal < end
++		&& !ext2_set_bit_atomic(sb_bgl_lock(EXT2_SB(sb), group),
++					grp_goal, bitmap_bh->b_data)) {
++		num++;
++		grp_goal++;
++	}
++	*count = num;
++	return grp_goal - num;
++fail_access:
++	*count = num;
++	return -1;
++}
++
++/**
++ * 	find_next_reservable_window():
++ *		find a reservable space within the given range.
++ *		It does not allocate the reservation window for now:
++ *		alloc_new_reservation() will do the work later.
++ *
++ * 	@search_head: the head of the searching list;
++ *		This is not necessarily the list head of the whole filesystem
++ *
++ *		We have both head and start_block to assist the search
++ *		for the reservable space. The list starts from head,
++ *		but we will shift to the place where start_block is,
++ *		then start from there, when looking for a reservable space.
++ *
++ * 	@size: the target new reservation window size
++ *
++ * 	@group_first_block: the first block we consider to start
++ *			the real search from
++ *
++ * 	@last_block:
++ *		the maximum block number that our goal reservable space
++ *		could start from. This is normally the last block in this
++ *		group. The search will end when we found the start of next
++ *		possible reservable space is out of this boundary.
++ *		This could handle the cross boundary reservation window
++ *		request.
++ *
++ * 	basically we search from the given range, rather than the whole
++ * 	reservation double linked list, (start_block, last_block)
++ * 	to find a free region that is of my size and has not
++ * 	been reserved.
++ *
++ */
++static int find_next_reservable_window(
++				struct ext2_reserve_window_node *search_head,
++				struct ext2_reserve_window_node *my_rsv,
++				struct super_block * sb,
++				ext2_fsblk_t start_block,
++				ext2_fsblk_t last_block)
++{
++	struct rb_node *next;
++	struct ext2_reserve_window_node *rsv, *prev;
++	ext2_fsblk_t cur;
++	int size = my_rsv->rsv_goal_size;
++
++	/* TODO: make the start of the reservation window byte-aligned */
++	/* cur = *start_block & ~7;*/
++	cur = start_block;
++	rsv = search_head;
++	if (!rsv)
++		return -1;
++
++	while (1) {
++		if (cur <= rsv->rsv_end)
++			cur = rsv->rsv_end + 1;
++
++		/* TODO?
++		 * in the case we could not find a reservable space
++		 * that is what is expected, during the re-search, we could
++		 * remember what's the largest reservable space we could have
++		 * and return that one.
++		 *
++		 * For now it will fail if we could not find the reservable
++		 * space with expected-size (or more)...
++		 */
++		if (cur > last_block)
++			return -1;		/* fail */
++
++		prev = rsv;
++		next = rb_next(&rsv->rsv_node);
++		rsv = rb_entry(next,struct ext2_reserve_window_node,rsv_node);
++
+ 		/*
+-		 * Search in the remainder of the current group.
++		 * Reached the last reservation, we can just append to the
++		 * previous one.
+ 		 */
++		if (!next)
++			break;
++
++		if (cur + size <= rsv->rsv_start) {
++			/*
++			 * Found a reserveable space big enough.  We could
++			 * have a reservation across the group boundary here
++		 	 */
++			break;
++		}
+ 	}
++	/*
++	 * we come here either :
++	 * when we reach the end of the whole list,
++	 * and there is empty reservable space after last entry in the list.
++	 * append it to the end of the list.
++	 *
++	 * or we found one reservable space in the middle of the list,
++	 * return the reservation window that we could append to.
++	 * succeed.
++	 */
+ 
+-	p = map + (goal >> 3);
+-	r = memscan(p, 0, (size - goal + 7) >> 3);
+-	k = (r - map) << 3;
+-	if (k < size) {
+-		/* 
+-		 * We have succeeded in finding a free byte in the block
+-		 * bitmap.  Now search backwards to find the start of this
+-		 * group of free blocks - won't take more than 7 iterations.
++	if ((prev != my_rsv) && (!rsv_is_empty(&my_rsv->rsv_window)))
++		rsv_window_remove(sb, my_rsv);
++
++	/*
++	 * Let's book the whole avaliable window for now.  We will check the
++	 * disk bitmap later and then, if there are free blocks then we adjust
++	 * the window size if it's larger than requested.
++	 * Otherwise, we will remove this node from the tree next time
++	 * call find_next_reservable_window.
++	 */
++	my_rsv->rsv_start = cur;
++	my_rsv->rsv_end = cur + size - 1;
++	my_rsv->rsv_alloc_hit = 0;
++
++	if (prev != my_rsv)
++		ext2_rsv_window_add(sb, my_rsv);
++
++	return 0;
++}
++
++/**
++ * 	alloc_new_reservation()--allocate a new reservation window
++ *
++ *		To make a new reservation, we search part of the filesystem
++ *		reservation list (the list that inside the group). We try to
++ *		allocate a new reservation window near the allocation goal,
++ *		or the beginning of the group, if there is no goal.
++ *
++ *		We first find a reservable space after the goal, then from
++ *		there, we check the bitmap for the first free block after
++ *		it. If there is no free block until the end of group, then the
++ *		whole group is full, we failed. Otherwise, check if the free
++ *		block is inside the expected reservable space, if so, we
++ *		succeed.
++ *		If the first free block is outside the reservable space, then
++ *		start from the first free block, we search for next available
++ *		space, and go on.
++ *
++ *	on succeed, a new reservation will be found and inserted into the list
++ *	It contains at least one free block, and it does not overlap with other
++ *	reservation windows.
++ *
++ *	failed: we failed to find a reservation window in this group
++ *
++ *	@rsv: the reservation
++ *
++ *	@grp_goal: The goal (group-relative).  It is where the search for a
++ *		free reservable space should start from.
++ *		if we have a goal(goal >0 ), then start from there,
++ *		no goal(goal = -1), we start from the first block
++ *		of the group.
++ *
++ *	@sb: the super block
++ *	@group: the group we are trying to allocate in
++ *	@bitmap_bh: the block group block bitmap
++ *
++ */
++static int alloc_new_reservation(struct ext2_reserve_window_node *my_rsv,
++		ext2_grpblk_t grp_goal, struct super_block *sb,
++		unsigned int group, struct buffer_head *bitmap_bh)
++{
++	struct ext2_reserve_window_node *search_head;
++	ext2_fsblk_t group_first_block, group_end_block, start_block;
++	ext2_grpblk_t first_free_block;
++	struct rb_root *fs_rsv_root = &EXT2_SB(sb)->s_rsv_window_root;
++	unsigned long size;
++	int ret;
++	spinlock_t *rsv_lock = &EXT2_SB(sb)->s_rsv_window_lock;
++
++	group_first_block = ext2_group_first_block_no(sb, group);
++	group_end_block = group_first_block + (EXT2_BLOCKS_PER_GROUP(sb) - 1);
++
++	if (grp_goal < 0)
++		start_block = group_first_block;
++	else
++		start_block = grp_goal + group_first_block;
++
++	size = my_rsv->rsv_goal_size;
++
++	if (!rsv_is_empty(&my_rsv->rsv_window)) {
++		/*
++		 * if the old reservation is cross group boundary
++		 * and if the goal is inside the old reservation window,
++		 * we will come here when we just failed to allocate from
++		 * the first part of the window. We still have another part
++		 * that belongs to the next group. In this case, there is no
++		 * point to discard our window and try to allocate a new one
++		 * in this group(which will fail). we should
++		 * keep the reservation window, just simply move on.
++		 *
++		 * Maybe we could shift the start block of the reservation
++		 * window to the first block of next group.
+ 		 */
+-		for (goal = k; goal && !ext2_test_bit (goal - 1, map); goal--)
+-			;
+-		goto got_it;
++
++		if ((my_rsv->rsv_start <= group_end_block) &&
++				(my_rsv->rsv_end > group_end_block) &&
++				(start_block >= my_rsv->rsv_start))
++			return -1;
++
++		if ((my_rsv->rsv_alloc_hit >
++		     (my_rsv->rsv_end - my_rsv->rsv_start + 1) / 2)) {
++			/*
++			 * if the previously allocation hit ratio is
++			 * greater than 1/2, then we double the size of
++			 * the reservation window the next time,
++			 * otherwise we keep the same size window
++			 */
++			size = size * 2;
++			if (size > EXT2_MAX_RESERVE_BLOCKS)
++				size = EXT2_MAX_RESERVE_BLOCKS;
++			my_rsv->rsv_goal_size= size;
++		}
+ 	}
+ 
+-	k = ext2_find_next_zero_bit ((u32 *)map, size, goal);
+-	if (k < size) {
+-		goal = k;
+-		goto got_it;
++	spin_lock(rsv_lock);
++	/*
++	 * shift the search start to the window near the goal block
++	 */
++	search_head = search_reserve_window(fs_rsv_root, start_block);
++
++	/*
++	 * find_next_reservable_window() simply finds a reservable window
++	 * inside the given range(start_block, group_end_block).
++	 *
++	 * To make sure the reservation window has a free bit inside it, we
++	 * need to check the bitmap after we found a reservable window.
++	 */
++retry:
++	ret = find_next_reservable_window(search_head, my_rsv, sb,
++						start_block, group_end_block);
++
++	if (ret == -1) {
++		if (!rsv_is_empty(&my_rsv->rsv_window))
++			rsv_window_remove(sb, my_rsv);
++		spin_unlock(rsv_lock);
++		return -1;
+ 	}
+-	return -1;
+-got_it:
+-	if (ext2_set_bit_atomic(lock, goal, (void *) map)) 
+-		goto repeat;	
+-	return goal;
++
++	/*
++	 * On success, find_next_reservable_window() returns the
++	 * reservation window where there is a reservable space after it.
++	 * Before we reserve this reservable space, we need
++	 * to make sure there is at least a free block inside this region.
++	 *
++	 * Search the first free bit on the block bitmap.  Search starts from
++	 * the start block of the reservable space we just found.
++	 */
++	spin_unlock(rsv_lock);
++	first_free_block = bitmap_search_next_usable_block(
++			my_rsv->rsv_start - group_first_block,
++			bitmap_bh, group_end_block - group_first_block + 1);
++
++	if (first_free_block < 0) {
++		/*
++		 * no free block left on the bitmap, no point
++		 * to reserve the space. return failed.
++		 */
++		spin_lock(rsv_lock);
++		if (!rsv_is_empty(&my_rsv->rsv_window))
++			rsv_window_remove(sb, my_rsv);
++		spin_unlock(rsv_lock);
++		return -1;		/* failed */
++	}
++
++	start_block = first_free_block + group_first_block;
++	/*
++	 * check if the first free block is within the
++	 * free space we just reserved
++	 */
++	if (start_block >= my_rsv->rsv_start && start_block <= my_rsv->rsv_end)
++		return 0;		/* success */
++	/*
++	 * if the first free bit we found is out of the reservable space
++	 * continue search for next reservable space,
++	 * start from where the free block is,
++	 * we also shift the list head to where we stopped last time
++	 */
++	search_head = my_rsv;
++	spin_lock(rsv_lock);
++	goto retry;
++}
++
++/**
++ * try_to_extend_reservation()
++ * @my_rsv:		given reservation window
++ * @sb:			super block
++ * @size:		the delta to extend
++ *
++ * Attempt to expand the reservation window large enough to have
++ * required number of free blocks
++ *
++ * Since ext2_try_to_allocate() will always allocate blocks within
++ * the reservation window range, if the window size is too small,
++ * multiple blocks allocation has to stop at the end of the reservation
++ * window. To make this more efficient, given the total number of
++ * blocks needed and the current size of the window, we try to
++ * expand the reservation window size if necessary on a best-effort
++ * basis before ext2_new_blocks() tries to allocate blocks.
++ */
++static void try_to_extend_reservation(struct ext2_reserve_window_node *my_rsv,
++			struct super_block *sb, int size)
++{
++	struct ext2_reserve_window_node *next_rsv;
++	struct rb_node *next;
++	spinlock_t *rsv_lock = &EXT2_SB(sb)->s_rsv_window_lock;
++
++	if (!spin_trylock(rsv_lock))
++		return;
++
++	next = rb_next(&my_rsv->rsv_node);
++
++	if (!next)
++		my_rsv->rsv_end += size;
++	else {
++		next_rsv = rb_entry(next, struct ext2_reserve_window_node, rsv_node);
++
++		if ((next_rsv->rsv_start - my_rsv->rsv_end - 1) >= size)
++			my_rsv->rsv_end += size;
++		else
++			my_rsv->rsv_end = next_rsv->rsv_start - 1;
++	}
++	spin_unlock(rsv_lock);
++}
++
++/**
++ * ext2_try_to_allocate_with_rsv()
++ * @sb:			superblock
++ * @group:		given allocation block group
++ * @bitmap_bh:		bufferhead holds the block bitmap
++ * @grp_goal:		given target block within the group
++ * @count:		target number of blocks to allocate
++ * @my_rsv:		reservation window
++ *
++ * This is the main function used to allocate a new block and its reservation
++ * window.
++ *
++ * Each time when a new block allocation is need, first try to allocate from
++ * its own reservation.  If it does not have a reservation window, instead of
++ * looking for a free bit on bitmap first, then look up the reservation list to
++ * see if it is inside somebody else's reservation window, we try to allocate a
++ * reservation window for it starting from the goal first. Then do the block
++ * allocation within the reservation window.
++ *
++ * This will avoid keeping on searching the reservation list again and
++ * again when somebody is looking for a free block (without
++ * reservation), and there are lots of free blocks, but they are all
++ * being reserved.
++ *
++ * We use a red-black tree for the per-filesystem reservation list.
++ */
++static ext2_grpblk_t
++ext2_try_to_allocate_with_rsv(struct super_block *sb, unsigned int group,
++			struct buffer_head *bitmap_bh, ext2_grpblk_t grp_goal,
++			struct ext2_reserve_window_node * my_rsv,
++			unsigned long *count)
++{
++	ext2_fsblk_t group_first_block, group_last_block;
++	ext2_grpblk_t ret = 0;
++	unsigned long num = *count;
++
++	/*
++	 * we don't deal with reservation when
++	 * filesystem is mounted without reservation
++	 * or the file is not a regular file
++	 * or last attempt to allocate a block with reservation turned on failed
++	 */
++	if (my_rsv == NULL) {
++		return ext2_try_to_allocate(sb, group, bitmap_bh,
++						grp_goal, count, NULL);
++	}
++	/*
++	 * grp_goal is a group relative block number (if there is a goal)
++	 * 0 <= grp_goal < EXT2_BLOCKS_PER_GROUP(sb)
++	 * first block is a filesystem wide block number
++	 * first block is the block number of the first block in this group
++	 */
++	group_first_block = ext2_group_first_block_no(sb, group);
++	group_last_block = group_first_block + (EXT2_BLOCKS_PER_GROUP(sb) - 1);
++
++	/*
++	 * Basically we will allocate a new block from inode's reservation
++	 * window.
++	 *
++	 * We need to allocate a new reservation window, if:
++	 * a) inode does not have a reservation window; or
++	 * b) last attempt to allocate a block from existing reservation
++	 *    failed; or
++	 * c) we come here with a goal and with a reservation window
++	 *
++	 * We do not need to allocate a new reservation window if we come here
++	 * at the beginning with a goal and the goal is inside the window, or
++	 * we don't have a goal but already have a reservation window.
++	 * then we could go to allocate from the reservation window directly.
++	 */
++	while (1) {
++		if (rsv_is_empty(&my_rsv->rsv_window) || (ret < 0) ||
++			!goal_in_my_reservation(&my_rsv->rsv_window,
++						grp_goal, group, sb)) {
++			if (my_rsv->rsv_goal_size < *count)
++				my_rsv->rsv_goal_size = *count;
++			ret = alloc_new_reservation(my_rsv, grp_goal, sb,
++							group, bitmap_bh);
++			if (ret < 0)
++				break;			/* failed */
++
++			if (!goal_in_my_reservation(&my_rsv->rsv_window,
++							grp_goal, group, sb))
++				grp_goal = -1;
++		} else if (grp_goal >= 0) {
++			int curr = my_rsv->rsv_end -
++					(grp_goal + group_first_block) + 1;
++
++			if (curr < *count)
++				try_to_extend_reservation(my_rsv, sb,
++							*count - curr);
++		}
++
++		if ((my_rsv->rsv_start > group_last_block) ||
++				(my_rsv->rsv_end < group_first_block)) {
++			rsv_window_dump(&EXT2_SB(sb)->s_rsv_window_root, 1);
++			BUG();
++		}
++		ret = ext2_try_to_allocate(sb, group, bitmap_bh, grp_goal,
++					   &num, &my_rsv->rsv_window);
++		if (ret >= 0) {
++			my_rsv->rsv_alloc_hit += num;
++			*count = num;
++			break;				/* succeed */
++		}
++		num = *count;
++	}
++	return ret;
++}
++
++/**
++ * ext2_has_free_blocks()
++ * @sbi:		in-core super block structure.
++ *
++ * Check if filesystem has at least 1 free block available for allocation.
++ */
++static int ext2_has_free_blocks(struct ext2_sb_info *sbi)
++{
++	ext2_fsblk_t free_blocks, root_blocks;
++
++	free_blocks = percpu_counter_read_positive(&sbi->s_freeblocks_counter);
++	root_blocks = le32_to_cpu(sbi->s_es->s_r_blocks_count);
++	if (free_blocks < root_blocks + 1 && !capable(CAP_SYS_RESOURCE) &&
++		sbi->s_resuid != current->fsuid &&
++		(sbi->s_resgid == 0 || !in_group_p (sbi->s_resgid))) {
++		return 0;
++	}
++	return 1;
+ }
+ 
+ /*
+- * ext2_new_block uses a goal block to assist allocation.  If the goal is
++ * ext2_new_blocks() -- core block(s) allocation function
++ * @inode:		file inode
++ * @goal:		given target block(filesystem wide)
++ * @count:		target number of blocks to allocate
++ * @errp:		error code
++ *
++ * ext2_new_blocks uses a goal block to assist allocation.  If the goal is
+  * free, or there is a free block within 32 blocks of the goal, that block
+  * is allocated.  Otherwise a forward search is made for a free block; within 
+  * each block group the search first looks for an entire free byte in the block
+  * bitmap, and then for any free bit if that fails.
+  * This function also updates quota and i_blocks field.
+  */
+-int ext2_new_block(struct inode *inode, unsigned long goal,
+-			u32 *prealloc_count, u32 *prealloc_block, int *err)
++ext2_fsblk_t ext2_new_blocks(struct inode *inode, ext2_fsblk_t goal,
++		    unsigned long *count, int *errp)
+ {
+ 	struct buffer_head *bitmap_bh = NULL;
+-	struct buffer_head *gdp_bh;	/* bh2 */
+-	struct ext2_group_desc *desc;
+-	int group_no;			/* i */
+-	int ret_block;			/* j */
+-	int group_idx;			/* k */
+-	int target_block;		/* tmp */
+-	int block = 0;
+-	struct super_block *sb = inode->i_sb;
+-	struct ext2_sb_info *sbi = EXT2_SB(sb);
+-	struct ext2_super_block *es = sbi->s_es;
+-	unsigned group_size = EXT2_BLOCKS_PER_GROUP(sb);
+-	unsigned prealloc_goal = es->s_prealloc_blocks;
+-	unsigned group_alloc = 0, es_alloc, dq_alloc;
+-	int nr_scanned_groups;
+-
+-	if (!prealloc_goal--)
+-		prealloc_goal = EXT2_DEFAULT_PREALLOC_BLOCKS - 1;
+-	if (!prealloc_count || *prealloc_count)
+-		prealloc_goal = 0;
+-
+-	if (DQUOT_ALLOC_BLOCK(inode, 1)) {
+-		*err = -EDQUOT;
+-		goto out;
++	struct buffer_head *gdp_bh;
++	int group_no;
++	int goal_group;
++	ext2_grpblk_t grp_target_blk;	/* blockgroup relative goal block */
++	ext2_grpblk_t grp_alloc_blk;	/* blockgroup-relative allocated block*/
++	ext2_fsblk_t ret_block;		/* filesyetem-wide allocated block */
++	int bgi;			/* blockgroup iteration index */
++	int performed_allocation = 0;
++	ext2_grpblk_t free_blocks;	/* number of free blocks in a group */
++	struct super_block *sb;
++	struct ext2_group_desc *gdp;
++	struct ext2_super_block *es;
++	struct ext2_sb_info *sbi;
++	struct ext2_reserve_window_node *my_rsv = NULL;
++	struct ext2_block_alloc_info *block_i;
++	unsigned short windowsz = 0;
++	unsigned long ngroups;
++	unsigned long num = *count;
++
++	*errp = -ENOSPC;
++	sb = inode->i_sb;
++	if (!sb) {
++		printk("ext2_new_blocks: nonexistent device");
++		return 0;
+ 	}
+ 
+-	while (prealloc_goal && DQUOT_PREALLOC_BLOCK(inode, prealloc_goal))
+-		prealloc_goal--;
++	/*
++	 * Check quota for allocation of this block.
++	 */
++	if (DQUOT_ALLOC_BLOCK(inode, num)) {
++		*errp = -EDQUOT;
++		return 0;
++	}
+ 
+-	dq_alloc = prealloc_goal + 1;
+-	es_alloc = reserve_blocks(sb, dq_alloc);
+-	if (!es_alloc) {
+-		*err = -ENOSPC;
+-		goto out_dquot;
++	sbi = EXT2_SB(sb);
++	es = EXT2_SB(sb)->s_es;
++	ext2_debug("goal=%lu.\n", goal);
++	/*
++	 * Allocate a block from reservation only when
++	 * filesystem is mounted with reservation(default,-o reservation), and
++	 * it's a regular file, and
++	 * the desired window size is greater than 0 (One could use ioctl
++	 * command EXT2_IOC_SETRSVSZ to set the window size to 0 to turn off
++	 * reservation on that particular file)
++	 */
++	block_i = EXT2_I(inode)->i_block_alloc_info;
++	if (block_i) {
++		windowsz = block_i->rsv_window_node.rsv_goal_size;
++		if (windowsz > 0)
++			my_rsv = &block_i->rsv_window_node;
+ 	}
+ 
+-	ext2_debug ("goal=%lu.\n", goal);
++	if (!ext2_has_free_blocks(sbi)) {
++		*errp = -ENOSPC;
++		goto out;
++	}
+ 
++	/*
++	 * First, test whether the goal block is free.
++	 */
+ 	if (goal < le32_to_cpu(es->s_first_data_block) ||
+ 	    goal >= le32_to_cpu(es->s_blocks_count))
+ 		goal = le32_to_cpu(es->s_first_data_block);
+-	group_no = (goal - le32_to_cpu(es->s_first_data_block)) / group_size;
+-	desc = ext2_get_group_desc (sb, group_no, &gdp_bh);
+-	if (!desc) {
+-		/*
+-		 * gdp_bh may still be uninitialised.  But group_release_blocks
+-		 * will not touch it because group_alloc is zero.
+-		 */
++	group_no = (goal - le32_to_cpu(es->s_first_data_block)) /
++			EXT2_BLOCKS_PER_GROUP(sb);
++	goal_group = group_no;
++retry_alloc:
++	gdp = ext2_get_group_desc(sb, group_no, &gdp_bh);
++	if (!gdp)
+ 		goto io_error;
+-	}
+ 
+-	group_alloc = group_reserve_blocks(sbi, group_no, desc,
+-					gdp_bh, es_alloc);
+-	if (group_alloc) {
+-		ret_block = ((goal - le32_to_cpu(es->s_first_data_block)) %
+-					group_size);
+-		brelse(bitmap_bh);
++	free_blocks = le16_to_cpu(gdp->bg_free_blocks_count);
++	/*
++	 * if there is not enough free blocks to make a new resevation
++	 * turn off reservation for this allocation
++	 */
++	if (my_rsv && (free_blocks < windowsz)
++		&& (rsv_is_empty(&my_rsv->rsv_window)))
++		my_rsv = NULL;
++
++	if (free_blocks > 0) {
++		grp_target_blk = ((goal - le32_to_cpu(es->s_first_data_block)) %
++				EXT2_BLOCKS_PER_GROUP(sb));
+ 		bitmap_bh = read_block_bitmap(sb, group_no);
+ 		if (!bitmap_bh)
+ 			goto io_error;
+-		
+-		ext2_debug("goal is at %d:%d.\n", group_no, ret_block);
+-
+-		ret_block = grab_block(sb_bgl_lock(sbi, group_no),
+-				bitmap_bh->b_data, group_size, ret_block);
+-		if (ret_block >= 0)
+-			goto got_block;
+-		group_release_blocks(sb, group_no, desc, gdp_bh, group_alloc);
+-		group_alloc = 0;
++		grp_alloc_blk = ext2_try_to_allocate_with_rsv(sb, group_no,
++					bitmap_bh, grp_target_blk,
++					my_rsv, &num);
++		if (grp_alloc_blk >= 0)
++			goto allocated;
+ 	}
+ 
+-	ext2_debug ("Bit not found in block group %d.\n", group_no);
++	ngroups = EXT2_SB(sb)->s_groups_count;
++	smp_rmb();
+ 
+ 	/*
+ 	 * Now search the rest of the groups.  We assume that 
+-	 * i and desc correctly point to the last group visited.
++	 * i and gdp correctly point to the last group visited.
+ 	 */
+-	nr_scanned_groups = 0;
+-retry:
+-	for (group_idx = 0; !group_alloc &&
+-			group_idx < sbi->s_groups_count; group_idx++) {
++	for (bgi = 0; bgi < ngroups; bgi++) {
+ 		group_no++;
+-		if (group_no >= sbi->s_groups_count)
++		if (group_no >= ngroups)
+ 			group_no = 0;
+-		desc = ext2_get_group_desc(sb, group_no, &gdp_bh);
+-		if (!desc)
++		gdp = ext2_get_group_desc(sb, group_no, &gdp_bh);
++		if (!gdp)
+ 			goto io_error;
+-		group_alloc = group_reserve_blocks(sbi, group_no, desc,
+-						gdp_bh, es_alloc);
+-	}
+-	if (!group_alloc) {
+-		*err = -ENOSPC;
+-		goto out_release;
+-	}
+-	brelse(bitmap_bh);
+-	bitmap_bh = read_block_bitmap(sb, group_no);
+-	if (!bitmap_bh)
+-		goto io_error;
+ 
+-	ret_block = grab_block(sb_bgl_lock(sbi, group_no), bitmap_bh->b_data,
+-				group_size, 0);
+-	if (ret_block < 0) {
++		free_blocks = le16_to_cpu(gdp->bg_free_blocks_count);
+ 		/*
+-		 * If a free block counter is corrupted we can loop inifintely.
+-		 * Detect that here.
++		 * skip this group if the number of
++		 * free blocks is less than half of the reservation
++		 * window size.
+ 		 */
+-		nr_scanned_groups++;
+-		if (nr_scanned_groups > 2 * sbi->s_groups_count) {
+-			ext2_error(sb, "ext2_new_block",
+-				"corrupted free blocks counters");
++		if (free_blocks <= (windowsz/2))
++			continue;
++
++		brelse(bitmap_bh);
++		bitmap_bh = read_block_bitmap(sb, group_no);
++		if (!bitmap_bh)
+ 			goto io_error;
+-		}
+ 		/*
+-		 * Someone else grabbed the last free block in this blockgroup
+-		 * before us.  Retry the scan.
++		 * try to allocate block(s) from this group, without a goal(-1).
+ 		 */
+-		group_release_blocks(sb, group_no, desc, gdp_bh, group_alloc);
+-		group_alloc = 0;
+-		goto retry;
++		grp_alloc_blk = ext2_try_to_allocate_with_rsv(sb, group_no,
++					bitmap_bh, -1, my_rsv, &num);
++		if (grp_alloc_blk >= 0)
++			goto allocated;
++	}
++	/*
++	 * We may end up a bogus ealier ENOSPC error due to
++	 * filesystem is "full" of reservations, but
++	 * there maybe indeed free blocks avaliable on disk
++	 * In this case, we just forget about the reservations
++	 * just do block allocation as without reservations.
++	 */
++	if (my_rsv) {
++		my_rsv = NULL;
++		windowsz = 0;
++		group_no = goal_group;
++		goto retry_alloc;
+ 	}
++	/* No space left on the device */
++	*errp = -ENOSPC;
++	goto out;
++
++allocated:
+ 
+-got_block:
+ 	ext2_debug("using block group %d(%d)\n",
+-		group_no, desc->bg_free_blocks_count);
++			group_no, gdp->bg_free_blocks_count);
+ 
+-	target_block = ret_block + group_no * group_size +
+-			le32_to_cpu(es->s_first_data_block);
++	ret_block = grp_alloc_blk + ext2_group_first_block_no(sb, group_no);
+ 
+-	if (target_block == le32_to_cpu(desc->bg_block_bitmap) ||
+-	    target_block == le32_to_cpu(desc->bg_inode_bitmap) ||
+-	    in_range(target_block, le32_to_cpu(desc->bg_inode_table),
+-		      sbi->s_itb_per_group))
+-		ext2_error (sb, "ext2_new_block",
++	if (in_range(le32_to_cpu(gdp->bg_block_bitmap), ret_block, num) ||
++	    in_range(le32_to_cpu(gdp->bg_inode_bitmap), ret_block, num) ||
++	    in_range(ret_block, le32_to_cpu(gdp->bg_inode_table),
++		      EXT2_SB(sb)->s_itb_per_group) ||
++	    in_range(ret_block + num - 1, le32_to_cpu(gdp->bg_inode_table),
++		      EXT2_SB(sb)->s_itb_per_group))
++		ext2_error(sb, "ext2_new_blocks",
+ 			    "Allocating block in system zone - "
+-			    "block = %u", target_block);
++			    "blocks from "E2FSBLK", length %lu",
++			    ret_block, num);
+ 
+-	if (target_block >= le32_to_cpu(es->s_blocks_count)) {
+-		ext2_error (sb, "ext2_new_block",
+-			    "block(%d) >= blocks count(%d) - "
++	performed_allocation = 1;
++
++	if (ret_block + num - 1 >= le32_to_cpu(es->s_blocks_count)) {
++		ext2_error(sb, "ext2_new_blocks",
++			    "block("E2FSBLK") >= blocks count(%d) - "
+ 			    "block_group = %d, es == %p ", ret_block,
+ 			le32_to_cpu(es->s_blocks_count), group_no, es);
+-		goto io_error;
++		goto out;
+ 	}
+-	block = target_block;
+-
+-	/* OK, we _had_ allocated something */
+-	ext2_debug("found bit %d\n", ret_block);
+-
+-	dq_alloc--;
+-	es_alloc--;
+-	group_alloc--;
+ 
+-	/*
+-	 * Do block preallocation now if required.
+-	 */
+-	write_lock(&EXT2_I(inode)->i_meta_lock);
+-	if (group_alloc && !*prealloc_count) {
+-		unsigned n;
+-
+-		for (n = 0; n < group_alloc && ++ret_block < group_size; n++) {
+-			if (ext2_set_bit_atomic(sb_bgl_lock(sbi, group_no),
+-						ret_block,
+-						(void*) bitmap_bh->b_data))
+- 				break;
+-		}
+-		*prealloc_block = block + 1;
+-		*prealloc_count = n;
+-		es_alloc -= n;
+-		dq_alloc -= n;
+-		group_alloc -= n;
+-	}
+-	write_unlock(&EXT2_I(inode)->i_meta_lock);
++	group_adjust_blocks(sb, group_no, gdp, gdp_bh, -num);
++	percpu_counter_mod(&sbi->s_freeblocks_counter, -num);
+ 
+ 	mark_buffer_dirty(bitmap_bh);
+ 	if (sb->s_flags & MS_SYNCHRONOUS)
+ 		sync_dirty_buffer(bitmap_bh);
+ 
+-	ext2_debug ("allocating block %d. ", block);
++	*errp = 0;
++	brelse(bitmap_bh);
++	DQUOT_FREE_BLOCK(inode, *count-num);
++	*count = num;
++	return ret_block;
+ 
+-	*err = 0;
+-out_release:
+-	group_release_blocks(sb, group_no, desc, gdp_bh, group_alloc);
+-	release_blocks(sb, es_alloc);
+-out_dquot:
+-	DQUOT_FREE_BLOCK(inode, dq_alloc);
++io_error:
++	*errp = -EIO;
+ out:
++	/*
++	 * Undo the block allocation
++	 */
++	if (!performed_allocation)
++		DQUOT_FREE_BLOCK(inode, *count);
+ 	brelse(bitmap_bh);
+-	return block;
++	return 0;
++}
+ 
+-io_error:
+-	*err = -EIO;
+-	goto out_release;
++ext2_fsblk_t ext2_new_block(struct inode *inode, unsigned long goal, int *errp)
++{
++	unsigned long count = 1;
++
++	return ext2_new_blocks(inode, goal, &count, errp);
+ }
+ 
+ #ifdef EXT2FS_DEBUG
+diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
+index 9fd0ec5..baa8deb 100644
+--- a/fs/ext2/ext2.h
++++ b/fs/ext2/ext2.h
+@@ -33,22 +33,9 @@ struct ext2_inode_info {
+ 	 */
+ 	__u32	i_block_group;
+ 
+-	/*
+-	 * i_next_alloc_block is the logical (file-relative) number of the
+-	 * most-recently-allocated block in this file.  Yes, it is misnamed.
+-	 * We use this for detecting linearly ascending allocation requests.
+-	 */
+-	__u32	i_next_alloc_block;
++	/* block reservation info */
++	struct ext2_block_alloc_info *i_block_alloc_info;
+ 
+-	/*
+-	 * i_next_alloc_goal is the *physical* companion to i_next_alloc_block.
+-	 * it the the physical block number of the block which was most-recently
+-	 * allocated to this file.  This give us the goal (target) for the next
+-	 * allocation when we detect linearly ascending requests.
+-	 */
+-	__u32	i_next_alloc_goal;
+-	__u32	i_prealloc_block;
+-	__u32	i_prealloc_count;
+ 	__u32	i_dir_start_lookup;
+ #ifdef CONFIG_EXT2_FS_XATTR
+ 	/*
+@@ -65,7 +52,16 @@ struct ext2_inode_info {
+ 	struct posix_acl	*i_default_acl;
+ #endif
+ 	rwlock_t i_meta_lock;
++
++	/*
++	 * truncate_mutex is for serialising ext2_truncate() against
++	 * ext2_getblock().  It also protects the internals of the inode's
++	 * reservation data structures: ext2_reserve_window and
++	 * ext2_reserve_window_node.
++	 */
++	struct mutex truncate_mutex;
+ 	struct inode	vfs_inode;
++	struct list_head i_orphan;	/* unlinked but open inodes */
+ };
+ 
+ /*
+@@ -91,8 +87,9 @@ static inline struct ext2_inode_info *EXT2_I(struct inode *inode)
+ /* balloc.c */
+ extern int ext2_bg_has_super(struct super_block *sb, int group);
+ extern unsigned long ext2_bg_num_gdb(struct super_block *sb, int group);
+-extern int ext2_new_block (struct inode *, unsigned long,
+-			   __u32 *, __u32 *, int *);
++extern ext2_fsblk_t ext2_new_block(struct inode *, unsigned long, int *);
++extern ext2_fsblk_t ext2_new_blocks(struct inode *, unsigned long,
++				unsigned long *, int *);
+ extern void ext2_free_blocks (struct inode *, unsigned long,
+ 			      unsigned long);
+ extern unsigned long ext2_count_free_blocks (struct super_block *);
+@@ -101,6 +98,10 @@ extern void ext2_check_blocks_bitmap (struct super_block *);
+ extern struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
+ 						    unsigned int block_group,
+ 						    struct buffer_head ** bh);
++extern void ext2_discard_reservation (struct inode *);
++extern int ext2_should_retry_alloc(struct super_block *sb, int *retries);
++extern void ext2_init_block_alloc_info(struct inode *);
++extern void ext2_rsv_window_add(struct super_block *sb, struct ext2_reserve_window_node *rsv);
+ 
+ /* dir.c */
+ extern int ext2_add_link (struct dentry *, struct inode *);
+@@ -128,7 +129,6 @@ extern int ext2_write_inode (struct inode *, int);
+ extern void ext2_put_inode (struct inode *);
+ extern void ext2_delete_inode (struct inode *);
+ extern int ext2_sync_inode (struct inode *);
+-extern void ext2_discard_prealloc (struct inode *);
+ extern int ext2_get_block(struct inode *, sector_t, struct buffer_head *, int);
+ extern void ext2_truncate (struct inode *);
+ extern int ext2_setattr (struct dentry *, struct iattr *);
+diff --git a/fs/ext2/file.c b/fs/ext2/file.c
+index 566d4e2..2f79eff 100644
+--- a/fs/ext2/file.c
++++ b/fs/ext2/file.c
+@@ -30,8 +30,11 @@
+  */
+ static int ext2_release_file (struct inode * inode, struct file * filp)
+ {
+-	if (filp->f_mode & FMODE_WRITE)
+-		ext2_discard_prealloc (inode);
++	if (filp->f_mode & FMODE_WRITE) {
++		mutex_lock(&EXT2_I(inode)->truncate_mutex);
++		ext2_discard_reservation(inode);
++		mutex_unlock(&EXT2_I(inode)->truncate_mutex);
++	}
+ 	return 0;
+ }
+ 
+diff --git a/fs/ext2/ialloc.c b/fs/ext2/ialloc.c
+index 2cb545b..86a2f3b 100644
+--- a/fs/ext2/ialloc.c
++++ b/fs/ext2/ialloc.c
+@@ -589,11 +589,8 @@ got:
+ 	ei->i_file_acl = 0;
+ 	ei->i_dir_acl = 0;
+ 	ei->i_dtime = 0;
++	ei->i_block_alloc_info = NULL;
+ 	ei->i_block_group = group;
+-	ei->i_next_alloc_block = 0;
+-	ei->i_next_alloc_goal = 0;
+-	ei->i_prealloc_block = 0;
+-	ei->i_prealloc_count = 0;
+ 	ei->i_dir_start_lookup = 0;
+ 	ei->i_state = EXT2_STATE_NEW;
+ 	ext2_set_inode_flags(inode);
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+index 0079b2c..baea2a1 100644
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -54,19 +54,6 @@ static inline int ext2_inode_is_fast_symlink(struct inode *inode)
+ }
+ 
+ /*
+- * Called at each iput().
+- *
+- * The inode may be "bad" if ext2_read_inode() saw an error from
+- * ext2_get_inode(), so we need to check that to avoid freeing random disk
+- * blocks.
+- */
+-void ext2_put_inode(struct inode *inode)
+-{
+-	if (!is_bad_inode(inode))
+-		ext2_discard_prealloc(inode);
+-}
+-
+-/*
+  * Called at the last iput() if i_nlink is zero.
+  */
+ void ext2_delete_inode (struct inode * inode)
+@@ -89,61 +76,6 @@ no_delete:
+ 	clear_inode(inode);	/* We must guarantee clearing of inode... */
+ }
+ 
+-void ext2_discard_prealloc (struct inode * inode)
+-{
+-#ifdef EXT2_PREALLOCATE
+-	struct ext2_inode_info *ei = EXT2_I(inode);
+-	write_lock(&ei->i_meta_lock);
+-	if (ei->i_prealloc_count) {
+-		unsigned short total = ei->i_prealloc_count;
+-		unsigned long block = ei->i_prealloc_block;
+-		ei->i_prealloc_count = 0;
+-		ei->i_prealloc_block = 0;
+-		write_unlock(&ei->i_meta_lock);
+-		ext2_free_blocks (inode, block, total);
+-		return;
+-	} else
+-		write_unlock(&ei->i_meta_lock);
+-#endif
+-}
+-
+-static int ext2_alloc_block (struct inode * inode, unsigned long goal, int *err)
+-{
+-#ifdef EXT2FS_DEBUG
+-	static unsigned long alloc_hits, alloc_attempts;
+-#endif
+-	unsigned long result;
+-
+-
+-#ifdef EXT2_PREALLOCATE
+-	struct ext2_inode_info *ei = EXT2_I(inode);
+-	write_lock(&ei->i_meta_lock);
+-	if (ei->i_prealloc_count &&
+-	    (goal == ei->i_prealloc_block || goal + 1 == ei->i_prealloc_block))
+-	{
+-		result = ei->i_prealloc_block++;
+-		ei->i_prealloc_count--;
+-		write_unlock(&ei->i_meta_lock);
+-		ext2_debug ("preallocation hit (%lu/%lu).\n",
+-			    ++alloc_hits, ++alloc_attempts);
+-	} else {
+-		write_unlock(&ei->i_meta_lock);
+-		ext2_discard_prealloc (inode);
+-		ext2_debug ("preallocation miss (%lu/%lu).\n",
+-			    alloc_hits, ++alloc_attempts);
+-		if (S_ISREG(inode->i_mode))
+-			result = ext2_new_block (inode, goal, 
+-				 &ei->i_prealloc_count,
+-				 &ei->i_prealloc_block, err);
+-		else
+-			result = ext2_new_block(inode, goal, NULL, NULL, err);
+-	}
+-#else
+-	result = ext2_new_block (inode, goal, 0, 0, err);
+-#endif
+-	return result;
+-}
+-
+ typedef struct {
+ 	__le32	*p;
+ 	__le32	key;
+@@ -228,7 +160,8 @@ static int ext2_block_to_path(struct inode *inode,
+ 		ext2_warning (inode->i_sb, "ext2_block_to_path", "block > big");
+ 	}
+ 	if (boundary)
+-		*boundary = (i_block & (ptrs - 1)) == (final - 1);
++		*boundary = final - 1 - (i_block & (ptrs - 1));
++
+ 	return n;
+ }
+ 
+@@ -355,39 +288,129 @@ static unsigned long ext2_find_near(struct inode *inode, Indirect *ind)
+  *	@block:  block we want
+  *	@chain:  chain of indirect blocks
+  *	@partial: pointer to the last triple within a chain
+- *	@goal:	place to store the result.
+  *
+- *	Normally this function find the prefered place for block allocation,
+- *	stores it in *@goal and returns zero. If the branch had been changed
+- *	under us we return -EAGAIN.
++ *	Returns preferred place for a block (the goal).
+  */
+ 
+ static inline int ext2_find_goal(struct inode *inode,
+ 				 long block,
+ 				 Indirect chain[4],
+-				 Indirect *partial,
+-				 unsigned long *goal)
++				 Indirect *partial)
+ {
+-	struct ext2_inode_info *ei = EXT2_I(inode);
+-	write_lock(&ei->i_meta_lock);
+-	if ((block == ei->i_next_alloc_block + 1) && ei->i_next_alloc_goal) {
+-		ei->i_next_alloc_block++;
+-		ei->i_next_alloc_goal++;
+-	} 
+-	if (verify_chain(chain, partial)) {
+-		/*
+-		 * try the heuristic for sequential allocation,
+-		 * failing that at least try to get decent locality.
+-		 */
+-		if (block == ei->i_next_alloc_block)
+-			*goal = ei->i_next_alloc_goal;
+-		if (!*goal)
+-			*goal = ext2_find_near(inode, partial);
+-		write_unlock(&ei->i_meta_lock);
+-		return 0;
++	struct ext2_block_alloc_info *block_i;
++
++	block_i = EXT2_I(inode)->i_block_alloc_info;
++
++	/*
++	 * try the heuristic for sequential allocation,
++	 * failing that at least try to get decent locality.
++	 */
++	if (block_i && (block == block_i->last_alloc_logical_block + 1)
++		&& (block_i->last_alloc_physical_block != 0)) {
++		return block_i->last_alloc_physical_block + 1;
+ 	}
+-	write_unlock(&ei->i_meta_lock);
+-	return -EAGAIN;
++
++	return ext2_find_near(inode, partial);
++}
++
++/**
++ *	ext2_blks_to_allocate: Look up the block map and count the number
++ *	of direct blocks need to be allocated for the given branch.
++ *
++ * 	@branch: chain of indirect blocks
++ *	@k: number of blocks need for indirect blocks
++ *	@blks: number of data blocks to be mapped.
++ *	@blocks_to_boundary:  the offset in the indirect block
++ *
++ *	return the total number of blocks to be allocate, including the
++ *	direct and indirect blocks.
++ */
++static int
++ext2_blks_to_allocate(Indirect * branch, int k, unsigned long blks,
++		int blocks_to_boundary)
++{
++	unsigned long count = 0;
++
++	/*
++	 * Simple case, [t,d]Indirect block(s) has not allocated yet
++	 * then it's clear blocks on that path have not allocated
++	 */
++	if (k > 0) {
++		/* right now don't hanel cross boundary allocation */
++		if (blks < blocks_to_boundary + 1)
++			count += blks;
++		else
++			count += blocks_to_boundary + 1;
++		return count;
++	}
++
++	count++;
++	while (count < blks && count <= blocks_to_boundary
++		&& le32_to_cpu(*(branch[0].p + count)) == 0) {
++		count++;
++	}
++	return count;
++}
++
++/**
++ *	ext2_alloc_blocks: multiple allocate blocks needed for a branch
++ *	@indirect_blks: the number of blocks need to allocate for indirect
++ *			blocks
++ *
++ *	@new_blocks: on return it will store the new block numbers for
++ *	the indirect blocks(if needed) and the first direct block,
++ *	@blks:	on return it will store the total number of allocated
++ *		direct blocks
++ */
++static int ext2_alloc_blocks(struct inode *inode,
++			ext2_fsblk_t goal, int indirect_blks, int blks,
++			ext2_fsblk_t new_blocks[4], int *err)
++{
++	int target, i;
++	unsigned long count = 0;
++	int index = 0;
++	ext2_fsblk_t current_block = 0;
++	int ret = 0;
++
++	/*
++	 * Here we try to allocate the requested multiple blocks at once,
++	 * on a best-effort basis.
++	 * To build a branch, we should allocate blocks for
++	 * the indirect blocks(if not allocated yet), and at least
++	 * the first direct block of this branch.  That's the
++	 * minimum number of blocks need to allocate(required)
++	 */
++	target = blks + indirect_blks;
++
++	while (1) {
++		count = target;
++		/* allocating blocks for indirect blocks and direct blocks */
++		current_block = ext2_new_blocks(inode,goal,&count,err);
++		if (*err)
++			goto failed_out;
++
++		target -= count;
++		/* allocate blocks for indirect blocks */
++		while (index < indirect_blks && count) {
++			new_blocks[index++] = current_block++;
++			count--;
++		}
++
++		if (count > 0)
++			break;
++	}
++
++	/* save the new block number for the first direct block */
++	new_blocks[index] = current_block;
++
++	/* total number of blocks allocated for direct blocks */
++	ret = count;
++	*err = 0;
++	return ret;
++failed_out:
++	for (i = 0; i <index; i++)
++		ext2_free_blocks(inode, new_blocks[i], 1);
++	return ret;
+ }
+ 
+ /**
+@@ -416,39 +439,49 @@ static inline int ext2_find_goal(struct inode *inode,
+  */
+ 
+ static int ext2_alloc_branch(struct inode *inode,
+-			     int num,
+-			     unsigned long goal,
+-			     int *offsets,
+-			     Indirect *branch)
++			int indirect_blks, int *blks, ext2_fsblk_t goal,
++			int *offsets, Indirect *branch)
+ {
+ 	int blocksize = inode->i_sb->s_blocksize;
+-	int n = 0;
+-	int err;
+-	int i;
+-	int parent = ext2_alloc_block(inode, goal, &err);
+-
+-	branch[0].key = cpu_to_le32(parent);
+-	if (parent) for (n = 1; n < num; n++) {
+-		struct buffer_head *bh;
+-		/* Allocate the next block */
+-		int nr = ext2_alloc_block(inode, parent, &err);
+-		if (!nr)
+-			break;
+-		branch[n].key = cpu_to_le32(nr);
++	int i, n = 0;
++	int err = 0;
++	struct buffer_head *bh;
++	int num;
++	ext2_fsblk_t new_blocks[4];
++	ext2_fsblk_t current_block;
++
++	num = ext2_alloc_blocks(inode, goal, indirect_blks,
++				*blks, new_blocks, &err);
++	if (err)
++		return err;
++
++	branch[0].key = cpu_to_le32(new_blocks[0]);
++	/*
++	 * metadata blocks and data blocks are allocated.
++	 */
++	for (n = 1; n <= indirect_blks;  n++) {
+ 		/*
+-		 * Get buffer_head for parent block, zero it out and set 
+-		 * the pointer to new one, then send parent to disk.
++		 * Get buffer_head for parent block, zero it out
++		 * and set the pointer to new one, then send
++		 * parent to disk.
+ 		 */
+-		bh = sb_getblk(inode->i_sb, parent);
+-		if (!bh) {
+-			err = -EIO;
+-			break;
+-		}
++		bh = sb_getblk(inode->i_sb, new_blocks[n-1]);
++		branch[n].bh = bh;
+ 		lock_buffer(bh);
+ 		memset(bh->b_data, 0, blocksize);
+-		branch[n].bh = bh;
+ 		branch[n].p = (__le32 *) bh->b_data + offsets[n];
++		branch[n].key = cpu_to_le32(new_blocks[n]);
+ 		*branch[n].p = branch[n].key;
++		if ( n == indirect_blks) {
++			current_block = new_blocks[n];
++			/*
++			 * End of chain, update the last new metablock of
++			 * the chain to point to the new allocated
++			 * data blocks numbers
++			 */
++			for (i=1; i < num; i++)
++				*(branch[n].p + i) = cpu_to_le32(++current_block);
++		}
+ 		set_buffer_uptodate(bh);
+ 		unlock_buffer(bh);
+ 		mark_buffer_dirty_inode(bh, inode);
+@@ -458,77 +491,68 @@ static int ext2_alloc_branch(struct inode *inode,
+ 		 */
+ 		if (S_ISDIR(inode->i_mode) && IS_DIRSYNC(inode))
+ 			sync_dirty_buffer(bh);
+-		parent = nr;
+ 	}
+-	if (n == num)
+-		return 0;
+-
+-	/* Allocation failed, free what we already allocated */
+-	for (i = 1; i < n; i++)
+-		bforget(branch[i].bh);
+-	for (i = 0; i < n; i++)
+-		ext2_free_blocks(inode, le32_to_cpu(branch[i].key), 1);
++	*blks = num;
+ 	return err;
+ }
+ 
+ /**
+- *	ext2_splice_branch - splice the allocated branch onto inode.
+- *	@inode: owner
+- *	@block: (logical) number of block we are adding
+- *	@chain: chain of indirect blocks (with a missing link - see
+- *		ext2_alloc_branch)
+- *	@where: location of missing link
+- *	@num:   number of blocks we are adding
++ * ext2_splice_branch - splice the allocated branch onto inode.
++ * @inode: owner
++ * @block: (logical) number of block we are adding
++ * @chain: chain of indirect blocks (with a missing link - see
++ *	ext2_alloc_branch)
++ * @where: location of missing link
++ * @num:   number of indirect blocks we are adding
++ * @blks:  number of direct blocks we are adding
+  *
+- *	This function verifies that chain (up to the missing link) had not
+- *	changed, fills the missing link and does all housekeeping needed in
+- *	inode (->i_blocks, etc.). In case of success we end up with the full
+- *	chain to new block and return 0. Otherwise (== chain had been changed)
+- *	we free the new blocks (forgetting their buffer_heads, indeed) and
+- *	return -EAGAIN.
++ * This function fills the missing link and does all housekeeping needed in
++ * inode (->i_blocks, etc.). In case of success we end up with the full
++ * chain to new block and return 0.
+  */
+-
+-static inline int ext2_splice_branch(struct inode *inode,
+-				     long block,
+-				     Indirect chain[4],
+-				     Indirect *where,
+-				     int num)
++static void ext2_splice_branch(struct inode *inode,
++			long block, Indirect *where, int num, int blks)
+ {
+-	struct ext2_inode_info *ei = EXT2_I(inode);
+ 	int i;
++	struct ext2_block_alloc_info *block_i;
++	ext2_fsblk_t current_block;
+ 
+-	/* Verify that place we are splicing to is still there and vacant */
+-
+-	write_lock(&ei->i_meta_lock);
+-	if (!verify_chain(chain, where-1) || *where->p)
+-		goto changed;
++	block_i = EXT2_I(inode)->i_block_alloc_info;
+ 
++	/* XXX LOCKING probably should have i_meta_lock ?*/
+ 	/* That's it */
+ 
+ 	*where->p = where->key;
+-	ei->i_next_alloc_block = block;
+-	ei->i_next_alloc_goal = le32_to_cpu(where[num-1].key);
+ 
+-	write_unlock(&ei->i_meta_lock);
++	/*
++	 * Update the host buffer_head or inode to point to more just allocated
++	 * direct blocks blocks
++	 */
++	if (num == 0 && blks > 1) {
++		current_block = le32_to_cpu(where->key) + 1;
++		for (i = 1; i < blks; i++)
++			*(where->p + i ) = cpu_to_le32(current_block++);
++	}
+ 
+-	/* We are done with atomic stuff, now do the rest of housekeeping */
++	/*
++	 * update the most recently allocated logical & physical block
++	 * in i_block_alloc_info, to assist find the proper goal block for next
++	 * allocation
++	 */
++	if (block_i) {
++		block_i->last_alloc_logical_block = block + blks - 1;
++		block_i->last_alloc_physical_block =
++				le32_to_cpu(where[num].key) + blks - 1;
++	}
+ 
+-	inode->i_ctime = CURRENT_TIME_SEC;
++	/* We are done with atomic stuff, now do the rest of housekeeping */
+ 
+ 	/* had we spliced it onto indirect block? */
+ 	if (where->bh)
+ 		mark_buffer_dirty_inode(where->bh, inode);
+ 
++	inode->i_ctime = CURRENT_TIME_SEC;
+ 	mark_inode_dirty(inode);
+-	return 0;
+-
+-changed:
+-	write_unlock(&ei->i_meta_lock);
+-	for (i = 1; i < num; i++)
+-		bforget(where[i].bh);
+-	for (i = 0; i < num; i++)
+-		ext2_free_blocks(inode, le32_to_cpu(where[i].key), 1);
+-	return -EAGAIN;
+ }
+ 
+ /*
+@@ -542,64 +566,99 @@ changed:
+  * That has a nice additional property: no special recovery from the failed
+  * allocations is needed - we simply release blocks and do not touch anything
+  * reachable from inode.
++ *
++ * `handle' can be NULL if create == 0.
++ *
++ * The BKL may not be held on entry here.  Be sure to take it early.
++ * return > 0, # of blocks mapped or allocated.
++ * return = 0, if plain lookup failed.
++ * return < 0, error case.
+  */
+-
+-int ext2_get_block(struct inode *inode, sector_t iblock, struct buffer_head *bh_result, int create)
++static int ext2_get_blocks(struct inode *inode,
++			   sector_t iblock, unsigned long maxblocks,
++			   struct buffer_head *bh_result,
++			   int create)
+ {
+ 	int err = -EIO;
+ 	int offsets[4];
+ 	Indirect chain[4];
+ 	Indirect *partial;
+-	unsigned long goal;
+-	int left;
+-	int boundary = 0;
+-	int depth = ext2_block_to_path(inode, iblock, offsets, &boundary);
++	ext2_fsblk_t goal;
++	int indirect_blks;
++	int blocks_to_boundary = 0;
++	int depth;
++	struct ext2_inode_info *ei = EXT2_I(inode);
++	int count = 0;
++	ext2_fsblk_t first_block = 0;
+ 
+-	if (depth == 0)
+-		goto out;
++	depth = ext2_block_to_path(inode,iblock,offsets,&blocks_to_boundary);
+ 
++	if (depth == 0)
++		return (err);
+ reread:
+ 	partial = ext2_get_branch(inode, depth, offsets, chain, &err);
+ 
+ 	/* Simplest case - block found, no allocation needed */
+ 	if (!partial) {
+-got_it:
+-		map_bh(bh_result, inode->i_sb, le32_to_cpu(chain[depth-1].key));
+-		if (boundary)
+-			set_buffer_boundary(bh_result);
+-		/* Clean up and exit */
+-		partial = chain+depth-1; /* the whole chain */
+-		goto cleanup;
++		first_block = le32_to_cpu(chain[depth - 1].key);
++		clear_buffer_new(bh_result); /* What's this do? */
++		count++;
++		/*map more blocks*/
++		while (count < maxblocks && count <= blocks_to_boundary) {
++			ext2_fsblk_t blk;
++
++			if (!verify_chain(chain, partial)) {
++				/*
++				 * Indirect block might be removed by
++				 * truncate while we were reading it.
++				 * Handling of that case: forget what we've
++				 * got now, go to reread.
++				 */
++				count = 0;
++				goto changed;
++			}
++			blk = le32_to_cpu(*(chain[depth-1].p + count));
++			if (blk == first_block + count)
++				count++;
++			else
++				break;
++		}
++		goto got_it;
+ 	}
+ 
+ 	/* Next simple case - plain lookup or failed read of indirect block */
+-	if (!create || err == -EIO) {
+-cleanup:
+-		while (partial > chain) {
+-			brelse(partial->bh);
+-			partial--;
+-		}
+-out:
+-		return err;
+-	}
++	if (!create || err == -EIO)
++		goto cleanup;
++
++	mutex_lock(&ei->truncate_mutex);
+ 
+ 	/*
+-	 * Indirect block might be removed by truncate while we were
+-	 * reading it. Handling of that case (forget what we've got and
+-	 * reread) is taken out of the main path.
+-	 */
+-	if (err == -EAGAIN)
+-		goto changed;
++	 * Okay, we need to do block allocation.  Lazily initialize the block
++	 * allocation info here if necessary
++	*/
++	if (S_ISREG(inode->i_mode) && (!ei->i_block_alloc_info))
++		ext2_init_block_alloc_info(inode);
+ 
+-	goal = 0;
+-	if (ext2_find_goal(inode, iblock, chain, partial, &goal) < 0)
+-		goto changed;
++	goal = ext2_find_goal(inode, iblock, chain, partial);
+ 
+-	left = (chain + depth) - partial;
+-	err = ext2_alloc_branch(inode, left, goal,
+-					offsets+(partial-chain), partial);
+-	if (err)
++	/* the number of blocks need to allocate for [d,t]indirect blocks */
++	indirect_blks = (chain + depth) - partial - 1;
++	/*
++	 * Next look up the indirect map to count the totoal number of
++	 * direct blocks to allocate for this branch.
++	 */
++	count = ext2_blks_to_allocate(partial, indirect_blks,
++					maxblocks, blocks_to_boundary);
++	/*
++	 * XXX ???? Block out ext2_truncate while we alter the tree
++	 */
++	err = ext2_alloc_branch(inode, indirect_blks, &count, goal,
++				offsets + (partial - chain), partial);
++
++	if (err) {
++		mutex_unlock(&ei->truncate_mutex);
+ 		goto cleanup;
++	}
+ 
+ 	if (ext2_use_xip(inode->i_sb)) {
+ 		/*
+@@ -607,16 +666,28 @@ out:
+ 		 */
+ 		err = ext2_clear_xip_target (inode,
+ 			le32_to_cpu(chain[depth-1].key));
+-		if (err)
++		if (err) {
++			mutex_unlock(&ei->truncate_mutex);
+ 			goto cleanup;
++		}
+ 	}
+ 
+-	if (ext2_splice_branch(inode, iblock, chain, partial, left) < 0)
+-		goto changed;
+-
++	ext2_splice_branch(inode, iblock, partial, indirect_blks, count);
++	mutex_unlock(&ei->truncate_mutex);
+ 	set_buffer_new(bh_result);
+-	goto got_it;
+-
++got_it:
++	map_bh(bh_result, inode->i_sb, le32_to_cpu(chain[depth-1].key));
++	if (count > blocks_to_boundary)
++		set_buffer_boundary(bh_result);
++	err = count;
++	/* Clean up and exit */
++	partial = chain + depth - 1;	/* the whole chain */
++cleanup:
++	while (partial > chain) {
++		brelse(partial->bh);
++		partial--;
++	}
++	return err;
+ changed:
+ 	while (partial > chain) {
+ 		brelse(partial->bh);
+@@ -625,6 +696,19 @@ changed:
+ 	goto reread;
+ }
+ 
++int ext2_get_block(struct inode *inode, sector_t iblock, struct buffer_head *bh_result, int create)
++{
++	unsigned max_blocks = bh_result->b_size >> inode->i_blkbits;
++	int ret = ext2_get_blocks(inode, iblock, max_blocks,
++			      bh_result, create);
++	if (ret > 0) {
++		bh_result->b_size = (ret << inode->i_blkbits);
++		ret = 0;
++	}
++	return ret;
++
++}
++
+ static int ext2_writepage(struct page *page, struct writeback_control *wbc)
+ {
+ 	return block_write_full_page(page, ext2_get_block, wbc);
+@@ -896,9 +980,10 @@ static void ext2_free_branches(struct inode *inode, __le32 *p, __le32 *q, int de
+ 		ext2_free_data(inode, p, q);
+ }
+ 
+-void ext2_truncate (struct inode * inode)
++void ext2_truncate(struct inode *inode)
+ {
+ 	__le32 *i_data = EXT2_I(inode)->i_data;
++	struct ext2_inode_info *ei = EXT2_I(inode);
+ 	int addr_per_block = EXT2_ADDR_PER_BLOCK(inode->i_sb);
+ 	int offsets[4];
+ 	Indirect chain[4];
+@@ -916,8 +1001,6 @@ void ext2_truncate (struct inode * inode)
+ 	if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
+ 		return;
+ 
+-	ext2_discard_prealloc(inode);
+-
+ 	blocksize = inode->i_sb->s_blocksize;
+ 	iblock = (inode->i_size + blocksize-1)
+ 					>> EXT2_BLOCK_SIZE_BITS(inode->i_sb);
+@@ -934,6 +1017,12 @@ void ext2_truncate (struct inode * inode)
+ 	if (n == 0)
+ 		return;
+ 
++	/*
++	 * From here we block out all ext2_get_block() callers who want to
++	 * modify the block allocation tree.
++	 */
++	mutex_lock(&ei->truncate_mutex);
++
+ 	if (n == 1) {
+ 		ext2_free_data(inode, i_data+offsets[0],
+ 					i_data + EXT2_NDIR_BLOCKS);
+@@ -986,6 +1075,10 @@ do_indirects:
+ 		case EXT2_TIND_BLOCK:
+ 			;
+ 	}
++
++	ext2_discard_reservation(inode);
++
++	mutex_unlock(&ei->truncate_mutex);
+ 	inode->i_mtime = inode->i_ctime = CURRENT_TIME_SEC;
+ 	if (inode_needs_sync(inode)) {
+ 		sync_mapping_buffers(inode->i_mapping);
+@@ -1086,6 +1179,8 @@ void ext2_read_inode (struct inode * inode)
+ 	ei->i_acl = EXT2_ACL_NOT_CACHED;
+ 	ei->i_default_acl = EXT2_ACL_NOT_CACHED;
+ #endif
++	ei->i_block_alloc_info = NULL;
++
+ 	if (IS_ERR(raw_inode))
+  		goto bad_inode;
+ 
+@@ -1127,9 +1222,6 @@ void ext2_read_inode (struct inode * inode)
+ 	ei->i_dtime = 0;
+ 	inode->i_generation = le32_to_cpu(raw_inode->i_generation);
+ 	ei->i_state = 0;
+-	ei->i_next_alloc_block = 0;
+-	ei->i_next_alloc_goal = 0;
+-	ei->i_prealloc_count = 0;
+ 	ei->i_block_group = (ino - 1) / EXT2_INODES_PER_GROUP(inode->i_sb);
+ 	ei->i_dir_start_lookup = 0;
+ 
+diff --git a/fs/ext2/ioctl.c b/fs/ext2/ioctl.c
+index e85c482..0c0914c 100644
+--- a/fs/ext2/ioctl.c
++++ b/fs/ext2/ioctl.c
+@@ -22,6 +22,7 @@ int ext2_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
+ {
+ 	struct ext2_inode_info *ei = EXT2_I(inode);
+ 	unsigned int flags;
++	unsigned short rsv_window_size;
+ 
+ 	ext2_debug ("cmd = %u, arg = %lu\n", cmd, arg);
+ 
+@@ -83,6 +84,50 @@ int ext2_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
+ 		inode->i_ctime = CURRENT_TIME_SEC;
+ 		mark_inode_dirty(inode);
+ 		return 0;
++	case EXT2_IOC_GETRSVSZ:
++		if (test_opt(inode->i_sb, RESERVATION)
++			&& S_ISREG(inode->i_mode)
++			&& ei->i_block_alloc_info) {
++			rsv_window_size = ei->i_block_alloc_info->rsv_window_node.rsv_goal_size;
++			return put_user(rsv_window_size, (int __user *)arg);
++		}
++		return -ENOTTY;
++	case EXT2_IOC_SETRSVSZ: {
++
++		if (!test_opt(inode->i_sb, RESERVATION) ||!S_ISREG(inode->i_mode))
++			return -ENOTTY;
++
++		if (IS_RDONLY(inode))
++			return -EROFS;
++
++		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
++			return -EACCES;
++
++		if (get_user(rsv_window_size, (int __user *)arg))
++			return -EFAULT;
++
++		if (rsv_window_size > EXT2_MAX_RESERVE_BLOCKS)
++			rsv_window_size = EXT2_MAX_RESERVE_BLOCKS;
++
++		/*
++		 * need to allocate reservation structure for this inode
++		 * before set the window size
++		 */
++		/*
++		 * XXX What lock should protect the rsv_goal_size?
++		 * Accessed in ext2_get_block only.  ext3 uses i_truncate.
++		 */
++		mutex_lock(&ei->truncate_mutex);
++		if (!ei->i_block_alloc_info)
++			ext2_init_block_alloc_info(inode);
++
++		if (ei->i_block_alloc_info){
++			struct ext2_reserve_window_node *rsv = &ei->i_block_alloc_info->rsv_window_node;
++			rsv->rsv_goal_size = rsv_window_size;
++		}
++		mutex_unlock(&ei->truncate_mutex);
++		return 0;
++	}
+ 	default:
+ 		return -ENOTTY;
+ 	}
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+index b2efd90..f992f34 100644
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -147,6 +147,7 @@ static struct inode *ext2_alloc_inode(struct super_block *sb)
+ 	ei->i_acl = EXT2_ACL_NOT_CACHED;
+ 	ei->i_default_acl = EXT2_ACL_NOT_CACHED;
+ #endif
++	ei->i_block_alloc_info = NULL;
+ 	ei->vfs_inode.i_version = 1;
+ 	return &ei->vfs_inode;
+ }
+@@ -164,6 +165,7 @@ static void init_once(void * foo, struct kmem_cache * cachep, unsigned long flag
+ #ifdef CONFIG_EXT2_FS_XATTR
+ 	init_rwsem(&ei->xattr_sem);
+ #endif
++	mutex_init(&ei->truncate_mutex);
+ 	inode_init_once(&ei->vfs_inode);
+ }
+  
+@@ -186,6 +188,7 @@ static void destroy_inodecache(void)
+ 
+ static void ext2_clear_inode(struct inode *inode)
+ {
++	struct ext2_block_alloc_info *rsv = EXT2_I(inode)->i_block_alloc_info;
+ #ifdef CONFIG_EXT2_FS_POSIX_ACL
+ 	struct ext2_inode_info *ei = EXT2_I(inode);
+ 
+@@ -198,6 +201,10 @@ static void ext2_clear_inode(struct inode *inode)
+ 		ei->i_default_acl = EXT2_ACL_NOT_CACHED;
+ 	}
+ #endif
++	ext2_discard_reservation(inode);
++	EXT2_I(inode)->i_block_alloc_info = NULL;
++	if (unlikely(rsv))
++		kfree(rsv);
+ }
+ 
+ static int ext2_show_options(struct seq_file *seq, struct vfsmount *vfs)
+@@ -233,7 +240,6 @@ static const struct super_operations ext2_sops = {
+ 	.destroy_inode	= ext2_destroy_inode,
+ 	.read_inode	= ext2_read_inode,
+ 	.write_inode	= ext2_write_inode,
+-	.put_inode	= ext2_put_inode,
+ 	.delete_inode	= ext2_delete_inode,
+ 	.put_super	= ext2_put_super,
+ 	.write_super	= ext2_write_super,
+@@ -321,7 +327,7 @@ enum {
+ 	Opt_err_ro, Opt_nouid32, Opt_nocheck, Opt_debug,
+ 	Opt_oldalloc, Opt_orlov, Opt_nobh, Opt_user_xattr, Opt_nouser_xattr,
+ 	Opt_acl, Opt_noacl, Opt_xip, Opt_ignore, Opt_err, Opt_quota,
+-	Opt_usrquota, Opt_grpquota
++	Opt_usrquota, Opt_grpquota, Opt_reservation, Opt_noreservation
+ };
+ 
+ static match_table_t tokens = {
+@@ -353,6 +359,8 @@ static match_table_t tokens = {
+ 	{Opt_ignore, "noquota"},
+ 	{Opt_quota, "quota"},
+ 	{Opt_usrquota, "usrquota"},
++	{Opt_reservation, "reservation"},
++	{Opt_noreservation, "noreservation"},
+ 	{Opt_err, NULL}
+ };
+ 
+@@ -485,6 +493,14 @@ static int parse_options (char * options,
+ 			break;
+ #endif
+ 
++		case Opt_reservation:
++			set_opt(sbi->s_mount_opt, RESERVATION);
++			printk("reservations ON\n");
++			break;
++		case Opt_noreservation:
++			clear_opt(sbi->s_mount_opt, RESERVATION);
++			printk("reservations OFF\n");
++			break;
+ 		case Opt_ignore:
+ 			break;
+ 		default:
+@@ -724,6 +740,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
+ 	sbi->s_resuid = le16_to_cpu(es->s_def_resuid);
+ 	sbi->s_resgid = le16_to_cpu(es->s_def_resgid);
+ 	
++	set_opt(sbi->s_mount_opt, RESERVATION);
++
+ 	if (!parse_options ((char *) data, sbi))
+ 		goto failed_mount;
+ 
+@@ -907,6 +925,21 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
+ 	get_random_bytes(&sbi->s_next_generation, sizeof(u32));
+ 	spin_lock_init(&sbi->s_next_gen_lock);
+ 
++	/* per fileystem reservation list head & lock */
++	spin_lock_init(&sbi->s_rsv_window_lock);
++	sbi->s_rsv_window_root = RB_ROOT;
++	/*
++	 * Add a single, static dummy reservation to the start of the
++	 * reservation window list --- it gives us a placeholder for
++	 * append-at-start-of-list which makes the allocation logic
++	 * _much_ simpler.
++	 */
++	sbi->s_rsv_window_head.rsv_start = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++	sbi->s_rsv_window_head.rsv_end = EXT2_RESERVE_WINDOW_NOT_ALLOCATED;
++	sbi->s_rsv_window_head.rsv_alloc_hit = 0;
++	sbi->s_rsv_window_head.rsv_goal_size = 0;
++	ext2_rsv_window_add(sb, &sbi->s_rsv_window_head);
++
+ 	percpu_counter_init(&sbi->s_freeblocks_counter,
+ 				ext2_count_free_blocks(sb));
+ 	percpu_counter_init(&sbi->s_freeinodes_counter,
+@@ -1194,7 +1227,7 @@ static ssize_t ext2_quota_read(struct super_block *sb, int type, char *data,
+ 
+ 		tmp_bh.b_state = 0;
+ 		err = ext2_get_block(inode, blk, &tmp_bh, 0);
+-		if (err)
++		if (err < 0)
+ 			return err;
+ 		if (!buffer_mapped(&tmp_bh))	/* A hole? */
+ 			memset(data, 0, tocopy);
+@@ -1233,7 +1266,7 @@ static ssize_t ext2_quota_write(struct super_block *sb, int type,
+ 
+ 		tmp_bh.b_state = 0;
+ 		err = ext2_get_block(inode, blk, &tmp_bh, 1);
+-		if (err)
++		if (err < 0)
+ 			goto out;
+ 		if (offset || tocopy != EXT2_BLOCK_SIZE(sb))
+ 			bh = sb_bread(sb, tmp_bh.b_blocknr);
+diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
+index 247efd0..3e8683d 100644
+--- a/fs/ext2/xattr.c
++++ b/fs/ext2/xattr.c
+@@ -664,8 +664,7 @@ ext2_xattr_set2(struct inode *inode, struct buffer_head *old_bh,
+ 						           s_first_data_block) +
+ 				   EXT2_I(inode)->i_block_group *
+ 				   EXT2_BLOCKS_PER_GROUP(sb);
+-			int block = ext2_new_block(inode, goal,
+-						   NULL, NULL, &error);
++			int block = ext2_new_block(inode, goal, &error);
+ 			if (error)
+ 				goto cleanup;
+ 			ea_idebug(inode, "creating block %d", block);
+diff --git a/include/linux/ext2_fs.h b/include/linux/ext2_fs.h
+index 153d755..c77c3bb 100644
+--- a/include/linux/ext2_fs.h
++++ b/include/linux/ext2_fs.h
+@@ -29,11 +29,12 @@
+ #undef EXT2FS_DEBUG
+ 
+ /*
+- * Define EXT2_PREALLOCATE to preallocate data blocks for expanding files
++ * Define EXT2_RESERVATION to reserve data blocks for expanding files
+  */
+-#define EXT2_PREALLOCATE
+-#define EXT2_DEFAULT_PREALLOC_BLOCKS	8
+-
++#define EXT2_DEFAULT_RESERVE_BLOCKS     8
++/*max window size: 1024(direct blocks) + 3([t,d]indirect blocks) */
++#define EXT2_MAX_RESERVE_BLOCKS         1027
++#define EXT2_RESERVE_WINDOW_NOT_ALLOCATED 0
+ /*
+  * The second extended file system version
+  */
+@@ -200,6 +201,8 @@ struct ext2_group_desc
+ #define	EXT2_IOC_SETFLAGS		FS_IOC_SETFLAGS
+ #define	EXT2_IOC_GETVERSION		FS_IOC_GETVERSION
+ #define	EXT2_IOC_SETVERSION		FS_IOC_SETVERSION
++#define	EXT2_IOC_GETRSVSZ		_IOR('f', 5, long)
++#define	EXT2_IOC_SETRSVSZ		_IOW('f', 6, long)
+ 
+ /*
+  * ioctl commands in 32 bit emulation
+@@ -317,8 +320,9 @@ struct ext2_inode {
+ #define EXT2_MOUNT_XATTR_USER		0x004000  /* Extended user attributes */
+ #define EXT2_MOUNT_POSIX_ACL		0x008000  /* POSIX Access Control Lists */
+ #define EXT2_MOUNT_XIP			0x010000  /* Execute in place */
+-#define EXT2_MOUNT_USRQUOTA		0x020000 /* user quota */
+-#define EXT2_MOUNT_GRPQUOTA		0x040000 /* group quota */
++#define EXT2_MOUNT_USRQUOTA		0x020000  /* user quota */
++#define EXT2_MOUNT_GRPQUOTA		0x040000  /* group quota */
++#define EXT2_MOUNT_RESERVATION		0x080000  /* Preallocation */
+ 
+ 
+ #define clear_opt(o, opt)		o &= ~EXT2_MOUNT_##opt
+@@ -558,4 +562,11 @@ enum {
+ #define EXT2_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT2_DIR_ROUND) & \
+ 					 ~EXT2_DIR_ROUND)
+ 
++static inline ext2_fsblk_t
++ext2_group_first_block_no(struct super_block *sb, unsigned long group_no)
++{
++	return group_no * (ext2_fsblk_t)EXT2_BLOCKS_PER_GROUP(sb) +
++		le32_to_cpu(EXT2_SB(sb)->s_es->s_first_data_block);
++}
++
+ #endif	/* _LINUX_EXT2_FS_H */
+diff --git a/include/linux/ext2_fs_sb.h b/include/linux/ext2_fs_sb.h
+index 2bfcbb0..b29f346 100644
+--- a/include/linux/ext2_fs_sb.h
++++ b/include/linux/ext2_fs_sb.h
+@@ -18,6 +18,52 @@
+ 
+ #include <linux/blockgroup_lock.h>
+ #include <linux/percpu_counter.h>
++#include <linux/rbtree.h>
++
++/* XXX Here for now... not interested in restructing headers JUST now */
++
++/* data type for block offset of block group */
++typedef int ext2_grpblk_t;
++
++/* data type for filesystem-wide blocks number */
++typedef unsigned long ext2_fsblk_t;
++
++#define E2FSBLK "%lu"
++
++struct ext2_reserve_window {
++	ext2_fsblk_t		_rsv_start;	/* First byte reserved */
++	ext2_fsblk_t		_rsv_end;	/* Last byte reserved or 0 */
++};
++
++struct ext2_reserve_window_node {
++	struct rb_node	 	rsv_node;
++	__u32			rsv_goal_size;
++	__u32			rsv_alloc_hit;
++	struct ext2_reserve_window	rsv_window;
++};
++
++struct ext2_block_alloc_info {
++	/* information about reservation window */
++	struct ext2_reserve_window_node	rsv_window_node;
++	/*
++	 * was i_next_alloc_block in ext2_inode_info
++	 * is the logical (file-relative) number of the
++	 * most-recently-allocated block in this file.
++	 * We use this for detecting linearly ascending allocation requests.
++	 */
++	__u32			last_alloc_logical_block;
++	/*
++	 * Was i_next_alloc_goal in ext2_inode_info
++	 * is the *physical* companion to i_next_alloc_block.
++	 * it the the physical block number of the block which was most-recentl
++	 * allocated to this file.  This give us the goal (target) for the next
++	 * allocation when we detect linearly ascending requests.
++	 */
++	ext2_fsblk_t		last_alloc_physical_block;
++};
++
++#define rsv_start rsv_window._rsv_start
++#define rsv_end rsv_window._rsv_end
+ 
+ /*
+  * second extended-fs super-block data in memory
+@@ -55,6 +101,10 @@ struct ext2_sb_info {
+ 	struct percpu_counter s_freeinodes_counter;
+ 	struct percpu_counter s_dirs_counter;
+ 	struct blockgroup_lock s_blockgroup_lock;
++	/* root of the per fs reservation window tree */
++	spinlock_t s_rsv_window_lock;
++	struct rb_root s_rsv_window_root;
++	struct ext2_reserve_window_node s_rsv_window_head;
+ };
+ 
+ #endif	/* _LINUX_EXT2_FS_SB */
+-- 
+1.6.5.GIT
+

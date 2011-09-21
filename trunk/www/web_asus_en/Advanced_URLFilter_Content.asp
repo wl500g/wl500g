@@ -84,7 +84,7 @@
 <td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="32" size="36" name="url_keyword_x_0" class="content_input_list_fd" onKeyPress="return is_string(this)"></td>
 </tr>
 <tr>
-<td></td><td colspan="10"><select size="8" name="UrlList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'">
+<td></td><td colspan="10"><select size="8" name="UrlList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("FirewallConfig","UrlList"); %>
 </select></td>
 </tr>

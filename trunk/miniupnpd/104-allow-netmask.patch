@@ -1,0 +1,65 @@
+Allow xxx.xxx.xxx.xxx netmask patch from Tomato-RT
+
+diff -BurpN miniupnpd.orig/miniupnpd.c miniupnpd/miniupnpd.c
+--- miniupnpd.orig/miniupnpd.c	2010-09-21 15:31:43.000000000 +0000
++++ miniupnpd/miniupnpd.c	2011-05-20 14:29:20.462521000 +0000
+@@ -483,7 +483,7 @@ struct runtime_vars {
+ 
+ /* parselanaddr()
+  * parse address with mask
+- * ex: 192.168.1.1/24
++ * ex: 192.168.1.1/24 or 192.168.1.1/255.255.255.0
+  * When MULTIPLE_EXTERNAL_IP is enabled, the ip address of the
+  * external interface associated with the lan subnet follows.
+  * ex : 192.168.1.1/24 81.21.41.11
+@@ -503,7 +503,15 @@ parselanaddr(struct lan_addr_s * lan_add
+ 	n = p - str;
+ 	if(*p == '/')
+ 	{
+-		nbits = atoi(++p);
++		unsigned short i, mask[4];
++		unsigned char *am = (unsigned char *) &(lan_addr->mask.s_addr);
++		if (sscanf(++p, "%3hu.%3hu.%3hu.%3hu", &mask[0], &mask[1], &mask[2], &mask[3]) == 4) {
++			for (i = 0; i < 4; i++)
++				am[i] = (unsigned char) mask[i];
++		} else {
++			nbits = atoi(p);
++			lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
++		}
+ 		while(*p && !isspace(*p))
+ 			p++;
+ 	}
+@@ -519,7 +527,6 @@ parselanaddr(struct lan_addr_s * lan_add
+ 		fprintf(stderr, "Error parsing address/mask : %s\n", str);
+ 		return -1;
+ 	}
+-	lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
+ #ifdef MULTIPLE_EXTERNAL_IP
+ 	/* skip spaces */
+ 	while(*p && isspace(*p))
+diff -BurpN miniupnpd.orig/upnppermissions.c miniupnpd/upnppermissions.c
+--- miniupnpd.orig/upnppermissions.c	2009-12-22 17:22:13.000000000 +0000
++++ miniupnpd/upnppermissions.c	2011-05-20 14:32:41.172521000 +0000
+@@ -77,11 +77,19 @@ read_permission_line(struct upnpperm * p
+ 			return -1;
+ 		q++;
+ 		p = q;
+-		while(isdigit(*q))
++		while(isdigit(*q) || (*q == '.'))
+ 			q++;
+ 		*q = '\0';
+-		n_bits = atoi(p);
+-		perm->mask.s_addr = htonl(n_bits ? (0xffffffff << (32 - n_bits)) : 0);
++
++		unsigned short i, mask[4];
++		unsigned char *am = (unsigned char *) &(perm->mask.s_addr);
++		if (sscanf(p, "%3hu.%3hu.%3hu.%3hu", &mask[0], &mask[1], &mask[2], &mask[3]) == 4) {
++			for (i = 0; i < 4; i++)
++				am[i] = (unsigned char) mask[i];
++		} else {
++			n_bits = atoi(p);
++			perm->mask.s_addr = htonl(n_bits ? (0xffffffff << (32 - n_bits)) : 0);
++		}
+ 	}
+ 	else
+ 	{

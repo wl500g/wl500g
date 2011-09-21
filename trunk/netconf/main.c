@@ -30,17 +30,17 @@
 	!((min) == 0 && (max) == 0xffff) \
 )
 
+static const char *filter_dir_name[] = { "IN", "FORWARD", "OUT" };
+
 static void
 print_fw(netconf_fw_t *fw)
 {
 	netconf_filter_t *filter;
 	netconf_nat_t *nat;
 	netconf_app_t *app;
-	const char *target_name[] = { "DROP", "ACCEPT", "logdrop", "logaccept", "SNAT", "DNAT", "MASQUERADE", "autofw" };
-	const char *filter_dir_name[] = { "IN", "FORWARD", "OUT" };
 
 	/* Target name */
-	printf("%s", target_name[fw->target]);
+	printf("%s", netconf_target_name[fw->target]);
 
 	/* Filter direction */
 	if (netconf_valid_filter(fw->target)) {
@@ -53,6 +53,8 @@ print_fw(netconf_fw_t *fw)
 		printf(" tcp");
 	else if (fw->match.ipproto == IPPROTO_UDP)
 		printf(" udp");
+	else if (fw->match.ipproto != IPPROTO_IP)
+		printf(" proto %d", fw->match.ipproto);
 
 	/* Match source IP address */
 	if (fw->match.src.ipaddr.s_addr & fw->match.src.netmask.s_addr) {
@@ -124,15 +126,35 @@ print_fw(netconf_fw_t *fw)
 			printf("%sNEW", sep);
 			sep = ",";
 		}
+		if (fw->match.state & NETCONF_UNTRACKED) {
+			printf("%sUNTRACKED", sep);
+			sep = ",";
+		}
+		if (fw->match.state & NETCONF_STATE_SNAT) {
+			printf("%sSNAT", sep);
+			sep = ",";
+		}
+		if (fw->match.state & NETCONF_STATE_DNAT) {
+			printf("%sDNAT", sep);
+			sep = ",";
+		}
 	}
 
 	/* Match local time */
 	if (fw->match.secs[0] || fw->match.secs[1]) {
-		char *days[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-		if (fw->match.days[0] < 7 && fw->match.days[1] < 7)
-			printf(" %s-%s",
-			       days[fw->match.days[0]], days[fw->match.days[1]]);
-		if (fw->match.secs[0] < (24 * 60 * 60) && fw->match.days[1] < (24 * 60 * 60))
+		const char *days[] = { NULL, "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
+		unsigned nbdays = 0;
+		int i;
+
+		for (i = 1; i <= 7; ++i)
+			if (fw->match.days & (1 << i)) {
+				if (nbdays > 0)
+                            		printf(",%s", days[i]);
+				else
+                            		printf("%s", days[i]);
+				++nbdays;
+			}
+		if (fw->match.secs[0] < (24 * 60 * 60) && fw->match.secs[1] < (24 * 60 * 60))
 			printf(" %02d:%02d:%02d-%02d:%02d:%02d",
 			       fw->match.secs[0] / (60 * 60), (fw->match.secs[0] / 60) % 60, fw->match.secs[0] % 60,
 			       fw->match.secs[1] / (60 * 60), (fw->match.secs[1] / 60) % 60, fw->match.secs[1] % 60);
@@ -189,8 +211,9 @@ main(int argc, char **argv)
 	if ((ret = netconf_get_fw(&fw_list)))
 		return ret;
 
-	netconf_list_for_each(fw, &fw_list) {
-		assert(netconf_fw_exists(fw));
+	netconf_list_for_each_reverse(fw, &fw_list) {
+		if (!netconf_fw_exists(fw))
+		    printf("*BUG* wrong rule: ");
 		print_fw(fw);
 	}
 

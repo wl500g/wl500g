@@ -35,19 +35,11 @@ extern bool del_autofw_port(int which);
  * parameters of the netconf_nat_t should also be added to the INPUT
  * and FORWARD tables to ACCEPT the forwarded connection.
  */
+#define NV_FORWARD_PORT_MAXLEN		sizeof("forward_portXXXXXXXXXX")
 extern bool valid_forward_port(const netconf_nat_t *nat);
 extern bool get_forward_port(int which, netconf_nat_t *nat);
 extern bool set_forward_port(int which, const netconf_nat_t *nat);
 extern bool del_forward_port(int which);
-
-/* 
- * Client filters are described by two netconf_filter_t structures that
- * differ in match.src.ipaddr alone (to support IP address ranges)
- */
-extern bool valid_filter_client(const netconf_filter_t *start, const netconf_filter_t *end);
-extern bool get_filter_client(int which, netconf_filter_t *start, netconf_filter_t *end);
-extern bool set_filter_client(int which, const netconf_filter_t *start, const netconf_filter_t *end);
-extern bool del_filter_client(int which);
 
 /*
 * WPA/WDS per link configuration. Parameters after 'auth' are

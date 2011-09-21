@@ -23,43 +23,37 @@
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
 #include <netconf.h>
 #include <nvparse.h>
+#include "rc.h"
 
-#define foreach_x(x)	for(i=0; i<atoi(nvram_safe_get(x)); i++)
+#define foreach_x(x)	for (i=0; i<atoi(nvram_safe_get(x)); i++)
 
-char *g_buf;
-char g_buf_pool[1024];
+static char *g_buf;
+#define G_BUF_TOTAL	1024
 
 /* Forwards */
-int porttrigger_setting(FILE *fp, char *lan_if);
+static int porttrigger_setting(FILE *fp, char *lan_if);
 
-void g_buf_init()
+
+static void g_buf_init()
 {
+	static char *g_buf_pool = NULL;
+
+	if (g_buf_pool == NULL)
+		g_buf_pool = malloc(G_BUF_TOTAL);
+
 	g_buf = g_buf_pool;
 }
 
-char *g_buf_alloc(char *g_buf_now)
+static char *g_buf_alloc(char *g_buf_now)
 {
-	g_buf += strlen(g_buf_now)+1;
+	g_buf += strlen(g_buf_now) + 1;
 
-	return(g_buf_now);
+	return (g_buf_now);
 }
 
-void nvram_unsets(char *name, int count)
-{
-	char itemname_arr[32];
-	int i;
-
-	for(i=0; i<count; i++)
-	{
-		sprintf(itemname_arr, "%s%d", name, i);
-		nvram_unset(itemname_arr);
-	}
-}
-
-char *proto_conv(char *proto_name, int idx)
+static char *proto_conv(char *proto_name, int idx)
 {	
 	char *proto;
 	char itemname_arr[32];
@@ -67,15 +61,15 @@ char *proto_conv(char *proto_name, int idx)
 	sprintf(itemname_arr,"%s%d", proto_name, idx);
 	proto=nvram_get(itemname_arr);
 		
-	if(!strncasecmp(proto, "Both", 3)) strcpy(g_buf, "both");
-	else if(!strncasecmp(proto, "TCP", 3)) strcpy(g_buf, "tcp");
-	else if(!strncasecmp(proto, "UDP", 3)) strcpy(g_buf, "udp");
-	else if(!strncasecmp(proto, "OTHER", 5)) strcpy(g_buf, "other");
+	if (!strncasecmp(proto, "Both", 3)) strcpy(g_buf, "both");
+	else if (!strncasecmp(proto, "TCP", 3)) strcpy(g_buf, "tcp");
+	else if (!strncasecmp(proto, "UDP", 3)) strcpy(g_buf, "udp");
+	else if (!strncasecmp(proto, "OTHER", 5)) strcpy(g_buf, "other");
 	else strcpy(g_buf,"tcp");
 	return (g_buf_alloc(g_buf));
 }
 
-char *protoflag_conv(char *proto_name, int idx, int isFlag)
+static char *protoflag_conv(char *proto_name, int idx, int isFlag)
 {	
 	char *proto;
 	char itemname_arr[32];
@@ -87,12 +81,12 @@ char *protoflag_conv(char *proto_name, int idx, int isFlag)
 	
 	if (!isFlag)
 	{		
-		if(strncasecmp(proto, "UDP", 3)==0) strcpy(g_buf, "udp");
+		if (strncasecmp(proto, "UDP", 3)==0) strcpy(g_buf, "udp");
 		else strcpy(g_buf, "tcp");
 	}
 	else
 	{	
-		if(strlen(proto)>3)
+		if (strlen(proto)>3)
 		{
 			strcpy(g_buf, proto+4);
 		}			
@@ -112,13 +106,13 @@ char *portrange_ex_conv(char *port_name, int idx)
 
 	strcpy(g_buf, "");
 	
-	if(!strncmp(port, ">", 1)) {
+	if (!strncmp(port, ">", 1)) {
 		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
 	}
-	else if(!strncmp(port, "=", 1)) {
+	else if (!strncmp(port, "=", 1)) {
 		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
 	}
-	else if(!strncmp(port, "<", 1)) {
+	else if (!strncmp(port, "<", 1)) {
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
 	}
 	else if ((strptr=strchr(port, ':')) != NULL)
@@ -127,7 +121,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 		strptr = strchr(itemname_arr, ':');
 		sprintf(g_buf, "%d-%d", atoi(itemname_arr), atoi(strptr+1));		
 	}
-	else if(*port)
+	else if (*port)
 	{
 		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
 	}
@@ -140,7 +134,7 @@ char *portrange_ex_conv(char *port_name, int idx)
 }
 #endif
 
-char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
+static char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 {
 	char *port, *strptr;
 	char itemname_arr[32];
@@ -150,24 +144,24 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 
 	strcpy(g_buf, "");
 	
-	if(!strncmp(port, ">", 1)) 
+	if (!strncmp(port, ">", 1)) 
 	{
 		sprintf(g_buf, "%d-65535", atoi(port+1) + 1);
 		*start=atoi(port+1);
 		*end=65535;
 	}
-	else if(!strncmp(port, "=", 1)) 
+	else if (!strncmp(port, "=", 1)) 
 	{
 		sprintf(g_buf, "%d-%d", atoi(port+1), atoi(port+1));
 		*start=*end=atoi(port+1);
 	}
-	else if(!strncmp(port, "<", 1)) 
+	else if (!strncmp(port, "<", 1)) 
 	{
 		sprintf(g_buf, "1-%d", atoi(port+1) - 1);
 		*start=1;
 		*end=atoi(port+1);
 	}
-	else if( (strptr=strchr(port, ':')) != NULL)
+	else if ( (strptr=strchr(port, ':')) != NULL)
 	{		
 		strcpy(itemname_arr, port);
 		strptr = strchr(itemname_arr, ':');
@@ -175,7 +169,7 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 		*start=atoi(itemname_arr);
 		*end=atoi(strptr+1);
 	}
-	else if(*port)
+	else if (*port)
 	{
 		sprintf(g_buf, "%d-%d", atoi(port), atoi(port));
 		*start=atoi(port);
@@ -191,7 +185,7 @@ char *portrange_ex2_conv(char *port_name, int idx, int *start, int *end)
 	return(g_buf_alloc(g_buf));
 }
 
-char *portrange_conv(char *port_name, int idx)
+static char *portrange_conv(char *port_name, int idx)
 {
 	char itemname_arr[32];
 	
@@ -216,7 +210,7 @@ char *iprange_conv(char *ip_name, int idx)
 	// scan all ip string
 	i=j=k=0;
 	
-	while(*(ip+i))
+	while (*(ip+i))
 	{
 		if (*(ip+i)=='*') 
 		{
@@ -245,7 +239,7 @@ char *iprange_conv(char *ip_name, int idx)
 }
 #endif
 
-char *iprange_ex_conv(char *ip_name, int idx)
+static char *iprange_ex_conv(char *ip_name, int idx)
 {
 	char *ip;
 	char itemname_arr[32];
@@ -261,7 +255,7 @@ char *iprange_ex_conv(char *ip_name, int idx)
 	i=j=k=0;
 	mask=32;
 	
-	while(*(ip+i))
+	while (*(ip+i))
 	{
 		if (*(ip+i)=='*') 
 		{
@@ -283,14 +277,14 @@ char *iprange_ex_conv(char *ip_name, int idx)
 
 	if (mask==32)
 		sprintf(g_buf, "%s", startip);
-	else if(mask==0)
+	else if (mask==0)
 		strcpy(g_buf, "");
 	else sprintf(g_buf, "%s/%d", startip, mask);
 
 	return(g_buf_alloc(g_buf));
 }
 
-char *ip_conv(char *ip_name, int idx)
+static char *ip_conv(char *ip_name, int idx)
 {	
 	char itemname_arr[32];
 
@@ -300,7 +294,7 @@ char *ip_conv(char *ip_name, int idx)
 }
 
 
-char *general_conv(char *ip_name, int idx)
+static char *general_conv(char *ip_name, int idx)
 {	
 	char itemname_arr[32];
 
@@ -309,7 +303,8 @@ char *general_conv(char *ip_name, int idx)
 	return(g_buf_alloc(g_buf));
 }
 
-char *filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dstip, char *dstport)
+static char *filter_conv(char *proto, char *flag, char *srcip, char *srcport,
+			 char *dstip, char *dstport)
 {
 	char newstr[64];
 
@@ -362,7 +357,7 @@ char *filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dst
 	//printf("str: %s\n", g_buf);
 }
 
-void timematch_conv(char *mstr, char *nv_date, char *nv_time)
+static void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 {	
 	char *datestr[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 	char timestart[6], timestop[6];
@@ -392,12 +387,12 @@ void timematch_conv(char *mstr, char *nv_date, char *nv_time)
 	i+=2;
 	timestop[i]=0;
 
-	sprintf(mstr, "-m time --timestart %s:00 --timestop %s:00 --days ",
+	sprintf(mstr, "-m time --timestart %s --timestop %s --weekdays ",
 			timestart, timestop);
 
 	head=1;
 
-	for(i=0;i<7;i++)
+	for (i=0;i<7;i++)
 	{
 		if (*(date+i)=='1')
 		{
@@ -418,41 +413,25 @@ no_match:
 	mstr[0] = 0;
 	return;
 }
-
-void
-p(int step)
+/*
+void p(int step)
 {
 	dprintf("P: %d %s\n", step, g_buf);
 }
+*/
 
-void 
-ip2class(char *lan_ip, char *netmask, char *buf)
+#ifndef __CONFIG_MINIUPNPD__
+static void write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip,
+				char *lan_if, char *lan_ip, char *lan_class,
+				char *logaccept, char *logdrop)
 {
-	unsigned int val, ip;
-	struct in_addr in;
-	int i=0;
-
-	val = (unsigned int)inet_addr(netmask);
-	ip = (unsigned int)inet_addr(lan_ip);
-	in.s_addr = ip & val;
-
-        for (val = ntohl(val); val; i++) 
-        	val <<= 1;
-       
-        sprintf(buf, "%s/%d", inet_ntoa(in), i);
-	dprintf("%s", buf);	
-}
-
-void
-write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *lan_class, char *logaccept, char *logdrop)
-{
-	char name[] = "forward_portXXXXXXXXXX", value[512];
+	char name[NV_FORWARD_PORT_MAXLEN], value[512];
         char *wan_port0, *wan_port1, *lan_ipaddr, *lan_port0, *lan_port1, *proto;
         char *enable, *desc;
 	int i;
 
 	/* Set wan_port0-wan_port1>lan_ipaddr:lan_port0-lan_port1,proto,enable,desc */
-	for(i=0 ; i<MAX_NVPARSE ; i++)
+	for (i=0 ; i<MAX_NVPARSE ; i++)
 	{
 		snprintf(name, sizeof(name), "forward_port%d", i);
 
@@ -500,27 +479,27 @@ write_upnp_forward(FILE *fp, char *wan_if, char *wan_ip, char *lan_if, char *lan
 			lan_port1 = lan_port0;
 
 		/* skip if it's disabled */
-		if( strcmp(enable, "off") == 0 )
+		if ( strcmp(enable, "off") == 0 )
 			continue;
 
 		/* -A PREROUTING -p tcp -m tcp --dport 823 -j DNAT 
 		                 --to-destination 192.168.1.88:23  */
-		if( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
+		if ( !strcmp(proto,"tcp") || !strcmp(proto,"both") )
 		{
 	   		fprintf(fp, "-A VSERVER -p tcp -m tcp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 					, wan_port0, lan_ipaddr, lan_port0);
 		}
-		if( !strcmp(proto,"udp") || !strcmp(proto,"both") ){
+		if ( !strcmp(proto,"udp") || !strcmp(proto,"both") ) {
 	   		fprintf(fp, "-A VSERVER -p udp -m udp --dport %s "
 				  "-j DNAT --to-destination %s:%s\n"
 				  	, wan_port0, lan_ipaddr, lan_port0);
 		}
 	}
 }
+#endif
 
-
-void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+static void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
 {
 	FILE *fp;
         char lan_class[32];
@@ -533,17 +512,21 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 	       	":PREROUTING ACCEPT [0:0]\n"
 	       	":POSTROUTING ACCEPT [0:0]\n"
 	  	":OUTPUT ACCEPT [0:0]\n"
-	  	":VSERVER - [0:0]\n");
+	  	":VSERVER - [0:0]\n"
+#ifdef __CONFIG_MINIUPNPD__
+		":UPNP - [0:0]\n"
+#endif
+	);
 
 	//Log	
-   	//if(nvram_match("misc_natlog_x", "1"))
+   	//if (nvram_match("misc_natlog_x", "1"))
    	// 	fprintf(fp, "-A PREROUTING -i %s -j LOG --log-prefix ALERT --log-level 4\n", wan_if);
 
 	/* VSERVER chain */
-	if (inet_addr_(wan_ip))
+	if (ip_addr(wan_ip))
 		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", wan_ip);
 
-	if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+	if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wanx_ipaddr")))
    		fprintf(fp, "-A PREROUTING -d %s -j VSERVER\n", nvram_get("wanx_ipaddr"));
       
    	if (nvram_match("misc_http_x", "1"))
@@ -556,9 +539,14 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 	}
 
    	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("upnp_enable", "0"))
-   	{     		
+   	{
+#ifdef __CONFIG_MINIUPNPD__
+		/* Call UPNP chain */
+		fprintf(fp, "-A VSERVER -j UPNP\n");
+#else
 		// upnp port forward
         	write_upnp_forward(fp, wan_if, wan_ip, lan_if, lan_ip, lan_class, logaccept, logdrop);
+#endif
 	}
 
 	// Port forwarding or Virtual Server
@@ -612,7 +600,7 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 		}
 	}
 
-   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && inet_addr_(wan_ip))
+   	if (nvram_match("wan_nat_x", "1") && nvram_invmatch("sp_battle_ips", "0") && ip_addr(wan_ip))
 	{
 		#define BASEPORT 6112
 		#define BASEPORT_NEW 10000
@@ -633,11 +621,11 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 
 	if (nvram_match("wan_nat_x", "1"))
 	{
-		if (inet_addr_(wan_ip))
+		if (ip_addr(wan_ip))
    			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", wan_if, wan_ip);
 
    		/* masquerade physical WAN port connection */
-		if (nvram_invmatch("wan0_ifname", wan_if) && inet_addr_(nvram_safe_get("wanx_ipaddr")))
+		if (nvram_invmatch("wan0_ifname", wan_if) && ip_addr(nvram_safe_get("wanx_ipaddr")))
 			fprintf(fp, "-A POSTROUTING -o %s ! -s %s -j MASQUERADE\n", 
 	   			nvram_get("wan0_ifname"), nvram_get("wanx_ipaddr"));
 
@@ -654,7 +642,12 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
 	fclose(fp);
 
 	eval("iptables-restore", "/tmp/nat_rules");
+
+#ifdef __CONFIG_MINIUPNPD__
+	/* TODO: kick miniupnpd to reload lease file */
+#endif
 }
+
 /* Rules for LW Filter and MAC Filter
  * MAC ACCEPT
  *     ACCEPT -> MACS
@@ -672,9 +665,8 @@ void nat_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *l
  *     DROP -> FORWARD DROP
  *     ACCEPT -> FORWARD ACCEPT 
  */
-
-int
-filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *logaccept, char *logdrop)
+static int filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip,
+			  char *logaccept, char *logdrop)
 {
 
 	FILE *fp, *fp1;
@@ -687,10 +679,21 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	
 	if ((fp=fopen("/tmp/filter_rules", "w"))==NULL) return -1;
 
-	fprintf(fp, "*filter\n:INPUT ACCEPT [0:0]\n:FORWARD ACCEPT [0:0]\n:OUTPUT ACCEPT [0:0]\n:MACS - [0:0]\n:SECURITY - [0:0]\n:BRUTE - [0:0]\n:logaccept - [0:0]\n:logdrop - [0:0]\n");
+	fprintf(fp, "*filter\n"
+		":INPUT ACCEPT [0:0]\n"
+		":FORWARD ACCEPT [0:0]\n"
+		":OUTPUT ACCEPT [0:0]\n"
+		":MACS - [0:0]\n"
+		":SECURITY - [0:0]\n"
+		":BRUTE - [0:0]\n"
+#ifdef __CONFIG_MINIUPNPD__
+		":UPNP - [0:0]\n"
+#endif
+		":logaccept - [0:0]\n"
+		":logdrop - [0:0]\n");
 
 	// FILTER from LAN to WAN Source MAC
-	if(nvram_invmatch("macfilter_enable_x", "0") && 
+	if (nvram_invmatch("macfilter_enable_x", "0") && 
 		nvram_invmatch("macfilter_enable_x", "disabled"))
 	{   		
 		int blacklist = nvram_invmatch("macfilter_enable_x", "1");
@@ -718,20 +721,22 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// ping of death
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	#ifdef __CONFIG_IPV6__
-	// pass ipv6-in-ipv4 tunnel packets
-	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+	// pass ipv6 tunnel packets
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A SECURITY -p 41 -j RETURN\n");
 	#endif
 	// drop attacks!!!
 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
 
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 	/* From localhost and intranet, all traffic is accepted */
-	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
-	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
+	fprintf(fp, "-A INPUT -i lo -m conntrack --ctstate NEW -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")) {
 		fprintf(fp, "-A INPUT -p igmp -d 224.0.0.0/4 -j %s\n", logaccept);
@@ -740,9 +745,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
 	{
-		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
+		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
 		if (nvram_invmatch("wan0_ifname", wan_if))
-			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", nvram_get("wan0_ifname"));
+			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
 	}
 
 	if (nvram_match("fw_enable_x", "1"))
@@ -756,6 +761,13 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		{
 			fprintf(fp, "-A INPUT -p udp --sport 67 --dport 68 -j %s\n", logaccept);
 		}
+	#ifdef __CONFIG_CONVEX__
+		if (nvram_match("wan0_auth_x", "convex")
+		&& (nvram_match("wan0_proto", "static") || nvram_match("wan0_proto", "dhcp")))
+		{
+			fprintf(fp, "-A INPUT -p tcp --dport 6326 -j %s\n", logaccept);
+		}
+	#endif
 
 		// Firewall between WAN and Local
 		if (nvram_match("ssh_enable", "1"))
@@ -780,8 +792,6 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		if (nvram_match("usb_webenable_x", "2"))
 		{
 			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webhttpport_x"), logaccept);
-
-			fprintf(fp, "-A INPUT -p tcp -m tcp --dport %s -j %s\n", nvram_safe_get("usb_webactivex_x"), logaccept);
 		}
 
 		if (nvram_invmatch("misc_ping_x", "0"))
@@ -792,7 +802,9 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		}
 
 	#ifdef __CONFIG_IPV6__
-		if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+		if (nvram_match("ipv6_proto", "tun6in4") ||
+		    nvram_match("ipv6_proto", "tun6to4") ||
+		    nvram_match("ipv6_proto", "tun6rd"))
 		{
 			if (nvram_match("ipv6_proto", "tun6in4") && !nvram_invmatch("misc_ping_x", "0")) {
 				char *sit_remote = nvram_safe_get("ipv6_sit_remote");
@@ -818,7 +830,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	/* Accept the redirect, might be seen as INVALID, packets */
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);	
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate INVALID -j %s\n", logdrop);
 	/* Pass multicast */
 	if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -p udp -d 224.0.0.0/4 -j ACCEPT\n");
@@ -833,12 +845,12 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	 || nvram_match("wan_proto", "usbmodem")
 #endif
  
-        ){
+        ) {
 		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	}
 
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 
 	/* Filter out invalid WAN->WAN connections */
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
@@ -847,10 +859,10 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
-		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
+		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
 
 	// FILTER from LAN to WAN
-	if(nvram_match("fw_lw_enable_x", "1"))
+	if (nvram_match("fw_lw_enable_x", "1"))
 	{   		
 		char lanwan_timematch[128];
 		char ptr[32], *icmplist;
@@ -895,7 +907,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	}
 
 	// Filter from WAN to LAN
-	if(nvram_match("fw_wl_enable_x", "1"))
+	if (nvram_match("fw_wl_enable_x", "1"))
 	{   		
 		char wanlan_timematch[128];
 		char ptr[32], *icmplist;
@@ -940,7 +952,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 		nvram_match("fw_wl_enable_x", "1") ?
 		nvram_match("filter_vs_default_x", "DROP") : FALSE) ? logdrop : logaccept);
 
-	if(nvram_match("fw_wl_enable_x", "1"))
+	if (nvram_match("fw_wl_enable_x", "1"))
 	{   		
 		// Default
 		fprintf(fp, "-A FORWARD -o %s -j %s\n", lan_if, 
@@ -972,12 +984,18 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	}
 
 	/* logaccept chain */
-	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
+	fprintf(fp, "-A logaccept -m conntrack --ctstate NEW -j LOG --log-prefix \"ACCEPT \" "
+#ifdef LINUX26
+		  " --log-macdecode "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
-	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
+	fprintf(fp,"-A logdrop -m conntrack --ctstate NEW -j LOG --log-prefix \"DROP \" "
+#ifdef LINUX26
+		  " --log-macdecode "
+#endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
 	
@@ -985,7 +1003,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	if (nvram_match("url_enable_x", "1") && nvram_invmatch("url_date_x", "0000000")) {
 
 		timematch_conv(timef, "url_date_x", "url_time_x");
-		for(i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
+		for (i = 0; i < atoi(nvram_safe_get("url_num_x")); i++)
 		{
 			memset(nvname, 0, sizeof(nvname));
 			sprintf(nvname, "url_keyword_x%d", i);
@@ -1024,6 +1042,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* SECURITY chain */
 
+#ifndef LINUX26		// xtables!
 	// sync-flood protection
 	fprintf(fp, "-A SECURITY -p tcp --syn -m limit --limit 1/s -j RETURN\n");
 	// furtive port scanner
@@ -1034,21 +1053,24 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A SECURITY -p icmp -m limit --limit 5/s -j RETURN\n");
 	// drop attacks!!!
 	fprintf(fp, "-A SECURITY -j %s\n", logdrop);
+#endif //LINUX26
 
 	/* INPUT chain */
 
 	// Disable RH0 to block ping-pong of packets.
 	fprintf(fp, "-A INPUT -m rt --rt-type 0 -j %s\n", logdrop);
+	if (nvram_match("ipv6_proto", "dhcp6"))
+		fprintf(fp, "-A INPUT -p udp --dport 546 -j %s\n", logaccept);
 	// Allow ICMPv6
-	fprintf(fp, "-A INPUT -p ipv6-icmp --icmpv6-type ! echo-request -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -p ipv6-icmp ! --icmpv6-type echo-request -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
         /* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A INPUT -m state --state INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A INPUT -m conntrack --ctstate INVALID -j %s\n", logdrop);
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 	// From localhost and intranet, all traffic is accepted
-	fprintf(fp, "-A INPUT -i lo -m state --state NEW -j %s\n", logaccept);
-	fprintf(fp, "-A INPUT -i %s -m state --state NEW -j %s\n", lan_if, logaccept);
+	fprintf(fp, "-A INPUT -i lo -m conntrack --ctstate NEW -j %s\n", logaccept);
+	fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j %s\n", lan_if, logaccept);
 #else
 	fprintf(fp, "-A INPUT -i lo -j %s\n", logaccept);
 	fprintf(fp, "-A INPUT -i %s -j %s\n", lan_if, logaccept);
@@ -1062,11 +1084,12 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	// Check internet traffic
 	if (nvram_match("fw_dos_x", "1")) {
 		if (nvram_match("ipv6_proto", "tun6in4") ||
-		    nvram_match("ipv6_proto", "tun6to4"))
-			fprintf(fp, "-A INPUT -i six0 -m state --state NEW -j SECURITY\n");
-		fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", wan_if);
+		    nvram_match("ipv6_proto", "tun6to4") ||
+		    nvram_match("ipv6_proto", "tun6rd"))
+			fprintf(fp, "-A INPUT -i six0 -m conntrack --ctstate NEW -j SECURITY\n");
+		fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", wan_if);
 		if (nvram_invmatch("wan0_ifname", wan_if))
-			fprintf(fp, "-A INPUT -i %s -m state --state NEW -j SECURITY\n", nvram_get("wan0_ifname"));
+			fprintf(fp, "-A INPUT -i %s -m conntrack --ctstate NEW -j SECURITY\n", nvram_get("wan0_ifname"));
 	}
 #endif
 	// Firewall between WAN and Local
@@ -1113,18 +1136,19 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	fprintf(fp, "-A FORWARD -i %s -o %s -j %s\n", lan_if, lan_if, logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Drop the wrong state, INVALID, packets */
-	fprintf(fp, "-A FORWARD -m state --state INVALID -j %s\n", logdrop);
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate INVALID -j %s\n", logdrop);
 #endif
 	// Pass multicast, should it depend on mr_enable_x?
 	//if (nvram_match("mr_enable_x", "1"))
 		fprintf(fp, "-A FORWARD -s ff00::/8 -j %s\n", logaccept);
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Clamp TCP MSS to PMTU of WAN interface */
-//	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4")) {
-//		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-//	}
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
+		fprintf(fp, "-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
 	/* Accept related connections, skip rest of checks */
-	fprintf(fp, "-A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT\n");
+	fprintf(fp, "-A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 #endif
 	// Allow ICMPv6
 	// Should be only echo-req, dest-unreach, packet-too-big, time-exeed and parm-problem
@@ -1137,7 +1161,8 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
         // Filter out invalid WAN->WAN connections
 	if (nvram_match("ipv6_proto", "tun6in4") ||
-	    nvram_match("ipv6_proto", "tun6to4"))
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp, "-A FORWARD -o six0 ! -i %s -j %s\n", lan_if, logdrop);
 	fprintf(fp, "-A FORWARD -o %s ! -i %s -j %s\n", wan_if, lan_if, logdrop);
 	if (nvram_invmatch("wan0_ifname", wan_if))
@@ -1145,7 +1170,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 #ifndef BROKEN_IPV6_CONNTRACK
 	/* Check internet traffic */
 	if (nvram_match("fw_dos_x", "1"))
-		fprintf(fp, "-A FORWARD ! -i %s -m state --state NEW -j SECURITY\n", lan_if);
+		fprintf(fp, "-A FORWARD ! -i %s -m conntrack --ctstate NEW -j SECURITY\n", lan_if);
 #endif
 
 	/* OUTPUT chain */
@@ -1155,18 +1180,24 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 
 	/* logaccept chain */
 #ifndef BROKEN_IPV6_CONNTRACK
-	fprintf(fp, "-A logaccept -m state --state NEW -j LOG --log-prefix \"ACCEPT \" "
+	fprintf(fp, "-A logaccept -m conntrack --ctstate NEW -j LOG --log-prefix \"ACCEPT \" "
 #else
 	fprintf(fp, "-A logaccept -j LOG --log-prefix \"ACCEPT \" "
+#endif
+#ifdef LINUX26
+		  " --log-macdecode "
 #endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logaccept -j ACCEPT\n");
 
 	/* logdrop chain */
 #ifndef BROKEN_IPV6_CONNTRACK
-	fprintf(fp,"-A logdrop -m state --state NEW -j LOG --log-prefix \"DROP \" "
+	fprintf(fp,"-A logdrop -m conntrack --ctstate NEW -j LOG --log-prefix \"DROP \" "
 #else
 	fprintf(fp,"-A logdrop -j LOG --log-prefix \"DROP \" "
+#endif
+#ifdef LINUX26
+		  " --log-macdecode "
 #endif
 		  "--log-tcp-sequence --log-tcp-options --log-ip-options\n"
 		  "-A logdrop -j DROP\n");
@@ -1180,7 +1211,7 @@ filter_setting(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip, char *log
 	return 0;
 }
 
-int porttrigger_setting(FILE *fp, char *lan_if)
+static int porttrigger_setting(FILE *fp, char *lan_if)
 {
 	netconf_app_t apptarget, *app;
 	int i;
@@ -1263,7 +1294,6 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 {
 	DIR *dir;
 	struct dirent *file;
-	FILE *fp;
 	char name[NAME_MAX];
 	char logaccept[32], logdrop[32];
 	char *mcast_ifname = nvram_get("wan0_ifname");
@@ -1279,13 +1309,11 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 		if (strncmp(file->d_name, ".", NAME_MAX) != 0 &&
 		    strncmp(file->d_name, "..", NAME_MAX) != 0) {
 			sprintf(name, "/proc/sys/net/ipv4/conf/%s/rp_filter", file->d_name);
-			if (!(fp = fopen(name, "r+"))) {
-				perror(name);
+			if (!fputs_ex(name,
+				(mcast_ifname && 
+				 strncmp(file->d_name, mcast_ifname, NAME_MAX) == 0)
+				? "0" : "1"))
 				break;
-			}
-			fputc(mcast_ifname && strncmp(file->d_name, 
-				mcast_ifname, NAME_MAX) == 0 ? '0' : '1', fp);
-			fclose(fp);
 		}
 	}
 	closedir(dir);
@@ -1307,25 +1335,14 @@ start_firewall_ex(char *wan_if, char *wan_ip, char *lan_if, char *lan_ip)
 	filter_setting(wan_if, wan_ip, lan_if, lan_ip, logaccept, logdrop);
 
 	if (nvram_invmatch("misc_conntrack_x", "")) {
-		if( (fp=fopen("/proc/sys/net/ipv4/netfilter/ip_conntrack_max", "r+")) ){
-			fputs(nvram_safe_get("misc_conntrack_x"), fp);
-			fclose(fp);
-		} else
-			perror("/proc/sys/net/ipv4/netfilter/ip_conntrack_max");
-	}	
+		fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_max",
+				nvram_safe_get("misc_conntrack_x"));
+	}
 #ifdef XBOX_SUPPORT
-	if( (fp=fopen("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "r+")) ){
-		fprintf(fp, "%d %d", 65, 180);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts");
+	fputs_ex("/proc/sys/net/ipv4/ip_conntrack_udp_timeouts", "65 180");
 #endif
 
-	if( (fp=fopen("/proc/sys/net/ipv4/ip_forward", "r+")) ){
-		fputc('1', fp);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_forward");
+	fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 
 	if (nvram_invmatch("wan0_ifname", wan_if))
 		eval("/usr/local/sbin/post-firewall", wan_if, wan_ip, lan_if, lan_ip, 
@@ -1370,29 +1387,6 @@ portmapping_main(int argc, char *argv[])
 	}		
 }
 #endif	
-
-#ifndef __CONFIG_DNSMASQ__
-void write_static_leases(char *file)
-{
-	FILE *fp;
-	char *ip, *mac;
-	int i;
-
-	fp=fopen(file, "w");
-
-	if (fp==NULL) return;
-	
-	g_buf_init();
-			
-       	foreach_x("dhcp_staticnum_x")
-       	{	               			
-            	ip = general_conv("dhcp_staticip_x", i);
-		mac = general_conv("dhcp_staticmac_x", i);
-		fprintf(fp, "%s,%s\r\n", ip, mac);
-	}
-	fclose(fp);
-}
-#endif
 
 void convert_routes(void)
 {

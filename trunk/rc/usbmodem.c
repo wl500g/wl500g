@@ -6,12 +6,12 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
-#include <sys/stat.h>
+#include "rc.h"
 
 #include <nvparse.h>
 
@@ -41,6 +41,79 @@
 #define FORMAT_JSON	2
 
 #define nvram_prefix_get(name) (nvram_get(strcat_r(prefix, name, tmp)) ? : "")
+
+#ifdef RC_SEMAPHORE_ENABLED
+
+int hotplug_check_prev_zerocd_processed(char *product, char *device)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char str_devusb[100];
+	int found = 0, unit;
+	char *dev_vidpid;
+
+	snprintf(str_devusb, sizeof(str_devusb), "zerocd: %s : %s", product, device);
+
+	hotplug_sem_open();
+	hotplug_sem_lock();
+
+	// prevent multiple processing of the same device
+	for (unit = 0; !found && unit < MAX_NVPARSE; unit ++)
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (dev_vidpid)
+			found = (strcmp(dev_vidpid, str_devusb) == 0);
+#ifdef _DEBUG
+		if (found) dprintf("already processed\n");
+#endif
+	}
+
+	if (!found ) for (unit = 0; unit < MAX_NVPARSE; unit ++) {
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (!dev_vidpid) {
+			nvram_set( strcat_r(prefix, "usb_device", tmp), str_devusb );
+			break;
+		}
+	}
+
+	hotplug_sem_unlock();
+	hotplug_sem_close();
+
+	if (found) return 1;
+	else return 0;
+}
+void hotplug_release_zerocd_processed(char *product, char *device)
+{
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	char str_devusb[100];
+	int unit;
+	char *dev_vidpid;
+
+	snprintf(str_devusb, sizeof(str_devusb), "zerocd: %s : %s", product, device);
+
+	hotplug_sem_open();
+	hotplug_sem_lock();
+
+	// prevent multiple processing of the same device
+	for (unit = 0; unit < MAX_NVPARSE; unit ++)
+	{
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		dev_vidpid = nvram_get( strcat_r(prefix, "usb_device", tmp) );
+		if (dev_vidpid && strcmp(dev_vidpid, str_devusb) == 0) {
+			nvram_unset( strcat_r(prefix, "usb_device", tmp) );
+			break;
+		}
+	}
+
+	hotplug_sem_unlock();
+	hotplug_sem_close();
+	dprintf("done: %s\n", device );
+}
+#else
+#define hotplug_check_prev_zerocd_processed(product,device) 1
+#define hotplug_release_zerocd_processed(product,device)
+#endif
 
 /// Modems config file element
 typedef struct {
@@ -361,9 +434,8 @@ static int check_config(dev_usb *dev, dev_conf *conf_list)
 static void print_modem_info(int format, dev_usb *dev_list)
 {
 	dev_usb *dev;
-	int flag = 0;
 
-	if (format == FORMAT_JSON) printf("[");
+	if (format == FORMAT_JSON) puts("[");
 
 	for (dev = dev_list; dev; dev = dev->next) {
 		if (dev->type == TYPE_CDMA || dev->type == TYPE_WCDMA)
@@ -374,11 +446,8 @@ static void print_modem_info(int format, dev_usb *dev_list)
 				break;
 
 			case FORMAT_JSON:
-				if (flag) printf(",");
-				else flag = 1;
-
-				printf(	"{\"wan\":\"0\",\"vid\":\"%04x\",\"pid\":\"%04x\",\"type\":\"%c\","
-					"\"data\":\"%d\",\"ui\":\"%d\",\"loc\":\"%s\",\"manuf\":\"%s\",\"prod\":\"%s\"}",
+				printf(	"{'wan':'0','vid':'%04x','pid':'%04x','type':'%c',"
+					"'data':'%d','ui':'%d','loc':'%s','manuf':'%s','prod':'%s'},\n",
 					dev->vid, dev->pid, dev->type, dev->data_port, dev->ui_port,
 					dev->loc, dev->manuf, dev->prod);
 				break;
@@ -389,7 +458,7 @@ static void print_modem_info(int format, dev_usb *dev_list)
 					dev->loc, dev->manuf, dev->prod);
 		}
 	}
-	if (format == FORMAT_JSON) printf("]");
+	if (format == FORMAT_JSON) puts("]");
 }
 
 /// free memory from conf_list
@@ -496,6 +565,7 @@ start_modem_dial(char *prefix)
 			nvram_set(strcat_r(prefix, "ifname", tmp) , nvram_safe_get(strcat_r(prefix, "pppoe_ifname", tmp)));
 			nvram_set(strcat_r(prefix, "dnsenable_x", tmp), "1");
 		}
+		nvram_set("wan_status_t", "Connecting...");
 		ret = _eval(argv, NULL, 0, &pid);
 		if (pid) {
 			sprintf(tmp, "/var/run/%s.pid", prefix);
@@ -605,10 +675,9 @@ int wait_for_dev_appearance(int vid, int pid, char *device)
 int
 hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 {
-	int ret = 0;
+	int ret = 0, i;
 	char *str1, *str2;
 	char tmp[200];
-	char tmp2[20];
 	char stored_product[40];
 	int vid, pid, hp_vid, hp_pid;
 	dev_usb *list, *found_dev;
@@ -693,21 +762,29 @@ hotplug_check_modem(char *interface, char *product, char *device, char *prefix)
 	}
 
 	if (ret && found_dev) {
-		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod );
+		nvram_set(strcat_r(prefix, "usb_device_name", tmp), found_dev->prod);
+		if (!exists("/sys/module/usbserial")) insmod("usbserial", NULL);
 
-		if (nvram_match("wan_modem_usbserial", "1")) {
+		if (!exists("/sys/module/option")) {
 			sprintf(stored_product, "product=0x%x", found_dev->pid);
 			sprintf(tmp, "vendor=0x%x", found_dev->vid);
-			snprintf(tmp2, sizeof(tmp2), "maxSize=%s", nvram_safe_get("wan_modem_packetsize"));
-			eval("insmod", "usbserial", tmp, stored_product, tmp2);
+			insmod("option", tmp, stored_product, NULL);
+			dprintf("load option with %s %s", tmp, stored_product);
+			for(i=0; i<500 && !exists("/sys/module/option"); i++)
+				usleep(10000);
 		} else {
-			eval("insmod", "usbserial");
+			FILE * fnew_id = fopen("/sys/bus/usb-serial/drivers/option1/new_id", "a");
+			if (fnew_id) {
+				fprintf(fnew_id, "0x%x 0x%x\n", found_dev->vid, found_dev->pid);
+				fclose(fnew_id);
+			} else {
+				dprintf( "Option file open error: %s", strerror(errno) );
+			}
 		}
-		eval("insmod", "option");
 #ifndef LINUX26
-		eval("insmod", "acm");
+		insmod("acm", NULL);
 #else
-		eval("insmod", "cdc-acm");
+		if (!exists("/sys/module/cdc-acm")) insmod("cdc-acm", NULL);
 #endif
 	}
 
@@ -786,7 +863,7 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 	};
 	*sPath = '\0';
 
-	if (strcmp(action, "add") == 0) {
+	if (strcmp(action, "add") == 0 && !hotplug_check_prev_zerocd_processed(product,device)) {
 		if (nvram_match("wan_modem_zerocd_mode", "UserDefined")) {
 			strcpy(sPath, "/usr/local/etc/usb_modeswitch.conf");
 		} else if (nvram_match("wan_modem_zerocd_mode", "Auto")) {
@@ -881,7 +958,8 @@ hotplug_usb_modeswitch(char *interface, char *action, char *product, char *devic
 			*sVid = *sPid = '\0';
 		}
 		hotplug_exec_user_modem_init_script(sVid, sPid, device);
-
+	} else if(strcmp(action, "remove") == 0 ) {
+		hotplug_release_zerocd_processed(product, device);
 	}
 	dprintf("done");
 }

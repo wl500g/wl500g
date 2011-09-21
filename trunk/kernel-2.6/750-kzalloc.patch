@@ -1,0 +1,2710 @@
+kmalloc/memset ->kzalloc (tree wide)
+
+ kernel.org commits
+ a1152934c6339453f8bc365f449071d03796d411 Char: vt, use kzalloc
+ dd00cc486ab1c17049a535413d1751ef3482141c some kmalloc/memset ->kzalloc (tree wide)
+ 2f6d311080c36e30a5fa87adca550dc6b51dbfdc proc: vmcore - use kzalloc in get_new_element()
+
+***************
+Here is a short excerpt of the semantic patch performing
+this transformation:
+
+@@
+type T2;
+expression x;
+identifier f,fld;
+expression E;
+expression E1,E2;
+expression e1,e2,e3,y;
+statement S;
+@@
+
+ x =
+- kmalloc
++ kzalloc
+  (E1,E2)
+  ...  when != \(x->fld=E;\|y=f(...,x,...);\|f(...,x,...);\|x=E;\|while(...) S\|for(e1;e2;e3) S\)
+- memset((T2)x,0,E1);
+
+@@
+expression E1,E2,E3;
+@@
+
+- kzalloc(E1 * E2,E3)
++ kcalloc(E1,E2,E3)
+
+---
+ Documentation/connector/cn_test.c                     |    3 +--
+ Documentation/filesystems/configfs/configfs_example.c |    6 ++----
+ arch/alpha/kernel/module.c                            |    3 +--
+ arch/arm/mach-iop13xx/pci.c                           |    3 +--
+ arch/blackfin/mm/blackfin_sram.c                      |    3 +--
+ arch/cris/arch-v32/drivers/pci/dma.c                  |    6 ++----
+ arch/powerpc/kernel/lparcfg.c                         |    3 +--
+ arch/powerpc/kernel/of_platform.c                     |    3 +--
+ block/scsi_ioctl.c                                    |    3 +--
+ drivers/block/sx8.c                                   |    3 +--
+ drivers/char/amiserial.c                              |    3 +--
+ drivers/char/drm/via_dmablit.c                        |    3 +--
+ drivers/char/esp.c                                    |    6 ++----
+ drivers/char/hvcs.c                                   |    4 +---
+ drivers/char/ipmi/ipmi_msghandler.c                   |    3 +--
+ drivers/char/pcmcia/synclink_cs.c                     |    3 +--
+ drivers/char/rio/rio_linux.c                          |    4 +---
+ drivers/char/rio/riocmd.c                             |    4 +---
+ drivers/char/rio/riotable.c                           |    3 +--
+ drivers/char/rocket.c                                 |    3 +--
+ drivers/char/synclink.c                               |    3 +--
+ drivers/char/synclink_gt.c                            |    3 +--
+ drivers/char/synclinkmp.c                             |    3 +--
+ drivers/char/vt.c                                     |    3 +--
+ drivers/char/watchdog/mpcore_wdt.c                    |    3 +--
+ drivers/char/watchdog/pcwd_usb.c                      |    3 +--
+ drivers/ide/mips/swarm.c                              |    3 +--
+ drivers/infiniband/core/addr.c                        |    3 +--
+ drivers/infiniband/hw/cxgb3/iwch_cm.c                 |    3 +--
+ drivers/input/serio/ambakmi.c                         |    6 ++----
+ drivers/input/serio/pcips2.c                          |    6 ++----
+ drivers/input/serio/sa1111ps2.c                       |    6 ++----
+ drivers/macintosh/macio_asic.c                        |    3 +--
+ drivers/macintosh/smu.c                               |    3 +--
+ drivers/macintosh/therm_pm72.c                        |    3 +--
+ drivers/macintosh/therm_windtunnel.c                  |    3 +--
+ drivers/macintosh/windfarm_lm75_sensor.c              |    3 +--
+ drivers/md/dm-raid1.c                                 |    3 +--
+ drivers/media/dvb/cinergyT2/cinergyT2.c               |    3 +--
+ drivers/media/video/cpia2/cpia2_core.c                |    4 +---
+ drivers/media/video/msp3400-driver.c                  |    3 +--
+ drivers/media/video/planb.c                           |    3 +--
+ drivers/media/video/usbvideo/vicam.c                  |    3 +--
+ drivers/mfd/mcp-core.c                                |    3 +--
+ drivers/mfd/ucb1x00-core.c                            |    3 +--
+ drivers/misc/asus-laptop.c                            |    3 +--
+ drivers/misc/ibmasm/command.c                         |    6 ++----
+ drivers/misc/ibmasm/ibmasmfs.c                        |    3 +--
+ drivers/misc/ibmasm/module.c                          |    3 +--
+ drivers/mmc/card/block.c                              |    3 +--
+ drivers/net/b44.c                                     |    3 +--
+ drivers/net/bsd_comp.c                                |    3 +--
+ drivers/net/forcedeth.c                               |    6 ++----
+ drivers/net/hamradio/dmascc.c                         |    6 ++----
+ drivers/net/irda/irport.c                             |    3 +--
+ drivers/net/irda/irtty-sir.c                          |    3 +--
+ drivers/net/iseries_veth.c                            |    6 ++----
+ drivers/net/lance.c                                   |    3 +--
+ drivers/net/pcmcia/com20020_cs.c                      |    3 +--
+ drivers/net/pcmcia/ibmtr_cs.c                         |    3 +--
+ drivers/net/ppp_async.c                               |    3 +--
+ drivers/net/ppp_deflate.c                             |    6 ++----
+ drivers/net/ppp_synctty.c                             |    3 +--
+ drivers/net/shaper.c                                  |    3 +--
+ drivers/net/wan/c101.c                                |    3 +--
+ drivers/net/wan/cosa.c                                |    4 +---
+ drivers/net/wan/cycx_main.c                           |    4 +---
+ drivers/net/wan/cycx_x25.c                            |    3 +--
+ drivers/net/wan/dscc4.c                               |    6 ++----
+ drivers/net/wan/farsync.c                             |    3 +--
+ drivers/net/wan/hostess_sv11.c                        |    3 +--
+ drivers/net/wan/n2.c                                  |    3 +--
+ drivers/net/wan/pc300_drv.c                           |    3 +--
+ drivers/net/wan/pc300too.c                            |    3 +--
+ drivers/net/wan/pci200syn.c                           |    3 +--
+ drivers/net/wan/sdla.c                                |    3 +--
+ drivers/net/wan/sealevel.c                            |    3 +--
+ drivers/net/wan/wanxl.c                               |    3 +--
+ drivers/net/wan/x25_asy.c                             |    4 +---
+ drivers/nubus/nubus.c                                 |    6 ++----
+ drivers/parport/parport_cs.c                          |    3 +--
+ drivers/parport/parport_serial.c                      |    3 +--
+ drivers/pci/pcie/aer/aerdrv.c                         |    3 +--
+ drivers/pnp/core.c                                    |    3 +--
+ drivers/rapidio/rio-scan.c                            |    6 ++----
+ drivers/s390/char/tape_34xx.c                         |    3 +--
+ drivers/s390/net/claw.c                               |    9 +++------
+ drivers/sbus/char/bbc_i2c.c                           |    3 +--
+ drivers/sbus/char/vfc_dev.c                           |    5 +----
+ drivers/scsi/3w-9xxx.c                                |    3 +--
+ drivers/scsi/NCR53C9x.c                               |    3 +--
+ drivers/scsi/NCR_D700.c                               |    3 +--
+ drivers/scsi/NCR_Q720.c                               |    3 +--
+ drivers/scsi/imm.c                                    |    3 +--
+ drivers/scsi/ips.c                                    |    3 +--
+ drivers/scsi/lasi700.c                                |    3 +--
+ drivers/scsi/lpfc/lpfc_init.c                         |    3 +--
+ drivers/scsi/megaraid/megaraid_mbox.c                 |   14 ++++----------
+ drivers/scsi/megaraid/megaraid_mm.c                   |    3 +--
+ drivers/scsi/megaraid/megaraid_sas.c                  |    4 +---
+ drivers/scsi/pcmcia/aha152x_stub.c                    |    3 +--
+ drivers/scsi/pcmcia/nsp_cs.c                          |    3 +--
+ drivers/scsi/pcmcia/qlogic_stub.c                     |    3 +--
+ drivers/scsi/pcmcia/sym53c500_cs.c                    |    3 +--
+ drivers/scsi/ppa.c                                    |    3 +--
+ drivers/scsi/sim710.c                                 |    3 +--
+ drivers/scsi/tmscsim.c                                |    3 +--
+ drivers/serial/amba-pl011.c                           |    3 +--
+ drivers/sh/superhyway/superhyway.c                    |    3 +--
+ drivers/sn/ioc3.c                                     |    3 +--
+ drivers/telephony/ixj_pcmcia.c                        |    3 +--
+ drivers/video/amba-clcd.c                             |    3 +--
+ drivers/video/aty/atyfb_base.c                        |    3 +--
+ drivers/video/au1200fb.c                              |    3 +--
+ drivers/video/clps711xfb.c                            |    3 +--
+ drivers/video/cyber2000fb.c                           |    3 +--
+ drivers/video/pvr2fb.c                                |    3 +--
+ drivers/video/savage/savagefb_driver.c                |    3 +--
+ drivers/video/valkyriefb.c                            |    3 +--
+ drivers/w1/masters/matrox_w1.c                        |    3 +--
+ drivers/w1/slaves/w1_ds2433.c                         |    3 +--
+ drivers/w1/w1.c                                       |    3 +--
+ drivers/w1/w1_int.c                                   |    3 +--
+ fs/dlm/memory.c                                       |   12 +++---------
+ fs/ext2/super.c                                       |    4 +---
+ fs/partitions/check.c                                 |    3 +--
+ fs/proc/vmcore.c                                      |    7 +------
+ net/mac80211/ieee80211_rate.c                         |    3 +--
+ net/mac80211/ieee80211_sta.c                          |    3 +--
+ net/tipc/name_table.c                                 |    3 +--
+ sound/core/seq/seq_virmidi.c                          |    3 +--
+ 131 files changed, 152 insertions(+), 324 deletions(-)
+
+diff --git a/Documentation/connector/cn_test.c b/Documentation/connector/cn_test.c
+index 3e73231..be7af14 100644
+--- a/Documentation/connector/cn_test.c
++++ b/Documentation/connector/cn_test.c
+@@ -124,9 +124,8 @@ static void cn_test_timer_func(unsigned long __data)
+ 	struct cn_msg *m;
+ 	char data[32];
+ 
+-	m = kmalloc(sizeof(*m) + sizeof(data), GFP_ATOMIC);
++	m = kzalloc(sizeof(*m) + sizeof(data), GFP_ATOMIC);
+ 	if (m) {
+-		memset(m, 0, sizeof(*m) + sizeof(data));
+ 
+ 		memcpy(&m->id, &cn_test_id, sizeof(m->id));
+ 		m->seq = cn_test_timer_counter;
+diff --git a/Documentation/filesystems/configfs/configfs_example.c b/Documentation/filesystems/configfs/configfs_example.c
+index e56d492..25151fd 100644
+--- a/Documentation/filesystems/configfs/configfs_example.c
++++ b/Documentation/filesystems/configfs/configfs_example.c
+@@ -277,11 +277,10 @@ static struct config_item *simple_children_make_item(struct config_group *group,
+ {
+ 	struct simple_child *simple_child;
+ 
+-	simple_child = kmalloc(sizeof(struct simple_child), GFP_KERNEL);
++	simple_child = kzalloc(sizeof(struct simple_child), GFP_KERNEL);
+ 	if (!simple_child)
+ 		return NULL;
+ 
+-	memset(simple_child, 0, sizeof(struct simple_child));
+ 
+ 	config_item_init_type_name(&simple_child->item, name,
+ 				   &simple_child_type);
+@@ -364,12 +363,11 @@ static struct config_group *group_children_make_group(struct config_group *group
+ {
+ 	struct simple_children *simple_children;
+ 
+-	simple_children = kmalloc(sizeof(struct simple_children),
++	simple_children = kzalloc(sizeof(struct simple_children),
+ 				  GFP_KERNEL);
+ 	if (!simple_children)
+ 		return NULL;
+ 
+-	memset(simple_children, 0, sizeof(struct simple_children));
+ 
+ 	config_group_init_type_name(&simple_children->group, name,
+ 				    &simple_children_type);
+diff --git a/arch/alpha/kernel/module.c b/arch/alpha/kernel/module.c
+index bd03dc9..026ba9a 100644
+--- a/arch/alpha/kernel/module.c
++++ b/arch/alpha/kernel/module.c
+@@ -119,8 +119,7 @@ module_frob_arch_sections(Elf64_Ehdr *hdr, Elf64_Shdr *sechdrs,
+ 	}
+ 
+ 	nsyms = symtab->sh_size / sizeof(Elf64_Sym);
+-	chains = kmalloc(nsyms * sizeof(struct got_entry), GFP_KERNEL);
+-	memset(chains, 0, nsyms * sizeof(struct got_entry));
++	chains = kcalloc(nsyms, sizeof(struct got_entry), GFP_KERNEL);
+ 
+ 	got->sh_size = 0;
+ 	got->sh_addralign = 8;
+diff --git a/arch/arm/mach-iop13xx/pci.c b/arch/arm/mach-iop13xx/pci.c
+index 9d63d7f..99d94cb 100644
+--- a/arch/arm/mach-iop13xx/pci.c
++++ b/arch/arm/mach-iop13xx/pci.c
+@@ -1002,11 +1002,10 @@ int iop13xx_pci_setup(int nr, struct pci_sys_data *sys)
+ 	if (nr > 1)
+ 		return 0;
+ 
+-	res = kmalloc(sizeof(struct resource) * 2, GFP_KERNEL);
++	res = kcalloc(2, sizeof(struct resource), GFP_KERNEL);
+ 	if (!res)
+ 		panic("PCI: unable to alloc resources");
+ 
+-	memset(res, 0, sizeof(struct resource) * 2);
+ 
+ 	/* 'nr' assumptions:
+ 	 * ATUX is always 0
+diff --git a/arch/blackfin/mm/blackfin_sram.c b/arch/blackfin/mm/blackfin_sram.c
+index 16c6169..b99ea88 100644
+--- a/arch/blackfin/mm/blackfin_sram.c
++++ b/arch/blackfin/mm/blackfin_sram.c
+@@ -521,10 +521,9 @@ void *sram_alloc_with_lsl(size_t size, unsigned long flags)
+ 	struct sram_list_struct *lsl = NULL;
+ 	struct mm_struct *mm = current->mm;
+ 
+-	lsl = kmalloc(sizeof(struct sram_list_struct), GFP_KERNEL);
++	lsl = kzalloc(sizeof(struct sram_list_struct), GFP_KERNEL);
+ 	if (!lsl)
+ 		return NULL;
+-	memset(lsl, 0, sizeof(*lsl));
+ 
+ 	if (flags & L1_INST_SRAM)
+ 		addr = l1_inst_sram_alloc(size);
+diff --git a/arch/cris/arch-v32/drivers/pci/dma.c b/arch/cris/arch-v32/drivers/pci/dma.c
+index 832fc63..66f9500 100644
+--- a/arch/cris/arch-v32/drivers/pci/dma.c
++++ b/arch/cris/arch-v32/drivers/pci/dma.c
+@@ -91,14 +91,12 @@ int dma_declare_coherent_memory(struct device *dev, dma_addr_t bus_addr,
+ 	if (!mem_base)
+ 		goto out;
+ 
+-	dev->dma_mem = kmalloc(sizeof(struct dma_coherent_mem), GFP_KERNEL);
++	dev->dma_mem = kzalloc(sizeof(struct dma_coherent_mem), GFP_KERNEL);
+ 	if (!dev->dma_mem)
+ 		goto out;
+-	memset(dev->dma_mem, 0, sizeof(struct dma_coherent_mem));
+-	dev->dma_mem->bitmap = kmalloc(bitmap_size, GFP_KERNEL);
++	dev->dma_mem->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
+ 	if (!dev->dma_mem->bitmap)
+ 		goto free1_out;
+-	memset(dev->dma_mem->bitmap, 0, bitmap_size);
+ 
+ 	dev->dma_mem->virt_base = mem_base;
+ 	dev->dma_mem->device_base = device_addr;
+diff --git a/arch/powerpc/kernel/lparcfg.c b/arch/powerpc/kernel/lparcfg.c
+index c492cee..6444eaa 100644
+--- a/arch/powerpc/kernel/lparcfg.c
++++ b/arch/powerpc/kernel/lparcfg.c
+@@ -248,7 +248,7 @@ static void parse_system_parameter_string(struct seq_file *m)
+ 	} else {
+ 		int splpar_strlen;
+ 		int idx, w_idx;
+-		char *workbuffer = kmalloc(SPLPAR_MAXLENGTH, GFP_KERNEL);
++		char *workbuffer = kzalloc(SPLPAR_MAXLENGTH, GFP_KERNEL);
+ 		if (!workbuffer) {
+ 			printk(KERN_ERR "%s %s kmalloc failure at line %d \n",
+ 			       __FILE__, __FUNCTION__, __LINE__);
+@@ -261,7 +261,6 @@ static void parse_system_parameter_string(struct seq_file *m)
+ 		splpar_strlen = local_buffer[0] * 256 + local_buffer[1];
+ 		local_buffer += 2;	/* step over strlen value */
+ 
+-		memset(workbuffer, 0, SPLPAR_MAXLENGTH);
+ 		w_idx = 0;
+ 		idx = 0;
+ 		while ((*local_buffer) && (idx < splpar_strlen)) {
+diff --git a/arch/powerpc/kernel/of_platform.c b/arch/powerpc/kernel/of_platform.c
+index 9536ed7..8ded4e7 100644
+--- a/arch/powerpc/kernel/of_platform.c
++++ b/arch/powerpc/kernel/of_platform.c
+@@ -222,10 +222,9 @@ struct of_device* of_platform_device_create(struct device_node *np,
+ {
+ 	struct of_device *dev;
+ 
+-	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
++	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	if (!dev)
+ 		return NULL;
+-	memset(dev, 0, sizeof(*dev));
+ 
+ 	dev->node = of_node_get(np);
+ 	dev->dma_mask = 0xffffffffUL;
+diff --git a/block/scsi_ioctl.c b/block/scsi_ioctl.c
+index a26ba07..71bdf88 100644
+--- a/block/scsi_ioctl.c
++++ b/block/scsi_ioctl.c
+@@ -436,11 +436,10 @@ int sg_scsi_ioctl(struct file *file, struct request_queue *q,
+ 
+ 	bytes = max(in_len, out_len);
+ 	if (bytes) {
+-		buffer = kmalloc(bytes, q->bounce_gfp | GFP_USER| __GFP_NOWARN);
++		buffer = kzalloc(bytes, q->bounce_gfp | GFP_USER| __GFP_NOWARN);
+ 		if (!buffer)
+ 			return -ENOMEM;
+ 
+-		memset(buffer, 0, bytes);
+ 	}
+ 
+ 	rq = blk_get_request(q, in_len ? WRITE : READ, __GFP_WAIT);
+diff --git a/drivers/block/sx8.c b/drivers/block/sx8.c
+index 54509eb..949ae93 100644
+--- a/drivers/block/sx8.c
++++ b/drivers/block/sx8.c
+@@ -1608,7 +1608,7 @@ static int carm_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ #endif
+ 
+-	host = kmalloc(sizeof(*host), GFP_KERNEL);
++	host = kzalloc(sizeof(*host), GFP_KERNEL);
+ 	if (!host) {
+ 		printk(KERN_ERR DRV_NAME "(%s): memory alloc failure\n",
+ 		       pci_name(pdev));
+@@ -1616,7 +1616,6 @@ static int carm_init_one (struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		goto err_out_regions;
+ 	}
+ 
+-	memset(host, 0, sizeof(*host));
+ 	host->pdev = pdev;
+ 	host->flags = pci_dac ? FL_DAC : 0;
+ 	spin_lock_init(&host->lock);
+diff --git a/drivers/char/amiserial.c b/drivers/char/amiserial.c
+index 7b02bf1..3d468f5 100644
+--- a/drivers/char/amiserial.c
++++ b/drivers/char/amiserial.c
+@@ -1721,12 +1721,11 @@ static int get_async_struct(int line, struct async_struct **ret_info)
+ 		*ret_info = sstate->info;
+ 		return 0;
+ 	}
+-	info = kmalloc(sizeof(struct async_struct), GFP_KERNEL);
++	info = kzalloc(sizeof(struct async_struct), GFP_KERNEL);
+ 	if (!info) {
+ 		sstate->count--;
+ 		return -ENOMEM;
+ 	}
+-	memset(info, 0, sizeof(struct async_struct));
+ #ifdef DECLARE_WAITQUEUE
+ 	init_waitqueue_head(&info->open_wait);
+ 	init_waitqueue_head(&info->close_wait);
+diff --git a/drivers/char/drm/via_dmablit.c b/drivers/char/drm/via_dmablit.c
+index fdb8609..832de1d 100644
+--- a/drivers/char/drm/via_dmablit.c
++++ b/drivers/char/drm/via_dmablit.c
+@@ -273,10 +273,9 @@ via_alloc_desc_pages(drm_via_sg_info_t *vsg)
+ 	vsg->num_desc_pages = (vsg->num_desc + vsg->descriptors_per_page - 1) / 
+ 		vsg->descriptors_per_page;
+ 
+-	if (NULL ==  (vsg->desc_pages = kmalloc(sizeof(void *) * vsg->num_desc_pages, GFP_KERNEL))) 
++	if (NULL ==  (vsg->desc_pages = kcalloc(vsg->num_desc_pages, sizeof(void *), GFP_KERNEL)))
+ 		return DRM_ERR(ENOMEM);
+ 	
+-	memset(vsg->desc_pages, 0, sizeof(void *) * vsg->num_desc_pages);
+ 	vsg->state = dr_via_desc_pages_alloc;
+ 	for (i=0; i<vsg->num_desc_pages; ++i) {
+ 		if (NULL == (vsg->desc_pages[i] = 
+diff --git a/drivers/char/esp.c b/drivers/char/esp.c
+index 74cd511..2e7ae42 100644
+--- a/drivers/char/esp.c
++++ b/drivers/char/esp.c
+@@ -2459,7 +2459,7 @@ static int __init espserial_init(void)
+ 		return 1;
+ 	}
+ 
+-	info = kmalloc(sizeof(struct esp_struct), GFP_KERNEL);
++	info = kzalloc(sizeof(struct esp_struct), GFP_KERNEL);
+ 
+ 	if (!info)
+ 	{
+@@ -2469,7 +2469,6 @@ static int __init espserial_init(void)
+ 		return 1;
+ 	}
+ 
+-	memset((void *)info, 0, sizeof(struct esp_struct));
+ 	spin_lock_init(&info->lock);
+ 	/* rx_trigger, tx_trigger are needed by autoconfig */
+ 	info->config.rx_trigger = rx_trigger;
+@@ -2527,7 +2526,7 @@ static int __init espserial_init(void)
+ 		if (!dma)
+ 			info->stat_flags |= ESP_STAT_NEVER_DMA;
+ 
+-		info = kmalloc(sizeof(struct esp_struct), GFP_KERNEL);
++		info = kzalloc(sizeof(struct esp_struct), GFP_KERNEL);
+ 		if (!info)
+ 		{
+ 			printk(KERN_ERR "Couldn't allocate memory for esp serial device information\n"); 
+@@ -2536,7 +2535,6 @@ static int __init espserial_init(void)
+ 			return 0;
+ 		}
+ 
+-		memset((void *)info, 0, sizeof(struct esp_struct));
+ 		/* rx_trigger, tx_trigger are needed by autoconfig */
+ 		info->config.rx_trigger = rx_trigger;
+ 		info->config.tx_trigger = tx_trigger;
+diff --git a/drivers/char/hvcs.c b/drivers/char/hvcs.c
+index 207f734..17f96e0 100644
+--- a/drivers/char/hvcs.c
++++ b/drivers/char/hvcs.c
+@@ -784,12 +784,10 @@ static int __devinit hvcs_probe(
+ 		return -EFAULT;
+ 	}
+ 
+-	hvcsd = kmalloc(sizeof(*hvcsd), GFP_KERNEL);
++	hvcsd = kzalloc(sizeof(*hvcsd), GFP_KERNEL);
+ 	if (!hvcsd)
+ 		return -ENODEV;
+ 
+-	/* hvcsd->tty is zeroed out with the memset */
+-	memset(hvcsd, 0x00, sizeof(*hvcsd));
+ 
+ 	spin_lock_init(&hvcsd->lock);
+ 	/* Automatically incs the refcount the first time */
+diff --git a/drivers/char/ipmi/ipmi_msghandler.c b/drivers/char/ipmi/ipmi_msghandler.c
+index b5df7e6..6a01dd9 100644
+--- a/drivers/char/ipmi/ipmi_msghandler.c
++++ b/drivers/char/ipmi/ipmi_msghandler.c
+@@ -2639,10 +2639,9 @@ int ipmi_register_smi(struct ipmi_smi_handlers *handlers,
+ 			return -ENODEV;
+ 	}
+ 
+-	intf = kmalloc(sizeof(*intf), GFP_KERNEL);
++	intf = kzalloc(sizeof(*intf), GFP_KERNEL);
+ 	if (!intf)
+ 		return -ENOMEM;
+-	memset(intf, 0, sizeof(*intf));
+ 
+ 	intf->ipmi_version_major = ipmi_version_major(device_id);
+ 	intf->ipmi_version_minor = ipmi_version_minor(device_id);
+diff --git a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
+index 13808f6..2b88931 100644
+--- a/drivers/char/pcmcia/synclink_cs.c
++++ b/drivers/char/pcmcia/synclink_cs.c
+@@ -540,13 +540,12 @@ static int mgslpc_probe(struct pcmcia_device *link)
+     if (debug_level >= DEBUG_LEVEL_INFO)
+ 	    printk("mgslpc_attach\n");
+ 
+-    info = kmalloc(sizeof(MGSLPC_INFO), GFP_KERNEL);
++    info = kzalloc(sizeof(MGSLPC_INFO), GFP_KERNEL);
+     if (!info) {
+ 	    printk("Error can't allocate device instance data\n");
+ 	    return -ENOMEM;
+     }
+ 
+-    memset(info, 0, sizeof(MGSLPC_INFO));
+     info->magic = MGSLPC_MAGIC;
+     INIT_WORK(&info->task, bh_handler);
+     info->max_frame_size = 4096;
+diff --git a/drivers/char/rio/rio_linux.c b/drivers/char/rio/rio_linux.c
+index 294e9cb..0ce9667 100644
+--- a/drivers/char/rio/rio_linux.c
++++ b/drivers/char/rio/rio_linux.c
+@@ -803,9 +803,7 @@ static void *ckmalloc(int size)
+ {
+ 	void *p;
+ 
+-	p = kmalloc(size, GFP_KERNEL);
+-	if (p)
+-		memset(p, 0, size);
++	p = kzalloc(size, GFP_KERNEL);
+ 	return p;
+ }
+ 
+diff --git a/drivers/char/rio/riocmd.c b/drivers/char/rio/riocmd.c
+index 8cc60b6..7321d00 100644
+--- a/drivers/char/rio/riocmd.c
++++ b/drivers/char/rio/riocmd.c
+@@ -556,9 +556,7 @@ struct CmdBlk *RIOGetCmdBlk(void)
+ {
+ 	struct CmdBlk *CmdBlkP;
+ 
+-	CmdBlkP = kmalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
+-	if (CmdBlkP)
+-		memset(CmdBlkP, 0, sizeof(struct CmdBlk));
++	CmdBlkP = kzalloc(sizeof(struct CmdBlk), GFP_ATOMIC);
+ 	return CmdBlkP;
+ }
+ 
+diff --git a/drivers/char/rio/riotable.c b/drivers/char/rio/riotable.c
+index 7e98835..991119c 100644
+--- a/drivers/char/rio/riotable.c
++++ b/drivers/char/rio/riotable.c
+@@ -863,8 +863,7 @@ int RIOReMapPorts(struct rio_info *p, struct Host *HostP, struct Map *HostMapP)
+ 		if (PortP->TxRingBuffer)
+ 			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
+ 		else if (p->RIOBufferSize) {
+-			PortP->TxRingBuffer = kmalloc(p->RIOBufferSize, GFP_KERNEL);
+-			memset(PortP->TxRingBuffer, 0, p->RIOBufferSize);
++			PortP->TxRingBuffer = kzalloc(p->RIOBufferSize, GFP_KERNEL);
+ 		}
+ 		PortP->TxBufferOut = 0;
+ 		PortP->TxBufferIn = 0;
+diff --git a/drivers/char/rocket.c b/drivers/char/rocket.c
+index 0270080..56cbba7 100644
+--- a/drivers/char/rocket.c
++++ b/drivers/char/rocket.c
+@@ -635,12 +635,11 @@ static void init_r_port(int board, int aiop, int chan, struct pci_dev *pci_dev)
+ 	ctlp = sCtlNumToCtlPtr(board);
+ 
+ 	/*  Get a r_port struct for the port, fill it in and save it globally, indexed by line number */
+-	info = kmalloc(sizeof (struct r_port), GFP_KERNEL);
++	info = kzalloc(sizeof (struct r_port), GFP_KERNEL);
+ 	if (!info) {
+ 		printk(KERN_INFO "Couldn't allocate info struct for line #%d\n", line);
+ 		return;
+ 	}
+-	memset(info, 0, sizeof (struct r_port));
+ 
+ 	info->magic = RPORT_MAGIC;
+ 	info->line = line;
+diff --git a/drivers/char/synclink.c b/drivers/char/synclink.c
+index f53e51d..fdc256b 100644
+--- a/drivers/char/synclink.c
++++ b/drivers/char/synclink.c
+@@ -4324,13 +4324,12 @@ static struct mgsl_struct* mgsl_allocate_device(void)
+ {
+ 	struct mgsl_struct *info;
+ 	
+-	info = kmalloc(sizeof(struct mgsl_struct),
++	info = kzalloc(sizeof(struct mgsl_struct),
+ 		 GFP_KERNEL);
+ 		 
+ 	if (!info) {
+ 		printk("Error can't allocate device instance data\n");
+ 	} else {
+-		memset(info, 0, sizeof(struct mgsl_struct));
+ 		info->magic = MGSL_MAGIC;
+ 		INIT_WORK(&info->task, mgsl_bh_handler);
+ 		info->max_frame_size = 4096;
+diff --git a/drivers/char/synclink_gt.c b/drivers/char/synclink_gt.c
+index 428b514..372a37e 100644
+--- a/drivers/char/synclink_gt.c
++++ b/drivers/char/synclink_gt.c
+@@ -3414,13 +3414,12 @@ static struct slgt_info *alloc_dev(int adapter_num, int port_num, struct pci_dev
+ {
+ 	struct slgt_info *info;
+ 
+-	info = kmalloc(sizeof(struct slgt_info), GFP_KERNEL);
++	info = kzalloc(sizeof(struct slgt_info), GFP_KERNEL);
+ 
+ 	if (!info) {
+ 		DBGERR(("%s device alloc failed adapter=%d port=%d\n",
+ 			driver_name, adapter_num, port_num));
+ 	} else {
+-		memset(info, 0, sizeof(struct slgt_info));
+ 		info->magic = MGSL_MAGIC;
+ 		INIT_WORK(&info->task, bh_handler);
+ 		info->max_frame_size = 4096;
+diff --git a/drivers/char/synclinkmp.c b/drivers/char/synclinkmp.c
+index a65407b..c63013b 100644
+--- a/drivers/char/synclinkmp.c
++++ b/drivers/char/synclinkmp.c
+@@ -3786,14 +3786,13 @@ static SLMP_INFO *alloc_dev(int adapter_num, int port_num, struct pci_dev *pdev)
+ {
+ 	SLMP_INFO *info;
+ 
+-	info = kmalloc(sizeof(SLMP_INFO),
++	info = kzalloc(sizeof(SLMP_INFO),
+ 		 GFP_KERNEL);
+ 
+ 	if (!info) {
+ 		printk("%s(%d) Error can't allocate device instance data for adapter %d, port %d\n",
+ 			__FILE__,__LINE__, adapter_num, port_num);
+ 	} else {
+-		memset(info, 0, sizeof(SLMP_INFO));
+ 		info->magic = MGSL_MAGIC;
+ 		INIT_WORK(&info->task, bh_handler);
+ 		info->max_frame_size = 4096;
+diff --git a/drivers/char/vt.c b/drivers/char/vt.c
+index 6650ae1..5db295d 100644
+--- a/drivers/char/vt.c
++++ b/drivers/char/vt.c
+@@ -729,10 +729,9 @@ int vc_allocate(unsigned int currcons)	/* return 0 on success */
+ 	    /* although the numbers above are not valid since long ago, the
+ 	       point is still up-to-date and the comment still has its value
+ 	       even if only as a historical artifact.  --mj, July 1998 */
+-	    vc = kmalloc(sizeof(struct vc_data), GFP_KERNEL);
++	    vc = kzalloc(sizeof(struct vc_data), GFP_KERNEL);
+ 	    if (!vc)
+ 		return -ENOMEM;
+-	    memset(vc, 0, sizeof(*vc));
+ 	    vc_cons[currcons].d = vc;
+ 	    INIT_WORK(&vc_cons[currcons].SAK_work, vc_SAK);
+ 	    visual_init(vc, currcons, 1);
+diff --git a/drivers/char/watchdog/mpcore_wdt.c b/drivers/char/watchdog/mpcore_wdt.c
+index e88947f..0d2b277 100644
+--- a/drivers/char/watchdog/mpcore_wdt.c
++++ b/drivers/char/watchdog/mpcore_wdt.c
+@@ -328,12 +328,11 @@ static int __devinit mpcore_wdt_probe(struct platform_device *dev)
+ 		goto err_out;
+ 	}
+ 
+-	wdt = kmalloc(sizeof(struct mpcore_wdt), GFP_KERNEL);
++	wdt = kzalloc(sizeof(struct mpcore_wdt), GFP_KERNEL);
+ 	if (!wdt) {
+ 		ret = -ENOMEM;
+ 		goto err_out;
+ 	}
+-	memset(wdt, 0, sizeof(struct mpcore_wdt));
+ 
+ 	wdt->dev = &dev->dev;
+ 	wdt->irq = platform_get_irq(dev, 0);
+diff --git a/drivers/char/watchdog/pcwd_usb.c b/drivers/char/watchdog/pcwd_usb.c
+index 1e7a671..0f3fd6c 100644
+--- a/drivers/char/watchdog/pcwd_usb.c
++++ b/drivers/char/watchdog/pcwd_usb.c
+@@ -626,12 +626,11 @@ static int usb_pcwd_probe(struct usb_interface *interface, const struct usb_devi
+ 	maxp = usb_maxpacket(udev, pipe, usb_pipeout(pipe));
+ 
+ 	/* allocate memory for our device and initialize it */
+-	usb_pcwd = kmalloc (sizeof(struct usb_pcwd_private), GFP_KERNEL);
++	usb_pcwd = kzalloc (sizeof(struct usb_pcwd_private), GFP_KERNEL);
+ 	if (usb_pcwd == NULL) {
+ 		printk(KERN_ERR PFX "Out of memory\n");
+ 		goto error;
+ 	}
+-	memset (usb_pcwd, 0x00, sizeof (*usb_pcwd));
+ 
+ 	usb_pcwd_device = usb_pcwd;
+ 
+diff --git a/drivers/ide/mips/swarm.c b/drivers/ide/mips/swarm.c
+index 6e935d7..c2e2957 100644
+--- a/drivers/ide/mips/swarm.c
++++ b/drivers/ide/mips/swarm.c
+@@ -165,12 +165,11 @@ static int __devinit swarm_ide_init_module(void)
+ 		goto out;
+ 	}
+ 
+-        if (!(pldev = kmalloc(sizeof (*pldev), GFP_KERNEL))) {
++        if (!(pldev = kzalloc(sizeof (*pldev), GFP_KERNEL))) {
+ 		err = -ENOMEM;
+ 		goto out_unregister_driver;
+ 	}
+ 
+-	memset (pldev, 0, sizeof (*pldev));
+ 	pldev->name		= swarm_ide_string;
+ 	pldev->id		= 0;
+ 	pldev->dev.release	= swarm_ide_platform_release;
+diff --git a/drivers/infiniband/core/addr.c b/drivers/infiniband/core/addr.c
+index a91001c..c5c33d3 100644
+--- a/drivers/infiniband/core/addr.c
++++ b/drivers/infiniband/core/addr.c
+@@ -295,10 +295,9 @@ int rdma_resolve_ip(struct rdma_addr_client *client,
+ 	struct addr_req *req;
+ 	int ret = 0;
+ 
+-	req = kmalloc(sizeof *req, GFP_KERNEL);
++	req = kzalloc(sizeof *req, GFP_KERNEL);
+ 	if (!req)
+ 		return -ENOMEM;
+-	memset(req, 0, sizeof *req);
+ 
+ 	if (src_addr)
+ 		memcpy(&req->src_addr, src_addr, ip_addr_size(src_addr));
+diff --git a/drivers/infiniband/hw/cxgb3/iwch_cm.c b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+index 5dc68cd..9574088 100644
+--- a/drivers/infiniband/hw/cxgb3/iwch_cm.c
++++ b/drivers/infiniband/hw/cxgb3/iwch_cm.c
+@@ -229,9 +229,8 @@ static void *alloc_ep(int size, gfp_t gfp)
+ {
+ 	struct iwch_ep_common *epc;
+ 
+-	epc = kmalloc(size, gfp);
++	epc = kzalloc(size, gfp);
+ 	if (epc) {
+-		memset(epc, 0, size);
+ 		kref_init(&epc->kref);
+ 		spin_lock_init(&epc->lock);
+ 		init_waitqueue_head(&epc->waitq);
+diff --git a/drivers/input/serio/ambakmi.c b/drivers/input/serio/ambakmi.c
+index 5a7b49c..b10ffae 100644
+--- a/drivers/input/serio/ambakmi.c
++++ b/drivers/input/serio/ambakmi.c
+@@ -117,15 +117,13 @@ static int amba_kmi_probe(struct amba_device *dev, void *id)
+ 	if (ret)
+ 		return ret;
+ 
+-	kmi = kmalloc(sizeof(struct amba_kmi_port), GFP_KERNEL);
+-	io = kmalloc(sizeof(struct serio), GFP_KERNEL);
++	kmi = kzalloc(sizeof(struct amba_kmi_port), GFP_KERNEL);
++	io = kzalloc(sizeof(struct serio), GFP_KERNEL);
+ 	if (!kmi || !io) {
+ 		ret = -ENOMEM;
+ 		goto out;
+ 	}
+ 
+-	memset(kmi, 0, sizeof(struct amba_kmi_port));
+-	memset(io, 0, sizeof(struct serio));
+ 
+ 	io->id.type	= SERIO_8042;
+ 	io->write	= amba_kmi_write;
+diff --git a/drivers/input/serio/pcips2.c b/drivers/input/serio/pcips2.c
+index ea5e3c6..1b404f9 100644
+--- a/drivers/input/serio/pcips2.c
++++ b/drivers/input/serio/pcips2.c
+@@ -140,15 +140,13 @@ static int __devinit pcips2_probe(struct pci_dev *dev, const struct pci_device_i
+ 	if (ret)
+ 		goto disable;
+ 
+-	ps2if = kmalloc(sizeof(struct pcips2_data), GFP_KERNEL);
+-	serio = kmalloc(sizeof(struct serio), GFP_KERNEL);
++	ps2if = kzalloc(sizeof(struct pcips2_data), GFP_KERNEL);
++	serio = kzalloc(sizeof(struct serio), GFP_KERNEL);
+ 	if (!ps2if || !serio) {
+ 		ret = -ENOMEM;
+ 		goto release;
+ 	}
+ 
+-	memset(ps2if, 0, sizeof(struct pcips2_data));
+-	memset(serio, 0, sizeof(struct serio));
+ 
+ 	serio->id.type		= SERIO_8042;
+ 	serio->write		= pcips2_write;
+diff --git a/drivers/input/serio/sa1111ps2.c b/drivers/input/serio/sa1111ps2.c
+index d31ece8..2ad8878 100644
+--- a/drivers/input/serio/sa1111ps2.c
++++ b/drivers/input/serio/sa1111ps2.c
+@@ -234,15 +234,13 @@ static int __devinit ps2_probe(struct sa1111_dev *dev)
+ 	struct serio *serio;
+ 	int ret;
+ 
+-	ps2if = kmalloc(sizeof(struct ps2if), GFP_KERNEL);
+-	serio = kmalloc(sizeof(struct serio), GFP_KERNEL);
++	ps2if = kzalloc(sizeof(struct ps2if), GFP_KERNEL);
++	serio = kzalloc(sizeof(struct serio), GFP_KERNEL);
+ 	if (!ps2if || !serio) {
+ 		ret = -ENOMEM;
+ 		goto free;
+ 	}
+ 
+-	memset(ps2if, 0, sizeof(struct ps2if));
+-	memset(serio, 0, sizeof(struct serio));
+ 
+ 	serio->id.type		= SERIO_8042;
+ 	serio->write		= ps2_write;
+diff --git a/drivers/macintosh/macio_asic.c b/drivers/macintosh/macio_asic.c
+index c96b7fe..ec9e5f3 100644
+--- a/drivers/macintosh/macio_asic.c
++++ b/drivers/macintosh/macio_asic.c
+@@ -365,10 +365,9 @@ static struct macio_dev * macio_add_one_device(struct macio_chip *chip,
+ 	if (np == NULL)
+ 		return NULL;
+ 
+-	dev = kmalloc(sizeof(*dev), GFP_KERNEL);
++	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+ 	if (!dev)
+ 		return NULL;
+-	memset(dev, 0, sizeof(*dev));
+ 
+ 	dev->bus = &chip->lbus;
+ 	dev->media_bay = in_bay;
+diff --git a/drivers/macintosh/smu.c b/drivers/macintosh/smu.c
+index f8e1a13..d409f67 100644
+--- a/drivers/macintosh/smu.c
++++ b/drivers/macintosh/smu.c
+@@ -1053,10 +1053,9 @@ static int smu_open(struct inode *inode, struct file *file)
+ 	struct smu_private *pp;
+ 	unsigned long flags;
+ 
+-	pp = kmalloc(sizeof(struct smu_private), GFP_KERNEL);
++	pp = kzalloc(sizeof(struct smu_private), GFP_KERNEL);
+ 	if (pp == 0)
+ 		return -ENOMEM;
+-	memset(pp, 0, sizeof(struct smu_private));
+ 	spin_lock_init(&pp->lock);
+ 	pp->mode = smu_file_commands;
+ 	init_waitqueue_head(&pp->wait);
+diff --git a/drivers/macintosh/therm_pm72.c b/drivers/macintosh/therm_pm72.c
+index 3d90fc0..e43554e 100644
+--- a/drivers/macintosh/therm_pm72.c
++++ b/drivers/macintosh/therm_pm72.c
+@@ -318,10 +318,9 @@ static struct i2c_client *attach_i2c_chip(int id, const char *name)
+ 	if (adap == NULL)
+ 		return NULL;
+ 
+-	clt = kmalloc(sizeof(struct i2c_client), GFP_KERNEL);
++	clt = kzalloc(sizeof(struct i2c_client), GFP_KERNEL);
+ 	if (clt == NULL)
+ 		return NULL;
+-	memset(clt, 0, sizeof(struct i2c_client));
+ 
+ 	clt->addr = (id >> 1) & 0x7f;
+ 	clt->adapter = adap;
+diff --git a/drivers/macintosh/therm_windtunnel.c b/drivers/macintosh/therm_windtunnel.c
+index 3d0354e..5452da1 100644
+--- a/drivers/macintosh/therm_windtunnel.c
++++ b/drivers/macintosh/therm_windtunnel.c
+@@ -431,9 +431,8 @@ do_probe( struct i2c_adapter *adapter, int addr, int kind )
+ 				     | I2C_FUNC_SMBUS_WRITE_BYTE) )
+ 		return 0;
+ 
+-	if( !(cl=kmalloc(sizeof(*cl), GFP_KERNEL)) )
++	if( !(cl=kzalloc(sizeof(*cl), GFP_KERNEL)) )
+ 		return -ENOMEM;
+-	memset( cl, 0, sizeof(struct i2c_client) );
+ 
+ 	cl->addr = addr;
+ 	cl->adapter = adapter;
+diff --git a/drivers/macintosh/windfarm_lm75_sensor.c b/drivers/macintosh/windfarm_lm75_sensor.c
+index a0fabf3..7e10c3a 100644
+--- a/drivers/macintosh/windfarm_lm75_sensor.c
++++ b/drivers/macintosh/windfarm_lm75_sensor.c
+@@ -117,10 +117,9 @@ static struct wf_lm75_sensor *wf_lm75_create(struct i2c_adapter *adapter,
+ 	DBG("wf_lm75: creating  %s device at address 0x%02x\n",
+ 	    ds1775 ? "ds1775" : "lm75", addr);
+ 
+-	lm = kmalloc(sizeof(struct wf_lm75_sensor), GFP_KERNEL);
++	lm = kzalloc(sizeof(struct wf_lm75_sensor), GFP_KERNEL);
+ 	if (lm == NULL)
+ 		return NULL;
+-	memset(lm, 0, sizeof(struct wf_lm75_sensor));
+ 
+ 	/* Usual rant about sensor names not beeing very consistent in
+ 	 * the device-tree, oh well ...
+diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
+index 1a876f9..144071e 100644
+--- a/drivers/md/dm-raid1.c
++++ b/drivers/md/dm-raid1.c
+@@ -951,13 +951,12 @@ static struct mirror_set *alloc_context(unsigned int nr_mirrors,
+ 
+ 	len = sizeof(*ms) + (sizeof(ms->mirror[0]) * nr_mirrors);
+ 
+-	ms = kmalloc(len, GFP_KERNEL);
++	ms = kzalloc(len, GFP_KERNEL);
+ 	if (!ms) {
+ 		ti->error = "Cannot allocate mirror context";
+ 		return NULL;
+ 	}
+ 
+-	memset(ms, 0, len);
+ 	spin_lock_init(&ms->lock);
+ 
+ 	ms->ti = ti;
+diff --git a/drivers/media/dvb/cinergyT2/cinergyT2.c b/drivers/media/dvb/cinergyT2/cinergyT2.c
+index 5a1449f..28929b6 100644
+--- a/drivers/media/dvb/cinergyT2/cinergyT2.c
++++ b/drivers/media/dvb/cinergyT2/cinergyT2.c
+@@ -905,12 +905,11 @@ static int cinergyt2_probe (struct usb_interface *intf,
+ 	struct cinergyt2 *cinergyt2;
+ 	int err;
+ 
+-	if (!(cinergyt2 = kmalloc (sizeof(struct cinergyt2), GFP_KERNEL))) {
++	if (!(cinergyt2 = kzalloc (sizeof(struct cinergyt2), GFP_KERNEL))) {
+ 		dprintk(1, "out of memory?!?\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset (cinergyt2, 0, sizeof (struct cinergyt2));
+ 	usb_set_intfdata (intf, (void *) cinergyt2);
+ 
+ 	mutex_init(&cinergyt2->sem);
+diff --git a/drivers/media/video/cpia2/cpia2_core.c b/drivers/media/video/cpia2/cpia2_core.c
+index 55aab8d..a76bd78 100644
+--- a/drivers/media/video/cpia2/cpia2_core.c
++++ b/drivers/media/video/cpia2/cpia2_core.c
+@@ -2224,15 +2224,13 @@ struct camera_data *cpia2_init_camera_struct(void)
+ {
+ 	struct camera_data *cam;
+ 
+-	cam = kmalloc(sizeof(*cam), GFP_KERNEL);
++	cam = kzalloc(sizeof(*cam), GFP_KERNEL);
+ 
+ 	if (!cam) {
+ 		ERR("couldn't kmalloc cpia2 struct\n");
+ 		return NULL;
+ 	}
+ 
+-	/* Default everything to 0 */
+-	memset(cam, 0, sizeof(struct camera_data));
+ 
+ 	cam->present = 1;
+ 	mutex_init(&cam->busy_lock);
+diff --git a/drivers/media/video/msp3400-driver.c b/drivers/media/video/msp3400-driver.c
+index 507b1d4..11cfcf1 100644
+--- a/drivers/media/video/msp3400-driver.c
++++ b/drivers/media/video/msp3400-driver.c
+@@ -812,10 +812,9 @@ static int msp_attach(struct i2c_adapter *adapter, int address, int kind)
+ 	int msp_product, msp_prod_hi, msp_prod_lo;
+ 	int msp_rom;
+ 
+-	client = kmalloc(sizeof(*client), GFP_KERNEL);
++	client = kzalloc(sizeof(*client), GFP_KERNEL);
+ 	if (client == NULL)
+ 		return -ENOMEM;
+-	memset(client, 0, sizeof(*client));
+ 	client->addr = address;
+ 	client->adapter = adapter;
+ 	client->driver = &i2c_driver;
+diff --git a/drivers/media/video/planb.c b/drivers/media/video/planb.c
+index 1455a8f..4ab1af7 100644
+--- a/drivers/media/video/planb.c
++++ b/drivers/media/video/planb.c
+@@ -353,9 +353,8 @@ static int planb_prepare_open(struct planb *pb)
+ 		* PLANB_DUMMY)*sizeof(struct dbdma_cmd)
+ 		+(PLANB_MAXLINES*((PLANB_MAXPIXELS+7)& ~7))/8
+ 		+MAX_GBUFFERS*sizeof(unsigned int);
+-	if ((pb->priv_space = kmalloc (size, GFP_KERNEL)) == 0)
++	if ((pb->priv_space = kzalloc (size, GFP_KERNEL)) == 0)
+ 		return -ENOMEM;
+-	memset ((void *) pb->priv_space, 0, size);
+ 	pb->overlay_last1 = pb->ch1_cmd = (volatile struct dbdma_cmd *)
+ 						DBDMA_ALIGN (pb->priv_space);
+ 	pb->overlay_last2 = pb->ch2_cmd = pb->ch1_cmd + pb->tab_size;
+diff --git a/drivers/media/video/usbvideo/vicam.c b/drivers/media/video/usbvideo/vicam.c
+index 2d9c0dd..ff55512 100644
+--- a/drivers/media/video/usbvideo/vicam.c
++++ b/drivers/media/video/usbvideo/vicam.c
+@@ -1130,13 +1130,12 @@ vicam_probe( struct usb_interface *intf, const struct usb_device_id *id)
+ 	}
+ 
+ 	if ((cam =
+-	     kmalloc(sizeof (struct vicam_camera), GFP_KERNEL)) == NULL) {
++	     kzalloc(sizeof (struct vicam_camera), GFP_KERNEL)) == NULL) {
+ 		printk(KERN_WARNING
+ 		       "could not allocate kernel memory for vicam_camera struct\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(cam, 0, sizeof (struct vicam_camera));
+ 
+ 	cam->shutter_speed = 15;
+ 
+diff --git a/drivers/mfd/mcp-core.c b/drivers/mfd/mcp-core.c
+index 75f401d..b4ed57e 100644
+--- a/drivers/mfd/mcp-core.c
++++ b/drivers/mfd/mcp-core.c
+@@ -200,9 +200,8 @@ struct mcp *mcp_host_alloc(struct device *parent, size_t size)
+ {
+ 	struct mcp *mcp;
+ 
+-	mcp = kmalloc(sizeof(struct mcp) + size, GFP_KERNEL);
++	mcp = kzalloc(sizeof(struct mcp) + size, GFP_KERNEL);
+ 	if (mcp) {
+-		memset(mcp, 0, sizeof(struct mcp) + size);
+ 		spin_lock_init(&mcp->lock);
+ 		mcp->attached_device.parent = parent;
+ 		mcp->attached_device.bus = &mcp_bus_type;
+diff --git a/drivers/mfd/ucb1x00-core.c b/drivers/mfd/ucb1x00-core.c
+index 149810a..e03f1bc 100644
+--- a/drivers/mfd/ucb1x00-core.c
++++ b/drivers/mfd/ucb1x00-core.c
+@@ -484,12 +484,11 @@ static int ucb1x00_probe(struct mcp *mcp)
+ 		goto err_disable;
+ 	}
+ 
+-	ucb = kmalloc(sizeof(struct ucb1x00), GFP_KERNEL);
++	ucb = kzalloc(sizeof(struct ucb1x00), GFP_KERNEL);
+ 	ret = -ENOMEM;
+ 	if (!ucb)
+ 		goto err_disable;
+ 
+-	memset(ucb, 0, sizeof(struct ucb1x00));
+ 
+ 	ucb->cdev.class = &ucb1x00_class;
+ 	ucb->cdev.dev = &mcp->attached_device;
+diff --git a/drivers/misc/asus-laptop.c b/drivers/misc/asus-laptop.c
+index 7798f59..f753060 100644
+--- a/drivers/misc/asus-laptop.c
++++ b/drivers/misc/asus-laptop.c
+@@ -979,10 +979,9 @@ static int asus_hotk_add(struct acpi_device *device)
+ 	printk(ASUS_NOTICE "Asus Laptop Support version %s\n",
+ 	       ASUS_LAPTOP_VERSION);
+ 
+-	hotk = kmalloc(sizeof(struct asus_hotk), GFP_KERNEL);
++	hotk = kzalloc(sizeof(struct asus_hotk), GFP_KERNEL);
+ 	if (!hotk)
+ 		return -ENOMEM;
+-	memset(hotk, 0, sizeof(struct asus_hotk));
+ 
+ 	hotk->handle = device->handle;
+ 	strcpy(acpi_device_name(device), ASUS_HOTK_DEVICE_NAME);
+diff --git a/drivers/misc/ibmasm/command.c b/drivers/misc/ibmasm/command.c
+index b5df347..6497872 100644
+--- a/drivers/misc/ibmasm/command.c
++++ b/drivers/misc/ibmasm/command.c
+@@ -41,18 +41,16 @@ struct command *ibmasm_new_command(struct service_processor *sp, size_t buffer_s
+ 	if (buffer_size > IBMASM_CMD_MAX_BUFFER_SIZE)
+ 		return NULL;
+ 
+-	cmd = kmalloc(sizeof(struct command), GFP_KERNEL);
++	cmd = kzalloc(sizeof(struct command), GFP_KERNEL);
+ 	if (cmd == NULL)
+ 		return NULL;
+ 
+-	memset(cmd, 0, sizeof(*cmd));
+ 
+-	cmd->buffer = kmalloc(buffer_size, GFP_KERNEL);
++	cmd->buffer = kzalloc(buffer_size, GFP_KERNEL);
+ 	if (cmd->buffer == NULL) {
+ 		kfree(cmd);
+ 		return NULL;
+ 	}
+-	memset(cmd->buffer, 0, buffer_size);
+ 	cmd->buffer_size = buffer_size;
+ 
+ 	kobject_init(&cmd->kobj);
+diff --git a/drivers/misc/ibmasm/ibmasmfs.c b/drivers/misc/ibmasm/ibmasmfs.c
+index eb7b073..22a7e8b 100644
+--- a/drivers/misc/ibmasm/ibmasmfs.c
++++ b/drivers/misc/ibmasm/ibmasmfs.c
+@@ -563,11 +563,10 @@ static ssize_t remote_settings_file_write(struct file *file, const char __user *
+ 	if (*offset != 0)
+ 		return 0;
+ 
+-	buff = kmalloc (count + 1, GFP_KERNEL);
++	buff = kzalloc (count + 1, GFP_KERNEL);
+ 	if (!buff)
+ 		return -ENOMEM;
+ 
+-	memset(buff, 0x0, count + 1);
+ 
+ 	if (copy_from_user(buff, ubuff, count)) {
+ 		kfree(buff);
+diff --git a/drivers/misc/ibmasm/module.c b/drivers/misc/ibmasm/module.c
+index fb03a85..4f9d4a9 100644
+--- a/drivers/misc/ibmasm/module.c
++++ b/drivers/misc/ibmasm/module.c
+@@ -77,13 +77,12 @@ static int __devinit ibmasm_init_one(struct pci_dev *pdev, const struct pci_devi
+ 	/* vnc client won't work without bus-mastering */
+ 	pci_set_master(pdev);
+ 
+-	sp = kmalloc(sizeof(struct service_processor), GFP_KERNEL);
++	sp = kzalloc(sizeof(struct service_processor), GFP_KERNEL);
+ 	if (sp == NULL) {
+ 		dev_err(&pdev->dev, "Failed to allocate memory\n");
+ 		result = -ENOMEM;
+ 		goto error_kmalloc;
+ 	}
+-	memset(sp, 0, sizeof(struct service_processor));
+ 
+ 	spin_lock_init(&sp->lock);
+ 	INIT_LIST_HEAD(&sp->command_queue);
+diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
+index cbd4b6e..93fe2e5 100644
+--- a/drivers/mmc/card/block.c
++++ b/drivers/mmc/card/block.c
+@@ -414,13 +414,12 @@ static struct mmc_blk_data *mmc_blk_alloc(struct mmc_card *card)
+ 		return ERR_PTR(-ENOSPC);
+ 	__set_bit(devidx, dev_use);
+ 
+-	md = kmalloc(sizeof(struct mmc_blk_data), GFP_KERNEL);
++	md = kzalloc(sizeof(struct mmc_blk_data), GFP_KERNEL);
+ 	if (!md) {
+ 		ret = -ENOMEM;
+ 		goto out;
+ 	}
+ 
+-	memset(md, 0, sizeof(struct mmc_blk_data));
+ 
+ 	/*
+ 	 * Set the read-only status based on the supported commands
+diff --git a/drivers/net/b44.c b/drivers/net/b44.c
+index 96fb0ec..37f1b6f 100644
+--- a/drivers/net/b44.c
++++ b/drivers/net/b44.c
+@@ -1519,14 +1519,13 @@ static void b44_setup_pseudo_magicp(struct b44 *bp)
+ 	u8 *pwol_pattern;
+ 	u8 pwol_mask[B44_PMASK_SIZE];
+ 
+-	pwol_pattern = kmalloc(B44_PATTERN_SIZE, GFP_KERNEL);
++	pwol_pattern = kzalloc(B44_PATTERN_SIZE, GFP_KERNEL);
+ 	if (!pwol_pattern) {
+ 		printk(KERN_ERR PFX "Memory not available for WOL\n");
+ 		return;
+ 	}
+ 
+ 	/* Ipv4 magic packet pattern - pattern 0.*/
+-	memset(pwol_pattern, 0, B44_PATTERN_SIZE);
+ 	memset(pwol_mask, 0, B44_PMASK_SIZE);
+ 	plen0 = b44_magic_pattern(bp->dev->dev_addr, pwol_pattern, pwol_mask,
+ 				  B44_ETHIPV4UDP_HLEN);
+diff --git a/drivers/net/bsd_comp.c b/drivers/net/bsd_comp.c
+index 7845eaf..202d4a4 100644
+--- a/drivers/net/bsd_comp.c
++++ b/drivers/net/bsd_comp.c
+@@ -395,14 +395,13 @@ static void *bsd_alloc (unsigned char *options, int opt_len, int decomp)
+  * Allocate the main control structure for this instance.
+  */
+     maxmaxcode = MAXCODE(bits);
+-    db         = kmalloc(sizeof (struct bsd_db),
++    db         = kzalloc(sizeof (struct bsd_db),
+ 					    GFP_KERNEL);
+     if (!db)
+       {
+ 	return NULL;
+       }
+ 
+-    memset (db, 0, sizeof(struct bsd_db));
+ /*
+  * Allocate space for the dictionary. This may be more than one page in
+  * length.
+diff --git a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+index 136827f..6d1d50a 100644
+--- a/drivers/net/forcedeth.c
++++ b/drivers/net/forcedeth.c
+@@ -5137,12 +5137,10 @@ static int __devinit nv_probe(struct pci_dev *pci_dev, const struct pci_device_i
+ 			goto out_unmap;
+ 		np->tx_ring.ex = &np->rx_ring.ex[np->rx_ring_size];
+ 	}
+-	np->rx_skb = kmalloc(sizeof(struct nv_skb_map) * np->rx_ring_size, GFP_KERNEL);
+-	np->tx_skb = kmalloc(sizeof(struct nv_skb_map) * np->tx_ring_size, GFP_KERNEL);
++	np->rx_skb = kcalloc(np->rx_ring_size, sizeof(struct nv_skb_map), GFP_KERNEL);
++	np->tx_skb = kcalloc(np->tx_ring_size, sizeof(struct nv_skb_map), GFP_KERNEL);
+ 	if (!np->rx_skb || !np->tx_skb)
+ 		goto out_freering;
+-	memset(np->rx_skb, 0, sizeof(struct nv_skb_map) * np->rx_ring_size);
+-	memset(np->tx_skb, 0, sizeof(struct nv_skb_map) * np->tx_ring_size);
+ 
+ 	dev->open = nv_open;
+ 	dev->stop = nv_close;
+diff --git a/drivers/net/hamradio/dmascc.c b/drivers/net/hamradio/dmascc.c
+index 3be8c50..205f096 100644
+--- a/drivers/net/hamradio/dmascc.c
++++ b/drivers/net/hamradio/dmascc.c
+@@ -453,8 +453,8 @@ static int __init setup_adapter(int card_base, int type, int n)
+ 	int scc_base = card_base + hw[type].scc_offset;
+ 	char *chipnames[] = CHIPNAMES;
+ 
+-	/* Allocate memory */
+-	info = kmalloc(sizeof(struct scc_info), GFP_KERNEL | GFP_DMA);
++	/* Initialize what is necessary for write_scc and write_scc_data */
++	info = kzalloc(sizeof(struct scc_info), GFP_KERNEL | GFP_DMA);
+ 	if (!info) {
+ 		printk(KERN_ERR "dmascc: "
+ 		       "could not allocate memory for %s at %#3x\n",
+@@ -462,8 +462,6 @@ static int __init setup_adapter(int card_base, int type, int n)
+ 		goto out;
+ 	}
+ 
+-	/* Initialize what is necessary for write_scc and write_scc_data */
+-	memset(info, 0, sizeof(struct scc_info));
+ 
+ 	info->dev[0] = alloc_netdev(0, "", dev_setup);
+ 	if (!info->dev[0]) {
+diff --git a/drivers/net/irda/irport.c b/drivers/net/irda/irport.c
+index 3078c41..2073245 100644
+--- a/drivers/net/irda/irport.c
++++ b/drivers/net/irda/irport.c
+@@ -164,14 +164,13 @@ irport_open(int i, unsigned int iobase, unsigned int irq)
+ 	
+ 	/* Allocate memory if needed */
+ 	if (self->tx_buff.truesize > 0) {
+-		self->tx_buff.head = kmalloc(self->tx_buff.truesize,
++		self->tx_buff.head = kzalloc(self->tx_buff.truesize,
+ 						      GFP_KERNEL);
+ 		if (self->tx_buff.head == NULL) {
+ 			IRDA_ERROR("%s(), can't allocate memory for "
+ 				   "transmit buffer!\n", __FUNCTION__);
+ 			goto err_out4;
+ 		}
+-		memset(self->tx_buff.head, 0, self->tx_buff.truesize);
+ 	}	
+ 	self->tx_buff.data = self->tx_buff.head;
+ 
+diff --git a/drivers/net/irda/irtty-sir.c b/drivers/net/irda/irtty-sir.c
+index ad18573..6f5f697 100644
+--- a/drivers/net/irda/irtty-sir.c
++++ b/drivers/net/irda/irtty-sir.c
+@@ -505,10 +505,9 @@ static int irtty_open(struct tty_struct *tty)
+ 	}
+ 
+ 	/* allocate private device info block */
+-	priv = kmalloc(sizeof(*priv), GFP_KERNEL);
++	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
+ 	if (!priv)
+ 		goto out_put;
+-	memset(priv, 0, sizeof(*priv));
+ 
+ 	priv->magic = IRTTY_MAGIC;
+ 	priv->tty = tty;
+diff --git a/drivers/net/iseries_veth.c b/drivers/net/iseries_veth.c
+index 347d50c..0433c41 100644
+--- a/drivers/net/iseries_veth.c
++++ b/drivers/net/iseries_veth.c
+@@ -822,10 +822,9 @@ static int veth_init_connection(u8 rlp)
+ 	     || ! HvLpConfig_doLpsCommunicateOnVirtualLan(this_lp, rlp) )
+ 		return 0;
+ 
+-	cnx = kmalloc(sizeof(*cnx), GFP_KERNEL);
++	cnx = kzalloc(sizeof(*cnx), GFP_KERNEL);
+ 	if (! cnx)
+ 		return -ENOMEM;
+-	memset(cnx, 0, sizeof(*cnx));
+ 
+ 	cnx->remote_lp = rlp;
+ 	spin_lock_init(&cnx->lock);
+@@ -852,14 +851,13 @@ static int veth_init_connection(u8 rlp)
+ 	if (rc != 0)
+ 		return rc;
+ 
+-	msgs = kmalloc(VETH_NUMBUFFERS * sizeof(struct veth_msg), GFP_KERNEL);
++	msgs = kcalloc(VETH_NUMBUFFERS, sizeof(struct veth_msg), GFP_KERNEL);
+ 	if (! msgs) {
+ 		veth_error("Can't allocate buffers for LPAR %d.\n", rlp);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	cnx->msgs = msgs;
+-	memset(msgs, 0, VETH_NUMBUFFERS * sizeof(struct veth_msg));
+ 
+ 	for (i = 0; i < VETH_NUMBUFFERS; i++) {
+ 		msgs[i].token = i;
+diff --git a/drivers/net/lance.c b/drivers/net/lance.c
+index a2f37e5..a4e5fab 100644
+--- a/drivers/net/lance.c
++++ b/drivers/net/lance.c
+@@ -533,11 +533,10 @@ static int __init lance_probe1(struct net_device *dev, int ioaddr, int irq, int
+ 	dev->base_addr = ioaddr;
+ 	/* Make certain the data structures used by the LANCE are aligned and DMAble. */
+ 
+-	lp = kmalloc(sizeof(*lp), GFP_DMA | GFP_KERNEL);
++	lp = kzalloc(sizeof(*lp), GFP_DMA | GFP_KERNEL);
+ 	if(lp==NULL)
+ 		return -ENODEV;
+ 	if (lance_debug > 6) printk(" (#0x%05lx)", (unsigned long)lp);
+-	memset(lp, 0, sizeof(*lp));
+ 	dev->priv = lp;
+ 	lp->name = chipname;
+ 	lp->rx_buffs = (unsigned long)kmalloc(PKT_BUF_SZ*RX_RING_SIZE,
+diff --git a/drivers/net/pcmcia/com20020_cs.c b/drivers/net/pcmcia/com20020_cs.c
+index 0d1c7a4..ea9414c 100644
+--- a/drivers/net/pcmcia/com20020_cs.c
++++ b/drivers/net/pcmcia/com20020_cs.c
+@@ -147,7 +147,7 @@ static int com20020_probe(struct pcmcia_device *p_dev)
+     DEBUG(0, "com20020_attach()\n");
+ 
+     /* Create new network device */
+-    info = kmalloc(sizeof(struct com20020_dev_t), GFP_KERNEL);
++    info = kzalloc(sizeof(struct com20020_dev_t), GFP_KERNEL);
+     if (!info)
+ 	goto fail_alloc_info;
+ 
+@@ -155,7 +155,6 @@ static int com20020_probe(struct pcmcia_device *p_dev)
+     if (!dev)
+ 	goto fail_alloc_dev;
+ 
+-    memset(info, 0, sizeof(struct com20020_dev_t));
+     lp = dev->priv;
+     lp->timeout = timeout;
+     lp->backplane = backplane;
+diff --git a/drivers/net/pcmcia/ibmtr_cs.c b/drivers/net/pcmcia/ibmtr_cs.c
+index 4ecb8ca..4eafa4f 100644
+--- a/drivers/net/pcmcia/ibmtr_cs.c
++++ b/drivers/net/pcmcia/ibmtr_cs.c
+@@ -146,9 +146,8 @@ static int __devinit ibmtr_attach(struct pcmcia_device *link)
+     DEBUG(0, "ibmtr_attach()\n");
+ 
+     /* Create new token-ring device */
+-    info = kmalloc(sizeof(*info), GFP_KERNEL); 
++    info = kzalloc(sizeof(*info), GFP_KERNEL);
+     if (!info) return -ENOMEM;
+-    memset(info,0,sizeof(*info));
+     dev = alloc_trdev(sizeof(struct tok_info));
+     if (!dev) {
+ 	kfree(info);
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index caabbc4..27f5b90 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -159,12 +159,11 @@ ppp_asynctty_open(struct tty_struct *tty)
+ 	int err;
+ 
+ 	err = -ENOMEM;
+-	ap = kmalloc(sizeof(*ap), GFP_KERNEL);
++	ap = kzalloc(sizeof(*ap), GFP_KERNEL);
+ 	if (ap == 0)
+ 		goto out;
+ 
+ 	/* initialize the asyncppp structure */
+-	memset(ap, 0, sizeof(*ap));
+ 	ap->tty = tty;
+ 	ap->mru = PPP_MRU;
+ 	spin_lock_init(&ap->xmit_lock);
+diff --git a/drivers/net/ppp_deflate.c b/drivers/net/ppp_deflate.c
+index 72c8d66..eb98b66 100644
+--- a/drivers/net/ppp_deflate.c
++++ b/drivers/net/ppp_deflate.c
+@@ -121,12 +121,11 @@ static void *z_comp_alloc(unsigned char *options, int opt_len)
+ 	if (w_size < DEFLATE_MIN_SIZE || w_size > DEFLATE_MAX_SIZE)
+ 		return NULL;
+ 
+-	state = kmalloc(sizeof(*state),
++	state = kzalloc(sizeof(*state),
+ 						     GFP_KERNEL);
+ 	if (state == NULL)
+ 		return NULL;
+ 
+-	memset (state, 0, sizeof (struct ppp_deflate_state));
+ 	state->strm.next_in   = NULL;
+ 	state->w_size         = w_size;
+ 	state->strm.workspace = vmalloc(zlib_deflate_workspacesize());
+@@ -341,11 +340,10 @@ static void *z_decomp_alloc(unsigned char *options, int opt_len)
+ 	if (w_size < DEFLATE_MIN_SIZE || w_size > DEFLATE_MAX_SIZE)
+ 		return NULL;
+ 
+-	state = kmalloc(sizeof(*state), GFP_KERNEL);
++	state = kzalloc(sizeof(*state), GFP_KERNEL);
+ 	if (state == NULL)
+ 		return NULL;
+ 
+-	memset (state, 0, sizeof (struct ppp_deflate_state));
+ 	state->w_size         = w_size;
+ 	state->strm.next_out  = NULL;
+ 	state->strm.workspace = kmalloc(zlib_inflate_workspacesize(),
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+index 5918fab..ce64032 100644
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -207,13 +207,12 @@ ppp_sync_open(struct tty_struct *tty)
+ 	struct syncppp *ap;
+ 	int err;
+ 
+-	ap = kmalloc(sizeof(*ap), GFP_KERNEL);
++	ap = kzalloc(sizeof(*ap), GFP_KERNEL);
+ 	err = -ENOMEM;
+ 	if (ap == 0)
+ 		goto out;
+ 
+ 	/* initialize the syncppp structure */
+-	memset(ap, 0, sizeof(*ap));
+ 	ap->tty = tty;
+ 	ap->mru = PPP_MRU;
+ 	spin_lock_init(&ap->xmit_lock);
+diff --git a/drivers/net/shaper.c b/drivers/net/shaper.c
+index e886e8d..4c3d98f 100644
+--- a/drivers/net/shaper.c
++++ b/drivers/net/shaper.c
+@@ -600,10 +600,9 @@ static int __init shaper_init(void)
+ 		return -ENODEV;
+ 
+ 	alloc_size = sizeof(*dev) * shapers;
+-	devs = kmalloc(alloc_size, GFP_KERNEL);
++	devs = kzalloc(alloc_size, GFP_KERNEL);
+ 	if (!devs)
+ 		return -ENOMEM;
+-	memset(devs, 0, alloc_size);
+ 
+ 	for (i = 0; i < shapers; i++) {
+ 
+diff --git a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
+index 6b63b35..8ead774 100644
+--- a/drivers/net/wan/c101.c
++++ b/drivers/net/wan/c101.c
+@@ -315,12 +315,11 @@ static int __init c101_run(unsigned long irq, unsigned long winbase)
+ 		return -ENODEV;
+ 	}
+ 
+-	card = kmalloc(sizeof(card_t), GFP_KERNEL);
++	card = kzalloc(sizeof(card_t), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk(KERN_ERR "c101: unable to allocate memory\n");
+ 		return -ENOBUFS;
+ 	}
+-	memset(card, 0, sizeof(card_t));
+ 
+ 	card->dev = alloc_hdlcdev(card);
+ 	if (!card->dev) {
+diff --git a/drivers/net/wan/cosa.c b/drivers/net/wan/cosa.c
+index 9ef49ce..26058b4 100644
+--- a/drivers/net/wan/cosa.c
++++ b/drivers/net/wan/cosa.c
+@@ -572,13 +572,11 @@ static int cosa_probe(int base, int irq, int dma)
+ 	sprintf(cosa->name, "cosa%d", cosa->num);
+ 
+ 	/* Initialize the per-channel data */
+-	cosa->chan = kmalloc(sizeof(struct channel_data)*cosa->nchannels,
+-			     GFP_KERNEL);
++	cosa->chan = kcalloc(cosa->nchannels, sizeof(struct channel_data), GFP_KERNEL);
+ 	if (!cosa->chan) {
+ 	        err = -ENOMEM;
+ 		goto err_out3;
+ 	}
+-	memset(cosa->chan, 0, sizeof(struct channel_data)*cosa->nchannels);
+ 	for (i=0; i<cosa->nchannels; i++) {
+ 		cosa->chan[i].cosa = cosa;
+ 		cosa->chan[i].num = i;
+diff --git a/drivers/net/wan/cycx_main.c b/drivers/net/wan/cycx_main.c
+index 6e5f1c8..a0e8611 100644
+--- a/drivers/net/wan/cycx_main.c
++++ b/drivers/net/wan/cycx_main.c
+@@ -113,12 +113,10 @@ static int __init cycx_init(void)
+ 	/* Verify number of cards and allocate adapter data space */
+ 	cycx_ncards = min_t(int, cycx_ncards, CYCX_MAX_CARDS);
+ 	cycx_ncards = max_t(int, cycx_ncards, 1);
+-	cycx_card_array = kmalloc(sizeof(struct cycx_device) * cycx_ncards,
+-				  GFP_KERNEL);
++	cycx_card_array = kcalloc(cycx_ncards, sizeof(struct cycx_device), GFP_KERNEL);
+ 	if (!cycx_card_array)
+ 		goto out;
+ 
+-	memset(cycx_card_array, 0, sizeof(struct cycx_device) * cycx_ncards);
+ 
+ 	/* Register adapters with WAN router */
+ 	for (cnt = 0; cnt < cycx_ncards; ++cnt) {
+diff --git a/drivers/net/wan/cycx_x25.c b/drivers/net/wan/cycx_x25.c
+index 016b3ff..a8af28b 100644
+--- a/drivers/net/wan/cycx_x25.c
++++ b/drivers/net/wan/cycx_x25.c
+@@ -376,11 +376,10 @@ static int cycx_wan_new_if(struct wan_device *wandev, struct net_device *dev,
+ 	}
+ 
+ 	/* allocate and initialize private data */
+-	chan = kmalloc(sizeof(struct cycx_x25_channel), GFP_KERNEL);
++	chan = kzalloc(sizeof(struct cycx_x25_channel), GFP_KERNEL);
+ 	if (!chan)
+ 		return -ENOMEM;
+ 
+-	memset(chan, 0, sizeof(*chan));
+ 	strcpy(chan->name, conf->name);
+ 	chan->card = card;
+ 	chan->link = conf->port;
+diff --git a/drivers/net/wan/dscc4.c b/drivers/net/wan/dscc4.c
+index dca0244..50d2f91 100644
+--- a/drivers/net/wan/dscc4.c
++++ b/drivers/net/wan/dscc4.c
+@@ -890,12 +890,11 @@ static int dscc4_found1(struct pci_dev *pdev, void __iomem *ioaddr)
+ 	struct dscc4_dev_priv *root;
+ 	int i, ret = -ENOMEM;
+ 
+-	root = kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
++	root = kcalloc(dev_per_card, sizeof(*root), GFP_KERNEL);
+ 	if (!root) {
+ 		printk(KERN_ERR "%s: can't allocate data\n", DRV_NAME);
+ 		goto err_out;
+ 	}
+-	memset(root, 0, dev_per_card*sizeof(*root));
+ 
+ 	for (i = 0; i < dev_per_card; i++) {
+ 		root[i].dev = alloc_hdlcdev(root + i);
+@@ -903,12 +902,11 @@ static int dscc4_found1(struct pci_dev *pdev, void __iomem *ioaddr)
+ 			goto err_free_dev;
+ 	}
+ 
+-	ppriv = kmalloc(sizeof(*ppriv), GFP_KERNEL);
++	ppriv = kzalloc(sizeof(*ppriv), GFP_KERNEL);
+ 	if (!ppriv) {
+ 		printk(KERN_ERR "%s: can't allocate private data\n", DRV_NAME);
+ 		goto err_free_dev;
+ 	}
+-	memset(ppriv, 0, sizeof(struct dscc4_pci_priv));
+ 
+ 	ppriv->root = root;
+ 	spin_lock_init(&ppriv->lock);
+diff --git a/drivers/net/wan/farsync.c b/drivers/net/wan/farsync.c
+index 58a53b6..12dae8e 100644
+--- a/drivers/net/wan/farsync.c
++++ b/drivers/net/wan/farsync.c
+@@ -2476,13 +2476,12 @@ fst_add_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	}
+ 
+ 	/* Allocate driver private data */
+-	card = kmalloc(sizeof (struct fst_card_info), GFP_KERNEL);
++	card = kzalloc(sizeof (struct fst_card_info), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk_err("FarSync card found but insufficient memory for"
+ 			   " driver storage\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(card, 0, sizeof (struct fst_card_info));
+ 
+ 	/* Try to enable the device */
+ 	if ((err = pci_enable_device(pdev)) != 0) {
+diff --git a/drivers/net/wan/hostess_sv11.c b/drivers/net/wan/hostess_sv11.c
+index 9ba3e4e..bf5f8d9 100644
+--- a/drivers/net/wan/hostess_sv11.c
++++ b/drivers/net/wan/hostess_sv11.c
+@@ -231,11 +231,10 @@ static struct sv11_device *sv11_init(int iobase, int irq)
+ 		return NULL;
+ 	}
+ 	
+-	sv = kmalloc(sizeof(struct sv11_device), GFP_KERNEL);
++	sv = kzalloc(sizeof(struct sv11_device), GFP_KERNEL);
+ 	if(!sv)
+ 		goto fail3;
+ 			
+-	memset(sv, 0, sizeof(*sv));
+ 	sv->if_ptr=&sv->netdev;
+ 	
+ 	sv->netdev.dev = alloc_netdev(0, "hdlc%d", sv11_setup);
+diff --git a/drivers/net/wan/n2.c b/drivers/net/wan/n2.c
+index 5c322df..cbdf0b7 100644
+--- a/drivers/net/wan/n2.c
++++ b/drivers/net/wan/n2.c
+@@ -351,12 +351,11 @@ static int __init n2_run(unsigned long io, unsigned long irq,
+ 		return -ENODEV;
+ 	}
+ 
+-	card = kmalloc(sizeof(card_t), GFP_KERNEL);
++	card = kzalloc(sizeof(card_t), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk(KERN_ERR "n2: unable to allocate memory\n");
+ 		return -ENOBUFS;
+ 	}
+-	memset(card, 0, sizeof(card_t));
+ 
+ 	card->ports[0].dev = alloc_hdlcdev(&card->ports[0]);
+ 	card->ports[1].dev = alloc_hdlcdev(&card->ports[1]);
+diff --git a/drivers/net/wan/pc300_drv.c b/drivers/net/wan/pc300_drv.c
+index 5d8c78e..99fee2f 100644
+--- a/drivers/net/wan/pc300_drv.c
++++ b/drivers/net/wan/pc300_drv.c
+@@ -3456,7 +3456,7 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if ((err = pci_enable_device(pdev)) < 0)
+ 		return err;
+ 
+-	card = kmalloc(sizeof(pc300_t), GFP_KERNEL);
++	card = kzalloc(sizeof(pc300_t), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk("PC300 found at RAM 0x%016llx, "
+ 		       "but could not allocate card structure.\n",
+@@ -3464,7 +3464,6 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 		err = -ENOMEM;
+ 		goto err_disable_dev;
+ 	}
+-	memset(card, 0, sizeof(pc300_t));
+ 
+ 	err = -ENODEV;
+ 
+diff --git a/drivers/net/wan/pc300too.c b/drivers/net/wan/pc300too.c
+index dfbd3b0..6353cb5 100644
+--- a/drivers/net/wan/pc300too.c
++++ b/drivers/net/wan/pc300too.c
+@@ -334,14 +334,13 @@ static int __devinit pc300_pci_init_one(struct pci_dev *pdev,
+ 		return i;
+ 	}
+ 
+-	card = kmalloc(sizeof(card_t), GFP_KERNEL);
++	card = kzalloc(sizeof(card_t), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk(KERN_ERR "pc300: unable to allocate memory\n");
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
+ 		return -ENOBUFS;
+ 	}
+-	memset(card, 0, sizeof(card_t));
+ 	pci_set_drvdata(pdev, card);
+ 
+ 	if (pdev->device == PCI_DEVICE_ID_PC300_TE_1 ||
+diff --git a/drivers/net/wan/pci200syn.c b/drivers/net/wan/pci200syn.c
+index 7f720de..092e51d 100644
+--- a/drivers/net/wan/pci200syn.c
++++ b/drivers/net/wan/pci200syn.c
+@@ -312,14 +312,13 @@ static int __devinit pci200_pci_init_one(struct pci_dev *pdev,
+ 		return i;
+ 	}
+ 
+-	card = kmalloc(sizeof(card_t), GFP_KERNEL);
++	card = kzalloc(sizeof(card_t), GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk(KERN_ERR "pci200syn: unable to allocate memory\n");
+ 		pci_release_regions(pdev);
+ 		pci_disable_device(pdev);
+ 		return -ENOBUFS;
+ 	}
+-	memset(card, 0, sizeof(card_t));
+ 	pci_set_drvdata(pdev, card);
+ 	card->ports[0].dev = alloc_hdlcdev(&card->ports[0]);
+ 	card->ports[1].dev = alloc_hdlcdev(&card->ports[1]);
+diff --git a/drivers/net/wan/sdla.c b/drivers/net/wan/sdla.c
+index 6a485f0..792e588 100644
+--- a/drivers/net/wan/sdla.c
++++ b/drivers/net/wan/sdla.c
+@@ -1196,10 +1196,9 @@ static int sdla_xfer(struct net_device *dev, struct sdla_mem __user *info, int r
+ 		
+ 	if (read)
+ 	{	
+-		temp = kmalloc(mem.len, GFP_KERNEL);
++		temp = kzalloc(mem.len, GFP_KERNEL);
+ 		if (!temp)
+ 			return(-ENOMEM);
+-		memset(temp, 0, mem.len);
+ 		sdla_read(dev, mem.addr, temp, mem.len);
+ 		if(copy_to_user(mem.data, temp, mem.len))
+ 		{
+diff --git a/drivers/net/wan/sealevel.c b/drivers/net/wan/sealevel.c
+index 1313581..11276bf 100644
+--- a/drivers/net/wan/sealevel.c
++++ b/drivers/net/wan/sealevel.c
+@@ -270,11 +270,10 @@ static __init struct slvl_board *slvl_init(int iobase, int irq,
+ 		return NULL;
+ 	}
+ 	
+-	b = kmalloc(sizeof(struct slvl_board), GFP_KERNEL);
++	b = kzalloc(sizeof(struct slvl_board), GFP_KERNEL);
+ 	if(!b)
+ 		goto fail3;
+ 
+-	memset(b, 0, sizeof(*b));
+ 	if (!(b->dev[0]= slvl_alloc(iobase, irq)))
+ 		goto fail2;
+ 
+diff --git a/drivers/net/wan/wanxl.c b/drivers/net/wan/wanxl.c
+index c736015..3c78f98 100644
+--- a/drivers/net/wan/wanxl.c
++++ b/drivers/net/wan/wanxl.c
+@@ -599,7 +599,7 @@ static int __devinit wanxl_pci_init_one(struct pci_dev *pdev,
+ 	}
+ 
+ 	alloc_size = sizeof(card_t) + ports * sizeof(port_t);
+-	card = kmalloc(alloc_size, GFP_KERNEL);
++	card = kzalloc(alloc_size, GFP_KERNEL);
+ 	if (card == NULL) {
+ 		printk(KERN_ERR "wanXL %s: unable to allocate memory\n",
+ 		       pci_name(pdev));
+@@ -607,7 +607,6 @@ static int __devinit wanxl_pci_init_one(struct pci_dev *pdev,
+ 		pci_disable_device(pdev);
+ 		return -ENOBUFS;
+ 	}
+-	memset(card, 0, alloc_size);
+ 
+ 	pci_set_drvdata(pdev, card);
+ 	card->pdev = pdev;
+diff --git a/drivers/net/wan/x25_asy.c b/drivers/net/wan/x25_asy.c
+index 1c9edd9..c48b1cc 100644
+--- a/drivers/net/wan/x25_asy.c
++++ b/drivers/net/wan/x25_asy.c
+@@ -786,14 +786,12 @@ static int __init init_x25_asy(void)
+ 	printk(KERN_INFO "X.25 async: version 0.00 ALPHA "
+ 			"(dynamic channels, max=%d).\n", x25_asy_maxdev );
+ 
+-	x25_asy_devs = kmalloc(sizeof(struct net_device *)*x25_asy_maxdev, 
+-			       GFP_KERNEL);
++	x25_asy_devs = kcalloc(x25_asy_maxdev, sizeof(struct net_device*), GFP_KERNEL);
+ 	if (!x25_asy_devs) {
+ 		printk(KERN_WARNING "X25 async: Can't allocate x25_asy_ctrls[] "
+ 				"array! Uaargh! (-> No X.25 available)\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(x25_asy_devs, 0, sizeof(struct net_device *)*x25_asy_maxdev); 
+ 
+ 	return tty_register_ldisc(N_X25, &x25_ldisc);
+ }
+diff --git a/drivers/nubus/nubus.c b/drivers/nubus/nubus.c
+index 3a0a3a7..e503c9c 100644
+--- a/drivers/nubus/nubus.c
++++ b/drivers/nubus/nubus.c
+@@ -466,9 +466,8 @@ static struct nubus_dev* __init
+ 		       parent->base, dir.base);
+ 
+ 	/* Actually we should probably panic if this fails */
+-	if ((dev = kmalloc(sizeof(*dev), GFP_ATOMIC)) == NULL)
++	if ((dev = kzalloc(sizeof(*dev), GFP_ATOMIC)) == NULL)
+ 		return NULL;	
+-	memset(dev, 0, sizeof(*dev));
+ 	dev->resid = parent->type;
+ 	dev->directory = dir.base;
+ 	dev->board = board;
+@@ -800,9 +799,8 @@ static struct nubus_board* __init nubus_add_board(int slot, int bytelanes)
+ 	nubus_rewind(&rp, FORMAT_BLOCK_SIZE, bytelanes);
+ 
+ 	/* Actually we should probably panic if this fails */
+-	if ((board = kmalloc(sizeof(*board), GFP_ATOMIC)) == NULL)
++	if ((board = kzalloc(sizeof(*board), GFP_ATOMIC)) == NULL)
+ 		return NULL;	
+-	memset(board, 0, sizeof(*board));
+ 	board->fblock = rp;
+ 
+ 	/* Dump the format block for debugging purposes */
+diff --git a/drivers/parport/parport_cs.c b/drivers/parport/parport_cs.c
+index 8b7d84e..802a81d 100644
+--- a/drivers/parport/parport_cs.c
++++ b/drivers/parport/parport_cs.c
+@@ -105,9 +105,8 @@ static int parport_probe(struct pcmcia_device *link)
+     DEBUG(0, "parport_attach()\n");
+ 
+     /* Create new parport device */
+-    info = kmalloc(sizeof(*info), GFP_KERNEL);
++    info = kzalloc(sizeof(*info), GFP_KERNEL);
+     if (!info) return -ENOMEM;
+-    memset(info, 0, sizeof(*info));
+     link->priv = info;
+     info->p_dev = link;
+ 
+diff --git a/drivers/parport/parport_serial.c b/drivers/parport/parport_serial.c
+index 90ea3b8..bd6ad8b 100644
+--- a/drivers/parport/parport_serial.c
++++ b/drivers/parport/parport_serial.c
+@@ -324,10 +324,9 @@ static int __devinit parport_serial_pci_probe (struct pci_dev *dev,
+ 	struct parport_serial_private *priv;
+ 	int err;
+ 
+-	priv = kmalloc (sizeof *priv, GFP_KERNEL);
++	priv = kzalloc (sizeof *priv, GFP_KERNEL);
+ 	if (!priv)
+ 		return -ENOMEM;
+-	memset(priv, 0, sizeof(struct parport_serial_private));
+ 	pci_set_drvdata (dev, priv);
+ 
+ 	err = pci_enable_device (dev);
+diff --git a/drivers/pci/pcie/aer/aerdrv.c b/drivers/pci/pcie/aer/aerdrv.c
+index 6846fb4..ad90a01 100644
+--- a/drivers/pci/pcie/aer/aerdrv.c
++++ b/drivers/pci/pcie/aer/aerdrv.c
+@@ -148,11 +148,10 @@ static struct aer_rpc* aer_alloc_rpc(struct pcie_device *dev)
+ {
+ 	struct aer_rpc *rpc;
+ 
+-	if (!(rpc = kmalloc(sizeof(struct aer_rpc),
++	if (!(rpc = kzalloc(sizeof(struct aer_rpc),
+ 		GFP_KERNEL)))
+ 		return NULL;
+ 
+-	memset(rpc, 0, sizeof(struct aer_rpc));
+ 	/*
+ 	 * Initialize Root lock access, e_lock, to Root Error Status Reg,
+ 	 * Root Error ID Reg, and Root error producer/consumer index.
+diff --git a/drivers/pnp/core.c b/drivers/pnp/core.c
+index 3e20b1c..8e7b2dd 100644
+--- a/drivers/pnp/core.c
++++ b/drivers/pnp/core.c
+@@ -35,12 +35,11 @@ void *pnp_alloc(long size)
+ {
+ 	void *result;
+ 
+-	result = kmalloc(size, GFP_KERNEL);
++	result = kzalloc(size, GFP_KERNEL);
+ 	if (!result){
+ 		printk(KERN_ERR "pnp: Out of Memory\n");
+ 		return NULL;
+ 	}
+-	memset(result, 0, size);
+ 	return result;
+ }
+ 
+diff --git a/drivers/rapidio/rio-scan.c b/drivers/rapidio/rio-scan.c
+index f935c1f..4442072 100644
+--- a/drivers/rapidio/rio-scan.c
++++ b/drivers/rapidio/rio-scan.c
+@@ -297,11 +297,10 @@ static struct rio_dev *rio_setup_device(struct rio_net *net,
+ 	struct rio_switch *rswitch;
+ 	int result, rdid;
+ 
+-	rdev = kmalloc(sizeof(struct rio_dev), GFP_KERNEL);
++	rdev = kzalloc(sizeof(struct rio_dev), GFP_KERNEL);
+ 	if (!rdev)
+ 		goto out;
+ 
+-	memset(rdev, 0, sizeof(struct rio_dev));
+ 	rdev->net = net;
+ 	rio_mport_read_config_32(port, destid, hopcount, RIO_DEV_ID_CAR,
+ 				 &result);
+@@ -801,9 +800,8 @@ static struct rio_net __devinit *rio_alloc_net(struct rio_mport *port)
+ {
+ 	struct rio_net *net;
+ 
+-	net = kmalloc(sizeof(struct rio_net), GFP_KERNEL);
++	net = kzalloc(sizeof(struct rio_net), GFP_KERNEL);
+ 	if (net) {
+-		memset(net, 0, sizeof(struct rio_net));
+ 		INIT_LIST_HEAD(&net->node);
+ 		INIT_LIST_HEAD(&net->devices);
+ 		INIT_LIST_HEAD(&net->mports);
+diff --git a/drivers/s390/char/tape_34xx.c b/drivers/s390/char/tape_34xx.c
+index e765875..80e7a53 100644
+--- a/drivers/s390/char/tape_34xx.c
++++ b/drivers/s390/char/tape_34xx.c
+@@ -131,10 +131,9 @@ tape_34xx_schedule_work(struct tape_device *device, enum tape_op op)
+ {
+ 	struct tape_34xx_work *p;
+ 
+-	if ((p = kmalloc(sizeof(*p), GFP_ATOMIC)) == NULL)
++	if ((p = kzalloc(sizeof(*p), GFP_ATOMIC)) == NULL)
+ 		return -ENOMEM;
+ 
+-	memset(p, 0, sizeof(*p));
+ 	INIT_WORK(&p->work, tape_34xx_work_handler);
+ 
+ 	p->device = tape_get_device_reference(device);
+diff --git a/drivers/s390/net/claw.c b/drivers/s390/net/claw.c
+index 348bb7b..023455a 100644
+--- a/drivers/s390/net/claw.c
++++ b/drivers/s390/net/claw.c
+@@ -317,8 +317,8 @@ claw_probe(struct ccwgroup_device *cgdev)
+ 		CLAW_DBF_TEXT_(2,setup,"probex%d",-ENOMEM);
+ 		return -ENOMEM;
+ 	}
+-	privptr->p_mtc_envelope= kmalloc( MAX_ENVELOPE_SIZE, GFP_KERNEL);
+-	privptr->p_env = kmalloc(sizeof(struct claw_env), GFP_KERNEL);
++	privptr->p_mtc_envelope= kzalloc( MAX_ENVELOPE_SIZE, GFP_KERNEL);
++	privptr->p_env = kzalloc(sizeof(struct claw_env), GFP_KERNEL);
+         if ((privptr->p_mtc_envelope==NULL) || (privptr->p_env==NULL)) {
+                 probe_error(cgdev);
+ 		put_device(&cgdev->dev);
+@@ -327,8 +327,6 @@ claw_probe(struct ccwgroup_device *cgdev)
+ 		CLAW_DBF_TEXT_(2,setup,"probex%d",-ENOMEM);
+                 return -ENOMEM;
+         }
+-	memset(privptr->p_mtc_envelope, 0x00, MAX_ENVELOPE_SIZE);
+-	memset(privptr->p_env, 0x00, sizeof(struct claw_env));
+ 	memcpy(privptr->p_env->adapter_name,WS_NAME_NOT_DEF,8);
+ 	memcpy(privptr->p_env->host_name,WS_NAME_NOT_DEF,8);
+ 	memcpy(privptr->p_env->api_type,WS_NAME_NOT_DEF,8);
+@@ -3924,7 +3922,7 @@ add_channel(struct ccw_device *cdev,int i,struct claw_privbk *privptr)
+ 	snprintf(p_ch->id, CLAW_ID_SIZE, "cl-%s", cdev->dev.bus_id);
+ 	ccw_device_get_id(cdev, &dev_id);
+ 	p_ch->devno = dev_id.devno;
+-	if ((p_ch->irb = kmalloc(sizeof (struct irb),GFP_KERNEL)) == NULL) {
++	if ((p_ch->irb = kzalloc(sizeof (struct irb),GFP_KERNEL)) == NULL) {
+ 		printk(KERN_WARNING "%s Out of memory in %s for irb\n",
+ 			p_ch->id,__FUNCTION__);
+ #ifdef FUNCTRACE
+@@ -3933,7 +3931,6 @@ add_channel(struct ccw_device *cdev,int i,struct claw_privbk *privptr)
+ #endif
+ 		return -ENOMEM;
+ 	}
+-	memset(p_ch->irb, 0, sizeof (struct irb));
+ #ifdef FUNCTRACE
+         	printk(KERN_INFO "%s:%s Exit on line %d\n",
+ 			cdev->dev.bus_id,__FUNCTION__,__LINE__);
+diff --git a/drivers/sbus/char/bbc_i2c.c b/drivers/sbus/char/bbc_i2c.c
+index 178155b..fbadd4d 100644
+--- a/drivers/sbus/char/bbc_i2c.c
++++ b/drivers/sbus/char/bbc_i2c.c
+@@ -156,10 +156,9 @@ struct bbc_i2c_client *bbc_i2c_attach(struct linux_ebus_child *echild)
+ 
+ 	if (!bp)
+ 		return NULL;
+-	client = kmalloc(sizeof(*client), GFP_KERNEL);
++	client = kzalloc(sizeof(*client), GFP_KERNEL);
+ 	if (!client)
+ 		return NULL;
+-	memset(client, 0, sizeof(*client));
+ 	client->bp = bp;
+ 	client->echild = echild;
+ 	client->bus = echild->resource[0].start;
+diff --git a/drivers/sbus/char/vfc_dev.c b/drivers/sbus/char/vfc_dev.c
+index 6afc7e5..26b1d2a 100644
+--- a/drivers/sbus/char/vfc_dev.c
++++ b/drivers/sbus/char/vfc_dev.c
+@@ -656,12 +656,9 @@ static int vfc_probe(void)
+ 	if (!cards)
+ 		return -ENODEV;
+ 
+-	vfc_dev_lst = kmalloc(sizeof(struct vfc_dev *) *
+-						 (cards+1),
+-						 GFP_KERNEL);
++	vfc_dev_lst = kcalloc(cards + 1, sizeof(struct vfc_dev*), GFP_KERNEL);
+ 	if (vfc_dev_lst == NULL)
+ 		return -ENOMEM;
+-	memset(vfc_dev_lst, 0, sizeof(struct vfc_dev *) * (cards + 1));
+ 	vfc_dev_lst[cards] = NULL;
+ 
+ 	ret = register_chrdev(VFC_MAJOR, vfcstr, &vfc_fops);
+diff --git a/drivers/scsi/3w-9xxx.c b/drivers/scsi/3w-9xxx.c
+index 76c0909..6b49f6a 100644
+--- a/drivers/scsi/3w-9xxx.c
++++ b/drivers/scsi/3w-9xxx.c
+@@ -1160,13 +1160,12 @@ static int twa_initialize_device_extension(TW_Device_Extension *tw_dev)
+ 	}
+ 
+ 	/* Allocate event info space */
+-	tw_dev->event_queue[0] = kmalloc(sizeof(TW_Event) * TW_Q_LENGTH, GFP_KERNEL);
++	tw_dev->event_queue[0] = kcalloc(TW_Q_LENGTH, sizeof(TW_Event), GFP_KERNEL);
+ 	if (!tw_dev->event_queue[0]) {
+ 		TW_PRINTK(tw_dev->host, TW_DRIVER, 0x18, "Event info memory allocation failed");
+ 		goto out;
+ 	}
+ 
+-	memset(tw_dev->event_queue[0], 0, sizeof(TW_Event) * TW_Q_LENGTH);
+ 
+ 	for (i = 0; i < TW_Q_LENGTH; i++) {
+ 		tw_dev->event_queue[i] = (TW_Event *)((unsigned char *)tw_dev->event_queue[0] + (i * sizeof(TW_Event)));
+diff --git a/drivers/scsi/NCR53C9x.c b/drivers/scsi/NCR53C9x.c
+index 8b5334c..773d11d 100644
+--- a/drivers/scsi/NCR53C9x.c
++++ b/drivers/scsi/NCR53C9x.c
+@@ -3606,11 +3606,10 @@ out:
+ int esp_slave_alloc(struct scsi_device *SDptr)
+ {
+ 	struct esp_device *esp_dev =
+-		kmalloc(sizeof(struct esp_device), GFP_ATOMIC);
++		kzalloc(sizeof(struct esp_device), GFP_ATOMIC);
+ 
+ 	if (!esp_dev)
+ 		return -ENOMEM;
+-	memset(esp_dev, 0, sizeof(struct esp_device));
+ 	SDptr->hostdata = esp_dev;
+ 	return 0;
+ }
+diff --git a/drivers/scsi/NCR_D700.c b/drivers/scsi/NCR_D700.c
+index f12864a..3a80897 100644
+--- a/drivers/scsi/NCR_D700.c
++++ b/drivers/scsi/NCR_D700.c
+@@ -181,13 +181,12 @@ NCR_D700_probe_one(struct NCR_D700_private *p, int siop, int irq,
+ 	struct Scsi_Host *host;
+ 	int ret;
+ 
+-	hostdata = kmalloc(sizeof(*hostdata), GFP_KERNEL);
++	hostdata = kzalloc(sizeof(*hostdata), GFP_KERNEL);
+ 	if (!hostdata) {
+ 		printk(KERN_ERR "NCR D700: SIOP%d: Failed to allocate host"
+ 		       "data, detatching\n", siop);
+ 		return -ENOMEM;
+ 	}
+-	memset(hostdata, 0, sizeof(*hostdata));
+ 
+ 	if (!request_region(region, 64, "NCR_D700")) {
+ 		printk(KERN_ERR "NCR D700: Failed to reserve IO region 0x%x\n",
+diff --git a/drivers/scsi/NCR_Q720.c b/drivers/scsi/NCR_Q720.c
+index 778844c..a8bbdc2 100644
+--- a/drivers/scsi/NCR_Q720.c
++++ b/drivers/scsi/NCR_Q720.c
+@@ -148,11 +148,10 @@ NCR_Q720_probe(struct device *dev)
+ 	__u32 base_addr, mem_size;
+ 	void __iomem *mem_base;
+ 
+-	p = kmalloc(sizeof(*p), GFP_KERNEL);
++	p = kzalloc(sizeof(*p), GFP_KERNEL);
+ 	if (!p)
+ 		return -ENOMEM;
+ 
+-	memset(p, 0, sizeof(*p));
+ 	pos2 = mca_device_read_pos(mca_dev, 2);
+ 	/* enable device */
+ 	pos2 |=  NCR_Q720_POS2_BOARD_ENABLE | NCR_Q720_POS2_INTERRUPT_ENABLE;
+diff --git a/drivers/scsi/imm.c b/drivers/scsi/imm.c
+index 0464c18..005d2b0 100644
+--- a/drivers/scsi/imm.c
++++ b/drivers/scsi/imm.c
+@@ -1159,11 +1159,10 @@ static int __imm_attach(struct parport *pb)
+ 
+ 	init_waitqueue_head(&waiting);
+ 
+-	dev = kmalloc(sizeof(imm_struct), GFP_KERNEL);
++	dev = kzalloc(sizeof(imm_struct), GFP_KERNEL);
+ 	if (!dev)
+ 		return -ENOMEM;
+ 
+-	memset(dev, 0, sizeof(imm_struct));
+ 
+ 	dev->base = -1;
+ 	dev->mode = IMM_AUTODETECT;
+diff --git a/drivers/scsi/ips.c b/drivers/scsi/ips.c
+index 9f8ed6b..492a51b 100644
+--- a/drivers/scsi/ips.c
++++ b/drivers/scsi/ips.c
+@@ -7068,14 +7068,13 @@ ips_init_phase1(struct pci_dev *pci_dev, int *indexPtr)
+ 	subdevice_id = pci_dev->subsystem_device;
+ 
+ 	/* found a controller */
+-	ha = kmalloc(sizeof (ips_ha_t), GFP_KERNEL);
++	ha = kzalloc(sizeof (ips_ha_t), GFP_KERNEL);
+ 	if (ha == NULL) {
+ 		IPS_PRINTK(KERN_WARNING, pci_dev,
+ 			   "Unable to allocate temporary ha struct\n");
+ 		return -1;
+ 	}
+ 
+-	memset(ha, 0, sizeof (ips_ha_t));
+ 
+ 	ips_sh[index] = NULL;
+ 	ips_ha[index] = ha;
+diff --git a/drivers/scsi/lasi700.c b/drivers/scsi/lasi700.c
+index 5c32a69..3126824 100644
+--- a/drivers/scsi/lasi700.c
++++ b/drivers/scsi/lasi700.c
+@@ -101,13 +101,12 @@ lasi700_probe(struct parisc_device *dev)
+ 	struct NCR_700_Host_Parameters *hostdata;
+ 	struct Scsi_Host *host;
+ 
+-	hostdata = kmalloc(sizeof(*hostdata), GFP_KERNEL);
++	hostdata = kzalloc(sizeof(*hostdata), GFP_KERNEL);
+ 	if (!hostdata) {
+ 		printk(KERN_ERR "%s: Failed to allocate host data\n",
+ 		       dev->dev.bus_id);
+ 		return -ENOMEM;
+ 	}
+-	memset(hostdata, 0, sizeof(struct NCR_700_Host_Parameters));
+ 
+ 	hostdata->dev = &dev->dev;
+ 	dma_set_mask(&dev->dev, DMA_32BIT_MASK);
+diff --git a/drivers/scsi/lpfc/lpfc_init.c b/drivers/scsi/lpfc/lpfc_init.c
+index f81f85e..07bd0dc 100644
+--- a/drivers/scsi/lpfc/lpfc_init.c
++++ b/drivers/scsi/lpfc/lpfc_init.c
+@@ -1830,7 +1830,7 @@ lpfc_pci_probe_one(struct pci_dev *pdev, const struct pci_device_id *pid)
+ 	/* Initialize and populate the iocb list per host.  */
+ 	INIT_LIST_HEAD(&phba->lpfc_iocb_list);
+ 	for (i = 0; i < LPFC_IOCB_LIST_CNT; i++) {
+-		iocbq_entry = kmalloc(sizeof(struct lpfc_iocbq), GFP_KERNEL);
++		iocbq_entry = kzalloc(sizeof(struct lpfc_iocbq), GFP_KERNEL);
+ 		if (iocbq_entry == NULL) {
+ 			printk(KERN_ERR "%s: only allocated %d iocbs of "
+ 				"expected %d count. Unloading driver.\n",
+@@ -1839,7 +1839,6 @@ lpfc_pci_probe_one(struct pci_dev *pdev, const struct pci_device_id *pid)
+ 			goto out_free_iocbq;
+ 		}
+ 
+-		memset(iocbq_entry, 0, sizeof(struct lpfc_iocbq));
+ 		iotag = lpfc_sli_next_iotag(phba, iocbq_entry);
+ 		if (iotag == 0) {
+ 			kfree (iocbq_entry);
+diff --git a/drivers/scsi/megaraid/megaraid_mbox.c b/drivers/scsi/megaraid/megaraid_mbox.c
+index c46685a..c6a53dc 100644
+--- a/drivers/scsi/megaraid/megaraid_mbox.c
++++ b/drivers/scsi/megaraid/megaraid_mbox.c
+@@ -454,7 +454,7 @@ megaraid_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 	pci_set_master(pdev);
+ 
+ 	// Allocate the per driver initialization structure
+-	adapter = kmalloc(sizeof(adapter_t), GFP_KERNEL);
++	adapter = kzalloc(sizeof(adapter_t), GFP_KERNEL);
+ 
+ 	if (adapter == NULL) {
+ 		con_log(CL_ANN, (KERN_WARNING
+@@ -462,7 +462,6 @@ megaraid_probe_one(struct pci_dev *pdev, const struct pci_device_id *id)
+ 
+ 		goto out_probe_one;
+ 	}
+-	memset(adapter, 0, sizeof(adapter_t));
+ 
+ 
+ 	// set up PCI related soft state and other pre-known parameters
+@@ -746,10 +745,9 @@ megaraid_init_mbox(adapter_t *adapter)
+ 	 * Allocate and initialize the init data structure for mailbox
+ 	 * controllers
+ 	 */
+-	raid_dev = kmalloc(sizeof(mraid_device_t), GFP_KERNEL);
++	raid_dev = kzalloc(sizeof(mraid_device_t), GFP_KERNEL);
+ 	if (raid_dev == NULL) return -1;
+ 
+-	memset(raid_dev, 0, sizeof(mraid_device_t));
+ 
+ 	/*
+ 	 * Attach the adapter soft state to raid device soft state
+@@ -1050,8 +1048,7 @@ megaraid_alloc_cmd_packets(adapter_t *adapter)
+ 	 * since the calling routine does not yet know the number of available
+ 	 * commands.
+ 	 */
+-	adapter->kscb_list = kmalloc(sizeof(scb_t) * MBOX_MAX_SCSI_CMDS,
+-			GFP_KERNEL);
++	adapter->kscb_list = kcalloc(MBOX_MAX_SCSI_CMDS, sizeof(scb_t), GFP_KERNEL);
+ 
+ 	if (adapter->kscb_list == NULL) {
+ 		con_log(CL_ANN, (KERN_WARNING
+@@ -1059,7 +1056,6 @@ megaraid_alloc_cmd_packets(adapter_t *adapter)
+ 			__LINE__));
+ 		goto out_free_ibuf;
+ 	}
+-	memset(adapter->kscb_list, 0, sizeof(scb_t) * MBOX_MAX_SCSI_CMDS);
+ 
+ 	// memory allocation for our command packets
+ 	if (megaraid_mbox_setup_dma_pools(adapter) != 0) {
+@@ -3495,8 +3491,7 @@ megaraid_cmm_register(adapter_t *adapter)
+ 	int		i;
+ 
+ 	// Allocate memory for the base list of scb for management module.
+-	adapter->uscb_list = kmalloc(sizeof(scb_t) * MBOX_MAX_USER_CMDS,
+-			GFP_KERNEL);
++	adapter->uscb_list = kcalloc(MBOX_MAX_USER_CMDS, sizeof(scb_t), GFP_KERNEL);
+ 
+ 	if (adapter->uscb_list == NULL) {
+ 		con_log(CL_ANN, (KERN_WARNING
+@@ -3504,7 +3499,6 @@ megaraid_cmm_register(adapter_t *adapter)
+ 			__LINE__));
+ 		return -1;
+ 	}
+-	memset(adapter->uscb_list, 0, sizeof(scb_t) * MBOX_MAX_USER_CMDS);
+ 
+ 
+ 	// Initialize the synchronization parameters for resources for
+diff --git a/drivers/scsi/megaraid/megaraid_mm.c b/drivers/scsi/megaraid/megaraid_mm.c
+index 84d9c27..b6587a6 100644
+--- a/drivers/scsi/megaraid/megaraid_mm.c
++++ b/drivers/scsi/megaraid/megaraid_mm.c
+@@ -890,12 +890,11 @@ mraid_mm_register_adp(mraid_mmadp_t *lld_adp)
+ 	if (lld_adp->drvr_type != DRVRTYPE_MBOX)
+ 		return (-EINVAL);
+ 
+-	adapter = kmalloc(sizeof(mraid_mmadp_t), GFP_KERNEL);
++	adapter = kzalloc(sizeof(mraid_mmadp_t), GFP_KERNEL);
+ 
+ 	if (!adapter)
+ 		return -ENOMEM;
+ 
+-	memset(adapter, 0, sizeof(mraid_mmadp_t));
+ 
+ 	adapter->unique_id	= lld_adp->unique_id;
+ 	adapter->drvr_type	= lld_adp->drvr_type;
+diff --git a/drivers/scsi/megaraid/megaraid_sas.c b/drivers/scsi/megaraid/megaraid_sas.c
+index b7f2e61..ebb948c 100644
+--- a/drivers/scsi/megaraid/megaraid_sas.c
++++ b/drivers/scsi/megaraid/megaraid_sas.c
+@@ -1636,15 +1636,13 @@ static int megasas_alloc_cmds(struct megasas_instance *instance)
+ 	 * Allocate the dynamic array first and then allocate individual
+ 	 * commands.
+ 	 */
+-	instance->cmd_list = kmalloc(sizeof(struct megasas_cmd *) * max_cmd,
+-				     GFP_KERNEL);
++	instance->cmd_list = kcalloc(max_cmd, sizeof(struct megasas_cmd*), GFP_KERNEL);
+ 
+ 	if (!instance->cmd_list) {
+ 		printk(KERN_DEBUG "megasas: out of memory\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(instance->cmd_list, 0, sizeof(struct megasas_cmd *) * max_cmd);
+ 
+ 	for (i = 0; i < max_cmd; i++) {
+ 		instance->cmd_list[i] = kmalloc(sizeof(struct megasas_cmd),
+diff --git a/drivers/scsi/pcmcia/aha152x_stub.c b/drivers/scsi/pcmcia/aha152x_stub.c
+index 370802d..2dd0dc9 100644
+--- a/drivers/scsi/pcmcia/aha152x_stub.c
++++ b/drivers/scsi/pcmcia/aha152x_stub.c
+@@ -106,9 +106,8 @@ static int aha152x_probe(struct pcmcia_device *link)
+     DEBUG(0, "aha152x_attach()\n");
+ 
+     /* Create new SCSI device */
+-    info = kmalloc(sizeof(*info), GFP_KERNEL);
++    info = kzalloc(sizeof(*info), GFP_KERNEL);
+     if (!info) return -ENOMEM;
+-    memset(info, 0, sizeof(*info));
+     info->p_dev = link;
+     link->priv = info;
+ 
+diff --git a/drivers/scsi/pcmcia/nsp_cs.c b/drivers/scsi/pcmcia/nsp_cs.c
+index c6f8c6e..445cfbb 100644
+--- a/drivers/scsi/pcmcia/nsp_cs.c
++++ b/drivers/scsi/pcmcia/nsp_cs.c
+@@ -1602,9 +1602,8 @@ static int nsp_cs_probe(struct pcmcia_device *link)
+ 	nsp_dbg(NSP_DEBUG_INIT, "in");
+ 
+ 	/* Create new SCSI device */
+-	info = kmalloc(sizeof(*info), GFP_KERNEL);
++	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (info == NULL) { return -ENOMEM; }
+-	memset(info, 0, sizeof(*info));
+ 	info->p_dev = link;
+ 	link->priv = info;
+ 	data->ScsiInfo = info;
+diff --git a/drivers/scsi/pcmcia/qlogic_stub.c b/drivers/scsi/pcmcia/qlogic_stub.c
+index 697cfb7..67c5a58 100644
+--- a/drivers/scsi/pcmcia/qlogic_stub.c
++++ b/drivers/scsi/pcmcia/qlogic_stub.c
+@@ -162,10 +162,9 @@ static int qlogic_probe(struct pcmcia_device *link)
+ 	DEBUG(0, "qlogic_attach()\n");
+ 
+ 	/* Create new SCSI device */
+-	info = kmalloc(sizeof(*info), GFP_KERNEL);
++	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info)
+ 		return -ENOMEM;
+-	memset(info, 0, sizeof(*info));
+ 	info->p_dev = link;
+ 	link->priv = info;
+ 	link->io.NumPorts1 = 16;
+diff --git a/drivers/scsi/pcmcia/sym53c500_cs.c b/drivers/scsi/pcmcia/sym53c500_cs.c
+index 2695b71..961839e 100644
+--- a/drivers/scsi/pcmcia/sym53c500_cs.c
++++ b/drivers/scsi/pcmcia/sym53c500_cs.c
+@@ -875,10 +875,9 @@ SYM53C500_probe(struct pcmcia_device *link)
+ 	DEBUG(0, "SYM53C500_attach()\n");
+ 
+ 	/* Create new SCSI device */
+-	info = kmalloc(sizeof(*info), GFP_KERNEL);
++	info = kzalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info)
+ 		return -ENOMEM;
+-	memset(info, 0, sizeof(*info));
+ 	info->p_dev = link;
+ 	link->priv = info;
+ 	link->io.NumPorts1 = 16;
+diff --git a/drivers/scsi/ppa.c b/drivers/scsi/ppa.c
+index 2f1fa1e..67b6d76 100644
+--- a/drivers/scsi/ppa.c
++++ b/drivers/scsi/ppa.c
+@@ -1014,10 +1014,9 @@ static int __ppa_attach(struct parport *pb)
+ 	int modes, ppb, ppb_hi;
+ 	int err = -ENOMEM;
+ 
+-	dev = kmalloc(sizeof(ppa_struct), GFP_KERNEL);
++	dev = kzalloc(sizeof(ppa_struct), GFP_KERNEL);
+ 	if (!dev)
+ 		return -ENOMEM;
+-	memset(dev, 0, sizeof(ppa_struct));
+ 	dev->base = -1;
+ 	dev->mode = PPA_AUTODETECT;
+ 	dev->recon_tmo = PPA_RECON_TMO;
+diff --git a/drivers/scsi/sim710.c b/drivers/scsi/sim710.c
+index 018c65f..710f19d 100644
+--- a/drivers/scsi/sim710.c
++++ b/drivers/scsi/sim710.c
+@@ -100,7 +100,7 @@ sim710_probe_common(struct device *dev, unsigned long base_addr,
+ {
+ 	struct Scsi_Host * host = NULL;
+ 	struct NCR_700_Host_Parameters *hostdata =
+-		kmalloc(sizeof(struct NCR_700_Host_Parameters),	GFP_KERNEL);
++		kzalloc(sizeof(struct NCR_700_Host_Parameters),	GFP_KERNEL);
+ 
+ 	printk(KERN_NOTICE "sim710: %s\n", dev->bus_id);
+ 	printk(KERN_NOTICE "sim710: irq = %d, clock = %d, base = 0x%lx, scsi_id = %d\n",
+@@ -110,7 +110,6 @@ sim710_probe_common(struct device *dev, unsigned long base_addr,
+ 		printk(KERN_ERR "sim710: Failed to allocate host data\n");
+ 		goto out;
+ 	}
+-	memset(hostdata, 0, sizeof(struct NCR_700_Host_Parameters));
+ 
+ 	if(request_region(base_addr, 64, "sim710") == NULL) {
+ 		printk(KERN_ERR "sim710: Failed to reserve IO region 0x%lx\n",
+diff --git a/drivers/scsi/tmscsim.c b/drivers/scsi/tmscsim.c
+index 14cba1c..5db1520 100644
+--- a/drivers/scsi/tmscsim.c
++++ b/drivers/scsi/tmscsim.c
+@@ -2082,10 +2082,9 @@ static int dc390_slave_alloc(struct scsi_device *scsi_device)
+ 	uint id = scsi_device->id;
+ 	uint lun = scsi_device->lun;
+ 
+-	pDCB = kmalloc(sizeof(struct dc390_dcb), GFP_KERNEL);
++	pDCB = kzalloc(sizeof(struct dc390_dcb), GFP_KERNEL);
+ 	if (!pDCB)
+ 		return -ENOMEM;
+-	memset(pDCB, 0, sizeof(struct dc390_dcb));
+ 
+ 	if (!pACB->DCBCnt++) {
+ 		pACB->pLinkDCB = pDCB;
+diff --git a/drivers/serial/amba-pl011.c b/drivers/serial/amba-pl011.c
+index 954073c..72229df 100644
+--- a/drivers/serial/amba-pl011.c
++++ b/drivers/serial/amba-pl011.c
+@@ -716,7 +716,7 @@ static int pl011_probe(struct amba_device *dev, void *id)
+ 		goto out;
+ 	}
+ 
+-	uap = kmalloc(sizeof(struct uart_amba_port), GFP_KERNEL);
++	uap = kzalloc(sizeof(struct uart_amba_port), GFP_KERNEL);
+ 	if (uap == NULL) {
+ 		ret = -ENOMEM;
+ 		goto out;
+@@ -728,7 +728,6 @@ static int pl011_probe(struct amba_device *dev, void *id)
+ 		goto free;
+ 	}
+ 
+-	memset(uap, 0, sizeof(struct uart_amba_port));
+ 	uap->clk = clk_get(&dev->dev, "UARTCLK");
+ 	if (IS_ERR(uap->clk)) {
+ 		ret = PTR_ERR(uap->clk);
+diff --git a/drivers/sh/superhyway/superhyway.c b/drivers/sh/superhyway/superhyway.c
+index 94b2290..7d873b3 100644
+--- a/drivers/sh/superhyway/superhyway.c
++++ b/drivers/sh/superhyway/superhyway.c
+@@ -56,11 +56,10 @@ int superhyway_add_device(unsigned long base, struct superhyway_device *sdev,
+ 	struct superhyway_device *dev = sdev;
+ 
+ 	if (!dev) {
+-		dev = kmalloc(sizeof(struct superhyway_device), GFP_KERNEL);
++		dev = kzalloc(sizeof(struct superhyway_device), GFP_KERNEL);
+ 		if (!dev)
+ 			return -ENOMEM;
+ 
+-		memset(dev, 0, sizeof(struct superhyway_device));
+ 	}
+ 
+ 	dev->bus = bus;
+diff --git a/drivers/sn/ioc3.c b/drivers/sn/ioc3.c
+index 2dd6eed..29fcd6d 100644
+--- a/drivers/sn/ioc3.c
++++ b/drivers/sn/ioc3.c
+@@ -629,7 +629,7 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ #endif
+ 
+ 	/* Set up per-IOC3 data */
+-	idd = kmalloc(sizeof(struct ioc3_driver_data), GFP_KERNEL);
++	idd = kzalloc(sizeof(struct ioc3_driver_data), GFP_KERNEL);
+ 	if (!idd) {
+ 		printk(KERN_WARNING
+ 		       "%s: Failed to allocate IOC3 data for pci_dev %s.\n",
+@@ -637,7 +637,6 @@ static int ioc3_probe(struct pci_dev *pdev, const struct pci_device_id *pci_id)
+ 		ret = -ENODEV;
+ 		goto out_idd;
+ 	}
+-	memset(idd, 0, sizeof(struct ioc3_driver_data));
+ 	spin_lock_init(&idd->ir_lock);
+ 	spin_lock_init(&idd->gpio_lock);
+ 	idd->pdev = pdev;
+diff --git a/drivers/telephony/ixj_pcmcia.c b/drivers/telephony/ixj_pcmcia.c
+index 3e658dc..ff9a29b 100644
+--- a/drivers/telephony/ixj_pcmcia.c
++++ b/drivers/telephony/ixj_pcmcia.c
+@@ -45,11 +45,10 @@ static int ixj_probe(struct pcmcia_device *p_dev)
+ 	p_dev->io.Attributes2 = IO_DATA_PATH_WIDTH_8;
+ 	p_dev->io.IOAddrLines = 3;
+ 	p_dev->conf.IntType = INT_MEMORY_AND_IO;
+-	p_dev->priv = kmalloc(sizeof(struct ixj_info_t), GFP_KERNEL);
++	p_dev->priv = kzalloc(sizeof(struct ixj_info_t), GFP_KERNEL);
+ 	if (!p_dev->priv) {
+ 		return -ENOMEM;
+ 	}
+-	memset(p_dev->priv, 0, sizeof(struct ixj_info_t));
+ 
+ 	return ixj_config(p_dev);
+ }
+diff --git a/drivers/video/amba-clcd.c b/drivers/video/amba-clcd.c
+index 6c9dc2e..a7a1c89 100644
+--- a/drivers/video/amba-clcd.c
++++ b/drivers/video/amba-clcd.c
+@@ -447,13 +447,12 @@ static int clcdfb_probe(struct amba_device *dev, void *id)
+ 		goto out;
+ 	}
+ 
+-	fb = kmalloc(sizeof(struct clcd_fb), GFP_KERNEL);
++	fb = kzalloc(sizeof(struct clcd_fb), GFP_KERNEL);
+ 	if (!fb) {
+ 		printk(KERN_INFO "CLCD: could not allocate new clcd_fb struct\n");
+ 		ret = -ENOMEM;
+ 		goto free_region;
+ 	}
+-	memset(fb, 0, sizeof(struct clcd_fb));
+ 
+ 	fb->dev = dev;
+ 	fb->board = board;
+diff --git a/drivers/video/aty/atyfb_base.c b/drivers/video/aty/atyfb_base.c
+index ef330e3..0c7bf75 100644
+--- a/drivers/video/aty/atyfb_base.c
++++ b/drivers/video/aty/atyfb_base.c
+@@ -2937,12 +2937,11 @@ static int __devinit atyfb_setup_sparc(struct pci_dev *pdev,
+ 		/* nothing */ ;
+ 	j = i + 4;
+ 
+-	par->mmap_map = kmalloc(j * sizeof(*par->mmap_map), GFP_ATOMIC);
++	par->mmap_map = kcalloc(j, sizeof(*par->mmap_map), GFP_ATOMIC);
+ 	if (!par->mmap_map) {
+ 		PRINTKE("atyfb_setup_sparc() can't alloc mmap_map\n");
+ 		return -ENOMEM;
+ 	}
+-	memset(par->mmap_map, 0, j * sizeof(*par->mmap_map));
+ 
+ 	for (i = 0, j = 2; i < 6 && pdev->resource[i].start; i++) {
+ 		struct resource *rp = &pdev->resource[i];
+diff --git a/drivers/video/au1200fb.c b/drivers/video/au1200fb.c
+index dbf4ec3..03e57ef 100644
+--- a/drivers/video/au1200fb.c
++++ b/drivers/video/au1200fb.c
+@@ -1589,11 +1589,10 @@ static int au1200fb_init_fbinfo(struct au1200fb_device *fbdev)
+ 		return -EFAULT;
+ 	}
+ 
+-	fbi->pseudo_palette = kmalloc(sizeof(u32) * 16, GFP_KERNEL);
++	fbi->pseudo_palette = kcalloc(16, sizeof(u32), GFP_KERNEL);
+ 	if (!fbi->pseudo_palette) {
+ 		return -ENOMEM;
+ 	}
+-	memset(fbi->pseudo_palette, 0, sizeof(u32) * 16);
+ 
+ 	if (fb_alloc_cmap(&fbi->cmap, AU1200_LCD_NBR_PALETTE_ENTRIES, 0) < 0) {
+ 		print_err("Fail to allocate colormap (%d entries)",
+diff --git a/drivers/video/clps711xfb.c b/drivers/video/clps711xfb.c
+index 50b78af..dea6579 100644
+--- a/drivers/video/clps711xfb.c
++++ b/drivers/video/clps711xfb.c
+@@ -366,11 +366,10 @@ int __init clps711xfb_init(void)
+ 	if (fb_get_options("clps711xfb", NULL))
+ 		return -ENODEV;
+ 
+-	cfb = kmalloc(sizeof(*cfb), GFP_KERNEL);
++	cfb = kzalloc(sizeof(*cfb), GFP_KERNEL);
+ 	if (!cfb)
+ 		goto out;
+ 
+-	memset(cfb, 0, sizeof(*cfb));
+ 	strcpy(cfb->fix.id, "clps711x");
+ 
+ 	cfb->fbops		= &clps7111fb_ops;
+diff --git a/drivers/video/cyber2000fb.c b/drivers/video/cyber2000fb.c
+index 7a6eeda..30ede6e 100644
+--- a/drivers/video/cyber2000fb.c
++++ b/drivers/video/cyber2000fb.c
+@@ -1221,11 +1221,10 @@ cyberpro_alloc_fb_info(unsigned int id, char *name)
+ {
+ 	struct cfb_info *cfb;
+ 
+-	cfb = kmalloc(sizeof(struct cfb_info), GFP_KERNEL);
++	cfb = kzalloc(sizeof(struct cfb_info), GFP_KERNEL);
+ 	if (!cfb)
+ 		return NULL;
+ 
+-	memset(cfb, 0, sizeof(struct cfb_info));
+ 
+ 	cfb->id			= id;
+ 
+diff --git a/drivers/video/pvr2fb.c b/drivers/video/pvr2fb.c
+index 0f88c30..f930026 100644
+--- a/drivers/video/pvr2fb.c
++++ b/drivers/video/pvr2fb.c
+@@ -1082,13 +1082,12 @@ static int __init pvr2fb_init(void)
+ #endif
+ 	size = sizeof(struct fb_info) + sizeof(struct pvr2fb_par) + 16 * sizeof(u32);
+ 
+-	fb_info = kmalloc(size, GFP_KERNEL);
++	fb_info = kzalloc(size, GFP_KERNEL);
+ 	if (!fb_info) {
+ 		printk(KERN_ERR "Failed to allocate memory for fb_info\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(fb_info, 0, size);
+ 
+ 	currentpar = (struct pvr2fb_par *)(fb_info + 1);
+ 
+diff --git a/drivers/video/savage/savagefb_driver.c b/drivers/video/savage/savagefb_driver.c
+index 3d7507a..b855f4a 100644
+--- a/drivers/video/savage/savagefb_driver.c
++++ b/drivers/video/savage/savagefb_driver.c
+@@ -2174,11 +2174,10 @@ static int __devinit savage_init_fb_info(struct fb_info *info,
+ 
+ #if defined(CONFIG_FB_SAVAGE_ACCEL)
+ 	/* FIFO size + padding for commands */
+-	info->pixmap.addr = kmalloc(8*1024, GFP_KERNEL);
++	info->pixmap.addr = kcalloc(8, 1024, GFP_KERNEL);
+ 
+ 	err = -ENOMEM;
+ 	if (info->pixmap.addr) {
+-		memset(info->pixmap.addr, 0, 8*1024);
+ 		info->pixmap.size = 8*1024;
+ 		info->pixmap.scan_align = 4;
+ 		info->pixmap.buf_align = 4;
+diff --git a/drivers/video/valkyriefb.c b/drivers/video/valkyriefb.c
+index ad66f07..7b0cef9 100644
+--- a/drivers/video/valkyriefb.c
++++ b/drivers/video/valkyriefb.c
+@@ -356,10 +356,9 @@ int __init valkyriefb_init(void)
+ 	}
+ #endif /* ppc (!CONFIG_MAC) */
+ 
+-	p = kmalloc(sizeof(*p), GFP_ATOMIC);
++	p = kzalloc(sizeof(*p), GFP_ATOMIC);
+ 	if (p == 0)
+ 		return -ENOMEM;
+-	memset(p, 0, sizeof(*p));
+ 
+ 	/* Map in frame buffer and registers */
+ 	if (!request_mem_region(frame_buffer_phys, 0x100000, "valkyriefb")) {
+diff --git a/drivers/w1/masters/matrox_w1.c b/drivers/w1/masters/matrox_w1.c
+index 6f9d880..d356da5 100644
+--- a/drivers/w1/masters/matrox_w1.c
++++ b/drivers/w1/masters/matrox_w1.c
+@@ -164,7 +164,7 @@ static int __devinit matrox_w1_probe(struct pci_dev *pdev, const struct pci_devi
+ 	if (pdev->vendor != PCI_VENDOR_ID_MATROX || pdev->device != PCI_DEVICE_ID_MATROX_G400)
+ 		return -ENODEV;
+ 
+-	dev = kmalloc(sizeof(struct matrox_device) +
++	dev = kzalloc(sizeof(struct matrox_device) +
+ 		       sizeof(struct w1_bus_master), GFP_KERNEL);
+ 	if (!dev) {
+ 		dev_err(&pdev->dev,
+@@ -173,7 +173,6 @@ static int __devinit matrox_w1_probe(struct pci_dev *pdev, const struct pci_devi
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(dev, 0, sizeof(struct matrox_device) + sizeof(struct w1_bus_master));
+ 
+ 	dev->bus_master = (struct w1_bus_master *)(dev + 1);
+ 
+diff --git a/drivers/w1/slaves/w1_ds2433.c b/drivers/w1/slaves/w1_ds2433.c
+index cab5600..858c16a 100644
+--- a/drivers/w1/slaves/w1_ds2433.c
++++ b/drivers/w1/slaves/w1_ds2433.c
+@@ -266,10 +266,9 @@ static int w1_f23_add_slave(struct w1_slave *sl)
+ #ifdef CONFIG_W1_SLAVE_DS2433_CRC
+ 	struct w1_f23_data *data;
+ 
+-	data = kmalloc(sizeof(struct w1_f23_data), GFP_KERNEL);
++	data = kzalloc(sizeof(struct w1_f23_data), GFP_KERNEL);
+ 	if (!data)
+ 		return -ENOMEM;
+-	memset(data, 0, sizeof(struct w1_f23_data));
+ 	sl->family_data = data;
+ 
+ #endif	/* CONFIG_W1_SLAVE_DS2433_CRC */
+diff --git a/drivers/w1/w1.c b/drivers/w1/w1.c
+index c633210..8d7ab74 100644
+--- a/drivers/w1/w1.c
++++ b/drivers/w1/w1.c
+@@ -520,7 +520,7 @@ static int w1_attach_slave_device(struct w1_master *dev, struct w1_reg_num *rn)
+ 	int err;
+ 	struct w1_netlink_msg msg;
+ 
+-	sl = kmalloc(sizeof(struct w1_slave), GFP_KERNEL);
++	sl = kzalloc(sizeof(struct w1_slave), GFP_KERNEL);
+ 	if (!sl) {
+ 		dev_err(&dev->dev,
+ 			 "%s: failed to allocate new slave device.\n",
+@@ -528,7 +528,6 @@ static int w1_attach_slave_device(struct w1_master *dev, struct w1_reg_num *rn)
+ 		return -ENOMEM;
+ 	}
+ 
+-	memset(sl, 0, sizeof(*sl));
+ 
+ 	sl->owner = THIS_MODULE;
+ 	sl->master = dev;
+diff --git a/drivers/w1/w1_int.c b/drivers/w1/w1_int.c
+index 258defd..2fbd8dd 100644
+--- a/drivers/w1/w1_int.c
++++ b/drivers/w1/w1_int.c
+@@ -41,7 +41,7 @@ static struct w1_master * w1_alloc_dev(u32 id, int slave_count, int slave_ttl,
+ 	/*
+ 	 * We are in process context(kernel thread), so can sleep.
+ 	 */
+-	dev = kmalloc(sizeof(struct w1_master) + sizeof(struct w1_bus_master), GFP_KERNEL);
++	dev = kzalloc(sizeof(struct w1_master) + sizeof(struct w1_bus_master), GFP_KERNEL);
+ 	if (!dev) {
+ 		printk(KERN_ERR
+ 			"Failed to allocate %zd bytes for new w1 device.\n",
+@@ -49,7 +49,6 @@ static struct w1_master * w1_alloc_dev(u32 id, int slave_count, int slave_ttl,
+ 		return NULL;
+ 	}
+ 
+-	memset(dev, 0, sizeof(struct w1_master) + sizeof(struct w1_bus_master));
+ 
+ 	dev->bus_master = (struct w1_bus_master *)(dev + 1);
+ 
+diff --git a/fs/dlm/memory.c b/fs/dlm/memory.c
+index f858fef..fb9e2ee 100644
+--- a/fs/dlm/memory.c
++++ b/fs/dlm/memory.c
+@@ -39,9 +39,7 @@ char *allocate_lvb(struct dlm_ls *ls)
+ {
+ 	char *p;
+ 
+-	p = kmalloc(ls->ls_lvblen, GFP_KERNEL);
+-	if (p)
+-		memset(p, 0, ls->ls_lvblen);
++	p = kzalloc(ls->ls_lvblen, GFP_KERNEL);
+ 	return p;
+ }
+ 
+@@ -59,9 +57,7 @@ struct dlm_rsb *allocate_rsb(struct dlm_ls *ls, int namelen)
+ 
+ 	DLM_ASSERT(namelen <= DLM_RESNAME_MAXLEN,);
+ 
+-	r = kmalloc(sizeof(*r) + namelen, GFP_KERNEL);
+-	if (r)
+-		memset(r, 0, sizeof(*r) + namelen);
++	r = kzalloc(sizeof(*r) + namelen, GFP_KERNEL);
+ 	return r;
+ }
+ 
+@@ -101,9 +97,7 @@ struct dlm_direntry *allocate_direntry(struct dlm_ls *ls, int namelen)
+ 	DLM_ASSERT(namelen <= DLM_RESNAME_MAXLEN,
+ 		   printk("namelen = %d\n", namelen););
+ 
+-	de = kmalloc(sizeof(*de) + namelen, GFP_KERNEL);
+-	if (de)
+-		memset(de, 0, sizeof(*de) + namelen);
++	de = kzalloc(sizeof(*de) + namelen, GFP_KERNEL);
+ 	return de;
+ }
+ 
+diff --git a/fs/ext2/super.c b/fs/ext2/super.c
+index 3eefa97..a6b1072 100644
+--- a/fs/ext2/super.c
++++ b/fs/ext2/super.c
+@@ -883,13 +883,11 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
+ 		goto failed_mount;
+ 	}
+ 	bgl_lock_init(&sbi->s_blockgroup_lock);
+-	sbi->s_debts = kmalloc(sbi->s_groups_count * sizeof(*sbi->s_debts),
+-			       GFP_KERNEL);
++	sbi->s_debts = kcalloc(sbi->s_groups_count, sizeof(*sbi->s_debts), GFP_KERNEL);
+ 	if (!sbi->s_debts) {
+ 		printk ("EXT2-fs: not enough memory\n");
+ 		goto failed_mount_group_desc;
+ 	}
+-	memset(sbi->s_debts, 0, sbi->s_groups_count * sizeof(*sbi->s_debts));
+ 	for (i = 0; i < db_count; i++) {
+ 		block = descriptor_loc(sb, logic_sb_block, i);
+ 		sbi->s_group_desc[i] = sb_bread(sb, block);
+diff --git a/fs/partitions/check.c b/fs/partitions/check.c
+index 98e0b85..783c57e 100644
+--- a/fs/partitions/check.c
++++ b/fs/partitions/check.c
+@@ -372,11 +372,10 @@ void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len,
+ {
+ 	struct hd_struct *p;
+ 
+-	p = kmalloc(sizeof(*p), GFP_KERNEL);
++	p = kzalloc(sizeof(*p), GFP_KERNEL);
+ 	if (!p)
+ 		return;
+ 	
+-	memset(p, 0, sizeof(*p));
+ 	p->start_sect = start;
+ 	p->nr_sects = len;
+ 	p->partno = part;
+diff --git a/fs/proc/vmcore.c b/fs/proc/vmcore.c
+index 5edcc3f..0872afa 100644
+--- a/fs/proc/vmcore.c
++++ b/fs/proc/vmcore.c
+@@ -166,12 +166,7 @@ static const struct file_operations proc_vmcore_operations = {
+ 
+ static struct vmcore* __init get_new_element(void)
+ {
+-	struct vmcore *p;
+-
+-	p = kmalloc(sizeof(*p), GFP_KERNEL);
+-	if (p)
+-		memset(p, 0, sizeof(*p));
+-	return p;
++	return kzalloc(sizeof(struct vmcore), GFP_KERNEL);
+ }
+ 
+ static u64 __init get_vmcore_size_elf64(char *elfptr)
+diff --git a/net/mac80211/ieee80211_rate.c b/net/mac80211/ieee80211_rate.c
+index 16e8508..2118de0 100644
+--- a/net/mac80211/ieee80211_rate.c
++++ b/net/mac80211/ieee80211_rate.c
+@@ -24,11 +24,10 @@ int ieee80211_rate_control_register(struct rate_control_ops *ops)
+ {
+ 	struct rate_control_alg *alg;
+ 
+-	alg = kmalloc(sizeof(*alg), GFP_KERNEL);
++	alg = kzalloc(sizeof(*alg), GFP_KERNEL);
+ 	if (alg == NULL) {
+ 		return -ENOMEM;
+ 	}
+-	memset(alg, 0, sizeof(*alg));
+ 	alg->ops = ops;
+ 
+ 	mutex_lock(&rate_ctrl_mutex);
+diff --git a/net/mac80211/ieee80211_sta.c b/net/mac80211/ieee80211_sta.c
+index ba2bf8f..22b1178 100644
+--- a/net/mac80211/ieee80211_sta.c
++++ b/net/mac80211/ieee80211_sta.c
+@@ -1327,10 +1327,9 @@ ieee80211_rx_bss_add(struct net_device *dev, u8 *bssid)
+ 	struct ieee80211_local *local = wdev_priv(dev->ieee80211_ptr);
+ 	struct ieee80211_sta_bss *bss;
+ 
+-	bss = kmalloc(sizeof(*bss), GFP_ATOMIC);
++	bss = kzalloc(sizeof(*bss), GFP_ATOMIC);
+ 	if (!bss)
+ 		return NULL;
+-	memset(bss, 0, sizeof(*bss));
+ 	atomic_inc(&bss->users);
+ 	atomic_inc(&bss->users);
+ 	memcpy(bss->bssid, bssid, ETH_ALEN);
+diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
+index 9dfc912..d8473ee 100644
+--- a/net/tipc/name_table.c
++++ b/net/tipc/name_table.c
+@@ -1052,12 +1052,11 @@ int tipc_nametbl_init(void)
+ {
+ 	int array_size = sizeof(struct hlist_head) * tipc_nametbl_size;
+ 
+-	table.types = kmalloc(array_size, GFP_ATOMIC);
++	table.types = kzalloc(array_size, GFP_ATOMIC);
+ 	if (!table.types)
+ 		return -ENOMEM;
+ 
+ 	write_lock_bh(&tipc_nametbl_lock);
+-	memset(table.types, 0, array_size);
+ 	table.local_publ_count = 0;
+ 	write_unlock_bh(&tipc_nametbl_lock);
+ 	return 0;
+diff --git a/sound/core/seq/seq_virmidi.c b/sound/core/seq/seq_virmidi.c
+index 061a7c6..e11790f 100644
+--- a/sound/core/seq/seq_virmidi.c
++++ b/sound/core/seq/seq_virmidi.c
+@@ -363,7 +363,7 @@ static int snd_virmidi_dev_attach_seq(struct snd_virmidi_dev *rdev)
+ 	if (rdev->client >= 0)
+ 		return 0;
+ 
+-	pinfo = kmalloc(sizeof(*pinfo), GFP_KERNEL);
++	pinfo = kzalloc(sizeof(*pinfo), GFP_KERNEL);
+ 	if (!pinfo) {
+ 		err = -ENOMEM;
+ 		goto __error;
+@@ -380,7 +380,6 @@ static int snd_virmidi_dev_attach_seq(struct snd_virmidi_dev *rdev)
+ 	rdev->client = client;
+ 
+ 	/* create a port */
+-	memset(pinfo, 0, sizeof(*pinfo));
+ 	pinfo->addr.client = client;
+ 	sprintf(pinfo->name, "VirMIDI %d-%d", rdev->card->number, rdev->device);
+ 	/* set all capabilities */
+-- 
+1.7.5.2

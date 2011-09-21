@@ -1,0 +1,83 @@
+diff -urBp mjpg-streamer/mjpg-streamer/mjpg_streamer.c mjpg-streamer.pidfile/mjpg-streamer/mjpg_streamer.c
+--- mjpg-streamer/mjpg-streamer/mjpg_streamer.c	2010-09-15 13:38:49.000000000 +0400
++++ mjpg-streamer.pidfile/mjpg-streamer/mjpg_streamer.c	2010-09-16 19:27:25.000000000 +0400
+@@ -62,7 +62,8 @@ void help(char *progname)
+                   "  -o | --output \"<output-plugin.so> [parameters]\"\n" \
+                   " [-h | --help ]........: display this help\n" \
+                   " [-v | --version ].....: display version information\n" \
+-                  " [-b | --background]...: fork to the background, daemon mode\n", progname);
++                  " [-b | --background]...: fork to the background, daemon mode\n" \
++                  " [-p | --pidfile <filename>]\n", progname);
+   fprintf(stderr, "-----------------------------------------------------------------------\n");
+   fprintf(stderr, "Example #1:\n" \
+                   " To open an UVC webcam \"/dev/video1\" and stream it via HTTP:\n" \
+@@ -139,6 +140,10 @@ void signal_handler(int sig)
+   LOG("done\n");
+ 
+   closelog();
++  if (global.pidfile) {
++    unlink(global.pidfile);
++    free(global.pidfile);
++  }
+   exit(0);
+   return;
+ }
+@@ -198,6 +201,7 @@ int main(int argc, char *argv[])
+   global.outcnt = 0;
+ 
+   global.control = control;
++  global.pidfile = NULL;
+ 
+   /* parameter parsing */
+   while(1) {
+@@ -214,6 +218,8 @@ int main(int argc, char *argv[])
+       {"version", no_argument, 0, 0},
+       {"b", no_argument, 0, 0},
+       {"background", no_argument, 0, 0},
++      {"p", required_argument, 0, 0},
++      {"pidfile", required_argument, 0, 0},
+       {0, 0, 0, 0}
+     };
+ 
+@@ -260,6 +266,12 @@ int main(int argc, char *argv[])
+         daemon=1;
+         break;
+ 
++      /* p, pidfile */
++      case 10:
++      case 11:
++        global.pidfile = strdup(optarg);
++        break;
++
+       default:
+         help(argv[0]);
+         return 0;
+@@ -394,6 +406,17 @@ int main(int argc, char *argv[])
+     global.out[i].run(global.out[i].param.id);
+   }
+ 
++  if (global.pidfile) {
++    FILE *fp;
++    pid_t mypid = getpid();
++
++    if ((fp=fopen(global.pidfile, "w")) != NULL)
++    {
++        fprintf(fp, "%d", mypid);
++        fclose(fp);
++    }
++  }
++
+   /* wait for signals */
+   pause();
+ 
+diff -urBp mjpg-streamer/mjpg-streamer/mjpg_streamer.h mjpg-streamer.pidfile/mjpg-streamer/mjpg_streamer.h
+--- mjpg-streamer/mjpg-streamer/mjpg_streamer.h	2010-07-11 18:18:18.000000000 +0400
++++ mjpg-streamer.pidfile/mjpg-streamer/mjpg_streamer.h	2010-09-16 19:11:05.000000000 +0400
+@@ -47,6 +47,7 @@ enum _control_cmd_type {
+ 
+ struct _globals {
+   int stop;
++  char *pidfile;
+ 
+   /* signal fresh frames */
+   pthread_mutex_t db;

@@ -1,0 +1,55 @@
+From f630e43a215a3129d0c1173cae0bce6ea4855cf7
+From: YOSHIFUJI Hideaki
+Date: Thu, 19 Jun 2008 16:33:57 -0700
+Subject: [PATCH] ipv6: Drop packets for loopback address from outside of the box.
+
+[ Based upon original report and patch by Karsten Keil.  Karsten
+  has verified that this fixes the TAHI test case "ICMPv6 test
+  v6LC.5.1.2 Part F". -DaveM ]
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/ipv6.h   |    6 ++++++
+ net/ipv6/ip6_input.c |    9 +++++++++
+ 2 files changed, 15 insertions(+), 0 deletions(-)
+
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index e0a612b..f422f72 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
+ 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
+ }
+ 
++static inline int ipv6_addr_loopback(const struct in6_addr *a)
++{
++	return ((a->s6_addr32[0] | a->s6_addr32[1] |
++		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0);
++}
++
+ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+ {
+ 	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
+index 4e5c861..17eb48b 100644
+--- a/net/ipv6/ip6_input.c
++++ b/net/ipv6/ip6_input.c
+@@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
+ 	if (hdr->version != 6)
+ 		goto err;
+ 
++	/*
++	 * RFC4291 2.5.3
++	 * A packet received on an interface with a destination address
++	 * of loopback must be dropped.
++	 */
++	if (!(dev->flags & IFF_LOOPBACK) &&
++	    ipv6_addr_loopback(&hdr->daddr))
++		goto err;
++
+ 	skb->transport_header = skb->network_header + sizeof(*hdr);
+ 	IP6CB(skb)->nhoff = offsetof(struct ipv6hdr, nexthdr);
+ 
+-- 
+1.7.4.4

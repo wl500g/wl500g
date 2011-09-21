@@ -1,0 +1,30 @@
+From 5962fc6d5fff09c8e6fb8cadcb18327a0f4277f7 Mon Sep 17 00:00:00 2001
+From: Patrick McHardy <kaber@trash.net>
+Date: Wed, 18 Feb 2009 15:30:34 +0100
+Subject: [PATCH] netfilter: nf_conntrack: don't try to deliver events for untracked connections
+
+The untracked conntrack actually does usually have events marked for
+delivery as its not special-cased in that part of the code. Skip the
+actual delivery since it impacts performance noticeably.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ include/net/netfilter/nf_conntrack_core.h |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+index e78afe7..c25068e 100644
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -59,7 +59,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)
+ 	struct nf_conn *ct = (struct nf_conn *)(*pskb)->nfct;
+ 	int ret = NF_ACCEPT;
+ 
+-	if (ct) {
++	if (ct && ct != &nf_conntrack_untracked) {
+ 		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
+ 			ret = __nf_conntrack_confirm(pskb);
+ 		nf_ct_deliver_cached_events(ct);
+-- 
+1.7.2
+

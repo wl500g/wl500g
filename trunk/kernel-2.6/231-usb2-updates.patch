@@ -1,0 +1,476 @@
+From 91142ad3cae567bacf3b2030b69a79781dfec5c4
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sat, 31 Jul 2010 21:07:50 -0400
+Subject: [PATCH] USB: backports from upstream 2.6 kernel
+
+5512966643adb17483efc5f61481a38fc33088bb usb: convert endpoint devices to bus-less childs of the usb interface
+6c6409459a18a825ce12ecb003d5686af61f7a2f USB: don't rebind drivers after failed resume or reset
+91f8d063d30358fcb76831c238071f7d4b13c35e USB: consolidate usb_unbind_interface and usb_driver_release_interface
+bf7fbb022f0a3da27a2bcf8d7c973c813d942384 USB: add missing class descriptions used in usb/devices file
+25118084ef03f4fc314ab33ef6a9d9271d0e616a USB: check for hub driver not bound to root hub device
+---
+ drivers/usb/core/devices.c  |   10 +-
+ drivers/usb/core/driver.c   |   49 +++----
+ drivers/usb/core/endpoint.c |  158 +-------------------
+ drivers/usb/core/hub.c      |   12 +-
+ drivers/usb/core/usb.c      |    3 +-
+ drivers/usb/core/usb.h      |   11 ++
+ 6 files changed, 54 insertions(+), 189 deletions(-)
+
+diff --git a/drivers/usb/core/devices.c b/drivers/usb/core/devices.c
+index 49686d9..15ec826 100644
+--- a/drivers/usb/core/devices.c
++++ b/drivers/usb/core/devices.c
+@@ -138,17 +138,19 @@ static const struct class_info clas_info[] =
+ 	{USB_CLASS_AUDIO,		"audio"},
+ 	{USB_CLASS_COMM,		"comm."},
+ 	{USB_CLASS_HID,			"HID"},
+-	{USB_CLASS_HUB,			"hub"},
+ 	{USB_CLASS_PHYSICAL,		"PID"},
++	{USB_CLASS_STILL_IMAGE,		"still"},
+ 	{USB_CLASS_PRINTER,		"print"},
+ 	{USB_CLASS_MASS_STORAGE,	"stor."},
++	{USB_CLASS_HUB,			"hub"},
+ 	{USB_CLASS_CDC_DATA,		"data"},
+-	{USB_CLASS_APP_SPEC,		"app."},
+-	{USB_CLASS_VENDOR_SPEC,		"vend."},
+-	{USB_CLASS_STILL_IMAGE,		"still"},
+ 	{USB_CLASS_CSCID,		"scard"},
+ 	{USB_CLASS_CONTENT_SEC,		"c-sec"},
+ 	{USB_CLASS_VIDEO,		"video"},
++	{USB_CLASS_WIRELESS_CONTROLLER,	"wlcon"},
++	{USB_CLASS_MISC,		"misc"},
++	{USB_CLASS_APP_SPEC,		"app."},
++	{USB_CLASS_VENDOR_SPEC,		"vend."},
+ 	{-1,				"unk."}		/* leave as last */
+ };
+ 
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+index 788adb0..8078f96 100644
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -154,16 +154,11 @@ static const struct usb_device_id *usb_match_dynamic_id(struct usb_interface *in
+ static int usb_probe_device(struct device *dev)
+ {
+ 	struct usb_device_driver *udriver = to_usb_device_driver(dev->driver);
+-	struct usb_device *udev;
++	struct usb_device *udev = to_usb_device(dev);
+ 	int error = -ENODEV;
+ 
+ 	dev_dbg(dev, "%s\n", __FUNCTION__);
+ 
+-	if (!is_usb_device(dev))	/* Sanity check */
+-		return error;
+-
+-	udev = to_usb_device(dev);
+-
+ 	/* TODO: Add real matching code */
+ 
+ 	/* The device should always appear to be in use
+@@ -189,18 +184,13 @@ static int usb_unbind_device(struct device *dev)
+ static int usb_probe_interface(struct device *dev)
+ {
+ 	struct usb_driver *driver = to_usb_driver(dev->driver);
+-	struct usb_interface *intf;
+-	struct usb_device *udev;
++	struct usb_interface *intf = to_usb_interface(dev);
++	struct usb_device *udev = interface_to_usbdev(intf);
+ 	const struct usb_device_id *id;
+ 	int error = -ENODEV;
+ 
+ 	dev_dbg(dev, "%s\n", __FUNCTION__);
+ 
+-	if (is_usb_device(dev))		/* Sanity check */
+-		return error;
+-
+-	intf = to_usb_interface(dev);
+-	udev = interface_to_usbdev(intf);
+ 	intf->needs_binding = 0;
+ 
+ 	id = usb_match_id(intf, driver->id_table);
+@@ -343,7 +333,6 @@ void usb_driver_release_interface(struct usb_driver *driver,
+ 					struct usb_interface *iface)
+ {
+ 	struct device *dev = &iface->dev;
+-	struct usb_device *udev = interface_to_usbdev(iface);
+ 
+ 	/* this should never happen, don't release something that's not ours */
+ 	if (!dev->driver || dev->driver != &driver->drvwrap.driver)
+@@ -352,21 +341,19 @@ void usb_driver_release_interface(struct usb_driver *driver,
+ 	/* don't release from within disconnect() */
+ 	if (iface->condition != USB_INTERFACE_BOUND)
+ 		return;
++	iface->condition = USB_INTERFACE_UNBINDING;
+ 
+-	/* don't release if the interface hasn't been added yet */
++	/* Release via the driver core only if the interface
++	 * has already been registered
++	 */
+ 	if (device_is_registered(dev)) {
+-		iface->condition = USB_INTERFACE_UNBINDING;
+ 		device_release_driver(dev);
++	} else {
++		down(&dev->sem);
++		usb_unbind_interface(dev);
++		dev->driver = NULL;
++		up(&dev->sem);
+ 	}
+-
+-	dev->driver = NULL;
+-	usb_set_intfdata(iface, NULL);
+-
+-	usb_pm_lock(udev);
+-	iface->condition = USB_INTERFACE_UNBOUND;
+-	mark_quiesced(iface);
+-	iface->needs_remote_wakeup = 0;
+-	usb_pm_unlock(udev);
+ }
+ EXPORT_SYMBOL_GPL(usb_driver_release_interface);
+ 
+@@ -554,7 +541,7 @@ static int usb_device_match(struct device *dev, struct device_driver *drv)
+ 		/* TODO: Add real matching code */
+ 		return 1;
+ 
+-	} else {
++	} else if (is_usb_interface(dev)) {
+ 		struct usb_interface *intf;
+ 		struct usb_driver *usb_drv;
+ 		const struct usb_device_id *id;
+@@ -592,11 +579,14 @@ static int usb_uevent(struct device *dev, char **envp, int num_envp,
+ 	/* driver is often null here; dev_dbg() would oops */
+ 	pr_debug("usb %s: uevent\n", dev->bus_id);
+ 
+-	if (is_usb_device(dev))
++	if (is_usb_device(dev)) {
+ 		usb_dev = to_usb_device(dev);
+-	else {
++	} else if (is_usb_interface(dev)) {
+ 		struct usb_interface *intf = to_usb_interface(dev);
++
+ 		usb_dev = interface_to_usbdev(intf);
++	} else {
++		return 0;
+ 	}
+ 
+ 	if (usb_dev->devnum < 0) {
+@@ -1618,7 +1608,8 @@ int usb_external_resume_device(struct usb_device *udev)
+ 	status = usb_resume_both(udev);
+ 	udev->last_busy = jiffies;
+ 	usb_pm_unlock(udev);
+-	do_unbind_rebind(udev, DO_REBIND);
++	if (status == 0)
++		do_unbind_rebind(udev, DO_REBIND);
+ 
+ 	/* Now that the device is awake, we can start trying to autosuspend
+ 	 * it again. */
+diff --git a/drivers/usb/core/endpoint.c b/drivers/usb/core/endpoint.c
+index ef8be08..d9befe4 100644
+--- a/drivers/usb/core/endpoint.c
++++ b/drivers/usb/core/endpoint.c
+@@ -15,19 +15,18 @@
+ #include <linux/usb.h>
+ #include "usb.h"
+ 
+-#define MAX_ENDPOINT_MINORS (64*128*32)
+-static int usb_endpoint_major;
+-static DEFINE_IDR(endpoint_idr);
+-
+ struct ep_device {
+ 	struct usb_endpoint_descriptor *desc;
+ 	struct usb_device *udev;
+ 	struct device dev;
+-	int minor;
+ };
+ #define to_ep_device(_dev) \
+ 	container_of(_dev, struct ep_device, dev)
+ 
++struct device_type usb_ep_device_type = {
++	.name =		"usb_endpoint",
++};
++
+ struct ep_attribute {
+ 	struct attribute attr;
+ 	ssize_t (*show)(struct usb_device *,
+@@ -161,118 +160,11 @@ static struct attribute_group *ep_dev_groups[] = {
+ 	NULL
+ };
+ 
+-static int usb_endpoint_major_init(void)
+-{
+-	dev_t dev;
+-	int error;
+-
+-	error = alloc_chrdev_region(&dev, 0, MAX_ENDPOINT_MINORS,
+-				    "usb_endpoint");
+-	if (error) {
+-		err("unable to get a dynamic major for usb endpoints");
+-		return error;
+-	}
+-	usb_endpoint_major = MAJOR(dev);
+-
+-	return error;
+-}
+-
+-static void usb_endpoint_major_cleanup(void)
+-{
+-	unregister_chrdev_region(MKDEV(usb_endpoint_major, 0),
+-				 MAX_ENDPOINT_MINORS);
+-}
+-
+-static int endpoint_get_minor(struct ep_device *ep_dev)
+-{
+-	static DEFINE_MUTEX(minor_lock);
+-	int retval = -ENOMEM;
+-	int id;
+-
+-	mutex_lock(&minor_lock);
+-	if (idr_pre_get(&endpoint_idr, GFP_KERNEL) == 0)
+-		goto exit;
+-
+-	retval = idr_get_new(&endpoint_idr, ep_dev, &id);
+-	if (retval < 0) {
+-		if (retval == -EAGAIN)
+-			retval = -ENOMEM;
+-		goto exit;
+-	}
+-	ep_dev->minor = id & MAX_ID_MASK;
+-exit:
+-	mutex_unlock(&minor_lock);
+-	return retval;
+-}
+-
+-static void endpoint_free_minor(struct ep_device *ep_dev)
+-{
+-	idr_remove(&endpoint_idr, ep_dev->minor);
+-}
+-
+-static struct endpoint_class {
+-	struct kref kref;
+-	struct class *class;
+-} *ep_class;
+-
+-static int init_endpoint_class(void)
+-{
+-	int result = 0;
+-
+-	if (ep_class != NULL) {
+-		kref_get(&ep_class->kref);
+-		goto exit;
+-	}
+-
+-	ep_class = kmalloc(sizeof(*ep_class), GFP_KERNEL);
+-	if (!ep_class) {
+-		result = -ENOMEM;
+-		goto exit;
+-	}
+-
+-	kref_init(&ep_class->kref);
+-	ep_class->class = class_create(THIS_MODULE, "usb_endpoint");
+-	if (IS_ERR(ep_class->class)) {
+-		result = PTR_ERR(ep_class->class);
+-		goto class_create_error;
+-	}
+-
+-	result = usb_endpoint_major_init();
+-	if (result)
+-		goto endpoint_major_error;
+-
+-	goto exit;
+-
+-endpoint_major_error:
+-	class_destroy(ep_class->class);
+-class_create_error:
+-	kfree(ep_class);
+-	ep_class = NULL;
+-exit:
+-	return result;
+-}
+-
+-static void release_endpoint_class(struct kref *kref)
+-{
+-	/* Ok, we cheat as we know we only have one ep_class */
+-	class_destroy(ep_class->class);
+-	kfree(ep_class);
+-	ep_class = NULL;
+-	usb_endpoint_major_cleanup();
+-}
+-
+-static void destroy_endpoint_class(void)
+-{
+-	if (ep_class)
+-		kref_put(&ep_class->kref, release_endpoint_class);
+-}
+-
+ static void ep_device_release(struct device *dev)
+ {
+ 	struct ep_device *ep_dev = to_ep_device(dev);
+ 
+ 	dev_dbg(dev, "%s called for %s\n", __FUNCTION__, dev->bus_id);
+-	endpoint_free_minor(ep_dev);
+ 	kfree(ep_dev);
+ }
+ 
+@@ -280,62 +172,33 @@ int usb_create_ep_files(struct device *parent,
+ 			struct usb_host_endpoint *endpoint,
+ 			struct usb_device *udev)
+ {
+-	char name[8];
+ 	struct ep_device *ep_dev;
+ 	int retval;
+ 
+-	retval = init_endpoint_class();
+-	if (retval)
+-		goto exit;
+-
+ 	ep_dev = kzalloc(sizeof(*ep_dev), GFP_KERNEL);
+ 	if (!ep_dev) {
+ 		retval = -ENOMEM;
+-		goto error_alloc;
+-	}
+-
+-	retval = endpoint_get_minor(ep_dev);
+-	if (retval) {
+-		dev_err(parent, "can not allocate minor number for %s\n",
+-			ep_dev->dev.bus_id);
+-		goto error_register;
++		goto exit;
+ 	}
+ 
+ 	ep_dev->desc = &endpoint->desc;
+ 	ep_dev->udev = udev;
+ 	ep_dev->dev.groups = ep_dev_groups;
+-	ep_dev->dev.devt = MKDEV(usb_endpoint_major, ep_dev->minor);
+-	ep_dev->dev.class = ep_class->class;
++	ep_dev->dev.type = &usb_ep_device_type;
+ 	ep_dev->dev.parent = parent;
+ 	ep_dev->dev.release = ep_device_release;
+-	snprintf(ep_dev->dev.bus_id, BUS_ID_SIZE, "usbdev%d.%d_ep%02x",
+-		 udev->bus->busnum, udev->devnum,
++	snprintf(ep_dev->dev.bus_id, BUS_ID_SIZE, "ep_%02x",
+ 		 endpoint->desc.bEndpointAddress);
+ 
+ 	retval = device_register(&ep_dev->dev);
+ 	if (retval)
+-		goto error_chrdev;
++		goto error_register;
+ 
+-	/* create the symlink to the old-style "ep_XX" directory */
+-	sprintf(name, "ep_%02x", endpoint->desc.bEndpointAddress);
+-	retval = sysfs_create_link(&parent->kobj, &ep_dev->dev.kobj, name);
+-	if (retval)
+-		goto error_link;
+ 	endpoint->ep_dev = ep_dev;
+ 	return retval;
+ 
+-error_link:
+-	device_unregister(&ep_dev->dev);
+-	destroy_endpoint_class();
+-	return retval;
+-
+-error_chrdev:
+-	endpoint_free_minor(ep_dev);
+-
+ error_register:
+ 	kfree(ep_dev);
+-error_alloc:
+-	destroy_endpoint_class();
+ exit:
+ 	return retval;
+ }
+@@ -345,12 +208,7 @@ void usb_remove_ep_files(struct usb_host_endpoint *endpoint)
+ 	struct ep_device *ep_dev = endpoint->ep_dev;
+ 
+ 	if (ep_dev) {
+-		char name[8];
+-
+-		sprintf(name, "ep_%02x", endpoint->desc.bEndpointAddress);
+-		sysfs_remove_link(&ep_dev->dev.parent->kobj, name);
+ 		device_unregister(&ep_dev->dev);
+ 		endpoint->ep_dev = NULL;
+-		destroy_endpoint_class();
+ 	}
+ }
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 889a9cf..5f01531 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -151,8 +151,10 @@ static inline char *portspeed(int portstatus)
+ }
+ 
+ /* Note that hdev or one of its children must be locked! */
+-static inline struct usb_hub *hdev_to_hub(struct usb_device *hdev)
++static struct usb_hub *hdev_to_hub(struct usb_device *hdev)
+ {
++	if (!hdev || !hdev->actconfig)
++		return NULL;
+ 	return usb_get_intfdata(hdev->actconfig->interface[0]);
+ }
+ 
+@@ -373,8 +375,10 @@ static void kick_khubd(struct usb_hub *hub)
+ 
+ void usb_kick_khubd(struct usb_device *hdev)
+ {
+-	/* FIXME: What if hdev isn't bound to the hub driver? */
+-	kick_khubd(hdev_to_hub(hdev));
++	struct usb_hub *hub = hdev_to_hub(hdev);
++
++	if (hub)
++		kick_khubd(hub);
+ }
+ 
+ 
+@@ -3386,7 +3390,7 @@ int usb_reset_device(struct usb_device *udev)
+ 						USB_INTERFACE_BOUND)
+ 					rebind = 1;
+ 			}
+-			if (rebind)
++			if (ret == 0 && rebind)
+ 				usb_rebind_intf(cintf);
+ 		}
+ 	}
+diff --git a/drivers/usb/core/usb.c b/drivers/usb/core/usb.c
+index 54fc6e6..f18c2c0 100644
+--- a/drivers/usb/core/usb.c
++++ b/drivers/usb/core/usb.c
+@@ -140,8 +140,7 @@ static int __find_interface(struct device *dev, void *data)
+ 	struct find_interface_arg *arg = data;
+ 	struct usb_interface *intf;
+ 
+-	/* can't look at usb devices, only interfaces */
+-	if (is_usb_device(dev))
++	if (!is_usb_interface(dev))
+ 		return 0;
+ 
+ 	intf = to_usb_interface(dev);
+diff --git a/drivers/usb/core/usb.h b/drivers/usb/core/usb.h
+index 9c2950d..ffc0dbc 100644
+--- a/drivers/usb/core/usb.h
++++ b/drivers/usb/core/usb.h
+@@ -94,6 +94,7 @@ extern struct workqueue_struct *ksuspend_usb_wq;
+ extern struct bus_type usb_bus_type;
+ extern struct device_type usb_device_type;
+ extern struct device_type usb_if_device_type;
++extern struct device_type usb_ep_device_type;
+ extern struct usb_device_driver usb_generic_driver;
+ 
+ static inline int is_usb_device(const struct device *dev)
+@@ -101,6 +102,16 @@ static inline int is_usb_device(const struct device *dev)
+ 	return dev->type == &usb_device_type;
+ }
+ 
++static inline int is_usb_interface(const struct device *dev)
++{
++	return dev->type == &usb_if_device_type;
++}
++
++static inline int is_usb_endpoint(const struct device *dev)
++{
++	return dev->type == &usb_ep_device_type;
++}
++
+ /* Do the same for device drivers and interface drivers. */
+ 
+ static inline int is_usb_device_driver(struct device_driver *drv)
+-- 
+1.6.5.GIT
+

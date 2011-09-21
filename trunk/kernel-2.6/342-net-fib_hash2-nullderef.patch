@@ -1,0 +1,67 @@
+From 94cb1503c799c0197e7ef5bad606fee5c84b99d8
+From: Adrian Bunk
+Date: Tue, 19 Feb 2008 16:28:54 -0800
+Subject: [PATCH] ipv4/fib_hash.c: fix NULL dereference
+
+Unless I miss a guaranteed relation between between "f" and
+"new_fa->fa_info" this patch is required for fixing a NULL dereference
+introduced by commit a6501e080c318f8d4467679d17807f42b3a33cd5 ("[IPV4]
+FIB_HASH: Reduce memory needs and speedup lookups") and spotted by the
+Coverity checker.
+
+Eric Dumazet says:
+
+	Hum, you are right, kmem_cache_free() doesnt allow a NULL
+	object, like kfree() does.
+
+Signed-off-by: Adrian Bunk <bunk@kernel.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/fib_hash.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 76b9c68..8d58d85 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -372,7 +372,8 @@ static struct fib_node *fib_find_node(struct fn_zone *fz, __be32 key)
+ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
+ {
+ 	struct fn_hash *table = (struct fn_hash *) tb->tb_data;
+-	struct fib_node *new_f, *f;
++	struct fib_node *new_f = NULL;
++	struct fib_node *f;
+ 	struct fib_alias *fa, *new_fa;
+ 	struct fn_zone *fz;
+ 	struct fib_info *fi;
+@@ -496,7 +497,6 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
+ 
+ 	err = -ENOBUFS;
+ 
+-	new_f = NULL;
+ 	if (!f) {
+ 		new_f = kmem_cache_zalloc(fn_hash_kmem, GFP_KERNEL);
+ 		if (new_f == NULL)
+@@ -512,7 +512,7 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
+ 	if (new_fa->fa_info != NULL) {
+ 		new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+ 		if (new_fa == NULL)
+-			goto out_free_new_f;
++			goto out;
+ 	}
+ 	new_fa->fa_info = fi;
+ 	new_fa->fa_tos = tos;
+@@ -540,9 +540,9 @@ static int fn_hash_insert(struct fib_table *tb, struct fib_config *cfg)
+ 		  &cfg->fc_nlinfo, 0);
+ 	return 0;
+ 
+-out_free_new_f:
+-	kmem_cache_free(fn_hash_kmem, new_f);
+ out:
++	if (new_f)
++		kmem_cache_free(fn_hash_kmem, new_f);
+ 	fib_release_info(fi);
+ 	return err;
+ }
+-- 
+1.7.3.1

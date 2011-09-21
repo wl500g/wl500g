@@ -1,0 +1,63 @@
+From 383a026d99624c88c0e802103ef4c4865db8eb71
+From: Chuck Lever
+Date: Mon, 18 May 2009 13:27:25 -0400
+Subject: [PATCH] nfs-utils: Fix IPv6 support in support/nfs/rpc_socket.c
+
+Use the correct #ifdef variable to enable IPv6 support for privileged
+RPC clients.  Without this fix, unmounting an IPv6 NFSv2/v3 server
+fails.
+
+Introduced by commit 8c94296bc84f3a204f2061c0391a1d2350e4f37e.
+
+Signed-off-by: Chuck Lever <chuck.lever@oracle.com>
+Signed-off-by: Steve Dickson <steved@redhat.com>
+---
+ support/nfs/rpc_socket.c |   12 +++++-------
+ 1 files changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/support/nfs/rpc_socket.c b/support/nfs/rpc_socket.c
+index 85e6064..cebf83d 100644
+--- a/support/nfs/rpc_socket.c
++++ b/support/nfs/rpc_socket.c
+@@ -132,7 +132,7 @@ static int nfs_bind(const int sock, const sa_family_t family)
+ 	return -1;
+ }
+ 
+-#ifdef IPV6_SUPPORT
++#ifdef IPV6_SUPPORTED
+ 
+ /*
+  * Bind a socket using an unused privileged source port.
+@@ -153,18 +153,16 @@ static int nfs_bindresvport(const int sock, const sa_family_t family)
+ 
+ 	switch (family) {
+ 	case AF_INET:
+-		return bindresvport_sa(sock, (struct sockaddr *)&sin,
+-					(socklen_t)sizeof(sin));
++		return bindresvport_sa(sock, (struct sockaddr *)&sin);
+ 	case AF_INET6:
+-		return bindresvport_sa(sock, (struct sockaddr *)&sin6,
+-					(socklen_t)sizeof(sin6));
++		return bindresvport_sa(sock, (struct sockaddr *)&sin6);
+ 	}
+ 
+ 	errno = EAFNOSUPPORT;
+ 	return -1;
+ }
+ 
+-#else	/* !IPV6_SUPPORT */
++#else	/* !IPV6_SUPPORTED */
+ 
+ /*
+  * Bind a socket using an unused privileged source port.
+@@ -182,7 +180,7 @@ static int nfs_bindresvport(const int sock, const sa_family_t family)
+ 	return bindresvport(sock, NULL);
+ }
+ 
+-#endif	/* !IPV6_SUPPORT */
++#endif	/* !IPV6_SUPPORTED */
+ 
+ /*
+  * Perform a non-blocking connect on the socket fd.
+-- 
+1.7.4.1

@@ -120,7 +120,7 @@ function change_security(o, s, l)
 
 	if (o.options.length == 5 && o.value != "4")
 	{
-		if (confirm("You have chosen an additional wireless authenication and encryption option, do you really like to overwrite it?"))
+		if (confirm("You have chosen an additional wireless authentication and encryption option, do you really like to overwrite it?"))
 		{
 			o.options[4].value = null;
 			o.options[4] = null;

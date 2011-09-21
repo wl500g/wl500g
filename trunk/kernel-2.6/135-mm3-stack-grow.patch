@@ -1,0 +1,70 @@
+From 320b2b8de12698082609ebbc1a17165727f4c893 
+From: Linus Torvalds 
+Date: Thu, 12 Aug 2010 17:54:33 -0700
+Subject: [PATCH] mm: keep a guard page below a grow-down stack segment
+
+This is a rather minimally invasive patch to solve the problem of the
+user stack growing into a memory mapped area below it.  Whenever we fill
+the first page of the stack segment, expand the segment down by one
+page.
+
+Now, admittedly some odd application might _want_ the stack to grow down
+into the preceding memory mapping, and so we may at some point need to
+make this a process tunable (some people might also want to have more
+than a single page of guarding), but let's try the minimal approach
+first.
+
+Tested with trivial application that maps a single page just below the
+stack, and then starts recursing.  Without this, we will get a SIGSEGV
+_after_ the stack has smashed the mapping.  With this patch, we'll get a
+nice SIGBUS just as the stack touches the page just above the mapping.
+
+Requested-by: Keith Packard <keithp@keithp.com>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/memory.c |   23 +++++++++++++++++++++++
+ 1 files changed, 23 insertions(+), 0 deletions(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+index 858829d..9606ceb 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -2215,6 +2215,26 @@ out_release:
+ }
+ 
+ /*
++ * This is like a special single-page "expand_downwards()",
++ * except we must first make sure that 'address-PAGE_SIZE'
++ * doesn't hit another vma.
++ *
++ * The "find_vma()" will do the right thing even if we wrap
++ */
++static inline int check_stack_guard_page(struct vm_area_struct *vma, unsigned long address)
++{
++	address &= PAGE_MASK;
++	if ((vma->vm_flags & VM_GROWSDOWN) && address == vma->vm_start) {
++		address -= PAGE_SIZE;
++		if (find_vma(vma->vm_mm, address) != vma)
++			return -ENOMEM;
++
++		expand_stack(vma, address);
++	}
++	return 0;
++}
++
++/*
+  * We enter with non-exclusive mmap_sem (to exclude vma changes,
+  * but allow concurrent faults), and pte mapped but not yet locked.
+  * We return with mmap_sem still held, but pte unmapped and unlocked.
+@@ -2227,6 +2247,9 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 	spinlock_t *ptl;
+ 	pte_t entry;
+ 
++	if (check_stack_guard_page(vma, address) < 0)
++		return VM_FAULT_SIGBUS;
++
+ 	if (write_access) {
+ 		/* Allocate our own private page. */
+ 		pte_unmap(page_table);
+-- 
+1.7.2.3

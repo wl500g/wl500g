@@ -31,11 +31,9 @@
 
 #include <typedefs.h>
 #include <proto/ethernet.h>
+#include "netconf_linux.h"
+#include <bcmconfig.h>
 #include <netconf.h>
-#include <netconf_linux.h>
-#ifdef WEBSTRFILTER
-#include <linux/netfilter_ipv4/ipt_webstr.h>
-#endif
 
 /* Loops over each match in the ipt_entry */
 #define for_each_ipt_match(match, entry) \
@@ -44,22 +42,24 @@
 	     (match) = (struct ipt_entry_match *) ((int) (match) + (match)->u.match_size))
 
 /* Supported ipt table names */
-static const char *ipt_table_names[] = { "filter", "nat", NULL };
+static const char *netconf_table_names[] = { "filter", "nat", NULL };
 
 /* ipt table name appropriate for target (indexed by netconf_fw_t.target) */
-static const char * ipt_table_name[] = {
+const char *netconf_table_name[] = {
 	"filter", "filter", "filter", "filter",
-	"nat", "nat", "nat", "nat"
+	"nat", "nat", "nat", "nat",
+	NULL
 };
 
 /* ipt target name (indexed by netconf_fw_t.target) */
-static const char * ipt_target_name[] = {
+const char *netconf_target_name[] = {
 	"DROP", "ACCEPT", "logdrop", "logaccept",
-	"SNAT", "DNAT", "MASQUERADE", "autofw"
+	"SNAT", "DNAT", "MASQUERADE", "autofw",
+	NULL
 };
 
 /* ipt target data size (indexed by netconf_fw_t.target) */
-static const size_t ipt_target_size[] = {
+static const size_t netconf_target_size[] = {
 	sizeof(int), sizeof(int), sizeof(int), sizeof(int),
 	sizeof(struct ip_nat_multi_range), sizeof(struct ip_nat_multi_range), sizeof(struct ip_nat_multi_range), sizeof(struct ip_autofw_info)
 };
@@ -70,9 +70,9 @@ static const char * ipt_filter_chain_name[] = {
 };
 
 /* ipt nat chain name appropriate for target (indexed by netconf_nat_t.target) */
-static const char * ipt_nat_chain_name[] = { 
+static const char *netconf_nat_chain_name[] = { 
 	NULL, NULL, NULL, NULL,
-	"POSTROUTING", "PREROUTING", "POSTROUTING"
+	"POSTROUTING", "PREROUTING", "POSTROUTING", "POSTROUTING"
 };
 
 /* Returns a netconf_dir index */
@@ -81,7 +81,8 @@ filter_dir(const char *name)
 {
 	if (strncmp(name, "INPUT", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_IN;
-	else if (strncmp(name, "FORWARD", IPT_FUNCTION_MAXNAMELEN) == 0)
+	else if (strncmp(name, "FORWARD", IPT_FUNCTION_MAXNAMELEN) == 0 ||
+		 strncmp(name, "UPNP", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_FORWARD;
 	else if (strncmp(name, "OUTPUT", IPT_FUNCTION_MAXNAMELEN) == 0)
 		return NETCONF_OUT;
@@ -91,43 +92,31 @@ filter_dir(const char *name)
 
 /* Returns a netconf_target index */
 static int
-target_num(const struct ipt_entry *entry, iptc_handle_t *handle)
+target_num(const struct ipt_entry *entry, struct iptc_handle *handle)
 {
 	const char *name = iptc_get_target(entry, handle);
+	int i;
 
 	if (!name)
 		return -1;
 
-	if (strncmp(name, "DROP", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_DROP;
-	else if (strncmp(name, "ACCEPT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_ACCEPT;
-	else if (strncmp(name, "logdrop", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_LOG_DROP;
-	else if (strncmp(name, "logaccept", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_LOG_ACCEPT;
-	else if (strncmp(name, "SNAT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_SNAT;
-	else if (strncmp(name, "DNAT", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_DNAT;
-	else if (strncmp(name, "MASQUERADE", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_MASQ;
-	else if (strncmp(name, "autofw", IPT_FUNCTION_MAXNAMELEN) == 0)
-		return NETCONF_APP;
-	else
-		return -1;
+	for (i = NETCONF_DROP; i < NETCONF_TARGET_MAX; i++) {
+		if (strncmp(name, netconf_target_name[i], IPT_FUNCTION_MAXNAMELEN) == 0)
+			return i;
+	}
+	return -ENOENT;
 }
 
 /*
  * get NAT chain name taking in account
  * wildcard DNAT (virtual servers)
  */
-static const char *
+const char *
 get_nat_chain_name(const netconf_fw_t *fw)
 {
 	return (fw->target == NETCONF_DNAT && 
 			fw->match.dst.ipaddr.s_addr == INADDR_ANY) ? 
-		"VSERVER" : ipt_nat_chain_name[fw->target];
+		"VSERVER" : netconf_nat_chain_name[fw->target];
 }
 
 /*
@@ -141,13 +130,13 @@ netconf_get_fw(netconf_fw_t *fw_list)
 	const char **table;
 	const char *chain;
 	const struct ipt_entry *entry;
-	iptc_handle_t handle = NULL;
+	struct iptc_handle *handle = NULL;
 
 	/* Initialize list */
 	netconf_list_init(fw_list);
 
 	/* Search all default tables */
-	for (table = &ipt_table_names[0]; *table; table++) {
+	for (table = &netconf_table_names[0]; *table; table++) {
 
 		if (strcmp(*table, "filter") && strcmp(*table, "nat"))
 			continue;		
@@ -158,15 +147,16 @@ netconf_get_fw(netconf_fw_t *fw_list)
 		}
 
 		/* Search all default chains */
-		for (chain = iptc_first_chain(&handle); chain; chain = iptc_next_chain(&handle)) {
+		for (chain = iptc_first_chain(handle); chain; chain = iptc_next_chain(handle)) {
 
 			if (strcmp(chain, "INPUT") && strcmp(chain, "FORWARD") && strcmp(chain, "OUTPUT") &&
-			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING") && strcmp(chain, "VSERVER"))
-				continue;		
+			    strcmp(chain, "PREROUTING") && strcmp(chain, "POSTROUTING") &&
+			    strcmp(chain, "VSERVER") && strcmp(chain, "UPNP"))
+				continue;
 
 			/* Search all entries */
-			for (entry = iptc_first_rule(chain, &handle); entry; entry = iptc_next_rule(entry, &handle)) {
-				int num = target_num(entry, &handle);
+			for (entry = iptc_first_rule(chain, handle); entry; entry = iptc_next_rule(entry, handle)) {
+				int num = target_num(entry, handle);
 				netconf_fw_t *fw = NULL;
 				netconf_filter_t *filter = NULL;
 				netconf_nat_t *nat = NULL;
@@ -176,6 +166,7 @@ netconf_get_fw(netconf_fw_t *fw_list)
 				const struct ipt_entry_target *target;
 				struct ipt_mac_info *mac = NULL;
 				struct ipt_state_info *state = NULL;
+				struct ipt_conntrack_info *conntrack = NULL;
 				struct ipt_time_info *time = NULL;
 
 				/* Only know about TCP/UDP */
@@ -183,8 +174,8 @@ netconf_get_fw(netconf_fw_t *fw_list)
 					continue;
 
 				/* Only know about target types in the specified tables */
-				if (!netconf_valid_target(num) ||
-				    strncmp(ipt_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
+				if (!netconf_valid_target(num) || (netconf_table_name[num] &&
+				    strncmp(netconf_table_name[num], *table, IPT_FUNCTION_MAXNAMELEN) != 0))
 					continue;
 
 				/* Only know about specified target types */
@@ -217,6 +208,8 @@ netconf_get_fw(netconf_fw_t *fw_list)
 				fw->match.flags |= (entry->ip.invflags & IPT_INV_VIA_IN) ? NETCONF_INV_IN : 0;
 				fw->match.flags |= (entry->ip.invflags & IPT_INV_VIA_OUT) ? NETCONF_INV_OUT : 0;
 
+				fw->match.ipproto = entry->ip.proto;
+
 				/* Get TCP port(s) */
 				if (entry->ip.proto == IPPROTO_TCP) {
 					struct ipt_tcp *tcp = NULL;
@@ -231,7 +224,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 					if (tcp) {
 						/* Match ports stored in host order for some stupid reason */
-						fw->match.ipproto = IPPROTO_TCP;
 						fw->match.src.ports[0] = htons(tcp->spts[0]);
 						fw->match.src.ports[1] = htons(tcp->spts[1]);
 						fw->match.dst.ports[0] = htons(tcp->dpts[0]);
@@ -255,7 +247,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 					if (udp) {
 						/* Match ports stored in host order for some stupid reason */
-						fw->match.ipproto = IPPROTO_UDP;
 						fw->match.src.ports[0] = htons(udp->spts[0]);
 						fw->match.src.ports[1] = htons(udp->spts[1]);
 						fw->match.dst.ports[0] = htons(udp->dpts[0]);
@@ -263,11 +254,6 @@ netconf_get_fw(netconf_fw_t *fw_list)
 						fw->match.flags |= (udp->invflags & IPT_UDP_INV_SRCPT) ? NETCONF_INV_SRCPT : 0;
 						fw->match.flags |= (udp->invflags & IPT_UDP_INV_DSTPT) ? NETCONF_INV_DSTPT : 0;
 					}
-				}
-				
-				/* Simple protocol match */
-				else if (entry->ip.proto != IPPROTO_IP) {
-					fw->match.ipproto = entry->ip.proto;
 				}
 
 				/* Get source MAC address */
@@ -285,12 +271,24 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Get packet state */
 				for_each_ipt_match(match, entry) {
-					if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) != 0)
-						continue;
-			
-					state = (struct ipt_state_info *) &match->data[0];
-					break;
+					if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) == 0) {
+						state = (struct ipt_state_info *) &match->data[0];
+						break;
+					} else
+					if (strncmp(match->u.user.name, "conntrack", IPT_FUNCTION_MAXNAMELEN) == 0) {
+						conntrack = (struct ipt_conntrack_info *) &match->data[0];
+						break;
+					}
 				}
+				if (conntrack && (conntrack->match_flags & XT_CONNTRACK_STATE)) {
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_INVALID) ? NETCONF_INVALID : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED)) ? NETCONF_ESTABLISHED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_RELATED)) ? NETCONF_RELATED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_NEW)) ? NETCONF_NEW : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_UNTRACKED) ? NETCONF_UNTRACKED : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_SNAT) ? NETCONF_STATE_SNAT : 0;
+					fw->match.state |= (conntrack->state_mask & XT_CONNTRACK_STATE_DNAT) ? NETCONF_STATE_DNAT : 0;
+				} else
 				if (state) {
 					fw->match.state |= (state->statemask & IPT_STATE_INVALID) ? NETCONF_INVALID : 0;
 					fw->match.state |= (state->statemask & IPT_STATE_BIT(IP_CT_ESTABLISHED)) ? NETCONF_ESTABLISHED : 0;
@@ -312,12 +310,9 @@ netconf_get_fw(netconf_fw_t *fw_list)
 					break;
 				}
 				if (time) {
-					unsigned int *days = (unsigned int *) &time[1];
-
-					fw->match.days[0] = days[0];
-					fw->match.days[1] = days[1];
-					fw->match.secs[0] = time->time_start;
-					fw->match.secs[1] = time->time_stop;
+					fw->match.days    = time->weekdays_match;
+					fw->match.secs[0] = time->daytime_start;
+					fw->match.secs[1] = time->daytime_stop;
 				}
 
 				/* Set target type */
@@ -326,8 +321,10 @@ netconf_get_fw(netconf_fw_t *fw_list)
 
 				/* Get filter target information */
 				if (filter) {
-					if (!netconf_valid_dir(filter->dir = filter_dir(chain)))
+					if (!netconf_valid_dir(filter->dir = filter_dir(chain))) {
+						fprintf(stderr, "error direction in %s\n", chain);
 						goto err;
+					}
 				}
 
 				/* Get NAT target information */
@@ -364,17 +361,19 @@ netconf_get_fw(netconf_fw_t *fw_list)
 			}
 		}
 
-		if (!iptc_commit(&handle)) {
+		if (!iptc_commit(handle)) {
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			goto err;
 		}
+		iptc_free(handle);
+		handle = NULL;
 	}
 
 	return 0;
 
  err:
 	if (handle)
-		iptc_free(&handle);
+		iptc_free(handle);
 	netconf_list_free(fw_list);
 	return errno;	
 }
@@ -396,7 +395,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 	const char **table;
 	const char *chain;
 	const struct ipt_entry *entry = NULL;
-	iptc_handle_t handle = NULL;
+	struct iptc_handle *handle = NULL;
 	int ret = 0;
 
 	if (!netconf_valid_ipproto(fw->match.ipproto)) {
@@ -422,10 +421,10 @@ netconf_fw_index(const netconf_fw_t *fw)
 	}
 
 	/* Search all default tables */
-	for (table = &ipt_table_names[0]; *table; table++) {
+	for (table = &netconf_table_names[0]; *table; table++) {
 
 		/* Only consider specified tables */
-		if (strncmp(ipt_table_name[fw->target], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
+		if (strncmp(netconf_table_name[fw->target], *table, IPT_FUNCTION_MAXNAMELEN) != 0)
 			continue;
 
 		if (!(handle = iptc_init(*table))) {
@@ -434,22 +433,27 @@ netconf_fw_index(const netconf_fw_t *fw)
 		}
 
 		/* Search all default chains */
-		for (chain = iptc_first_chain(&handle); chain; chain = iptc_next_chain(&handle)) {
+		for (chain = iptc_first_chain(handle); chain; chain = iptc_next_chain(handle)) {
 
 			/* Only consider specified chains */
-			if (filter && strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0)
+			if (filter &&
+			    strncmp(chain, ipt_filter_chain_name[filter->dir], sizeof(ipt_chainlabel)) != 0 &&
+			    strncmp(chain, "UPNP", sizeof(ipt_chainlabel)) != 0)
 				continue;
-			else if (nat && strncmp(chain, get_nat_chain_name(fw), sizeof(ipt_chainlabel)) != 0)
+			else if (nat &&
+			    strncmp(chain, get_nat_chain_name(fw), sizeof(ipt_chainlabel)) != 0 &&
+			    strncmp(chain, "UPNP", sizeof(ipt_chainlabel)) != 0)
 				continue;
 			else if (app && strncmp(chain, "PREROUTING", sizeof(ipt_chainlabel)) != 0)
 				continue;
 
 			/* Search all entries */
-			for (ret = 0, entry = iptc_first_rule(chain, &handle); entry; ret++, entry = iptc_next_rule(entry, &handle)) {
+			for (ret = 0, entry = iptc_first_rule(chain, handle); entry; ret++, entry = iptc_next_rule(entry, handle)) {
 				const struct ipt_entry_match *match;
 				const struct ipt_entry_target *target;
 				struct ipt_mac_info *mac = NULL;
 				struct ipt_state_info *state = NULL;
+				struct ipt_conntrack_info *conntrack = NULL;
 				struct ipt_time_info *time = NULL;
 
 				/* Only know about TCP/UDP */
@@ -483,7 +487,12 @@ netconf_fw_index(const netconf_fw_t *fw)
 						tcp = (struct ipt_tcp *) &match->data[0];
 						break;
 					}
-			
+
+					if (!tcp && 
+					    !fw->match.src.ports[0] && !fw->match.src.ports[1] &&
+					    !fw->match.dst.ports[0] && !fw->match.dst.ports[1])
+						goto pass;
+
 					/* Match ports stored in host order for some stupid reason */
 					if (!tcp ||
 					    tcp->spts[0] != ntohs(fw->match.src.ports[0]) ||
@@ -509,6 +518,11 @@ netconf_fw_index(const netconf_fw_t *fw)
 						break;
 					}
 
+					if (!udp && 
+					    !fw->match.src.ports[0] && !fw->match.src.ports[1] &&
+					    !fw->match.dst.ports[0] && !fw->match.dst.ports[1])
+						goto pass;
+
 					/* Match ports stored in host order for some stupid reason */
 					if (!udp ||
 					    udp->spts[0] != ntohs(fw->match.src.ports[0]) ||
@@ -521,7 +535,7 @@ netconf_fw_index(const netconf_fw_t *fw)
 					    lxor(udp->invflags & IPT_UDP_INV_DSTPT, fw->match.flags & NETCONF_INV_DSTPT))
 						continue;
 				}
-
+			pass:
 				/* Compare source MAC addresses */
 				if (!ETHER_ISNULLADDR(fw->match.mac.octet)) {
 					for_each_ipt_match(match, entry) {
@@ -542,13 +556,25 @@ netconf_fw_index(const netconf_fw_t *fw)
 				/* Compare packet states */
 				if (fw->match.state) {
 					for_each_ipt_match(match, entry) {
-						if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) != 0)
-							continue;
-			
-						state = (struct ipt_state_info *) &match->data[0];
-						break;
+						if (strncmp(match->u.user.name, "state", IPT_FUNCTION_MAXNAMELEN) == 0) {
+							state = (struct ipt_state_info *) &match->data[0];
+							break;
+						} else
+						if (strncmp(match->u.user.name, "conntrack", IPT_FUNCTION_MAXNAMELEN) == 0) {
+							conntrack = (struct ipt_conntrack_info *) &match->data[0];
+							break;
+						}
 					}
-			
+					if (conntrack && (conntrack->match_flags & XT_CONNTRACK_STATE)) { if (
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_INVALID, fw->match.state & NETCONF_INVALID) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_ESTABLISHED), fw->match.state & NETCONF_ESTABLISHED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_RELATED), fw->match.state & NETCONF_RELATED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_BIT(IP_CT_NEW), fw->match.state & NETCONF_NEW) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_UNTRACKED, fw->match.state & NETCONF_UNTRACKED) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_SNAT, fw->match.state & NETCONF_STATE_SNAT) ||
+					    lxor(conntrack->state_mask & XT_CONNTRACK_STATE_DNAT, fw->match.state & NETCONF_STATE_DNAT))
+						continue;
+					} else
 					if (!state ||
 					    lxor(state->statemask & IPT_STATE_INVALID, fw->match.state & NETCONF_INVALID) ||
 					    lxor(state->statemask & IPT_STATE_BIT(IP_CT_ESTABLISHED), fw->match.state & NETCONF_ESTABLISHED) ||
@@ -575,18 +601,15 @@ netconf_fw_index(const netconf_fw_t *fw)
 					if (!time)
 						continue;
 					else {
-						unsigned int *days = (unsigned int *) &time[1];
-
-						if (fw->match.days[0] != days[0] ||
-						    fw->match.days[1] != days[1] ||
-						    fw->match.secs[0] != time->time_start ||
-						    fw->match.secs[1] != time->time_stop)
+						if (fw->match.days != time->weekdays_match ||
+						    fw->match.secs[0] != time->daytime_start ||
+						    fw->match.secs[1] != time->daytime_stop)
 							continue;
 					}
 				}
 
 				/* Compare target type */
-				if (fw->target != target_num(entry, &handle))
+				if (fw->target != target_num(entry, handle))
 					continue;
 				target = (struct ipt_entry_target *) ((int) entry + entry->target_offset);
 
@@ -633,17 +656,19 @@ netconf_fw_index(const netconf_fw_t *fw)
 				break;
 		}
 
-		if (!iptc_commit(&handle)) {
+		if (!iptc_commit(handle)) {
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			return -errno;
 		}
+		iptc_free(handle);
+		handle = NULL;
 
 		if (entry)
 			break;
 	}
 
 	if (handle)
-		iptc_free(&handle);
+		iptc_free(handle);
 	return (entry ? ret : -ENOENT);
 }
 
@@ -658,6 +683,38 @@ netconf_fw_exists(netconf_fw_t *fw)
 	return (netconf_fw_index(fw) >= 0);
 }
 
+/*
+ * Get an array of the current NAT entries
+ * @param	nat_array	array of NAT entries
+ * @param	space		Pointer to size of nat_array in bytes
+ * @return 0 on success and errno on failure
+ */
+int
+netconf_get_nat(netconf_nat_t *nat_array, int *space)
+{
+	netconf_fw_t *fw, fw_list;
+	int ret;
+	int found = 0;
+
+	if ((ret = netconf_get_fw(&fw_list)))
+		return ret;
+
+	netconf_list_for_each(fw, &fw_list) {
+		if (netconf_valid_nat(fw->target)) {
+			found++;
+			if (*space && *space >= (found * sizeof(netconf_nat_t)))
+				memcpy(&nat_array[found - 1], (netconf_nat_t *) fw, sizeof(netconf_nat_t));
+		}
+	}
+
+	if (!*space)
+		*space = found * sizeof(netconf_nat_t);
+
+	netconf_list_free(&fw_list);
+	return 0;
+}
+
+#if !defined(ASUS_EXT) || defined(__CONFIG_UPNP__)
 /*
  * Allocate and append a match structure to an existing ipt_entry
  * @param	pentry			pointer to pointer to initialized ipt_entry
@@ -730,7 +787,7 @@ netconf_append_target(struct ipt_entry **pentry, const char *name, size_t target
  *  i.e. either in not applied yet entries
  */
 static const char *
-netconf_get_target(const struct ipt_entry *ce, iptc_handle_t *h)
+netconf_get_target(const struct ipt_entry *ce, struct iptc_handle *h)
 {
         const char *user_name = ipt_get_target((struct ipt_entry *)ce)->u.user.name;
 
@@ -751,9 +808,8 @@ netconf_get_target(const struct ipt_entry *ce, iptc_handle_t *h)
  * @return	TRUE on success and 0 on failure
  */
 static int
-insert_entry(const char *chain, struct ipt_entry *entry, iptc_handle_t *handle)
+insert_entry(const char *chain, struct ipt_entry *entry, struct iptc_handle *handle)
 {
-	int i;
 	struct ipt_ip blank;
 	const struct ipt_entry *rule;
 
@@ -772,6 +828,8 @@ insert_entry(const char *chain, struct ipt_entry *entry, iptc_handle_t *handle)
 	/* If accepting insert after the last drop but before the first default policy */
 	else if (!strcmp(netconf_get_target(entry, handle), "ACCEPT") ||
 		 !strcmp(netconf_get_target(entry, handle), "logaccept")) {
+		int i;
+
 		for (i = 0, rule = iptc_first_rule(chain, handle); rule; i++, rule = iptc_next_rule(rule, handle)) {
 			if ((strcmp(netconf_get_target(rule, handle), "DROP") &&
 			     strcmp(netconf_get_target(rule, handle), "logdrop")) ||
@@ -802,7 +860,7 @@ netconf_add_fw(netconf_fw_t *fw)
 	struct ipt_entry *entry;
 	struct ipt_entry_match *match;
 	struct ipt_entry_target *target;
-	iptc_handle_t handle = NULL;
+	struct iptc_handle *handle = NULL;
 
 	if (!netconf_valid_ipproto(fw->match.ipproto)) {
 		fprintf(stderr, "invalid IP protocol %d\n", fw->match.ipproto);
@@ -947,13 +1005,9 @@ netconf_add_fw(netconf_fw_t *fw)
 	/* Match by local time */
 	if (fw->match.secs[0] || fw->match.secs[1]) {
 		struct ipt_time_info *time;
-		unsigned int *days;
-		int i;
 
-		if (fw->match.secs[0] >= (24 * 60 * 60) || fw->match.secs[1] >= (24 * 60 * 60) ||
-		    fw->match.days[0] >= 7 || fw->match.days[1] >= 7) {
-			fprintf(stderr, "invalid time %d-%d:%d-%d\n",
-				fw->match.days[0], fw->match.days[1],
+		if (fw->match.secs[0] >= (24 * 60 * 60) || fw->match.secs[1] >= (24 * 60 * 60) ) {
+			fprintf(stderr, "invalid time %d-%d\n",
 				fw->match.secs[0], fw->match.secs[1]);
 			goto err;
 		}
@@ -961,15 +1015,16 @@ netconf_add_fw(netconf_fw_t *fw)
 		if (!(match = netconf_append_match(&entry, "time", sizeof(struct ipt_time_info) + 8)))
 			goto err;
 		time = (struct ipt_time_info *) &match->data[0];
-		days = (unsigned int *) &time[1];
-		days[0] = fw->match.days[0];
-		days[1] = fw->match.days[1];
 
-		for (i = fw->match.days[0]; i != fw->match.days[1]; i = (i + 1) % 7)
-			time->days_match |= (1 << i);
-		time->days_match |= (1 << fw->match.days[1]);
-		time->time_start = fw->match.secs[0];
-		time->time_stop = fw->match.secs[1];
+		time->weekdays_match = fw->match.days;
+		time->daytime_start = fw->match.secs[0];
+		time->daytime_stop = fw->match.secs[1];
+#ifdef LINUX26
+		time->flags |= XT_TIME_LOCAL_TZ;
+		time->monthdays_match = XT_TIME_ALL_MONTHDAYS;
+		time->date_start = 0;
+		time->date_stop  = INT_MAX;
+#endif
 	}
 
 #ifdef WEBSTRFILTER
@@ -989,10 +1044,10 @@ netconf_add_fw(netconf_fw_t *fw)
 #endif
 
 	/* Allocate target */
-	if (!(target = netconf_append_target(&entry, ipt_target_name[fw->target], ipt_target_size[fw->target])))
+	if (!(target = netconf_append_target(&entry, netconf_target_name[fw->target], netconf_target_size[fw->target])))
 		goto err;
 
-	if (!(handle = iptc_init(ipt_table_name[fw->target]))) {
+	if (!(handle = iptc_init(netconf_table_name[fw->target]))) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		goto err;
 	}
@@ -1004,7 +1059,7 @@ netconf_add_fw(netconf_fw_t *fw)
 			goto err;
 		}
 
-		if (!insert_entry(ipt_filter_chain_name[filter->dir], entry, &handle)) {
+		if (!insert_entry(ipt_filter_chain_name[filter->dir], entry, handle)) {
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			goto err;
 		}
@@ -1037,7 +1092,7 @@ netconf_add_fw(netconf_fw_t *fw)
 			range->flags |= IP_NAT_RANGE_PROTO_SPECIFIED;
 		}
 
-		if (!insert_entry(get_nat_chain_name(fw), entry, &handle)) 
+		if (!insert_entry(get_nat_chain_name(fw), entry, handle)) 
 		{
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			goto err;
@@ -1053,13 +1108,13 @@ netconf_add_fw(netconf_fw_t *fw)
 		info->to[0] = app->to[0];
 		info->to[1] = app->to[1];
 
-		if (!insert_entry("PREROUTING", entry, &handle)) {
+		if (!insert_entry("PREROUTING", entry, handle)) {
 			fprintf(stderr, "%s\n", iptc_strerror(errno));
 			goto err;
 		}
 	}
 
-	if (!iptc_commit(&handle)) {
+	if (!iptc_commit(handle)) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		goto err;
 	}
@@ -1068,7 +1123,7 @@ netconf_add_fw(netconf_fw_t *fw)
 
  err:
 	if (handle)
-		iptc_free(&handle);
+		iptc_free(handle);
 	free(entry);
 	return errno;
 }
@@ -1083,7 +1138,7 @@ netconf_del_fw(netconf_fw_t *fw)
 {
 	int num;
 	const char *chain;
-	iptc_handle_t handle = NULL;
+	struct iptc_handle *handle = NULL;
 
 	/* netconf_fw_index() sanity checks fw */
 	if ((num = netconf_fw_index(fw)) < 0)
@@ -1100,14 +1155,19 @@ netconf_del_fw(netconf_fw_t *fw)
 		return EINVAL;
 		
 	/* Commit changes */
-	if (!(handle = iptc_init(ipt_table_name[fw->target])) ||
-	    !iptc_delete_num_entry(chain, num, &handle) ||
-	    !iptc_commit(&handle)) {
+	if (!(handle = iptc_init(netconf_table_name[fw->target])) ||
+	    !iptc_delete_num_entry(chain, num, handle) ||
+	    !iptc_commit(handle)) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
-		return errno;
+		goto err;
 	}
 
-	return 0;
+	errno = 0;
+
+ err:
+	if (handle)
+		iptc_free(handle);
+	return errno;
 }
 
 /*
@@ -1156,37 +1216,6 @@ netconf_del_nat(netconf_nat_t *nat_list)
 {
 	return netconf_manip_fw((netconf_fw_t *) nat_list, 1);
 }
-
-/*
- * Get an array of the current NAT entries
- * @param	nat_array	array of NAT entries
- * @param	space		Pointer to size of nat_array in bytes
- * @return 0 on success and errno on failure
- */
-int
-netconf_get_nat(netconf_nat_t *nat_array, int *space)
-{
-	netconf_fw_t *fw, fw_list;
-	int ret;
-	int found = 0;
-	
-	if ((ret = netconf_get_fw(&fw_list)))
-		return ret;
-		
-	netconf_list_for_each(fw, &fw_list) {
-		if (netconf_valid_nat(fw->target)) {
-			found++;
-			if (*space && *space >= (found * sizeof(netconf_nat_t)))
-				memcpy(&nat_array[found - 1], (netconf_nat_t *) fw, sizeof(netconf_nat_t));
-		}
-	}
-
-	if (!*space)
-		*space = found * sizeof(netconf_nat_t);
-
-	netconf_list_free(&fw_list);
-	return 0;
-}			
 
 /*
  * Add a filter entry or list of filter entries
@@ -1240,7 +1269,9 @@ netconf_get_filter(netconf_filter_t *filter_array, int *space)
 	netconf_list_free(&fw_list);
 	return 0;
 }			
+#endif /* !defined(ASUS_EXT) || defined(__CONFIG_UPNP__) */
 
+#ifndef ASUS_EXT
 /*
  * Generates an ipt_entry with an optional match and one target
  * @param match_name		match name
@@ -1290,7 +1321,7 @@ netconf_generate_entry(const char *match_name, const void *match_data, size_t ma
 static int
 netconf_reset_chain(char *table, char *chain)
 {
-	iptc_handle_t handle = NULL;	
+	struct iptc_handle *handle = NULL;	
 
 	/* Get handle to table */
 	if (!(handle = iptc_init(table)))
@@ -1298,20 +1329,21 @@ netconf_reset_chain(char *table, char *chain)
 
 	/* Create chain if necessary */
 	if (!iptc_is_chain(chain, handle))
-		if (!iptc_create_chain(chain, &handle))
+		if (!iptc_create_chain(chain, handle))
 			goto err;
 
 	/* Flush entries and commit */
-	if (!iptc_flush_entries(chain, &handle) ||
-	    !iptc_commit(&handle))
+	if (!iptc_flush_entries(chain, handle) ||
+	    !iptc_commit(handle)) {
+		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		goto err;
+	}
 
-	return 0;
+	errno = 0;
 
  err:
-	fprintf(stderr, "%s\n", iptc_strerror(errno));
 	if (handle)
-		iptc_free(&handle);
+		iptc_free(handle);
 	return errno;
 }
 
@@ -1322,7 +1354,7 @@ netconf_reset_chain(char *table, char *chain)
 int
 netconf_reset_fw(void)
 {
-	iptc_handle_t handle = NULL;	
+	struct iptc_handle *handle = NULL;	
 	struct ipt_entry *entry = NULL;
 	struct ipt_state_info state;
 	struct ipt_log_info log;
@@ -1358,20 +1390,22 @@ netconf_reset_fw(void)
 		return ENOMEM;
 	entry->nfcache |= NFC_UNKNOWN;
 	if (!(handle = iptc_init("filter")) ||
-	    !iptc_insert_entry("logdrop", entry, 0, &handle) ||
-	    !iptc_commit(&handle))
+	    !iptc_insert_entry("logdrop", entry, 0, handle) ||
+	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Drop packet */
 	if (!(entry = netconf_generate_entry(NULL, NULL, 0, "DROP", &unused, sizeof(unused))))
 		return ENOMEM;
 	entry->nfcache |= NFC_UNKNOWN;
 	if (!(handle = iptc_init("filter")) ||
-	    !iptc_insert_entry("logdrop", entry, 1, &handle) ||
-	    !iptc_commit(&handle))
+	    !iptc_insert_entry("logdrop", entry, 1, handle) ||
+	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Log packet */
 	strncpy(log.prefix, "ACCEPT ", sizeof(log.prefix));
@@ -1379,28 +1413,28 @@ netconf_reset_fw(void)
 		return ENOMEM;
 	entry->nfcache |= NFC_UNKNOWN;
 	if (!(handle = iptc_init("filter")) ||
-	    !iptc_insert_entry("logaccept", entry, 0, &handle) ||
-	    !iptc_commit(&handle))
+	    !iptc_insert_entry("logaccept", entry, 0, handle) ||
+	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	/* Accept packet */
 	if (!(entry = netconf_generate_entry(NULL, NULL, 0, "ACCEPT", &unused, sizeof(unused))))
 		return ENOMEM;
 	entry->nfcache |= NFC_UNKNOWN;
 	if (!(handle = iptc_init("filter")) ||
-	    !iptc_insert_entry("logaccept", entry, 1, &handle) ||
-	    !iptc_commit(&handle))
+	    !iptc_insert_entry("logaccept", entry, 1, handle) ||
+	    !iptc_commit(handle))
 		goto err;
 	free(entry);
+	iptc_free(handle);
 
 	return 0;
 
  err:
-	if (entry)
-		free(entry);
-	if (handle)
-		iptc_free(&handle);
+	free(entry);
+	iptc_free(handle);
 	fprintf(stderr, "%s\n", iptc_strerror(errno));
 	return errno;
 }
@@ -1418,7 +1452,7 @@ int
 netconf_clamp_mss_to_pmtu(void)
 {
 	struct ipt_entry *entry;
-	iptc_handle_t handle = NULL;
+	struct iptc_handle *handle = NULL;
 	struct ipt_tcp tcp;
 	struct ipt_tcpmss_info tcpmss;
 
@@ -1440,8 +1474,8 @@ netconf_clamp_mss_to_pmtu(void)
 
 	/* Do it */
 	if (!(handle = iptc_init("filter")) ||
-	    !iptc_insert_entry("FORWARD", entry, 0, &handle) ||
-	    !iptc_commit(&handle)) {
+	    !iptc_insert_entry("FORWARD", entry, 0, handle) ||
+	    !iptc_commit(handle)) {
 		fprintf(stderr, "%s\n", iptc_strerror(errno));
 		free(entry);
 		return errno;
@@ -1449,4 +1483,5 @@ netconf_clamp_mss_to_pmtu(void)
 
 	free(entry);
 	return 0;
-}	
+}
+#endif /* ASUS_EXT */

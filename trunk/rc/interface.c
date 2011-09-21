@@ -28,29 +28,48 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <proto/ethernet.h>
+
 #include <shutils.h>
 #include <bcmnvram.h>
 #include <bcmutils.h>
 #include <bcmparams.h>
-#include <rc.h>
+#include "rc.h"
 
 in_addr_t
-inet_addr_(const char *cp)
+ip_addr(const char *str)
 {
-	struct in_addr a;
+	struct in_addr addr;
 
-	if (!inet_aton(cp, &a))
-		return INADDR_ANY;
-	else
-		return a.s_addr;
+	if (inet_aton(str, &addr))
+		return addr.s_addr;
+
+	return INADDR_ANY;
+}
+
+void
+ip2class(char *lan_ip, char *netmask, char *buf)
+{
+	unsigned int val, ip;
+	struct in_addr in;
+	int i=0;
+
+	val = (unsigned int)inet_addr(netmask);
+	ip = (unsigned int)inet_addr(lan_ip);
+	in.s_addr = ip & val;
+
+        for (val = ntohl(val); val; i++) 
+        	val <<= 1;
+
+        sprintf(buf, "%s/%d", inet_ntoa(in), i);
+	dprintf("%s", buf);	
 }
 
 int
-ifconfig(char *name, int flags, char *addr, char *netmask)
+ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
-	struct in_addr in_addr, in_netmask, in_broadaddr;
+	struct in_addr in_addr, in_netmask, in_broadaddr, in_peer;
 
 	/* Open a raw socket to the kernel */
 	if ((s = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
@@ -58,18 +77,27 @@ ifconfig(char *name, int flags, char *addr, char *netmask)
 
 	/* Set interface name */
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
-	
+
 	/* Set interface flags */
 	ifr.ifr_flags = flags;
 	if (ioctl(s, SIOCSIFFLAGS, &ifr) < 0)
 		goto err;
-	
+
 	/* Set IP address */
 	if (addr && *addr) {
 		inet_aton(addr, &in_addr);
 		sin_addr(&ifr.ifr_addr).s_addr = in_addr.s_addr;
 		ifr.ifr_addr.sa_family = AF_INET;
 		if (ioctl(s, SIOCSIFADDR, &ifr) < 0)
+			goto err;
+	}
+
+	/* Set IP peer address */
+	if (peer && *peer) {
+		inet_aton(peer, &in_peer);
+		sin_addr(&ifr.ifr_dstaddr).s_addr = in_peer.s_addr;
+		ifr.ifr_dstaddr.sa_family = AF_INET;
+		if (ioctl(s, SIOCSIFDSTADDR, &ifr) < 0)
 			goto err;
 	}
 
@@ -156,7 +184,7 @@ void
 config_loopback(void)
 {
 	/* Bring up loopback interface */
-	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
+	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0", NULL);
 
 	/* Add to routing table */
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
@@ -211,7 +239,7 @@ start_vlan(void)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr))
 			continue;
 		if (!(ifr.ifr_flags & IFF_UP))
-			ifconfig(ifr.ifr_name, IFUP, 0, 0);
+			ifconfig(ifr.ifr_name, IFUP, NULL, NULL, NULL);
 		/* create the VLAN interface */
 		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
@@ -251,5 +279,93 @@ stop_vlan(void)
 	}
 
 	return 0;
+}
+#endif
+
+#ifdef __CONFIG_IPV6__
+int
+ipv6_addr(const char *str, struct in6_addr *addr6)
+{
+	char addrstr[INET6_ADDRSTRLEN] = "::/0";
+	char *last, *tmp = addrstr;
+	int ret = 128;
+
+	if (str && *str)
+		strncpy(addrstr, str, sizeof(addrstr));
+	strsep(&tmp, "/");
+
+	if (inet_pton(AF_INET6, addrstr, addr6) != 1)
+		return -1;
+
+	if (tmp && *tmp) {
+		ret = strtol(tmp, &last, 10);
+		if (*last || ret < 0 || ret > 128)
+			ret = -1;
+	}
+
+	return ret;
+}
+
+int
+ipv6_network(struct in6_addr *addr6, int netsize)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+
+	if (netsize > 128)
+		return 0;
+
+	if (m)
+		addr6->s6_addr32[i++] &= htonl(0xffffffffUL << (32 - m));
+	while (i < 4)
+		addr6->s6_addr32[i++] = 0;
+
+	return netsize;
+}
+
+int
+ipv6_host(struct in6_addr *addr6, int netsize)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+
+	if (netsize > 128)
+		return 0;
+
+	if (m)
+		addr6->s6_addr32[i--] &= htonl(0xffffffffUL >> m);
+	while (i >= 0)
+		addr6->s6_addr32[i--] = 0;
+
+	return 128 - netsize;
+}
+
+int
+ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size)
+{
+	int i = netsize >> 5;
+	int m = netsize & 0x1f;
+	int ret = netsize + 32 - ip4size;
+	u_int32_t addr = 0;
+	u_int32_t mask = 0xffffffffUL << ip4size;
+
+	if (netsize > 128 || ip4size > 32 || ret > 128)
+		return 0;
+
+	if (ip4size == 32)
+		return netsize;
+
+	if (addr4)
+		addr = ntohl(addr4->s_addr) << ip4size;
+
+	addr6->s6_addr32[i] &= ~htonl(mask >> m);
+	addr6->s6_addr32[i] |= htonl(addr >> m);
+	if (m) {
+		i++;
+		addr6->s6_addr32[i] &= ~htonl(mask << (32 - m));
+		addr6->s6_addr32[i] |= htonl(addr << (32 - m));
+	}
+
+	return ret;
 }
 #endif

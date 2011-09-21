@@ -1,0 +1,208 @@
+diff -urBp a/drivers/ide/ide-disk.c b/drivers/ide/ide-disk.c
+--- a/drivers/ide/ide-disk.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-disk.c	2011-03-05 17:19:31.000000000 +0300
+@@ -280,7 +280,7 @@ static ide_startstop_t __ide_do_rw_disk(
+ 			command = lba48 ? WIN_READ_EXT : WIN_READ;
+ 		}
+ 
+-		ide_execute_command(drive, command, &task_in_intr, WAIT_CMD, NULL);
++		ide_execute_command(drive, command, &task_in_intr, WAIT_WORSTCASE, NULL);
+ 		return ide_started;
+ 	} else {
+ 		if (drive->mult_count) {
+@@ -293,6 +293,7 @@ static ide_startstop_t __ide_do_rw_disk(
+ 
+ 		/* FIXME: ->OUTBSYNC ? */
+ 		hwif->OUTB(command, IDE_COMMAND_REG);
++		ndelay(400);
+ 
+ 		return pre_task_out_intr(drive, rq);
+ 	}
+diff -urBp a/drivers/ide/ide-iops.c b/drivers/ide/ide-iops.c
+--- a/drivers/ide/ide-iops.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-iops.c	2011-03-05 17:31:03.000000000 +0300
+@@ -700,7 +700,7 @@ int ide_driveid_update (ide_drive_t *dri
+ 	SELECT_MASK(drive, 1);
+ 	if (IDE_CONTROL_REG)
+ 		hwif->OUTB(drive->ctl,IDE_CONTROL_REG);
+-	msleep(50);
++	ide_delay_50ms();
+ 	hwif->OUTB(WIN_IDENTIFY, IDE_COMMAND_REG);
+ 	timeout = jiffies + WAIT_WORSTCASE;
+ 	do {
+@@ -708,9 +708,9 @@ int ide_driveid_update (ide_drive_t *dri
+ 			SELECT_MASK(drive, 0);
+ 			return 0;	/* drive timed-out */
+ 		}
+-		msleep(50);	/* give drive a breather */
++		ide_delay_50ms();	/* give drive a breather */
+ 	} while (hwif->INB(IDE_ALTSTATUS_REG) & BUSY_STAT);
+-	msleep(50);	/* wait for IRQ and DRQ_STAT */
++	ide_delay_50ms();	/* wait for IRQ and DRQ_STAT */
+ 	if (!OK_STAT(hwif->INB(IDE_STATUS_REG),DRQ_STAT,BAD_R_STAT)) {
+ 		SELECT_MASK(drive, 0);
+ 		printk("%s: CHECK for good STATUS\n", drive->name);
+diff -urBp a/drivers/ide/ide-probe.c b/drivers/ide/ide-probe.c
+--- a/drivers/ide/ide-probe.c
++++ b/drivers/ide/ide-probe.c
+@@ -279,7 +279,7 @@ static int actual_try_to_identify (ide_d
+ 	u8 s = 0, a = 0;
+ 
+ 	/* take a deep breath */
+-	msleep(50);
++	ide_delay_50ms();
+ 
+ 	if (IDE_CONTROL_REG) {
+ 		a = hwif->INB(IDE_ALTSTATUS_REG);
+@@ -314,11 +314,11 @@ static int actual_try_to_identify (ide_d
+ 			return 1;
+ 		}
+ 		/* give drive a breather */
+-		msleep(50);
++		ide_delay_50ms();
+ 	} while ((hwif->INB(hd_status)) & BUSY_STAT);
+ 
+ 	/* wait for IRQ and DRQ_STAT */
+-	msleep(50);
++	ide_delay_50ms();
+ 	if (OK_STAT((hwif->INB(IDE_STATUS_REG)), DRQ_STAT, BAD_R_STAT)) {
+ 		unsigned long flags;
+ 
+@@ -435,18 +435,34 @@ static int do_probe (ide_drive_t *drive,
+ 		(cmd == WIN_IDENTIFY) ? "ATA" : "ATAPI");
+ #endif
+ 
+-	/* needed for some systems
+-	 * (e.g. crw9624 as drive0 with disk as slave)
+-	 */
+-	msleep(50);
++	if ((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) {
++		unsigned long timeout;
++		timeout = jiffies;
++		printk("IDE: While probing, found an IDE channel that is "
++			"busy (%s).\n", drive->name);
++		printk("IDE: Probably, this means the drive hasn't spun up "
++			"yet.\n");
++		printk("IDE: We'll wait for it to spin up (but no more than 30"
++			" seconds).\n");
++		do {
++			ide_delay_50ms();
++		} while (((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) &&
++			 time_before(jiffies, timeout + WAIT_WORSTCASE));
++		if (!time_before(jiffies, timeout + WAIT_WORSTCASE)) {
++		    printk("IDE: Timed out waiting for drive %s to spin up.\n", drive->name);
++		} else {
++		    printk("IDE: The IDE channel is not busy any more, so we can "
++			    "continue probing.\n");
++		}
++	}
+ 	SELECT_DRIVE(drive);
+-	msleep(50);
++	ide_delay_50ms();
+ 	if (hwif->INB(IDE_SELECT_REG) != drive->select.all && !drive->present) {
+ 		if (drive->select.b.unit != 0) {
+ 			/* exit with drive0 selected */
+ 			SELECT_DRIVE(&hwif->drives[0]);
+ 			/* allow BUSY_STAT to assert & clear */
+-			msleep(50);
++			ide_delay_50ms();
+ 		}
+ 		/* no i/f present: mmm.. this should be a 4 -ml */
+ 		return 3;
+@@ -469,14 +485,14 @@ static int do_probe (ide_drive_t *drive,
+ 			printk("%s: no response (status = 0x%02x), "
+ 				"resetting drive\n", drive->name,
+ 				hwif->INB(IDE_STATUS_REG));
+-			msleep(50);
++			ide_delay_50ms();
+ 			hwif->OUTB(drive->select.all, IDE_SELECT_REG);
+-			msleep(50);
++			ide_delay_50ms();
+ 			hwif->OUTB(WIN_SRST, IDE_COMMAND_REG);
+ 			timeout = jiffies;
+ 			while (((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT) &&
+ 			       time_before(jiffies, timeout + WAIT_WORSTCASE))
+-				msleep(50);
++				ide_delay_50ms();
+ 			rc = try_to_identify(drive, cmd);
+ 		}
+ 		if (rc == 1)
+@@ -491,7 +507,7 @@ static int do_probe (ide_drive_t *drive,
+ 	if (drive->select.b.unit != 0) {
+ 		/* exit with drive0 selected */
+ 		SELECT_DRIVE(&hwif->drives[0]);
+-		msleep(50);
++		ide_delay_50ms();
+ 		/* ensure drive irq is clear */
+ 		(void) hwif->INB(IDE_STATUS_REG);
+ 	}
+@@ -508,7 +524,7 @@ static void enable_nest (ide_drive_t *dr
+ 
+ 	printk("%s: enabling %s -- ", hwif->name, drive->id->model);
+ 	SELECT_DRIVE(drive);
+-	msleep(50);
++	ide_delay_50ms();
+ 	hwif->OUTB(EXABYTE_ENABLE_NEST, IDE_COMMAND_REG);
+ 	timeout = jiffies + WAIT_WORSTCASE;
+ 	do {
+@@ -516,10 +532,10 @@ static void enable_nest (ide_drive_t *dr
+ 			printk("failed (timeout)\n");
+ 			return;
+ 		}
+-		msleep(50);
++		ide_delay_50ms();
+ 	} while ((hwif->INB(IDE_STATUS_REG)) & BUSY_STAT);
+ 
+-	msleep(50);
++	ide_delay_50ms();
+ 
+ 	if (!OK_STAT((hwif->INB(IDE_STATUS_REG)), 0, BAD_STAT)) {
+ 		printk("failed (status = 0x%02x)\n", hwif->INB(IDE_STATUS_REG));
+@@ -802,7 +818,7 @@ static void probe_hwif(ide_hwif_t *hwif,
+ 		udelay(10);
+ 		hwif->OUTB(8, hwif->io_ports[IDE_CONTROL_OFFSET]);
+ 		do {
+-			msleep(50);
++			ide_delay_50ms();
+ 			stat = hwif->INB(hwif->io_ports[IDE_STATUS_OFFSET]);
+ 		} while ((stat & BUSY_STAT) && time_after(timeout, jiffies));
+ 
+diff -urBp a/include/asm-mips/mach-generic/ide.h b/include/asm-mips/mach-generic/ide.h
+--- a/include/asm-mips/mach-generic/ide.h	2008-02-26 12:54:25.000000000 +0300
++++ b/include/asm-mips/mach-generic/ide.h	2011-03-05 17:19:31.000000000 +0300
+@@ -74,7 +74,7 @@ static __inline__ int ide_default_irq(un
+ 
+ static __inline__ unsigned long ide_default_io_base(int index)
+ {
+-	if (!ide_probe_legacy())
++//	if (!ide_probe_legacy())
+ 		return 0;
+ 	/*
+ 	 *      If PCI is present then it is not safe to poke around
+diff -urBp a/include/linux/ide.h b/include/linux/ide.h
+--- a/include/linux/ide.h
++++ b/include/linux/ide.h
+@@ -1180,6 +1180,22 @@ int ide_taskfile_ioctl(ide_drive_t *, un
+ int ide_cmd_ioctl(ide_drive_t *, unsigned int, unsigned long);
+ int ide_task_ioctl(ide_drive_t *, unsigned int, unsigned long);
+ 
++#include <linux/delay.h>
++/*
++ * Delay for *at least* 50ms.  As we don't know how much time is left
++ * until the next tick occurs, we wait an extra tick to be safe.
++ * This is used only during the probing/polling for drives at boot time.
++ *
++ */
++static inline void ide_delay_50ms(void)
++{
++#ifdef CONFIG_BCM947XX
++        msleep(500);
++#else /* CONFIG_BCM947XX */
++        msleep(50);
++#endif
++}
++
+ extern int system_bus_clock(void);
+ 
+ extern int ide_driveid_update(ide_drive_t *);
+-- 

@@ -1,0 +1,3586 @@
+Updates from Broadcom SDK 5.10.140.0
+
+--
+ arch/mips/Kconfig                         |    4 
+ arch/mips/brcm-boards/bcm947xx/Makefile   |    4 
+ arch/mips/brcm-boards/bcm947xx/gen_gpio.c |  138 +++
+ arch/mips/mm/cache.c                      |   41 -
+ arch/mips/mm/init.c                       |   64 +
+ drivers/i2c/busses/i2c-gpio.c             |   24 
+ include/asm-mips/gpio.h                   |   22 
+ include/asm-mips/hazards.h                |   14 
+ include/asm-mips/sparsemem.h              |    5 
+ include/linux/i2c-id.h                    |    1 
+ include/linux/rcupdate.h                  |   12 
+ include/linux/spinlock_api_up.h           |   10 
+ kernel/irq/spurious.c                     |    4 
+ kernel/softirq.c                          |    2 
+ mm/highmem.c                              |   16 
+ mm/page_alloc.c                           |    8 
+ sound/soc/Makefile                        |    2 
+ sound/soc/bcm947xx/Kconfig                |    7 
+ sound/soc/bcm947xx/Makefile               |   26 
+ sound/soc/bcm947xx/bcm94717ap.c           |  238 ++++++
+ sound/soc/bcm947xx/bcm94717bu.c           |  226 ++++++
+ sound/soc/bcm947xx/bcm947xx-i2s.c         |  489 +++++++++++++
+ sound/soc/bcm947xx/bcm947xx-i2s.h         |   45 +
+ sound/soc/bcm947xx/bcm947xx-pcm.c         |  553 +++++++++++++++
+ sound/soc/bcm947xx/bcm947xx-pcm.h         |   17 
+ sound/soc/codecs/Kconfig                  |    6 
+ sound/soc/codecs/Makefile                 |    2 
+ sound/soc/codecs/wm8750.c                 |   19 
+ sound/soc/codecs/wm8955.c                 | 1060 ++++++++++++++++++++++++++++++
+ sound/soc/codecs/wm8955.h                 |   61 +
+ 30 files changed, 3058 insertions(+), 62 deletions(-)
+
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c
+--- linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/arch/mips/brcm-boards/bcm947xx/gen_gpio.c	2009-11-26 02:33:36.000000000 +0300
+@@ -0,0 +1,138 @@
++/*
++ * Generic GPIO
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: gen_gpio.c,v 1.1 2009/10/30 20:51:47 Exp $
++ */
++
++
++#include <linux/module.h>
++#include <linux/init.h>
++
++#include <typedefs.h>
++#include <bcmutils.h>
++#include <siutils.h>
++#include <bcmdevs.h>
++
++
++#define BCM947XX_GENGPIO_DEBUG 0
++#if BCM947XX_GENGPIO_DEBUG
++//#define DBG(x...) printk(KERN_DEBUG x)
++#define DBG(x...) printk(KERN_ERR x)
++#else
++#define DBG(x...)
++#endif
++
++
++
++static si_t *gpio_sih;
++int mask;
++
++
++static int
++gen_gpio_init(void)
++{
++	if (!(gpio_sih = si_kattach(SI_OSH))) {
++		DBG("%s: si_kattach failed\n", __FUNCTION__);
++		return -ENODEV;
++	}
++
++	si_gpiosetcore(gpio_sih);
++
++	return 0;
++}
++
++static void
++gen_gpio_exit(void)
++{
++	si_detach(gpio_sih);
++}
++
++/* GENERIC_GPIO calls */
++int gpio_direction_input(unsigned gpio)
++{
++	int ret;
++
++	ret = si_gpioouten(gpio_sih, (1<<gpio), 0, GPIO_APP_PRIORITY);
++	DBG("%s: gpio %d - input 0x%x\n", __FUNCTION__, gpio, ret);
++	return 0;
++}
++EXPORT_SYMBOL(gpio_direction_input);
++
++
++int gpio_direction_output(unsigned gpio, int value)
++{
++	int out, outen;
++
++	outen = si_gpioouten(gpio_sih, (1<<gpio), (1<<gpio), GPIO_APP_PRIORITY);
++	out = si_gpioout(gpio_sih, (1<<gpio), (value ? (1<<gpio) : 0), GPIO_APP_PRIORITY);
++	DBG("%s: gpio %d, value %d - out 0x%x outen 0x%x\n", __FUNCTION__, gpio, value, out, outen);
++	return 0;
++}
++EXPORT_SYMBOL(gpio_direction_output);
++
++int gpio_get_value(unsigned int gpio)
++{
++	uint32 get;
++	get = si_gpioin(gpio_sih);
++
++	get &= (1<<gpio);
++
++	return (get ? 1 : 0);
++}
++EXPORT_SYMBOL(gpio_get_value);
++
++void gpio_set_value(unsigned int gpio, int value)
++{
++	si_gpioout(gpio_sih, (1<<gpio), (value ? (1<<gpio) : 0), GPIO_APP_PRIORITY);
++	return;
++}
++EXPORT_SYMBOL(gpio_set_value);
++
++int gpio_request(unsigned int gpio, const char *label)
++{
++	int ret;
++
++	mask |= (1<<gpio);
++
++	ret = si_gpioreserve(gpio_sih, (1<<gpio), GPIO_APP_PRIORITY);
++	DBG("%s: gpio %d label %s mask 0x%x reserve 0x%x\n", __FUNCTION__, gpio,
++	       label, mask, ret);
++
++	ret = si_gpiocontrol(gpio_sih, (1<<gpio), 0, GPIO_APP_PRIORITY);
++	DBG("%s: si_gpiocontrol 0x%x\n", __FUNCTION__, ret);
++
++	/* clear pulldown */
++	ret = si_gpiopull(gpio_sih, 1/*pulldown*/, (1<<gpio), 0);
++	DBG("%s: si_gpiopull (down) 0x%x\n", __FUNCTION__, ret);
++	/* Set pullup */
++	ret = si_gpiopull(gpio_sih, 0/*pullup*/, (1<<gpio), (1<<gpio));
++	DBG("%s: si_gpiopull (up) 0x%x\n", __FUNCTION__, ret);
++
++	return 0;
++}
++EXPORT_SYMBOL(gpio_request);
++
++void gpio_free(unsigned int gpio)
++{
++	mask &= ~(1<<gpio);
++
++	/* clear pullup */
++	si_gpiopull(gpio_sih, 0/*pullup*/, (1<<gpio), GPIO_APP_PRIORITY);
++	si_gpiorelease(gpio_sih, (1<<gpio), GPIO_APP_PRIORITY);
++
++	DBG("%s: gpio %d mask 0x%x\n", __FUNCTION__, gpio, mask);
++	return;
++}
++EXPORT_SYMBOL(gpio_free);
++
++
++module_init(gen_gpio_init);
++module_exit(gen_gpio_exit);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile
+--- linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile	2009-06-23 12:25:32.000000000 +0400
++++ linux-2.6/arch/mips/brcm-boards/bcm947xx/Makefile	2009-11-26 02:33:36.000000000 +0300
+@@ -28,6 +23,10 @@ ifeq ($(CONFIG_PCI),y)
+ BCM947XX_OBJS += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
+ endif
+ 
++ifeq ($(CONFIG_GENERIC_GPIO),y)
++BCM947XX_OBJS += gen_gpio.o
++endif
++
+ BCM947XX_OBJS += setup.o prom.o time.o irq.o perfcntr.o
+ 
+ bcm947xx-objs += $(BCM947XX_OBJS)
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/Kconfig linux-2.6/arch/mips/Kconfig
+--- linux-2.6/arch/mips/Kconfig	2008-12-12 06:25:39.000000000 +0300
++++ linux-2.6/arch/mips/Kconfig	2009-11-26 02:33:34.000000000 +0300
+@@ -701,6 +705,10 @@ config BCMIPDSCP
+ 	int "Memory size (in megabytes)"
+ 	depends on BCM947XX
+ 
++config GENERIC_GPIO
++	bool "Generic GPIO"
++	default n
++
+ endmenu
+ 
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/mm/cache.c linux-2.6/arch/mips/mm/cache.c
+--- linux-2.6/arch/mips/mm/cache.c	2008-12-12 06:25:49.000000000 +0300
++++ linux-2.6/arch/mips/mm/cache.c	2009-11-26 02:33:43.000000000 +0300
+@@ -56,26 +56,43 @@ EXPORT_SYMBOL(_dma_cache_inv);
+ asmlinkage int sys_cacheflush(unsigned long addr,
+ 	unsigned long bytes, unsigned int cache)
+ {
++	struct vm_area_struct* vma;
++
+ 	if (bytes == 0)
+ 		return 0;
+ 	if (!access_ok(VERIFY_WRITE, (void __user *) addr, bytes))
+ 		return -EFAULT;
+ 
+-	flush_icache_range(addr, addr + bytes);
++	if (cache & DCACHE)
++        {
++                vma = find_vma(current->mm, (unsigned long) addr);
++                if (vma) {
++                        flush_cache_range(vma,(unsigned long)addr,((unsigned long)addr) + bytes);
++                }
++                else {
++                        __flush_cache_all();
++                }
++        }
++        if (cache & ICACHE)
++        {
++                flush_icache_range(addr, addr + bytes);
++        }	
+ 
+ 	return 0;
+ }
+ 
++void *kmap_atomic_page_address(struct page *page);
++
+ void __flush_dcache_page(struct page *page)
+ {
+-	struct address_space *mapping = page_mapping(page);
+ 	unsigned long addr;
+ 
+-	if (PageHighMem(page))
+-		return;
+-	if (mapping && !mapping_mapped(mapping)) {
+-		SetPageDcacheDirty(page);
+-		return;
++	if (PageHighMem(page)) {
++		addr = (unsigned long) kmap_atomic_page_address(page);
++		if (addr) {
++			flush_data_cache_page(addr);
++			return;
++		}
+ 	}
+ 
+ 	/*
+@@ -84,7 +101,8 @@ void __flush_dcache_page(struct page *pa
+ 	 * get faulted into the tlb (and thus flushed) anyways.
+ 	 */
+ 	addr = (unsigned long) page_address(page);
+-	flush_data_cache_page(addr);
++	if (addr)
++		flush_data_cache_page(addr);
+ }
+ 
+ EXPORT_SYMBOL(__flush_dcache_page);
+@@ -113,11 +131,12 @@ void __update_cache(struct vm_area_struc
+ 	if (unlikely(!pfn_valid(pfn)))
+ 		return;
+ 	page = pfn_to_page(pfn);
+-	if (page_mapping(page) && Page_dcache_dirty(page)) {
++	if (page_mapping(page))
++	{
+ 		addr = (unsigned long) page_address(page);
+ 		if (exec || pages_do_alias(addr, address & PAGE_MASK))
+-			flush_data_cache_page(addr);
+-		ClearPageDcacheDirty(page);
++			if (addr)
++				flush_data_cache_page(addr);
+ 	}
+ }
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/arch/mips/mm/init.c linux-2.6/arch/mips/mm/init.c
+--- linux-2.6/arch/mips/mm/init.c	2008-12-12 06:25:49.000000000 +0300
++++ linux-2.6/arch/mips/mm/init.c	2009-11-26 02:33:43.000000000 +0300
+@@ -216,6 +216,7 @@ void copy_to_user_page(struct vm_area_st
+ 	    page_mapped(page) && !Page_dcache_dirty(page)) {
+ 		void *vto = kmap_coherent(page, vaddr) + (vaddr & ~PAGE_MASK);
+ 		memcpy(vto, src, len);
++		flush_data_cache_page((unsigned long)vto & PAGE_MASK);
+ 		kunmap_coherent();
+ 	} else {
+ 		memcpy(dst, src, len);
+@@ -338,11 +339,12 @@ static int __init page_is_ram(unsigned l
+ 
+ void __init paging_init(void)
+ {
++#ifdef CONFIG_FLATMEM
+ 	unsigned long zones_size[MAX_NR_ZONES] = { 0, };
+-#ifndef CONFIG_FLATMEM
+-	unsigned long zholes_size[MAX_NR_ZONES] = { 0, };
+-	unsigned long i, j, pfn;
+-#endif
++#else /* SPARSEMEM */
++	unsigned long max_zone_pfns[MAX_NR_ZONES];
++	unsigned long lastpfn;
++#endif /* CONFIG_FLATMEM */
+ 
+ 	pagetable_init();
+ 
+@@ -351,6 +353,7 @@ void __init paging_init(void)
+ #endif
+ 	kmap_coherent_init();
+ 
++#ifdef CONFIG_FLATMEM
+ #ifdef CONFIG_ZONE_DMA
+ 	if (min_low_pfn < MAX_DMA_PFN && MAX_DMA_PFN <= max_low_pfn) {
+ 		zones_size[ZONE_DMA] = MAX_DMA_PFN - min_low_pfn;
+@@ -358,9 +361,9 @@ void __init paging_init(void)
+ 	} else if (max_low_pfn < MAX_DMA_PFN)
+ 		zones_size[ZONE_DMA] = max_low_pfn - min_low_pfn;
+ 	else
+-#endif
++#endif /* CONFIG_ZONE_DMA */
+ 	zones_size[ZONE_NORMAL] = max_low_pfn - min_low_pfn;
+-
++	
+ #ifdef CONFIG_HIGHMEM
+ 	zones_size[ZONE_HIGHMEM] = highend_pfn - highstart_pfn;
+ 
+@@ -369,18 +373,37 @@ void __init paging_init(void)
+ 		       " %ldk highmem ignored\n", zones_size[ZONE_HIGHMEM]);
+ 		zones_size[ZONE_HIGHMEM] = 0;
+ 	}
+-#endif
++#endif /* CONFIG_HIGHMEM */
+ 
+-#ifdef CONFIG_FLATMEM
+ 	free_area_init(zones_size);
+-#else
+-	pfn = min_low_pfn;
+-	for (i = 0; i < MAX_NR_ZONES; i++)
+-		for (j = 0; j < zones_size[i]; j++, pfn++)
+-			if (!page_is_ram(pfn))
+-				zholes_size[i]++;
+-	free_area_init_node(0, NODE_DATA(0), zones_size, 0, zholes_size);
+-#endif
++
++#else /* SPARSEMEM */
++
++#ifdef CONFIG_ZONE_DMA
++	max_zone_pfns[ZONE_DMA] = MAX_DMA_PFN;
++#endif /* CONFIG_ZONE_DMA */
++
++#ifdef CONFIG_ZONE_DMA32
++	max_zone_pfns[ZONE_DMA32] = MAX_DMA32_PFN;
++#endif /* CONFIG_ZONE_DMA32 */
++	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
++	lastpfn = max_low_pfn;
++
++#ifdef CONFIG_HIGHMEM
++	max_zone_pfns[ZONE_HIGHMEM] = highend_pfn;
++	lastpfn = highend_pfn;
++
++	if (cpu_has_dc_aliases && max_low_pfn != highend_pfn) {
++		printk(KERN_WARNING "This processor doesn't support highmem."
++			" %ldk highmem ignored\n",
++			(highend_pfn - max_low_pfn) << (PAGE_SHIFT - 10));
++		max_zone_pfns[ZONE_HIGHMEM] = max_low_pfn;
++		lastpfn = max_low_pfn;
++	}
++#endif /* CONFIG_HIGHMEM */
++
++	free_area_init_nodes(max_zone_pfns);
++#endif /* CONFIG_FLATMEM */
+ }
+ 
+ static struct kcore_list kcore_mem, kcore_vmalloc;
+@@ -397,7 +420,7 @@ void __init mem_init(void)
+ #ifdef CONFIG_DISCONTIGMEM
+ #error "CONFIG_HIGHMEM and CONFIG_DISCONTIGMEM dont work together yet"
+ #endif
+-	max_mapnr = highend_pfn;
++	max_mapnr = max(max_low_pfn, highend_pfn);
+ #else
+ 	max_mapnr = max_low_pfn;
+ #endif
+@@ -417,12 +440,12 @@ void __init mem_init(void)
+ 
+ #ifdef CONFIG_HIGHMEM
+ 	for (tmp = highstart_pfn; tmp < highend_pfn; tmp++) {
+-		struct page *page = mem_map + tmp;
++		struct page *page;
+ 
+-		if (!page_is_ram(tmp)) {
+-			SetPageReserved(page);
++		if (!page_is_ram(tmp))
+ 			continue;
+-		}
++
++		page = pfn_to_page(tmp);
+ 		ClearPageReserved(page);
+ 		init_page_count(page);
+ 		__free_page(page);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/gpio.h linux-2.6/include/asm-mips/gpio.h
+--- linux-2.6/include/asm-mips/gpio.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/asm-mips/gpio.h	2009-11-26 02:40:48.000000000 +0300
+@@ -0,0 +1,22 @@
++/*
++ * Generic GPIO Interface
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: gpio.h,v 1.1 2009/11/02 19:10:00 Exp $
++ */
++
++int gpio_direction_input(unsigned pin);
++int gpio_direction_output(unsigned pin, int value);
++
++int gpio_get_value(unsigned int gpio);
++void gpio_set_value(unsigned int gpio, int value);
++
++int gpio_request(unsigned int gpio, const char *label);
++void gpio_free(unsigned int gpio);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/hazards.h linux-2.6/include/asm-mips/hazards.h
+--- linux-2.6/include/asm-mips/hazards.h	2008-12-12 06:33:24.000000000 +0300
++++ linux-2.6/include/asm-mips/hazards.h	2009-11-26 02:40:49.000000000 +0300
+@@ -156,23 +156,25 @@ ASMMACRO(back_to_back_c0_hazard,
+  * instructions on R4000 / R4400.  Other processors only have a single cycle
+  * hazard so this is nice trick to have an optimal code for a range of
+  * processors.
++ * Make it compatible with Mips32r2 processors
+  */
+ ASMMACRO(mtc0_tlbw_hazard,
+-	nop; nop
++	nop; nop; _ehb
+ 	)
+ ASMMACRO(tlbw_use_hazard,
+-	nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(tlb_probe_hazard,
+-	 nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(irq_enable_hazard,
++	_ehb
+ 	)
+ ASMMACRO(irq_disable_hazard,
+-	nop; nop; nop
++	nop; nop; nop; _ehb
+ 	)
+ ASMMACRO(back_to_back_c0_hazard,
+-	 _ssnop; _ssnop; _ssnop;
++	_ssnop; _ssnop; _ssnop; _ehb
+ 	)
+ #define instruction_hazard() do { } while (0)
+ 
+@@ -203,7 +205,7 @@ ASMMACRO(disable_fpu_hazard,
+ )
+ #else
+ ASMMACRO(enable_fpu_hazard,
+-	 nop; nop; nop; nop
++	 nop; nop; nop; nop; _ehb
+ )
+ ASMMACRO(disable_fpu_hazard,
+ 	 _ehb
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/asm-mips/sparsemem.h linux-2.6/include/asm-mips/sparsemem.h
+--- linux-2.6/include/asm-mips/sparsemem.h	2008-12-12 06:33:26.000000000 +0300
++++ linux-2.6/include/asm-mips/sparsemem.h	2009-11-26 02:40:50.000000000 +0300
+@@ -6,8 +6,7 @@
+  * SECTION_SIZE_BITS		2^N: how big each section will be
+  * MAX_PHYSMEM_BITS		2^N: how much memory we can have in that space
+  */
+-#define SECTION_SIZE_BITS       28
+-#define MAX_PHYSMEM_BITS        35
+-
++#define SECTION_SIZE_BITS       27 /* 128 mb */
++#define MAX_PHYSMEM_BITS        32 /* 4 gb */
+ #endif /* CONFIG_SPARSEMEM */
+ #endif /* _MIPS_SPARSEMEM_H */
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/rcupdate.h linux-2.6/include/linux/rcupdate.h
+--- linux-2.6/include/linux/rcupdate.h	2008-12-12 06:34:19.000000000 +0300
++++ linux-2.6/include/linux/rcupdate.h	2009-11-26 02:41:38.000000000 +0300
+@@ -200,6 +200,7 @@ extern int rcu_needs_cpu(int cpu);
+  * can use just rcu_read_lock().
+  *
+  */
++#ifdef CONFIG_PREEMPT
+ #define rcu_read_lock_bh() \
+ 	do { \
+ 		local_bh_disable(); \
+@@ -216,6 +217,17 @@ extern int rcu_needs_cpu(int cpu);
+ 		__release(RCU_BH); \
+ 		local_bh_enable(); \
+ 	} while(0)
++#else
++#define rcu_read_lock_bh() \
++	do { \
++		local_bh_disable(); \
++	} while(0)
++#define rcu_read_unlock_bh() \
++	do { \
++		local_bh_enable(); \
++	} while(0)
++
++#endif
+ 
+ /**
+  * rcu_dereference - fetch an RCU-protected pointer in an
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/include/linux/spinlock_api_up.h linux-2.6/include/linux/spinlock_api_up.h
+--- linux-2.6/include/linux/spinlock_api_up.h	2008-12-12 06:34:21.000000000 +0300
++++ linux-2.6/include/linux/spinlock_api_up.h	2009-11-26 02:41:41.000000000 +0300
+@@ -24,8 +24,13 @@
+  * flags straight, to supress compiler warnings of unused lock
+  * variables, and to add the proper checker annotations:
+  */
++#ifdef CONFIG_PREEMPT
+ #define __LOCK(lock) \
+   do { preempt_disable(); __acquire(lock); (void)(lock); } while (0)
++#else /* CONFIG_PREEMPT */
++#define __LOCK(lock) \
++  (void)(lock)
++#endif
+ 
+ #define __LOCK_BH(lock) \
+   do { local_bh_disable(); __LOCK(lock); } while (0)
+@@ -36,8 +41,13 @@
+ #define __LOCK_IRQSAVE(lock, flags) \
+   do { local_irq_save(flags); __LOCK(lock); } while (0)
+ 
++#ifdef  CONFIG_PREEMPT
+ #define __UNLOCK(lock) \
+   do { preempt_enable(); __release(lock); (void)(lock); } while (0)
++#else
++#define __UNLOCK(lock) \
++	do { } while(0)
++#endif
+ 
+ #define __UNLOCK_BH(lock) \
+   do { preempt_enable_no_resched(); local_bh_enable(); __release(lock); (void)(lock); } while (0)
+diff -urNBp a/kernel/irq/spurious.c b/kernel/irq/spurious.c
+--- a/kernel/irq/spurious.c
++++ b/kernel/irq/spurious.c
+@@ -10,7 +10,6 @@
+ #include <linux/module.h>
+ #include <linux/kallsyms.h>
+ #include <linux/interrupt.h>
+-#include <linux/reboot.h>
+ 
+ static int irqfixup __read_mostly;
+ 
+@@ -193,9 +192,6 @@ void note_interrupt(unsigned int irq, struct irq_desc *desc,
+ 		/*
+ 		 * The interrupt is stuck
+ 		 */
+-		/* reboot it */
+-		printk("IRQ error and try to reboot!\n");
+-		machine_restart(NULL);
+ 		__report_bad_irq(irq, desc, action_ret);
+ 		/*
+ 		 * Now kill the IRQ
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/kernel/softirq.c linux-2.6/kernel/softirq.c
+--- linux-2.6/kernel/softirq.c	2008-12-12 06:34:45.000000000 +0300
++++ linux-2.6/kernel/softirq.c	2010-01-21 05:05:47.000000000 +0300
+@@ -118,7 +118,9 @@ EXPORT_SYMBOL_GPL(__local_bh_enable);
+  */
+ void _local_bh_enable(void)
+ {
++#ifdef CONFIG_TRACE_IRQFLAGS
+ 	WARN_ON_ONCE(in_irq());
++#endif
+ 	WARN_ON_ONCE(!irqs_disabled());
+ 
+ 	if (softirq_count() == SOFTIRQ_OFFSET)
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/mm/highmem.c linux-2.6/mm/highmem.c
+--- linux-2.6/mm/highmem.c	2008-12-12 06:34:49.000000000 +0300
++++ linux-2.6/mm/highmem.c	2009-11-26 02:42:07.000000000 +0300
+@@ -122,8 +123,20 @@ start:
+ 			flush_all_zero_pkmaps();
+ 			count = LAST_PKMAP;
+ 		}
+-		if (!pkmap_count[last_pkmap_nr])
+-			break;	/* Found a usable entry */
++		if (!pkmap_count[last_pkmap_nr]) {
++			if (cpu_has_dc_aliases) {
++				unsigned int pfn, map_pfn;
++
++				/* check page color */
++				pfn = page_to_pfn(page);
++				map_pfn = PKMAP_ADDR(last_pkmap_nr) >> PAGE_SHIFT;
++
++				/* Avoide possibility of cache Aliasing */
++				if (!pages_do_alias((map_pfn << PAGE_SHIFT), (pfn << PAGE_SHIFT)))
++					break;      /* Found a usable entry */
++			} else
++				break;	/* Found a usable entry */
++		}
+ 		if (--count)
+ 			continue;
+ 
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/mm/page_alloc.c linux-2.6/mm/page_alloc.c
+--- linux-2.6/mm/page_alloc.c	2008-12-12 06:34:50.000000000 +0300
++++ linux-2.6/mm/page_alloc.c	2009-11-26 02:42:08.000000000 +0300
+@@ -2608,7 +2608,11 @@ static void __meminit free_area_init_cor
+ 		 * is used by this zone for memmap. This affects the watermark
+ 		 * and per-cpu initialisations
+ 		 */
++#ifdef CONFIG_SPARSEMEM
++                memmap_pages = 0;
++#else
+ 		memmap_pages = (size * sizeof(struct page)) >> PAGE_SHIFT;
++#endif
+ 		if (realsize >= memmap_pages) {
+ 			realsize -= memmap_pages;
+ 			printk(KERN_DEBUG
+@@ -2945,7 +2949,7 @@ void __init free_area_init_nodes(unsigne
+ 	}
+ 
+ 	/* Print out the zone ranges */
+-	printk("Zone PFN ranges:\n");
++	printk(KERN_INFO "Zone PFN ranges:\n");
+ 	for (i = 0; i < MAX_NR_ZONES; i++)
+ 		printk("  %-8s %8lu -> %8lu\n",
+ 				zone_names[i],
+@@ -2953,7 +2957,7 @@ void __init free_area_init_nodes(unsigne
+ 				arch_zone_highest_possible_pfn[i]);
+ 
+ 	/* Print out the early_node_map[] */
+-	printk("early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
++	printk(KERN_INFO "early_node_map[%d] active PFN ranges\n", nr_nodemap_entries);
+ 	for (i = 0; i < nr_nodemap_entries; i++)
+ 		printk("  %3d: %8lu -> %8lu\n", early_node_map[i].nid,
+ 						early_node_map[i].start_pfn,
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm94717ap.c linux-2.6/sound/soc/bcm947xx/bcm94717ap.c
+--- linux-2.6/sound/soc/bcm947xx/bcm94717ap.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm94717ap.c	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,238 @@
++/*
++ * SoC audio for BCM94717AP Board
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm94717ap.c,v 1.1 2009/10/30 20:40:14 Exp $
++ */
++
++
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/timer.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <sound/driver.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/soc.h>
++#include <sound/soc-dapm.h>
++#include <linux/i2c-gpio.h>
++
++#include <typedefs.h>
++#include <bcmdevs.h>
++#include <pcicfg.h>
++#include <hndsoc.h>
++#include <osl.h>
++#include <bcmutils.h>
++#include <siutils.h>
++#include <sbhnddma.h>
++#include <hnddma.h>
++#include <i2s_core.h>
++
++
++#include "../codecs/wm8955.h"
++#include "bcm947xx-pcm.h"
++#include "bcm947xx-i2s.h"
++
++#define BCM947XX_AP_DEBUG 0
++#if BCM947XX_AP_DEBUG
++#define DBG(x...) printk(KERN_ERR x)
++#else
++#define DBG(x...)
++#endif
++
++
++/* MCLK in Hz - to bcm94717ap & Wolfson 8955 */
++#define BCM94717AP_MCLK_FREQ 20000000 /* 20 MHz */
++
++
++static int bcm94717ap_startup(struct snd_pcm_substream *substream)
++{
++	//struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	//struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
++	//struct snd_soc_cpu_dai *cpu_dai = rtd->dai->cpu_dai;
++	int ret = 0;
++
++	DBG("%s:\n", __FUNCTION__);
++
++	return ret;
++}
++
++/* we need to unmute the HP at shutdown as the mute burns power on bcm94717ap */
++static void bcm94717ap_shutdown(struct snd_pcm_substream *substream)
++{
++	DBG("%s\n", __FUNCTION__);
++	return;
++}
++
++static int bcm94717ap_hw_params(struct snd_pcm_substream *substream,
++	struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
++	struct snd_soc_cpu_dai *cpu_dai = rtd->dai->cpu_dai;
++	unsigned int fmt;
++	int freq = 12288000;
++	//int freq = 11289600;
++	int ret = 0;
++
++	fmt = SND_SOC_DAIFMT_I2S |		/* I2S mode audio */
++	      SND_SOC_DAIFMT_NB_NF |		/* BCLK not inverted and normal LRCLK polarity */
++	      SND_SOC_DAIFMT_CBM_CFM;		/* BCM947xx is I2S Slave */
++
++	/* set codec DAI configuration */
++	DBG("%s: calling set_fmt with fmt 0x%x\n", __FUNCTION__, fmt);
++	ret = codec_dai->dai_ops.set_fmt(codec_dai, fmt);
++	if (ret < 0)
++		return ret;
++
++	/* set cpu DAI configuration */
++	ret = cpu_dai->dai_ops.set_fmt(cpu_dai, fmt);
++	if (ret < 0)
++		return ret;
++
++
++	/* set up the PLL in codec */
++	ret = codec_dai->dai_ops.set_pll(codec_dai, 0, BCM94717AP_MCLK_FREQ, freq);
++	if (ret < 0) {
++		DBG("%s: Error CODEC DAI set_pll returned %d\n", __FUNCTION__, ret);
++		return ret;
++	}
++	/* set the codec system clock for DAC and ADC */
++	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8955_SYSCLK, freq,
++		SND_SOC_CLOCK_IN);
++	DBG("%s: codec set_sysclk returned %d\n", __FUNCTION__, ret);
++	if (ret < 0)
++		return ret;
++
++	/* set the I2S system clock as input (unused) */
++	ret = cpu_dai->dai_ops.set_sysclk(cpu_dai, BCM947XX_I2S_SYSCLK, freq,
++		SND_SOC_CLOCK_IN);
++
++	DBG("%s: cpu set_sysclk returned %d\n", __FUNCTION__, ret);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static struct snd_soc_ops bcm94717ap_ops = {
++	.startup = bcm94717ap_startup,
++	.hw_params = bcm94717ap_hw_params,
++	.shutdown = bcm94717ap_shutdown,
++};
++
++/*
++ * Logic for a wm8955
++ */
++static int bcm94717ap_wm8955_init(struct snd_soc_codec *codec)
++{
++	DBG("%s\n", __FUNCTION__);
++
++	snd_soc_dapm_sync_endpoints(codec);
++
++	return 0;
++}
++
++/* bcm94717ap digital audio interface glue - connects codec <--> CPU */
++static struct snd_soc_dai_link bcm94717ap_dai = {
++	.name = "WM8955",
++	.stream_name = "WM8955",
++	.cpu_dai = &bcm947xx_i2s_dai,
++	.codec_dai = &wm8955_dai,
++	.init = bcm94717ap_wm8955_init,
++	.ops = &bcm94717ap_ops,
++};
++
++/* bcm94717ap audio machine driver */
++static struct snd_soc_machine snd_soc_machine_bcm94717ap = {
++	.name = "Bcm94717ap",
++	.dai_link = &bcm94717ap_dai,
++	.num_links = 1,
++};
++
++/* bcm94717ap audio private data */
++static struct wm8955_setup_data bcm94717ap_wm8955_setup = {
++	.i2c_address = 0x1a, /* 2wire / I2C interface */
++};
++
++/* bcm94717ap audio subsystem */
++static struct snd_soc_device bcm94717ap_snd_devdata = {
++	.machine = &snd_soc_machine_bcm94717ap,
++	.platform = &bcm947xx_soc_platform,
++	.codec_dev = &soc_codec_dev_wm8955,
++	.codec_data = &bcm94717ap_wm8955_setup,
++};
++
++static struct platform_device *bcm94717ap_snd_device;
++
++static int machine_is_bcm94717ap(void)
++{
++	DBG("%s\n", __FUNCTION__);
++	return 1;
++}
++
++
++static struct i2c_gpio_platform_data i2c_gpio_data = {
++	.sda_pin	= 4,
++	.scl_pin	= 5,
++};
++
++static struct platform_device i2c_gpio_device = {
++	.name		= "i2c-gpio",
++	.id		= 0,
++	.dev		= {
++		.platform_data	= &i2c_gpio_data,
++	},
++};
++
++
++static int __init bcm94717ap_init(void)
++{
++	int ret;
++
++	DBG("%s\n", __FUNCTION__);
++
++	if (!machine_is_bcm94717ap())
++		return -ENODEV;
++
++	ret = platform_device_register(&i2c_gpio_device);
++	if (ret) {
++		platform_device_put(&i2c_gpio_device);
++		return ret;
++	}
++
++	bcm94717ap_snd_device = platform_device_alloc("soc-audio", -1);
++	if (!bcm94717ap_snd_device)
++		return -ENOMEM;
++
++	platform_set_drvdata(bcm94717ap_snd_device, &bcm94717ap_snd_devdata);
++	bcm94717ap_snd_devdata.dev = &bcm94717ap_snd_device->dev;
++	ret = platform_device_add(bcm94717ap_snd_device);
++
++	if (ret) {
++		platform_device_put(bcm94717ap_snd_device);
++	}
++
++	return ret;
++}
++
++static void __exit bcm94717ap_exit(void)
++{
++	DBG("%s\n", __FUNCTION__);
++	platform_device_unregister(bcm94717ap_snd_device);
++}
++
++module_init(bcm94717ap_init);
++module_exit(bcm94717ap_exit);
++
++/* Module information */
++MODULE_DESCRIPTION("ALSA SoC BCM94717AP");
++MODULE_LICENSE("GPL");
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm94717bu.c linux-2.6/sound/soc/bcm947xx/bcm94717bu.c
+--- linux-2.6/sound/soc/bcm947xx/bcm94717bu.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm94717bu.c	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,226 @@
++/*
++ * SoC audio for BCM94717BU Board
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm94717bu.c,v 1.1 2009/10/30 20:41:44 Exp $
++ */
++
++
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/timer.h>
++#include <linux/interrupt.h>
++#include <linux/platform_device.h>
++#include <sound/driver.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/soc.h>
++#include <sound/soc-dapm.h>
++#include <linux/i2c-gpio.h>
++
++#include <typedefs.h>
++#include <bcmdevs.h>
++#include <pcicfg.h>
++#include <hndsoc.h>
++#include <osl.h>
++#include <bcmutils.h>
++#include <siutils.h>
++#include <sbhnddma.h>
++#include <hnddma.h>
++#include <i2s_core.h>
++
++
++#include "../codecs/wm8750.h"
++#include "bcm947xx-pcm.h"
++#include "bcm947xx-i2s.h"
++
++#define BCM947XX_BU_DEBUG 0
++#if BCM947XX_BU_DEBUG
++#define DBG(x...) printk(KERN_ERR x)
++#else
++#define DBG(x...)
++#endif
++
++
++ /* MCLK in Hz - to bcm94717 & Wolfson 8750 */
++#define BCM94717BU_MCLK_FREQ 12288000
++
++
++static int bcm94717bu_startup(struct snd_pcm_substream *substream)
++{
++	//struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	//struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
++	//struct snd_soc_cpu_dai *cpu_dai = rtd->dai->cpu_dai;
++	int ret = 0;
++
++	//DBG("%s:\n", __FUNCTION__);
++
++	return ret;
++}
++
++static void bcm94717bu_shutdown(struct snd_pcm_substream *substream)
++{
++	//DBG("%s\n", __FUNCTION__);
++	return;
++}
++
++static int bcm94717bu_hw_params(struct snd_pcm_substream *substream,
++	struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_codec_dai *codec_dai = rtd->dai->codec_dai;
++	struct snd_soc_cpu_dai *cpu_dai = rtd->dai->cpu_dai;
++	unsigned int fmt;
++	
++	int ret = 0;
++
++	fmt = SND_SOC_DAIFMT_I2S |		/* I2S mode audio */
++	        SND_SOC_DAIFMT_NB_NF |		/* BCLK not inverted and normal LRCLK polarity */
++	        SND_SOC_DAIFMT_CBS_CFS;		/* BCM947xx is I2S Master / codec is slave */
++
++	/* set codec DAI configuration */
++	ret = codec_dai->dai_ops.set_fmt(codec_dai, fmt);
++	if (ret < 0)
++		return ret;
++
++	/* set cpu DAI configuration */
++	ret = cpu_dai->dai_ops.set_fmt(cpu_dai, fmt);
++	if (ret < 0)
++		return ret;
++
++	/* set the codec system clock for DAC and ADC */
++	ret = codec_dai->dai_ops.set_sysclk(codec_dai, WM8750_SYSCLK, BCM94717BU_MCLK_FREQ,
++		SND_SOC_CLOCK_IN);
++	if (ret < 0)
++		return ret;
++
++	/* set the I2S system clock as input (unused) */
++	ret = cpu_dai->dai_ops.set_sysclk(cpu_dai, BCM947XX_I2S_SYSCLK, BCM94717BU_MCLK_FREQ,
++		SND_SOC_CLOCK_IN);
++
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static struct snd_soc_ops bcm94717bu_ops = {
++	.startup = bcm94717bu_startup,
++	.hw_params = bcm94717bu_hw_params,
++	.shutdown = bcm94717bu_shutdown,
++};
++
++/*
++ * Logic for a wm8750
++ */
++static int bcm94717bu_wm8750_init(struct snd_soc_codec *codec)
++{
++	DBG("%s\n", __FUNCTION__);
++
++	snd_soc_dapm_sync_endpoints(codec);
++
++	return 0;
++}
++
++/* bcm94717bu digital audio interface glue - connects codec <--> CPU */
++static struct snd_soc_dai_link bcm94717bu_dai = {
++	.name = "WM8750",
++	.stream_name = "WM8750",
++	.cpu_dai = &bcm947xx_i2s_dai,
++	.codec_dai = &wm8750_dai,
++	.init = bcm94717bu_wm8750_init,
++	.ops = &bcm94717bu_ops,
++};
++
++/* bcm94717bu audio machine driver */
++static struct snd_soc_machine snd_soc_machine_bcm94717bu = {
++	.name = "Bcm94717bu",
++	.dai_link = &bcm94717bu_dai,
++	.num_links = 1,
++};
++
++/* bcm94717bu audio private data */
++static struct wm8750_setup_data bcm94717bu_wm8750_setup = {
++	.i2c_address = 0x1a, /* 2wire / I2C interface */
++};
++
++/* bcm94717bu audio subsystem */
++static struct snd_soc_device bcm94717bu_snd_devdata = {
++	.machine = &snd_soc_machine_bcm94717bu,
++	.platform = &bcm947xx_soc_platform,
++	.codec_dev = &soc_codec_dev_wm8750,
++	.codec_data = &bcm94717bu_wm8750_setup,
++};
++
++static struct platform_device *bcm94717bu_snd_device;
++
++static int machine_is_bcm94717bu(void)
++{
++	DBG("%s\n", __FUNCTION__);
++	return 1;
++}
++
++
++
++static struct i2c_gpio_platform_data i2c_gpio_data = {
++	.sda_pin	= 1,
++	.scl_pin	= 4,
++};
++
++static struct platform_device i2c_gpio_device = {
++	.name		= "i2c-gpio",
++	.id		= 0,
++	.dev		= {
++		.platform_data	= &i2c_gpio_data,
++	},
++};
++
++
++static int __init bcm94717bu_init(void)
++{
++	int ret;
++
++	DBG("%s\n", __FUNCTION__);
++
++	if (!machine_is_bcm94717bu())
++		return -ENODEV;
++
++	ret = platform_device_register(&i2c_gpio_device);
++	if (ret) {
++		platform_device_put(&i2c_gpio_device);
++		return ret;
++	}
++
++	bcm94717bu_snd_device = platform_device_alloc("soc-audio", -1);
++	if (!bcm94717bu_snd_device)
++		return -ENOMEM;
++
++	platform_set_drvdata(bcm94717bu_snd_device, &bcm94717bu_snd_devdata);
++	bcm94717bu_snd_devdata.dev = &bcm94717bu_snd_device->dev;
++	ret = platform_device_add(bcm94717bu_snd_device);
++
++	if (ret) {
++		platform_device_put(bcm94717bu_snd_device);
++	}
++
++	return ret;
++}
++
++static void __exit bcm94717bu_exit(void)
++{
++	platform_device_unregister(bcm94717bu_snd_device);
++}
++
++module_init(bcm94717bu_init);
++module_exit(bcm94717bu_exit);
++
++/* Module information */
++MODULE_DESCRIPTION("ALSA SoC BCM94717BU");
++MODULE_LICENSE("GPL");
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.c linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.c
+--- linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.c	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,489 @@
++/*
++ * ALSA I2S Interface for the Broadcom BCM947XX family of SOCs
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm947xx-i2s.c,v 1.2 2009/11/12 22:26:07 Exp $
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/device.h>
++#include <linux/delay.h>
++
++#include <sound/driver.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/pcm_params.h>
++#include <sound/initval.h>
++#include <sound/soc.h>
++
++#include <typedefs.h>
++#include <bcmdevs.h>
++#include <pcicfg.h>
++#include <hndsoc.h>
++#include <osl.h>
++#include <bcmutils.h>
++#include <siutils.h>
++#include <sbhnddma.h>
++#include <hnddma.h>
++#include <sbchipc.h>
++#include <i2s_core.h>
++
++#include "bcm947xx-i2s.h"
++
++/* Be careful here... turning on prints can break everything, if you start seeing FIFO underflows
++ * then it might be due to excessive printing
++ */
++#define BCM947XX_I2S_DEBUG 0
++#if BCM947XX_I2S_DEBUG
++#define DBG(x...) printk(KERN_ERR x)
++#else
++#define DBG(x...)
++#endif
++
++
++#define BCM947XX_SND "bcm947xx i2s sound"
++
++bcm947xx_i2s_info_t *snd_bcm = NULL;
++EXPORT_SYMBOL_GPL(snd_bcm);
++
++
++
++static int bcm947xx_i2s_startup(struct snd_pcm_substream *substream)
++{
++	//DBG("%s\n", __FUNCTION__);
++	return 0;
++}
++
++static void bcm947xx_i2s_shutdown(struct snd_pcm_substream *substream)
++{
++	//DBG("%s\n", __FUNCTION__);
++	return;
++}
++
++static int bcm947xx_i2s_probe(struct platform_device *pdev)
++{
++	int ret = 0;
++
++	if (snd_bcm && snd_bcm->sih)
++		if (si_findcoreidx(snd_bcm->sih, I2S_CORE_ID, 0) == BADIDX)
++			ret = -EINVAL;
++
++	return ret;
++}
++
++
++static int bcm947xx_i2s_suspend(struct platform_device *dev,
++	struct snd_soc_cpu_dai *dai)
++{
++	DBG("%s - TBD\n", __FUNCTION__);
++	return 0;
++}
++
++static int bcm947xx_i2s_resume(struct platform_device *dev,
++	struct snd_soc_cpu_dai *dai)
++{
++	DBG("%s - TBD\n", __FUNCTION__);
++	return 0;
++}
++
++static int bcm947xx_i2s_trigger(struct snd_pcm_substream *substream, int cmd)
++{
++	uint32 i2scontrol = R_REG(snd_bcm.osh, &snd_bcm->regs->i2scontrol);
++	int ret = 0;
++
++	DBG("%s w/cmd %d\n", __FUNCTION__, cmd);
++
++	switch (cmd) {
++	case SNDRV_PCM_TRIGGER_START:
++	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
++	case SNDRV_PCM_TRIGGER_RESUME:
++		i2scontrol |= I2S_CTRL_PLAYEN;
++		W_REG(snd_bcm.osh, &snd_bcm->regs->i2scontrol, i2scontrol);
++		break;
++	case SNDRV_PCM_TRIGGER_STOP:
++	case SNDRV_PCM_TRIGGER_SUSPEND:
++	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
++		i2scontrol &= ~I2S_CTRL_PLAYEN;
++		W_REG(snd_bcm.osh, &snd_bcm->regs->i2scontrol, i2scontrol);
++		break;
++	default:
++		ret = -EINVAL;
++	}
++
++	return ret;
++}
++
++/* Set I2S DAI format */
++static int bcm947xx_i2s_set_fmt(struct snd_soc_cpu_dai *cpu_dai,
++		unsigned int fmt)
++{
++	u32 devctrl = R_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol);
++
++	DBG("%s: format 0x%x\n", __FUNCTION__, fmt);
++
++	/* We always want this core to be in I2S mode */
++	devctrl &= ~I2S_DC_MODE_TDM;
++
++	/* See include/sound/soc.h for DAIFMT */
++	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
++	case SND_SOC_DAIFMT_CBM_CFM:
++		/* Codec clk master and frame master */
++		devctrl |= I2S_DC_BCLKD_IN;
++		break;
++	case SND_SOC_DAIFMT_CBS_CFM:
++		/* Codec clk slave and frame master */
++		/* BCM SOC is the master */
++		devctrl &= ~I2S_DC_BCLKD_IN;
++		break;
++	case SND_SOC_DAIFMT_CBM_CFS:
++		/* Codec clk master and frame slave */
++		devctrl |= I2S_DC_BCLKD_IN;
++		break;
++	case SND_SOC_DAIFMT_CBS_CFS:
++		/* Codec clk slave and frame slave */
++		/* BCM SOC is the master */
++		devctrl &= ~I2S_DC_BCLKD_IN;
++		break;
++	default:
++		DBG("%s: unsupported MASTER: 0x%x \n", __FUNCTION__,
++		    fmt & SND_SOC_DAIFMT_MASTER_MASK );
++		return -EINVAL;
++	}
++
++	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_I2S:
++		/* we only support I2S Format */
++		break;
++	default:
++		DBG("%s: unsupported FORMAT: 0x%x \n", __FUNCTION__,
++		    fmt & SND_SOC_DAIFMT_FORMAT_MASK );
++		return -EINVAL;
++	}
++
++	//DBG("%s: I2S setting devctrl to 0x%x\n", __FUNCTION__, devctrl);
++	/* Write I2S devcontrol reg */
++	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
++
++	return 0;
++}
++
++
++/*
++ * Set Clock source
++ */
++static int bcm947xx_i2s_set_sysclk(struct snd_soc_cpu_dai *cpu_dai,
++		int clk_id, unsigned int freq, int dir)
++{
++	/* Stash the MCLK rate that we're using, we can use it to help us to pick
++	 * the right clkdiv settings later.
++	 */
++	snd_bcm->mclk = freq;
++
++	return 0;
++}
++
++static int bcm947xx_i2s_hw_params(struct snd_pcm_substream *substream,
++				struct snd_pcm_hw_params *params)
++{
++	u32 devctrl = R_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol);
++	u32 clkdiv = R_REG(snd_bcm.osh, &snd_bcm->regs->clkdivider);
++	u32 stxctrl = R_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl);
++	uint32 srate = 0;
++	uint32 rate = params_rate(params);
++	int channels = params_channels(params);
++	int ii = 0;
++	bool found = FALSE;
++
++	/* Set up our ClockDivider register with audio sample rate */
++	for (ii = 0; ii < ARRAY_SIZE(i2s_clkdiv_coeffs); ii++) {
++		if ((i2s_clkdiv_coeffs[ii].rate == rate) &&
++		    (i2s_clkdiv_coeffs[ii].mclk == snd_bcm->mclk)) {
++			found = TRUE;
++			break;
++		}
++	}
++
++	if (found != TRUE) {
++		printk(KERN_ERR "%s: unsupported audio sample rate %d Hz and mclk %d Hz "
++		       "combination\n", __FUNCTION__, rate, snd_bcm->mclk);
++		return -EINVAL;
++	} else {
++		/* Write the new SRATE into the clock divider register */
++		srate = (i2s_clkdiv_coeffs[ii].srate << I2S_CLKDIV_SRATE_SHIFT);
++		clkdiv &= ~I2S_CLKDIV_SRATE_MASK;
++		W_REG(snd_bcm.osh, &snd_bcm->regs->clkdivider, clkdiv | srate);
++
++		DBG("%s: i2s clkdivider 0x%x txplayth 0x%x\n", __FUNCTION__,
++		    R_REG(snd_bcm.osh, &snd_bcm->regs->clkdivider),
++		    R_REG(snd_bcm.osh, &snd_bcm->regs->txplayth));
++		DBG("%s: audio sample rate %d Hz and mclk %d Hz\n",
++		    __FUNCTION__, rate, snd_bcm.mclk);
++	}
++
++	DBG("%s: %d channels in this stream\n", __FUNCTION__, channels);
++
++	/* Set up for the # of channels in this stream */
++	/* For I2S/SPDIF we support 2 channel -OR- 6 (5.1) channels */
++	switch (channels) {
++	case 2:
++		devctrl &= ~I2S_DC_OPCHSEL_6;
++		break;
++	case 6:
++		devctrl |= I2S_DC_OPCHSEL_6;
++		break;
++	default:
++		printk(KERN_ERR "%s: unsupported number of channels in stream - %d\n"
++		       "combination\n", __FUNCTION__, channels);
++		return -EINVAL;
++	}
++
++	DBG("%s: access 0x%x\n", __FUNCTION__, params_access(params));
++	DBG("%s: format 0x%x\n", __FUNCTION__, params_format(params));
++	DBG("%s: subformat 0x%x\n", __FUNCTION__, params_subformat(params));
++
++	/* clear TX word length bits then Set the # of bits per sample in this stream */
++	devctrl &= ~I2S_DC_WL_TX_MASK;
++	stxctrl &= ~I2S_STXC_WL_MASK;
++	switch (params_format(params)) {
++	case SNDRV_PCM_FORMAT_S16_LE:
++		devctrl |= 0x0;
++		stxctrl |= 0x0;
++		break;
++	case SNDRV_PCM_FORMAT_S20_3LE:
++		devctrl |= 0x400;
++		stxctrl |= 0x01;
++		break;
++	case SNDRV_PCM_FORMAT_S24_LE:
++	case SNDRV_PCM_FORMAT_S24_3LE:
++		devctrl |= 0x800;
++		stxctrl |= 0x02;
++		break;
++	case SNDRV_PCM_FORMAT_S32_LE:
++		devctrl |= 0xC00;
++		/* SPDIF doesn't support 32 bit samples */
++		/* Should we just disable SPDIF rather than putting out garbage? */
++		stxctrl |= 0x03;
++		break;
++	default:
++		DBG("unsupported format\n");
++		break;
++	}
++
++	/* For now, we're only interested in Tx so we'll set up half-duplex Tx-only */
++	devctrl &= ~I2S_DC_DPX_MASK;
++
++	/* Write I2S devcontrol reg */
++	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
++	W_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl, stxctrl);
++
++	return 0;
++}
++
++#define BCM947XX_I2S_RATES \
++        (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 | \
++        SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_32000 | \
++        SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_96000)
++
++#define BCM947XX_I2S_FORMATS \
++        (SNDRV_PCM_FMTBIT_S8  | SNDRV_PCM_FMTBIT_U8 | \
++         SNDRV_PCM_FMTBIT_S16 | SNDRV_PCM_FMTBIT_U16 | \
++         SNDRV_PCM_FMTBIT_S24 | SNDRV_PCM_FMTBIT_U24 | \
++         SNDRV_PCM_FMTBIT_S32 | SNDRV_PCM_FMTBIT_U32)
++
++struct snd_soc_cpu_dai bcm947xx_i2s_dai = {
++	.name = "bcm947xx-i2s",
++	.id = 0,
++	.type = SND_SOC_DAI_I2S,
++	.probe = bcm947xx_i2s_probe,
++	.suspend = bcm947xx_i2s_suspend,
++	.resume = bcm947xx_i2s_resume,
++	.playback = {
++		.channels_min = 2,
++		.channels_max = 2,
++		.rates = BCM947XX_I2S_RATES,
++		.formats = BCM947XX_I2S_FORMATS,},
++	.ops = {
++		.startup = bcm947xx_i2s_startup,
++		.shutdown = bcm947xx_i2s_shutdown,
++		.trigger = bcm947xx_i2s_trigger,
++		.hw_params = bcm947xx_i2s_hw_params,},
++	.dai_ops = {
++		.set_fmt = bcm947xx_i2s_set_fmt,
++		.set_sysclk = bcm947xx_i2s_set_sysclk,
++	},
++};
++
++EXPORT_SYMBOL_GPL(bcm947xx_i2s_dai);
++
++
++MODULE_LICENSE("GPL");
++/* MODULE_AUTHOR(""); */
++MODULE_DESCRIPTION("BCM947XX I2S module");
++
++
++/************************************************************************************************/
++
++#define DMAREG(a, direction, fifonum)	( \
++	(direction == DMA_TX) ? \
++                (void *)(uintptr)&(a->regs->dmaregs[fifonum].dmaxmt) : \
++                (void *)(uintptr)&(a->regs->dmaregs[fifonum].dmarcv))
++
++static struct pci_device_id bcm947xx_i2s_pci_id_table[] = {
++	{ PCI_VENDOR_ID_BROADCOM, BCM47XX_AUDIO_ID, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{0,}
++};
++
++MODULE_DEVICE_TABLE(pci, bcm947xx_i2s_pci_id_table);
++
++static bcm947xx_i2s_info_t *
++bcm947xx_i2s_pci_attach(uint16 vendor, uint16 device, ulong regs, uint bustype, void *btparam,
++                        uint irq)
++{
++	osl_t *osh = NULL;
++	bcm947xx_i2s_info_t *snd = NULL;
++	int ret;
++
++	uint addrwidth;
++	int dma_attach_err = 0;
++
++
++	DBG("%s: vendor 0x%x device 0x%x regs 0x%x bustype 0x%x btparam %p irq 0x%x\n",
++	    __FUNCTION__, vendor, device, regs, bustype, btparam, irq);
++
++
++	osh = osl_attach(btparam, bustype, FALSE);
++	ASSERT(osh);
++
++	/* allocate private info */
++	if ((snd = (bcm947xx_i2s_info_t *) MALLOC(osh, sizeof(bcm947xx_i2s_info_t))) == NULL) {
++		osl_detach(osh);
++		return NULL;
++	}
++
++	bzero(snd, sizeof(bcm947xx_i2s_info_t));
++	snd->osh = osh;
++
++	if ((snd->regsva = ioremap_nocache(regs, PCI_BAR0_WINSZ)) == NULL) {
++		DBG("ioremap_nocache() failed\n");
++                osl_detach(snd->osh);
++		return NULL;
++	}
++	snd->irq = irq;
++
++	/*
++	 * Do the hardware portion of the attach.
++	 * Also initialize software state that depends on the particular hardware
++	 * we are running.
++	 */
++	snd->sih = si_attach((uint)device, snd->osh, snd->regsva, bustype, btparam,
++	                        NULL, NULL);
++
++	snd->regs = (i2sregs_t *)si_setcore(snd->sih, I2S_CORE_ID, 0);
++
++	addrwidth = dma_addrwidth(snd->sih, DMAREG(snd, DMA_TX, 0));
++
++	snd->di[0] = dma_attach(snd->osh, "i2s_dma", snd->sih,
++	                            DMAREG(snd, DMA_TX, 0),
++	                            NULL, 64, 0,
++	                            0, -1, 0, 0, NULL);
++
++	dma_attach_err |= (NULL == snd->di[0]);
++
++	/* Tell DMA that we're not using framed/packet data */
++	dma_ctrlflags(snd->di[0], DMA_CTRL_UNFRAMED /* mask */, DMA_CTRL_UNFRAMED /* value */);
++
++	/* for 471X chips, Turn on I2S pins. They're MUX'd with PFLASH pins, and PFLASH is ON
++	 * by default
++	 */
++	if (CHIPID(snd->sih->chip) == BCM4716_CHIP_ID) {
++		ret = si_corereg(snd->sih, SI_CC_IDX, OFFSETOF(chipcregs_t, chipcontrol),
++	                 CCTRL471X_I2S_PINS_ENABLE, CCTRL471X_I2S_PINS_ENABLE);
++	}
++
++	return snd;
++}
++
++static void
++bcm947xx_i2s_free(bcm947xx_i2s_info_t *sndbcm)
++{
++	osl_t *osh = sndbcm->osh;
++
++	dma_detach(sndbcm->di[0]);
++
++	si_detach(sndbcm->sih);
++
++	MFREE(osh, sndbcm, sizeof(bcm947xx_i2s_info_t));
++
++	osl_detach(osh);
++}
++
++
++static int __devinit
++bcm947xx_i2s_pci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
++{
++	int err = 0;
++
++	DBG("%s: for pdev 0x%x w/irq %d.\n", __FUNCTION__, pdev->device, pdev->irq);
++
++	if ((pdev->vendor != PCI_VENDOR_ID_BROADCOM) || (pdev->device != BCM47XX_AUDIO_ID)) {
++		DBG("%s: early bailout pcideviceid mismatch -  0x%x.\n",
++		       __FUNCTION__, pdev->device);
++		return (-ENODEV);
++	}
++
++	err = pci_enable_device(pdev);
++	if (err) {
++		DBG("%s: Cannot enable device %d-%d_%d\n", __FUNCTION__,
++		          pdev->bus->number, PCI_SLOT(pdev->devfn), PCI_FUNC(pdev->devfn));
++		return (-ENODEV);
++	}
++	pci_set_master(pdev);
++
++	snd_bcm = bcm947xx_i2s_pci_attach(pdev->vendor, pdev->device, pci_resource_start(pdev, 0),
++	                                  PCI_BUS, pdev, pdev->irq);
++	if (!snd_bcm)
++		return -ENODEV;
++
++	pci_set_drvdata(pdev, snd_bcm);
++	DBG("%s: snd_bcm @ %p snd_bcm.regs @ %p\n", __FUNCTION__, snd_bcm, snd_bcm.regs);
++
++	return err;
++}
++
++static void __devexit bcm947xx_i2s_pci_remove(struct pci_dev *pdev)
++{
++	bcm947xx_i2s_info_t *sndbcm = (bcm947xx_i2s_info_t *) pci_get_drvdata(pdev);
++
++	bcm947xx_i2s_free(sndbcm);
++	snd_bcm = (bcm947xx_i2s_info_t *)NULL;
++	pci_set_drvdata(pdev, NULL);
++}
++
++
++static struct pci_driver bcm947xx_i2s_pci_driver = {
++	.name = BCM947XX_SND,
++	.id_table = bcm947xx_i2s_pci_id_table,
++	.probe = bcm947xx_i2s_pci_probe,
++	.remove = __devexit_p(bcm947xx_i2s_pci_remove),
++};
++
++static int __init bcm947xx_i2s_pci_init(void)
++{
++	return pci_register_driver(&bcm947xx_i2s_pci_driver);
++}
++
++static void __exit bcm947xx_i2s_pci_exit(void)
++{
++	pci_unregister_driver(&bcm947xx_i2s_pci_driver);
++}
++
++module_init(bcm947xx_i2s_pci_init)
++module_exit(bcm947xx_i2s_pci_exit)
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.h linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.h
+--- linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.h	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,45 @@
++/*
++ * ALSA I2S Interface for the Broadcom BCM947XX family of SOCs
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm947xx-i2s.h,v 1.1 2009/10/30 20:46:42 Exp $
++ */
++
++#ifndef _BCM947XX_I2S_H
++#define _BCM947XX_I2S_H
++
++/* bcm947xx DAI ID's */
++#define BCM947XX_DAI_I2S			0
++
++/* I2S clock */
++#define BCM947XX_I2S_SYSCLK			0
++
++extern struct snd_soc_cpu_dai bcm947xx_i2s_dai;
++
++typedef struct bcm947xx_i2s_info bcm947xx_i2s_info_t;
++struct bcm947xx_i2s_info {
++	/* ALSA structs. */
++	struct snd_card *card;
++	//	struct snd_pcm *pcm[BCM947XX_PCM_LAST];
++
++	//spinlock_t lock;
++
++	int		irq;
++	osl_t		*osh;
++	void		*regsva;			/* opaque chip registers virtual address */
++	i2sregs_t	*regs;			/* pointer to device registers */
++	hnddma_t	*di[1];		/* hnddma handles, per fifo */
++	si_t		*sih;		/* SB handle (cookie for siutils calls) */
++	uint32		mclk;		/* Frequency of system MCLK */
++};
++
++extern bcm947xx_i2s_info_t *snd_bcm;
++
++#endif /* _BCM947XX_I2S_H */
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.c linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.c
+--- linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.c	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,553 @@
++/*
++ * ALSA PCM Interface for the Broadcom BCM947XX family of SOCs
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm947xx-pcm.c,v 1.2 2009/11/12 22:25:16 Exp $
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/dma-mapping.h>
++
++#include <asm/io.h>
++
++#include <sound/driver.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/pcm_params.h>
++#include <sound/soc.h>
++
++#include <typedefs.h>
++#include <bcmdevs.h>
++#include <pcicfg.h>
++#include <hndsoc.h>
++#include <osl.h>
++#include <bcmutils.h>
++#include <siutils.h>
++#include <sbhnddma.h>
++#include <hnddma.h>
++#include <i2s_core.h>
++
++#include "bcm947xx-i2s.h"
++#include "bcm947xx-pcm.h"
++
++
++/* Be careful here... turning on prints can break everything, if you start seeing FIFO underflows
++ * then it might be due to excessive printing
++ */
++#define BCM947XX_PCM_DEBUG 0
++#if BCM947XX_PCM_DEBUG
++#define DBG(x...) printk(KERN_ERR x)
++#else
++#define DBG(x...)
++#endif
++
++
++static const struct snd_pcm_hardware bcm947xx_pcm_hardware = {
++	.info			= SNDRV_PCM_INFO_MMAP |
++				  SNDRV_PCM_INFO_MMAP_VALID |
++	/*				  SNDRV_PCM_INFO_BLOCK_TRANSFER | */
++				  SNDRV_PCM_INFO_INTERLEAVED |
++				  SNDRV_PCM_INFO_PAUSE |
++				  SNDRV_PCM_INFO_RESUME,
++	.formats		= SNDRV_PCM_FMTBIT_U16_LE |
++				  SNDRV_PCM_FMTBIT_S16_LE |
++				  SNDRV_PCM_FMTBIT_S20_3LE |
++				  SNDRV_PCM_FMTBIT_S24_LE |
++				  SNDRV_PCM_FMTBIT_S24_3LE |
++				  SNDRV_PCM_FMTBIT_S32_LE,
++	.channels_min		= 2,
++	.channels_max		= 2,
++	.period_bytes_min	= 32,
++	.period_bytes_max	= 4096,
++	.periods_min		= 2,
++	.periods_max		= 64,
++	.buffer_bytes_max	= 128 * 1024,
++	.fifo_size		= 128,
++};
++
++struct bcm947xx_runtime_data {
++	spinlock_t lock;
++	bcm947xx_i2s_info_t *snd_bcm;
++	unsigned int dma_loaded;
++	unsigned int dma_limit;
++	unsigned int dma_period;
++	dma_addr_t dma_start;
++	dma_addr_t dma_pos;
++	dma_addr_t dma_end;
++	uint state;
++	hnddma_t	*di[1];		/* hnddma handles, per fifo */
++};
++
++
++#if BCM947XX_PCM_DEBUG
++void
++prhex(const char *msg, uchar *buf, uint nbytes)
++{
++	char line[128], *p;
++	int len = sizeof(line);
++	int nchar;
++	uint i;
++
++	if (msg && (msg[0] != '\0'))
++		printf("%s: @%p\n", msg, buf);
++
++	p = line;
++	for (i = 0; i < nbytes; i++) {
++		if (i % 16 == 0) {
++			nchar = snprintf(p, len, "  %04d: ", i);	/* line prefix */
++			p += nchar;
++			len -= nchar;
++		}
++		if (len > 0) {
++			nchar = snprintf(p, len, "%02x ", buf[i]);
++			p += nchar;
++			len -= nchar;
++		}
++
++		if (i % 16 == 15) {
++			printf("%s\n", line);		/* flush line */
++			p = line;
++			len = sizeof(line);
++		}
++	}
++
++	/* flush last partial line */
++	if (p != line)
++		printf("%s\n", line);
++}
++#endif /* BCM947XX_PCM_DEBUG */
++
++static void bcm947xx_pcm_enqueue(struct snd_pcm_substream *substream)
++{
++	struct bcm947xx_runtime_data *brtd = substream->runtime->private_data;
++	dma_addr_t pos = brtd->dma_pos;
++	int ret;
++
++	while (brtd->dma_loaded < brtd->dma_limit) {
++		unsigned long len = brtd->dma_period;
++
++		if ((pos & ~0xFFF) != (((pos+len - 1) & ~0xFFF))) {
++			len = ((pos+len) & ~0xFFF) - pos;
++		}
++
++		if ((pos + len) > brtd->dma_end) {
++			len  = brtd->dma_end - pos;
++		}
++
++		ret = dma_txunframed(snd_bcm->di[0], (void *)pos, len, TRUE);
++
++		if (ret == 0) {
++			pos += len;
++			brtd->dma_loaded++;
++			if (pos >= brtd->dma_end)
++				pos = brtd->dma_start;
++		} else
++			break;
++	}
++
++	brtd->dma_pos = pos;
++}
++
++
++struct snd_pcm_substream *my_stream;
++
++
++irqreturn_t bcm947xx_i2s_isr(int irq, void *devid)
++{
++	uint32 intstatus = R_REG(snd_bcm->osh, &snd_bcm->regs->intstatus);
++#if BCM947XX_PCM_DEBUG
++	uint32 intmask = R_REG(snd_bcm->osh, &snd_bcm->regs->intmask);
++#endif
++	uint32 intstatus_new = 0;
++	uint32 int_errmask = I2S_INT_DESCERR | I2S_INT_DATAERR | I2S_INT_DESC_PROTO_ERR |
++	        I2S_INT_RCVFIFO_OFLOW | I2S_INT_XMTFIFO_UFLOW | I2S_INT_SPDIF_PAR_ERR;
++	struct bcm947xx_runtime_data *brtd = my_stream->runtime->private_data;
++
++	if (intstatus & I2S_INT_XMT_INT) {
++		/* reclaim descriptors that have been TX'd */
++		dma_getnexttxp(snd_bcm->di[0], HNDDMA_RANGE_TRANSMITTED);
++
++		/* clear this bit by writing a "1" back, we've serviced this */
++		intstatus_new |= I2S_INT_XMT_INT;
++	}
++
++	if (intstatus & int_errmask) {
++		DBG("\n\n%s: Turning off all interrupts due to error\n", __FUNCTION__);
++		DBG("%s: intstatus 0x%x intmask 0x%x\n", __FUNCTION__, intstatus, intmask);
++
++
++		/* something bad happened, turn off all interrupts */
++		W_REG(snd_bcm->osh, &snd_bcm->regs->intmask, 0);
++	}
++
++	snd_pcm_period_elapsed(my_stream);
++
++	spin_lock(&brtd->lock);
++	brtd->dma_loaded--;
++	if (brtd->state & BCM_I2S_RUNNING) {
++		bcm947xx_pcm_enqueue(my_stream);
++	}
++	spin_unlock(&brtd->lock);
++
++	W_REG(snd_bcm->osh, &snd_bcm->regs->intstatus, intstatus_new);
++
++	return IRQ_RETVAL(intstatus);
++}
++
++
++static int bcm947xx_pcm_open(struct snd_pcm_substream *substream)
++{
++	struct snd_pcm_runtime *runtime = substream->runtime;
++	struct bcm947xx_runtime_data *brtd;
++
++	DBG("%s\n", __FUNCTION__);
++
++	snd_soc_set_runtime_hwparams(substream, &bcm947xx_pcm_hardware);
++
++	brtd = kzalloc(sizeof(struct bcm947xx_runtime_data), GFP_KERNEL);
++	if (brtd == NULL) {
++		return -ENOMEM;
++	}
++	brtd->snd_bcm = snd_bcm;
++
++	spin_lock_init(&brtd->lock);
++
++	runtime->private_data = brtd;
++
++	/* probably should put this somewhere else, after setting up isr ??? */
++	dma_txreset(snd_bcm->di[0]);
++	dma_txinit(snd_bcm->di[0]);
++
++#if BCM947XX_PCM_DEBUG
++	DBG("%s: i2s devcontrol 0x%x devstatus 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->devcontrol),
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->devstatus));
++	DBG("%s: i2s intstatus 0x%x intmask 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->intstatus),
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->intmask));
++	DBG("%s: i2s control 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->i2scontrol));
++	DBG("%s: i2s clkdivider 0x%x txplayth 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->clkdivider),
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->txplayth));
++	DBG("%s: i2s stxctrl 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm->osh, &snd_bcm->regs->stxctrl));
++
++	{
++	uint32 temp;
++	temp = R_REG(snd_bcm->osh, &snd_bcm->regs->fifocounter);
++	DBG("%s: i2s txcnt 0x%x rxcnt 0x%x\n", __FUNCTION__,
++	    (temp & I2S_FC_TX_CNT_MASK)>> I2S_FC_TX_CNT_SHIFT,
++	    (temp & I2S_FC_RX_CNT_MASK)>> I2S_FC_RX_CNT_SHIFT);
++	}
++#endif
++
++
++	return 0;
++}
++
++static int bcm947xx_pcm_close(struct snd_pcm_substream *substream)
++{
++	struct bcm947xx_runtime_data *brtd = substream->runtime->private_data;
++
++	/* Turn off interrupts... */
++	W_REG(snd_bcm->osh, &snd_bcm->regs->intmask,
++	      R_REG(snd_bcm->osh, &snd_bcm->regs->intmask) & ~I2S_INT_XMT_INT);
++
++#if BCM947XX_PCM_DEBUG
++	{
++		/* dump dma rings to console */
++#if !defined(FIFOERROR_DUMP_SIZE)
++#define FIFOERROR_DUMP_SIZE 8192
++#endif
++		char *tmp;
++		struct bcmstrbuf b;
++		if (snd_bcm->di[0] && (tmp = MALLOC(snd_bcm->osh, FIFOERROR_DUMP_SIZE))) {
++			bcm_binit(&b, tmp, FIFOERROR_DUMP_SIZE);
++			dma_dump(snd_bcm->di[0], &b, TRUE);
++			printbig(tmp);
++			MFREE(snd_bcm->osh, tmp, FIFOERROR_DUMP_SIZE);
++		}
++	}
++#endif /* BCM947XX_PCM_DEBUG */
++
++	/* reclaim all descriptors */
++	dma_txreclaim(snd_bcm->di[0], HNDDMA_RANGE_ALL);
++
++	if (brtd)
++		kfree(brtd);
++	else
++		DBG("%s: called with brtd == NULL\n", __FUNCTION__);
++
++	return 0;
++}
++
++static int bcm947xx_pcm_hw_params(struct snd_pcm_substream *substream,
++	struct snd_pcm_hw_params *params)
++{
++	struct snd_pcm_runtime *runtime = substream->runtime;
++	struct bcm947xx_runtime_data *brtd = runtime->private_data;
++	//struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	//struct bcm947xx_pcm_dma_params *dma = rtd->dai->cpu_dai->dma_data;
++	unsigned long totbytes = params_buffer_bytes(params);
++
++	int ret = 0;
++
++#if BCM947XX_PCM_DEBUG
++	size_t buffer_size = params_buffer_size(params);
++	size_t buffer_bytes = params_buffer_bytes(params);
++	size_t period_size = params_period_size(params);
++	size_t period_bytes = params_period_bytes(params);
++	size_t periods = params_periods(params);
++	size_t tick_time = params_tick_time(params);
++
++	DBG("%s: hw.periods_min %d dma_addr %p dma_bytes %d\n",
++	    __FUNCTION__, runtime->hw.periods_min, (void *)runtime->dma_addr, runtime->dma_bytes);
++	DBG("%s: buffer_size 0x%x buffer_bytes 0x%x\n", __FUNCTION__, buffer_size, buffer_bytes);
++	DBG("%s: period_size 0x%x period_bytes 0x%x\n", __FUNCTION__, period_size, period_bytes);
++	DBG("%s: periods 0x%x tick_time0x%x\n", __FUNCTION__, periods, tick_time);
++#endif
++
++	my_stream = substream;
++
++	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
++	runtime->dma_bytes = totbytes;
++
++	spin_lock_irq(&brtd->lock);
++	brtd->dma_limit = runtime->hw.periods_min;
++	brtd->dma_period = params_period_bytes(params);
++	/* Virtual address of our runtime buffer */
++	brtd->dma_start = (dma_addr_t)runtime->dma_area;
++	brtd->dma_loaded = 0;
++	brtd->dma_pos = brtd->dma_start;
++	brtd->dma_end = brtd->dma_start + totbytes;
++	spin_lock(&brtd->lock);
++	spin_unlock_irq(&brtd->lock);
++
++	return ret;
++}
++
++
++static int bcm947xx_pcm_hw_free(struct snd_pcm_substream *substream)
++{
++	//DBG("%s\n", __FUNCTION__);
++	snd_pcm_set_runtime_buffer(substream, NULL);
++
++	my_stream = NULL;
++
++	return 0;
++}
++
++static int bcm947xx_pcm_prepare(struct snd_pcm_substream *substream)
++{
++	uint32 intmask = R_REG(snd_bcm->osh, &snd_bcm->regs->intmask);
++	int ret = 0;
++
++	/* Turn on Tx interrupt */
++	W_REG(snd_bcm->osh, &snd_bcm->regs->intmask, intmask | I2S_INT_XMT_INT);
++
++	/* enqueue dma buffers */
++	bcm947xx_pcm_enqueue(substream);
++
++	return ret;
++}
++
++static int bcm947xx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
++{
++	struct bcm947xx_runtime_data *brtd = substream->runtime->private_data;
++	int ret = 0;
++
++	//DBG("%s w/cmd %d\n", __FUNCTION__, cmd);
++
++	spin_lock(&brtd->lock);
++
++	switch (cmd) {
++
++	case SNDRV_PCM_TRIGGER_START:
++	case SNDRV_PCM_TRIGGER_RESUME:
++	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
++		brtd->state |= BCM_I2S_RUNNING;
++		break;
++
++	case SNDRV_PCM_TRIGGER_STOP:
++	case SNDRV_PCM_TRIGGER_SUSPEND:
++	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
++		brtd->state &= ~BCM_I2S_RUNNING;
++		break;
++
++	default:
++		ret = -EINVAL;
++		break;
++	}
++	spin_unlock(&brtd->lock);
++
++	return ret;
++}
++
++
++static int
++bcm947xx_dma_getposition(dma_addr_t *src, dma_addr_t *dst)
++{
++	if (src) {
++		*src = (dma_addr_t)dma_getpos(snd_bcm->di[0], DMA_TX);
++	} else if (dst) {
++		*dst = (dma_addr_t)dma_getpos(snd_bcm->di[0], DMA_RX);
++	}
++
++	return 0;
++}
++
++static snd_pcm_uframes_t
++bcm947xx_pcm_pointer(struct snd_pcm_substream *substream)
++{
++	struct snd_pcm_runtime *runtime = substream->runtime;
++	struct bcm947xx_runtime_data *brtd = runtime->private_data;
++	unsigned long res;
++	dma_addr_t pos = 0;
++
++	spin_lock(&brtd->lock);
++
++	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
++		bcm947xx_dma_getposition(NULL, &pos);
++	} else {
++		bcm947xx_dma_getposition(&pos, NULL);
++	}
++
++	if ((void *)pos == NULL)
++		res = 0; /* DMA not running? */
++	else {
++		res = pos - brtd->dma_start;
++		DBG("%s: pos %p - dma_start %p = 0x%x\n", __FUNCTION__, pos, brtd->dma_start, res);
++	}
++
++	spin_unlock(&brtd->lock);
++
++	return bytes_to_frames(substream->runtime, res);
++}
++
++
++/* Currently unused... memory mapping is automatically done in the dma code */
++static int bcm947xx_pcm_mmap(struct snd_pcm_substream *substream,
++	struct vm_area_struct *vma)
++{
++	DBG("Entered %s\n", __FUNCTION__);
++	return 0;
++}
++
++
++struct snd_pcm_ops bcm947xx_pcm_ops = {
++	.open		= bcm947xx_pcm_open,
++	.close		= bcm947xx_pcm_close,
++	.ioctl		= snd_pcm_lib_ioctl,
++	.hw_params	= bcm947xx_pcm_hw_params,
++	.hw_free	= bcm947xx_pcm_hw_free,
++	.prepare	= bcm947xx_pcm_prepare,
++	.trigger	= bcm947xx_pcm_trigger,
++	.pointer	= bcm947xx_pcm_pointer,
++	.mmap		= bcm947xx_pcm_mmap,
++};
++
++
++static int bcm947xx_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
++{
++
++	struct snd_pcm_substream *substream = pcm->streams[stream].substream;
++	struct snd_dma_buffer *buf = &substream->dma_buffer;
++	size_t size = bcm947xx_pcm_hardware.buffer_bytes_max;
++
++	buf->dev.type = SNDRV_DMA_TYPE_DEV;
++	buf->dev.dev = pcm->card->dev;
++	buf->private_data = NULL;
++	buf->area = kmalloc(size, GFP_ATOMIC);
++	DBG("%s: size %d @ 0x%p\n", __FUNCTION__, size, buf->area);
++
++	if (!buf->area) {
++		DBG("%s: dma_alloc failed\n", __FUNCTION__);
++		return -ENOMEM;
++	}
++	buf->bytes = size;
++
++	return 0;
++}
++
++static void bcm947xx_pcm_free(struct snd_pcm *pcm)
++{
++	struct snd_pcm_substream *substream;
++	struct snd_dma_buffer *buf;
++	int stream;
++
++	DBG("%s\n", __FUNCTION__);
++
++	for (stream = 0; stream < 2; stream++) {
++		substream = pcm->streams[stream].substream;
++		if (!substream)
++			continue;
++
++		buf = &substream->dma_buffer;
++		if (!buf->area)
++			continue;
++
++		kfree(buf->area);
++		buf->area = NULL;
++	}
++
++	free_irq(snd_bcm->irq, snd_bcm);
++
++}
++
++
++static u64 bcm947xx_pcm_dmamask = DMA_32BIT_MASK;
++
++int bcm947xx_pcm_new(struct snd_card *card, struct snd_soc_codec_dai *dai,
++	struct snd_pcm *pcm)
++{
++	int ret = 0;
++
++	DBG("%s\n", __FUNCTION__);
++
++	if (!card->dev->dma_mask)
++		card->dev->dma_mask = &bcm947xx_pcm_dmamask;
++	if (!card->dev->coherent_dma_mask)
++		card->dev->coherent_dma_mask = DMA_32BIT_MASK;
++
++	if (dai->playback.channels_min) {
++		ret = bcm947xx_pcm_preallocate_dma_buffer(pcm,
++			SNDRV_PCM_STREAM_PLAYBACK);
++		if (ret)
++			goto out;
++	}
++
++	if ((request_irq(snd_bcm->irq,
++	                 bcm947xx_i2s_isr, IRQF_SHARED, "i2s", snd_bcm)) < 0) {
++		DBG("%s: request_irq failure\n", __FUNCTION__);
++	}
++
++
++ out:
++	return ret;
++}
++
++
++struct snd_soc_platform bcm947xx_soc_platform = {
++	.name		= "bcm947xx-audio",
++	.pcm_ops 	= &bcm947xx_pcm_ops,
++	.pcm_new	= bcm947xx_pcm_new,
++	.pcm_free	= bcm947xx_pcm_free,
++};
++
++EXPORT_SYMBOL_GPL(bcm947xx_soc_platform);
++
++
++MODULE_LICENSE("GPL");
++/* MODULE_AUTHOR(""); */
++MODULE_DESCRIPTION("BCM947XX PCM module");
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.h linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.h
+--- linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/bcm947xx-pcm.h	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,17 @@
++/*
++ * ALSA PCM Interface for the Broadcom BCM947XX family of SOCs
++ *
++ * Copyright (C) 2009, Broadcom Corporation
++ * All Rights Reserved.
++ * 
++ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++ *
++ * $Id: bcm947xx-pcm.h,v 1.1 2009/10/30 20:48:16 Exp $
++ */
++
++#define BCM_I2S_RUNNING		(1<<0)
++
++extern struct snd_soc_platform bcm947xx_soc_platform;
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/Kconfig linux-2.6/sound/soc/bcm947xx/Kconfig
+--- linux-2.6/sound/soc/bcm947xx/Kconfig	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/Kconfig	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,7 @@
++config SND_BCM947XX_SOC
++        tristate "SoC Audio for the BCM947xx System-on-Chip"
++        depends on BCM947XX && SND_SOC
++        help
++          Say Y or M if you want to add support for I2S bus interface in the SOC as
++	  well as any codecs on the board.
++	  You will also need to select the audio interfaces to support below.
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/Makefile linux-2.6/sound/soc/bcm947xx/Makefile
+--- linux-2.6/sound/soc/bcm947xx/Makefile	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/bcm947xx/Makefile	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,26 @@
++#
++# ALSA SoC Makefile for the Broadcom BCM947XX family of SOCs
++#
++# Copyright (C) 2009, Broadcom Corporation
++# All Rights Reserved.
++# 
++# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
++# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
++# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
++# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
++#
++# $Id: Makefile,v 1.1 2009/10/30 20:37:14 Exp $
++#
++
++# BCM947xx Platform Support
++snd-soc-bcm947xx-i2s-objs := bcm947xx-i2s.o
++snd-soc-bcm947xx-pcm-objs := bcm947xx-pcm.o
++
++obj-$(CONFIG_SND_BCM947XX_SOC) += snd-soc-bcm947xx-i2s.o
++obj-$(CONFIG_SND_BCM947XX_SOC) += snd-soc-bcm947xx-pcm.o
++
++# BCM947xx Machine Support
++# snd-soc-bcm947xx-objs := bcm94717bu.o
++snd-soc-bcm947xx-objs := bcm94717ap.o
++
++obj-$(CONFIG_SND_BCM947XX_SOC) += snd-soc-bcm947xx.o
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/Kconfig linux-2.6/sound/soc/codecs/Kconfig
+--- linux-2.6/sound/soc/codecs/Kconfig	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/Kconfig	2009-11-26 02:43:16.000000000 +0300
+@@ -7,13 +7,17 @@ config SND_SOC_WM8731
+ 	depends on SND_SOC
+ 
+ config SND_SOC_WM8750
+-	tristate
++	tristate "WM8750"
+ 	depends on SND_SOC
+ 
+ config SND_SOC_WM8753
+ 	tristate
+ 	depends on SND_SOC
+ 
++config SND_SOC_WM8955
++	tristate "WM8955"
++	depends on SND_SOC
++
+ config SND_SOC_WM9712
+ 	tristate
+ 	depends on SND_SOC
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/Makefile linux-2.6/sound/soc/codecs/Makefile
+--- linux-2.6/sound/soc/codecs/Makefile	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/Makefile	2009-11-26 02:43:16.000000000 +0300
+@@ -2,10 +2,12 @@ snd-soc-ac97-objs := ac97.o
+ snd-soc-wm8731-objs := wm8731.o
+ snd-soc-wm8750-objs := wm8750.o
+ snd-soc-wm8753-objs := wm8753.o
++snd-soc-wm8955-objs := wm8955.o
+ snd-soc-wm9712-objs := wm9712.o
+ 
+ obj-$(CONFIG_SND_SOC_AC97_CODEC)	+= snd-soc-ac97.o
+ obj-$(CONFIG_SND_SOC_WM8731)	+= snd-soc-wm8731.o
+ obj-$(CONFIG_SND_SOC_WM8750)	+= snd-soc-wm8750.o
+ obj-$(CONFIG_SND_SOC_WM8753)	+= snd-soc-wm8753.o
++obj-$(CONFIG_SND_SOC_WM8955)	+= snd-soc-wm8955.o
+ obj-$(CONFIG_SND_SOC_WM9712)	+= snd-soc-wm9712.o
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/wm8750.c linux-2.6/sound/soc/codecs/wm8750.c
+--- linux-2.6/sound/soc/codecs/wm8750.c	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/wm8750.c	2009-11-26 02:43:16.000000000 +0300
+@@ -694,6 +694,8 @@ static int wm8750_dapm_event(struct snd_
+ 
+ 	switch (event) {
+ 	case SNDRV_CTL_POWER_D0: /* full On */
++		/* Turn On LDAC/RDAC, LOUT2/ROUT2 */
++		wm8750_write(codec, WM8750_PWR2, 0x198);
+ 		/* set vmid to 50k and unmute dac */
+ 		wm8750_write(codec, WM8750_PWR1, pwr_reg | 0x00c0);
+ 		break;
+@@ -708,6 +710,7 @@ static int wm8750_dapm_event(struct snd_
+ 		break;
+ 	case SNDRV_CTL_POWER_D3cold: /* Off, without power */
+ 		wm8750_write(codec, WM8750_PWR1, 0x0001);
++		wm8750_write(codec, WM8750_PWR2, 0x0);
+ 		break;
+ 	}
+ 	codec->dapm_state = event;
+@@ -835,10 +838,18 @@ static int wm8750_init(struct snd_soc_de
+ 	wm8750_write(codec, WM8750_LOUT1V, reg | 0x0100);
+ 	reg = wm8750_read_reg_cache(codec, WM8750_ROUT1V);
+ 	wm8750_write(codec, WM8750_ROUT1V, reg | 0x0100);
+-	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V);
+-	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0100);
+-	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V);
+-	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0100);
++	/* Read LOUT2V/ROUT2V and strip volume bits */
++	reg = wm8750_read_reg_cache(codec, WM8750_LOUT2V) & 0x180;
++	wm8750_write(codec, WM8750_LOUT2V, reg | 0x0150);
++	reg = wm8750_read_reg_cache(codec, WM8750_ROUT2V) & 0x180;
++	wm8750_write(codec, WM8750_ROUT2V, reg | 0x0150);
++
++	/* Enable L & R Digital Inputs for the L & R Outputs of the mixer */
++	reg = wm8750_read_reg_cache(codec, WM8750_LOUTM1);
++	wm8750_write(codec, WM8750_LOUTM1, reg | 0x0100);
++	reg = wm8750_read_reg_cache(codec, WM8750_ROUTM1);
++	wm8750_write(codec, WM8750_ROUTM2, reg | 0x0100);
++
+ 	reg = wm8750_read_reg_cache(codec, WM8750_LINVOL);
+ 	wm8750_write(codec, WM8750_LINVOL, reg | 0x0100);
+ 	reg = wm8750_read_reg_cache(codec, WM8750_RINVOL);
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/wm8955.c linux-2.6/sound/soc/codecs/wm8955.c
+--- linux-2.6/sound/soc/codecs/wm8955.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/wm8955.c	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,1060 @@
++/*
++ * wm8955.c -- WM8955 ALSA SoC audio driver
++ *
++ * Copyright 
++ *
++ * Author: 
++ *
++ * Based on WM8750.c
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ */
++
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/init.h>
++#include <linux/delay.h>
++#include <linux/pm.h>
++#include <linux/i2c.h>
++#include <linux/platform_device.h>
++#include <sound/driver.h>
++#include <sound/core.h>
++#include <sound/pcm.h>
++#include <sound/pcm_params.h>
++#include <sound/soc.h>
++#include <sound/soc-dapm.h>
++#include <sound/initval.h>
++
++#include "wm8955.h"
++
++#define AUDIO_NAME "WM8955"
++#define WM8955_VERSION "0.12"
++
++/*
++ * Debug
++ */
++
++#define WM8955_DEBUG 0
++
++#ifdef WM8955_DEBUG
++#define dbg(format, arg...) \
++	printk(KERN_DEBUG AUDIO_NAME ": " format "\n" , ## arg)
++#else
++#define dbg(format, arg...) do {} while (0)
++#endif
++#define err(format, arg...) \
++	printk(KERN_ERR AUDIO_NAME ": " format "\n" , ## arg)
++#define info(format, arg...) \
++	printk(KERN_INFO AUDIO_NAME ": " format "\n" , ## arg)
++#define warn(format, arg...) \
++	printk(KERN_WARNING AUDIO_NAME ": " format "\n" , ## arg)
++
++/* codec private data */
++struct wm8955_priv {
++	unsigned int sysclk;
++};
++
++/*
++ * wm8955 register cache
++ * We can't read the WM8955 register space when we
++ * are using 2 wire for device control, so we cache them instead.
++ */
++static const u16 wm8955_reg[] = {
++	0x0000, 0x0000, 0x0079, 0x0079,  /*  0 */
++	0x0000, 0x0008, 0x0000, 0x000a,  /*  4 */
++	0x0000, 0x0000, 0x00ff, 0x00ff,  /*  8 */
++	0x000f, 0x000f, 0x0000, 0x0000,  /* 12 */
++	0x0000, 0x0000, 0x0000, 0x0000,  /* 16 */
++	0x0000, 0x0000, 0x0000, 0x00c1,  /* 20 */
++	0x0000, 0x0000, 0x0000, 0x0000,  /* 24 */
++	0x0000, 0x0000, 0x0000, 0x0000,  /* 28 */
++	0x0000, 0x0000, 0x0050, 0x0050,  /* 32 */
++	0x0050, 0x0050, 0x0050, 0x0050,  /* 36 */
++	0x0079, 0x0079, 0x0079, 0x0000,  /* 40 */
++	0x0103, 0x0024, 0x01ba, 0x0000,  /* 44 */
++};
++
++/*
++ * read wm8955 register cache
++ */
++static inline unsigned int wm8955_read_reg_cache(struct snd_soc_codec *codec,
++	unsigned int reg)
++{
++	u16 *cache = codec->reg_cache;
++	if (reg > WM8955_CACHE_REGNUM)
++		return -1;
++	return cache[reg];
++}
++
++/*
++ * write wm8955 register cache
++ */
++static inline void wm8955_write_reg_cache(struct snd_soc_codec *codec,
++	unsigned int reg, unsigned int value)
++{
++	u16 *cache = codec->reg_cache;
++	if (reg > WM8955_CACHE_REGNUM)
++		return;
++	cache[reg] = value;
++}
++
++static int wm8955_write(struct snd_soc_codec *codec, unsigned int reg,
++	unsigned int value)
++{
++	u8 data[2];
++
++	/* data is
++	 *   D15..D9 WM8955 register offset
++	 *   D8...D0 register data
++	 */
++	data[0] = (reg << 1) | ((value >> 8) & 0x0001);
++	data[1] = value & 0x00ff;
++
++	wm8955_write_reg_cache (codec, reg, value);
++	if (codec->hw_write(codec->control_data, data, 2) == 2)
++		return 0;
++	else
++		return -EIO;
++}
++
++#define wm8955_reset(c)	wm8955_write(c, WM8955_RESET, 0)
++
++/*
++ * WM8955 Controls
++ */
++static const char *wm8955_bass[] = {"Linear Control", "Adaptive Boost"};
++static const char *wm8955_bass_filter[] = { "130Hz @ 48kHz", "200Hz @ 48kHz" };
++static const char *wm8955_treble[] = {"8kHz", "4kHz"};
++static const char *wm8955_line_mux[] = {"Line 1", "Line 2", "Line 3", "PGA",
++	"Differential"};
++static const char *wm8955_out3[] = {"VREF", "ROUT1 + Vol", "MonoOut",
++	"ROUT1"};
++static const char *wm8955_deemph[] = {"None", "32Khz", "44.1Khz", "48Khz"};
++
++static const struct soc_enum wm8955_enum[] = {
++SOC_ENUM_SINGLE(WM8955_BASS, 7, 2, wm8955_bass),
++SOC_ENUM_SINGLE(WM8955_BASS, 6, 2, wm8955_bass_filter),
++SOC_ENUM_SINGLE(WM8955_TREBLE, 6, 2, wm8955_treble),
++SOC_ENUM_SINGLE(WM8955_LOUTM1, 0, 5, wm8955_line_mux),
++SOC_ENUM_SINGLE(WM8955_ROUTM1, 0, 5, wm8955_line_mux),
++SOC_ENUM_SINGLE(WM8955_ADCTL2, 7, 4, wm8955_out3),
++SOC_ENUM_SINGLE(WM8955_DACCTL, 1, 4, wm8955_deemph),
++};
++
++static const struct snd_kcontrol_new wm8955_snd_controls[] = {
++
++SOC_DOUBLE_R("Headphone Playback ZC Switch", WM8955_LOUT1V,
++	WM8955_ROUT1V, 7, 1, 0),
++SOC_DOUBLE_R("Speaker Playback ZC Switch", WM8955_LOUT2V,
++	WM8955_ROUT2V, 7, 1, 0),
++
++SOC_ENUM("Playback De-emphasis", wm8955_enum[6]),
++
++SOC_SINGLE("Playback 6dB Attenuate", WM8955_DACCTL, 7, 1, 0),
++
++SOC_DOUBLE_R("PCM Volume", WM8955_LDAC, WM8955_RDAC, 0, 255, 0),
++
++SOC_ENUM("Bass Boost", wm8955_enum[0]),
++SOC_ENUM("Bass Filter", wm8955_enum[1]),
++SOC_SINGLE("Bass Volume", WM8955_BASS, 0, 15, 1),
++
++SOC_SINGLE("Treble Volume", WM8955_TREBLE, 0, 15, 0),
++SOC_ENUM("Treble Cut-off", wm8955_enum[2]),
++
++SOC_SINGLE("ZC Timeout Switch", WM8955_ADCTL1, 0, 1, 0),
++SOC_SINGLE("Playback Invert Switch", WM8955_ADCTL1, 1, 1, 0),
++
++SOC_SINGLE("Right Speaker Playback Invert Switch", WM8955_ADCTL2, 4, 1, 0),
++
++/* Unimplemented */
++/* ADCTL1 Bit 4,5 - DMONOMIX */
++/* ADCTL1 Bit 6,7 - VSEL */
++/* ADCTL2 Bit 3 - HPSWZC */
++/* ADCTL3 Bit 6 - VROI */
++
++SOC_DOUBLE_R("Bypass Left Playback Volume", WM8955_LOUTM1,
++	WM8955_LOUTM2, 4, 7, 1),
++SOC_DOUBLE_R("Bypass Right Playback Volume", WM8955_ROUTM1,
++	WM8955_ROUTM2, 4, 7, 1),
++SOC_DOUBLE_R("Bypass Mono Playback Volume", WM8955_MOUTM1,
++	WM8955_MOUTM2, 4, 7, 1),
++
++SOC_SINGLE("Mono Playback ZC Switch", WM8955_MOUTV, 7, 1, 0),
++
++SOC_DOUBLE_R("Headphone Playback Volume", WM8955_LOUT1V, WM8955_ROUT1V,
++	0, 127, 0),
++SOC_DOUBLE_R("Speaker Playback Volume", WM8955_LOUT2V, WM8955_ROUT2V,
++	0, 127, 0),
++
++SOC_SINGLE("Mono Playback Volume", WM8955_MOUTV, 0, 127, 0),
++
++};
++
++/* add non dapm controls */
++static int wm8955_add_controls(struct snd_soc_codec *codec)
++{
++	int err, i;
++
++	for (i = 0; i < ARRAY_SIZE(wm8955_snd_controls); i++) {
++		err = snd_ctl_add(codec->card,
++				snd_soc_cnew(&wm8955_snd_controls[i],codec, NULL));
++		if (err < 0)
++			return err;
++	}
++	return 0;
++}
++
++/*
++ * DAPM Controls
++ */
++
++/* Left Mixer */
++static const struct snd_kcontrol_new wm8955_left_mixer_controls[] = {
++SOC_DAPM_SINGLE("Playback Switch", WM8955_LOUTM1, 8, 1, 0),
++SOC_DAPM_SINGLE("Left Bypass Switch", WM8955_LOUTM1, 7, 1, 0),
++SOC_DAPM_SINGLE("Right Playback Switch", WM8955_LOUTM2, 8, 1, 0),
++SOC_DAPM_SINGLE("Right Bypass Switch", WM8955_LOUTM2, 7, 1, 0),
++};
++
++/* Right Mixer */
++static const struct snd_kcontrol_new wm8955_right_mixer_controls[] = {
++SOC_DAPM_SINGLE("Left Playback Switch", WM8955_ROUTM1, 8, 1, 0),
++SOC_DAPM_SINGLE("Left Bypass Switch", WM8955_ROUTM1, 7, 1, 0),
++SOC_DAPM_SINGLE("Playback Switch", WM8955_ROUTM2, 8, 1, 0),
++SOC_DAPM_SINGLE("Right Bypass Switch", WM8955_ROUTM2, 7, 1, 0),
++};
++
++/* Mono Mixer */
++static const struct snd_kcontrol_new wm8955_mono_mixer_controls[] = {
++SOC_DAPM_SINGLE("Left Playback Switch", WM8955_MOUTM1, 8, 1, 0),
++SOC_DAPM_SINGLE("Left Bypass Switch", WM8955_MOUTM1, 7, 1, 0),
++SOC_DAPM_SINGLE("Right Playback Switch", WM8955_MOUTM2, 8, 1, 0),
++SOC_DAPM_SINGLE("Right Bypass Switch", WM8955_MOUTM2, 7, 1, 0),
++};
++
++/* Left Line Mux */
++static const struct snd_kcontrol_new wm8955_left_line_controls =
++SOC_DAPM_ENUM("Route", wm8955_enum[3]);
++
++/* Right Line Mux */
++static const struct snd_kcontrol_new wm8955_right_line_controls =
++SOC_DAPM_ENUM("Route", wm8955_enum[4]);
++
++/* Out 3 Mux */
++static const struct snd_kcontrol_new wm8955_out3_controls =
++SOC_DAPM_ENUM("Route", wm8955_enum[5]);
++
++static const struct snd_soc_dapm_widget wm8955_dapm_widgets[] = {
++	SND_SOC_DAPM_MIXER("Left Mixer", SND_SOC_NOPM, 0, 0,
++		&wm8955_left_mixer_controls[0],
++		ARRAY_SIZE(wm8955_left_mixer_controls)),
++	SND_SOC_DAPM_MIXER("Right Mixer", SND_SOC_NOPM, 0, 0,
++		&wm8955_right_mixer_controls[0],
++		ARRAY_SIZE(wm8955_right_mixer_controls)),
++	SND_SOC_DAPM_MIXER("Mono Mixer", WM8955_PWR2, 2, 0,
++		&wm8955_mono_mixer_controls[0],
++		ARRAY_SIZE(wm8955_mono_mixer_controls)),
++
++	SND_SOC_DAPM_PGA("Right Out 2", WM8955_PWR2, 3, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Left Out 2", WM8955_PWR2, 4, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Right Out 1", WM8955_PWR2, 5, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Left Out 1", WM8955_PWR2, 6, 0, NULL, 0),
++	SND_SOC_DAPM_DAC("Right DAC", "Right Playback", WM8955_PWR2, 7, 0),
++	SND_SOC_DAPM_DAC("Left DAC", "Left Playback", WM8955_PWR2, 8, 0),
++
++	SND_SOC_DAPM_MICBIAS("Mic Bias", WM8955_PWR1, 1, 0),
++	SND_SOC_DAPM_ADC("Right ADC", "Right Capture", WM8955_PWR1, 2, 0),
++	SND_SOC_DAPM_ADC("Left ADC", "Left Capture", WM8955_PWR1, 3, 0),
++
++	SND_SOC_DAPM_MUX("Left Line Mux", SND_SOC_NOPM, 0, 0,
++		&wm8955_left_line_controls),
++	SND_SOC_DAPM_MUX("Right Line Mux", SND_SOC_NOPM, 0, 0,
++		&wm8955_right_line_controls),
++
++	SND_SOC_DAPM_MUX("Out3 Mux", SND_SOC_NOPM, 0, 0, &wm8955_out3_controls),
++	SND_SOC_DAPM_PGA("Out 3", WM8955_PWR2, 1, 0, NULL, 0),
++	SND_SOC_DAPM_PGA("Mono Out 1", WM8955_PWR2, 2, 0, NULL, 0),
++
++	SND_SOC_DAPM_OUTPUT("LOUT1"),
++	SND_SOC_DAPM_OUTPUT("ROUT1"),
++	SND_SOC_DAPM_OUTPUT("LOUT2"),
++	SND_SOC_DAPM_OUTPUT("ROUT2"),
++	SND_SOC_DAPM_OUTPUT("MONO"),
++	SND_SOC_DAPM_OUTPUT("OUT3"),
++
++	SND_SOC_DAPM_INPUT("LINPUT1"),
++	SND_SOC_DAPM_INPUT("LINPUT2"),
++	SND_SOC_DAPM_INPUT("LINPUT3"),
++	SND_SOC_DAPM_INPUT("RINPUT1"),
++	SND_SOC_DAPM_INPUT("RINPUT2"),
++	SND_SOC_DAPM_INPUT("RINPUT3"),
++};
++
++static const char *audio_map[][3] = {
++	/* left mixer */
++	{"Left Mixer", "Playback Switch", "Left DAC"},
++	{"Left Mixer", "Left Bypass Switch", "Left Line Mux"},
++	{"Left Mixer", "Right Playback Switch", "Right DAC"},
++	{"Left Mixer", "Right Bypass Switch", "Right Line Mux"},
++
++	/* right mixer */
++	{"Right Mixer", "Left Playback Switch", "Left DAC"},
++	{"Right Mixer", "Left Bypass Switch", "Left Line Mux"},
++	{"Right Mixer", "Playback Switch", "Right DAC"},
++	{"Right Mixer", "Right Bypass Switch", "Right Line Mux"},
++
++	/* left out 1 */
++	{"Left Out 1", NULL, "Left Mixer"},
++	{"LOUT1", NULL, "Left Out 1"},
++
++	/* left out 2 */
++	{"Left Out 2", NULL, "Left Mixer"},
++	{"LOUT2", NULL, "Left Out 2"},
++
++	/* right out 1 */
++	{"Right Out 1", NULL, "Right Mixer"},
++	{"ROUT1", NULL, "Right Out 1"},
++
++	/* right out 2 */
++	{"Right Out 2", NULL, "Right Mixer"},
++	{"ROUT2", NULL, "Right Out 2"},
++
++	/* mono mixer */
++	{"Mono Mixer", "Left Playback Switch", "Left DAC"},
++	{"Mono Mixer", "Left Bypass Switch", "Left Line Mux"},
++	{"Mono Mixer", "Right Playback Switch", "Right DAC"},
++	{"Mono Mixer", "Right Bypass Switch", "Right Line Mux"},
++
++	/* mono out */
++	{"Mono Out 1", NULL, "Mono Mixer"},
++	{"MONO1", NULL, "Mono Out 1"},
++
++	/* out 3 */
++	{"Out3 Mux", "VREF", "VREF"},
++	{"Out3 Mux", "ROUT1 + Vol", "ROUT1"},
++	{"Out3 Mux", "ROUT1", "Right Mixer"},
++	{"Out3 Mux", "MonoOut", "MONO1"},
++	{"Out 3", NULL, "Out3 Mux"},
++	{"OUT3", NULL, "Out 3"},
++
++	/* Left Line Mux */
++	{"Left Line Mux", "Line 1", "LINPUT1"},
++	{"Left Line Mux", "Line 2", "LINPUT2"},
++	{"Left Line Mux", "Line 3", "LINPUT3"},
++	{"Left Line Mux", "PGA", "Left PGA Mux"},
++	{"Left Line Mux", "Differential", "Differential Mux"},
++
++	/* Right Line Mux */
++	{"Right Line Mux", "Line 1", "RINPUT1"},
++	{"Right Line Mux", "Line 2", "RINPUT2"},
++	{"Right Line Mux", "Line 3", "RINPUT3"},
++	{"Right Line Mux", "PGA", "Right PGA Mux"},
++	{"Right Line Mux", "Differential", "Differential Mux"},
++
++	/* Left PGA Mux */
++	{"Left PGA Mux", "Line 1", "LINPUT1"},
++	{"Left PGA Mux", "Line 2", "LINPUT2"},
++	{"Left PGA Mux", "Line 3", "LINPUT3"},
++	{"Left PGA Mux", "Differential", "Differential Mux"},
++
++	/* Right PGA Mux */
++	{"Right PGA Mux", "Line 1", "RINPUT1"},
++	{"Right PGA Mux", "Line 2", "RINPUT2"},
++	{"Right PGA Mux", "Line 3", "RINPUT3"},
++	{"Right PGA Mux", "Differential", "Differential Mux"},
++
++	/* Differential Mux */
++	{"Differential Mux", "Line 1", "LINPUT1"},
++	{"Differential Mux", "Line 1", "RINPUT1"},
++	{"Differential Mux", "Line 2", "LINPUT2"},
++	{"Differential Mux", "Line 2", "RINPUT2"},
++
++	/* Left ADC Mux */
++	{"Left ADC Mux", "Stereo", "Left PGA Mux"},
++	{"Left ADC Mux", "Mono (Left)", "Left PGA Mux"},
++	{"Left ADC Mux", "Digital Mono", "Left PGA Mux"},
++
++	/* Right ADC Mux */
++	{"Right ADC Mux", "Stereo", "Right PGA Mux"},
++	{"Right ADC Mux", "Mono (Right)", "Right PGA Mux"},
++	{"Right ADC Mux", "Digital Mono", "Right PGA Mux"},
++
++	/* ADC */
++	{"Left ADC", NULL, "Left ADC Mux"},
++	{"Right ADC", NULL, "Right ADC Mux"},
++
++	/* terminator */
++	{NULL, NULL, NULL},
++};
++
++static int wm8955_add_widgets(struct snd_soc_codec *codec)
++{
++	int i;
++
++	for(i = 0; i < ARRAY_SIZE(wm8955_dapm_widgets); i++) {
++		snd_soc_dapm_new_control(codec, &wm8955_dapm_widgets[i]);
++	}
++
++	/* set up audio path audio_mapnects */
++	for(i = 0; audio_map[i][0] != NULL; i++) {
++		snd_soc_dapm_connect_input(codec, audio_map[i][0],
++			audio_map[i][1], audio_map[i][2]);
++	}
++
++	snd_soc_dapm_new_widgets(codec);
++	return 0;
++}
++
++/* PLL divisors */
++struct _pll_div {
++	u32 div2:1;
++	u32 n:4;
++	u32 k:24;
++};
++
++/* The size in bits of the pll divide multiplied by 10
++ * to allow rounding later */
++#define FIXED_PLL_SIZE ((1 << 22) * 10)
++
++static void pll_factors(struct _pll_div *pll_div, unsigned int target,
++	unsigned int source)
++{
++	u64 Kpart;
++	unsigned int K, Ndiv, Nmod;
++
++	Ndiv = target / source;
++	if (Ndiv < 6) {
++		source >>= 1;
++		pll_div->div2 = 1;
++		Ndiv = target / source;
++	} else
++		pll_div->div2 = 0;
++
++	if ((Ndiv < 6) || (Ndiv > 12))
++		printk(KERN_WARNING
++			"WM8955 N value outwith recommended range! N = %d\n",Ndiv);
++
++	pll_div->n = Ndiv;
++	Nmod = target % source;
++	Kpart = FIXED_PLL_SIZE * (long long)Nmod;
++
++	do_div(Kpart, source);
++
++	K = Kpart & 0xFFFFFFFF;
++
++	/* Check if we need to round */
++	if ((K % 10) >= 5)
++		K += 5;
++
++	/* Move down to proper range now rounding is done */
++	K /= 10;
++
++	pll_div->k = K;
++}
++
++static int wm8955_set_dai_pll(struct snd_soc_codec_dai *codec_dai,
++		int pll_id, unsigned int freq_in, unsigned int freq_out)
++{
++	u16 reg, enable = 0x1F8;
++	struct snd_soc_codec *codec = codec_dai->codec;
++
++	/* read and mask off PLLEN bit */
++	reg = wm8955_read_reg_cache(codec, WM8955_CLOCK) & 0xfff7;
++
++	if (!freq_in || !freq_out) {
++		/* disable PLL  */
++		wm8955_write(codec, WM8955_CLOCK, reg);
++		return 0;
++	} else {
++		u16 value = 0;
++		struct _pll_div pll_div;
++
++		pll_factors(&pll_div, freq_out * 8, freq_in);
++
++		/* set up N and K PLL divisor ratios */
++		/* bits 8:5 = PLL_N, bits 3:0 = PLL_K[21:18] */
++		value = (pll_div.n << 5) + ((pll_div.k & 0x3c0000) >> 18);
++		wm8955_write(codec, WM8955_PLLCTL1, value);
++
++		/* bits 8:0 = PLL_K[17:9] */
++		value = (pll_div.k & 0x03fe00) >> 9;
++		wm8955_write(codec, WM8955_PLLCTL2, value);
++
++		/* bits 8:0 = PLL_K[8:0] */
++		value = pll_div.k & 0x0001ff;
++		wm8955_write(codec, WM8955_PLLCTL3, value);
++
++		/* use fractional "K" */
++		wm8955_write(codec, WM8955_PLLCTL4, 0x80);
++
++		/* Enable the PLL */
++		enable |= (pll_div.div2 << 5);
++		wm8955_write(codec, WM8955_CLOCK, reg | enable);
++	}
++	return 0;
++}
++
++struct _coeff_div {
++	u32 mclk;
++	u32 rate;
++	u16 fs;
++	u8 sr:5;
++	u8 usb:1;
++};
++
++/* codec hifi mclk clock divider coefficients */
++static const struct _coeff_div coeff_div[] = {
++	/* 8k */
++	{12288000, 8000, 1536, 0x2, 0x0},
++	{11289600, 8000, 1408, 0x12, 0x0},
++	{18432000, 8000, 2304, 0x3, 0x0},
++	{16934400, 8000, 2112, 0x13, 0x0},
++	{12000000, 8000, 1500, 0x2, 0x1},
++
++	/* 11.025k */
++	{11289600, 11025, 1024, 0x18, 0x0},
++	{16934400, 11025, 1536, 0x19, 0x0},
++	{12000000, 11025, 1088, 0x19, 0x1},
++
++	/* 16k */
++	{12288000, 16000, 768, 0xa, 0x0},
++	{18432000, 16000, 1152, 0xb, 0x0},
++	{12000000, 16000, 750, 0xa, 0x1},
++
++	/* 22.05k */
++	{11289600, 22050, 512, 0x1a, 0x0},
++	{16934400, 22050, 768, 0x1b, 0x0},
++	{12000000, 22050, 544, 0x1b, 0x1},
++
++	/* 32k */
++	{12288000, 32000, 384, 0xc, 0x0},
++	{18432000, 32000, 576, 0xd, 0x0},
++	{12000000, 32000, 375, 0xc, 0x1},
++
++	/* 44.1k */
++	{11289600, 44100, 256, 0x10, 0x0},
++	{16934400, 44100, 384, 0x11, 0x0},
++	{12000000, 44100, 272, 0x11, 0x1},
++
++	/* 48k */
++	{12288000, 48000, 256, 0x0, 0x0},
++	{18432000, 48000, 384, 0x1, 0x0},
++	{12000000, 48000, 250, 0x0, 0x1},
++
++	/* 88.2k */
++	{11289600, 88200, 128, 0x1e, 0x0},
++	{16934400, 88200, 192, 0x1f, 0x0},
++	{12000000, 88200, 136, 0x1f, 0x1},
++
++	/* 96k */
++	{12288000, 96000, 128, 0xe, 0x0},
++	{18432000, 96000, 192, 0xf, 0x0},
++	{12000000, 96000, 125, 0xe, 0x1},
++};
++
++static inline int get_coeff(int mclk, int rate)
++{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(coeff_div); i++) {
++		if (coeff_div[i].rate == rate && coeff_div[i].mclk == mclk)
++			return i;
++	}
++
++	printk(KERN_ERR "wm8955: could not get coeff for mclk %d @ rate %d\n",
++		mclk, rate);
++	return -EINVAL;
++}
++
++static int wm8955_set_dai_sysclk(struct snd_soc_codec_dai *codec_dai,
++		int clk_id, unsigned int freq, int dir)
++{
++	struct snd_soc_codec *codec = codec_dai->codec;
++	struct wm8955_priv *wm8955 = codec->private_data;
++
++	switch (freq) {
++	case 11289600:
++	case 12000000:
++	case 12288000:
++	case 16934400:
++	case 18432000:
++		wm8955->sysclk = freq;
++		return 0;
++	}
++	return -EINVAL;
++}
++
++static int wm8955_set_dai_fmt(struct snd_soc_codec_dai *codec_dai,
++		unsigned int fmt)
++{
++	struct snd_soc_codec *codec = codec_dai->codec;
++	u16 iface = 0;
++
++	/* set master/slave audio interface */
++	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
++	case SND_SOC_DAIFMT_CBM_CFM:
++		iface = 0x0040;
++		break;
++	case SND_SOC_DAIFMT_CBS_CFS:
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* interface format */
++	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
++	case SND_SOC_DAIFMT_I2S:
++		iface |= 0x0002;
++		break;
++	case SND_SOC_DAIFMT_RIGHT_J:
++		break;
++	case SND_SOC_DAIFMT_LEFT_J:
++		iface |= 0x0001;
++		break;
++	case SND_SOC_DAIFMT_DSP_A:
++		iface |= 0x0003;
++		break;
++	case SND_SOC_DAIFMT_DSP_B:
++		iface |= 0x0013;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	/* clock inversion */
++	switch (fmt & SND_SOC_DAIFMT_INV_MASK) {
++	case SND_SOC_DAIFMT_NB_NF:
++		break;
++	case SND_SOC_DAIFMT_IB_IF:
++		iface |= 0x0090;
++		break;
++	case SND_SOC_DAIFMT_IB_NF:
++		iface |= 0x0080;
++		break;
++	case SND_SOC_DAIFMT_NB_IF:
++		iface |= 0x0010;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	wm8955_write(codec, WM8955_IFACE, iface);
++	return 0;
++}
++
++static int wm8955_pcm_hw_params(struct snd_pcm_substream *substream,
++	struct snd_pcm_hw_params *params)
++{
++	struct snd_soc_pcm_runtime *rtd = substream->private_data;
++	struct snd_soc_device *socdev = rtd->socdev;
++	struct snd_soc_codec *codec = socdev->codec;
++	struct wm8955_priv *wm8955 = codec->private_data;
++	u16 iface = wm8955_read_reg_cache(codec, WM8955_IFACE) & 0x1f3;
++	u16 srate = wm8955_read_reg_cache(codec, WM8955_SRATE) & 0x1c0;
++	int coeff = get_coeff(wm8955->sysclk, params_rate(params));
++
++	/* bit size */
++	switch (params_format(params)) {
++	case SNDRV_PCM_FORMAT_S16_LE:
++		break;
++	case SNDRV_PCM_FORMAT_S20_3LE:
++		iface |= 0x0004;
++		break;
++	case SNDRV_PCM_FORMAT_S24_LE:
++		iface |= 0x0008;
++		break;
++	case SNDRV_PCM_FORMAT_S32_LE:
++		iface |= 0x000c;
++		break;
++	}
++
++	/* set iface & srate */
++	wm8955_write(codec, WM8955_IFACE, iface);
++	if (coeff >= 0)
++
++		wm8955_write(codec, WM8955_SRATE, srate |
++			(coeff_div[coeff].sr << 1) | coeff_div[coeff].usb | 0x40);
++
++	return 0;
++}
++
++static int wm8955_mute(struct snd_soc_codec_dai *dai, int mute)
++{
++	struct snd_soc_codec *codec = dai->codec;
++	u16 mute_reg = wm8955_read_reg_cache(codec, WM8955_DACCTL) & 0xfff7;
++
++	if (mute)
++		wm8955_write(codec, WM8955_DACCTL, mute_reg | 0x8);
++	else
++		wm8955_write(codec, WM8955_DACCTL, mute_reg);
++	return 0;
++}
++
++static int wm8955_dapm_event(struct snd_soc_codec *codec, int event)
++{
++	u16 pwr_reg = wm8955_read_reg_cache(codec, WM8955_PWR1) & 0xfe3e;
++
++	switch (event) {
++	case SNDRV_CTL_POWER_D0: /* full On */
++		/* Turn On LDAC/RDAC, LOUT2/ROUT2 */
++		wm8955_write(codec, WM8955_PWR2, 0x198);
++		/* set vmid to 50k and unmute dac */
++		wm8955_write(codec, WM8955_PWR1, pwr_reg | 0x00c0);
++		break;
++	case SNDRV_CTL_POWER_D1: /* partial On */
++	case SNDRV_CTL_POWER_D2: /* partial On */
++		/* set vmid to 5k for quick power up */
++		wm8955_write(codec, WM8955_PWR1, pwr_reg | 0x01c1);
++		break;
++	case SNDRV_CTL_POWER_D3hot: /* Off, with power */
++		/* mute dac and set vmid to 500k, enable VREF */
++		wm8955_write(codec, WM8955_PWR1, pwr_reg | 0x0141);
++		break;
++	case SNDRV_CTL_POWER_D3cold: /* Off, without power */
++		wm8955_write(codec, WM8955_PWR1, 0x0001);
++		wm8955_write(codec, WM8955_PWR2, 0x0);
++		break;
++	}
++	codec->dapm_state = event;
++	return 0;
++}
++
++#define WM8955_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_11025 |\
++		SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_22050 | SNDRV_PCM_RATE_44100 | \
++		SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_88200 | SNDRV_PCM_RATE_96000)
++
++#define WM8955_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
++	SNDRV_PCM_FMTBIT_S24_LE)
++
++struct snd_soc_codec_dai wm8955_dai = {
++	.name = "WM8955",
++	.playback = {
++		.stream_name = "Playback",
++		.channels_min = 1,
++		.channels_max = 2,
++		.rates = WM8955_RATES,
++		.formats = WM8955_FORMATS,},
++	.capture = {
++		.stream_name = "Capture",
++		.channels_min = 1,
++		.channels_max = 2,
++		.rates = WM8955_RATES,
++		.formats = WM8955_FORMATS,},
++	.ops = {
++		.hw_params = wm8955_pcm_hw_params,
++	},
++	.dai_ops = {
++		.digital_mute = wm8955_mute,
++		.set_fmt = wm8955_set_dai_fmt,
++		.set_pll = wm8955_set_dai_pll,
++		.set_sysclk = wm8955_set_dai_sysclk,
++	},
++};
++EXPORT_SYMBOL_GPL(wm8955_dai);
++
++static void wm8955_work(struct work_struct *work)
++{
++	struct snd_soc_codec *codec =
++		container_of(work, struct snd_soc_codec, delayed_work.work);
++	wm8955_dapm_event(codec, codec->dapm_state);
++}
++
++static int wm8955_suspend(struct platform_device *pdev, pm_message_t state)
++{
++	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
++	struct snd_soc_codec *codec = socdev->codec;
++
++	wm8955_dapm_event(codec, SNDRV_CTL_POWER_D3cold);
++	return 0;
++}
++
++static int wm8955_resume(struct platform_device *pdev)
++{
++	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
++	struct snd_soc_codec *codec = socdev->codec;
++	int i;
++	u8 data[2];
++	u16 *cache = codec->reg_cache;
++
++	/* Sync reg_cache with the hardware */
++	for (i = 0; i < ARRAY_SIZE(wm8955_reg); i++) {
++		if (i == WM8955_RESET)
++			continue;
++		data[0] = (i << 1) | ((cache[i] >> 8) & 0x0001);
++		data[1] = cache[i] & 0x00ff;
++		codec->hw_write(codec->control_data, data, 2);
++	}
++
++	wm8955_dapm_event(codec, SNDRV_CTL_POWER_D3hot);
++
++	/* charge wm8955 caps */
++	if (codec->suspend_dapm_state == SNDRV_CTL_POWER_D0) {
++		wm8955_dapm_event(codec, SNDRV_CTL_POWER_D2);
++		codec->dapm_state = SNDRV_CTL_POWER_D0;
++		schedule_delayed_work(&codec->delayed_work, msecs_to_jiffies(1000));
++	}
++
++	return 0;
++}
++
++/*
++ * initialise the WM8955 driver
++ * register the mixer and dsp interfaces with the kernel
++ */
++static int wm8955_init(struct snd_soc_device *socdev)
++{
++	struct snd_soc_codec *codec = socdev->codec;
++	int reg, ret = 0;
++
++	codec->name = "WM8955";
++	codec->owner = THIS_MODULE;
++	codec->read = wm8955_read_reg_cache;
++	codec->write = wm8955_write;
++	codec->dapm_event = wm8955_dapm_event;
++	codec->dai = &wm8955_dai;
++	codec->num_dai = 1;
++	codec->reg_cache_size = sizeof(wm8955_reg);
++	codec->reg_cache = kmemdup(wm8955_reg, sizeof(wm8955_reg), GFP_KERNEL);
++	if (codec->reg_cache == NULL)
++		return -ENOMEM;
++
++	wm8955_reset(codec);
++
++	/* register pcms */
++	ret = snd_soc_new_pcms(socdev, SNDRV_DEFAULT_IDX1, SNDRV_DEFAULT_STR1);
++	if (ret < 0) {
++		printk(KERN_ERR "wm8955: failed to create pcms\n");
++		goto pcm_err;
++	}
++
++	/* charge output caps */
++	wm8955_dapm_event(codec, SNDRV_CTL_POWER_D2);
++	codec->dapm_state = SNDRV_CTL_POWER_D3hot;
++	schedule_delayed_work(&codec->delayed_work, msecs_to_jiffies(1000));
++
++	/* set the update bits */
++	reg = wm8955_read_reg_cache(codec, WM8955_LDAC);
++	wm8955_write(codec, WM8955_LDAC, reg | 0x0100);
++	reg = wm8955_read_reg_cache(codec, WM8955_RDAC);
++	wm8955_write(codec, WM8955_RDAC, reg | 0x0100);
++	reg = wm8955_read_reg_cache(codec, WM8955_LOUT1V);
++	wm8955_write(codec, WM8955_LOUT1V, reg | 0x0100);
++	reg = wm8955_read_reg_cache(codec, WM8955_ROUT1V);
++	wm8955_write(codec, WM8955_ROUT1V, reg | 0x0100);
++	/* Read LOUT2V/ROUT2V and strip volume bits */
++	reg = wm8955_read_reg_cache(codec, WM8955_LOUT2V) & 0x180;
++	wm8955_write(codec, WM8955_LOUT2V, reg | 0x015f);
++	reg = wm8955_read_reg_cache(codec, WM8955_ROUT2V) * 0x180;
++	wm8955_write(codec, WM8955_ROUT2V, reg | 0x015f);
++
++	/* Enable L & R Digital Inputs for the L & R Outputs of the mixer */
++	reg = wm8955_read_reg_cache(codec, WM8955_LOUTM1);
++	wm8955_write(codec, WM8955_LOUTM1, reg | 0x0100);
++	reg = wm8955_read_reg_cache(codec, WM8955_ROUTM1);
++	wm8955_write(codec, WM8955_ROUTM2, reg | 0x0100);
++
++	wm8955_add_controls(codec);
++	wm8955_add_widgets(codec);
++	ret = snd_soc_register_card(socdev);
++	if (ret < 0) {
++		printk(KERN_ERR "wm8955: failed to register card\n");
++		goto card_err;
++	}
++	return ret;
++
++card_err:
++	snd_soc_free_pcms(socdev);
++	snd_soc_dapm_free(socdev);
++pcm_err:
++	kfree(codec->reg_cache);
++	return ret;
++}
++
++/* If the i2c layer weren't so broken, we could pass this kind of data
++   around */
++static struct snd_soc_device *wm8955_socdev;
++
++#if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
++
++/*
++ * WM8955 2 wire address is determined by GPIO5
++ * state during powerup.
++ *    low  = 0x1a
++ *    high = 0x1b
++ */
++static unsigned short normal_i2c[] = { 0, I2C_CLIENT_END };
++
++/* Magic definition of all other variables and things */
++I2C_CLIENT_INSMOD;
++
++static struct i2c_driver wm8955_i2c_driver;
++static struct i2c_client client_template;
++
++static int wm8955_codec_probe(struct i2c_adapter *adap, int addr, int kind)
++{
++	struct snd_soc_device *socdev = wm8955_socdev;
++	struct wm8955_setup_data *setup = socdev->codec_data;
++	struct snd_soc_codec *codec = socdev->codec;
++	struct i2c_client *i2c;
++	int ret;
++
++	if (addr != setup->i2c_address)
++		return -ENODEV;
++
++	client_template.adapter = adap;
++	client_template.addr = addr;
++
++	i2c = kmemdup(&client_template, sizeof(client_template), GFP_KERNEL);
++	if (i2c == NULL) {
++		kfree(codec);
++		return -ENOMEM;
++	}
++	i2c_set_clientdata(i2c, codec);
++	codec->control_data = i2c;
++
++	ret = i2c_attach_client(i2c);
++	if (ret < 0) {
++		err("failed to attach codec at addr %x\n", addr);
++		goto err;
++	}
++
++	ret = wm8955_init(socdev);
++	if (ret < 0) {
++	err("failed to initialise WM8955\n");
++		goto err;
++	}
++	return ret;
++
++err:
++	kfree(codec);
++	kfree(i2c);
++	return ret;
++}
++
++static int wm8955_i2c_detach(struct i2c_client *client)
++{
++	struct snd_soc_codec *codec = i2c_get_clientdata(client);
++	i2c_detach_client(client);
++	kfree(codec->reg_cache);
++	kfree(client);
++	return 0;
++}
++
++static int wm8955_i2c_attach(struct i2c_adapter *adap)
++{
++	return i2c_probe(adap, &addr_data, wm8955_codec_probe);
++}
++
++/* corgi i2c codec control layer */
++static struct i2c_driver wm8955_i2c_driver = {
++	.driver = {
++		.name = "WM8955 I2C Codec",
++		.owner = THIS_MODULE,
++	},
++	.id =             I2C_DRIVERID_WM8955,
++	.attach_adapter = wm8955_i2c_attach,
++	.detach_client =  wm8955_i2c_detach,
++	.command =        NULL,
++};
++
++static struct i2c_client client_template = {
++	.name =   "WM8955",
++	.driver = &wm8955_i2c_driver,
++};
++#endif
++
++static int wm8955_probe(struct platform_device *pdev)
++{
++	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
++	struct wm8955_setup_data *setup = socdev->codec_data;
++	struct snd_soc_codec *codec;
++	struct wm8955_priv *wm8955;
++	int ret = 0;
++
++	info("WM8955 Audio Codec %s", WM8955_VERSION);
++	codec = kzalloc(sizeof(struct snd_soc_codec), GFP_KERNEL);
++	if (codec == NULL)
++		return -ENOMEM;
++
++	wm8955 = kzalloc(sizeof(struct wm8955_priv), GFP_KERNEL);
++	if (wm8955 == NULL) {
++		kfree(codec);
++		return -ENOMEM;
++	}
++
++	codec->private_data = wm8955;
++	socdev->codec = codec;
++	mutex_init(&codec->mutex);
++	INIT_LIST_HEAD(&codec->dapm_widgets);
++	INIT_LIST_HEAD(&codec->dapm_paths);
++	wm8955_socdev = socdev;
++	INIT_DELAYED_WORK(&codec->delayed_work, wm8955_work);
++	
++#if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
++	if (setup->i2c_address) {
++		normal_i2c[0] = setup->i2c_address;
++		codec->hw_write = (hw_write_t)i2c_master_send;
++		ret = i2c_add_driver(&wm8955_i2c_driver);
++		if (ret != 0)
++			printk(KERN_ERR "can't add i2c driver");
++	}
++#else
++		/* Add other interfaces here */
++#endif
++
++	return ret;
++}
++
++/*
++ * This function forces any delayed work to be queued and run.
++ */
++static int run_delayed_work(struct delayed_work *dwork)
++{
++	int ret;
++
++	/* cancel any work waiting to be queued. */
++	ret = cancel_delayed_work(dwork);
++
++	/* if there was any work waiting then we run it now and
++	 * wait for it's completion */
++	if (ret) {
++		schedule_delayed_work(dwork, 0);
++		flush_scheduled_work();
++	}
++	return ret;
++}
++
++/* power down chip */
++static int wm8955_remove(struct platform_device *pdev)
++{
++	struct snd_soc_device *socdev = platform_get_drvdata(pdev);
++	struct snd_soc_codec *codec = socdev->codec;
++
++	if (codec->control_data)
++		wm8955_dapm_event(codec, SNDRV_CTL_POWER_D3cold);
++	run_delayed_work(&codec->delayed_work);
++	snd_soc_free_pcms(socdev);
++	snd_soc_dapm_free(socdev);
++#if defined(CONFIG_I2C) || defined(CONFIG_I2C_MODULE)
++	i2c_del_driver(&wm8955_i2c_driver);
++#endif
++	kfree(codec->private_data);
++	kfree(codec);
++
++	return 0;
++}
++
++struct snd_soc_codec_device soc_codec_dev_wm8955 = {
++	.probe = 	wm8955_probe,
++	.remove = 	wm8955_remove,
++	.suspend = 	wm8955_suspend,
++	.resume =	wm8955_resume,
++};
++
++EXPORT_SYMBOL_GPL(soc_codec_dev_wm8955);
++
++MODULE_DESCRIPTION("ASoC WM8955 driver");
++MODULE_AUTHOR("");
++MODULE_LICENSE("GPL");
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/codecs/wm8955.h linux-2.6/sound/soc/codecs/wm8955.h
+--- linux-2.6/sound/soc/codecs/wm8955.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/sound/soc/codecs/wm8955.h	2009-11-26 02:43:16.000000000 +0300
+@@ -0,0 +1,61 @@
++/*
++ * Copyright 
++ *
++ * Author: 
++ *
++ * Based on WM8750.h
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2 as
++ * published by the Free Software Foundation.
++ *
++ */
++
++#ifndef _WM8955_H
++#define _WM8955_H
++
++/* WM8955 register space */
++
++#define WM8955_LOUT1V    0x02
++#define WM8955_ROUT1V    0x03
++#define WM8955_DACCTL    0x05
++#define WM8955_IFACE     0x07
++#define WM8955_SRATE     0x08
++#define WM8955_LDAC      0x0a
++#define WM8955_RDAC      0x0b
++#define WM8955_BASS      0x0c
++#define WM8955_TREBLE    0x0d
++#define WM8955_RESET     0x0f
++#define WM8955_ADCTL1    0x17
++#define WM8955_ADCTL2    0x18
++#define WM8955_PWR1      0x19
++#define WM8955_PWR2      0x1a
++#define WM8955_ADCTL3    0x1b
++#define WM8955_LOUTM1    0x22
++#define WM8955_LOUTM2    0x23
++#define WM8955_ROUTM1    0x24
++#define WM8955_ROUTM2    0x25
++#define WM8955_MOUTM1    0x26
++#define WM8955_MOUTM2    0x27
++#define WM8955_LOUT2V    0x28
++#define WM8955_ROUT2V    0x29
++#define WM8955_MOUTV     0x2a
++#define WM8955_CLOCK     0x2b
++#define WM8955_PLLCTL1   0x2c
++#define WM8955_PLLCTL2   0x2d
++#define WM8955_PLLCTL3   0x2e
++#define WM8955_PLLCTL4   0x3b
++
++
++#define WM8955_CACHE_REGNUM 0x3b
++
++#define WM8955_SYSCLK	0
++
++struct wm8955_setup_data {
++	unsigned short i2c_address;
++};
++
++extern struct snd_soc_codec_dai wm8955_dai;
++extern struct snd_soc_codec_device soc_codec_dev_wm8955;
++
++#endif
+diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/Makefile linux-2.6/sound/soc/Makefile
+--- linux-2.6/sound/soc/Makefile	2008-12-12 06:36:00.000000000 +0300
++++ linux-2.6/sound/soc/Makefile	2009-11-26 02:43:15.000000000 +0300
+@@ -1,4 +1,4 @@
+ snd-soc-core-objs := soc-core.o soc-dapm.o
+ 
+ obj-$(CONFIG_SND_SOC)	+= snd-soc-core.o
+-obj-$(CONFIG_SND_SOC)	+= codecs/ at91/ pxa/ s3c24xx/
++obj-$(CONFIG_SND_SOC)	+= codecs/ at91/ pxa/ s3c24xx/ bcm947xx/
+diff '-x*.o' '-x*.orig' '-x.*' -urBp linux-2.6/include/linux/i2c-id.h linux-2.6/include/linux/i2c-id.h
+--- linux-2.6/include/linux/i2c-id.h	2008-12-12 06:34:12.000000000 +0300
++++ linux-2.6/include/linux/i2c-id.h	2009-11-26 02:41:32.000000000 +0300
+@@ -118,6 +118,7 @@
+ #define I2C_DRIVERID_WM8731		89	/* Wolfson WM8731 audio codec */
+ #define I2C_DRIVERID_WM8750		90	/* Wolfson WM8750 audio codec */
+ #define I2C_DRIVERID_WM8753		91	/* Wolfson WM8753 audio codec */
++#define I2C_DRIVERID_WM8955		92	/* Wolfson WM8955 audio codec */
+ 
+ #define I2C_DRIVERID_I2CDEV	900
+ #define I2C_DRIVERID_ARP        902    /* SMBus ARP Client              */
+diff '-x*.o' '-x*.orig' '-x.*' -urBp linux-2.6/drivers/i2c/busses/i2c-gpio.c linux-2.6/drivers/i2c/busses/i2c-gpio.c
+--- linux-2.6/drivers/i2c/busses/i2c-gpio.c	2008-12-12 06:27:48.000000000 +0300
++++ linux-2.6/drivers/i2c/busses/i2c-gpio.c	2009-11-26 02:35:32.000000000 +0300
+@@ -63,21 +63,21 @@ static void i2c_gpio_setscl_val(void *da
+ 	gpio_set_value(pdata->scl_pin, state);
+ }
+ 
+-int i2c_gpio_getsda(void *data)
++static int i2c_gpio_getsda(void *data)
+ {
+ 	struct i2c_gpio_platform_data *pdata = data;
+ 
+ 	return gpio_get_value(pdata->sda_pin);
+ }
+ 
+-int i2c_gpio_getscl(void *data)
++static int i2c_gpio_getscl(void *data)
+ {
+ 	struct i2c_gpio_platform_data *pdata = data;
+ 
+ 	return gpio_get_value(pdata->scl_pin);
+ }
+ 
+-static int __init i2c_gpio_probe(struct platform_device *pdev)
++static int __devinit i2c_gpio_probe(struct platform_device *pdev)
+ {
+ 	struct i2c_gpio_platform_data *pdata;
+ 	struct i2c_algo_bit_data *bit_data;
+@@ -140,9 +140,17 @@ static int __init i2c_gpio_probe(struct
+ 	adap->owner = THIS_MODULE;
+ 	snprintf(adap->name, sizeof(adap->name), "i2c-gpio%d", pdev->id);
+ 	adap->algo_data = bit_data;
++	//adap->class = I2C_CLASS_HWMON | I2C_CLASS_SPD;
++	adap->class = I2C_CLASS_HWMON;
+ 	adap->dev.parent = &pdev->dev;
+ 
+-	ret = i2c_bit_add_bus(adap);
++	/*
++	 * If "dev->id" is negative we consider it as zero.
++	 * The reason to do so is to avoid sysfs names that only make
++	 * sense when there are multiple adapters.
++	 */
++	adap->nr = (pdev->id != -1) ? pdev->id : 0;
++	ret = i2c_bit_add_numbered_bus(adap);
+ 	if (ret)
+ 		goto err_add_bus;
+ 
+@@ -167,7 +175,7 @@ err_alloc_adap:
+ 	return ret;
+ }
+ 
+-static int __exit i2c_gpio_remove(struct platform_device *pdev)
++static int __devexit i2c_gpio_remove(struct platform_device *pdev)
+ {
+ 	struct i2c_gpio_platform_data *pdata;
+ 	struct i2c_adapter *adap;
+@@ -189,14 +197,15 @@ static struct platform_driver i2c_gpio_d
+ 		.name	= "i2c-gpio",
+ 		.owner	= THIS_MODULE,
+ 	},
+-	.remove		= __exit_p(i2c_gpio_remove),
++	.probe		= i2c_gpio_probe,
++	.remove		= __devexit_p(i2c_gpio_remove),
+ };
+ 
+ static int __init i2c_gpio_init(void)
+ {
+ 	int ret;
+ 
+-	ret = platform_driver_probe(&i2c_gpio_driver, i2c_gpio_probe);
++	ret = platform_driver_register(&i2c_gpio_driver);
+ 	if (ret)
+ 		printk(KERN_ERR "i2c-gpio: probe failed: %d\n", ret);
+ 
+@@ -213,3 +222,4 @@ module_exit(i2c_gpio_exit);
+ MODULE_AUTHOR("Haavard Skinnemoen <hskinnemoen@atmel.com>");
+ MODULE_DESCRIPTION("Platform-independent bitbanging I2C driver");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("platform:i2c-gpio");
+-- 

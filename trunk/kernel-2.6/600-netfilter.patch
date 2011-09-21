@@ -1,0 +1,1918 @@
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,402 @@
++#ifndef _IP_CONNTRACK_H
++#define _IP_CONNTRACK_H
++
++#include <linux/netfilter/nf_conntrack_common.h>
++
++#ifdef __KERNEL__
++#include <linux/netfilter_ipv4/ip_conntrack_tuple.h>
++#include <linux/bitops.h>
++#include <linux/compiler.h>
++#include <asm/atomic.h>
++
++#include <linux/timer.h>
++#include <linux/netfilter_ipv4/ip_conntrack_tcp.h>
++#include <linux/netfilter_ipv4/ip_conntrack_icmp.h>
++#include <linux/netfilter_ipv4/ip_conntrack_proto_gre.h>
++#include <linux/netfilter_ipv4/ip_conntrack_sctp.h>
++
++/* per conntrack: protocol private data */
++union ip_conntrack_proto {
++	/* insert conntrack proto private data here */
++	struct ip_ct_gre gre;
++	struct ip_ct_sctp sctp;
++	struct ip_ct_tcp tcp;
++	struct ip_ct_icmp icmp;
++};
++
++union ip_conntrack_expect_proto {
++	/* insert expect proto private data here */
++};
++
++/* Add protocol helper include file here */
++#include <linux/netfilter_ipv4/ip_conntrack_h323.h>
++#include <linux/netfilter_ipv4/ip_conntrack_pptp.h>
++#include <linux/netfilter_ipv4/ip_conntrack_amanda.h>
++#include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
++#include <linux/netfilter_ipv4/ip_conntrack_irc.h>
++
++/* per conntrack: application helper private data */
++union ip_conntrack_help {
++	/* insert conntrack helper private data (master) here */
++	struct ip_ct_h323_master ct_h323_info;
++	struct ip_ct_pptp_master ct_pptp_info;
++	struct ip_ct_ftp_master ct_ftp_info;
++	struct ip_ct_irc_master ct_irc_info;
++};
++
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++#include <linux/netfilter_ipv4/ip_nat.h>
++#include <linux/netfilter_ipv4/ip_nat_pptp.h>
++
++/* per conntrack: nat application helper private data */
++union ip_conntrack_nat_help {
++	/* insert nat helper private data here */
++	struct ip_nat_pptp nat_pptp_info;
++};
++#endif
++
++#include <linux/types.h>
++#include <linux/skbuff.h>
++
++#ifdef CONFIG_NETFILTER_DEBUG
++#define IP_NF_ASSERT(x)							\
++do {									\
++	if (!(x))							\
++		/* Wooah!  I'm tripping my conntrack in a frenzy of	\
++		   netplay... */					\
++		printk("NF_IP_ASSERT: %s:%i(%s)\n",			\
++		       __FILE__, __LINE__, __FUNCTION__);		\
++} while(0)
++#else
++#define IP_NF_ASSERT(x)
++#endif
++
++struct ip_conntrack_helper;
++
++struct ip_conntrack
++{
++	/* Usage count in here is 1 for hash table/destruct timer, 1 per skb,
++           plus 1 for any connection(s) we are `master' for */
++	struct nf_conntrack ct_general;
++
++	/* Have we seen traffic both ways yet? (bitset) */
++	unsigned long status;
++
++	/* Timer function; drops refcnt when it goes off. */
++	struct timer_list timeout;
++
++#ifdef CONFIG_IP_NF_CT_ACCT
++	/* Accounting Information (same cache line as other written members) */
++	struct ip_conntrack_counter counters[IP_CT_DIR_MAX];
++#endif
++	/* If we were expected by an expectation, this will be it */
++	struct ip_conntrack *master;
++
++	/* Current number of expected connections */
++	unsigned int expecting;
++
++	/* Unique ID that identifies this conntrack*/
++	unsigned int id;
++
++	/* Helper, if any. */
++	struct ip_conntrack_helper *helper;
++
++	/* Storage reserved for other modules: */
++	union ip_conntrack_proto proto;
++
++	union ip_conntrack_help help;
++
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++	struct {
++		struct ip_nat_info info;
++		union ip_conntrack_nat_help help;
++#if defined(CONFIG_IP_NF_TARGET_MASQUERADE) || \
++	defined(CONFIG_IP_NF_TARGET_MASQUERADE_MODULE)
++		int masq_index;
++#endif
++	} nat;
++#endif /* CONFIG_IP_NF_NAT_NEEDED */
++
++#if defined(CONFIG_IP_NF_CONNTRACK_MARK)
++	u_int32_t mark;
++#endif
++
++#ifdef CONFIG_IP_NF_CONNTRACK_SECMARK
++	u_int32_t secmark;
++#endif
++
++	/* Traversed often, so hopefully in different cacheline to top */
++	/* These are my tuples; original and reply */
++	struct ip_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
++};
++
++struct ip_conntrack_expect
++{
++	/* Internal linked list (global expectation list) */
++	struct list_head list;
++
++	/* We expect this tuple, with the following mask */
++	struct ip_conntrack_tuple tuple, mask;
++ 
++	/* Function to call after setup and insertion */
++	void (*expectfn)(struct ip_conntrack *new,
++			 struct ip_conntrack_expect *this);
++
++	/* The conntrack of the master connection */
++	struct ip_conntrack *master;
++
++	/* Timer function; deletes the expectation. */
++	struct timer_list timeout;
++
++	/* Usage count. */
++	atomic_t use;
++
++	/* Unique ID */
++	unsigned int id;
++
++	/* Flags */
++	unsigned int flags;
++
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++	__be32 saved_ip;
++	/* This is the original per-proto part, used to map the
++	 * expected connection the way the recipient expects. */
++	union ip_conntrack_manip_proto saved_proto;
++	/* Direction relative to the master connection. */
++	enum ip_conntrack_dir dir;
++#endif
++};
++
++#define IP_CT_EXPECT_PERMANENT	0x1
++
++static inline struct ip_conntrack *
++tuplehash_to_ctrack(const struct ip_conntrack_tuple_hash *hash)
++{
++	return container_of(hash, struct ip_conntrack,
++			    tuplehash[hash->tuple.dst.dir]);
++}
++
++/* get master conntrack via master expectation */
++#define master_ct(conntr) (conntr->master)
++
++/* Alter reply tuple (maybe alter helper). */
++extern void
++ip_conntrack_alter_reply(struct ip_conntrack *conntrack,
++			 const struct ip_conntrack_tuple *newreply);
++
++/* Is this tuple taken? (ignoring any belonging to the given
++   conntrack). */
++extern int
++ip_conntrack_tuple_taken(const struct ip_conntrack_tuple *tuple,
++			 const struct ip_conntrack *ignored_conntrack);
++
++/* Return conntrack_info and tuple hash for given skb. */
++static inline struct ip_conntrack *
++ip_conntrack_get(const struct sk_buff *skb, enum ip_conntrack_info *ctinfo)
++{
++	*ctinfo = skb->nfctinfo;
++	return (struct ip_conntrack *)skb->nfct;
++}
++
++/* decrement reference count on a conntrack */
++static inline void
++ip_conntrack_put(struct ip_conntrack *ct)
++{
++	IP_NF_ASSERT(ct);
++	nf_conntrack_put(&ct->ct_general);
++}
++
++extern int invert_tuplepr(struct ip_conntrack_tuple *inverse,
++			  const struct ip_conntrack_tuple *orig);
++
++extern void __ip_ct_refresh_acct(struct ip_conntrack *ct,
++			         enum ip_conntrack_info ctinfo,
++			         const struct sk_buff *skb,
++			         unsigned long extra_jiffies,
++				 int do_acct);
++
++/* Refresh conntrack for this many jiffies and do accounting */
++static inline void ip_ct_refresh_acct(struct ip_conntrack *ct, 
++				      enum ip_conntrack_info ctinfo,
++				      const struct sk_buff *skb,
++				      unsigned long extra_jiffies)
++{
++	__ip_ct_refresh_acct(ct, ctinfo, skb, extra_jiffies, 1);
++}
++
++/* Refresh conntrack for this many jiffies */
++static inline void ip_ct_refresh(struct ip_conntrack *ct,
++				 const struct sk_buff *skb,
++				 unsigned long extra_jiffies)
++{
++	__ip_ct_refresh_acct(ct, 0, skb, extra_jiffies, 0);
++}
++
++/* These are for NAT.  Icky. */
++/* Update TCP window tracking data when NAT mangles the packet */
++extern void ip_conntrack_tcp_update(struct sk_buff *skb,
++				    struct ip_conntrack *conntrack,
++				    enum ip_conntrack_dir dir);
++
++/* Call me when a conntrack is destroyed. */
++extern void (*ip_conntrack_destroyed)(struct ip_conntrack *conntrack);
++
++/* Fake conntrack entry for untracked connections */
++extern struct ip_conntrack ip_conntrack_untracked;
++
++/* Returns new sk_buff, or NULL */
++struct sk_buff *
++ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user);
++
++/* Iterate over all conntracks: if iter returns true, it's deleted. */
++extern void
++ip_ct_iterate_cleanup(int (*iter)(struct ip_conntrack *i, void *data),
++		      void *data);
++
++extern struct ip_conntrack_helper *
++__ip_conntrack_helper_find_byname(const char *);
++extern struct ip_conntrack_helper *
++ip_conntrack_helper_find_get(const struct ip_conntrack_tuple *tuple);
++extern void ip_conntrack_helper_put(struct ip_conntrack_helper *helper);
++
++extern struct ip_conntrack_protocol *
++__ip_conntrack_proto_find(u_int8_t protocol);
++extern struct ip_conntrack_protocol *
++ip_conntrack_proto_find_get(u_int8_t protocol);
++extern void ip_conntrack_proto_put(struct ip_conntrack_protocol *proto);
++
++extern void ip_ct_remove_expectations(struct ip_conntrack *ct);
++
++extern struct ip_conntrack *ip_conntrack_alloc(struct ip_conntrack_tuple *,
++					       struct ip_conntrack_tuple *);
++
++extern void ip_conntrack_free(struct ip_conntrack *ct);
++
++extern void ip_conntrack_hash_insert(struct ip_conntrack *ct);
++
++extern struct ip_conntrack_expect *
++__ip_conntrack_expect_find(const struct ip_conntrack_tuple *tuple);
++
++extern struct ip_conntrack_expect *
++ip_conntrack_expect_find_get(const struct ip_conntrack_tuple *tuple);
++
++extern struct ip_conntrack_tuple_hash *
++__ip_conntrack_find(const struct ip_conntrack_tuple *tuple,
++                    const struct ip_conntrack *ignored_conntrack);
++
++extern void ip_conntrack_flush(void);
++
++/* It's confirmed if it is, or has been in the hash table. */
++static inline int is_confirmed(struct ip_conntrack *ct)
++{
++	return test_bit(IPS_CONFIRMED_BIT, &ct->status);
++}
++
++static inline int is_dying(struct ip_conntrack *ct)
++{
++	return test_bit(IPS_DYING_BIT, &ct->status);
++}
++
++extern unsigned int ip_conntrack_htable_size;
++extern int ip_conntrack_checksum;
++ 
++#define CONNTRACK_STAT_INC(count) (__get_cpu_var(ip_conntrack_stat).count++)
++#define CONNTRACK_STAT_INC_ATOMIC(count)		\
++do {							\
++	local_bh_disable();				\
++	__get_cpu_var(ip_conntrack_stat).count++;	\
++	local_bh_enable();				\
++} while (0)
++
++#ifdef CONFIG_IP_NF_CONNTRACK_EVENTS
++#include <linux/notifier.h>
++#include <linux/interrupt.h>
++
++struct ip_conntrack_ecache {
++	struct ip_conntrack *ct;
++	unsigned int events;
++};
++DECLARE_PER_CPU(struct ip_conntrack_ecache, ip_conntrack_ecache);
++
++#define CONNTRACK_ECACHE(x)	(__get_cpu_var(ip_conntrack_ecache).x)
++ 
++extern struct atomic_notifier_head ip_conntrack_chain;
++extern struct atomic_notifier_head ip_conntrack_expect_chain;
++
++static inline int ip_conntrack_register_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_register(&ip_conntrack_chain, nb);
++}
++
++static inline int ip_conntrack_unregister_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&ip_conntrack_chain, nb);
++}
++
++static inline int 
++ip_conntrack_expect_register_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_register(&ip_conntrack_expect_chain, nb);
++}
++
++static inline int
++ip_conntrack_expect_unregister_notifier(struct notifier_block *nb)
++{
++	return atomic_notifier_chain_unregister(&ip_conntrack_expect_chain,
++			nb);
++}
++
++extern void ip_ct_deliver_cached_events(const struct ip_conntrack *ct);
++extern void __ip_ct_event_cache_init(struct ip_conntrack *ct);
++
++static inline void 
++ip_conntrack_event_cache(enum ip_conntrack_events event,
++			 const struct sk_buff *skb)
++{
++	struct ip_conntrack *ct = (struct ip_conntrack *)skb->nfct;
++	struct ip_conntrack_ecache *ecache;
++	
++	local_bh_disable();
++	ecache = &__get_cpu_var(ip_conntrack_ecache);
++	if (ct != ecache->ct)
++		__ip_ct_event_cache_init(ct);
++	ecache->events |= event;
++	local_bh_enable();
++}
++
++static inline void ip_conntrack_event(enum ip_conntrack_events event,
++				      struct ip_conntrack *ct)
++{
++	if (is_confirmed(ct) && !is_dying(ct))
++		atomic_notifier_call_chain(&ip_conntrack_chain, event, ct);
++}
++
++static inline void 
++ip_conntrack_expect_event(enum ip_conntrack_expect_events event,
++			  struct ip_conntrack_expect *exp)
++{
++	atomic_notifier_call_chain(&ip_conntrack_expect_chain, event, exp);
++}
++#else /* CONFIG_IP_NF_CONNTRACK_EVENTS */
++static inline void ip_conntrack_event_cache(enum ip_conntrack_events event, 
++					    const struct sk_buff *skb) {}
++static inline void ip_conntrack_event(enum ip_conntrack_events event, 
++				      struct ip_conntrack *ct) {}
++static inline void ip_ct_deliver_cached_events(const struct ip_conntrack *ct) {}
++static inline void 
++ip_conntrack_expect_event(enum ip_conntrack_expect_events event, 
++			  struct ip_conntrack_expect *exp) {}
++#endif /* CONFIG_IP_NF_CONNTRACK_EVENTS */
++
++#ifdef CONFIG_IP_NF_NAT_NEEDED
++static inline int ip_nat_initialized(struct ip_conntrack *conntrack,
++				     enum ip_nat_manip_type manip)
++{
++	if (manip == IP_NAT_MANIP_SRC)
++		return test_bit(IPS_SRC_NAT_DONE_BIT, &conntrack->status);
++	return test_bit(IPS_DST_NAT_DONE_BIT, &conntrack->status);
++}
++#endif /* CONFIG_IP_NF_NAT_NEEDED */
++
++#endif /* __KERNEL__ */
++#endif /* _IP_CONNTRACK_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_amanda.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,11 @@
++#ifndef _IP_CONNTRACK_AMANDA_H
++#define _IP_CONNTRACK_AMANDA_H
++/* AMANDA tracking. */
++
++struct ip_conntrack_expect;
++extern unsigned int (*ip_nat_amanda_hook)(struct sk_buff **pskb,
++					  enum ip_conntrack_info ctinfo,
++					  unsigned int matchoff,
++					  unsigned int matchlen,
++					  struct ip_conntrack_expect *exp);
++#endif /* _IP_CONNTRACK_AMANDA_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_core.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_core.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,61 @@
++#ifndef _IP_CONNTRACK_CORE_H
++#define _IP_CONNTRACK_CORE_H
++#include <linux/netfilter.h>
++
++#define MAX_IP_CT_PROTO 256
++extern struct ip_conntrack_protocol *ip_ct_protos[MAX_IP_CT_PROTO];
++
++/* This header is used to share core functionality between the
++   standalone connection tracking module, and the compatibility layer's use
++   of connection tracking. */
++extern unsigned int ip_conntrack_in(unsigned int hooknum,
++				    struct sk_buff **pskb,
++				    const struct net_device *in,
++				    const struct net_device *out,
++				    int (*okfn)(struct sk_buff *));
++
++extern int ip_conntrack_init(void);
++extern void ip_conntrack_cleanup(void);
++
++struct ip_conntrack_protocol;
++
++extern int
++ip_ct_get_tuple(const struct iphdr *iph,
++		const struct sk_buff *skb,
++		unsigned int dataoff,
++		struct ip_conntrack_tuple *tuple,
++		const struct ip_conntrack_protocol *protocol);
++
++extern int
++ip_ct_invert_tuple(struct ip_conntrack_tuple *inverse,
++		   const struct ip_conntrack_tuple *orig,
++		   const struct ip_conntrack_protocol *protocol);
++
++/* Find a connection corresponding to a tuple. */
++struct ip_conntrack_tuple_hash *
++ip_conntrack_find_get(const struct ip_conntrack_tuple *tuple,
++		      const struct ip_conntrack *ignored_conntrack);
++
++extern int __ip_conntrack_confirm(struct sk_buff **pskb);
++
++/* Confirm a connection: returns NF_DROP if packet must be dropped. */
++static inline int ip_conntrack_confirm(struct sk_buff **pskb)
++{
++	struct ip_conntrack *ct = (struct ip_conntrack *)(*pskb)->nfct;
++	int ret = NF_ACCEPT;
++
++	if (ct) {
++		if (!is_confirmed(ct) && !is_dying(ct))
++			ret = __ip_conntrack_confirm(pskb);
++		ip_ct_deliver_cached_events(ct);
++	}
++	return ret;
++}
++
++extern void ip_ct_unlink_expect(struct ip_conntrack_expect *exp);
++
++extern struct list_head *ip_conntrack_hash;
++extern struct list_head ip_conntrack_expect_list;
++extern rwlock_t ip_conntrack_lock;
++#endif /* _IP_CONNTRACK_CORE_H */
++
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_ftp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,44 @@
++#ifndef _IP_CONNTRACK_FTP_H
++#define _IP_CONNTRACK_FTP_H
++/* FTP tracking. */
++
++/* This enum is exposed to userspace */
++enum ip_ct_ftp_type
++{
++	/* PORT command from client */
++	IP_CT_FTP_PORT,
++	/* PASV response from server */
++	IP_CT_FTP_PASV,
++	/* EPRT command from client */
++	IP_CT_FTP_EPRT,
++	/* EPSV response from server */
++	IP_CT_FTP_EPSV,
++};
++
++#ifdef __KERNEL__
++
++#define FTP_PORT	21
++
++#define NUM_SEQ_TO_REMEMBER 2
++/* This structure exists only once per master */
++struct ip_ct_ftp_master {
++	/* Valid seq positions for cmd matching after newline */
++	u_int32_t seq_aft_nl[IP_CT_DIR_MAX][NUM_SEQ_TO_REMEMBER];
++	/* 0 means seq_match_aft_nl not set */
++	int seq_aft_nl_num[IP_CT_DIR_MAX];
++};
++
++struct ip_conntrack_expect;
++
++/* For NAT to hook in when we find a packet which describes what other
++ * connection we should expect. */
++extern unsigned int (*ip_nat_ftp_hook)(struct sk_buff **pskb,
++				       enum ip_conntrack_info ctinfo,
++				       enum ip_ct_ftp_type type,
++				       unsigned int matchoff,
++				       unsigned int matchlen,
++				       struct ip_conntrack_expect *exp,
++				       u32 *seq);
++#endif /* __KERNEL__ */
++
++#endif /* _IP_CONNTRACK_FTP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_h323.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_h323.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_h323.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_h323.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,89 @@
++#ifndef _IP_CONNTRACK_H323_H
++#define _IP_CONNTRACK_H323_H
++
++#ifdef __KERNEL__
++
++#include <linux/netfilter/nf_conntrack_h323_asn1.h>
++
++#define RAS_PORT 1719
++#define Q931_PORT 1720
++#define H323_RTP_CHANNEL_MAX 4	/* Audio, video, FAX and other */
++
++/* This structure exists only once per master */
++struct ip_ct_h323_master {
++
++	/* Original and NATed Q.931 or H.245 signal ports */
++	u_int16_t sig_port[IP_CT_DIR_MAX];
++
++	/* Original and NATed RTP ports */
++	u_int16_t rtp_port[H323_RTP_CHANNEL_MAX][IP_CT_DIR_MAX];
++
++	union {
++		/* RAS connection timeout */
++		u_int32_t timeout;
++
++		/* Next TPKT length (for separate TPKT header and data) */
++		u_int16_t tpkt_len[IP_CT_DIR_MAX];
++	};
++};
++
++struct ip_conntrack_expect;
++
++extern int get_h225_addr(unsigned char *data, TransportAddress * addr,
++			 __be32 * ip, u_int16_t * port);
++extern void ip_conntrack_h245_expect(struct ip_conntrack *new,
++				     struct ip_conntrack_expect *this);
++extern void ip_conntrack_q931_expect(struct ip_conntrack *new,
++				     struct ip_conntrack_expect *this);
++extern int (*set_h245_addr_hook) (struct sk_buff ** pskb,
++				  unsigned char **data, int dataoff,
++				  H245_TransportAddress * addr,
++				  __be32 ip, u_int16_t port);
++extern int (*set_h225_addr_hook) (struct sk_buff ** pskb,
++				  unsigned char **data, int dataoff,
++				  TransportAddress * addr,
++				  __be32 ip, u_int16_t port);
++extern int (*set_sig_addr_hook) (struct sk_buff ** pskb,
++				 struct ip_conntrack * ct,
++				 enum ip_conntrack_info ctinfo,
++				 unsigned char **data,
++				 TransportAddress * addr, int count);
++extern int (*set_ras_addr_hook) (struct sk_buff ** pskb,
++				 struct ip_conntrack * ct,
++				 enum ip_conntrack_info ctinfo,
++				 unsigned char **data,
++				 TransportAddress * addr, int count);
++extern int (*nat_rtp_rtcp_hook) (struct sk_buff ** pskb,
++				 struct ip_conntrack * ct,
++				 enum ip_conntrack_info ctinfo,
++				 unsigned char **data, int dataoff,
++				 H245_TransportAddress * addr,
++				 u_int16_t port, u_int16_t rtp_port,
++				 struct ip_conntrack_expect * rtp_exp,
++				 struct ip_conntrack_expect * rtcp_exp);
++extern int (*nat_t120_hook) (struct sk_buff ** pskb, struct ip_conntrack * ct,
++			     enum ip_conntrack_info ctinfo,
++			     unsigned char **data, int dataoff,
++			     H245_TransportAddress * addr, u_int16_t port,
++			     struct ip_conntrack_expect * exp);
++extern int (*nat_h245_hook) (struct sk_buff ** pskb, struct ip_conntrack * ct,
++			     enum ip_conntrack_info ctinfo,
++			     unsigned char **data, int dataoff,
++			     TransportAddress * addr, u_int16_t port,
++			     struct ip_conntrack_expect * exp);
++extern int (*nat_callforwarding_hook) (struct sk_buff ** pskb,
++				       struct ip_conntrack * ct,
++				       enum ip_conntrack_info ctinfo,
++				       unsigned char **data, int dataoff,
++				       TransportAddress * addr,
++				       u_int16_t port,
++				       struct ip_conntrack_expect * exp);
++extern int (*nat_q931_hook) (struct sk_buff ** pskb, struct ip_conntrack * ct,
++			     enum ip_conntrack_info ctinfo,
++			     unsigned char **data, TransportAddress * addr,
++			     int idx, u_int16_t port,
++			     struct ip_conntrack_expect * exp);
++
++#endif
++
++#endif
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_helper.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_helper.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_helper.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_helper.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,46 @@
++/* IP connection tracking helpers. */
++#ifndef _IP_CONNTRACK_HELPER_H
++#define _IP_CONNTRACK_HELPER_H
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++
++struct module;
++
++struct ip_conntrack_helper
++{	
++	struct list_head list; 		/* Internal use. */
++
++	const char *name;		/* name of the module */
++	struct module *me;		/* pointer to self */
++	unsigned int max_expected;	/* Maximum number of concurrent 
++					 * expected connections */
++	unsigned int timeout;		/* timeout for expecteds */
++
++	/* Mask of things we will help (compared against server response) */
++	struct ip_conntrack_tuple tuple;
++	struct ip_conntrack_tuple mask;
++	
++	/* Function to call when data passes; return verdict, or -1 to
++           invalidate. */
++	int (*help)(struct sk_buff **pskb,
++		    struct ip_conntrack *ct,
++		    enum ip_conntrack_info conntrackinfo);
++
++	void (*destroy)(struct ip_conntrack *ct);
++
++	int (*to_nfattr)(struct sk_buff *skb, const struct ip_conntrack *ct);
++};
++
++extern int ip_conntrack_helper_register(struct ip_conntrack_helper *);
++extern void ip_conntrack_helper_unregister(struct ip_conntrack_helper *);
++
++/* Allocate space for an expectation: this is mandatory before calling 
++   ip_conntrack_expect_related.  You will have to call put afterwards. */
++extern struct ip_conntrack_expect *
++ip_conntrack_expect_alloc(struct ip_conntrack *master);
++extern void ip_conntrack_expect_put(struct ip_conntrack_expect *exp);
++
++/* Add an expected connection: can have more than one per connection */
++extern int ip_conntrack_expect_related(struct ip_conntrack_expect *exp);
++extern void ip_conntrack_unexpect_related(struct ip_conntrack_expect *exp);
++
++#endif /*_IP_CONNTRACK_HELPER_H*/
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_icmp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_icmp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_icmp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_icmp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,6 @@
++#ifndef _IP_CONNTRACK_ICMP_H
++#define _IP_CONNTRACK_ICMP_H
++
++#include <net/netfilter/ipv4/nf_conntrack_icmp.h>
++
++#endif /* _IP_CONNTRACK_ICMP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_irc.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_irc.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_irc.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_irc.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,32 @@
++/* IRC extension for IP connection tracking.
++ * (C) 2000 by Harald Welte <laforge@gnumonks.org>
++ * based on RR's ip_conntrack_ftp.h
++ *
++ * ip_conntrack_irc.h,v 1.6 2000/11/07 18:26:42 laforge Exp
++ *
++ *      This program is free software; you can redistribute it and/or
++ *      modify it under the terms of the GNU General Public License
++ *      as published by the Free Software Foundation; either version
++ *      2 of the License, or (at your option) any later version.
++ *
++ *
++ */
++#ifndef _IP_CONNTRACK_IRC_H
++#define _IP_CONNTRACK_IRC_H
++
++/* This structure exists only once per master */
++struct ip_ct_irc_master {
++};
++
++#ifdef __KERNEL__
++extern unsigned int (*ip_nat_irc_hook)(struct sk_buff **pskb,
++				       enum ip_conntrack_info ctinfo,
++				       unsigned int matchoff,
++				       unsigned int matchlen,
++				       struct ip_conntrack_expect *exp);
++
++#define IRC_PORT	6667
++
++#endif /* __KERNEL__ */
++
++#endif /* _IP_CONNTRACK_IRC_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_pptp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_pptp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_pptp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_pptp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,326 @@
++/* PPTP constants and structs */
++#ifndef _CONNTRACK_PPTP_H
++#define _CONNTRACK_PPTP_H
++
++/* state of the control session */
++enum pptp_ctrlsess_state {
++	PPTP_SESSION_NONE,			/* no session present */
++	PPTP_SESSION_ERROR,			/* some session error */
++	PPTP_SESSION_STOPREQ,			/* stop_sess request seen */
++	PPTP_SESSION_REQUESTED,			/* start_sess request seen */
++	PPTP_SESSION_CONFIRMED,			/* session established */
++};
++
++/* state of the call inside the control session */
++enum pptp_ctrlcall_state {
++	PPTP_CALL_NONE,
++	PPTP_CALL_ERROR,
++	PPTP_CALL_OUT_REQ,
++	PPTP_CALL_OUT_CONF,
++	PPTP_CALL_IN_REQ,
++	PPTP_CALL_IN_REP,
++	PPTP_CALL_IN_CONF,
++	PPTP_CALL_CLEAR_REQ,
++};
++
++
++/* conntrack private data */
++struct ip_ct_pptp_master {
++	enum pptp_ctrlsess_state sstate;	/* session state */
++
++	/* everything below is going to be per-expectation in newnat,
++	 * since there could be more than one call within one session */
++	enum pptp_ctrlcall_state cstate;	/* call state */
++	__be16 pac_call_id;			/* call id of PAC, host byte order */
++	__be16 pns_call_id;			/* call id of PNS, host byte order */
++
++	/* in pre-2.6.11 this used to be per-expect. Now it is per-conntrack
++	 * and therefore imposes a fixed limit on the number of maps */
++	struct ip_ct_gre_keymap *keymap_orig, *keymap_reply;
++};
++
++/* conntrack_expect private member */
++struct ip_ct_pptp_expect {
++	enum pptp_ctrlcall_state cstate; 	/* call state */
++	__be16 pac_call_id;			/* call id of PAC */
++	__be16 pns_call_id;			/* call id of PNS */
++};
++
++
++#ifdef __KERNEL__
++
++#define IP_CONNTR_PPTP		PPTP_CONTROL_PORT
++
++#define PPTP_CONTROL_PORT	1723
++
++#define PPTP_PACKET_CONTROL	1
++#define PPTP_PACKET_MGMT	2
++
++#define PPTP_MAGIC_COOKIE	0x1a2b3c4d
++
++struct pptp_pkt_hdr {
++	__u16	packetLength;
++	__be16	packetType;
++	__be32	magicCookie;
++};
++
++/* PptpControlMessageType values */
++#define PPTP_START_SESSION_REQUEST	1
++#define PPTP_START_SESSION_REPLY	2
++#define PPTP_STOP_SESSION_REQUEST	3
++#define PPTP_STOP_SESSION_REPLY		4
++#define PPTP_ECHO_REQUEST		5
++#define PPTP_ECHO_REPLY			6
++#define PPTP_OUT_CALL_REQUEST		7
++#define PPTP_OUT_CALL_REPLY		8
++#define PPTP_IN_CALL_REQUEST		9
++#define PPTP_IN_CALL_REPLY		10
++#define PPTP_IN_CALL_CONNECT		11
++#define PPTP_CALL_CLEAR_REQUEST		12
++#define PPTP_CALL_DISCONNECT_NOTIFY	13
++#define PPTP_WAN_ERROR_NOTIFY		14
++#define PPTP_SET_LINK_INFO		15
++
++#define PPTP_MSG_MAX			15
++
++/* PptpGeneralError values */
++#define PPTP_ERROR_CODE_NONE		0
++#define PPTP_NOT_CONNECTED		1
++#define PPTP_BAD_FORMAT			2
++#define PPTP_BAD_VALUE			3
++#define PPTP_NO_RESOURCE		4
++#define PPTP_BAD_CALLID			5
++#define PPTP_REMOVE_DEVICE_ERROR	6
++
++struct PptpControlHeader {
++	__be16	messageType;
++	__u16	reserved;
++};
++
++/* FramingCapability Bitmap Values */
++#define PPTP_FRAME_CAP_ASYNC		0x1
++#define PPTP_FRAME_CAP_SYNC		0x2
++
++/* BearerCapability Bitmap Values */
++#define PPTP_BEARER_CAP_ANALOG		0x1
++#define PPTP_BEARER_CAP_DIGITAL		0x2
++
++struct PptpStartSessionRequest {
++	__be16	protocolVersion;
++	__u16	reserved1;
++	__be32	framingCapability;
++	__be32	bearerCapability;
++	__be16	maxChannels;
++	__be16	firmwareRevision;
++	__u8	hostName[64];
++	__u8	vendorString[64];
++};
++
++/* PptpStartSessionResultCode Values */
++#define PPTP_START_OK			1
++#define PPTP_START_GENERAL_ERROR	2
++#define PPTP_START_ALREADY_CONNECTED	3
++#define PPTP_START_NOT_AUTHORIZED	4
++#define PPTP_START_UNKNOWN_PROTOCOL	5
++
++struct PptpStartSessionReply {
++	__be16	protocolVersion;
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__be32	framingCapability;
++	__be32	bearerCapability;
++	__be16	maxChannels;
++	__be16	firmwareRevision;
++	__u8	hostName[64];
++	__u8	vendorString[64];
++};
++
++/* PptpStopReasons */
++#define PPTP_STOP_NONE			1
++#define PPTP_STOP_PROTOCOL		2
++#define PPTP_STOP_LOCAL_SHUTDOWN	3
++
++struct PptpStopSessionRequest {
++	__u8	reason;
++	__u8	reserved1;
++	__u16	reserved2;
++};
++
++/* PptpStopSessionResultCode */
++#define PPTP_STOP_OK			1
++#define PPTP_STOP_GENERAL_ERROR		2
++
++struct PptpStopSessionReply {
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__u16	reserved1;
++};
++
++struct PptpEchoRequest {
++	__be32 identNumber;
++};
++
++/* PptpEchoReplyResultCode */
++#define PPTP_ECHO_OK			1
++#define PPTP_ECHO_GENERAL_ERROR		2
++
++struct PptpEchoReply {
++	__be32	identNumber;
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__u16	reserved;
++};
++
++/* PptpFramingType */
++#define PPTP_ASYNC_FRAMING		1
++#define PPTP_SYNC_FRAMING		2
++#define PPTP_DONT_CARE_FRAMING		3
++
++/* PptpCallBearerType */
++#define PPTP_ANALOG_TYPE		1
++#define PPTP_DIGITAL_TYPE		2
++#define PPTP_DONT_CARE_BEARER_TYPE	3
++
++struct PptpOutCallRequest {
++	__be16	callID;
++	__be16	callSerialNumber;
++	__be32	minBPS;
++	__be32	maxBPS;
++	__be32	bearerType;
++	__be32	framingType;
++	__be16	packetWindow;
++	__be16	packetProcDelay;
++	__be16	phoneNumberLength;
++	__u16	reserved1;
++	__u8	phoneNumber[64];
++	__u8	subAddress[64];
++};
++
++/* PptpCallResultCode */
++#define PPTP_OUTCALL_CONNECT		1
++#define PPTP_OUTCALL_GENERAL_ERROR	2
++#define PPTP_OUTCALL_NO_CARRIER		3
++#define PPTP_OUTCALL_BUSY		4
++#define PPTP_OUTCALL_NO_DIAL_TONE	5
++#define PPTP_OUTCALL_TIMEOUT		6
++#define PPTP_OUTCALL_DONT_ACCEPT	7
++
++struct PptpOutCallReply {
++	__be16	callID;
++	__be16	peersCallID;
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__be16	causeCode;
++	__be32	connectSpeed;
++	__be16	packetWindow;
++	__be16	packetProcDelay;
++	__be32	physChannelID;
++};
++
++struct PptpInCallRequest {
++	__be16	callID;
++	__be16	callSerialNumber;
++	__be32	callBearerType;
++	__be32	physChannelID;
++	__be16	dialedNumberLength;
++	__be16	dialingNumberLength;
++	__u8	dialedNumber[64];
++	__u8	dialingNumber[64];
++	__u8	subAddress[64];
++};
++
++/* PptpInCallResultCode */
++#define PPTP_INCALL_ACCEPT		1
++#define PPTP_INCALL_GENERAL_ERROR	2
++#define PPTP_INCALL_DONT_ACCEPT		3
++
++struct PptpInCallReply {
++	__be16	callID;
++	__be16	peersCallID;
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__be16	packetWindow;
++	__be16	packetProcDelay;
++	__u16	reserved;
++};
++
++struct PptpInCallConnected {
++	__be16	peersCallID;
++	__u16	reserved;
++	__be32	connectSpeed;
++	__be16	packetWindow;
++	__be16	packetProcDelay;
++	__be32	callFramingType;
++};
++
++struct PptpClearCallRequest {
++	__be16	callID;
++	__u16	reserved;
++};
++
++struct PptpCallDisconnectNotify {
++	__be16	callID;
++	__u8	resultCode;
++	__u8	generalErrorCode;
++	__be16	causeCode;
++	__u16	reserved;
++	__u8	callStatistics[128];
++};
++
++struct PptpWanErrorNotify {
++	__be16	peersCallID;
++	__u16	reserved;
++	__be32	crcErrors;
++	__be32	framingErrors;
++	__be32	hardwareOverRuns;
++	__be32	bufferOverRuns;
++	__be32	timeoutErrors;
++	__be32	alignmentErrors;
++};
++
++struct PptpSetLinkInfo {
++	__be16	peersCallID;
++	__u16	reserved;
++	__be32	sendAccm;
++	__be32	recvAccm;
++};
++
++union pptp_ctrl_union {
++	struct PptpStartSessionRequest	sreq;
++	struct PptpStartSessionReply	srep;
++	struct PptpStopSessionRequest	streq;
++	struct PptpStopSessionReply	strep;
++	struct PptpOutCallRequest	ocreq;
++	struct PptpOutCallReply		ocack;
++	struct PptpInCallRequest	icreq;
++	struct PptpInCallReply		icack;
++	struct PptpInCallConnected	iccon;
++	struct PptpClearCallRequest	clrreq;
++	struct PptpCallDisconnectNotify disc;
++	struct PptpWanErrorNotify	wanerr;
++	struct PptpSetLinkInfo		setlink;
++};
++
++extern int
++(*ip_nat_pptp_hook_outbound)(struct sk_buff **pskb,
++			  struct ip_conntrack *ct,
++			  enum ip_conntrack_info ctinfo,
++			  struct PptpControlHeader *ctlh,
++			  union pptp_ctrl_union *pptpReq);
++
++extern int
++(*ip_nat_pptp_hook_inbound)(struct sk_buff **pskb,
++			  struct ip_conntrack *ct,
++			  enum ip_conntrack_info ctinfo,
++			  struct PptpControlHeader *ctlh,
++			  union pptp_ctrl_union *pptpReq);
++
++extern void
++(*ip_nat_pptp_hook_exp_gre)(struct ip_conntrack_expect *exp_orig,
++			    struct ip_conntrack_expect *exp_reply);
++
++extern void
++(*ip_nat_pptp_hook_expectfn)(struct ip_conntrack *ct,
++			     struct ip_conntrack_expect *exp);
++#endif /* __KERNEL__ */
++#endif /* _CONNTRACK_PPTP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_proto_gre.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,114 @@
++#ifndef _CONNTRACK_PROTO_GRE_H
++#define _CONNTRACK_PROTO_GRE_H
++#include <asm/byteorder.h>
++
++/* GRE PROTOCOL HEADER */
++
++/* GRE Version field */
++#define GRE_VERSION_1701	0x0
++#define GRE_VERSION_PPTP	0x1
++
++/* GRE Protocol field */
++#define GRE_PROTOCOL_PPTP	0x880B
++
++/* GRE Flags */
++#define GRE_FLAG_C		0x80
++#define GRE_FLAG_R		0x40
++#define GRE_FLAG_K		0x20
++#define GRE_FLAG_S		0x10
++#define GRE_FLAG_A		0x80
++
++#define GRE_IS_C(f)	((f)&GRE_FLAG_C)
++#define GRE_IS_R(f)	((f)&GRE_FLAG_R)
++#define GRE_IS_K(f)	((f)&GRE_FLAG_K)
++#define GRE_IS_S(f)	((f)&GRE_FLAG_S)
++#define GRE_IS_A(f)	((f)&GRE_FLAG_A)
++
++/* GRE is a mess: Four different standards */
++struct gre_hdr {
++#if defined(__LITTLE_ENDIAN_BITFIELD)
++	__u16	rec:3,
++		srr:1,
++		seq:1,
++		key:1,
++		routing:1,
++		csum:1,
++		version:3,
++		reserved:4,
++		ack:1;
++#elif defined(__BIG_ENDIAN_BITFIELD)
++	__u16	csum:1,
++		routing:1,
++		key:1,
++		seq:1,
++		srr:1,
++		rec:3,
++		ack:1,
++		reserved:4,
++		version:3;
++#else
++#error "Adjust your <asm/byteorder.h> defines"
++#endif
++	__be16	protocol;
++};
++
++/* modified GRE header for PPTP */
++struct gre_hdr_pptp {
++	__u8   flags;		/* bitfield */
++	__u8   version;		/* should be GRE_VERSION_PPTP */
++	__be16 protocol;	/* should be GRE_PROTOCOL_PPTP */
++	__be16 payload_len;	/* size of ppp payload, not inc. gre header */
++	__be16 call_id;		/* peer's call_id for this session */
++	__be32 seq;		/* sequence number.  Present if S==1 */
++	__be32 ack;		/* seq number of highest packet recieved by */
++				/*  sender in this session */
++};
++
++
++/* this is part of ip_conntrack */
++struct ip_ct_gre {
++	unsigned int stream_timeout;
++	unsigned int timeout;
++};
++
++#ifdef __KERNEL__
++struct ip_conntrack_expect;
++struct ip_conntrack;
++
++/* structure for original <-> reply keymap */
++struct ip_ct_gre_keymap {
++	struct list_head list;
++
++	struct ip_conntrack_tuple tuple;
++};
++
++/* add new tuple->key_reply pair to keymap */
++int ip_ct_gre_keymap_add(struct ip_conntrack *ct,
++			 struct ip_conntrack_tuple *t,
++			 int reply);
++
++/* delete keymap entries */
++void ip_ct_gre_keymap_destroy(struct ip_conntrack *ct);
++
++
++/* get pointer to gre key, if present */
++static inline __be32 *gre_key(struct gre_hdr *greh)
++{
++	if (!greh->key)
++		return NULL;
++	if (greh->csum || greh->routing)
++		return (__be32 *) (greh+sizeof(*greh)+4);
++	return (__be32 *) (greh+sizeof(*greh));
++}
++
++/* get pointer ot gre csum, if present */
++static inline __sum16 *gre_csum(struct gre_hdr *greh)
++{
++	if (!greh->csum)
++		return NULL;
++	return (__sum16 *) (greh+sizeof(*greh));
++}
++
++#endif /* __KERNEL__ */
++
++#endif /* _CONNTRACK_PROTO_GRE_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_protocol.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,98 @@
++/* Header for use in defining a given protocol for connection tracking. */
++#ifndef _IP_CONNTRACK_PROTOCOL_H
++#define _IP_CONNTRACK_PROTOCOL_H
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++#include <linux/netfilter/nfnetlink_conntrack.h>
++
++struct seq_file;
++
++struct ip_conntrack_protocol
++{
++	/* Protocol number. */
++	u_int8_t proto;
++
++	/* Protocol name */
++	const char *name;
++
++	/* Try to fill in the third arg: dataoff is offset past IP
++           hdr.  Return true if possible. */
++	int (*pkt_to_tuple)(const struct sk_buff *skb,
++			   unsigned int dataoff,
++			   struct ip_conntrack_tuple *tuple);
++
++	/* Invert the per-proto part of the tuple: ie. turn xmit into reply.
++	 * Some packets can't be inverted: return 0 in that case.
++	 */
++	int (*invert_tuple)(struct ip_conntrack_tuple *inverse,
++			    const struct ip_conntrack_tuple *orig);
++
++	/* Print out the per-protocol part of the tuple. Return like seq_* */
++	int (*print_tuple)(struct seq_file *,
++			   const struct ip_conntrack_tuple *);
++
++	/* Print out the private part of the conntrack. */
++	int (*print_conntrack)(struct seq_file *, const struct ip_conntrack *);
++
++	/* Returns verdict for packet, or -1 for invalid. */
++	int (*packet)(struct ip_conntrack *conntrack,
++		      const struct sk_buff *skb,
++		      enum ip_conntrack_info ctinfo);
++
++	/* Called when a new connection for this protocol found;
++	 * returns TRUE if it's OK.  If so, packet() called next. */
++	int (*new)(struct ip_conntrack *conntrack, const struct sk_buff *skb);
++
++	/* Called when a conntrack entry is destroyed */
++	void (*destroy)(struct ip_conntrack *conntrack);
++
++	int (*error)(struct sk_buff *skb, enum ip_conntrack_info *ctinfo,
++		     unsigned int hooknum);
++
++	/* convert protoinfo to nfnetink attributes */
++	int (*to_nfattr)(struct sk_buff *skb, struct nfattr *nfa,
++			 const struct ip_conntrack *ct);
++
++	/* convert nfnetlink attributes to protoinfo */
++	int (*from_nfattr)(struct nfattr *tb[], struct ip_conntrack *ct);
++
++	int (*tuple_to_nfattr)(struct sk_buff *skb,
++			       const struct ip_conntrack_tuple *t);
++	int (*nfattr_to_tuple)(struct nfattr *tb[],
++			       struct ip_conntrack_tuple *t);
++
++	/* Module (if any) which this is connected to. */
++	struct module *me;
++};
++
++/* Protocol registration. */
++extern int ip_conntrack_protocol_register(struct ip_conntrack_protocol *proto);
++extern void ip_conntrack_protocol_unregister(struct ip_conntrack_protocol *proto);
++/* Existing built-in protocols */
++extern struct ip_conntrack_protocol ip_conntrack_protocol_tcp;
++extern struct ip_conntrack_protocol ip_conntrack_protocol_udp;
++extern struct ip_conntrack_protocol ip_conntrack_protocol_icmp;
++extern struct ip_conntrack_protocol ip_conntrack_generic_protocol;
++extern int ip_conntrack_protocol_tcp_init(void);
++
++/* Log invalid packets */
++extern unsigned int ip_ct_log_invalid;
++
++extern int ip_ct_port_tuple_to_nfattr(struct sk_buff *,
++				      const struct ip_conntrack_tuple *);
++extern int ip_ct_port_nfattr_to_tuple(struct nfattr *tb[],
++				      struct ip_conntrack_tuple *);
++
++#ifdef CONFIG_SYSCTL
++#ifdef DEBUG_INVALID_PACKETS
++#define LOG_INVALID(proto) \
++	(ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW)
++#else
++#define LOG_INVALID(proto) \
++	((ip_ct_log_invalid == (proto) || ip_ct_log_invalid == IPPROTO_RAW) \
++	 && net_ratelimit())
++#endif
++#else
++#define LOG_INVALID(proto) 0
++#endif /* CONFIG_SYSCTL */
++
++#endif /*_IP_CONNTRACK_PROTOCOL_H*/
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sctp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sctp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sctp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sctp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,6 @@
++#ifndef _IP_CONNTRACK_SCTP_H
++#define _IP_CONNTRACK_SCTP_H
++
++#include <linux/netfilter/nf_conntrack_sctp.h>
++
++#endif /* _IP_CONNTRACK_SCTP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sip.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sip.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_sip.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_sip.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,40 @@
++#ifndef __IP_CONNTRACK_SIP_H__
++#define __IP_CONNTRACK_SIP_H__
++#ifdef __KERNEL__
++
++#define SIP_PORT	5060
++#define SIP_TIMEOUT	3600
++
++enum sip_header_pos {
++	POS_REG_REQ_URI,
++	POS_REQ_URI,
++	POS_FROM,
++	POS_TO,
++	POS_VIA,
++	POS_CONTACT,
++	POS_CONTENT,
++	POS_MEDIA,
++	POS_OWNER,
++	POS_CONNECTION,
++	POS_SDP_HEADER,
++};
++
++extern unsigned int (*ip_nat_sip_hook)(struct sk_buff **pskb,
++				       enum ip_conntrack_info ctinfo,
++				       struct ip_conntrack *ct,
++				       const char **dptr);
++extern unsigned int (*ip_nat_sdp_hook)(struct sk_buff **pskb,
++				       enum ip_conntrack_info ctinfo,
++				       struct ip_conntrack_expect *exp,
++				       const char *dptr);
++
++extern int ct_sip_get_info(const char *dptr, size_t dlen,
++			   unsigned int *matchoff,
++			   unsigned int *matchlen,
++			   enum sip_header_pos pos);
++extern int ct_sip_lnlen(const char *line, const char *limit);
++extern const char *ct_sip_search(const char *needle, const char *haystack,
++				 size_t needle_len, size_t haystack_len,
++				 int case_sensitive);
++#endif /* __KERNEL__ */
++#endif /* __IP_CONNTRACK_SIP_H__ */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tcp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tcp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tcp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tcp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,6 @@
++#ifndef _IP_CONNTRACK_TCP_H
++#define _IP_CONNTRACK_TCP_H
++
++#include <linux/netfilter/nf_conntrack_tcp.h>
++
++#endif /* _IP_CONNTRACK_TCP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tftp.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tftp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tftp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tftp.h	2009-06-19 18:07:57.000000000 +0400
+@@ -0,0 +1,20 @@
++#ifndef _IP_CT_TFTP
++#define _IP_CT_TFTP
++
++#define TFTP_PORT 69
++
++struct tftphdr {
++	__be16 opcode;
++};
++
++#define TFTP_OPCODE_READ	1
++#define TFTP_OPCODE_WRITE	2
++#define TFTP_OPCODE_DATA	3
++#define TFTP_OPCODE_ACK		4
++#define TFTP_OPCODE_ERROR	5
++
++extern unsigned int (*ip_nat_tftp_hook)(struct sk_buff **pskb,
++				 enum ip_conntrack_info ctinfo,
++				 struct ip_conntrack_expect *exp);
++
++#endif /* _IP_CT_TFTP */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h	2010-08-14 14:25:19.000000000 +0400
+@@ -0,0 +1,146 @@
++#ifndef _IP_CONNTRACK_TUPLE_H
++#define _IP_CONNTRACK_TUPLE_H
++
++#include <linux/types.h>
++#include <linux/netfilter/nf_conntrack_tuple_common.h>
++
++/* A `tuple' is a structure containing the information to uniquely
++  identify a connection.  ie. if two packets have the same tuple, they
++  are in the same connection; if not, they are not.
++
++  We divide the structure along "manipulatable" and
++  "non-manipulatable" lines, for the benefit of the NAT code.
++*/
++
++/* The protocol-specific manipulable parts of the tuple: always in
++   network order! */
++union ip_conntrack_manip_proto
++{
++	/* Add other protocols here. */
++	u_int16_t all;
++
++	struct {
++		__be16 port;
++	} tcp;
++	struct {
++		__be16 port;
++	} udp;
++	struct {
++		__be16 id;
++	} icmp;
++	struct {
++		__be16 port;
++	} sctp;
++	struct {
++		__be16 key;	/* key is 32bit, pptp only uses 16 */
++	} gre;
++};
++
++/* The manipulable part of the tuple. */
++struct ip_conntrack_manip
++{
++	__be32 ip;
++	union ip_conntrack_manip_proto u;
++};
++
++/* This contains the information to distinguish a connection. */
++struct ip_conntrack_tuple
++{
++	struct ip_conntrack_manip src;
++
++	/* These are the parts of the tuple which are fixed. */
++	struct {
++		__be32 ip;
++		union {
++			/* Add other protocols here. */
++			u_int16_t all;
++
++			struct {
++				__be16 port;
++			} tcp;
++			struct {
++				__be16 port;
++			} udp;
++			struct {
++				u_int8_t type, code;
++			} icmp;
++			struct {
++				__be16 port;
++			} sctp;
++			struct {
++				__be16 key;	/* key is 32bit, 
++						 * pptp only uses 16 */
++			} gre;
++		} u;
++
++		/* The protocol. */
++		u_int8_t protonum;
++
++		/* The direction (for tuplehash) */
++		u_int8_t dir;
++	} dst;
++};
++
++/* This is optimized opposed to a memset of the whole structure.  Everything we
++ * really care about is the  source/destination unions */
++#define IP_CT_TUPLE_U_BLANK(tuple) 				\
++	do {							\
++		(tuple)->src.u.all = 0;				\
++		(tuple)->dst.u.all = 0;				\
++	} while (0)
++
++#ifdef __KERNEL__
++
++#define DUMP_TUPLE(tp)						\
++DEBUGP("tuple %p: %u %u.%u.%u.%u:%hu -> %u.%u.%u.%u:%hu\n",	\
++       (tp), (tp)->dst.protonum,				\
++       NIPQUAD((tp)->src.ip), ntohs((tp)->src.u.all),		\
++       NIPQUAD((tp)->dst.ip), ntohs((tp)->dst.u.all))
++
++/* If we're the first tuple, it's the original dir. */
++#define DIRECTION(h) ((enum ip_conntrack_dir)(h)->tuple.dst.dir)
++
++/* Connections have two entries in the hash table: one for each way */
++struct ip_conntrack_tuple_hash
++{
++	struct list_head list;
++
++	struct ip_conntrack_tuple tuple;
++};
++
++#endif /* __KERNEL__ */
++
++static inline int ip_ct_tuple_src_equal(const struct ip_conntrack_tuple *t1,
++				        const struct ip_conntrack_tuple *t2)
++{
++	return t1->src.ip == t2->src.ip
++		&& t1->src.u.all == t2->src.u.all;
++}
++
++static inline int ip_ct_tuple_dst_equal(const struct ip_conntrack_tuple *t1,
++				        const struct ip_conntrack_tuple *t2)
++{
++	return t1->dst.ip == t2->dst.ip
++		&& t1->dst.u.all == t2->dst.u.all
++		&& t1->dst.protonum == t2->dst.protonum;
++}
++
++static inline int ip_ct_tuple_equal(const struct ip_conntrack_tuple *t1,
++				    const struct ip_conntrack_tuple *t2)
++{
++	return ip_ct_tuple_src_equal(t1, t2) && ip_ct_tuple_dst_equal(t1, t2);
++}
++
++static inline int ip_ct_tuple_mask_cmp(const struct ip_conntrack_tuple *t,
++				       const struct ip_conntrack_tuple *tuple,
++				       const struct ip_conntrack_tuple *mask)
++{
++	return !(((t->src.ip ^ tuple->src.ip) & mask->src.ip)
++		 || ((t->dst.ip ^ tuple->dst.ip) & mask->dst.ip)
++		 || ((t->src.u.all ^ tuple->src.u.all) & mask->src.u.all)
++		 || ((t->dst.u.all ^ tuple->dst.u.all) & mask->dst.u.all)
++		 || ((t->dst.protonum ^ tuple->dst.protonum)
++		     & mask->dst.protonum));
++}
++
++#endif /* _IP_CONNTRACK_TUPLE_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h.3200 linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h.3200
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_conntrack_tuple.h.3200	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_conntrack_tuple.h.3200	2009-06-19 18:07:58.000000000 +0400
+@@ -0,0 +1,146 @@
++#ifndef _IP_CONNTRACK_TUPLE_H
++#define _IP_CONNTRACK_TUPLE_H
++
++#include <linux/types.h>
++#include <linux/netfilter/nf_conntrack_tuple_common.h>
++
++/* A `tuple' is a structure containing the information to uniquely
++  identify a connection.  ie. if two packets have the same tuple, they
++  are in the same connection; if not, they are not.
++
++  We divide the structure along "manipulatable" and
++  "non-manipulatable" lines, for the benefit of the NAT code.
++*/
++
++/* The protocol-specific manipulable parts of the tuple: always in
++   network order! */
++union ip_conntrack_manip_proto
++{
++	/* Add other protocols here. */
++	u_int16_t all;
++
++	struct {
++		__be16 port;
++	} tcp;
++	struct {
++		__be16 port;
++	} udp;
++	struct {
++		__be16 id;
++	} icmp;
++	struct {
++		__be16 port;
++	} sctp;
++	struct {
++		__be16 key;	/* key is 32bit, pptp only uses 16 */
++	} gre;
++};
++
++/* The manipulable part of the tuple. */
++struct ip_conntrack_manip
++{
++	__be32 ip;
++	union ip_conntrack_manip_proto u;
++};
++
++/* This contains the information to distinguish a connection. */
++struct ip_conntrack_tuple
++{
++	struct ip_conntrack_manip src;
++
++	/* These are the parts of the tuple which are fixed. */
++	struct {
++		__be32 ip;
++		union {
++			/* Add other protocols here. */
++			u_int16_t all;
++
++			struct {
++				__be16 port;
++			} tcp;
++			struct {
++				__be16 port;
++			} udp;
++			struct {
++				u_int8_t type, code;
++			} icmp;
++			struct {
++				__be16 port;
++			} sctp;
++			struct {
++				__be16 key;	/* key is 32bit, 
++						 * pptp only uses 16 */
++			} gre;
++		} u;
++
++		/* The protocol. */
++		u_int8_t protonum;
++
++		/* The direction (for tuplehash) */
++		u_int8_t dir;
++	} dst;
++};
++
++/* This is optimized opposed to a memset of the whole structure.  Everything we
++ * really care about is the  source/destination unions */
++#define IP_CT_TUPLE_U_BLANK(tuple) 				\
++	do {							\
++		(tuple)->src.u.all = 0;				\
++		(tuple)->dst.u.all = 0;				\
++	} while (0)
++
++#ifdef __KERNEL__
++
++#define DUMP_TUPLE(tp)						\
++DEBUGP("tuple %p: %u %u.%u.%u.%u:%hu -> %u.%u.%u.%u:%hu\n",	\
++       (tp), (tp)->dst.protonum,				\
++       NIPQUAD((tp)->src.ip), ntohs((tp)->src.u.all),		\
++       NIPQUAD((tp)->dst.ip), ntohs((tp)->dst.u.all))
++
++/* If we're the first tuple, it's the original dir. */
++#define DIRECTION(h) ((enum ip_conntrack_dir)(h)->tuple.dst.dir)
++
++/* Connections have two entries in the hash table: one for each way */
++struct ip_conntrack_tuple_hash
++{
++	struct list_head list;
++
++	struct ip_conntrack_tuple tuple;
++};
++
++#endif /* __KERNEL__ */
++
++static inline int ip_ct_tuple_src_equal(const struct ip_conntrack_tuple *t1,
++				        const struct ip_conntrack_tuple *t2)
++{
++	return t1->src.ip == t2->src.ip
++		&& t1->src.u.all == t2->src.u.all;
++}
++
++static inline int ip_ct_tuple_dst_equal(const struct ip_conntrack_tuple *t1,
++				        const struct ip_conntrack_tuple *t2)
++{
++	return t1->dst.ip == t2->dst.ip
++		&& t1->dst.u.all == t2->dst.u.all
++		&& t1->dst.protonum == t2->dst.protonum;
++}
++
++static inline int ip_ct_tuple_equal(const struct ip_conntrack_tuple *t1,
++				    const struct ip_conntrack_tuple *t2)
++{
++	return ip_ct_tuple_src_equal(t1, t2) && ip_ct_tuple_dst_equal(t1, t2);
++}
++
++static inline int ip_ct_tuple_mask_cmp(const struct ip_conntrack_tuple *t,
++				       const struct ip_conntrack_tuple *tuple,
++				       const struct ip_conntrack_tuple *mask)
++{
++	return !(((t->src.ip ^ tuple->src.ip) & mask->src.ip)
++		 || ((t->dst.ip ^ tuple->dst.ip) & mask->dst.ip)
++		 || ((t->src.u.all ^ tuple->src.u.all) & mask->src.u.all)
++		 || ((t->dst.u.all ^ tuple->dst.u.all) & mask->dst.u.all)
++		 || ((t->dst.protonum ^ tuple->dst.protonum)
++		     & mask->dst.protonum));
++}
++
++#endif /* _IP_CONNTRACK_TUPLE_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat.h linux-2.6/include/linux/netfilter_ipv4/ip_nat.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat.h	2009-06-19 17:53:39.000000000 +0400
+@@ -0,0 +1,79 @@
++#ifndef _IP_NAT_H
++#define _IP_NAT_H
++#include <linux/netfilter_ipv4.h>
++#include <linux/netfilter_ipv4/ip_conntrack_tuple.h>
++
++#define IP_NAT_MAPPING_TYPE_MAX_NAMELEN 16
++
++enum ip_nat_manip_type
++{
++	IP_NAT_MANIP_SRC,
++	IP_NAT_MANIP_DST
++};
++
++/* SRC manip occurs POST_ROUTING or LOCAL_IN */
++#define HOOK2MANIP(hooknum) ((hooknum) != NF_IP_POST_ROUTING && (hooknum) != NF_IP_LOCAL_IN)
++
++#define IP_NAT_RANGE_MAP_IPS 1
++#define IP_NAT_RANGE_PROTO_SPECIFIED 2
++#define IP_NAT_RANGE_PROTO_RANDOM 4 /* add randomness to "port" selection */
++
++/* NAT sequence number modifications */
++struct ip_nat_seq {
++	/* position of the last TCP sequence number 
++	 * modification (if any) */
++	u_int32_t correction_pos;
++	/* sequence number offset before and after last modification */
++	int16_t offset_before, offset_after;
++};
++
++/* Single range specification. */
++struct ip_nat_range
++{
++	/* Set to OR of flags above. */
++	unsigned int flags;
++
++	/* Inclusive: network order. */
++	__be32 min_ip, max_ip;
++
++	/* Inclusive: network order */
++	union ip_conntrack_manip_proto min, max;
++};
++
++/* For backwards compat: don't use in modern code. */
++struct ip_nat_multi_range_compat
++{
++	unsigned int rangesize; /* Must be 1. */
++
++	/* hangs off end. */
++	struct ip_nat_range range[1];
++};
++
++#ifdef __KERNEL__
++#include <linux/list.h>
++
++/* Protects NAT hash tables, and NAT-private part of conntracks. */
++extern rwlock_t ip_nat_lock;
++
++/* The structure embedded in the conntrack structure. */
++struct ip_nat_info
++{
++	struct list_head bysource;
++	struct ip_nat_seq seq[IP_CT_DIR_MAX];
++};
++
++struct ip_conntrack;
++
++/* Set up the info structure to map into this range. */
++extern unsigned int ip_nat_setup_info(struct ip_conntrack *conntrack,
++				      const struct ip_nat_range *range,
++				      unsigned int hooknum);
++
++/* Is this tuple already taken? (not by us)*/
++extern int ip_nat_used_tuple(const struct ip_conntrack_tuple *tuple,
++			     const struct ip_conntrack *ignored_conntrack);
++
++#else  /* !__KERNEL__: iptables wants this to compile. */
++#define ip_nat_multi_range ip_nat_multi_range_compat
++#endif /*__KERNEL__*/
++#endif
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_core.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_core.h	2009-06-19 18:07:58.000000000 +0400
+@@ -0,0 +1,18 @@
++#ifndef _IP_NAT_CORE_H
++#define _IP_NAT_CORE_H
++#include <linux/list.h>
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++
++/* This header used to share core functionality between the standalone
++   NAT module, and the compatibility layer's use of NAT for masquerading. */
++
++extern unsigned int ip_nat_packet(struct ip_conntrack *ct,
++			       enum ip_conntrack_info conntrackinfo,
++			       unsigned int hooknum,
++			       struct sk_buff **pskb);
++
++extern int ip_nat_icmp_reply_translation(struct ip_conntrack *ct,
++					 enum ip_conntrack_info ctinfo,
++					 unsigned int hooknum,
++					 struct sk_buff **pskb);
++#endif /* _IP_NAT_CORE_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_helper.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_helper.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_helper.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_helper.h	2009-06-19 18:08:01.000000000 +0400
+@@ -0,0 +1,33 @@
++#ifndef _IP_NAT_HELPER_H
++#define _IP_NAT_HELPER_H
++/* NAT protocol helper routines. */
++
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++#include <linux/module.h>
++
++struct sk_buff;
++
++/* These return true or false. */
++extern int ip_nat_mangle_tcp_packet(struct sk_buff **skb,
++				struct ip_conntrack *ct,
++				enum ip_conntrack_info ctinfo,
++				unsigned int match_offset,
++				unsigned int match_len,
++				const char *rep_buffer,
++				unsigned int rep_len);
++extern int ip_nat_mangle_udp_packet(struct sk_buff **skb,
++				struct ip_conntrack *ct,
++				enum ip_conntrack_info ctinfo,
++				unsigned int match_offset,
++				unsigned int match_len,
++				const char *rep_buffer,
++				unsigned int rep_len);
++extern int ip_nat_seq_adjust(struct sk_buff **pskb, 
++			     struct ip_conntrack *ct, 
++			     enum ip_conntrack_info ctinfo);
++
++/* Setup NAT on this expected conntrack so it follows master, but goes
++ * to port ct->master->saved_proto. */
++extern void ip_nat_follow_master(struct ip_conntrack *ct,
++				 struct ip_conntrack_expect *this);
++#endif
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_pptp.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_pptp.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_pptp.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_pptp.h	2009-06-19 18:08:01.000000000 +0400
+@@ -0,0 +1,11 @@
++/* PPTP constants and structs */
++#ifndef _NAT_PPTP_H
++#define _NAT_PPTP_H
++
++/* conntrack private data */
++struct ip_nat_pptp {
++	__be16 pns_call_id;		/* NAT'ed PNS call id */
++	__be16 pac_call_id;		/* NAT'ed PAC call id */
++};
++
++#endif /* _NAT_PPTP_H */
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_protocol.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_protocol.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_protocol.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_protocol.h	2009-06-19 18:08:01.000000000 +0400
+@@ -0,0 +1,74 @@
++/* Header for use in defining a given protocol. */
++#ifndef _IP_NAT_PROTOCOL_H
++#define _IP_NAT_PROTOCOL_H
++#include <linux/init.h>
++#include <linux/list.h>
++
++#include <linux/netfilter_ipv4/ip_nat.h>
++#include <linux/netfilter/nfnetlink_conntrack.h>
++
++struct iphdr;
++struct ip_nat_range;
++
++struct ip_nat_protocol
++{
++	/* Protocol name */
++	const char *name;
++
++	/* Protocol number. */
++	unsigned int protonum;
++
++	struct module *me;
++
++	/* Translate a packet to the target according to manip type.
++	   Return true if succeeded. */
++	int (*manip_pkt)(struct sk_buff **pskb,
++			 unsigned int iphdroff,
++			 const struct ip_conntrack_tuple *tuple,
++			 enum ip_nat_manip_type maniptype);
++
++	/* Is the manipable part of the tuple between min and max incl? */
++	int (*in_range)(const struct ip_conntrack_tuple *tuple,
++			enum ip_nat_manip_type maniptype,
++			const union ip_conntrack_manip_proto *min,
++			const union ip_conntrack_manip_proto *max);
++
++	/* Alter the per-proto part of the tuple (depending on
++	   maniptype), to give a unique tuple in the given range if
++	   possible; return false if not.  Per-protocol part of tuple
++	   is initialized to the incoming packet. */
++	int (*unique_tuple)(struct ip_conntrack_tuple *tuple,
++			    const struct ip_nat_range *range,
++			    enum ip_nat_manip_type maniptype,
++			    const struct ip_conntrack *conntrack);
++
++	int (*range_to_nfattr)(struct sk_buff *skb,
++			       const struct ip_nat_range *range);
++
++	int (*nfattr_to_range)(struct nfattr *tb[],
++			       struct ip_nat_range *range);
++};
++
++/* Protocol registration. */
++extern int ip_nat_protocol_register(struct ip_nat_protocol *proto);
++extern void ip_nat_protocol_unregister(struct ip_nat_protocol *proto);
++
++extern struct ip_nat_protocol *ip_nat_proto_find_get(u_int8_t protocol);
++extern void ip_nat_proto_put(struct ip_nat_protocol *proto);
++
++/* Built-in protocols. */
++extern struct ip_nat_protocol ip_nat_protocol_tcp;
++extern struct ip_nat_protocol ip_nat_protocol_udp;
++extern struct ip_nat_protocol ip_nat_protocol_icmp;
++extern struct ip_nat_protocol ip_nat_unknown_protocol;
++
++extern int init_protocols(void) __init;
++extern void cleanup_protocols(void);
++extern struct ip_nat_protocol *find_nat_proto(u_int16_t protonum);
++
++extern int ip_nat_port_range_to_nfattr(struct sk_buff *skb,
++				       const struct ip_nat_range *range);
++extern int ip_nat_port_nfattr_to_range(struct nfattr *tb[],
++				       struct ip_nat_range *range);
++
++#endif /*_IP_NAT_PROTO_H*/
+diff -urBwNp linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_rule.h linux-2.6/include/linux/netfilter_ipv4/ip_nat_rule.h
+--- linux-2.6.22/include/linux/netfilter_ipv4/ip_nat_rule.h	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/include/linux/netfilter_ipv4/ip_nat_rule.h	2009-06-19 18:08:22.000000000 +0400
+@@ -0,0 +1,18 @@
++#ifndef _IP_NAT_RULE_H
++#define _IP_NAT_RULE_H
++#include <linux/netfilter_ipv4/ip_conntrack.h>
++#include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/netfilter_ipv4/ip_nat.h>
++
++#ifdef __KERNEL__
++
++extern int ip_nat_rule_init(void) __init;
++extern void ip_nat_rule_cleanup(void);
++extern int ip_nat_rule_find(struct sk_buff **pskb,
++			    unsigned int hooknum,
++			    const struct net_device *in,
++			    const struct net_device *out,
++			    struct ip_conntrack *ct,
++			    struct ip_nat_info *info);
++#endif
++#endif /* _IP_NAT_RULE_H */

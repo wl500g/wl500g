@@ -1,0 +1,66 @@
+From e8a80c6f769dd4622d8b211b398452158ee60c0b
+From: Josh Hunt
+Date: Thu, 24 Feb 2011 11:48:22 +0100
+Subject: [PATCH] ext2: Fix link count corruption under heavy link+rename load
+
+vfs_rename_other() does not lock renamed inode with i_mutex. Thus changing
+i_nlink in a non-atomic manner (which happens in ext2_rename()) can corrupt
+it as reported and analyzed by Josh.
+
+In fact, there is no good reason to mess with i_nlink of the moved file.
+We did it presumably to simulate linking into the new directory and unlinking
+from an old one. But the practical effect of this is disputable because fsck
+can possibly treat file as being properly linked into both directories without
+writing any error which is confusing. So we just stop increment-decrement
+games with i_nlink which also fixes the corruption.
+
+CC: stable@kernel.org
+CC: Al Viro <viro@ZenIV.linux.org.uk>
+Signed-off-by: Josh Hunt <johunt@akamai.com>
+Signed-off-by: Jan Kara <jack@suse.cz>
+---
+ fs/ext2/namei.c |    9 ++-------
+ 1 files changed, 2 insertions(+), 7 deletions(-)
+
+diff --git a/fs/ext2/namei.c b/fs/ext2/namei.c
+index 2e1d834..adb9185 100644
+--- a/fs/ext2/namei.c
++++ b/fs/ext2/namei.c
+@@ -344,7 +344,6 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,
+ 		new_de = ext2_find_entry (new_dir, new_dentry, &new_page);
+ 		if (!new_de)
+ 			goto out_dir;
+-		inode_inc_link_count(old_inode);
+ 		ext2_set_link(new_dir, new_de, new_page, old_inode);
+ 		new_inode->i_ctime = CURRENT_TIME_SEC;
+ 		if (dir_de)
+@@ -356,12 +355,9 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,
+ 			if (new_dir->i_nlink >= EXT2_LINK_MAX)
+ 				goto out_dir;
+ 		}
+-		inode_inc_link_count(old_inode);
+ 		err = ext2_add_link(new_dentry, old_inode);
+-		if (err) {
+-			inode_dec_link_count(old_inode);
++		if (err)
+ 			goto out_dir;
+-		}
+ 		if (dir_de)
+ 			inode_inc_link_count(new_dir);
+ 	}
+@@ -369,12 +365,11 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,
+ 	/*
+ 	 * Like most other Unix systems, set the ctime for inodes on a
+  	 * rename.
+-	 * inode_dec_link_count() will mark the inode dirty.
+ 	 */
+ 	old_inode->i_ctime = CURRENT_TIME_SEC;
++	mark_inode_dirty(old_inode);
+ 
+ 	ext2_delete_entry (old_de, old_page);
+-	inode_dec_link_count(old_inode);
+ 
+ 	if (dir_de) {
+ 		ext2_set_link(old_inode, dir_de, dir_page, new_dir);
+-- 
+1.7.4.1

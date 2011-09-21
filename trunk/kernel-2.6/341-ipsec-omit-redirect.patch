@@ -1,0 +1,64 @@
+From 3b26a9a655ee73a87071a9f6a1fdd5311e31d7c9
+From 1e5dc146173251e7baad9a1f7586d5a009b6d9f9
+From: Masahide NAKAMURA
+Date: Fri, 24 Aug 2007 23:33:01 -0700
+Subject: [PATCH] [IPV4/6] IPSEC: Omit redirect for tunnelled packet.
+
+IPv4/IPv6 IPsec tunnel gateway incorrectly sends redirect to
+sender if it is onlink host when network device the IPsec tunnelled
+packet is arrived is the same as the one the decapsulated packet
+is sent.
+
+With this patch, it omits to send the redirect when the forwarding
+skbuff carries secpath, since such skbuff should be assumed as
+a decapsulated packet from IPsec tunnel by own.
+
+Request for comments:
+Alternatively we'd have another way to change net/ipv4/route.c
+(__mkroute_input) to use RTCF_DOREDIRECT flag unless skbuff
+has no secpath. It is better than this patch at performance
+point of view because IPv4 redirect judgement is done at
+routing slow-path. However, it should be taken care of resource
+changes between SAD(XFRM states) and routing table. In other words,
+When IPv4 SAD is changed does the related routing entry go to its
+slow-path? If not, it is reasonable to apply this patch.
+
+Signed-off-by: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ net/ipv4/ip_forward.c |    2 +-
+ net/ipv6/ip6_output.c |    4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
+index 8c95cf0..afbf938 100644
+--- a/net/ipv4/ip_forward.c
++++ b/net/ipv4/ip_forward.c
+@@ -105,7 +105,7 @@ int ip_forward(struct sk_buff *skb)
+ 	 *	We now generate an ICMP HOST REDIRECT giving the route
+ 	 *	we calculated.
+ 	 */
+-	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr)
++	if (rt->rt_flags&RTCF_DOREDIRECT && !opt->srr && !skb->sp)
+ 		ip_rt_send_redirect(skb);
+ 
+ 	skb->priority = rt_tos2priority(iph->tos);
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 26de3c0..e46d468 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -441,8 +441,10 @@ int ip6_forward(struct sk_buff *skb)
+ 
+ 	/* IPv6 specs say nothing about it, but it is clear that we cannot
+ 	   send redirects to source routed frames.
++	   We don't send redirects to frames decapsulated from IPsec.
+ 	 */
+-	if (skb->dev == dst->dev && dst->neighbour && opt->srcrt == 0) {
++	if (skb->dev == dst->dev && dst->neighbour && opt->srcrt == 0 &&
++	    !skb->sp) {
+ 		struct in6_addr *target = NULL;
+ 		struct rt6_info *rt;
+ 		struct neighbour *n = dst->neighbour;
+-- 
+1.7.1.1

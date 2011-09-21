@@ -16,12 +16,8 @@ diff -ur nfs-utils-1.0.9/support/nfs/svc_socket.c nfs-utils/support/nfs/svc_sock
    int sock, ret;
    const char *proto = protocol == IPPROTO_TCP ? "tcp" : "udp";
  
-@@ -63,16 +68,24 @@ svc_socket (u_long number,
- 	}
-     }
- 
--  __bzero ((char *) &addr, sizeof (addr));
-+  bzero ((char *) &addr, sizeof (addr));
+@@ -63,13 +68,21 @@ svc_socket (u_long number,
+   memset (&addr, 0, sizeof (addr));
    addr.sin_family = AF_INET;
  
 +#ifdef __UCLIBC_HAS_REENTRANT_RPC__

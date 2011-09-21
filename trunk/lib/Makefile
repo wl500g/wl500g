@@ -21,6 +21,7 @@ lib-$(CONFIG_LIBM) += libm
 lib-$(CONFIG_LIBNSL) += libnsl
 lib-$(CONFIG_LIBPTHREAD) += libpthread
 lib-$(CONFIG_LIBRESOLV) += libresolv
+lib-$(CONFIG_LIBRT) += librt
 lib-$(CONFIG_LIBUTIL) += libutil
 lib-$(CONFIG_UCLIBC) += libgcc_s
 

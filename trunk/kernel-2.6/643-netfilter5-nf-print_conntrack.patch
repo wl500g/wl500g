@@ -1,0 +1,257 @@
+From b5666f3847931a799362159db51b013172d07de1
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 23 Sep 2010 18:36:18 -0400
+Subject: [PATCH] [NETFILTER]: nf_conntrack: remove print_conntrack from l3protos, make it optional for l4protos
+
+kernel.org commits
+c56cc9c07b049acc9d2ca97be0b540978c0c80bf
+c71e9167081a6a0d2a076cda674b696b89bb31c2
+---
+ include/net/netfilter/nf_conntrack_l3proto.h   |    3 ---
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    7 -------
+ netfilter/nf_conntrack_l3proto_ipv4_compat.c   |    5 +----
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |    8 --------
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    7 -------
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |    8 --------
+ net/netfilter/nf_conntrack_l3proto_generic.c   |    7 -------
+ net/netfilter/nf_conntrack_proto_generic.c     |    8 --------
+ net/netfilter/nf_conntrack_proto_udp.c         |    9 ---------
+ net/netfilter/nf_conntrack_standalone.c        |    5 +----
+ 10 files changed, 2 insertions(+), 65 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
+index 96a58d8..35b4afd 100644
+--- a/include/net/netfilter/nf_conntrack_l3proto.h
++++ b/include/net/netfilter/nf_conntrack_l3proto.h
+@@ -42,9 +42,6 @@ struct nf_conntrack_l3proto
+ 	int (*print_tuple)(struct seq_file *s,
+ 			   const struct nf_conntrack_tuple *);
+ 
+-	/* Print out the private part of the conntrack. */
+-	int (*print_conntrack)(struct seq_file *s, const struct nf_conn *);
+-
+ 	/* Returns verdict for packet, or -1 for invalid. */
+ 	int (*packet)(struct nf_conn *conntrack,
+ 		      const struct sk_buff *skb,
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index f7454e6..5dacddd 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -67,12 +67,6 @@ static int ipv4_print_tuple(struct seq_file *s,
+ 			  NIPQUAD(tuple->dst.u3.ip));
+ }
+ 
+-static int ipv4_print_conntrack(struct seq_file *s,
+-				const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ /* Returns new sk_buff, or NULL */
+ static struct sk_buff *
+ nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+@@ -441,7 +435,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 = {
+ 	.pkt_to_tuple	 = ipv4_pkt_to_tuple,
+ 	.invert_tuple	 = ipv4_invert_tuple,
+ 	.print_tuple	 = ipv4_print_tuple,
+-	.print_conntrack = ipv4_print_conntrack,
+ 	.prepare	 = ipv4_prepare,
+ 	.get_features	 = ipv4_get_features,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+index 344cb9c..554bd20 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
+@@ -125,10 +125,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
+ 		      ? (long)(ct->timeout.expires - jiffies)/HZ : 0) != 0)
+ 		return -ENOSPC;
+ 
+-	if (l3proto->print_conntrack(s, ct))
+-		return -ENOSPC;
+-
+-	if (l4proto->print_conntrack(s, ct))
++	if (l4proto->print_conntrack && l4proto->print_conntrack(s, ct))
+ 		return -ENOSPC;
+ 
+ 	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+index 474b4ce..78b7d15 100644
+--- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
++++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
+@@ -79,13 +79,6 @@ static int icmp_print_tuple(struct seq_file *s,
+ 			  ntohs(tuple->src.u.icmp.id));
+ }
+ 
+-/* Print out the private part of the conntrack. */
+-static int icmp_print_conntrack(struct seq_file *s,
+-				const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ /* Returns verdict for packet, or -1 for invalid. */
+ static int icmp_packet(struct nf_conn *ct,
+ 		       const struct sk_buff *skb,
+@@ -344,7 +337,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmp =
+ 	.pkt_to_tuple		= icmp_pkt_to_tuple,
+ 	.invert_tuple		= icmp_invert_tuple,
+ 	.print_tuple		= icmp_print_tuple,
+-	.print_conntrack	= icmp_print_conntrack,
+ 	.packet			= icmp_packet,
+ 	.new			= icmp_new,
+ 	.error			= icmp_error,
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 1b1797f..acbc64a 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -65,12 +65,6 @@ static int ipv6_print_tuple(struct seq_file *s,
+ 			  NIP6(*((struct in6_addr *)tuple->dst.u3.ip6)));
+ }
+ 
+-static int ipv6_print_conntrack(struct seq_file *s,
+-				const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ /*
+  * Based on ipv6_skip_exthdr() in net/ipv6/exthdr.c
+  *
+@@ -387,7 +381,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv6 = {
+ 	.pkt_to_tuple		= ipv6_pkt_to_tuple,
+ 	.invert_tuple		= ipv6_invert_tuple,
+ 	.print_tuple		= ipv6_print_tuple,
+-	.print_conntrack	= ipv6_print_conntrack,
+ 	.prepare		= ipv6_prepare,
+ #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
+ 	.tuple_to_nfattr	= ipv6_tuple_to_nfattr,
+diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+index 0bc19e2..482319e 100644
+--- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
+@@ -91,13 +91,6 @@ static int icmpv6_print_tuple(struct seq_file *s,
+ 			  ntohs(tuple->src.u.icmp.id));
+ }
+ 
+-/* Print out the private part of the conntrack. */
+-static int icmpv6_print_conntrack(struct seq_file *s,
+-				  const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ /* Returns verdict for packet, or -1 for invalid. */
+ static int icmpv6_packet(struct nf_conn *ct,
+ 		       const struct sk_buff *skb,
+@@ -335,7 +328,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_icmpv6 =
+ 	.pkt_to_tuple		= icmpv6_pkt_to_tuple,
+ 	.invert_tuple		= icmpv6_invert_tuple,
+ 	.print_tuple		= icmpv6_print_tuple,
+-	.print_conntrack	= icmpv6_print_conntrack,
+ 	.packet			= icmpv6_packet,
+ 	.new			= icmpv6_new,
+ 	.error			= icmpv6_error,
+diff --git a/net/netfilter/nf_conntrack_l3proto_generic.c b/net/netfilter/nf_conntrack_l3proto_generic.c
+index cbd96f3..a793a85 100644
+--- a/net/netfilter/nf_conntrack_l3proto_generic.c
++++ b/net/netfilter/nf_conntrack_l3proto_generic.c
+@@ -61,12 +61,6 @@ static int generic_print_tuple(struct seq_file *s,
+ 	return 0;
+ }
+ 
+-static int generic_print_conntrack(struct seq_file *s,
+-				const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ static int
+ generic_prepare(struct sk_buff **pskb, unsigned int hooknum,
+ 		unsigned int *dataoff, u_int8_t *protonum)
+@@ -88,7 +82,6 @@ struct nf_conntrack_l3proto nf_conntrack_l3proto_generic = {
+ 	.pkt_to_tuple	 = generic_pkt_to_tuple,
+ 	.invert_tuple	 = generic_invert_tuple,
+ 	.print_tuple	 = generic_print_tuple,
+-	.print_conntrack = generic_print_conntrack,
+ 	.prepare	 = generic_prepare,
+ 	.get_features	 = generic_get_features,
+ };
+diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
+index 6faf1be..398b1df 100644
+--- a/net/netfilter/nf_conntrack_proto_generic.c
++++ b/net/netfilter/nf_conntrack_proto_generic.c
+@@ -40,13 +40,6 @@ static int generic_print_tuple(struct seq_file *s,
+ 	return 0;
+ }
+ 
+-/* Print out the private part of the conntrack. */
+-static int generic_print_conntrack(struct seq_file *s,
+-				   const struct nf_conn *state)
+-{
+-	return 0;
+-}
+-
+ /* Returns verdict for packet, or -1 for invalid. */
+ static int packet(struct nf_conn *conntrack,
+ 		  const struct sk_buff *skb,
+@@ -106,7 +99,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_generic =
+ 	.pkt_to_tuple		= generic_pkt_to_tuple,
+ 	.invert_tuple		= generic_invert_tuple,
+ 	.print_tuple		= generic_print_tuple,
+-	.print_conntrack	= generic_print_conntrack,
+ 	.packet			= packet,
+ 	.new			= new,
+ #ifdef CONFIG_SYSCTL
+diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
+index 4ff3f25..52a48a0 100644
+--- a/net/netfilter/nf_conntrack_proto_udp.c
++++ b/net/netfilter/nf_conntrack_proto_udp.c
+@@ -60,13 +60,6 @@ static int udp_print_tuple(struct seq_file *s,
+ 			  ntohs(tuple->dst.u.udp.port));
+ }
+ 
+-/* Print out the private part of the conntrack. */
+-static int udp_print_conntrack(struct seq_file *s,
+-			       const struct nf_conn *conntrack)
+-{
+-	return 0;
+-}
+-
+ /* Returns verdict for packet, and may modify conntracktype */
+ static int udp_packet(struct nf_conn *conntrack,
+ 		      const struct sk_buff *skb,
+@@ -199,7 +192,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 =
+ 	.pkt_to_tuple		= udp_pkt_to_tuple,
+ 	.invert_tuple		= udp_invert_tuple,
+ 	.print_tuple		= udp_print_tuple,
+-	.print_conntrack	= udp_print_conntrack,
+ 	.packet			= udp_packet,
+ 	.new			= udp_new,
+ 	.error			= udp_error,
+@@ -230,7 +222,6 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp6 =
+ 	.pkt_to_tuple		= udp_pkt_to_tuple,
+ 	.invert_tuple		= udp_invert_tuple,
+ 	.print_tuple		= udp_print_tuple,
+-	.print_conntrack	= udp_print_conntrack,
+ 	.packet			= udp_packet,
+ 	.new			= udp_new,
+ 	.error			= udp_error,
+diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
+index 58dd97c..a713550 100644
+--- a/net/netfilter/nf_conntrack_standalone.c
++++ b/net/netfilter/nf_conntrack_standalone.c
+@@ -146,10 +146,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
+ 		       ? (long)(conntrack->timeout.expires - jiffies)/HZ : 0) != 0)
+ 		return -ENOSPC;
+ 
+-	if (l3proto->print_conntrack(s, conntrack))
+-		return -ENOSPC;
+-
+-	if (l4proto->print_conntrack(s, conntrack))
++	if (l4proto->print_conntrack && l4proto->print_conntrack(s, conntrack))
+ 		return -ENOSPC;
+ 
+ 	if (print_tuple(s, &conntrack->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+-- 
+1.6.5.GIT
+

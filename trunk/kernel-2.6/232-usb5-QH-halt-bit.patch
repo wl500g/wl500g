@@ -1,0 +1,80 @@
+From b5a3b3d985493c173925907adfebf3edab236fe7
+From: Alan Stern
+Date: Wed, 16 Mar 2011 10:57:15 -0400
+Subject: [PATCH] ehci-hcd: Bug fix: don't set a QH's Halt bit
+
+This patch (as1453) fixes a long-standing bug in the ehci-hcd driver.
+
+There is no need to set the Halt bit in the overlay region for an
+unlinked or blocked QH.  Contrary to what the comment says, setting
+the Halt bit does not cause the QH to be patched later; that decision
+(made in qh_refresh()) depends only on whether the QH is currently
+pointing to a valid qTD.  Likewise, setting the Halt bit does not
+prevent completions from activating the QH while it is "stopped"; they
+are prevented by the fact that qh_completions() temporarily changes
+qh->qh_state to QH_STATE_COMPLETING.
+
+On the other hand, there are circumstances in which the QH will be
+reactivated _without_ being patched; this happens after an URB beyond
+the head of the queue is unlinked.  Setting the Halt bit will then
+cause the hardware to see the QH with both the Active and Halt bits
+set, an invalid combination that will prevent the queue from
+advancing and may even crash some controllers.
+
+Apparently the only reason this hasn't been reported before is that
+unlinking URBs from the middle of a running queue is quite uncommon.
+However Test 17, recently added to the usbtest driver, does exactly
+this, and it confirms the presence of the bug.
+
+In short, there is no reason to set the Halt bit for an unlinked or
+blocked QH, and there is a very good reason not to set it.  Therefore
+the code that sets it is removed.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Tested-by: Andiry Xu <andiry.xu@amd.com>
+CC: David Brownell <david-b@pacbell.net>
+CC: <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/usb/host/ehci-q.c |   12 ------------
+ 1 files changed, 0 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-q.c b/drivers/usb/host/ehci-q.c
+index fe99895..98ded66 100644
+--- a/drivers/usb/host/ehci-q.c
++++ b/drivers/usb/host/ehci-q.c
+@@ -315,7 +315,6 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
+ 	int			stopped;
+ 	unsigned		count = 0;
+ 	u8			state;
+-	const __le32		halt = HALT_BIT(ehci);
+ 	struct ehci_qh_hw	*hw = qh->hw;
+ 
+ 	if (unlikely (list_empty (&qh->qtd_list)))
+@@ -422,7 +421,6 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
+ 					&& !(qtd->hw_alt_next
+ 						& EHCI_LIST_END(ehci))) {
+ 				stopped = 1;
+-				goto halt;
+ 			}
+ 
+ 		/* stop scanning when we reach qtds the hc is using */
+@@ -456,16 +454,6 @@ qh_completions (struct ehci_hcd *ehci, struct ehci_qh *qh)
+ 					&& cpu_to_hc32(ehci, qtd->qtd_dma)
+ 						== hw->hw_current)
+ 				token = hc32_to_cpu(ehci, hw->hw_token);
+-
+-			/* force halt for unlinked or blocked qh, so we'll
+-			 * patch the qh later and so that completions can't
+-			 * activate it while we "know" it's stopped.
+-			 */
+-			if ((halt & hw->hw_token) == 0) {
+-halt:
+-				hw->hw_token |= halt;
+-				wmb ();
+-			}
+ 		}
+ 
+ 		/* unless we already know the urb's status, collect qtd status
+-- 
+1.7.4.1

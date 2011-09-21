@@ -1,0 +1,62 @@
+From 48ef2626aeecac3b160d1aee38ac46d6c3540122
+From: Andrew Sharp
+Date: Wed, 31 Oct 2007 14:11:24 -0700
+Subject: [PATCH] [MIPS] Put cast inside macro instead of all the callers
+
+Since all the callers of the PHYS_TO_XKPHYS macro call with a constant,
+put the cast to LL inside the macro where it really should be rather
+than in all the callers.  This makes macros like PHYS_TO_XKSEG_UNCACHED
+work without gcc whining.
+
+Signed-off-by: Andrew Sharp <andy.sharp@onstor.com>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ arch/mips/lib/uncached.c     |   12 ++++++------
+ include/asm-mips/addrspace.h |    2 +-
+ 2 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/arch/mips/lib/uncached.c b/arch/mips/lib/uncached.c
+index 58d14f4..27b012d 100644
+--- a/arch/mips/lib/uncached.c
++++ b/arch/mips/lib/uncached.c
+@@ -46,9 +46,9 @@ unsigned long __init run_uncached(void *func)
+ 	if (sp >= (long)CKSEG0 && sp < (long)CKSEG2)
+ 		usp = CKSEG1ADDR(sp);
+ #ifdef CONFIG_64BIT
+-	else if ((long long)sp >= (long long)PHYS_TO_XKPHYS(0LL, 0) &&
+-		 (long long)sp < (long long)PHYS_TO_XKPHYS(8LL, 0))
+-		usp = PHYS_TO_XKPHYS((long long)K_CALG_UNCACHED,
++	else if ((long long)sp >= (long long)PHYS_TO_XKPHYS(0, 0) &&
++		 (long long)sp < (long long)PHYS_TO_XKPHYS(8, 0))
++		usp = PHYS_TO_XKPHYS(K_CALG_UNCACHED,
+ 				     XKPHYS_TO_PHYS((long long)sp));
+ #endif
+ 	else {
+@@ -58,9 +58,9 @@ unsigned long __init run_uncached(void *func)
+ 	if (lfunc >= (long)CKSEG0 && lfunc < (long)CKSEG2)
+ 		ufunc = CKSEG1ADDR(lfunc);
+ #ifdef CONFIG_64BIT
+-	else if ((long long)lfunc >= (long long)PHYS_TO_XKPHYS(0LL, 0) &&
+-		 (long long)lfunc < (long long)PHYS_TO_XKPHYS(8LL, 0))
+-		ufunc = PHYS_TO_XKPHYS((long long)K_CALG_UNCACHED,
++	else if ((long long)lfunc >= (long long)PHYS_TO_XKPHYS(0, 0) &&
++		 (long long)lfunc < (long long)PHYS_TO_XKPHYS(8, 0))
++		ufunc = PHYS_TO_XKPHYS(K_CALG_UNCACHED,
+ 				       XKPHYS_TO_PHYS((long long)lfunc));
+ #endif
+ 	else {
+diff --git a/include/asm-mips/addrspace.h b/include/asm-mips/addrspace.h
+index 0bb7a93..569f80a 100644
+--- a/include/asm-mips/addrspace.h
++++ b/include/asm-mips/addrspace.h
+@@ -127,7 +127,7 @@
+ #define PHYS_TO_XKSEG_CACHED(p)		PHYS_TO_XKPHYS(K_CALG_COH_SHAREABLE, (p))
+ #define XKPHYS_TO_PHYS(p)		((p) & TO_PHYS_MASK)
+ #define PHYS_TO_XKPHYS(cm,a)		(_CONST64_(0x8000000000000000) | \
+-					 ((cm)<<59) | (a))
++					 (_CONST64_(cm) << 59) | (a))
+ 
+ #if defined (CONFIG_CPU_R4300)						\
+ 
+-- 
+1.7.4.4

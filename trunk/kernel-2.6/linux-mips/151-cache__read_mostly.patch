@@ -1,0 +1,63 @@
+From 1befdd5536e1500371f7f884d0f0ae528a519333
+From: David Daney
+Date: Thu, 14 Oct 2010 12:36:49 -0700
+Subject: [PATCH] MIPS: Implement __read_mostly
+
+Just do what everyone else is doing by placing __read_mostly things in
+the .data.read_mostly section.
+
+mips_io_port_base can not be read-only (const) and writable
+(__read_mostly) at the same time.  One of them has to go, so I chose
+to eliminate the __read_mostly.  It will still get stuck in a portion
+of memory that is not adjacent to things that are written, and thus
+not be on a dirty cache line, for whatever that is worth.
+
+Signed-off-by: David Daney <ddaney@caviumnetworks.com>
+To: linux-mips@linux-mips.org
+Patchwork: http://patchwork.linux-mips.org/patch/1702/
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ include/asm-mips/cache.h |    2 ++
+ arch/mips/kernel/setup.c |    2 +-
+ 2 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/asm-mips/cache.h b/include/asm-mips/cache.h
+index 37f175c..650ac9b 100644
+--- a/include/asm-mips/cache.h
++++ b/include/asm-mips/cache.h
+@@ -17,4 +17,6 @@
+ #define SMP_CACHE_SHIFT		L1_CACHE_SHIFT
+ #define SMP_CACHE_BYTES		L1_CACHE_BYTES
+ 
++#define __read_mostly __attribute__((__section__(".data.read_mostly")))
++
+ #endif /* _ASM_CACHE_H */
+diff --git a/arch/mips/kernel/setup.c b/arch/mips/kernel/setup.c
+index acd3f2c..8ad1d56 100644
+--- a/arch/mips/kernel/setup.c
++++ b/arch/mips/kernel/setup.c
+@@ -70,7 +70,7 @@ static char __initdata builtin_cmdline[COMMAND_LINE_SIZE] = CONFIG_CMDLINE;
+  * mips_io_port_base is the begin of the address space to which x86 style
+  * I/O ports are mapped.
+  */
+-const unsigned long mips_io_port_base __read_mostly = -1;
++const unsigned long mips_io_port_base = -1;
+ EXPORT_SYMBOL(mips_io_port_base);
+ 
+ /*
+diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
+--- a/arch/mips/kernel/vmlinux.lds.S
++++ b/arch/mips/kernel/vmlinux.lds.S
+@@ -84,6 +84,10 @@ SECTIONS
+ 
+   . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
++
++  /* rarely changed data like cpu maps */
++  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
++  .data.read_mostly : { *(.data.read_mostly) }
+ 
+   _edata =  .;			/* End of data section */
+ 
+-- 
+1.7.4

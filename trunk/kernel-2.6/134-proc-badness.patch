@@ -1,0 +1,32 @@
+Subject: [PATCH] proc: fix the unsafe usage of badness() in proc_oom_score()
+From: Oleg Nesterov <oleg@redhat.com>
+Date: Thu, 1 Apr 2010 20:04:50 -0400
+
+kernel.org commit b95c35e76b29ba812e5dabdd91592e25ec640e93
+---
+ fs/proc/base.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index a5fa1fd..3983852 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -307,12 +307,13 @@ static int proc_pid_schedstat(struct task_struct *task, char *buffer)
+ unsigned long badness(struct task_struct *p, unsigned long uptime);
+ static int proc_oom_score(struct task_struct *task, char *buffer)
+ {
+-	unsigned long points;
++	unsigned long points = 0;
+ 	struct timespec uptime;
+ 
+ 	do_posix_clock_monotonic_gettime(&uptime);
+ 	read_lock(&tasklist_lock);
+-	points = badness(task, uptime.tv_sec);
++	if (pid_alive(task))
++		points = badness(task, uptime.tv_sec);
+ 	read_unlock(&tasklist_lock);
+ 	return sprintf(buffer, "%lu\n", points);
+ }
+-- 
+1.6.5.GIT
+

@@ -1,0 +1,379 @@
+writeback: speed up writeback of big dirty files
+
+ 6610a0bc8dcc120daa1d93807d470d5cbf777c39 writeback: fix time-ordering of the per-superblock dirty-inode lists
+ 9852a0e76cd9c89e71f84e784212fdd7a97ae93a writeback: fix time ordering of the per superblock dirty inode lists: memory-backed inodes
+ f57b9b7b4f68e1723ca99381dc10c8bc07d6df14 writeback: fix time ordering of the per superblock dirty inode lists 3
+ c986d1e2a460cbce79d631c51519ae82c778c6c5 writeback: fix time ordering of the per superblock dirty inode lists 4
+ 1b43ef91d40190b16ba10218e66d5c2c4ba11de3 writeback: fix comment, use helper function
+ c6945e77e477103057b4a639b4b01596f5257861 writeback: fix time ordering of the per superblock dirty inode lists 5
+ 65cb9b47e0ea568a7a38cce7773052a6ea093629 writeback: fix time ordering of the per superblock dirty inode lists 6
+ 670e4def6ef5f44315d62748134e535b479c784f writeback: fix time ordering of the per superblock dirty inode lists 7
+ 0e0f4fc22ece8e593167eccbb1a4154565c11faa writeback: fix periodic superblock dirty inode flushing
+ 2c1365791048e8aff42138ed5f6040b3c7824a69 writeback: fix time ordering of the per superblock inode lists 8
+ 08d8e9749e7f0435ba4683b620e8d30d59276b4c writeback: fix ntfs with sb_has_dirty_inodes()
+ 8bc3be2751b4f74ab90a446da1912fd8204d53f7 writeback: speed up writeback of big dirty files
+
+---
+ fs/fs-writeback.c         |  139 +++++++++++++++++++++++++++++++++++++---------
+ fs/ntfs/super.c           |    4 -
+ fs/super.c                |    1 
+ include/linux/fs.h        |    2 
+ include/linux/writeback.h |    1 
+ mm/page-writeback.c       |    9 +-
+ 6 files changed, 126 insertions(+), 30 deletions(-)
+
+diff -urBp a/fs/fs-writeback.c b/fs/fs-writeback.c
+--- a/fs/fs-writeback.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/fs-writeback.c	2011-06-15 20:02:50.000000000 +0400
+@@ -118,7 +118,7 @@ void __mark_inode_dirty(struct inode *in
+ 			goto out;
+ 
+ 		/*
+-		 * If the inode was already on s_dirty or s_io, don't
++		 * If the inode was already on s_dirty/s_io/s_more_io, don't
+ 		 * reposition it (that would break s_dirty time-ordering).
+ 		 */
+ 		if (!was_dirty) {
+@@ -140,6 +140,73 @@ static int write_inode(struct inode *ino
+ }
+ 
+ /*
++ * Redirty an inode: set its when-it-was dirtied timestamp and move it to the
++ * furthest end of its superblock's dirty-inode list.
++ *
++ * Before stamping the inode's ->dirtied_when, we check to see whether it is
++ * already the most-recently-dirtied inode on the s_dirty list.  If that is
++ * the case then the inode must have been redirtied while it was being written
++ * out and we don't reset its dirtied_when.
++ */
++static void redirty_tail(struct inode *inode)
++{
++	struct super_block *sb = inode->i_sb;
++
++	if (!list_empty(&sb->s_dirty)) {
++		struct inode *tail_inode;
++
++		tail_inode = list_entry(sb->s_dirty.next, struct inode, i_list);
++		if (!time_after_eq(inode->dirtied_when,
++				tail_inode->dirtied_when))
++			inode->dirtied_when = jiffies;
++	}
++	list_move(&inode->i_list, &sb->s_dirty);
++}
++
++/*
++ * requeue inode for re-scanning after sb->s_io list is exhausted.
++ */
++static void requeue_io(struct inode *inode)
++{
++	list_move(&inode->i_list, &inode->i_sb->s_more_io);
++}
++
++/*
++ * Move expired dirty inodes from @delaying_queue to @dispatch_queue.
++ */
++static void move_expired_inodes(struct list_head *delaying_queue,
++			       struct list_head *dispatch_queue,
++				unsigned long *older_than_this)
++{
++	while (!list_empty(delaying_queue)) {
++		struct inode *inode = list_entry(delaying_queue->prev,
++						struct inode, i_list);
++		if (older_than_this &&
++			time_after(inode->dirtied_when, *older_than_this))
++			break;
++		list_move(&inode->i_list, dispatch_queue);
++	}
++}
++
++/*
++ * Queue all expired dirty inodes for io, eldest first.
++ */
++static void queue_io(struct super_block *sb,
++				unsigned long *older_than_this)
++{
++	list_splice_init(&sb->s_more_io, sb->s_io.prev);
++	move_expired_inodes(&sb->s_dirty, &sb->s_io, older_than_this);
++}
++
++int sb_has_dirty_inodes(struct super_block *sb)
++{
++	return !list_empty(&sb->s_dirty) ||
++	       !list_empty(&sb->s_io) ||
++	       !list_empty(&sb->s_more_io);
++}
++EXPORT_SYMBOL(sb_has_dirty_inodes);
++
++/*
+  * Write a single inode's dirty pages and inode data out to disk.
+  * If `wait' is set, wait on the writeout.
+  *
+@@ -154,7 +221,6 @@ __sync_single_inode(struct inode *inode,
+ {
+ 	unsigned dirty;
+ 	struct address_space *mapping = inode->i_mapping;
+-	struct super_block *sb = inode->i_sb;
+ 	int wait = wbc->sync_mode == WB_SYNC_ALL;
+ 	int ret;
+ 
+@@ -190,17 +256,35 @@ __sync_single_inode(struct inode *inode,
+ 			/*
+ 			 * We didn't write back all the pages.  nfs_writepages()
+ 			 * sometimes bales out without doing anything. Redirty
+-			 * the inode.  It is still on sb->s_io.
++			 * the inode; Move it from s_io onto s_more_io/s_dirty.
++			 */
++			/*
++			 * akpm: if the caller was the kupdate function we put
++			 * this inode at the head of s_dirty so it gets first
++			 * consideration.  Otherwise, move it to the tail, for
++			 * the reasons described there.  I'm not really sure
++			 * how much sense this makes.  Presumably I had a good
++			 * reasons for doing it this way, and I'd rather not
++			 * muck with it at present.
+ 			 */
+ 			if (wbc->for_kupdate) {
+ 				/*
+-				 * For the kupdate function we leave the inode
+-				 * at the head of sb_dirty so it will get more
+-				 * writeout as soon as the queue becomes
+-				 * uncongested.
++				 * For the kupdate function we move the inode
++				 * to s_more_io so it will get more writeout as
++				 * soon as the queue becomes uncongested.
+ 				 */
+ 				inode->i_state |= I_DIRTY_PAGES;
+-				list_move_tail(&inode->i_list, &sb->s_dirty);
++				if (wbc->nr_to_write <= 0) {
++					/*
++					 * slice used up: queue for next turn
++					 */
++					requeue_io(inode);
++				} else {
++					/*
++					 * somehow blocked: retry later
++					 */
++					redirty_tail(inode);
++				}
+ 			} else {
+ 				/*
+ 				 * Otherwise fully redirty the inode so that
+@@ -210,15 +294,14 @@ __sync_single_inode(struct inode *inode,
+ 				 * all the other files.
+ 				 */
+ 				inode->i_state |= I_DIRTY_PAGES;
+-				inode->dirtied_when = jiffies;
+-				list_move(&inode->i_list, &sb->s_dirty);
++				redirty_tail(inode);
+ 			}
+ 		} else if (inode->i_state & I_DIRTY) {
+ 			/*
+ 			 * Someone redirtied the inode while were writing back
+ 			 * the pages.
+ 			 */
+-			list_move(&inode->i_list, &sb->s_dirty);
++			redirty_tail(inode);
+ 		} else if (atomic_read(&inode->i_count)) {
+ 			/*
+ 			 * The inode is clean, inuse
+@@ -254,7 +337,14 @@ __writeback_single_inode(struct inode *i
+ 		struct address_space *mapping = inode->i_mapping;
+ 		int ret;
+ 
+-		list_move(&inode->i_list, &inode->i_sb->s_dirty);
++		/*
++		 * We're skipping this inode because it's locked, and we're not
++		 * doing writeback-for-data-integrity.  Move it to s_more_io so
++		 * that writeback can proceed with the other inodes on s_io.
++		 * We'll have another go at writing back this inode when we
++		 * completed a full scan of s_io.
++		 */
++		requeue_io(inode);
+ 
+ 		/*
+ 		 * Even if we don't actually write the inode itself here,
+@@ -319,7 +409,7 @@ sync_sb_inodes(struct super_block *sb, s
+ 	const unsigned long start = jiffies;	/* livelock avoidance */
+ 
+ 	if (!wbc->for_kupdate || list_empty(&sb->s_io))
+-		list_splice_init(&sb->s_dirty, &sb->s_io);
++		queue_io(sb, wbc->older_than_this);
+ 
+ 	while (!list_empty(&sb->s_io)) {
+ 		struct inode *inode = list_entry(sb->s_io.prev,
+@@ -329,7 +419,7 @@ sync_sb_inodes(struct super_block *sb, s
+ 		long pages_skipped;
+ 
+ 		if (!bdi_cap_writeback_dirty(bdi)) {
+-			list_move(&inode->i_list, &sb->s_dirty);
++			redirty_tail(inode);
+ 			if (sb_is_blkdev_sb(sb)) {
+ 				/*
+ 				 * Dirty memory-backed blockdev: the ramdisk
+@@ -349,14 +439,14 @@ sync_sb_inodes(struct super_block *sb, s
+ 			wbc->encountered_congestion = 1;
+ 			if (!sb_is_blkdev_sb(sb))
+ 				break;		/* Skip a congested fs */
+-			list_move(&inode->i_list, &sb->s_dirty);
++			requeue_io(inode);
+ 			continue;		/* Skip a congested blockdev */
+ 		}
+ 
+ 		if (wbc->bdi && bdi != wbc->bdi) {
+ 			if (!sb_is_blkdev_sb(sb))
+ 				break;		/* fs has the wrong queue */
+-			list_move(&inode->i_list, &sb->s_dirty);
++			requeue_io(inode);
+ 			continue;		/* blockdev has wrong queue */
+ 		}
+ 
+@@ -364,11 +454,6 @@ sync_sb_inodes(struct super_block *sb, s
+ 		if (time_after(inode->dirtied_when, start))
+ 			break;
+ 
+-		/* Was this inode dirtied too recently? */
+-		if (wbc->older_than_this && time_after(inode->dirtied_when,
+-						*wbc->older_than_this))
+-			break;
+-
+ 		/* Is another pdflush already flushing this queue? */
+ 		if (current_is_pdflush() && !writeback_acquire(bdi))
+ 			break;
+@@ -388,14 +473,18 @@ sync_sb_inodes(struct super_block *sb, s
+ 			 * writeback is not making progress due to locked
+ 			 * buffers.  Skip this inode for now.
+ 			 */
+-			list_move(&inode->i_list, &sb->s_dirty);
++			redirty_tail(inode);
+ 		}
+ 		spin_unlock(&inode_lock);
+ 		iput(inode);
+ 		cond_resched();
+ 		spin_lock(&inode_lock);
+-		if (wbc->nr_to_write <= 0)
++		if (wbc->nr_to_write <= 0) {
++			wbc->more_io = 1;
+ 			break;
++		}
++		if (!list_empty(&sb->s_more_io))
++			wbc->more_io = 1;
+ 	}
+ 	return;		/* Leave any unwritten inodes on s_io */
+ }
+@@ -406,7 +495,7 @@ sync_sb_inodes(struct super_block *sb, s
+  * Note:
+  * We don't need to grab a reference to superblock here. If it has non-empty
+  * ->s_dirty it's hadn't been killed yet and kill_super() won't proceed
+- * past sync_inodes_sb() until both the ->s_dirty and ->s_io lists are
++ * past sync_inodes_sb() until the ->s_dirty/s_io/s_more_io lists are all
+  * empty. Since __sync_single_inode() regains inode_lock before it finally moves
+  * inode from superblock lists we are OK.
+  *
+@@ -429,7 +518,7 @@ writeback_inodes(struct writeback_contro
+ restart:
+ 	sb = sb_entry(super_blocks.prev);
+ 	for (; sb != sb_entry(&super_blocks); sb = sb_entry(sb->s_list.prev)) {
+-		if (!list_empty(&sb->s_dirty) || !list_empty(&sb->s_io)) {
++		if (sb_has_dirty_inodes(sb)) {
+ 			/* we're making our own get_super here */
+ 			sb->s_count++;
+ 			spin_unlock(&sb_lock);
+diff -urBp a/fs/ntfs/super.c b/fs/ntfs/super.c
+--- a/fs/ntfs/super.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/ntfs/super.c	2011-06-15 20:02:50.000000000 +0400
+@@ -2381,14 +2381,14 @@ static void ntfs_put_super(struct super_
+ 	 */
+ 	ntfs_commit_inode(vol->mft_ino);
+ 	write_inode_now(vol->mft_ino, 1);
+-	if (!list_empty(&sb->s_dirty)) {
++	if (sb_has_dirty_inodes(sb)) {
+ 		const char *s1, *s2;
+ 
+ 		mutex_lock(&vol->mft_ino->i_mutex);
+ 		truncate_inode_pages(vol->mft_ino->i_mapping, 0);
+ 		mutex_unlock(&vol->mft_ino->i_mutex);
+ 		write_inode_now(vol->mft_ino, 1);
+-		if (!list_empty(&sb->s_dirty)) {
++		if (sb_has_dirty_inodes(sb)) {
+ 			static const char *_s1 = "inodes";
+ 			static const char *_s2 = "";
+ 			s1 = _s1;
+diff -urBp a/fs/super.c b/fs/super.c
+--- a/fs/super.c	2008-02-26 02:59:40.000000000 +0300
++++ b/fs/super.c	2011-06-15 20:02:50.000000000 +0400
+@@ -67,6 +67,7 @@ static struct super_block *alloc_super(s
+ 		}
+ 		INIT_LIST_HEAD(&s->s_dirty);
+ 		INIT_LIST_HEAD(&s->s_io);
++		INIT_LIST_HEAD(&s->s_more_io);
+ 		INIT_LIST_HEAD(&s->s_files);
+ 		INIT_LIST_HEAD(&s->s_instances);
+ 		INIT_HLIST_HEAD(&s->s_anon);
+diff -urBp a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h	2011-06-10 18:43:00.000000000 +0400
++++ b/include/linux/fs.h	2011-06-15 20:02:50.000000000 +0400
+@@ -957,6 +957,7 @@ struct super_block {
+ 	struct list_head	s_inodes;	/* all inodes */
+ 	struct list_head	s_dirty;	/* dirty inodes */
+ 	struct list_head	s_io;		/* parked for writeback */
++	struct list_head	s_more_io;	/* parked for more writeback */
+ 	struct hlist_head	s_anon;		/* anonymous dentries for (nfs) exporting */
+ 	struct list_head	s_files;
+ 
+@@ -1748,6 +1749,7 @@ extern int bdev_read_only(struct block_d
+ extern int set_blocksize(struct block_device *, int);
+ extern int sb_set_blocksize(struct super_block *, int);
+ extern int sb_min_blocksize(struct super_block *, int);
++extern int sb_has_dirty_inodes(struct super_block *);
+ 
+ extern int generic_file_mmap(struct file *, struct vm_area_struct *);
+ extern int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
+diff -urBp a/include/linux/writeback.h b/include/linux/writeback.h
+--- a/include/linux/writeback.h	2011-06-10 18:42:59.000000000 +0400
++++ b/include/linux/writeback.h	2011-06-15 20:02:50.000000000 +0400
+@@ -61,6 +61,7 @@ struct writeback_control {
+ 	unsigned for_reclaim:1;		/* Invoked from the page allocator */
+ 	unsigned for_writepages:1;	/* This is a writepages() call */
+ 	unsigned range_cyclic:1;	/* range_start is cyclic */
++	unsigned more_io:1;		/* more io to be dispatched */
+ 
+ 	void *fs_private;		/* For use by ->writepages() */
+ };
+diff -urBp a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c	2011-06-10 18:42:59.000000000 +0400
++++ b/mm/page-writeback.c	2011-06-15 20:02:50.000000000 +0400
+@@ -380,6 +380,7 @@ static void background_writeout(unsigned
+ 			global_page_state(NR_UNSTABLE_NFS) < background_thresh
+ 				&& min_pages <= 0)
+ 			break;
++		wbc.more_io = 0;
+ 		wbc.encountered_congestion = 0;
+ 		wbc.nr_to_write = MAX_WRITEBACK_PAGES;
+ 		wbc.pages_skipped = 0;
+@@ -387,8 +388,9 @@ static void background_writeout(unsigned
+ 		min_pages -= MAX_WRITEBACK_PAGES - wbc.nr_to_write;
+ 		if (wbc.nr_to_write > 0 || wbc.pages_skipped > 0) {
+ 			/* Wrote less than expected */
+-			congestion_wait(WRITE, HZ/10);
+-			if (!wbc.encountered_congestion)
++			if (wbc.encountered_congestion || wbc.more_io)
++				congestion_wait(WRITE, HZ/10);
++			else
+ 				break;
+ 		}
+ 	}
+@@ -453,11 +455,12 @@ static void wb_kupdate(unsigned long arg
+ 			global_page_state(NR_UNSTABLE_NFS) +
+ 			(inodes_stat.nr_inodes - inodes_stat.nr_unused);
+ 	while (nr_to_write > 0) {
++		wbc.more_io = 0;
+ 		wbc.encountered_congestion = 0;
+ 		wbc.nr_to_write = MAX_WRITEBACK_PAGES;
+ 		writeback_inodes(&wbc);
+ 		if (wbc.nr_to_write > 0) {
+-			if (wbc.encountered_congestion)
++			if (wbc.encountered_congestion || wbc.more_io)
+ 				congestion_wait(WRITE, HZ/10);
+ 			else
+ 				break;	/* All the old data is written */
+-- 

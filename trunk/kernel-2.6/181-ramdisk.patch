@@ -1,0 +1,1195 @@
+ramdisk: Updates from upstream
+
+ kernel.org commits
+ 9db5579be4bb5320c3248f6acf807aedf05ae143 rewrite rd
+ efedf51c866130945b5db755cb58670e60205d83 Add 'rd' alias to new brd ramdisk driver
+ dfbc4752eab33e66f113f9daa2effbe241cd661d brd: support barriers
+ c2572f2b4ffc27ba79211aceee3bef53a59bb5cd brd: fix cacheflushing
+
+---
+ MAINTAINERS            |    5 
+ drivers/block/Kconfig  |   12 -
+ drivers/block/Makefile |    2 
+ drivers/block/brd.c    |  552 +++++++++++++++++++++++++++++++++++++++++++++++++
+ drivers/block/rd.c     |  541 ------------------------------------------------
+ fs/buffer.c            |    1 
+ 6 files changed, 560 insertions(+), 553 deletions(-)
+ create mode 100644 drivers/block/brd.c
+ delete mode 100644 drivers/block/rd.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index a7e6ef3..29f4f4d 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -3254,6 +3254,11 @@ W:	http://rt2x00.serialmonkey.com/
+ S:	Maintained
+ F:	drivers/net/wireless/rt2x00/
+ 
++RAMDISK RAM BLOCK DEVICE DRIVER
++P:	Nick Piggin
++M:	npiggin@suse.de
++S:	Maintained
++
+ RANDOM NUMBER DRIVER
+ P:	Matt Mackall
+ M:	mpm@selenic.com
+diff --git a/drivers/block/Kconfig b/drivers/block/Kconfig
+index 64e5148..8be67cd 100644
+--- a/drivers/block/Kconfig
++++ b/drivers/block/Kconfig
+@@ -322,7 +322,7 @@ config BLK_DEV_UB
+ 	  If unsure, say N.
+ 
+ config BLK_DEV_RAM
+-	tristate "RAM disk support"
++	tristate "RAM block device support"
+ 	---help---
+ 	  Saying Y here will allow you to use a portion of your RAM memory as
+ 	  a block device, so that you can make file systems on it, read and
+@@ -357,16 +357,6 @@ config BLK_DEV_RAM_SIZE
+ 	  The default value is 4096 kilobytes. Only change this if you know
+ 	  what you are doing.
+ 
+-config BLK_DEV_RAM_BLOCKSIZE
+-	int "Default RAM disk block size (bytes)"
+-	depends on BLK_DEV_RAM
+-	default "1024"
+-	help
+-	  The default value is 1024 bytes.  PAGE_SIZE is a much more
+-	  efficient choice however.  The default is kept to ensure initrd
+-	  setups function - apparently needed by the rd_load_image routine
+-	  that supposes the filesystem in the image uses a 1024 blocksize.
+-
+ config CDROM_PKTCDVD
+ 	tristate "Packet writing on CD/DVD media"
+ 	depends on !UML
+diff --git a/drivers/block/Makefile b/drivers/block/Makefile
+index 7691505..01c9724 100644
+--- a/drivers/block/Makefile
++++ b/drivers/block/Makefile
+@@ -11,7 +11,7 @@ obj-$(CONFIG_AMIGA_FLOPPY)	+= amiflop.o
+ obj-$(CONFIG_PS3_DISK)		+= ps3disk.o
+ obj-$(CONFIG_ATARI_FLOPPY)	+= ataflop.o
+ obj-$(CONFIG_AMIGA_Z2RAM)	+= z2ram.o
+-obj-$(CONFIG_BLK_DEV_RAM)	+= rd.o
++obj-$(CONFIG_BLK_DEV_RAM)	+= brd.o
+ obj-$(CONFIG_BLK_DEV_LOOP)	+= loop.o
+ obj-$(CONFIG_BLK_DEV_PS2)	+= ps2esdi.o
+ obj-$(CONFIG_BLK_DEV_XD)	+= xd.o
+diff --git a/drivers/block/brd.c b/drivers/block/brd.c
+new file mode 100644
+--- /dev/null
++++ b/drivers/block/brd.c
+@@ -0,0 +1,552 @@
++/*
++ * Ram backed block device driver.
++ *
++ * Copyright (C) 2007 Nick Piggin
++ * Copyright (C) 2007 Novell Inc.
++ *
++ * Parts derived from drivers/block/rd.c, and drivers/block/loop.c, copyright
++ * of their respective owners.
++ */
++
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/moduleparam.h>
++#include <linux/major.h>
++#include <linux/blkdev.h>
++#include <linux/bio.h>
++#include <linux/highmem.h>
++#include <linux/gfp.h>
++#include <linux/radix-tree.h>
++#include <linux/buffer_head.h> /* invalidate_bh_lrus() */
++
++#include <asm/uaccess.h>
++
++#define SECTOR_SHIFT		9
++#define PAGE_SECTORS_SHIFT	(PAGE_SHIFT - SECTOR_SHIFT)
++#define PAGE_SECTORS		(1 << PAGE_SECTORS_SHIFT)
++
++/*
++ * Each block ramdisk device has a radix_tree brd_pages of pages that stores
++ * the pages containing the block device's contents. A brd page's ->index is
++ * its offset in PAGE_SIZE units. This is similar to, but in no way connected
++ * with, the kernel's pagecache or buffer cache (which sit above our block
++ * device).
++ */
++struct brd_device {
++	int		brd_number;
++	int		brd_refcnt;
++	loff_t		brd_offset;
++	loff_t		brd_sizelimit;
++	unsigned	brd_blocksize;
++
++	struct request_queue	*brd_queue;
++	struct gendisk		*brd_disk;
++	struct list_head	brd_list;
++
++	/*
++	 * Backing store of pages and lock to protect it. This is the contents
++	 * of the block device.
++	 */
++	spinlock_t		brd_lock;
++	struct radix_tree_root	brd_pages;
++};
++
++/*
++ * Look up and return a brd's page for a given sector.
++ */
++static struct page *brd_lookup_page(struct brd_device *brd, sector_t sector)
++{
++	pgoff_t idx;
++	struct page *page;
++
++	/*
++	 * The page lifetime is protected by the fact that we have opened the
++	 * device node -- brd pages will never be deleted under us, so we
++	 * don't need any further locking or refcounting.
++	 *
++	 * This is strictly true for the radix-tree nodes as well (ie. we
++	 * don't actually need the rcu_read_lock()), however that is not a
++	 * documented feature of the radix-tree API so it is better to be
++	 * safe here (we don't have total exclusion from radix tree updates
++	 * here, only deletes).
++	 */
++	rcu_read_lock();
++	idx = sector >> PAGE_SECTORS_SHIFT; /* sector to page index */
++	page = radix_tree_lookup(&brd->brd_pages, idx);
++	rcu_read_unlock();
++
++	BUG_ON(page && page->index != idx);
++
++	return page;
++}
++
++/*
++ * Look up and return a brd's page for a given sector.
++ * If one does not exist, allocate an empty page, and insert that. Then
++ * return it.
++ */
++static struct page *brd_insert_page(struct brd_device *brd, sector_t sector)
++{
++	pgoff_t idx;
++	struct page *page;
++
++	page = brd_lookup_page(brd, sector);
++	if (page)
++		return page;
++
++	/*
++	 * Must use NOIO because we don't want to recurse back into the
++	 * block or filesystem layers from page reclaim.
++	 */
++	page = alloc_page(GFP_NOIO | __GFP_HIGHMEM | __GFP_ZERO);
++	if (!page)
++		return NULL;
++
++	if (radix_tree_preload(GFP_NOIO)) {
++		__free_page(page);
++		return NULL;
++	}
++
++	spin_lock(&brd->brd_lock);
++	idx = sector >> PAGE_SECTORS_SHIFT;
++	if (radix_tree_insert(&brd->brd_pages, idx, page)) {
++		__free_page(page);
++		page = radix_tree_lookup(&brd->brd_pages, idx);
++		BUG_ON(!page);
++		BUG_ON(page->index != idx);
++	} else
++		page->index = idx;
++	spin_unlock(&brd->brd_lock);
++
++	radix_tree_preload_end();
++
++	return page;
++}
++
++/*
++ * Free all backing store pages and radix tree. This must only be called when
++ * there are no other users of the device.
++ */
++#define FREE_BATCH 16
++static void brd_free_pages(struct brd_device *brd)
++{
++	unsigned long pos = 0;
++	struct page *pages[FREE_BATCH];
++	int nr_pages;
++
++	do {
++		int i;
++
++		nr_pages = radix_tree_gang_lookup(&brd->brd_pages,
++				(void **)pages, pos, FREE_BATCH);
++
++		for (i = 0; i < nr_pages; i++) {
++			void *ret;
++
++			BUG_ON(pages[i]->index < pos);
++			pos = pages[i]->index;
++			ret = radix_tree_delete(&brd->brd_pages, pos);
++			BUG_ON(!ret || ret != pages[i]);
++			__free_page(pages[i]);
++		}
++
++		pos++;
++
++		/*
++		 * This assumes radix_tree_gang_lookup always returns as
++		 * many pages as possible. If the radix-tree code changes,
++		 * so will this have to.
++		 */
++	} while (nr_pages == FREE_BATCH);
++}
++
++/*
++ * copy_to_brd_setup must be called before copy_to_brd. It may sleep.
++ */
++static int copy_to_brd_setup(struct brd_device *brd, sector_t sector, size_t n)
++{
++	unsigned int offset = (sector & (PAGE_SECTORS-1)) << SECTOR_SHIFT;
++	size_t copy;
++
++	copy = min_t(size_t, n, PAGE_SIZE - offset);
++	if (!brd_insert_page(brd, sector))
++		return -ENOMEM;
++	if (copy < n) {
++		sector += copy >> SECTOR_SHIFT;
++		if (!brd_insert_page(brd, sector))
++			return -ENOMEM;
++	}
++	return 0;
++}
++
++/*
++ * Copy n bytes from src to the brd starting at sector. Does not sleep.
++ */
++static void copy_to_brd(struct brd_device *brd, const void *src,
++			sector_t sector, size_t n)
++{
++	struct page *page;
++	void *dst;
++	unsigned int offset = (sector & (PAGE_SECTORS-1)) << SECTOR_SHIFT;
++	size_t copy;
++
++	copy = min_t(size_t, n, PAGE_SIZE - offset);
++	page = brd_lookup_page(brd, sector);
++	BUG_ON(!page);
++
++	dst = kmap_atomic(page, KM_USER1);
++	memcpy(dst + offset, src, copy);
++	kunmap_atomic(dst, KM_USER1);
++
++	if (copy < n) {
++		src += copy;
++		sector += copy >> SECTOR_SHIFT;
++		copy = n - copy;
++		page = brd_lookup_page(brd, sector);
++		BUG_ON(!page);
++
++		dst = kmap_atomic(page, KM_USER1);
++		memcpy(dst, src, copy);
++		kunmap_atomic(dst, KM_USER1);
++	}
++}
++
++/*
++ * Copy n bytes to dst from the brd starting at sector. Does not sleep.
++ */
++static void copy_from_brd(void *dst, struct brd_device *brd,
++			sector_t sector, size_t n)
++{
++	struct page *page;
++	void *src;
++	unsigned int offset = (sector & (PAGE_SECTORS-1)) << SECTOR_SHIFT;
++	size_t copy;
++
++	copy = min_t(size_t, n, PAGE_SIZE - offset);
++	page = brd_lookup_page(brd, sector);
++	if (page) {
++		src = kmap_atomic(page, KM_USER1);
++		memcpy(dst, src + offset, copy);
++		kunmap_atomic(src, KM_USER1);
++	} else
++		memset(dst, 0, copy);
++
++	if (copy < n) {
++		dst += copy;
++		sector += copy >> SECTOR_SHIFT;
++		copy = n - copy;
++		page = brd_lookup_page(brd, sector);
++		if (page) {
++			src = kmap_atomic(page, KM_USER1);
++			memcpy(dst, src, copy);
++			kunmap_atomic(src, KM_USER1);
++		} else
++			memset(dst, 0, copy);
++	}
++}
++
++/*
++ * Process a single bvec of a bio.
++ */
++static int brd_do_bvec(struct brd_device *brd, struct page *page,
++			unsigned int len, unsigned int off, int rw,
++			sector_t sector)
++{
++	void *mem;
++	int err = 0;
++
++	if (rw != READ) {
++		err = copy_to_brd_setup(brd, sector, len);
++		if (err)
++			goto out;
++	}
++
++	mem = kmap_atomic(page, KM_USER0);
++	if (rw == READ) {
++		copy_from_brd(mem + off, brd, sector, len);
++		flush_dcache_page(page);
++	} else {
++		flush_dcache_page(page);
++		copy_to_brd(brd, mem + off, sector, len);
++	}
++	kunmap_atomic(mem, KM_USER0);
++
++out:
++	return err;
++}
++
++static int brd_make_request(struct request_queue *q, struct bio *bio)
++{
++	struct block_device *bdev = bio->bi_bdev;
++	struct brd_device *brd = bdev->bd_disk->private_data;
++	int rw;
++	struct bio_vec *bvec;
++	sector_t sector;
++	int i;
++	int err = -EIO;
++
++	sector = bio->bi_sector;
++	if (sector + (bio->bi_size >> SECTOR_SHIFT) >
++						get_capacity(bdev->bd_disk))
++		goto out;
++
++	rw = bio_rw(bio);
++	if (rw == READA)
++		rw = READ;
++
++	bio_for_each_segment(bvec, bio, i) {
++		unsigned int len = bvec->bv_len;
++		err = brd_do_bvec(brd, bvec->bv_page, len,
++					bvec->bv_offset, rw, sector);
++		if (err)
++			break;
++		sector += len >> SECTOR_SHIFT;
++	}
++
++out:
++	bio_endio(bio, bio->bi_size, err);
++
++	return 0;
++}
++
++static int brd_ioctl(struct inode *inode, struct file *file,
++			unsigned int cmd, unsigned long arg)
++{
++	int error;
++	struct block_device *bdev = inode->i_bdev;
++	struct brd_device *brd = bdev->bd_disk->private_data;
++
++	if (cmd != BLKFLSBUF)
++		return -ENOTTY;
++
++	/*
++	 * ram device BLKFLSBUF has special semantics, we want to actually
++	 * release and destroy the ramdisk data.
++	 */
++	mutex_lock(&bdev->bd_mutex);
++	error = -EBUSY;
++	if (bdev->bd_openers <= 1) {
++		/*
++		 * Invalidate the cache first, so it isn't written
++		 * back to the device.
++		 *
++		 * Another thread might instantiate more buffercache here,
++		 * but there is not much we can do to close that race.
++		 */
++		invalidate_bh_lrus();
++		truncate_inode_pages(bdev->bd_inode->i_mapping, 0);
++		brd_free_pages(brd);
++		error = 0;
++	}
++	mutex_unlock(&bdev->bd_mutex);
++
++	return error;
++}
++
++static struct block_device_operations brd_fops = {
++	.owner =	THIS_MODULE,
++	.ioctl =	brd_ioctl,
++};
++
++/*
++ * And now the modules code and kernel interface.
++ */
++static int rd_nr;
++int rd_size = CONFIG_BLK_DEV_RAM_SIZE;
++module_param(rd_nr, int, 0);
++MODULE_PARM_DESC(rd_nr, "Maximum number of brd devices");
++module_param(rd_size, int, 0);
++MODULE_PARM_DESC(rd_size, "Size of each RAM disk in kbytes.");
++MODULE_LICENSE("GPL");
++MODULE_ALIAS_BLOCKDEV_MAJOR(RAMDISK_MAJOR);
++MODULE_ALIAS("rd");
++
++#ifndef MODULE
++/* Legacy boot options - nonmodular */
++static int __init ramdisk_size(char *str)
++{
++	rd_size = simple_strtol(str, NULL, 0);
++	return 1;
++}
++static int __init ramdisk_size2(char *str)
++{
++	return ramdisk_size(str);
++}
++__setup("ramdisk=", ramdisk_size);
++__setup("ramdisk_size=", ramdisk_size2);
++#endif
++
++/*
++ * The device scheme is derived from loop.c. Keep them in synch where possible
++ * (should share code eventually).
++ */
++static LIST_HEAD(brd_devices);
++static DEFINE_MUTEX(brd_devices_mutex);
++
++static struct brd_device *brd_alloc(int i)
++{
++	struct brd_device *brd;
++	struct gendisk *disk;
++
++	brd = kzalloc(sizeof(*brd), GFP_KERNEL);
++	if (!brd)
++		goto out;
++	brd->brd_number		= i;
++	spin_lock_init(&brd->brd_lock);
++	INIT_RADIX_TREE(&brd->brd_pages, GFP_ATOMIC);
++
++	brd->brd_queue = blk_alloc_queue(GFP_KERNEL);
++	if (!brd->brd_queue)
++		goto out_free_dev;
++	blk_queue_make_request(brd->brd_queue, brd_make_request);
++	blk_queue_ordered(brd->brd_queue, QUEUE_ORDERED_TAG, NULL);
++	blk_queue_max_sectors(brd->brd_queue, 1024);
++	blk_queue_bounce_limit(brd->brd_queue, BLK_BOUNCE_ANY);
++
++	disk = brd->brd_disk = alloc_disk(1);
++	if (!disk)
++		goto out_free_queue;
++	disk->major		= RAMDISK_MAJOR;
++	disk->first_minor	= i;
++	disk->fops		= &brd_fops;
++	disk->private_data	= brd;
++	disk->queue		= brd->brd_queue;
++	sprintf(disk->disk_name, "ram%d", i);
++	set_capacity(disk, rd_size * 2);
++
++	return brd;
++
++out_free_queue:
++	blk_cleanup_queue(brd->brd_queue);
++out_free_dev:
++	kfree(brd);
++out:
++	return NULL;
++}
++
++static void brd_free(struct brd_device *brd)
++{
++	put_disk(brd->brd_disk);
++	blk_cleanup_queue(brd->brd_queue);
++	brd_free_pages(brd);
++	kfree(brd);
++}
++
++static struct brd_device *brd_init_one(int i)
++{
++	struct brd_device *brd;
++
++	list_for_each_entry(brd, &brd_devices, brd_list) {
++		if (brd->brd_number == i)
++			goto out;
++	}
++
++	brd = brd_alloc(i);
++	if (brd) {
++		add_disk(brd->brd_disk);
++		list_add_tail(&brd->brd_list, &brd_devices);
++	}
++out:
++	return brd;
++}
++
++static void brd_del_one(struct brd_device *brd)
++{
++	list_del(&brd->brd_list);
++	del_gendisk(brd->brd_disk);
++	brd_free(brd);
++}
++
++static struct kobject *brd_probe(dev_t dev, int *part, void *data)
++{
++	struct brd_device *brd;
++	struct kobject *kobj;
++
++	mutex_lock(&brd_devices_mutex);
++	brd = brd_init_one(dev & MINORMASK);
++	kobj = brd ? get_disk(brd->brd_disk) : ERR_PTR(-ENOMEM);
++	mutex_unlock(&brd_devices_mutex);
++
++	*part = 0;
++	return kobj;
++}
++
++static int __init brd_init(void)
++{
++	int i, nr;
++	unsigned long range;
++	struct brd_device *brd, *next;
++
++	/*
++	 * brd module now has a feature to instantiate underlying device
++	 * structure on-demand, provided that there is an access dev node.
++	 * However, this will not work well with user space tool that doesn't
++	 * know about such "feature".  In order to not break any existing
++	 * tool, we do the following:
++	 *
++	 * (1) if rd_nr is specified, create that many upfront, and this
++	 *     also becomes a hard limit.
++	 * (2) if rd_nr is not specified, create 1 rd device on module
++	 *     load, user can further extend brd device by create dev node
++	 *     themselves and have kernel automatically instantiate actual
++	 *     device on-demand.
++	 */
++	if (rd_nr > 1UL << MINORBITS)
++		return -EINVAL;
++
++	if (rd_nr) {
++		nr = rd_nr;
++		range = rd_nr;
++	} else {
++		nr = CONFIG_BLK_DEV_RAM_COUNT;
++		range = 1UL << MINORBITS;
++	}
++
++	if (register_blkdev(RAMDISK_MAJOR, "ramdisk"))
++		return -EIO;
++
++	for (i = 0; i < nr; i++) {
++		brd = brd_alloc(i);
++		if (!brd)
++			goto out_free;
++		list_add_tail(&brd->brd_list, &brd_devices);
++	}
++
++	/* point of no return */
++
++	list_for_each_entry(brd, &brd_devices, brd_list)
++		add_disk(brd->brd_disk);
++
++	blk_register_region(MKDEV(RAMDISK_MAJOR, 0), range,
++				  THIS_MODULE, brd_probe, NULL, NULL);
++
++	printk(KERN_INFO "rd: module loaded\n");
++	return 0;
++
++out_free:
++	list_for_each_entry_safe(brd, next, &brd_devices, brd_list) {
++		list_del(&brd->brd_list);
++		brd_free(brd);
++	}
++
++	unregister_blkdev(RAMDISK_MAJOR, "rd");
++	return -ENOMEM;
++}
++
++static void __exit brd_exit(void)
++{
++	unsigned long range;
++	struct brd_device *brd, *next;
++
++	range = rd_nr ? rd_nr :  1UL << MINORBITS;
++
++	list_for_each_entry_safe(brd, next, &brd_devices, brd_list)
++		brd_del_one(brd);
++
++	blk_unregister_region(MKDEV(RAMDISK_MAJOR, 0), range);
++	unregister_blkdev(RAMDISK_MAJOR, "ramdisk");
++}
++
++module_init(brd_init);
++module_exit(brd_exit);
++
+diff --git a/drivers/block/rd.c b/drivers/block/rd.c
+deleted file mode 100644
+--- a/drivers/block/rd.c
++++ /dev/null
+@@ -1,541 +0,0 @@
+-/*
+- * ramdisk.c - Multiple RAM disk driver - gzip-loading version - v. 0.8 beta.
+- *
+- * (C) Chad Page, Theodore Ts'o, et. al, 1995.
+- *
+- * This RAM disk is designed to have filesystems created on it and mounted
+- * just like a regular floppy disk.
+- *
+- * It also does something suggested by Linus: use the buffer cache as the
+- * RAM disk data.  This makes it possible to dynamically allocate the RAM disk
+- * buffer - with some consequences I have to deal with as I write this.
+- *
+- * This code is based on the original ramdisk.c, written mostly by
+- * Theodore Ts'o (TYT) in 1991.  The code was largely rewritten by
+- * Chad Page to use the buffer cache to store the RAM disk data in
+- * 1995; Theodore then took over the driver again, and cleaned it up
+- * for inclusion in the mainline kernel.
+- *
+- * The original CRAMDISK code was written by Richard Lyons, and
+- * adapted by Chad Page to use the new RAM disk interface.  Theodore
+- * Ts'o rewrote it so that both the compressed RAM disk loader and the
+- * kernel decompressor uses the same inflate.c codebase.  The RAM disk
+- * loader now also loads into a dynamic (buffer cache based) RAM disk,
+- * not the old static RAM disk.  Support for the old static RAM disk has
+- * been completely removed.
+- *
+- * Loadable module support added by Tom Dyas.
+- *
+- * Further cleanups by Chad Page (page0588@sundance.sjsu.edu):
+- *	Cosmetic changes in #ifdef MODULE, code movement, etc.
+- * 	When the RAM disk module is removed, free the protected buffers
+- * 	Default RAM disk size changed to 2.88 MB
+- *
+- *  Added initrd: Werner Almesberger & Hans Lermen, Feb '96
+- *
+- * 4/25/96 : Made RAM disk size a parameter (default is now 4 MB)
+- *		- Chad Page
+- *
+- * Add support for fs images split across >1 disk, Paul Gortmaker, Mar '98
+- *
+- * Make block size and block size shift for RAM disks a global macro
+- * and set blk_size for -ENOSPC,     Werner Fink <werner@suse.de>, Apr '99
+- */
+-
+-#include <linux/string.h>
+-#include <linux/slab.h>
+-#include <asm/atomic.h>
+-#include <linux/bio.h>
+-#include <linux/module.h>
+-#include <linux/moduleparam.h>
+-#include <linux/init.h>
+-#include <linux/pagemap.h>
+-#include <linux/blkdev.h>
+-#include <linux/genhd.h>
+-#include <linux/buffer_head.h>		/* for invalidate_bdev() */
+-#include <linux/backing-dev.h>
+-#include <linux/blkpg.h>
+-#include <linux/writeback.h>
+-
+-#include <asm/uaccess.h>
+-
+-/* Various static variables go here.  Most are used only in the RAM disk code.
+- */
+-
+-static struct gendisk *rd_disks[CONFIG_BLK_DEV_RAM_COUNT];
+-static struct block_device *rd_bdev[CONFIG_BLK_DEV_RAM_COUNT];/* Protected device data */
+-static struct request_queue *rd_queue[CONFIG_BLK_DEV_RAM_COUNT];
+-
+-/*
+- * Parameters for the boot-loading of the RAM disk.  These are set by
+- * init/main.c (from arguments to the kernel command line) or from the
+- * architecture-specific setup routine (from the stored boot sector
+- * information).
+- */
+-int rd_size = CONFIG_BLK_DEV_RAM_SIZE;		/* Size of the RAM disks */
+-/*
+- * It would be very desirable to have a soft-blocksize (that in the case
+- * of the ramdisk driver is also the hardblocksize ;) of PAGE_SIZE because
+- * doing that we'll achieve a far better MM footprint. Using a rd_blocksize of
+- * BLOCK_SIZE in the worst case we'll make PAGE_SIZE/BLOCK_SIZE buffer-pages
+- * unfreeable. With a rd_blocksize of PAGE_SIZE instead we are sure that only
+- * 1 page will be protected. Depending on the size of the ramdisk you
+- * may want to change the ramdisk blocksize to achieve a better or worse MM
+- * behaviour. The default is still BLOCK_SIZE (needed by rd_load_image that
+- * supposes the filesystem in the image uses a BLOCK_SIZE blocksize).
+- */
+-static int rd_blocksize = CONFIG_BLK_DEV_RAM_BLOCKSIZE;
+-
+-/*
+- * Copyright (C) 2000 Linus Torvalds.
+- *               2000 Transmeta Corp.
+- * aops copied from ramfs.
+- */
+-
+-/*
+- * If a ramdisk page has buffers, some may be uptodate and some may be not.
+- * To bring the page uptodate we zero out the non-uptodate buffers.  The
+- * page must be locked.
+- */
+-static void make_page_uptodate(struct page *page)
+-{
+-	if (page_has_buffers(page)) {
+-		struct buffer_head *bh = page_buffers(page);
+-		struct buffer_head *head = bh;
+-
+-		do {
+-			if (!buffer_uptodate(bh)) {
+-				memset(bh->b_data, 0, bh->b_size);
+-				/*
+-				 * akpm: I'm totally undecided about this.  The
+-				 * buffer has just been magically brought "up to
+-				 * date", but nobody should want to be reading
+-				 * it anyway, because it hasn't been used for
+-				 * anything yet.  It is still in a "not read
+-				 * from disk yet" state.
+-				 *
+-				 * But non-uptodate buffers against an uptodate
+-				 * page are against the rules.  So do it anyway.
+-				 */
+-				 set_buffer_uptodate(bh);
+-			}
+-		} while ((bh = bh->b_this_page) != head);
+-	} else {
+-		memset(page_address(page), 0, PAGE_CACHE_SIZE);
+-	}
+-	flush_dcache_page(page);
+-	SetPageUptodate(page);
+-}
+-
+-static int ramdisk_readpage(struct file *file, struct page *page)
+-{
+-	if (!PageUptodate(page))
+-		make_page_uptodate(page);
+-	unlock_page(page);
+-	return 0;
+-}
+-
+-static int ramdisk_prepare_write(struct file *file, struct page *page,
+-				unsigned offset, unsigned to)
+-{
+-	if (!PageUptodate(page))
+-		make_page_uptodate(page);
+-	return 0;
+-}
+-
+-static int ramdisk_commit_write(struct file *file, struct page *page,
+-				unsigned offset, unsigned to)
+-{
+-	set_page_dirty(page);
+-	return 0;
+-}
+-
+-/*
+- * ->writepage to the blockdev's mapping has to redirty the page so that the
+- * VM doesn't go and steal it.  We return AOP_WRITEPAGE_ACTIVATE so that the VM
+- * won't try to (pointlessly) write the page again for a while.
+- *
+- * Really, these pages should not be on the LRU at all.
+- */
+-static int ramdisk_writepage(struct page *page, struct writeback_control *wbc)
+-{
+-	if (!PageUptodate(page))
+-		make_page_uptodate(page);
+-	SetPageDirty(page);
+-	if (wbc->for_reclaim)
+-		return AOP_WRITEPAGE_ACTIVATE;
+-	unlock_page(page);
+-	return 0;
+-}
+-
+-/*
+- * This is a little speedup thing: short-circuit attempts to write back the
+- * ramdisk blockdev inode to its non-existent backing store.
+- */
+-static int ramdisk_writepages(struct address_space *mapping,
+-				struct writeback_control *wbc)
+-{
+-	return 0;
+-}
+-
+-/*
+- * ramdisk blockdev pages have their own ->set_page_dirty() because we don't
+- * want them to contribute to dirty memory accounting.
+- */
+-static int ramdisk_set_page_dirty(struct page *page)
+-{
+-	if (!TestSetPageDirty(page))
+-		return 1;
+-	return 0;
+-}
+-
+-/*
+- * releasepage is called by pagevec_strip/try_to_release_page if
+- * buffers_heads_over_limit is true. Without a releasepage function
+- * try_to_free_buffers is called instead. That can unset the dirty
+- * bit of our ram disk pages, which will be eventually freed, even
+- * if the page is still in use.
+- */
+-static int ramdisk_releasepage(struct page *page, gfp_t dummy)
+-{
+-	return 0;
+-}
+-
+-static const struct address_space_operations ramdisk_aops = {
+-	.readpage	= ramdisk_readpage,
+-	.prepare_write	= ramdisk_prepare_write,
+-	.commit_write	= ramdisk_commit_write,
+-	.writepage	= ramdisk_writepage,
+-	.set_page_dirty	= ramdisk_set_page_dirty,
+-	.writepages	= ramdisk_writepages,
+-	.releasepage	= ramdisk_releasepage,
+-};
+-
+-static int rd_blkdev_pagecache_IO(int rw, struct bio_vec *vec, sector_t sector,
+-				struct address_space *mapping)
+-{
+-	pgoff_t index = sector >> (PAGE_CACHE_SHIFT - 9);
+-	unsigned int vec_offset = vec->bv_offset;
+-	int offset = (sector << 9) & ~PAGE_CACHE_MASK;
+-	int size = vec->bv_len;
+-	int err = 0;
+-
+-	do {
+-		int count;
+-		struct page *page;
+-		char *src;
+-		char *dst;
+-
+-		count = PAGE_CACHE_SIZE - offset;
+-		if (count > size)
+-			count = size;
+-		size -= count;
+-
+-		page = grab_cache_page(mapping, index);
+-		if (!page) {
+-			err = -ENOMEM;
+-			goto out;
+-		}
+-
+-		if (!PageUptodate(page))
+-			make_page_uptodate(page);
+-
+-		index++;
+-
+-		if (rw == READ) {
+-			src = kmap_atomic(page, KM_USER0) + offset;
+-			dst = kmap_atomic(vec->bv_page, KM_USER1) + vec_offset;
+-		} else {
+-			src = kmap_atomic(vec->bv_page, KM_USER0) + vec_offset;
+-			dst = kmap_atomic(page, KM_USER1) + offset;
+-		}
+-		offset = 0;
+-		vec_offset += count;
+-
+-		memcpy(dst, src, count);
+-
+-		kunmap_atomic(src, KM_USER0);
+-		kunmap_atomic(dst, KM_USER1);
+-
+-		if (rw == READ)
+-			flush_dcache_page(vec->bv_page);
+-		else
+-			set_page_dirty(page);
+-		unlock_page(page);
+-		put_page(page);
+-	} while (size);
+-
+- out:
+-	return err;
+-}
+-
+-/*
+- *  Basically, my strategy here is to set up a buffer-head which can't be
+- *  deleted, and make that my Ramdisk.  If the request is outside of the
+- *  allocated size, we must get rid of it...
+- *
+- * 19-JAN-1998  Richard Gooch <rgooch@atnf.csiro.au>  Added devfs support
+- *
+- */
+-static int rd_make_request(request_queue_t *q, struct bio *bio)
+-{
+-	struct block_device *bdev = bio->bi_bdev;
+-	struct address_space * mapping = bdev->bd_inode->i_mapping;
+-	sector_t sector = bio->bi_sector;
+-	unsigned long len = bio->bi_size >> 9;
+-	int rw = bio_data_dir(bio);
+-	struct bio_vec *bvec;
+-	int ret = 0, i;
+-
+-	if (sector + len > get_capacity(bdev->bd_disk))
+-		goto fail;
+-
+-	if (rw==READA)
+-		rw=READ;
+-
+-	bio_for_each_segment(bvec, bio, i) {
+-		ret |= rd_blkdev_pagecache_IO(rw, bvec, sector, mapping);
+-		sector += bvec->bv_len >> 9;
+-	}
+-	if (ret)
+-		goto fail;
+-
+-	bio_endio(bio, bio->bi_size, 0);
+-	return 0;
+-fail:
+-	bio_io_error(bio, bio->bi_size);
+-	return 0;
+-} 
+-
+-static int rd_ioctl(struct inode *inode, struct file *file,
+-			unsigned int cmd, unsigned long arg)
+-{
+-	int error;
+-	struct block_device *bdev = inode->i_bdev;
+-
+-	if (cmd != BLKFLSBUF)
+-		return -ENOTTY;
+-
+-	/*
+-	 * special: we want to release the ramdisk memory, it's not like with
+-	 * the other blockdevices where this ioctl only flushes away the buffer
+-	 * cache
+-	 */
+-	error = -EBUSY;
+-	mutex_lock(&bdev->bd_mutex);
+-	if (bdev->bd_openers <= 2) {
+-		truncate_inode_pages(bdev->bd_inode->i_mapping, 0);
+-		error = 0;
+-	}
+-	mutex_unlock(&bdev->bd_mutex);
+-	return error;
+-}
+-
+-/*
+- * This is the backing_dev_info for the blockdev inode itself.  It doesn't need
+- * writeback and it does not contribute to dirty memory accounting.
+- */
+-static struct backing_dev_info rd_backing_dev_info = {
+-	.ra_pages	= 0,	/* No readahead */
+-	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK | BDI_CAP_MAP_COPY,
+-	.unplug_io_fn	= default_unplug_io_fn,
+-};
+-
+-/*
+- * This is the backing_dev_info for the files which live atop the ramdisk
+- * "device".  These files do need writeback and they do contribute to dirty
+- * memory accounting.
+- */
+-static struct backing_dev_info rd_file_backing_dev_info = {
+-	.ra_pages	= 0,	/* No readahead */
+-	.capabilities	= BDI_CAP_MAP_COPY,	/* Does contribute to dirty memory */
+-	.unplug_io_fn	= default_unplug_io_fn,
+-};
+-
+-static int rd_open(struct inode *inode, struct file *filp)
+-{
+-	unsigned unit = iminor(inode);
+-
+-	if (rd_bdev[unit] == NULL) {
+-		struct block_device *bdev = inode->i_bdev;
+-		struct address_space *mapping;
+-		unsigned bsize;
+-		gfp_t gfp_mask;
+-
+-		inode = igrab(bdev->bd_inode);
+-		rd_bdev[unit] = bdev;
+-		bdev->bd_openers++;
+-		bsize = bdev_hardsect_size(bdev);
+-		bdev->bd_block_size = bsize;
+-		inode->i_blkbits = blksize_bits(bsize);
+-		inode->i_size = get_capacity(bdev->bd_disk)<<9;
+-
+-		mapping = inode->i_mapping;
+-		mapping->a_ops = &ramdisk_aops;
+-		mapping->backing_dev_info = &rd_backing_dev_info;
+-		bdev->bd_inode_backing_dev_info = &rd_file_backing_dev_info;
+-
+-		/*
+-		 * Deep badness.  rd_blkdev_pagecache_IO() needs to allocate
+-		 * pagecache pages within a request_fn.  We cannot recur back
+-		 * into the filesytem which is mounted atop the ramdisk, because
+-		 * that would deadlock on fs locks.  And we really don't want
+-		 * to reenter rd_blkdev_pagecache_IO when we're already within
+-		 * that function.
+-		 *
+-		 * So we turn off __GFP_FS and __GFP_IO.
+-		 *
+-		 * And to give this thing a hope of working, turn on __GFP_HIGH.
+-		 * Hopefully, there's enough regular memory allocation going on
+-		 * for the page allocator emergency pools to keep the ramdisk
+-		 * driver happy.
+-		 */
+-		gfp_mask = mapping_gfp_mask(mapping);
+-		gfp_mask &= ~(__GFP_FS|__GFP_IO);
+-		gfp_mask |= __GFP_HIGH;
+-		mapping_set_gfp_mask(mapping, gfp_mask);
+-	}
+-
+-	return 0;
+-}
+-
+-static struct block_device_operations rd_bd_op = {
+-	.owner =	THIS_MODULE,
+-	.open =		rd_open,
+-	.ioctl =	rd_ioctl,
+-};
+-
+-/*
+- * Before freeing the module, invalidate all of the protected buffers!
+- */
+-static void __exit rd_cleanup(void)
+-{
+-	int i;
+-
+-	for (i = 0; i < CONFIG_BLK_DEV_RAM_COUNT; i++) {
+-		struct block_device *bdev = rd_bdev[i];
+-		rd_bdev[i] = NULL;
+-		if (bdev) {
+-			invalidate_bdev(bdev);
+-			blkdev_put(bdev);
+-		}
+-		del_gendisk(rd_disks[i]);
+-		put_disk(rd_disks[i]);
+-		blk_cleanup_queue(rd_queue[i]);
+-	}
+-	unregister_blkdev(RAMDISK_MAJOR, "ramdisk");
+-
+-	bdi_destroy(&rd_file_backing_dev_info);
+-	bdi_destroy(&rd_backing_dev_info);
+-}
+-
+-/*
+- * This is the registration and initialization section of the RAM disk driver
+- */
+-static int __init rd_init(void)
+-{
+-	int i;
+-	int err;
+-
+-	err = bdi_init(&rd_backing_dev_info);
+-	if (err)
+-		goto out2;
+-
+-	err = bdi_init(&rd_file_backing_dev_info);
+-	if (err) {
+-		bdi_destroy(&rd_backing_dev_info);
+-		goto out2;
+-	}
+-
+-	err = -ENOMEM;
+-
+-	if (rd_blocksize > PAGE_SIZE || rd_blocksize < 512 ||
+-			(rd_blocksize & (rd_blocksize-1))) {
+-		printk("RAMDISK: wrong blocksize %d, reverting to defaults\n",
+-		       rd_blocksize);
+-		rd_blocksize = BLOCK_SIZE;
+-	}
+-
+-	for (i = 0; i < CONFIG_BLK_DEV_RAM_COUNT; i++) {
+-		rd_disks[i] = alloc_disk(1);
+-		if (!rd_disks[i])
+-			goto out;
+-
+-		rd_queue[i] = blk_alloc_queue(GFP_KERNEL);
+-		if (!rd_queue[i]) {
+-			put_disk(rd_disks[i]);
+-			goto out;
+-		}
+-	}
+-
+-	if (register_blkdev(RAMDISK_MAJOR, "ramdisk")) {
+-		err = -EIO;
+-		goto out;
+-	}
+-
+-	for (i = 0; i < CONFIG_BLK_DEV_RAM_COUNT; i++) {
+-		struct gendisk *disk = rd_disks[i];
+-
+-		blk_queue_make_request(rd_queue[i], &rd_make_request);
+-		blk_queue_hardsect_size(rd_queue[i], rd_blocksize);
+-
+-		/* rd_size is given in kB */
+-		disk->major = RAMDISK_MAJOR;
+-		disk->first_minor = i;
+-		disk->fops = &rd_bd_op;
+-		disk->queue = rd_queue[i];
+-		disk->flags |= GENHD_FL_SUPPRESS_PARTITION_INFO;
+-		sprintf(disk->disk_name, "ram%d", i);
+-		set_capacity(disk, rd_size * 2);
+-		add_disk(rd_disks[i]);
+-	}
+-
+-	/* rd_size is given in kB */
+-	printk("RAMDISK driver initialized: "
+-		"%d RAM disks of %dK size %d blocksize\n",
+-		CONFIG_BLK_DEV_RAM_COUNT, rd_size, rd_blocksize);
+-
+-	return 0;
+-out:
+-	while (i--) {
+-		put_disk(rd_disks[i]);
+-		blk_cleanup_queue(rd_queue[i]);
+-	}
+-	bdi_destroy(&rd_backing_dev_info);
+-	bdi_destroy(&rd_file_backing_dev_info);
+-out2:
+-	return err;
+-}
+-
+-module_init(rd_init);
+-module_exit(rd_cleanup);
+-
+-/* options - nonmodular */
+-#ifndef MODULE
+-static int __init ramdisk_size(char *str)
+-{
+-	rd_size = simple_strtol(str,NULL,0);
+-	return 1;
+-}
+-static int __init ramdisk_size2(char *str)	/* kludge */
+-{
+-	return ramdisk_size(str);
+-}
+-static int __init ramdisk_blocksize(char *str)
+-{
+-	rd_blocksize = simple_strtol(str,NULL,0);
+-	return 1;
+-}
+-__setup("ramdisk=", ramdisk_size);
+-__setup("ramdisk_size=", ramdisk_size2);
+-__setup("ramdisk_blocksize=", ramdisk_blocksize);
+-#endif
+-
+-/* options - modular */
+-module_param(rd_size, int, 0);
+-MODULE_PARM_DESC(rd_size, "Size of each RAM disk in kbytes.");
+-module_param(rd_blocksize, int, 0);
+-MODULE_PARM_DESC(rd_blocksize, "Blocksize of each RAM disk in bytes.");
+-MODULE_ALIAS_BLOCKDEV_MAJOR(RAMDISK_MAJOR);
+-
+-MODULE_LICENSE("GPL");
+diff --git a/fs/buffer.c b/fs/buffer.c
+index 826baf4..11b002e 100644
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -1436,6 +1436,7 @@ void invalidate_bh_lrus(void)
+ {
+ 	on_each_cpu(invalidate_bh_lru, NULL, 1, 1);
+ }
++EXPORT_SYMBOL_GPL(invalidate_bh_lrus);
+ 
+ void set_bh_page(struct buffer_head *bh,
+ 		struct page *page, unsigned long offset)
+-- 
+1.7.4.4

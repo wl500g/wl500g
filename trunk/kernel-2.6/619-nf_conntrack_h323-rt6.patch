@@ -1,0 +1,137 @@
+From 1841a4c7ae106b7a3e2521db55f4d8bb8a0988d5
+From: Patrick McHardy 
+Date: Wed, 5 Dec 2007 01:22:05 -0800
+Subject: [PATCH] [NETFILTER]: nf_ct_h323: remove ipv6 module dependency
+
+nf_conntrack_h323 needs ip6_route_output for the call forwarding filter.
+Add a ->route function to nf_afinfo and use that to avoid pulling in the
+ipv6 module.
+
+Fix the #ifdef for the IPv6 code while I'm at it - the IPv6 support is
+only needed when IPv6 conntrack is enabled.
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/netfilter.h              |    2 ++
+ net/ipv4/netfilter.c                   |    6 ++++++
+ net/ipv6/netfilter.c                   |    7 +++++++
+ net/netfilter/nf_conntrack_h323_main.c |   19 ++++++++++++-------
+ 4 files changed, 27 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index f42e436..9bfc7d4 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -298,10 +298,12 @@ extern void nf_invalidate_cache(int pf);
+    Returns true or false. */
+ extern int skb_make_writable(struct sk_buff *skb, unsigned int writable_len);
+ 
++struct flowi;
+ struct nf_afinfo {
+ 	unsigned short	family;
+ 	__sum16		(*checksum)(struct sk_buff *skb, unsigned int hook,
+ 				    unsigned int dataoff, u_int8_t protocol);
++	int		(*route)(struct dst_entry **dst, struct flowi *fl);
+ 	void		(*saveroute)(const struct sk_buff *skb,
+ 				     struct nf_info *info);
+ 	int		(*reroute)(struct sk_buff *skb,
+diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
+index d902246..599d448 100644
+--- a/net/ipv4/netfilter.c
++++ b/net/ipv4/netfilter.c
+@@ -182,9 +182,15 @@ __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
+ 
+ EXPORT_SYMBOL(nf_ip_checksum);
+ 
++static int nf_ip_route(struct dst_entry **dst, struct flowi *fl)
++{
++	return ip_route_output_key((struct rtable **)dst, fl);
++}
++
+ static struct nf_afinfo nf_ip_afinfo = {
+ 	.family		= AF_INET,
+ 	.checksum	= nf_ip_checksum,
++	.route		= nf_ip_route,
+ 	.saveroute	= nf_ip_saveroute,
+ 	.reroute	= nf_ip_reroute,
+ 	.route_key_size	= sizeof(struct ip_rt_info),
+diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
+index 175e19f..281f732 100644
+--- a/net/ipv6/netfilter.c
++++ b/net/ipv6/netfilter.c
+@@ -81,6 +81,12 @@ static int nf_ip6_reroute(struct sk_buff *skb, const struct nf_info *info)
+ 	return 0;
+ }
+ 
++static int nf_ip6_route(struct dst_entry **dst, struct flowi *fl)
++{
++	*dst = ip6_route_output(NULL, fl);
++	return (*dst)->error;
++}
++
+ __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+ 			     unsigned int dataoff, u_int8_t protocol)
+ {
+@@ -118,6 +124,7 @@ EXPORT_SYMBOL(nf_ip6_checksum);
+ static struct nf_afinfo nf_ip6_afinfo = {
+ 	.family		= AF_INET6,
+ 	.checksum	= nf_ip6_checksum,
++	.route		= nf_ip6_route,
+ 	.saveroute	= nf_ip6_saveroute,
+ 	.reroute	= nf_ip6_reroute,
+ 	.route_key_size	= sizeof(struct ip6_rt_info),
+diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
+index f23fd95..c550257 100644
+--- a/net/netfilter/nf_conntrack_h323_main.c
++++ b/net/netfilter/nf_conntrack_h323_main.c
+@@ -708,9 +708,15 @@ static int callforward_do_filter(union nf_conntrack_address *src,
+ 				 union nf_conntrack_address *dst,
+ 				 int family)
+ {
++	struct nf_afinfo *afinfo;
+ 	struct flowi fl1, fl2;
+ 	int ret = 0;
+ 
++	/* rcu_read_lock()ed by nf_hook_slow() */
++	afinfo = nf_get_afinfo(family);
++	if (!afinfo)
++		return 0;
++
+ 	memset(&fl1, 0, sizeof(fl1));
+ 	memset(&fl2, 0, sizeof(fl2));
+ 
+@@ -720,8 +726,8 @@ static int callforward_do_filter(union nf_conntrack_address *src,
+ 
+ 		fl1.fl4_dst = src->ip;
+ 		fl2.fl4_dst = dst->ip;
+-		if (ip_route_output_key(&rt1, &fl1) == 0) {
+-			if (ip_route_output_key(&rt2, &fl2) == 0) {
++		if (!afinfo->route((struct dst_entry **)&rt1, &fl1)) {
++			if (!afinfo->route((struct dst_entry **)&rt2, &fl2)) {
+ 				if (rt1->rt_gateway == rt2->rt_gateway &&
+ 				    rt1->u.dst.dev  == rt2->u.dst.dev)
+ 					ret = 1;
+@@ -731,16 +737,15 @@ static int callforward_do_filter(union nf_conntrack_address *src,
+ 		}
+ 		break;
+ 	}
+-#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
++#if defined(CONFIG_NF_CONNTRACK_IPV6) || \
++    defined(CONFIG_NF_CONNTRACK_IPV6_MODULE)
+ 	case AF_INET6: {
+ 		struct rt6_info *rt1, *rt2;
+ 
+ 		memcpy(&fl1.fl6_dst, src, sizeof(fl1.fl6_dst));
+ 		memcpy(&fl2.fl6_dst, dst, sizeof(fl2.fl6_dst));
+-		rt1 = (struct rt6_info *)ip6_route_output(NULL, &fl1);
+-		if (rt1) {
+-			rt2 = (struct rt6_info *)ip6_route_output(NULL, &fl2);
+-			if (rt2) {
++		if (!afinfo->route((struct dst_entry **)&rt1, &fl1)) {
++			if (!afinfo->route((struct dst_entry **)&rt2, &fl2)) {
+ 				if (!memcmp(&rt1->rt6i_gateway, &rt2->rt6i_gateway,
+ 					    sizeof(rt1->rt6i_gateway)) &&
+ 				    rt1->u.dst.dev == rt2->u.dst.dev)
+-- 
+1.7.2.3

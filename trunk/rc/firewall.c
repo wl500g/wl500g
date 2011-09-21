@@ -24,13 +24,11 @@
 
 #include <bcmnvram.h>
 #include <shutils.h>
-#include <rc.h>
 #include <netconf.h>
 #include <nvparse.h>
+#include "rc.h"
 
 #ifndef ASUS_EXT
-
-extern void g_buf_init();
 
 /* Add filter to specified table */
 static void
@@ -72,7 +70,6 @@ start_firewall(void)
 {
 	DIR *dir;
 	struct dirent *file;
-	FILE *fp;
 	char name[NAME_MAX];
 	netconf_filter_t filter;
 	netconf_app_t app;
@@ -90,12 +87,8 @@ start_firewall(void)
 		if (strncmp(file->d_name, ".", NAME_MAX) != 0 &&
 		    strncmp(file->d_name, "..", NAME_MAX) != 0) {
 			sprintf(name, "/proc/sys/net/ipv4/conf/%s/rp_filter", file->d_name);
-			if (!(fp = fopen(name, "r+"))) {
-				perror(name);
+			if (!(fputs_ex(name, "1")))
 				break;
-			}
-			fputc('1', fp);
-			fclose(fp);
 		}
 	}
 	if (dir)
@@ -121,20 +114,6 @@ start_firewall(void)
 	/*
 	 * Forward drops
 	 */
-
-	/* Client filters */
-	for (i = 0; i < MAX_NVPARSE; i++) {
-		netconf_filter_t start, end;
-
-		if (get_filter_client(i, &start, &end) && !(start.match.flags & NETCONF_DISABLED)) {
-			while (ntohl(start.match.src.ipaddr.s_addr) <= ntohl(end.match.src.ipaddr.s_addr)) {
-				/* Override target */
-				start.target = log_drop;
-				add_filter(&start, NETCONF_FORWARD);
-				start.match.src.ipaddr.s_addr = htonl(ntohl(start.match.src.ipaddr.s_addr) + 1);
-			}
-		}
-	}
 
 	/* Filter by MAC address */
 	if (!nvram_match("filter_macmode", "disabled")) {
@@ -170,11 +149,9 @@ start_firewall(void)
 		}
 
 		// LAN/WAN filter		
-		g_buf_init();
-
 		num = atoi(nvram_safe_get("macfilter_num_x"));
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{	
 			if (ether_atoe(mac_conv("macfilter_list_x", i, var), filter.match.mac.octet))
 			{
@@ -219,11 +196,7 @@ start_firewall(void)
 	 */
 
 	/* Enable IP masquerading */
-	if ((fp = fopen("/proc/sys/net/ipv4/ip_forward", "r+"))) {
-		fputc('1', fp);
-		fclose(fp);
-	} else
-		perror("/proc/sys/net/ipv4/ip_forward");
+	fputs_ex("/proc/sys/net/ipv4/ip_forward", "1");
 
 	/* Application specific port forwards */
 	for (i = 0; i < MAX_NVPARSE; i++) {
@@ -337,4 +310,4 @@ start_firewall2(char *wan_ifname)
 	return 0;
 }
 
-#endif
+#endif /* ASUS_EXT */

@@ -12,7 +12,7 @@
 # $Id$
 #
 
-CFLAGS	+= -I. -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include -Wall $(EXTRACFLAGS)
+CFLAGS	+= -I$(TOP)/shared -I$(TOP)/iptables/include -I$(SRCBASE)/include -isystem$(LINUXDIR)/include -Wall $(EXTRACFLAGS) $(GLOBAL_OPTIONS)
 #CFLAGS	+= -g -DDEBUG
 CFLAGS	+= -fPIC -s -O2 -DWEBSTRFILTER
 LDFLAGS += -L. -L$(TOP)/iptables/libiptc
@@ -31,3 +31,5 @@ libnetconf.so: netconf_linux.o
 
 netconf: main.o libnetconf.so
 	$(CC) -o $@ $< $(LDFLAGS) -lnetconf
+
+netconf_linux.o: netconf_linux.c netconf_linux.h $(TOP)/shared/netconf.h

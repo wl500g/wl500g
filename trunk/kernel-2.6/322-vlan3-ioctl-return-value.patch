@@ -1,0 +1,40 @@
+From 3f5f4346b6d3c8bc33780a941da2473c4be2c989 Mon Sep 17 00:00:00 2001
+From: Andrew Morton <akpm@linux-foundation.org>
+Date: Tue, 24 Jul 2007 15:37:11 -0700
+Subject: [PATCH] [8021Q]: vlan_ioctl_handler: fix return value
+
+net/8021q/vlan.c: In function 'vlan_ioctl_handler':
+net/8021q/vlan.c:700: warning: 'err' may be used uninitialized in this function
+
+The warning is incorrect, but from my reading this ioctl will return -EINVAL
+on success.
+
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/8021q/vlan.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/8021q/vlan.c b/net/8021q/vlan.c
+index cda936b..1583c5e 100644
+--- a/net/8021q/vlan.c
++++ b/net/8021q/vlan.c
+@@ -810,6 +810,7 @@ static int vlan_ioctl_handler(void __user *arg)
+ 		err = -EINVAL;
+ 		break;
+ 	case GET_VLAN_REALDEV_NAME_CMD:
++		err = 0;
+ 		vlan_dev_get_realdev_name(dev, args.u.device2);
+ 		if (copy_to_user(arg, &args,
+ 				 sizeof(struct vlan_ioctl_args))) {
+@@ -818,6 +819,7 @@ static int vlan_ioctl_handler(void __user *arg)
+ 		break;
+ 
+ 	case GET_VLAN_VID_CMD:
++		err = 0;
+ 		vlan_dev_get_vid(dev, &vid);
+ 		args.u.VID = vid;
+ 		if (copy_to_user(arg, &args,
+-- 
+1.7.4.4
+

@@ -1,0 +1,52 @@
+From d99c4f6b13b3149bc83703ab1493beaeaaaf8a2d
+From: Paul E. McKenney
+Date: Wed, 6 Feb 2008 01:37:25 -0800
+Subject: [PATCH] Remove rcu_assign_pointer() penalty for NULL pointers
+
+The rcu_assign_pointer() primitive currently unconditionally executes a
+memory barrier, even when a NULL pointer is being assigned.  This has lead
+some to avoid using rcu_assign_pointer() for NULL pointers, which loses the
+self-documenting advantages of rcu_assign_pointer() This patch uses
+__builtin_const_p() to omit needless memory barriers for NULL-pointer
+assignments at compile time with no runtime penalty, as discussed in the
+following thread:
+
+	http://www.mail-archive.com/netdev@vger.kernel.org/msg54852.html
+
+Tested on x86_64 and ppc64, also compiled the four cases (NULL/non-NULL
+and const/non-const) with gcc version 4.1.2, and hand-checked the
+assembly output.
+
+Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/rcupdate.h |   11 +++++++----
+ 1 files changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index d32c14d..37a642c 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -174,10 +174,13 @@ struct rcu_head {
+  * code.
+  */
+ 
+-#define rcu_assign_pointer(p, v)	({ \
+-						smp_wmb(); \
+-						(p) = (v); \
+-					})
++#define rcu_assign_pointer(p, v) \
++	({ \
++		if (!__builtin_constant_p(v) || \
++		    ((v) != NULL)) \
++			smp_wmb(); \
++		(p) = (v); \
++	})
+ 
+ /**
+  * synchronize_sched - block until all CPUs have exited any non-preemptive
+-- 
+1.7.4.4
+

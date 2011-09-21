@@ -1,0 +1,152 @@
+From 0c266898b42fe4e4e2f9edfc9d3474c10f93aa6a
+From: Satoru SATOH
+Date: Mon, 4 May 2009 11:11:01 -0700
+Subject: [PATCH] tcp: Fix tcp_prequeue() to get correct rto_min value
+
+tcp_prequeue() refers to the constant value (TCP_RTO_MIN) regardless of
+the actual value might be tuned. The following patches fix this and make
+tcp_prequeue get the actual value returns from tcp_rto_min().
+
+Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 488faa2ae32c2f8b1ffda5c7fae5eb7c979acc15
+From: Satoru SATOH
+Date: Sun, 16 Dec 2007 14:00:19 -0800
+Subject: [PATCH] [IPV4]: Make tcp_input_metrics() get minimum RTO via tcp_rto_min()
+
+tcp_input_metrics() refers to the built-time constant TCP_RTO_MIN
+regardless of configured minimum RTO with iproute2.
+
+Signed-off-by: Satoru SATOH <satoru.satoh@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 5c127c58ae9bf196d787815b1bd6b0aec5aee816
+From: David S. Miller
+Date: Fri, 31 Aug 2007 14:39:44 -0700
+Subject: [PATCH] [TCP]: 'dst' can be NULL in tcp_rto_min()
+
+Reported by Rick Jones.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 05bb1fad1cde025a864a90cfeb98dcbefe78a44a
+From: David S. Miller
+Date: Thu, 30 Aug 2007 22:10:28 -0700
+Subject: [PATCH] [TCP]: Allow minimum RTO to be configurable via routing metrics.
+
+Cell phone networks do link layer retransmissions and other
+things that cause unnecessary timeout retransmits.  So allow
+the minimum RTO to be inflated per-route to deal with this.
+
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index c91476c..dff3192 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -351,6 +351,8 @@ enum
+ #define RTAX_INITCWND RTAX_INITCWND
+ 	RTAX_FEATURES,
+ #define RTAX_FEATURES RTAX_FEATURES
++	RTAX_RTO_MIN,
++#define RTAX_RTO_MIN RTAX_RTO_MIN
+ 	__RTAX_MAX
+ };
+ 
+diff -uBp a/include/net/dst.h b/include/net/dst.h
+--- a/include/net/dst.h
++++ b/include/net/dst.h
+@@ -124,6 +124,18 @@ static inline u32 dst_mtu(const struct d
+ 	return mtu;
+ }
+ 
++/* RTT metrics are stored in milliseconds for user ABI, but used as jiffies */
++static inline unsigned long dst_metric_rtt(const struct dst_entry *dst, int metric)
++{
++	return msecs_to_jiffies(dst_metric(dst, metric));
++}
++
++static inline void set_dst_metric_rtt(struct dst_entry *dst, int metric,
++				      unsigned long rtt)
++{
++	dst->metrics[metric-1] = jiffies_to_msecs(rtt);
++}
++
+ static inline u32
+ dst_allfrag(const struct dst_entry *dst)
+ {
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 1b94b9b..646dbe3 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -41,6 +41,7 @@
+ #include <net/snmp.h>
+ #include <net/ip.h>
+ #include <net/tcp_states.h>
++#include <net/dst.h>
+ 
+ #include <linux/seq_file.h>
+ 
+@@ -530,6 +531,17 @@ static inline void tcp_fast_path_check(struct sock *sk)
+ 		tcp_fast_path_on(tp);
+ }
+ 
++/* Compute the actual rto_min value */
++static inline u32 tcp_rto_min(struct sock *sk)
++{
++	struct dst_entry *dst = __sk_dst_get(sk);
++	u32 rto_min = TCP_RTO_MIN;
++
++	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
++		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
++	return rto_min;
++}
++
+ /* Compute the actual receive window we are currently advertising.
+  * Rcv_nxt can be after the window if our peer push more data
+  * than the offered window.
+@@ -895,7 +907,7 @@ static inline int tcp_prequeue(struct sock *sk, struct sk_buff *skb)
+ 			wake_up_interruptible(sk->sk_sleep);
+ 			if (!inet_csk_ack_scheduled(sk))
+ 				inet_csk_reset_xmit_timer(sk, ICSK_TIME_DACK,
+-						          (3 * TCP_RTO_MIN) / 4,
++						          (3 * tcp_rto_min(sk)) / 4,
+ 							  TCP_RTO_MAX);
+ 		}
+ 		return 1;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 9785df3..1ee7212 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -616,13 +626,13 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)
+ 			if (tp->mdev_max < tp->rttvar)
+ 				tp->rttvar -= (tp->rttvar-tp->mdev_max)>>2;
+ 			tp->rtt_seq = tp->snd_nxt;
+-			tp->mdev_max = TCP_RTO_MIN;
++			tp->mdev_max = tcp_rto_min(sk);
+ 		}
+ 	} else {
+ 		/* no previous measure. */
+ 		tp->srtt = m<<3;	/* take the measured time to be rtt */
+ 		tp->mdev = m<<1;	/* make sure rto = 3*rtt */
+-		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
++		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+ 		tp->rtt_seq = tp->snd_nxt;
+ 	}
+ }
+@@ -923,7 +923,7 @@ static void tcp_init_metrics(struct sock *sk)
+ 	}
+ 	if (dst_metric(dst, RTAX_RTTVAR) > tp->mdev) {
+ 		tp->mdev = dst_metric(dst, RTAX_RTTVAR);
+-		tp->mdev_max = tp->rttvar = max(tp->mdev, TCP_RTO_MIN);
++		tp->mdev_max = tp->rttvar = max(tp->mdev, tcp_rto_min(sk));
+ 	}
+ 	tcp_set_rto(sk);
+ 	tcp_bound_rto(sk);
+-- 
+1.7.1
