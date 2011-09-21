@@ -66,7 +66,10 @@ static const struct
   {ZEBRA_ROUTE_OSPF,    110},
   {ZEBRA_ROUTE_OSPF6,   110},
   {ZEBRA_ROUTE_ISIS,    115},
-  {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */}
+  {ZEBRA_ROUTE_BGP,      20  /* IBGP is 200. */},
+  {ZEBRA_ROUTE_HSLS,      0}, 
+  {ZEBRA_ROUTE_OLSR,      0}, 
+  {ZEBRA_ROUTE_BATMAN,    0}
 };
 
 /* Vector for routing table.  */
@@ -1229,6 +1232,8 @@ static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
   [ZEBRA_ROUTE_ISIS]    = 2,
   [ZEBRA_ROUTE_BGP]     = 3,
   [ZEBRA_ROUTE_HSLS]    = 4,
+  [ZEBRA_ROUTE_OLSR]    = 4,
+  [ZEBRA_ROUTE_BATMAN]  = 4,
 };
 
 /* Look into the RN and queue it into one or more priority queues,

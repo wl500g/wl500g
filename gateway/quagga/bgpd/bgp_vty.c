@@ -8399,8 +8399,14 @@ bgp_str2route_type (int afi, const char *str)
 	return ZEBRA_ROUTE_STATIC;
       else if (strncmp (str, "r", 1) == 0)
 	return ZEBRA_ROUTE_RIP;
-      else if (strncmp (str, "o", 1) == 0)
+      else if (strncmp (str, "os", 2) == 0)
 	return ZEBRA_ROUTE_OSPF;
+      else if (strncmp (str, "h", 1) == 0)
+	return ZEBRA_ROUTE_HSLS;
+      else if (strncmp (str, "ol", 2) == 0)
+	return ZEBRA_ROUTE_OLSR;
+      else if (strncmp (str, "b", 1) == 0)
+	return ZEBRA_ROUTE_BATMAN;
     }
   if (afi == AFI_IP6)
     {
@@ -8412,21 +8418,30 @@ bgp_str2route_type (int afi, const char *str)
 	return ZEBRA_ROUTE_STATIC;
       else if (strncmp (str, "r", 1) == 0)
 	return ZEBRA_ROUTE_RIPNG;
-      else if (strncmp (str, "o", 1) == 0)
+      else if (strncmp (str, "os", 2) == 0)
 	return ZEBRA_ROUTE_OSPF6;
+      else if (strncmp (str, "h", 1) == 0)
+	return ZEBRA_ROUTE_HSLS;
+      else if (strncmp (str, "ol", 2) == 0)
+	return ZEBRA_ROUTE_OLSR;
+      else if (strncmp (str, "b", 1) == 0)
+	return ZEBRA_ROUTE_BATMAN;
     }
   return 0;
 }
 
 DEFUN (bgp_redistribute_ipv4,
        bgp_redistribute_ipv4_cmd,
-       "redistribute (connected|kernel|ospf|rip|static)",
+       "redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman)",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
-       "Static routes\n")
+       "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n")
 {
   int type;
 
@@ -8441,13 +8456,16 @@ DEFUN (bgp_redistribute_ipv4,
 
 DEFUN (bgp_redistribute_ipv4_rmap,
        bgp_redistribute_ipv4_rmap_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) route-map WORD",
+       "redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -8466,13 +8484,16 @@ DEFUN (bgp_redistribute_ipv4_rmap,
 
 DEFUN (bgp_redistribute_ipv4_metric,
        bgp_redistribute_ipv4_metric_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295>",
+       "redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -8493,13 +8514,16 @@ DEFUN (bgp_redistribute_ipv4_metric,
 
 DEFUN (bgp_redistribute_ipv4_rmap_metric,
        bgp_redistribute_ipv4_rmap_metric_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) route-map WORD metric <0-4294967295>",
+       "redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8523,13 +8547,16 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv4_metric_rmap,
        bgp_redistribute_ipv4_metric_rmap_cmd,
-       "redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295> route-map WORD",
+       "redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8553,14 +8580,17 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv4,
        no_bgp_redistribute_ipv4_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static)",
+       "no redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman)",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
-       "Static routes\n")
+       "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n")
 {
   int type;
 
@@ -8576,7 +8606,7 @@ DEFUN (no_bgp_redistribute_ipv4,
 
 DEFUN (no_bgp_redistribute_ipv4_rmap,
        no_bgp_redistribute_ipv4_rmap_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) route-map WORD",
+       "no redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8584,6 +8614,9 @@ DEFUN (no_bgp_redistribute_ipv4_rmap,
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -8602,7 +8635,7 @@ DEFUN (no_bgp_redistribute_ipv4_rmap,
 
 DEFUN (no_bgp_redistribute_ipv4_metric,
        no_bgp_redistribute_ipv4_metric_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295>",
+       "no redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8610,6 +8643,9 @@ DEFUN (no_bgp_redistribute_ipv4_metric,
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -8628,7 +8664,7 @@ DEFUN (no_bgp_redistribute_ipv4_metric,
 
 DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
        no_bgp_redistribute_ipv4_rmap_metric_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) route-map WORD metric <0-4294967295>",
+       "no redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8636,6 +8672,9 @@ DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8657,7 +8696,7 @@ DEFUN (no_bgp_redistribute_ipv4_rmap_metric,
 
 ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
        no_bgp_redistribute_ipv4_metric_rmap_cmd,
-       "no redistribute (connected|kernel|ospf|rip|static) metric <0-4294967295> route-map WORD",
+       "no redistribute (connected|kernel|ospf|rip|static|hsls|olsr|batman) metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8665,6 +8704,9 @@ ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
        "Open Shurtest Path First (OSPF)\n"
        "Routing Information Protocol (RIP)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8673,13 +8715,16 @@ ALIAS (no_bgp_redistribute_ipv4_rmap_metric,
 #ifdef HAVE_IPV6
 DEFUN (bgp_redistribute_ipv6,
        bgp_redistribute_ipv6_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static)",
+       "redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman)",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
-       "Static routes\n")
+       "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n")
 {
   int type;
 
@@ -8695,13 +8740,16 @@ DEFUN (bgp_redistribute_ipv6,
 
 DEFUN (bgp_redistribute_ipv6_rmap,
        bgp_redistribute_ipv6_rmap_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) route-map WORD",
+       "redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -8720,13 +8768,16 @@ DEFUN (bgp_redistribute_ipv6_rmap,
 
 DEFUN (bgp_redistribute_ipv6_metric,
        bgp_redistribute_ipv6_metric_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295>",
+       "redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -8747,13 +8798,16 @@ DEFUN (bgp_redistribute_ipv6_metric,
 
 DEFUN (bgp_redistribute_ipv6_rmap_metric,
        bgp_redistribute_ipv6_rmap_metric_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) route-map WORD metric <0-4294967295>",
+       "redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) route-map WORD metric <0-4294967295>",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8777,13 +8831,16 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
 
 DEFUN (bgp_redistribute_ipv6_metric_rmap,
        bgp_redistribute_ipv6_metric_rmap_cmd,
-       "redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295> route-map WORD",
+       "redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) metric <0-4294967295> route-map WORD",
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
@@ -8807,14 +8864,17 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6,
        no_bgp_redistribute_ipv6_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static)",
+       "no redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman)",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
        "Kernel routes\n"
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
-       "Static routes\n")
+       "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n")
 {
   int type;
 
@@ -8830,7 +8890,7 @@ DEFUN (no_bgp_redistribute_ipv6,
 
 DEFUN (no_bgp_redistribute_ipv6_rmap,
        no_bgp_redistribute_ipv6_rmap_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) route-map WORD",
+       "no redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8838,6 +8898,9 @@ DEFUN (no_bgp_redistribute_ipv6_rmap,
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -8856,7 +8919,7 @@ DEFUN (no_bgp_redistribute_ipv6_rmap,
 
 DEFUN (no_bgp_redistribute_ipv6_metric,
        no_bgp_redistribute_ipv6_metric_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295>",
+       "no redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8864,6 +8927,9 @@ DEFUN (no_bgp_redistribute_ipv6_metric,
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n")
 {
@@ -8882,7 +8948,7 @@ DEFUN (no_bgp_redistribute_ipv6_metric,
 
 DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
        no_bgp_redistribute_ipv6_rmap_metric_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) route-map WORD metric <0-4294967295>",
+       "no redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) route-map WORD metric <0-4294967295>",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8890,6 +8956,9 @@ DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Route map reference\n"
        "Pointer to route-map entries\n"
        "Metric for redistributed routes\n"
@@ -8911,7 +8980,7 @@ DEFUN (no_bgp_redistribute_ipv6_rmap_metric,
 
 ALIAS (no_bgp_redistribute_ipv6_rmap_metric,
        no_bgp_redistribute_ipv6_metric_rmap_cmd,
-       "no redistribute (connected|kernel|ospf6|ripng|static) metric <0-4294967295> route-map WORD",
+       "no redistribute (connected|kernel|ospf6|ripng|static|hsls|olsr|batman) metric <0-4294967295> route-map WORD",
        NO_STR
        "Redistribute information from another routing protocol\n"
        "Connected\n"
@@ -8919,6 +8988,9 @@ ALIAS (no_bgp_redistribute_ipv6_rmap_metric,
        "Open Shurtest Path First (OSPFv3)\n"
        "Routing Information Protocol (RIPng)\n"
        "Static routes\n"
+       "Hazy-Sighted Link State Protocol (HSLS)\n"
+       "Optimized Link State Routing (OLSR)\n"
+       "Better Approach to Mobile Ad-Hoc Networking (BATMAN)\n"
        "Metric for redistributed routes\n"
        "Default metric\n"
        "Route map reference\n"
