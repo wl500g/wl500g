@@ -1,6 +1,7 @@
 TCOBJ= tc.o tc_qdisc.o tc_class.o tc_filter.o tc_util.o \
-       tc_monitor.o m_police.o m_estimator.o m_action.o \
-       m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
+       tc_monitor.o m_police.o m_estimator.o m_action.o 
+
+#       m_ematch.o emp_ematch.yacc.o emp_ematch.lex.o
 
 include ../Config
 
@@ -11,33 +12,35 @@ TCMODULES += q_red.o
 TCMODULES += q_prio.o
 TCMODULES += q_tbf.o
 TCMODULES += q_cbq.o
-TCMODULES += q_rr.o
-TCMODULES += q_netem.o
+#TCMODULES += q_rr.o
+#TCMODULES += q_netem.o
 TCMODULES += f_rsvp.o
 TCMODULES += f_u32.o
 TCMODULES += f_route.o
 TCMODULES += f_fw.o
-TCMODULES += f_basic.o
-TCMODULES += f_flow.o
+#TCMODULES += f_basic.o
+#TCMODULES += f_flow.o
+ifeq ($(TC_CONFIG_DIFFSERV),y)
 TCMODULES += q_dsmark.o
 TCMODULES += q_gred.o
 TCMODULES += f_tcindex.o
 TCMODULES += q_ingress.o
-TCMODULES += q_hfsc.o
+endif
+#TCMODULES += q_hfsc.o
 TCMODULES += q_htb.o
 TCMODULES += m_gact.o
-TCMODULES += m_mirred.o
-TCMODULES += m_ipt.o
-TCMODULES += m_nat.o
+#TCMODULES += m_mirred.o
+#TCMODULES += m_ipt.o
+#TCMODULES += m_nat.o
 TCMODULES += m_pedit.o
 TCMODULES += p_ip.o
 TCMODULES += p_icmp.o
 TCMODULES += p_tcp.o
 TCMODULES += p_udp.o
-TCMODULES += em_nbyte.o
-TCMODULES += em_cmp.o
-TCMODULES += em_u32.o
-TCMODULES += em_meta.o
+#TCMODULES += em_nbyte.o
+#TCMODULES += em_cmp.o
+#TCMODULES += em_u32.o
+#TCMODULES += em_meta.o
 
 TCOBJ += $(TCMODULES)
 

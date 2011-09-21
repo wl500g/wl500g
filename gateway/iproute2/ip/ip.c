@@ -76,7 +76,7 @@ static const struct cmd {
 	{ "tunnel",	do_iptunnel },
 	{ "tunl",	do_iptunnel },
 	{ "monitor",	do_ipmonitor },
-	{ "xfrm",	do_xfrm },
+//	{ "xfrm",	do_xfrm },
 	{ "mroute",	do_multiroute },
 	{ "help",	do_help },
 	{ 0 }
