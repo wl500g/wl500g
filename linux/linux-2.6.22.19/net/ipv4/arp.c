@@ -234,14 +234,14 @@ static int arp_constructor(struct neighbour *neigh)
 	struct in_device *in_dev;
 	struct neigh_parms *parms;
 
-	neigh->type = inet_addr_type(addr);
-
 	rcu_read_lock();
 	in_dev = __in_dev_get_rcu(dev);
 	if (in_dev == NULL) {
 		rcu_read_unlock();
 		return -EINVAL;
 	}
+
+	neigh->type = inet_addr_type(addr);
 
 	parms = in_dev->arp_parms;
 	__neigh_parms_put(neigh->parms);
@@ -379,8 +379,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
 		read_unlock_bh(&neigh->lock);
 }
 
-static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
-		      __be32 sip, __be32 tip)
+static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
 {
 	int scope;
 
@@ -400,7 +399,6 @@ static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
 	case 3:	/* Do not reply for scope host addresses */
 		sip = 0;
 		scope = RT_SCOPE_LINK;
-		dev = NULL;
 		break;
 	case 4:	/* Reserved */
 	case 5:
@@ -412,7 +410,7 @@ static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
 	default:
 		return 0;
 	}
-	return !inet_confirm_addr(dev, sip, tip, scope);
+	return !inet_confirm_addr(in_dev, sip, tip, scope);
 }
 
 static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
@@ -704,7 +702,7 @@ static int arp_process(struct sk_buff *skb)
 	struct arphdr *arp;
 	unsigned char *arp_ptr;
 	struct rtable *rt;
-	unsigned char *sha, *tha;
+	unsigned char *sha;
 	__be32 sip, tip;
 	u16 dev_type = dev->type;
 	int addr_type;
@@ -769,7 +767,6 @@ static int arp_process(struct sk_buff *skb)
 	arp_ptr += dev->addr_len;
 	memcpy(&sip, arp_ptr, 4);
 	arp_ptr += 4;
-	tha	= arp_ptr;
 	arp_ptr += dev->addr_len;
 	memcpy(&tip, arp_ptr, 4);
 /*
@@ -806,8 +803,9 @@ static int arp_process(struct sk_buff *skb)
 	if (sip == 0) {
 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
 		    inet_addr_type(tip) == RTN_LOCAL &&
-		    !arp_ignore(in_dev,dev,sip,tip))
-			arp_send(ARPOP_REPLY,ETH_P_ARP,tip,dev,tip,sha,dev->dev_addr,dev->dev_addr);
+		    !arp_ignore(in_dev, sip, tip))
+			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
+				 dev->dev_addr, sha);
 		goto out;
 	}
 
@@ -823,7 +821,7 @@ static int arp_process(struct sk_buff *skb)
 				int dont_send = 0;
 
 				if (!dont_send)
-					dont_send |= arp_ignore(in_dev,dev,sip,tip);
+					dont_send |= arp_ignore(in_dev,sip,tip);
 				if (!dont_send && IN_DEV_ARPFILTER(in_dev))
 					dont_send |= arp_filter(sip,tip,dev);
 				if (!dont_send)
@@ -863,9 +861,10 @@ static int arp_process(struct sk_buff *skb)
 		   devices (strip is candidate)
 		 */
 		if (n == NULL &&
-		    arp->ar_op == htons(ARPOP_REPLY) &&
+		    (arp->ar_op == htons(ARPOP_REPLY) ||
+		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
 		    inet_addr_type(sip) == RTN_UNICAST)
-			n = __neigh_lookup(&arp_tbl, &sip, dev, -1);
+			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
 	}
 
 	if (n) {
@@ -909,7 +908,16 @@ static void parp_redo(struct sk_buff *skb)
 static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
 		   struct packet_type *pt, struct net_device *orig_dev)
 {
-	struct arphdr *arp;
+	const struct arphdr *arp;
+
+	if (dev->flags & IFF_NOARP ||
+	    skb->pkt_type == PACKET_OTHERHOST ||
+	    skb->pkt_type == PACKET_LOOPBACK)
+		goto freeskb;
+
+	skb = skb_share_check(skb, GFP_ATOMIC);
+	if (!skb)
+		goto out_of_mem;
 
 	/* ARP header, plus 2 device addresses, plus 2 IP addresses.  */
 	if (!pskb_may_pull(skb, (sizeof(struct arphdr) +
@@ -918,15 +926,8 @@ static int arp_rcv(struct sk_buff *skb, struct net_device *dev,
 		goto freeskb;
 
 	arp = arp_hdr(skb);
-	if (arp->ar_hln != dev->addr_len ||
-	    dev->flags & IFF_NOARP ||
-	    skb->pkt_type == PACKET_OTHERHOST ||
-	    skb->pkt_type == PACKET_LOOPBACK ||
-	    arp->ar_pln != 4)
+	if (arp->ar_hln != dev->addr_len || arp->ar_pln != 4)
 		goto freeskb;
-
-	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
-		goto out_of_mem;
 
 	memset(NEIGH_CB(skb), 0, sizeof(struct neighbour_cb));
 
@@ -1291,7 +1292,9 @@ static void arp_format_neigh_entry(struct seq_file *seq,
 		hbuffer[k++] = hexbuf[n->ha[j] & 15];
 		hbuffer[k++] = ':';
 	}
-	hbuffer[--k] = 0;
+	if (k != 0)
+		--k;
+	hbuffer[k] = 0;
 #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
 	}
 #endif
