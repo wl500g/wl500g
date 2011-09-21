@@ -599,7 +599,7 @@ rip_rte_process (struct rte *rte, struct sockaddr_in *from,
           || ((same)
               && (rinfo->metric == rte->metric)
               && ntohs (rte->tag) != rinfo->tag)
-          || (rinfo->distance > rip_distance_apply (&rinfotmp))
+          || ((rinfo->metric == rte->metric) && (rinfo->distance > rip_distance_apply (&rinfotmp)))
           || ((rinfo->distance != rip_distance_apply (rinfo)) && same))
         {
           /* - Adopt the route from the datagram.  That is, put the
