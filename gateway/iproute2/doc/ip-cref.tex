@@ -1315,6 +1315,19 @@ peers are allowed to send to us.
     If it is not given, Linux uses the value selected with \verb|sysctl|
     variable \verb|net/ipv4/tcp_reordering|.
 
+\item \verb|hoplimit NUMBER|
+
+--- [2.5.74+ only] Hop limit on the path to this destination. If it is not
+    given, Linux uses the value selected with \verb|sysctl| variable
+    \verb|net/ipv4/ip_default_ttl|.
+
+\item \verb|initcwnd NUMBER|
+
+--- [2.5.70+ only] Initial congestion window size when establishing
+    connections to this destination. This value is multiplied with the
+    MSS (``Maximal Segment Size'') for the connection to get the actual
+    window size. If it is not given (or set to zero), Linux uses the
+    values specified in~\cite{RFC2414}.
 
 
 \item \verb|nexthop NEXTHOP|
@@ -2643,6 +2656,9 @@ http://www.cisco.com/univercd/cc/td/doc/product/software/ios120.
 
 \bibitem{RFC-DHCP} R.~Droms.
 ``Dynamic Host Configuration Protocol.'', RFC-2131
+
+\bibitem{RFC2414}  M.~Allman, S.~Floyd, C.~Partridge.
+``Increasing TCP's Initial Window'', RFC-2414.
 
 \end{thebibliography}
 

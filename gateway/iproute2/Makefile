@@ -49,7 +49,7 @@ install: all
 		$(DESTDIR)$(DOCDIR)/examples
 	install -m 0644 $(shell find examples/diffserv -maxdepth 1 -type f) \
 		$(DESTDIR)$(DOCDIR)/examples/diffserv
-	@for i in $(SUBDIRS) doc; do $(MAKE) -C $$i install; done
+	@set -e; for i in $(SUBDIRS) doc; do $(MAKE) -C $$i install; done
 	install -m 0644 $(shell find etc/iproute2 -maxdepth 1 -type f) $(DESTDIR)$(CONFDIR)
 	install -m 0755 -d $(DESTDIR)$(MANDIR)/man8
 	install -m 0644 $(shell find man/man8 -maxdepth 1 -type f) $(DESTDIR)$(MANDIR)/man8
@@ -66,7 +66,7 @@ snapshot:
 
 clean:
 	rm -f cscope.*
-	@for i in $(SUBDIRS) doc; \
+	@set -e; for i in $(SUBDIRS) doc; \
 	do $(MAKE) $(MFLAGS) -C $$i clean; done
 
 clobber: clean

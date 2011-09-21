@@ -14,6 +14,7 @@ PAGESIZE=a4
 PAGESPERPAGE=2
 
 HTMLFILES=$(subst .sgml,.html,$(shell echo *.sgml))
+TXTFILES=$(subst .sgml,.txt,$(shell echo *.sgml))
 DVIFILES=$(subst .ps,.dvi,$(PSFILES))
 
 
@@ -22,6 +23,8 @@ all: pstwocol
 pstwocol: $(PSFILES)
 
 html: $(HTMLFILES)
+
+txt: $(TXTFILES)
 
 dvi: $(DVIFILES)
 
@@ -47,9 +50,12 @@ print: $(PSFILES)
 %.html: %.sgml
 	$(SGML2HTML) $<
 
+%.txt: %.html
+	lynx -nolist -dump $< > $@
+
 install:
 	install -m 0644 $(shell echo *.tex) $(DESTDIR)$(DOCDIR)
 	install -m 0644 $(shell echo *.sgml) $(DESTDIR)$(DOCDIR)
 
 clean:
-	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES) *.html
+	rm -f *.aux *.log *.toc $(PSFILES) $(DVIFILES) *.html $(TXTFILES)

@@ -134,7 +134,7 @@ static int parse_args(int argc, char **argv, int cmd, struct ip_tunnel_parm *p)
 			NEXT_ARG();
 			p->o_flags |= GRE_KEY;
 			if (strchr(*argv, '.'))
-				p->o_key = get_addr32(*argv);
+				p->i_key = get_addr32(*argv);
 			else {
 				if (get_unsigned(&uval, *argv, 0)<0) {
 					fprintf(stderr, "invalid value of \"okey\"\n");
