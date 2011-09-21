@@ -20102,7 +20102,6 @@ fi
 
 
 
-blacklist_modules="";
 if test "$ac_cv_header_linux_dccp_h" != "yes"; then
 	blacklist_modules="$blacklist_modules dccp";
 fi;
