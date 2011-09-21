@@ -1,0 +1,97 @@
+From 6eca9004dfcb274a502438a591df5b197690afb1 Mon Sep 17 00:00:00 2001
+From: Jens Axboe <jens.axboe@oracle.com>
+Date: Thu, 25 Oct 2007 10:14:47 +0200
+Subject: [PATCH] [BLOCK] Fix bad sharing of tag busy list on queues with shared tag maps
+
+For the locking to work, only the tag map and tag bit map may be shared
+(incidentally, I was just explaining this to Nick yesterday, but I
+apparently didn't review the code well enough myself). But we also share
+the busy list!  The busy_list must be queue private, or we need a
+block_queue_tag covering lock as well.
+
+So we have to move the busy_list to the queue. This'll work fine, and
+it'll actually also fix a problem with blk_queue_invalidate_tags() which
+will invalidate tags across all shared queues. This is a bit confusing,
+the low level driver should call it for each queue seperately since
+otherwise you cannot kill tags on just a single queue for eg a hard
+drive that stops responding. Since the function has no callers
+currently, it's not an issue.
+
+Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+---
+ block/ll_rw_blk.c      |    8 +++-----
+ include/linux/blkdev.h |    2 +-
+ 2 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
+index a8a1810..56f2646 100644
+--- a/block/ll_rw_blk.c
++++ b/block/ll_rw_blk.c
+@@ -791,7 +791,6 @@ static int __blk_free_tags(struct blk_queue_tag *bqt)
+ 	retval = atomic_dec_and_test(&bqt->refcnt);
+ 	if (retval) {
+ 		BUG_ON(bqt->busy);
+-		BUG_ON(!list_empty(&bqt->busy_list));
+ 
+ 		kfree(bqt->tag_index);
+ 		bqt->tag_index = NULL;
+@@ -903,7 +902,6 @@ static struct blk_queue_tag *__blk_queue_init_tags(request_queue_t *q,
+ 	if (init_tag_map(q, tags, depth))
+ 		goto fail;
+ 
+-	INIT_LIST_HEAD(&tags->busy_list);
+ 	tags->busy = 0;
+ 	atomic_set(&tags->refcnt, 1);
+ 	return tags;
+@@ -954,6 +952,7 @@ int blk_queue_init_tags(request_queue_t *q, int depth,
+ 	 */
+ 	q->queue_tags = tags;
+ 	q->queue_flags |= (1 << QUEUE_FLAG_QUEUED);
++	INIT_LIST_HEAD(&q->tag_busy_list);
+ 	return 0;
+ fail:
+ 	kfree(tags);
+@@ -1122,7 +1121,7 @@ int blk_queue_start_tag(request_queue_t *q, struct request *rq)
+ 	rq->tag = tag;
+ 	bqt->tag_index[tag] = rq;
+ 	blkdev_dequeue_request(rq);
+-	list_add(&rq->queuelist, &bqt->busy_list);
++	list_add(&rq->queuelist, &q->tag_busy_list);
+ 	bqt->busy++;
+ 	return 0;
+ }
+@@ -1143,11 +1142,10 @@ EXPORT_SYMBOL(blk_queue_start_tag);
+  **/
+ void blk_queue_invalidate_tags(request_queue_t *q)
+ {
+-	struct blk_queue_tag *bqt = q->queue_tags;
+ 	struct list_head *tmp, *n;
+ 	struct request *rq;
+ 
+-	list_for_each_safe(tmp, n, &bqt->busy_list) {
++	list_for_each_safe(tmp, n, &q->tag_busy_list) {
+ 		rq = list_entry_rq(tmp);
+ 
+ 		if (rq->tag == -1) {
+diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
+index bbf906a..8396db2 100644
+--- a/include/linux/blkdev.h
++++ b/include/linux/blkdev.h
+@@ -341,7 +341,6 @@ enum blk_queue_state {
+ struct blk_queue_tag {
+ 	struct request **tag_index;	/* map of busy tags */
+ 	unsigned long *tag_map;		/* bit map of free/busy tags */
+-	struct list_head busy_list;	/* fifo list of busy tags */
+ 	int busy;			/* current depth */
+ 	int max_depth;			/* what we will send to device */
+ 	int real_max_depth;		/* what the array can hold */
+@@ -435,6 +434,7 @@ request_queue_t
+ 	unsigned int		dma_alignment;
+ 
+ 	struct blk_queue_tag	*queue_tags;
++	struct list_head	tag_busy_list;
+ 
+ 	unsigned int		nr_sorted;
+ 	unsigned int		in_flight;
+-- 
+1.7.2.3

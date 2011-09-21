@@ -1,0 +1,96 @@
+[IPV6]: address comparisons updates from upstream
+
+ kernel.org commits:
+ fed85383ac34d82e96f227ce49ce68117cec23a0 [IPV6]: Use XOR and OR rather than mutiple ands for ipv6 address comparisons.
+ d57b8fb8a8f94bdf467a4435be7d8bbebf87fe2a ipv6: Use __fls() instead of fls() in __ipv6_addr_diff().
+
+---
+ include/net/addrconf.h |   14 ++++++--------
+ include/net/ipv6.h     |   24 +++++++++++-------------
+ 2 files changed, 17 insertions(+), 21 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -240,18 +240,16 @@ static inline int ipv6_addr_is_multicast(const struct in6_addr *addr)
+ 
+ static inline int ipv6_addr_is_ll_all_nodes(const struct in6_addr *addr)
+ {
+-	return (addr->s6_addr32[0] == htonl(0xff020000) &&
+-		addr->s6_addr32[1] == 0 &&
+-		addr->s6_addr32[2] == 0 &&
+-		addr->s6_addr32[3] == htonl(0x00000001));
++	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
++		addr->s6_addr32[1] | addr->s6_addr32[2] |
++		(addr->s6_addr32[3] ^ htonl(0x00000001))) == 0);
+ }
+ 
+ static inline int ipv6_addr_is_ll_all_routers(const struct in6_addr *addr)
+ {
+-	return (addr->s6_addr32[0] == htonl(0xff020000) &&
+-		addr->s6_addr32[1] == 0 &&
+-		addr->s6_addr32[2] == 0 &&
+-		addr->s6_addr32[3] == htonl(0x00000002));
++	return (((addr->s6_addr32[0] ^ htonl(0xff020000)) |
++		addr->s6_addr32[1] | addr->s6_addr32[2] |
++		(addr->s6_addr32[3] ^ htonl(0x00000002))) == 0);
+ }
+ 
+ static inline int ipv6_isatap_eui64(u8 *eui, __be32 addr)
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -280,12 +280,10 @@ static inline int
+ ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
+ 		     const struct in6_addr *a2)
+ {
+-	unsigned int i;
+-
+-	for (i = 0; i < 4; i++)
+-		if ((a1->s6_addr32[i] ^ a2->s6_addr32[i]) & m->s6_addr32[i])
+-			return 1;
+-	return 0;
++	return (!!(((a1->s6_addr32[0] ^ a2->s6_addr32[0]) & m->s6_addr32[0]) |
++		   ((a1->s6_addr32[1] ^ a2->s6_addr32[1]) & m->s6_addr32[1]) |
++		   ((a1->s6_addr32[2] ^ a2->s6_addr32[2]) & m->s6_addr32[2]) |
++		   ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3])));
+ }
+ 
+ static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
+@@ -320,10 +318,10 @@ static inline void ipv6_addr_set(struct in6_addr *addr,
+ static inline int ipv6_addr_equal(const struct in6_addr *a1,
+ 				  const struct in6_addr *a2)
+ {
+-	return (a1->s6_addr32[0] == a2->s6_addr32[0] &&
+-		a1->s6_addr32[1] == a2->s6_addr32[1] &&
+-		a1->s6_addr32[2] == a2->s6_addr32[2] &&
+-		a1->s6_addr32[3] == a2->s6_addr32[3]);
++	return (((a1->s6_addr32[0] ^ a2->s6_addr32[0]) |
++		 (a1->s6_addr32[1] ^ a2->s6_addr32[1]) |
++		 (a1->s6_addr32[2] ^ a2->s6_addr32[2]) |
++		 (a1->s6_addr32[3] ^ a2->s6_addr32[3])) == 0);
+ }
+ 
+ static inline int __ipv6_prefix_equal(const __be32 *a1, const __be32 *a2,
+@@ -371,8 +369,8 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
+ 
+ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+ {
+-	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 &&
+-		 a->s6_addr32[2] == htonl(0x0000ffff));
++	return ((a->s6_addr32[0] | a->s6_addr32[1] |
++		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
+ }
+ 
+ /*
+@@ -422,7 +422,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
+ 	for (i = 0; i < addrlen; i++) {
+ 		__be32 xb = a1[i] ^ a2[i];
+ 		if (xb)
+-			return i * 32 + 32 - fls(ntohl(xb));
++			return i * 32 + 31 - __fls(ntohl(xb));
+ 	}
+ 
+ 	/*
+-- 
+1.7.4.4

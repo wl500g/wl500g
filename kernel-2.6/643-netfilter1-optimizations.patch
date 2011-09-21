@@ -1,0 +1,317 @@
+From 2ee0870f730095cecb04c2c9f50161dcdc7b284c
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 11 Aug 2010 23:04:17 -0400
+Subject: [PATCH] [NETFILTER]: backport of nf_conntrack optimizations
+
+Backported from kernel.org commits
+34498825cb9062192b77fa02dae672a4fe6eec70 [NETFILTER]: non-power-of-two jhash optimizations
+ba419aff2cda91680e5d4d3eeff95df49bd2edec [NETFILTER]: nf_conntrack: optimize __nf_conntrack_find()
+0794935e21a18e7c171b604c31219b60ad9749a9 [NETFILTER]: nf_conntrack: optimize hash_conntrack()
+380517dead6ab86d7249a1723f07f2f1b10af5f6 [NETFILTER]: nf_conntrack: avoid duplicate protocol comparison in nf_ct_tuple_equal()
+76eb946040a7b4c797979a9c22464b9a07890ba5 [NETFILTER]: nf_conntrack: don't inline early_drop()
+9f0d1a004d8d8c33d337d2b1cc9f0dc941cab627 [NETFILTER] nf_conntrack_expect.c: kmalloc + memset conversion to kzalloc
+dd00cc486ab1c17049a535413d1751ef3482141c some kmalloc/memset ->kzalloc (tree wide)
+443a70d50bdc212e1292778e264ce3d0a85b896f netfilter: nf_conntrack: padding breaks conntrack hash on ARM
+
+---
+ include/net/netfilter/nf_conntrack.h           |    3 -
+ include/net/netfilter/nf_conntrack_tuple.h     |   25 +++--------
+ net/ipv4/netfilter/ipt_CLUSTERIP.c             |    2 
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |    2 
+ net/ipv4/netfilter/nf_nat_core.c               |   11 +++-
+ net/netfilter/nf_conntrack_core.c              |   56 ++++++++++++++++---------
+ net/netfilter/nf_conntrack_netlink.c           |    4 -
+ net/netfilter/xt_connlimit.c                   |    2 
+ 8 files changed, 57 insertions(+), 48 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index 41f4ec3..93000f6 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -200,8 +200,7 @@ extern int nf_ct_l3proto_try_module_get(unsigned short l3proto);
+ extern void nf_ct_l3proto_module_put(unsigned short l3proto);
+ 
+ extern struct nf_conntrack_tuple_hash *
+-__nf_conntrack_find(const struct nf_conntrack_tuple *tuple,
+-		    const struct nf_conn *ignored_conntrack);
++__nf_conntrack_find(const struct nf_conntrack_tuple *tuple);
+ 
+ extern void nf_conntrack_hash_insert(struct nf_conn *ct);
+ 
+diff --git a/include/net/netfilter/nf_conntrack_tuple.h b/include/net/netfilter/nf_conntrack_tuple.h
+index d89c1d3..858891d 100644
+--- a/include/net/netfilter/nf_conntrack_tuple.h
++++ b/include/net/netfilter/nf_conntrack_tuple.h
+@@ -100,16 +100,6 @@ struct nf_conntrack_tuple
+ 	} dst;
+ };
+ 
+-/* This is optimized opposed to a memset of the whole structure.  Everything we
+- * really care about is the  source/destination unions */
+-#define NF_CT_TUPLE_U_BLANK(tuple)                              	\
+-        do {                                                    	\
+-                (tuple)->src.u.all = 0;                         	\
+-                (tuple)->dst.u.all = 0;                         	\
+-		memset(&(tuple)->src.u3, 0, sizeof((tuple)->src.u3));	\
+-		memset(&(tuple)->dst.u3, 0, sizeof((tuple)->dst.u3));	\
+-        } while (0)
+-
+ #ifdef __KERNEL__
+ 
+ #define NF_CT_DUMP_TUPLE(tp)						    \
+@@ -143,34 +133,33 @@ struct nf_conntrack_tuple_hash
+ 
+ #endif /* __KERNEL__ */
+ 
+-static inline int nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
+-				        const struct nf_conntrack_tuple *t2)
++static inline int __nf_ct_tuple_src_equal(const struct nf_conntrack_tuple *t1,
++					  const struct nf_conntrack_tuple *t2)
+ { 
+ 	return (t1->src.u3.all[0] == t2->src.u3.all[0] &&
+ 		t1->src.u3.all[1] == t2->src.u3.all[1] &&
+ 		t1->src.u3.all[2] == t2->src.u3.all[2] &&
+ 		t1->src.u3.all[3] == t2->src.u3.all[3] &&
+ 		t1->src.u.all == t2->src.u.all &&
+-		t1->src.l3num == t2->src.l3num &&
+-		t1->dst.protonum == t2->dst.protonum);
++		t1->src.l3num == t2->src.l3num);
+ }
+ 
+-static inline int nf_ct_tuple_dst_equal(const struct nf_conntrack_tuple *t1,
+-				        const struct nf_conntrack_tuple *t2)
++static inline int __nf_ct_tuple_dst_equal(const struct nf_conntrack_tuple *t1,
++					  const struct nf_conntrack_tuple *t2)
+ {
+ 	return (t1->dst.u3.all[0] == t2->dst.u3.all[0] &&
+ 		t1->dst.u3.all[1] == t2->dst.u3.all[1] &&
+ 		t1->dst.u3.all[2] == t2->dst.u3.all[2] &&
+ 		t1->dst.u3.all[3] == t2->dst.u3.all[3] &&
+ 		t1->dst.u.all == t2->dst.u.all &&
+-		t1->src.l3num == t2->src.l3num &&
+ 		t1->dst.protonum == t2->dst.protonum);
+ }
+ 
+ static inline int nf_ct_tuple_equal(const struct nf_conntrack_tuple *t1,
+ 				    const struct nf_conntrack_tuple *t2)
+ {
+-	return nf_ct_tuple_src_equal(t1, t2) && nf_ct_tuple_dst_equal(t1, t2);
++	return __nf_ct_tuple_src_equal(t1, t2) &&
++	       __nf_ct_tuple_dst_equal(t1, t2);
+ }
+ 
+ static inline int nf_ct_tuple_mask_cmp(const struct nf_conntrack_tuple *t,
+diff --git a/net/ipv4/netfilter/ipt_CLUSTERIP.c b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+index 40e2734..3c4b30f 100644
+--- a/net/ipv4/netfilter/ipt_CLUSTERIP.c
++++ b/net/ipv4/netfilter/ipt_CLUSTERIP.c
+@@ -285,7 +285,7 @@ clusterip_hashfn(struct sk_buff *skb, struct clusterip_config *config)
+ 	}
+ 
+ 	/* node numbers are 1..n, not 0..n */
+-	return ((hashval % config->num_total_nodes)+1);
++	return (((u64)hashval * config->num_total_nodes) >> 32) + 1;
+ }
+ 
+ static inline int
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 318d915..f7454e6 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -343,7 +343,7 @@ getorigdst(struct sock *sk, int optval, void __user *user, int *len)
+ 	struct nf_conntrack_tuple_hash *h;
+ 	struct nf_conntrack_tuple tuple;
+ 
+-	NF_CT_TUPLE_U_BLANK(&tuple);
++	memset(&tuple, 0, sizeof(tuple));
+ 	tuple.src.u3.ip = inet->rcv_saddr;
+ 	tuple.src.u.tcp.port = inet->sport;
+ 	tuple.dst.u3.ip = inet->daddr;
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 669ba4b..bf22a71 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -83,9 +83,13 @@ EXPORT_SYMBOL_GPL(nf_nat_proto_put);
+ static inline unsigned int
+ hash_by_src(const struct nf_conntrack_tuple *tuple)
+ {
++	unsigned int hash;
++
+ 	/* Original src, to ensure we map it consistently if poss. */
+-	return jhash_3words((__force u32)tuple->src.u3.ip, tuple->src.u.all,
+-			    tuple->dst.protonum, 0) % nf_nat_htable_size;
++	hash = jhash_3words((__force u32)tuple->src.u3.ip,
++			    (__force u32)tuple->src.u.all,
++			    tuple->dst.protonum, 0);
++	return ((u64)hash * nf_nat_htable_size) >> 32;
+ }
+ 
+ /* Noone using conntrack by the time this called. */
+@@ -231,7 +235,8 @@ find_best_ips_proto(struct nf_conntrack_tuple *tuple,
+ 	maxip = ntohl(range->max_ip);
+ 	j = jhash_2words((__force u32)tuple->src.u3.ip,
+ 			 (__force u32)tuple->dst.u3.ip, 0);
+-	*var_ipp = htonl(minip + j % (maxip - minip + 1));
++	j = ((u64)j * (maxip - minip + 1)) >> 32;
++	*var_ipp = htonl(minip + j);
+ }
+ 
+ /* Manipulate the tuple into the range given.  For NF_IP_POST_ROUTING,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index f7ed8e2..94480c5 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -136,14 +136,19 @@ static unsigned int nf_conntrack_hash_rnd;
+ static u_int32_t __hash_conntrack(const struct nf_conntrack_tuple *tuple,
+ 				  unsigned int size, unsigned int rnd)
+ {
+-	unsigned int a, b;
++	unsigned int n;
++	u_int32_t h;
+ 
+-	a = jhash2(tuple->src.u3.all, ARRAY_SIZE(tuple->src.u3.all),
+-		   (tuple->src.l3num << 16) | tuple->dst.protonum);
+-	b = jhash2(tuple->dst.u3.all, ARRAY_SIZE(tuple->dst.u3.all),
+-		   (tuple->src.u.all << 16) | tuple->dst.u.all);
++	/* The direction must be ignored, so we hash everything up to the
++	 * destination ports (which is a multiple of 4) and treat the last
++	 * three bytes manually.
++	 */
++	n = (sizeof(tuple->src) + sizeof(tuple->dst.u3)) / sizeof(u32);
++	h = jhash2((u32 *)tuple, n,
++		   rnd ^ (((__force __u16)tuple->dst.u.all << 16) |
++			  tuple->dst.protonum));
+ 
+-	return jhash_2words(a, b, rnd) % size;
++	return ((u64)h * size) >> 32;
+ }
+ 
+ static inline u_int32_t hash_conntrack(const struct nf_conntrack_tuple *tuple)
+@@ -279,7 +283,7 @@ nf_ct_get_tuple(const struct sk_buff *skb,
+ 		const struct nf_conntrack_l3proto *l3proto,
+ 		const struct nf_conntrack_l4proto *l4proto)
+ {
+-	NF_CT_TUPLE_U_BLANK(tuple);
++	memset(tuple, 0, sizeof(*tuple));
+ 
+ 	tuple->src.l3num = l3num;
+ 	if (l3proto->pkt_to_tuple(skb, nhoff, tuple) == 0)
+@@ -297,7 +301,7 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+ 		   const struct nf_conntrack_l3proto *l3proto,
+ 		   const struct nf_conntrack_l4proto *l4proto)
+ {
+-	NF_CT_TUPLE_U_BLANK(inverse);
++	memset(inverse, 0, sizeof(*inverse));
+ 
+ 	inverse->src.l3num = orig->src.l3num;
+ 	if (l3proto->invert_tuple(inverse, orig) == 0)
+@@ -405,15 +409,13 @@ static void death_by_timeout(unsigned long ul_conntrack)
+ }
+ 
+ struct nf_conntrack_tuple_hash *
+-__nf_conntrack_find(const struct nf_conntrack_tuple *tuple,
+-		    const struct nf_conn *ignored_conntrack)
++__nf_conntrack_find(const struct nf_conntrack_tuple *tuple)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
+ 	unsigned int hash = hash_conntrack(tuple);
+ 
+ 	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
+-		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
+-		    nf_ct_tuple_equal(tuple, &h->tuple)) {
++		if (nf_ct_tuple_equal(tuple, &h->tuple)) {
+ 			NF_CT_STAT_INC(found);
+ 			return h;
+ 		}
+@@ -430,11 +432,15 @@ nf_conntrack_find_get(const struct nf_conntrack_tuple *tuple,
+ 		      const struct nf_conn *ignored_conntrack)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
++	struct nf_conn *ct;
+ 
+ 	read_lock_bh(&nf_conntrack_lock);
+-	h = __nf_conntrack_find(tuple, ignored_conntrack);
+-	if (h)
+-		atomic_inc(&nf_ct_tuplehash_to_ctrack(h)->ct_general.use);
++	h = __nf_conntrack_find(tuple);
++	if (h) {
++		ct = nf_ct_tuplehash_to_ctrack(h);
++		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
++			h = NULL;
++	}
+ 	read_unlock_bh(&nf_conntrack_lock);
+ 
+ 	return h;
+@@ -550,18 +556,27 @@ nf_conntrack_tuple_taken(const struct nf_conntrack_tuple *tuple,
+ 			 const struct nf_conn *ignored_conntrack)
+ {
+ 	struct nf_conntrack_tuple_hash *h;
++	unsigned int hash = hash_conntrack(tuple);
+ 
+ 	read_lock_bh(&nf_conntrack_lock);
+-	h = __nf_conntrack_find(tuple, ignored_conntrack);
++	list_for_each_entry(h, &nf_conntrack_hash[hash], list) {
++		if (nf_ct_tuplehash_to_ctrack(h) != ignored_conntrack &&
++		    nf_ct_tuple_equal(tuple, &h->tuple)) {
++			NF_CT_STAT_INC(found);
++			read_unlock_bh(&nf_conntrack_lock);
++			return 1;
++		}
++		NF_CT_STAT_INC(searched);
++	}
+ 	read_unlock_bh(&nf_conntrack_lock);
+ 
+-	return h != NULL;
++	return 0;
+ }
+ EXPORT_SYMBOL_GPL(nf_conntrack_tuple_taken);
+ 
+ /* There's a small race here where we may free a just-assured
+    connection.  Too bad: we're in trouble anyway. */
+-static int early_drop(struct list_head *chain)
++static noinline int early_drop(struct list_head *chain)
+ {
+ 	/* Traverse backwards: gives us oldest, which is roughly LRU */
+ 	struct nf_conntrack_tuple_hash *h;
+@@ -608,8 +623,8 @@ __nf_conntrack_alloc(const struct nf_conntrack_tuple *orig,
+ 	/* We don't want any race condition at early drop stage */
+ 	atomic_inc(&nf_conntrack_count);
+ 
+-	if (nf_conntrack_max
+-	    && atomic_read(&nf_conntrack_count) > nf_conntrack_max) {
++	if (nf_conntrack_max &&
++	    unlikely(atomic_read(&nf_conntrack_count) > nf_conntrack_max)) {
+ 		unsigned int hash = hash_conntrack(orig);
+ 		/* Try dropping from this hash chain. */
+ 		if (!early_drop(&nf_conntrack_hash[hash])) {
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index d0fe3d7..d3a9e60 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1034,9 +1034,9 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 
+ 	write_lock_bh(&nf_conntrack_lock);
+ 	if (cda[CTA_TUPLE_ORIG-1])
+-		h = __nf_conntrack_find(&otuple, NULL);
++		h = __nf_conntrack_find(&otuple);
+ 	else if (cda[CTA_TUPLE_REPLY-1])
+-		h = __nf_conntrack_find(&rtuple, NULL);
++		h = __nf_conntrack_find(&rtuple);
+ 
+ 	if (h == NULL) {
+ 		write_unlock_bh(&nf_conntrack_lock);
+diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
+index b7d45e9..035b22b 100644
+--- a/net/netfilter/xt_connlimit.c
++++ b/net/netfilter/xt_connlimit.c
+@@ -116,7 +116,7 @@ static int count_them(struct xt_connlimit_data *data,
+ 
+ 	/* check the saved connections */
+ 	list_for_each_entry_safe(conn, tmp, hash, list) {
+-		found    = __nf_conntrack_find(&conn->tuple, NULL);
++		found    = __nf_conntrack_find(&conn->tuple);
+ 		found_ct = NULL;
+ 
+ 		if (found != NULL)
+-- 
+1.6.5.GIT

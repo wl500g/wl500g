@@ -1,0 +1,61 @@
+--- src/et.orig/sys/et_linux.c	2011-01-24 22:49:33.000000000 +0000
++++ src/et/sys/et_linux.c	2011-02-13 17:12:10.140000002 +0000
+@@ -130,6 +130,9 @@ static int et_poll(struct net_device *de
+ static void et_dpc(ulong data);
+ #endif /* BCM_NAPI */
+ static void et_sendup(et_info_t *et, struct sk_buff *skb);
++#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++static void et_poll_controller(struct net_device *dev);
++#endif
+ 
+ /* recognized PCI IDs */
+ static struct pci_device_id et_id_table[] __devinitdata = {
+@@ -274,6 +277,9 @@ et_probe(struct pci_dev *pdev, const str
+ 	dev->poll = et_poll;
+ 	dev->weight = (ET_GMAC(et->etc) ? 64 : 32);
+ #endif /* BCM_NAPI */
++#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++	dev->poll_controller = et_poll_controller;
++#endif
+ 
+ 	if (register_netdev(dev)) {
+ 		ET_ERROR(("et%d: register_netdev() failed\n", unit));
+@@ -504,14 +510,18 @@ et_start(struct sk_buff *skb, struct net
+ 	ET_TRACE(("et%d: et_start: len %d\n", et->etc->unit, skb->len));
+ 	ET_LOG("et%d: et_start: len %d", et->etc->unit, skb->len);
+ 
++#ifndef BCM_NAPI
+ 	ET_LOCK(et);
++#endif
+ 
+ 	/* put it on the tx queue and call sendnext */
+ 	__skb_queue_tail(&et->txq[q], skb);
+ 	et->etc->txq_state |= (1 << q);
+ 	et_sendnext(et);
+ 
++#ifndef BCM_NAPI
+ 	ET_UNLOCK(et);
++#endif
+ 
+ 	ET_LOG("et%d: et_start ret\n", et->etc->unit, 0);
+ 
+@@ -1374,3 +1384,19 @@ et_phywr(et_info_t *et, uint phyaddr, ui
+ 	et->etc->chops->phywr(et->etc->ch, phyaddr, reg, val);
+ 	ET_UNLOCK(et);
+ }
++
++#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
++static void
++et_poll_controller(struct net_device *dev)
++{
++	et_info_t *et = ET_INFO(dev);
++
++	disable_irq(et->pdev->irq);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
++	et_isr(et->pdev->irq, et);
++#else
++	et_isr(et->pdev->irq, et, NULL);
++#endif
++	enable_irq(et->pdev->irq);
++}
++#endif

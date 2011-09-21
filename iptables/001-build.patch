@@ -7,7 +7,7 @@ diff -BurN iptables-1.2.7a/extensions/Makefile iptables/extensions/Makefile
  #
 -PF_EXT_SLIB:=ah addrtype comment connmark conntrack dscp ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TCPMSS TOS TTL ULOG
 +#PF_EXT_SLIB:=ah addrtype comment connmark conntrack dscp ecn esp hashlimit helper icmp iprange length limit mac mark multiport owner physdev pkttype policy realm sctp standard state tcp tcpmss tos ttl udp unclean CLASSIFY CONNMARK DNAT DSCP ECN LOG MARK MASQUERADE MIRROR NETMAP NFQUEUE NOTRACK REDIRECT REJECT SAME SNAT TCPMSS TOS TTL ULOG
-+PF_EXT_SLIB:=tcp udp mac standard state SNAT DNAT REDIRECT REJECT MASQUERADE TCPMSS LOG autofw mark MARK length limit tcpmss icmp TTL ttl TARPIT MIRROR connlimit conntrack connmark CONNMARK multiport CLASSIFY NETMAP time nth psd random quota TOS tos ULOG
++PF_EXT_SLIB:=tcp udp mac standard state SNAT DNAT REDIRECT REJECT MASQUERADE NOTRACK TCPMSS LOG autofw mark MARK length limit tcpmss icmp TTL ttl TARPIT MIRROR connlimit conntrack connmark CONNMARK multiport CLASSIFY NETMAP time TOS tos ULOG
 -PF6_EXT_SLIB:=connmark eui64 hl icmp6 length limit mac mark multiport owner physdev policy standard state tcp udp CONNMARK HL LOG NFQUEUE MARK TCPMSS
 +#PF6_EXT_SLIB:=connmark eui64 hl icmp6 length limit mac mark multiport owner physdev policy standard state tcp udp CONNMARK HL LOG NFQUEUE MARK TCPMSS
 +PF6_EXT_SLIB:=eui64 hl icmp6 length limit mac mark multiport owner standard state tcp udp HL LOG MARK TCPMSS

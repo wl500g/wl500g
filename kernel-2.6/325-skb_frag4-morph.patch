@@ -1,0 +1,637 @@
+[SKBUFF]: Add skb_morph & co.
+
+ kernel.org commits
+ e0053ec07e32ec94535c47b10af3377255f00836 [SKBUFF]: Add skb_morph
+ 2d4baff8da06f424a6fca10e26434c4926a7c3df [SKBUFF]: Free old skb properly in skb_morph
+ 1706d58763c36133d7fce6cc78b1444fd40db28c [IPV4]: Make ip_defrag return the same packet
+ f61944efdf0d2569721ed6d7b0445e9f1214b295 [IPV6]: Make ipv6_frag_rcv return the same packet
+ 776c729e8d91b2740583a2169678f2d3f383458b [IPV4]: Change ip_defrag to return an integer
+
+---
+ include/linux/skbuff.h                         |    2 
+ include/net/ip.h                               |    2 
+ net/core/skbuff.c                              |   46 ++++++++++----
+ net/ipv4/ip_fragment.c                         |   78 +++++++++++++++++--------
+ net/ipv4/ip_input.c                            |    6 -
+ net/ipv4/ipvs/ip_vs_core.c                     |   26 +++-----
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   20 +++---
+ net/ipv6/reassembly.c                          |   57 ++++++++++++------
+ 8 files changed, 154 insertions(+), 83 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -352,7 +352,7 @@ static inline struct sk_buff *alloc_skb_
+ 	return __alloc_skb(size, priority, 1, -1);
+ }
+ 
+-extern void	       kfree_skbmem(struct sk_buff *skb);
++extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
+ extern struct sk_buff *skb_clone(struct sk_buff *skb,
+ 				 gfp_t priority);
+ extern struct sk_buff *skb_copy(const struct sk_buff *skb,
+diff --git a/include/net/ip.h b/include/net/ip.h
+index 3af3ed9..875c5ed 100644
+--- a/include/net/ip.h
++++ b/include/net/ip.h
+@@ -332,7 +332,7 @@ enum ip_defrag_users
+ 	IP_DEFRAG_VS_FWD
+ };
+ 
+-struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user);
++int ip_defrag(struct sk_buff *skb, u32 user);
+ extern int ip_frag_nqueues;
+ extern atomic_t ip_frag_mem;
+ 
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -307,12 +307,11 @@ static void skb_release_data(struct sk_b
+ /*
+  *	Free an skbuff by memory without cleaning the state.
+  */
+-void kfree_skbmem(struct sk_buff *skb)
++static void kfree_skbmem(struct sk_buff *skb)
+ {
+ 	struct sk_buff *other;
+ 	atomic_t *fclone_ref;
+ 
+-	skb_release_data(skb);
+ 	switch (skb->fclone) {
+ 	case SKB_FCLONE_UNAVAILABLE:
+ 		kmem_cache_free(skbuff_head_cache, skb);
+@@ -339,16 +338,8 @@ void kfree_skbmem(struct sk_buff *skb)
+ 	}
+ }
+ 
+-/**
+- *	__kfree_skb - private function
+- *	@skb: buffer
+- *
+- *	Free an sk_buff. Release anything attached to the buffer.
+- *	Clean the state. This is an internal helper function. Users should
+- *	always call kfree_skb
+- */
+-
+-void __kfree_skb(struct sk_buff *skb)
++/* Free everything but the sk_buff shell. */
++static void skb_release_all(struct sk_buff *skb)
+ {
+ 	dst_release(skb->dst);
+ #ifdef CONFIG_XFRM
+@@ -372,7 +363,21 @@ void __kfree_skb(struct sk_buff *skb)
+ 	skb->tc_verd = 0;
+ #endif
+ #endif
++	skb_release_data(skb);
++}
+ 
++/**
++ *	__kfree_skb - private function
++ *	@skb: buffer
++ *
++ *	Free an sk_buff. Release anything attached to the buffer.
++ *	Clean the state. This is an internal helper function. Users should
++ *	always call kfree_skb
++ */
++
++void __kfree_skb(struct sk_buff *skb)
++{
++	skb_release_all(skb);
+ 	kfree_skbmem(skb);
+ }
+ 
+@@ -464,6 +469,23 @@ static struct sk_buff *__skb_clone(struc
+ }
+ 
+ /**
++ *	skb_morph	-	morph one skb into another
++ *	@dst: the skb to receive the contents
++ *	@src: the skb to supply the contents
++ *
++ *	This is identical to skb_clone except that the target skb is
++ *	supplied by the user.
++ *
++ *	The target skb is returned upon exit.
++ */
++struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
++{
++	skb_release_all(dst);
++	return __skb_clone(dst, src);
++}
++EXPORT_SYMBOL_GPL(skb_morph);
++
++/**
+  *	skb_clone	-	duplicate an sk_buff
+  *	@skb: buffer to clone
+  *	@gfp_mask: allocation priority
+diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+--- a/net/ipv4/ip_fragment.c
++++ b/net/ipv4/ip_fragment.c
+@@ -109,6 +109,9 @@ static u32 ipfrag_hash_rnd;
+ static LIST_HEAD(ipq_lru_list);
+ int ip_frag_nqueues = 0;
+ 
++static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
++			 struct net_device *dev);
++
+ static __inline__ void __ipq_unlink(struct ipq *qp)
+ {
+ 	hlist_del(&qp->list);
+@@ -459,17 +462,20 @@ static int ip_frag_reinit(struct ipq *qp
+ }
+ 
+ /* Add new segment to existing queue. */
+-static void ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
++static int ip_frag_queue(struct ipq *qp, struct sk_buff *skb)
+ {
+ 	struct sk_buff *prev, *next;
++	struct net_device *dev;
+ 	int flags, offset;
+ 	int ihl, end;
++	int err = -ENOENT;
+ 
+ 	if (qp->last_in & COMPLETE)
+ 		goto err;
+ 
+ 	if (!(IPCB(skb)->flags & IPSKB_FRAG_COMPLETE) &&
+-	    unlikely(ip_frag_too_far(qp)) && unlikely(ip_frag_reinit(qp))) {
++	    unlikely(ip_frag_too_far(qp)) &&
++	    unlikely(err = ip_frag_reinit(qp))) {
+ 		ipq_kill(qp);
+ 		goto err;
+ 	}
+@@ -482,6 +488,7 @@ static void ip_frag_queue(struct ipq *qp
+ 
+ 	/* Determine the position of this fragment. */
+ 	end = offset + skb->len - ihl;
++	err = -EINVAL;
+ 
+ 	/* Is this the final fragment? */
+ 	if ((flags & IP_MF) == 0) {
+@@ -509,9 +516,12 @@ static void ip_frag_queue(struct ipq *qp
+ 	if (end == offset)
+ 		goto err;
+ 
++	err = -ENOMEM;
+ 	if (pskb_pull(skb, ihl) == NULL)
+ 		goto err;
+-	if (pskb_trim_rcsum(skb, end-offset))
++
++	err = pskb_trim_rcsum(skb, end - offset);
++	if (err)
+ 		goto err;
+ 
+ 	/* Find out which fragments are in front and at the back of us
+@@ -534,8 +544,10 @@ static void ip_frag_queue(struct ipq *qp
+ 
+ 		if (i > 0) {
+ 			offset += i;
++			err = -EINVAL;
+ 			if (end <= offset)
+ 				goto err;
++			err = -ENOMEM;
+ 			if (!pskb_pull(skb, i))
+ 				goto err;
+ 			if (skb->ip_summed != CHECKSUM_UNNECESSARY)
+@@ -543,6 +555,8 @@ static void ip_frag_queue(struct ipq *qp
+ 		}
+ 	}
+ 
++	err = -ENOMEM;
++
+ 	while (next && FRAG_CB(next)->offset < end) {
+ 		int i = end - FRAG_CB(next)->offset; /* overlap is 'i' bytes */
+ 
+@@ -584,37 +598,62 @@ static void ip_frag_queue(struct ipq *qp
+ 	else
+ 		qp->fragments = skb;
+ 
+-	if (skb->dev)
+-		qp->iif = skb->dev->ifindex;
+-	skb->dev = NULL;
++	dev = skb->dev;
++	if (dev) {
++		qp->iif = dev->ifindex;
++		skb->dev = NULL;
++	}
+ 	qp->stamp = skb->tstamp;
+ 	qp->meat += skb->len;
+ 	atomic_add(skb->truesize, &ip_frag_mem);
+ 	if (offset == 0)
+ 		qp->last_in |= FIRST_IN;
+ 
++	if (qp->last_in == (FIRST_IN | LAST_IN) && qp->meat == qp->len)
++		return ip_frag_reasm(qp, prev, dev);
++
+ 	write_lock(&ipfrag_lock);
+ 	list_move_tail(&qp->lru_list, &ipq_lru_list);
+ 	write_unlock(&ipfrag_lock);
+-
+-	return;
++	return -EINPROGRESS;
+ 
+ err:
+ 	kfree_skb(skb);
++	return err;
+ }
+ 
+ 
+ /* Build a new IP datagram from all its fragments. */
+ 
+-static struct sk_buff *ip_frag_reasm(struct ipq *qp, struct net_device *dev)
++static int ip_frag_reasm(struct ipq *qp, struct sk_buff *prev,
++			 struct net_device *dev)
+ {
+ 	struct iphdr *iph;
+ 	struct sk_buff *fp, *head = qp->fragments;
+ 	int len;
+ 	int ihlen;
++	int err;
+ 
+ 	ipq_kill(qp);
+ 
++	/* Make the one we just received the head. */
++	if (prev) {
++		head = prev->next;
++		fp = skb_clone(head, GFP_ATOMIC);
++
++		if (!fp)
++			goto out_nomem;
++
++		fp->next = head->next;
++		prev->next = fp;
++
++		skb_morph(head, qp->fragments);
++		head->next = qp->fragments->next;
++
++		kfree_skb(qp->fragments);
++		qp->fragments = head;
++	}
++
+ 	BUG_TRAP(head != NULL);
+ 	BUG_TRAP(FRAG_CB(head)->offset == 0);
+ 
+@@ -622,10 +661,12 @@ static struct sk_buff *ip_frag_reasm(str
+ 	ihlen = ip_hdrlen(head);
+ 	len = ihlen + qp->len;
+ 
++	err = -E2BIG;
+ 	if (len > 65535)
+ 		goto out_oversize;
+ 
+ 	/* Head of list must not be cloned. */
++	err = -ENOMEM;
+ 	if (skb_cloned(head) && pskb_expand_head(head, 0, 0, GFP_ATOMIC))
+ 		goto out_nomem;
+ 
+@@ -676,7 +717,7 @@ static struct sk_buff *ip_frag_reasm(str
+ 	iph->tot_len = htons(len);
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMOKS);
+ 	qp->fragments = NULL;
+-	return head;
++	return 0;
+ 
+ out_nomem:
+ 	LIMIT_NETDEBUG(KERN_ERR "IP: queue_glue: no memory for gluing "
+@@ -689,14 +730,13 @@ out_oversize:
+ 			NIPQUAD(qp->saddr));
+ out_fail:
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
+-	return NULL;
++	return err;
+ }
+ 
+ /* Process an incoming IP datagram fragment. */
+-struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
++int ip_defrag(struct sk_buff *skb, u32 user)
+ {
+ 	struct ipq *qp;
+-	struct net_device *dev;
+ 
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMREQDS);
+ 
+@@ -704,19 +744,13 @@ struct sk_buff *ip_defrag(struct sk_buff
+ 	if (atomic_read(&ip_frag_mem) > sysctl_ipfrag_high_thresh)
+ 		ip_evictor();
+ 
+-	dev = skb->dev;
+-
+ 	/* Lookup (or create) queue header */
+ 	if ((qp = ip_find(ip_hdr(skb), user)) != NULL) {
+-		struct sk_buff *ret = NULL;
++		int ret;
+ 
+ 		spin_lock(&qp->lock);
+ 
+-		ip_frag_queue(qp, skb);
+-
+-		if (qp->last_in == (FIRST_IN|LAST_IN) &&
+-		    qp->meat == qp->len)
+-			ret = ip_frag_reasm(qp, dev);
++		ret = ip_frag_queue(qp, skb);
+ 
+ 		spin_unlock(&qp->lock);
+ 		ipq_put(qp, NULL);
+@@ -725,7 +759,7 @@ struct sk_buff *ip_defrag(struct sk_buff
+ 
+ 	IP_INC_STATS_BH(IPSTATS_MIB_REASMFAILS);
+ 	kfree_skb(skb);
+-	return NULL;
++	return -ENOMEM;
+ }
+ 
+ void __init ipfrag_init(void)
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 41d8964..8f75e43 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -172,8 +172,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
+ 		    (!sk->sk_bound_dev_if ||
+ 		     sk->sk_bound_dev_if == skb->dev->ifindex)) {
+ 			if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-				skb = ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN);
+-				if (skb == NULL) {
++				if (ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN)) {
+ 					read_unlock(&ip_ra_lock);
+ 					return 1;
+ 				}
+@@ -265,8 +264,7 @@ int ip_local_deliver(struct sk_buff *skb)
+ 	 */
+ 
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
+-		if (!skb)
++		if (ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER))
+ 			return 0;
+ 	}
+ 
+diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
+index fbca2a2..3487337 100644
+--- a/net/ipv4/ipvs/ip_vs_core.c
++++ b/net/ipv4/ipvs/ip_vs_core.c
+@@ -541,13 +541,14 @@ __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
+ 	return csum_fold(skb_checksum(skb, offset, skb->len - offset, 0));
+ }
+ 
+-static inline struct sk_buff *
+-ip_vs_gather_frags(struct sk_buff *skb, u_int32_t user)
++static inline int ip_vs_gather_frags(struct sk_buff *skb, u_int32_t user)
+ {
+-	skb = ip_defrag(skb, user);
+-	if (skb)
++	int err = ip_defrag(skb, user);
++
++	if (!err)
+ 		ip_send_check(ip_hdr(skb));
+-	return skb;
++
++	return err;
+ }
+ 
+ /*
+@@ -619,10 +620,8 @@ static int ip_vs_out_icmp(struct sk_buff **pskb, int *related)
+ 
+ 	/* reassemble IP fragments */
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT))
+ 			return NF_STOLEN;
+-		*pskb = skb;
+ 	}
+ 
+ 	iph = ip_hdr(skb);
+@@ -756,11 +755,9 @@ ip_vs_out(unsigned int hooknum, struct sk_buff **pskb,
+ 	/* reassemble IP fragments */
+ 	if (unlikely(iph->frag_off & htons(IP_MF|IP_OFFSET) &&
+ 		     !pp->dont_defrag)) {
+-		skb = ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, IP_DEFRAG_VS_OUT))
+ 			return NF_STOLEN;
+ 		iph = ip_hdr(skb);
+-		*pskb = skb;
+ 	}
+ 
+ 	ihl = iph->ihl << 2;
+@@ -861,12 +858,9 @@ ip_vs_in_icmp(struct sk_buff **pskb, int *related, unsigned int hooknum)
+ 
+ 	/* reassemble IP fragments */
+ 	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		skb = ip_vs_gather_frags(skb,
+-					 hooknum == NF_IP_LOCAL_IN ?
+-					 IP_DEFRAG_VS_IN : IP_DEFRAG_VS_FWD);
+-		if (!skb)
++		if (ip_vs_gather_frags(skb, hooknum == NF_IP_LOCAL_IN ?
++					    IP_DEFRAG_VS_IN : IP_DEFRAG_VS_FWD))
+ 			return NF_STOLEN;
+-		*pskb = skb;
+ 	}
+ 
+ 	iph = ip_hdr(skb);
+diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+index 2fcb924..48fdd9e 100644
+--- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
++++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
+@@ -63,19 +63,20 @@ static int ipv4_print_conntrack(struct seq_file *s,
+ }
+ 
+ /* Returns new sk_buff, or NULL */
+-static struct sk_buff *
+-nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
++static int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+ {
++	int err;
++
+ 	skb_orphan(skb);
+ 
+ 	local_bh_disable();
+-	skb = ip_defrag(skb, user);
++	err = ip_defrag(skb, user);
+ 	local_bh_enable();
+ 
+-	if (skb)
++	if (!err)
+ 		ip_send_check(ip_hdr(skb));
+ 
+-	return skb;
++	return err;
+ }
+ 
+ static int ipv4_get_l4proto(const struct sk_buff *skb, unsigned int nhoff,
+@@ -148,11 +149,10 @@ static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
+ 
+ 	/* Gather fragments. */
+ 	if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+-		*pskb = nf_ct_ipv4_gather_frags(*pskb,
+-						hooknum == NF_IP_PRE_ROUTING ?
+-						IP_DEFRAG_CONNTRACK_IN :
+-						IP_DEFRAG_CONNTRACK_OUT);
+-		if (!*pskb)
++		if (nf_ct_ipv4_gather_frags(*pskb,
++					    hooknum == NF_IP_PRE_ROUTING ?
++					    IP_DEFRAG_CONNTRACK_IN :
++					    IP_DEFRAG_CONNTRACK_OUT))
+ 			return NF_STOLEN;
+ 	}
+ 	return NF_ACCEPT;
+diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
+index 31601c9..fa1055b 100644
+--- a/net/ipv6/reassembly.c
++++ b/net/ipv6/reassembly.c
+@@ -42,6 +42,7 @@
+ #include <linux/icmpv6.h>
+ #include <linux/random.h>
+ #include <linux/jhash.h>
++#include <linux/skbuff.h>
+ 
+ #include <net/sock.h>
+ #include <net/snmp.h>
+@@ -107,6 +108,9 @@ static u32 ip6_frag_hash_rnd;
+ static LIST_HEAD(ip6_frag_lru_list);
+ int ip6_frag_nqueues = 0;
+ 
++static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
++			  struct net_device *dev);
++
+ static __inline__ void __fq_unlink(struct frag_queue *fq)
+ {
+ 	hlist_del(&fq->list);
+@@ -420,10 +424,11 @@ fq_find(__be32 id, struct in6_addr *src, struct in6_addr *dst,
+ }
+ 
+ 
+-static void ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
++static int ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 			   struct frag_hdr *fhdr, int nhoff)
+ {
+ 	struct sk_buff *prev, *next;
++	struct net_device *dev;
+ 	int offset, end;
+ 
+ 	if (fq->last_in & COMPLETE)
+@@ -439,7 +444,7 @@ static void ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
+ 				  ((u8 *)&fhdr->frag_off -
+ 				   skb_network_header(skb)));
+-		return;
++		return -1;
+ 	}
+ 
+ 	if (skb->ip_summed == CHECKSUM_COMPLETE) {
+@@ -471,7 +476,7 @@ static void ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 					 IPSTATS_MIB_INHDRERRORS);
+ 			icmpv6_param_prob(skb, ICMPV6_HDR_FIELD,
+ 					  offsetof(struct ipv6hdr, payload_len));
+-			return;
++			return -1;
+ 		}
+ 		if (end > fq->len) {
+ 			/* Some bits beyond end -> corruption. */
+@@ -564,9 +569,11 @@ static void ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 	else
+ 		fq->fragments = skb;
+ 
+-	if (skb->dev)
+-		fq->iif = skb->dev->ifindex;
+-	skb->dev = NULL;
++	dev = skb->dev;
++	if (dev) {
++		fq->iif = dev->ifindex;
++		skb->dev = NULL;
++	}
+ 	fq->stamp = skb->tstamp;
+ 	fq->meat += skb->len;
+ 	atomic_add(skb->truesize, &ip6_frag_mem);
+@@ -578,14 +585,19 @@ static void ip6_frag_queue(struct frag_queue *fq, struct sk_buff *skb,
+ 		fq->nhoffset = nhoff;
+ 		fq->last_in |= FIRST_IN;
+ 	}
++
++	if (fq->last_in == (FIRST_IN | LAST_IN) && fq->meat == fq->len)
++		return ip6_frag_reasm(fq, prev, dev);
++
+ 	write_lock(&ip6_frag_lock);
+ 	list_move_tail(&fq->lru_list, &ip6_frag_lru_list);
+ 	write_unlock(&ip6_frag_lock);
+-	return;
++	return -1;
+ 
+ err:
+ 	IP6_INC_STATS(ip6_dst_idev(skb->dst), IPSTATS_MIB_REASMFAILS);
+ 	kfree_skb(skb);
++	return -1;
+ }
+ 
+ /*
+@@ -597,7 +609,7 @@ err:
+  *	queue is eligible for reassembly i.e. it is not COMPLETE,
+  *	the last and the first frames arrived and all the bits are here.
+  */
+-static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff **skb_in,
++static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff *prev,
+ 			  struct net_device *dev)
+ {
+ 	struct sk_buff *fp, *head = fq->fragments;
+@@ -606,6 +618,24 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff **skb_in,
+ 
+ 	fq_kill(fq);
+ 
++	/* Make the one we just received the head. */
++	if (prev) {
++		head = prev->next;
++		fp = skb_clone(head, GFP_ATOMIC);
++
++		if (!fp)
++			goto out_oom;
++
++		fp->next = head->next;
++		prev->next = fp;
++
++		skb_morph(head, fq->fragments);
++		head->next = fq->fragments->next;
++
++		kfree_skb(fq->fragments);
++		fq->fragments = head;
++	}
++
+ 	BUG_TRAP(head != NULL);
+ 	BUG_TRAP(FRAG6_CB(head)->offset == 0);
+ 
+@@ -674,8 +704,6 @@ static int ip6_frag_reasm(struct frag_queue *fq, struct sk_buff **skb_in,
+ 	ipv6_hdr(head)->payload_len = htons(payload_len);
+ 	IP6CB(head)->nhoff = nhoff;
+ 
+-	*skb_in = head;
+-
+ 	/* Yes, and fold redundant checksum back. 8) */
+ 	if (head->ip_summed == CHECKSUM_COMPLETE)
+ 		head->csum = csum_partial(skb_network_header(head),
+@@ -705,7 +733,6 @@ out_fail:
+ static int ipv6_frag_rcv(struct sk_buff **skbp)
+ {
+ 	struct sk_buff *skb = *skbp;
+-	struct net_device *dev = skb->dev;
+ 	struct frag_hdr *fhdr;
+ 	struct frag_queue *fq;
+ 	struct ipv6hdr *hdr = ipv6_hdr(skb);
+@@ -744,15 +771,11 @@ static int ipv6_frag_rcv(struct sk_buff **skbp)
+ 
+ 	if ((fq = fq_find(fhdr->identification, &hdr->saddr, &hdr->daddr,
+ 			  ip6_dst_idev(skb->dst))) != NULL) {
+-		int ret = -1;
++		int ret;
+ 
+ 		spin_lock(&fq->lock);
+ 
+-		ip6_frag_queue(fq, skb, fhdr, IP6CB(skb)->nhoff);
+-
+-		if (fq->last_in == (FIRST_IN|LAST_IN) &&
+-		    fq->meat == fq->len)
+-			ret = ip6_frag_reasm(fq, skbp, dev);
++		ret = ip6_frag_queue(fq, skb, fhdr, IP6CB(skb)->nhoff);
+ 
+ 		spin_unlock(&fq->lock);
+ 		fq_put(fq, NULL);
+-- 

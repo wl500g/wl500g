@@ -3,6 +3,21 @@ Add workaround for IPV6_RECVPKTINFO in recv_from_to()
 diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
 --- busybox-1.17.1/libbb/udp_io.c	2010-07-06 02:25:54.000000000 +0000
 +++ busybox/libbb/udp_io.c	2010-07-25 19:18:28.000000000 +0000
+@@ -18,8 +18,13 @@ socket_want_pktinfo(int fd)
+ #ifdef IP_PKTINFO
+ 	setsockopt(fd, IPPROTO_IP, IP_PKTINFO, &const_int_1, sizeof(int));
+ #endif
+-#if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
++#if ENABLE_FEATURE_IPV6
++# ifdef IPV6_RECVPKTINFO
++	setsockopt(fd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &const_int_1, sizeof(int));
++	setsockopt(fd, IPPROTO_IPV6, IPV6_2292PKTINFO, &const_int_1, sizeof(int));
++# elif defined(IPV6_PKTINFO)
+ 	setsockopt(fd, IPPROTO_IPV6, IPV6_PKTINFO, &const_int_1, sizeof(int));
++# endif
+ #endif
+ }
+ 
 @@ -162,8 +162,11 @@ recv_from_to(int fd, void *buf, size_t l
  		}
  # if ENABLE_FEATURE_IPV6 && defined(IPV6_PKTINFO)
@@ -17,3 +32,22 @@ diff -BurpN busybox-1.17.1/libbb/udp_io.c busybox/libbb/udp_io.c
  			const int IPI6_ADDR_OFF = offsetof(struct in6_pktinfo, ipi6_addr);
  			to->sa_family = AF_INET6;
  			/*#  define pktinfo(cmsgptr) ( (struct in6_pktinfo*)(CMSG_DATA(cmsgptr)) )*/
+--- b/networking/traceroute.c
++++ a/networking/traceroute.c
+@@ -891,15 +891,7 @@ common_traceroute_main(int op, char **ar
+ #if ENABLE_TRACEROUTE6
+ 	if (af == AF_INET6) {
+ 		xmove_fd(xsocket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6), rcvsock);
+-# ifdef IPV6_RECVPKTINFO
+-		setsockopt(rcvsock, SOL_IPV6, IPV6_RECVPKTINFO,
+-				&const_int_1, sizeof(const_int_1));
+-		setsockopt(rcvsock, SOL_IPV6, IPV6_2292PKTINFO,
+-				&const_int_1, sizeof(const_int_1));
+-# else
+-		setsockopt(rcvsock, SOL_IPV6, IPV6_PKTINFO,
+-				&const_int_1, sizeof(const_int_1));
+-# endif
++		socket_want_pktinfo(rcvsock);
+ 	} else
+ #endif
+ 	{

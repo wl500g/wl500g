@@ -1,0 +1,160 @@
+From ed5d2cac114202fe2978a9cbcab8f5032796d538
+From: Oleg Nesterov
+Date: Mon, 4 Feb 2008 22:27:24 -0800
+Subject: [PATCH] exec: rework the group exit and fix the race with kill
+
+As Roland pointed out, we have the very old problem with exec.  de_thread()
+sets SIGNAL_GROUP_EXIT, kills other threads, changes ->group_leader and then
+clears signal->flags.  All signals (even fatal ones) sent in this window
+(which is not too small) will be lost.
+
+With this patch exec doesn't abuse SIGNAL_GROUP_EXIT.  signal_group_exit(),
+the new helper, should be used to detect exit_group() or exec() in progress.
+It can have more users, but this patch does only strictly necessary changes.
+---
+
+573cf9ad72c13750e86c91de43477e9dfb440523 [PATCH] signals: do_signal_stop(): use signal_group_exit()
+bfc4b0890af566940de6e7aeb4b5faf46d3c3513 [PATCH] signals: do_group_exit(): use signal_group_exit() more consistently
+92413d771e7123304fb4b9efd2a00cccc946e383 [PATCH] signals: dequeue_signal: don't check SIGNAL_GROUP_EXIT when setting SIGNAL_STOP_DEQUEUED
+
+---
+ fs/exec.c             |   17 ++++++-----------
+ include/linux/sched.h |    7 +++++++
+ kernel/exit.c         |   10 ++++++----
+ kernel/signal.c       |    7 +++----
+ 4 files changed, 22 insertions(+), 19 deletions(-)
+
+diff -urBp linux-2.6.22.19.orig/fs/exec.c linux-2.6.22.19/fs/exec.c
+--- linux-2.6.22.19.orig/fs/exec.c	2008-02-26 02:59:40.000000000 +0300
++++ linux-2.6.22.19/fs/exec.c	2010-06-27 21:37:57.000000000 +0400
+@@ -609,7 +609,7 @@ static int de_thread(struct task_struct
+ 	 */
+ 	read_lock(&tasklist_lock);
+ 	spin_lock_irq(lock);
+-	if (sig->flags & SIGNAL_GROUP_EXIT) {
++	if (signal_group_exit(sig)) {
+ 		/*
+ 		 * Another group action in progress, just
+ 		 * return so that the signal is processed.
+@@ -628,6 +628,7 @@ static int de_thread(struct task_struct
+ 	if (unlikely(tsk->group_leader == child_reaper(tsk)))
+ 		tsk->nsproxy->pid_ns->child_reaper = tsk;
+ 
++	sig->group_exit_task = tsk;
+ 	zap_other_threads(tsk);
+ 	read_unlock(&tasklist_lock);
+ 
+@@ -650,9 +651,9 @@ static int de_thread(struct task_struct
+ 			hrtimer_restart(&sig->real_timer);
+ 		spin_lock_irq(lock);
+ 	}
++
++	sig->notify_count = count;
+ 	while (atomic_read(&sig->count) > count) {
+-		sig->group_exit_task = tsk;
+-		sig->notify_count = count;
+ 		__set_current_state(TASK_UNINTERRUPTIBLE);
+ 		spin_unlock_irq(lock);
+ 		schedule();
+@@ -721,13 +722,7 @@ static int de_thread(struct task_struct
+ 		leader->exit_state = EXIT_DEAD;
+ 
+ 		write_unlock_irq(&tasklist_lock);
+-        }
+-
+-	/*
+-	 * There may be one thread left which is just exiting,
+-	 * but it's safe to stop telling the group to kill themselves.
+-	 */
+-	sig->flags = 0;
++	}
+ 
+ no_thread_group:
+ 	signalfd_detach(tsk);
+@@ -1411,7 +1406,7 @@ static inline int zap_threads(struct tas
+ 	int err = -EAGAIN;
+ 
+ 	spin_lock_irq(&tsk->sighand->siglock);
+-	if (!(tsk->signal->flags & SIGNAL_GROUP_EXIT)) {
++	if (!signal_group_exit(tsk->signal)) {
+ 		tsk->signal->group_exit_code = exit_code;
+ 		zap_process(tsk);
+ 		err = 0;
+diff -urBp linux-2.6.22.19.orig/include/linux/sched.h linux-2.6.22.19/include/linux/sched.h
+--- linux-2.6.22.19.orig/include/linux/sched.h	2008-02-26 02:59:40.000000000 +0300
++++ linux-2.6.22.19/include/linux/sched.h	2010-06-27 21:35:41.000000000 +0400
+@@ -546,6 +546,13 @@ struct signal_struct {
+ #define is_rt_policy(p)		((p) != SCHED_NORMAL && (p) != SCHED_BATCH)
+ #define has_rt_policy(p)	unlikely(is_rt_policy((p)->policy))
+ 
++/* If true, all threads except ->group_exit_task have pending SIGKILL */
++static inline int signal_group_exit(const struct signal_struct *sig)
++{
++	return	(sig->flags & SIGNAL_GROUP_EXIT) ||
++		(sig->group_exit_task != NULL);
++}
++
+ /*
+  * Some day this will be a full-fledged user tracking system..
+  */
+diff -urBp linux-2.6.22.19.orig/kernel/exit.c linux-2.6.22.19/kernel/exit.c
+--- linux-2.6.22.19.orig/kernel/exit.c	2008-02-26 02:59:40.000000000 +0300
++++ linux-2.6.22.19/kernel/exit.c	2010-06-27 21:38:49.000000000 +0400
+@@ -1029,19 +1029,21 @@ asmlinkage long sys_exit(int error_code)
+ NORET_TYPE void
+ do_group_exit(int exit_code)
+ {
++	struct signal_struct *sig = current->signal;
++
+ 	BUG_ON(exit_code & 0x80); /* core dumps don't get here */
+ 
+-	if (current->signal->flags & SIGNAL_GROUP_EXIT)
+-		exit_code = current->signal->group_exit_code;
++	if (signal_group_exit(sig))
++		exit_code = sig->group_exit_code;
+ 	else if (!thread_group_empty(current)) {
+-		struct signal_struct *const sig = current->signal;
+ 		struct sighand_struct *const sighand = current->sighand;
+ 		spin_lock_irq(&sighand->siglock);
+-		if (sig->flags & SIGNAL_GROUP_EXIT)
++		if (signal_group_exit(sig))
+ 			/* Another thread got here before we took the lock.  */
+ 			exit_code = sig->group_exit_code;
+ 		else {
+ 			sig->group_exit_code = exit_code;
++			sig->flags = SIGNAL_GROUP_EXIT;
+ 			zap_other_threads(current);
+ 		}
+ 		spin_unlock_irq(&sighand->siglock);
+diff -urBp linux-2.6.22.19.orig/kernel/signal.c linux-2.6.22.19/kernel/signal.c
+--- linux-2.6.22.19.orig/kernel/signal.c	2008-02-26 02:59:40.000000000 +0300
++++ linux-2.6.22.19/kernel/signal.c	2010-06-27 21:38:56.000000000 +0400
+@@ -412,8 +412,7 @@ int dequeue_signal(struct task_struct *t
+ 		 * is to alert stop-signal processing code when another
+ 		 * processor has come along and cleared the flag.
+ 		 */
+-		if (!(tsk->signal->flags & SIGNAL_GROUP_EXIT))
+-			tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
++		tsk->signal->flags |= SIGNAL_STOP_DEQUEUED;
+ 	}
+ 	if (signr && likely(tsk == current) &&
+ 	     ((info->si_code & __SI_MASK) == __SI_TIMER) &&
+@@ -943,7 +942,6 @@ void zap_other_threads(struct task_struc
+ {
+ 	struct task_struct *t;
+ 
+-	p->signal->flags = SIGNAL_GROUP_EXIT;
+ 	p->signal->group_stop_count = 0;
+ 
+ 	if (thread_group_empty(p))
+@@ -1649,7 +1647,8 @@ static int do_signal_stop(int signr)
+ 	struct signal_struct *sig = current->signal;
+ 	int stop_count;
+ 
+-	if (!likely(sig->flags & SIGNAL_STOP_DEQUEUED))
++	if (!likely(sig->flags & SIGNAL_STOP_DEQUEUED) ||
++	    unlikely(signal_group_exit(sig)))
+ 		return 0;
+ 
+ 	if (sig->group_stop_count > 0) {
+--

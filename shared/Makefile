@@ -16,13 +16,18 @@ ifneq ($(MAKECMDGOALS),clean)
 include $(TOP)/.config
 endif
 
-CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall $(EXTRACFLAGS)
+CFLAGS	+= -s -O2 $(GLOBAL_OPTIONS) $(EXTRACFLAGS)
+CFLAGS	+= -I. -I$(SRCBASE)/include -I../httpd -Wall
 #CFLAGS	+= -g -DDEBUG
 #CFLAGS	+= -g -DDEBUG_TO_SYSLOG
-CFLAGS	+= -fPIC -s -O2
+CFLAGS	+= -fPIC
 LDFLAGS += -L.
 
 OBJS := nvparse.o shutils.o wl.o wl_linux.o linux_timer.o defaults.o utils.o
+
+ifeq ($(CONFIG_BCMWL5),y)
+OBJS += wlif_utils.o UdpLib.o
+endif
 
 ifeq ($(CONFIG_SENTRY5),y)
 include $(TOP)/shared/Makefiles5.mk
@@ -45,3 +50,8 @@ distclean: clean
 
 libshared.so: $(OBJS)
 	$(LD) -shared -o $@ $^
+
+nvparse.o: nvparse.c nvparse.h netconf.h
+shutils.o: shutils.c shutils.h
+wl_linux.o: wl_linux.c wlutils.h
+wlif_utils.o: wlif_utils.c wlif_utils.h wlutils.h

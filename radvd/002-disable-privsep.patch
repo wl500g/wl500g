@@ -1,32 +1,56 @@
-diff -urBp radvd/Makefile.in radvd.new/Makefile.in
---- radvd/Makefile.in	2010-07-05 19:37:43.000000000 +0400
-+++ radvd.new/Makefile.in	2011-01-17 21:04:46.000000000 +0400
-@@ -74,8 +74,11 @@ am__objects_1 = log.$(OBJEXT) socket.$(O
- 	util.$(OBJEXT)
- am_radvd_OBJECTS = $(am__objects_1) radvd.$(OBJEXT) timer.$(OBJEXT) \
- 	send.$(OBJEXT) process.$(OBJEXT) interface.$(OBJEXT) \
--	device.$(OBJEXT) device-common.$(OBJEXT) privsep.$(OBJEXT) \
-+	device.$(OBJEXT) device-common.$(OBJEXT) \
- 	gram.$(OBJEXT) scanner.$(OBJEXT)
-+ifeq ($(USE_PRIVSEP),y)
-+am_radvd_OBJECTS += privsep.$(OBJEXT)
-+endif
- radvd_OBJECTS = $(am_radvd_OBJECTS)
- radvd_DEPENDENCIES =
- am_radvdump_OBJECTS = $(am__objects_1) radvdump.$(OBJEXT)
-@@ -220,7 +223,11 @@ COMMON_SRC = log.c socket.c recv.c util.
- 	includes.h
+diff -urB radvd/config.h.in radvd.new/config.h.in
+--- radvd/config.h.in	2011-05-14 18:07:22.000000000 +0400
++++ radvd.new/config.h.in	2011-05-15 17:43:08.000000000 +0400
+@@ -109,3 +109,6 @@
  
- radvd_SOURCES = $(COMMON_SRC) radvd.c timer.c send.c process.c interface.c \
--	device.c device-common.c privsep.c gram.y gram.h scanner.l
-+	device.c device-common.c gram.y gram.h scanner.l
+ /* Define to empty if `const' does not conform to ANSI C. */
+ #undef const
 +
-+ifeq ($(USE_PRIVSEP),y)
-+radvd_SOURCES += privsep.c
-+endif
++/* Define to use priviledge separation */
++#undef USE_PRIVSEP
+diff -urB radvd/configure.in radvd.new/configure.in
+--- radvd/configure.in	2011-04-18 02:23:21.000000000 +0400
++++ radvd.new/configure.in	2011-05-14 18:07:00.000000000 +0400
+@@ -175,7 +175,12 @@
+ dnl Checks for library functions.
+ AC_CHECK_FUNCS(getopt_long)
  
- #radvd_LDADD = -lfl
- EXTRA_radvd_SOURCES = device-linux.c device-bsd44.c privsep-linux.c privsep-bsd44.c
+-CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
++AC_ARG_ENABLE(privsep,,
++    [AC_DEFINE([USE_PRIVSEP],1)
++	 CONDITIONAL_SOURCES="privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"]
++)
++
++CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+ AC_SUBST(CONDITIONAL_SOURCES)
+ 
+ AC_SUBST(VERSION)
+diff -urB radvd/configure radvd.new/configure
+--- radvd/configure	2011-04-18 02:23:21.000000000 +0400
++++ radvd.new/configure	2011-05-15 17:43:08.000000000 +0400
+@@ -722,6 +714,7 @@ with_logfile
+ with_pidfile
+ with_configfile
+ with_facility
++enable_privsep
+ '
+       ac_precious_vars='build_alias
+ host_alias
+@@ -5010,7 +4996,13 @@ fi
+ done
+ 
+ 
+-CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
++# Check whether --enable-privsep was given.
++if test "${enable_privsep+set}" = set; then :
++  enableval=$enable_privsep; $as_echo "#define USE_PRIVSEP 1" >>confdefs.h
++     CONDITIONAL_SOURCES="privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
++fi
++
++CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+ 
+ 
+ 
 diff -urBp radvd/radvd.c radvd.new/radvd.c
 --- radvd/radvd.c	2010-07-05 19:39:30.000000000 +0400
 +++ radvd.new/radvd.c	2010-07-05 21:07:12.000000000 +0400

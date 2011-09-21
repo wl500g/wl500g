@@ -6,12 +6,12 @@
 #include <errno.h>
 #include <ctype.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
-#include <sys/stat.h>
+#include "rc.h"
 
 #include <nvparse.h>
 
@@ -120,7 +120,7 @@ start_wimax(char *prefix)
 
 	if (wimax_modem(prefix))
 	{
-		eval("insmod", "tun");
+		insmod("tun", NULL);
 		sleep(1);
 		symlink("/sbin/rc", wimax_events);
 		ret = _eval(wmx_argv, NULL, 0, NULL);
@@ -140,10 +140,10 @@ stop_wimax(char *prefix)
 
 	dprintf( "%s", prefix );
 
-	eval("killall", "madwimax");
+	killall("madwimax", 0);
 	sleep(1);
 	unlink(wimax_events);
-	eval("rmmod", "tun");
+	rmmod("tun");
 
 	return 0;
 }
@@ -290,8 +290,7 @@ madwimax_release(char *ifname)
 }
 
 //if-up
-int
-madwimax_up(char *ifname)
+static int madwimax_up(char *ifname)
 {
 	char tmp[100];
 	char prefix[] = "wanXXXXXXXXXX_";
@@ -307,18 +306,10 @@ madwimax_up(char *ifname)
 
 	if (nvram_match(strcat_r(prefix, "wimax_ipaddr", tmp), "0.0.0.0"))
 	{
-		char *dhcp_argv[] = {"/sbin/udhcpc",
-				     "-i", ifname,
-				     "-p", (sprintf(tmp, "/var/run/udhcpc%d.pid", unit), tmp),
-				     "-b",
-#ifdef DEBUG
-				     "-vv", "-S",
-#endif
-				     NULL};
 		/* Start firewall */
 		start_firewall_ex(ifname, "0.0.0.0", "br0", nvram_safe_get("lan_ipaddr"));
 		/* Start dhcp daemon */
-		_eval(dhcp_argv, NULL, 0, NULL);
+		start_dhcpc(ifname, unit);
 		/* Update wan information for null DNS server */
 		update_wan_status(1);
 		wanmessage("Can not get IP from server");
@@ -326,7 +317,7 @@ madwimax_up(char *ifname)
 		/* Assign static IP address to i/f */
 		ifconfig(ifname, IFUP,
 			nvram_get(strcat_r(prefix, "ipaddr", tmp)),
-			nvram_get(strcat_r(prefix, "netmask", tmp)));
+			nvram_get(strcat_r(prefix, "netmask", tmp)), NULL);
                 /* We are done configuration */
 		wan_up(ifname);
 		wanmessage("");
@@ -339,8 +330,7 @@ madwimax_up(char *ifname)
 }
 
 //if-down
-int
-madwimax_down(char *ifname)
+static int madwimax_down(char *ifname)
 {
 	char tmp[100];
 	int unit;
@@ -385,7 +375,7 @@ hotplug_check_wimax( char * interface, char * product, char * prefix )
 	if (strncmp(product, "4e8/6761", 8) == 0 ||
 	    strncmp(product, "4e9/6761", 8) == 0 ||
 	    strncmp(product, "4e8/6731", 8) == 0 ||
-	    strncmp(product, "4e8/6780", 8) == 0){
+	    strncmp(product, "4e8/6780", 8) == 0) {
 		nvram_set(strcat_r(prefix, "usb_device_name", tmp), "Samsung CMC-730 chip");
 		return 1;
 	}
@@ -393,8 +383,7 @@ hotplug_check_wimax( char * interface, char * product, char * prefix )
 		return 0;
 };
 
-int
-madwimax_main(int argc, char **argv)
+int madwimax_main(int argc, char **argv)
 {
 
 	if (argc != 3)

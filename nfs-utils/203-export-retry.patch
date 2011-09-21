@@ -1,0 +1,52 @@
+From abf92485ae52bd637d544e2ac73147271b310a14
+From: Neil Brown
+Date: Wed, 3 Jun 2009 15:48:08 -0400
+Subject: [PATCH] Retry export if getfh fails.
+
+mountd tries to avoid telling the kernel to export something
+when the kernel already knows to do that.
+However sometimes (exportfs -r) the kernel can be told
+to forget something without mountd realising.
+So if mountd finds that it cannot get a  valid filehandle,
+make sure it really has been exported to the kernel.
+
+This only applies if the nfsd filesystem is not mounted.
+
+Signed-off-by: NeilBrown <neilb@suse.de>
+Signed-off-by: Steve Dickson <steved@redhat.com>
+---
+ utils/mountd/mountd.c |   11 ++++++++++-
+ 1 files changed, 10 insertions(+), 1 deletions(-)
+
+diff --git a/utils/mountd/mountd.c b/utils/mountd/mountd.c
+index 25d292b..b59f939 100644
+--- a/utils/mountd/mountd.c
++++ b/utils/mountd/mountd.c
+@@ -467,8 +467,12 @@ get_rootfh(struct svc_req *rqstp, dirpath *path, nfs_export **expret,
+ 			return NULL;
+ 		}
+ 	} else {
+-		if (exp->m_exported<1)
++		int did_export = 0;
++	retry:
++		if (exp->m_exported<1) {
+ 			export_export(exp);
++			did_export = 1;
++		}
+ 		if (!exp->m_xtabent)
+ 			xtab_append(exp);
+ 
+@@ -482,6 +486,11 @@ get_rootfh(struct svc_req *rqstp, dirpath *path, nfs_export **expret,
+ 				fh = getfh_old ((struct sockaddr *) sin,
+ 						stb.st_dev, stb.st_ino);
+ 		}
++		if (fh == NULL && !did_export) {
++			exp->m_exported = 0;
++			goto retry;
++		}
++
+ 		if (fh == NULL) {
+ 			xlog(L_WARNING, "getfh failed: %s", strerror(errno));
+ 			*error = NFSERR_ACCES;
+-- 
+1.7.4.1

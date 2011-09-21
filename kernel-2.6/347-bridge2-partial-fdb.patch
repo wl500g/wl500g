@@ -1,0 +1,38 @@
+From 1158f762e57c1cdcda631c1c5f339e4853caa82b
+From: Pavel Emelyanov
+Date: Fri, 4 Feb 2011 13:02:36 -0800
+Subject: [PATCH] bridge: Don't put partly initialized fdb into hash
+
+The fdb_create() puts a new fdb into hash with only addr set. This is
+not good, since there are callers, that search the hash w/o the lock
+and access all the other its fields.
+
+Applies to current netdev tree.
+
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/bridge/br_fdb.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 2872393..88485cc 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -328,12 +328,12 @@ static struct net_bridge_fdb_entry *fdb_create(struct hlist_head *head,
+ 	if (fdb) {
+ 		memcpy(fdb->addr.addr, addr, ETH_ALEN);
+ 		atomic_set(&fdb->use_count, 1);
+-		hlist_add_head_rcu(&fdb->hlist, head);
+-
+ 		fdb->dst = source;
+ 		fdb->is_local = is_local;
+ 		fdb->is_static = is_local;
+ 		fdb->ageing_timer = jiffies;
++
++		hlist_add_head_rcu(&fdb->hlist, head);
+ 	}
+ 	return fdb;
+ }
+-- 
+1.7.4

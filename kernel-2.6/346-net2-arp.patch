@@ -1,0 +1,95 @@
+[ARP]: Updates from upstream
+
+ kernel.org commits
+ 1b1ac759d7c6bba6e5f4731ef6ea720b6636e27c [IPV4]: Cleanup call to __neigh_lookup()
+ a79878f00dad97d03a3e62a48b06227d55ae5fe4 [ARP]: Move inet_addr_type call after simple error checks in arp_contructor.
+ b4a9811c42ecb70b2f0b375f6d4c77ab34d1f598 [ARP]: Fix arp reply when sender ip 0
+ a3e8ee682003685b8b9c98c89340a42e48c3e813 ipv4: ARP neigh procfs buffer overflow
+ 6d955180b2f9ccff444df06265160868cabb289a ipv4: allow warming up the ARP cache with request type gratuitous ARP
+
+---
+ Documentation/networking/ip-sysctl.txt |   15 ++++++++++++---
+ net/ipv4/arp.c                         |   16 ++++++++++------
+ 2 files changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -852,9 +852,18 @@ arp_notify - BOOLEAN
+ 	    or hardware address changes.
+ 
+ arp_accept - BOOLEAN
+-	Define behavior when gratuitous arp replies are received:
+-	0 - drop gratuitous arp frames
+-	1 - accept gratuitous arp frames
++	Define behavior for gratuitous ARP frames who's IP is not
++	already present in the ARP table:
++	0 - don't create new entries in the ARP table
++	1 - create new entries in the ARP table
++
++	Both replies and requests type gratuitous arp will trigger the
++	ARP table to be updated, if this setting is on.
++
++	If the ARP table already contains the IP address of the
++	gratuitous arp frame, the arp table will be updated regardless
++	if this setting is on or off.
++
+ 
+ app_solicit - INTEGER
+ 	The maximum number of probes to send to the user space ARP daemon
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -234,8 +234,6 @@ static int arp_constructor(struct neighb
+ 	struct in_device *in_dev;
+ 	struct neigh_parms *parms;
+ 
+-	neigh->type = inet_addr_type(addr);
+-
+ 	rcu_read_lock();
+ 	in_dev = __in_dev_get_rcu(dev);
+ 	if (in_dev == NULL) {
+@@ -243,6 +241,8 @@ static int arp_constructor(struct neighb
+ 		return -EINVAL;
+ 	}
+ 
++	neigh->type = inet_addr_type(addr);
++
+ 	parms = in_dev->arp_parms;
+ 	__neigh_parms_put(neigh->parms);
+ 	neigh->parms = neigh_parms_clone(parms);
+@@ -807,7 +807,8 @@ static int arp_process(struct sk_buff *s
+ 		if (arp->ar_op == htons(ARPOP_REQUEST) &&
+ 		    inet_addr_type(tip) == RTN_LOCAL &&
+ 		    !arp_ignore(in_dev,dev,sip,tip))
+-			arp_send(ARPOP_REPLY,ETH_P_ARP,tip,dev,tip,sha,dev->dev_addr,dev->dev_addr);
++			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
++				 dev->dev_addr, sha);
+ 		goto out;
+ 	}
+ 
+@@ -863,9 +864,10 @@ static int arp_process(struct sk_buff *s
+ 		   devices (strip is candidate)
+ 		 */
+ 		if (n == NULL &&
+-		    arp->ar_op == htons(ARPOP_REPLY) &&
++		    (arp->ar_op == htons(ARPOP_REPLY) ||
++		     (arp->ar_op == htons(ARPOP_REQUEST) && tip == sip)) &&
+ 		    inet_addr_type(sip) == RTN_UNICAST)
+-			n = __neigh_lookup(&arp_tbl, &sip, dev, -1);
++			n = __neigh_lookup(&arp_tbl, &sip, dev, 1);
+ 	}
+ 
+ 	if (n) {
+@@ -1291,7 +1293,9 @@ static void arp_format_neigh_entry(struc
+ 		hbuffer[k++] = hexbuf[n->ha[j] & 15];
+ 		hbuffer[k++] = ':';
+ 	}
+-	hbuffer[--k] = 0;
++	if (k != 0)
++		--k;
++	hbuffer[k] = 0;
+ #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
+ 	}
+ #endif
+-- 

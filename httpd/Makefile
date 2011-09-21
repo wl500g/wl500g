@@ -17,8 +17,10 @@ LDFLAGS	+= -s -L$(TOP)/nvram -L$(TOP)/shared -L$(TOP)/netconf
 
 OBJS = httpd.o ej.o cgi.o web_ex.o common.o nvram_f.o nvmap.o broadcom.o ralink.o prninfo.o
 
+ifneq ($(USE_JSON),)
 OBJS += json.o
 CFLAGS += -DUSE_JSON
+endif
 
 #vpath %.c $(TOP)/shared
 

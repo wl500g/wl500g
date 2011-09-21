@@ -106,7 +106,7 @@
 </tr>
 
 <tr>
-<td></td><td colspan="10"><select size="8" name="x_SharesList_s" multiple="true" style="font-family: 'fixedsys'; font-size: '8pt'; width: 100%">
+<td></td><td colspan="10"><select size="8" name="x_SharesList_s" multiple="true" class="content_list_body">
 <% nvram_get_table_x("PrinterStatus","x_SharesList"); %>
 </select></td>
 </tr>

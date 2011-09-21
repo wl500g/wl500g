@@ -41,8 +41,7 @@ static void readUsbPrnID(char *prninfo)
     int                                 fd;
     struct parport_splink_device_info   prn_info;
 
-    errno = 0;
-    fd = open("/dev/usb/lp0", O_RDWR);
+    fd = open(LP_DEV(0), O_RDWR);
     if (fd < 0 && errno != ENOENT) // Someone is opening the usb lp0
     {
         FILE *fp = fopen("/proc/usblp/lp0", "r");

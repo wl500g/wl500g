@@ -20,10 +20,6 @@
 #include <sys/fcntl.h>
 #include <dirent.h>
 #include <sys/mount.h>
-#include <bcmnvram.h>
-#include <netconf.h>
-#include <shutils.h>
-#include <rc.h>
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -33,51 +29,36 @@
 #include <crypt.h>
 #endif
 #include <mntent.h>
+
+#include <bcmnvram.h>
+#include <netconf.h>
+#include <shutils.h>
+#include <nvparse.h>
+#include "rc.h"
 #include "iboxcom.h"
 #include "lp.h"
-#include "nvparse.h"
 
-#define logs(s) syslog(LOG_NOTICE, s)
 
 #ifdef USB_SUPPORT
 #define PRINTER_SUPPORT 1
-#define MASSSTORAGE_SUPPORT 1
 #define AUDIO_SUPPORT 1
 #endif
 
-//#define USBCOPY_SUPPORT 1
 
-char *PWCLIST[] = {"471","69a","46d","55d","41e","4cc","d81", NULL};
-char *OVLIST[] = {"5a9","813","b62", NULL};
-char buf_g[512];
+enum WEB_TYPE
+{
+	WEB_NONE = 0,
+	WEB_CAMERA,
+	WEB_AUDIO
+};
 
 
-#ifdef __CONFIG_WAVESERVER__
-static int remove_usb_audio(char *product);
-#endif
 static int umount_all_part(char *product, int scsi_host_no);
 static struct mntent *findmntent(char *file);
 static int stop_lltd(void);
 
 void diag_PaN(void)
 {
-	FILE *fp;
-        
-	/* dump pci device */
-	fp=fopen("/proc/pci", "r");
-	if (fp!=NULL)
-	{
-		while(fgets(buf_g, sizeof(buf_g), fp))
-		{
-			if(strstr(buf_g, "PCI device"))
-				fprintf(stderr, buf_g);
-		}
-		fclose(fp);
-	}
-
-
-#ifdef PRINTER_SUPPORT
-#endif
    fprintf(stderr, "echo for PaN ::: &&&PaN\r\n");
 }
 
@@ -100,7 +81,6 @@ fappend(char *name, FILE *f)
 	return size;
 }
 
-#ifdef __CONFIG_DNSMASQ__
 int
 start_dns(void)
 {
@@ -152,7 +132,7 @@ start_dns(void)
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
 		fprintf(fp, "::1 localhost.localdomain localhost\n");
-		if (nvram_invmatch("ipv6_lan_addr", ""))
+		if (nvram_invmatch("ipv6_lan_addr", "") && nvram_invmatch("ipv6_proto", "dhcp6"))
 			fprintf(fp, "%s %s my.router my.%s\n", nvram_safe_get("ipv6_lan_addr"),
 				nvram_safe_get("lan_hostname"), nvram_safe_get("productid"));
 	}
@@ -166,7 +146,7 @@ start_dns(void)
 			sprintf(ip, "dhcp_staticip_x%d", i);
 			sprintf(name, "dhcp_staticname_x%d", i);
 
-			if (inet_addr_(nvram_safe_get(ip)) != INADDR_ANY && 
+			if (ip_addr(nvram_safe_get(ip)) != INADDR_ANY && 
 				nvram_invmatch(name, "")) 
 			{
 				fprintf(fp, "%s %s\n", nvram_get(ip), nvram_get(name));
@@ -268,7 +248,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	return eval("killall", "dnsmasq");
+	return killall("dnsmasq", 0);
 }
 
 int start_dhcpd(void)
@@ -281,7 +261,6 @@ int stop_dhcpd(void)
 	return 0;
 }
 
-#endif // __CONFIG_DNSMASQ__
 
 #ifdef __CONFIG_IPV6__
 int
@@ -291,8 +270,9 @@ start_radvd(void)
 	char *argv[] = {"radvd", NULL};
 	pid_t pid;
 	struct in6_addr addr;
-	int size, i, ret;
+	int size, ret;
 	char addrstr[INET6_ADDRSTRLEN];
+	char *dnsstr = NULL;
 
 	if (!nvram_invmatch("ipv6_proto", "") ||
 	    !nvram_match("ipv6_radvd_enable", "1"))
@@ -304,26 +284,37 @@ start_radvd(void)
 		return errno;
 	}
 
-	/* Convert for easy manipulation */
-	inet_pton(AF_INET6, nvram_safe_get("ipv6_lan_addr"), &addr);
 	size = atoi(nvram_safe_get("ipv6_lan_netsize"));
-	for (ret = 128 - size, i = 15; ret > 0; ret -= 8)
-	{
-		if (ret >= 8)
-			addr.s6_addr[i--] = 0;
-		else
-			addr.s6_addr[i--] &= (0xff << ret);
+	if (size < 8 || size > 120) {
+		size = 64;
+		nvram_set("ipv6_lan_netsize","64");
 	}
+	if (nvram_match("ipv6_proto", "dhcp6")) {
+		strcpy(addrstr, "::");
+	} else {
+		/* Convert for easy manipulation */
+		ipv6_addr(nvram_safe_get("ipv6_lan_addr"), &addr);
+		ipv6_network(&addr, size);
 
-	/* Clean space for 2002:wwxx:yyzz */
-	if (nvram_match("ipv6_proto", "tun6to4"))
-	{
-		addr.s6_addr32[0] = 0;
-		addr.s6_addr16[2] = 0;
+		/* Clean and/or fill ipv6 prefix space */
+		if (nvram_match("ipv6_proto", "tun6to4"))
+		{
+			addr.s6_addr16[0] = htons(0x2002);
+			ipv6_map6rd(&addr, 16, NULL, 0);
+		} else
+		if (nvram_match("ipv6_proto", "tun6rd"))
+		{
+//TODO: implement 6RD prefix copy into wan_addr
+			struct in6_addr wan_addr;
+			int prefix_size = ipv6_addr(nvram_safe_get("wan0_ipv6_addr"), &wan_addr);
+			int addr4masklen = atoi(nvram_safe_get("wan0_ipv6_ip4size"));
+			ipv6_host(&addr, prefix_size);
+			ipv6_map6rd(&addr, prefix_size, NULL, addr4masklen);
+		}
+
+		/* Convert back to string representation */
+		inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 	}
-
-	/* Convert back to string representation */
-	inet_ntop(AF_INET6, &addr, addrstr, INET6_ADDRSTRLEN);
 
 	/* Write out to config file */
 	fprintf(fp,
@@ -332,11 +323,14 @@ start_radvd(void)
 		    "AdvSendAdvert on;", nvram_safe_get("lan_ifname"));
 #ifdef BROKEN_IPV6_CONNTRACK
 	/* Advertise tunnel MTU to avoid large packet issue */
-	if (nvram_match("ipv6_proto", "tun6in4") || nvram_match("ipv6_proto", "tun6to4"))
+	if (nvram_match("ipv6_proto", "tun6in4") ||
+	    nvram_match("ipv6_proto", "tun6to4") ||
+	    nvram_match("ipv6_proto", "tun6rd"))
 		fprintf(fp,
 		    "AdvLinkMTU %s;", nvram_safe_get("ipv6_sit_mtu"));
-
 #endif
+
+	/* Prefix */
 	fprintf(fp,
 		    "prefix %s/%d {"
 			"AdvOnLink on;"
@@ -362,14 +356,26 @@ start_radvd(void)
 		else
 #endif
 		wan_ifname = nvram_safe_get("wan0_ifname");
-
 		fprintf(fp,
 			"Base6to4Interface %s;", wan_ifname);
+
+	}
+	fprintf(fp, "};");
+
+	/* RDNSS */
+	if (nvram_invmatch("ipv6_dns1_x", ""))
+		dnsstr = nvram_safe_get("ipv6_dns1_x");
+	else
+	if (nvram_invmatch("ipv6_lan_addr", "") &&
+	    nvram_invmatch("ipv6_proto", "dhcp6"))
+		dnsstr = nvram_safe_get("ipv6_lan_addr");
+	if (dnsstr && *dnsstr)
+	{
+		fprintf(fp,
+		    "RDNSS %s {};", dnsstr);
 	}
 
-	fprintf(fp,
-		    "};"
-		"};");
+	fprintf(fp, "};");
 	fclose(fp);
 
 	/* Enable IPv6 forwarding */
@@ -385,7 +391,7 @@ start_radvd(void)
 int
 stop_radvd(void)
 {
-	return eval("killall", "radvd");
+	return killall("radvd", 0);
 }
 #endif
 
@@ -561,21 +567,21 @@ start_ddns(int forced)
 
 	if (strlen(service)>0)
 	{
+		char *ddns_argv[] = {
 #ifdef __CONFIG_EZIPUPDATE__
-		char *ddns_argv[] = {"ez-ipupdate", 
+		    "ez-ipupdate",
 		    "-d", "-1",
 		    "-c", "/etc/ddns.conf",
 		    "-e", "/sbin/ddns_updated",
 		    "-b", "/tmp/ddns.cache",
-		    NULL};
 #elif __CONFIG_INADYN__
-		char *ddns_argv[] = {"inadyn", 
+		    "inadyn",
 		    "--background", "--iterations", "1",
 		    "--input_file", "/etc/ddns.conf",
 		    "--exec", "/sbin/ddns_updated",
 		    "--cache_file", "/tmp/ddns.cache",
-		    NULL};
 #endif
+		    NULL };
 		pid_t pid;
 
 		dprintf("ddns update %s %s\n", server, service);
@@ -583,9 +589,9 @@ start_ddns(int forced)
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
 #ifdef __CONFIG_EZIPUPDATE__
-		eval("killall", "-SIGQUIT", "ez-ipupdate");
+		killall("ez-ipupdate", -SIGQUIT);
 #elif __CONFIG_INADYN__
-		eval("killall", "inadyn");
+		killall("inadyn", 0);
 #endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
@@ -596,9 +602,9 @@ int
 stop_ddns(void)
 {
 #ifdef __CONFIG_EZIPUPDATE__
-	int ret = eval("killall", "-SIGQUIT", "ez-ipupdate");
+	int ret = killall("ez-ipupdate", -SIGQUIT);
 #elif __CONFIG_INADYN__
-	int ret = eval("killall", "inadyn");
+	int ret = killall("inadyn", 0);
 #endif
 
 	dprintf("done\n");
@@ -643,11 +649,12 @@ start_logger(void)
 int
 stop_logger(void)
 {
-	int ret1 = eval("killall", "klogd");
-	int ret2 = eval("killall", "syslogd");
+	int ret = killall("klogd", 0);
+
+	ret |= killall("syslogd", 0);
 
 	dprintf("done\n");
-	return (ret1|ret2);
+	return (ret);
 }
 
 int 
@@ -678,7 +685,7 @@ stop_misc(void)
 {
 	int ret;
 
-	ret = eval("killall", "watchdog");
+	ret = killall("watchdog", 0);
 	stop_ntpc();
 	stop_ddns();
 	stop_lltd();
@@ -709,7 +716,7 @@ static int
 stop_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
-	eval("killall", "lld2d");
+	killall("lld2d", 0);
 #endif
 	return 0;
 }
@@ -731,7 +738,7 @@ int hotplug_usb(void)
 }
 #else
 
-int start_nfsd(void)
+static int start_nfsd(void)
 {
 	struct stat	st_buf;
 	FILE 		*fp;
@@ -739,6 +746,10 @@ int start_nfsd(void)
 	/* create directories/files */
 	mkdir("/var/lib", 0755);
 	mkdir("/var/lib/nfs", 0755);
+# ifdef LINUX26
+	mkdir("/var/lib/nfs/v4recovery", 0755);
+	mount("nfsd", "/proc/fs/nfsd", "nfsd", MS_MGC_VAL, NULL);
+# endif
 	close(creat("/var/lib/nfs/etab", 0644));
 	close(creat("/var/lib/nfs/xtab", 0644));
 	close(creat("/var/lib/nfs/rmtab", 0644));
@@ -768,7 +779,6 @@ int start_nfsd(void)
 	}
 
 	eval("/usr/sbin/portmap");
-	eval("/usr/sbin/lockd");
 	eval("/usr/sbin/statd");
 	eval("/usr/sbin/nfsd");
 	eval("/usr/sbin/mountd");
@@ -786,27 +796,48 @@ int restart_nfsd(void)
 	return 0;	
 }
 
+static int stop_nfsd(void)
+{
+	killall("mountd", 0);
+	killall("nfsd", -9);
+	killall("statd", 0);
+	killall("portmap", 0);
+
+#ifdef LINUX26
+	umount("/proc/fs/nfsd");
+#endif
+
+	return 0;
+}
+
 int 
 start_usb(void)
 {
-	eval("insmod", "usbcore");
-	if (nvram_invmatch("usb20_disable_x", "2"))
-	{
-		eval("insmod", "usb-ohci");
-		eval("insmod", "usb-uhci");
-	}
+	insmod("usbcore", NULL);
 	if (nvram_invmatch("usb20_disable_x", "1"))
 	{
-		eval("insmod", "ehci-hcd");
+		insmod("ehci-hcd", NULL);
+	}
+	if (nvram_invmatch("usb20_disable_x", "2"))
+	{
+#ifdef LINUX26
+		insmod("ohci-hcd", NULL);
+		insmod("uhci-hcd", NULL);
+#else
+		insmod("usb-ohci", NULL);
+		insmod("usb-uhci", NULL);
+#endif
 	}
 
 	/* mount usbfs */
 	mount("usbfs", "/proc/bus/usb", "usbfs", MS_MGC_VAL, NULL);
 
 #ifdef PRINTER_SUPPORT
-	eval("insmod", "printer");
-	mkdir("/var/state", 0777);
-	mkdir("/var/state/parport", 0777);
+# ifdef LINUX26
+	insmod("usblp", NULL);
+# else
+	insmod("printer", NULL);
+# endif
 	if (!nvram_invmatch("lpr_enable", "1"))
 	{
 		char *lpd_argv[]={"lpd", NULL};
@@ -817,42 +848,48 @@ start_usb(void)
 	}
 	if (!nvram_invmatch("raw_enable", "1"))
 	{
-		eval("p910nd", "-f", "/dev/usb/lp0", "0");
+		eval("p910nd", "-f", LP_DEV(0), "0");
 	}
 #endif	
 #ifdef AUDIO_SUPPORT
 	if (!nvram_invmatch("audio_enable", "1"))
 	{
-		eval("insmod", "soundcore");
-		eval("insmod", "audio");
+		insmod("soundcore", NULL);
+		insmod("audio", NULL);
 		start_audio();
 	}
 #endif
 #ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{	
-		eval("insmod", "videodev");
-
-		// link video 
-		symlink("/dev/v4l/video0", "/dev/video");
 		start_rcamd();
 	}
 #endif
-#ifdef MASSSTORAGE_SUPPORT
 	mkdir("/tmp/mnt", 0755);
 
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("insmod", "scsi_mod");
-		eval("insmod", "sd_mod");
-		eval("insmod", "usb-storage");
-	}	
+		insmod("scsi_mod", NULL);
+		insmod("sd_mod", NULL);
+		insmod("usb-storage", NULL);
+#ifdef __CONFIG_NTFS3G__
+		if (nvram_match("usb_ntfs3g_enable", "1"))
+		{
+			insmod("fuse", NULL);
+		}
+		else
 #endif
+		insmod("ntfs", NULL);
+	}	
+
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
-		eval("insmod", "sunrpc");
-		eval("insmod", "lockd");
-		eval("insmod", "nfsd");
+		insmod("sunrpc", NULL);
+		insmod("lockd", NULL);
+#ifdef LINUX26
+		insmod("exportfs", NULL);
+#endif
+		insmod("nfsd", NULL);
 		
 		start_nfsd();
 	}
@@ -864,61 +901,73 @@ stop_usb(void)
 {
 	if (nvram_match("usb_nfsenable_x", "1"))
 	{	
-		eval("killall", "mountd");
-		eval("killall", "-9", "nfsd");
-		eval("killall", "-9", "lockd");
-		eval("killall", "portmap");
-		
-		eval("rmmod", "nfsd");
-		eval("rmmod", "lockd");
-		eval("rmmod", "sunrpc");
+		stop_nfsd();
+
+		rmmod("nfsd");
+#ifdef LINUX26
+		rmmod("exportfs");
+#endif
+		rmmod("lockd");
+		rmmod("sunrpc");
 	}
 	
-#ifdef MASSSTORAGE_SUPPORT
+
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		eval("killall", "vsftpd");
-		eval("killall", "smbd");
-		eval("killall", "nmbd");
+		killall("vsftpd", 0);
+		killall("smbd", 0);
+		killall("nmbd", 0);
+		killall("ntfs-3g", 0);
 		umount_all_part(NULL, -1);
-		eval("rmmod", "usb-storage");
-		eval("rmmod", "sd_mod");
-		eval("rmmod", "scsi_mod");
-	}
+		rmmod("usb-storage");
+		rmmod("sd_mod");
+		rmmod("scsi_mod");
+#ifdef __CONFIG_NTFS3G__
+		if (nvram_match("usb_ntfs3g_enable", "1"))
+		{
+			rmmod("fuse");
+		}
+		else
 #endif
+			rmmod("ntfs");
+	}
+
 #ifdef __CONFIG_RCAMD__
 	if (nvram_invmatch("usb_webenable_x", "0"))
 	{
 		stop_rcamd();	
-		eval("rmmod", "pwc");
-		eval("rmmod", "ov511_decomp");
-		eval("rmmod", "ov518_decomp");
-		eval("rmmod", "ov51x");
-		eval("rmmod", "i2c-core");
-		eval("rmmod", "videodev");
 	}
 #endif
 #ifdef AUDIO_SUPPORT
-	eval("rmmod", "audio");
-	eval("rmmod", "soundcore");
+	rmmod("audio");
+	rmmod("soundcore");
 	stop_audio();
 #endif
 #ifdef PRINTER_SUPPORT	
-	eval("killall", "lpd");
-	eval("killall", "p910nd");
-	eval("rmmod", "printer");
+	killall("lpd", 0);
+	killall("p910nd", 0);
+# ifdef LINUX26
+        rmmod("usblp");
+# else
+	rmmod("printer");
+# endif
 #endif	
 
 	umount("/proc/bus/usb");
 
-	eval("rmmod", "ehci-hcd");
-	eval("rmmod", "usb-uhci");
-	eval("rmmod", "usb-ohci");
-	eval("rmmod", "usbcore");
+	rmmod("ehci-hcd");
+#ifdef LINUX26
+	rmmod("uhci-hcd");
+	rmmod("ohci-hcd");
+#else
+	rmmod("usb-uhci");
+	rmmod("usb-ohci");
+#endif
+	rmmod("usbcore");
 	return 0;
 }
 
-void start_script(void)
+static void start_script(void)
 {
 //	pid_t pid;
 	FILE *fp;
@@ -943,7 +992,7 @@ void start_script(void)
 }
 
 /* get full storage path */
-char *nvram_storage_path(char *var)
+static char *nvram_storage_path(char *var)
 {
 	static char buf[256];
 	char *val = nvram_safe_get(var);
@@ -965,7 +1014,7 @@ int restart_ftpd()
 	char tmp[256];
 	FILE *fp, *f;
 
-	eval("killall", "vsftpd");
+	killall("vsftpd", 0);
 	
 	mkdir_if_none(vsftpd_users);
 
@@ -1029,6 +1078,7 @@ int restart_ftpd()
 		"chmod_enable=no\n"
 		"chroot_local_user=yes\n"
 		"check_shell=no\n"
+		"isolate=no\n"
 		"user_config_dir=%s\n"
 		"passwd_file=%s\n",
 		vsftpd_users, vsftpd_passwd);
@@ -1113,7 +1163,7 @@ int restart_ftpd()
 	return 0;
 }
 
-void restart_smbd()
+static void restart_smbd()
 {
 	FILE *fp;
 	DIR *dir = NULL;
@@ -1235,7 +1285,11 @@ void restart_smbd()
 }
 
 
-/*to unmount all partitions*/
+/* unmount partitions
+ *  scsi_host_no = -1	- all partitions (regardless product)
+ *               = -2	- partitions related to device specified by product (2.6 only)
+ *              >=  0	- partitions on device with specified scsi host
+ */
 static int
 umount_all_part(char *product, int scsi_host_no)
 {
@@ -1247,7 +1301,7 @@ umount_all_part(char *product, int scsi_host_no)
 	if (scsi_host_no != -1)
 	{
 	    // umount all partitions from specific scsi host only
-	    char discs_path[64], parts[128];
+	    char discs_path[128], parts[128];
 	    char scsi_dev_link[256];
 	    char buf[256];
 	    FILE *part_fp;
@@ -1255,6 +1309,83 @@ umount_all_part(char *product, int scsi_host_no)
 	    int t_host_no;
 	    int len;
 
+#ifdef LINUX26
+	/* /sys/bus/scsi/devices/<host_no>:x:x:x/block:[sda|sdb|...] */
+	    if ((usb_dev_disc = opendir("/sys/bus/scsi/devices")))
+    	    {
+		DIR *dir_disc;
+		FILE *prod_fp;
+
+		while ((dp = readdir(usb_dev_disc))) {
+		    if (sscanf(dp->d_name, "%d:%*s:%*s:%*s", &t_host_no) != 1)
+			continue;
+
+		    /* check for scsi host number */
+		    if (scsi_host_no >= 0) {
+			if (scsi_host_no != t_host_no)
+			    continue;
+			else
+			    goto dev_found;
+		    }
+
+		    /* check for product id */
+		    snprintf(scsi_dev_link, sizeof(scsi_dev_link), "%s/%s/product", "/sys/bus/scsi/devices", dp->d_name);
+		    if ((prod_fp = fopen(scsi_dev_link, "r")) == NULL)
+			continue;
+		    if (fgets(buf, sizeof(buf), prod_fp)) {
+			if (strncasecmp(product, buf, strlen(product)) != 0) {
+			    fclose(prod_fp);
+			    continue;
+			}
+		    }
+		    fclose(prod_fp);
+
+dev_found:
+		    /* find corresponding block device */
+		    len = 0;
+		    snprintf(discs_path, sizeof(discs_path), "%s/%s", "/sys/bus/scsi/devices", dp->d_name);
+		    if ((dir_disc = opendir(discs_path))) {
+			while ((dp = readdir(dir_disc))) {
+				if (strncmp(dp->d_name, "block:", 6) == 0)
+                                             break;
+			}
+			strncpy(scsi_dev_link, dp->d_name + 6, sizeof(scsi_dev_link));
+			len = strlen(scsi_dev_link);
+			closedir(dir_disc);
+		    }
+		    if (len == 0)
+			continue;
+
+		    /* We have found a disc that is on this controller.
+            	     * Loop thru all the partitions on this disc.
+	             */
+		    if ((part_fp = fopen("/proc/partitions", "r")))
+		    {
+			while (fgets(buf, sizeof(buf) - 1, part_fp))
+			{
+			    if (sscanf(buf, " %*s %*s %*s %s", parts) == 1)
+			    {
+				if (strncmp(parts, scsi_dev_link, len) == 0)
+				{
+				    snprintf(umount_dir, sizeof(umount_dir), "/dev/%s", parts);
+				    if ((mnt = findmntent(umount_dir)))
+				    {
+					if (!umount(mnt->mnt_dir))
+					    unlink(mnt->mnt_dir);
+				    }
+				    else
+					umount(umount_dir);
+				}
+			    }
+			}
+			fclose(part_fp);
+		    } /* partitions loop */
+
+		}
+		closedir(usb_dev_disc);
+	    }
+#else /* !LINUX26 */
+	/* ../scsi/host#/bus0/target0/lun# */
 	    if ((usb_dev_disc = opendir("/dev/discs")))
     	    {
 		while ((dp = readdir(usb_dev_disc))) {
@@ -1268,6 +1399,7 @@ umount_all_part(char *product, int scsi_host_no)
 		    scsi_dev_link[len] = '\0';
 		    if (strncmp(scsi_dev_link, "../scsi/host", 12))
                     	continue;
+
 		    t_host_no = atoi(scsi_dev_link + 12);
 		    if (t_host_no != scsi_host_no)
                     	continue;
@@ -1299,6 +1431,8 @@ umount_all_part(char *product, int scsi_host_no)
 		}
 		closedir(usb_dev_disc);
             }
+#endif /* LINUX26 */
+
 	}
 	else if ((dir_to_open = opendir("/tmp/mnt")))
 	{
@@ -1328,25 +1462,26 @@ remove_usb_mass(char *product, int scsi_host_no)
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
-			eval("killall", "vsftpd");
+			killall("vsftpd", 0);
 		}
 		if (nvram_invmatch("usb_smbenable_x", "0")) {
-			eval("killall", "smbd");
-			eval("killall", "nmbd");
+			killall("smbd", 0);
+			killall("nmbd", 0);
 		}
+		nvram_set("usb_ftp_device", "");
 
 		sleep(1);
-		umount_all_part(product, scsi_host_no);
-		nvram_set("usb_ftp_device", "");
-		logmessage("USB storage", "removed");
 	}
+
+	umount_all_part(product, scsi_host_no);
+	logmessage("USB storage", "removed");
 	return 0;
 }
 
 int mkdir_if_none(char *dir)
 {
 	DIR *dp;
-	if(!(dp=opendir(dir)))
+	if (!(dp=opendir(dir)))
 		return(mkdir(dir, 0777));
 	closedir(dp);
 	return 0;
@@ -1397,7 +1532,7 @@ static struct mntent *findmntent(char *file)
 	return mnt;
 }
 
-char *detect_fs_type(const char *device)
+static char *detect_fs_type(const char *device)
 {
 	int fd;
 	unsigned char buf[4096];
@@ -1454,8 +1589,7 @@ char *detect_fs_type(const char *device)
 #define MOUNT_VAL_RW 	2
 #define MOUNT_VAL_DUP 	3
 
-int
-mount_r(char *mnt_dev, char *mnt_dir)
+static int mount_r(char *mnt_dev, char *mnt_dir)
 {
 	struct mntent *mnt = findmntent(mnt_dev);
 	char *type;
@@ -1498,6 +1632,16 @@ mount_r(char *mnt_dev, char *mnt_dir)
 				sprintf(options, "iocharset=%s%s", 
 					isdigit(nvram_get("usb_smbcset_x")[0]) ? "cp" : "",
 						nvram_get("usb_smbcset_x"));
+#ifdef __CONFIG_NTFS3G__
+			if (nvram_match("usb_ntfs3g_enable", "1")) {
+				flags = MS_NOATIME;
+				mkdir_if_none(mnt_dir);
+				eval("ntfs-3g", mnt_dev, mnt_dir);
+				logmessage("USB storage", "%s%s fs at %s mounted to %s", 
+					type, (flags & MS_RDONLY) ? "(ro)" : "", mnt_dev, mnt_dir);
+				return (flags & MS_RDONLY) ? MOUNT_VAL_RONLY : MOUNT_VAL_RW;
+			}
+#endif
 		}
 
 		if (flags && !mkdir_if_none(mnt_dir) &&
@@ -1524,7 +1668,7 @@ int hotplug_usb_mass(char *product)
 	dir_to_open = usb_dev_disc = usb_dev_part = NULL;
 	
 	// Mount USB to system
-	if((usb_dev_disc = opendir("/dev/discs")))
+	if ((usb_dev_disc = opendir("/dev/discs")))
 	{
 		eval("/usr/local/sbin/pre-mount", product);
 
@@ -1536,12 +1680,12 @@ int hotplug_usb_mass(char *product)
 		
 		while ((dp=readdir(usb_dev_disc)))
 		{
-			if(!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
+			if (!strcmp(dp->d_name, "..") || !strcmp(dp->d_name, "."))
 				continue;
 
 			sprintf(usb_disc, "/dev/discs/%s", dp->d_name);
 
-			if((usb_dev_part = opendir(usb_disc)))
+			if ((usb_dev_part = opendir(usb_disc)))
 			{
 				while ((dp_disc=readdir(usb_dev_part)))
 				{
@@ -1602,11 +1746,11 @@ int hotplug_usb_mass(char *product)
 		eval("/usr/local/sbin/post-mount", product, mnt_dir);
 	}
 
-	if(usb_dev_disc)
+	if (usb_dev_disc)
 		closedir(usb_dev_disc);
-	if(usb_dev_part)
+	if (usb_dev_part)
 		closedir(usb_dev_part);
-	if(dir_to_open)
+	if (dir_to_open)
 		closedir(dir_to_open);
 
 	return 0;
@@ -1617,20 +1761,21 @@ int hotplug_usb_mass(char *product)
 /* usb-storage, sd_mod, scsi_mod, videodev are there if functions are enabled */
 /* pwc, ov511 i2c, depends on current status */
 
+static const char *UVCLIST[] = {"46d/8c1/", "46d/8c2/", "46d/8c3/", "46d/8c5/", "46d/8c6/", "46d/8c7/", NULL};
+
 int
 hotplug_usb(void)
 {
 	char *action, *interface, *product, *device;
 	int i;
 	int isweb;
-	char flag[6];
 
-	if( !(device=getenv("DEVICE")) ) device="";
+	if ( !(device=getenv("DEVICE")) ) device="";
 #ifdef DEBUG
-	dprintf("%s-%s-%s. Dev:%s\n",getenv("INTERFACE"),getenv("ACTION"),
-		product=getenv("PRODUCT"), device);
+	dprintf("%s-%s-%s. Dev:%s\n",getenv("ACTION"),getenv("INTERFACE"),
+		getenv("PRODUCT"), device);
 #endif
-	if( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
+	if ( !(interface = getenv("INTERFACE")) || !(action = getenv("ACTION")))
 		return EINVAL;
 
 	if ((product=getenv("PRODUCT")))
@@ -1647,13 +1792,17 @@ hotplug_usb(void)
 		/* usb storage */
 		if (strncmp(interface, "8/", 2) == 0)
 		{
+#ifdef LINUX26
+			int scsi_host_no = -2;
+#else
 			char *scsi_host = getenv("SCSI_HOST");
 			int scsi_host_no = -1;
+			if (scsi_host)
+				scsi_host_no = atoi(scsi_host);
+#endif /* LINUX26 */
 #if defined(__CONFIG_MODEM__)
 			hotplug_usb_modeswitch( interface, action, product, device );
 #endif
-			if (scsi_host)
-				scsi_host_no = atoi(scsi_host);
 			if (strcmp(action, "add") == 0)
 				nvram_set("usb_storage_device", product);
 			else
@@ -1670,33 +1819,27 @@ hotplug_usb(void)
 			isweb = WEB_AUDIO;
 			goto usbhandler;
 		}
-		else if(strncmp(interface, "1/", 2)==0)
+		else if (strncmp(interface, "1/", 2)==0)
 			return 0;
 
 		/* ignore hubs */
 		if (strncmp(interface, "9/", 2)==0)
 			return 0;
 
-		i=0;
+		i = 0;
 		isweb = WEB_NONE;
-		while(PWCLIST[i]!=NULL)
-		{
-			if (strstr(product, PWCLIST[i]))
-			{
-				isweb = WEB_PWCWEB;
-				goto usbhandler;
-			}
-			i++;
+		if (strcmp(interface, "14/1/0") == 0) { // Video
+			isweb = WEB_CAMERA;
+			goto usbhandler;
 		}
-		i=0;
-		while(OVLIST[i]!=NULL)
-		{
-			if (strstr(product, OVLIST[i]))
-			{
-				isweb = WEB_OVWEB;
-				goto usbhandler; 
+		if (strcmp(interface, "255/1/0") == 0) { // Vendor specific
+			while (UVCLIST[i] != NULL) {
+				if (strncmp(product, UVCLIST[i], strlen(UVCLIST[i])) == 0) {
+					isweb = WEB_CAMERA;
+					goto usbhandler;
+				}
+				i++;
 			}
-			i++;
 		}
 	}
 	else return 0;
@@ -1713,18 +1856,13 @@ usbhandler:
 			if (nvram_match("usb_audio_device", ""))
 				logmessage("USB audio", "attached");
 			nvram_set("usb_audio_device", product);
-#ifdef __CONFIG_WAVESERVER__
-			refresh_wave();
-#endif
 		}
 		else
 		{
 			if (nvram_match("usb_web_device", ""))	
 				logmessage("USB webcam", "attached");
 
-			sprintf(flag, "%d", isweb);
 			nvram_set("usb_web_device", product);
-			nvram_set("usb_web_flag", flag);
 			nvram_set("usb_webdriver_x", "");
 		}
 	}
@@ -1734,11 +1872,8 @@ usbhandler:
 		{
 			/* old usb-storage handler */
 		}
-		else if(isweb==WEB_AUDIO)
+		else if (isweb==WEB_AUDIO)
 		{
-#ifdef __CONFIG_WAVESERVER__
-			remove_usb_audio(product);
-#endif
 			nvram_set("usb_audio_device", "");
 		}
 		else
@@ -1747,10 +1882,9 @@ usbhandler:
 			{	
 				logmessage("USB webcam", "removed");
 				nvram_set("usb_web_device", "");
-				nvram_set("usb_web_flag", "");
 			}
 #ifdef __CONFIG_RCAMD__
-			remove_usb_webcam(product, isweb);
+			remove_usb_webcam(product);
 #endif
 		}
 	}
@@ -1775,6 +1909,7 @@ stop_service_main()
 	stop_snmpd();
 #ifdef __CONFIG_IPV6__
 	stop_radvd();
+	stop_dhcp6c();
 #endif
 	stop_dhcpd();
 	stop_dns();
@@ -1794,23 +1929,22 @@ int service_handle(void)
 
 	service = nvram_get("rc_service");
 
-	if(!service)
+	if (!service)
 		kill(1, SIGHUP);
 
-	if(strstr(service,"wan_disconnect")!=NULL)
+	if (strstr(service,"wan_disconnect")!=NULL)
 	{
 		cprintf("wan disconnect\n");
-
 		logmessage("wan", "disconnected manually");
 
 		if (nvram_match("wan0_proto", "dhcp") ||
-			nvram_match("wan0_proto", "bigpond"))
-		{		
+		    nvram_match("wan0_proto", "bigpond"))
+		{
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
 			kill_pidfile_s(tmp, SIGUSR2);
 		}
 		else 
-		{			
+		{
 			stop_wan(nvram_invmatch("wan_ifname_t", "") ? nvram_safe_get("wan_ifname_t") : NULL);
 		}
 	}
@@ -1820,8 +1954,15 @@ int service_handle(void)
 		logmessage("wan", "connected manually");
 		setup_ethernet(nvram_safe_get("wan_ifname"));
 
+#ifdef __CONFIG_EAPOL__
+		if (nvram_match("wan0_auth_x", "eap-md5")
+		&& (nvram_match("wan0_proto", "static") == 0 ||
+		    nvram_match("wan0_proto", "dhcp") == 0))
+			killall("wpa_supplicant", -SIGUSR2);
+		else
+#endif
 		if (nvram_match("wan0_proto", "dhcp") ||
-			nvram_match("wan0_proto", "bigpond"))
+		    nvram_match("wan0_proto", "bigpond"))
 		{
 			snprintf(tmp, sizeof(tmp), "/var/run/udhcpc%d.pid", 0);
 			kill_pidfile_s(tmp, SIGUSR1);
@@ -1852,41 +1993,20 @@ int service_handle(void)
 	return 0;
 }
 
-#ifdef __CONFIG_WAVESERVER__
 int hotplug_usb_audio(char *product)
 {
-	char *wave_argv[]={"waveserver", NULL};
-	pid_t pid;
-
-	if (strlen(product)==0) return 1;
-	return _eval(wave_argv, ">/dev/null", 0, &pid);
+	return 0;
 }
-
-static int remove_usb_audio(char *product)
-{
-	return stop_audio();
-}
-#endif
 
 int
 start_audio(void)
 {
-#ifdef __CONFIG_WAVESERVER__
-	char *wave_argv[] = {"waveservermain", NULL};
-	pid_t pid;
-
-	return _eval(wave_argv, NULL, 0, &pid);
-#else
 	return 0;
-#endif
 }
 
 int
 stop_audio(void)
 {
-#ifdef __CONFIG_WAVESERVER__
-	eval("killall", "waveserver");
-#endif
 	return 0;
 }
 

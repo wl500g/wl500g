@@ -1,0 +1,39 @@
+From: Florian Westphal
+Date: Sun, 9 Jan 2011 21:00:31 +0000 (+0100)
+Subject: libxt_time: fix random --datestart skips
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=8ad33a34a34ba2bcd360352ad3b7772916832702
+
+libxt_time: fix random --datestart skips
+
+Frank Lichtenheld points out that -m time --datestart ...
+sometimes messes up --datestart:
+
+$ iptables -A INPUT -m time --datestart 2010-11-24T16:50:00 -j ACCEPT
+$ iptables-save | grep 11
+-A INPUT -m time --datestart 2010-11-24T16:50:00 -j ACCEPT
+$ iptables-save | iptables-restore
+$ iptables-save | grep 11
+-A INPUT -m time --datestart 2010-11-24T15:50:00 -j ACCEPT
+
+--datestart moved by one hour.
+
+As the --timestart option does not care about DST, always set
+dst=0 when parsing --starttime input.
+
+Reported-by: Frank Lichtenheld <flichtenheld@astaro.com>
+Signed-off-by: Florian Westphal <fwestphal@astaro.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+
+diff --git a/extensions/libxt_time.c b/extensions/libxt_time.c
+index 5462d93..b2e6ffa 100644
+--- a/extensions/libxt_time.c
++++ b/extensions/libxt_time.c
+@@ -139,6 +139,7 @@ static time_t time_parse_date(const char *s, bool end)
+ 	tm.tm_hour = hour;
+ 	tm.tm_min  = minute;
+ 	tm.tm_sec  = second;
++	tm.tm_isdst = 0;
+ 	ret = mktime(&tm);
+ 	if (ret >= 0)
+ 		return ret;

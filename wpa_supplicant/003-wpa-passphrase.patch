@@ -1,0 +1,23 @@
+--- wpa_supplicant.orig/wpa_supplicant/wpa_passphrase.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/wpa_passphrase.c	2011-09-06 06:24:38.343897002 +0000
+@@ -14,6 +14,8 @@
+ 
+ #include "includes.h"
+ 
++#ifndef CONFIG_NO_PBKDF2
++
+ #include "common.h"
+ #include "sha1.h"
+ 
+@@ -71,3 +73,11 @@ int main(int argc, char *argv[])
+ 
+ 	return 0;
+ }
++
++#else /* CONFIG_NO_PBKDF2 */
++int main(int argc, char *argv[])
++{
++	printf("CONFIG_NO_PBKDF2 defined - wpa_passphrase disabled\n");
++	return -1;
++}
++#endif /* CONFIG_NO_PBKDF2 */

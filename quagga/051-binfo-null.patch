@@ -1,0 +1,37 @@
+From d3ddb22e902bc4dc175ed6974515f6e14d9be931
+From: Greg Troxel
+Date: Fri, 17 Sep 2010 10:47:49 -0400
+Subject: [PATCH] Set from even if binfo->extra is NULL.
+
+bgpd/bgp_packet.c:bgp_update_packet(): When extracting the peer, don't
+  fail to extract it because "binfo->extra" is NULL.  While one should
+  certainly avoid dereferencing binfo->extra, that's not a good reason
+  not to use binfo->peer.
+
+Fixes https://bugzilla.quagga.net/show_bug.cgi?id=497.
+Patch by Eric Sobocinksi.
+---
+ bgpd/bgp_packet.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/bgpd/bgp_packet.c b/bgpd/bgp_packet.c
+index 488ab44..a5f9552 100644
+--- a/bgpd/bgp_packet.c
++++ b/bgpd/bgp_packet.c
+@@ -177,10 +177,11 @@ bgp_update_packet (struct peer *peer, afi_t afi, safi_t safi)
+ 	  
+ 	  if (rn->prn)
+ 	    prd = (struct prefix_rd *) &rn->prn->p;
+-          if (binfo && binfo->extra)
++          if (binfo)
+             {
+-              tag = binfo->extra->tag;
+               from = binfo->peer;
++              if (binfo->extra)
++                tag = binfo->extra->tag;
+             }
+           
+ 	  bgp_packet_set_marker (s, BGP_MSG_UPDATE);
+-- 
+1.7.2.3
+

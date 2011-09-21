@@ -1,0 +1,47 @@
+ kernel.org commits
+ 12da81d11a34d3bdef52d731cc75f7ec72d0e815 [NET_CLS_ACT]: Introduce skb_act_clone
+ a057ae3c104dd2c661e55d2af37e70d168c65e00 [NET_CLS_ACT]: Use skb_act_clone
+
+---
+ include/net/sch_generic.h |   14 ++++++++++++++
+ net/sched/act_mirred.c    |    2 +-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 1b8e351..9d23d30 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -302,4 +302,18 @@ drop:
+ 	return NET_XMIT_DROP;
+ }
+ 
++#ifdef CONFIG_NET_CLS_ACT
++static inline struct sk_buff *skb_act_clone(struct sk_buff *skb, gfp_t gfp_mask)
++{
++	struct sk_buff *n = skb_clone(skb, gfp_mask);
++
++	if (n) {
++		n->tc_verd = SET_TC_VERD(n->tc_verd, 0);
++		n->tc_verd = CLR_TC_OK2MUNGE(n->tc_verd);
++		n->tc_verd = CLR_TC_MUNGED(n->tc_verd);
++	}
++	return n;
++}
++#endif
++
+ #endif
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index fd28eb2..70706e7 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -177,7 +177,7 @@ bad_mirred:
+ 		return TC_ACT_SHOT;
+ 	}
+ 
+-	skb2 = skb_clone(skb, GFP_ATOMIC);
++	skb2 = skb_act_clone(skb, GFP_ATOMIC);
+ 	if (skb2 == NULL)
+ 		goto bad_mirred;
+ 	if (m->tcfm_eaction != TCA_EGRESS_MIRROR &&
+-- 
+1.6.5.GIT

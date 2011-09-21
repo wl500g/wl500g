@@ -1,0 +1,13 @@
+--- wpa_supplicant.new/wpa_supplicant/wpa_cli.c	2010-01-12 14:55:02.000000000 +0000
++++ wpa_supplicant/wpa_supplicant/wpa_cli.c	2011-09-06 10:37:53.743897002 +0000
+@@ -1430,6 +1430,10 @@ static void wpa_cli_action_process(const
+ 			wpa_cli_connected = 0;
+ 			wpa_cli_exec(action_file, ctrl_ifname, "DISCONNECTED");
+ 		}
++	} else if (str_match(pos, WPA_EVENT_EAP_SUCCESS)) {
++		wpa_cli_exec(action_file, ctrl_ifname, "EAP-SUCCESS");
++	} else if (str_match(pos, WPA_EVENT_EAP_FAILURE)) {
++		wpa_cli_exec(action_file, ctrl_ifname, "EAP-FAILURE");
+ 	} else if (str_match(pos, WPA_EVENT_TERMINATING)) {
+ 		printf("wpa_supplicant is terminating - stop monitoring\n");
+ 		wpa_cli_quit = 1;

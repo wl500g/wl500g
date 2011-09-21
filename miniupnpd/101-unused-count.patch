@@ -1,0 +1,25 @@
+From 35ecc4b34b0ded70ab66a0eedf32b08f7c9d3ff6
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sat, 1 May 2010 22:30:22 -0400
+Subject: [PATCH] miniupnpd: fix count calculation for removing unused rules
+
+---
+ upnpredirect.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/upnpredirect.c b/upnpredirect.c
+--- a/upnpredirect.c
++++ b/upnpredirect.c
+@@ -435,8 +435,8 @@ remove_unused_rules(struct rule_state * list)
+ 		{
+ 			if(packets == list->packets && bytes == list->bytes)
+ 			{
+-				_upnp_delete_redir(list->eport, list->proto);
+-				n++;
++				if(_upnp_delete_redir(list->eport, list->proto) >= 0)
++					n++;
+ 			}
+ 		}
+ 		tmp = list;
+-- 
+1.6.5.GIT

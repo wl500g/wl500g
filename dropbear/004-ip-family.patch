@@ -1,7 +1,7 @@
-diff -BurpN dropbear.orig/cli-main.c dropbear/cli-main.c
---- dropbear.orig/cli-main.c	2008-11-11 14:09:02.000000000 +0000
-+++ dropbear/cli-main.c	2010-03-12 23:32:05.000000000 +0000
-@@ -66,7 +66,8 @@ int main(int argc, char ** argv) {
+diff -urBp dropbear.orig/cli-main.c dropbear/cli-main.c
+--- dropbear.orig/cli-main.c	2011-02-24 17:21:43.000000000 +0300
++++ dropbear/cli-main.c	2011-02-25 10:28:27.000000000 +0300
+@@ -67,7 +67,8 @@ int main(int argc, char ** argv) {
  	} else
  #endif
  	{
@@ -11,10 +11,10 @@ diff -BurpN dropbear.orig/cli-main.c dropbear/cli-main.c
  				0, &error);
  		sock_in = sock_out = sock;
  	}
-diff -BurpN dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
---- dropbear.orig/cli-runopts.c	2008-11-11 14:09:02.000000000 +0000
-+++ dropbear/cli-runopts.c	2010-03-12 23:48:53.000000000 +0000
-@@ -55,6 +55,9 @@ static void printhelp() {
+diff -urBp dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
+--- dropbear.orig/cli-runopts.c	2011-02-24 17:21:43.000000000 +0300
++++ dropbear/cli-runopts.c	2011-02-25 10:28:27.000000000 +0300
+@@ -56,6 +56,9 @@ static void printhelp() {
  					"Usage: %s [options] [user@]host[/port] [command]\n"
  #endif
  					"Options are:\n"
@@ -24,9 +24,9 @@ diff -BurpN dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
  					"-p <remoteport>\n"
  					"-l <username>\n"
  					"-t    Allocate a pty\n"
-@@ -137,10 +140,7 @@ void cli_getopts(int argc, char ** argv)
- #ifdef ENABLE_CLI_PROXYCMD
- 	cli_opts.proxycmd = NULL;
+@@ -148,10 +151,7 @@ void cli_getopts(int argc, char ** argv)
+ #ifndef DISABLE_ZLIB
+ 	opts.enable_compress = 1;
  #endif
 -	/* not yet
 -	opts.ipv4 = 1;
@@ -36,7 +36,7 @@ diff -BurpN dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
  	opts.recv_window = DEFAULT_RECV_WINDOW;
  
  	fill_own_user();
-@@ -196,6 +196,14 @@ void cli_getopts(int argc, char ** argv)
+@@ -207,6 +207,14 @@ void cli_getopts(int argc, char ** argv)
  				case 'y': /* always accept the remote hostkey */
  					cli_opts.always_accept_key = 1;
  					break;
@@ -51,21 +51,21 @@ diff -BurpN dropbear.orig/cli-runopts.c dropbear/cli-runopts.c
  				case 'p': /* remoteport */
  					next = &cli_opts.remoteport;
  					break;
-diff -BurpN dropbear.orig/cli-tcpfwd.c dropbear/cli-tcpfwd.c
---- dropbear.orig/cli-tcpfwd.c	2008-11-11 14:09:02.000000000 +0000
-+++ dropbear/cli-tcpfwd.c	2010-03-12 23:33:05.000000000 +0000
-@@ -229,7 +229,7 @@ static int newtcpforwarded(struct Channe
+diff -urBp dropbear.orig/cli-tcpfwd.c dropbear/cli-tcpfwd.c
+--- dropbear.orig/cli-tcpfwd.c	2011-02-24 17:21:43.000000000 +0300
++++ dropbear/cli-tcpfwd.c	2011-02-25 10:28:27.000000000 +0300
+@@ -227,7 +227,7 @@ static int newtcpforwarded(struct Channe
  	}
  	
- 	snprintf(portstring, sizeof(portstring), "%d", iter->connectport);
--	sock = connect_remote(iter->connectaddr, portstring, 1, NULL);
-+	sock = connect_remote(AF_UNSPEC, iter->connectaddr, portstring, 1, NULL);
+ 	snprintf(portstring, sizeof(portstring), "%d", fwd->connectport);
+-	sock = connect_remote(fwd->connectaddr, portstring, 1, NULL);
++	sock = connect_remote(AF_UNSPEC, fwd->connectaddr, portstring, 1, NULL);
  	if (sock < 0) {
  		TRACE(("leave newtcpdirect: sock failed"))
  		err = SSH_OPEN_CONNECT_FAILED;
-diff -BurpN dropbear.orig/dbutil.c dropbear/dbutil.c
---- dropbear.orig/dbutil.c	2008-11-11 14:09:02.000000000 +0000
-+++ dropbear/dbutil.c	2010-03-12 23:34:40.000000000 +0000
+diff -urBp dropbear.orig/dbutil.c dropbear/dbutil.c
+--- dropbear.orig/dbutil.c	2011-02-24 17:21:43.000000000 +0300
++++ dropbear/dbutil.c	2011-02-25 10:28:27.000000000 +0300
 @@ -183,7 +183,7 @@ static void set_sock_priority(int sock) 
   * Returns the number of sockets bound on success, or -1 on failure. On
   * failure, if errstring wasn't NULL, it'll be a newly malloced error
@@ -84,7 +84,7 @@ diff -BurpN dropbear.orig/dbutil.c dropbear/dbutil.c
  	hints.ai_socktype = SOCK_STREAM;
  
  	/* for calling getaddrinfo:
-@@ -300,7 +300,7 @@ int dropbear_listen(const char* address,
+@@ -322,7 +322,7 @@ int connect_unix(const char* path) {
   * wasn't null, it will be a newly malloced error message */
  
  /* TODO: maxfd */
@@ -93,7 +93,7 @@ diff -BurpN dropbear.orig/dbutil.c dropbear/dbutil.c
  		int nonblocking, char ** errstring) {
  
  	struct addrinfo *res0 = NULL, *res = NULL, hints;
-@@ -315,7 +315,7 @@ int connect_remote(const char* remotehos
+@@ -337,7 +337,7 @@ int connect_remote(const char* remotehos
  
  	memset(&hints, 0, sizeof(hints));
  	hints.ai_socktype = SOCK_STREAM;
@@ -102,28 +102,31 @@ diff -BurpN dropbear.orig/dbutil.c dropbear/dbutil.c
  
  	err = getaddrinfo(remotehost, remoteport, &hints, &res0);
  	if (err) {
-diff -BurpN dropbear.orig/dbutil.h dropbear/dbutil.h
---- dropbear.orig/dbutil.h	2008-11-11 14:09:02.000000000 +0000
-+++ dropbear/dbutil.h	2010-03-12 23:32:34.000000000 +0000
-@@ -47,12 +47,12 @@ extern int debug_trace;
- #endif
- char * stripcontrol(const char * text);
- unsigned char * getaddrstring(struct sockaddr_storage* addr, int withport);
+diff -urBp dropbear.orig/dbutil.h dropbear/dbutil.h
+--- dropbear.orig/dbutil.h	2011-02-24 17:21:43.000000000 +0300
++++ dropbear/dbutil.h	2011-02-25 10:28:27.000000000 +0300
+@@ -50,7 +50,7 @@ void get_socket_address(int fd, char **l
+ 		char **remote_host, char **remote_port, int host_lookup);
+ void getaddrstring(struct sockaddr_storage* addr, 
+ 		char **ret_host, char **ret_port, int host_lookup);
 -int dropbear_listen(const char* address, const char* port,
 +int dropbear_listen(int family, const char* address, const char* port,
  		int *socks, unsigned int sockcount, char **errstring, int *maxfd);
  int spawn_command(void(*exec_fn)(void *user_data), void *exec_data,
  		int *writefd, int *readfd, int *errfd, pid_t *pid);
- void run_shell_command(const char* cmd, unsigned int maxfd, char* usershell);
+@@ -58,7 +58,7 @@ void run_shell_command(const char* cmd, 
+ #ifdef ENABLE_CONNECT_UNIX
+ int connect_unix(const char* addr);
+ #endif
 -int connect_remote(const char* remotehost, const char* remoteport,
 +int connect_remote(int family, const char* remotehost, const char* remoteport,
  		int nonblocking, char ** errstring);
- char* getaddrhostname(struct sockaddr_storage * addr);
  int buf_readfile(buffer* buf, const char* filename);
-diff -BurpN dropbear.orig/runopts.h dropbear/runopts.h
---- dropbear.orig/runopts.h	2008-11-11 14:09:03.000000000 +0000
-+++ dropbear/runopts.h	2010-03-13 00:01:09.000000000 +0000
-@@ -62,11 +62,8 @@ typedef struct svr_runopts {
+ int buf_getline(buffer * line, FILE * authfile);
+diff -urBp dropbear.orig/runopts.h dropbear/runopts.h
+--- dropbear.orig/runopts.h	2011-02-24 17:21:44.000000000 +0300
++++ dropbear/runopts.h	2011-02-25 10:28:27.000000000 +0300
+@@ -70,11 +70,8 @@ typedef struct svr_runopts {
  
  	int inetdmode;
  
@@ -137,7 +140,7 @@ diff -BurpN dropbear.orig/runopts.h dropbear/runopts.h
  
  #ifdef DO_MOTD
  	/* whether to print the MOTD */
-@@ -99,6 +96,10 @@ void loadhostkeys();
+@@ -107,6 +104,10 @@ void loadhostkeys();
  typedef struct cli_runopts {
  
  	char *progname;
@@ -148,10 +151,10 @@ diff -BurpN dropbear.orig/runopts.h dropbear/runopts.h
  	char *remotehost;
  	char *remoteport;
  
-diff -BurpN dropbear.orig/svr-main.c dropbear/svr-main.c
---- dropbear.orig/svr-main.c	2010-03-12 00:00:00.000000000 +0000
-+++ dropbear/svr-main.c	2010-03-12 22:52:31.000000000 +0000
-@@ -408,7 +408,8 @@ static size_t listensockets(int *sock, s
+diff -urBp dropbear.orig/svr-main.c dropbear/svr-main.c
+--- dropbear.orig/svr-main.c	2011-02-25 03:00:00.000000000 +0300
++++ dropbear/svr-main.c	2011-02-25 10:28:27.000000000 +0300
+@@ -399,7 +399,8 @@ static size_t listensockets(int *sock, s
  
  		TRACE(("listening on '%s:%s'", svr_opts.addresses[i], svr_opts.ports[i]))
  
@@ -161,9 +164,9 @@ diff -BurpN dropbear.orig/svr-main.c dropbear/svr-main.c
  				sockcount - sockpos,
  				&errstring, maxfd);
  
-diff -BurpN dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
---- dropbear.orig/svr-runopts.c	2008-11-11 14:09:03.000000000 +0000
-+++ dropbear/svr-runopts.c	2010-03-12 23:56:52.000000000 +0000
+diff -urBp dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
+--- dropbear.orig/svr-runopts.c	2011-02-24 17:21:44.000000000 +0300
++++ dropbear/svr-runopts.c	2011-02-25 10:28:27.000000000 +0300
 @@ -71,6 +71,9 @@ static void printhelp(const char * progn
  					"-k		Disable remote port forwarding\n"
  					"-a		Allow connections to forwarded ports from any host\n"
@@ -174,9 +177,9 @@ diff -BurpN dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
  					"-p [address:]port\n"
  					"		Listen on specified tcp port (and optionally address),\n"
  					"		up to %d can be specified\n"
-@@ -125,10 +128,7 @@ void svr_getopts(int argc, char ** argv)
- #ifdef ENABLE_SVR_REMOTETCPFWD
- 	svr_opts.noremotetcp = 0;
+@@ -128,10 +131,7 @@ void svr_getopts(int argc, char ** argv)
+ #ifndef DISABLE_ZLIB
+ 	opts.enable_compress = 1;
  #endif
 -	/* not yet
 -	opts.ipv4 = 1;
@@ -186,7 +189,7 @@ diff -BurpN dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
  #ifdef DO_MOTD
  	svr_opts.domotd = 1;
  #endif
-@@ -200,9 +200,17 @@ void svr_getopts(int argc, char ** argv)
+@@ -203,9 +203,17 @@ void svr_getopts(int argc, char ** argv)
  					svr_opts.inetdmode = 1;
  					break;
  #endif
@@ -206,10 +209,10 @@ diff -BurpN dropbear.orig/svr-runopts.c dropbear/svr-runopts.c
  				case 'P':
  					next = &svr_opts.pidfile;
  					break;
-diff -BurpN dropbear.orig/svr-tcpfwd.c dropbear/svr-tcpfwd.c
---- dropbear.orig/svr-tcpfwd.c	2008-11-11 14:09:03.000000000 +0000
-+++ dropbear/svr-tcpfwd.c	2010-03-12 23:34:25.000000000 +0000
-@@ -265,7 +265,7 @@ static int newtcpdirect(struct Channel *
+diff -urBp dropbear.orig/svr-tcpfwd.c dropbear/svr-tcpfwd.c
+--- dropbear.orig/svr-tcpfwd.c	2011-02-24 17:21:44.000000000 +0300
++++ dropbear/svr-tcpfwd.c	2011-02-25 10:28:27.000000000 +0300
+@@ -274,7 +274,7 @@ static int newtcpdirect(struct Channel *
  	}
  
  	snprintf(portstring, sizeof(portstring), "%d", destport);
@@ -218,15 +221,15 @@ diff -BurpN dropbear.orig/svr-tcpfwd.c dropbear/svr-tcpfwd.c
  	if (sock < 0) {
  		err = SSH_OPEN_CONNECT_FAILED;
  		TRACE(("leave newtcpdirect: sock failed"))
-diff -BurpN dropbear.orig/tcp-accept.c dropbear/tcp-accept.c
---- dropbear.orig/tcp-accept.c	2008-11-11 14:09:03.000000000 +0000
-+++ dropbear/tcp-accept.c	2010-03-12 22:55:01.000000000 +0000
-@@ -118,7 +118,7 @@ int listen_tcpfwd(struct TCPListener* tc
- 		listen_spec = tcpinfo->listenaddr;
- 	}
+diff -urBp dropbear.orig/tcp-accept.c dropbear/tcp-accept.c
+--- dropbear.orig/tcp-accept.c	2011-02-24 17:21:44.000000000 +0300
++++ dropbear/tcp-accept.c	2011-02-25 10:28:27.000000000 +0300
+@@ -110,7 +110,7 @@ int listen_tcpfwd(struct TCPListener* tc
+ 	/* first we try to bind, so don't need to do so much cleanup on failure */
+ 	snprintf(portstring, sizeof(portstring), "%d", tcpinfo->listenport);
  
--	nsocks = dropbear_listen(listen_spec, portstring, socks, 
-+	nsocks = dropbear_listen(AF_UNSPEC, listen_spec, portstring, socks, 
+-	nsocks = dropbear_listen(tcpinfo->listenaddr, portstring, socks, 
++	nsocks = dropbear_listen(AF_UNSPEC, tcpinfo->listenaddr, portstring, socks, 
  			DROPBEAR_MAX_SOCKS, &errstring, &ses.maxfd);
  	if (nsocks < 0) {
  		dropbear_log(LOG_INFO, "TCP forward failed: %s", errstring);

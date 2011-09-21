@@ -143,7 +143,7 @@ void start_qos(char *wan_ipaddr)
 	int idx=0;
 	char net_name[32];
 	
-	if(nvram_match("qos_enable_x", "1"))
+	if (nvram_match("qos_enable_x", "1"))
 	{
 		for (idx=0;idx<=2;idx++)
 		{
@@ -163,12 +163,12 @@ void start_qos(char *wan_ipaddr)
 			,"rate","100Mbps","ceil","100Mbps");
 
 		//printf("starting making children classes ...\n");
-		for(idx_class_D=0; idx_class_D<=rulenum-1; idx_class_D++) //Download classes
+		for (idx_class_D=0; idx_class_D<=rulenum-1; idx_class_D++) //Download classes
 		{
 			tc_class(net_name, idx_class_D,\
 				Ch_conv("qos_minbw_x", idx_class_D),Ch_conv("qos_maxbw_x", idx_class_D));
 		}
-		for(idx_class_U=0; idx_class_U<=urulenum-1; idx_class_U++) //Upload classes
+		for (idx_class_U=0; idx_class_U<=urulenum-1; idx_class_U++) //Upload classes
 		{
 			tc_class(net_name, idx_class_U+idx_class_D,\
 				Ch_conv("qos_uminbw_x", idx_class_U), Ch_conv("qos_umaxbw_x", idx_class_U));
@@ -176,12 +176,12 @@ void start_qos(char *wan_ipaddr)
 		tc_class(net_name, def,"100000","100000"); //default class
 
 		//make filters
-		for(idx_filter_D=0; idx_filter_D<=rulenum-1; idx_filter_D++) //fit to download classes
+		for (idx_filter_D=0; idx_filter_D<=rulenum-1; idx_filter_D++) //fit to download classes
 		{
 			tc_filter_D(net_name, Ch_conv("qos_ipaddr_x", idx_filter_D), \
 				Ch_conv("qos_port_x", idx_filter_D), idx_filter_D);
 		}
-		for(idx_filter_U=0; idx_filter_U<=urulenum-1; idx_filter_U++) //fit to upload classes
+		for (idx_filter_U=0; idx_filter_U<=urulenum-1; idx_filter_U++) //fit to upload classes
 		{
 			tc_filter_U(wan_ipaddr, net_name, \
 				Ch_conv("qos_uport_x", idx_filter_U), idx_filter_U+idx_filter_D);

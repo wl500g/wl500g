@@ -1,0 +1,70 @@
+From 6fbabb20faed9c08f8b96de4182bd721cbd1cfcf
+From: Christoph Lameter
+Date: Mon, 8 Aug 2011 11:16:56 -0500
+Subject: [PATCH] slub: Fix full list corruption if debugging is on
+
+When a slab is freed by __slab_free() and the slab can only contain a
+single object ever then it was full (and therefore not on the partial
+lists but on the full list in the debug case) before we reached
+slab_empty.
+
+This caused the following full list corruption when SLUB debugging was enabled:
+
+  [ 5913.233035] ------------[ cut here ]------------
+  [ 5913.233097] WARNING: at lib/list_debug.c:53 __list_del_entry+0x8d/0x98()
+  [ 5913.233101] Hardware name: Adamo 13
+  [ 5913.233105] list_del corruption. prev->next should be ffffea000434fd20, but was ffffea0004199520
+  [ 5913.233108] Modules linked in: nfs fscache fuse ebtable_nat ebtables ppdev parport_pc lp parport ipt_MASQUERADE iptable_nat nf_nat nfsd lockd nfs_acl auth_rpcgss xt_CHECKSUM sunrpc iptable_mangle bridge stp llc cpufreq_ondemand acpi_cpufreq freq_table mperf ip6t_REJECT nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_filter ip6_tables rfcomm bnep arc4 iwlagn snd_hda_codec_hdmi snd_hda_codec_idt snd_hda_intel btusb mac80211 snd_hda_codec bluetooth snd_hwdep snd_seq snd_seq_device snd_pcm usb_debug dell_wmi sparse_keymap cdc_ether usbnet cdc_acm uvcvideo cdc_wdm mii cfg80211 snd_timer dell_laptop videodev dcdbas snd microcode v4l2_compat_ioctl32 soundcore joydev tg3 pcspkr snd_page_alloc iTCO_wdt i2c_i801 rfkill iTCO_vendor_support wmi virtio_net kvm_intel kvm ipv6 xts gf128mul dm_crypt i915 drm_kms_helper drm i2c_algo_bit i2c_core video [last unloaded: scsi_wait_scan]
+  [ 5913.233213] Pid: 0, comm: swapper Not tainted 3.0.0+ #127
+  [ 5913.233213] Call Trace:
+  [ 5913.233213]  <IRQ>  [<ffffffff8105df18>] warn_slowpath_common+0x83/0x9b
+  [ 5913.233213]  [<ffffffff8105dfd3>] warn_slowpath_fmt+0x46/0x48
+  [ 5913.233213]  [<ffffffff8127e7c1>] __list_del_entry+0x8d/0x98
+  [ 5913.233213]  [<ffffffff8127e7da>] list_del+0xe/0x2d
+  [ 5913.233213]  [<ffffffff814e0430>] __slab_free+0x1db/0x235
+  [ 5913.233213]  [<ffffffff811706ab>] ? bvec_free_bs+0x35/0x37
+  [ 5913.233213]  [<ffffffff811706ab>] ? bvec_free_bs+0x35/0x37
+  [ 5913.233213]  [<ffffffff811706ab>] ? bvec_free_bs+0x35/0x37
+  [ 5913.233213]  [<ffffffff81133085>] kmem_cache_free+0x88/0x102
+  [ 5913.233213]  [<ffffffff811706ab>] bvec_free_bs+0x35/0x37
+  [ 5913.233213]  [<ffffffff811706e1>] bio_free+0x34/0x64
+  [ 5913.233213]  [<ffffffff813dc390>] dm_bio_destructor+0x12/0x14
+  [ 5913.233213]  [<ffffffff8116fef6>] bio_put+0x2b/0x2d
+  [ 5913.233213]  [<ffffffff813dccab>] clone_endio+0x9e/0xb4
+  [ 5913.233213]  [<ffffffff8116f7dd>] bio_endio+0x2d/0x2f
+  [ 5913.233213]  [<ffffffffa00148da>] crypt_dec_pending+0x5c/0x8b [dm_crypt]
+  [ 5913.233213]  [<ffffffffa00150a9>] crypt_endio+0x78/0x81 [dm_crypt]
+
+[ Full discussion here: https://lkml.org/lkml/2011/8/4/375 ]
+
+Make sure that we remove such a slab also from the full lists.
+
+Reported-and-tested-by: Dave Jones <davej@redhat.com>
+Reported-and-tested-by: Xiaotian Feng <xtfeng@gmail.com>
+Signed-off-by: Christoph Lameter <cl@linux.com>
+Signed-off-by: Pekka Enberg <penberg@kernel.org>
+---
+ mm/slub.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/mm/slub.c b/mm/slub.c
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2387,9 +2387,14 @@ static void __slab_free(struct kmem_cache *s, struct page *page,
+ slab_empty:
+ 	if (prior)
+ 		/*
+-		 * Slab still on the partial list.
++		 * Slab on the partial list.
+ 		 */
+ 		remove_partial(s, page);
++#ifdef CONFIG_SLUB_DEBUG
++	else
++		/* Slab must be on the full list */
++		remove_full(s, page);
++#endif
+ 
+ 	slab_unlock(page);
+ 	discard_slab(s, page);
+-- 
+1.7.4.4

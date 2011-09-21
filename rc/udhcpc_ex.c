@@ -26,9 +26,9 @@
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
-static char udhcpstate[8];
+static char udhcpstate[12];
 
 static int
 expires(char *lan_ifname, unsigned int in)
@@ -60,7 +60,7 @@ deconfig(void)
 
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get("lan_ipaddr"),
-		 nvram_safe_get("lan_netmask"));
+		 nvram_safe_get("lan_netmask"), NULL);
 
 	expires(lan_ifname, 0);
 
@@ -111,7 +111,7 @@ bound(void)
 
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr_t", tmp)),
-		 nvram_safe_get(strcat_r(prefix, "netmask_t", tmp)));
+		 nvram_safe_get(strcat_r(prefix, "netmask_t", tmp)), NULL);
 
 	lan_up_ex(lan_ifname);
 

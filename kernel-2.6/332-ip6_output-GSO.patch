@@ -1,0 +1,39 @@
+From 0aa68271510ae2b221d4b60892103837be63afe4
+From: Herbert Xu
+Date: Thu, 27 May 2010 16:14:30 -0700
+Subject: [PATCH] ipv6: Add GSO support on forwarding path
+
+Currently we disallow GSO packets on the IPv6 forward path.
+This patch fixes this.
+
+Note that I discovered that our existing GSO MTU checks (e.g.,
+IPv4 forwarding) are buggy in that they skip the check altogether,
+when they really should be checking gso_size + header instead.
+
+I have also been lazy here in that I haven't bothered to segment
+the GSO packet by hand before generating an ICMP message.  Someone
+should add that to be 100% correct.
+
+Reported-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/ip6_output.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index cd963f6..89425af 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -507,7 +507,7 @@ int ip6_forward(struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	if (skb->len > dst_mtu(dst)) {
++	if (skb->len > dst_mtu(dst) && !skb_is_gso(skb)) {
+ 		/* Again, force OUTPUT device used as source address */
+ 		skb->dev = dst->dev;
+ 		icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, dst_mtu(dst), skb->dev);
+-- 
+1.7.1
+

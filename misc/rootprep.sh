@@ -25,6 +25,7 @@ ln -sf tmp/var var
 mkdir -p dev
 
 # miscellaneous
+mkdir -p sys
 mkdir -p mnt
 mkdir -p opt
 mkdir -p home
@@ -44,6 +45,8 @@ echo "/usr/lib" >> etc/ld.so.conf
 echo "/opt/lib" >> etc/ld.so.conf
 /sbin/ldconfig -r $ROOTDIR
 
+# lib
+mkdir -p lib/firmware
 # the hack to make /opt/lib work with uclibc 0.9.19 ld.so
 # which is ignoring ld.so.conf completely
 mkdir -p usr/X11R6

@@ -1,0 +1,41 @@
+From da521b2c4f046383bc8941604174bc0e8bffb430
+From: David S. Miller
+Date: Tue, 21 Dec 2010 12:43:16 -0800
+Subject: [PATCH] net: Fix range checks in tcf_valid_offset().
+
+This function has three bugs:
+
+1) The offset should be valid most of the time, this is just
+   a sanity check, therefore we should use "likely" not "unlikely"
+
+2) This is the only place where we can check for arithmetic overflow
+   of the pointer plus the length.
+
+3) The existing range checks are off by one, the valid range is
+   skb->head to skb_tail_pointer(), inclusive.
+
+Based almost entirely upon a patch by Ralph Loader.
+
+Reported-by: Ralph Loader <suckfish@ihug.co.nz>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/net/pkt_cls.h |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/include/net/pkt_cls.h b/include/net/pkt_cls.h
+index dd3031a..9fcc680 100644
+--- a/include/net/pkt_cls.h
++++ b/include/net/pkt_cls.h
+@@ -323,7 +323,9 @@ static inline unsigned char * tcf_get_base_ptr(struct sk_buff *skb, int layer)
+ static inline int tcf_valid_offset(const struct sk_buff *skb,
+ 				   const unsigned char *ptr, const int len)
+ {
+-	return unlikely((ptr + len) < skb_tail_pointer(skb) && ptr > skb->head);
++	return likely((ptr + len) <= skb_tail_pointer(skb) &&
++		      ptr >= skb->head &&
++		      (ptr <= (ptr + len)));
+ }
+ 
+ #ifdef CONFIG_NET_CLS_IND
+-- 
+1.7.4.4

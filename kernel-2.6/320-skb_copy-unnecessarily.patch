@@ -1,0 +1,61 @@
+Subject: [PATCH] [NET]: Avoid copying TCP packets unnecessarily
+From a030847e9f0eed2a080f6114381c649a7aa43d25
+From: Herbert Xu
+Date: Mon, 15 Oct 2007 01:47:15 -0700
+
+TCP packets all have writable heads, that is, even though it's cloned, it is
+writable up to the end of the TCP header.  This patch makes skb_checksum_help
+aware of this fact by using skb_clone_writable and avoiding a copy for TCP.
+
+I've also modified the BUG_ON tests to be unsigned.  The only case where this
+makes a difference is if csum_start points to a location before skb->data.
+Since skb->data should always include the header where the checksum field
+is (and all currently callers adhere to that), this change is safe and may
+uncover bugs later.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/core/dev.c |   21 ++++++++++-----------
+ 1 files changed, 10 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 39aba48..38b03da 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1362,22 +1362,21 @@ int skb_checksum_help(struct sk_buff *skb)
+ 		goto out_set_summed;
+ 	}
+ 
+-	if (skb_cloned(skb)) {
++	offset = skb->csum_start - skb_headroom(skb);
++	BUG_ON(offset >= skb_headlen(skb));
++	csum = skb_checksum(skb, offset, skb->len - offset, 0);
++
++	offset += skb->csum_offset;
++	BUG_ON(offset + sizeof(__sum16) > skb_headlen(skb));
++
++	if (skb_cloned(skb) &&
++	    !skb_clone_writable(skb, offset + sizeof(__sum16))) {
+ 		ret = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+ 		if (ret)
+ 			goto out;
+ 	}
+ 
+-	offset = skb->csum_start - skb_headroom(skb);
+-	BUG_ON(offset > (int)skb->len);
+-	csum = skb_checksum(skb, offset, skb->len-offset, 0);
+-
+-	offset = skb_headlen(skb) - offset;
+-	BUG_ON(offset <= 0);
+-	BUG_ON(skb->csum_offset + 2 > offset);
+-
+-	*(__sum16 *)(skb->head + skb->csum_start + skb->csum_offset) =
+-		csum_fold(csum);
++	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+ out_set_summed:
+ 	skb->ip_summed = CHECKSUM_NONE;
+ out:
+-- 
+1.7.1
+

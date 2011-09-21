@@ -1,0 +1,31 @@
+From: Adrian Bunk <bunk@stusta.de>
+Date: Mon, 16 Jul 2007 06:38:20 +0000 (-0700)
+Subject: mm/slab.c: start_cpu_timer() should be __cpuinit
+X-Git-Url: http://www.linux-mips.org/git?p=linux.git;a=commitdiff_plain;h=897e679b17460b52752a038af29db356fe1bd759
+
+mm/slab.c: start_cpu_timer() should be __cpuinit
+
+start_cpu_timer() should be __cpuinit (which also matches what it's
+callers are).
+
+__devinit didn't cause problems, it simply wasted a few bytes of memory
+for the common CONFIG_HOTPLUG_CPU=n case.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+
+diff --git a/mm/slab.c b/mm/slab.c
+index a6a2fcf..a453383 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -929,7 +929,7 @@ static void next_reap_node(void)
+  * the CPUs getting into lockstep and contending for the global cache chain
+  * lock.
+  */
+-static void __devinit start_cpu_timer(int cpu)
++static void __cpuinit start_cpu_timer(int cpu)
+ {
+ 	struct delayed_work *reap_work = &per_cpu(reap_work, cpu);
+ 

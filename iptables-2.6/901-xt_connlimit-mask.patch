@@ -1,0 +1,32 @@
+From: kd6lvw
+Date: Sun, 7 Jun 2009 12:23:00 +0000 (+0200)
+Subject: libxt_connlimit: initialize v6_mask
+X-Git-Tag: v1.4.4~1^2~2
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=a3726818e07d47136010f09762637a3e597329e3
+
+libxt_connlimit: initialize v6_mask
+
+When converting "--connlimit-mask $bits" to a 128-bit v6 mask, the
+code uses a left shift on v6_mask[n]. This requires v6_mask to be
+filled with all one-bits beforehand, but this initialization was not
+done.
+
+References: http://bugzilla.netfilter.org/show_bug.cgi?id=597
+Signed-off-by: Jan Engelhardt <jengelh@medozas.de>
+---
+
+diff --git a/extensions/libxt_connlimit.c b/extensions/libxt_connlimit.c
+index f001a2e..403e7e6 100644
+--- a/extensions/libxt_connlimit.c
++++ b/extensions/libxt_connlimit.c
+@@ -26,7 +26,9 @@ static const struct option connlimit_opts[] = {
+ static void connlimit_init(struct xt_entry_match *match)
+ {
+ 	struct xt_connlimit_info *info = (void *)match->data;
+-	info->v4_mask = 0xFFFFFFFFUL;
++
++	/* This will also initialize the v4 mask correctly */
++	memset(info->v6_mask, 0xFF, sizeof(info->v6_mask));
+ }
+ 
+ static void prefix_to_netmask(u_int32_t *mask, unsigned int prefix_len)

@@ -10,7 +10,7 @@ diff -BurpN busybox-1.17.1/Makefile busybox/Makefile
  # Added only to final link stage of busybox binary
  CFLAGS_busybox	:= $(CFLAGS_busybox)
  CPPFLAGS	:= $(CPPFLAGS)
-@@ -967,8 +967,12 @@ MRPROPER_DIRS  += include/config include
+@@ -967,8 +967,17 @@ MRPROPER_DIRS  += include/config include
  MRPROPER_FILES += .config .config.old include/asm .version .old_version \
  		  include/autoconf.h \
  		  include/bbconfigopts.h \
@@ -20,6 +20,11 @@ diff -BurpN busybox-1.17.1/Makefile busybox/Makefile
 +		  include/applets.h \
  		  include/applet_tables.h \
 +		  include/NUM_APPLETS.h \
++		  docs/busybox.1 \
++		  docs/BusyBox.html \
++		  docs/busybox.net/BusyBox.html \
++		  docs/busybox.pod \
++		  docs/BusyBox.txt \
  		  applets/usage \
  		  .kernelrelease Module.symvers tags TAGS cscope* \
  		  busybox_old

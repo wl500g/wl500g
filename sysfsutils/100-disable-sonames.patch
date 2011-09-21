@@ -1,0 +1,21 @@
+--- sysfsutils-2.1.0/lib/Makefile.am	2006-08-07 05:08:01.000000000 +0000
++++ sysfsutils/lib/Makefile.am	2011-01-13 14:37:42.095997000 +0000
+@@ -2,6 +2,6 @@ lib_LTLIBRARIES = libsysfs.la
+ libsysfs_la_SOURCES = sysfs_utils.c sysfs_attr.c sysfs_class.c dlist.c \
+       sysfs_device.c sysfs_driver.c sysfs_bus.c sysfs_module.c sysfs.h
+ INCLUDES = -I../include
+-libsysfs_la_LDFLAGS = -version-info 2:1:0
++libsysfs_la_LDFLAGS = -avoid-version
+ EXTRA_CFLAGS = @EXTRA_CLFAGS@
+ libsysfs_la_CFLAGS = -Wall -W -Wstrict-prototypes $(EXTRA_CLFAGS)
+--- sysfsutils-2.1.0/lib/Makefile.in	2006-08-23 08:38:57.000000000 +0000
++++ sysfsutils/lib/Makefile.in	2011-01-13 14:40:23.705997000 +0000
+@@ -184,7 +184,7 @@ libsysfs_la_SOURCES = sysfs_utils.c sysf
+       sysfs_device.c sysfs_driver.c sysfs_bus.c sysfs_module.c sysfs.h
+ 
+ INCLUDES = -I../include
+-libsysfs_la_LDFLAGS = -version-info 2:1:0
++libsysfs_la_LDFLAGS = -avoid-version
+ libsysfs_la_CFLAGS = -Wall -W -Wstrict-prototypes $(EXTRA_CLFAGS)
+ all: all-am
+ 

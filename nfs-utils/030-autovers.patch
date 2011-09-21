@@ -1,0 +1,64 @@
+Automatically turn off compiled-out NFSv4 (try#1)
+
+diff -urBp a/utils/nfsd/Makefile.am b/utils/nfsd/Makefile.am
+--- a/utils/nfsd/Makefile.am	2009-04-20 21:32:50.000000000 +0400
++++ b/utils/nfsd/Makefile.am	2011-09-10 18:02:40.000000000 +0400
+@@ -1,4 +1,7 @@
+ ## Process this file with automake to produce Makefile.in
++if !CONFIG_NFSV4
++DISABLE_NFS_V4 = -DNO_NFS_V4
++endif
+ 
+ man8_MANS	= nfsd.man
+ EXTRA_DIST	= $(man8_MANS)
+@@ -11,6 +14,8 @@ nfsd_SOURCES = nfsd.c
+ nfsd_LDADD = ../../support/export/libexport.a \
+ 	     ../../support/nfs/libnfs.a \
+ 	     ../../support/misc/libmisc.a
++nfsd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
++		$(DISABLE_NFS_V4)
+ 
+ MAINTAINERCLEANFILES = Makefile.in
+ 
+diff -urBp a/utils/nfsd/Makefile.in b/utils/nfsd/Makefile.in
+--- a/utils/nfsd/Makefile.in	2009-04-20 21:37:50.000000000 +0400
++++ b/utils/nfsd/Makefile.in	2011-09-10 18:04:18.000000000 +0400
+@@ -33,6 +33,7 @@ POST_UNINSTALL = :
+ build_triplet = @build@
+ host_triplet = @host@
+ sbin_PROGRAMS = nfsd$(EXEEXT)
++@CONFIG_NFSV4_FALSE@DISABLE_NFS_V4 = -DNO_NFS_V4
+ subdir = utils/nfsd
+ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+@@ -63,7 +64,7 @@ nfsd_DEPENDENCIES = ../../support/export
+ DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)/support/include
+ depcomp = $(SHELL) $(top_srcdir)/depcomp
+ am__depfiles_maybe = depfiles
+-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
++COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(nfsd_CPPFLAGS) \
+ 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+ LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
+@@ -239,6 +240,8 @@ nfsd_SOURCES = nfsd.c
+ nfsd_LDADD = ../../support/export/libexport.a \
+ 	     ../../support/nfs/libnfs.a \
+ 	     ../../support/misc/libmisc.a
++nfsd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
++		$(DISABLE_NFS_V4)
+ 
+ MAINTAINERCLEANFILES = Makefile.in
+ all: all-am
+diff -urBp a/utils/nfsd/nfsd.c b/utils/nfsd/nfsd.c
+--- a/utils/nfsd/nfsd.c	2009-04-20 21:32:50.000000000 +0400
++++ b/utils/nfsd/nfsd.c	2011-09-10 18:06:21.000000000 +0400
+@@ -109,6 +109,9 @@ main(int argc, char **argv)
+ 		fprintf(stderr, "invalid protocol specified\n");
+ 		exit(1);
+ 	}
++#ifdef NO_NFS_V4
++	NFSCTL_VERUNSET(versbits, 4);
++#endif
+ 	found_one = 0;
+ 	for (c = NFSD_MINVERS; c <= NFSD_MAXVERS; c++) {
+ 		if (NFSCTL_VERISSET(versbits, c))

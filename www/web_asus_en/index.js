@@ -412,7 +412,7 @@ function redrawTree() {
 			doc.write("<img src='graph/asusLogoR.jpg' width='144' height='66'></div>");
 	}
 
-	doc.write("<div align='left'style='margin-left:3'>");
+	doc.write("<div align='left' style='margin-left:3'>");
 
 	// if (mode == 'AP')
 	// doc.write("<p height='10' style='font-family: Verdana; font-size: 10pt;
@@ -440,7 +440,7 @@ function redrawNode(foldersNode, doc, level, lastNode, leftSide) {
 
 	if (level > 0) {
 		doc.write("<table border=0 cellspacing=0 cellpadding=0>");
-		doc.write("<tr><td valign = middle nowrap>");
+		doc.write("<tr><td valign='middle' nowrap>");
 
 		doc.write(leftSide);
 

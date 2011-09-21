@@ -1,0 +1,134 @@
+From 331dc558fa020451ff773973cee855fd721aa88e
+From: Christoph Lameter
+Date: Thu, 14 Feb 2008 14:28:09 -0800
+Subject: [PATCH] slub: Support 4k kmallocs again to compensate for page allocator slowness
+
+Currently we hand off PAGE_SIZEd kmallocs to the page allocator in the
+mistaken belief that the page allocator can handle these allocations
+effectively. However, measurements indicate a minimum slowdown by the
+factor of 8 (and that is only SMP, NUMA is much worse) vs the slub fastpath
+which causes regressions in tbench.
+
+Increase the number of kmalloc caches by one so that we again handle 4k
+kmallocs directly from slub. 4k page buffering for the page allocator
+will be performed by slub like done by slab.
+
+At some point the page allocator fastpath should be fixed. A lot of the kernel
+would benefit from a faster ability to allocate a single page. If that is
+done then the 4k allocs may again be forwarded to the page allocator and this
+patch could be reverted.
+
+Reviewed-by: Pekka Enberg <penberg@cs.helsinki.fi>
+Acked-by: Mel Gorman <mel@csn.ul.ie>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+---
+ include/linux/slub_def.h |    6 +++---
+ mm/slub.c                |   18 +++++++++---------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+index 98be113..57deecc 100644
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -111,7 +111,7 @@ struct kmem_cache {
+  * We keep the general caches in an array of slab caches that are used for
+  * 2^x bytes of allocations.
+  */
+-extern struct kmem_cache kmalloc_caches[PAGE_SHIFT];
++extern struct kmem_cache kmalloc_caches[PAGE_SHIFT + 1];
+ 
+ /*
+  * Sorry that the following has to be that ugly but some versions of GCC
+@@ -197,7 +197,7 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
+ static inline void *kmalloc(size_t size, gfp_t flags)
+ {
+ 	if (__builtin_constant_p(size)) {
+-		if (size > PAGE_SIZE / 2)
++		if (size > PAGE_SIZE)
+ 			return (void *)__get_free_pages(flags | __GFP_COMP,
+ 							get_order(size));
+ 
+@@ -219,7 +219,7 @@ void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
+ static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
+ {
+ 	if (__builtin_constant_p(size) &&
+-		size <= PAGE_SIZE / 2 && !(flags & SLUB_DMA)) {
++		size <= PAGE_SIZE && !(flags & SLUB_DMA)) {
+ 			struct kmem_cache *s = kmalloc_slab(size);
+ 
+ 		if (!s)
+diff --git a/mm/slub.c b/mm/slub.c
+index 644fd0a..4b3895c 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2117,11 +2117,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);
+  *		Kmalloc subsystem
+  *******************************************************************/
+ 
+-struct kmem_cache kmalloc_caches[PAGE_SHIFT] __cacheline_aligned;
++struct kmem_cache kmalloc_caches[PAGE_SHIFT + 1] __cacheline_aligned;
+ EXPORT_SYMBOL(kmalloc_caches);
+ 
+ #ifdef CONFIG_ZONE_DMA
+-static struct kmem_cache *kmalloc_caches_dma[PAGE_SHIFT];
++static struct kmem_cache *kmalloc_caches_dma[PAGE_SHIFT + 1];
+ #endif
+ 
+ static int __init setup_slub_min_order(char *str)
+@@ -2263,7 +2263,7 @@ void *__kmalloc(size_t size, gfp_t flags)
+ {
+ 	struct kmem_cache *s;
+ 
+-	if (unlikely(size > PAGE_SIZE / 2))
++	if (unlikely(size > PAGE_SIZE))
+ 		return (void *)__get_free_pages(flags | __GFP_COMP,
+ 							get_order(size));
+ 
+@@ -2280,7 +2280,7 @@ void *__kmalloc_node(size_t size, gfp_t flags, int node)
+ {
+ 	struct kmem_cache *s;
+ 
+-	if (unlikely(size > PAGE_SIZE / 2))
++	if (unlikely(size > PAGE_SIZE))
+ 		return (void *)__get_free_pages(flags | __GFP_COMP,
+ 							get_order(size));
+ 
+@@ -2532,7 +2532,7 @@ void __init kmem_cache_init(void)
+ 		caches++;
+ 	}
+ 
+-	for (i = KMALLOC_SHIFT_LOW; i < PAGE_SHIFT; i++) {
++	for (i = KMALLOC_SHIFT_LOW; i <= PAGE_SHIFT; i++) {
+ 		create_kmalloc_cache(&kmalloc_caches[i],
+ 			"kmalloc", 1 << i, GFP_KERNEL);
+ 		caches++;
+@@ -2559,7 +2559,7 @@ void __init kmem_cache_init(void)
+ 	slab_state = UP;
+ 
+ 	/* Provide the correct kmalloc names now that the caches are up */
+-	for (i = KMALLOC_SHIFT_LOW; i < PAGE_SHIFT; i++)
++	for (i = KMALLOC_SHIFT_LOW; i <= PAGE_SHIFT; i++)
+ 		kmalloc_caches[i]. name =
+ 			kasprintf(GFP_KERNEL, "kmalloc-%d", 1 << i);
+ 
+@@ -2681,7 +2681,7 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
+ {
+ 	struct kmem_cache *s;
+ 
+-	if (unlikely(size > PAGE_SIZE / 2))
++	if (unlikely(size > PAGE_SIZE))
+ 		return (void *)__get_free_pages(gfpflags | __GFP_COMP,
+ 							get_order(size));
+ 	s = get_slab(size, gfpflags);
+@@ -2696,7 +2696,7 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
+ {
+ 	struct kmem_cache *s;
+ 
+-	if (unlikely(size > PAGE_SIZE / 2))
++	if (unlikely(size > PAGE_SIZE))
+ 		return (void *)__get_free_pages(gfpflags | __GFP_COMP,
+ 							get_order(size));
+ 	s = get_slab(size, gfpflags);
+-- 
+1.7.0.2
+

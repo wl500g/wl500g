@@ -1,0 +1,112 @@
+Fixes from upstream
+
+ From cb2eb9997a0292a144968d117f4d831c155ca71d
+ From: Andreas Henriksson
+ Date: Thu, 30 Apr 2009 16:50:50 +0200
+ Subject: [PATCH] Bug#526329: iproute: Segfault on garbage lladdr
+
+ From 6e34e7dc0ae01176f1c2a2fa2e6310b0e04ae204
+ From: Denys Fedoryshchenko
+ Date: Tue, 6 Jan 2009 19:41:50 -0800
+ Subject: [PATCH] Fix tc/m_ipt memory leaks
+
+ From 4b45abd1f000f62df9b624e393d9f3d62751a266
+ From: Stephen Hemminger
+ Date: Thu, 29 Jul 2010 18:03:35 -0700
+ Subject: [PATCH] Fix NULL pointer reference when using basic match
+
+---
+ ip/iplink.c   |    4 ++++
+ tc/m_ematch.c |   12 +++++++-----
+ tc/m_ipt.c    |   15 ++++++++++++++-
+ 3 files changed, 25 insertions(+), 6 deletions(-)
+
+diff -urBp iproute2.orig/ip/iplink.c iproute2/ip/iplink.c
+--- iproute2.orig/ip/iplink.c	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/ip/iplink.c	2011-02-21 19:57:48.000000000 +0300
+@@ -175,11 +175,15 @@ int iplink_parse(int argc, char **argv,
+ 		} else if (matches(*argv, "address") == 0) {
+ 			NEXT_ARG();
+ 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
++			if (len < 0)
++				return -1;
+ 			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, len);
+ 		} else if (matches(*argv, "broadcast") == 0 ||
+ 				strcmp(*argv, "brd") == 0) {
+ 			NEXT_ARG();
+ 			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
++			if (len < 0)
++				return -1;
+ 			addattr_l(&req->n, sizeof(*req), IFLA_BROADCAST, abuf, len);
+ 		} else if (matches(*argv, "txqueuelen") == 0 ||
+ 				strcmp(*argv, "qlen") == 0 ||
+diff -urBp iproute2.orig/tc/m_ematch.c iproute2/tc/m_ematch.c
+--- iproute2.orig/tc/m_ematch.c	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/tc/m_ematch.c	2011-02-21 19:57:54.000000000 +0300
+@@ -451,12 +451,14 @@ static int print_ematch_list(FILE *fd, s
+ 	if (tb == NULL)
+ 		return -1;
+ 
+-	if (parse_rtattr_nested(tb, hdr->nmatches, rta) < 0)
+-		goto errout;
++	if (hdr->nmatches > 0) {
++		if (parse_rtattr_nested(tb, hdr->nmatches, rta) < 0)
++			goto errout;
+ 
+-	fprintf(fd, "\n  ");
+-	if (print_ematch_seq(fd, tb, 1, 1) < 0)
+-		goto errout;
++		fprintf(fd, "\n  ");
++		if (print_ematch_seq(fd, tb, 1, 1) < 0)
++			goto errout;
++	}
+ 
+ 	err = 0;
+ errout:
+diff -urBp iproute2.orig/tc/m_ipt.c iproute2/tc/m_ipt.c
+--- iproute2.orig/tc/m_ipt.c	2008-04-17 21:12:54.000000000 +0400
++++ iproute2/tc/m_ipt.c	2011-02-21 19:57:51.000000000 +0300
+@@ -277,6 +277,8 @@ get_target_name(const char *name)
+ 		if (!handle) {
+ 			fputs(dlerror(), stderr);
+ 			printf("\n");
++			free(l_name);
++			free(new_name);
+ 			return NULL;
+ 		}
+ 	}
+@@ -292,12 +294,16 @@ get_target_name(const char *name)
+ 					fputs(error, stderr);
+ 					fprintf(stderr, "\n");
+ 					dlclose(handle);
++					free(l_name);
++					free(new_name);
+ 					return NULL;
+ 				}
+ 			}
+ 		}
+ 	}
+ 
++	free(l_name);
++	free(new_name);
+ 	return m;
+ }
+ 
+@@ -512,8 +518,15 @@ static int parse_ipt(struct action_util
+ 	*argc_p = rargc - iargc;
+ 	*argv_p = argv;
+ 
+-	optind = 1;
++	optind = 0;
+ 	free_opts(opts);
++	/* Clear flags if target will be used again */
++        m->tflags=0;
++        m->used=0;
++	/* Free allocated memory */
++        if (m->t)
++            free(m->t);
++
+ 
+ 	return 0;
+ 
+-- 

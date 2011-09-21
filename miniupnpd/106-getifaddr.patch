@@ -1,0 +1,54 @@
+--- miniupnpd.orig/getifaddr.c	2008-10-15 10:16:28.000000000 +0000
++++ miniupnpd/getifaddr.c	2011-06-11 10:33:38.000000000 +0000
+@@ -36,6 +36,7 @@ getifaddr(const char * ifname, char * bu
+ 	int ifrlen;
+ 	struct sockaddr_in * addr;
+ 	ifrlen = sizeof(ifr);
++	int ret = -1;
+ 
+ 	if(!ifname || ifname[0]=='\0')
+ 		return -1;
+@@ -46,20 +47,28 @@ getifaddr(const char * ifname, char * bu
+ 		return -1;
+ 	}
+ 	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
++	if(ioctl(s, SIOCGIFFLAGS, &ifr) < 0)
++	{
++		syslog(LOG_DEBUG, "ioctl(s, SIOCGIFFLAGS, ...): %m");
++		goto err;
++	} else
++	if ((ifr.ifr_flags & IFF_UP) == 0)
++		goto err;
+ 	if(ioctl(s, SIOCGIFADDR, &ifr, &ifrlen) < 0)
+ 	{
+ 		syslog(LOG_ERR, "ioctl(s, SIOCGIFADDR, ...): %m");
+-		close(s);
+-		return -1;
++		goto err;
+ 	}
+ 	addr = (struct sockaddr_in *)&ifr.ifr_addr;
+ 	if(!inet_ntop(AF_INET, &addr->sin_addr, buf, len))
+ 	{
+ 		syslog(LOG_ERR, "inet_ntop(): %m");
+-		close(s);
+-		return -1;
++		goto err;
+ 	}
+ 	close(s);
++	ret = 0;
++ err:
++	return ret;
+ #else /* ifndef USE_GETIFADDRS */
+ 	/* Works for all address families (both ip v4 and ip v6) */
+ 	struct ifaddrs * ifap;
+@@ -93,8 +102,9 @@ getifaddr(const char * ifname, char * bu
+ 		}
+ 	}
+ 	freeifaddrs(ifap);
+-#endif
++
+ 	return 0;
++#endif
+ }
+ 
+ #ifdef ENABLE_IPV6

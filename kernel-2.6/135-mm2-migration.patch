@@ -1,0 +1,41 @@
+From bda8550deed96687f29992d711a88ea21cff4d26
+From: Hugh Dickins 
+Date: Wed, 19 Nov 2008 15:36:36 -0800
+Subject: [PATCH] migration: fix writepage error
+
+Page migration's writeout() has got understandably confused by the nasty
+AOP_WRITEPAGE_ACTIVATE case: as in normal success, a writepage() error has
+unlocked the page, so writeout() then needs to relock it.
+
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+Cc: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Cc: Christoph Lameter <cl@linux-foundation.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/migrate.c |    5 +----
+ 1 files changed, 1 insertions(+), 4 deletions(-)
+
+diff --git a/mm/migrate.c b/mm/migrate.c
+index 385db89..1e0d6b2 100644
+--- a/mm/migrate.c
++++ b/mm/migrate.c
+@@ -522,15 +522,12 @@ static int writeout(struct address_space *mapping, struct page *page)
+ 	remove_migration_ptes(page, page);
+ 
+ 	rc = mapping->a_ops->writepage(page, &wbc);
+-	if (rc < 0)
+-		/* I/O Error writing */
+-		return -EIO;
+ 
+ 	if (rc != AOP_WRITEPAGE_ACTIVATE)
+ 		/* unlocked. Relock */
+ 		lock_page(page);
+ 
+-	return -EAGAIN;
++	return (rc < 0) ? -EIO : -EAGAIN;
+ }
+ 
+ /*
+-- 
+1.7.2.3

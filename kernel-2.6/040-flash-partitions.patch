@@ -1,0 +1,110 @@
+diff -BurpN linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c
+--- linux-2.6.22.19.orig/arch/mips/brcm-boards/bcm947xx/setup.c	2009-02-23 14:14:55.000000000 +0000
++++ linux-2.6/arch/mips/brcm-boards/bcm947xx/setup.c	2010-01-18 18:41:18.000000000 +0000
+@@ -229,6 +229,14 @@ static struct mtd_partition bcm947xx_par
+ 		.name = "nvram",
+ 		.size = 0,
+ 		.offset = 0
++	},
++	{
++		.name = "flashfs",
++		.size = 0,
++		.offset = 0
++	},
++	{
++		.name = NULL
+ 	}
+ };
+ 
+@@ -244,6 +249,7 @@ init_mtd_partitions(struct mtd_info *mtd
+ 	unsigned char buf[512];
+ 	int off;
+ 	size_t len;
++	size_t trx_len = 0;
+ 
+ 	minixsb = (struct minix_super_block *) buf;
+ 	ext2sb = (struct ext2_super_block *) buf;
+@@ -267,6 +273,7 @@ init_mtd_partitions(struct mtd_info *mtd
+ 		if (le32_to_cpu(trx->magic) == TRX_MAGIC) {
+ 			bcm947xx_parts[1].offset = off;
+ //			if (le32_to_cpu(trx->offsets[1]) > off)
++			trx_len = trx->len;
+ 	                if (le32_to_cpu(trx->offsets[2]) > off)
+ 	                        off = le32_to_cpu(trx->offsets[2]);
+ 	                else if (le32_to_cpu(trx->offsets[1]) > off)
+@@ -347,6 +354,23 @@ init_mtd_partitions(struct mtd_info *mtd
+ 	/* Size pmon */
+ 	bcm947xx_parts[0].size = bcm947xx_parts[1].offset - bcm947xx_parts[0].offset;
+ 
++	/* Find and size flashfs -- nvram reserved + pmon */
++	bcm947xx_parts[4].size = (128*1024 - bcm947xx_parts[3].size) +
++		(256*1024 - bcm947xx_parts[0].size);
++	/* ... add unused space above 4MB */
++	if (size > 0x400000) {
++		if (trx_len <= 0x3a0000) // Small firmware - fixed amount
++			bcm947xx_parts[4].size += size - 0x400000;
++		else {
++			bcm947xx_parts[4].size += size - (trx_len + 128*1024 + 256*1024);
++			bcm947xx_parts[4].size &= (~0x3FFFFUL); // Round down 256K
++		}
++	}
++	bcm947xx_parts[4].offset = bcm947xx_parts[3].offset - bcm947xx_parts[4].size;
++	if (bcm947xx_parts[4].size == 0) {
++		bcm947xx_parts[4].name = NULL;
++	}
++
+ 	return bcm947xx_parts;
+ }
+ 
+diff -BurpN linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c linux-2.6/drivers/mtd/devices/sflash.c
+--- linux-2.6.22.19.orig/drivers/mtd/devices/sflash.c	2008-12-12 03:28:49.000000000 +0000
++++ linux-2.6/drivers/mtd/devices/sflash.c	2010-01-18 18:41:42.000000000 +0000
+@@ -189,6 +189,7 @@ sflash_mtd_init(void)
+ 	struct pci_dev *dev = NULL;
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	struct mtd_partition *parts;
++	int i;
+ #endif
+ 
+ 	list_for_each_entry(dev, &((pci_find_bus(0, 0))->devices), bus_list) {
+@@ -250,12 +250,16 @@ sflash_mtd_init(void)
+ 
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	parts = init_mtd_partitions(&sflash.mtd, sflash.mtd.size);
+-	ret = add_mtd_partitions(&sflash.mtd, parts, 4);
++	for (i = 0; parts[i].name; i++);
++	ret = add_mtd_partitions(&sflash.mtd, parts, i);
++#else
++	ret = add_mtd_device(&sflash.mtd);
++#endif
+ 	if (ret) {
+ 		printk(KERN_ERR "sflash: add_mtd failed\n");
+ 		goto fail;
+ 	}
+-#endif
++
+ 	return 0;
+ 
+ fail:
+diff -BurpN linux-2.6.22.19.orig/drivers/mtd/maps/bcm947xx-flash.c linux-2.6/drivers/mtd/maps/bcm947xx-flash.c
+--- linux-2.6.22.19.orig/drivers/mtd/maps/bcm947xx-flash.c	2008-12-12 03:28:49.000000000 +0000
++++ linux-2.6/drivers/mtd/maps/bcm947xx-flash.c	2010-01-18 18:41:52.000000000 +0000
+@@ -83,6 +83,7 @@ init_bcm947xx_map(void)
+ 	int ret = 0;
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	struct mtd_partition *parts;
++	int i;
+ #endif
+ 
+ 	spin_lock_irqsave(&sih_lock, flags);
+@@ -136,7 +136,8 @@ init_bcm947xx_map(void)
+ 
+ #ifdef CONFIG_MTD_PARTITIONS
+ 	parts = init_mtd_partitions(bcm947xx_mtd, size);
+-	ret = add_mtd_partitions(bcm947xx_mtd, parts, 4);
++	for (i = 0; parts[i].name; i++);
++	ret = add_mtd_partitions(bcm947xx_mtd, parts, i);
+ 	if (ret) {
+ 		printk(KERN_ERR "pflash: add_mtd_partitions failed\n");
+ 		goto fail;
+-- 

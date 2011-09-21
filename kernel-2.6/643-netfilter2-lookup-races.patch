@@ -1,0 +1,50 @@
+8d8890b7751387f58ce0a6428773de2fbc0fd596 netfilter: nf_conntrack: fix conntrack lookup race
+fc350777c705a39a312728ac5e8a6f164a828f5d netfilter: nf_conntrack: fix a race in __nf_conntrack_confirm against nf_ct_get_next_corpse()
+
+diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
+--- a/include/net/netfilter/nf_conntrack_core.h
++++ b/include/net/netfilter/nf_conntrack_core.h
+@@ -67,7 +67,7 @@ static inline int nf_conntrack_confirm(s
+ 	int ret = NF_ACCEPT;
+ 
+ 	if (ct && ct != &nf_conntrack_untracked) {
+-		if (!nf_ct_is_confirmed(ct) && !nf_ct_is_dying(ct))
++		if (!nf_ct_is_confirmed(ct))
+ 			ret = __nf_conntrack_confirm(pskb);
+ 		nf_ct_deliver_cached_events(ct);
+ 	}
+-- 
+1.7.2.3
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -412,7 +412,8 @@ nf_conntrack_find_get(const struct nf_co
+ 	h = __nf_conntrack_find(tuple);
+ 	if (h) {
+ 		ct = nf_ct_tuplehash_to_ctrack(h);
+-		if (unlikely(!atomic_inc_not_zero(&ct->ct_general.use)))
++		if (unlikely(nf_ct_is_dying(ct) ||
++			     !atomic_inc_not_zero(&ct->ct_general.use)))
+ 			h = NULL;
+ 	}
+ 	read_unlock_bh(&nf_conntrack_lock);
+@@ -479,6 +480,16 @@ __nf_conntrack_confirm(struct sk_buff **
+ 
+ 	write_lock_bh(&nf_conntrack_lock);
+ 
++	/* We have to check the DYING flag inside the lock to prevent
++	   a race against nf_ct_get_next_corpse() possibly called from
++	   user context, else we insert an already 'dead' hash, blocking
++	   further use of that particular connection -JM */
++
++	if (unlikely(nf_ct_is_dying(ct))) {
++		write_unlock_bh(&nf_conntrack_lock);
++		return NF_ACCEPT;
++	}
++
+ 	/* See if there's one in the list already, including reverse:
+ 	   NAT could have grabbed it without realizing, since we're
+ 	   not in the hash.  If there is, we lost race. */
+-- 
+1.7.2.3

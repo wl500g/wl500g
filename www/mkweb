@@ -100,10 +100,6 @@ if [ -n "$1" ]; then
 		sed -ri '/IPV6/d' ../web_$MODEL/index.js
 	fi
 
-	if [ "$CONFIG_WAVESERVER" != "y" ]; then
-		sed -ri '/WaveServer daemon/d' ../web_$MODEL/Advanced_Services_Content.asp
-	fi
-
 	if [ "$CONFIG_LLTD" != "y" ]; then
 		sed -ri '/LLTD responder/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
@@ -131,6 +127,10 @@ if [ -n "$1" ]; then
 		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_WiMax_Content.asp/g' ../web_$MODEL/index.js
 	elif [ "$CONFIG_MODEM" = "y" ]; then
 		sed -i 's/USBNetworkDevicesMenu_tmpl\.Asp/Advanced_ConnectionMode_Content.asp/g' ../web_$MODEL/index.js
+	fi
+
+	if [ "$CONFIG_NTFS3G" != "y" ]; then
+		sed -ri '/ntfs/d' ../web_$MODEL/Advanced_Services_Content.asp
 	fi
 
 	### 4. Strip *.asp, *.css and *.js ###
@@ -239,6 +239,8 @@ if [ -n "$1" ]; then
 	elif [ "$MODEL" = "WL500gx" ] || [ "$MODEL" = "WL500gp" ] \
 		|| [ "$MODEL" = "WL500gpv2" ] || [ "$MODEL" = "WL700g" ] \
 		|| [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
+		|| [ "$MODEL" = "RT-N12" ] \
+		|| [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ] \
 		|| [ "$MODEL" = "WL550gE" ] || [ "$MODEL" = "WL520gu" ]; then
 		### 6.1 default value ###
 		#cat ../web_$MODEL/flash.default \
@@ -247,7 +249,9 @@ if [ -n "$1" ]; then
 		#cp -f ../web_$MODEL/flash.default_500g ../target/ramfs/etc/linuxigd/flash.default
 				
 		### 6.2 web page ###							
-		if [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ]; then
+		if [ "$MODEL" = "WL500W" ] || [ "$MODEL" = "RT-N16" ] \
+		    || [ "$MODEL" = "RT-N12" ] \
+		    || [ "$MODEL" = "RT-N10" ] || [ "$MODEL" = "RT-N10U" ]; then
 			cp -f ../web_$MODEL/Advanced_Wireless11n_Content.asp ../web_$MODEL/Advanced_Wireless_Content.asp
 			cp -f ../web_$MODEL/Advanced_WAdvanced_Content_11n.asp ../web_$MODEL/Advanced_WAdvanced_Content.asp
 		else

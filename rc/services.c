@@ -19,11 +19,12 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
+#include "rc.h"
 
 #ifndef ASUS_EXT
 int
@@ -80,7 +81,6 @@ start_dhcpd(void)
 int
 stop_dhcpd(void)
 {
-	char sigusr1[] = "-XX";
 	int ret;
 
 /*
@@ -96,9 +96,9 @@ stop_dhcpd(void)
 * would have to release current IP and to request a new one which causes 
 * a no-IP gap in between.
 */
-	sprintf(sigusr1, "-%d", SIGUSR1);
-	eval("killall", sigusr1, "udhcpd");
-	ret = eval("killall", "udhcpd");
+	killall("udhcpd", -SIGUSR1);
+	usleep(10000);
+	ret = killall("udhcpd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -132,7 +132,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	int ret = eval("killall", "dnsmasq");
+	int ret = killall("dnsmasq", 0);
 	
 	/* Remove resolv.conf */
 	unlink("/tmp/resolv.conf");
@@ -142,8 +142,7 @@ stop_dns(void)
 }	
 #endif /* !ASUS_EXT */
 
-int
-start_telnetd(void)
+static int start_telnetd(void)
 {
 	int ret;
 	
@@ -160,17 +159,15 @@ start_telnetd(void)
 	return ret;
 }
 
-int
-stop_telnetd(void)
+static int stop_telnetd(void)
 {
-	int ret = eval("killall", "telnetd");
+	int ret = killall("telnetd", 0);
 
 	dprintf("done\n");
 	return ret;
 }
 
-int
-start_dropbear(void)
+static int start_dropbear(void)
 {
 	char *dropbear_argv[] = {"dropbearstart", NULL, NULL, NULL, NULL, NULL};
 	int i = 1;
@@ -199,19 +196,17 @@ start_dropbear(void)
 	return ret;
 }
 
-int
-stop_dropbear(void)
+static int stop_dropbear(void)
 {
-	int ret = eval("killall", "dropbear");
+	int ret = killall("dropbear", 0);
 
 	dprintf("done\n");
 	return ret;
 }
 
-int
-start_snmpd(void)
+static int start_snmpd(void)
 {
-	static char *snmpd_conf = "/tmp/snmpd.conf";
+	const char *snmpd_conf = "/tmp/snmpd.conf";
 	
 	int ret;
 	FILE *fp;
@@ -233,23 +228,21 @@ start_snmpd(void)
 
 	fclose(fp);
 	
-	ret = eval("snmpd", "-c", snmpd_conf);
+	ret = eval("snmpd", "-c", (char *)snmpd_conf);
 
 	dprintf("done\n");
 	return ret;
 }
 
-int
-stop_snmpd(void)
+int stop_snmpd(void)
 {
-	int ret = eval("killall", "snmpd");
+	int ret = killall("snmpd", 0);
 
 	dprintf("done\n");
 	return ret;
 }
 
-int
-start_httpd(void)
+int start_httpd(void)
 {
 	int ret;
 
@@ -267,10 +260,9 @@ start_httpd(void)
 	return ret;
 }
 
-int
-stop_httpd(void)
+static int stop_httpd(void)
 {
-	int ret = eval("killall", "httpd");
+	int ret = killall("httpd", 0);
 
 	dprintf("done\n");
 	return ret;
@@ -282,12 +274,21 @@ start_upnp(void)
 	char *wan_ifname, *wan_proto;
 	int ret;
 	char var[100], prefix[] = "wanXXXXXXXXXX_";
+#ifdef __CONFIG_MINIUPNPD__
+	FILE *fp;
+	char *lan_addr, *lan_mask, lan_class[32];
+	uint8_t lan_mac[16];
+	char *lan_url;
+#endif
 
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
-	
-	ret = eval("killall", "-SIGUSR1", "upnp");
-	if (ret != 0) {
+
+#ifndef __CONFIG_MINIUPNPD__
+	ret = killall("upnp", -SIGUSR1);
+	if (ret != 0)
+#endif
+	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
 		wan_ifname = nvram_match("upnp_enable", "1") &&
@@ -300,10 +301,65 @@ start_upnp(void)
 			nvram_safe_get(strcat_r(prefix, "wimax_ifname", var)) :
 #endif
 			nvram_safe_get(strcat_r(prefix, "ifname", var));
-	    ret = eval("upnp", "-D",
-		       "-L", nvram_safe_get("lan_ifname"),
-		       "-W", wan_ifname);
+#ifdef __CONFIG_MINIUPNPD__
+		lan_addr = nvram_safe_get("lan_ipaddr");
+		lan_mask = nvram_safe_get("lan_netmask");
+		ip2class(lan_addr, lan_mask, lan_class);
+		memset(lan_mac, 0, sizeof(lan_mac));
+		ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
 
+		lan_url = lan_addr;
+		ret = atoi(nvram_safe_get("http_lanport"));
+		if (ret && ret != 80) {
+			sprintf(var, "%s:%d", lan_addr, ret);
+			lan_url = var;
+		}
+
+		/* Touch leases file */
+		if (!(fp = fopen("/tmp/upnp.leases", "a"))) {
+			perror("/tmp/upnp.leases");
+			return errno;
+		}
+		fclose(fp);
+
+		/* Write configuration file */
+		if (!(fp = fopen("/etc/miniupnpd.conf", "w"))) {
+			perror("/etc/miniupnpd.conf");
+			return errno;
+		}
+
+		fprintf(fp, "# automagically generated\n"
+			"ext_ifname=%s\n"
+			"listening_ip=%s/%s\n"
+			"port=0\n"
+			"enable_upnp=%s\n"
+			"enable_natpmp=%s\n"
+			"lease_file=/tmp/upnp.leases\n"
+			"secure_mode=no\n"
+			"presentation_url=http://%s/\n"
+			"system_uptime=yes\n"
+			"notify_interval=60\n"
+			"clean_ruleset_interval=600\n"
+			"uuid=%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x00000000\n"
+			"model_number=%s\n"
+			"allow 1024-65535 %s 1024-65535\n"
+			"deny 0-65535 0.0.0.0/0 0-65535\n",
+			wan_ifname,
+			lan_addr, lan_mask,
+			/*nvram_match("upnp_enable", "0") ? "no" :*/ "yes",
+			nvram_match("natpmp_enable", "0") ? "no" : "yes",
+			lan_url,
+			lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5], lan_mac[0], lan_mac[1], lan_mac[2], lan_mac[3], lan_mac[4], lan_mac[5],
+			nvram_safe_get("productid"),
+			lan_class);
+		fclose(fp);
+
+		ret = eval("miniupnpd");
+#else
+		ret = eval("upnp", "-D",
+			   "-L", nvram_safe_get("lan_ifname"),
+			   "-W", wan_ifname);
+#endif
 	}
 	dprintf("done\n");
 	return ret;
@@ -315,7 +371,11 @@ stop_upnp(void)
 	int ret = 0;
 
 	if (nvram_invmatch("upnp_enable", "0"))
-	    ret = eval("killall", "upnp");
+#ifdef __CONFIG_MINIUPNPD__
+		ret = killall("miniupnpd", 0);
+#else
+		ret = killall("upnp", 0);
+#endif
 
 	dprintf("done\n");
 	return ret;
@@ -324,6 +384,16 @@ stop_upnp(void)
 int
 start_nas(char *type)
 {
+	if ((nvram_match("wl0_radio", "0")) || (nvram_match("security_mode", "disabled")))
+                return 1;
+
+#ifdef __CONFIG_BCMWL5__
+	setenv("UDP_BIND_IP", "127.0.0.1", 1);
+        eval("eapd");
+        unsetenv("UDP_BIND_IP");
+        usleep(100000);
+        eval("nas");
+#else
 	char cfgfile[64];
 	char pidfile[64];
 	if (!type || !*type)
@@ -335,16 +405,20 @@ start_nas(char *type)
 		pid_t pid;
 
 		_eval(argv, NULL, 0, &pid);
-		dprintf("done\n");
 	}
+#endif
+	dprintf("done\n");
 	return 0;
 }
 
 int
 stop_nas(void)
 {
-	int ret = eval("killall", "nas");
+	int ret = killall("nas", 0);
 
+#ifdef __CONFIG_BCMWL5__
+        killall("eapd", 0);
+#endif
 	dprintf("done\n");
 	return ret;
 }
@@ -392,6 +466,8 @@ start_services(void)
 #ifdef ASUS_EXT
 	start_logger();
 #endif
+	start_nas("lan");
+	start_wl(); // Start WLAN
 	start_telnetd();
 	start_dropbear();
 	start_httpd();
@@ -402,7 +478,6 @@ start_services(void)
 #endif
 	start_snmpd();
 	start_upnp();
-	start_nas("lan");
 	start_lltd();
 #ifdef ASUS_EXT
 	start_usb();

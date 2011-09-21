@@ -205,6 +205,8 @@ enum {
 	MDL_RTN16,
 	MDL_RTN12,
 	MDL_RTN10,
+	MDL_RTN10U,
+	MDL_WNR3500L,
 };
 
 extern int get_model(void);
@@ -219,7 +221,7 @@ extern int get_model(void);
 
 		@return	error code
 */
-extern int remove_from_list( char *name, char *list, int listsize );
+extern int remove_from_list(const char *name, char *list, int listsize);
 
 /*
 		add_to_list
@@ -232,7 +234,9 @@ extern int remove_from_list( char *name, char *list, int listsize );
 
 		@return	error code
 */
-extern int add_to_list( char *name, char *list, int listsize );
+extern int add_to_list(const char *name, char *list, int listsize);
+
+extern char *find_in_list(const char *haystack, const char *needle);
 
 extern int nvifname_to_osifname( const char *nvifname, char *osifname_buf, 
 								int osifname_buf_len );
@@ -240,7 +244,9 @@ extern int osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 								int nvifname_buf_len );
 
 /* Check for a blank character; that is, a space or a tab */
-#define isblank(c) ((c) == ' ' || (c) == '\t')
+#ifndef isblank
+# define isblank(c) ((c) == ' ' || (c) == '\t')
+#endif
 
 /* Strip trailing CR/NL from string <s> */
 #define chomp(s) ({ \

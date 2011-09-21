@@ -1,0 +1,2192 @@
+Subject: [PATCH] Ext3: fixes from 2.6 tree
+From 711bc71d4c663b8d80edcdadab26d53f00548d20
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 2 Apr 2010 02:43:51 -0400
+
+---
+ fs/ext2/xattr.c          |    2 +-
+ fs/ext3/acl.c            |    8 +-
+ fs/ext3/balloc.c         |  104 ++++++++++++---
+ fs/ext3/dir.c            |   56 +++++----
+ fs/ext3/ialloc.c         |   12 +-
+ fs/ext3/inode.c          |  136 +++++++++++--------
+ fs/ext3/namei.c          |  117 ++++++++++--------
+ fs/ext3/resize.c         |   29 ++--
+ fs/ext3/super.c          |   94 ++++++++++----
+ fs/ext3/xattr.c          |   18 ++-
+ fs/ext3/xattr_security.c |    2 +-
+ fs/ext3/xattr_trusted.c  |    4 +-
+ fs/ext3/xattr_user.c     |    4 +-
+ fs/ext4/namei.c          |   10 ++
+ fs/ext4/super.c          |    2 +-
+ fs/ext4/xattr.c          |    7 +-
+ fs/jbd/commit.c          |   38 ++----
+ fs/jbd/journal.c         |  100 +--------------
+ fs/jbd/recovery.c        |    2 +-
+ fs/jbd/revoke.c          |    5 +-
+ fs/jbd/transaction.c     |   63 +++++++--
+ fs/jbd2/revoke.c         |    5 +-
+ fs/mbcache.c             |    6 +-
+ include/linux/ext3_fs.h  |   24 +++-
+ include/linux/jbd.h      |   15 +-
+ include/linux/mbcache.h  |    2 +-
+ 26 files changed, 495 insertions(+), 370 deletions(-)
+
+diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
+index d7602f4..6e2144c 100644
+--- a/fs/ext2/xattr.c
++++ b/fs/ext2/xattr.c
+@@ -833,7 +833,7 @@ ext2_xattr_cache_insert(struct buffer_head *bh)
+ 	struct mb_cache_entry *ce;
+ 	int error;
+ 
+-	ce = mb_cache_entry_alloc(ext2_xattr_cache);
++	ce = mb_cache_entry_alloc(ext2_xattr_cache, GFP_NOFS);
+ 	if (!ce)
+ 		return -ENOMEM;
+ 	error = mb_cache_entry_insert(ce, bh->b_bdev, bh->b_blocknr, &hash);
+diff --git a/fs/ext3/acl.c b/fs/ext3/acl.c
+index 1e5038d..5b65d87 100644
+--- a/fs/ext3/acl.c
++++ b/fs/ext3/acl.c
+@@ -37,7 +37,7 @@ ext3_acl_from_disk(const void *value, size_t size)
+ 		return ERR_PTR(-EINVAL);
+ 	if (count == 0)
+ 		return NULL;
+-	acl = posix_acl_alloc(count, GFP_KERNEL);
++	acl = posix_acl_alloc(count, GFP_NOFS);
+ 	if (!acl)
+ 		return ERR_PTR(-ENOMEM);
+ 	for (n=0; n < count; n++) {
+@@ -91,7 +91,7 @@ ext3_acl_to_disk(const struct posix_acl *acl, size_t *size)
+ 
+ 	*size = ext3_acl_size(acl->a_count);
+ 	ext_acl = kmalloc(sizeof(ext3_acl_header) + acl->a_count *
+-			sizeof(ext3_acl_entry), GFP_KERNEL);
++			sizeof(ext3_acl_entry), GFP_NOFS);
+ 	if (!ext_acl)
+ 		return ERR_PTR(-ENOMEM);
+ 	ext_acl->a_version = cpu_to_le32(EXT3_ACL_VERSION);
+@@ -187,7 +187,7 @@ ext3_get_acl(struct inode *inode, int type)
+ 	}
+ 	retval = ext3_xattr_get(inode, name_index, "", NULL, 0);
+ 	if (retval > 0) {
+-		value = kmalloc(retval, GFP_KERNEL);
++		value = kmalloc(retval, GFP_NOFS);
+ 		if (!value)
+ 			return ERR_PTR(-ENOMEM);
+ 		retval = ext3_xattr_get(inode, name_index, "", value, retval);
+@@ -335,7 +335,7 @@ ext3_init_acl(handle_t *handle, struct inode *inode, struct inode *dir)
+ 			if (error)
+ 				goto cleanup;
+ 		}
+-		clone = posix_acl_clone(acl, GFP_KERNEL);
++		clone = posix_acl_clone(acl, GFP_NOFS);
+ 		error = -ENOMEM;
+ 		if (!clone)
+ 			goto cleanup;
+diff --git a/fs/ext3/balloc.c b/fs/ext3/balloc.c
+index ca8aee6..bc8551d 100644
+--- a/fs/ext3/balloc.c
++++ b/fs/ext3/balloc.c
+@@ -80,13 +80,57 @@ struct ext3_group_desc * ext3_get_group_desc(struct super_block * sb,
+ 	return desc + offset;
+ }
+ 
++static int ext3_valid_block_bitmap(struct super_block *sb,
++					struct ext3_group_desc *desc,
++					unsigned int block_group,
++					struct buffer_head *bh)
++{
++	ext3_grpblk_t offset;
++	ext3_grpblk_t next_zero_bit;
++	ext3_fsblk_t bitmap_blk;
++	ext3_fsblk_t group_first_block;
++
++	group_first_block = ext3_group_first_block_no(sb, block_group);
++
++	/* check whether block bitmap block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_block_bitmap);
++	offset = bitmap_blk - group_first_block;
++	if (!ext3_test_bit(offset, bh->b_data))
++		/* bad block bitmap */
++		goto err_out;
++
++	/* check whether the inode bitmap block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_inode_bitmap);
++	offset = bitmap_blk - group_first_block;
++	if (!ext3_test_bit(offset, bh->b_data))
++		/* bad block bitmap */
++		goto err_out;
++
++	/* check whether the inode table block number is set */
++	bitmap_blk = le32_to_cpu(desc->bg_inode_table);
++	offset = bitmap_blk - group_first_block;
++	next_zero_bit = ext3_find_next_zero_bit(bh->b_data,
++				offset + EXT3_SB(sb)->s_itb_per_group,
++				offset);
++	if (next_zero_bit >= offset + EXT3_SB(sb)->s_itb_per_group)
++		/* good bitmap for inode tables */
++		return 1;
++
++err_out:
++	ext3_error(sb, __FUNCTION__,
++			"Invalid block bitmap - "
++			"block_group = %d, block = %lu",
++			block_group, bitmap_blk);
++	return 0;
++}
++
+ /**
+  * read_block_bitmap()
+  * @sb:			super block
+  * @block_group:	given block group
+  *
+- * Read the bitmap for a given block_group, reading into the specified
+- * slot in the superblock's bitmap cache.
++ * Read the bitmap for a given block_group,and validate the
++ * bits for block/inode/inode tables are set in the bitmaps
+  *
+  * Return buffer_head on success or NULL in case of failure.
+  */
+@@ -95,17 +139,36 @@ read_block_bitmap(struct super_block *sb, unsigned int block_group)
+ {
+ 	struct ext3_group_desc * desc;
+ 	struct buffer_head * bh = NULL;
++	ext3_fsblk_t bitmap_blk;
+ 
+-	desc = ext3_get_group_desc (sb, block_group, NULL);
++	desc = ext3_get_group_desc(sb, block_group, NULL);
+ 	if (!desc)
+-		goto error_out;
+-	bh = sb_bread(sb, le32_to_cpu(desc->bg_block_bitmap));
+-	if (!bh)
+-		ext3_error (sb, "read_block_bitmap",
++		return NULL;
++	bitmap_blk = le32_to_cpu(desc->bg_block_bitmap);
++	bh = sb_getblk(sb, bitmap_blk);
++	if (unlikely(!bh)) {
++		ext3_error(sb, __FUNCTION__,
+ 			    "Cannot read block bitmap - "
+ 			    "block_group = %d, block_bitmap = %u",
+ 			    block_group, le32_to_cpu(desc->bg_block_bitmap));
+-error_out:
++		return NULL;
++	}
++	if (likely(bh_uptodate_or_lock(bh)))
++		return bh;
++
++	if (bh_submit_read(bh) < 0) {
++		brelse(bh);
++		ext3_error(sb, __FUNCTION__,
++			    "Cannot read block bitmap - "
++			    "block_group = %d, block_bitmap = %u",
++			    block_group, le32_to_cpu(desc->bg_block_bitmap));
++		return NULL;
++	}
++	ext3_valid_block_bitmap(sb, desc, block_group, bh);
++	/*
++	 * file system mounted not to panic on error, continue with corrupt
++	 * bitmap
++	 */
+ 	return bh;
+ }
+ /*
+@@ -170,8 +233,7 @@ restart:
+ 		prev = rsv;
+ 	}
+ 	printk("Window map complete.\n");
+-	if (bad)
+-		BUG();
++	BUG_ON(bad);
+ }
+ #define rsv_window_dump(root, verbose) \
+ 	__rsv_window_dump((root), (verbose), __FUNCTION__)
+@@ -468,11 +530,13 @@ do_more:
+ 	    in_range (block, le32_to_cpu(desc->bg_inode_table),
+ 		      sbi->s_itb_per_group) ||
+ 	    in_range (block + count - 1, le32_to_cpu(desc->bg_inode_table),
+-		      sbi->s_itb_per_group))
++		      sbi->s_itb_per_group)) {
+ 		ext3_error (sb, "ext3_free_blocks",
+ 			    "Freeing blocks in system zones - "
+ 			    "Block = "E3FSBLK", count = %lu",
+ 			    block, count);
++		goto error_return;
++	}
+ 
+ 	/*
+ 	 * We are about to start releasing blocks in the bitmap,
+@@ -566,9 +630,7 @@ do_more:
+ 	jbd_unlock_bh_state(bitmap_bh);
+ 
+ 	spin_lock(sb_bgl_lock(sbi, block_group));
+-	desc->bg_free_blocks_count =
+-		cpu_to_le16(le16_to_cpu(desc->bg_free_blocks_count) +
+-			group_freed);
++	le16_add_cpu(&desc->bg_free_blocks_count, group_freed);
+ 	spin_unlock(sb_bgl_lock(sbi, block_group));
+ 	percpu_counter_mod(&sbi->s_freeblocks_counter, count);
+ 
+@@ -1485,6 +1547,7 @@ retry_alloc:
+ 	 * turn off reservation for this allocation
+ 	 */
+ 	if (my_rsv && (free_blocks < windowsz)
++		&& (free_blocks > 0)
+ 		&& (rsv_is_empty(&my_rsv->rsv_window)))
+ 		my_rsv = NULL;
+ 
+@@ -1523,7 +1586,7 @@ retry_alloc:
+ 		 * free blocks is less than half of the reservation
+ 		 * window size.
+ 		 */
+-		if (free_blocks <= (windowsz/2))
++		if (my_rsv && (free_blocks <= (windowsz/2)))
+ 			continue;
+ 
+ 		brelse(bitmap_bh);
+@@ -1575,11 +1638,17 @@ allocated:
+ 	    in_range(ret_block, le32_to_cpu(gdp->bg_inode_table),
+ 		      EXT3_SB(sb)->s_itb_per_group) ||
+ 	    in_range(ret_block + num - 1, le32_to_cpu(gdp->bg_inode_table),
+-		      EXT3_SB(sb)->s_itb_per_group))
++		      EXT3_SB(sb)->s_itb_per_group)) {
+ 		ext3_error(sb, "ext3_new_block",
+ 			    "Allocating block in system zone - "
+ 			    "blocks from "E3FSBLK", length %lu",
+ 			     ret_block, num);
++		/*
++		 * claim_block() marked the blocks we allocated as in use. So we
++		 * may want to selectively mark some of the blocks as free.
++		 */
++		goto retry_alloc;
++	}
+ 
+ 	performed_allocation = 1;
+ 
+@@ -1630,8 +1699,7 @@ allocated:
+ 			ret_block, goal_hits, goal_attempts);
+ 
+ 	spin_lock(sb_bgl_lock(sbi, group_no));
+-	gdp->bg_free_blocks_count =
+-			cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count)-num);
++	le16_add_cpu(&gdp->bg_free_blocks_count, -num);
+ 	spin_unlock(sb_bgl_lock(sbi, group_no));
+ 	percpu_counter_mod(&sbi->s_freeblocks_counter, -num);
+ 
+diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
+index 8528698..3d32861 100644
+--- a/fs/ext3/dir.c
++++ b/fs/ext3/dir.c
+@@ -69,7 +69,7 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
+ 			  unsigned long offset)
+ {
+ 	const char * error_msg = NULL;
+-	const int rlen = le16_to_cpu(de->rec_len);
++	const int rlen = ext3_rec_len_from_disk(de->rec_len);
+ 
+ 	if (rlen < EXT3_DIR_REC_LEN(1))
+ 		error_msg = "rec_len is smaller than minimal";
+@@ -104,6 +104,7 @@ static int ext3_readdir(struct file * filp,
+ 	int err;
+ 	struct inode *inode = filp->f_path.dentry->d_inode;
+ 	int ret = 0;
++	int dir_has_error = 0;
+ 
+ 	sb = inode->i_sb;
+ 
+@@ -150,9 +151,12 @@ static int ext3_readdir(struct file * filp,
+ 		 * of recovering data when there's a bad sector
+ 		 */
+ 		if (!bh) {
+-			ext3_error (sb, "ext3_readdir",
+-				"directory #%lu contains a hole at offset %lu",
+-				inode->i_ino, (unsigned long)filp->f_pos);
++			if (!dir_has_error) {
++				ext3_error(sb, __FUNCTION__, "directory #%lu "
++					"contains a hole at offset %lld",
++					inode->i_ino, filp->f_pos);
++				dir_has_error = 1;
++			}
+ 			/* corrupt size?  Maybe no more blocks to read */
+ 			if (filp->f_pos > inode->i_blocks << 9)
+ 				break;
+@@ -175,10 +179,10 @@ revalidate:
+ 				 * least that it is non-zero.  A
+ 				 * failure will be detected in the
+ 				 * dirent test below. */
+-				if (le16_to_cpu(de->rec_len) <
++				if (ext3_rec_len_from_disk(de->rec_len) <
+ 						EXT3_DIR_REC_LEN(1))
+ 					break;
+-				i += le16_to_cpu(de->rec_len);
++				i += ext3_rec_len_from_disk(de->rec_len);
+ 			}
+ 			offset = i;
+ 			filp->f_pos = (filp->f_pos & ~(sb->s_blocksize - 1))
+@@ -199,7 +203,7 @@ revalidate:
+ 				ret = stored;
+ 				goto out;
+ 			}
+-			offset += le16_to_cpu(de->rec_len);
++			offset += ext3_rec_len_from_disk(de->rec_len);
+ 			if (le32_to_cpu(de->inode)) {
+ 				/* We might block in the next section
+ 				 * if the data destination is
+@@ -221,7 +225,7 @@ revalidate:
+ 					goto revalidate;
+ 				stored ++;
+ 			}
+-			filp->f_pos += le16_to_cpu(de->rec_len);
++			filp->f_pos += ext3_rec_len_from_disk(de->rec_len);
+ 		}
+ 		offset = 0;
+ 		brelse (bh);
+@@ -275,7 +279,7 @@ static void free_rb_tree_fname(struct rb_root *root)
+ 
+ 	while (n) {
+ 		/* Do the node's children first */
+-		if ((n)->rb_left) {
++		if (n->rb_left) {
+ 			n = n->rb_left;
+ 			continue;
+ 		}
+@@ -304,24 +308,18 @@ static void free_rb_tree_fname(struct rb_root *root)
+ 			parent->rb_right = NULL;
+ 		n = parent;
+ 	}
+-	root->rb_node = NULL;
+ }
+ 
+ 
+-static struct dir_private_info *create_dir_info(loff_t pos)
++static struct dir_private_info *ext3_htree_create_dir_info(loff_t pos)
+ {
+ 	struct dir_private_info *p;
+ 
+-	p = kmalloc(sizeof(struct dir_private_info), GFP_KERNEL);
++	p = kzalloc(sizeof(struct dir_private_info), GFP_KERNEL);
+ 	if (!p)
+ 		return NULL;
+-	p->root.rb_node = NULL;
+-	p->curr_node = NULL;
+-	p->extra_fname = NULL;
+-	p->last_pos = 0;
+ 	p->curr_hash = pos2maj_hash(pos);
+ 	p->curr_minor_hash = pos2min_hash(pos);
+-	p->next_hash = 0;
+ 	return p;
+ }
+ 
+@@ -419,7 +417,7 @@ static int call_filldir(struct file * filp, void * dirent,
+ 				get_dtype(sb, fname->file_type));
+ 		if (error) {
+ 			filp->f_pos = curr_pos;
+-			info->extra_fname = fname->next;
++			info->extra_fname = fname;
+ 			return error;
+ 		}
+ 		fname = fname->next;
+@@ -436,7 +434,7 @@ static int ext3_dx_readdir(struct file * filp,
+ 	int	ret;
+ 
+ 	if (!info) {
+-		info = create_dir_info(filp->f_pos);
++		info = ext3_htree_create_dir_info(filp->f_pos);
+ 		if (!info)
+ 			return -ENOMEM;
+ 		filp->private_data = info;
+@@ -458,11 +456,12 @@ static int ext3_dx_readdir(struct file * filp,
+ 	 * If there are any leftover names on the hash collision
+ 	 * chain, return them first.
+ 	 */
+-	if (info->extra_fname &&
+-	    call_filldir(filp, dirent, filldir, info->extra_fname))
+-		goto finished;
+-
+-	if (!info->curr_node)
++	if (info->extra_fname) {
++		if (call_filldir(filp, dirent, filldir, info->extra_fname))
++			goto finished;
++		info->extra_fname = NULL;
++		goto next_node;
++	} else if (!info->curr_node)
+ 		info->curr_node = rb_first(&info->root);
+ 
+ 	while (1) {
+@@ -493,9 +492,14 @@ static int ext3_dx_readdir(struct file * filp,
+ 		info->curr_minor_hash = fname->minor_hash;
+ 		if (call_filldir(filp, dirent, filldir, fname))
+ 			break;
+-
++	next_node:
+ 		info->curr_node = rb_next(info->curr_node);
+-		if (!info->curr_node) {
++		if (info->curr_node) {
++			fname = rb_entry(info->curr_node, struct fname,
++					 rb_hash);
++			info->curr_hash = fname->hash;
++			info->curr_minor_hash = fname->minor_hash;
++		} else {
+ 			if (info->next_hash == ~0) {
+ 				filp->f_pos = EXT3_HTREE_EOF;
+ 				break;
+diff --git a/fs/ext3/ialloc.c b/fs/ext3/ialloc.c
+index e45dbd6..bae348a 100644
+--- a/fs/ext3/ialloc.c
++++ b/fs/ext3/ialloc.c
+@@ -164,11 +164,9 @@ void ext3_free_inode (handle_t *handle, struct inode * inode)
+ 
+ 		if (gdp) {
+ 			spin_lock(sb_bgl_lock(sbi, block_group));
+-			gdp->bg_free_inodes_count = cpu_to_le16(
+-				le16_to_cpu(gdp->bg_free_inodes_count) + 1);
++			le16_add_cpu(&gdp->bg_free_inodes_count, 1);
+ 			if (is_directory)
+-				gdp->bg_used_dirs_count = cpu_to_le16(
+-				  le16_to_cpu(gdp->bg_used_dirs_count) - 1);
++				le16_add_cpu(&gdp->bg_used_dirs_count, -1);
+ 			spin_unlock(sb_bgl_lock(sbi, block_group));
+ 			percpu_counter_inc(&sbi->s_freeinodes_counter);
+ 			if (is_directory)
+@@ -530,11 +528,9 @@ got:
+ 	err = ext3_journal_get_write_access(handle, bh2);
+ 	if (err) goto fail;
+ 	spin_lock(sb_bgl_lock(sbi, group));
+-	gdp->bg_free_inodes_count =
+-		cpu_to_le16(le16_to_cpu(gdp->bg_free_inodes_count) - 1);
++	le16_add_cpu(&gdp->bg_free_inodes_count, -1);
+ 	if (S_ISDIR(mode)) {
+-		gdp->bg_used_dirs_count =
+-			cpu_to_le16(le16_to_cpu(gdp->bg_used_dirs_count) + 1);
++		le16_add_cpu(&gdp->bg_used_dirs_count, 1);
+ 	}
+ 	spin_unlock(sb_bgl_lock(sbi, group));
+ 	BUFFER_TRACE(bh2, "call ext3_journal_dirty_metadata");
+diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
+index 2a85dde..a0ed258 100644
+--- a/fs/ext3/inode.c
++++ b/fs/ext3/inode.c
+@@ -820,7 +820,7 @@ int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
+ 		while (count < maxblocks && count <= blocks_to_boundary) {
+ 			ext3_fsblk_t blk;
+ 
+-			if (!verify_chain(chain, partial)) {
++			if (!verify_chain(chain, chain + depth - 1)) {
+ 				/*
+ 				 * Indirect block might be removed by
+ 				 * truncate while we were reading it.
+@@ -941,55 +941,45 @@ out:
+ 	return err;
+ }
+ 
+-#define DIO_CREDITS (EXT3_RESERVE_TRANS_BLOCKS + 32)
++/* Maximum number of blocks we map for direct IO at once. */
++#define DIO_MAX_BLOCKS 4096
++/*
++ * Number of credits we need for writing DIO_MAX_BLOCKS:
++ * We need sb + group descriptor + bitmap + inode -> 4
++ * For B blocks with A block pointers per block we need:
++ * 1 (triple ind.) + (B/A/A + 2) (doubly ind.) + (B/A + 2) (indirect).
++ * If we plug in 4096 for B and 256 for A (for 1KB block size), we get 25.
++ */
++#define DIO_CREDITS 25
+ 
+ static int ext3_get_block(struct inode *inode, sector_t iblock,
+ 			struct buffer_head *bh_result, int create)
+ {
+ 	handle_t *handle = ext3_journal_current_handle();
+-	int ret = 0;
++	int ret = 0, started = 0;
+ 	unsigned max_blocks = bh_result->b_size >> inode->i_blkbits;
+ 
+-	if (!create)
+-		goto get_block;		/* A read */
+-
+-	if (max_blocks == 1)
+-		goto get_block;		/* A single block get */
+-
+-	if (handle->h_transaction->t_state == T_LOCKED) {
+-		/*
+-		 * Huge direct-io writes can hold off commits for long
+-		 * periods of time.  Let this commit run.
+-		 */
+-		ext3_journal_stop(handle);
+-		handle = ext3_journal_start(inode, DIO_CREDITS);
+-		if (IS_ERR(handle))
++	if (create && !handle) {	/* Direct IO write... */
++		if (max_blocks > DIO_MAX_BLOCKS)
++			max_blocks = DIO_MAX_BLOCKS;
++		handle = ext3_journal_start(inode, DIO_CREDITS +
++				2 * EXT3_QUOTA_TRANS_BLOCKS(inode->i_sb));
++		if (IS_ERR(handle)) {
+ 			ret = PTR_ERR(handle);
+-		goto get_block;
+-	}
+-
+-	if (handle->h_buffer_credits <= EXT3_RESERVE_TRANS_BLOCKS) {
+-		/*
+-		 * Getting low on buffer credits...
+-		 */
+-		ret = ext3_journal_extend(handle, DIO_CREDITS);
+-		if (ret > 0) {
+-			/*
+-			 * Couldn't extend the transaction.  Start a new one.
+-			 */
+-			ret = ext3_journal_restart(handle, DIO_CREDITS);
++			goto out;
+ 		}
++		started = 1;
+ 	}
+ 
+-get_block:
+-	if (ret == 0) {
+-		ret = ext3_get_blocks_handle(handle, inode, iblock,
++	ret = ext3_get_blocks_handle(handle, inode, iblock,
+ 					max_blocks, bh_result, create, 0);
+-		if (ret > 0) {
+-			bh_result->b_size = (ret << inode->i_blkbits);
+-			ret = 0;
+-		}
++	if (ret > 0) {
++		bh_result->b_size = (ret << inode->i_blkbits);
++		ret = 0;
+ 	}
++	if (started)
++		ext3_journal_stop(handle);
++out:
+ 	return ret;
+ }
+ 
+@@ -1613,7 +1603,8 @@ static int ext3_releasepage(struct page *page, gfp_t wait)
+  * if the machine crashes during the write.
+  *
+  * If the O_DIRECT write is intantiating holes inside i_size and the machine
+- * crashes then stale disk data _may_ be exposed inside the file.
++ * crashes then stale disk data _may_ be exposed inside the file. But current
++ * VFS code falls back into buffered path in that case so we are safe.
+  */
+ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
+ 			const struct iovec *iov, loff_t offset,
+@@ -1622,7 +1613,7 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
+ 	struct file *file = iocb->ki_filp;
+ 	struct inode *inode = file->f_mapping->host;
+ 	struct ext3_inode_info *ei = EXT3_I(inode);
+-	handle_t *handle = NULL;
++	handle_t *handle;
+ 	ssize_t ret;
+ 	int orphan = 0;
+ 	size_t count = iov_length(iov, nr_segs);
+@@ -1630,17 +1621,21 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
+ 	if (rw == WRITE) {
+ 		loff_t final_size = offset + count;
+ 
+-		handle = ext3_journal_start(inode, DIO_CREDITS);
+-		if (IS_ERR(handle)) {
+-			ret = PTR_ERR(handle);
+-			goto out;
+-		}
+ 		if (final_size > inode->i_size) {
++			/* Credits for sb + inode write */
++			handle = ext3_journal_start(inode, 2);
++			if (IS_ERR(handle)) {
++				ret = PTR_ERR(handle);
++				goto out;
++			}
+ 			ret = ext3_orphan_add(handle, inode);
+-			if (ret)
+-				goto out_stop;
++			if (ret) {
++				ext3_journal_stop(handle);
++				goto out;
++			}
+ 			orphan = 1;
+ 			ei->i_disksize = inode->i_size;
++			ext3_journal_stop(handle);
+ 		}
+ 	}
+ 
+@@ -1648,18 +1643,21 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
+ 				 offset, nr_segs,
+ 				 ext3_get_block, NULL);
+ 
+-	/*
+-	 * Reacquire the handle: ext3_get_block() can restart the transaction
+-	 */
+-	handle = ext3_journal_current_handle();
+-
+-out_stop:
+-	if (handle) {
++	if (orphan) {
+ 		int err;
+ 
+-		if (orphan && inode->i_nlink)
++		/* Credits for sb + inode write */
++		handle = ext3_journal_start(inode, 2);
++		if (IS_ERR(handle)) {
++			/* This is really bad luck. We've written the data
++			 * but cannot extend i_size. Bail out and pretend
++			 * the write failed... */
++			ret = PTR_ERR(handle);
++			goto out;
++		}
++		if (inode->i_nlink)
+ 			ext3_orphan_del(handle, inode);
+-		if (orphan && ret > 0) {
++		if (ret > 0) {
+ 			loff_t end = offset + ret;
+ 			if (end > inode->i_size) {
+ 				ei->i_disksize = end;
+@@ -2062,7 +2060,21 @@ static void ext3_free_data(handle_t *handle, struct inode *inode,
+ 
+ 	if (this_bh) {
+ 		BUFFER_TRACE(this_bh, "call ext3_journal_dirty_metadata");
+-		ext3_journal_dirty_metadata(handle, this_bh);
++
++		/*
++		 * The buffer head should have an attached journal head at this
++		 * point. However, if the data is corrupted and an indirect
++		 * block pointed to itself, it would have been detached when
++		 * the block was cleared. Check for this instead of OOPSing.
++		 */
++		if (bh2jh(this_bh))
++			ext3_journal_dirty_metadata(handle, this_bh);
++		else
++			ext3_error(inode->i_sb, __FUNCTION__,
++				   "circular indirect block detected, "
++				   "inode=%lu, block=%llu",
++				   inode->i_ino,
++				   (unsigned long long)this_bh->b_blocknr);
+ 	}
+ }
+ 
+@@ -2461,6 +2473,16 @@ static int __ext3_get_inode_loc(struct inode *inode,
+ 	}
+ 	if (!buffer_uptodate(bh)) {
+ 		lock_buffer(bh);
++
++		/*
++		 * If the buffer has the write error flag, we have failed
++		 * to write out another inode in the same block.  In this
++		 * case, we don't have to read the block because we may
++		 * read the old inode data successfully.
++		 */
++		if (buffer_write_io_error(bh) && !buffer_uptodate(bh))
++			set_buffer_uptodate(bh);
++
+ 		if (buffer_uptodate(bh)) {
+ 			/* someone brought it uptodate while we waited */
+ 			unlock_buffer(bh);
+@@ -3195,7 +3217,7 @@ int ext3_change_inode_journal_flag(struct inode *inode, int val)
+ 	 */
+ 
+ 	journal = EXT3_JOURNAL(inode);
+-	if (is_journal_aborted(journal) || IS_RDONLY(inode))
++	if (is_journal_aborted(journal))
+ 		return -EROFS;
+ 
+ 	journal_lock_updates(journal);
+diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
+index e54eb5f..80083d7 100644
+--- a/fs/ext3/namei.c
++++ b/fs/ext3/namei.c
+@@ -57,10 +57,15 @@ static struct buffer_head *ext3_append(handle_t *handle,
+ 
+ 	*block = inode->i_size >> inode->i_sb->s_blocksize_bits;
+ 
+-	if ((bh = ext3_bread(handle, inode, *block, 1, err))) {
++	bh = ext3_bread(handle, inode, *block, 1, err);
++	if (bh) {
+ 		inode->i_size += inode->i_sb->s_blocksize;
+ 		EXT3_I(inode)->i_disksize = inode->i_size;
+-		ext3_journal_get_write_access(handle,bh);
++		*err = ext3_journal_get_write_access(handle, bh);
++		if (*err) {
++			brelse(bh);
++			bh = NULL;
++		}
+ 	}
+ 	return bh;
+ }
+@@ -178,6 +183,16 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
+ 			     struct inode *inode);
+ 
+ /*
++ * p is at least 6 bytes before the end of page
++ */
++static inline struct ext3_dir_entry_2 *
++ext3_next_entry(struct ext3_dir_entry_2 *p)
++{
++	return (struct ext3_dir_entry_2 *)((char *)p +
++		ext3_rec_len_from_disk(p->rec_len));
++}
++
++/*
+  * Future: use high four bits of block for coalesce-on-delete flags
+  * Mask them off for now.
+  */
+@@ -226,13 +241,13 @@ static inline unsigned dx_root_limit (struct inode *dir, unsigned infosize)
+ {
+ 	unsigned entry_space = dir->i_sb->s_blocksize - EXT3_DIR_REC_LEN(1) -
+ 		EXT3_DIR_REC_LEN(2) - infosize;
+-	return 0? 20: entry_space / sizeof(struct dx_entry);
++	return entry_space / sizeof(struct dx_entry);
+ }
+ 
+ static inline unsigned dx_node_limit (struct inode *dir)
+ {
+ 	unsigned entry_space = dir->i_sb->s_blocksize - EXT3_DIR_REC_LEN(0);
+-	return 0? 22: entry_space / sizeof(struct dx_entry);
++	return entry_space / sizeof(struct dx_entry);
+ }
+ 
+ /*
+@@ -281,7 +296,7 @@ static struct stats dx_show_leaf(struct dx_hash_info *hinfo, struct ext3_dir_ent
+ 			space += EXT3_DIR_REC_LEN(de->name_len);
+ 			names++;
+ 		}
+-		de = (struct ext3_dir_entry_2 *) ((char *) de + le16_to_cpu(de->rec_len));
++		de = ext3_next_entry(de);
+ 	}
+ 	printk("(%i)\n", names);
+ 	return (struct stats) { names, space, 1 };
+@@ -548,14 +563,6 @@ static int ext3_htree_next_block(struct inode *dir, __u32 hash,
+ 
+ 
+ /*
+- * p is at least 6 bytes before the end of page
+- */
+-static inline struct ext3_dir_entry_2 *ext3_next_entry(struct ext3_dir_entry_2 *p)
+-{
+-	return (struct ext3_dir_entry_2 *)((char*)p + le16_to_cpu(p->rec_len));
+-}
+-
+-/*
+  * This function fills a red-black tree with information from a
+  * directory block.  It returns the number directory entries loaded
+  * into the tree.  If there is an error it is returned in err.
+@@ -721,7 +728,7 @@ static int dx_make_map (struct ext3_dir_entry_2 *de, int size,
+ 			cond_resched();
+ 		}
+ 		/* XXX: do we need to check rec_len == 0 case? -Chris */
+-		de = (struct ext3_dir_entry_2 *) ((char *) de + le16_to_cpu(de->rec_len));
++		de = ext3_next_entry(de);
+ 	}
+ 	return count;
+ }
+@@ -825,7 +832,7 @@ static inline int search_dirblock(struct buffer_head * bh,
+ 			return 1;
+ 		}
+ 		/* prevent looping on a bad block */
+-		de_len = le16_to_cpu(de->rec_len);
++		de_len = ext3_rec_len_from_disk(de->rec_len);
+ 		if (de_len <= 0)
+ 			return -1;
+ 		offset += de_len;
+@@ -1052,6 +1059,11 @@ static struct dentry *ext3_lookup(struct inode * dir, struct dentry *dentry, str
+ 
+ 		if (!inode)
+ 			return ERR_PTR(-EACCES);
++
++		if (is_bad_inode(inode)) {
++			iput(inode);
++			return ERR_PTR(-ENOENT);
++		}
+ 	}
+ 	return d_splice_alias(inode, dentry);
+ }
+@@ -1087,6 +1099,11 @@ struct dentry *ext3_get_parent(struct dentry *child)
+ 	if (!inode)
+ 		return ERR_PTR(-EACCES);
+ 
++	if (is_bad_inode(inode)) {
++		iput(inode);
++		return ERR_PTR(-ENOENT);
++	}
++
+ 	parent = d_alloc_anon(inode);
+ 	if (!parent) {
+ 		iput(inode);
+@@ -1128,7 +1145,7 @@ dx_move_dirents(char *from, char *to, struct dx_map_entry *map, int count)
+ 		rec_len = EXT3_DIR_REC_LEN(de->name_len);
+ 		memcpy (to, de, rec_len);
+ 		((struct ext3_dir_entry_2 *) to)->rec_len =
+-				cpu_to_le16(rec_len);
++				ext3_rec_len_to_disk(rec_len);
+ 		de->inode = 0;
+ 		map++;
+ 		to += rec_len;
+@@ -1147,13 +1164,12 @@ static struct ext3_dir_entry_2* dx_pack_dirents(char *base, int size)
+ 
+ 	prev = to = de;
+ 	while ((char*)de < base + size) {
+-		next = (struct ext3_dir_entry_2 *) ((char *) de +
+-						    le16_to_cpu(de->rec_len));
++		next = ext3_next_entry(de);
+ 		if (de->inode && de->name_len) {
+ 			rec_len = EXT3_DIR_REC_LEN(de->name_len);
+ 			if (de > to)
+ 				memmove(to, de, rec_len);
+-			to->rec_len = cpu_to_le16(rec_len);
++			to->rec_len = ext3_rec_len_to_disk(rec_len);
+ 			prev = to;
+ 			to = (struct ext3_dir_entry_2 *) (((char *) to) + rec_len);
+ 		}
+@@ -1227,8 +1243,8 @@ static struct ext3_dir_entry_2 *do_split(handle_t *handle, struct inode *dir,
+ 	/* Fancy dance to stay within two buffers */
+ 	de2 = dx_move_dirents(data1, data2, map + split, count - split);
+ 	de = dx_pack_dirents(data1,blocksize);
+-	de->rec_len = cpu_to_le16(data1 + blocksize - (char *) de);
+-	de2->rec_len = cpu_to_le16(data2 + blocksize - (char *) de2);
++	de->rec_len = ext3_rec_len_to_disk(data1 + blocksize - (char *) de);
++	de2->rec_len = ext3_rec_len_to_disk(data2 + blocksize - (char *) de2);
+ 	dxtrace(dx_show_leaf (hinfo, (struct ext3_dir_entry_2 *) data1, blocksize, 1));
+ 	dxtrace(dx_show_leaf (hinfo, (struct ext3_dir_entry_2 *) data2, blocksize, 1));
+ 
+@@ -1299,7 +1315,7 @@ static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
+ 				return -EEXIST;
+ 			}
+ 			nlen = EXT3_DIR_REC_LEN(de->name_len);
+-			rlen = le16_to_cpu(de->rec_len);
++			rlen = ext3_rec_len_from_disk(de->rec_len);
+ 			if ((de->inode? rlen - nlen: rlen) >= reclen)
+ 				break;
+ 			de = (struct ext3_dir_entry_2 *)((char *)de + rlen);
+@@ -1318,11 +1334,11 @@ static int add_dirent_to_buf(handle_t *handle, struct dentry *dentry,
+ 
+ 	/* By now the buffer is marked for journaling */
+ 	nlen = EXT3_DIR_REC_LEN(de->name_len);
+-	rlen = le16_to_cpu(de->rec_len);
++	rlen = ext3_rec_len_from_disk(de->rec_len);
+ 	if (de->inode) {
+ 		struct ext3_dir_entry_2 *de1 = (struct ext3_dir_entry_2 *)((char *)de + nlen);
+-		de1->rec_len = cpu_to_le16(rlen - nlen);
+-		de->rec_len = cpu_to_le16(nlen);
++		de1->rec_len = ext3_rec_len_to_disk(rlen - nlen);
++		de->rec_len = ext3_rec_len_to_disk(nlen);
+ 		de = de1;
+ 	}
+ 	de->file_type = EXT3_FT_UNKNOWN;
+@@ -1400,17 +1416,18 @@ static int make_indexed_dir(handle_t *handle, struct dentry *dentry,
+ 
+ 	/* The 0th block becomes the root, move the dirents out */
+ 	fde = &root->dotdot;
+-	de = (struct ext3_dir_entry_2 *)((char *)fde + le16_to_cpu(fde->rec_len));
++	de = (struct ext3_dir_entry_2 *)((char *)fde +
++			ext3_rec_len_from_disk(fde->rec_len));
+ 	len = ((char *) root) + blocksize - (char *) de;
+ 	memcpy (data1, de, len);
+ 	de = (struct ext3_dir_entry_2 *) data1;
+ 	top = data1 + len;
+-	while ((char *)(de2=(void*)de+le16_to_cpu(de->rec_len)) < top)
++	while ((char *)(de2 = ext3_next_entry(de)) < top)
+ 		de = de2;
+-	de->rec_len = cpu_to_le16(data1 + blocksize - (char *) de);
++	de->rec_len = ext3_rec_len_to_disk(data1 + blocksize - (char *) de);
+ 	/* Initialize the root; the dot dirents already exist */
+ 	de = (struct ext3_dir_entry_2 *) (&root->dotdot);
+-	de->rec_len = cpu_to_le16(blocksize - EXT3_DIR_REC_LEN(2));
++	de->rec_len = ext3_rec_len_to_disk(blocksize - EXT3_DIR_REC_LEN(2));
+ 	memset (&root->info, 0, sizeof(root->info));
+ 	root->info.info_length = sizeof(root->info);
+ 	root->info.hash_version = EXT3_SB(dir->i_sb)->s_def_hash_version;
+@@ -1497,7 +1514,7 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
+ 		return retval;
+ 	de = (struct ext3_dir_entry_2 *) bh->b_data;
+ 	de->inode = 0;
+-	de->rec_len = cpu_to_le16(blocksize);
++	de->rec_len = ext3_rec_len_to_disk(blocksize);
+ 	return add_dirent_to_buf(handle, dentry, inode, de, bh);
+ }
+ 
+@@ -1561,7 +1578,7 @@ static int ext3_dx_add_entry(handle_t *handle, struct dentry *dentry,
+ 			goto cleanup;
+ 		node2 = (struct dx_node *)(bh2->b_data);
+ 		entries2 = node2->entries;
+-		node2->fake.rec_len = cpu_to_le16(sb->s_blocksize);
++		node2->fake.rec_len = ext3_rec_len_to_disk(sb->s_blocksize);
+ 		node2->fake.inode = 0;
+ 		BUFFER_TRACE(frame->bh, "get_write_access");
+ 		err = ext3_journal_get_write_access(handle, frame->bh);
+@@ -1660,9 +1677,9 @@ static int ext3_delete_entry (handle_t *handle,
+ 			BUFFER_TRACE(bh, "get_write_access");
+ 			ext3_journal_get_write_access(handle, bh);
+ 			if (pde)
+-				pde->rec_len =
+-					cpu_to_le16(le16_to_cpu(pde->rec_len) +
+-						    le16_to_cpu(de->rec_len));
++				pde->rec_len = ext3_rec_len_to_disk(
++					ext3_rec_len_from_disk(pde->rec_len) +
++					ext3_rec_len_from_disk(de->rec_len));
+ 			else
+ 				de->inode = 0;
+ 			dir->i_version++;
+@@ -1670,10 +1687,9 @@ static int ext3_delete_entry (handle_t *handle,
+ 			ext3_journal_dirty_metadata(handle, bh);
+ 			return 0;
+ 		}
+-		i += le16_to_cpu(de->rec_len);
++		i += ext3_rec_len_from_disk(de->rec_len);
+ 		pde = de;
+-		de = (struct ext3_dir_entry_2 *)
+-			((char *) de + le16_to_cpu(de->rec_len));
++		de = ext3_next_entry(de);
+ 	}
+ 	return -ENOENT;
+ }
+@@ -1807,13 +1823,13 @@ retry:
+ 	de = (struct ext3_dir_entry_2 *) dir_block->b_data;
+ 	de->inode = cpu_to_le32(inode->i_ino);
+ 	de->name_len = 1;
+-	de->rec_len = cpu_to_le16(EXT3_DIR_REC_LEN(de->name_len));
++	de->rec_len = ext3_rec_len_to_disk(EXT3_DIR_REC_LEN(de->name_len));
+ 	strcpy (de->name, ".");
+ 	ext3_set_de_type(dir->i_sb, de, S_IFDIR);
+-	de = (struct ext3_dir_entry_2 *)
+-			((char *) de + le16_to_cpu(de->rec_len));
++	de = ext3_next_entry(de);
+ 	de->inode = cpu_to_le32(dir->i_ino);
+-	de->rec_len = cpu_to_le16(inode->i_sb->s_blocksize-EXT3_DIR_REC_LEN(1));
++	de->rec_len = ext3_rec_len_to_disk(inode->i_sb->s_blocksize -
++					EXT3_DIR_REC_LEN(1));
+ 	de->name_len = 2;
+ 	strcpy (de->name, "..");
+ 	ext3_set_de_type(dir->i_sb, de, S_IFDIR);
+@@ -1865,8 +1881,7 @@ static int empty_dir (struct inode * inode)
+ 		return 1;
+ 	}
+ 	de = (struct ext3_dir_entry_2 *) bh->b_data;
+-	de1 = (struct ext3_dir_entry_2 *)
+-			((char *) de + le16_to_cpu(de->rec_len));
++	de1 = ext3_next_entry(de);
+ 	if (le32_to_cpu(de->inode) != inode->i_ino ||
+ 			!le32_to_cpu(de1->inode) ||
+ 			strcmp (".", de->name) ||
+@@ -1877,9 +1892,9 @@ static int empty_dir (struct inode * inode)
+ 		brelse (bh);
+ 		return 1;
+ 	}
+-	offset = le16_to_cpu(de->rec_len) + le16_to_cpu(de1->rec_len);
+-	de = (struct ext3_dir_entry_2 *)
+-			((char *) de1 + le16_to_cpu(de1->rec_len));
++	offset = ext3_rec_len_from_disk(de->rec_len) +
++			ext3_rec_len_from_disk(de1->rec_len);
++	de = ext3_next_entry(de1);
+ 	while (offset < inode->i_size ) {
+ 		if (!bh ||
+ 			(void *) de >= (void *) (bh->b_data+sb->s_blocksize)) {
+@@ -1908,9 +1923,8 @@ static int empty_dir (struct inode * inode)
+ 			brelse (bh);
+ 			return 0;
+ 		}
+-		offset += le16_to_cpu(de->rec_len);
+-		de = (struct ext3_dir_entry_2 *)
+-				((char *) de + le16_to_cpu(de->rec_len));
++		offset += ext3_rec_len_from_disk(de->rec_len);
++		de = ext3_next_entry(de);
+ 	}
+ 	brelse (bh);
+ 	return 1;
+@@ -2264,8 +2278,7 @@ retry:
+ }
+ 
+ #define PARENT_INO(buffer) \
+-	((struct ext3_dir_entry_2 *) ((char *) buffer + \
+-	le16_to_cpu(((struct ext3_dir_entry_2 *) buffer)->rec_len)))->inode
++	(ext3_next_entry((struct ext3_dir_entry_2 *)(buffer))->inode)
+ 
+ /*
+  * Anybody can rename anything with this: the permission checks are left to the
+@@ -2344,6 +2357,8 @@ static int ext3_rename (struct inode * old_dir, struct dentry *old_dentry,
+ 					      EXT3_FEATURE_INCOMPAT_FILETYPE))
+ 			new_de->file_type = old_de->file_type;
+ 		new_dir->i_version++;
++		new_dir->i_ctime = new_dir->i_mtime = CURRENT_TIME_SEC;
++		ext3_mark_inode_dirty(handle, new_dir);
+ 		BUFFER_TRACE(new_bh, "call ext3_journal_dirty_metadata");
+ 		ext3_journal_dirty_metadata(handle, new_bh);
+ 		brelse(new_bh);
+diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
+index 2c97e09..b6fd324 100644
+--- a/fs/ext3/resize.c
++++ b/fs/ext3/resize.c
+@@ -212,10 +212,10 @@ static int setup_new_group_blocks(struct super_block *sb,
+ 			brelse(gdb);
+ 			goto exit_bh;
+ 		}
+-		lock_buffer(bh);
+-		memcpy(gdb->b_data, sbi->s_group_desc[i]->b_data, bh->b_size);
++		lock_buffer(gdb);
++		memcpy(gdb->b_data, sbi->s_group_desc[i]->b_data, gdb->b_size);
+ 		set_buffer_uptodate(gdb);
+-		unlock_buffer(bh);
++		unlock_buffer(gdb);
+ 		ext3_journal_dirty_metadata(handle, gdb);
+ 		ext3_set_bit(bit, bh->b_data);
+ 		brelse(gdb);
+@@ -438,7 +438,7 @@ static int add_new_gdb(handle_t *handle, struct inode *inode,
+ 		goto exit_dindj;
+ 
+ 	n_group_desc = kmalloc((gdb_num + 1) * sizeof(struct buffer_head *),
+-			GFP_KERNEL);
++			GFP_NOFS);
+ 	if (!n_group_desc) {
+ 		err = -ENOMEM;
+ 		ext3_warning (sb, __FUNCTION__,
+@@ -471,8 +471,7 @@ static int add_new_gdb(handle_t *handle, struct inode *inode,
+ 	EXT3_SB(sb)->s_gdb_count++;
+ 	kfree(o_group_desc);
+ 
+-	es->s_reserved_gdt_blocks =
+-		cpu_to_le16(le16_to_cpu(es->s_reserved_gdt_blocks) - 1);
++	le16_add_cpu(&es->s_reserved_gdt_blocks, -1);
+ 	ext3_journal_dirty_metadata(handle, EXT3_SB(sb)->s_sbh);
+ 
+ 	return 0;
+@@ -522,7 +521,7 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
+ 	int res, i;
+ 	int err;
+ 
+-	primary = kmalloc(reserved_gdb * sizeof(*primary), GFP_KERNEL);
++	primary = kmalloc(reserved_gdb * sizeof(*primary), GFP_NOFS);
+ 	if (!primary)
+ 		return -ENOMEM;
+ 
+@@ -534,7 +533,8 @@ static int reserve_backup_gdb(handle_t *handle, struct inode *inode,
+ 	}
+ 
+ 	blk = EXT3_SB(sb)->s_sbh->b_blocknr + 1 + EXT3_SB(sb)->s_gdb_count;
+-	data = (__le32 *)dind->b_data + EXT3_SB(sb)->s_gdb_count;
++	data = (__le32 *)dind->b_data + (EXT3_SB(sb)->s_gdb_count %
++					 EXT3_ADDR_PER_BLOCK(sb));
+ 	end = (__le32 *)dind->b_data + EXT3_ADDR_PER_BLOCK(sb);
+ 
+ 	/* Get each reserved primary GDT block and verify it holds backups */
+@@ -743,7 +743,8 @@ int ext3_group_add(struct super_block *sb, struct ext3_new_group_data *input)
+ 
+ 	if (reserved_gdb || gdb_off == 0) {
+ 		if (!EXT3_HAS_COMPAT_FEATURE(sb,
+-					     EXT3_FEATURE_COMPAT_RESIZE_INODE)){
++					     EXT3_FEATURE_COMPAT_RESIZE_INODE)
++		    || !le16_to_cpu(es->s_reserved_gdt_blocks)) {
+ 			ext3_warning(sb, __FUNCTION__,
+ 				     "No reserved GDT blocks, can't resize");
+ 			return -EPERM;
+@@ -844,10 +845,8 @@ int ext3_group_add(struct super_block *sb, struct ext3_new_group_data *input)
+ 	 * blocks/inodes before the group is live won't actually let us
+ 	 * allocate the new space yet.
+ 	 */
+-	es->s_blocks_count = cpu_to_le32(le32_to_cpu(es->s_blocks_count) +
+-		input->blocks_count);
+-	es->s_inodes_count = cpu_to_le32(le32_to_cpu(es->s_inodes_count) +
+-		EXT3_INODES_PER_GROUP(sb));
++	le32_add_cpu(&es->s_blocks_count, input->blocks_count);
++	le32_add_cpu(&es->s_inodes_count, EXT3_INODES_PER_GROUP(sb));
+ 
+ 	/*
+ 	 * We need to protect s_groups_count against other CPUs seeing
+@@ -880,8 +879,7 @@ int ext3_group_add(struct super_block *sb, struct ext3_new_group_data *input)
+ 
+ 	/* Update the reserved block counts only once the new group is
+ 	 * active. */
+-	es->s_r_blocks_count = cpu_to_le32(le32_to_cpu(es->s_r_blocks_count) +
+-		input->reserved_blocks);
++	le32_add_cpu(&es->s_r_blocks_count, input->reserved_blocks);
+ 
+ 	/* Update the free space counts */
+ 	percpu_counter_mod(&sbi->s_freeblocks_counter,
+@@ -1007,6 +1005,7 @@ int ext3_group_extend(struct super_block *sb, struct ext3_super_block *es,
+ 		ext3_warning(sb, __FUNCTION__,
+ 			     "multiple resizers run on filesystem!");
+ 		unlock_super(sb);
++		ext3_journal_stop(handle);
+ 		err = -EBUSY;
+ 		goto exit_put;
+ 	}
+diff --git a/fs/ext3/super.c b/fs/ext3/super.c
+index b2e3c26..7054ca2 100644
+--- a/fs/ext3/super.c
++++ b/fs/ext3/super.c
+@@ -35,6 +35,7 @@
+ #include <linux/namei.h>
+ #include <linux/quotaops.h>
+ #include <linux/seq_file.h>
++#include <linux/log2.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -724,8 +725,8 @@ static match_table_t tokens = {
+ 	{Opt_quota, "quota"},
+ 	{Opt_usrquota, "usrquota"},
+ 	{Opt_barrier, "barrier=%u"},
+-	{Opt_err, NULL},
+ 	{Opt_resize, "resize"},
++	{Opt_err, NULL},
+ };
+ 
+ static ext3_fsblk_t get_sb_block(void **data)
+@@ -937,7 +938,7 @@ static int parse_options (char *options, struct super_block *sb,
+ set_qf_name:
+ 			if (sb_any_quota_enabled(sb)) {
+ 				printk(KERN_ERR
+-					"EXT3-fs: Cannot change journalled "
++					"EXT3-fs: Cannot change journaled "
+ 					"quota options when quota turned on.\n");
+ 				return 0;
+ 			}
+@@ -975,7 +976,7 @@ set_qf_name:
+ clear_qf_name:
+ 			if (sb_any_quota_enabled(sb)) {
+ 				printk(KERN_ERR "EXT3-fs: Cannot change "
+-					"journalled quota options when "
++					"journaled quota options when "
+ 					"quota turned on.\n");
+ 				return 0;
+ 			}
+@@ -1083,14 +1084,14 @@ clear_qf_name:
+ 		}
+ 
+ 		if (!sbi->s_jquota_fmt) {
+-			printk(KERN_ERR "EXT3-fs: journalled quota format "
++			printk(KERN_ERR "EXT3-fs: journaled quota format "
+ 					"not specified.\n");
+ 			return 0;
+ 		}
+ 	} else {
+ 		if (sbi->s_jquota_fmt) {
+-			printk(KERN_ERR "EXT3-fs: journalled quota format "
+-					"specified with no journalling "
++			printk(KERN_ERR "EXT3-fs: journaled quota format "
++					"specified with no journaling "
+ 					"enabled.\n");
+ 			return 0;
+ 		}
+@@ -1140,7 +1141,7 @@ static int ext3_setup_super(struct super_block *sb, struct ext3_super_block *es,
+ #endif
+ 	if (!(__s16) le16_to_cpu(es->s_max_mnt_count))
+ 		es->s_max_mnt_count = cpu_to_le16(EXT3_DFL_MAX_MNT_COUNT);
+-	es->s_mnt_count=cpu_to_le16(le16_to_cpu(es->s_mnt_count) + 1);
++	le16_add_cpu(&es->s_mnt_count, 1);
+ 	es->s_mtime = cpu_to_le32(get_seconds());
+ 	ext3_update_dynamic_rev(sb);
+ 	EXT3_SET_INCOMPAT_FEATURE(sb, EXT3_FEATURE_INCOMPAT_RECOVER);
+@@ -1290,7 +1291,7 @@ static void ext3_orphan_cleanup (struct super_block * sb,
+ 			int ret = ext3_quota_on_mount(sb, i);
+ 			if (ret < 0)
+ 				printk(KERN_ERR
+-					"EXT3-fs: Cannot turn on journalled "
++					"EXT3-fs: Cannot turn on journaled "
+ 					"quota: error %d\n", ret);
+ 		}
+ 	}
+@@ -1352,11 +1353,31 @@ static void ext3_orphan_cleanup (struct super_block * sb,
+ static loff_t ext3_max_size(int bits)
+ {
+ 	loff_t res = EXT3_NDIR_BLOCKS;
+-	/* This constant is calculated to be the largest file size for a
+-	 * dense, 4k-blocksize file such that the total number of
++	int meta_blocks;
++	loff_t upper_limit;
++
++	/* This is calculated to be the largest file size for a
++	 * dense, file such that the total number of
+ 	 * sectors in the file, including data and all indirect blocks,
+-	 * does not exceed 2^32. */
+-	const loff_t upper_limit = 0x1ff7fffd000LL;
++	 * does not exceed 2^32 -1
++	 * __u32 i_blocks representing the total number of
++	 * 512 bytes blocks of the file
++	 */
++	upper_limit = (1LL << 32) - 1;
++
++	/* total blocks in file system block size */
++	upper_limit >>= (bits - 9);
++
++
++	/* indirect blocks */
++	meta_blocks = 1;
++	/* double indirect blocks */
++	meta_blocks += 1 + (1LL << (bits-2));
++	/* tripple indirect blocks */
++	meta_blocks += 1 + (1LL << (bits-2)) + (1LL << (2*(bits-2)));
++
++	upper_limit -= meta_blocks;
++	upper_limit <<= bits;
+ 
+ 	res += 1LL << (bits-2);
+ 	res += 1LL << (2*(bits-2));
+@@ -1364,6 +1385,10 @@ static loff_t ext3_max_size(int bits)
+ 	res <<= bits;
+ 	if (res > upper_limit)
+ 		res = upper_limit;
++
++	if (res > MAX_LFS_FILESIZE)
++		res = MAX_LFS_FILESIZE;
++
+ 	return res;
+ }
+ 
+@@ -1473,10 +1498,10 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
+ 
+ 	if (le16_to_cpu(sbi->s_es->s_errors) == EXT3_ERRORS_PANIC)
+ 		set_opt(sbi->s_mount_opt, ERRORS_PANIC);
+-	else if (le16_to_cpu(sbi->s_es->s_errors) == EXT3_ERRORS_RO)
+-		set_opt(sbi->s_mount_opt, ERRORS_RO);
+-	else
++	else if (le16_to_cpu(sbi->s_es->s_errors) == EXT3_ERRORS_CONTINUE)
+ 		set_opt(sbi->s_mount_opt, ERRORS_CONT);
++	else
++		set_opt(sbi->s_mount_opt, ERRORS_RO);
+ 
+ 	sbi->s_resuid = le16_to_cpu(es->s_def_resuid);
+ 	sbi->s_resgid = le16_to_cpu(es->s_def_resgid);
+@@ -1539,7 +1564,11 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
+ 		}
+ 
+ 		brelse (bh);
+-		sb_set_blocksize(sb, blocksize);
++		if (!sb_set_blocksize(sb, blocksize)) {
++			printk(KERN_ERR "EXT3-fs: bad blocksize %d.\n",
++				blocksize);
++			goto out_fail;
++		}
+ 		logic_sb_block = (sb_block * EXT3_MIN_BLOCK_SIZE) / blocksize;
+ 		offset = (sb_block * EXT3_MIN_BLOCK_SIZE) % blocksize;
+ 		bh = sb_bread(sb, logic_sb_block);
+@@ -1566,7 +1595,7 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
+ 		sbi->s_inode_size = le16_to_cpu(es->s_inode_size);
+ 		sbi->s_first_ino = le32_to_cpu(es->s_first_ino);
+ 		if ((sbi->s_inode_size < EXT3_GOOD_OLD_INODE_SIZE) ||
+-		    (sbi->s_inode_size & (sbi->s_inode_size - 1)) ||
++		    (!is_power_of_2(sbi->s_inode_size)) ||
+ 		    (sbi->s_inode_size > blocksize)) {
+ 			printk (KERN_ERR
+ 				"EXT3-fs: unsupported inode size: %d\n",
+@@ -1586,7 +1615,7 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)
+ 	sbi->s_blocks_per_group = le32_to_cpu(es->s_blocks_per_group);
+ 	sbi->s_frags_per_group = le32_to_cpu(es->s_frags_per_group);
+ 	sbi->s_inodes_per_group = le32_to_cpu(es->s_inodes_per_group);
+-	if (EXT3_INODE_SIZE(sb) == 0)
++	if (EXT3_INODE_SIZE(sb) == 0 || EXT3_INODES_PER_GROUP(sb) == 0)
+ 		goto cantfind_ext3;
+ 	sbi->s_inodes_per_block = blocksize / EXT3_INODE_SIZE(sb);
+ 	if (sbi->s_inodes_per_block == 0)
+@@ -2077,6 +2106,7 @@ static int ext3_create_journal(struct super_block * sb,
+ 			       unsigned int journal_inum)
+ {
+ 	journal_t *journal;
++	int err;
+ 
+ 	if (sb->s_flags & MS_RDONLY) {
+ 		printk(KERN_ERR "EXT3-fs: readonly filesystem when trying to "
+@@ -2084,13 +2114,15 @@ static int ext3_create_journal(struct super_block * sb,
+ 		return -EROFS;
+ 	}
+ 
+-	if (!(journal = ext3_get_journal(sb, journal_inum)))
++	journal = ext3_get_journal(sb, journal_inum);
++	if (!journal)
+ 		return -EINVAL;
+ 
+ 	printk(KERN_INFO "EXT3-fs: creating new journal on inode %u\n",
+ 	       journal_inum);
+ 
+-	if (journal_create(journal)) {
++	err = journal_create(journal);
++	if (err) {
+ 		printk(KERN_ERR "EXT3-fs: error creating journal.\n");
+ 		journal_destroy(journal);
+ 		return -EIO;
+@@ -2141,12 +2173,14 @@ static void ext3_mark_recovery_complete(struct super_block * sb,
+ 
+ 	journal_lock_updates(journal);
+ 	journal_flush(journal);
++	lock_super(sb);
+ 	if (EXT3_HAS_INCOMPAT_FEATURE(sb, EXT3_FEATURE_INCOMPAT_RECOVER) &&
+ 	    sb->s_flags & MS_RDONLY) {
+ 		EXT3_CLEAR_INCOMPAT_FEATURE(sb, EXT3_FEATURE_INCOMPAT_RECOVER);
+ 		sb->s_dirt = 0;
+ 		ext3_commit_super(sb, es, 1);
+ 	}
++	unlock_super(sb);
+ 	journal_unlock_updates(journal);
+ }
+ 
+@@ -2335,7 +2369,13 @@ static int ext3_remount (struct super_block * sb, int * flags, char * data)
+ 			    (sbi->s_mount_state & EXT3_VALID_FS))
+ 				es->s_state = cpu_to_le16(sbi->s_mount_state);
+ 
++			/*
++			 * We have to unlock super so that we can wait for
++			 * transactions.
++			 */
++			unlock_super(sb);
+ 			ext3_mark_recovery_complete(sb, es);
++			lock_super(sb);
+ 		} else {
+ 			__le32 ret;
+ 			if ((ret = EXT3_HAS_RO_COMPAT_FEATURE(sb,
+@@ -2509,8 +2549,14 @@ static int ext3_dquot_drop(struct inode *inode)
+ 
+ 	/* We may delete quota structure so we need to reserve enough blocks */
+ 	handle = ext3_journal_start(inode, 2*EXT3_QUOTA_DEL_BLOCKS(inode->i_sb));
+-	if (IS_ERR(handle))
++	if (IS_ERR(handle)) {
++		/*
++		 * We call dquot_drop() anyway to at least release references
++		 * to quota structures so that umount does not hang.
++		 */
++		dquot_drop(inode);
+ 		return PTR_ERR(handle);
++	}
+ 	ret = dquot_drop(inode);
+ 	err = ext3_journal_stop(handle);
+ 	if (!ret)
+@@ -2570,7 +2616,7 @@ static int ext3_release_dquot(struct dquot *dquot)
+ 
+ static int ext3_mark_dquot_dirty(struct dquot *dquot)
+ {
+-	/* Are we journalling quotas? */
++	/* Are we journaling quotas? */
+ 	if (EXT3_SB(dquot->dq_sb)->s_qf_names[USRQUOTA] ||
+ 	    EXT3_SB(dquot->dq_sb)->s_qf_names[GRPQUOTA]) {
+ 		dquot_mark_dquot_dirty(dquot);
+@@ -2727,8 +2773,10 @@ static ssize_t ext3_quota_write(struct super_block *sb, int type,
+ 		blk++;
+ 	}
+ out:
+-	if (len == towrite)
++	if (len == towrite) {
++		mutex_unlock(&inode->i_mutex);
+ 		return err;
++	}
+ 	if (inode->i_size < off+len-towrite) {
+ 		i_size_write(inode, off+len-towrite);
+ 		EXT3_I(inode)->i_disksize = inode->i_size;
+diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
+index f58cbb2..84119af 100644
+--- a/fs/ext3/xattr.c
++++ b/fs/ext3/xattr.c
+@@ -492,8 +492,7 @@ ext3_xattr_release_block(handle_t *handle, struct inode *inode,
+ 		get_bh(bh);
+ 		ext3_forget(handle, 1, inode, bh, bh->b_blocknr);
+ 	} else {
+-		BHDR(bh)->h_refcount = cpu_to_le32(
+-				le32_to_cpu(BHDR(bh)->h_refcount) - 1);
++		le32_add_cpu(&BHDR(bh)->h_refcount, -1);
+ 		error = ext3_journal_dirty_metadata(handle, bh);
+ 		if (IS_SYNC(inode))
+ 			handle->h_sync = 1;
+@@ -729,7 +728,7 @@ ext3_xattr_block_set(handle_t *handle, struct inode *inode,
+ 				ce = NULL;
+ 			}
+ 			ea_bdebug(bs->bh, "cloning");
+-			s->base = kmalloc(bs->bh->b_size, GFP_KERNEL);
++			s->base = kmalloc(bs->bh->b_size, GFP_NOFS);
+ 			error = -ENOMEM;
+ 			if (s->base == NULL)
+ 				goto cleanup;
+@@ -741,12 +740,11 @@ ext3_xattr_block_set(handle_t *handle, struct inode *inode,
+ 		}
+ 	} else {
+ 		/* Allocate a buffer where we construct the new block. */
+-		s->base = kmalloc(sb->s_blocksize, GFP_KERNEL);
++		s->base = kzalloc(sb->s_blocksize, GFP_NOFS);
+ 		/* assert(header == s->base) */
+ 		error = -ENOMEM;
+ 		if (s->base == NULL)
+ 			goto cleanup;
+-		memset(s->base, 0, sb->s_blocksize);
+ 		header(s->base)->h_magic = cpu_to_le32(EXT3_XATTR_MAGIC);
+ 		header(s->base)->h_blocks = cpu_to_le32(1);
+ 		header(s->base)->h_refcount = cpu_to_le32(1);
+@@ -781,8 +779,7 @@ inserted:
+ 				if (error)
+ 					goto cleanup_dquot;
+ 				lock_buffer(new_bh);
+-				BHDR(new_bh)->h_refcount = cpu_to_le32(1 +
+-					le32_to_cpu(BHDR(new_bh)->h_refcount));
++				le32_add_cpu(&BHDR(new_bh)->h_refcount, 1);
+ 				ea_bdebug(new_bh, "reusing; refcount now=%d",
+ 					le32_to_cpu(BHDR(new_bh)->h_refcount));
+ 				unlock_buffer(new_bh);
+@@ -1003,6 +1000,11 @@ ext3_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
+ 			i.value = NULL;
+ 			error = ext3_xattr_block_set(handle, inode, &i, &bs);
+ 		} else if (error == -ENOSPC) {
++			if (EXT3_I(inode)->i_file_acl && !bs.s.base) {
++				error = ext3_xattr_block_find(inode, &i, &bs);
++				if (error)
++					goto cleanup;
++			}
+ 			error = ext3_xattr_block_set(handle, inode, &i, &bs);
+ 			if (error)
+ 				goto cleanup;
+@@ -1129,7 +1131,7 @@ ext3_xattr_cache_insert(struct buffer_head *bh)
+ 	struct mb_cache_entry *ce;
+ 	int error;
+ 
+-	ce = mb_cache_entry_alloc(ext3_xattr_cache);
++	ce = mb_cache_entry_alloc(ext3_xattr_cache, GFP_NOFS);
+ 	if (!ce) {
+ 		ea_bdebug(bh, "out of memory");
+ 		return;
+diff --git a/fs/ext3/xattr_security.c b/fs/ext3/xattr_security.c
+index 821efaf..37b8109 100644
+--- a/fs/ext3/xattr_security.c
++++ b/fs/ext3/xattr_security.c
+@@ -15,7 +15,7 @@ static size_t
+ ext3_xattr_security_list(struct inode *inode, char *list, size_t list_size,
+ 			 const char *name, size_t name_len)
+ {
+-	const size_t prefix_len = sizeof(XATTR_SECURITY_PREFIX)-1;
++	const size_t prefix_len = XATTR_SECURITY_PREFIX_LEN;
+ 	const size_t total_len = prefix_len + name_len + 1;
+ 
+ 
+diff --git a/fs/ext3/xattr_trusted.c b/fs/ext3/xattr_trusted.c
+index 0327497..c7c41a4 100644
+--- a/fs/ext3/xattr_trusted.c
++++ b/fs/ext3/xattr_trusted.c
+@@ -13,13 +13,11 @@
+ #include <linux/ext3_fs.h>
+ #include "xattr.h"
+ 
+-#define XATTR_TRUSTED_PREFIX "trusted."
+-
+ static size_t
+ ext3_xattr_trusted_list(struct inode *inode, char *list, size_t list_size,
+ 			const char *name, size_t name_len)
+ {
+-	const size_t prefix_len = sizeof(XATTR_TRUSTED_PREFIX)-1;
++	const size_t prefix_len = XATTR_TRUSTED_PREFIX_LEN;
+ 	const size_t total_len = prefix_len + name_len + 1;
+ 
+ 	if (!capable(CAP_SYS_ADMIN))
+diff --git a/fs/ext3/xattr_user.c b/fs/ext3/xattr_user.c
+index 1abd8f9..430fe63 100644
+--- a/fs/ext3/xattr_user.c
++++ b/fs/ext3/xattr_user.c
+@@ -12,13 +12,11 @@
+ #include <linux/ext3_fs.h>
+ #include "xattr.h"
+ 
+-#define XATTR_USER_PREFIX "user."
+-
+ static size_t
+ ext3_xattr_user_list(struct inode *inode, char *list, size_t list_size,
+ 		     const char *name, size_t name_len)
+ {
+-	const size_t prefix_len = sizeof(XATTR_USER_PREFIX)-1;
++	const size_t prefix_len = XATTR_USER_PREFIX_LEN;
+ 	const size_t total_len = prefix_len + name_len + 1;
+ 
+ 	if (!test_opt(inode->i_sb, XATTR_USER))
+diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
+index 7bb8d7c..c3f9a4b 100644
+--- a/fs/ext4/namei.c
++++ b/fs/ext4/namei.c
+@@ -1050,6 +1050,11 @@ static struct dentry *ext4_lookup(struct inode * dir, struct dentry *dentry, str
+ 
+ 		if (!inode)
+ 			return ERR_PTR(-EACCES);
++
++		if (is_bad_inode(inode)) {
++			iput(inode);
++			return ERR_PTR(-ENOENT);
++		}
+ 	}
+ 	return d_splice_alias(inode, dentry);
+ }
+@@ -1085,6 +1090,11 @@ struct dentry *ext4_get_parent(struct dentry *child)
+ 	if (!inode)
+ 		return ERR_PTR(-EACCES);
+ 
++	if (is_bad_inode(inode)) {
++		iput(inode);
++		return ERR_PTR(-ENOENT);
++	}
++
+ 	parent = d_alloc_anon(inode);
+ 	if (!parent) {
+ 		iput(inode);
+diff --git a/fs/ext4/super.c b/fs/ext4/super.c
+index 5367824..3aa5423 100644
+--- a/fs/ext4/super.c
++++ b/fs/ext4/super.c
+@@ -1656,7 +1656,7 @@ static int ext4_fill_super (struct super_block *sb, void *data, int silent)
+ 	sbi->s_blocks_per_group = le32_to_cpu(es->s_blocks_per_group);
+ 	sbi->s_frags_per_group = le32_to_cpu(es->s_frags_per_group);
+ 	sbi->s_inodes_per_group = le32_to_cpu(es->s_inodes_per_group);
+-	if (EXT4_INODE_SIZE(sb) == 0)
++	if (EXT4_INODE_SIZE(sb) == 0 || EXT4_INODES_PER_GROUP(sb) == 0)
+ 		goto cantfind_ext4;
+ 	sbi->s_inodes_per_block = blocksize / EXT4_INODE_SIZE(sb);
+ 	if (sbi->s_inodes_per_block == 0)
+diff --git a/fs/ext4/xattr.c b/fs/ext4/xattr.c
+index e832e96..c256545 100644
+--- a/fs/ext4/xattr.c
++++ b/fs/ext4/xattr.c
+@@ -1001,6 +1001,11 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
+ 			i.value = NULL;
+ 			error = ext4_xattr_block_set(handle, inode, &i, &bs);
+ 		} else if (error == -ENOSPC) {
++			if (EXT4_I(inode)->i_file_acl && !bs.s.base) {
++				error = ext4_xattr_block_find(inode, &i, &bs);
++				if (error)
++					goto cleanup;
++			}
+ 			error = ext4_xattr_block_set(handle, inode, &i, &bs);
+ 			if (error)
+ 				goto cleanup;
+@@ -1127,7 +1132,7 @@ ext4_xattr_cache_insert(struct buffer_head *bh)
+ 	struct mb_cache_entry *ce;
+ 	int error;
+ 
+-	ce = mb_cache_entry_alloc(ext4_xattr_cache);
++	ce = mb_cache_entry_alloc(ext4_xattr_cache, GFP_NOFS);
+ 	if (!ce) {
+ 		ea_bdebug(bh, "out of memory");
+ 		return;
+diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
+index a003d50..d0a2c16 100644
+--- a/fs/jbd/commit.c
++++ b/fs/jbd/commit.c
+@@ -131,6 +131,8 @@ static int journal_write_commit_record(journal_t *journal,
+ 		barrier_done = 1;
+ 	}
+ 	ret = sync_dirty_buffer(bh);
++	if (barrier_done)
++		clear_buffer_ordered(bh);
+ 	/* is it possible for another commit to fail at roughly
+ 	 * the same time as this one?  If so, we don't want to
+ 	 * trust the barrier flag in the super, but instead want
+@@ -148,7 +150,6 @@ static int journal_write_commit_record(journal_t *journal,
+ 		spin_unlock(&journal->j_state_lock);
+ 
+ 		/* And try again, without the barrier */
+-		clear_buffer_ordered(bh);
+ 		set_buffer_uptodate(bh);
+ 		set_buffer_dirty(bh);
+ 		ret = sync_dirty_buffer(bh);
+@@ -375,7 +376,7 @@ void journal_commit_transaction(journal_t *journal)
+ 			struct buffer_head *bh = jh2bh(jh);
+ 
+ 			jbd_lock_bh_state(bh);
+-			jbd_slab_free(jh->b_committed_data, bh->b_size);
++			jbd_free(jh->b_committed_data, bh->b_size);
+ 			jh->b_committed_data = NULL;
+ 			jbd_unlock_bh_state(bh);
+ 		}
+@@ -408,22 +409,6 @@ void journal_commit_transaction(journal_t *journal)
+ 	jbd_debug (3, "JBD: commit phase 2\n");
+ 
+ 	/*
+-	 * First, drop modified flag: all accesses to the buffers
+-	 * will be tracked for a new trasaction only -bzzz
+-	 */
+-	spin_lock(&journal->j_list_lock);
+-	if (commit_transaction->t_buffers) {
+-		new_jh = jh = commit_transaction->t_buffers->b_tnext;
+-		do {
+-			J_ASSERT_JH(new_jh, new_jh->b_modified == 1 ||
+-					new_jh->b_modified == 0);
+-			new_jh->b_modified = 0;
+-			new_jh = new_jh->b_tnext;
+-		} while (new_jh != jh);
+-	}
+-	spin_unlock(&journal->j_list_lock);
+-
+-	/*
+ 	 * Now start flushing things to disk, in the order they appear
+ 	 * on the transaction lists.  Data blocks go first.
+ 	 */
+@@ -466,7 +451,7 @@ void journal_commit_transaction(journal_t *journal)
+ 	spin_unlock(&journal->j_list_lock);
+ 
+ 	if (err)
+-		__journal_abort_hard(journal);
++		journal_abort(journal, err);
+ 
+ 	journal_write_revoke_records(journal, commit_transaction);
+ 
+@@ -487,7 +472,12 @@ void journal_commit_transaction(journal_t *journal)
+ 	 * transaction!  Now comes the tricky part: we need to write out
+ 	 * metadata.  Loop over the transaction's entire buffer list:
+ 	 */
++	spin_lock(&journal->j_state_lock);
+ 	commit_transaction->t_state = T_COMMIT;
++	spin_unlock(&journal->j_state_lock);
++
++	J_ASSERT(commit_transaction->t_nr_buffers <=
++		 commit_transaction->t_outstanding_credits);
+ 
+ 	descriptor = NULL;
+ 	bufs = 0;
+@@ -524,7 +514,7 @@ void journal_commit_transaction(journal_t *journal)
+ 
+ 			descriptor = journal_get_descriptor_buffer(journal);
+ 			if (!descriptor) {
+-				__journal_abort_hard(journal);
++				journal_abort(journal, -EIO);
+ 				continue;
+ 			}
+ 
+@@ -557,7 +547,7 @@ void journal_commit_transaction(journal_t *journal)
+ 		   and repeat this loop: we'll fall into the
+ 		   refile-on-abort condition above. */
+ 		if (err) {
+-			__journal_abort_hard(journal);
++			journal_abort(journal, err);
+ 			continue;
+ 		}
+ 
+@@ -748,7 +738,7 @@ wait_for_iobuf:
+ 		err = -EIO;
+ 
+ 	if (err)
+-		__journal_abort_hard(journal);
++		journal_abort(journal, err);
+ 
+ 	/* End of a transaction!  Finally, we can do checkpoint
+            processing: any buffers committed as a result of this
+@@ -792,14 +782,14 @@ restart_loop:
+ 		 * Otherwise, we can just throw away the frozen data now.
+ 		 */
+ 		if (jh->b_committed_data) {
+-			jbd_slab_free(jh->b_committed_data, bh->b_size);
++			jbd_free(jh->b_committed_data, bh->b_size);
+ 			jh->b_committed_data = NULL;
+ 			if (jh->b_frozen_data) {
+ 				jh->b_committed_data = jh->b_frozen_data;
+ 				jh->b_frozen_data = NULL;
+ 			}
+ 		} else if (jh->b_frozen_data) {
+-			jbd_slab_free(jh->b_frozen_data, bh->b_size);
++			jbd_free(jh->b_frozen_data, bh->b_size);
+ 			jh->b_frozen_data = NULL;
+ 		}
+ 
+diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
+index 46fe743..3e1a628 100644
+--- a/fs/jbd/journal.c
++++ b/fs/jbd/journal.c
+@@ -83,7 +83,6 @@ EXPORT_SYMBOL(journal_force_commit);
+ 
+ static int journal_convert_superblock_v1(journal_t *, journal_superblock_t *);
+ static void __journal_abort_soft (journal_t *journal, int errno);
+-static int journal_create_jbd_slab(size_t slab_size);
+ 
+ /*
+  * Helper function used to manage commit timeouts
+@@ -334,10 +333,10 @@ repeat:
+ 		char *tmp;
+ 
+ 		jbd_unlock_bh_state(bh_in);
+-		tmp = jbd_slab_alloc(bh_in->b_size, GFP_NOFS);
++		tmp = jbd_alloc(bh_in->b_size, GFP_NOFS);
+ 		jbd_lock_bh_state(bh_in);
+ 		if (jh_in->b_frozen_data) {
+-			jbd_slab_free(tmp, bh_in->b_size);
++			jbd_free(tmp, bh_in->b_size);
+ 			goto repeat;
+ 		}
+ 
+@@ -654,10 +653,9 @@ static journal_t * journal_init_common (void)
+ 	journal_t *journal;
+ 	int err;
+ 
+-	journal = jbd_kmalloc(sizeof(*journal), GFP_KERNEL);
++	journal = kzalloc(sizeof(*journal), GFP_KERNEL);
+ 	if (!journal)
+ 		goto fail;
+-	memset(journal, 0, sizeof(*journal));
+ 
+ 	init_waitqueue_head(&journal->j_wait_transaction_locked);
+ 	init_waitqueue_head(&journal->j_wait_logspace);
+@@ -1095,13 +1093,6 @@ int journal_load(journal_t *journal)
+ 		}
+ 	}
+ 
+-	/*
+-	 * Create a slab for this blocksize
+-	 */
+-	err = journal_create_jbd_slab(be32_to_cpu(sb->s_blocksize));
+-	if (err)
+-		return err;
+-
+ 	/* Let the recovery code check whether it needs to recover any
+ 	 * data from the journal. */
+ 	if (journal_recover(journal))
+@@ -1615,86 +1606,6 @@ int journal_blocks_per_page(struct inode *inode)
+ }
+ 
+ /*
+- * Simple support for retrying memory allocations.  Introduced to help to
+- * debug different VM deadlock avoidance strategies.
+- */
+-void * __jbd_kmalloc (const char *where, size_t size, gfp_t flags, int retry)
+-{
+-	return kmalloc(size, flags | (retry ? __GFP_NOFAIL : 0));
+-}
+-
+-/*
+- * jbd slab management: create 1k, 2k, 4k, 8k slabs as needed
+- * and allocate frozen and commit buffers from these slabs.
+- *
+- * Reason for doing this is to avoid, SLAB_DEBUG - since it could
+- * cause bh to cross page boundary.
+- */
+-
+-#define JBD_MAX_SLABS 5
+-#define JBD_SLAB_INDEX(size)  (size >> 11)
+-
+-static struct kmem_cache *jbd_slab[JBD_MAX_SLABS];
+-static const char *jbd_slab_names[JBD_MAX_SLABS] = {
+-	"jbd_1k", "jbd_2k", "jbd_4k", NULL, "jbd_8k"
+-};
+-
+-static void journal_destroy_jbd_slabs(void)
+-{
+-	int i;
+-
+-	for (i = 0; i < JBD_MAX_SLABS; i++) {
+-		if (jbd_slab[i])
+-			kmem_cache_destroy(jbd_slab[i]);
+-		jbd_slab[i] = NULL;
+-	}
+-}
+-
+-static int journal_create_jbd_slab(size_t slab_size)
+-{
+-	int i = JBD_SLAB_INDEX(slab_size);
+-
+-	BUG_ON(i >= JBD_MAX_SLABS);
+-
+-	/*
+-	 * Check if we already have a slab created for this size
+-	 */
+-	if (jbd_slab[i])
+-		return 0;
+-
+-	/*
+-	 * Create a slab and force alignment to be same as slabsize -
+-	 * this will make sure that allocations won't cross the page
+-	 * boundary.
+-	 */
+-	jbd_slab[i] = kmem_cache_create(jbd_slab_names[i],
+-				slab_size, slab_size, 0, NULL, NULL);
+-	if (!jbd_slab[i]) {
+-		printk(KERN_EMERG "JBD: no memory for jbd_slab cache\n");
+-		return -ENOMEM;
+-	}
+-	return 0;
+-}
+-
+-void * jbd_slab_alloc(size_t size, gfp_t flags)
+-{
+-	int idx;
+-
+-	idx = JBD_SLAB_INDEX(size);
+-	BUG_ON(jbd_slab[idx] == NULL);
+-	return kmem_cache_alloc(jbd_slab[idx], flags | __GFP_NOFAIL);
+-}
+-
+-void jbd_slab_free(void *ptr,  size_t size)
+-{
+-	int idx;
+-
+-	idx = JBD_SLAB_INDEX(size);
+-	BUG_ON(jbd_slab[idx] == NULL);
+-	kmem_cache_free(jbd_slab[idx], ptr);
+-}
+-
+-/*
+  * Journal_head storage management
+  */
+ static struct kmem_cache *journal_head_cache;
+@@ -1882,13 +1793,13 @@ static void __journal_remove_journal_head(struct buffer_head *bh)
+ 				printk(KERN_WARNING "%s: freeing "
+ 						"b_frozen_data\n",
+ 						__FUNCTION__);
+-				jbd_slab_free(jh->b_frozen_data, bh->b_size);
++				jbd_free(jh->b_frozen_data, bh->b_size);
+ 			}
+ 			if (jh->b_committed_data) {
+ 				printk(KERN_WARNING "%s: freeing "
+ 						"b_committed_data\n",
+ 						__FUNCTION__);
+-				jbd_slab_free(jh->b_committed_data, bh->b_size);
++				jbd_free(jh->b_committed_data, bh->b_size);
+ 			}
+ 			bh->b_private = NULL;
+ 			jh->b_bh = NULL;	/* debug, really */
+@@ -2044,7 +1955,6 @@ static void journal_destroy_caches(void)
+ 	journal_destroy_revoke_caches();
+ 	journal_destroy_journal_head_cache();
+ 	journal_destroy_handle_cache();
+-	journal_destroy_jbd_slabs();
+ }
+ 
+ static int __init journal_init(void)
+diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
+index 2a5f4b8..1226ae7 100644
+--- a/fs/jbd/recovery.c
++++ b/fs/jbd/recovery.c
+@@ -478,7 +478,7 @@ static int do_one_pass(journal_t *journal,
+ 					memcpy(nbh->b_data, obh->b_data,
+ 							journal->j_blocksize);
+ 					if (flags & JFS_FLAG_ESCAPE) {
+-						*((__be32 *)bh->b_data) =
++						*((__be32 *)nbh->b_data) =
+ 						cpu_to_be32(JFS_MAGIC_NUMBER);
+ 					}
+ 
+diff --git a/fs/jbd/revoke.c b/fs/jbd/revoke.c
+index 824e3b7..8db2fa2 100644
+--- a/fs/jbd/revoke.c
++++ b/fs/jbd/revoke.c
+@@ -68,6 +68,7 @@
+ #include <linux/list.h>
+ #include <linux/init.h>
+ #endif
++#include <linux/log2.h>
+ 
+ static struct kmem_cache *revoke_record_cache;
+ static struct kmem_cache *revoke_table_cache;
+@@ -211,7 +212,7 @@ int journal_init_revoke(journal_t *journal, int hash_size)
+ 	journal->j_revoke = journal->j_revoke_table[0];
+ 
+ 	/* Check that the hash_size is a power of two */
+-	J_ASSERT ((hash_size & (hash_size-1)) == 0);
++	J_ASSERT(is_power_of_2(hash_size));
+ 
+ 	journal->j_revoke->hash_size = hash_size;
+ 
+@@ -238,7 +239,7 @@ int journal_init_revoke(journal_t *journal, int hash_size)
+ 	journal->j_revoke = journal->j_revoke_table[1];
+ 
+ 	/* Check that the hash_size is a power of two */
+-	J_ASSERT ((hash_size & (hash_size-1)) == 0);
++	J_ASSERT(is_power_of_2(hash_size));
+ 
+ 	journal->j_revoke->hash_size = hash_size;
+ 
+diff --git a/fs/jbd/transaction.c b/fs/jbd/transaction.c
+index 772b653..603dfe4 100644
+--- a/fs/jbd/transaction.c
++++ b/fs/jbd/transaction.c
+@@ -96,13 +96,12 @@ static int start_this_handle(journal_t *journal, handle_t *handle)
+ 
+ alloc_transaction:
+ 	if (!journal->j_running_transaction) {
+-		new_transaction = jbd_kmalloc(sizeof(*new_transaction),
+-						GFP_NOFS);
++		new_transaction = kzalloc(sizeof(*new_transaction),
++						GFP_NOFS|__GFP_NOFAIL);
+ 		if (!new_transaction) {
+ 			ret = -ENOMEM;
+ 			goto out;
+ 		}
+-		memset(new_transaction, 0, sizeof(*new_transaction));
+ 	}
+ 
+ 	jbd_debug(3, "New handle %p going live.\n", handle);
+@@ -601,6 +600,12 @@ repeat:
+ 		goto done;
+ 
+ 	/*
++	 * this is the first time this transaction is touching this buffer,
++	 * reset the modified flag
++	 */
++	jh->b_modified = 0;
++
++	/*
+ 	 * If there is already a copy-out version of this buffer, then we don't
+ 	 * need to make another one
+ 	 */
+@@ -668,7 +673,7 @@ repeat:
+ 				JBUFFER_TRACE(jh, "allocate memory for buffer");
+ 				jbd_unlock_bh_state(bh);
+ 				frozen_buffer =
+-					jbd_slab_alloc(jh2bh(jh)->b_size,
++					jbd_alloc(jh2bh(jh)->b_size,
+ 							 GFP_NOFS);
+ 				if (!frozen_buffer) {
+ 					printk(KERN_EMERG
+@@ -728,7 +733,7 @@ done:
+ 
+ out:
+ 	if (unlikely(frozen_buffer))	/* It's usually NULL */
+-		jbd_slab_free(frozen_buffer, bh->b_size);
++		jbd_free(frozen_buffer, bh->b_size);
+ 
+ 	JBUFFER_TRACE(jh, "exit");
+ 	return error;
+@@ -812,9 +817,16 @@ int journal_get_create_access(handle_t *handle, struct buffer_head *bh)
+ 
+ 	if (jh->b_transaction == NULL) {
+ 		jh->b_transaction = transaction;
++
++		/* first access by this transaction */
++		jh->b_modified = 0;
++
+ 		JBUFFER_TRACE(jh, "file as BJ_Reserved");
+ 		__journal_file_buffer(jh, transaction, BJ_Reserved);
+ 	} else if (jh->b_transaction == journal->j_committing_transaction) {
++		/* first access by this transaction */
++		jh->b_modified = 0;
++
+ 		JBUFFER_TRACE(jh, "set next transaction");
+ 		jh->b_next_transaction = transaction;
+ 	}
+@@ -881,7 +893,7 @@ int journal_get_undo_access(handle_t *handle, struct buffer_head *bh)
+ 
+ repeat:
+ 	if (!jh->b_committed_data) {
+-		committed_data = jbd_slab_alloc(jh2bh(jh)->b_size, GFP_NOFS);
++		committed_data = jbd_alloc(jh2bh(jh)->b_size, GFP_NOFS);
+ 		if (!committed_data) {
+ 			printk(KERN_EMERG "%s: No memory for committed data\n",
+ 				__FUNCTION__);
+@@ -908,7 +920,7 @@ repeat:
+ out:
+ 	journal_put_journal_head(jh);
+ 	if (unlikely(committed_data))
+-		jbd_slab_free(committed_data, bh->b_size);
++		jbd_free(committed_data, bh->b_size);
+ 	return err;
+ }
+ 
+@@ -932,9 +944,10 @@ int journal_dirty_data(handle_t *handle, struct buffer_head *bh)
+ 	journal_t *journal = handle->h_transaction->t_journal;
+ 	int need_brelse = 0;
+ 	struct journal_head *jh;
++	int ret = 0;
+ 
+ 	if (is_handle_aborted(handle))
+-		return 0;
++		return ret;
+ 
+ 	jh = journal_add_journal_head(bh);
+ 	JBUFFER_TRACE(jh, "entry");
+@@ -1045,7 +1058,16 @@ int journal_dirty_data(handle_t *handle, struct buffer_head *bh)
+ 				   time if it is redirtied */
+ 			}
+ 
+-			/* journal_clean_data_list() may have got there first */
++			/*
++			 * We cannot remove the buffer with io error from the
++			 * committing transaction, because otherwise it would
++			 * miss the error and the commit would not abort.
++			 */
++			if (unlikely(!buffer_uptodate(bh))) {
++				ret = -EIO;
++				goto no_journal;
++			}
++
+ 			if (jh->b_transaction != NULL) {
+ 				JBUFFER_TRACE(jh, "unfile from commit");
+ 				__journal_temp_unlink_buffer(jh);
+@@ -1086,7 +1108,7 @@ no_journal:
+ 	}
+ 	JBUFFER_TRACE(jh, "exit");
+ 	journal_put_journal_head(jh);
+-	return 0;
++	return ret;
+ }
+ 
+ /**
+@@ -1213,6 +1235,7 @@ int journal_forget (handle_t *handle, struct buffer_head *bh)
+ 	struct journal_head *jh;
+ 	int drop_reserve = 0;
+ 	int err = 0;
++	int was_modified = 0;
+ 
+ 	BUFFER_TRACE(bh, "entry");
+ 
+@@ -1231,6 +1254,9 @@ int journal_forget (handle_t *handle, struct buffer_head *bh)
+ 		goto not_jbd;
+ 	}
+ 
++	/* keep track of wether or not this transaction modified us */
++	was_modified = jh->b_modified;
++
+ 	/*
+ 	 * The buffer's going from the transaction, we must drop
+ 	 * all references -bzzz
+@@ -1248,7 +1274,12 @@ int journal_forget (handle_t *handle, struct buffer_head *bh)
+ 
+ 		JBUFFER_TRACE(jh, "belongs to current transaction: unfile");
+ 
+-		drop_reserve = 1;
++		/*
++		 * we only want to drop a reference if this transaction
++		 * modified the buffer
++		 */
++		if (was_modified)
++			drop_reserve = 1;
+ 
+ 		/*
+ 		 * We are no longer going to journal this buffer.
+@@ -1288,7 +1319,13 @@ int journal_forget (handle_t *handle, struct buffer_head *bh)
+ 		if (jh->b_next_transaction) {
+ 			J_ASSERT(jh->b_next_transaction == transaction);
+ 			jh->b_next_transaction = NULL;
+-			drop_reserve = 1;
++
++			/*
++			 * only drop a reference if this transaction modified
++			 * the buffer
++			 */
++			if (was_modified)
++				drop_reserve = 1;
+ 		}
+ 	}
+ 
+@@ -2058,7 +2095,7 @@ void __journal_refile_buffer(struct journal_head *jh)
+ 	jh->b_transaction = jh->b_next_transaction;
+ 	jh->b_next_transaction = NULL;
+ 	__journal_file_buffer(jh, jh->b_transaction,
+-				was_dirty ? BJ_Metadata : BJ_Reserved);
++				jh->b_modified ? BJ_Metadata : BJ_Reserved);
+ 	J_ASSERT_JH(jh, jh->b_transaction->t_state == T_RUNNING);
+ 
+ 	if (was_dirty)
+diff --git a/fs/jbd2/revoke.c b/fs/jbd2/revoke.c
+index 9246e76..28cac04 100644
+--- a/fs/jbd2/revoke.c
++++ b/fs/jbd2/revoke.c
+@@ -68,6 +68,7 @@
+ #include <linux/list.h>
+ #include <linux/init.h>
+ #endif
++#include <linux/log2.h>
+ 
+ static struct kmem_cache *jbd2_revoke_record_cache;
+ static struct kmem_cache *jbd2_revoke_table_cache;
+@@ -212,7 +213,7 @@ int jbd2_journal_init_revoke(journal_t *journal, int hash_size)
+ 	journal->j_revoke = journal->j_revoke_table[0];
+ 
+ 	/* Check that the hash_size is a power of two */
+-	J_ASSERT ((hash_size & (hash_size-1)) == 0);
++	J_ASSERT(is_power_of_2(hash_size));
+ 
+ 	journal->j_revoke->hash_size = hash_size;
+ 
+@@ -239,7 +240,7 @@ int jbd2_journal_init_revoke(journal_t *journal, int hash_size)
+ 	journal->j_revoke = journal->j_revoke_table[1];
+ 
+ 	/* Check that the hash_size is a power of two */
+-	J_ASSERT ((hash_size & (hash_size-1)) == 0);
++	J_ASSERT(is_power_of_2(hash_size));
+ 
+ 	journal->j_revoke->hash_size = hash_size;
+ 
+diff --git a/fs/mbcache.c b/fs/mbcache.c
+index deeb9dc..3b1844f 100644
+--- a/fs/mbcache.c
++++ b/fs/mbcache.c
+@@ -396,13 +396,13 @@ mb_cache_destroy(struct mb_cache *cache)
+  * if no more memory was available.
+  */
+ struct mb_cache_entry *
+-mb_cache_entry_alloc(struct mb_cache *cache)
++mb_cache_entry_alloc(struct mb_cache *cache, gfp_t gfp_flags)
+ {
+ 	struct mb_cache_entry *ce;
+ 
+-	atomic_inc(&cache->c_entry_count);
+-	ce = kmem_cache_alloc(cache->c_entry_cache, GFP_KERNEL);
++	ce = kmem_cache_alloc(cache->c_entry_cache, gfp_flags);
+ 	if (ce) {
++		atomic_inc(&cache->c_entry_count);
+ 		INIT_LIST_HEAD(&ce->e_lru_list);
+ 		INIT_LIST_HEAD(&ce->e_block_list);
+ 		ce->e_cache = cache;
+diff --git a/include/linux/ext3_fs.h b/include/linux/ext3_fs.h
+index ece49a8..d9e378d 100644
+--- a/include/linux/ext3_fs.h
++++ b/include/linux/ext3_fs.h
+@@ -76,8 +76,8 @@
+  * Macro-instructions used to manage several block sizes
+  */
+ #define EXT3_MIN_BLOCK_SIZE		1024
+-#define	EXT3_MAX_BLOCK_SIZE		4096
+-#define EXT3_MIN_BLOCK_LOG_SIZE		  10
++#define	EXT3_MAX_BLOCK_SIZE		65536
++#define EXT3_MIN_BLOCK_LOG_SIZE		10
+ #ifdef __KERNEL__
+ # define EXT3_BLOCK_SIZE(s)		((s)->s_blocksize)
+ #else
+@@ -660,6 +660,26 @@ struct ext3_dir_entry_2 {
+ #define EXT3_DIR_ROUND			(EXT3_DIR_PAD - 1)
+ #define EXT3_DIR_REC_LEN(name_len)	(((name_len) + 8 + EXT3_DIR_ROUND) & \
+ 					 ~EXT3_DIR_ROUND)
++#define EXT3_MAX_REC_LEN		((1<<16)-1)
++
++static inline unsigned ext3_rec_len_from_disk(__le16 dlen)
++{
++	unsigned len = le16_to_cpu(dlen);
++
++	if (len == EXT3_MAX_REC_LEN)
++		return 1 << 16;
++	return len;
++}
++
++static inline __le16 ext3_rec_len_to_disk(unsigned len)
++{
++	if (len == (1 << 16))
++		return cpu_to_le16(EXT3_MAX_REC_LEN);
++	else if (len > (1 << 16))
++		BUG();
++	return cpu_to_le16(len);
++}
++
+ /*
+  * Hash Tree Directory indexing
+  * (c) Daniel Phillips, 2001
+diff --git a/include/linux/jbd.h b/include/linux/jbd.h
+index 4527375..45435c7 100644
+--- a/include/linux/jbd.h
++++ b/include/linux/jbd.h
+@@ -71,14 +71,15 @@ extern int journal_enable_debug;
+ #define jbd_debug(f, a...)	/**/
+ #endif
+ 
+-extern void * __jbd_kmalloc (const char *where, size_t size, gfp_t flags, int retry);
+-extern void * jbd_slab_alloc(size_t size, gfp_t flags);
+-extern void jbd_slab_free(void *ptr, size_t size);
+-
+-#define jbd_kmalloc(size, flags) \
+-	__jbd_kmalloc(__FUNCTION__, (size), (flags), journal_oom_retry)
+-#define jbd_rep_kmalloc(size, flags) \
+-	__jbd_kmalloc(__FUNCTION__, (size), (flags), 1)
++static inline void *jbd_alloc(size_t size, gfp_t flags)
++{
++	return (void *)__get_free_pages(flags, get_order(size));
++}
++
++static inline void jbd_free(void *ptr, size_t size)
++{
++	free_pages((unsigned long)ptr, get_order(size));
++};
+ 
+ #define JFS_MIN_JOURNAL_BLOCKS 1024
+ 
+diff --git a/include/linux/mbcache.h b/include/linux/mbcache.h
+index 99e044b..a09b84e 100644
+--- a/include/linux/mbcache.h
++++ b/include/linux/mbcache.h
+@@ -34,7 +34,7 @@ void mb_cache_destroy(struct mb_cache *);
+ 
+ /* Functions on cache entries */
+ 
+-struct mb_cache_entry *mb_cache_entry_alloc(struct mb_cache *);
++struct mb_cache_entry *mb_cache_entry_alloc(struct mb_cache *, gfp_t);
+ int mb_cache_entry_insert(struct mb_cache_entry *, struct block_device *,
+ 			  sector_t, unsigned int[]);
+ void mb_cache_entry_release(struct mb_cache_entry *);
+-- 
+1.6.5.GIT
+

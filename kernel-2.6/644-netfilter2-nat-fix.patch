@@ -1,0 +1,318 @@
+From 73beaae6986c6eeba831bc9ea9a8c4e22c3b915b
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sat, 29 Jan 2011 17:49:50 -0500
+Subject: [PATCH] netfilter: tcp conntrack: fix unacknowledged data detection with NAT, fix NAT issue
+
+kernel.org commits:
+a3a9f79e361e864f0e9d75ebe2a0cb43d17c4272 netfilter: tcp conntrack: fix unacknowledged data detection with NAT
+f9dd09c7f7199685601d75882447a6598be8a3e0 netfilter: nf_nat: fix NAT issue in 2.6.30.4+
+
+---
+ include/net/netfilter/nf_conntrack.h    |    8 +--
+ include/net/netfilter/nf_nat_helper.h   |    4 +
+ net/ipv4/netfilter/nf_nat_core.c        |    4 +
+ net/ipv4/netfilter/nf_nat_helper.c      |   44 +++++++++----
+ net/netfilter/nf_conntrack_core.c       |    8 ++
+ net/netfilter/nf_conntrack_proto_tcp.c  |   71 ++++++++------------
+ 6 files changed, 79 insertions(+), 60 deletions(-)
+
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index af07d67..a926879 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -252,11 +252,9 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
+ }
+ 
+ /* These are for NAT.  Icky. */
+-/* Update TCP window tracking data when NAT mangles the packet */
+-extern void nf_conntrack_tcp_update(struct sk_buff *skb,
+-				    unsigned int dataoff,
+-				    struct nf_conn *conntrack,
+-				    int dir);
++extern s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
++			       enum ip_conntrack_dir dir,
++			       u32 seq);
+ 
+ /* Call me when a conntrack is destroyed. */
+ extern void (*nf_conntrack_destroyed)(struct nf_conn *conntrack);
+diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
+index ec98ecf..20e4d8a 100644
+--- a/include/net/netfilter/nf_nat_helper.h
++++ b/include/net/netfilter/nf_nat_helper.h
+@@ -29,4 +29,8 @@ extern int nf_nat_seq_adjust(struct sk_buff **pskb,
+  * to port ct->master->saved_proto. */
+ extern void nf_nat_follow_master(struct nf_conn *ct,
+ 				 struct nf_conntrack_expect *this);
++
++extern s16 nf_nat_get_offset(const struct nf_conn *ct,
++			     enum ip_conntrack_dir dir,
++			     u32 seq);
+ #endif
+diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
+index 27c5887..f49369c 100644
+--- a/net/ipv4/netfilter/nf_nat_core.c
++++ b/net/ipv4/netfilter/nf_nat_core.c
+@@ -894,6 +894,9 @@ static int __init nf_nat_init(void)
+ 	NF_CT_ASSERT(rcu_dereference(nf_conntrack_destroyed) == NULL);
+ 	rcu_assign_pointer(nf_conntrack_destroyed, nf_nat_cleanup_conntrack);
+ 
++	NF_CT_ASSERT(rcu_dereference(nf_ct_nat_offset) == NULL);
++	rcu_assign_pointer(nf_ct_nat_offset, nf_nat_get_offset);
++
+ 	/* Initialize fake conntrack so that NAT will skip it */
+ 	nf_conntrack_untracked.status |= IPS_NAT_DONE_MASK;
+ 
+@@ -917,6 +920,7 @@ static void __exit nf_nat_cleanup(void)
+ {
+ 	nf_ct_iterate_cleanup(&clean_nat, NULL);
+ 	rcu_assign_pointer(nf_conntrack_destroyed, NULL);
++	rcu_assign_pointer(nf_ct_nat_offset, NULL);
+ 	synchronize_rcu();
+ 	vfree(bysource);
+ 	nf_ct_l3proto_put(l3proto);
+diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
+index 15b6e5c..cebb945 100644
+--- a/net/ipv4/netfilter/nf_nat_helper.c
++++ b/net/ipv4/netfilter/nf_nat_helper.c
+@@ -76,6 +76,28 @@ adjust_tcp_sequence(u32 seq,
+ 	DUMP_OFFSET(this_way);
+ }
+ 
++/* Get the offset value, for conntrack */
++s16 nf_nat_get_offset(const struct nf_conn *ct,
++		      enum ip_conntrack_dir dir,
++		      u32 seq)
++{
++	struct nf_conn_nat *nat = nfct_nat(ct);
++	struct nf_nat_seq *this_way;
++	s16 offset;
++
++	if (!nat)
++		return 0;
++
++	this_way = &nat->info.seq[dir];
++	spin_lock_bh(&nf_nat_seqofs_lock);
++	offset = after(seq, this_way->correction_pos)
++		 ? this_way->offset_after : this_way->offset_before;
++	spin_unlock_bh(&nf_nat_seqofs_lock);
++
++	return offset;
++}
++EXPORT_SYMBOL_GPL(nf_nat_get_offset);
++
+ /* Frobs data inside this packet, which is linear. */
+ static void mangle_contents(struct sk_buff *skb,
+ 			    unsigned int dataoff,
+@@ -202,9 +224,6 @@ nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
+ 		adjust_tcp_sequence(ntohl(tcph->seq),
+ 				    (int)rep_len - (int)match_len,
+ 				    ct, ctinfo);
+-		/* Tell TCP window tracking about seq change */
+-		nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb),
+-					ct, CTINFO2DIR(ctinfo));
+ 	}
+ 	return 1;
+ }
+@@ -389,6 +408,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
+ 	struct tcphdr *tcph;
+ 	int dir;
+ 	__be32 newseq, newack;
++	s16 seqoff, ackoff;
+ 	struct nf_conn_nat *nat = nfct_nat(ct);
+ 	struct nf_nat_seq *this_way, *other_way;
+ 
+@@ -402,15 +422,18 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
+ 
+ 	tcph = (void *)(*pskb)->data + ip_hdrlen(*pskb);
+ 	if (after(ntohl(tcph->seq), this_way->correction_pos))
+-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_after);
++		seqoff = this_way->offset_after;
+ 	else
+-		newseq = htonl(ntohl(tcph->seq) + this_way->offset_before);
++		seqoff = this_way->offset_before;
+ 
+ 	if (after(ntohl(tcph->ack_seq) - other_way->offset_before,
+ 		  other_way->correction_pos))
+-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_after);
++		ackoff = other_way->offset_after;
+ 	else
+-		newack = htonl(ntohl(tcph->ack_seq) - other_way->offset_before);
++		ackoff = other_way->offset_before;
++
++	newseq = htonl(ntohl(tcph->seq) + seqoff);
++	newack = htonl(ntohl(tcph->ack_seq) - ackoff);
+ 
+ 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->seq, newseq, 0);
+ 	nf_proto_csum_replace4(&tcph->check, *pskb, tcph->ack_seq, newack, 0);
+@@ -422,12 +445,7 @@ nf_nat_seq_adjust(struct sk_buff **pskb,
+ 	tcph->seq = newseq;
+ 	tcph->ack_seq = newack;
+ 
+-	if (!nf_nat_sack_adjust(pskb, tcph, ct, ctinfo))
+-		return 0;
+-
+-	nf_conntrack_tcp_update(*pskb, ip_hdrlen(*pskb), ct, dir);
+-
+-	return 1;
++	return nf_nat_sack_adjust(pskb, tcph, ct, ctinfo);
+ }
+ EXPORT_SYMBOL(nf_nat_seq_adjust);
+ 
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index cbe5d14..09f6d52 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -1370,6 +1370,11 @@ int set_hashsize(const char *val, struct kernel_param *kp)
+ module_param_call(hashsize, set_hashsize, param_get_uint,
+ 		  &nf_conntrack_htable_size, 0600);
+ 
++s16 (*nf_ct_nat_offset)(const struct nf_conn *ct,
++			enum ip_conntrack_dir dir,
++			u32 seq);
++EXPORT_SYMBOL_GPL(nf_ct_nat_offset);
++
+ int __init nf_conntrack_init(void)
+ {
+ 	int ret;
+@@ -1422,6 +1427,9 @@ int __init nf_conntrack_init(void)
+ 	rcu_assign_pointer(ip_ct_attach, __nf_conntrack_attach);
+ 	rcu_assign_pointer(nf_ct_destroy, destroy_conntrack);
+ 
++	/* Howto get NAT offsets */
++	rcu_assign_pointer(nf_ct_nat_offset, NULL);
++
+ 	/* Set up fake conntrack:
+ 	    - to never be deleted, not in any hashes */
+ 	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
+diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
+index 61be2b1..faaabc9 100644
+--- a/net/netfilter/nf_conntrack_proto_tcp.c
++++ b/net/netfilter/nf_conntrack_proto_tcp.c
+@@ -503,7 +503,23 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,
+ 	}
+ }
+ 
+-static int tcp_in_window(struct ip_ct_tcp *state,
++#ifdef CONFIG_NF_NAT_NEEDED
++static inline s16 nat_offset(const struct nf_conn *ct,
++			     enum ip_conntrack_dir dir,
++			     u32 seq)
++{
++	typeof(nf_ct_nat_offset) get_offset = rcu_dereference(nf_ct_nat_offset);
++
++	return get_offset != NULL ? get_offset(ct, dir, seq) : 0;
++}
++#define NAT_OFFSET(pf, ct, dir, seq) \
++	(pf == PF_INET ? nat_offset(ct, dir, seq) : 0)
++#else
++#define NAT_OFFSET(pf, ct, dir, seq)	0
++#endif
++
++static int tcp_in_window(struct nf_conn *ct,
++			 struct ip_ct_tcp *state,
+ 			 enum ip_conntrack_dir dir,
+ 			 unsigned int index,
+ 			 const struct sk_buff *skb,
+@@ -514,6 +530,7 @@ static int tcp_in_window(struct ip_ct_tcp *state,
+ 	struct ip_ct_tcp_state *sender = &state->seen[dir];
+ 	struct ip_ct_tcp_state *receiver = &state->seen[!dir];
+ 	__u32 seq, ack, sack, end, win, swin;
++	s16 receiver_offset;
+ 	int res;
+ 
+ 	/*
+@@ -527,12 +544,17 @@ static int tcp_in_window(struct ip_ct_tcp *state,
+ 	if (receiver->flags & IP_CT_TCP_FLAG_SACK_PERM)
+ 		tcp_sack(skb, dataoff, tcph, &sack);
+ 
++	/* Take into account NAT sequence number mangling */
++	receiver_offset = NAT_OFFSET(pf, ct, !dir, ack - 1);
++	ack -= receiver_offset;
++	sack -= receiver_offset;
++
+ 	DEBUGP("tcp_in_window: START\n");
+ 	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
+-	       "seq=%u ack=%u sack=%u win=%u end=%u\n",
++	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+ 		NIPQUAD(iph->saddr), ntohs(tcph->source),
+ 		NIPQUAD(iph->daddr), ntohs(tcph->dest),
+-		seq, ack, sack, win, end);
++		seq, ack, receiver_offset, sack, receiver_offset, win, end);
+ 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
+ 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+ 		sender->td_end, sender->td_maxend, sender->td_maxwin,
+@@ -617,10 +639,10 @@ static int tcp_in_window(struct ip_ct_tcp *state,
+ 		seq = end = sender->td_end;
+ 
+ 	DEBUGP("tcp_in_window: src=%u.%u.%u.%u:%hu dst=%u.%u.%u.%u:%hu "
+-	       "seq=%u ack=%u sack =%u win=%u end=%u\n",
++	       "seq=%u ack=%u+(%d) sack=%u+(%d) win=%u end=%u\n",
+ 		NIPQUAD(iph->saddr), ntohs(tcph->source),
+ 		NIPQUAD(iph->daddr), ntohs(tcph->dest),
+-		seq, ack, sack, win, end);
++		seq, ack, receiver_offset, sack, receiver_offset, win, end);
+ 	DEBUGP("tcp_in_window: sender end=%u maxend=%u maxwin=%u scale=%i "
+ 	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+ 		sender->td_end, sender->td_maxend, sender->td_maxwin,
+@@ -694,7 +716,7 @@ static int tcp_in_window(struct ip_ct_tcp *state,
+ 			before(seq, sender->td_maxend + 1) ?
+ 			after(end, sender->td_end - receiver->td_maxwin - 1) ?
+ 			before(sack, receiver->td_end + 1) ?
+-			after(ack, receiver->td_end - MAXACKWINDOW(sender)) ? "BUG"
++			after(sack, receiver->td_end - MAXACKWINDOW(sender) - 1) ? "BUG"
+ 			: "ACK is under the lower bound (possible overly delayed ACK)"
+ 			: "ACK is over the upper bound (ACKed data not seen yet)"
+ 			: "SEQ is under the lower bound (already ACKed data retransmitted)"
+@@ -709,41 +731,6 @@ static int tcp_in_window(struct ip_ct_tcp *state,
+ 	return res;
+ }
+ 
+-#ifdef CONFIG_NF_NAT_NEEDED
+-/* Update sender->td_end after NAT successfully mangled the packet */
+-/* Caller must linearize skb at tcp header. */
+-void nf_conntrack_tcp_update(struct sk_buff *skb,
+-			     unsigned int dataoff,
+-			     struct nf_conn *conntrack,
+-			     int dir)
+-{
+-	struct tcphdr *tcph = (void *)skb->data + dataoff;
+-	__u32 end;
+-#ifdef DEBUGP_VARS
+-	struct ip_ct_tcp_state *sender = &conntrack->proto.tcp.seen[dir];
+-	struct ip_ct_tcp_state *receiver = &conntrack->proto.tcp.seen[!dir];
+-#endif
+-
+-	end = segment_seq_plus_len(ntohl(tcph->seq), skb->len, dataoff, tcph);
+-
+-	write_lock_bh(&tcp_lock);
+-	/*
+-	 * We have to worry for the ack in the reply packet only...
+-	 */
+-	if (after(end, conntrack->proto.tcp.seen[dir].td_end))
+-		conntrack->proto.tcp.seen[dir].td_end = end;
+-	conntrack->proto.tcp.last_end = end;
+-	write_unlock_bh(&tcp_lock);
+-	DEBUGP("tcp_update: sender end=%u maxend=%u maxwin=%u scale=%i "
+-	       "receiver end=%u maxend=%u maxwin=%u scale=%i\n",
+-		sender->td_end, sender->td_maxend, sender->td_maxwin,
+-		sender->td_scale,
+-		receiver->td_end, receiver->td_maxend, receiver->td_maxwin,
+-		receiver->td_scale);
+-}
+-EXPORT_SYMBOL_GPL(nf_conntrack_tcp_update);
+-#endif
+-
+ #define	TH_FIN	0x01
+ #define	TH_SYN	0x02
+ #define	TH_RST	0x04
+@@ -971,7 +958,7 @@ static int tcp_packet(struct nf_conn *conntrack,
+ 		break;
+ 	}
+ 
+-	if (!tcp_in_window(&conntrack->proto.tcp, dir, index,
++	if (!tcp_in_window(conntrack, &conntrack->proto.tcp, dir, index,
+ 			   skb, dataoff, th, pf)) {
+ 		write_unlock_bh(&tcp_lock);
+ 		return -NF_ACCEPT;
+-- 
+1.6.5.GIT

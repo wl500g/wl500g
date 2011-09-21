@@ -1,0 +1,91 @@
+From c4dc4beed23827e155d7cbc2a1ffa3949eddd194
+From: Peter Zijlstra
+Date: Tue, 16 Oct 2007 23:25:41 -0700
+Subject: [PATCH] nfs: remove congestion_end()
+
+These patches aim to improve balance_dirty_pages() and directly address three
+issues:
+  1) inter device starvation
+  2) stacked device deadlocks
+  3) inter process starvation
+
+1 and 2 are a direct result from removing the global dirty limit and using
+per device dirty limits. By giving each device its own dirty limit is will
+no longer starve another device, and the cyclic dependancy on the dirty limit
+is broken.
+
+In order to efficiently distribute the dirty limit across the independant
+devices a floating proportion is used, this will allocate a share of the total
+limit proportional to the device's recent activity.
+
+3 is done by also scaling the dirty limit proportional to the current task's
+recent dirty rate.
+
+This patch:
+
+nfs: remove congestion_end().  It's redundant, clear_bdi_congested() already
+wakes the waiters.
+
+Signed-off-by: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ fs/nfs/write.c              |    4 +---
+ include/linux/backing-dev.h |    1 -
+ mm/backing-dev.c            |   13 -------------
+ 3 files changed, 1 insertions(+), 17 deletions(-)
+
+diff --git a/fs/nfs/write.c b/fs/nfs/write.c
+index e2bb66c..82d7ee9 100644
+--- a/fs/nfs/write.c
++++ b/fs/nfs/write.c
+@@ -242,10 +242,8 @@ static void nfs_end_page_writeback(struct page *page)
+ 	struct nfs_server *nfss = NFS_SERVER(inode);
+ 
+ 	end_page_writeback(page);
+-	if (atomic_long_dec_return(&nfss->writeback) < NFS_CONGESTION_OFF_THRESH) {
++	if (atomic_long_dec_return(&nfss->writeback) < NFS_CONGESTION_OFF_THRESH)
+ 		clear_bdi_congested(&nfss->backing_dev_info, WRITE);
+-		congestion_end(WRITE);
+-	}
+ }
+ 
+ /*
+diff --git a/include/linux/backing-dev.h b/include/linux/backing-dev.h
+index 7011d625..210933c 100644
+--- a/include/linux/backing-dev.h
++++ b/include/linux/backing-dev.h
+@@ -93,7 +93,6 @@ static inline int bdi_rw_congested(struct backing_dev_info *bdi)
+ void clear_bdi_congested(struct backing_dev_info *bdi, int rw);
+ void set_bdi_congested(struct backing_dev_info *bdi, int rw);
+ long congestion_wait(int rw, long timeout);
+-void congestion_end(int rw);
+ 
+ #define bdi_cap_writeback_dirty(bdi) \
+ 	(!((bdi)->capabilities & BDI_CAP_NO_WRITEBACK))
+diff --git a/mm/backing-dev.c b/mm/backing-dev.c
+index f50a281..841901a 100644
+--- a/mm/backing-dev.c
++++ b/mm/backing-dev.c
+@@ -54,16 +54,3 @@ long congestion_wait(int rw, long timeout)
+ 	return ret;
+ }
+ EXPORT_SYMBOL(congestion_wait);
+-
+-/**
+- * congestion_end - wake up sleepers on a congested backing_dev_info
+- * @rw: READ or WRITE
+- */
+-void congestion_end(int rw)
+-{
+-	wait_queue_head_t *wqh = &congestion_wqh[rw];
+-
+-	if (waitqueue_active(wqh))
+-		wake_up(wqh);
+-}
+-EXPORT_SYMBOL(congestion_end);
+-- 
+1.7.4.4

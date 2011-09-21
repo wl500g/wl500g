@@ -1,0 +1,44 @@
+From de9963f0f2dfad128b26ae7bf6005f5948416a6d
+From: Patrick McHardy
+Date: Mon, 14 Feb 2011 17:35:07 +0100
+Subject: [PATCH] netfilter: nf_iterate: fix incorrect RCU usage
+
+As noticed by Eric, nf_iterate doesn't use RCU correctly by
+accessing the prev pointer of a RCU protected list element when
+a verdict of NF_REPEAT is issued.
+
+Fix by jumping backwards to the hook invocation directly instead
+of loading the previous list element before continuing the list
+iteration.
+
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Acked-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+
+---
+ net/netfilter/core.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 32fcbe2..4aa614b 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -133,6 +133,7 @@ unsigned int nf_iterate(struct list_head *head,
+ 
+ 		/* Optimization: we don't need to hold module
+ 		   reference here, since function can't sleep. --RR */
++repeat:
+ 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
+ 		if (verdict != NF_ACCEPT) {
+ #ifdef CONFIG_NETFILTER_DEBUG
+@@ -145,7 +146,7 @@ unsigned int nf_iterate(struct list_head *head,
+ #endif
+ 			if (verdict != NF_REPEAT)
+ 				return verdict;
+-			*i = (*i)->prev;
++			goto repeat;
+ 		}
+ 	}
+ 	return NF_ACCEPT;
+-- 
+1.7.4.1

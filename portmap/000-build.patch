@@ -1,0 +1,40 @@
+diff -urBp portmap.orig/Makefile portmap/Makefile
+--- portmap.orig/Makefile	2011-02-22 03:00:00.000000000 +0300
++++ portmap/Makefile	2011-02-22 17:23:08.000000000 +0300
+@@ -33,7 +33,7 @@ endif
+ # ports. You can find out by running "rpcinfo -p"; if all mountd and NIS
+ # daemons use a port >= 1024 you should probably disable the next line.
+ 
+-CPPFLAGS += -DCHECK_PORT
++#CPPFLAGS += -DCHECK_PORT
+ 
+ # The portmap daemon runs a uid=1/gid=1 by default.  You can change that
+ # be defining DAEMON_UID and DAMEON_GID to numbers, or RPCUSER to a
+@@ -120,7 +120,7 @@ CPPFLAGS += -DIGNORE_SIGCHLD	# AIX 4.x, 
+ 
+ CPPFLAGS += -DFACILITY=$(FACILITY)
+ CFLAGS   ?= -O2
+-CFLAGS   += -Wall -Wstrict-prototypes
++CFLAGS   += -Wall -Wstrict-prototypes $(EXTRACFLAGS)
+ 
+ all:	portmap pmap_dump pmap_set portmap.man
+ 
+diff -urBp portmap.orig/pmap_check.c portmap/pmap_check.c
+--- portmap.orig/pmap_check.c	2007-05-11 07:02:10.000000000 +0400
++++ portmap/pmap_check.c	2011-02-22 17:25:45.000000000 +0300
+@@ -39,12 +39,14 @@
+ #include <rpc/pmap_prot.h>
+ #include <syslog.h>
+ #include <netdb.h>
++#include <pwd.h>
++#include <sys/types.h>
+ #include <sys/signal.h>
+ #ifdef SYSV40
+ #include <netinet/in.h>
+ #include <rpc/rpcent.h>
+ #endif
+-#include <tcpd.h>
++//#include <tcpd.h>
+ #include <arpa/inet.h>
+ #include <grp.h>
+ 

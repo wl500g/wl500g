@@ -1,0 +1,60 @@
+From a41bd216087ed69aa2dd7258e53720fb6f8ee855
+From: Alan Stern <stern@rowland.harvard.edu>
+Date: Fri, 26 Feb 2010 02:55:06 -0500
+Subject: [PATCH] USB: don't register endpoints for interfaces that are going away
+
+---
+ drivers/usb/core/message.c |    1 +
+ drivers/usb/core/sysfs.c   |    3 +++
+ include/linux/usb.h        |    2 ++
+ 3 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 1d710f3..a58af86 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1070,6 +1070,7 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
+ 				continue;
+ 			dev_dbg (&dev->dev, "unregistering interface %s\n",
+ 				interface->dev.bus_id);
++			interface->unregistering = 1;
+ 			usb_remove_sysfs_intf_files(interface);
+ 			device_del (&interface->dev);
+ 		}
+diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
+index 2ab222b..aa25fb3 100644
+--- a/drivers/usb/core/sysfs.c
++++ b/drivers/usb/core/sysfs.c
+@@ -685,6 +685,9 @@ int usb_create_sysfs_intf_files(struct usb_interface *intf)
+ 	struct usb_host_interface *alt = intf->cur_altsetting;
+ 	int retval;
+ 
++	if (intf->unregistering)
++ 		return 0;
++
+ 	retval = sysfs_create_group(&dev->kobj, &intf_attr_grp);
+ 	if (retval)
+ 		return retval;
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+index 4f33a58..df67719 100644
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -105,6 +105,7 @@ enum usb_interface_condition {
+  * @condition: binding state of the interface: not bound, binding
+  *	(in probe()), bound to a driver, or unbinding (in disconnect())
+  * @is_active: flag set when the interface is bound and not suspended.
++ * @unregistering: flag set when the interface is being unregistered
+  * @needs_remote_wakeup: flag set when the driver requires remote-wakeup
+  *	capability during autosuspend.
+  * @dev: driver model's view of this device
+@@ -155,6 +156,7 @@ struct usb_interface {
+ 					 * bound to */
+ 	enum usb_interface_condition condition;		/* state of binding */
+ 	unsigned is_active:1;		/* the interface is not suspended */
++	unsigned unregistering:1;	/* unregistration is in progress */
+ 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
+ 
+ 	struct device dev;		/* interface specific device info */
+-- 
+1.6.5.GIT
+

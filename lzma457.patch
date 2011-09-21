@@ -32,6 +32,37 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA/LZMADecoder.h lzma/CPP/7zip/Compres
  
    STDMETHOD(GetInStreamProcessedSize)(UInt64 *value);
  
+diff -uBp lzma.orig/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp lzma/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp
+--- lzma.orig/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp	2007-09-12 16:17:51.000000000 +0400
++++ lzma/CPP/7zip/Compress/LZMA/LZMAEncoder.cpp	2011-07-06 22:28:40.000000000 +0400
+@@ -1181,9 +1181,9 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &
+ 
+   if (repLens[repMaxIndex] >= 2)
+   {
+-    if (repLens[repMaxIndex] + 1 >= lenMain || 
+-        repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9)) ||
+-        repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15)))
++    if ((repLens[repMaxIndex] + 1 >= lenMain) || 
++        (repLens[repMaxIndex] + 2 >= lenMain && (backMain > (1 << 9))) ||
++        (repLens[repMaxIndex] + 3 >= lenMain && (backMain > (1 << 15))))
+     {
+       backRes = repMaxIndex;
+       UInt32 lenRes = repLens[repMaxIndex];
+@@ -1199,10 +1199,10 @@ UInt32 CEncoder::GetOptimumFast(UInt32 &
+     if (_longestMatchLength >= 2)
+     {
+       UInt32 newDistance = matchDistances[_numDistancePairs - 1];
+-      if (_longestMatchLength >= lenMain && newDistance < backMain || 
+-          _longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance) ||
+-          _longestMatchLength > lenMain + 1 ||
+-          _longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain))
++      if ((_longestMatchLength >= lenMain && newDistance < backMain) || 
++          (_longestMatchLength == lenMain + 1 && !ChangePair(backMain, newDistance)) ||
++          (_longestMatchLength > lenMain + 1) ||
++          (_longestMatchLength + 1 >= lenMain && lenMain >= 3 && ChangePair(newDistance, backMain)))
+       {
+         _longestMatchWasFound = true;
+         backRes = UInt32(-1);
 diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/makefile lzma/CPP/7zip/Compress/LZMA_Lib/makefile
 --- lzma.orig/CPP/7zip/Compress/LZMA_Lib/makefile	1970-01-01 03:00:00.000000000 +0300
 +++ lzma/CPP/7zip/Compress/LZMA_Lib/makefile	2009-10-05 16:08:54.000000000 +0400
@@ -87,8 +118,8 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/makefile lzma/CPP/7zip/Compress
 +
 diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp
 --- lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp	1970-01-01 03:00:00.000000000 +0300
-+++ lzma/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp	2009-10-05 15:48:48.000000000 +0400
-@@ -0,0 +1,274 @@
++++ lzma/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp	2009-11-01 15:36:16.000000000 +0300
+@@ -0,0 +1,304 @@
 +/*
 + * lzma zlib simplified wrapper
 + *
@@ -113,11 +144,12 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 + */
 +
 +/*
-+ * default values for encoder/decoder used by wrapper
++ * Modified by Leonid Lisovskiy to comply with squashfs 3.4
 + */
 +
 +#include <zlib.h>
 +
++// default values for encoder/decoder used by wrapper
 +#define ZLIB_LC 3
 +#define ZLIB_LP 0
 +#define ZLIB_PB 2
@@ -264,6 +296,7 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +
 +	  return S_OK;
 +  }
++
 +protected:
 +	Bytef *m_data;
 +	UInt64 m_size;
@@ -301,7 +334,7 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +	PROPVARIANT properties[kNumProps];
 +	for (int p = 0; p < 6; p++)
 +		properties[p].vt = VT_UI4;
-+	properties[0].ulVal = UInt32(1 << (level + 14));
++	properties[0].ulVal = UInt32(1 << (level + 6));
 +	properties[1].ulVal = UInt32(ZLIB_PB);
 +	properties[2].ulVal = UInt32(ZLIB_LC); // for normal files
 +	properties[3].ulVal = UInt32(ZLIB_LP); // for normal files
@@ -317,7 +350,21 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +	if (encoderSpec->SetCoderProperties(propIDs, properties, kNumProps) != S_OK)
 +		return Z_MEM_ERROR; // should not happen
 +	
-+	HRESULT result = encoder->Code(inStream, outStream, 0, 0, 0);
++        if (encoderSpec->WriteCoderProperties(outStream))
++		return Z_BUF_ERROR;
++
++	HRESULT result;
++
++	const Byte a[] = {
++		sourceLen, sourceLen >> 8, sourceLen >> 16, sourceLen >> 24,
++		0, 0, 0, 0
++	};
++	UInt32 wr;
++	result = outStream->Write(a, sizeof(a), &wr);
++	if (result || wr != sizeof(a))
++		return Z_BUF_ERROR;
++
++	result = encoder->Code(inStream, outStream, 0, 0, 0);
 +	if (result == E_OUTOFMEMORY)
 +	{
 +		return Z_MEM_ERROR;
@@ -347,8 +394,22 @@ diff -urNBp lzma.orig/CPP/7zip/Compress/LZMA_Lib/ZLib.cpp lzma/CPP/7zip/Compress
 +		new NCompress::NLZMA::CDecoder;
 +	CMyComPtr<ICompressCoder> decoder = decoderSpec;
 +	
-+	if (decoderSpec->SetDecoderPropertiesRaw(ZLIB_LC, ZLIB_LP, ZLIB_PB,
-+	     (1 << 23)) != S_OK)
++	HRESULT result;
++	UInt32 processedSize;
++
++	const UInt32 kPropertiesSize = 5;
++	Byte properties[kPropertiesSize];
++        result = inStream->Read(properties, kPropertiesSize, &processedSize);
++	if (result != S_OK || processedSize != kPropertiesSize)
++		return Z_DATA_ERROR;
++
++	Byte a[8];
++        result = inStream->Read(a, sizeof(a), &processedSize);
++	if (result != S_OK || processedSize != kPropertiesSize)
++		return Z_DATA_ERROR;
++
++	if (decoderSpec->SetDecoderProperties2(properties, kPropertiesSize)
++	     != S_OK)
 +		return Z_DATA_ERROR;
 +	
 +	UInt64 fileSize = *destLen;

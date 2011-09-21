@@ -1,0 +1,201 @@
+From: Sam Leffler <sam@errno.com>
+Date: Mon, 2 Mar 2009 19:40:44 +0000 (+0200)
+Subject: Add support for wpa_supplicant syslog output
+X-Git-Url: http://w1.fi/gitweb/gitweb.cgi?p=hostap.git;a=commitdiff_plain;h=daa70d49de46278cf5a92b279d1d262af573cb63
+
+Add support for wpa_supplicant syslog output
+
+Enable for build: CFLAGS += -DCONFIG_DEBUG_SYSLOG in .config
+Enable at runtime: -s on command line
+---
+
+--- a/src/utils/wpa_debug.c
++++ b/src/utils/wpa_debug.c
+@@ -16,6 +16,12 @@
+ 
+ #include "common.h"
+ 
++#ifdef CONFIG_DEBUG_SYSLOG
++#include <syslog.h>
++
++static int wpa_debug_syslog = 0;
++#endif /* CONFIG_DEBUG_SYSLOG */
++
+ 
+ #ifdef CONFIG_DEBUG_FILE
+ static FILE *out_file = NULL;
+@@ -45,6 +51,39 @@ void wpa_debug_print_timestamp(void)
+ }
+ 
+ 
++#ifdef CONFIG_DEBUG_SYSLOG
++void wpa_debug_open_syslog(void)
++{
++	openlog("wpa_supplicant", LOG_PID | LOG_NDELAY, LOG_DAEMON);
++	wpa_debug_syslog++;
++}
++
++
++void wpa_debug_close_syslog(void)
++{
++	if (wpa_debug_syslog)
++		closelog();
++}
++
++
++static int syslog_priority(int level)
++{
++	switch (level) {
++	case MSG_MSGDUMP:
++	case MSG_DEBUG:
++		return LOG_DEBUG;
++	case MSG_INFO:
++		return LOG_NOTICE;
++	case MSG_WARNING:
++		return LOG_WARNING;
++	case MSG_ERROR:
++		return LOG_ERR;
++	}
++	return LOG_INFO;
++}
++#endif /* CONFIG_DEBUG_SYSLOG */
++
++
+ /**
+  * wpa_printf - conditional printf
+  * @level: priority level (MSG_*) of the message
+@@ -62,6 +101,11 @@ void wpa_printf(int level, const char *f
+ 
+ 	va_start(ap, fmt);
+ 	if (level >= wpa_debug_level) {
++#ifdef CONFIG_DEBUG_SYSLOG
++		if (wpa_debug_syslog) {
++			vsyslog(syslog_priority(level), fmt, ap);
++		} else {
++#endif /* CONFIG_DEBUG_SYSLOG */
+ 		wpa_debug_print_timestamp();
+ #ifdef CONFIG_DEBUG_FILE
+ 		if (out_file) {
+@@ -74,6 +118,9 @@ void wpa_printf(int level, const char *f
+ #ifdef CONFIG_DEBUG_FILE
+ 		}
+ #endif /* CONFIG_DEBUG_FILE */
++#ifdef CONFIG_DEBUG_SYSLOG
++		}
++#endif /* CONFIG_DEBUG_SYSLOG */
+ 	}
+ 	va_end(ap);
+ }
+--- a/src/utils/wpa_debug.h
++++ b/src/utils/wpa_debug.h
+@@ -221,6 +221,23 @@ enum hostapd_logger_level {
+ };
+ 
+ 
++#ifdef CONFIG_DEBUG_SYSLOG
++
++void wpa_debug_open_syslog(void);
++void wpa_debug_close_syslog(void);
++
++#else /* CONFIG_DEBUG_SYSLOG */
++
++static inline void wpa_debug_open_syslog(void)
++{
++}
++
++static inline void wpa_debug_close_syslog(void)
++{
++}
++
++#endif /* CONFIG_DEBUG_SYSLOG */
++
+ 
+ #ifdef EAPOL_TEST
+ #define WPA_ASSERT(a)						       \
+--- a/wpa_supplicant/main.c
++++ b/wpa_supplicant/main.c
+@@ -26,7 +26,7 @@ static void usage(void)
+ 	int i;
+ 	printf("%s\n\n%s\n"
+ 	       "usage:\n"
+-	       "  wpa_supplicant [-BddhKLqqtuvW] [-P<pid file>] "
++	       "  wpa_supplicant [-BddhKLqqstuvW] [-P<pid file>] "
+ 	       "[-g<global ctrl>] \\\n"
+ 	       "        -i<ifname> -c<config file> [-C<ctrl>] [-D<driver>] "
+ 	       "[-p<driver_param>] \\\n"
+@@ -57,6 +57,9 @@ static void usage(void)
+ 	       "  -f = log output to debug file instead of stdout\n"
+ #endif /* CONFIG_DEBUG_FILE */
+ 	       "  -g = global ctrl_interface\n"
++#ifdef CONFIG_DEBUG_SYSLOG
++	       "  -s = log output to syslog instead of stdout\n"
++#endif /* CONFIG_DEBUG_SYSLOG */
+ 	       "  -K = include keys (passwords, etc.) in debug output\n"
+ 	       "  -t = include timestamp in debug messages\n"
+ 	       "  -h = show this help text\n"
+@@ -133,7 +136,7 @@ int main(int argc, char *argv[])
+ 	wpa_supplicant_fd_workaround();
+ 
+ 	for (;;) {
+-		c = getopt(argc, argv, "b:Bc:C:D:df:g:hi:KLNp:P:qtuvW");
++		c = getopt(argc, argv, "b:Bc:C:D:df:g:hi:KLNp:P:qstuvW");
+ 		if (c < 0)
+ 			break;
+ 		switch (c) {
+@@ -194,6 +197,11 @@ int main(int argc, char *argv[])
+ 		case 'q':
+ 			params.wpa_debug_level++;
+ 			break;
++#ifdef CONFIG_DEBUG_SYSLOG
++		case 's':
++			params.wpa_debug_syslog++;
++			break;
++#endif /* CONFIG_DEBUG_SYSLOG */
+ 		case 't':
+ 			params.wpa_debug_timestamp++;
+ 			break;
+--- a/wpa_supplicant/wpa_supplicant.c
++++ b/wpa_supplicant/wpa_supplicant.c
+@@ -2047,6 +2047,8 @@ struct wpa_global * wpa_supplicant_init(
+ 		return NULL;
+ 
+ 	wpa_debug_open_file(params->wpa_debug_file_path);
++	if (params->wpa_debug_syslog)
++		wpa_debug_open_syslog();
+ 
+ 	ret = eap_peer_register_methods();
+ 	if (ret) {
+@@ -2197,5 +2199,6 @@ void wpa_supplicant_deinit(struct wpa_gl
+ 	os_free(global->params.ctrl_interface);
+ 
+ 	os_free(global);
++	wpa_debug_close_syslog();
+ 	wpa_debug_close_file();
+ }
+--- a/wpa_supplicant/wpa_supplicant_i.h
++++ b/wpa_supplicant/wpa_supplicant_i.h
+@@ -156,6 +156,11 @@ struct wpa_params {
+ 	 * wpa_debug_file_path - Path of debug file or %NULL to use stdout
+ 	 */
+ 	const char *wpa_debug_file_path;
++
++	/**
++	 * wpa_debug_syslog - Enable log output through syslog
++	 */
++	int wpa_debug_syslog;
+ };
+ 
+ /**
+--- a/wpa_supplicant/Makefile
++++ b/wpa_supplicant/Makefile
+@@ -1015,6 +1015,10 @@ ifdef CONFIG_DEBUG_FILE
+ CFLAGS += -DCONFIG_DEBUG_FILE
+ endif
+ 
++ifdef CONFIG_DEBUG_SYSLOG
++CFLAGS += -DCONFIG_DEBUG_SYSLOG
++endif
++
+ ifdef CONFIG_DELAYED_MIC_ERROR_REPORT
+ CFLAGS += -DCONFIG_DELAYED_MIC_ERROR_REPORT
+ endif

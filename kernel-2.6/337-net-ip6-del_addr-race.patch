@@ -1,0 +1,62 @@
+From b2238566401f01eb796e75750213c7b0fce396b2
+From: Andrey Vagin
+Date: Tue, 8 Jul 2008 15:13:31 -0700
+Subject: [PATCH] ipv6: fix race between ipv6_del_addr and DAD timer
+
+Consider the following scenario:
+
+ipv6_del_addr(ifp)
+  ipv6_ifa_notify(RTM_DELADDR, ifp)
+    ip6_del_rt(ifp->rt)
+
+after returning from the ipv6_ifa_notify and enabling BH-s
+back, but *before* calling the addrconf_del_timer the
+ifp->timer fires and:
+
+addrconf_dad_timer(ifp)
+  addrconf_dad_completed(ifp)
+    ipv6_ifa_notify(RTM_NEWADDR, ifp)
+      ip6_ins_rt(ifp->rt)
+
+then return back to the ipv6_del_addr and:
+
+in6_ifa_put(ifp)
+  inet6_ifa_finish_destroy(ifp)
+    dst_release(&ifp->rt->u.dst)
+
+After this we have an ifp->rt inserted into fib6 lists, but
+queued for gc, which in turn can result in oopses in the
+fib6_run_gc. Maybe some other nasty things, but we caught
+only the oops in gc so far.
+
+The solution is to disarm the ifp->timer before flushing the
+rt from it.
+
+Signed-off-by: Andrey Vagin <avagin@parallels.com>
+Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/addrconf.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 147588f..ff61a5c 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -749,12 +749,12 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)
+ 	}
+ 	write_unlock_bh(&idev->lock);
+ 
++	addrconf_del_timer(ifp);
++
+ 	ipv6_ifa_notify(RTM_DELADDR, ifp);
+ 
+ 	atomic_notifier_call_chain(&inet6addr_chain, NETDEV_DOWN, ifp);
+ 
+-	addrconf_del_timer(ifp);
+-
+ 	/*
+ 	 * Purge or update corresponding prefix
+ 	 *
+-- 
+1.7.2.3

@@ -1,0 +1,31 @@
+Subject: [PATCH] usb: Increase timeout value for device reset
+From 6307e0961205c50a8a9b6e8e3e4dfd178a944ba9
+From: Dinh Nguyen
+Date: Tue, 13 Apr 2010 11:13:15 -0500
+
+It seems that for USB IP on Freescale MX5x processors, it needs >750
+usec for the reset to complete. This change should not hurt any other
+EHCI hardware.
+
+Signed-off-by: Dinh Nguyen <Dinh.Nguyen@freescale.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/usb/host/ehci-hub.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-hub.c b/drivers/usb/host/ehci-hub.c
+index 1937267..c7178bc 100644
+--- a/drivers/usb/host/ehci-hub.c
++++ b/drivers/usb/host/ehci-hub.c
+@@ -801,7 +801,7 @@ static int ehci_hub_control (
+ 			 * this bit; seems too long to spin routinely...
+ 			 */
+ 			retval = handshake(ehci, status_reg,
+-					PORT_RESET, 0, 750);
++					PORT_RESET, 0, 1000);
+ 			if (retval != 0) {
+ 				ehci_err (ehci, "port %d reset error %d\n",
+ 					wIndex + 1, retval);
+-- 
+1.7.1
+

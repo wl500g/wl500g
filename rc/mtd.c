@@ -26,12 +26,19 @@
 #include <sys/ioctl.h>
 #include <sys/sysinfo.h>
 
+#ifdef LINUX26
+#include <linux/compiler.h>
+#include <mtd/mtd-user.h>
+#else
 #include <linux/mtd/mtd.h>
+#endif
 
 #include <trxhdr.h>
 #include <rts/crc.h>
 #include <bcmutils.h>
 #include <shutils.h>
+
+#include "mtd.h"
 
 /*
  * Open an MTD device
@@ -49,7 +56,7 @@ mtd_open(const char *mtd, int flags)
 	if ((fp = fopen("/proc/mtd", "r"))) {
 		while (fgets(dev, sizeof(dev), fp)) {
 			if (sscanf(dev, "mtd%d:", &i) && strstr(dev, mtd)) {
-				snprintf(dev, sizeof(dev), "/dev/mtd/%d", i);
+				snprintf(dev, sizeof(dev), MTD_DEV(%d), i);
 				fclose(fp);
 				return open(dev, flags);
 			}

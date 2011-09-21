@@ -1,0 +1,53 @@
+diff -urBp udev-113/Makefile udev/Makefile
+--- udev-113/Makefile	2007-06-23 19:44:48.000000000 +0400
++++ udev/Makefile	2009-08-27 07:47:47.000000000 +0400
+@@ -101,7 +104,7 @@ configdir =	${etcdir}/udev
+ udevdir =	/dev
+ DESTDIR =
+ 
+-INSTALL = install -c
++INSTALL = install
+ INSTALL_PROGRAM = ${INSTALL}
+ INSTALL_DATA = ${INSTALL} -m 644
+ INSTALL_SCRIPT = ${INSTALL}
+@@ -116,8 +119,8 @@ RANLIB = $(CROSS_COMPILE)ranlib
+ CFLAGS		+= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+ WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
+ 		  -Wchar-subscripts -Wmissing-declarations -Wnested-externs \
+-		  -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes
++		  -Wpointer-arith -Wsign-compare -Wmissing-prototypes
+-CFLAGS		+= $(WARNINGS)
++CFLAGS		+= $(WARNINGS) $(EXTRACFLAGS)
+ 
+ LDFLAGS += -Wl,-warn-common
+ 
+@@ -158,7 +161,7 @@ else
+ endif
+ export E Q
+ 
+-all: $(PROGRAMS) $(MAN_PAGES)
++all: $(PROGRAMS)
+ 	$(Q) extras="$(EXTRAS)"; for target in $$extras; do \
+ 		$(MAKE) CC="$(CC)" \
+ 			CFLAGS="$(CFLAGS)" \
+@@ -268,6 +271,11 @@ uninstall-man:
+ 	done;
+ .PHONY: uninstall-man
+ 
++install-udevtrigger:
++	$(INSTALL) -d $(DESTDIR)$(udevdir)
++	$(INSTALL_PROGRAM) -D udevtrigger $(DESTDIR)$(sbindir)/udevtrigger
++	$(STRIP) $(DESTDIR)$(sbindir)/udevtrigger
++
+ install-bin:
+ 	$(INSTALL) -d $(DESTDIR)$(udevdir)
+ 	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
+@@ -304,7 +314,7 @@ endif
+ 	done;
+ .PHONY: uninstall-bin
+ 
+-install: all install-bin install-config install-man
++install: all install-bin
+ .PHONY: install
+ 
+ uninstall: uninstall-bin uninstall-man

@@ -1,0 +1,378 @@
+diff -urBp iptables-1.4.3/Makefile.am iptables/Makefile.am
+--- iptables-1.4.3/Makefile.am	2009-04-06 15:09:17.000000000 +0400
++++ iptables/Makefile.am	2011-03-01 23:01:04.000000000 +0300
+@@ -14,9 +14,9 @@ endif
+ lib_LTLIBRARIES =
+ 
+ # libiptc
+-lib_LTLIBRARIES           += libiptc/libiptc.la
+-libiptc_libiptc_la_SOURCES = libiptc/libip4tc.c libiptc/libip6tc.c
+-libiptc_libiptc_la_LDFLAGS = -version-info 0:0:0
++lib_LIBRARIES             = libiptc/libiptc.a
++libiptc_libiptc_a_SOURCES = libiptc/libip4tc.c libiptc/libip6tc.c
++libiptc_libiptc_a_CFLAGS  = ${AM_CFLAGS} -DPIC -fPIC
+ 
+ lib_LTLIBRARIES      += libxtables.la
+ libxtables_la_SOURCES = xtables.c
+@@ -25,8 +24,8 @@ libxtables_la_LIBADD  = -ldl
+ 
+ # iptables, dynamic
+ iptables_SOURCES          = iptables-standalone.c iptables.c
+-iptables_LDFLAGS          = -rdynamic
+-iptables_LDADD            = libiptc/libiptc.la extensions/libext4.a libxtables.la -lm
++iptables_LDFLAGS          = -rdynamic $(EXTRA_LDFLAGS)
++iptables_LDADD            = libiptc/libiptc.a extensions/libext4.a libxtables.la -lm
+ 
+ iptables_xml_LDADD        = libxtables.la
+ iptables_multi_SOURCES    = iptables-multi.c iptables-save.c \
+@@ -47,14 +46,14 @@ iptables_save_LDADD       = ${iptables_L
+ # iptables-multi, semi-static
+ iptables_static_SOURCES   = ${iptables_multi_SOURCES} xtables.c
+ iptables_static_CFLAGS    = ${iptables_multi_CFLAGS} -DNO_SHARED_LIBS=1
+-iptables_static_LDADD     = libiptc/libiptc.la extensions/libext4.a -lm
++iptables_static_LDADD     = libiptc/libiptc.a extensions/libext4.a -lm
+ 
+ iptables_xml_SOURCES      = iptables-xml.c
+ 
+ # ip6tables, dynamic
+ ip6tables_SOURCES         = ip6tables-standalone.c ip6tables.c
+-ip6tables_LDFLAGS         = -rdynamic
+-ip6tables_LDADD           = libiptc/libiptc.la extensions/libext6.a libxtables.la -lm
++ip6tables_LDFLAGS         = -rdynamic $(EXTRA_LDFLAGS)
++ip6tables_LDADD           = libiptc/libiptc.a extensions/libext6.a libxtables.la -lm
+ 
+ ip6tables_multi_SOURCES   = ip6tables-multi.c ip6tables-save.c \
+                             ip6tables-restore.c ip6tables-standalone.c \
+@@ -74,7 +73,7 @@ ip6tables_save_LDADD      = ${ip6tables_
+ # iptables-multi, semi-static
+ ip6tables_static_SOURCES    = ${ip6tables_multi_SOURCES} xtables.c
+ ip6tables_static_CFLAGS     = ${ip6tables_multi_CFLAGS} -DNO_SHARED_LIBS=1
+-ip6tables_static_LDADD      = libiptc/libiptc.la extensions/libext6.a -lm
++ip6tables_static_LDADD      = libiptc/libiptc.a extensions/libext6.a -lm
+ 
+ bin_PROGRAMS     = iptables-xml
+ sbin_PROGRAMS    =
+@@ -107,7 +106,7 @@ iptables.8: ${srcdir}/iptables.8.in exte
+ ip6tables.8: ${srcdir}/ip6tables.8.in extensions/matches6.man extensions/targets6.man
+ 	${AM_VERBOSE_GEN} sed -e 's/@PACKAGE_AND_VERSION@/${PACKAGE} ${PACKAGE_VERSION}/g' -e '/@MATCH@/ r extensions/matches6.man' -e '/@TARGET@/ r extensions/targets6.man' $< >$@;
+ 
+-pkgconfig_DATA = libiptc.pc xtables.pc
++pkgconfig_DATA = xtables.pc
+ 
+ .PHONY: tarball
+ tarball:
+diff -BurN iptables-1.4.3/Makefile.in iptables/Makefile.in
+--- iptables-1.4.3/Makefile.in	2009-04-06 15:11:12.000000000 +0400
++++ iptables/Makefile.in	2011-03-01 23:14:17.000000000 +0300
+@@ -64,7 +64,7 @@ am__CONFIG_DISTCLEAN_FILES = config.stat
+ mkinstalldirs = $(install_sh) -d
+ CONFIG_HEADER = config.h
+ CONFIG_CLEAN_FILES = extensions/GNUmakefile \
+-	include/iptables/internal.h libiptc.pc xtables.pc
++	include/iptables/internal.h xtables.pc
+ am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+ am__vpath_adj = case $$p in \
+     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+@@ -76,14 +76,15 @@ am__installdirs = "$(DESTDIR)$(libdir)"
+ 	"$(DESTDIR)$(pkgconfigdir)"
+ libLTLIBRARIES_INSTALL = $(INSTALL)
+ LTLIBRARIES = $(lib_LTLIBRARIES)
+-libiptc_libiptc_la_LIBADD =
++LIBRARIES = $(lib_LIBRARIES)
++ARFLAGS = cru
++libiptc_libiptc_a_AR = $(AR) $(ARFLAGS)
++libiptc_libiptc_a_LIBADD =
++am_libiptc_libiptc_a_OBJECTS = \
++	libiptc/libiptc_libiptc_a-libip4tc.$(OBJEXT) \
++	libiptc/libiptc_libiptc_a-libip6tc.$(OBJEXT)
++libiptc_libiptc_a_OBJECTS = $(am_libiptc_libiptc_a_OBJECTS)
+ am__dirstamp = $(am__leading_dot)dirstamp
+-am_libiptc_libiptc_la_OBJECTS = libiptc/libip4tc.lo \
+-	libiptc/libip6tc.lo
+-libiptc_libiptc_la_OBJECTS = $(am_libiptc_libiptc_la_OBJECTS)
+-libiptc_libiptc_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+-	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+-	$(libiptc_libiptc_la_LDFLAGS) $(LDFLAGS) -o $@
+ libxtables_la_DEPENDENCIES =
+ am_libxtables_la_OBJECTS = xtables.lo
+ libxtables_la_OBJECTS = $(am_libxtables_la_OBJECTS)
+@@ -108,7 +109,7 @@ PROGRAMS = $(bin_PROGRAMS) $(noinst_PROG
+ am_ip6tables_OBJECTS = ip6tables-standalone.$(OBJEXT) \
+ 	ip6tables.$(OBJEXT)
+ ip6tables_OBJECTS = $(am_ip6tables_OBJECTS)
+-ip6tables_DEPENDENCIES = libiptc/libiptc.la extensions/libext6.a \
++ip6tables_DEPENDENCIES = libiptc/libiptc.a extensions/libext6.a \
+ 	libxtables.la
+ ip6tables_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+@@ -120,7 +121,7 @@ am_ip6tables_multi_OBJECTS =  \
+ 	ip6tables_multi-ip6tables-standalone.$(OBJEXT) \
+ 	ip6tables_multi-ip6tables.$(OBJEXT)
+ ip6tables_multi_OBJECTS = $(am_ip6tables_multi_OBJECTS)
+-am__DEPENDENCIES_1 = libiptc/libiptc.la extensions/libext6.a \
++am__DEPENDENCIES_1 = libiptc/libiptc.a extensions/libext6.a \
+ 	libxtables.la
+ ip6tables_multi_DEPENDENCIES = $(am__DEPENDENCIES_1)
+ ip6tables_multi_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+@@ -148,14 +149,14 @@ am__objects_1 = ip6tables_static-ip6tabl
+ am_ip6tables_static_OBJECTS = $(am__objects_1) \
+ 	ip6tables_static-xtables.$(OBJEXT)
+ ip6tables_static_OBJECTS = $(am_ip6tables_static_OBJECTS)
+-ip6tables_static_DEPENDENCIES = libiptc/libiptc.la \
++ip6tables_static_DEPENDENCIES = libiptc/libiptc.a \
+ 	extensions/libext6.a
+ ip6tables_static_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(ip6tables_static_CFLAGS) \
+ 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+ am_iptables_OBJECTS = iptables-standalone.$(OBJEXT) iptables.$(OBJEXT)
+ iptables_OBJECTS = $(am_iptables_OBJECTS)
+-iptables_DEPENDENCIES = libiptc/libiptc.la extensions/libext4.a \
++iptables_DEPENDENCIES = libiptc/libiptc.a extensions/libext4.a \
+ 	libxtables.la
+ iptables_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(iptables_LDFLAGS) \
+@@ -167,7 +168,7 @@ am_iptables_multi_OBJECTS = iptables_mul
+ 	iptables_multi-iptables-standalone.$(OBJEXT) \
+ 	iptables_multi-iptables.$(OBJEXT)
+ iptables_multi_OBJECTS = $(am_iptables_multi_OBJECTS)
+-am__DEPENDENCIES_2 = libiptc/libiptc.la extensions/libext4.a \
++am__DEPENDENCIES_2 = libiptc/libiptc.a extensions/libext4.a \
+ 	libxtables.la
+ iptables_multi_DEPENDENCIES = $(am__DEPENDENCIES_2)
+ iptables_multi_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+@@ -195,7 +196,7 @@ am__objects_2 = iptables_static-iptables
+ am_iptables_static_OBJECTS = $(am__objects_2) \
+ 	iptables_static-xtables.$(OBJEXT)
+ iptables_static_OBJECTS = $(am_iptables_static_OBJECTS)
+-iptables_static_DEPENDENCIES = libiptc/libiptc.la extensions/libext4.a
++iptables_static_DEPENDENCIES = libiptc/libiptc.a extensions/libext4.a
+ iptables_static_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
+ 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(iptables_static_CFLAGS) \
+ 	$(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+@@ -214,14 +215,14 @@ CCLD = $(CC)
+ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+ 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+ 	$(LDFLAGS) -o $@
+-SOURCES = $(libiptc_libiptc_la_SOURCES) $(libxtables_la_SOURCES) \
++SOURCES = $(libiptc_libiptc_a_SOURCES) $(libxtables_la_SOURCES) \
+ 	$(ip6tables_SOURCES) $(ip6tables_multi_SOURCES) \
+ 	$(ip6tables_restore_SOURCES) $(ip6tables_save_SOURCES) \
+ 	$(ip6tables_static_SOURCES) $(iptables_SOURCES) \
+ 	$(iptables_multi_SOURCES) $(iptables_restore_SOURCES) \
+ 	$(iptables_save_SOURCES) $(iptables_static_SOURCES) \
+ 	$(iptables_xml_SOURCES)
+-DIST_SOURCES = $(libiptc_libiptc_la_SOURCES) $(libxtables_la_SOURCES) \
++DIST_SOURCES = $(libiptc_libiptc_a_SOURCES) $(libxtables_la_SOURCES) \
+ 	$(ip6tables_SOURCES) $(ip6tables_multi_SOURCES) \
+ 	$(ip6tables_restore_SOURCES) $(ip6tables_save_SOURCES) \
+ 	$(ip6tables_static_SOURCES) $(iptables_SOURCES) \
+@@ -380,17 +381,18 @@ AM_CFLAGS = ${regular_CFLAGS} -I${top_bu
+ SUBDIRS = extensions $(am__append_1) $(am__append_2)
+ 
+ # libiptc
+-lib_LTLIBRARIES = libiptc/libiptc.la libxtables.la
+-libiptc_libiptc_la_SOURCES = libiptc/libip4tc.c libiptc/libip6tc.c
+-libiptc_libiptc_la_LDFLAGS = -version-info 0:0:0
++lib_LIBRARIES = libiptc/libiptc.a
++libiptc_libiptc_a_SOURCES = libiptc/libip4tc.c libiptc/libip6tc.c
++libiptc_libiptc_a_CFLAGS = ${AM_CFLAGS} -DPIC -fPIC
++lib_LTLIBRARIES = libxtables.la
+ libxtables_la_SOURCES = xtables.c
+ libxtables_la_LDFLAGS = -version-info ${libxtables_vcurrent}:0:${libxtables_vage}
+ libxtables_la_LIBADD = -ldl
+ 
+ # iptables, dynamic
+ iptables_SOURCES = iptables-standalone.c iptables.c
+-iptables_LDFLAGS = -rdynamic
+-iptables_LDADD = libiptc/libiptc.la extensions/libext4.a libxtables.la -lm
++iptables_LDFLAGS = -rdynamic $(EXTRA_LDFLAGS)
++iptables_LDADD = libiptc/libiptc.a extensions/libext4.a libxtables.la -lm
+ iptables_xml_LDADD = libxtables.la
+ iptables_multi_SOURCES = iptables-multi.c iptables-save.c \
+                             iptables-restore.c iptables-xml.c \
+@@ -409,13 +411,13 @@ iptables_save_LDADD = ${iptables_LDADD}
+ # iptables-multi, semi-static
+ iptables_static_SOURCES = ${iptables_multi_SOURCES} xtables.c
+ iptables_static_CFLAGS = ${iptables_multi_CFLAGS} -DNO_SHARED_LIBS=1
+-iptables_static_LDADD = libiptc/libiptc.la extensions/libext4.a -lm
++iptables_static_LDADD = libiptc/libiptc.a extensions/libext4.a -lm
+ iptables_xml_SOURCES = iptables-xml.c
+ 
+ # ip6tables, dynamic
+ ip6tables_SOURCES = ip6tables-standalone.c ip6tables.c
+-ip6tables_LDFLAGS = -rdynamic
+-ip6tables_LDADD = libiptc/libiptc.la extensions/libext6.a libxtables.la -lm
++ip6tables_LDFLAGS = -rdynamic $(EXTRA_LDFLAGS)
++ip6tables_LDADD = libiptc/libiptc.a extensions/libext6.a libxtables.la -lm
+ ip6tables_multi_SOURCES = ip6tables-multi.c ip6tables-save.c \
+                             ip6tables-restore.c ip6tables-standalone.c \
+                             ip6tables.c
+@@ -433,13 +435,13 @@ ip6tables_save_LDADD = ${ip6tables_LDADD
+ # iptables-multi, semi-static
+ ip6tables_static_SOURCES = ${ip6tables_multi_SOURCES} xtables.c
+ ip6tables_static_CFLAGS = ${ip6tables_multi_CFLAGS} -DNO_SHARED_LIBS=1
+-ip6tables_static_LDADD = libiptc/libiptc.la extensions/libext6.a -lm
++ip6tables_static_LDADD = libiptc/libiptc.a extensions/libext6.a -lm
+ man_MANS = iptables.8 iptables-restore.8 iptables-save.8 \
+                    iptables-xml.8 ip6tables.8 ip6tables-restore.8 \
+                    ip6tables-save.8
+ 
+ CLEANFILES = iptables.8 ip6tables.8
+-pkgconfig_DATA = libiptc.pc xtables.pc
++pkgconfig_DATA = xtables.pc
+ all: config.h
+ 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
+ 
+@@ -499,8 +501,6 @@ extensions/GNUmakefile: $(top_builddir)/
+ 	cd $(top_builddir) && $(SHELL) ./config.status $@
+ include/iptables/internal.h: $(top_builddir)/config.status $(top_srcdir)/include/iptables/internal.h.in
+ 	cd $(top_builddir) && $(SHELL) ./config.status $@
+-libiptc.pc: $(top_builddir)/config.status $(srcdir)/libiptc.pc.in
+-	cd $(top_builddir) && $(SHELL) ./config.status $@
+ xtables.pc: $(top_builddir)/config.status $(srcdir)/xtables.pc.in
+ 	cd $(top_builddir) && $(SHELL) ./config.status $@
+ install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+@@ -530,18 +530,22 @@ clean-libLTLIBRARIES:
+ 	  echo "rm -f \"$${dir}/so_locations\""; \
+ 	  rm -f "$${dir}/so_locations"; \
+ 	done
++clean-libLIBRARIES:
++	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+ libiptc/$(am__dirstamp):
+ 	@$(MKDIR_P) libiptc
+ 	@: > libiptc/$(am__dirstamp)
+ libiptc/$(DEPDIR)/$(am__dirstamp):
+ 	@$(MKDIR_P) libiptc/$(DEPDIR)
+ 	@: > libiptc/$(DEPDIR)/$(am__dirstamp)
+-libiptc/libip4tc.lo: libiptc/$(am__dirstamp) \
++libiptc/libiptc_libiptc_a-libip4tc.$(OBJEXT): libiptc/$(am__dirstamp) \
+ 	libiptc/$(DEPDIR)/$(am__dirstamp)
+-libiptc/libip6tc.lo: libiptc/$(am__dirstamp) \
++libiptc/libiptc_libiptc_a-libip6tc.$(OBJEXT): libiptc/$(am__dirstamp) \
+ 	libiptc/$(DEPDIR)/$(am__dirstamp)
+-libiptc/libiptc.la: $(libiptc_libiptc_la_OBJECTS) $(libiptc_libiptc_la_DEPENDENCIES) libiptc/$(am__dirstamp)
+-	$(libiptc_libiptc_la_LINK) -rpath $(libdir) $(libiptc_libiptc_la_OBJECTS) $(libiptc_libiptc_la_LIBADD) $(LIBS)
++libiptc/libiptc.a: $(libiptc_libiptc_a_OBJECTS) $(libiptc_libiptc_a_DEPENDENCIES) libiptc/$(am__dirstamp)
++	-rm -f libiptc/libiptc.a
++	$(libiptc_libiptc_a_AR) libiptc/libiptc.a $(libiptc_libiptc_a_OBJECTS) $(libiptc_libiptc_a_LIBADD)
++	$(RANLIB) libiptc/libiptc.a
+ libxtables.la: $(libxtables_la_OBJECTS) $(libxtables_la_DEPENDENCIES) 
+ 	$(libxtables_la_LINK) -rpath $(libdir) $(libxtables_la_OBJECTS) $(libxtables_la_LIBADD) $(LIBS)
+ install-binPROGRAMS: $(bin_PROGRAMS)
+@@ -643,10 +645,8 @@ iptables-xml$(EXEEXT): $(iptables_xml_OB
+ 
+ mostlyclean-compile:
+ 	-rm -f *.$(OBJEXT)
+-	-rm -f libiptc/libip4tc.$(OBJEXT)
+-	-rm -f libiptc/libip4tc.lo
+-	-rm -f libiptc/libip6tc.$(OBJEXT)
+-	-rm -f libiptc/libip6tc.lo
++	-rm -f libiptc/libiptc_libiptc_a-libip4tc.$(OBJEXT)
++	-rm -f libiptc/libiptc_libiptc_a-libip6tc.$(OBJEXT)
+ 
+ distclean-compile:
+ 	-rm -f *.tab.c
+@@ -685,8 +685,8 @@ distclean-compile:
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iptables_static-iptables.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/iptables_static-xtables.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xtables.Plo@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@libiptc/$(DEPDIR)/libip4tc.Plo@am__quote@
+-@AMDEP_TRUE@@am__include@ @am__quote@libiptc/$(DEPDIR)/libip6tc.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Po@am__quote@
+ 
+ .c.o:
+ @am__fastdepCC_TRUE@	depbase=`echo $@ | sed 's|[^/]*$$|$(DEPDIR)/&|;s|\.o$$||'`;\
+@@ -712,6 +712,34 @@ distclean-compile:
+ @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+ @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
+ 
++libiptc/libiptc_libiptc_a-libip4tc.o: libiptc/libip4tc.c
++@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -MT libiptc/libiptc_libiptc_a-libip4tc.o -MD -MP -MF libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Tpo -c -o libiptc/libiptc_libiptc_a-libip4tc.o `test -f 'libiptc/libip4tc.c' || echo '$(srcdir)/'`libiptc/libip4tc.c
++@am__fastdepCC_TRUE@	mv -f libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Tpo libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libiptc/libip4tc.c' object='libiptc/libiptc_libiptc_a-libip4tc.o' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -c -o libiptc/libiptc_libiptc_a-libip4tc.o `test -f 'libiptc/libip4tc.c' || echo '$(srcdir)/'`libiptc/libip4tc.c
++
++libiptc/libiptc_libiptc_a-libip4tc.obj: libiptc/libip4tc.c
++@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -MT libiptc/libiptc_libiptc_a-libip4tc.obj -MD -MP -MF libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Tpo -c -o libiptc/libiptc_libiptc_a-libip4tc.obj `if test -f 'libiptc/libip4tc.c'; then $(CYGPATH_W) 'libiptc/libip4tc.c'; else $(CYGPATH_W) '$(srcdir)/libiptc/libip4tc.c'; fi`
++@am__fastdepCC_TRUE@	mv -f libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Tpo libiptc/$(DEPDIR)/libiptc_libiptc_a-libip4tc.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libiptc/libip4tc.c' object='libiptc/libiptc_libiptc_a-libip4tc.obj' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -c -o libiptc/libiptc_libiptc_a-libip4tc.obj `if test -f 'libiptc/libip4tc.c'; then $(CYGPATH_W) 'libiptc/libip4tc.c'; else $(CYGPATH_W) '$(srcdir)/libiptc/libip4tc.c'; fi`
++
++libiptc/libiptc_libiptc_a-libip6tc.o: libiptc/libip6tc.c
++@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -MT libiptc/libiptc_libiptc_a-libip6tc.o -MD -MP -MF libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Tpo -c -o libiptc/libiptc_libiptc_a-libip6tc.o `test -f 'libiptc/libip6tc.c' || echo '$(srcdir)/'`libiptc/libip6tc.c
++@am__fastdepCC_TRUE@	mv -f libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Tpo libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libiptc/libip6tc.c' object='libiptc/libiptc_libiptc_a-libip6tc.o' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -c -o libiptc/libiptc_libiptc_a-libip6tc.o `test -f 'libiptc/libip6tc.c' || echo '$(srcdir)/'`libiptc/libip6tc.c
++
++libiptc/libiptc_libiptc_a-libip6tc.obj: libiptc/libip6tc.c
++@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -MT libiptc/libiptc_libiptc_a-libip6tc.obj -MD -MP -MF libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Tpo -c -o libiptc/libiptc_libiptc_a-libip6tc.obj `if test -f 'libiptc/libip6tc.c'; then $(CYGPATH_W) 'libiptc/libip6tc.c'; else $(CYGPATH_W) '$(srcdir)/libiptc/libip6tc.c'; fi`
++@am__fastdepCC_TRUE@	mv -f libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Tpo libiptc/$(DEPDIR)/libiptc_libiptc_a-libip6tc.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='libiptc/libip6tc.c' object='libiptc/libiptc_libiptc_a-libip6tc.obj' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libiptc_libiptc_a_CFLAGS) $(CFLAGS) -c -o libiptc/libiptc_libiptc_a-libip6tc.obj `if test -f 'libiptc/libip6tc.c'; then $(CYGPATH_W) 'libiptc/libip6tc.c'; else $(CYGPATH_W) '$(srcdir)/libiptc/libip6tc.c'; fi`
++
+ ip6tables_multi-ip6tables-multi.o: ip6tables-multi.c
+ @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ip6tables_multi_CFLAGS) $(CFLAGS) -MT ip6tables_multi-ip6tables-multi.o -MD -MP -MF $(DEPDIR)/ip6tables_multi-ip6tables-multi.Tpo -c -o ip6tables_multi-ip6tables-multi.o `test -f 'ip6tables-multi.c' || echo '$(srcdir)/'`ip6tables-multi.c
+ @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/ip6tables_multi-ip6tables-multi.Tpo $(DEPDIR)/ip6tables_multi-ip6tables-multi.Po
+@@ -1053,7 +1081,6 @@ mostlyclean-libtool:
+ 
+ clean-libtool:
+ 	-rm -rf .libs _libs
+-	-rm -rf libiptc/.libs libiptc/_libs
+ 
+ distclean-libtool:
+ 	-rm -f libtool
+@@ -1400,7 +1427,7 @@ distcleancheck: distclean
+ 	       exit 1; } >&2
+ check-am: all-am
+ check: check-recursive
+-all-am: Makefile $(LTLIBRARIES) $(PROGRAMS) $(MANS) $(DATA) config.h
++all-am: Makefile $(LIBRARIES) $(LTLIBRARIES) $(PROGRAMS) $(MANS) $(DATA) config.h
+ install-binPROGRAMS: install-libLTLIBRARIES
+ 
+ installdirs: installdirs-recursive
+@@ -1437,7 +1464,8 @@ maintainer-clean-generic:
+ 	@echo "it deletes files that may require special tools to rebuild."
+ clean: clean-recursive
+ 
+-clean-am: clean-binPROGRAMS clean-generic clean-libLTLIBRARIES \
++clean-am: clean-binPROGRAMS clean-generic clean-libLIBRARIES \
++	clean-libLTLIBRARIES \
+ 	clean-libtool clean-noinstPROGRAMS clean-sbinPROGRAMS \
+ 	mostlyclean-am
+ 
+diff -uB a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -20102,7 +20102,6 @@
+ 
+ 
+ 
+-blacklist_modules="";
+ if test "$ac_cv_header_linux_dccp_h" != "yes"; then
+ 	blacklist_modules="$blacklist_modules dccp";
+ fi;
+diff -uB a/include/linux/netfilter_ipv6.h b/include/linux/netfilter_ipv6.h
+--- a/include/linux/netfilter_ipv6.h
++++ b/include/linux/netfilter_ipv6.h
+@@ -67,16 +67,4 @@ enum nf_ip6_hook_priorities {
+ 	NF_IP6_PRI_LAST = INT_MAX,
+ };
+ 
+-#ifdef CONFIG_NETFILTER
+-extern int ip6_route_me_harder(struct sk_buff *skb);
+-extern __sum16 nf_ip6_checksum(struct sk_buff *skb, unsigned int hook,
+-				    unsigned int dataoff, u_int8_t protocol);
+-
+-extern int ipv6_netfilter_init(void);
+-extern void ipv6_netfilter_fini(void);
+-#else /* CONFIG_NETFILTER */
+-static __inline__ int ipv6_netfilter_init(void) { return 0; }
+-static __inline__ void ipv6_netfilter_fini(void) { return; }
+-#endif /* CONFIG_NETFILTER */
+-
+ #endif /*__LINUX_IP6_NETFILTER_H*/

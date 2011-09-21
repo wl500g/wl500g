@@ -1,0 +1,44 @@
+From a1889c0d2039a53ae04abb9f20c62500bd312bf3
+From: Julia Lawall
+Date: Thu, 28 Jul 2011 02:46:01 +0000
+Subject: [PATCH] net: adjust array index
+
+Convert array index from the loop bound to the loop index.
+
+A simplified version of the semantic patch that fixes this problem is as
+follows: (http://coccinelle.lip6.fr/)
+
+// <smpl>
+@@
+expression e1,e2,ar;
+@@
+
+for(e1 = 0; e1 < e2; e1++) { <...
+  ar[
+- e2
++ e1
+  ]
+  ...> }
+// </smpl>
+
+Signed-off-by: Julia Lawall <julia@diku.dk>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/igmp.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index f1d27f6..283c0a2 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1718,7 +1718,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,
+ 
+ 		pmc->sfcount[sfmode]--;
+ 		for (j=0; j<i; j++)
+-			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[i]);
++			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+ 	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
+ #ifdef CONFIG_IP_MULTICAST
+ 		struct ip_sf_list *psf;
+-- 
+1.7.4.4

@@ -2,6 +2,8 @@
 #
 # Copyright (C) 2004, 2005 by Oleg I. Vdovikin <oleg@cs.msu.su>
 #
+# 2011-09-15 - modifications for 2.6 kernels by Leonid Lisovskiy <lly@sf.net>
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -28,55 +30,95 @@ if [ -z "$boot_dev" ]; then
 	exec /sbin/init <dev/null >dev/null 2>&1
 fi
 
-# mount procfs
-mount -t proc none /proc
-
+# /proc
+mount -t proc proc /proc
 # disable hotplug
 echo > /proc/sys/kernel/hotplug
 
-# insert ide modules first
-insmod ide-mod && insmod ide-probe-mod && insmod ide-disk
+# prepare /dev & /sys
+mount -t sysfs sysfs /sys
+mount -t tmpfs -o noatime devfs /dev
+mknod -m 0600 /dev/console c 5 1
+mknod -m 0666 /dev/null c 1 3
+mknod -m 0640 /dev/nvram c 253 0
+# coldplug udev
+/sbin/mdev -s
+ln -sf /proc/self/fd /dev/fd
+ln -sf /proc/self/fd/0 /dev/stdin
+ln -sf /proc/self/fd/1 /dev/stdout
+ln -sf /proc/self/fd/2 /dev/stderr
 
-# insert usb modules
+# set hotplug to mdev
+echo /sbin/mdev > /proc/sys/kernel/hotplug
+
+# ide modules for WL700g
+if [ "$(nvram get boardtype)" = "0x042f" -a "$(nvram get boardnum)" = "44" ]; then
+	WL700=yes
+	insmod ide-core && insmod aec62xx && insmod ide-detect && insmod ide-disk
+fi
+
+# usb modules
 if [ ! -b "$boot_dev" ]; then
 	insmod usbcore
-	[ "$(nvram get usb20_disable_x)" -ne 2 ] && (insmod usb-ohci; insmod usb-uhci)
-	[ "$(nvram get usb20_disable_x)" -ne 1 ] && insmod ehci-hcd
+	usb21=$(nvram get usb20_disable_x)
+	[ -z "$usb21"] && usb21="0"
+	[ "$usb21" -ne 1 ] && insmod ehci-hcd
+	[ "$usb21" -ne 2 ] && (insmod ohci-hcd; insmod uhci-hcd)
 	sleep 2s
 	insmod scsi_mod && insmod sd_mod && insmod usb-storage
 	# wait for initialization to complete
-	sleep 2s
+	while [ ! -d /sys/module/usb_storage ]; do
+		sleep 1s
+	done
 fi
 
-# trying to mount new rootfs if it exists
-mount -t ext3 -o ro "$boot_dev" /mnt || mount -t ext2 -o ro "$boot_dev" /mnt
+# wait for disc appear, max 15 sec
+i=0
+while [ -z "$(ls /sys/class/scsi_disk/)" -a -z "$(ls /sys/bus/ide/devices/ 2>/dev/null)" ]; do
+	sleep 1s
+	i=$((i + 1))
+	if [ $i -gt 15 ]; then
+		break
+	fi
+done
+
+# trying to mount new rootfs
+for fstyp in ext3 ext2; do
+	mount -t $fstyp -o ro "$boot_dev" /mnt
+	if [ $? -eq 0 ]; then
+		break
+	fi
+done
 
 # enable hotplug
 echo /sbin/hotplug > /proc/sys/kernel/hotplug
 
+# switch root
 if [ -d /mnt/mnt ]; then
 	cd /mnt
-	mount -t devfs none dev
 	pivot_root . mnt
+	umount /mnt/dev
+	umount /mnt/sys
+	umount /mnt/proc
 	exec chroot . sbin/init <dev/null >dev/null 2>&1
 fi
 
-# if something fails
+# if something fails...
 cd /
 
 # unmount everything
 umount /mnt
 
-mount -t devfs none dev
-
 # remove modules
 rmmod usb-storage && rmmod sd_mod && rmmod scsi_mod
+rmmod uhci-hcd
+rmmod ohci-hcd
 rmmod ehci-hcd
-rmmod usb-uhci
-rmmod usb-ohci
 rmmod usbcore
-rmmod ide-disk && rmmod ide-probe-mod && rmmod ide-mod
+[ ! -z "$WL700" ] && rmmod ide-disk && rmmod ide-detect && rmmod aec62xx && rmmod ide-core
 
+umount /dev
+umount /sys
 umount /proc
 
 # finally execute init

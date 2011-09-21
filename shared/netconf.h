@@ -31,6 +31,9 @@
 #define NETCONF_ESTABLISHED	0x02	/* Packet is related to an existing connection */
 #define NETCONF_RELATED		0x04	/* Packet is part of an established connection */
 #define NETCONF_NEW		0x08	/* Packet is trying to establish a new connection */
+#define NETCONF_UNTRACKED	0x10	/* Packet is untracked */
+#define NETCONF_STATE_SNAT	0x20	/* Packet is nated from source */
+#define NETCONF_STATE_DNAT	0x40	/* Packet is nated to desination */
 
 /* Supported match flags */
 #define	NETCONF_INV_SRCIP	0x01	/* Invert the sense of source IP address */
@@ -61,8 +64,8 @@ typedef struct _netconf_match_t {
 	} in, out;
 	int state;			/* Match by packet state */
 	int flags;			/* Match flags */
-	uint days[2];			/* Match by day of the week (local time) (0 == Sunday) */
-	uint secs[2];			/* Match by time of day (local time) (0 == 12:00 AM) */
+	u_int8_t days;			/* Match by day of the week (local time) (0 == Sunday) */
+	u_int32_t secs[2];		/* Match by time of day (local time) (0 == 12:00 AM) */
 
         /* +++ Match by module name. Cherry Cho added in 2007/12/27. +++ */
 	uint module_num;
@@ -96,7 +99,7 @@ enum netconf_webstr_type	/* Cherry Cho added in 2007/12/28. */
 
 /* Supported firewall target types */
 enum netconf_target {
-	NETCONF_DROP,			/* Drop packet (filter) */
+	NETCONF_DROP=0,			/* Drop packet (filter) */
 	NETCONF_ACCEPT,			/* Accept packet (filter) */
 	NETCONF_LOG_DROP,		/* Log and drop packet (filter) */
 	NETCONF_LOG_ACCEPT,		/* Log and accept packet (filter) */
@@ -106,6 +109,11 @@ enum netconf_target {
 	NETCONF_APP,			/* Application specific port forward (app) */
 	NETCONF_TARGET_MAX
 };
+
+/* ipt target name (indexed by netconf_fw_t.target) */
+extern const char *netconf_target_name[];
+/* ipt table name appropriate for target (indexed by netconf_fw_t.target) */
+extern const char *netconf_table_name[];
 
 #define netconf_valid_filter(target) \
 	((target) == NETCONF_DROP || (target) == NETCONF_ACCEPT || \
@@ -180,6 +188,9 @@ typedef struct _netconf_app_t {
 
 #define netconf_list_for_each(pos, head) \
 	for ((pos) = (head)->next; (pos) != (head); (pos) = (pos)->next)
+
+#define netconf_list_for_each_reverse(pos, head) \
+	for ((pos) = (head)->prev; (pos) != (head); (pos) = (pos)->prev)
 
 #define netconf_list_free(head) do { \
 	typeof (head) pos, next; \
@@ -276,7 +287,16 @@ extern int netconf_del_filter(netconf_filter_t *filter_list);
  */
 extern int netconf_get_filter(netconf_filter_t *filter_array, int *space);
 
+/*
+ * Clamp TCP MSS value to PMTU of interface (for masquerading through PPPoE)
+ * @return      0 on success and errno on failure
+ */
 extern int netconf_clamp_mss_to_pmtu(void);
 
+/*
+ * get NAT chain name taking in account
+ * wildcard DNAT (virtual servers)
+ */
+extern const char *get_nat_chain_name(const netconf_fw_t *fw);
 
 #endif /* _netconf_h_ */

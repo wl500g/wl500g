@@ -1,0 +1,52 @@
+Description: Fix fallback from failed PMKSA caching into full EAP authentication
+ Commit 83935317a78fb4157eb6e5134527b9311dbf7b8c added forced
+ disconnection in case of 4-way handshake failures. However, it should
+ not have changed the case where the supplicant is requesting fallback
+ to full EAP authentication if the PMKID in EAPOL-Key message 1/4 is
+ not know. This case needs to send an EAPOL-Start frame instead of
+ EAPOL-Key message 2/4.
+ .
+ This works around a problem with APs that try to force PMKSA caching
+ even when the client does not include PMKID in (re)association request
+ frame to request it. [Bug 355]
+ .
+ (cherry picked from commit b4a1256d3660a2b5239062a9b42de79b8a34286a)
+ (cherry picked from commit a5277ad2a182e0264715533c11ed9a90296298e4)
+Author: Jouni Malinen <j@w1.fi>
+Origin: upstream, http://w1.fi/gitweb/gitweb.cgi?p=hostap-06.git;a=commit;h=1ab0b31aa626b6cb330628e7a281c5771dd5b851
+Bug: http://w1.fi/bugz/show_bug.cgi?id=355
+Last-Update: 2010-11-25
+
+--- wpasupplicant-0.6.10.orig/src/rsn_supp/wpa.c
++++ wpasupplicant-0.6.10/src/rsn_supp/wpa.c
+@@ -285,6 +285,7 @@ static int wpa_supplicant_get_pmk(struct
+ 			wpa_sm_ether_send(sm, sm->bssid, ETH_P_EAPOL,
+ 					  buf, buflen);
+ 			os_free(buf);
++			return -2;
+ 		}
+ 
+ 		return -1;
+@@ -380,6 +381,7 @@ static void wpa_supplicant_process_1_of_
+ 	struct wpa_eapol_ie_parse ie;
+ 	struct wpa_ptk *ptk;
+ 	u8 buf[8];
++	int res;
+ 
+ 	if (wpa_sm_get_network_ctx(sm) == NULL) {
+ 		wpa_printf(MSG_WARNING, "WPA: No SSID info found (msg 1 of "
+@@ -407,7 +409,13 @@ static void wpa_supplicant_process_1_of_
+ 	}
+ #endif /* CONFIG_NO_WPA2 */
+ 
+-	if (wpa_supplicant_get_pmk(sm, src_addr, ie.pmkid))
++	res = wpa_supplicant_get_pmk(sm, src_addr, ie.pmkid);
++	if (res == -2) {
++		wpa_printf(MSG_DEBUG, "RSN: Do not reply to msg 1/4 - "
++			   "requesting full EAP authentication");
++		return;
++	}
++	if (res)
+ 		goto failed;
+ 
+ 	if (sm->renew_snonce) {

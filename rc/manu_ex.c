@@ -10,11 +10,12 @@
 #include <arpa/inet.h>
 #include <net/if_arp.h>
 #include <time.h>
+
 #include <shutils.h>
-#include <rc.h>
 #include <wlioctl.h>
 #include <wlutils.h>
 #include <bcmnvram.h>
+#include "rc.h"
 
 #define A_UCHAR  unsigned char
 #define A_UINT8  unsigned char
@@ -250,6 +251,7 @@ static const REG_DMN_ENUM_FREQ_TABLE regDmnEnum5Turbo[] = {
     {152,160}}}      
 };
 
+#ifdef REMOVE
 /* "Worldwide", 1-13
    "Thailand", "Israel", "Jordan", "China", "Japan", "USA", "Europe", "USA Low", "Japan High", "All" */
    
@@ -266,6 +268,7 @@ static const char *br_name[] =
 	"Israel",
 	"Europe"	
 };
+#endif
 
 static const REG_DMN_ENUM_FREQ_TABLE regDmnEnum2[] = {
     {DEBUG_REG_DMN, 1, 0, "NONE", {
@@ -458,7 +461,7 @@ wlanGetCcEntries(A_UINT16 channelFlags)
     }
 }
 
-void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
+static void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
 {
     char reg[5];
         
@@ -478,13 +481,14 @@ void ParseReg(char *regDmnName, A_UINT16 *regDmnCode, char *country)
 }
 
 
+#ifdef REMOVE
 /***********************************************************
  * RefreshBRCountry
  *
  * Print out the channel list based only on the given reg
  * domain and turbo mode
  */
-void
+static void
 RefreshBRCountry(char *regDmnName, char *country, char *country_code)
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;
@@ -528,7 +532,7 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
     strcpy(country, "WorldWide");
     return;    
 }
-
+#endif
 
 /***********************************************************
  * RefreshChannelList
@@ -536,7 +540,7 @@ RefreshBRCountry(char *regDmnName, char *country, char *country_code)
  * Print out the channel list based only on the given reg
  * domain and turbo mode
  */
-void
+static void
 RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
 {
     A_UINT16 regDmnEnum, channelFlags, regDmnCode;
@@ -555,7 +559,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
              
     regDmnEnum = regDmnCode;
     
-    for(i=0; i<RDMAPPING_SIZE; i++)
+    for (i=0; i<RDMAPPING_SIZE; i++)
     {
     	if (RDMapping[i][0] == regDmnCode)
     	   break;
@@ -580,7 +584,7 @@ RefreshChannelList(char *regDmnName, A_UINT16 current, A_UINT16 chanList[])
             for (j = 0; j < pCcTable[i].entries; j++) 
             {                   	     	
                 /* Find this channel's entry */
-                for(searchChannel = pCcTable[i].chanGroup[j].lowChannel;
+                for (searchChannel = pCcTable[i].chanGroup[j].lowChannel;
                     searchChannel <= pCcTable[i].chanGroup[j].highChannel;
                     searchChannel += channelSpread)
                 {   
@@ -637,7 +641,7 @@ void convert_country(void)
     strcpy(country, nvram_safe_get("wl_country"));	
 
     i=0;
-    while(countrylist[i]!=NULL)
+    while (countrylist[i]!=NULL)
     {
 	if (strcmp(countrylist[i], country)==0) 
 	{
@@ -674,7 +678,7 @@ void convert_country(void)
     i=0;
 
     *chanListStr='\0';
-    while(chanList[i]!=-1)
+    while (chanList[i]!=-1)
     {
          if (i==0) sprintf(chanListStr, "%d", chanList[i]);
 	 else sprintf(chanListStr, "%s %d", chanListStr, chanList[i]);
@@ -714,7 +718,7 @@ void sync_mac(char *devname, char *mac)
 	
 	if ( (result = wl_ioctl(devname, WLC_GET_SROM, buf, MAXBUF)) == 0 )
 	{
-		for(i=0;i<6;i++)
+		for (i=0;i<6;i++)
 		{
 			//printf(" %x %x \n", buf[8+i], macstr[i]);
 		}
@@ -832,7 +836,7 @@ wlan_update()
 #endif
 		wsrom_main("eth2", 114, 0x0249);
 	}
-	else if(nvram_match("productid", "WL500g.Deluxe"))
+	else if (nvram_match("productid", "WL500g.Deluxe"))
 	{	
 		// ver 2.2
 		wsrom_main("eth1", 104, 0x0046);

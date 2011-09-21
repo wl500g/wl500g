@@ -1,0 +1,21 @@
+--- src/shared.orig/bcmrobo.c	2008-03-08 15:30:03.000000000 +0000
++++ src/shared/bcmrobo.c	2011-02-11 18:48:15.000000000 +0000
+@@ -1013,9 +1013,15 @@ bcm_robo_config_vlan(robo_info_t *robo, 
+ 			/* Set the Static bit , Valid bit and Port ID fields in
+ 			 * ARL Table Data Entry 0 Register
+ 			 */
+-			val16 = 0xc008;
+-			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
+-			                     &val16, sizeof(val16));
++			if (robo->devid == DEVID53115) {
++				val32 = 0x18008;
++				robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
++				                     &val32, sizeof(val32));
++			} else {
++				val16 = 0xc008;
++				robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
++				                     &val16, sizeof(val16));
++			}
+ 
+ 			/* Clear the ARL_R/W bit and set the START/DONE bit in
+ 			 * the ARL Read/Write Control Register.

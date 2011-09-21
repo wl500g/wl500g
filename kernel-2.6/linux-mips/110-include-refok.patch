@@ -1,0 +1,34 @@
+From 0322a2b84096270c238da45f444bd3c9eb6f5e9c
+From: Ralf Baechle
+Date: Tue, 16 Oct 2007 01:23:47 -0700
+Subject: [PATCH] Add assembler equivalents to __init{,date}_refok
+
+I need __INIT_REFOK to fix a MODPOST warning for a few MIPS configs which
+have to call init code from .text very early in the game due to bootloader
+issues.  __INITDATA_REFOK is just for consistency.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/init.h |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/init.h b/include/linux/init.h
+index f8d9d0b..9b7a2ba 100644
+--- a/include/linux/init.h
++++ b/include/linux/init.h
+@@ -67,8 +67,10 @@
+ 
+ /* For assembly routines */
+ #define __INIT		.section	".init.text","ax"
++#define __INIT_REFOK	.section	".text.init.refok","ax"
+ #define __FINIT		.previous
+ #define __INITDATA	.section	".init.data","aw"
++#define __INITDATA_REFOK .section	".data.init.refok","aw"
+ 
+ #ifndef __ASSEMBLY__
+ /*
+-- 
+1.7.1
+

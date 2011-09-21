@@ -1,0 +1,139 @@
+Subject: [PATCH] net/sched: patches from upstream
+From 83962ea14f379d871f7b4af0a19daff12977814b
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sun, 25 Apr 2010 16:15:24 -0400
+
+kernel.org commits
+
+bdba91ec70fb5ccbdeb1c7068319adc6ea9e1a7d [NET_SCHED]: Fix prio/ingress classification logic error
+ffc8fefaf289fa485bc5c33e71572e6ce559d569 [NET]: Fix sch_api to properly set sch->parent on the root.
+066a3b5b2346febf9a655b444567b7138e3bb939 [NET_SCHED] sch_api: fix qdisc_tree_decrease_qlen() loop
+3c0cfc135829b98f7a4894938652f9ef78e24237 [NET_SCHED]: Show timer resolution instead of clock resolution in /proc/net/psched
+
+---
+ net/sched/sch_api.c     |   25 +++++++++++++++++++------
+ net/sched/sch_ingress.c |    3 +--
+ net/sched/sch_prio.c    |    7 +++----
+ 3 files changed, 23 insertions(+), 12 deletions(-)
+
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -391,7 +391,14 @@ void qdisc_tree_decrease_qlen(struct Qdisc *sch, unsigned int n)
+ 	if (n == 0)
+ 		return;
+ 	while ((parentid = sch->parent)) {
++		if (TC_H_MAJ(parentid) == TC_H_MAJ(TC_H_INGRESS))
++			return;
++
+ 		sch = qdisc_lookup(sch->dev, TC_H_MAJ(parentid));
++		if (sch == NULL) {
++			WARN_ON(parentid != TC_H_ROOT);
++			return;
++		}
+ 		cops = sch->ops->cl_ops;
+ 		if (cops->qlen_notify) {
+ 			cl = cops->get(sch, parentid);
+@@ -432,8 +439,6 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+ 			unsigned long cl = cops->get(parent, classid);
+ 			if (cl) {
+ 				err = cops->graft(parent, cl, new, old);
+-				if (new)
+-					new->parent = classid;
+ 				cops->put(parent, cl);
+ 			}
+ 		}
+@@ -448,7 +453,8 @@ static int qdisc_graft(struct net_device *dev, struct Qdisc *parent,
+  */
+ 
+ static struct Qdisc *
+-qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
++qdisc_create(struct net_device *dev, u32 parent, u32 handle,
++	   struct rtattr **tca, int *errp)
+ {
+ 	int err;
+ 	struct rtattr *kind = tca[TCA_KIND-1];
+@@ -494,6 +500,8 @@ qdisc_create(struct net_device *dev, u32 handle, struct rtattr **tca, int *errp)
+ 		goto err_out2;
+ 	}
+ 
++	sch->parent = parent;
++
+ 	if (handle == TC_H_INGRESS) {
+ 		sch->flags |= TCQ_F_INGRESS;
+ 		sch->stats_lock = &dev->ingress_lock;
+@@ -774,9 +782,11 @@ create_n_graft:
+ 	if (!(n->nlmsg_flags&NLM_F_CREATE))
+ 		return -ENOENT;
+ 	if (clid == TC_H_INGRESS)
+-		q = qdisc_create(dev, tcm->tcm_parent, tca, &err);
++		q = qdisc_create(dev, tcm->tcm_parent, tcm->tcm_parent,
++				 tca, &err);
+ 	else
+-		q = qdisc_create(dev, tcm->tcm_handle, tca, &err);
++		q = qdisc_create(dev, tcm->tcm_parent, tcm->tcm_handle,
++				 tca, &err);
+ 	if (q == NULL) {
+ 		if (err == -EAGAIN)
+ 			goto replay;
+@@ -1226,10 +1226,13 @@ EXPORT_SYMBOL(tcf_destroy_chain);
+ #ifdef CONFIG_PROC_FS
+ static int psched_show(struct seq_file *seq, void *v)
+ {
++	struct timespec ts;
++
++	hrtimer_get_res(CLOCK_MONOTONIC, &ts);
+ 	seq_printf(seq, "%08x %08x %08x %08x\n",
+ 		   (u32)NSEC_PER_USEC, (u32)PSCHED_US2NS(1),
+ 		   1000000,
+-		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(KTIME_MONOTONIC_RES));
++		   (u32)NSEC_PER_SEC/(u32)ktime_to_ns(timespec_to_ktime(ts)));
+ 
+ 	return 0;
+ }
+diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
+index f8b9f1c..dabb881 100644
+--- a/net/sched/sch_ingress.c
++++ b/net/sched/sch_ingress.c
+@@ -165,9 +165,8 @@ static int ingress_enqueue(struct sk_buff *skb,struct Qdisc *sch)
+ 			break;
+ 		case TC_ACT_RECLASSIFY:
+ 		case TC_ACT_OK:
+-		case TC_ACT_UNSPEC:
+-		default:
+ 			skb->tc_index = TC_H_MIN(res.classid);
++		default:
+ 			result = TC_ACT_OK;
+ 			break;
+ 	}
+diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+index 6d7542c..81df215 100644
+--- a/net/sched/sch_prio.c
++++ b/net/sched/sch_prio.c
+@@ -52,9 +52,11 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 	struct prio_sched_data *q = qdisc_priv(sch);
+ 	u32 band = skb->priority;
+ 	struct tcf_result res;
++	int err;
+ 
+ 	*qerr = NET_XMIT_BYPASS;
+ 	if (TC_H_MAJ(skb->priority) != sch->handle) {
++		err = tc_classify(skb, q->filter_list, &res);
+ #ifdef CONFIG_NET_CLS_ACT
+ 		switch (tc_classify(skb, q->filter_list, &res)) {
+ 		case TC_ACT_STOLEN:
+@@ -63,11 +65,8 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)
+ 		case TC_ACT_SHOT:
+ 			return NULL;
+ 		}
+-
+-		if (!q->filter_list ) {
+-#else
+-		if (!q->filter_list || tc_classify(skb, q->filter_list, &res)) {
+ #endif
++		if (!q->filter_list || err < 0) {
+ 			if (TC_H_MAJ(band))
+ 				band = 0;
+ 			return q->queues[q->prio2band[band&TC_PRIO_MAX]];
+-- 
+1.6.5.GIT

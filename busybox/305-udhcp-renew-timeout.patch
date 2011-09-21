@@ -1,0 +1,82 @@
+--- busybox-1.18.5/networking/udhcp/dhcpc.c	2011-05-20 09:55:56.000000000 +0000
++++ busybox/networking/udhcp/dhcpc.c	2011-09-14 10:41:25.000000000 +0000
+@@ -55,6 +55,7 @@ static const char udhcpc_longopts[] ALIG
+ 	"version\0"        No_argument       "v"
+ 	"retries\0"        Required_argument "t"
+ 	"tryagain\0"       Required_argument "A"
++	"renew-timeout\0"  Required_argument "N"
+ 	"syslog\0"         No_argument       "S"
+ 	"request-option\0" Required_argument "O"
+ 	"no-default-options\0" No_argument   "o"
+@@ -88,8 +89,9 @@ enum {
+ 	OPT_x = 1 << 18,
+ 	OPT_f = 1 << 19,
+ 	OPT_B = 1 << 20,
++	OPT_N = 1 << 21,
+ /* The rest has variable bit positions, need to be clever */
+-	OPTBIT_B = 20,
++	OPTBIT_N = 21,
+ 	USE_FOR_MMU(             OPTBIT_b,)
+ 	IF_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
+ 	IF_FEATURE_UDHCP_PORT(   OPTBIT_P,)
+@@ -1009,6 +1011,7 @@ static void client_background(void)
+ //usage:     "\n	-t,--retries N		Send up to N discover packets"
+ //usage:     "\n	-T,--timeout N		Pause between packets (default 3 seconds)"
+ //usage:     "\n	-A,--tryagain N		Wait N seconds after failure (default 20)"
++//usage:     "\n	-N,--renew-timeout N	Wait N seconds for requested renew"
+ //usage:     "\n	-f,--foreground		Run in foreground"
+ //usage:	USE_FOR_MMU(
+ //usage:     "\n	-b,--background		Background if lease is not obtained"
+@@ -1047,6 +1050,7 @@ static void client_background(void)
+ //usage:     "\n	-t N		Send up to N discover packets"
+ //usage:     "\n	-T N		Pause between packets (default 3 seconds)"
+ //usage:     "\n	-A N		Wait N seconds (default 20) after failure"
++//usage:     "\n	-N N		Wait N seconds for requested renew"
+ //usage:     "\n	-f		Run in foreground"
+ //usage:	USE_FOR_MMU(
+ //usage:     "\n	-b		Background if lease is not obtained"
+@@ -1090,6 +1094,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 	int tryagain_timeout = 20;
+ 	int discover_timeout = 3;
+ 	int discover_retries = 3;
++	int renew_timeout = 0;
+ 	uint32_t server_addr = server_addr; /* for compiler */
+ 	uint32_t requested_ip = 0;
+ 	uint32_t xid = 0;
+@@ -1113,9 +1118,9 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 
+ 	/* Parse command line */
+ 	/* O,x: list; -T,-t,-A take numeric param */
+-	opt_complementary = "O::x::T+:t+:A+" IF_UDHCP_VERBOSE(":vv") ;
++	opt_complementary = "O::x::T+:t+:A+:N+" IF_UDHCP_VERBOSE(":vv") ;
+ 	IF_LONG_OPTS(applet_long_options = udhcpc_longopts;)
+-	opt = getopt32(argv, "CV:H:h:F:i:np:qRr:s:T:t:SA:O:ox:fB"
++	opt = getopt32(argv, "CV:H:h:F:i:np:qRr:s:T:t:SA:O:ox:fBN:"
+ 		USE_FOR_MMU("b")
+ 		IF_FEATURE_UDHCPC_ARPING("a")
+ 		IF_FEATURE_UDHCP_PORT("P:")
+@@ -1126,6 +1131,7 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 		, &discover_timeout, &discover_retries, &tryagain_timeout /* T,t,A */
+ 		, &list_O
+ 		, &list_x
++		, &renew_timeout /* N */
+ 		IF_FEATURE_UDHCP_PORT(, &str_P)
+ 		IF_UDHCP_VERBOSE(, &dhcp_verbose)
+ 		);
+@@ -1394,8 +1400,15 @@ int udhcpc_main(int argc UNUSED_PARAM, c
+ 		case SIGUSR1:
+ 			client_config.first_secs = 0; /* make secs field count from 0 */
+ 			perform_renew();
+-			if (state == RENEW_REQUESTED)
++			if (state == RENEW_REQUESTED) {
++				/* We will probably restart the wait */
++				timeout -= already_waited_sec;
++				already_waited_sec = 0;
++				/* Use user supplied timeout */
++				if (renew_timeout && timeout > renew_timeout)
++					timeout = renew_timeout;
+ 				goto case_RENEW_REQUESTED;
++			}
+ 			/* Start things over */
+ 			packet_num = 0;
+ 			/* Kill any timeouts, user wants this to hurry along */

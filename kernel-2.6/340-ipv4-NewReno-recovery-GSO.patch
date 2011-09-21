@@ -1,0 +1,108 @@
+From c137f3dda04b0aee1bc6889cdc69185f53df8a82
+From: Ilpo JÃ¤rvinen
+Date: Mon, 7 Apr 2008 22:32:38 -0700
+Subject: [PATCH] [TCP]: Fix NewReno's fast rexmit/recovery problems with GSOed skb
+
+Fixes a long-standing bug which makes NewReno recovery crippled.
+With GSO the whole head skb was marked as LOST which is in
+violation of NewReno procedure that only wants to mark one packet
+and ended up breaking our TCP code by causing counter overflow
+because our code was built on top of assumption about valid
+NewReno procedure. This manifested as triggering a WARN_ON for
+the overflow in a number of places.
+
+It seems relatively safe alternative to just do nothing if
+tcp_fragment fails due to oom because another duplicate ACK is
+likely to be received soon and the fragmentation will be retried.
+
+Special thanks goes to Soeren Sonnenburg <kernel@nn7.de> who was
+lucky enough to be able to reproduce this so that the warning
+for the overflow was hit. It's not as easy task as it seems even
+if this bug happens quite often because the amount of outstanding
+data is pretty significant for the mismarkings to lead to an
+overflow.
+
+Because it's very late in 2.6.25-rc cycle (if this even makes in
+time), I didn't want to touch anything with SACK enabled here.
+Fragmenting might be useful for it as well but it's more or less
+a policy decision rather than mandatory fix. Thus there's no need
+to rush and we can postpone considering tcp_fragment with SACK
+for 2.6.26.
+
+In 2.6.24 and earlier, this very same bug existed but the effect
+is slightly different because of a small changes in the if
+conditions that fit to the patch's context. With them nothing
+got lost marker and thus no retransmissions happened.
+
+Signed-off-by: Ilpo JÃ¤rvinen <ilpo.jarvinen@helsinki.fi>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+3eec0047d9bdd68fddef6539e77fee99ba2531f2 [TCP]: Fix mark_head_lost to ignore R-bit when trying to mark L
+261ab365fadd53ddc1b292b1663800e11fbf3e71 [TCP]: Another TAGBITS -> SACKED_ACKED|LOST conversion
+b3de7559afbb7a8a35b4be975a6adf6c5e3cdca0 tcp: fix TSO FACK loss marking in tcp_mark_head_lost
+
+---
+
+ net/ipv4/tcp_input.c |   31 +++++++++++++++++++++++++------
+ 1 file changed, 25 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 5573202..7d09587 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -1752,7 +1752,9 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct sk_buff *skb;
+-	int cnt;
++	int cnt, oldcnt;
++	int err;
++	unsigned int mss;
+ 
+ 	if (packets == 0)
+ 		return;
+@@ -1773,10 +1773,28 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)
+ 		/* this is not the most efficient way to do this... */
+ 		tp->lost_skb_hint = skb;
+ 		tp->lost_cnt_hint = cnt;
+-		cnt += tcp_skb_pcount(skb);
+-		if (cnt > packets || after(TCP_SKB_CB(skb)->end_seq, high_seq))
+-			break;
+-		if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
++
++		if (after(TCP_SKB_CB(skb)->end_seq, tp->high_seq))
++			break;
++
++		oldcnt = cnt;
++ 		if (IsFack(tp) || IsReno(tp) ||
++ 		    (TCP_SKB_CB(skb)->sacked & TCPCB_SACKED_ACKED))
++			cnt += tcp_skb_pcount(skb);
++
++		if (cnt > packets) {
++			if ((tp->rx_opt.sack_ok && !IsFack(tp)) ||
++			    (oldcnt >= packets))
++				break;
++
++			mss = skb_shinfo(skb)->gso_size;
++			err = tcp_fragment(sk, skb, (packets - oldcnt) * mss, mss);
++			if (err < 0)
++				break;
++			cnt = packets;
++		}
++
++		if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_SACKED_ACKED|TCPCB_LOST))) {
+ 			TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 			tp->lost_out += tcp_skb_pcount(skb);
+ 
+@@ -1824,7 +1824,7 @@ static void tcp_update_scoreboard(struct sock *sk)
+ 			if (!tcp_skb_timedout(sk, skb))
+ 				break;
+ 
+-			if (!(TCP_SKB_CB(skb)->sacked&TCPCB_TAGBITS)) {
++			if (!(TCP_SKB_CB(skb)->sacked & (TCPCB_SACKED_ACKED|TCPCB_LOST))) {
+ 				TCP_SKB_CB(skb)->sacked |= TCPCB_LOST;
+ 				tp->lost_out += tcp_skb_pcount(skb);
+ 
+-- 
+1.7.1.1

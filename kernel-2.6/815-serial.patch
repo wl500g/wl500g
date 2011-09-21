@@ -1,0 +1,154 @@
+serial: Updates from upstream
+
+ e991a2bd4fa0b2f475b67dfe8f33e8ecbdcbb40b Fix tty speed handling on 8250
+ b430428a188e8a434325e251d0704af4b88b4711 8250: Don't clobber spinlocks.
+ 125c97d8a59888c5678734c2b70cbd08c847bd99 fix early_serial_setup() regression
+ 97d97224ff361e08777fb33e0fd193ca877dac28 [SERIAL] Fix console initialisation ordering
+ 9e845abfc8a8973373821aa05302794fd254514b serial: fix NULL pointer dereference
+
+---
+ drivers/serial/8250.c        |   24 ++++++++++++++++++++++--
+ drivers/serial/serial_core.c |   42 ++++++++++++++++++++++--------------------
+ 2 files changed, 44 insertions(+), 22 deletions(-)
+
+diff -uBp a/drivers/serial/serial_core.c b/drivers/serial/serial_core.c
+--- a/drivers/serial/serial_core.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/serial/serial_core.c	2010-11-12 19:04:45.000000000 +0300
+@@ -2117,6 +2119,14 @@ uart_configure_port(struct uart_driver *
+ 		spin_unlock_irqrestore(&port->lock, flags);
+ 
+ 		/*
++		 * If this driver supports console, and it hasn't been
++		 * successfully registered yet, try to re-register it.
++		 * It may be that the port was not available.
++		 */
++		if (port->cons && !(port->cons->flags & CON_ENABLED))
++			register_console(port->cons);
++
++		/*
+ 		 * Power down all ports by default, except the
+ 		 * console if we have one.
+ 		 */
+@@ -2166,7 +2176,7 @@ static const struct tty_operations uart_
+  */
+ int uart_register_driver(struct uart_driver *drv)
+ {
+-	struct tty_driver *normal = NULL;
++	struct tty_driver *normal;
+ 	int i, retval;
+ 
+ 	BUG_ON(drv->state);
+@@ -2176,13 +2186,12 @@ int uart_register_driver(struct uart_dri
+ 	 * we have a large number of ports to handle.
+ 	 */
+ 	drv->state = kzalloc(sizeof(struct uart_state) * drv->nr, GFP_KERNEL);
+-	retval = -ENOMEM;
+ 	if (!drv->state)
+ 		goto out;
+ 
+-	normal  = alloc_tty_driver(drv->nr);
++	normal = alloc_tty_driver(drv->nr);
+ 	if (!normal)
+-		goto out;
++		goto out_kfree;
+ 
+ 	drv->tty_driver = normal;
+ 
+@@ -2213,12 +2222,14 @@ int uart_register_driver(struct uart_dri
+ 	}
+ 
+ 	retval = tty_register_driver(normal);
+- out:
+-	if (retval < 0) {
+-		put_tty_driver(normal);
+-		kfree(drv->state);
+-	}
+-	return retval;
++	if (retval >= 0)
++		return retval;
++
++	put_tty_driver(normal);
++out_kfree:
++	kfree(drv->state);
++out:
++	return -ENOMEM;
+ }
+ 
+ /**
+@@ -2276,6 +2287,7 @@ int uart_add_one_port(struct uart_driver
+ 	}
+ 
+ 	state->port = port;
++	state->pm_state = -1;
+ 
+ 	port->cons = drv->cons;
+ 	port->info = state->info;
+@@ -2298,15 +2310,6 @@ int uart_add_one_port(struct uart_driver
+ 	tty_register_device(drv->tty_driver, port->line, port->dev);
+ 
+ 	/*
+-	 * If this driver supports console, and it hasn't been
+-	 * successfully registered yet, try to re-register it.
+-	 * It may be that the port was not available.
+-	 */
+-	if (port->type != PORT_UNKNOWN &&
+-	    port->cons && !(port->cons->flags & CON_ENABLED))
+-		register_console(port->cons);
+-
+-	/*
+ 	 * Ensure UPF_DEAD is not set.
+ 	 */
+ 	port->flags &= ~UPF_DEAD;
+diff -uBp a/drivers/serial/8250.c b/drivers/serial/8250.c
+--- a/drivers/serial/8250.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/serial/8250.c	2010-11-12 19:27:13.000000000 +0300
+@@ -2156,6 +2164,9 @@ serial8250_set_termios(struct uart_port
+ 	}
+ 	serial8250_set_mctrl(&up->port, up->port.mctrl);
+ 	spin_unlock_irqrestore(&up->port.lock, flags);
++	/* Don't rewrite B0 */
++	if (tty_termios_baud_rate(termios))
++		tty_termios_encode_baud_rate(termios, baud, baud);
+ }
+ 
+ static void
+@@ -2527,6 +2538,9 @@ static struct console serial8250_console
+ 
+ static int __init serial8250_console_init(void)
+ {
++	if (nr_uarts > UART_NR)
++		nr_uarts = UART_NR;
++
+ 	serial8250_isa_init_ports();
+ 	register_console(&serial8250_console);
+ 	return 0;
+@@ -2589,12 +2603,26 @@ static struct uart_driver serial8250_reg
+  */
+ int __init early_serial_setup(struct uart_port *port)
+ {
++	struct uart_port *p;
++
+ 	if (port->line >= ARRAY_SIZE(serial8250_ports))
+ 		return -ENODEV;
+ 
+ 	serial8250_isa_init_ports();
+-	serial8250_ports[port->line].port	= *port;
+-	serial8250_ports[port->line].port.ops	= &serial8250_pops;
++	p = &serial8250_ports[port->line].port;
++	p->iobase       = port->iobase;
++	p->membase      = port->membase;
++	p->irq          = port->irq;
++	p->uartclk      = port->uartclk;
++	p->fifosize     = port->fifosize;
++	p->regshift     = port->regshift;
++	p->iotype       = port->iotype;
++	p->flags        = port->flags;
++	p->mapbase      = port->mapbase;
++	p->private_data = port->private_data;
++	p->type		= port->type;
++	p->line		= port->line;
++
+ 	return 0;
+ }
+ 
+-- 

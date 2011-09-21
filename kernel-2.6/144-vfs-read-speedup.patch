@@ -1,0 +1,268 @@
+Subject: [PATCH] vfs: pagecache usage optimization for pagesize!=blocksize
+From: Hisashi Hifumi <hifumi.hisashi@oss.ntt.co.jp>
+Date: Thu, 1 Apr 2010 14:17:03 -0400
+
+Reduces read IO and improves system throughput for ext2/ext3.
+
+kernel.org commit 8ab22b9abb5c55413802e4adc9aa6223324547c3
+---
+ fs/buffer.c                 |   46 ++++++++++++++++++++
+ fs/ext2/inode.c             |    1 +
+ fs/ext3/inode.c             |    3 +
+ fs/ext4/inode.c             |    3 +
+ include/linux/buffer_head.h |    2 +
+ include/linux/fs.h          |   46 ++++++++++---------
+ mm/filemap.c                |   14 +++++-
+ 7 files changed, 91 insertions(+), 24 deletions(-)
+
+diff --git a/fs/buffer.c b/fs/buffer.c
+index 6588155..b138fea 100644
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -1894,6 +1894,52 @@ static int __block_commit_write(struct inode *inode, struct page *page,
+ }
+ 
+ /*
++ * block_is_partially_uptodate checks whether buffers within a page are
++ * uptodate or not.
++ *
++ * Returns true if all buffers which correspond to a file portion
++ * we want to read are uptodate.
++ */
++int block_is_partially_uptodate(struct page *page, read_descriptor_t *desc,
++					unsigned long from)
++{
++	struct inode *inode = page->mapping->host;
++	unsigned block_start, block_end, blocksize;
++	unsigned to;
++	struct buffer_head *bh, *head;
++	int ret = 1;
++
++	if (!page_has_buffers(page))
++		return 0;
++
++	blocksize = 1 << inode->i_blkbits;
++	to = min_t(unsigned, PAGE_CACHE_SIZE - from, desc->count);
++	to = from + to;
++	if (from < blocksize && to > PAGE_CACHE_SIZE - blocksize)
++		return 0;
++
++	head = page_buffers(page);
++	bh = head;
++	block_start = 0;
++	do {
++		block_end = block_start + blocksize;
++		if (block_end > from && block_start < to) {
++			if (!buffer_uptodate(bh)) {
++				ret = 0;
++				break;
++			}
++			if (block_end >= to)
++				break;
++		}
++		block_start = block_end;
++		bh = bh->b_this_page;
++	} while (bh != head);
++
++	return ret;
++}
++EXPORT_SYMBOL(block_is_partially_uptodate);
++
++/*
+  * Generic "read page" function for block devices that have the normal
+  * get_block functionality. This is most of the block device filesystems.
+  * Reads the page asynchronously --- the unlock_buffer() and
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+index 781c06b..73d72a3 100644
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -798,6 +798,7 @@ const struct address_space_operations ext2_aops = {
+ 	.direct_IO		= ext2_direct_IO,
+ 	.writepages		= ext2_writepages,
+ 	.migratepage		= buffer_migrate_page,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ const struct address_space_operations ext2_aops_xip = {
+diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
+index a0ed258..84bd831 100644
+--- a/fs/ext3/inode.c
++++ b/fs/ext3/inode.c
+@@ -1711,6 +1711,7 @@ static const struct address_space_operations ext3_ordered_aops = {
+ 	.releasepage	= ext3_releasepage,
+ 	.direct_IO	= ext3_direct_IO,
+ 	.migratepage	= buffer_migrate_page,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ static const struct address_space_operations ext3_writeback_aops = {
+@@ -1725,6 +1726,7 @@ static const struct address_space_operations ext3_writeback_aops = {
+ 	.releasepage	= ext3_releasepage,
+ 	.direct_IO	= ext3_direct_IO,
+ 	.migratepage	= buffer_migrate_page,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ static const struct address_space_operations ext3_journalled_aops = {
+@@ -1738,6 +1740,7 @@ static const struct address_space_operations ext3_journalled_aops = {
+ 	.bmap		= ext3_bmap,
+ 	.invalidatepage	= ext3_invalidatepage,
+ 	.releasepage	= ext3_releasepage,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ void ext3_set_aops(struct inode *inode)
+diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
+index 8416fa2..ef9dce5 100644
+--- a/fs/ext4/inode.c
++++ b/fs/ext4/inode.c
+@@ -1712,6 +1712,7 @@ static const struct address_space_operations ext4_ordered_aops = {
+ 	.releasepage	= ext4_releasepage,
+ 	.direct_IO	= ext4_direct_IO,
+ 	.migratepage	= buffer_migrate_page,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ static const struct address_space_operations ext4_writeback_aops = {
+@@ -1726,6 +1727,7 @@ static const struct address_space_operations ext4_writeback_aops = {
+ 	.releasepage	= ext4_releasepage,
+ 	.direct_IO	= ext4_direct_IO,
+ 	.migratepage	= buffer_migrate_page,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ static const struct address_space_operations ext4_journalled_aops = {
+@@ -1739,6 +1741,7 @@ static const struct address_space_operations ext4_journalled_aops = {
+ 	.bmap		= ext4_bmap,
+ 	.invalidatepage	= ext4_invalidatepage,
+ 	.releasepage	= ext4_releasepage,
++	.is_partially_uptodate	= block_is_partially_uptodate,
+ };
+ 
+ void ext4_set_aops(struct inode *inode)
+diff --git a/include/linux/buffer_head.h b/include/linux/buffer_head.h
+index 53ffcb2..6f673c3 100644
+--- a/include/linux/buffer_head.h
++++ b/include/linux/buffer_head.h
+@@ -205,6 +205,8 @@ void block_invalidatepage(struct page *page, unsigned long offset);
+ int block_write_full_page(struct page *page, get_block_t *get_block,
+ 				struct writeback_control *wbc);
+ int block_read_full_page(struct page*, get_block_t*);
++int block_is_partially_uptodate(struct page *page, read_descriptor_t *desc,
++				unsigned long from);
+ int block_prepare_write(struct page*, unsigned, unsigned, get_block_t*);
+ int cont_prepare_write(struct page*, unsigned, unsigned, get_block_t*,
+ 				loff_t *);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index fbe31de..7a4559d 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -261,7 +261,6 @@ extern int dir_notify_enable;
+ #define FS_FL_USER_VISIBLE		0x0003DFFF /* User visible flags */
+ #define FS_FL_USER_MODIFIABLE		0x000380FF /* User modifiable flags */
+ 
+-
+ #define SYNC_FILE_RANGE_WAIT_BEFORE	1
+ #define SYNC_FILE_RANGE_WRITE		2
+ #define SYNC_FILE_RANGE_WAIT_AFTER	4
+@@ -398,6 +397,28 @@ struct page;
+ struct address_space;
+ struct writeback_control;
+ 
++/*
++ * "descriptor" for what we're up to with a read.
++ * This allows us to use the same read code yet
++ * have multiple different users of the data that
++ * we read from a file.
++ *
++ * The simplest case just copies the data to user
++ * mode.
++ */
++typedef struct {
++	size_t written;
++	size_t count;
++	union {
++		char __user * buf;
++		void *data;
++	} arg;
++	int error;
++} read_descriptor_t;
++
++typedef int (*read_actor_t)(read_descriptor_t *, struct page *,
++		unsigned long, unsigned long);
++
+ struct address_space_operations {
+ 	int (*writepage)(struct page *page, struct writeback_control *wbc);
+ 	int (*readpage)(struct file *, struct page *);
+@@ -430,6 +451,8 @@ struct address_space_operations {
+ 	int (*migratepage) (struct address_space *,
+ 			struct page *, struct page *);
+ 	int (*launder_page) (struct page *);
++	int (*is_partially_uptodate) (struct page *, read_descriptor_t *,
++					unsigned long);
+ };
+ 
+ struct backing_dev_info;
+@@ -1053,27 +1076,6 @@ struct block_device_operations {
+ 	struct module *owner;
+ };
+ 
+-/*
+- * "descriptor" for what we're up to with a read for sendfile().
+- * This allows us to use the same read code yet
+- * have multiple different users of the data that
+- * we read from a file.
+- *
+- * The simplest case just copies the data to user
+- * mode.
+- */
+-typedef struct {
+-	size_t written;
+-	size_t count;
+-	union {
+-		char __user * buf;
+-		void *data;
+-	} arg;
+-	int error;
+-} read_descriptor_t;
+-
+-typedef int (*read_actor_t)(read_descriptor_t *, struct page *, unsigned long, unsigned long);
+-
+ /* These macros are for out of kernel modules to test that
+  * the kernel supports the unlocked_ioctl and compat_ioctl
+  * fields in struct file_operations. */
+diff --git a/mm/filemap.c b/mm/filemap.c
+index c6ebd9f..b652dba 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -917,8 +917,17 @@ find_page:
+ 			handle_ra_miss(mapping, &ra, index);
+ 			goto no_cached_page;
+ 		}
+-		if (!PageUptodate(page))
+-			goto page_not_up_to_date;
++		if (!PageUptodate(page)) {
++			if (inode->i_blkbits == PAGE_CACHE_SHIFT ||
++					!mapping->a_ops->is_partially_uptodate)
++				goto page_not_up_to_date;
++			if (TestSetPageLocked(page))
++				goto page_not_up_to_date;
++			if (!mapping->a_ops->is_partially_uptodate(page,
++								desc, offset))
++				goto page_not_up_to_date_locked;
++			unlock_page(page);
++		}
+ page_ok:
+ 
+ 		/* If users can be writing to this page using arbitrary
+@@ -962,6 +971,7 @@ page_not_up_to_date:
+ 		/* Get exclusive access to the page ... */
+ 		lock_page(page);
+ 
++page_not_up_to_date_locked:
+ 		/* Did it get truncated before we got the lock? */
+ 		if (!page->mapping) {
+ 			unlock_page(page);
+-- 
+1.6.5.GIT
+

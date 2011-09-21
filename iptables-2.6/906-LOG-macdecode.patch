@@ -1,0 +1,166 @@
+From: Patrick McHardy
+Date: Mon, 28 Jun 2010 12:51:35 +0000 (+0200)
+Subject: extensions: libipt_LOG/libip6t_LOG: support macdecode option
+X-Git-Tag: v1.4.10~7^2~14
+X-Git-Url: https://git.netfilter.org/cgi-bin/gitweb.cgi?p=iptables.git;a=commitdiff_plain;h=127647892c7cac85baf8da62ed21232baa60f1c9
+
+extensions: libipt_LOG/libip6t_LOG: support macdecode option
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+
+diff --git a/extensions/libip6t_LOG.c b/extensions/libip6t_LOG.c
+index 423d988..ff9edc6 100644
+--- a/extensions/libip6t_LOG.c
++++ b/extensions/libip6t_LOG.c
+@@ -25,7 +25,8 @@ static void LOG_help(void)
+ " --log-tcp-sequence		Log TCP sequence numbers.\n"
+ " --log-tcp-options		Log TCP options.\n"
+ " --log-ip-options		Log IP options.\n"
+-" --log-uid			Log UID owning the local socket.\n");
++" --log-uid			Log UID owning the local socket.\n"
++" --log-macdecode		Decode MAC addresses and protocol.\n");
+ }
+ 
+ static const struct option LOG_opts[] = {
+@@ -35,6 +36,7 @@ static const struct option LOG_opts[] = {
+ 	{ .name = "log-tcp-options",  .has_arg = 0, .val = '2' },
+ 	{ .name = "log-ip-options",   .has_arg = 0, .val = '3' },
+ 	{ .name = "log-uid",          .has_arg = 0, .val = '4' },
++	{ .name = "log-macdecode",    .has_arg = 0, .val = '5' },
+ 	{ .name = NULL }
+ };
+ 
+@@ -96,6 +98,7 @@ parse_level(const char *level)
+ #define IP6T_LOG_OPT_TCPOPT 0x08
+ #define IP6T_LOG_OPT_IPOPT 0x10
+ #define IP6T_LOG_OPT_UID 0x20
++#define IP6T_LOG_OPT_MACDECODE 0x40
+ 
+ static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
+                      const void *entry, struct xt_entry_target **target)
+@@ -179,6 +182,15 @@ static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
+ 		*flags |= IP6T_LOG_OPT_UID;
+ 		break;
+ 
++	case '5':
++		if (*flags & IP6T_LOG_OPT_MACDECODE)
++			xtables_error(PARAMETER_PROBLEM,
++				      "Can't specify --log-macdecode twice");
++
++		loginfo->logflags |= IP6T_LOG_MACDECODE;
++		*flags |= IP6T_LOG_OPT_MACDECODE;
++		break;
++
+ 	default:
+ 		return 0;
+ 	}
+@@ -213,6 +225,8 @@ static void LOG_print(const void *ip, const struct xt_entry_target *target,
+ 			printf("ip-options ");
+ 		if (loginfo->logflags & IP6T_LOG_UID)
+ 			printf("uid ");
++		if (loginfo->logflags & IP6T_LOG_MACDECODE)
++			printf("macdecode ");
+ 		if (loginfo->logflags & ~(IP6T_LOG_MASK))
+ 			printf("unknown-flags ");
+ 	}
+@@ -240,6 +254,8 @@ static void LOG_save(const void *ip, const struct xt_entry_target *target)
+ 		printf("--log-ip-options ");
+ 	if (loginfo->logflags & IP6T_LOG_UID)
+ 		printf("--log-uid ");
++	if (loginfo->logflags & IP6T_LOG_MACDECODE)
++		printf("--log-macdecode ");
+ }
+ 
+ static struct xtables_target log_tg6_reg = {
+diff --git a/extensions/libipt_LOG.c b/extensions/libipt_LOG.c
+index 9afb91d..73c8f32 100644
+--- a/extensions/libipt_LOG.c
++++ b/extensions/libipt_LOG.c
+@@ -25,7 +25,8 @@ static void LOG_help(void)
+ " --log-tcp-sequence		Log TCP sequence numbers.\n\n"
+ " --log-tcp-options		Log TCP options.\n\n"
+ " --log-ip-options		Log IP options.\n\n"
+-" --log-uid			Log UID owning the local socket.\n\n");
++" --log-uid			Log UID owning the local socket.\n\n"
++" --log-macdecode		Decode MAC addresses and protocol.\n\n");
+ }
+ 
+ static const struct option LOG_opts[] = {
+@@ -35,6 +36,7 @@ static const struct option LOG_opts[] = {
+ 	{ .name = "log-tcp-options",  .has_arg = 0, .val = '2' },
+ 	{ .name = "log-ip-options",   .has_arg = 0, .val = '3' },
+ 	{ .name = "log-uid",          .has_arg = 0, .val = '4' },
++	{ .name = "log-macdecode",    .has_arg = 0, .val = '5' },
+ 	{ .name = NULL }
+ };
+ 
+@@ -96,6 +98,7 @@ parse_level(const char *level)
+ #define IPT_LOG_OPT_TCPOPT 0x08
+ #define IPT_LOG_OPT_IPOPT 0x10
+ #define IPT_LOG_OPT_UID 0x20
++#define IPT_LOG_OPT_MACDECODE 0x40
+ 
+ static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
+                      const void *entry, struct xt_entry_target **target)
+@@ -179,6 +182,14 @@ static int LOG_parse(int c, char **argv, int invert, unsigned int *flags,
+ 		*flags |= IPT_LOG_OPT_UID;
+ 		break;
+ 
++	case '5':
++		if (*flags & IPT_LOG_OPT_MACDECODE)
++			xtables_error(PARAMETER_PROBLEM,
++				      "Can't specifiy --log-macdecode twice");
++
++		loginfo->logflags |= IPT_LOG_MACDECODE;
++		*flags |= IPT_LOG_OPT_MACDECODE;
++		break;
+ 	default:
+ 		return 0;
+ 	}
+@@ -213,6 +224,8 @@ static void LOG_print(const void *ip, const struct xt_entry_target *target,
+ 			printf("ip-options ");
+ 		if (loginfo->logflags & IPT_LOG_UID)
+ 			printf("uid ");
++		if (loginfo->logflags & IPT_LOG_MACDECODE)
++			printf("macdecode ");
+ 		if (loginfo->logflags & ~(IPT_LOG_MASK))
+ 			printf("unknown-flags ");
+ 	}
+@@ -242,6 +255,8 @@ static void LOG_save(const void *ip, const struct xt_entry_target *target)
+ 		printf("--log-ip-options ");
+ 	if (loginfo->logflags & IPT_LOG_UID)
+ 		printf("--log-uid ");
++	if (loginfo->logflags & IPT_LOG_MACDECODE)
++		printf("--log-macdecode ");
+ }
+ 
+ static struct xtables_target log_tg_reg = {
+diff --git a/include/linux/netfilter_ipv4/ipt_LOG.h b/include/linux/netfilter_ipv4/ipt_LOG.h
+index 90fa652..dcdbadf 100644
+--- a/include/linux/netfilter_ipv4/ipt_LOG.h
++++ b/include/linux/netfilter_ipv4/ipt_LOG.h
+@@ -7,7 +7,8 @@
+ #define IPT_LOG_IPOPT		0x04	/* Log IP options */
+ #define IPT_LOG_UID		0x08	/* Log UID owning local socket */
+ #define IPT_LOG_NFLOG		0x10	/* Unsupported, don't reuse */
+-#define IPT_LOG_MASK		0x1f
++#define IPT_LOG_MACDECODE	0x20	/* Decode MAC header */
++#define IPT_LOG_MASK		0x2f
+ 
+ struct ipt_log_info {
+ 	unsigned char level;
+diff --git a/include/linux/netfilter_ipv6/ip6t_LOG.h b/include/linux/netfilter_ipv6/ip6t_LOG.h
+index 0d0119b..9dd5579 100644
+--- a/include/linux/netfilter_ipv6/ip6t_LOG.h
++++ b/include/linux/netfilter_ipv6/ip6t_LOG.h
+@@ -7,7 +7,8 @@
+ #define IP6T_LOG_IPOPT		0x04	/* Log IP options */
+ #define IP6T_LOG_UID		0x08	/* Log UID owning local socket */
+ #define IP6T_LOG_NFLOG		0x10	/* Unsupported, don't use */
+-#define IP6T_LOG_MASK		0x1f
++#define IP6T_LOG_MACDECODE	0x20	/* Decode MAC header */
++#define IP6T_LOG_MASK		0x2f
+ 
+ struct ip6t_log_info {
+ 	unsigned char level;

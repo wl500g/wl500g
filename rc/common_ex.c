@@ -11,27 +11,27 @@
  */
 
 
-#include<stdlib.h>
-#include<stdio.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
-#include<time.h>
-#include<signal.h>
-#include<bcmnvram.h>
-#include<shutils.h>
-#include<netconf.h>
-#include<wlioctl.h>
-#include<sys/time.h>
-#include<syslog.h>
+#include <time.h>
+#include <signal.h>
+#include <sys/time.h>
+#include <syslog.h>
 #include <stdarg.h>
 #include <errno.h>
-#include "nvparse.h"
 
+#include <bcmnvram.h>
+#include <shutils.h>
+#include <netconf.h>
+#include <wlioctl.h>
+#include "nvparse.h"
 #include "rc.h"
+#include "mtd.h"
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
 
-static char list[2048];
 
 /* remove space in the end of string */
 char *trim_r(char *str)
@@ -40,7 +40,7 @@ char *trim_r(char *str)
 
 	i=strlen(str);
 
-	while(i>=1)
+	while (i>=1)
 	{
 		if (*(str+i-1) == ' ' || *(str+i-1) == 0x0a || *(str+i-1) == 0x0d) *(str+i-1)=0x0;
 		else break;
@@ -64,7 +64,7 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 	j=0;
 	if (strlen(mac)!=0) 
 	{
-		for(i=0; i<12; i++)
+		for (i=0; i<12; i++)
 		{		
 			if (i!=0&&i%2==0) buf[j++] = ':';
 			buf[j++] = mac[i];
@@ -75,6 +75,42 @@ char *mac_conv(char *mac_name, int idx, char *buf)
 	dprintf("mac: %s\n", buf);
 
 	return(buf);
+}
+
+/* load kernel module, trailing NULL in arguments list required! */
+int insmod(char *module, ...)
+{
+        char *argv[8] = { "insmod", module, NULL };
+	int i = 2;
+	va_list ap;
+
+	va_start(ap, module);
+	while (i < 7 && (argv[i] = va_arg(ap, char *)) != NULL) {
+		++i;
+	}
+	va_end(ap);
+	argv[i] = NULL;
+        return _eval(argv, ">/dev/null", 0, NULL);
+}
+
+int rmmod(char *module)
+{
+	return eval("rmmod", module);
+}
+
+int killall(char *program, int sig)
+{
+	char sigstr[6];
+        char *argv[] = { "killall", NULL, NULL, NULL };
+
+	if (sig != 0) {
+		snprintf(sigstr, sizeof(sigstr), "%d", sig);
+		argv[1] = sigstr;
+		argv[2] = program;
+	}
+	else
+		argv[1] = program;
+        return _eval(argv, ">/dev/null", 0, NULL);
 }
 
 void getsyspara(void)
@@ -92,6 +128,33 @@ void getsyspara(void)
 	nvram_set("firmver", trim_r(fwver));
 }
 
+void setenv_tz()
+{
+	static char TZ_env[64];
+
+	snprintf(TZ_env, sizeof(TZ_env), "TZ=%s", nvram_safe_get("time_zone"));
+	TZ_env[sizeof(TZ_env)-1] = '\0';
+	putenv(TZ_env);
+}
+
+time_t update_tztime(int is_resettm)
+{
+	time_t now;
+	struct tm gm, local;
+	struct timezone tz;
+	struct timeval tv = { 0 };
+
+	/* Update kernel timezone and time */
+	setenv_tz();
+	time(&now);
+	gmtime_r(&now, &gm);
+	localtime_r(&now, &local);
+	tz.tz_minuteswest = (mktime(&gm) - mktime(&local)) / 60;
+	settimeofday(is_resettm ? &tv : NULL, &tz);
+
+	return now;
+}
+
 /* This function is used to map nvram value from asus to Broadcom */
 void convert_asus_values()
 {	
@@ -99,7 +162,9 @@ void convert_asus_values()
 	char ifnames[36];
 	char sbuf[64];
 	int i, num;
+	char *list;
 
+	list = malloc(2048);
 	getsyspara();
 	/* convert country code from regulation_domain */
 	convert_country();
@@ -257,7 +322,13 @@ void convert_asus_values()
 	nvram_set("wl0_nctrlsb", nvram_safe_get("wl_nctrlsb"));
 	nvram_set("wl0_nband", nvram_safe_get("wl_nband"));
 	nvram_set("wl0_reg_mode", nvram_safe_get("wl_reg_mode"));
-
+#ifdef __CONFIG_BCMWL5__
+	nvram_set("wl0_mimo_preamble", nvram_safe_get("wl_mimo_preamble"));
+	nvram_set("wl0_wme_apsd", nvram_safe_get("wl_wme_apsd"));
+	nvram_set("wl0_vlan_prio_mode", nvram_safe_get("wl_vlan_prio_mode"));
+	nvram_set("wl0_obss_coex", (nvram_match("wl_nbw", "40") && nvram_invmatch("wl_reg_mode", "off")) ? "1" : "0");
+	nvram_set("wl0_wmf_bss_enable", nvram_safe_get("wl_wmf_bss_enable"));
+#endif
 	nvram_set("wl0_ssid", nvram_safe_get("wl_ssid"));
 	nvram_set("wl0_channel", nvram_safe_get("wl_channel"));
 	nvram_set("wl0_country_code", nvram_safe_get("wl_country_code"));
@@ -289,11 +360,14 @@ void convert_asus_values()
 
 	if (nvram_invmatch("wl_mode_ex", "ap"))
 	{
+#ifndef __CONFIG_BCMWL5__
 		int wepidx=atoi(nvram_safe_get("wl0_key"));
 		char wepname[16];
+#endif
 
 		sprintf(sbuf, "wl join \"%s\"", nvram_safe_get("wl0_ssid"));
 
+#ifndef __CONFIG_BCMWL5__
 		// key ??
 		if (nvram_match("wl0_auth_mode", "psk"))
 		{
@@ -304,13 +378,28 @@ void convert_asus_values()
 			sprintf(wepname, "wl0_key%d", wepidx);
 			sprintf(sbuf, "%s key %s", sbuf, nvram_safe_get(wepname));
 		}
-		
+#endif
 		sprintf(sbuf, "%s imode bss", sbuf);
-		
+
+#ifndef __CONFIG_BCMWL5__
 		if (nvram_match("wl_auth_mode", "psk"))
 			sprintf(sbuf, "%s amode wpapsk", sbuf);
+#else
+		if (nvram_match("wl_auth_mode", "psk") && nvram_match("wl_wpa_mode", "1"))
+			sprintf(sbuf, "%s amode wpapsk", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "psk") && nvram_match("wl_wpa_mode", "2"))
+			sprintf(sbuf, "%s amode wpa2psk", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "wpa"))
+			sprintf(sbuf, "%s amode wpa", sbuf);
+
+		else if (nvram_match("wl_auth_mode", "wpa2"))
+			sprintf(sbuf, "%s amode wpa2", sbuf);
+#endif
 		else if (nvram_match("wl_auth_mode", "shared"))
 			sprintf(sbuf, "%s amode shared", sbuf);
+
 		else sprintf(sbuf, "%s amode open", sbuf);
 
 		nvram_set("wl0_join", sbuf);
@@ -332,7 +421,7 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_wdsnum_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_wdslist_x", i, macbuf));
 
@@ -352,7 +441,7 @@ void convert_asus_values()
 		num = atoi(nvram_safe_get("wl_macnum_x"));
 		list[0]=0;
 
-		for(i=0;i<num;i++)
+		for (i=0;i<num;i++)
 		{
 			sprintf(list, "%s %s", list, mac_conv("wl_maclist_x", i, macbuf));
 			
@@ -421,8 +510,8 @@ void convert_asus_values()
 #endif
 		nvram_set("wan0_pppoe_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_pppoe_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_pppoe_gateway", nvram_get("wan_gateway"));
 		
@@ -436,8 +525,8 @@ void convert_asus_values()
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_wimax_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_wimax_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_wimax_gateway", nvram_get("wan_gateway"));
 		nvram_set("wan0_wimax_ssid", nvram_safe_get("wan_wimax_ssid"));
@@ -453,8 +542,8 @@ void convert_asus_values()
 		//nvram_set("upnp_wan_proto", "dhcp");
 		nvram_set("wan0_modem_ipaddr", nvram_safe_get("wan_ipaddr"));
 		nvram_set("wan0_modem_netmask", 
-			inet_addr_(nvram_safe_get("wan_ipaddr")) && 
-			inet_addr_(nvram_safe_get("wan_netmask")) ? 
+			ip_addr(nvram_safe_get("wan_ipaddr")) && 
+			ip_addr(nvram_safe_get("wan_netmask")) ? 
 				nvram_get("wan_netmask") : NULL);
 		nvram_set("wan0_modem_gateway", nvram_get("wan_gateway"));
 		/* current interface address (dhcp + firewall) */
@@ -481,6 +570,10 @@ void convert_asus_values()
 	nvram_set("wan0_dnsenable_x", nvram_safe_get("wan_dnsenable_x"));
 	nvram_unset("wan0_dns");
 	nvram_unset("wanx_dns");
+
+	nvram_set("wan0_auth_x", nvram_safe_get("wan_auth_x"));
+	nvram_set("wan0_auth_username", nvram_safe_get("wan_pppoe_username"));
+	nvram_set("wan0_auth_passwd", nvram_safe_get("wan_pppoe_passwd"));
 
 	convert_routes();
 
@@ -525,21 +618,24 @@ void convert_asus_values()
 	nvram_set("usb_web_device", "");
 	nvram_set("usb_audio_device", "");
 	nvram_set("usb_webdriver_x", "");
-	nvram_set("usb_web_flag", "");
 #ifdef __CONFIG_MADWIMAX__
 	nvram_set("usb_wimax_device", "");
 #endif
 	nvram_set("no_br", "0");
 
-	if(nvram_invmatch("sp_battle_ips", "0"))
+	if (nvram_invmatch("sp_battle_ips", "0"))
 	{
-		eval("insmod", "ip_nat_starcraft");
-		eval("insmod", "ipt_NETMAP");
+		insmod("ip_nat_starcraft", NULL);
+		insmod("ipt_NETMAP", NULL);
 	}
 
 #ifdef WEBSTRFILTER
 	if (nvram_match("url_enable_x", "1")) {
-		eval("insmod", "ipt_webstr");
+		#ifdef LINUX26
+		insmod("xt_webstr", NULL);
+		#else
+		insmod("ipt_webstr", NULL);
+		#endif
 	}
 #endif
 
@@ -548,7 +644,7 @@ void convert_asus_values()
 		char *cpname = nvram_safe_get("usb_smbcset_x");
 
 		sprintf(sbuf, "nls_%s%s", (atoi(cpname) > 0) ? "cp" : "", cpname);
-		eval("insmod", sbuf);
+		insmod(sbuf, NULL);
 	}
 
         //2005/09/22 insmod FTP module
@@ -557,19 +653,33 @@ void convert_asus_values()
                 char ports[32];
 
                 sprintf(ports, "ports=21,%d", atoi(nvram_get("usb_ftpport_x")));
-                eval("insmod", "ip_conntrack_ftp", ports);
-                eval("insmod", "ip_nat_ftp", ports);
+		#ifdef LINUX26
+                insmod("nf_conntrack_ftp", ports, NULL);
+                insmod("nf_nat_ftp", ports, NULL);
+		#else
+                insmod("ip_conntrack_ftp", ports, NULL);
+                insmod("ip_nat_ftp", ports, NULL);
+		#endif
         }
         else
         {
-                eval("insmod", "ip_conntrack_ftp");
-                eval("insmod", "ip_nat_ftp");
+		#ifdef LINUX26
+                insmod("nf_conntrack_ftp", NULL);
+                insmod("nf_nat_ftp", NULL);
+		#else
+                insmod("ip_conntrack_ftp", NULL);
+                insmod("ip_nat_ftp", NULL);
+		#endif
         }
 
 	if ((nvram_match("ssh_enable", "1") && nvram_invmatch("recent_ssh_enable", "0")) ||
 	    (nvram_match("usb_ftpenable_x", "1") && nvram_invmatch("recent_ftp_enable", "0")))
 	{
-		eval("insmod", "ipt_recent");
+#if defined(LINUX26)
+		insmod("xt_recent", NULL);
+#else
+		insmod("ipt_recent", NULL);
+#endif
 	}
 
 #ifdef __CONFIG_IPV6__
@@ -577,13 +687,26 @@ void convert_asus_values()
 	nvram_unset("wan0_ipv6_addr");
 	nvram_unset("wan0_ipv6_dns");
 	nvram_set("wan0_ipv6_router", nvram_safe_get("ipv6_wan_router"));
+	nvram_set("wan0_ipv6_relay", nvram_match("ipv6_proto", "tun6rd") ?
+	    nvram_safe_get("ipv6_6rd_router") :
+	    nvram_safe_get("ipv6_sit_relay"));
+	nvram_set("wan0_ipv6_ip4size", nvram_safe_get("ipv6_6rd_ip4size"));
+
+	nvram_unset("wan_ipv6_addr_t");
 
 	if (nvram_invmatch("ipv6_proto", ""))
 	{
-#ifndef BROKEN_IPV6_CONNTRACK
-		eval("insmod", "ip6_conntrack");
-		eval("insmod", "ip6t_state");
-//		eval("insmod", "ip6t_TCPMSS");
+		char addrstr[INET6_ADDRSTRLEN];
+
+		sprintf(addrstr, "%s/%s",
+		    nvram_safe_get("ipv6_wan_addr"),
+		    nvram_safe_get("ipv6_wan_netsize"));
+		nvram_set("wan0_ipv6_addr", addrstr);
+
+#if !defined(BROKEN_IPV6_CONNTRACK) && !defined(LINUX26)
+		insmod("ip6_conntrack", NULL);
+//		insmod("ip6t_state", NULL);
+//		insmod("ip6t_TCPMSS", NULL);
 #endif
 	} else {
 		fputs_ex("/proc/sys/net/ipv6/conf/all/disable_ipv6", "1");
@@ -600,8 +723,26 @@ void convert_asus_values()
 	}
 #endif
 
+#if defined(LINUX26) && defined(QOS)
+	/* Kinda smart fast nat management */
+	fputs_ex("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
+	    nvram_match("misc_fastnat_x", "0") || !nvram_match("wan_nat_x", "1") ||
+#ifdef __CONFIG_MADWIMAX__
+	    nvram_match("wan_proto", "wimax") ||
+#endif
+#ifdef __CONFIG_MODEM__
+	    nvram_match("wan_proto", "usbmodem") ||
+#endif
+	    nvram_match("qos_enable_x", "1") ? "0" :
+#ifdef WEBSTRFILTER
+	    nvram_match("url_enable_x", "1") ? "2" :
+#endif
+	    "1");
+#endif
+
 	update_lan_status(1);
 
+	free(list);
 	dprintf("end map\n");
 }
 

@@ -1,0 +1,12 @@
+ACTION == add, DEVNAME ~~ (null|full|ptmx|tty|zero) {
+	makedev /dev/%DEVICENAME% 0666
+	next
+}
+
+DEVPATH is set, ACTION == add {
+	makedev /dev/%DEVICENAME% 0644
+}
+
+SUBSYSTEM ~~ ^(net|usb|block)$ {
+	exec /sbin/hotplug %SUBSYSTEM%;
+}

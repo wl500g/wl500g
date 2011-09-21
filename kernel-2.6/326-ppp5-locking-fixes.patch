@@ -1,0 +1,95 @@
+From 5c42de9e529d68bc0348c8b135358c3170bffa4f
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 3 Feb 2011 17:38:33 -0500
+Subject: [PATCH] NET: Fix locking issues in PPP line discipline
+
+Partial backport of kernel.org commit
+adeab1afb7de89555c69aab5ca21300c14af6369 NET: Fix locking issues in PPP, 6pack, mkiss and strip line disciplines.
+
+---
+ drivers/net/ppp_async.c   |   13 ++++++++-----
+ drivers/net/ppp_synctty.c |   13 ++++++++-----
+ 2 files changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
+index 39cea35..bdab090 100644
+--- a/drivers/net/ppp_async.c
++++ b/drivers/net/ppp_async.c
+@@ -132,13 +132,15 @@ static DEFINE_RWLOCK(disc_data_lock);
+ 
+ static struct asyncppp *ap_get(struct tty_struct *tty)
+ {
++	unsigned long flags;
+ 	struct asyncppp *ap;
+ 
+-	read_lock(&disc_data_lock);
++	read_lock_irqsave(&disc_data_lock, flags);
+ 	ap = tty->disc_data;
+ 	if (ap != NULL)
+ 		atomic_inc(&ap->refcnt);
+-	read_unlock(&disc_data_lock);
++	read_unlock_irqrestore(&disc_data_lock, flags);
++
+ 	return ap;
+ }
+ 
+@@ -210,13 +212,14 @@ ppp_asynctty_open(struct tty_struct *tty)
+ static void
+ ppp_asynctty_close(struct tty_struct *tty)
+ {
++	unsigned long flags;
+ 	struct asyncppp *ap;
+ 
+-	write_lock_irq(&disc_data_lock);
++	write_lock_irqsave(&disc_data_lock, flags);
+ 	ap = tty->disc_data;
+ 	tty->disc_data = NULL;
+-	write_unlock_irq(&disc_data_lock);
+-	if (ap == 0)
++	write_unlock_irqrestore(&disc_data_lock, flags);
++	if (!ap)
+ 		return;
+ 
+ 	/*
+diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
+index 5918fab..b5a5121 100644
+--- a/drivers/net/ppp_synctty.c
++++ b/drivers/net/ppp_synctty.c
+@@ -182,13 +182,15 @@ static DEFINE_RWLOCK(disc_data_lock);
+ 
+ static struct syncppp *sp_get(struct tty_struct *tty)
+ {
++	unsigned long flags;
+ 	struct syncppp *ap;
+ 
+-	read_lock(&disc_data_lock);
++	read_lock_irqsave(&disc_data_lock, flags);
+ 	ap = tty->disc_data;
+ 	if (ap != NULL)
+ 		atomic_inc(&ap->refcnt);
+-	read_unlock(&disc_data_lock);
++	read_unlock_irqrestore(&disc_data_lock, flags);
++
+ 	return ap;
+ }
+ 
+@@ -257,13 +259,14 @@ ppp_sync_open(struct tty_struct *tty)
+ static void
+ ppp_sync_close(struct tty_struct *tty)
+ {
++	unsigned long flags;
+ 	struct syncppp *ap;
+ 
+-	write_lock_irq(&disc_data_lock);
++	write_lock_irqsave(&disc_data_lock, flags);
+ 	ap = tty->disc_data;
+ 	tty->disc_data = NULL;
+-	write_unlock_irq(&disc_data_lock);
+-	if (ap == 0)
++	write_unlock_irqrestore(&disc_data_lock, flags);
++	if (!ap)
+ 		return;
+ 
+ 	/*
+-- 
+1.6.5.GIT

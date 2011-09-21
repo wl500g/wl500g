@@ -22,8 +22,22 @@
 
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
+#if !defined(__UCLIBC_MAJOR__) \
+ || __UCLIBC_MAJOR__ > 0 \
+ || __UCLIBC_MINOR__ > 9 \
+ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 32)
+    #define RC_SEMAPHORE_ENABLED
+#endif
+
 /* common */
-in_addr_t inet_addr_(const char *cp);
+in_addr_t ip_addr(const char *cp);
+void ip2class(char *lan_ip, char *netmask, char *buf);
+#ifdef __CONFIG_IPV6__
+int ipv6_addr(const char *str, struct in6_addr *addr6);
+int ipv6_network(struct in6_addr *addr6, int netsize);
+int ipv6_host(struct in6_addr *addr6, int netsize);
+int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size);
+#endif
 char *trim_r(char *str);
 void logmessage(char *logheader, char *fmt, ...);
 void wanmessage(char *fmt, ...);
@@ -36,15 +50,28 @@ void convert_country();
 void convert_routes();
 char *mac_conv(char *mac_name, int idx, char *buf);
 int fputs_ex(char *name, char *value);
+int insmod(char *module, ...);
+int rmmod(char *module);
+int killall(char *program, int sig);
+void setenv_tz();
+time_t update_tztime(int is_resettm);
 
 int wsrom_main(char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(char *devname, unsigned int pos, int pflag);
 
 /* udhcpc scripts */
 int udhcpc_main(int argc, char **argv);
+int start_dhcpc(char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
+#ifdef __CONFIG_IPV6__
+int dhcp6c_main(int argc, char **argv);
+int start_dhcp6c(char *wan_ifname);
+void stop_dhcp6c(void);
+#endif
 
 /* ppp scripts */
+int authup_main(int argc, char **argv);
+int authdown_main(int argc, char **argv);
 int ipup_main(int argc, char **argv);
 int ipdown_main(int argc, char **argv);
 #ifdef __CONFIG_IPV6__
@@ -64,12 +91,11 @@ int proc_check_pid(const char *pidfile);
 int console_init(void);
 pid_t run_shell(int timeout, int nowait);
 void signal_init(void);
-void fatal_signal(int sig);
 void preshutdown_system(void);
 void child_reap(int sig);
 
 /* interface */
-int ifconfig(char *ifname, int flags, char *addr, char *netmask);
+int ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
 int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
 int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 void config_loopback(void);
@@ -90,6 +116,7 @@ void wan6_down(char *ifname, int unit);
 #endif
 void lan_up_ex(char *lan_ifname);
 void lan_down_ex(char *lan_ifname);
+int wan_prefix(char *ifname, char *prefix);
 
 int hotplug_net(void);
 int wan_ifunit(char *ifname);
@@ -98,11 +125,17 @@ int start_bpalogin(void);
 int stop_bpalogin(void);
 void start_qos(char *wan_ipaddr);
 void setup_ethernet(char *wan_if);
+int ethernet_port(char *wan_if);
 int write_mac(char *devname, char *mac);
 int bpa_connect_main(int argc, char **argv);
 int bpa_disconnect_main(int argc, char **argv);
 void stop_igmpproxy(void);
 int update_resolvconf(char *ifname, int metric, int up);
+#ifdef __CONFIG_BCMWL5__
+extern void start_wl(void);
+#else
+static inline void start_wl(void) { };
+#endif
 
 /* services */
 int stop_service_main();
@@ -141,20 +174,34 @@ int start_misc(void);
 int stop_misc(void);
 int hotplug_usb(void);
 int hotplug_usb_mass(char *product);
-int hotplug_usb_webcam(char *product, int webflag);
-int remove_usb_webcam(char *product, int webflag);
+int hotplug_usb_webcam(char *product);
+int remove_usb_webcam(char *product);
 int hotplug_usb_audio(char *product);
-int remove_webcam_main(int webflag);
 int remove_storage_main(int scsi_host_no);
 int restart_ftpd();
 int ddns_updated_main();
 int sendalarm_main(int argc, char *argv[]);
-int rcamd_main(void);
-int waveserver_main(void);
 int service_handle(void);
 int mkdir_if_none(char *dir);
 void diag_PaN(void);
 int wlan_update();
+
+/* auth */
+int start_auth(char *prefix, int wan_up);
+int stop_auth(char *prefix, int wan_down);
+#ifdef __CONFIG_EAPOL__
+int start_wpa_supplicant(char *prefix, int restart);
+int stop_wpa_supplicant(void);
+int wpacli_main(int argc, char **argv);
+#endif
+#ifdef __CONFIG_TELENET__
+int start_lanauth(char *prefix, int restart);
+int stop_lanauth(void);
+#endif
+#ifdef __CONFIG_CONVEX__
+int start_authcli(char *prefix, int restart);
+int stop_authcli(void);
+#endif
 
 /* firewall */
 #ifdef __CONFIG_NETCONF__
@@ -196,14 +243,13 @@ int lsmodem_main(int argc, char **argv);
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 void hotplug_network_device(char *interface, char *action, char *product, char *device);
 void hotplug_usb_modeswitch(char *interface, char *action, char *product, char *device);
-#endif
+int usb_communication_device_processcheck(int wait_flag);
 
-enum
-{
-	WEB_NONE = 0,
-	WEB_PWCWEB,
-	WEB_OVWEB,
-	WEB_AUDIO
-} WEBTYPE;
+void hotplug_sem_open();
+void hotplug_sem_close();
+void hotplug_sem_lock();
+int  hotplug_sem_trylock();
+void hotplug_sem_unlock();
+#endif
 
 #endif /* _rc_h_ */

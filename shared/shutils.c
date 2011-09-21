@@ -207,6 +207,20 @@ _eval(char *const argv[], char *path, int timeout, int *ppid)
 			errno = flags;
 
 			if (ret != pid) {
+			#undef EVAL_DEBUG
+			#ifdef EVAL_DEBUG
+				int i;
+				char *buff = malloc(1024);
+				if (buff) {
+					strcpy(buff, "waitpid:");
+					for (i = 0; argv[i]; i++) {
+						strncat(buff, " ", 1024);
+						strncat(buff, argv[i], 1024);
+					}
+					perror(buff);
+					free(buff);
+				} else
+			#endif
 				perror("waitpid");
 				return errno;
 			}
@@ -412,7 +426,7 @@ sh_strrspn(const char *s, const char *accept)
 
 		@return	error code
 */
-int remove_from_list( char *name, char *list, int listsize )
+int remove_from_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
@@ -465,7 +479,7 @@ int remove_from_list( char *name, char *list, int listsize )
 
 		@return	error code
 */
-int add_to_list( char *name, char *list, int listsize )
+int add_to_list(const char *name, char *list, int listsize)
 {
 	int listlen = 0;
 	int namelen = 0;
@@ -496,6 +510,40 @@ int add_to_list( char *name, char *list, int listsize )
 
 	return 0;
 }
+
+/* In the space-separated/null-terminated list(haystack), try to
+ * locate the string "needle"
+ */
+char *
+find_in_list(const char *haystack, const char *needle)
+{
+	const char *ptr = haystack;
+	int needle_len = 0;
+	int haystack_len = 0;
+	int len = 0;
+
+	if (!haystack || !needle || !*haystack || !*needle)
+		return NULL;
+
+	needle_len = strlen(needle);
+	haystack_len = strlen(haystack);
+
+	while (*ptr != 0 && ptr < &haystack[haystack_len])
+	{
+		/* consume leading spaces */
+		ptr += strspn(ptr, " ");
+
+		/* what's the length of the next word */
+		len = strcspn(ptr, " ");
+
+		if ((needle_len == len) && (!strncmp(needle, ptr, len)))
+			return (char*) ptr;
+
+		ptr += len;
+	}
+	return NULL;
+}
+
 
 
 #define WLMBSS_DEV_NAME	"wlmbss"
@@ -573,7 +621,8 @@ osifname_to_nvifname( const char *osifname, char *nvifname_buf,
 	
 	memset(nvifname_buf, 0, nvifname_buf_len);
 	
-	if (strstr(osifname,"wl")){
+	if (strstr(osifname,"wl") || strstr(osifname, "br") ||
+	    strstr(osifname, "wds")) {
 		strncpy(nvifname_buf,osifname,nvifname_buf_len);
 		return 0;
 	}	

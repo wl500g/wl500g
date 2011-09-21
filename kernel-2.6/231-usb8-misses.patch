@@ -1,0 +1,161 @@
+From 41c051094c86aa870820e366051c4ce8f9c66822 Mon Sep 17 00:00:00 2001
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 27 Oct 2010 02:21:15 -0400
+Subject: [PATCH] Kernel 2.6 USB: backport of USB driver: a few missed and recent commits from upstream
+
+---
+ drivers/usb/core/devices.c  |    2 +-
+ drivers/usb/core/driver.c   |    4 ++--
+ drivers/usb/core/endpoint.c |    2 +-
+ drivers/usb/core/hub.c      |    9 ++++++---
+ drivers/usb/core/message.c  |   25 +++++++++++++------------
+ 5 files changed, 23 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/usb/core/devices.c b/drivers/usb/core/devices.c
+index 15ec826..de6ef84 100644
+--- a/drivers/usb/core/devices.c
++++ b/drivers/usb/core/devices.c
+@@ -493,7 +493,7 @@ static ssize_t usb_device_dump(char __user **buffer, size_t *nbytes, loff_t *ski
+ 	if (level > MAX_TOPO_LEVEL)
+ 		return 0;
+ 	/* allocate 2^1 pages = 8K (on i386); should be more than enough for one device */
+-        if (!(pages_start = (char*) __get_free_pages(GFP_KERNEL,1)))
++        if (!(pages_start = (char*) __get_free_pages(GFP_NOIO, 1)))
+                 return -ENOMEM;
+ 		
+ 	if (usbdev->parent && usbdev->parent->devnum != -1)
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+index 2708889..b3107df 100644
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -1679,8 +1679,8 @@ static int usb_resume(struct device *dev)
+ 	/* Avoid PM error messages for devices disconnected while suspended
+ 	 * as we'll display regular disconnect messages just a bit later.
+ 	 */
+-	if (status == -ENODEV)
+-		return 0;
++	if (status == -ENODEV || status == -ESHUTDOWN)
++		status = 0;
+ 	return status;
+ }
+ 
+diff --git a/drivers/usb/core/endpoint.c b/drivers/usb/core/endpoint.c
+index ce6767a..e2790fd 100644
+--- a/drivers/usb/core/endpoint.c
++++ b/drivers/usb/core/endpoint.c
+@@ -203,7 +203,7 @@ int usb_create_ep_files(struct device *parent,
+ 	return retval;
+ 
+ error_register:
+-	kfree(ep_dev);
++	put_device(&ep_dev->dev);
+ exit:
+ 	return retval;
+ }
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 8a3b9ed..950475e 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -2504,13 +2504,16 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
+ 	i = udev->descriptor.bMaxPacketSize0 == 0xff?
+ 	    512 : udev->descriptor.bMaxPacketSize0;
+ 	if (le16_to_cpu(udev->ep0.desc.wMaxPacketSize) != i) {
+-		if (udev->speed != USB_SPEED_FULL ||
++		if (udev->speed == USB_SPEED_LOW ||
+ 				!(i == 8 || i == 16 || i == 32 || i == 64)) {
+-			dev_err(&udev->dev, "ep0 maxpacket = %d\n", i);
++			dev_err(&udev->dev, "Invalid ep0 maxpacket: %d\n", i);
+ 			retval = -EMSGSIZE;
+ 			goto fail;
+ 		}
+-		dev_dbg(&udev->dev, "ep0 maxpacket = %d\n", i);
++		if (udev->speed == USB_SPEED_FULL)
++			dev_dbg(&udev->dev, "ep0 maxpacket = %d\n", i);
++		else
++			dev_warn(&udev->dev, "Using ep0 maxpacket: %d\n", i);
+ 		udev->ep0.desc.wMaxPacketSize = cpu_to_le16(i);
+ 		ep0_reinit(udev);
+ 	}
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 224e2b0..02e7ca4 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -877,11 +877,11 @@ char *usb_cache_string(struct usb_device *udev, int index)
+ 	if (index <= 0)
+ 		return NULL;
+ 
+-	buf = kmalloc(MAX_USB_STRING_SIZE, GFP_KERNEL);
++	buf = kmalloc(MAX_USB_STRING_SIZE, GFP_NOIO);
+ 	if (buf) {
+ 		len = usb_string(udev, index, buf, MAX_USB_STRING_SIZE);
+ 		if (len > 0) {
+-			smallbuf = kmalloc(++len, GFP_KERNEL);
++			smallbuf = kmalloc(++len, GFP_NOIO);
+ 			if (!smallbuf)
+ 				return buf;
+ 			memcpy(smallbuf, buf, len);
+@@ -1092,12 +1092,6 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
+ {
+ 	int i;
+ 
+-	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __FUNCTION__,
+-		skip_ep0 ? "non-ep0" : "all");
+-	for (i = skip_ep0; i < 16; ++i) {
+-		usb_disable_endpoint(dev, i);
+-		usb_disable_endpoint(dev, i + USB_DIR_IN);
+-	}
+ 	dev->toggle[0] = dev->toggle[1] = 0;
+ 
+ 	/* getting rid of interfaces will disconnect
+@@ -1129,6 +1123,13 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
+ 		if (dev->state == USB_STATE_CONFIGURED)
+ 			usb_set_device_state(dev, USB_STATE_ADDRESS);
+ 	}
++
++	dev_dbg(&dev->dev, "%s nuking %s URBs\n", __FUNCTION__,
++		skip_ep0 ? "non-ep0" : "all");
++	for (i = skip_ep0; i < 16; ++i) {
++		usb_disable_endpoint(dev, i);
++		usb_disable_endpoint(dev, i + USB_DIR_IN);
++	}
+ }
+ 
+ /**
+@@ -1227,7 +1228,7 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
+ 
+ 	alt = usb_altnum_to_altsetting(iface, alternate);
+ 	if (!alt) {
+-		warn("selecting invalid altsetting %d", alternate);
++		warn("selecting invalid altsetting %d\n", alternate);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1529,7 +1530,7 @@ static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
+  *
+  * See usb_queue_reset_device() for more details
+  */
+-void __usb_queue_reset_device(struct work_struct *ws)
++static void __usb_queue_reset_device(struct work_struct *ws)
+ {
+ 	int rc;
+ 	struct usb_interface *iface =
+@@ -1623,7 +1624,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
+ 	if (cp) {
+ 		nintf = cp->desc.bNumInterfaces;
+ 		new_interfaces = kmalloc(nintf * sizeof(*new_interfaces),
+-				GFP_KERNEL);
++				GFP_NOIO);
+ 		if (!new_interfaces) {
+ 			dev_err(&dev->dev, "Out of memory\n");
+ 			return -ENOMEM;
+@@ -1632,7 +1633,7 @@ int usb_set_configuration(struct usb_device *dev, int configuration)
+ 		for (; n < nintf; ++n) {
+ 			new_interfaces[n] = kzalloc(
+ 					sizeof(struct usb_interface),
+-					GFP_KERNEL);
++					GFP_NOIO);
+ 			if (!new_interfaces[n]) {
+ 				dev_err(&dev->dev, "Out of memory\n");
+ 				ret = -ENOMEM;
+-- 
+1.6.5.GIT

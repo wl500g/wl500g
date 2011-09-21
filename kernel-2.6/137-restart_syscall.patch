@@ -1,0 +1,36 @@
+From 690cc3ffe33ac4a2857583c22d4c6244ae11684d
+From: Eric W. Biederman
+Date: Wed, 13 May 2009 16:55:10 +0000
+Subject: [PATCH] syscall: Implement a convinience function restart_syscall
+
+Currently when we have a signal pending we have the functionality
+to restart that the current system call.  There are other cases
+such as nasty lock ordering issues where it makes sense to have
+a simple fix that uses try lock and restarts the system call.
+Buying time to figure out how to rework the locking strategy.
+
+Signed-off-by: Eric W. Biederman <ebiederm@aristanetworks.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/sched.h |    6 ++++++
+ 1 files changed, 6 insertions(+), 0 deletions(-)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index b4c38bc..d853f6b 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1582,6 +1582,12 @@ static inline void clear_tsk_need_resched(struct task_struct *tsk)
+ 	clear_tsk_thread_flag(tsk,TIF_NEED_RESCHED);
+ }
+ 
++static inline int restart_syscall(void)
++{
++	set_tsk_thread_flag(current, TIF_SIGPENDING);
++	return -ERESTARTNOINTR;
++}
++
+ static inline int signal_pending(struct task_struct *p)
+ {
+ 	return unlikely(test_tsk_thread_flag(p,TIF_SIGPENDING));
+-- 
+1.7.3

@@ -1,0 +1,56 @@
+From 52427c9d11477d5a2633d81050f52523decf9eff
+From: Akinobu Mita
+Date: Mon, 19 Nov 2007 22:46:51 -0800
+Subject: [PATCH] [TUN]: Use iov_length()
+
+Use iov_length() instead of tun's homemade iov_total().
+
+Signed-off-by: Akinobu Mita <akinobu.mita@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ drivers/net/tun.c |   15 ++-------------
+ 1 files changed, 2 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index f8b8c71..5db4df4 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -292,17 +292,6 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
+ 	return count;
+ }
+ 
+-static inline size_t iov_total(const struct iovec *iv, unsigned long count)
+-{
+-	unsigned long i;
+-	size_t len;
+-
+-	for (i = 0, len = 0; i < count; i++)
+-		len += iv[i].iov_len;
+-
+-	return len;
+-}
+-
+ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 			      unsigned long count, loff_t pos)
+ {
+@@ -313,7 +302,7 @@ static ssize_t tun_chr_aio_write(struct kiocb *iocb, const struct iovec *iv,
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_write %ld\n", tun->dev->name, count);
+ 
+-	return tun_get_user(tun, (struct iovec *) iv, iov_total(iv, count));
++	return tun_get_user(tun, (struct iovec *) iv, iov_length(iv, count));
+ }
+ 
+ /* Put packet to the user space buffer */
+@@ -364,7 +353,7 @@ static ssize_t tun_chr_aio_read(struct kiocb *iocb, const struct iovec *iv,
+ 
+ 	DBG(KERN_INFO "%s: tun_chr_read\n", tun->dev->name);
+ 
+-	len = iov_total(iv, count);
++	len = iov_length(iv, count);
+ 	if (len < 0)
+ 		return -EINVAL;
+ 
+-- 
+1.7.4.1

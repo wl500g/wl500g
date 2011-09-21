@@ -26,15 +26,14 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
+
 #include <bcmnvram.h>
 #include <netconf.h>
 #include <shutils.h>
-#include <rc.h>
-#include <syslog.h>
+#include "rc.h"
 
-#define logs(s) syslog(LOG_NOTICE, s)
 
-void filecat(FILE *fp, char *catted)
+static void filecat(FILE *fp, char *catted)
 {
 	FILE *cfp;
 	char line[1024];
@@ -42,7 +41,7 @@ void filecat(FILE *fp, char *catted)
 
 	if ((cfp=fopen(catted, "r"))==NULL) return;
 
-	while((i=fread(line, 1, sizeof(line), cfp)))
+	while ((i=fread(line, 1, sizeof(line), cfp)))
 	{
 		//printf("write: %s\n", line);
 		fwrite(line, 1, i, fp);
@@ -51,7 +50,7 @@ void filecat(FILE *fp, char *catted)
 	return;
 }
 
-char *nslookup(char *name, int qtype, char *ret, size_t retsize)
+static char *nslookup(char *name, int qtype, char *ret, size_t retsize)
 {
 	unsigned char	reply[1024];	/* Reply buffer */
 	char		host[MAXDNAME];
@@ -183,7 +182,7 @@ sendalarm_main(int argc, char *argv[])
 
 	if (!serverhost)
 	{
-		logs("send email alarm, but can not resolve ip of email server!");
+		logmessage("sendalarm", "send email alarm, but can not resolve ip of email server!");
 		return -2;
 	}
 	else
@@ -208,7 +207,7 @@ sendalarm_main(int argc, char *argv[])
 
 	if (nvram_match("usb_webattach_x", "1"))
 	{	
-		for(i=1;i<argc;i++)
+		for (i=1;i<argc;i++)
 		{
 			strcpy(image, argv[i]);
 			
@@ -235,7 +234,7 @@ sendalarm_main(int argc, char *argv[])
 	system(command);
 	
 	// log
-	logs("send mail alert");
+	logmessage("sendalarm", "send mail alert");
 	kill_pidfile_s("/var/run/watchdog.pid", SIGUSR2);
 
 	// clean temp file
