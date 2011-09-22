@@ -1,0 +1,51 @@
+From fc75fc8339e7727167443469027540b283daac71
+From: Eric Dumazet
+Date: Wed, 22 Dec 2010 04:39:39 +0000
+Subject: [PATCH] ipv4: dont create routes on down devices
+
+In ip_route_output_slow(), instead of allowing a route to be created on
+a not UPed device, report -ENETUNREACH immediately.
+
+# ip tunnel add mode ipip remote 10.16.0.164 local
+10.16.0.72 dev eth0
+# (Note : tunl1 is down)
+# ping -I tunl1 10.1.2.3
+PING 10.1.2.3 (10.1.2.3) from 192.168.18.5 tunl1: 56(84) bytes of data.
+(nothing)
+# ./a.out tunl1
+# ip tunnel del tunl1
+Message from syslogd@shelby at Dec 22 10:12:08 ...
+  kernel: unregister_netdevice: waiting for tunl1 to become free.
+Usage count = 3
+
+After patch:
+# ping -I tunl1 10.1.2.3
+connect: Network is unreachable
+
+Reported-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Reviewed-by: Octavian Purdila <opurdila@ixiacom.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/route.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 987bf9a..df948b0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2585,9 +2585,10 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,
+ 			goto out;
+ 
+ 		/* RACE: Check return value of inet_select_addr instead. */
+-		if (__in_dev_get_rtnl(dev_out) == NULL) {
++		if (!(dev_out->flags & IFF_UP) || !__in_dev_get_rtnl(dev_out)) {
+ 			dev_put(dev_out);
+-			goto out;	/* Wrong error code */
++			err = -ENETUNREACH;
++			goto out;
+ 		}
+ 
+ 		if (LOCAL_MCAST(oldflp->fl4_dst) || oldflp->fl4_dst == htonl(0xFFFFFFFF)) {
+-- 
+1.7.3.4

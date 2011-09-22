@@ -1,0 +1,303 @@
+From aadb4bc4a1f9108c1d0fbd121827c936c2ed4217
+From: Christoph Lameter
+Date: Tue, 16 Oct 2007 01:24:38 -0700
+Subject: [PATCH] SLUB: direct pass through of page size or higher kmalloc requests
+
+This gets rid of all kmalloc caches larger than page size.  A kmalloc
+request larger than PAGE_SIZE > 2 is going to be passed through to the page
+allocator.  This works both inline where we will call __get_free_pages
+instead of kmem_cache_alloc and in __kmalloc.
+
+kfree is modified to check if the object is in a slab page. If not then
+the page is freed via the page allocator instead. Roughly similar to what
+SLOB does.
+
+Advantages:
+- Reduces memory overhead for kmalloc array
+- Large kmalloc operations are faster since they do not
+  need to pass through the slab allocator to get to the
+  page allocator.
+- Performance increase of 10%-20% on alloc and 50% on free for
+  PAGE_SIZEd allocations.
+  SLUB must call page allocator for each alloc anyways since
+  the higher order pages which that allowed avoiding the page alloc calls
+  are not available in a reliable way anymore. So we are basically removing
+  useless slab allocator overhead.
+- Large kmallocs yields page aligned object which is what
+  SLAB did. Bad things like using page sized kmalloc allocations to
+  stand in for page allocate allocs can be transparently handled and are not
+  distinguishable from page allocator uses.
+- Checking for too large objects can be removed since
+  it is done by the page allocator.
+
+Drawbacks:
+- No accounting for large kmalloc slab allocations anymore
+- No debugging of large kmalloc slab allocations.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/slub_def.h |   57 +++++++++++++++++------------------------
+ mm/slub.c                |   63 +++++++++++++++++++++++++++------------------
+ 2 files changed, 62 insertions(+), 58 deletions(-)
+
+diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
+index 7496207..3b361b2 100644
+--- a/include/linux/slub_def.h
++++ b/include/linux/slub_def.h
+@@ -72,7 +72,7 @@ struct kmem_cache {
+  * We keep the general caches in an array of slab caches that are used for
+  * 2^x bytes of allocations.
+  */
+-extern struct kmem_cache kmalloc_caches[KMALLOC_SHIFT_HIGH + 1];
++extern struct kmem_cache kmalloc_caches[PAGE_SHIFT];
+ 
+ /*
+  * Sorry that the following has to be that ugly but some versions of GCC
+@@ -83,9 +83,6 @@ static __always_inline int kmalloc_index(size_t size)
+ 	if (!size)
+ 		return 0;
+ 
+-	if (size > KMALLOC_MAX_SIZE)
+-		return -1;
+-
+ 	if (size <= KMALLOC_MIN_SIZE)
+ 		return KMALLOC_SHIFT_LOW;
+ 
+@@ -102,6 +99,10 @@ static __always_inline int kmalloc_index(size_t size)
+ 	if (size <=        512) return 9;
+ 	if (size <=       1024) return 10;
+ 	if (size <=   2 * 1024) return 11;
++/*
++ * The following is only needed to support architectures with a larger page
++ * size than 4k.
++ */
+ 	if (size <=   4 * 1024) return 12;
+ 	if (size <=   8 * 1024) return 13;
+ 	if (size <=  16 * 1024) return 14;
+@@ -109,13 +110,9 @@ static __always_inline int kmalloc_index(size_t size)
+ 	if (size <=  64 * 1024) return 16;
+ 	if (size <= 128 * 1024) return 17;
+ 	if (size <= 256 * 1024) return 18;
+-	if (size <=  512 * 1024) return 19;
++	if (size <= 512 * 1024) return 19;
+ 	if (size <= 1024 * 1024) return 20;
+ 	if (size <=  2 * 1024 * 1024) return 21;
+-	if (size <=  4 * 1024 * 1024) return 22;
+-	if (size <=  8 * 1024 * 1024) return 23;
+-	if (size <= 16 * 1024 * 1024) return 24;
+-	if (size <= 32 * 1024 * 1024) return 25;
+ 	return -1;
+ 
+ /*
+@@ -140,19 +137,6 @@ static __always_inline struct kmem_cache *kmalloc_slab(size_t size)
+ 	if (index == 0)
+ 		return NULL;
+ 
+-	/*
+-	 * This function only gets expanded if __builtin_constant_p(size), so
+-	 * testing it here shouldn't be needed.  But some versions of gcc need
+-	 * help.
+-	 */
+-	if (__builtin_constant_p(size) && index < 0) {
+-		/*
+-		 * Generate a link failure. Would be great if we could
+-		 * do something to stop the compile here.
+-		 */
+-		extern void __kmalloc_size_too_large(void);
+-		__kmalloc_size_too_large();
+-	}
+ 	return &kmalloc_caches[index];
+ }
+ 
+@@ -168,15 +152,21 @@ void *__kmalloc(size_t size, gfp_t flags);
+ 
+ static inline void *kmalloc(size_t size, gfp_t flags)
+ {
+-	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
+-		struct kmem_cache *s = kmalloc_slab(size);
++	if (__builtin_constant_p(size)) {
++		if (size > PAGE_SIZE / 2)
++			return (void *)__get_free_pages(flags | __GFP_COMP,
++							get_order(size));
+ 
+-		if (!s)
+-			return ZERO_SIZE_PTR;
++		if (!(flags & SLUB_DMA)) {
++			struct kmem_cache *s = kmalloc_slab(size);
++
++			if (!s)
++				return ZERO_SIZE_PTR;
+ 
+-		return kmem_cache_alloc(s, flags);
+-	} else
+-		return __kmalloc(size, flags);
++			return kmem_cache_alloc(s, flags);
++		}
++	}
++	return __kmalloc(size, flags);
+ }
+ 
+ #ifdef CONFIG_NUMA
+@@ -185,15 +175,16 @@ void *kmem_cache_alloc_node(struct kmem_cache *, gfp_t flags, int node);
+ 
+ static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
+ {
+-	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
+-		struct kmem_cache *s = kmalloc_slab(size);
++	if (__builtin_constant_p(size) &&
++		size <= PAGE_SIZE / 2 && !(flags & SLUB_DMA)) {
++			struct kmem_cache *s = kmalloc_slab(size);
+ 
+ 		if (!s)
+ 			return ZERO_SIZE_PTR;
+ 
+ 		return kmem_cache_alloc_node(s, flags, node);
+-	} else
+-		return __kmalloc_node(size, flags, node);
++	}
++	return __kmalloc_node(size, flags, node);
+ }
+ #endif
+ 
+diff --git a/mm/slub.c b/mm/slub.c
+index 0eab12b..edeb942 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2127,11 +2127,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);
+  *		Kmalloc subsystem
+  *******************************************************************/
+ 
+-struct kmem_cache kmalloc_caches[KMALLOC_SHIFT_HIGH + 1] __cacheline_aligned;
++struct kmem_cache kmalloc_caches[PAGE_SHIFT] __cacheline_aligned;
+ EXPORT_SYMBOL(kmalloc_caches);
+ 
+ #ifdef CONFIG_ZONE_DMA
+-static struct kmem_cache *kmalloc_caches_dma[KMALLOC_SHIFT_HIGH + 1];
++static struct kmem_cache *kmalloc_caches_dma[PAGE_SHIFT];
+ #endif
+ 
+ static int __init setup_slub_min_order(char *str)
+@@ -2297,12 +2297,8 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
+ 			return ZERO_SIZE_PTR;
+ 
+ 		index = size_index[(size - 1) / 8];
+-	} else {
+-		if (size > KMALLOC_MAX_SIZE)
+-			return NULL;
+-
++	} else
+ 		index = fls(size - 1);
+-	}
+ 
+ #ifdef CONFIG_ZONE_DMA
+ 	if (unlikely((flags & SLUB_DMA))) {
+@@ -2314,9 +2310,15 @@ static struct kmem_cache *get_slab(size_t size, gfp_t flags)
+ 
+ void *__kmalloc(size_t size, gfp_t flags)
+ {
+-	struct kmem_cache *s = get_slab(size, flags);
++	struct kmem_cache *s;
+ 
+-	if (ZERO_OR_NULL_PTR(s))
++	if (unlikely(size > PAGE_SIZE / 2))
++		return (void *)__get_free_pages(flags | __GFP_COMP,
++							get_order(size));
++
++	s = get_slab(size, flags);
++
++	if (unlikely(ZERO_OR_NULL_PTR(s)))
+ 		return s;
+ 
+ 	return slab_alloc(s, flags, -1, __builtin_return_address(0), size);
+@@ -2326,9 +2328,15 @@ EXPORT_SYMBOL(__kmalloc);
+ #ifdef CONFIG_NUMA
+ void *__kmalloc_node(size_t size, gfp_t flags, int node)
+ {
+-	struct kmem_cache *s = get_slab(size, flags);
++	struct kmem_cache *s;
+ 
+-	if (ZERO_OR_NULL_PTR(s))
++	if (unlikely(size > PAGE_SIZE / 2))
++		return (void *)__get_free_pages(flags | __GFP_COMP,
++							get_order(size));
++
++	s = get_slab(size, flags);
++
++	if (unlikely(ZERO_OR_NULL_PTR(s)))
+ 		return s;
+ 
+ 	return slab_alloc(s, flags, node, __builtin_return_address(0), size);
+@@ -2373,16 +2381,18 @@ EXPORT_SYMBOL(ksize);
+ 
+ void kfree(const void *x)
+ {
+-	struct kmem_cache *s;
+ 	struct page *page;
++	void *object = (void *)x;
+ 
+ 	if (unlikely(ZERO_OR_NULL_PTR(x)))
+ 		return;
+ 
+ 	page = virt_to_head_page(x);
+-	s = page->slab;
+-
+-	slab_free(s, page, (void *)x, __builtin_return_address(0));
++	if (unlikely(!PageSlab(page))) {
++		put_page(page);
++		return;
++	}
++	slab_free(page->slab, page, object, __builtin_return_address(0));
+ }
+ EXPORT_SYMBOL(kfree);
+ 
+@@ -2502,7 +2505,7 @@ void __init kmem_cache_init(void)
+ 		caches++;
+ 	}
+ 
+-	for (i = KMALLOC_SHIFT_LOW; i <= KMALLOC_SHIFT_HIGH; i++) {
++	for (i = KMALLOC_SHIFT_LOW; i < PAGE_SHIFT; i++) {
+ 		create_kmalloc_cache(&kmalloc_caches[i],
+ 			"kmalloc", 1 << i, GFP_KERNEL);
+ 		caches++;
+@@ -2529,7 +2532,7 @@ void __init kmem_cache_init(void)
+ 	slab_state = UP;
+ 
+ 	/* Provide the correct kmalloc names now that the caches are up */
+-	for (i = KMALLOC_SHIFT_LOW; i <= KMALLOC_SHIFT_HIGH; i++)
++	for (i = KMALLOC_SHIFT_LOW; i < PAGE_SHIFT; i++)
+ 		kmalloc_caches[i]. name =
+ 			kasprintf(GFP_KERNEL, "kmalloc-%d", 1 << i);
+ 
+@@ -2690,7 +2693,12 @@ static struct notifier_block __cpuinitdata slab_notifier =
+ 
+ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
+ {
+-	struct kmem_cache *s = get_slab(size, gfpflags);
++	struct kmem_cache *s;
++
++	if (unlikely(size > PAGE_SIZE / 2))
++		return (void *)__get_free_pages(gfpflags | __GFP_COMP,
++							get_order(size));
++	s = get_slab(size, gfpflags);
+ 
+ 	if (unlikely(ZERO_OR_NULL_PTR(s)))
+ 		return s;
+@@ -2701,7 +2709,12 @@ void *__kmalloc_track_caller(size_t size, gfp_t gfpflags, void *caller)
+ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,
+ 					int node, void *caller)
+ {
+-	struct kmem_cache *s = get_slab(size, gfpflags);
++	struct kmem_cache *s;
++
++	if (unlikely(size > PAGE_SIZE / 2))
++		return (void *)__get_free_pages(gfpflags | __GFP_COMP,
++							get_order(size));
++	s = get_slab(size, gfpflags);
+ 
+ 	if (unlikely(ZERO_OR_NULL_PTR(s)))
+ 		return s;
+-- 
+1.7.0.2
+

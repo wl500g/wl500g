@@ -1,0 +1,40 @@
+From f4d900a2cae94256f56be7769734100c7054bf00
+From: Patrick McHardy
+Date: Wed, 5 Dec 2007 03:31:53 -0800
+Subject: [PATCH] [NETLINK]: Mark attribute construction exception unlikely
+
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/netlink.h |    2 +-
+ include/net/netlink.h   |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index d5bfaba..2aee0f5 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -245,7 +245,7 @@ __nlmsg_put(struct sk_buff *skb, u32 pid, u32 seq, int type, int len, int flags)
+ }
+ 
+ #define NLMSG_NEW(skb, pid, seq, type, len, flags) \
+-({	if (skb_tailroom(skb) < (int)NLMSG_SPACE(len)) \
++({	if (unlikely(skb_tailroom(skb) < (int)NLMSG_SPACE(len))) \
+ 		goto nlmsg_failure; \
+ 	__nlmsg_put(skb, pid, seq, type, len, flags); })
+ 
+diff --git a/include/net/netlink.h b/include/net/netlink.h
+index 9298218..db4b935 100644
+--- a/include/net/netlink.h
++++ b/include/net/netlink.h
+@@ -862,7 +862,7 @@ static inline int nla_put_msecs(struct sk_buff *skb, int attrtype,
+ 
+ #define NLA_PUT(skb, attrtype, attrlen, data) \
+ 	do { \
+-		if (nla_put(skb, attrtype, attrlen, data) < 0) \
++		if (unlikely(nla_put(skb, attrtype, attrlen, data) < 0)) \
+ 			goto nla_put_failure; \
+ 	} while(0)
+ 
+-- 
+1.7.3

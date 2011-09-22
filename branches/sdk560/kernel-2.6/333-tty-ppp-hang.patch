@@ -1,0 +1,102 @@
+From c9b3976e3fec266be25c5001a70aa0a890b6c476
+From: Alan Cox
+Date: Fri, 2 Jan 2009 13:44:56 +0000
+Subject: [PATCH] tty: Fix PPP hang under load
+
+Signed-off-by: Alan Cox <alan@redhat.com>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ drivers/char/tty_io.c |   30 +++++++++++++++++++++---------
+ include/linux/tty.h   |    1 +
+ 2 files changed, 22 insertions(+), 9 deletions(-)
+
+diff --git a/drivers/char/tty_ldisc.c b/drivers/char/tty_ldisc.c
+index f307f13..7a84b40 100644
+--- a/drivers/char/tty_io.c
++++ b/drivers/char/tty_io.c
+@@ -853,8 +853,7 @@ struct tty_ldisc *tty_ldisc_ref_wait(str
+ {
+ 	/* wait_event is a macro */
+ 	wait_event(tty_ldisc_wait, tty_ldisc_try(tty));
+-	if(tty->ldisc.refcount == 0)
+-		printk(KERN_ERR "tty_ldisc_ref_wait\n");
++	WARN_ON(tty->ldisc.refcount == 0);
+ 	return &tty->ldisc;
+ }
+ 
+@@ -913,15 +912,17 @@ EXPORT_SYMBOL_GPL(tty_ldisc_deref);
+  *	@tty: terminal to activate ldisc on
+  *
+  *	Set the TTY_LDISC flag when the line discipline can be called
+- *	again. Do neccessary wakeups for existing sleepers.
++ *	again. Do neccessary wakeups for existing sleepers. Clear the LDISC
++ *	changing flag to indicate any ldisc change is now over.
+  *
+- *	Note: nobody should set this bit except via this function. Clearing
+- *	directly is allowed.
++ *	Note: nobody should set the TTY_LDISC bit except via this function.
++ *	Clearing directly is allowed.
+  */
+ 
+ static void tty_ldisc_enable(struct tty_struct *tty)
+ {
+ 	set_bit(TTY_LDISC, &tty->flags);
++	clear_bit(TTY_LDISC_CHANGING, &tty->flags);
+ 	wake_up(&tty_ldisc_wait);
+ }
+ 	
+@@ -988,7 +989,14 @@ restart:
+ 	 *	reference to the line discipline. The TTY_LDISC bit
+ 	 *	prevents anyone taking a reference once it is clear.
+ 	 *	We need the lock to avoid racing reference takers.
++	 *
++	 *	We must clear the TTY_LDISC bit here to avoid a livelock
++	 *	with a userspace app continually trying to use the tty in
++	 *	parallel to the change and re-referencing the tty.
+ 	 */
++	clear_bit(TTY_LDISC, &tty->flags);
++	if (o_tty)
++		clear_bit(TTY_LDISC, &o_tty->flags);
+ 
+ 	spin_lock_irqsave(&tty_ldisc_lock, flags);
+ 	if (tty->ldisc.refcount || (o_tty && o_tty->ldisc.refcount)) {
+@@ -1019,17 +1027,21 @@ restart:
+ 
+ 	/* if the TTY_LDISC bit is set, then we are racing against another ldisc change */
+ 
+-	if (!test_bit(TTY_LDISC, &tty->flags)) {
++	if (test_bit(TTY_LDISC_CHANGING, &tty->flags)) {
+ 		spin_unlock_irqrestore(&tty_ldisc_lock, flags);
+ 		tty_ldisc_put(ldisc);
+ 		ld = tty_ldisc_ref_wait(tty);
+ 		tty_ldisc_deref(ld);
+ 		goto restart;
+ 	}
+-
+-	clear_bit(TTY_LDISC, &tty->flags);
++	/*
++	 *	This flag is used to avoid two parallel ldisc changes. Once
++	 *	open and close are fine grained locked this may work better
++	 *	as a mutex shared with the open/close/hup paths
++	 */
++	set_bit(TTY_LDISC_CHANGING, &tty->flags);
+ 	if (o_tty)
+-		clear_bit(TTY_LDISC, &o_tty->flags);
++		set_bit(TTY_LDISC_CHANGING, &o_tty->flags);
+ 	spin_unlock_irqrestore(&tty_ldisc_lock, flags);
+ 
+ 	/*
+diff --git a/include/linux/tty.h b/include/linux/tty.h
+index f881697..bbbeaef 100644
+--- a/include/linux/tty.h
++++ b/include/linux/tty.h
+@@ -301,6 +301,7 @@ struct tty_struct {
+ #define TTY_PUSH 		6	/* n_tty private */
+ #define TTY_CLOSING 		7	/* ->close() in progress */
+ #define TTY_LDISC 		9	/* Line discipline attached */
++#define TTY_LDISC_CHANGING 	10	/* Line discipline changing */
+ #define TTY_HW_COOK_OUT 	14	/* Hardware can do output cooking */
+ #define TTY_HW_COOK_IN 		15	/* Hardware can do input cooking */
+ #define TTY_PTY_LOCK 		16	/* pty private */
+-- 
+1.7.1

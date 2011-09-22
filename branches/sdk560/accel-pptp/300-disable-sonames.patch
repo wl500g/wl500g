@@ -1,0 +1,24 @@
+diff -BurpN accel-pptp.orig/pppd_plugin/src/Makefile.am accel-pptp/pppd_plugin/src/Makefile.am
+--- accel-pptp.orig/pppd_plugin/src/Makefile.am	2009-08-16 09:26:30.000000000 +0000
++++ accel-pptp/pppd_plugin/src/Makefile.am	2009-08-16 08:36:25.000000000 +0000
+@@ -4,7 +4,7 @@ INCLUDES = $(all_includes)
+ 
+ # the library search path.
+ lib_LTLIBRARIES = pptp.la
+-pptp_la_LDFLAGS = -module
++pptp_la_LDFLAGS = -module -avoid-version
+ pptp_la_SOURCES = pptp.c pptp_callmgr.c pptp_ctrl.c util.c vector.c \
+ 	dirutil.c pptp_quirks.c orckit_quirks.c
+ noinst_HEADERS = pptp_callmgr.h pptp_ctrl.h util.h vector.h pptp_options.h \
+diff -BurpN accel-pptp.orig/pppd_plugin/src/Makefile.in accel-pptp/pppd_plugin/src/Makefile.in
+--- accel-pptp.orig/pppd_plugin/src/Makefile.in	2009-08-16 08:36:25.000000000 +0000
++++ accel-pptp/pppd_plugin/src/Makefile.in	2009-08-16 09:41:25.000000000 +0000
+@@ -188,7 +188,7 @@ INCLUDES = $(all_includes)
+ 
+ # the library search path.
+ lib_LTLIBRARIES = pptp.la
+-pptp_la_LDFLAGS = -module
++pptp_la_LDFLAGS = -module -avoid-version
+ pptp_la_SOURCES = pptp.c pptp_callmgr.c pptp_ctrl.c util.c vector.c \
+ 	dirutil.c pptp_quirks.c orckit_quirks.c
+ 

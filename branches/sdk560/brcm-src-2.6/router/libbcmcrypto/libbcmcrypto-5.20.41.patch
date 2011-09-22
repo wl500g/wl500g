@@ -1,0 +1,47 @@
+--- libbcmcrypto.orig/Makefile	2010-01-07 03:07:03.000000000 +0000
++++ libbcmcrypto/Makefile	2010-02-09 10:05:12.000000000 +0000
+@@ -20,7 +20,7 @@ CFLAGS	+= -s -O2
+ LDFLAGS += -L.
+ 
+ vpath %.c $(SRCBASE)/bcmcrypto
+-vpath %.o $(SRCBASE)/router/libbcmcrypto/prebuilt
++vpath %.o $(TOP)/libbcmcrypto/prebuilt
+ 
+ OBJS := aes.o aeskeywrap.o rijndael-alg-fst.o dh.o bn.o sha1.o passhash.o prf.o md5.o hmac.o rc4.o random.o
+ ifeq ($(CONFIG_WSCCMD), y)
+@@ -36,8 +36,9 @@ SYM := .symbols
+ all: libbcmcrypto.so
+ 
+ install: all
++	rm -rf $(INSTALLDIR)
+ 	install -d $(INSTALLDIR)/usr/lib
+-	install -m 755 libbcmcrypto.so $(INSTALLDIR)/usr/lib
++	install -m 755 libbcmcrypto.so $(INSTALLDIR)/usr/lib/libbcmcrypto.so
+ 	$(STRIP) $(INSTALLDIR)/usr/lib/libbcmcrypto.so
+ 
+ clean:
+@@ -46,8 +47,11 @@ clean:
+ libbcmcrypto.so: $(OBJS)
+ 	$(LD) -shared -o $@ $^
+ 
++libbcmcrypto.a: $(OBJS)
++	$(AR) cr $@ $^
++
+ # rule for removing unneeded symbols in the shared library
+-optimize: libbcmcrypto.so
++optimize: libbcmcrypto.so libbcmcrypto.a
+ 	$(NM) -o --defined-only --no-sort libbcmcrypto.so | cut -d' ' -f3 > $(MAP)
+ 	$(NM) --dynamic -u --no-sort $(BINARIES) | sort -u > $(UNR)
+ 	rm -rf $(SYM)
+@@ -56,9 +60,8 @@ optimize: libbcmcrypto.so
+ 	fi ; done
+ 	# if no symbols are needed then delete the shared lib
+ 	if ls $(SYM) ; then \
+-	$(AR) cr libbcmcrypto.a $(OBJS) ; \
+-	xargs -t $(LD) -shared -o libbcmcrypto.so libbcmcrypto.a < $(SYM) ; \
+-	install libbcmcrypto.so $(TARGETDIR)/usr/lib ; \
++	xargs -t $(LD) -shared -o lib.so libbcmcrypto.a < $(SYM) ; \
++	install lib.so $(TARGETDIR)/usr/lib/libbcmcrypto.so ; \
+ 	$(STRIP) $(TARGETDIR)/usr/lib/libbcmcrypto.so ; \
+ 	else \
+ 	rm $(TARGETDIR)/usr/lib/libbcmcrypto.so ; fi

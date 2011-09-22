@@ -1,0 +1,11 @@
+diff -urBbwp -x'.*' -x'*.o' linux-N16/include/linux/skbuff.h linux-N12/include/linux/skbuff.h
+--- linux-N16/include/linux/skbuff.h	2010-08-15 02:59:15.000000000 +0400
++++ linux-N12/include/linux/skbuff.h	2010-08-15 03:06:53.000000000 +0400
+@@ -315,6 +315,7 @@ struct sk_buff {
+ 				*data;
+ 	unsigned int		truesize;
+ 	atomic_t		users;
++	unsigned char		wl_idx;		/* Jiahao: index of wireless interface */
+ };
+ 
+ #ifdef __KERNEL__

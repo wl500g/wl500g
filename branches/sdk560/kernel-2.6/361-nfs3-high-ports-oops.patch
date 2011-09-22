@@ -1,0 +1,58 @@
+From b663c6fd98c9cf586279db03cec3257c413efd00
+From: J. Bruce Fields
+Date: Fri, 14 Mar 2008 19:37:11 -0400
+Subject: [PATCH] nfsd: fix oops on access from high-numbered ports
+
+This bug was always here, but before my commit 6fa02839bf9412e18e77
+("recheck for secure ports in fh_verify"), it could only be triggered by
+failure of a kmalloc().  After that commit it could be triggered by a
+client making a request from a non-reserved port for access to an export
+marked "secure".  (Exports are "secure" by default.)
+
+The result is a struct svc_export with a reference count one too low,
+resulting in likely oopses next time the export is accessed.
+
+The reference counting here is not straightforward; a later patch will
+clean up fh_verify().
+
+Thanks to Lukas Hejtmanek for the bug report and followup.
+
+Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
+Cc: Lukas Hejtmanek <xhejtman@ics.muni.cz>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ fs/nfsd/nfsfh.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/fs/nfsd/nfsfh.c b/fs/nfsd/nfsfh.c
+index 1eb771d..3e6b3f4 100644
+--- a/fs/nfsd/nfsfh.c
++++ b/fs/nfsd/nfsfh.c
+@@ -232,6 +232,7 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
+ 
+ 		fhp->fh_dentry = dentry;
+ 		fhp->fh_export = exp;
++		cache_get(&exp->h);
+ 	} else {
+ 		/* just rechecking permissions
+ 		 * (e.g. nfsproc_create calls fh_verify, then nfsd_create does as well)
+@@ -241,6 +242,7 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
+ 		dprintk("nfsd: fh_verify - just checking\n");
+ 		dentry = fhp->fh_dentry;
+ 		exp = fhp->fh_export;
++		cache_get(&exp->h);
+ 		/* Set user creds for this exportpoint; necessary even
+ 		 * in the "just checking" case because this may be a
+ 		 * filehandle that was created by fh_compose, and that
+@@ -252,8 +254,6 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)
+ 		if (error)
+ 			goto out;
+ 	}
+-	cache_get(&exp->h);
+-
+ 
+ 	error = nfsd_mode_check(rqstp, dentry->d_inode->i_mode, type);
+ 	if (error)
+-- 
+1.7.1
+

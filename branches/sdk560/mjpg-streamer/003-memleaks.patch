@@ -1,0 +1,19 @@
+--- a/mjpg-streamer/plugins/input_uvc/v4l2uvc.c	2010-09-19 10:16:16.000000000 +0400
++++ b/mjpg-streamer/plugins/input_uvc/v4l2uvc.c	2010-09-19 10:17:31.000000000 +0400
+@@ -261,11 +261,16 @@ static int init_v4l2(struct vdIn *vd)
+    */
+   struct v4l2_streamparm *setfps;
+   setfps = (struct v4l2_streamparm *) calloc(1, sizeof(struct v4l2_streamparm));
++  if (setfps == NULL) {
++    perror("Unable to allocate param buffer");
++    goto fatal;
++  }
+   memset(setfps, 0, sizeof(struct v4l2_streamparm));
+   setfps->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+   setfps->parm.capture.timeperframe.numerator = 1;
+   setfps->parm.capture.timeperframe.denominator = vd->fps;
+   ret = IOCTL_VIDEO(vd->fd, VIDIOC_S_PARM, setfps);
++  free(setfps);
+ 
+   /*
+    * request buffers

@@ -1,0 +1,456 @@
+IDE: updates from upstream
+
+ kernel.org commits
+ 41e9d344bf52c57ec16648d08618b61d3f1d4bdc IDE: fix termination of non-fs requests
+ 55c16a70041ba55e235c5944dccb9c1de0dd3ca6 IDE: sg chaining support
+ bbc615b16d64643a3d22ab4890fde1a685e86d83 ide: use __ide_end_request() in ide_end_dequeued_request()
+ c86ae7df90a26708e9e54e3a362046873d874e6c ide-cd: remove dead post_transform_command()
+ 5e36bb6ee8d5ff6c6114b60d2aaa1c70d4275f4e blk_end_request: changing ide normal caller (take 4)
+ 3b0e044d5a881c937293a045158149514b86783c ide: another possible ide panic fix for blk-end-request
+ a72b2147ec9e77be68308ba06190603550d1cb61 ide: push ide_lock to __ide_end_request()
+ 3c8a2cce47c6813383c9e38134e31f7e5f72e9d8 ide: ide_lock + __blk_end_request() -> blk_end_request()
+ 1caf236dafb7291f9fdfe54b12dd945aec0dca03 ide: add ide_end_rq() (v2)
+ 37245aabfa0c628ba884cd88fe5cd633b426a1b2 ide: sanitize ide_end_rq()
+
+---
+ drivers/ide/cris/ide-cris.c   |    3 
+ drivers/ide/ide-cd.c          |   38 +----------
+ drivers/ide/ide-dma.c         |    2 
+ drivers/ide/ide-io.c          |  139 +++++++++++-------------------------------
+ drivers/ide/ide-probe.c       |    2 
+ drivers/ide/ide-taskfile.c    |   18 ++++-
+ drivers/ide/mips/au1xxx-ide.c |    2 
+ drivers/ide/pci/sgiioc4.c     |    3 
+ drivers/ide/ppc/pmac.c        |    2 
+ include/linux/ide.h           |    6 -
+ 10 files changed, 68 insertions(+), 147 deletions(-)
+
+diff -urBp a/drivers/ide/cris/ide-cris.c b/drivers/ide/cris/ide-cris.c
+--- a/drivers/ide/cris/ide-cris.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/cris/ide-cris.c	2011-03-05 13:51:36.000000000 +0300
+@@ -951,7 +951,8 @@ static int cris_ide_build_dmatable (ide_
+ 		/* group sequential buffers into one large buffer */
+ 		addr = page_to_phys(sg->page) + sg->offset;
+ 		size = sg_dma_len(sg);
+-		while (sg++, --i) {
++		while (--i) {
++			sg = sg_next(sg);
+ 			if ((addr + size) != page_to_phys(sg->page) + sg->offset)
+ 				break;
+ 			size += sg_dma_len(sg);
+diff -urBp a/drivers/ide/ide-cd.c b/drivers/ide/ide-cd.c
+--- a/drivers/ide/ide-cd.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-cd.c	2011-03-05 15:59:55.000000000 +0300
+@@ -650,14 +650,14 @@ static void cdrom_end_request (ide_drive
+ 			 * now end failed request
+ 			 */
+ 			if (blk_fs_request(failed)) {
+-				if (ide_end_dequeued_request(drive, failed, 0,
+-						failed->hard_nr_sectors))
++				if (ide_end_rq(drive, failed, -EIO,
++						failed->hard_nr_sectors << 9))
+ 					BUG();
+ 			} else {
+ 				spin_lock_irqsave(&ide_lock, flags);
+-				end_that_request_chunk(failed, 0,
+-							failed->data_len);
+-				end_that_request_last(failed, 0);
++				if (__blk_end_request(failed, -EIO,
++						      failed->data_len))
++					BUG();
+ 				spin_unlock_irqrestore(&ide_lock, flags);
+ 			}
+ 		} else
+@@ -1650,31 +1650,6 @@ static int cdrom_write_check_ireason(ide
+ 	return 1;
+ }
+ 
+-static void post_transform_command(struct request *req)
+-{
+-	u8 *c = req->cmd;
+-	char *ibuf;
+-
+-	if (!blk_pc_request(req))
+-		return;
+-
+-	if (req->bio)
+-		ibuf = bio_data(req->bio);
+-	else
+-		ibuf = req->data;
+-
+-	if (!ibuf)
+-		return;
+-
+-	/*
+-	 * set ansi-revision and response data as atapi
+-	 */
+-	if (c[0] == GPCMD_INQUIRY) {
+-		ibuf[2] |= 2;
+-		ibuf[3] = (ibuf[3] & 0xf0) | 2;
+-	}
+-}
+-
+ typedef void (xfer_func_t)(ide_drive_t *, void *, u32);
+ 
+ /*
+@@ -1810,9 +1785,6 @@ static ide_startstop_t cdrom_newpc_intr(
+ 	return ide_started;
+ 
+ end_request:
+-	if (!rq->data_len)
+-		post_transform_command(rq);
+-
+ 	spin_lock_irqsave(&ide_lock, flags);
+ 	blkdev_dequeue_request(rq);
+ 	end_that_request_last(rq, 1);
+diff -urBp a/drivers/ide/ide-dma.c b/drivers/ide/ide-dma.c
+--- a/drivers/ide/ide-dma.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-dma.c	2011-03-05 13:51:36.000000000 +0300
+@@ -294,7 +294,7 @@ int ide_build_dmatable (ide_drive_t *dri
+ 			}
+ 		}
+ 
+-		sg++;
++		sg = sg_next(sg);
+ 		i--;
+ 	}
+ 
+diff -urBp a/drivers/ide/ide-io.c b/drivers/ide/ide-io.c
+--- a/drivers/ide/ide-io.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-io.c	2011-03-05 16:07:20.000000000 +0300
+@@ -54,21 +54,9 @@
+ #include <asm/io.h>
+ #include <asm/bitops.h>
+ 
+-static int __ide_end_request(ide_drive_t *drive, struct request *rq,
+-			     int uptodate, int nr_sectors)
++int ide_end_rq(ide_drive_t *drive, struct request *rq, int error,
++	       unsigned int nr_bytes)
+ {
+-	int ret = 1;
+-
+-	/*
+-	 * if failfast is set on a request, override number of sectors and
+-	 * complete the whole request right now
+-	 */
+-	if (blk_noretry_request(rq) && end_io_error(uptodate))
+-		nr_sectors = rq->hard_nr_sectors;
+-
+-	if (!blk_fs_request(rq) && end_io_error(uptodate) && !rq->errors)
+-		rq->errors = -EIO;
+-
+ 	/*
+ 	 * decide whether to reenable DMA -- 3 is a random magic for now,
+ 	 * if we DMA timeout more than 3 times, just stay in PIO
+@@ -78,17 +66,9 @@ static int __ide_end_request(ide_drive_t
+ 		HWGROUP(drive)->hwif->ide_dma_on(drive);
+ 	}
+ 
+-	if (!end_that_request_first(rq, uptodate, nr_sectors)) {
+-		add_disk_randomness(rq->rq_disk);
+-		if (!list_empty(&rq->queuelist))
+-			blkdev_dequeue_request(rq);
+-		HWGROUP(drive)->rq = NULL;
+-		end_that_request_last(rq, uptodate);
+-		ret = 0;
+-	}
+-
+-	return ret;
++	return blk_end_request(rq, error, nr_bytes);
+ }
++EXPORT_SYMBOL_GPL(ide_end_rq);
+ 
+ /**
+  *	ide_end_request		-	complete an IDE I/O
+@@ -103,26 +83,37 @@ static int __ide_end_request(ide_drive_t
+ 
+ int ide_end_request (ide_drive_t *drive, int uptodate, int nr_sectors)
+ {
+-	struct request *rq;
+-	unsigned long flags;
+-	int ret = 1;
++	unsigned int nr_bytes = nr_sectors << 9;
++	struct request *rq = HWGROUP(drive)->rq;
++	int rc, error = 0;
++
++	if (!nr_bytes) {
++		if (blk_pc_request(rq))
++			nr_bytes = rq->data_len;
++		else
++			nr_bytes = rq->hard_cur_sectors << 9;
++	}
+ 
+ 	/*
+-	 * room for locking improvements here, the calls below don't
+-	 * need the queue lock held at all
++	 * if failfast is set on a request, override number of sectors
++	 * and complete the whole request right now
+ 	 */
+-	spin_lock_irqsave(&ide_lock, flags);
+-	rq = HWGROUP(drive)->rq;
++	if (blk_noretry_request(rq) && uptodate <= 0)
++		nr_bytes = rq->hard_nr_sectors << 9;
+ 
+-	if (!nr_sectors)
+-		nr_sectors = rq->hard_cur_sectors;
++	if (blk_fs_request(rq) == 0 && uptodate <= 0 && rq->errors == 0)
++		rq->errors = -EIO;
+ 
+-	ret = __ide_end_request(drive, rq, uptodate, nr_sectors);
++	if (uptodate <= 0)
++		error = uptodate ? uptodate : -EIO;
+ 
+-	spin_unlock_irqrestore(&ide_lock, flags);
+-	return ret;
++	rc = ide_end_rq(drive, rq, error, nr_bytes);
++	if (rc == 0)
++		drive->hwif->hwgroup->rq = NULL;
++
++	return rc;
+ }
+-EXPORT_SYMBOL(ide_end_request);
++EXPORT_SYMBOL_GPL(ide_end_request);
+ 
+ /*
+  * Power Management state machine. This one is rather trivial for now,
+@@ -231,62 +222,6 @@ static ide_startstop_t ide_start_power_s
+ 	return ide_stopped;
+ }
+ 
+-/**
+- *	ide_end_dequeued_request	-	complete an IDE I/O
+- *	@drive: IDE device for the I/O
+- *	@uptodate:
+- *	@nr_sectors: number of sectors completed
+- *
+- *	Complete an I/O that is no longer on the request queue. This
+- *	typically occurs when we pull the request and issue a REQUEST_SENSE.
+- *	We must still finish the old request but we must not tamper with the
+- *	queue in the meantime.
+- *
+- *	NOTE: This path does not handle barrier, but barrier is not supported
+- *	on ide-cd anyway.
+- */
+-
+-int ide_end_dequeued_request(ide_drive_t *drive, struct request *rq,
+-			     int uptodate, int nr_sectors)
+-{
+-	unsigned long flags;
+-	int ret = 1;
+-
+-	spin_lock_irqsave(&ide_lock, flags);
+-
+-	BUG_ON(!blk_rq_started(rq));
+-
+-	/*
+-	 * if failfast is set on a request, override number of sectors and
+-	 * complete the whole request right now
+-	 */
+-	if (blk_noretry_request(rq) && end_io_error(uptodate))
+-		nr_sectors = rq->hard_nr_sectors;
+-
+-	if (!blk_fs_request(rq) && end_io_error(uptodate) && !rq->errors)
+-		rq->errors = -EIO;
+-
+-	/*
+-	 * decide whether to reenable DMA -- 3 is a random magic for now,
+-	 * if we DMA timeout more than 3 times, just stay in PIO
+-	 */
+-	if (drive->state == DMA_PIO_RETRY && drive->retry_pio <= 3) {
+-		drive->state = 0;
+-		HWGROUP(drive)->hwif->ide_dma_on(drive);
+-	}
+-
+-	if (!end_that_request_first(rq, uptodate, nr_sectors)) {
+-		add_disk_randomness(rq->rq_disk);
+-		if (blk_rq_tagged(rq))
+-			blk_queue_end_tag(drive->queue, rq);
+-		end_that_request_last(rq, uptodate);
+-		ret = 0;
+-	}
+-	spin_unlock_irqrestore(&ide_lock, flags);
+-	return ret;
+-}
+-EXPORT_SYMBOL_GPL(ide_end_dequeued_request);
+-
+ 
+ /**
+  *	ide_complete_pm_request - end the current Power Management request
+@@ -311,10 +246,11 @@ static void ide_complete_pm_request (ide
+ 		drive->blocked = 0;
+ 		blk_start_queue(drive->queue);
+ 	}
+-	blkdev_dequeue_request(rq);
+-	HWGROUP(drive)->rq = NULL;
+-	end_that_request_last(rq, 1);
+ 	spin_unlock_irqrestore(&ide_lock, flags);
++
++	HWGROUP(drive)->rq = NULL;
++	if (blk_end_request(rq, 0, 0))
++		BUG();
+ }
+ 
+ /*
+@@ -442,12 +378,12 @@ void ide_end_drive_cmd (ide_drive_t *dri
+ 		return;
+ 	}
+ 
+-	spin_lock_irqsave(&ide_lock, flags);
+-	blkdev_dequeue_request(rq);
+ 	HWGROUP(drive)->rq = NULL;
+ 	rq->errors = err;
+-	end_that_request_last(rq, !rq->errors);
+-	spin_unlock_irqrestore(&ide_lock, flags);
++
++	if (unlikely(blk_end_request(rq, (rq->errors ? -EIO : 0),
++				       blk_rq_bytes(rq))))
++		BUG();
+ }
+ 
+ EXPORT_SYMBOL(ide_end_drive_cmd);
+@@ -836,7 +772,8 @@ void ide_init_sg_cmd(ide_drive_t *drive,
+ 	ide_hwif_t *hwif = drive->hwif;
+ 
+ 	hwif->nsect = hwif->nleft = rq->nr_sectors;
+-	hwif->cursg = hwif->cursg_ofs = 0;
++	hwif->cursg_ofs = 0;
++	hwif->cursg = NULL;
+ }
+ 
+ EXPORT_SYMBOL_GPL(ide_init_sg_cmd);
+diff -urBp a/drivers/ide/ide-probe.c b/drivers/ide/ide-probe.c
+--- a/drivers/ide/ide-probe.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-probe.c	2011-03-05 13:51:36.000000000 +0300
+@@ -1352,7 +1352,7 @@ static int hwif_init(ide_hwif_t *hwif)
+ 	if (!hwif->sg_max_nents)
+ 		hwif->sg_max_nents = PRD_ENTRIES;
+ 
+-	hwif->sg_table = kmalloc(sizeof(struct scatterlist)*hwif->sg_max_nents,
++	hwif->sg_table = kzalloc(sizeof(struct scatterlist)*hwif->sg_max_nents,
+ 				 GFP_KERNEL);
+ 	if (!hwif->sg_table) {
+ 		printk(KERN_ERR "%s: unable to allocate SG table.\n", hwif->name);
+diff -urBp a/drivers/ide/ide-taskfile.c b/drivers/ide/ide-taskfile.c
+--- a/drivers/ide/ide-taskfile.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ide-taskfile.c	2011-03-05 13:51:36.000000000 +0300
+@@ -45,6 +45,7 @@
+ #include <linux/hdreg.h>
+ #include <linux/ide.h>
+ #include <linux/bitops.h>
++#include <linux/scatterlist.h>
+ 
+ #include <asm/byteorder.h>
+ #include <asm/irq.h>
+@@ -263,6 +264,7 @@ static void ide_pio_sector(ide_drive_t *
+ {
+ 	ide_hwif_t *hwif = drive->hwif;
+ 	struct scatterlist *sg = hwif->sg_table;
++	struct scatterlist *cursg = hwif->cursg;
+ 	struct page *page;
+ #ifdef CONFIG_HIGHMEM
+ 	unsigned long flags;
+@@ -270,8 +272,14 @@ static void ide_pio_sector(ide_drive_t *
+ 	unsigned int offset;
+ 	u8 *buf;
+ 
+-	page = sg[hwif->cursg].page;
+-	offset = sg[hwif->cursg].offset + hwif->cursg_ofs * SECTOR_SIZE;
++	cursg = hwif->cursg;
++	if (!cursg) {
++		cursg = sg;
++		hwif->cursg = sg;
++	}
++
++	page = cursg->page;
++	offset = cursg->offset + hwif->cursg_ofs * SECTOR_SIZE;
+ 
+ 	/* get the current page and offset */
+ 	page = nth_page(page, (offset >> PAGE_SHIFT));
+@@ -285,8 +293,8 @@ static void ide_pio_sector(ide_drive_t *
+ 	hwif->nleft--;
+ 	hwif->cursg_ofs++;
+ 
+-	if ((hwif->cursg_ofs * SECTOR_SIZE) == sg[hwif->cursg].length) {
+-		hwif->cursg++;
++	if ((hwif->cursg_ofs * SECTOR_SIZE) == cursg->length) {
++		hwif->cursg = sg_next(hwif->cursg);
+ 		hwif->cursg_ofs = 0;
+ 	}
+ 
+@@ -367,6 +375,8 @@ static ide_startstop_t task_error(ide_dr
+ 
+ static void task_end_request(ide_drive_t *drive, struct request *rq, u8 stat)
+ {
++	HWIF(drive)->cursg = NULL;
++
+ 	if (rq->cmd_type == REQ_TYPE_ATA_TASKFILE) {
+ 		ide_task_t *task = rq->special;
+ 
+diff -urBp a/drivers/ide/mips/au1xxx-ide.c b/drivers/ide/mips/au1xxx-ide.c
+--- a/drivers/ide/mips/au1xxx-ide.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/mips/au1xxx-ide.c	2011-03-05 13:51:36.000000000 +0300
+@@ -324,7 +324,7 @@ static int auide_build_dmatable(ide_driv
+ 			cur_addr += tc;
+ 			cur_len -= tc;
+ 		}
+-		sg++;
++		sg = sg_next(sg);
+ 		i--;
+ 	}
+ 
+diff -urBp a/drivers/ide/pci/sgiioc4.c b/drivers/ide/pci/sgiioc4.c
+--- a/drivers/ide/pci/sgiioc4.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/pci/sgiioc4.c	2011-03-05 13:51:36.000000000 +0300
+@@ -29,6 +29,7 @@
+ #include <linux/mm.h>
+ #include <linux/ioport.h>
+ #include <linux/blkdev.h>
++#include <linux/scatterlist.h>
+ #include <linux/ioc4.h>
+ #include <asm/io.h>
+ 
+@@ -531,7 +532,7 @@ sgiioc4_build_dma_table(ide_drive_t * dr
+ 			}
+ 		}
+ 
+-		sg++;
++		sg = sg_next(sg);
+ 		i--;
+ 	}
+ 
+diff -urBp a/drivers/ide/ppc/pmac.c b/drivers/ide/ppc/pmac.c
+--- a/drivers/ide/ppc/pmac.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/ide/ppc/pmac.c	2011-03-05 13:51:36.000000000 +0300
+@@ -1648,7 +1648,7 @@ pmac_ide_build_dmatable(ide_drive_t *dri
+ 			cur_len -= tc;
+ 			++table;
+ 		}
+-		sg++;
++		sg = sg_next(sg);
+ 		i--;
+ 	}
+ 
+diff -urBp a/include/linux/ide.h b/include/linux/ide.h
+--- a/include/linux/ide.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/ide.h	2011-03-05 16:02:45.000000000 +0300
+@@ -764,7 +764,7 @@ typedef struct hwif_s {
+ 
+ 	unsigned int nsect;
+ 	unsigned int nleft;
+-	unsigned int cursg;
++	struct scatterlist *cursg;
+ 	unsigned int cursg_ofs;
+ 
+ 	int		rqsize;		/* max sectors per request */
+@@ -1026,8 +1026,8 @@ extern	ide_hwif_t	ide_hwifs[];		/* maste
+ extern int noautodma;
+ 
+ extern int ide_end_request (ide_drive_t *drive, int uptodate, int nrsecs);
+-int ide_end_dequeued_request(ide_drive_t *drive, struct request *rq,
+-			     int uptodate, int nr_sectors);
++int ide_end_rq(ide_drive_t *drive, struct request *rq, int error,
++		unsigned int nr_bytes);
+ 
+ /*
+  * This is used on exit from the driver to designate the next irq handler
+-- 

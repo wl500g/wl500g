@@ -1,0 +1,36 @@
+From 5f75a1042feca37c0a436ba42a4b1f7f75c35778
+From: Nicolas Dichtel
+Date: Tue, 7 Dec 2010 23:38:31 +0000
+Subject: [PATCH] ipv6: fix nl group when advertising a new link
+
+New idev are advertised with NL group RTNLGRP_IPV6_IFADDR, but
+should use RTNLGRP_IPV6_IFINFO.
+Bug was introduced by commit 8d7a76c9.
+
+Signed-off-by: Wang Xuefu <xuefu.wang@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Acked-by: Thomas Graf <tgraf@infradead.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv6/addrconf.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 23cc8e1..93b7a93 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4021,10 +4021,10 @@ void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFADDR, NULL, GFP_ATOMIC);
++	err = rtnl_notify(skb, 0, RTNLGRP_IPV6_IFINFO, NULL, GFP_ATOMIC);
+ errout:
+ 	if (err < 0)
+-		rtnl_set_sk_err(RTNLGRP_IPV6_IFADDR, err);
++		rtnl_set_sk_err(RTNLGRP_IPV6_IFINFO, err);
+ }
+ 
+ static inline size_t inet6_prefix_nlmsg_size(void)
+-- 
+1.7.3.5

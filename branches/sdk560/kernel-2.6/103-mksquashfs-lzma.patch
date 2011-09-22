@@ -1,0 +1,580 @@
+diff -urNBp linux-2.6.22.orig/scripts/squashfs/comp.c linux-2.6/scripts/squashfs/comp.c
+--- linux-2.6.22.orig/scripts/squashfs/comp.c	1970-01-01 03:00:00.000000000 +0300
++++ linux-2.6/scripts/squashfs/comp.c	2009-11-01 15:04:21.000000000 +0300
+@@ -0,0 +1,32 @@
++/*
++ * Copyright (C) 2006-2007 Junjiro Okajima
++ * Copyright (C) 2006-2007 Tomas Matejicek, slax.org
++ *
++ * LICENSE follows the described one in lzma.txt.
++ */
++
++/* $Id: comp.cc,v 1.3 2007-11-13 13:27:23 jro Exp $ */
++
++//////////////////////////////////////////////////////////////////////
++#include <zlib.h>
++#include "sqlzma.h"
++
++int sqlzma_cm(struct sqlzma_opts *opts, z_stream *stream)
++{
++	int err;
++
++	if (opts->try_lzma) {
++		uLong processed = stream->avail_out;
++
++		err = compress2(stream->next_out, &processed,
++				stream->next_in, stream->avail_in, opts->dicsize);
++		if (!err) {
++			stream->total_out = processed;
++			err = Z_STREAM_END;
++			return err;
++		}
++	}
++
++	err = deflate(stream, Z_FINISH);
++	return err;
++}
+diff -urNBp linux-2.6.22.orig/scripts/squashfs/Makefile linux-2.6/scripts/squashfs/Makefile
+--- linux-2.6.22.orig/scripts/squashfs/Makefile	2009-10-24 21:47:57.000000000 +0400
++++ linux-2.6/scripts/squashfs/Makefile	2009-11-01 15:51:54.000000000 +0300
+@@ -1,11 +1,18 @@
+-INCLUDEDIR = $(SRCBASE)/linux/linux-2.6/include/linux
++INCLUDEDIR = ../../include/linux
++
++Sqlzma = ../../fs/squashfs
++LzmaDec = $(LZMAPATH)/../../../../C/Compress/Lzma
+ 
+ CFLAGS := -I. -idirafter$(INCLUDEDIR) -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_GNU_SOURCE -O2
++ifdef UseDebugFlags
++DebugFlags = -g -Wall -Wno-unused-variable -O0 -UNDEBUG
++endif
++CFLAGS += -I$(Sqlzma) -I$(LzmaDec) -D_REENTRANT -DNDEBUG ${DebugFlags}
+ 
+-all: mksquashfs unsquashfs
++all: mksquashfs-lzma unsquashfs-lzma
+ 
+-mksquashfs: mksquashfs.o read_fs.o sort.o
+-	$(CC) mksquashfs.o read_fs.o sort.o -lz -lpthread -lm -o $@
++mksquashfs-lzma: mksquashfs.o read_fs.o sort.o comp.o uncomp.o LzmaDecode.o $(LZMAPATH)/liblzma.a
++	$(CXX) $(LDFLAGS) $^ -lpthread -lm -lz -o $@
+ 
+ mksquashfs.o: mksquashfs.c mksquashfs.h global.h sort.h
+ 
+@@ -13,8 +20,14 @@ read_fs.o: read_fs.c read_fs.h global.h
+ 
+ sort.o: sort.c global.h sort.h
+ 
+-unsquashfs: unsquashfs.o
+-	$(CC) unsquashfs.o -lz -lpthread -lm -o $@
++comp.o: comp.c $(Sqlzma)/sqlzma.h
++
++uncomp.o: uncomp.c $(Sqlzma)/sqlzma.h
++
++vpath %.c $(Sqlzma) $(LzmaDec)
++
++unsquashfs-lzma: unsquashfs.o uncomp.o LzmaDecode.o $(LZMAPATH)/liblzma.a
++	$(CC) $(LDFLAGS) $^ -lpthread -lm -lz -o $@
+ 
+ unsquashfs.o: unsquashfs.c read_fs.h global.h
+ 
+diff -urNBp linux-2.6.22.orig/scripts/squashfs/mksquashfs.c linux-2.6/scripts/squashfs/mksquashfs.c
+--- linux-2.6.22.orig/scripts/squashfs/mksquashfs.c	2008-08-26 11:01:39.000000000 +0400
++++ linux-2.6/scripts/squashfs/mksquashfs.c	2009-11-01 11:48:48.000000000 +0300
+@@ -62,6 +62,7 @@
+ #include "mksquashfs.h"
+ #include "global.h"
+ #include "sort.h"
++#include "sqlzma.h"
+ 
+ #ifdef SQUASHFS_TRACE
+ #define TRACE(s, args...)	do { \
+@@ -123,6 +124,10 @@ unsigned short uid_count = 0, guid_count
+ squashfs_uid uids[SQUASHFS_UIDS], guids[SQUASHFS_GUIDS];
+ int block_offset;
+ int file_count = 0, sym_count = 0, dev_count = 0, dir_count = 0, fifo_count = 0, sock_count = 0;
++struct sqlzma_un un;
++struct sqlzma_opts sqlzma_opts = {
++	.try_lzma	= 1
++};
+ 
+ /* write position within data section */
+ long long bytes = 0, total_bytes = 0;
+@@ -832,7 +837,7 @@ unsigned int mangle2(z_stream **strm, ch
+ 	stream->next_out = (unsigned char *) d;
+ 	stream->avail_out = block_size;
+ 
+-	res = deflate(stream, Z_FINISH);
++	res = sqlzma_cm(&sqlzma_opts, stream);
+ 	if(res != Z_STREAM_END && res != Z_OK) {
+ 		if(res == Z_STREAM_ERROR)
+ 			BAD_ERROR("zlib::compress failed, stream state inconsistent\n");
+@@ -1450,6 +1455,11 @@ struct file_buffer *get_fragment(struct
+ 		unsigned long bytes = block_size;
+ 		char *data;
+ 		char cbuffer[block_size];
++		enum {Src, Dst};
++		struct sized_buf sbuf[] = {
++			{.buf = (void *)cbuffer, .sz = size},
++			{.buf = (void *)buffer->data, .sz = bytes}
++		};
+ 
+ 		if(compressed_buffer)
+ 			data = compressed_buffer->data;
+@@ -1458,14 +1468,10 @@ struct file_buffer *get_fragment(struct
+ 			read_bytes(fd, start_block, size, data);
+ 		}
+ 
+-		if((res = uncompress((unsigned char *) buffer->data, &bytes, (const unsigned char *) data, size)) != Z_OK) {
+-			if(res == Z_MEM_ERROR)
+-				BAD_ERROR("zlib::uncompress failed, not enough memory\n");
+-			else if(res == Z_BUF_ERROR)
+-				BAD_ERROR("zlib::uncompress failed, not enough room in output buffer\n");
+-			else
+-				BAD_ERROR("zlib::uncompress failed, unknown error %d\n", res);
+-		}
++		sbuf[Src].buf = data;
++		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
++		if (res)
++			BAD_ERROR("%s:%d: res %d\n", __func__, __LINE__, res);
+ 	} else if(compressed_buffer)
+ 		memcpy(buffer->data, compressed_buffer->data, size);
+ 	else
+@@ -2001,6 +2007,7 @@ void reader_scan(struct dir_info *dir) {
+ 				break;
+ 		}
+ 	}
++	return NULL;
+ }
+ 
+ 
+@@ -2274,6 +2281,7 @@ void progress_bar(long long current, lon
+ 	printf("] %*lld/%*lld", max_digits, current, max_digits, max);
+ 	printf(" %3lld%%", current * 100 / max);
+ 	fflush(stdout);
++	return;
+ }
+ 
+ 
+@@ -2973,7 +2981,7 @@ error:
+ 
+ void dir_scan2(squashfs_inode *inode, struct dir_info *dir_info)
+ {
+-	int squashfs_type;
++	int squashfs_type = -1;
+ 	int duplicate_file;
+ 	char *pathname = dir_info->pathname;
+ 	struct directory dir;
+@@ -3576,7 +3584,8 @@ void read_recovery_data(char *recovery_f
+ 	printf("This program is distributed in the hope that it will be useful,\n");\
+ 	printf("but WITHOUT ANY WARRANTY; without even the implied warranty of\n");\
+ 	printf("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n");\
+-	printf("GNU General Public License for more details.\n");
++	printf("GNU General Public License for more details.\n");\
++	printf("and LZMA support for slax.org by jro.\n");
+ int main(int argc, char *argv[])
+ {
+ 	struct stat buf, source_buf;
+@@ -3595,7 +3604,9 @@ int main(int argc, char *argv[])
+ #endif
+ 
+ 	pthread_mutex_init(&progress_mutex, NULL);
++	un.un_lzma = 1;
+ 	block_log = slog(block_size);
++	sqlzma_opts.dicsize = block_log;
+ 	if(argc > 1 && strcmp(argv[1], "-version") == 0) {
+ 		VERSION();
+ 		exit(0);
+@@ -3662,24 +3673,33 @@ int main(int argc, char *argv[])
+ 				ERROR("%s: -fragment-queue should be 1 megabyte or larger\n", argv[0]);
+ 				exit(1);
+ 			}
+-		} else if(strcmp(argv[i], "-b") == 0) {
++		} else if(strcmp(argv[i], "-b") == 0
++			|| strcmp(argv[i], "-lzmadic") == 0) {
++			long bs;
++			unsigned int bl;
+ 			if(++i == argc) {
+-				ERROR("%s: -b missing block size\n", argv[0]);
++				ERROR("%s: -b|-lzmadic missing block size\n", argv[0]);
+ 				exit(1);
+ 			}
+-			block_size = strtol(argv[i], &b, 10);
++			bs = strtol(argv[i], &b, 10);
+ 			if(*b == 'm' || *b == 'M')
+-				block_size *= 1048576;
++				bs *= 1048576;
+ 			else if(*b == 'k' || *b == 'K')
+-				block_size *= 1024;
++				bs *= 1024;
+ 			else if(*b != '\0') {
+-				ERROR("%s: -b invalid block size\n", argv[0]);
++				ERROR("%s: -b|-lzmadic invalid size\n", argv[0]);
+ 				exit(1);
+ 			}
+-			if((block_log = slog(block_size)) == 0) {
+-				ERROR("%s: -b block size not power of two or not between 4096 and 1Mbyte\n", argv[0]);
++			bl = slog(bs);
++			if(bl == 0) {
++				ERROR("%s: -b|-lzmadic size not power of two or not between 4096 and 1Mbyte\n", argv[0]);
+ 				exit(1);
+ 			}
++			if (!strcmp(argv[i - 1], "-b")) {
++				block_size = bs;
++				block_log = bl;
++			}
++			sqlzma_opts.dicsize = bl;
+ 		} else if(strcmp(argv[i], "-ef") == 0) {
+ 			if(++i == argc) {
+ 				ERROR("%s: -ef missing filename\n", argv[0]);
+@@ -3784,6 +3804,9 @@ int main(int argc, char *argv[])
+ 				exit(1);
+ 			}	
+ 			root_name = argv[i];
++		} else if(strcmp(argv[i], "-nolzma") == 0) {
++			un.un_lzma = 0;
++			sqlzma_opts.try_lzma = 0;
+ 		} else if(strcmp(argv[i], "-version") == 0) {
+ 			VERSION();
+ 		} else {
+@@ -3834,6 +3857,12 @@ printOptions:
+ 			ERROR("-ef <exclude_file>\tlist of exclude dirs/files.  One per line\n");
+ 			ERROR("-wildcards\t\tAllow extended shell wildcards (globbing) to be used in\n\t\t\texclude dirs/files\n");
+ 			ERROR("-regex\t\t\tAllow POSIX regular expressions to be used in exclude\n\t\t\tdirs/files\n");
++			ERROR("-lzmadic <dic_size>\tset the LZMA dictionary"
++			      " size to <dic_size>\n"
++			      "\t\t\tDefault value always follow the block"
++			      " size\n"
++			      "\t\t\tUse this alone or AFTER -b option\n");
++			ERROR("-nolzma\t\t\tnever try LZMA compression\n");
+ 			exit(1);
+ 		}
+ 	}
+@@ -3945,6 +3974,7 @@ printOptions:
+ 
+ 		be = orig_be;
+ 		block_log = slog(block_size = sBlk.block_size);
++		//sqlzma_opts.dicsize = block_size;
+ 		s_minor = sBlk.s_minor;
+ 		noI = SQUASHFS_UNCOMPRESSED_INODES(sBlk.flags);
+ 		noD = SQUASHFS_UNCOMPRESSED_DATA(sBlk.flags);
+@@ -3958,6 +3988,12 @@ printOptions:
+ 
+ 	initialise_threads();
+ 
++	i = sqlzma_init(&un, un.un_lzma, 0);
++	if (i != Z_OK) {
++		ERROR("%s:%d: %d\n", __func__, __LINE__, i);
++		EXIT_MKSQUASHFS();
++	}
++
+ 	if(delete) {
+ 		printf("Creating %s %d.%d filesystem on %s, block size %d.\n",
+ 				be ? "big endian" : "little endian", SQUASHFS_MAJOR, s_minor, argv[source + 1], block_size);
+@@ -4081,7 +4117,9 @@ printOptions:
+ 		dir_scan(&inode, "", scan1_encomp_readdir);
+ 	sBlk.root_inode = inode;
+ 	sBlk.inodes = inode_count;
+-	sBlk.s_magic = SQUASHFS_MAGIC;
++	sBlk.s_magic = SQUASHFS_MAGIC_LZMA;
++	if (!un.un_lzma)
++		sBlk.s_magic = SQUASHFS_MAGIC;
+ 	sBlk.s_major = SQUASHFS_MAJOR;
+ 	sBlk.s_minor = s_minor;
+ 	sBlk.block_size = block_size;
+diff -urNBp linux-2.6.22.orig/scripts/squashfs/read_fs.c linux-2.6/scripts/squashfs/read_fs.c
+--- linux-2.6.22.orig/scripts/squashfs/read_fs.c	2008-08-20 08:46:08.000000000 +0400
++++ linux-2.6/scripts/squashfs/read_fs.c	2009-10-31 18:44:06.000000000 +0300
+@@ -46,6 +46,7 @@ extern int add_file(long long, long long
+ #include <squashfs_fs.h>
+ #include "read_fs.h"
+ #include "global.h"
++#include "sqlzma.h"
+ 
+ #include <stdlib.h>
+ 
+@@ -62,6 +63,7 @@ extern int add_file(long long, long long
+ 					} while(0)
+ 
+ int swap;
++extern struct sqlzma_un un;
+ 
+ int read_block(int fd, long long start, long long *next, unsigned char *block, squashfs_super_block *sBlk)
+ {
+@@ -81,19 +83,20 @@ int read_block(int fd, long long start,
+ 		char buffer[SQUASHFS_METADATA_SIZE];
+ 		int res;
+ 		unsigned long bytes = SQUASHFS_METADATA_SIZE;
++		enum {Src, Dst};
++		struct sized_buf sbuf[] = {
++			{.buf = (void *)buffer},
++			{.buf = (void *)block, .sz = bytes}
++		};
+ 
+ 		c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
+ 		read_bytes(fd, start + offset, c_byte, buffer);
+ 
+-		if((res = uncompress(block, &bytes, (const unsigned char *) buffer, c_byte)) != Z_OK) {
+-			if(res == Z_MEM_ERROR)
+-				ERROR("zlib::uncompress failed, not enough memory\n");
+-			else if(res == Z_BUF_ERROR)
+-				ERROR("zlib::uncompress failed, not enough room in output buffer\n");
+-			else
+-				ERROR("zlib::uncompress failed, unknown error %d\n", res);
+-			return 0;
+-		}
++		sbuf[Src].sz = c_byte;
++		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
++		if (res)
++			abort();
++		bytes = un.un_reslen;
+ 		if(next)
+ 			*next = start + offset + c_byte;
+ 		return bytes;
+@@ -351,18 +354,30 @@ int read_super(int fd, squashfs_super_bl
+ 
+ 	/* Check it is a SQUASHFS superblock */
+ 	swap = 0;
+-	if(sBlk->s_magic != SQUASHFS_MAGIC) {
+-		if(sBlk->s_magic == SQUASHFS_MAGIC_SWAP) {
+-			squashfs_super_block sblk;
+-			ERROR("Reading a different endian SQUASHFS filesystem on %s - ignoring -le/-be options\n", source);
+-			SQUASHFS_SWAP_SUPER_BLOCK(&sblk, sBlk);
+-			memcpy(sBlk, &sblk, sizeof(squashfs_super_block));
+-			swap = 1;
+-		} else  {
+-			ERROR("Can't find a SQUASHFS superblock on %s\n", source);
+-			goto failed_mount;
+-		}
+-	}
++	switch (sBlk->s_magic) {
++		squashfs_super_block sblk;
++
++	case SQUASHFS_MAGIC_LZMA:
++		if (!un.un_lzma)
++			goto bad;
++		break;
++	case SQUASHFS_MAGIC:
++		break;
++	case SQUASHFS_MAGIC_LZMA_SWAP:
++		if (!un.un_lzma)
++			goto bad;
++		/*FALLTHROUGH*/
++	case SQUASHFS_MAGIC_SWAP:
++		ERROR("Reading a different endian SQUASHFS filesystem on %s - ignoring -le/-be options\n", source);
++		SQUASHFS_SWAP_SUPER_BLOCK(&sblk, sBlk);
++		memcpy(sBlk, &sblk, sizeof(squashfs_super_block));
++		swap = 1;
++		break;
++	bad:
++	default:
++		ERROR("Can't find a SQUASHFS superblock on %s\n", source);
++		goto failed_mount;
++ 	}
+ 
+ 	/* Check the MAJOR & MINOR versions */
+ 	if(sBlk->s_major != SQUASHFS_MAJOR || sBlk->s_minor > SQUASHFS_MINOR) {
+diff -urNBp linux-2.6.22.orig/scripts/squashfs/unsquashfs.c linux-2.6/scripts/squashfs/unsquashfs.c
+--- linux-2.6.22.orig/scripts/squashfs/unsquashfs.c	2008-08-26 11:01:54.000000000 +0400
++++ linux-2.6/scripts/squashfs/unsquashfs.c	2009-10-31 18:44:00.000000000 +0300
+@@ -59,6 +59,7 @@
+ #include "squashfs_fs.h"
+ #include "read_fs.h"
+ #include "global.h"
++#include "sqlzma.h"
+ 
+ #ifdef SQUASHFS_TRACE
+ #define TRACE(s, args...)		do { \
+@@ -201,6 +202,7 @@ unsigned int block_log;
+ int lsonly = FALSE, info = FALSE, force = FALSE, short_ls = TRUE, use_regex = FALSE;
+ char **created_inode;
+ int root_process;
++struct sqlzma_un un;
+ int columns;
+ int rotate = 0;
+ pthread_mutex_t	screen_mutex;
+@@ -569,6 +571,8 @@ int print_filename(char *pathname, struc
+ 		return 1;
+ 	}
+ 
++	/* printf("i%d ", inode->inode_number); */
++
+ 	if((user = getpwuid(inode->uid)) == NULL) {
+ 		sprintf(dummy, "%d", inode->uid);
+ 		userstr = dummy;
+@@ -687,22 +691,21 @@ int read_block(long long start, long lon
+ 		char buffer[SQUASHFS_METADATA_SIZE];
+ 		int res;
+ 		unsigned long bytes = SQUASHFS_METADATA_SIZE;
++		enum {Src, Dst};
++		struct sized_buf sbuf[] = {
++			{.buf = (void *)buffer},
++			{.buf = (void *)block, .sz = bytes}
++		};
+ 
+ 		c_byte = SQUASHFS_COMPRESSED_SIZE(c_byte);
+ 		if(read_bytes(start + offset, c_byte, buffer) == FALSE)
+ 			goto failed;
+ 
+-		res = uncompress((unsigned char *) block, &bytes, (const unsigned char *) buffer, c_byte);
+-
+-		if(res != Z_OK) {
+-			if(res == Z_MEM_ERROR)
+-				ERROR("zlib::uncompress failed, not enough memory\n");
+-			else if(res == Z_BUF_ERROR)
+-				ERROR("zlib::uncompress failed, not enough room in output buffer\n");
+-			else
+-				ERROR("zlib::uncompress failed, unknown error %d\n", res);
+-			goto failed;
+-		}
++		sbuf[Src].sz = c_byte;
++		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
++		if (res)
++			abort();
++		bytes = un.un_reslen;
+ 		if(next)
+ 			*next = start + offset + c_byte;
+ 		return bytes;
+@@ -729,20 +732,19 @@ int read_data_block(long long start, uns
+ 	TRACE("read_data_block: block @0x%llx, %d %s bytes\n", start, SQUASHFS_COMPRESSED_SIZE_BLOCK(c_byte), SQUASHFS_COMPRESSED_BLOCK(c_byte) ? "compressed" : "uncompressed");
+ 
+ 	if(SQUASHFS_COMPRESSED_BLOCK(size)) {
++		enum {Src, Dst};
++		struct sized_buf sbuf[] = {
++			{.buf = (void *)data, .sz = c_byte},
++			{.buf = (void *)block, .sz = bytes}
++		};
++
+ 		if(read_bytes(start, c_byte, data) == FALSE)
+ 			return 0;
+ 
+-		res = uncompress((unsigned char *) block, &bytes, (const unsigned char *) data, c_byte);
+-
+-		if(res != Z_OK) {
+-			if(res == Z_MEM_ERROR)
+-				ERROR("zlib::uncompress failed, not enough memory\n");
+-			else if(res == Z_BUF_ERROR)
+-				ERROR("zlib::uncompress failed, not enough room in output buffer\n");
+-			else
+-				ERROR("zlib::uncompress failed, unknown error %d\n", res);
+-			return 0;
+-		}
++		res = sqlzma_un(&un, sbuf + Src, sbuf + Dst);
++		if (res)
++			abort();
++		bytes = un.un_reslen;
+ 
+ 		return bytes;
+ 	} else {
+@@ -2160,19 +2162,28 @@ int read_super(char *source)
+ 	read_bytes(SQUASHFS_START, sizeof(squashfs_super_block), (char *) &sBlk);
+ 
+ 	/* Check it is a SQUASHFS superblock */
++	un.un_lzma = 1;
+ 	swap = 0;
+-	if(sBlk.s_magic != SQUASHFS_MAGIC) {
+-		if(sBlk.s_magic == SQUASHFS_MAGIC_SWAP) {
+-			squashfs_super_block sblk;
+-			ERROR("Reading a different endian SQUASHFS filesystem on %s\n", source);
+-			SQUASHFS_SWAP_SUPER_BLOCK(&sblk, &sBlk);
+-			memcpy(&sBlk, &sblk, sizeof(squashfs_super_block));
+-			swap = 1;
+-		} else  {
+-			ERROR("Can't find a SQUASHFS superblock on %s\n", source);
+-			goto failed_mount;
+-		}
+-	}
++	switch (sBlk.s_magic) {
++		squashfs_super_block sblk;
++	case SQUASHFS_MAGIC:
++		un.un_lzma = 0;
++		/*FALLTHROUGH*/
++	case SQUASHFS_MAGIC_LZMA:
++		break;
++	case SQUASHFS_MAGIC_SWAP:
++		un.un_lzma = 0;
++		/*FALLTHROUGH*/
++	case SQUASHFS_MAGIC_LZMA_SWAP:
++		ERROR("Reading a different endian SQUASHFS filesystem on %s\n", source);
++		SQUASHFS_SWAP_SUPER_BLOCK(&sblk, &sBlk);
++		memcpy(&sBlk, &sblk, sizeof(squashfs_super_block));
++		swap = 1;
++		break;
++	default:
++		ERROR("Can't find a SQUASHFS superblock on %s\n", source);
++		goto failed_mount;
++ 	}
+ 
+ 	/* Check the MAJOR & MINOR versions */
+ 	if(sBlk.s_major == 1 || sBlk.s_major == 2) {
+@@ -2334,23 +2345,23 @@ void *writer(void *arg)
+ void *deflator(void *arg)
+ {
+ 	char tmp[block_size];
++	struct sqlzma_un *thread_un = (struct sqlzma_un *) arg;
+ 
+ 	while(1) {
+ 		struct cache_entry *entry = queue_get(to_deflate);
+ 		int res;
+ 		unsigned long bytes = block_size;
+-
+-		res = uncompress((unsigned char *) tmp, &bytes, (const unsigned char *) entry->data, SQUASHFS_COMPRESSED_SIZE_BLOCK(entry->size));
+-
+-		if(res != Z_OK) {
+-			if(res == Z_MEM_ERROR)
+-				ERROR("zlib::uncompress failed, not enough memory\n");
+-			else if(res == Z_BUF_ERROR)
+-				ERROR("zlib::uncompress failed, not enough room in output buffer\n");
+-			else
+-				ERROR("zlib::uncompress failed, unknown error %d\n", res);
+-		} else
+-			memcpy(entry->data, tmp, bytes);
++		enum {Src, Dst};
++		struct sized_buf sbuf[] = {
++			{.buf = (void *)entry->data, .sz = SQUASHFS_COMPRESSED_SIZE_BLOCK(entry->size)},
++			{.buf = (void *)tmp, .sz = bytes}
++		};
++
++		res = sqlzma_un(thread_un, sbuf + Src, sbuf + Dst);
++		if(res)
++			abort();
++		bytes = thread_un->un_reslen;
++		memcpy(entry->data, tmp, bytes);
+ 
+ 		/* block has been either successfully decompressed, or an error
+  		 * occurred, clear pending flag, set error appropriately and
+@@ -2448,7 +2459,12 @@ void initialise_threads(int fragment_buf
+ 	pthread_mutex_init(&fragment_mutex, NULL);
+ 
+ 	for(i = 0; i < processors; i++) {
+-		if(pthread_create(&deflator_thread[i], NULL, deflator, NULL) != 0 )
++		struct sqlzma_un *thread_un = malloc(sizeof(struct sqlzma_un));
++		if(thread_un == NULL)
++			EXIT_UNSQUASH("Failed to allocate memory for sqlzma_un\n");
++		if(sqlzma_init(thread_un, un.un_lzma, 0) != Z_OK)
++			EXIT_UNSQUASH("Failed to initialize: sqlzma_init\n");
++		if(pthread_create(&deflator_thread[i], NULL, deflator, thread_un) != 0 )
+ 			EXIT_UNSQUASH("Failed to create thread\n");
+ 	}
+ 
+@@ -2526,7 +2542,8 @@ void progress_bar(long long current, lon
+ 	printf("This program is distributed in the hope that it will be useful,\n");\
+ 	printf("but WITHOUT ANY WARRANTY; without even the implied warranty of\n");\
+ 	printf("MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n");\
+-	printf("GNU General Public License for more details.\n");
++	printf("GNU General Public License for more details.\n");\
++	printf("and LZMA support for slax.org by jro.\n");
+ int main(int argc, char *argv[])
+ {
+ 	char *dest = "squashfs-root";
+@@ -2672,6 +2689,11 @@ options:
+ 		EXIT_UNSQUASH("failed to allocate created_inode\n");
+ 
+ 	memset(created_inode, 0, sBlk.inodes * sizeof(char *));
++	i = sqlzma_init(&un, un.un_lzma, 0);
++	if (i != Z_OK) {
++		fputs("sqlzma_init failed", stderr);
++		abort();
++	}
+ 
+ 	read_uids_guids();
+ 

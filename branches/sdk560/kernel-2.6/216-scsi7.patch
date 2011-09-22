@@ -1,0 +1,1241 @@
+[SCSI] use dynamically allocated sense buffer
+ (Tomato-RT commits 780018220c5d , 8a222653cd57)
+
+Solves sporadic crashes on SCSI command completion (kernel BUG in unlock_page).
+Ref: http://lkml.org/lkml/2007/11/19/2
+
+ kernel.org commits
+ 166a72878f76e911f2d1ce4b2310d4403e94be11 [SCSI] fix scsi_setup_command_freelist failure path race
+ de25deb18016f66dcdede165d07654559bb332bc [SCSI] use dynamically allocated sense buffer
+ 5b7f16804ad90e7f7a10c05b6a2e782598d9745a [SCSI] don't use __GFP_DMA for sense buffers if not required
+ 164fc5dcd6a1026fc713f5c63fad899aa484888c scsi: fix sense_slab/bio swapping livelock
+ e507e30b803fb56d768ed9a597e7609b74d2db21 [SCSI] consolidate command allocation in a single place
+ 1c353f7d616a4ef04b5e73fe7a2184baa039f06f export command allocation and freeing functions independently of the host
+ 542bd1377a963070bc4a03ff7d2690ddf3920596 [SCSI] fix SLUB WARN_ON
+ 61d7416a286e840d905c18b1e6b0977c036c8656 [SCSI] bug fix for free list handling
+ b80ca4f7ee36c26d300c5a8f429e73372d153379 [SCSI] replace sizeof sense_buffer with SCSI_SENSE_BUFFERSIZE
+
+---
+ drivers/message/fusion/mptscsih.c   |    2 
+ drivers/message/i2o/i2o_scsi.c      |    2 
+ drivers/s390/scsi/zfcp_fsf.c        |    4 
+ drivers/scsi/53c700.c               |   11 -
+ drivers/scsi/BusLogic.c             |    2 
+ drivers/scsi/aacraid/aachba.c       |   26 +--
+ drivers/scsi/advansys.c             |    8 -
+ drivers/scsi/aha1542.c              |    4 
+ drivers/scsi/aha1740.c              |    2 
+ drivers/scsi/aic7xxx/aic79xx_osm.c  |    8 -
+ drivers/scsi/aic7xxx/aic7xxx_osm.c  |    6 
+ drivers/scsi/aic7xxx_old.c          |   10 -
+ drivers/scsi/arcmsr/arcmsr_hba.c    |    6 
+ drivers/scsi/dc395x.c               |   16 --
+ drivers/scsi/dpt_i2o.c              |    5 
+ drivers/scsi/eata.c                 |    4 
+ drivers/scsi/gdth.c                 |   11 +
+ drivers/scsi/hosts.c                |   16 +-
+ drivers/scsi/hptiop.c               |    8 -
+ drivers/scsi/ips.c                  |    6 
+ drivers/scsi/ncr53c8xx.c            |    5 
+ drivers/scsi/qla1280.c              |    4 
+ drivers/scsi/qla2xxx/qla_isr.c      |   12 -
+ drivers/scsi/qla4xxx/ql4_isr.c      |   11 -
+ drivers/scsi/qlogicpti.c            |    2 
+ drivers/scsi/scsi.c                 |  261 ++++++++++++++++++++++++++++--------
+ drivers/scsi/scsi_error.c           |    6 
+ drivers/scsi/scsi_lib.c             |    2 
+ drivers/scsi/sym53c8xx_2/sym_glue.c |    5 
+ drivers/scsi/tmscsim.c              |    6 
+ drivers/scsi/u14-34f.c              |    4 
+ drivers/scsi/ultrastor.c            |    2 
+ drivers/usb/core/hub.c              |    5 
+ drivers/usb/storage/isd200.c        |    5 
+ include/scsi/scsi_cmnd.h            |    5 
+ 35 files changed, 325 insertions(+), 167 deletions(-)
+
+diff -urBp a/drivers/message/fusion/mptscsih.c b/drivers/message/fusion/mptscsih.c
+--- a/drivers/message/fusion/mptscsih.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/message/fusion/mptscsih.c	2011-02-12 22:13:18.000000000 +0300
+@@ -109,7 +109,7 @@ int 		mptscsih_suspend(struct pci_dev *p
+ int 		mptscsih_resume(struct pci_dev *pdev);
+ #endif
+ 
+-#define SNS_LEN(scp)	sizeof((scp)->sense_buffer)
++#define SNS_LEN(scp)	SCSI_SENSE_BUFFERSIZE
+ 
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ /**
+diff -urBp a/drivers/message/i2o/i2o_scsi.c b/drivers/message/i2o/i2o_scsi.c
+--- a/drivers/message/i2o/i2o_scsi.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/message/i2o/i2o_scsi.c	2011-02-12 22:13:18.000000000 +0300
+@@ -370,7 +370,7 @@ static int i2o_scsi_reply(struct i2o_con
+ 	 */
+ 	if (cmd->result)
+ 		memcpy(cmd->sense_buffer, &msg->body[3],
+-		       min(sizeof(cmd->sense_buffer), (size_t) 40));
++		       min(SCSI_SENSE_BUFFERSIZE, 40));
+ 
+ 	/* only output error code if AdapterStatus is not HBA_SUCCESS */
+ 	if ((error >> 8) & 0xff)
+diff -urBp a/drivers/s390/scsi/zfcp_fsf.c b/drivers/s390/scsi/zfcp_fsf.c
+--- a/drivers/s390/scsi/zfcp_fsf.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/s390/scsi/zfcp_fsf.c	2011-02-12 22:13:18.000000000 +0300
+@@ -4123,10 +4123,10 @@ zfcp_fsf_send_fcp_command_task_handler(s
+ 
+ 		ZFCP_LOG_TRACE("%i bytes sense data provided by FCP\n",
+ 			       fcp_rsp_iu->fcp_sns_len);
+-		memcpy(&scpnt->sense_buffer,
++		memcpy(scpnt->sense_buffer,
+ 		       zfcp_get_fcp_sns_info_ptr(fcp_rsp_iu), sns_len);
+ 		ZFCP_HEX_DUMP(ZFCP_LOG_LEVEL_TRACE,
+-			      (void *) &scpnt->sense_buffer, sns_len);
++			      (void *)scpnt->sense_buffer, sns_len);
+ 	}
+ 
+ 	/* check for overrun */
+diff -urBp a/drivers/scsi/53c700.c b/drivers/scsi/53c700.c
+--- a/drivers/scsi/53c700.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/53c700.c	2011-02-12 22:13:18.000000000 +0300
+@@ -618,7 +618,8 @@ NCR_700_scsi_done(struct NCR_700_Host_Pa
+ 			scsi_print_sense("53c700", SCp);
+ 
+ #endif
+-			dma_unmap_single(hostdata->dev, slot->dma_handle, sizeof(SCp->sense_buffer), DMA_FROM_DEVICE);
++			dma_unmap_single(hostdata->dev, slot->dma_handle,
++					 SCSI_SENSE_BUFFERSIZE, DMA_FROM_DEVICE);
+ 			/* restore the old result if the request sense was
+ 			 * successful */
+ 			if (result == 0)
+@@ -1020,7 +1021,7 @@ process_script_interrupt(__u32 dsps, __u
+ 				cmnd[1] = (SCp->device->lun & 0x7) << 5;
+ 				cmnd[2] = 0;
+ 				cmnd[3] = 0;
+-				cmnd[4] = sizeof(SCp->sense_buffer);
++				cmnd[4] = SCSI_SENSE_BUFFERSIZE;
+ 				cmnd[5] = 0;
+ 				/* Here's a quiet hack: the
+ 				 * REQUEST_SENSE command is six bytes,
+@@ -1034,14 +1035,14 @@ process_script_interrupt(__u32 dsps, __u
+ 				SCp->cmd_len = 6; /* command length for
+ 						   * REQUEST_SENSE */
+ 				slot->pCmd = dma_map_single(hostdata->dev, cmnd, MAX_COMMAND_SIZE, DMA_TO_DEVICE);
+-				slot->dma_handle = dma_map_single(hostdata->dev, SCp->sense_buffer, sizeof(SCp->sense_buffer), DMA_FROM_DEVICE);
+-				slot->SG[0].ins = bS_to_host(SCRIPT_MOVE_DATA_IN | sizeof(SCp->sense_buffer));
++				slot->dma_handle = dma_map_single(hostdata->dev, SCp->sense_buffer, SCSI_SENSE_BUFFERSIZE, DMA_FROM_DEVICE);
++				slot->SG[0].ins = bS_to_host(SCRIPT_MOVE_DATA_IN | SCSI_SENSE_BUFFERSIZE);
+ 				slot->SG[0].pAddr = bS_to_host(slot->dma_handle);
+ 				slot->SG[1].ins = bS_to_host(SCRIPT_RETURN);
+ 				slot->SG[1].pAddr = 0;
+ 				slot->resume_offset = hostdata->pScript;
+ 				dma_cache_sync(hostdata->dev, slot->SG, sizeof(slot->SG[0])*2, DMA_TO_DEVICE);
+-				dma_cache_sync(hostdata->dev, SCp->sense_buffer, sizeof(SCp->sense_buffer), DMA_FROM_DEVICE);
++				dma_cache_sync(hostdata->dev, SCp->sense_buffer, SCSI_SENSE_BUFFERSIZE, DMA_FROM_DEVICE);
+ 
+ 				/* queue the command for reissue */
+ 				slot->state = NCR_700_SLOT_QUEUED;
+diff -urBp a/drivers/scsi/aacraid/aachba.c b/drivers/scsi/aacraid/aachba.c
+--- a/drivers/scsi/aacraid/aachba.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aacraid/aachba.c	2011-02-12 22:13:18.000000000 +0300
+@@ -799,8 +799,8 @@ static int aac_bounds_32(struct aac_dev
+ 			    ASENCODE_INTERNAL_TARGET_FAILURE, 0, 0,
+ 			    0, 0);
+ 		memcpy(cmd->sense_buffer, &dev->fsa_dev[cid].sense_data,
+-		  (sizeof(dev->fsa_dev[cid].sense_data) > sizeof(cmd->sense_buffer))
+-		    ? sizeof(cmd->sense_buffer)
++		  (sizeof(dev->fsa_dev[cid].sense_data) > SCSI_SENSE_BUFFERSIZE)
++		    ? SCSI_SENSE_BUFFERSIZE
+ 		    : sizeof(dev->fsa_dev[cid].sense_data));
+ 		cmd->scsi_done(cmd);
+ 		return 1;
+@@ -1396,8 +1396,8 @@ static void io_callback(void *context, s
+ 				    ASENCODE_INTERNAL_TARGET_FAILURE, 0, 0,
+ 				    0, 0);
+ 		memcpy(scsicmd->sense_buffer, &dev->fsa_dev[cid].sense_data,
+-		  (sizeof(dev->fsa_dev[cid].sense_data) > sizeof(scsicmd->sense_buffer))
+-		    ? sizeof(scsicmd->sense_buffer)
++		  (sizeof(dev->fsa_dev[cid].sense_data) > SCSI_SENSE_BUFFERSIZE)
++		    ? SCSI_SENSE_BUFFERSIZE
+ 		    : sizeof(dev->fsa_dev[cid].sense_data));
+ 	}
+ 	aac_fib_complete(fibptr);
+@@ -1606,7 +1606,7 @@ static void synchronize_callback(void *c
+ 				    0, 0);
+ 		memcpy(cmd->sense_buffer, &dev->fsa_dev[cid].sense_data,
+ 		  min(sizeof(dev->fsa_dev[cid].sense_data), 
+-			  sizeof(cmd->sense_buffer)));
++			  SCSI_SENSE_BUFFERSIZE));
+ 	}
+ 
+ 	aac_fib_complete(fibptr);
+@@ -1768,8 +1768,8 @@ int aac_scsi_cmd(struct scsi_cmnd * scsi
+ 			    SENCODE_INVALID_COMMAND,
+ 			    ASENCODE_INVALID_COMMAND, 0, 0, 0, 0);
+ 		memcpy(scsicmd->sense_buffer, &dev->fsa_dev[cid].sense_data,
+-		  (sizeof(dev->fsa_dev[cid].sense_data) > sizeof(scsicmd->sense_buffer))
+-		    ? sizeof(scsicmd->sense_buffer)
++		  (sizeof(dev->fsa_dev[cid].sense_data) > SCSI_SENSE_BUFFERSIZE)
++		    ? SCSI_SENSE_BUFFERSIZE
+ 		    : sizeof(dev->fsa_dev[cid].sense_data));
+ 		scsicmd->scsi_done(scsicmd);
+ 		return 0;
+@@ -1997,8 +1997,8 @@ int aac_scsi_cmd(struct scsi_cmnd * scsi
+ 				ILLEGAL_REQUEST, SENCODE_INVALID_COMMAND,
+ 				ASENCODE_INVALID_COMMAND, 0, 0, 0, 0);
+ 			memcpy(scsicmd->sense_buffer, &dev->fsa_dev[cid].sense_data,
+-			  (sizeof(dev->fsa_dev[cid].sense_data) > sizeof(scsicmd->sense_buffer))
+-			    ? sizeof(scsicmd->sense_buffer)
++			  (sizeof(dev->fsa_dev[cid].sense_data) > SCSI_SENSE_BUFFERSIZE)
++			    ? SCSI_SENSE_BUFFERSIZE
+ 			    : sizeof(dev->fsa_dev[cid].sense_data));
+ 			scsicmd->scsi_done(scsicmd);
+ 			return 0;
+@@ -2167,8 +2167,8 @@ static void aac_srb_callback(void *conte
+ 		int len;
+ 		printk(KERN_WARNING "aac_srb_callback: srb failed, status = %d\n", le32_to_cpu(srbreply->status));
+ 		len = (le32_to_cpu(srbreply->sense_data_size) > 
+-				sizeof(scsicmd->sense_buffer)) ?
+-				sizeof(scsicmd->sense_buffer) : 
++				SCSI_SENSE_BUFFERSIZE) ?
++				SCSI_SENSE_BUFFERSIZE :
+ 				le32_to_cpu(srbreply->sense_data_size);
+ 		scsicmd->result = DID_ERROR << 16 | COMMAND_COMPLETE << 8 | SAM_STAT_CHECK_CONDITION;
+ 		memcpy(scsicmd->sense_buffer, srbreply->sense_data, len);
+@@ -2273,8 +2273,8 @@ static void aac_srb_callback(void *conte
+ 		int len;
+ 		scsicmd->result |= SAM_STAT_CHECK_CONDITION;
+ 		len = (le32_to_cpu(srbreply->sense_data_size) > 
+-				sizeof(scsicmd->sense_buffer)) ?
+-				sizeof(scsicmd->sense_buffer) :
++				SCSI_SENSE_BUFFERSIZE) ?
++				SCSI_SENSE_BUFFERSIZE :
+ 				le32_to_cpu(srbreply->sense_data_size);
+ #ifdef AAC_DETAILED_STATUS_INFO
+ 		printk(KERN_WARNING "aac_srb_callback: check condition, status = %d len=%d\n",
+diff -urBp a/drivers/scsi/advansys.c b/drivers/scsi/advansys.c
+--- a/drivers/scsi/advansys.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/advansys.c	2011-02-12 22:13:18.000000000 +0300
+@@ -6424,7 +6424,7 @@ asc_build_req(asc_board_t *boardp, struc
+     asc_scsi_q.q1.target_lun = scp->device->lun;
+     asc_scsi_q.q2.target_ix = ASC_TIDLUN_TO_IX(scp->device->id, scp->device->lun);
+     asc_scsi_q.q1.sense_addr = cpu_to_le32(virt_to_bus(&scp->sense_buffer[0]));
+-    asc_scsi_q.q1.sense_len = sizeof(scp->sense_buffer);
++    asc_scsi_q.q1.sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+     /*
+      * If there are any outstanding requests for the current target,
+@@ -6600,7 +6600,7 @@ adv_build_req(asc_board_t *boardp, struc
+     scsiqp->target_lun = scp->device->lun;
+ 
+     scsiqp->sense_addr = cpu_to_le32(virt_to_bus(&scp->sense_buffer[0]));
+-    scsiqp->sense_len = sizeof(scp->sense_buffer);
++    scsiqp->sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+     /*
+      * Build ADV_SCSI_REQ_Q for a contiguous buffer or a scatter-gather
+@@ -6903,7 +6903,7 @@ asc_isr_callback(ASC_DVC_VAR *asc_dvc_va
+             if (qdonep->d3.scsi_stat == SAM_STAT_CHECK_CONDITION) {
+                 ASC_DBG(2, "asc_isr_callback: SAM_STAT_CHECK_CONDITION\n");
+                 ASC_DBG_PRT_SENSE(2, scp->sense_buffer,
+-                    sizeof(scp->sense_buffer));
++                    SCSI_SENSE_BUFFERSIZE);
+                 /*
+                  * Note: The 'status_byte()' macro used by target drivers
+                  * defined in scsi.h shifts the status byte returned by
+@@ -7084,7 +7084,7 @@ adv_isr_callback(ADV_DVC_VAR *adv_dvc_va
+             if (scsiqp->scsi_status == SAM_STAT_CHECK_CONDITION) {
+                 ASC_DBG(2, "adv_isr_callback: SAM_STAT_CHECK_CONDITION\n");
+                 ASC_DBG_PRT_SENSE(2, scp->sense_buffer,
+-                    sizeof(scp->sense_buffer));
++                    SCSI_SENSE_BUFFERSIZE);
+                 /*
+                  * Note: The 'status_byte()' macro used by target drivers
+                  * defined in scsi.h shifts the status byte returned by
+diff -urBp a/drivers/scsi/aha1542.c b/drivers/scsi/aha1542.c
+--- a/drivers/scsi/aha1542.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aha1542.c	2011-02-12 22:13:18.000000000 +0300
+@@ -546,7 +546,7 @@ static void aha1542_intr_handle(struct S
+ 		   we will still have it in the cdb when we come back */
+ 		if (ccb[mbo].tarstat == 2)
+ 			memcpy(SCtmp->sense_buffer, &ccb[mbo].cdb[ccb[mbo].cdblen],
+-			       sizeof(SCtmp->sense_buffer));
++			       SCSI_SENSE_BUFFERSIZE);
+ 
+ 
+ 		/* is there mail :-) */
+@@ -620,7 +620,7 @@ static int aha1542_queuecommand(Scsi_Cmn
+ #if 0
+ 		/* scsi_request_sense() provides a buffer of size 256,
+ 		   so there is no reason to expect equality */
+-		if (bufflen != sizeof(SCpnt->sense_buffer))
++		if (bufflen != SCSI_SENSE_BUFFERSIZE)
+ 			printk(KERN_CRIT "aha1542: Wrong buffer length supplied "
+ 			       "for request sense (%d)\n", bufflen);
+ #endif
+diff -urBp a/drivers/scsi/aha1740.c b/drivers/scsi/aha1740.c
+--- a/drivers/scsi/aha1740.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aha1740.c	2011-02-12 22:13:18.000000000 +0300
+@@ -298,7 +298,7 @@ static irqreturn_t aha1740_intr_handle(i
+ 			   cdb when we come back */
+ 			if ( (adapstat & G2INTST_MASK) == G2INTST_CCBERROR ) {
+ 				memcpy(SCtmp->sense_buffer, ecbptr->sense, 
+-				       sizeof(SCtmp->sense_buffer));
++				       SCSI_SENSE_BUFFERSIZE);
+ 				errstatus = aha1740_makecode(ecbptr->sense,ecbptr->status);
+ 			} else
+ 				errstatus = 0;
+diff -urBp a/drivers/scsi/aic7xxx/aic79xx_osm.c b/drivers/scsi/aic7xxx/aic79xx_osm.c
+--- a/drivers/scsi/aic7xxx/aic79xx_osm.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aic7xxx/aic79xx_osm.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1808,7 +1808,7 @@ ahd_linux_handle_scsi_status(struct ahd_
+ 			if (scb->flags & SCB_SENSE) {
+ 				sense_size = min(sizeof(struct scsi_sense_data)
+ 					       - ahd_get_sense_residual(scb),
+-						 (u_long)sizeof(cmd->sense_buffer));
++						 (u_long)SCSI_SENSE_BUFFERSIZE);
+ 				sense_offset = 0;
+ 			} else {
+ 				/*
+@@ -1819,11 +1819,11 @@ ahd_linux_handle_scsi_status(struct ahd_
+ 				    scb->sense_data;
+ 				sense_size = min_t(size_t,
+ 						scsi_4btoul(siu->sense_length),
+-						sizeof(cmd->sense_buffer));
++						SCSI_SENSE_BUFFERSIZE);
+ 				sense_offset = SIU_SENSE_OFFSET(siu);
+ 			}
+ 
+-			memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
++			memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 			memcpy(cmd->sense_buffer,
+ 			       ahd_get_sense_buf(ahd, scb)
+ 			       + sense_offset, sense_size);
+@@ -1946,7 +1946,7 @@ ahd_linux_queue_cmd_complete(struct ahd_
+ 				struct scsi_sense_data *sense;
+ 				
+ 				sense = (struct scsi_sense_data *)
+-					&cmd->sense_buffer;
++					cmd->sense_buffer;
+ 				if (sense->extra_len >= 5 &&
+ 				    (sense->add_sense_code == 0x47
+ 				     || sense->add_sense_code == 0x48))
+diff -urBp a/drivers/scsi/aic7xxx/aic7xxx_osm.c b/drivers/scsi/aic7xxx/aic7xxx_osm.c
+--- a/drivers/scsi/aic7xxx/aic7xxx_osm.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aic7xxx/aic7xxx_osm.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1839,12 +1839,12 @@ ahc_linux_handle_scsi_status(struct ahc_
+ 
+ 			sense_size = min(sizeof(struct scsi_sense_data)
+ 				       - ahc_get_sense_residual(scb),
+-					 (u_long)sizeof(cmd->sense_buffer));
++					 (u_long)SCSI_SENSE_BUFFERSIZE);
+ 			memcpy(cmd->sense_buffer,
+ 			       ahc_get_sense_buf(ahc, scb), sense_size);
+-			if (sense_size < sizeof(cmd->sense_buffer))
++			if (sense_size < SCSI_SENSE_BUFFERSIZE)
+ 				memset(&cmd->sense_buffer[sense_size], 0,
+-				       sizeof(cmd->sense_buffer) - sense_size);
++				       SCSI_SENSE_BUFFERSIZE - sense_size);
+ 			cmd->result |= (DRIVER_SENSE << 24);
+ #ifdef AHC_DEBUG
+ 			if (ahc_debug & AHC_SHOW_SENSE) {
+diff -urBp a/drivers/scsi/aic7xxx_old.c b/drivers/scsi/aic7xxx_old.c
+--- a/drivers/scsi/aic7xxx_old.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/aic7xxx_old.c	2011-02-12 22:13:18.000000000 +0300
+@@ -2705,7 +2705,7 @@ aic7xxx_done(struct aic7xxx_host *p, str
+   {
+     pci_unmap_single(p->pdev,
+                      le32_to_cpu(scb->sg_list[0].address),
+-                     sizeof(cmd->sense_buffer),
++                     SCSI_SENSE_BUFFERSIZE,
+                      PCI_DMA_FROMDEVICE);
+   }
+   if (scb->flags & SCB_RECOVERY_SCB)
+@@ -4276,13 +4276,13 @@ aic7xxx_handle_seqint(struct aic7xxx_hos
+                        sizeof(generic_sense));
+ 
+                 scb->sense_cmd[1] = (cmd->device->lun << 5);
+-                scb->sense_cmd[4] = sizeof(cmd->sense_buffer);
++                scb->sense_cmd[4] = SCSI_SENSE_BUFFERSIZE;
+ 
+                 scb->sg_list[0].length = 
+-                  cpu_to_le32(sizeof(cmd->sense_buffer));
++                  cpu_to_le32(SCSI_SENSE_BUFFERSIZE);
+ 		scb->sg_list[0].address =
+                         cpu_to_le32(pci_map_single(p->pdev, cmd->sense_buffer,
+-                                                   sizeof(cmd->sense_buffer),
++                                                   SCSI_SENSE_BUFFERSIZE,
+                                                    PCI_DMA_FROMDEVICE));
+ 
+                 /*
+@@ -4305,7 +4305,7 @@ aic7xxx_handle_seqint(struct aic7xxx_hos
+                 hscb->residual_data_count[2] = 0;
+ 
+                 scb->sg_count = hscb->SG_segment_count = 1;
+-                scb->sg_length = sizeof(cmd->sense_buffer);
++                scb->sg_length = SCSI_SENSE_BUFFERSIZE;
+                 scb->tag_action = 0;
+                 scb->flags |= SCB_SENSE;
+                 /*
+diff -urBp a/drivers/scsi/arcmsr/arcmsr_hba.c b/drivers/scsi/arcmsr/arcmsr_hba.c
+--- a/drivers/scsi/arcmsr/arcmsr_hba.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/arcmsr/arcmsr_hba.c	2011-02-12 22:13:18.000000000 +0300
+@@ -515,9 +515,9 @@ static void arcmsr_report_sense_info(str
+ 	pcmd->result = DID_OK << 16;
+ 	if (sensebuffer) {
+ 		int sense_data_length =
+-			sizeof (struct SENSE_DATA) < sizeof (pcmd->sense_buffer)
+-			? sizeof (struct SENSE_DATA) : sizeof (pcmd->sense_buffer);
+-		memset(sensebuffer, 0, sizeof (pcmd->sense_buffer));
++			sizeof (struct SENSE_DATA) < SCSI_SENSE_BUFFERSIZE
++			? sizeof (struct SENSE_DATA) : SCSI_SENSE_BUFFERSIZE;
++		memset(sensebuffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 		memcpy(sensebuffer, ccb->arcmsr_cdb.SenseData, sense_data_length);
+ 		sensebuffer->ErrorCode = SCSI_SENSE_CURRENT_ERRORS;
+ 		sensebuffer->Valid = 1;
+diff -urBp a/drivers/scsi/BusLogic.c b/drivers/scsi/BusLogic.c
+--- a/drivers/scsi/BusLogic.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/BusLogic.c	2011-02-12 22:13:18.000000000 +0300
+@@ -2956,7 +2956,7 @@ static int BusLogic_QueueCommand(struct
+ 		}
+ 	}
+ 	memcpy(CCB->CDB, CDB, CDB_Length);
+-	CCB->SenseDataLength = sizeof(Command->sense_buffer);
++	CCB->SenseDataLength = SCSI_SENSE_BUFFERSIZE;
+ 	CCB->SenseDataPointer = pci_map_single(HostAdapter->PCI_Device, Command->sense_buffer, CCB->SenseDataLength, PCI_DMA_FROMDEVICE);
+ 	CCB->Command = Command;
+ 	Command->scsi_done = CompletionRoutine;
+diff -urBp a/drivers/scsi/dc395x.c b/drivers/scsi/dc395x.c
+--- a/drivers/scsi/dc395x.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/dc395x.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1642,8 +1642,7 @@ static u8 start_scsi(struct AdapterCtlBl
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, (dcb->target_lun << 5));
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+-		DC395x_write8(acb, TRM_S1040_SCSI_FIFO,
+-			      sizeof(srb->cmd->sense_buffer));
++		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, SCSI_SENSE_BUFFERSIZE);
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+ 	} else {
+ 		ptr = (u8 *)srb->cmd->cmnd;
+@@ -1928,8 +1927,7 @@ static void command_phase1(struct Adapte
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, (dcb->target_lun << 5));
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+-		DC395x_write8(acb, TRM_S1040_SCSI_FIFO,
+-			      sizeof(srb->cmd->sense_buffer));
++		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, SCSI_SENSE_BUFFERSIZE);
+ 		DC395x_write8(acb, TRM_S1040_SCSI_FIFO, 0);
+ 	}
+ 	srb->state |= SRB_COMMAND;
+@@ -3728,7 +3726,7 @@ static void request_sense(struct Adapter
+ 	srb->target_status = 0;
+ 
+ 	/* KG: Can this prevent crap sense data ? */
+-	memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
++	memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 
+ 	/* Save some data */
+ 	srb->segment_x[DC395x_MAX_SG_LISTENTRY - 1].address =
+@@ -3737,15 +3735,15 @@ static void request_sense(struct Adapter
+ 	    srb->segment_x[0].length;
+ 	srb->xferred = srb->total_xfer_length;
+ 	/* srb->segment_x : a one entry of S/G list table */
+-	srb->total_xfer_length = sizeof(cmd->sense_buffer);
+-	srb->segment_x[0].length = sizeof(cmd->sense_buffer);
++	srb->total_xfer_length = SCSI_SENSE_BUFFERSIZE;
++	srb->segment_x[0].length = SCSI_SENSE_BUFFERSIZE;
+ 	/* Map sense buffer */
+ 	srb->segment_x[0].address =
+ 	    pci_map_single(acb->dev, cmd->sense_buffer,
+-			   sizeof(cmd->sense_buffer), PCI_DMA_FROMDEVICE);
++			   SCSI_SENSE_BUFFERSIZE, PCI_DMA_FROMDEVICE);
+ 	dprintkdbg(DBG_SG, "request_sense: map buffer %p->%08x(%05x)\n",
+ 	       cmd->sense_buffer, srb->segment_x[0].address,
+-	       sizeof(cmd->sense_buffer));
++	       SCSI_SENSE_BUFFERSIZE);
+ 	srb->sg_count = 1;
+ 	srb->sg_index = 0;
+ 
+diff -urBp a/drivers/scsi/dpt_i2o.c b/drivers/scsi/dpt_i2o.c
+--- a/drivers/scsi/dpt_i2o.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/dpt_i2o.c	2011-02-12 22:13:18.000000000 +0300
+@@ -2306,9 +2306,8 @@ static s32 adpt_i2o_to_scsi(void __iomem
+ 
+ 		// copy over the request sense data if it was a check
+ 		// condition status
+-		if(dev_status == 0x02 /*CHECK_CONDITION*/) {
+-			u32 len = sizeof(cmd->sense_buffer);
+-			len = (len > 40) ?  40 : len;
++		if (dev_status == 0x02 /*CHECK_CONDITION*/) {
++			u32 len = min(SCSI_SENSE_BUFFERSIZE, 40);
+ 			// Copy over the sense data
+ 			memcpy_fromio(cmd->sense_buffer, (reply+28) , len);
+ 			if(cmd->sense_buffer[0] == 0x70 /* class 7 */ && 
+diff -urBp a/drivers/scsi/eata.c b/drivers/scsi/eata.c
+--- a/drivers/scsi/eata.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/eata.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1621,9 +1621,9 @@ static void map_dma(unsigned int i, stru
+ 	if (SCpnt->sense_buffer)
+ 		cpp->sense_addr =
+ 		    H2DEV(pci_map_single(ha->pdev, SCpnt->sense_buffer,
+-			   sizeof SCpnt->sense_buffer, PCI_DMA_FROMDEVICE));
++			   SCSI_SENSE_BUFFERSIZE, PCI_DMA_FROMDEVICE));
+ 
+-	cpp->sense_len = sizeof SCpnt->sense_buffer;
++	cpp->sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+ 	if (!SCpnt->use_sg) {
+ 
+diff -urBp a/drivers/scsi/gdth.c b/drivers/scsi/gdth.c
+--- a/drivers/scsi/gdth.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/gdth.c	2011-02-12 22:13:18.000000000 +0300
+@@ -726,10 +726,16 @@ int __gdth_execute(struct scsi_device *s
+     DECLARE_COMPLETION_ONSTACK(wait);
+     int rval;
+ 
+-    scp = kmalloc(sizeof(*scp), GFP_KERNEL);
++    scp = kzalloc(sizeof(*scp), GFP_KERNEL);
+     if (!scp)
+         return -ENOMEM;
+-    memset(scp, 0, sizeof(*scp));
++
++    scp->sense_buffer = kzalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
++    if (!scp->sense_buffer) {
++	kfree(scp);
++	return -ENOMEM;
++    }
++
+     scp->device = sdev;
+     /* use request field to save the ptr. to completion struct. */
+     scp->request = (struct request *)&wait;
+@@ -745,6 +751,7 @@ int __gdth_execute(struct scsi_device *s
+     rval = scp->SCp.Status;
+     if (info)
+         *info = scp->SCp.Message;
++    kfree(scp->sense_buffer);
+     kfree(scp);
+     return rval;
+ }
+diff -urBp a/drivers/scsi/hosts.c b/drivers/scsi/hosts.c
+--- a/drivers/scsi/hosts.c	2011-02-12 22:16:14.000000000 +0300
++++ b/drivers/scsi/hosts.c	2011-02-12 22:10:57.000000000 +0300
+@@ -200,9 +200,13 @@ int scsi_add_host(struct Scsi_Host *shos
+ 	if (!shost->can_queue) {
+ 		printk(KERN_ERR "%s: can_queue = 0 no longer supported\n",
+ 				sht->name);
+-		goto out;
++		goto fail;
+ 	}
+ 
++	error = scsi_setup_command_freelist(shost);
++	if (error)
++		goto fail;
++
+ 	if (!shost->shost_gendev.parent)
+ 		shost->shost_gendev.parent = dev ? dev : &platform_bus;
+ 
+@@ -250,6 +254,8 @@ int scsi_add_host(struct Scsi_Host *shos
+  out_del_gendev:
+ 	device_del(&shost->shost_gendev);
+  out:
++	scsi_destroy_command_freelist(shost);
++ fail:
+ 	return error;
+ }
+ EXPORT_SYMBOL(scsi_add_host);
+@@ -365,10 +371,6 @@ struct Scsi_Host *scsi_host_alloc(struct
+ 	else
+ 		shost->dma_boundary = 0xffffffff;
+ 
+-	rval = scsi_setup_command_freelist(shost);
+-	if (rval)
+-		goto fail_kfree;
+-
+ 	device_initialize(&shost->shost_gendev);
+ 	snprintf(shost->shost_gendev.bus_id, BUS_ID_SIZE, "host%d",
+ 		shost->host_no);
+@@ -384,14 +386,12 @@ struct Scsi_Host *scsi_host_alloc(struct
+ 			"scsi_eh_%d", shost->host_no);
+ 	if (IS_ERR(shost->ehandler)) {
+ 		rval = PTR_ERR(shost->ehandler);
+-		goto fail_destroy_freelist;
++		goto fail_kfree;
+ 	}
+ 
+ 	scsi_proc_hostdir_add(shost->hostt);
+ 	return shost;
+ 
+- fail_destroy_freelist:
+-	scsi_destroy_command_freelist(shost);
+  fail_kfree:
+ 	kfree(shost);
+ 	return NULL;
+diff -urBp a/drivers/scsi/hptiop.c b/drivers/scsi/hptiop.c
+--- a/drivers/scsi/hptiop.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/hptiop.c	2011-02-12 22:13:18.000000000 +0300
+@@ -375,10 +375,10 @@ static void hptiop_host_request_callback
+ 		break;
+ 	case IOP_RESULT_MODE_SENSE_CHECK_CONDITION:
+ 		scp->result = SAM_STAT_CHECK_CONDITION;
+-		memset(&scp->sense_buffer,
+-				0, sizeof(scp->sense_buffer));
+-		memcpy(&scp->sense_buffer, &req->sg_list,
+-				min(sizeof(scp->sense_buffer),
++		memset(scp->sense_buffer,
++				0, SCSI_SENSE_BUFFERSIZE);
++		memcpy(scp->sense_buffer, &req->sg_list,
++				min(SCSI_SENSE_BUFFERSIZE,
+ 					le32_to_cpu(req->dataxfer_length)));
+ 		break;
+ 
+diff -urBp a/drivers/scsi/ips.c b/drivers/scsi/ips.c
+--- a/drivers/scsi/ips.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/ips.c	2011-02-12 22:13:18.000000000 +0300
+@@ -3582,13 +3582,11 @@ ips_map_status(ips_ha_t * ha, ips_scb_t
+ 					    (IPS_DCDB_TABLE_TAPE *) & scb->dcdb;
+ 					memcpy(scb->scsi_cmd->sense_buffer,
+ 					       tapeDCDB->sense_info,
+-					       sizeof (scb->scsi_cmd->
+-						       sense_buffer));
++					       SCSI_SENSE_BUFFERSIZE);
+ 				} else {
+ 					memcpy(scb->scsi_cmd->sense_buffer,
+ 					       scb->dcdb.sense_info,
+-					       sizeof (scb->scsi_cmd->
+-						       sense_buffer));
++					       SCSI_SENSE_BUFFERSIZE);
+ 				}
+ 				device_error = 2;	/* check condition */
+ 			}
+diff -urBp a/drivers/scsi/ncr53c8xx.c b/drivers/scsi/ncr53c8xx.c
+--- a/drivers/scsi/ncr53c8xx.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/ncr53c8xx.c	2011-02-12 22:13:18.000000000 +0300
+@@ -4987,10 +4987,11 @@ void ncr_complete (struct ncb *np, struc
+ 		**	Copy back sense data to caller's buffer.
+ 		*/
+ 		memcpy(cmd->sense_buffer, cp->sense_buf,
+-		       min(sizeof(cmd->sense_buffer), sizeof(cp->sense_buf)));
++		       min_t(size_t, SCSI_SENSE_BUFFERSIZE,
++			     sizeof(cp->sense_buf)));
+ 
+ 		if (DEBUG_FLAGS & (DEBUG_RESULT|DEBUG_TINY)) {
+-			u_char * p = (u_char*) & cmd->sense_buffer;
++			u_char *p = cmd->sense_buffer;
+ 			int i;
+ 			PRINT_ADDR(cmd, "sense data:");
+ 			for (i=0; i<14; i++) printk (" %x", *p++);
+diff -urBp a/drivers/scsi/qla1280.c b/drivers/scsi/qla1280.c
+--- a/drivers/scsi/qla1280.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/qla1280.c	2011-02-12 22:13:18.000000000 +0300
+@@ -528,7 +528,7 @@ __setup("qla1280=", qla1280_setup);
+ #define	CMD_CDBLEN(Cmnd)	Cmnd->cmd_len
+ #define	CMD_CDBP(Cmnd)		Cmnd->cmnd
+ #define	CMD_SNSP(Cmnd)		Cmnd->sense_buffer
+-#define	CMD_SNSLEN(Cmnd)	sizeof(Cmnd->sense_buffer)
++#define	CMD_SNSLEN(Cmnd)	SCSI_SENSE_BUFFERSIZE
+ #define	CMD_RESULT(Cmnd)	Cmnd->result
+ #define	CMD_HANDLE(Cmnd)	Cmnd->host_scribble
+ #define CMD_REQUEST(Cmnd)	Cmnd->request->cmd
+@@ -3759,7 +3759,7 @@ qla1280_status_entry(struct scsi_qla_hos
+ 			} else
+ 				sense_sz = 0;
+ 			memset(cmd->sense_buffer + sense_sz, 0,
+-			       sizeof(cmd->sense_buffer) - sense_sz);
++			       SCSI_SENSE_BUFFERSIZE - sense_sz);
+ 
+ 			dprintk(2, "qla1280_status_entry: Check "
+ 				"condition Sense data, b %i, t %i, "
+diff -urBp a/drivers/scsi/qla2xxx/qla_isr.c b/drivers/scsi/qla2xxx/qla_isr.c
+--- a/drivers/scsi/qla2xxx/qla_isr.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/qla2xxx/qla_isr.c	2011-02-12 22:13:18.000000000 +0300
+@@ -925,13 +925,13 @@ qla2x00_status_entry(scsi_qla_host_t *ha
+ 			break;
+ 
+ 		/* Copy Sense Data into sense buffer. */
+-		memset(cp->sense_buffer, 0, sizeof(cp->sense_buffer));
++		memset(cp->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 
+ 		if (!(scsi_status & SS_SENSE_LEN_VALID))
+ 			break;
+ 
+-		if (sense_len >= sizeof(cp->sense_buffer))
+-			sense_len = sizeof(cp->sense_buffer);
++		if (sense_len >= SCSI_SENSE_BUFFERSIZE)
++			sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+ 		CMD_ACTUAL_SNSLEN(cp) = sense_len;
+ 		sp->request_sense_length = sense_len;
+@@ -1003,13 +1003,13 @@ qla2x00_status_entry(scsi_qla_host_t *ha
+ 				break;
+ 
+ 			/* Copy Sense Data into sense buffer */
+-			memset(cp->sense_buffer, 0, sizeof(cp->sense_buffer));
++			memset(cp->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 
+ 			if (!(scsi_status & SS_SENSE_LEN_VALID))
+ 				break;
+ 
+-			if (sense_len >= sizeof(cp->sense_buffer))
+-				sense_len = sizeof(cp->sense_buffer);
++			if (sense_len >= SCSI_SENSE_BUFFERSIZE)
++				sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+ 			CMD_ACTUAL_SNSLEN(cp) = sense_len;
+ 			sp->request_sense_length = sense_len;
+diff -urBp a/drivers/scsi/qla4xxx/ql4_isr.c b/drivers/scsi/qla4xxx/ql4_isr.c
+--- a/drivers/scsi/qla4xxx/ql4_isr.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/qla4xxx/ql4_isr.c	2011-02-12 22:13:18.000000000 +0300
+@@ -100,15 +100,14 @@ static void qla4xxx_status_entry(struct
+ 			break;
+ 
+ 		/* Copy Sense Data into sense buffer. */
+-		memset(cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
++		memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 
+ 		sensebytecnt = le16_to_cpu(sts_entry->senseDataByteCnt);
+ 		if (sensebytecnt == 0)
+ 			break;
+ 
+ 		memcpy(cmd->sense_buffer, sts_entry->senseData,
+-		       min(sensebytecnt,
+-			   (uint16_t) sizeof(cmd->sense_buffer)));
++		       min_t(uint16_t, sensebytecnt, SCSI_SENSE_BUFFERSIZE));
+ 
+ 		DEBUG2(printk("scsi%ld:%d:%d:%d: %s: sense key = %x, "
+ 			      "ASC/ASCQ = %02x/%02x\n", ha->host_no,
+@@ -198,8 +197,7 @@ static void qla4xxx_status_entry(struct
+ 				break;
+ 
+ 			/* Copy Sense Data into sense buffer. */
+-			memset(cmd->sense_buffer, 0,
+-			       sizeof(cmd->sense_buffer));
++			memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 
+ 			sensebytecnt =
+ 				le16_to_cpu(sts_entry->senseDataByteCnt);
+@@ -207,8 +205,7 @@ static void qla4xxx_status_entry(struct
+ 				break;
+ 
+ 			memcpy(cmd->sense_buffer, sts_entry->senseData,
+-			       min(sensebytecnt,
+-				   (uint16_t) sizeof(cmd->sense_buffer)));
++			       min_t(uint16_t, sensebytecnt, SCSI_SENSE_BUFFERSIZE));
+ 
+ 			DEBUG2(printk("scsi%ld:%d:%d:%d: %s: sense key = %x, "
+ 				      "ASC/ASCQ = %02x/%02x\n", ha->host_no,
+diff -urBp a/drivers/scsi/qlogicpti.c b/drivers/scsi/qlogicpti.c
+--- a/drivers/scsi/qlogicpti.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/qlogicpti.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1268,7 +1268,7 @@ static struct scsi_cmnd *qlogicpti_intr_
+ 
+ 		if (sts->state_flags & SF_GOT_SENSE)
+ 			memcpy(Cmnd->sense_buffer, sts->req_sense_data,
+-			       sizeof(Cmnd->sense_buffer));
++			       SCSI_SENSE_BUFFERSIZE);
+ 
+ 		if (sts->hdr.entry_type == ENTRY_STATUS)
+ 			Cmnd->result =
+diff -urBp a/drivers/scsi/scsi.c b/drivers/scsi/scsi.c
+--- a/drivers/scsi/scsi.c	2010-07-16 22:00:15.000000000 +0400
++++ b/drivers/scsi/scsi.c	2011-02-12 22:10:57.000000000 +0300
+@@ -135,32 +135,89 @@ const char * scsi_device_type(unsigned t
+ EXPORT_SYMBOL(scsi_device_type);
+ 
+ struct scsi_host_cmd_pool {
+-	struct kmem_cache	*slab;
+-	unsigned int	users;
+-	char		*name;
+-	unsigned int	slab_flags;
+-	gfp_t		gfp_mask;
++	struct kmem_cache	*cmd_slab;
++	struct kmem_cache	*sense_slab;
++	unsigned int		users;
++	char			*cmd_name;
++	char			*sense_name;
++	unsigned int		slab_flags;
++	gfp_t			gfp_mask;
+ };
+ 
+ static struct scsi_host_cmd_pool scsi_cmd_pool = {
+-	.name		= "scsi_cmd_cache",
++	.cmd_name	= "scsi_cmd_cache",
++	.sense_name	= "scsi_sense_cache",
+ 	.slab_flags	= SLAB_HWCACHE_ALIGN,
+ };
+ 
+ static struct scsi_host_cmd_pool scsi_cmd_dma_pool = {
+-	.name		= "scsi_cmd_cache(DMA)",
++	.cmd_name	= "scsi_cmd_cache(DMA)",
++	.sense_name	= "scsi_sense_cache(DMA)",
+ 	.slab_flags	= SLAB_HWCACHE_ALIGN|SLAB_CACHE_DMA,
+ 	.gfp_mask	= __GFP_DMA,
+ };
+ 
+ static DEFINE_MUTEX(host_cmd_pool_mutex);
+ 
++/**
++ * scsi_pool_alloc_command - internal function to get a fully allocated command
++ * @pool:	slab pool to allocate the command from
++ * @gfp_mask:	mask for the allocation
++ *
++ * Returns a fully allocated command (with the allied sense buffer) or
++ * NULL on failure
++ */
++static struct scsi_cmnd *
++scsi_pool_alloc_command(struct scsi_host_cmd_pool *pool, gfp_t gfp_mask)
++{
++	struct scsi_cmnd *cmd;
++
++	cmd = kmem_cache_alloc(pool->cmd_slab, gfp_mask | pool->gfp_mask);
++	if (!cmd)
++		return NULL;
++
++	memset(cmd, 0, sizeof(*cmd));
++
++	cmd->sense_buffer = kmem_cache_alloc(pool->sense_slab,
++					     gfp_mask | pool->gfp_mask);
++	if (!cmd->sense_buffer) {
++		kmem_cache_free(pool->cmd_slab, cmd);
++		return NULL;
++	}
++
++	return cmd;
++}
++
++/**
++ * scsi_pool_free_command - internal function to release a command
++ * @pool:	slab pool to allocate the command from
++ * @cmd:	command to release
++ *
++ * the command must previously have been allocated by
++ * scsi_pool_alloc_command.
++ */
++static void
++scsi_pool_free_command(struct scsi_host_cmd_pool *pool,
++			 struct scsi_cmnd *cmd)
++{
++	kmem_cache_free(pool->sense_slab, cmd->sense_buffer);
++	kmem_cache_free(pool->cmd_slab, cmd);
++}
++
++/**
++ * __scsi_get_command - Allocate a struct scsi_cmnd
++ * @shost: host to transmit command
++ * @gfp_mask: allocation mask
++ *
++ * Description: allocate a struct scsi_cmd from host's slab, recycling from the
++ *		host's free_list if necessary.
++ */
+ struct scsi_cmnd *__scsi_get_command(struct Scsi_Host *shost, gfp_t gfp_mask)
+ {
+ 	struct scsi_cmnd *cmd;
++	unsigned char *buf;
+ 
+-	cmd = kmem_cache_alloc(shost->cmd_pool->slab,
+-			gfp_mask | shost->cmd_pool->gfp_mask);
++	cmd = scsi_pool_alloc_command(shost->cmd_pool, gfp_mask);
+ 
+ 	if (unlikely(!cmd)) {
+ 		unsigned long flags;
+@@ -172,6 +229,12 @@ struct scsi_cmnd *__scsi_get_command(str
+ 			list_del_init(&cmd->list);
+ 		}
+ 		spin_unlock_irqrestore(&shost->free_list_lock, flags);
++
++		if (cmd) {
++			buf = cmd->sense_buffer;
++			memset(cmd, 0, sizeof(*cmd));
++			cmd->sense_buffer = buf;
++		}
+ 	}
+ 
+ 	return cmd;
+@@ -201,7 +264,6 @@ struct scsi_cmnd *scsi_get_command(struc
+ 	if (likely(cmd != NULL)) {
+ 		unsigned long flags;
+ 
+-		memset(cmd, 0, sizeof(*cmd));
+ 		cmd->device = dev;
+ 		init_timer(&cmd->eh_timeout);
+ 		INIT_LIST_HEAD(&cmd->list);
+@@ -230,7 +292,7 @@ void __scsi_put_command(struct Scsi_Host
+ 	spin_unlock_irqrestore(&shost->free_list_lock, flags);
+ 
+ 	if (likely(cmd != NULL))
+-		kmem_cache_free(shost->cmd_pool->slab, cmd);
++		scsi_pool_free_command(shost->cmd_pool, cmd);
+ 
+ 	put_device(dev);
+ }
+@@ -262,59 +324,150 @@ void scsi_put_command(struct scsi_cmnd *
+ }
+ EXPORT_SYMBOL(scsi_put_command);
+ 
+-/*
+- * Function:	scsi_setup_command_freelist()
+- *
+- * Purpose:	Setup the command freelist for a scsi host.
+- *
+- * Arguments:	shost	- host to allocate the freelist for.
+- *
+- * Returns:	Nothing.
+- */
+-int scsi_setup_command_freelist(struct Scsi_Host *shost)
++static struct scsi_host_cmd_pool *scsi_get_host_cmd_pool(gfp_t gfp_mask)
+ {
+-	struct scsi_host_cmd_pool *pool;
+-	struct scsi_cmnd *cmd;
+-
+-	spin_lock_init(&shost->free_list_lock);
+-	INIT_LIST_HEAD(&shost->free_list);
+-
++	struct scsi_host_cmd_pool *retval = NULL, *pool;
+ 	/*
+ 	 * Select a command slab for this host and create it if not
+ 	 * yet existant.
+ 	 */
+ 	mutex_lock(&host_cmd_pool_mutex);
+-	pool = (shost->unchecked_isa_dma ? &scsi_cmd_dma_pool : &scsi_cmd_pool);
++	pool = (gfp_mask & __GFP_DMA) ? &scsi_cmd_dma_pool :
++		&scsi_cmd_pool;
+ 	if (!pool->users) {
+-		pool->slab = kmem_cache_create(pool->name,
+-				sizeof(struct scsi_cmnd), 0,
+-				pool->slab_flags, NULL, NULL);
+-		if (!pool->slab)
++		pool->cmd_slab = kmem_cache_create(pool->cmd_name,
++						   sizeof(struct scsi_cmnd), 0,
++						   pool->slab_flags, NULL, NULL);
++		if (!pool->cmd_slab)
++			goto fail;
++
++		pool->sense_slab = kmem_cache_create(pool->sense_name,
++						     SCSI_SENSE_BUFFERSIZE, 0,
++						     pool->slab_flags, NULL, NULL);
++		if (!pool->sense_slab) {
++			kmem_cache_destroy(pool->cmd_slab);
+ 			goto fail;
++		}
+ 	}
+ 
+ 	pool->users++;
+-	shost->cmd_pool = pool;
++	retval = pool;
++ fail:
+ 	mutex_unlock(&host_cmd_pool_mutex);
++	return retval;
++}
+ 
++static void scsi_put_host_cmd_pool(gfp_t gfp_mask)
++{
++	struct scsi_host_cmd_pool *pool;
++
++	mutex_lock(&host_cmd_pool_mutex);
++	pool = (gfp_mask & __GFP_DMA) ? &scsi_cmd_dma_pool :
++		&scsi_cmd_pool;
+ 	/*
+-	 * Get one backup command for this host.
++	 * This may happen if a driver has a mismatched get and put
++	 * of the command pool; the driver should be implicated in
++	 * the stack trace
+ 	 */
+-	cmd = kmem_cache_alloc(shost->cmd_pool->slab,
+-			GFP_KERNEL | shost->cmd_pool->gfp_mask);
+-	if (!cmd)
+-		goto fail2;
+-	list_add(&cmd->list, &shost->free_list);		
+-	return 0;
++	BUG_ON(pool->users == 0);
+ 
+- fail2:
+-	if (!--pool->users)
+-		kmem_cache_destroy(pool->slab);
+-	return -ENOMEM;
+- fail:
++	if (!--pool->users) {
++		kmem_cache_destroy(pool->cmd_slab);
++		kmem_cache_destroy(pool->sense_slab);
++	}
+ 	mutex_unlock(&host_cmd_pool_mutex);
+-	return -ENOMEM;
++}
++
++/**
++ * scsi_allocate_command - get a fully allocated SCSI command
++ * @gfp_mask:	allocation mask
++ *
++ * This function is for use outside of the normal host based pools.
++ * It allocates the relevant command and takes an additional reference
++ * on the pool it used.  This function *must* be paired with
++ * scsi_free_command which also has the identical mask, otherwise the
++ * free pool counts will eventually go wrong and you'll trigger a bug.
++ *
++ * This function should *only* be used by drivers that need a static
++ * command allocation at start of day for internal functions.
++ */
++struct scsi_cmnd *scsi_allocate_command(gfp_t gfp_mask)
++{
++	struct scsi_host_cmd_pool *pool = scsi_get_host_cmd_pool(gfp_mask);
++
++	if (!pool)
++		return NULL;
++
++	return scsi_pool_alloc_command(pool, gfp_mask);
++}
++EXPORT_SYMBOL(scsi_allocate_command);
++
++/**
++ * scsi_free_command - free a command allocated by scsi_allocate_command
++ * @gfp_mask:	mask used in the original allocation
++ * @cmd:	command to free
++ *
++ * Note: using the original allocation mask is vital because that's
++ * what determines which command pool we use to free the command.  Any
++ * mismatch will cause the system to BUG eventually.
++ */
++void scsi_free_command(gfp_t gfp_mask, struct scsi_cmnd *cmd)
++{
++	struct scsi_host_cmd_pool *pool = scsi_get_host_cmd_pool(gfp_mask);
++
++	/*
++	 * this could trigger if the mask to scsi_allocate_command
++	 * doesn't match this mask.  Otherwise we're guaranteed that this
++	 * succeeds because scsi_allocate_command must have taken a reference
++	 * on the pool
++	 */
++	BUG_ON(!pool);
++
++	scsi_pool_free_command(pool, cmd);
++	/*
++	 * scsi_put_host_cmd_pool is called twice; once to release the
++	 * reference we took above, and once to release the reference
++	 * originally taken by scsi_allocate_command
++	 */
++	scsi_put_host_cmd_pool(gfp_mask);
++	scsi_put_host_cmd_pool(gfp_mask);
++}
++EXPORT_SYMBOL(scsi_free_command);
+ 
++/**
++ * scsi_setup_command_freelist - Setup the command freelist for a scsi host.
++ * @shost: host to allocate the freelist for.
++ *
++ * Description: The command freelist protects against system-wide out of memory
++ * deadlock by preallocating one SCSI command structure for each host, so the
++ * system can always write to a swap file on a device associated with that host.
++ *
++ * Returns:	Nothing.
++ */
++int scsi_setup_command_freelist(struct Scsi_Host *shost)
++{
++	struct scsi_cmnd *cmd;
++	const gfp_t gfp_mask = shost->unchecked_isa_dma ? GFP_DMA : GFP_KERNEL;
++
++	spin_lock_init(&shost->free_list_lock);
++	INIT_LIST_HEAD(&shost->free_list);
++
++	shost->cmd_pool = scsi_get_host_cmd_pool(gfp_mask);
++
++	if (!shost->cmd_pool)
++		return -ENOMEM;
++
++	/*
++	 * Get one backup command for this host.
++	 */
++	cmd = scsi_pool_alloc_command(shost->cmd_pool, gfp_mask);
++	if (!cmd) {
++		scsi_put_host_cmd_pool(gfp_mask);
++		shost->cmd_pool = NULL;
++		return -ENOMEM;
++	}
++	list_add(&cmd->list, &shost->free_list);
++	return 0;
+ }
+ 
+ /*
+@@ -326,18 +479,22 @@ int scsi_setup_command_freelist(struct S
+  */
+ void scsi_destroy_command_freelist(struct Scsi_Host *shost)
+ {
++	/*
++	 * If cmd_pool is NULL the free list was not initialized, so
++	 * do not attempt to release resources.
++	 */
++	if (!shost->cmd_pool)
++		return;
++
+ 	while (!list_empty(&shost->free_list)) {
+ 		struct scsi_cmnd *cmd;
+ 
+ 		cmd = list_entry(shost->free_list.next, struct scsi_cmnd, list);
+ 		list_del_init(&cmd->list);
+-		kmem_cache_free(shost->cmd_pool->slab, cmd);
++		scsi_pool_free_command(shost->cmd_pool, cmd);
+ 	}
+-
+-	mutex_lock(&host_cmd_pool_mutex);
+-	if (!--shost->cmd_pool->users)
+-		kmem_cache_destroy(shost->cmd_pool->slab);
+-	mutex_unlock(&host_cmd_pool_mutex);
++	shost->cmd_pool = NULL;
++	scsi_put_host_cmd_pool(shost->unchecked_isa_dma ? GFP_DMA : GFP_KERNEL);
+ }
+ 
+ #ifdef CONFIG_SCSI_LOGGING
+diff -urBp a/drivers/scsi/scsi_error.c b/drivers/scsi/scsi_error.c
+--- a/drivers/scsi/scsi_error.c	2011-02-12 22:16:14.000000000 +0300
++++ b/drivers/scsi/scsi_error.c	2011-02-12 22:13:18.000000000 +0300
+@@ -626,7 +626,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd
+ 
+ 	if (sense_bytes) {
+ 		scmd->request_bufflen = min_t(unsigned,
+-		                       sizeof(scmd->sense_buffer), sense_bytes);
++		                       SCSI_SENSE_BUFFERSIZE, sense_bytes);
+ 		sg_init_one(&ses->sense_sgl, scmd->sense_buffer,
+ 		                                       scmd->request_bufflen);
+ 		scmd->request_buffer = &ses->sense_sgl;
+@@ -658,7 +658,7 @@ void scsi_eh_prep_cmnd(struct scsi_cmnd
+ 	 * Zero the sense buffer.  The scsi spec mandates that any
+ 	 * untransferred sense data should be interpreted as being zero.
+ 	 */
+-	memset(scmd->sense_buffer, 0, sizeof(scmd->sense_buffer));
++	memset(scmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ }
+ EXPORT_SYMBOL(scsi_eh_prep_cmnd);
+ 
+@@ -1830,7 +1830,7 @@ int scsi_command_normalize_sense(struct
+ 				 struct scsi_sense_hdr *sshdr)
+ {
+ 	return scsi_normalize_sense(cmd->sense_buffer,
+-			sizeof(cmd->sense_buffer), sshdr);
++			SCSI_SENSE_BUFFERSIZE, sshdr);
+ }
+ EXPORT_SYMBOL(scsi_command_normalize_sense);
+ 
+diff -urBp a/drivers/scsi/scsi_lib.c b/drivers/scsi/scsi_lib.c
+--- a/drivers/scsi/scsi_lib.c	2010-07-16 22:00:15.000000000 +0400
++++ b/drivers/scsi/scsi_lib.c	2011-02-12 22:13:18.000000000 +0300
+@@ -471,7 +471,7 @@ EXPORT_SYMBOL_GPL(scsi_execute_async);
+ static void scsi_init_cmd_errh(struct scsi_cmnd *cmd)
+ {
+ 	cmd->serial_number = 0;
+-	memset(cmd->sense_buffer, 0, sizeof cmd->sense_buffer);
++	memset(cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 	if (cmd->cmd_len == 0)
+ 		cmd->cmd_len = COMMAND_SIZE(cmd->cmnd[0]);
+ }
+diff -urBp a/drivers/scsi/sym53c8xx_2/sym_glue.c b/drivers/scsi/sym53c8xx_2/sym_glue.c
+--- a/drivers/scsi/sym53c8xx_2/sym_glue.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/sym53c8xx_2/sym_glue.c	2011-02-12 22:13:18.000000000 +0300
+@@ -277,10 +277,9 @@ void sym_set_cam_result_error(struct sym
+ 			/*
+ 			 *  Bounce back the sense data to user.
+ 			 */
+-			memset(&cmd->sense_buffer, 0, sizeof(cmd->sense_buffer));
++			memset(&cmd->sense_buffer, 0, SCSI_SENSE_BUFFERSIZE);
+ 			memcpy(cmd->sense_buffer, cp->sns_bbuf,
+-			      min(sizeof(cmd->sense_buffer),
+-				  (size_t)SYM_SNS_BBUF_LEN));
++			       min(SCSI_SENSE_BUFFERSIZE, SYM_SNS_BBUF_LEN));
+ #if 0
+ 			/*
+ 			 *  If the device reports a UNIT ATTENTION condition 
+diff -urBp a/drivers/scsi/tmscsim.c b/drivers/scsi/tmscsim.c
+--- a/drivers/scsi/tmscsim.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/tmscsim.c	2011-02-12 22:13:18.000000000 +0300
+@@ -447,7 +447,7 @@ static int dc390_pci_map (struct dc390_s
+ 
+ 	/* Map sense buffer */
+ 	if (pSRB->SRBFlag & AUTO_REQSENSE) {
+-		pSRB->pSegmentList	= dc390_sg_build_single(&pSRB->Segmentx, pcmd->sense_buffer, sizeof(pcmd->sense_buffer));
++		pSRB->pSegmentList	= dc390_sg_build_single(&pSRB->Segmentx, pcmd->sense_buffer, SCSI_SENSE_BUFFERSIZE);
+ 		pSRB->SGcount		= pci_map_sg(pdev, pSRB->pSegmentList, 1,
+ 						     DMA_FROM_DEVICE);
+ 		cmdp->saved_dma_handle	= sg_dma_address(pSRB->pSegmentList);
+@@ -611,7 +611,7 @@ dc390_StartSCSI( struct dc390_acb* pACB,
+ 	    DC390_write8 (ScsiFifo, pDCB->TargetLUN << 5);
+ 	    DC390_write8 (ScsiFifo, 0);
+ 	    DC390_write8 (ScsiFifo, 0);
+-	    DC390_write8 (ScsiFifo, sizeof(scmd->sense_buffer));
++	    DC390_write8 (ScsiFifo, SCSI_SENSE_BUFFERSIZE);
+ 	    DC390_write8 (ScsiFifo, 0);
+ 	    DEBUG1(printk (KERN_DEBUG "DC390: AutoReqSense !\n"));
+ 	  }
+@@ -1407,7 +1407,7 @@ dc390_CommandPhase( struct dc390_acb* pA
+ 	DC390_write8 (ScsiFifo, pDCB->TargetLUN << 5);
+ 	DC390_write8 (ScsiFifo, 0);
+ 	DC390_write8 (ScsiFifo, 0);
+-	DC390_write8 (ScsiFifo, sizeof(pSRB->pcmd->sense_buffer));
++	DC390_write8 (ScsiFifo, SCSI_SENSE_BUFFERSIZE);
+ 	DC390_write8 (ScsiFifo, 0);
+ 	DEBUG0(printk(KERN_DEBUG "DC390: AutoReqSense (CmndPhase)!\n"));
+     }
+diff -urBp a/drivers/scsi/u14-34f.c b/drivers/scsi/u14-34f.c
+--- a/drivers/scsi/u14-34f.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/u14-34f.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1120,9 +1120,9 @@ static void map_dma(unsigned int i, unsi
+ 
+    if (SCpnt->sense_buffer)
+       cpp->sense_addr = H2DEV(pci_map_single(HD(j)->pdev, SCpnt->sense_buffer,
+-                           sizeof SCpnt->sense_buffer, PCI_DMA_FROMDEVICE));
++                           SCSI_SENSE_BUFFERSIZE, PCI_DMA_FROMDEVICE));
+ 
+-   cpp->sense_len = sizeof SCpnt->sense_buffer;
++   cpp->sense_len = SCSI_SENSE_BUFFERSIZE;
+ 
+    if (!SCpnt->use_sg) {
+ 
+diff -urBp a/drivers/scsi/ultrastor.c b/drivers/scsi/ultrastor.c
+--- a/drivers/scsi/ultrastor.c	2008-02-26 02:59:40.000000000 +0300
++++ b/drivers/scsi/ultrastor.c	2011-02-12 22:13:18.000000000 +0300
+@@ -742,7 +742,7 @@ static int ultrastor_queuecommand(struct
+     }
+     my_mscp->command_link = 0;		/*???*/
+     my_mscp->scsi_command_link_id = 0;	/*???*/
+-    my_mscp->length_of_sense_byte = sizeof SCpnt->sense_buffer;
++    my_mscp->length_of_sense_byte = SCSI_SENSE_BUFFERSIZE;
+     my_mscp->length_of_scsi_cdbs = SCpnt->cmd_len;
+     memcpy(my_mscp->scsi_cdbs, SCpnt->cmnd, my_mscp->length_of_scsi_cdbs);
+     my_mscp->adapter_status = 0;
+diff -urBp a/drivers/usb/storage/isd200.c b/drivers/usb/storage/isd200.c
+--- a/drivers/usb/storage/isd200.c	2010-07-16 22:00:15.000000000 +0400
++++ b/drivers/usb/storage/isd200.c	2011-02-12 22:13:18.000000000 +0300
+@@ -1344,6 +1344,7 @@ static void isd200_free_info_ptrs(void *
+ 	if (info) {
+ 		kfree(info->id);
+ 		kfree(info->RegsBuf);
++		kfree(info->srb.sense_buffer);
+ 	}
+ }
+ 
+@@ -1369,7 +1370,9 @@ static int isd200_init_info(struct us_da
+ 				kzalloc(sizeof(struct hd_driveid), GFP_KERNEL);
+ 		info->RegsBuf = (unsigned char *)
+ 				kmalloc(sizeof(info->ATARegs), GFP_KERNEL);
+-		if (!info->id || !info->RegsBuf) {
++		info->srb.sense_buffer =
++				kmalloc(SCSI_SENSE_BUFFERSIZE, GFP_KERNEL);
++		if (!info->id || !info->RegsBuf || !info->srb.sense_buffer) {
+ 			isd200_free_info_ptrs(info);
+ 			kfree(info);
+ 			retStatus = ISD200_ERROR;
+diff -urBp a/include/scsi/scsi_cmnd.h b/include/scsi/scsi_cmnd.h
+--- a/include/scsi/scsi_cmnd.h	2010-07-16 22:00:15.000000000 +0400
++++ b/include/scsi/scsi_cmnd.h	2011-02-12 21:59:03.000000000 +0300
+@@ -91,7 +91,7 @@ struct scsi_cmnd {
+ 				   	   working on */
+ 
+ #define SCSI_SENSE_BUFFERSIZE 	96
+-	unsigned char sense_buffer[SCSI_SENSE_BUFFERSIZE];
++	unsigned char *sense_buffer;
+ 				/* obtained by REQUEST SENSE when
+ 				 * CHECK CONDITION is received on original
+ 				 * command (auto-sense) */
+@@ -139,4 +139,7 @@ extern void scsi_free_sgtable(struct scs
+ extern struct scatterlist *scsi_alloc_sgtable(struct scsi_cmnd *, gfp_t);
+ extern void scsi_free_sgtable(struct scatterlist *, int);
+ 
++struct scsi_cmnd *scsi_allocate_command(gfp_t gfp_mask);
++void scsi_free_command(gfp_t gfp_mask, struct scsi_cmnd *cmd);
++
+ #endif /* _SCSI_SCSI_CMND_H */
+-- 

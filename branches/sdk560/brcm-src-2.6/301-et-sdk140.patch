@@ -1,0 +1,489 @@
+diff -urBp src/et/sys/etc47xx.c src.9/et/sys/etc47xx.c
+--- src/et/sys/etc47xx.c	2009-10-10 19:52:56.000000000 +0400
++++ src.9/et/sys/etc47xx.c	2010-02-11 22:42:02.000000000 +0300
+@@ -4,14 +4,14 @@
+  * This file implements the chip-specific routines
+  * for Broadcom HNBU Sonics SiliconBackplane enet cores.
+  *
+- * Copyright (C) 2008, Broadcom Corporation
++ * Copyright (C) 2009, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+  * the contents of this file may not be disclosed to third parties, copied
+  * or duplicated in any form, in whole or in part, without the prior
+  * written permission of Broadcom Corporation.
+- * $Id: etc47xx.c,v 1.164.2.1.14.3 2008/11/21 02:57:04 Exp $
++ * $Id: etc47xx.c,v 1.164.2.5 2009/01/23 01:55:15 Exp $
+  */
+ 
+ #include <typedefs.h>
+@@ -212,6 +212,23 @@ chipattach(etc_info_t *etc, void *osh, v
+ 	boardflags = etc->boardflags;
+ 	boardtype = ch->sih->boardtype;
+ 
++	/* configure pci core */
++	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
++
++	/* reset the enet core */
++	chipreset(ch);
++
++	/* dma attach */
++	sprintf(name, "et%d", etc->coreunit);
++	if ((ch->di = dma_attach(osh, name, ch->sih,
++	                         (void *)&regs->dmaregs.xmt, (void *)&regs->dmaregs.rcv,
++	                         NTXD, NRXD, RXBUFSZ, NRXBUFPOST, HWRXOFF,
++	                         &et_msg_level)) == NULL) {
++		ET_ERROR(("et%d: chipattach: dma_attach failed\n", etc->unit));
++		goto fail;
++	}
++	etc->txavail[TX_Q0] = (uint *)&ch->di->txavail;
++
+ 	/* get our local ether addr */
+ 	sprintf(name, "et%dmacaddr", etc->coreunit);
+ 	var = getvar(ch->vars, name);
+@@ -256,23 +273,6 @@ chipattach(etc_info_t *etc, void *osh, v
+ 	}
+ 	etc->mdcport = bcm_atoi(var);
+ 
+-	/* configure pci core */
+-	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
+-
+-	/* reset the enet core */
+-	chipreset(ch);
+-
+-	/* dma attach */
+-	sprintf(name, "et%d", etc->coreunit);
+-	if ((ch->di = dma_attach(osh, name, ch->sih,
+-	                         (void *)&regs->dmaregs.xmt, (void *)&regs->dmaregs.rcv,
+-	                         NTXD, NRXD, RXBUFSZ, NRXBUFPOST, HWRXOFF,
+-	                         &et_msg_level)) == NULL) {
+-		ET_ERROR(("et%d: chipattach: dma_attach failed\n", etc->unit));
+-		goto fail;
+-	}
+-	etc->txavail[TX_Q0] = (uint *)&ch->di->txavail;
+-
+ 	/* set default sofware intmask */
+ 	ch->intmask = DEF_INTMASK;
+ 
+diff -urBp src/et/sys/et_cfe.c src.9/et/sys/et_cfe.c
+--- src/et/sys/et_cfe.c	2010-01-29 17:37:48.000000000 +0300
++++ src.9/et/sys/et_cfe.c	2010-02-11 22:15:46.000000000 +0300
+@@ -10,7 +10,7 @@
+  * or duplicated in any form, in whole or in part, without the prior
+  * written permission of Broadcom Corporation.
+  *
+- * $Id: et_cfe.c,v 1.19.96.2.12.1 2008/11/11 04:11:06 Exp $
++ * $Id: et_cfe.c,v 1.19.96.2 2008/09/12 04:31:31 Exp $
+  */
+ 
+ #include "lib_types.h"
+@@ -202,11 +202,6 @@ et_probe(cfe_driver_t *drv,
+ 	et->osh = osl_attach(et);
+ 	ASSERT(et->osh);
+ 
+-#ifdef	CFG_SIM
+-	/* Make it chatty in simulation */
+-	et_msg_level = 0xf;
+-#endif
+-
+ 	/* common load-time initialization */
+ 	if ((et->etc = etc_attach(et, VENDOR_BROADCOM, device, unit, et->osh, probe_ptr)) == NULL) {
+ 		ET_ERROR(("et%d: etc_attach failed\n", unit));
+@@ -225,6 +220,11 @@ et_probe(cfe_driver_t *drv,
+ 	et->etc->chops->longname(et->etc->ch, name, sizeof (name));
+ 	printf("et%d: %s %s\n", unit, name, EPI_VERSION_STR);
+ 
++#ifdef	CFG_SIM
++	/* Make it chatty in simulation */
++	et_msg_level = 0xf;
++#endif
++
+ 	cfe_attach(drv, et, NULL, name);
+ }
+ 
+diff -urBp src/et/sys/etcgmac.c src.9/et/sys/etcgmac.c
+--- src/et/sys/etcgmac.c	2009-10-10 19:55:29.000000000 +0400
++++ src.9/et/sys/etcgmac.c	2010-02-11 22:43:24.000000000 +0300
+@@ -3,14 +3,14 @@
+  *
+  * This file implements the chip-specific routines for the GMAC core.
+  *
+- * Copyright (C) 2008, Broadcom Corporation
++ * Copyright (C) 2009, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
+  * the contents of this file may not be disclosed to third parties, copied
+  * or duplicated in any form, in whole or in part, without the prior
+  * written permission of Broadcom Corporation.
+- * $Id: etcgmac.c,v 1.2.2.3.14.15 2009/04/09 08:03:38 Exp $
++ * $Id: etcgmac.c,v 1.2.2.8 2009/09/01 20:10:51 Exp $
+  */
+ 
+ #include <typedefs.h>
+@@ -59,6 +59,7 @@ struct bcmgmac {
+ 
+ 	uint32		intstatus;	/* saved interrupt condition bits */
+ 	uint32		intmask;	/* current software interrupt mask */
++	uint32		def_intmask;	/* default interrupt mask */
+ 
+ 	hnddma_t	*di[NUMTXQ];	/* dma engine software state */
+ 
+@@ -206,41 +207,6 @@ chipattach(etc_info_t *etc, void *osh, v
+ 	boardflags = etc->boardflags;
+ 	boardtype = ch->sih->boardtype;
+ 
+-	/* get our local ether addr */
+-	sprintf(name, "et%dmacaddr", etc->coreunit);
+-	var = getvar(ch->vars, name);
+-	if (var == NULL) {
+-		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
+-		goto fail;
+-	}
+-	bcm_ether_atoe(var, &etc->perm_etheraddr);
+-
+-	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
+-		ET_ERROR(("et%d: chipattach: invalid format: %s=%s\n", etc->unit, name, var));
+-		goto fail;
+-	}
+-	bcopy((char *)&etc->perm_etheraddr, (char *)&etc->cur_etheraddr, ETHER_ADDR_LEN);
+-
+-	/*
+-	 * Too much can go wrong in scanning MDC/MDIO playing "whos my phy?" .
+-	 * Instead, explicitly require the environment var "et<coreunit>phyaddr=<val>".
+-	 */
+-
+-	/* get our phyaddr value */
+-	sprintf(name, "et%dphyaddr", etc->coreunit);
+-	var = getvar(ch->vars, name);
+-	if (var == NULL) {
+-		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
+-		goto fail;
+-	}
+-	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
+-
+-	/* nvram says no phy is present */
+-	if (etc->phyaddr == EPHY_NONE) {
+-		ET_ERROR(("et%d: chipattach: phy not present\n", etc->unit));
+-		goto fail;
+-	}
+-
+ 	/* configure pci core */
+ 	si_pci_setup(ch->sih, (1 << si_coreidx(ch->sih)));
+ 
+@@ -286,8 +252,53 @@ chipattach(etc_info_t *etc, void *osh, v
+ 		if (ch->di[i] != NULL)
+ 			etc->txavail[i] = (uint *)&ch->di[i]->txavail;
+ 
++	/* get our local ether addr */
++	sprintf(name, "et%dmacaddr", etc->coreunit);
++	var = getvar(ch->vars, name);
++	if (var == NULL) {
++		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
++		goto fail;
++	}
++	bcm_ether_atoe(var, &etc->perm_etheraddr);
++
++	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
++		ET_ERROR(("et%d: chipattach: invalid format: %s=%s\n", etc->unit, name, var));
++		goto fail;
++	}
++	bcopy((char *)&etc->perm_etheraddr, (char *)&etc->cur_etheraddr, ETHER_ADDR_LEN);
++
++	/*
++	 * Too much can go wrong in scanning MDC/MDIO playing "whos my phy?" .
++	 * Instead, explicitly require the environment var "et<coreunit>phyaddr=<val>".
++	 */
++
++	/* get our phyaddr value */
++	sprintf(name, "et%dphyaddr", etc->coreunit);
++	var = getvar(ch->vars, name);
++	if (var == NULL) {
++		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
++		goto fail;
++	}
++	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
++
++	/* nvram says no phy is present */
++	if (etc->phyaddr == EPHY_NONE) {
++		ET_ERROR(("et%d: chipattach: phy not present\n", etc->unit));
++		goto fail;
++	}
++
+ 	/* set default sofware intmask */
+-	ch->intmask = DEF_INTMASK;
++	sprintf(name, "et%d_no_txint", etc->coreunit);
++	if (getintvar(ch->vars, name)) {
++		/* if no_txint variable is non-zero we disable tx interrupts.
++		 * we do the tx buffer reclaim once every few frames.
++		 */
++		ch->def_intmask = (DEF_INTMASK & ~(I_XI0 | I_XI1 | I_XI2 | I_XI3));
++		etc->txrec_thresh = (((NTXD >> 2) > TXREC_THR) ? TXREC_THR - 1 : 1);
++	} else
++		ch->def_intmask = DEF_INTMASK;
++
++	ch->intmask = ch->def_intmask;
+ 
+ 	/* reset the external phy */
+ 	if ((reset = getgpiopin(ch->vars, "ephy_reset", GPIO_PIN_NOTDEFINED)) !=
+@@ -1008,6 +1005,13 @@ chiptx(ch_t *ch, void *p0)
+ 		q = etc_up2tc(PKTPRIO(p0));
+ 
+ 	ASSERT(q < NUMTXQ);
++
++	/* if tx completion intr is disabled then do the reclaim
++	 * once every few frames transmitted.
++	 */
++	if ((ch->etc->txframes[q] & ch->etc->txrec_thresh) == 1)
++		dma_txreclaim(ch->di[q], false);
++
+ 	error = dma_txfast(ch->di[q], p0, TRUE);
+ 
+ 	/* set back the orig length */
+@@ -1019,6 +1023,8 @@ chiptx(ch_t *ch, void *p0)
+ 		return FALSE;
+ 	}
+ 
++	ch->etc->txframes[q]++;
++
+ 	return TRUE;
+ }
+ 
+@@ -1110,7 +1116,7 @@ chipgetintrevents(ch_t *ch, bool in_isr)
+ 	intstatus = R_REG(ch->osh, &ch->regs->intstatus);
+ 
+ 	/* defer unsolicited interrupts */
+-	intstatus &= (in_isr ? ch->intmask : DEF_INTMASK);
++	intstatus &= (in_isr ? ch->intmask : ch->def_intmask);
+ 
+ 	if (intstatus != 0)
+ 		events = INTR_NEW;
+@@ -1137,7 +1143,7 @@ chipgetintrevents(ch_t *ch, bool in_isr)
+ static void BCMFASTPATH
+ chipintrson(ch_t *ch)
+ {
+-	ch->intmask = DEF_INTMASK;
++	ch->intmask = ch->def_intmask;
+ 	W_REG(ch->osh, &ch->regs->intmask, ch->intmask);
+ }
+ 
+diff -urBp src/et/sys/etc.h src.9/et/sys/etc.h
+--- src/et/sys/etc.h	2010-01-29 17:37:48.000000000 +0300
++++ src.9/et/sys/etc.h	2010-02-11 22:15:46.000000000 +0300
+@@ -26,6 +26,8 @@
+ 
+ #define NUMTXQ		4
+ 
++#define TXREC_THR	8
++
+ struct etc_info;	/* forward declaration */
+ struct bcmstrbuf;	/* forward declaration */
+ 
+@@ -112,8 +114,10 @@ typedef struct etc_info {
+ 	uint32		now;		/* elapsed seconds */
+ 
+ 	uint32		boardflags;	/* board flags */
++	uint32		txrec_thresh;	/* # of tx frames after which reclaim is done */
+ 
+ 	/* sw-maintained stat counters */
++	uint32		txframes[NUMTXQ];	/* transmitted frames on each tx fifo */
+ 	uint32		txframe;	/* transmitted frames */
+ 	uint32		txbyte;		/* transmitted bytes */
+ 	uint32		rxframe;	/* received frames */
+diff -urBp src/et/sys/et_linux.c src.9/et/sys/et_linux.c
+--- src/et/sys/et_linux.c	2009-10-10 21:15:19.000000000 +0400
++++ src.9/et/sys/et_linux.c	2010-02-11 22:39:45.000000000 +0300
+@@ -557,7 +557,7 @@ et_sendnext(et_info_t *et)
+ 
+ 		/* Convert the packet. */
+ 		if ((p = PKTFRMNATIVE(et->osh, skb)) == NULL) {
+-			dev_kfree_skb_any(skb);
++			PKTFREE(etc->osh, skb, TRUE);
+ 			return;
+ 		}
+ 
+@@ -647,7 +647,7 @@ et_down(et_info_t *et, int reset)
+ 	/* flush the txq(s) */
+ 	for (i = 0; i < NUMTXQ; i++)
+ 		while ((skb = skb_dequeue(&et->txq[i])))
+-			dev_kfree_skb_any(skb);
++			PKTFREE(etc->osh, skb, TRUE);
+ 
+ #ifndef BCM_NAPI
+ 	/* kill dpc */
+@@ -1042,12 +1042,18 @@ static inline int
+ et_rxevent(osl_t *osh, et_info_t *et, struct chops *chops, void *ch, int quota)
+ {
+ 	uint processed = 0;
+-	void *p = NULL;
++	void *p = NULL, *h = NULL, *t = NULL;
+ 	struct sk_buff *skb;
+ 
++	/* read the buffers first */
+ 	while ((p = (*chops->rx)(ch))) {
+-		skb = PKTTONATIVE(osh, p);
+-		et_sendup(et, skb);
++		if (t == NULL)
++			h = t = p;
++		else {
++			PKTSETLINK(t, p);
++			t = p;
++		}
++
+ 		/* we reached quota already */
+ 		if (++processed >= quota) {
+ 			/* reschedule et_dpc()/et_poll() */
+@@ -1056,9 +1062,23 @@ et_rxevent(osl_t *osh, et_info_t *et, st
+ 		}
+ 	}
+ 
++	/* prefetch the headers */
++	if (h != NULL)
++		ETPREFHDRS(PKTDATA(osh, h), PREFSZ);
++
+ 	/* post more rx bufs */
+ 	(*chops->rxfill)(ch);
+ 
++	while ((p = h) != NULL) {
++		h = PKTLINK(h);
++		PKTSETLINK(p, NULL);
++		/* prefetch the headers */
++		if (h != NULL)
++			ETPREFHDRS(PKTDATA(osh, h), PREFSZ);
++		skb = PKTTONATIVE(osh, p);
++		et_sendup(et, skb);
++	}
++
+ 	return (processed);
+ }
+ 
+@@ -1066,7 +1086,7 @@ et_rxevent(osl_t *osh, et_info_t *et, st
+ static int BCMFASTPATH
+ et_poll(struct net_device *dev, int *budget)
+ {
+-	int quota = min(dev->quota, *budget);
++	int quota = min(RXBND, *budget);
+ 	et_info_t *et = ET_INFO(dev);
+ #else /* BCM_NAPI */
+ static void BCMFASTPATH
+@@ -1156,11 +1176,11 @@ done:
+ 		 */
+ 		return (1);
+ 
++	netif_rx_complete(dev);
++
+ 	/* enable interrupts now */
+ 	(*chops->intrson)(ch);
+ 
+-	netif_rx_complete(dev);
+-
+ 	/* indicate that we are done */
+ 	return (0);
+ #else /* BCM_NAPI */
+@@ -1169,13 +1189,39 @@ done:
+ #endif /* BCM_NAPI */
+ }
+ 
++static void
++et_error(et_info_t *et, struct sk_buff *skb, void *rxh)
++{
++	uchar eabuf[32];
++	struct ether_header *eh;
++
++	eh = (struct ether_header *)skb->data;
++	bcm_ether_ntoa((struct ether_addr *)eh->ether_shost, eabuf);
++
++	if (RXH_OVERSIZE(et->etc, rxh)) {
++		ET_ERROR(("et%d: rx: over size packet from %s\n", et->etc->unit, eabuf));
++	}
++	if (RXH_CRC(et->etc, rxh)) {
++		ET_ERROR(("et%d: rx: crc error from %s\n", et->etc->unit, eabuf));
++	}
++	if (RXH_OVF(et->etc, rxh)) {
++		ET_ERROR(("et%d: rx: fifo overflow\n", et->etc->unit));
++	}
++	if (RXH_NO(et->etc, rxh)) {
++		ET_ERROR(("et%d: rx: crc error (odd nibbles) from %s\n",
++		          et->etc->unit, eabuf));
++	}
++	if (RXH_RXER(et->etc, rxh)) {
++		ET_ERROR(("et%d: rx: symbol error from %s\n", et->etc->unit, eabuf));
++	}
++}
++
+ void BCMFASTPATH
+ et_sendup(et_info_t *et, struct sk_buff *skb)
+ {
+ 	etc_info_t *etc;
+ 	void *rxh;
+ 	uint16 flags;
+-	uchar eabuf[32];
+ 
+ 	etc = et->etc;
+ 
+@@ -1183,7 +1229,7 @@ et_sendup(et_info_t *et, struct sk_buff
+ 	rxh = skb->data;
+ 
+ 	/* strip off rxhdr */
+-	skb_pull(skb, HWRXOFF);
++	__skb_pull(skb, HWRXOFF);
+ 
+ 	ET_TRACE(("et%d: et_sendup: %d bytes\n", et->etc->unit, skb->len));
+ 	ET_LOG("et%d: et_sendup: len %d", et->etc->unit, skb->len);
+@@ -1195,7 +1241,7 @@ et_sendup(et_info_t *et, struct sk_buff
+ 	ASSERT(((ulong)skb->data & 3) == 2);
+ 
+ 	/* strip off crc32 */
+-	skb_trim(skb, skb->len - ETHER_CRC_LEN);
++	__skb_trim(skb, skb->len - ETHER_CRC_LEN);
+ 
+ 	ET_PRHDR("rx", (struct ether_header *)skb->data, skb->len, etc->unit);
+ 	ET_PRPKT("rxpkt", skb->data, skb->len, etc->unit);
+@@ -1216,6 +1262,7 @@ et_sendup(et_info_t *et, struct sk_buff
+ 			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
+ 				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
+ 		{
++			uchar eabuf[32];
+ 			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
+ 			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
+ 				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
+@@ -1245,25 +1292,8 @@ et_sendup(et_info_t *et, struct sk_buff
+ 	return;
+ 
+ err:
+-	bcm_ether_ntoa((struct ether_addr *)((struct ether_header *)skb->data)->ether_shost, eabuf);
+-	if (RXH_OVERSIZE(etc, rxh)) {
+-		ET_ERROR(("et%d: rx: over size packet from %s\n", etc->unit, eabuf));
+-	}
+-	if (RXH_CRC(etc, rxh)) {
+-		ET_ERROR(("et%d: rx: crc error from %s\n", etc->unit, eabuf));
+-	}
+-	if (RXH_OVF(etc, rxh)) {
+-		ET_ERROR(("et%d: rx: fifo overflow\n", etc->unit));
+-	}
+-	if (RXH_NO(etc, rxh)) {
+-		ET_ERROR(("et%d: rx: crc error (odd nibbles) from %s\n",
+-		          etc->unit, eabuf));
+-	}
+-	if (RXH_RXER(etc, rxh)) {
+-		ET_ERROR(("et%d: rx: symbol error from %s\n", etc->unit, eabuf));
+-	}
+-
+-	dev_kfree_skb_any(skb);
++	et_error(et, skb, rxh);
++	PKTFREE(etc->osh, skb, FALSE);
+ 
+ 	return;
+ }
+diff -urBp src/et/sys/et_linux.h src.9/et/sys/et_linux.h
+--- src/et/sys/et_linux.h	2010-01-29 17:37:48.000000000 +0300
++++ src.9/et/sys/et_linux.h	2010-02-11 22:15:46.000000000 +0300
+@@ -35,4 +35,7 @@
+ #define	NRXBUFPOST	2
+ #endif
+ 
++#define	PREFSZ			96
++#define ETPREFHDRS(h, sz)	OSL_PREF_RANGE_ST((h), (sz))
++
+ #endif	/* _et_linux_h_ */

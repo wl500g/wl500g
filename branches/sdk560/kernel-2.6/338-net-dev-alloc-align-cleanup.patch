@@ -1,0 +1,86 @@
+Backported from kernel.org commits
+d0498d9ae1a5cebac363e38907266d5cd2eedf89 [NET]: Do not allocate unneeded memory for dev->priv alignment.
+d1643d24c61b725bef399cc1cf2944b4c9c23177 [NET]: Fix and allocate less memory for ->priv'less netdevices
+1ce8e7b57b3a4527ef83da1c5c7bd8a6b9d87b56 [NET]: ALIGN/PTR_ALIGN cleanup in alloc_netdev_mq()/netdev_priv()
+
+diff -BurpN linux-2.6.22.19.orig/include/linux/netdevice.h linux-2.6.22.19/include/linux/netdevice.h
+--- linux-2.6.22.19.orig/include/linux/netdevice.h	2010-09-26 00:00:00.000000000 +0000
++++ linux-2.6.22.19/include/linux/netdevice.h	2011-01-27 12:39:09.756045001 +0000
+@@ -547,13 +547,10 @@ struct net_device
+ #define to_net_dev(d) container_of(d, struct net_device, dev)
+ 
+ #define	NETDEV_ALIGN		32
+-#define	NETDEV_ALIGN_CONST	(NETDEV_ALIGN - 1)
+ 
+ static inline void *netdev_priv(struct net_device *dev)
+ {
+-	return (char *)dev + ((sizeof(struct net_device)
+-					+ NETDEV_ALIGN_CONST)
+-				& ~NETDEV_ALIGN_CONST);
++	return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+ }
+ 
+ #define SET_MODULE_OWNER(dev) do { } while (0)
+diff -BurpN linux-2.6.22.19.orig/net/core/dev.c linux-2.6.22.19/net/core/dev.c
+--- linux-2.6.22.19.orig/net/core/dev.c	2011-01-24 00:00:00.000000000 +0000
++++ linux-2.6.22.19/net/core/dev.c	2011-01-27 12:37:38.136045001 +0000
+@@ -3360,15 +3360,20 @@ static struct net_device_stats *internal
+ struct net_device *alloc_netdev(int sizeof_priv, const char *name,
+ 		void (*setup)(struct net_device *))
+ {
+-	void *p;
+ 	struct net_device *dev;
+ 	int alloc_size;
++	struct net_device *p;
+ 
+ 	BUG_ON(strlen(name) >= sizeof(dev->name));
+ 
+-	/* ensure 32-byte alignment of both the device and private area */
+-	alloc_size = (sizeof(*dev) + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST;
+-	alloc_size += sizeof_priv + NETDEV_ALIGN_CONST;
++	alloc_size = sizeof(struct net_device);
++	if (sizeof_priv) {
++		/* ensure 32-byte alignment of private area */
++		alloc_size = ALIGN(alloc_size, NETDEV_ALIGN);
++		alloc_size += sizeof_priv;
++	}
++	/* ensure 32-byte alignment of whole construct */
++	alloc_size += NETDEV_ALIGN - 1;
+ 
+ 	p = kzalloc(alloc_size, GFP_KERNEL);
+ 	if (!p) {
+@@ -3376,8 +3381,7 @@ struct net_device *alloc_netdev(int size
+ 		return NULL;
+ 	}
+ 
+-	dev = (struct net_device *)
+-		(((long)p + NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
++	dev = PTR_ALIGN(p, NETDEV_ALIGN);
+ 	dev->padded = (char *)dev - (char *)p;
+ 
+ 	if (sizeof_priv)
+diff -BurpN linux-2.6.22.19.orig/net/mac80211/ieee80211.c linux-2.6.22.19/net/mac80211/ieee80211.c
+--- linux-2.6.22.19.orig/net/mac80211/ieee80211.c	2008-02-25 23:59:40.000000000 +0000
++++ linux-2.6.22.19/net/mac80211/ieee80211.c	2011-01-27 12:41:17.326045001 +0000
+@@ -4603,9 +4603,7 @@ struct ieee80211_hw *ieee80211_alloc_hw(
+ 	 * +-------------------------+
+ 	 *
+ 	 */
+-	priv_size = ((sizeof(struct ieee80211_local) +
+-		      NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST) +
+-		    priv_data_len;
++	priv_size = ALIGN(sizeof(*local), NETDEV_ALIGN) + priv_data_len;
+ 
+ 	wiphy = wiphy_new(&mac80211_config_ops, priv_size);
+ 
+@@ -4617,9 +4615,7 @@ struct ieee80211_hw *ieee80211_alloc_hw(
+ 	local = wiphy_priv(wiphy);
+ 	local->hw.wiphy = wiphy;
+ 
+-	local->hw.priv = (char *)local +
+-			 ((sizeof(struct ieee80211_local) +
+-			   NETDEV_ALIGN_CONST) & ~NETDEV_ALIGN_CONST);
++	local->hw.priv = (char *)local + ALIGN(sizeof(*local), NETDEV_ALIGN);
+ 
+ 	local->ops = ops;
+ 

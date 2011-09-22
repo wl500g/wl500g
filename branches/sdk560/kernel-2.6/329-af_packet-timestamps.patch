@@ -1,0 +1,55 @@
+Subject: [PATCH] [AF_PACKET]: Don't enable global timestamps.
+From 50f17787e9b0222ce65cc831407c3ba4790db3ff
+From: Stephen Hemminger
+Date: Thu, 6 Sep 2007 13:55:02 +0100
+
+Andi mentioned he did something like this already, but never submitted
+it.
+
+The dhcp client application uses AF_PACKET with a packet filter to
+receive data. The application doesn't even use timestamps, but because
+the AF_PACKET API has timestamps, they get turned on globally which
+causes an expensive time of day lookup for every packet received on
+any system that uses the standard DHCP client.
+
+The fix is to not enable the timestamp (but use if if available).
+This causes the time lookup to only occur on those packets that are
+destined for the AF_PACKET socket.  The timestamping occurs after
+packet filtering so all packets dropped by filtering to not cause a
+clock call.
+
+The one downside of this a a few microseconds additional delay added
+from the normal timestamping location (netif_rx) until the receive
+callback in AF_PACKET. But since the offset is fairly consistent it
+should not upset applications that do want really use timestamps, like
+wireshark.
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/packet/af_packet.c |    9 ++++-----
+ 1 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 1322d62..9c26dd9 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -640,11 +640,10 @@ static int tpacket_rcv(struct sk_buff *skb, struct net_device *dev, struct packe
+ 	h->tp_snaplen = snaplen;
+ 	h->tp_mac = macoff;
+ 	h->tp_net = netoff;
+-	if (skb->tstamp.tv64 == 0) {
+-		__net_timestamp(skb);
+-		sock_enable_timestamp(sk);
+-	}
+-	tv = ktime_to_timeval(skb->tstamp);
++	if (skb->tstamp.tv64)
++		tv = ktime_to_timeval(skb->tstamp);
++	else
++		do_gettimeofday(&tv);
+ 	h->tp_sec = tv.tv_sec;
+ 	h->tp_usec = tv.tv_usec;
+ 
+-- 
+1.7.1
+

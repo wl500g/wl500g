@@ -1,0 +1,167 @@
+Subject: [PATCH] timers: simplify lockdep handling, remove double_spin_lock()
+From: Oleg Nesterov
+Date: Sat, 5 Feb 2011 11:37:24 -0500
+
+kernel.org commits
+0d180406f2914aea3a78ddb880e2fe9ac78a9372 timers: simplify lockdep handling
+8e60e05fdc7344415fa69a3883b11f65db967b47 hrtimers: simplify lockdep handling
+3f3eafc921e2378954c28cfd0eb10910449f4c11 locking: remove unused double_spin_lock()
+
+---
+ include/linux/hrtimer.h  |    2 -
+ include/linux/spinlock.h |   37 --------------------
+ kernel/hrtimer.c         |    9 ++---
+ kernel/timer.c           |   16 ++------
+ 4 files changed, 8 insertions(+), 56 deletions(-)
+
+diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
+index 684f9b6..06928a7 100644
+--- a/include/linux/hrtimer.h
++++ b/include/linux/hrtimer.h
+@@ -176,7 +176,6 @@ struct hrtimer_clock_base {
+  * struct hrtimer_cpu_base - the per cpu clock bases
+  * @lock:		lock protecting the base and associated clock bases
+  *			and timers
+- * @lock_key:		the lock_class_key for use with lockdep
+  * @clock_base:		array of clock bases for this cpu
+  * @curr_timer:		the timer which is executing a callback right now
+  * @expires_next:	absolute time of the next event which was scheduled
+@@ -192,7 +191,6 @@ struct hrtimer_clock_base {
+  */
+ struct hrtimer_cpu_base {
+ 	spinlock_t			lock;
+-	struct lock_class_key		lock_key;
+ 	struct hrtimer_clock_base	clock_base[HRTIMER_MAX_CLOCK_BASES];
+ #ifdef CONFIG_HIGH_RES_TIMERS
+ 	ktime_t				expires_next;
+diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
+index a946176..61fef37 100644
+--- a/include/linux/spinlock.h
++++ b/include/linux/spinlock.h
+@@ -283,43 +283,6 @@ do {						\
+ })
+ 
+ /*
+- * Locks two spinlocks l1 and l2.
+- * l1_first indicates if spinlock l1 should be taken first.
+- */
+-static inline void double_spin_lock(spinlock_t *l1, spinlock_t *l2,
+-				    bool l1_first)
+-	__acquires(l1)
+-	__acquires(l2)
+-{
+-	if (l1_first) {
+-		spin_lock(l1);
+-		spin_lock(l2);
+-	} else {
+-		spin_lock(l2);
+-		spin_lock(l1);
+-	}
+-}
+-
+-/*
+- * Unlocks two spinlocks l1 and l2.
+- * l1_taken_first indicates if spinlock l1 was taken first and therefore
+- * should be released after spinlock l2.
+- */
+-static inline void double_spin_unlock(spinlock_t *l1, spinlock_t *l2,
+-				      bool l1_taken_first)
+-	__releases(l1)
+-	__releases(l2)
+-{
+-	if (l1_taken_first) {
+-		spin_unlock(l2);
+-		spin_unlock(l1);
+-	} else {
+-		spin_unlock(l1);
+-		spin_unlock(l2);
+-	}
+-}
+-
+-/*
+  * Pull the atomic_t declaration:
+  * (asm-mips/atomic.h needs above definitions)
+  */
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+index 03006da..173387f 100644
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -1357,7 +1357,6 @@ static void __devinit init_hrtimers_cpu(int cpu)
+ 	int i;
+ 
+ 	spin_lock_init(&cpu_base->lock);
+-	lockdep_set_class(&cpu_base->lock, &cpu_base->lock_key);
+ 
+ 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++)
+ 		cpu_base->clock_base[i].cpu_base = cpu_base;
+@@ -1397,16 +1396,16 @@ static void migrate_hrtimers(int cpu)
+ 	tick_cancel_sched_timer(cpu);
+ 
+ 	local_irq_disable();
+-	double_spin_lock(&new_base->lock, &old_base->lock,
+-			 smp_processor_id() < cpu);
++	spin_lock(&new_base->lock);
++	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+ 
+ 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
+ 		migrate_hrtimer_list(&old_base->clock_base[i],
+ 				     &new_base->clock_base[i]);
+ 	}
+ 
+-	double_spin_unlock(&new_base->lock, &old_base->lock,
+-			   smp_processor_id() < cpu);
++	spin_unlock(&old_base->lock);
++	spin_unlock(&new_base->lock);
+ 	local_irq_enable();
+ 	put_cpu_var(hrtimer_bases);
+ }
+diff --git a/kernel/timer.c b/kernel/timer.c
+index 1a69705..e690533 100644
+--- a/kernel/timer.c
++++ b/kernel/timer.c
+@@ -1186,13 +1186,6 @@ asmlinkage long sys_sysinfo(struct sysinfo __user *info)
+ 	return 0;
+ }
+ 
+-/*
+- * lockdep: we want to track each per-CPU base as a separate lock-class,
+- * but timer-bases are kmalloc()-ed, so we need to attach separate
+- * keys to them:
+- */
+-static struct lock_class_key base_lock_keys[NR_CPUS];
+-
+ static int __devinit init_timers_cpu(int cpu)
+ {
+ 	int j;
+@@ -1235,7 +1228,6 @@ static int __devinit init_timers_cpu(int cpu)
+ 	}
+ 
+ 	spin_lock_init(&base->lock);
+-	lockdep_set_class(&base->lock, base_lock_keys + cpu);
+ 
+ 	for (j = 0; j < TVN_SIZE; j++) {
+ 		INIT_LIST_HEAD(base->tv5.vec + j);
+@@ -1274,8 +1266,8 @@ static void __devinit migrate_timers(int cpu)
+ 	new_base = get_cpu_var(tvec_bases);
+ 
+ 	local_irq_disable();
+-	double_spin_lock(&new_base->lock, &old_base->lock,
+-			 smp_processor_id() < cpu);
++	spin_lock(&new_base->lock);
++	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
+ 
+ 	BUG_ON(old_base->running_timer);
+ 
+@@ -1288,8 +1280,8 @@ static void __devinit migrate_timers(int cpu)
+ 		migrate_timer_list(new_base, old_base->tv5.vec + i);
+ 	}
+ 
+-	double_spin_unlock(&new_base->lock, &old_base->lock,
+-			   smp_processor_id() < cpu);
++	spin_unlock(&old_base->lock);
++	spin_unlock(&new_base->lock);
+ 	local_irq_enable();
+ 	put_cpu_var(tvec_bases);
+ }
+-- 
+1.6.5.GIT

@@ -1,0 +1,48 @@
+From 9723198c219f3546982cb469e5aed26e68399055
+From: Carsten Otte
+Date: Thu, 17 Jan 2008 15:21:17 -0800
+Subject: [PATCH] #ifdef very expensive debug check in page fault path
+
+This patch puts #ifdef CONFIG_DEBUG_VM around a check in vm_normal_page
+that verifies that a pfn is valid.  This patch increases performance of the
+page fault microbenchmark in lmbench by 13% and overall dbench performance
+by 7% on s390x.  pfn_valid() is an expensive operation on s390 that needs a
+high double digit amount of CPU cycles.  Nick Piggin suggested that
+pfn_valid() involves an array lookup on systems with sparsemem, and
+therefore is an expensive operation there too.
+
+The check looks like a clear debug thing to me, it should never trigger on
+regular kernels.  And if a pte is created for an invalid pfn, we'll find
+out once the memory gets accessed later on anyway.  Please consider
+inclusion of this patch into mm.
+
+Signed-off-by: Carsten Otte <cotte@de.ibm.com>
+Acked-by: Nick Piggin <nickpiggin@yahoo.com.au>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ mm/memory.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/mm/memory.c b/mm/memory.c
+index 4bf0b6d..6dd1cd8 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -392,6 +392,7 @@ struct page *vm_normal_page(struct vm_area_struct *vma, unsigned long addr, pte_
+ 			return NULL;
+ 	}
+ 
++#ifdef CONFIG_DEBUG_VM
+ 	/*
+ 	 * Add some anal sanity checks for now. Eventually,
+ 	 * we should just do "return pfn_to_page(pfn)", but
+@@ -402,6 +403,7 @@ struct page *vm_normal_page(struct vm_area_struct *vma, unsigned long addr, pte_
+ 		print_bad_pte(vma, pte, addr);
+ 		return NULL;
+ 	}
++#endif
+ 
+ 	/*
+ 	 * NOTE! We still have PageReserved() pages in the page 
+-- 
+1.7.3.4

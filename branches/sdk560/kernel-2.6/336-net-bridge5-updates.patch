@@ -1,0 +1,104 @@
+From 604b73c3cb127b831d90c82fcd9605663519a4b0
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 29 Sep 2010 02:10:27 -0400
+Subject: [PATCH] [BRIDGE]: patches from upstream
+
+43aa1920117801fe9ae3d1fad886b62511e09bee bridge: handle process all link-local frames
+a598f6aebea2481531b0757ed90cfb0d8cf1d8f5 bridge: relay bridge multicast pkgs if !STP
+4f0611af47e25807cf18cd2b4d4e94206c75b29e bridge: fix initial packet flood if !STP
+2bec008ca9fd009aa503b75344d1c22da9256141 bridge: use time_before() in br_fdb_cleanup()
+7b995651e373d6424f81db23f2ec503306dfd7f0 [BRIDGE]: Unshare skb upon entry
+9c2842bd94dd72d77bddb498bdd76342a0089168 [BRIDGE]: Remove SKB share checks in br_nf_pre_routing()
+1e253c3b8a1aeed51eef6fc366812f219b97de65 bridge: Forward reserved group addresses if !STP
+---
+
+ net/bridge/br_fdb.c       |    2 +-
+ net/bridge/br_input.c     |   22 ++++++++++++-------
+ net/bridge/br_netfilter.c |    3 --
+ net/bridge/br_stp.c       |    3 ++
+ 4 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index 2327564..0256ed0 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -136,7 +136,7 @@ void br_fdb_cleanup(unsigned long _data)
+ 			this_timer = f->ageing_timer + delay;
+ 			if (time_before_eq(this_timer, jiffies))
+ 				fdb_delete(f);
+-			else if (this_timer < next_timer)
++			else if (time_before(this_timer, next_timer))
+ 				next_timer = this_timer;
+ 		}
+ 	}
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index af417d9..972c9b7 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -127,21 +127,27 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
+ 	if (!is_valid_ether_addr(eth_hdr(skb)->h_source))
+ 		goto drop;
+ 
++	skb = skb_share_check(skb, GFP_ATOMIC);
++	if (!skb)
++		return NULL;
++
+ 	if (unlikely(is_link_local(dest))) {
+ 		/* Pause frames shouldn't be passed up by driver anyway */
+ 		if (skb->protocol == htons(ETH_P_PAUSE))
+ 			goto drop;
+ 
+-		/* Process STP BPDU's through normal netif_receive_skb() path */
+-		if (p->br->stp_enabled != BR_NO_STP) {
+-			if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
+-				    NULL, br_handle_local_finish))
+-				return NULL;
+-			else
+-				return skb;
+-		}
++		/* If STP is turned off, then forward */
++		if (p->br->stp_enabled == BR_NO_STP)
++			goto forward;
++
++		if (NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,
++			    NULL, br_handle_local_finish))
++			return NULL;	/* frame consumed by filter */
++		else
++			return skb;	/* continue processing */
+ 	}
+ 
++forward:
+ 	switch (p->state) {
+ 	case BR_STATE_FORWARDING:
+ 		rhook = rcu_dereference(br_should_route_hook);
+diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+index 5fef9d6..280c72f 100644
+--- a/net/bridge/br_netfilter.c
++++ b/net/bridge/br_netfilter.c
+@@ -529,9 +529,6 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff **pskb,
+ 	struct sk_buff *skb = *pskb;
+ 	__u32 len = nf_bridge_encap_header_len(skb);
+ 
+-	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL)
+-		return NF_STOLEN;
+-
+ 	if (unlikely(!pskb_may_pull(skb, len)))
+ 		goto out;
+ 
+diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
+index 2e8b293..5b161e2 100644
+--- a/net/bridge/br_stp.c
++++ b/net/bridge/br_stp.c
+@@ -298,6 +298,9 @@ void br_topology_change_detection(struct net_bridge *br)
+ {
+ 	int isroot = br_is_root_bridge(br);
+ 
++	if (br->stp_enabled != BR_KERNEL_STP)
++		return;
++
+ 	pr_info("%s: topology change detected, %s\n", br->dev->name,
+ 		isroot ? "propagating" : "sending tcn bpdu");
+ 
+-- 
+1.6.5.GIT
+

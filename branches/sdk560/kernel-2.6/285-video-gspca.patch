@@ -1,0 +1,35 @@
+From: Fedor <fedork@ubuntu.(none)>
+Date: Fri, 18 Mar 2011 00:16:51 -0400
+Subject: [PATCH] USB: v4l: add gspca webcam drivers from 2.6.32.33
+
+TomatoUSB commit cd0b490cbfa7
+
+---
+
+diff --git a/drivers/media/video/Kconfig b/drivers/media/video/Kconfig
+index 96c47d7..1397af3 100644
+--- a/drivers/media/video/Kconfig
++++ b/drivers/media/video/Kconfig
+@@ -693,6 +693,8 @@ menuconfig V4L_USB_DRIVERS
+ 
+ if V4L_USB_DRIVERS && USB
+ 
++source "drivers/media/video/gspca/Kconfig"
++
+ source "drivers/media/video/pvrusb2/Kconfig"
+ 
+ source "drivers/media/video/em28xx/Kconfig"
+diff --git a/drivers/media/video/Makefile b/drivers/media/video/Makefile
+index deaba9d..4e95788 100644
+--- a/drivers/media/video/Makefile
++++ b/drivers/media/video/Makefile
+@@ -112,6 +112,7 @@ obj-$(CONFIG_USB_SN9C102)       += sn9c102/
+ obj-$(CONFIG_USB_ET61X251)      += et61x251/
+ obj-$(CONFIG_USB_PWC)           += pwc/
+ obj-$(CONFIG_USB_ZC0301)        += zc0301/
++obj-$(CONFIG_USB_GSPCA)         += gspca/
+ 
+ obj-$(CONFIG_USB_IBMCAM)        += usbvideo/
+ obj-$(CONFIG_USB_KONICAWC)      += usbvideo/
+-- 
+1.6.5.GIT

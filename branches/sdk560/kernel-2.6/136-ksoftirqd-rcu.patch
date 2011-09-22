@@ -1,0 +1,37 @@
+From 64ca5ab913f1594ef316556e65f5eae63ff50cee
+From: Eric Dumazet
+Date: Wed, 4 Mar 2009 12:11:56 -0800
+Subject: [PATCH] rcu: increment quiescent state counter in ksoftirqd()
+
+If a machine is flooded by network frames, a cpu can loop
+100% of its time inside ksoftirqd() without calling schedule().
+This can delay RCU grace period to insane values.
+
+Adding rcu_qsctr_inc() call in ksoftirqd() solves this problem.
+
+Paul: "This regression was a result of the recent change from
+"schedule()" to "cond_resched()", which got rid of that quiescent
+state in the common case where a reschedule is not needed".
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+---
+ kernel/softirq.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/kernel/softirq.c b/kernel/softirq.c
+index bdbe9de..9041ea7 100644
+--- a/kernel/softirq.c
++++ b/kernel/softirq.c
+@@ -626,6 +626,7 @@ static int ksoftirqd(void * __bind_cpu)
+ 			preempt_enable_no_resched();
+ 			cond_resched();
+ 			preempt_disable();
++			rcu_qsctr_inc((long)__bind_cpu);
+ 		}
+ 		preempt_enable();
+ 		set_current_state(TASK_INTERRUPTIBLE);
+-- 
+1.7.3

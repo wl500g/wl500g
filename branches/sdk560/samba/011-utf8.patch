@@ -1,0 +1,143 @@
+--- samba/source/lib/util_unistr.c.orig	2007-12-26 13:09:36.000000000 +0300
++++ samba/source/lib/util_unistr.c	2007-12-26 13:10:38.000000000 +0300
+@@ -902,3 +902,16 @@
+ 
+ 	return NULL;
+ }
++
++/******************************************************************
++ functions for UTF8 support (using in kanji.c)
++ ******************************************************************/
++smb_ucs2_t doscp2ucs2(int w)
++{
++  return ((smb_ucs2_t)doscp_to_ucs2[w]);
++}
++
++int ucs2doscp(smb_ucs2_t w)
++{
++  return ((int)ucs2_to_doscp[w]);
++}
+--- samba/source/lib/kanji.c.orig	2007-12-26 12:55:13.000000000 +0300
++++ samba/source/lib/kanji.c	2007-12-26 13:04:16.000000000 +0300
+@@ -999,6 +999,91 @@
+     }
+ }
+ 
++/*******************************************************************
++ cp to utf8
++********************************************************************/
++static char *cp_to_utf8(char *from, BOOL overwrite)
++{
++  unsigned char *dst;
++  const unsigned char *src;
++  smb_ucs2_t val;
++  int w;
++  size_t len;
++  src = (const unsigned char *)from;
++  dst = (unsigned char *)cvtbuf;
++  while (*src && (((char *)dst - cvtbuf) < sizeof(cvtbuf)-4)) {
++    len = _skip_multibyte_char(*src);
++    if ( len == 2 ) {
++      w = (int)(*src++ & 0xff);
++      w = (int)((w << 8)|(*src++ & 0xff));
++    } else {
++      w = (int)(*src++ & 0xff);
++    }
++    val = doscp2ucs2(w);
++
++    if ( val <= 0x7f ) {
++      *dst++ = (char)(val & 0xff);
++    } else if ( val <= 0x7ff ){
++      *dst++ = (char)( 0xc0 | ((val >> 6) & 0xff)); 
++      *dst++ = (char)( 0x80 | ( val & 0x3f ));
++    } else {
++      *dst++ = (char)( 0xe0 | ((val >> 12) & 0x0f));
++      *dst++ = (char)( 0x80 | ((val >> 6)  & 0x3f));
++      *dst++ = (char)( 0x80 | (val & 0x3f));
++    }
++
++  }
++  *dst++='\0';
++
++    if (overwrite) {
++	pstrcpy ((char *) from, (char *) cvtbuf);
++	return (char *) from;
++    } else {
++	return cvtbuf;
++    }
++}
++
++/*******************************************************************
++ utf8 to cp
++********************************************************************/
++static char *utf8_to_cp(char *from, BOOL overwrite)
++{
++  const unsigned char *src;
++  unsigned char *dst;
++  smb_ucs2_t val;
++  int w;
++
++  src = (const unsigned char *)from; 
++  dst = (unsigned char *)cvtbuf; 
++
++  while (*src && ((char *)dst - cvtbuf < sizeof(cvtbuf)-4)) {
++    val = (*src++ & 0xff);
++    if (val < 0x80) {
++      *dst++ = (char)(val & 0x7f); 
++    } else if ((0xc0 <= val) && (val <= 0xdf) 
++	       && (0x80 <= *src) && (*src <= 0xbf)) {
++      w = ucs2doscp( ((val & 31) << 6)  | ((*src++) & 63 ));
++      if (w > 255) *dst++ = (char)((w >> 8) & 0xff);
++      *dst++ = (char)(w & 0xff);
++    } else {
++      val  = (val & 0x0f) << 12;
++      val |= ((*src++ & 0x3f) << 6);
++      val |= (*src++ & 0x3f);
++      w = ucs2doscp(val);
++      if (w > 255) *dst++ = (char)((w >> 8) & 0xff);
++      *dst++ = (char)(w & 0xff);
++    }
++  }
++  *dst++='\0';
++
++    if (overwrite) {
++	pstrcpy ((char *) from, (char *) cvtbuf);
++	return (char *) from;
++    } else {
++	return cvtbuf;
++    }
++}
++
+ /************************************************************************
+  conversion:
+  _dos_to_unix		_unix_to_dos
+@@ -1012,6 +1097,11 @@
+         _unix_to_dos = unix2dos_format;
+         break;
+ 
++    case UTF8_CODE:
++	_dos_to_unix = cp_to_utf8;
++	_unix_to_dos = utf8_to_cp;
++	break;
++
+     case SJIS_CODE:
+ 	_dos_to_unix = sj_to_sj;
+ 	_unix_to_dos = sj_to_sj;
+@@ -1059,6 +1149,8 @@
+     
+     if (strequal (str, "sjis")) {
+ 	codes = SJIS_CODE;
++    } else if (strequal (str, "utf8")) {
++	codes = UTF8_CODE;
+     } else if (strequal (str, "euc")) {
+ 	codes = EUC_CODE;
+     } else if (strequal (str, "cap")) {
+--- samba/source/include/kanji.h.orig	2007-12-26 12:57:27.000000000 +0300
++++ samba/source/include/kanji.h	2007-12-26 12:57:45.000000000 +0300
+@@ -167,5 +167,6 @@
+ #define HEX_CODE (5)
+ #define CAP_CODE (6)
+ #define DOSV_CODE SJIS_CODE
++#define UTF8_CODE (8)
+ 
+ #endif /* _KANJI_H_ */

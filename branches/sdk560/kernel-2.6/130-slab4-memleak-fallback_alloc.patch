@@ -1,0 +1,35 @@
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sat, 21 Jun 2008 23:46:35 +0000 (-0700)
+Subject: Slab: Fix memory leak in fallback_alloc()
+X-Git-Url: http://www.linux-mips.org/git?p=linux.git;a=commitdiff_plain;h=481c5346d0981940ee63037eb53e4e37b0735c10
+
+Slab: Fix memory leak in fallback_alloc()
+
+The zonelist patches caused the loop that checks for available
+objects in permitted zones to not terminate immediately. One object
+per zone per allocation may be allocated and then abandoned.
+
+Break the loop when we have successfully allocated one object.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+
+diff --git a/mm/slab.c b/mm/slab.c
+index 06236e4..046607f 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -3263,9 +3263,12 @@ retry:
+ 
+ 		if (cpuset_zone_allowed_hardwall(zone, flags) &&
+ 			cache->nodelists[nid] &&
+-			cache->nodelists[nid]->free_objects)
++			cache->nodelists[nid]->free_objects) {
+ 				obj = ____cache_alloc_node(cache,
+ 					flags | GFP_THISNODE, nid);
++				if (obj)
++					break;
++		}
+ 	}
+ 
+ 	if (!obj) {

@@ -1,0 +1,61 @@
+Accept RA and send RS while configured as router
+
+kernel.org commits
+65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
+c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
+
+diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
+--- linux.orig/net/ipv6/addrconf.c	2010-11-18 00:00:00.000000000 +0000
++++ linux/net/ipv6/addrconf.c	2010-11-20 15:56:16.750291000 +0000
+@@ -2733,7 +2733,8 @@ static void addrconf_dad_completed(struc
+ 	   start sending router solicitations.
+ 	 */
+ 
+-	if (ifp->idev->cnf.forwarding == 0 &&
++	if ((ifp->idev->cnf.forwarding == 0 ||
++	     ifp->idev->cnf.forwarding == 2) &&
+ 	    ifp->idev->cnf.rtr_solicits > 0 &&
+ 	    (dev->flags&IFF_LOOPBACK) == 0 &&
+ 	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
+diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
+--- linux.orig/net/ipv6/ndisc.c	2010-11-18 00:00:00.000000000 +0000
++++ linux/net/ipv6/ndisc.c	2010-11-20 15:56:52.360291000 +0000
+@@ -987,6 +987,18 @@ out:
+ 	in6_dev_put(idev);
+ }
+ 
++static inline int accept_ra(struct inet6_dev *in6_dev)
++{
++	/*
++	 * If forwarding is enabled, RA are not accepted unless the special
++	 * hybrid mode (accept_ra=2) is enabled.
++	 */
++	if (in6_dev->cnf.forwarding && in6_dev->cnf.accept_ra < 2)
++		return 0;
++
++	return in6_dev->cnf.accept_ra;
++}
++
+ static void ndisc_router_discovery(struct sk_buff *skb)
+ {
+ 	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
+@@ -1032,8 +1044,7 @@ static void ndisc_router_discovery(struc
+ 		return;
+ 	}
+ 
+-	/* skip route and link configuration on routers */
+-	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
++	if (!accept_ra(in6_dev))
+ 		goto skip_linkparms;
+ 
+ 	if (in6_dev->if_flags & IF_RS_SENT) {
+@@ -1177,8 +1188,7 @@ skip_linkparms:
+ 			     NEIGH_UPDATE_F_ISROUTER);
+ 	}
+ 
+-	/* skip route and link configuration on routers */
+-	if (in6_dev->cnf.forwarding || !in6_dev->cnf.accept_ra)
++	if (!accept_ra(in6_dev))
+ 		goto out;
+ 
+ #ifdef CONFIG_IPV6_ROUTE_INFO

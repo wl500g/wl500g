@@ -1,0 +1,232 @@
+diff -urBp lltd/src/protocol.h lltd.new/src/protocol.h
+--- lltd/src/protocol.h	2006-08-24 09:30:10.000000000 +0400
++++ lltd.new/src/protocol.h	2011-03-12 14:23:20.000000000 +0300
+@@ -35,9 +35,9 @@
+ #define TOPO_MAX_FRAMESZ 1514
+ 
+ typedef struct topo_ether_header {
+-    etheraddr_t eh_dst       __attribute__((packed));
+-    etheraddr_t eh_src       __attribute__((packed));
+-    uint16_t    eh_ethertype __attribute__((packed));
++    etheraddr_t eh_dst;
++    etheraddr_t eh_src;
++    uint16_t    eh_ethertype;
+ } __attribute__ ((packed)) topo_ether_header_t;
+ 
+ 
+@@ -122,65 +122,65 @@ static const char * const Topo_opcode_na
+ #define SEQNUM_NEXT(s) ( ((((s)+1)&0xFFFF) == 0)? 1 : ((s)+1) )
+ 
+ typedef struct {
+-    uint8_t	tbh_version __attribute__ ((packed));	/* Version */
+-    uint8_t	tbh_tos     __attribute__ ((packed));	/* Type of Svc (0=>Discovery, 1=>Quick Disc, 2=> QoS */
+-    uint8_t	tbh_resrvd  __attribute__ ((packed));	/* Reserved, must be zero */
+-    uint8_t	tbh_opcode  __attribute__ ((packed));	/* topo_opcode_t */
+-    etheraddr_t	tbh_realdst __attribute__ ((packed));	/* intended destination */
+-    etheraddr_t	tbh_realsrc __attribute__ ((packed));	/* actual source */
+-    uint16_t	tbh_seqnum  __attribute__ ((packed));	/* 0, transaction ID, or a valid sequence number */
++    uint8_t	tbh_version;	/* Version */
++    uint8_t	tbh_tos;	/* Type of Svc (0=>Discovery, 1=>Quick Disc, 2=> QoS */
++    uint8_t	tbh_resrvd;	/* Reserved, must be zero */
++    uint8_t	tbh_opcode;	/* topo_opcode_t */
++    etheraddr_t	tbh_realdst;	/* intended destination */
++    etheraddr_t	tbh_realsrc;	/* actual source */
++    uint16_t	tbh_seqnum;	/* 0, transaction ID, or a valid sequence number */
+ } __attribute__ ((packed)) topo_base_header_t;
+ 
+ typedef struct {
+-    uint16_t		mh_gen         __attribute__ ((packed)); /* 0 or a valid generation number */
+-    uint16_t		mh_numstations __attribute__ ((packed)); /* number of etheraddr_t's following here: */
++    uint16_t		mh_gen;		/* 0 or a valid generation number */
++    uint16_t		mh_numstations;	/* number of etheraddr_t's following here: */
+     /* ... station list here ... */
+ } __attribute__ ((packed)) topo_discover_header_t;
+ 
+ typedef struct {
+-    uint16_t		hh_gen __attribute__ ((packed)); /* 0 or a valid generation number */
+-    etheraddr_t	hh_curmapraddr __attribute__ ((packed)); /* mapper's current addy - Discover frame  BH:RealSrc */
+-    etheraddr_t	hh_aprmapraddr __attribute__ ((packed)); /* mapper's apparent addy - Discover frame EH:etherSrc */
++    uint16_t		hh_gen; /* 0 or a valid generation number */
++    etheraddr_t	hh_curmapraddr; /* mapper's current addy - Discover frame  BH:RealSrc */
++    etheraddr_t	hh_aprmapraddr; /* mapper's apparent addy - Discover frame EH:etherSrc */
+     /* ... TLV list ... */
+ } __attribute__ ((packed)) topo_hello_header_t;
+ 
+ typedef struct {
+-    uint16_t		eh_numdescs __attribute__ ((packed));	/* how many emitee_descs follow directly */
++    uint16_t		eh_numdescs;	/* how many emitee_descs follow directly */
+     /* ... emitee_desc_t list ... */
+ } __attribute__ ((packed)) topo_emit_header_t;
+ 
+ typedef struct {
+-    uint8_t	ed_type  __attribute__ ((packed));	/* 0x00:Train  0x01:Probe */
+-    uint8_t	ed_pause __attribute__ ((packed));	/* ms to pause before sending frame */
+-    etheraddr_t	ed_src   __attribute__ ((packed));	/* source to use */
+-    etheraddr_t	ed_dst   __attribute__ ((packed));	/* destination to use */
++    uint8_t	ed_type;	/* 0x00:Train  0x01:Probe */
++    uint8_t	ed_pause;	/* ms to pause before sending frame */
++    etheraddr_t	ed_src;		/* source to use */
++    etheraddr_t	ed_dst;		/* destination to use */
+ } __attribute__ ((packed)) topo_emitee_desc_t;
+ 
+ typedef struct {
+-    uint16_t	qr_numdescs __attribute__ ((packed));	/* M bit; number of recvee_descs following */
++    uint16_t	qr_numdescs;	/* M bit; number of recvee_descs following */
+     /* ... recvee_desc_t list ... */
+ } __attribute__ ((packed)) topo_queryresp_header_t;
+ 
+ typedef struct {
+-    uint16_t	rd_type    __attribute__ ((packed));	/* protocol type: 0=Probe, 1=ARP */
+-    etheraddr_t	rd_realsrc __attribute__ ((packed));	/* real source (or ARP senderhw) */
+-    etheraddr_t	rd_src     __attribute__ ((packed));	/* Ethernet-layer source */
+-    etheraddr_t	rd_dst     __attribute__ ((packed));	/* Ethernet-layer destionation */
++    uint16_t	rd_type;	/* protocol type: 0=Probe, 1=ARP */
++    etheraddr_t	rd_realsrc;	/* real source (or ARP senderhw) */
++    etheraddr_t	rd_src;		/* Ethernet-layer source */
++    etheraddr_t	rd_dst;		/* Ethernet-layer destionation */
+ } __attribute__ ((packed)) topo_recvee_desc_t;
+ 
+ typedef struct {
+-    uint32_t	fh_ctc_bytes   __attribute__ ((packed));	/* Current Transmit Credit in bytes */
+-    uint16_t	fh_ctc_packets __attribute__ ((packed));	/* Current Transmit Credit in packets */
++    uint32_t	fh_ctc_bytes;	/* Current Transmit Credit in bytes */
++    uint16_t	fh_ctc_packets;	/* Current Transmit Credit in packets */
+ } __attribute__ ((packed)) topo_flat_header_t;
+ 
+ typedef struct {
+-    uint8_t	qh_type   __attribute__ ((packed));	/* TLV number requested */
+-    uint8_t	qh_rsvd1  __attribute__ ((packed));	/* reserved */
+-    uint16_t    qh_offset __attribute__ ((packed));	/* byte offset into TLV */
++    uint8_t	qh_type;	/* TLV number requested */
++    uint8_t	qh_rsvd1;	/* reserved */
++    uint16_t    qh_offset;	/* byte offset into TLV */
+ } __attribute__ ((packed)) topo_qltlv_header_t;
+ 
+ typedef struct {
+-    uint16_t	qrh_length __attribute__ ((packed));	/* topmost bit is more-flag */
++    uint16_t	qrh_length;	/* topmost bit is more-flag */
+     /* ...BYTEs  of LTLV....*/
+ } __attribute__ ((packed)) topo_qltlvresp_header_t;
+ 
+diff -urBp lltd/src/qosprotocol.h lltd.new/src/qosprotocol.h
+--- lltd/src/qosprotocol.h	2006-08-24 12:54:04.000000000 +0400
++++ lltd.new/src/qosprotocol.h	2011-03-12 14:26:49.000000000 +0300
+@@ -72,81 +72,81 @@ static const char * const Qos_opcode_nam
+ 
+ /* The ethernet header with 802.1q tags included */
+ typedef struct {
+-    etheraddr_t qeh_dst       __attribute__ ((packed));
+-    etheraddr_t qeh_src       __attribute__ ((packed));
+-    uint16_t    qeh_qtag      __attribute__ ((packed));
+-    uint16_t    qeh_ptag      __attribute__ ((packed));
+-    uint16_t    qeh_ethertype __attribute__ ((packed));
++    etheraddr_t qeh_dst;
++    etheraddr_t qeh_src;
++    uint16_t    qeh_qtag;
++    uint16_t    qeh_ptag;
++    uint16_t    qeh_ethertype;
+ } __attribute__ ((packed)) qos_ether_header_t;
+ 
+ typedef struct {
+-    uint8_t	qbh_version __attribute__ ((packed));	/* Version */
+-    uint8_t	qbh_tos     __attribute__ ((packed));	/* Type of Svc (0=>Discovery, 1=>Quick Disc, 2=> QoS */
+-    uint8_t	qbh_resrvd  __attribute__ ((packed));	/* Reserved, must be zero */
+-    uint8_t	qbh_opcode  __attribute__ ((packed));	/* qos_opcode_t */
+-    etheraddr_t	qbh_realdst __attribute__ ((packed));	/* intended destination */
+-    etheraddr_t	qbh_realsrc __attribute__ ((packed));	/* actual source */
+-    uint16_t	qbh_seqnum  __attribute__ ((packed));	/* 0 or a valid sequence number */
++    uint8_t	qbh_version;	/* Version */
++    uint8_t	qbh_tos;	/* Type of Svc (0=>Discovery, 1=>Quick Disc, 2=> QoS */
++    uint8_t	qbh_resrvd;	/* Reserved, must be zero */
++    uint8_t	qbh_opcode;	/* qos_opcode_t */
++    etheraddr_t	qbh_realdst;	/* intended destination */
++    etheraddr_t	qbh_realsrc;	/* actual source */
++    uint16_t	qbh_seqnum;	/* 0 or a valid sequence number */
+ } __attribute__ ((packed)) qos_base_header_t;
+ 
+ 
+ typedef struct {
+-    uint8_t	init_intmod_ctrl __attribute__ ((packed));/* 0=> disable; 1=> enable; 0xFF=> use existing */
++    uint8_t	init_intmod_ctrl;	/* 0=> disable; 1=> enable; 0xFF=> use existing */
+ } __attribute__ ((packed)) qos_initsink_header_t;
+ 
+ 
+ typedef struct {
+-    uint32_t	rdy_linkspeed  __attribute__ ((packed));	/* units of 100 bits per second */
+-    uint64_t	rdy_tstampfreq __attribute__ ((packed));	/* units of ticks per second */
++    uint32_t	rdy_linkspeed;	/* units of 100 bits per second */
++    uint64_t	rdy_tstampfreq;	/* units of ticks per second */
+ } __attribute__ ((packed)) qos_ready_header_t;
+ 
+ 
+ typedef struct {
+-    uint64_t	probe_txstamp  __attribute__ ((packed)); /* set by Controller */
+-    uint64_t	probe_rxstamp  __attribute__ ((packed)); /* sent as 0; set by Sink when received */
+-    uint64_t	probe_rtxstamp __attribute__ ((packed)); /* sent as 0; set by Sink on return (probegap only) */
+-    uint8_t	probe_testtype __attribute__ ((packed)); /* 0=> timed probe; 1=> probegap; 2=> probegap-return */
+-    uint8_t	probe_pktID    __attribute__ ((packed)); /* Controller cookie */
+-    uint8_t	probe_pqval    __attribute__ ((packed)); /* 1st bit==1 => ValueIsValid; next 7 bits are Value for 802.1p field */
+-    uint8_t	probe_payload[0] __attribute__ ((packed)); /* indeterminate length; Controller determines, Sink just returns it */
++    uint64_t	probe_txstamp;	/* set by Controller */
++    uint64_t	probe_rxstamp;	/* sent as 0; set by Sink when received */
++    uint64_t	probe_rtxstamp;	/* sent as 0; set by Sink on return (probegap only) */
++    uint8_t	probe_testtype;	/* 0=> timed probe; 1=> probegap; 2=> probegap-return */
++    uint8_t	probe_pktID;	/* Controller cookie */
++    uint8_t	probe_pqval;	/* 1st bit==1 => ValueIsValid; next 7 bits are Value for 802.1p field */
++    uint8_t	probe_payload[0]; /* indeterminate length; Controller determines, Sink just returns it */
+ } __attribute__ ((packed)) qos_probe_header_t;
+ 
+ /* qos_query_header_t is empty. only the base header appears in the msg */
+ 
+ typedef struct {
+-    uint16_t	qr_EvtCnt __attribute__ ((packed)); /* count of 18-octet "qosEventDescr_t's" in payload (max = 82) */
++    uint16_t	qr_EvtCnt; /* count of 18-octet "qosEventDescr_t's" in payload (max = 82) */
+ //  qosEventDescr_t	qr_Events[qr_EvtCnt]
+ } __attribute__ ((packed)) qos_queryresponse_header_t; 
+ 
+ typedef struct {
+-    uint64_t	ctrlr_txstamp __attribute__ ((packed));	/* copied from probe_txstamp */
+-    uint64_t	sink_rxstamp  __attribute__ ((packed));	/* copied from probe_rxstamp */
+-    uint8_t	evt_pktID     __attribute__ ((packed));	/* returning the Controller cookie from probe_pktID */
+-    uint8_t	evt_reserved  __attribute__ ((packed));	/* must be zero */
++    uint64_t	ctrlr_txstamp;	/* copied from probe_txstamp */
++    uint64_t	sink_rxstamp;	/* copied from probe_rxstamp */
++    uint8_t	evt_pktID;	/* returning the Controller cookie from probe_pktID */
++    uint8_t	evt_reserved;	/* must be zero */
+ } __attribute__ ((packed)) qosEventDescr_t;
+ 
+ /* qos_reset_header_t is empty. only the base header appears in the msg */
+ 
+ typedef struct {
+-    uint16_t	qe_errcode __attribute__ ((packed));	/* enum is: qos_error_t */
++    uint16_t	qe_errcode;	/* enum is: qos_error_t */
+ } __attribute__ ((packed)) qos_error_header_t;
+ 
+ typedef struct {
+-    uint16_t	cnt_rqstd __attribute__ ((packed));	/* max # non-sub-sec samples to return */
++    uint16_t	cnt_rqstd;	/* max # non-sub-sec samples to return */
+ } __attribute__ ((packed)) qos_snapshot_header_t;
+ 
+ typedef struct {
+-    uint8_t     subsec_span __attribute__ ((packed));
+-    uint8_t     byte_scale  __attribute__ ((packed));
+-    uint8_t     pkt_scale   __attribute__ ((packed));
+-    uint8_t     history_sz  __attribute__ ((packed));
++    uint8_t     subsec_span;
++    uint8_t     byte_scale;
++    uint8_t     pkt_scale;
++    uint8_t     history_sz;
+ } __attribute__ ((packed)) qos_counter_hdr;       /* format of QosCounterResult */
+ 
+ typedef struct {
+-    uint16_t    bytes_rcvd __attribute__ ((packed));     /* all values stored in NETWORK byte order! */
+-    uint16_t    pkts_rcvd  __attribute__ ((packed));
+-    uint16_t    bytes_sent __attribute__ ((packed));
+-    uint16_t    pkts_sent  __attribute__ ((packed));
++    uint16_t    bytes_rcvd;     /* all values stored in NETWORK byte order! */
++    uint16_t    pkts_rcvd;
++    uint16_t    bytes_sent;
++    uint16_t    pkts_sent;
+ } __attribute__ ((packed)) qos_perf_sample;
+ 
+ #endif /* QOS_PROTOCOL_H */

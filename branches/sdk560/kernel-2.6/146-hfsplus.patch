@@ -1,0 +1,699 @@
+From 489886e3aa85596bd41fb1ce979e81fb588008bf
+From: Fedor <fedork@ubuntu.(none)>
+Date: Thu, 7 Oct 2010 02:04:08 -0400
+Subject: [PATCH] hfsplus: backports from 2.6.32
+
+---
+ fs/hfsplus/bitmap.c     |   12 +
+ fs/hfsplus/btree.c      |    4 +-
+ fs/hfsplus/catalog.c    |    5 +
+ fs/hfsplus/dir.c        |   25 ++-
+ fs/hfsplus/extents.c    |   17 +-
+ fs/hfsplus/hfsplus_fs.h |   11 +-
+ fs/hfsplus/inode.c      |   20 +-
+ fs/hfsplus/options.c    |    3 +-
+ fs/hfsplus/super.c      |   28 ++-
+ fs/hfsplus/unicode.c    |  231 ++++++++++++++++----
+ fs/hfsplus/wrapper.c    |    4 +
+ 11 files changed, 277 insertions(+), 83 deletions(-)
+
+diff --git a/fs/hfsplus/bitmap.c b/fs/hfsplus/bitmap.c
+index d128a25..ea30afc 100644
+--- a/fs/hfsplus/bitmap.c
++++ b/fs/hfsplus/bitmap.c
+@@ -32,6 +32,10 @@ int hfsplus_block_allocate(struct super_block *sb, u32 size, u32 offset, u32 *ma
+ 	mutex_lock(&HFSPLUS_SB(sb).alloc_file->i_mutex);
+ 	mapping = HFSPLUS_SB(sb).alloc_file->i_mapping;
+ 	page = read_mapping_page(mapping, offset / PAGE_CACHE_BITS, NULL);
++	if (IS_ERR(page)) {
++		start = size;
++		goto out;
++	}
+ 	pptr = kmap(page);
+ 	curr = pptr + (offset & (PAGE_CACHE_BITS - 1)) / 32;
+ 	i = offset % 32;
+@@ -73,6 +77,10 @@ int hfsplus_block_allocate(struct super_block *sb, u32 size, u32 offset, u32 *ma
+ 			break;
+ 		page = read_mapping_page(mapping, offset / PAGE_CACHE_BITS,
+ 					 NULL);
++		if (IS_ERR(page)) {
++			start = size;
++			goto out;
++		}
+ 		curr = pptr = kmap(page);
+ 		if ((size ^ offset) / PAGE_CACHE_BITS)
+ 			end = pptr + PAGE_CACHE_BITS / 32;
+@@ -120,6 +128,10 @@ found:
+ 		offset += PAGE_CACHE_BITS;
+ 		page = read_mapping_page(mapping, offset / PAGE_CACHE_BITS,
+ 					 NULL);
++		if (IS_ERR(page)) {
++			start = size;
++			goto out;
++		}
+ 		pptr = kmap(page);
+ 		curr = pptr;
+ 		end = pptr + PAGE_CACHE_BITS / 32;
+diff --git a/fs/hfsplus/btree.c b/fs/hfsplus/btree.c
+index 90ebab7..050d29c 100644
+--- a/fs/hfsplus/btree.c
++++ b/fs/hfsplus/btree.c
+@@ -62,8 +62,10 @@ struct hfs_btree *hfs_btree_open(struct super_block *sb, u32 id)
+ 		if ((HFSPLUS_SB(sb).flags & HFSPLUS_SB_HFSX) &&
+ 		    (head->key_type == HFSPLUS_KEY_BINARY))
+ 			tree->keycmp = hfsplus_cat_bin_cmp_key;
+-		else
++		else {
+ 			tree->keycmp = hfsplus_cat_case_cmp_key;
++			HFSPLUS_SB(sb).flags |= HFSPLUS_SB_CASEFOLD;
++		}
+ 	} else {
+ 		printk(KERN_ERR "hfs: unknown B*Tree requested\n");
+ 		goto fail_page;
+diff --git a/fs/hfsplus/catalog.c b/fs/hfsplus/catalog.c
+index ba117c4..f6874ac 100644
+--- a/fs/hfsplus/catalog.c
++++ b/fs/hfsplus/catalog.c
+@@ -168,6 +168,11 @@ int hfsplus_find_cat(struct super_block *sb, u32 cnid,
+ 		return -EIO;
+ 	}
+ 
++	if (be16_to_cpu(tmp.thread.nodeName.length) > 255) {
++		printk(KERN_ERR "hfs: catalog name length corrupted\n");
++		return -EIO;
++	}
++
+ 	hfsplus_cat_build_key_uni(fd->search_key, be32_to_cpu(tmp.thread.parentID),
+ 				 &tmp.thread.nodeName);
+ 	return hfs_brec_find(fd);
+diff --git a/fs/hfsplus/dir.c b/fs/hfsplus/dir.c
+index 80b5682..078684f 100644
+--- a/fs/hfsplus/dir.c
++++ b/fs/hfsplus/dir.c
+@@ -36,6 +36,8 @@ static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
+ 	u16 type;
+ 
+ 	sb = dir->i_sb;
++
++	dentry->d_op = &hfsplus_dentry_operations;
+ 	dentry->d_fsdata = NULL;
+ 	hfs_find_init(HFSPLUS_SB(sb).cat_tree, &fd);
+ 	hfsplus_cat_build_key(sb, fd.search_key, dir->i_ino, &dentry->d_name);
+@@ -338,16 +340,23 @@ static int hfsplus_unlink(struct inode *dir, struct dentry *dentry)
+ 
+ 	if (inode->i_nlink > 0)
+ 		drop_nlink(inode);
+-	hfsplus_delete_inode(inode);
+-	if (inode->i_ino != cnid && !inode->i_nlink) {
+-		if (!atomic_read(&HFSPLUS_I(inode).opencnt)) {
+-			res = hfsplus_delete_cat(inode->i_ino, HFSPLUS_SB(sb).hidden_dir, NULL);
+-			if (!res)
+-				hfsplus_delete_inode(inode);
++	if (inode->i_ino == cnid)
++		clear_nlink(inode);
++	if (!inode->i_nlink) {
++		if (inode->i_ino != cnid) {
++			HFSPLUS_SB(sb).file_count--;
++			if (!atomic_read(&HFSPLUS_I(inode).opencnt)) {
++				res = hfsplus_delete_cat(inode->i_ino,
++							 HFSPLUS_SB(sb).hidden_dir,
++							 NULL);
++				if (!res)
++					hfsplus_delete_inode(inode);
++			} else
++				inode->i_flags |= S_DEAD;
+ 		} else
+-			inode->i_flags |= S_DEAD;
++			hfsplus_delete_inode(inode);
+ 	} else
+-		clear_nlink(inode);
++		HFSPLUS_SB(sb).file_count--;
+ 	inode->i_ctime = CURRENT_TIME_SEC;
+ 	mark_inode_dirty(inode);
+ 
+diff --git a/fs/hfsplus/extents.c b/fs/hfsplus/extents.c
+index 1a74800..4eb2c76 100644
+--- a/fs/hfsplus/extents.c
++++ b/fs/hfsplus/extents.c
+@@ -199,16 +199,19 @@ int hfsplus_get_block(struct inode *inode, sector_t iblock,
+ 		goto done;
+ 	}
+ 
+-	down(&HFSPLUS_I(inode).extents_lock);
++	if (inode->i_ino == HFSPLUS_EXT_CNID)
++		return -EIO;
++
++	mutex_lock(&HFSPLUS_I(inode).extents_lock);
+ 	res = hfsplus_ext_read_extent(inode, ablock);
+ 	if (!res) {
+ 		dblock = hfsplus_ext_find_block(HFSPLUS_I(inode).cached_extents, ablock -
+ 					     HFSPLUS_I(inode).cached_start);
+ 	} else {
+-		up(&HFSPLUS_I(inode).extents_lock);
++		mutex_unlock(&HFSPLUS_I(inode).extents_lock);
+ 		return -EIO;
+ 	}
+-	up(&HFSPLUS_I(inode).extents_lock);
++	mutex_unlock(&HFSPLUS_I(inode).extents_lock);
+ 
+ done:
+ 	dprint(DBG_EXTENT, "get_block(%lu): %llu - %u\n", inode->i_ino, (long long)iblock, dblock);
+@@ -355,7 +358,7 @@ int hfsplus_file_extend(struct inode *inode)
+ 		return -ENOSPC;
+ 	}
+ 
+-	down(&HFSPLUS_I(inode).extents_lock);
++	mutex_lock(&HFSPLUS_I(inode).extents_lock);
+ 	if (HFSPLUS_I(inode).alloc_blocks == HFSPLUS_I(inode).first_blocks)
+ 		goal = hfsplus_ext_lastblock(HFSPLUS_I(inode).first_extents);
+ 	else {
+@@ -408,7 +411,7 @@ int hfsplus_file_extend(struct inode *inode)
+ 			goto insert_extent;
+ 	}
+ out:
+-	up(&HFSPLUS_I(inode).extents_lock);
++	mutex_unlock(&HFSPLUS_I(inode).extents_lock);
+ 	if (!res) {
+ 		HFSPLUS_I(inode).alloc_blocks += len;
+ 		mark_inode_dirty(inode);
+@@ -468,7 +471,7 @@ void hfsplus_file_truncate(struct inode *inode)
+ 	if (blk_cnt == alloc_cnt)
+ 		goto out;
+ 
+-	down(&HFSPLUS_I(inode).extents_lock);
++	mutex_lock(&HFSPLUS_I(inode).extents_lock);
+ 	hfs_find_init(HFSPLUS_SB(sb).ext_tree, &fd);
+ 	while (1) {
+ 		if (alloc_cnt == HFSPLUS_I(inode).first_blocks) {
+@@ -495,7 +498,7 @@ void hfsplus_file_truncate(struct inode *inode)
+ 		hfs_brec_remove(&fd);
+ 	}
+ 	hfs_find_exit(&fd);
+-	up(&HFSPLUS_I(inode).extents_lock);
++	mutex_unlock(&HFSPLUS_I(inode).extents_lock);
+ 
+ 	HFSPLUS_I(inode).alloc_blocks = blk_cnt;
+ out:
+diff --git a/fs/hfsplus/hfsplus_fs.h b/fs/hfsplus/hfsplus_fs.h
+index 3915635..01e4200 100644
+--- a/fs/hfsplus/hfsplus_fs.h
++++ b/fs/hfsplus/hfsplus_fs.h
+@@ -11,6 +11,7 @@
+ #define _LINUX_HFSPLUS_FS_H
+ 
+ #include <linux/fs.h>
++#include <linux/mutex.h>
+ #include <linux/buffer_head.h>
+ #include "hfsplus_raw.h"
+ 
+@@ -150,10 +151,11 @@ struct hfsplus_sb_info {
+ #define HFSPLUS_SB_NODECOMPOSE	0x0002
+ #define HFSPLUS_SB_FORCE	0x0004
+ #define HFSPLUS_SB_HFSX		0x0008
++#define HFSPLUS_SB_CASEFOLD	0x0010
+ 
+ 
+ struct hfsplus_inode_info {
+-	struct semaphore extents_lock;
++	struct mutex extents_lock;
+ 	u32 clump_blocks, alloc_blocks;
+ 	sector_t fs_blocks;
+ 	/* Allocation extents from catalog record or volume header */
+@@ -310,6 +312,10 @@ int hfsplus_delete_cat(u32, struct inode *, struct qstr *);
+ int hfsplus_rename_cat(u32, struct inode *, struct qstr *,
+ 		       struct inode *, struct qstr *);
+ 
++/* dir.c */
++extern const struct inode_operations hfsplus_dir_inode_operations;
++extern const struct file_operations hfsplus_dir_operations;
++
+ /* extents.c */
+ int hfsplus_ext_cmp_key(const hfsplus_btree_key *, const hfsplus_btree_key *);
+ void hfsplus_ext_write_extent(struct inode *);
+@@ -321,6 +327,7 @@ void hfsplus_file_truncate(struct inode *);
+ /* inode.c */
+ extern const struct address_space_operations hfsplus_aops;
+ extern const struct address_space_operations hfsplus_btree_aops;
++extern struct dentry_operations hfsplus_dentry_operations;
+ 
+ void hfsplus_inode_read_fork(struct inode *, struct hfsplus_fork_raw *);
+ void hfsplus_inode_write_fork(struct inode *, struct hfsplus_fork_raw *);
+@@ -353,6 +360,8 @@ int hfsplus_strcasecmp(const struct hfsplus_unistr *, const struct hfsplus_unist
+ int hfsplus_strcmp(const struct hfsplus_unistr *, const struct hfsplus_unistr *);
+ int hfsplus_uni2asc(struct super_block *, const struct hfsplus_unistr *, char *, int *);
+ int hfsplus_asc2uni(struct super_block *, struct hfsplus_unistr *, const char *, int);
++int hfsplus_hash_dentry(struct dentry *dentry, struct qstr *str);
++int hfsplus_compare_dentry(struct dentry *dentry, struct qstr *s1, struct qstr *s2);
+ 
+ /* wrapper.c */
+ int hfsplus_read_wrapper(struct super_block *);
+diff --git a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
+index 409ce54..731f9cc 100644
+--- a/fs/hfsplus/inode.c
++++ b/fs/hfsplus/inode.c
+@@ -61,6 +61,8 @@ static int hfsplus_releasepage(struct page *page, gfp_t mask)
+ 		BUG();
+ 		return 0;
+ 	}
++	if (!tree)
++		return 0;
+ 	if (tree->node_size >= PAGE_CACHE_SIZE) {
+ 		nidx = page->index >> (tree->node_size_shift - PAGE_CACHE_SHIFT);
+ 		spin_lock(&tree->hash_lock);
+@@ -131,6 +133,11 @@ const struct address_space_operations hfsplus_aops = {
+ 	.writepages	= hfsplus_writepages,
+ };
+ 
++struct dentry_operations hfsplus_dentry_operations = {
++	.d_hash       = hfsplus_hash_dentry,
++	.d_compare    = hfsplus_compare_dentry,
++};
++
+ static struct dentry *hfsplus_file_lookup(struct inode *dir, struct dentry *dentry,
+ 					  struct nameidata *nd)
+ {
+@@ -152,7 +159,7 @@ static struct dentry *hfsplus_file_lookup(struct inode *dir, struct dentry *dent
+ 
+ 	inode->i_ino = dir->i_ino;
+ 	INIT_LIST_HEAD(&HFSPLUS_I(inode).open_dir_list);
+-	init_MUTEX(&HFSPLUS_I(inode).extents_lock);
++	mutex_init(&HFSPLUS_I(inode).extents_lock);
+ 	HFSPLUS_I(inode).flags = HFSPLUS_FLG_RSRC;
+ 
+ 	hfs_find_init(HFSPLUS_SB(sb).cat_tree, &fd);
+@@ -243,8 +250,8 @@ static int hfsplus_file_open(struct inode *inode, struct file *file)
+ {
+ 	if (HFSPLUS_IS_RSRC(inode))
+ 		inode = HFSPLUS_I(inode).rsrc_inode;
+-	if (atomic_read(&file->f_count) != 1)
+-		return 0;
++	if (!(file->f_flags & O_LARGEFILE) && i_size_read(inode) > MAX_NON_LFS)
++		return -EOVERFLOW;
+ 	atomic_inc(&HFSPLUS_I(inode).opencnt);
+ 	return 0;
+ }
+@@ -255,8 +262,6 @@ static int hfsplus_file_release(struct inode *inode, struct file *file)
+ 
+ 	if (HFSPLUS_IS_RSRC(inode))
+ 		inode = HFSPLUS_I(inode).rsrc_inode;
+-	if (atomic_read(&file->f_count) != 0)
+-		return 0;
+ 	if (atomic_dec_and_test(&HFSPLUS_I(inode).opencnt)) {
+ 		mutex_lock(&inode->i_mutex);
+ 		hfsplus_file_truncate(inode);
+@@ -269,9 +274,6 @@ static int hfsplus_file_release(struct inode *inode, struct file *file)
+ 	return 0;
+ }
+ 
+-extern const struct inode_operations hfsplus_dir_inode_operations;
+-extern struct file_operations hfsplus_dir_operations;
+-
+ static const struct inode_operations hfsplus_file_inode_operations = {
+ 	.lookup		= hfsplus_file_lookup,
+ 	.truncate	= hfsplus_file_truncate,
+@@ -308,7 +310,7 @@ struct inode *hfsplus_new_inode(struct super_block *sb, int mode)
+ 	inode->i_nlink = 1;
+ 	inode->i_mtime = inode->i_atime = inode->i_ctime = CURRENT_TIME_SEC;
+ 	INIT_LIST_HEAD(&HFSPLUS_I(inode).open_dir_list);
+-	init_MUTEX(&HFSPLUS_I(inode).extents_lock);
++	mutex_init(&HFSPLUS_I(inode).extents_lock);
+ 	atomic_set(&HFSPLUS_I(inode).opencnt, 0);
+ 	HFSPLUS_I(inode).flags = 0;
+ 	memset(HFSPLUS_I(inode).first_extents, 0, sizeof(hfsplus_extent_rec));
+diff --git a/fs/hfsplus/options.c b/fs/hfsplus/options.c
+index dc64fac..9997cbf 100644
+--- a/fs/hfsplus/options.c
++++ b/fs/hfsplus/options.c
+@@ -132,7 +132,8 @@ int hfsplus_parse_options(char *input, struct hfsplus_sb_info *sbi)
+ 				return 0;
+ 			}
+ 			p = match_strdup(&args[0]);
+-			sbi->nls = load_nls(p);
++			if (p)
++				sbi->nls = load_nls(p);
+ 			if (!sbi->nls) {
+ 				printk(KERN_ERR "hfs: unable to load nls mapping \"%s\"\n", p);
+ 				kfree(p);
+diff --git a/fs/hfsplus/super.c b/fs/hfsplus/super.c
+index 0166f9e..33954f4 100644
+--- a/fs/hfsplus/super.c
++++ b/fs/hfsplus/super.c
+@@ -27,7 +27,7 @@ static void hfsplus_read_inode(struct inode *inode)
+ 	int err;
+ 
+ 	INIT_LIST_HEAD(&HFSPLUS_I(inode).open_dir_list);
+-	init_MUTEX(&HFSPLUS_I(inode).extents_lock);
++	mutex_init(&HFSPLUS_I(inode).extents_lock);
+ 	HFSPLUS_I(inode).flags = 0;
+ 	HFSPLUS_I(inode).rsrc_inode = NULL;
+ 	atomic_set(&HFSPLUS_I(inode).opencnt, 0);
+@@ -142,15 +142,12 @@ static void hfsplus_clear_inode(struct inode *inode)
+ 	}
+ }
+ 
+-static void hfsplus_write_super(struct super_block *sb)
++static int hfsplus_sync_fs(struct super_block *sb, int wait)
+ {
+ 	struct hfsplus_vh *vhdr = HFSPLUS_SB(sb).s_vhdr;
+ 
+ 	dprint(DBG_SUPER, "hfsplus_write_super\n");
+ 	sb->s_dirt = 0;
+-	if (sb->s_flags & MS_RDONLY)
+-		/* warn? */
+-		return;
+ 
+ 	vhdr->free_blocks = cpu_to_be32(HFSPLUS_SB(sb).free_blocks);
+ 	vhdr->next_alloc = cpu_to_be32(HFSPLUS_SB(sb).next_alloc);
+@@ -182,6 +179,15 @@ static void hfsplus_write_super(struct super_block *sb)
+ 		}
+ 		HFSPLUS_SB(sb).flags &= ~HFSPLUS_SB_WRITEBACKUP;
+ 	}
++	return 0;
++}
++
++static void hfsplus_write_super(struct super_block *sb)
++{
++	if (!(sb->s_flags & MS_RDONLY))
++		hfsplus_sync_fs(sb, 1);
++	else
++		sb->s_dirt = 0;
+ }
+ 
+ static void hfsplus_put_super(struct super_block *sb)
+@@ -265,6 +271,7 @@ static const struct super_operations hfsplus_sops = {
+ 	.clear_inode	= hfsplus_clear_inode,
+ 	.put_super	= hfsplus_put_super,
+ 	.write_super	= hfsplus_write_super,
++	.sync_fs	= hfsplus_sync_fs,
+ 	.statfs		= hfsplus_statfs,
+ 	.remount_fs	= hfsplus_remount,
+ 	.show_options	= hfsplus_show_options,
+@@ -281,11 +288,10 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
+ 	struct nls_table *nls = NULL;
+ 	int err = -EINVAL;
+ 
+-	sbi = kmalloc(sizeof(struct hfsplus_sb_info), GFP_KERNEL);
++	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
+ 	if (!sbi)
+ 		return -ENOMEM;
+ 
+-	memset(sbi, 0, sizeof(HFSPLUS_SB(sb)));
+ 	sb->s_fs_info = sbi;
+ 	INIT_HLIST_HEAD(&sbi->rsrc_inodes);
+ 	hfsplus_fill_defaults(sbi);
+@@ -339,15 +345,14 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
+ 
+ 	if (!(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
+ 		printk(KERN_WARNING "hfs: Filesystem was not cleanly unmounted, "
+-		       "running fsck.hfsplus is recommended.  mounting read-only.\n");
+-		sb->s_flags |= MS_RDONLY;
++		       "running fsck.hfsplus is recommended.\n");
+ 	} else if (sbi->flags & HFSPLUS_SB_FORCE) {
+ 		/* nothing */
+ 	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {
+ 		printk(KERN_WARNING "hfs: Filesystem is marked locked, mounting read-only.\n");
+ 		sb->s_flags |= MS_RDONLY;
+-	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
+-		printk(KERN_WARNING "hfs: write access to a jounaled filesystem is not supported, "
++	} else if ((vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) && !(sb->s_flags & MS_RDONLY)) {
++		printk(KERN_WARNING "hfs: write access to a journaled filesystem is not supported, "
+ 		       "use the force option at your own risk, mounting read-only.\n");
+ 		sb->s_flags |= MS_RDONLY;
+ 	}
+@@ -379,6 +384,7 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
+ 		iput(root);
+ 		goto cleanup;
+ 	}
++	sb->s_root->d_op = &hfsplus_dentry_operations;
+ 
+ 	str.len = sizeof(HFSP_HIDDENDIR_NAME) - 1;
+ 	str.name = HFSP_HIDDENDIR_NAME;
+diff --git a/fs/hfsplus/unicode.c b/fs/hfsplus/unicode.c
+index 689c8bd..628ccf6 100644
+--- a/fs/hfsplus/unicode.c
++++ b/fs/hfsplus/unicode.c
+@@ -239,61 +239,202 @@ out:
+ 	return res;
+ }
+ 
+-int hfsplus_asc2uni(struct super_block *sb, struct hfsplus_unistr *ustr, const char *astr, int len)
++/*
++ * Convert one or more ASCII characters into a single unicode character.
++ * Returns the number of ASCII characters corresponding to the unicode char.
++ */
++static inline int asc2unichar(struct super_block *sb, const char *astr, int len,
++			      wchar_t *uc)
+ {
+-	struct nls_table *nls = HFSPLUS_SB(sb).nls;
+-	int size, off, decompose;
++	int size = HFSPLUS_SB(sb).nls->char2uni(astr, len, uc);
++	if (size <= 0) {
++		*uc = '?';
++		size = 1;
++	}
++	switch (*uc) {
++	case 0x2400:
++		*uc = 0;
++		break;
++	case ':':
++		*uc = '/';
++		break;
++	}
++	return size;
++}
++
++/* Decomposes a single unicode character. */
++static inline u16 *decompose_unichar(wchar_t uc, int *size)
++{
++	int off;
++
++	off = hfsplus_decompose_table[(uc >> 12) & 0xf];
++	if (off == 0 || off == 0xffff)
++		return NULL;
++
++	off = hfsplus_decompose_table[off + ((uc >> 8) & 0xf)];
++	if (!off)
++		return NULL;
++
++	off = hfsplus_decompose_table[off + ((uc >> 4) & 0xf)];
++	if (!off)
++		return NULL;
++
++	off = hfsplus_decompose_table[off + (uc & 0xf)];
++	*size = off & 3;
++	if (*size == 0)
++		return NULL;
++	return hfsplus_decompose_table + (off / 4);
++}
++
++int hfsplus_asc2uni(struct super_block *sb, struct hfsplus_unistr *ustr,
++		    const char *astr, int len)
++{
++	int size, dsize, decompose;
++	u16 *dstr, outlen = 0;
+ 	wchar_t c;
+-	u16 outlen = 0;
+ 
+ 	decompose = !(HFSPLUS_SB(sb).flags & HFSPLUS_SB_NODECOMPOSE);
+-
+ 	while (outlen < HFSPLUS_MAX_STRLEN && len > 0) {
+-		size = nls->char2uni(astr, len, &c);
+-		if (size <= 0) {
+-			c = '?';
+-			size = 1;
+-		}
+-		astr += size;
+-		len -= size;
+-		switch (c) {
+-		case 0x2400:
+-			c = 0;
+-			break;
+-		case ':':
+-			c = '/';
+-			break;
+-		}
+-		if (c >= 0xc0 && decompose) {
+-			off = hfsplus_decompose_table[(c >> 12) & 0xf];
+-			if (!off)
+-				goto done;
+-			if (off == 0xffff) {
+-				goto done;
+-			}
+-			off = hfsplus_decompose_table[off + ((c >> 8) & 0xf)];
+-			if (!off)
+-				goto done;
+-			off = hfsplus_decompose_table[off + ((c >> 4) & 0xf)];
+-			if (!off)
+-				goto done;
+-			off = hfsplus_decompose_table[off + (c & 0xf)];
+-			size = off & 3;
+-			if (!size)
+-				goto done;
+-			off /= 4;
+-			if (outlen + size > HFSPLUS_MAX_STRLEN)
++		size = asc2unichar(sb, astr, len, &c);
++
++		if (decompose && (dstr = decompose_unichar(c, &dsize))) {
++			if (outlen + dsize > HFSPLUS_MAX_STRLEN)
+ 				break;
+ 			do {
+-				ustr->unicode[outlen++] = cpu_to_be16(hfsplus_decompose_table[off++]);
+-			} while (--size > 0);
+-			continue;
+-		}
+-	done:
+-		ustr->unicode[outlen++] = cpu_to_be16(c);
++				ustr->unicode[outlen++] = cpu_to_be16(*dstr++);
++			} while (--dsize > 0);
++		} else
++			ustr->unicode[outlen++] = cpu_to_be16(c);
++
++		astr += size;
++		len -= size;
+ 	}
+ 	ustr->length = cpu_to_be16(outlen);
+ 	if (len > 0)
+ 		return -ENAMETOOLONG;
+ 	return 0;
+ }
++
++/*
++ * Hash a string to an integer as appropriate for the HFS+ filesystem.
++ * Composed unicode characters are decomposed and case-folding is performed
++ * if the appropriate bits are (un)set on the superblock.
++ */
++int hfsplus_hash_dentry(struct dentry *dentry, struct qstr *str)
++{
++	struct super_block *sb = dentry->d_sb;
++	const char *astr;
++	const u16 *dstr;
++	int casefold, decompose, size, len;
++	unsigned long hash;
++	wchar_t c;
++	u16 c2;
++
++	casefold = (HFSPLUS_SB(sb).flags & HFSPLUS_SB_CASEFOLD);
++	decompose = !(HFSPLUS_SB(sb).flags & HFSPLUS_SB_NODECOMPOSE);
++	hash = init_name_hash();
++	astr = str->name;
++	len = str->len;
++	while (len > 0) {
++		int uninitialized_var(dsize);
++		size = asc2unichar(sb, astr, len, &c);
++		astr += size;
++		len -= size;
++
++		if (decompose && (dstr = decompose_unichar(c, &dsize))) {
++			do {
++				c2 = *dstr++;
++				if (!casefold || (c2 = case_fold(c2)))
++					hash = partial_name_hash(c2, hash);
++			} while (--dsize > 0);
++		} else {
++			c2 = c;
++			if (!casefold || (c2 = case_fold(c2)))
++				hash = partial_name_hash(c2, hash);
++		}
++	}
++	str->hash = end_name_hash(hash);
++
++	return 0;
++}
++
++/*
++ * Compare strings with HFS+ filename ordering.
++ * Composed unicode characters are decomposed and case-folding is performed
++ * if the appropriate bits are (un)set on the superblock.
++ */
++int hfsplus_compare_dentry(struct dentry *dentry, struct qstr *s1, struct qstr *s2)
++{
++	struct super_block *sb = dentry->d_sb;
++	int casefold, decompose, size;
++	int dsize1, dsize2, len1, len2;
++	const u16 *dstr1, *dstr2;
++	const char *astr1, *astr2;
++	u16 c1, c2;
++	wchar_t c;
++
++	casefold = (HFSPLUS_SB(sb).flags & HFSPLUS_SB_CASEFOLD);
++	decompose = !(HFSPLUS_SB(sb).flags & HFSPLUS_SB_NODECOMPOSE);
++	astr1 = s1->name;
++	len1 = s1->len;
++	astr2 = s2->name;
++	len2 = s2->len;
++	dsize1 = dsize2 = 0;
++	dstr1 = dstr2 = NULL;
++
++	while (len1 > 0 && len2 > 0) {
++		if (!dsize1) {
++			size = asc2unichar(sb, astr1, len1, &c);
++			astr1 += size;
++			len1 -= size;
++
++			if (!decompose || !(dstr1 = decompose_unichar(c, &dsize1))) {
++				c1 = c;
++				dstr1 = &c1;
++				dsize1 = 1;
++			}
++		}
++
++		if (!dsize2) {
++			size = asc2unichar(sb, astr2, len2, &c);
++			astr2 += size;
++			len2 -= size;
++
++			if (!decompose || !(dstr2 = decompose_unichar(c, &dsize2))) {
++				c2 = c;
++				dstr2 = &c2;
++				dsize2 = 1;
++			}
++		}
++
++		c1 = *dstr1;
++		c2 = *dstr2;
++		if (casefold) {
++			if  (!(c1 = case_fold(c1))) {
++				dstr1++;
++				dsize1--;
++				continue;
++			}
++			if (!(c2 = case_fold(c2))) {
++				dstr2++;
++				dsize2--;
++				continue;
++			}
++		}
++		if (c1 < c2)
++			return -1;
++		else if (c1 > c2)
++			return 1;
++
++		dstr1++;
++		dsize1--;
++		dstr2++;
++		dsize2--;
++	}
++
++	if (len1 < len2)
++		return -1;
++	if (len1 > len2)
++		return 1;
++	return 0;
++}
+diff --git a/fs/hfsplus/wrapper.c b/fs/hfsplus/wrapper.c
+index 72cab78..766b755 100644
+--- a/fs/hfsplus/wrapper.c
++++ b/fs/hfsplus/wrapper.c
+@@ -99,6 +99,10 @@ int hfsplus_read_wrapper(struct super_block *sb)
+ 
+ 	if (hfsplus_get_last_session(sb, &part_start, &part_size))
+ 		return -EINVAL;
++	if ((u64)part_start + part_size > 0x100000000ULL) {
++		printk(KERN_ERR "hfs: volumes larger than 2TB are not supported yet\n");
++		return -EINVAL;
++	}
+ 	while (1) {
+ 		bh = sb_bread512(sb, part_start + HFSPLUS_VOLHEAD_SECTOR, vhdr);
+ 		if (!bh)
+-- 
+1.6.5.GIT

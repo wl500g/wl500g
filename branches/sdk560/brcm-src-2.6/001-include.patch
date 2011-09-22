@@ -1,0 +1,37 @@
+diff -urB src/include.orig/bcmenetphy.h src/include/bcmenetphy.h
+--- src/include.orig/bcmenetphy.h	2009-08-27 07:52:28.000000000 +0400
++++ src/include/bcmenetphy.h	2009-10-10 19:52:27.000000000 +0400
+@@ -47,7 +47,6 @@
+ #define LPA_100HALF	0x0080			/* can do 100mbps half-duplex */
+ #define LPA_100FULL	0x0100			/* can do 100mbps full-duplex */
+ #define LPA_100BASE4	0x0200			/* can do 100mbps 4k packets */
+-#define LPA_RESV	0x1c00			/* unused */
+ #define LPA_RFAULT	0x2000			/* link partner faulted */
+ #define LPA_LPACK	0x4000			/* link partner acked us */
+ #define LPA_NPAGE	0x8000			/* next page bit */
+diff -urB src/include.orig/linux_osl.h src/include/linux_osl.h
+--- src/include.orig/linux_osl.h	2009-08-27 07:52:23.000000000 +0400
++++ src/include/linux_osl.h	2009-10-10 20:49:25.000000000 +0400
+@@ -159,7 +159,10 @@
+ #ifndef BINOSL
+ 
+ #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
++#ifndef printf
+ #define	printf(fmt, args...)	printk(fmt , ## args)
++#endif
++
+ #include <linux/kernel.h>	/* for vsn/printf's */
+ #include <linux/string.h>	/* for mem*, str* */
+ /* bcopy's: Linux kernel doesn't provide these (anymore) */
+diff -urB src/include.orig/trxhdr.h src/include/trxhdr.h
+--- src/include.orig/trxhdr.h	2009-08-27 07:52:28.000000000 +0400
++++ src/include/trxhdr.h	2009-11-01 20:38:49.000000000 +0300
+@@ -16,7 +16,7 @@
+ 
+ #define TRX_MAGIC	0x30524448	/* "HDR0" */
+ #define TRX_VERSION	1		/* Version 1 */
+-#define TRX_MAX_LEN	0x3B0000	/* Max length */
++#define TRX_MAX_LEN	0x7A0000	/* Max length */
+ #define TRX_NO_HEADER	1		/* Do not write TRX header */
+ #define TRX_GZ_FILES	0x2     /* Contains up to TRX_MAX_OFFSET individual gzip files */
+ #define TRX_MAX_OFFSET	3		/* Max number of individual files */

@@ -1,0 +1,613 @@
+--- linux-2.4.37.11.orig/drivers/net/Config.in	2004-10-09 00:56:45.000000000 +0600
++++ linux-2.4.37.11/drivers/net/Config.in	2011-02-10 02:29:48.920681000 +0500
+@@ -325,6 +325,8 @@ if [ "$CONFIG_FDDI" = "y" ]; then
+    dep_tristate '  SysKonnect FDDI PCI support' CONFIG_SKFP $CONFIG_PCI
+ fi
+ 
++dep_tristate 'Network console support' CONFIG_NETCONSOLE
++
+ if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
+    if [ "$CONFIG_INET" = "y" ]; then
+       bool 'HIPPI driver support (EXPERIMENTAL)' CONFIG_HIPPI
+--- linux-2.4.37.11.orig/Documentation/Configure.help	2010-02-12 21:41:39.000000000 +0500
++++ linux-2.4.37.11/Documentation/Configure.help	2011-02-10 01:31:51.030681000 +0500
+@@ -14001,6 +14001,11 @@ CONFIG_SKFP
+   say M here and read <file:Documentation/modules.txt>.  This is
+   recommended.  The module will be called skfp.o.
+ 
++Network console support
++CONFIG_NETCONSOLE
++  If you want to log kernel messages over the network, then say
++  "M" here. See Documentation/networking/netlogging.txt for details.
++
+ HIgh Performance Parallel Interface (HIPPI) support
+ CONFIG_HIPPI
+   HIgh Performance Parallel Interface (HIPPI) is a 800Mbit/sec and
+--- linux-2.4.37.11.orig/drivers/net/Makefile	2004-10-09 00:56:45.000000000 +0600
++++ linux-2.4.37.11/drivers/net/Makefile	2011-02-10 02:29:57.830681000 +0500
+@@ -262,6 +262,8 @@ subdir-y	+= ../acorn/net
+ obj-y		+= ../acorn/net/acorn-net.o
+ endif
+ 
++obj-$(CONFIG_NETCONSOLE) += netconsole.o
++
+ #
+ # HIPPI adapters
+ #
+--- linux-2.4.37.11.orig/drivers/net/netconsole.c	1970-01-01 05:00:00.000000000 +0500
++++ linux-2.4.37.11/drivers/net/netconsole.c	2011-02-10 19:40:33.908371002 +0500
+@@ -0,0 +1,483 @@
++/*
++ *  linux/drivers/net/netconsole.c
++ *
++ *  Copyright (C) 2001  Ingo Molnar <mingo@redhat.com>
++ *
++ *  This file contains the implementation of an IRQ-safe, crash-safe
++ *  kernel console implementation that outputs kernel messages to the
++ *  network.
++ *
++ * Modification history:
++ *
++ * 2001-09-17	started by Ingo Molnar.
++ * 2004-01-17	updated for recent kernel 2.4.24 and
++ *		synced with Matt Mackall's options by
++ *		Herbert Pötzl <herbert@13thfloor.at>
++ *
++ */
++
++/****************************************************************
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
++ *
++ ****************************************************************/
++
++#include <net/tcp.h>
++#include <net/udp.h>
++#include <linux/mm.h>
++#include <linux/tty.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <asm/unaligned.h>
++#include <linux/console.h>
++#include <linux/smp_lock.h>
++#include <linux/netdevice.h>
++#include <linux/tty_driver.h>
++#include <linux/etherdevice.h>
++#include <linux/string.h>
++#include <linux/inetdevice.h>
++#include <linux/inet.h>
++
++static char *netconsole[2]={"",""};
++
++MODULE_AUTHOR("Maintainer: Herbert Pötzl <herbert@13thfloor.at>");
++MODULE_DESCRIPTION("Network console driver");
++MODULE_LICENSE("GPL");
++
++MODULE_PARM(netconsole, "2s");
++MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<tgt-ip>/[tgt-macaddr]\n");
++
++struct netpoll {
++	struct net_device *dev;
++	char dev_name[16], *name;
++	u32 local_ip, remote_ip;
++	u16 local_port, remote_port;
++	unsigned char local_mac[6];
++	unsigned char remote_mac[6];
++};
++
++static struct netpoll np = {
++	.name =	"netconsole",
++	.dev_name = "eth0",
++	.local_port = 6665,
++	.remote_port = 6666,
++	.remote_mac = {0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
++};
++
++
++#define MAX_UDP_CHUNK 1460
++
++/*
++ * We maintain a small pool of fully-sized skbs,
++ * to make sure the message gets out even in
++ * extreme OOM situations.
++ */
++#define MAX_NETCONSOLE_SKBS 32
++
++static spinlock_t netconsole_lock = SPIN_LOCK_UNLOCKED;
++static int nr_netconsole_skbs;
++static struct sk_buff *netconsole_skbs;
++
++#define MAX_SKB_SIZE \
++		(MAX_UDP_CHUNK + sizeof(struct udphdr) + \
++				sizeof(struct iphdr) + sizeof(struct ethhdr))
++
++static void __refill_netconsole_skbs(void)
++{
++	struct sk_buff *skb;
++	unsigned long flags;
++
++	spin_lock_irqsave(&netconsole_lock, flags);
++	while (nr_netconsole_skbs < MAX_NETCONSOLE_SKBS) {
++		skb = alloc_skb(MAX_SKB_SIZE, GFP_ATOMIC);
++		if (!skb)
++			break;
++		if (netconsole_skbs)
++			skb->next = netconsole_skbs;
++		else
++			skb->next = NULL;
++		netconsole_skbs = skb;
++		nr_netconsole_skbs++;
++	}
++	spin_unlock_irqrestore(&netconsole_lock, flags);
++}
++
++static struct sk_buff * get_netconsole_skb(void)
++{
++	struct sk_buff *skb;
++
++	unsigned long flags;
++
++	spin_lock_irqsave(&netconsole_lock, flags);
++	skb = netconsole_skbs;
++	if (skb)
++		netconsole_skbs = skb->next;
++	skb->next = NULL;
++	nr_netconsole_skbs--;
++	spin_unlock_irqrestore(&netconsole_lock, flags);
++
++	return skb;
++}
++
++static void send_netconsole_skb(struct net_device *dev,
++	const char *msg, unsigned int msg_len)
++{
++	int total_len, eth_len, ip_len, udp_len;
++	int status, retries;
++	struct sk_buff *skb;
++	struct udphdr *udph;
++	struct iphdr *iph;
++	struct ethhdr *eth;
++
++	if (!netif_running(dev))
++		return;
++
++	udp_len = msg_len + sizeof(*udph);
++	ip_len = eth_len = udp_len + sizeof(*iph);
++	total_len = eth_len + ETH_HLEN;
++
++	if (nr_netconsole_skbs < MAX_NETCONSOLE_SKBS)
++		__refill_netconsole_skbs();
++
++	skb = alloc_skb(total_len, GFP_ATOMIC);
++	if (!skb) {
++		skb = get_netconsole_skb();
++		if (!skb)
++			/* tough! */
++			return;
++	}
++
++	atomic_set(&skb->users, 1);
++	skb_reserve(skb, total_len - msg_len);
++
++	memcpy(skb->data, msg, msg_len);
++	skb->len += msg_len;
++
++	udph = (struct udphdr *) skb_push(skb, sizeof(*udph));
++	udph->source = htons(np.local_port);
++	udph->dest = htons(np.remote_port);
++	udph->len = htons(udp_len);
++	udph->check = 0;
++
++	iph = (struct iphdr *)skb_push(skb, sizeof(*iph));
++
++	iph->version  = 4;
++	iph->ihl      = 5;
++	iph->tos      = 0;
++	iph->tot_len  = htons(ip_len);
++	iph->id       = 0;
++	iph->frag_off = 0;
++	iph->ttl      = 64;
++	iph->protocol = IPPROTO_UDP;
++	iph->check    = 0;
++	iph->saddr    = htonl(np.local_ip);
++	iph->daddr    = htonl(np.remote_ip);
++	iph->check    = ip_fast_csum((unsigned char *)iph, iph->ihl);
++
++	eth = (struct ethhdr *) skb_push(skb, ETH_HLEN);
++
++	eth->h_proto = htons(ETH_P_IP);
++	memcpy(eth->h_source, np.local_mac, 6);
++	memcpy(eth->h_dest, np.remote_mac, 6);
++
++	retries=1000000;
++repeat:
++	if(!--retries) {
++		__kfree_skb(skb);
++		return;
++	}
++
++	spin_lock(&dev->xmit_lock);
++	dev->xmit_lock_owner = smp_processor_id();
++
++	if (netif_queue_stopped(dev)) {
++		dev->xmit_lock_owner = -1;
++		spin_unlock(&dev->xmit_lock);
++
++		dev->poll_controller(dev);
++		goto repeat;
++	}
++
++	status = dev->hard_start_xmit(skb, dev);
++
++	dev->xmit_lock_owner = -1;
++	spin_unlock(&dev->xmit_lock);
++
++	if (status)
++		goto repeat;
++}
++
++static void write_netconsole_msg(struct console *con, const char *msg, unsigned int msg_len)
++{
++	int len, left;
++	struct net_device *dev;
++
++	dev = np.dev;
++	if (!dev)
++		return;
++
++	if (dev->poll_controller && netif_running(dev)) {
++		unsigned long flags;
++
++		__save_flags(flags);
++		__cli();
++		left = msg_len;
++repeat:
++		if (left > MAX_UDP_CHUNK)
++			len = MAX_UDP_CHUNK;
++		else
++			len = left;
++		send_netconsole_skb(dev, msg, len);
++		msg += len;
++		left -= len;
++		if (left)
++			goto repeat;
++		__restore_flags(flags);
++	}
++}
++
++
++
++# define strlcpy(dest,src,len) strncpy(dest,src,(len)-1)
++
++static int netpoll_parse_options(struct netpoll *np)
++{
++	char *cur=netconsole[0], *delim;
++
++	if(!netconsole[0] || !netconsole[1])
++		goto parse_print;
++
++	if(*cur != '@') {
++		if ((delim = strchr(cur, '@')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->local_port=simple_strtol(cur, 0, 10);
++		cur=delim;
++	}
++	cur++;
++
++	if(*cur != '/') {
++		if ((delim = strchr(cur, '/')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->local_ip=ntohl(in_aton(cur));
++		cur=delim;
++	}
++	cur++;
++
++	if (*cur)
++		strlcpy(np->dev_name, cur, sizeof(np->dev_name));
++
++	cur=netconsole[1];
++
++	if ( *cur != '@' ) {
++		/* dst port */
++		if ((delim = strchr(cur, '@')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_port=simple_strtol(cur, 0, 10);
++		cur=delim;
++	}
++	cur++;
++
++	/* dst ip */
++	if ((delim = strchr(cur, '/')) == NULL)
++		goto parse_failed;
++	*delim=0;
++	np->remote_ip=ntohl(in_aton(cur));
++	cur=delim+1;
++
++	if( *cur != 0 )
++	{
++		/* MAC address */
++		if ((delim = strchr(cur, ':')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_mac[0]=simple_strtol(cur, 0, 16);
++		cur=delim+1;
++		if ((delim = strchr(cur, ':')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_mac[1]=simple_strtol(cur, 0, 16);
++		cur=delim+1;
++		if ((delim = strchr(cur, ':')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_mac[2]=simple_strtol(cur, 0, 16);
++		cur=delim+1;
++		if ((delim = strchr(cur, ':')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_mac[3]=simple_strtol(cur, 0, 16);
++		cur=delim+1;
++		if ((delim = strchr(cur, ':')) == NULL)
++			goto parse_failed;
++		*delim=0;
++		np->remote_mac[4]=simple_strtol(cur, 0, 16);
++		cur=delim+1;
++		np->remote_mac[5]=simple_strtol(cur, 0, 16);
++	}
++
++parse_print:
++	printk(KERN_INFO "%s: interface %s\n", np->name, np->dev_name);
++	printk(KERN_INFO "%s: local ip address %d.%d.%d.%d:%d\n", np->name, HIPQUAD(np->local_ip), np->local_port);
++	printk(KERN_INFO "%s: remote ip address %d.%d.%d.%d:%d\n", np->name, HIPQUAD(np->remote_ip), np->remote_port);
++	printk(KERN_INFO "%s: remote ethernet address "
++	       "%02x:%02x:%02x:%02x:%02x:%02x\n",
++	       np->name,
++	       np->remote_mac[0],
++	       np->remote_mac[1],
++	       np->remote_mac[2],
++	       np->remote_mac[3],
++	       np->remote_mac[4],
++	       np->remote_mac[5]);
++
++	return 0;
++
++parse_failed:
++	printk(KERN_INFO "%s: couldn't parse config at %s!\n",
++	       np->name, cur);
++	return -1;
++}
++
++static int netpoll_setup(struct netpoll *np)
++{
++	struct net_device *ndev = NULL;
++	struct in_device *in_dev;
++
++	if (np->dev_name)
++		ndev = dev_get_by_name(np->dev_name);
++	if (!ndev) {
++		printk(KERN_ERR "%s: %s doesn't exist, aborting.\n",
++		       np->name, np->dev_name);
++		goto release;
++	}
++	if (!ndev->poll_controller) {
++		printk(KERN_ERR "%s: %s doesn't support polling, aborting.\n",
++		       np->name, np->dev_name);
++		goto release;
++	}
++
++	if (!(ndev->flags & IFF_UP)) {
++		unsigned short oflags;
++		unsigned long jiff;
++
++		printk(KERN_INFO "%s: device %s not up yet, forcing it\n",
++		       np->name, np->dev_name);
++
++		oflags = ndev->flags;
++
++		rtnl_shlock();
++		if (dev_change_flags(ndev, oflags | IFF_UP) < 0) {
++			printk(KERN_ERR "%s: failed to open %s\n",
++			       np->name, np->dev_name);
++			rtnl_shunlock();
++			goto release;
++		}
++		rtnl_shunlock();
++
++		jiff = jiffies + 6*HZ;
++		while(!netif_carrier_ok(ndev)) {
++			if (!time_before(jiffies, jiff)) {
++				printk(KERN_NOTICE
++				       "%s: timeout waiting for carrier\n",
++				       np->name);
++				break;
++			}
++			cond_resched();
++		}
++
++	}
++
++	if (!memcmp(np->local_mac, "\0\0\0\0\0\0", 6) && ndev->dev_addr)
++		memcpy(np->local_mac, ndev->dev_addr, 6);
++
++	if (!np->local_ip) {
++		in_dev = in_dev_get(ndev);
++
++		if (!in_dev) {
++			printk(KERN_ERR "%s: no IP address for %s, aborting\n",
++			       np->name, np->dev_name);
++			goto release;
++		}
++
++		np->local_ip = ntohl(in_dev->ifa_list->ifa_local);
++		in_dev_put(in_dev);
++		printk(KERN_INFO "%s: local IP %d.%d.%d.%d\n",
++		       np->name, HIPQUAD(np->local_ip));
++	}
++
++	np->dev = ndev;
++	return 0;
++release:
++	dev_put(ndev);
++	return -1;
++}
++
++static void netpoll_cleanup(struct netpoll *np)
++{
++	dev_put(np->dev);
++	np->dev = 0;
++}
++
++
++static struct console net_console = {
++	flags: CON_ENABLED,
++	write: write_netconsole_msg
++};
++
++
++static int __init option_setup(char *opt)
++{
++	char *delim;
++
++	netconsole[0]=opt;
++	delim=strchr(opt, ',');
++	if(delim)
++		*delim++=0;
++	netconsole[1]=delim;
++	return netpoll_parse_options(&np);
++}
++
++__setup("netconsole=", option_setup);
++
++
++static int __init init_netconsole(void)
++{
++#ifdef MODULE
++	if(netpoll_parse_options(&np))
++		return 1;
++#endif
++	if(!np.remote_ip || netpoll_setup(&np))
++		return 1;
++
++#define STARTUP_MSG "[...network console startup...]\n"
++	write_netconsole_msg(NULL, STARTUP_MSG, strlen(STARTUP_MSG));
++	register_console(&net_console);
++	printk(KERN_INFO "netconsole: network logging started\n");
++	return 0;
++}
++
++static void __exit cleanup_netconsole(void)
++{
++	printk(KERN_INFO "netconsole: network logging shut down.\n");
++	unregister_console(&net_console);
++
++#define SHUTDOWN_MSG "[...network console shutdown...]\n"
++	write_netconsole_msg(NULL, SHUTDOWN_MSG, strlen(SHUTDOWN_MSG));
++	netpoll_cleanup(&np);
++}
++
++module_init(init_netconsole);
++module_exit(cleanup_netconsole);
+--- linux-2.4.37.11.orig/Documentation/networking/netconsole.txt	1970-01-01 05:00:00.000000000 +0500
++++ linux-2.4.37.11/Documentation/networking/netconsole.txt	2011-02-10 01:32:05.320681000 +0500
+@@ -0,0 +1,56 @@
++
++started by Ingo Molnar <mingo@redhat.com>, 2001.09.17
++updated by Herbert Pötzl <herbert@13thfloor.at>, 2004.01.17
++to the new config syntax from Matt Mackall <mpm@selenic.com>
++
++This logs kernel printk messages over UDP allowing debugging of
++issues where disk logging fails and serial consoles are impractical.
++
++It can be used either built-in or as a module. As a built-in,
++netconsole initializes immediately after NIC cards and will bring up
++the specified interface as soon as possible. While this doesn't allow
++capture of early kernel panics, it does capture most of the boot
++process.
++
++It takes a string configuration parameter "netconsole" in the
++following format:
++
++ netconsole=[src-port]@[src-ip]/[<dev>],[tgt-port]@<tgt-ip>/[tgt-macaddr]
++
++   where
++	src-port      source for UDP packets (defaults to 6665)
++	src-ip        source IP to use (interface address)
++	dev           network interface (eth0)
++	tgt-port      port for logging agent (6666)
++	tgt-ip        IP address for logging agent
++	tgt-macaddr   ethernet MAC address for logging agent (broadcast)
++
++Examples:
++
++ linux netconsole=4444@10.0.0.1/eth1,9353@10.0.0.2/12:34:56:78:9a:bc
++
++  or
++
++ insmod netconsole netconsole=@/,@10.0.0.2/
++
++Built-in netconsole starts immediately after the TCP stack is
++initialized and attempts to bring up the supplied dev at the supplied
++address.
++
++The remote host can run either 'netcat -u -l -p <port>' or syslogd.
++
++WARNING: the default target ethernet setting uses the broadcast
++ethernet address to send packets, which can cause increased load on
++other systems on the same ethernet segment.
++
++NOTE: the network device (eth1 in the above case) can run any kind
++of other network traffic, netconsole is not intrusive. Netconsole
++might cause slight delays in other traffic if the volume of kernel
++messages is high, but should have no other impact.
++
++Netconsole was designed to be as instantaneous as possible, to
++enable the logging of even the most critical kernel bugs. It works
++from IRQ contexts as well, and does not enable interrupts while
++sending packets. Due to these unique needs, configuration can not
++be more automatic, and some fundamental limitations will remain:
++only IP networks, UDP packets and ethernet devices are supported.
+--- linux-2.4.37.11.orig/include/linux/netdevice.h	2011-02-03 22:23:32.437845000 +0500
++++ linux-2.4.37.11/include/linux/netdevice.h	2011-02-10 03:17:51.850681000 +0500
+@@ -452,6 +452,11 @@ struct net_device
+ 	/* this will get initialized at each interface type init routine */
+ 	struct divert_blk	*divert;
+ #endif /* CONFIG_NET_DIVERT */
++#if defined(CONFIG_NETCONSOLE) || defined(CONFIG_NETCONSOLE_MODULE)
++#define CONFIG_NET_POLL_CONTROLLER
++	void			(*poll_controller)(struct net_device *dev);
++#endif /* CONFIG_NETCONSOLE */
++
+ 	struct ethtool_ops *ethtool_ops;
+ 
+ 	/* Instance data managed by the core of Wireless Extensions. */
+--- linux-2.4.37.11.orig/net/netsyms.c	2010-02-14 14:39:01.000000000 +0500
++++ linux-2.4.37.11/net/netsyms.c	2011-02-10 02:29:21.440681000 +0500
+@@ -229,9 +229,14 @@ EXPORT_SYMBOL(make_EII_client);
+ EXPORT_SYMBOL(destroy_EII_client);
+ #endif
+ 
++/* for 801q VLAN support and netconsole */
++#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE) \
++ || defined(CONFIG_NETCONSOLE) || defined(CONFIG_NETCONSOLE_MODULE)
++EXPORT_SYMBOL(dev_change_flags);
++#endif
++
+ /* for 801q VLAN support */
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+-EXPORT_SYMBOL(dev_change_flags);
+ EXPORT_SYMBOL(vlan_ioctl_hook);
+ #endif
+ 

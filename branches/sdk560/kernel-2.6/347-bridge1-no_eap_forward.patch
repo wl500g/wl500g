@@ -1,0 +1,20 @@
+OpenWRT's 280-bridge_no_eap_forward.patch
+
+kernel: when bridging, do not forward EAP frames to other ports, only deliver them locally
+fixes WPA authentication issues with multiples APs that are connected to each other via bridges
+
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -61,7 +61,11 @@ int br_handle_frame_finish(struct sk_buf
+ 
+ 	dst = NULL;
+ 
+-	if (is_multicast_ether_addr(dest)) {
++	if (skb->protocol == htons(ETH_P_PAE)) {
++		skb2 = skb;
++		/* Do not forward 802.1x/EAP frames */
++		skb = NULL;
++	} else if (is_multicast_ether_addr(dest)) {
+ 		br->statistics.multicast++;
+ 		skb2 = skb;
+ 	} else if ((dst = __br_fdb_get(br, dest)) && dst->is_local) {

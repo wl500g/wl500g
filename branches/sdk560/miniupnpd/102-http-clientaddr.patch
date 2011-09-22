@@ -1,0 +1,40 @@
+From: Fedor <fedork@ubuntu.(none)>
+Date: Mon, 9 Feb 2009 15:11:16 -0500
+Subject: [PATCH] More detailed warning message.
+
+---
+ upnphttp.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/upnphttp.c b/upnphttp.c
+--- a/upnphttp.c
++++ b/upnphttp.c
+@@ -12,6 +12,7 @@
+ #include <string.h>
+ #include <sys/types.h>
+ #include <sys/socket.h>
++#include <arpa/inet.h>	//!!TB
+ #include <sys/param.h>
+ #include <syslog.h>
+ #include <ctype.h>
+@@ -479,7 +480,8 @@ Process_upnphttp(struct upnphttp * h)
+ 		}
+ 		else if(n==0)
+ 		{
+-			syslog(LOG_WARNING, "HTTP Connection closed inexpectedly");
++			syslog(LOG_WARNING, "HTTP Connection from %s closed unexpectedly",
++				inet_ntoa(h->clientaddr));	//!!TB - added client address
+ 			h->state = 100;
+ 		}
+ 		else
+@@ -509,7 +511,8 @@ Process_upnphttp(struct upnphttp * h)
+ 		}
+ 		else if(n==0)
+ 		{
+-			syslog(LOG_WARNING, "HTTP Connection closed inexpectedly");
++			syslog(LOG_WARNING, "HTTP Connection from %s closed unexpectedly",
++				inet_ntoa(h->clientaddr));	//!!TB - added client address
+ 			h->state = 100;
+ 		}
+ 		else
+-- 

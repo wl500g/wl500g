@@ -1,0 +1,243 @@
+From 14cbd41c53732637459962bfd8afd68d9dc59b53
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 2 Feb 2011 02:51:04 -0500
+Subject: [PATCH] mm: minor updates/fixes from upstream 2.6 kernel
+
+kernel.org commits
+45726cb43d11b288c58243a26010f397054222f0 mm: improve find_lock_page
+1037b83bd04e31449dc9323f1e8ddada4264ef66 MM: alloc_large_system_hash() can free some memory for non power-of-two bucketsize
+f7977793240d836e60ff413e94e6914f08e10941 speed up madvise_need_mmap_write() usage
+c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
+0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
+a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_mkwrite()
+369f2389e7d03022abdd25e298bffb9613cd0e54 writeback: remove unnecessary wait in throttle_vm_writeout()
+
+---
+ include/linux/writeback.h |    2 +-
+ mm/filemap.c              |    9 +++++----
+ mm/madvise.c              |    6 ++++--
+ mm/memory.c               |    9 +++++++--
+ mm/mempool.c              |    3 +++
+ mm/page-writeback.c       |   22 ++++++++++------------
+ mm/page_alloc.c           |   15 +++++++++++++++
+ 7 files changed, 45 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/writeback.h b/include/linux/writeback.h
+index 4ef4d22..b4af6bc 100644
+--- a/include/linux/writeback.h
++++ b/include/linux/writeback.h
+@@ -127,7 +127,7 @@ int sync_page_range(struct inode *inode, struct address_space *mapping,
+ 			loff_t pos, loff_t count);
+ int sync_page_range_nolock(struct inode *inode, struct address_space *mapping,
+ 			   loff_t pos, loff_t count);
+-void set_page_dirty_balance(struct page *page);
++void set_page_dirty_balance(struct page *page, int page_mkwrite);
+ void writeback_set_ratelimit(void);
+ 
+ /* pdflush.c */
+diff --git a/mm/filemap.c b/mm/filemap.c
+index eb36159..09eae85 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -620,26 +620,27 @@ struct page *find_lock_page(struct address_space *mapping,
+ {
+ 	struct page *page;
+ 
+-	read_lock_irq(&mapping->tree_lock);
+ repeat:
++	read_lock_irq(&mapping->tree_lock);
+ 	page = radix_tree_lookup(&mapping->page_tree, offset);
+ 	if (page) {
+ 		page_cache_get(page);
+ 		if (TestSetPageLocked(page)) {
+ 			read_unlock_irq(&mapping->tree_lock);
+ 			__lock_page(page);
+-			read_lock_irq(&mapping->tree_lock);
+ 
+ 			/* Has the page been truncated while we slept? */
+-			if (unlikely(page->mapping != mapping ||
+-				     page->index != offset)) {
++			if (unlikely(page->mapping != mapping)) {
+ 				unlock_page(page);
+ 				page_cache_release(page);
+ 				goto repeat;
+ 			}
++			VM_BUG_ON(page->index != offset);
++			goto out;
+ 		}
+ 	}
+ 	read_unlock_irq(&mapping->tree_lock);
++out:
+ 	return page;
+ }
+ EXPORT_SYMBOL(find_lock_page);
+diff --git a/mm/madvise.c b/mm/madvise.c
+index 60542d0..93ee375 100644
+--- a/mm/madvise.c
++++ b/mm/madvise.c
+@@ -287,9 +287,11 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
+ 	struct vm_area_struct * vma, *prev;
+ 	int unmapped_error = 0;
+ 	int error = -EINVAL;
++	int write;
+ 	size_t len;
+ 
+-	if (madvise_need_mmap_write(behavior))
++	write = madvise_need_mmap_write(behavior);
++	if (write)
+ 		down_write(&current->mm->mmap_sem);
+ 	else
+ 		down_read(&current->mm->mmap_sem);
+@@ -354,7 +356,7 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
+ 			vma = find_vma(current->mm, start);
+ 	}
+ out:
+-	if (madvise_need_mmap_write(behavior))
++	if (write)
+ 		up_write(&current->mm->mmap_sem);
+ 	else
+ 		up_read(&current->mm->mmap_sem);
+diff --git a/mm/memory.c b/mm/memory.c
+index feb3042..6a9b21e 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -1643,6 +1643,7 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 	struct page *old_page, *new_page;
+ 	pte_t entry;
+ 	int reuse = 0, ret = 0;
++	int page_mkwrite = 0;
+ 	struct page *dirty_page = NULL;
+ 
+ 	old_page = vm_normal_page(vma, address, orig_pte);
+@@ -1691,6 +1692,8 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 			page_cache_release(old_page);
+ 			if (!pte_same(*page_table, orig_pte))
+ 				goto unlock;
++
++			page_mkwrite = 1;
+ 		}
+ 		dirty_page = old_page;
+ 		get_page(dirty_page);
+@@ -1778,7 +1781,7 @@ unlock:
+ 		 * do_no_page is protected similarly.
+ 		 */
+ 		wait_on_page_locked(dirty_page);
+-		set_page_dirty_balance(dirty_page);
++		set_page_dirty_balance(dirty_page, page_mkwrite);
+ 		put_page(dirty_page);
+ 	}
+ 	return ret;
+@@ -2348,6 +2351,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
+ 	struct page *dirty_page = NULL;
+ 	struct vm_fault vmf;
+ 	int ret;
++	int page_mkwrite = 0;
+ 
+ 	vmf.virtual_address = (void __user *)(address & PAGE_MASK);
+ 	vmf.pgoff = pgoff;
+@@ -2425,6 +2429,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
+ 					anon = 1; /* no anon but release vmf.page */
+ 					goto out;
+ 				}
++				page_mkwrite = 1;
+ 			}
+ 		}
+ 
+@@ -2480,7 +2485,7 @@ out_unlocked:
+ 	if (anon)
+ 		page_cache_release(vmf.page);
+ 	else if (dirty_page) {
+-		set_page_dirty_balance(dirty_page);
++		set_page_dirty_balance(dirty_page, page_mkwrite);
+ 		put_page(dirty_page);
+ 	}
+ 
+diff --git a/mm/mempool.c b/mm/mempool.c
+index cc1ca86..3e8f1fe 100644
+--- a/mm/mempool.c
++++ b/mm/mempool.c
+@@ -263,6 +263,9 @@ void mempool_free(void *element, mempool_t *pool)
+ {
+ 	unsigned long flags;
+ 
++	if (unlikely(element == NULL))
++		return;
++
+ 	smp_mb();
+ 	if (pool->curr_nr < pool->min_nr) {
+ 		spin_lock_irqsave(&pool->lock, flags);
+diff --git a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c
++++ b/mm/page-writeback.c
+@@ -274,9 +274,9 @@ static void balance_dirty_pages(struct address_space *mapping)
+ 		pdflush_operation(background_writeout, 0);
+ }
+ 
+-void set_page_dirty_balance(struct page *page)
++void set_page_dirty_balance(struct page *page, int page_mkwrite)
+ {
+-	if (set_page_dirty(page)) {
++	if (set_page_dirty(page) || page_mkwrite) {
+ 		struct address_space *mapping = page_mapping(page);
+ 
+ 		if (mapping)
+@@ -502,16 +502,6 @@ void throttle_vm_writeout(gfp_t gfp_mask)
+ 	long background_thresh;
+ 	long dirty_thresh;
+ 
+-	if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO)) {
+-		/*
+-		 * The caller might hold locks which can prevent IO completion
+-		 * or progress in the filesystem.  So we cannot just sit here
+-		 * waiting for IO to complete.
+-		 */
+-		congestion_wait(WRITE, HZ/10);
+-		return;
+-	}
+-
+         for ( ; ; ) {
+ 		get_dirty_limits(&background_thresh, &dirty_thresh, NULL);
+ 
+@@ -525,6 +515,14 @@ void throttle_vm_writeout(gfp_t gfp_mask)
+ 			global_page_state(NR_WRITEBACK) <= dirty_thresh)
+                         	break;
+                 congestion_wait(WRITE, HZ/10);
++
++		/*
++		 * The caller might hold locks which can prevent IO completion
++		 * or progress in the filesystem.  So we cannot just sit here
++		 * waiting for IO to complete.
++		 */
++		if ((gfp_mask & (__GFP_FS|__GFP_IO)) != (__GFP_FS|__GFP_IO))
++			break;
+         }
+ }
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+index d6bb02b..e51d51c 100644
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(const char *tablename,
+ 			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
+ 				;
+ 			table = (void*) __get_free_pages(GFP_ATOMIC, order);
++			/*
++			 * If bucketsize is not a power-of-two, we may free
++			 * some pages at the end of hash table.
++			 */
++			if (table) {
++				unsigned long alloc_end = (unsigned long)table +
++						(PAGE_SIZE << order);
++				unsigned long used = (unsigned long)table +
++						PAGE_ALIGN(size);
++				split_page(virt_to_page(table), order);
++				while (used < alloc_end) {
++					free_page(used);
++					used += PAGE_SIZE;
++				}
++			}
+ 		}
+ 	} while (!table && size > PAGE_SIZE && --log2qty);
+ 
+-- 
+1.6.5.GIT

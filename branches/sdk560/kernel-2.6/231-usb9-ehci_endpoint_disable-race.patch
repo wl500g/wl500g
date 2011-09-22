@@ -1,0 +1,61 @@
+From 02e2c51ba3e80acde600721ea784c3ef84da5ea1
+From: Alan Stern
+Date: Tue, 16 Nov 2010 10:57:37 -0500
+Subject: [PATCH] USB: EHCI: fix obscure race in ehci_endpoint_disable
+
+This patch (as1435) fixes an obscure and unlikely race in ehci-hcd.
+When an async URB is unlinked, the corresponding QH is removed from
+the async list.  If the QH's endpoint is then disabled while the URB
+is being given back, ehci_endpoint_disable() won't find the QH on the
+async list, causing it to believe that the QH has been lost.  This
+will lead to a memory leak at best and quite possibly to an oops.
+
+The solution is to trust usbcore not to lose track of endpoints.  If
+the QH isn't on the async list then it doesn't need to be taken off
+the list, but the driver should still wait for the QH to become IDLE
+before disabling it.
+
+In theory this fixes Bugzilla #20182.  In fact the race is so rare
+that it's not possible to tell whether the bug is still present.
+However, adding delays and making other changes to force the race
+seems to show that the patch works.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Reported-by: Stefan Richter <stefanr@s5r6.in-berlin.de>
+CC: David Brownell <david-b@pacbell.net>
+CC: stable <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+ drivers/usb/host/ehci-hcd.c |   10 +++++-----
+ 1 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
+index 502a7e6..e906280 100644
+--- a/drivers/usb/host/ehci-hcd.c
++++ b/drivers/usb/host/ehci-hcd.c
+@@ -1063,10 +1063,11 @@ rescan:
+ 				tmp && tmp != qh;
+ 				tmp = tmp->qh_next.qh)
+ 			continue;
+-		/* periodic qh self-unlinks on empty */
+-		if (!tmp)
+-			goto nogood;
+-		unlink_async (ehci, qh);
++		/* periodic qh self-unlinks on empty, and a COMPLETING qh
++		 * may already be unlinked.
++		 */
++		if (tmp)
++			unlink_async(ehci, qh);
+ 		/* FALL THROUGH */
+ 	case QH_STATE_UNLINK:		/* wait for hw to finish? */
+ 	case QH_STATE_UNLINK_WAIT:
+@@ -1083,7 +1084,6 @@ idle_timeout:
+ 		}
+ 		/* else FALL THROUGH */
+ 	default:
+-nogood:
+ 		/* caller was supposed to have unlinked any requests;
+ 		 * that's not our job.  just leak this memory.
+ 		 */
+-- 
+1.7.3.2

@@ -1,0 +1,3521 @@
+fuse backport from 2.6.27.59
+
+ additional kernel.org commits
+ 769415c61191bc860f60c6edc3cb7cba24fb3218 fuse: fix SEEK_END incorrectness
+ 17e18ab6ff6ec44e95514c7346d2cbd0363ef640 fuse: add missing fuse_request_free
+ e9bb09dd6c5b8ec6a971ed6251df5eba3a4c8d3c fuse: don't let fuse_req->end() put the base reference
+
+---
+ fs/fuse/dev.c        |  221 +++++++------
+ fs/fuse/dir.c        |  569 ++++++++++++++++++++++++----------
+ fs/fuse/file.c       |  849 +++++++++++++++++++++++++++++++++++++++++++++------
+ fs/fuse/fuse_i.h     |  142 +++++++-
+ fs/fuse/inode.c      |  316 +++++++++++++++++-
+ include/linux/fuse.h |   74 ++++
+ 6 files changed, 1770 insertions(+), 401 deletions(-)
+
+diff --git a/fs/fuse/dev.c b/fs/fuse/dev.c
+--- a/fs/fuse/dev.c
++++ b/fs/fuse/dev.c
+@@ -16,9 +16,6 @@
+ #include <linux/pagemap.h>
+ #include <linux/file.h>
+ #include <linux/slab.h>
+-#ifdef DCACHE_BUG
+-#include <asm-mips/cacheflush.h>
+-#endif
+ 
+ MODULE_ALIAS_MISCDEV(FUSE_MINOR);
+ 
+@@ -50,6 +47,14 @@ struct fuse_req *fuse_request_alloc(void
+ 	return req;
+ }
+ 
++struct fuse_req *fuse_request_alloc_nofs(void)
++{
++	struct fuse_req *req = kmem_cache_alloc(fuse_req_cachep, GFP_NOFS);
++	if (req)
++		fuse_request_init(req);
++	return req;
++}
++
+ void fuse_request_free(struct fuse_req *req)
+ {
+ 	kmem_cache_free(fuse_req_cachep, req);
+@@ -132,7 +137,7 @@ static struct fuse_req *get_reserved_req
+ 	struct fuse_file *ff = file->private_data;
+ 
+ 	do {
+-		wait_event(fc->blocked_waitq, ff->reserved_req);
++		wait_event(fc->reserved_req_waitq, ff->reserved_req);
+ 		spin_lock(&fc->lock);
+ 		if (ff->reserved_req) {
+ 			req = ff->reserved_req;
+@@ -158,7 +163,7 @@ static void put_reserved_req(struct fuse
+ 	fuse_request_init(req);
+ 	BUG_ON(ff->reserved_req);
+ 	ff->reserved_req = req;
+-	wake_up(&fc->blocked_waitq);
++	wake_up_all(&fc->reserved_req_waitq);
+ 	spin_unlock(&fc->lock);
+ 	fput(file);
+ }
+@@ -204,6 +209,55 @@ void fuse_put_request(struct fuse_conn *
+ 	}
+ }
+ 
++static unsigned len_args(unsigned numargs, struct fuse_arg *args)
++{
++	unsigned nbytes = 0;
++	unsigned i;
++
++	for (i = 0; i < numargs; i++)
++		nbytes += args[i].size;
++
++	return nbytes;
++}
++
++static u64 fuse_get_unique(struct fuse_conn *fc)
++{
++	fc->reqctr++;
++	/* zero is special */
++	if (fc->reqctr == 0)
++		fc->reqctr = 1;
++
++	return fc->reqctr;
++}
++
++static void queue_request(struct fuse_conn *fc, struct fuse_req *req)
++{
++	req->in.h.unique = fuse_get_unique(fc);
++	req->in.h.len = sizeof(struct fuse_in_header) +
++		len_args(req->in.numargs, (struct fuse_arg *) req->in.args);
++	list_add_tail(&req->list, &fc->pending);
++	req->state = FUSE_REQ_PENDING;
++	if (!req->waiting) {
++		req->waiting = 1;
++		atomic_inc(&fc->num_waiting);
++	}
++	wake_up(&fc->waitq);
++	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
++}
++
++static void flush_bg_queue(struct fuse_conn *fc)
++{
++	while (fc->active_background < FUSE_MAX_BACKGROUND &&
++	       !list_empty(&fc->bg_queue)) {
++		struct fuse_req *req;
++
++		req = list_entry(fc->bg_queue.next, struct fuse_req, list);
++		list_del(&req->list);
++		fc->active_background++;
++		queue_request(fc, req);
++	}
++}
++
+ /*
+  * This function is called when a request is finished.  Either a reply
+  * has arrived or it was aborted (and not yet sent) or some error
+@@ -227,22 +281,25 @@ static void request_end(struct fuse_conn
+ 			fc->blocked = 0;
+ 			wake_up_all(&fc->blocked_waitq);
+ 		}
++		if (fc->num_background == FUSE_CONGESTION_THRESHOLD &&
++		    fc->connected) {
++			clear_bdi_congested(&fc->bdi, READ);
++			clear_bdi_congested(&fc->bdi, WRITE);
++		}
+ 		fc->num_background--;
++		fc->active_background--;
++		flush_bg_queue(fc);
+ 	}
+ 	spin_unlock(&fc->lock);
+-	dput(req->dentry);
+-	mntput(req->vfsmount);
+-	if (req->file)
+-		fput(req->file);
+ 	wake_up(&req->waitq);
+ 	if (end)
+ 		end(fc, req);
+-	else
+-		fuse_put_request(fc, req);
++	fuse_put_request(fc, req);
+ }
+ 
+ static void wait_answer_interruptible(struct fuse_conn *fc,
+ 				      struct fuse_req *req)
++	__releases(fc->lock) __acquires(fc->lock)
+ {
+ 	if (signal_pending(current))
+ 		return;
+@@ -259,8 +316,8 @@ static void queue_interrupt(struct fuse_
+ 	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
+ }
+ 
+-/* Called with fc->lock held.  Releases, and then reacquires it. */
+ static void request_wait_answer(struct fuse_conn *fc, struct fuse_req *req)
++	__releases(fc->lock) __acquires(fc->lock)
+ {
+ 	if (!fc->no_interrupt) {
+ 		/* Any signal may interrupt this */
+@@ -276,28 +333,41 @@ static void request_wait_answer(struct f
+ 			queue_interrupt(fc, req);
+ 	}
+ 
+-	if (req->force) {
+-		spin_unlock(&fc->lock);
+-		wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
+-		spin_lock(&fc->lock);
+-	} else {
++	if (!req->force) {
+ 		sigset_t oldset;
+ 
+ 		/* Only fatal signals may interrupt this */
+ 		block_sigs(&oldset);
+ 		wait_answer_interruptible(fc, req);
+ 		restore_sigs(&oldset);
++
++		if (req->aborted)
++			goto aborted;
++		if (req->state == FUSE_REQ_FINISHED)
++			return;
++
++		/* Request is not yet in userspace, bail out */
++		if (req->state == FUSE_REQ_PENDING) {
++			list_del(&req->list);
++			__fuse_put_request(req);
++			req->out.h.error = -EINTR;
++			return;
++		}
+ 	}
+ 
+-	if (req->aborted)
+-		goto aborted;
+-	if (req->state == FUSE_REQ_FINISHED)
+- 		return;
++	/*
++	 * Either request is already in userspace, or it was forced.
++	 * Wait it out.
++	 */
++	spin_unlock(&fc->lock);
++	wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
++	spin_lock(&fc->lock);
+ 
+-	req->out.h.error = -EINTR;
+-	req->aborted = 1;
++	if (!req->aborted)
++		return;
+ 
+  aborted:
++	BUG_ON(req->state != FUSE_REQ_FINISHED);
+ 	if (req->locked) {
+ 		/* This is uninterruptible sleep, because data is
+ 		   being copied to/from the buffers of req.  During
+@@ -308,50 +378,6 @@ static void request_wait_answer(struct f
+ 		wait_event(req->waitq, !req->locked);
+ 		spin_lock(&fc->lock);
+ 	}
+-	if (req->state == FUSE_REQ_PENDING) {
+-		list_del(&req->list);
+-		__fuse_put_request(req);
+-	} else if (req->state == FUSE_REQ_SENT) {
+-		spin_unlock(&fc->lock);
+-		wait_event(req->waitq, req->state == FUSE_REQ_FINISHED);
+-		spin_lock(&fc->lock);
+-	}
+-}
+-
+-static unsigned len_args(unsigned numargs, struct fuse_arg *args)
+-{
+-	unsigned nbytes = 0;
+-	unsigned i;
+-
+-	for (i = 0; i < numargs; i++)
+-		nbytes += args[i].size;
+-
+-	return nbytes;
+-}
+-
+-static u64 fuse_get_unique(struct fuse_conn *fc)
+- {
+- 	fc->reqctr++;
+- 	/* zero is special */
+- 	if (fc->reqctr == 0)
+- 		fc->reqctr = 1;
+-
+-	return fc->reqctr;
+-}
+-
+-static void queue_request(struct fuse_conn *fc, struct fuse_req *req)
+-{
+-	req->in.h.unique = fuse_get_unique(fc);
+-	req->in.h.len = sizeof(struct fuse_in_header) +
+-		len_args(req->in.numargs, (struct fuse_arg *) req->in.args);
+-	list_add_tail(&req->list, &fc->pending);
+-	req->state = FUSE_REQ_PENDING;
+-	if (!req->waiting) {
+-		req->waiting = 1;
+-		atomic_inc(&fc->num_waiting);
+-	}
+-	wake_up(&fc->waitq);
+-	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
+ }
+ 
+ void request_send(struct fuse_conn *fc, struct fuse_req *req)
+@@ -373,16 +399,26 @@ void request_send(struct fuse_conn *fc, 
+ 	spin_unlock(&fc->lock);
+ }
+ 
++static void request_send_nowait_locked(struct fuse_conn *fc,
++				       struct fuse_req *req)
++{
++	req->background = 1;
++	fc->num_background++;
++	if (fc->num_background == FUSE_MAX_BACKGROUND)
++		fc->blocked = 1;
++	if (fc->num_background == FUSE_CONGESTION_THRESHOLD) {
++		set_bdi_congested(&fc->bdi, READ);
++		set_bdi_congested(&fc->bdi, WRITE);
++	}
++	list_add_tail(&req->list, &fc->bg_queue);
++	flush_bg_queue(fc);
++}
++
+ static void request_send_nowait(struct fuse_conn *fc, struct fuse_req *req)
+ {
+ 	spin_lock(&fc->lock);
+ 	if (fc->connected) {
+-		req->background = 1;
+-		fc->num_background++;
+-		if (fc->num_background == FUSE_MAX_BACKGROUND)
+-			fc->blocked = 1;
+-
+-		queue_request(fc, req);
++		request_send_nowait_locked(fc, req);
+ 		spin_unlock(&fc->lock);
+ 	} else {
+ 		req->out.h.error = -ENOTCONN;
+@@ -403,6 +439,17 @@ void request_send_background(struct fuse
+ }
+ 
+ /*
++ * Called under fc->lock
++ *
++ * fc->connected must have been checked previously
++ */
++void request_send_background_locked(struct fuse_conn *fc, struct fuse_req *req)
++{
++	req->isreply = 1;
++	request_send_nowait_locked(fc, req);
++}
++
++/*
+  * Lock the request.  Up to the next unlock_request() there mustn't be
+  * anything that could cause a page-fault.  If the request was already
+  * aborted bail out.
+@@ -485,9 +532,6 @@ static int fuse_copy_fill(struct fuse_co
+ {
+ 	unsigned long offset;
+ 	int err;
+-#ifdef DCACHE_BUG
+-	struct vm_area_struct *vma;
+-#endif
+ 
+ 	unlock_request(cs->fc, cs->req);
+ 	fuse_copy_finish(cs);
+@@ -499,22 +543,14 @@ static int fuse_copy_fill(struct fuse_co
+ 		cs->nr_segs --;
+ 	}
+ 	down_read(&current->mm->mmap_sem);
+-#ifdef DCACHE_BUG
+-	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
+-			     &cs->pg, &vma);
+-#else
+ 	err = get_user_pages(current, current->mm, cs->addr, 1, cs->write, 0,
+ 			     &cs->pg, NULL);
+-#endif
+ 	up_read(&current->mm->mmap_sem);
+ 	if (err < 0)
+ 		return err;
+ 	BUG_ON(err != 1);
+ 	offset = cs->addr % PAGE_SIZE;
+ 	cs->mapaddr = kmap_atomic(cs->pg, KM_USER0);
+-#ifdef DCACHE_BUG
+-	flush_cache_page(vma, cs->addr, page_to_pfn(cs->pg));
+-#endif
+ 	cs->buf = cs->mapaddr + offset;
+ 	cs->len = min(PAGE_SIZE - offset, cs->seglen);
+ 	cs->seglen -= cs->len;
+@@ -527,11 +563,6 @@ static int fuse_copy_fill(struct fuse_co
+ static int fuse_copy_do(struct fuse_copy_state *cs, void **val, unsigned *size)
+ {
+ 	unsigned ncpy = min(*size, cs->len);
+-#ifdef DCACHE_BUG
+-	// patch from mailing list, it is very important, otherwise,
+-	// can't mount, or ls mount point will hang
+-	flush_cache_all();
+-#endif
+ 	if (val) {
+ 		if (cs->write)
+ 			memcpy(cs->buf, *val, ncpy);
+@@ -757,11 +788,12 @@ static ssize_t fuse_dev_read(struct kioc
+ 	fuse_copy_finish(&cs);
+ 	spin_lock(&fc->lock);
+ 	req->locked = 0;
+-	if (!err && req->aborted)
+-		err = -ENOENT;
++	if (req->aborted) {
++		request_end(fc, req);
++		return -ENODEV;
++	}
+ 	if (err) {
+-		if (!req->aborted)
+-			req->out.h.error = -EIO;
++		req->out.h.error = -EIO;
+ 		request_end(fc, req);
+ 		return err;
+ 	}
+@@ -956,6 +988,7 @@ static void end_requests(struct fuse_con
+  * locked).
+  */
+ static void end_io_requests(struct fuse_conn *fc)
++	__releases(fc->lock) __acquires(fc->lock)
+ {
+ 	while (!list_empty(&fc->io)) {
+ 		struct fuse_req *req =
+@@ -969,11 +1002,11 @@ static void end_io_requests(struct fuse_
+ 		wake_up(&req->waitq);
+ 		if (end) {
+ 			req->end = NULL;
+-			/* The end function will consume this reference */
+ 			__fuse_get_request(req);
+ 			spin_unlock(&fc->lock);
+ 			wait_event(req->waitq, !req->locked);
+ 			end(fc, req);
++			fuse_put_request(fc, req);
+ 			spin_lock(&fc->lock);
+ 		}
+ 	}
+diff --git a/fs/fuse/dir.c b/fs/fuse/dir.c
+--- a/fs/fuse/dir.c
++++ b/fs/fuse/dir.c
+@@ -63,13 +63,21 @@ static u64 time_to_jiffies(unsigned long
+  * Set dentry and possibly attribute timeouts from the lookup/mk*
+  * replies
+  */
+-static void fuse_change_timeout(struct dentry *entry, struct fuse_entry_out *o)
++static void fuse_change_entry_timeout(struct dentry *entry,
++				      struct fuse_entry_out *o)
+ {
+ 	fuse_dentry_settime(entry,
+ 		time_to_jiffies(o->entry_valid, o->entry_valid_nsec));
+-	if (entry->d_inode)
+-		get_fuse_inode(entry->d_inode)->i_time =
+-			time_to_jiffies(o->attr_valid, o->attr_valid_nsec);
++}
++
++static u64 attr_timeout(struct fuse_attr_out *o)
++{
++	return time_to_jiffies(o->attr_valid, o->attr_valid_nsec);
++}
++
++static u64 entry_attr_timeout(struct fuse_entry_out *o)
++{
++	return time_to_jiffies(o->attr_valid, o->attr_valid_nsec);
+ }
+ 
+ /*
+@@ -89,7 +97,7 @@ void fuse_invalidate_attr(struct inode *
+  * timeout is unknown (unlink, rmdir, rename and in some cases
+  * lookup)
+  */
+-static void fuse_invalidate_entry_cache(struct dentry *entry)
++void fuse_invalidate_entry_cache(struct dentry *entry)
+ {
+ 	fuse_dentry_settime(entry, 0);
+ }
+@@ -104,20 +112,39 @@ static void fuse_invalidate_entry(struct
+ 	fuse_invalidate_entry_cache(entry);
+ }
+ 
+-static void fuse_lookup_init(struct fuse_req *req, struct inode *dir,
+-			     struct dentry *entry,
++static void fuse_lookup_init(struct fuse_conn *fc, struct fuse_req *req,
++			     u64 nodeid, struct qstr *name,
+ 			     struct fuse_entry_out *outarg)
+ {
++	memset(outarg, 0, sizeof(struct fuse_entry_out));
+ 	req->in.h.opcode = FUSE_LOOKUP;
+-	req->in.h.nodeid = get_node_id(dir);
++	req->in.h.nodeid = nodeid;
+ 	req->in.numargs = 1;
+-	req->in.args[0].size = entry->d_name.len + 1;
+-	req->in.args[0].value = entry->d_name.name;
++	req->in.args[0].size = name->len + 1;
++	req->in.args[0].value = name->name;
+ 	req->out.numargs = 1;
+-	req->out.args[0].size = sizeof(struct fuse_entry_out);
++	if (fc->minor < 9)
++		req->out.args[0].size = FUSE_COMPAT_ENTRY_OUT_SIZE;
++	else
++		req->out.args[0].size = sizeof(struct fuse_entry_out);
+ 	req->out.args[0].value = outarg;
+ }
+ 
++u64 fuse_get_attr_version(struct fuse_conn *fc)
++{
++	u64 curr_version;
++
++	/*
++	 * The spin lock isn't actually needed on 64bit archs, but we
++	 * don't yet care too much about such optimizations.
++	 */
++	spin_lock(&fc->lock);
++	curr_version = fc->attr_version;
++	spin_unlock(&fc->lock);
++
++	return curr_version;
++}
++
+ /*
+  * Check whether the dentry is still valid
+  *
+@@ -140,6 +167,7 @@ static int fuse_dentry_revalidate(struct
+ 		struct fuse_req *req;
+ 		struct fuse_req *forget_req;
+ 		struct dentry *parent;
++		u64 attr_version;
+ 
+ 		/* For negative dentries, always do a fresh lookup */
+ 		if (!inode)
+@@ -156,8 +184,11 @@ static int fuse_dentry_revalidate(struct
+ 			return 0;
+ 		}
+ 
++		attr_version = fuse_get_attr_version(fc);
++
+ 		parent = dget_parent(entry);
+-		fuse_lookup_init(req, parent->d_inode, entry, &outarg);
++		fuse_lookup_init(fc, req, get_node_id(parent->d_inode),
++				 &entry->d_name, &outarg);
+ 		request_send(fc, req);
+ 		dput(parent);
+ 		err = req->out.h.error;
+@@ -180,8 +211,10 @@ static int fuse_dentry_revalidate(struct
+ 		if (err || (outarg.attr.mode ^ inode->i_mode) & S_IFMT)
+ 			return 0;
+ 
+-		fuse_change_attributes(inode, &outarg.attr);
+-		fuse_change_timeout(entry, &outarg);
++		fuse_change_attributes(inode, &outarg.attr,
++				       entry_attr_timeout(&outarg),
++				       attr_version);
++		fuse_change_entry_timeout(entry, &outarg);
+ 	}
+ 	return 1;
+ }
+@@ -191,7 +224,7 @@ static int invalid_nodeid(u64 nodeid)
+ 	return !nodeid || nodeid == FUSE_ROOT_ID;
+ }
+ 
+-static struct dentry_operations fuse_dentry_operations = {
++struct dentry_operations fuse_dentry_operations = {
+ 	.d_revalidate	= fuse_dentry_revalidate,
+ };
+ 
+@@ -205,81 +238,127 @@ int fuse_valid_type(int m)
+  * Add a directory inode to a dentry, ensuring that no other dentry
+  * refers to this inode.  Called with fc->inst_mutex.
+  */
+-static int fuse_d_add_directory(struct dentry *entry, struct inode *inode)
++static struct dentry *fuse_d_add_directory(struct dentry *entry,
++					   struct inode *inode)
+ {
+ 	struct dentry *alias = d_find_alias(inode);
+-	if (alias) {
++	if (alias && !(alias->d_flags & DCACHE_DISCONNECTED)) {
+ 		/* This tries to shrink the subtree below alias */
+ 		fuse_invalidate_entry(alias);
+ 		dput(alias);
+ 		if (!list_empty(&inode->i_dentry))
+-			return -EBUSY;
++			return ERR_PTR(-EBUSY);
++	} else {
++		dput(alias);
+ 	}
+-	d_add(entry, inode);
+-	return 0;
++	return d_splice_alias(inode, entry);
+ }
+ 
+-static struct dentry *fuse_lookup(struct inode *dir, struct dentry *entry,
+-				  struct nameidata *nd)
++int fuse_lookup_name(struct super_block *sb, u64 nodeid, struct qstr *name,
++		     struct fuse_entry_out *outarg, struct inode **inode)
+ {
+-	int err;
+-	struct fuse_entry_out outarg;
+-	struct inode *inode = NULL;
+-	struct fuse_conn *fc = get_fuse_conn(dir);
++	struct fuse_conn *fc = get_fuse_conn_super(sb);
+ 	struct fuse_req *req;
+ 	struct fuse_req *forget_req;
++	u64 attr_version;
++	int err;
+ 
+-	if (entry->d_name.len > FUSE_NAME_MAX)
+-		return ERR_PTR(-ENAMETOOLONG);
++	*inode = NULL;
++	err = -ENAMETOOLONG;
++	if (name->len > FUSE_NAME_MAX)
++		goto out;
+ 
+ 	req = fuse_get_req(fc);
++	err = PTR_ERR(req);
+ 	if (IS_ERR(req))
+-		return ERR_PTR(PTR_ERR(req));
++		goto out;
+ 
+ 	forget_req = fuse_get_req(fc);
++	err = PTR_ERR(forget_req);
+ 	if (IS_ERR(forget_req)) {
+ 		fuse_put_request(fc, req);
+-		return ERR_PTR(PTR_ERR(forget_req));
++		goto out;
+ 	}
+ 
+-	fuse_lookup_init(req, dir, entry, &outarg);
++	attr_version = fuse_get_attr_version(fc);
++
++	fuse_lookup_init(fc, req, nodeid, name, outarg);
+ 	request_send(fc, req);
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+ 	/* Zero nodeid is same as -ENOENT, but with valid timeout */
+-	if (!err && outarg.nodeid &&
+-	    (invalid_nodeid(outarg.nodeid) ||
+-	     !fuse_valid_type(outarg.attr.mode)))
+-		err = -EIO;
+-	if (!err && outarg.nodeid) {
+-		inode = fuse_iget(dir->i_sb, outarg.nodeid, outarg.generation,
+-				  &outarg.attr);
+-		if (!inode) {
+-			fuse_send_forget(fc, forget_req, outarg.nodeid, 1);
+-			return ERR_PTR(-ENOMEM);
+-		}
++	if (err || !outarg->nodeid)
++		goto out_put_forget;
++
++	err = -EIO;
++	if (!outarg->nodeid)
++		goto out_put_forget;
++	if (!fuse_valid_type(outarg->attr.mode))
++		goto out_put_forget;
++
++	*inode = fuse_iget(sb, outarg->nodeid, outarg->generation,
++			   &outarg->attr, entry_attr_timeout(outarg),
++			   attr_version);
++	err = -ENOMEM;
++	if (!*inode) {
++		fuse_send_forget(fc, forget_req, outarg->nodeid, 1);
++		goto out;
+ 	}
++	err = 0;
++
++ out_put_forget:
+ 	fuse_put_request(fc, forget_req);
+-	if (err && err != -ENOENT)
+-		return ERR_PTR(err);
++ out:
++	return err;
++}
++
++static struct dentry *fuse_lookup(struct inode *dir, struct dentry *entry,
++				  struct nameidata *nd)
++{
++	int err;
++	struct fuse_entry_out outarg;
++	struct inode *inode;
++	struct dentry *newent;
++	struct fuse_conn *fc = get_fuse_conn(dir);
++	bool outarg_valid = true;
++
++	err = fuse_lookup_name(dir->i_sb, get_node_id(dir), &entry->d_name,
++			       &outarg, &inode);
++	if (err == -ENOENT) {
++		outarg_valid = false;
++		err = 0;
++	}
++	if (err)
++		goto out_err;
++
++	err = -EIO;
++	if (inode && get_node_id(inode) == FUSE_ROOT_ID)
++		goto out_iput;
+ 
+ 	if (inode && S_ISDIR(inode->i_mode)) {
+ 		mutex_lock(&fc->inst_mutex);
+-		err = fuse_d_add_directory(entry, inode);
++		newent = fuse_d_add_directory(entry, inode);
+ 		mutex_unlock(&fc->inst_mutex);
+-		if (err) {
+-			iput(inode);
+-			return ERR_PTR(err);
+-		}
+-	} else
+-		d_add(entry, inode);
++		err = PTR_ERR(newent);
++		if (IS_ERR(newent))
++			goto out_iput;
++	} else {
++		newent = d_splice_alias(inode, entry);
++	}
+ 
++	entry = newent ? newent : entry;
+ 	entry->d_op = &fuse_dentry_operations;
+-	if (!err)
+-		fuse_change_timeout(entry, &outarg);
++	if (outarg_valid)
++		fuse_change_entry_timeout(entry, &outarg);
+ 	else
+ 		fuse_invalidate_entry_cache(entry);
+-	return NULL;
++
++	return newent;
++
++ out_iput:
++	iput(inode);
++ out_err:
++	return ERR_PTR(err);
+ }
+ 
+ /*
+@@ -288,12 +367,11 @@ static struct dentry *fuse_lookup(struct
+ static void fuse_sync_release(struct fuse_conn *fc, struct fuse_file *ff,
+ 			      u64 nodeid, int flags)
+ {
+-	struct fuse_req *req;
+-
+-	req = fuse_release_fill(ff, nodeid, flags, FUSE_RELEASE);
+-	req->force = 1;
+-	request_send(fc, req);
+-	fuse_put_request(fc, req);
++	fuse_release_fill(ff, nodeid, flags, FUSE_RELEASE);
++	ff->reserved_req->force = 1;
++	request_send(fc, ff->reserved_req);
++	fuse_put_request(fc, ff->reserved_req);
++	kfree(ff);
+ }
+ 
+ /*
+@@ -320,6 +398,9 @@ static int fuse_create_open(struct inode
+ 	if (fc->no_create)
+ 		return -ENOSYS;
+ 
++	if (flags & O_DIRECT)
++		return -EINVAL;
++
+ 	forget_req = fuse_get_req(fc);
+ 	if (IS_ERR(forget_req))
+ 		return PTR_ERR(forget_req);
+@@ -336,6 +417,7 @@ static int fuse_create_open(struct inode
+ 
+ 	flags &= ~O_NOCTTY;
+ 	memset(&inarg, 0, sizeof(inarg));
++	memset(&outentry, 0, sizeof(outentry));
+ 	inarg.flags = flags;
+ 	inarg.mode = mode;
+ 	req->in.h.opcode = FUSE_CREATE;
+@@ -346,7 +428,10 @@ static int fuse_create_open(struct inode
+ 	req->in.args[1].size = entry->d_name.len + 1;
+ 	req->in.args[1].value = entry->d_name.name;
+ 	req->out.numargs = 2;
+-	req->out.args[0].size = sizeof(outentry);
++	if (fc->minor < 9)
++		req->out.args[0].size = FUSE_COMPAT_ENTRY_OUT_SIZE;
++	else
++		req->out.args[0].size = sizeof(outentry);
+ 	req->out.args[0].value = &outentry;
+ 	req->out.args[1].size = sizeof(outopen);
+ 	req->out.args[1].value = &outopen;
+@@ -364,7 +449,7 @@ static int fuse_create_open(struct inode
+ 
+ 	fuse_put_request(fc, req);
+ 	inode = fuse_iget(dir->i_sb, outentry.nodeid, outentry.generation,
+-			  &outentry.attr);
++			  &outentry.attr, entry_attr_timeout(&outentry), 0);
+ 	if (!inode) {
+ 		flags &= ~(O_CREAT | O_EXCL | O_TRUNC);
+ 		ff->fh = outopen.fh;
+@@ -374,7 +459,8 @@ static int fuse_create_open(struct inode
+ 	}
+ 	fuse_put_request(fc, forget_req);
+ 	d_instantiate(entry, inode);
+-	fuse_change_timeout(entry, &outentry);
++	fuse_change_entry_timeout(entry, &outentry);
++	fuse_invalidate_attr(dir);
+ 	file = lookup_instantiate_filp(nd, entry, generic_file_open);
+ 	if (IS_ERR(file)) {
+ 		ff->fh = outopen.fh;
+@@ -411,9 +497,13 @@ static int create_new_entry(struct fuse_
+ 		return PTR_ERR(forget_req);
+ 	}
+ 
++	memset(&outarg, 0, sizeof(outarg));
+ 	req->in.h.nodeid = get_node_id(dir);
+ 	req->out.numargs = 1;
+-	req->out.args[0].size = sizeof(outarg);
++	if (fc->minor < 9)
++		req->out.args[0].size = FUSE_COMPAT_ENTRY_OUT_SIZE;
++	else
++		req->out.args[0].size = sizeof(outarg);
+ 	req->out.args[0].value = &outarg;
+ 	request_send(fc, req);
+ 	err = req->out.h.error;
+@@ -429,7 +519,7 @@ static int create_new_entry(struct fuse_
+ 		goto out_put_forget_req;
+ 
+ 	inode = fuse_iget(dir->i_sb, outarg.nodeid, outarg.generation,
+-			  &outarg.attr);
++			  &outarg.attr, entry_attr_timeout(&outarg), 0);
+ 	if (!inode) {
+ 		fuse_send_forget(fc, forget_req, outarg.nodeid, 1);
+ 		return -ENOMEM;
+@@ -452,7 +542,7 @@ static int create_new_entry(struct fuse_
+ 	} else
+ 		d_instantiate(entry, inode);
+ 
+-	fuse_change_timeout(entry, &outarg);
++	fuse_change_entry_timeout(entry, &outarg);
+ 	fuse_invalidate_attr(dir);
+ 	return 0;
+ 
+@@ -612,6 +702,9 @@ static int fuse_rename(struct inode *old
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+ 	if (!err) {
++		/* ctime changes */
++		fuse_invalidate_attr(oldent->d_inode);
++
+ 		fuse_invalidate_attr(olddir);
+ 		if (olddir != newdir)
+ 			fuse_invalidate_attr(newdir);
+@@ -664,37 +757,106 @@ static int fuse_link(struct dentry *entr
+ 	return err;
+ }
+ 
+-int fuse_do_getattr(struct inode *inode)
++static void fuse_fillattr(struct inode *inode, struct fuse_attr *attr,
++			  struct kstat *stat)
++{
++	stat->dev = inode->i_sb->s_dev;
++	stat->ino = attr->ino;
++	stat->mode = (inode->i_mode & S_IFMT) | (attr->mode & 07777);
++	stat->nlink = attr->nlink;
++	stat->uid = attr->uid;
++	stat->gid = attr->gid;
++	stat->rdev = inode->i_rdev;
++	stat->atime.tv_sec = attr->atime;
++	stat->atime.tv_nsec = attr->atimensec;
++	stat->mtime.tv_sec = attr->mtime;
++	stat->mtime.tv_nsec = attr->mtimensec;
++	stat->ctime.tv_sec = attr->ctime;
++	stat->ctime.tv_nsec = attr->ctimensec;
++	stat->size = attr->size;
++	stat->blocks = attr->blocks;
++	stat->blksize = (1 << inode->i_blkbits);
++}
++
++static int fuse_do_getattr(struct inode *inode, struct kstat *stat,
++			   struct file *file)
+ {
+ 	int err;
+-	struct fuse_attr_out arg;
++	struct fuse_getattr_in inarg;
++	struct fuse_attr_out outarg;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	struct fuse_req *req = fuse_get_req(fc);
++	struct fuse_req *req;
++	u64 attr_version;
++
++	req = fuse_get_req(fc);
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+ 
++	attr_version = fuse_get_attr_version(fc);
++
++	memset(&inarg, 0, sizeof(inarg));
++	memset(&outarg, 0, sizeof(outarg));
++	/* Directories have separate file-handle space */
++	if (file && S_ISREG(inode->i_mode)) {
++		struct fuse_file *ff = file->private_data;
++
++		inarg.getattr_flags |= FUSE_GETATTR_FH;
++		inarg.fh = ff->fh;
++	}
+ 	req->in.h.opcode = FUSE_GETATTR;
+ 	req->in.h.nodeid = get_node_id(inode);
++	req->in.numargs = 1;
++	req->in.args[0].size = sizeof(inarg);
++	req->in.args[0].value = &inarg;
+ 	req->out.numargs = 1;
+-	req->out.args[0].size = sizeof(arg);
+-	req->out.args[0].value = &arg;
++	if (fc->minor < 9)
++		req->out.args[0].size = FUSE_COMPAT_ATTR_OUT_SIZE;
++	else
++		req->out.args[0].size = sizeof(outarg);
++	req->out.args[0].value = &outarg;
+ 	request_send(fc, req);
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+ 	if (!err) {
+-		if ((inode->i_mode ^ arg.attr.mode) & S_IFMT) {
++		if ((inode->i_mode ^ outarg.attr.mode) & S_IFMT) {
+ 			make_bad_inode(inode);
+ 			err = -EIO;
+ 		} else {
+-			struct fuse_inode *fi = get_fuse_inode(inode);
+-			fuse_change_attributes(inode, &arg.attr);
+-			fi->i_time = time_to_jiffies(arg.attr_valid,
+-						     arg.attr_valid_nsec);
++			fuse_change_attributes(inode, &outarg.attr,
++					       attr_timeout(&outarg),
++					       attr_version);
++			if (stat)
++				fuse_fillattr(inode, &outarg.attr, stat);
+ 		}
+ 	}
+ 	return err;
+ }
+ 
++int fuse_update_attributes(struct inode *inode, struct kstat *stat,
++			   struct file *file, bool *refreshed)
++{
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	int err;
++	bool r;
++
++	if (fi->i_time < get_jiffies_64()) {
++		r = true;
++		err = fuse_do_getattr(inode, stat, file);
++	} else {
++		r = false;
++		err = 0;
++		if (stat) {
++			generic_fillattr(inode, stat);
++			stat->mode = fi->orig_i_mode;
++		}
++	}
++
++	if (refreshed != NULL)
++		*refreshed = r;
++
++	return err;
++}
++
+ /*
+  * Calling into a user-controlled filesystem gives the filesystem
+  * daemon ptrace-like capabilities over the requester process.  This
+@@ -708,7 +870,7 @@ int fuse_do_getattr(struct inode *inode)
+  * for which the owner of the mount has ptrace privilege.  This
+  * excludes processes started by other users, suid or sgid processes.
+  */
+-static int fuse_allow_task(struct fuse_conn *fc, struct task_struct *task)
++int fuse_allow_task(struct fuse_conn *fc, struct task_struct *task)
+ {
+ 	if (fc->flags & FUSE_ALLOW_OTHER)
+ 		return 1;
+@@ -724,30 +886,6 @@ static int fuse_allow_task(struct fuse_c
+ 	return 0;
+ }
+ 
+-/*
+- * Check whether the inode attributes are still valid
+- *
+- * If the attribute validity timeout has expired, then fetch the fresh
+- * attributes with a 'getattr' request
+- *
+- * I'm not sure why cached attributes are never returned for the root
+- * inode, this is probably being too cautious.
+- */
+-static int fuse_revalidate(struct dentry *entry)
+-{
+-	struct inode *inode = entry->d_inode;
+-	struct fuse_inode *fi = get_fuse_inode(inode);
+-	struct fuse_conn *fc = get_fuse_conn(inode);
+-
+-	if (!fuse_allow_task(fc, current))
+-		return -EACCES;
+-	if (get_node_id(inode) != FUSE_ROOT_ID &&
+-	    fi->i_time >= get_jiffies_64())
+-		return 0;
+-
+-	return fuse_do_getattr(inode);
+-}
+-
+ static int fuse_access(struct inode *inode, int mask)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+@@ -795,17 +933,30 @@ static int fuse_access(struct inode *ino
+ static int fuse_permission(struct inode *inode, int mask, struct nameidata *nd)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
++	bool refreshed = false;
++	int err = 0;
+ 
+ 	if (!fuse_allow_task(fc, current))
+ 		return -EACCES;
+-	else if (fc->flags & FUSE_DEFAULT_PERMISSIONS) {
+-		int err = generic_permission(inode, mask, NULL);
++
++	/*
++	 * If attributes are needed, refresh them before proceeding
++	 */
++	if ((fc->flags & FUSE_DEFAULT_PERMISSIONS) ||
++	    ((mask & MAY_EXEC) && S_ISREG(inode->i_mode))) {
++		err = fuse_update_attributes(inode, NULL, NULL, &refreshed);
++		if (err)
++			return err;
++	}
++
++	if (fc->flags & FUSE_DEFAULT_PERMISSIONS) {
++		err = generic_permission(inode, mask, NULL);
+ 
+ 		/* If permission is denied, try to refresh file
+ 		   attributes.  This is also needed, because the root
+ 		   node will at first have no permissions */
+-		if (err == -EACCES) {
+-		 	err = fuse_do_getattr(inode);
++		if (err == -EACCES && !refreshed) {
++			err = fuse_do_getattr(inode, NULL, NULL);
+ 			if (!err)
+ 				err = generic_permission(inode, mask, NULL);
+ 		}
+@@ -814,17 +965,19 @@ static int fuse_permission(struct inode 
+ 		   exist.  So if permissions are revoked this won't be
+ 		   noticed immediately, only after the attribute
+ 		   timeout has expired */
+-
+-		return err;
+-	} else {
+-		int mode = inode->i_mode;
+-		if ((mask & MAY_EXEC) && !S_ISDIR(mode) && !(mode & S_IXUGO))
+-			return -EACCES;
+-
+-		if (nd && (nd->flags & (LOOKUP_ACCESS | LOOKUP_CHDIR)))
+-			return fuse_access(inode, mask);
+-		return 0;
++	} else if (nd && (nd->flags & (LOOKUP_ACCESS | LOOKUP_CHDIR))) {
++		err = fuse_access(inode, mask);
++	} else if ((mask & MAY_EXEC) && S_ISREG(inode->i_mode)) {
++		if (!(inode->i_mode & S_IXUGO)) {
++			if (refreshed)
++				return -EACCES;
++
++			err = fuse_do_getattr(inode, NULL, NULL);
++			if (!err && !(inode->i_mode & S_IXUGO))
++				return -EACCES;
++		}
+ 	}
++	return err;
+ }
+ 
+ static int parse_dirfile(char *buf, size_t nbytes, struct file *file,
+@@ -897,7 +1050,7 @@ static char *read_link(struct dentry *de
+ 	char *link;
+ 
+ 	if (IS_ERR(req))
+-		return ERR_PTR(PTR_ERR(req));
++		return ERR_CAST(req);
+ 
+ 	link = (char *) __get_free_page(GFP_KERNEL);
+ 	if (!link) {
+@@ -955,6 +1108,20 @@ static int fuse_dir_fsync(struct file *f
+ 	return file ? fuse_fsync_common(file, de, datasync, 1) : 0;
+ }
+ 
++static bool update_mtime(unsigned ivalid)
++{
++	/* Always update if mtime is explicitly set  */
++	if (ivalid & ATTR_MTIME_SET)
++		return true;
++
++	/* If it's an open(O_TRUNC) or an ftruncate(), don't update */
++	if ((ivalid & ATTR_SIZE) && (ivalid & (ATTR_OPEN | ATTR_FILE)))
++		return false;
++
++	/* In all other cases update */
++	return true;
++}
++
+ static void iattr_to_fattr(struct iattr *iattr, struct fuse_setattr_in *arg)
+ {
+ 	unsigned ivalid = iattr->ia_valid;
+@@ -967,34 +1134,64 @@ static void iattr_to_fattr(struct iattr 
+ 		arg->valid |= FATTR_GID,    arg->gid = iattr->ia_gid;
+ 	if (ivalid & ATTR_SIZE)
+ 		arg->valid |= FATTR_SIZE,   arg->size = iattr->ia_size;
+-	/* You can only _set_ these together (they may change by themselves) */
+-	if ((ivalid & (ATTR_ATIME | ATTR_MTIME)) == (ATTR_ATIME | ATTR_MTIME)) {
+-		arg->valid |= FATTR_ATIME | FATTR_MTIME;
++	if (ivalid & ATTR_ATIME) {
++		arg->valid |= FATTR_ATIME;
+ 		arg->atime = iattr->ia_atime.tv_sec;
+-		arg->mtime = iattr->ia_mtime.tv_sec;
++		arg->atimensec = iattr->ia_atime.tv_nsec;
++		if (!(ivalid & ATTR_ATIME_SET))
++			arg->valid |= FATTR_ATIME_NOW;
+ 	}
+-	if (ivalid & ATTR_FILE) {
+-		struct fuse_file *ff = iattr->ia_file->private_data;
+-		arg->valid |= FATTR_FH;
+-		arg->fh = ff->fh;
++	if ((ivalid & ATTR_MTIME) && update_mtime(ivalid)) {
++		arg->valid |= FATTR_MTIME;
++		arg->mtime = iattr->ia_mtime.tv_sec;
++		arg->mtimensec = iattr->ia_mtime.tv_nsec;
++		if (!(ivalid & ATTR_MTIME_SET))
++			arg->valid |= FATTR_MTIME_NOW;
+ 	}
+ }
+ 
+-static void fuse_vmtruncate(struct inode *inode, loff_t offset)
++/*
++ * Prevent concurrent writepages on inode
++ *
++ * This is done by adding a negative bias to the inode write counter
++ * and waiting for all pending writes to finish.
++ */
++void fuse_set_nowrite(struct inode *inode)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	int need_trunc;
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	BUG_ON(!mutex_is_locked(&inode->i_mutex));
+ 
+ 	spin_lock(&fc->lock);
+-	need_trunc = inode->i_size > offset;
+-	i_size_write(inode, offset);
++	BUG_ON(fi->writectr < 0);
++	fi->writectr += FUSE_NOWRITE;
+ 	spin_unlock(&fc->lock);
++	wait_event(fi->page_waitq, fi->writectr == FUSE_NOWRITE);
++}
+ 
+-	if (need_trunc) {
+-		struct address_space *mapping = inode->i_mapping;
+-		unmap_mapping_range(mapping, offset + PAGE_SIZE - 1, 0, 1);
+-		truncate_inode_pages(mapping, offset);
+-	}
++/*
++ * Allow writepages on inode
++ *
++ * Remove the bias from the writecounter and send any queued
++ * writepages.
++ */
++static void __fuse_release_nowrite(struct inode *inode)
++{
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	BUG_ON(fi->writectr != FUSE_NOWRITE);
++	fi->writectr = 0;
++	fuse_flush_writepages(inode);
++}
++
++void fuse_release_nowrite(struct inode *inode)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++
++	spin_lock(&fc->lock);
++	__fuse_release_nowrite(inode);
++	spin_unlock(&fc->lock);
+ }
+ 
+ /*
+@@ -1005,16 +1202,20 @@ static void fuse_vmtruncate(struct inode
+  * vmtruncate() doesn't allow for this case, so do the rlimit checking
+  * and the actual truncation by hand.
+  */
+-static int fuse_setattr(struct dentry *entry, struct iattr *attr)
++static int fuse_do_setattr(struct dentry *entry, struct iattr *attr,
++			   struct file *file)
+ {
+ 	struct inode *inode = entry->d_inode;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	struct fuse_inode *fi = get_fuse_inode(inode);
+ 	struct fuse_req *req;
+ 	struct fuse_setattr_in inarg;
+ 	struct fuse_attr_out outarg;
++	bool is_truncate = false;
++	loff_t oldsize;
+ 	int err;
+-	int is_truncate = 0;
++
++	if (!fuse_allow_task(fc, current))
++		return -EACCES;
+ 
+ 	if (fc->flags & FUSE_DEFAULT_PERMISSIONS) {
+ 		err = inode_change_ok(inode, attr);
+@@ -1022,9 +1223,11 @@ static int fuse_setattr(struct dentry *e
+ 			return err;
+ 	}
+ 
++	if ((attr->ia_valid & ATTR_OPEN) && fc->atomic_o_trunc)
++		return 0;
++
+ 	if (attr->ia_valid & ATTR_SIZE) {
+ 		unsigned long limit;
+-		is_truncate = 1;
+ 		if (IS_SWAPFILE(inode))
+ 			return -ETXTBSY;
+ 		limit = current->signal->rlim[RLIMIT_FSIZE].rlim_cur;
+@@ -1032,51 +1235,104 @@ static int fuse_setattr(struct dentry *e
+ 			send_sig(SIGXFSZ, current, 0);
+ 			return -EFBIG;
+ 		}
++		is_truncate = true;
+ 	}
+ 
+ 	req = fuse_get_req(fc);
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+ 
++	if (is_truncate)
++		fuse_set_nowrite(inode);
++
+ 	memset(&inarg, 0, sizeof(inarg));
++	memset(&outarg, 0, sizeof(outarg));
+ 	iattr_to_fattr(attr, &inarg);
++	if (file) {
++		struct fuse_file *ff = file->private_data;
++		inarg.valid |= FATTR_FH;
++		inarg.fh = ff->fh;
++	}
++	if (attr->ia_valid & ATTR_SIZE) {
++		/* For mandatory locking in truncate */
++		inarg.valid |= FATTR_LOCKOWNER;
++		inarg.lock_owner = fuse_lock_owner_id(fc, current->files);
++	}
+ 	req->in.h.opcode = FUSE_SETATTR;
+ 	req->in.h.nodeid = get_node_id(inode);
+ 	req->in.numargs = 1;
+ 	req->in.args[0].size = sizeof(inarg);
+ 	req->in.args[0].value = &inarg;
+ 	req->out.numargs = 1;
+-	req->out.args[0].size = sizeof(outarg);
++	if (fc->minor < 9)
++		req->out.args[0].size = FUSE_COMPAT_ATTR_OUT_SIZE;
++	else
++		req->out.args[0].size = sizeof(outarg);
+ 	req->out.args[0].value = &outarg;
+ 	request_send(fc, req);
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+-	if (!err) {
+-		if ((inode->i_mode ^ outarg.attr.mode) & S_IFMT) {
+-			make_bad_inode(inode);
+-			err = -EIO;
+-		} else {
+-			if (is_truncate)
+-				fuse_vmtruncate(inode, outarg.attr.size);
+-			fuse_change_attributes(inode, &outarg.attr);
+-			fi->i_time = time_to_jiffies(outarg.attr_valid,
+-						     outarg.attr_valid_nsec);
+-		}
+-	} else if (err == -EINTR)
+-		fuse_invalidate_attr(inode);
++	if (err) {
++		if (err == -EINTR)
++			fuse_invalidate_attr(inode);
++		goto error;
++	}
++
++	if ((inode->i_mode ^ outarg.attr.mode) & S_IFMT) {
++		make_bad_inode(inode);
++		err = -EIO;
++		goto error;
++	}
++
++	spin_lock(&fc->lock);
++	fuse_change_attributes_common(inode, &outarg.attr,
++				      attr_timeout(&outarg));
++	oldsize = inode->i_size;
++	i_size_write(inode, outarg.attr.size);
++
++	if (is_truncate) {
++		/* NOTE: this may release/reacquire fc->lock */
++		__fuse_release_nowrite(inode);
++	}
++	spin_unlock(&fc->lock);
++
++	/*
++	 * Only call invalidate_inode_pages2() after removing
++	 * FUSE_NOWRITE, otherwise fuse_launder_page() would deadlock.
++	 */
++	if (S_ISREG(inode->i_mode) && oldsize != outarg.attr.size) {
++		if (outarg.attr.size < oldsize)
++			fuse_truncate(inode->i_mapping, outarg.attr.size);
++		invalidate_inode_pages2(inode->i_mapping);
++	}
++
++	return 0;
++
++error:
++	if (is_truncate)
++		fuse_release_nowrite(inode);
+ 
+ 	return err;
+ }
+ 
++static int fuse_setattr(struct dentry *entry, struct iattr *attr)
++{
++	if (attr->ia_valid & ATTR_FILE)
++		return fuse_do_setattr(entry, attr, attr->ia_file);
++	else
++		return fuse_do_setattr(entry, attr, NULL);
++}
++
+ static int fuse_getattr(struct vfsmount *mnt, struct dentry *entry,
+ 			struct kstat *stat)
+ {
+ 	struct inode *inode = entry->d_inode;
+-	int err = fuse_revalidate(entry);
+-	if (!err)
+-		generic_fillattr(inode, stat);
++	struct fuse_conn *fc = get_fuse_conn(inode);
+ 
+-	return err;
++	if (!fuse_allow_task(fc, current))
++		return -EACCES;
++
++	return fuse_update_attributes(inode, stat, NULL, NULL);
+ }
+ 
+ static int fuse_setxattr(struct dentry *entry, const char *name,
+@@ -1176,6 +1432,9 @@ static ssize_t fuse_listxattr(struct den
+ 	struct fuse_getxattr_out outarg;
+ 	ssize_t ret;
+ 
++	if (!fuse_allow_task(fc, current))
++		return -EACCES;
++
+ 	if (fc->no_listxattr)
+ 		return -EOPNOTSUPP;
+ 
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -28,7 +28,9 @@ static int fuse_send_open(struct inode *
+ 		return PTR_ERR(req);
+ 
+ 	memset(&inarg, 0, sizeof(inarg));
+-	inarg.flags = file->f_flags & ~(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);
++	inarg.flags = file->f_flags & ~(O_CREAT | O_EXCL | O_NOCTTY);
++	if (!fc->atomic_o_trunc)
++		inarg.flags &= ~O_TRUNC;
+ 	req->in.h.opcode = isdir ? FUSE_OPENDIR : FUSE_OPEN;
+ 	req->in.h.nodeid = get_node_id(inode);
+ 	req->in.numargs = 1;
+@@ -52,7 +54,10 @@ struct fuse_file *fuse_file_alloc(void)
+ 		ff->reserved_req = fuse_request_alloc();
+ 		if (!ff->reserved_req) {
+ 			kfree(ff);
+-			ff = NULL;
++			return NULL;
++		} else {
++			INIT_LIST_HEAD(&ff->write_entry);
++			atomic_set(&ff->count, 0);
+ 		}
+ 	}
+ 	return ff;
+@@ -64,15 +69,39 @@ void fuse_file_free(struct fuse_file *ff
+ 	kfree(ff);
+ }
+ 
++static struct fuse_file *fuse_file_get(struct fuse_file *ff)
++{
++	atomic_inc(&ff->count);
++	return ff;
++}
++
++static void fuse_release_end(struct fuse_conn *fc, struct fuse_req *req)
++{
++	dput(req->misc.release.dentry);
++	mntput(req->misc.release.vfsmount);
++}
++
++static void fuse_file_put(struct fuse_file *ff)
++{
++	if (atomic_dec_and_test(&ff->count)) {
++		struct fuse_req *req = ff->reserved_req;
++		struct inode *inode = req->misc.release.dentry->d_inode;
++		struct fuse_conn *fc = get_fuse_conn(inode);
++		req->end = fuse_release_end;
++		request_send_background(fc, req);
++		kfree(ff);
++	}
++}
++
+ void fuse_finish_open(struct inode *inode, struct file *file,
+ 		      struct fuse_file *ff, struct fuse_open_out *outarg)
+ {
+ 	if (outarg->open_flags & FOPEN_DIRECT_IO)
+ 		file->f_op = &fuse_direct_io_file_operations;
+ 	if (!(outarg->open_flags & FOPEN_KEEP_CACHE))
+-		invalidate_mapping_pages(inode->i_mapping, 0, -1);
++		invalidate_inode_pages2(inode->i_mapping);
+ 	ff->fh = outarg->fh;
+-	file->private_data = ff;
++	file->private_data = fuse_file_get(ff);
+ }
+ 
+ int fuse_open_common(struct inode *inode, struct file *file, int isdir)
+@@ -89,14 +118,6 @@ int fuse_open_common(struct inode *inode
+ 	if (err)
+ 		return err;
+ 
+-	/* If opening the root node, no lookup has been performed on
+-	   it, so the attributes must be refreshed */
+-	if (get_node_id(inode) == FUSE_ROOT_ID) {
+-		err = fuse_do_getattr(inode);
+-		if (err)
+-		 	return err;
+-	}
+-
+ 	ff = fuse_file_alloc();
+ 	if (!ff)
+ 		return -ENOMEM;
+@@ -113,11 +134,10 @@ int fuse_open_common(struct inode *inode
+ 	return err;
+ }
+ 
+-struct fuse_req *fuse_release_fill(struct fuse_file *ff, u64 nodeid, int flags,
+-				   int opcode)
++void fuse_release_fill(struct fuse_file *ff, u64 nodeid, int flags, int opcode)
+ {
+ 	struct fuse_req *req = ff->reserved_req;
+-	struct fuse_release_in *inarg = &req->misc.release_in;
++	struct fuse_release_in *inarg = &req->misc.release.in;
+ 
+ 	inarg->fh = ff->fh;
+ 	inarg->flags = flags;
+@@ -126,9 +146,6 @@ struct fuse_req *fuse_release_fill(struc
+ 	req->in.numargs = 1;
+ 	req->in.args[0].size = sizeof(struct fuse_release_in);
+ 	req->in.args[0].value = inarg;
+-	kfree(ff);
+-
+-	return req;
+ }
+ 
+ int fuse_release_common(struct inode *inode, struct file *file, int isdir)
+@@ -136,15 +153,24 @@ int fuse_release_common(struct inode *in
+ 	struct fuse_file *ff = file->private_data;
+ 	if (ff) {
+ 		struct fuse_conn *fc = get_fuse_conn(inode);
+-		struct fuse_req *req;
++		struct fuse_req *req = ff->reserved_req;
+ 
+-		req = fuse_release_fill(ff, get_node_id(inode), file->f_flags,
+-					isdir ? FUSE_RELEASEDIR : FUSE_RELEASE);
++		fuse_release_fill(ff, get_node_id(inode), file->f_flags,
++				  isdir ? FUSE_RELEASEDIR : FUSE_RELEASE);
+ 
+ 		/* Hold vfsmount and dentry until release is finished */
+-		req->vfsmount = mntget(file->f_path.mnt);
+-		req->dentry = dget(file->f_path.dentry);
+-		request_send_background(fc, req);
++		req->misc.release.vfsmount = mntget(file->f_path.mnt);
++		req->misc.release.dentry = dget(file->f_path.dentry);
++
++		spin_lock(&fc->lock);
++		list_del(&ff->write_entry);
++		spin_unlock(&fc->lock);
++		/*
++		 * Normally this will send the RELEASE request,
++		 * however if some asynchronous READ or WRITE requests
++		 * are outstanding, the sending will be delayed
++		 */
++		fuse_file_put(ff);
+ 	}
+ 
+ 	/* Return value is ignored by VFS */
+@@ -165,7 +191,7 @@ static int fuse_release(struct inode *in
+  * Scramble the ID space with XTEA, so that the value of the files_struct
+  * pointer is not exposed to userspace.
+  */
+-static u64 fuse_lock_owner_id(struct fuse_conn *fc, fl_owner_t id)
++u64 fuse_lock_owner_id(struct fuse_conn *fc, fl_owner_t id)
+ {
+ 	u32 *k = fc->scramble_key;
+ 	u64 v = (unsigned long) id;
+@@ -183,6 +209,49 @@ static u64 fuse_lock_owner_id(struct fus
+ 	return (u64) v0 + ((u64) v1 << 32);
+ }
+ 
++/*
++ * Check if page is under writeback
++ *
++ * This is currently done by walking the list of writepage requests
++ * for the inode, which can be pretty inefficient.
++ */
++static bool fuse_page_is_writeback(struct inode *inode, pgoff_t index)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	struct fuse_req *req;
++	bool found = false;
++
++	spin_lock(&fc->lock);
++	list_for_each_entry(req, &fi->writepages, writepages_entry) {
++		pgoff_t curr_index;
++
++		BUG_ON(req->inode != inode);
++		curr_index = req->misc.write.in.offset >> PAGE_CACHE_SHIFT;
++		if (curr_index == index) {
++			found = true;
++			break;
++		}
++	}
++	spin_unlock(&fc->lock);
++
++	return found;
++}
++
++/*
++ * Wait for page writeback to be completed.
++ *
++ * Since fuse doesn't rely on the VM writeback tracking, this has to
++ * use some other means.
++ */
++static int fuse_wait_on_page_writeback(struct inode *inode, pgoff_t index)
++{
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	wait_event(fi->page_waitq, !fuse_page_is_writeback(inode, index));
++	return 0;
++}
++
+ static int fuse_flush(struct file *file, fl_owner_t id)
+ {
+ 	struct inode *inode = file->f_path.dentry->d_inode;
+@@ -218,6 +287,21 @@ static int fuse_flush(struct file *file,
+ 	return err;
+ }
+ 
++/*
++ * Wait for all pending writepages on the inode to finish.
++ *
++ * This is currently done by blocking further writes with FUSE_NOWRITE
++ * and waiting for all sent writes to complete.
++ *
++ * This must be called under i_mutex, otherwise the FUSE_NOWRITE usage
++ * could conflict with truncation.
++ */
++static void fuse_sync_writes(struct inode *inode)
++{
++	fuse_set_nowrite(inode);
++	fuse_release_nowrite(inode);
++}
++
+ int fuse_fsync_common(struct file *file, struct dentry *de, int datasync,
+ 		      int isdir)
+ {
+@@ -234,6 +318,17 @@ int fuse_fsync_common(struct file *file,
+ 	if ((!isdir && fc->no_fsync) || (isdir && fc->no_fsyncdir))
+ 		return 0;
+ 
++	/*
++	 * Start writeback against all dirty pages of the inode, then
++	 * wait for all outstanding writes, before sending the FSYNC
++	 * request.
++	 */
++	err = write_inode_now(inode, 0);
++	if (err)
++		return err;
++
++	fuse_sync_writes(inode);
++
+ 	req = fuse_get_req(fc);
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+@@ -267,12 +362,13 @@ static int fuse_fsync(struct file *file,
+ void fuse_read_fill(struct fuse_req *req, struct file *file,
+ 		    struct inode *inode, loff_t pos, size_t count, int opcode)
+ {
++	struct fuse_read_in *inarg = &req->misc.read.in;
+ 	struct fuse_file *ff = file->private_data;
+-	struct fuse_read_in *inarg = &req->misc.read_in;
+ 
+ 	inarg->fh = ff->fh;
+ 	inarg->offset = pos;
+ 	inarg->size = count;
++	inarg->flags = file->f_flags;
+ 	req->in.h.opcode = opcode;
+ 	req->in.h.nodeid = get_node_id(inode);
+ 	req->in.numargs = 1;
+@@ -285,38 +381,82 @@ void fuse_read_fill(struct fuse_req *req
+ }
+ 
+ static size_t fuse_send_read(struct fuse_req *req, struct file *file,
+-			     struct inode *inode, loff_t pos, size_t count)
++			     struct inode *inode, loff_t pos, size_t count,
++			     fl_owner_t owner)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
++
+ 	fuse_read_fill(req, file, inode, pos, count, FUSE_READ);
++	if (owner != NULL) {
++		struct fuse_read_in *inarg = &req->misc.read.in;
++
++		inarg->read_flags |= FUSE_READ_LOCKOWNER;
++		inarg->lock_owner = fuse_lock_owner_id(fc, owner);
++	}
+ 	request_send(fc, req);
+ 	return req->out.args[0].size;
+ }
+ 
++static void fuse_read_update_size(struct inode *inode, loff_t size,
++				  u64 attr_ver)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	spin_lock(&fc->lock);
++	if (attr_ver == fi->attr_version && size < inode->i_size) {
++		fi->attr_version = ++fc->attr_version;
++		i_size_write(inode, size);
++	}
++	spin_unlock(&fc->lock);
++}
++
+ static int fuse_readpage(struct file *file, struct page *page)
+ {
+ 	struct inode *inode = page->mapping->host;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+ 	struct fuse_req *req;
++	size_t num_read;
++	loff_t pos = page_offset(page);
++	size_t count = PAGE_CACHE_SIZE;
++	u64 attr_ver;
+ 	int err;
+ 
+ 	err = -EIO;
+ 	if (is_bad_inode(inode))
+ 		goto out;
+ 
++	/*
++	 * Page writeback can extend beyond the liftime of the
++	 * page-cache page, so make sure we read a properly synced
++	 * page.
++	 */
++	fuse_wait_on_page_writeback(inode, page->index);
++
+ 	req = fuse_get_req(fc);
+ 	err = PTR_ERR(req);
+ 	if (IS_ERR(req))
+ 		goto out;
+ 
++	attr_ver = fuse_get_attr_version(fc);
++
+ 	req->out.page_zeroing = 1;
+ 	req->num_pages = 1;
+ 	req->pages[0] = page;
+-	fuse_send_read(req, file, inode, page_offset(page), PAGE_CACHE_SIZE);
++	num_read = fuse_send_read(req, file, inode, pos, count, NULL);
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+-	if (!err)
++
++	if (!err) {
++		/*
++		 * Short read means EOF.  If file size is larger, truncate it
++		 */
++		if (num_read < count)
++			fuse_read_update_size(inode, pos + num_read, attr_ver);
++
+ 		SetPageUptodate(page);
++	}
++
+ 	fuse_invalidate_attr(inode); /* atime changed */
+  out:
+ 	unlock_page(page);
+@@ -326,8 +466,19 @@ static int fuse_readpage(struct file *fi
+ static void fuse_readpages_end(struct fuse_conn *fc, struct fuse_req *req)
+ {
+ 	int i;
++	size_t count = req->misc.read.in.size;
++	size_t num_read = req->out.args[0].size;
++	struct inode *inode = req->pages[0]->mapping->host;
++
++	/*
++	 * Short read means EOF.  If file size is larger, truncate it
++	 */
++	if (!req->out.h.error && num_read < count) {
++		loff_t pos = page_offset(req->pages[0]) + num_read;
++		fuse_read_update_size(inode, pos, req->misc.read.attr_ver);
++	}
+ 
+-	fuse_invalidate_attr(req->pages[0]->mapping->host); /* atime changed */
++	fuse_invalidate_attr(inode); /* atime changed */
+ 
+ 	for (i = 0; i < req->num_pages; i++) {
+ 		struct page *page = req->pages[i];
+@@ -337,7 +488,8 @@ static void fuse_readpages_end(struct fu
+ 			SetPageError(page);
+ 		unlock_page(page);
+ 	}
+-	fuse_put_request(fc, req);
++	if (req->ff)
++		fuse_file_put(req->ff);
+ }
+ 
+ static void fuse_send_readpages(struct fuse_req *req, struct file *file,
+@@ -348,18 +500,20 @@ static void fuse_send_readpages(struct f
+ 	size_t count = req->num_pages << PAGE_CACHE_SHIFT;
+ 	req->out.page_zeroing = 1;
+ 	fuse_read_fill(req, file, inode, pos, count, FUSE_READ);
++	req->misc.read.attr_ver = fuse_get_attr_version(fc);
+ 	if (fc->async_read) {
+-		get_file(file);
+-		req->file = file;
++		struct fuse_file *ff = file->private_data;
++		req->ff = fuse_file_get(ff);
+ 		req->end = fuse_readpages_end;
+ 		request_send_background(fc, req);
+ 	} else {
+ 		request_send(fc, req);
+ 		fuse_readpages_end(fc, req);
++		fuse_put_request(fc, req);
+ 	}
+ }
+ 
+-struct fuse_readpages_data {
++struct fuse_fill_data {
+ 	struct fuse_req *req;
+ 	struct file *file;
+ 	struct inode *inode;
+@@ -367,11 +521,13 @@ struct fuse_readpages_data {
+ 
+ static int fuse_readpages_fill(void *_data, struct page *page)
+ {
+-	struct fuse_readpages_data *data = _data;
++	struct fuse_fill_data *data = _data;
+ 	struct fuse_req *req = data->req;
+ 	struct inode *inode = data->inode;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+ 
++	fuse_wait_on_page_writeback(inode, page->index);
++
+ 	if (req->num_pages &&
+ 	    (req->num_pages == FUSE_MAX_PAGES_PER_REQ ||
+ 	     (req->num_pages + 1) * PAGE_CACHE_SIZE > fc->max_read ||
+@@ -393,7 +549,7 @@ static int fuse_readpages(struct file *f
+ {
+ 	struct inode *inode = mapping->host;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	struct fuse_readpages_data data;
++	struct fuse_fill_data data;
+ 	int err;
+ 
+ 	err = -EIO;
+@@ -418,30 +574,67 @@ out:
+ 	return err;
+ }
+ 
+-static size_t fuse_send_write(struct fuse_req *req, struct file *file,
+-			      struct inode *inode, loff_t pos, size_t count)
++static ssize_t fuse_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
++				  unsigned long nr_segs, loff_t pos)
++{
++	struct inode *inode = iocb->ki_filp->f_mapping->host;
++
++	if (pos + iov_length(iov, nr_segs) > i_size_read(inode)) {
++		int err;
++		/*
++		 * If trying to read past EOF, make sure the i_size
++		 * attribute is up-to-date.
++		 */
++		err = fuse_update_attributes(inode, NULL, iocb->ki_filp, NULL);
++		if (err)
++			return err;
++	}
++
++	return generic_file_aio_read(iocb, iov, nr_segs, pos);
++}
++
++static void fuse_write_fill(struct fuse_req *req, struct file *file,
++			    struct fuse_file *ff, struct inode *inode,
++			    loff_t pos, size_t count, int writepage)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	struct fuse_file *ff = file->private_data;
+-	struct fuse_write_in inarg;
+-	struct fuse_write_out outarg;
++	struct fuse_write_in *inarg = &req->misc.write.in;
++	struct fuse_write_out *outarg = &req->misc.write.out;
+ 
+-	memset(&inarg, 0, sizeof(struct fuse_write_in));
+-	inarg.fh = ff->fh;
+-	inarg.offset = pos;
+-	inarg.size = count;
++	memset(inarg, 0, sizeof(struct fuse_write_in));
++	inarg->fh = ff->fh;
++	inarg->offset = pos;
++	inarg->size = count;
++	inarg->write_flags = writepage ? FUSE_WRITE_CACHE : 0;
++	inarg->flags = file ? file->f_flags : 0;
+ 	req->in.h.opcode = FUSE_WRITE;
+ 	req->in.h.nodeid = get_node_id(inode);
+ 	req->in.argpages = 1;
+ 	req->in.numargs = 2;
+-	req->in.args[0].size = sizeof(struct fuse_write_in);
+-	req->in.args[0].value = &inarg;
++	if (fc->minor < 9)
++		req->in.args[0].size = FUSE_COMPAT_WRITE_IN_SIZE;
++	else
++		req->in.args[0].size = sizeof(struct fuse_write_in);
++	req->in.args[0].value = inarg;
+ 	req->in.args[1].size = count;
+ 	req->out.numargs = 1;
+ 	req->out.args[0].size = sizeof(struct fuse_write_out);
+-	req->out.args[0].value = &outarg;
++	req->out.args[0].value = outarg;
++}
++
++static size_t fuse_send_write(struct fuse_req *req, struct file *file,
++			      struct inode *inode, loff_t pos, size_t count,
++			      fl_owner_t owner)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	fuse_write_fill(req, file, file->private_data, inode, pos, count, 0);
++	if (owner != NULL) {
++		struct fuse_write_in *inarg = &req->misc.write.in;
++		inarg->write_flags |= FUSE_WRITE_LOCKOWNER;
++		inarg->lock_owner = fuse_lock_owner_id(fc, owner);
++	}
+ 	request_send(fc, req);
+-	return outarg.size;
++	return req->misc.write.out.size;
+ }
+ 
+ static int fuse_write_begin(struct file *file, struct address_space *mapping,
+@@ -450,12 +643,24 @@ static int fuse_write_begin(struct file 
+ {
+ 	pgoff_t index = pos >> PAGE_CACHE_SHIFT;
+ 
+-	*pagep = __grab_cache_page(mapping, index);
++	*pagep = grab_cache_page_write_begin(mapping, index, flags);
+ 	if (!*pagep)
+ 		return -ENOMEM;
+ 	return 0;
+ }
+ 
++static void fuse_write_update_size(struct inode *inode, loff_t pos)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	spin_lock(&fc->lock);
++	fi->attr_version = ++fc->attr_version;
++	if (pos > inode->i_size)
++		i_size_write(inode, pos);
++	spin_unlock(&fc->lock);
++}
++
+ static int fuse_buffered_write(struct file *file, struct inode *inode,
+ 			       loff_t pos, unsigned count, struct page *page)
+ {
+@@ -468,6 +673,12 @@ static int fuse_buffered_write(struct fi
+ 	if (is_bad_inode(inode))
+ 		return -EIO;
+ 
++	/*
++	 * Make sure writepages on the same page are not mixed up with
++	 * plain writes.
++	 */
++	fuse_wait_on_page_writeback(inode, page->index);
++
+ 	req = fuse_get_req(fc);
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+@@ -475,18 +686,14 @@ static int fuse_buffered_write(struct fi
+ 	req->num_pages = 1;
+ 	req->pages[0] = page;
+ 	req->page_offset = offset;
+-	nres = fuse_send_write(req, file, inode, pos, count);
++	nres = fuse_send_write(req, file, inode, pos, count, NULL);
+ 	err = req->out.h.error;
+ 	fuse_put_request(fc, req);
+ 	if (!err && !nres)
+ 		err = -EIO;
+ 	if (!err) {
+ 		pos += nres;
+-		spin_lock(&fc->lock);
+-		if (pos > inode->i_size)
+-			i_size_write(inode, pos);
+-		spin_unlock(&fc->lock);
+-
++		fuse_write_update_size(inode, pos);
+ 		if (count == PAGE_CACHE_SIZE)
+ 			SetPageUptodate(page);
+ 	}
+@@ -509,6 +716,200 @@ static int fuse_write_end(struct file *f
+ 	return res;
+ }
+ 
++static size_t fuse_send_write_pages(struct fuse_req *req, struct file *file,
++				    struct inode *inode, loff_t pos,
++				    size_t count)
++{
++	size_t res;
++	unsigned offset;
++	unsigned i;
++
++	for (i = 0; i < req->num_pages; i++)
++		fuse_wait_on_page_writeback(inode, req->pages[i]->index);
++
++	res = fuse_send_write(req, file, inode, pos, count, NULL);
++
++	offset = req->page_offset;
++	count = res;
++	for (i = 0; i < req->num_pages; i++) {
++		struct page *page = req->pages[i];
++
++		if (!req->out.h.error && !offset && count >= PAGE_CACHE_SIZE)
++			SetPageUptodate(page);
++
++		if (count > PAGE_CACHE_SIZE - offset)
++			count -= PAGE_CACHE_SIZE - offset;
++		else
++			count = 0;
++		offset = 0;
++
++		unlock_page(page);
++		page_cache_release(page);
++	}
++
++	return res;
++}
++
++static ssize_t fuse_fill_write_pages(struct fuse_req *req,
++			       struct address_space *mapping,
++			       struct iov_iter *ii, loff_t pos)
++{
++	struct fuse_conn *fc = get_fuse_conn(mapping->host);
++	unsigned offset = pos & (PAGE_CACHE_SIZE - 1);
++	size_t count = 0;
++	int err;
++
++	req->page_offset = offset;
++
++	do {
++		size_t tmp;
++		struct page *page;
++		pgoff_t index = pos >> PAGE_CACHE_SHIFT;
++		size_t bytes = min_t(size_t, PAGE_CACHE_SIZE - offset,
++				     iov_iter_count(ii));
++
++		bytes = min_t(size_t, bytes, fc->max_write - count);
++
++ again:
++		err = -EFAULT;
++		if (iov_iter_fault_in_readable(ii, bytes))
++			break;
++
++		err = -ENOMEM;
++		page = grab_cache_page_write_begin(mapping, index, 0);
++		if (!page)
++			break;
++
++		pagefault_disable();
++		tmp = iov_iter_copy_from_user_atomic(page, ii, offset, bytes);
++		pagefault_enable();
++		flush_dcache_page(page);
++
++		if (!tmp) {
++			unlock_page(page);
++			page_cache_release(page);
++			bytes = min(bytes, iov_iter_single_seg_count(ii));
++			goto again;
++		}
++
++		err = 0;
++		req->pages[req->num_pages] = page;
++		req->num_pages++;
++
++		iov_iter_advance(ii, tmp);
++		count += tmp;
++		pos += tmp;
++		offset += tmp;
++		if (offset == PAGE_CACHE_SIZE)
++			offset = 0;
++
++		if (!fc->big_writes)
++			break;
++	} while (iov_iter_count(ii) && count < fc->max_write &&
++		 req->num_pages < FUSE_MAX_PAGES_PER_REQ && offset == 0);
++
++	return count > 0 ? count : err;
++}
++
++static ssize_t fuse_perform_write(struct file *file,
++				  struct address_space *mapping,
++				  struct iov_iter *ii, loff_t pos)
++{
++	struct inode *inode = mapping->host;
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	int err = 0;
++	ssize_t res = 0;
++
++	if (is_bad_inode(inode))
++		return -EIO;
++
++	do {
++		struct fuse_req *req;
++		ssize_t count;
++
++		req = fuse_get_req(fc);
++		if (IS_ERR(req)) {
++			err = PTR_ERR(req);
++			break;
++		}
++
++		count = fuse_fill_write_pages(req, mapping, ii, pos);
++		if (count <= 0) {
++			err = count;
++		} else {
++			size_t num_written;
++
++			num_written = fuse_send_write_pages(req, file, inode,
++							    pos, count);
++			err = req->out.h.error;
++			if (!err) {
++				res += num_written;
++				pos += num_written;
++
++				/* break out of the loop on short write */
++				if (num_written != count)
++					err = -EIO;
++			}
++		}
++		fuse_put_request(fc, req);
++	} while (!err && iov_iter_count(ii));
++
++	if (res > 0)
++		fuse_write_update_size(inode, pos);
++
++	fuse_invalidate_attr(inode);
++
++	return res > 0 ? res : err;
++}
++
++static ssize_t fuse_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
++				   unsigned long nr_segs, loff_t pos)
++{
++	struct file *file = iocb->ki_filp;
++	struct address_space *mapping = file->f_mapping;
++	size_t count = 0;
++	ssize_t written = 0;
++	struct inode *inode = mapping->host;
++	ssize_t err;
++	struct iov_iter i;
++
++	WARN_ON(iocb->ki_pos != pos);
++
++	err = generic_segment_checks(iov, &nr_segs, &count, VERIFY_READ);
++	if (err)
++		return err;
++
++	mutex_lock(&inode->i_mutex);
++	vfs_check_frozen(inode->i_sb, SB_FREEZE_WRITE);
++
++	/* We can write back this queue in page reclaim */
++	current->backing_dev_info = mapping->backing_dev_info;
++
++	err = generic_write_checks(file, &pos, &count, S_ISBLK(inode->i_mode));
++	if (err)
++		goto out;
++
++	if (count == 0)
++		goto out;
++
++	err = remove_suid(file->f_path.dentry);
++	if (err)
++		goto out;
++
++	file_update_time(file);
++
++	iov_iter_init(&i, iov, nr_segs, count, 0);
++	written = fuse_perform_write(file, mapping, &i, pos);
++	if (written >= 0)
++		iocb->ki_pos = pos + written;
++
++out:
++	current->backing_dev_info = NULL;
++	mutex_unlock(&inode->i_mutex);
++
++	return written ? written : err;
++}
++
+ static void fuse_release_user_pages(struct fuse_req *req, int write)
+ {
+ 	unsigned i;
+@@ -534,7 +935,7 @@ static int fuse_get_user_pages(struct fu
+ 
+ 	nbytes = min(nbytes, (unsigned) FUSE_MAX_PAGES_PER_REQ << PAGE_SHIFT);
+ 	npages = (nbytes + offset + PAGE_SIZE - 1) >> PAGE_SHIFT;
+-	npages = min(max(npages, 1), FUSE_MAX_PAGES_PER_REQ);
++	npages = clamp(npages, 1, FUSE_MAX_PAGES_PER_REQ);
+ 	down_read(&current->mm->mmap_sem);
+ 	npages = get_user_pages(current, current->mm, user_addr, npages, write,
+ 				0, req->pages, NULL);
+@@ -566,18 +967,21 @@ static ssize_t fuse_direct_io(struct fil
+ 
+ 	while (count) {
+ 		size_t nres;
+-		size_t nbytes = min(count, nmax);
+-		int err = fuse_get_user_pages(req, buf, nbytes, !write);
++		size_t nbytes_limit = min(count, nmax);
++		size_t nbytes;
++		int err = fuse_get_user_pages(req, buf, nbytes_limit, !write);
+ 		if (err) {
+ 			res = err;
+ 			break;
+ 		}
+ 		nbytes = (req->num_pages << PAGE_SHIFT) - req->page_offset;
+-		nbytes = min(count, nbytes);
++		nbytes = min(nbytes_limit, nbytes);
+ 		if (write)
+-			nres = fuse_send_write(req, file, inode, pos, nbytes);
++			nres = fuse_send_write(req, file, inode, pos, nbytes,
++					       current->files);
+ 		else
+-			nres = fuse_send_read(req, file, inode, pos, nbytes);
++			nres = fuse_send_read(req, file, inode, pos, nbytes,
++					      current->files);
+ 		fuse_release_user_pages(req, !write);
+ 		if (req->out.h.error) {
+ 			if (!res)
+@@ -600,14 +1004,11 @@ static ssize_t fuse_direct_io(struct fil
+ 				break;
+ 		}
+ 	}
+-	fuse_put_request(fc, req);
++	if (!IS_ERR(req))
++		fuse_put_request(fc, req);
+ 	if (res > 0) {
+-		if (write) {
+-			spin_lock(&fc->lock);
+-			if (pos > inode->i_size)
+-				i_size_write(inode, pos);
+-			spin_unlock(&fc->lock);
+-		}
++		if (write)
++			fuse_write_update_size(inode, pos);
+ 		*ppos = pos;
+ 	}
+ 	fuse_invalidate_attr(inode);
+@@ -635,21 +1036,228 @@ static ssize_t fuse_direct_write(struct 
+ 	return res;
+ }
+ 
+-static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
++static void fuse_writepage_free(struct fuse_conn *fc, struct fuse_req *req)
+ {
+-	if ((vma->vm_flags & VM_SHARED)) {
+-		if ((vma->vm_flags & VM_WRITE))
+-			return -ENODEV;
+-		else
+-			vma->vm_flags &= ~VM_MAYWRITE;
++	__free_page(req->pages[0]);
++	fuse_file_put(req->ff);
++}
++
++static void fuse_writepage_finish(struct fuse_conn *fc, struct fuse_req *req)
++{
++	struct inode *inode = req->inode;
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	struct backing_dev_info *bdi = inode->i_mapping->backing_dev_info;
++
++	list_del(&req->writepages_entry);
++	dec_bdi_stat(bdi, BDI_WRITEBACK);
++	dec_zone_page_state(req->pages[0], NR_WRITEBACK_TEMP);
++	bdi_writeout_inc(bdi);
++	wake_up(&fi->page_waitq);
++}
++
++/* Called under fc->lock, may release and reacquire it */
++static void fuse_send_writepage(struct fuse_conn *fc, struct fuse_req *req)
++{
++	struct fuse_inode *fi = get_fuse_inode(req->inode);
++	loff_t size = i_size_read(req->inode);
++	struct fuse_write_in *inarg = &req->misc.write.in;
++
++	if (!fc->connected)
++		goto out_free;
++
++	if (inarg->offset + PAGE_CACHE_SIZE <= size) {
++		inarg->size = PAGE_CACHE_SIZE;
++	} else if (inarg->offset < size) {
++		inarg->size = size & (PAGE_CACHE_SIZE - 1);
++	} else {
++		/* Got truncated off completely */
++		goto out_free;
++	}
++
++	req->in.args[1].size = inarg->size;
++	fi->writectr++;
++	request_send_background_locked(fc, req);
++	return;
++
++ out_free:
++	fuse_writepage_finish(fc, req);
++	spin_unlock(&fc->lock);
++	fuse_writepage_free(fc, req);
++	fuse_put_request(fc, req);
++	spin_lock(&fc->lock);
++}
++
++/*
++ * If fi->writectr is positive (no truncate or fsync going on) send
++ * all queued writepage requests.
++ *
++ * Called with fc->lock
++ */
++void fuse_flush_writepages(struct inode *inode)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	struct fuse_req *req;
++
++	while (fi->writectr >= 0 && !list_empty(&fi->queued_writes)) {
++		req = list_entry(fi->queued_writes.next, struct fuse_req, list);
++		list_del_init(&req->list);
++		fuse_send_writepage(fc, req);
++	}
++}
++
++static void fuse_writepage_end(struct fuse_conn *fc, struct fuse_req *req)
++{
++	struct inode *inode = req->inode;
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	mapping_set_error(inode->i_mapping, req->out.h.error);
++	spin_lock(&fc->lock);
++	fi->writectr--;
++	fuse_writepage_finish(fc, req);
++	spin_unlock(&fc->lock);
++	fuse_writepage_free(fc, req);
++}
++
++static int fuse_writepage_locked(struct page *page)
++{
++	struct address_space *mapping = page->mapping;
++	struct inode *inode = mapping->host;
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	struct fuse_req *req;
++	struct fuse_file *ff;
++	struct page *tmp_page;
++
++	set_page_writeback(page);
++
++	req = fuse_request_alloc_nofs();
++	if (!req)
++		goto err;
++
++	tmp_page = alloc_page(GFP_NOFS | __GFP_HIGHMEM);
++	if (!tmp_page)
++		goto err_free;
++
++	spin_lock(&fc->lock);
++	BUG_ON(list_empty(&fi->write_files));
++	ff = list_entry(fi->write_files.next, struct fuse_file, write_entry);
++	req->ff = fuse_file_get(ff);
++	spin_unlock(&fc->lock);
++
++	fuse_write_fill(req, NULL, ff, inode, page_offset(page), 0, 1);
++
++	copy_highpage(tmp_page, page);
++	req->num_pages = 1;
++	req->pages[0] = tmp_page;
++	req->page_offset = 0;
++	req->end = fuse_writepage_end;
++	req->inode = inode;
++
++	inc_bdi_stat(mapping->backing_dev_info, BDI_WRITEBACK);
++	inc_zone_page_state(tmp_page, NR_WRITEBACK_TEMP);
++	end_page_writeback(page);
++
++	spin_lock(&fc->lock);
++	list_add(&req->writepages_entry, &fi->writepages);
++	list_add_tail(&req->list, &fi->queued_writes);
++	fuse_flush_writepages(inode);
++	spin_unlock(&fc->lock);
++
++	return 0;
++
++err_free:
++	fuse_request_free(req);
++err:
++	end_page_writeback(page);
++	return -ENOMEM;
++}
++
++static int fuse_writepage(struct page *page, struct writeback_control *wbc)
++{
++	int err;
++
++	err = fuse_writepage_locked(page);
++	unlock_page(page);
++
++	return err;
++}
++
++static int fuse_launder_page(struct page *page)
++{
++	int err = 0;
++	if (clear_page_dirty_for_io(page)) {
++		struct inode *inode = page->mapping->host;
++		err = fuse_writepage_locked(page);
++		if (!err)
++			fuse_wait_on_page_writeback(inode, page->index);
+ 	}
+-	return generic_file_mmap(file, vma);
++	return err;
+ }
+ 
+-static int fuse_set_page_dirty(struct page *page)
++/*
++ * Write back dirty pages now, because there may not be any suitable
++ * open files later
++ */
++static void fuse_vma_close(struct vm_area_struct *vma)
+ {
+-	printk("fuse_set_page_dirty: should not happen\n");
+-	dump_stack();
++	filemap_write_and_wait(vma->vm_file->f_mapping);
++}
++
++#if 0
++/*
++ * Wait for writeback against this page to complete before allowing it
++ * to be marked dirty again, and hence written back again, possibly
++ * before the previous writepage completed.
++ *
++ * Block here, instead of in ->writepage(), so that the userspace fs
++ * can only block processes actually operating on the filesystem.
++ *
++ * Otherwise unprivileged userspace fs would be able to block
++ * unrelated:
++ *
++ * - page migration
++ * - sync(2)
++ * - try_to_free_pages() with order > PAGE_ALLOC_COSTLY_ORDER
++ */
++static int fuse_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
++{
++	struct page *page = vmf->page;
++	/*
++	 * Don't use page->mapping as it may become NULL from a
++	 * concurrent truncate.
++	 */
++	struct inode *inode = vma->vm_file->f_mapping->host;
++
++	fuse_wait_on_page_writeback(inode, page->index);
++	return 0;
++}
++#endif
++
++static struct vm_operations_struct fuse_file_vm_ops = {
++	.close		= fuse_vma_close,
++	.fault		= filemap_fault,
++//	.page_mkwrite	= fuse_page_mkwrite,
++};
++
++static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
++{
++	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_MAYWRITE)) {
++		struct inode *inode = file->f_dentry->d_inode;
++		struct fuse_conn *fc = get_fuse_conn(inode);
++		struct fuse_inode *fi = get_fuse_inode(inode);
++		struct fuse_file *ff = file->private_data;
++		/*
++		 * file may be written through mmap, so chain it onto the
++		 * inodes's write_file list
++		 */
++		spin_lock(&fc->lock);
++		if (list_empty(&ff->write_entry))
++			list_add(&ff->write_entry, &fi->write_files);
++		spin_unlock(&fc->lock);
++	}
++	file_accessed(file);
++	vma->vm_ops = &fuse_file_vm_ops;
+ 	return 0;
+ }
+ 
+@@ -679,7 +1287,8 @@ static int convert_fuse_file_lock(const 
+ }
+ 
+ static void fuse_lk_fill(struct fuse_req *req, struct file *file,
+-			 const struct file_lock *fl, int opcode, pid_t pid)
++			 const struct file_lock *fl, int opcode, pid_t pid,
++			 int flock)
+ {
+ 	struct inode *inode = file->f_path.dentry->d_inode;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+@@ -692,6 +1301,8 @@ static void fuse_lk_fill(struct fuse_req
+ 	arg->lk.end = fl->fl_end;
+ 	arg->lk.type = fl->fl_type;
+ 	arg->lk.pid = pid;
++	if (flock)
++		arg->lk_flags |= FUSE_LK_FLOCK;
+ 	req->in.h.opcode = opcode;
+ 	req->in.h.nodeid = get_node_id(inode);
+ 	req->in.numargs = 1;
+@@ -711,7 +1322,7 @@ static int fuse_getlk(struct file *file,
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+ 
+-	fuse_lk_fill(req, file, fl, FUSE_GETLK, 0);
++	fuse_lk_fill(req, file, fl, FUSE_GETLK, 0, 0);
+ 	req->out.numargs = 1;
+ 	req->out.args[0].size = sizeof(outarg);
+ 	req->out.args[0].value = &outarg;
+@@ -724,7 +1335,7 @@ static int fuse_getlk(struct file *file,
+ 	return err;
+ }
+ 
+-static int fuse_setlk(struct file *file, struct file_lock *fl)
++static int fuse_setlk(struct file *file, struct file_lock *fl, int flock)
+ {
+ 	struct inode *inode = file->f_path.dentry->d_inode;
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+@@ -733,6 +1344,11 @@ static int fuse_setlk(struct file *file,
+ 	pid_t pid = fl->fl_type != F_UNLCK ? current->tgid : 0;
+ 	int err;
+ 
++	if (fl->fl_lmops && fl->fl_lmops->fl_grant) {
++		/* NLM needs asynchronous locks, which we don't support yet */
++		return -ENOLCK;
++	}
++
+ 	/* Unlock on close is handled by the flush method */
+ 	if (fl->fl_flags & FL_CLOSE)
+ 		return 0;
+@@ -741,7 +1357,7 @@ static int fuse_setlk(struct file *file,
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+ 
+-	fuse_lk_fill(req, file, fl, opcode, pid);
++	fuse_lk_fill(req, file, fl, opcode, pid, flock);
+ 	request_send(fc, req);
+ 	err = req->out.h.error;
+ 	/* locking is restartable */
+@@ -757,7 +1373,9 @@ static int fuse_file_lock(struct file *f
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+ 	int err;
+ 
+-	if (cmd == F_GETLK) {
++	if (cmd == F_CANCELLK) {
++		err = 0;
++	} else if (cmd == F_GETLK) {
+ 		if (fc->no_lock) {
+ 			posix_test_lock(file, fl);
+ 			err = 0;
+@@ -765,10 +1383,27 @@ static int fuse_file_lock(struct file *f
+ 			err = fuse_getlk(file, fl);
+ 	} else {
+ 		if (fc->no_lock)
+-			err = posix_lock_file_wait(file, fl);
++			err = posix_lock_file(file, fl, NULL);
+ 		else
+-			err = fuse_setlk(file, fl);
++			err = fuse_setlk(file, fl, 0);
++	}
++	return err;
++}
++
++static int fuse_file_flock(struct file *file, int cmd, struct file_lock *fl)
++{
++	struct inode *inode = file->f_path.dentry->d_inode;
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	int err;
++
++	if (fc->no_lock) {
++		err = flock_lock_file_wait(file, fl);
++	} else {
++		/* emulate flock with POSIX locks */
++		fl->fl_owner = (fl_owner_t) file;
++		err = fuse_setlk(file, fl, 1);
+ 	}
++
+ 	return err;
+ }
+ 
+@@ -808,23 +1443,52 @@ static sector_t fuse_bmap(struct address
+ 	return err ? 0 : outarg.block;
+ }
+ 
++static loff_t fuse_file_llseek(struct file *file, loff_t offset, int origin)
++{
++	loff_t retval;
++	struct inode *inode = file->f_path.dentry->d_inode;
++
++	mutex_lock(&inode->i_mutex);
++	switch (origin) {
++	case SEEK_END:
++		retval = fuse_update_attributes(inode, NULL, file, NULL);
++		if (retval)
++			return retval;
++		offset += i_size_read(inode);
++		break;
++	case SEEK_CUR:
++		offset += file->f_pos;
++	}
++	retval = -EINVAL;
++	if (offset >= 0 && offset <= inode->i_sb->s_maxbytes) {
++		if (offset != file->f_pos) {
++			file->f_pos = offset;
++			file->f_version = 0;
++		}
++		retval = offset;
++	}
++	mutex_unlock(&inode->i_mutex);
++	return retval;
++}
++
+ static const struct file_operations fuse_file_operations = {
+-	.llseek		= generic_file_llseek,
++	.llseek		= fuse_file_llseek,
+ 	.read		= do_sync_read,
+-	.aio_read	= generic_file_aio_read,
++	.aio_read	= fuse_file_aio_read,
+ 	.write		= do_sync_write,
+-	.aio_write	= generic_file_aio_write,
++	.aio_write	= fuse_file_aio_write,
+ 	.mmap		= fuse_file_mmap,
+ 	.open		= fuse_open,
+ 	.flush		= fuse_flush,
+ 	.release	= fuse_release,
+ 	.fsync		= fuse_fsync,
+ 	.lock		= fuse_file_lock,
++	.flock		= fuse_file_flock,
+ 	.splice_read	= generic_file_splice_read,
+ };
+ 
+ static const struct file_operations fuse_direct_io_file_operations = {
+-	.llseek		= generic_file_llseek,
++	.llseek		= fuse_file_llseek,
+ 	.read		= fuse_direct_read,
+ 	.write		= fuse_direct_write,
+ 	.open		= fuse_open,
+@@ -832,15 +1496,18 @@ static const struct file_operations fuse
+ 	.release	= fuse_release,
+ 	.fsync		= fuse_fsync,
+ 	.lock		= fuse_file_lock,
++	.flock		= fuse_file_flock,
+ 	/* no mmap and splice_read */
+ };
+ 
+ static const struct address_space_operations fuse_file_aops  = {
+ 	.readpage	= fuse_readpage,
++	.writepage	= fuse_writepage,
++	.launder_page	= fuse_launder_page,
+ 	.write_begin	= fuse_write_begin,
+ 	.write_end	= fuse_write_end,
+ 	.readpages	= fuse_readpages,
+-	.set_page_dirty	= fuse_set_page_dirty,
++	.set_page_dirty	= __set_page_dirty_nobuffers,
+ 	.bmap		= fuse_bmap,
+ };
+ 
+diff --git a/fs/fuse/fuse_i.h b/fs/fuse/fuse_i.h
+--- a/fs/fuse/fuse_i.h
++++ b/fs/fuse/fuse_i.h
+@@ -15,16 +15,19 @@
+ #include <linux/mm.h>
+ #include <linux/backing-dev.h>
+ #include <linux/mutex.h>
+-
+-#if defined(__mips__) && defined(CONFIG_BCM47XX) && !defined(CONFIG_CPU_MIPSR2)
+-#define DCACHE_BUG
+-#endif
++#include <linux/rwsem.h>
+ 
+ /** Max number of pages that can be used in a single read request */
+ #define FUSE_MAX_PAGES_PER_REQ 32
+ 
+ /** Maximum number of outstanding background requests */
+-#define FUSE_MAX_BACKGROUND 10
++#define FUSE_MAX_BACKGROUND 12
++
++/** Congestion starts at 75% of maximum */
++#define FUSE_CONGESTION_THRESHOLD (FUSE_MAX_BACKGROUND * 75 / 100)
++
++/** Bias for fi->writectr, meaning new writepages must not be sent */
++#define FUSE_NOWRITE INT_MIN
+ 
+ /** It could be as large as PATH_MAX, but would that have any uses? */
+ #define FUSE_NAME_MAX 1024
+@@ -64,6 +67,29 @@ struct fuse_inode {
+ 
+ 	/** Time in jiffies until the file attributes are valid */
+ 	u64 i_time;
++
++	/** The sticky bit in inode->i_mode may have been removed, so
++	    preserve the original mode */
++	mode_t orig_i_mode;
++
++	/** Version of last attribute change */
++	u64 attr_version;
++
++	/** Files usable in writepage.  Protected by fc->lock */
++	struct list_head write_files;
++
++	/** Writepages pending on truncate or fsync */
++	struct list_head queued_writes;
++
++	/** Number of sent writes, a negative bias (FUSE_NOWRITE)
++	 * means more writes are blocked */
++	int writectr;
++
++	/** Waitq for writepage completion */
++	wait_queue_head_t page_waitq;
++
++	/** List of writepage requestst (pending or sent) */
++	struct list_head writepages;
+ };
+ 
+ /** FUSE specific file data */
+@@ -73,6 +99,12 @@ struct fuse_file {
+ 
+ 	/** File handle used by userspace */
+ 	u64 fh;
++
++	/** Refcount */
++	atomic_t count;
++
++	/** Entry on inode's write_files list */
++	struct list_head write_entry;
+ };
+ 
+ /** One input argument of a request */
+@@ -200,10 +232,21 @@ struct fuse_req {
+ 	/** Data for asynchronous requests */
+ 	union {
+ 		struct fuse_forget_in forget_in;
+-		struct fuse_release_in release_in;
++		struct {
++			struct fuse_release_in in;
++			struct vfsmount *vfsmount;
++			struct dentry *dentry;
++		} release;
+ 		struct fuse_init_in init_in;
+ 		struct fuse_init_out init_out;
+-		struct fuse_read_in read_in;
++		struct {
++			struct fuse_read_in in;
++			u64 attr_ver;
++		} read;
++		struct {
++			struct fuse_write_in in;
++			struct fuse_write_out out;
++		} write;
+ 		struct fuse_lk_in lk_in;
+ 	} misc;
+ 
+@@ -217,13 +260,13 @@ struct fuse_req {
+ 	unsigned page_offset;
+ 
+ 	/** File used in the request (or NULL) */
+-	struct file *file;
++	struct fuse_file *ff;
+ 
+-	/** vfsmount used in release */
+-	struct vfsmount *vfsmount;
++	/** Inode used in the request or NULL */
++	struct inode *inode;
+ 
+-	/** dentry used in release */
+-	struct dentry *dentry;
++	/** Link on fi->writepages */
++	struct list_head writepages_entry;
+ 
+ 	/** Request completion callback */
+ 	void (*end)(struct fuse_conn *, struct fuse_req *);
+@@ -279,6 +322,12 @@ struct fuse_conn {
+ 	/** Number of requests currently in the background */
+ 	unsigned num_background;
+ 
++	/** Number of background requests currently queued for userspace */
++	unsigned active_background;
++
++	/** The list of background requests set aside for later queuing */
++	struct list_head bg_queue;
++
+ 	/** Pending interrupts */
+ 	struct list_head interrupts;
+ 
+@@ -290,6 +339,9 @@ struct fuse_conn {
+ 	/** waitq for blocked connection */
+ 	wait_queue_head_t blocked_waitq;
+ 
++	/** waitq for reserved requests */
++	wait_queue_head_t reserved_req_waitq;
++
+ 	/** The next unique request id */
+ 	u64 reqctr;
+ 
+@@ -308,6 +360,12 @@ struct fuse_conn {
+ 	/** Do readpages asynchronously?  Only set in INIT */
+ 	unsigned async_read : 1;
+ 
++	/** Do not send separate SETATTR request before open(O_TRUNC)  */
++	unsigned atomic_o_trunc : 1;
++
++	/** Filesystem supports NFS exporting.  Only set in INIT */
++	unsigned export_support : 1;
++
+ 	/*
+ 	 * The following bitfields are only for optimization purposes
+ 	 * and hence races in setting them will not cause malfunction
+@@ -349,6 +407,9 @@ struct fuse_conn {
+ 	/** Is bmap not implemented by fs? */
+ 	unsigned no_bmap : 1;
+ 
++	/** Do multi-page cached writes */
++	unsigned big_writes : 1;
++
+ 	/** The number of requests waiting for completion */
+ 	atomic_t num_waiting;
+ 
+@@ -378,6 +439,9 @@ struct fuse_conn {
+ 
+ 	/** Reserved request for the DESTROY message */
+ 	struct fuse_req *destroy_req;
++
++	/** Version counter for attribute changes */
++	u64 attr_version;
+ };
+ 
+ static inline struct fuse_conn *get_fuse_conn_super(struct super_block *sb)
+@@ -403,17 +467,23 @@ static inline u64 get_node_id(struct ino
+ /** Device operations */
+ extern const struct file_operations fuse_dev_operations;
+ 
++extern struct dentry_operations fuse_dentry_operations;
++
+ /**
+  * Get a filled in inode
+  */
+-struct inode *fuse_iget(struct super_block *sb, unsigned long nodeid,
+-			int generation, struct fuse_attr *attr);
++struct inode *fuse_iget(struct super_block *sb, u64 nodeid,
++			int generation, struct fuse_attr *attr,
++			u64 attr_valid, u64 attr_version);
++
++int fuse_lookup_name(struct super_block *sb, u64 nodeid, struct qstr *name,
++		     struct fuse_entry_out *outarg, struct inode **inode);
+ 
+ /**
+  * Send FORGET command
+  */
+ void fuse_send_forget(struct fuse_conn *fc, struct fuse_req *req,
+-		      unsigned long nodeid, u64 nlookup);
++		      u64 nodeid, u64 nlookup);
+ 
+ /**
+  * Initialize READ or READDIR request
+@@ -431,9 +501,9 @@ void fuse_file_free(struct fuse_file *ff
+ void fuse_finish_open(struct inode *inode, struct file *file,
+ 		      struct fuse_file *ff, struct fuse_open_out *outarg);
+ 
+-/** */
+-struct fuse_req *fuse_release_fill(struct fuse_file *ff, u64 nodeid, int flags,
+-				   int opcode);
++/** Fill in ff->reserved_req with a RELEASE request */
++void fuse_release_fill(struct fuse_file *ff, u64 nodeid, int flags, int opcode);
++
+ /**
+  * Send RELEASE or RELEASEDIR request
+  */
+@@ -468,7 +538,13 @@ void fuse_init_symlink(struct inode *ino
+ /**
+  * Change attributes of an inode
+  */
+-void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr);
++void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
++			    u64 attr_valid, u64 attr_version);
++
++void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
++				   u64 attr_valid);
++
++void fuse_truncate(struct address_space *mapping, loff_t offset);
+ 
+ /**
+  * Initialize the client device
+@@ -488,6 +564,8 @@ void fuse_ctl_cleanup(void);
+  */
+ struct fuse_req *fuse_request_alloc(void);
+ 
++struct fuse_req *fuse_request_alloc_nofs(void);
++
+ /**
+  * Free a request
+  */
+@@ -524,19 +602,18 @@ void request_send_noreply(struct fuse_co
+  */
+ void request_send_background(struct fuse_conn *fc, struct fuse_req *req);
+ 
++void request_send_background_locked(struct fuse_conn *fc, struct fuse_req *req);
++
+ /* Abort all requests */
+ void fuse_abort_conn(struct fuse_conn *fc);
+ 
+ /**
+- * Get the attributes of a file
+- */
+-int fuse_do_getattr(struct inode *inode);
+-
+-/**
+  * Invalidate inode attributes
+  */
+ void fuse_invalidate_attr(struct inode *inode);
+ 
++void fuse_invalidate_entry_cache(struct dentry *entry);
++
+ /**
+  * Acquire reference to fuse_conn
+  */
+@@ -561,3 +638,20 @@ void fuse_ctl_remove_conn(struct fuse_co
+  * Is file type valid?
+  */
+ int fuse_valid_type(int m);
++
++/**
++ * Is task allowed to perform filesystem operation?
++ */
++int fuse_allow_task(struct fuse_conn *fc, struct task_struct *task);
++
++u64 fuse_lock_owner_id(struct fuse_conn *fc, fl_owner_t id);
++
++int fuse_update_attributes(struct inode *inode, struct kstat *stat,
++			   struct file *file, bool *refreshed);
++
++void fuse_flush_writepages(struct inode *inode);
++
++void fuse_set_nowrite(struct inode *inode);
++void fuse_release_nowrite(struct inode *inode);
++
++u64 fuse_get_attr_version(struct fuse_conn *fc);
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -18,6 +18,7 @@
+ #include <linux/statfs.h>
+ #include <linux/random.h>
+ #include <linux/sched.h>
++#include <linux/exportfs.h>
+ 
+ MODULE_AUTHOR("Miklos Szeredi <miklos@szeredi.hu>");
+ MODULE_DESCRIPTION("Filesystem in Userspace");
+@@ -29,6 +30,8 @@ DEFINE_MUTEX(fuse_mutex);
+ 
+ #define FUSE_SUPER_MAGIC 0x65735546
+ 
++#define FUSE_DEFAULT_BLKSIZE 512
++
+ struct fuse_mount_data {
+ 	int fd;
+ 	unsigned rootmode;
+@@ -56,6 +59,12 @@ static struct inode *fuse_alloc_inode(st
+ 	fi->i_time = 0;
+ 	fi->nodeid = 0;
+ 	fi->nlookup = 0;
++	fi->attr_version = 0;
++	fi->writectr = 0;
++	INIT_LIST_HEAD(&fi->write_files);
++	INIT_LIST_HEAD(&fi->queued_writes);
++	INIT_LIST_HEAD(&fi->writepages);
++	init_waitqueue_head(&fi->page_waitq);
+ 	fi->forget_req = fuse_request_alloc();
+ 	if (!fi->forget_req) {
+ 		kmem_cache_free(fuse_inode_cachep, inode);
+@@ -68,18 +77,15 @@ static struct inode *fuse_alloc_inode(st
+ static void fuse_destroy_inode(struct inode *inode)
+ {
+ 	struct fuse_inode *fi = get_fuse_inode(inode);
++	BUG_ON(!list_empty(&fi->write_files));
++	BUG_ON(!list_empty(&fi->queued_writes));
+ 	if (fi->forget_req)
+ 		fuse_request_free(fi->forget_req);
+ 	kmem_cache_free(fuse_inode_cachep, inode);
+ }
+ 
+-static void fuse_read_inode(struct inode *inode)
+-{
+-	/* No op */
+-}
+-
+ void fuse_send_forget(struct fuse_conn *fc, struct fuse_req *req,
+-		      unsigned long nodeid, u64 nlookup)
++		      u64 nodeid, u64 nlookup)
+ {
+ 	struct fuse_forget_in *inarg = &req->misc.forget_in;
+ 	inarg->nlookup = nlookup;
+@@ -109,20 +115,28 @@ static int fuse_remount_fs(struct super_
+ 	return 0;
+ }
+ 
+-void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr)
++void fuse_truncate(struct address_space *mapping, loff_t offset)
++{
++	/* See vmtruncate() */
++	unmap_mapping_range(mapping, offset + PAGE_SIZE - 1, 0, 1);
++	truncate_inode_pages(mapping, offset);
++	unmap_mapping_range(mapping, offset + PAGE_SIZE - 1, 0, 1);
++}
++
++void fuse_change_attributes_common(struct inode *inode, struct fuse_attr *attr,
++				   u64 attr_valid)
+ {
+ 	struct fuse_conn *fc = get_fuse_conn(inode);
+-	if (S_ISREG(inode->i_mode) && i_size_read(inode) != attr->size)
+-		invalidate_mapping_pages(inode->i_mapping, 0, -1);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++
++	fi->attr_version = ++fc->attr_version;
++	fi->i_time = attr_valid;
+ 
+ 	inode->i_ino     = attr->ino;
+-	inode->i_mode    = (inode->i_mode & S_IFMT) + (attr->mode & 07777);
++	inode->i_mode    = (inode->i_mode & S_IFMT) | (attr->mode & 07777);
+ 	inode->i_nlink   = attr->nlink;
+ 	inode->i_uid     = attr->uid;
+ 	inode->i_gid     = attr->gid;
+-	spin_lock(&fc->lock);
+-	i_size_write(inode, attr->size);
+-	spin_unlock(&fc->lock);
+ 	inode->i_blocks  = attr->blocks;
+ 	inode->i_atime.tv_sec   = attr->atime;
+ 	inode->i_atime.tv_nsec  = attr->atimensec;
+@@ -130,6 +144,46 @@ void fuse_change_attributes(struct inode
+ 	inode->i_mtime.tv_nsec  = attr->mtimensec;
+ 	inode->i_ctime.tv_sec   = attr->ctime;
+ 	inode->i_ctime.tv_nsec  = attr->ctimensec;
++
++	if (attr->blksize != 0)
++		inode->i_blkbits = ilog2(attr->blksize);
++	else
++		inode->i_blkbits = inode->i_sb->s_blocksize_bits;
++
++	/*
++	 * Don't set the sticky bit in i_mode, unless we want the VFS
++	 * to check permissions.  This prevents failures due to the
++	 * check in may_delete().
++	 */
++	fi->orig_i_mode = inode->i_mode;
++	if (!(fc->flags & FUSE_DEFAULT_PERMISSIONS))
++		inode->i_mode &= ~S_ISVTX;
++}
++
++void fuse_change_attributes(struct inode *inode, struct fuse_attr *attr,
++			    u64 attr_valid, u64 attr_version)
++{
++	struct fuse_conn *fc = get_fuse_conn(inode);
++	struct fuse_inode *fi = get_fuse_inode(inode);
++	loff_t oldsize;
++
++	spin_lock(&fc->lock);
++	if (attr_version != 0 && fi->attr_version > attr_version) {
++		spin_unlock(&fc->lock);
++		return;
++	}
++
++	fuse_change_attributes_common(inode, attr, attr_valid);
++
++	oldsize = inode->i_size;
++	i_size_write(inode, attr->size);
++	spin_unlock(&fc->lock);
++
++	if (S_ISREG(inode->i_mode) && oldsize != attr->size) {
++		if (attr->size < oldsize)
++			fuse_truncate(inode->i_mapping, attr->size);
++		invalidate_inode_pages2(inode->i_mapping);
++	}
+ }
+ 
+ static void fuse_init_inode(struct inode *inode, struct fuse_attr *attr)
+@@ -154,7 +208,7 @@ static void fuse_init_inode(struct inode
+ 
+ static int fuse_inode_eq(struct inode *inode, void *_nodeidp)
+ {
+-	unsigned long nodeid = *(unsigned long *) _nodeidp;
++	u64 nodeid = *(u64 *) _nodeidp;
+ 	if (get_node_id(inode) == nodeid)
+ 		return 1;
+ 	else
+@@ -163,13 +217,14 @@ static int fuse_inode_eq(struct inode *i
+ 
+ static int fuse_inode_set(struct inode *inode, void *_nodeidp)
+ {
+-	unsigned long nodeid = *(unsigned long *) _nodeidp;
++	u64 nodeid = *(u64 *) _nodeidp;
+ 	get_fuse_inode(inode)->nodeid = nodeid;
+ 	return 0;
+ }
+ 
+-struct inode *fuse_iget(struct super_block *sb, unsigned long nodeid,
+-			int generation, struct fuse_attr *attr)
++struct inode *fuse_iget(struct super_block *sb, u64 nodeid,
++			int generation, struct fuse_attr *attr,
++			u64 attr_valid, u64 attr_version)
+ {
+ 	struct inode *inode;
+ 	struct fuse_inode *fi;
+@@ -197,7 +252,8 @@ struct inode *fuse_iget(struct super_blo
+ 	spin_lock(&fc->lock);
+ 	fi->nlookup ++;
+ 	spin_unlock(&fc->lock);
+-	fuse_change_attributes(inode, attr);
++	fuse_change_attributes(inode, attr, attr_valid, attr_version);
++
+ 	return inode;
+ }
+ 
+@@ -232,10 +288,12 @@ static void fuse_put_super(struct super_
+ 	kill_fasync(&fc->fasync, SIGIO, POLL_IN);
+ 	wake_up_all(&fc->waitq);
+ 	wake_up_all(&fc->blocked_waitq);
++	wake_up_all(&fc->reserved_req_waitq);
+ 	mutex_lock(&fuse_mutex);
+ 	list_del(&fc->entry);
+ 	fuse_ctl_remove_conn(fc);
+ 	mutex_unlock(&fuse_mutex);
++	bdi_destroy(&fc->bdi);
+ 	fuse_conn_put(fc);
+ }
+ 
+@@ -261,6 +319,11 @@ static int fuse_statfs(struct dentry *de
+ 	struct fuse_statfs_out outarg;
+ 	int err;
+ 
++	if (!fuse_allow_task(fc, current)) {
++		buf->f_type = FUSE_SUPER_MAGIC;
++		return 0;
++	}
++
+ 	req = fuse_get_req(fc);
+ 	if (IS_ERR(req))
+ 		return PTR_ERR(req);
+@@ -310,7 +373,7 @@ static int parse_fuse_opt(char *opt, str
+ 	char *p;
+ 	memset(d, 0, sizeof(struct fuse_mount_data));
+ 	d->max_read = ~0;
+-	d->blksize = 512;
++	d->blksize = FUSE_DEFAULT_BLKSIZE;
+ 
+ 	while ((p = strsep(&opt, ",")) != NULL) {
+ 		int token;
+@@ -395,6 +458,9 @@ static int fuse_show_options(struct seq_
+ 		seq_puts(m, ",allow_other");
+ 	if (fc->max_read != ~0)
+ 		seq_printf(m, ",max_read=%u", fc->max_read);
++	if (mnt->mnt_sb->s_bdev &&
++	    mnt->mnt_sb->s_blocksize != FUSE_DEFAULT_BLKSIZE)
++		seq_printf(m, ",blksize=%lu", mnt->mnt_sb->s_blocksize);
+ 	return 0;
+ }
+ 
+@@ -410,13 +476,17 @@ static struct fuse_conn *new_conn(void)
+ 		atomic_set(&fc->count, 1);
+ 		init_waitqueue_head(&fc->waitq);
+ 		init_waitqueue_head(&fc->blocked_waitq);
++		init_waitqueue_head(&fc->reserved_req_waitq);
+ 		INIT_LIST_HEAD(&fc->pending);
+ 		INIT_LIST_HEAD(&fc->processing);
+ 		INIT_LIST_HEAD(&fc->io);
+ 		INIT_LIST_HEAD(&fc->interrupts);
++		INIT_LIST_HEAD(&fc->bg_queue);
+ 		atomic_set(&fc->num_waiting, 0);
+ 		fc->bdi.ra_pages = (VM_MAX_READAHEAD * 1024) / PAGE_CACHE_SIZE;
+ 		fc->bdi.unplug_io_fn = default_unplug_io_fn;
++		/* fuse does it's own writeback accounting */
++		fc->bdi.capabilities = BDI_CAP_NO_ACCT_WB;
+ 		err = bdi_init(&fc->bdi);
+ 		if (err) {
+ 			kfree(fc);
+@@ -425,6 +495,7 @@ static struct fuse_conn *new_conn(void)
+ 		}
+ 		fc->reqctr = 0;
+ 		fc->blocked = 1;
++		fc->attr_version = 1;
+ 		get_random_bytes(&fc->scramble_key, sizeof(fc->scramble_key));
+ 	}
+ out:
+@@ -437,7 +508,6 @@ void fuse_conn_put(struct fuse_conn *fc)
+ 		if (fc->destroy_req)
+ 			fuse_request_free(fc->destroy_req);
+ 		mutex_destroy(&fc->inst_mutex);
+-		bdi_destroy(&fc->bdi);
+ 		kfree(fc);
+ 	}
+ }
+@@ -455,13 +525,181 @@ static struct inode *get_root_inode(stru
+ 
+ 	attr.mode = mode;
+ 	attr.ino = FUSE_ROOT_ID;
+-	return fuse_iget(sb, 1, 0, &attr);
++	attr.nlink = 1;
++	return fuse_iget(sb, 1, 0, &attr, 0, 0);
++}
++
++struct fuse_inode_handle
++{
++	u64 nodeid;
++	u32 generation;
++};
++
++static struct dentry *fuse_get_dentry(struct super_block *sb,
++				      struct fuse_inode_handle *handle)
++{
++	struct fuse_conn *fc = get_fuse_conn_super(sb);
++	struct inode *inode;
++	struct dentry *entry;
++	int err = -ESTALE;
++
++	if (handle->nodeid == 0)
++		goto out_err;
++
++	inode = ilookup5(sb, handle->nodeid, fuse_inode_eq, &handle->nodeid);
++	if (!inode) {
++		struct fuse_entry_out outarg;
++		struct qstr name;
++
++		if (!fc->export_support)
++			goto out_err;
++
++		name.len = 1;
++		name.name = ".";
++		err = fuse_lookup_name(sb, handle->nodeid, &name, &outarg,
++				       &inode);
++		if (err && err != -ENOENT)
++			goto out_err;
++		if (err || !inode) {
++			err = -ESTALE;
++			goto out_err;
++		}
++		err = -EIO;
++		if (get_node_id(inode) != handle->nodeid)
++			goto out_iput;
++	}
++	err = -ESTALE;
++	if (inode->i_generation != handle->generation)
++		goto out_iput;
++
++	entry = d_alloc_anon(inode);
++	err = -ENOMEM;
++	if (!entry)
++		goto out_iput;
++
++	if (get_node_id(inode) != FUSE_ROOT_ID) {
++		entry->d_op = &fuse_dentry_operations;
++		fuse_invalidate_entry_cache(entry);
++	}
++
++	return entry;
++
++ out_iput:
++	iput(inode);
++ out_err:
++	return ERR_PTR(err);
++}
++
++static int fuse_encode_fh(struct dentry *dentry, u32 *fh, int *max_len,
++			   int connectable)
++{
++	struct inode *inode = dentry->d_inode;
++	bool encode_parent = connectable && !S_ISDIR(inode->i_mode);
++	int len = encode_parent ? 6 : 3;
++	u64 nodeid;
++	u32 generation;
++
++	if (*max_len < len)
++		return  255;
++
++	nodeid = get_fuse_inode(inode)->nodeid;
++	generation = inode->i_generation;
++
++	fh[0] = (u32)(nodeid >> 32);
++	fh[1] = (u32)(nodeid & 0xffffffff);
++	fh[2] = generation;
++
++	if (encode_parent) {
++		struct inode *parent;
++
++		spin_lock(&dentry->d_lock);
++		parent = dentry->d_parent->d_inode;
++		nodeid = get_fuse_inode(parent)->nodeid;
++		generation = parent->i_generation;
++		spin_unlock(&dentry->d_lock);
++
++		fh[3] = (u32)(nodeid >> 32);
++		fh[4] = (u32)(nodeid & 0xffffffff);
++		fh[5] = generation;
++	}
++
++	*max_len = len;
++	return encode_parent ? 0x82 : 0x81;
++}
++
++static struct dentry *fuse_fh_to_dentry(struct super_block *sb,
++		struct fid *fid, int fh_len, int fh_type)
++{
++	struct fuse_inode_handle handle;
++
++	if ((fh_type != 0x81 && fh_type != 0x82) || fh_len < 3)
++		return NULL;
++
++	handle.nodeid = (u64) fid->raw[0] << 32;
++	handle.nodeid |= (u64) fid->raw[1];
++	handle.generation = fid->raw[2];
++	return fuse_get_dentry(sb, &handle);
+ }
+ 
++static struct dentry *fuse_fh_to_parent(struct super_block *sb,
++		struct fid *fid, int fh_len, int fh_type)
++{
++	struct fuse_inode_handle parent;
++
++	if (fh_type != 0x82 || fh_len < 6)
++		return NULL;
++
++	parent.nodeid = (u64) fid->raw[3] << 32;
++	parent.nodeid |= (u64) fid->raw[4];
++	parent.generation = fid->raw[5];
++	return fuse_get_dentry(sb, &parent);
++}
++
++static struct dentry *fuse_get_parent(struct dentry *child)
++{
++	struct inode *child_inode = child->d_inode;
++	struct fuse_conn *fc = get_fuse_conn(child_inode);
++	struct inode *inode;
++	struct dentry *parent;
++	struct fuse_entry_out outarg;
++	struct qstr name;
++	int err;
++
++	if (!fc->export_support)
++		return ERR_PTR(-ESTALE);
++
++	name.len = 2;
++	name.name = "..";
++	err = fuse_lookup_name(child_inode->i_sb, get_node_id(child_inode),
++			       &name, &outarg, &inode);
++	if (err && err != -ENOENT)
++		return ERR_PTR(err);
++	if (err || !inode)
++		return ERR_PTR(-ESTALE);
++
++	parent = d_alloc_anon(inode);
++	if (!parent) {
++		iput(inode);
++		return ERR_PTR(-ENOMEM);
++	}
++	if (get_node_id(inode) != FUSE_ROOT_ID) {
++		parent->d_op = &fuse_dentry_operations;
++		fuse_invalidate_entry_cache(parent);
++	}
++
++	return parent;
++}
++
++static const struct export_operations fuse_export_operations = {
++	.fh_to_dentry	= fuse_fh_to_dentry,
++	.fh_to_parent	= fuse_fh_to_parent,
++	.encode_fh	= fuse_encode_fh,
++	.get_parent	= fuse_get_parent,
++};
++
+ static const struct super_operations fuse_super_operations = {
+ 	.alloc_inode    = fuse_alloc_inode,
+ 	.destroy_inode  = fuse_destroy_inode,
+-	.read_inode	= fuse_read_inode,
+ 	.clear_inode	= fuse_clear_inode,
+ 	.drop_inode	= generic_delete_inode,
+ 	.remount_fs	= fuse_remount_fs,
+@@ -486,6 +724,15 @@ static void process_init_reply(struct fu
+ 				fc->async_read = 1;
+ 			if (!(arg->flags & FUSE_POSIX_LOCKS))
+ 				fc->no_lock = 1;
++			if (arg->flags & FUSE_ATOMIC_O_TRUNC)
++				fc->atomic_o_trunc = 1;
++			if (arg->minor >= 9) {
++				/* LOOKUP has dependency on proto version */
++				if (arg->flags & FUSE_EXPORT_SUPPORT)
++					fc->export_support = 1;
++			}
++			if (arg->flags & FUSE_BIG_WRITES)
++				fc->big_writes = 1;
+ 		} else {
+ 			ra_pages = fc->max_read / PAGE_CACHE_SIZE;
+ 			fc->no_lock = 1;
+@@ -494,9 +741,9 @@ static void process_init_reply(struct fu
+ 		fc->bdi.ra_pages = min(fc->bdi.ra_pages, ra_pages);
+ 		fc->minor = arg->minor;
+ 		fc->max_write = arg->minor < 5 ? 4096 : arg->max_write;
++		fc->max_write = max_t(unsigned, 4096, fc->max_write);
+ 		fc->conn_init = 1;
+ 	}
+-	fuse_put_request(fc, req);
+ 	fc->blocked = 0;
+ 	wake_up_all(&fc->blocked_waitq);
+ }
+@@ -508,7 +755,8 @@ static void fuse_send_init(struct fuse_c
+ 	arg->major = FUSE_KERNEL_VERSION;
+ 	arg->minor = FUSE_KERNEL_MINOR_VERSION;
+ 	arg->max_readahead = fc->bdi.ra_pages * PAGE_CACHE_SIZE;
+-	arg->flags |= FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
++	arg->flags |= FUSE_ASYNC_READ | FUSE_POSIX_LOCKS | FUSE_ATOMIC_O_TRUNC |
++		FUSE_EXPORT_SUPPORT | FUSE_BIG_WRITES;
+ 	req->in.h.opcode = FUSE_INIT;
+ 	req->in.numargs = 1;
+ 	req->in.args[0].size = sizeof(*arg);
+@@ -559,22 +807,27 @@ static int fuse_fill_super(struct super_
+ 	sb->s_magic = FUSE_SUPER_MAGIC;
+ 	sb->s_op = &fuse_super_operations;
+ 	sb->s_maxbytes = MAX_LFS_FILESIZE;
++	sb->s_export_op = &fuse_export_operations;
+ 
+ 	file = fget(d.fd);
+ 	if (!file)
+ 		return -EINVAL;
+ 
+-	if (file->f_op != &fuse_dev_operations)
++	if (file->f_op != &fuse_dev_operations) {
++		fput(file);
+ 		return -EINVAL;
++	}
+ 
+ 	fc = new_conn();
+-	if (!fc)
++	if (!fc) {
++		fput(file);
+ 		return -ENOMEM;
++	}
+ 
+ 	fc->flags = d.flags;
+ 	fc->user_id = d.user_id;
+ 	fc->group_id = d.group_id;
+-	fc->max_read = d.max_read;
++	fc->max_read = max_t(unsigned, 4096, d.max_read);
+ 
+ 	/* Used by get_root_inode() */
+ 	sb->s_fs_info = fc;
+@@ -597,7 +850,7 @@ static int fuse_fill_super(struct super_
+ 	if (is_bdev) {
+ 		fc->destroy_req = fuse_request_alloc();
+ 		if (!fc->destroy_req)
+-			goto err_put_root;
++			goto err_free_init_req;
+ 	}
+ 
+ 	mutex_lock(&fuse_mutex);
+@@ -628,6 +881,7 @@ static int fuse_fill_super(struct super_
+ 
+  err_unlock:
+ 	mutex_unlock(&fuse_mutex);
++ err_free_init_req:
+ 	fuse_request_free(init_req);
+  err_put_root:
+ 	dput(root_dentry);
+@@ -769,11 +1023,7 @@ static int __init fuse_init(void)
+ {
+ 	int res;
+ 
+-	printk("fuse init (API version %i.%i)"
+-#ifdef DCACHE_BUG
+-		" DCACHE_BUG enabled"
+-#endif
+-		"\n",
++	printk("fuse init (API version %i.%i)\n",
+ 	       FUSE_KERNEL_VERSION, FUSE_KERNEL_MINOR_VERSION);
+ 
+ 	INIT_LIST_HEAD(&fuse_conn_list);
+diff --git a/include/linux/fuse.h b/include/linux/fuse.h
+--- a/include/linux/fuse.h
++++ b/include/linux/fuse.h
+@@ -6,7 +6,18 @@
+     See the file COPYING.
+ */
+ 
+-/* This file defines the kernel interface of FUSE */
++/*
++ * This file defines the kernel interface of FUSE
++ *
++ * Protocol changelog:
++ *
++ * 7.9:
++ *  - new fuse_getattr_in input argument of GETATTR
++ *  - add lk_flags in fuse_lk_in
++ *  - add lock_owner field to fuse_setattr_in, fuse_read_in and fuse_write_in
++ *  - add blksize field to fuse_attr
++ *  - add file flags field to fuse_read_in and fuse_write_in
++ */
+ 
+ #include <asm/types.h>
+ #include <linux/major.h>
+@@ -15,7 +26,7 @@
+ #define FUSE_KERNEL_VERSION 7
+ 
+ /** Minor version number of this interface */
+-#define FUSE_KERNEL_MINOR_VERSION 8
++#define FUSE_KERNEL_MINOR_VERSION 9
+ 
+ /** The node ID of the root inode */
+ #define FUSE_ROOT_ID 1
+@@ -44,6 +55,8 @@ struct fuse_attr {
+ 	__u32	uid;
+ 	__u32	gid;
+ 	__u32	rdev;
++	__u32	blksize;
++	__u32	padding;
+ };
+ 
+ struct fuse_kstatfs {
+@@ -76,6 +89,9 @@ struct fuse_file_lock {
+ #define FATTR_ATIME	(1 << 4)
+ #define FATTR_MTIME	(1 << 5)
+ #define FATTR_FH	(1 << 6)
++#define FATTR_ATIME_NOW	(1 << 7)
++#define FATTR_MTIME_NOW	(1 << 8)
++#define FATTR_LOCKOWNER	(1 << 9)
+ 
+ /**
+  * Flags returned by the OPEN request
+@@ -88,15 +104,45 @@ struct fuse_file_lock {
+ 
+ /**
+  * INIT request/reply flags
++ *
++ * FUSE_EXPORT_SUPPORT: filesystem handles lookups of "." and ".."
+  */
+ #define FUSE_ASYNC_READ		(1 << 0)
+ #define FUSE_POSIX_LOCKS	(1 << 1)
++#define FUSE_FILE_OPS		(1 << 2)
++#define FUSE_ATOMIC_O_TRUNC	(1 << 3)
++#define FUSE_EXPORT_SUPPORT	(1 << 4)
++#define FUSE_BIG_WRITES		(1 << 5)
+ 
+ /**
+  * Release flags
+  */
+ #define FUSE_RELEASE_FLUSH	(1 << 0)
+ 
++/**
++ * Getattr flags
++ */
++#define FUSE_GETATTR_FH		(1 << 0)
++
++/**
++ * Lock flags
++ */
++#define FUSE_LK_FLOCK		(1 << 0)
++
++/**
++ * WRITE flags
++ *
++ * FUSE_WRITE_CACHE: delayed write from page cache, file handle is guessed
++ * FUSE_WRITE_LOCKOWNER: lock_owner field is valid
++ */
++#define FUSE_WRITE_CACHE	(1 << 0)
++#define FUSE_WRITE_LOCKOWNER	(1 << 1)
++
++/**
++ * Read flags
++ */
++#define FUSE_READ_LOCKOWNER	(1 << 1)
++
+ enum fuse_opcode {
+ 	FUSE_LOOKUP	   = 1,
+ 	FUSE_FORGET	   = 2,  /* no reply */
+@@ -139,6 +185,8 @@ enum fuse_opcode {
+ /* The read buffer is required to be at least 8k, but may be much larger */
+ #define FUSE_MIN_READ_BUFFER 8192
+ 
++#define FUSE_COMPAT_ENTRY_OUT_SIZE 120
++
+ struct fuse_entry_out {
+ 	__u64	nodeid;		/* Inode ID */
+ 	__u64	generation;	/* Inode generation: nodeid:gen must
+@@ -154,6 +202,14 @@ struct fuse_forget_in {
+ 	__u64	nlookup;
+ };
+ 
++struct fuse_getattr_in {
++	__u32	getattr_flags;
++	__u32	dummy;
++	__u64	fh;
++};
++
++#define FUSE_COMPAT_ATTR_OUT_SIZE 96
++
+ struct fuse_attr_out {
+ 	__u64	attr_valid;	/* Cache timeout for the attributes */
+ 	__u32	attr_valid_nsec;
+@@ -184,7 +240,7 @@ struct fuse_setattr_in {
+ 	__u32	padding;
+ 	__u64	fh;
+ 	__u64	size;
+-	__u64	unused1;
++	__u64	lock_owner;
+ 	__u64	atime;
+ 	__u64	mtime;
+ 	__u64	unused2;
+@@ -227,14 +283,22 @@ struct fuse_read_in {
+ 	__u64	fh;
+ 	__u64	offset;
+ 	__u32	size;
++	__u32	read_flags;
++	__u64	lock_owner;
++	__u32	flags;
+ 	__u32	padding;
+ };
+ 
++#define FUSE_COMPAT_WRITE_IN_SIZE 24
++
+ struct fuse_write_in {
+ 	__u64	fh;
+ 	__u64	offset;
+ 	__u32	size;
+ 	__u32	write_flags;
++	__u64	lock_owner;
++	__u32	flags;
++	__u32	padding;
+ };
+ 
+ struct fuse_write_out {
+@@ -273,6 +337,8 @@ struct fuse_lk_in {
+ 	__u64	fh;
+ 	__u64	owner;
+ 	struct fuse_file_lock lk;
++	__u32	lk_flags;
++	__u32	padding;
+ };
+ 
+ struct fuse_lk_out {
+@@ -339,7 +405,7 @@ struct fuse_dirent {
+ 	char name[0];
+ };
+ 
+-#define FUSE_NAME_OFFSET ((unsigned) ((struct fuse_dirent *) 0)->name)
++#define FUSE_NAME_OFFSET offsetof(struct fuse_dirent, name)
+ #define FUSE_DIRENT_ALIGN(x) (((x) + sizeof(__u64) - 1) & ~(sizeof(__u64) - 1))
+ #define FUSE_DIRENT_SIZE(d) \
+ 	FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (d)->namelen)
+-- 

@@ -1,0 +1,133 @@
+From 9d410c796067686b1e032d54ce475b7055537138
+From: Eric Dumazet
+Date: Fri, 30 Oct 2009 05:03:53 +0000
+Subject: [PATCH] net: fix sk_forward_alloc corruption
+
+On UDP sockets, we must call skb_free_datagram() with socket locked,
+or risk sk_forward_alloc corruption. This requirement is not respected
+in SUNRPC.
+
+Add a convenient helper, skb_free_datagram_locked() and use it in SUNRPC
+
+Reported-by: Francis Moreau <francis.moro@gmail.com>
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/linux/skbuff.h |    2 ++
+ net/core/datagram.c    |   10 +++++++++-
+ net/ipv4/udp.c         |    4 +---
+ net/ipv6/udp.c         |    4 +---
+ net/sunrpc/svcsock.c   |   10 +++++-----
+ 5 files changed, 18 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 6aebfce..bcdd660 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1757,6 +1757,8 @@ extern int	       skb_copy_datagram_const_iovec(const struct sk_buff *from,
+ 						     int to_offset,
+ 						     int size);
+ extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
++extern void	       skb_free_datagram_locked(struct sock *sk,
++						struct sk_buff *skb);
+ extern void	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
+ 					 unsigned int flags);
+ extern __wsum	       skb_checksum(const struct sk_buff *skb, int offset,
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 1c6cf3a..4ade301 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -224,6 +224,15 @@ void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
+ 	consume_skb(skb);
+ 	sk_mem_reclaim_partial(sk);
+ }
++EXPORT_SYMBOL(skb_free_datagram);
++
++void skb_free_datagram_locked(struct sock *sk, struct sk_buff *skb)
++{
++	lock_sock(sk);
++	skb_free_datagram(sk, skb);
++	release_sock(sk);
++}
++EXPORT_SYMBOL(skb_free_datagram_locked);
+ 
+ /**
+  *	skb_kill_datagram - Free a datagram skbuff forcibly
+@@ -752,5 +761,4 @@ unsigned int datagram_poll(struct file *file, struct socket *sock,
+ EXPORT_SYMBOL(datagram_poll);
+ EXPORT_SYMBOL(skb_copy_and_csum_datagram_iovec);
+ EXPORT_SYMBOL(skb_copy_datagram_iovec);
+-EXPORT_SYMBOL(skb_free_datagram);
+ EXPORT_SYMBOL(skb_recv_datagram);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d0d436d..0fa9f70 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -999,7 +999,7 @@ try_again:
+ 		err = ulen;
+ 
+ out_free:
+-	skb_free_datagram(sk, skb);
++	skb_free_datagram_locked(sk, skb);
+ out:
+ 	return err;
+ 
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index 3a60f12..cf538ed 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -288,7 +288,7 @@ try_again:
+ 		err = ulen;
+ 
+ out_free:
+-	skb_free_datagram(sk, skb);
++	skb_free_datagram_locked(sk, skb);
+ out:
+ 	return err;
+ 
+diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
+index ccc5e83..1c246a4 100644
+--- a/net/sunrpc/svcsock.c
++++ b/net/sunrpc/svcsock.c
+@@ -111,7 +111,7 @@ static void svc_release_skb(struct svc_rqst *rqstp)
+ 		rqstp->rq_xprt_ctxt = NULL;
+ 
+ 		dprintk("svc: service %p, releasing skb %p\n", rqstp, skb);
+-		skb_free_datagram(rqstp->rq_sock->sk_sk, skb);
++		skb_free_datagram_locked(rqstp->rq_sock->sk_sk, skb);
+ 	}
+ }
+ 
+@@ -578,7 +578,7 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
+ 				"svc: received unknown control message %d/%d; "
+ 				"dropping RPC reply datagram\n",
+ 			       cmh->cmsg_level, cmh->cmsg_type);
+-		skb_free_datagram(svsk->sk_sk, skb);
++		skb_free_datagram_locked(svsk->sk_sk, skb);
+ 		return 0;
+ 	}
+ 
+@@ -588,17 +588,17 @@ static int svc_udp_recvfrom(struct svc_rqst *rqstp)
+ 		if (csum_partial_copy_to_xdr(&rqstp->rq_arg, skb)) {
+ 			local_bh_enable();
+ 			/* checksum error */
+-			skb_free_datagram(svsk->sk_sk, skb);
++			skb_free_datagram_locked(svsk->sk_sk, skb);
+ 			return 0;
+ 		}
+ 		local_bh_enable();
+-		skb_free_datagram(svsk->sk_sk, skb);
++		skb_free_datagram_locked(svsk->sk_sk, skb);
+ 	} else {
+ 		/* we can use it in-place */
+ 		rqstp->rq_arg.head[0].iov_base = skb->data + sizeof(struct udphdr);
+ 		rqstp->rq_arg.head[0].iov_len = len;
+ 		if (skb_checksum_complete(skb)) {
+-			skb_free_datagram(svsk->sk_sk, skb);
++			skb_free_datagram_locked(svsk->sk_sk, skb);
+ 			return 0;
+ 		}
+ 		rqstp->rq_skbuff = skb;
+-- 
+1.7.4.1

@@ -1,0 +1,310 @@
+From b05e6b508a52541b42bc0c296e2973b6f1bfb3e3
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sat, 9 Jan 2010 19:44:12 -0500
+Subject: [PATCH] O_CLOEXEC file descriptor flag backport
+
+---
+ fs/fcntl.c                  |   12 +++++---
+ fs/open.c                   |   14 +++++++--
+ include/asm-alpha/fcntl.h   |    1 +
+ include/asm-generic/fcntl.h |    3 ++
+ include/asm-parisc/fcntl.h  |   29 ++++++++++---------
+ include/asm-sparc/fcntl.h   |    2 +-
+ include/asm-sparc64/fcntl.h |    2 +-
+ include/linux/fcntl.h       |   15 +++++++---
+ include/linux/file.h        |    1 +
+ include/linux/socket.h      |    3 ++
+ net/compat.c                |    3 +-
+ net/core/scm.c              |    3 +-
+ net/socket.c                |    4 +--
+ 13 files changed, 59 insertions(+), 33 deletions(-)
+
+diff --git a/fs/fcntl.c b/fs/fcntl.c
+index 0dd0b36..7b426e6 100644
+--- a/fs/fcntl.c
++++ b/fs/fcntl.c
+@@ -110,7 +110,7 @@ out:
+ 	return error;
+ }
+ 
+-static int dupfd(struct file *file, unsigned int start)
++static int dupfd(struct file *file, unsigned int start, int cloexec)
+ {
+ 	struct files_struct * files = current->files;
+ 	struct fdtable *fdt;
+@@ -122,7 +122,10 @@ static int dupfd(struct file *file, unsigned int start)
+ 		/* locate_fd() may have expanded fdtable, load the ptr */
+ 		fdt = files_fdtable(files);
+ 		FD_SET(fd, fdt->open_fds);
+-		FD_CLR(fd, fdt->close_on_exec);
++		if (cloexec)
++			FD_SET(fd, fdt->close_on_exec);
++		else
++			FD_CLR(fd, fdt->close_on_exec);
+ 		spin_unlock(&files->file_lock);
+ 		fd_install(fd, file);
+ 	} else {
+@@ -195,7 +198,7 @@ asmlinkage long sys_dup(unsigned int fildes)
+ 	struct file * file = fget(fildes);
+ 
+ 	if (file)
+-		ret = dupfd(file, 0);
++		ret = dupfd(file, 0, 0);
+ 	return ret;
+ }
+ 
+@@ -325,8 +328,9 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
+ 
+ 	switch (cmd) {
+ 	case F_DUPFD:
++	case F_DUPFD_CLOEXEC:
+ 		get_file(filp);
+-		err = dupfd(filp, arg);
++		err = dupfd(filp, arg, cmd == F_DUPFD_CLOEXEC);
+ 		break;
+ 	case F_GETFD:
+ 		err = get_close_on_exec(fd) ? FD_CLOEXEC : 0;
+diff --git a/fs/open.c b/fs/open.c
+index 0d515d1..be6a457 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -855,7 +855,7 @@ EXPORT_SYMBOL(dentry_open);
+ /*
+  * Find an empty file descriptor entry, and mark it busy.
+  */
+-int get_unused_fd(void)
++int get_unused_fd_flags(int flags)
+ {
+ 	struct files_struct * files = current->files;
+ 	int fd, error;
+@@ -891,7 +891,10 @@ repeat:
+ 	}
+ 
+ 	FD_SET(fd, fdt->open_fds);
+-	FD_CLR(fd, fdt->close_on_exec);
++	if (flags & O_CLOEXEC)
++		FD_SET(fd, fdt->close_on_exec);
++	else
++		FD_CLR(fd, fdt->close_on_exec);
+ 	files->next_fd = fd + 1;
+ #if 1
+ 	/* Sanity check */
+@@ -907,6 +910,11 @@ out:
+ 	return error;
+ }
+ 
++int get_unused_fd(void)
++{
++	return get_unused_fd_flags(0);
++}
++
+ EXPORT_SYMBOL(get_unused_fd);
+ 
+ static void __put_unused_fd(struct files_struct *files, unsigned int fd)
+@@ -959,7 +967,7 @@ long do_sys_open(int dfd, const char __user *filename, int flags, int mode)
+ 	int fd = PTR_ERR(tmp);
+ 
+ 	if (!IS_ERR(tmp)) {
+-		fd = get_unused_fd();
++		fd = get_unused_fd_flags(flags);
+ 		if (fd >= 0) {
+ 			struct file *f = do_filp_open(dfd, tmp, flags, mode);
+ 			if (IS_ERR(f)) {
+diff --git a/include/asm-alpha/fcntl.h b/include/asm-alpha/fcntl.h
+index 87f2cf4..25da001 100644
+--- a/include/asm-alpha/fcntl.h
++++ b/include/asm-alpha/fcntl.h
+@@ -16,6 +16,7 @@
+ #define O_LARGEFILE	0400000 /* will be set by the kernel on every open */
+ #define O_DIRECT	02000000 /* direct disk access - should check with OSF/1 */
+ #define O_NOATIME	04000000
++#define O_CLOEXEC	010000000 /* set close_on_exec */
+ 
+ #define F_GETLK		7
+ #define F_SETLK		8
+diff --git a/include/asm-generic/fcntl.h b/include/asm-generic/fcntl.h
+index c154b9d..b847741 100644
+--- a/include/asm-generic/fcntl.h
++++ b/include/asm-generic/fcntl.h
+@@ -48,6 +48,9 @@
+ #ifndef O_NOATIME
+ #define O_NOATIME	01000000
+ #endif
++#ifndef O_CLOEXEC
++#define O_CLOEXEC	02000000	/* set close_on_exec */
++#endif
+ #ifndef O_NDELAY
+ #define O_NDELAY	O_NONBLOCK
+ #endif
+diff --git a/include/asm-parisc/fcntl.h b/include/asm-parisc/fcntl.h
+index 317851f..1e1c824 100644
+--- a/include/asm-parisc/fcntl.h
++++ b/include/asm-parisc/fcntl.h
+@@ -3,21 +3,22 @@
+ 
+ /* open/fcntl - O_SYNC is only implemented on blocks devices and on files
+    located on an ext2 file system */
+-#define O_APPEND	00000010
+-#define O_BLKSEEK	00000100 /* HPUX only */
+-#define O_CREAT		00000400 /* not fcntl */
+-#define O_EXCL		00002000 /* not fcntl */
+-#define O_LARGEFILE	00004000
+-#define O_SYNC		00100000
+-#define O_NONBLOCK	00200004 /* HPUX has separate NDELAY & NONBLOCK */
+-#define O_NOCTTY	00400000 /* not fcntl */
+-#define O_DSYNC		01000000 /* HPUX only */
+-#define O_RSYNC		02000000 /* HPUX only */
+-#define O_NOATIME	04000000
++#define O_APPEND	000000010
++#define O_BLKSEEK	000000100 /* HPUX only */
++#define O_CREAT		000000400 /* not fcntl */
++#define O_EXCL		000002000 /* not fcntl */
++#define O_LARGEFILE	000004000
++#define O_SYNC		000100000
++#define O_NONBLOCK	000200004 /* HPUX has separate NDELAY & NONBLOCK */
++#define O_NOCTTY	000400000 /* not fcntl */
++#define O_DSYNC		001000000 /* HPUX only */
++#define O_RSYNC		002000000 /* HPUX only */
++#define O_NOATIME	004000000
++#define O_CLOEXEC	010000000 /* set close_on_exec */
+ 
+-#define O_DIRECTORY	00010000 /* must be a directory */
+-#define O_NOFOLLOW	00000200 /* don't follow links */
+-#define O_INVISIBLE	04000000 /* invisible I/O, for DMAPI/XDSM */
++#define O_DIRECTORY	000010000 /* must be a directory */
++#define O_NOFOLLOW	000000200 /* don't follow links */
++#define O_INVISIBLE	004000000 /* invisible I/O, for DMAPI/XDSM */
+ 
+ #define F_GETLK64	8
+ #define F_SETLK64	9
+diff --git a/include/asm-sparc/fcntl.h b/include/asm-sparc/fcntl.h
+index 5db60b5..7bbdfc7 100644
+--- a/include/asm-sparc/fcntl.h
++++ b/include/asm-sparc/fcntl.h
+@@ -16,6 +16,7 @@
+ #define O_LARGEFILE	0x40000
+ #define O_DIRECT        0x100000 /* direct disk access hint */
+ #define O_NOATIME	0x200000
++#define O_CLOEXEC	0x400000
+ 
+ #define F_GETOWN	5	/*  for sockets. */
+ #define F_SETOWN	6	/*  for sockets. */
+@@ -31,6 +32,5 @@
+ #define __ARCH_FLOCK_PAD	short __unused;
+ #define __ARCH_FLOCK64_PAD	short __unused;
+ 
+-#include <asm-generic/fcntl.h>
+ 
+ #endif
+diff --git a/include/asm-sparc64/fcntl.h b/include/asm-sparc64/fcntl.h
+index b2aecf0..111f6b3 100644
+--- a/include/asm-sparc64/fcntl.h
++++ b/include/asm-sparc64/fcntl.h
+@@ -16,7 +16,7 @@
+ #define O_LARGEFILE	0x40000
+ #define O_DIRECT        0x100000 /* direct disk access hint */
+ #define O_NOATIME	0x200000
+-
++#define O_CLOEXEC	0x400000
+ 
+ #define F_GETOWN	5	/*  for sockets. */
+ #define F_SETOWN	6	/*  for sockets. */
+diff --git a/include/linux/fcntl.h b/include/linux/fcntl.h
+index 40b9326..8603740 100644
+--- a/include/linux/fcntl.h
++++ b/include/linux/fcntl.h
+@@ -3,12 +3,17 @@
+ 
+ #include <asm/fcntl.h>
+ 
+-/* Cancel a blocking posix lock; internal use only until we expose an
+- * asynchronous lock api to userspace: */
+-#define F_CANCELLK	(F_LINUX_SPECIFIC_BASE+5)
++#define F_SETLEASE	(F_LINUX_SPECIFIC_BASE + 0)
++#define F_GETLEASE	(F_LINUX_SPECIFIC_BASE + 1)
+ 
+-#define F_SETLEASE	(F_LINUX_SPECIFIC_BASE+0)
+-#define F_GETLEASE	(F_LINUX_SPECIFIC_BASE+1)
++/*
++ * Cancel a blocking posix lock; internal use only until we expose an
++ * asynchronous lock api to userspace:
++ */
++#define F_CANCELLK	(F_LINUX_SPECIFIC_BASE + 5)
++
++/* Create a file descriptor with FD_CLOEXEC set. */
++#define F_DUPFD_CLOEXEC	(F_LINUX_SPECIFIC_BASE + 6)
+ 
+ /*
+  * Request nofications on a directory.
+diff --git a/include/linux/file.h b/include/linux/file.h
+index a59001e..0114fbc 100644
+--- a/include/linux/file.h
++++ b/include/linux/file.h
+@@ -73,6 +73,7 @@ extern struct file * FASTCALL(fget_light(unsigned int fd, int *fput_needed));
+ extern void FASTCALL(set_close_on_exec(unsigned int fd, int flag));
+ extern void put_filp(struct file *);
+ extern int get_unused_fd(void);
++extern int get_unused_fd_flags(int flags);
+ extern void FASTCALL(put_unused_fd(unsigned int fd));
+ struct kmem_cache;
+ 
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index fe195c9..f852e1a 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -253,6 +253,9 @@ struct ucred {
+ 
+ #define MSG_EOF         MSG_FIN
+ 
++#define MSG_CMSG_CLOEXEC 0x40000000	/* Set close_on_exit for file
++					   descriptor received through
++					   SCM_RIGHTS */
+ #if defined(CONFIG_COMPAT)
+ #define MSG_CMSG_COMPAT	0x80000000	/* This message needs 32 bit fixups */
+ #else
+diff --git a/net/compat.c b/net/compat.c
+index 9a0f5f2..d74d821 100644
+--- a/net/compat.c
++++ b/net/compat.c
+@@ -276,7 +276,8 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
+ 		err = security_file_receive(fp[i]);
+ 		if (err)
+ 			break;
+-		err = get_unused_fd();
++		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & kmsg->msg_flags
++					  ? O_CLOEXEC : 0);
+ 		if (err < 0)
+ 			break;
+ 		new_fd = err;
+diff --git a/net/core/scm.c b/net/core/scm.c
+index 292ad8d..44c4ec2 100644
+--- a/net/core/scm.c
++++ b/net/core/scm.c
+@@ -228,7 +228,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
+ 		err = security_file_receive(fp[i]);
+ 		if (err)
+ 			break;
+-		err = get_unused_fd();
++		err = get_unused_fd_flags(MSG_CMSG_CLOEXEC & msg->msg_flags
++					  ? O_CLOEXEC : 0);
+ 		if (err < 0)
+ 			break;
+ 		new_fd = err;
+diff --git a/net/socket.c b/net/socket.c
+index e1f9a0b..8842265 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1939,9 +1939,7 @@ asmlinkage long sys_recvmsg(int fd, struct msghdr __user *msg,
+ 	total_len = err;
+ 
+ 	cmsg_ptr = (unsigned long)msg_sys.msg_control;
+-	msg_sys.msg_flags = 0;
+-	if (MSG_CMSG_COMPAT & flags)
+-		msg_sys.msg_flags = MSG_CMSG_COMPAT;
++	msg_sys.msg_flags = flags & (MSG_CMSG_CLOEXEC|MSG_CMSG_COMPAT);
+ 
+ 	if (sock->file->f_flags & O_NONBLOCK)
+ 		flags |= MSG_DONTWAIT;
+-- 
+1.6.5.GIT
+

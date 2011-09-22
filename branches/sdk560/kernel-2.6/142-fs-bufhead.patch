@@ -1,0 +1,87 @@
+From b8c6926499a96fdaea2aec57f1a79ef2ec0526ee
+From: Aneesh Kumar K.V <aneesh.kumar@linux.vnet.ibm.com>
+Date: Thu, 25 Mar 2010 22:34:54 -0400
+Subject: [PATCH] fs: add buffer head related helper functions
+
+Add buffer head related helper function bh_uptodate_or_lock and
+bh_submit_read which can be used by file system
+
+kernel.org commit 389d1b083c767a360ec84b27a95da06244becec8
+
+Needed for backporting ext2/3 fixes
+---
+ fs/buffer.c                 |   44 ++++++++++++++++++++
+ include/linux/buffer_head.h |    2 +
+ 2 files changed, 46 insertions(+), 0 deletions(-)
+
+diff --git a/fs/buffer.c b/fs/buffer.c
+index ab4d69c..6588155 100644
+--- a/fs/buffer.c
++++ b/fs/buffer.c
+@@ -2944,6 +2944,50 @@ static int buffer_cpu_notify(struct notifier_block *self,
+ 	return NOTIFY_OK;
+ }
+ 
++/**
++ * bh_uptodate_or_lock: Test whether the buffer is uptodate
++ * @bh: struct buffer_head
++ *
++ * Return true if the buffer is up-to-date and false,
++ * with the buffer locked, if not.
++ */
++int bh_uptodate_or_lock(struct buffer_head *bh)
++{
++	if (!buffer_uptodate(bh)) {
++		lock_buffer(bh);
++		if (!buffer_uptodate(bh))
++			return 0;
++		unlock_buffer(bh);
++	}
++	return 1;
++}
++EXPORT_SYMBOL(bh_uptodate_or_lock);
++
++/**
++ * bh_submit_read: Submit a locked buffer for reading
++ * @bh: struct buffer_head
++ *
++ * Returns zero on success and -EIO on error.
++ */
++int bh_submit_read(struct buffer_head *bh)
++{
++	BUG_ON(!buffer_locked(bh));
++
++	if (buffer_uptodate(bh)) {
++		unlock_buffer(bh);
++		return 0;
++	}
++
++	get_bh(bh);
++	bh->b_end_io = end_buffer_read_sync;
++	submit_bh(READ, bh);
++	wait_on_buffer(bh);
++	if (buffer_uptodate(bh))
++		return 0;
++	return -EIO;
++}
++EXPORT_SYMBOL(bh_submit_read);
++
+ void __init buffer_init(void)
+ {
+ 	int nrpages;
+diff --git a/include/linux/buffer_head.h b/include/linux/buffer_head.h
+index 5c6e128..53ffcb2 100644
+--- a/include/linux/buffer_head.h
++++ b/include/linux/buffer_head.h
+@@ -192,6 +192,8 @@ int sync_dirty_buffer(struct buffer_head *bh);
+ int submit_bh(int, struct buffer_head *);
+ void write_boundary_block(struct block_device *bdev,
+ 			sector_t bblock, unsigned blocksize);
++int bh_uptodate_or_lock(struct buffer_head *bh);
++int bh_submit_read(struct buffer_head *bh);
+ 
+ extern int buffer_heads_over_limit;
+ 
+-- 
+1.6.5.GIT
+

@@ -1,0 +1,30 @@
+From 185bcd17a5fb4155fba125332efa498be126aa4e
+From: Mariusz Kozlowski
+Date: Tue, 31 Jul 2007 20:48:41 +0200
+Subject: [PATCH] [MIPS] thread_info.h: kmalloc + memset conversion to kzalloc
+
+Signed-off-by: Mariusz Kozlowski <m.kozlowski@tuxland.pl>
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ include/asm-mips/thread_info.h |    5 ++---
+ 1 files changed, 2 insertions(+), 3 deletions(-)
+
+diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
+index 9676e7d..9a51dfa 100644
+--- a/include/asm-mips/thread_info.h
++++ b/include/asm-mips/thread_info.h
+@@ -87,9 +87,8 @@ register struct thread_info *__current_thread_info __asm__("$28");
+ ({								\
+ 	struct thread_info *ret;				\
+ 								\
+-	ret = kmalloc(THREAD_SIZE, GFP_KERNEL);			\
+-	if (ret)						\
+-		memset(ret, 0, THREAD_SIZE);			\
++	ret = kzalloc(THREAD_SIZE, GFP_KERNEL);			\
++								\
+ 	ret;							\
+ })
+ #else
+-- 
+1.7.5.2

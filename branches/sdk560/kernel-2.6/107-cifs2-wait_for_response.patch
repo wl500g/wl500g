@@ -1,0 +1,61 @@
+From 85705524258f93a6086c3247a58f34a661b82b3d
+From: Jeff Layton
+Date: Fri, 5 Dec 2008 20:41:21 -0500
+Subject: [PATCH] cifs: fix wait_for_response to time out sleeping processes correctly
+
+cifs: fix wait_for_response to time out sleeping processes correctly
+
+The current scheme that CIFS uses to sleep and wait for a response is
+not quite what we want. After sending a request, wait_for_response puts
+the task to sleep with wait_event(). One of the conditions for
+wait_event is a timeout (using time_after()).
+
+The problem with this is that there is no guarantee that the process
+will ever be woken back up. If the server stops sending data, then
+cifs_demultiplex_thread will leave its response queue sleeping.
+
+I think the only thing that saves us here is the fact that
+cifs_dnotify_thread periodically (every 15s) wakes up sleeping processes
+on all response_q's that have calls in flight.  This makes for
+unnecessary wakeups of some processes. It also means large variability
+in the timeouts since they're all woken up at once.
+
+Instead of this, put the tasks to sleep with wait_event_timeout. This
+makes them wake up on their own if they time out. With this change,
+cifs_dnotify_thread should no longer be needed.
+
+I've been testing this in conjunction with some other patches that I'm
+working on. It doesn't seem to affect performance at all with with heavy
+I/O. Identical iozone -ac runs complete in almost exactly the same time
+(<1% difference in times).
+
+Thanks to Wasrshi Nimara for initially pointing this out. Wasrshi, it
+would be nice to know whether this patch also helps your testcase.
+
+Signed-off-by: Jeff Layton <jlayton@redhat.com>
+Cc: Wasrshi Nimara <warshinimara@gmail.com>
+Signed-off-by: Steve French <sfrench@us.ibm.com>
+---
+ fs/cifs/transport.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/fs/cifs/transport.c b/fs/cifs/transport.c
+index cd4ed65..4d076be 100644
+--- a/fs/cifs/transport.c
++++ b/fs/cifs/transport.c
+@@ -410,11 +410,8 @@ static int wait_for_response(struct cifsSesInfo *ses,
+ 
+ 	for (;;) {
+ 		curr_timeout = timeout + jiffies;
+-		wait_event(ses->server->response_q,
+-			(!(midQ->midState == MID_REQUEST_SUBMITTED)) ||
+-			time_after(jiffies, curr_timeout) ||
+-			((ses->server->tcpStatus != CifsGood) &&
+-			 (ses->server->tcpStatus != CifsNew)));
++		wait_event_timeout(ses->server->response_q,
++			midQ->midState != MID_REQUEST_SUBMITTED, timeout);
+ 
+ 		if (time_after(jiffies, curr_timeout) &&
+ 			(midQ->midState == MID_REQUEST_SUBMITTED) &&
+-- 
+1.7.2

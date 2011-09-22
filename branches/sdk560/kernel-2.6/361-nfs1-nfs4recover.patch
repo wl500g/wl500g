@@ -1,0 +1,99 @@
+From e4625eb826de4f6774ee602c442ba23b686bdcc7
+From: J. Bruce Fields
+Date: Mon, 24 Nov 2008 10:32:46 -0600
+Subject: [PATCH] nfsd: use of unitialized list head on error exit in nfs4recover.c
+
+Thanks to Matthew Dodd for this bug report:
+
+A file label issue while running SELinux in MLS mode provoked the
+following bug, which is a result of use before init on a 'struct list_head'.
+
+In nfsd4_list_rec_dir() if the call to dentry_open() fails the 'goto
+out' skips INIT_LIST_HEAD() which results in the normally improbable
+case where list_entry() returns NULL.
+
+Trace follows.
+
+NFSD: Using /var/lib/nfs/v4recovery as the NFSv4 state recovery directory
+SELinux:  Context unconfined_t:object_r:var_lib_nfs_t:s0 is not valid
+(left unmapped).
+type=1400 audit(1227298063.609:282): avc:  denied  { read } for
+pid=1890 comm="rpc.nfsd" name="v4recovery" dev=dm-0 ino=148726
+scontext=system_u:system_r:nfsd_t:s0-s15:c0.c1023
+tcontext=system_u:object_r:unlabeled_t:s15:c0.c1023 tclass=dir
+BUG: unable to handle kernel NULL pointer dereference at 00000004
+IP: [<c050894e>] list_del+0x6/0x60
+*pde = 0d9ce067 *pte = 00000000
+Oops: 0000 [#1] SMP
+Modules linked in: nfsd lockd nfs_acl auth_rpcgss exportfs autofs4
+sunrpc ipv6 dm_multipath scsi_dh ppdev parport_pc sg parport floppy
+ata_piix pata_acpi ata_generic libata pcnet32 i2c_piix4 mii pcspkr
+i2c_core dm_snapshot dm_zero dm_mirror dm_log dm_mod BusLogic sd_mod
+scsi_mod crc_t10dif ext3 jbd mbcache uhci_hcd ohci_hcd ehci_hcd [last
+unloaded: microcode]
+
+Pid: 1890, comm: rpc.nfsd Not tainted (2.6.27.5-37.fc9.i686 #1)
+EIP: 0060:[<c050894e>] EFLAGS: 00010217 CPU: 0
+EIP is at list_del+0x6/0x60
+EAX: 00000000 EBX: 00000000 ECX: 00000000 EDX: cd99e480
+ESI: cf9caed8 EDI: 00000000 EBP: cf9caebc ESP: cf9caeb8
+  DS: 007b ES: 007b FS: 00d8 GS: 0033 SS: 0068
+Process rpc.nfsd (pid: 1890, ti=cf9ca000 task=cf4de580 task.ti=cf9ca000)
+Stack: 00000000 cf9caef0 d0a9f139 c0496d04 d0a9f217 fffffff3 00000000
+00000000
+        00000000 00000000 cf32b220 00000000 00000008 00000801 cf9caefc
+d0a9f193
+        00000000 cf9caf08 d0a9b6ea 00000000 cf9caf1c d0a874f2 cf9c3004
+00000008
+Call Trace:
+  [<d0a9f139>] ? nfsd4_list_rec_dir+0xf3/0x13a [nfsd]
+  [<c0496d04>] ? do_path_lookup+0x12d/0x175
+  [<d0a9f217>] ? load_recdir+0x0/0x26 [nfsd]
+  [<d0a9f193>] ? nfsd4_recdir_load+0x13/0x34 [nfsd]
+  [<d0a9b6ea>] ? nfs4_state_start+0x2a/0xc5 [nfsd]
+  [<d0a874f2>] ? nfsd_svc+0x51/0xff [nfsd]
+  [<d0a87f2d>] ? write_svc+0x0/0x1e [nfsd]
+  [<d0a87f48>] ? write_svc+0x1b/0x1e [nfsd]
+  [<d0a87854>] ? nfsctl_transaction_write+0x3a/0x61 [nfsd]
+  [<c04b6a4e>] ? sys_nfsservctl+0x116/0x154
+  [<c04975c1>] ? putname+0x24/0x2f
+  [<c04975c1>] ? putname+0x24/0x2f
+  [<c048d49f>] ? do_sys_open+0xad/0xb7
+  [<c048d337>] ? filp_close+0x50/0x5a
+  [<c048d4eb>] ? sys_open+0x1e/0x26
+  [<c0403cca>] ? syscall_call+0x7/0xb
+  [<c064007b>] ? init_cyrix+0x185/0x490
+  =======================
+Code: 75 e1 8b 53 08 8d 4b 04 8d 46 04 e8 75 00 00 00 8b 53 10 8d 4b 0c
+8d 46 0c e8 67 00 00 00 5b 5e 5f 5d c3 90 90 55 89 e5 53 89 c3 <8b> 40
+04 8b 00 39 d8 74 16 50 53 68 3e d6 6f c0 6a 30 68 78 d6
+EIP: [<c050894e>] list_del+0x6/0x60 SS:ESP 0068:cf9caeb8
+---[ end trace a89c4ad091c4ad53 ]---
+
+Cc: Matthew N. Dodd <Matthew.Dodd@spart.com>
+Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
+---
+ fs/nfsd/nfs4recover.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/fs/nfsd/nfs4recover.c b/fs/nfsd/nfs4recover.c
+index bb93946..b79ec93 100644
+--- a/fs/nfsd/nfs4recover.c
++++ b/fs/nfsd/nfs4recover.c
+@@ -225,12 +225,12 @@ nfsd4_list_rec_dir(struct dentry *dir, recdir_func *f)
+ 		return 0;
+ 
+ 	nfs4_save_user(&uid, &gid);
++	INIT_LIST_HEAD(dentries);
+ 
+ 	filp = dentry_open(dget(dir), mntget(rec_dir.mnt), O_RDONLY);
+ 	status = PTR_ERR(filp);
+ 	if (IS_ERR(filp))
+ 		goto out;
+-	INIT_LIST_HEAD(dentries);
+ 	status = vfs_readdir(filp, nfsd4_build_dentrylist, &dla);
+ 	fput(filp);
+ 	while (!list_empty(dentries)) {
+-- 
+1.7.1
+

@@ -1,0 +1,70 @@
+diff -urB hotplug2.old/common.mak hotplug2/common.mak
+--- hotplug2.old/common.mak	2006-09-26 03:03:08.000000000 +0400
++++ hotplug2/common.mak	2009-10-19 21:25:58.000000000 +0400
+@@ -1,16 +1,17 @@
+ # vim:set sw=8 nosta:
+ 
+-CFLAGS=-Os -DHAVE_RULES -Wall -g
++CFLAGS=-Os -DHAVE_RULES -Wall -g $(EXTRACFLAGS)
+ LDFLAGS=-g
+ 
+ INSTALL=install -c -m 644
+ INSTALL_BIN=install -c -m 755
++INSTALL_DIR=install -d
+ 
+ 
+ .PHONY: all clean dep install install-recursive clean-recursive \
+ 	dep-recursive all-recursive
+ 
+-MAKEDEP=-gcc $(CFLAGS) -MM $(wildcard *.c *.cc) > .depend
++MAKEDEP=-$(CC) $(CFLAGS) -MM $(wildcard *.c *.cc) > .depend
+ dep: dep-recursive
+ 	$(MAKEDEP)
+ .depend:
+diff -urB hotplug2.old/examples/Makefile hotplug2/examples/Makefile
+--- hotplug2.old/examples/Makefile	2006-09-26 03:03:08.000000000 +0400
++++ hotplug2/examples/Makefile	2009-10-19 21:26:07.000000000 +0400
+@@ -3,16 +3,18 @@
+ BINS=
+ SUBDIRS=
+ 
++KERNELVER ?= `uname -r`
+ 
+ all:
+ 
+ install:
+-	case "`uname -r`" in \
++	$(INSTALL_DIR) $(PREFIX)/etc
++	case "$(KERNELVER)" in \
+ 		2.6.*) \
+-		$(INSTALL) hotplug2.rules-2.6kernel /etc/hotplug2.rules \
++		$(INSTALL) hotplug2.rules-2.6kernel $(PREFIX)/etc/hotplug2.rules \
+ 		;; \
+ 		*) \
+-		$(INSTALL) hotplug2.rules-2.4kernel /etc/hotplug2.rules \
++		$(INSTALL) hotplug2.rules-2.4kernel $(PREFIX)/etc/hotplug2.rules \
+ 		;; \
+ 	esac
+ 
+diff -urB hotplug2.old/Makefile hotplug2/Makefile
+--- hotplug2.old/Makefile	2006-09-26 03:03:08.000000000 +0400
++++ hotplug2/Makefile	2009-10-19 21:26:50.000000000 +0400
+@@ -1,13 +1,15 @@
+ # vim:set sw=8 nosta:
+ 
+-BINS=hotplug2 hotplug2-dnode
+-SUBDIRS=linux24_compat docs examples
++BINS=hotplug2
++SUBDIRS=examples
+ 
+ 
+ all: $(BINS)
+ 
+ install:
+-	$(INSTALL_BIN) $(BINS) /sbin/
++	$(INSTALL_DIR) $(PREFIX)/sbin/
++	$(INSTALL_BIN) $(BINS) $(PREFIX)/sbin/
++	@for i in $(BINS); do $(STRIP) $(PREFIX)/sbin/$$i ; done
+ 
+ 
+ hotplug2: hotplug2.o childlist.o mem_utils.o rules.o

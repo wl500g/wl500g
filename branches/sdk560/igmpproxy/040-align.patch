@@ -1,0 +1,101 @@
+diff -urBp a/src/igmpproxy.c igmpproxy/src/igmpproxy.c
+--- a/src/igmpproxy.c	2009-09-23 21:20:12.000000000 +0400
++++ igmpproxy/src/igmpproxy.c	2011-05-27 19:55:29.000000000 +0400
+@@ -62,7 +62,7 @@ static int sighandled = 0;
+ #define	GOT_SIGUSR2	0x08
+ 
+ // The upstream VIF index
+-int         upStreamVif;   
++unsigned         upStreamVif;
+ 
+ /**
+ *   Program main method. Is invoked when the program is started
+diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
+--- a/src/igmpproxy.h	2011-05-27 19:33:24.000000000 +0400
++++ igmpproxy/src/igmpproxy.h	2011-05-27 19:56:41.000000000 +0400
+@@ -142,15 +142,15 @@ struct SubnetList {
+ 
+ struct IfDesc {
+     char                Name[IF_NAMESIZE];
+-    struct in_addr      InAdr;          /* == 0 for non IP interfaces */            
++    struct in_addr      InAdr;          /* == 0 for non IP interfaces */
+     short               Flags;
+     short               state;
++    vifi_t              index;
++    uint8_t             robustness;
++    uint8_t             threshold;   /* ttl limit */
++    unsigned int        ratelimit;
+     struct SubnetList*  allowednets;
+     struct SubnetList*  allowedgroups;
+-    unsigned int        robustness;
+-    unsigned char       threshold;   /* ttl limit */
+-    unsigned int        ratelimit; 
+-    unsigned int        index;
+ };
+ 
+ // Keeps common configuration settings 
+@@ -165,26 +165,26 @@ struct Config {
+     unsigned int        lastMemberQueryInterval;
+     unsigned int        lastMemberQueryCount;
+     // Set if upstream leave messages should be sent instantly..
+-    unsigned short      fastUpstreamLeave;
++    unsigned int        fastUpstreamLeave;
+ };
+ 
+ // Defines the Index of the upstream VIF...
+-extern int upStreamVif;
++extern unsigned upStreamVif;
+ 
+ /* ifvc.c
+  */
+ void buildIfVc( void );
+ struct IfDesc *getIfByName( const char *IfName );
+ struct IfDesc *getIfByIx( unsigned Ix );
+-struct IfDesc *getIfByAddress( uint32_t Ix );
++struct IfDesc *getIfByAddress( uint32_t ipaddr );
+ int isAdressValidForIf(struct IfDesc* intrface, uint32_t ipaddr);
+ 
+ /* mroute-api.c
+  */
+ struct MRouteDesc {
++    vifi_t          InVif;
++    uint8_t         TtlVc[ MAX_MC_VIFS ];
+     struct in_addr  OriginAdr, McAdr;
+-    short           InVif;
+-    uint8_t           TtlVc[ MAX_MC_VIFS ];
+ };
+ 
+ // IGMP socket as interface for the mrouted API
+@@ -245,7 +245,7 @@ int leaveMcGroup( int UdpSock, struct If
+  */
+ void initRouteTable();
+ void clearAllRoutes();
+-int insertRoute(uint32_t group, int ifx);
++int insertRoute(uint32_t group, vifi_t ifx);
+ int activateRoute(uint32_t group, uint32_t originAddr);
+ void ageActiveRoutes();
+ void setRouteLastMemberMode(uint32_t group);
+diff -urBp a/src/request.c igmpproxy/src/request.c
+--- a/src/request.c	2011-05-27 19:33:24.000000000 +0400
++++ igmpproxy/src/request.c	2011-05-27 19:53:55.000000000 +0400
+@@ -194,7 +194,7 @@ void sendGroupSpecificMemberQuery(void *
+ void sendGeneralMembershipQuery() {
+     struct  Config  *conf = getCommonConfig();
+     struct  IfDesc  *Dp;
+-    int             Ix;
++    unsigned        Ix;
+ 
+     // Loop through all downstream vifs...
+     for ( Ix = 0; (Dp = getIfByIx(Ix)); Ix++ ) {
+diff -urBp a/src/rttable.c igmpproxy/src/rttable.c
+--- a/src/rttable.c	2011-05-27 19:33:24.000000000 +0400
++++ igmpproxy/src/rttable.c	2011-05-27 19:55:59.000000000 +0400
+@@ -220,7 +220,7 @@ struct RouteTable *findRoute(uint32_t gr
+ *   If the route already exists, the existing route 
+ *   is updated...
+ */
+-int insertRoute(uint32_t group, int ifx) {
++int insertRoute(uint32_t group, vifi_t ifx) {
+     
+     struct Config *conf = getCommonConfig();
+     struct RouteTable*  croute;

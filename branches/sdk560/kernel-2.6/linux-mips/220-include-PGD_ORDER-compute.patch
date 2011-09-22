@@ -1,0 +1,37 @@
+From 99e480d81ca98c25918c460fdb5ca876d7df6178
+From: Ralf Baechle
+Date: Wed, 1 Aug 2007 15:46:18 +0100
+Subject: [PATCH] [MIPS] Compute PGD_ORDER from the select page size.
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+
+---
+ include/asm-mips/pgtable-32.h |   10 ++--------
+ 1 files changed, 2 insertions(+), 8 deletions(-)
+
+diff --git a/include/asm-mips/pgtable-32.h b/include/asm-mips/pgtable-32.h
+index ff29485..59c865d 100644
+--- a/include/asm-mips/pgtable-32.h
++++ b/include/asm-mips/pgtable-32.h
+@@ -51,17 +51,11 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,
+  * Entries per page directory level: we use two-level, so
+  * we don't really have any PUD/PMD directory physically.
+  */
+-#ifdef CONFIG_64BIT_PHYS_ADDR
+-#define PGD_ORDER	1
+-#define PUD_ORDER	aieeee_attempt_to_allocate_pud
+-#define PMD_ORDER	1
+-#define PTE_ORDER	0
+-#else
+-#define PGD_ORDER	0
++#define __PGD_ORDER	(32 - 3 * PAGE_SHIFT + PGD_T_LOG2 + PTE_T_LOG2)
++#define PGD_ORDER	(__PGD_ORDER >= 0 ? __PGD_ORDER : 0)
+ #define PUD_ORDER	aieeee_attempt_to_allocate_pud
+ #define PMD_ORDER	1
+ #define PTE_ORDER	0
+-#endif
+ 
+ #define PTRS_PER_PGD	(USER_PTRS_PER_PGD * 2)
+ #define PTRS_PER_PTE	((PAGE_SIZE << PTE_ORDER) / sizeof(pte_t))
+-- 
+1.7.4.4

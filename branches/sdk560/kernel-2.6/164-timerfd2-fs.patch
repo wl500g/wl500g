@@ -1,0 +1,357 @@
+From 0b6e439aca5b14b5a0eadf08b5f523ab0d2e04a7
+From: Fedor <fedork@ubuntu.(none)>
+Date: Sun, 31 Oct 2010 02:39:51 -0400
+Subject: [PATCH] fs: sanitize anon_inode_getfd(), timerfd_create() flags
+
+ kernel.org commits
+ 96fdc72ddfe8aa3eb1f51e78cc13babefbf26dda anon-inodes use open coded atomic_inc for the shared inode
+ 2030a42cecd4dd1985a2ab03e25f3cd6106a5ca8 [PATCH] sanitize anon_inode_getfd()
+ 7d9dbca34240ebb6ff88d8a29c6c7bffd098f0c1 [PATCH] flag parameters: anon_inode_getfd extension
+ 99829b832997d907c30669bfd17da32151e18f04 [PATCH] flag parameters: NONBLOCK in anon_inode_getfd
+ 11fcb6c14676023d0bd437841f5dcd670e7990a0 [PATCH] flag parameters: timerfd_create
+ 6b1ef0e60d42f2fdaec26baee8327eb156347b4f [PATCH] flag parameters: NONBLOCK in timerfd_create
+ 610d18f4128ebbd88845d0fc60cce67b49af881e [PATCH] timerfd: add flags check
+
+---
+ fs/anon_inodes.c            |   47 ++++++++-----------
+ fs/eventfd.c                |   15 ++----
+ fs/eventpoll.c              |   23 +++------
+ fs/signalfd.c               |   20 +++------
+ fs/timerfd.c                |   22 ++++-----
+ include/linux/anon_inodes.h |    5 +-
+ include/linux/timerfd.h     |   18 +++++++-
+ 7 files changed, 66 insertions(+), 84 deletions(-)
+
+diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
+index 40fe3a3..29e8c65 100644
+--- a/fs/anon_inodes.c
++++ b/fs/anon_inodes.c
+@@ -57,26 +57,22 @@ static struct dentry_operations anon_inodefs_dentry_operations = {
+  *                    anonymous inode, and a dentry that describe the "class"
+  *                    of the file
+  *
+- * @pfd:     [out]   pointer to the file descriptor
+- * @dpinode: [out]   pointer to the inode
+- * @pfile:   [out]   pointer to the file struct
+  * @name:    [in]    name of the "class" of the new file
+- * @fops     [in]    file operations for the new file
+- * @priv     [in]    private data for the new file (will be file's private_data)
++ * @fops:    [in]    file operations for the new file
++ * @priv:    [in]    private data for the new file (will be file's private_data)
++ * @flags:   [in]    flags
+  *
+  * Creates a new file by hooking it on a single inode. This is useful for files
+  * that do not need to have a full-fledged inode in order to operate correctly.
+  * All the files created with anon_inode_getfd() will share a single inode, by
+  * hence saving memory and avoiding code duplication for the file/inode/dentry
+- * setup.
++ * setup.  Returns new descriptor or -error.
+  */
+-int anon_inode_getfd(int *pfd, struct inode **pinode, struct file **pfile,
+-		     const char *name, const struct file_operations *fops,
+-		     void *priv)
++int anon_inode_getfd(const char *name, const struct file_operations *fops,
++		     void *priv, int flags)
+ {
+ 	struct qstr this;
+ 	struct dentry *dentry;
+-	struct inode *inode;
+ 	struct file *file;
+ 	int error, fd;
+ 
+@@ -86,15 +82,9 @@ int anon_inode_getfd(int *pfd, struct inode **pinode, struct file **pfile,
+ 	if (!file)
+ 		return -ENFILE;
+ 
+-	inode = igrab(anon_inode_inode);
+-	if (IS_ERR(inode)) {
+-		error = PTR_ERR(inode);
+-		goto err_put_filp;
+-	}
+-
+-	error = get_unused_fd();
++	error = get_unused_fd_flags(flags);
+ 	if (error < 0)
+-		goto err_iput;
++		goto err_put_filp;
+ 	fd = error;
+ 
+ 	/*
+@@ -108,17 +98,25 @@ int anon_inode_getfd(int *pfd, struct inode **pinode, struct file **pfile,
+ 	dentry = d_alloc(anon_inode_mnt->mnt_sb->s_root, &this);
+ 	if (!dentry)
+ 		goto err_put_unused_fd;
++
++	/*
++	 * We know the anon_inode inode count is always greater than zero,
++	 * so we can avoid doing an igrab() and we can use an open-coded
++	 * atomic_inc().
++	 */
++	atomic_inc(&anon_inode_inode->i_count);
++
+ 	dentry->d_op = &anon_inodefs_dentry_operations;
+ 	/* Do not publish this dentry inside the global dentry hash table */
+ 	dentry->d_flags &= ~DCACHE_UNHASHED;
+-	d_instantiate(dentry, inode);
++	d_instantiate(dentry, anon_inode_inode);
+ 
+ 	file->f_path.mnt = mntget(anon_inode_mnt);
+ 	file->f_path.dentry = dentry;
+-	file->f_mapping = inode->i_mapping;
++	file->f_mapping = anon_inode_inode->i_mapping;
+ 
+ 	file->f_pos = 0;
+-	file->f_flags = O_RDWR;
++	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
+ 	file->f_op = fops;
+ 	file->f_mode = FMODE_READ | FMODE_WRITE;
+ 	file->f_version = 0;
+@@ -126,15 +124,10 @@ int anon_inode_getfd(int *pfd, struct inode **pinode, struct file **pfile,
+ 
+ 	fd_install(fd, file);
+ 
+-	*pfd = fd;
+-	*pinode = inode;
+-	*pfile = file;
+-	return 0;
++	return fd;
+ 
+ err_put_unused_fd:
+ 	put_unused_fd(fd);
+-err_iput:
+-	iput(inode);
+ err_put_filp:
+ 	put_filp(file);
+ 	return error;
+diff --git a/fs/eventfd.c b/fs/eventfd.c
+index 2ce19c0..62e8b14 100644
+--- a/fs/eventfd.c
++++ b/fs/eventfd.c
+@@ -199,10 +199,8 @@ struct file *eventfd_fget(int fd)
+ 
+ asmlinkage long sys_eventfd(unsigned int count)
+ {
+-	int error, fd;
++	int fd;
+ 	struct eventfd_ctx *ctx;
+-	struct file *file;
+-	struct inode *inode;
+ 
+ 	ctx = kmalloc(sizeof(*ctx), GFP_KERNEL);
+ 	if (!ctx)
+@@ -215,12 +213,9 @@ asmlinkage long sys_eventfd(unsigned int count)
+ 	 * When we call this, the initialization must be complete, since
+ 	 * anon_inode_getfd() will install the fd.
+ 	 */
+-	error = anon_inode_getfd(&fd, &inode, &file, "[eventfd]",
+-				 &eventfd_fops, ctx);
+-	if (!error)
+-		return fd;
+-
+-	kfree(ctx);
+-	return error;
++	fd = anon_inode_getfd("[eventfd]", &eventfd_fops, ctx, 0);
++	if (fd < 0)
++		kfree(ctx);
++	return fd;
+ }
+ 
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+index 0b73cd4..48ed39d 100644
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -1075,8 +1075,6 @@ asmlinkage long sys_epoll_create(int size)
+ {
+ 	int error, fd = -1;
+ 	struct eventpoll *ep;
+-	struct inode *inode;
+-	struct file *file;
+ 
+ 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d)\n",
+ 		     current, size));
+@@ -1086,29 +1084,24 @@ asmlinkage long sys_epoll_create(int size)
+ 	 * structure ( "struct eventpoll" ).
+ 	 */
+ 	error = -EINVAL;
+-	if (size <= 0 || (error = ep_alloc(&ep)) != 0)
++	if (size <= 0 || (error = ep_alloc(&ep)) < 0) {
++		fd = error;
+ 		goto error_return;
++	}
+ 
+ 	/*
+ 	 * Creates all the items needed to setup an eventpoll file. That is,
+-	 * a file structure, and inode and a free file descriptor.
++	 * a file structure and a free file descriptor.
+ 	 */
+-	error = anon_inode_getfd(&fd, &inode, &file, "[eventpoll]",
+-				 &eventpoll_fops, ep);
+-	if (error)
+-		goto error_free;
++	fd = anon_inode_getfd("[eventpoll]", &eventpoll_fops, ep, 0);
++	if (fd < 0)
++		ep_free(ep);
+ 
++error_return:
+ 	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d) = %d\n",
+ 		     current, size, fd));
+ 
+ 	return fd;
+-
+-error_free:
+-	ep_free(ep);
+-error_return:
+-	DNPRINTK(3, (KERN_INFO "[%p] eventpoll: sys_epoll_create(%d) = %d\n",
+-		     current, size, error));
+-	return error;
+ }
+ 
+ /*
+diff --git a/fs/signalfd.c b/fs/signalfd.c
+index 34c5b64..a59f1fa 100644
+--- a/fs/signalfd.c
++++ b/fs/signalfd.c
+@@ -201,15 +201,12 @@ static const struct file_operations signalfd_fops = {
+ 
+ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemask)
+ {
+-	int error;
+ 	sigset_t sigmask;
+ 	struct signalfd_ctx *ctx;
+-	struct file *file;
+-	struct inode *inode;
+ 
+ 	if (sizemask != sizeof(sigset_t) ||
+ 	    copy_from_user(&sigmask, user_mask, sizeof(sigmask)))
+-		return error = -EINVAL;
++		return -EINVAL;
+ 	sigdelsetmask(&sigmask, sigmask(SIGKILL) | sigmask(SIGSTOP));
+ 	signotset(&sigmask);
+ 
+@@ -224,12 +221,12 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
+ 		 * When we call this, the initialization must be complete, since
+ 		 * anon_inode_getfd() will install the fd.
+ 		 */
+-		error = anon_inode_getfd(&ufd, &inode, &file, "[signalfd]",
+-					 &signalfd_fops, ctx);
+-		if (error)
+-			goto err_fdalloc;
++		ufd = anon_inode_getfd("[signalfd]", &signalfd_fops, ctx,
++				       0);
++		if (ufd < 0)
++			kfree(ctx);
+ 	} else {
+-		file = fget(ufd);
++		struct file *file = fget(ufd);
+ 		if (!file)
+ 			return -EBADF;
+ 		ctx = file->private_data;
+@@ -246,9 +243,4 @@ asmlinkage long sys_signalfd(int ufd, sigset_t __user *user_mask, size_t sizemas
+ 	}
+ 
+ 	return ufd;
+-
+-err_fdalloc:
+-	kfree(ctx);
+-	return error;
+ }
+-
+diff --git a/fs/timerfd.c b/fs/timerfd.c
+index 5400524..5825ad4 100644
+--- a/fs/timerfd.c
++++ b/fs/timerfd.c
+@@ -181,15 +181,12 @@ static struct file *timerfd_fget(int fd)
+ 
+ asmlinkage long sys_timerfd_create(int clockid, int flags)
+ {
+-	int error, ufd;
++	int ufd;
+ 	struct timerfd_ctx *ctx;
+-	struct file *file;
+-	struct inode *inode;
+ 
+-	if (flags)
+-		return -EINVAL;
+-	if (clockid != CLOCK_MONOTONIC &&
+-	    clockid != CLOCK_REALTIME)
++	if ((flags & ~TFD_CREATE_FLAGS) ||
++	    (clockid != CLOCK_MONOTONIC &&
++	     clockid != CLOCK_REALTIME))
+ 		return -EINVAL;
+ 
+ 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+@@ -200,12 +197,10 @@ asmlinkage long sys_timerfd_create(int clockid, int flags)
+ 	ctx->clockid = clockid;
+ 	hrtimer_init(&ctx->tmr, clockid, HRTIMER_MODE_ABS);
+ 
+-	error = anon_inode_getfd(&ufd, &inode, &file, "[timerfd]",
+-				 &timerfd_fops, ctx);
+-	if (error) {
++	ufd = anon_inode_getfd("[timerfd]", &timerfd_fops, ctx,
++			       flags & TFD_SHARED_FCNTL_FLAGS);
++	if (ufd < 0)
+ 		kfree(ctx);
+-		return error;
+-	}
+ 
+ 	return ufd;
+ }
+@@ -221,7 +216,8 @@ asmlinkage long sys_timerfd_settime(int ufd, int flags,
+ 	if (copy_from_user(&ktmr, utmr, sizeof(ktmr)))
+ 		return -EFAULT;
+ 
+-	if (!timespec_valid(&ktmr.it_value) ||
++	if ((flags & ~TFD_SETTIME_FLAGS) ||
++	    !timespec_valid(&ktmr.it_value) ||
+ 	    !timespec_valid(&ktmr.it_interval))
+ 		return -EINVAL;
+ 
+diff --git a/include/linux/anon_inodes.h b/include/linux/anon_inodes.h
+index b2e1ba3..e0a0cdc 100644
+--- a/include/linux/anon_inodes.h
++++ b/include/linux/anon_inodes.h
+@@ -8,9 +8,8 @@
+ #ifndef _LINUX_ANON_INODES_H
+ #define _LINUX_ANON_INODES_H
+ 
+-int anon_inode_getfd(int *pfd, struct inode **pinode, struct file **pfile,
+-		     const char *name, const struct file_operations *fops,
+-		     void *priv);
++int anon_inode_getfd(const char *name, const struct file_operations *fops,
++		     void *priv, int flags);
+ 
+ #endif /* _LINUX_ANON_INODES_H */
+ 
+diff --git a/include/linux/timerfd.h b/include/linux/timerfd.h
+index cf2b10d..2d07929 100644
+--- a/include/linux/timerfd.h
++++ b/include/linux/timerfd.h
+@@ -8,10 +8,24 @@
+ #ifndef _LINUX_TIMERFD_H
+ #define _LINUX_TIMERFD_H
+ 
++/* For O_CLOEXEC and O_NONBLOCK */
++#include <linux/fcntl.h>
+ 
++/*
++ * CAREFUL: Check include/asm-generic/fcntl.h when defining
++ * new flags, since they might collide with O_* ones. We want
++ * to re-use O_* flags that couldn't possibly have a meaning
++ * from eventfd, in order to leave a free define-space for
++ * shared O_* flags.
++ */
+ #define TFD_TIMER_ABSTIME (1 << 0)
++#define TFD_CLOEXEC O_CLOEXEC
++#define TFD_NONBLOCK O_NONBLOCK
+ 
+-
++#define TFD_SHARED_FCNTL_FLAGS (TFD_CLOEXEC | TFD_NONBLOCK)
++/* Flags for timerfd_create.  */
++#define TFD_CREATE_FLAGS TFD_SHARED_FCNTL_FLAGS
++/* Flags for timerfd_settime.  */
++#define TFD_SETTIME_FLAGS TFD_TIMER_ABSTIME
+ 
+ #endif /* _LINUX_TIMERFD_H */
+-
+-- 
+1.6.5.GIT

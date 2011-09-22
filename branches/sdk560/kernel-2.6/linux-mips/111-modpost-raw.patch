@@ -1,0 +1,29 @@
+From 396a2ae08e5080b140330645743ab2567f6bc426
+From: Ralf Baechle
+Date: Tue, 16 Oct 2007 20:05:18 +0100
+Subject: [PATCH] [MIPS] Fix modpost warning in raw binary builds.
+
+  MODPOST vmlinux.o
+WARNING: vmlinux.o(.text+0x478): Section mismatch: reference to .init.text:start_kernel (between '_stext' and 'run_init_process')
+
+Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
+---
+ arch/mips/kernel/head.S |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletions(-)
+
+diff --git a/arch/mips/kernel/head.S b/arch/mips/kernel/head.S
+index e46782b..bf164a5 100644
+--- a/arch/mips/kernel/head.S
++++ b/arch/mips/kernel/head.S
+@@ -149,7 +149,7 @@ EXPORT(_stext)
+ 	 */
+ 	j	kernel_entry
+ #endif
+-	__INIT
++	__INIT_REFOK
+ 
+ NESTED(kernel_entry, 16, sp)			# kernel entry point
+ 
+-- 
+1.7.1
+

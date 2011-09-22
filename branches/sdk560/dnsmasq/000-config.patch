@@ -1,0 +1,31 @@
+diff -BurpN dnsmasq-2.51/src/config.h dnsmasq/src/config.h
+--- dnsmasq-2.50/src/config.h	2009-08-18 15:28:01.000000000 +0000
++++ dnsmasq/src/config.h	2009-08-29 07:09:19.000000000 +0000
+@@ -166,9 +166,9 @@ NOTES:
+ 
+ /* platform independent options- uncomment to enable */
+ #define HAVE_DHCP
+-#define HAVE_TFTP
+-#define HAVE_SCRIPT
+-/* #define HAVE_BROKEN_RTC */
++/* #define HAVE_TFTP */
++/* #define HAVE_SCRIPT */
++#define HAVE_BROKEN_RTC
+ /* #define HAVE_DBUS */
+ 
+ /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
+@@ -213,10 +213,13 @@ NOTES:
+ #if !defined(__ARCH_HAS_MMU__) && !defined(__UCLIBC_HAS_MMU__)
+ #  define NO_FORK
+ #endif
+-#if defined(__UCLIBC_HAS_IPV6__)
++#if defined(__UCLIBC_HAS_IPV6__) && defined(USE_IPV6)
+ #  ifndef IPV6_V6ONLY
+ #    define IPV6_V6ONLY 26
+ #  endif
++#else
++#  undef HAVE_IPV6
++#  define NO_IPV6
+ #endif
+ 
+ /* This is for glibc 2.x */

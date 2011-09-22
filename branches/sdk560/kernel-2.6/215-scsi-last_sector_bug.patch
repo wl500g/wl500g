@@ -1,0 +1,99 @@
+Subject: [PATCH] SCSI sd: add fix for devices with last sector access problems
+From: Hans de Goede <j.w.r.degoede@hhs.nl>
+
+kernel.org commits
+a0899d4df534d2bcf671b0f647b809842309a9ae
+23c3e290fb9ce38cabc2822b47583fc8702411bf
+18351070b86d155713cf790b26af4f21b1fd0b29
+---
+ drivers/scsi/sd.c              |   19 +++++++++++++++++++
+ drivers/usb/storage/scsiglue.c |    4 ++++
+ include/scsi/scsi_device.h     |    2 ++
+ include/scsi/sd.h              |    6 ++++++
+ 4 files changed, 31 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
+index d2531dd..2ae3657 100644
+--- a/drivers/scsi/sd.c
++++ b/drivers/scsi/sd.c
+@@ -338,6 +338,7 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
+ 	struct request *rq = SCpnt->request;
+ 	struct gendisk *disk = rq->rq_disk;
+ 	sector_t block = rq->sector;
++	sector_t threshold;
+ 	unsigned int this_count = SCpnt->request_bufflen >> 9;
+ 	unsigned int timeout = sdp->timeout;
+ 
+@@ -365,6 +366,24 @@ static int sd_init_command(struct scsi_cmnd * SCpnt)
+ 		/* printk("SCSI disk has been changed. Prohibiting further I/O.\n"); */
+ 		return 0;
+ 	}
++
++	/*
++	 * Some SD card readers can't handle multi-sector accesses which touch
++	 * the last one or two hardware sectors.  Split accesses as needed.
++	 */
++	threshold = get_capacity(disk) - SD_LAST_BUGGY_SECTORS *
++		(sdp->sector_size / 512);
++
++	if (unlikely(sdp->last_sector_bug && block + this_count > threshold)) {
++		if (block < threshold) {
++			/* Access up to the threshold but not beyond */
++			this_count = threshold - block;
++		} else {
++			/* Access only a single hardware sector */
++			this_count = sdp->sector_size / 512;
++		}
++	}
++
+ 	SCSI_LOG_HLQUEUE(2, scmd_printk(KERN_INFO, SCpnt, "block=%llu\n",
+ 					(unsigned long long)block));
+ 
+diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
+index 76cedbb..3d27788 100644
+--- a/drivers/usb/storage/scsiglue.c
++++ b/drivers/usb/storage/scsiglue.c
+@@ -187,6 +187,10 @@ static int slave_configure(struct scsi_device *sdev)
+ 		 * automatically, requiring a START-STOP UNIT command. */
+ 		sdev->allow_restart = 1;
+ 
++		/* Some USB cardreaders have trouble reading an sdcard's last
++		 * sector in a larger then 1 sector read, since the performance
++		 * impact is negible we set this flag for all USB disks */
++		sdev->last_sector_bug = 1;
+ 	} else {
+ 
+ 		/* Non-disk-type devices don't need to blacklist any pages
+diff --git a/include/scsi/scsi_device.h b/include/scsi/scsi_device.h
+index 2f3c5b8..44ffd8a 100644
+--- a/include/scsi/scsi_device.h
++++ b/include/scsi/scsi_device.h
+@@ -126,6 +126,8 @@ struct scsi_device {
+ 	unsigned fix_capacity:1;	/* READ_CAPACITY is too high by 1 */
+ 	unsigned guess_capacity:1;	/* READ_CAPACITY might be too high by 1 */
+ 	unsigned retry_hwerror:1;	/* Retry HARDWARE_ERROR */
++	unsigned last_sector_bug:1;	/* do not use multisector accesses on
++					   SD_LAST_BUGGY_SECTORS */
+ 
+ 	unsigned int device_blocked;	/* Device returned QUEUE_FULL. */
+ 
+diff --git a/include/scsi/sd.h b/include/scsi/sd.h
+index 5261488..1f7575d 100644
+--- a/include/scsi/sd.h
++++ b/include/scsi/sd.h
+@@ -31,6 +31,12 @@
+  */
+ #define SD_BUF_SIZE		512
+ 
++/*
++ * Number of sectors at the end of the device to avoid multi-sector
++ * accesses to in the case of last_sector_bug
++ */
++#define SD_LAST_BUGGY_SECTORS	8
++
+ struct scsi_disk {
+ 	struct scsi_driver *driver;	/* always &sd_template */
+ 	struct scsi_device *device;
+-- 
+1.6.5.GIT
+

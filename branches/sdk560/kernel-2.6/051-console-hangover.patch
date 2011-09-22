@@ -1,0 +1,50 @@
+From d37bf60de0b4ddc1633cf278189d3c9bf28fe3d2 Mon Sep 17 00:00:00 2001
+From: Yinghai Lu <Yinghai.Lu@Sun.COM>
+Date: Sun, 15 Jul 2007 23:37:28 -0700
+Subject: [PATCH] console: console handover to preferred console
+
+for earlyprintk=ttyS0,9600 console=tty0 console=ttyS0,9600n8
+
+the handover will happen from earlyser0 to tty0.  but what we want is to
+hand over to ttyS0.
+
+Later with serial-convert-early_uart-to-earlycon-for-8250.patch,
+
+	console=tty0 console=uart8250,io,0x3f8,9600n8
+
+will handover to ttyS0 instead of tty0.
+
+Signed-off-by: Yinghai Lu <yinghai.lu@sun.com>
+Cc: Andi Kleen <ak@suse.de>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: Russell King <rmk@arm.linux.org.uk>
+Cc: Gerd Hoffmann <kraxel@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ kernel/printk.c |    5 ++++-
+ 1 files changed, 4 insertions(+), 1 deletions(-)
+
+diff --git a/kernel/printk.c b/kernel/printk.c
+index 4961410..7ce9a8c 100644
+--- a/kernel/printk.c
++++ b/kernel/printk.c
+@@ -985,12 +985,15 @@ void register_console(struct console *console)
+ 	if (!(console->flags & CON_ENABLED))
+ 		return;
+ 
+-	if (bootconsole) {
++	if (bootconsole && (console->flags & CON_CONSDEV)) {
+ 		printk(KERN_INFO "console handover: boot [%s%d] -> real [%s%d]\n",
+ 		       bootconsole->name, bootconsole->index,
+ 		       console->name, console->index);
+ 		unregister_console(bootconsole);
+ 		console->flags &= ~CON_PRINTBUFFER;
++	} else {
++		printk(KERN_INFO "console [%s%d] enabled\n",
++		       console->name, console->index);
+ 	}
+ 
+ 	/*
+-- 
+1.7.2.1

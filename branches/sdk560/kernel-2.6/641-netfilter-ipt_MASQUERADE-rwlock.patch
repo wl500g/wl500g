@@ -1,0 +1,65 @@
+From 17f2f52be0edb6d1ff5a3675f2bc545aea2dbf76 Mon Sep 17 00:00:00 2001
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 5 Jun 2009 13:26:21 +0200
+Subject: [PATCH] netfilter: ipt_MASQUERADE: remove redundant rwlock
+
+The lock "protects" an assignment and a comparision of an integer.
+When the caller of device_cmp() evaluates the result, nat->masq_index
+may already have been changed (regardless if the lock is there or not).
+
+So, the lock either has to be held during nf_ct_iterate_cleanup(),
+or can be removed.
+
+This does the latter.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/ipt_MASQUERADE.c |   12 +-----------
+ 1 files changed, 1 insertions(+), 11 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index f389f60..855505d 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -27,9 +27,6 @@ MODULE_LICENSE("GPL");
+ #define DEBUGP(format, args...)
+ #endif
+ 
+-/* Lock protects masq region inside conntrack */
+-static DEFINE_RWLOCK(masq_lock);
+-
+ /* FIXME: Multiple targets. --RR */
+ static int
+ masquerade_check(const char *tablename,
+@@ -79,9 +76,7 @@ masquerade_target(struct sk_buff **pskb,
+ 		return NF_DROP;
+ 	}
+ 
+-	write_lock_bh(&masq_lock);
+ 	nat->masq_index = out->ifindex;
+-	write_unlock_bh(&masq_lock);
+ 
+ 	/* Transfer from original range. */
+ 	newrange = ((struct nf_nat_range)
+@@ -97,16 +92,11 @@ static int
+ device_cmp(struct nf_conn *i, void *ifindex)
+ {
+ 	struct nf_conn_nat *nat = nfct_nat(i);
+-	int ret;
+ 
+ 	if (!nat)
+ 		return 0;
+ 
+-	read_lock_bh(&masq_lock);
+-	ret = (nat->masq_index == (int)(long)ifindex);
+-	read_unlock_bh(&masq_lock);
+-
+-	return ret;
++	return nat->masq_index == (int)(long)ifindex;
+ }
+ 
+ static int masq_device_event(struct notifier_block *this,
+-- 
+1.7.1
+

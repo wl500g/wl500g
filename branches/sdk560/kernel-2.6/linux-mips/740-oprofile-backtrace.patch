@@ -1,0 +1,398 @@
+http://patchwork.linux-mips.org/patch/2698/
+
+Holger Freyther - 2011-08-11 00:36:05
+
+Move the OProfile userspace stack unwinding into
+arch/mips/kernel/user_backtrace.c to be shared with the perf
+callchain implementation.
+
+Rename struct stackframe to user_stackframe, add a GPLv2 header
+to the source with the original author of the code.
+
+Always export the unwind_user_frame symbol to make it easy to
+use the OProfile module on an already built kernel.
+
+Signed-off-by: Holger Freyther <holger@moiji-mobile.com>
+
+ kernel.org commits:
+ 46684734dd6a55af09c3fe799af7d74cb938684c [MIPS] unexport null_perf_irq() and make it static
+ 94ea09c6a8e6c5ffb59bb1d5ca10008d37544e1a MIPS: Add new unwind_stack variant
+ 5f307491f3a0c8551cedf5d90d660d656e0d56ec MIPS: oprofile: Add callgraph support
+
+---
+ arch/mips/kernel/Makefile            |    3 
+ arch/mips/kernel/process.c           |   19 +++--
+ arch/mips/kernel/time.c              |    3 
+ arch/mips/kernel/user_backtrace.c    |  129 +++++++++++++++++++++++++++++++++++
+ arch/mips/oprofile/Makefile          |    2 
+ arch/mips/oprofile/backtrace.c       |   52 ++++++++++++++
+ arch/mips/oprofile/common.c          |    1 
+ arch/mips/oprofile/op_impl.h         |    3 
+ arch/mips/oprofile/op_model_mipsxx.c |    5 +
+ include/asm-mips/stacktrace.h        |   14 +++
+ 10 files changed, 220 insertions(+), 11 deletions(-)
+
+diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
+--- a/arch/mips/kernel/Makefile
++++ b/arch/mips/kernel/Makefile
+@@ -6,7 +6,8 @@ extra-y		:= head.o init_task.o vmlinux.l
+ 
+ obj-y		+= cpu-probe.o branch.o entry.o genex.o irq.o process.o \
+ 		   ptrace.o reset.o semaphore.o setup.o signal.o syscall.o \
+-		   time.o topology.o traps.o unaligned.o vdso.o
++		   time.o topology.o traps.o unaligned.o vdso.o \
++		   user_backtrace.o
+ 
+ binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
+ 			   irix5sys.o sysirix.o
+diff --git a/arch/mips/kernel/process.c b/arch/mips/kernel/process.c
+--- a/arch/mips/kernel/process.c
++++ b/arch/mips/kernel/process.c
+@@ -360,18 +360,18 @@ unsigned long thread_saved_pc(struct tas
+ 
+ 
+ #ifdef CONFIG_KALLSYMS
+-/* used by show_backtrace() */
+-unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
+-			   unsigned long pc, unsigned long *ra)
++/* generic stack unwinding function */
++unsigned long notrace unwind_stack_by_address(unsigned long stack_page,
++					      unsigned long *sp,
++					      unsigned long pc,
++					      unsigned long *ra)
+ {
+-	unsigned long stack_page;
+ 	struct mips_frame_info info;
+ 	unsigned long size, ofs;
+ 	int leaf;
+ 	extern void ret_from_irq(void);
+ 	extern void ret_from_exception(void);
+ 
+-	stack_page = (unsigned long)task_stack_page(task);
+ 	if (!stack_page)
+ 		return 0;
+ 
+@@ -430,6 +430,15 @@ unsigned long unwind_stack(struct task_s
+ 	*ra = 0;
+ 	return __kernel_text_address(pc) ? pc : 0;
+ }
++EXPORT_SYMBOL(unwind_stack_by_address);
++
++/* used by show_backtrace() */
++unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
++			   unsigned long pc, unsigned long *ra)
++{
++	unsigned long stack_page = (unsigned long)task_stack_page(task);
++	return unwind_stack_by_address(stack_page, sp, pc, ra);
++}
+ #endif
+ 
+ /*
+diff --git a/arch/mips/kernel/time.c b/arch/mips/kernel/time.c
+--- a/arch/mips/kernel/time.c
++++ b/arch/mips/kernel/time.c
+@@ -236,14 +236,13 @@ irqreturn_t timer_interrupt(int irq, voi
+ 	return IRQ_HANDLED;
+ }
+ 
+-int null_perf_irq(void)
++static int null_perf_irq(void)
+ {
+ 	return 0;
+ }
+ 
+ int (*perf_irq)(void) = null_perf_irq;
+ 
+-EXPORT_SYMBOL(null_perf_irq);
+ EXPORT_SYMBOL(perf_irq);
+ 
+ /*
+diff --git a/arch/mips/kernel/user_backtrace.c b/arch/mips/kernel/user_backtrace.c
+--- a/arch/mips/kernel/user_backtrace.c
++++ b/arch/mips/kernel/user_backtrace.c
+@@ -0,0 +1,129 @@
++/*
++ * Copyright (C) 2011  Daniel Kalmar
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; either version
++ * 2 of the License..
++ */
++
++#include <linux/uaccess.h>
++#include <linux/module.h>
++
++#include <asm/stacktrace.h>
++#include <asm/sections.h>
++#include <asm/inst.h>
++
++static inline int get_mem(unsigned long addr, unsigned long *result)
++{
++	unsigned long *address = (unsigned long *) addr;
++	if (!access_ok(VERIFY_READ, address, sizeof(unsigned long)))
++		return -1;
++	if (__copy_from_user_inatomic(result, address, sizeof(unsigned long)))
++		return -3;
++	return 0;
++}
++
++/*
++ * These two instruction helpers were taken from process.c
++ */
++static inline int is_ra_save_ins(union mips_instruction *ip)
++{
++	/* sw / sd $ra, offset($sp) */
++	return (ip->i_format.opcode == sw_op || ip->i_format.opcode == sd_op)
++		&& ip->i_format.rs == 29 && ip->i_format.rt == 31;
++}
++
++static inline int is_sp_move_ins(union mips_instruction *ip)
++{
++	/* addiu/daddiu sp,sp,-imm */
++	if (ip->i_format.rs != 29 || ip->i_format.rt != 29)
++		return 0;
++	if (ip->i_format.opcode == addiu_op || ip->i_format.opcode == daddiu_op)
++		return 1;
++	return 0;
++}
++
++/*
++ * Looks for specific instructions that mark the end of a function.
++ * This usually means we ran into the code area of the previous function.
++ */
++static inline int is_end_of_function_marker(union mips_instruction *ip)
++{
++	/* jr ra */
++	if (ip->r_format.func == jr_op && ip->r_format.rs == 31)
++		return 1;
++	/* lui gp */
++	if (ip->i_format.opcode == lui_op && ip->i_format.rt == 28)
++		return 1;
++	return 0;
++}
++
++/*
++ * TODO for userspace stack unwinding:
++ * - handle cases where the stack is adjusted inside a function
++ *     (generally doesn't happen)
++ * - find optimal value for max_instr_check
++ * - try to find a way to handle leaf functions
++ */
++
++int unwind_user_frame(struct user_stackframe *old_frame,
++	    	const unsigned int max_instr_check)
++{
++	struct user_stackframe new_frame = *old_frame;
++	off_t ra_offset = 0;
++	size_t stack_size = 0;
++	unsigned long addr;
++
++	if (old_frame->pc == 0 || old_frame->sp == 0 || old_frame->ra == 0)
++		return -9;
++
++	for (addr = new_frame.pc; (addr + max_instr_check > new_frame.pc)
++		&& (!ra_offset || !stack_size); --addr) {
++		union mips_instruction ip;
++
++		if (get_mem(addr, (unsigned long *) &ip))
++			return -11;
++
++		if (is_sp_move_ins(&ip)) {
++			int stack_adjustment = ip.i_format.simmediate;
++			if (stack_adjustment > 0)
++				/* This marks the end of the previous function,
++				   which means we overran. */
++				break;
++			stack_size = (unsigned) stack_adjustment;
++		} else if (is_ra_save_ins(&ip)) {
++			int ra_slot = ip.i_format.simmediate;
++			if (ra_slot < 0)
++				/* This shouldn't happen. */
++				break;
++			ra_offset = ra_slot;
++		} else if (is_end_of_function_marker(&ip))
++			break;
++	}
++
++	if (!ra_offset || !stack_size)
++		return -1;
++
++	if (ra_offset) {
++		new_frame.ra = old_frame->sp + ra_offset;
++		if (get_mem(new_frame.ra, &(new_frame.ra)))
++			return -13;
++	}
++
++	if (stack_size) {
++		new_frame.sp = old_frame->sp + stack_size;
++		if (get_mem(new_frame.sp, &(new_frame.sp)))
++			return -14;
++	}
++
++	if (new_frame.sp > old_frame->sp)
++		return -2;
++
++	new_frame.pc = old_frame->ra;
++	*old_frame = new_frame;
++
++	return 0;
++}
++EXPORT_SYMBOL_GPL(unwind_user_frame);
++
+diff --git a/arch/mips/oprofile/backtrace.c b/arch/mips/oprofile/backtrace.c
+--- a/arch/mips/oprofile/backtrace.c
++++ b/arch/mips/oprofile/backtrace.c
+@@ -0,0 +1,52 @@
++#include <linux/oprofile.h>
++#include <linux/sched.h>
++
++#include <asm/ptrace.h>
++#include <asm/stacktrace.h>
++
++static inline void do_user_backtrace(unsigned long low_addr,
++				     struct user_stackframe *frame,
++				     unsigned int depth)
++{
++	const unsigned int max_instr_check = 512;
++	const unsigned long high_addr = low_addr + THREAD_SIZE;
++
++	while (depth-- && !unwind_user_frame(frame, max_instr_check)) {
++		oprofile_add_trace(frame->ra);
++		if (frame->sp < low_addr || frame->sp > high_addr)
++			break;
++	}
++}
++
++#ifndef CONFIG_KALLSYMS
++static inline void do_kernel_backtrace(unsigned long low_addr,
++				       struct user_stackframe *frame,
++				       unsigned int depth) { }
++#else
++static inline void do_kernel_backtrace(unsigned long low_addr,
++				       struct user_stackframe *frame,
++				       unsigned int depth)
++{
++	while (depth-- && frame->pc) {
++		frame->pc = unwind_stack_by_address(low_addr,
++						    &(frame->sp),
++						    frame->pc,
++						    &(frame->ra));
++		oprofile_add_trace(frame->ra);
++	}
++}
++#endif
++
++void notrace op_mips_backtrace(struct pt_regs *const regs, unsigned int depth)
++{
++	struct user_stackframe frame = { .sp = regs->regs[29],
++				    .pc = regs->cp0_epc,
++				    .ra = regs->regs[31] };
++	const int userspace = user_mode(regs);
++	const unsigned long low_addr = ALIGN(frame.sp, THREAD_SIZE);
++
++	if (userspace)
++		do_user_backtrace(low_addr, &frame, depth);
++	else
++		do_kernel_backtrace(low_addr, &frame, depth);
++}
+diff --git a/arch/mips/oprofile/common.c b/arch/mips/oprofile/common.c
+--- a/arch/mips/oprofile/common.c
++++ b/arch/mips/oprofile/common.c
+@@ -109,6 +109,7 @@ int __init oprofile_arch_init(struct opr
+ 	ops->start		= op_mips_start;
+ 	ops->stop		= op_mips_stop;
+ 	ops->cpu_type		= lmodel->cpu_type;
++	ops->backtrace		= op_mips_backtrace;
+ 
+ 	printk(KERN_INFO "oprofile: using %s performance monitoring.\n",
+ 	       lmodel->cpu_type);
+diff --git a/arch/mips/oprofile/Makefile b/arch/mips/oprofile/Makefile
+--- a/arch/mips/oprofile/Makefile
++++ b/arch/mips/oprofile/Makefile
+@@ -8,7 +8,7 @@ DRIVER_OBJS = $(addprefix ../../../drive
+ 		oprofilefs.o oprofile_stats.o \
+ 		timer_int.o )
+ 
+-oprofile-y				:= $(DRIVER_OBJS) common.o
++oprofile-y				:= $(DRIVER_OBJS) common.o backtrace.o
+ 
+ oprofile-$(CONFIG_CPU_MIPS32)		+= op_model_mipsxx.o
+ oprofile-$(CONFIG_CPU_MIPS64)		+= op_model_mipsxx.o
+diff --git a/arch/mips/oprofile/op_impl.h b/arch/mips/oprofile/op_impl.h
+--- a/arch/mips/oprofile/op_impl.h
++++ b/arch/mips/oprofile/op_impl.h
+@@ -10,7 +10,6 @@
+ #ifndef OP_IMPL_H
+ #define OP_IMPL_H 1
+ 
+-extern int null_perf_irq(void);
+ extern int (*perf_irq)(void);
+ 
+ /* Per-counter configuration as set via oprofilefs.  */
+@@ -37,4 +36,6 @@ struct op_mips_model {
+ 	unsigned char num_counters;
+ };
+ 
++void op_mips_backtrace(struct pt_regs * const regs, unsigned int depth);
++
+ #endif
+diff --git a/arch/mips/oprofile/op_model_mipsxx.c b/arch/mips/oprofile/op_model_mipsxx.c
+--- a/arch/mips/oprofile/op_model_mipsxx.c
++++ b/arch/mips/oprofile/op_model_mipsxx.c
+@@ -30,6 +30,8 @@
+ 
+ #define M_COUNTER_OVERFLOW		(1UL      << 31)
+ 
++static int (*save_perf_irq)(void);
++
+ #ifdef CONFIG_MIPS_MT_SMP
+ #define WHAT		(M_TC_EN_VPE | M_PERFCTL_VPEID(smp_processor_id()))
+ #define vpe_id()	smp_processor_id()
+@@ -322,6 +324,7 @@ static int __init mipsxx_init(void)
+ 		return -ENODEV;
+ 	}
+ 
++	save_perf_irq = perf_irq;
+ 	perf_irq = mipsxx_perfcount_handler;
+ 
+ 	return 0;
+@@ -335,7 +338,7 @@ static void mipsxx_exit(void)
+ #endif
+ 	reset_counters(counters);
+ 
+-	perf_irq = null_perf_irq;
++	perf_irq = save_perf_irq;
+ }
+ 
+ struct op_mips_model op_model_mipsxx_ops = {
+diff --git a/include/asm-mips/stacktrace.h b/include/asm-mips/stacktrace.h
+--- a/include/asm-mips/stacktrace.h
++++ b/include/asm-mips/stacktrace.h
+@@ -7,6 +7,10 @@
+ extern int raw_show_trace;
+ extern unsigned long unwind_stack(struct task_struct *task, unsigned long *sp,
+ 				  unsigned long pc, unsigned long *ra);
++extern unsigned long unwind_stack_by_address(unsigned long stack_page,
++					     unsigned long *sp,
++					     unsigned long pc,
++					     unsigned long *ra);
+ #else
+ #define raw_show_trace 1
+ #define unwind_stack(task, sp, pc, ra)	0
+@@ -41,4 +45,14 @@ static __always_inline void prepare_fram
+ 		: : "memory");
+ }
+ 
++struct user_stackframe {
++	unsigned long sp;
++	unsigned long pc;
++	unsigned long ra;
++};
++
++int unwind_user_frame(struct user_stackframe *old_frame,
++			const unsigned int max_instr_check);
++
++
+ #endif /* _ASM_STACKTRACE_H */
+-- 

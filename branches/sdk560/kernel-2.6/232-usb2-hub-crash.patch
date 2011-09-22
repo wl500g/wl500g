@@ -1,0 +1,38 @@
+From d199c96d41d80a567493e12b8e96ea056a1350c1
+From: Alan Stern
+Date: Mon, 31 Jan 2011 10:56:37 -0500
+Subject: [PATCH] USB: prevent buggy hubs from crashing the USB stack
+
+If anyone comes across a high-speed hub that (by mistake or by design)
+claims to have no Transaction Translators, plugging a full- or
+low-speed device into it will cause the USB stack to crash.  This
+patch (as1446) prevents the problem by ignoring such devices, since
+the kernel has no way to communicate with them.
+
+Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
+Tested-by: Perry Neben <neben@vmware.com>
+CC: <stable@kernel.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+---
+ drivers/usb/core/hub.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 4310cc4..d041c68 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -2753,6 +2753,11 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
+ 		udev->ttport = hdev->ttport;
+ 	} else if (udev->speed != USB_SPEED_HIGH
+ 			&& hdev->speed == USB_SPEED_HIGH) {
++		if (!hub->tt.hub) {
++			dev_err(&udev->dev, "parent hub has no TT\n");
++			retval = -EINVAL;
++			goto fail;
++		}
+ 		udev->tt = &hub->tt;
+ 		udev->ttport = port1;
+ 	}
+-- 
+1.7.4

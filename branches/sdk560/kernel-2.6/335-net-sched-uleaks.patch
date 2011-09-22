@@ -1,0 +1,160 @@
+From 1c40be12f7d8ca1d387510d39787b12e512a7ce8 Mon Sep 17 00:00:00 2001
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 16 Aug 2010 20:04:22 +0000
+Subject: [PATCH] net sched: fix some kernel memory leaks
+
+We leak at least 32bits of kernel memory to user land in tc dump,
+because we dont init all fields (capab ?) of the dumped structure.
+
+Use C99 initializers so that holes and non explicit fields are zeroed.
+
+Signed-off-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ net/sched/act_gact.c    |   21 ++++++++------
+ net/sched/act_mirred.c  |   15 +++++-----
+ net/sched/act_police.c  |   28 ++++++++++---------
+ net/sched/act_simple.c  |   11 ++++---
+ 4 files changed, 41 insertions(+), 34 deletions(-)
+
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 7517f37..f746dad 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -157,21 +157,24 @@ static int tcf_gact(struct sk_buff *skb, struct tc_action *a, struct tcf_result
+ static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct tc_gact opt;
+ 	struct tcf_gact *gact = a->priv;
++	struct tc_gact opt = {
++		.index = gact->tcf_index,
++		.refcnt = gact->tcf_refcnt - ref,
++		.bindcnt = gact->tcf_bindcnt - bind,
++		.action = gact->tcf_action,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = gact->tcf_index;
+-	opt.refcnt = gact->tcf_refcnt - ref;
+-	opt.bindcnt = gact->tcf_bindcnt - bind;
+-	opt.action = gact->tcf_action;
+ 	RTA_PUT(skb, TCA_GACT_PARMS, sizeof(opt), &opt);
+ #ifdef CONFIG_GACT_PROB
+ 	if (gact->tcfg_ptype) {
+-		struct tc_gact_p p_opt;
+-		p_opt.paction = gact->tcfg_paction;
+-		p_opt.pval = gact->tcfg_pval;
+-		p_opt.ptype = gact->tcfg_ptype;
++		struct tc_gact_p p_opt = {
++			.paction = gact->tcfg_paction,
++			.pval = gact->tcfg_pval,
++			.ptype = gact->tcfg_ptype,
++		};
++
+ 		RTA_PUT(skb, TCA_GACT_PROB, sizeof(p_opt), &p_opt);
+ 	}
+ #endif
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index de21c92..fd28eb2 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -209,15 +209,16 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_mirred *m = a->priv;
+-	struct tc_mirred opt;
++	struct tc_mirred opt = {
++		.index = m->tcf_index,
++		.action = m->tcf_action,
++		.refcnt = m->tcf_refcnt - ref,
++		.bindcnt = m->tcf_bindcnt - bind,
++		.eaction = m->tcfm_eaction,
++		.ifindex = m->tcfm_ifindex,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = m->tcf_index;
+-	opt.action = m->tcf_action;
+-	opt.refcnt = m->tcf_refcnt - ref;
+-	opt.bindcnt = m->tcf_bindcnt - bind;
+-	opt.eaction = m->tcfm_eaction;
+-	opt.ifindex = m->tcfm_ifindex;
+ 	RTA_PUT(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt);
+ 	t.install = jiffies_to_clock_t(jiffies - m->tcf_tm.install);
+ 	t.lastuse = jiffies_to_clock_t(jiffies - m->tcf_tm.lastuse);
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index 616f465..6cb8c79 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -328,14 +328,15 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_police *police = a->priv;
+-	struct tc_police opt;
+-
+-	opt.index = police->tcf_index;
+-	opt.action = police->tcf_action;
+-	opt.mtu = police->tcfp_mtu;
+-	opt.burst = police->tcfp_burst;
+-	opt.refcnt = police->tcf_refcnt - ref;
+-	opt.bindcnt = police->tcf_bindcnt - bind;
++	struct tc_police opt = {
++		.index = police->tcf_index,
++		.action = police->tcf_action,
++		.mtu = police->tcfp_mtu,
++		.burst = police->tcfp_burst,
++		.refcnt = police->tcf_refcnt - ref,
++		.bindcnt = police->tcf_bindcnt - bind,
++	};
++
+ 	if (police->tcfp_R_tab)
+ 		opt.rate = police->tcfp_R_tab->rate;
+ 	else
+@@ -573,12 +574,13 @@ EXPORT_SYMBOL(tcf_police);
+ int tcf_police_dump(struct sk_buff *skb, struct tcf_police *police)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+-	struct tc_police opt;
++	struct tc_police opt = {
++		.index = police->tcf_index,
++		.action = police->tcf_action,
++		.mtu = police->tcfp_mtu,
++		.burst = police->tcfp_burst,
++	};
+ 
+-	opt.index = police->tcf_index;
+-	opt.action = police->tcf_action;
+-	opt.mtu = police->tcfp_mtu;
+-	opt.burst = police->tcfp_burst;
+ 	if (police->tcfp_R_tab)
+ 		opt.rate = police->tcfp_R_tab->rate;
+ 	else
+diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
+index 36e1eda..30d6e15 100644
+--- a/net/sched/act_simple.c
++++ b/net/sched/act_simple.c
+@@ -158,13 +158,14 @@ static inline int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_defact *d = a->priv;
+-	struct tc_defact opt;
++	struct tc_defact opt = {
++		.index = d->tcf_index,
++		.refcnt = d->tcf_refcnt - ref,
++		.bindcnt = d->tcf_bindcnt - bind,
++		.action = d->tcf_action,
++	};
+ 	struct tcf_t t;
+ 
+-	opt.index = d->tcf_index;
+-	opt.refcnt = d->tcf_refcnt - ref;
+-	opt.bindcnt = d->tcf_bindcnt - bind;
+-	opt.action = d->tcf_action;
+ 	RTA_PUT(skb, TCA_DEF_PARMS, sizeof(opt), &opt);
+ 	RTA_PUT(skb, TCA_DEF_DATA, d->tcfd_datalen, d->tcfd_defdata);
+ 	t.install = jiffies_to_clock_t(jiffies - d->tcf_tm.install);
+-- 
+1.6.5.GIT
+

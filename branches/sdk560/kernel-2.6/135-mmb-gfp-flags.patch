@@ -1,0 +1,163 @@
+From 6cb062296f73e74768cca2f3eaf90deac54de02d
+From: Christoph Lameter
+Date: Tue, 16 Oct 2007 01:25:41 -0700
+Subject: [PATCH] Categorize GFP flags
+
+The function of GFP_LEVEL_MASK seems to be unclear.  In order to clear up
+the mystery we get rid of it and replace GFP_LEVEL_MASK with 3 sets of GFP
+flags:
+
+GFP_RECLAIM_MASK	Flags used to control page allocator reclaim behavior.
+
+GFP_CONSTRAINT_MASK	Flags used to limit where allocations can occur.
+
+GFP_SLAB_BUG_MASK	Flags that the slab allocator BUG()s on.
+
+These replace the uses of GFP_LEVEL mask in the slab allocators and in
+vmalloc.c.
+
+The use of the flags not included in these sets may occur as a result of a
+slab allocation standing in for a page allocation when constructing scatter
+gather lists.  Extraneous flags are cleared and not passed through to the
+page allocator.  __GFP_MOVABLE/RECLAIMABLE, __GFP_COLD and __GFP_COMP will
+now be ignored if passed to a slab allocator.
+
+Change the allocation of allocator meta data in SLAB and vmalloc to not
+pass through flags listed in GFP_CONSTRAINT_MASK.  SLAB already removes the
+__GFP_THISNODE flag for such allocations.  Generalize that to also cover
+vmalloc.  The use of GFP_CONSTRAINT_MASK also includes __GFP_HARDWALL.
+
+The impact of allocator metadata placement on access latency to the
+cachelines of the object itself is minimal since metadata is only
+referenced on alloc and free.  The attempt is still made to place the meta
+data optimally but we consistently allow fallback both in SLAB and vmalloc
+(SLUB does not need to allocate metadata like that).
+
+Allocator metadata may serve multiple in kernel users and thus should not
+be subject to the limitations arising from a single allocation context.
+
+[akpm@linux-foundation.org: fix fallback_alloc()]
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/gfp.h |   20 +++++++++++++-------
+ mm/slab.c           |    8 ++++----
+ mm/slub.c           |    5 +++--
+ mm/vmalloc.c        |    5 +++--
+ 4 files changed, 23 insertions(+), 15 deletions(-)
+
+diff --git a/include/linux/gfp.h b/include/linux/gfp.h
+index 12a90a1..da8aa87 100644
+--- a/include/linux/gfp.h
++++ b/include/linux/gfp.h
+@@ -53,13 +53,6 @@ struct vm_area_struct;
+ #define __GFP_BITS_SHIFT 20	/* Room for 20 __GFP_FOO bits */
+ #define __GFP_BITS_MASK ((__force gfp_t)((1 << __GFP_BITS_SHIFT) - 1))
+ 
+-/* if you forget to add the bitmask here kernel will crash, period */
+-#define GFP_LEVEL_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS| \
+-			__GFP_COLD|__GFP_NOWARN|__GFP_REPEAT| \
+-			__GFP_NOFAIL|__GFP_NORETRY|__GFP_COMP| \
+-			__GFP_NOMEMALLOC|__GFP_HARDWALL|__GFP_THISNODE| \
+-			__GFP_MOVABLE)
+-
+ /* This equals 0, but use constants in case they ever change */
+ #define GFP_NOWAIT	(GFP_ATOMIC & ~__GFP_HIGH)
+ /* GFP_ATOMIC means both !wait (__GFP_WAIT not set) and use emergency pool */
+@@ -86,6 +79,19 @@ struct vm_area_struct;
+ #define GFP_THISNODE	((__force gfp_t)0)
+ #endif
+ 
++/* This mask makes up all the page movable related flags */
++#define GFP_MOVABLE_MASK (__GFP_MOVABLE)
++
++/* Control page allocator reclaim behavior */
++#define GFP_RECLAIM_MASK (__GFP_WAIT|__GFP_HIGH|__GFP_IO|__GFP_FS|\
++			__GFP_NOWARN|__GFP_REPEAT|__GFP_NOFAIL|\
++			__GFP_NORETRY|__GFP_NOMEMALLOC)
++
++/* Control allocation constraints */
++#define GFP_CONSTRAINT_MASK (__GFP_HARDWALL|__GFP_THISNODE)
++
++/* Do not use these with a slab allocator */
++#define GFP_SLAB_BUG_MASK (__GFP_DMA32|__GFP_HIGHMEM|~__GFP_BITS_MASK)
+ 
+ /* Flag - indicates that the buffer will be suitable for DMA.  Ignored on some
+    platforms, used as appropriate on others */
+diff --git a/mm/slab.c b/mm/slab.c
+index 368a47d..8fb56ae 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -2746,9 +2746,9 @@ static int cache_grow(struct kmem_cache *cachep,
+ 	 * Be lazy and only check for valid flags here,  keeping it out of the
+ 	 * critical path in kmem_cache_alloc().
+ 	 */
+-	BUG_ON(flags & ~(GFP_DMA | __GFP_ZERO | GFP_LEVEL_MASK));
++	BUG_ON(flags & GFP_SLAB_BUG_MASK);
++	local_flags = flags & (GFP_CONSTRAINT_MASK|GFP_RECLAIM_MASK);
+ 
+-	local_flags = (flags & GFP_LEVEL_MASK);
+ 	/* Take the l3 list lock to change the colour_next on this node */
+ 	check_irq_off();
+ 	l3 = cachep->nodelists[nodeid];
+@@ -2785,7 +2785,7 @@ static int cache_grow(struct kmem_cache *cachep,
+ 
+ 	/* Get slab management. */
+ 	slabp = alloc_slabmgmt(cachep, objp, offset,
+-			local_flags & ~GFP_THISNODE, nodeid);
++			local_flags & ~GFP_CONSTRAINT_MASK, nodeid);
+ 	if (!slabp)
+ 		goto opps1;
+ 
+@@ -3225,7 +3225,7 @@ static void *fallback_alloc(struct kmem_cache *cache, gfp_t flags)
+ 
+ 	zonelist = &NODE_DATA(slab_node(current->mempolicy))
+ 			->node_zonelists[gfp_zone(flags)];
+-	local_flags = (flags & GFP_LEVEL_MASK);
++	local_flags = flags & (GFP_CONSTRAINT_MASK|GFP_RECLAIM_MASK);
+ 
+ retry:
+ 	/*
+diff --git a/mm/slub.c b/mm/slub.c
+index 968ce37..19d3202 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -1088,9 +1088,10 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
+ 	void *last;
+ 	void *p;
+ 
+-	BUG_ON(flags & ~(GFP_DMA | __GFP_ZERO | GFP_LEVEL_MASK));
++	BUG_ON(flags & GFP_SLAB_BUG_MASK);
+ 
+-	page = allocate_slab(s, flags & GFP_LEVEL_MASK, node);
++	page = allocate_slab(s,
++		flags & (GFP_RECLAIM_MASK | GFP_CONSTRAINT_MASK), node);
+ 	if (!page)
+ 		goto out;
+ 
+diff --git a/mm/vmalloc.c b/mm/vmalloc.c
+index 3cee76a..2e01af3 100644
+--- a/mm/vmalloc.c
++++ b/mm/vmalloc.c
+@@ -190,7 +190,8 @@ static struct vm_struct *__get_vm_area_node(unsigned long size, unsigned long fl
+ 	if (unlikely(!size))
+ 		return NULL;
+ 
+-	area = kmalloc_node(sizeof(*area), gfp_mask & GFP_LEVEL_MASK, node);
++	area = kmalloc_node(sizeof(*area), gfp_mask & GFP_RECLAIM_MASK, node);
++
+ 	if (unlikely(!area))
+ 		return NULL;
+ 
+@@ -439,7 +440,7 @@ void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,
+ 		area->flags |= VM_VPAGES;
+ 	} else {
+ 		pages = kmalloc_node(array_size,
+-				(gfp_mask & GFP_LEVEL_MASK),
++				(gfp_mask & GFP_RECLAIM_MASK),
+ 				node);
+ 	}
+ 	area->pages = pages;
+-- 
+1.7.4.4

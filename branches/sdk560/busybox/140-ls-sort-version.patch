@@ -1,0 +1,22 @@
+Support of ls -v
+
+ http://bugs.busybox.net/show_bug.cgi?id=1657
+
+diff -uBp a/coreutils/ls.c b/coreutils/ls.c
+--- a/coreutils/ls.c	2010-03-28 21:43:35.000000000 +0400
++++ b/coreutils/ls.c	2010-06-05 12:00:31.000000000 +0400
+@@ -496,7 +496,13 @@ static int sortcmp(const void *a, const
+ 		dif = (d2->dstat.st_mtime - d1->dstat.st_mtime);
+ 	} else if (sort_opts == SORT_DIR) {
+ 		dif = S_ISDIR(d2->dstat.st_mode) - S_ISDIR(d1->dstat.st_mode);
+-		/* } else if (sort_opts == SORT_VERSION) { */
++#if !defined(__UCLIBC_MAJOR__) \
++ || __UCLIBC_MAJOR__ > 0 \
++ || __UCLIBC_MINOR__ > 9 \
++ || (__UCLIBC_MINOR__ == 9 && __UCLIBC_SUBLEVEL__ >= 30)
++	} else if (sort_opts == SORT_VERSION) {
++		dif = strverscmp(d1->name, d2->name);
++#endif
+ 		/* } else if (sort_opts == SORT_EXT) { */
+ 	}
+ 	if (dif == 0) {

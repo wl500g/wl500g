@@ -1,0 +1,42 @@
+From deea84b0ae3d26b41502ae0a39fe7fe134e703d0
+From: Herbert Xu
+Date: Sun, 21 Oct 2007 16:27:46 -0700
+Subject: [PATCH] [NET]: Fix SKB_WITH_OVERHEAD calculation
+
+The calculation in SKB_WITH_OVERHEAD is incorrect in that it can cause
+an overflow across a page boundary which is what it's meant to prevent.
+In particular, the header length (X) should not be lumped together with
+skb_shared_info.  The latter needs to be aligned properly while the header
+has no choice but to sit in front of wherever the payload is.
+
+Therefore the correct calculation is to take away the aligned size of
+skb_shared_info, and then subtract the header length.  The resulting
+quantity L satisfies the following inequality:
+
+	SKB_DATA_ALIGN(L + X) + sizeof(struct skb_shared_info) <= PAGE_SIZE
+
+This is the quantity used by alloc_skb to do the actual allocation.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ include/linux/skbuff.h |    3 +--
+ 1 files changed, 1 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index f93f22b..369f60a 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -41,8 +41,7 @@
+ #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+ 				 ~(SMP_CACHE_BYTES - 1))
+ #define SKB_WITH_OVERHEAD(X)	\
+-	(((X) - sizeof(struct skb_shared_info)) & \
+-	 ~(SMP_CACHE_BYTES - 1))
++	((X) - SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ #define SKB_MAX_ORDER(X, ORDER) \
+ 	SKB_WITH_OVERHEAD((PAGE_SIZE << (ORDER)) - (X))
+ #define SKB_MAX_HEAD(X)		(SKB_MAX_ORDER((X), 0))
+-- 
+1.7.0.2
+

@@ -1,0 +1,43 @@
+commit 6ba592574d59bf9ab3aa890f536b00acc60b9095
+Author: Alexander Gordeev <lasaine@lvk.cs.msu.su>
+Date:   Wed Aug 31 12:01:04 2011 +0400
+
+    use the first available interface instead of zero
+   
+    In some broken devices interface numbers start from 1 while in other devices
+    with the same VID:PID combination (but under different brand) it's the usual
+    zero. The config file doesn't provide any means to set the right Interface
+    variable for them both to work. I think the best way is to dynamically detect
+    the least available interface number.
+   
+    Signed-off-by: Alexander Gordeev <lasaine@lvk.cs.msu.su>
+
+diff --git a/usb_modeswitch.c b/usb_modeswitch.c
+index 73d7e5d..701dbda 100644
+--- a/usb_modeswitch.c
++++ b/usb_modeswitch.c
+@@ -91,7 +91,7 @@ char ByteString[LINE_DIM/2];
+ char buffer[BUF_SIZE];
+ 
+ /* Settable Interface and Configuration (for debugging mostly) (jmw) */
+-int Interface = 0, Configuration = 0, AltSetting = -1;
++int Interface = -1, Configuration = 0, AltSetting = -1;
+ 
+ 
+ static struct option long_options[] = {
+@@ -437,6 +437,15 @@ int main(int argc, char **argv)
+ 			defaultClass = 8;
+ 		}
+ 
++   if (Interface == -1) {
++		struct libusb_config_descriptor *config;
++
++		if (libusb_get_active_config_descriptor(dev, &config) < 0)
++			Interface = 0;
++		else
++			Interface = config[0].interface[0].altsetting[0].bInterfaceNumber;
++	}
++
+ 	/* Check or get endpoints */
+ 	if (strlen(MessageContent) || InquireDevice || CiscoMode) {
+ 		if (!MessageEndpoint)

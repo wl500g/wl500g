@@ -1,0 +1,746 @@
+diff -urNBp a/include/asm-generic/bitops/__fls.h b/include/asm-generic/bitops/__fls.h
+--- a/include/asm-generic/bitops/__fls.h	1970-01-01 03:00:00.000000000 +0300
++++ b/include/asm-generic/bitops/__fls.h	2008-10-10 02:13:53.000000000 +0400
+@@ -0,0 +1,43 @@
++#ifndef _ASM_GENERIC_BITOPS___FLS_H_
++#define _ASM_GENERIC_BITOPS___FLS_H_
++
++#include <asm/types.h>
++
++/**
++ * __fls - find last (most-significant) set bit in a long word
++ * @word: the word to search
++ *
++ * Undefined if no set bit exists, so code should check against 0 first.
++ */
++static inline unsigned long __fls(unsigned long word)
++{
++	int num = BITS_PER_LONG - 1;
++
++#if BITS_PER_LONG == 64
++	if (!(word & (~0ul << 32))) {
++		num -= 32;
++		word <<= 32;
++	}
++#endif
++	if (!(word & (~0ul << (BITS_PER_LONG-16)))) {
++		num -= 16;
++		word <<= 16;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-8)))) {
++		num -= 8;
++		word <<= 8;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-4)))) {
++		num -= 4;
++		word <<= 4;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-2)))) {
++		num -= 2;
++		word <<= 2;
++	}
++	if (!(word & (~0ul << (BITS_PER_LONG-1))))
++		num -= 1;
++	return num;
++}
++
++#endif /* _ASM_GENERIC_BITOPS___FLS_H_ */
+diff -urNBp a/include/asm-generic/bitops.h b/include/asm-generic/bitops.h
+--- a/include/asm-generic/bitops.h
++++ b/include/asm-generic/bitops.h
+@@ -13,6 +13,7 @@
+ #include <asm-generic/bitops/non-atomic.h>
+ #include <asm-generic/bitops/__ffs.h>
+ #include <asm-generic/bitops/ffz.h>
++#include <asm-generic/bitops/__fls.h>
+ #include <asm-generic/bitops/fls.h>
+ #include <asm-generic/bitops/fls64.h>
+ #include <asm-generic/bitops/find.h>
+diff -uBp a/include/asm-generic/bug.h b/include/asm-generic/bug.h
+--- a/include/asm-generic/bug.h
++++ b/include/asm-generic/bug.h
+@@ -33,7 +33,7 @@ struct bug_entry {
+ 
+ #ifndef HAVE_ARCH_WARN_ON
+ #define WARN_ON(condition) ({						\
+-	typeof(condition) __ret_warn_on = (condition);			\
++	int __ret_warn_on = !!(condition);				\
+ 	if (unlikely(__ret_warn_on)) {					\
+ 		printk("WARNING: at %s:%d %s()\n", __FILE__,		\
+ 			__LINE__, __FUNCTION__);			\
+@@ -41,6 +41,17 @@ struct bug_entry {
+ 	}								\
+ 	unlikely(__ret_warn_on);					\
+ })
++
++#ifndef WARN
++#define WARN(condition, format...) ({					\
++	int __ret_warn_on = !!(condition);				\
++	if (unlikely(__ret_warn_on)) {					\
++		printk(format);						\
++		dump_stack();						\
++	}								\
++	unlikely(__ret_warn_on);					\
++})
++#endif
+ #endif
+ 
+ #else /* !CONFIG_BUG */
+@@ -54,10 +66,17 @@ struct bug_entry {
+ 
+ #ifndef HAVE_ARCH_WARN_ON
+ #define WARN_ON(condition) ({						\
+-	typeof(condition) __ret_warn_on = (condition);			\
++	int __ret_warn_on = !!(condition);				\
+ 	unlikely(__ret_warn_on);					\
+ })
+ #endif
++
++#ifndef WARN
++#define WARN(condition, format...) ({					\
++	int __ret_warn_on = !!(condition);				\
++	unlikely(__ret_warn_on);					\
++})
++#endif
+ #endif
+ 
+ #define WARN_ON_ONCE(condition)	({				\
+diff -uBp a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
+--- a/include/linux/compiler-gcc.h
++++ b/include/linux/compiler-gcc.h
+@@ -31,7 +31,7 @@
+ #define __deprecated			__attribute__((deprecated))
+ #define __packed			__attribute__((packed))
+ #define __weak				__attribute__((weak))
+-#define __naked				__attribute__((naked))
++#define __naked				__attribute__((naked)) notrace
+ #define __noreturn			__attribute__((noreturn))
+ #define __pure				__attribute__((pure))
+ #define __aligned(x)			__attribute__((aligned(x)))
+diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
+--- a/include/linux/compiler-gcc4.h
++++ b/include/linux/compiler-gcc4.h
+@@ -23,3 +19,35 @@
+  * code
+  */
+ #define uninitialized_var(x) x = x
++
++#if __GNUC_MINOR__ >= 3
++/* Mark functions as cold. gcc will assume any path leading to a call
++   to them will be unlikely.  This means a lot of manual unlikely()s
++   are unnecessary now for any paths leading to the usual suspects
++   like BUG(), printk(), panic() etc. [but let's keep them for now for
++   older compilers]
++
++   Early snapshots of gcc 4.3 don't support this and we can't detect this
++   in the preprocessor, but we can live with this because they're unreleased.
++   Maketime probing would be overkill here.
++
++   gcc also has a __attribute__((__hot__)) to move hot functions into
++   a special section, but I don't see any sense in this right now in
++   the kernel context */
++#define __cold			__attribute__((__cold__))
++
++
++#if __GNUC_MINOR__ >= 5
++/*
++ * Mark a position in code as unreachable.  This can be used to
++ * suppress control flow warnings after asm blocks that transfer
++ * control elsewhere.
++ *
++ * Early snapshots of gcc 4.5 don't support this and we can't detect
++ * this in the preprocessor, but we can live with this because they're
++ * unreleased.  Really, we need to have autoconf for the kernel.
++ */
++#define unreachable() __builtin_unreachable()
++#endif
++
++#endif
+diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -15,8 +15,8 @@
+ # define __acquire(x)	__context__(x,1)
+ # define __release(x)	__context__(x,-1)
+ # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
+-extern void __chk_user_ptr(const void __user *);
+-extern void __chk_io_ptr(const void __iomem *);
++extern void __chk_user_ptr(const volatile void __user *);
++extern void __chk_io_ptr(const volatile void __iomem *);
+ #else
+ # define __user
+ # define __kernel
+@@ -44,6 +44,8 @@ extern void __chk_io_ptr(const volatile 
+ # error Sorry, your compiler is too old/not recognized.
+ #endif
+ 
++#define notrace __attribute__((no_instrument_function))
++
+ /* Intel compiler defines __GNUC__. So we will overwrite implementations
+  * coming from above header files here
+  */
+@@ -144,6 +144,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
+ # define barrier() __memory_barrier()
+ #endif
+ 
++/* Unreachable code */
++#ifndef unreachable
++# define unreachable() do { } while (1)
++#endif
++
+ #ifndef RELOC_HIDE
+ # define RELOC_HIDE(ptr, off)					\
+   ({ unsigned long __ptr;					\
+@@ -174,4 +247,37 @@ extern void __chk_io_ptr(const void __io
+ # define __attribute_const__	/* unimplemented */
+ #endif
+ 
++/*
++ * Tell gcc if a function is cold. The compiler will assume any path
++ * directly leading to the call is unlikely.
++ */
++
++#ifndef __cold
++#define __cold
++#endif
++
++/* Simple shorthand for a section definition */
++#ifndef __section
++# define __section(S) __attribute__ ((__section__(#S)))
++#endif
++
++/* Are two types/vars the same type (ignoring qualifiers)? */
++#ifndef __same_type
++# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
++#endif
++
++/*
++ * Prevent the compiler from merging or refetching accesses.  The compiler
++ * is also forbidden from reordering successive instances of ACCESS_ONCE(),
++ * but only when the compiler is aware of some particular ordering.  One way
++ * to make the compiler aware of ordering is to put the two invocations of
++ * ACCESS_ONCE() in different C statements.
++ *
++ * This macro does absolutely -nothing- to prevent the CPU from reordering,
++ * merging, or refetching absolutely anything at any time.  Its main intended
++ * use is to mediate communication between process-level code and irq/NMI
++ * handlers, all running on the same CPU.
++ */
++#define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
++
+ #endif /* __LINUX_COMPILER_H */
+diff -uBp a/include/linux/device.h b/include/linux/device.h
+--- a/include/linux/device.h
++++ b/include/linux/device.h
+@@ -463,6 +463,11 @@ struct device {
+ 	void	(*release)(struct device * dev);
+ };
+ 
++static inline const char *dev_name(const struct device *dev)
++{
++        return kobject_name(&dev->kobj);
++}
++
+ #ifdef CONFIG_NUMA
+ static inline int dev_to_node(struct device *dev)
+ {
+diff --git a/include/linux/err.h b/include/linux/err.h
+--- a/include/linux/err.h
++++ b/include/linux/err.h
+@@ -34,6 +34,19 @@ static inline long IS_ERR(const void *pt
+ 	return IS_ERR_VALUE((unsigned long)ptr);
+ }
+ 
++/**
++ * ERR_CAST - Explicitly cast an error-valued pointer to another pointer type
++ * @ptr: The pointer to cast.
++ *
++ * Explicitly cast an error-valued pointer to another pointer type in such a
++ * way as to make it clear that's what's going on.
++ */
++static inline void *ERR_CAST(const void *ptr)
++{
++	/* cast away the const */
++	return (void *) ptr;
++}
++
+ #endif
+ 
+ #endif /* _LINUX_ERR_H */
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -34,6 +34,7 @@ extern const char linux_proc_banner[];
+ 
+ #define ALIGN(x,a)		__ALIGN_MASK(x,(typeof(x))(a)-1)
+ #define __ALIGN_MASK(x,mask)	(((x)+(mask))&~(mask))
++#define PTR_ALIGN(p, a)		((typeof(p))ALIGN((unsigned long)(p), (a)))
+ 
+ #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+ 
+@@ -76,6 +76,13 @@ extern const char linux_proc_banner[];
+ #define	KERN_INFO	"<6>"	/* informational			*/
+ #define	KERN_DEBUG	"<7>"	/* debug-level messages			*/
+ 
++/*
++ * Annotation for a "continued" line of log printout (only done after a
++ * line that had no enclosing \n). Only to be used by core/arch code
++ * during early bootup (a continued line is not SMP-safe otherwise).
++ */
++#define	KERN_CONT	""
++
+ extern int console_printk[];
+ 
+ #define console_loglevel (console_printk[0])
+@@ -107,7 +107,7 @@ extern int cond_resched(void);
+ extern struct atomic_notifier_head panic_notifier_list;
+ extern long (*panic_blink)(long time);
+ NORET_TYPE void panic(const char * fmt, ...)
+-	__attribute__ ((NORET_AND format (printf, 1, 2)));
++	__attribute__ ((NORET_AND format (printf, 1, 2))) __cold;
+ extern void oops_enter(void);
+ extern void oops_exit(void);
+ extern int oops_may_print(void);
+@@ -157,6 +157,19 @@ asmlinkage int vprintk(const char *fmt, va_list args)
+ 	__attribute__ ((format (printf, 1, 0)));
+ asmlinkage int printk(const char * fmt, ...)
+ 	__attribute__ ((format (printf, 1, 2)));
++
++/*
++ * Print a one-time message (analogous to WARN_ONCE() et al):
++ */
++#define printk_once(x...) ({			\
++	static bool __print_once;		\
++						\
++	if (!__print_once) {			\
++		__print_once = true;		\
++		printk(x);			\
++	}					\
++})
++
+ #else
+ static inline int vprintk(const char *s, va_list args)
+ 	__attribute__ ((format (printf, 1, 0)));
+@@ -164,6 +177,10 @@ static inline int vprintk(const char *s, va_list args) { return 0; }
+ static inline int printk(const char *s, ...)
+ 	__attribute__ ((format (printf, 1, 2)));
+ static inline int printk(const char *s, ...) { return 0; }
++
++/* No effect, but we still get type checking even in the !PRINTK case: */
++#define printk_once(x...) printk(x)
++
+ #endif
+ 
+ unsigned long int_sqrt(unsigned long);
+@@ -212,7 +212,7 @@ extern enum system_states {
+ #define TAINT_BAD_PAGE			(1<<5)
+ #define TAINT_USER			(1<<6)
+ 
+-extern void dump_stack(void);
++extern void dump_stack(void) __cold;
+ 
+ enum {
+ 	DUMP_PREFIX_NONE,
+@@ -267,6 +267,18 @@
+ }
+ #endif
+ 
++#define pr_emerg(fmt,arg...) \
++        printk(KERN_EMERG fmt, ##arg)
++#define pr_alert(fmt,arg...) \
++        printk(KERN_ALERT fmt, ##arg)
++#define pr_crit(fmt,arg...) \
++        printk(KERN_CRIT fmt, ##arg)
++#define pr_err(fmt,arg...) \
++        printk(KERN_ERR fmt, ##arg)
++#define pr_warning(fmt,arg...) \
++        printk(KERN_WARNING fmt, ##arg)
++#define pr_notice(fmt,arg...) \
++        printk(KERN_NOTICE fmt, ##arg)
+ #define pr_info(fmt,arg...) \
+ 	printk(KERN_INFO fmt,##arg)
+ 
+@@ -295,6 +295,24 @@ static inline int __attribute__ ((format
+ 	(void) (&_x == &_y);		\
+ 	_x > _y ? _x : _y; })
+ 
++/**
++ * clamp - return a value clamped to a given range with strict typechecking
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does strict typechecking of min/max to make sure they are of the
++ * same type as val.  See the unnecessary pointer comparisons.
++ */
++#define clamp(val, min, max) ({			\
++	typeof(val) __val = (val);		\
++	typeof(min) __min = (min);		\
++	typeof(max) __max = (max);		\
++	(void) (&__val == &__min);		\
++	(void) (&__val == &__max);		\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
+ /*
+  * ..and if you can't take the strict
+  * types, you can specify one yourself.
+@@ -306,6 +324,41 @@ static inline int __attribute__ ((format
+ #define max_t(type,x,y) \
+ 	({ type __x = (x); type __y = (y); __x > __y ? __x: __y; })
+ 
++/**
++ * clamp_t - return a value clamped to a given range using a given type
++ * @type: the type of variable to use
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does no typechecking and uses temporary variables of type
++ * 'type' to make all the comparisons.
++ */
++#define clamp_t(type, val, min, max) ({		\
++	type __val = (val);			\
++	type __min = (min);			\
++	type __max = (max);			\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
++/**
++ * clamp_val - return a value clamped to a given range using val's type
++ * @val: current value
++ * @min: minimum allowable value
++ * @max: maximum allowable value
++ *
++ * This macro does no typechecking and uses temporary variables of whatever
++ * type the input argument 'val' is.  This is useful when val is an unsigned
++ * type and min and max are literals that will otherwise be assigned a signed
++ * integer type.
++ */
++#define clamp_val(val, min, max) ({		\
++	typeof(val) __val = (val);		\
++	typeof(val) __min = (min);		\
++	typeof(val) __max = (max);		\
++	__val = __val < __min ? __min: __val;	\
++	__val > __max ? __max: __val; })
++
+ 
+ /**
+  * container_of - cast a member of a structure out to the containing structure
+diff '-x.*' -urNBp a/include/linux/list.h b/include/linux/list.h
+--- a/include/linux/list.h	2008-02-26 02:59:40.000000000 +0300
++++ b/include/linux/list.h	2010-07-16 21:54:37.000000000 +0400
+@@ -319,6 +319,15 @@ static inline int list_empty_careful(con
+ 	return (next == head) && (next == head->prev);
+ }
+ 
++/**
++ * list_is_singular - tests whether a list has just one entry.
++ * @head: the list to test.
++ */
++static inline int list_is_singular(const struct list_head *head)
++{
++	return !list_empty(head) && (head->next == head->prev);
++}
++
+ static inline void __list_splice(struct list_head *list,
+ 				 struct list_head *head)
+ {
+@@ -758,6 +758,34 @@
+ }
+ 
+ /**
++ * hlist_del_init_rcu - deletes entry from hash list with re-initialization
++ * @n: the element to delete from the hash list.
++ *
++ * Note: list_unhashed() on the node return true after this. It is
++ * useful for RCU based read lockfree traversal if the writer side
++ * must know if the list entry is still hashed or already unhashed.
++ *
++ * In particular, it means that we can not poison the forward pointers
++ * that may still be used for walking the hash list and we can only
++ * zero the pprev pointer so list_unhashed() will return true after
++ * this.
++ *
++ * The caller must take whatever precautions are necessary (such as
++ * holding appropriate locks) to avoid racing with another
++ * list-mutation primitive, such as hlist_add_head_rcu() or
++ * hlist_del_rcu(), running on this same list.  However, it is
++ * perfectly legal to run concurrently with the _rcu list-traversal
++ * primitives, such as hlist_for_each_entry_rcu().
++  */
++static inline void hlist_del_init_rcu(struct hlist_node *n)
++{
++	if (!hlist_unhashed(n)) {
++		__hlist_del(n);
++		n->pprev = NULL;
++	}
++}
++
++/**
+  * hlist_replace_rcu - replace old entry by new one
+  * @old : the element to be replaced
+  * @new : the new element to insert
+diff --git a/include/linux/list_nulls.h b/include/linux/list_nulls.h
+--- a/include/linux/list_nulls.h
++++ b/include/linux/list_nulls.h	2011-01-08 02:08:43.000000000 +0300
+@@ -0,0 +1,112 @@
++#ifndef _LINUX_LIST_NULLS_H
++#define _LINUX_LIST_NULLS_H
++
++/*
++ * Special version of lists, where end of list is not a NULL pointer,
++ * but a 'nulls' marker, which can have many different values.
++ * (up to 2^31 different values guaranteed on all platforms)
++ *
++ * In the standard hlist, termination of a list is the NULL pointer.
++ * In this special 'nulls' variant, we use the fact that objects stored in
++ * a list are aligned on a word (4 or 8 bytes alignment).
++ * We therefore use the last significant bit of 'ptr' :
++ * Set to 1 : This is a 'nulls' end-of-list marker (ptr >> 1)
++ * Set to 0 : This is a pointer to some object (ptr)
++ */
++
++struct hlist_nulls_head {
++	struct hlist_nulls_node *first;
++};
++
++struct hlist_nulls_node {
++	struct hlist_nulls_node *next, **pprev;
++};
++#define INIT_HLIST_NULLS_HEAD(ptr, nulls) \
++	((ptr)->first = (struct hlist_nulls_node *) (1UL | (((long)nulls) << 1)))
++
++#define hlist_nulls_entry(ptr, type, member) container_of(ptr,type,member)
++/**
++ * ptr_is_a_nulls - Test if a ptr is a nulls
++ * @ptr: ptr to be tested
++ *
++ */
++static inline int is_a_nulls(const struct hlist_nulls_node *ptr)
++{
++	return ((unsigned long)ptr & 1);
++}
++
++/**
++ * get_nulls_value - Get the 'nulls' value of the end of chain
++ * @ptr: end of chain
++ *
++ * Should be called only if is_a_nulls(ptr);
++ */
++static inline unsigned long get_nulls_value(const struct hlist_nulls_node *ptr)
++{
++	return ((unsigned long)ptr) >> 1;
++}
++
++static inline int hlist_nulls_unhashed(const struct hlist_nulls_node *h)
++{
++	return !h->pprev;
++}
++
++static inline int hlist_nulls_empty(const struct hlist_nulls_head *h)
++{
++	return is_a_nulls(h->first);
++}
++
++static inline void hlist_nulls_add_head(struct hlist_nulls_node *n,
++					struct hlist_nulls_head *h)
++{
++	struct hlist_nulls_node *first = h->first;
++
++	n->next = first;
++	n->pprev = &h->first;
++	h->first = n;
++	if (!is_a_nulls(first))
++		first->pprev = &n->next;
++}
++
++static inline void __hlist_nulls_del(struct hlist_nulls_node *n)
++{
++	struct hlist_nulls_node *next = n->next;
++	struct hlist_nulls_node **pprev = n->pprev;
++	*pprev = next;
++	if (!is_a_nulls(next))
++		next->pprev = pprev;
++}
++
++static inline void hlist_nulls_del(struct hlist_nulls_node *n)
++{
++	__hlist_nulls_del(n);
++	n->pprev = LIST_POISON2;
++}
++
++/**
++ * hlist_nulls_for_each_entry	- iterate over list of given type
++ * @tpos:	the type * to use as a loop cursor.
++ * @pos:	the &struct hlist_node to use as a loop cursor.
++ * @head:	the head for your list.
++ * @member:	the name of the hlist_node within the struct.
++ *
++ */
++#define hlist_nulls_for_each_entry(tpos, pos, head, member)		       \
++	for (pos = (head)->first;					       \
++	     (!is_a_nulls(pos)) &&					       \
++		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = pos->next)
++
++/**
++ * hlist_nulls_for_each_entry_from - iterate over a hlist continuing from current point
++ * @tpos:	the type * to use as a loop cursor.
++ * @pos:	the &struct hlist_node to use as a loop cursor.
++ * @member:	the name of the hlist_node within the struct.
++ *
++ */
++#define hlist_nulls_for_each_entry_from(tpos, pos, member)	\
++	for (; (!is_a_nulls(pos)) && 				\
++		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1;}); \
++	     pos = pos->next)
++
++#endif
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -559,6 +559,12 @@ static inline void *netdev_priv(struct n
+  */
+ #define SET_NETDEV_DEV(net, pdev)	((net)->dev.parent = (pdev))
+ 
++/* Set the sysfs device type for the network logical device to allow
++ * fin grained indentification of different network device types. For
++ * example Ethernet, Wirelss LAN, Bluetooth, WiMAX etc.
++ */
++#define SET_NETDEV_DEVTYPE(net, devtype)	((net)->dev.type = (devtype))
++
+ struct packet_type {
+ 	__be16			type;	/* This is really htons(ether_type). */
+ 	struct net_device	*dev;	/* NULL is wildcarded here	     */
+diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
+--- a/include/linux/rculist_nulls.h
++++ b/include/linux/rculist_nulls.h	2011-01-08 02:08:43.000000000 +0300
+@@ -0,0 +1,110 @@
++#ifndef _LINUX_RCULIST_NULLS_H
++#define _LINUX_RCULIST_NULLS_H
++
++#ifdef __KERNEL__
++
++/*
++ * RCU-protected list version
++ */
++#include <linux/list_nulls.h>
++#include <linux/rcupdate.h>
++
++/**
++ * hlist_nulls_del_init_rcu - deletes entry from hash list with re-initialization
++ * @n: the element to delete from the hash list.
++ *
++ * Note: hlist_nulls_unhashed() on the node return true after this. It is
++ * useful for RCU based read lockfree traversal if the writer side
++ * must know if the list entry is still hashed or already unhashed.
++ *
++ * In particular, it means that we can not poison the forward pointers
++ * that may still be used for walking the hash list and we can only
++ * zero the pprev pointer so list_unhashed() will return true after
++ * this.
++ *
++ * The caller must take whatever precautions are necessary (such as
++ * holding appropriate locks) to avoid racing with another
++ * list-mutation primitive, such as hlist_nulls_add_head_rcu() or
++ * hlist_nulls_del_rcu(), running on this same list.  However, it is
++ * perfectly legal to run concurrently with the _rcu list-traversal
++ * primitives, such as hlist_nulls_for_each_entry_rcu().
++ */
++static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
++{
++	if (!hlist_nulls_unhashed(n)) {
++		__hlist_nulls_del(n);
++		n->pprev = NULL;
++	}
++}
++
++/**
++ * hlist_nulls_del_rcu - deletes entry from hash list without re-initialization
++ * @n: the element to delete from the hash list.
++ *
++ * Note: hlist_nulls_unhashed() on entry does not return true after this,
++ * the entry is in an undefined state. It is useful for RCU based
++ * lockfree traversal.
++ *
++ * In particular, it means that we can not poison the forward
++ * pointers that may still be used for walking the hash list.
++ *
++ * The caller must take whatever precautions are necessary
++ * (such as holding appropriate locks) to avoid racing
++ * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
++ * or hlist_nulls_del_rcu(), running on this same list.
++ * However, it is perfectly legal to run concurrently with
++ * the _rcu list-traversal primitives, such as
++ * hlist_nulls_for_each_entry().
++ */
++static inline void hlist_nulls_del_rcu(struct hlist_nulls_node *n)
++{
++	__hlist_nulls_del(n);
++	n->pprev = LIST_POISON2;
++}
++
++/**
++ * hlist_nulls_add_head_rcu
++ * @n: the element to add to the hash list.
++ * @h: the list to add to.
++ *
++ * Description:
++ * Adds the specified element to the specified hlist_nulls,
++ * while permitting racing traversals.
++ *
++ * The caller must take whatever precautions are necessary
++ * (such as holding appropriate locks) to avoid racing
++ * with another list-mutation primitive, such as hlist_nulls_add_head_rcu()
++ * or hlist_nulls_del_rcu(), running on this same list.
++ * However, it is perfectly legal to run concurrently with
++ * the _rcu list-traversal primitives, such as
++ * hlist_nulls_for_each_entry_rcu(), used to prevent memory-consistency
++ * problems on Alpha CPUs.  Regardless of the type of CPU, the
++ * list-traversal primitive must be guarded by rcu_read_lock().
++ */
++static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
++					struct hlist_nulls_head *h)
++{
++	struct hlist_nulls_node *first = h->first;
++
++	n->next = first;
++	n->pprev = &h->first;
++	rcu_assign_pointer(h->first, n);
++	if (!is_a_nulls(first))
++		first->pprev = &n->next;
++}
++/**
++ * hlist_nulls_for_each_entry_rcu - iterate over rcu list of given type
++ * @tpos:	the type * to use as a loop cursor.
++ * @pos:	the &struct hlist_nulls_node to use as a loop cursor.
++ * @head:	the head for your list.
++ * @member:	the name of the hlist_nulls_node within the struct.
++ *
++ */
++#define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member) \
++	for (pos = rcu_dereference((head)->first);			 \
++		(!is_a_nulls(pos)) &&			\
++		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
++		pos = rcu_dereference(pos->next))
++
++#endif
++#endif
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -153,6 +153,12 @@
+ #define TASK_NONINTERACTIVE	64
+ #define TASK_DEAD		128
+ 
++#define task_is_traced(task)    (((task)->state & TASK_TRACED) != 0)
++#define task_is_stopped(task)   (((task)->state & TASK_STOPPED) != 0)
++#define task_is_dead(task)	((task)->exit_state != 0)
++#define task_is_stopped_or_traced(task) \
++			(((task)->state & (TASK_STOPPED | TASK_TRACED)) != 0)
++
+ #define __set_task_state(tsk, state_value)		\
+ 	do { (tsk)->state = (state_value); } while (0)
+ #define set_task_state(tsk, state_value)		\
+-- 

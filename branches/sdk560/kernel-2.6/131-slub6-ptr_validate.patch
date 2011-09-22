@@ -1,0 +1,109 @@
+From 0341a36bc11bbd7eb20ea6c89861644897cfee2f
+From: Pekka Enberg <penberg@cs.helsinki.fi>
+Date: Mon, 12 Apr 2010 23:38:50 -0400
+Subject: [PATCH] slub: fix kmem_ptr_validate() for non-kernel pointers
+
+kernel.org commits
+fc1c183353a113c71675fecd0485e5aa0fe68d72
+d3e06e2b15590b70ea73733fc4612e4741ff46e0
+---
+ include/linux/slab.h  |    1 +
+ mm/slab.c             |   13 +----------
+ mm/slub.c             |    3 ++
+ mm/util.c             |   22 ++++++++++++++++++++
+ 4 files changed, 27 insertions(+), 12 deletions(-)
+
+diff --git a/include/linux/slab.h b/include/linux/slab.h
+index f31c8c8..1df3c71 100644
+--- a/include/linux/slab.h
++++ b/include/linux/slab.h
+@@ -60,6 +60,7 @@ int kmem_cache_shrink(struct kmem_cache *);
+ void kmem_cache_free(struct kmem_cache *, void *);
+ unsigned int kmem_cache_size(struct kmem_cache *);
+ const char *kmem_cache_name(struct kmem_cache *);
++int kern_ptr_validate(const void *ptr, unsigned long size);
+ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr);
+ 
+ /*
+diff --git a/mm/slab.c b/mm/slab.c
+index fd942ac..37559a2 100644
+--- a/mm/slab.c
++++ b/mm/slab.c
+@@ -3601,21 +3601,10 @@ EXPORT_SYMBOL(kmem_cache_alloc);
+  */
+ int kmem_ptr_validate(struct kmem_cache *cachep, const void *ptr)
+ {
+-	unsigned long addr = (unsigned long)ptr;
+-	unsigned long min_addr = PAGE_OFFSET;
+-	unsigned long align_mask = BYTES_PER_WORD - 1;
+ 	unsigned long size = cachep->buffer_size;
+ 	struct page *page;
+ 
+-	if (unlikely(addr < min_addr))
+-		goto out;
+-	if (unlikely(addr > (unsigned long)high_memory - size))
+-		goto out;
+-	if (unlikely(addr & align_mask))
+-		goto out;
+-	if (unlikely(!kern_addr_valid(addr)))
+-		goto out;
+-	if (unlikely(!kern_addr_valid(addr + size - 1)))
++	if (unlikely(!kern_ptr_validate(ptr, size)))
+ 		goto out;
+ 	page = virt_to_page(ptr);
+ 	if (unlikely(!PageSlab(page)))
+diff --git a/mm/slub.c b/mm/slub.c
+index 479c5b7..c2ef23b 100644
+--- a/mm/slub.c
++++ b/mm/slub.c
+@@ -2061,6 +2061,9 @@ int kmem_ptr_validate(struct kmem_cache *s, const void *object)
+ {
+ 	struct page * page;
+ 
++	if (!kern_ptr_validate(object, s->size))
++		return 0;
++
+ 	page = get_object_page(object);
+ 
+ 	if (!page || s != page->slab)
+diff --git a/mm/util.c b/mm/util.c
+index ab522d7..7645e38 100644
+--- a/mm/util.c
++++ b/mm/util.c
+@@ -1,4 +1,5 @@
+ #include <linux/slab.h>
++#include <linux/mm.h>
+ #include <linux/string.h>
+ #include <linux/module.h>
+ #include <linux/err.h>
+@@ -81,6 +82,27 @@ void *krealloc(const void *p, size_t new_size, gfp_t flags)
+ }
+ EXPORT_SYMBOL(krealloc);
+ 
++int kern_ptr_validate(const void *ptr, unsigned long size)
++{
++	unsigned long addr = (unsigned long)ptr;
++	unsigned long min_addr = PAGE_OFFSET;
++	unsigned long align_mask = sizeof(void *) - 1;
++
++	if (unlikely(addr < min_addr))
++		goto out;
++	if (unlikely(addr > (unsigned long)high_memory - size))
++		goto out;
++	if (unlikely(addr & align_mask))
++		goto out;
++	if (unlikely(!kern_addr_valid(addr)))
++		goto out;
++	if (unlikely(!kern_addr_valid(addr + size - 1)))
++		goto out;
++	return 1;
++out:
++	return 0;
++}
++
+ /*
+  * strndup_user - duplicate an existing string from user space
+  *
+-- 
+1.6.5.GIT
+

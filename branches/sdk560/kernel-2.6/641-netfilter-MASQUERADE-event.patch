@@ -1,0 +1,41 @@
+From 6fc68624e524014fcd95faf726f855eb348f2e87
+From: Denis V. Lunev
+Date: Thu, 28 Feb 2008 20:45:41 -0800
+Subject: [PATCH] [NETFILTER]: Consolidate masq_inet_event and masq_device_event.
+
+They do exactly the same job.
+
+Signed-off-by: Denis V. Lunev <den@openvz.org>
+Acked-by: Patrick McHardy <kaber@trash.net>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/netfilter/ipt_MASQUERADE.c |   14 ++------------
+ 1 files changed, 2 insertions(+), 12 deletions(-)
+
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index d80fee8..313b3fc 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -139,18 +139,8 @@ static int masq_inet_event(struct notifier_block *this,
+ 			   unsigned long event,
+ 			   void *ptr)
+ {
+-	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
+-
+-	if (event == NETDEV_DOWN) {
+-		/* IP address was deleted.  Search entire table for
+-		   conntracks which were associated with that device,
+-		   and forget them. */
+-		NF_CT_ASSERT(dev->ifindex != 0);
+-
+-		nf_ct_iterate_cleanup(device_cmp, (void *)(long)dev->ifindex);
+-	}
+-
+-	return NOTIFY_DONE;
++	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
++	return masq_device_event(this, event, dev);
+ }
+ 
+ static struct notifier_block masq_dev_notifier = {
+-- 
+1.7.4.1

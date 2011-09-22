@@ -1,0 +1,72 @@
+From 1f9352ae2253a97b07b34dcf16ffa3b4ca12c558
+From: Patrick McHardy
+Date: Wed, 25 Mar 2009 19:26:35 +0100
+Subject: [PATCH] netfilter: {ip,ip6,arp}_tables: fix incorrect loop detection
+
+Commit e1b4b9f ([NETFILTER]: {ip,ip6,arp}_tables: fix exponential worst-case
+search for loops) introduced a regression in the loop detection algorithm,
+causing sporadic incorrectly detected loops.
+
+When a chain has already been visited during the check, it is treated as
+having a standard target containing a RETURN verdict directly at the
+beginning in order to not check it again. The real target of the first
+rule is then incorrectly treated as STANDARD target and checked not to
+contain invalid verdicts.
+
+Fix by making sure the rule does actually contain a standard target.
+
+Based on patch by Francis Dupont <Francis_Dupont@isc.org>
+Signed-off-by: Patrick McHardy <kaber@trash.net>
+---
+ net/ipv4/netfilter/arp_tables.c |    4 +++-
+ net/ipv4/netfilter/ip_tables.c  |    4 +++-
+ net/ipv6/netfilter/ip6_tables.c |    4 +++-
+ 3 files changed, 9 insertions(+), 3 deletions(-)
+
+diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+index 4b35dba..4f454ce 100644
+--- a/net/ipv4/netfilter/arp_tables.c
++++ b/net/ipv4/netfilter/arp_tables.c
+@@ -388,7 +388,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->arp)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++					    ARPT_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
+index 41c59e3..82ee7c9 100644
+--- a/net/ipv4/netfilter/ip_tables.c
++++ b/net/ipv4/netfilter/ip_tables.c
+@@ -488,7 +488,9 @@ mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->ip)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++			    		    IPT_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
+index e59662b..e89cfa3 100644
+--- a/net/ipv6/netfilter/ip6_tables.c
++++ b/net/ipv6/netfilter/ip6_tables.c
+@@ -517,7 +517,9 @@ mark_source_chains(struct xt_table_info *newinfo,
+ 			    && unconditional(&e->ipv6)) || visited) {
+ 				unsigned int oldpos, size;
+ 
+-				if (t->verdict < -NF_MAX_VERDICT - 1) {
++				if ((strcmp(t->target.u.user.name,
++					    IP6T_STANDARD_TARGET) == 0) &&
++				    t->verdict < -NF_MAX_VERDICT - 1) {
+ 					duprintf("mark_source_chains: bad "
+ 						"negative verdict (%i)\n",
+ 								t->verdict);
+-- 
+1.7.3.1

@@ -1,0 +1,27 @@
+Subject: [PATCH] [VLAN]: Fix nested VLAN transmit bug
+From 6ab3b487db77fa98a24560f11a5a8e744b98d877
+Date: Thu, 29 Nov 2007 22:16:41 +1100
+
+Fix misbehavior of vlan_dev_hard_start_xmit() for recursive encapsulations.
+
+Signed-off-by: Joonwoo Park <joonwpark81@gmail.com>
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/8021q/vlan_dev.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+index 7a36878..4f99bb8 100644
+--- a/net/8021q/vlan_dev.c
++++ b/net/8021q/vlan_dev.c
+@@ -462,7 +462,8 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 * OTHER THINGS LIKE FDDI/TokenRing/802.3 SNAPs...
+ 	 */
+ 
+-	if (veth->h_vlan_proto != htons(ETH_P_8021Q)) {
++	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q) ||
++		(VLAN_DEV_INFO(dev)->flags & 1 /* VLAN_FLAG_REORDER_HDR */)) {
+ 		int orig_headroom = skb_headroom(skb);
+ 		unsigned short veth_TCI;
+ 
+

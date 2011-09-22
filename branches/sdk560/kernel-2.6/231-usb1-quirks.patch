@@ -1,0 +1,683 @@
+From 75d2a92d6719fed999516968f280fc2ff11d4d69
+From: Fedor <fedork@ubuntu.(none)>
+Date: Tue, 27 Jul 2010 23:40:36 -0400
+Subject: [PATCH] USB: backports of new quirks and device IDs from upstream 2.6 kernel
+
+---
+
+ drivers/usb/core/config.c     |   16 ++++
+ drivers/usb/core/quirks.c     |   31 +++++++--
+ drivers/usb/serial/ftdi_sio.c |  139 +++++++++++++++++++++++++++++++++++++++---
+ drivers/usb/serial/ftdi_sio.h |  110 ++++++++++++++++++++++++++++++++-
+ drivers/usb/serial/option.c   |    2 
+ drivers/usb/serial/sierra.c   |    5 -
+ include/linux/usb/quirks.h    |    4 +
+ 7 files changed, 286 insertions(+), 21 deletions(-)
+
+diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
+index 1ece5f6..cd177e2 100644
+--- a/drivers/usb/core/config.c
++++ b/drivers/usb/core/config.c
+@@ -1,5 +1,6 @@
+ #include <linux/usb.h>
+ #include <linux/usb/ch9.h>
++#include <linux/usb/quirks.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/slab.h>
+@@ -300,9 +301,10 @@ skip_to_next_interface_descriptor:
+ 	return buffer - buffer0 + i;
+ }
+ 
+-static int usb_parse_configuration(struct device *ddev, int cfgidx,
++static int usb_parse_configuration(struct usb_device *dev, int cfgidx,
+     struct usb_host_config *config, unsigned char *buffer, int size)
+ {
++	struct device *ddev = &dev->dev;
+ 	unsigned char *buffer0 = buffer;
+ 	int cfgno;
+ 	int nintf, nintf_orig;
+@@ -371,6 +373,16 @@ static int usb_parse_configuration(struct device *ddev, int cfgidx,
+ 			}
+ 
+ 			inum = d->bInterfaceNumber;
++
++			if ((dev->quirks & USB_QUIRK_HONOR_BNUMINTERFACES) &&
++			    n >= nintf_orig) {
++				dev_warn(ddev, "config %d has more interface "
++				    "descriptors than it declares in "
++				    "bNumInterfaces, ignoring interface "
++				    "number: %d\n", cfgno, inum);
++				continue;
++			}
++
+ 			if (inum >= nintf_orig)
+ 				dev_warn(ddev, "config %d has an invalid "
+ 				    "interface number: %d but max is %d\n",
+@@ -605,7 +617,7 @@ int usb_get_configuration(struct usb_device *dev)
+ 
+ 		dev->rawdescriptors[cfgno] = bigbuffer;
+ 
+-		result = usb_parse_configuration(&dev->dev, cfgno,
++		result = usb_parse_configuration(dev, cfgno,
+ 		    &dev->config[cfgno], bigbuffer, length);
+ 		if (result < 0) {
+ 			++cfgno;
+diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
+index 1b47c8c..2f67cec 100644
+--- a/drivers/usb/core/quirks.c
++++ b/drivers/usb/core/quirks.c
+@@ -30,20 +30,30 @@
+ static const struct usb_device_id usb_quirk_list[] = {
+ 	/* CBM - Flash disk */
+ 	{ USB_DEVICE(0x0204, 0x6025), .driver_info = USB_QUIRK_RESET_RESUME },
++
+ 	/* HP 5300/5370C scanner */
+-	{ USB_DEVICE(0x03f0, 0x0701), .driver_info = USB_QUIRK_STRING_FETCH_255 },
++	{ USB_DEVICE(0x03f0, 0x0701), .driver_info =
++			USB_QUIRK_STRING_FETCH_255 },
+ 
+ 	/* Creative SB Audigy 2 NX */
+ 	{ USB_DEVICE(0x041e, 0x3020), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
++	/* Philips PSC805 audio device */
++	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
++
++	/* Artisman Watchdog Dongle */
++	{ USB_DEVICE(0x04b4, 0x0526), .driver_info =
++			USB_QUIRK_CONFIG_INTF_STRINGS },
++
+ 	/* Roland SC-8820 */
+ 	{ USB_DEVICE(0x0582, 0x0007), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
+ 	/* Edirol SD-20 */
+ 	{ USB_DEVICE(0x0582, 0x0027), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
+-	/* INTEL VALUE SSD */
+-	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
++	/* Avision AV600U */
++	{ USB_DEVICE(0x0638, 0x0a13), .driver_info =
++	  USB_QUIRK_STRING_FETCH_255 },
+ 
+ 	/* Saitek Cyborg Gold Joystick */
+ 	{ USB_DEVICE(0x06a3, 0x0006), .driver_info =
+@@ -55,12 +65,23 @@ static const struct usb_device_id usb_quirk_list[] = {
+ 	/* X-Rite/Gretag-Macbeth Eye-One Pro display colorimeter */
+ 	{ USB_DEVICE(0x0971, 0x2000), .driver_info = USB_QUIRK_NO_SET_INTF },
+ 
+-	/* Philips PSC805 audio device */
+-	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
++	/* Broadcom BCM92035DGROM BT dongle */
++	{ USB_DEVICE(0x0a5c, 0x2021), .driver_info = USB_QUIRK_RESET_RESUME },
++
++	/* Action Semiconductor flash disk */
++	{ USB_DEVICE(0x10d6, 0x2200), .driver_info =
++			USB_QUIRK_STRING_FETCH_255 },
+ 
+ 	/* SKYMEDI USB_DRIVE */
+ 	{ USB_DEVICE(0x1516, 0x8628), .driver_info = USB_QUIRK_RESET_RESUME },
+ 
++	/* BUILDWIN Photo Frame */
++	{ USB_DEVICE(0x1908, 0x1315), .driver_info =
++			USB_QUIRK_HONOR_BNUMINTERFACES },
++
++	/* INTEL VALUE SSD */
++	{ USB_DEVICE(0x8086, 0xf1a5), .driver_info = USB_QUIRK_RESET_RESUME },
++
+ 	{ }  /* terminating entry must be last */
+ };
+ 
+diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
+index b7e6b3d..a2c9ebe 100644
+--- a/drivers/usb/serial/ftdi_sio.c
++++ b/drivers/usb/serial/ftdi_sio.c
+@@ -46,7 +46,7 @@
+  * Version Information
+  */
+ #define DRIVER_VERSION "v1.4.3"
+-#define DRIVER_AUTHOR "Greg Kroah-Hartman <greg@kroah.com>, Bill Ryder <bryder@sgi.com>, Kuba Ober <kuba@mareimbrium.org>"
++#define DRIVER_AUTHOR "Greg Kroah-Hartman <greg@kroah.com>, Bill Ryder <bryder@sgi.com>, Kuba Ober <kuba@mareimbrium.org>, Andreas Mohr"
+ #define DRIVER_DESC "USB FTDI Serial Converters Driver"
+ 
+ static int debug;
+@@ -92,10 +92,11 @@ struct ftdi_sio_quirk {
+ 	void (*port_probe)(struct ftdi_private *); /* Special settings for probed ports. */
+ };
+ 
+-static int   ftdi_jtag_probe		(struct usb_serial *serial);
+-static int   ftdi_mtxorb_hack_setup	(struct usb_serial *serial);
+-static void  ftdi_USB_UIRT_setup	(struct ftdi_private *priv);
+-static void  ftdi_HE_TIRA1_setup	(struct ftdi_private *priv);
++static int   ftdi_jtag_probe(struct usb_serial *serial);
++static int   ftdi_mtxorb_hack_setup(struct usb_serial *serial);
++static int   ftdi_NDI_device_setup(struct usb_serial *serial);
++static void  ftdi_USB_UIRT_setup(struct ftdi_private *priv);
++static void  ftdi_HE_TIRA1_setup(struct ftdi_private *priv);
+ 
+ static struct ftdi_sio_quirk ftdi_jtag_quirk = {
+ 	.probe	= ftdi_jtag_probe,
+@@ -105,6 +106,10 @@ static struct ftdi_sio_quirk ftdi_mtxorb_hack_quirk = {
+ 	.probe  = ftdi_mtxorb_hack_setup,
+ };
+ 
++static struct ftdi_sio_quirk ftdi_NDI_device_quirk = {
++	.probe	= ftdi_NDI_device_setup,
++};
++
+ static struct ftdi_sio_quirk ftdi_USB_UIRT_quirk = {
+ 	.port_probe = ftdi_USB_UIRT_setup,
+ };
+@@ -131,10 +136,15 @@ static struct ftdi_sio_quirk ftdi_HE_TIRA1_quirk = {
+ 
+ 
+ 
++/*
++ * Device ID not listed? Test via module params product/vendor or
++ * /sys/bus/usb/ftdi_sio/new_id, then send patch/report!
++ */
+ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_AMC232_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_CANUSB_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_CANDAPTER_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_NXTCAM_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_0_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_1_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SCS_DEVICE_2_PID) },
+@@ -156,6 +166,9 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_MICRO_CHAMELEON_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_RELAIS_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_SNIFFER_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_THROTTLE_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_OPENDCC_GATEWAY_PID) },
+ 	{ USB_DEVICE(INTERBIOMETRICS_VID, INTERBIOMETRICS_IOBOARD_PID) },
+ 	{ USB_DEVICE(INTERBIOMETRICS_VID, INTERBIOMETRICS_MINI_IOBOARD_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_XF_632_PID) },
+@@ -176,6 +189,7 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_MTXORB_4_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_MTXORB_5_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_MTXORB_6_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_R2000KU_TRUE_RNG) },
+ 	{ USB_DEVICE(MTXORB_VID,MTXORB_FTDI_RANGE_0100_PID) },
+ 	{ USB_DEVICE(MTXORB_VID,MTXORB_FTDI_RANGE_0101_PID) },
+ 	{ USB_DEVICE(MTXORB_VID,MTXORB_FTDI_RANGE_0102_PID) },
+@@ -532,9 +546,16 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_IBS_PEDO_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_IBS_PROD_PID) },
+ 	/*
+-	 * Due to many user requests for multiple ELV devices we enable
+-	 * them by default.
++	 * ELV devices:
+ 	 */
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_USR_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_MSM1_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_KL100_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS550_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_EC3000_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS888_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_TWS550_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FEM_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_CLI7000_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_PPS7330_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_TFM100_PID) },
+@@ -551,11 +572,17 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_PCK100_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_RFP500_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FS20SIG_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_UTP8_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS300PC_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS444PC_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FHZ1300PC_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_EM1010PC_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS500_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_ELV_HS485_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_UMS100_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_TFD128_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_FM3RX_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_ELV_WS777_PID) },
+ 	{ USB_DEVICE(FTDI_VID, LINX_SDMUSBQSS_PID) },
+ 	{ USB_DEVICE(FTDI_VID, LINX_MASTERDEVEL2_PID) },
+ 	{ USB_DEVICE(FTDI_VID, LINX_FUTURE_0_PID) },
+@@ -564,6 +591,9 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_CCSICDU20_0_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_CCSICDU40_1_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_CCSMACHX_2_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_CCSLOAD_N_GO_3_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_CCSICDU64_4_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_CCSPRIME8_5_PID) },
+ 	{ USB_DEVICE(FTDI_VID, INSIDE_ACCESSO) },
+ 	{ USB_DEVICE(INTREPID_VID, INTREPID_VALUECAN_PID) },
+ 	{ USB_DEVICE(INTREPID_VID, INTREPID_NEOVI_PID) },
+@@ -572,9 +602,24 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_SUUNTO_SPORTS_PID) },
+ 	{ USB_DEVICE(TTI_VID, TTI_QL355P_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_RM_CANVIEW_PID) },
++	{ USB_DEVICE(CONTEC_VID, CONTEC_COM1USBH_PID) },
+ 	{ USB_DEVICE(BANDB_VID, BANDB_USOTL4_PID) },
+ 	{ USB_DEVICE(BANDB_VID, BANDB_USTL4_PID) },
+ 	{ USB_DEVICE(BANDB_VID, BANDB_USO9ML2_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USOPTL4_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USPTL4_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USO9ML2DR_2_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USO9ML2DR_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USOPTL4DR2_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_USOPTL4DR_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_485USB9F_2W_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_485USB9F_4W_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_232USB9M_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_485USBTB_2W_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_485USBTB_4W_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_TTL5USB9M_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_TTL3USB9M_PID) },
++	{ USB_DEVICE(BANDB_VID, BANDB_ZZ_PROG1_USB_PID) },
+ 	{ USB_DEVICE(FTDI_VID, EVER_ECO_PRO_CDS) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_4N_GALAXY_DE_1_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_4N_GALAXY_DE_2_PID) },
+@@ -628,7 +673,18 @@ static struct usb_device_id id_table_combined [] = {
+ 	{ USB_DEVICE(FTDI_VID, FTDI_TACTRIX_OPENPORT_13S_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_TACTRIX_OPENPORT_13U_PID) },
+ 	{ USB_DEVICE(ELEKTOR_VID, ELEKTOR_FT323R_PID) },
++	{ USB_DEVICE(FTDI_VID, FTDI_NDI_HUC_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_NDI_device_quirk },
++	{ USB_DEVICE(FTDI_VID, FTDI_NDI_SPECTRA_SCU_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_NDI_device_quirk },
++	{ USB_DEVICE(FTDI_VID, FTDI_NDI_FUTURE_2_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_NDI_device_quirk },
++	{ USB_DEVICE(FTDI_VID, FTDI_NDI_FUTURE_3_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_NDI_device_quirk },
++	{ USB_DEVICE(FTDI_VID, FTDI_NDI_AURORA_SCU_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_NDI_device_quirk },
+ 	{ USB_DEVICE(TELLDUS_VID, TELLDUS_TELLSTICK_PID) },
++	{ USB_DEVICE(RTSYSTEMS_VID, RTSYSTEMS_SERIAL_VX7_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_MAXSTREAM_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_PHI_FISCO_PID) },
+ 	{ USB_DEVICE(TML_VID, TML_USB_SERIAL_PID) },
+@@ -644,23 +700,45 @@ static struct usb_device_id id_table_combined [] = {
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ USB_DEVICE(FTDI_VID, LMI_LM3S_EVAL_BOARD_PID),
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, FTDI_TURTELIZER_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ USB_DEVICE(RATOC_VENDOR_ID, RATOC_PRODUCT_ID_USB60F) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_REU_TINY_PID) },
+ 	{ USB_DEVICE(PAPOUCH_VID, PAPOUCH_QUIDO4x4_PID) },
++	{ USB_DEVICE(PAPOUCH_VID, PAPOUCH_AD4USB_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_DOMINTELL_DGQG_PID) },
+ 	{ USB_DEVICE(FTDI_VID, FTDI_DOMINTELL_DUSB_PID) },
+ 	{ USB_DEVICE(ALTI2_VID, ALTI2_N3_PID) },
+ 	{ USB_DEVICE(FTDI_VID, DIEBOLD_BCS_SE923_PID) },
+-	{ USB_DEVICE(FTDI_VID, FTDI_NDI_HUC_PID) },
+ 	{ USB_DEVICE(ATMEL_VID, STK541_PID) },
+ 	{ USB_DEVICE(DE_VID, STB_PID) },
+ 	{ USB_DEVICE(DE_VID, WHT_PID) },
+ 	{ USB_DEVICE(ADI_VID, ADI_GNICE_PID),
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(ADI_VID, ADI_GNICEPLUS_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ USB_DEVICE(JETI_VID, JETI_SPC1201_PID) },
+ 	{ USB_DEVICE(MARVELL_VID, MARVELL_SHEEVAPLUG_PID),
+ 		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ USB_DEVICE(LARSENBRUSGAARD_VID, LB_ALTITRACK_PID) },
++	{ USB_DEVICE(GN_OTOMETRICS_VID, AURICAL_USB_PID) },
++	{ USB_DEVICE(BAYER_VID, BAYER_CONTOUR_CABLE_PID) },
++	{ USB_DEVICE(FTDI_VID, MARVELL_OPENRD_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, HAMEG_HO820_PID) },
++	{ USB_DEVICE(FTDI_VID, HAMEG_HO870_PID) },
++	{ USB_DEVICE(FTDI_VID, MJSG_GENERIC_PID) },
++	{ USB_DEVICE(FTDI_VID, MJSG_SR_RADIO_PID) },
++	{ USB_DEVICE(FTDI_VID, MJSG_HD_RADIO_PID) },
++	{ USB_DEVICE(FTDI_VID, MJSG_XM_RADIO_PID) },
++	{ USB_DEVICE(FTDI_VID, XVERVE_SIGNALYZER_ST_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, XVERVE_SIGNALYZER_SLITE_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, XVERVE_SIGNALYZER_SH2_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
++	{ USB_DEVICE(FTDI_VID, XVERVE_SIGNALYZER_SH4_PID),
++		.driver_info = (kernel_ulong_t)&ftdi_jtag_quirk },
+ 	{ },					/* Optional parameter entry */
+ 	{ }					/* Terminating entry */
+ };
+@@ -986,6 +1064,16 @@ static __u32 get_ftdi_divisor(struct usb_serial_port * port)
+ 	case FT2232C: /* FT2232C chip */
+ 	case FT232RL:
+ 		if (baud <= 3000000) {
++			__u16 product_id = le16_to_cpu(
++				port->serial->dev->descriptor.idProduct);
++			if (((FTDI_NDI_HUC_PID == product_id) ||
++			     (FTDI_NDI_SPECTRA_SCU_PID == product_id) ||
++			     (FTDI_NDI_FUTURE_2_PID == product_id) ||
++			     (FTDI_NDI_FUTURE_3_PID == product_id) ||
++			     (FTDI_NDI_AURORA_SCU_PID == product_id)) &&
++			    (baud == 19200)) {
++				baud = 1200000;
++			}
+ 			div_value = ftdi_232bm_baud_to_divisor(baud);
+ 		} else {
+ 	                dbg("%s - Baud rate too high!", __FUNCTION__);
+@@ -1372,6 +1460,39 @@ static void ftdi_HE_TIRA1_setup (struct ftdi_private *priv)
+ } /* ftdi_HE_TIRA1_setup */
+ 
+ /*
++ * Module parameter to control latency timer for NDI FTDI-based USB devices.
++ * If this value is not set in modprobe.conf.local its value will be set to 1ms.
++ */
++static int ndi_latency_timer = 1;
++
++/* Setup for the NDI FTDI-based USB devices, which requires hardwired
++ * baudrate (19200 gets mapped to 1200000).
++ *
++ * Called from usbserial:serial_probe.
++ */
++static int ftdi_NDI_device_setup(struct usb_serial *serial)
++{
++	struct usb_device *udev = serial->dev;
++	int latency = ndi_latency_timer;
++	int rv = 0;
++	char buf[1];
++
++	if (latency == 0)
++		latency = 1;
++	if (latency > 99)
++		latency = 99;
++
++	dbg("%s setting NDI device latency to %d", __func__, latency);
++	dev_info(&udev->dev, "NDI device with a latency value of %d", latency);
++
++	rv = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
++				FTDI_SIO_SET_LATENCY_TIMER_REQUEST,
++				FTDI_SIO_SET_LATENCY_TIMER_REQUEST_TYPE,
++				latency, 0, buf, 0, WDR_TIMEOUT);
++	return 0;
++}
++
++/*
+  * First port on JTAG adaptors such as Olimex arm-usb-ocd or the FIC/OpenMoko
+  * Neo1973 Debug Board is reserved for JTAG interface and can be accessed from
+  * userspace using openocd.
+@@ -2403,3 +2524,5 @@ MODULE_PARM_DESC(vendor, "User specified vendor ID (default="
+ module_param(product, ushort, 0);
+ MODULE_PARM_DESC(product, "User specified product ID");
+ 
++module_param(ndi_latency_timer, int, S_IRUGO | S_IWUSR);
++MODULE_PARM_DESC(ndi_latency_timer, "NDI device latency timer override");
+diff --git a/drivers/usb/serial/ftdi_sio.h b/drivers/usb/serial/ftdi_sio.h
+index d9d9bcf..6544cbd 100644
+--- a/drivers/usb/serial/ftdi_sio.h
++++ b/drivers/usb/serial/ftdi_sio.h
+@@ -80,6 +80,9 @@
+ 
+ /* OpenDCC (www.opendcc.de) product id */
+ #define FTDI_OPENDCC_PID	0xBFD8
++#define FTDI_OPENDCC_SNIFFER_PID	0xBFD9
++#define FTDI_OPENDCC_THROTTLE_PID	0xBFDA
++#define FTDI_OPENDCC_GATEWAY_PID	0xBFDB
+ 
+ /* www.crystalfontz.com devices - thanx for providing free devices for evaluation ! */
+ /* they use the ftdi chipset for the USB interface and the vendor id is the same */
+@@ -379,6 +382,8 @@
+ 
+ 
+ 
++#define FTDI_NXTCAM_PID		0xABB8 /* NXTCam for Mindstorms NXT */
++
+ /* OOCDlink by Joern Kaipf <joernk@web.de>
+  * (http://www.joernonline.de/dw/doku.php?id=start&idx=projects:oocdlink) */
+ #define FTDI_OOCDLINK_PID	0xbaf8	/* Amontec JTAGkey */
+@@ -496,12 +501,22 @@
+ /*
+  * ELV USB devices submitted by Christian Abt of ELV (www.elv.de).
+  * All of these devices use FTDI's vendor ID (0x0403).
++ * Further IDs taken from ELV Windows .inf file.
+  *
+  * The previously included PID for the UO 100 module was incorrect.
+  * In fact, that PID was for ELV's UR 100 USB-RS232 converter (0xFB58).
+  *
+  * Armin Laeuger originally sent the PID for the UM 100 module.
+  */
++#define FTDI_ELV_USR_PID	0xE000	/* ELV Universal-Sound-Recorder */
++#define FTDI_ELV_MSM1_PID	0xE001	/* ELV Mini-Sound-Modul */
++#define FTDI_ELV_KL100_PID	0xE002	/* ELV Kfz-Leistungsmesser KL 100 */
++#define FTDI_ELV_WS550_PID	0xE004	/* WS 550 */
++#define FTDI_ELV_EC3000_PID	0xE006	/* ENERGY CONTROL 3000 USB */
++#define FTDI_ELV_WS888_PID	0xE008	/* WS 888 */
++#define FTDI_ELV_TWS550_PID	0xE009	/* Technoline WS 550 */
++#define FTDI_ELV_FEM_PID	0xE00A	/* Funk Energie Monitor */
++#define FTDI_R2000KU_TRUE_RNG	0xFB80  /* R2000KU TRUE RNG */
+ #define FTDI_ELV_UR100_PID	0xFB58	/* USB-RS232-Umsetzer (UR 100) */
+ #define FTDI_ELV_UM100_PID	0xFB5A	/* USB-Modul UM 100 */
+ #define FTDI_ELV_UO100_PID	0xFB5B	/* USB-Modul UO 100 */
+@@ -527,10 +542,16 @@
+ #define FTDI_ELV_PCK100_PID	0xE0F2	/* PC-Kabeltester (PCK 100) */
+ #define FTDI_ELV_RFP500_PID	0xE0F3	/* HF-Leistungsmesser (RFP 500) */
+ #define FTDI_ELV_FS20SIG_PID	0xE0F4	/* Signalgeber (FS 20 SIG) */
++#define FTDI_ELV_UTP8_PID	0xE0F5	/* ELV UTP 8 */
+ #define FTDI_ELV_WS300PC_PID	0xE0F6	/* PC-Wetterstation (WS 300 PC) */
++#define FTDI_ELV_WS444PC_PID	0xE0F7	/* Conrad WS 444 PC */
+ #define FTDI_ELV_FHZ1300PC_PID	0xE0E8	/* FHZ 1300 PC */
+ #define FTDI_ELV_WS500_PID	0xE0E9	/* PC-Wetterstation (WS 500) */
+ #define FTDI_ELV_HS485_PID	0xE0EA	/* USB to RS-485 adapter */
++#define FTDI_ELV_UMS100_PID	0xE0EB	/* ELV USB Master-Slave Schaltsteckdose UMS 100 */
++#define FTDI_ELV_TFD128_PID	0xE0EC	/* ELV Temperatur-Feuchte-Datenlogger TFD 128 */
++#define FTDI_ELV_FM3RX_PID	0xE0ED	/* ELV Messwertuebertragung FM3 RX */
++#define FTDI_ELV_WS777_PID	0xE0EE	/* Conrad WS 777 */
+ #define FTDI_ELV_EM1010PC_PID	0xE0EF	/* Engery monitor EM 1010 PC */
+ #define FTDI_PHI_FISCO_PID      0xE40B  /* PHI Fisco USB to Serial cable */
+ 
+@@ -610,6 +631,9 @@
+ #define FTDI_CCSICDU20_0_PID    0xF9D0
+ #define FTDI_CCSICDU40_1_PID    0xF9D1
+ #define FTDI_CCSMACHX_2_PID     0xF9D2
++#define FTDI_CCSLOAD_N_GO_3_PID 0xF9D3
++#define FTDI_CCSICDU64_4_PID    0xF9D4
++#define FTDI_CCSPRIME8_5_PID    0xF9D5
+ 
+ /* Inside Accesso contactless reader (http://www.insidefr.com) */
+ #define INSIDE_ACCESSO		0xFAD0
+@@ -640,12 +664,33 @@
+ #define TTI_QL355P_PID		0x03E8	/* TTi QL355P power supply */
+ 
+ /*
++ * Contec products (http://www.contec.com)
++ * Submitted by Daniel Sangorrin
++ */
++#define CONTEC_VID		0x06CE	/* Vendor ID */
++#define CONTEC_COM1USBH_PID	0x8311	/* COM-1(USB)H */
++
++/*
+  * Definitions for B&B Electronics products.
+  */
+ #define BANDB_VID		0x0856	/* B&B Electronics Vendor ID */
+ #define BANDB_USOTL4_PID	0xAC01	/* USOTL4 Isolated RS-485 Converter */
+ #define BANDB_USTL4_PID		0xAC02	/* USTL4 RS-485 Converter */
+ #define BANDB_USO9ML2_PID	0xAC03	/* USO9ML2 Isolated RS-232 Converter */
++#define BANDB_USOPTL4_PID	0xAC11
++#define BANDB_USPTL4_PID	0xAC12
++#define BANDB_USO9ML2DR_2_PID	0xAC16
++#define BANDB_USO9ML2DR_PID	0xAC17
++#define BANDB_USOPTL4DR2_PID	0xAC18	/* USOPTL4R-2 2-port Isolated RS-232 Converter */
++#define BANDB_USOPTL4DR_PID	0xAC19
++#define BANDB_485USB9F_2W_PID	0xAC25
++#define BANDB_485USB9F_4W_PID	0xAC26
++#define BANDB_232USB9M_PID	0xAC27
++#define BANDB_485USBTB_2W_PID	0xAC33
++#define BANDB_485USBTB_4W_PID	0xAC34
++#define BANDB_TTL5USB9M_PID	0xAC49
++#define BANDB_TTL3USB9M_PID	0xAC50
++#define BANDB_ZZ_PROG1_USB_PID	0xBA02
+ 
+ /*
+  * RM Michaelides CANview USB (http://www.rmcan.com)
+@@ -727,6 +772,15 @@
+ #define FTDI_PYRAMID_PID	0xE6C8	/* Pyramid Appliance Display */
+ 
+ /*
++ * NDI (www.ndigital.com) product ids
++ */
++#define FTDI_NDI_HUC_PID		0xDA70	/* NDI Host USB Converter */
++#define FTDI_NDI_SPECTRA_SCU_PID	0xDA71	/* NDI Spectra SCU */
++#define FTDI_NDI_FUTURE_2_PID		0xDA72	/* NDI future device #2 */
++#define FTDI_NDI_FUTURE_3_PID		0xDA73	/* NDI future device #3 */
++#define FTDI_NDI_AURORA_SCU_PID		0xDA74	/* NDI Aurora SCU */
++
++/*
+  * Posiflex inc retail equipment (http://www.posiflex.com.tw)
+  */
+ #define POSIFLEX_VID		0x0d3a  /* Vendor ID */
+@@ -757,6 +811,7 @@
+ #define PAPOUCH_VID			0x5050	/* Vendor ID */
+ #define PAPOUCH_TMU_PID			0x0400	/* TMU USB Thermometer */
+ #define PAPOUCH_QUIDO4x4_PID		0x0900	/* Quido 4/4 Module */
++#define PAPOUCH_AD4USB_PID		0x8003	/* AD4USB Measurement Module */
+ 
+ /*
+  * ACG Identification Technologies GmbH products (http://www.acg.de/).
+@@ -803,6 +858,12 @@
+ #define TELLDUS_TELLSTICK_PID		0x0C30	/* RF control dongle 433 MHz using FT232RL */
+ 
+ /*
++ * RT Systems programming cables for various ham radios
++ */
++#define RTSYSTEMS_VID			0x2100	/* Vendor ID */
++#define RTSYSTEMS_SERIAL_VX7_PID	0x9e52	/* Serial converter for VX-7 Radios using FT232RL */
++
++/*
+  * IBS elektronik product ids
+  * Submitted by Thomas Schleusener
+  */
+@@ -839,9 +900,6 @@
+ #define TML_VID			0x1B91	/* Vendor ID */
+ #define TML_USB_SERIAL_PID	0x0064	/* USB - Serial Converter */
+ 
+-/* NDI Polaris System */
+-#define FTDI_NDI_HUC_PID        0xDA70
+-
+ /* Propox devices */
+ #define FTDI_PROPOX_JTAGCABLEII_PID	0xD738
+ 
+@@ -887,6 +945,8 @@
+  */
+ #define DIEBOLD_BCS_SE923_PID	0xfb99
+ 
++#define FTDI_TURTELIZER_PID	0xBDC8 /* JTAG/RS-232 adapter by egnite GmBH */
++
+ /*
+  * Atmel STK541
+  */
+@@ -906,6 +966,7 @@
+  */
+ #define ADI_VID 		0x0456
+ #define ADI_GNICE_PID 		0xF000
++#define ADI_GNICEPLUS_PID 	0xF001
+ 
+ /*
+  * JETI SPECTROMETER SPECBOS 1201
+@@ -921,6 +982,49 @@
+ #define MARVELL_SHEEVAPLUG_PID	0x9e8f
+ 
+ /*
++ * GN Otometrics (http://www.otometrics.com)
++ * Submitted by Ville Sundberg.
++ */
++#define GN_OTOMETRICS_VID	0x0c33	/* Vendor ID */
++#define AURICAL_USB_PID		0x0010	/* Aurical USB Audiometer */
++
++/*
++ * Bayer Ascensia Contour blood glucose meter USB-converter cable.
++ * http://winglucofacts.com/cables/
++ */
++#define BAYER_VID                      0x1A79
++#define BAYER_CONTOUR_CABLE_PID        0x6001
++
++/*
++ * Marvell OpenRD Base, Client
++ * http://www.open-rd.org
++ * OpenRD Base, Client use VID 0x0403
++ */
++#define MARVELL_OPENRD_PID	0x9e90
++
++/*
++ * Hameg HO820 and HO870 interface (using VID 0x0403)
++ */
++#define        HAMEG_HO820_PID         0xed74
++#define        HAMEG_HO870_PID         0xed71
++
++/*
++ * MJS Gadgets HD Radio / XM Radio / Sirius Radio interfaces (using VID 0x0403)
++ */
++#define MJSG_GENERIC_PID	0x9378
++#define MJSG_SR_RADIO_PID	0x9379
++#define MJSG_XM_RADIO_PID	0x937A
++#define MJSG_HD_RADIO_PID	0x937C
++
++/*
++ * Xverve Signalyzer tools (http://www.signalyzer.com/)
++ */
++#define XVERVE_SIGNALYZER_ST_PID	0xBCA0
++#define XVERVE_SIGNALYZER_SLITE_PID	0xBCA1
++#define XVERVE_SIGNALYZER_SH2_PID	0xBCA2
++#define XVERVE_SIGNALYZER_SH4_PID	0xBCA4
++
++/*
+  *   BmRequestType:  1100 0000b
+  *   bRequest:       FTDI_E2_READ
+  *   wValue:         0
+diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
+index 569a16f..e8e1319 100644
+--- a/drivers/usb/serial/option.c
++++ b/drivers/usb/serial/option.c
+@@ -236,6 +236,7 @@ static int  option_send_setup(struct usb_serial_port *port);
+ #define AMOI_PRODUCT_H01			0x0800
+ #define AMOI_PRODUCT_H01A			0x7002
+ #define AMOI_PRODUCT_H02			0x0802
++#define AMOI_PRODUCT_SKYPEPHONE_S2		0x0407
+ 
+ #define DELL_VENDOR_ID				0x413C
+ 
+@@ -524,6 +526,7 @@ static struct usb_device_id option_ids[] = {
+ 	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01) },
+ 	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H01A) },
+ 	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_H02) },
++	{ USB_DEVICE(AMOI_VENDOR_ID, AMOI_PRODUCT_SKYPEPHONE_S2) },
+ 
+ 	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5700_MINICARD) },		/* Dell Wireless 5700 Mobile Broadband CDMA/EVDO Mini-Card == Novatel Expedite EV620 CDMA/EV-DO */
+ 	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5500_MINICARD) },		/* Dell Wireless 5500 Mobile Broadband HSDPA Mini-Card == Novatel Expedite EU740 HSDPA/3G */
+diff --git a/drivers/usb/serial/sierra.c b/drivers/usb/serial/sierra.c
+index cf39a56..753f31e 100755
+--- a/drivers/usb/serial/sierra.c
++++ b/drivers/usb/serial/sierra.c
+@@ -246,7 +246,9 @@ static struct usb_device_id id_table [] = {
+ 	{ USB_DEVICE(0x1199, 0x0220) },	/* Sierra Wireless MC5725 */
+ 	{ USB_DEVICE(0x1199, 0x0019) },	/* Sierra Wireless AirCard 595 */
+ 	{ USB_DEVICE(0x1199, 0x0021) },	/* Sierra Wireless AirCard 597E */
++	{ USB_DEVICE(0x1199, 0x0112) }, /* Sierra Wireless AirCard 580 */
+ 	{ USB_DEVICE(0x1199, 0x0120) },	/* Sierra Wireless USB Dongle 595U */
++	{ USB_DEVICE(0x1199, 0x0301) },	/* Sierra Wireless USB Dongle 250U */
+ 	 /* Sierra Wireless C597 */
+ 	{ USB_DEVICE_AND_INTERFACE_INFO(0x1199, 0x0023, 0xFF, 0xFF, 0xFF) },
+ 	 /* Sierra Wireless Device */
+@@ -290,9 +292,6 @@ static struct usb_device_id id_table [] = {
+ 	/* Sierra Wireless Device */
+ 	{ USB_DEVICE_AND_INTERFACE_INFO(0x1199, 0x6892, 0xFF, 0xFF, 0xFF)},
+ 
+-	{ USB_DEVICE(0x1199, 0x0112) }, /* Sierra Wireless AirCard 580 */
+-	{ USB_DEVICE(0x0F3D, 0x0112) }, /* Airprime/Sierra PC 5220 */
+-
+ 	{ USB_DEVICE(0x1199, 0x0FFF),
+ 		.driver_info = (kernel_ulong_t)&tru_inst_info
+ 	},
+diff --git a/include/linux/usb/quirks.h b/include/linux/usb/quirks.h
+index d3215b7..4a98379 100644
+--- a/include/linux/usb/quirks.h
++++ b/include/linux/usb/quirks.h
+@@ -18,3 +18,7 @@
+ 
+ /*device will morph if reset, don't use reset for handling errors */
+ #define USB_QUIRK_RESET_MORPHS		0x00000010
++
++/* device has more interface descriptions than the bNumInterfaces count,
++   and can't handle talking to these interfaces */
++#define USB_QUIRK_HONOR_BNUMINTERFACES	0x00000020
+-- 
+1.6.5.GIT

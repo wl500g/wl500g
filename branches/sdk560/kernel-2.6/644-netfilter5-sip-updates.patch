@@ -1,0 +1,48 @@
+netfilter: nf_ct_sip: Updates from upstream
+
+ kernel.org commits
+ 274ea0e2a4cdf18110e5931b8ecbfef6353e5293 netfilter: nf_ct_sip: validate Content-Length in TCP SIP messages
+ e6e4d9ed11fb1fab8b3256a3dc14d71b5e984ac4 netfilter: nf_ct_sip: fix SDP parsing in TCP SIP messages for some Cisco phones
+
+---
+ net/netfilter/nf_conntrack_sip.c |   16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1420,6 +1420,7 @@ static int sip_help_tcp(struct sk_buff *
+ 	const char *dptr, *end;
+ 	s16 diff, tdiff = 0;
+ 	int ret = NF_ACCEPT;
++	bool term;
+ 	typeof(nf_nat_sip_seq_adjust_hook) nf_nat_sip_seq_adjust;
+ 
+ 	if (ctinfo != IP_CT_ESTABLISHED &&
+@@ -1454,14 +1455,21 @@ static int sip_help_tcp(struct sk_buff *
+ 		if (dptr + matchoff == end)
+ 			break;
+ 
+-		if (end + strlen("\r\n\r\n") > dptr + datalen)
+-			break;
+-		if (end[0] != '\r' || end[1] != '\n' ||
+-		    end[2] != '\r' || end[3] != '\n')
++		term = false;
++		for (; end + strlen("\r\n\r\n") <= dptr + datalen; end++) {
++			if (end[0] == '\r' && end[1] == '\n' &&
++			    end[2] == '\r' && end[3] == '\n') {
++				term = true;
++				break;
++			}
++		}
++		if (!term)
+ 			break;
+ 		end += strlen("\r\n\r\n") + clen;
+ 
+ 		msglen = origlen = end - dptr;
++		if (msglen > datalen)
++			return NF_DROP;
+ 
+ 		ret = process_sip_msg(skb, ct, dataoff, &dptr, &msglen);
+ 		if (ret != NF_ACCEPT)
+-- 

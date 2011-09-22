@@ -1,0 +1,2986 @@
+From ba09f61cfb676c0b32791325d92a87e5de1314be
+From: Jens Axboe
+Date: Tue, 26 Jan 2010 19:52:35 -0500
+Subject: [PATCH] Use splice in the sendfile() implementation - backport from 2.6.23
+
+---
+
+ Documentation/DocBook/kernel-api.tmpl |   11 
+ drivers/block/loop.c                  |   64 ++-
+ drivers/char/mem.c                    |    2 
+ fs/adfs/file.c                        |    2 
+ fs/affs/file.c                        |    2 
+ fs/afs/file.c                         |    2 
+ fs/bad_inode.c                        |    7 
+ fs/bfs/file.c                         |    2 
+ fs/block_dev.c                        |    1 
+ fs/cifs/cifsfs.c                      |    8 
+ fs/coda/file.c                        |   11 
+ fs/ecryptfs/file.c                    |   15 
+ fs/ext2/file.c                        |    2 
+ fs/ext3/file.c                        |    1 
+ fs/ext4/file.c                        |    1 
+ fs/fat/file.c                         |    2 
+ fs/fuse/file.c                        |    4 
+ fs/gfs2/ops_file.c                    |    1 
+ fs/hfs/inode.c                        |    2 
+ fs/hfsplus/inode.c                    |    2 
+ fs/hostfs/hostfs_kern.c               |    2 
+ fs/hpfs/file.c                        |    2 
+ fs/jffs2/file.c                       |    2 
+ fs/jfs/file.c                         |    1 
+ fs/minix/file.c                       |    2 
+ fs/nfs/file.c                         |   15 
+ fs/nfsd/vfs.c                         |   46 +-
+ fs/ntfs/file.c                        |    2 
+ fs/ocfs2/file.c                       |   18 -
+ fs/pipe.c                             |   70 +++-
+ fs/qnx4/file.c                        |    2 
+ fs/ramfs/file-mmu.c                   |    2 
+ fs/ramfs/file-nommu.c                 |    2 
+ fs/read_write.c                       |   20 -
+ fs/reiserfs/file.c                    |    1 
+ fs/smbfs/file.c                       |    9 
+ fs/splice.c                           |  569 ++++++++++++++++++++++++----------
+ fs/sysv/file.c                        |    2 
+ fs/udf/file.c                         |    2 
+ fs/ufs/file.c                         |    2 
+ fs/xfs/linux-2.6/xfs_file.c           |   26 -
+ fs/xfs/linux-2.6/xfs_linux.h          |    1 
+ fs/xfs/linux-2.6/xfs_lrw.c            |   44 --
+ fs/xfs/linux-2.6/xfs_lrw.h            |    3 
+ fs/xfs/linux-2.6/xfs_vnode.h          |    6 
+ fs/xfs/xfs_vnodeops.c                 |    3 
+ include/linux/fs.h                    |    6 
+ include/linux/pipe_fs_i.h             |  117 ++++--
+ include/linux/splice.h                |   74 ++++
+ include/linux/sunrpc/svc.h            |    2 
+ kernel/relay.c                        |  210 +++++++++---
+ mm/filemap.c                          |   20 -
+ mm/filemap_xip.c                      |   22 -
+ mm/shmem.c                            |   42 +-
+ net/sunrpc/auth_gss/svcauth_gss.c     |    2 
+ net/sunrpc/svc.c                      |    2 
+ 56 files changed, 969 insertions(+), 524 deletions(-)
+
+diff --git a/Documentation/DocBook/kernel-api.tmpl b/Documentation/DocBook/kernel-api.tmpl
+index 38f88b6..8c5698a 100644
+--- a/Documentation/DocBook/kernel-api.tmpl
++++ b/Documentation/DocBook/kernel-api.tmpl
+@@ -643,4 +643,15 @@ X!Idrivers/video/console/fonts.c
+ !Edrivers/spi/spi.c
+   </chapter>
+ 
++  <chapter id="splice">
++      <title>splice API</title>
++  <para>)
++	splice is a method for moving blocks of data around inside the
++	kernel, without continually transferring it between the kernel
++	and user space.
++  </para>
++!Iinclude/linux/splice.h
++!Ffs/splice.c
++  </chapter>
++
+ </book>
+diff --git a/drivers/block/loop.c b/drivers/block/loop.c
+index 0ed5470..4503290 100644
+--- a/drivers/block/loop.c
++++ b/drivers/block/loop.c
+@@ -74,6 +74,7 @@
+ #include <linux/highmem.h>
+ #include <linux/gfp.h>
+ #include <linux/kthread.h>
++#include <linux/splice.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -401,50 +402,73 @@ struct lo_read_data {
+ };
+ 
+ static int
+-lo_read_actor(read_descriptor_t *desc, struct page *page,
+-	      unsigned long offset, unsigned long size)
++lo_splice_actor(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
++		struct splice_desc *sd)
+ {
+-	unsigned long count = desc->count;
+-	struct lo_read_data *p = desc->arg.data;
++	struct lo_read_data *p = sd->u.data;
+ 	struct loop_device *lo = p->lo;
++	struct page *page = buf->page;
+ 	sector_t IV;
++	size_t size;
++	int ret;
+ 
+-	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9))+(offset >> 9);
++	ret = buf->ops->confirm(pipe, buf);
++	if (unlikely(ret))
++		return ret;
+ 
+-	if (size > count)
+-		size = count;
++	IV = ((sector_t) page->index << (PAGE_CACHE_SHIFT - 9)) +
++							(buf->offset >> 9);
++	size = sd->len;
++	if (size > p->bsize)
++		size = p->bsize;
+ 
+-	if (lo_do_transfer(lo, READ, page, offset, p->page, p->offset, size, IV)) {
+-		size = 0;
++	if (lo_do_transfer(lo, READ, page, buf->offset, p->page, p->offset, size, IV)) {
+ 		printk(KERN_ERR "loop: transfer error block %ld\n",
+ 		       page->index);
+-		desc->error = -EINVAL;
++		size = -EINVAL;
+ 	}
+ 
+ 	flush_dcache_page(p->page);
+ 
+-	desc->count = count - size;
+-	desc->written += size;
+-	p->offset += size;
++	if (size > 0)
++		p->offset += size;
++
+ 	return size;
+ }
+ 
+ static int
++lo_direct_splice_actor(struct pipe_inode_info *pipe, struct splice_desc *sd)
++{
++	return __splice_from_pipe(pipe, sd, lo_splice_actor);
++}
++
++static int
+ do_lo_receive(struct loop_device *lo,
+ 	      struct bio_vec *bvec, int bsize, loff_t pos)
+ {
+ 	struct lo_read_data cookie;
++	struct splice_desc sd;
+ 	struct file *file;
+-	int retval;
++	long retval;
+ 
+ 	cookie.lo = lo;
+ 	cookie.page = bvec->bv_page;
+ 	cookie.offset = bvec->bv_offset;
+ 	cookie.bsize = bsize;
++
++	sd.len = 0;
++	sd.total_len = bvec->bv_len;
++	sd.flags = 0;
++	sd.pos = pos;
++	sd.u.data = &cookie;
++
+ 	file = lo->lo_backing_file;
+-	retval = file->f_op->sendfile(file, &pos, bvec->bv_len,
+-			lo_read_actor, &cookie);
+-	return (retval < 0)? retval: 0;
++	retval = splice_direct_to_actor(file, &sd, lo_direct_splice_actor);
++
++	if (retval < 0)
++		return retval;
++
++	return 0;
+ }
+ 
+ static int
+@@ -679,8 +703,8 @@ static int loop_change_fd(struct loop_device *lo, struct file *lo_file,
+ 	if (!S_ISREG(inode->i_mode) && !S_ISBLK(inode->i_mode))
+ 		goto out_putf;
+ 
+-	/* new backing store needs to support loop (eg sendfile) */
+-	if (!inode->i_fop->sendfile)
++	/* new backing store needs to support loop (eg splice_read) */
++	if (!inode->i_fop->splice_read)
+ 		goto out_putf;
+ 
+ 	/* size of the new backing store needs to be the same */
+@@ -760,7 +784,7 @@ static int loop_set_fd(struct loop_device *lo, struct file *lo_file,
+ 		 * If we can't read - sorry. If we only can't write - well,
+ 		 * it's going to be read-only.
+ 		 */
+-		if (!file->f_op->sendfile)
++		if (!file->f_op->splice_read)
+ 			goto out_putf;
+ 		if (aops->prepare_write && aops->commit_write)
+ 			lo_flags |= LO_FLAGS_USE_AOPS;
+diff --git a/drivers/char/mem.c b/drivers/char/mem.c
+index cc9a9d0..d2e4cfd 100644
+--- a/drivers/char/mem.c
++++ b/drivers/char/mem.c
+@@ -24,7 +24,7 @@
+ #include <linux/crash_dump.h>
+ #include <linux/backing-dev.h>
+ #include <linux/bootmem.h>
+-#include <linux/pipe_fs_i.h>
++#include <linux/splice.h>
+ #include <linux/pfn.h>
+ 
+ #include <asm/uaccess.h>
+diff --git a/fs/adfs/file.c b/fs/adfs/file.c
+index f544a28..36e381c 100644
+--- a/fs/adfs/file.c
++++ b/fs/adfs/file.c
+@@ -33,7 +33,7 @@ const struct file_operations adfs_file_operations = {
+ 	.fsync		= file_fsync,
+ 	.write		= do_sync_write,
+ 	.aio_write	= generic_file_aio_write,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations adfs_file_inode_operations = {
+diff --git a/fs/affs/file.c b/fs/affs/file.c
+index c879690..c314a35 100644
+--- a/fs/affs/file.c
++++ b/fs/affs/file.c
+@@ -35,7 +35,7 @@ const struct file_operations affs_file_operations = {
+ 	.open		= affs_file_open,
+ 	.release	= affs_file_release,
+ 	.fsync		= file_fsync,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations affs_file_inode_operations = {
+diff --git a/fs/afs/file.c b/fs/afs/file.c
+index 9c0e721..aede7eb 100644
+--- a/fs/afs/file.c
++++ b/fs/afs/file.c
+@@ -32,7 +32,7 @@ const struct file_operations afs_file_operations = {
+ 	.aio_read	= generic_file_aio_read,
+ 	.aio_write	= afs_file_write,
+ 	.mmap		= generic_file_readonly_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ 	.fsync		= afs_fsync,
+ };
+ 
+diff --git a/fs/bad_inode.c b/fs/bad_inode.c
+index 329ee47..521ff7c 100644
+--- a/fs/bad_inode.c
++++ b/fs/bad_inode.c
+@@ -114,12 +114,6 @@ static int bad_file_lock(struct file *file, int cmd, struct file_lock *fl)
+ 	return -EIO;
+ }
+ 
+-static ssize_t bad_file_sendfile(struct file *in_file, loff_t *ppos,
+-			size_t count, read_actor_t actor, void *target)
+-{
+-	return -EIO;
+-}
+-
+ static ssize_t bad_file_sendpage(struct file *file, struct page *page,
+ 			int off, size_t len, loff_t *pos, int more)
+ {
+@@ -182,7 +176,6 @@ static const struct file_operations bad_file_ops =
+ 	.aio_fsync	= bad_file_aio_fsync,
+ 	.fasync		= bad_file_fasync,
+ 	.lock		= bad_file_lock,
+-	.sendfile	= bad_file_sendfile,
+ 	.sendpage	= bad_file_sendpage,
+ 	.get_unmapped_area = bad_file_get_unmapped_area,
+ 	.check_flags	= bad_file_check_flags,
+diff --git a/fs/bfs/file.c b/fs/bfs/file.c
+index ef4d1fa..24310e9 100644
+--- a/fs/bfs/file.c
++++ b/fs/bfs/file.c
+@@ -24,7 +24,7 @@ const struct file_operations bfs_file_operations = {
+ 	.write		= do_sync_write,
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ static int bfs_move_block(unsigned long from, unsigned long to, struct super_block *sb)
+diff --git a/fs/block_dev.c b/fs/block_dev.c
+index ea1480a..b3e9bfa 100644
+--- a/fs/block_dev.c
++++ b/fs/block_dev.c
+@@ -1346,7 +1346,6 @@ const struct file_operations def_blk_fops = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_ioctl	= compat_blkdev_ioctl,
+ #endif
+-	.sendfile	= generic_file_sendfile,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ };
+diff --git a/fs/cifs/cifsfs.c b/fs/cifs/cifsfs.c
+index 7c04752..8b0cbf4 100644
+--- a/fs/cifs/cifsfs.c
++++ b/fs/cifs/cifsfs.c
+@@ -616,7 +616,7 @@ const struct file_operations cifs_file_ops = {
+ 	.fsync = cifs_fsync,
+ 	.flush = cifs_flush,
+ 	.mmap  = cifs_file_mmap,
+-	.sendfile = generic_file_sendfile,
++	.splice_read = generic_file_splice_read,
+ 	.llseek = cifs_llseek,
+ #ifdef CONFIG_CIFS_POSIX
+ 	.ioctl	= cifs_ioctl,
+@@ -637,7 +637,7 @@ const struct file_operations cifs_file_direct_ops = {
+ 	.lock = cifs_lock,
+ 	.fsync = cifs_fsync,
+ 	.flush = cifs_flush,
+-	.sendfile = generic_file_sendfile, /* BB removeme BB */
++	.splice_read = generic_file_splice_read,
+ #ifdef CONFIG_CIFS_POSIX
+ 	.ioctl  = cifs_ioctl,
+ #endif /* CONFIG_CIFS_POSIX */
+@@ -656,7 +656,7 @@ const struct file_operations cifs_file_nobrl_ops = {
+ 	.fsync = cifs_fsync,
+ 	.flush = cifs_flush,
+ 	.mmap  = cifs_file_mmap,
+-	.sendfile = generic_file_sendfile,
++	.splice_read = generic_file_splice_read,
+ 	.llseek = cifs_llseek,
+ #ifdef CONFIG_CIFS_POSIX
+ 	.ioctl	= cifs_ioctl,
+@@ -676,7 +676,7 @@ const struct file_operations cifs_file_direct_nobrl_ops = {
+ 	.release = cifs_close,
+ 	.fsync = cifs_fsync,
+ 	.flush = cifs_flush,
+-	.sendfile = generic_file_sendfile, /* BB removeme BB */
++	.splice_read = generic_file_splice_read,
+ #ifdef CONFIG_CIFS_POSIX
+ 	.ioctl  = cifs_ioctl,
+ #endif /* CONFIG_CIFS_POSIX */
+diff --git a/fs/coda/file.c b/fs/coda/file.c
+index 5ef2b60..99dbe86 100644
+--- a/fs/coda/file.c
++++ b/fs/coda/file.c
+@@ -47,8 +47,9 @@ coda_file_read(struct file *coda_file, char __user *buf, size_t count, loff_t *p
+ }
+ 
+ static ssize_t
+-coda_file_sendfile(struct file *coda_file, loff_t *ppos, size_t count,
+-		   read_actor_t actor, void *target)
++coda_file_splice_read(struct file *coda_file, loff_t *ppos,
++		      struct pipe_inode_info *pipe, size_t count,
++		      unsigned int flags)
+ {
+ 	struct coda_file_info *cfi;
+ 	struct file *host_file;
+@@ -57,10 +58,10 @@ coda_file_sendfile(struct file *coda_file, loff_t *ppos, size_t count,
+ 	BUG_ON(!cfi || cfi->cfi_magic != CODA_MAGIC);
+ 	host_file = cfi->cfi_container;
+ 
+-	if (!host_file->f_op || !host_file->f_op->sendfile)
++	if (!host_file->f_op || !host_file->f_op->splice_read)
+ 		return -EINVAL;
+ 
+-	return host_file->f_op->sendfile(host_file, ppos, count, actor, target);
++	return host_file->f_op->splice_read(host_file, ppos, pipe, count,flags);
+ }
+ 
+ static ssize_t
+@@ -295,6 +296,6 @@ const struct file_operations coda_file_operations = {
+ 	.flush		= coda_flush,
+ 	.release	= coda_release,
+ 	.fsync		= coda_fsync,
+-	.sendfile	= coda_file_sendfile,
++	.splice_read	= coda_file_splice_read,
+ };
+ 
+diff --git a/fs/ecryptfs/file.c b/fs/ecryptfs/file.c
+index 59288d8..94f456f 100644
+--- a/fs/ecryptfs/file.c
++++ b/fs/ecryptfs/file.c
+@@ -338,16 +338,17 @@ static int ecryptfs_fasync(int fd, struct file *file, int flag)
+ 	return rc;
+ }
+ 
+-static ssize_t ecryptfs_sendfile(struct file *file, loff_t * ppos,
+-				 size_t count, read_actor_t actor, void *target)
++static ssize_t ecryptfs_splice_read(struct file *file, loff_t * ppos,
++				    struct pipe_inode_info *pipe, size_t count,
++				    unsigned int flags)
+ {
+ 	struct file *lower_file = NULL;
+ 	int rc = -EINVAL;
+ 
+ 	lower_file = ecryptfs_file_to_lower(file);
+-	if (lower_file->f_op && lower_file->f_op->sendfile)
+-		rc = lower_file->f_op->sendfile(lower_file, ppos, count,
+-						actor, target);
++	if (lower_file->f_op && lower_file->f_op->splice_read)
++		rc = lower_file->f_op->splice_read(lower_file, ppos, pipe,
++						count, flags);
+ 
+ 	return rc;
+ }
+@@ -364,7 +365,7 @@ const struct file_operations ecryptfs_dir_fops = {
+ 	.release = ecryptfs_release,
+ 	.fsync = ecryptfs_fsync,
+ 	.fasync = ecryptfs_fasync,
+-	.sendfile = ecryptfs_sendfile,
++	.splice_read = ecryptfs_splice_read,
+ };
+ 
+ const struct file_operations ecryptfs_main_fops = {
+@@ -381,7 +382,7 @@ const struct file_operations ecryptfs_main_fops = {
+ 	.release = ecryptfs_release,
+ 	.fsync = ecryptfs_fsync,
+ 	.fasync = ecryptfs_fasync,
+-	.sendfile = ecryptfs_sendfile,
++	.splice_read = ecryptfs_splice_read,
+ };
+ 
+ static int
+diff --git a/fs/ext2/file.c b/fs/ext2/file.c
+index 2f79eff..21c6830 100644
+--- a/fs/ext2/file.c
++++ b/fs/ext2/file.c
+@@ -56,7 +56,6 @@ const struct file_operations ext2_file_operations = {
+ 	.open		= generic_file_open,
+ 	.release	= ext2_release_file,
+ 	.fsync		= ext2_sync_file,
+-	.sendfile	= generic_file_sendfile,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ };
+@@ -74,7 +73,6 @@ const struct file_operations ext2_xip_file_operations = {
+ 	.open		= generic_file_open,
+ 	.release	= ext2_release_file,
+ 	.fsync		= ext2_sync_file,
+-	.sendfile	= xip_file_sendfile,
+ };
+ #endif
+ 
+diff --git a/fs/ext3/file.c b/fs/ext3/file.c
+index 1e6f138..acc4913 100644
+--- a/fs/ext3/file.c
++++ b/fs/ext3/file.c
+@@ -120,7 +120,6 @@ const struct file_operations ext3_file_operations = {
+ 	.open		= generic_file_open,
+ 	.release	= ext3_release_file,
+ 	.fsync		= ext3_sync_file,
+-	.sendfile	= generic_file_sendfile,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ };
+diff --git a/fs/ext4/file.c b/fs/ext4/file.c
+index 3c6c1fd..d4c8186 100644
+--- a/fs/ext4/file.c
++++ b/fs/ext4/file.c
+@@ -120,7 +120,6 @@ const struct file_operations ext4_file_operations = {
+ 	.open		= generic_file_open,
+ 	.release	= ext4_release_file,
+ 	.fsync		= ext4_sync_file,
+-	.sendfile	= generic_file_sendfile,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ };
+diff --git a/fs/fat/file.c b/fs/fat/file.c
+index b5687e1..964a343 100644
+--- a/fs/fat/file.c
++++ b/fs/fat/file.c
+@@ -133,7 +133,7 @@ const struct file_operations fat_file_operations = {
+ 	.release	= fat_file_release,
+ 	.ioctl		= fat_generic_ioctl,
+ 	.fsync		= file_fsync,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ static int fat_cont_expand(struct inode *inode, loff_t size)
+diff --git a/fs/fuse/file.c b/fs/fuse/file.c
+index adf7995..f79de7c 100644
+--- a/fs/fuse/file.c
++++ b/fs/fuse/file.c
+@@ -802,7 +802,7 @@ static const struct file_operations fuse_file_operations = {
+ 	.release	= fuse_release,
+ 	.fsync		= fuse_fsync,
+ 	.lock		= fuse_file_lock,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ static const struct file_operations fuse_direct_io_file_operations = {
+@@ -814,7 +814,7 @@ static const struct file_operations fuse_direct_io_file_operations = {
+ 	.release	= fuse_release,
+ 	.fsync		= fuse_fsync,
+ 	.lock		= fuse_file_lock,
+-	/* no mmap and sendfile */
++	/* no mmap and splice_read */
+ };
+ 
+ static const struct address_space_operations fuse_file_aops  = {
+diff --git a/fs/gfs2/ops_file.c b/fs/gfs2/ops_file.c
+index 064df88..7dc3be1 100644
+--- a/fs/gfs2/ops_file.c
++++ b/fs/gfs2/ops_file.c
+@@ -635,7 +635,6 @@ const struct file_operations gfs2_file_fops = {
+ 	.release	= gfs2_close,
+ 	.fsync		= gfs2_fsync,
+ 	.lock		= gfs2_lock,
+-	.sendfile	= generic_file_sendfile,
+ 	.flock		= gfs2_flock,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+diff --git a/fs/hfs/inode.c b/fs/hfs/inode.c
+index 9a934db..bc835f2 100644
+--- a/fs/hfs/inode.c
++++ b/fs/hfs/inode.c
+@@ -607,7 +607,7 @@ static const struct file_operations hfs_file_operations = {
+ 	.write		= do_sync_write,
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ 	.fsync		= file_fsync,
+ 	.open		= hfs_file_open,
+ 	.release	= hfs_file_release,
+diff --git a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
+index 45dab5d..409ce54 100644
+--- a/fs/hfsplus/inode.c
++++ b/fs/hfsplus/inode.c
+@@ -288,7 +288,7 @@ static const struct file_operations hfsplus_file_operations = {
+ 	.write		= do_sync_write,
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ 	.fsync		= file_fsync,
+ 	.open		= hfsplus_file_open,
+ 	.release	= hfsplus_file_release,
+diff --git a/fs/hostfs/hostfs_kern.c b/fs/hostfs/hostfs_kern.c
+index 8286491..c778620 100644
+--- a/fs/hostfs/hostfs_kern.c
++++ b/fs/hostfs/hostfs_kern.c
+@@ -390,7 +390,7 @@ int hostfs_fsync(struct file *file, struct dentry *dentry, int datasync)
+ static const struct file_operations hostfs_file_fops = {
+ 	.llseek		= generic_file_llseek,
+ 	.read		= do_sync_read,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ 	.aio_read	= generic_file_aio_read,
+ 	.aio_write	= generic_file_aio_write,
+ 	.write		= do_sync_write,
+diff --git a/fs/hpfs/file.c b/fs/hpfs/file.c
+index b4eafc0..5b53e5c 100644
+--- a/fs/hpfs/file.c
++++ b/fs/hpfs/file.c
+@@ -129,7 +129,7 @@ const struct file_operations hpfs_file_ops =
+ 	.mmap		= generic_file_mmap,
+ 	.release	= hpfs_file_release,
+ 	.fsync		= hpfs_file_fsync,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations hpfs_file_iops =
+diff --git a/fs/jffs2/file.c b/fs/jffs2/file.c
+index 9987127..c253019 100644
+--- a/fs/jffs2/file.c
++++ b/fs/jffs2/file.c
+@@ -47,7 +47,7 @@ const struct file_operations jffs2_file_operations =
+ 	.ioctl =	jffs2_ioctl,
+ 	.mmap =		generic_file_readonly_mmap,
+ 	.fsync =	jffs2_fsync,
+-	.sendfile =	generic_file_sendfile
++	.splice_read =	generic_file_splice_read,
+ };
+ 
+ /* jffs2_file_inode_operations */
+diff --git a/fs/jfs/file.c b/fs/jfs/file.c
+index f7f8eff..87eb936 100644
+--- a/fs/jfs/file.c
++++ b/fs/jfs/file.c
+@@ -108,7 +108,6 @@ const struct file_operations jfs_file_operations = {
+ 	.aio_read	= generic_file_aio_read,
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+-	.sendfile	= generic_file_sendfile,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ 	.fsync		= jfs_fsync,
+diff --git a/fs/minix/file.c b/fs/minix/file.c
+index f92baa1..17765f6 100644
+--- a/fs/minix/file.c
++++ b/fs/minix/file.c
+@@ -23,7 +23,7 @@ const struct file_operations minix_file_operations = {
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+ 	.fsync		= minix_sync_file,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations minix_file_inode_operations = {
+diff --git a/fs/nfs/file.c b/fs/nfs/file.c
+index 9eb8eb4..8689b73 100644
+--- a/fs/nfs/file.c
++++ b/fs/nfs/file.c
+@@ -41,7 +41,9 @@ static int nfs_file_open(struct inode *, struct file *);
+ static int nfs_file_release(struct inode *, struct file *);
+ static loff_t nfs_file_llseek(struct file *file, loff_t offset, int origin);
+ static int  nfs_file_mmap(struct file *, struct vm_area_struct *);
+-static ssize_t nfs_file_sendfile(struct file *, loff_t *, size_t, read_actor_t, void *);
++static ssize_t nfs_file_splice_read(struct file *filp, loff_t *ppos,
++					struct pipe_inode_info *pipe,
++					size_t count, unsigned int flags);
+ static ssize_t nfs_file_read(struct kiocb *, const struct iovec *iov,
+ 				unsigned long nr_segs, loff_t pos);
+ static ssize_t nfs_file_write(struct kiocb *, const struct iovec *iov,
+@@ -65,7 +67,7 @@ const struct file_operations nfs_file_operations = {
+ 	.fsync		= nfs_fsync,
+ 	.lock		= nfs_lock,
+ 	.flock		= nfs_flock,
+-	.sendfile	= nfs_file_sendfile,
++	.splice_read	= nfs_file_splice_read,
+ 	.check_flags	= nfs_check_flags,
+ };
+ 
+@@ -224,20 +226,21 @@ nfs_file_read(struct kiocb *iocb, const struct iovec *iov,
+ }
+ 
+ static ssize_t
+-nfs_file_sendfile(struct file *filp, loff_t *ppos, size_t count,
+-		read_actor_t actor, void *target)
++nfs_file_splice_read(struct file *filp, loff_t *ppos,
++		     struct pipe_inode_info *pipe, size_t count,
++		     unsigned int flags)
+ {
+ 	struct dentry *dentry = filp->f_path.dentry;
+ 	struct inode *inode = dentry->d_inode;
+ 	ssize_t res;
+ 
+-	dfprintk(VFS, "nfs: sendfile(%s/%s, %lu@%Lu)\n",
++	dfprintk(VFS, "nfs: splice_read(%s/%s, %lu@%Lu)\n",
+ 		dentry->d_parent->d_name.name, dentry->d_name.name,
+ 		(unsigned long) count, (unsigned long long) *ppos);
+ 
+ 	res = nfs_revalidate_mapping(inode, filp->f_mapping);
+ 	if (!res)
+-		res = generic_file_sendfile(filp, ppos, count, actor, target);
++		res = generic_file_splice_read(filp, ppos, pipe, count, flags);
+ 	return res;
+ }
+ 
+diff --git a/fs/nfsd/vfs.c b/fs/nfsd/vfs.c
+index 9a68061..5f73b7d 100644
+--- a/fs/nfsd/vfs.c
++++ b/fs/nfsd/vfs.c
+@@ -23,7 +23,7 @@
+ #include <linux/file.h>
+ #include <linux/mount.h>
+ #include <linux/major.h>
+-#include <linux/ext2_fs.h>
++#include <linux/splice.h>
+ #include <linux/proc_fs.h>
+ #include <linux/stat.h>
+ #include <linux/fcntl.h>
+@@ -801,26 +801,32 @@ found:
+ }
+ 
+ /*
+- * Grab and keep cached pages assosiated with a file in the svc_rqst
+- * so that they can be passed to the netowork sendmsg/sendpage routines
+- * directrly. They will be released after the sending has completed.
++ * Grab and keep cached pages associated with a file in the svc_rqst
++ * so that they can be passed to the network sendmsg/sendpage routines
++ * directly. They will be released after the sending has completed.
+  */
+ static int
+-nfsd_read_actor(read_descriptor_t *desc, struct page *page, unsigned long offset , unsigned long size)
++nfsd_splice_actor(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
++		  struct splice_desc *sd)
+ {
+-	unsigned long count = desc->count;
+-	struct svc_rqst *rqstp = desc->arg.data;
++	struct svc_rqst *rqstp = sd->u.data;
+ 	struct page **pp = rqstp->rq_respages + rqstp->rq_resused;
++	struct page *page = buf->page;
++	size_t size;
++	int ret;
++
++	ret = buf->ops->confirm(pipe, buf);
++	if (unlikely(ret))
++		return ret;
+ 
+-	if (size > count)
+-		size = count;
++	size = sd->len;
+ 
+ 	if (rqstp->rq_res.page_len == 0) {
+ 		get_page(page);
+ 		put_page(*pp);
+ 		*pp = page;
+ 		rqstp->rq_resused++;
+-		rqstp->rq_res.page_base = offset;
++		rqstp->rq_res.page_base = buf->offset;
+ 		rqstp->rq_res.page_len = size;
+ 	} else if (page != pp[-1]) {
+ 		get_page(page);
+@@ -832,11 +838,15 @@ nfsd_read_actor(read_descriptor_t *desc, struct page *page, unsigned long offset
+ 	} else
+ 		rqstp->rq_res.page_len += size;
+ 
+-	desc->count = count - size;
+-	desc->written += size;
+ 	return size;
+ }
+ 
++static int nfsd_direct_splice_actor(struct pipe_inode_info *pipe,
++				    struct splice_desc *sd)
++{
++	return __splice_from_pipe(pipe, sd, nfsd_splice_actor);
++}
++
+ static __be32
+ nfsd_vfs_read(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
+               loff_t offset, struct kvec *vec, int vlen, unsigned long *count)
+@@ -861,10 +871,16 @@ nfsd_vfs_read(struct svc_rqst *rqstp, struct svc_fh *fhp, struct file *file,
+ 	if (ra && ra->p_set)
+ 		file->f_ra = ra->p_ra;
+ 
+-	if (file->f_op->sendfile && rqstp->rq_sendfile_ok) {
++	if (file->f_op->splice_read && rqstp->rq_splice_ok) {
++		struct splice_desc sd = {
++			.len		= 0,
++			.total_len	= *count,
++			.pos		= offset,
++			.u.data		= rqstp,
++		};
++
+ 		rqstp->rq_resused = 1;
+-		host_err = file->f_op->sendfile(file, &offset, *count,
+-						 nfsd_read_actor, rqstp);
++		host_err = splice_direct_to_actor(file, &sd, nfsd_direct_splice_actor);
+ 	} else {
+ 		oldfs = get_fs();
+ 		set_fs(KERNEL_DS);
+diff --git a/fs/ntfs/file.c b/fs/ntfs/file.c
+index 7ed5639..ffcc504 100644
+--- a/fs/ntfs/file.c
++++ b/fs/ntfs/file.c
+@@ -2276,7 +2276,7 @@ const struct file_operations ntfs_file_ops = {
+ 						    mounted filesystem. */
+ 	.mmap		= generic_file_mmap,	 /* Mmap file. */
+ 	.open		= ntfs_file_open,	 /* Open file. */
+-	.sendfile	= generic_file_sendfile, /* Zero-copy data send with
++	.splice_read	= generic_file_splice_read /* Zero-copy data send with
+ 						    the data source being on
+ 						    the ntfs partition.  We do
+ 						    not need to care about the
+diff --git a/fs/ocfs2/file.c b/fs/ocfs2/file.c
+index e0cd750..96aaf74 100644
+--- a/fs/ocfs2/file.c
++++ b/fs/ocfs2/file.c
+@@ -31,7 +31,7 @@
+ #include <linux/pagemap.h>
+ #include <linux/uio.h>
+ #include <linux/sched.h>
+-#include <linux/pipe_fs_i.h>
++#include <linux/splice.h>
+ #include <linux/mount.h>
+ #include <linux/writeback.h>
+ 
+@@ -1583,7 +1583,7 @@ static int ocfs2_splice_write_actor(struct pipe_inode_info *pipe,
+ 	ssize_t copied = 0;
+ 	struct ocfs2_splice_write_priv sp;
+ 
+-	ret = buf->ops->pin(pipe, buf);
++	ret = buf->ops->confirm(pipe, buf);
+ 	if (ret)
+ 		goto out;
+ 
+@@ -1604,7 +1604,7 @@ static int ocfs2_splice_write_actor(struct pipe_inode_info *pipe,
+ 		 * might enter ocfs2_buffered_write_cluster() more
+ 		 * than once, so keep track of our progress here.
+ 		 */
+-		copied = ocfs2_buffered_write_cluster(sd->file,
++		copied = ocfs2_buffered_write_cluster(sd->u.file,
+ 						      (loff_t)sd->pos + total,
+ 						      count,
+ 						      ocfs2_map_and_write_splice_data,
+@@ -1636,9 +1636,14 @@ static ssize_t __ocfs2_file_splice_write(struct pipe_inode_info *pipe,
+ 	int ret, err;
+ 	struct address_space *mapping = out->f_mapping;
+ 	struct inode *inode = mapping->host;
+-
+-	ret = __splice_from_pipe(pipe, out, ppos, len, flags,
+-				 ocfs2_splice_write_actor);
++	struct splice_desc sd = {
++		.total_len = len,
++		.flags = flags,
++		.pos = *ppos,
++		.u.file = out,
++	};
++
++	ret = __splice_from_pipe(pipe, &sd, ocfs2_splice_write_actor);
+ 	if (ret > 0) {
+ 		*ppos += ret;
+ 
+@@ -1817,7 +1822,6 @@ const struct inode_operations ocfs2_special_file_iops = {
+ const struct file_operations ocfs2_fops = {
+ 	.read		= do_sync_read,
+ 	.write		= do_sync_write,
+-	.sendfile	= generic_file_sendfile,
+ 	.mmap		= ocfs2_mmap,
+ 	.fsync		= ocfs2_sync_file,
+ 	.release	= ocfs2_file_release,
+diff --git a/fs/pipe.c b/fs/pipe.c
+index 3a89592..d007830 100644
+--- a/fs/pipe.c
++++ b/fs/pipe.c
+@@ -164,6 +164,20 @@ static void anon_pipe_buf_release(struct pipe_inode_info *pipe,
+ 		page_cache_release(page);
+ }
+ 
++/**
++ * generic_pipe_buf_map - virtually map a pipe buffer
++ * @pipe:	the pipe that the buffer belongs to
++ * @buf:	the buffer that should be mapped
++ * @atomic:	whether to use an atomic map
++ *
++ * Description:
++ *	This function returns a kernel virtual address mapping for the
++ *	passed in @pipe_buffer. If @atomic is set, an atomic map is provided
++ *	and the caller has to be careful not to fault before calling
++ *	the unmap function.
++ *
++ *	Note that this function occupies KM_USER0 if @atomic != 0.
++ */
+ void *generic_pipe_buf_map(struct pipe_inode_info *pipe,
+ 			   struct pipe_buffer *buf, int atomic)
+ {
+@@ -175,6 +189,15 @@ void *generic_pipe_buf_map(struct pipe_inode_info *pipe,
+ 	return kmap(buf->page);
+ }
+ 
++/**
++ * generic_pipe_buf_unmap - unmap a previously mapped pipe buffer
++ * @pipe:	the pipe that the buffer belongs to
++ * @buf:	the buffer that should be unmapped
++ * @map_data:	the data that the mapping function returned
++ *
++ * Description:
++ *	This function undoes the mapping that ->map() provided.
++ */
+ void generic_pipe_buf_unmap(struct pipe_inode_info *pipe,
+ 			    struct pipe_buffer *buf, void *map_data)
+ {
+@@ -185,11 +208,28 @@ void generic_pipe_buf_unmap(struct pipe_inode_info *pipe,
+ 		kunmap(buf->page);
+ }
+ 
++/**
++ * generic_pipe_buf_steal - attempt to take ownership of a @pipe_buffer
++ * @pipe:	the pipe that the buffer belongs to
++ * @buf:	the buffer to attempt to steal
++ *
++ * Description:
++ *	This function attempts to steal the @struct page attached to
++ *	@buf. If successful, this function returns 0 and returns with
++ *	the page locked. The caller may then reuse the page for whatever
++ *	he wishes, the typical use is insertion into a different file
++ *	page cache.
++ */
+ int generic_pipe_buf_steal(struct pipe_inode_info *pipe,
+ 			   struct pipe_buffer *buf)
+ {
+ 	struct page *page = buf->page;
+ 
++	/*
++	 * A reference of one is golden, that means that the owner of this
++	 * page is the only one holding a reference to it. lock the page
++	 * and return OK.
++	 */
+ 	if (page_count(page) == 1) {
+ 		lock_page(page);
+ 		return 0;
+@@ -198,12 +238,32 @@ int generic_pipe_buf_steal(struct pipe_inode_info *pipe,
+ 	return 1;
+ }
+ 
+-void generic_pipe_buf_get(struct pipe_inode_info *info, struct pipe_buffer *buf)
++/**
++ * generic_pipe_buf_get - get a reference to a @struct pipe_buffer
++ * @pipe:	the pipe that the buffer belongs to
++ * @buf:	the buffer to get a reference to
++ *
++ * Description:
++ *	This function grabs an extra reference to @buf. It's used in
++ *	in the tee() system call, when we duplicate the buffers in one
++ *	pipe into another.
++ */
++void generic_pipe_buf_get(struct pipe_inode_info *pipe, struct pipe_buffer *buf)
+ {
+ 	page_cache_get(buf->page);
+ }
+ 
+-int generic_pipe_buf_pin(struct pipe_inode_info *info, struct pipe_buffer *buf)
++/**
++ * generic_pipe_buf_confirm - verify contents of the pipe buffer
++ * @pipe:	the pipe that the buffer belongs to
++ * @buf:	the buffer to confirm
++ *
++ * Description:
++ *	This function does nothing, because the generic pipe code uses
++ *	pages that are always good when inserted into the pipe.
++ */
++int generic_pipe_buf_confirm(struct pipe_inode_info *info,
++			     struct pipe_buffer *buf)
+ {
+ 	return 0;
+ }
+@@ -212,7 +272,7 @@ static const struct pipe_buf_operations anon_pipe_buf_ops = {
+ 	.can_merge = 1,
+ 	.map = generic_pipe_buf_map,
+ 	.unmap = generic_pipe_buf_unmap,
+-	.pin = generic_pipe_buf_pin,
++	.confirm = generic_pipe_buf_confirm,
+ 	.release = anon_pipe_buf_release,
+ 	.steal = generic_pipe_buf_steal,
+ 	.get = generic_pipe_buf_get,
+@@ -252,7 +312,7 @@ pipe_read(struct kiocb *iocb, const struct iovec *_iov,
+ 			if (chars > total_len)
+ 				chars = total_len;
+ 
+-			error = ops->pin(pipe, buf);
++			error = ops->confirm(pipe, buf);
+ 			if (error) {
+ 				if (!ret)
+ 					error = ret;
+@@ -373,7 +433,7 @@ pipe_write(struct kiocb *iocb, const struct iovec *_iov,
+ 			int error, atomic = 1;
+ 			void *addr;
+ 
+-			error = ops->pin(pipe, buf);
++			error = ops->confirm(pipe, buf);
+ 			if (error)
+ 				goto out;
+ 
+diff --git a/fs/qnx4/file.c b/fs/qnx4/file.c
+index 4464998..867f42b 100644
+--- a/fs/qnx4/file.c
++++ b/fs/qnx4/file.c
+@@ -25,7 +25,7 @@ const struct file_operations qnx4_file_operations =
+ 	.read		= do_sync_read,
+ 	.aio_read	= generic_file_aio_read,
+ 	.mmap		= generic_file_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ #ifdef CONFIG_QNX4FS_RW
+ 	.write		= do_sync_write,
+ 	.aio_write	= generic_file_aio_write,
+diff --git a/fs/ramfs/file-mmu.c b/fs/ramfs/file-mmu.c
+index 2f14774..97bdc0b 100644
+--- a/fs/ramfs/file-mmu.c
++++ b/fs/ramfs/file-mmu.c
+@@ -41,7 +41,7 @@ const struct file_operations ramfs_file_operations = {
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+ 	.fsync		= simple_sync_file,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ 	.llseek		= generic_file_llseek,
+ };
+ 
+diff --git a/fs/ramfs/file-nommu.c b/fs/ramfs/file-nommu.c
+index 5d258c4..cad2b7a 100644
+--- a/fs/ramfs/file-nommu.c
++++ b/fs/ramfs/file-nommu.c
+@@ -42,7 +42,7 @@ const struct file_operations ramfs_file_operations = {
+ 	.write			= do_sync_write,
+ 	.aio_write		= generic_file_aio_write,
+ 	.fsync			= simple_sync_file,
+-	.sendfile		= generic_file_sendfile,
++	.splice_read		= generic_file_splice_read,
+ 	.llseek			= generic_file_llseek,
+ };
+ 
+diff --git a/fs/read_write.c b/fs/read_write.c
+index 4d03008..507ddff 100644
+--- a/fs/read_write.c
++++ b/fs/read_write.c
+@@ -15,6 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/syscalls.h>
+ #include <linux/pagemap.h>
++#include <linux/splice.h>
+ #include "read_write.h"
+ 
+ #include <asm/uaccess.h>
+@@ -25,7 +26,7 @@ const struct file_operations generic_ro_fops = {
+ 	.read		= do_sync_read,
+ 	.aio_read	= generic_file_aio_read,
+ 	.mmap		= generic_file_readonly_mmap,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ EXPORT_SYMBOL(generic_ro_fops);
+@@ -708,7 +709,7 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
+ 	struct inode * in_inode, * out_inode;
+ 	loff_t pos;
+ 	ssize_t retval;
+-	int fput_needed_in, fput_needed_out;
++	int fput_needed_in, fput_needed_out, fl;
+ 
+ 	/*
+ 	 * Get input file, and verify that it is ok..
+@@ -723,7 +724,7 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
+ 	in_inode = in_file->f_path.dentry->d_inode;
+ 	if (!in_inode)
+ 		goto fput_in;
+-	if (!in_file->f_op || !in_file->f_op->sendfile)
++	if (!in_file->f_op || !in_file->f_op->splice_read)
+ 		goto fput_in;
+ 	retval = -ESPIPE;
+ 	if (!ppos)
+@@ -776,7 +777,18 @@ static ssize_t do_sendfile(int out_fd, int in_fd, loff_t *ppos,
+ 		count = max - pos;
+ 	}
+ 
+-	retval = in_file->f_op->sendfile(in_file, ppos, count, file_send_actor, out_file);
++	fl = 0;
++#if 0
++	/*
++	 * We need to debate whether we can enable this or not. The
++	 * man page documents EAGAIN return for the output at least,
++	 * and the application is arguably buggy if it doesn't expect
++	 * EAGAIN on a non-blocking file descriptor.
++	 */
++	if (in_file->f_flags & O_NONBLOCK)
++		fl = SPLICE_F_NONBLOCK;
++#endif
++	retval = do_splice_direct(in_file, ppos, out_file, count, fl);
+ 
+ 	if (retval > 0) {
+ 		add_rchar(current, retval);
+diff --git a/fs/reiserfs/file.c b/fs/reiserfs/file.c
+index 9e451a6..30eebfb 100644
+--- a/fs/reiserfs/file.c
++++ b/fs/reiserfs/file.c
+@@ -1531,7 +1531,6 @@ const struct file_operations reiserfs_file_operations = {
+ 	.open = generic_file_open,
+ 	.release = reiserfs_file_release,
+ 	.fsync = reiserfs_sync_file,
+-	.sendfile = generic_file_sendfile,
+ 	.aio_read = generic_file_aio_read,
+ 	.aio_write = generic_file_aio_write,
+ 	.splice_read = generic_file_splice_read,
+diff --git a/fs/smbfs/file.c b/fs/smbfs/file.c
+index aea3f8a..c5d78a7 100644
+--- a/fs/smbfs/file.c
++++ b/fs/smbfs/file.c
+@@ -262,8 +262,9 @@ out:
+ }
+ 
+ static ssize_t
+-smb_file_sendfile(struct file *file, loff_t *ppos,
+-		  size_t count, read_actor_t actor, void *target)
++smb_file_splice_read(struct file *file, loff_t *ppos,
++		     struct pipe_inode_info *pipe, size_t count,
++		     unsigned int flags)
+ {
+ 	struct dentry *dentry = file->f_path.dentry;
+ 	ssize_t status;
+@@ -277,7 +278,7 @@ smb_file_sendfile(struct file *file, loff_t *ppos,
+ 			 DENTRY_PATH(dentry), status);
+ 		goto out;
+ 	}
+-	status = generic_file_sendfile(file, ppos, count, actor, target);
++	status = generic_file_splice_read(file, ppos, pipe, count, flags);
+ out:
+ 	return status;
+ }
+@@ -416,7 +417,7 @@ const struct file_operations smb_file_operations =
+ 	.open		= smb_file_open,
+ 	.release	= smb_file_release,
+ 	.fsync		= smb_fsync,
+-	.sendfile	= smb_file_sendfile,
++	.splice_read	= smb_file_splice_read,
+ };
+ 
+ const struct inode_operations smb_file_inode_operations =
+diff --git a/fs/splice.c b/fs/splice.c
+index dbbe267..b033261 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -20,7 +20,7 @@
+ #include <linux/fs.h>
+ #include <linux/file.h>
+ #include <linux/pagemap.h>
+-#include <linux/pipe_fs_i.h>
++#include <linux/splice.h>
+ #include <linux/mm_inline.h>
+ #include <linux/swap.h>
+ #include <linux/writeback.h>
+@@ -28,22 +28,7 @@
+ #include <linux/module.h>
+ #include <linux/syscalls.h>
+ #include <linux/uio.h>
+-
+-struct partial_page {
+-	unsigned int offset;
+-	unsigned int len;
+-};
+-
+-/*
+- * Passed to splice_to_pipe
+- */
+-struct splice_pipe_desc {
+-	struct page **pages;		/* page map */
+-	struct partial_page *partial;	/* pages[] may not be contig */
+-	int nr_pages;			/* number of pages in map */
+-	unsigned int flags;		/* splice flags */
+-	const struct pipe_buf_operations *ops;/* ops associated with output pipe */
+-};
++#include <linux/security.h>
+ 
+ /*
+  * Attempt to steal a page from a pipe buffer. This should perhaps go into
+@@ -101,8 +86,12 @@ static void page_cache_pipe_buf_release(struct pipe_inode_info *pipe,
+ 	buf->flags &= ~PIPE_BUF_FLAG_LRU;
+ }
+ 
+-static int page_cache_pipe_buf_pin(struct pipe_inode_info *pipe,
+-				   struct pipe_buffer *buf)
++/*
++ * Check whether the contents of buf is OK to access. Since the content
++ * is a page cache page, IO may be in flight.
++ */
++static int page_cache_pipe_buf_confirm(struct pipe_inode_info *pipe,
++				       struct pipe_buffer *buf)
+ {
+ 	struct page *page = buf->page;
+ 	int err;
+@@ -143,7 +132,7 @@ static const struct pipe_buf_operations page_cache_pipe_buf_ops = {
+ 	.can_merge = 0,
+ 	.map = generic_pipe_buf_map,
+ 	.unmap = generic_pipe_buf_unmap,
+-	.pin = page_cache_pipe_buf_pin,
++	.confirm = page_cache_pipe_buf_confirm,
+ 	.release = page_cache_pipe_buf_release,
+ 	.steal = page_cache_pipe_buf_steal,
+ 	.get = generic_pipe_buf_get,
+@@ -163,18 +152,25 @@ static const struct pipe_buf_operations user_page_pipe_buf_ops = {
+ 	.can_merge = 0,
+ 	.map = generic_pipe_buf_map,
+ 	.unmap = generic_pipe_buf_unmap,
+-	.pin = generic_pipe_buf_pin,
++	.confirm = generic_pipe_buf_confirm,
+ 	.release = page_cache_pipe_buf_release,
+ 	.steal = user_page_pipe_buf_steal,
+ 	.get = generic_pipe_buf_get,
+ };
+ 
+-/*
+- * Pipe output worker. This sets up our pipe format with the page cache
+- * pipe buffer operations. Otherwise very similar to the regular pipe_writev().
++/**
++ * splice_to_pipe - fill passed data into a pipe
++ * @pipe:	pipe to fill
++ * @spd:	data to fill
++ *
++ * Description:
++ *    @spd contains a map of pages and len/offset tupples, a long with
++ *    the struct pipe_buf_operations associated with these pages. This
++ *    function will link that data to the pipe.
++ *
+  */
+-static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+-			      struct splice_pipe_desc *spd)
++ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
++		       struct splice_pipe_desc *spd)
+ {
+ 	unsigned int spd_pages = spd->nr_pages;
+ 	int ret, do_wakeup, page_nr;
+@@ -201,6 +197,7 @@ static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 			buf->page = spd->pages[page_nr];
+ 			buf->offset = spd->partial[page_nr].offset;
+ 			buf->len = spd->partial[page_nr].len;
++			buf->private = spd->partial[page_nr].private;
+ 			buf->ops = spd->ops;
+ 			if (spd->flags & SPLICE_F_GIFT)
+ 				buf->flags |= PIPE_BUF_FLAG_GIFT;
+@@ -257,11 +254,16 @@ static ssize_t splice_to_pipe(struct pipe_inode_info *pipe,
+ 	}
+ 
+ 	while (page_nr < spd_pages)
+-		page_cache_release(spd->pages[page_nr++]);
++		spd->spd_release(spd, page_nr++);
+ 
+ 	return ret;
+ }
+ 
++static void spd_release_page(struct splice_pipe_desc *spd, unsigned int i)
++{
++	page_cache_release(spd->pages[i]);
++}
++
+ static int
+ __generic_file_splice_read(struct file *in, loff_t *ppos,
+ 			   struct pipe_inode_info *pipe, size_t len,
+@@ -280,6 +282,7 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
+ 		.partial = partial,
+ 		.flags = flags,
+ 		.ops = &page_cache_pipe_buf_ops,
++		.spd_release = spd_release_page,
+ 	};
+ 
+ 	index = *ppos >> PAGE_CACHE_SHIFT;
+@@ -296,19 +299,15 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
+ 	page_cache_readahead(mapping, &in->f_ra, in, index, nr_pages);
+ 
+ 	/*
+-	 * Now fill in the holes:
+-	 */
+-	error = 0;
+-
+-	/*
+ 	 * Lookup the (hopefully) full range of pages we need.
+ 	 */
+ 	spd.nr_pages = find_get_pages_contig(mapping, index, nr_pages, pages);
+ 
+ 	/*
+ 	 * If find_get_pages_contig() returned fewer pages than we needed,
+-	 * allocate the rest.
++	 * allocate the rest and fill in the holes.
+ 	 */
++	error = 0;
+ 	index += spd.nr_pages;
+ 	while (spd.nr_pages < nr_pages) {
+ 		/*
+@@ -377,8 +376,10 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
+ 			 * for an in-flight io page
+ 			 */
+ 			if (flags & SPLICE_F_NONBLOCK) {
+-				if (TestSetPageLocked(page))
++				if (TestSetPageLocked(page)) {
++					error = -EAGAIN;
+ 					break;
++				}
+ 			} else
+ 				lock_page(page);
+ 
+@@ -470,19 +471,23 @@ fill_it:
+ /**
+  * generic_file_splice_read - splice data from file to a pipe
+  * @in:		file to splice from
++ * @ppos:	position in @in
+  * @pipe:	pipe to splice to
+  * @len:	number of bytes to splice
+  * @flags:	splice modifier flags
+  *
+- * Will read pages from given file and fill them into a pipe.
++ * Description:
++ *    Will read pages from given file and fill them into a pipe. Can be
++ *    used as long as the address_space operations for the source implements
++ *    a readpage() hook.
++ *
+  */
+ ssize_t generic_file_splice_read(struct file *in, loff_t *ppos,
+ 				 struct pipe_inode_info *pipe, size_t len,
+ 				 unsigned int flags)
+ {
+-	ssize_t spliced;
+-	int ret;
+ 	loff_t isize, left;
++	int ret;
+ 
+ 	isize = i_size_read(in->f_mapping->host);
+ 	if (unlikely(*ppos >= isize))
+@@ -492,29 +497,9 @@ ssize_t generic_file_splice_read(struct file *in, loff_t *ppos,
+ 	if (unlikely(left < len))
+ 		len = left;
+ 
+-	ret = 0;
+-	spliced = 0;
+-	while (len) {
+-		ret = __generic_file_splice_read(in, ppos, pipe, len, flags);
+-
+-		if (ret < 0)
+-			break;
+-		else if (!ret) {
+-			if (spliced)
+-				break;
+-			if (flags & SPLICE_F_NONBLOCK) {
+-				ret = -EAGAIN;
+-				break;
+-			}
+-		}
+-
++	ret = __generic_file_splice_read(in, ppos, pipe, len, flags);
++	if (ret > 0)
+ 		*ppos += ret;
+-		len -= ret;
+-		spliced += ret;
+-	}
+-
+-	if (spliced)
+-		return spliced;
+ 
+ 	return ret;
+ }
+@@ -528,11 +513,11 @@ EXPORT_SYMBOL(generic_file_splice_read);
+ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ 			    struct pipe_buffer *buf, struct splice_desc *sd)
+ {
+-	struct file *file = sd->file;
++	struct file *file = sd->u.file;
+ 	loff_t pos = sd->pos;
+ 	int ret, more;
+ 
+-	ret = buf->ops->pin(pipe, buf);
++	ret = buf->ops->confirm(pipe, buf);
+ 	if (!ret) {
+ 		more = (sd->flags & SPLICE_F_MORE) || sd->len < sd->total_len;
+ 
+@@ -566,7 +551,7 @@ static int pipe_to_sendpage(struct pipe_inode_info *pipe,
+ static int pipe_to_file(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
+ 			struct splice_desc *sd)
+ {
+-	struct file *file = sd->file;
++	struct file *file = sd->u.file;
+ 	struct address_space *mapping = file->f_mapping;
+ 	unsigned int offset, this_len;
+ 	struct page *page;
+@@ -576,7 +561,7 @@ static int pipe_to_file(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
+ 	/*
+ 	 * make sure the data in this buffer is uptodate
+ 	 */
+-	ret = buf->ops->pin(pipe, buf);
++	ret = buf->ops->confirm(pipe, buf);
+ 	if (unlikely(ret))
+ 		return ret;
+ 
+@@ -664,36 +649,37 @@ out_ret:
+ 	return ret;
+ }
+ 
+-/*
+- * Pipe input worker. Most of this logic works like a regular pipe, the
+- * key here is the 'actor' worker passed in that actually moves the data
+- * to the wanted destination. See pipe_to_file/pipe_to_sendpage above.
++/**
++ * __splice_from_pipe - splice data from a pipe to given actor
++ * @pipe:	pipe to splice from
++ * @sd:		information to @actor
++ * @actor:	handler that splices the data
++ *
++ * Description:
++ *    This function does little more than loop over the pipe and call
++ *    @actor to do the actual moving of a single struct pipe_buffer to
++ *    the desired destination. See pipe_to_file, pipe_to_sendpage, or
++ *    pipe_to_user.
++ *
+  */
+-ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+-			   struct file *out, loff_t *ppos, size_t len,
+-			   unsigned int flags, splice_actor *actor)
++ssize_t __splice_from_pipe(struct pipe_inode_info *pipe, struct splice_desc *sd,
++			   splice_actor *actor)
+ {
+ 	int ret, do_wakeup, err;
+-	struct splice_desc sd;
+ 
+ 	ret = 0;
+ 	do_wakeup = 0;
+ 
+-	sd.total_len = len;
+-	sd.flags = flags;
+-	sd.file = out;
+-	sd.pos = *ppos;
+-
+ 	for (;;) {
+ 		if (pipe->nrbufs) {
+ 			struct pipe_buffer *buf = pipe->bufs + pipe->curbuf;
+ 			const struct pipe_buf_operations *ops = buf->ops;
+ 
+-			sd.len = buf->len;
+-			if (sd.len > sd.total_len)
+-				sd.len = sd.total_len;
++			sd->len = buf->len;
++			if (sd->len > sd->total_len)
++				sd->len = sd->total_len;
+ 
+-			err = actor(pipe, buf, &sd);
++			err = actor(pipe, buf, sd);
+ 			if (err <= 0) {
+ 				if (!ret && err != -ENODATA)
+ 					ret = err;
+@@ -705,10 +691,10 @@ ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+ 			buf->offset += err;
+ 			buf->len -= err;
+ 
+-			sd.len -= err;
+-			sd.pos += err;
+-			sd.total_len -= err;
+-			if (sd.len)
++			sd->len -= err;
++			sd->pos += err;
++			sd->total_len -= err;
++			if (sd->len)
+ 				continue;
+ 
+ 			if (!buf->len) {
+@@ -720,7 +706,7 @@ ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+ 					do_wakeup = 1;
+ 			}
+ 
+-			if (!sd.total_len)
++			if (!sd->total_len)
+ 				break;
+ 		}
+ 
+@@ -733,7 +719,7 @@ ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+ 				break;
+ 		}
+ 
+-		if (flags & SPLICE_F_NONBLOCK) {
++		if (sd->flags & SPLICE_F_NONBLOCK) {
+ 			if (!ret)
+ 				ret = -EAGAIN;
+ 			break;
+@@ -767,12 +753,32 @@ ssize_t __splice_from_pipe(struct pipe_inode_info *pipe,
+ }
+ EXPORT_SYMBOL(__splice_from_pipe);
+ 
++/**
++ * splice_from_pipe - splice data from a pipe to a file
++ * @pipe:	pipe to splice from
++ * @out:	file to splice to
++ * @ppos:	position in @out
++ * @len:	how many bytes to splice
++ * @flags:	splice modifier flags
++ * @actor:	handler that splices the data
++ *
++ * Description:
++ *    See __splice_from_pipe. This function locks the input and output inodes,
++ *    otherwise it's identical to __splice_from_pipe().
++ *
++ */
+ ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
+ 			 loff_t *ppos, size_t len, unsigned int flags,
+ 			 splice_actor *actor)
+ {
+ 	ssize_t ret;
+ 	struct inode *inode = out->f_mapping->host;
++	struct splice_desc sd = {
++		.total_len = len,
++		.flags = flags,
++		.pos = *ppos,
++		.u.file = out,
++	};
+ 
+ 	/*
+ 	 * The actor worker might be calling ->prepare_write and
+@@ -781,7 +787,7 @@ ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
+ 	 * pipe->inode, we have to order lock acquiry here.
+ 	 */
+ 	inode_double_lock(inode, pipe->inode);
+-	ret = __splice_from_pipe(pipe, out, ppos, len, flags, actor);
++	ret = __splice_from_pipe(pipe, &sd, actor);
+ 	inode_double_unlock(inode, pipe->inode);
+ 
+ 	return ret;
+@@ -791,12 +797,14 @@ ssize_t splice_from_pipe(struct pipe_inode_info *pipe, struct file *out,
+  * generic_file_splice_write_nolock - generic_file_splice_write without mutexes
+  * @pipe:	pipe info
+  * @out:	file to write to
++ * @ppos:	position in @out
+  * @len:	number of bytes to splice
+  * @flags:	splice modifier flags
+  *
+- * Will either move or copy pages (determined by @flags options) from
+- * the given pipe inode to the given file. The caller is responsible
+- * for acquiring i_mutex on both inodes.
++ * Description:
++ *    Will either move or copy pages (determined by @flags options) from
++ *    the given pipe inode to the given file. The caller is responsible
++ *    for acquiring i_mutex on both inodes.
+  *
+  */
+ ssize_t
+@@ -805,6 +813,12 @@ generic_file_splice_write_nolock(struct pipe_inode_info *pipe, struct file *out,
+ {
+ 	struct address_space *mapping = out->f_mapping;
+ 	struct inode *inode = mapping->host;
++	struct splice_desc sd = {
++		.total_len = len,
++		.flags = flags,
++		.pos = *ppos,
++		.u.file = out,
++	};
+ 	ssize_t ret;
+ 	int err;
+ 
+@@ -812,7 +826,7 @@ generic_file_splice_write_nolock(struct pipe_inode_info *pipe, struct file *out,
+ 	if (unlikely(err))
+ 		return err;
+ 
+-	ret = __splice_from_pipe(pipe, out, ppos, len, flags, pipe_to_file);
++	ret = __splice_from_pipe(pipe, &sd, pipe_to_file);
+ 	if (ret > 0) {
+ 		unsigned long nr_pages;
+ 
+@@ -842,11 +856,13 @@ EXPORT_SYMBOL(generic_file_splice_write_nolock);
+  * generic_file_splice_write - splice data from a pipe to a file
+  * @pipe:	pipe info
+  * @out:	file to write to
++ * @ppos:	position in @out
+  * @len:	number of bytes to splice
+  * @flags:	splice modifier flags
+  *
+- * Will either move or copy pages (determined by @flags options) from
+- * the given pipe inode to the given file.
++ * Description:
++ *    Will either move or copy pages (determined by @flags options) from
++ *    the given pipe inode to the given file.
+  *
+  */
+ ssize_t
+@@ -897,13 +913,15 @@ EXPORT_SYMBOL(generic_file_splice_write);
+ 
+ /**
+  * generic_splice_sendpage - splice data from a pipe to a socket
+- * @inode:	pipe inode
++ * @pipe:	pipe to splice from
+  * @out:	socket to write to
++ * @ppos:	position in @out
+  * @len:	number of bytes to splice
+  * @flags:	splice modifier flags
+  *
+- * Will send @len bytes from the pipe to a network socket. No data copying
+- * is involved.
++ * Description:
++ *    Will send @len bytes from the pipe to a network socket. No data copying
++ *    is involved.
+  *
+  */
+ ssize_t generic_splice_sendpage(struct pipe_inode_info *pipe, struct file *out,
+@@ -932,6 +950,10 @@ static long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
+ 	if (unlikely(ret < 0))
+ 		return ret;
+ 
++	ret = security_file_permission(out, MAY_WRITE);
++	if (unlikely(ret < 0))
++		return ret;
++
+ 	return out->f_op->splice_write(pipe, out, ppos, len, flags);
+ }
+ 
+@@ -954,17 +976,34 @@ static long do_splice_to(struct file *in, loff_t *ppos,
+ 	if (unlikely(ret < 0))
+ 		return ret;
+ 
++	ret = security_file_permission(in, MAY_READ);
++	if (unlikely(ret < 0))
++		return ret;
++
+ 	return in->f_op->splice_read(in, ppos, pipe, len, flags);
+ }
+ 
+-long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
+-		      size_t len, unsigned int flags)
++/**
++ * splice_direct_to_actor - splices data directly between two non-pipes
++ * @in:		file to splice from
++ * @sd:		actor information on where to splice to
++ * @actor:	handles the data splicing
++ *
++ * Description:
++ *    This is a special case helper to splice directly between two
++ *    points, without requiring an explicit pipe. Internally an allocated
++ *    pipe is cached in the process, and reused during the life time of
++ *    that process.
++ *
++ */
++ssize_t splice_direct_to_actor(struct file *in, struct splice_desc *sd,
++			       splice_direct_actor *actor)
+ {
+ 	struct pipe_inode_info *pipe;
+ 	long ret, bytes;
+-	loff_t out_off;
+ 	umode_t i_mode;
+-	int i;
++	size_t len;
++	int i, flags;
+ 
+ 	/*
+ 	 * We require the input being a regular file, as we don't want to
+@@ -1000,49 +1039,49 @@ long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
+ 	 */
+ 	ret = 0;
+ 	bytes = 0;
+-	out_off = 0;
++	len = sd->total_len;
++	flags = sd->flags;
+ 
+-	while (len) {
+-		size_t read_len, max_read_len;
++	/*
++	 * Don't block on output, we have to drain the direct pipe.
++	 */
++	sd->flags &= ~SPLICE_F_NONBLOCK;
+ 
+-		/*
+-		 * Do at most PIPE_BUFFERS pages worth of transfer:
+-		 */
+-		max_read_len = min(len, (size_t)(PIPE_BUFFERS*PAGE_SIZE));
++	while (len) {
++		size_t read_len;
++		loff_t pos = sd->pos, prev_pos = pos;
+ 
+-		ret = do_splice_to(in, ppos, pipe, max_read_len, flags);
++		ret = do_splice_to(in, &pos, pipe, len, flags);
+ 		if (unlikely(ret <= 0))
+ 			goto out_release;
+ 
+ 		read_len = ret;
++		sd->total_len = read_len;
+ 
+ 		/*
+ 		 * NOTE: nonblocking mode only applies to the input. We
+ 		 * must not do the output in nonblocking mode as then we
+ 		 * could get stuck data in the internal pipe:
+ 		 */
+-		ret = do_splice_from(pipe, out, &out_off, read_len,
+-				     flags & ~SPLICE_F_NONBLOCK);
+-		if (unlikely(ret <= 0))
++		ret = actor(pipe, sd);
++		if (unlikely(ret <= 0)) {
++			sd->pos = prev_pos;
+ 			goto out_release;
++		}
+ 
+ 		bytes += ret;
+ 		len -= ret;
++		sd->pos = pos;
+ 
+-		/*
+-		 * In nonblocking mode, if we got back a short read then
+-		 * that was due to either an IO error or due to the
+-		 * pagecache entry not being there. In the IO error case
+-		 * the _next_ splice attempt will produce a clean IO error
+-		 * return value (not a short read), so in both cases it's
+-		 * correct to break out of the loop here:
+-		 */
+-		if ((flags & SPLICE_F_NONBLOCK) && (read_len < max_read_len))
+-			break;
++		if (ret < read_len) {
++			sd->pos = prev_pos + ret;
++			goto out_release;
++		}
+ 	}
+ 
++done:
+ 	pipe->nrbufs = pipe->curbuf = 0;
+-
++	file_accessed(in);
+ 	return bytes;
+ 
+ out_release:
+@@ -1058,13 +1097,52 @@ out_release:
+ 			buf->ops = NULL;
+ 		}
+ 	}
+-	pipe->nrbufs = pipe->curbuf = 0;
+ 
+-	/*
+-	 * If we transferred some data, return the number of bytes:
+-	 */
+-	if (bytes > 0)
+-		return bytes;
++	if (!bytes)
++		bytes = ret;
++
++	goto done;
++}
++EXPORT_SYMBOL(splice_direct_to_actor);
++
++static int direct_splice_actor(struct pipe_inode_info *pipe,
++			       struct splice_desc *sd)
++{
++	struct file *file = sd->u.file;
++
++	return do_splice_from(pipe, file, &sd->pos, sd->total_len, sd->flags);
++}
++
++/**
++ * do_splice_direct - splices data directly between two files
++ * @in:		file to splice from
++ * @ppos:	input file offset
++ * @out:	file to splice to
++ * @len:	number of bytes to splice
++ * @flags:	splice modifier flags
++ *
++ * Description:
++ *    For use by do_sendfile(). splice can easily emulate sendfile, but
++ *    doing it in the application would incur an extra system call
++ *    (splice in + splice out, as compared to just sendfile()). So this helper
++ *    can splice directly through a process-private pipe.
++ *
++ */
++long do_splice_direct(struct file *in, loff_t *ppos, struct file *out,
++		      size_t len, unsigned int flags)
++{
++	struct splice_desc sd = {
++		.len		= len,
++		.total_len	= len,
++		.flags		= flags,
++		.pos		= *ppos,
++		.u.file		= out,
++	};
++	long ret;
++
++	ret = splice_direct_to_actor(in, &sd, direct_splice_actor);
++	if (ret > 0)
++		*ppos = sd.pos;
+ 
+ 	return ret;
+ }
+@@ -1139,6 +1217,36 @@ static long do_splice(struct file *in, loff_t __user *off_in,
+ }
+ 
+ /*
++ * Do a copy-from-user while holding the mmap_semaphore for reading, in a
++ * manner safe from deadlocking with simultaneous mmap() (grabbing mmap_sem
++ * for writing) and page faulting on the user memory pointed to by src.
++ * This assumes that we will very rarely hit the partial != 0 path, or this
++ * will not be a win.
++ */
++static int copy_from_user_mmap_sem(void *dst, const void __user *src, size_t n)
++{
++	int partial;
++
++	if (!access_ok(VERIFY_READ, src, n))
++		return -EFAULT;
++
++	pagefault_disable();
++	partial = __copy_from_user_inatomic(dst, src, n);
++	pagefault_enable();
++
++	/*
++	 * Didn't copy everything, drop the mmap_sem and do a faulting copy
++	 */
++	if (unlikely(partial)) {
++		up_read(&current->mm->mmap_sem);
++		partial = copy_from_user(dst, src, n);
++		down_read(&current->mm->mmap_sem);
++	}
++
++	return partial;
++}
++
++/*
+  * Map an iov into an array of pages and offset/length tupples. With the
+  * partial_page structure, we can map several non-contiguous ranges into
+  * our ones pages[] map instead of splitting that operation into pieces.
+@@ -1151,36 +1259,29 @@ static int get_iovec_page_array(const struct iovec __user *iov,
+ {
+ 	int buffers = 0, error = 0;
+ 
+-	/*
+-	 * It's ok to take the mmap_sem for reading, even
+-	 * across a "get_user()".
+-	 */
+ 	down_read(&current->mm->mmap_sem);
+ 
+ 	while (nr_vecs) {
+ 		unsigned long off, npages;
++		struct iovec entry;
+ 		void __user *base;
+ 		size_t len;
+ 		int i;
+ 
+-		/*
+-		 * Get user address base and length for this iovec.
+-		 */
+-		error = get_user(base, &iov->iov_base);
+-		if (unlikely(error))
+-			break;
+-		error = get_user(len, &iov->iov_len);
+-		if (unlikely(error))
++		error = -EFAULT;
++		if (copy_from_user_mmap_sem(&entry, iov, sizeof(entry)))
+ 			break;
+ 
++		base = entry.iov_base;
++		len = entry.iov_len;
++
+ 		/*
+ 		 * Sanity check this iovec. 0 read succeeds.
+ 		 */
++		error = 0;
+ 		if (unlikely(!len))
+ 			break;
+ 		error = -EFAULT;
+-		if (unlikely(!base))
+-			break;
+ 
+ 		if (!access_ok(VERIFY_READ, base, len))
+ 			break;
+@@ -1252,28 +1355,136 @@ static int get_iovec_page_array(const struct iovec __user *iov,
+ 	return error;
+ }
+ 
++static int pipe_to_user(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
++			struct splice_desc *sd)
++{
++	char *src;
++	int ret;
++
++	ret = buf->ops->confirm(pipe, buf);
++	if (unlikely(ret))
++		return ret;
++
++	/*
++	 * See if we can use the atomic maps, by prefaulting in the
++	 * pages and doing an atomic copy
++	 */
++	if (!fault_in_pages_writeable(sd->u.userptr, sd->len)) {
++		src = buf->ops->map(pipe, buf, 1);
++		ret = __copy_to_user_inatomic(sd->u.userptr, src + buf->offset,
++							sd->len);
++		buf->ops->unmap(pipe, buf, src);
++		if (!ret) {
++			ret = sd->len;
++			goto out;
++		}
++	}
++
++	/*
++	 * No dice, use slow non-atomic map and copy
++ 	 */
++	src = buf->ops->map(pipe, buf, 0);
++
++	ret = sd->len;
++	if (copy_to_user(sd->u.userptr, src + buf->offset, sd->len))
++		ret = -EFAULT;
++
++	buf->ops->unmap(pipe, buf, src);
++out:
++	if (ret > 0)
++		sd->u.userptr += ret;
++	return ret;
++}
++
++/*
++ * For lack of a better implementation, implement vmsplice() to userspace
++ * as a simple copy of the pipes pages to the user iov.
++ */
++static long vmsplice_to_user(struct file *file, const struct iovec __user *iov,
++			     unsigned long nr_segs, unsigned int flags)
++{
++	struct pipe_inode_info *pipe;
++	struct splice_desc sd;
++	ssize_t size;
++	int error;
++	long ret;
++
++	pipe = pipe_info(file->f_path.dentry->d_inode);
++	if (!pipe)
++		return -EBADF;
++
++	if (pipe->inode)
++		mutex_lock(&pipe->inode->i_mutex);
++
++	error = ret = 0;
++	while (nr_segs) {
++		void __user *base;
++		size_t len;
++
++		/*
++		 * Get user address base and length for this iovec.
++		 */
++		error = get_user(base, &iov->iov_base);
++		if (unlikely(error))
++			break;
++		error = get_user(len, &iov->iov_len);
++		if (unlikely(error))
++			break;
++
++		/*
++		 * Sanity check this iovec. 0 read succeeds.
++		 */
++		if (unlikely(!len))
++			break;
++		if (unlikely(!base)) {
++			error = -EFAULT;
++			break;
++		}
++
++		if (unlikely(!access_ok(VERIFY_WRITE, base, len))) {
++			error = -EFAULT;
++			break;
++		}
++
++		sd.len = 0;
++		sd.total_len = len;
++		sd.flags = flags;
++		sd.u.userptr = base;
++		sd.pos = 0;
++
++		size = __splice_from_pipe(pipe, &sd, pipe_to_user);
++		if (size < 0) {
++			if (!ret)
++				ret = size;
++
++			break;
++		}
++
++		ret += size;
++
++		if (size < len)
++			break;
++
++		nr_segs--;
++		iov++;
++	}
++
++	if (pipe->inode)
++		mutex_unlock(&pipe->inode->i_mutex);
++
++	if (!ret)
++		ret = error;
++
++	return ret;
++}
++
+ /*
+  * vmsplice splices a user address range into a pipe. It can be thought of
+  * as splice-from-memory, where the regular splice is splice-from-file (or
+  * to file). In both cases the output is a pipe, naturally.
+- *
+- * Note that vmsplice only supports splicing _from_ user memory to a pipe,
+- * not the other way around. Splicing from user memory is a simple operation
+- * that can be supported without any funky alignment restrictions or nasty
+- * vm tricks. We simply map in the user memory and fill them into a pipe.
+- * The reverse isn't quite as easy, though. There are two possible solutions
+- * for that:
+- *
+- *	- memcpy() the data internally, at which point we might as well just
+- *	  do a regular read() on the buffer anyway.
+- *	- Lots of nasty vm tricks, that are neither fast nor flexible (it
+- *	  has restriction limitations on both ends of the pipe).
+- *
+- * Alas, it isn't here.
+- *
+  */
+-static long do_vmsplice(struct file *file, const struct iovec __user *iov,
+-			unsigned long nr_segs, unsigned int flags)
++static long vmsplice_to_pipe(struct file *file, const struct iovec __user *iov,
++			     unsigned long nr_segs, unsigned int flags)
+ {
+ 	struct pipe_inode_info *pipe;
+ 	struct page *pages[PIPE_BUFFERS];
+@@ -1283,15 +1494,12 @@ static long do_vmsplice(struct file *file, const struct iovec __user *iov,
+ 		.partial = partial,
+ 		.flags = flags,
+ 		.ops = &user_page_pipe_buf_ops,
++		.spd_release = spd_release_page,
+ 	};
+ 
+ 	pipe = pipe_info(file->f_path.dentry->d_inode);
+ 	if (!pipe)
+ 		return -EBADF;
+-	if (unlikely(nr_segs > UIO_MAXIOV))
+-		return -EINVAL;
+-	else if (unlikely(!nr_segs))
+-		return 0;
+ 
+ 	spd.nr_pages = get_iovec_page_array(iov, nr_segs, pages, partial,
+ 					    flags & SPLICE_F_GIFT);
+@@ -1301,6 +1509,22 @@ static long do_vmsplice(struct file *file, const struct iovec __user *iov,
+ 	return splice_to_pipe(pipe, &spd);
+ }
+ 
++/*
++ * Note that vmsplice only really supports true splicing _from_ user memory
++ * to a pipe, not the other way around. Splicing from user memory is a simple
++ * operation that can be supported without any funky alignment restrictions
++ * or nasty vm tricks. We simply map in the user memory and fill them into
++ * a pipe. The reverse isn't quite as easy, though. There are two possible
++ * solutions for that:
++ *
++ *	- memcpy() the data internally, at which point we might as well just
++ *	  do a regular read() on the buffer anyway.
++ *	- Lots of nasty vm tricks, that are neither fast nor flexible (it
++ *	  has restriction limitations on both ends of the pipe).
++ *
++ * Currently we punt and implement it as a normal copy, see pipe_to_user().
++ *
++ */
+ asmlinkage long sys_vmsplice(int fd, const struct iovec __user *iov,
+ 			     unsigned long nr_segs, unsigned int flags)
+ {
+@@ -1308,11 +1532,18 @@ asmlinkage long sys_vmsplice(int fd, const struct iovec __user *iov,
+ 	long error;
+ 	int fput;
+ 
++	if (unlikely(nr_segs > UIO_MAXIOV))
++		return -EINVAL;
++	else if (unlikely(!nr_segs))
++		return 0;
++
+ 	error = -EBADF;
+ 	file = fget_light(fd, &fput);
+ 	if (file) {
+ 		if (file->f_mode & FMODE_WRITE)
+-			error = do_vmsplice(file, iov, nr_segs, flags);
++			error = vmsplice_to_pipe(file, iov, nr_segs, flags);
++		else if (file->f_mode & FMODE_READ)
++			error = vmsplice_to_user(file, iov, nr_segs, flags);
+ 
+ 		fput_light(file, fput);
+ 	}
+@@ -1489,6 +1720,13 @@ static int link_pipe(struct pipe_inode_info *ipipe,
+ 		i++;
+ 	} while (len);
+ 
++	/*
++	 * return EAGAIN if we have the potential of some data in the
++	 * future, otherwise just return 0
++	 */
++	if (!ret && ipipe->waiting_writers && (flags & SPLICE_F_NONBLOCK))
++		ret = -EAGAIN;
++
+ 	inode_double_unlock(ipipe->inode, opipe->inode);
+ 
+ 	/*
+@@ -1529,11 +1767,8 @@ static long do_tee(struct file *in, struct file *out, size_t len,
+ 		ret = link_ipipe_prep(ipipe, flags);
+ 		if (!ret) {
+ 			ret = link_opipe_prep(opipe, flags);
+-			if (!ret) {
++			if (!ret)
+ 				ret = link_pipe(ipipe, opipe, len, flags);
+-				if (!ret && (flags & SPLICE_F_NONBLOCK))
+-					ret = -EAGAIN;
+-			}
+ 		}
+ 	}
+ 
+diff --git a/fs/sysv/file.c b/fs/sysv/file.c
+index 0732ddb..589be21 100644
+--- a/fs/sysv/file.c
++++ b/fs/sysv/file.c
+@@ -27,7 +27,7 @@ const struct file_operations sysv_file_operations = {
+ 	.aio_write	= generic_file_aio_write,
+ 	.mmap		= generic_file_mmap,
+ 	.fsync		= sysv_sync_file,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations sysv_file_inode_operations = {
+diff --git a/fs/udf/file.c b/fs/udf/file.c
+index 51b5764..df070be 100644
+--- a/fs/udf/file.c
++++ b/fs/udf/file.c
+@@ -261,7 +261,7 @@ const struct file_operations udf_file_operations = {
+ 	.aio_write		= udf_file_aio_write,
+ 	.release		= udf_release_file,
+ 	.fsync			= udf_fsync_file,
+-	.sendfile		= generic_file_sendfile,
++	.splice_read		= generic_file_splice_read,
+ };
+ 
+ const struct inode_operations udf_file_inode_operations = {
+diff --git a/fs/ufs/file.c b/fs/ufs/file.c
+index 1e09632..6705d74 100644
+--- a/fs/ufs/file.c
++++ b/fs/ufs/file.c
+@@ -60,5 +60,5 @@ const struct file_operations ufs_file_operations = {
+ 	.mmap		= generic_file_mmap,
+ 	.open           = generic_file_open,
+ 	.fsync		= ufs_sync_file,
+-	.sendfile	= generic_file_sendfile,
++	.splice_read	= generic_file_splice_read,
+ };
+diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
+index cb51dc9..8c43cd2 100644
+--- a/fs/xfs/linux-2.6/xfs_file.c
++++ b/fs/xfs/linux-2.6/xfs_file.c
+@@ -124,30 +124,6 @@ xfs_file_aio_write_invis(
+ }
+ 
+ STATIC ssize_t
+-xfs_file_sendfile(
+-	struct file		*filp,
+-	loff_t			*pos,
+-	size_t			count,
+-	read_actor_t		actor,
+-	void			*target)
+-{
+-	return bhv_vop_sendfile(vn_from_inode(filp->f_path.dentry->d_inode),
+-				filp, pos, 0, count, actor, target, NULL);
+-}
+-
+-STATIC ssize_t
+-xfs_file_sendfile_invis(
+-	struct file		*filp,
+-	loff_t			*pos,
+-	size_t			count,
+-	read_actor_t		actor,
+-	void			*target)
+-{
+-	return bhv_vop_sendfile(vn_from_inode(filp->f_path.dentry->d_inode),
+-				filp, pos, IO_INVIS, count, actor, target, NULL);
+-}
+-
+-STATIC ssize_t
+ xfs_file_splice_read(
+ 	struct file		*infilp,
+ 	loff_t			*ppos,
+@@ -452,7 +428,6 @@ const struct file_operations xfs_file_operations = {
+ 	.write		= do_sync_write,
+ 	.aio_read	= xfs_file_aio_read,
+ 	.aio_write	= xfs_file_aio_write,
+-	.sendfile	= xfs_file_sendfile,
+ 	.splice_read	= xfs_file_splice_read,
+ 	.splice_write	= xfs_file_splice_write,
+ 	.unlocked_ioctl	= xfs_file_ioctl,
+@@ -475,7 +450,6 @@ const struct file_operations xfs_invis_file_operations = {
+ 	.write		= do_sync_write,
+ 	.aio_read	= xfs_file_aio_read_invis,
+ 	.aio_write	= xfs_file_aio_write_invis,
+-	.sendfile	= xfs_file_sendfile_invis,
+ 	.splice_read	= xfs_file_splice_read_invis,
+ 	.splice_write	= xfs_file_splice_write_invis,
+ 	.unlocked_ioctl	= xfs_file_ioctl_invis,
+diff --git a/fs/xfs/linux-2.6/xfs_linux.h b/fs/xfs/linux-2.6/xfs_linux.h
+index 715adad..af24a45 100644
+--- a/fs/xfs/linux-2.6/xfs_linux.h
++++ b/fs/xfs/linux-2.6/xfs_linux.h
+@@ -101,7 +101,6 @@
+  * Feature macros (disable/enable)
+  */
+ #undef  HAVE_REFCACHE	/* reference cache not needed for NFS in 2.6 */
+-#define HAVE_SENDFILE	/* sendfile(2) exists in 2.6, but not in 2.4 */
+ #define HAVE_SPLICE	/* a splice(2) exists in 2.6, but not in 2.4 */
+ #ifdef CONFIG_SMP
+ #define HAVE_PERCPU_SB	/* per cpu superblock counters are a 2.6 feature */
+diff --git a/fs/xfs/linux-2.6/xfs_lrw.c b/fs/xfs/linux-2.6/xfs_lrw.c
+index ed90403..765ec16 100644
+--- a/fs/xfs/linux-2.6/xfs_lrw.c
++++ b/fs/xfs/linux-2.6/xfs_lrw.c
+@@ -287,50 +287,6 @@ xfs_read(
+ }
+ 
+ ssize_t
+-xfs_sendfile(
+-	bhv_desc_t		*bdp,
+-	struct file		*filp,
+-	loff_t			*offset,
+-	int			ioflags,
+-	size_t			count,
+-	read_actor_t		actor,
+-	void			*target,
+-	cred_t			*credp)
+-{
+-	xfs_inode_t		*ip = XFS_BHVTOI(bdp);
+-	xfs_mount_t		*mp = ip->i_mount;
+-	ssize_t			ret;
+-
+-	XFS_STATS_INC(xs_read_calls);
+-	if (XFS_FORCED_SHUTDOWN(mp))
+-		return -EIO;
+-
+-	xfs_ilock(ip, XFS_IOLOCK_SHARED);
+-
+-	if (DM_EVENT_ENABLED(BHV_TO_VNODE(bdp)->v_vfsp, ip, DM_EVENT_READ) &&
+-	    (!(ioflags & IO_INVIS))) {
+-		bhv_vrwlock_t locktype = VRWLOCK_READ;
+-		int error;
+-
+-		error = XFS_SEND_DATA(mp, DM_EVENT_READ, BHV_TO_VNODE(bdp),
+-				      *offset, count,
+-				      FILP_DELAY_FLAG(filp), &locktype);
+-		if (error) {
+-			xfs_iunlock(ip, XFS_IOLOCK_SHARED);
+-			return -error;
+-		}
+-	}
+-	xfs_rw_enter_trace(XFS_SENDFILE_ENTER, &ip->i_iocore,
+-		   (void *)(unsigned long)target, count, *offset, ioflags);
+-	ret = generic_file_sendfile(filp, offset, count, actor, target);
+-	if (ret > 0)
+-		XFS_STATS_ADD(xs_read_bytes, ret);
+-
+-	xfs_iunlock(ip, XFS_IOLOCK_SHARED);
+-	return ret;
+-}
+-
+-ssize_t
+ xfs_splice_read(
+ 	bhv_desc_t		*bdp,
+ 	struct file		*infilp,
+diff --git a/fs/xfs/linux-2.6/xfs_lrw.h b/fs/xfs/linux-2.6/xfs_lrw.h
+index 7ac51b1..7c60a1e 100644
+--- a/fs/xfs/linux-2.6/xfs_lrw.h
++++ b/fs/xfs/linux-2.6/xfs_lrw.h
+@@ -90,9 +90,6 @@ extern ssize_t xfs_read(struct bhv_desc *, struct kiocb *,
+ extern ssize_t xfs_write(struct bhv_desc *, struct kiocb *,
+ 				const struct iovec *, unsigned int,
+ 				loff_t *, int, struct cred *);
+-extern ssize_t xfs_sendfile(struct bhv_desc *, struct file *,
+-				loff_t *, int, size_t, read_actor_t,
+-				void *, struct cred *);
+ extern ssize_t xfs_splice_read(struct bhv_desc *, struct file *, loff_t *,
+ 				struct pipe_inode_info *, size_t, int, int,
+ 				struct cred *);
+diff --git a/fs/xfs/linux-2.6/xfs_vnode.h b/fs/xfs/linux-2.6/xfs_vnode.h
+index d1b2d01..013048a 100644
+--- a/fs/xfs/linux-2.6/xfs_vnode.h
++++ b/fs/xfs/linux-2.6/xfs_vnode.h
+@@ -139,9 +139,6 @@ typedef ssize_t (*vop_read_t)(bhv_desc_t *, struct kiocb *,
+ typedef ssize_t (*vop_write_t)(bhv_desc_t *, struct kiocb *,
+ 				const struct iovec *, unsigned int,
+ 				loff_t *, int, struct cred *);
+-typedef ssize_t (*vop_sendfile_t)(bhv_desc_t *, struct file *,
+-				loff_t *, int, size_t, read_actor_t,
+-				void *, struct cred *);
+ typedef ssize_t (*vop_splice_read_t)(bhv_desc_t *, struct file *, loff_t *,
+ 				struct pipe_inode_info *, size_t, int, int,
+ 				struct cred *);
+@@ -206,7 +203,6 @@ typedef struct bhv_vnodeops {
+ 	vop_close_t		vop_close;
+ 	vop_read_t		vop_read;
+ 	vop_write_t		vop_write;
+-	vop_sendfile_t		vop_sendfile;
+ 	vop_splice_read_t	vop_splice_read;
+ 	vop_splice_write_t	vop_splice_write;
+ 	vop_ioctl_t		vop_ioctl;
+@@ -254,8 +250,6 @@ typedef struct bhv_vnodeops {
+ 		VOP(vop_read, vp)(VNHEAD(vp),file,iov,segs,offset,ioflags,cr)
+ #define bhv_vop_write(vp,file,iov,segs,offset,ioflags,cr)		\
+ 		VOP(vop_write, vp)(VNHEAD(vp),file,iov,segs,offset,ioflags,cr)
+-#define bhv_vop_sendfile(vp,f,off,ioflags,cnt,act,targ,cr)		\
+-		VOP(vop_sendfile, vp)(VNHEAD(vp),f,off,ioflags,cnt,act,targ,cr)
+ #define bhv_vop_splice_read(vp,f,o,pipe,cnt,fl,iofl,cr)			\
+ 		VOP(vop_splice_read, vp)(VNHEAD(vp),f,o,pipe,cnt,fl,iofl,cr)
+ #define bhv_vop_splice_write(vp,f,o,pipe,cnt,fl,iofl,cr)		\
+diff --git a/fs/xfs/xfs_vnodeops.c b/fs/xfs/xfs_vnodeops.c
+index de17aed..70bc82f 100644
+--- a/fs/xfs/xfs_vnodeops.c
++++ b/fs/xfs/xfs_vnodeops.c
+@@ -4680,9 +4680,6 @@ bhv_vnodeops_t xfs_vnodeops = {
+ 	.vop_open		= xfs_open,
+ 	.vop_close		= xfs_close,
+ 	.vop_read		= xfs_read,
+-#ifdef HAVE_SENDFILE
+-	.vop_sendfile		= xfs_sendfile,
+-#endif
+ #ifdef HAVE_SPLICE
+ 	.vop_splice_read	= xfs_splice_read,
+ 	.vop_splice_write	= xfs_splice_write,
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 6a41f4c..fbe31de 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1105,7 +1105,7 @@ struct file_operations {
+ 	int (*aio_fsync) (struct kiocb *, int datasync);
+ 	int (*fasync) (int, struct file *, int);
+ 	int (*lock) (struct file *, int, struct file_lock *);
+-	ssize_t (*sendfile) (struct file *, loff_t *, size_t, read_actor_t, void *);
++	ssize_t (*sendfile_obsolete) (struct file *, loff_t *, size_t, read_actor_t, void *);
+ 	ssize_t (*sendpage) (struct file *, struct page *, int, size_t, loff_t *, int);
+ 	unsigned long (*get_unmapped_area)(struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+ 	int (*check_flags)(int);
+@@ -1762,7 +1762,6 @@ extern ssize_t generic_file_buffered_write(struct kiocb *, const struct iovec *,
+ 		unsigned long, loff_t, loff_t *, size_t, ssize_t);
+ extern ssize_t do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
+ extern ssize_t do_sync_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos);
+-extern ssize_t generic_file_sendfile(struct file *, loff_t *, size_t, read_actor_t, void *);
+ extern void do_generic_mapping_read(struct address_space *mapping,
+ 				    struct file_ra_state *, struct file *,
+ 				    loff_t *, read_descriptor_t *, read_actor_t);
+@@ -1792,9 +1791,6 @@ extern int nonseekable_open(struct inode * inode, struct file * filp);
+ #ifdef CONFIG_FS_XIP
+ extern ssize_t xip_file_read(struct file *filp, char __user *buf, size_t len,
+ 			     loff_t *ppos);
+-extern ssize_t xip_file_sendfile(struct file *in_file, loff_t *ppos,
+-				 size_t count, read_actor_t actor,
+-				 void *target);
+ extern int xip_file_mmap(struct file * file, struct vm_area_struct * vma);
+ extern ssize_t xip_file_write(struct file *filp, const char __user *buf,
+ 			      size_t len, loff_t *ppos);
+diff --git a/include/linux/pipe_fs_i.h b/include/linux/pipe_fs_i.h
+index c8884f9..8e41202 100644
+--- a/include/linux/pipe_fs_i.h
++++ b/include/linux/pipe_fs_i.h
+@@ -9,13 +9,39 @@
+ #define PIPE_BUF_FLAG_ATOMIC	0x02	/* was atomically mapped */
+ #define PIPE_BUF_FLAG_GIFT	0x04	/* page is a gift */
+ 
++/**
++ *	struct pipe_buffer - a linux kernel pipe buffer
++ *	@page: the page containing the data for the pipe buffer
++ *	@offset: offset of data inside the @page
++ *	@len: length of data inside the @page
++ *	@ops: operations associated with this buffer. See @pipe_buf_operations.
++ *	@flags: pipe buffer flags. See above.
++ *	@private: private data owned by the ops.
++ **/
+ struct pipe_buffer {
+ 	struct page *page;
+ 	unsigned int offset, len;
+ 	const struct pipe_buf_operations *ops;
+ 	unsigned int flags;
++	unsigned long private;
+ };
+ 
++/**
++ *	struct pipe_inode_info - a linux kernel pipe
++ *	@wait: reader/writer wait point in case of empty/full pipe
++ *	@nrbufs: the number of non-empty pipe buffers in this pipe
++ *	@curbuf: the current pipe buffer entry
++ *	@tmp_page: cached released page
++ *	@readers: number of current readers of this pipe
++ *	@writers: number of current writers of this pipe
++ *	@waiting_writers: number of writers blocked waiting for room
++ *	@r_counter: reader counter
++ *	@w_counter: writer counter
++ *	@fasync_readers: reader side fasync
++ *	@fasync_writers: writer side fasync
++ *	@inode: inode this pipe is attached to
++ *	@bufs: the circular array of pipe buffers
++ **/
+ struct pipe_inode_info {
+ 	wait_queue_head_t wait;
+ 	unsigned int nrbufs, curbuf;
+@@ -34,22 +60,73 @@ struct pipe_inode_info {
+ /*
+  * Note on the nesting of these functions:
+  *
+- * ->pin()
++ * ->confirm()
+  *	->steal()
+  *	...
+  *	->map()
+  *	...
+  *	->unmap()
+  *
+- * That is, ->map() must be called on a pinned buffer, same goes for ->steal().
++ * That is, ->map() must be called on a confirmed buffer,
++ * same goes for ->steal(). See below for the meaning of each
++ * operation. Also see kerneldoc in fs/pipe.c for the pipe
++ * and generic variants of these hooks.
+  */
+ struct pipe_buf_operations {
++	/*
++	 * This is set to 1, if the generic pipe read/write may coalesce
++	 * data into an existing buffer. If this is set to 0, a new pipe
++	 * page segment is always used for new data.
++	 */
+ 	int can_merge;
++
++	/*
++	 * ->map() returns a virtual address mapping of the pipe buffer.
++	 * The last integer flag reflects whether this should be an atomic
++	 * mapping or not. The atomic map is faster, however you can't take
++	 * page faults before calling ->unmap() again. So if you need to eg
++	 * access user data through copy_to/from_user(), then you must get
++	 * a non-atomic map. ->map() uses the KM_USER0 atomic slot for
++	 * atomic maps, so you can't map more than one pipe_buffer at once
++	 * and you have to be careful if mapping another page as source
++	 * or destination for a copy (IOW, it has to use something else
++	 * than KM_USER0).
++	 */
+ 	void * (*map)(struct pipe_inode_info *, struct pipe_buffer *, int);
++
++	/*
++	 * Undoes ->map(), finishes the virtual mapping of the pipe buffer.
++	 */
+ 	void (*unmap)(struct pipe_inode_info *, struct pipe_buffer *, void *);
+-	int (*pin)(struct pipe_inode_info *, struct pipe_buffer *);
++
++	/*
++	 * ->confirm() verifies that the data in the pipe buffer is there
++	 * and that the contents are good. If the pages in the pipe belong
++	 * to a file system, we may need to wait for IO completion in this
++	 * hook. Returns 0 for good, or a negative error value in case of
++	 * error.
++	 */
++	int (*confirm)(struct pipe_inode_info *, struct pipe_buffer *);
++
++	/*
++	 * When the contents of this pipe buffer has been completely
++	 * consumed by a reader, ->release() is called.
++	 */
+ 	void (*release)(struct pipe_inode_info *, struct pipe_buffer *);
++
++	/*
++	 * Attempt to take ownership of the pipe buffer and its contents.
++	 * ->steal() returns 0 for success, in which case the contents
++	 * of the pipe (the buf->page) is locked and now completely owned
++	 * by the caller. The page may then be transferred to a different
++	 * mapping, the most often used case is insertion into different
++	 * file address space cache.
++	 */
+ 	int (*steal)(struct pipe_inode_info *, struct pipe_buffer *);
++
++	/*
++	 * Get a reference to the pipe buffer.
++	 */
+ 	void (*get)(struct pipe_inode_info *, struct pipe_buffer *);
+ };
+ 
+@@ -68,39 +145,7 @@ void __free_pipe_info(struct pipe_inode_info *);
+ void *generic_pipe_buf_map(struct pipe_inode_info *, struct pipe_buffer *, int);
+ void generic_pipe_buf_unmap(struct pipe_inode_info *, struct pipe_buffer *, void *);
+ void generic_pipe_buf_get(struct pipe_inode_info *, struct pipe_buffer *);
+-int generic_pipe_buf_pin(struct pipe_inode_info *, struct pipe_buffer *);
++int generic_pipe_buf_confirm(struct pipe_inode_info *, struct pipe_buffer *);
+ int generic_pipe_buf_steal(struct pipe_inode_info *, struct pipe_buffer *);
+ 
+-/*
+- * splice is tied to pipes as a transport (at least for now), so we'll just
+- * add the splice flags here.
+- */
+-#define SPLICE_F_MOVE	(0x01)	/* move pages instead of copying */
+-#define SPLICE_F_NONBLOCK (0x02) /* don't block on the pipe splicing (but */
+-				 /* we may still block on the fd we splice */
+-				 /* from/to, of course */
+-#define SPLICE_F_MORE	(0x04)	/* expect more data */
+-#define SPLICE_F_GIFT	(0x08)	/* pages passed in are a gift */
+-
+-/*
+- * Passed to the actors
+- */
+-struct splice_desc {
+-	unsigned int len, total_len;	/* current and remaining length */
+-	unsigned int flags;		/* splice flags */
+-	struct file *file;		/* file to read/write */
+-	loff_t pos;			/* file position */
+-};
+-
+-typedef int (splice_actor)(struct pipe_inode_info *, struct pipe_buffer *,
+-			   struct splice_desc *);
+-
+-extern ssize_t splice_from_pipe(struct pipe_inode_info *, struct file *,
+-				loff_t *, size_t, unsigned int,
+-				splice_actor *);
+-
+-extern ssize_t __splice_from_pipe(struct pipe_inode_info *, struct file *,
+-				  loff_t *, size_t, unsigned int,
+-				  splice_actor *);
+-
+ #endif
+diff --git a/include/linux/splice.h b/include/linux/splice.h
+new file mode 100644
+index 0000000..528dcb9
+--- /dev/null
++++ b/include/linux/splice.h
+@@ -0,0 +1,74 @@
++/*
++ * Function declerations and data structures related to the splice
++ * implementation.
++ *
++ * Copyright (C) 2007 Jens Axboe <jens.axboe@oracle.com>
++ *
++ */
++#ifndef SPLICE_H
++#define SPLICE_H
++
++#include <linux/pipe_fs_i.h>
++
++/*
++ * splice is tied to pipes as a transport (at least for now), so we'll just
++ * add the splice flags here.
++ */
++#define SPLICE_F_MOVE	(0x01)	/* move pages instead of copying */
++#define SPLICE_F_NONBLOCK (0x02) /* don't block on the pipe splicing (but */
++				 /* we may still block on the fd we splice */
++				 /* from/to, of course */
++#define SPLICE_F_MORE	(0x04)	/* expect more data */
++#define SPLICE_F_GIFT	(0x08)	/* pages passed in are a gift */
++
++/*
++ * Passed to the actors
++ */
++struct splice_desc {
++	unsigned int len, total_len;	/* current and remaining length */
++	unsigned int flags;		/* splice flags */
++	/*
++	 * actor() private data
++	 */
++	union {
++		void __user *userptr;	/* memory to write to */
++		struct file *file;	/* file to read/write */
++		void *data;		/* cookie */
++	} u;
++	loff_t pos;			/* file position */
++};
++
++struct partial_page {
++	unsigned int offset;
++	unsigned int len;
++	unsigned long private;
++};
++
++/*
++ * Passed to splice_to_pipe
++ */
++struct splice_pipe_desc {
++	struct page **pages;		/* page map */
++	struct partial_page *partial;	/* pages[] may not be contig */
++	int nr_pages;			/* number of pages in map */
++	unsigned int flags;		/* splice flags */
++	const struct pipe_buf_operations *ops;/* ops associated with output pipe */
++	void (*spd_release)(struct splice_pipe_desc *, unsigned int);
++};
++
++typedef int (splice_actor)(struct pipe_inode_info *, struct pipe_buffer *,
++			   struct splice_desc *);
++typedef int (splice_direct_actor)(struct pipe_inode_info *,
++				  struct splice_desc *);
++
++extern ssize_t splice_from_pipe(struct pipe_inode_info *, struct file *,
++				loff_t *, size_t, unsigned int,
++				splice_actor *);
++extern ssize_t __splice_from_pipe(struct pipe_inode_info *,
++				  struct splice_desc *, splice_actor *);
++extern ssize_t splice_to_pipe(struct pipe_inode_info *,
++			      struct splice_pipe_desc *);
++extern ssize_t splice_direct_to_actor(struct file *, struct splice_desc *,
++				      splice_direct_actor *);
++
++#endif
+diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
+index 4a7ae8a..129d50f 100644
+--- a/include/linux/sunrpc/svc.h
++++ b/include/linux/sunrpc/svc.h
+@@ -253,7 +253,7 @@ struct svc_rqst {
+ 						 * determine what device number
+ 						 * to report (real or virtual)
+ 						 */
+-	int			rq_sendfile_ok; /* turned off in gss privacy
++	int			rq_splice_ok;   /* turned off in gss privacy
+ 						 * to prevent encrypting page
+ 						 * cache pages */
+ 	wait_queue_head_t	rq_wait;	/* synchronization */
+diff --git a/kernel/relay.c b/kernel/relay.c
+index 24db7e8..9e62f5c 100644
+--- a/kernel/relay.c
++++ b/kernel/relay.c
+@@ -21,6 +21,7 @@
+ #include <linux/vmalloc.h>
+ #include <linux/mm.h>
+ #include <linux/cpu.h>
++#include <linux/splice.h>
+ 
+ /* list of open channels, for cpu hotplug */
+ static DEFINE_MUTEX(relay_channels_mutex);
+@@ -122,6 +123,7 @@ static void *relay_alloc_buf(struct rchan_buf *buf, size_t *size)
+ 		buf->page_array[i] = alloc_page(GFP_KERNEL);
+ 		if (unlikely(!buf->page_array[i]))
+ 			goto depopulate;
++		set_page_private(buf->page_array[i], (unsigned long)buf);
+ 	}
+ 	mem = vmap(buf->page_array, n_pages, VM_MAP, PAGE_KERNEL);
+ 	if (!mem)
+@@ -971,43 +973,6 @@ static int subbuf_read_actor(size_t read_start,
+ 	return ret;
+ }
+ 
+-/*
+- *	subbuf_send_actor - send up to one subbuf's worth of data
+- */
+-static int subbuf_send_actor(size_t read_start,
+-			     struct rchan_buf *buf,
+-			     size_t avail,
+-			     read_descriptor_t *desc,
+-			     read_actor_t actor)
+-{
+-	unsigned long pidx, poff;
+-	unsigned int subbuf_pages;
+-	int ret = 0;
+-
+-	subbuf_pages = buf->chan->alloc_size >> PAGE_SHIFT;
+-	pidx = (read_start / PAGE_SIZE) % subbuf_pages;
+-	poff = read_start & ~PAGE_MASK;
+-	while (avail) {
+-		struct page *p = buf->page_array[pidx];
+-		unsigned int len;
+-
+-		len = PAGE_SIZE - poff;
+-		if (len > avail)
+-			len = avail;
+-
+-		len = actor(desc, p, poff, len);
+-		if (desc->error)
+-			break;
+-
+-		avail -= len;
+-		ret += len;
+-		poff = 0;
+-		pidx = (pidx + 1) % subbuf_pages;
+-	}
+-
+-	return ret;
+-}
+-
+ typedef int (*subbuf_actor_t) (size_t read_start,
+ 			       struct rchan_buf *buf,
+ 			       size_t avail,
+@@ -1068,19 +1033,164 @@ static ssize_t relay_file_read(struct file *filp,
+ 				       NULL, &desc);
+ }
+ 
+-static ssize_t relay_file_sendfile(struct file *filp,
+-				   loff_t *ppos,
+-				   size_t count,
+-				   read_actor_t actor,
+-				   void *target)
++static void relay_consume_bytes(struct rchan_buf *rbuf, int bytes_consumed)
+ {
+-	read_descriptor_t desc;
+-	desc.written = 0;
+-	desc.count = count;
+-	desc.arg.data = target;
+-	desc.error = 0;
+-	return relay_file_read_subbufs(filp, ppos, subbuf_send_actor,
+-				       actor, &desc);
++	rbuf->bytes_consumed += bytes_consumed;
++
++	if (rbuf->bytes_consumed >= rbuf->chan->subbuf_size) {
++		relay_subbufs_consumed(rbuf->chan, rbuf->cpu, 1);
++		rbuf->bytes_consumed %= rbuf->chan->subbuf_size;
++	}
++}
++
++static void relay_pipe_buf_release(struct pipe_inode_info *pipe,
++				   struct pipe_buffer *buf)
++{
++	struct rchan_buf *rbuf;
++
++	rbuf = (struct rchan_buf *)page_private(buf->page);
++	relay_consume_bytes(rbuf, buf->private);
++}
++
++static struct pipe_buf_operations relay_pipe_buf_ops = {
++	.can_merge = 0,
++	.map = generic_pipe_buf_map,
++	.unmap = generic_pipe_buf_unmap,
++	.confirm = generic_pipe_buf_confirm,
++	.release = relay_pipe_buf_release,
++	.steal = generic_pipe_buf_steal,
++	.get = generic_pipe_buf_get,
++};
++
++static void relay_page_release(struct splice_pipe_desc *spd, unsigned int i)
++{
++}
++
++/*
++ *	subbuf_splice_actor - splice up to one subbuf's worth of data
++ */
++static int subbuf_splice_actor(struct file *in,
++			       loff_t *ppos,
++			       struct pipe_inode_info *pipe,
++			       size_t len,
++			       unsigned int flags,
++			       int *nonpad_ret)
++{
++	unsigned int pidx, poff, total_len, subbuf_pages, nr_pages, ret;
++	struct rchan_buf *rbuf = in->private_data;
++	unsigned int subbuf_size = rbuf->chan->subbuf_size;
++	uint64_t pos = (uint64_t) *ppos;
++	uint32_t alloc_size = (uint32_t) rbuf->chan->alloc_size;
++	size_t read_start = (size_t) do_div(pos, alloc_size);
++	size_t read_subbuf = read_start / subbuf_size;
++	size_t padding = rbuf->padding[read_subbuf];
++	size_t nonpad_end = read_subbuf * subbuf_size + subbuf_size - padding;
++	struct page *pages[PIPE_BUFFERS];
++	struct partial_page partial[PIPE_BUFFERS];
++	struct splice_pipe_desc spd = {
++		.pages = pages,
++		.nr_pages = 0,
++		.partial = partial,
++		.flags = flags,
++		.ops = &relay_pipe_buf_ops,
++		.spd_release = relay_page_release,
++	};
++
++	if (rbuf->subbufs_produced == rbuf->subbufs_consumed)
++		return 0;
++
++	/*
++	 * Adjust read len, if longer than what is available
++	 */
++	if (len > (subbuf_size - read_start % subbuf_size))
++		len = subbuf_size - read_start % subbuf_size;
++
++	subbuf_pages = rbuf->chan->alloc_size >> PAGE_SHIFT;
++	pidx = (read_start / PAGE_SIZE) % subbuf_pages;
++	poff = read_start & ~PAGE_MASK;
++	nr_pages = min_t(unsigned int, subbuf_pages, PIPE_BUFFERS);
++
++	for (total_len = 0; spd.nr_pages < nr_pages; spd.nr_pages++) {
++		unsigned int this_len, this_end, private;
++		unsigned int cur_pos = read_start + total_len;
++
++		if (!len)
++			break;
++
++		this_len = min_t(unsigned long, len, PAGE_SIZE - poff);
++		private = this_len;
++
++		spd.pages[spd.nr_pages] = rbuf->page_array[pidx];
++		spd.partial[spd.nr_pages].offset = poff;
++
++		this_end = cur_pos + this_len;
++		if (this_end >= nonpad_end) {
++			this_len = nonpad_end - cur_pos;
++			private = this_len + padding;
++		}
++		spd.partial[spd.nr_pages].len = this_len;
++		spd.partial[spd.nr_pages].private = private;
++
++		len -= this_len;
++		total_len += this_len;
++		poff = 0;
++		pidx = (pidx + 1) % subbuf_pages;
++
++		if (this_end >= nonpad_end) {
++			spd.nr_pages++;
++			break;
++		}
++	}
++
++	if (!spd.nr_pages)
++		return 0;
++
++	ret = *nonpad_ret = splice_to_pipe(pipe, &spd);
++	if (ret < 0 || ret < total_len)
++		return ret;
++
++        if (read_start + ret == nonpad_end)
++                ret += padding;
++
++        return ret;
++}
++
++static ssize_t relay_file_splice_read(struct file *in,
++				      loff_t *ppos,
++				      struct pipe_inode_info *pipe,
++				      size_t len,
++				      unsigned int flags)
++{
++	ssize_t spliced;
++	int ret;
++	int nonpad_ret = 0;
++
++	ret = 0;
++	spliced = 0;
++
++	while (len && !spliced) {
++		ret = subbuf_splice_actor(in, ppos, pipe, len, flags, &nonpad_ret);
++		if (ret < 0)
++			break;
++		else if (!ret) {
++			if (flags & SPLICE_F_NONBLOCK)
++				ret = -EAGAIN;
++			break;
++		}
++
++		*ppos += ret;
++		if (ret > len)
++			len = 0;
++		else
++			len -= ret;
++		spliced += nonpad_ret;
++		nonpad_ret = 0;
++	}
++
++	if (spliced)
++		return spliced;
++
++	return ret;
+ }
+ 
+ const struct file_operations relay_file_operations = {
+@@ -1090,7 +1200,7 @@ const struct file_operations relay_file_operations = {
+ 	.read		= relay_file_read,
+ 	.llseek		= no_llseek,
+ 	.release	= relay_file_release,
+-	.sendfile       = relay_file_sendfile,
++	.splice_read	= relay_file_splice_read,
+ };
+ EXPORT_SYMBOL_GPL(relay_file_operations);
+ 
+diff --git a/mm/filemap.c b/mm/filemap.c
+index d1d9814..c6ebd9f 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -1245,26 +1245,6 @@ int file_send_actor(read_descriptor_t * desc, struct page *page, unsigned long o
+ 	return written;
+ }
+ 
+-ssize_t generic_file_sendfile(struct file *in_file, loff_t *ppos,
+-			 size_t count, read_actor_t actor, void *target)
+-{
+-	read_descriptor_t desc;
+-
+-	if (!count)
+-		return 0;
+-
+-	desc.written = 0;
+-	desc.count = count;
+-	desc.arg.data = target;
+-	desc.error = 0;
+-
+-	do_generic_file_read(in_file, ppos, &desc, actor);
+-	if (desc.written)
+-		return desc.written;
+-	return desc.error;
+-}
+-EXPORT_SYMBOL(generic_file_sendfile);
+-
+ static ssize_t
+ do_readahead(struct address_space *mapping, struct file *filp,
+ 	     unsigned long index, unsigned long nr)
+diff --git a/mm/filemap_xip.c b/mm/filemap_xip.c
+index fa360e5..65ffc32 100644
+--- a/mm/filemap_xip.c
++++ b/mm/filemap_xip.c
+@@ -159,28 +159,6 @@ xip_file_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
+ }
+ EXPORT_SYMBOL_GPL(xip_file_read);
+ 
+-ssize_t
+-xip_file_sendfile(struct file *in_file, loff_t *ppos,
+-	     size_t count, read_actor_t actor, void *target)
+-{
+-	read_descriptor_t desc;
+-
+-	if (!count)
+-		return 0;
+-
+-	desc.written = 0;
+-	desc.count = count;
+-	desc.arg.data = target;
+-	desc.error = 0;
+-
+-	do_xip_mapping_read(in_file->f_mapping, &in_file->f_ra, in_file,
+-			    ppos, &desc, actor);
+-	if (desc.written)
+-		return desc.written;
+-	return desc.error;
+-}
+-EXPORT_SYMBOL_GPL(xip_file_sendfile);
+-
+ /*
+  * __xip_unmap is invoked from xip_unmap and
+  * xip_write
+diff --git a/mm/shmem.c b/mm/shmem.c
+index d1c65fb..1d53a0f 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -1115,9 +1115,9 @@ static int shmem_getpage(struct inode *inode, unsigned long idx,
+ 	 * Normally, filepage is NULL on entry, and either found
+ 	 * uptodate immediately, or allocated and zeroed, or read
+ 	 * in under swappage, which is then assigned to filepage.
+-	 * But shmem_prepare_write passes in a locked filepage,
+-	 * which may be found not uptodate by other callers too,
+-	 * and may need to be copied from the swappage read in.
++	 * But shmem_readpage and shmem_prepare_write pass in a locked
++	 * filepage, which may be found not uptodate by other callers
++	 * too, and may need to be copied from the swappage read in.
+ 	 */
+ repeat:
+ 	if (!filepage)
+@@ -1501,9 +1501,18 @@ static const struct inode_operations shmem_symlink_inode_operations;
+ static const struct inode_operations shmem_symlink_inline_operations;
+ 
+ /*
+- * Normally tmpfs makes no use of shmem_prepare_write, but it
+- * lets a tmpfs file be used read-write below the loop driver.
++ * Normally tmpfs avoids the use of shmem_readpage and shmem_prepare_write;
++ * but providing them allows a tmpfs file to be used for splice, sendfile, and
++ * below the loop driver, in the generic fashion that many filesystems support.
+  */
++static int shmem_readpage(struct file *file, struct page *page)
++{
++	struct inode *inode = page->mapping->host;
++	int error = shmem_getpage(inode, page->index, &page, SGP_CACHE, NULL);
++	unlock_page(page);
++	return error;
++}
++
+ static int
+ shmem_prepare_write(struct file *file, struct page *page, unsigned offset, unsigned to)
+ {
+@@ -1727,25 +1736,6 @@ static ssize_t shmem_file_read(struct file *filp, char __user *buf, size_t count
+ 	return desc.error;
+ }
+ 
+-static ssize_t shmem_file_sendfile(struct file *in_file, loff_t *ppos,
+-			 size_t count, read_actor_t actor, void *target)
+-{
+-	read_descriptor_t desc;
+-
+-	if (!count)
+-		return 0;
+-
+-	desc.written = 0;
+-	desc.count = count;
+-	desc.arg.data = target;
+-	desc.error = 0;
+-
+-	do_shmem_file_read(in_file, ppos, &desc, actor);
+-	if (desc.written)
+-		return desc.written;
+-	return desc.error;
+-}
+-
+ static int shmem_statfs(struct dentry *dentry, struct kstatfs *buf)
+ {
+ 	struct shmem_sb_info *sbinfo = SHMEM_SB(dentry->d_sb);
+@@ -2402,6 +2392,7 @@ static const struct address_space_operations shmem_aops = {
+ 	.writepage	= shmem_writepage,
+ 	.set_page_dirty	= __set_page_dirty_no_writeback,
+ #ifdef CONFIG_TMPFS
++	.readpage	= shmem_readpage,
+ 	.prepare_write	= shmem_prepare_write,
+ 	.commit_write	= simple_commit_write,
+ #endif
+@@ -2415,7 +2406,8 @@ static const struct file_operations shmem_file_operations = {
+ 	.read		= shmem_file_read,
+ 	.write		= shmem_file_write,
+ 	.fsync		= simple_sync_file,
+-	.sendfile	= shmem_file_sendfile,
++	.splice_read	= generic_file_splice_read,
++	.splice_write	= generic_file_splice_write,
+ #endif
+ };
+ 
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 805e725..74b99d0 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -854,7 +854,7 @@ unwrap_priv_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct gs
+ 	u32 priv_len, maj_stat;
+ 	int pad, saved_len, remaining_len, offset;
+ 
+-	rqstp->rq_sendfile_ok = 0;
++	rqstp->rq_splice_ok = 0;
+ 
+ 	priv_len = svc_getnl(&buf->head[0]);
+ 	if (rqstp->rq_deferred) {
+diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
+index e673ef9..55ea6df 100644
+--- a/net/sunrpc/svc.c
++++ b/net/sunrpc/svc.c
+@@ -814,7 +814,7 @@ svc_process(struct svc_rqst *rqstp)
+ 	rqstp->rq_res.tail[0].iov_base = NULL;
+ 	rqstp->rq_res.tail[0].iov_len = 0;
+ 	/* Will be turned off only in gss privacy case: */
+-	rqstp->rq_sendfile_ok = 1;
++	rqstp->rq_splice_ok = 1;
+ 	/* tcp needs a space for the record length... */
+ 	if (rqstp->rq_prot == IPPROTO_TCP)
+ 		svc_putnl(resv, 0);
+-- 
+1.6.5.GIT

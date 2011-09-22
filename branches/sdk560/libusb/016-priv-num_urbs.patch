@@ -1,0 +1,24 @@
+From 26246df19cb4d88954a5aa9ed5f6b859e451df85
+From: Peter Stuge
+Date: Sun, 23 Jan 2011 04:01:01 +0100
+Subject: [PATCH] Linux: Set private number of URBs also for control transfers
+
+---
+ libusb/os/linux_usbfs.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/libusb/os/linux_usbfs.c b/libusb/os/linux_usbfs.c
+index 867893c..9030f71 100644
+--- a/libusb/os/linux_usbfs.c
++++ b/libusb/os/linux_usbfs.c
+@@ -1650,6 +1650,7 @@ static int submit_control_transfer(struct usbi_transfer *itransfer)
+ 		return LIBUSB_ERROR_NO_MEM;
+ 	memset(urb, 0, sizeof(struct usbfs_urb));
+ 	tpriv->urbs = urb;
++	tpriv->num_urbs = 1;
+ 	tpriv->reap_action = NORMAL;
+ 
+ 	urb->usercontext = itransfer;
+-- 
+1.7.4.1
+

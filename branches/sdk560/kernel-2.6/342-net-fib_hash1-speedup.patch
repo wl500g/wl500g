@@ -1,0 +1,160 @@
+From a6501e080c318f8d4467679d17807f42b3a33cd5
+From: Eric Dumazet
+Date: Fri, 18 Jan 2008 03:33:26 -0800
+Subject: [PATCH] [IPV4] FIB_HASH: Reduce memory needs and speedup lookups
+
+Currently, sizeof(struct fib_alias) is 24 or 48 bytes on 32/64 bits
+arches.
+
+Because of SLAB_HWCACHE_ALIGN requirement, these are rounded to 32 and
+64 bytes respectively.
+
+This patch moves rcu to the end of fib_alias, and conditionally
+defines it only for CONFIG_IP_FIB_TRIE.
+
+We also remove SLAB_HWCACHE_ALIGN requirement for fib_alias and
+fib_node objects because it is not necessary.
+
+(BTW SLUB currently denies it for objects smaller than
+cache_line_size() / 2, but not SLAB)
+
+Finally, sizeof(fib_alias) go back to 16 and 32 bytes.
+
+Then, we can embed one fib_alias on each fib_node, to favor locality.
+Most of the time access to the fib_alias will be free because one
+cache line contains both the list head (fn_alias) and (one of) the
+list element.
+
+Signed-off-by: Eric Dumazet <dada1@cosmosbay.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/fib_hash.c   |   33 ++++++++++++++++++++-------------
+ net/ipv4/fib_lookup.h |    4 +++-
+ 2 files changed, 23 insertions(+), 14 deletions(-)
+
+diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+index 499522f..a15b2f1 100644
+--- a/net/ipv4/fib_hash.c
++++ b/net/ipv4/fib_hash.c
+@@ -51,6 +51,7 @@ struct fib_node {
+ 	struct hlist_node	fn_hash;
+ 	struct list_head	fn_alias;
+ 	__be32			fn_key;
++	struct fib_alias        fn_embedded_alias;
+ };
+ 
+ struct fn_zone {
+@@ -191,10 +192,13 @@ static inline void fn_free_node(struct f
+ 	kmem_cache_free(fn_hash_kmem, f);
+ }
+ 
+-static inline void fn_free_alias(struct fib_alias *fa)
++static inline void fn_free_alias(struct fib_alias *fa, struct fib_node *f)
+ {
+ 	fib_release_info(fa->fa_info);
+-	kmem_cache_free(fn_alias_kmem, fa);
++	if (fa == &f->fn_embedded_alias)
++		fa->fa_info = NULL;
++	else
++		kmem_cache_free(fn_alias_kmem, fa);
+ }
+ 
+ static struct fn_zone *
+@@ -488,15 +492,12 @@ static int fn_hash_insert(struct fib_tab
+ 		goto out;
+ 
+ 	err = -ENOBUFS;
+-	new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
+-	if (new_fa == NULL)
+-		goto out;
+ 
+ 	new_f = NULL;
+ 	if (!f) {
+-		new_f = kmem_cache_alloc(fn_hash_kmem, GFP_KERNEL);
++		new_f = kmem_cache_zalloc(fn_hash_kmem, GFP_KERNEL);
+ 		if (new_f == NULL)
+-			goto out_free_new_fa;
++			goto out;
+ 
+ 		INIT_HLIST_NODE(&new_f->fn_hash);
+ 		INIT_LIST_HEAD(&new_f->fn_alias);
+@@ -504,6 +505,12 @@ static int fn_hash_insert(struct fib_tab
+ 		f = new_f;
+ 	}
+ 
++	new_fa = &f->fn_embedded_alias;
++	if (new_fa->fa_info != NULL) {
++		new_fa = kmem_cache_alloc(fn_alias_kmem, GFP_KERNEL);
++		if (new_fa == NULL)
++			goto out_free_new_f;
++	}
+ 	new_fa->fa_info = fi;
+ 	new_fa->fa_tos = tos;
+ 	new_fa->fa_type = cfg->fc_type;
+@@ -530,8 +537,8 @@ static int fn_hash_insert(struct fib_tab
+ 		  &cfg->fc_nlinfo, 0);
+ 	return 0;
+ 
+-out_free_new_fa:
+-	kmem_cache_free(fn_alias_kmem, new_fa);
++out_free_new_f:
++	kmem_cache_free(fn_hash_kmem, new_f);
+ out:
+ 	fib_release_info(fi);
+ 	return err;
+@@ -607,7 +614,7 @@ static int fn_hash_delete(struct fib_tab
+ 
+ 		if (fa->fa_state & FA_S_ACCESSED)
+ 			rt_cache_flush(-1);
+-		fn_free_alias(fa);
++		fn_free_alias(fa, f);
+ 		if (kill_fn) {
+ 			fn_free_node(f);
+ 			fz->fz_nent--;
+@@ -643,7 +650,7 @@ static int fn_flush_list(struct fn_zone 
+ 				fib_hash_genid++;
+ 				write_unlock_bh(&fib_hash_lock);
+ 
+-				fn_free_alias(fa);
++				fn_free_alias(fa, f);
+ 				found++;
+ 			}
+ 		}
+@@ -772,13 +779,13 @@ struct fib_table * __init fib_hash_init(
+ 	if (fn_hash_kmem == NULL)
+ 		fn_hash_kmem = kmem_cache_create("ip_fib_hash",
+ 						 sizeof(struct fib_node),
+-						 0, SLAB_HWCACHE_ALIGN,
++						 0, SLAB_PANIC,
+ 						 NULL, NULL);
+ 
+ 	if (fn_alias_kmem == NULL)
+ 		fn_alias_kmem = kmem_cache_create("ip_fib_alias",
+ 						  sizeof(struct fib_alias),
+-						  0, SLAB_HWCACHE_ALIGN,
++						  0, SLAB_PANIC,
+ 						  NULL, NULL);
+ 
+ 	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct fn_hash),
+diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
+index 26ee66d..2c1623d 100644
+--- a/net/ipv4/fib_lookup.h
++++ b/net/ipv4/fib_lookup.h
+@@ -7,12 +7,14 @@
+ 
+ struct fib_alias {
+ 	struct list_head	fa_list;
+-	struct rcu_head rcu;
+ 	struct fib_info		*fa_info;
+ 	u8			fa_tos;
+ 	u8			fa_type;
+ 	u8			fa_scope;
+ 	u8			fa_state;
++#ifdef CONFIG_IP_FIB_TRIE
++	struct rcu_head		rcu;
++#endif
+ };
+ 
+ #define FA_S_ACCESSED	0x01
+-- 
+1.7.2.1

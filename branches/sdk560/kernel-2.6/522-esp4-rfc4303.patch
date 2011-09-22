@@ -1,0 +1,41 @@
+From 2017a72c070033830b460d31cd4703f9d2ec0d56
+From: Thomas Graf
+Date: Mon, 10 Dec 2007 16:53:05 -0800
+Subject: [PATCH] [IPv4] ESP: Discard dummy packets introduced in rfc4303
+
+RFC4303 introduces dummy packets with a nexthdr value of 59
+to implement traffic confidentiality. Such packets need to
+be dropped silently and the payload may not be attempted to
+be parsed as it consists of random chunk.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+ net/ipv4/esp4.c |    5 +++++
+ 1 files changed, 5 insertions(+), 0 deletions(-)
+
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index c31bccb..1738113 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -9,6 +9,7 @@
+ #include <linux/kernel.h>
+ #include <linux/pfkeyv2.h>
+ #include <linux/random.h>
++#include <linux/in6.h>
+ #include <net/icmp.h>
+ #include <net/protocol.h>
+ #include <net/udp.h>
+@@ -224,6 +225,10 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
+ 
+ 	/* ... check padding bits here. Silly. :-) */
+ 
++	/* RFC4303: Drop dummy packets without any error */
++	if (nexthdr[1] == IPPROTO_NONE)
++		goto out;
++
+ 	iph = ip_hdr(skb);
+ 	ihl = iph->ihl * 4;
+ 
+-- 
+1.7.1

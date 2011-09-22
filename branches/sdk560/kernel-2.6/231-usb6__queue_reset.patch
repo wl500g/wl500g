@@ -1,0 +1,240 @@
+USB: Introduce usb_queue_reset() to do resets from atomic contexts v8
+
+This patch introduces a new call to be able to do a USB reset from an
+atomic contect. This is quite helpful in USB callbacks to handle
+errors (when the only thing that can be done is to do a device
+reset).
+
+It is done queuing a work struct that will do the actual reset. The
+struct is "attached" to an interface so pending requests from an
+interface are removed when said interface is unbound from the driver.
+
+The call flow then becomes:
+
+usb_queue_reset_device()
+  __usb_queue_reset_device() [workqueue]
+    usb_reset_device()
+
+usb_probe_interface()
+  usb_cancel_queue_reset()      [error path]
+
+usb_unbind_interface()
+  usb_cancel_queue_reset()
+
+usb_driver_release_interface()
+  usb_cancel_queue_reset()
+
+Note usb_cancel_queue_reset() needs smarts to try not to unqueue when
+it is actually being executed. This happens when we run the reset from
+the workqueue: usb_reset_device() is called and on interface unbind
+time, usb_cancel_queue_reset() would be called. That would deadlock on
+cancel_work_sync(). To avoid that, we set (before running
+usb_reset_device()) usb_intf->reset_running and clear it inmediately
+after returning.
+
+Patch is against 2.6.28-rc2 and depends on (as1161)
+http://marc.info/?l=linux-usb&m=122581634925308&w=2 (as submitted by
+Alan Stern).
+
+Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
+Cc: Alan Stern <stern@rowland.harvard.edu>
+
+diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
+index 3d7793d..9a8919a 100644
+--- a/drivers/usb/core/driver.c
++++ b/drivers/usb/core/driver.c
+@@ -184,6 +184,20 @@ static int usb_unbind_device(struct device *dev)
+ 	return 0;
+ }
+ 
++/*
++ * Cancel any pending scheduled resets
++ *
++ * [see usb_queue_reset_device()]
++ *
++ * Called after unconfiguring / when releasing interfaces. See
++ * comments in __usb_queue_reset_device() regarding
++ * udev->reset_running.
++ */
++static void usb_cancel_queued_reset(struct usb_interface *iface)
++{
++	if (iface->reset_running == 0)
++		cancel_work_sync(&iface->reset_ws);
++}
+ 
+ /* called from driver core with dev locked */
+ static int usb_probe_interface(struct device *dev)
+@@ -242,6 +256,7 @@ static int usb_probe_interface(struct device *dev)
+ 			mark_quiesced(intf);
+ 			intf->needs_remote_wakeup = 0;
+ 			intf->condition = USB_INTERFACE_UNBOUND;
++			usb_cancel_queued_reset(intf);
+ 		} else
+ 			intf->condition = USB_INTERFACE_BOUND;
+ 
+@@ -272,6 +287,7 @@ static int usb_unbind_interface(struct device *dev)
+ 		usb_disable_interface(udev, intf);
+ 
+ 	driver->disconnect(intf);
++	usb_cancel_queued_reset(intf);
+ 
+ 	/* reset other interface state */
+ 	usb_set_interface(udev, intf->altsetting[0].desc.bInterfaceNumber, 0);
+@@ -940,7 +958,8 @@ static int usb_suspend_interface(struct usb_device *udev,
+ 	if (udev->state == USB_STATE_NOTATTACHED || !is_active(intf))
+ 		goto done;
+ 
+-	if (intf->condition == USB_INTERFACE_UNBOUND)	/* This can't happen */
++	/* This can happen; see usb_driver_release_interface() */
++	if (intf->condition == USB_INTERFACE_UNBOUND)
+ 		goto done;
+ 	driver = to_usb_driver(intf->dev.driver);
+ 
+diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
+index 9b3f16b..6515a76 100644
+--- a/drivers/usb/core/hub.c
++++ b/drivers/usb/core/hub.c
+@@ -3513,3 +3513,46 @@ int usb_reset_device(struct usb_device *udev)
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(usb_reset_device);
++
++
++/**
++ * usb_queue_reset_device - Reset a USB device from an atomic context
++ * @iface: USB interface belonging to the device to reset
++ *
++ * This function can be used to reset a USB device from an atomic
++ * context, where usb_reset_device() won't work (as it blocks).
++ *
++ * Doing a reset via this method is functionally equivalent to calling
++ * usb_reset_device(), except for the fact that it is delayed to a
++ * workqueue. This means that any drivers bound to other interfaces
++ * might be unbound, as well as users from usbfs in user space.
++ *
++ * Corner cases:
++ *
++ * - Scheduling two resets at the same time from two different drivers
++ *   attached to two different interfaces of the same device is
++ *   possible; depending on how the driver attached to each interface
++ *   handles ->pre_reset(), the second reset might happen or not.
++ *
++ * - If a driver is unbound and it had a pending reset, the reset will
++ *   be cancelled.
++ *
++ * - This function can be called during .probe() or .disconnect()
++ *   times. On return from .disconnect(), any pending resets will be
++ *   cancelled.
++ *
++ * There is no no need to lock/unlock the @reset_ws as schedule_work()
++ * does its own.
++ *
++ * NOTE: We don't do any reference count tracking because it is not
++ *     needed. The lifecycle of the work_struct is tied to the
++ *     usb_interface. Before destroying the interface we cancel the
++ *     work_struct, so the fact that work_struct is queued and or
++ *     running means the interface (and thus, the device) exist and
++ *     are referenced.
++ */
++void usb_queue_reset_device(struct usb_interface *iface)
++{
++	schedule_work(&iface->reset_ws);
++}
++EXPORT_SYMBOL_GPL(usb_queue_reset_device);
+diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
+index 8877385..0cc383e 100644
+--- a/drivers/usb/core/message.c
++++ b/drivers/usb/core/message.c
+@@ -1440,6 +1440,46 @@ static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
+ 	return retval;
+ }
+ 
++
++/*
++ * Internal function to queue a device reset
++ *
++ * This is initialized into the workstruct in 'struct
++ * usb_device->reset_ws' that is launched by
++ * message.c:usb_set_configuration() when initializing each 'struct
++ * usb_interface'.
++ *
++ * It is safe to get the USB device without reference counts because
++ * the life cycle of @iface is bound to the life cycle of @udev. Then,
++ * this function will be ran only if @iface is alive (and before
++ * freeing it any scheduled instances of it will have been cancelled).
++ *
++ * We need to set a flag (usb_dev->reset_running) because when we call
++ * the reset, the interfaces might be unbound. The current interface
++ * cannot try to remove the queued work as it would cause a deadlock
++ * (you cannot remove your work from within your executing
++ * workqueue). This flag lets it know, so that
++ * usb_cancel_queued_reset() doesn't try to do it.
++ *
++ * See usb_queue_reset_device() for more details
++ */
++void __usb_queue_reset_device(struct work_struct *ws)
++{
++	int rc;
++	struct usb_interface *iface =
++		container_of(ws, struct usb_interface, reset_ws);
++	struct usb_device *udev = interface_to_usbdev(iface);
++
++	rc = usb_lock_device_for_reset(udev, iface);
++	if (rc >= 0) {
++		iface->reset_running = 1;
++		usb_reset_device(udev);
++		iface->reset_running = 0;
++		usb_unlock_device(udev);
++	}
++}
++
++
+ 
+ /*
+  * usb_set_configuration - Makes a particular device setting be current
+@@ -1610,6 +1650,7 @@ free_interfaces:
+ 		intf->dev.type = &usb_if_device_type;
+ 		intf->dev.groups = usb_interface_groups;
+ 		intf->dev.dma_mask = dev->dev.dma_mask;
++		INIT_WORK(&intf->reset_ws, __usb_queue_reset_device);
+ 		device_initialize(&intf->dev);
+ 		mark_quiesced(intf);
+ 		sprintf(&intf->dev.bus_id[0], "%d-%s:%d.%d",
+diff --git a/include/linux/usb.h b/include/linux/usb.h
+index 8fa973b..370d611 100644
+--- a/include/linux/usb.h
++++ b/include/linux/usb.h
+@@ -119,6 +119,11 @@ enum usb_interface_condition {
+  *	to the sysfs representation for that device.
+  * @pm_usage_cnt: PM usage counter for this interface; autosuspend is not
+  *	allowed unless the counter is 0.
++ * @reset_ws: Used for scheduling resets from atomic context.
++ * @reset_running: set to 1 if the interface is currently running a
++ *      queued reset so that usb_cancel_queued_reset() doesn't try to
++ *      remove from the workqueue when running inside the worker
++ *      thread. See __usb_queue_reset_device().
+  *
+  * USB device drivers attach to interfaces on a physical device.  Each
+  * interface encapsulates a single high level function, such as feeding
+@@ -166,10 +171,12 @@ struct usb_interface {
+ 	unsigned unregistering:1;	/* unregistration is in progress */
+ 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
+ 	unsigned needs_binding:1;	/* needs delayed unbind/rebind */
++	unsigned reset_running:1;
+ 
+ 	struct device dev;		/* interface specific device info */
+ 	struct device *usb_dev;		/* pointer to the usb class's device, if any */
+ 	int pm_usage_cnt;		/* usage counter for autosuspend */
++	struct work_struct reset_ws;	/* for resets in atomic context */
+ };
+ #define	to_usb_interface(d) container_of(d, struct usb_interface, dev)
+ #define	interface_to_usbdev(intf) \
+@@ -503,6 +510,7 @@ extern int usb_lock_device_for_reset(struct usb_device *udev,
+ 
+ /* USB port reset for device reinitialization */
+ extern int usb_reset_device(struct usb_device *dev);
++extern void usb_queue_reset_device(struct usb_interface *dev);
+ 
+ extern struct usb_device *usb_find_device(u16 vendor_id, u16 product_id);
+ 
+-- 

@@ -1,0 +1,29 @@
+From 86ffe5c15a14dc7f8483faf42ef907c5f861137d
+From: James Hunt
+Date: Thu, 16 Dec 2010 12:22:38 +0000
+Subject: volume_id: recognize compressed hibernate swap signature
+
+util-linux/volume_id/linux_swap.c: Added the new magic LINHIB0001
+signature.
+
+See:
+
+https://bugs.launchpad.net/ubuntu/+source/util-linux/+bug/683605
+
+Signed-off-by: James Hunt <james.hunt@ubuntu.com>
+Signed-off-by: Denys Vlasenko <vda.linux@googlemail.com>
+---
+diff --git a/util-linux/volume_id/linux_swap.c b/util-linux/volume_id/linux_swap.c
+index 5743546..0aa43f3 100644
+--- a/util-linux/volume_id/linux_swap.c
++++ b/util-linux/volume_id/linux_swap.c
+@@ -55,6 +55,7 @@ int FAST_FUNC volume_id_probe_linux_swap(struct volume_id *id /*,uint64_t off*/)
+ 			if (memcmp(buf, "SWAPSPACE2", 10) == 0
+ 			 || memcmp(buf, "S1SUSPEND", 9) == 0
+ 			 || memcmp(buf, "S2SUSPEND", 9) == 0
++			 || memcmp(buf, "LINHIB0001", 10) == 0
+ 			 || memcmp(buf, "ULSUSPEND", 9) == 0
+ 			) {
+ 				sw = volume_id_get_buffer(id, off, sizeof(struct swap_header_v1_2));
+--
+cgit v0.8.2.1

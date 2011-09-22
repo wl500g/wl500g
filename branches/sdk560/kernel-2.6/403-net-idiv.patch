@@ -1,0 +1,172 @@
+Avoid an integer divides
+
+ kernel.org commits:
+ 15ae02baf025750cd79ef3929c28f7083a088bd2 lib/extable.c: remove an expensive integer divide in search_extable()
+ dfd4f0ae2e111e2b93c295938c0e64ebbb69ae6e [TCP]: Avoid two divides in __tcp_grow_window()
+ b790cedd24a7f7d1639072b3faf35f1f56cb38ea [INET]: Avoid an integer divide in rt_garbage_collect()
+ 1bf47346d75790ebd2563d909d48046961c7ffd5 kernel/sys.c: get rid of expensive divides in groups_sort()
+ f0b5a0dcf125ce43855961ef4f965a91112bea23 [VLAN]: Avoid expensive divides
+ 8beb5c5f12c8484c59edf9b691f2c4bb4d31f3a0 [TCP]: Avoid a divide in tcp_mtu_probing()
+ 
+---
+ include/linux/if_vlan.h |    6 ++++--
+ include/linux/sched.h   |    2 +-
+ kernel/sys.c            |   20 ++++++++++----------
+ lib/extable.c           |    6 +++---
+ net/ipv4/route.c        |    4 ++--
+ net/ipv4/tcp_input.c    |    4 ++--
+ net/ipv4/tcp_timer.c    |    2 +-
+ 7 files changed, 23 insertions(+), 21 deletions(-)
+
+diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
+index 487dd0f..030cc5f 100644
+--- a/include/linux/if_vlan.h
++++ b/include/linux/if_vlan.h
+@@ -81,14 +81,16 @@ struct vlan_group {
+ 	struct rcu_head		rcu;
+ };
+ 
+-static inline struct net_device *vlan_group_get_device(struct vlan_group *vg, int vlan_id)
++static inline struct net_device *vlan_group_get_device(struct vlan_group *vg,
++						       unsigned int vlan_id)
+ {
+ 	struct net_device **array;
+ 	array = vg->vlan_devices_arrays[vlan_id / VLAN_GROUP_ARRAY_PART_LEN];
+ 	return array[vlan_id % VLAN_GROUP_ARRAY_PART_LEN];
+ }
+ 
+-static inline void vlan_group_set_device(struct vlan_group *vg, int vlan_id,
++static inline void vlan_group_set_device(struct vlan_group *vg,
++					 unsigned int vlan_id,
+ 					 struct net_device *dev)
+ {
+ 	struct net_device **array;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 6d0d566..6916742 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -773,7 +773,7 @@ struct io_context;			/* See blkdev.h */
+ struct cpuset;
+ 
+ #define NGROUPS_SMALL		32
+-#define NGROUPS_PER_BLOCK	((int)(PAGE_SIZE / sizeof(gid_t)))
++#define NGROUPS_PER_BLOCK	((unsigned int)(PAGE_SIZE / sizeof(gid_t)))
+ struct group_info {
+ 	int ngroups;
+ 	atomic_t usage;
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 28e8364..218c332 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -1650,16 +1650,16 @@ static int groups_to_user(gid_t __user *grouplist,
+     struct group_info *group_info)
+ {
+ 	int i;
+-	int count = group_info->ngroups;
++	unsigned int count = group_info->ngroups;
+ 
+ 	for (i = 0; i < group_info->nblocks; i++) {
+-		int cp_count = min(NGROUPS_PER_BLOCK, count);
+-		int off = i * NGROUPS_PER_BLOCK;
+-		int len = cp_count * sizeof(*grouplist);
++		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
++		unsigned int len = cp_count * sizeof(*grouplist);
+ 
+-		if (copy_to_user(grouplist+off, group_info->blocks[i], len))
++		if (copy_to_user(grouplist, group_info->blocks[i], len))
+ 			return -EFAULT;
+ 
++		grouplist += NGROUPS_PER_BLOCK;
+ 		count -= cp_count;
+ 	}
+ 	return 0;
+@@ -1670,16 +1670,16 @@ static int groups_from_user(struct group_info *group_info,
+     gid_t __user *grouplist)
+ {
+ 	int i;
+-	int count = group_info->ngroups;
++	unsigned int count = group_info->ngroups;
+ 
+ 	for (i = 0; i < group_info->nblocks; i++) {
+-		int cp_count = min(NGROUPS_PER_BLOCK, count);
+-		int off = i * NGROUPS_PER_BLOCK;
+-		int len = cp_count * sizeof(*grouplist);
++		unsigned int cp_count = min(NGROUPS_PER_BLOCK, count);
++		unsigned int len = cp_count * sizeof(*grouplist);
+ 
+-		if (copy_from_user(group_info->blocks[i], grouplist+off, len))
++		if (copy_from_user(group_info->blocks[i], grouplist, len))
+ 			return -EFAULT;
+ 
++		grouplist += NGROUPS_PER_BLOCK;
+ 		count -= cp_count;
+ 	}
+ 	return 0;
+diff --git a/lib/extable.c b/lib/extable.c
+index 463f456..179c087 100644
+--- a/lib/extable.c
++++ b/lib/extable.c
+@@ -57,10 +57,10 @@ search_extable(const struct exception_table_entry *first,
+ 	while (first <= last) {
+ 		const struct exception_table_entry *mid;
+ 
+-		mid = (last - first) / 2 + first;
++		mid = ((last - first) >> 1) + first;
+ 		/*
+-		 * careful, the distance between entries can be
+-		 * larger than 2GB:
++		 * careful, the distance between value and insn
++		 * can be larger than MAX_LONG:
+ 		 */
+ 		if (mid->insn < value)
+ 			first = mid + 1;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index cbed335..c2dfaf6 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -845,14 +845,14 @@ static int rt_garbage_collect(void)
+ 			equilibrium = ipv4_dst_ops.gc_thresh;
+ 		goal = atomic_read(&ipv4_dst_ops.entries) - equilibrium;
+ 		if (goal > 0) {
+-			equilibrium += min_t(unsigned int, goal / 2, rt_hash_mask + 1);
++			equilibrium += min_t(unsigned int, goal >> 1, rt_hash_mask + 1);
+ 			goal = atomic_read(&ipv4_dst_ops.entries) - equilibrium;
+ 		}
+ 	} else {
+ 		/* We are in dangerous area. Try to reduce cache really
+ 		 * aggressively.
+ 		 */
+-		goal = max_t(unsigned int, goal / 2, rt_hash_mask + 1);
++		goal = max_t(unsigned int, goal >> 1, rt_hash_mask + 1);
+ 		equilibrium = atomic_read(&ipv4_dst_ops.entries) - goal;
+ 	}
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 344a32c..955e005 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -242,8 +242,8 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	/* Optimize this! */
+-	int truesize = tcp_win_from_space(skb->truesize)/2;
+-	int window = tcp_win_from_space(sysctl_tcp_rmem[2])/2;
++	int truesize = tcp_win_from_space(skb->truesize) >> 1;
++	int window = tcp_win_from_space(sysctl_tcp_rmem[2]) >> 1;
+ 
+ 	while (tp->rcv_ssthresh <= window) {
+ 		if (truesize <= skb->len)
+diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+index 16b1b2d..6345276 100644
+--- a/net/ipv4/tcp_timer.c
++++ b/net/ipv4/tcp_timer.c
+@@ -135,7 +135,7 @@ static int tcp_write_timeout(struct sock *sk)
+ 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+ 				} else {
+ 					mss = min(sysctl_tcp_base_mss,
+-						  tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low)/2);
++						  tcp_mtu_to_mss(sk, icsk->icsk_mtup.search_low) >> 1);
+ 					mss = max(mss, 68 - tp->tcp_header_len);
+ 					icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
+ 					tcp_sync_mss(sk, icsk->icsk_pmtu_cookie);
+-- 

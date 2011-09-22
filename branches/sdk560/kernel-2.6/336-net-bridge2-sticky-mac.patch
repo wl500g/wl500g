@@ -1,0 +1,88 @@
+From 92c0574f11598c8036f81e27d2e8bdd6eed7d76d
+From: Stephen Hemminger
+Date: Tue, 17 Jun 2008 16:10:06 -0700
+Subject: [PATCH] bridge: make bridge address settings sticky
+
+Normally, the bridge just chooses the smallest mac address as the
+bridge id and mac address of bridge device. But if the administrator
+has explictly set the interface address then don't change it.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+From 3ae412544cde6d987e0e48778bd87bc96a5749df
+From: Stephen Hemminger
+Date: Sun, 16 Dec 2007 13:35:51 -0800
+Subject: [PATCH] [BRIDGE]: Assign random address.
+
+Assigning a valid random address to bridge device solves problems
+when bridge device is brought up before adding real device to bridge.
+When the first real device is added to the bridge, it's address
+will overide the bridges random address.
+
+Note: any device added to a bridge must already have a valid
+ethernet address.
+ br_add_if -> br_fdb_insert -> fdb_insert -> is_valid_ether_addr
+
+Signed-off-by: Stephen Hemminger <shemminger@linux-foundation.org>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+---
+
+ net/bridge/br_device.c  |    4 ++--
+ net/bridge/br_private.h |    2 ++
+ net/bridge/br_stp_if.c  |    4 ++++
+ 3 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index a6ffc6c..d9449df 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -87,6 +87,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
+ 	spin_lock_bh(&br->lock);
+ 	memcpy(dev->dev_addr, addr->sa_data, ETH_ALEN);
+ 	br_stp_change_bridge_id(br, addr->sa_data);
++	br->flags |= BR_SET_MAC_ADDR;
+ 	spin_unlock_bh(&br->lock);
+ 
+ 	return 0;
+@@ -157,8 +157,7 @@ static struct ethtool_ops br_ethtool_ops = {
+ 
+ void br_dev_setup(struct net_device *dev)
+ {
+-	memset(dev->dev_addr, 0, ETH_ALEN);
+-
++	random_ether_addr(dev->dev_addr);
+ 	ether_setup(dev);
+ 
+ 	dev->do_ioctl = br_dev_ioctl;
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 83ff586..8593c9f 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -92,6 +92,8 @@ struct net_bridge
+ 	struct hlist_head		hash[BR_HASH_SIZE];
+ 	struct list_head		age_list;
+ 	unsigned long			feature_mask;
++	unsigned long			flags;
++#define BR_SET_MAC_ADDR		0x00000001
+ 
+ 	/* STP */
+ 	bridge_id			designated_root;
+diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
+index 1a4e5c3..9a52ac5 100644
+--- a/net/bridge/br_stp_if.c
++++ b/net/bridge/br_stp_if.c
+@@ -214,6 +214,10 @@ void br_stp_recalculate_bridge_id(struct net_bridge *br)
+ 	const unsigned char *addr = br_mac_zero;
+ 	struct net_bridge_port *p;
+ 
++	/* user has chosen a value so keep it */
++	if (br->flags & BR_SET_MAC_ADDR)
++		return;
++
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		if (addr == br_mac_zero ||
+ 		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
+-- 
+1.7.1

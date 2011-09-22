@@ -1,0 +1,214 @@
+Subject: [PATCH] Minor kernel string library fixes
+From 129684dc1403e7e4a734963e82be643cb9ca4181
+From: Fedor <fedork@ubuntu.(none)>
+Date: Wed, 17 Feb 2010 21:25:57 -0500
+
+kernel.org commits
+ 8fccae2c95506270f74ee8429c273b0924e89c83 sscanf(): fix %*s%n
+ a414f01ac2899f273ef8fe98fa44158ac12793f2 strcmp: fix overflow and possibly signedness error
+ f653398c86a1c104f0992bd788dd4bb065449be4 string: factorize skip_spaces and export it to be generally available
+ 84c95c9acf088c99d8793d78036b67faa5d0b851 string: on strstrip(), first remove leading spaces before running over str
+ b5f54b07c06f6e438a4fee92c27423e880d8816b parser: remove unnecessary strlen()
+ a11d2b64e1f2556953120d516241243ea365f0ae lib/string.c: simplify stricmp()
+
+---
+ include/linux/ctype.h  |    1 
+ include/linux/string.h |    1 
+ lib/parser.c           |   11 ++++---
+ lib/string.c           |   73 +++++++++++++++++++++++++++++--------------------
+ lib/vsprintf.c         |    2 -
+ 5 files changed, 54 insertions(+), 34 deletions(-)
+
+diff --git a/include/linux/ctype.h b/include/linux/ctype.h
+index afa3639..cd51b3c 100644
+--- a/include/linux/ctype.h
++++ b/include/linux/ctype.h
+@@ -27,6 +27,7 @@ extern unsigned char _ctype[];
+ #define islower(c)	((__ismask(c)&(_L)) != 0)
+ #define isprint(c)	((__ismask(c)&(_P|_U|_L|_D|_SP)) != 0)
+ #define ispunct(c)	((__ismask(c)&(_P)) != 0)
++/* Note: isspace() must return false for %NUL-terminator */
+ #define isspace(c)	((__ismask(c)&(_S)) != 0)
+ #define isupper(c)	((__ismask(c)&(_U)) != 0)
+ #define isxdigit(c)	((__ismask(c)&(_D|_X)) != 0)
+diff --git a/include/linux/string.h b/include/linux/string.h
+index 7f2eb6a..cca2df8 100644
+--- a/include/linux/string.h
++++ b/include/linux/string.h
+@@ -62,6 +62,7 @@ extern char * strnchr(const char *, size_t, int);
+ #ifndef __HAVE_ARCH_STRRCHR
+ extern char * strrchr(const char *,int);
+ #endif
++extern char * skip_spaces(const char *);
+ extern char * strstrip(char *);
+ #ifndef __HAVE_ARCH_STRSTR
+ extern char * strstr(const char *,const char *);
+diff --git a/lib/parser.c b/lib/parser.c
+index 703c8c1..5bacb74 100644
+--- a/lib/parser.c
++++ b/lib/parser.c
+@@ -56,13 +56,16 @@ static int match_one(char *s, const char *p, substring_t args[])
+ 
+ 		args[argc].from = s;
+ 		switch (*p++) {
+-		case 's':
+-			if (strlen(s) == 0)
++		case 's': {
++			size_t str_len = strlen(s);
++
++			if (str_len == 0)
+ 				return 0;
+-			else if (len == -1 || len > strlen(s))
+-				len = strlen(s);
++			if (len == -1 || len > str_len)
++				len = str_len;
+ 			args[argc].to = s + len;
+ 			break;
++		}
+ 		case 'd':
+ 			simple_strtol(s, &args[argc].to, 0);
+ 			goto num;
+diff --git a/lib/string.c b/lib/string.c
+index 5efafed..8f95ce2 100644
+--- a/lib/string.c
++++ b/lib/string.c
+@@ -36,25 +36,21 @@ int strnicmp(const char *s1, const char
+ 	/* Yes, Virginia, it had better be unsigned */
+ 	unsigned char c1, c2;
+ 
+-	c1 = c2 = 0;
+-	if (len) {
+-		do {
+-			c1 = *s1;
+-			c2 = *s2;
+-			s1++;
+-			s2++;
+-			if (!c1)
+-				break;
+-			if (!c2)
+-				break;
+-			if (c1 == c2)
+-				continue;
+-			c1 = tolower(c1);
+-			c2 = tolower(c2);
+-			if (c1 != c2)
+-				break;
+-		} while (--len);
+-	}
++	if (!len)
++		return 0;
++
++	do {
++		c1 = *s1++;
++		c2 = *s2++;
++		if (!c1 || !c2)
++			break;
++		if (c1 == c2)
++			continue;
++		c1 = tolower(c1);
++		c2 = tolower(c2);
++		if (c1 != c2)
++			break;
++	} while (--len);
+ 	return (int)c1 - (int)c2;
+ }
+ EXPORT_SYMBOL(strnicmp);
+@@ -246,13 +242,17 @@ EXPORT_SYMBOL(strlcat);
+ #undef strcmp
+ int strcmp(const char *cs, const char *ct)
+ {
+-	signed char __res;
++	unsigned char c1, c2;
+ 
+ 	while (1) {
+-		if ((__res = *cs - *ct++) != 0 || !*cs++)
++		c1 = *cs++;
++		c2 = *ct++;
++		if (c1 != c2)
++			return c1 < c2 ? -1 : 1;
++		if (!c1)
+ 			break;
+ 	}
+-	return __res;
++	return 0;
+ }
+ EXPORT_SYMBOL(strcmp);
+ #endif
+@@ -266,14 +266,18 @@ EXPORT_SYMBOL(strcmp);
+  */
+ int strncmp(const char *cs, const char *ct, size_t count)
+ {
+-	signed char __res = 0;
++	unsigned char c1, c2;
+ 
+ 	while (count) {
+-		if ((__res = *cs - *ct++) != 0 || !*cs++)
++		c1 = *cs++;
++		c2 = *ct++;
++		if (c1 != c2)
++			return c1 < c2 ? -1 : 1;
++		if (!c1)
+ 			break;
+ 		count--;
+ 	}
+-	return __res;
++	return 0;
+ }
+ EXPORT_SYMBOL(strncmp);
+ #endif
+@@ -330,6 +334,20 @@ EXPORT_SYMBOL(strnchr);
+ #endif
+ 
+ /**
++ * skip_spaces - Removes leading whitespace from @s.
++ * @s: The string to be stripped.
++ *
++ * Returns a pointer to the first non-whitespace character in @s.
++ */
++char *skip_spaces(const char *str)
++{
++	while (isspace(*str))
++		++str;
++	return (char *)str;
++}
++EXPORT_SYMBOL(skip_spaces);
++
++/**
+  * strstrip - Removes leading and trailing whitespace from @s.
+  * @s: The string to be stripped.
+  *
+@@ -342,8 +360,8 @@ char *strstrip(char *s)
+ 	size_t size;
+ 	char *end;
+ 
++	s = skip_spaces(s);
+ 	size = strlen(s);
+-
+ 	if (!size)
+ 		return s;
+ 
+@@ -352,9 +370,6 @@ char *strstrip(char *s)
+ 		end--;
+ 	*(end + 1) = '\0';
+ 
+-	while (*s && isspace(*s))
+-		s++;
+-
+ 	return s;
+ }
+ EXPORT_SYMBOL(strstrip);
+diff --git a/lib/vsprintf.c b/lib/vsprintf.c
+index 0172902..1462f3f 100644
+--- a/lib/vsprintf.c
++++ b/lib/vsprintf.c
+@@ -656,7 +656,7 @@ int vsscanf(const char * buf, const char * fmt, va_list args)
+ 		 * advance both strings to next white space
+ 		 */
+ 		if (*fmt == '*') {
+-			while (!isspace(*fmt) && *fmt)
++			while (!isspace(*fmt) && *fmt != '%' && *fmt)
+ 				fmt++;
+ 			while (!isspace(*str) && *str)
+ 				str++;
+-- 
+1.6.5.GIT

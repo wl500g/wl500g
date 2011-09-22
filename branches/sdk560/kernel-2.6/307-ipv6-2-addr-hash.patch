@@ -1,0 +1,117 @@
+From 3a88a81d89c20be312b3b219b185bbdde24b8fb8
+From: stephen hemminger
+Date: Wed, 17 Mar 2010 20:31:12 +0000
+Subject: [PATCH] ipv6: user better hash for addrconf
+
+The existing hash function has a couple of issues:
+  * it is hardwired to 16 for IN6_ADDR_HSIZE
+  * limited to 256 and callers using int
+  * use jhash2 rather than some old BSD algorithm
+
+No need for random seed since this is local only (based on assigned
+addresses) table.
+
+Signed-off-by: Stephen Hemminger <shemminger@vyatta.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+---
+ include/net/addrconf.h |   19 -------------------
+ net/ipv6/addrconf.c    |   20 +++++++++++++++-----
+ 2 files changed, 15 insertions(+), 24 deletions(-)
+
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -172,25 +172,6 @@ static inline void in6_ifa_put(struct in
+ 
+ 
+ extern void			addrconf_forwarding_on(void);
+-/*
+- *	Hash function taken from net_alias.c
+- */
+-
+-static __inline__ u8 ipv6_addr_hash(const struct in6_addr *addr)
+-{	
+-	__u32 word;
+-
+-	/* 
+-	 * We perform the hash function over the last 64 bits of the address
+-	 * This will include the IEEE address token on links that support it.
+-	 */
+-
+-	word = (__force u32)(addr->s6_addr32[2] ^ addr->s6_addr32[3]);
+-	word ^= (word >> 16);
+-	word ^= (word >> 8);
+-
+-	return ((word ^ (word >> 4)) & 0x0f);
+-}
+ 
+ /*
+  *	compute link-local solicited-node multicast address
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -451,6 +451,15 @@ static void dev_forward_change(struct in
+ 	}
+ }
+ 
++static u32 ipv6_addr_hash(const struct in6_addr *addr)
++{
++	/*
++	 * We perform the hash function over the last 64 bits of the address
++	 * This will include the IEEE address token on links that support it.
++	 */
++	return jhash_2words(addr->s6_addr32[2],  addr->s6_addr32[3], 0)
++		& (IN6_ADDR_HSIZE - 1);
++}
+ 
+ static void addrconf_forward_change(void)
+ {
+@@ -525,7 +534,7 @@ ipv6_add_addr(struct inet6_dev *idev, co
+ {
+ 	struct inet6_ifaddr *ifa = NULL;
+ 	struct rt6_info *rt;
+-	int hash;
++	unsigned int hash;
+ 	int err = 0;
+ 	int addr_type = ipv6_addr_type(addr);
+ 
+@@ -1222,7 +1231,7 @@ static int ipv6_count_addresses(struct i
+ int ipv6_chk_addr(struct in6_addr *addr, struct net_device *dev, int strict)
+ {
+ 	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	read_lock_bh(&addrconf_hash_lock);
+ 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
+@@ -1243,7 +1252,7 @@ static
+ int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev)
+ {
+ 	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
+ 		if (ipv6_addr_equal(&ifp->addr, addr)) {
+@@ -1257,7 +1266,7 @@ int ipv6_chk_same_addr(const struct in6_
+ struct inet6_ifaddr * ipv6_get_ifaddr(struct in6_addr *addr, struct net_device *dev, int strict)
+ {
+ 	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
+ 
+ 	read_lock_bh(&addrconf_hash_lock);
+ 	for(ifp = inet6_addr_lst[hash]; ifp; ifp=ifp->lst_next) {
+@@ -2927,7 +2936,8 @@ int ipv6_chk_home_addr(struct in6_addr *
+ {
+ 	int ret = 0;
+ 	struct inet6_ifaddr * ifp;
+-	u8 hash = ipv6_addr_hash(addr);
++	unsigned int hash = ipv6_addr_hash(addr);
++
+ 	read_lock_bh(&addrconf_hash_lock);
+ 	for (ifp = inet6_addr_lst[hash]; ifp; ifp = ifp->lst_next) {
+ 		if (ipv6_addr_cmp(&ifp->addr, addr) == 0 &&
+-- 
+1.7.3.5
