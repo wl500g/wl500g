@@ -225,7 +225,7 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
  	default:
  		size = sizeof(int);
  		get = FALSE; set = TRUE;
-@@ -1194,6 +1207,25 @@ et_sendup(et_info_t *et, struct sk_buff
+@@ -1194,6 +1207,26 @@ et_sendup(et_info_t *et, struct sk_buff
  	if (flags)
  		goto err;
  
@@ -238,6 +238,7 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 +			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
 +				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
 +		{
++			uchar eabuf[32];
 +			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
 +			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
 +				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
