@@ -17,16 +17,13 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-WL=wl-5.10.56.46
-NAS=nas-5.10.56.46
-
 define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch 2>/dev/null)
 endef
 
 wl:
-	tar -C $(ROOT) --recursive-unlink -xjf wl/$(WL$).tar.bz2
-	tar -C $(ROOT)/wl/mipsel-uclibc -xjf wl/$(NAS).tbz2
+	tar -C . $(TAR_EXCL_SVN) -cf - wl | tar -C $(ROOT) --recursive-unlink -xf -
+	bzip2 -d $(ROOT)/wl/linux/*.bz2
 
 brcm_Patches := $(call patches_list,.)
 
