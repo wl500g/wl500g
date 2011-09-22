@@ -19,7 +19,6 @@
 
 WL=wl-5.10.56.46
 NAS=nas-5.10.56.46
-LIBBCMCRYPTO=libbcmcrypto-5.20.41
 
 define patches_list
     $(shell ls -1 $(1)/[0-9][0-9][0-9]-*.patch 2>/dev/null)
@@ -35,9 +34,8 @@ brcm-shared:
 	tar -C . $(TAR_EXCL_SVN) -cf - include rts shared emf bcm57xx et | tar -C $(ROOT) --recursive-unlink -xf -
 	$(PATCHER) -Z $(ROOT) $(brcm_Patches)
 
-libbcmcrypto: router/libbcmcrypto/$(LIBBCMCRYPTO$).tar.gz
-	tar -zxf $^ -C $(TOP)
-	$(PATCHER) $(TOP)/libbcmcrypto router/libbcmcrypto/$(LIBBCMCRYPTO).patch
+libbcmcrypto: router/libbcmcrypto
+	tar -C router $(TAR_EXCL_SVN) -cf - $@ | tar -C $(TOP) --recursive-unlink -xf -
 
 wlconf:
 	tar -C router $(TAR_EXCL_SVN) -cf - wlconf | tar -C $(TOP) --recursive-unlink -xf -
