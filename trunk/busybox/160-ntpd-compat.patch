@@ -1,37 +1,33 @@
-diff -urBp a/include/usage.src.h busybox.new/include/usage.src.h
---- a/include/usage.src.h	2010-07-25 22:48:26.000000000 +0400
-+++ b/include/usage.src.h	2010-10-20 21:06:31.000000000 +0400
-@@ -3039,7 +3039,7 @@ INSERT
-        "Address:    127.0.0.1\n"
- 
- #define ntpd_trivial_usage \
--	"[-dnqNw"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
-+	"[-dnqNwt"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
- #define ntpd_full_usage "\n\n" \
-        "NTP client/server\n" \
-      "\nOptions:" \
-@@ -3050,6 +3050,7 @@ INSERT
- /* the user that it exists: user may use nice as well */ \
- /*   "\n	-N	Run at high priority" */ \
-      "\n	-w	Do not set time (only query peers), implies -n" \
-+     "\n	-t	Trust network and server, no RFC-4330 cross-checks" \
- 	IF_FEATURE_NTPD_SERVER( \
-      "\n	-l	Run as server on port 123" \
- 	) \
 diff -urBp a/networking/ntpd.c b/networking/ntpd.c
 --- a/networking/ntpd.c	2010-10-09 23:57:14.000000000 +0400
 +++ b/networking/ntpd.c	2010-10-20 22:14:20.000000000 +0400
+@@ -29,7 +29,7 @@
+  */
+ 
+ //usage:#define ntpd_trivial_usage
+-//usage:	"[-dnqNw"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
++//usage:	"[-dnqNwt"IF_FEATURE_NTPD_SERVER("l")"] [-S PROG] [-p PEER]..."
+ //usage:#define ntpd_full_usage "\n\n"
+ //usage:       "NTP client/server\n"
+ //usage:     "\n	-d	Verbose"
+@@ -37,6 +37,7 @@
+ //usage:     "\n	-q	Quit after clock is set"
+ //usage:     "\n	-N	Run at high priority"
+ //usage:     "\n	-w	Do not set time (only query peers), implies -n"
++//usage:     "\n	-t	Trust network and server, no RFC-4330 cross-checks"
+ //usage:	IF_FEATURE_NTPD_SERVER(
+ //usage:     "\n	-l	Run as server on port 123"
+ //usage:	)
 @@ -235,9 +235,10 @@ enum {
- 	/* Insert new options above this line. */
- 	/* Non-compat options: */
  	OPT_w = (1 << 4),
--	OPT_p = (1 << 5),
--	OPT_S = (1 << 6),
+ 	OPT_p = (1 << 5),
+ 	OPT_S = (1 << 6),
 -	OPT_l = (1 << 7) * ENABLE_FEATURE_NTPD_SERVER,
-+	OPT_t = (1 << 5),
-+	OPT_p = (1 << 6),
-+	OPT_S = (1 << 7),
++	OPT_t = (1 << 7),
 +	OPT_l = (1 << 8) * ENABLE_FEATURE_NTPD_SERVER,
+ 	/* We hijack some bits for other purposes */
+-	OPT_qq = (1 << 8),
++	OPT_qq = (1 << 9),
  };
  
  struct globals {

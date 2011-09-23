@@ -87,6 +87,28 @@ diff -BurpN busybox-1.17.1/e2fsprogs/e2fs_lib.h busybox/e2fsprogs/e2fs_lib.h
 diff -BurpN busybox-1.17.1/e2fsprogs/e2fsck.c busybox/e2fsprogs/e2fsck.c
 --- busybox-1.17.1/e2fsprogs/e2fsck.c	2010-07-06 02:25:53.000000000 +0000
 +++ busybox/e2fsprogs/e2fsck.c	2010-07-25 18:48:32.000000000 +0000
+@@ -29,7 +29,6 @@
+  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
+  */
+ 
+-/*
+ //usage:#define e2fsck_trivial_usage
+ //usage:       "[-panyrcdfvstDFSV] [-b superblock] [-B blocksize] "
+ //usage:       "[-I inode_buffer_blocks] [-P process_inode_size] "
+@@ -48,7 +48,12 @@
+ //usage:     "\n	-j journal	Set location of the external journal"
+ //usage:     "\n	-l file		Add to badblocks list"
+ //usage:     "\n	-L file		Set badblocks list"
+-*/
++
++//usage:#define fsck_ext2_trivial_usage NOUSAGE_STR
++//usage:#define fsck_ext2_full_usage ""
++
++//usage:#define fsck_ext3_trivial_usage NOUSAGE_STR
++//usage:#define fsck_ext3_full_usage ""
+ 
+ #include "e2fsck.h"	/*Put all of our defines here to clean things up*/
+ 
 @@ -41,7 +41,7 @@
  static void e2fsck_pass1_dupblocks(e2fsck_t ctx, char *block_buf);
  
@@ -435,6 +457,58 @@ diff -BurpN busybox-1.17.1/e2fsprogs/ext2fs/unix_io.c busybox/e2fsprogs/ext2fs/u
 diff -BurpN busybox-1.17.1/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
 --- busybox-1.17.1/e2fsprogs/mke2fs.c	2010-07-06 02:25:53.000000000 +0000
 +++ busybox/e2fsprogs/mke2fs.c	2010-07-25 18:48:32.000000000 +0000
+@@ -8,11 +8,46 @@
+  * Licensed under GPLv2, see file LICENSE in this source tree.
+  */
+ 
+-/* Usage: mke2fs [options] device
+- *
+- * The device may be a block device or a image of one, but this isn't
+- * enforced (but it's not much fun on a character device :-).
+- */
++//usage:#define mkfs_ext2_trivial_usage
++//usage:       "[-Fn] "
++//usage:       "[-c|-l filename] "
++//usage:       "[-b BLK_SIZE] "
++//usage:       "[-f fragment-size] [-g blocks-per-group] "
++//usage:       "[-i INODE_RATIO] [-I INODE_SIZE] "
++//usage:       "[-j] [-J journal-options] [-N number-of-inodes] "
++//usage:       "[-m RESERVED_PERCENT] "
++//usage:       "[-o creator-os] [-O feature[,...]] [-q] "
++//usage:       "[r fs-revision-level] [-E extended-options] [-v] [-F] "
++//usage:       "[-L LABEL] "
++//usage:       "[-M last-mounted-directory] [-S] [-T filesystem-type] "
++//usage:       "BLOCKDEV [KBYTES]"
++//usage:#define mkfs_ext2_full_usage "\n\n"
++//usage:     "	-b BLK_SIZE	Block size, bytes"
++//usage:     "\n	-c		Check device for bad blocks"
++//usage:     "\n	-E opts		Set extended options"
++//usage:     "\n	-f size		Fragment size in bytes"
++//usage:     "\n	-F		Force"
++//usage:     "\n	-g N		Number of blocks in a block group"
++//usage:     "\n	-i RATIO	Max number of files is filesystem_size / RATIO"
++//usage:     "\n	-I BYTES	Inode size (min 128)"
++//usage:     "\n	-j		Create a journal (ext3)"
++//usage:     "\n	-J opts		Set journal options (size/device)"
++//usage:     "\n	-l file		Read bad blocks list from file"
++//usage:     "\n	-L LBL		Volume label"
++//usage:     "\n	-m PERCENT	Percent of blocks to reserve for admin"
++//usage:     "\n	-M dir		Set last mounted directory"
++//usage:     "\n	-n		Dry run"
++//usage:     "\n	-N N		Number of inodes to create"
++//usage:     "\n	-o os		Set the 'creator os' field"
++//usage:     "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super"
++//usage:     "\n	-q		Quiet"
++//usage:     "\n	-r rev		Set filesystem revision"
++//usage:     "\n	-S		Write superblock and group descriptors only"
++//usage:     "\n	-T fs-type	Set usage type (news/largefile/largefile4)"
++//usage:     "\n	-v		Verbose"
++
++//usage:#define mkfs_ext3_trivial_usage NOUSAGE_STR
++//usage:#define mkfs_ext3_full_usage ""
+ 
+ #include <stdio.h>
+ #include <string.h>
 @@ -29,7 +29,7 @@
  
  #include "e2fsbb.h"
@@ -512,6 +586,28 @@ diff -BurpN busybox-1.17.1/e2fsprogs/mke2fs.c busybox/e2fsprogs/mke2fs.c
 diff -BurpN busybox-1.17.1/e2fsprogs/tune2fs.c busybox/e2fsprogs/tune2fs.c
 --- busybox-1.17.1/e2fsprogs/tune2fs.c	2010-07-06 02:25:53.000000000 +0000
 +++ busybox/e2fsprogs/tune2fs.c	2010-07-25 18:48:32.000000000 +0000
+@@ -11,6 +11,21 @@
+  * Licensed under GPLv2, see file LICENSE in this source tree.
+  */
+ 
++//usage:#define tune2fs_trivial_usage
++//usage:       "[-c MOUNT_CNT] "
++//usage:       "[-e errors-behavior] [-g group] "
++//usage:       "[-i DAYS] "
++//usage:       "[-j] [-J journal-options] [-l] [-s sparse-flag] "
++//usage:       "[-m reserved-blocks-percent] [-o [^]mount-options[,...]] "
++//usage:       "[-r reserved-blocks-count] [-u user] [-C mount-count] "
++//usage:       "[-L LABEL] "
++//usage:       "[-M last-mounted-dir] [-O [^]feature[,...]] "
++//usage:       "[-T last-check-time] [-U UUID] "
++//usage:       "BLOCKDEV"
++//usage:
++//usage:#define tune2fs_full_usage "\n\n"
++//usage:       "Adjust filesystem options on ext[23] filesystems"
++
+ /*
+  * History:
+  * 93/06/01	- Creation
 @@ -35,11 +35,11 @@
  #include "e2fsbb.h"
  #include "ext2fs/ext2_fs.h"
@@ -631,41 +727,41 @@ diff -BurpN busybox-1.17.1/include/applets.src.h busybox/include/applets.src.h
 --- busybox-1.17.1/include/applets.src.h	2010-07-25 18:32:16.000000000 +0000
 +++ busybox/include/applets.src.h	2010-07-25 18:48:26.000000000 +0000
 @@ -133,8 +133,8 @@ IF_DPKG_DEB(APPLET_ODDNAME(dpkg-deb, dpk
- IF_DU(APPLET(du, _BB_DIR_USR_BIN, _BB_SUID_DROP))
- IF_DUMPKMAP(APPLET(dumpkmap, _BB_DIR_BIN, _BB_SUID_DROP))
- IF_DUMPLEASES(APPLET(dumpleases, _BB_DIR_USR_BIN, _BB_SUID_DROP))
--//IF_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
--//IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP, e2label))
-+IF_E2FSCK(APPLET(e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
-+IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP, e2label))
- IF_ECHO(APPLET_NOFORK(echo, echo, _BB_DIR_BIN, _BB_SUID_DROP, echo))
- IF_ED(APPLET(ed, _BB_DIR_BIN, _BB_SUID_DROP))
- IF_EJECT(APPLET(eject, _BB_DIR_USR_BIN, _BB_SUID_DROP))
-@@ -162,8 +162,8 @@ IF_FOLD(APPLET(fold, _BB_DIR_USR_BIN, _B
- IF_FREE(APPLET(free, _BB_DIR_USR_BIN, _BB_SUID_DROP))
- IF_FREERAMDISK(APPLET(freeramdisk, _BB_DIR_SBIN, _BB_SUID_DROP))
- IF_FSCK(APPLET(fsck, _BB_DIR_SBIN, _BB_SUID_DROP))
--//IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext2))
--//IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext3))
-+IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext2))
-+IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_ext3))
- IF_FSCK_MINIX(APPLET_ODDNAME(fsck.minix, fsck_minix, _BB_DIR_SBIN, _BB_SUID_DROP, fsck_minix))
- IF_FSYNC(APPLET_NOFORK(fsync, fsync, _BB_DIR_BIN, _BB_SUID_DROP, fsync))
- IF_FTPD(APPLET(ftpd, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
-@@ -257,10 +257,10 @@ IF_MESG(APPLET(mesg, _BB_DIR_USR_BIN, _B
- IF_MICROCOM(APPLET(microcom, _BB_DIR_USR_BIN, _BB_SUID_DROP))
- IF_MKDIR(APPLET_NOFORK(mkdir, mkdir, _BB_DIR_BIN, _BB_SUID_DROP, mkdir))
- IF_MKFS_VFAT(APPLET_ODDNAME(mkdosfs, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
--IF_MKFS_EXT2(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
-+IF_MKE2FS(APPLET_ODDNAME(mke2fs, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
- IF_MKFIFO(APPLET_NOEXEC(mkfifo, mkfifo, _BB_DIR_USR_BIN, _BB_SUID_DROP, mkfifo))
--IF_MKFS_EXT2(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
--//IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
-+IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext2))
-+IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mkfs_ext2, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_ext3))
- IF_MKFS_MINIX(APPLET_ODDNAME(mkfs.minix, mkfs_minix, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_minix))
- IF_MKFS_REISER(APPLET_ODDNAME(mkfs.reiser, mkfs_reiser, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_reiser))
- IF_MKFS_VFAT(APPLET_ODDNAME(mkfs.vfat, mkfs_vfat, _BB_DIR_SBIN, _BB_SUID_DROP, mkfs_vfat))
+ IF_DU(APPLET(du, BB_DIR_USR_BIN, BB_SUID_DROP))
+ IF_DUMPKMAP(APPLET(dumpkmap, BB_DIR_BIN, BB_SUID_DROP))
+ IF_DUMPLEASES(APPLET(dumpleases, BB_DIR_USR_BIN, BB_SUID_DROP))
+-//IF_E2FSCK(APPLET(e2fsck, BB_DIR_SBIN, BB_SUID_DROP))
+-//IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, BB_DIR_SBIN, BB_SUID_DROP, e2label))
++IF_E2FSCK(APPLET(e2fsck, BB_DIR_SBIN, BB_SUID_DROP))
++IF_E2LABEL(APPLET_ODDNAME(e2label, tune2fs, BB_DIR_SBIN, BB_SUID_DROP, e2label))
+ IF_ECHO(APPLET_NOFORK(echo, echo, BB_DIR_BIN, BB_SUID_DROP, echo))
+ IF_ED(APPLET(ed, BB_DIR_BIN, BB_SUID_DROP))
+ IF_EJECT(APPLET(eject, BB_DIR_USR_BIN, BB_SUID_DROP))
+@@ -162,8 +162,8 @@ IF_FOLD(APPLET(fold, BB_DIR_USR_BIN, _B
+ IF_FREE(APPLET(free, BB_DIR_USR_BIN, BB_SUID_DROP))
+ IF_FREERAMDISK(APPLET(freeramdisk, BB_DIR_SBIN, BB_SUID_DROP))
+ IF_FSCK(APPLET(fsck, BB_DIR_SBIN, BB_SUID_DROP))
+-//IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, fsck_ext2))
+-//IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, fsck_ext3))
++IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, fsck_ext2))
++IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, fsck_ext3))
+ IF_FSCK_MINIX(APPLET_ODDNAME(fsck.minix, fsck_minix, BB_DIR_SBIN, BB_SUID_DROP, fsck_minix))
+ IF_FSYNC(APPLET_NOFORK(fsync, fsync, BB_DIR_BIN, BB_SUID_DROP, fsync))
+ IF_FTPD(APPLET(ftpd, BB_DIR_USR_SBIN, BB_SUID_DROP))
+@@ -257,10 +257,10 @@ IF_MESG(APPLET(mesg, BB_DIR_USR_BIN, _B
+ IF_MICROCOM(APPLET(microcom, BB_DIR_USR_BIN, BB_SUID_DROP))
+ IF_MKDIR(APPLET_NOFORK(mkdir, mkdir, BB_DIR_BIN, BB_SUID_DROP, mkdir))
+ IF_MKFS_VFAT(APPLET_ODDNAME(mkdosfs, mkfs_vfat, BB_DIR_SBIN, BB_SUID_DROP, mkfs_vfat))
+-IF_MKFS_EXT2(APPLET_ODDNAME(mke2fs, mkfs_ext2, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext2))
++IF_MKE2FS(APPLET_ODDNAME(mke2fs, mkfs_ext2, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext2))
+ IF_MKFIFO(APPLET_NOEXEC(mkfifo, mkfifo, BB_DIR_USR_BIN, BB_SUID_DROP, mkfifo))
+-IF_MKFS_EXT2(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext2))
+-//IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext3))
++IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mkfs_ext2, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext2))
++IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mkfs_ext2, BB_DIR_SBIN, BB_SUID_DROP, mkfs_ext3))
+ IF_MKFS_MINIX(APPLET_ODDNAME(mkfs.minix, mkfs_minix, BB_DIR_SBIN, BB_SUID_DROP, mkfs_minix))
+ IF_MKFS_REISER(APPLET_ODDNAME(mkfs.reiser, mkfs_reiser, BB_DIR_SBIN, BB_SUID_DROP, mkfs_reiser))
+ IF_MKFS_VFAT(APPLET_ODDNAME(mkfs.vfat, mkfs_vfat, BB_DIR_SBIN, BB_SUID_DROP, mkfs_vfat))
 diff -BurpN busybox-1.17.1/include/libbb.h busybox/include/libbb.h
 --- busybox-1.17.1/include/libbb.h	2010-07-25 18:29:36.000000000 +0000
 +++ busybox/include/libbb.h	2010-07-25 18:48:26.000000000 +0000
@@ -680,112 +776,9 @@ diff -BurpN busybox-1.17.1/include/libbb.h busybox/include/libbb.h
  
  /* Last element is marked by mult == 0 */
  struct suffix_mult {
-diff -BurpN busybox-1.17.1/include/usage.src.h busybox/include/usage.src.h
---- busybox-1.17.1/include/usage.src.h	2010-07-24 22:12:43.000000000 +0000
-+++ busybox/include/usage.src.h	2010-07-25 18:48:26.000000000 +0000
-@@ -1075,7 +1075,6 @@ INSERT
-      "\n	-a	Show expiration time" \
- 	)
- 
--/*
- #define e2fsck_trivial_usage \
-        "[-panyrcdfvstDFSV] [-b superblock] [-B blocksize] " \
-        "[-I inode_buffer_blocks] [-P process_inode_size] " \
-@@ -1095,7 +1094,10 @@ INSERT
-      "\n	-j journal	Set location of the external journal" \
-      "\n	-l file		Add to badblocks list" \
-      "\n	-L file		Set badblocks list" \
--*/
-+
-+
-+#define e2label_trivial_usage NOUSAGE_STR
-+#define e2label_full_usage ""
- 
- #define echo_trivial_usage \
- 	IF_FEATURE_FANCY_ECHO("[-neE] ") "[ARG]..."
-@@ -1372,6 +1374,12 @@ INSERT
-      "\n	-C n	Write status information to specified filedescriptor" \
-      "\n	-t TYPE	List of filesystem types to check" \
- 
-+#define fsck_ext2_trivial_usage NOUSAGE_STR
-+#define fsck_ext2_full_usage ""
-+
-+#define fsck_ext3_trivial_usage NOUSAGE_STR
-+#define fsck_ext3_full_usage ""
-+
- #define fsck_minix_trivial_usage \
-        "[-larvsmf] BLOCKDEV"
- #define fsck_minix_full_usage "\n\n" \
-@@ -2723,41 +2731,44 @@ INSERT
- 
- #define mkfs_ext2_trivial_usage \
-        "[-Fn] " \
--       /* "[-c|-l filename] " */ \
-+       "[-c|-l filename] " \
-        "[-b BLK_SIZE] " \
--       /* "[-f fragment-size] [-g blocks-per-group] " */ \
-+       "[-f fragment-size] [-g blocks-per-group] " \
-        "[-i INODE_RATIO] [-I INODE_SIZE] " \
--       /* "[-j] [-J journal-options] [-N number-of-inodes] " */ \
-+       "[-j] [-J journal-options] [-N number-of-inodes] " \
-        "[-m RESERVED_PERCENT] " \
--       /* "[-o creator-os] [-O feature[,...]] [-q] " */ \
--       /* "[r fs-revision-level] [-E extended-options] [-v] [-F] " */ \
-+       "[-o creator-os] [-O feature[,...]] [-q] " \
-+       "[r fs-revision-level] [-E extended-options] [-v] [-F] " \
-        "[-L LABEL] " \
--       /* "[-M last-mounted-directory] [-S] [-T filesystem-type] " */ \
-+       "[-M last-mounted-directory] [-S] [-T filesystem-type] " \
-        "BLOCKDEV [KBYTES]"
- #define mkfs_ext2_full_usage "\n\n" \
-        "	-b BLK_SIZE	Block size, bytes" \
--/*   "\n	-c		Check device for bad blocks" */ \
--/*   "\n	-E opts		Set extended options" */ \
--/*   "\n	-f size		Fragment size in bytes" */ \
-+     "\n	-c		Check device for bad blocks" \
-+     "\n	-E opts		Set extended options" \
-+     "\n	-f size		Fragment size in bytes" \
-      "\n	-F		Force" \
--/*   "\n	-g N		Number of blocks in a block group" */ \
-+     "\n	-g N		Number of blocks in a block group" \
-      "\n	-i RATIO	Max number of files is filesystem_size / RATIO" \
-      "\n	-I BYTES	Inode size (min 128)" \
--/*   "\n	-j		Create a journal (ext3)" */ \
--/*   "\n	-J opts		Set journal options (size/device)" */ \
--/*   "\n	-l file		Read bad blocks list from file" */ \
-+     "\n	-j		Create a journal (ext3)" \
-+     "\n	-J opts		Set journal options (size/device)" \
-+     "\n	-l file		Read bad blocks list from file" \
-      "\n	-L LBL		Volume label" \
-      "\n	-m PERCENT	Percent of blocks to reserve for admin" \
--/*   "\n	-M dir		Set last mounted directory" */ \
-+     "\n	-M dir		Set last mounted directory" \
-      "\n	-n		Dry run" \
--/*   "\n	-N N		Number of inodes to create" */ \
--/*   "\n	-o os		Set the 'creator os' field" */ \
--/*   "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super" */ \
--/*   "\n	-q		Quiet" */ \
--/*   "\n	-r rev		Set filesystem revision" */ \
--/*   "\n	-S		Write superblock and group descriptors only" */ \
--/*   "\n	-T fs-type	Set usage type (news/largefile/largefile4)" */ \
--/*   "\n	-v		Verbose" */ \
-+     "\n	-N N		Number of inodes to create" \
-+     "\n	-o os		Set the 'creator os' field" \
-+     "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super" \
-+     "\n	-q		Quiet" \
-+     "\n	-r rev		Set filesystem revision" \
-+     "\n	-S		Write superblock and group descriptors only" \
-+     "\n	-T fs-type	Set usage type (news/largefile/largefile4)" \
-+     "\n	-v		Verbose" \
-+
-+#define mkfs_ext3_trivial_usage NOUSAGE_STR
-+#define mkfs_ext3_full_usage ""
- 
- #define mkfs_minix_trivial_usage \
-        "[-c | -l FILE] [-nXX] [-iXX] BLOCKDEV [KBYTES]"
-diff -BurpN busybox-1.17.1/include/volume_id.h busybox/include/volume_id.h
---- busybox-1.17.1/include/volume_id.h	2010-04-29 08:39:27.000000000 +0000
-+++ busybox/include/volume_id.h	2010-07-25 18:48:26.000000000 +0000
+diff -BurpN busybox-1.19.2/include/volume_id.h busybox/include/volume_id.h
+--- busybox-1.19.2/include/volume_id.h
++++ busybox/include/volume_id.h
 @@ -20,6 +20,7 @@
  
  char *get_devname_from_label(const char *spec);
@@ -794,6 +787,12 @@ diff -BurpN busybox-1.17.1/include/volume_id.h busybox/include/volume_id.h
  void display_uuid_cache(void);
  
  /* Returns:
+@@ -29,4 +30,4 @@ void display_uuid_cache(void);
+  * -2: UUID= or LABEL= prefixes cannot be resolved
+  */
+ int resolve_mount_spec(char **fsname);
+-int add_to_uuid_cache(const char *device);
++int add_to_uuid_cache(const char *device, dev_t devno);
 diff -BurpN busybox-1.17.1/libbb/xfuncs.c busybox/libbb/xfuncs.c
 --- busybox-1.17.1/libbb/xfuncs.c	2010-07-06 02:25:54.000000000 +0000
 +++ busybox/libbb/xfuncs.c	2010-07-25 18:48:26.000000000 +0000
@@ -847,6 +846,39 @@ diff -BurpN busybox-1.17.1/libbb/xfuncs.c busybox/libbb/xfuncs.c
 +	return 0;
 +}
 +
+diff -uBp busybox-1.19.2/util-linux/blkid.c busybox/util-linux/blkid.c
+--- busybox-1.19.2/util-linux/blkid.c
++++ busybox/util-linux/blkid.c
+@@ -22,7 +22,7 @@ int blkid_main(int argc UNUSED_PARAM, ch
+ {
+ 	while (*++argv) {
+ 		/* Note: bogus device names don't cause any error messages */
+-		add_to_uuid_cache(*argv);
++		add_to_uuid_cache(*argv, 0);
+ 	}
+ 
+ 	display_uuid_cache();
+diff -uBp busybox-1.19.2/util-linux/mkfs_ext2.c busybox/util-linux/mkfs_ext2.c
+--- busybox-1.19.2/util-linux/mkfs_ext2.c
++++ busybox/util-linux/mkfs_ext2.c
+@@ -8,7 +8,7 @@
+  * Licensed under GPLv2, see file LICENSE in this source tree.
+  */
+ 
+-//usage:#define mkfs_ext2_trivial_usage
++//usage:#define mkfs_ext2_trivial_usage_NO
+ //usage:       "[-Fn] "
+ /* //usage:    "[-c|-l filename] " */
+ //usage:       "[-b BLK_SIZE] "
+@@ -21,7 +21,7 @@
+ //usage:       "[-L LABEL] "
+ /* //usage:    "[-M last-mounted-directory] [-S] [-T filesystem-type] " */
+ //usage:       "BLOCKDEV [KBYTES]"
+-//usage:#define mkfs_ext2_full_usage "\n\n"
++//usage:#define mkfs_ext2_full_usage_NO "\n\n"
+ //usage:       "	-b BLK_SIZE	Block size, bytes"
+ /* //usage:  "\n	-c		Check device for bad blocks" */
+ /* //usage:  "\n	-E opts		Set extended options" */
 diff -BurpN busybox-1.17.1/util-linux/mkswap.c busybox/util-linux/mkswap.c
 --- busybox-1.17.1/util-linux/mkswap.c	2010-07-06 02:25:54.000000000 +0000
 +++ busybox/util-linux/mkswap.c	2010-07-25 18:48:26.000000000 +0000
@@ -879,9 +911,9 @@ diff -BurpN busybox-1.17.1/util-linux/mkswap.c busybox/util-linux/mkswap.c
  	}
  	safe_strncpy(hdr->sws_volume, label, 16);
  
-diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux/volume_id/get_devname.c
---- busybox-1.17.1/util-linux/volume_id/get_devname.c	2010-05-11 09:54:36.000000000 +0000
-+++ busybox/util-linux/volume_id/get_devname.c	2010-07-25 18:48:26.000000000 +0000
+diff -BurpN busybox-1.19.2/util-linux/volume_id/get_devname.c busybox/util-linux/volume_id/get_devname.c
+--- busybox-1.19.2/util-linux/volume_id/get_devname.c
++++ busybox/util-linux/volume_id/get_devname.c
 @@ -15,7 +15,7 @@
  
  static struct uuidCache_s {
@@ -891,16 +923,27 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
  	char *device;
  	char *label;
  	char *uc_uuid; /* prefix makes it easier to grep for */
-@@ -54,7 +54,7 @@ get_label_uuid(int fd, char **label, cha
+@@ -25,8 +25,8 @@ static struct uuidCache_s {
+ #if !ENABLE_FEATURE_BLKID_TYPE
+ #define get_label_uuid(fd, label, uuid, type) \
+ 	get_label_uuid(fd, label, uuid)
+-#define uuidcache_addentry(device, label, uuid, type) \
+-	uuidcache_addentry(device, label, uuid)
++#define uuidcache_addentry(device, devno, label, uuid, type) \
++	uuidcache_addentry(device, devno, label, uuid)
+ #endif
+ 
+ /* Returns !0 on error.
+@@ -67,7 +67,7 @@ get_label_uuid(int fd, char **label, cha
  
  /* NB: we take ownership of (malloc'ed) label and uuid */
  static void
--uuidcache_addentry(char *device, /*int major, int minor,*/ char *label, char *uuid)
-+uuidcache_addentry(char *device, dev_t devno, char *label, char *uuid)
+-uuidcache_addentry(char *device, /*int major, int minor,*/ char *label, char *uuid, const char *type)
++uuidcache_addentry(char *device, dev_t devno, char *label, char *uuid, const char *type)
  {
  	struct uuidCache_s *last;
  
-@@ -67,8 +67,7 @@ uuidcache_addentry(char *device, /*int m
+@@ -80,8 +80,7 @@ uuidcache_addentry(char *device, /*int m
  		last = last->next;
  	}
  	/*last->next = NULL; - xzalloc did it*/
@@ -910,16 +953,16 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
  	last->device = device;
  	last->label = label;
  	last->uc_uuid = uuid;
-@@ -106,7 +105,7 @@ uuidcache_check_device(const char *devic
- 	/* get_label_uuid() closes fd in all cases (success & failure) */
- 	if (get_label_uuid(fd, &label, &uuid) == 0) {
- 		/* uuidcache_addentry() takes ownership of all three params */
--		uuidcache_addentry(xstrdup(device), /*ma, mi,*/ label, uuid);
-+		uuidcache_addentry(xstrdup(device), statbuf->st_rdev, label, uuid);
- 	}
+@@ -109,7 +108,7 @@ uuidcache_check_device(const char *devic
+ 	if (major(statbuf->st_rdev) == 2)
+ 		return TRUE;
+ 
+-	add_to_uuid_cache(device);
++	add_to_uuid_cache(device, statbuf->st_rdev);
+ 
  	return TRUE;
  }
-@@ -137,10 +136,10 @@ uuidcache_init(void)
+@@ -141,10 +140,10 @@ uuidcache_init(void)
  
  #define UUID   1
  #define VOL    2
@@ -932,7 +975,7 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
  {
  	struct uuidCache_s *uc;
  
-@@ -150,66 +149,29 @@ get_spec_by_x(int n, const char *t, int 
+@@ -154,66 +153,29 @@ get_spec_by_x(int n, const char *t, int 
  	while (uc) {
  		switch (n) {
  		case UUID:
@@ -963,19 +1006,15 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
  	}
  	return NULL;
 -}
- 
+-
 -static unsigned char
 -fromhex(char c)
 -{
 -	if (isdigit(c))
 -		return (c - '0');
 -	return ((c|0x20) - 'a' + 10);
-+found:
-+	if (devnoPtr)
-+		*devnoPtr = uc->devno;
-+	return xstrdup(uc->device);
- }
- 
+-}
+-
 -static char *
 -get_spec_by_uuid(const char *s, int *major, int *minor)
 -{
@@ -996,12 +1035,16 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
 -		s += 2;
 -	}
 -	return get_spec_by_x(UUID, (char *)uuid, major, minor);
--
+ 
 - bad_uuid:
 -	fprintf(stderr, _("mount: bad UUID"));
 -	return 0;
--}
--
++found:
++	if (devnoPtr)
++		*devnoPtr = uc->devno;
++	return xstrdup(uc->device);
+ }
+ 
 -static char *
 -get_spec_by_volume_label(const char *s, int *major, int *minor)
 -{
@@ -1012,9 +1055,26 @@ diff -BurpN busybox-1.17.1/util-linux/volume_id/get_devname.c busybox/util-linux
  /* Used by blkid */
  void display_uuid_cache(void)
  {
-@@ -228,37 +190,21 @@ void display_uuid_cache(void)
+@@ -236,7 +198,7 @@ void display_uuid_cache(void)
  	}
  }
+ 
+-int add_to_uuid_cache(const char *device)
++int add_to_uuid_cache(const char *device, dev_t devno)
+ {
+ 	char *uuid = uuid; /* for compiler */
+ 	char *label = label;
+@@ -252,44 +214,28 @@ int add_to_uuid_cache(const char *device
+ 	/* get_label_uuid() closes fd in all cases (success & failure) */
+ 	if (get_label_uuid(fd, &label, &uuid, &type) == 0) {
+ 		/* uuidcache_addentry() takes ownership of all four params */
+-		uuidcache_addentry(xstrdup(device), /*ma, mi,*/ label, uuid, type);
++		uuidcache_addentry(xstrdup(device), devno, label, uuid, type);
+ 		return 1;
+ 	}
+ 	return 0;
+ }
+ 
  
 -/* Used by mount and findfs */
 +/* Used by mount and findfs & old_e2fsprogs */
