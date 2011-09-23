@@ -151,7 +151,7 @@ asustrx: $(ROOT)/asustrx
 	@true
 
 $(TOP)/loader:
-	@rm -rf $(TOP)/loader
+	@rm -rf $@
 	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
@@ -447,9 +447,9 @@ $(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
 inadyn: $(TOP)/inadyn
 	@true
 
-$(TOP)/bpalogin: bpalogin.tar.bz2
-	tar -xjf $^ -C $(TOP)
-	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
+$(TOP)/bpalogin:
+	@rm -rf $@
+	tar -C . $(TAR_EXCL_SVN) -cf - bpalogin | tar -C $(TOP) -xf -
 
 bpalogin: $(TOP)/bpalogin
 	@true
