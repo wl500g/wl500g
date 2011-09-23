@@ -103,12 +103,12 @@ Subject: Explicitly set DHCP_MAX_SIZE (option 57) for request packets, like for 
  	}
  
 +	if (mtu) {
-+		if (ioctl_or_warn(fd, SIOCGIFMTU, &ifr) != 0) {
++		if (ioctl_or_warn(fd, SIOCGIFMTU, ifr) != 0) {
 +			close(fd);
 +			return -1;
 +		}
-+		log1("Adapter mtu %d", ifr.ifr_mtu);
-+		*mtu = ifr.ifr_mtu;
++		log1("Adapter mtu %d", ifr->ifr_mtu);
++		*mtu = ifr->ifr_mtu;
 +	}
 +
  	close(fd);
