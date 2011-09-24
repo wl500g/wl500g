@@ -1,7 +1,7 @@
 /*
  * OS Abstraction Layer
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: osl.h,v 13.38.2.5 2009/11/04 01:38:53 Exp $
+ * $Id: osl.h,v 13.38.2.6 2010/11/22 09:05:02 Exp $
  */
 
 #ifndef _osl_h_
@@ -43,7 +43,7 @@ typedef void  (*osl_wreg_fn_t)(void *ctx, void *reg, unsigned int val, unsigned 
 #define MAKE_PREFETCH_FN(hint) \
 static inline void prefetch_##hint(const void *addr) \
 { \
-	__asm__ __volatile__( \
+	__asm__ __volatile__(\
 	"       .set    mips4           \n" \
 	"       pref    %0, (%1)        \n" \
 	"       .set    mips0           \n" \
@@ -91,6 +91,8 @@ MAKE_PREFETCH_RANGE_FN(PREF_STORE_RETAINED)
 #include <ndis_osl.h>
 #elif defined(_CFE_)
 #include <cfe_osl.h>
+#elif defined(_HNDRTE_)
+#include <hndrte_osl.h>
 #elif defined(_MINOSL_)
 #include <min_osl.h>
 #elif defined(MACOSX)
@@ -99,12 +101,33 @@ MAKE_PREFETCH_RANGE_FN(PREF_STORE_RETAINED)
 #include <bsd_osl.h>
 #elif defined(EFI)
 #include <efi_osl.h>
+#elif defined(TARGETOS_nucleus)
+#include <nucleus_osl.h>
 #else
 #error "Unsupported OSL requested"
 #endif 
 
-/* handy */
+#ifndef PKTDBG_TRACE
+#define PKTDBG_TRACE(osh, pkt, bit)
+#endif
+
+#ifndef PKTCTFMAP
+#define PKTCTFMAP(osh, p)
+#endif /* PKTCTFMAP */
+
+/* --------------------------------------------------------------------------
+** Register manipulation macros.
+*/
+
 #define	SET_REG(osh, r, mask, val)	W_REG((osh), (r), ((R_REG((osh), r) & ~(mask)) | (val)))
+
+#ifndef AND_REG
+#define AND_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) & (v))
+#endif   /* !AND_REG */
+
+#ifndef OR_REG
+#define OR_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) | (v))
+#endif   /* !OR_REG */
 
 #if !defined(OSL_SYSUPTIME)
 #define OSL_SYSUPTIME() (0)

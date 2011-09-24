@@ -1,7 +1,7 @@
 /*
  * HND Minimal OS Abstraction Layer.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: min_osl.h,v 13.22.2.6 2009/11/04 01:17:49 Exp $
+ * $Id: min_osl.h,v 13.22.3 2010/11/22 09:05:02 Exp $
  */
 
 #ifndef _min_osl_h_
@@ -33,8 +33,16 @@ static inline void blast_icache(void) { return; };
 #endif	/* mips */
 
 /* assert & debugging */
+#if defined(BCMDBG)
+extern void assfail(char *exp, char *file, int line);
+#define ASSERT(exp) \
+	do { if (!(exp)) assfail(#exp, __FILE__, __LINE__); } while (0)
+#define	TRACE_LOC		OSL_UNCACHED(0x18000044)	/* flash address reg in chipc */
+#define	BCMDBG_TRACE(val)	do {*((uint32 *)TRACE_LOC) = val;} while (0)
+#else
 #define	ASSERT(exp)		do {} while (0)
 #define	BCMDBG_TRACE(val)	do {} while (0)
+#endif
 
 /* PCMCIA attribute space access macros */
 #define	OSL_PCMCIA_READ_ATTR(osh, offset, buf, size) \
@@ -137,6 +145,10 @@ extern void *malloc(uint size);
 #define	OSL_DELAY(usec)		udelay(usec)
 extern void udelay(uint32 usec);
 
+/* get processor cycle count */
+#define OSL_GETCYCLES(x)	((x) = osl_getcycles())
+extern uint32 osl_getcycles(void);
+
 /* map/unmap physical to virtual I/O */
 #define	REG_MAP(pa, size)	(OSL_UNCACHED(pa))
 #define	REG_UNMAP(va)		do {} while (0)
@@ -181,7 +193,7 @@ extern int osl_error(int);
 #define PKTFRMNATIVE(osh, lb)		((void *)NULL)
 #define PKTTONATIVE(osh, p)		((struct lbuf *)NULL)
 
-/* Global ASSERT type */
+/* Global ASSERT type flag */
 extern uint32 g_assert_type;
 
 #endif	/* _min_osl_h_ */
