@@ -196,7 +196,7 @@
 						</td>
 					</tr>
 					<tr>
-						<td class="content_header_td" onmouseover="return overlib('Choose the additional authentication, if it's required', LEFT);"
+						<td class="content_header_td" onmouseover="return overlib('Choose the additional authentication, if it is required', LEFT);"
 							onmouseout="return nd();">
 							Authentication:
 						</td>
