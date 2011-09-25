@@ -5,12 +5,11 @@
  a79878f00dad97d03a3e62a48b06227d55ae5fe4 [ARP]: Move inet_addr_type call after simple error checks in arp_contructor.
  b4a9811c42ecb70b2f0b375f6d4c77ab34d1f598 [ARP]: Fix arp reply when sender ip 0
  a3e8ee682003685b8b9c98c89340a42e48c3e813 ipv4: ARP neigh procfs buffer overflow
+ 9bd85e32644d4d3744117b0a196ad4382f8acf35 [IPV4]: Remove extra argument from arp_ignore.
+ 39a6d06300128d32f361f4f790beba0ca83730eb [NETNS]: Process inet_confirm_addr in the correct namespace.
  6d955180b2f9ccff444df06265160868cabb289a ipv4: allow warming up the ARP cache with request type gratuitous ARP
 
 ---
- Documentation/networking/ip-sysctl.txt |   15 ++++++++++++---
- net/ipv4/arp.c                         |   16 ++++++++++------
- 2 files changed, 22 insertions(+), 9 deletions(-)
 
 diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
 --- a/Documentation/networking/ip-sysctl.txt
@@ -37,6 +36,18 @@ diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/i
  
  app_solicit - INTEGER
  	The maximum number of probes to send to the user space ARP daemon
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -135,7 +135,7 @@ extern int		devinet_ioctl(unsigned int cmd, void __user *);
+ extern void		devinet_init(void);
+ extern struct in_device	*inetdev_by_index(int);
+ extern __be32		inet_select_addr(const struct net_device *dev, __be32 dst, int scope);
+-extern __be32		inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope);
++extern __be32		inet_confirm_addr(struct in_device *in_dev, __be32 dst, __be32 local, int scope);
+ extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix, __be32 mask);
+ 
+ static __inline__ int inet_ifa_match(__be32 addr, struct in_ifaddr *ifa)
 diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
 --- a/net/ipv4/arp.c
 +++ b/net/ipv4/arp.c
@@ -58,17 +69,55 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
  	parms = in_dev->arp_parms;
  	__neigh_parms_put(neigh->parms);
  	neigh->parms = neigh_parms_clone(parms);
-@@ -807,7 +807,8 @@ static int arp_process(struct sk_buff *s
+@@ -379,8 +379,7 @@ static void arp_solicit(struct neighbour
+ 		read_unlock_bh(&neigh->lock);
+ }
+ 
+-static int arp_ignore(struct in_device *in_dev, struct net_device *dev,
+-		      __be32 sip, __be32 tip)
++static int arp_ignore(struct in_device *in_dev, __be32 sip, __be32 tip)
+ {
+ 	int scope;
+ 
+@@ -400,7 +399,6 @@ static int arp_ignore(struct in_device *
+ 	case 3:	/* Do not reply for scope host addresses */
+ 		sip = 0;
+ 		scope = RT_SCOPE_LINK;
+-		dev = NULL;
+ 		break;
+ 	case 4:	/* Reserved */
+ 	case 5:
+@@ -412,7 +410,7 @@ static int arp_ignore(struct in_device *
+ 	default:
+ 		return 0;
+ 	}
+-	return !inet_confirm_addr(dev, sip, tip, scope);
++	return !inet_confirm_addr(in_dev, sip, tip, scope);
+ }
+ 
+ static int arp_filter(__be32 sip, __be32 tip, struct net_device *dev)
+@@ -806,8 +804,9 @@ static int arp_process(struct sk_buff *s
+ 	if (sip == 0) {
  		if (arp->ar_op == htons(ARPOP_REQUEST) &&
  		    inet_addr_type(tip) == RTN_LOCAL &&
- 		    !arp_ignore(in_dev,dev,sip,tip))
+-		    !arp_ignore(in_dev,dev,sip,tip))
 -			arp_send(ARPOP_REPLY,ETH_P_ARP,tip,dev,tip,sha,dev->dev_addr,dev->dev_addr);
++		    !arp_ignore(in_dev, sip, tip))
 +			arp_send(ARPOP_REPLY, ETH_P_ARP, sip, dev, tip, sha,
 +				 dev->dev_addr, sha);
  		goto out;
  	}
  
-@@ -863,9 +864,10 @@ static int arp_process(struct sk_buff *s
+@@ -823,7 +822,7 @@ static int arp_process(struct sk_buff *s
+ 				int dont_send = 0;
+ 
+ 				if (!dont_send)
+-					dont_send |= arp_ignore(in_dev,dev,sip,tip);
++					dont_send |= arp_ignore(in_dev,sip,tip);
+ 				if (!dont_send && IN_DEV_ARPFILTER(in_dev))
+ 					dont_send |= arp_filter(sip,tip,dev);
+ 				if (!dont_send)
+@@ -863,9 +862,10 @@ static int arp_process(struct sk_buff *s
  		   devices (strip is candidate)
  		 */
  		if (n == NULL &&
@@ -81,7 +130,7 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
  	}
  
  	if (n) {
-@@ -1291,7 +1293,9 @@ static void arp_format_neigh_entry(struc
+@@ -1291,7 +1291,9 @@ static void arp_format_neigh_entry(struc
  		hbuffer[k++] = hexbuf[n->ha[j] & 15];
  		hbuffer[k++] = ':';
  	}
@@ -92,4 +141,38 @@ diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
  #if defined(CONFIG_AX25) || defined(CONFIG_AX25_MODULE)
  	}
  #endif
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -968,24 +968,19 @@ static __be32 confirm_addr_indev(struct
+ 
+ /*
+  * Confirm that local IP address exists using wildcards:
+- * - dev: only on this interface, 0=any interface
++ * - in_dev: only on this interface, 0=any interface
+  * - dst: only in the same subnet as dst, 0=any dst
+  * - local: address, 0=autoselect the local address
+  * - scope: maximum allowed scope value for the local address
+  */
+-__be32 inet_confirm_addr(const struct net_device *dev, __be32 dst, __be32 local, int scope)
++__be32 inet_confirm_addr(struct in_device *in_dev,
++			 __be32 dst, __be32 local, int scope)
+ {
+ 	__be32 addr = 0;
+-	struct in_device *in_dev;
++	struct net_device *dev;
+ 
+-	if (dev) {
+-		rcu_read_lock();
+-		if ((in_dev = __in_dev_get_rcu(dev)))
+-			addr = confirm_addr_indev(in_dev, dst, local, scope);
+-		rcu_read_unlock();
+-
+-		return addr;
+-	}
++	if (scope != RT_SCOPE_LINK)
++		return confirm_addr_indev(in_dev, dst, local, scope);
+ 
+ 	read_lock(&dev_base_lock);
+ 	rcu_read_lock();
 -- 
