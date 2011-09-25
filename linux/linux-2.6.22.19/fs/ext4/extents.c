@@ -2449,6 +2449,8 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 	int err = 0;
 	int ret = 0;
 	int may_zeroout;
+	int insert_max_extent = 0;
+	struct ext4_ext_path *old_leaf_path = NULL;
 
 	ext_debug("ext4_ext_convert_to_initialized: inode %lu, logical"
 		"block %llu, max_blocks %u\n", inode->i_ino,
@@ -2708,6 +2710,9 @@ static int ext4_ext_convert_to_initialized(handle_t *handle,
 	err = ext4_ext_dirty(handle, inode, path + depth);
 	goto out;
 insert:
+	if (path[depth].p_ext == EXT_MAX_EXTENT(path[depth].p_hdr))
+		insert_max_extent = 1;
+
 	err = ext4_ext_insert_extent(handle, inode, path, &newex, 0);
 	if (err == -ENOSPC && may_zeroout) {
 		err =  ext4_ext_zeroout(inode, &orig_ex);
@@ -2722,6 +2727,30 @@ insert:
 		return allocated;
 	} else if (err)
 		goto fix_extent_len;
+
+	if (insert_max_extent) {
+		old_leaf_path = ext4_ext_find_extent(inode, ee_block, NULL);
+		if (IS_ERR(old_leaf_path)) {
+			err = PTR_ERR(old_leaf_path);
+			old_leaf_path = NULL;
+			goto out;
+		}
+		depth = ext_depth(inode);
+
+		err = ext4_ext_get_access(handle, inode, old_leaf_path + depth);
+		if (err)
+			goto out;
+
+		old_leaf_path[depth].p_ext->ee_len = cpu_to_le16(iblock - ee_block);
+		ext4_ext_mark_uninitialized(old_leaf_path[depth].p_ext);
+
+		err = ext4_ext_dirty(handle, inode, old_leaf_path + depth);
+
+		if (old_leaf_path) {
+			ext4_ext_drop_refs(old_leaf_path);
+			kfree(old_leaf_path);
+		}
+	}
 out:
 	ext4_ext_show_leaf(inode, path);
 	return err ? err : allocated;
