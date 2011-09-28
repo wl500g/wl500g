@@ -80,7 +80,7 @@
            </td><td class="content_input_td"><input type="radio" value="1" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '1')" <% nvram_match_x("LANHostConfig","ddns_enable_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_enable_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_enable_x', '0')" <% nvram_match_x("LANHostConfig","ddns_enable_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address. Doesn't work with TZO service.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
+<td class="content_header_td" onMouseOver="return overlib('This field determines if dynamic dns service has to autodetect public IP address. Does not work with TZO service.', LEFT);" onMouseOut="return nd();">Autodetect public IP address?
            </td><td class="content_input_td"><input type="radio" value="1" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '1')" <% nvram_match_x("LANHostConfig","ddns_realip_x", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="ddns_realip_x" class="content_input_fd" onClick="return change_common_radio(this, 'LANHostConfig', 'ddns_realip_x', '0')" <% nvram_match_x("LANHostConfig","ddns_realip_x", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
