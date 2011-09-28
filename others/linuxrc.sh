@@ -37,7 +37,7 @@ echo > /proc/sys/kernel/hotplug
 
 # prepare /dev & /sys
 mount -t sysfs sysfs /sys
-mount -t tmpfs -o noatime devfs /dev
+mount -t tmpfs -o noatime,size=200K devfs /dev
 mknod -m 0600 /dev/console c 5 1
 mknod -m 0666 /dev/null c 1 3
 mknod -m 0640 /dev/nvram c 253 0
