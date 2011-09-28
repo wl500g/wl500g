@@ -697,7 +697,7 @@ sysinit(void)
 
 #ifdef LINUX26
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=200K");
 
 	/* populate /dev */
 	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
