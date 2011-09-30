@@ -23,10 +23,10 @@ diff -uBp linuz/arch/mips/brcm-boards/bcm947xx/prom.c linux/arch/mips/brcm-board
 +	/* Figure out memory size by finding aliases.
 +	 *
 +	 * We assume that there will be no more than 128 MB of low memory,
-+	 * and that the memory size will be a multiple of 4 MB.
++	 * and that the memory size will be a multiple of 1 MB.
 +	 *
 +	 * We set 'before' to be the amount of memory (in MB) before this
-+	 * function, i.e. four MB less than the number  of MB of memory that we
++	 * function, i.e. one MB less than the number  of MB of memory that we
 +	 * *know* we have.  And we set 'offset' to be the address of 'prominit'
 +	 * minus 'before', so that KSEG0 or KSEG1 base + offset < 4 MB.
 +	 * This prevents us from overrunning 128 MB and causing a bus error.
@@ -34,7 +34,7 @@ diff -uBp linuz/arch/mips/brcm-boards/bcm947xx/prom.c linux/arch/mips/brcm-board
 +
 +	before = ((unsigned long) &prom_init) & (127 MB);
 +	offset = ((unsigned long) &prom_init) - before;
-+	for (mem = before + (4 MB); mem < (128 MB); mem += (4 MB)) {
++	for (mem = before + (1 MB); mem < (128 MB); mem += (1 MB)) {
 +		if (*(unsigned long *)(offset + mem) ==
 +		    *(unsigned long *)(prom_init)) {
 +			/*
