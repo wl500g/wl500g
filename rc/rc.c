@@ -686,6 +686,8 @@ sysinit(void)
 	struct utsname name;
 	struct stat tmp_stat;
 	struct rlimit lim;
+	int totalram;
+	const char *tmpfsopt = NULL;
 
 	/* set default hardlimit */
 	getrlimit(RLIMIT_NOFILE, &lim);
@@ -697,7 +699,7 @@ sysinit(void)
 
 #ifdef LINUX26
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
-	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=200K");
+	mount("devfs", "/dev", "tmpfs", MS_MGC_VAL | MS_NOATIME, "size=100K");
 
 	/* populate /dev */
 	mknod("/dev/console", S_IFCHR | 0600, makedev(5, 1));
@@ -718,8 +720,14 @@ sysinit(void)
 	symlink("/proc/self/fd/2", "/dev/stderr");
 #endif
 
+	totalram = router_totalram();
+
 	/* /tmp */
-	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, NULL);
+	if (totalram <= 16*1024*1024 /* 16MB */) {
+		snprintf(buf, sizeof(buf), "size=%dK", (totalram >> 2) >> 10);
+		tmpfsopt = buf;
+	}
+	mount("tmpfs", "/tmp", "tmpfs", MS_MGC_VAL | MS_NOATIME, tmpfsopt);
 
 	/* /var */
 	mkdir("/tmp/var", 0777);

@@ -17,6 +17,7 @@
 #include <time.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/sysinfo.h>
 #include <syslog.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -889,4 +890,12 @@ int fputs_ex(char *name, char *value)
 		perror(name);
 
 	return errno;
+}
+
+int router_totalram()
+{
+	struct sysinfo si;
+
+	sysinfo(&si);
+	return si.totalram;
 }

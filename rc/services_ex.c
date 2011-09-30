@@ -611,10 +611,10 @@ stop_ddns(void)
 	return ret;
 }
 
-int 
-start_logger(void)
-{		
+int start_logger(void)
+{
 	pid_t pid;
+	int i = 12;
 
 #if 0
 	if (nvram_match("router_disable", "1"))
@@ -627,8 +627,8 @@ start_logger(void)
 		"-S", "-D",
 		"-l", nvram_safe_get("log_level_x"),
 		"-b", "1",
-		"-R", nvram_safe_get("log_ipaddr"),
-		"-L", NULL};
+		"-L",
+		NULL, NULL, NULL, NULL};
 	char *klogd_argv[] = {"klogd", NULL};
 
 	/* -l argument */
@@ -636,8 +636,18 @@ start_logger(void)
 		syslogd_argv[8] = "7";
 
 	/* -R argument */
-	if (!*syslogd_argv[12])
-		syslogd_argv[11] = NULL;
+	syslogd_argv[i+1] = nvram_get("log_ipaddr");
+	if (syslogd_argv[i+1] != NULL)
+	{
+		syslogd_argv[i++] = "-R";
+		i++;
+	}
+
+	if (router_totalram() <= 16*1024*1024 /* 16MB */)
+	{
+		syslogd_argv[i++] = "-s";
+		syslogd_argv[i++] = "32";
+	}
 
 	_eval(syslogd_argv, NULL, 0, &pid);
 	usleep(500000);
