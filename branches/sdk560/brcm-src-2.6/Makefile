@@ -23,7 +23,7 @@ endef
 
 wl:
 	tar -C . $(TAR_EXCL_SVN) -cf - wl | tar -C $(ROOT) --recursive-unlink -xf -
-	bzip2 -d $(ROOT)/wl/linux/*.bz2
+	-bzip2 -d $(ROOT)/wl/linux/*.bz2
 
 brcm_Patches := $(call patches_list,.)
 
