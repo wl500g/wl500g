@@ -1,0 +1,329 @@
+[4.4 Regression] Mismatch on size of class when initializing hierarchy involving virtual inheritance and empty base classes
+
+ http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48035
+
+--- gcc-4_5-branch/gcc/ChangeLog	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/ChangeLog	2011/04/18 14:02:22	172647
+@@ -1,6 +1,21 @@
+ 	* cfgloopmanip.c (remove_path): Avoid cancelling loops
+ 	twice.
+ 
++2011-04-18  Richard Guenther  <rguenther@suse.de>
++
++	Backported from 4.5 branch
++	2011-03-05  Zdenek Dvorak  <ook@ucw.cz>
++
++	PR rtl-optimization/47899
++	* cfgloopmanip.c (fix_bb_placements): Fix first argument
++	to flow_loop_nested_p when moving the loop upward.
++
++	2011-03-15  Richard Guenther  <rguenther@suse.de>
++ 
++	PR middle-end/48031
++	* fold-const.c (fold_indirect_ref_1): Do not create new variable-sized
++	or variable-indexed array accesses when in gimple form.
++
+ 2011-04-16  Release Manager
+ 
+ 	* GCC 4.4.6 released.
+--- gcc-4_5-branch/gcc/cfgloopmanip.c	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/cfgloopmanip.c	2011/04/18 14:02:22	172647
+@@ -174,7 +174,7 @@
+ {
+   sbitmap in_queue;
+   basic_block *queue, *qtop, *qbeg, *qend;
+-  struct loop *base_loop;
++  struct loop *base_loop, *target_loop;
+   edge e;
+ 
+   /* We pass through blocks back-reachable from FROM, testing whether some
+@@ -214,12 +214,14 @@
+ 	  /* Subloop header, maybe move the loop upward.  */
+ 	  if (!fix_loop_placement (from->loop_father))
+ 	    continue;
++	  target_loop = loop_outer (from->loop_father);
+ 	}
+       else
+ 	{
+ 	  /* Ordinary basic block.  */
+ 	  if (!fix_bb_placement (from))
+ 	    continue;
++	  target_loop = from->loop_father;
+ 	}
+ 
+       FOR_EACH_EDGE (e, ei, from->succs)
+@@ -248,9 +250,12 @@
+ 	      && (nca == base_loop
+ 		  || nca != pred->loop_father))
+ 	    pred = pred->loop_father->header;
+-	  else if (!flow_loop_nested_p (from->loop_father, pred->loop_father))
++	  else if (!flow_loop_nested_p (target_loop, pred->loop_father))
+ 	    {
+-	      /* No point in processing it.  */
++	      /* If PRED is already higher in the loop hierarchy than the
++		 TARGET_LOOP to that we moved FROM, the change of the position
++		 of FROM does not affect the position of PRED, so there is no
++		 point in processing it.  */
+ 	      continue;
+ 	    }
+ 
+--- gcc-4_5-branch/gcc/cp/ChangeLog	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/cp/ChangeLog	2011/04/18 14:02:22	172647
+@@ -1,6 +1,19 @@
+ 	* decl2.c (build_offset_ref_call_from_tree): Fix calling a functor
+ 	or pointer to (non-member) function.
+ 
++2011-04-18  Richard Guenther  <rguenther@suse.de>
++
++	Backported from 4.5 branch 
++	2011-03-11  Jakub Jelinek  <jakub@redhat.com>
++
++	PR c++/48035
++	* init.c (build_zero_init_1): Extracted from build_zero_init.
++	Add FIELD_SIZE argument, if non-NULL and field bit_position
++	as not smaller than that, don't add that field's initializer.
++	Pass DECL_SIZE as last argument to build_zero_init_1
++	for DECL_FIELD_IS_BASE fields.
++	(build_zero_init): Use build_zero_init_1.
++
+ 2011-04-16  Release Manager
+ 
+ 	* GCC 4.4.6 released.
+--- gcc-4_5-branch/gcc/cp/init.c	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/cp/init.c	2011/04/18 14:02:22	172647
+@@ -143,10 +143,13 @@
+    is the number of elements in the array.  If STATIC_STORAGE_P is
+    TRUE, initializers are only generated for entities for which
+    zero-initialization does not simply mean filling the storage with
+-   zero bytes.  */
++   zero bytes.  FIELD_SIZE, if non-NULL, is the bit size of the field,
++   subfields with bit positions at or above that bit size shouldn't
++   be added.  */
+ 
+-tree
+-build_zero_init (tree type, tree nelts, bool static_storage_p)
++static tree
++build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
++		   tree field_size)
+ {
+   tree init = NULL_TREE;
+ 
+@@ -191,15 +194,32 @@
+ 	  if (TREE_CODE (field) != FIELD_DECL)
+ 	    continue;
+ 
++	  /* Don't add virtual bases for base classes if they are beyond
++	     the size of the current field, that means it is present
++	     somewhere else in the object.  */
++	  if (field_size)
++	    {
++	      tree bitpos = bit_position (field);
++	      if (TREE_CODE (bitpos) == INTEGER_CST
++		  && !tree_int_cst_lt (bitpos, field_size))
++		continue;
++	    }
++
+ 	  /* Note that for class types there will be FIELD_DECLs
+ 	     corresponding to base classes as well.  Thus, iterating
+ 	     over TYPE_FIELDs will result in correct initialization of
+ 	     all of the subobjects.  */
+ 	  if (!static_storage_p || !zero_init_p (TREE_TYPE (field)))
+ 	    {
+-	      tree value = build_zero_init (TREE_TYPE (field),
+-					    /*nelts=*/NULL_TREE,
+-					    static_storage_p);
++	      tree new_field_size
++		= (DECL_FIELD_IS_BASE (field)
++		   && DECL_SIZE (field)
++		   && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST)
++		  ? DECL_SIZE (field) : NULL_TREE;
++	      tree value = build_zero_init_1 (TREE_TYPE (field),
++					      /*nelts=*/NULL_TREE,
++					      static_storage_p,
++					      new_field_size);
+ 	      if (value)
+ 		CONSTRUCTOR_APPEND_ELT(v, field, value);
+ 	    }
+@@ -247,9 +267,9 @@
+ 	    ce->index = build2 (RANGE_EXPR, sizetype, size_zero_node,
+ 				max_index);
+ 
+-	  ce->value = build_zero_init (TREE_TYPE (type),
+-				       /*nelts=*/NULL_TREE,
+-				       static_storage_p);
++	  ce->value = build_zero_init_1 (TREE_TYPE (type),
++					 /*nelts=*/NULL_TREE,
++					 static_storage_p, NULL_TREE);
+ 	}
+ 
+       /* Build a constructor to contain the initializations.  */
+@@ -267,6 +287,24 @@
+   return init;
+ }
+ 
++/* Return an expression for the zero-initialization of an object with
++   type T.  This expression will either be a constant (in the case
++   that T is a scalar), or a CONSTRUCTOR (in the case that T is an
++   aggregate), or NULL (in the case that T does not require
++   initialization).  In either case, the value can be used as
++   DECL_INITIAL for a decl of the indicated TYPE; it is a valid static
++   initializer. If NELTS is non-NULL, and TYPE is an ARRAY_TYPE, NELTS
++   is the number of elements in the array.  If STATIC_STORAGE_P is
++   TRUE, initializers are only generated for entities for which
++   zero-initialization does not simply mean filling the storage with
++   zero bytes.  */
++
++tree
++build_zero_init (tree type, tree nelts, bool static_storage_p)
++{
++  return build_zero_init_1 (type, nelts, static_storage_p, NULL_TREE);
++}
++
+ /* Return a suitable initializer for value-initializing an object of type
+    TYPE, as described in [dcl.init].  */
+ 
+--- gcc-4_5-branch/gcc/fold-const.c	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/fold-const.c	2011/04/18 14:02:22	172647
+@@ -16074,12 +16074,17 @@ fold_indirect_ref_1 (tree type, tree op0)
+ 	}
+       /* *(foo *)&fooarray => fooarray[0] */
+       else if (TREE_CODE (optype) == ARRAY_TYPE
+-	       && type == TREE_TYPE (optype))
++	       && type == TREE_TYPE (optype)
++	       && (!in_gimple_form
++		   || TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
+ 	{
+ 	  tree type_domain = TYPE_DOMAIN (optype);
+ 	  tree min_val = size_zero_node;
+ 	  if (type_domain && TYPE_MIN_VALUE (type_domain))
+ 	    min_val = TYPE_MIN_VALUE (type_domain);
++	  if (in_gimple_form
++	      && TREE_CODE (min_val) != INTEGER_CST)
++	    return NULL_TREE;
+ 	  return build4 (ARRAY_REF, type, op, min_val, NULL_TREE, NULL_TREE);
+ 	}
+ 
+@@ -16150,7 +16155,9 @@ fold_indirect_ref_1 (tree type, tree op0)
+ 
+   /* *(foo *)fooarrptr => (*fooarrptr)[0] */
+   if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
+-      && type == TREE_TYPE (TREE_TYPE (subtype)))
++      && type == TREE_TYPE (TREE_TYPE (subtype))
++      && (!in_gimple_form
++	  || TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST))
+     {
+       tree type_domain;
+       tree min_val = size_zero_node;
+@@ -16158,6 +16165,9 @@ fold_indirect_ref_1 (tree type, tree op0)
+       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
+       if (type_domain && TYPE_MIN_VALUE (type_domain))
+ 	min_val = TYPE_MIN_VALUE (type_domain);
++      if (in_gimple_form
++	  && TREE_CODE (min_val) != INTEGER_CST)
++	return NULL_TREE;
+       return build4 (ARRAY_REF, type, sub, min_val, NULL_TREE, NULL_TREE);
+     }
+ 
+--- gcc-4_5-branch/gcc/testsuite/ChangeLog	2011/04/18 14:01:13	172646
++++ gcc-4_5-branch/gcc/testsuite/ChangeLog	2011/04/18 14:02:22	172647
+@@ -1,6 +1,19 @@
+ 
+ 	* g++.dg/template/operator11.C: New.
+ 
++2011-04-18  Richard Guenther  <rguenther@suse.de>
++
++	Backported from 4.5 branch 
++	2011-03-11  Jakub Jelinek  <jakub@redhat.com>
++
++	PR c++/48035
++	* g++.dg/inherit/virtual8.C: New test.
++
++	2011-03-05  Zdenek Dvorak  <ook@ucw.cz>
++
++	PR rtl-optimization/47899
++	* gcc.dg/pr47899.c: New test.
++
+ 2011-04-16  Release Manager
+ 
+ 	* GCC 4.4.6 released.
+--- /dev/null
++++ gcc-4_5-branch/gcc/testsuite/g++.dg/inherit/virtual8.C	2011/04/18 14:37:08	172652
+@@ -0,0 +1,48 @@
++// PR c++/48035
++// { dg-do run }
++
++#include <new>
++#include <cstring>
++#include <cstdlib>
++
++struct A
++{
++  virtual void foo (void) {}
++  virtual ~A () {}
++};
++
++struct B : public A
++{
++  virtual ~B () {}
++};
++
++struct C
++{
++  virtual ~C () {}
++  int c;
++};
++
++struct D : public virtual B, public C
++{
++  virtual ~D () {}
++};
++
++struct E : public virtual D
++{
++  virtual ~E () {}
++};
++
++int
++main ()
++{
++  char *v = new char[sizeof (E) + 16];
++  memset (v, 0x55, sizeof (E) + 16);
++  E *e = new (v) E ();
++  e->~E ();
++
++  for (unsigned i = sizeof (E); i < sizeof (E) + 16; ++i)
++    if (v[i] != 0x55)
++      abort ();
++
++  delete[] v;
++}
+--- /dev/null
++++ gcc-4_5-branch/gcc/testsuite/gcc.dg/pr47899.c	2011/04/18 14:37:08	172652
+@@ -0,0 +1,26 @@
++/* PR rtl-optimization/47899 */
++/* { dg-do compile } */
++/* { dg-options "-O -funroll-loops" } */
++
++extern unsigned int a, b, c;
++extern int d;
++
++static int
++foo (void)
++{
++lab:
++  if (b)
++    for (d = 0; d >= 0; d--)
++      if (a || c)
++	for (; c; c++)
++	  ;
++      else
++	goto lab;
++}
++
++int
++main ()
++{
++  foo ();
++  return 0;
++}
+-- 
