@@ -237,21 +237,8 @@ void convert_asus_values()
 	{
                 if (nvram_match("wl_wpa_mode", "0"))
                 {
-                        if (nvram_match("wl_crypto", "tkip") || nvram_match("wl_crypto", "0"))
-                        {
-                                nvram_set("wl_akm", "psk");
-                                nvram_set("wl0_akm", "psk");
-                        }
-                        else if (nvram_match("wl_crypto", "aes"))
-                        {
-                                nvram_set("wl_akm", "psk2");
-                                nvram_set("wl0_akm", "psk2");
-                        }
-                        else
-                        {
-                                nvram_set("wl_akm", "psk psk2");
-                                nvram_set("wl0_akm", "psk psk2");
-                        }
+                        nvram_set("wl_akm", "psk psk2");
+                        nvram_set("wl0_akm", "psk psk2");
                 }
                 else if (nvram_match("wl_wpa_mode", "1"))
                 {
