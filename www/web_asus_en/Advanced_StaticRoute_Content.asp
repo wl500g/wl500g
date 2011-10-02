@@ -29,7 +29,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Set a metric for the matched route when sending announcement. For RIP, valid metric values are from 1 to 16.', LEFT);" onMouseOut="return nd();">Set metric of static route (1-16):
-           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dr_static_matric_x" class="content_input_fd" value="<% nvram_get_x("RouterConfig", "dr_static_matric_x"); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" size="5" name="dr_static_matric_x" class="content_input_fd" value="<% nvram_get_x("RouterConfig", "dr_static_matric_x"); %>" onBlur="validate_range(this, 1, 16)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field defines only those matched destination networks, which are specified in the Static Route Filter table will be distributed or not be distributed.', LEFT);" onMouseOut="return nd();">Only routes specified in route filter will
@@ -69,9 +69,9 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="18" name="dr_staticipaddr_x_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan="">
-<input type="text" maxlength="5" class="content_list_body" size="8" name="dr_staticnetmask_x_0" onKeyPress="return is_number(this)">
-</td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="16" name="dr_staticgateway_x_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="18" name="dr_staticipaddr_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan="">
+<input type="text" maxlength="5" class="content_list_body" size="8" name="dr_staticnetmask_x_0" onKeyPress="return is_number(event, this)">
+</td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="16" name="dr_staticgateway_x_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="StaticRoute_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">
@@ -119,7 +119,7 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="_0" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(this)"></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="15" class="content_input_list_fd" size="15" name="_0" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="5" style="font-family: monospace; font-size: 10pt; width: 100%" size="8" name="_0" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="RipSRoute_s" multiple="true" style="font-family: 'monospace'; font-size: '8pt'; width: 100%">

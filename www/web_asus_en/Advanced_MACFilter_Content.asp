@@ -66,7 +66,7 @@
            	        </td><td></td>
 </tr>
 <tr>
-<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="32" name="macfilter_list_x_0" onKeyPress="return is_hwaddr()"></td>
+<td></td><td class="content_list_input_td" colspan=""><input type="text" maxlength="12" class="content_input_list_fd" size="32" name="macfilter_list_x_0" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 <tr>
 <td></td><td colspan="10"><select size="8" name="MFList_s" multiple="true" class="content_list_body">

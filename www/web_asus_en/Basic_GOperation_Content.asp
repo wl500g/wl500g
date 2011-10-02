@@ -69,7 +69,7 @@
 						</td>
 						<td class="content_input_td">
 							<input type="text" maxlength="256" class="content_input_fd" size="32" name="time_zone"
-								value="<% nvram_get_x("LANHostConfig","time_zone"); %>" onkeypress="return is_string(this)"
+								value="<% nvram_get_x("LANHostConfig","time_zone"); %>" onkeypress="return is_string(event, this)"
 								onblur="validate_string(this)">
 						</td>
 					</tr>
@@ -263,7 +263,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="12" size="12" name="wan_hwaddr_x" class="content_input_fd"
 								value="<% nvram_get_x("PPPConnection","wan_hwaddr_x"); %>" onblur="return validate_hwaddr(this)"
-								onkeypress="return is_hwaddr()">
+								onkeypress="return is_hwaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -320,7 +320,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="15" size="15" name="wan_ipaddr" class="content_input_fd"
 								value="<% nvram_get_x("IPConnection","wan_ipaddr"); %>" onblur="return validate_ipaddr(this, 'wan_ipaddr')"
-								onkeypress="return is_ipaddr(this)">
+								onkeypress="return is_ipaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -330,7 +330,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="15" size="15" name="wan_netmask" class="content_input_fd"
 								value="<% nvram_get_x("IPConnection","wan_netmask"); %>" onblur="return validate_ipaddr(this)"
-								onkeypress="return is_ipaddr(this)">
+								onkeypress="return is_ipaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -340,7 +340,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="15" size="15" name="wan_gateway" class="content_input_fd"
 								value="<% nvram_get_x("IPConnection","wan_gateway"); %>" onblur="return validate_ipaddr(this)"
-								onkeypress="return is_ipaddr(this)">
+								onkeypress="return is_ipaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -361,7 +361,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="15" size="15" name="wan_dns1_x" class="content_input_fd"
 								value="<% nvram_get_x("IPConnection","wan_dns1_x"); %>" onblur="return validate_ipaddr(this)"
-								onkeypress="return is_ipaddr(this)">
+								onkeypress="return is_ipaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -371,7 +371,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="15" size="15" name="wan_dns2_x" class="content_input_fd"
 								value="<% nvram_get_x("IPConnection","wan_dns2_x"); %>" onblur="return validate_ipaddr(this)"
-								onkeypress="return is_ipaddr(this)">
+								onkeypress="return is_ipaddr(event, this)">
 						</td>
 					</tr>
 					<tr>
@@ -458,7 +458,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="32" size="32" name="wl_key1" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key1"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
-								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
+								onkeypress="return is_wlkey(event, this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
 					</tr>
 					<tr>
@@ -468,7 +468,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="32" size="32" name="wl_key2" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key2"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
-								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
+								onkeypress="return is_wlkey(event, this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
 					</tr>
 					<tr>
@@ -478,7 +478,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="32" size="32" name="wl_key3" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key3"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
-								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
+								onkeypress="return is_wlkey(event, this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
 					</tr>
 					<tr>
@@ -488,7 +488,7 @@
 						<td class="content_input_td">
 							<input type="text" maxlength="32" size="32" name="wl_key4" class="content_input_fd"
 								value="<% nvram_get_x("WLANConfig11b","wl_key4"); %>" onblur="return validate_wlkey(this, 'WLANConfig11b')"
-								onkeypress="return is_wlkey(this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
+								onkeypress="return is_wlkey(event, this, 'WLANConfig11b')" onkeyup="return change_wlkey(this, 'WLANConfig11b')">
 						</td>
 					</tr>
 					<tr>

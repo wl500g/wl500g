@@ -29,15 +29,15 @@
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP community name, which will be used to check for authorization', LEFT);" onMouseOut="return nd();">Community name:</td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="snmp_community" value="<% nvram_get_x("LANHostConfig","snmp_community"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP community name, which will be used to check for authorization', LEFT);" onMouseOut="return nd();">Community name:</td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="snmp_community" value="<% nvram_get_x("LANHostConfig","snmp_community"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system location', LEFT);" onMouseOut="return nd();">System location:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_location" value="<% nvram_get_x("LANHostConfig","snmp_location"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system location', LEFT);" onMouseOut="return nd();">System location:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_location" value="<% nvram_get_x("LANHostConfig","snmp_location"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system contact person (e.g. e-mail address)', LEFT);" onMouseOut="return nd();">System contact:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_contact" value="<% nvram_get_x("LANHostConfig","snmp_contact"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('Specifies SNMP system contact person (e.g. e-mail address)', LEFT);" onMouseOut="return nd();">System contact:</td><td class="content_input_td"><input type="text" maxlength="80" class="content_input_fd" size="32" name="snmp_contact" value="<% nvram_get_x("LANHostConfig","snmp_contact"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 </table>
 

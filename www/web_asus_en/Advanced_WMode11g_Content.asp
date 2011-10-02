@@ -33,16 +33,16 @@
 <td class="content_header_td" onMouseOver="return overlib('Selecting No disables wireless bridge restriction. Any wireless bridge (including the ones listed in Remote Bridges) will be granted access. Selecting Yes enables wireless bridge restriction. Only those bridges listed in Remote Bridges will be granted access.', LEFT);" onMouseOut="return nd();">Restrict Bridge to MACs below:</td><td class="content_input_td"><input type="radio" value="1" name="WLANConfig11b_x_BRestrict" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'x_BRestrict', '1')" <% nvram_match_x("WLANConfig11b","x_BRestrict", "1", "checked"); %>>Yes</input><input type="radio" value="0" name="WLANConfig11b_x_BRestrict" class="content_input_fd" onClick="return change_common_radio(this, 'WLANConfig11b', 'x_BRestrict', '0')" <% nvram_match_x("WLANConfig11b","x_BRestrict", "0", "checked"); %>>No</input></td>
 </tr>
 <tr>
-<td class="content_header_td">Remote Bridge 1:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr1" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr1"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
+<td class="content_header_td">Remote Bridge 1:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr1" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr1"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td">Remote Bridge 2:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr2" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr2"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
+<td class="content_header_td">Remote Bridge 2:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr2" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr2"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td">Remote Bridge 3:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr3" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr3"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
+<td class="content_header_td">Remote Bridge 3:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr3" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr3"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 <tr>
-<td class="content_header_td">Remote Bridge 4:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr4" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr4"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr()"></td>
+<td class="content_header_td">Remote Bridge 4:</td><td class="content_input_td"><input type="text" maxlength="12" class="content_input_fd" size="12" name="WLANConfig11b_x_BRhwaddr4" value="<% nvram_get_x("WLANConfig11b","x_BRhwaddr4"); %>" onBlur="return validate_hwaddr(this)" onKeyPress="return is_hwaddr(event, this)"></td>
 </tr>
 </table>
 	

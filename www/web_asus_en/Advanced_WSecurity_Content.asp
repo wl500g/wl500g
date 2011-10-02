@@ -29,11 +29,11 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the IP address of the RADIUS server to use for 802.1X wireless authentication and dynamic WEP key derivation.', LEFT);" onMouseOut="return nd();">Server IP Address:
-           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="wl_radius_ipaddr" value="<% nvram_get_x("WLANAuthentication11a","wl_radius_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'wl_radius_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="wl_radius_ipaddr" value="<% nvram_get_x("WLANAuthentication11a","wl_radius_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'wl_radius_ipaddr')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the UDP port number used by the RADIUS server.', LEFT);" onMouseOut="return nd();">Server Port:
-           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="wl_radius_port" value="<% nvram_get_x("WLANAuthentication11a","wl_radius_port"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="5" class="content_input_fd" size="5" name="wl_radius_port" value="<% nvram_get_x("WLANAuthentication11a","wl_radius_port"); %>" onBlur="validate_range(this, 0, 65535)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field specifies the password used to initialize a connection with the RADIUS server.', LEFT);" onMouseOut="return nd();">Connection Secret:

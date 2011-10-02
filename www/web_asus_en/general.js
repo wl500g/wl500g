@@ -1,6 +1,6 @@
 /*general*/
 
-var nav;
+//var nav;
 var change;
 var keyPressed;
 var wItem;
@@ -8,63 +8,24 @@ var ip = "";
 var chanList = 0;
 var wep1, wep2, wep3, wep4;
 
-
-if (navigator.appName == 'Netscape')
-{
-	nav = true;
-//	window.captureEvents(event.KEYPRESS);
-//	window.onkeydown = NetscapeEventHandler_KeyDown;
-}
-else
-{
-	nav = false;
-	document.onkeydown = MicrosoftEventHandler_KeyDown;
-}
-
-//if(document.all)
-//{
-//var tags=document.all.tags("a")
-//for (var i=0;i<tags.length;i++)
-//tags(i).outerHTML=tags(i).outerHTML.replace(">"," hidefocus=true>")
-//}
-
-function NetscapeEventHandler_KeyDown(e)
-{
-	keyPressed = e.which;
-
-	if (keyPressed<48 && keyPressed!=16)
-	{
-		keyPressed = 0;
-	}
-//	if (e.which == 13 && e.target.type != 'textarea' && e.target.type !=
-//	'submit')
-//	{
-//	return false;
-//	}
-	return true;
-}
-
-function NavKey()
+function NavKey(event)
 {
 	window.top.pageChanged = 1;
-	if (nav)
-		return (0);
-	else
-		return (event.keyCode);
+
+	if (typeof(event)=='undefined') event = window.event;
+
+	if (event.which == null)
+		return event.keyCode;
+	else if (event.which != 0) {
+		if (typeof(event.charCode) != 'undefined') {
+			if (event.charCode != 0)
+				return event.which;
+		} else if (event.which > 9) // Opera workaround
+			return event.which;
+	}
+	return 0;
 }
 
-function MicrosoftEventHandler_KeyDown()
-{
-	/*
-	 * if (keyPressed == 13 && event.srcElement.type != 'button' &&
-	 * event.srcElement.type != 'textarea' && event.srcElement.type != 'submit')
-	 * return false; return true;
-	 */
-
-//	keyPressed = event.keyCode;
-
-	return true;
-}
 
 function inputCtrl(o, flag)
 {
@@ -444,12 +405,6 @@ function refreshList()
 //	parent.treeFrame.location.href='index.asp';
 }
 
-function onApply(o)
-{
-	parent.upperframe.location.href="Restarting.html";
-	parent.upperframe.location.href="Restarting.html";
-}
-
 function entry_cmp(entry, match, len)
 {
 	var j;
@@ -490,10 +445,10 @@ function validate_duplicate(o, v, l, off)
 	return true;
 }
 
-function is_hwaddr()
+function is_hwaddr(event, o)
 {
 
-	keyPressed=NavKey();
+	keyPressed=NavKey(event);
 
 	if ((keyPressed>47 && keyPressed<58)||(keyPressed>64 && keyPressed<71)||(keyPressed>96 && keyPressed<103))
 		return true;
@@ -531,9 +486,9 @@ function validate_hwaddr(o)
 	return false;
 }
 
-function is_string(o)
+function is_string(event,o)
 {
-	keyPressed = NavKey();
+	keyPressed = NavKey(event);
 
 	if (keyPressed===0) return true;
 	else if (keyPressed>=0&&keyPressed<=126) return true;
@@ -578,9 +533,9 @@ function validate_string(o)
 	return true;
 }
 
-function is_number(o)
+function is_number(event, o)
 {
-	keyPressed = NavKey();
+	keyPressed = NavKey(event);
 
 	if (keyPressed===0) return true;
 
@@ -662,13 +617,13 @@ function change_ipaddr(o)
 	 */
 }
 
-function is_ipaddr(o)
+function is_ipaddr(event, o)
 {
 //	alert(e.which);
 //	if (nav) keyPressed = e.which;
 //	alert('NAV' + e.which);
 
-	keyPressed=NavKey();
+	keyPressed=NavKey(event);
 
 
 	if (keyPressed===0)
@@ -888,13 +843,13 @@ function change_ipaddrport(o)
 }
 
 
-function is_ipaddrport(o)
+function is_ipaddrport(event, o)
 {
 //	alert(e.which);
 //	if (nav) keyPressed = e.which;
 //	alert('NAV' + e.which);
 
-	keyPressed=NavKey();
+	keyPressed=NavKey(event);
 
 
 	if (keyPressed===0)
@@ -998,9 +953,9 @@ function change_iprange(o)
 	 */
 }
 
-function is_iprange(o)
+function is_iprange(event, o)
 {
-	keyPressed=NavKey();
+	keyPressed=NavKey(event);
 
 	if (keyPressed===0)
 	{
@@ -1119,9 +1074,9 @@ function validate_iprange(o, v)
 	return true;
 }
 
-function is_portrange(o)
+function is_portrange(event, o)
 {
-	keyPressed=NavKey();
+	keyPressed=NavKey(event);
 
 	if (keyPressed===0) return true;
 
@@ -1219,9 +1174,9 @@ function validate_portrange(o, v)
 
 }
 
-function is_portlist(o)
+function is_portlist(event, o)
 {
-	keyPressed = NavKey();
+	keyPressed = NavKey(event);
 
 	if (keyPressed === 0 ) return true;
 
@@ -3086,9 +3041,9 @@ function change_widzard(o, id)
 
 
 
-function is_wlkey(o, s)
+function is_wlkey(event, o, s)
 {
-	keyPressed = NavKey();
+	keyPressed = NavKey(event);
 
 	if (keyPressed === 0) return true;
 
