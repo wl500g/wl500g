@@ -53,7 +53,7 @@
 				</td>
 				<td class="content_input_td">
 					<input type="text" maxlength="100" class="content_input_fd" size="32" name="wan_wimax_ssid"
-				value="<% nvram_get_x("WiMaxConfig","wan_wimax_ssid"); %>" onkeypress="return is_string(this)"
+				value="<% nvram_get_x("WiMaxConfig","wan_wimax_ssid"); %>" onkeypress="return is_string(event, this)"
 				onblur="validate_string(this)">
 				</td>
 			</tr>
@@ -75,7 +75,7 @@
 				<td class="content_input_td">
 					<input type="text" maxlength="5" class="content_input_fd" size="3" name="wan_wimax_interval"
 				value="<% nvram_get_x("WiMaxConfig","wan_wimax_interval"); %>" onblur="return validate_range(this, 1, 10000)"
-				onkeypress="return is_number(this)">
+				onkeypress="return is_number(event, this)">
 				</td>
 			</tr>
 			<tr>

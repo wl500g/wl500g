@@ -25,35 +25,35 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Background Parameters for AP:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_bk" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_bk"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_bk" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_bk"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Best-Effect Parameters for AP:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_be" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_be"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_be" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_be"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Video Parameters for AP:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_vi" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_vi"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_vi" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_vi"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Voice Parameters for AP:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_vo" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_vo"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_ap_vo" value="<% nvram_get_x("WLANConfig11b","wl_wme_ap_vo"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Background Parameters for STA:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_bk" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_bk"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_bk" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_bk"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Best-Effect Parameters for STA:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_be" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_be"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_be" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_be"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Video Parameters for STA:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_vi" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_vi"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_vi" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_vi"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Please input string as CWmin CWmax AIFSN TXOP(b) TXOP(a,g) Admin Forced.', LEFT);" onMouseOut="return nd();">WMM Voice Parameters for STA:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_vo" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_vo"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_wme_sta_vo" value="<% nvram_get_x("WLANConfig11b","wl_wme_sta_vo"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Enable WPA2 Preauthentication?
@@ -61,7 +61,7 @@
 </tr>
 <tr>
 <td class="content_header_td">Network Re-authentication Interval:
-           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_net_reauth" value="<% nvram_get_x("WLANConfig11b","wl_net_reauth"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="256" class="content_input_fd" size="32" name="wl_net_reauth" value="<% nvram_get_x("WLANConfig11b","wl_net_reauth"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 </table>
 

@@ -45,11 +45,11 @@
 
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:
-           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
-<td class="content_header_td" onMouseOver="return overlib('Specifies workgroup name, which will be used by ZVMODELVZ to appear in.', LEFT);" onMouseOut="return nd();">Workgroup Name:</td><td class="content_input_td"><input type="text" maxlength="20" class="content_input_fd" size="32" name="usb_smbwrkgrp_x" value="<% nvram_get_x("PrinterStatus","usb_smbwrkgrp_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+<td class="content_header_td" onMouseOver="return overlib('Specifies workgroup name, which will be used by ZVMODELVZ to appear in.', LEFT);" onMouseOut="return nd();">Workgroup Name:</td><td class="content_input_td"><input type="text" maxlength="20" class="content_input_fd" size="32" name="usb_smbwrkgrp_x" value="<% nvram_get_x("PrinterStatus","usb_smbwrkgrp_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 
 <tr>
@@ -96,13 +96,13 @@
 </tr>
 <tr>
 	<td></td>
-	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbdir_x_0" onKeyPress="return is_string()"></td>
-	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbshare_x_0" onKeyPress="return is_string()"></td>
+	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbdir_x_0" onKeyPress="return is_string(event, this)"></td>
+	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbshare_x_0" onKeyPress="return is_string(event, this)"></td>
 	<td class="content_list_input_td" colspan=""><select name="usb_smblevel_x_0" class="content_input_fd">
 		<option class="content_input_fd" value="Read Only">Read Only</option>
 		<option class="content_input_fd" value="Read/Write">Read/Write</option>
 	</select></td>
-	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbdesc_x_0" onKeyPress="return is_string()"></td>
+	<td class="content_list_input_td" colspan=""><input type="text" maxlength="80" class="content_input_list_fd" size="20" name="usb_smbdesc_x_0" onKeyPress="return is_string(event, this)"></td>
 </tr>
 
 <tr>
