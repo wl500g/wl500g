@@ -547,6 +547,7 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 	int i, j, val;
 	int ret = 0;
 	channel_info_t ci;
+	char chanspec[16] = "chanspec"; /* sizeof("255 + 255") */
 
 	if ((unit = atoi(nvram_safe_get("wl_unit"))) < 0)
 		return -1;
@@ -562,8 +563,19 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 		return 0;
 	}
 	
-	wl_ioctl(name, WLC_GET_CHANNEL, &ci, sizeof(ci));
-
+	/* query wl for chanspec */
+	if (wl_ioctl(name, WLC_GET_VAR, &chanspec, sizeof(chanspec)) == 0)
+	{
+		val = *(chanspec_t *) &chanspec;
+		snprintf(chanspec, sizeof(chanspec),
+		    CHSPEC_IS40(val) ? "%d + %d" : "%d",
+		    CHSPEC_CTL_CHAN(val),
+		    CHSPEC_SB_LOWER(val) ? UPPER_20_SB(CHSPEC_CHANNEL(val))
+					 : LOWER_20_SB(CHSPEC_CHANNEL(val)));
+	} else {
+		wl_ioctl(name, WLC_GET_CHANNEL, &ci, sizeof(ci));
+		snprintf(chanspec, sizeof(chanspec), "%d", ci.target_channel);
+	}
 
 	if (nvram_match(strcat_r(prefix, "mode", tmp), "ap"))
 	{
@@ -572,25 +584,25 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 			ret+=websWrite(wp, "Mode	: Hybrid\n");
 		else    ret+=websWrite(wp, "Mode	: AP Only\n");
 
-		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
+		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
 
 	}
 	else if (nvram_match(strcat_r(prefix, "mode", tmp), "wds"))
 	{
 		ret+=websWrite(wp, "Mode	: WDS Only\n");
-		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
+		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
 	}
 	else if (nvram_match(strcat_r(prefix, "mode", tmp), "sta"))
 	{
 		ret+=websWrite(wp, "Mode	: Station\n");
-		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
+		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
 		ret+=ej_wl_sta_status(eid, wp, name);
 		return ret;
 	}
 	else if (nvram_match(strcat_r(prefix, "mode", tmp), "wet"))
 	{
 		ret+=websWrite(wp, "Mode	: Ethernet Bridge\n");
-		ret+=websWrite(wp, "Channel	: %d\n", ci.target_channel);
+		ret+=websWrite(wp, "Channel	: %s\n", chanspec);
 		ret+=ej_wl_sta_status(eid, wp, name);
 		return ret;
 	}	
