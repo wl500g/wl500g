@@ -679,8 +679,8 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 	netconf_nat_t *nat_list = NULL;
 	char line[256], tstr[32];
 
-	ret += websWrite(wp, "Destination     Proto.  Port range  Redirect to     Local port\n");
-	/*                   "255.255.255.255 ALL     65535:65535 255.255.255.255 65535:65535" */
+	ret += websWrite(wp, "Source          Destination     Proto.  Port range  Redirect to     Local port\n");
+	/*                   "255.255.255.255 255.255.255.255 ALL     65535:65535 255.255.255.255 65535:65535" */
 
 	netconf_get_nat(NULL, &needlen);
 	if (needlen <= 0)
@@ -702,11 +702,17 @@ ej_nat_table(int eid, webs_t wp, int argc, char_t **argv)
 			//		nat_list[i].match.dst.ipaddr.s_addr);	
 			if (nat_list[i].target == NETCONF_DNAT)
 			{
-				/* Destination */
-				if (nat_list[i].match.dst.ipaddr.s_addr == 0)
+				/* Source */
+				if (nat_list[i].match.src.ipaddr.s_addr == 0)
 					sprintf(line, "%-15s", "ALL");
 				else
-					sprintf(line, "%-15s", inet_ntoa(nat_list[i].match.dst.ipaddr));
+					sprintf(line, "%-15s", inet_ntoa(nat_list[i].match.src.ipaddr));
+
+				/* Destination */
+				if (nat_list[i].match.dst.ipaddr.s_addr == 0)
+					sprintf(line, "%s %-15s", line, "ALL");
+				else
+					sprintf(line, "%s %-15s", line, inet_ntoa(nat_list[i].match.dst.ipaddr));
 
                                     /* Proto. */
 				if (ntohs(nat_list[i].match.dst.ports[0]) == 0)
