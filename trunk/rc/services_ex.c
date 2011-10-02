@@ -636,8 +636,8 @@ int start_logger(void)
 		syslogd_argv[8] = "7";
 
 	/* -R argument */
-	syslogd_argv[i+1] = nvram_get("log_ipaddr");
-	if (syslogd_argv[i+1] != NULL)
+	syslogd_argv[i+1] = nvram_safe_get("log_ipaddr");
+	if (!*syslogd_argv[i+1])
 	{
 		syslogd_argv[i++] = "-R";
 		i++;
