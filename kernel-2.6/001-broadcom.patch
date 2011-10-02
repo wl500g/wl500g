@@ -5221,7 +5221,7 @@ diff '-x.*' -urNBp a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
 +clean-files := syscalls.h
 +
 +quiet_cmd_syscall_names = GEN     $@
-+      cmd_syscall_names = awk -f $(src)/syscalls.awk $< >$@
++      cmd_syscall_names = $(AWK) -f $(src)/syscalls.awk $< >$@
 +
 +# Only O32 ABI supported for now
 +$(src)/syscalls.h: $(src)/scall32-o32.S $(src)/syscalls.awk
