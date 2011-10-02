@@ -569,7 +569,8 @@ ej_wl_status(int eid, webs_t wp, int argc, char_t **argv)
 		val = *(chanspec_t *) &chanspec;
 		snprintf(chanspec, sizeof(chanspec),
 		    CHSPEC_IS40(val) ? "%d + %d" : "%d",
-		    CHSPEC_CTL_CHAN(val),
+		    CHSPEC_IS40(val) ? CHSPEC_CTL_CHAN(val)
+				     : CHSPEC_CHANNEL(val),
 		    CHSPEC_SB_LOWER(val) ? UPPER_20_SB(CHSPEC_CHANNEL(val))
 					 : LOWER_20_SB(CHSPEC_CHANNEL(val)));
 	} else {
