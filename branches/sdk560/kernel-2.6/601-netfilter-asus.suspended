@@ -12,17 +12,6 @@ diff -urBbwp -x'.*' -x'*.o' linux-N16/arch/mips/kernel/scall32-o32.S linux-N12/a
  	.endm
  
  	/* We pre-compute the number of _instruction_ bytes needed to
-diff -urBbwp -x'.*' -x'*.o' linux-N16/arch/mips/kernel/syscalls.h linux-N12/arch/mips/kernel/syscalls.h
---- linux-N16/arch/mips/kernel/syscalls.h	2010-08-15 02:56:22.000000000 +0400
-+++ linux-N12/arch/mips/kernel/syscalls.h	2010-08-15 03:06:43.000000000 +0400
-@@ -334,3 +334,7 @@ SYS(sys_utimensat, 4)
- SYS(sys_signalfd, 3)
- SYS(sys_timerfd, 4)
- SYS(sys_eventfd, 1)				/* 4319 */
-+SYS(sys_track_flag, 2)				/* --SZ Angela 09.03 QOS */
-+SYS(sys_set_mbss_nolan, 1)			/* Jiahao */
-+SYS(sys_set_mbss_nowan, 1)			/* Jiahao */
-+SYS(sys_set_mbss_prio, 1)			/* Jiahao */
 diff -urBbwp -x'.*' -x'*.o' linux-N16/include/asm-mips/unistd.h linux-N12/include/asm-mips/unistd.h
 --- linux-N16/include/asm-mips/unistd.h	2010-08-15 02:59:22.000000000 +0400
 +++ linux-N12/include/asm-mips/unistd.h	2010-08-15 03:06:43.000000000 +0400
