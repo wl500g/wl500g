@@ -181,7 +181,6 @@ stb_set(void)
 			}
 		case MDL_RTN12:
 		case MDL_RTN10:
-		case MDL_RTN10U:
 		case MDL_WL500GPV2:
 			{
 			/* Set LAN ports */
@@ -209,6 +208,7 @@ stb_set(void)
 		case MDL_WL520GU:
 		case MDL_WL500GP:
 		case MDL_DIR320:
+		case MDL_RTN10U:
 			{
 			/* Set LAN ports */
 			char *vlan0ports[] = {
@@ -322,8 +322,14 @@ early_defaults(void)
 		{
 			if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
 			{
-				nvram_set("vlan0ports", "0 1 2 3 5*");
-				nvram_set("vlan1ports", "4 5");
+				if (router_model == MDL_RTN10U)
+				{
+					nvram_set("vlan0ports", "1 2 3 4 5*");
+					nvram_set("vlan1ports", "0 5");
+				} else {
+					nvram_set("vlan0ports", "0 1 2 3 5*");
+					nvram_set("vlan1ports", "4 5");
+				}
 				nvram_set("vlan0hwname", "et0");
 				nvram_set("vlan1hwname", "et0");
 				nvram_set("landevs", "vlan0 wl0");
