@@ -44,6 +44,7 @@
 struct zebra_t zebrad =
 {
   .rtm_table_default = 0,
+  .mpath = 0,
 };
 
 /* process id. */

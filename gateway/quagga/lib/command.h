@@ -101,6 +101,7 @@ enum node_type
   DUMP_NODE,			/* Packet dump node. */
   FORWARDING_NODE,		/* IP forwarding node. */
   PROTOCOL_NODE,                /* protocol filtering node */
+  MULTIPATH_NODE,		/* Multipath policy node */
   VTY_NODE,			/* Vty node. */
 };
 
@@ -272,6 +273,7 @@ struct desc
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"
 #define IP_STR "IP information\n"
+#define MULTIPATH_STR "Configure multipath policy\n"
 #define IPV6_STR "IPv6 information\n"
 #define NO_STR "Negate a command or set its defaults\n"
 #define REDIST_STR "Redistribute information from another routing protocol\n"

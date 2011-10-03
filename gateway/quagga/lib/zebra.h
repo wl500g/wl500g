@@ -176,6 +176,10 @@ typedef int socklen_t;
 #define RT_TABLE_MAIN		0
 #endif /* HAVE_NETLINK */
 
+#ifdef HAVE_LINUX_IP_MP_ALG_H
+#include <linux/ip_mp_alg.h>
+#endif /* HAVE_LINUX_IP_MP_ALG_H */
+
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
 #endif /* HAVE_NETDB_H */

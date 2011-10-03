@@ -55,6 +55,9 @@ struct zserv
   /* default routing table this client munges */
   int rtm_table;
 
+  /* multipath policy */
+  u_int32_t mpath;
+
   /* This client's redistribute flag. */
   u_char redist[ZEBRA_ROUTE_MAX];
 
@@ -77,6 +80,9 @@ struct zebra_t
 
   /* default table */
   int rtm_table_default;
+
+  /* multipath policy */
+  u_int32_t mpath;
 
   /* rib work queue */
   struct work_queue *ribq;

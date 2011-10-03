@@ -36,6 +36,7 @@
 #include "thread.h"
 #include "privs.h"
 
+#include "multipath.h"
 #include "zebra/zserv.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
@@ -1700,6 +1701,16 @@ netlink_route_multipath (int cmd, struct prefix *p, struct rib *rib,
       if (src)
         addattr_l (&req.n, sizeof req, RTA_PREFSRC, &src->ipv4, bytelen);
 
+#ifdef HAVE_RT_MP_ALGO
+       if (zebrad.mpath != IP_MP_ALG_NONE)
+       {
+             if (IS_ZEBRA_DEBUG_KERNEL)
+                        zlog_debug("netlink_route_multipath() (multihop): "
+	                           "multipath policy : %s",mp_alg_names[zebrad.mpath]);
+
+            addattr_l (&req.n, 1024, RTA_MP_ALGO, &zebrad.mpath, sizeof(zebrad.mpath));
+       }
+#endif 
       if (rta->rta_len > RTA_LENGTH (0))
         addattr_l (&req.n, 1024, RTA_MULTIPATH, RTA_DATA (rta),
                    RTA_PAYLOAD (rta));

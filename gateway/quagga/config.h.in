@@ -175,6 +175,9 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
+/* Define to 1 if you have the <linux/ip_mp_alg.h> header file. */
+#undef HAVE_LINUX_IP_MP_ALG_H
+
 /* Define to 1 if you have the <linux/version.h> header file. */
 #undef HAVE_LINUX_VERSION_H
 
@@ -290,6 +293,9 @@
 
 /* Enable IPv6 Routing Advertisement support */
 #undef HAVE_RTADV
+
+/* RTA_MP exist in rtnetlink */
+#undef HAVE_RT_MP_ALGO
 
 /* rusage */
 #undef HAVE_RUSAGE

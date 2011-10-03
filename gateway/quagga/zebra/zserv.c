@@ -36,6 +36,7 @@
 #include "privs.h"
 #include "network.h"
 #include "buffer.h"
+#include "multipath.h"
 
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
@@ -1120,6 +1121,9 @@ zebra_client_create (int sock)
   /* Set table number. */
   client->rtm_table = zebrad.rtm_table_default;
 
+  /* Set multipath policy */
+  client->mpath = zebrad.mpath;
+
   /* Add this client to linked list. */
   listnode_add (zebrad.client_list, client);
   
@@ -1697,6 +1701,91 @@ static struct cmd_node forwarding_node =
 };
 
 
+#ifdef HAVE_RT_MP_ALGO
+DEFUN (multipath_rr,
+       multipath_rr_cmd,
+       "multipath rr",
+       MULTIPATH_STR
+       "Round Robin multipath policy")
+{
+	  zebrad.mpath=IP_MP_ALG_RR;
+	  return CMD_SUCCESS;
+}
+
+DEFUN (multipath_drr,
+       multipath_drr_cmd,
+       "multipath drr",
+       MULTIPATH_STR
+       "Device round robin multipath policy")
+{
+	  zebrad.mpath=IP_MP_ALG_DRR;
+	  return CMD_SUCCESS;
+}
+
+DEFUN (multipath_random,
+       multipath_random_cmd,
+       "multipath random",
+       MULTIPATH_STR
+       "Random multipath policy")
+{
+	  zebrad.mpath=IP_MP_ALG_RANDOM;
+	  return CMD_SUCCESS;
+}
+
+DEFUN (multipath_wrandom,
+       multipath_wrandom_cmd,
+       "multipath wrandom",
+	MULTIPATH_STR
+       "Weighted random multipath policy")
+{
+         zebrad.mpath=IP_MP_ALG_WRANDOM;
+         return CMD_SUCCESS;
+}
+
+DEFUN (no_multipath,
+	no_multipath_cmd,
+	"no multipath",
+	NO_STR
+	MULTIPATH_STR
+	"Remove multipath policy")
+{
+	zebrad.mpath=IP_MP_ALG_NONE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_multipath,
+	show_multipath_cmd,
+	"show multipath",
+	SHOW_STR
+	"Show multipath policy")
+{
+        vty_out (vty, "multipath %s%s", mp_alg_names[zebrad.mpath],
+		             VTY_NEWLINE);
+	return CMD_SUCCESS;
+}
+
+/* multipath policy configuration write function. */
+static int
+config_write_multipath (struct vty *vty)
+{
+
+
+  if (zebrad.mpath)
+    vty_out (vty, "multipath %s%s", mp_alg_names[zebrad.mpath],
+	     VTY_NEWLINE);
+  return 0;
+}
+
+/* table node for multipath policy. */
+struct cmd_node multipath_node =
+{
+	  MULTIPATH_NODE,
+	  "",                           
+	  1
+};
+
+#endif /* HAVE_RT_MP_ALGO */
+
 /* Initialisation of zebra and installation of commands. */
 void
 zebra_init (void)
@@ -1708,6 +1797,10 @@ zebra_init (void)
   install_node (&table_node, config_write_table);
   install_node (&forwarding_node, config_write_forwarding);
 
+#ifdef HAVE_RT_MP_ALGO
+  install_node (&multipath_node, config_write_multipath);
+#endif
+
   install_element (VIEW_NODE, &show_ip_forwarding_cmd);
   install_element (ENABLE_NODE, &show_ip_forwarding_cmd);
   install_element (CONFIG_NODE, &ip_forwarding_cmd);
@@ -1718,6 +1811,14 @@ zebra_init (void)
   install_element (VIEW_NODE, &show_table_cmd);
   install_element (ENABLE_NODE, &show_table_cmd);
   install_element (CONFIG_NODE, &config_table_cmd);
+#ifdef HAVE_RT_MP_ALGO
+  install_element (CONFIG_NODE, &multipath_rr_cmd);
+  install_element (CONFIG_NODE, &multipath_drr_cmd);
+  install_element (CONFIG_NODE, &multipath_random_cmd);
+  install_element (CONFIG_NODE, &multipath_wrandom_cmd);
+  install_element (CONFIG_NODE, &no_multipath_cmd);
+  install_element (ENABLE_NODE, &show_multipath_cmd);
+#endif /* HAVE_RT_MP_ALGO */
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_IPV6

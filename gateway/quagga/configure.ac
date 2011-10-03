@@ -395,7 +395,7 @@ dnl -------------------------
 AC_CHECK_HEADERS([stropts.h sys/ksym.h sys/times.h sys/select.h \
 	sys/types.h linux/version.h netdb.h asm/types.h \
 	sys/param.h limits.h signal.h \
-	sys/socket.h netinet/in.h time.h sys/time.h])
+	sys/socket.h netinet/in.h time.h sys/time.h linux/ip_mp_alg.h])
 
 dnl Utility macro to avoid retyping includes all the time
 m4_define([QUAGGA_INCLUDES],
@@ -804,6 +804,17 @@ fi
 AC_SUBST(RT_METHOD)
 AC_SUBST(KERNEL_METHOD)
 AC_SUBST(OTHER_METHOD)
+
+dnl ----------
+dnl Check for RTA_MP_ALGO in linux/rtnetlink.h
+dnl ----------
+AC_MSG_CHECKING(for support of multipath alg. in netlink)
+  if grep RTA_MP_ALGO linux/rtnetlink.h >/dev/null 2>&1; then
+    AC_DEFINE(HAVE_RT_MP_ALGO,,RTA_MP exist in rtnetlink)
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
 
 dnl --------------------------
 dnl Determine IS-IS I/O method
