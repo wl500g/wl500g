@@ -35,15 +35,30 @@
 #include <shutils.h>
 #endif
 
-#define GPIO0 0x0001
-#define GPIO1 0x0002
-#define GPIO2 0x0004
-#define GPIO3 0x0008
-#define GPIO4 0x0010
-#define GPIO5 0x0020
-#define GPIO6 0x0040
-#define GPIO7 0x0080
-#define GPIO15 0x8000
+#define GPIO0  0x00000001
+#define GPIO1  0x00000002
+#define GPIO2  0x00000004
+#define GPIO3  0x00000008
+#define GPIO4  0x00000010
+#define GPIO5  0x00000020
+#define GPIO6  0x00000040
+#define GPIO7  0x00000080
+#define GPIO8  0x00000100
+#define GPIO9  0x00000200
+#define GPIO10 0x00000400
+#define GPIO11 0x00000800
+#define GPIO12 0x00001000
+#define GPIO13 0x00002000
+#define GPIO14 0x00004000
+#define GPIO15 0x00008000
+#define GPIO16 0x00010000
+#define GPIO17 0x00020000
+#define GPIO18 0x00040000
+#define GPIO19 0x00080000
+#define GPIO20 0x00100000
+#define GPIO21 0x00200000
+#define GPIO22 0x00400000
+#define GPIO23 0x00800000
 
 #ifdef LINUX26
 #define GPIOCTL
@@ -114,6 +129,7 @@ enum {
 	MDL_DIR320,
 	MDL_RTN16,
 	MDL_RTN12,
+	MDL_RTN12B1,
 	MDL_RTN10,
 	MDL_RTN10U,
 	MDL_WNR3500L,
@@ -139,6 +155,7 @@ struct platform_t platforms[] = {
 	[MDL_WL700G]	= {"ASUS WL-700g",		GPIO1, GPIO1},
 	[MDL_RTN16]	= {"ASUS RT-N16",		GPIO1, 0},
 	[MDL_RTN12]	= {"ASUS RT-N12",		GPIO2, 0},
+	[MDL_RTN12B1]	= {"ASUS RT-N12B1",		GPIO18, 0},
 	[MDL_RTN10]	= {"ASUS RT-N10",		GPIO1, 0},
 	[MDL_RTN10U]	= {"ASUS RT-N10U",		GPIO6, 0},
 	/* D-Link */
@@ -228,6 +245,8 @@ static int get_model(void)
 				return MDL_RTN16;
 			if (!strcmp(boardtype,"0x04CD"))
 				return MDL_RTN12;
+			if (!strcmp(boardtype,"0x054D"))
+				return MDL_RTN12B1;
 			if (!strcmp(boardtype,"0x04EC"))
 				return MDL_RTN10;
 			if (!strcmp(boardtype,"0x0550"))

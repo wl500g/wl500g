@@ -180,6 +180,7 @@ stb_set(void)
 			break;
 			}
 		case MDL_RTN12:
+		case MDL_RTN12B1:
 		case MDL_RTN10:
 		case MDL_WL500GPV2:
 			{
@@ -316,8 +317,8 @@ early_defaults(void)
 			}
 		}
 
-		/* fix RT-N12 / RT-N10 / RT-N10U vlans */
-		if (router_model == MDL_RTN12 ||
+		/* fix RT-N12 / RT-N12B1 / RT-N10 / RT-N10U vlans */
+		if (router_model == MDL_RTN12 || router_model == MDL_RTN12B1 ||
 		    router_model == MDL_RTN10 || router_model == MDL_RTN10U)
 		{
 			if (!nvram_get("wan_ifname") || !nvram_get("vlan1hwname"))
