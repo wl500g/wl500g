@@ -1,36 +1,3 @@
---- a/configure
-+++ b/configure
-@@ -23839,7 +23839,7 @@
- for ac_header in stropts.h sys/ksym.h sys/times.h sys/select.h \
- 	sys/types.h linux/version.h netdb.h asm/types.h \
- 	sys/param.h limits.h signal.h \
--	sys/socket.h netinet/in.h time.h sys/time.h
-+	sys/socket.h netinet/in.h time.h sys/time.h linux/ip_mp_alg.h
- do :
-   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
- ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
-@@ -26879,6 +26879,21 @@
- 
- 
- 
-+echo "$as_me:$LINENO: checking for support of multipath alg. in netlink" >&5
-+echo $ECHO_N "checking for support of multipath alg. in netlink... $ECHO_C" >&6
-+  if grep RTA_MP_ALGO linux/rtnetlink.h >/dev/null 2>&1; then
-+
-+cat >>confdefs.h <<\_ACEOF
-+#define HAVE_RT_MP_ALGO
-+_ACEOF
-+
-+    echo "$as_me:$LINENO: result: yes" >&5
-+echo "${ECHO_T}yes" >&6
-+  else
-+    echo "$as_me:$LINENO: result: no" >&5
-+echo "${ECHO_T}no" >&6
-+  fi
-+
- ac_fn_c_check_header_mongrel "$LINENO" "net/bpf.h" "ac_cv_header_net_bpf_h" "$ac_includes_default"
- if test "x$ac_cv_header_net_bpf_h" = x""yes; then :
- 
 --- a/configure.ac
 +++ b/configure.ac
 @@ -397,7 +397,7 @@ dnl -------------------------
@@ -81,6 +48,39 @@
 +
  /* rusage */
  #undef HAVE_RUSAGE
+ 
+--- a/configure
++++ b/configure
+@@ -23839,7 +23839,7 @@
+ for ac_header in stropts.h sys/ksym.h sys/times.h sys/select.h \
+ 	sys/types.h linux/version.h netdb.h asm/types.h \
+ 	sys/param.h limits.h signal.h \
+-	sys/socket.h netinet/in.h time.h sys/time.h
++	sys/socket.h netinet/in.h time.h sys/time.h linux/ip_mp_alg.h
+ do :
+   as_ac_Header=`$as_echo "ac_cv_header_$ac_header" | $as_tr_sh`
+ ac_fn_c_check_header_mongrel "$LINENO" "$ac_header" "$as_ac_Header" "$ac_includes_default"
+@@ -26879,6 +26879,21 @@
+ 
+ 
+ 
++echo "$as_me:$LINENO: checking for support of multipath alg. in netlink" >&5
++echo $ECHO_N "checking for support of multipath alg. in netlink... $ECHO_C" >&6
++  if grep RTA_MP_ALGO linux/rtnetlink.h >/dev/null 2>&1; then
++
++cat >>confdefs.h <<\_ACEOF
++#define HAVE_RT_MP_ALGO
++_ACEOF
++
++    echo "$as_me:$LINENO: result: yes" >&5
++echo "${ECHO_T}yes" >&6
++  else
++    echo "$as_me:$LINENO: result: no" >&5
++echo "${ECHO_T}no" >&6
++  fi
++
+ ac_fn_c_check_header_mongrel "$LINENO" "net/bpf.h" "ac_cv_header_net_bpf_h" "$ac_includes_default"
+ if test "x$ac_cv_header_net_bpf_h" = x""yes; then :
  
 --- a/lib/command.h
 +++ b/lib/command.h

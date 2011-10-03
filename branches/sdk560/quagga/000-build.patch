@@ -1,3 +1,50 @@
+diff -uB quagga/configure.ac quagga.new/configure.ac
+--- quagga/configure.ac
++++ quagga.new/configure.ac
+@@ -1355,8 +1355,9 @@
+ dnl checking for clock_time monotonic struct and call
+ dnl --------------------------------------
+ AC_CHECK_DECL(CLOCK_MONOTONIC,
+-	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
+-	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
++	[AC_CHECK_FUNC([clock_gettime],,
++		[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])]
++	)AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
+ ], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
+ 
+ dnl -------------------
+diff -uB quagga/Makefile.in quagga.new/Makefile.in
+--- quagga/Makefile.in
++++ quagga.new/Makefile.in
+@@ -287,7 +287,7 @@
+ .SUFFIXES:
+ am--refresh:
+ 	@:
+-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
++$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am
+ 	@for dep in $?; do \
+ 	  case '$(am__configure_deps)' in \
+ 	    *$$dep*) \
+@@ -310,8 +310,6 @@
+ 
+ $(top_srcdir)/configure:  $(am__configure_deps)
+ 	$(am__cd) $(srcdir) && $(AUTOCONF)
+-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+-	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+ $(am__aclocal_m4_deps):
+ 
+ config.h: stamp-h1
+@@ -327,10 +327,6 @@
+ stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
+ 	@rm -f stamp-h1
+ 	cd $(top_builddir) && $(SHELL) ./config.status config.h
+-$(srcdir)/config.h.in:  $(am__configure_deps) 
+-	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
+-	rm -f stamp-h1
+-	touch $@
+ 
+ distclean-hdr:
+ 	-rm -f config.h stamp-h1
 diff -uB quagga/configure quagga.new/configure
 --- quagga/configure
 +++ quagga.new/configure
@@ -110,30 +157,3 @@ diff -uB quagga/configure quagga.new/configure
  
  else
    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-diff -uB quagga/configure.ac quagga.new/configure.ac
---- quagga/configure.ac
-+++ quagga.new/configure.ac
-@@ -1355,8 +1355,9 @@
- dnl checking for clock_time monotonic struct and call
- dnl --------------------------------------
- AC_CHECK_DECL(CLOCK_MONOTONIC,
--	[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])
--	 AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
-+	[AC_CHECK_FUNC([clock_gettime],,
-+		[AC_CHECK_LIB(rt, clock_gettime, [LIBS="$LIBS -lrt"])]
-+	)AC_DEFINE(HAVE_CLOCK_MONOTONIC,, Have monotonic clock)
- ], [AC_MSG_RESULT(no)], [QUAGGA_INCLUDES])
- 
- dnl -------------------
-diff -uB quagga/Makefile.in quagga.new/Makefile.in
---- quagga/Makefile.in
-+++ quagga.new/Makefile.in
-@@ -279,7 +279,7 @@
- 
- $(top_srcdir)/configure:  $(am__configure_deps)
- 	$(am__cd) $(srcdir) && $(AUTOCONF)
--$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
-+$(ACLOCAL_M4):
- 	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
- $(am__aclocal_m4_deps):
- 
