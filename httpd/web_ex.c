@@ -2663,21 +2663,19 @@ wl_channels_in_country_asus(char *abbrev, int channels[])
 	int i;
 	char var[256], *next;
 
-	i=0;
+	i = 0;
+	channels[i++] = 0;
 
 	if (nvram_match_x("", "wl_chan_list", "")) {
-		for(i=0;i<14;i++){
-			channels[i] = i+1;
-			channels[i+1] = -1;
-		}	
-	}
-	else {
+		for ( ; i < 15; i++)
+			channels[i] = i;
+	} else {
 		foreach(var, nvram_safe_get_x("", "wl_chan_list"), next) {
-			channels[i]=atoi(var);
-			channels[i+1]=-1;
-			i++;
+			channels[i++] = atoi(var);
 		}
 	}
+	channels[i--] = -1;
+
 	return i;
 }
 
