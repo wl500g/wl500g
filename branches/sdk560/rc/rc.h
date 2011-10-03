@@ -39,6 +39,7 @@ int ipv6_host(struct in6_addr *addr6, int netsize);
 int ipv6_map6rd(struct in6_addr *addr6, int netsize, struct in_addr *addr4, int ip4size);
 #endif
 char *trim_r(char *str);
+int router_totalram();
 void logmessage(char *logheader, char *fmt, ...);
 void wanmessage(char *fmt, ...);
 int kill_pidfile_s(char *pidfile, int sig);

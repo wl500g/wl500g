@@ -2,7 +2,7 @@
  * Copyright (c) 2001 Jean-Fredric Clere, Nikolas Zimmermann, Georg Acher
  *		      Mark Cave-Ayland, Carlo E Prelz, Dick Streefland
  * Copyright (c) 2002, 2003 Tuukka Toivonen
- * Copyright (c) 2008 Erik AndrÃ©n
+ * Copyright (c) 2008 Erik Andrén
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 
 #include "stv06xx_sensor.h"
 
-MODULE_AUTHOR("Erik AndrÃ©n");
+MODULE_AUTHOR("Erik Andrén");
 MODULE_DESCRIPTION("STV06XX USB Camera Driver");
 MODULE_LICENSE("GPL");
 

@@ -26,7 +26,7 @@ BRCM-SRC=brcm-src-2.6
 IPROUTE2=iproute2-2.6
 IPTABLES=iptables-2.6
 
-BUSYBOX=busybox-1.18.5
+BUSYBOX=busybox-1.19.2
 DROPBEAR=dropbear-0.53.1
 DNSMASQ=dnsmasq-2.58
 LPRNG=LPRng-3.8.22
@@ -43,7 +43,7 @@ LZMA=lzma457
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
 RADVD=radvd-1.8
-QUAGGA=quagga-0.99.17
+QUAGGA=quagga-0.99.20
 L2TP=rp-l2tp
 XL2TPD=xl2tpd-1.3.0
 BRIDGE=bridge-utils-1.0.6
@@ -151,7 +151,7 @@ asustrx: $(ROOT)/asustrx
 	@true
 
 $(TOP)/loader:
-	@rm -rf $(TOP)/loader
+	@rm -rf $@
 	tar -C . $(TAR_EXCL_SVN) -cf - loader | tar -C $(TOP) -xf -
 
 loader: $(TOP)/loader
@@ -447,9 +447,9 @@ $(TOP)/inadyn: inadyn/$(INADYN).tar.bz2
 inadyn: $(TOP)/inadyn
 	@true
 
-$(TOP)/bpalogin: bpalogin.tar.bz2
-	tar -xjf $^ -C $(TOP)
-	[ ! -f bpalogin.patch ] || $(PATCHER) -Z $@ bpalogin.patch
+$(TOP)/bpalogin:
+	@rm -rf $@
+	tar -C . $(TAR_EXCL_SVN) -cf - bpalogin | tar -C $(TOP) -xf -
 
 bpalogin: $(TOP)/bpalogin
 	@true

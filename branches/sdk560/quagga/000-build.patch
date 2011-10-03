@@ -4,7 +4,7 @@ diff -uB quagga/configure quagga.new/configure
 @@ -30839,6 +30839,99 @@
  
  "
- if test "x$ac_cv_have_decl_CLOCK_MONOTONIC" = x""yes; then :
+ if test "x$ac_cv_have_decl_CLOCK_MONOTONIC" = xyes; then :
 +  echo "$as_me:$LINENO: checking for clock_gettime" >&5
 +echo $ECHO_N "checking for clock_gettime... $ECHO_C" >&6
 +if test "${ac_cv_func_clock_gettime+set}" = set; then

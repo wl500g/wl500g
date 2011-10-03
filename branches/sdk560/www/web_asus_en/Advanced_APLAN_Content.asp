@@ -24,7 +24,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field allows you to provide a LAN host name for ZVMODELVZ.', LEFT);" onMouseOut="return nd();">Host Name:</td>
-<td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(this)" onBlur="validate_string(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="32" class="content_input_fd" size="32" name="lan_hostname" value="<% nvram_get_x("LANHostConfig","lan_hostname"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_string(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td">Get IP Automatically?</td>
@@ -32,19 +32,19 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IP Address of ZVMODELVZ as seen in your local network. The default value is 192.168.1.1.', LEFT);" onMouseOut="return nd();">IP Address:</td>
-<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_ipaddr" value="<% nvram_get_x("LANHostConfig","lan_ipaddr"); %>" onBlur="return validate_ipaddr(this, 'lan_ipaddr')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is Subnet Mask of ZVMODELVZ as seen in your local network. The default value is 255.255.255.0.', LEFT);" onMouseOut="return nd();">Subnet Mask:</td>
-<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_netmask" value="<% nvram_get_x("LANHostConfig","lan_netmask"); %>" onBlur="return validate_ipaddr(this, 'lan_netmask')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_netmask" value="<% nvram_get_x("LANHostConfig","lan_netmask"); %>" onBlur="return validate_ipaddr(this, 'lan_netmask')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the IP address of default gateway for Access Point', LEFT);" onMouseOut="return nd();">Default Gateway:</td>
-<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_gateway" value="<% nvram_get_x("LANHostConfig","lan_gateway"); %>" onBlur="return validate_ipaddr(this, 'lan_gateway')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_gateway" value="<% nvram_get_x("LANHostConfig","lan_gateway"); %>" onBlur="return validate_ipaddr(this, 'lan_gateway')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the IP address of DNS Server for Access Point', LEFT);" onMouseOut="return nd();">DNS Server:</td>
-<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_dns" value="<% nvram_get_x("LANHostConfig","lan_dns"); %>" onBlur="return validate_ipaddr(this, 'lan_dns')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)"></td>
+<td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="lan_dns" value="<% nvram_get_x("LANHostConfig","lan_dns"); %>" onBlur="return validate_ipaddr(this, 'lan_dns')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)"></td>
 </tr>
 </table>
 </td>

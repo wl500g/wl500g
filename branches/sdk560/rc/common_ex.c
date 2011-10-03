@@ -17,6 +17,7 @@
 #include <time.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <sys/sysinfo.h>
 #include <syslog.h>
 #include <stdarg.h>
 #include <errno.h>
@@ -236,21 +237,8 @@ void convert_asus_values()
 	{
                 if (nvram_match("wl_wpa_mode", "0"))
                 {
-                        if (nvram_match("wl_crypto", "tkip") || nvram_match("wl_crypto", "0"))
-                        {
-                                nvram_set("wl_akm", "psk");
-                                nvram_set("wl0_akm", "psk");
-                        }
-                        else if (nvram_match("wl_crypto", "aes"))
-                        {
-                                nvram_set("wl_akm", "psk2");
-                                nvram_set("wl0_akm", "psk2");
-                        }
-                        else
-                        {
-                                nvram_set("wl_akm", "psk psk2");
-                                nvram_set("wl0_akm", "psk psk2");
-                        }
+                        nvram_set("wl_akm", "psk psk2");
+                        nvram_set("wl0_akm", "psk psk2");
                 }
                 else if (nvram_match("wl_wpa_mode", "1"))
                 {
@@ -889,4 +877,12 @@ int fputs_ex(char *name, char *value)
 		perror(name);
 
 	return errno;
+}
+
+int router_totalram()
+{
+	struct sysinfo si;
+
+	sysinfo(&si);
+	return si.totalram;
 }

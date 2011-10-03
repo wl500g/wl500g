@@ -46,11 +46,11 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen in your local network. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">Static IPv6 address:
-           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get_x("IPv6Config","ipv6_lan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_lan_addr')"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_lan_addr" value="<% nvram_get_x("IPv6Config","ipv6_lan_addr"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_lan_addr')"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part. Most common value is 64', LEFT);" onMouseOut="return nd();">Netsize (bits of hostpart):
-           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_lan_netsize" value="<% nvram_get_x("IPv6Config","ipv6_lan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_lan_netsize" value="<% nvram_get_x("IPv6Config","ipv6_lan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('Router advertisements allow systems in your LAN to auto-configure them for IPv6-usage', LEFT);" onMouseOut="return nd();">Enable router advertisements:
@@ -63,15 +63,15 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is IPv6 Address of ZVMODELVZ as seen on the WAN-port. If not specified, only auto-configured addresses will be seen.', LEFT);" onMouseOut="return nd();">Static or local IPv6 address:
-           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_addr" value="<% nvram_get_x("IPv6Config","ipv6_wan_addr"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_wan_addr')"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_addr" value="<% nvram_get_x("IPv6Config","ipv6_wan_addr"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_wan_addr')"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This is the number of bits that make up the host part.', LEFT);" onMouseOut="return nd();">Netsize (bits of hostpart):
-           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_wan_netsize" value="<% nvram_get_x("IPv6Config","ipv6_wan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(this)"></td>
+           </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_wan_netsize" value="<% nvram_get_x("IPv6Config","ipv6_wan_netsize"); %>" onBlur="return validate_range(this, 1, 128)" onKeyPress="return is_number(event, this)"></td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv6 gateway. All IPv6 traffic flowing out of the network will be directed to this host', LEFT);" onMouseOut="return nd();">Remote IPv6 gateway:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get_x("IPv6Config","ipv6_wan_router"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_wan_router')">
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_wan_router" value="<% nvram_get_x("IPv6Config","ipv6_wan_router"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_wan_router')">
 	  </td>
 </tr>
 <tr class="content_section_header_tr">
@@ -80,7 +80,7 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('This field indicates the IPv6 address of DNS that ZVMODELVZ contact to. If not specified, only IPv4 servers will be used.', LEFT);" onMouseOut="return nd();">DNS Server:
-          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
+          </td><td class="content_input_td"><input type="text" maxlength="40" class="content_input_fd" size="40" name="ipv6_dns1_x" value="<% nvram_get_x("IPv6Config","ipv6_dns1_x"); %>" onKeyPress="return is_string(event, this)" onBlur="validate_ip6addr(this, 'ipv6_dns1_x')">
 	  </td>
 </tr>
 <tr class="content_section_header_tr">
@@ -89,34 +89,34 @@
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The remote IPv4 endpoint for the 6in4 tunnel.', LEFT);" onMouseOut="return nd();">6in4 IPv4 remote endpoint:
-          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_remote" value="<% nvram_get_x("IPv6Config","ipv6_sit_remote"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_remote')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
+          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_remote" value="<% nvram_get_x("IPv6Config","ipv6_sit_remote"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_remote')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The IPv4 anycast relay address for the 6to4 tunnel. Common value is 192.88.99.1', LEFT);" onMouseOut="return nd();">6to4 IPv4 anycast relay:
-          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_relay" value="<% nvram_get_x("IPv6Config","ipv6_sit_relay"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_relay')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
+          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_sit_relay" value="<% nvram_get_x("IPv6Config","ipv6_sit_relay"); %>" onBlur="return validate_ipaddr(this, 'ipv6_sit_relay')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>
 <tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The IPv4 border router address for the 6RD tunnel.', LEFT);" onMouseOut="return nd();">6RD IPv4 border router:
-          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_6rd_router" value="<% nvram_get_x("IPv6Config","ipv6_6rd_router"); %>" onBlur="return validate_ipaddr(this, 'ipv6_6rd_router')" onKeyPress="return is_ipaddr(this)" onKeyUp="change_ipaddr(this)">
+          </td><td class="content_input_td"><input type="text" maxlength="15" class="content_input_fd" size="15" name="ipv6_6rd_router" value="<% nvram_get_x("IPv6Config","ipv6_6rd_router"); %>" onBlur="return validate_ipaddr(this, 'ipv6_6rd_router')" onKeyPress="return is_ipaddr(event, this)" onKeyUp="change_ipaddr(this)">
 	  </td>
 </tr>
 <tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The number of high-order bits of IPv4 WAN addresses within a given 6RD domain', LEFT);" onMouseOut="return nd();">6RD IPv4 mask length:
-          </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_6rd_ip4size" value="<% nvram_get_x("IPv6Config","ipv6_6rd_ip4size"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 0, 32)">
+          </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_6rd_ip4size" value="<% nvram_get_x("IPv6Config","ipv6_6rd_ip4size"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 0, 32)">
 	  </td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The Maximum Transfer Unit for the tunnel. Common value is 1280.', LEFT);" onMouseOut="return nd();">Tunnel MTU:
-          </td><td class="content_input_td"><input type="text" maxlength="4" class="content_input_fd" size="5" name="ipv6_sit_mtu" value="<% nvram_get_x("IPv6Config","ipv6_sit_mtu"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1280, 1492)">
+          </td><td class="content_input_td"><input type="text" maxlength="4" class="content_input_fd" size="5" name="ipv6_sit_mtu" value="<% nvram_get_x("IPv6Config","ipv6_sit_mtu"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 1280, 1492)">
 	  </td>
 </tr>
 <tr>
 <td class="content_header_td" onMouseOver="return overlib('The Time To Life for the tunnel. Common value is 64.', LEFT);" onMouseOut="return nd();">Tunnel TTL:
-          </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_sit_ttl" value="<% nvram_get_x("IPv6Config","ipv6_sit_ttl"); %>" onKeyPress="return is_number(this)" onBlur="validate_range(this, 1, 128)">
+          </td><td class="content_input_td"><input type="text" maxlength="3" class="content_input_fd" size="5" name="ipv6_sit_ttl" value="<% nvram_get_x("IPv6Config","ipv6_sit_ttl"); %>" onKeyPress="return is_number(event, this)" onBlur="validate_range(this, 1, 128)">
           </td>
 </tr>
 </table>
