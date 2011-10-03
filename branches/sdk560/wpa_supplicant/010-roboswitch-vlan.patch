@@ -1,5 +1,5 @@
 --- wpa_supplicant-0.6.10/src/drivers/driver_roboswitch.c	2010-01-12 14:55:02.000000000 +0000
-+++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-09-13 10:34:36.603897002 +0000
++++ wpa_supplicant/src/drivers/driver_roboswitch.c	2011-10-03 19:43:05.330000002 +0000
 @@ -17,6 +17,7 @@
  #include <linux/if.h>
  #include <linux/sockios.h>
@@ -19,7 +19,7 @@
 +enum {
 +	BCM536x = 0,			/* 5365 */
 +	BCM535x = 1 << 0,		/* 5325, 5352, 5354 */
-+	BCM5356 = 1 << 1 | BCM535x	/* 5356 */
++	BCM5356 = 1 << 1		/* 5356, 5357 */
 +};
  
  
@@ -273,11 +273,11 @@
 -	drv->is_5350 = _read[0] == _read[1];
 +				   &u.val16[1], 1);
 +	if (u.val16[0] == u.val16[1]) {
-+		/* dirty trick for 5356 */
-+		if ((phyid & 0xfff0ffff) == 0x5da00362)
-+			drv->model = BCM5356;
-+		else
-+			drv->model = BCM535x;
++		drv->model = BCM535x;
++		/* dirty trick for 5356/5357 */
++		if ((phyid & 0xfff0ffff) == 0x5da00362 ||
++		    (phyid & 0xfff0ffff) == 0x5e000362)
++			drv->model |= BCM5356;
 +	} else
 +		drv->model = BCM536x;
 +
@@ -312,12 +312,12 @@
 +			}
 +		} else
 +		if (drv->model & BCM535x &&
-+		    u.val32 & (1 << ((drv->model == BCM5356) ? 24 : 20))) {
++		    u.val32 & (1 << ((drv->model & BCM5356) ? 24 : 20))) {
 +			if (vlan != (u16) -1)
 +				break;
 +			if (u.val32 & (1 << 5) && u.val32 & (1 << 11)) {
 +				vlan = i;
-+				vlan |= (drv->model == BCM5356) ?
++				vlan |= (drv->model & BCM5356) ?
 +					(u.val32 & 0xff000) >> 12 :
 +					(u.val32 & 0xff000) >> 8;
 +				break;
