@@ -191,7 +191,7 @@ static void robo_write32(robo_t *robo, u8 page, u8 reg, u32 val32)
 	robo_reg(robo, page, reg, REG_MII_ADDR_WRITE);
 }
 
-/* checks that attached switch is 5325/5352/5354/5356/53115 */
+/* checks that attached switch is 5325/5352/5354/5356/5357/53115 */
 static int robo_vlan535x(robo_t *robo, u32 phyid)
 {
 	/* set vlan access id to 15 and read it back */
@@ -213,8 +213,9 @@ static int robo_vlan535x(robo_t *robo, u32 phyid)
 		    && robo_read16(robo, ROBO_ARLIO_PAGE, ROBO_VTBL_INDX_5395) == val16)
 			return 4;
 	}
-	/* dirty trick for 5356 */
-	if ((phyid & 0xfff0ffff ) == 0x5da00362)
+	/* dirty trick for 5356/5357 */
+	if ((phyid & 0xfff0ffff ) == 0x5da00362 ||
+	    (phyid & 0xfff0ffff ) == 0x5e000362)
 		return 3;
 	/* 5325/5352/5354*/
 	return 1;
