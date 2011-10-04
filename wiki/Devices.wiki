@@ -15,16 +15,16 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||WL-320gE||BCM5352E 200MHz||SoC||802.11g (SoC + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||||
 ||WL-320gP||BCM5352E 200MHz||SoC||802.11g (SoC + BCM2050)||16MB SDR 32bit||4MB||N/A||1.9.2.7-d||||
 ||_Generation 3_||
-||WL-700gE||BCM4780 264MHz||BCM5325E||802.11g (BCM4318E)||64MB DDR 32bit||2MB||3 x 2.0 (VT6212L)||1.9.2.7-d 1.9.2.7-rtn (after flash upgrade)||?||
+||WL-700gE||BCM4780 264MHz||BCM5325E||802.11g (BCM4318E)||64MB DDR 32bit||2MB||3 x 2.0 (VT6212L)||1.9.2.7-d 1.9.2.7-rtn (after flash upgrade)||9/7||
 ||WL-500g Premium (WL-500gp)||BCM4704/BCM4780 264MHz||BCM5325E||MiniPCI 802.11g (BCM4318E)||32MB DDR 32bit||8MB||2 x 2.0 (VT6212L)||1.9.2.7-d 1.9.2.7-rtn||9/7||
-||WL-500W||BCM4704/BCM4780 264MHz||BCM5325F||MiniPCI 802.11n (BCM4321L+BCM2055) 2.4GHz||32MB DDR 32bit||8MB||2 x 2.0||1.9.2.7-d 1.9.2.7-rtn||11/?||
+||WL-500W||BCM4704/BCM4780 264MHz||BCM5325F||MiniPCI 802.11n (BCM4321L+BCM2055) 2.4GHz||32MB DDR 32bit||8MB||2 x 2.0||1.9.2.7-d 1.9.2.7-rtn||11/1||
 ||_Generation 2.1_||
 ||WL-500g Premium V2 (WL-500gpv2)||BCM5354 240MHz||SoC||802.11g (SoC 4318)||32MB DDR 16bit||8MB||2 x 2.0 (SoC + USB2520)||1.9.2.7-d 1.9.2.7-rtn||13/0||
 ||WL-520GC||BCM5354 200/240MHz||SoC||802.11g (SoC 4318)||16MB SDR 16bit||2MB||N/A||no||13/0||
 ||WL-520GU||BCM5354 200MHz||SoC||802.11g (SoC 4318)||16MB SDR 16bit||4MB||1 x 2.0 (SoC)||1.9.2.7-d||13/0||
 ||WL-330gE||BCM5354 240MHz||SoC||802.11g (SoC 4318)||16MB SDR 16bit||4MB||N/A||1.9.2.7-d||13/0||
 ||_Generation 2.2_||
-||RT-N10||BCM5356 300MHz||SoC||802.11n (SoC) 2.4GHz||16MB SDR 16bit||4MB||N/A||1.9.2.7-rtn||21/?||
+||RT-N10||BCM5356 300MHz||SoC||802.11n (SoC 4338) 2.4GHz||16MB SDR 16bit||4MB||N/A||1.9.2.7-rtn||21/3||
 ||RT-N10 B1||RT3050F 320Mhz !RaLink||SoC||802.11n (SoC) 2.4GHz||32Mb SDR 16bit||4Mb||N/A||no||-||
 ||RT-N10U||BCM5357 300Mhz||SoC||802.11n (SoC 4329) 2.4GHz||32MB SDR 16bit||8MB||1 x 2.0 (SoC)||WiP||28/9||
 ||RT-N11||RDC-3211 (AMRISC 20010)||IP175C IC+||802.11n (RT2760) 2.4GHz||8MB SDR 16bit||2MB||N/A||no||-||
