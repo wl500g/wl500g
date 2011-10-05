@@ -4,33 +4,30 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Fri, 2 Apr 2010 02:43:51 -0400
 
 ---
- fs/ext2/xattr.c          |    2 +-
+ fs/ext2/xattr.c          |    2 
  fs/ext3/acl.c            |    8 +-
- fs/ext3/balloc.c         |  104 ++++++++++++---
- fs/ext3/dir.c            |   56 +++++----
- fs/ext3/ialloc.c         |   12 +-
- fs/ext3/inode.c          |  136 +++++++++++--------
- fs/ext3/namei.c          |  117 ++++++++++--------
- fs/ext3/resize.c         |   29 ++--
- fs/ext3/super.c          |   94 ++++++++++----
- fs/ext3/xattr.c          |   18 ++-
- fs/ext3/xattr_security.c |    2 +-
- fs/ext3/xattr_trusted.c  |    4 +-
- fs/ext3/xattr_user.c     |    4 +-
- fs/ext4/namei.c          |   10 ++
- fs/ext4/super.c          |    2 +-
- fs/ext4/xattr.c          |    7 +-
- fs/jbd/commit.c          |   38 ++----
- fs/jbd/journal.c         |  100 +--------------
- fs/jbd/recovery.c        |    2 +-
- fs/jbd/revoke.c          |    5 +-
- fs/jbd/transaction.c     |   63 +++++++--
- fs/jbd2/revoke.c         |    5 +-
+ fs/ext3/balloc.c         |  104 +++++++++++++++++++++++++++++------
+ fs/ext3/dir.c            |   56 ++++++++++---------
+ fs/ext3/ialloc.c         |   12 +---
+ fs/ext3/inode.c          |  136 +++++++++++++++++++++++++++--------------------
+ fs/ext3/namei.c          |  117 ++++++++++++++++++++++------------------
+ fs/ext3/resize.c         |   29 ++++------
+ fs/ext3/super.c          |   94 ++++++++++++++++++++++++--------
+ fs/ext3/xattr.c          |   18 +++---
+ fs/ext3/xattr_security.c |    2 
+ fs/ext3/xattr_trusted.c  |    4 -
+ fs/ext3/xattr_user.c     |    4 -
+ fs/jbd/commit.c          |   38 ++++---------
+ fs/jbd/journal.c         |  100 +---------------------------------
+ fs/jbd/recovery.c        |    2 
+ fs/jbd/revoke.c          |    5 +
+ fs/jbd/transaction.c     |   63 +++++++++++++++++----
+ fs/jbd2/revoke.c         |    5 +
  fs/mbcache.c             |    6 +-
- include/linux/ext3_fs.h  |   24 +++-
- include/linux/jbd.h      |   15 +-
- include/linux/mbcache.h  |    2 +-
- 26 files changed, 495 insertions(+), 370 deletions(-)
+ include/linux/ext3_fs.h  |   24 +++++++-
+ include/linux/jbd.h      |   17 +++--
+ include/linux/mbcache.h  |    2 
+ 23 files changed, 479 insertions(+), 369 deletions(-)
 
 diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
 index d7602f4..6e2144c 100644
@@ -1482,72 +1479,6 @@ index 1abd8f9..430fe63 100644
  	const size_t total_len = prefix_len + name_len + 1;
  
  	if (!test_opt(inode->i_sb, XATTR_USER))
-diff --git a/fs/ext4/namei.c b/fs/ext4/namei.c
-index 7bb8d7c..c3f9a4b 100644
---- a/fs/ext4/namei.c
-+++ b/fs/ext4/namei.c
-@@ -1050,6 +1050,11 @@ static struct dentry *ext4_lookup(struct inode * dir, struct dentry *dentry, str
- 
- 		if (!inode)
- 			return ERR_PTR(-EACCES);
-+
-+		if (is_bad_inode(inode)) {
-+			iput(inode);
-+			return ERR_PTR(-ENOENT);
-+		}
- 	}
- 	return d_splice_alias(inode, dentry);
- }
-@@ -1085,6 +1090,11 @@ struct dentry *ext4_get_parent(struct dentry *child)
- 	if (!inode)
- 		return ERR_PTR(-EACCES);
- 
-+	if (is_bad_inode(inode)) {
-+		iput(inode);
-+		return ERR_PTR(-ENOENT);
-+	}
-+
- 	parent = d_alloc_anon(inode);
- 	if (!parent) {
- 		iput(inode);
-diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 5367824..3aa5423 100644
---- a/fs/ext4/super.c
-+++ b/fs/ext4/super.c
-@@ -1656,7 +1656,7 @@ static int ext4_fill_super (struct super_block *sb, void *data, int silent)
- 	sbi->s_blocks_per_group = le32_to_cpu(es->s_blocks_per_group);
- 	sbi->s_frags_per_group = le32_to_cpu(es->s_frags_per_group);
- 	sbi->s_inodes_per_group = le32_to_cpu(es->s_inodes_per_group);
--	if (EXT4_INODE_SIZE(sb) == 0)
-+	if (EXT4_INODE_SIZE(sb) == 0 || EXT4_INODES_PER_GROUP(sb) == 0)
- 		goto cantfind_ext4;
- 	sbi->s_inodes_per_block = blocksize / EXT4_INODE_SIZE(sb);
- 	if (sbi->s_inodes_per_block == 0)
-diff --git a/fs/ext4/xattr.c b/fs/ext4/xattr.c
-index e832e96..c256545 100644
---- a/fs/ext4/xattr.c
-+++ b/fs/ext4/xattr.c
-@@ -1001,6 +1001,11 @@ ext4_xattr_set_handle(handle_t *handle, struct inode *inode, int name_index,
- 			i.value = NULL;
- 			error = ext4_xattr_block_set(handle, inode, &i, &bs);
- 		} else if (error == -ENOSPC) {
-+			if (EXT4_I(inode)->i_file_acl && !bs.s.base) {
-+				error = ext4_xattr_block_find(inode, &i, &bs);
-+				if (error)
-+					goto cleanup;
-+			}
- 			error = ext4_xattr_block_set(handle, inode, &i, &bs);
- 			if (error)
- 				goto cleanup;
-@@ -1127,7 +1132,7 @@ ext4_xattr_cache_insert(struct buffer_head *bh)
- 	struct mb_cache_entry *ce;
- 	int error;
- 
--	ce = mb_cache_entry_alloc(ext4_xattr_cache);
-+	ce = mb_cache_entry_alloc(ext4_xattr_cache, GFP_NOFS);
- 	if (!ce) {
- 		ea_bdebug(bh, "out of memory");
- 		return;
 diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
 index a003d50..d0a2c16 100644
 --- a/fs/jbd/commit.c
@@ -2189,4 +2120,3 @@ index 99e044b..a09b84e 100644
  void mb_cache_entry_release(struct mb_cache_entry *);
 -- 
 1.6.5.GIT
-

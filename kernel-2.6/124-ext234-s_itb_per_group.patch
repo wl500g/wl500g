@@ -1,13 +1,12 @@
 From 90bbd1c323f70cef8e9bbe4236cebb182613bc21
 From: Fedor <fedork@ubuntu.(none)>
 Date: Tue, 5 Jan 2010 04:08:47 -0500
-Subject: [PATCH] ext2/3/4: minor fix from 2.6.23
+Subject: [PATCH] ext2/3: minor fix from 2.6.23
 
 ---
  fs/ext2/super.c |    2 +-
  fs/ext3/super.c |    2 +-
- fs/ext4/super.c |    2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/ext2/super.c b/fs/ext2/super.c
 index f992f34..e8f64c0 100644
@@ -35,19 +34,6 @@ index 8c17c28..b2e3c26 100644
  		    last_block)
  		{
  			ext3_error (sb, "ext3_check_descriptors",
-diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 3144363..5367824 100644
---- a/fs/ext4/super.c
-+++ b/fs/ext4/super.c
-@@ -1269,7 +1269,7 @@ static int ext4_check_descriptors (struct super_block * sb)
- 		}
- 		inode_table = ext4_inode_table(sb, gdp);
- 		if (inode_table < first_block ||
--		    inode_table + sbi->s_itb_per_group > last_block)
-+		    inode_table + sbi->s_itb_per_group - 1 > last_block)
- 		{
- 			ext4_error (sb, "ext4_check_descriptors",
- 				    "Inode table for group %d"
 -- 
 1.6.5.GIT
 
