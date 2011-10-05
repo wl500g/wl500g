@@ -854,6 +854,16 @@ diff --git a/include/linux/percpu_counter.h b/include/linux/percpu_counter.h
  	return percpu_counter_read_positive(fbc);
  }
  
+@@ -105,4 +105,9 @@ static inline void percpu_counter_dec(struct percpu_counter *fbc)
+ 	percpu_counter_mod(fbc, -1);
+ }
+ 
++static inline void percpu_counter_sub(struct percpu_counter *fbc, s64 amount)
++{
++	percpu_counter_mod(fbc, -amount);
++}
++
+ #endif /* _LINUX_PERCPU_COUNTER_H */
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
