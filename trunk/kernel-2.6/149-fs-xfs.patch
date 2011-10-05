@@ -1,164 +1,192 @@
 xfs backport from 2.6.27.59
 
 ---
- fs/xfs/Kbuild                    |    6 
- fs/xfs/Kconfig                   |   25 
- fs/xfs/Makefile                  |  119 +
- fs/xfs/Makefile-linux-2.6        |  119 -
- fs/xfs/linux-2.6/kmem.c          |   14 
- fs/xfs/linux-2.6/kmem.h          |    4 
- fs/xfs/linux-2.6/mrlock.h        |   60 
- fs/xfs/linux-2.6/sema.h          |   52 
- fs/xfs/linux-2.6/spin.h          |   45 
- fs/xfs/linux-2.6/xfs_aops.c      |  151 +-
- fs/xfs/linux-2.6/xfs_aops.h      |    2 
- fs/xfs/linux-2.6/xfs_buf.c       |  209 +-
- fs/xfs/linux-2.6/xfs_buf.h       |   44 
- fs/xfs/linux-2.6/xfs_cred.h      |    2 
- fs/xfs/linux-2.6/xfs_export.c    |  241 ++-
- fs/xfs/linux-2.6/xfs_export.h    |   50 
- fs/xfs/linux-2.6/xfs_file.c      |  325 ++--
- fs/xfs/linux-2.6/xfs_fs_subr.c   |   46 
- fs/xfs/linux-2.6/xfs_fs_subr.h   |    4 
- fs/xfs/linux-2.6/xfs_globals.c   |    9 
- fs/xfs/linux-2.6/xfs_globals.h   |    1 
- fs/xfs/linux-2.6/xfs_ioctl.c     | 1475 ++++++++++++---------
- fs/xfs/linux-2.6/xfs_ioctl32.c   |  339 ++++
- fs/xfs/linux-2.6/xfs_iops.c      |  948 ++++++-------
- fs/xfs/linux-2.6/xfs_iops.c.orig |  832 +++++++++++
- fs/xfs/linux-2.6/xfs_iops.h      |   11 
- fs/xfs/linux-2.6/xfs_linux.h     |   52 
- fs/xfs/linux-2.6/xfs_lrw.c       |  257 +--
- fs/xfs/linux-2.6/xfs_lrw.h       |   41 
- fs/xfs/linux-2.6/xfs_stats.c     |   15 
- fs/xfs/linux-2.6/xfs_stats.h     |   12 
- fs/xfs/linux-2.6/xfs_super.c     | 1916 ++++++++++++++++++++++-----
- fs/xfs/linux-2.6/xfs_super.h     |   20 
- fs/xfs/linux-2.6/xfs_sysctl.c    |   19 
- fs/xfs/linux-2.6/xfs_sysctl.h    |    6 
- fs/xfs/linux-2.6/xfs_vfs.c       |  327 ----
- fs/xfs/linux-2.6/xfs_vfs.h       |  182 --
- fs/xfs/linux-2.6/xfs_vnode.c     |  187 --
- fs/xfs/linux-2.6/xfs_vnode.h     |  560 -------
- fs/xfs/linux-2.6/xfs_xattr.c     |  330 ++++
- fs/xfs/quota/xfs_dquot.c         |   77 -
- fs/xfs/quota/xfs_dquot.h         |   36 
- fs/xfs/quota/xfs_dquot_item.c    |   53 
- fs/xfs/quota/xfs_qm.c            |  224 +--
- fs/xfs/quota/xfs_qm.h            |   14 
- fs/xfs/quota/xfs_qm_bhv.c        |  248 ---
- fs/xfs/quota/xfs_qm_stats.h      |    4 
- fs/xfs/quota/xfs_qm_syscalls.c   |  110 -
- fs/xfs/quota/xfs_quota_priv.h    |    8 
- fs/xfs/quota/xfs_trans_dquot.c   |    8 
- fs/xfs/support/debug.c           |    7 
- fs/xfs/support/debug.h           |    8 
- fs/xfs/support/ktrace.c          |   49 
- fs/xfs/support/ktrace.h          |    6 
- fs/xfs/support/move.c            |   51 
- fs/xfs/support/move.h            |   70 
- fs/xfs/support/uuid.c            |    8 
- fs/xfs/support/uuid.h            |    1 
- fs/xfs/xfs.h                     |    3 
- fs/xfs/xfs.mod.c                 |   21 
- fs/xfs/xfs_acl.c                 |  169 --
- fs/xfs/xfs_acl.h                 |   25 
- fs/xfs/xfs_ag.h                  |   15 
- fs/xfs/xfs_alloc.c               |  179 +-
- fs/xfs/xfs_alloc.h               |    6 
- fs/xfs/xfs_alloc_btree.c         |   36 
- fs/xfs/xfs_arch.h                |   83 -
- fs/xfs/xfs_attr.c                |  849 +++---------
- fs/xfs/xfs_attr.h                |  102 -
- fs/xfs/xfs_attr_leaf.c           |  236 ---
- fs/xfs/xfs_attr_leaf.h           |   31 
- fs/xfs/xfs_attr_sf.h             |   10 
- fs/xfs/xfs_behavior.c            |  183 --
- fs/xfs/xfs_behavior.h            |  185 --
- fs/xfs/xfs_bit.c                 |  194 --
- fs/xfs/xfs_bit.h                 |   38 
- fs/xfs/xfs_bmap.c                |  755 +++++-----
- fs/xfs/xfs_bmap.h                |   25 
- fs/xfs/xfs_bmap_btree.c          |  404 ++---
- fs/xfs/xfs_bmap_btree.h          |   70 
- fs/xfs/xfs_btree.c               |  105 -
- fs/xfs/xfs_btree.h               |   42 
- fs/xfs/xfs_buf_item.c            |   70 
- fs/xfs/xfs_buf_item.h            |    2 
- fs/xfs/xfs_clnt.h                |    6 
- fs/xfs/xfs_da_btree.c            |   74 -
- fs/xfs/xfs_da_btree.h            |   37 
- fs/xfs/xfs_dfrag.c               |  135 -
- fs/xfs/xfs_dinode.h              |  147 --
- fs/xfs/xfs_dir2.c                |  305 ++--
- fs/xfs/xfs_dir2.h                |   31 
- fs/xfs/xfs_dir2_block.c          |  218 +--
- fs/xfs/xfs_dir2_block.h          |    7 
- fs/xfs/xfs_dir2_data.c           |   64 
- fs/xfs/xfs_dir2_data.h           |   12 
- fs/xfs/xfs_dir2_leaf.c           |  283 ++--
- fs/xfs/xfs_dir2_leaf.h           |   35 
- fs/xfs/xfs_dir2_node.c           |  479 +++---
- fs/xfs/xfs_dir2_node.h           |    4 
- fs/xfs/xfs_dir2_sf.c             |  360 ++---
- fs/xfs/xfs_dir2_sf.h             |   31 
- fs/xfs/xfs_dir2_trace.c          |   20 
- fs/xfs/xfs_dmapi.h               |   20 
- fs/xfs/xfs_dmops.c               |   30 
- fs/xfs/xfs_error.c               |   70 
- fs/xfs/xfs_error.h               |   20 
- fs/xfs/xfs_extfree_item.c        |   28 
- fs/xfs/xfs_filestream.c          |  773 +++++++++++
- fs/xfs/xfs_filestream.h          |  136 +
- fs/xfs/xfs_fs.h                  |   45 
- fs/xfs/xfs_fsops.c               |   89 -
- fs/xfs/xfs_ialloc.c              |  104 +
- fs/xfs/xfs_ialloc.h              |   17 
- fs/xfs/xfs_ialloc_btree.c        |   46 
- fs/xfs/xfs_ialloc_btree.h        |    2 
- fs/xfs/xfs_iget.c                |  868 ++++--------
- fs/xfs/xfs_inode.c               | 1631 +++++++++--------------
- fs/xfs/xfs_inode.h               |  324 ++--
- fs/xfs/xfs_inode_item.c          |   68 
- fs/xfs/xfs_inode_item.h          |    8 
- fs/xfs/xfs_iocore.c              |  119 -
- fs/xfs/xfs_iomap.c               |  282 +---
- fs/xfs/xfs_iomap.h               |    6 
- fs/xfs/xfs_itable.c              |  188 +-
- fs/xfs/xfs_itable.h              |   20 
- fs/xfs/xfs_log.c                 | 1001 ++++++--------
- fs/xfs/xfs_log.h                 |   10 
- fs/xfs/xfs_log_priv.h            |  228 +--
- fs/xfs/xfs_log_recover.c         |  414 +++--
- fs/xfs/xfs_mount.c               | 1104 +++++++++------
- fs/xfs/xfs_mount.h               |  351 +----
- fs/xfs/xfs_mru_cache.c           |  605 ++++++++
- fs/xfs/xfs_mru_cache.h           |   55 
- fs/xfs/xfs_qmops.c               |   39 
- fs/xfs/xfs_quota.h               |   10 
- fs/xfs/xfs_rename.c              |  398 +----
- fs/xfs/xfs_rtalloc.c             |   66 
- fs/xfs/xfs_rtalloc.h             |    2 
- fs/xfs/xfs_rw.c                  |   15 
- fs/xfs/xfs_rw.h                  |   70 
- fs/xfs/xfs_sb.h                  |  200 +-
- fs/xfs/xfs_trans.c               |  265 ++-
- fs/xfs/xfs_trans.h               |   30 
- fs/xfs/xfs_trans_ail.c           |  433 +++---
- fs/xfs/xfs_trans_buf.c           |   27 
- fs/xfs/xfs_trans_extfree.c       |    1 
- fs/xfs/xfs_trans_inode.c         |   14 
- fs/xfs/xfs_trans_item.c          |   75 -
- fs/xfs/xfs_trans_priv.h          |   13 
- fs/xfs/xfs_types.h               |   17 
- fs/xfs/xfs_utils.c               |   87 -
- fs/xfs/xfs_utils.h               |   20 
- fs/xfs/xfs_vfsops.c              | 1499 +--------------------
- fs/xfs/xfs_vfsops.h              |   16 
- fs/xfs/xfs_vnodeops.c            | 2736 +++++++++++----------------------------
- fs/xfs/xfs_vnodeops.h            |   82 +
- 156 files changed, 14867 insertions(+), 16035 deletions(-)
+ Documentation/filesystems/xfs.txt |   15 
+ fs/xfs/Kbuild                     |    6 
+ fs/xfs/Kconfig                    |   25 
+ fs/xfs/Makefile                   |  119 +
+ fs/xfs/Makefile-linux-2.6         |  119 -
+ fs/xfs/linux-2.6/kmem.c           |   14 
+ fs/xfs/linux-2.6/kmem.h           |    4 
+ fs/xfs/linux-2.6/mrlock.h         |   60 
+ fs/xfs/linux-2.6/sema.h           |   52 
+ fs/xfs/linux-2.6/spin.h           |   45 
+ fs/xfs/linux-2.6/xfs_aops.c       |  151 +-
+ fs/xfs/linux-2.6/xfs_aops.h       |    2 
+ fs/xfs/linux-2.6/xfs_buf.c        |  209 +-
+ fs/xfs/linux-2.6/xfs_buf.h        |   44 
+ fs/xfs/linux-2.6/xfs_cred.h       |    2 
+ fs/xfs/linux-2.6/xfs_export.c     |  241 ++-
+ fs/xfs/linux-2.6/xfs_export.h     |   50 
+ fs/xfs/linux-2.6/xfs_file.c       |  325 ++--
+ fs/xfs/linux-2.6/xfs_fs_subr.c    |   46 
+ fs/xfs/linux-2.6/xfs_fs_subr.h    |    4 
+ fs/xfs/linux-2.6/xfs_globals.c    |    9 
+ fs/xfs/linux-2.6/xfs_globals.h    |    1 
+ fs/xfs/linux-2.6/xfs_ioctl.c      | 1475 +++++++++++---------
+ fs/xfs/linux-2.6/xfs_ioctl32.c    |  339 ++++
+ fs/xfs/linux-2.6/xfs_iops.c       |  948 ++++++-------
+ fs/xfs/linux-2.6/xfs_iops.c.orig  |  832 +++++++++++
+ fs/xfs/linux-2.6/xfs_iops.h       |   11 
+ fs/xfs/linux-2.6/xfs_linux.h      |   52 
+ fs/xfs/linux-2.6/xfs_lrw.c        |  257 +--
+ fs/xfs/linux-2.6/xfs_lrw.h        |   41 
+ fs/xfs/linux-2.6/xfs_stats.c      |   15 
+ fs/xfs/linux-2.6/xfs_stats.h      |   12 
+ fs/xfs/linux-2.6/xfs_super.c      | 1916 +++++++++++++++++++++-----
+ fs/xfs/linux-2.6/xfs_super.h      |   20 
+ fs/xfs/linux-2.6/xfs_sysctl.c     |   19 
+ fs/xfs/linux-2.6/xfs_sysctl.h     |    6 
+ fs/xfs/linux-2.6/xfs_vfs.c        |  327 ----
+ fs/xfs/linux-2.6/xfs_vfs.h        |  182 --
+ fs/xfs/linux-2.6/xfs_vnode.c      |  187 --
+ fs/xfs/linux-2.6/xfs_vnode.h      |  560 -------
+ fs/xfs/linux-2.6/xfs_xattr.c      |  330 ++++
+ fs/xfs/quota/xfs_dquot.c          |   77 -
+ fs/xfs/quota/xfs_dquot.h          |   36 
+ fs/xfs/quota/xfs_dquot_item.c     |   53 
+ fs/xfs/quota/xfs_qm.c             |  224 +--
+ fs/xfs/quota/xfs_qm.h             |   14 
+ fs/xfs/quota/xfs_qm_bhv.c         |  248 ---
+ fs/xfs/quota/xfs_qm_stats.h       |    4 
+ fs/xfs/quota/xfs_qm_syscalls.c    |  110 -
+ fs/xfs/quota/xfs_quota_priv.h     |    8 
+ fs/xfs/quota/xfs_trans_dquot.c    |    8 
+ fs/xfs/support/debug.c            |    7 
+ fs/xfs/support/debug.h            |    8 
+ fs/xfs/support/ktrace.c           |   49 
+ fs/xfs/support/ktrace.h           |    6 
+ fs/xfs/support/move.c             |   51 
+ fs/xfs/support/move.h             |   70 
+ fs/xfs/support/uuid.c             |    8 
+ fs/xfs/support/uuid.h             |    1 
+ fs/xfs/xfs.h                      |    3 
+ fs/xfs/xfs.mod.c                  |   21 
+ fs/xfs/xfs_acl.c                  |  169 --
+ fs/xfs/xfs_acl.h                  |   25 
+ fs/xfs/xfs_ag.h                   |   15 
+ fs/xfs/xfs_alloc.c                |  179 +-
+ fs/xfs/xfs_alloc.h                |    6 
+ fs/xfs/xfs_alloc_btree.c          |   36 
+ fs/xfs/xfs_arch.h                 |   83 -
+ fs/xfs/xfs_attr.c                 |  849 +++--------
+ fs/xfs/xfs_attr.h                 |  102 -
+ fs/xfs/xfs_attr_leaf.c            |  236 ---
+ fs/xfs/xfs_attr_leaf.h            |   31 
+ fs/xfs/xfs_attr_sf.h              |   10 
+ fs/xfs/xfs_behavior.c             |  183 --
+ fs/xfs/xfs_behavior.h             |  185 --
+ fs/xfs/xfs_bit.c                  |  194 --
+ fs/xfs/xfs_bit.h                  |   38 
+ fs/xfs/xfs_bmap.c                 |  755 +++++-----
+ fs/xfs/xfs_bmap.h                 |   25 
+ fs/xfs/xfs_bmap_btree.c           |  404 ++---
+ fs/xfs/xfs_bmap_btree.h           |   70 
+ fs/xfs/xfs_btree.c                |  105 -
+ fs/xfs/xfs_btree.h                |   42 
+ fs/xfs/xfs_buf_item.c             |   70 
+ fs/xfs/xfs_buf_item.h             |    2 
+ fs/xfs/xfs_clnt.h                 |    6 
+ fs/xfs/xfs_da_btree.c             |   74 -
+ fs/xfs/xfs_da_btree.h             |   37 
+ fs/xfs/xfs_dfrag.c                |  135 -
+ fs/xfs/xfs_dinode.h               |  147 --
+ fs/xfs/xfs_dir2.c                 |  305 ++--
+ fs/xfs/xfs_dir2.h                 |   31 
+ fs/xfs/xfs_dir2_block.c           |  218 +--
+ fs/xfs/xfs_dir2_block.h           |    7 
+ fs/xfs/xfs_dir2_data.c            |   64 
+ fs/xfs/xfs_dir2_data.h            |   12 
+ fs/xfs/xfs_dir2_leaf.c            |  283 ++-
+ fs/xfs/xfs_dir2_leaf.h            |   35 
+ fs/xfs/xfs_dir2_node.c            |  479 +++---
+ fs/xfs/xfs_dir2_node.h            |    4 
+ fs/xfs/xfs_dir2_sf.c              |  360 ++---
+ fs/xfs/xfs_dir2_sf.h              |   31 
+ fs/xfs/xfs_dir2_trace.c           |   20 
+ fs/xfs/xfs_dmapi.h                |   20 
+ fs/xfs/xfs_dmops.c                |   30 
+ fs/xfs/xfs_error.c                |   70 
+ fs/xfs/xfs_error.h                |   20 
+ fs/xfs/xfs_extfree_item.c         |   28 
+ fs/xfs/xfs_filestream.c           |  773 ++++++++++
+ fs/xfs/xfs_filestream.h           |  136 +
+ fs/xfs/xfs_fs.h                   |   45 
+ fs/xfs/xfs_fsops.c                |   89 -
+ fs/xfs/xfs_ialloc.c               |  104 +
+ fs/xfs/xfs_ialloc.h               |   17 
+ fs/xfs/xfs_ialloc_btree.c         |   46 
+ fs/xfs/xfs_ialloc_btree.h         |    2 
+ fs/xfs/xfs_iget.c                 |  868 ++++--------
+ fs/xfs/xfs_inode.c                | 1631 +++++++++-------------
+ fs/xfs/xfs_inode.h                |  324 ++--
+ fs/xfs/xfs_inode_item.c           |   68 
+ fs/xfs/xfs_inode_item.h           |    8 
+ fs/xfs/xfs_iocore.c               |  119 -
+ fs/xfs/xfs_iomap.c                |  282 +--
+ fs/xfs/xfs_iomap.h                |    6 
+ fs/xfs/xfs_itable.c               |  188 +-
+ fs/xfs/xfs_itable.h               |   20 
+ fs/xfs/xfs_log.c                  | 1001 ++++++-------
+ fs/xfs/xfs_log.h                  |   10 
+ fs/xfs/xfs_log_priv.h             |  228 +--
+ fs/xfs/xfs_log_recover.c          |  414 +++--
+ fs/xfs/xfs_mount.c                | 1104 +++++++++------
+ fs/xfs/xfs_mount.h                |  351 +---
+ fs/xfs/xfs_mru_cache.c            |  605 ++++++++
+ fs/xfs/xfs_mru_cache.h            |   55 
+ fs/xfs/xfs_qmops.c                |   39 
+ fs/xfs/xfs_quota.h                |   10 
+ fs/xfs/xfs_rename.c               |  398 +----
+ fs/xfs/xfs_rtalloc.c              |   66 
+ fs/xfs/xfs_rtalloc.h              |    2 
+ fs/xfs/xfs_rw.c                   |   15 
+ fs/xfs/xfs_rw.h                   |   70 
+ fs/xfs/xfs_sb.h                   |  200 +-
+ fs/xfs/xfs_trans.c                |  265 ++-
+ fs/xfs/xfs_trans.h                |   30 
+ fs/xfs/xfs_trans_ail.c            |  433 +++---
+ fs/xfs/xfs_trans_buf.c            |   27 
+ fs/xfs/xfs_trans_extfree.c        |    1 
+ fs/xfs/xfs_trans_inode.c          |   14 
+ fs/xfs/xfs_trans_item.c           |   75 -
+ fs/xfs/xfs_trans_priv.h           |   13 
+ fs/xfs/xfs_types.h                |   17 
+ fs/xfs/xfs_utils.c                |   87 -
+ fs/xfs/xfs_utils.h                |   20 
+ fs/xfs/xfs_vfsops.c               | 1499 +-------------------
+ fs/xfs/xfs_vfsops.h               |   16 
+ fs/xfs/xfs_vnodeops.c             | 2736 +++++++++++---------------------------
+ fs/xfs/xfs_vnodeops.h             |   82 +
+ 157 files changed, 14874 insertions(+), 16043 deletions(-)
 
+diff --git a/Documentation/filesystems/xfs.txt b/Documentation/filesystems/xfs.txt
+--- a/Documentation/filesystems/xfs.txt
++++ b/Documentation/filesystems/xfs.txt
+@@ -52,16 +52,15 @@
+ 	and also gets the setgid bit set if it is a directory itself.
+ 
+   ihashsize=value
+-	Sets the number of hash buckets available for hashing the
+-	in-memory inodes of the specified mount point.  If a value
+-	of zero is used, the value selected by the default algorithm
+-	will be displayed in /proc/mounts.
++	In memory inode hashes have been removed, so this option has
++	no function as of August 2007. Option is deprecated.
+ 
+   ikeep/noikeep
+-	When inode clusters are emptied of inodes, keep them around
+-	on the disk (ikeep) - this is the traditional XFS behaviour
+-	and is still the default for now.  Using the noikeep option,
+-	inode clusters are returned to the free space pool.
++	When ikeep is specified, XFS does not delete empty inode clusters
++	and keeps them around on disk. ikeep is the traditional XFS
++	behaviour. When noikeep is specified, empty inode clusters
++	are returned to the free space pool. The default is noikeep for
++	non-DMAPI mounts, while ikeep is the default when DMAPI is in use.
+ 
+   inode64
+ 	Indicates that XFS is allowed to create inodes at any location
 diff --git a/fs/xfs/Kbuild b/fs/xfs/Kbuild
 --- a/fs/xfs/Kbuild
 +++ b/fs/xfs/Kbuild
@@ -2300,7 +2328,7 @@ diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
  
  	/* NOTE:  some of the ioctl's return positive #'s as a
  	 *	  byte count indicating success, such as
-@@ -373,54 +418,21 @@ xfs_file_ioctl_invis(
+@@ -373,54 +418,19 @@ xfs_file_ioctl_invis(
  	return error;
  }
  
@@ -2332,7 +2360,6 @@ diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
 - * we have to trigger a DMAPI READ event before the file is marked as busy
 - * otherwise the invisible I/O will not be able to write to the file to bring
 - * it back online.
-+#if 0
 +/*
 + * mmap()d file has taken write protection fault and is being made
 + * writable. We can set the page state up correctly for a writable
@@ -2344,7 +2371,7 @@ diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
 -	struct inode	*inode)
 +xfs_vm_page_mkwrite(
 +	struct vm_area_struct	*vma,
-+	struct vm_fault		*vmf)
++	struct page		*page)
  {
 -	bhv_vnode_t	*vp = vn_from_inode(inode);
 -
@@ -2359,10 +2386,9 @@ diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
 -					       0, 0, 0, NULL);
 -	}
 -	return 0;
-+	return block_page_mkwrite(vma, vmf, xfs_get_blocks);
++	return block_page_mkwrite(vma, page, xfs_get_blocks);
  }
 -#endif /* HAVE_FOP_OPEN_EXEC */
-+#endif
  
  const struct file_operations xfs_file_operations = {
  	.llseek		= generic_file_llseek,
@@ -2394,7 +2420,7 @@ diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
  
  static struct vm_operations_struct xfs_file_vm_ops = {
  	.fault		= filemap_fault,
-+//	.page_mkwrite	= xfs_vm_page_mkwrite,
++	.page_mkwrite	= xfs_vm_page_mkwrite,
  };
 -
 -#ifdef CONFIG_XFS_DMAPI

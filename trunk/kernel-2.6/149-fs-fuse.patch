@@ -2118,7 +2118,7 @@ diff --git a/fs/fuse/file.c b/fs/fuse/file.c
  		*ppos = pos;
  	}
  	fuse_invalidate_attr(inode);
-@@ -635,21 +1036,228 @@ static ssize_t fuse_direct_write(struct 
+@@ -635,21 +1036,225 @@ static ssize_t fuse_direct_write(struct 
  	return res;
  }
  
@@ -2300,7 +2300,6 @@ diff --git a/fs/fuse/file.c b/fs/fuse/file.c
 +	filemap_write_and_wait(vma->vm_file->f_mapping);
 +}
 +
-+#if 0
 +/*
 + * Wait for writeback against this page to complete before allowing it
 + * to be marked dirty again, and hence written back again, possibly
@@ -2316,9 +2315,8 @@ diff --git a/fs/fuse/file.c b/fs/fuse/file.c
 + * - sync(2)
 + * - try_to_free_pages() with order > PAGE_ALLOC_COSTLY_ORDER
 + */
-+static int fuse_page_mkwrite(struct vm_area_struct *vma, struct vm_fault *vmf)
++static int fuse_page_mkwrite(struct vm_area_struct *vma, struct page *page)
 +{
-+	struct page *page = vmf->page;
 +	/*
 +	 * Don't use page->mapping as it may become NULL from a
 +	 * concurrent truncate.
@@ -2328,12 +2326,11 @@ diff --git a/fs/fuse/file.c b/fs/fuse/file.c
 +	fuse_wait_on_page_writeback(inode, page->index);
 +	return 0;
 +}
-+#endif
 +
 +static struct vm_operations_struct fuse_file_vm_ops = {
 +	.close		= fuse_vma_close,
 +	.fault		= filemap_fault,
-+//	.page_mkwrite	= fuse_page_mkwrite,
++	.page_mkwrite	= fuse_page_mkwrite,
 +};
 +
 +static int fuse_file_mmap(struct file *file, struct vm_area_struct *vma)
