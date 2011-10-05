@@ -2183,6 +2183,52 @@ int generic_commit_write(struct file *file, struct page *page,
 	return 0;
 }
 
+/*
+ * block_page_mkwrite() is not allowed to change the file size as it gets
+ * called from a page fault handler when a page is first dirtied. Hence we must
+ * be careful to check for EOF conditions here. We set the page up correctly
+ * for a written page which means we get ENOSPC checking when writing into
+ * holes and correct delalloc and unwritten extent mapping on filesystems that
+ * support these features.
+ *
+ * We are not allowed to take the i_mutex here so we have to play games to
+ * protect against truncate races as the page could now be beyond EOF.  Because
+ * vmtruncate() writes the inode size before removing pages, once we have the
+ * page lock we can determine safely if the page is beyond EOF. If it is not
+ * beyond EOF, then the page is guaranteed safe against truncation until we
+ * unlock the page.
+ */
+int
+block_page_mkwrite(struct vm_area_struct *vma, struct page *page,
+		   get_block_t get_block)
+{
+	struct inode *inode = vma->vm_file->f_path.dentry->d_inode;
+	unsigned long end;
+	loff_t size;
+	int ret = -EINVAL;
+
+	lock_page(page);
+	size = i_size_read(inode);
+	if ((page->mapping != inode->i_mapping) ||
+	    ((page->index << PAGE_CACHE_SHIFT) > size)) {
+		/* page got truncated out from underneath us */
+		goto out_unlock;
+	}
+
+	/* page is wholly or partially inside EOF */
+	if (((page->index + 1) << PAGE_CACHE_SHIFT) > size)
+		end = size & ~PAGE_CACHE_MASK;
+	else
+		end = PAGE_CACHE_SIZE;
+
+	ret = block_prepare_write(page, 0, end, get_block);
+	if (!ret)
+		ret = block_commit_write(page, 0, end);
+
+out_unlock:
+	unlock_page(page);
+	return ret;
+}
 
 /*
  * nobh_prepare_write()'s prereads are special: the buffer_heads are freed
@@ -2946,6 +2992,50 @@ static int buffer_cpu_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+/**
+ * bh_uptodate_or_lock: Test whether the buffer is uptodate
+ * @bh: struct buffer_head
+ *
+ * Return true if the buffer is up-to-date and false,
+ * with the buffer locked, if not.
+ */
+int bh_uptodate_or_lock(struct buffer_head *bh)
+{
+	if (!buffer_uptodate(bh)) {
+		lock_buffer(bh);
+		if (!buffer_uptodate(bh))
+			return 0;
+		unlock_buffer(bh);
+	}
+	return 1;
+}
+EXPORT_SYMBOL(bh_uptodate_or_lock);
+
+/**
+ * bh_submit_read: Submit a locked buffer for reading
+ * @bh: struct buffer_head
+ *
+ * Returns zero on success and -EIO on error.
+ */
+int bh_submit_read(struct buffer_head *bh)
+{
+	BUG_ON(!buffer_locked(bh));
+
+	if (buffer_uptodate(bh)) {
+		unlock_buffer(bh);
+		return 0;
+	}
+
+	get_bh(bh);
+	bh->b_end_io = end_buffer_read_sync;
+	submit_bh(READ, bh);
+	wait_on_buffer(bh);
+	if (buffer_uptodate(bh))
+		return 0;
+	return -EIO;
+}
+EXPORT_SYMBOL(bh_submit_read);
+
 void __init buffer_init(void)
 {
 	int nrpages;
@@ -2966,6 +3056,7 @@ EXPORT_SYMBOL(__brelse);
 EXPORT_SYMBOL(__wait_on_buffer);
 EXPORT_SYMBOL(block_commit_write);
 EXPORT_SYMBOL(block_prepare_write);
+EXPORT_SYMBOL(block_page_mkwrite);
 EXPORT_SYMBOL(block_read_full_page);
 EXPORT_SYMBOL(block_sync_page);
 EXPORT_SYMBOL(block_truncate_page);
