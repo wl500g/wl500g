@@ -1,34 +1,80 @@
-From 91803b499cca2fe558abad709ce83dc896b80950
-From: Jeff Moyer
-Date: Wed, 26 May 2010 11:49:40 -0400
-Subject: [PATCH] do_generic_file_read: clear page errors when issuing a fresh read of the page
+vfs updates from upstream
 
-I/O errors can happen due to temporary failures, like multipath
-errors or losing network contact with the iSCSI server. Because
-of that, the VM will retry readpage on the page.
+ kernel.org commits
+ f4c0a0fdfae708f7aa438c27a380ed4071294e11 vfs: export filemap_fdatawrite_range()
+ d3bccb6f4b886060aa0f58976b92b77d951f5434 vfs: Introduce filemap_fdatawait_range
+ 91803b499cca2fe558abad709ce83dc896b80950 do_generic_file_read: clear page errors when issuing a fresh read of the page
 
-However, do_generic_file_read does not clear PG_error.  This
-causes the system to be unable to actually use the data in the
-page cache page, even if the subsequent readpage completes
-successfully!
-
-The function filemap_fault has had a ClearPageError before
-readpage forever.  This patch simply adds the same to
-do_generic_file_read.
-
-Signed-off-by: Jeff Moyer <jmoyer@redhat.com>
-Signed-off-by: Rik van Riel <riel@redhat.com>
-Acked-by: Larry Woodman <lwoodman@redhat.com>
-Cc: stable@kernel.org
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 ---
- mm/filemap.c |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ include/linux/fs.h |    4 ++++
+ mm/filemap.c       |   29 ++++++++++++++++++++++++++++-
+ 2 files changed, 32 insertions(+), 1 deletion(-)
 
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -1652,6 +1652,8 @@ extern int write_inode_now(struct inode *, int);
+ extern int filemap_fdatawrite(struct address_space *);
+ extern int filemap_flush(struct address_space *);
+ extern int filemap_fdatawait(struct address_space *);
++extern int filemap_fdatawait_range(struct address_space *, loff_t lstart,
++				   loff_t lend);
+ extern int filemap_write_and_wait(struct address_space *mapping);
+ extern int filemap_write_and_wait_range(struct address_space *mapping,
+ 				        loff_t lstart, loff_t lend);
+@@ -1740,6 +1740,8 @@ extern int wait_on_page_writeback_range(struct address_space *mapping,
+ 				pgoff_t start, pgoff_t end);
+ extern int __filemap_fdatawrite_range(struct address_space *mapping,
+ 				loff_t start, loff_t end, int sync_mode);
++extern int filemap_fdatawrite_range(struct address_space *mapping,
++				loff_t start, loff_t end);
+ 
+ extern long do_fsync(struct file *file, int datasync);
+ extern void sync_supers(void);
 diff --git a/mm/filemap.c b/mm/filemap.c
-index 88d7196..35e12d1 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
+@@ -236,11 +236,12 @@ int filemap_fdatawrite(struct address_space *mapping)
+ }
+ EXPORT_SYMBOL(filemap_fdatawrite);
+ 
+-static int filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
++int filemap_fdatawrite_range(struct address_space *mapping, loff_t start,
+ 				loff_t end)
+ {
+ 	return __filemap_fdatawrite_range(mapping, start, end, WB_SYNC_ALL);
+ }
++EXPORT_SYMBOL(filemap_fdatawrite_range);
+ 
+ /**
+  * filemap_flush - mostly a non-blocking flush
+@@ -307,6 +307,26 @@ int wait_on_page_writeback_range(struct address_space *mapping,
+ }
+ 
+ /**
++ * filemap_fdatawait_range - wait for all under-writeback pages to complete in a given range
++ * @mapping: address space structure to wait for
++ * @start:	offset in bytes where the range starts
++ * @end:	offset in bytes where the range ends (inclusive)
++ *
++ * Walk the list of under-writeback pages of the given address space
++ * in the given range and wait for all of them.
++ *
++ * This is just a simple wrapper so that callers don't have to convert offsets
++ * to page indexes themselves
++ */
++int filemap_fdatawait_range(struct address_space *mapping, loff_t start,
++			    loff_t end)
++{
++	return wait_on_page_writeback_range(mapping, start >> PAGE_CACHE_SHIFT,
++					    end >> PAGE_CACHE_SHIFT);
++}
++EXPORT_SYMBOL(filemap_fdatawait_range);
++
++/**
+  * sync_page_range - write and wait on all pages in the passed range
+  * @inode:	target inode
+  * @mapping:	target address_space
 @@ -1105,6 +1105,12 @@ page_not_up_to_date_locked:
  		}
  
@@ -44,4 +90,3 @@ index 88d7196..35e12d1 100644
  
 -- 
 1.7.1.1
-
