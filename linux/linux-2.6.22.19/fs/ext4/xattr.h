@@ -56,7 +56,14 @@ struct ext4_xattr_entry {
 #define EXT4_XATTR_SIZE(size) \
 	(((size) + EXT4_XATTR_ROUND) & ~EXT4_XATTR_ROUND)
 
-# ifdef CONFIG_EXT4DEV_FS_XATTR
+#define IHDR(inode, raw_inode) \
+	((struct ext4_xattr_ibody_header *) \
+		((void *)raw_inode + \
+		EXT4_GOOD_OLD_INODE_SIZE + \
+		EXT4_I(inode)->i_extra_isize))
+#define IFIRST(hdr) ((struct ext4_xattr_entry *)((hdr)+1))
+
+# ifdef CONFIG_EXT4_FS_XATTR
 
 extern struct xattr_handler ext4_xattr_user_handler;
 extern struct xattr_handler ext4_xattr_trusted_handler;
@@ -67,29 +74,25 @@ extern struct xattr_handler ext4_xattr_security_handler;
 extern ssize_t ext4_listxattr(struct dentry *, char *, size_t);
 
 extern int ext4_xattr_get(struct inode *, int, const char *, void *, size_t);
-extern int ext4_xattr_list(struct inode *, char *, size_t);
 extern int ext4_xattr_set(struct inode *, int, const char *, const void *, size_t, int);
 extern int ext4_xattr_set_handle(handle_t *, struct inode *, int, const char *, const void *, size_t, int);
 
 extern void ext4_xattr_delete_inode(handle_t *, struct inode *);
 extern void ext4_xattr_put_super(struct super_block *);
 
+extern int ext4_expand_extra_isize_ea(struct inode *inode, int new_extra_isize,
+			    struct ext4_inode *raw_inode, handle_t *handle);
+
 extern int init_ext4_xattr(void);
 extern void exit_ext4_xattr(void);
 
 extern struct xattr_handler *ext4_xattr_handlers[];
 
-# else  /* CONFIG_EXT4DEV_FS_XATTR */
+# else  /* CONFIG_EXT4_FS_XATTR */
 
 static inline int
 ext4_xattr_get(struct inode *inode, int name_index, const char *name,
 	       void *buffer, size_t size, int flags)
-{
-	return -EOPNOTSUPP;
-}
-
-static inline int
-ext4_xattr_list(struct inode *inode, void *buffer, size_t size)
 {
 	return -EOPNOTSUPP;
 }
@@ -129,11 +132,18 @@ exit_ext4_xattr(void)
 {
 }
 
+static inline int
+ext4_expand_extra_isize_ea(struct inode *inode, int new_extra_isize,
+			    struct ext4_inode *raw_inode, handle_t *handle)
+{
+	return -EOPNOTSUPP;
+}
+
 #define ext4_xattr_handlers	NULL
 
-# endif  /* CONFIG_EXT4DEV_FS_XATTR */
+# endif  /* CONFIG_EXT4_FS_XATTR */
 
-#ifdef CONFIG_EXT4DEV_FS_SECURITY
+#ifdef CONFIG_EXT4_FS_SECURITY
 extern int ext4_init_security(handle_t *handle, struct inode *inode,
 				struct inode *dir);
 #else

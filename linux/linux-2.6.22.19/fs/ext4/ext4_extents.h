@@ -16,10 +16,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-
  */
 
-#ifndef _LINUX_EXT4_EXTENTS
-#define _LINUX_EXT4_EXTENTS
+#ifndef _EXT4_EXTENTS
+#define _EXT4_EXTENTS
 
-#include <linux/ext4_fs.h>
+#include "ext4.h"
 
 /*
  * With AGGRESSIVE_TEST defined, the capacity of index/leaf blocks
@@ -74,7 +74,7 @@ struct ext4_extent {
 	__le32	ee_block;	/* first logical block extent covers */
 	__le16	ee_len;		/* number of blocks covered by extent */
 	__le16	ee_start_hi;	/* high 16 bits of physical block */
-	__le32	ee_start;	/* low 32 bits of physical block */
+	__le32	ee_start_lo;	/* low 32 bits of physical block */
 };
 
 /*
@@ -83,7 +83,7 @@ struct ext4_extent {
  */
 struct ext4_extent_idx {
 	__le32	ei_block;	/* index covers logical blocks from 'block' */
-	__le32	ei_leaf;	/* pointer to the physical block of the next *
+	__le32	ei_leaf_lo;	/* pointer to the physical block of the next *
 				 * level. leaf or next index could be there */
 	__le16	ei_leaf_hi;	/* high 16 bits of physical block */
 	__u16	ei_unused;
@@ -124,24 +124,28 @@ struct ext4_ext_path {
 #define EXT4_EXT_CACHE_GAP	1
 #define EXT4_EXT_CACHE_EXTENT	2
 
-/*
- * to be called by ext4_ext_walk_space()
- * negative retcode - error
- * positive retcode - signal for ext4_ext_walk_space(), see below
- * callback must return valid extent (passed or newly created)
- */
-typedef int (*ext_prepare_callback)(struct inode *, struct ext4_ext_path *,
-					struct ext4_ext_cache *,
-					void *);
-
-#define EXT_CONTINUE	0
-#define EXT_BREAK	1
-#define EXT_REPEAT	2
-
 
 #define EXT_MAX_BLOCK	0xffffffff
 
-#define EXT_MAX_LEN	((1UL << 15) - 1)
+/*
+ * EXT_INIT_MAX_LEN is the maximum number of blocks we can have in an
+ * initialized extent. This is 2^15 and not (2^16 - 1), since we use the
+ * MSB of ee_len field in the extent datastructure to signify if this
+ * particular extent is an initialized extent or an uninitialized (i.e.
+ * preallocated).
+ * EXT_UNINIT_MAX_LEN is the maximum number of blocks we can have in an
+ * uninitialized extent.
+ * If ee_len is <= 0x8000, it is an initialized extent. Otherwise, it is an
+ * uninitialized one. In other words, if MSB of ee_len is set, it is an
+ * uninitialized extent with only one special scenario when ee_len = 0x8000.
+ * In this case we can not have an uninitialized extent of zero length and
+ * thus we make it as a special case of initialized extent with 0x8000 length.
+ * This way we get better extent-to-group alignment for initialized extents.
+ * Hence, the maximum number of blocks we can have in an *initialized*
+ * extent is 2^15 (32768) and in an *uninitialized* extent is 2^15-1 (32767).
+ */
+#define EXT_INIT_MAX_LEN	(1UL << 15)
+#define EXT_UNINIT_MAX_LEN	(EXT_INIT_MAX_LEN - 1)
 
 
 #define EXT_FIRST_EXTENT(__hdr__) \
@@ -188,12 +192,44 @@ ext4_ext_invalidate_cache(struct inode *inode)
 	EXT4_I(inode)->i_cached_extent.ec_type = EXT4_EXT_CACHE_NO;
 }
 
+static inline void ext4_ext_mark_uninitialized(struct ext4_extent *ext)
+{
+	/* We can not have an uninitialized extent of zero length! */
+	BUG_ON((le16_to_cpu(ext->ee_len) & ~EXT_INIT_MAX_LEN) == 0);
+	ext->ee_len |= cpu_to_le16(EXT_INIT_MAX_LEN);
+}
+
+static inline int ext4_ext_is_uninitialized(struct ext4_extent *ext)
+{
+	/* Extent with ee_len of 0x8000 is treated as an initialized extent */
+	return (le16_to_cpu(ext->ee_len) > EXT_INIT_MAX_LEN);
+}
+
+static inline int ext4_ext_get_actual_len(struct ext4_extent *ext)
+{
+	return (le16_to_cpu(ext->ee_len) <= EXT_INIT_MAX_LEN ?
+		le16_to_cpu(ext->ee_len) :
+		(le16_to_cpu(ext->ee_len) - EXT_INIT_MAX_LEN));
+}
+
+extern int ext4_ext_calc_metadata_amount(struct inode *inode, int blocks);
+extern ext4_fsblk_t idx_pblock(struct ext4_extent_idx *);
+extern void ext4_ext_store_pblock(struct ext4_extent *, ext4_fsblk_t);
 extern int ext4_extent_tree_init(handle_t *, struct inode *);
-extern int ext4_ext_calc_credits_for_insert(struct inode *, struct ext4_ext_path *);
+extern int ext4_ext_calc_credits_for_single_extent(struct inode *inode,
+						   int num,
+						   struct ext4_ext_path *path);
+extern int ext4_ext_try_to_merge(struct inode *inode,
+				 struct ext4_ext_path *path,
+				 struct ext4_extent *);
 extern unsigned int ext4_ext_check_overlap(struct inode *, struct ext4_extent *, struct ext4_ext_path *);
 extern int ext4_ext_insert_extent(handle_t *, struct inode *, struct ext4_ext_path *, struct ext4_extent *);
-extern int ext4_ext_walk_space(struct inode *, unsigned long, unsigned long, ext_prepare_callback, void *);
-extern struct ext4_ext_path * ext4_ext_find_extent(struct inode *, int, struct ext4_ext_path *);
-
-#endif /* _LINUX_EXT4_EXTENTS */
+extern struct ext4_ext_path *ext4_ext_find_extent(struct inode *, ext4_lblk_t,
+							struct ext4_ext_path *);
+extern int ext4_ext_search_left(struct inode *, struct ext4_ext_path *,
+						ext4_lblk_t *, ext4_fsblk_t *);
+extern int ext4_ext_search_right(struct inode *, struct ext4_ext_path *,
+						ext4_lblk_t *, ext4_fsblk_t *);
+extern void ext4_ext_drop_refs(struct ext4_ext_path *);
+#endif /* _EXT4_EXTENTS */
 

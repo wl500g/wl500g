@@ -8,17 +8,15 @@
 #include <linux/module.h>
 #include <linux/string.h>
 #include <linux/fs.h>
-#include <linux/ext4_jbd2.h>
-#include <linux/ext4_fs.h>
+#include "ext4_jbd2.h"
+#include "ext4.h"
 #include "xattr.h"
-
-#define XATTR_USER_PREFIX "user."
 
 static size_t
 ext4_xattr_user_list(struct inode *inode, char *list, size_t list_size,
 		     const char *name, size_t name_len)
 {
-	const size_t prefix_len = sizeof(XATTR_USER_PREFIX)-1;
+	const size_t prefix_len = XATTR_USER_PREFIX_LEN;
 	const size_t total_len = prefix_len + name_len + 1;
 
 	if (!test_opt(inode->i_sb, XATTR_USER))

@@ -10,16 +10,16 @@
 #include <linux/fs.h>
 #include <linux/jbd2.h>
 #include <linux/capability.h>
-#include <linux/ext4_fs.h>
-#include <linux/ext4_jbd2.h>
 #include <linux/time.h>
 #include <linux/compat.h>
 #include <linux/smp_lock.h>
 #include <asm/uaccess.h>
+#include "ext4_jbd2.h"
+#include "ext4.h"
 
-int ext4_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
-		unsigned long arg)
+long ext4_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	struct inode *inode = filp->f_dentry->d_inode;
 	struct ext4_inode_info *ei = EXT4_I(inode);
 	unsigned int flags;
 	unsigned short rsv_window_size;
@@ -28,6 +28,7 @@ int ext4_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 
 	switch (cmd) {
 	case EXT4_IOC_GETFLAGS:
+		ext4_get_inode_flags(ei);
 		flags = ei->i_flags & EXT4_FL_USER_VISIBLE;
 		return put_user(flags, (int __user *) arg);
 	case EXT4_IOC_SETFLAGS: {
@@ -46,10 +47,14 @@ int ext4_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		if (get_user(flags, (int __user *) arg))
 			return -EFAULT;
 
-		if (!S_ISDIR(inode->i_mode))
-			flags &= ~EXT4_DIRSYNC_FL;
+		flags = ext4_mask_flags(inode->i_mode, flags);
 
 		mutex_lock(&inode->i_mutex);
+		/* Is it quota file? Do not allow user to mess with it */
+		if (IS_NOQUOTA(inode)) {
+			mutex_unlock(&inode->i_mutex);
+			return -EPERM;
+		}
 		oldflags = ei->i_flags;
 
 		/* The JOURNAL_DATA flag is modifiable only by root */
@@ -96,7 +101,7 @@ int ext4_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
 		ei->i_flags = flags;
 
 		ext4_set_inode_flags(inode);
-		inode->i_ctime = CURRENT_TIME_SEC;
+		inode->i_ctime = ext4_current_time(inode);
 
 		err = ext4_mark_iloc_dirty(handle, inode, &iloc);
 flags_err:
@@ -133,14 +138,14 @@ flags_err:
 			return PTR_ERR(handle);
 		err = ext4_reserve_inode_write(handle, inode, &iloc);
 		if (err == 0) {
-			inode->i_ctime = CURRENT_TIME_SEC;
+			inode->i_ctime = ext4_current_time(inode);
 			inode->i_generation = generation;
 			err = ext4_mark_iloc_dirty(handle, inode, &iloc);
 		}
 		ext4_journal_stop(handle);
 		return err;
 	}
-#ifdef CONFIG_JBD_DEBUG
+#ifdef CONFIG_JBD2_DEBUG
 	case EXT4_IOC_WAIT_FOR_READONLY:
 		/*
 		 * This is racy - by the time we're woken up and running,
@@ -193,7 +198,7 @@ flags_err:
 		 * need to allocate reservation structure for this inode
 		 * before set the window size
 		 */
-		mutex_lock(&ei->truncate_mutex);
+		down_write(&ei->i_data_sem);
 		if (!ei->i_block_alloc_info)
 			ext4_init_block_alloc_info(inode);
 
@@ -201,7 +206,7 @@ flags_err:
 			struct ext4_reserve_window_node *rsv = &ei->i_block_alloc_info->rsv_window_node;
 			rsv->rsv_goal_size = rsv_window_size;
 		}
-		mutex_unlock(&ei->truncate_mutex);
+		up_write(&ei->i_data_sem);
 		return 0;
 	}
 	case EXT4_IOC_GROUP_EXTEND: {
@@ -248,6 +253,39 @@ flags_err:
 		return err;
 	}
 
+	case EXT4_IOC_MIGRATE:
+	{
+		int err;
+		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
+			return -EACCES;
+
+		if (IS_RDONLY(inode))
+			return -EROFS;
+		/*
+		 * inode_mutex prevent write and truncate on the file.
+		 * Read still goes through. We take i_data_sem in
+		 * ext4_ext_swap_inode_data before we switch the
+		 * inode format to prevent read.
+		 */
+		mutex_lock(&(inode->i_mutex));
+		err = ext4_ext_migrate(inode);
+		mutex_unlock(&(inode->i_mutex));
+		return err;
+	}
+
+	case EXT4_IOC_ALLOC_DA_BLKS:
+	{
+		int err;
+		if ((current->fsuid != inode->i_uid) && !capable(CAP_FOWNER))
+			return -EACCES;
+
+		if (IS_RDONLY(inode))
+			return -EROFS;
+
+		err = ext4_alloc_da_blocks(inode);
+		return err;
+	}
+
 	default:
 		return -ENOTTY;
 	}
@@ -256,9 +294,6 @@ flags_err:
 #ifdef CONFIG_COMPAT
 long ext4_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct inode *inode = file->f_path.dentry->d_inode;
-	int ret;
-
 	/* These are just misnamed, they actually get/put from/to user an int */
 	switch (cmd) {
 	case EXT4_IOC32_GETFLAGS:
@@ -282,7 +317,7 @@ long ext4_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case EXT4_IOC32_SETVERSION_OLD:
 		cmd = EXT4_IOC_SETVERSION_OLD;
 		break;
-#ifdef CONFIG_JBD_DEBUG
+#ifdef CONFIG_JBD2_DEBUG
 	case EXT4_IOC32_WAIT_FOR_READONLY:
 		cmd = EXT4_IOC_WAIT_FOR_READONLY;
 		break;
@@ -298,9 +333,6 @@ long ext4_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	default:
 		return -ENOIOCTLCMD;
 	}
-	lock_kernel();
-	ret = ext4_ioctl(inode, file, cmd, (unsigned long) compat_ptr(arg));
-	unlock_kernel();
-	return ret;
+	return ext4_ioctl(file, cmd, (unsigned long) compat_ptr(arg));
 }
 #endif

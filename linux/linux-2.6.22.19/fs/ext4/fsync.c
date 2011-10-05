@@ -27,8 +27,9 @@
 #include <linux/sched.h>
 #include <linux/writeback.h>
 #include <linux/jbd2.h>
-#include <linux/ext4_fs.h>
-#include <linux/ext4_jbd2.h>
+#include <linux/blkdev.h>
+#include "ext4.h"
+#include "ext4_jbd2.h"
 
 /*
  * akpm: A new design for ext4_sync_file().
@@ -45,9 +46,10 @@
 int ext4_sync_file(struct file * file, struct dentry *dentry, int datasync)
 {
 	struct inode *inode = dentry->d_inode;
+	journal_t *journal = EXT4_SB(inode->i_sb)->s_journal;
 	int ret = 0;
 
-	J_ASSERT(ext4_journal_current_handle() == 0);
+	J_ASSERT(ext4_journal_current_handle() == NULL);
 
 	/*
 	 * data=writeback:
@@ -72,6 +74,9 @@ int ext4_sync_file(struct file * file, struct dentry *dentry, int datasync)
 		goto out;
 	}
 
+	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+		goto out;
+
 	/*
 	 * The VFS has written the file data.  If the inode is unaltered
 	 * then we need not start a commit.
@@ -82,6 +87,8 @@ int ext4_sync_file(struct file * file, struct dentry *dentry, int datasync)
 			.nr_to_write = 0, /* sys_fsync did this */
 		};
 		ret = sync_inode(inode, &wbc);
+		if (journal && (journal->j_flags & JBD2_BARRIER))
+			blkdev_issue_flush(inode->i_sb->s_bdev, NULL);
 	}
 out:
 	return ret;

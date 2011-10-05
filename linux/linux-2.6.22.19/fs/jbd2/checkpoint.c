@@ -114,7 +114,7 @@ static int __try_to_free_cp_buf(struct journal_head *jh)
  */
 void __jbd2_log_wait_for_space(journal_t *journal)
 {
-	int nblocks;
+	int nblocks, space_left;
 	assert_spin_locked(&journal->j_state_lock);
 
 	nblocks = jbd_space_needed(journal);
@@ -126,14 +126,47 @@ void __jbd2_log_wait_for_space(journal_t *journal)
 
 		/*
 		 * Test again, another process may have checkpointed while we
-		 * were waiting for the checkpoint lock
+		 * were waiting for the checkpoint lock. If there are no
+		 * transactions ready to be checkpointed, try to recover
+		 * journal space by calling cleanup_journal_tail(), and if
+		 * that doesn't work, by waiting for the currently committing
+		 * transaction to complete.  If there is absolutely no way
+		 * to make progress, this is either a BUG or corrupted
+		 * filesystem, so abort the journal and leave a stack
+		 * trace for forensic evidence.
 		 */
 		spin_lock(&journal->j_state_lock);
+		spin_lock(&journal->j_list_lock);
 		nblocks = jbd_space_needed(journal);
-		if (__jbd2_log_space_left(journal) < nblocks) {
+		space_left = __jbd2_log_space_left(journal);
+		if (space_left < nblocks) {
+			int chkpt = journal->j_checkpoint_transactions != NULL;
+			tid_t tid = 0;
+
+			if (journal->j_committing_transaction)
+				tid = journal->j_committing_transaction->t_tid;
+			spin_unlock(&journal->j_list_lock);
 			spin_unlock(&journal->j_state_lock);
-			jbd2_log_do_checkpoint(journal);
+			if (chkpt) {
+				jbd2_log_do_checkpoint(journal);
+			} else if (jbd2_cleanup_journal_tail(journal) == 0) {
+				/* We were able to recover space; yay! */
+				;
+			} else if (tid) {
+				jbd2_log_wait_commit(journal, tid);
+			} else {
+				printk(KERN_ERR "%s: needed %d blocks and "
+				       "only had %d space available\n",
+				       __func__, nblocks, space_left);
+				printk(KERN_ERR "%s: no way to get more "
+				       "journal space in %s\n", __func__,
+				       journal->j_devname);
+				WARN_ON(1);
+				jbd2_journal_abort(journal, 0);
+			}
 			spin_lock(&journal->j_state_lock);
+		} else {
+			spin_unlock(&journal->j_list_lock);
 		}
 		mutex_unlock(&journal->j_checkpoint_mutex);
 	}
@@ -232,7 +265,8 @@ __flush_batch(journal_t *journal, struct buffer_head **bhs, int *batch_count)
  * Called under jbd_lock_bh_state(jh2bh(jh)), and drops it
  */
 static int __process_buffer(journal_t *journal, struct journal_head *jh,
-			struct buffer_head **bhs, int *batch_count)
+			struct buffer_head **bhs, int *batch_count,
+			transaction_t *transaction)
 {
 	struct buffer_head *bh = jh2bh(jh);
 	int ret = 0;
@@ -250,6 +284,7 @@ static int __process_buffer(journal_t *journal, struct journal_head *jh,
 		transaction_t *t = jh->b_transaction;
 		tid_t tid = t->t_tid;
 
+		transaction->t_chp_stats.cs_forced_to_close++;
 		spin_unlock(&journal->j_list_lock);
 		jbd_unlock_bh_state(bh);
 		jbd2_log_start_commit(journal, tid);
@@ -279,6 +314,7 @@ static int __process_buffer(journal_t *journal, struct journal_head *jh,
 		bhs[*batch_count] = bh;
 		__buffer_relink_io(jh);
 		jbd_unlock_bh_state(bh);
+		transaction->t_chp_stats.cs_written++;
 		(*batch_count)++;
 		if (*batch_count == NR_BATCH) {
 			spin_unlock(&journal->j_list_lock);
@@ -322,6 +358,8 @@ int jbd2_log_do_checkpoint(journal_t *journal)
 	if (!journal->j_checkpoint_transactions)
 		goto out;
 	transaction = journal->j_checkpoint_transactions;
+	if (transaction->t_chp_stats.cs_chp_time == 0)
+		transaction->t_chp_stats.cs_chp_time = jiffies;
 	this_tid = transaction->t_tid;
 restart:
 	/*
@@ -346,8 +384,9 @@ restart:
 				retry = 1;
 				break;
 			}
-			retry = __process_buffer(journal, jh, bhs,&batch_count);
-			if (!retry && lock_need_resched(&journal->j_list_lock)){
+			retry = __process_buffer(journal, jh, bhs, &batch_count,
+						 transaction);
+			if (!retry && lock_need_resched(&journal->j_list_lock)) {
 				spin_unlock(&journal->j_list_lock);
 				retry = 1;
 				break;
@@ -602,15 +641,15 @@ int __jbd2_journal_remove_checkpoint(struct journal_head *jh)
 
 	/*
 	 * There is one special case to worry about: if we have just pulled the
-	 * buffer off a committing transaction's forget list, then even if the
-	 * checkpoint list is empty, the transaction obviously cannot be
-	 * dropped!
+	 * buffer off a running or committing transaction's checkpoing list,
+	 * then even if the checkpoint list is empty, the transaction obviously
+	 * cannot be dropped!
 	 *
-	 * The locking here around j_committing_transaction is a bit sleazy.
+	 * The locking here around t_state is a bit sleazy.
 	 * See the comment at the end of jbd2_journal_commit_transaction().
 	 */
-	if (transaction == journal->j_committing_transaction) {
-		JBUFFER_TRACE(jh, "belongs to committing transaction");
+	if (transaction->t_state != T_FINISHED) {
+		JBUFFER_TRACE(jh, "belongs to running/committing transaction");
 		goto out;
 	}
 
@@ -681,7 +720,6 @@ void __jbd2_journal_drop_transaction(journal_t *journal, transaction_t *transact
 
 	J_ASSERT(transaction->t_state == T_FINISHED);
 	J_ASSERT(transaction->t_buffers == NULL);
-	J_ASSERT(transaction->t_sync_datalist == NULL);
 	J_ASSERT(transaction->t_forget == NULL);
 	J_ASSERT(transaction->t_iobuf_list == NULL);
 	J_ASSERT(transaction->t_shadow_list == NULL);

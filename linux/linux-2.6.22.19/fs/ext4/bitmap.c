@@ -9,11 +9,11 @@
 
 #include <linux/buffer_head.h>
 #include <linux/jbd2.h>
-#include <linux/ext4_fs.h>
+#include "ext4.h"
 
 #ifdef EXT4FS_DEBUG
 
-static int nibblemap[] = {4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0};
+static const int nibblemap[] = {4, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0};
 
 unsigned long ext4_count_free (struct buffer_head * map, unsigned int numchars)
 {

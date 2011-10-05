@@ -1,5 +1,5 @@
 /*
- *  linux/include/linux/ext4_fs_sb.h
+ *  ext4_sb.h
  *
  * Copyright (C) 1992, 1993, 1994, 1995
  * Remy Card (card@masi.ibp.fr)
@@ -13,8 +13,8 @@
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
 
-#ifndef _LINUX_EXT4_FS_SB
-#define _LINUX_EXT4_FS_SB
+#ifndef _EXT4_SB
+#define _EXT4_SB
 
 #ifdef __KERNEL__
 #include <linux/timer.h>
@@ -25,24 +25,25 @@
 #include <linux/rbtree.h>
 
 /*
- * third extended-fs super-block data in memory
+ * fourth extended-fs super-block data in memory
  */
 struct ext4_sb_info {
-	unsigned long s_frag_size;	/* Size of a fragment in bytes */
 	unsigned long s_desc_size;	/* Size of a group descriptor in bytes */
-	unsigned long s_frags_per_block;/* Number of fragments per block */
 	unsigned long s_inodes_per_block;/* Number of inodes per block */
-	unsigned long s_frags_per_group;/* Number of fragments in a group */
 	unsigned long s_blocks_per_group;/* Number of blocks in a group */
 	unsigned long s_inodes_per_group;/* Number of inodes in a group */
 	unsigned long s_itb_per_group;	/* Number of inode table blocks per group */
 	unsigned long s_gdb_count;	/* Number of group descriptor blocks */
 	unsigned long s_desc_per_block;	/* Number of group descriptors per block */
-	unsigned long s_groups_count;	/* Number of groups in the fs */
+	ext4_group_t s_groups_count;	/* Number of groups in the fs */
+	unsigned long s_overhead_last;  /* Last calculated overhead */
+	unsigned long s_blocks_last;    /* Last seen block count */
+	loff_t s_bitmap_maxbytes;	/* max bytes for bitmap files */
 	struct buffer_head * s_sbh;	/* Buffer containing the super block */
 	struct ext4_super_block * s_es;	/* Pointer to the super block in the buffer */
 	struct buffer_head ** s_group_desc;
 	unsigned long  s_mount_opt;
+	ext4_fsblk_t s_sb_block;
 	uid_t s_resuid;
 	gid_t s_resgid;
 	unsigned short s_mount_state;
@@ -55,9 +56,11 @@ struct ext4_sb_info {
 	u32 s_next_generation;
 	u32 s_hash_seed[4];
 	int s_def_hash_version;
+	int s_hash_unsigned;	/* 3 if hash should be signed, 0 if not */
 	struct percpu_counter s_freeblocks_counter;
 	struct percpu_counter s_freeinodes_counter;
 	struct percpu_counter s_dirs_counter;
+	struct percpu_counter s_dirtyblocks_counter;
 	struct blockgroup_lock s_blockgroup_lock;
 
 	/* root of the per fs reservation window tree */
@@ -71,7 +74,7 @@ struct ext4_sb_info {
 	struct list_head s_orphan;
 	unsigned long s_commit_interval;
 	struct block_device *journal_bdev;
-#ifdef CONFIG_JBD_DEBUG
+#ifdef CONFIG_JBD2_DEBUG
 	struct timer_list turn_ro_timer;	/* For turning read-only (crash simulation) */
 	wait_queue_head_t ro_wait_queue;	/* For people waiting for the fs to go read-only */
 #endif
@@ -79,6 +82,7 @@ struct ext4_sb_info {
 	char *s_qf_names[MAXQUOTAS];		/* Names of quota files with journalled quota */
 	int s_jquota_fmt;			/* Format of quota to use */
 #endif
+	unsigned int s_want_extra_isize; /* New inodes should reserve # bytes */
 
 #ifdef EXTENTS_STATS
 	/* ext4 extents stats */
@@ -89,6 +93,62 @@ struct ext4_sb_info {
 	unsigned long s_ext_blocks;
 	unsigned long s_ext_extents;
 #endif
+
+	/* for buddy allocator */
+	struct ext4_group_info ***s_group_info;
+	struct inode *s_buddy_cache;
+	long s_blocks_reserved;
+	spinlock_t s_reserve_lock;
+	struct list_head s_active_transaction;
+	struct list_head s_closed_transaction;
+	struct list_head s_committed_transaction;
+	spinlock_t s_md_lock;
+	tid_t s_last_transaction;
+	unsigned short *s_mb_offsets;
+	unsigned int *s_mb_maxs;
+
+	/* tunables */
+	unsigned long s_stripe;
+	unsigned long s_mb_stream_request;
+	unsigned long s_mb_max_to_scan;
+	unsigned long s_mb_min_to_scan;
+	unsigned long s_mb_stats;
+	unsigned long s_mb_order2_reqs;
+	unsigned long s_mb_group_prealloc;
+	/* where last allocation was done - for stream allocation */
+	unsigned long s_mb_last_group;
+	unsigned long s_mb_last_start;
+
+	/* history to debug policy */
+	struct ext4_mb_history *s_mb_history;
+	int s_mb_history_cur;
+	int s_mb_history_max;
+	int s_mb_history_num;
+	struct proc_dir_entry *s_mb_proc;
+	spinlock_t s_mb_history_lock;
+	int s_mb_history_filter;
+
+	/* stats for buddy allocator */
+	spinlock_t s_mb_pa_lock;
+	atomic_t s_bal_reqs;	/* number of reqs with len > 1 */
+	atomic_t s_bal_success;	/* we found long enough chunks */
+	atomic_t s_bal_allocated;	/* in blocks */
+	atomic_t s_bal_ex_scanned;	/* total extents scanned */
+	atomic_t s_bal_goals;	/* goal hits */
+	atomic_t s_bal_breaks;	/* too long searches */
+	atomic_t s_bal_2orders;	/* 2^order hits */
+	spinlock_t s_bal_lock;
+	unsigned long s_mb_buddies_generated;
+	unsigned long long s_mb_generation_time;
+	atomic_t s_mb_lost_chunks;
+	atomic_t s_mb_preallocated;
+	atomic_t s_mb_discarded;
+
+	/* locality groups */
+	struct ext4_locality_group *s_locality_groups;
+
+	unsigned int s_log_groups_per_flex;
+	struct flex_groups *s_flex_groups;
 };
 
-#endif	/* _LINUX_EXT4_FS_SB */
+#endif	/* _EXT4_SB */
