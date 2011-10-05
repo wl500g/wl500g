@@ -179,7 +179,7 @@ diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
  /* Intel compiler defines __GNUC__. So we will overwrite implementations
   * coming from above header files here
   */
-@@ -144,6 +144,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
+@@ -74,6 +74,11 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
  # define barrier() __memory_barrier()
  #endif
  
@@ -191,6 +191,19 @@ diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
  #ifndef RELOC_HIDE
  # define RELOC_HIDE(ptr, off)					\
    ({ unsigned long __ptr;					\
+@@ -138,6 +138,12 @@ extern void __chk_io_ptr(const volatile void __iomem *);
+ #define noinline
+ #endif
+ 
++/*
++ * Rather then using noinline to prevent stack consumption, use
++ * noinline_for_stack instead.  For documentaiton reasons.
++ */
++#define noinline_for_stack noinline
++
+ #ifndef __always_inline
+ #define __always_inline inline
+ #endif
 @@ -174,4 +247,37 @@ extern void __chk_io_ptr(const void __io
  # define __attribute_const__	/* unimplemented */
  #endif
