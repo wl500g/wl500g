@@ -272,7 +272,7 @@ index ca8aee6..bc8551d 100644
 -			cpu_to_le16(le16_to_cpu(gdp->bg_free_blocks_count)-num);
 +	le16_add_cpu(&gdp->bg_free_blocks_count, -num);
  	spin_unlock(sb_bgl_lock(sbi, group_no));
- 	percpu_counter_mod(&sbi->s_freeblocks_counter, -num);
+ 	percpu_counter_sub(&sbi->s_freeblocks_counter, num);
  
 diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
 index 8528698..3d32861 100644
