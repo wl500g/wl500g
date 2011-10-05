@@ -1,0 +1,1075 @@
+readahead: Updates from upstream
+
+ kernel.org commits
+ d77c2d7cc5126639a47d73300b40d461f2811a0f readahead: introduce PG_readahead
+ 46fc3e7b4e7233a0ac981ac9084b55217318d04d readahead: add look-ahead support to __do_page_cache_readahead()
+ 5ce1110b92b31d079aa443e967f43a2294e01194 readahead: data structure and routines
+ 122a21d11cbfda6d1e33cbc8ae9e4c4ee2f1886e readahead: on-demand readahead logic
+ fe3cba17c49471e99d3421e675fc8b3deaaf0b70 mm: share PG_readahead and PG_reclaim
+ c743d96b6d2ff55a94df7b5ac7c74987bb9c343b readahead: remove the old algorithm
+ f9acc8c7b35a100f3a9e0e6977f7807b0169f9a5 readahead: sanify file_ra_state names
+ 3ea89ee86a82e9fbde37018d9b9e92a552e5fd13 readahead: convert filemap invocations
+ a08a166fe77d9f9ad88ed6d06b97e73453661f89 readahead: convert splice invocations
+ 431a4820bfcdf7ff530e745230bafb06c9bf2d6d readahead: move synchronous readahead call out of splice loop
+ d8983910a4045fa21022cfccf76ed13eb40fd7f5 readahead: pass real splice size
+ dc7868fcb9a73990e6f30371c1be465c436a7a7f readahead: convert ext3/ext4 invocations
+ ec05b297f91a443aa26b74059b573bfad49c9ebb remove mm/filemap.c:file_send_actor()
+ 937085aa35cc873d427d250a1e304d641af24628 readahead: compacting file_ra_state
+ 0bb7ba6b9c358c12084a3cbc6ac08c8d1e973937 readahead: mmap read-around simplification
+ f4e6b498d6e06742d72706ef50593a9c4dd72214 readahead: combine file_ra_state.prev_index/prev_offset into prev_pos
+ 7ff81078d8b9f3d05a27b7bd3786ffb1ef1b0d1f readahead: remove the local copy of ra in do_generic_mapping_read()
+ 6b10c6c9fbfe754e8482efb8c8b84f8e40c0f2eb readahead: basic support of interleaved reads
+
+---
+ fs/ext3/dir.c              |   14 -
+ fs/splice.c                |   33 +-
+ include/linux/fs.h         |   31 +-
+ include/linux/mm.h         |    5 
+ include/linux/page-flags.h |    7 
+ mm/filemap.c               |   90 +++----
+ mm/page-writeback.c        |    1 
+ mm/page_alloc.c            |    9 
+ mm/readahead.c             |  510 +++++++++++++++++----------------------------
+ 9 files changed, 283 insertions(+), 417 deletions(-)
+
+diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
+--- a/fs/ext3/dir.c
++++ b/fs/ext3/dir.c
+@@ -138,12 +138,14 @@ static int ext3_readdir(struct file * fi
+ 		err = ext3_get_blocks_handle(NULL, inode, blk, 1,
+ 						&map_bh, 0, 0);
+ 		if (err > 0) {
+-			page_cache_readahead(sb->s_bdev->bd_inode->i_mapping,
+-				&filp->f_ra,
+-				filp,
+-				map_bh.b_blocknr >>
+-					(PAGE_CACHE_SHIFT - inode->i_blkbits),
+-				1);
++			pgoff_t index = map_bh.b_blocknr >>
++					(PAGE_CACHE_SHIFT - inode->i_blkbits);
++			if (!ra_has_index(&filp->f_ra, index))
++				page_cache_readahead_ondemand(
++					sb->s_bdev->bd_inode->i_mapping,
++					&filp->f_ra, filp,
++					NULL, index, 1);
++			filp->f_ra.prev_pos = (loff_t)index << PAGE_CACHE_SHIFT;
+ 			bh = ext3_bread(NULL, inode, blk, 0, &err);
+ 		}
+ 
+diff --git a/fs/splice.c b/fs/splice.c
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -270,7 +270,7 @@ __generic_file_splice_read(struct file *
+ 			   unsigned int flags)
+ {
+ 	struct address_space *mapping = in->f_mapping;
+-	unsigned int loff, nr_pages;
++	unsigned int loff, nr_pages, req_pages;
+ 	struct page *pages[PIPE_BUFFERS];
+ 	struct partial_page partial[PIPE_BUFFERS];
+ 	struct page *page;
+@@ -287,28 +287,24 @@ __generic_file_splice_read(struct file *
+ 
+ 	index = *ppos >> PAGE_CACHE_SHIFT;
+ 	loff = *ppos & ~PAGE_CACHE_MASK;
+-	nr_pages = (len + loff + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
+-
+-	if (nr_pages > PIPE_BUFFERS)
+-		nr_pages = PIPE_BUFFERS;
+-
+-	/*
+-	 * Don't try to 2nd guess the read-ahead logic, call into
+-	 * page_cache_readahead() like the page cache reads would do.
+-	 */
+-	page_cache_readahead(mapping, &in->f_ra, in, index, nr_pages);
++	req_pages = (len + loff + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
++	nr_pages = min(req_pages, (unsigned)PIPE_BUFFERS);
+ 
+ 	/*
+ 	 * Lookup the (hopefully) full range of pages we need.
+ 	 */
+ 	spd.nr_pages = find_get_pages_contig(mapping, index, nr_pages, pages);
++	index += spd.nr_pages;
+ 
+ 	/*
+ 	 * If find_get_pages_contig() returned fewer pages than we needed,
+-	 * allocate the rest and fill in the holes.
++	 * readahead/allocate the rest and fill in the holes.
+ 	 */
++	if (spd.nr_pages < nr_pages)
++		page_cache_readahead_ondemand(mapping, &in->f_ra, in,
++				NULL, index, req_pages - spd.nr_pages);
++
+ 	error = 0;
+-	index += spd.nr_pages;
+ 	while (spd.nr_pages < nr_pages) {
+ 		/*
+ 		 * Page could be there, find_get_pages_contig() breaks on
+@@ -317,12 +313,6 @@ __generic_file_splice_read(struct file *
+ 		page = find_get_page(mapping, index);
+ 		if (!page) {
+ 			/*
+-			 * Make sure the read-ahead engine is notified
+-			 * about this failure.
+-			 */
+-			handle_ra_miss(mapping, &in->f_ra, index);
+-
+-			/*
+ 			 * page didn't exist, allocate one.
+ 			 */
+ 			page = page_cache_alloc_cold(mapping);
+@@ -367,6 +357,10 @@ __generic_file_splice_read(struct file *
+ 		this_len = min_t(unsigned long, len, PAGE_CACHE_SIZE - loff);
+ 		page = pages[page_nr];
+ 
++		if (PageReadahead(page))
++			page_cache_readahead_ondemand(mapping, &in->f_ra, in,
++					page, index, req_pages - page_nr);
++
+ 		/*
+ 		 * If the page isn't uptodate, we may need to start io on it
+ 		 */
+@@ -461,6 +455,7 @@ fill_it:
+ 	 */
+ 	while (page_nr < nr_pages)
+ 		page_cache_release(pages[page_nr++]);
++	in->f_ra.prev_pos = (loff_t)index << PAGE_CACHE_SHIFT;
+ 
+ 	if (spd.nr_pages)
+ 		return splice_to_pipe(pipe, &spd);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -773,20 +773,24 @@ struct fown_struct {
+  * Track a single file's readahead state
+  */
+ struct file_ra_state {
+-	unsigned long start;		/* Current window */
+-	unsigned long size;
+-	unsigned long flags;		/* ra flags RA_FLAG_xxx*/
+-	unsigned long cache_hit;	/* cache hit count*/
+-	unsigned long prev_index;	/* Cache last read() position */
+-	unsigned long ahead_start;	/* Ahead window */
+-	unsigned long ahead_size;
+-	unsigned long ra_pages;		/* Maximum readahead window */
+-	unsigned long mmap_hit;		/* Cache hit stat for mmap accesses */
+-	unsigned long mmap_miss;	/* Cache miss stat for mmap accesses */
+-	unsigned int prev_offset;	/* Offset where last read() ended in a page */
++	pgoff_t start;			/* where readahead started */
++	unsigned int size;		/* # of readahead pages */
++	unsigned int async_size;	/* do asynchronous readahead when
++					   there are only # of pages ahead */
++
++	unsigned int ra_pages;		/* Maximum readahead window */
++	int mmap_miss;			/* Cache miss stat for mmap accesses */
++	loff_t prev_pos;		/* Cache last read() position */
+ };
+-#define RA_FLAG_MISS 0x01	/* a cache miss occured against this file */
+-#define RA_FLAG_INCACHE 0x02	/* file is already in cache */
++
++/*
++ * Check if @index falls in the readahead windows.
++ */
++static inline int ra_has_index(struct file_ra_state *ra, pgoff_t index)
++{
++	return (index >= ra->start &&
++		index <  ra->start + ra->size);
++}
+ 
+ struct file {
+ 	/*
+@@ -1719,7 +1723,6 @@ extern int sb_has_dirty_inodes(struct su
+ extern int generic_file_mmap(struct file *, struct vm_area_struct *);
+ extern int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
+ extern int file_read_actor(read_descriptor_t * desc, struct page *page, unsigned long offset, unsigned long size);
+-extern int file_send_actor(read_descriptor_t * desc, struct page *page, unsigned long offset, unsigned long size);
+ int generic_write_checks(struct file *file, loff_t *pos, size_t *count, int isblk);
+ extern ssize_t generic_file_aio_read(struct kiocb *, const struct iovec *, unsigned long, loff_t);
+ extern ssize_t generic_file_aio_write(struct kiocb *, const struct iovec *, unsigned long, loff_t);
+diff --git a/include/linux/mm.h b/include/linux/mm.h
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1130,13 +1130,12 @@ int do_page_cache_readahead(struct addre
+ 			pgoff_t offset, unsigned long nr_to_read);
+ int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
+ 			pgoff_t offset, unsigned long nr_to_read);
+-unsigned long page_cache_readahead(struct address_space *mapping,
++unsigned long page_cache_readahead_ondemand(struct address_space *mapping,
+ 			  struct file_ra_state *ra,
+ 			  struct file *filp,
++			  struct page *page,
+ 			  pgoff_t offset,
+ 			  unsigned long size);
+-void handle_ra_miss(struct address_space *mapping, 
+-		    struct file_ra_state *ra, pgoff_t offset);
+ unsigned long max_sane_readahead(unsigned long nr);
+ 
+ /* Do stack extension */
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -90,6 +90,9 @@
+ #define PG_reclaim		17	/* To be reclaimed asap */
+ #define PG_buddy		19	/* Page is free, on buddy lists */
+ 
++/* PG_readahead is only used for file reads; PG_reclaim is only for writes */
++#define PG_readahead		PG_reclaim /* Reminder to do async read-ahead */
++
+ /* PG_owner_priv_1 users should have descriptive aliases */
+ #define PG_checked		PG_owner_priv_1 /* Used by some filesystems */
+ 
+@@ -199,6 +202,10 @@ static inline void SetPageUptodate(struc
+ #define SetPageMappedToDisk(page) set_bit(PG_mappedtodisk, &(page)->flags)
+ #define ClearPageMappedToDisk(page) clear_bit(PG_mappedtodisk, &(page)->flags)
+ 
++#define PageReadahead(page)	test_bit(PG_readahead, &(page)->flags)
++#define SetPageReadahead(page)	set_bit(PG_readahead, &(page)->flags)
++#define ClearPageReadahead(page) clear_bit(PG_readahead, &(page)->flags)
++
+ #define PageReclaim(page)	test_bit(PG_reclaim, &(page)->flags)
+ #define SetPageReclaim(page)	set_bit(PG_reclaim, &(page)->flags)
+ #define ClearPageReclaim(page)	clear_bit(PG_reclaim, &(page)->flags)
+diff --git a/mm/filemap.c b/mm/filemap.c
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -887,7 +887,7 @@ static void shrink_readahead_size_eio(st
+  * It may be NULL.
+  */
+ void do_generic_mapping_read(struct address_space *mapping,
+-			     struct file_ra_state *_ra,
++			     struct file_ra_state *ra,
+ 			     struct file *filp,
+ 			     loff_t *ppos,
+ 			     read_descriptor_t *desc,
+@@ -901,12 +901,11 @@ void do_generic_mapping_read(struct addr
+ 	unsigned long prev_index;
+ 	unsigned int prev_offset;
+ 	int error;
+-	struct file_ra_state ra = *_ra;
+ 
+ 	index = *ppos >> PAGE_CACHE_SHIFT;
+ 	next_index = index;
+-	prev_index = ra.prev_index;
+-	prev_offset = ra.prev_offset;
++	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
++	prev_offset = ra->prev_pos & (PAGE_CACHE_SIZE-1);
+ 	last_index = (*ppos + desc->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
+ 	offset = *ppos & ~PAGE_CACHE_MASK;
+ 
+@@ -917,15 +916,20 @@ void do_generic_mapping_read(struct addr
+ 		unsigned long nr, ret;
+ 
+ 		cond_resched();
+-		if (index == next_index)
+-			next_index = page_cache_readahead(mapping, &ra, filp,
+-					index, last_index - index);
+-
+ find_page:
+ 		page = find_get_page(mapping, index);
+-		if (unlikely(page == NULL)) {
+-			handle_ra_miss(mapping, &ra, index);
+-			goto no_cached_page;
++		if (!page) {
++			page_cache_readahead_ondemand(mapping,
++					ra, filp, page,
++					index, last_index - index);
++			page = find_get_page(mapping, index);
++			if (unlikely(page == NULL))
++				goto no_cached_page;
++		}
++		if (PageReadahead(page)) {
++			page_cache_readahead_ondemand(mapping,
++					ra, filp, page,
++					index, last_index - index);
+ 		}
+ 		if (!PageUptodate(page)) {
+ 			if (inode->i_blkbits == PAGE_CACHE_SHIFT ||
+@@ -996,7 +1000,6 @@ page_ok:
+ 		index += offset >> PAGE_CACHE_SHIFT;
+ 		offset &= ~PAGE_CACHE_MASK;
+ 		prev_offset = offset;
+-		ra.prev_offset = offset;
+ 
+ 		page_cache_release(page);
+ 		if (ret == nr && desc->count)
+@@ -1052,7 +1055,7 @@ readpage:
+ 				}
+ 				unlock_page(page);
+ 				error = -EIO;
+-				shrink_readahead_size_eio(filp, &ra);
++				shrink_readahead_size_eio(filp, ra);
+ 				goto readpage_error;
+ 			}
+ 			unlock_page(page);
+@@ -1089,9 +1092,11 @@ no_cached_page:
+ 	}
+ 
+ out:
+-	*_ra = ra;
++	ra->prev_pos = prev_index;
++	ra->prev_pos <<= PAGE_CACHE_SHIFT;
++	ra->prev_pos |= prev_offset;
+ 
+-	*ppos = ((loff_t) index << PAGE_CACHE_SHIFT) + offset;
++	*ppos = ((loff_t)index << PAGE_CACHE_SHIFT) + offset;
+ 	if (filp)
+ 		file_accessed(filp);
+ }
+@@ -1247,26 +1252,6 @@ out:
+ }
+ EXPORT_SYMBOL(generic_file_aio_read);
+ 
+-int file_send_actor(read_descriptor_t * desc, struct page *page, unsigned long offset, unsigned long size)
+-{
+-	ssize_t written;
+-	unsigned long count = desc->count;
+-	struct file *file = desc->arg.data;
+-
+-	if (size > count)
+-		size = count;
+-
+-	written = file->f_op->sendpage(file, page, offset,
+-				       size, &file->f_pos, size<count);
+-	if (written < 0) {
+-		desc->error = written;
+-		written = 0;
+-	}
+-	desc->count = count - written;
+-	desc->written += written;
+-	return written;
+-}
+-
+ static ssize_t
+ do_readahead(struct address_space *mapping, struct file *filp,
+ 	     unsigned long index, unsigned long nr)
+@@ -1368,33 +1353,37 @@ int filemap_fault(struct vm_area_struct 
+ 		goto no_cached_page;
+ 
+ 	/*
+-	 * The readahead code wants to be told about each and every page
+-	 * so it can build and shrink its windows appropriately
+-	 *
+-	 * For sequential accesses, we use the generic readahead logic.
+-	 */
+-	if (VM_SequentialReadHint(vma))
+-		page_cache_readahead(mapping, ra, file, vmf->pgoff, 1);
+-
+-	/*
+ 	 * Do we have something in the page cache already?
+ 	 */
+ retry_find:
+ 	page = find_lock_page(mapping, vmf->pgoff);
++	/*
++	 * For sequential accesses, we use the generic readahead logic.
++	 */
++	if (VM_SequentialReadHint(vma)) {
++		if (!page) {
++			page_cache_readahead_ondemand(mapping, ra, file, page,
++							   vmf->pgoff, 1);
++			page = find_lock_page(mapping, vmf->pgoff);
++			if (!page)
++				goto no_cached_page;
++		}
++		if (PageReadahead(page)) {
++			page_cache_readahead_ondemand(mapping, ra, file, page,
++							   vmf->pgoff, 1);
++		}
++	}
++
+ 	if (!page) {
+ 		unsigned long ra_pages;
+ 
+-		if (VM_SequentialReadHint(vma)) {
+-			handle_ra_miss(mapping, ra, vmf->pgoff);
+-			goto no_cached_page;
+-		}
+ 		ra->mmap_miss++;
+ 
+ 		/*
+ 		 * Do we miss much more than hit in this file? If so,
+ 		 * stop bothering with read-ahead. It will only hurt.
+ 		 */
+-		if (ra->mmap_miss > ra->mmap_hit + MMAP_LOTSAMISS)
++		if (ra->mmap_miss > MMAP_LOTSAMISS)
+ 			goto no_cached_page;
+ 
+ 		/*
+@@ -1420,7 +1409,7 @@ retry_find:
+ 	}
+ 
+ 	if (!did_readaround)
+-		ra->mmap_hit++;
++		ra->mmap_miss--;
+ 
+ 	/*
+ 	 * We have a locked page in the page cache, now we need to check
+@@ -1441,6 +1430,7 @@ retry_find:
+ 	 * Found the page and have a reference on it.
+ 	 */
+ 	mark_page_accessed(page);
++	ra->prev_pos = (loff_t)page->index << PAGE_CACHE_SHIFT;
+ 	vmf->page = page;
+ 	return ret | VM_FAULT_LOCKED;
+ 
+diff --git a/mm/page_alloc.c b/mm/page_alloc.c
+--- a/mm/page_alloc.c
++++ b/mm/page_alloc.c
+@@ -444,12 +444,6 @@ static inline int free_pages_check(struc
+ 			1 << PG_reserved |
+ 			1 << PG_buddy ))))
+ 		bad_page(page);
+-	/*
+-	 * PageReclaim == PageTail. It is only an error
+-	 * for PageReclaim to be set if PageCompound is clear.
+-	 */
+-	if (unlikely(!PageCompound(page) && PageReclaim(page)))
+-		bad_page(page);
+ 	if (PageDirty(page))
+ 		__ClearPageDirty(page);
+ 	/*
+@@ -593,7 +587,6 @@ static int prep_new_page(struct page *pa
+ 			1 << PG_locked	|
+ 			1 << PG_active	|
+ 			1 << PG_dirty	|
+-			1 << PG_reclaim	|
+ 			1 << PG_slab    |
+ 			1 << PG_swapcache |
+ 			1 << PG_writeback |
+@@ -608,7 +601,7 @@ static int prep_new_page(struct page *pa
+ 	if (PageReserved(page))
+ 		return 1;
+ 
+-	page->flags &= ~(1 << PG_uptodate | 1 << PG_error |
++	page->flags &= ~(1 << PG_uptodate | 1 << PG_error | 1 << PG_readahead |
+ 			1 << PG_referenced | 1 << PG_arch_1 |
+ 			1 << PG_owner_priv_1 | 1 << PG_mappedtodisk);
+ 	set_page_private(page, 0);
+diff --git a/mm/page-writeback.c b/mm/page-writeback.c
+--- a/mm/page-writeback.c
++++ b/mm/page-writeback.c
+@@ -1112,6 +1112,7 @@ int clear_page_dirty_for_io(struct page 
+ 
+ 	BUG_ON(!PageLocked(page));
+ 
++	ClearPageReclaim(page);
+ 	if (mapping && mapping_cap_account_dirty(mapping)) {
+ 		/*
+ 		 * Yes, Virginia, this is indeed insane.
+diff --git a/mm/readahead.c b/mm/readahead.c
+--- a/mm/readahead.c
++++ b/mm/readahead.c
+@@ -45,86 +45,10 @@ void
+ file_ra_state_init(struct file_ra_state *ra, struct address_space *mapping)
+ {
+ 	ra->ra_pages = mapping->backing_dev_info->ra_pages;
+-	ra->prev_index = -1;
++	ra->prev_pos = -1;
+ }
+ EXPORT_SYMBOL_GPL(file_ra_state_init);
+ 
+-/*
+- * Return max readahead size for this inode in number-of-pages.
+- */
+-static inline unsigned long get_max_readahead(struct file_ra_state *ra)
+-{
+-	return ra->ra_pages;
+-}
+-
+-static inline unsigned long get_min_readahead(struct file_ra_state *ra)
+-{
+-	return MIN_RA_PAGES;
+-}
+-
+-static inline void reset_ahead_window(struct file_ra_state *ra)
+-{
+-	/*
+-	 * ... but preserve ahead_start + ahead_size value,
+-	 * see 'recheck:' label in page_cache_readahead().
+-	 * Note: We never use ->ahead_size as rvalue without
+-	 * checking ->ahead_start != 0 first.
+-	 */
+-	ra->ahead_size += ra->ahead_start;
+-	ra->ahead_start = 0;
+-}
+-
+-static inline void ra_off(struct file_ra_state *ra)
+-{
+-	ra->start = 0;
+-	ra->flags = 0;
+-	ra->size = 0;
+-	reset_ahead_window(ra);
+-	return;
+-}
+-
+-/*
+- * Set the initial window size, round to next power of 2 and square
+- * for small size, x 4 for medium, and x 2 for large
+- * for 128k (32 page) max ra
+- * 1-8 page = 32k initial, > 8 page = 128k initial
+- */
+-static unsigned long get_init_ra_size(unsigned long size, unsigned long max)
+-{
+-	unsigned long newsize = roundup_pow_of_two(size);
+-
+-	if (newsize <= max / 32)
+-		newsize = newsize * 4;
+-	else if (newsize <= max / 4)
+-		newsize = newsize * 2;
+-	else
+-		newsize = max;
+-	return newsize;
+-}
+-
+-/*
+- * Set the new window size, this is called only when I/O is to be submitted,
+- * not for each call to readahead.  If a cache miss occured, reduce next I/O
+- * size, else increase depending on how close to max we are.
+- */
+-static inline unsigned long get_next_ra_size(struct file_ra_state *ra)
+-{
+-	unsigned long max = get_max_readahead(ra);
+-	unsigned long min = get_min_readahead(ra);
+-	unsigned long cur = ra->size;
+-	unsigned long newsize;
+-
+-	if (ra->flags & RA_FLAG_MISS) {
+-		ra->flags &= ~RA_FLAG_MISS;
+-		newsize = max((cur - 2), min);
+-	} else if (cur < max / 16) {
+-		newsize = 4 * cur;
+-	} else {
+-		newsize = 2 * cur;
+-	}
+-	return min(newsize, max);
+-}
+-
+ #define list_to_page(head) (list_entry((head)->prev, struct page, lru))
+ 
+ /**
+@@ -192,65 +116,6 @@ out:
+ 	return ret;
+ }
+ 
+-/*
+- * Readahead design.
+- *
+- * The fields in struct file_ra_state represent the most-recently-executed
+- * readahead attempt:
+- *
+- * start:	Page index at which we started the readahead
+- * size:	Number of pages in that read
+- *              Together, these form the "current window".
+- *              Together, start and size represent the `readahead window'.
+- * prev_index:  The page which the readahead algorithm most-recently inspected.
+- *              It is mainly used to detect sequential file reading.
+- *              If page_cache_readahead sees that it is again being called for
+- *              a page which it just looked at, it can return immediately without
+- *              making any state changes.
+- * offset:      Offset in the prev_index where the last read ended - used for
+- *              detection of sequential file reading.
+- * ahead_start,
+- * ahead_size:  Together, these form the "ahead window".
+- * ra_pages:	The externally controlled max readahead for this fd.
+- *
+- * When readahead is in the off state (size == 0), readahead is disabled.
+- * In this state, prev_index is used to detect the resumption of sequential I/O.
+- *
+- * The readahead code manages two windows - the "current" and the "ahead"
+- * windows.  The intent is that while the application is walking the pages
+- * in the current window, I/O is underway on the ahead window.  When the
+- * current window is fully traversed, it is replaced by the ahead window
+- * and the ahead window is invalidated.  When this copying happens, the
+- * new current window's pages are probably still locked.  So
+- * we submit a new batch of I/O immediately, creating a new ahead window.
+- *
+- * So:
+- *
+- *   ----|----------------|----------------|-----
+- *       ^start           ^start+size
+- *                        ^ahead_start     ^ahead_start+ahead_size
+- *
+- *         ^ When this page is read, we submit I/O for the
+- *           ahead window.
+- *
+- * A `readahead hit' occurs when a read request is made against a page which is
+- * the next sequential page. Ahead window calculations are done only when it
+- * is time to submit a new IO.  The code ramps up the size agressively at first,
+- * but slow down as it approaches max_readhead.
+- *
+- * Any seek/ramdom IO will result in readahead being turned off.  It will resume
+- * at the first sequential access.
+- *
+- * There is a special-case: if the first page which the application tries to
+- * read happens to be the first page of the file, it is assumed that a linear
+- * read is about to happen and the window is immediately set to the initial size
+- * based on I/O request size and the max_readahead.
+- *
+- * This function is to be called for every read request, rather than when
+- * it is time to perform readahead.  It is called only once for the entire I/O
+- * regardless of size unless readahead is unable to start enough I/O to satisfy
+- * the request (I/O request > max_readahead).
+- */
+ 
+ static int __init readahead_init(void)
+ {
+@@ -271,7 +136,8 @@ subsys_initcall(readahead_init);
+  */
+ static int
+ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
+-			pgoff_t offset, unsigned long nr_to_read)
++			pgoff_t offset, unsigned long nr_to_read,
++			unsigned long lookahead_size)
+ {
+ 	struct inode *inode = mapping->host;
+ 	struct page *page;
+@@ -284,14 +150,14 @@ __do_page_cache_readahead(struct address
+ 	if (isize == 0)
+ 		goto out;
+ 
+- 	end_index = ((isize - 1) >> PAGE_CACHE_SHIFT);
++	end_index = ((isize - 1) >> PAGE_CACHE_SHIFT);
+ 
+ 	/*
+ 	 * Preallocate as many pages as we will need.
+ 	 */
+ 	for (page_idx = 0; page_idx < nr_to_read; page_idx++) {
+ 		pgoff_t page_offset = offset + page_idx;
+-		
++
+ 		if (page_offset > end_index)
+ 			break;
+ 
+@@ -306,6 +172,8 @@ __do_page_cache_readahead(struct address
+ 			break;
+ 		page->index = page_offset;
+ 		list_add(&page->lru, &page_pool);
++		if (page_idx == nr_to_read - lookahead_size)
++			SetPageReadahead(page);
+ 		ret++;
+ 	}
+ 
+@@ -341,7 +209,7 @@ int force_page_cache_readahead(struct ad
+ 		if (this_chunk > nr_to_read)
+ 			this_chunk = nr_to_read;
+ 		err = __do_page_cache_readahead(mapping, filp,
+-						offset, this_chunk);
++						offset, this_chunk, 0);
+ 		if (err < 0) {
+ 			ret = err;
+ 			break;
+@@ -354,28 +222,6 @@ int force_page_cache_readahead(struct ad
+ }
+ 
+ /*
+- * Check how effective readahead is being.  If the amount of started IO is
+- * less than expected then the file is partly or fully in pagecache and
+- * readahead isn't helping.
+- *
+- */
+-static inline int check_ra_success(struct file_ra_state *ra,
+-			unsigned long nr_to_read, unsigned long actual)
+-{
+-	if (actual == 0) {
+-		ra->cache_hit += nr_to_read;
+-		if (ra->cache_hit >= VM_MAX_CACHE_HIT) {
+-			ra_off(ra);
+-			ra->flags |= RA_FLAG_INCACHE;
+-			return 0;
+-		}
+-	} else {
+-		ra->cache_hit=0;
+-	}
+-	return 1;
+-}
+-
+-/*
+  * This version skips the IO if the queue is read-congested, and will tell the
+  * block layer to abandon the readahead if request allocation would block.
+  *
+@@ -388,200 +234,230 @@ int do_page_cache_readahead(struct addre
+ 	if (bdi_read_congested(mapping->backing_dev_info))
+ 		return -1;
+ 
+-	return __do_page_cache_readahead(mapping, filp, offset, nr_to_read);
++	return __do_page_cache_readahead(mapping, filp, offset, nr_to_read, 0);
+ }
+ 
+ /*
+- * Read 'nr_to_read' pages starting at page 'offset'. If the flag 'block'
+- * is set wait till the read completes.  Otherwise attempt to read without
+- * blocking.
+- * Returns 1 meaning 'success' if read is successful without switching off
+- * readahead mode. Otherwise return failure.
++ * Given a desired number of PAGE_CACHE_SIZE readahead pages, return a
++ * sensible upper limit.
+  */
+-static int
+-blockable_page_cache_readahead(struct address_space *mapping, struct file *filp,
+-			pgoff_t offset, unsigned long nr_to_read,
+-			struct file_ra_state *ra, int block)
++unsigned long max_sane_readahead(unsigned long nr)
++{
++	return min(nr, (node_page_state(numa_node_id(), NR_INACTIVE)
++		+ node_page_state(numa_node_id(), NR_FREE_PAGES)) / 2);
++}
++
++/*
++ * Submit IO for the read-ahead request in file_ra_state.
++ */
++static unsigned long ra_submit(struct file_ra_state *ra,
++		       struct address_space *mapping, struct file *filp)
+ {
+ 	int actual;
+ 
+-	if (!block && bdi_read_congested(mapping->backing_dev_info))
+-		return 0;
++	actual = __do_page_cache_readahead(mapping, filp,
++					ra->start, ra->size, ra->async_size);
+ 
+-	actual = __do_page_cache_readahead(mapping, filp, offset, nr_to_read);
++	return actual;
++}
+ 
+-	return check_ra_success(ra, nr_to_read, actual);
++/*
++ * Set the initial window size, round to next power of 2 and square
++ * for small size, x 4 for medium, and x 2 for large
++ * for 128k (32 page) max ra
++ * 1-8 page = 32k initial, > 8 page = 128k initial
++ */
++static unsigned long get_init_ra_size(unsigned long size, unsigned long max)
++{
++	unsigned long newsize = roundup_pow_of_two(size);
++
++	if (newsize <= max / 32)
++		newsize = newsize * 4;
++	else if (newsize <= max / 4)
++		newsize = newsize * 2;
++	else
++		newsize = max;
++
++	return newsize;
+ }
+ 
+-static int make_ahead_window(struct address_space *mapping, struct file *filp,
+-				struct file_ra_state *ra, int force)
++/*
++ *  Get the previous window size, ramp it up, and
++ *  return it as the new window size.
++ */
++static unsigned long get_next_ra_size(struct file_ra_state *ra,
++						unsigned long max)
+ {
+-	int block, ret;
+-
+-	ra->ahead_size = get_next_ra_size(ra);
+-	ra->ahead_start = ra->start + ra->size;
+-
+-	block = force || (ra->prev_index >= ra->ahead_start);
+-	ret = blockable_page_cache_readahead(mapping, filp,
+-			ra->ahead_start, ra->ahead_size, ra, block);
+-
+-	if (!ret && !force) {
+-		/* A read failure in blocking mode, implies pages are
+-		 * all cached. So we can safely assume we have taken
+-		 * care of all the pages requested in this call.
+-		 * A read failure in non-blocking mode, implies we are
+-		 * reading more pages than requested in this call.  So
+-		 * we safely assume we have taken care of all the pages
+-		 * requested in this call.
+-		 *
+-		 * Just reset the ahead window in case we failed due to
+-		 * congestion.  The ahead window will any way be closed
+-		 * in case we failed due to excessive page cache hits.
+-		 */
+-		reset_ahead_window(ra);
+-	}
++	unsigned long cur = ra->size;
++	unsigned long newsize;
+ 
+-	return ret;
++	if (cur < max / 16)
++		newsize = 4 * cur;
++	else
++		newsize = 2 * cur;
++
++	return min(newsize, max);
+ }
+ 
+-/**
+- * page_cache_readahead - generic adaptive readahead
+- * @mapping: address_space which holds the pagecache and I/O vectors
+- * @ra: file_ra_state which holds the readahead state
+- * @filp: passed on to ->readpage() and ->readpages()
+- * @offset: start offset into @mapping, in PAGE_CACHE_SIZE units
+- * @req_size: hint: total size of the read which the caller is performing in
+- *            PAGE_CACHE_SIZE units
++/*
++ * On-demand readahead design.
+  *
+- * page_cache_readahead() is the main function.  If performs the adaptive
+- * readahead window size management and submits the readahead I/O.
++ * The fields in struct file_ra_state represent the most-recently-executed
++ * readahead attempt:
+  *
+- * Note that @filp is purely used for passing on to the ->readpage[s]()
+- * handler: it may refer to a different file from @mapping (so we may not use
+- * @filp->f_mapping or @filp->f_path.dentry->d_inode here).
+- * Also, @ra may not be equal to &@filp->f_ra.
++ *                        |<----- async_size ---------|
++ *     |------------------- size -------------------->|
++ *     |==================#===========================|
++ *     ^start             ^page marked with PG_readahead
++ *
++ * To overlap application thinking time and disk I/O time, we do
++ * `readahead pipelining': Do not wait until the application consumed all
++ * readahead pages and stalled on the missing page at readahead_index;
++ * Instead, submit an asynchronous readahead I/O as soon as there are
++ * only async_size pages left in the readahead window. Normally async_size
++ * will be equal to size, for maximum pipelining.
++ *
++ * In interleaved sequential reads, concurrent streams on the same fd can
++ * be invalidating each other's readahead state. So we flag the new readahead
++ * page at (start+size-async_size) with PG_readahead, and use it as readahead
++ * indicator. The flag won't be set on already cached pages, to avoid the
++ * readahead-for-nothing fuss, saving pointless page cache lookups.
++ *
++ * prev_pos tracks the last visited byte in the _previous_ read request.
++ * It should be maintained by the caller, and will be used for detecting
++ * small random reads. Note that the readahead algorithm checks loosely
++ * for sequential patterns. Hence interleaved reads might be served as
++ * sequential ones.
+  *
++ * There is a special-case: if the first page which the application tries to
++ * read happens to be the first page of the file, it is assumed that a linear
++ * read is about to happen and the window is immediately set to the initial size
++ * based on I/O request size and the max_readahead.
++ *
++ * The code ramps up the readahead size aggressively at first, but slow down as
++ * it approaches max_readhead.
+  */
+-unsigned long
+-page_cache_readahead(struct address_space *mapping, struct file_ra_state *ra,
+-		     struct file *filp, pgoff_t offset, unsigned long req_size)
++
++/*
++ * A minimal readahead algorithm for trivial sequential/random reads.
++ */
++static unsigned long
++ondemand_readahead(struct address_space *mapping,
++		   struct file_ra_state *ra, struct file *filp,
++		   struct page *page, pgoff_t offset,
++		   unsigned long req_size)
+ {
+-	unsigned long max, newsize;
+-	int sequential;
++	int	max = ra->ra_pages;	/* max readahead pages */
++	pgoff_t prev_offset;
++	int	sequential;
+ 
+ 	/*
+-	 * We avoid doing extra work and bogusly perturbing the readahead
+-	 * window expansion logic.
++	 * It's the expected callback offset, assume sequential access.
++	 * Ramp up sizes, and push forward the readahead window.
+ 	 */
+-	if (offset == ra->prev_index && --req_size)
+-		++offset;
+-
+-	/* Note that prev_index == -1 if it is a first read */
+-	sequential = (offset == ra->prev_index + 1);
+-	ra->prev_index = offset;
+-	ra->prev_offset = 0;
+-
+-	max = get_max_readahead(ra);
+-	newsize = min(req_size, max);
+-
+-	/* No readahead or sub-page sized read or file already in cache */
+-	if (newsize == 0 || (ra->flags & RA_FLAG_INCACHE))
+-		goto out;
++	if (offset && (offset == (ra->start + ra->size - ra->async_size) ||
++			offset == (ra->start + ra->size))) {
++		ra->start += ra->size;
++		ra->size = get_next_ra_size(ra, max);
++		ra->async_size = ra->size;
++		goto readit;
++	}
+ 
+-	ra->prev_index += newsize - 1;
++	prev_offset = ra->prev_pos >> PAGE_CACHE_SHIFT;
++	sequential = offset - prev_offset <= 1UL || req_size > max;
+ 
+ 	/*
+-	 * Special case - first read at start of file. We'll assume it's
+-	 * a whole-file read and grow the window fast.  Or detect first
+-	 * sequential access
++	 * Standalone, small read.
++	 * Read as is, and do not pollute the readahead state.
+ 	 */
+-	if (sequential && ra->size == 0) {
+-		ra->size = get_init_ra_size(newsize, max);
+-		ra->start = offset;
+-		if (!blockable_page_cache_readahead(mapping, filp, offset,
+-							 ra->size, ra, 1))
+-			goto out;
+-
+-		/*
+-		 * If the request size is larger than our max readahead, we
+-		 * at least want to be sure that we get 2 IOs in flight and
+-		 * we know that we will definitly need the new I/O.
+-		 * once we do this, subsequent calls should be able to overlap
+-		 * IOs,* thus preventing stalls. so issue the ahead window
+-		 * immediately.
+-		 */
+-		if (req_size >= max)
+-			make_ahead_window(mapping, filp, ra, 1);
+-
+-		goto out;
++	if (!page && !sequential) {
++		return __do_page_cache_readahead(mapping, filp,
++						offset, req_size, 0);
+ 	}
+ 
+ 	/*
+-	 * Now handle the random case:
+-	 * partial page reads and first access were handled above,
+-	 * so this must be the next page otherwise it is random
++	 * Hit a marked page without valid readahead state.
++	 * E.g. interleaved reads.
++	 * Query the pagecache for async_size, which normally equals to
++	 * readahead size. Ramp it up and use it as the new readahead size.
+ 	 */
+-	if (!sequential) {
+-		ra_off(ra);
+-		blockable_page_cache_readahead(mapping, filp, offset,
+-				 newsize, ra, 1);
+-		goto out;
+-	}
++	if (page) {
++		pgoff_t start;
+ 
+-	/*
+-	 * If we get here we are doing sequential IO and this was not the first
+-	 * occurence (ie we have an existing window)
+-	 */
+-	if (ra->ahead_start == 0) {	 /* no ahead window yet */
+-		if (!make_ahead_window(mapping, filp, ra, 0))
+-			goto recheck;
++		read_lock_irq(&mapping->tree_lock);
++		start = radix_tree_next_hole(&mapping->page_tree, offset, max+1);
++		read_unlock_irq(&mapping->tree_lock);
++
++		if (!start || start - offset > max)
++			return 0;
++
++		ra->start = start;
++		ra->size = start - offset;	/* old async_size */
++		ra->size = get_next_ra_size(ra, max);
++		ra->async_size = ra->size;
++		goto readit;
+ 	}
+ 
+ 	/*
+-	 * Already have an ahead window, check if we crossed into it.
+-	 * If so, shift windows and issue a new ahead window.
+-	 * Only return the #pages that are in the current window, so that
+-	 * we get called back on the first page of the ahead window which
+-	 * will allow us to submit more IO.
++	 * It may be one of
++	 * 	- first read on start of file
++	 * 	- sequential cache miss
++	 * 	- oversize random read
++	 * Start readahead for it.
+ 	 */
+-	if (ra->prev_index >= ra->ahead_start) {
+-		ra->start = ra->ahead_start;
+-		ra->size = ra->ahead_size;
+-		make_ahead_window(mapping, filp, ra, 0);
+-recheck:
+-		/* prev_index shouldn't overrun the ahead window */
+-		ra->prev_index = min(ra->prev_index,
+-			ra->ahead_start + ra->ahead_size - 1);
+-	}
+-
+-out:
+-	return ra->prev_index + 1;
+-}
+-EXPORT_SYMBOL_GPL(page_cache_readahead);
++	ra->start = offset;
++	ra->size = get_init_ra_size(req_size, max);
++	ra->async_size = ra->size > req_size ? ra->size - req_size : ra->size;
+ 
+-/*
+- * handle_ra_miss() is called when it is known that a page which should have
+- * been present in the pagecache (we just did some readahead there) was in fact
+- * not found.  This will happen if it was evicted by the VM (readahead
+- * thrashing)
+- *
+- * Turn on the cache miss flag in the RA struct, this will cause the RA code
+- * to reduce the RA size on the next read.
+- */
+-void handle_ra_miss(struct address_space *mapping,
+-		struct file_ra_state *ra, pgoff_t offset)
+-{
+-	ra->flags |= RA_FLAG_MISS;
+-	ra->flags &= ~RA_FLAG_INCACHE;
+-	ra->cache_hit = 0;
++readit:
++	return ra_submit(ra, mapping, filp);
+ }
+ 
+-/*
+- * Given a desired number of PAGE_CACHE_SIZE readahead pages, return a
+- * sensible upper limit.
++/**
++ * page_cache_readahead_ondemand - generic file readahead
++ * @mapping: address_space which holds the pagecache and I/O vectors
++ * @ra: file_ra_state which holds the readahead state
++ * @filp: passed on to ->readpage() and ->readpages()
++ * @page: the page at @offset, or NULL if non-present
++ * @offset: start offset into @mapping, in PAGE_CACHE_SIZE units
++ * @req_size: hint: total size of the read which the caller is performing in
++ *            PAGE_CACHE_SIZE units
++ *
++ * page_cache_readahead_ondemand() is the entry point of readahead logic.
++ * This function should be called when it is time to perform readahead:
++ * 1) @page == NULL
++ *    A cache miss happened, time for synchronous readahead.
++ * 2) @page != NULL && PageReadahead(@page)
++ *    A look-ahead hit occured, time for asynchronous readahead.
+  */
+-unsigned long max_sane_readahead(unsigned long nr)
++unsigned long
++page_cache_readahead_ondemand(struct address_space *mapping,
++				struct file_ra_state *ra, struct file *filp,
++				struct page *page, pgoff_t offset,
++				unsigned long req_size)
+ {
+-	return min(nr, (node_page_state(numa_node_id(), NR_INACTIVE)
+-		+ node_page_state(numa_node_id(), NR_FREE_PAGES)) / 2);
++	/* no read-ahead */
++	if (!ra->ra_pages)
++		return 0;
++
++	if (page) {
++		/*
++		 * It can be PG_reclaim.
++		 */
++		if (PageWriteback(page))
++			return 0;
++
++		ClearPageReadahead(page);
++
++		/*
++		 * Defer asynchronous read-ahead on IO congestion.
++		 */
++		if (bdi_read_congested(mapping->backing_dev_info))
++			return 0;
++	}
++
++	/* do read-ahead */
++	return ondemand_readahead(mapping, ra, filp, page,
++					offset, req_size);
+ }
++EXPORT_SYMBOL_GPL(page_cache_readahead_ondemand);
+-- 
