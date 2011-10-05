@@ -9,10 +9,9 @@ Use of faster ilog2()
  drivers/char/agp/hp-agp.c     |    9 ++------
  drivers/char/agp/i460-agp.c   |    5 +---
  drivers/char/agp/parisc-agp.c |    7 +-----
- fs/ext4/super.c               |    6 +----
  fs/namespace.c                |   43 +++++++++---------------------------------
  include/asm-mips/bitops.h     |    9 ++++----
- 6 files changed, 24 insertions(+), 55 deletions(-)
+ 5 files changed, 22 insertions(+), 51 deletions(-)
 
 diff -urBp a/drivers/char/agp/hp-agp.c b/drivers/char/agp/hp-agp.c
 --- a/drivers/char/agp/hp-agp.c	2008-02-26 02:59:40.000000000 +0300
@@ -112,29 +111,6 @@ diff -urBp a/drivers/char/agp/parisc-agp.c b/drivers/char/agp/parisc-agp.c
  	readq(info->ioc_regs+IOC_PCOM);	/* flush */
  }
  
-diff -urBp a/fs/ext4/super.c b/fs/ext4/super.c
---- a/fs/ext4/super.c	2010-09-26 04:00:00.000000000 +0400
-+++ b/fs/ext4/super.c	2010-09-26 10:46:25.000000000 +0400
-@@ -1401,8 +1401,6 @@ static void ext4_orphan_cleanup (struct
- 	sb->s_flags = s_flags; /* Restore MS_RDONLY status */
- }
- 
--#define log2(n) ffz(~(n))
--
- /*
-  * Maximal file size.  There is a direct, and {,double-,triple-}indirect
-  * block limit, and also a limit of (2^32 - 1) 512-byte sectors in i_blocks.
-@@ -1666,8 +1664,8 @@ static int ext4_fill_super (struct super
- 	sbi->s_desc_per_block = blocksize / EXT4_DESC_SIZE(sb);
- 	sbi->s_sbh = bh;
- 	sbi->s_mount_state = le16_to_cpu(es->s_state);
--	sbi->s_addr_per_block_bits = log2(EXT4_ADDR_PER_BLOCK(sb));
--	sbi->s_desc_per_block_bits = log2(EXT4_DESC_PER_BLOCK(sb));
-+	sbi->s_addr_per_block_bits = ilog2(EXT4_ADDR_PER_BLOCK(sb));
-+	sbi->s_desc_per_block_bits = ilog2(EXT4_DESC_PER_BLOCK(sb));
- 	for (i=0; i < 4; i++)
- 		sbi->s_hash_seed[i] = le32_to_cpu(es->s_hash_seed[i]);
- 	sbi->s_def_hash_version = es->s_def_hash_version;
 diff -urBp a/fs/namespace.c b/fs/namespace.c
 --- a/fs/namespace.c	2008-02-26 02:59:40.000000000 +0300
 +++ b/fs/namespace.c	2010-09-26 10:47:15.000000000 +0400

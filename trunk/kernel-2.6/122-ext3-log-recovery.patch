@@ -1,12 +1,11 @@
 From ac2f6f1088152b5263465ce1fcc1e222d8cd29a0
 From: Fedor <fedork@ubuntu.(none)>
 Date: Mon, 14 Dec 2009 21:49:20 -0500
-Subject: [PATCH] Kernel (Ext3/Ext4): log journal recovery start
+Subject: [PATCH] Kernel (Ext3): log journal recovery start
 
 ---
  fs/ext3/super.c |    2 ++
- fs/ext4/super.c |    2 ++
- 2 files changed, 4 insertions(+), 0 deletions(-)
+ 1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
 index 6e30629..f1b3a56 100644
@@ -21,19 +20,5 @@ index 6e30629..f1b3a56 100644
  		if (ext3_load_journal(sb, es, journal_devnum))
  			goto failed_mount3;
  	} else if (journal_inum) {
-diff --git a/fs/ext4/super.c b/fs/ext4/super.c
-index 175b68c..3144363 100644
---- a/fs/ext4/super.c
-+++ b/fs/ext4/super.c
-@@ -1781,6 +1781,8 @@ static int ext4_fill_super (struct super_block *sb, void *data, int silent)
- 	 */
- 	if (!test_opt(sb, NOLOAD) &&
- 	    EXT4_HAS_COMPAT_FEATURE(sb, EXT4_FEATURE_COMPAT_HAS_JOURNAL)) {
-+		if (needs_recovery)
-+			printk (KERN_INFO "EXT4-fs: starting recovery.\n");
- 		if (ext4_load_journal(sb, es, journal_devnum))
- 			goto failed_mount3;
- 	} else if (journal_inum) {
 -- 
 1.6.5.GIT
-
