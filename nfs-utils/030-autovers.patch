@@ -41,9 +41,9 @@ diff -urBp a/utils/nfsd/Makefile.in b/utils/nfsd/Makefile.in
  LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
  	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 @@ -239,6 +240,8 @@ nfsd_SOURCES = nfsd.c
- nfsd_LDADD = ../../support/export/libexport.a \
- 	     ../../support/nfs/libnfs.a \
- 	     ../../support/misc/libmisc.a
+ KPREFIX = @kprefix@
+ nfsd_SOURCES = nfsd.c
+ nfsd_LDADD = -L../../support/lib/ -lnfs
 +nfsd_CPPFLAGS = $(AM_CPPFLAGS) $(CPPFLAGS) \
 +		$(DISABLE_NFS_V4)
  
