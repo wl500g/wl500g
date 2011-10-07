@@ -1,3 +1,35 @@
+diff --git radvd-1.8/Makefile.in radvd/Makefile.in
+--- radvd-1.8/Makefile.in
++++ radvd/Makefile.in
+@@ -363,7 +363,7 @@ all: config.h
+ .SUFFIXES: .man .c .l .o .obj .y
+ am--refresh:
+ 	@:
+-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
++$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am
+ 	@for dep in $?; do \
+ 	  case '$(am__configure_deps)' in \
+ 	    *$$dep*) \
+@@ -392,8 +392,6 @@ $(top_builddir)/config.status: $(top_src
+ 
+ $(top_srcdir)/configure:  $(am__configure_deps)
+ 	$(am__cd) $(srcdir) && $(AUTOCONF)
+-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+-	$(am__cd) $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
+ $(am__aclocal_m4_deps):
+ 
+ config.h: stamp-h1
+@@ -405,10 +403,6 @@ config.h: stamp-h1
+ stamp-h1: $(srcdir)/config.h.in $(top_builddir)/config.status
+ 	@rm -f stamp-h1
+ 	cd $(top_builddir) && $(SHELL) ./config.status config.h
+-$(srcdir)/config.h.in:  $(am__configure_deps) 
+-	($(am__cd) $(top_srcdir) && $(AUTOHEADER))
+-	rm -f stamp-h1
+-	touch $@
+ 
+ distclean-hdr:
+ 	-rm -f config.h stamp-h1
 diff -urBp radvd-1.8/radvd.c radvd/radvd.c
 --- radvd-1.8/radvd.c	2011-05-07 06:26:00.000000000 +0300
 +++ radvd/radvd.c	2011-05-15 17:07:00.000000000 +0400

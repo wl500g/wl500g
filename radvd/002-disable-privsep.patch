@@ -1,6 +1,6 @@
-diff -urB radvd/config.h.in radvd.new/config.h.in
---- radvd/config.h.in	2011-05-14 18:07:22.000000000 +0400
-+++ radvd.new/config.h.in	2011-05-15 17:43:08.000000000 +0400
+diff --git radvd/config.h.in radvd.new/config.h.in
+--- radvd/config.h.in
++++ radvd.new/config.h.in
 @@ -109,3 +109,6 @@
  
  /* Define to empty if `const' does not conform to ANSI C. */
@@ -8,9 +8,9 @@ diff -urB radvd/config.h.in radvd.new/config.h.in
 +
 +/* Define to use priviledge separation */
 +#undef USE_PRIVSEP
-diff -urB radvd/configure.in radvd.new/configure.in
---- radvd/configure.in	2011-04-18 02:23:21.000000000 +0400
-+++ radvd.new/configure.in	2011-05-14 18:07:00.000000000 +0400
+diff --git radvd/configure.in radvd.new/configure.in
+--- radvd/configure.in
++++ radvd.new/configure.in
 @@ -175,7 +175,12 @@
  dnl Checks for library functions.
  AC_CHECK_FUNCS(getopt_long)
@@ -25,9 +25,9 @@ diff -urB radvd/configure.in radvd.new/configure.in
  AC_SUBST(CONDITIONAL_SOURCES)
  
  AC_SUBST(VERSION)
-diff -urB radvd/configure radvd.new/configure
---- radvd/configure	2011-04-18 02:23:21.000000000 +0400
-+++ radvd.new/configure	2011-05-15 17:43:08.000000000 +0400
+diff --git radvd/configure radvd.new/configure
+--- radvd/configure
++++ radvd.new/configure
 @@ -722,6 +714,7 @@ with_logfile
  with_pidfile
  with_configfile
