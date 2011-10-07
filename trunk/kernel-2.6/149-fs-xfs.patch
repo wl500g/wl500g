@@ -48990,14 +48990,7 @@ diff --git a/fs/xfs/xfs_vnodeops.c b/fs/xfs/xfs_vnodeops.c
  	else
  		prid = (xfs_prid_t)dfltprid;
  
-@@ -1917,17 +1533,16 @@ xfs_create(
- 	 * Make sure that we have allocated dquot(s) on disk.
- 	 */
- 	error = XFS_QM_DQVOPALLOC(mp, dp,
--			current_fsuid(credp), current_fsgid(credp), prid,
-+			current_fsuid(), current_fsgid(), prid,
- 			XFS_QMOPT_QUOTALL|XFS_QMOPT_INHERIT, &udqp, &gdqp);
- 	if (error)
+@@ -1917,11 +1533,10 @@ xfs_create(
  		goto std_return;
  
  	ip = NULL;
@@ -49900,15 +49893,7 @@ diff --git a/fs/xfs/xfs_vnodeops.c b/fs/xfs/xfs_vnodeops.c
  	else
  		prid = (xfs_prid_t)dfltprid;
  
-@@ -2838,465 +2277,180 @@ xfs_mkdir(
- 	 * Make sure that we have allocated dquot(s) on disk.
- 	 */
- 	error = XFS_QM_DQVOPALLOC(mp, dp,
--			current_fsuid(credp), current_fsgid(credp), prid,
-+			current_fsuid(), current_fsgid(), prid,
- 			XFS_QMOPT_QUOTALL | XFS_QMOPT_INHERIT, &udqp, &gdqp);
- 	if (error)
- 		goto std_return;
+@@ -2838,458 +2277,173 @@ xfs_mkdir(
  
  	tp = xfs_trans_alloc(mp, XFS_TRANS_MKDIR);
  	cancel_flags = XFS_TRANS_RELEASE_LOG_RES;
@@ -50547,15 +50532,6 @@ diff --git a/fs/xfs/xfs_vnodeops.c b/fs/xfs/xfs_vnodeops.c
  	else
  		prid = (xfs_prid_t)dfltprid;
  
-@@ -3385,7 +2503,7 @@ xfs_symlink(
- 	 * Make sure that we have allocated dquot(s) on disk.
- 	 */
- 	error = XFS_QM_DQVOPALLOC(mp, dp,
--			current_fsuid(credp), current_fsgid(credp), prid,
-+			current_fsuid(), current_fsgid(), prid,
- 			XFS_QMOPT_QUOTALL | XFS_QMOPT_INHERIT, &udqp, &gdqp);
- 	if (error)
- 		goto std_return;
 @@ -3400,7 +2518,7 @@ xfs_symlink(
  		fs_blocks = 0;
  	else
