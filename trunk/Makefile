@@ -42,7 +42,7 @@ PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
-RADVD=radvd-1.8
+RADVD=radvd-1.8.2
 QUAGGA=quagga-0.99.20
 L2TP=rp-l2tp
 XL2TPD=xl2tpd-1.3.0
@@ -64,7 +64,7 @@ NTFS3G=ntfs-3g_ntfsprogs-2011.4.12AR.7
 SYSFSUTILS=sysfsutils-2.1.0
 WPA_SUPPLICANT=wpa_supplicant-0.6.10
 
-UCLIBC=uClibc-0.9.30.1
+UCLIBC=uClibc-0.9.32
 
 # tar has --exclude parameter ?
 export TAR_EXCL_SVN := $(shell tar --exclude .svn -cf - Makefile >/dev/null 2>&1 && echo "--exclude .svn")
