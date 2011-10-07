@@ -159,6 +159,9 @@ define Build/Install
 	$(INSTALL_BIN) -T \
 		$(PKG_BUILD_DIR)/utils/ldd.host \
 		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-ldd
+	$(INSTALL_BIN) -T \
+		$(PKG_BUILD_DIR)/utils/ldconfig.host \
+		$(TOOLCHAIN_DIR)/bin/$(ARCH)-uclibc-ldconfig
 endef
 
 define Build/Clean
