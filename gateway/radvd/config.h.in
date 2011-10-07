@@ -109,3 +109,6 @@
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const
+
+/* Define to use priviledge separation */
+#undef USE_PRIVSEP

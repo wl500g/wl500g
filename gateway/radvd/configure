@@ -714,6 +714,7 @@ with_logfile
 with_pidfile
 with_configfile
 with_facility
+enable_privsep
 '
       ac_precious_vars='build_alias
 host_alias
@@ -4994,7 +4995,13 @@ fi
 done
 
 
-CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+# Check whether --enable-privsep was given.
+if test "${enable_privsep+set}" = set; then :
+  enableval=$enable_privsep; $as_echo "#define USE_PRIVSEP 1" >>confdefs.h
+     CONDITIONAL_SOURCES="privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+fi
+
+CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
 
 
 

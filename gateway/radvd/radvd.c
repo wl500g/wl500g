@@ -57,7 +57,9 @@ struct option prog_opt[] = {
 	{"chrootdir", 1, 0, 't'},
 	{"version", 0, 0, 'v'},
 	{"help", 0, 0, 'h'},
+#ifdef USE_PRIVSEP
 	{"singleprocess", 0, 0, 's'},
+#endif
 	{NULL, 0, 0, 0}
 };
 
@@ -106,7 +108,9 @@ main(int argc, char *argv[])
 	char *username = NULL;
 	char *chrootdir = NULL;
 	int configtest = 0;
+#ifdef USE_PRIVSEP
 	int singleprocess = 0;
+#endif
 #ifdef HAVE_GETOPT_LONG
 	int opt_idx;
 #endif
@@ -184,9 +188,11 @@ main(int argc, char *argv[])
 		case 'c':
 			configtest = 1;
 			break;
+#ifdef USE_PRIVSEP
 		case 's':
 			singleprocess = 1;
 			break;
+#endif
 		case 'h':
 			usage();
 #ifdef HAVE_GETOPT_LONG
@@ -266,6 +272,7 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
+#ifdef USE_PRIVSEP
 	/* drop root privileges if requested. */
 	if (username) {
 		if (!singleprocess) {
@@ -281,6 +288,7 @@ main(int argc, char *argv[])
 			exit(1);
 		}
 	}
+#endif
 
 	if ((fd = open(pidfile, O_RDONLY, 0)) > 0)
 	{
