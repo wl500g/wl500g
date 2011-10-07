@@ -731,6 +731,7 @@ drop_root_privileges(const char *username)
 int
 check_conffile_perm(const char *username, const char *conf_file)
 {
+#if CHECK_PERM
 	struct stat stbuf;
 	struct passwd *pw = NULL;
 	FILE *fp = fopen(conf_file, "r");
@@ -762,6 +763,7 @@ check_conffile_perm(const char *username, const char *conf_file)
 		return (-1);
         }
 
+#endif
         return 0;
 }
 

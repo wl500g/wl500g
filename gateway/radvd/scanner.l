@@ -17,6 +17,7 @@
 %option nounput noinput noyywrap
 
 %{
+#include <string.h>
 #include "config.h"
 #include "includes.h"
 #include "log.h"
