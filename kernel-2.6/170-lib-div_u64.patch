@@ -1,0 +1,428 @@
+lib: introduce explicit signed/unsigned 64bit divide
+
+ 2418f4f28f8467b92a6177af32d05737ebf6206c introduce explicit signed/unsigned 64bit divide
+ 6f6d6a1a6a1336431a6cba60ace9e97c3a496a19 rename div64_64 to div64_u64
+ f595ec964daf7f99668039d7303ddedd09a75142 common implementation of iterative div/mod
+ d5e181f78ac753893eb930868a52a4488cd3de0a add an inlined version of iter_div_u64_rem
+ 658716d19f8f155c67d4677ba68034b8e492dfbe div64_u64(): improve precision on 32bit platforms
+
+---
+ include/asm-arm/div64.h      |    2 
+ include/asm-generic/div64.h  |    7 --
+ include/asm-i386/div64.h     |    1 
+ include/asm-m68k/div64.h     |    1 
+ include/asm-mips/div64.h     |    5 -
+ include/asm-um/div64.h       |    1 
+ include/linux/kernel.h       |    5 +
+ include/linux/math64.h       |  117 +++++++++++++++++++++++++++++++++++++++++++
+ include/linux/time.h         |   11 ----
+ lib/div64.c                  |   91 +++++++++++++++++++++++++++------
+ net/ipv4/tcp_cubic.c         |    4 -
+ net/netfilter/xt_connbytes.c |    4 -
+ 12 files changed, 204 insertions(+), 45 deletions(-)
+ create mode 100644 include/linux/math64.h
+
+diff --git a/include/asm-arm/div64.h b/include/asm-arm/div64.h
+--- a/include/asm-arm/div64.h
++++ b/include/asm-arm/div64.h
+@@ -224,6 +224,4 @@
+ 
+ #endif
+ 
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+-
+ #endif
+diff --git a/include/asm-generic/div64.h b/include/asm-generic/div64.h
+--- a/include/asm-generic/div64.h
++++ b/include/asm-generic/div64.h
+@@ -30,11 +30,6 @@
+ 	__rem;							\
+  })
+ 
+-static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
+-{
+-	return dividend / divisor;
+-}
+-
+ #elif BITS_PER_LONG == 32
+ 
+ extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
+@@ -54,8 +49,6 @@ extern uint32_t __div64_32(uint64_t *dividend, uint32_t divisor);
+ 	__rem;						\
+  })
+ 
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+-
+ #else /* BITS_PER_LONG == ?? */
+ 
+ # error do_div() does not yet support the C64
+diff --git a/include/asm-i386/div64.h b/include/asm-i386/div64.h
+--- a/include/asm-i386/div64.h
++++ b/include/asm-i386/div64.h
+@@ -48,5 +48,4 @@
+ 
+ }
+ 
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+ #endif
+diff --git a/include/asm-m68k/div64.h b/include/asm-m68k/div64.h
+--- a/include/asm-m68k/div64.h
++++ b/include/asm-m68k/div64.h
+@@ -25,5 +25,4 @@
+ 	__rem;							\
+ })
+ 
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+ #endif /* _M68K_DIV64_H */
+diff --git a/include/asm-mips/div64.h b/include/asm-mips/div64.h
+--- a/include/asm-mips/div64.h
++++ b/include/asm-mips/div64.h
+@@ -106,11 +105,6 @@ extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+ 	__mod;
+ })
+ 
+-static inline uint64_t div64_64(uint64_t dividend, uint64_t divisor)
+-{
+-	return dividend / divisor;
+-}
+-
+ #endif /* BITS_PER_LONG == 64 */
+ 
+ #endif /* __ASM_DIV64_H */
+diff --git a/include/asm-um/div64.h b/include/asm-um/div64.h
+--- a/include/asm-um/div64.h
++++ b/include/asm-um/div64.h
+@@ -3,5 +3,4 @@
+ 
+ #include "asm/arch/div64.h"
+ 
+-extern uint64_t div64_64(uint64_t dividend, uint64_t divisor);
+ #endif
+diff --git a/include/linux/kernel.h b/include/linux/kernel.h
+--- a/include/linux/kernel.h
++++ b/include/linux/kernel.h
+@@ -173,6 +173,11 @@ extern int _cond_resched(void);
+ 		(__x < 0) ? -__x : __x;		\
+ 	})
+ 
++#define abs64(x) ({				\
++		s64 __x = (x);			\
++		(__x < 0) ? -__x : __x;		\
++	})
++
+ extern struct atomic_notifier_head panic_notifier_list;
+ extern long (*panic_blink)(long time);
+ 
+diff --git a/include/linux/math64.h b/include/linux/math64.h
+new file mode 100644
+--- /dev/null
++++ b/include/linux/math64.h
+@@ -0,0 +1,117 @@
++#ifndef _LINUX_MATH64_H
++#define _LINUX_MATH64_H
++
++#include <linux/types.h>
++#include <asm/div64.h>
++
++#if BITS_PER_LONG == 64
++
++/**
++ * div_u64_rem - unsigned 64bit divide with 32bit divisor with remainder
++ *
++ * This is commonly provided by 32bit archs to provide an optimized 64bit
++ * divide.
++ */
++static inline u64 div_u64_rem(u64 dividend, u32 divisor, u32 *remainder)
++{
++	*remainder = dividend % divisor;
++	return dividend / divisor;
++}
++
++/**
++ * div_s64_rem - signed 64bit divide with 32bit divisor with remainder
++ */
++static inline s64 div_s64_rem(s64 dividend, s32 divisor, s32 *remainder)
++{
++	*remainder = dividend % divisor;
++	return dividend / divisor;
++}
++
++/**
++ * div64_u64 - unsigned 64bit divide with 64bit divisor
++ */
++static inline u64 div64_u64(u64 dividend, u64 divisor)
++{
++	return dividend / divisor;
++}
++
++/**
++ * div64_s64 - signed 64bit divide with 64bit divisor
++ */
++static inline s64 div64_s64(s64 dividend, s64 divisor)
++{
++	return dividend / divisor;
++}
++
++#elif BITS_PER_LONG == 32
++
++#ifndef div_u64_rem
++static inline u64 div_u64_rem(u64 dividend, u32 divisor, u32 *remainder)
++{
++	*remainder = do_div(dividend, divisor);
++	return dividend;
++}
++#endif
++
++#ifndef div_s64_rem
++extern s64 div_s64_rem(s64 dividend, s32 divisor, s32 *remainder);
++#endif
++
++#ifndef div64_u64
++extern u64 div64_u64(u64 dividend, u64 divisor);
++#endif
++
++#ifndef div64_s64
++extern s64 div64_s64(s64 dividend, s64 divisor);
++#endif
++
++#endif /* BITS_PER_LONG */
++
++/**
++ * div_u64 - unsigned 64bit divide with 32bit divisor
++ *
++ * This is the most common 64bit divide and should be used if possible,
++ * as many 32bit archs can optimize this variant better than a full 64bit
++ * divide.
++ */
++#ifndef div_u64
++static inline u64 div_u64(u64 dividend, u32 divisor)
++{
++	u32 remainder;
++	return div_u64_rem(dividend, divisor, &remainder);
++}
++#endif
++
++/**
++ * div_s64 - signed 64bit divide with 32bit divisor
++ */
++#ifndef div_s64
++static inline s64 div_s64(s64 dividend, s32 divisor)
++{
++	s32 remainder;
++	return div_s64_rem(dividend, divisor, &remainder);
++}
++#endif
++
++u32 iter_div_u64_rem(u64 dividend, u32 divisor, u64 *remainder);
++
++static __always_inline u32
++__iter_div_u64_rem(u64 dividend, u32 divisor, u64 *remainder)
++{
++	u32 ret = 0;
++
++	while (dividend >= divisor) {
++		/* The following asm() prevents the compiler from
++		   optimising this loop into a modulo operation.  */
++		asm("" : "+rm"(dividend));
++
++		dividend -= divisor;
++		ret++;
++	}
++
++	*remainder = dividend;
++
++	return ret;
++}
++
++#endif /* _LINUX_MATH64_H */
+diff --git a/include/linux/time.h b/include/linux/time.h
+--- a/include/linux/time.h
++++ b/include/linux/time.h
+@@ -6,6 +6,7 @@
+ #ifdef __KERNEL__
+ # include <linux/cache.h>
+ # include <linux/seqlock.h>
++# include <linux/math64.h>
+ #endif
+ 
+ #ifndef _STRUCT_TIMESPEC
+@@ -172,15 +173,7 @@ extern struct timeval ns_to_timeval(const s64 nsec);
+  */
+ static inline void timespec_add_ns(struct timespec *a, u64 ns)
+ {
+-	ns += a->tv_nsec;
+-	while(unlikely(ns >= NSEC_PER_SEC)) {
+-		/* The following asm() prevents the compiler from
+-		 * optimising this loop into a modulo operation.  */
+-		asm("" : "+r"(ns));
+-
+-		ns -= NSEC_PER_SEC;
+-		a->tv_sec++;
+-	}
++	a->tv_sec += iter_div_u64_rem(a->tv_nsec + ns, NSEC_PER_SEC, &ns);
+ 	a->tv_nsec = ns;
+ }
+ #endif /* __KERNEL__ */
+diff --git a/lib/div64.c b/lib/div64.c
+--- a/lib/div64.c
++++ b/lib/div64.c
+@@ -16,9 +16,8 @@
+  * assembly versions such as arch/ppc/lib/div64.S and arch/sh/lib/div64.S.
+  */
+ 
+-#include <linux/types.h>
+ #include <linux/module.h>
+-#include <asm/div64.h>
++#include <linux/math64.h>
+ 
+ /* Not needed on 64bit architectures */
+ #if BITS_PER_LONG == 32
+@@ -58,24 +57,86 @@ uint32_t __attribute__((weak)) __div64_3
+ 
+ EXPORT_SYMBOL(__div64_32);
+ 
+-/* 64bit divisor, dividend and result. dynamic precision */
+-uint64_t div64_64(uint64_t dividend, uint64_t divisor)
++#ifndef div_s64_rem
++s64 div_s64_rem(s64 dividend, s32 divisor, s32 *remainder)
+ {
+-	uint32_t high, d;
++	u64 quotient;
+ 
+-	high = divisor >> 32;
+-	if (high) {
+-		unsigned int shift = fls(high);
++	if (dividend < 0) {
++		quotient = div_u64_rem(-dividend, abs(divisor), (u32 *)remainder);
++		*remainder = -*remainder;
++		if (divisor > 0)
++			quotient = -quotient;
++	} else {
++		quotient = div_u64_rem(dividend, abs(divisor), (u32 *)remainder);
++		if (divisor < 0)
++			quotient = -quotient;
++	}
++	return quotient;
++}
++EXPORT_SYMBOL(div_s64_rem);
++#endif
+ 
+-		d = divisor >> shift;
+-		dividend >>= shift;
+-	} else
+-		d = divisor;
++/**
++ * div64_u64 - unsigned 64bit divide with 64bit divisor
++ * @dividend:	64bit dividend
++ * @divisor:	64bit divisor
++ *
++ * This implementation is a modified version of the algorithm proposed
++ * by the book 'Hacker's Delight'.  The original source and full proof
++ * can be found here and is available for use without restriction.
++ *
++ * 'http://www.hackersdelight.org/HDcode/newCode/divDouble.c'
++ */
++#ifndef div64_u64
++u64 div64_u64(u64 dividend, u64 divisor)
++{
++	u32 high = divisor >> 32;
++	u64 quot;
+ 
+-	do_div(dividend, d);
++	if (high == 0) {
++		quot = div_u64(dividend, divisor);
++	} else {
++		int n = 1 + fls(high);
++		quot = div_u64(dividend >> n, divisor >> n);
++
++		if (quot != 0)
++			quot--;
++		if ((dividend - quot * divisor) >= divisor)
++			quot++;
++	}
+ 
+-	return dividend;
++	return quot;
+ }
+-EXPORT_SYMBOL(div64_64);
++EXPORT_SYMBOL(div64_u64);
++#endif
++
++/**
++ * div64_s64 - signed 64bit divide with 64bit divisor
++ * @dividend:	64bit dividend
++ * @divisor:	64bit divisor
++ */
++#ifndef div64_s64
++s64 div64_s64(s64 dividend, s64 divisor)
++{
++	s64 quot, t;
++
++	quot = div64_u64(abs64(dividend), abs64(divisor));
++	t = (dividend ^ divisor) >> 63;
++
++	return (quot ^ t) - t;
++}
++EXPORT_SYMBOL(div64_s64);
++#endif
+ 
+ #endif /* BITS_PER_LONG == 32 */
++
++/*
++ * Iterative div/mod for use when dividend is not expected to be much
++ * bigger than divisor.
++ */
++u32 iter_div_u64_rem(u64 dividend, u32 divisor, u64 *remainder)
++{
++	return __iter_div_u64_rem(dividend, divisor, remainder);
++}
++EXPORT_SYMBOL(iter_div_u64_rem);
+diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
+--- a/net/ipv4/tcp_cubic.c
++++ b/net/ipv4/tcp_cubic.c
+@@ -15,8 +15,8 @@
+ 
+ #include <linux/mm.h>
+ #include <linux/module.h>
++#include <linux/math64.h>
+ #include <net/tcp.h>
+-#include <asm/div64.h>
+ 
+ #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
+ 					 * max_cwnd = snd_cwnd * beta
+@@ -128,7 +128,7 @@ static u32 cubic_root(u64 a)
+ 	 * x    = ( 2 * x  +  a / x  ) / 3
+ 	 *  k+1          k         k
+ 	 */
+-	x = (2 * x + (u32)div64_64(a, (u64)x * (u64)(x - 1)));
++	x = (2 * x + (u32)div64_u64(a, (u64)x * (u64)(x - 1)));
+ 	x = ((x * 341) >> 10);
+ 	return x;
+ }
+diff --git a/net/netfilter/xt_connbytes.c b/net/netfilter/xt_connbytes.c
+--- a/net/netfilter/xt_connbytes.c
++++ b/net/netfilter/xt_connbytes.c
+@@ -4,11 +4,11 @@
+ 
+ #include <linux/module.h>
+ #include <linux/skbuff.h>
++#include <linux/math64.h>
+ #include <linux/netfilter/x_tables.h>
+ #include <linux/netfilter/xt_connbytes.h>
+ #include <net/netfilter/nf_conntrack.h>
+ 
+-#include <asm/div64.h>
+ #include <asm/bitops.h>
+ 
+ MODULE_LICENSE("GPL");
+@@ -82,7 +81,7 @@ connbytes_mt(const struct sk_buff *skb, const struct net_device *in,
+ 			break;
+ 		}
+ 		if (pkts != 0)
+-			what = div64_64(bytes, pkts);
++			what = div64_u64(bytes, pkts);
+ 		break;
+ 	}
+ 
+-- 
+1.7.6.2
