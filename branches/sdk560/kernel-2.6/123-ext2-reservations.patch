@@ -1395,7 +1395,7 @@ index baf71dd..538c221 100644
 -	}
 -	write_unlock(&EXT2_I(inode)->i_meta_lock);
 +	group_adjust_blocks(sb, group_no, gdp, gdp_bh, -num);
-+	percpu_counter_mod(&sbi->s_freeblocks_counter, -num);
++	percpu_counter_sub(&sbi->s_freeblocks_counter, num);
  
  	mark_buffer_dirty(bitmap_bh);
  	if (sb->s_flags & MS_SYNCHRONOUS)

@@ -12,15 +12,16 @@ writeback: speed up writeback of big dirty files
  2c1365791048e8aff42138ed5f6040b3c7824a69 writeback: fix time ordering of the per superblock inode lists 8
  08d8e9749e7f0435ba4683b620e8d30d59276b4c writeback: fix ntfs with sb_has_dirty_inodes()
  8bc3be2751b4f74ab90a446da1912fd8204d53f7 writeback: speed up writeback of big dirty files
+ 17bc6c30cf6bfffd816bdc53682dd46fc34a2cf4 vfs: Add no_nrwrite_index_update writeback control flag
 
 ---
  fs/fs-writeback.c         |  139 +++++++++++++++++++++++++++++++++++++---------
  fs/ntfs/super.c           |    4 -
  fs/super.c                |    1 
  include/linux/fs.h        |    2 
- include/linux/writeback.h |    1 
- mm/page-writeback.c       |    9 +-
- 6 files changed, 126 insertions(+), 30 deletions(-)
+ include/linux/writeback.h |   10 +++
+ mm/page-writeback.c       |   18 ++++-
+ 6 files changed, 142 insertions(+), 32 deletions(-)
 
 diff -urBp a/fs/fs-writeback.c b/fs/fs-writeback.c
 --- a/fs/fs-writeback.c	2008-02-26 02:59:40.000000000 +0300
@@ -330,18 +331,27 @@ diff -urBp a/include/linux/fs.h b/include/linux/fs.h
  extern int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
 diff -urBp a/include/linux/writeback.h b/include/linux/writeback.h
 --- a/include/linux/writeback.h	2011-06-10 18:42:59.000000000 +0400
-+++ b/include/linux/writeback.h	2011-06-15 20:02:50.000000000 +0400
-@@ -61,6 +61,7 @@ struct writeback_control {
++++ b/include/linux/writeback.h	2011-10-06 21:02:10.000000000 +0400
+@@ -61,6 +61,16 @@ struct writeback_control {
  	unsigned for_reclaim:1;		/* Invoked from the page allocator */
  	unsigned for_writepages:1;	/* This is a writepages() call */
  	unsigned range_cyclic:1;	/* range_start is cyclic */
 +	unsigned more_io:1;		/* more io to be dispatched */
++	/*
++	 * write_cache_pages() won't update wbc->nr_to_write and
++	 * mapping->writeback_index if no_nrwrite_index_update
++	 * is set.  write_cache_pages() may write more than we
++	 * requested and we want to make sure nr_to_write and
++	 * writeback_index are updated in a consistent manner
++	 * so we use a single control to update them
++	 */
++	unsigned no_nrwrite_index_update:1;
  
  	void *fs_private;		/* For use by ->writepages() */
  };
 diff -urBp a/mm/page-writeback.c b/mm/page-writeback.c
 --- a/mm/page-writeback.c	2011-06-10 18:42:59.000000000 +0400
-+++ b/mm/page-writeback.c	2011-06-15 20:02:50.000000000 +0400
++++ b/mm/page-writeback.c	2011-10-06 21:02:10.000000000 +0400
 @@ -380,6 +380,7 @@ static void background_writeout(unsigned
  			global_page_state(NR_UNSTABLE_NFS) < background_thresh
  				&& min_pages <= 0)
@@ -376,4 +386,26 @@ diff -urBp a/mm/page-writeback.c b/mm/page-writeback.c
  				congestion_wait(WRITE, HZ/10);
  			else
  				break;	/* All the old data is written */
+@@ -876,6 +876,7 @@ int write_cache_pages(struct address_space *mapping,
+ 	pgoff_t end;		/* Inclusive */
+ 	int cycled;
+ 	int range_whole = 0;
++	long nr_to_write = wbc->nr_to_write;
+ 
+ 	if (wbc->nonblocking && bdi_write_congested(bdi)) {
+ 		wbc->encountered_congestion = 1;
+@@ -958,7 +959,11 @@ retry:
+ 		index = 0;
+ 		goto retry;
+ 	}
+-	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
+-		mapping->writeback_index = done_index;
++	if (!wbc->no_nrwrite_index_update) {
++		if (wbc->range_cyclic || (range_whole && nr_to_write > 0))
++			mapping->writeback_index = done_index;
++		wbc->nr_to_write = nr_to_write;
++	}
++
+ 	return ret;
+ }
 -- 

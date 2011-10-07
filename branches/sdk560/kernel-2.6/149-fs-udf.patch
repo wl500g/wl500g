@@ -5,37 +5,50 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  4651c5900e7a3c84d4b70412f8bbc40c1bcb50cf udf: Fix directory corruption after extent merging
 
 ---
- fs/Kconfig                |    1 
- fs/buffer.c               |    1 
- fs/udf/Makefile           |    2 
- fs/udf/balloc.c           |  918 +++++++--------
- fs/udf/crc.c              |  173 --
- fs/udf/dir.c              |  262 +---
- fs/udf/directory.c        |  283 +---
- fs/udf/ecma_167.h         |  584 ++++-----
- fs/udf/file.c             |  193 +--
- fs/udf/fsync.c            |    6 
- fs/udf/ialloc.c           |  128 +-
- fs/udf/inode.c            | 2095 ++++++++++++++++-------------------
- fs/udf/lowlevel.c         |   33 
- fs/udf/misc.c             |  233 +--
- fs/udf/namei.c            | 1034 +++++++----------
- fs/udf/osta_udf.h         |   95 -
- fs/udf/partition.c        |  325 +++--
- fs/udf/super.c            | 2745 +++++++++++++++++++++++++---------------------
- fs/udf/symlink.c          |   61 -
- fs/udf/truncate.c         |  269 ++--
- fs/udf/udf_i.h            |   46 
- fs/udf/udf_sb.h           |  216 ++-
- fs/udf/udfdecl.h          |  197 ++-
- fs/udf/udfend.h           |   56 
- fs/udf/udftime.c          |  123 +-
- fs/udf/unicode.c          |  372 ++----
- include/linux/udf_fs.h    |   54 
- include/linux/udf_fs_i.h  |   30 
- include/linux/udf_fs_sb.h |  117 -
- 29 files changed, 5149 insertions(+), 5503 deletions(-)
+ Documentation/filesystems/udf.txt |    2 
+ fs/Kconfig                        |    1 
+ fs/buffer.c                       |    1 
+ fs/udf/Makefile                   |    2 
+ fs/udf/balloc.c                   |  918 ++++++------
+ fs/udf/crc.c                      |  173 --
+ fs/udf/dir.c                      |  262 +--
+ fs/udf/directory.c                |  283 +--
+ fs/udf/ecma_167.h                 |  584 +++-----
+ fs/udf/file.c                     |  193 --
+ fs/udf/fsync.c                    |    6 
+ fs/udf/ialloc.c                   |  128 -
+ fs/udf/inode.c                    | 2095 +++++++++++++----------------
+ fs/udf/lowlevel.c                 |   33 
+ fs/udf/misc.c                     |  233 +--
+ fs/udf/namei.c                    | 1034 ++++++--------
+ fs/udf/osta_udf.h                 |   95 -
+ fs/udf/partition.c                |  325 ++--
+ fs/udf/super.c                    | 2745 +++++++++++++++++++++-----------------
+ fs/udf/symlink.c                  |   61 
+ fs/udf/truncate.c                 |  269 +--
+ fs/udf/udf_i.h                    |   46 
+ fs/udf/udf_sb.h                   |  216 +-
+ fs/udf/udfdecl.h                  |  197 +-
+ fs/udf/udfend.h                   |   56 
+ fs/udf/udftime.c                  |  123 -
+ fs/udf/unicode.c                  |  372 ++---
+ include/linux/udf_fs.h            |   54 
+ include/linux/udf_fs_i.h          |   30 
+ include/linux/udf_fs_sb.h         |  117 -
+ 30 files changed, 5151 insertions(+), 5503 deletions(-)
 
+diff --git a/Documentation/filesystems/udf.txt b/Documentation/filesystems/udf.txt
+--- a/Documentation/filesystems/udf.txt
++++ b/Documentation/filesystems/udf.txt
+@@ -24,6 +24,8 @@
+ 
+ 	gid=		Set the default group.
+ 	umask=		Set the default umask.
++	mode=		Set the default file permissions.
++	dmode=		Set the default directory permissions.
+ 	uid=		Set the default user.
+ 	bs=		Set the block size.
+ 	unhide		Show otherwise hidden files.
 diff --git a/fs/buffer.c b/fs/buffer.c
 --- a/fs/buffer.c
 +++ b/fs/buffer.c

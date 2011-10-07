@@ -1,0 +1,139 @@
+From 7a224228ed79d587ece2304869000aad1b8e97dd
+From: Jean Noel Cordenner
+Date: Mon, 28 Jan 2008 23:58:27 -0500
+Subject: [PATCH] vfs: Add 64 bit i_version support
+
+The i_version field of the inode is changed to be a 64-bit counter that
+is set on every inode creation and that is incremented every time the
+inode data is modified (similarly to the "ctime" time-stamp).
+The aim is to fulfill a NFSv4 requirement for rfc3530.
+This first part concerns the vfs, it converts the 32-bit i_version in
+the generic inode to a 64-bit, a flag is added in the super block in
+order to check if the feature is enabled and the i_version is
+incremented in the vfs.
+
+Signed-off-by: Mingming Cao <cmm@us.ibm.com>
+Signed-off-by: Jean Noel Cordenner <jean-noel.cordenner@bull.net>
+Signed-off-by: Kalpak Shah <kalpak@clusterfs.com>
+
+---
+ fs/afs/dir.c       |    9 +++++----
+ fs/afs/inode.c     |    3 ++-
+ fs/inode.c         |   22 ++++++++++++++++++++++
+ include/linux/fs.h |    5 ++++-
+ 4 files changed, 33 insertions(+), 6 deletions(-)
+
+diff --git a/fs/afs/dir.c b/fs/afs/dir.c
+index 33fe39a..0cc3597 100644
+--- a/fs/afs/dir.c
++++ b/fs/afs/dir.c
+@@ -546,11 +546,11 @@ static struct dentry *afs_lookup(struct inode *dir, struct dentry *dentry,
+ 	dentry->d_op = &afs_fs_dentry_operations;
+ 
+ 	d_add(dentry, inode);
+-	_leave(" = 0 { vn=%u u=%u } -> { ino=%lu v=%lu }",
++	_leave(" = 0 { vn=%u u=%u } -> { ino=%lu v=%llu }",
+ 	       fid.vnode,
+ 	       fid.unique,
+ 	       dentry->d_inode->i_ino,
+-	       dentry->d_inode->i_version);
++	       (unsigned long long)dentry->d_inode->i_version);
+ 
+ 	return NULL;
+ }
+@@ -630,9 +630,10 @@ static int afs_d_revalidate(struct dentry *dentry, struct nameidata *nd)
+ 		 * been deleted and replaced, and the original vnode ID has
+ 		 * been reused */
+ 		if (fid.unique != vnode->fid.unique) {
+-			_debug("%s: file deleted (uq %u -> %u I:%lu)",
++			_debug("%s: file deleted (uq %u -> %u I:%llu)",
+ 			       dentry->d_name.name, fid.unique,
+-			       vnode->fid.unique, dentry->d_inode->i_version);
++			       vnode->fid.unique,
++			       (unsigned long long)dentry->d_inode->i_version);
+ 			spin_lock(&vnode->lock);
+ 			set_bit(AFS_VNODE_DELETED, &vnode->flags);
+ 			spin_unlock(&vnode->lock);
+diff --git a/fs/afs/inode.c b/fs/afs/inode.c
+index d196840..84750c8 100644
+--- a/fs/afs/inode.c
++++ b/fs/afs/inode.c
+@@ -301,7 +301,8 @@ int afs_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 
+ 	inode = dentry->d_inode;
+ 
+-	_enter("{ ino=%lu v=%lu }", inode->i_ino, inode->i_version);
++	_enter("{ ino=%lu v=%llu }", inode->i_ino,
++		(unsigned long long)inode->i_version);
+ 
+ 	generic_fillattr(inode, stat);
+ 	return 0;
+diff --git a/fs/inode.c b/fs/inode.c
+index ed35383..b48324a 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -1276,6 +1293,11 @@ void file_update_time(struct file *file)
+ 		sync_it = 1;
+ 	}
+ 
++	if (IS_I_VERSION(inode)) {
++		inode_inc_iversion(inode);
++		sync_it = 1;
++	}
++
+ 	if (sync_it)
+ 		mark_inode_dirty_sync(inode);
+ }
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index 21398a5..9608839 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -124,6 +124,7 @@ extern int dir_notify_enable;
+ 
+ #define MS_SHARED	(1<<20)	/* change to shared */
+ #define MS_RELATIME	(1<<21)	/* Update atime relative to mtime/ctime. */
++#define MS_I_VERSION	(1<<23) /* Update inode I_version field */
+ #define MS_ACTIVE	(1<<30)
+ #define MS_NOUSER	(1<<31)
+ 
+@@ -173,6 +174,7 @@ extern int dir_notify_enable;
+ 					((inode)->i_flags & (S_SYNC|S_DIRSYNC)))
+ #define IS_MANDLOCK(inode)	__IS_FLG(inode, MS_MANDLOCK)
+ #define IS_NOATIME(inode)   __IS_FLG(inode, MS_RDONLY|MS_NOATIME)
++#define IS_I_VERSION(inode)   __IS_FLG(inode, MS_I_VERSION)
+ 
+ #define IS_NOQUOTA(inode)	((inode)->i_flags & S_NOQUOTA)
+ #define IS_APPEND(inode)	((inode)->i_flags & S_APPEND)
+@@ -599,7 +601,7 @@ struct inode {
+ 	uid_t			i_uid;
+ 	gid_t			i_gid;
+ 	dev_t			i_rdev;
+-	unsigned long		i_version;
++	u64			i_version;
+ 	loff_t			i_size;
+ #ifdef __NEED_I_SIZE_ORDERED
+ 	seqcount_t		i_size_seqcount;
+@@ -1330,6 +1330,21 @@ static inline void inode_dec_link_count(
+ 	mark_inode_dirty(inode);
+ }
+ 
++/**
++ * inode_inc_iversion - increments i_version
++ * @inode: inode that need to be updated
++ *
++ * Every time the inode is modified, the i_version field will be incremented.
++ * The filesystem has to be mounted with i_version flag
++ */
++
++static inline void inode_inc_iversion(struct inode *inode)
++{
++       spin_lock(&inode->i_lock);
++       inode->i_version++;
++       spin_unlock(&inode->i_lock);
++}
++
+ extern void touch_atime(struct vfsmount *mnt, struct dentry *dentry);
+ static inline void file_accessed(struct file *file)
+ {
+-- 
+1.7.6.2

@@ -418,7 +418,7 @@ new file mode 100644
 +		if (!val)
 +			break;
 +
-+		percpu_counter_mod(&pl->events, -half);
++		percpu_counter_sub(&pl->events, half);
 +		pl->period += period;
 +	}
 +	pl->period = global_period;
