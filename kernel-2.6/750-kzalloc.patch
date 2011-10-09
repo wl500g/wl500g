@@ -2600,10 +2600,9 @@ index 3eefa97..a6b1072 100644
  		block = descriptor_loc(sb, logic_sb_block, i);
  		sbi->s_group_desc[i] = sb_bread(sb, block);
 diff --git a/fs/partitions/check.c b/fs/partitions/check.c
-index 98e0b85..783c57e 100644
 --- a/fs/partitions/check.c
 +++ b/fs/partitions/check.c
-@@ -372,11 +372,10 @@ void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len,
+@@ -372,15 +372,14 @@ void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len,
  {
  	struct hd_struct *p;
  
@@ -2612,6 +2611,10 @@ index 98e0b85..783c57e 100644
  	if (!p)
  		return;
  	
+ 	if (!init_part_stats(p)) {
+ 		kfree(p);
+ 		return;
+ 	}
 -	memset(p, 0, sizeof(*p));
  	p->start_sect = start;
  	p->nr_sects = len;
