@@ -406,8 +406,11 @@ static void tcp_rcv_rtt_update(struct tcp_sock *tp, u32 sample, int win_dep)
 		if (!win_dep) {
 			m -= (new_sample >> 3);
 			new_sample += m;
-		} else if (m < new_sample)
-			new_sample = m << 3;
+		} else {
+			m <<= 3;
+			if (m < new_sample)
+				new_sample = m;
+		}
 	} else {
 		/* No previous measure. */
 		new_sample = m << 3;
@@ -423,9 +426,7 @@ static inline void tcp_rcv_rtt_measure(struct tcp_sock *tp)
 		goto new_measure;
 	if (before(tp->rcv_nxt, tp->rcv_rtt_est.seq))
 		return;
-	tcp_rcv_rtt_update(tp,
-			   jiffies - tp->rcv_rtt_est.time,
-			   1);
+	tcp_rcv_rtt_update(tp, tcp_time_stamp - tp->rcv_rtt_est.time, 1);
 
 new_measure:
 	tp->rcv_rtt_est.seq = tp->rcv_nxt + tp->rcv_wnd;
@@ -2121,7 +2122,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
 		       icsk->icsk_mtup.probe_size;
 	tp->snd_cwnd_cnt = 0;
 	tp->snd_cwnd_stamp = tcp_time_stamp;
-	tp->rcv_ssthresh = tcp_current_ssthresh(sk);
+	tp->snd_ssthresh = tcp_current_ssthresh(sk);
 
 	icsk->icsk_mtup.search_low = icsk->icsk_mtup.probe_size;
 	icsk->icsk_mtup.probe_size = 0;
@@ -3130,6 +3131,8 @@ static void tcp_reset(struct sock *sk)
 		default:
 			sk->sk_err = ECONNRESET;
 	}
+	/* This barrier is coupled with smp_rmb() in tcp_poll() */
+	smp_wmb();
 
 	if (!sock_flag(sk, SOCK_DEAD))
 		sk->sk_error_report(sk);
@@ -3479,7 +3482,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
 			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
 				tp->ucopy.len -= chunk;
 				tp->copied_seq += chunk;
-				eaten = (chunk == skb->len && !th->fin);
+				eaten = (chunk == skb->len);
 				tcp_rcv_space_adjust(sk);
 			}
 			local_bh_disable();
