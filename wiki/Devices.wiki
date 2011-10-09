@@ -31,8 +31,8 @@ Originally from [http://oleg.wl500g.info/devices.html]
 ||RT-N13||RT2880F 266MHz !RaLink||IP175C IC+||802.11n (RT2820L) 2.4GHz||32MB SDR 32bit||4MB||N/A||no||-||
 ||RT-N15||RT2880F 266MHz !RaLink||RTL8366SR Realtek||802.11n (RT2820L) 2.4GHz||32MB SDR 32bit||4MB||N/A||no||-||
 ||_Generation 4_||
-||RT-N12||BCM4716 300MHz||BCM5325F||802.11n (SoC 4329) 2.4GHz||32MB DDR||4MB||N/A||1.9.2.7-rtn||17/?||
-||RT-N12 B1||BCM5357||SoC||802.11n (SoC)||32MB DDR||8MB||?||WiP||?||
+||RT-N12||BCM4716 300MHz||BCM5325F||802.11n (SoC 4329) 2.4GHz||32MB DDR||4MB||N/A||1.9.2.7-rtn||17/6||
+||RT-N12 B1||BCM5357||SoC||802.11n (SoC)||32MB DDR||8MB||?||WiP||28/9||
 ||RT-N13U||RA3052F 384Mhz !RaLink||SoC||802.11n (SoC) 2.4GHz||32MB SDR 16bit||4MB||1 x 2.0 (SoC)||no||-||
 ||RT-N16||BCM4718 480MHz||BCM53115 (Gigabit)||802.11n (SoC 4329 + BCM2050) 2.4GHz||128MB DDR 32bit||32MB||2 x 2.0||1.9.2.7-rtn||17/5||
 ||RT-N56U||RT3662F 500MHz !RaLink||RTL8367M (Gigabit)||802.11n (SoC) 2.4GHz/5GHz||128MB DDR 32bit||8MB||2 x 2.0||no||-||
