@@ -1,4 +1,3 @@
-From 14cbd41c53732637459962bfd8afd68d9dc59b53
 From: Fedor <fedork@ubuntu.(none)>
 Date: Wed, 2 Feb 2011 02:51:04 -0500
 Subject: [PATCH] mm: minor updates/fixes from upstream 2.6 kernel
@@ -11,6 +10,7 @@ c80e7a826c10cf5bce8487fbaede48bd0bd48d08 permit mempool_free(NULL)
 0da7e01f5f37f441cccd7c8c0586e06db0981907 calculation of pgoff in do_linear_fault() uses mixed units
 a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_mkwrite()
 369f2389e7d03022abdd25e298bffb9613cd0e54 writeback: remove unnecessary wait in throttle_vm_writeout()
+ce36394269ccd9d1d286d6192ba09fa6894365e9 mmap: fix petty bug in anonymous shared mmap offset handling
 
 ---
  include/linux/writeback.h |    2 +-
@@ -18,9 +18,10 @@ a200ee182a016752464a12cb2e8762e48254bb09 mm: set_page_dirty_balance() vs ->page_
  mm/madvise.c              |    6 ++++--
  mm/memory.c               |    9 +++++++--
  mm/mempool.c              |    3 +++
+ mm/mmap.c                 |    4 ++++
  mm/page-writeback.c       |   22 ++++++++++------------
  mm/page_alloc.c           |   15 +++++++++++++++
- 7 files changed, 45 insertions(+), 21 deletions(-)
+ 8 files changed, 49 insertions(+), 21 deletions(-)
 
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
 index 4ef4d22..b4af6bc 100644
@@ -166,6 +167,20 @@ index cc1ca86..3e8f1fe 100644
  	smp_mb();
  	if (pool->curr_nr < pool->min_nr) {
  		spin_lock_irqsave(&pool->lock, flags);
+diff --git a/mm/mmap.c b/mm/mmap.c
+--- a/mm/mmap.c
++++ b/mm/mmap.c
+@@ -1030,6 +1030,10 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr,
+ 	} else {
+ 		switch (flags & MAP_TYPE) {
+ 		case MAP_SHARED:
++			/*
++			 * Ignore pgoff.
++			 */
++			pgoff = 0;
+ 			vm_flags |= VM_SHARED | VM_MAYSHARE;
+ 			break;
+ 		case MAP_PRIVATE:
 diff --git a/mm/page-writeback.c b/mm/page-writeback.c
 --- a/mm/page-writeback.c
 +++ b/mm/page-writeback.c
