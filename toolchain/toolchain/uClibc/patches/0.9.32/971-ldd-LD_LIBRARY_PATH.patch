@@ -1,0 +1,81 @@
+ldd: search LD_LIBRARY_PATH too
+
+ Extend the environment variables adding the LD_LIBRARY_PATH
+ if actually passed when doing shared library tracings through
+ the ld.so trace capability.
+
+ Signed-off-by: Carmelo Amoroso <carmelo.amoroso at st.com>
+
+---
+ utils/ldd.c |   41 ++++++++++++++++++++++++++++++++++++++++-
+ 1 files changed, 40 insertions(+), 1 deletions(-)
+
+diff --git a/utils/ldd.c b/utils/ldd.c
+index 6d08efd..00e46ca 100644
+--- a/utils/ldd.c
++++ b/utils/ldd.c
+@@ -127,6 +127,10 @@
+ #define ELFDATAM	ELFDATA2MSB
+ #endif
+ 
++#include <stdint.h>
++
++#define ARRAY_SIZE(v)	(sizeof(v) / sizeof(*v))
++
+ struct library {
+ 	char *name;
+ 	int resolved;
+@@ -699,15 +703,50 @@ foo:
+ 				NULL
+ 			};
+ 
++			/* The 'extended' environment inclusing the LD_LIBRARY_PATH */
++			static char *ext_environment[ARRAY_SIZE(environment) + 1];
++
++			char **envp = (char **) environment;
++
++			char * lib_path = getenv("LD_LIBRARY_PATH");
++
++			if (lib_path) {
++				/*
++				 * If the LD_LIBRARY_PATH is set, it needs to include it
++				 * into the environment for the new process to be spawned
++				 */
++				uint8_t k;
++				uint8_t size = ARRAY_SIZE(environment);
++
++				/* Copy the N-1 environment's entries */
++				for(k = 0; k < size - 1; k++)
++					ext_environment[k] = (char *) environment[k];
++
++				/* Make room for LD_LIBRARY_PATH */
++				ext_environment[k] = (char *) malloc(strlen("LD_LIBRARY_PATH=") + strlen(lib_path) + 1);
++				strcpy(ext_environment[k], "LD_LIBRARY_PATH=");
++				strcat(ext_environment[k], lib_path);
++
++				/* ext_environment[size] is already NULL */
++
++				/* Use the extended environment */
++				envp = ext_environment;
++			}
++
+ 			if ((pid = vfork()) == 0) {
+ 				/* Cool, it looks like we should be able to actually
+ 				 * run this puppy.  Do so now... */
+-				execle(filename, filename, NULL, environment);
++				execle(filename, filename, NULL, envp);
+ 				_exit(0xdead);
+ 			}
+ 
+ 			/* Wait till it returns */
+ 			waitpid(pid, &status, 0);
++
++			/* Do not leak */
++			if (lib_path)
++				free(ext_environment[ARRAY_SIZE(ext_environment) - 2]);
++
+ 			if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+ 				return 1;
+ 			}
+-- 
+1.7.4.4
