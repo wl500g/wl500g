@@ -16,8 +16,14 @@ format with the computed basename, =>, and full path is used here. This
 enables simpler (and unchanged) text processing in a pipeline.
 
 Signed-off-by: Mark Mentovai <mark at moxienet.com>
+
+P.S. Also exclude extra search_for_named_library() call from ld.so
+
 ---
-ldso/ldso/ldso.c |   12 +++++++++---
+ ldso/ldso/dl-elf.c |    2 ++
+ ldso/ldso/ldso.c   |   12 +++++++++---
+ 2 files changed, 11 insertions(+), 3 deletions(-)
+
 --- a/ldso/ldso/ldso.c
 +++ b/ldso/ldso/ldso.c
 @@ -925,9 +925,15 @@ void _dl_get_ready_to_run(struct elf_res
@@ -39,3 +45,21 @@ ldso/ldso/ldso.c |   12 +++++++++---
  		_dl_exit(0);
  	}
  #endif
+--- a/ldso/ldso/dl-elf.c
++++ b/ldso/ldso/dl-elf.c
+@@ -284,12 +284,14 @@ struct elf_resolve *_dl_load_shared_libr
+ 	}
+ #endif
+ 
++#ifdef __LDSO_SEARCH_INTERP_PATH__
+ 	/* Look for libraries wherever the shared library loader
+ 	 * was installed */
+ 	_dl_if_debug_dprint("\tsearching ldso dir='%s'\n", _dl_ldsopath);
+ 	tpnt1 = search_for_named_library(libname, secure, _dl_ldsopath, rpnt);
+ 	if (tpnt1 != NULL)
+ 		return tpnt1;
++#endif
+ 
+ 	/* Lastly, search the standard list of paths for the library.
+ 	   This list must exactly match the list in uClibc/ldso/util/ldd.c */
+-- 
