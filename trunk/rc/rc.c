@@ -298,9 +298,9 @@ early_defaults(void)
 		{
 			if (!nvram_get("wan_ifname") || !nvram_get("vlan2hwname"))
 			{
-	        		nvram_unset( "vlan0ports" );
-	        		nvram_unset( "vlan0hwname" );
-	        		nvram_unset( "br0_ifnames" );
+				nvram_unset("vlan0ports");
+				nvram_unset("vlan0hwname");
+				nvram_unset("br0_ifnames");
 				nvram_set("vlan1ports", "1 2 3 4 8*");
 				nvram_set("vlan2ports", "0 8");
 				nvram_set("vlan1hwname", "et0");
@@ -340,8 +340,8 @@ early_defaults(void)
 		/* fix DLINK DIR-320 vlans */
 		if (router_model == MDL_DIR320 && !nvram_get("wan_ifname"))
 		{
-        		nvram_unset( "vlan2ports" );
-          		nvram_unset( "vlan2hwname" );
+			nvram_unset("vlan2ports");
+			nvram_unset("vlan2hwname");
 			nvram_set("vlan1hwname", "et0");
 			nvram_set("vlan1ports", "0 5");
 			nvram_set("wandevs", "vlan1");
@@ -1080,9 +1080,9 @@ main(int argc, char **argv)
 
 	/* erase [device] */
 	else if (!strcmp(base, "erase")) {
-		if (argv[1])
+		if (argc == 2) {
 			return mtd_erase(argv[1]);
-		else {
+		} else {
 			fprintf(stderr, "usage: erase [device]\n");
 			return EINVAL;
 		}
@@ -1253,7 +1253,7 @@ main(int argc, char **argv)
 
 	/* rc [stop|start|restart ] */
 	else if (!strcmp(base, "rc")) {
-		if (argv[1]) {
+		if (argc == 2) {
 			if (strncmp(argv[1], "start", 5) == 0)
 				return kill(1, SIGUSR2);
 			else if (strncmp(argv[1], "stop", 4) == 0)
