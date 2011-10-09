@@ -679,11 +679,11 @@ static int diskstats_show(struct seq_file *s, void *v)
 		struct hd_struct *hd = gp->part[n];
 
 		if (hd && hd->nr_sects)
-			seq_printf(s, "%4d %4d %s %u %u %u %u\n",
+			seq_printf(s, "%4d %4d %s %lu %lu %lu %lu\n",
 				gp->major, n + gp->first_minor + 1,
 				disk_name(gp, n + 1, buf),
-				hd->ios[0], hd->sectors[0],
-				hd->ios[1], hd->sectors[1]);
+				part_stat_read(hd,ios[READ]), part_stat_read(hd,sectors[READ]),
+				part_stat_read(hd,ios[WRITE]), part_stat_read(hd,sectors[WRITE]));
 	}
  
 	return 0;
