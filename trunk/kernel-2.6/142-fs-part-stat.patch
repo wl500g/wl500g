@@ -251,9 +251,9 @@ diff --git a/fs/partitions/check.c b/fs/partitions/check.c
 +		kfree(p);
 +		return;
 +	}
+ 	memset(p, 0, sizeof(*p));
  	p->start_sect = start;
  	p->nr_sects = len;
- 	p->partno = part;
 diff --git a/include/linux/genhd.h b/include/linux/genhd.h
 --- a/include/linux/genhd.h
 +++ b/include/linux/genhd.h
