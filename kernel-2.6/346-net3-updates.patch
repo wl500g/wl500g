@@ -1,0 +1,57 @@
+[IPv4] udp/tcp: Updates from upstream
+
+ kernel.org commits
+ 2783ef23128ad0a4b34e4121c1f7ff664785712f udp: Fix potential wrong ip_hdr(skb) pointers
+ 9ce01461028d595a6f1cd724fbd7a0dd70464fe4 tcp: get rid of two unnecessary u16s in TCP skb flags copying
+ ccc2d97cb7c798e785c9f198de243e2b59f7073b ipv4: udp: fix short packet and bad checksum logging
+
+---
+ net/ipv4/tcp_output.c |    4 ++--
+ net/ipv4/udp.c        |    6 ++++--
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -608,7 +608,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
+ 	struct sk_buff *buff;
+ 	int nsize, old_factor;
+ 	int nlen;
+-	u16 flags;
++	u8 flags;
+ 
+ 	BUG_ON(len > skb->len);
+ 
+@@ -1130,7 +1130,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
+ {
+ 	struct sk_buff *buff;
+ 	int nlen = skb->len - len;
+-	u16 flags;
++	u8 flags;
+ 
+ 	/* All of a TSO frame must be composed of paged data.  */
+ 	if (skb->len != skb->data_len)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1139,8 +1139,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
+ 	struct udphdr *uh = udp_hdr(skb);
+ 	unsigned short ulen;
+ 	struct rtable *rt = (struct rtable*)skb->dst;
+-	__be32 saddr = ip_hdr(skb)->saddr;
+-	__be32 daddr = ip_hdr(skb)->daddr;
++	__be32 saddr, daddr;
+ 
+ 	/*
+ 	 *  Validate the packet.
+@@ -1147,6 +1147,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 
+ 	uh   = udp_hdr(skb);
+ 	ulen = ntohs(uh->len);
++	saddr = ip_hdr(skb)->saddr;
++	daddr = ip_hdr(skb)->daddr;
++
+ 	if (ulen > skb->len)
+ 		goto short_packet;
+ 
+-- 

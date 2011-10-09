@@ -3,8 +3,6 @@ From: Fedor <fedork@ubuntu.(none)>
 Date: Sun, 23 Jan 2011 23:25:24 -0500
 
  kernel.org commits
- 2783ef23128ad0a4b34e4121c1f7ff664785712f udp: Fix potential wrong ip_hdr(skb) pointers
- 9ce01461028d595a6f1cd724fbd7a0dd70464fe4 tcp: get rid of two unnecessary u16s in TCP skb flags copying
  794dbc1d712e181a9eb8d1ae799ed7c526963a7c netfilter: nf_nat: use local variable hdrlen
  2452a99dc0496a90abd0090c280671370c0f3e1c netfilter: nf_nat: don't check if the tuple is unique when there isn't any other choice
  c36952e524b2b898a3c9e9b137f64d72d43cd393 netfilter: nf_nat_core: merge the same lines
@@ -18,11 +16,9 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  net/ipv4/netfilter/nf_nat_proto_icmp.c |    4 +--
  net/ipv4/netfilter/nf_nat_proto_tcp.c  |    4 +--
  net/ipv4/netfilter/nf_nat_proto_udp.c  |    4 +--
- net/ipv4/tcp_output.c                  |    4 +--
- net/ipv4/udp.c                         |    6 +++--
  net/netfilter/nf_conntrack_core.c      |    3 --
  net/netfilter/nf_conntrack_netlink.c   |    3 +-
- 9 files changed, 35 insertions(+), 36 deletions(-)
+ 7 files changed, 29 insertions(+), 32 deletions(-)
 
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
 index a459fce..27c5887 100644
@@ -166,52 +162,6 @@ index 1c4c70e..f951cd3 100644
  			return 1;
  	}
  	return 0;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 4e15c8e..92897de 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -608,7 +608,7 @@ int tcp_fragment(struct sock *sk, struct sk_buff *skb, u32 len, unsigned int mss
- 	struct sk_buff *buff;
- 	int nsize, old_factor;
- 	int nlen;
--	u16 flags;
-+	u8 flags;
- 
- 	BUG_ON(len > skb->len);
- 
-@@ -1130,7 +1130,7 @@ static int tso_fragment(struct sock *sk, struct sk_buff *skb, unsigned int len,
- {
- 	struct sk_buff *buff;
- 	int nlen = skb->len - len;
--	u16 flags;
-+	u8 flags;
- 
- 	/* All of a TSO frame must be composed of paged data.  */
- 	if (skb->len != skb->data_len)
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 4162a10..db621a2 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1139,8 +1139,7 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	struct udphdr *uh = udp_hdr(skb);
- 	unsigned short ulen;
- 	struct rtable *rt = (struct rtable*)skb->dst;
--	__be32 saddr = ip_hdr(skb)->saddr;
--	__be32 daddr = ip_hdr(skb)->daddr;
-+	__be32 saddr, daddr;
- 
- 	/*
- 	 *  Validate the packet.
-@@ -1162,6 +1161,9 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
- 	if (udp4_csum_init(skb, uh, proto))
- 		goto csum_error;
- 
-+	saddr = ip_hdr(skb)->saddr;
-+	daddr = ip_hdr(skb)->daddr;
-+
- 	if (rt->rt_flags & (RTCF_BROADCAST|RTCF_MULTICAST))
- 		return __udp4_lib_mcast_deliver(skb, uh, saddr, daddr, udptable);
- 
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
 index df3eedb..4c0ad9b 100644
 --- a/net/netfilter/nf_conntrack_core.c
