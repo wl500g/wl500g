@@ -1617,8 +1617,8 @@ diff --git a/fs/libfs.c b/fs/libfs.c
  #include <linux/vfs.h>
  #include <linux/mutex.h>
 +#include <linux/exportfs.h>
- 
- #include <asm/uaccess.h>
+ #include <linux/writeback.h>
+ #include <linux/buffer_head.h>
  
 @@ -678,6 +679,93 @@ out:
  	return ret;
