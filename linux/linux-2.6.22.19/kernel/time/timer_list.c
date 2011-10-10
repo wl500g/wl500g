@@ -66,8 +66,8 @@ print_timer(struct seq_file *m, struct hrtimer *timer, int idx, u64 now)
 #endif
 	SEQ_printf(m, "\n");
 	SEQ_printf(m, " # expires at %Lu nsecs [in %Lu nsecs]\n",
-		(unsigned long long)ktime_to_ns(timer->expires),
-		(unsigned long long)(ktime_to_ns(timer->expires) - now));
+		(unsigned long long)ktime_to_ns(hrtimer_get_expires(timer)),
+		(unsigned long long)(ktime_to_ns(hrtimer_get_expires(timer)) - now));
 }
 
 static void

@@ -663,7 +663,7 @@ common_timer_get(struct k_itimer *timr, struct itimerspec *cur_setting)
 	    (timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE))
 		timr->it_overrun += (unsigned int) hrtimer_forward(timer, now, iv);
 
-	remaining = ktime_sub(timer->expires, now);
+	remaining = ktime_sub(hrtimer_get_expires(timer), now);
 	/* Return 0 only, when the timer is expired and not pending */
 	if (remaining.tv64 <= 0) {
 		/*
@@ -757,7 +757,7 @@ common_timer_set(struct k_itimer *timr, int flags,
 	hrtimer_init(&timr->it.real.timer, timr->it_clock, mode);
 	timr->it.real.timer.function = posix_timer_fn;
 
-	timer->expires = timespec_to_ktime(new_setting->it_value);
+	hrtimer_set_expires(timer, timespec_to_ktime(new_setting->it_value));
 
 	/* Convert interval */
 	timr->it.real.interval = timespec_to_ktime(new_setting->it_interval);
@@ -765,13 +765,13 @@ common_timer_set(struct k_itimer *timr, int flags,
 	/* SIGEV_NONE timers are not queued ! See common_timer_get */
 	if (((timr->it_sigev_notify & ~SIGEV_THREAD_ID) == SIGEV_NONE)) {
 		/* Setup correct expiry time for relative timers */
-		if (mode == HRTIMER_MODE_REL)
-			timer->expires = ktime_add(timer->expires,
-						   timer->base->get_time());
+		if (mode == HRTIMER_MODE_REL) {
+			hrtimer_add_expires(timer, timer->base->get_time());
+		}
 		return 0;
 	}
 
-	hrtimer_start(timer, timer->expires, mode);
+	hrtimer_start_expires(timer, mode);
 	return 0;
 }
 

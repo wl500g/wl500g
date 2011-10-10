@@ -231,7 +231,7 @@ void tick_nohz_stop_sched_tick(void)
 				goto out;
 			}
 
-			ts->idle_tick = ts->sched_timer.expires;
+			ts->idle_tick = hrtimer_get_expires(&ts->sched_timer);
 			ts->tick_stopped = 1;
 			ts->idle_jiffies = last_jiffies;
 		}
@@ -342,21 +342,21 @@ void tick_nohz_restart_sched_tick(void)
 	 */
 	ts->tick_stopped  = 0;
 	hrtimer_cancel(&ts->sched_timer);
-	ts->sched_timer.expires = ts->idle_tick;
+	hrtimer_set_expires(&ts->sched_timer, ts->idle_tick);
 
 	while (1) {
 		/* Forward the time to expire in the future */
 		hrtimer_forward(&ts->sched_timer, now, tick_period);
 
 		if (ts->nohz_mode == NOHZ_MODE_HIGHRES) {
-			hrtimer_start(&ts->sched_timer,
-				      ts->sched_timer.expires,
+			hrtimer_start_expires(&ts->sched_timer,
 				      HRTIMER_MODE_ABS);
 			/* Check, if the timer was already in the past */
 			if (hrtimer_active(&ts->sched_timer))
 				break;
 		} else {
-			if (!tick_program_event(ts->sched_timer.expires, 0))
+			if (!tick_program_event(
+				hrtimer_get_expires(&ts->sched_timer), 0))
 				break;
 		}
 		/* Update jiffies and reread time */
@@ -369,7 +369,7 @@ void tick_nohz_restart_sched_tick(void)
 static int tick_nohz_reprogram(struct tick_sched *ts, ktime_t now)
 {
 	hrtimer_forward(&ts->sched_timer, now, tick_period);
-	return tick_program_event(ts->sched_timer.expires, 0);
+	return tick_program_event(hrtimer_get_expires(&ts->sched_timer), 0);
 }
 
 /*
@@ -452,7 +452,7 @@ static void tick_nohz_switch_to_nohz(void)
 	next = tick_init_jiffy_update();
 
 	for (;;) {
-		ts->sched_timer.expires = next;
+		hrtimer_set_expires(&ts->sched_timer, next);
 		if (!tick_program_event(next, 0))
 			break;
 		next = ktime_add(next, tick_period);
@@ -481,7 +481,6 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 {
 	struct tick_sched *ts =
 		container_of(timer, struct tick_sched, sched_timer);
-	struct hrtimer_cpu_base *base = timer->base->cpu_base;
 	struct pt_regs *regs = get_irq_regs();
 	ktime_t now = ktime_get();
 	int cpu = smp_processor_id();
@@ -519,15 +518,8 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 			touch_softlockup_watchdog();
 			ts->idle_jiffies++;
 		}
-		/*
-		 * update_process_times() might take tasklist_lock, hence
-		 * drop the base lock. sched-tick hrtimers are per-CPU and
-		 * never accessible by userspace APIs, so this is safe to do.
-		 */
-		spin_unlock(&base->lock);
 		update_process_times(user_mode(regs));
 		profile_tick(CPU_PROFILING);
-		spin_lock(&base->lock);
 	}
 
 	/* Do not restart, when we are in the idle loop */
@@ -555,12 +547,11 @@ void tick_setup_sched_timer(void)
 	ts->sched_timer.cb_mode = HRTIMER_CB_IRQSAFE_NO_SOFTIRQ;
 
 	/* Get the next period */
-	ts->sched_timer.expires = tick_init_jiffy_update();
+	hrtimer_set_expires(&ts->sched_timer, tick_init_jiffy_update());
 
 	for (;;) {
 		hrtimer_forward(&ts->sched_timer, now, tick_period);
-		hrtimer_start(&ts->sched_timer, ts->sched_timer.expires,
-			      HRTIMER_MODE_ABS);
+		hrtimer_start_expires(&ts->sched_timer, HRTIMER_MODE_ABS);
 		/* Check, if the timer was already in the past */
 		if (hrtimer_active(&ts->sched_timer))
 			break;

@@ -42,60 +42,59 @@ int put_compat_timespec(const struct timespec *ts, struct compat_timespec __user
 
 static long compat_nanosleep_restart(struct restart_block *restart)
 {
-	unsigned long expire = restart->arg0, now = jiffies;
 	struct compat_timespec __user *rmtp;
+	struct timespec rmt;
+	mm_segment_t oldfs;
+	long ret;
 
-	/* Did it expire while we handled signals? */
-	if (!time_after(expire, now))
-		return 0;
+	restart->nanosleep.rmtp = (struct timespec __user *) &rmt;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	ret = hrtimer_nanosleep_restart(restart);
+	set_fs(oldfs);
 
-	expire = schedule_timeout_interruptible(expire - now);
-	if (expire == 0)
-		return 0;
+	if (ret) {
+		rmtp = restart->nanosleep.compat_rmtp;
 
-	rmtp = (struct compat_timespec __user *)restart->arg1;
-	if (rmtp) {
-		struct compat_timespec ct;
-		struct timespec t;
-
-		jiffies_to_timespec(expire, &t);
-		ct.tv_sec = t.tv_sec;
-		ct.tv_nsec = t.tv_nsec;
-		if (copy_to_user(rmtp, &ct, sizeof(ct)))
+		if (rmtp && put_compat_timespec(&rmt, rmtp))
 			return -EFAULT;
 	}
-	/* The 'restart' block is already filled in */
-	return -ERESTART_RESTARTBLOCK;
+
+	return ret;
 }
 
 asmlinkage long compat_sys_nanosleep(struct compat_timespec __user *rqtp,
-		struct compat_timespec __user *rmtp)
+				     struct compat_timespec __user *rmtp)
 {
-	struct timespec t;
-	struct restart_block *restart;
-	unsigned long expire;
+	struct timespec tu, rmt;
+	mm_segment_t oldfs;
+	long ret;
 
-	if (get_compat_timespec(&t, rqtp))
+	if (get_compat_timespec(&tu, rqtp))
 		return -EFAULT;
 
-	if ((t.tv_nsec >= 1000000000L) || (t.tv_nsec < 0) || (t.tv_sec < 0))
+	if (!timespec_valid(&tu))
 		return -EINVAL;
 
-	expire = timespec_to_jiffies(&t) + (t.tv_sec || t.tv_nsec);
-	expire = schedule_timeout_interruptible(expire);
-	if (expire == 0)
-		return 0;
+	oldfs = get_fs();
+	set_fs(KERNEL_DS);
+	ret = hrtimer_nanosleep(&tu,
+				rmtp ? (struct timespec __user *)&rmt : NULL,
+				HRTIMER_MODE_REL, CLOCK_MONOTONIC);
+	set_fs(oldfs);
 
-	if (rmtp) {
-		jiffies_to_timespec(expire, &t);
-		if (put_compat_timespec(&t, rmtp))
+	if (ret) {
+		struct restart_block *restart
+			= &current_thread_info()->restart_block;
+
+		restart->fn = compat_nanosleep_restart;
+		restart->nanosleep.compat_rmtp = rmtp;
+
+		if (rmtp && put_compat_timespec(&rmt, rmtp))
 			return -EFAULT;
 	}
-	restart = &current_thread_info()->restart_block;
-	restart->fn = compat_nanosleep_restart;
-	restart->arg0 = jiffies + expire;
-	restart->arg1 = (unsigned long) rmtp;
-	return -ERESTART_RESTARTBLOCK;
+
+	return ret;
 }
 
 static inline long get_compat_itimerval(struct itimerval *o,
@@ -607,9 +606,9 @@ static long compat_clock_nanosleep_restart(struct restart_block *restart)
 	long err;
 	mm_segment_t oldfs;
 	struct timespec tu;
-	struct compat_timespec *rmtp = (struct compat_timespec *)(restart->arg1);
+	struct compat_timespec *rmtp = restart->nanosleep.compat_rmtp;
 
-	restart->arg1 = (unsigned long) &tu;
+	restart->nanosleep.rmtp = (struct timespec __user *) &tu;
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
 	err = clock_nanosleep_restart(restart);
@@ -621,7 +620,7 @@ static long compat_clock_nanosleep_restart(struct restart_block *restart)
 
 	if (err == -ERESTART_RESTARTBLOCK) {
 		restart->fn = compat_clock_nanosleep_restart;
-		restart->arg1 = (unsigned long) rmtp;
+		restart->nanosleep.compat_rmtp = rmtp;
 	}
 	return err;
 }
@@ -652,7 +651,7 @@ long compat_sys_clock_nanosleep(clockid_t which_clock, int flags,
 	if (err == -ERESTART_RESTARTBLOCK) {
 		restart = &current_thread_info()->restart_block;
 		restart->fn = compat_clock_nanosleep_restart;
-		restart->arg1 = (unsigned long) rmtp;
+		restart->nanosleep.compat_rmtp = rmtp;
 	}
 	return err;	
 } 

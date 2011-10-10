@@ -1330,9 +1330,9 @@ static int futex_wait(u32 __user *uaddr, struct rw_semaphore *fshared,
 			hrtimer_init(&t.timer, clockrt ?
 				     CLOCK_REALTIME : CLOCK_MONOTONIC, HRTIMER_MODE_ABS);
 			hrtimer_init_sleeper(&t, current);
-			t.timer.expires = *abs_time;
+			hrtimer_set_expires(&t.timer, *abs_time);
 
-			hrtimer_start(&t.timer, t.timer.expires, HRTIMER_MODE_ABS);
+			hrtimer_start_expires(&t.timer, HRTIMER_MODE_ABS);
 			if (!hrtimer_active(&t.timer))
 				t.task = NULL;
 
@@ -1434,7 +1434,7 @@ static int futex_lock_pi(u32 __user *uaddr, struct rw_semaphore *fshared,
 		to = &timeout;
 		hrtimer_init(&to->timer, CLOCK_REALTIME, HRTIMER_MODE_ABS);
 		hrtimer_init_sleeper(to, current);
-		to->timer.expires = *time;
+		hrtimer_set_expires(&to->timer, *time);
 	}
 
 	q.pi_state = NULL;
@@ -2090,7 +2090,7 @@ asmlinkage long sys_futex(u32 __user *uaddr, int op, u32 val,
 
 		t = timespec_to_ktime(ts);
 		if (cmd == FUTEX_WAIT)
-			t = ktime_add(ktime_get(), t);
+			t = ktime_add_safe(ktime_get(), t);
 		tp = &t;
 	}
 	/*
