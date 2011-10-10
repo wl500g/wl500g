@@ -8,39 +8,39 @@ fs: UDF backport from 2.6.32.46 + upstream fixes
  Documentation/filesystems/udf.txt |    2 
  fs/Kconfig                        |    1 
  fs/buffer.c                       |    1 
- fs/udf/Makefile                   |    2 
- fs/udf/balloc.c                   |  918 ++++++------
+ fs/udf/Makefile                   |    4 
+ fs/udf/balloc.c                   |  918 +++++-------
  fs/udf/crc.c                      |  173 --
  fs/udf/dir.c                      |  262 +--
  fs/udf/directory.c                |  283 +--
  fs/udf/ecma_167.h                 |  584 +++-----
- fs/udf/file.c                     |  193 --
- fs/udf/fsync.c                    |    6 
+ fs/udf/file.c                     |  195 +-
+ fs/udf/fsync.c                    |   50 
  fs/udf/ialloc.c                   |  128 -
- fs/udf/inode.c                    | 2095 +++++++++++++----------------
+ fs/udf/inode.c                    | 2095 +++++++++++++---------------
  fs/udf/lowlevel.c                 |   33 
  fs/udf/misc.c                     |  233 +--
  fs/udf/namei.c                    | 1034 ++++++--------
  fs/udf/osta_udf.h                 |   95 -
  fs/udf/partition.c                |  325 ++--
- fs/udf/super.c                    | 2745 +++++++++++++++++++++-----------------
+ fs/udf/super.c                    | 2749 +++++++++++++++++++++-----------------
  fs/udf/symlink.c                  |   61 
  fs/udf/truncate.c                 |  269 +--
  fs/udf/udf_i.h                    |   46 
  fs/udf/udf_sb.h                   |  216 +-
- fs/udf/udfdecl.h                  |  197 +-
+ fs/udf/udfdecl.h                  |  200 +-
  fs/udf/udfend.h                   |   56 
  fs/udf/udftime.c                  |  123 -
  fs/udf/unicode.c                  |  372 ++---
  include/linux/udf_fs.h            |   54 
  include/linux/udf_fs_i.h          |   30 
  include/linux/udf_fs_sb.h         |  117 -
- 30 files changed, 5151 insertions(+), 5503 deletions(-)
+ 30 files changed, 5151 insertions(+), 5558 deletions(-)
 
 diff --git a/Documentation/filesystems/udf.txt b/Documentation/filesystems/udf.txt
 --- a/Documentation/filesystems/udf.txt
 +++ b/Documentation/filesystems/udf.txt
-@@ -24,6 +24,8 @@
+@@ -24,6 +24,8 @@ The following mount options are supporte
  
  	gid=		Set the default group.
  	umask=		Set the default umask.
@@ -63,7 +63,7 @@ diff --git a/fs/buffer.c b/fs/buffer.c
 diff --git a/fs/Kconfig b/fs/Kconfig
 --- a/fs/Kconfig
 +++ b/fs/Kconfig
-@@ -676,6 +676,7 @@ config ZISOFS
+@@ -671,6 +671,7 @@ config ZISOFS
  
  config UDF_FS
  	tristate "UDF file system support"
@@ -1620,9 +1620,7 @@ diff --git a/fs/udf/dir.c b/fs/udf/dir.c
 - */
 -
 -int udf_readdir(struct file *filp, void *dirent, filldir_t filldir)
-+static int do_udf_readdir(struct inode *dir, struct file *filp,
-+			  filldir_t filldir, void *dirent)
- {
+-{
 -	struct inode *dir = filp->f_path.dentry->d_inode;
 -	int result;
 -
@@ -1645,7 +1643,9 @@ diff --git a/fs/udf/dir.c b/fs/udf/dir.c
 -
 -static int 
 -do_udf_readdir(struct inode * dir, struct file *filp, filldir_t filldir, void *dirent)
--{
++static int do_udf_readdir(struct inode *dir, struct file *filp,
++			  filldir_t filldir, void *dirent)
+ {
 -	struct udf_fileident_bh fibh;
 -	struct fileIdentDesc *fi=NULL;
 +	struct udf_fileident_bh fibh = { .sbh = NULL, .ebh = NULL};
@@ -1880,9 +1880,10 @@ diff --git a/fs/udf/dir.c b/fs/udf/dir.c
  	brelse(fibh.sbh);
  	brelse(epos.bh);
 +	kfree(fname);
-+
+ 
+-	return 0;
 +	return ret;
-+}
+ }
 +
 +static int udf_readdir(struct file *filp, void *dirent, filldir_t filldir)
 +{
@@ -1890,8 +1891,7 @@ diff --git a/fs/udf/dir.c b/fs/udf/dir.c
 +	int result;
 +
 +	lock_kernel();
- 
--	return 0;
++
 +	if (filp->f_pos == 0) {
 +		if (filldir(dirent, ".", 1, filp->f_pos, dir->i_ino, DT_DIR) < 0) {
 +			unlock_kernel();
@@ -1903,14 +1903,14 @@ diff --git a/fs/udf/dir.c b/fs/udf/dir.c
 +	result = do_udf_readdir(dir, filp, filldir, dirent);
 +	unlock_kernel();
 + 	return result;
- }
++}
 +
 +/* readdir and lookup functions */
 +const struct file_operations udf_dir_operations = {
 +	.read			= generic_read_dir,
 +	.readdir		= udf_readdir,
 +	.ioctl			= udf_ioctl,
-+	.fsync			= udf_fsync_file,
++	.fsync			= simple_fsync,
 +};
 diff --git a/fs/udf/directory.c b/fs/udf/directory.c
 --- a/fs/udf/directory.c
@@ -3269,7 +3269,7 @@ diff --git a/fs/udf/file.c b/fs/udf/file.c
  	flush_dcache_page(page);
  	SetPageUptodate(page);
  	kunmap(page);
-@@ -58,84 +59,80 @@ static int udf_adinicb_readpage(struct f
+@@ -58,84 +58,80 @@ static int udf_adinicb_readpage(struct f
  	return 0;
  }
  
@@ -3387,7 +3387,7 @@ diff --git a/fs/udf/file.c b/fs/udf/file.c
  		}
  	}
  
-@@ -146,107 +143,61 @@ static ssize_t udf_file_aio_write(struct
+@@ -146,107 +142,61 @@ static ssize_t udf_file_aio_write(struct
  	return retval;
  }
  
@@ -3529,9 +3529,12 @@ diff --git a/fs/udf/file.c b/fs/udf/file.c
  	}
  	return 0;
  }
-@@ -262,8 +213,9 @@ const struct file_operations udf_file_op
+@@ -260,10 +210,11 @@ const struct file_operations udf_file_op
+ 	.write			= do_sync_write,
+ 	.aio_write		= udf_file_aio_write,
  	.release		= udf_release_file,
- 	.fsync			= udf_fsync_file,
+-	.fsync			= udf_fsync_file,
++	.fsync			= simple_fsync,
  	.splice_read		= generic_file_splice_read,
 +	.llseek			= generic_file_llseek,
  };
@@ -3543,27 +3546,57 @@ diff --git a/fs/udf/file.c b/fs/udf/file.c
 diff --git a/fs/udf/fsync.c b/fs/udf/fsync.c
 --- a/fs/udf/fsync.c
 +++ b/fs/udf/fsync.c
-@@ -29,9 +29,10 @@ static int udf_fsync_inode(struct inode 
-  *	even pass file to fsync ?
-  */
- 
+@@ -1,50 +0,0 @@
+-/*
+- * fsync.c
+- *
+- * PURPOSE
+- *  Fsync handling routines for the OSTA-UDF(tm) filesystem.
+- *
+- * COPYRIGHT
+- *  This file is distributed under the terms of the GNU General Public
+- *  License (GPL). Copies of the GPL can be obtained from:
+- *      ftp://prep.ai.mit.edu/pub/gnu/GPL
+- *  Each contributing author retains all rights to their own work.
+- *
+- *  (C) 1999-2001 Ben Fennema
+- *  (C) 1999-2000 Stelias Computing Inc
+- *
+- * HISTORY
+- *
+- *  05/22/99 blf  Created.
+- */
+-
+-#include "udfdecl.h"
+-
+-#include <linux/fs.h>
+-
+-static int udf_fsync_inode(struct inode *, int);
+-
+-/*
+- *	File may be NULL when we are called. Perhaps we shouldn't
+- *	even pass file to fsync ?
+- */
+-
 -int udf_fsync_file(struct file * file, struct dentry *dentry, int datasync)
-+int udf_fsync_file(struct file *file, struct dentry *dentry, int datasync)
- {
- 	struct inode *inode = dentry->d_inode;
-+
- 	return udf_fsync_inode(inode, datasync);
- }
- 
-@@ -45,6 +46,7 @@ static int udf_fsync_inode(struct inode 
- 	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
- 		return err;
- 
+-{
+-	struct inode *inode = dentry->d_inode;
+-	return udf_fsync_inode(inode, datasync);
+-}
+-
+-static int udf_fsync_inode(struct inode *inode, int datasync)
+-{
+-	int err;
+-
+-	err = sync_mapping_buffers(inode->i_mapping);
+-	if (!(inode->i_state & I_DIRTY))
+-		return err;
+-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+-		return err;
+-
 -	err |= udf_sync_inode (inode);
-+	err |= udf_sync_inode(inode);
-+
- 	return err ? -EIO : 0;
- }
+-	return err ? -EIO : 0;
+-}
 diff --git a/fs/udf/ialloc.c b/fs/udf/ialloc.c
 --- a/fs/udf/ialloc.c
 +++ b/fs/udf/ialloc.c
@@ -3832,7 +3865,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	truncate_inode_pages(&inode->i_data, 0);
  
-@@ -101,24 +90,24 @@ no_delete:
+@@ -101,24 +89,24 @@ no_delete:
  }
  
  /*
@@ -3867,7 +3900,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  }
  
  static int udf_writepage(struct page *page, struct writeback_control *wbc)
-@@ -131,29 +120,34 @@ static int udf_readpage(struct file *fil
+@@ -131,29 +119,34 @@ static int udf_readpage(struct file *fil
  	return block_read_full_page(page, udf_get_block);
  }
  
@@ -3913,7 +3946,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	struct writeback_control udf_wbc = {
  		.sync_mode = WB_SYNC_NONE,
  		.nr_to_write = 1,
-@@ -162,12 +156,11 @@ void udf_expand_file_adinicb(struct inod
+@@ -162,12 +155,11 @@ void udf_expand_file_adinicb(struct inod
  	/* from now on we have normal address_space methods */
  	inode->i_data.a_ops = &udf_aops;
  
@@ -3929,7 +3962,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		mark_inode_dirty(inode);
  		return;
  	}
-@@ -175,24 +168,23 @@ void udf_expand_file_adinicb(struct inod
+@@ -175,24 +167,23 @@ void udf_expand_file_adinicb(struct inod
  	page = grab_cache_page(inode->i_mapping, 0);
  	BUG_ON(!PageLocked(page));
  
@@ -3964,7 +3997,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  
  	inode->i_data.a_ops->writepage(page, &udf_wbc);
  	page_cache_release(page);
-@@ -200,41 +192,42 @@ void udf_expand_file_adinicb(struct inod
+@@ -200,41 +191,42 @@ void udf_expand_file_adinicb(struct inod
  	mark_inode_dirty(inode);
  }
  
@@ -4018,7 +4051,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	if (!newblock)
  		return NULL;
  	dbh = udf_tgetblk(inode->i_sb, newblock);
-@@ -246,44 +239,46 @@ struct buffer_head * udf_expand_dir_adin
+@@ -246,44 +238,46 @@ struct buffer_head * udf_expand_dir_adin
  	unlock_buffer(dbh);
  	mark_buffer_dirty_inode(dbh, inode);
  
@@ -4083,7 +4116,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	/* UniqueID stuff */
  
  	brelse(epos.bh);
-@@ -291,14 +286,15 @@ struct buffer_head * udf_expand_dir_adin
+@@ -291,14 +285,15 @@ struct buffer_head * udf_expand_dir_adin
  	return dbh;
  }
  
@@ -4103,7 +4136,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		phys = udf_block_map(inode, block);
  		if (phys)
  			map_bh(bh_result, inode->i_sb, phys);
-@@ -311,13 +307,10 @@ static int udf_get_block(struct inode *i
+@@ -311,13 +306,10 @@ static int udf_get_block(struct inode *i
  
  	lock_kernel();
  
@@ -4121,7 +4154,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	}
  
  	err = 0;
-@@ -334,26 +328,20 @@ static int udf_get_block(struct inode *i
+@@ -334,26 +326,20 @@ static int udf_get_block(struct inode *i
  abort:
  	unlock_kernel();
  	return err;
@@ -4153,7 +4186,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			lock_buffer(bh);
  			memset(bh->b_data, 0x00, inode->i_sb->s_blocksize);
  			set_buffer_uptodate(bh);
-@@ -367,30 +356,35 @@ udf_getblk(struct inode *inode, long blo
+@@ -367,30 +353,35 @@ udf_getblk(struct inode *inode, long blo
  
  /* Extend the file by 'blocks' blocks, return the number of extents added */
  int udf_extend_file(struct inode *inode, struct extent_position *last_pos,
@@ -4196,7 +4229,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		/* Save the extent so that we can reattach it to the end */
  		prealloc_loc = last_ext->extLocation;
  		prealloc_len = last_ext->extLength;
-@@ -398,12 +392,15 @@ int udf_extend_file(struct inode *inode,
+@@ -398,12 +389,15 @@ int udf_extend_file(struct inode *inode,
  		last_ext->extLength = EXT_NOT_RECORDED_NOT_ALLOCATED |
  			(last_ext->extLength & UDF_EXTENT_LENGTH_MASK);
  		last_ext->extLocation.logicalBlockNum = 0;
@@ -4216,7 +4249,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		if (add > blocks)
  			add = blocks;
  		blocks -= add;
-@@ -411,34 +408,37 @@ int udf_extend_file(struct inode *inode,
+@@ -411,41 +405,45 @@ int udf_extend_file(struct inode *inode,
  	}
  
  	if (fake) {
@@ -4265,7 +4298,6 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			return -1;
  		count++;
  	}
-@@ -445,7 +446,8 @@ int udf_extend_file(struct inode *inode,
  out:
  	/* Do we have some preallocated blocks saved? */
  	if (prealloc_len) {
@@ -4275,7 +4307,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			return -1;
  		last_ext->extLocation = prealloc_loc;
  		last_ext->extLength = prealloc_len;
-@@ -451,13 +453,15 @@ out:
+@@ -451,13 +449,15 @@ out:
  		last_ext->extLength = prealloc_len;
  		count++;
  	}
@@ -4295,7 +4327,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	return count;
  }
  
-@@ -461,43 +465,41 @@ out:
+@@ -461,43 +461,41 @@ out:
  	return count;
  }
  
@@ -4351,7 +4383,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			brelse(cur_epos.bh);
  			get_bh(next_epos.bh);
  			cur_epos.bh = next_epos.bh;
-@@ -511,7 +513,8 @@ static struct buffer_head * inode_getblk
+@@ -511,7 +509,8 @@ static struct buffer_head * inode_getblk
  		prev_epos.offset = cur_epos.offset;
  		cur_epos.offset = next_epos.offset;
  
@@ -4361,7 +4393,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			break;
  
  		c = !c;
-@@ -522,9 +525,9 @@ static struct buffer_head * inode_getblk
+@@ -522,9 +521,9 @@ static struct buffer_head * inode_getblk
  		if (etype != (EXT_NOT_RECORDED_NOT_ALLOCATED >> 30))
  			pgoal = eloc.logicalBlockNum +
  				((elen + inode->i_sb->s_blocksize - 1) >>
@@ -4373,7 +4405,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	} while (lbcount + elen <= b_off);
  
  	b_off -= lbcount;
-@@ -537,41 +540,39 @@ static struct buffer_head * inode_getblk
+@@ -537,41 +536,39 @@ static struct buffer_head * inode_getblk
  	udf_next_aext(inode, &cur_epos, &tmpeloc, &tmpelen, 0);
  
  	/* if the extent is allocated and recorded, return the block
@@ -4427,7 +4459,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			startnum = (offset > 0);
  		}
  		/* Create extents for the hole between EOF and offset */
-@@ -589,101 +590,104 @@ static struct buffer_head * inode_getblk
+@@ -589,101 +586,104 @@ static struct buffer_head * inode_getblk
  		offset = 0;
  		count += ret;
  		/* We are not covered by a preallocated extent? */
@@ -4580,7 +4612,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	inode->i_ctime = current_fs_time(inode->i_sb);
  
  	if (IS_SYNC(inode))
-@@ -693,283 +698,301 @@ static struct buffer_head * inode_getblk
+@@ -693,283 +693,301 @@ static struct buffer_head * inode_getblk
  	return result;
  }
  
@@ -4888,26 +4920,6 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -					i --;
 -					(*endnum) --;
 -				}
--			}
--		}
--		else if (((laarr[i].extLength >> 30) == (EXT_NOT_RECORDED_ALLOCATED >> 30)) &&
--			((laarr[i+1].extLength >> 30) == (EXT_NOT_RECORDED_NOT_ALLOCATED >> 30)))
--		{
--			udf_free_blocks(inode->i_sb, inode, laarr[i].extLocation, 0,
--				((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
--				inode->i_sb->s_blocksize - 1) >> inode->i_sb->s_blocksize_bits);
--			laarr[i].extLocation.logicalBlockNum = 0;
--			laarr[i].extLocation.partitionReferenceNum = 0;
--
--			if (((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
--				(laarr[i+1].extLength & UDF_EXTENT_LENGTH_MASK) +
--				inode->i_sb->s_blocksize - 1) & ~UDF_EXTENT_LENGTH_MASK)
--			{
--				laarr[i+1].extLength = (laarr[i+1].extLength -
--					(laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
--					UDF_EXTENT_LENGTH_MASK) & ~(inode->i_sb->s_blocksize-1);
--				laarr[i].extLength = (laarr[i].extLength & UDF_EXTENT_FLAG_MASK) +
--					(UDF_EXTENT_LENGTH_MASK + 1) - inode->i_sb->s_blocksize;
 +	for (i = 0; i < (*endnum - 1); i++) {
 +		struct kernel_long_ad *li /*l[i]*/ = &laarr[i];
 +		struct kernel_long_ad *lip1 /*l[i plus 1]*/ = &laarr[i + 1];
@@ -4949,16 +4961,25 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +				i--;
 +				(*endnum)--;
  			}
--			else
+-		}
+-		else if (((laarr[i].extLength >> 30) == (EXT_NOT_RECORDED_ALLOCATED >> 30)) &&
+-			((laarr[i+1].extLength >> 30) == (EXT_NOT_RECORDED_NOT_ALLOCATED >> 30)))
+-		{
+-			udf_free_blocks(inode->i_sb, inode, laarr[i].extLocation, 0,
+-				((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
+-				inode->i_sb->s_blocksize - 1) >> inode->i_sb->s_blocksize_bits);
+-			laarr[i].extLocation.logicalBlockNum = 0;
+-			laarr[i].extLocation.partitionReferenceNum = 0;
+-
+-			if (((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
+-				(laarr[i+1].extLength & UDF_EXTENT_LENGTH_MASK) +
+-				inode->i_sb->s_blocksize - 1) & ~UDF_EXTENT_LENGTH_MASK)
 -			{
--				laarr[i].extLength = laarr[i+1].extLength +
--					(((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
--					inode->i_sb->s_blocksize - 1) & ~(inode->i_sb->s_blocksize-1));
--				if (*endnum > (i+2))
--					memmove(&laarr[i+1], &laarr[i+2],
--						sizeof(long_ad) * (*endnum - (i+2)));
--				i --;
--				(*endnum) --;
+-				laarr[i+1].extLength = (laarr[i+1].extLength -
+-					(laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
+-					UDF_EXTENT_LENGTH_MASK) & ~(inode->i_sb->s_blocksize-1);
+-				laarr[i].extLength = (laarr[i].extLength & UDF_EXTENT_FLAG_MASK) +
+-					(UDF_EXTENT_LENGTH_MASK + 1) - inode->i_sb->s_blocksize;
 +		} else if (((li->extLength >> 30) ==
 +				(EXT_NOT_RECORDED_ALLOCATED >> 30)) &&
 +			   ((lip1->extLength >> 30) ==
@@ -4994,6 +5015,17 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +				i--;
 +				(*endnum)--;
  			}
+-			else
+-			{
+-				laarr[i].extLength = laarr[i+1].extLength +
+-					(((laarr[i].extLength & UDF_EXTENT_LENGTH_MASK) +
+-					inode->i_sb->s_blocksize - 1) & ~(inode->i_sb->s_blocksize-1));
+-				if (*endnum > (i+2))
+-					memmove(&laarr[i+1], &laarr[i+2],
+-						sizeof(long_ad) * (*endnum - (i+2)));
+-				i --;
+-				(*endnum) --;
+-			}
 -		}
 -		else if ((laarr[i].extLength >> 30) == (EXT_NOT_RECORDED_ALLOCATED >> 30))
 -		{
@@ -5079,7 +5111,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  
  	bh = udf_getblk(inode, block, create, err);
  	if (!bh)
-@@ -986,60 +1012,58 @@ struct buffer_head * udf_bread(struct in
+@@ -986,60 +1004,58 @@ struct buffer_head * udf_bread(struct in
  	return NULL;
  }
  
@@ -5164,7 +5196,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  
  	/*
  	 * Set defaults, but the inode is still incomplete!
-@@ -1053,21 +1077,18 @@ __udf_read_inode(struct inode *inode)
+@@ -1053,21 +1069,18 @@ __udf_read_inode(struct inode *inode)
  	 *      i_nlink = 1
  	 *      i_op = NULL;
  	 */
@@ -5192,7 +5224,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		brelse(bh);
  		make_bad_inode(inode);
  		return;
-@@ -1075,51 +1096,40 @@ __udf_read_inode(struct inode *inode)
+@@ -1075,51 +1088,40 @@ __udf_read_inode(struct inode *inode)
  
  	fe = (struct fileEntry *)bh->b_data;
  
@@ -5274,7 +5306,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		brelse(bh);
  		make_bad_inode(inode);
  		return;
-@@ -1133,249 +1143,218 @@ static void udf_fill_inode(struct inode 
+@@ -1133,249 +1135,218 @@ static void udf_fill_inode(struct inode
  {
  	struct fileEntry *fe;
  	struct extendedFileEntry *efe;
@@ -5494,7 +5526,9 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -		{
 -			UDF_I_CRTIME(inode) = UDF_SB_RECORDTIME(inode->i_sb);
 -		}
--
++		if (!udf_disk_stamp_to_time(&inode->i_atime, fe->accessTime))
++			inode->i_atime = sbi->s_record_time;
+ 
 -		if ( udf_stamp_to_time(&convtime, &convtime_usec,
 -			lets_to_cpu(efe->attrTime)) )
 -		{
@@ -5505,9 +5539,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 -		{
 -			inode->i_ctime = UDF_SB_RECORDTIME(inode->i_sb);
 -		}
-+		if (!udf_disk_stamp_to_time(&inode->i_atime, fe->accessTime))
-+			inode->i_atime = sbi->s_record_time;
- 
+-
 -		UDF_I_UNIQUE(inode) = le64_to_cpu(efe->uniqueID);
 -		UDF_I_LENEATTR(inode) = le32_to_cpu(efe->lengthExtendedAttr);
 -		UDF_I_LENALLOC(inode) = le32_to_cpu(efe->lengthAllocDescs);
@@ -5705,7 +5737,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	mode_t mode;
  	uint32_t permissions;
-@@ -1384,34 +1363,20 @@ udf_convert_permissions(struct fileEntry
+@@ -1384,34 +1355,20 @@ udf_convert_permissions(struct fileEntry
  	permissions = le32_to_cpu(fe->permissions);
  	flags = le16_to_cpu(fe->icbTag.flags);
  
@@ -5748,7 +5780,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	lock_kernel();
  	ret = udf_update_inode(inode, sync);
  	unlock_kernel();
-@@ -1418,13 +1384,12 @@ int udf_write_inode(struct inode * inode
+@@ -1418,13 +1375,12 @@ int udf_write_inode(struct inode * inode
  	return ret;
  }
  
@@ -5764,7 +5796,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	struct buffer_head *bh = NULL;
  	struct fileEntry *fe;
-@@ -1432,63 +1397,63 @@ udf_update_inode(struct inode *inode, in
+@@ -1432,63 +1388,63 @@ udf_update_inode(struct inode *inode, in
  	uint32_t udfperms;
  	uint16_t icbflags;
  	uint16_t crclen;
@@ -5819,16 +5851,16 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
 +				iinfo->i_lenAlloc - sizeof(struct tag);
  		use->descTag.descCRCLength = cpu_to_le16(crclen);
 -		use->descTag.descCRC = cpu_to_le16(udf_crc((char *)use + sizeof(tag), crclen, 0));
+-
+-		use->descTag.tagChecksum = 0;
+-		for (i=0; i<16; i++)
+-			if (i != 4)
+-				use->descTag.tagChecksum += ((uint8_t *)&(use->descTag))[i];
 +		use->descTag.descCRC = cpu_to_le16(crc_itu_t(0, (char *)use +
 +							   sizeof(struct tag),
 +							   crclen));
 +		use->descTag.tagChecksum = udf_tag_checksum(&use->descTag);
  
--		use->descTag.tagChecksum = 0;
--		for (i=0; i<16; i++)
--			if (i != 4)
--				use->descTag.tagChecksum += ((uint8_t *)&(use->descTag))[i];
--
 -		mark_buffer_dirty(bh);
 -		brelse(bh);
 -		return err;
@@ -5866,7 +5898,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	fe->permissions = cpu_to_le32(udfperms);
  
  	if (S_ISDIR(inode->i_mode))
-@@ -1498,27 +1463,24 @@ udf_update_inode(struct inode *inode, in
+@@ -1498,27 +1454,24 @@ udf_update_inode(struct inode *inode, in
  
  	fe->informationLength = cpu_to_le64(inode->i_size);
  
@@ -5906,7 +5938,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		strcpy(eid->ident, UDF_ID_DEVELOPER);
  		eid->identSuffix[0] = UDF_OS_CLASS_UNIX;
  		eid->identSuffix[1] = UDF_OS_ID_LINUX;
-@@ -1526,83 +1488,71 @@ udf_update_inode(struct inode *inode, in
+@@ -1526,83 +1479,71 @@ udf_update_inode(struct inode *inode, in
  		dsea->minorDeviceIdent = cpu_to_le32(iminor(inode));
  	}
  
@@ -6035,7 +6067,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		fe->icbTag.strategyType = cpu_to_le16(4);
  		fe->icbTag.numEntries = cpu_to_le16(1);
  	}
-@@ -1622,7 +1572,7 @@ udf_update_inode(struct inode *inode, in
+@@ -1622,7 +1563,7 @@ udf_update_inode(struct inode *inode, in
  	else if (S_ISSOCK(inode->i_mode))
  		fe->icbTag.fileType = ICBTAG_FILE_TYPE_SOCKET;
  
@@ -6044,7 +6076,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			((inode->i_mode & S_ISUID) ? ICBTAG_FLAG_SETUID : 0) |
  			((inode->i_mode & S_ISGID) ? ICBTAG_FLAG_SETGID : 0) |
  			((inode->i_mode & S_ISVTX) ? ICBTAG_FLAG_STICKY : 0) |
-@@ -1631,30 +1581,31 @@ udf_update_inode(struct inode *inode, in
+@@ -1631,30 +1572,31 @@ udf_update_inode(struct inode *inode, in
  				ICBTAG_FLAG_SETGID | ICBTAG_FLAG_STICKY));
  
  	fe->icbTag.flags = cpu_to_le16(icbflags);
@@ -6091,7 +6123,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			err = -EIO;
  		}
  	}
-@@ -1662,8 +1614,7 @@ udf_update_inode(struct inode *inode, in
+@@ -1662,8 +1604,7 @@ udf_update_inode(struct inode *inode, in
  	return err;
  }
  
@@ -6101,7 +6133,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  {
  	unsigned long block = udf_get_lb_pblock(sb, ino, 0);
  	struct inode *inode = iget_locked(sb, block);
-@@ -1672,7 +1623,7 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1672,7 +1613,7 @@ udf_iget(struct super_block *sb, kernel_
  		return NULL;
  
  	if (inode->i_state & I_NEW) {
@@ -6110,7 +6142,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		__udf_read_inode(inode);
  		unlock_new_inode(inode);
  	}
-@@ -1680,9 +1631,10 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1680,9 +1621,10 @@ udf_iget(struct super_block *sb, kernel_
  	if (is_bad_inode(inode))
  		goto out_iput;
  
@@ -6123,7 +6155,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		make_bad_inode(inode);
  		goto out_iput;
  	}
-@@ -1695,44 +1647,46 @@ udf_iget(struct super_block *sb, kernel_
+@@ -1695,44 +1637,46 @@ udf_iget(struct super_block *sb, kernel_
  }
  
  int8_t udf_add_aext(struct inode *inode, struct extent_position *epos,
@@ -6189,7 +6221,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		lock_buffer(nbh);
  		memset(nbh->b_data, 0x00, inode->i_sb->s_blocksize);
  		set_buffer_uptodate(nbh);
-@@ -1741,93 +1695,81 @@ int8_t udf_add_aext(struct inode *inode,
+@@ -1741,93 +1685,81 @@ int8_t udf_add_aext(struct inode *inode,
  
  		aed = (struct allocExtDesc *)(nbh->b_data);
  		if (!UDF_QUERY_FLAG(inode->i_sb, UDF_FLAG_STRICT))
@@ -6326,7 +6358,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  		mark_buffer_dirty_inode(epos->bh, inode);
  	}
  
-@@ -1835,51 +1777,52 @@ int8_t udf_add_aext(struct inode *inode,
+@@ -1835,51 +1767,52 @@ int8_t udf_add_aext(struct inode *inode,
  }
  
  int8_t udf_write_aext(struct inode *inode, struct extent_position *epos,
@@ -6410,7 +6442,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  
  	if (inc)
  		epos->offset += adsize;
-@@ -1887,20 +1831,20 @@ int8_t udf_write_aext(struct inode *inod
+@@ -1887,20 +1820,20 @@ int8_t udf_write_aext(struct inode *inod
  }
  
  int8_t udf_next_aext(struct inode *inode, struct extent_position *epos,
@@ -6438,7 +6470,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			return -1;
  		}
  	}
-@@ -1909,84 +1853,78 @@ int8_t udf_next_aext(struct inode *inode
+@@ -1909,84 +1842,78 @@ int8_t udf_next_aext(struct inode *inode
  }
  
  int8_t udf_current_aext(struct inode *inode, struct extent_position *epos,
@@ -6566,7 +6598,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	return (nelen >> 30);
  }
  
-@@ -1991,23 +1929,24 @@ udf_insert_aext(struct inode *inode, str
+@@ -1991,23 +1918,24 @@ udf_insert_aext(struct inode *inode, str
  }
  
  int8_t udf_delete_aext(struct inode *inode, struct extent_position epos,
@@ -6598,7 +6630,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	else
  		adsize = 0;
  
-@@ -2015,11 +1954,9 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2015,11 +1943,9 @@ int8_t udf_delete_aext(struct inode *ino
  	if (udf_next_aext(inode, &epos, &eloc, &elen, 1) == -1)
  		return -1;
  
@@ -6613,7 +6645,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  			oepos.block = epos.block;
  			brelse(oepos.bh);
  			get_bh(epos.bh);
-@@ -2027,54 +1964,50 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2027,54 +1953,50 @@ int8_t udf_delete_aext(struct inode *ino
  			oepos.offset = epos.offset - adsize;
  		}
  	}
@@ -6697,7 +6729,7 @@ diff --git a/fs/udf/inode.c b/fs/udf/inode.c
  	return (elen >> 30);
  }
  
-@@ -2078,51 +2011,50 @@ int8_t udf_delete_aext(struct inode *ino
+@@ -2078,51 +2000,50 @@ int8_t udf_delete_aext(struct inode *ino
  	return (elen >> 30);
  }
  
@@ -6837,11 +6869,13 @@ diff --git a/fs/udf/lowlevel.c b/fs/udf/lowlevel.c
 diff --git a/fs/udf/Makefile b/fs/udf/Makefile
 --- a/fs/udf/Makefile
 +++ b/fs/udf/Makefile
-@@ -6,4 +6,4 @@ obj-$(CONFIG_UDF_FS) += udf.o
+@@ -5,5 +5,5 @@
+ obj-$(CONFIG_UDF_FS) += udf.o
  
  udf-objs     := balloc.o dir.o file.o ialloc.o inode.o lowlevel.o namei.o \
- 		partition.o super.o truncate.o symlink.o fsync.o \
+-		partition.o super.o truncate.o symlink.o fsync.o \
 -		crc.o directory.o misc.o udftime.o unicode.o
++		partition.o super.o truncate.o symlink.o \
 +		directory.o misc.o udftime.o unicode.o
 diff --git a/fs/udf/misc.c b/fs/udf/misc.c
 --- a/fs/udf/misc.c
@@ -6863,7 +6897,7 @@ diff --git a/fs/udf/misc.c b/fs/udf/misc.c
  {
  	if (UDF_QUERY_FLAG(sb, UDF_FLAG_VARCONV))
  		return sb_getblk(sb, udf_fixed_to_variable(block));
-@@ -38,8 +37,7 @@ udf_tgetblk(struct super_block *sb, int 
+@@ -38,8 +37,7 @@ udf_tgetblk(struct super_block *sb, int
  		return sb_getblk(sb, block);
  }
  
@@ -7084,7 +7118,7 @@ diff --git a/fs/udf/misc.c b/fs/udf/misc.c
  				return gaf;
  			else
  				offset += le32_to_cpu(gaf->attrLength);
-@@ -202,101 +199,98 @@ udf_get_extendedattr(struct inode *inode
+@@ -202,101 +198,98 @@ udf_get_extendedattr(struct inode *inode
   *	July 1, 1997 - Andrew E. Mileski
   *	Written, tested, and released.
   */
@@ -7244,7 +7278,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  {
  	if (len1 != len2)
  		return 0;
-@@ -40,13 +43,11 @@ static inline int udf_match(int len1, co
+@@ -40,13 +42,11 @@ static inline int udf_match(int len1, co
  }
  
  int udf_write_fi(struct inode *inode, struct fileIdentDesc *cfi,
@@ -7261,7 +7295,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	int offset;
  	uint16_t liu = le16_to_cpu(cfi->lengthOfImpUse);
  	uint8_t lfi = cfi->lengthFileIdent;
-@@ -54,88 +55,84 @@ int udf_write_fi(struct inode *inode, st
+@@ -54,88 +54,84 @@ int udf_write_fi(struct inode *inode, st
  		sizeof(struct fileIdentDesc);
  	int adinicb = 0;
  
@@ -7392,7 +7426,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		if (fibh->sbh != fibh->ebh)
  			mark_buffer_dirty_inode(fibh->ebh, inode);
  		mark_buffer_dirty_inode(fibh->sbh, inode);
-@@ -143,191 +140,149 @@ int udf_write_fi(struct inode *inode, st
+@@ -143,191 +139,149 @@ int udf_write_fi(struct inode *inode, st
  	return 0;
  }
  
@@ -7463,20 +7497,20 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
 -			brelse(epos.bh);
 -			return NULL;
 -		}
-+		fibh->sbh = fibh->ebh = udf_tread(dir->i_sb, block);
-+		if (!fibh->sbh)
-+			goto out_err;
- 	}
+-	}
 -	else
 -	{
 -		brelse(epos.bh);
 -		return NULL;
--	}
--
++		fibh->sbh = fibh->ebh = udf_tread(dir->i_sb, block);
++		if (!fibh->sbh)
++			goto out_err;
+ 	}
+ 
 -	while ( (f_pos < size) )
 -	{
 -		fi = udf_fileident_read(dir, &f_pos, fibh, cfi, &epos, &eloc, &elen, &offset);
- 
+-
 +	fname = kmalloc(UDF_NAME_LEN, GFP_NOFS);
 +	if (!fname)
 +		goto out_err;
@@ -7663,7 +7697,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  			unlock_kernel();
  			return ERR_PTR(-EACCES);
  		}
-@@ -337,300 +293,265 @@ udf_lookup(struct inode *dir, struct den
+@@ -337,300 +291,265 @@ udf_lookup(struct inode *dir, struct den
  	return NULL;
  }
  
@@ -8112,7 +8146,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		inode->i_data.a_ops = &udf_adinicb_aops;
  	else
  		inode->i_data.a_ops = &udf_aops;
-@@ -639,23 +560,21 @@ static int udf_create(struct inode *dir,
+@@ -639,23 +558,21 @@ static int udf_create(struct inode *dir,
  	inode->i_mode = mode;
  	mark_inode_dirty(inode);
  
@@ -8142,7 +8176,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	if (fibh.sbh != fibh.ebh)
  		brelse(fibh.ebh);
  	brelse(fibh.sbh);
-@@ -664,12 +584,14 @@ static int udf_create(struct inode *dir,
+@@ -664,12 +581,14 @@ static int udf_create(struct inode *dir,
  	return 0;
  }
  
@@ -8159,7 +8193,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  
  	if (!old_valid_dev(rdev))
  		return -EINVAL;
-@@ -680,25 +602,24 @@ static int udf_mknod(struct inode * dir,
+@@ -680,25 +599,24 @@ static int udf_mknod(struct inode * dir,
  	if (!inode)
  		goto out;
  
@@ -8192,7 +8226,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	mark_inode_dirty(inode);
  
  	if (fibh.sbh != fibh.ebh)
-@@ -711,16 +633,18 @@ out:
+@@ -711,16 +629,18 @@ out:
  	return err;
  }
  
@@ -8214,7 +8248,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		goto out;
  
  	err = -EIO;
-@@ -728,10 +652,11 @@ static int udf_mkdir(struct inode * dir,
+@@ -728,10 +648,11 @@ static int udf_mkdir(struct inode * dir,
  	if (!inode)
  		goto out;
  
@@ -8228,7 +8262,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		inode->i_nlink--;
  		mark_inode_dirty(inode);
  		iput(inode);
-@@ -739,10 +664,11 @@ static int udf_mkdir(struct inode * dir,
+@@ -739,10 +660,11 @@ static int udf_mkdir(struct inode * dir,
  	}
  	inode->i_nlink = 2;
  	cfi.icb.extLength = cpu_to_le32(inode->i_sb->s_blocksize);
@@ -8243,7 +8277,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	udf_write_fi(inode, &cfi, fi, &fibh, NULL, NULL);
  	brelse(fibh.sbh);
  	inode->i_mode = S_IFDIR | mode;
-@@ -750,17 +676,17 @@ static int udf_mkdir(struct inode * dir,
+@@ -750,17 +672,17 @@ static int udf_mkdir(struct inode * dir,
  		inode->i_mode |= S_ISGID;
  	mark_inode_dirty(inode);
  
@@ -8265,7 +8299,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	cfi.fileCharacteristics |= FID_FILE_CHAR_DIRECTORY;
  	udf_write_fi(dir, &cfi, fi, &fibh, NULL, NULL);
  	inc_nlink(dir);
-@@ -780,52 +707,45 @@ static int empty_dir(struct inode *dir)
+@@ -780,52 +702,45 @@ static int empty_dir(struct inode *dir)
  	struct fileIdentDesc *fi, cfi;
  	struct udf_fileident_bh fibh;
  	loff_t f_pos;
@@ -8277,15 +8311,15 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	uint32_t elen;
  	sector_t offset;
 -	struct extent_position epos = { NULL, 0, { 0, 0}};
--
--	f_pos = (udf_ext0_offset(dir) >> 2);
 +	struct extent_position epos = {};
 +	struct udf_inode_info *dinfo = UDF_I(dir);
  
--	fibh.soffset = fibh.eoffset = (f_pos & ((dir->i_sb->s_blocksize - 1) >> 2)) << 2;
+-	f_pos = (udf_ext0_offset(dir) >> 2);
 +	f_pos = udf_ext0_offset(dir);
 +	fibh.soffset = fibh.eoffset = f_pos & (dir->i_sb->s_blocksize - 1);
  
+-	fibh.soffset = fibh.eoffset = (f_pos & ((dir->i_sb->s_blocksize - 1) >> 2)) << 2;
+-
 -	if (UDF_I_ALLOCTYPE(dir) == ICBTAG_FLAG_AD_IN_ICB)
 +	if (dinfo->i_alloc_type == ICBTAG_FLAG_AD_IN_ICB)
  		fibh.sbh = fibh.ebh = NULL;
@@ -8342,7 +8376,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  			if (fibh.sbh != fibh.ebh)
  				brelse(fibh.ebh);
  			brelse(fibh.sbh);
-@@ -833,8 +753,8 @@ static int empty_dir(struct inode *dir)
+@@ -833,8 +748,8 @@ static int empty_dir(struct inode *dir)
  			return 0;
  		}
  
@@ -8353,7 +8387,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  			if (fibh.sbh != fibh.ebh)
  				brelse(fibh.ebh);
  			brelse(fibh.sbh);
-@@ -849,23 +771,23 @@ static int empty_dir(struct inode *dir)
+@@ -849,23 +764,23 @@ static int empty_dir(struct inode *dir)
  	return 1;
  }
  
@@ -8382,7 +8416,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		goto end_rmdir;
  	retval = -ENOTEMPTY;
  	if (!empty_dir(inode))
-@@ -875,12 +797,13 @@ static int udf_rmdir(struct inode * dir,
+@@ -875,12 +790,13 @@ static int udf_rmdir(struct inode * dir,
  		goto end_rmdir;
  	if (inode->i_nlink != 2)
  		udf_warning(inode->i_sb, "udf_rmdir",
@@ -8399,7 +8433,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	mark_inode_dirty(dir);
  
  end_rmdir:
-@@ -892,30 +816,29 @@ out:
+@@ -892,30 +808,29 @@ out:
  	return retval;
  }
  
@@ -8437,7 +8471,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		inode->i_nlink = 1;
  	}
  	retval = udf_delete_entry(dir, fi, &fibh, &cfi);
-@@ -936,52 +860,64 @@ out:
+@@ -936,52 +851,64 @@ out:
  	return retval;
  }
  
@@ -8519,7 +8553,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		epos.bh = udf_tread(inode->i_sb, block);
  		lock_buffer(epos.bh);
  		memset(epos.bh->b_data, 0x00, inode->i_sb->s_blocksize);
-@@ -989,31 +925,26 @@ static int udf_symlink(struct inode * di
+@@ -989,31 +916,26 @@ static int udf_symlink(struct inode * di
  		unlock_buffer(epos.bh);
  		mark_buffer_dirty_inode(epos.bh, inode);
  		ea = epos.bh->b_data + udf_ext0_offset(inode);
@@ -8556,7 +8590,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		if (elen + sizeof(struct pathComponent) > eoffset)
  			goto out_no_entry;
  
-@@ -1021,28 +952,29 @@ static int udf_symlink(struct inode * di
+@@ -1021,28 +943,29 @@ static int udf_symlink(struct inode * di
  
  		compstart = (char *)symname;
  
@@ -8596,7 +8630,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  				goto out_no_entry;
  			else
  				pc->lengthComponentIdent = namelen;
-@@ -1052,10 +984,8 @@ static int udf_symlink(struct inode * di
+@@ -1052,10 +975,8 @@ static int udf_symlink(struct inode * di
  
  		elen += sizeof(struct pathComponent) + pc->lengthComponentIdent;
  
@@ -8609,7 +8643,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  				symname++;
  			} while (*symname == '/');
  		}
-@@ -1063,32 +993,34 @@ static int udf_symlink(struct inode * di
+@@ -1063,32 +984,34 @@ static int udf_symlink(struct inode * di
  
  	brelse(epos.bh);
  	inode->i_size = elen;
@@ -8655,7 +8689,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	if (fibh.sbh != fibh.ebh)
  		brelse(fibh.ebh);
  	brelse(fibh.sbh);
-@@ -1096,6 +1028,7 @@ static int udf_symlink(struct inode * di
+@@ -1096,6 +1019,7 @@ static int udf_symlink(struct inode * di
  	err = 0;
  
  out:
@@ -8663,7 +8697,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	unlock_kernel();
  	return err;
  
-@@ -1105,46 +1038,48 @@ out_no_entry:
+@@ -1105,46 +1029,48 @@ out_no_entry:
  	goto out;
  }
  
@@ -8726,7 +8760,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  	if (fibh.sbh != fibh.ebh)
  		brelse(fibh.ebh);
  	brelse(fibh.sbh);
-@@ -1160,80 +1096,79 @@ static int udf_link(struct dentry * old_
+@@ -1160,80 +1086,79 @@ static int udf_link(struct dentry * old_
  /* Anybody can rename anything with this: the permission checks are left to the
   * higher-level routines.
   */
@@ -8843,7 +8877,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		if (!nfi)
  			goto end_rename;
  	}
-@@ -1250,46 +1185,40 @@ static int udf_rename (struct inode * ol
+@@ -1250,46 +1175,40 @@ static int udf_rename (struct inode * ol
  	 */
  	ncfi.fileVersionNum = ocfi.fileVersionNum;
  	ncfi.fileCharacteristics = ocfi.fileCharacteristics;
@@ -8902,7 +8936,7 @@ diff --git a/fs/udf/namei.c b/fs/udf/namei.c
  		if (ofibh.sbh != ofibh.ebh)
  			brelse(ofibh.ebh);
  		brelse(ofibh.sbh);
-@@ -1299,8 +1228,7 @@ static int udf_rename (struct inode * ol
+@@ -1299,8 +1218,7 @@ static int udf_rename (struct inode * ol
  
  end_rename:
  	brelse(dir_bh);
@@ -9110,7 +9144,7 @@ diff --git a/fs/udf/osta_udf.h b/fs/udf/osta_udf.h
  	__le16		headerChecksum;
  	uint8_t		CGMSInfo;
  	uint8_t		dataType;
-@@ -250,8 +234,7 @@ struct DVDCopyrightImpUse 
+@@ -250,8 +234,7 @@ struct DVDCopyrightImpUse
  
  /* Application Use Extended Attribute (UDF 2.50 3.3.4.6) */
  /* FreeAppEASpace (UDF 2.50 3.3.4.6.1) */
@@ -9712,7 +9746,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	struct nls_table *nls_map;
  };
  
-@@ -211,6 +232,77 @@ static void __exit exit_udf_fs(void)
+@@ -211,6 +228,77 @@ static void __exit exit_udf_fs(void)
  module_init(init_udf_fs)
  module_exit(exit_udf_fs)
  
@@ -9790,7 +9824,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  /*
   * udf_parse_options
   *
-@@ -222,6 +314,8 @@ module_exit(exit_udf_fs)
+@@ -222,6 +310,8 @@ module_exit(exit_udf_fs)
   *
   *	gid=		Set the default group.
   *	umask=		Set the default umask.
@@ -9799,7 +9833,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
   *	uid=		Set the default user.
   *	bs=		Set the block size.
   *	unhide		Show otherwise hidden files.
-@@ -235,7 +329,7 @@ module_exit(exit_udf_fs)
+@@ -235,7 +325,7 @@ module_exit(exit_udf_fs)
   *
   *	The remaining are for debugging and disaster recovery:
   *
@@ -9808,7 +9842,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
   *
   *	The following expect a offset from 0.
   *
-@@ -271,46 +365,48 @@ enum {
+@@ -271,46 +361,48 @@ enum {
  	Opt_gid, Opt_uid, Opt_umask, Opt_session, Opt_lastblock,
  	Opt_anchor, Opt_volume, Opt_partition, Opt_fileset,
  	Opt_rootdir, Opt_utf8, Opt_iocharset,
@@ -9887,7 +9921,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	uopt->partition = 0xFFFF;
  	uopt->session = 0xFFFFFFFF;
  	uopt->lastblock = 0;
-@@ -323,233 +419,207 @@ udf_parse_options(char *options, struct 
+@@ -323,233 +415,207 @@ udf_parse_options(char *options, struct
  	if (!options)
  		return 1;
  
@@ -10275,7 +10309,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		/* Read a block */
  		bh = udf_tread(sb, sector >> sb->s_blocksize_bits);
  		if (!bh)
-@@ -557,54 +627,51 @@ udf_vrs(struct super_block *sb, int sile
+@@ -557,54 +623,51 @@ udf_vrs(struct super_block *sb, int sile
  
  		/* Look for ISO  descriptors */
  		vsd = (struct volStructDesc *)(bh->b_data +
@@ -10367,7 +10401,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		brelse(bh);
  	}
  
-@@ -612,256 +679,95 @@ udf_vrs(struct super_block *sb, int sile
+@@ -612,256 +675,95 @@ udf_vrs(struct super_block *sb, int sile
  		return nsr03;
  	else if (nsr02)
  		return nsr02;
@@ -10680,7 +10714,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		udf_load_fileset(sb, bh, root);
  		brelse(bh);
  		return 0;
-@@ -869,48 +775,159 @@ udf_find_fileset(struct super_block *sb,
+@@ -869,48 +771,159 @@ udf_find_fileset(struct super_block *sb,
  	return 1;
  }
  
@@ -10872,7 +10906,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  {
  	struct fileSetDesc *fset;
  
-@@ -918,228 +935,503 @@ udf_load_fileset(struct super_block *sb,
+@@ -918,228 +931,503 @@ udf_load_fileset(struct super_block *sb,
  
  	*root = lelb_to_cpu(fset->rootDirectoryICB.extLocation);
  
@@ -11113,6 +11147,8 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +			       int type1_index, sector_t start_block)
  {
 -	struct logicalVolDesc *lvd;
+-	int i, j, offset;
+-	uint8_t type;
 +	struct udf_sb_info *sbi = UDF_SB(sb);
 +	struct udf_part_map *map = &sbi->s_partmaps[p_index];
 +	sector_t vat_block;
@@ -11131,7 +11167,10 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +		sbi->s_vat_inode = udf_iget(sb, &ino);
 +	}
 +}
-+
+ 
+-	lvd = (struct logicalVolDesc *)bh->b_data;
+-
+-	UDF_SB_ALLOC_PARTMAPS(sb, le32_to_cpu(lvd->numPartitionMaps));
 +static int udf_load_vat(struct super_block *sb, int p_index, int type1_index)
 +{
 +	struct udf_sb_info *sbi = UDF_SB(sb);
@@ -11154,7 +11193,19 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +	}
 +	if (!sbi->s_vat_inode)
 +		return 1;
-+
+ 
+-	for (i=0,offset=0;
+-		 i<UDF_SB_NUMPARTS(sb) && offset<le32_to_cpu(lvd->mapTableLength);
+-		 i++,offset+=((struct genericPartitionMap *)&(lvd->partitionMaps[offset]))->partitionMapLength)
+-	{
+-		type = ((struct genericPartitionMap *)&(lvd->partitionMaps[offset]))->partitionMapType;
+-		if (type == 1)
+-		{
+-			struct genericPartitionMap1 *gpm1 = (struct genericPartitionMap1 *)&(lvd->partitionMaps[offset]);
+-			UDF_SB_PARTTYPE(sb,i) = UDF_TYPE1_MAP15;
+-			UDF_SB_PARTVSN(sb,i) = le16_to_cpu(gpm1->volSeqNum);
+-			UDF_SB_PARTNUM(sb,i) = le16_to_cpu(gpm1->partitionNum);
+-			UDF_SB_PARTFUNC(sb,i) = NULL;
 +	if (map->s_partition_type == UDF_VIRTUAL_MAP15) {
 +		map->s_type_specific.s_virtual.s_start_offset = 0;
 +		map->s_type_specific.s_virtual.s_num_entries =
@@ -11170,7 +11221,25 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +		} else {
 +			vat20 = (struct virtualAllocationTable20 *)
 +							vati->i_ext.i_data;
-+		}
+ 		}
+-		else if (type == 2)
+-		{
+-			struct udfPartitionMap2 *upm2 = (struct udfPartitionMap2 *)&(lvd->partitionMaps[offset]);
+-			if (!strncmp(upm2->partIdent.ident, UDF_ID_VIRTUAL, strlen(UDF_ID_VIRTUAL)))
+-			{
+-				if (le16_to_cpu(((__le16 *)upm2->partIdent.identSuffix)[0]) == 0x0150)
+-				{
+-					UDF_SB_PARTTYPE(sb,i) = UDF_VIRTUAL_MAP15;
+-					UDF_SB_PARTFUNC(sb,i) = udf_get_pblock_virt15;
+-				}
+-				else if (le16_to_cpu(((__le16 *)upm2->partIdent.identSuffix)[0]) == 0x0200)
+-				{
+-					UDF_SB_PARTTYPE(sb,i) = UDF_VIRTUAL_MAP20;
+-					UDF_SB_PARTFUNC(sb,i) = udf_get_pblock_virt20;
+-				}
+-			}
+-			else if (!strncmp(upm2->partIdent.ident, UDF_ID_SPARABLE, strlen(UDF_ID_SPARABLE)))
+-			{
 +
 +		map->s_type_specific.s_virtual.s_start_offset =
 +			le16_to_cpu(vat20->lengthHeader);
@@ -11275,53 +11344,20 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
 +			       struct kernel_lb_addr *fileset)
 +{
 +	struct logicalVolDesc *lvd;
- 	int i, j, offset;
- 	uint8_t type;
++	int i, j, offset;
++	uint8_t type;
 +	struct udf_sb_info *sbi = UDF_SB(sb);
 +	struct genericPartitionMap *gpm;
 +	uint16_t ident;
 +	struct buffer_head *bh;
 +	int ret = 0;
- 
++
 +	bh = udf_read_tagged(sb, block, block, &ident);
 +	if (!bh)
 +		return 1;
 +	BUG_ON(ident != TAG_IDENT_LVD);
- 	lvd = (struct logicalVolDesc *)bh->b_data;
- 
--	UDF_SB_ALLOC_PARTMAPS(sb, le32_to_cpu(lvd->numPartitionMaps));
--
--	for (i=0,offset=0;
--		 i<UDF_SB_NUMPARTS(sb) && offset<le32_to_cpu(lvd->mapTableLength);
--		 i++,offset+=((struct genericPartitionMap *)&(lvd->partitionMaps[offset]))->partitionMapLength)
--	{
--		type = ((struct genericPartitionMap *)&(lvd->partitionMaps[offset]))->partitionMapType;
--		if (type == 1)
--		{
--			struct genericPartitionMap1 *gpm1 = (struct genericPartitionMap1 *)&(lvd->partitionMaps[offset]);
--			UDF_SB_PARTTYPE(sb,i) = UDF_TYPE1_MAP15;
--			UDF_SB_PARTVSN(sb,i) = le16_to_cpu(gpm1->volSeqNum);
--			UDF_SB_PARTNUM(sb,i) = le16_to_cpu(gpm1->partitionNum);
--			UDF_SB_PARTFUNC(sb,i) = NULL;
--		}
--		else if (type == 2)
--		{
--			struct udfPartitionMap2 *upm2 = (struct udfPartitionMap2 *)&(lvd->partitionMaps[offset]);
--			if (!strncmp(upm2->partIdent.ident, UDF_ID_VIRTUAL, strlen(UDF_ID_VIRTUAL)))
--			{
--				if (le16_to_cpu(((__le16 *)upm2->partIdent.identSuffix)[0]) == 0x0150)
--				{
--					UDF_SB_PARTTYPE(sb,i) = UDF_VIRTUAL_MAP15;
--					UDF_SB_PARTFUNC(sb,i) = udf_get_pblock_virt15;
--				}
--				else if (le16_to_cpu(((__le16 *)upm2->partIdent.identSuffix)[0]) == 0x0200)
--				{
--					UDF_SB_PARTTYPE(sb,i) = UDF_VIRTUAL_MAP20;
--					UDF_SB_PARTFUNC(sb,i) = udf_get_pblock_virt20;
--				}
--			}
--			else if (!strncmp(upm2->partIdent.ident, UDF_ID_SPARABLE, strlen(UDF_ID_SPARABLE)))
--			{
++	lvd = (struct logicalVolDesc *)bh->b_data;
++
 +	i = udf_sb_alloc_partition_maps(sb, le32_to_cpu(lvd->numPartitionMaps));
 +	if (i != 0) {
 +		ret = i;
@@ -11547,7 +11583,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		brelse(bh);
  }
  
-@@ -1158,377 +1450,464 @@ udf_load_logicalvolint(struct super_bloc
+@@ -1158,377 +1446,464 @@ udf_load_logicalvolint(struct super_bloc
   *	July 1, 1997 - Andrew E. Mileski
   *	Written, tested, and released.
   */
@@ -12300,7 +12336,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		uopt.nls_map = load_nls_default();
  		if (!uopt.nls_map)
  			uopt.flags &= ~(1 << UDF_FLAG_NLS_MAP);
-@@ -1542,35 +1921,20 @@ static int udf_fill_super(struct super_b
+@@ -1542,35 +1917,20 @@ static int udf_fill_super(struct super_b
  	fileset.logicalBlockNum = 0xFFFFFFFF;
  	fileset.partitionReferenceNum = 0xFFFF;
  
@@ -12347,7 +12383,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  
  	/* Fill in the rest of the superblock */
  	sb->s_op = &udf_sb_ops;
-@@ -1579,33 +1943,45 @@ static int udf_fill_super(struct super_b
+@@ -1579,33 +1939,45 @@ static int udf_fill_super(struct super_b
  	sb->s_magic = UDF_SUPER_MAGIC;
  	sb->s_time_gran = 1000;
  
@@ -12413,7 +12449,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  
  		if (minUDFReadRev >= UDF_VERS_USE_EXTENDED_FE)
  			UDF_SET_FLAG(sb, UDF_FLAG_USE_EXTENDED_FE);
-@@ -1613,31 +1989,30 @@ static int udf_fill_super(struct super_b
+@@ -1613,31 +1985,30 @@ static int udf_fill_super(struct super_b
  			UDF_SET_FLAG(sb, UDF_FLAG_USE_STREAMS);
  	}
  
@@ -12460,7 +12496,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	}
  	if (!(sb->s_flags & MS_RDONLY))
  		udf_open_lvid(sb);
-@@ -1645,19 +2020,18 @@ static int udf_fill_super(struct super_b
+@@ -1645,19 +2016,18 @@ static int udf_fill_super(struct super_b
  	/* Assign the root inode */
  	/* assign inodes by physical block number */
  	/* perhaps it's not extensible enough, but for now ... */
@@ -12487,7 +12523,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		iput(inode);
  		goto error_out;
  	}
-@@ -1665,34 +2039,23 @@ static int udf_fill_super(struct super_b
+@@ -1665,34 +2035,23 @@ static int udf_fill_super(struct super_b
  	return 0;
  
  error_out:
@@ -12532,7 +12568,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	return -EINVAL;
  }
  
-@@ -1696,130 +2059,118 @@ error_out:
+@@ -1696,130 +2055,118 @@ error_out:
  	return -EINVAL;
  }
  
@@ -12724,7 +12760,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	uint8_t *ptr;
  	uint16_t ident;
  	struct spaceBitmapDesc *bm;
-@@ -1827,16 +2178,13 @@ udf_count_free_bitmap(struct super_block
+@@ -1827,16 +2174,13 @@ udf_count_free_bitmap(struct super_block
  	lock_kernel();
  
  	loc.logicalBlockNum = bitmap->s_extPosition;
@@ -12745,7 +12781,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  		brelse(bh);
  		printk(KERN_ERR "udf: udf_count_free failed\n");
  		goto out;
-@@ -1847,23 +2195,16 @@ udf_count_free_bitmap(struct super_block
+@@ -1847,23 +2191,16 @@ udf_count_free_bitmap(struct super_block
  	index = sizeof(struct spaceBitmapDesc); /* offset in first block only */
  	ptr = (uint8_t *)bh->b_data;
  
@@ -12777,7 +12813,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  				udf_debug("read failed\n");
  				goto out;
  			}
-@@ -1879,18 +2220,18 @@ out:
+@@ -1879,18 +2216,18 @@ out:
  	return accum;
  }
  
@@ -12800,7 +12836,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  	epos.offset = sizeof(struct unallocSpaceEntry);
  	epos.bh = NULL;
  
-@@ -1902,18 +2244,21 @@ udf_count_free_table(struct super_block 
+@@ -1902,18 +2239,21 @@ udf_count_free_table(struct super_block
  
  	return accum;
  }
@@ -12831,7 +12867,7 @@ diff --git a/fs/udf/super.c b/fs/udf/super.c
  			if (accum == 0xFFFFFFFF)
  				accum = 0;
  		}
-@@ -1922,28 +2267,25 @@ udf_count_free(struct super_block *sb)
+@@ -1922,28 +2262,25 @@ udf_count_free(struct super_block *sb)
  	if (accum)
  		return accum;
  
@@ -13039,7 +13075,7 @@ diff --git a/fs/udf/truncate.c b/fs/udf/truncate.c
  		}
  	}
  }
-@@ -67,30 +67,30 @@ static void extent_trunc(struct inode * 
+@@ -67,30 +67,30 @@ static void extent_trunc(struct inode *
   */
  void udf_truncate_tail_extent(struct inode *inode)
  {
@@ -13454,7 +13490,8 @@ diff --git a/fs/udf/udfdecl.h b/fs/udf/udfdecl.h
 +	else
 +		return sizeof(struct fileEntry) + iinfo->i_lenEAttr;
 +}
-+
+ 
+-#define udf_get_lb_pblock(sb,loc,offset) udf_get_pblock((sb), (loc).logicalBlockNum, (loc).partitionReferenceNum, (offset))
 +static inline size_t udf_ext0_offset(struct inode *inode)
 +{
 +	if (UDF_I(inode)->i_alloc_type == ICBTAG_FLAG_AD_IN_ICB)
@@ -13462,8 +13499,7 @@ diff --git a/fs/udf/udfdecl.h b/fs/udf/udfdecl.h
 +	else
 +		return 0;
 +}
- 
--#define udf_get_lb_pblock(sb,loc,offset) udf_get_pblock((sb), (loc).logicalBlockNum, (loc).partitionReferenceNum, (offset))
++
 +/* computes tag checksum */
 +u8 udf_tag_checksum(const struct tag *t);
  
@@ -13640,22 +13676,22 @@ diff --git a/fs/udf/udfdecl.h b/fs/udf/udfdecl.h
  
  /* truncate.c */
  extern void udf_truncate_tail_extent(struct inode *);
-@@ -151,24 +215,31 @@ extern void udf_discard_prealloc(struct 
+@@ -151,24 +215,28 @@ extern void udf_discard_prealloc(struct
  extern void udf_truncate_extents(struct inode *);
  
  /* balloc.c */
 -extern void udf_free_blocks(struct super_block *, struct inode *, kernel_lb_addr, uint32_t, uint32_t);
 -extern int udf_prealloc_blocks(struct super_block *, struct inode *, uint16_t, uint32_t, uint32_t);
 -extern int udf_new_block(struct super_block *, struct inode *, uint16_t, uint32_t, int *);
+-
+-/* fsync.c */
+-extern int udf_fsync_file(struct file *, struct dentry *, int);
 +extern void udf_free_blocks(struct super_block *, struct inode *,
 +			    struct kernel_lb_addr *, uint32_t, uint32_t);
 +extern int udf_prealloc_blocks(struct super_block *, struct inode *, uint16_t,
 +			       uint32_t, uint32_t);
 +extern int udf_new_block(struct super_block *, struct inode *, uint16_t,
 +			 uint32_t, int *);
- 
- /* fsync.c */
- extern int udf_fsync_file(struct file *, struct dentry *, int);
  
  /* directory.c */
 -extern struct fileIdentDesc * udf_fileident_read(struct inode *, loff_t *, struct udf_fileident_bh *, struct fileIdentDesc *, struct extent_position *, kernel_lb_addr *, uint32_t *, sector_t *);
@@ -14348,7 +14384,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  	memset(dest, 0, sizeof(struct ustr));
  	memcpy(dest->u_name, src, strlen);
  	dest->u_cmpID = 0x08;
-@@ -47,14 +49,17 @@ int udf_build_ustr(struct ustr *dest, ds
+@@ -47,14 +48,17 @@ int udf_build_ustr(struct ustr *dest, ds
  {
  	int usesize;
  
@@ -14372,7 +14408,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  	return 0;
  }
  
-@@ -63,13 +68,14 @@ int udf_build_ustr(struct ustr *dest, ds
+@@ -63,13 +67,14 @@ int udf_build_ustr(struct ustr *dest, ds
   */
  static int udf_build_ustr_exact(struct ustr *dest, dstring *ptr, int exactsize)
  {
@@ -14391,7 +14427,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  	return 0;
  }
  
-@@ -79,9 +85,6 @@ static int udf_build_ustr_exact(struct u
+@@ -79,9 +84,6 @@ static int udf_build_ustr_exact(struct u
   * PURPOSE
   *	Convert OSTA Compressed Unicode to the UTF-8 equivalent.
   *
@@ -14401,7 +14437,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
   * PRE-CONDITIONS
   *	utf			Pointer to UTF-8 output buffer.
   *	ocu			Pointer to OSTA Compressed Unicode input buffer
-@@ -95,57 +98,54 @@ static int udf_build_ustr_exact(struct u
+@@ -95,57 +97,54 @@ static int udf_build_ustr_exact(struct u
   *	November 12, 1997 - Andrew E. Mileski
   *	Written, tested, and released.
   */
@@ -14485,7 +14521,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  
  	return utf_o->u_len;
  }
-@@ -186,61 +186,46 @@ try_again:
+@@ -186,61 +185,46 @@ try_again:
  	u_len = 0U;
  	utf_char = 0U;
  	utf_cnt = 0U;
@@ -14562,7 +14598,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  				max_val = 0xffffU;
  				ocu[0] = (uint8_t)0x10U;
  				goto try_again;
-@@ -249,15 +234,11 @@ try_again:
+@@ -249,15 +233,11 @@ try_again:
  		}
  
  		if (max_val == 0xffffU)
@@ -14579,7 +14615,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  error_out:
  		ocu[++u_len] = '?';
  		printk(KERN_DEBUG "udf: bad UTF-8 character\n");
-@@ -267,51 +249,54 @@ error_out:
+@@ -267,51 +247,54 @@ error_out:
  	return u_len + 1;
  }
  
@@ -14657,7 +14693,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  	uint16_t uni_char;
  	int u_len;
  
-@@ -321,19 +306,22 @@ static int udf_NLStoCS0(struct nls_table
+@@ -321,19 +304,22 @@ static int udf_NLStoCS0(struct nls_table
  
  try_again:
  	u_len = 0U;
@@ -14687,7 +14723,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  		if (max_val == 0xffffU)
  			ocu[++u_len] = (uint8_t)(uni_char >> 8);
  		ocu[++u_len] = (uint8_t)(uni_char & 0xffU);
-@@ -344,112 +332,108 @@ try_again:
+@@ -344,112 +330,108 @@ try_again:
  	return u_len + 1;
  }
  
@@ -14866,7 +14902,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  					hasExt = 1;
  					extIndex = index;
  					newExtIndex = newIndex;
-@@ -461,26 +445,24 @@ static int udf_translate_to_linux(uint8_
+@@ -461,26 +443,24 @@ static int udf_translate_to_linux(uint8_
  				needsCRC = 1;
  		}
  	}
@@ -14903,7 +14939,7 @@ diff --git a/fs/udf/unicode.c b/fs/udf/unicode.c
  						index++;
  				}
  				ext[localExtIndex++] = curr;
-@@ -490,20 +472,18 @@ static int udf_translate_to_linux(uint8_
+@@ -490,20 +470,18 @@ static int udf_translate_to_linux(uint8_
  				newIndex = maxFilenameLen;
  			else
  				newIndex = newExtIndex;
@@ -14989,7 +15025,7 @@ diff --git a/include/linux/udf_fs.h b/include/linux/udf_fs.h
 diff --git a/include/linux/udf_fs_i.h b/include/linux/udf_fs_i.h
 --- a/include/linux/udf_fs_i.h
 +++ b/include/linux/udf_fs_i.h
-@@ -13,37 +12,7 @@
+@@ -13,37 +13,7 @@
  #ifndef _UDF_FS_I_H
  #define _UDF_FS_I_H 1
  

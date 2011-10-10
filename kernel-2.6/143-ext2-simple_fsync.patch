@@ -1,0 +1,181 @@
+From e1740a462ecb2eae213be15857b577cc6f6bb8b4
+From: Al Viro
+Date: Sun, 7 Jun 2009 15:14:02 -0400
+Subject: [PATCH] switch ext2 to simple_fsync()
+
+kill ext2_sync_file() (along with ext2/fsync.c), get rid of
+ext2_update_inode() - it's an alias of ext2_write_inode().
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+
+---
+ fs/ext2/Makefile |    2 +-
+ fs/ext2/dir.c    |    2 +-
+ fs/ext2/ext2.h   |    3 ---
+ fs/ext2/file.c   |    4 ++--
+ fs/ext2/fsync.c  |   50 --------------------------------------------------
+ fs/ext2/inode.c  |   11 ++---------
+ 6 files changed, 6 insertions(+), 66 deletions(-)
+ delete mode 100644 fs/ext2/fsync.c
+
+diff --git a/fs/ext2/Makefile b/fs/ext2/Makefile
+index e0b2b43..f42af45 100644
+--- a/fs/ext2/Makefile
++++ b/fs/ext2/Makefile
+@@ -4,7 +4,7 @@
+ 
+ obj-$(CONFIG_EXT2_FS) += ext2.o
+ 
+-ext2-y := balloc.o dir.o file.o fsync.o ialloc.o inode.o \
++ext2-y := balloc.o dir.o file.o ialloc.o inode.o \
+ 	  ioctl.o namei.o super.o symlink.o
+ 
+ ext2-$(CONFIG_EXT2_FS_XATTR)	 += xattr.o xattr_user.o xattr_trusted.o
+diff --git a/fs/ext2/dir.c b/fs/ext2/dir.c
+index 2999d72..0035004 100644
+--- a/fs/ext2/dir.c
++++ b/fs/ext2/dir.c
+@@ -720,5 +720,5 @@ const struct file_operations ext2_dir_operations = {
+ #ifdef CONFIG_COMPAT
+ 	.compat_ioctl	= ext2_compat_ioctl,
+ #endif
+-	.fsync		= ext2_sync_file,
++	.fsync		= simple_fsync,
+ };
+diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
+index 3203042..b2bbf45 100644
+--- a/fs/ext2/ext2.h
++++ b/fs/ext2/ext2.h
+@@ -113,9 +113,6 @@ extern int ext2_empty_dir (struct inode *);
+ extern struct ext2_dir_entry_2 * ext2_dotdot (struct inode *, struct page **);
+ extern void ext2_set_link(struct inode *, struct ext2_dir_entry_2 *, struct page *, struct inode *);
+ 
+-/* fsync.c */
+-extern int ext2_sync_file (struct file *, struct dentry *, int);
+-
+ /* ialloc.c */
+ extern struct inode * ext2_new_inode (struct inode *, int);
+ extern void ext2_free_inode (struct inode *);
+diff --git a/fs/ext2/file.c b/fs/ext2/file.c
+index 45ed071..2b9e47d 100644
+--- a/fs/ext2/file.c
++++ b/fs/ext2/file.c
+@@ -55,7 +55,7 @@ const struct file_operations ext2_file_operations = {
+ 	.mmap		= generic_file_mmap,
+ 	.open		= generic_file_open,
+ 	.release	= ext2_release_file,
+-	.fsync		= ext2_sync_file,
++	.fsync		= simple_fsync,
+ 	.splice_read	= generic_file_splice_read,
+ 	.splice_write	= generic_file_splice_write,
+ };
+@@ -72,7 +72,7 @@ const struct file_operations ext2_xip_file_operations = {
+ 	.mmap		= xip_file_mmap,
+ 	.open		= generic_file_open,
+ 	.release	= ext2_release_file,
+-	.fsync		= ext2_sync_file,
++	.fsync		= simple_fsync,
+ };
+ #endif
+ 
+diff --git a/fs/ext2/fsync.c b/fs/ext2/fsync.c
+deleted file mode 100644
+index fc66c93..0000000
+--- a/fs/ext2/fsync.c
++++ /dev/null
+@@ -1,50 +0,0 @@
+-/*
+- *  linux/fs/ext2/fsync.c
+- *
+- *  Copyright (C) 1993  Stephen Tweedie (sct@dcs.ed.ac.uk)
+- *  from
+- *  Copyright (C) 1992  Remy Card (card@masi.ibp.fr)
+- *                      Laboratoire MASI - Institut Blaise Pascal
+- *                      Universite Pierre et Marie Curie (Paris VI)
+- *  from
+- *  linux/fs/minix/truncate.c   Copyright (C) 1991, 1992  Linus Torvalds
+- * 
+- *  ext2fs fsync primitive
+- *
+- *  Big-endian to little-endian byte-swapping/bitmaps by
+- *        David S. Miller (davem@caip.rutgers.edu), 1995
+- * 
+- *  Removed unnecessary code duplication for little endian machines
+- *  and excessive __inline__s. 
+- *        Andi Kleen, 1997
+- *
+- * Major simplications and cleanup - we only need to do the metadata, because
+- * we can depend on generic_block_fdatasync() to sync the data blocks.
+- */
+-
+-#include "ext2.h"
+-#include <linux/buffer_head.h>		/* for sync_mapping_buffers() */
+-
+-
+-/*
+- *	File may be NULL when we are called. Perhaps we shouldn't
+- *	even pass file to fsync ?
+- */
+-
+-int ext2_sync_file(struct file *file, struct dentry *dentry, int datasync)
+-{
+-	struct inode *inode = dentry->d_inode;
+-	int err;
+-	int ret;
+-
+-	ret = sync_mapping_buffers(inode->i_mapping);
+-	if (!(inode->i_state & I_DIRTY))
+-		return ret;
+-	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
+-		return ret;
+-
+-	err = ext2_sync_inode(inode);
+-	if (ret == 0)
+-		ret = err;
+-	return ret;
+-}
+diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
+index acf6788..29ed682 100644
+--- a/fs/ext2/inode.c
++++ b/fs/ext2/inode.c
+@@ -41,8 +41,6 @@ MODULE_AUTHOR("Remy Card and others");
+ MODULE_DESCRIPTION("Second Extended Filesystem");
+ MODULE_LICENSE("GPL");
+ 
+-static int ext2_update_inode(struct inode * inode, int do_sync);
+-
+ /*
+  * Test whether an inode is a fast symlink.
+  */
+@@ -66,7 +64,7 @@ void ext2_delete_inode (struct inode * inode)
+ 		goto no_delete;
+ 	EXT2_I(inode)->i_dtime	= get_seconds();
+ 	mark_inode_dirty(inode);
+-	ext2_update_inode(inode, inode_needs_sync(inode));
++	ext2_write_inode(inode, inode_needs_sync(inode));
+ 
+ 	inode->i_size = 0;
+ 	if (inode->i_blocks)
+@@ -1337,7 +1335,7 @@ bad_inode:
+ 	return ERR_PTR(ret);
+ }
+ 
+-static int ext2_update_inode(struct inode * inode, int do_sync)
++int ext2_write_inode(struct inode *inode, int do_sync)
+ {
+ 	struct ext2_inode_info *ei = EXT2_I(inode);
+ 	struct super_block *sb = inode->i_sb;
+@@ -1442,11 +1440,6 @@ static int ext2_update_inode(struct inode * inode, int do_sync)
+ 	return err;
+ }
+ 
+-int ext2_write_inode(struct inode *inode, int wait)
+-{
+-	return ext2_update_inode(inode, wait);
+-}
+-
+ int ext2_sync_inode(struct inode *inode)
+ {
+ 	struct writeback_control wbc = {
+-- 
+1.7.6.2

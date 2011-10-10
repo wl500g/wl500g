@@ -1,0 +1,72 @@
+From d5aacad548db1ff547adf35d0a77eb2a8ed4fe14
+From: Al Viro
+Date: Sun, 7 Jun 2009 14:56:44 -0400
+Subject: [PATCH] New helper - simple_fsync()
+
+writes associated buffers, then does sync_inode() to write
+the inode itself (and to make it clean).  Depends on
+->write_inode() honouring the second argument.
+
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+ fs/libfs.c         |   25 +++++++++++++++++++++++++
+ include/linux/fs.h |    2 ++
+ 2 files changed, 27 insertions(+), 0 deletions(-)
+
+diff --git a/fs/libfs.c b/fs/libfs.c
+--- a/fs/libfs.c
++++ b/fs/libfs.c
+@@ -9,6 +9,8 @@
+ #include <linux/mount.h>
+ #include <linux/vfs.h>
+ #include <linux/mutex.h>
++#include <linux/writeback.h>
++#include <linux/buffer_head.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -807,6 +809,29 @@ struct dentry *generic_fh_to_parent(struct super_block *sb, struct fid *fid,
+ }
+ EXPORT_SYMBOL_GPL(generic_fh_to_parent);
+ 
++int simple_fsync(struct file *file, struct dentry *dentry, int datasync)
++{
++	struct writeback_control wbc = {
++		.sync_mode = WB_SYNC_ALL,
++		.nr_to_write = 0, /* metadata-only; caller takes care of data */
++	};
++	struct inode *inode = dentry->d_inode;
++	int err;
++	int ret;
++
++	ret = sync_mapping_buffers(inode->i_mapping);
++	if (!(inode->i_state & I_DIRTY))
++		return ret;
++	if (datasync && !(inode->i_state & I_DIRTY_DATASYNC))
++		return ret;
++
++	err = sync_inode(inode, &wbc);
++	if (ret == 0)
++		ret = err;
++	return ret;
++}
++EXPORT_SYMBOL(simple_fsync);
++
+ EXPORT_SYMBOL(dcache_dir_close);
+ EXPORT_SYMBOL(dcache_dir_lseek);
+ EXPORT_SYMBOL(dcache_dir_open);
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index d883aa1..ede84fa 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -2345,6 +2345,8 @@ extern void simple_release_fs(struct vfsmount **mount, int *count);
+ extern ssize_t simple_read_from_buffer(void __user *to, size_t count,
+ 			loff_t *ppos, const void *from, size_t available);
+ 
++extern int simple_fsync(struct file *, struct dentry *, int);
++
+ #ifdef CONFIG_MIGRATION
+ extern int buffer_migrate_page(struct address_space *,
+ 				struct page *, struct page *);
+-- 
+1.7.6.2
