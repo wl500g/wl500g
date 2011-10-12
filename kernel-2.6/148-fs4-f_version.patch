@@ -1,0 +1,115 @@
+From 2b47c3611de05c585e2d81204f6c7e3e255a3461
+From: Mathieu Desnoyers
+Date: Tue, 16 Oct 2007 23:27:21 -0700
+Subject: [PATCH] Fix f_version type: should be u64 instead of unsigned long
+
+Fix f_version type: should be u64 instead of long
+
+There is a type inconsistency between struct inode i_version and struct file
+f_version.
+
+fs.h:
+
+struct inode
+  u64                     i_version;
+
+and
+
+struct file
+  unsigned long           f_version;
+
+Users do:
+
+fs/ext3/dir.c:
+
+if (filp->f_version != inode->i_version) {
+
+So why isn't f_version a u64 ? It becomes a problem if versions gets
+higher than 2^32 and we are on an architecture where longs are 32 bits.
+
+This patch changes the f_version type to u64, and updates the users accordingly.
+
+It applies to 2.6.23-rc2-mm2.
+
+Signed-off-by: Mathieu Desnoyers <mathieu.desnoyers@polymtl.ca>
+Cc: Martin Bligh <mbligh@google.com>
+Cc: "Randy.Dunlap" <rdunlap@xenotime.net>
+Cc: Al Viro <viro@ftp.linux.org.uk>
+Cc: <linux-ext4@vger.kernel.org>
+Cc: Mark Fasheh <mark.fasheh@oracle.com>
+Cc: Christoph Hellwig <hch@lst.de>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: Trond Myklebust <trond.myklebust@fys.uio.no>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ fs/ext3/dir.c            |    2 +-
+ fs/proc/base.c           |    4 ++--
+ include/linux/fs.h       |    2 +-
+ include/linux/seq_file.h |    2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
+index c2c3491..fd4b6dd 100644
+--- a/fs/ext3/dir.c
++++ b/fs/ext3/dir.c
+@@ -210,7 +210,7 @@ revalidate:
+ 				 * not the directory has been modified
+ 				 * during the copy operation.
+ 				 */
+-				unsigned long version = filp->f_version;
++				u64 version = filp->f_version;
+ 
+ 				error = filldir(dirent, de->name,
+ 						de->name_len,
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index 78fdfea..ea115d4 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -2586,7 +2586,7 @@ static int proc_task_readdir(struct file * filp, void * dirent, filldir_t filldi
+ 	/* f_version caches the tgid value that the last readdir call couldn't
+ 	 * return. lseek aka telldir automagically resets f_version to 0.
+ 	 */
+-	tid = filp->f_version;
++	tid = (int)filp->f_version;
+ 	filp->f_version = 0;
+ 	for (task = first_tid(leader, tid, pos - 2);
+ 	     task;
+@@ -2595,7 +2595,7 @@ static int proc_task_readdir(struct file * filp, void * dirent, filldir_t filldi
+ 		if (proc_task_fill_cache(filp, dirent, filldir, task, tid) < 0) {
+ 			/* returning this tgid failed, save it as the first
+ 			 * pid for the next readir call */
+-			filp->f_version = tid;
++			filp->f_version = (u64)tid;
+ 			put_task_struct(task);
+ 			break;
+ 		}
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index bb89a5d..30aca33 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -792,7 +792,7 @@ struct file {
+ 	unsigned int		f_uid, f_gid;
+ 	struct file_ra_state	f_ra;
+ 
+-	unsigned long		f_version;
++	u64			f_version;
+ #ifdef CONFIG_SECURITY
+ 	void			*f_security;
+ #endif
+diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
+index 8bf1e05..ebbc02b 100644
+--- a/include/linux/seq_file.h
++++ b/include/linux/seq_file.h
+@@ -18,7 +18,7 @@ struct seq_file {
+ 	size_t from;
+ 	size_t count;
+ 	loff_t index;
+-	loff_t version;
++	u64 version;
+ 	struct mutex lock;
+ 	const struct seq_operations *op;
+ 	void *private;
+-- 
+1.7.6.2
