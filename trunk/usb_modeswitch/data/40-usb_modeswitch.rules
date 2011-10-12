@@ -1,17 +1,16 @@
-# Part of usb-modeswitch-data, version 20110805
+# Part of usb-modeswitch-data, version 20111007
 #
-# This file is intended for USB_ModeSwitch version >= 1.1.2
-# but will not break anything if used with versions >= 1.0.3
+# Recommended use with USB_ModeSwitch >= 1.1.2, can be used with >= 1.0.3
 #
-ACTION!="add", GOTO="modeswitch_rules_end"
+ACTION!="add|change", GOTO="modeswitch_rules_end"
 
-# This adds a symlink "gsmmodem[n]" to the lowest ttyUSB port with interrupt
+# Adds a symlink "gsmmodem[n]" to the lowest ttyUSB port with interrupt
 # transfer; checked against a list of known modems, or else no action
 KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
-# This adds the device ID to the "option" driver after a warm boot
+# Adds the device ID to the "option" driver after warm boot
 # in cases when the device is yet unknown to the driver; checked
 # against a list of known modems, or else no action
 ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurations}=="*", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
@@ -19,8 +18,8 @@ ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurati
 # Most known install partitions are on interface 0, one on 5, one on 9
 ATTRS{bInterfaceNumber}!="0[059]", GOTO="modeswitch_rules_end"
 
-# only storage class devices are handled; negative
-# filtering here would exclude some quirky devices
+# only storage class devices are handled; negative filtering
+# here would exclude some quirky devices
 ATTRS{bDeviceClass}=="08", GOTO="modeswitch_rules_begin"
 ATTRS{bInterfaceClass}=="0[38]", GOTO="modeswitch_rules_begin"
 GOTO="modeswitch_rules_end"
@@ -61,7 +60,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
+# Quirky Option devices, Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # HSDPA USB modem from dealextreme 
