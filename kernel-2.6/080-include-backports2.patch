@@ -34,3 +34,29 @@ diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
  
  /*
   *	This is an Ethernet frame header.
+--- a/include/linux/mm.h
++++ b/include/linux/mm.h
+@@ -1165,6 +1165,23 @@ static inline unsigned long vma_pages(st
+ 	return (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
+ }
+ 
++/*
++ * Determine if an address is within the vmalloc range
++ *
++ * On nommu, vmalloc/vfree wrap through kmalloc/kfree directly, so there
++ * is no special casing required.
++ */
++static inline int is_vmalloc_addr(const void *x)
++{
++#ifdef CONFIG_MMU
++	unsigned long addr = (unsigned long)x;
++
++	return addr >= VMALLOC_START && addr < VMALLOC_END;
++#else
++	return 0;
++#endif
++}
++
+ pgprot_t vm_get_page_prot(unsigned long vm_flags);
+ struct vm_area_struct *find_extend_vma(struct mm_struct *, unsigned long addr);
+ struct page *vmalloc_to_page(void *addr);
