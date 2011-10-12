@@ -1,40 +1,58 @@
-ldd: search LD_LIBRARY_PATH too
+[PATCH V2] ldd: take LD_LIBRARY_PATH into account
 
- Extend the environment variables adding the LD_LIBRARY_PATH
- if actually passed when doing shared library tracings through
- the ld.so trace capability.
+Extend the environment variables adding the LD_LIBRARY_PATH
+if actually passed when doing shared library tracings through
+the ld.so trace capability.
+This is possible only using the system dynamic linker in stand-alone
+mode to avoid any vulnerability.
 
- Signed-off-by: Carmelo Amoroso <carmelo.amoroso at st.com>
+Signed-off-by: Carmelo Amoroso <carmelo.amoroso at st.com <http://lists.busybox.net/mailman/listinfo/uclibc>>
 
 ---
- utils/ldd.c |   41 ++++++++++++++++++++++++++++++++++++++++-
- 1 files changed, 40 insertions(+), 1 deletions(-)
+ utils/Makefile.in |    2 +-
+ utils/ldd.c       |   57 ++++++++++++++++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 57 insertions(+), 2 deletions(-)
 
+diff --git a/utils/Makefile.in b/utils/Makefile.in
+index 65364d7..b634b81 100644
+--- a/utils/Makefile.in
++++ b/utils/Makefile.in
+@@ -12,7 +12,7 @@ CFLAGS-utils := \
+     $(SSP_ALL_CFLAGS) \
+     -I$(top_srcdir)ldso/include \
+     -DUCLIBC_RUNTIME_PREFIX=\"$(RUNTIME_PREFIX)\" \
+-    -DUCLIBC_LDSO=$(UCLIBC_LDSO) \
++    -DUCLIBC_LDSO=\"$(UCLIBC_LDSO)\" \
+     -I$(top_srcdir)/$(KERNEL_HEADERS) \
+     -DNOT_IN_libc \
+     -B$(top_builddir)lib \
 diff --git a/utils/ldd.c b/utils/ldd.c
-index 6d08efd..00e46ca 100644
+index 6d08efd..fc73638 100644
 --- a/utils/ldd.c
 +++ b/utils/ldd.c
-@@ -127,6 +127,10 @@
+@@ -127,6 +127,11 @@
  #define ELFDATAM	ELFDATA2MSB
  #endif
  
 +#include <stdint.h>
 +
 +#define ARRAY_SIZE(v)	(sizeof(v) / sizeof(*v))
++#define TRUSTED_LDSO	UCLIBC_RUNTIME_PREFIX "lib/" UCLIBC_LDSO
 +
  struct library {
  	char *name;
  	int resolved;
-@@ -699,15 +703,50 @@ foo:
+@@ -699,15 +704,65 @@ foo:
  				NULL
  			};
  
++			char * lib_path = getenv("LD_LIBRARY_PATH");
++
++#ifdef __LDSO_STANDALONE_SUPPORT__
++
 +			/* The 'extended' environment inclusing the LD_LIBRARY_PATH */
 +			static char *ext_environment[ARRAY_SIZE(environment) + 1];
-+
 +			char **envp = (char **) environment;
-+
-+			char * lib_path = getenv("LD_LIBRARY_PATH");
 +
 +			if (lib_path) {
 +				/*
@@ -49,30 +67,44 @@ index 6d08efd..00e46ca 100644
 +					ext_environment[k] = (char *) environment[k];
 +
 +				/* Make room for LD_LIBRARY_PATH */
-+				ext_environment[k] = (char *) malloc(strlen("LD_LIBRARY_PATH=") + strlen(lib_path) + 1);
-+				strcpy(ext_environment[k], "LD_LIBRARY_PATH=");
-+				strcat(ext_environment[k], lib_path);
++				ext_environment[k] = (char *) malloc(strlen("LD_LIBRARY_PATH=")
++									  + strlen(lib_path) + 1);
++				strcat(stpcpy(ext_environment[k], "LD_LIBRARY_PATH="), lib_path);
 +
 +				/* ext_environment[size] is already NULL */
 +
 +				/* Use the extended environment */
 +				envp = ext_environment;
 +			}
++			if ((pid = vfork()) == 0) {
++				/*
++				 * Force to use the standard dynamic linker in stand-alone mode.
++				 * It will fails at runtime if support is not actually available
++				 */
++				execle(TRUSTED_LDSO, TRUSTED_LDSO, filename, NULL, envp);
++				_exit(0xdead);
++			}
++#else
++			if (lib_path)
++				fprintf(stderr, "ldd: LD_LIBRARY_PATH not included in search "
++						"path: it needs ld.so stand-alone execution enabled\n");
 +
  			if ((pid = vfork()) == 0) {
  				/* Cool, it looks like we should be able to actually
  				 * run this puppy.  Do so now... */
--				execle(filename, filename, NULL, environment);
-+				execle(filename, filename, NULL, envp);
+ 				execle(filename, filename, NULL, environment);
  				_exit(0xdead);
  			}
- 
+-
++#endif
  			/* Wait till it returns */
  			waitpid(pid, &status, 0);
 +
++#ifdef __LDSO_STANDALONE_SUPPORT__
 +			/* Do not leak */
 +			if (lib_path)
 +				free(ext_environment[ARRAY_SIZE(ext_environment) - 2]);
++#endif
 +
  			if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
  				return 1;
