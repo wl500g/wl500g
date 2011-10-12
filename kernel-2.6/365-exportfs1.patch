@@ -1155,12 +1155,12 @@ diff --git a/fs/ext4/super.c b/fs/ext4/super.c
  #include <linux/random.h>
  #include <linux/mount.h>
 @@ -603,13 +604,10 @@ static int ext4_show_options(struct seq_
- }
  
+ }
  
 -static struct dentry *ext4_get_dentry(struct super_block *sb, void *vobjp)
 +static struct inode *ext4_nfs_get_inode(struct super_block *sb,
-+		u64 ino, u32 generation)
++					u64 ino, u32 generation)
  {
 -	__u32 *objp = vobjp;
 -	unsigned long ino = objp[0];
@@ -1188,14 +1188,14 @@ diff --git a/fs/ext4/super.c b/fs/ext4/super.c
 +}
 +
 +static struct dentry *ext4_fh_to_dentry(struct super_block *sb, struct fid *fid,
-+		int fh_len, int fh_type)
++					int fh_len, int fh_type)
 +{
 +	return generic_fh_to_dentry(sb, fid, fh_len, fh_type,
 +				    ext4_nfs_get_inode);
 +}
 +
 +static struct dentry *ext4_fh_to_parent(struct super_block *sb, struct fid *fid,
-+		int fh_len, int fh_type)
++					int fh_len, int fh_type)
 +{
 +	return generic_fh_to_parent(sb, fid, fh_len, fh_type,
 +				    ext4_nfs_get_inode);
