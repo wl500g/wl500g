@@ -1,0 +1,14 @@
+########################################################
+# Novatel Wireless MC545 HSPA
+
+DefaultVendor= 0x1410
+DefaultProduct=0x5059
+
+TargetVendor=  0x1410
+TargetProduct= 0x7042
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+NeedResponse=1
+
+CheckSuccess=20
+

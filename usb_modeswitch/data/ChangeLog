@@ -1,3 +1,8 @@
+20111007:
+    Added devices: Alcatel OT X220L, Nokia CS-19, Huawei ET302, 3GO 3GO11
+    HSUPA, Novatel MC545, ZTE AC682, ZTE MF820 4G LTE, Philips PicoPix 1020
+    (LED projector); added some ZTE target IDs; modded udev rules to include
+    "change" as trigger event
 20110805:
     Added devices: Vodafone/Huawei K4510 & K4511, Vodafone/ZTE K3770-Z,
     K3772-Z and K4510-Z (thanks to Andrew Bird); five Option HSO modems;
