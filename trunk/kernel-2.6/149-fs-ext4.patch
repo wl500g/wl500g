@@ -9585,7 +9585,7 @@ diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
 +		if (err == -ENOSPC) {
 +			ext4_print_free_blocks(mpd->inode);
 +		}
-+		/* invlaidate all the pages */
++		/* invalidate all the pages */
 +		ext4_da_block_invalidatepages(mpd, next,
 +				lbh->b_size >> mpd->inode->i_blkbits);
 +		return err;
