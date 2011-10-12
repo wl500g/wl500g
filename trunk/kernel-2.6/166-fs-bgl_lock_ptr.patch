@@ -1,0 +1,74 @@
+From c644f0e4b56f9a2fc066cd0d75a18074d130e4a3
+From: Pekka Enberg
+Date: Sun, 4 Jan 2009 12:00:48 -0800
+Subject: [PATCH] fs: introduce bgl_lock_ptr()
+
+As suggested by Andreas Dilger, introduce a bgl_lock_ptr() helper in
+<linux/blockgroup_lock.h> and add separate sb_bgl_lock() helpers to
+filesystem specific header files to break the hidden dependency to
+struct ext[234]_sb_info.
+
+Also, while at it, convert the macros to static inlines to try make up
+for all the times I broke Andrew Morton's tree.
+
+Acked-by: Andreas Dilger <adilger@sun.com>
+Signed-off-by: Pekka Enberg <penberg@cs.helsinki.fi>
+Cc: <linux-ext4@vger.kernel.org>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ include/linux/blockgroup_lock.h |    7 +++++--
+ include/linux/ext2_fs_sb.h      |    6 ++++++
+ include/linux/ext3_fs_sb.h      |    6 ++++++
+ 3 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/blockgroup_lock.h b/include/linux/blockgroup_lock.h
+index 8607312..e44b88b 100644
+--- a/include/linux/blockgroup_lock.h
++++ b/include/linux/blockgroup_lock.h
+@@ -53,7 +53,10 @@ static inline void bgl_lock_init(struct blockgroup_lock *bgl)
+  * The accessor is a macro so we can embed a blockgroup_lock into different
+  * superblock types
+  */
+-#define sb_bgl_lock(sb, block_group) \
+-	(&(sb)->s_blockgroup_lock.locks[(block_group) & (NR_BG_LOCKS-1)].lock)
++static inline spinlock_t *
++bgl_lock_ptr(struct blockgroup_lock *bgl, unsigned int block_group)
++{
++	return &bgl->locks[(block_group) & (NR_BG_LOCKS-1)].lock;
++}
+ 
+ #endif
+diff --git a/include/linux/ext2_fs_sb.h b/include/linux/ext2_fs_sb.h
+index f273415..dc541f3 100644
+--- a/include/linux/ext2_fs_sb.h
++++ b/include/linux/ext2_fs_sb.h
+@@ -108,4 +108,10 @@ struct ext2_sb_info {
+ 	struct ext2_reserve_window_node s_rsv_window_head;
+ };
+ 
++static inline spinlock_t *
++sb_bgl_lock(struct ext2_sb_info *sbi, unsigned int block_group)
++{
++	return bgl_lock_ptr(&sbi->s_blockgroup_lock, block_group);
++}
++
+ #endif	/* _LINUX_EXT2_FS_SB */
+diff --git a/include/linux/ext3_fs_sb.h b/include/linux/ext3_fs_sb.h
+index b65f028..e024e38 100644
+--- a/include/linux/ext3_fs_sb.h
++++ b/include/linux/ext3_fs_sb.h
+@@ -83,4 +83,10 @@ struct ext3_sb_info {
+ #endif
+ };
+ 
++static inline spinlock_t *
++sb_bgl_lock(struct ext3_sb_info *sbi, unsigned int block_group)
++{
++	return bgl_lock_ptr(&sbi->s_blockgroup_lock, block_group);
++}
++
+ #endif	/* _LINUX_EXT3_FS_SB */
+-- 
+1.7.6.2
