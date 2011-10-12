@@ -26756,6 +26756,22 @@ diff --git a/fs/Kconfig b/fs/Kconfig
  
  	  If you are not using a security module that requires using
  	  extended attributes for file security labels, say N.
+@@ -196,6 +196,15 @@
+ 	  If you are not using a security module that requires using
+ 	  extended attributes for file security labels, say N.
+ 
++config EXT4_DEBUG
++	bool "EXT4 debugging support"
++	depends on EXT4_FS
++	help
++	  Enables run-time debugging support for the ext4 filesystem.
++
++	  If you select Y here, then you will be able to turn on debugging
++	  with a command such as "echo 1 > /sys/kernel/debug/ext4/mballoc-debug"
++
+ config JBD
+ 	tristate
+ 	help
 @@ -238,22 +233,22 @@ config JBD2
  	help
  	  This is a generic journaling layer for block devices that support
