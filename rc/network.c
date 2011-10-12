@@ -2105,12 +2105,14 @@ void hotplug_network_device(char * interface, char * action, char * product, cha
 		if (!found) {
 			if (action_add) {
 #ifdef __CONFIG_MADWIMAX__
-			    if ( hotplug_check_wimax( interface, product, prefix ) ) {
+			    if ( !strcmp(wan_proto, "wimax") &&
+			         hotplug_check_wimax( interface, product, prefix ) ) {
 				found = 1;
 			    } else 
 #endif
 #ifdef __CONFIG_MODEM__
-			    if ( hotplug_check_modem( interface, product, device, prefix ) ) {
+			    if ( !strcmp(wan_proto, "usbmodem") &&
+			         hotplug_check_modem( interface, product, device, prefix ) ) {
 				found = 2;
 			    }
 #else
