@@ -6,14 +6,16 @@
  cb7928a528264a69b29b6001b490b64607ed0557 [IPV4]: Remove unsupported DNAT (RTCF_NAT and RTCF_DNAT) in IPV4
  f25c3d613b12b4b6219d03e9930cac5f59541468 [IPV4]: Convert do_gettimeofday() to getnstimeofday().
  49e8ab03ebcacd8e37660ffec20c0c46721a2800 net: build_ehash_secret() and rt_bind_peer() cleanups
+ 8caf153974f2274301e583fda732cc8e5b80331f net: sch_netem: Fix an inconsistency in ingress netem timestamps.
  70978182d431e0348e6ef711d0f962d12c03bc46 net: timestamp cloned packet in dev_queue_xmit_nit
+ 71d9dec24dce548bf699815c976cf063ad9257e2 net: increase skb->users instead of skb_clone()
 
 ---
  include/net/dst.h            |    6 ++++--
  include/net/tcp.h            |   24 ++++++++++++++++++++----
  net/bluetooth/af_bluetooth.c |    5 ++---
  net/core/datagram.c          |    5 ++---
- net/core/dev.c               |    3 ++-
+ net/core/dev.c               |   34 ++++++++++++++++++++++------------
  net/ipv4/af_inet.c           |    7 ++-----
  net/ipv4/arp.c               |    5 ++---
  net/ipv4/icmp.c              |    8 ++++----
@@ -22,9 +24,10 @@
  net/ipv4/tcp_input.c         |   18 +++++++++---------
  net/ipv4/tcp_ipv4.c          |    9 ---------
  net/ipv4/tcp_minisocks.c     |    4 ++--
+ net/sched/sch_netem.c        |    9 +++++++++
  net/sctp/socket.c            |    5 ++---
  net/unix/af_unix.c           |    5 ++---
- 15 files changed, 65 insertions(+), 67 deletions(-)
+ 16 files changed, 94 insertions(+), 78 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -119,15 +122,44 @@ diff --git a/net/core/datagram.c b/net/core/datagram.c
 diff --git a/net/core/dev.c b/net/core/dev.c
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
-@@ -1123,7 +1123,6 @@ static void dev_queue_xmit_nit(struct sk
+@@ -1114,6 +1114,14 @@ static inline void net_timestamp(struct 
+ 		skb->tstamp.tv64 = 0;
+ }
+ 
++static inline int deliver_skb(struct sk_buff *skb,
++			      struct packet_type *pt_prev,
++			      struct net_device *orig_dev)
++{
++	atomic_inc(&skb->users);
++	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
++}
++
+ /*
+  *	Support routine. Sends outgoing frames to any network
+  *	taps currently in use.
+@@ -1122,8 +1130,8 @@ static inline void net_timestamp(struct 
+ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
  {
  	struct packet_type *ptype;
- 
+-
 -	net_timestamp(skb);
++	struct sk_buff *skb2 = NULL;
++	struct packet_type *pt_prev = NULL;
  
  	rcu_read_lock();
  	list_for_each_entry_rcu(ptype, &ptype_all, list) {
-@@ -1137,6 +1136,8 @@ static void dev_queue_xmit_nit(struct sk
+@@ -1133,10 +1141,18 @@ static void dev_queue_xmit_nit(struct sk
+ 		if ((ptype->dev == dev || !ptype->dev) &&
+ 		    (ptype->af_packet_priv == NULL ||
+ 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
+-			struct sk_buff *skb2= skb_clone(skb, GFP_ATOMIC);
++			if (pt_prev) {
++				deliver_skb(skb2, pt_prev, skb->dev);
++				pt_prev = ptype;
++				continue;
++			}
++
++			skb2 = skb_clone(skb, GFP_ATOMIC);
  			if (!skb2)
  				break;
  
@@ -136,6 +168,34 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  			/* skb->nh should be correctly
  			   set by sender, so that the second statement is
  			   just protection against buggy protocols.
+@@ -1154,9 +1170,11 @@ static void dev_queue_xmit_nit(struct sk
+ 
+ 			skb2->transport_header = skb2->network_header;
+ 			skb2->pkt_type = PACKET_OUTGOING;
+-			ptype->func(skb2, skb->dev, ptype, skb->dev);
++			pt_prev = ptype;
+ 		}
+ 	}
++	if (pt_prev)
++		pt_prev->func(skb2, skb->dev, pt_prev, skb->dev);
+ 	rcu_read_unlock();
+ }
+ 
+@@ -1757,14 +1775,6 @@ static void net_tx_action(struct softirq
+ 	}
+ }
+ 
+-static inline int deliver_skb(struct sk_buff *skb,
+-			      struct packet_type *pt_prev,
+-			      struct net_device *orig_dev)
+-{
+-	atomic_inc(&skb->users);
+-	return pt_prev->func(skb, skb->dev, pt_prev, orig_dev);
+-}
+-
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+ /* These hooks defined here for ATM */
+ struct net_bridge;
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
@@ -418,6 +478,25 @@ diff --git a/net/sctp/socket.c b/net/sctp/socket.c
  		mask |= POLLIN | POLLRDNORM;
  
  	/* The association is either gone or not ready.  */
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -280,6 +280,15 @@ static struct sk_buff *netem_dequeue(struct Qdisc *sch)
+ 
+ 		/* if more time remaining? */
+ 		if (cb->time_to_send <= now) {
++
++#ifdef CONFIG_NET_CLS_ACT
++			/*
++			 * If it's at ingress let's pretend the delay is
++			 * from the network (tstamp will be updated).
++			 */
++			if (G_TC_FROM(skb->tc_verd) & AT_INGRESS)
++				skb->tstamp.tv64 = 0;
++#endif
+ 			pr_debug("netem_dequeue: return skb=%p\n", skb);
+ 			sch->q.qlen--;
+ 			return skb;
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
