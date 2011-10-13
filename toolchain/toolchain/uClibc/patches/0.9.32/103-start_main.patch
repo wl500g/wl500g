@@ -1,31 +1,18 @@
  Add compatibility with old uClibc versions less than 0.9.28 but newer than 0.9.15
   dl-hash.c name mapper adds thunk to  __uClibc_start_main  function
 
-diff -urBp a/ldso/include/dl-hash.h b/ldso/include/dl-hash.h
---- a/ldso/include/dl-hash.h
-+++ b/ldso/include/dl-hash.h
-@@ -112,6 +112,8 @@ extern struct elf_resolve * _dl_add_elf_
- 	DL_LOADADDR_TYPE loadaddr, unsigned long * dynamic_info,
- 	unsigned long dynamic_addr, unsigned long dynamic_size);
- 
-+extern void _dl_hash_init(void);
-+
- extern char *_dl_find_hash(const char *name, struct dyn_elf *rpnt,
- 		struct elf_resolve *mytpnt, int type_class,
- 		struct symbol_ref *symbol);
 diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
 --- a/ldso/ldso/dl-hash.c
 +++ b/ldso/ldso/dl-hash.c
-@@ -264,6 +264,34 @@ _dl_lookup_sysv_hash(struct elf_resolve
+@@ -268,6 +268,23 @@ _dl_lookup_sysv_hash(struct elf_resolve
  	return NULL;
  }
  
 +/* Add compatibility with old uClibc versions less than 0.9.28 but newer than 0.9.15 */
-+static const char *_Start_Old_main_name;
 +#ifdef __LDSO_GNU_HASH_SUPPORT__
-+static Elf_Symndx _Start_Old_main_gnu_hash;
++static const Elf_Symndx _Start_Old_main_gnu_hash = 0xf6bfaf46;	// _dl_gnu_hash("__uClibc_start_main")
 +#endif
-+static Elf_Symndx _Start_Old_main_elf_hash;
++static const Elf_Symndx _Start_Old_main_elf_hash = 0x047b3fee;	// _dl_elf_hash("__uClibc_start_main")
 +
 +static void (*_uClibc_main)(void *main, int argc, char **argv,
 +	     void (*app_init)(void), void (*app_fini)(void),
@@ -38,20 +25,10 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
 +    (*_uClibc_main)(_main, argc, argv, app_init, app_fini, NULL, NULL);
 +}
 +
-+/* Init globals */
-+void _dl_hash_init(void)
-+{
-+    _Start_Old_main_name = "__uClibc_start_main\0";
-+#ifdef __LDSO_GNU_HASH_SUPPORT__
-+    _Start_Old_main_gnu_hash = _dl_gnu_hash((const unsigned char *) _Start_Old_main_name);
-+#endif
-+    _Start_Old_main_elf_hash = _dl_elf_hash((const unsigned char *) _Start_Old_main_name);
-+}
-+
  /*
   * This function resolves externals, and this is either called when we process
   * relocations or when we call an entry in the PLT table for the first time.
-@@ -322,6 +348,10 @@ char *_dl_find_hash(const char *name, st
+@@ -326,6 +343,11 @@ char *_dl_find_hash(const char *name, st
  			if (sym != NULL)
  				/* If sym has been found, do not search further */
  				break;
@@ -59,10 +36,11 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
 +			/* Check for unresolved old main entry */
 +			if (gnu_hash_number == _Start_Old_main_gnu_hash)
 +				goto chk_old_main;
++			}
  		} else {
  #endif
  		/* Use the old SysV-style hash table */
-@@ -333,6 +365,18 @@ char *_dl_find_hash(const char *name, st
+@@ -337,6 +359,19 @@ char *_dl_find_hash(const char *name, st
  		sym = _dl_lookup_sysv_hash(tpnt, symtab, elf_hash_number, name, type_class);
  		if (sym != NULL)
  			break;
@@ -71,9 +49,10 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
 +#ifdef __LDSO_GNU_HASH_SUPPORT__
 + chk_old_main:
 +#endif
-+				if (_dl_strcmp(name, _Start_Old_main_name) == 0) {
++				/* main() must be single per executable */
++				if (_uClibc_main == NULL && _dl_strcmp("__uClibc_start_main\0", name) == 0) {
 +					_main = _dl_find_hash("main", rpnt, mytpnt, type_class, NULL);
-+					_uClibc_main = _dl_find_hash("__uClibc_main", rpnt, mytpnt, type_class, NULL);
++					_uClibc_main = (void *)_dl_find_hash("__uClibc_main", rpnt, mytpnt, type_class, NULL);
 +					_dl_debug_early("__uClibc_start_main thunk: __uClibc_main=%x, main=%x\n", _uClibc_main, _main);
 +					return (char *) &__uClibc_start_main;
 +				}
@@ -81,16 +60,4 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
  #ifdef __LDSO_GNU_HASH_SUPPORT__
  		}
  #endif
-diff -urBp a/ldso/ldso/ldso.c b/ldso/ldso/ldso.c
---- a/ldso/ldso/ldso.c
-+++ b/ldso/ldso/ldso.c
-@@ -245,6 +245,9 @@ void _dl_get_ready_to_run(struct elf_res
-        _dl_populate_reltypes_tab();
- #endif
- 
-+	/* Perform custom init of global vars in dl-hash */
-+	_dl_hash_init();
-+
- 	/* Find the runtime load address of the main executable.  This may be
- 	 * different from what the ELF header says for ET_DYN/PIE executables.
- 	 */
+-- 
