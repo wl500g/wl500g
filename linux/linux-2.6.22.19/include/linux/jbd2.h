@@ -61,7 +61,7 @@ extern u8 jbd2_journal_enable_debug;
 	do {								\
 		if ((n) <= jbd2_journal_enable_debug) {			\
 			printk (KERN_DEBUG "(%s, %d): %s: ",		\
-				__FILE__, __LINE__, __FUNCTION__);	\
+				__FILE__, __LINE__, __func__);	\
 			printk (f, ## a);				\
 		}							\
 	} while (0)
@@ -412,7 +412,7 @@ struct jbd2_inode {
 	struct inode *i_vfs_inode;
 
 	/* Flags of inode [j_list_lock] */
-	unsigned int i_flags;
+	unsigned long i_flags;
 };
 
 struct jbd2_revoke_table_s;
@@ -464,9 +464,9 @@ struct handle_s
  */
 struct transaction_chp_stats_s {
 	unsigned long		cs_chp_time;
-	unsigned long		cs_forced_to_close;
-	unsigned long		cs_written;
-	unsigned long		cs_dropped;
+	__u32			cs_forced_to_close;
+	__u32			cs_written;
+	__u32			cs_dropped;
 };
 
 /* The transaction_t type is the guts of the journaling mechanism.  It
@@ -639,10 +639,27 @@ struct transaction_s
 	unsigned long		t_expires;
 
 	/*
+	 * When this transaction started, in nanoseconds [no locking]
+	 */
+	ktime_t			t_start_time;
+
+	/*
 	 * How many handles used this transaction? [t_handle_lock]
 	 */
 	int t_handle_count;
 
+	/*
+	 * This transaction is being forced and some process is
+	 * waiting for it to finish.
+	 */
+	unsigned int t_synchronous_commit:1;
+	unsigned int t_flushed_data_blocks:1;
+
+	/*
+	 * For use by the filesystem to store fs-specific data
+	 * structures associated with the transaction
+	 */
+	struct list_head	t_private_list;
 };
 
 struct transaction_run_stats_s {
@@ -652,22 +669,15 @@ struct transaction_run_stats_s {
 	unsigned long		rs_flushing;
 	unsigned long		rs_logging;
 
-	unsigned long		rs_handle_count;
-	unsigned long		rs_blocks;
-	unsigned long		rs_blocks_logged;
+	__u32			rs_handle_count;
+	__u32			rs_blocks;
+	__u32			rs_blocks_logged;
 };
 
 struct transaction_stats_s {
-	int 			ts_type;
 	unsigned long		ts_tid;
-	union {
-		struct transaction_run_stats_s run;
-		struct transaction_chp_stats_s chp;
-	} u;
+	struct transaction_run_stats_s run;
 };
-
-#define JBD2_STATS_RUN		1
-#define JBD2_STATS_CHECKPOINT	2
 
 static inline unsigned long
 jbd2_time_diff(unsigned long start, unsigned long end)
@@ -677,6 +687,8 @@ jbd2_time_diff(unsigned long start, unsigned long end)
 
 	return end + (MAX_JIFFY_OFFSET - start);
 }
+
+#define JBD2_NR_BATCH	64
 
 /**
  * struct journal_s - The journal_s type is the concrete type associated with
@@ -822,6 +834,14 @@ struct journal_s
 	struct mutex		j_checkpoint_mutex;
 
 	/*
+	 * List of buffer heads used by the checkpoint routine.  This
+	 * was moved from jbd2_log_do_checkpoint() to reduce stack
+	 * usage.  Access to this array is controlled by the
+	 * j_checkpoint_mutex.  [j_checkpoint_mutex]
+	 */
+	struct buffer_head	*j_chkpt_bhs[JBD2_NR_BATCH];
+	
+	/*
 	 * Journal head: identifies the first unused block in the journal.
 	 * [j_state_lock]
 	 */
@@ -935,16 +955,32 @@ struct journal_s
 	struct buffer_head	**j_wbuf;
 	int			j_wbufsize;
 
+	/*
+	 * this is the pid of hte last person to run a synchronous operation
+	 * through the journal
+	 */
 	pid_t			j_last_sync_writer;
 
 	/*
-	 * Journal statistics
+	 * the average amount of time in nanoseconds it takes to commit a
+	 * transaction to disk. [j_state_lock]
 	 */
-	struct transaction_stats_s *j_history;
-	int			j_history_max;
-	int			j_history_cur;
+	u64			j_average_commit_time;
+
 	/*
-	 * Protect the transactions statistics history
+	 * minimum and maximum times that we should wait for
+	 * additional filesystem operations to get batched into a
+	 * synchronous handle in microseconds
+	 */
+	u32			j_min_batch_time;
+	u32			j_max_batch_time;
+
+	/* This function is called when a transaction is closed */
+	void			(*j_commit_callback)(journal_t *,
+						     transaction_t *);
+
+	/*
+	 * Journal statistics
 	 */
 	spinlock_t		j_history_lock;
 	struct proc_dir_entry	*j_proc_entry;
@@ -969,6 +1005,9 @@ struct journal_s
 #define JBD2_FLUSHED	0x008	/* The journal superblock has been flushed */
 #define JBD2_LOADED	0x010	/* The journal superblock has been loaded */
 #define JBD2_BARRIER	0x020	/* Use IDE barriers */
+#define JBD2_ABORT_ON_SYNCDATA_ERR	0x040	/* Abort the journal on file
+						 * data write error in ordered
+						 * mode */
 
 /*
  * Function declarations for the journaling transaction and buffer
@@ -977,7 +1016,6 @@ struct journal_s
 
 /* Filing buffers */
 extern void jbd2_journal_unfile_buffer(journal_t *, struct journal_head *);
-extern void __jbd2_journal_unfile_buffer(struct journal_head *);
 extern void __jbd2_journal_refile_buffer(struct journal_head *);
 extern void jbd2_journal_refile_buffer(journal_t *, struct journal_head *);
 extern void __jbd2_journal_file_buffer(struct journal_head *, transaction_t *, int);
@@ -996,6 +1034,35 @@ extern void jbd2_journal_commit_transaction(journal_t *);
 int __jbd2_journal_clean_checkpoint_list(journal_t *journal);
 int __jbd2_journal_remove_checkpoint(struct journal_head *);
 void __jbd2_journal_insert_checkpoint(struct journal_head *, transaction_t *);
+
+
+/*
+ * Triggers
+ */
+
+struct jbd2_buffer_trigger_type {
+	/*
+	 * Fired just before a buffer is written to the journal.
+	 * mapped_data is a mapped buffer that is the frozen data for
+	 * commit.
+	 */
+	void (*t_commit)(struct jbd2_buffer_trigger_type *type,
+			 struct buffer_head *bh, void *mapped_data,
+			 size_t size);
+
+	/*
+	 * Fired during journal abort for dirty buffers that will not be
+	 * committed.
+	 */
+	void (*t_abort)(struct jbd2_buffer_trigger_type *type,
+			struct buffer_head *bh);
+};
+
+extern void jbd2_buffer_commit_trigger(struct journal_head *jh,
+				       void *mapped_data,
+				       struct jbd2_buffer_trigger_type *triggers);
+extern void jbd2_buffer_abort_trigger(struct journal_head *jh,
+				      struct jbd2_buffer_trigger_type *triggers);
 
 /* Buffer IO */
 extern int
@@ -1035,6 +1102,8 @@ extern int	 jbd2_journal_extend (handle_t *, int nblocks);
 extern int	 jbd2_journal_get_write_access(handle_t *, struct buffer_head *);
 extern int	 jbd2_journal_get_create_access (handle_t *, struct buffer_head *);
 extern int	 jbd2_journal_get_undo_access(handle_t *, struct buffer_head *);
+void		 jbd2_journal_set_triggers(struct buffer_head *,
+					   struct jbd2_buffer_trigger_type *type);
 extern int	 jbd2_journal_dirty_metadata (handle_t *, struct buffer_head *);
 extern void	 jbd2_journal_release_buffer (handle_t *, struct buffer_head *);
 extern int	 jbd2_journal_forget (handle_t *, struct buffer_head *);
@@ -1060,9 +1129,8 @@ extern int	   jbd2_journal_set_features
 		   (journal_t *, unsigned long, unsigned long, unsigned long);
 extern void	   jbd2_journal_clear_features
 		   (journal_t *, unsigned long, unsigned long, unsigned long);
-extern int	   jbd2_journal_create     (journal_t *);
 extern int	   jbd2_journal_load       (journal_t *journal);
-extern void	   jbd2_journal_destroy    (journal_t *);
+extern int	   jbd2_journal_destroy    (journal_t *);
 extern int	   jbd2_journal_recover    (journal_t *journal);
 extern int	   jbd2_journal_wipe       (journal_t *, int);
 extern int	   jbd2_journal_skip_recovery	(journal_t *);
@@ -1085,7 +1153,6 @@ extern void	   jbd2_journal_release_jbd_inode(journal_t *journal, struct jbd2_in
  */
 struct journal_head *jbd2_journal_add_journal_head(struct buffer_head *bh);
 struct journal_head *jbd2_journal_grab_journal_head(struct buffer_head *bh);
-void jbd2_journal_remove_journal_head(struct buffer_head *bh);
 void jbd2_journal_put_journal_head(struct journal_head *jh);
 
 /*
@@ -1136,14 +1203,14 @@ int jbd2_log_wait_commit(journal_t *journal, tid_t tid);
 int jbd2_log_do_checkpoint(journal_t *journal);
 
 void __jbd2_log_wait_for_space(journal_t *journal);
-extern void	__jbd2_journal_drop_transaction(journal_t *, transaction_t *);
-extern int	jbd2_cleanup_journal_tail(journal_t *);
+extern void __jbd2_journal_drop_transaction(journal_t *, transaction_t *);
+extern int jbd2_cleanup_journal_tail(journal_t *);
 
 /* Debugging code only: */
 
 #define jbd_ENOSYS() \
 do {								           \
-	printk (KERN_ERR "JBD unimplemented function %s\n", __FUNCTION__); \
+	printk (KERN_ERR "JBD unimplemented function %s\n", __func__); \
 	current->state = TASK_UNINTERRUPTIBLE;			           \
 	schedule();						           \
 } while (1)
@@ -1232,6 +1299,12 @@ extern int jbd_blocks_per_page(struct inode *inode);
 #define BUFFER_TRACE(bh, info)	do {} while (0)
 #define BUFFER_TRACE2(bh, bh2, info)	do {} while (0)
 #define JBUFFER_TRACE(jh, info)	do {} while (0)
+
+/* 
+ * jbd2_dev_to_name is a utility function used by the jbd2 and ext4 
+ * tracing infrastructure to map a dev_t to a device name.
+ */
+extern const char *jbd2_dev_to_name(dev_t device);
 
 #endif	/* __KERNEL__ */
 
