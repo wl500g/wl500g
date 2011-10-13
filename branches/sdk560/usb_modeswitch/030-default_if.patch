@@ -2,6 +2,8 @@ commit 6ba592574d59bf9ab3aa890f536b00acc60b9095
 Author: Alexander Gordeev <lasaine@lvk.cs.msu.su>
 Date:   Wed Aug 31 12:01:04 2011 +0400
 
+    Applicable for usb_modeswitch + libusb-1.0
+   
     use the first available interface instead of zero
    
     In some broken devices interface numbers start from 1 while in other devices
@@ -25,17 +27,19 @@ index 73d7e5d..701dbda 100644
  
  
  static struct option long_options[] = {
-@@ -437,6 +437,15 @@ int main(int argc, char **argv)
+@@ -437,6 +437,17 @@ int main(int argc, char **argv)
  			defaultClass = 8;
  		}
  
-+   if (Interface == -1) {
++	if (Interface == -1) {
 +		struct libusb_config_descriptor *config;
 +
-+		if (libusb_get_active_config_descriptor(dev, &config) < 0)
++		if (libusb_get_active_config_descriptor(dev, &config) < 0) {
 +			Interface = 0;
-+		else
++		} else {
 +			Interface = config[0].interface[0].altsetting[0].bInterfaceNumber;
++			libusb_free_config_descriptor(config);
++		}
 +	}
 +
  	/* Check or get endpoints */
