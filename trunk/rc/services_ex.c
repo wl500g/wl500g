@@ -614,35 +614,35 @@ stop_ddns(void)
 int start_logger(void)
 {
 	pid_t pid;
-	int i = 12;
-
-#if 0
-	if (nvram_match("router_disable", "1"))
-		return 0;
-#endif
-
+	int i;
 	char *syslogd_argv[] = {"syslogd",
 		"-m", "0",
 		"-O", "/tmp/syslog.log",
 		"-S", "-D",
 		"-l", nvram_safe_get("log_level_x"),
 		"-b", "1",
-		"-L",
-		NULL, NULL, NULL, NULL};
+		NULL, NULL,	/* -LR addr */
+		NULL, NULL,	/* -s size */
+		NULL
+	};
 	char *klogd_argv[] = {"klogd", NULL};
+
+#if 0
+	if (nvram_match("router_disable", "1"))
+		return 0;
+#endif
+	/* first empty arg */
+	for (i = 0; syslogd_argv[i]; i++);
 
 	/* -l argument */
 	if (!*syslogd_argv[8])
 		syslogd_argv[8] = "7";
 
-	/* -R argument */
-	syslogd_argv[i+1] = nvram_safe_get("log_ipaddr");
-	if (!*syslogd_argv[i+1])
+	if (nvram_invmatch("log_ipaddr", ""))
 	{
-		syslogd_argv[i++] = "-R";
-		i++;
+		syslogd_argv[i++] = "-LR";
+		syslogd_argv[i++] = nvram_safe_get("log_ipaddr");
 	}
-
 	if (router_totalram() <= 16*1024*1024 /* 16MB */)
 	{
 		syslogd_argv[i++] = "-s";
@@ -653,6 +653,8 @@ int start_logger(void)
 	usleep(500000);
 	_eval(klogd_argv, NULL, 0, &pid);
 	// remote log not easy to ok
+	//usleep(500000);
+
 	return 0;
 }
 
