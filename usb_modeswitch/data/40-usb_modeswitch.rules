@@ -1,6 +1,6 @@
-# Part of usb-modeswitch-data, version 20111007
+# Part of usb-modeswitch-data, version 20111012
 #
-# Recommended use with USB_ModeSwitch >= 1.1.2, can be used with >= 1.0.3
+# Recommended use with USB_ModeSwitch >= 1.1.2, works with versions >= 1.0.3
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -10,7 +10,7 @@ KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --sym
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
-# Adds the device ID to the "option" driver after warm boot
+# Adds the device ID to the "option" driver after a warm boot
 # in cases when the device is yet unknown to the driver; checked
 # against a list of known modems, or else no action
 ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurations}=="*", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
@@ -18,8 +18,8 @@ ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurati
 # Most known install partitions are on interface 0, one on 5, one on 9
 ATTRS{bInterfaceNumber}!="0[059]", GOTO="modeswitch_rules_end"
 
-# only storage class devices are handled; negative filtering
-# here would exclude some quirky devices
+# only storage class devices are handled; negative
+# filtering here would exclude some quirky devices
 ATTRS{bDeviceClass}=="08", GOTO="modeswitch_rules_begin"
 ATTRS{bInterfaceClass}=="0[38]", GOTO="modeswitch_rules_begin"
 GOTO="modeswitch_rules_end"
@@ -42,6 +42,9 @@ ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0622", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-18
 ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0627", RUN+="usb_modeswitch '%b/%k'"
 
+# Nokia CS-19
+ATTRS{idVendor}=="0421", ATTRS{idProduct}=="062c", RUN+="usb_modeswitch '%b/%k'"
+
 # Vodafone MD950 (Wisue Technology), Philips (?)
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
@@ -60,14 +63,17 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Quirky Option devices, Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201
+# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
-# HSDPA USB modem from dealextreme 
+# HSDPA USB modem from dealextreme
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
+
+# AnyDATA APE-540H
+ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="6503", RUN+="usb_modeswitch '%b/%k'"
 
 # Siptune LM-75 ("LinuxModem")
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
@@ -393,6 +399,9 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1557", RUN+="usb_modeswitch '%b/%k'"
 # Huawei E173s
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1c0b", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei ET302
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1d50", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei ET8282 
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1da1", RUN+="usb_modeswitch '%b/%k'"
 
@@ -416,6 +425,9 @@ ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5031", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Generic MiFi 2352 / Vodafone MiFi 2352
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5041", RUN+="usb_modeswitch '%b/%k'"
+
+# Novatel Wireless MC545 HSPA
+ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5059", RUN+="usb_modeswitch '%b/%k'"
 
 # Sequans SQN1210/SQN1220 (generic chipsets)
 ATTRS{idVendor}=="148e", ATTRS{idProduct}=="a000", RUN+="usb_modeswitch '%b/%k'"
@@ -477,6 +489,9 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0115", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF190 (Variant)
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0149", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF820 4G LTE
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0166", RUN+="usb_modeswitch '%b/%k'"
+
 # Vodafone (ZTE) K3805-Z
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 
@@ -507,11 +522,17 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1216", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF190
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1224", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF192 (Variant)
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1517", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE devices
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE AX226 WiMax
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="bccd", RUN+="usb_modeswitch '%b/%k'"
+
+# ZTE AC682 (a.k.a. SmartFren Connex)
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="ffde", RUN+="usb_modeswitch '%b/%k'"
 
 # ZTE "ffe" devices 1 (e.g. Cricket A605)
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="ffe6", RUN+="usb_modeswitch '%b/%k'"
@@ -534,6 +555,9 @@ ATTRS{idVendor}=="1b7d", ATTRS{idProduct}=="0700", RUN+="usb_modeswitch '%b/%k'"
 # Alcatel X200/X200L/X060S
 ATTRS{idVendor}=="1bbb", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
+# Alcatel OT X220L
+ATTRS{idVendor}=="1bbb", ATTRS{idProduct}=="f052", RUN+="usb_modeswitch '%b/%k'"
+
 # Alcatel One Touch X020
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 
@@ -555,8 +579,14 @@ ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # Solomon S3Gm-660
 ATTRS{idVendor}=="1dd6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
+# Philips PicoPix 1020 Projector
+ATTRS{idVendor}=="1de1", ATTRS{idProduct}=="1101", RUN+="usb_modeswitch '%b/%k'"
+
 # Option iCON 210, PROLiNK PHS100, Hyundai MB-810, A-Link 3GU
 ATTRS{idVendor}=="1e0e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# 3GO 3GO11 HSUPA
+ATTRS{idVendor}=="1e89", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # AirPlus MCD-800
 ATTRS{idVendor}=="1edf", ATTRS{idProduct}=="6003", RUN+="usb_modeswitch '%b/%k'"
