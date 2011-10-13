@@ -280,7 +280,7 @@ diff --git a/Documentation/filesystems/ext4.txt b/Documentation/filesystems/ext4
  metadata into a consistent state.  This mode is the slowest except when data
  needs to be read from and written to disk at the same time where it
 -outperforms all others modes.
-+outperforms all others modes.  Curently ext4 does not have delayed
++outperforms all others modes.  Currently ext4 does not have delayed
 +allocation support if this data journalling mode is selected.
  
  References
