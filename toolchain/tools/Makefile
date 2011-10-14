@@ -9,8 +9,9 @@
 curdir:=tools
 
 # subdirectories to descend into
-tools-y := pkg-config automake $(if $(CONFIG_CCACHE),ccache)
+tools-y := pkg-config automake
 tools-$(CONFIG_GCC_VERSION_4_3)$(CONFIG_GCC_VERSION_4_4) += gmp mpfr
+tools-$(CONFIG_CCACHE) += ccache
 #tools-y += sed sstrip ipkg-utils bison
 $(curdir)/builddirs := $(tools-y)
 

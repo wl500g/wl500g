@@ -8,12 +8,11 @@ include $(TOPDIR)/rules.mk
 #include $(INCLUDE_DIR)/target.mk
 
 PKG_NAME:=ccache
-PKG_VERSION:=3.1.3
+PKG_VERSION:=3.1.6
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.bz2
 PKG_SOURCE_URL:=http://samba.org/ftp/ccache/
-PKG_MD5SUM:=b952d75e9ca37209d608ea58d84135cd
-PKG_CAT:=zcat
+PKG_MD5SUM:=343dc9b642e1d2af1e6bd8e474dde92e
 
 include $(INCLUDE_DIR)/host-build.mk
 
@@ -23,9 +22,7 @@ ifneq ($(strip $(shell which ccache >/dev/null && echo found)),found)
   endef
 
   define Build/Install
-	$(MAKE) -C $(PKG_BUILD_DIR) \
-		DESTDIR="$(STAGING_DIR_HOST)" \
-		install
+	$(MAKE) -C $(PKG_BUILD_DIR) install
   endef
 
   define Build/Clean
