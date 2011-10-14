@@ -1,7 +1,7 @@
  Add compatibility with old uClibc versions less than 0.9.28 but newer than 0.9.15
   dl-hash.c name mapper adds thunk to  __uClibc_start_main  function
 
-diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
+diff -urBp a/ldso/ldso/dl-hash.c b/ldso/ldso/dl-hash.c
 --- a/ldso/ldso/dl-hash.c
 +++ b/ldso/ldso/dl-hash.c
 @@ -268,6 +268,23 @@ _dl_lookup_sysv_hash(struct elf_resolve
@@ -28,7 +28,7 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
  /*
   * This function resolves externals, and this is either called when we process
   * relocations or when we call an entry in the PLT table for the first time.
-@@ -326,6 +343,11 @@ char *_dl_find_hash(const char *name, st
+@@ -326,6 +343,10 @@ char *_dl_find_hash(const char *name, st
  			if (sym != NULL)
  				/* If sym has been found, do not search further */
  				break;
@@ -36,7 +36,6 @@ diff -urBp uClibc-0.9.30.1/ldso/ldso/dl-hash.c uClibc/ldso/ldso/dl-hash.c
 +			/* Check for unresolved old main entry */
 +			if (gnu_hash_number == _Start_Old_main_gnu_hash)
 +				goto chk_old_main;
-+			}
  		} else {
  #endif
  		/* Use the old SysV-style hash table */
