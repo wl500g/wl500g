@@ -1,0 +1,74 @@
+We've discovered a small memory leak in __dns_lookup() when the A record 
+in the DNS answer is preceded by one or more CNAME records.
+
+This can be reproduced by performing a gethostbyname() lookup on
+"www.google.com" or "www.yahoo.com".  After each CNAME record,
+__dns_lookup() leaks by 256 bytes.
+
+=====================================
+The problem code is in this segment:
+
+        first_answer = 1;
+        for (j = 0; j < h.ancount; j++) {
+            i = __decode_answer(packet, pos, packet_len, &ma);
+
+            <...snipped code for brevity...>
+
+            if (first_answer) {
+                ma.buf = a->buf;
+                ma.buflen = a->buflen;
+                ma.add_count = a->add_count;
+                memcpy(a, &ma, sizeof(ma));
+                if (a->atype != T_SIG && (NULL == a->buf || (type != T_A && type != T_AAAA)))
+                    break;
+                if (a->atype != type)
+                    continue;
+                a->add_count = h.ancount - j - 1;
+                if ((a->rdlength + sizeof(struct in_addr*)) * a->add_count > a->buflen)
+                    break;
+                a->add_count = 0;
+                first_answer = 0;
+            } else {
+=====================================
+
+On the first time through the loop (j == 0) with the CNAME record, 
+ma.dotted is alloc'ed using a strdup() in decode_answer(), and memcpy() 
+copies it to a->dotted. The loop is continued at "if (a->atype != type)".
+
+On the second time through the loop (j == 1), ma.dotted is again 
+alloc'ed in decode_answer().  Now we have two allocated segments, one
+pointed-to by ma.dotted, and the other pointed-to by a->dotted.
+But memcpy() will over-write the pointer stored at a->dotted.
+
+My proposed solution is to check a->dotted before the memcpy() and free() 
+it if it is non-NULL. (See the attached patch.)
+
+I've tested my solution with a number of different public DNS servers
+resolving a variety of names, but we're using an older version of uClibc.
+
+This leak was introduced in April 2010 when a similar free() call was
+removed for the test case when a DNS server returns a lone CNAME record.
+(ipv6.google.com)
+
+--
+Tim Holdener
+
+--- uClibc-0.9.32.orig/libc/inet/resolv.c	2011-10-12 04:28:18.000000000 -0700
++++ uClibc-0.9.32/libc/inet/resolv.c	2011-10-13 15:59:05.000000000 -0700
+@@ -1503,6 +1503,7 @@
+ 		DPRINTF("Decoding answer at pos %d\n", pos);
+ 
+ 		first_answer = 1;
++		a->dotted = NULL;
+ 		for (j = 0; j < h.ancount; j++) {
+ 			i = __decode_answer(packet, pos, packet_len, &ma);
+ 			if (i < 0) {
+@@ -1519,6 +1520,7 @@
+ 				ma.buf = a->buf;
+ 				ma.buflen = a->buflen;
+ 				ma.add_count = a->add_count;
++				free(a->dotted);
+ 				memcpy(a, &ma, sizeof(ma));
+ 				if (a->atype != T_SIG && (NULL == a->buf || (type != T_A && type != T_AAAA)))
+ 					break;
+-- 
