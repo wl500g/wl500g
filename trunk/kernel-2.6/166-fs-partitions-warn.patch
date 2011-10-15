@@ -1,0 +1,141 @@
+fs/partition: Fix return value warnings
+
+ d805dda412346225a50af2d399d958a4bc676c38 fs/partition/check.c: fix return value warning
+ 88e341261ca4d39eec21b212961c77eff51105f7 block: update add_partition() error handling
+
+---
+ block/ioctl.c         |    4 ++--
+ fs/partitions/check.c |   40 ++++++++++++++++++++++++++++++++--------
+ include/linux/genhd.h |    2 +-
+ 3 files changed, 35 insertions(+), 11 deletions(-)
+
+diff --git a/block/ioctl.c b/block/ioctl.c
+--- a/block/ioctl.c
++++ b/block/ioctl.c
+@@ -43,12 +43,9 @@ static int blkpg_ioctl(struct block_device *bdev, struct blkpg_ioctl_arg __user
+ 				    || pstart < 0 || plength < 0)
+ 					return -EINVAL;
+ 			}
+-			/* partition number in use? */
++
+ 			mutex_lock(&bdev->bd_mutex);
+-			if (disk->part[part - 1]) {
+-				mutex_unlock(&bdev->bd_mutex);
+-				return -EBUSY;
+-			}
++
+ 			/* overlap? */
+ 			for (i = 0; i < disk->minors - 1; i++) {
+ 				struct hd_struct *s = disk->part[i];
+@@ -61,9 +61,9 @@ static int blkpg_ioctl(struct block_devi
+ 				}
+ 			}
+ 			/* all seems OK */
+-			add_partition(disk, part, start, length, ADDPART_FLAG_NONE);
++			i = add_partition(disk, part, start, length, ADDPART_FLAG_NONE);
+ 			mutex_unlock(&bdev->bd_mutex);
+-			return 0;
++			return i;
+ 		case BLKPG_DEL_PARTITION:
+ 			if (!disk->part[part-1])
+ 				return -ENXIO;
+diff --git a/fs/partitions/check.c b/fs/partitions/check.c
+--- a/fs/partitions/check.c
++++ b/fs/partitions/check.c
+@@ -382,17 +382,21 @@ void delete_partition(struct gendisk *di
+ 	kobject_put(&p->kobj);
+ }
+ 
+-void add_partition(struct gendisk *disk, int part, sector_t start, sector_t len, int flags)
++int add_partition(struct gendisk *disk, int part, sector_t start, sector_t len, int flags)
+ {
+ 	struct hd_struct *p;
++	int err;
++
++	if (disk->part[part - 1])
++		return -EBUSY;
+ 
+ 	p = kzalloc(sizeof(*p), GFP_KERNEL);
+ 	if (!p)
+-		return;
++		return -ENOMEM;
+ 	
+ 	if (!init_part_stats(p)) {
+-		kfree(p);
+-		return;
++		err = -ENOMEM;
++		goto out0;
+ 	}
+ 	p->start_sect = start;
+ 	p->nr_sects = len;
+@@ -406,10 +410,14 @@ void add_partition(struct gendisk *disk,
+ 	p->kobj.parent = &disk->kobj;
+ 	p->kobj.ktype = &ktype_part;
+ 	kobject_init(&p->kobj);
+-	kobject_add(&p->kobj);
++	err = kobject_add(&p->kobj);;
++	if (err)
++		goto out1;
+ 	if (!disk->part_uevent_suppress)
+ 		kobject_uevent(&p->kobj, KOBJ_ADD);
+-	sysfs_create_link(&p->kobj, &block_subsys.kobj, "subsystem");
++	err = sysfs_create_link(&p->kobj, &block_subsys.kobj, "subsystem");
++	if (err)
++		goto out2;
+ 	if (flags & ADDPART_FLAG_WHOLEDISK) {
+ 		static struct attribute addpartattr = {
+ 			.name = "whole_disk",
+@@ -417,10 +425,24 @@ void add_partition(struct gendisk *disk,
+ 			.owner = THIS_MODULE,
+ 		};
+ 
+-		sysfs_create_file(&p->kobj, &addpartattr);
++		err = sysfs_create_file(&p->kobj, &addpartattr);
++		if (err)
++			goto out2;
+ 	}
+ 	partition_sysfs_add_subdir(p);
+ 	disk->part[part-1] = p;
++
++	return 0;
++
++out2:
++	if (!disk->part_uevent_suppress)
++		kobject_uevent(&p->kobj, KOBJ_REMOVE);
++	kobject_del(&p->kobj);
++out1:
++	free_part_stats(p);
++out0:
++	kfree(p);
++	return err;
+ }
+ 
+ static char *make_block_name(struct gendisk *disk)
+@@ -591,7 +613,12 @@ int rescan_partitions(struct gendisk *di
+ 			       disk->disk_name, p, (unsigned long long) size);
+ 			size = get_capacity(disk) - from;
+ 		}
+-		add_partition(disk, p, from, size, state->parts[p].flags);
++		res = add_partition(disk, p, from, size, state->parts[p].flags);
++		if (res) {
++			printk(KERN_ERR " %s: p%d could not be added: %d\n",
++			       disk->disk_name, p, res);
++			continue;
++		}
+ #ifdef CONFIG_BLK_DEV_MD
+ 		if (state->parts[p].flags & ADDPART_FLAG_RAID)
+ 			md_autodetect_dev(bdev->bd_dev+p);
+diff --git a/include/linux/genhd.h b/include/linux/genhd.h
+--- a/include/linux/genhd.h
++++ b/include/linux/genhd.h
+@@ -541,7 +541,7 @@ extern dev_t blk_lookup_devt(const char *name, int part);
+ extern char *disk_name (struct gendisk *hd, int part, char *buf);
+ 
+ extern int rescan_partitions(struct gendisk *disk, struct block_device *bdev);
+-extern void add_partition(struct gendisk *, int, sector_t, sector_t, int);
++extern int __must_check add_partition(struct gendisk *, int, sector_t, sector_t, int);
+ extern void delete_partition(struct gendisk *, int);
+ extern void printk_all_partitions(void);
+ 
+-- 
+1.7.6.2
