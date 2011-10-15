@@ -151,7 +151,7 @@ static preset_t presets[] = {
 	{NULL},
 };
 static preset_t defopt =
-	{NULL, -1, -1, -1, -1, -1, -1, -1};
+	{NULL, -1, -1, -1, -1, -1, -2, -1};
 
 static led_t leds[] = {
 	[LED_PWR] = {"pwr"},
@@ -279,7 +279,7 @@ static void gpio_write(unsigned int mask, unsigned int value)
 static unsigned int gpio_read(unsigned int mask)
 {
 	unsigned int val = 0;
-	int fd = open("/dev/gpio/in", , O_RDWR);
+	int fd = open("/dev/gpio/in", O_RDWR);
 
 	if (fd < 0)
 		return 0;
@@ -443,7 +443,7 @@ static led_t *search_led(char *name, platform_t *platform)
 static void print_preset(preset_t *p)
 {
 	printf("%s%s-c%d -n%d -s%d -d%d -e%d %s\n",
-		p->negative ? "-n " : "",
+		p->negative ? "-g " : "",
 		p->def_off > 0 ? "-f " : "",
 		p->count,
 		p->cycles,
@@ -528,7 +528,7 @@ static int h_usage(char *name)
 int main(int argc, char *argv[])
 {
 	FILE *pidfile;
-	char *led_name;
+	char *led_name, *set_name;
 	char *opt_pidfile = NULL;
 	int opt_prprint = 0;
 	int opt_bfork = 0;
@@ -578,73 +578,80 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "No known hardware detected.\n");
 	}
 
-	led_name = argv[optind];
-	if (!led_name)
-		return h_usage(argv[0]);
+	/* pwr by default, if not specified */
+	if (argv[optind]) {
+		led_name = argv[optind++];
+		set_name = argv[optind++];
+	} else {
+		led_name = leds[LED_PWR].name;
+		set_name = NULL;
+	}
 
 	/* gpio [led_name] ... */
 	if ((led = search_led(led_name, platform)) != NULL) {
 		mask = led->mask;
 		value = led->value;
-		optind++;
 	} else
 	/* gpio [gpio] ... */
 	if ((i = strtoi(led_name, 0, 31)) >= 0) {
 		mask = 1 << i;
 		value = 1 << i;
-		optind++;
 		opt_read = 1;
 	} else
 	/* gpio [preset] ... */
 	if ((preset = search_preset(led_name)) != NULL &&
+	    (set_name = led_name) &&
 	    (led_name = leds[LED_PWR].name) &&
 	    (led = search_led(led_name, platform)) != NULL) {
 		mask = led->mask;
 		value = led->value;
 	} else {
-		fprintf(stderr, "ERROR: led/gpio '%s' not valid\n", led_name);
+		fprintf(stderr, "ERROR: led/gpio/preset '%s' not valid\n", led_name);
 		return 1;
 	}
 
-	if (!argv[optind]) {
-		if (opt_read)
+	/* gpio [opts] */
+	if (!set_name) {
+		if (opt_read) {
 			fprintf(stdout, "%d\n", gpio_read(mask) == mask ? 1 : 0);
-		return opt_read ? 0 : h_usage(argv[0]);
-	}
-
+			return 0;
+		}
+		preset = search_preset("on");
+	} else
 	/* gpio ... [preset] */
-	if ((preset = search_preset(argv[optind])) != NULL) {
+	if ((preset = search_preset(set_name)) != NULL) {
 		opt.name = preset->name;
-		if (opt.count == defopt.count)
-			opt.count = preset->count;
-		if (opt.cycles == defopt.cycles) 
-			opt.cycles = preset->cycles;
-		if (opt.offdur == defopt.offdur)
-			opt.offdur = preset->offdur;
-		if (opt.ondur == defopt.ondur)
-			opt.ondur = preset->ondur;
-		if (opt.sleep == defopt.sleep)
-			opt.sleep = preset->sleep;
-		if (opt.negative == defopt.negative)
-			opt.negative = preset->negative;
-		if (opt.def_off	== defopt.def_off)
-			opt.def_off = preset->def_off;
 	} else
 	/* gpio ... <gpio_val> */
-	if ((i = strtoi(argv[optind], 0, 1)) >= 0) {
+	if ((i = strtoi(set_name, 0, 1)) >= 0) {
 		if (opt_read)
 			fprintf(stdout, "%d\n", gpio_read(mask) == mask ? 1 : 0);
 		gpio_write(mask, i ? mask : ~mask);
 		return 0;
 	} else {
-		fprintf(stderr, "ERROR: preset/value '%s' not valid\n", argv[optind]);
+		fprintf(stderr, "ERROR: preset/value '%s' not valid\n", set_name);
 		return 1;
 	}
 
-	preset = &opt;
-	if (!memcmp(preset, &defopt, sizeof(preset_t)))
+	if (!memcmp(&opt, &defopt, sizeof(preset_t)))
 		return h_usage(argv[0]);
-	else
+
+	if (opt.count <= defopt.count)
+		opt.count = preset->count;
+	if (opt.cycles <= defopt.cycles) 
+		opt.cycles = preset->cycles;
+	if (opt.offdur <= defopt.offdur)
+		opt.offdur = preset->offdur;
+	if (opt.ondur <= defopt.ondur)
+		opt.ondur = preset->ondur;
+	if (opt.sleep <= defopt.sleep)
+		opt.sleep = preset->sleep;
+	if (opt.negative <= defopt.negative)
+		opt.negative = preset->negative;
+	if (opt.def_off	<= defopt.def_off)
+		opt.def_off = preset->def_off;
+
+	preset = &opt;
 	if (opt_prprint) {
 		print_preset(preset);
 		return 0;
