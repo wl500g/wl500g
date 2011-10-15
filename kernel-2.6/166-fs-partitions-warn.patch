@@ -55,7 +55,7 @@ diff --git a/fs/partitions/check.c b/fs/partitions/check.c
 +	if (disk->part[part - 1])
 +		return -EBUSY;
  
- 	p = kzalloc(sizeof(*p), GFP_KERNEL);
+ 	p = kmalloc(sizeof(*p), GFP_KERNEL);
  	if (!p)
 -		return;
 +		return -ENOMEM;
@@ -66,8 +66,8 @@ diff --git a/fs/partitions/check.c b/fs/partitions/check.c
 +		err = -ENOMEM;
 +		goto out0;
  	}
+ 	memset(p, 0, sizeof(*p));
  	p->start_sect = start;
- 	p->nr_sects = len;
 @@ -406,10 +410,14 @@ void add_partition(struct gendisk *disk,
  	p->kobj.parent = &disk->kobj;
  	p->kobj.ktype = &ktype_part;
