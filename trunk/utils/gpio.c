@@ -186,7 +186,7 @@ static platform_t platforms[] = {
 #endif
 	{MDL_WL550GE,	"ASUS WL-550gE",		{_PWR(GPIO2, 0)}},
 	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, GPIO1)}},
-	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0)}},
+	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, GPIO7)}},
 	{MDL_RTN12,	"ASUS RT-N12",			{_PWR(GPIO2, 0)}},
 	{MDL_RTN10,	"ASUS RT-N10",			{_PWR(GPIO1, 0)}},
 	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0)}},
