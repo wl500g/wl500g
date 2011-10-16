@@ -1,0 +1,240 @@
+From 0ed361dec36945f3116ee1338638ada9a8920905
+From: Nick Piggin
+Date: Mon, 4 Feb 2008 22:29:34 -0800
+Subject: [PATCH] mm: fix PageUptodate data race
+
+After running SetPageUptodate, preceeding stores to the page contents to
+actually bring it uptodate may not be ordered with the store to set the
+page uptodate.
+
+Therefore, another CPU which checks PageUptodate is true, then reads the
+page contents can get stale data.
+
+Fix this by having an smp_wmb before SetPageUptodate, and smp_rmb after
+PageUptodate.
+
+Many places that test PageUptodate, do so with the page locked, and this
+would be enough to ensure memory ordering in those places if
+SetPageUptodate were only called while the page is locked.  Unfortunately
+that is not always the case for some filesystems, but it could be an idea
+for the future.
+
+Also bring the handling of anonymous page uptodateness in line with that of
+file backed page management, by marking anon pages as uptodate when they
+_are_ uptodate, rather than when our implementation requires that they be
+marked as such.  Doing allows us to get rid of the smp_wmb's in the page
+copying functions, which were especially added for anonymous pages for an
+analogous memory ordering problem.  Both file and anonymous pages are
+handled with the same barriers.
+
+FAQ:
+Q. Why not do this in flush_dcache_page?
+A. Firstly, flush_dcache_page handles only one side (the smb side) of the
+ordering protocol; we'd still need smp_rmb somewhere. Secondly, hiding away
+memory barriers in a completely unrelated function is nasty; at least in the
+PageUptodate macros, they are located together with (half) the operations
+involved in the ordering. Thirdly, the smp_wmb is only required when first
+bringing the page uptodate, wheras flush_dcache_page should be called each time
+it is written to through the kernel mapping. It is logically the wrong place to
+put it.
+
+Q. Why does this increase my text size / reduce my performance / etc.
+A. Because it is adding the necessary instructions to eliminate the data-race.
+
+Q. Can it be improved?
+A. Yes, eg. if you were to create a rule that all SetPageUptodate operations
+run under the page lock, we could avoid the smp_rmb places where PageUptodate
+is queried under the page lock. Requires audit of all filesystems and at least
+some would need reworking. That's great you're interested, I'm eagerly awaiting
+your patches.
+
+Signed-off-by: Nick Piggin <npiggin@suse.de>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+---
+ include/linux/highmem.h    |    4 ----
+ include/linux/page-flags.h |   42 +++++++++++++++++++++++++++++++++++++++---
+ mm/hugetlb.c               |    2 ++
+ mm/memory.c                |    9 +++++----
+ mm/page_io.c               |    2 +-
+ mm/swap_state.c            |    2 +-
+ 6 files changed, 48 insertions(+), 13 deletions(-)
+
+diff --git a/include/linux/highmem.h b/include/linux/highmem.h
+index 61a5e5e..7dcbc82 100644
+--- a/include/linux/highmem.h
++++ b/include/linux/highmem.h
+@@ -68,8 +68,6 @@ static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
+ 	void *addr = kmap_atomic(page, KM_USER0);
+ 	clear_user_page(addr, vaddr, page);
+ 	kunmap_atomic(addr, KM_USER0);
+-	/* Make sure this page is cleared on other CPU's too before using it */
+-	smp_wmb();
+ }
+ 
+ #ifndef __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
+@@ -172,8 +170,6 @@ static inline void copy_user_highpage(struct page *to, struct page *from,
+ 	copy_user_page(vto, vfrom, vaddr, to);
+ 	kunmap_atomic(vfrom, KM_USER0);
+ 	kunmap_atomic(vto, KM_USER1);
+-	/* Make sure this page is cleared on other CPU's too before using it */
+-	smp_wmb();
+ }
+ 
+ #endif
+diff --git a/include/linux/page-flags.h b/include/linux/page-flags.h
+index 209d3a4..bbad43f 100644
+--- a/include/linux/page-flags.h
++++ b/include/linux/page-flags.h
+@@ -131,16 +131,52 @@
+ #define ClearPageReferenced(page)	clear_bit(PG_referenced, &(page)->flags)
+ #define TestClearPageReferenced(page) test_and_clear_bit(PG_referenced, &(page)->flags)
+ 
+-#define PageUptodate(page)	test_bit(PG_uptodate, &(page)->flags)
++static inline int PageUptodate(struct page *page)
++{
++	int ret = test_bit(PG_uptodate, &(page)->flags);
++
++	/*
++	 * Must ensure that the data we read out of the page is loaded
++	 * _after_ we've loaded page->flags to check for PageUptodate.
++	 * We can skip the barrier if the page is not uptodate, because
++	 * we wouldn't be reading anything from it.
++	 *
++	 * See SetPageUptodate() for the other side of the story.
++	 */
++	if (ret)
++		smp_rmb();
++
++	return ret;
++}
++
++static inline void __SetPageUptodate(struct page *page)
++{
++	smp_wmb();
++	__set_bit(PG_uptodate, &(page)->flags);
+ #ifdef CONFIG_S390
++	page_clear_dirty(page);
++#endif
++}
++
+ static inline void SetPageUptodate(struct page *page)
+ {
++#ifdef CONFIG_S390
+ 	if (!test_and_set_bit(PG_uptodate, &page->flags))
+ 		page_clear_dirty(page);
+-}
+ #else
+-#define SetPageUptodate(page)	set_bit(PG_uptodate, &(page)->flags)
++	/*
++	 * Memory barrier must be issued before setting the PG_uptodate bit,
++	 * so that all previous stores issued in order to bring the page
++	 * uptodate are actually visible before PageUptodate becomes true.
++	 *
++	 * s390 doesn't need an explicit smp_wmb here because the test and
++	 * set bit already provides full barriers.
++	 */
++	smp_wmb();
++	set_bit(PG_uptodate, &(page)->flags);
+ #endif
++}
++
+ #define ClearPageUptodate(page)	clear_bit(PG_uptodate, &(page)->flags)
+ 
+ #define PageDirty(page)		test_bit(PG_dirty, &(page)->flags)
+diff --git a/mm/hugetlb.c b/mm/hugetlb.c
+index db861d8..1a56420 100644
+--- a/mm/hugetlb.c
++++ b/mm/hugetlb.c
+@@ -813,6 +813,7 @@ static int hugetlb_cow(struct mm_struct *mm, struct vm_area_struct *vma,
+ 
+ 	spin_unlock(&mm->page_table_lock);
+ 	copy_huge_page(new_page, old_page, address, vma);
++	__SetPageUptodate(new_page);
+ 	spin_lock(&mm->page_table_lock);
+ 
+ 	ptep = huge_pte_offset(mm, address & HPAGE_MASK);
+@@ -858,6 +859,7 @@ retry:
+ 			goto out;
+ 		}
+ 		clear_huge_page(page, address);
++		__SetPageUptodate(page);
+ 
+ 		if (vma->vm_flags & VM_SHARED) {
+ 			int err;
+diff --git a/mm/memory.c b/mm/memory.c
+index 6a9c048..7bb7072 100644
+--- a/mm/memory.c
++++ b/mm/memory.c
+@@ -1518,10 +1518,8 @@ static inline void cow_user_page(struct page *dst, struct page *src, unsigned lo
+ 			memset(kaddr, 0, PAGE_SIZE);
+ 		kunmap_atomic(kaddr, KM_USER0);
+ 		flush_dcache_page(dst);
+-		return;
+-
+-	}
+-	copy_user_highpage(dst, src, va, vma);
++	} else
++		copy_user_highpage(dst, src, va, vma);
+ }
+ 
+ /*
+@@ -1630,6 +1628,7 @@ gotten:
+ 			goto oom;
+ 		cow_user_page(new_page, old_page, address, vma);
+ 	}
++	__SetPageUptodate(new_page);
+ 
+ 	/*
+ 	 * Re-check the pte - we dropped the lock
+@@ -2102,6 +2101,7 @@ static int do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
+ 		page = alloc_zeroed_user_highpage_movable(vma, address);
+ 		if (!page)
+ 			goto oom;
++		__SetPageUptodate(page);
+ 
+ 		entry = mk_pte(page, vma->vm_page_prot);
+ 		entry = maybe_mkwrite(pte_mkdirty(entry), vma);
+@@ -2202,6 +2202,7 @@ static int __do_fault(struct mm_struct *mm, struct vm_area_struct *vma,
+ 				goto out;
+ 			}
+ 			copy_user_highpage(page, vmf.page, address, vma);
++			__SetPageUptodate(page);
+ 		} else {
+ 			/*
+ 			 * If the page will be shareable, see if the backing
+diff --git a/mm/page_io.c b/mm/page_io.c
+index 3b97f68..065c448 100644
+--- a/mm/page_io.c
++++ b/mm/page_io.c
+@@ -126,7 +126,7 @@ int swap_readpage(struct file *file, struct page *page)
+ 	int ret = 0;
+ 
+ 	BUG_ON(!PageLocked(page));
+-	ClearPageUptodate(page);
++	BUG_ON(PageUptodate(page));
+ 	bio = get_swap_bio(GFP_KERNEL, page_private(page), page,
+ 				end_swap_bio_read);
+ 	if (bio == NULL) {
+diff --git a/mm/swap_state.c b/mm/swap_state.c
+index 65b81c9..ec42f01 100644
+--- a/mm/swap_state.c
++++ b/mm/swap_state.c
+@@ -125,6 +125,7 @@ int add_to_swap(struct page * page, gfp_t gfp_mask)
+ 	int err;
+ 
+ 	BUG_ON(!PageLocked(page));
++	BUG_ON(!PageUptodate(page));
+ 
+ 	for (;;) {
+ 		entry = get_swap_page();
+@@ -147,7 +148,6 @@ int add_to_swap(struct page * page, gfp_t gfp_mask)
+ 
+ 		switch (err) {
+ 		case 0:				/* Success */
+-			SetPageUptodate(page);
+ 			SetPageDirty(page);
+ 			return 1;
+ 		case -EEXIST:
+-- 
+1.7.6.2
