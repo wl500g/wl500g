@@ -131,10 +131,6 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 	int s, ret = 0;
 	struct rtentry rt;
 
-	/* Open a raw socket to the kernel */
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		return errno;
-
 	/* Fill in rtentry */
 	memset(&rt, 0, sizeof(rt));
 	if (dst)
@@ -151,11 +147,20 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 		rt.rt_flags |= RTF_HOST;
 	rt.rt_dev = name;
 
+	/* Filter out invalid host address */
+	if (rt.rt_flags & RTF_HOST &&
+	    sin_addr(&rt.rt_dst).s_addr == INADDR_ANY)
+		return EINVAL;
+
 	/* Force address family to AF_INET */
 	rt.rt_dst.sa_family = AF_INET;
 	rt.rt_gateway.sa_family = AF_INET;
 	rt.rt_genmask.sa_family = AF_INET;
-		
+
+	/* Open a raw socket to the kernel */
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		return errno;
+
 	if (ioctl(s, cmd, &rt) < 0)
 	{
 		ret = errno;
