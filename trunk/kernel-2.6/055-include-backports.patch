@@ -159,17 +159,26 @@ diff -uBp a/include/linux/compiler-gcc4.h b/include/linux/compiler-gcc4.h
 diff -uBp a/include/linux/compiler.h b/include/linux/compiler.h
 --- a/include/linux/compiler.h
 +++ b/include/linux/compiler.h
-@@ -15,8 +15,8 @@
+@@ -15,8 +15,9 @@
  # define __acquire(x)	__context__(x,1)
  # define __release(x)	__context__(x,-1)
  # define __cond_lock(x,c)	((c) ? ({ __acquire(x); 1; }) : 0)
 -extern void __chk_user_ptr(const void __user *);
 -extern void __chk_io_ptr(const void __iomem *);
++# define __percpu	__attribute__((noderef, address_space(3)))
 +extern void __chk_user_ptr(const volatile void __user *);
 +extern void __chk_io_ptr(const volatile void __iomem *);
  #else
  # define __user
  # define __kernel
+@@ -33,6 +33,7 @@ extern void __chk_io_ptr(const volatile
+ # define __acquire(x) (void)0
+ # define __release(x) (void)0
+ # define __cond_lock(x,c) (c)
++# define __percpu
+ #endif
+ 
+ #ifdef __KERNEL__
 @@ -44,6 +44,8 @@ extern void __chk_io_ptr(const volatile 
  # error Sorry, your compiler is too old/not recognized.
  #endif
