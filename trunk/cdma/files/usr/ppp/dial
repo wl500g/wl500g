@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # Universal 3G/CDMA moden connection script
-# ver 2.104 beta 22.04.2011
-# by dlukanidin
-
+# based on ver 2.104 by dlukanidin
+# $Id$
 
 # Path
 devpath_name='/proc/bus/usb/devpath'
@@ -94,13 +93,13 @@ check_usb_config(){
 
 	dataport=$(nvram get ${set_pref}pdata)
 	uiport=$(nvram get ${set_pref}pui)
-	auto=$(nvram get ${set_pref}apn)
+	auto=$(nvram get ${set_pref}autodetect)
 
 	nv_vid=$(nvram get ${set_pref}vid)
 	nv_pid=$(nvram get ${set_pref}pid)
 	nv_loc=$(nvram get ${set_pref}usbloc)
 	usbdev="${tts_port_path}0"
-	
+
 	for i in $(seq $number_of_modems); do
 		name=modem_$i
 		eval modem=\$$name
@@ -118,6 +117,10 @@ check_usb_config(){
 			fi
 		fi
 	done
+
+	if [ -z "$usbdev" ]; then
+		usbdev=/dev/ttyUSB
+	fi
 }
 
 write_chat_scenario() {
@@ -241,6 +244,22 @@ init_global
 load_drivers
 get_usb_structure
 check_usb_config
+
+count=$maxfail
+while [ ! -c $usbdev ] && [ "$count" -gt 0 ]; do
+	sleep 10
+	check_usb_config
+	count=$(($count - 1))
+done
+
+if [ ! -c $usbdev ]; then
+	if [ -e $failure_script_name ]; then
+		$failure_script_name $iface $usbdev -1
+	fi
+	logger "modem with dataport: $nv_loc.$dataport not found"
+	exit 0
+fi
+
 if [ "$dialenabled" != "1" ] || [ "$prepared" != "1" ]; then
 	exit 1
 fi
