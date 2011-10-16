@@ -140,7 +140,7 @@ stop_wimax(char *prefix)
 
 	dprintf( "%s", prefix );
 
-	killall("madwimax", 0);
+	killall("madwimax");
 	sleep(1);
 	unlink(wimax_events);
 	rmmod("tun");

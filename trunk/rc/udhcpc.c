@@ -400,8 +400,8 @@ start_zcip(char *wan_ifname)
 void
 stop_zcip(void)
 {
-	killall("zcip.script", -SIGTERM);
-	killall("zcip", 0);
+	killall_s("zcip.script", SIGTERM);
+	killall("zcip");
 }
 
 #ifdef __CONFIG_IPV6__
@@ -416,7 +416,7 @@ dhcp6c_main(int argc, char **argv)
 		update_resolvconf(wan_ifname, 2, 1);
 	}
 	// notify radvd of possible change
-	killall("radvd", -SIGHUP);
+	killall_s("radvd", SIGHUP);
 
 	return 0;
 }
@@ -472,7 +472,7 @@ start_dhcp6c(char *wan_ifname)
 void
 stop_dhcp6c(void)
 {
-	killall("dhcp6c.script", -SIGTERM);
+	killall_s("dhcp6c.script", SIGTERM);
 	kill_pidfile("/var/run/dhcp6c.pid");
 }
 

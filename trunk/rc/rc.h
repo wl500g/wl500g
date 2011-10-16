@@ -53,7 +53,9 @@ char *mac_conv(char *mac_name, int idx, char *buf);
 int fputs_ex(char *name, char *value);
 int insmod(char *module, ...);
 int rmmod(char *module);
-int killall(char *program, int sig);
+int killall_w(char *program, unsigned sig, int timeout);
+int killall_s(char *program, unsigned sig);
+int killall(char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
 

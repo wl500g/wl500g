@@ -357,29 +357,34 @@ del_lan_routes(char *lan_ifname)
 static void
 start_igmpproxy(char *wan_ifname)
 {
-	const char *igmpproxy_conf = "/etc/igmpproxy.conf";
-	struct stat	st_buf;
-	FILE 		*fp;
+	FILE *fp;
+	struct stat st_buf;
+	char *igmpproxy_conf = "/etc/igmpproxy.conf";
+	char *udpxy_argv[] = { "/usr/sbin/udpxy",
+		"-m", wan_ifname,
+		"-p", nvram_get("udpxy_enable_x"),
+		"-a", nvram_get("lan_ifname") ? : "br0",
+		NULL };
 
-	if (atoi(nvram_safe_get("udpxy_enable_x"))) {
+	if (atoi(nvram_safe_get("udpxy_enable_x")))
+	{
+		/* listen on all interfaces */
 		if (nvram_invmatch("udpxy_wan_x", "0"))
-			eval("/usr/sbin/udpxy",
-				"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
-		else
-			eval("/usr/sbin/udpxy", "-a", nvram_get("lan_ifname") ? : "br0",
-				"-m", wan_ifname, "-p", nvram_get("udpxy_enable_x"));
+			udpxy_argv[5] = NULL;
+
+		killall_w("udpxy", 0, 1);
+		_eval(udpxy_argv, NULL, 0, NULL);
 	}
-	
+
 	if (!nvram_match("mr_enable_x", "1"))
 		return;
-	
+
 	if (stat(igmpproxy_conf, &st_buf) != 0) 
 	{
 		if ((fp = fopen(igmpproxy_conf, "w")) == NULL) {
 			perror(igmpproxy_conf);
 			return;
 		}
-		
 		fprintf(fp, "# automagically generated from web settings\n"
 			"quickleave\n\n"
 			"phyint %s upstream\n"
@@ -388,18 +393,18 @@ start_igmpproxy(char *wan_ifname)
 			wan_ifname, 
 			nvram_get("mr_altnet_x") ? : "0.0.0.0/0", 
 			nvram_get("lan_ifname") ? : "br0");
-			
 		fclose(fp);
 	}
-	
+
+	killall_w("igmpproxy", 0, 1);
 	eval("/usr/sbin/igmpproxy", (char *)igmpproxy_conf);
 }
 
 void
 stop_igmpproxy()
 {
-	killall("igmpproxy", 0);
-	killall("udpxy", 0);
+	killall("igmpproxy");
+	killall("udpxy");
 }
 
 void
@@ -685,7 +690,7 @@ stop_lan(void)
 
 #ifndef ASUS_EXT
 	/* Stop the syslogd daemon */
-	killall("syslogd", 0);
+	killall("syslogd");
 #endif
 
 	/* Remove static routes */
@@ -1158,29 +1163,29 @@ stop_wan(char *ifname)
 	char name[80], *next;
 
 	/* Shutdown and kill all possible tasks */
-	killall("auth-up", 0);
-	killall("auth-down", 0);
-	killall("ip-up", 0);
-	killall("ip-down", 0);
+	killall("auth-up");
+	killall("auth-down");
+	killall("ip-up");
+	killall("ip-down");
 #ifdef __CONFIG_IPV6__
-	killall("ipv6-up", 0);
-	killall("ipv6-down", 0);
+	killall("ipv6-up");
+	killall("ipv6-down");
 #endif
 #ifdef __CONFIG_XL2TPD__
-	killall("xl2tpd", 0);
+	killall("xl2tpd");
 #else
-	killall("l2tpd", 0);
+	killall("l2tpd");
 #endif
-	killall("pppd", 0);
+	killall("pppd");
 
 #if defined(__CONFIG_MADWIMAX__) || defined(__CONFIG_MODEM__)
 	stop_usb_communication_devices();
 #endif
-	killall("udhcpc", -SIGUSR2);
+	killall_s("udhcpc", SIGUSR2);
 	usleep(10000);
-	killall("udhcpc", 0);
+	killall("udhcpc");
 	stop_igmpproxy();
-	killall("pppoe-relay", 0);
+	killall("pppoe-relay");
 
 	/* Stop authenticator */
 	stop_auth(NULL, 0);
@@ -1263,7 +1268,7 @@ update_resolvconf(char *ifname, int metric, int up)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	killall("dnsmasq", -1);
+	killall_s("dnsmasq", SIGHUP);
 
 	return 0;
 }
@@ -1629,7 +1634,7 @@ wan6_up(char *wan_ifname, int unit)
 
 		/* Notify radvd of change */
 		if (nvram_match("ipv6_radvd_enable", "1"))
-			killall("radvd", -SIGHUP);
+			killall_s("radvd", SIGHUP);
 	}
 
 	/* Configure IPv6 DNS servers */
@@ -1726,8 +1731,8 @@ static void lan_up(char *lan_ifname)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	killall("dnsmasq", -1);
-	
+	killall_s("dnsmasq", SIGHUP);
+
 	/* Sync time */
 	//start_ntpc();
 }
@@ -1781,8 +1786,8 @@ lan_up_ex(char *lan_ifname)
 	fclose(fp);
 
 	/* Notify dnsmasq of change */
-	killall("dnsmasq", -1);
-	
+	killall_s("dnsmasq", SIGHUP);
+
 	/* Sync time */
 	//start_ntpc();
 	//update_lan_status(1);

@@ -662,7 +662,7 @@ static int refresh_rcamd(void)
 	}
 	else
 	{
-		killall("mjpg_streamer", 0);
+		killall("mjpg_streamer");
 	}
 
 	return hotplug_usb_webcam(nvram_safe_get("usb_web_device"));
@@ -778,7 +778,7 @@ static void link_check(void)
 		if (nvram_match(strcat_r(prefix, "auth_x", tmp), "eap-md5")
 		&& (strcmp(wan_proto, "static") == 0 ||
 		    strcmp(wan_proto, "dhcp") == 0))
-			killall("wpa_supplicant", -SIGUSR2);
+			killall_s("wpa_supplicant", SIGUSR2);
 		else
 #endif
 		if (strcmp(wan_proto, "dhcp") == 0 ||

@@ -248,7 +248,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	return killall("dnsmasq", 0);
+	return killall("dnsmasq");
 }
 
 int start_dhcpd(void)
@@ -391,7 +391,7 @@ start_radvd(void)
 int
 stop_radvd(void)
 {
-	return killall("radvd", 0);
+	return killall("radvd");
 }
 #endif
 
@@ -589,9 +589,9 @@ start_ddns(int forced)
 		nvram_unset("ddns_ipaddr");
 		nvram_unset("ddns_status");
 #ifdef __CONFIG_EZIPUPDATE__
-		killall("ez-ipupdate", -SIGQUIT);
+		killall_s("ez-ipupdate", SIGQUIT);
 #elif __CONFIG_INADYN__
-		killall("inadyn", 0);
+		killall("inadyn");
 #endif
 		_eval(ddns_argv, NULL, 0, &pid);
 	}
@@ -602,9 +602,9 @@ int
 stop_ddns(void)
 {
 #ifdef __CONFIG_EZIPUPDATE__
-	int ret = killall("ez-ipupdate", -SIGQUIT);
+	int ret = killall_s("ez-ipupdate", SIGQUIT);
 #elif __CONFIG_INADYN__
-	int ret = killall("inadyn", 0);
+	int ret = killall("inadyn");
 #endif
 
 	dprintf("done\n");
@@ -661,9 +661,9 @@ int start_logger(void)
 int
 stop_logger(void)
 {
-	int ret = killall("klogd", 0);
+	int ret = killall("klogd");
 
-	ret |= killall("syslogd", 0);
+	ret |= killall("syslogd");
 
 	dprintf("done\n");
 	return (ret);
@@ -697,7 +697,7 @@ stop_misc(void)
 {
 	int ret;
 
-	ret = killall("watchdog", 0);
+	ret = killall("watchdog");
 	stop_ntpc();
 	stop_ddns();
 	stop_lltd();
@@ -728,7 +728,7 @@ static int
 stop_lltd(void)
 {
 #ifdef __CONFIG_LLTD__
-	killall("lld2d", 0);
+	killall("lld2d");
 #endif
 	return 0;
 }
@@ -810,10 +810,10 @@ int restart_nfsd(void)
 
 static int stop_nfsd(void)
 {
-	killall("mountd", 0);
-	killall("nfsd", -9);
-	killall("statd", 0);
-	killall("portmap", 0);
+	killall("mountd");
+	killall_s("nfsd", SIGKILL);
+	killall("statd");
+	killall("portmap");
 
 #ifdef LINUX26
 	umount("/proc/fs/nfsd");
@@ -926,10 +926,10 @@ stop_usb(void)
 
 	if (!nvram_match("usb_storage_x", "0"))
 	{
-		killall("vsftpd", 0);
-		killall("smbd", 0);
-		killall("nmbd", 0);
-		killall("ntfs-3g", 0);
+		killall("vsftpd");
+		killall("smbd");
+		killall("nmbd");
+		killall("ntfs-3g");
 		umount_all_part(NULL, -1);
 		rmmod("usb-storage");
 		rmmod("sd_mod");
@@ -956,8 +956,8 @@ stop_usb(void)
 	stop_audio();
 #endif
 #ifdef PRINTER_SUPPORT	
-	killall("lpd", 0);
-	killall("p910nd", 0);
+	killall("lpd");
+	killall("p910nd");
 # ifdef LINUX26
         rmmod("usblp");
 # else
@@ -1026,8 +1026,8 @@ int restart_ftpd()
 	char tmp[256];
 	FILE *fp, *f;
 
-	killall("vsftpd", 0);
-	
+	killall("vsftpd");
+
 	mkdir_if_none(vsftpd_users);
 
 	if ((fp = fopen("/etc/vsftpd.conf", "w")) == NULL)
@@ -1474,11 +1474,11 @@ remove_usb_mass(char *product, int scsi_host_no)
 	if (product==NULL || nvram_match("usb_ftp_device", product))
 	{
 		if (nvram_invmatch("usb_ftpenable_x", "0")) {
-			killall("vsftpd", 0);
+			killall("vsftpd");
 		}
 		if (nvram_invmatch("usb_smbenable_x", "0")) {
-			killall("smbd", 0);
-			killall("nmbd", 0);
+			killall("smbd");
+			killall("nmbd");
 		}
 		nvram_set("usb_ftp_device", "");
 
@@ -1970,7 +1970,7 @@ int service_handle(void)
 		if (nvram_match("wan0_auth_x", "eap-md5")
 		&& (nvram_match("wan0_proto", "static") == 0 ||
 		    nvram_match("wan0_proto", "dhcp") == 0))
-			killall("wpa_supplicant", -SIGUSR2);
+			killall_s("wpa_supplicant", SIGUSR2);
 		else
 #endif
 		if (nvram_match("wan0_proto", "dhcp") ||
