@@ -58,15 +58,16 @@ expires(char *wan_ifname, unsigned int in)
  * deconfigured state.
 */
 static int
-deconfig(void)
+deconfig(int zcip)
 {
 	char *wan_ifname = safe_getenv("interface");
+	char *client = zcip ? "zcip client" : "dhcp client";
 
 	if (nvram_match("wan0_ifname", wan_ifname)
 	&& (nvram_match("wan0_proto", "l2tp") || nvram_match("wan0_proto", "pptp")))
 	{
 		/* fix kernel route-loop issue */
-		logmessage("dhcp client", "skipping resetting IP address to 0.0.0.0");
+		logmessage(client, "skipping resetting IP address to 0.0.0.0");
 	} else
 		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
 
@@ -74,7 +75,7 @@ deconfig(void)
 
 	wan_down(wan_ifname);
 
-	logmessage("dhcp client", "%s: lease is lost", udhcpstate);
+	logmessage(client, "%s: lease is lost", udhcpstate);
 	wanmessage("lost IP from server");
 	dprintf("done\n");
 	return 0;
@@ -96,6 +97,8 @@ bound(void)
 	int unit;
 	int changed = 0;
 	int gateway = 0;
+
+	stop_zcip();
 
 	if ((unit = wan_ifunit(wan_ifname)) < 0) 
 		strcpy(prefix, "wanx_");
@@ -188,6 +191,8 @@ renew(void)
 	int metric;
 	int changed = 0;
 
+	stop_zcip();
+
 	if ((unit = wan_ifunit(wan_ifname)) < 0)
 		strcpy(prefix, "wanx_");
 	else
@@ -235,6 +240,26 @@ renew(void)
 	return 0;
 }
 
+static int
+leasefail(void)
+{
+	char *wan_ifname = safe_getenv("interface");
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+
+	if ((unit = wan_ifunit(wan_ifname)) < 0)
+		strcpy(prefix, "wanx_");
+	else
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	if ((ip_addr(nvram_safe_get(strcat_r(prefix, "ipaddr", tmp))) &
+	     ip_addr(nvram_safe_get(strcat_r(prefix, "netmask", tmp)))) ==
+	     ip_addr("169.254.0.0"))
+		return 0;
+
+	return start_zcip(wan_ifname);
+}
+
 int
 udhcpc_main(int argc, char **argv)
 {
@@ -244,14 +269,15 @@ udhcpc_main(int argc, char **argv)
 	strcpy(udhcpstate, argv[1]);
 
 	if (!strcmp(argv[1], "deconfig"))
-		return deconfig();
+		return deconfig(0);
 	else if (!strcmp(argv[1], "bound"))
 		return bound();
 	else if (!strcmp(argv[1], "renew"))
 		return renew();
 	else if (!strcmp(argv[1], "leasefail"))
-		return 0;
-	else return deconfig();
+		return leasefail();
+	/* nak */
+	else return 0;
 }
 
 int
@@ -306,6 +332,76 @@ start_dhcpc(char *wan_ifname, int unit)
 #endif
 
 	return _eval(dhcp_argv, NULL, 0, NULL);
+}
+
+static int
+config(void)
+{
+	char *wan_ifname = safe_getenv("interface");
+	char *value;
+	char tmp[100], prefix[] = "wanXXXXXXXXXX_";
+	int unit;
+	int changed = 0;
+
+	if ((unit = wan_ifunit(wan_ifname)) < 0) 
+		strcpy(prefix, "wanx_");
+	else
+		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+
+	if ((value = getenv("ip"))) {
+		changed = nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), value);
+		nvram_set(strcat_r(prefix, "ipaddr", tmp), trim_r(value));
+	}
+	nvram_set(strcat_r(prefix, "netmask", tmp), "255.255.0.0");
+	nvram_set(strcat_r(prefix, "gateway", tmp), "");
+	nvram_set(strcat_r(prefix, "dns", tmp), "");
+
+	if (changed && unit >= 0)
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
+	ifconfig(wan_ifname, IFUP,
+		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
+		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
+
+	wan_up(wan_ifname);
+
+	logmessage("zcip client", "%s IP : %s", 
+		udhcpstate,
+		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+
+	wanmessage("");
+	dprintf("done\n");
+	return 0;
+}
+
+int
+zcip_main(int argc, char **argv)
+{
+	if (argc<2 || !argv[1])
+		return EINVAL;
+
+	strcpy(udhcpstate, argv[1]);
+
+	if (!strcmp(argv[1], "deconfig"))
+		return deconfig(1);
+	else if (!strcmp(argv[1], "config"))
+		return config();
+	/* init */
+	else return 0;
+}
+
+int
+start_zcip(char *wan_ifname)
+{
+	char *argv[] = { "/sbin/zcip", "-q", wan_ifname, "/tmp/zcip.script", NULL };
+
+	return _eval(argv, NULL, 0, NULL);
+}
+
+void
+stop_zcip(void)
+{
+	killall("zcip.script", -SIGTERM);
+	killall("zcip", 0);
 }
 
 #ifdef __CONFIG_IPV6__
