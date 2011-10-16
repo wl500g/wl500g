@@ -69,7 +69,7 @@ deconfig(int zcip)
 		/* fix kernel route-loop issue */
 		logmessage(client, "skipping resetting IP address to 0.0.0.0");
 	} else
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 
 	expires(wan_ifname, 0);
 
@@ -157,10 +157,10 @@ bound(void)
 #endif
 
 	if (changed && unit >= 0)
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
+		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 
 	wan_up(wan_ifname);
 
@@ -357,10 +357,10 @@ config(void)
 	nvram_set(strcat_r(prefix, "dns", tmp), "");
 
 	if (changed && unit >= 0)
-		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL, NULL);
+		ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(wan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)),
-		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)), NULL);
+		 nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
 
 	wan_up(wan_ifname);
 

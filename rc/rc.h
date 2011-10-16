@@ -99,7 +99,8 @@ void preshutdown_system(void);
 void child_reap(int sig);
 
 /* interface */
-int ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
+int _ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
+int ifconfig(char *ifname, int flags, char *addr, char *netmask);
 int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
 int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 void config_loopback(void);

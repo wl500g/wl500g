@@ -65,7 +65,7 @@ ip2class(char *lan_ip, char *netmask, char *buf)
 }
 
 int
-ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
+_ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
@@ -123,6 +123,12 @@ ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
  fexit:
 	close(s);
 	return ret;
+}
+
+int
+ifconfig(char *name, int flags, char *addr, char *netmask)
+{
+	return _ifconfig(name, flags, addr, netmask, NULL);
 }
 
 static int
@@ -189,7 +195,7 @@ void
 config_loopback(void)
 {
 	/* Bring up loopback interface */
-	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0", NULL);
+	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
 
 	/* Add to routing table */
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
@@ -244,7 +250,7 @@ start_vlan(void)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr))
 			continue;
 		if (!(ifr.ifr_flags & IFF_UP))
-			ifconfig(ifr.ifr_name, IFUP, NULL, NULL, NULL);
+			ifconfig(ifr.ifr_name, IFUP, NULL, NULL);
 		/* create the VLAN interface */
 		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
