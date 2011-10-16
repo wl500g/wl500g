@@ -166,7 +166,7 @@
 
 {"dr_enable_x", "1", 0},
 
-{"mr_enable_x", "0", 0},
+{"mr_enable_x", "1", 0},
 
 {"sr_enable_x", "0", 0},
 
