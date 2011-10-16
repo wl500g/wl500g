@@ -108,9 +108,9 @@ stop_bpalogin(void)
 {
 	int ret;
 	
-	ret = killall("bpalogin", 0);
+	ret = killall("bpalogin");
 	usleep(10000);
-	ret += killall("bpalogin", -9);
+	ret += killall_s("bpalogin", SIGKILL);
 	dprintf("done\n");
 	
 	return ret;

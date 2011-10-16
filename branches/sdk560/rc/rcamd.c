@@ -38,7 +38,7 @@ start_rcamd(void)
 int
 stop_rcamd(void)
 {
-	killall("mjpg_streamer", 0);
+	killall("mjpg_streamer");
 	rmmod("uvcvideo");
 	rmmod("input-core");
 	rmmod("v4l2-common");

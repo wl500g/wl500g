@@ -20,6 +20,7 @@
 #include <sys/sysinfo.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include <bcmnvram.h>
@@ -99,19 +100,43 @@ int rmmod(char *module)
 	return eval("rmmod", module);
 }
 
-int killall(char *program, int sig)
+int killall_w(char *program, unsigned sig, int wait)
 {
-	char sigstr[6];
-        char *argv[] = { "killall", NULL, NULL, NULL };
+	char sigstr[sizeof("-65535")];
+	char *argv[] = { "killall",
+				NULL,   /* -w */
+				NULL,   /* signal */
+				NULL,   /* program */
+				NULL };
+	int i = 1;
 
-	if (sig != 0) {
-		snprintf(sigstr, sizeof(sigstr), "%d", sig);
-		argv[1] = sigstr;
-		argv[2] = program;
+#ifdef KILLALL_HAS_WAIT
+	if (wait)
+		argv[i++] = "-w";
+#endif
+	if (sig) {
+		snprintf(sigstr, sizeof(sigstr), "-%u", sig);
+		argv[i++] = sigstr;
 	}
-	else
-		argv[1] = program;
-        return _eval(argv, ">/dev/null", 0, NULL);
+	argv[i++] = program;
+
+#ifdef KILLALL_HAS_WAIT
+	return _eval(argv, NULL, 0, NULL);
+#else
+	while (!_eval(argv, NULL, 0, NULL) && wait)
+		sleep(1);
+	return 0;
+#endif
+}
+
+int killall_s(char *program, unsigned sig)
+{
+	return killall_w(program, sig, 0);
+}
+
+int killall(char *program)
+{
+	return killall_w(program, 0, 0);
 }
 
 void getsyspara(void)

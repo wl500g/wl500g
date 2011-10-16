@@ -72,8 +72,8 @@ start_wpa_supplicant(char *prefix, int restart)
 int
 stop_wpa_supplicant(void)
 {
-	killall("wpa_supplicant", 0);
-	killall("wpa_cli", 0);
+	killall("wpa_supplicant");
+	killall("wpa_cli");
 
 	return 0;
 }
@@ -134,7 +134,7 @@ start_lanauth(char *prefix, int restart)
 int
 stop_lanauth(void)
 {
-	return killall("lanauth", 0);
+	return killall("lanauth");
 }
 #endif
 
@@ -182,7 +182,7 @@ start_authcli(char *prefix, int restart)
 int
 stop_authcli(void)
 {
-	return killall("authcli", 0);
+	return killall("authcli");
 }
 #endif
 

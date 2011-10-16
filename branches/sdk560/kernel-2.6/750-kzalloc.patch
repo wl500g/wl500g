@@ -2609,11 +2609,11 @@ diff --git a/fs/partitions/check.c b/fs/partitions/check.c
 -	p = kmalloc(sizeof(*p), GFP_KERNEL);
 +	p = kzalloc(sizeof(*p), GFP_KERNEL);
  	if (!p)
- 		return;
+ 		return -ENOMEM;
  	
  	if (!init_part_stats(p)) {
- 		kfree(p);
- 		return;
+ 		err = -ENOMEM;
+ 		goto out0;
  	}
 -	memset(p, 0, sizeof(*p));
  	p->start_sect = start;

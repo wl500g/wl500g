@@ -53,17 +53,22 @@ char *mac_conv(char *mac_name, int idx, char *buf);
 int fputs_ex(char *name, char *value);
 int insmod(char *module, ...);
 int rmmod(char *module);
-int killall(char *program, int sig);
+int killall_w(char *program, unsigned sig, int timeout);
+int killall_s(char *program, unsigned sig);
+int killall(char *program);
 void setenv_tz();
 time_t update_tztime(int is_resettm);
 
 int wsrom_main(char *devname, unsigned int pos, unsigned short val);
 int rsrom_main(char *devname, unsigned int pos, int pflag);
 
-/* udhcpc scripts */
+/* dhcp/zcip scripts */
 int udhcpc_main(int argc, char **argv);
 int start_dhcpc(char *wan_ifname, int unit);
 int udhcpc_ex_main(int argc, char **argv);
+int zcip_main(int argc, char **argv);
+int start_zcip(char *wan_ifname);
+void stop_zcip(void);
 #ifdef __CONFIG_IPV6__
 int dhcp6c_main(int argc, char **argv);
 int start_dhcp6c(char *wan_ifname);
@@ -96,7 +101,8 @@ void preshutdown_system(void);
 void child_reap(int sig);
 
 /* interface */
-int ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
+int _ifconfig(char *ifname, int flags, char *addr, char *netmask, char *peer);
+int ifconfig(char *ifname, int flags, char *addr, char *netmask);
 int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
 int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 void config_loopback(void);

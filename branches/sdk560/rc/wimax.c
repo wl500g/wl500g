@@ -140,7 +140,7 @@ stop_wimax(char *prefix)
 
 	dprintf( "%s", prefix );
 
-	killall("madwimax", 0);
+	killall("madwimax");
 	sleep(1);
 	unlink(wimax_events);
 	rmmod("tun");
@@ -317,7 +317,7 @@ static int madwimax_up(char *ifname)
 		/* Assign static IP address to i/f */
 		ifconfig(ifname, IFUP,
 			nvram_get(strcat_r(prefix, "ipaddr", tmp)),
-			nvram_get(strcat_r(prefix, "netmask", tmp)), NULL);
+			nvram_get(strcat_r(prefix, "netmask", tmp)));
                 /* We are done configuration */
 		wan_up(ifname);
 		wanmessage("");

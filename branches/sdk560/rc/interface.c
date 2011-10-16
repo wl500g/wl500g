@@ -65,7 +65,7 @@ ip2class(char *lan_ip, char *netmask, char *buf)
 }
 
 int
-ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
+_ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 {
 	int s, ret = 0;
 	struct ifreq ifr;
@@ -125,15 +125,17 @@ ifconfig(char *name, int flags, char *addr, char *netmask, char *peer)
 	return ret;
 }
 
+int
+ifconfig(char *name, int flags, char *addr, char *netmask)
+{
+	return _ifconfig(name, flags, addr, netmask, NULL);
+}
+
 static int
 route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
 {
 	int s, ret = 0;
 	struct rtentry rt;
-
-	/* Open a raw socket to the kernel */
-	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
-		return errno;
 
 	/* Fill in rtentry */
 	memset(&rt, 0, sizeof(rt));
@@ -151,11 +153,20 @@ route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *gen
 		rt.rt_flags |= RTF_HOST;
 	rt.rt_dev = name;
 
+	/* Filter out invalid host address */
+	if (rt.rt_flags & RTF_HOST &&
+	    sin_addr(&rt.rt_dst).s_addr == INADDR_ANY)
+		return EINVAL;
+
 	/* Force address family to AF_INET */
 	rt.rt_dst.sa_family = AF_INET;
 	rt.rt_gateway.sa_family = AF_INET;
 	rt.rt_genmask.sa_family = AF_INET;
-		
+
+	/* Open a raw socket to the kernel */
+	if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		return errno;
+
 	if (ioctl(s, cmd, &rt) < 0)
 	{
 		ret = errno;
@@ -184,7 +195,7 @@ void
 config_loopback(void)
 {
 	/* Bring up loopback interface */
-	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0", NULL);
+	ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");
 
 	/* Add to routing table */
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
@@ -239,7 +250,7 @@ start_vlan(void)
 		if (ioctl(s, SIOCGIFFLAGS, &ifr))
 			continue;
 		if (!(ifr.ifr_flags & IFF_UP))
-			ifconfig(ifr.ifr_name, IFUP, NULL, NULL, NULL);
+			ifconfig(ifr.ifr_name, IFUP, NULL, NULL);
 		/* create the VLAN interface */
 		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
