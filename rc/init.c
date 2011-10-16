@@ -177,11 +177,11 @@ shutdown_system(void)
 
 	/* Disconnect pppd - need this for PPTP/L2TP to finish gracefully */
 #ifdef __CONFIG_XL2TPD__
-	killall("xl2tpd", 0);
+	killall("xl2tpd");
 #else
-	killall("l2tpd", 0);
+	killall("l2tpd");
 #endif
-	killall("pppd", 0);
+	killall("pppd");
 
 	if (exists("/dev/misc/rtc"))
 		eval("/sbin/hwclock", "-w");

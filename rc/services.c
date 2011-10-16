@@ -96,9 +96,9 @@ stop_dhcpd(void)
 * would have to release current IP and to request a new one which causes 
 * a no-IP gap in between.
 */
-	killall("udhcpd", -SIGUSR1);
+	killall_s("udhcpd", SIGUSR1);
 	usleep(10000);
-	ret = killall("udhcpd", 0);
+	ret = killall("udhcpd");
 
 	dprintf("done\n");
 	return ret;
@@ -132,7 +132,7 @@ start_dns(void)
 int
 stop_dns(void)
 {
-	int ret = killall("dnsmasq", 0);
+	int ret = killall("dnsmasq");
 	
 	/* Remove resolv.conf */
 	unlink("/tmp/resolv.conf");
@@ -161,7 +161,7 @@ static int start_telnetd(void)
 
 static int stop_telnetd(void)
 {
-	int ret = killall("telnetd", 0);
+	int ret = killall("telnetd");
 
 	dprintf("done\n");
 	return ret;
@@ -198,7 +198,7 @@ static int start_dropbear(void)
 
 static int stop_dropbear(void)
 {
-	int ret = killall("dropbear", 0);
+	int ret = killall("dropbear");
 
 	dprintf("done\n");
 	return ret;
@@ -236,7 +236,7 @@ static int start_snmpd(void)
 
 int stop_snmpd(void)
 {
-	int ret = killall("snmpd", 0);
+	int ret = killall("snmpd");
 
 	dprintf("done\n");
 	return ret;
@@ -262,7 +262,7 @@ int start_httpd(void)
 
 static int stop_httpd(void)
 {
-	int ret = killall("httpd", 0);
+	int ret = killall("httpd");
 
 	dprintf("done\n");
 	return ret;
@@ -285,7 +285,7 @@ start_upnp(void)
 		return 0;
 
 #ifndef __CONFIG_MINIUPNPD__
-	ret = killall("upnp", -SIGUSR1);
+	ret = killall_s("upnp", SIGUSR1);
 	if (ret != 0)
 #endif
 	{
@@ -372,9 +372,9 @@ stop_upnp(void)
 
 	if (nvram_invmatch("upnp_enable", "0"))
 #ifdef __CONFIG_MINIUPNPD__
-		ret = killall("miniupnpd", 0);
+		ret = killall("miniupnpd");
 #else
-		ret = killall("upnp", 0);
+		ret = killall("upnp");
 #endif
 
 	dprintf("done\n");
@@ -414,10 +414,10 @@ start_nas(char *type)
 int
 stop_nas(void)
 {
-	int ret = killall("nas", 0);
+	int ret = killall("nas");
 
 #ifdef __CONFIG_BCMWL5__
-        killall("eapd", 0);
+        killall("eapd");
 #endif
 	dprintf("done\n");
 	return ret;
