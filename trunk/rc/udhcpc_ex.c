@@ -60,7 +60,7 @@ deconfig(void)
 
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get("lan_ipaddr"),
-		 nvram_safe_get("lan_netmask"), NULL);
+		 nvram_safe_get("lan_netmask"));
 
 	expires(lan_ifname, 0);
 
@@ -111,7 +111,7 @@ bound(void)
 
 	ifconfig(lan_ifname, IFUP,
 		 nvram_safe_get(strcat_r(prefix, "ipaddr_t", tmp)),
-		 nvram_safe_get(strcat_r(prefix, "netmask_t", tmp)), NULL);
+		 nvram_safe_get(strcat_r(prefix, "netmask_t", tmp)));
 
 	lan_up_ex(lan_ifname);
 
