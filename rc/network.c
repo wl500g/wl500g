@@ -813,6 +813,7 @@ start_wan(void)
 	symlink("/sbin/rc", "/tmp/dhcp6c.script");
 #endif
 	symlink("/sbin/rc", "/tmp/udhcpc.script");
+	symlink("/sbin/rc", "/tmp/zcip.script");
 #ifdef __CONFIG_EAPOL__
 	symlink("/sbin/rc", "/tmp/wpa_cli.script");
 #endif
@@ -1205,6 +1206,7 @@ stop_wan(char *ifname)
 	unlink("/tmp/wpa_cli.script");
 #endif
 	unlink("/tmp/udhcpc.script");
+	unlink("/tmp/zcip.script");
 #ifdef __CONFIG_IPV6__
 	unlink("/tmp/dhcp6c.script");
 	unlink("/tmp/ppp/ipv6-up");
