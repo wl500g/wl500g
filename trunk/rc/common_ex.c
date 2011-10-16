@@ -20,6 +20,7 @@
 #include <sys/sysinfo.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include <bcmnvram.h>
@@ -109,15 +110,23 @@ int killall_w(char *program, unsigned sig, int wait)
 				NULL };
 	int i = 1;
 
+#ifdef KILLALL_HAS_WAIT
 	if (wait)
 		argv[i++] = "-w";
+#endif
 	if (sig) {
 		snprintf(sigstr, sizeof(sigstr), "-%u", sig);
 		argv[i++] = sigstr;
 	}
 	argv[i++] = program;
 
+#ifdef KILLALL_HAS_WAIT
 	return _eval(argv, NULL, 0, NULL);
+#else
+	while (!_eval(argv, NULL, 0, NULL) && wait)
+		sleep(1);
+	return 0;
+#endif
 }
 
 int killall_s(char *program, unsigned sig)
