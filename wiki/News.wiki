@@ -3,7 +3,7 @@
 
 ===Detailed revision history===
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
-  * [http://code.google.com/p/wl500g/source/list?path=/branches/rt-n/ Firmware 1.9.2.7-rtn source changes]
+  * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
 ===RT-N-1.9.2.7-rtn-`r3300` (2011-09-16)===
   * uClibc 0.9.32 with Native Posix Threads Layer (ATTENTION! possible old binaries incompatibility, especially using libpthreads)
