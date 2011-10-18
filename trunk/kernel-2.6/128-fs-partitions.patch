@@ -1,27 +1,28 @@
-From 11073cf4caedf23d817c9b3d87f0fad25fa4acfe
-From: Fedor <fedork@ubuntu.(none)>
-Date: Wed, 9 Jun 2010 15:49:33 -0400
-Subject: [PATCH] fs/partitions: backports from upstream kernel 2.6
+fs/partitions: backports from upstream kernel 2.6
 
-kernel.org commits:
-b84d879639f83d35d3fcd909222522c928bf974b
-6bcf19d02a5d7e627fa054f2f10e0a8d830df326
-73f20e58b1d586e9f6d3ddc3aad872829aca7743
-f751aa125d1843ea4a9a264b451fd5b1639fab20
-0607fd02587a6b4b086dc746d63123c1f284db68
-ac0d86f5809598ddcd6bfa0ea8245ccc910e9eac
-02c33b123e59cab5771e52a012aeb810500260a2
-8e0cc811e0f8029a7225372fb0951fab102c012f
+ kernel.org commits:
+ b84d879639f83d35d3fcd909222522c928bf974b [PARTITION] MSDOS: Fix Sun num_partitions handling.
+ 6bcf19d02a5d7e627fa054f2f10e0a8d830df326 block: send disk "change" event for rescan_partitions()
+ 73f20e58b1d586e9f6d3ddc3aad872829aca7743 FAT_VALID_MEDIA(): remove pointless test
+ f751aa125d1843ea4a9a264b451fd5b1639fab20 fat_valid_media() isn't for userspace
+ 0607fd02587a6b4b086dc746d63123c1f284db68 fat: detect media without partition table correctly
+ ac0d86f5809598ddcd6bfa0ea8245ccc910e9eac block: sanitize invalid partition table entries
+ 02c33b123e59cab5771e52a012aeb810500260a2 partitions: warn about the partition exceeding device capacity
+ 7d13af3279985f554784a45cc961f706dbcdbdd1 partitions: use sector size for EFI GPT
+ 87038c2d5bda2418fda8b1456a0ae81cc3ff5bd8 partitions: read whole sector with EFI GPT header
+ 8e0cc811e0f8029a7225372fb0951fab102c012f fs/partition/msdos: fix unusable extended partition for > 512B sector
+
 ---
  fs/fat/inode.c           |    2 +-
- fs/partitions/check.c    |   23 +++++++++++-
- fs/partitions/msdos.c    |   38 ++++++++++++++++----
+ fs/partitions/check.c    |   23 +++++++++++++++++++++--
+ fs/partitions/efi.c      |   30 +++++++++++++++++++-----------
+ fs/partitions/efi.h      |    8 ++++++--
+ fs/partitions/msdos.c    |   38 +++++++++++++++++++++++++++++++-------
  include/linux/genhd.h    |    2 +-
- include/linux/msdos_fs.h |    8 +++-
- 5 files changed, 60 insertions(+), 13 deletions(-)
+ include/linux/msdos_fs.h |    8 ++++++--
+ 7 files changed, 85 insertions(+), 26 deletions(-)
 
 diff --git a/fs/fat/inode.c b/fs/fat/inode.c
-index 414d014..a988efc 100644
 --- a/fs/fat/inode.c
 +++ b/fs/fat/inode.c
 @@ -1226,7 +1226,7 @@ int fat_fill_super(struct super_block *sb, void *data, int silent,
@@ -34,7 +35,6 @@ index 414d014..a988efc 100644
  			printk(KERN_ERR "FAT: invalid media value (0x%02x)\n",
  			       media);
 diff --git a/fs/partitions/check.c b/fs/partitions/check.c
-index 9a3a058..efebc5e 100644
 --- a/fs/partitions/check.c
 +++ b/fs/partitions/check.c
 @@ -546,14 +546,33 @@ int rescan_partitions(struct gendisk *disk, struct block_device *bdev)
@@ -73,8 +73,129 @@ index 9a3a058..efebc5e 100644
  		}
  		add_partition(disk, p, from, size, state->parts[p].flags);
  #ifdef CONFIG_BLK_DEV_MD
+diff --git a/fs/partitions/efi.c b/fs/partitions/efi.c
+--- a/fs/partitions/efi.c
++++ b/fs/partitions/efi.c
+@@ -1,7 +1,9 @@
+ /************************************************************
+  * EFI GUID Partition Table handling
+- * Per Intel EFI Specification v1.02
+- * http://developer.intel.com/technology/efi/efi.htm
++ *
++ * http://www.uefi.org/specs/
++ * http://www.intel.com/technology/efi/
++ *
+  * efi.[ch] by Matt Domsch <Matt_Domsch@dell.com>
+  *   Copyright 2000,2001,2002,2004 Dell Inc.
+  *
+@@ -92,6 +94,7 @@
+  *
+  ************************************************************/
+ #include <linux/crc32.h>
++#include <linux/math64.h>
+ #include "check.h"
+ #include "efi.h"
+ 
+@@ -148,7 +151,8 @@ last_lba(struct block_device *bdev)
+ {
+ 	if (!bdev || !bdev->bd_inode)
+ 		return 0;
+-	return (bdev->bd_inode->i_size >> 9) - 1ULL;
++	return div_u64(bdev->bd_inode->i_size,
++		       bdev_hardsect_size(bdev)) - 1ULL;
+ }
+ 
+ static inline int
+@@ -195,6 +199,7 @@ static size_t
+ read_lba(struct block_device *bdev, u64 lba, u8 * buffer, size_t count)
+ {
+ 	size_t totalreadcount = 0;
++	sector_t n = lba * (bdev_hardsect_size(bdev) >> 9);
+ 
+ 	if (!bdev || !buffer || lba > last_lba(bdev))
+                 return 0;
+@@ -202,7 +207,7 @@ read_lba(struct block_device *bdev, u64 
+ 	while (count) {
+ 		int copied = 512;
+ 		Sector sect;
+-		unsigned char *data = read_dev_sector(bdev, lba++, &sect);
++		unsigned char *data = read_dev_sector(bdev, n++, &sect);
+ 		if (!data)
+ 			break;
+ 		if (copied > count)
+@@ -264,15 +269,16 @@ static gpt_header *
+ alloc_read_gpt_header(struct block_device *bdev, u64 lba)
+ {
+ 	gpt_header *gpt;
++	unsigned ssz = bdev_hardsect_size(bdev);
++
+ 	if (!bdev)
+ 		return NULL;
+ 
+-	gpt = kzalloc(sizeof (gpt_header), GFP_KERNEL);
++	gpt = kzalloc(ssz, GFP_KERNEL);
+ 	if (!gpt)
+ 		return NULL;
+ 
+-	if (read_lba(bdev, lba, (u8 *) gpt,
+-		     sizeof (gpt_header)) < sizeof (gpt_header)) {
++	if (read_lba(bdev, lba, (u8 *) gpt, ssz) < ssz) {
+ 		kfree(gpt);
+                 gpt=NULL;
+ 		return NULL;
+@@ -609,6 +615,7 @@ efi_partition(struct parsed_partitions *
+ 	gpt_header *gpt = NULL;
+ 	gpt_entry *ptes = NULL;
+ 	u32 i;
++	unsigned ssz = bdev_hardsect_size(bdev) >> 9;
+ 
+ 	if (!find_valid_gpt(bdev, &gpt, &ptes) || !gpt || !ptes) {
+ 		kfree(gpt);
+@@ -619,13 +626,14 @@ efi_partition(struct parsed_partitions *
+ 	Dprintk("GUID Partition Table is valid!  Yea!\n");
+ 
+ 	for (i = 0; i < le32_to_cpu(gpt->num_partition_entries) && i < state->limit-1; i++) {
++		u64 start = le64_to_cpu(ptes[i].starting_lba);
++		u64 size = le64_to_cpu(ptes[i].ending_lba) -
++			   le64_to_cpu(ptes[i].starting_lba) + 1ULL;
++
+ 		if (!is_pte_valid(&ptes[i], last_lba(bdev)))
+ 			continue;
+ 
+-		put_partition(state, i+1, le64_to_cpu(ptes[i].starting_lba),
+-				 (le64_to_cpu(ptes[i].ending_lba) -
+-                                  le64_to_cpu(ptes[i].starting_lba) +
+-				  1ULL));
++		put_partition(state, i+1, start * ssz, size * ssz);
+ 
+ 		/* If this is a RAID volume, tell md */
+ 		if (!efi_guidcmp(ptes[i].partition_type_guid,
+diff --git a/fs/partitions/efi.h b/fs/partitions/efi.h
+--- a/fs/partitions/efi.h
++++ b/fs/partitions/efi.h
+@@ -37,7 +37,6 @@
+ #define EFI_PMBR_OSTYPE_EFI 0xEF
+ #define EFI_PMBR_OSTYPE_EFI_GPT 0xEE
+ 
+-#define GPT_BLOCK_SIZE 512
+ #define GPT_HEADER_SIGNATURE 0x5452415020494645ULL
+ #define GPT_HEADER_REVISION_V1 0x00010000
+ #define GPT_PRIMARY_PARTITION_TABLE_LBA 1
+@@ -79,7 +78,12 @@ typedef struct _gpt_header {
+ 	__le32 num_partition_entries;
+ 	__le32 sizeof_partition_entry;
+ 	__le32 partition_entry_array_crc32;
+-	u8 reserved2[GPT_BLOCK_SIZE - 92];
++
++	/* The rest of the logical block is reserved by UEFI and must be zero.
++	 * EFI standard handles this by:
++	 *
++	 * uint8_t		reserved2[ BlockSize - 92 ];
++	 */
+ } __attribute__ ((packed)) gpt_header;
+ 
+ typedef struct _gpt_entry_attributes {
 diff --git a/fs/partitions/msdos.c b/fs/partitions/msdos.c
-index fd6ffd4..35fe747 100644
 --- a/fs/partitions/msdos.c
 +++ b/fs/partitions/msdos.c
 @@ -18,7 +18,7 @@
@@ -158,7 +279,6 @@ index fd6ffd4..35fe747 100644
  			parse_extended(state, bdev, start, size);
  			printk(" >");
 diff --git a/include/linux/genhd.h b/include/linux/genhd.h
-index 9756fc1..a47b802 100644
 --- a/include/linux/genhd.h
 +++ b/include/linux/genhd.h
 @@ -264,7 +264,7 @@ static inline void set_capacity(struct gendisk *disk, sector_t size)
@@ -171,7 +291,6 @@ index 9756fc1..a47b802 100644
  
  struct solaris_x86_slice {
 diff --git a/include/linux/msdos_fs.h b/include/linux/msdos_fs.h
-index 0bca157..81cd36b 100644
 --- a/include/linux/msdos_fs.h
 +++ b/include/linux/msdos_fs.h
 @@ -57,8 +57,6 @@
@@ -197,5 +316,3 @@ index 0bca157..81cd36b 100644
  extern void fat_cache_inval_inode(struct inode *inode);
  extern int fat_get_cluster(struct inode *inode, int cluster,
 -- 
-1.6.5.GIT
-
