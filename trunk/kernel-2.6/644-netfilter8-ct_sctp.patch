@@ -1,0 +1,37 @@
+netfilter: nf_conntrack_proto_sctp: Fixes from upstream
+
+ 4a64830af0fd4dbec908cfbab117def5086acd4a nf_conntrack_sctp: don't take sctp_lock once per chunk
+ 328bd8997dbb7184d5389e45c642af44ae6e9043 netfilter: nf_conntrack_proto_sctp: avoid bogus warning
+ 
+---
+ net/netfilter/nf_conntrack_proto_sctp.c |    7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/nf_conntrack_proto_sctp.c b/net/netfilter/nf_conntrack_proto_sctp.c
+--- a/net/netfilter/nf_conntrack_proto_sctp.c
++++ b/net/netfilter/nf_conntrack_proto_sctp.c
+@@ -344,10 +344,9 @@ static int sctp_packet(struct nf_conn *c
+ 		return -1;
+ 	}
+ 
+-	oldsctpstate = newconntrack = SCTP_CONNTRACK_MAX;
++	oldsctpstate = newconntrack = SCTP_CONNTRACK_NONE;
++	write_lock_bh(&sctp_lock);
+ 	for_each_sctp_chunk (skb, sch, _sch, offset, dataoff, count) {
+-		write_lock_bh(&sctp_lock);
+-
+ 		/* Special cases of Verification tag check (Sec 8.5.1) */
+ 		if (sch->type == SCTP_CID_INIT) {
+ 			/* Sec 8.5.1 (A) */
+@@ -410,8 +409,8 @@ static int sctp_packet(struct nf_conn *c
+ 		conntrack->proto.sctp.state = newconntrack;
+ 		if (oldsctpstate != newconntrack)
+ 			nf_conntrack_event_cache(IPCT_PROTOINFO, skb);
+-		write_unlock_bh(&sctp_lock);
+ 	}
++	write_unlock_bh(&sctp_lock);
+ 
+ 	nf_ct_refresh_acct(conntrack, ctinfo, skb, *sctp_timeouts[newconntrack]);
+ 
+-- 
+1.7.6.2
