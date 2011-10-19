@@ -522,6 +522,21 @@ diff -uB a/drivers/net/hnd/Kconfig b/drivers/net/hnd/Kconfig
  choice
  	prompt "Wireless feature variant"
  	depends on HND && !WL_EMULATOR && WL
+diff -urBp a/drivers/net/wl/wl_generic.mk b/drivers/net/wl/wl_generic.mk
+--- a/drivers/net/wl/wl_generic.mk	2011-05-12 06:29:47.000000000 +0300
++++ b/drivers/net/wl/wl_generic.mk	2010-11-22 12:01:14.000000000 +0300
+@@ -102,7 +102,11 @@ endif # partial rebuild
+ else # SRCBASE/wl/sys doesn't exist
+ 
+     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
++ifeq ($(CONFIG_CPU_MIPS32_R2),)
++    prebuilt := wl_$(wl_suffix).R1.o
++else
+     prebuilt := wl_$(wl_suffix).o
++endif
+     $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
+ 
+ endif
 diff -urBp a/sound/soc/bcm947xx/bcm947xx-i2s.c b/sound/soc/bcm947xx/bcm947xx-i2s.c
 --- a/sound/soc/bcm947xx/bcm947xx-i2s.c	2009-11-26 02:43:16.000000000 +0300
 +++ b/sound/soc/bcm947xx/bcm947xx-i2s.c	2010-11-22 12:01:14.000000000 +0300

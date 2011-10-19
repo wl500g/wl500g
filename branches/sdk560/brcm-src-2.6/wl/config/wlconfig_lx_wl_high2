@@ -7,14 +7,27 @@
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# wl driver config shared hnd files
 #
-# $Id: wl_hnd,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+# $Id: wlconfig_lx_wl_high2,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+#
+# src/wl/linux driver config file
 
-HNDDMA=1
-BCMUTILS=1
-SIUTILS=1
-BCMSROM=1
-BCMDMA32=1
-BCMOTP=1
-BCMECICOEX=1
+# get common 
+include $(WLCFGDIR)/wl_default
+include $(WLCFGDIR)/wl_hnd
+
+OSLLX=1
+
+# BMAC split
+WL_HIGH=1
+WL_LOW=0
+BCMDBUS=1
+RPC_NOCOPY=1
+
+# features
+include $(WLCFGDIR)/wlconfig_apdef
+include $(WLCFGDIR)/wlconfig_lx_wl_stadef
+
+WLLED=1
+WLPIO=0
+WLTUNEFILE=wltunable_rte_bmac_usb_high.h

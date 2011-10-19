@@ -198,6 +198,11 @@ config CONFIG_EMF
        depends on CONFIG_NVRAM && CONFIG_SHARED && CONFIG_BCMWL5
        default y
 
+config CONFIG_WSCCMD
+       bool "WSC Command Support"
+       depends on CONFIG_NVRAM && CONFIG_SHARED
+       default n
+
 endmenu
 
 menu "Asus stuff"

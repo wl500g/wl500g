@@ -7,14 +7,18 @@
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# wl driver config shared hnd files
 #
-# $Id: wl_hnd,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+# $Id: wlconfig_lx_router_ap_mini,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+#
+# Linux Kernel wl driver config file
 
-HNDDMA=1
-BCMUTILS=1
-SIUTILS=1
-BCMSROM=1
-BCMDMA32=1
-BCMOTP=1
-BCMECICOEX=1
+# get common 
+include $(WLCFGDIR)/wl_default
+
+# tunables
+WLTUNEFILE=wltunable_lx_router_mini.h
+
+# features
+include $(WLCFGDIR)/wlconfig_apdef
+BCMECICOEX=0
+APCS=1

@@ -67,6 +67,9 @@ endif
 ifeq ($(CONFIG_BCMWPA2),y)
 EXTRACFLAGS += -DBCMWPA2 
 endif
+ifeq ($(CONFIG_WSCCMD),y)
+EXTRACFLAGS += -DBCMWPS
+endif
 
 ifeq ($(CONFIG_IPV6),y)
 export CONFIG_IPV6 := y

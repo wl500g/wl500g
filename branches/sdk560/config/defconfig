@@ -36,6 +36,7 @@ CONFIG_UTILS=y
 CONFIG_BCMWPA2=y
 CONFIG_BCMWL5=y
 CONFIG_EMF=y
+# CONFIG_WSCCMD is not set
 
 #
 # Asus stuff
