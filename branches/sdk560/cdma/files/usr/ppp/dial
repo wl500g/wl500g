@@ -253,7 +253,7 @@ while [ ! -c $usbdev ] && [ "$count" -gt 0 ]; do
 done
 
 if [ ! -c $usbdev ]; then
-	if [ -e $failure_script_name ]; then
+	if [ $maxfail -gt 0 ] && [ -e $failure_script_name ]; then
 		$failure_script_name $iface $usbdev -1
 	fi
 	logger "modem with dataport: $nv_loc.$dataport not found"

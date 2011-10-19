@@ -1,0 +1,116 @@
+Fix infinite loop in SendResp_upnphttp(). Syslog spammed with messages:
+...
+ miniupnpd[379]: send(res_buf): Broken pipe
+...
+
+Also consolidate CloseSocket_upnphttp() calls.
+
+diff -urBp miniupnpd/upnphttp.c miniupnpd.new/upnphttp.c
+--- miniupnpd/upnphttp.c	2011-10-17 04:00:00.000000000 +0400
++++ miniupnpd.new/upnphttp.c	2011-10-17 16:56:49.000000000 +0400
+@@ -17,6 +17,7 @@
+ #include <arpa/inet.h>
+ #include <syslog.h>
+ #include <ctype.h>
++#include <errno.h>
+ #include "config.h"
+ #include "upnphttp.h"
+ #include "upnpdescgen.h"
+@@ -180,7 +181,6 @@ Send404(struct upnphttp * h)
+ 	BuildResp2_upnphttp(h, 404, "Not Found",
+ 	                    body404, sizeof(body404) - 1);
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ 
+ /* very minimalistic 501 error message */
+@@ -210,7 +209,6 @@ Send501(struct upnphttp * h)
+ 	BuildResp2_upnphttp(h, 501, "Not Implemented",
+ 	                    body501, sizeof(body501) - 1);
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ 
+ static const char *
+@@ -240,7 +238,6 @@ sendDummyDesc(struct upnphttp * h)
+ 		"</scpd>\r\n";
+ 	BuildResp_upnphttp(h, xml_desc, sizeof(xml_desc)-1);
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ #endif
+ 
+@@ -265,7 +262,6 @@ sendXMLdesc(struct upnphttp * h, char * 
+ 		BuildResp_upnphttp(h, desc, len);
+ 	}
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ 	free(desc);
+ }
+ 
+@@ -294,7 +290,6 @@ ProcessHTTPPOST_upnphttp(struct upnphttp
+ 			BuildResp2_upnphttp(h, 400, "Bad Request",
+ 			                    err400str, sizeof(err400str) - 1);
+ 			SendResp_upnphttp(h);
+-			CloseSocket_upnphttp(h);
+ 		}
+ 	}
+ 	else
+@@ -383,7 +378,6 @@ ProcessHTTPSubscribe_upnphttp(struct upn
+ 		 * the publisher must respond with HTTP error 412 Precondition Failed*/
+ 		BuildResp2_upnphttp(h, 412, "Precondition Failed", 0, 0);
+ 		SendResp_upnphttp(h);
+-		CloseSocket_upnphttp(h);
+ 	} else {
+ 	/* - add to the subscriber list
+ 	 * - respond HTTP/x.x 200 OK 
+@@ -422,7 +416,6 @@ with HTTP error 412 Precondition Failed.
+ 			}
+ 		}
+ 		SendResp_upnphttp(h);
+-		CloseSocket_upnphttp(h);
+ 	}
+ }
+ 
+@@ -438,7 +431,6 @@ ProcessHTTPUnSubscribe_upnphttp(struct u
+ 		BuildResp_upnphttp(h, 0, 0);
+ 	}
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ #endif
+ 
+@@ -733,6 +726,8 @@ SendResp_upnphttp(struct upnphttp * h)
+ 		if(n<0)
+ 		{
+ 			syslog(LOG_ERR, "send(res_buf): %m");
++			if (errno != EINTR)
++				break;
+ 		}
+ 		else if(n == 0)
+ 		{
+@@ -746,5 +741,6 @@ SendResp_upnphttp(struct upnphttp * h)
+ 			len -= n;
+ 		}
+ 	}
++	CloseSocket_upnphttp(h);
+ }
+ 
+diff -urBp miniupnpd/upnpsoap.c miniupnpd.new/upnpsoap.c
+--- miniupnpd/upnpsoap.c	2011-07-15 11:53:39.000000000 +0400
++++ miniupnpd.new/upnpsoap.c	2011-10-17 16:56:09.000000000 +0400
+@@ -54,7 +54,6 @@ BuildSendAndCloseSoapResp(struct upnphtt
+ 	h->res_buflen += sizeof(afterbody) - 1;
+ 
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ 
+ static void
+@@ -1865,6 +1864,5 @@ SoapError(struct upnphttp * h, int errCo
+ 	bodylen = snprintf(body, sizeof(body), resp, errCode, errDesc);
+ 	BuildResp2_upnphttp(h, 500, "Internal Server Error", body, bodylen);
+ 	SendResp_upnphttp(h);
+-	CloseSocket_upnphttp(h);
+ }
+ 

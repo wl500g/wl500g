@@ -1,6 +1,13 @@
 ext4 updates from 2.6.30.9
 
- kernel.org commits
+ Removed functionality (due to missed API in 2.6.22):
+
+ *) fiemap interface
+ *) 'check_acl' permission model
+ *) quota reservation for delayed allocation
+
+
+ additional kernel.org commits
  3f8fb9490efbd300887470a2a880a64e04dcc3f5 ext4: don't update the superblock in ext4_statfs()
  71290b368ad5e1e0b0b300c9d5638490a9fd1a2d ext4: Don't update superblock write time when filesystem is read-only
  f613dfcb3345dacb8cf99b7bb359acc1c18a1157 ext4: check to make make sure bd_dev is set before dereferencing it
@@ -7434,8 +7441,8 @@ diff --git a/fs/ext4/ioctl.c b/fs/ext4/ioctl.c
  		if (get_user(n_blocks_count, (__u32 __user *)arg))
  			return -EFAULT;
  
-+ 		if (IS_RDONLY(inode))
-+ 			return -EROFS;
++		if (IS_RDONLY(inode))
++			return -EROFS;
 +
  		err = ext4_group_extend(sb, EXT4_SB(sb)->s_es, n_blocks_count);
  		jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
@@ -7463,8 +7470,8 @@ diff --git a/fs/ext4/ioctl.c b/fs/ext4/ioctl.c
  				sizeof(input)))
  			return -EFAULT;
  
-+ 		if (IS_RDONLY(inode))
-+ 			return -EROFS;
++		if (IS_RDONLY(inode))
++			return -EROFS;
 +
  		err = ext4_group_add(sb, &input);
  		jbd2_journal_lock_updates(EXT4_SB(sb)->s_journal);
@@ -11667,13 +11674,13 @@ diff --git a/fs/ext4/super.c b/fs/ext4/super.c
 -	sbi->s_rsv_window_head.rsv_alloc_hit = 0;
 -	sbi->s_rsv_window_head.rsv_goal_size = 0;
 -	ext4_rsv_window_add(sb, &sbi->s_rsv_window_head);
-+  	percpu_counter_init(&sbi->s_freeblocks_counter,
-+   			ext4_count_free_blocks(sb));
-+  	percpu_counter_init(&sbi->s_freeinodes_counter,
-+  			ext4_count_free_inodes(sb));
-+  	percpu_counter_init(&sbi->s_dirs_counter,
-+   				ext4_count_dirs(sb));
-+  	percpu_counter_init(&sbi->s_dirtyblocks_counter, 0);
++	percpu_counter_init(&sbi->s_freeblocks_counter,
++				ext4_count_free_blocks(sb));
++	percpu_counter_init(&sbi->s_freeinodes_counter,
++				ext4_count_free_inodes(sb));
++	percpu_counter_init(&sbi->s_dirs_counter,
++				ext4_count_dirs(sb));
++	percpu_counter_init(&sbi->s_dirtyblocks_counter, 0);
  
  	sbi->s_stripe = ext4_get_stripe_size(sbi);
  

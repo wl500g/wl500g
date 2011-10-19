@@ -1,0 +1,100 @@
+--- a/usb_modeswitch.c	2011-10-11 22:51:58.323482655 +0400
++++ b/usb_modeswitch.c	2011-10-11 22:51:09.400482654 +0400
+@@ -207,6 +207,7 @@ int ret;
+ 
+ char DetachStorageOnly=0, HuaweiMode=0, SierraMode=0, SonyMode=0, GCTMode=0, KobilMode=0;
+ char SequansMode=0, MobileActionMode=0, CiscoMode=0;
++char QisdaMode=0;
+ char verbose=0, show_progress=1, ResetUSB=0, CheckSuccess=0, config_read=0;
+ char NeedResponse=0, NoDriverLoading=0, InquireDevice=1, sysmode=0;
+ 
+@@ -241,6 +242,7 @@ static struct option long_options[] = {
+ 	{"huawei-mode",			no_argument, 0, 'H'},
+ 	{"sierra-mode",			no_argument, 0, 'S'},
+ 	{"sony-mode",			no_argument, 0, 'O'},
++	{"qisda-mode",			required_argument, 0, 'B'}, // tommy add for Qisda Flying Beetle
+ 	{"kobil-mode",			no_argument, 0, 'T'},
+ 	{"gct-mode",			no_argument, 0, 'G'},
+ 	{"sequans-mode",		no_argument, 0, 'N'},
+@@ -274,6 +276,7 @@ void readConfigFile(const char *configFi
+ 	ParseParamBool(configFilename, HuaweiMode);
+ 	ParseParamBool(configFilename, SierraMode);
+ 	ParseParamBool(configFilename, SonyMode);
++	ParseParamBool(configFilename, QisdaMode);
+ 	ParseParamBool(configFilename, GCTMode);
+ 	ParseParamBool(configFilename, KobilMode);
+ 	ParseParamBool(configFilename, SequansMode);
+@@ -331,6 +334,7 @@ void printConfig()
+ 	printf ("HuaweiMode=%i\n",			(int)HuaweiMode);
+ 	printf ("SierraMode=%i\n",			(int)SierraMode);
+ 	printf ("SonyMode=%i\n",			(int)SonyMode);
++	printf ("QisdaMode=%i\n",		(int)QisdaMode);
+ 	printf ("GCTMode=%i\n",			(int)GCTMode);
+ 	printf ("KobilMode=%i\n",		(int)KobilMode);
+ 	printf ("SequansMode=%i\n",		(int)SequansMode);
+@@ -409,6 +413,7 @@ int readArguments(int argc, char **argv)
+ 			case 'H': HuaweiMode = 1; break;
+ 			case 'S': SierraMode = 1; break;
+ 			case 'O': SonyMode = 1; break;
++			case 'B': QisdaMode = 1; break;
+ 			case 'G': GCTMode = 1; break;
+ 			case 'T': KobilMode = 1; break;
+ 			case 'N': SequansMode = 1; break;
+@@ -623,7 +628,7 @@ int main(int argc, char **argv)
+ 	}
+ 
+ 	/* Some scenarios are exclusive, so check for unwanted combinations */
+- 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode + KobilMode
++ 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode + QisdaMode + KobilMode
+ 		+ SequansMode + MobileActionMode + CiscoMode;
+ 	if ( specialMode > 1 ) {
+ 		SHOW_PROGRESS("Invalid mode combination. Check your configuration. Aborting.\n\n");
+@@ -663,6 +668,9 @@ int main(int argc, char **argv)
+ 		detachDriver();
+ 		switchGCTMode();
+ 	}
++	if (QisdaMode) {
++		switchQisdaMode();
++	}
+ 	if(KobilMode) {
+ 		detachDriver();
+ 		switchKobilMode();
+@@ -1079,6 +1087,19 @@ int switchKobilMode() {
+ 	return 1;
+ }
+ 
++int switchQisdaMode () {
++	int ret;
++
++	SHOW_PROGRESS("Trying to send Qisda control message\n");
++	memcpy(buffer, "\x05\x8c\x04\x08\xa0\xee\x20\x00\x5c\x01\x04\x08\x98\xcd\xea\xbf", 16);
++	ret = usb_control_msg(devh, 0x40, 0x04, 00000000, 0, buffer, 16, 100);
++	if (ret != 0) {
++		fprintf(stderr, "Error: sending Qisda control message failed (error %d). Aborting.\n\n", ret);
++		exit(1);
++	} else
++	SHOW_PROGRESS(" OK, Qisda control message sent\n");
++	return 1;
++}
+ 
+ int switchSonyMode ()
+ {
+@@ -1863,6 +1884,7 @@ void printHelp()
+ 	        " -A, --mobileaction-mode       apply a special procedure\n"
+ 	        " -T, --kobil-mode              apply a special procedure\n"
+ 	        " -L, --cisco-mode              apply a special procedure\n"
++	        " -B, --qisda-mode              apply a special procedure\n"
+ 	        " -R, --reset-usb               reset the device after all other actions\n"
+ 	        " -Q, --quiet                   don't show progress or error messages\n"
+ 	        " -W, --verbose                 print all settings and debug output\n"
+
+--- a/usb_modeswitch.h	2011-08-10 14:57:06.000000000 +0400
++++ b/usb_modeswitch.h	2011-10-11 22:50:46.237270752 +0400
+@@ -35,6 +35,7 @@ void switchHuaweiMode();
+ void switchSierraMode();
+ void switchGCTMode();
+ int switchKobilMode();
++int switchQisdaMode();
+ int switchSequansMode();
+ int switchActionMode();
+ int switchSonyMode();

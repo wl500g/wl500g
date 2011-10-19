@@ -36,6 +36,15 @@ diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
   *	This is an Ethernet frame header.
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
+@@ -96,7 +96,7 @@ struct vm_area_struct {
+ 	struct anon_vma *anon_vma;	/* Serialized by page_table_lock */
+ 
+ 	/* Function pointers to deal with this struct. */
+-	struct vm_operations_struct * vm_ops;
++	const struct vm_operations_struct *vm_ops;
+ 
+ 	/* Information about our backing store: */
+ 	unsigned long vm_pgoff;		/* Offset (within vm_file) in PAGE_SIZE
 @@ -1165,6 +1165,23 @@ static inline unsigned long vma_pages(st
  	return (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
  }
