@@ -28,7 +28,7 @@ IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.19.2
 DROPBEAR=dropbear-0.53.1
-DNSMASQ=dnsmasq-2.58
+DNSMASQ=dnsmasq-2.59
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
