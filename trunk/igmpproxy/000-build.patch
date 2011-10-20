@@ -8,7 +8,7 @@
 +
      // Parse the commandline options and setup basic settings..
 -    for (int c; (c = getopt(ArgCn, ArgVc, "vdh")) != -1;) {
-+    for (c; (c = getopt(ArgCn, ArgVc, "vdh")) != -1;) {
++    while ((c = getopt(ArgCn, ArgVc, "vdh")) != -1) {
          switch (c) {
          case 'd':
              Log2Stderr = true;
