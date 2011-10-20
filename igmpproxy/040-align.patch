@@ -1,15 +1,3 @@
-diff -urBp a/src/igmpproxy.c igmpproxy/src/igmpproxy.c
---- a/src/igmpproxy.c	2009-09-23 21:20:12.000000000 +0400
-+++ igmpproxy/src/igmpproxy.c	2011-05-27 19:55:29.000000000 +0400
-@@ -62,7 +62,7 @@ static int sighandled = 0;
- #define	GOT_SIGUSR2	0x08
- 
- // The upstream VIF index
--int         upStreamVif;   
-+unsigned         upStreamVif;
- 
- /**
- *   Program main method. Is invoked when the program is started
 diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
 --- a/src/igmpproxy.h	2011-05-27 19:33:24.000000000 +0400
 +++ igmpproxy/src/igmpproxy.h	2011-05-27 19:56:41.000000000 +0400
@@ -21,7 +9,7 @@ diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
 +    struct in_addr      InAdr;          /* == 0 for non IP interfaces */
      short               Flags;
      short               state;
-+    vifi_t              index;
++    short               index;
 +    uint8_t             robustness;
 +    uint8_t             threshold;   /* ttl limit */
 +    unsigned int        ratelimit;
@@ -34,7 +22,7 @@ diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
  };
  
  // Keeps common configuration settings 
-@@ -165,26 +165,26 @@ struct Config {
+@@ -165,7 +165,7 @@ struct Config {
      unsigned int        lastMemberQueryInterval;
      unsigned int        lastMemberQueryCount;
      // Set if upstream leave messages should be sent instantly..
@@ -43,11 +31,7 @@ diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
  };
  
  // Defines the Index of the upstream VIF...
--extern int upStreamVif;
-+extern unsigned upStreamVif;
- 
- /* ifvc.c
-  */
+@@ -176,15 +176,15 @@ extern int upStreamVif;
  void buildIfVc( void );
  struct IfDesc *getIfByName( const char *IfName );
  struct IfDesc *getIfByIx( unsigned Ix );
@@ -66,15 +50,6 @@ diff -urBp a/src/igmpproxy.h igmpproxy/src/igmpproxy.h
  };
  
  // IGMP socket as interface for the mrouted API
-@@ -245,7 +245,7 @@ int leaveMcGroup( int UdpSock, struct If
-  */
- void initRouteTable();
- void clearAllRoutes();
--int insertRoute(uint32_t group, int ifx);
-+int insertRoute(uint32_t group, vifi_t ifx);
- int activateRoute(uint32_t group, uint32_t originAddr);
- void ageActiveRoutes();
- void setRouteLastMemberMode(uint32_t group);
 diff -urBp a/src/request.c igmpproxy/src/request.c
 --- a/src/request.c	2011-05-27 19:33:24.000000000 +0400
 +++ igmpproxy/src/request.c	2011-05-27 19:53:55.000000000 +0400
@@ -87,15 +62,3 @@ diff -urBp a/src/request.c igmpproxy/src/request.c
  
      // Loop through all downstream vifs...
      for ( Ix = 0; (Dp = getIfByIx(Ix)); Ix++ ) {
-diff -urBp a/src/rttable.c igmpproxy/src/rttable.c
---- a/src/rttable.c	2011-05-27 19:33:24.000000000 +0400
-+++ igmpproxy/src/rttable.c	2011-05-27 19:55:59.000000000 +0400
-@@ -220,7 +220,7 @@ struct RouteTable *findRoute(uint32_t gr
- *   If the route already exists, the existing route 
- *   is updated...
- */
--int insertRoute(uint32_t group, int ifx) {
-+int insertRoute(uint32_t group, vifi_t ifx) {
-     
-     struct Config *conf = getCommonConfig();
-     struct RouteTable*  croute;
