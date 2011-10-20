@@ -5,7 +5,7 @@ diff -urNBp busybox.orig/include/libbb.h busybox/include/libbb.h
  	BASE64_FLAG_NO_STOP_CHAR = 0x80,
  };
  void FAST_FUNC read_base64(FILE *src_stream, FILE *dst_stream, int flags);
-+int FAST_FUNC decode_base64(const char *src, char *dst, int dstlen);
++int FAST_FUNC decode_base64(const char *src, char *dst, int dstlen, int flags);
  
  typedef struct md5_ctx_t {
  	uint8_t wbuffer[64]; /* always correctly aligned for uint64_t */
@@ -20,7 +20,7 @@ diff -urNBp busybox.orig/libbb/uuencode.c busybox/libbb/uuencode.c
 +/*
 + * Decode base64 encoded string.
 + */
-+int FAST_FUNC decode_base64(const char *src, char *buf, int buflen)
++int FAST_FUNC decode_base64(const char *src, char *buf, int buflen, int flags)
 +{
 +	int len = 0;
 +	int term_count = 0;
@@ -58,7 +58,7 @@ diff -urNBp busybox.orig/libbb/uuencode.c busybox/libbb/uuencode.c
 +
 +			if (ch == 65 /* '\n' */) {
 +				/* Terminating "====" line? */
-+				if (term_count == 4)
++				if (uu_style_end && term_count == 4)
 +					return len; /* yes */
 +				term_count = 0;
 +				continue;
