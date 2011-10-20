@@ -1,7 +1,7 @@
-diff -urNBp a/include/applets.src.h b/include/applets.src.h
---- a/include/applets.src.h	2011-10-18 20:10:17.000000000 +0400
-+++ b/include/applets.src.h	2011-02-05 13:41:12.000000000 +0300
-@@ -118,6 +118,7 @@ IF_DEVFSD(APPLET(devfsd, BB_DIR_SBIN, BB
+diff -urNBp busybox/include/applets.src.h busybox.full/include/applets.src.h
+--- busybox/include/applets.src.h	2011-09-26 15:51:25.000000000 +0400
++++ busybox.full/include/applets.src.h	2011-09-26 14:57:43.000000000 +0400
+@@ -117,6 +117,7 @@ IF_DEVFSD(APPLET(devfsd, BB_DIR_SBIN, BB
  IF_DEVMEM(APPLET(devmem, BB_DIR_SBIN, BB_SUID_DROP))
  IF_DF(APPLET(df, BB_DIR_BIN, BB_SUID_DROP))
  IF_DHCP6C(APPLET(dhcp6c, BB_DIR_SBIN, BB_SUID_DROP))
@@ -9,9 +9,9 @@ diff -urNBp a/include/applets.src.h b/include/applets.src.h
  IF_DHCPRELAY(APPLET(dhcprelay, BB_DIR_USR_SBIN, BB_SUID_DROP))
  IF_DIFF(APPLET(diff, BB_DIR_USR_BIN, BB_SUID_DROP))
  IF_DIRNAME(APPLET_NOFORK(dirname, dirname, BB_DIR_USR_BIN, BB_SUID_DROP, dirname))
-diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
---- a/networking/udhcp/common6.c	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/common6.c	2011-10-18 20:09:49.000000000 +0400
+diff -urNBp busybox/networking/udhcp/common6.c busybox.full/networking/udhcp/common6.c
+--- busybox/networking/udhcp/common6.c	2011-09-26 18:24:15.000000000 +0400
++++ busybox.full/networking/udhcp/common6.c	2011-09-26 15:37:10.000000000 +0400
 @@ -69,7 +69,7 @@ static int copy_option(uint16_t, uint16_
      struct dhcp6opt *, int *);
  static int in6_addrscopebyif(const struct in6_addr *, const char *);
@@ -25,7 +25,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  	vbuf->dv_buf = NULL;
  }
  
-+#if /*ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
++#if /* ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
 +static int dhcp6_set_addr(int dh6optype, struct dhcp6_list *list,
 +	       struct dhcp6opt **p, struct dhcp6opt *ep, int *len)
 +{
@@ -67,14 +67,14 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  static int dhcp6_get_domain(int optlen, void *cp, int dh6optype,
  			    struct dhcp6_list *list)
  {
-@@ -345,7 +381,59 @@ static int dhcp6_get_domain(int optlen,
+@@ -345,7 +381,59 @@ static int dhcp6_get_domain(int optlen, 
  
  	return 0;
  }
 -#endif /* FEATURE_UDHCP_RFC3397 */
 +#endif /* FEATURE_UDHCP_RFC3397 || ENABLE_DHCP6RELAY */
 +
-+#if /*ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
++#if /* ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
 +static int dhcp6_set_domain(int dh6optype, struct dhcp6_list *list,
 +			 struct dhcp6opt **p, struct dhcp6opt *ep, int *len)
 +{
@@ -128,35 +128,37 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  
  struct dhcp6_event *dhcp6_create_event(struct dhcp6_if *ifp, int state)
  {
-@@ -728,6 +816,7 @@ void dhcp6_init_options(struct dhcp6_opt
+@@ -728,6 +816,9 @@ void dhcp6_init_options(struct dhcp6_opt
  	TAILQ_INIT(&optinfo->reqopt_list);
  	TAILQ_INIT(&optinfo->stcode_list);
  	TAILQ_INIT(&optinfo->ad_list);
-+//	TAILQ_INIT(&optinfo->prefix_list);
++#if 0 /* ENABLE_DHCP6S */
++	TAILQ_INIT(&optinfo->prefix_list);
++#endif
  
  	optinfo->authproto = DHCP6_AUTHPROTO_UNDEF;
  	optinfo->authalgorithm = DHCP6_AUTHALG_UNDEF;
-@@ -749,6 +838,7 @@ void dhcp6_clear_options(struct dhcp6_op
+@@ -749,6 +840,9 @@ void dhcp6_clear_options(struct dhcp6_op
  	dhcp6_clear_list(&optinfo->reqopt_list);
  	dhcp6_clear_list(&optinfo->stcode_list);
  	dhcp6_clear_list(&optinfo->ad_list);
-+//	dhcp6_clear_list(&optinfo->prefix_list);
++#if 0 /* ENABLE_DHCP6S */
++	dhcp6_clear_list(&optinfo->prefix_list);
++#endif
  
  	dhcp6_vbuf_free(&optinfo->relay_msg);
  	dhcp6_vbuf_free(&optinfo->ifidopt);
-@@ -771,7 +861,10 @@ int dhcp6_copy_options(struct dhcp6_opti
- 		goto fail;
- 	if (dhcp6_copy_list(&dst->ad_list, &src->ad_list))
- 		goto fail;
--
-+/*
-+	if (dhcp6_copy_list(&dst->prefix_list, &src->prefix_list))
-+		goto fail;
-+*/
+@@ -771,6 +865,9 @@ int dhcp6_copy_options(struct dhcp6_opti
+ 	dhcp6_copy_list(&dst->reqopt_list, &src->reqopt_list);
+ 	dhcp6_copy_list(&dst->stcode_list, &src->stcode_list);
+ 	dhcp6_copy_list(&dst->ad_list, &src->ad_list);
++#if 0 /* ENABLE_DHCP6S */
++	dhcp6_copy_list(&dst->prefix_list, &src->prefix_list);
++#endif
+ 
  	dst->rapidcommit = src->rapidcommit;
  	dst->elapsed_time = src->elapsed_time;
- 	dst->refreshtime = src->refreshtime;
-@@ -858,7 +951,7 @@ int dhcp6_get_options(struct dhcp6opt *p
+@@ -858,7 +956,7 @@ int dhcp6_get_options(struct dhcp6opt *p
  		struct in6_addr valaddr;
  	} u1 ALIGN4;
  	struct dhcp6_list sublist;
@@ -165,7 +167,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  	int authinfolen;
  #endif
  
-@@ -964,7 +1057,7 @@ int dhcp6_get_options(struct dhcp6opt *p
+@@ -964,7 +1062,7 @@ int dhcp6_get_options(struct dhcp6opt *p
  			memcpy(optinfo->relaymsg_msg, cp, optlen);
  			break;
  
@@ -174,7 +176,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  		case DH6OPT_AUTH:
  			/*
  			 * Any DHCP message that includes more than one
-@@ -1028,7 +1121,7 @@ int dhcp6_get_options(struct dhcp6opt *p
+@@ -1028,7 +1126,7 @@ int dhcp6_get_options(struct dhcp6opt *p
  				goto fail;
  			}
  			break;
@@ -183,7 +185,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  
  		case DH6OPT_RAPID_COMMIT:
  			if (optlen != 0)
-@@ -1047,7 +1140,7 @@ int dhcp6_get_options(struct dhcp6opt *p
+@@ -1047,7 +1145,7 @@ int dhcp6_get_options(struct dhcp6opt *p
  		case DH6OPT_NIS_DOMAIN:
  		case DH6OPT_NISP_DOMAIN:
  		case DH6OPT_BCMCS_SERVER_D:
@@ -192,11 +194,11 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  			if (dhcp6_get_domain(optlen, cp, opt, &optinfo->ad_list) == -1)
  				goto fail;
  #endif
-@@ -1546,6 +1639,56 @@ int dhcp6_set_options(int type, struct d
+@@ -1546,6 +1644,56 @@ int dhcp6_set_options(int type, struct d
  			goto fail;
  	}
  
-+#if /*ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
++#if /* ENABLE_DHCP6S ||*/ ENABLE_DHCP6RELAY
 +	if (dhcp6_set_domain(DH6OPT_SIP_SERVER_D, &optinfo->ad_list,
 +	    &p, optep, &len) != 0)
 +		goto fail;
@@ -249,7 +251,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  	if (dhcp6_set_iaoptions(DH6OPT_IA_NA, &optinfo->ia_list, &p, optep, &len) < 0)
  		goto fail;
  
-@@ -1569,12 +1712,12 @@ int dhcp6_set_options(int type, struct d
+@@ -1569,12 +1717,12 @@ int dhcp6_set_options(int type, struct d
  			goto fail;
  	}
  
@@ -264,7 +266,7 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  
  	return len;
  
-@@ -1751,7 +1894,7 @@ ssize_t FAST_FUNC recv_from6(int fd, voi
+@@ -1751,7 +1899,7 @@ ssize_t FAST_FUNC recv_from6(int fd, voi
  	return len;
  }
  
@@ -273,47 +275,10 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
  # if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 2
  static char *sprint_auth(struct dhcp6_optinfo *optinfo)
  {
-diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
---- a/networking/udhcp/common6.h	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/common6.h	2011-10-18 20:09:49.000000000 +0400
-@@ -153,3 +153,33 @@ int ifaddrconf(ifaddrconf_cmd_t, char *,
- char **fill_envp_client6(struct dhcp6_optinfo *optinfo, char *ifname);
- char **fill_envp_relay6(struct dhcp6_optinfo *optinfo, char *clientaddr);
- int dhcp6_script(const char *scriptpath, char **envp);
-+
-+/*
-+ * compat hacks in case libc and kernel get out of sync:
-+ *
-+ * glibc 2.4 and uClibc 0.9.29 introduce IPV6_RECVPKTINFO etc. and change IPV6_PKTINFO
-+ * This is only supported in Linux kernel >= 2.6.14
-+ *
-+ * This is only an approximation because the kernel version that libc was compiled against
-+ * could be older or newer than the one being run.  But this should not be a problem --
-+ * we just keep using the old kernel interface.
-+ *
-+ * these are placed here because they're needed in all of socket.c, recv.c and send.c
-+ */
-+#ifdef __linux__
-+#  if defined IPV6_RECVHOPLIMIT || defined IPV6_RECVPKTINFO
-+#    include <linux/version.h>
-+#    if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,14)
-+#      if defined IPV6_RECVHOPLIMIT && defined IPV6_2292HOPLIMIT
-+#        undef IPV6_RECVHOPLIMIT
-+#        define IPV6_RECVHOPLIMIT IPV6_2292HOPLIMIT
-+#      endif
-+#      if defined IPV6_RECVPKTINFO && defined IPV6_2292PKTINFO
-+#        undef IPV6_RECVPKTINFO
-+#        undef IPV6_PKTINFO
-+#        define IPV6_RECVPKTINFO IPV6_2292PKTINFO
-+#        define IPV6_PKTINFO IPV6_2292PKTINFO
-+#      endif
-+#    endif
-+#  endif
-+#endif
-diff -urNBp a/networking/udhcp/common.h b/networking/udhcp/common.h
---- a/networking/udhcp/common.h	2011-05-20 13:54:28.000000000 +0400
-+++ b/networking/udhcp/common.h	2011-05-20 13:54:28.000000000 +0400
-@@ -197,7 +197,7 @@ uint8_t *udhcp_get_option(struct dhcp_pa
+diff -urNBp busybox/networking/udhcp/common.h busybox.full/networking/udhcp/common.h
+--- busybox/networking/udhcp/common.h	2011-09-26 15:53:22.000000000 +0400
++++ busybox.full/networking/udhcp/common.h	2011-09-26 14:57:43.000000000 +0400
+@@ -192,7 +192,7 @@ uint8_t *udhcp_get_option(struct dhcp_pa
  int udhcp_end_option(uint8_t *optionptr) FAST_FUNC;
  void udhcp_add_binary_option(struct dhcp_packet *packet, uint8_t *addopt) FAST_FUNC;
  void udhcp_add_simple_option(struct dhcp_packet *packet, uint8_t code, uint32_t data) FAST_FUNC;
@@ -322,14 +287,14 @@ diff -urNBp a/networking/udhcp/common.h b/networking/udhcp/common.h
  char *dname_dec(const uint8_t *cstr, int clen, const char *pre) FAST_FUNC;
  uint8_t *dname_enc(const uint8_t *cstr, int clen, const char *src, int *retlen) FAST_FUNC;
  #endif
-diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
---- a/networking/udhcp/config6.c	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/config6.c	2011-10-18 20:09:49.000000000 +0400
+diff -urNBp busybox/networking/udhcp/config6.c busybox.full/networking/udhcp/config6.c
+--- busybox/networking/udhcp/config6.c	2011-09-26 18:10:00.000000000 +0400
++++ busybox.full/networking/udhcp/config6.c	2011-09-26 15:37:28.000000000 +0400
 @@ -130,6 +130,9 @@ static int configure_interface(void)
  			switch (cfl->type) {
  			case DECL_REQUEST:
  			case DECL_SEND:
-+#if 0 /*ENABLE_DHCP6S*/
++#if 0 /* ENABLE_DHCP6S */
 +			case DECL_ALLOW:
 +#endif
  				if (add_options(cfl->type, ifp, cfl->sublist))
@@ -344,19 +309,20 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
      { "domain-name",              DHCPOPT_DNSNAME,       0 },
      { "sip-server-domain-name",   DHCPOPT_SIPNAME,       0 },
      { "nis-domain-name",          DHCPOPT_NISNAME,       0 },
-diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
---- a/networking/udhcp/config6.h	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/config6.h	2011-10-18 20:09:49.000000000 +0400
-@@ -209,6 +209,27 @@ struct ia_conf {
+diff -urNBp busybox/networking/udhcp/config6.h busybox.full/networking/udhcp/config6.h
+--- busybox/networking/udhcp/config6.h	2011-09-26 18:07:52.000000000 +0400
++++ busybox.full/networking/udhcp/config6.h	2011-09-26 15:37:34.000000000 +0400
+@@ -209,6 +209,29 @@ struct ia_conf {
  	struct pifc_list iapd_pif_list;
  };
  
++#if 0 /* ENABLE_DHCP6S */
 +/* per-host configuration */
 +struct host_conf {
 +	struct host_conf *next;
 +
-+	char *name;		/* host name to identify the host */
-+	struct dhcp6_vbuf duid;	/* DUID for the host */
++	char *name;					/* host name to identify the host */
++	struct dhcp6_vbuf duid;		/* DUID for the host */
 +
 +	/* prefixes to be delegated to the host */
 +	struct dhcp6_list prefix_list;
@@ -368,16 +334,17 @@ diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 +	/* secret key shared with the client for delayed authentication */
 +	struct keyinfo *delayedkey;
 +	/* previous replay detection value from the client */
-+	int saw_previous_rd;	/* if we remember the previous value */
++	int saw_previous_rd;		/* if we remember the previous value */
 +	uint64_t previous_rd;
 +};
++#endif /* ENABLE_DHCP6S */
 +
  struct cf_list;
  struct authinfo;
  
-diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
---- a/networking/udhcp/Config.src	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/Config.src	2011-06-04 21:05:04.000000000 +0400
+diff -urNBp busybox/networking/udhcp/Config.src busybox.full/networking/udhcp/Config.src
+--- busybox/networking/udhcp/Config.src	2011-09-26 15:52:54.000000000 +0400
++++ busybox.full/networking/udhcp/Config.src	2011-09-26 14:57:43.000000000 +0400
 @@ -96,7 +96,7 @@ config UDHCP_DEBUG
  	int "Maximum verbosity level for udhcp applets (0..9)"
  	default 9
@@ -387,7 +354,7 @@ diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
  	help
  	  Verbosity can be increased with multiple -v options.
  	  This option controls how high it can be cranked up.
-@@ -175,3 +175,11 @@ config FEATURE_DHCP6_AUTH
+@@ -168,3 +168,11 @@ config FEATURE_DHCP6_AUTH
  	help
  	  If selected, client will support DHCPv6 messages authentication,
  	  currently HMAC-MD5 only.
@@ -399,10 +366,10 @@ diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
 +	help
 +	  dhcp6relay listens for DHCPv6 requests on one or more interfaces
 +	  and forwards these requests to a different interface.
-diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.c
---- a/networking/udhcp/dhcp6c_script.c	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/dhcp6c_script.c	2011-10-18 20:09:49.000000000 +0400
-@@ -150,6 +152,104 @@ char **fill_envp_client6(struct dhcp6_op
+diff -urNBp busybox/networking/udhcp/dhcp6c_script.c busybox.full/networking/udhcp/dhcp6c_script.c
+--- busybox/networking/udhcp/dhcp6c_script.c	2011-09-26 15:54:09.000000000 +0400
++++ busybox.full/networking/udhcp/dhcp6c_script.c	2011-09-26 15:45:54.000000000 +0400
+@@ -150,6 +150,105 @@ char **fill_envp_client6(struct dhcp6_op
  	return envp;
  }
  
@@ -414,7 +381,7 @@ diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.
 +
 +static char *ia2str(int, struct dhcp6_listval *, const char *);
 +
-+char **fill_envp_relay6(struct dhcp6_optinfo *optinfo, char *clientaddr)
++char **fill_envp_relay6(struct dhcp6_optinfo *optinfo, const char *clientaddr)
 +{
 +	int i, j, envc;
 +	char **envp, **curr;
@@ -440,6 +407,7 @@ diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.
 +	putenv(*curr++);
 +	if (envc <=2)
 +		return envp;
++
 +	/* IAs */
 +	for (i=0; i < ARRAY_SIZE(relay6_envp_list); i++) {
 +		j = 0;
@@ -504,24 +472,26 @@ diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.
 +}
 +#endif /* ENABLE_DHCP6RELAY */
 +
- static int safefile(const char *path)
+ int dhcp6_script(const char *scriptpath, char **envp)
  {
- 	struct stat s;
-diff -urNBp a/networking/udhcp/dhcp6.h b/networking/udhcp/dhcp6.h
---- a/networking/udhcp/dhcp6.h	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/dhcp6.h	2011-10-18 20:09:49.000000000 +0400
-@@ -173,6 +173,7 @@ struct dhcp6_listval {
+ 	char *argv[2];
+diff -urNBp busybox/networking/udhcp/dhcp6.h busybox.full/networking/udhcp/dhcp6.h
+--- busybox/networking/udhcp/dhcp6.h	2011-09-26 18:07:33.000000000 +0400
++++ busybox.full/networking/udhcp/dhcp6.h	2011-09-26 15:36:32.000000000 +0400
+@@ -175,6 +175,9 @@ struct dhcp6_optinfo {
  	struct dhcp6_list reqopt_list;	/* options in option request */
  	struct dhcp6_list stcode_list;	/* status code */
  	struct dhcp6_list ad_list;		/* SIP/DNS/NTP/NIS/NIS+/BCMS servers/domain list */
-+//	struct dhcp6_list prefix_list;	/* prefix list */
++#if 0 /* ENABLE_DHCP6S */
++	struct dhcp6_list prefix_list;	/* prefix list */
++#endif
  
  	struct dhcp6_vbuf relay_msg;	/* relay message */
  #define relaymsg_len relay_msg.dv_len
-diff -urNBp a/networking/udhcp/dhcp6relay.c b/networking/udhcp/dhcp6relay.c
---- a/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6relay.c	2011-10-18 20:09:49.000000000 +0400
-@@ -0,0 +1,790 @@
+diff -urNBp busybox/networking/udhcp/dhcp6relay.c busybox.full/networking/udhcp/dhcp6relay.c
+--- busybox/networking/udhcp/dhcp6relay.c	1970-01-01 03:00:00.000000000 +0300
++++ busybox.full/networking/udhcp/dhcp6relay.c	2011-06-14 20:37:33.000000000 +0400
+@@ -0,0 +1,881 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * DHCPv6 relay
@@ -1278,6 +1248,97 @@ diff -urNBp a/networking/udhcp/dhcp6relay.c b/networking/udhcp/dhcp6relay.c
 +	return;
 +}
 +
++static int in6_addrscopebyif(const struct in6_addr *addr, const char *ifnam)
++{
++	unsigned ifindex;
++
++	ifindex = if_nametoindex(ifnam);
++	if (ifindex == 0)
++		return -1;
++
++	if (IN6_IS_ADDR_LINKLOCAL(addr) || IN6_IS_ADDR_MC_LINKLOCAL(addr))
++		return ifindex;
++
++	if (IN6_IS_ADDR_SITELOCAL(addr) || IN6_IS_ADDR_MC_SITELOCAL(addr))
++		return 1;	/* XXX */
++
++	if (IN6_IS_ADDR_MC_ORGLOCAL(addr))
++		return 1;	/* XXX */
++
++	return 1;		/* treat it as global */
++}
++
++static int getifaddr(struct in6_addr *addr, char *ifnam,
++	      const struct in6_addr *prefix, int plen,
++	      int strong /* if strong host model is required or not */)
++{
++	struct ifaddrs *ifap, *ifa;
++	struct sockaddr_in6 sin6;
++	int error = -1;
++
++	if (getifaddrs(&ifap) != 0) {
++		bb_perror_msg("getifaddrs");
++		return -1;
++	}
++
++	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
++		int s1, s2;
++
++		if (strong && strcmp(ifnam, ifa->ifa_name) != 0)
++			continue;
++
++		/* in any case, ignore interfaces in different scope zones. */
++		s1 = in6_addrscopebyif(prefix, ifnam);
++		s2 = in6_addrscopebyif(prefix, ifa->ifa_name);
++		if (s1 < 0 || s2 < 0 || s1 != s2)
++			continue;
++
++		if (ifa->ifa_addr->sa_family != AF_INET6)
++			continue;
++#ifdef HAVE_SA_LEN
++		if (ifa->ifa_addr->sa_len > sizeof(sin6))
++			continue;
++#endif
++
++		memcpy(&sin6, ifa->ifa_addr, sizeof(struct sockaddr_in6));
++#ifdef __KAME__
++		if (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr)) {
++			sin6.sin6_addr.s6_addr[2] = 0;
++			sin6.sin6_addr.s6_addr[3] = 0;
++		}
++#endif
++		if (plen % 8 == 0) {
++			if (memcmp(&sin6.sin6_addr, prefix, plen / 8) != 0)
++				continue;
++		} else {
++			struct in6_addr a, m;
++			int i;
++
++			memcpy(&a, &sin6.sin6_addr, sizeof(sin6.sin6_addr));
++			memset(&m, 0, sizeof(m));
++			memset(&m, 0xff, plen / 8);
++			m.s6_addr[plen / 8] = (0xff00 >> (plen % 8)) & 0xff;
++			for (i = 0; i < sizeof(a); i++)
++				a.s6_addr[i] &= m.s6_addr[i];
++
++			if (memcmp(&a, prefix, plen / 8) != 0 ||
++			    a.s6_addr[plen / 8] !=
++			    (prefix->s6_addr[plen / 8] & m.s6_addr[plen / 8]))
++				continue;
++		}
++		memcpy(addr, &sin6.sin6_addr, sizeof(sin6.sin6_addr));
++#ifdef __KAME__
++		if (IN6_IS_ADDR_LINKLOCAL(addr))
++			addr->s6_addr[2] = addr->s6_addr[3] = 0;
++#endif
++		error = 0;
++		break;
++	}
++
++	freeifaddrs(ifap);
++	return error;
++}
++
 +static int getifidfromaddr(struct in6_addr *addr, unsigned int *ifidp)
 +{
 +	struct ifaddrs *ifap, *ifa;
@@ -1312,9 +1373,9 @@ diff -urNBp a/networking/udhcp/dhcp6relay.c b/networking/udhcp/dhcp6relay.c
 +	freeifaddrs(ifap);
 +	return retval;
 +}
-diff -urNBp a/networking/udhcp/Kbuild.src b/networking/udhcp/Kbuild.src
---- a/networking/udhcp/Kbuild.src	2011-10-18 20:10:17.000000000 +0400
-+++ b/networking/udhcp/Kbuild.src	2011-05-20 15:22:30.000000000 +0400
+diff -urNBp busybox/networking/udhcp/Kbuild.src busybox.full/networking/udhcp/Kbuild.src
+--- busybox/networking/udhcp/Kbuild.src	2011-09-26 15:52:23.000000000 +0400
++++ busybox.full/networking/udhcp/Kbuild.src	2011-09-26 14:57:43.000000000 +0400
 @@ -20,6 +20,7 @@ lib-$(CONFIG_DHCPRELAY)  += dhcprelay.o
  lib-$(CONFIG_DHCP6C)     += common6.o common.o
  
