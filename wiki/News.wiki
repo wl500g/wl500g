@@ -5,6 +5,46 @@
   * [http://code.google.com/p/wl500g/source/list?path=/branches/d/ Firmware 1.9.2.7-d source changes]
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
+
+===RT-N-1.9.2.7-rtn (current)===
+  * kernel
+    * backports from upstream - arp, blkdev, vfs, net, netfilter, futex, fs/partitions
+    * netfilter: h323: Increase max number of RTP ports from 4 to 8
+    * ext4 backport from 2.6.30.9 (EXPERIMENTAL)
+    * bcmnat: upload speedup
+
+  * 3g/cdma
+    * config for ZTE MF-192
+    * usb_modeswitch fixes
+    * usb-modeswitch-data 2011-10-12
+    * check_modem only if proto is usbmodem
+    * trying to wait ttyUSB if it still absent
+    * add Qisda H21 3G modem support. Thanks to macauxdragon (Issue 246)
+
+  * rc
+    * zeroconfig implementation for no-dhcp networks
+    * preliminary ISP Convex authentication support
+    * tune max. sizes of /tmp, syslog.log for devices with RAM <= 16MB
+    * syslog startup fix
+
+  * ntfs-3g 2011.4.12AR.7
+
+  * quagga 0.99.20
+
+  * radvd 1.8.2
+
+  * busybox 1.19.2
+    * bugfixes from upstream (tail, tftp)
+
+  * bugfixes
+    * web-UI
+    * e2fsprogs fixes from upstream
+    * udpxy Patch-1 build 20
+    * miniupnpd: fix infinite loop in !SendResp_upnphttp()
+    * bootup of few MIPS32r1 devices (Issue 259)
+
+  * pwrled utility renamed to "gpio"
+
 ===RT-N-1.9.2.7-rtn-`r3300` (2011-09-16)===
   * uClibc 0.9.32 with Native Posix Threads Layer (ATTENTION! possible old binaries incompatibility, especially using libpthreads)
 
