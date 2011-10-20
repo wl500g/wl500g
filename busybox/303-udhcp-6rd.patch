@@ -50,8 +50,8 @@ index 0a60261..00c1a3a 100644
  	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
  	"msstaticroutes""\0"/* DHCP_MS_STATIC_ROUTES */
 +#if ENABLE_FEATURE_UDHCP_RFC5969
-+	"6rd" "\0"         /* DHCP_6RD            */
-+	"comcast6rd" "\0"  /* DHCP_COMCAST_6RD    */
++	"ip6rd" "\0"       /* DHCP_6RD            */
++	"ip6rd" "\0"       /* DHCP_COMCAST_6RD    */
 +#endif
  	"wpad" "\0"        /* DHCP_WPAD           */
  	;
