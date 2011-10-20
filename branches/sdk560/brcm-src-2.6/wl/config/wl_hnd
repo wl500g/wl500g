@@ -9,7 +9,7 @@
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
 # wl driver config shared hnd files
 #
-# $Id: wl_hnd,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+# $Id: wl_hnd,v 1.1.1.1 2010/11/22 08:55:27  Exp $
 
 HNDDMA=1
 BCMUTILS=1

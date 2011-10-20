@@ -10,7 +10,7 @@
 
 # default wl driver config file
 #
-# $Id: wl_default,v 1.1.1.1 2010/11/22 08:55:27 raymond_lin Exp $
+# $Id: wl_default,v 1.1.1.1 2010/11/22 08:55:27  Exp $
 
 # wl driver base
 WL=1
