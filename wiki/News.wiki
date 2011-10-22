@@ -6,7 +6,7 @@
   * [http://code.google.com/p/wl500g/source/list?path=/trunk/ Firmware 1.9.2.7-rtn source changes]
 
 
-===RT-N-1.9.2.7-rtn (current)===
+===RT-N-1.9.2.7-rtn-`r3497` (2011-10-22)===
   * kernel
     * backports from upstream - arp, blkdev, vfs, net, netfilter, futex, fs/partitions
     * netfilter: h323: Increase max number of RTP ports from 4 to 8
@@ -27,6 +27,8 @@
     * tune max. sizes of /tmp, syslog.log for devices with RAM <= 16MB
     * syslog startup fix
 
+  * dnsmasq 2.59
+
   * ntfs-3g 2011.4.12AR.7
 
   * quagga 0.99.20
@@ -42,6 +44,7 @@
     * udpxy Patch-1 build 20
     * miniupnpd: fix infinite loop in !SendResp_upnphttp()
     * bootup of few MIPS32r1 devices (Issue 259)
+    * igmpproxy: fixes, igmpv3 stub
 
   * pwrled utility renamed to "gpio"
 
