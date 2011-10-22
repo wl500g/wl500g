@@ -1,6 +1,6 @@
 diff -urNBp a/examples/udhcp/dhcp6c.conf b/examples/udhcp/dhcp6c.conf
 --- a/examples/udhcp/dhcp6c.conf	1970-01-01 03:00:00.000000000 +0300
-+++ b/examples/udhcp/dhcp6c.conf	2011-10-18 20:46:05.000000000 +0400
++++ b/examples/udhcp/dhcp6c.conf	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,230 @@
 +# Sample dhcp6c configuration file (/etc/dhcp6c.conf)
 +# Values shown are defaults
@@ -234,7 +234,7 @@ diff -urNBp a/examples/udhcp/dhcp6c.conf b/examples/udhcp/dhcp6c.conf
 +};
 diff -urNBp a/include/applets.src.h b/include/applets.src.h
 --- a/include/applets.src.h	2010-07-25 22:48:26.000000000 +0400
-+++ b/include/applets.src.h	2011-10-18 20:46:05.000000000 +0400
++++ b/include/applets.src.h	2011-10-21 19:23:19.000000000 +0400
 @@ -117,6 +117,7 @@ IF_DELUSER(APPLET(deluser, BB_DIR_BIN, B
  IF_DEVFSD(APPLET(devfsd, BB_DIR_SBIN, BB_SUID_DROP))
  IF_DEVMEM(APPLET(devmem, BB_DIR_SBIN, BB_SUID_DROP))
@@ -244,7 +244,7 @@ diff -urNBp a/include/applets.src.h b/include/applets.src.h
  IF_DIFF(APPLET(diff, BB_DIR_USR_BIN, BB_SUID_DROP))
  IF_DIRNAME(APPLET_NOFORK(dirname, dirname, BB_DIR_USR_BIN, BB_SUID_DROP, dirname))
 diff -urNBp a/libbb/Kbuild.src b/libbb/Kbuild.src
---- a/libbb/Kbuild.src	2011-10-19 04:00:00.000000000 +0400
+--- a/libbb/Kbuild.src	2011-10-18 20:09:01.000000000 +0400
 +++ b/libbb/Kbuild.src	2011-10-19 19:47:42.000000000 +0400
 @@ -134,6 +134,7 @@ lib-$(CONFIG_TFTPD) += udp_io.o
  lib-$(CONFIG_TCPSVD) += udp_io.o
@@ -256,7 +256,7 @@ diff -urNBp a/libbb/Kbuild.src b/libbb/Kbuild.src
  lib-$(CONFIG_FEATURE_MOUNT_LOOP) += loop.o
 diff -urNBp a/networking/udhcp/auth6.c b/networking/udhcp/auth6.c
 --- a/networking/udhcp/auth6.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/auth6.c	2011-10-20 15:01:02.000000000 +0400
++++ b/networking/udhcp/auth6.c	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,234 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -494,7 +494,7 @@ diff -urNBp a/networking/udhcp/auth6.c b/networking/udhcp/auth6.c
 +}
 diff -urNBp a/networking/udhcp/auth6.h b/networking/udhcp/auth6.h
 --- a/networking/udhcp/auth6.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/auth6.h	2011-10-18 20:46:05.000000000 +0400
++++ b/networking/udhcp/auth6.h	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,51 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -549,8 +549,8 @@ diff -urNBp a/networking/udhcp/auth6.h b/networking/udhcp/auth6.h
 +POP_SAVED_FUNCTION_VISIBILITY
 diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
 --- a/networking/udhcp/common6.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/common6.c	2011-10-20 16:42:51.000000000 +0400
-@@ -0,0 +1,1822 @@
++++ b/networking/udhcp/common6.c	2011-10-21 19:23:19.000000000 +0400
+@@ -0,0 +1,1772 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -603,6 +603,9 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
 +    struct dhcp6opt *, int *);
 +
 +#if ENABLE_FEATURE_DHCP6_AUTH
++static int copyout_auth(struct dhcp6_optinfo *optinfo,
++		struct dhcp6opt **pp, struct dhcp6opt *bp, struct dhcp6opt *ep,
++		int *totallenp);
 +# if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 2
 +static char *sprint_auth(struct dhcp6_optinfo *);
 +# endif
@@ -2117,59 +2120,6 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
 +}
 +#endif /* ENABLE_FEATURE_DHCP6_AUTH */
 +
-+/* TODO! we can't use udp_io.c:recv_from_to() since it not return ipi6_ifindex */
-+ssize_t FAST_FUNC recv_from6(int fd, void *buf, size_t buflen,
-+				struct sockaddr_in6 *from,
-+				unsigned int *to_ifindex)
-+{
-+	struct msghdr mhdr;
-+	struct cmsghdr *cm;
-+	struct iovec iov[1];
-+	struct in6_pktinfo *pi = NULL;
-+	char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
-+	ssize_t len;
-+
-+	memset(&mhdr, 0, sizeof(mhdr));
-+	iov[0].iov_base = buf;
-+	iov[0].iov_len  = buflen;
-+	mhdr.msg_name       = from;
-+	mhdr.msg_namelen    = sizeof(*from);
-+	mhdr.msg_control    = cmsgbuf;
-+	mhdr.msg_controllen = sizeof(cmsgbuf);
-+	mhdr.msg_iov        = iov;
-+	mhdr.msg_iovlen     = 1;
-+
-+	len = recvmsg(fd, &mhdr, 0);
-+	if (len < 0) {
-+		bb_perror_msg("recvmsg");
-+		return len;
-+	}
-+
-+	if (((struct sockaddr *)from)->sa_family != AF_INET6) {
-+		bb_info_msg("non-IPv6 packet is received (AF %d)",
-+				((struct sockaddr *)from)->sa_family);
-+		return -EPROTOTYPE;
-+	}
-+	/* detect receiving interface */
-+	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&mhdr); cm;
-+	     cm = (struct cmsghdr *)CMSG_NXTHDR(&mhdr, cm)) {
-+		if (cm->cmsg_level == IPPROTO_IPV6 &&
-+		    cm->cmsg_type == IPV6_PKTINFO &&
-+		    cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) {
-+			pi = (struct in6_pktinfo *)(CMSG_DATA(cm));
-+		}
-+	}
-+	(*to_ifindex) = (pi == NULL) ? (unsigned int ) -1 :
-+				    pi->ipi6_ifindex;
-+
-+	if (len < sizeof(struct dhcp6)) {
-+		bb_info_msg("short packet (%d bytes)", (int )len);
-+		return -ENODATA;
-+	}
-+
-+	return len;
-+}
-+
 +#if ENABLE_FEATURE_DHCP6_AUTH
 +# if defined CONFIG_UDHCP_DEBUG && CONFIG_UDHCP_DEBUG >= 2
 +static char *sprint_auth(struct dhcp6_optinfo *optinfo)
@@ -2375,8 +2325,8 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
 +#endif
 diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 --- a/networking/udhcp/common6.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/common6.h	2011-10-20 16:42:21.000000000 +0400
-@@ -0,0 +1,155 @@
++++ b/networking/udhcp/common6.h	2011-10-21 18:51:28.000000000 +0400
+@@ -0,0 +1,153 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -2443,6 +2393,8 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 +	    (var) = TAILQ_NEXT((var), field))
 +#endif
 +
++#define xstr(s)		#s
++
 +
 +/* common6.c */
 +struct dhcp6_option_typelen_t {
@@ -2502,9 +2454,6 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 +const char *dhcp6_event_statestr(struct dhcp6_event *);
 +int get_rdvalue(int, void *);
 +
-+ssize_t recv_from6(int fd, void *buf, size_t len, struct sockaddr_in6 *from,
-+				unsigned int *to_ifindex) FAST_FUNC;
-+
 +void dhcp6_vbuf_copy(struct dhcp6_vbuf *, struct dhcp6_vbuf *);
 +void dhcp6_vbuf_free(struct dhcp6_vbuf *);
 +static int ALWAYS_INLINE dhcp6_vbuf_cmp(struct dhcp6_vbuf *v1, struct dhcp6_vbuf *v2)
@@ -2518,13 +2467,12 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 +/* if6.c */
 +typedef enum { IFADDRCONF_ADD, IFADDRCONF_REMOVE } ifaddrconf_cmd_t;
 +
-+void if6init(const char *ifname);
-+int if6reset(struct dhcp6_if *);
++void if6init(struct dhcp6_if *, const char *ifname);
 +int sock6_init(struct addrinfo *res);
++ssize_t recv_from6(int fd, void *buf, size_t len,
++				struct sockaddr_in6 *from, unsigned int *to_ifindex) FAST_FUNC;
 +
 +extern ssize_t gethwid(char *buf, uint16_t *hwtype);
-+struct dhcp6_if *find_ifconf_byid(unsigned int ifid);
-+struct dhcp6_if *find_ifconf_byname(const char *ifname);
 +int ifaddrconf(ifaddrconf_cmd_t, const char *ifname, struct in6_addr *,
 +			int plen, int pltime, int vltime);
 +
@@ -2534,8 +2482,8 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 +int dhcp6_script(const char *scriptpath, char **envp);
 diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 --- a/networking/udhcp/config6.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/config6.c	2011-10-20 16:52:33.000000000 +0400
-@@ -0,0 +1,1429 @@
++++ b/networking/udhcp/config6.c	2011-10-21 19:23:19.000000000 +0400
+@@ -0,0 +1,1423 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -2626,7 +2574,7 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 +static int configure_interface(void)
 +{
 +	struct cf_list *cnl;
-+	struct dhcp6_if *ifp;
++	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 +
 +	for (cnl = client6_config.config_list; cnl; cnl = cnl->next) {
 +		struct cf_list *cfl;
@@ -2641,8 +2589,7 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 +			return -1;
 +		}
 +
-+		ifp = find_ifconf_byname(cnl->ptr);
-+		if (ifp == NULL) {
++		if (strcmp(ifp->ifname, cnl->ptr) != 0) {
 +			log1("Unknown interface(%s), ignoring", cnl->ptr);
 +			continue;
 +		}
@@ -3098,34 +3045,29 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 +
 +void clear_ifconf(int destroy)
 +{
-+	struct dhcp6_if *ifp, *ifp_next;
++	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 +
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp_next) {
-+		ifp_next = ifp->next;
++	ifp->send_flags = 0;
++	ifp->allow_flags = 0;
 +
-+		ifp->send_flags = 0;
-+		ifp->allow_flags = 0;
++	ifp->server_pref = DH6OPT_PREF_UNDEF;
 +
-+		ifp->server_pref = DH6OPT_PREF_UNDEF;
++	ifp->authproto = DHCP6_AUTHPROTO_UNDEF;
++	ifp->authalgorithm = DHCP6_AUTHALG_UNDEF;
++	ifp->authrdm = DHCP6_AUTHRDM_UNDEF;
 +
-+		ifp->authproto = DHCP6_AUTHPROTO_UNDEF;
-+		ifp->authalgorithm = DHCP6_AUTHALG_UNDEF;
-+		ifp->authrdm = DHCP6_AUTHRDM_UNDEF;
++	dhcp6_clear_list(&ifp->reqopt_list);
 +
-+		dhcp6_clear_list(&ifp->reqopt_list);
++	clear_iaconf(&ifp->iaconf_list);
 +
-+		clear_iaconf(&ifp->iaconf_list);
++	free(ifp->scriptpath);
++	ifp->scriptpath = NULL;
 +
-+		free(ifp->scriptpath);
-+		ifp->scriptpath = NULL;
++	free(ifp->pool.name);
++	ifp->pool.name = NULL;
 +
-+		free(ifp->pool.name);
-+		ifp->pool.name = NULL;
-+
-+		if (ENABLE_FEATURE_CLEAN_UP && destroy) {
-+			free(ifp->ifname);
-+			free(ifp);
-+		}
++	if (ENABLE_FEATURE_CLEAN_UP && destroy) {
++		free(ifp->ifname);
 +	}
 +}
 +
@@ -3967,8 +3909,8 @@ diff -urNBp a/networking/udhcp/config6.c b/networking/udhcp/config6.c
 +}
 diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 --- a/networking/udhcp/config6.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/config6.h	2011-10-18 20:46:05.000000000 +0400
-@@ -0,0 +1,247 @@
++++ b/networking/udhcp/config6.h	2011-10-21 19:23:19.000000000 +0400
+@@ -0,0 +1,246 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -4057,7 +3999,7 @@ diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 +
 +/* per-interface information */
 +struct dhcp6_if {
-+	struct dhcp6_if *next;
++/*	struct dhcp6_if *next;*/
 +
 +	/* timer for the interface */
 +	struct dhcp6_timer *timer;
@@ -4065,9 +4007,8 @@ diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 +	/* static parameters of the interface */
 +	char *ifname;
 +	unsigned int ifid;
-+	uint32_t linkid;			/* to send link-local packets */
 +	/* multiple global address configuration is not supported now */
-+	struct in6_addr addr; 		/* global address */
++	struct in6_addr addr; 		/* global address (server only) */
 +
 +	/* configuration parameters */
 +	uint32_t send_flags;
@@ -4186,7 +4127,7 @@ diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 +struct client6_config_t {
 +	const char *conffile;
 +
-+	struct dhcp6_if *dhcp6c_if;
++	struct dhcp6_if dhcp6c_if;
 +
 +	struct ia_conflist ia_allconflist;
 +	struct keyinfo *key_list;
@@ -4217,8 +4158,8 @@ diff -urNBp a/networking/udhcp/config6.h b/networking/udhcp/config6.h
 +
 +POP_SAVED_FUNCTION_VISIBILITY
 diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
---- a/networking/udhcp/Config.src	2011-10-19 04:00:00.000000000 +0400
-+++ b/networking/udhcp/Config.src	2011-10-19 15:16:38.000000000 +0400
+--- a/networking/udhcp/Config.src	2011-10-18 20:09:01.000000000 +0400
++++ b/networking/udhcp/Config.src	2011-10-21 19:23:19.000000000 +0400
 @@ -96,7 +96,7 @@ config UDHCP_DEBUG
  	int "Maximum verbosity level for udhcp applets (0..9)"
  	default 9
@@ -4259,8 +4200,8 @@ diff -urNBp a/networking/udhcp/Config.src b/networking/udhcp/Config.src
 +	  currently HMAC-MD5 only.
 diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 --- a/networking/udhcp/dhcp6c.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6c.c	2011-10-20 15:04:22.000000000 +0400
-@@ -0,0 +1,1268 @@
++++ b/networking/udhcp/dhcp6c.c	2011-10-21 19:00:42.000000000 +0400
+@@ -0,0 +1,1267 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * DHCPv6 client
@@ -4296,6 +4237,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 + * a busybox applet by Leonid Lisovskiy <lly@sf.net>
 + */
 +
++#include <net/if.h>
 +#include <syslog.h>
 +
 +/* Override ENABLE_FEATURE_PIDFILE */
@@ -4342,7 +4284,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +struct dhcp6_timer *client6_timo(void *arg);
 +
 +static void client6_init(void);
-+static void client6_startall(int);
++static void client6_startall(int isrestart);
 +static void client6_mainloop(void);
 +static void free_resources(int force);
 +static void check_exit(int force);
@@ -4417,7 +4359,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +	bb_signals(0 + (1 << SIGHUP) + (1 << SIGTERM) + (1 << SIGQUIT),
 +		  record_signo);
 +
-+	if6init(argv[optind]);
++	if6init(&client6_config.dhcp6c_if, argv[optind]);
 +
 +	if (!(opt & OPT_i) && (read_config6(client6_config.conffile)) != 0) {
 +		bb_error_msg_and_die("can't parse config");
@@ -4454,7 +4396,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +	hints.ai_socktype = SOCK_DGRAM;
 +	hints.ai_protocol = IPPROTO_UDP;
 +	hints.ai_flags = AI_PASSIVE;
-+	error = getaddrinfo(NULL, DH6PORT_DOWNSTREAM, &hints, &res);
++	error = getaddrinfo(NULL, xstr(DH6PORT_DOWNSTREAM), &hints, &res);
 +	if (error) {
 +		bb_error_msg_and_die("getaddrinfo: %s", gai_strerror(error));
 +	}
@@ -4497,34 +4439,30 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +
 +static void client6_startall(int isrestart)
 +{
-+	struct dhcp6_if *ifp;
++	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 +
 +	if (isrestart) {
 +		/* reload the configuration file */
 +		if (read_config6(client6_config.conffile))
 +			bb_error_msg_and_die("can't parse config");
++
++		ifp->ifid = if_nametoindex(ifp->ifname);
++		if (ifp->ifid == 0)
++			bb_error_msg_and_die("invalid interface(%s)", ifp->ifname);
 +	}
 +
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
-+		if (isrestart && if6reset(ifp)) {
-+			bb_info_msg("can't reset %s", ifp->ifname);
-+			continue; /* XXX: try to recover? */
-+		}
-+		if (client6_start(ifp)) {
-+			exit(1); /* initialization failure.  we give up. */
-+		}
++	if (client6_start(ifp)) {
++		exit(1); /* initialization failure.  we give up. */
 +	}
 +}
 +
 +static void free_resources(int force)
 +{
-+	struct dhcp6_if *ifp;
 +	struct dhcp6_event *ev, *ev_next;
 +
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
-+		/* release all IAs as well as send RELEASE message(s) */
-+		release_all_ia(ifp);
-+	}
++	/* release all IAs as well as send RELEASE message(s) */
++	release_all_ia(&client6_config.dhcp6c_if);
++
 +	/*
 +	 * Cancel all outstanding events for each interface except
 +	 * ones being released.
@@ -4997,7 +4935,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +	 * [RFC3315 Section 13.]
 +	 */
 +	dst = G.sa6_allagent->u.sin6;
-+	dst.sin6_scope_id = ifp->linkid;
++	dst.sin6_scope_id = ifp->ifid;
 +
 +	if (sendto(csock, G.sbuf, len, 0, (struct sockaddr *)&dst,
 +			sizeof(dst)) == -1) {
@@ -5020,21 +4958,22 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +static void client6_recv(void)
 +{
 +	struct sockaddr_in6 from;
-+	unsigned int ifid;
-+	struct dhcp6_if *ifp;
++	unsigned int to_ifid;
++	struct dhcp6_if *ifp = &client6_config.dhcp6c_if;
 +	struct dhcp6_optinfo optinfo;
 +	ssize_t len;
 +	struct dhcp6 *dh6 = (struct dhcp6 *)G.rbuf;
 +	struct dhcp6_event *ev;
 +	char *a;
 +
-+	len = recv_from6(csock, G.rbuf, sizeof(G.rbuf), &from, &ifid);
++	len = recv_from6(csock, G.rbuf, sizeof(G.rbuf), &from, &to_ifid);
 +	if (len < 0)
 +		return;
 +
-+	ifp = find_ifconf_byid(ifid);
-+	if (ifp == NULL) {
-+		bb_info_msg("unexpected interface (%d)", ifid);
++	if (ifp->ifid != to_ifid) {
++		char ifname[IFNAMSIZ];
++
++		bb_info_msg("unexpected interface (%s)", if_indextoname(to_ifid, ifname));
 +		return;
 +	}
 +
@@ -5045,7 +4984,8 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +	if (dh6->dh6_msgtype != DH6_ADVERTISE && dh6->dh6_msgtype != DH6_REPLY) {
 +		bb_info_msg("received an unexpected message (%s) from %s",
 +			dhcp6msgstr(dh6->dh6_msgtype), a);
-+		goto fail;
++		free(a);
++		return;
 +	}
 +
 +	/* get options */
@@ -5531,8 +5471,8 @@ diff -urNBp a/networking/udhcp/dhcp6c.c b/networking/udhcp/dhcp6c.c
 +#endif /* ENABLE_FEATURE_DHCP6_AUTH*/
 diff -urNBp a/networking/udhcp/dhcp6c.h b/networking/udhcp/dhcp6c.h
 --- a/networking/udhcp/dhcp6c.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6c.h	2011-10-18 20:46:05.000000000 +0400
-@@ -0,0 +1,50 @@
++++ b/networking/udhcp/dhcp6c.h	2011-10-21 18:39:13.000000000 +0400
+@@ -0,0 +1,44 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2003 WIDE Project.
@@ -5565,12 +5505,6 @@ diff -urNBp a/networking/udhcp/dhcp6c.h b/networking/udhcp/dhcp6c.h
 +
 +PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 +
-+#ifdef __GNUC__
-+#define DHCP6_AUTH_ATTR(x)	IF_NOT_FEATURE_DHCP6_AUTH(__attribute__(x))
-+#else
-+#define DHCP6_AUTH_ATTR(x)
-+#endif
-+
 +#define MAX_ELAPSED_TIME 0xffff
 +
 +/* dhcp6c.c */
@@ -5585,7 +5519,7 @@ diff -urNBp a/networking/udhcp/dhcp6c.h b/networking/udhcp/dhcp6c.h
 +POP_SAVED_FUNCTION_VISIBILITY
 diff -urNBp a/networking/udhcp/dhcp6c_ia.c b/networking/udhcp/dhcp6c_ia.c
 --- a/networking/udhcp/dhcp6c_ia.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6c_ia.c	2011-10-19 17:57:59.000000000 +0400
++++ b/networking/udhcp/dhcp6c_ia.c	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,893 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -5760,7 +5694,7 @@ diff -urNBp a/networking/udhcp/dhcp6c_ia.c b/networking/udhcp/dhcp6c_ia.c
 +
 +void update_ia(struct dhcp6_list *iahead, struct dhcp6_if *ifp,
 +	  struct dhcp6_vbuf *serverid,
-+	  struct authparam *authparam DHCP6_AUTH_ATTR((unused)))
++	  struct authparam *authparam IF_NOT_FEATURE_DHCP6_AUTH(UNUSED_PARAM))
 +{
 +	struct ia *ia;
 +	struct ia_conf *iac;
@@ -6482,7 +6416,7 @@ diff -urNBp a/networking/udhcp/dhcp6c_ia.c b/networking/udhcp/dhcp6c_ia.c
 +}
 diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.c
 --- a/networking/udhcp/dhcp6c_script.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6c_script.c	2011-10-20 15:07:52.000000000 +0400
++++ b/networking/udhcp/dhcp6c_script.c	2011-10-21 19:23:19.000000000 +0400
 @@ -0,0 +1,155 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -6641,7 +6575,7 @@ diff -urNBp a/networking/udhcp/dhcp6c_script.c b/networking/udhcp/dhcp6c_script.
 +}
 diff -urNBp a/networking/udhcp/dhcp6.h b/networking/udhcp/dhcp6.h
 --- a/networking/udhcp/dhcp6.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/dhcp6.h	2011-10-20 16:53:38.000000000 +0400
++++ b/networking/udhcp/dhcp6.h	2011-10-21 19:23:19.000000000 +0400
 @@ -0,0 +1,410 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -6704,7 +6638,7 @@ diff -urNBp a/networking/udhcp/dhcp6.h b/networking/udhcp/dhcp6.h
 +/* Predefined addresses */
 +#define DH6ADDR_ALLAGENT	"ff02::1:2"
 +#define DH6ADDR_ALLSERVER	"ff05::1:3"
-+#define DH6PORT_DOWNSTREAM	"546"
++#define DH6PORT_DOWNSTREAM	546
 +#define DH6PORT_UPSTREAM	547
 +
 +/* Protocol constants */
@@ -7055,8 +6989,8 @@ diff -urNBp a/networking/udhcp/dhcp6.h b/networking/udhcp/dhcp6.h
 +#endif /* __DHCP6_H_DEFINED */
 diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 --- a/networking/udhcp/if6.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/if6.c	2011-10-20 15:12:24.000000000 +0400
-@@ -0,0 +1,284 @@
++++ b/networking/udhcp/if6.c	2011-10-21 19:15:07.000000000 +0400
+@@ -0,0 +1,274 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 2002 WIDE Project.
@@ -7111,24 +7045,14 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +#endif /* __linux__ */
 +
 +
-+void if6init(const char *ifname)
++void if6init(struct dhcp6_if *ifp, const char *ifname)
 +{
-+	struct dhcp6_if *ifp;
-+
-+	ifp = find_ifconf_byname(ifname);
-+	if (ifp != NULL)
-+		bb_error_msg_and_die("duplicated interface: %s", ifname);
-+
-+	ifp = xzalloc(sizeof(*ifp));
-+	ifp->ifname = xstrdup(ifname);
-+
-+	if (if6reset(ifp)) {
-+		if (ENABLE_FEATURE_CLEAN_UP) {
-+			free(ifp->ifname);
-+			free(ifp);
-+		}
-+		xfunc_die();
++	ifp->ifid = if_nametoindex(ifname);
++	if (ifp->ifid == 0) {
++		bb_perror_msg_and_die("invalid interface(%s)", ifp->ifname);
 +	}
++
++	ifp->ifname = xstrdup(ifname);
 +
 +	TAILQ_INIT(&ifp->reqopt_list);
 +	TAILQ_INIT(&ifp->iaconf_list);
@@ -7136,35 +7060,6 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +	ifp->authproto = DHCP6_AUTHPROTO_UNDEF;
 +	ifp->authalgorithm = DHCP6_AUTHALG_UNDEF;
 +	ifp->authrdm = DHCP6_AUTHRDM_UNDEF;
-+
-+	ifp->next = client6_config.dhcp6c_if;
-+	client6_config.dhcp6c_if = ifp;
-+}
-+
-+int if6reset(struct dhcp6_if *ifp)
-+{
-+	unsigned int ifid;
-+	uint32_t linkid;
-+
-+	ifid = if_nametoindex(ifp->ifname);
-+	if (ifid == 0) {
-+		bb_perror_msg("invalid interface(%s)", ifp->ifname);
-+		return -1;
-+	}
-+
-+#ifdef HAVE_SCOPELIB
-+	if (inet_zoneid(AF_INET6, 2, ifname, &linkid)) {
-+		bb_error_msg("can't get link ID for %s", ifname);
-+		return -1;
-+	}
-+#else
-+	linkid = ifid;		/* XXX: assume 1to1 mapping IFs and links */
-+#endif
-+
-+	ifp->ifid = ifid;
-+	ifp->linkid = linkid;
-+
-+	return 0;
 +}
 +
 +int sock6_init(struct addrinfo *res)
@@ -7198,28 +7093,58 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +	return sock;
 +}
 +
-+struct dhcp6_if *find_ifconf_byname(const char *ifname)
++/* TODO! we can't use udp_io.c:recv_from_to() since it not return ipi6_ifindex */
++ssize_t FAST_FUNC recv_from6(int fd, void *buf, size_t len,
++				struct sockaddr_in6 *from, unsigned int *to_ifindex)
 +{
-+	struct dhcp6_if *ifp;
++	struct msghdr mhdr;
++	struct cmsghdr *cm;
++	struct iovec iov[1];
++	char cmsgbuf[CMSG_SPACE(sizeof(struct in6_pktinfo))];
++	ssize_t recv_length;
 +
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
-+		if (strcmp(ifp->ifname, ifname) == 0)
-+			return ifp;
++	memset(&mhdr, 0, sizeof(mhdr));
++	iov[0].iov_base = buf;
++	iov[0].iov_len  = len;
++	mhdr.msg_name       = from;
++	mhdr.msg_namelen    = sizeof(*from);
++	mhdr.msg_control    = cmsgbuf;
++	mhdr.msg_controllen = sizeof(cmsgbuf);
++	mhdr.msg_iov        = iov;
++	mhdr.msg_iovlen     = 1;
++
++	recv_length = recvmsg(fd, &mhdr, 0);
++	if (recv_length < 0) {
++		bb_perror_msg("recvmsg");
++		return -EIO;
 +	}
 +
-+	return NULL;
-+}
-+
-+struct dhcp6_if *find_ifconf_byid(unsigned int id)
-+{
-+	struct dhcp6_if *ifp;
-+
-+	for (ifp = client6_config.dhcp6c_if; ifp; ifp = ifp->next) {
-+		if (ifp->ifid == id)
-+			return ifp;
++	if (((struct sockaddr *)from)->sa_family != AF_INET6) {
++		bb_info_msg("non-IPv6 packet is received (AF %d)",
++				((struct sockaddr *)from)->sa_family);
++		return -EPROTOTYPE;
 +	}
 +
-+	return NULL;
++	/* detect receiving interface */
++	*to_ifindex = 0;
++	for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&mhdr); cm;
++	     cm = (struct cmsghdr *)CMSG_NXTHDR(&mhdr, cm)) {
++		if (cm->cmsg_level == IPPROTO_IPV6 &&
++		    cm->cmsg_type == IPV6_PKTINFO &&
++		    cm->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))
++		) {
++			const int IPI6_IFINDEX_OFF = offsetof(struct in6_pktinfo, ipi6_ifindex);
++			move_from_unaligned_int(*to_ifindex, (char*)(CMSG_DATA(cm)) + IPI6_IFINDEX_OFF);
++			break;
++		}
++	}
++
++	if (recv_length < sizeof(struct dhcp6)) {
++		bb_info_msg("short packet (%d bytes)", (int )recv_length);
++		return -ENODATA;
++	}
++
++	return recv_length;
 +}
 +
 +/* Get hardware id(MAC) of first ethernet interface for DUID */
@@ -7271,7 +7196,7 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +		break;
 +	}
 +	if (l > 0)
-+		log1("found an interface %s type %d for DUID", ifr->ifr_name, *hwtype);
++		log1("found an interface %s hwtype %d for DUID", ifr->ifr_name, *hwtype);
 +
 + out:
 +	close(skfd);
@@ -7286,30 +7211,29 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 + * TODO: Should be rewritten to Netlink calls in order to support
 + *       preferred/valid lifetimes
 + */
-+#if   defined(__linux__)
 +	struct in6_ifreq req;
 +	struct ifreq ifr;
-+#endif
++	const char *cmdstr[] = {
++		[IFADDRCONF_ADD] "add",
++		[IFADDRCONF_REMOVE] "remove"
++	};
 +	unsigned long ioctl_cmd;
 +	struct sockaddr_in6 sin6;
-+	const char *cmdstr;
-+	int s;
++	int sk;
 +	char *a;
 +
 +	switch (cmd) {
 +	case IFADDRCONF_ADD:
-+		cmdstr = "add";
 +		ioctl_cmd = SIOCSIFADDR;
 +		break;
 +	case IFADDRCONF_REMOVE:
-+		cmdstr = "remove";
 +		ioctl_cmd = SIOCDIFADDR;
 +		break;
 +	default:
 +		return -1;
 +	}
 +
-+	s = xsocket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP);
++	sk = xsocket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP);
 +	memset(&req, 0, sizeof(req));
 +    memset(&sin6, 0, sizeof(sin6));
 +    sin6.sin6_family = AF_INET6;
@@ -7320,30 +7244,30 @@ diff -urNBp a/networking/udhcp/if6.c b/networking/udhcp/if6.c
 +
 +	memset(&ifr, 0, sizeof(ifr));
 +	strncpy_IFNAMSIZ(ifr.ifr_name, ifname);
-+	xioctl(s, SIOGIFINDEX, &ifr);
++	xioctl(sk, SIOGIFINDEX, &ifr);
 +	memcpy(&req.ifr6_addr, addr, sizeof(struct in6_addr));
 +	req.ifr6_prefixlen = plen;
 +	req.ifr6_ifindex = ifr.ifr_ifindex;
 +
-+	if (ioctl(s, ioctl_cmd, &req)) {
-+		bb_perror_msg("can't %s address on %s", cmdstr, ifname);
-+		close(s);
++	if (ioctl(sk, ioctl_cmd, &req)) {
 +		if (errno == EEXIST) /* Ignore address duplicate */
-+			return 0;
++			goto out;
++		bb_perror_msg("can't %s address on %s", cmdstr[cmd], ifname);
++		close(sk);
 +		return -1;
 +	}
 +
-+	close(s);
-+
 +	a = xmalloc_sockaddr2dotted_noport((struct sockaddr *)&sin6);
-+	bb_info_msg("%s address %s/%d on %s", cmdstr, a, plen, ifname);
++	bb_info_msg("%s address %s/%d on %s", cmdstr[cmd], a, plen, ifname);
 +	free(a);
 +
++ out:
++	close(sk);
 +	return 0;
 +}
 diff -urNBp a/networking/udhcp/Kbuild.src b/networking/udhcp/Kbuild.src
 --- a/networking/udhcp/Kbuild.src	2011-08-22 06:57:50.000000000 +0400
-+++ b/networking/udhcp/Kbuild.src	2011-10-18 20:46:05.000000000 +0400
++++ b/networking/udhcp/Kbuild.src	2011-10-21 19:23:19.000000000 +0400
 @@ -17,5 +17,11 @@ lib-$(CONFIG_UDHCPD)     += dhcpd.o arpp
  lib-$(CONFIG_DUMPLEASES) += dumpleases.o
  lib-$(CONFIG_DHCPRELAY)  += dhcprelay.o
@@ -7358,7 +7282,7 @@ diff -urNBp a/networking/udhcp/Kbuild.src b/networking/udhcp/Kbuild.src
  lib-$(CONFIG_FEATURE_UDHCP_RFC3397) += domain_codec.o
 diff -urNBp a/networking/udhcp/timer.c b/networking/udhcp/timer.c
 --- a/networking/udhcp/timer.c	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/timer.c	2011-10-20 15:13:26.000000000 +0400
++++ b/networking/udhcp/timer.c	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,127 @@
 +/* vi: set sw=4 ts=4: */
 +/*
@@ -7480,16 +7404,16 @@ diff -urNBp a/networking/udhcp/timer.c b/networking/udhcp/timer.c
 +{
 +	unsigned long long now = monotonic_ms();
 +
-+	if (timer->t <= now) {
++	if (timer->t - now <= 0) {
 +		log2("a timer must be expired, but not yet");
-+		return 0ULL;
++		return 0;
 +	} else {
 +		return (timer->t - now);
 +	}
 +}
 diff -urNBp a/networking/udhcp/timer.h b/networking/udhcp/timer.h
 --- a/networking/udhcp/timer.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/timer.h	2011-10-18 20:46:05.000000000 +0400
++++ b/networking/udhcp/timer.h	2011-10-21 18:39:13.000000000 +0400
 @@ -0,0 +1,54 @@
 +/* vi: set sw=4 ts=4: */
 +/*
