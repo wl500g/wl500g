@@ -28,7 +28,7 @@ IPTABLES=iptables-2.6
 
 BUSYBOX=busybox-1.19.2
 DROPBEAR=dropbear-0.53.1
-DNSMASQ=dnsmasq-2.58
+DNSMASQ=dnsmasq-2.59
 LPRNG=LPRng-3.8.22
 P910ND=p910nd-0.95
 SAMBA=samba-2.0.10
@@ -593,7 +593,8 @@ $(TOP)/e2fsprogs: e2fsprogs/$(E2FSPROGS).tar.bz2
 	@rm -rf $(TOP)/$(E2FSPROGS) $@
 	tar -xjf $^ -C $(TOP)
 	$(PATCHER) -Z $(TOP)/$(E2FSPROGS) $(e2fsprogs_Patches)
-	cp e2fsprogs/e2fsck.conf $(TOP)/$(E2FSPROGS)/e2fsck/e2fsck.conf
+	cp e2fsprogs/e2fsck.conf $(TOP)/$(E2FSPROGS)/e2fsck/
+	cp e2fsprogs/mke2fs.conf $(TOP)/$(E2FSPROGS)/misc/
 	mv $(TOP)/$(E2FSPROGS) $@ && touch $@
 
 e2fsprogs: $(TOP)/e2fsprogs
