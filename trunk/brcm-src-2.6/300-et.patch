@@ -138,35 +138,6 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/etc47xx.c src/et/sys/etc47xx.c
  }
  
  /* set selected capability bits in autonegotiation advertisement */
-diff -urBp '-x.*' src/et-5.10.56.46/sys/etcgmac.c src/et/sys/etcgmac.c
---- src/et-5.10.56.46/sys/etcgmac.c	2009-08-27 07:52:07.000000000 +0400
-+++ src/et/sys/etcgmac.c	2009-10-10 19:55:29.000000000 +0400
-@@ -835,8 +835,10 @@ gmac_mf_add(ch_t *ch, struct ether_addr
- 
- 	/* add multicast addresses only */
- 	if (!ETHER_ISMULTI(mcaddr)) {
-+		char eabuf[32];
-+
- 		ET_ERROR(("et%d: adding invalid multicast address %s\n",
--		          ch->etc->unit, bcm_ether_ntoa(mcaddr, mac)));
-+		          ch->etc->unit, bcm_ether_ntoa(mcaddr, eabuf)));
- 		return (FAILURE);
- 	}
- 
-diff -urBp '-x.*' src/et-5.10.56.46/sys/et_dbg.h src/et/sys/et_dbg.h
---- src/et-5.10.56.46/sys/et_dbg.h	2009-08-27 07:52:06.000000000 +0400
-+++ src/et/sys/et_dbg.h	2009-10-10 19:02:09.000000000 +0400
-@@ -16,8 +16,8 @@
- #ifndef _et_dbg_
- #define _et_dbg_
- 
--#define	ET_ERROR(args)
--#define	ET_TRACE(args)
-+#define	ET_ERROR(args)		if (!(et_msg_level & 1)) ; else printf args
-+#define	ET_TRACE(args)		if (!(et_msg_level & 2)) ; else printf args
- #define	ET_PRHDR(msg, eh, len, unit)
- #define	ET_PRPKT(msg, buf, len, unit)
- 
 diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 --- src/et-5.10.56.46/sys/et_linux.c	2009-08-27 07:52:07.000000000 +0400
 +++ src/et/sys/et_linux.c	2009-10-10 21:15:19.000000000 +0400
@@ -178,34 +149,10 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
  #endif /* SIOCETHTOOL */
  #include <linux/ip.h>
  
-@@ -220,6 +221,7 @@ et_probe(struct pci_dev *pdev, const str
- 	dev->base_addr = pci_resource_start(pdev, 0);
- 	if ((et->regsva = ioremap_nocache(dev->base_addr, PCI_BAR0_WINSZ)) == NULL) {
- 		ET_ERROR(("et%d: ioremap() failed\n", unit));
-+		et->dev = NULL;
- 		goto fail;
- 	}
- 
-@@ -232,6 +234,7 @@ et_probe(struct pci_dev *pdev, const str
- 	if ((et->etc = etc_attach((void *)et, pdev->vendor, pdev->device, unit, osh, et->regsva)) ==
- 	    NULL) {
- 		ET_ERROR(("et%d: etc_attach() failed\n", unit));
-+		et->dev = NULL;
- 		goto fail;
- 	}
- 
-@@ -250,6 +253,7 @@ et_probe(struct pci_dev *pdev, const str
- 	/* register our interrupt handler */
- 	if (request_irq(pdev->irq, et_isr, IRQF_SHARED, dev->name, et)) {
- 		ET_ERROR(("et%d: request_irq() failed\n", unit));
-+		et->dev = NULL;
- 		goto fail;
- 	}
- 	dev->irq = pdev->irq;
 @@ -779,6 +783,7 @@ et_ioctl(struct net_device *dev, struct
- 	char *buf;
- 	int size, ethtoolcmd;
- 	bool get, set;
+ 	bool get = 0, set;
+ 	et_var_t *var = NULL;
+ 	void *buffer = NULL;
 +	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
  
  	et = ET_INFO(dev);
@@ -225,9 +172,9 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
  	default:
  		size = sizeof(int);
  		get = FALSE; set = TRUE;
-@@ -1194,6 +1207,25 @@ et_sendup(et_info_t *et, struct sk_buff
- 	if (flags)
- 		goto err;
+@@ -1194,6 +1207,26 @@ et_sendup(et_info_t *et, struct sk_buff
+ 		return;
+ 	#endif /* HNDCTF */
  
 +	/* check for invalid data on the unit 1, workaround hw bug */
 +	if (etc->chip == BCM4710_CHIP_ID && etc->unit == 1) 
@@ -238,6 +185,7 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 +			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
 +				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
 +		{
++			uchar eabuf[ETHER_ADDR_STR_LEN];
 +			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
 +			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
 +				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
@@ -248,6 +196,6 @@ diff -urBp '-x.*' src/et-5.10.56.46/sys/et_linux.c src/et/sys/et_linux.c
 +		}
 +	}
 +
- 	/* Extract priority from payload and store it out-of-band in skb->priority */
- 	if (et->etc->qos)
- 		pktsetprio(skb, TRUE);
+ 	/* extract priority from payload and store it out-of-band
+ 	 * in skb->priority
+ 	 */

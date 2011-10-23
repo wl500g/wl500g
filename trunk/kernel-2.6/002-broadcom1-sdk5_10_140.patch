@@ -1344,7 +1344,7 @@ diff '-x*.o' '-x*.orig' '-x.*' -urNBp linux-2.6/sound/soc/bcm947xx/bcm947xx-i2s.
 +		    R_REG(snd_bcm.osh, &snd_bcm->regs->clkdivider),
 +		    R_REG(snd_bcm.osh, &snd_bcm->regs->txplayth));
 +		DBG("%s: audio sample rate %d Hz and mclk %d Hz\n",
-+		    __FUNCTION__, rate, snd_bcm.mclk);
++		    __FUNCTION__, rate, snd_bcm->mclk);
 +	}
 +
 +	DBG("%s: %d channels in this stream\n", __FUNCTION__, channels);
