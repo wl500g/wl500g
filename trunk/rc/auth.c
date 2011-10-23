@@ -13,30 +13,34 @@
 #include "rc.h"
 
 #ifdef __CONFIG_EAPOL__
+extern int router_model;
+
 int
 start_wpa_supplicant(char *prefix, int restart)
 {
 	FILE *fp;
 	char tmp[100];
 	char *options = "/etc/wpa_supplicant.conf";
-	char *wpa_argv[] = {
-	    "/usr/sbin/wpa_supplicant",
-	    "-B", "-W",
-	    "-D", "roboswitch", /* RT-N16? */
-	    "-i", nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
-	    "-c", options,
-	    NULL
+	char *wpa_argv[] = {"/usr/sbin/wpa_supplicant",
+		"-B", "-W",
+		"-D", "roboswitch"
+		"-i", nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
+		"-c", options,
+		NULL
 	};
-	char *cli_argv[] = {
-	    "/usr/sbin/wpa_cli",
-	    "-B",
-	    "-a", "/tmp/wpa_cli.script",
-	    NULL
+	char *cli_argv[] = {"/usr/sbin/wpa_cli",
+		"-B",
+		"-a", "/tmp/wpa_cli.script",
+		NULL
 	};
 	int ret;
 
 	if (restart)
 		stop_wpa_supplicant(1);
+
+	/* Select supplicant drivers here */
+	if (router_model == MDL_RTN16)
+		wpa_argv[4] = "wired";
 
 	/* Generate options file */
 	if ((fp = fopen(options, "w")) == NULL) {
