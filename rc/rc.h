@@ -198,16 +198,16 @@ int start_auth(char *prefix, int wan_up);
 int stop_auth(char *prefix, int wan_down);
 #ifdef __CONFIG_EAPOL__
 int start_wpa_supplicant(char *prefix, int restart);
-int stop_wpa_supplicant(void);
+int stop_wpa_supplicant(int wait);
 int wpacli_main(int argc, char **argv);
 #endif
 #ifdef __CONFIG_TELENET__
 int start_lanauth(char *prefix, int restart);
-int stop_lanauth(void);
+int stop_lanauth(int wait);
 #endif
 #ifdef __CONFIG_CONVEX__
 int start_authcli(char *prefix, int restart);
-int stop_authcli(void);
+int stop_authcli(int wait);
 #endif
 
 /* firewall */

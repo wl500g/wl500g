@@ -36,10 +36,7 @@ start_wpa_supplicant(char *prefix, int restart)
 	int ret;
 
 	if (restart)
-	{
-		stop_wpa_supplicant();
-		sleep(1);
-	}
+		stop_wpa_supplicant(1);
 
 	/* Generate options file */
 	if ((fp = fopen(options, "w")) == NULL) {
@@ -70,10 +67,10 @@ start_wpa_supplicant(char *prefix, int restart)
 }
 
 int
-stop_wpa_supplicant(void)
+stop_wpa_supplicant(int wait)
 {
-	killall("wpa_supplicant");
-	killall("wpa_cli");
+	killall_w("wpa_supplicant", 0, wait);
+	killall_w("wpa_cli", 0, wait);
 
 	return 0;
 }
@@ -122,19 +119,16 @@ start_lanauth(char *prefix, int restart)
 	};
 
 	if (restart)
-	{
-		stop_lanauth();
-		sleep(1);
-	}
+		stop_lanauth(1);
 
 	/* Start lanauth */
 	return _eval(lanauth_argv, NULL, 0, NULL);
 }
 
 int
-stop_lanauth(void)
+stop_lanauth(int wait)
 {
-	return killall("lanauth");
+	return killall_w("lanauth", 0, wait);
 }
 #endif
 
@@ -155,10 +149,7 @@ start_authcli(char *prefix, int restart)
 	};
 
 	if (restart)
-	{
-		stop_authcli();
-		sleep(1);
-	}
+		stop_authcli(1);
 
 	/* Generate options file */
 	if ((fp = fopen(options, "w")) == NULL) {
@@ -180,9 +171,9 @@ start_authcli(char *prefix, int restart)
 }
 
 int
-stop_authcli(void)
+stop_authcli(int wait)
 {
-	return killall("authcli");
+	return killall_w("authcli", 0, wait);
 }
 #endif
 
@@ -237,15 +228,15 @@ stop_auth(char *prefix, int wan_down)
 	{
 #ifdef __CONFIG_EAPOL__
 		if ((!wan_auth || strcmp(wan_auth, "eap-md5") == 0) && !wan_down)
-			stop_wpa_supplicant();
+			stop_wpa_supplicant(0);
 #endif
 #ifdef __CONFIG_TELENET__
 		if ((!wan_auth || strcmp(wan_auth, "telenet") == 0) && wan_down)
-			stop_lanauth();
+			stop_lanauth(0);
 #endif
 #ifdef __CONFIG_CONVEX__
 		if ((!wan_auth || strcmp(wan_auth, "convex") == 0) && wan_down)
-			stop_authcli();
+			stop_authcli(0);
 #endif
 	}
 /* TODO: ugly, remake bigpond as auth, not wan proto */
