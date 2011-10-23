@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -7,7 +7,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: md4.h,v 1.5 2006/06/14 21:10:12 Exp $
+ * $Id: md4.h,v 1.5 2010/11/22 09:05:02 Exp $
  */
 
 #ifndef _MD4_H_
@@ -16,7 +16,7 @@
 /*
  * md4.h, copied from src/router/ppp/pppd to src/include/bcmcrypto for general use
  *
- * $Id: md4.h,v 1.5 2006/06/14 21:10:12 Exp $
+ * $Id: md4.h,v 1.5 2010/11/22 09:05:02 Exp $
  *
 ** ********************************************************************
 ** md4.h -- Header file for implementation of                        **

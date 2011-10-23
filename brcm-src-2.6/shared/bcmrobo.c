@@ -1,7 +1,7 @@
 /*
  * Broadcom 53xx RoboSwitch device driver.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -9,7 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmrobo.c,v 1.16.2.3.8.5 2009/03/13 22:31:44 Exp $
+ * $Id: bcmrobo.c,v 1.16.3 2010/11/22 08:56:23 Exp $
  */
 
 
@@ -25,9 +25,14 @@
 #include <bcmdevs.h>
 #include <bcmrobo.h>
 #include <proto/ethernet.h>
+#include <hndpmu.h>
 
 #define	ET_ERROR(args)		printk args
+#ifdef	BCMDBG
+#define	ET_MSG(args)		printk args
+#else	/* BCMDBG */
 #define	ET_MSG(args)
+#endif	/* BCMDBG */
 #define	ET_TRACE(args)
 
 #define VARG(var, len) (((len) == 1) ? *((uint8 *)(var)) : \
@@ -82,6 +87,7 @@
 #define REG_STATUS_SPEED	0x04	/* Port Speed Summary, 16bit (5395/53115 32bit) */
 #define REG_STATUS_DUPLEX	0x06	/* Duplex Status Summary, 16bit */
 #define REG_STATUS_DUPLEX_5395	0x08	/* 5395/53115 Duplex Status Summary, 16bit */
+#define REG_STATUS_REV  0x50    /* Revision Register */
 
 #define REG_DEVICE_ID	0x30	/* 539x Device id: */
 
@@ -570,10 +576,14 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 {
 	robo_info_t *robo;
 	uint32 reset, idx;
+	char *et1port, *et1phyaddr;
+	int mdcport = 0, phyaddr = 0, lan_portenable = 0;
+
 
 	/* Allocate and init private state */
 	if (!(robo = MALLOC(si_osh(sih), sizeof(robo_info_t)))) {
-		ET_ERROR(("robo_attach: out of memory, malloced %d bytes", MALLOCED(si_osh(sih))));
+		ET_ERROR(("robo_attach: out of memory, malloced %d bytes",
+		          MALLOCED(si_osh(sih))));
 		return NULL;
 	}
 	bzero(robo, sizeof(robo_info_t));
@@ -584,6 +594,17 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 	robo->miird = miird;
 	robo->miiwr = miiwr;
 	robo->page = -1;
+
+	/* Enable center tap voltage for LAN ports using gpio23. Usefull in case when
+	 * romboot CFE loads linux over WAN port and Linux enables LAN ports later
+	 */
+	if ((lan_portenable = getgpiopin(robo->vars, "lanports_enable", GPIO_PIN_NOTDEFINED)) !=
+	    GPIO_PIN_NOTDEFINED) {
+		lan_portenable = 1 << lan_portenable;
+		si_gpioout(sih, lan_portenable, lan_portenable, GPIO_DRV_PRIORITY);
+		si_gpioouten(sih, lan_portenable, lan_portenable, GPIO_DRV_PRIORITY);
+		bcm_mdelay(5);
+	}
 
 	/* Trigger external reset by nvram variable existance */
 	if ((reset = getgpiopin(robo->vars, "robo_reset", GPIO_PIN_NOTDEFINED)) !=
@@ -620,6 +641,9 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 			 * figure out how to treat non-cores in ai chips.
 			 */
 			robo->corerev = 3;
+		}
+		else {
+			mii_rreg(robo, PAGE_STATUS, REG_STATUS_REV, &robo->corerev, 1);
 		}
 		si_setcoreidx(sih, idx);
 		ET_MSG(("%s: Internal robo rev %d\n", __FUNCTION__, robo->corerev));
@@ -678,6 +702,22 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 		mii_wreg(robo, PAGE_CTRL, REG_CTRL_SRST, &srst_ctrl, sizeof(uint8));
 	}
 
+	/* Enable switch leds */
+	if (sih->chip == BCM5356_CHIP_ID) {
+		si_pmu_chipcontrol(sih, 2, (1 << 25), (1 << 25));
+	} else if (sih->chip == BCM5357_CHIP_ID) {
+		uint32 led_gpios = 0;
+		char *var;
+
+		if (sih->chippkg != BCM47186_PKG_ID)
+			led_gpios = 0x1f;
+		var = getvar(vars, "et_swleds");
+		if (var)
+			led_gpios = bcm_strtoul(var, NULL, 0);
+		if (led_gpios)
+			si_pmu_chipcontrol(sih, 2, (0x3ff << 8), (led_gpios << 8));
+	}
+
 	if (!robo->ops) {
 		int mosi, miso, ss, sck;
 
@@ -722,6 +762,30 @@ bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr)
 	       (robo->devid == DEVID5397) ||
 	       (robo->devid == DEVID5398) ||
 	       (robo->devid == DEVID53115));
+
+	/* nvram variable switch_mode controls the power save mode on the switch
+	 * set the default value in the beginning
+	 */
+	robo->pwrsave_mode_manual = getintvar(robo->vars, "switch_mode_manual");
+	robo->pwrsave_mode_auto = getintvar(robo->vars, "switch_mode_auto");
+
+	/* Determining what all phys need to be included in
+	 * power save operation
+	 */
+	et1port = getvar(vars, "et1mdcport");
+	if (et1port)
+		mdcport = bcm_atoi(et1port);
+
+	et1phyaddr = getvar(vars, "et1phyaddr");
+	if (et1phyaddr)
+		phyaddr = bcm_atoi(et1phyaddr);
+
+	if ((mdcport == 0) && (phyaddr == 4))
+		/* For 5325F switch we need to do only phys 0-3 */
+		robo->pwrsave_phys = 0xf;
+	else
+		/* By default all 5 phys are put into power save if there is no link */
+		robo->pwrsave_phys = 0x1f;
 
 	return robo;
 
@@ -1121,6 +1185,13 @@ vlan_setup:
 			 (3 << 14));	/* Pri 7 mapped to TXQ 3 */
 		robo->ops->write_reg(robo, 0x30, 0x62, &val16, sizeof(val16));
 
+		/* Drop reserved bit, if any */
+		robo->ops->read_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+		if (val8 & (1 << 1)) {
+			val8 &= ~(1 << 1);
+			robo->ops->write_reg(robo, PAGE_CTRL, 0x2f, &val8, sizeof(val8));
+		}
+
 		/* Jumbo Frame control refister (Page 0x40, Address 0x01 */
 		if (nvram_match("jumbo_frame_enable", "1")) {
 			val16 = (( 1 << 0) |
@@ -1188,4 +1259,579 @@ bcm_robo_enable_switch(robo_info_t *robo)
 		robo->ops->disable_mgmtif(robo);
 
 	return ret;
+}
+
+#ifdef BCMDBG
+void
+robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b)
+{
+	uint8 val8;
+	uint16 val16;
+	uint32 val32;
+	pdesc_t *pdesc;
+	int pdescsz;
+	int i;
+
+	bcm_bprintf(b, "%s:\n", robo->ops->desc);
+	if (robo->miird == NULL) {
+		bcm_bprintf(b, "SPI gpio pins: ss %d sck %d mosi %d miso %d\n",
+		            robo->ss, robo->sck, robo->mosi, robo->miso);
+	}
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	/* Dump registers interested */
+	robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MODE, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x00,0x0B)Switch mode regsiter: 0x%02x\n", val8);
+	if (robo->devid == DEVID5325) {
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x00,0x0E)MII port state override regsiter: 0x%02x\n", val8);
+	}
+	if (robo->miird == NULL)
+		goto exit;
+	if (robo->devid == DEVID5325) {
+		pdesc = pdesc25;
+		pdescsz = sizeof(pdesc25) / sizeof(pdesc_t);
+	} else {
+		pdesc = pdesc97;
+		pdescsz = sizeof(pdesc97) / sizeof(pdesc_t);
+	}
+
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL0, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x34,0x00)VLAN control 0 register: 0x%02x\n", val8);
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL1, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x34,0x01)VLAN control 1 register: 0x%02x\n", val8);
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL4, &val8, sizeof(val8));
+	if (robo->devid == DEVID5325) {
+		bcm_bprintf(b, "(0x34,0x04)VLAN control 4 register: 0x%02x\n", val8);
+		robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL5, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x34,0x05)VLAN control 5 register: 0x%02x\n", val8);
+
+		robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_PMAP, &val32, sizeof(val32));
+		bcm_bprintf(b, "(0x34,0x20)Prio Re-map: 0x%08x\n", val32);
+
+		for (i = 0; i <= VLAN_MAXVID; i++) {
+			val16 = (1 << 13)	/* start command */
+			        | i;		/* vlan id */
+			robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_ACCESS, &val16,
+			                     sizeof(val16));
+			robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_READ, &val32, sizeof(val32));
+			bcm_bprintf(b, "(0x34,0xc)VLAN %d untag bits: 0x%02x member bits: 0x%02x\n",
+			            i, (val32 & 0x0fc0) >> 6, (val32 & 0x003f));
+		}
+
+	} else {
+		for (i = 0; i <= VLAN_MAXVID; i++) {
+			/* VLAN Table Address Index Register (Page 0x05, Address 0x61-0x62) */
+			val16 = i;		/* vlan id */
+			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_INDX, &val16,
+			                     sizeof(val16));
+			/* VLAN Table Access Register (Page 0x34, Address 0x60) */
+			val8 = ((1 << 7) | 	/* start command */
+			        1);		/* read */
+			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_ACCESS, &val8,
+			                     sizeof(val8));
+			/* VLAN Table Entry Register (Page 0x05, Address 0x63-0x66) */
+			robo->ops->read_reg(robo, PAGE_VTBL, REG_VTBL_ENTRY, &val32,
+			                    sizeof(val32));
+			bcm_bprintf(b, "VLAN %d untag bits: 0x%02x member bits: 0x%02x\n",
+			            i, (val32 & 0x3fe00) >> 9, (val32 & 0x1ff));
+		}
+	}
+	for (i = 0; i < pdescsz; i++) {
+		robo->ops->read_reg(robo, PAGE_VLAN, pdesc[i].ptagr, &val16, sizeof(val16));
+		bcm_bprintf(b, "(0x34,0x%02x)Port %d Tag: 0x%04x\n", pdesc[i].ptagr, i, val16);
+	}
+
+exit:
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+}
+#endif /* BCMDBG */
+
+/*
+ * Update the power save configuration for ports that changed link status.
+ */
+void
+robo_power_save_mode_update(robo_info_t *robo)
+{
+	uint phy;
+
+	for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+		if (robo->pwrsave_mode_auto & (1 << phy)) {
+			ET_MSG(("%s: set port %d to auto mode\n",
+				__FUNCTION__, phy));
+			robo_power_save_mode(robo, ROBO_PWRSAVE_AUTO, phy);
+		}
+	}
+
+	return;
+}
+
+static int32
+robo_power_save_mode_clear_auto(robo_info_t *robo, int32 phy)
+{
+	if (robo->devid == DEVID53115) {
+		/* For 53115 0x1C is the MII address of the auto power
+		 * down register. Bit 5 is enabling the mode
+		 * bits has the following purpose
+		 * 15 - write enable 10-14 shadow register select 01010 for 
+		 * auto power 6-9 reserved 5 auto power mode enable
+		 * 4 sleep timer select : 1 means 5.4 sec
+		 * 0-3 wake up timer select: 0xF 1.26 sec
+		 */ 
+		robo->miiwr(robo->h, phy, REG_MII_AUTO_PWRDOWN, 0xA800);
+	} else if (robo->sih->chip == BCM5356_CHIP_ID) {
+		uint16 val16;
+
+		/* To disable auto power down mode
+		 * clear bit 5 of Aux Status 2 register
+		 * (Shadow reg 0x1b). Shadow register
+		 * access is enabled by writing
+		 * 1 to bit 7 of MII register 0x1f.
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
+		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
+		            (val16 | (1 << 7)));
+
+		/* Disable auto power down by clearing
+		 * bit 5 of to Aux Status 2 reg.
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_AUX_STATUS2);
+		robo->miiwr(robo->h, phy, REG_MII_AUX_STATUS2,
+		            (val16 & ~(1 << 5)));
+
+		/* Undo shadow access */
+		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
+		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
+		            (val16 & ~(1 << 7)));
+	} else
+		return -1;
+
+	robo->pwrsave_mode_phys[phy] &= ~ROBO_PWRSAVE_AUTO;
+
+	return 0;
+}
+
+static int32
+robo_power_save_mode_clear_manual(robo_info_t *robo, int32 phy)
+{
+	uint8 val8;
+	uint16 val16;
+
+	if ((robo->devid == DEVID53115) ||
+	    (robo->sih->chip == BCM5356_CHIP_ID)) {
+		/* For 53115 0x0 is the MII control register
+		 * Bit 11 is the power down mode bit 
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
+		val16 &= 0xf7ff;
+		robo->miiwr(robo->h, phy, REG_MII_CTRL, val16);
+	} else if (robo->devid == DEVID5325) {
+		if (robo->sih->chip == BCM5357_CHIP_ID) {
+			robo->miiwr(robo->h, phy, 0x1f, 0x8b);
+			robo->miiwr(robo->h, phy, 0x14, 0x0008);
+			robo->miiwr(robo->h, phy, 0x10, 0x0400);
+			robo->miiwr(robo->h, phy, 0x11, 0x0000);
+			robo->miiwr(robo->h, phy, 0x1f, 0x0b);
+		} else {
+			if (phy == 0)
+				return -1;
+			/* For 5325 page 0x00 address 0x0F is the power down
+			 * mode register. Bits 1-4 determines which of the
+			 * phys are enabled for this mode
+			 */ 
+			robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN,
+				&val8, sizeof(val8));
+			val8 &= ~(0x1  << phy);
+			robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN,
+				&val8, sizeof(val8));
+		}
+	} else
+		return -1;
+
+	robo->pwrsave_mode_phys[phy] &= ~ROBO_PWRSAVE_MANUAL;
+
+	return 0;
+}
+
+#ifdef ET_PWRSAVEWL
+static int32
+robo_power_save_mode_clear_wlonly(robo_info_t *robo)
+{
+	uint8 val8;
+	uint16 val16;
+	int32 phy = 0;
+
+	if ((robo->devid == DEVID53115) ||
+	    (robo->sih->chip == BCM5356_CHIP_ID)) {
+		/* For 53115 0x0 is the MII control register
+		 * Bit 11 is the power down mode bit 
+		 */
+		for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+			val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
+			val16 &= 0xf7ff;
+			robo->miiwr(robo->h, phy, REG_MII_CTRL, val16);
+		}
+	} else if (robo->devid == DEVID5325) {
+		/* For 5325 page 0x00 address 0x0F is the power down
+		 * mode register. Bits 1-4 determines which of the
+		 * phys are enabled for this mode
+		 */ 
+		val8 = 0;
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PORT0, &val8, sizeof(val8));
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN,
+		                     &val8, sizeof(val8));
+		if (robo->sih->chip == BCM5357_CHIP_ID) {
+			for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+				robo->miiwr(robo->h, phy, 0x1f, 0x8b);
+				robo->miiwr(robo->h, phy, 0x14, 0x0000);
+				robo->miiwr(robo->h, phy, 0x10, 0x000);
+				robo->miiwr(robo->h, phy, 0x11, 0x0000);
+				robo->miiwr(robo->h, phy, 0x1f, 0x0b);
+				robo->pwrsave_mode_phys[phy] &= ~ROBO_PWRSAVE_WL_ONLY;
+			}
+		}
+	} else
+		return -1;
+
+
+	return 0;
+}
+#endif /* ET_PWRSAVEWL */
+
+/*
+ * Function which periodically checks the power save mode on the switch
+ */
+int32
+robo_power_save_toggle(robo_info_t *robo, int32 normal)
+{
+	int32 phy;
+	uint16 link_status;
+
+
+	/* read the link status of all ports */
+	robo->ops->read_reg(robo, PAGE_STATUS, REG_STATUS_LINK,
+		&link_status, sizeof(uint16));
+	link_status &= 0x1f;
+
+	/* Take the phys out of the manual mode first so that link status
+	 * can be checked. Once out of that  mode check the link status
+	 * and if any of the link is up do not put that phy into
+	 * manual power save mode
+	 */ 
+	for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+		/* When auto+manual modes are enabled we toggle between
+		 * manual and auto modes. When only manual mode is enabled
+		 * we toggle between manual and normal modes. When only
+		 * auto mode is enabled there is no need to do anything
+		 * here since auto mode is one time config.
+		 */
+		if ((robo->pwrsave_phys & (1 << phy)) &&
+		    (robo->pwrsave_mode_manual & (1 << phy))) {
+			if (!normal) {
+				/* Take the port out of the manual mode */ 
+				robo_power_save_mode_clear_manual(robo, phy);
+			} else {
+				/* If the link is down put it back to manual else
+				 * remain in the current state
+				 */
+				if (!(link_status & (1 << phy))) {
+					ET_MSG(("%s: link down, set port %d to man mode\n",
+						__FUNCTION__, phy));
+					robo_power_save_mode(robo, ROBO_PWRSAVE_MANUAL, phy);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * Switch the ports to normal mode.
+ */
+static int32
+robo_power_save_mode_normal(robo_info_t *robo, int32 phy)
+{
+	int32 error = 0;
+
+	/* If the phy in the power save mode come out of it */ 
+	switch (robo->pwrsave_mode_phys[phy]) {
+#ifdef ET_PWRSAVEWL
+		case ROBO_PWRSAVE_WL_ONLY:
+			error = robo_power_save_mode_clear_wlonly(robo);
+			break;
+#endif
+		case ROBO_PWRSAVE_AUTO_MANUAL:
+		case ROBO_PWRSAVE_AUTO:
+			error = robo_power_save_mode_clear_auto(robo, phy);
+			if ((error == -1) ||
+			    (robo->pwrsave_mode_phys[phy] == ROBO_PWRSAVE_AUTO))
+				break;
+
+		case ROBO_PWRSAVE_MANUAL:
+			error = robo_power_save_mode_clear_manual(robo, phy);
+			break;
+
+		default:
+			break;
+	}
+
+	return error;
+}
+
+/*
+ * Switch all the inactive ports to auto power down mode.
+ */
+static int32
+robo_power_save_mode_auto(robo_info_t *robo, int32 phy)
+{
+	/* If the switch supports auto power down enable that */  
+	if (robo->devid ==  DEVID53115) {
+		/* For 53115 0x1C is the MII address of the auto power
+		 * down register. Bit 5 is enabling the mode 	
+		 * bits has the following purpose
+		 * 15 - write enable 10-14 shadow register select 01010 for 
+		 * auto power 6-9 reserved 5 auto power mode enable
+		 * 4 sleep timer select : 1 means 5.4 sec
+		 * 0-3 wake up timer select: 0xF 1.26 sec
+		 */ 
+		robo->miiwr(robo->h, phy, REG_MII_AUTO_PWRDOWN, 0xA83F);
+	} else if (robo->sih->chip == BCM5356_CHIP_ID) {
+		uint16 val16;
+
+		/* To enable auto power down mode set bit 5 of
+		 * Auxillary Status 2 register (Shadow reg 0x1b)
+		 * Shadow register access is enabled by writing
+		 * 1 to bit 7 of MII register 0x1f.
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
+		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
+		            (val16 | (1 << 7)));
+
+		/* Enable auto power down by writing to Auxillary
+		 * Status 2 reg.
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_AUX_STATUS2);
+		robo->miiwr(robo->h, phy, REG_MII_AUX_STATUS2,
+		            (val16 | (1 << 5)));
+
+		/* Undo shadow access */
+		val16 = robo->miird(robo->h, phy, REG_MII_BRCM_TEST);
+		robo->miiwr(robo->h, phy, REG_MII_BRCM_TEST,
+		            (val16 & ~(1 << 7)));
+	} else
+		return -1;
+
+	robo->pwrsave_mode_phys[phy] |= ROBO_PWRSAVE_AUTO;
+
+	return 0;
+}
+
+/*
+ * Switch all the inactive ports to manual power down mode.
+ */
+static int32
+robo_power_save_mode_manual(robo_info_t *robo, int32 phy)
+{
+	uint8 val8;
+	uint16 val16;
+
+	/* For both 5325 and 53115 the link status register is the same */
+	robo->ops->read_reg(robo, PAGE_STATUS, REG_STATUS_LINK,
+	                    &val16, sizeof(val16));
+	if (val16 & (0x1 << phy))
+		return 0;
+
+	/* If the switch supports manual power down enable that */  
+	if (robo->devid ==  DEVID53115) {
+		/* For 53115 0x0 is the MII control register bit 11 is the
+		 * power down mode bit 
+		 */
+		val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
+		robo->miiwr(robo->h, phy, REG_MII_CTRL, val16 | 0x800);
+	} else  if (robo->devid == DEVID5325) {
+		if (robo->sih->chip == BCM5357_CHIP_ID) {
+			robo->miiwr(robo->h, phy, 0x1f, 0x8b);
+			robo->miiwr(robo->h, phy, 0x14, 0x6000);
+			robo->miiwr(robo->h, phy, 0x10, 0x700);
+			robo->miiwr(robo->h, phy, 0x11, 0x1000);
+			robo->miiwr(robo->h, phy, 0x1f, 0x0b);
+		} else {
+			if (phy == 0)
+				return -1;
+			/* For 5325 page 0x00 address 0x0F is the power down mode
+			 * register. Bits 1-4 determines which of the phys are enabled
+			 * for this mode 
+			 */ 
+			robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN, &val8,
+				sizeof(val8));
+			val8 |= (1 << phy);
+			robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN, &val8,
+				sizeof(val8));
+		}
+
+	} else
+		return -1;
+
+	robo->pwrsave_mode_phys[phy] |= ROBO_PWRSAVE_MANUAL;
+
+	return 0;
+}
+
+#ifdef ET_PWRSAVEWL
+/*
+ * Shutdown all the ports regardless of the link
+ */
+static int32
+robo_power_save_mode_wlonly(robo_info_t *robo)
+{
+	uint8 val8;
+	uint16 val16;
+	int32 phy;
+
+	if (robo->devid ==  DEVID53115) {
+		/* For 53115 0x0 is the MII control register bit 11 is the
+		 * power down mode bit 
+		 */
+		for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+			val16 = robo->miird(robo->h, phy, REG_MII_CTRL);
+			robo->miiwr(robo->h, phy, REG_MII_CTRL, val16 | 0x800);
+		}
+	} else  if (robo->devid == DEVID5325) {
+		/* For 5325 page 0x00 address 0x0F is the power down mode
+		 * register. Bits 1-4 determines which of the phys are enabled
+		 * for this mode 
+		 */ 
+		val8 = 0x1f;
+		robo->ops->write_reg(robo, PAGE_CTRL, REG_CTRL_PWRDOWN, &val8,
+		                     sizeof(val8));
+		if (robo->sih->chip == BCM5357_CHIP_ID) {
+			for (phy = 0; phy < MAX_NO_PHYS; phy++) {
+				robo->miiwr(robo->h, phy, 0x1f, 0x8b);
+				robo->miiwr(robo->h, phy, 0x14, 0x6000);
+				robo->miiwr(robo->h, phy, 0x10, 0x700);
+				robo->miiwr(robo->h, phy, 0x11, 0x1000);
+				robo->miiwr(robo->h, phy, 0x1f, 0x0b);
+				robo->pwrsave_mode_phys[phy] |= ROBO_PWRSAVE_WL_ONLY;
+			}
+		}
+	} else
+		return -1;
+
+
+	return 0;
+}
+#endif /* ET_PWRSAVEWL */
+
+/*
+ * Set power save modes on the robo switch
+ */
+int32
+robo_power_save_mode(robo_info_t *robo, int32 mode, int32 phy)
+{
+	int32 error = -1;
+
+	if (phy > MAX_NO_PHYS) {
+		ET_ERROR(("Passed parameter phy is out of range\n"));
+		return -1;
+	}
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	switch (mode) {
+		case ROBO_PWRSAVE_NORMAL:
+			/* If the phy in the power save mode come out of it */ 
+			error = robo_power_save_mode_normal(robo, phy);
+			break;
+
+		case ROBO_PWRSAVE_AUTO_MANUAL:
+			/* If the switch supports auto and manual power down 
+			 * enable both of them 
+			 */  
+		case ROBO_PWRSAVE_AUTO:
+			error = robo_power_save_mode_auto(robo, phy);
+			if ((error == -1) || (mode == ROBO_PWRSAVE_AUTO))
+				break;
+
+		case ROBO_PWRSAVE_MANUAL:
+			error = robo_power_save_mode_manual(robo, phy);
+			break;
+#ifdef ET_PWRSAVEWL
+		case ROBO_PWRSAVE_WL_ONLY:
+			error = robo_power_save_mode_wlonly(robo);
+			break;
+#endif
+
+		default:
+			break;
+ 	}
+
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+
+	return error;
+}
+
+/*
+ * Get the current power save mode of the switch ports.
+ */
+int32
+robo_power_save_mode_get(robo_info_t *robo, int32 phy)
+{
+	ASSERT(robo);
+
+	if (phy >= MAX_NO_PHYS)
+		return -1;
+
+	return robo->pwrsave_mode_phys[phy];
+}
+
+/*
+ * Configure the power save mode for the switch ports.
+ */
+int32
+robo_power_save_mode_set(robo_info_t *robo, int32 mode, int32 phy)
+{
+	int32 error;
+
+	ASSERT(robo);
+
+	if (phy >= MAX_NO_PHYS)
+		return -1;
+
+	error = robo_power_save_mode(robo, mode, phy);
+
+	if (error)
+		return error;
+
+	if (mode == ROBO_PWRSAVE_NORMAL) {
+		robo->pwrsave_mode_manual &= ~(1 << phy);
+		robo->pwrsave_mode_auto &= ~(1 << phy);
+	} else if (mode == ROBO_PWRSAVE_AUTO) {
+		robo->pwrsave_mode_auto |= (1 << phy);
+		robo->pwrsave_mode_manual &= ~(1 << phy);
+		robo_power_save_mode_clear_manual(robo, phy);
+	} else if (mode == ROBO_PWRSAVE_MANUAL) {
+		robo->pwrsave_mode_manual |= (1 << phy);
+		robo->pwrsave_mode_auto &= ~(1 << phy);
+		robo_power_save_mode_clear_auto(robo, phy);
+#ifdef ET_PWRSAVEWL
+	} else if (mode == ROBO_PWRSAVE_WL_ONLY) {
+		robo->pwrsave_mode_auto = 0;
+		robo->pwrsave_mode_manual = 0;
+#endif
+	} else {
+		robo->pwrsave_mode_auto |= (1 << phy);
+		robo->pwrsave_mode_manual |= (1 << phy);
+	}
+
+	return 0;
 }

@@ -1,0 +1,631 @@
+diff -urBp a/arch/mips/brcm-boards/bcm947xx/Makefile b/arch/mips/brcm-boards/bcm947xx/Makefile
+--- a/arch/mips/brcm-boards/bcm947xx/Makefile	2009-11-26 02:33:36.000000000 +0300
++++ b/arch/mips/brcm-boards/bcm947xx/Makefile	2010-11-24 20:51:10.000000000 +0300
+@@ -28,6 +23,10 @@ ifeq ($(CONFIG_PCI),y)
+ BCM947XX_OBJS += $(addprefix $(SHARED)/, hndpci.o) pcibios.o
+ endif
+ 
++ifeq ($(CONFIG_WAPI),y)
++EXTRA_CFLAGS += -DBCMWAPI_WAI
++endif
++
+ ifeq ($(CONFIG_GENERIC_GPIO),y)
+ BCM947XX_OBJS += gen_gpio.o
+ endif
+diff -urBp a/arch/mips/brcm-boards/bcm947xx/gpio.c b/arch/mips/brcm-boards/bcm947xx/gpio.c
+--- a/arch/mips/brcm-boards/bcm947xx/gpio.c
++++ b/arch/mips/brcm-boards/bcm947xx/gpio.c
+@@ -63,13 +79,13 @@ gpio_read(struct file *file, char *buf,
+ 		val = si_gpioin(gpio_sih);
+ 		break;
+ 	case 1:
+-		val = si_gpioout(gpio_sih, 0, 0);
++		val = si_gpioout(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+ 		break;
+ 	case 2:
+-		val = si_gpioouten(gpio_sih, 0, 0);
++		val = si_gpioouten(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+ 		break;
+ 	case 3:
+-		val = si_gpiocontrol(gpio_sih, 0, 0);
++		val = si_gpiocontrol(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+ 		break;
+ 	default:
+ 		return -ENODEV;
+@@ -93,13 +109,13 @@ gpio_write(struct file *file, const char
+ 	case 0:
+ 		return -EACCES;
+ 	case 1:
+-		si_gpioout(gpio_sih, ~0, val);
++		si_gpioout(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+ 		break;
+ 	case 2:
+-		si_gpioouten(gpio_sih, ~0, val);
++		si_gpioouten(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+ 		break;
+ 	case 3:
+-		si_gpiocontrol(gpio_sih, ~0, val);
++		si_gpiocontrol(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+ 		break;
+ 	default:
+ 		return -ENODEV;
+diff -urBp a/arch/mips/brcm-boards/bcm947xx/pcibios.c b/arch/mips/brcm-boards/bcm947xx/pcibios.c
+--- a/arch/mips/brcm-boards/bcm947xx/pcibios.c	2009-11-26 02:33:36.000000000 +0300
++++ b/arch/mips/brcm-boards/bcm947xx/pcibios.c	2010-11-22 12:00:16.000000000 +0300
+@@ -256,8 +257,53 @@ pcibios_enable_device(struct pci_dev *de
+ 			si_core_reset(sih, 0, 0);
+ 			// USB hungup issue from broadcom 2009.6.24
+ 			mdelay(10);
+-			writel(0x7ff, regs + 0x200);
+-			udelay(1);
++			if (si_corerev(sih) >= 5) {
++				uint32 tmp;
++				/* Enable Misc PLL */
++				tmp = readl(regs + 0x1e0);
++				tmp |= 0x100;
++				writel(tmp, regs + 0x1e0);
++				SPINWAIT((((tmp = readl(regs + 0x1e0)) & (1 << 24))
++					== 0), 1000);
++				/* Take out of resets */
++				writel(0x4ff, regs + 0x200);
++				udelay(25);
++				writel(0x6ff, regs + 0x200);
++				udelay(25);
++
++				/* Make sure digital and AFE are locked in USB PHY */
++				writel(0x6b, regs + 0x524);
++				udelay(50);
++				tmp = readl(regs + 0x524);
++				udelay(50);
++				writel(0xab, regs + 0x524);
++				udelay(50);
++				tmp = readl(regs + 0x524);
++				udelay(50);
++				writel(0x2b, regs + 0x524);
++				udelay(50);
++				tmp = readl(regs + 0x524);
++				udelay(50);
++				writel(0x10ab, regs + 0x524);
++				udelay(50);
++				tmp = readl(regs + 0x524);
++				SPINWAIT((((tmp = readl(regs + 0x528)) & 0xc000) !=
++					0xc000), 100000);
++				if ((tmp & 0xc000) != 0xc000) {
++					printk("WARNING! USB20H mdio_rddata 0x%08x\n", tmp);
++				}
++				writel(0x80000000, regs + 0x528);
++				tmp = readl(regs + 0x314);
++				udelay(265);
++				writel(0x7ff, regs + 0x200);
++				udelay(10);
++
++				/* Take USB and HSIC out of non-driving modes */
++				writel(0, regs + 0x510);
++			} else {
++				writel(0x7ff, regs + 0x200);
++				udelay(1);
++			}
+ 		}
+ 
+ 		/* PRxxxx: War for 5354 failures. */
+diff -urBp a/arch/mips/brcm-boards/bcm947xx/prom.c b/arch/mips/brcm-boards/bcm947xx/prom.c
+--- a/arch/mips/brcm-boards/bcm947xx/prom.c	2009-10-24 14:37:29.000000000 +0400
++++ b/arch/mips/brcm-boards/bcm947xx/prom.c	2010-06-29 21:47:48.000000000 +0400
+@@ -1,7 +1,7 @@
+ /*
+  * Early initialization code for BCM94710 boards
+  *
+- * Copyright (C) 2008, Broadcom Corporation
++ * Copyright (C) 2009, Broadcom Corporation
+  * All Rights Reserved.
+  * 
+  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
+@@ -9,7 +9,7 @@
+  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
+  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+  *
+- * $Id: prom.c,v 1.3 2009/04/23 07:43:09 Exp $
++ * $Id: prom.c,v 1.5 2009/06/08 17:32:33 Exp $
+  */
+ 
+ #include <linux/config.h>
+@@ -27,39 +27,140 @@
+ #include <mipsinc.h>
+ #include <mips74k_core.h>
+ 
++#define MB      << 20
++
++#ifdef  CONFIG_HIGHMEM
++
++#define EXTVBASE        0xc0000000
++#define ENTRYLO(x)      ((pte_val(pfn_pte((x) >> PAGE_SHIFT, PAGE_KERNEL_UNCACHED)) >> 6) | 1)
++#define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
++
++static unsigned long tmp_tlb_ent __initdata;
++
++/* Initialize the wired register and all tlb entries to 
++ * known good state.
++ */
++void __init
++early_tlb_init(void)
++{
++	unsigned long  index;
++	struct cpuinfo_mips *c = &current_cpu_data;
++
++	tmp_tlb_ent = c->tlbsize;
++
++	/* printk(KERN_ALERT "%s: tlb size %ld\n", __FUNCTION__, c->tlbsize); */
++
++	/*
++	* initialize entire TLB to uniqe virtual addresses
++	* but with the PAGE_VALID bit not set
++	*/
++	write_c0_wired(0);
++	write_c0_pagemask(PM_DEFAULT_MASK);
++
++	write_c0_entrylo0(0);   /* not _PAGE_VALID */
++	write_c0_entrylo1(0);
++
++	for (index = 0; index < c->tlbsize; index++) {
++		/* Make sure all entries differ. */
++		write_c0_entryhi(UNIQUE_ENTRYHI(index+32));
++		write_c0_index(index);
++		mtc0_tlbw_hazard();
++		tlb_write_indexed();
++	}
++
++	tlbw_use_hazard();
++
++}
++
++void __init
++add_tmptlb_entry(unsigned long entrylo0, unsigned long entrylo1,
++		 unsigned long entryhi, unsigned long pagemask)
++{
++/* write one tlb entry */
++	--tmp_tlb_ent;
++	write_c0_index(tmp_tlb_ent);
++	write_c0_pagemask(pagemask);
++	write_c0_entryhi(entryhi);
++	write_c0_entrylo0(entrylo0);
++	write_c0_entrylo1(entrylo1);
++	mtc0_tlbw_hazard();
++	tlb_write_indexed();
++	tlbw_use_hazard();
++}
++#endif  /* CONFIG_HIGHMEM */
++
+ void __init
+ prom_init(void)
+ {
+-	unsigned long mem;
++	unsigned long mem, extmem = 0, off, data;
+ 
+ 	mips_machgroup = MACH_GROUP_BRCM;
+ 	mips_machtype = MACH_BCM947XX;
+ 
++	off = (unsigned long)prom_init;
++	data = *(unsigned long *)prom_init;
++
+ 	/* Figure out memory size by finding aliases */
+-	for (mem = (1 << 20); mem < (128 << 20); mem <<= 1) {
+-		if (*(unsigned long *)((unsigned long)(prom_init) + mem) == 
+-		    *(unsigned long *)(prom_init))
++	for (mem = (1 MB); mem < (128 MB); mem <<= 1) {
++		if (*(unsigned long *)(off + mem) == data)
+ 			break;
+-	} 
++	}
+ 
+ #if CONFIG_RAM_SIZE
+-       {
+-               unsigned long config_mem;
+-               config_mem = CONFIG_RAM_SIZE * 0x100000;
+-               if (config_mem < mem)
+-                       mem = config_mem;
+-       }
++	{
++		unsigned long config_mem;
++		config_mem = CONFIG_RAM_SIZE * 0x100000;
++		if (config_mem < mem)
++			mem = config_mem;
++	}
+ #endif
++#ifdef  CONFIG_HIGHMEM
++	if (mem == 128 MB) {
+ 
++		early_tlb_init();
++		/* Add one temporary TLB entries to map SDRAM Region 2.
++		*      Physical        Virtual
++		*      0x80000000      0xc0000000      (1st: 256MB)
++		*      0x90000000      0xd0000000      (2nd: 256MB)
++		*/
++		add_tmptlb_entry(ENTRYLO(SI_SDRAM_R2),
++				 ENTRYLO(SI_SDRAM_R2 + (256 MB)),
++				 EXTVBASE, PM_256M);
++
++		off = EXTVBASE + __pa(off);
++		for (extmem = (128 MB); extmem < (512 MB); extmem <<= 1) {
++			if (*(unsigned long *)(off + extmem) == data)
++				break;
++		}
++
++		extmem -= mem;
++		/* Keep tlb entries back in consistent state */
++		early_tlb_init();
++	}
++#endif  /* CONFIG_HIGHMEM */
+ 	/* Ignoring the last page when ddr size is 128M. Cached
+ 	 * accesses to last page is causing the processor to prefetch
+ 	 * using address above 128M stepping out of the ddr address
+ 	 * space.
+ 	 */
+-	if (MIPS74K(current_cpu_data.processor_id) && (mem == 0x8000000))
++	if (MIPS74K(current_cpu_data.processor_id) && (mem == (128 MB)))
+ 		mem -= 0x1000;
++	add_memory_region(SI_SDRAM_BASE, mem, BOOT_MEM_RAM);
+ 
+-	add_memory_region(0, mem, BOOT_MEM_RAM);
++#ifdef  CONFIG_HIGHMEM
++	if (extmem) {
++		/* We should deduct 0x1000 from the second memory
++		 * region, because of the fact that processor does prefetch.
++		 * Now that we are deducting a page from second memory 
++		 * region, we could add the earlier deducted 4KB (from first bank)
++		 * to the second region (the fact that 0x80000000 -> 0x88000000
++		 * shadows 0x0 -> 0x8000000)
++		 */
++		if (MIPS74K(current_cpu_data.processor_id) && (mem == (128 MB)))
++			extmem -= 0x1000;
++		add_memory_region(SI_SDRAM_R2 + (128 MB) - 0x1000, extmem, BOOT_MEM_RAM);
++	}
++#endif  /* CONFIG_HIGHMEM */
+ }
+ 
+ void __init
+diff -urBp a/arch/mips/brcm-boards/bcm947xx/setup.c b/arch/mips/brcm-boards/bcm947xx/setup.c
+--- a/arch/mips/brcm-boards/bcm947xx/setup.c	2010-01-07 06:35:14.000000000 +0300
++++ b/arch/mips/brcm-boards/bcm947xx/setup.c	2011-05-12 11:16:15.000000000 +0400
+@@ -81,6 +81,29 @@ EXPORT_SYMBOL(bcm947xx_sih_lock);
+ 
+ /* Kernel command line */
+ extern char arcs_cmdline[CL_SIZE];
++static int lanports_enable = 0;
++static int wombo_reset = GPIO_PIN_NOTDEFINED;
++
++static void
++bcm947xx_reboot_handler(void)
++{
++	if (lanports_enable) {
++		uint lp = 1 << lanports_enable;
++
++		si_gpioout(sih, lp, 0, GPIO_DRV_PRIORITY);
++		si_gpioouten(sih, lp, lp, GPIO_DRV_PRIORITY);
++		bcm_mdelay(1);
++	}
++
++	/* gpio 0 is also valid wombo_reset */
++	if (wombo_reset != GPIO_PIN_NOTDEFINED) {
++		int reset = 1 << wombo_reset;
++
++		si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
++		si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
++		bcm_mdelay(10);
++	}
++}
+ 
+ void
+ bcm947xx_machine_restart(char *command)
+@@ -93,6 +118,7 @@ bcm947xx_machine_restart(char *command)
+ 
+ 	/* Set the watchdog timer to reset immediately */
+ 	local_irq_disable();
++	bcm947xx_reboot_handler();
+ 	hnd_cpu_reset(sih);
+ }
+ 
+@@ -104,6 +130,7 @@ bcm947xx_machine_halt(void)
+ 	/* Disable interrupts and watchdog and spin forever */
+ 	local_irq_disable();
+ 	si_watchdog(sih, 0);
++	bcm947xx_reboot_handler();
+ 	while (1);
+ }
+ 
+@@ -178,6 +205,25 @@ brcm_setup(void)
+ 		strncpy(arcs_cmdline, value, sizeof(arcs_cmdline));
+ 
+ 
++	if ((lanports_enable = getgpiopin(NULL, "lanports_enable", GPIO_PIN_NOTDEFINED)) ==
++		GPIO_PIN_NOTDEFINED)
++		lanports_enable = 0;
++
++	/* wombo reset */
++	if ((wombo_reset = getgpiopin(NULL, "wombo_reset", GPIO_PIN_NOTDEFINED)) !=
++	    GPIO_PIN_NOTDEFINED) {
++		int reset = 1 << wombo_reset;
++
++		printk("wombo_reset set to gpio %d\n", wombo_reset);
++
++		si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
++		si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
++		bcm_mdelay(10);
++
++		si_gpioout(sih, reset, reset, GPIO_DRV_PRIORITY);
++		bcm_mdelay(20);
++	}
++
+ 	/* Generic setup */
+ 	_machine_restart = bcm947xx_machine_restart;
+ 	_machine_halt = bcm947xx_machine_halt;
+diff -urBp a/arch/mips/Kconfig b/arch/mips/Kconfig
+--- a/arch/mips/Kconfig	2009-11-26 02:33:34.000000000 +0300
++++ b/arch/mips/Kconfig	2011-03-20 11:33:53.000000000 +0300
+@@ -25,6 +25,7 @@ config MIPS_BRCM
+ 	select SYS_SUPPORTS_KGDB
+ 	select SYS_HAS_CPU_MIPS32_R1
+ 	select SYS_HAS_CPU_MIPS32_R2
++	select SYS_SUPPORTS_HIGHMEM
+ 
+ config MACH_ALCHEMY
+ 	bool "Alchemy processor based machines"
+diff -urBp a/arch/mips/kernel/setup.c b/arch/mips/kernel/setup.c
+--- a/arch/mips/kernel/setup.c	2011-09-16 20:00:03.000000000 +0400
++++ b/arch/mips/kernel/setup.c	2011-02-05 17:23:41.000000000 +0300
+@@ -344,6 +344,34 @@ static void __init bootmem_init(void)
+ 	 */
+ 	bootmap_size = init_bootmem_node(NODE_DATA(0), mapstart,
+ 					 min_low_pfn, max_low_pfn);
++
++#ifdef CONFIG_SPARSEMEM
++	for (i = 0; i < boot_mem_map.nr_map; i++) {
++		unsigned long start, end;
++
++		start = PFN_UP(boot_mem_map.map[i].addr);
++		end = PFN_DOWN(boot_mem_map.map[i].addr
++				+ boot_mem_map.map[i].size);
++
++		if (start <= min_low_pfn)
++			start = min_low_pfn;
++		if (start >= end)
++			continue;
++
++#ifndef CONFIG_HIGHMEM
++		if (end > max_low_pfn)
++			end = max_low_pfn;
++
++		/*
++		 * ... finally, is the area going away?
++		 */
++		if (end <= start)
++			continue;
++#endif /* CONFIG_HIGHMEM */
++
++		add_active_range(0, start, end);
++	}
++#endif /* CONFIG_SPARSEMEM */
+ 	/*
+ 	 * Register fully available low RAM pages with the bootmem allocator.
+ 	 */
+@@ -465,6 +493,9 @@ static void __init arch_mem_init(char **
+ 	}
+ 
+ 	bootmem_init();
++#ifdef CONFIG_SPARSEMEM
++        sparse_memory_present_with_active_regions(MAX_NUMNODES);
++#endif
+ 	sparse_init();
+ 	paging_init();
+ }
+@@ -575,3 +606,20 @@ __setup("nodsp", dsp_disable);
+ 
+ unsigned long kernelsp[NR_CPUS];
+ unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
++
++#ifdef CONFIG_DEBUG_FS
++#include <linux/debugfs.h>
++
++struct dentry *mips_debugfs_dir;
++static int __init debugfs_mips(void)
++{
++        struct dentry *d;
++
++        d = debugfs_create_dir("mips", NULL);
++        if (!d)
++                return -ENOMEM;
++        mips_debugfs_dir = d;
++        return 0;
++}
++arch_initcall(debugfs_mips);
++#endif
+diff -urBp a/arch/mips/mm/highmem.c b/arch/mips/mm/highmem.c
+--- a/arch/mips/mm/highmem.c	2008-02-26 02:59:40.000000000 +0300
++++ b/arch/mips/mm/highmem.c	2010-06-29 21:47:48.000000000 +0400
+@@ -33,6 +33,32 @@ void __kunmap(struct page *page)
+  * kmaps are appropriate for short, tight code paths only.
+  */
+ 
++/*
++ * need an array per cpu, and each array has to be cache aligned
++ */
++struct kmap_map {
++	struct page *page;
++	void        *vaddr;
++};
++
++struct {
++	struct kmap_map map[KM_TYPE_NR];
++} ____cacheline_aligned_in_smp kmap_atomic_maps[NR_CPUS];
++
++
++
++void *
++kmap_atomic_page_address(struct page *page)
++{
++	int i;
++
++	for (i = 0; i < KM_TYPE_NR; i++)
++		if (kmap_atomic_maps[smp_processor_id()].map[i].page == page)
++			return(kmap_atomic_maps[smp_processor_id()].map[i].vaddr);
++
++	return((struct page *)0);
++}
++
+ void *__kmap_atomic(struct page *page, enum km_type type)
+ {
+ 	enum fixed_addresses idx;
+@@ -52,12 +78,14 @@ void *__kmap_atomic(struct page *page, e
+ 	set_pte(kmap_pte-idx, mk_pte(page, kmap_prot));
+ 	local_flush_tlb_one((unsigned long)vaddr);
+ 
++	kmap_atomic_maps[smp_processor_id()].map[type].page = page;
++	kmap_atomic_maps[smp_processor_id()].map[type].vaddr = (void *)vaddr;
++
+ 	return (void*) vaddr;
+ }
+ 
+ void __kunmap_atomic(void *kvaddr, enum km_type type)
+ {
+-#ifdef CONFIG_DEBUG_HIGHMEM
+ 	unsigned long vaddr = (unsigned long) kvaddr & PAGE_MASK;
+ 	enum fixed_addresses idx = type + KM_TYPE_NR*smp_processor_id();
+ 
+@@ -70,6 +98,18 @@ void __kunmap_atomic(void *kvaddr, enum
+ 		BUG();
+ 
+ 	/*
++	 * Protect against multiple unmaps
++	 * Can't cache flush an unmapped page.
++	 */
++	if ( kmap_atomic_maps[smp_processor_id()].map[type].vaddr ) {
++		kmap_atomic_maps[smp_processor_id()].map[type].page = (struct page *)0;
++		kmap_atomic_maps[smp_processor_id()].map[type].vaddr = (void *) 0;
++
++		flush_data_cache_page((unsigned long)vaddr);
++	}
++
++#ifdef CONFIG_DEBUG_HIGHMEM
++	/*
+ 	 * force other mappings to Oops if they'll try to access
+ 	 * this pte without first remap it
+ 	 */
+diff -uB a/drivers/net/hnd/Kconfig b/drivers/net/hnd/Kconfig
+--- a/drivers/net/hnd/Kconfig
++++ b/drivers/net/hnd/Kconfig
+@@ -39,6 +39,9 @@
+ 	tristate "BCM43xx 802.11 Wireless support"
+ 	depends on HND && !WL_EMULATOR
+ #	select WIRELESS_EXT
++config WAPI
++	bool "Wireless Authentication Privacy Infrastructure (WAPI) support"
++	depends on HND && !WL_EMULATOR && WL
+ choice
+ 	prompt "Wireless feature variant"
+ 	depends on HND && !WL_EMULATOR && WL
+diff -urBp a/drivers/net/wl/wl_generic.mk b/drivers/net/wl/wl_generic.mk
+--- a/drivers/net/wl/wl_generic.mk	2011-05-12 06:29:47.000000000 +0300
++++ b/drivers/net/wl/wl_generic.mk	2010-11-22 12:01:14.000000000 +0300
+@@ -102,7 +102,11 @@ endif # partial rebuild
+ else # SRCBASE/wl/sys doesn't exist
+ 
+     # Otherwise, assume prebuilt object module(s) in src/wl/linux directory
++ifeq ($(CONFIG_CPU_MIPS32_R2),)
++    prebuilt := wl_$(wl_suffix).R1.o
++else
+     prebuilt := wl_$(wl_suffix).o
++endif
+     $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
+ 
+ endif
+diff -urBp a/sound/soc/bcm947xx/bcm947xx-i2s.c b/sound/soc/bcm947xx/bcm947xx-i2s.c
+--- a/sound/soc/bcm947xx/bcm947xx-i2s.c	2009-11-26 02:43:16.000000000 +0300
++++ b/sound/soc/bcm947xx/bcm947xx-i2s.c	2010-11-22 12:01:14.000000000 +0300
+@@ -35,6 +35,7 @@
+ #include <hnddma.h>
+ #include <sbchipc.h>
+ #include <i2s_core.h>
++#include <hndpmu.h>
+ 
+ #include "bcm947xx-i2s.h"
+ 
+@@ -253,6 +255,10 @@ static int bcm947xx_i2s_hw_params(struct
+ 	devctrl &= ~I2S_DC_WL_TX_MASK;
+ 	stxctrl &= ~I2S_STXC_WL_MASK;
+ 	switch (params_format(params)) {
++	case SNDRV_PCM_FORMAT_U8:
++		devctrl |= 0x4000;
++		stxctrl |= 0x1000;
++		break;
+ 	case SNDRV_PCM_FORMAT_S16_LE:
+ 		devctrl |= 0x0;
+ 		stxctrl |= 0x0;
+@@ -282,8 +288,14 @@ static int bcm947xx_i2s_hw_params(struct
+ 
+ 	/* Write I2S devcontrol reg */
+ 	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
++	devctrl |= I2S_DC_I2SCFG;  /* Set up core's SRAM for Half duplex Tx */
++	W_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol, devctrl);
+ 	W_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl, stxctrl);
++	DBG("%s: set devctrl 0x%x && stxctrl 0x%x\n", __FUNCTION__, devctrl, stxctrl);
+ 
++	DBG("%s: read devctrl 0x%x stxctrl 0x%x\n", __FUNCTION__,
++	    R_REG(snd_bcm.osh, &snd_bcm->regs->devcontrol),
++	    R_REG(snd_bcm.osh, &snd_bcm->regs->stxctrl));
+ 	return 0;
+ }
+ 
+@@ -351,11 +363,10 @@ bcm947xx_i2s_pci_attach(uint16 vendor, u
+ 	bcm947xx_i2s_info_t *snd = NULL;
+ 	int ret;
+ 
+-	uint addrwidth;
+ 	int dma_attach_err = 0;
+ 
+ 
+-	DBG("%s: vendor 0x%x device 0x%x regs 0x%x bustype 0x%x btparam %p irq 0x%x\n",
++	DBG("%s: vendor 0x%x device 0x%x regs 0x%lx bustype 0x%x btparam %p irq 0x%x\n",
+ 	    __FUNCTION__, vendor, device, regs, bustype, btparam, irq);
+ 
+ 
+@@ -387,8 +398,7 @@ bcm947xx_i2s_pci_attach(uint16 vendor, u
+ 	                        NULL, NULL);
+ 
+ 	snd->regs = (i2sregs_t *)si_setcore(snd->sih, I2S_CORE_ID, 0);
+-
+-	addrwidth = dma_addrwidth(snd->sih, DMAREG(snd, DMA_TX, 0));
++	si_core_reset(snd->sih, 0, 0);
+ 
+ 	snd->di[0] = dma_attach(snd->osh, "i2s_dma", snd->sih,
+ 	                            DMAREG(snd, DMA_TX, 0),
+@@ -400,12 +410,19 @@ bcm947xx_i2s_pci_attach(uint16 vendor, u
+ 	/* Tell DMA that we're not using framed/packet data */
+ 	dma_ctrlflags(snd->di[0], DMA_CTRL_UNFRAMED /* mask */, DMA_CTRL_UNFRAMED /* value */);
+ 
+-	/* for 471X chips, Turn on I2S pins. They're MUX'd with PFLASH pins, and PFLASH is ON
+-	 * by default
+-	 */
+ 	if (CHIPID(snd->sih->chip) == BCM4716_CHIP_ID) {
++		/* for 471X chips, Turn on I2S pins. They're MUX'd with PFLASH pins, and PFLASH
++		 * is ON by default
++		 */
+ 		ret = si_corereg(snd->sih, SI_CC_IDX, OFFSETOF(chipcregs_t, chipcontrol),
+-	                 CCTRL471X_I2S_PINS_ENABLE, CCTRL471X_I2S_PINS_ENABLE);
++	                 CCTRL_471X_I2S_PINS_ENABLE, CCTRL_471X_I2S_PINS_ENABLE);
++	} else if (CHIPID(snd->sih->chip) == BCM5357_CHIP_ID) {
++		/* Write to the 2nd chipcontrol reg. to turn on I2S pins */
++		ret = si_pmu_chipcontrol(snd->sih, PMU1_PLL0_CHIPCTL1, CCTRL_5357_I2S_PINS_ENABLE,
++		                         CCTRL_5357_I2S_PINS_ENABLE);
++		/* Write to the 2nd chipcontrol reg. to turn on I2C-via-gpio pins */
++		ret = si_pmu_chipcontrol(snd->sih, PMU1_PLL0_CHIPCTL1,
++		                         CCTRL_5357_I2CSPI_PINS_ENABLE, 0);
+ 	}
+ 
+ 	return snd;
+@@ -453,7 +470,6 @@ bcm947xx_i2s_pci_probe(struct pci_dev *p
+ 		return -ENODEV;
+ 
+ 	pci_set_drvdata(pdev, snd_bcm);
+-	DBG("%s: snd_bcm @ %p snd_bcm.regs @ %p\n", __FUNCTION__, snd_bcm, snd_bcm.regs);
+ 
+ 	return err;
+ }

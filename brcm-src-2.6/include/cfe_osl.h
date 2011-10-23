@@ -1,7 +1,7 @@
 /*
  * CFE boot loader OS Abstraction Layer.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: cfe_osl.h,v 1.49.2.6 2009/11/04 01:17:49 Exp $
+ * $Id: cfe_osl.h,v 1.57.8.2 2010/03/18 02:03:55 Exp $
  */
 
 #ifndef _cfe_osl_h_
@@ -162,11 +162,11 @@ extern int osl_busprobe(uint32 *val, uint32 addr);
 
 /* allocate/free shared (dma-able) consistent (uncached) memory */
 #define	DMA_CONSISTENT_ALIGN	4096		/* 4k alignment */
-#define	DMA_ALLOC_CONSISTENT(osh, size, pap, dmah) \
-	osl_dma_alloc_consistent((size), (pap))
+#define	DMA_ALLOC_CONSISTENT(osh, size, align, tot, pap, dmah) \
+	osl_dma_alloc_consistent((size), (align), (tot), (pap))
 #define	DMA_FREE_CONSISTENT(osh, va, size, pa, dmah) \
 	osl_dma_free_consistent((void*)(va))
-extern void *osl_dma_alloc_consistent(uint size, ulong *pap);
+extern void *osl_dma_alloc_consistent(uint size, uint16 align_bits, uint *alloced, ulong *pap);
 extern void osl_dma_free_consistent(void *va);
 
 /* map/unmap direction */
@@ -244,7 +244,7 @@ extern uchar *osl_pktpull(struct lbuf *lb, uint bytes);
 extern struct lbuf *osl_pktdup(struct lbuf *lb);
 extern int osl_error(int bcmerror);
 
-/* Global ASSERT type */
+/* Global ASSERT type flag */
 extern uint32 g_assert_type;
 
 #endif	/* _cfe_osl_h_ */

@@ -11,7 +11,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: bcmwifi.h,v 1.19.2.3 2009/05/21 21:22:19 Exp $
+ * $Id: bcmwifi.h,v 1.24 2009/05/21 21:22:04 Exp $
  */
 
 #ifndef	_bcmwifi_h_
@@ -145,6 +145,13 @@ extern bool wf_chspec_malformed(chanspec_t chanspec);
  * sideband depending on the chanspec selected
  */
 extern uint8 wf_chspec_ctlchan(chanspec_t chspec);
+
+/*
+ * This function returns the chanspec that control traffic is being sent on, for legacy
+ * channels this is just the chanspec, for 40MHZ channels it is the upper or lowre 20MHZ
+ * sideband depending on the chanspec selected
+ */
+extern chanspec_t wf_chspec_ctlchspec(chanspec_t chspec);
 
 /*
  * Return the channel number for a given frequency and base frequency.

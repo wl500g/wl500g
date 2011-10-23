@@ -2,7 +2,7 @@
  * This file contains the common code routines to access/update the
  * IGMP Snooping database.
  *
- * Copyright (C) 2008, Broadcom Corporation
+ * Copyright (C) 2009, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igsc_sdb.c,v 1.4 2008/11/19 01:36:25 Exp $
+ * $Id: igsc_sdb.c,v 1.4.1 2010/11/22 09:05:02 Exp $
  */
 #include <typedefs.h>
 #include <bcmdefs.h>
@@ -671,8 +671,13 @@ igsc_sdb_interface_del(igsc_info_t *igsc_info, void *ifp)
 			{
 				mh = clist_entry(ptr2, igsc_mh_t, mh_list);
 
+				if (mh->mh_mi->mi_ifp != ifp) {
+					tmp2  = ptr2->next;
+					continue;
+				}
+
 				/* Delete the interface entry if no stream is going on it */
-				if (mh->mh_mi->mi_ifp == ifp)
+				if (--mh->mh_mi->mi_ref == 0)
 				{
 					IGS_IGSDB("Deleting interface entry %p\n", mh->mh_mi);
 

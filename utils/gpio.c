@@ -106,6 +106,7 @@ enum {
 	MDL_DIR320,
 	MDL_RTN16,
 	MDL_RTN12,
+	MDL_RTN12B1,
 	MDL_RTN10,
 	MDL_RTN10U,
 	MDL_WNR3500L,
@@ -188,6 +189,7 @@ static platform_t platforms[] = {
 	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, GPIO1)}},
 	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, GPIO7)}},
 	{MDL_RTN12,	"ASUS RT-N12",			{_PWR(GPIO2, 0)}},
+	{MDL_RTN12B1,	"ASUS RT-N12B1",		{_PWR(GPIO18,0)}},
 	{MDL_RTN10,	"ASUS RT-N10",			{_PWR(GPIO1, 0)}},
 	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0)}},
 	/* D-Link */
@@ -323,6 +325,8 @@ static int get_model(void)
 				return MDL_RTN16;
 			if (!strcmp(boardtype,"0x04CD"))
 				return MDL_RTN12;
+			if (!strcmp(boardtype,"0x054D"))
+				return MDL_RTN12B1;
 			if (!strcmp(boardtype,"0x04EC"))
 				return MDL_RTN10;
 			if (!strcmp(boardtype,"0x0550"))
