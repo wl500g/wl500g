@@ -666,10 +666,11 @@ busybox/.config: .config
 	$(call SwitchConfParam,$@,CONFIG_MDEV,$(if $(CONFIG_LINUX_26),y,n))
 	$(call SwitchConfParam,$@,CONFIG_FEATURE_IPV6 CONFIG_PING6 CONFIG_TRACEROUTE6,$(if $(CONFIG_IPV6),y,n))
 	$(call SwitchConfParam,$@,CONFIG_SENDMAIL,$(if $(CONFIG_SENDMAIL),y,n))
+	sed -i 's/CONFIG_EXTRA_CFLAGS=.*/CONFIG_EXTRA_CFLAGS="$(EXTRACFLAGS)"/' $@
 	$(MAKE) -C busybox oldconfig
 
 busybox: busybox/.config
-	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
+	$(MAKE) -C $@ all STRIP=$(STRIP) EXTRA_LDFLAGS="-Wl,-rpath /lib"
 
 busybox-install: busybox
 	$(MAKE) -C busybox install STRIP=$(STRIP) CONFIG_PREFIX=$(INSTALLDIR)/busybox EXTRA_CFLAGS="$(EXTRACFLAGS)" EXTRA_LDFLAGS="-Wl,-rpath /lib"
