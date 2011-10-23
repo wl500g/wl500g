@@ -359,6 +359,34 @@ static void __init bootmem_init(void)
 	 */
 	bootmap_size = init_bootmem_node(NODE_DATA(0), mapstart,
 					 min_low_pfn, max_low_pfn);
+
+#ifdef CONFIG_SPARSEMEM
+	for (i = 0; i < boot_mem_map.nr_map; i++) {
+		unsigned long start, end;
+
+		start = PFN_UP(boot_mem_map.map[i].addr);
+		end = PFN_DOWN(boot_mem_map.map[i].addr
+				+ boot_mem_map.map[i].size);
+
+		if (start <= min_low_pfn)
+			start = min_low_pfn;
+		if (start >= end)
+			continue;
+
+#ifndef CONFIG_HIGHMEM
+		if (end > max_low_pfn)
+			end = max_low_pfn;
+
+		/*
+		 * ... finally, is the area going away?
+		 */
+		if (end <= start)
+			continue;
+#endif /* CONFIG_HIGHMEM */
+
+		add_active_range(0, start, end);
+	}
+#endif /* CONFIG_SPARSEMEM */
 	/*
 	 * Register fully available low RAM pages with the bootmem allocator.
 	 */
@@ -480,6 +508,9 @@ static void __init arch_mem_init(char **cmdline_p)
 	}
 
 	bootmem_init();
+#ifdef CONFIG_SPARSEMEM
+        sparse_memory_present_with_active_regions(MAX_NUMNODES);
+#endif
 	sparse_init();
 	paging_init();
 }
@@ -590,3 +621,20 @@ __setup("nodsp", dsp_disable);
 
 unsigned long kernelsp[NR_CPUS];
 unsigned long fw_arg0, fw_arg1, fw_arg2, fw_arg3;
+
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+
+struct dentry *mips_debugfs_dir;
+static int __init debugfs_mips(void)
+{
+        struct dentry *d;
+
+        d = debugfs_create_dir("mips", NULL);
+        if (!d)
+                return -ENOMEM;
+        mips_debugfs_dir = d;
+        return 0;
+}
+arch_initcall(debugfs_mips);
+#endif

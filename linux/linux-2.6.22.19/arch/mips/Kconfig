@@ -26,6 +26,8 @@ config MIPS_BRCM
 	select SYS_SUPPORTS_KGDB
 	select SYS_HAS_CPU_MIPS32_R1
 	select SYS_HAS_CPU_MIPS32_R2
+	select SYS_SUPPORTS_HIGHMEM
+	select HAVE_GET_USER_PAGES_FAST
 
 config MACH_ALCHEMY
 	bool "Alchemy processor based machines"
