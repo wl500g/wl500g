@@ -1,3 +1,6 @@
+20111023:
+    Added devices: C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
+    program version >= 1.2.0)
 20111012:
     Added devices: AnyDATA APE-540H, ZTE MF192 (new variant)
 20111007:

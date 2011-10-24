@@ -1,6 +1,6 @@
-# Part of usb-modeswitch-data, version 20111012
+# Part of usb-modeswitch-data, version 20111023
 #
-# Recommended use with USB_ModeSwitch >= 1.1.2, works with versions >= 1.0.3
+# Recommended use with USB_ModeSwitch >= 1.2.0, works with versions >= 1.0.3
 #
 ACTION!="add|change", GOTO="modeswitch_rules_end"
 
@@ -441,6 +441,9 @@ ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6281", RUN+="usb_modeswitch '%b/%k'"
 # C-motech D-50 (aka "CDU-680")
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6803", RUN+="usb_modeswitch '%b/%k'"
 
+# C-motech CDU-685a
+ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6804", RUN+="usb_modeswitch '%b/%k'"
+
 # C-motech CHU-629S
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="700a", RUN+="usb_modeswitch '%b/%k'"
 
@@ -575,6 +578,9 @@ ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9e00", RUN+="usb_modeswitch '%b/%k'"
 
 # MobiData MBD-200HU and others
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
+
+# Qisda H21 Flying Beetle
+ATTRS{idVendor}=="1da5", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 
 # Solomon S3Gm-660
 ATTRS{idVendor}=="1dd6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
