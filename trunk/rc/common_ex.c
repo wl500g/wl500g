@@ -38,17 +38,13 @@
 /* remove space in the end of string */
 char *trim_r(char *str)
 {
-	int i;
+	char *end = NULL;
 
-	i=strlen(str);
-
-	while (i>=1)
-	{
-		if (*(str+i-1) == ' ' || *(str+i-1) == 0x0a || *(str+i-1) == 0x0d) *(str+i-1)=0x0;
-		else break;
-		i--;
-	}
-	return(str);
+	if (str)
+		end = str + strlen(str) - 1;
+	while (end && end >= str && strchr("\x20\r\n", *end))
+		*end-- = '\0';
+	return str;
 }
 
 /* convert mac address format from XXXXXXXXXXXX to XX:XX:XX:XX:XX:XX */
