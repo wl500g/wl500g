@@ -151,7 +151,8 @@ bound(void)
 	}
 
 #ifdef __CONFIG_IPV6__
-	nvram_set(strcat_r(prefix, "ipv6_6rd", tmp), trim_r(getenv("ip6rd")));
+	if ((value = getenv("ip6rd")))
+		nvram_set(strcat_r(prefix, "ipv6_6rd", tmp), trim_r(value));
 #endif
 
 	if (changed && unit >= 0)
