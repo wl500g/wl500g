@@ -7,7 +7,7 @@ DefaultProduct=0xf000
 TargetVendor=  0x1da5
 TargetProduct= 0x4512
 
-CheckSuccess=20
-
 QisdaMode=1
+
+CheckSuccess=20
 

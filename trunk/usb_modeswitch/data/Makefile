@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20111012
+VERS        = 20111023
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -25,12 +25,15 @@ db-install:
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./usb_modeswitch.d/*
 
 db-install-packed:
-	cd ./usb_modeswitch.d; tar -czf ../configPack.tar.gz *
+	@# Create a compressed tar without gzip timestamp, so tar.gz
+	@# differs only if content is different
+	cd ./usb_modeswitch.d; tar -cf ../configPack.tar *
+	gzip -f9n ./configPack.tar
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./configPack.tar.gz
 	rm -f ./configPack.tar.gz
 
 rules-reload:
-	if [ -f $(ETCDIR)/issue ]; then \
+	@if [ -f $(ETCDIR)/issue ]; then \
 		UDEVADM=`which udevadm 2>/dev/null`; \
 		if [ "x$$UDEVADM" != "x" ]; then \
 			UDEVADM_VER=`$$UDEVADM -V 2>/dev/null`; \
