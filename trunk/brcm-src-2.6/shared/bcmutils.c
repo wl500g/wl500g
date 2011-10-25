@@ -2050,6 +2050,8 @@ bcm_brev_str(uint32 brev, char *buf)
 	return (buf);
 }
 
+#ifdef BCMDBG
+
 #define BUFSIZE_TODUMP_ATONCE 512 /* Buffer size */
 
 /* dump large strings to console */
@@ -2076,7 +2078,9 @@ printbig(char *buf)
 	printf("%s\n", buf);
 	return;
 }
+#endif /* BCMDBG */
 
+#if defined(BCMDBG_DUMP)
 /* routine to dump fields in a fileddesc structure */
 uint
 bcmdumpfields(bcmutl_rdreg_rtn read_rtn, void *arg0, uint arg1, struct fielddesc *fielddesc_array,
@@ -2104,6 +2108,7 @@ bcmdumpfields(bcmutl_rdreg_rtn read_rtn, void *arg0, uint arg1, struct fielddesc
 	}
 	return filled_len;
 }
+#endif /* BCMDBG_DUMP */
 
 uint
 bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint buflen)
@@ -2265,6 +2270,7 @@ bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...)
 	return r;
 }
 
+#ifdef BCMDBG
 void
 bcm_inc_bytes(uchar *num, int num_bytes, uint8 amount)
 {
@@ -2289,6 +2295,7 @@ bcm_cmp_bytes(uchar *arg1, uchar *arg2, uint8 nbytes)
 	}
 	return 0;
 }
+#endif /* BCMDBG */
 
 void
 bcm_print_bytes(char *name, const uchar *data, int len)

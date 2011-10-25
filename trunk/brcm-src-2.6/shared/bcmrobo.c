@@ -156,6 +156,9 @@
 /* misc. constants */
 #define SPI_MAX_RETRY	100
 
+static int robo_power_save_mode(robo_info_t *robo, int mode, int phy);
+
+
 /* Enable GPIO access to the chip */
 static void
 gpio_enable(robo_info_t *robo)
@@ -865,7 +868,7 @@ typedef	struct {
 	uint8 cpu;	/* is this cpu port? */
 } pdesc_t;
 
-pdesc_t pdesc97[] = {
+static pdesc_t pdesc97[] = {
 	/* 5395/5397/5398/53115S is 0 ~ 7.  port 8 is IMP port. */
 	/* port 0 */ {1 << 9, 1 << 0, REG_VLAN_PTAG0, 0},
 	/* port 1 */ {1 << 10, 1 << 1, REG_VLAN_PTAG1, 0},
@@ -878,7 +881,7 @@ pdesc_t pdesc97[] = {
 	/* mii port */ {1 << 17, 1 << 8, REG_VLAN_PTAG8, 1},
 };
 
-pdesc_t pdesc25[] = {
+static pdesc_t pdesc25[] = {
 	/* port 0 */ {1 << 6, 1 << 0, REG_VLAN_PTAG0, 0},
 	/* port 1 */ {1 << 7, 1 << 1, REG_VLAN_PTAG1, 0},
 	/* port 2 */ {1 << 8, 1 << 2, REG_VLAN_PTAG2, 0},
@@ -1731,7 +1734,7 @@ robo_power_save_mode_wlonly(robo_info_t *robo)
 /*
  * Set power save modes on the robo switch
  */
-int32
+static int32
 robo_power_save_mode(robo_info_t *robo, int32 mode, int32 phy)
 {
 	int32 error = -1;
