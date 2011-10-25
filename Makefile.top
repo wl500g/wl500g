@@ -16,10 +16,6 @@ include .config
 
 RELEASE=1.9.2.7-rtn
 
-
-MODEL=RT-N16
-# WL500gp, WL500gpv2, WL500W, WL700g, RT-N10, RT-N10U, RT-N12, RT-N12B1, RT-N16
-
 #
 # asus trx trailer
 #
@@ -104,18 +100,28 @@ endif
 export MODULESDIR := $(TARGETDIR)/lib/modules/$(LINUX_KERNEL)
 SRCMODULESDIR := $(PLATFORMDIR)/modules/lib/modules/*/kernel
 
-# always build libbcmcrypto, required by nas
-obj-y += libbcmcrypto 
-
-obj-$(CONFIG_LIBUSB) += libusb10
-
 #
 # Configuration
 #
 CONFIG_LINUX_26=y
 export CONFIG_LINUX_26
 
+img-$(if $(CONFIG_RTN16),y,n)	+= RT-N16
+img-$(if $(CONFIG_RTN12),y,n)	+= RT-N12
+img-$(if $(CONFIG_RTN12B1),y,n)	+= RT-N12B1
+img-$(if $(CONFIG_RTN10),y,n)	+= RT-N10
+img-$(if $(CONFIG_RTN10U),y,n)	+= RT-N10U
+img-$(if $(CONFIG_WL500GP),y,n)	+= WL500gpс
+img-$(if $(CONFIG_WL500GPV2),y,n)+=WL500gpv2
+img-$(if $(CONFIG_WL500W),y,n)	+= WL500W
+img-$(if $(CONFIG_WL700G),y,n)	+= WL700g
+
+MODEL = $(firstword $(img-y))
+
+# always build libbcmcrypto, required by nas
+obj-y += libbcmcrypto
 obj-y += kernel busybox dnsmasq e2fsprogs
+obj-$(CONFIG_LIBUSB) += libusb10
 obj-$(CONFIG_HTTPD) += httpd
 obj-$(CONFIG_RC) += rc
 obj-$(CONFIG_LIBBCM) += libbcm
@@ -1187,23 +1193,16 @@ image-%:
 	$(MAKE) package-$* MODEL="$*"
 
 images-%:
-	make image-$* LANGUAGE="EN"
-	#make image-$* LANGUAGE="KR"
-	#make image-$* LANGUAGE="TW"
-	#make image-$* LANGUAGE="CN"
-	#make image-$* LANGUAGE="JP"
+	$(MAKE) image-$* LANGUAGE="EN"
+#	$(MAKE) image-$* LANGUAGE="KR"
+#	$(MAKE) image-$* LANGUAGE="TW"
+#	$(MAKE) image-$* LANGUAGE="CN"
+#	$(MAKE) image-$* LANGUAGE="JP"
 
-images:
-	make images-RT-N16
-	make images-RT-N12
-	#make images-RT-N12B1
-	make images-RT-N10
-	#make images-RT-N10U
-	#make images-WL500gp
-	#make images-WL500W
-	#make images-WL500gpv2
-	#make images-WL700g
+$(img-y) $(img-n): dummy
+	$(MAKE) images-$@
 
+images: $(img-y)
 
 #
 # Generic rules
