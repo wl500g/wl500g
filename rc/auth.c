@@ -23,7 +23,7 @@ start_wpa_supplicant(char *prefix, int restart)
 	char *options = "/etc/wpa_supplicant.conf";
 	char *wpa_argv[] = {"/usr/sbin/wpa_supplicant",
 		"-B", "-W",
-		"-D", "roboswitch"
+		"-D", "roboswitch",
 		"-i", nvram_safe_get(strcat_r(prefix, "ifname", tmp)),
 		"-c", options,
 		NULL
