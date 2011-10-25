@@ -12,6 +12,23 @@
  6e583ce5242f32e925dcb198f7123256d0798370 net: eliminate refcounting in backlog queue
 
 ---
+ include/net/dst.h            |    6 +++-
+ include/net/tcp.h            |   24 +++++++++++++++---
+ net/bluetooth/af_bluetooth.c |    5 +--
+ net/core/datagram.c          |    5 +--
+ net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
+ net/ipv4/af_inet.c           |    7 +----
+ net/ipv4/arp.c               |    5 +--
+ net/ipv4/icmp.c              |    8 +++---
+ net/ipv4/ip_options.c        |   12 ++++-----
+ net/ipv4/route.c             |   16 ++++--------
+ net/ipv4/tcp_input.c         |   18 ++++++-------
+ net/ipv4/tcp_ipv4.c          |    9 ------
+ net/ipv4/tcp_minisocks.c     |    4 +--
+ net/sched/sch_netem.c        |    9 ++++++
+ net/sctp/socket.c            |    5 +--
+ net/unix/af_unix.c           |    5 +--
+ 16 files changed, 110 insertions(+), 84 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
