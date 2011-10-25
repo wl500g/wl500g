@@ -1,5 +1,6 @@
 USB backports from Tomato project + minor corrections
 
+---
  Documentation/feature-removal-schedule.txt |   16 
  Documentation/kernel-parameters.txt        |   57 +
  Documentation/usb/persist.txt              |   44 -
@@ -31,9 +32,9 @@ USB backports from Tomato project + minor corrections
  drivers/usb/core/endpoint.c                |   13 
  drivers/usb/core/file.c                    |    4 
  drivers/usb/core/generic.c                 |   14 
- drivers/usb/core/hcd-pci.c                 |  299 +++------
+ drivers/usb/core/hcd-pci.c                 |   88 +-
  drivers/usb/core/hcd.c                     |  953 ++++++++++++++++++----------
- drivers/usb/core/hcd.h                     |   59 +
+ drivers/usb/core/hcd.h                     |   55 +
  drivers/usb/core/hub.c                     |  958 +++++++++++++++++++----------
  drivers/usb/core/inode.c                   |   15 
  drivers/usb/core/message.c                 |  602 +++++++++---------
@@ -50,13 +51,13 @@ USB backports from Tomato project + minor corrections
  drivers/usb/host/ehci-au1xxx.c             |    2 
  drivers/usb/host/ehci-dbg.c                |  311 +++++++--
  drivers/usb/host/ehci-fsl.c                |    8 
- drivers/usb/host/ehci-hcd.c                |  431 ++++++++-----
+ drivers/usb/host/ehci-hcd.c                |  451 ++++++++-----
  drivers/usb/host/ehci-hub.c                |  196 +++--
  drivers/usb/host/ehci-mem.c                |   27 
- drivers/usb/host/ehci-pci.c                |   44 +
+ drivers/usb/host/ehci-pci.c                |   40 -
  drivers/usb/host/ehci-ppc-soc.c            |    2 
  drivers/usb/host/ehci-ps3.c                |    5 
- drivers/usb/host/ehci-q.c                  |  353 ++++++----
+ drivers/usb/host/ehci-q.c                  |  351 ++++++----
  drivers/usb/host/ehci-sched.c              |  602 ++++++++++++------
  drivers/usb/host/ehci.h                    |  100 +--
  drivers/usb/host/isp116x-hcd.c             |   77 --
@@ -67,7 +68,7 @@ USB backports from Tomato project + minor corrections
  drivers/usb/host/ohci-hub.c                |   82 ++
  drivers/usb/host/ohci-mem.c                |    1 
  drivers/usb/host/ohci-omap.c               |    7 
- drivers/usb/host/ohci-pci.c                |   68 --
+ drivers/usb/host/ohci-pci.c                |   63 -
  drivers/usb/host/ohci-pnx4008.c            |    2 
  drivers/usb/host/ohci-ps3.c                |    1 
  drivers/usb/host/ohci-pxa27x.c             |    5 
@@ -78,7 +79,7 @@ USB backports from Tomato project + minor corrections
  drivers/usb/host/sl811-hcd.c               |   88 --
  drivers/usb/host/u132-hcd.c                |  374 ++++++-----
  drivers/usb/host/uhci-debug.c              |    8 
- drivers/usb/host/uhci-hcd.c                |  105 ++-
+ drivers/usb/host/uhci-hcd.c                |   97 ++
  drivers/usb/host/uhci-hcd.h                |   21 
  drivers/usb/host/uhci-q.c                  |  117 +--
  drivers/usb/image/Kconfig                  |    2 
@@ -127,7 +128,7 @@ USB backports from Tomato project + minor corrections
  drivers/usb/storage/sddr09.c               |   16 
  drivers/usb/storage/sddr55.c               |   16 
  drivers/usb/storage/shuttle_usbat.c        |   17 
- drivers/usb/storage/transport.c            |  340 +++++++---
+ drivers/usb/storage/transport.c            |  344 +++++++---
  drivers/usb/storage/transport.h            |    2 
  drivers/usb/storage/unusual_devs.h         |  185 ++---
  drivers/usb/storage/usb.c                  |  203 ++++--
@@ -135,7 +136,6 @@ USB backports from Tomato project + minor corrections
  drivers/usb/usb-skeleton.c                 |    2 
  fs/sysfs/group.c                           |   32 
  include/linux/blkdev.h                     |    1 
- include/linux/ktime.h                      |   10 
  include/linux/scatterlist.h                |  106 +++
  include/linux/sysfs.h                      |    2 
  include/linux/tty.h                        |    1 
@@ -146,7 +146,7 @@ USB backports from Tomato project + minor corrections
  include/scsi/scsi_cmnd.h                   |   23 
  include/scsi/sd.h                          |   19 
  kernel/params.c                            |    2 
- 146 files changed, 7792 insertions(+), 4343 deletions(-)
+ 145 files changed, 7703 insertions(+), 4212 deletions(-)
 
 diff -x'.*' -urNBp a/block/ll_rw_blk.c b/block/ll_rw_blk.c
 --- a/block/ll_rw_blk.c	2008-02-26 02:59:40.000000000 +0300
@@ -22997,26 +22997,6 @@ diff -x'.*' -urNBp a/include/linux/blkdev.h b/include/linux/blkdev.h
  extern void blk_queue_softirq_done(request_queue_t *, softirq_done_fn *);
  extern struct backing_dev_info *blk_get_backing_dev_info(struct block_device *bdev);
  extern int blk_queue_ordered(request_queue_t *, unsigned, prepare_flush_fn *);
-diff -x'.*' -urNBp a/include/linux/ktime.h b/include/linux/ktime.h
---- a/include/linux/ktime.h	2008-02-26 02:59:40.000000000 +0300
-+++ b/include/linux/ktime.h	2010-07-16 21:54:37.000000000 +0400
-@@ -279,6 +279,16 @@ static inline s64 ktime_to_us(const ktim
- 	return (s64) tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
- }
- 
-+static inline s64 ktime_us_delta(const ktime_t later, const ktime_t earlier)
-+{
-+	return ktime_to_us(ktime_sub(later, earlier));
-+}
-+
-+static inline ktime_t ktime_add_us(const ktime_t kt, const u64 usec)
-+{
-+	return ktime_add_ns(kt, usec * 1000);
-+}
-+
- /*
-  * The resolution of the clocks. The resolution value is returned in
-  * the clock_getres() system call to give application programmers an
 diff -x'.*' -urNBp a/include/linux/scatterlist.h b/include/linux/scatterlist.h
 --- a/include/linux/scatterlist.h	2008-02-26 02:59:40.000000000 +0300
 +++ b/include/linux/scatterlist.h	2010-07-16 22:00:15.000000000 +0400
@@ -23671,4 +23651,4 @@ diff -x'.*' -urNBp a/kernel/params.c b/kernel/params.c
  	if (!mp)
  		return ERR_PTR(-ENOMEM);
  
---
+-- 
