@@ -377,11 +377,11 @@ static char BCMATTACHDATA(defaultsromvars_4319usb)[] =
 #endif	/* USB4322 */
 
 /* Enabling file read in external builds of BU4313 twig */
-/* #if defined(BCMINTERNAL) || defined(WLTEST) */
 /* Also used by wl_readconfigdata for vars download */
-char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
-int BCMATTACHDATA(defvarslen) = 0;
-/* #endif */ /* defined(BCMINTERNAL) || defined(WLTEST) */
+static char BCMATTACHDATA(mfgsromvars)[VARS_MAX];
+#if defined(BCMINTERNAL) || defined(WLTEST)
+static int BCMATTACHDATA(defvarslen) = 0;
+#endif /* defined(BCMINTERNAL) || defined(WLTEST) */
 
 #if defined(WLTEST)
 static char BCMATTACHDATA(defaultsromvars_4331)[] =
@@ -1350,7 +1350,9 @@ static const char BCMNMIATTACHDATA(vstr_end)[] = "END\0";
 static const char BCMATTACHDATA(vstr_usbepnum)[] = "usbepnum=0x%x";
 #endif
 
+#ifdef CONFIG_XIP
 uint8 patch_pair = 0;
+#endif
 
 /* For dongle HW, accept partial calibration parameters */
 #if defined(BCMUSBDEV)

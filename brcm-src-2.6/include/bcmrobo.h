@@ -85,7 +85,6 @@ struct robo_info_s {
 extern int32 robo_power_save_mode_get(robo_info_t *robo, int32 phy);
 extern int32 robo_power_save_mode_set(robo_info_t *robo, int32 mode, int32 phy);
 extern void robo_power_save_mode_update(robo_info_t *robo);
-extern int robo_power_save_mode(robo_info_t *robo, int mode, int phy);
 extern int robo_power_save_toggle(robo_info_t *robo, int normal);
 
 extern robo_info_t *bcm_robo_attach(si_t *sih, void *h, char *vars, miird_f miird, miiwr_f miiwr);
