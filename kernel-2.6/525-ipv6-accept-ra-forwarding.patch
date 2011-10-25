@@ -1,8 +1,14 @@
 Accept RA and send RS while configured as router
 
-kernel.org commits
-65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
-c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
+ kernel.org commits
+ 65e9b62d4503849b10bedfc29bff0473760cc597 ipv6: add special mode accept_ra=2 to accept RA while configured as router
+ c3bccac2fa76f1619dfe4fb7b9bee69de7f066d8 ipv6: add special mode forwarding=2 to send RS while configured as router
+ 9f56220fad0d13f8b0ebe7592f41fdb49874d143 ipv6: Do not use routes from locally generated RAs
+
+---
+ net/ipv6/addrconf.c |    3 ++-
+ net/ipv6/ndisc.c    |   26 ++++++++++++++++++++++----
+ 2 files changed, 24 insertions(+), 5 deletions(-)
 
 diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
 --- linux.orig/net/ipv6/addrconf.c	2010-11-18 00:00:00.000000000 +0000
@@ -19,8 +25,8 @@ diff -BurpN linux.orig/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
  	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
 diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
 --- linux.orig/net/ipv6/ndisc.c	2010-11-18 00:00:00.000000000 +0000
-+++ linux/net/ipv6/ndisc.c	2010-11-20 15:56:52.360291000 +0000
-@@ -987,6 +987,18 @@ out:
++++ linux/net/ipv6/ndisc.c	2011-10-25 18:46:55.000000000 +0400
+@@ -985,6 +985,18 @@ out:
  	in6_dev_put(idev);
  }
  
@@ -39,7 +45,7 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  static void ndisc_router_discovery(struct sk_buff *skb)
  {
  	struct ra_msg *ra_msg = (struct ra_msg *)skb_transport_header(skb);
-@@ -1032,8 +1044,7 @@ static void ndisc_router_discovery(struc
+@@ -1030,8 +1042,7 @@ static void ndisc_router_discovery(struc
  		return;
  	}
  
@@ -49,7 +55,17 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  		goto skip_linkparms;
  
  	if (in6_dev->if_flags & IF_RS_SENT) {
-@@ -1177,8 +1188,7 @@ skip_linkparms:
+@@ -1056,6 +1067,9 @@ static void ndisc_router_discovery(struc
+ 	if (!in6_dev->cnf.accept_ra_defrtr)
+ 		goto skip_defrtr;
+ 
++	if (ipv6_chk_addr(&ipv6_hdr(skb)->saddr, NULL, 0))
++		goto skip_defrtr;
++
+ 	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
+ 
+ #ifdef CONFIG_IPV6_ROUTER_PREF
+@@ -1175,11 +1189,13 @@ skip_linkparms:
  			     NEIGH_UPDATE_F_ISROUTER);
  	}
  
@@ -59,3 +75,19 @@ diff -BurpN linux.orig/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
  		goto out;
  
  #ifdef CONFIG_IPV6_ROUTE_INFO
++	if (ipv6_chk_addr(&ipv6_hdr(skb)->saddr, NULL, 0))
++		goto skip_routeinfo;
++
+ 	if (in6_dev->cnf.accept_ra_rtr_pref && ndopts.nd_opts_ri) {
+ 		struct nd_opt_hdr *p;
+ 		for (p = ndopts.nd_opts_ri;
+@@ -1191,6 +1207,8 @@ skip_linkparms:
+ 				      &ipv6_hdr(skb)->saddr);
+ 		}
+ 	}
++
++skip_routeinfo:
+ #endif
+ 
+ 	if (in6_dev->cnf.accept_ra_pinfo && ndopts.nd_opts_pi) {
+-- 
