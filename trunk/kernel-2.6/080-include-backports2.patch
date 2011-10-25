@@ -34,6 +34,38 @@ diff -uBp a/include/linux/if_ether.h b/include/linux/if_ether.h
  
  /*
   *	This is an Ethernet frame header.
+diff --git a/include/linux/ktime.h b/include/linux/ktime.h
+--- a/include/linux/ktime.h
++++ b/include/linux/ktime.h
+@@ -279,6 +279,16 @@ static inline s64 ktime_to_us(const ktim
+ 	return (s64) tv.tv_sec * USEC_PER_SEC + tv.tv_usec;
+ }
+ 
++static inline s64 ktime_us_delta(const ktime_t later, const ktime_t earlier)
++{
++	return ktime_to_us(ktime_sub(later, earlier));
++}
++
++static inline ktime_t ktime_add_us(const ktime_t kt, const u64 usec)
++{
++	return ktime_add_ns(kt, usec * 1000);
++}
++
+ /*
+  * The resolution of the clocks. The resolution value is returned in
+  * the clock_getres() system call to give application programmers an
+@@ -327,4 +327,10 @@ extern void ktime_get_ts(struct timespec *ts);
+ /* Get the real (wall-) time in timespec format: */
+ #define ktime_get_real_ts(ts)	getnstimeofday(ts)
+ 
++static inline ktime_t ns_to_ktime(u64 ns)
++{
++	static const ktime_t ktime_zero = { .tv64 = 0 };
++	return ktime_add_ns(ktime_zero, ns);
++}
++
+ #endif
+diff --git a/include/linux/mm.h b/include/linux/mm.h
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -96,7 +96,7 @@ struct vm_area_struct {
