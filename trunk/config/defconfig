@@ -3,6 +3,19 @@
 #
 
 #
+# Router Models
+#
+CONFIG_RTN16=y
+CONFIG_RTN12=y
+# CONFIG_RTN12B1 is not set
+CONFIG_RTN10=y
+CONFIG_RTN10U=y
+# CONFIG_WL500GP is not set
+# CONFIG_WL500GPV2 is not set
+# CONFIG_WL500W is not set
+# CONFIG_WL700G is not set
+
+#
 # Base Features
 #
 CONFIG_RC=y
