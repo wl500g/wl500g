@@ -1,12 +1,13 @@
 fat: set of patches from newer kernel versions
 
-kernel.org commits:
-9aacd599342fdfc1fb9422f37e900609b7a46249 fat: gcc 4.3 warning fix
-98283bb49c6c8c070ebde9f47489d3e9a83c1323 fat: fix the race of read/write FAT12 entry
-8f5934278d1d86590244c2791b28f77d67466007 Replace BKL with superblock lock in fat/msdos/vfat
-9c20616c385ebeaa30257ef5d35e8f346db4ee32 Make FAT users happier by not deadlocking
-5f22ca9b13551debea77a407a8d06cd9c6f15238 vfat: fix 'sync' mount deadlock due to BKL->lock_super conversion
-3fbf586cf7f245392142e5407c2a56f1cff979b6 fs/partitions/msdos: add support for large disks
+ kernel.org commits:
+ 9aacd599342fdfc1fb9422f37e900609b7a46249 fat: gcc 4.3 warning fix
+ 98283bb49c6c8c070ebde9f47489d3e9a83c1323 fat: fix the race of read/write FAT12 entry
+ 8f5934278d1d86590244c2791b28f77d67466007 Replace BKL with superblock lock in fat/msdos/vfat
+ 9c20616c385ebeaa30257ef5d35e8f346db4ee32 Make FAT users happier by not deadlocking
+ 5f22ca9b13551debea77a407a8d06cd9c6f15238 vfat: fix 'sync' mount deadlock due to BKL->lock_super conversion
+ 3fbf586cf7f245392142e5407c2a56f1cff979b6 fs/partitions/msdos: add support for large disks
+ 710d4403a45c4040a9aa86971d50958f5ae6ed40 fat: fat16 support maximum 4GB file/vol size as WinXP or 7.
 
 See http://lkml.org/lkml/2008/4/20/170 (patches 1-9)
 
@@ -14,19 +15,18 @@ Tomato-RT commit
 f6f3cb1b4491f2197c013807edf83d276e33ab70 fat: dirty hack for Samba2, as it was in 2.6.14
 
 ---
-
  Documentation/filesystems/vfat.txt |   15 +++
  fs/buffer.c                        |    2 
  fs/fat/cache.c                     |    2 
  fs/fat/dir.c                       |   85 ++++++++++-------
  fs/fat/fatent.c                    |   16 ++-
  fs/fat/file.c                      |  182 +++++++++++++++++++++----------------
- fs/fat/inode.c                     |   82 +++++++++-------
+ fs/fat/inode.c                     |   85 +++++++++--------
  fs/msdos/namei.c                   |   37 ++++---
  fs/partitions/msdos.c              |   74 +++++++--------
  fs/vfat/namei.c                    |   72 +++++++-------
  include/linux/msdos_fs.h           |    6 -
- 11 files changed, 334 insertions(+), 239 deletions(-)
+ 11 files changed, 335 insertions(+), 241 deletions(-)
 
 diff -urBp a/Documentation/filesystems/vfat.txt b/Documentation/filesystems/vfat.txt
 --- a/Documentation/filesystems/vfat.txt
@@ -873,14 +873,25 @@ diff -urBp a/fs/fat/inode.c b/fs/fat/inode.c
  	sbi = kzalloc(sizeof(struct msdos_sb_info), GFP_KERNEL);
  	if (!sbi)
  		return -ENOMEM;
-@@ -1272,6 +1283,7 @@ int fat_fill_super(struct super_block *s
+@@ -1272,7 +1283,9 @@ int fat_fill_super(struct super_block *s
  	sbi->fat_length = le16_to_cpu(b->fat_length);
  	sbi->root_cluster = 0;
  	sbi->free_clusters = -1;	/* Don't know yet */
 +	sbi->free_clus_valid = 0;
  	sbi->prev_free = FAT_START_ENT;
++	sb->s_maxbytes = 0xffffffff;
  
  	if (!sbi->fat_length && b->fat32_length) {
+ 		struct fat_boot_fsinfo *fsinfo;
+@@ -1295,8 +1296,6 @@ int fat_fill_super(struct super_block *sb, void *data, int silent, int isvfat,
+ 		sbi->fat_length = le32_to_cpu(b->fat32_length);
+ 		sbi->root_cluster = le32_to_cpu(b->root_cluster);
+ 
+-		sb->s_maxbytes = 0xffffffff;
+-
+ 		/* MC - if info_sector is 0, don't multiply by 0 */
+ 		sbi->fsinfo_sector = le16_to_cpu(b->info_sector);
+ 		if (sbi->fsinfo_sector == 0)
 @@ -1309,8 +1321,8 @@ int fat_fill_super(struct super_block *s
  			       sbi->fsinfo_sector);
  		} else {
@@ -1567,4 +1578,4 @@ diff -urBp a/include/linux/msdos_fs.h b/include/linux/msdos_fs.h
  extern void fat_truncate(struct inode *inode);
  extern int fat_getattr(struct vfsmount *mnt, struct dentry *dentry,
  		       struct kstat *stat);
---
+-- 
