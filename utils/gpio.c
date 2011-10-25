@@ -116,12 +116,12 @@ enum {
 typedef struct {
 	char *name;	// preset name
 	int cycles;	// cycles
-	int ondur;	// pwr_on duration
-	int offdur;	// pwr_off duration
+	int ondur;	// on duration
+	int offdur;	// off duration
 	int sleep;	// sleep between durations
 	int negative;	// inverse on/off
 	int count;	// cycles count
-	int def_off;	// default pwr value is off
+	int def_off;	// default value is off
 } preset_t;
 
 typedef struct {
@@ -163,12 +163,12 @@ static led_t leds[] = {
 	{NULL},
 };
 
-#define _LED(led, m, v) [led] = {.mask = m, .value = v}
-#define _PWR(mask, value) _LED(LED_PWR, mask, value)
-#define _INT(mask, value) _LED(LED_INT, mask, value)
-#define _WLN(mask, value) _LED(LED_WLN, mask, value)
-#define _WPS(mask, value) _LED(LED_WPS, mask, value)
-#define _USB(mask, value) _LED(LED_USB, mask, value)
+#define _LED(led, m, h) [led] = {.mask = m, .value = h ? m : 0}
+#define _PWR(mask, high) _LED(LED_PWR, mask, high)
+#define _INT(mask, high) _LED(LED_INT, mask, high)
+#define _WLN(mask, high) _LED(LED_WLN, mask, high)
+#define _WPS(mask, high) _LED(LED_WPS, mask, high)
+#define _USB(mask, high) _LED(LED_USB, mask, high)
 
 static platform_t platforms[] = {
 	/* Asus */
@@ -186,12 +186,12 @@ static platform_t platforms[] = {
 	{MDL_WL520GC,	"ASUS WL-520GC",		{_PWR(GPIO0, 0)}},
 #endif
 	{MDL_WL550GE,	"ASUS WL-550gE",		{_PWR(GPIO2, 0)}},
-	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, GPIO1)}},
-	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, GPIO7)}},
+	{MDL_WL700G,	"ASUS WL-700g",			{_PWR(GPIO1, 1)}},
+	{MDL_RTN16,	"ASUS RT-N16",			{_PWR(GPIO1, 0), _WLN(GPIO7, 1)}},
 	{MDL_RTN12,	"ASUS RT-N12",			{_PWR(GPIO2, 0)}},
 	{MDL_RTN12B1,	"ASUS RT-N12B1",		{_PWR(GPIO18,0)}},
 	{MDL_RTN10,	"ASUS RT-N10",			{_PWR(GPIO1, 0)}},
-	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0)}},
+	{MDL_RTN10U,	"ASUS RT-N10U",			{_PWR(GPIO6, 0), _WLN(GPIO5, 1), _WPS(GPIO7, 1), _USB(GPIO8, 1)}},
 	/* D-Link */
 	{MDL_DIR320,	"D-Link DIR-320",		{_PWR(GPIO0, GPIO0)}},
 	/* Microsoft */
@@ -207,7 +207,7 @@ static unsigned int value;
 static int running = 1;
 
 #ifdef GPIOCTL
-static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int value)
+static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask, unsigned int value)
 {
 	struct gpio_ioctl gpio;
 
@@ -222,17 +222,16 @@ static int tgpio_ioctl(int fd, int gpioreg, unsigned int mask , unsigned int val
 	return gpio.val;
 }
 
-static unsigned int tgpio_reserve(int fd, unsigned int mask, int reserve)
+static unsigned int tgpio_multi(int fd, int gpioreg, unsigned int mask, unsigned int value)
 {
-	unsigned int val = mask;
+	unsigned int bit, val = 0;
 	int i;
 
 	for (i = 0; mask >> i; i++) {
-		if (mask & (1 << i) &&
-		    tgpio_ioctl(fd, reserve ? GPIO_IOC_RESERVE : GPIO_IOC_RELEASE, i, 0) < 0)
-			val &= ~(1 << i);
+		if ((bit = mask & (1 << i)) && /* enabled */
+		    tgpio_ioctl(fd, gpioreg, bit, value & bit) >= 0)
+			val |= bit;
 	}
-
 	return val;
 }
 
@@ -243,10 +242,10 @@ static void gpio_write(unsigned int mask, unsigned int value)
 
 	if (fd < 0)
 		return;
-	val = tgpio_reserve(fd, mask, 1);
-	tgpio_ioctl(fd, GPIO_IOC_OUTEN, mask, mask);
+	val = tgpio_multi(fd, GPIO_IOC_RESERVE, mask, mask);
+	tgpio_multi(fd, GPIO_IOC_OUTEN, mask, mask);
 	tgpio_ioctl(fd, GPIO_IOC_OUT, mask, value & mask);
-	tgpio_reserve(fd, val, 0);
+	tgpio_multi(fd, GPIO_IOC_RELEASE, val, val);
 	close(fd);
 }
 
@@ -257,9 +256,8 @@ static unsigned int gpio_read(unsigned int mask)
 
 	if (fd < 0)
 		return 0;
-	val = tgpio_ioctl(fd, GPIO_IOC_IN, 0, 0);
+	val = tgpio_ioctl(fd, GPIO_IOC_IN, mask, 0);
 	close(fd);
-
 	return val & mask;
 }
 
@@ -628,8 +626,6 @@ int main(int argc, char *argv[])
 	} else
 	/* gpio ... <gpio_val> */
 	if ((i = strtoi(set_name, 0, 1)) >= 0) {
-		if (opt_read)
-			fprintf(stdout, "%d\n", gpio_read(mask) == mask ? 1 : 0);
 		gpio_write(mask, i ? mask : ~mask);
 		return 0;
 	} else {
