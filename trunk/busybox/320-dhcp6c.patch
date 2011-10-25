@@ -2325,8 +2325,8 @@ diff -urNBp a/networking/udhcp/common6.c b/networking/udhcp/common6.c
 +#endif
 diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 --- a/networking/udhcp/common6.h	1970-01-01 03:00:00.000000000 +0300
-+++ b/networking/udhcp/common6.h	2011-10-21 18:51:28.000000000 +0400
-@@ -0,0 +1,153 @@
++++ b/networking/udhcp/common6.h	2011-10-25 20:51:00.000000000 +0400
+@@ -0,0 +1,154 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * Copyright (C) 1998 and 1999 WIDE Project.
@@ -2393,7 +2393,8 @@ diff -urNBp a/networking/udhcp/common6.h b/networking/udhcp/common6.h
 +	    (var) = TAILQ_NEXT((var), field))
 +#endif
 +
-+#define xstr(s)		#s
++#define xstr(s)		_xstr(s)
++#define	_xstr(s)	#s
 +
 +
 +/* common6.c */
