@@ -6,12 +6,15 @@
  d5dd9175bc12015ea4d2c1a9b6b15dfa645a3db9 tcp: use tcp_write_xmit also in tcp_push_one
  def87cf42069a6d4fd42a2ede8f19c620a292568 tcp: Slightly optimize tcp_sendmsg
  ccc2d97cb7c798e785c9f198de243e2b59f7073b ipv4: udp: fix short packet and bad checksum logging
+ 9c6d5e5537e3997c47b65925a235392c1968fb51 TCP: Fix setting of snd_ssthresh in tcp_mtu_probe_success
+ 44f5324b5d13ef2187729d949eca442689627f39 TCP: fix a bug that triggers large number of TCP RST by mistake
 
 ---
  net/ipv4/tcp.c        |   17 +++++++-------
+ net/ipv4/tcp_input.c  |    4 +--
  net/ipv4/tcp_output.c |   57 ++++++++++++++++----------------------------------
  net/ipv4/udp.c        |    6 +++--
- 3 files changed, 32 insertions(+), 48 deletions(-)
+ 4 files changed, 34 insertions(+), 50 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
 --- a/net/ipv4/tcp.c
@@ -72,6 +75,27 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  					/* Need to add new fragment and cannot
  					 * do this because interface is non-SG,
  					 * or because all the page slots are
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -2174,7 +2174,7 @@ static void tcp_mtup_probe_success(struct sock *sk)
+ 		       icsk->icsk_mtup.probe_size;
+ 	tp->snd_cwnd_cnt = 0;
+ 	tp->snd_cwnd_stamp = tcp_time_stamp;
+-	tp->rcv_ssthresh = tcp_current_ssthresh(sk);
++	tp->snd_ssthresh = tcp_current_ssthresh(sk);
+ 
+ 	icsk->icsk_mtup.search_low = icsk->icsk_mtup.probe_size;
+ 	icsk->icsk_mtup.probe_size = 0;
+@@ -3499,7 +3499,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 			if (!skb_copy_datagram_iovec(skb, 0, tp->ucopy.iov, chunk)) {
+ 				tp->ucopy.len -= chunk;
+ 				tp->copied_seq += chunk;
+-				eaten = (chunk == skb->len && !th->fin);
++				eaten = (chunk == skb->len);
+ 				tcp_rcv_space_adjust(sk);
+ 			}
+ 			local_bh_disable();
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
