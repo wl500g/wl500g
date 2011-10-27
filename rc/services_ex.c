@@ -517,7 +517,7 @@ start_ddns(int forced)
 	if (strcmp(server, "WWW.DYNDNS.ORG") == 0)
 		strcpy(service, "dyndns@dyndns.org");
 	else if (strcmp(server, "WWW.DYNDNS.ORG(CUSTOM)") == 0)
-		strcpy(service, "customdns@dyndns.org");
+		strcpy(service, "custom@dyndns.org");
 	else if (strcmp(server, "WWW.DYNDNS.ORG(STATIC)") == 0)
 		strcpy(service, "statdns@dyndns.org");
 	else if (strcmp(server, "WWW.TZO.COM") == 0)
