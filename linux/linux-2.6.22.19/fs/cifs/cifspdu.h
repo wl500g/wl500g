@@ -1,7 +1,7 @@
 /*
  *   fs/cifs/cifspdu.h
  *
- *   Copyright (c) International Business Machines  Corp., 2002,2007
+ *   Copyright (c) International Business Machines  Corp., 2002,2008
  *   Author(s): Steve French (sfrench@us.ibm.com)
  *
  *   This library is free software; you can redistribute it and/or modify
@@ -31,7 +31,7 @@
 #else
 #define CIFS_PROT   0
 #endif
-#define POSIX_PROT  CIFS_PROT+1
+#define POSIX_PROT  (CIFS_PROT+1)
 #define BAD_PROT 0xFFFF
 
 /* SMB command codes */
@@ -78,6 +78,19 @@
 #define TRANS2_SET_FILE_INFORMATION   0x08
 #define TRANS2_GET_DFS_REFERRAL       0x10
 #define TRANS2_REPORT_DFS_INCOSISTENCY 0x11
+
+/* SMB Transact (Named Pipe) subcommand codes */
+#define TRANS_SET_NMPIPE_STATE      0x0001
+#define TRANS_RAW_READ_NMPIPE       0x0011
+#define TRANS_QUERY_NMPIPE_STATE    0x0021
+#define TRANS_QUERY_NMPIPE_INFO     0x0022
+#define TRANS_PEEK_NMPIPE           0x0023
+#define TRANS_TRANSACT_NMPIPE       0x0026
+#define TRANS_RAW_WRITE_NMPIPE      0x0031
+#define TRANS_READ_NMPIPE           0x0036
+#define TRANS_WRITE_NMPIPE          0x0037
+#define TRANS_WAIT_NMPIPE           0x0053
+#define TRANS_CALL_NMPIPE           0x0054
 
 /* NT Transact subcommand codes */
 #define NT_TRANSACT_CREATE            0x01
@@ -144,7 +157,7 @@
 #define SMBOPEN_OAPPEND       0x0001
 
 /*
- * SMB flag definitions 
+ * SMB flag definitions
  */
 #define SMBFLG_EXTD_LOCK 0x01	/* server supports lock-read write-unlock smb */
 #define SMBFLG_RCV_POSTED 0x02	/* obsolete */
@@ -157,13 +170,16 @@
 #define SMBFLG_RESPONSE 0x80	/* this PDU is a response from server */
 
 /*
- * SMB flag2 definitions 
+ * SMB flag2 definitions
  */
-#define SMBFLG2_KNOWS_LONG_NAMES cpu_to_le16(1)	/* can send long (non-8.3) 
+#define SMBFLG2_KNOWS_LONG_NAMES cpu_to_le16(1)	/* can send long (non-8.3)
 						   path names in response */
 #define SMBFLG2_KNOWS_EAS cpu_to_le16(2)
 #define SMBFLG2_SECURITY_SIGNATURE cpu_to_le16(4)
+#define SMBFLG2_COMPRESSED (8)
+#define SMBFLG2_SECURITY_SIGNATURE_REQUIRED (0x10)
 #define SMBFLG2_IS_LONG_NAME cpu_to_le16(0x40)
+#define SMBFLG2_REPARSE_PATH (0x400)
 #define SMBFLG2_EXT_SEC cpu_to_le16(0x800)
 #define SMBFLG2_DFS cpu_to_le16(0x1000)
 #define SMBFLG2_PAGING_IO cpu_to_le16(0x2000)
@@ -215,12 +231,38 @@
 					 /* file_execute, file_read_attributes*/
 					 /* write_dac, and delete.           */
 
+#define FILE_READ_RIGHTS (FILE_READ_DATA | FILE_READ_EA | FILE_READ_ATTRIBUTES)
+#define FILE_WRITE_RIGHTS (FILE_WRITE_DATA | FILE_APPEND_DATA \
+				| FILE_WRITE_EA | FILE_WRITE_ATTRIBUTES)
+#define FILE_EXEC_RIGHTS (FILE_EXECUTE)
+
+#define SET_FILE_READ_RIGHTS (FILE_READ_DATA | FILE_READ_EA | FILE_WRITE_EA \
+				| FILE_READ_ATTRIBUTES \
+				| FILE_WRITE_ATTRIBUTES \
+				| DELETE | READ_CONTROL | WRITE_DAC \
+				| WRITE_OWNER | SYNCHRONIZE)
+#define SET_FILE_WRITE_RIGHTS (FILE_WRITE_DATA | FILE_APPEND_DATA \
+				| FILE_READ_EA | FILE_WRITE_EA \
+				| FILE_DELETE_CHILD | FILE_READ_ATTRIBUTES \
+				| FILE_WRITE_ATTRIBUTES \
+				| DELETE | READ_CONTROL | WRITE_DAC \
+				| WRITE_OWNER | SYNCHRONIZE)
+#define SET_FILE_EXEC_RIGHTS (FILE_READ_EA | FILE_WRITE_EA | FILE_EXECUTE \
+				| FILE_READ_ATTRIBUTES \
+				| FILE_WRITE_ATTRIBUTES \
+				| DELETE | READ_CONTROL | WRITE_DAC \
+				| WRITE_OWNER | SYNCHRONIZE)
+
+#define SET_MINIMUM_RIGHTS (FILE_READ_EA | FILE_READ_ATTRIBUTES \
+				| READ_CONTROL | SYNCHRONIZE)
+
+
 /*
  * Invalid readdir handle
  */
 #define CIFS_NO_HANDLE        0xFFFF
 
-#define NO_CHANGE_64          cpu_to_le64(0xFFFFFFFFFFFFFFFFULL)
+#define NO_CHANGE_64          0xFFFFFFFFFFFFFFFFULL
 #define NO_CHANGE_32          0xFFFFFFFFUL
 
 /* IPC$ in ASCII */
@@ -260,7 +302,7 @@
 #define ATTR_SPARSE    0x0200
 #define ATTR_REPARSE   0x0400
 #define ATTR_COMPRESSED 0x0800
-#define ATTR_OFFLINE    0x1000	/* ie file not immediately available - 
+#define ATTR_OFFLINE    0x1000	/* ie file not immediately available -
 					on offline storage */
 #define ATTR_NOT_CONTENT_INDEXED 0x2000
 #define ATTR_ENCRYPTED  0x4000
@@ -279,7 +321,7 @@
 #define FILE_SHARE_DELETE 0x00000004
 #define FILE_SHARE_ALL    0x00000007
 
-/* CreateDisposition flags */
+/* CreateDisposition flags, similar to CreateAction as well */
 #define FILE_SUPERSEDE    0x00000000
 #define FILE_OPEN         0x00000001
 #define FILE_CREATE       0x00000002
@@ -291,16 +333,28 @@
 #define CREATE_NOT_FILE		0x00000001	/* if set must not be file */
 #define CREATE_WRITE_THROUGH	0x00000002
 #define CREATE_SEQUENTIAL       0x00000004
-#define CREATE_SYNC_ALERT       0x00000010
-#define CREATE_ASYNC_ALERT      0x00000020
+#define CREATE_NO_BUFFER        0x00000008      /* should not buffer on srv */
+#define CREATE_SYNC_ALERT       0x00000010	/* MBZ */
+#define CREATE_ASYNC_ALERT      0x00000020	/* MBZ */
 #define CREATE_NOT_DIR		0x00000040    /* if set must not be directory */
+#define CREATE_TREE_CONNECTION  0x00000080	/* should be zero */
+#define CREATE_COMPLETE_IF_OPLK 0x00000100	/* should be zero */
 #define CREATE_NO_EA_KNOWLEDGE  0x00000200
-#define CREATE_EIGHT_DOT_THREE  0x00000400
+#define CREATE_EIGHT_DOT_THREE  0x00000400	/* doc says this is obsolete
+						 "open for recovery" flag should
+						 be zero in any case */
+#define CREATE_OPEN_FOR_RECOVERY 0x00000400
 #define CREATE_RANDOM_ACCESS	0x00000800
 #define CREATE_DELETE_ON_CLOSE	0x00001000
 #define CREATE_OPEN_BY_ID       0x00002000
+#define CREATE_OPEN_BACKUP_INTENT 0x00004000
+#define CREATE_NO_COMPRESSION   0x00008000
+#define CREATE_RESERVE_OPFILTER 0x00100000	/* should be zero */
 #define OPEN_REPARSE_POINT	0x00200000
-#define CREATE_OPTIONS_MASK     0x007FFFFF 
+#define OPEN_NO_RECALL          0x00400000
+#define OPEN_FREE_SPACE_QUERY   0x00800000	/* should be zero */
+#define CREATE_OPTIONS_MASK     0x007FFFFF
+#define CREATE_OPTION_READONLY	0x10000000
 #define CREATE_OPTION_SPECIAL   0x20000000   /* system. NB not sent over wire */
 
 /* ImpersonationLevel flags */
@@ -360,23 +414,25 @@ struct smb_hdr {
 	__u8 WordCount;
 } __attribute__((packed));
 /* given a pointer to an smb_hdr retrieve the value of byte count */
-#define BCC(smb_var) ( *(__u16 *)((char *)smb_var + sizeof(struct smb_hdr) + (2* smb_var->WordCount) ) )
-#define BCC_LE(smb_var) ( *(__le16 *)((char *)smb_var + sizeof(struct smb_hdr) + (2* smb_var->WordCount) ) )
+#define BCC(smb_var) (*(__u16 *)((char *)smb_var + sizeof(struct smb_hdr) + (2 * smb_var->WordCount)))
+#define BCC_LE(smb_var) (*(__le16 *)((char *)smb_var + sizeof(struct smb_hdr) + (2 * smb_var->WordCount)))
 /* given a pointer to an smb_hdr retrieve the pointer to the byte area */
-#define pByteArea(smb_var) ((unsigned char *)smb_var + sizeof(struct smb_hdr) + (2* smb_var->WordCount) + 2 )
+#define pByteArea(smb_var) ((unsigned char *)smb_var + sizeof(struct smb_hdr) + (2 * smb_var->WordCount) + 2)
 
 /*
- * Computer Name Length
+ * Computer Name Length (since Netbios name was length 16 with last byte 0x20)
+ * No longer as important, now that TCP names are more commonly used to
+ * resolve hosts.
  */
 #define CNLEN 15
 
 /*
- * Share Name Length					  @S8A
- * Note:  This length is limited by the SMB used to get   @S8A
- *        the Share info.   NetShareEnum only returns 13  @S8A
- *        chars, including the null termination.          @S8A 
+ * Share Name Length (SNLEN)
+ * Note:  This length was limited by the SMB used to get
+ *        the Share info.   NetShareEnum only returned 13
+ *        chars, including the null termination.
+ * This was removed because it no longer is limiting.
  */
-#define SNLEN 12		/*@S8A */
 
 /*
  * Comment Length
@@ -394,8 +450,8 @@ struct smb_hdr {
  *
  *  The Naming convention is the lower case version of the
  *  smb command code name for the struct and this is typedef to the
- *  uppercase version of the same name with the prefix SMB_ removed 
- *  for brevity.  Although typedefs are not commonly used for 
+ *  uppercase version of the same name with the prefix SMB_ removed
+ *  for brevity.  Although typedefs are not commonly used for
  *  structure definitions in the Linux kernel, their use in the
  *  CIFS standards document, which this code is based on, may
  *  make this one of the cases where typedefs for structures make
@@ -403,7 +459,7 @@ struct smb_hdr {
  *  Typedefs can always be removed later if they are too distracting
  *  and they are only used for the CIFSs PDUs themselves, not
  *  internal cifs vfs structures
- *  
+ *
  */
 
 typedef struct negotiate_req {
@@ -442,7 +498,7 @@ typedef struct lanman_neg_rsp {
 
 typedef struct negotiate_rsp {
 	struct smb_hdr hdr;	/* wct = 17 */
-	__le16 DialectIndex;
+	__le16 DialectIndex; /* 0xFFFF = no dialect acceptable */
 	__u8 SecurityMode;
 	__le16 MaxMpxCount;
 	__le16 MaxNumberVcs;
@@ -488,10 +544,11 @@ typedef struct negotiate_rsp {
 #define CAP_INFOLEVEL_PASSTHRU 0x00002000
 #define CAP_LARGE_READ_X       0x00004000
 #define CAP_LARGE_WRITE_X      0x00008000
+#define CAP_LWIO               0x00010000 /* support fctl_srv_req_resume_key */
 #define CAP_UNIX               0x00800000
-#define CAP_RESERVED           0x02000000
-#define CAP_BULK_TRANSFER      0x20000000
-#define CAP_COMPRESSED_DATA    0x40000000
+#define CAP_COMPRESSED_DATA    0x02000000
+#define CAP_DYNAMIC_REAUTH     0x20000000
+#define CAP_PERSISTENT_HANDLES 0x40000000
 #define CAP_EXTENDED_SECURITY  0x80000000
 
 typedef union smb_com_session_setup_andx {
@@ -511,7 +568,7 @@ typedef union smb_com_session_setup_andx {
 		unsigned char SecurityBlob[1];	/* followed by */
 		/* STRING NativeOS */
 		/* STRING NativeLanMan */
-	} __attribute__((packed)) req;	/* NTLM request format (with 
+	} __attribute__((packed)) req;	/* NTLM request format (with
 					extended security */
 
 	struct {		/* request format */
@@ -549,7 +606,7 @@ typedef union smb_com_session_setup_andx {
 /*      unsigned char  * NativeOS;      */
 /*	unsigned char  * NativeLanMan;  */
 /*      unsigned char  * PrimaryDomain; */
-	} __attribute__((packed)) resp;	/* NTLM response 
+	} __attribute__((packed)) resp;	/* NTLM response
 					   (with or without extended sec) */
 
 	struct {		/* request format */
@@ -618,7 +675,7 @@ struct ntlmv2_resp {
 #define CAP_NT_SMBS            0x00000010
 #define CAP_STATUS32           0x00000040
 #define CAP_LEVEL_II_OPLOCKS   0x00000080
-#define CAP_NT_FIND            0x00000200	/* reserved should be zero 
+#define CAP_NT_FIND            0x00000200	/* reserved should be zero
 				(because NT_SMBs implies the same thing?) */
 #define CAP_BULK_TRANSFER      0x20000000
 #define CAP_EXTENDED_SECURITY  0x80000000
@@ -640,9 +697,7 @@ typedef struct smb_com_tconx_req {
 } __attribute__((packed)) TCONX_REQ;
 
 typedef struct smb_com_tconx_rsp {
-	struct smb_hdr hdr;	/* wct = 3 note that Win2000 has sent wct = 7
-				 in some cases on responses. Four unspecified
-				 words followed OptionalSupport */
+	struct smb_hdr hdr;	/* wct = 3 , not extended response */
 	__u8 AndXCommand;
 	__u8 AndXReserved;
 	__le16 AndXOffset;
@@ -652,13 +707,47 @@ typedef struct smb_com_tconx_rsp {
 	/* STRING NativeFileSystem */
 } __attribute__((packed)) TCONX_RSP;
 
+typedef struct smb_com_tconx_rsp_ext {
+	struct smb_hdr hdr;	/* wct = 7, extended response */
+	__u8 AndXCommand;
+	__u8 AndXReserved;
+	__le16 AndXOffset;
+	__le16 OptionalSupport;	/* see below */
+	__le32 MaximalShareAccessRights;
+	__le32 GuestMaximalShareAccessRights;
+	__u16 ByteCount;
+	unsigned char Service[1];	/* always ASCII, not Unicode */
+	/* STRING NativeFileSystem */
+} __attribute__((packed)) TCONX_RSP_EXT;
+
+
 /* tree connect Flags */
 #define DISCONNECT_TID          0x0001
+#define TCON_EXTENDED_SIGNATURES 0x0004
 #define TCON_EXTENDED_SECINFO   0x0008
+
 /* OptionalSupport bits */
 #define SMB_SUPPORT_SEARCH_BITS 0x0001	/* "must have" directory search bits
 					 (exclusive searches supported) */
 #define SMB_SHARE_IS_IN_DFS     0x0002
+#define SMB_CSC_MASK               0x000C
+/* CSC flags defined as follows */
+#define SMB_CSC_CACHE_MANUAL_REINT 0x0000
+#define SMB_CSC_CACHE_AUTO_REINT   0x0004
+#define SMB_CSC_CACHE_VDO          0x0008
+#define SMB_CSC_NO_CACHING         0x000C
+#define SMB_UNIQUE_FILE_NAME    0x0010
+#define SMB_EXTENDED_SIGNATURES 0x0020
+
+/* services
+ *
+ * A:       ie disk
+ * LPT1:    ie printer
+ * IPC      ie named pipe
+ * COMM
+ * ?????    ie any type
+ *
+ */
 
 typedef struct smb_com_logoff_andx_req {
 	struct smb_hdr hdr;	/* wct = 2 */
@@ -676,7 +765,7 @@ typedef struct smb_com_logoff_andx_rsp {
 	__u16 ByteCount;
 } __attribute__((packed)) LOGOFF_ANDX_RSP;
 
-typedef union smb_com_tree_disconnect {	/* as an altetnative can use flag on 
+typedef union smb_com_tree_disconnect {	/* as an altetnative can use flag on
 					tree_connect PDU to effect disconnect */
 					/* tdis is probably simplest SMB PDU */
 	struct {
@@ -712,6 +801,26 @@ typedef struct smb_com_findclose_req {
 #define REQ_OPLOCK         0x00000002
 #define REQ_BATCHOPLOCK    0x00000004
 #define REQ_OPENDIRONLY    0x00000008
+#define REQ_EXTENDED_INFO  0x00000010
+
+/* File type */
+#define DISK_TYPE		0x0000
+#define BYTE_PIPE_TYPE		0x0001
+#define MESSAGE_PIPE_TYPE	0x0002
+#define PRINTER_TYPE		0x0003
+#define COMM_DEV_TYPE		0x0004
+#define UNKNOWN_TYPE		0xFFFF
+
+/* Device Type or File Status Flags */
+#define NO_EAS			0x0001
+#define NO_SUBSTREAMS		0x0002
+#define NO_REPARSETAG		0x0004
+/* following flags can apply if pipe */
+#define ICOUNT_MASK		0x00FF
+#define PIPE_READ_MODE		0x0100
+#define NAMED_PIPE_TYPE		0x0400
+#define PIPE_END_POINT		0x4000
+#define BLOCKING_NAMED_PIPE	0x8000
 
 typedef struct smb_com_open_req {	/* also handles create */
 	struct smb_hdr hdr;	/* wct = 24 */
@@ -721,7 +830,7 @@ typedef struct smb_com_open_req {	/* also handles create */
 	__u8 Reserved;		/* Must Be Zero */
 	__le16 NameLength;
 	__le32 OpenFlags;
-	__le32 RootDirectoryFid;
+	__u32  RootDirectoryFid;
 	__le32 DesiredAccess;
 	__le64 AllocationSize;
 	__le32 FileAttributes;
@@ -764,6 +873,32 @@ typedef struct smb_com_open_rsp {
 	__u16 ByteCount;	/* bct = 0 */
 } __attribute__((packed)) OPEN_RSP;
 
+typedef struct smb_com_open_rsp_ext {
+	struct smb_hdr hdr;     /* wct = 42 but meaningless due to MS bug? */
+	__u8 AndXCommand;
+	__u8 AndXReserved;
+	__le16 AndXOffset;
+	__u8 OplockLevel;
+	__u16 Fid;
+	__le32 CreateAction;
+	__le64 CreationTime;
+	__le64 LastAccessTime;
+	__le64 LastWriteTime;
+	__le64 ChangeTime;
+	__le32 FileAttributes;
+	__le64 AllocationSize;
+	__le64 EndOfFile;
+	__le16 FileType;
+	__le16 DeviceState;
+	__u8 DirectoryFlag;
+	__u8 VolumeGUID[16];
+	__u64 FileId; /* note no endian conversion - is opaque UniqueID */
+	__le32 MaximalAccessRights;
+	__le32 GuestMaximalAccessRights;
+	__u16 ByteCount;        /* bct = 0 */
+} __attribute__((packed)) OPEN_RSP_EXT;
+
+
 /* format of legacy open request */
 typedef struct smb_com_openx_req {
 	struct smb_hdr	hdr;	/* wct = 15 */
@@ -799,27 +934,28 @@ typedef struct smb_com_openx_rsp {
 	__u32  FileId;
 	__u16  Reserved;
 	__u16  ByteCount;
-} __attribute__((packed)) OPENX_RSP; 
+} __attribute__((packed)) OPENX_RSP;
 
 /* For encoding of POSIX Open Request - see trans2 function 0x209 data struct */
 
 /* Legacy write request for older servers */
 typedef struct smb_com_writex_req {
-        struct smb_hdr hdr;     /* wct = 12 */
-        __u8 AndXCommand;
-        __u8 AndXReserved;
-        __le16 AndXOffset;
-        __u16 Fid;
-        __le32 OffsetLow;
-        __u32 Reserved; /* Timeout */
-        __le16 WriteMode; /* 1 = write through */
-        __le16 Remaining;
-        __le16 Reserved2;
-        __le16 DataLengthLow;
-        __le16 DataOffset;
-        __le16 ByteCount;
-        __u8 Pad;               /* BB check for whether padded to DWORD boundary and optimum performance here */
-        char Data[0];
+	struct smb_hdr hdr;     /* wct = 12 */
+	__u8 AndXCommand;
+	__u8 AndXReserved;
+	__le16 AndXOffset;
+	__u16 Fid;
+	__le32 OffsetLow;
+	__u32 Reserved; /* Timeout */
+	__le16 WriteMode; /* 1 = write through */
+	__le16 Remaining;
+	__le16 Reserved2;
+	__le16 DataLengthLow;
+	__le16 DataOffset;
+	__le16 ByteCount;
+	__u8 Pad;		/* BB check for whether padded to DWORD
+				   boundary and optimum performance here */
+	char Data[0];
 } __attribute__((packed)) WRITEX_REQ;
 
 typedef struct smb_com_write_req {
@@ -837,7 +973,8 @@ typedef struct smb_com_write_req {
 	__le16 DataOffset;
 	__le32 OffsetHigh;
 	__le16 ByteCount;
-	__u8 Pad;		/* BB check for whether padded to DWORD boundary and optimum performance here */
+	__u8 Pad;		/* BB check for whether padded to DWORD
+				   boundary and optimum performance here */
 	char Data[0];
 } __attribute__((packed)) WRITE_REQ;
 
@@ -855,17 +992,17 @@ typedef struct smb_com_write_rsp {
 
 /* legacy read request for older servers */
 typedef struct smb_com_readx_req {
-        struct smb_hdr hdr;     /* wct = 10 */
-        __u8 AndXCommand;
-        __u8 AndXReserved;
-        __le16 AndXOffset;
-        __u16 Fid;
-        __le32 OffsetLow;
-        __le16 MaxCount;
-        __le16 MinCount;                /* obsolete */
-        __le32 Reserved;
-        __le16 Remaining;
-        __le16 ByteCount;
+	struct smb_hdr hdr;	/* wct = 10 */
+	__u8 AndXCommand;
+	__u8 AndXReserved;
+	__le16 AndXOffset;
+	__u16 Fid;
+	__le32 OffsetLow;
+	__le16 MaxCount;
+	__le16 MinCount;	/* obsolete */
+	__le32 Reserved;
+	__le16 Remaining;
+	__le16 ByteCount;
 } __attribute__((packed)) READX_REQ;
 
 typedef struct smb_com_read_req {
@@ -896,7 +1033,8 @@ typedef struct smb_com_read_rsp {
 	__le16 DataLengthHigh;
 	__u64 Reserved2;
 	__u16 ByteCount;
-	__u8 Pad;		/* BB check for whether padded to DWORD boundary and optimum performance here */
+	__u8 Pad;		/* BB check for whether padded to DWORD
+				   boundary and optimum performance here */
 	char Data[1];
 } __attribute__((packed)) READ_RSP;
 
@@ -967,7 +1105,7 @@ typedef struct smb_com_rename_req {
 #define COPY_TARGET_MODE_ASCII 0x0004 /* if not set, binary */
 #define COPY_SOURCE_MODE_ASCII 0x0008 /* if not set, binary */
 #define COPY_VERIFY_WRITES     0x0010
-#define COPY_TREE              0x0020 
+#define COPY_TREE              0x0020
 
 typedef struct smb_com_copy_req {
 	struct smb_hdr hdr;	/* wct = 3 */
@@ -975,7 +1113,7 @@ typedef struct smb_com_copy_req {
 	__le16 OpenFunction;
 	__le16 Flags;
 	__le16 ByteCount;
-	__u8 BufferFormat;	/* 4 = ASCII or Unicode */ 
+	__u8 BufferFormat;	/* 4 = ASCII or Unicode */
 	unsigned char OldFileName[1];
 	/* followed by __u8 BufferFormat2 */
 	/* followed by NewFileName string */
@@ -1083,28 +1221,28 @@ typedef struct smb_com_setattr_rsp {
 
 /*******************************************************/
 /* NT Transact structure defintions follow             */
-/* Currently only ioctl, acl (get security descriptor) */  
+/* Currently only ioctl, acl (get security descriptor) */
 /* and notify are implemented                          */
 /*******************************************************/
 typedef struct smb_com_ntransact_req {
-        struct smb_hdr hdr; /* wct >= 19 */
-        __u8 MaxSetupCount;
-        __u16 Reserved;
-        __le32 TotalParameterCount;
-        __le32 TotalDataCount;
-        __le32 MaxParameterCount;
-        __le32 MaxDataCount;
-        __le32 ParameterCount;
-        __le32 ParameterOffset;
-        __le32 DataCount;
-        __le32 DataOffset;
-        __u8 SetupCount; /* four setup words follow subcommand */
-        /* SNIA spec incorrectly included spurious pad here */
-        __le16 SubCommand; /* 2 = IOCTL/FSCTL */
-	/* SetupCount words follow then */ 
-        __le16 ByteCount;
-        __u8 Pad[3];
-        __u8 Parms[0];
+	struct smb_hdr hdr; /* wct >= 19 */
+	__u8 MaxSetupCount;
+	__u16 Reserved;
+	__le32 TotalParameterCount;
+	__le32 TotalDataCount;
+	__le32 MaxParameterCount;
+	__le32 MaxDataCount;
+	__le32 ParameterCount;
+	__le32 ParameterOffset;
+	__le32 DataCount;
+	__le32 DataOffset;
+	__u8 SetupCount; /* four setup words follow subcommand */
+	/* SNIA spec incorrectly included spurious pad here */
+	__le16 SubCommand; /* 2 = IOCTL/FSCTL */
+	/* SetupCount words follow then */
+	__le16 ByteCount;
+	__u8 Pad[3];
+	__u8 Parms[0];
 } __attribute__((packed)) NTRANSACT_REQ;
 
 typedef struct smb_com_ntransact_rsp {
@@ -1120,7 +1258,7 @@ typedef struct smb_com_ntransact_rsp {
 	__le32 DataDisplacement;
 	__u8 SetupCount;   /* 0 */
 	__u16 ByteCount;
-        /* __u8 Pad[3]; */
+	/* __u8 Pad[3]; */
 	/* parms and data follow */
 } __attribute__((packed)) NTRANSACT_RSP;
 
@@ -1191,6 +1329,29 @@ typedef struct smb_com_transaction_qsec_req {
 	__le32 AclFlags;
 } __attribute__((packed)) QUERY_SEC_DESC_REQ;
 
+
+typedef struct smb_com_transaction_ssec_req {
+	struct smb_hdr hdr;     /* wct = 19 */
+	__u8 MaxSetupCount;
+	__u16 Reserved;
+	__le32 TotalParameterCount;
+	__le32 TotalDataCount;
+	__le32 MaxParameterCount;
+	__le32 MaxDataCount;
+	__le32 ParameterCount;
+	__le32 ParameterOffset;
+	__le32 DataCount;
+	__le32 DataOffset;
+	__u8 SetupCount; /* no setup words follow subcommand */
+	/* SNIA spec incorrectly included spurious pad here */
+	__le16 SubCommand; /* 3 = SET_SECURITY_DESC */
+	__le16 ByteCount; /* bcc = 3 + 8 */
+	__u8 Pad[3];
+	__u16 Fid;
+	__u16 Reserved2;
+	__le32 AclFlags;
+} __attribute__((packed)) SET_SEC_DESC_REQ;
+
 typedef struct smb_com_transaction_change_notify_req {
 	struct smb_hdr hdr;     /* wct = 23 */
 	__u8 MaxSetupCount;
@@ -1215,7 +1376,7 @@ typedef struct smb_com_transaction_change_notify_req {
 /*	__u8 Data[1];*/
 } __attribute__((packed)) TRANSACT_CHANGE_NOTIFY_REQ;
 
-/* BB eventually change to use generic ntransact rsp struct 
+/* BB eventually change to use generic ntransact rsp struct
       and validation routine */
 typedef struct smb_com_transaction_change_notify_rsp {
 	struct smb_hdr hdr;	/* wct = 18 */
@@ -1262,7 +1423,7 @@ struct file_notify_information {
 	__le32 Action;
 	__le32 FileNameLength;
 	__u8  FileName[0];
-} __attribute__((packed)); 
+} __attribute__((packed));
 
 struct reparse_data {
 	__u32	ReparseTag;
@@ -1331,7 +1492,7 @@ struct trans2_resp {
 	__u8 Reserved1;
 	/* SetupWords[SetupCount];
 	__u16 ByteCount;
-	__u16 Reserved2;*/	
+	__u16 Reserved2;*/
 	/* data area follows */
 } __attribute__((packed));
 
@@ -1370,9 +1531,9 @@ struct smb_t2_rsp {
 #define SMB_QUERY_FILE_INTERNAL_INFO    0x3ee
 #define SMB_QUERY_FILE_ACCESS_INFO      0x3f0
 #define SMB_QUERY_FILE_NAME_INFO2       0x3f1 /* 0x30 bytes */
-#define SMB_QUERY_FILE_POSITION_INFO    0x3f6 
+#define SMB_QUERY_FILE_POSITION_INFO    0x3f6
 #define SMB_QUERY_FILE_MODE_INFO        0x3f8
-#define SMB_QUERY_FILE_ALGN_INFO        0x3f9 
+#define SMB_QUERY_FILE_ALGN_INFO        0x3f9
 
 
 #define SMB_SET_FILE_BASIC_INFO	        0x101
@@ -1506,35 +1667,35 @@ struct smb_com_transaction2_sfi_req {
 	__u16 Pad1;
 	__u16 Fid;
 	__le16 InformationLevel;
-	__u16 Reserved4;	
+	__u16 Reserved4;
 } __attribute__((packed));
 
 struct smb_com_transaction2_sfi_rsp {
 	struct smb_hdr hdr;	/* wct = 10 + SetupCount */
 	struct trans2_resp t2;
 	__u16 ByteCount;
-	__u16 Reserved2;	/* parameter word reserved - 
+	__u16 Reserved2;	/* parameter word reserved -
 					present for infolevels > 100 */
 } __attribute__((packed));
 
 struct smb_t2_qfi_req {
-        struct	smb_hdr hdr;
-        struct	trans2_req t2;
+	struct	smb_hdr hdr;
+	struct	trans2_req t2;
 	__u8	Pad;
 	__u16	Fid;
 	__le16	InformationLevel;
 } __attribute__((packed));
 
 struct smb_t2_qfi_rsp {
-        struct smb_hdr hdr;     /* wct = 10 + SetupCount */
-        struct trans2_resp t2;
-        __u16 ByteCount;
-        __u16 Reserved2;        /* parameter word reserved - 
-					present for infolevels > 100 */
+	struct smb_hdr hdr;     /* wct = 10 + SetupCount */
+	struct trans2_resp t2;
+	__u16 ByteCount;
+	__u16 Reserved2;        /* parameter word reserved -
+				   present for infolevels > 100 */
 } __attribute__((packed));
 
 /*
- * Flags on T2 FINDFIRST and FINDNEXT 
+ * Flags on T2 FINDFIRST and FINDNEXT
  */
 #define CIFS_SEARCH_CLOSE_ALWAYS  0x0001
 #define CIFS_SEARCH_CLOSE_AT_END  0x0002
@@ -1640,6 +1801,12 @@ typedef struct smb_com_transaction2_fnext_rsp_parms {
 #define SMB_QUERY_CIFS_UNIX_INFO    0x200
 #define SMB_QUERY_POSIX_FS_INFO     0x201
 #define SMB_QUERY_POSIX_WHO_AM_I    0x202
+#define SMB_REQUEST_TRANSPORT_ENCRYPTION 0x203
+#define SMB_QUERY_FS_PROXY          0x204 /* WAFS enabled. Returns structure
+					    FILE_SYSTEM__UNIX_INFO to tell
+					    whether new NTIOCTL available
+					    (0xACE) for WAN friendly SMB
+					    operations to be carried */
 #define SMB_QUERY_LABEL_INFO        0x3ea
 #define SMB_QUERY_FS_QUOTA_INFO     0x3ee
 #define SMB_QUERY_FS_FULL_SIZE_INFO 0x3ef
@@ -1743,21 +1910,33 @@ typedef struct smb_com_transaction2_get_dfs_refer_req {
 	__u8 Reserved3;
 	__le16 SubCommand;	/* one setup word */
 	__le16 ByteCount;
-	__u8 Pad[3];		/* Win2K has sent 0x0F01 (max resp length perhaps?) followed by one byte pad - doesn't seem to matter though */
+	__u8 Pad[3];		/* Win2K has sent 0x0F01 (max response length
+				   perhaps?) followed by one byte pad - doesn't
+				   seem to matter though */
 	__le16 MaxReferralLevel;
 	char RequestFileName[1];
 } __attribute__((packed)) TRANSACTION2_GET_DFS_REFER_REQ;
 
+#define DFS_VERSION cpu_to_le16(0x0003)
+
+/* DFS server target type */
+#define DFS_TYPE_LINK 0x0000  /* also for sysvol targets */
+#define DFS_TYPE_ROOT 0x0001
+ 
+/* Referral Entry Flags */
+#define DFS_NAME_LIST_REF 0x0200
+
 typedef struct dfs_referral_level_3 {
 	__le16 VersionNumber;
-	__le16 ReferralSize;
-	__le16 ServerType;	/* 0x0001 = CIFS server */
-	__le16 ReferralFlags;	/* or proximity - not clear which since always set to zero - SNIA spec says 0x01 means strip off PathConsumed chars before submitting RequestFileName to remote node */
-	__le16 TimeToLive;
-	__le16 Proximity;
+	__le16 Size;
+	__le16 ServerType; /* 0x0001 = root targets; 0x0000 = link targets */
+	__le16 ReferralEntryFlags; /* 0x0200 bit set only for domain
+				      or DC referral responce */
+	__le32 TimeToLive;
 	__le16 DfsPathOffset;
 	__le16 DfsAlternatePathOffset;
-	__le16 NetworkAddressOffset;
+	__le16 NetworkAddressOffset; /* offset of the link target */
+	__le16 ServiceSiteGuid;
 } __attribute__((packed)) REFERRAL3;
 
 typedef struct smb_com_transaction_get_dfs_refer_rsp {
@@ -1778,11 +1957,13 @@ typedef struct smb_com_transaction_get_dfs_refer_rsp {
 #define DFSREF_STORAGE_SERVER   0x0002
 
 /* IOCTL information */
-/* List of ioctl function codes that look to be of interest to remote clients like this. */
-/* Need to do some experimentation to make sure they all work remotely.                  */
-/* Some of the following such as the encryption/compression ones would be                */
-/* invoked from tools via a specialized hook into the VFS rather than via the            */
-/* standard vfs entry points */
+/*
+ * List of ioctl function codes that look to be of interest to remote clients
+ * like this one.  Need to do some experimentation to make sure they all work
+ * remotely.  Some of the following, such as the encryption/compression ones
+ * would be invoked from tools via a specialized hook into the VFS rather
+ * than via the standard vfs entry points
+ */
 #define FSCTL_REQUEST_OPLOCK_LEVEL_1 0x00090000
 #define FSCTL_REQUEST_OPLOCK_LEVEL_2 0x00090004
 #define FSCTL_REQUEST_BATCH_OPLOCK   0x00090008
@@ -1811,7 +1992,7 @@ typedef struct smb_com_transaction_get_dfs_refer_rsp {
 /*
  ************************************************************************
  * All structs for everything above the SMB PDUs themselves
- * (such as the T2 level specific data) go here                  
+ * (such as the T2 level specific data) go here
  ************************************************************************
  */
 
@@ -1857,7 +2038,7 @@ typedef struct {
 	__le64 FreeAllocationUnits;
 	__le32 SectorsPerAllocationUnit;
 	__le32 BytesPerSector;
-} __attribute__((packed)) FILE_SYSTEM_INFO;		/* size info, level 0x103 */
+} __attribute__((packed)) FILE_SYSTEM_INFO;	/* size info, level 0x103 */
 
 typedef struct {
 	__le32 fsid;
@@ -1871,7 +2052,7 @@ typedef struct {
 	__le16 MajorVersionNumber;
 	__le16 MinorVersionNumber;
 	__le64 Capability;
-} __attribute__((packed)) FILE_SYSTEM_UNIX_INFO;	/* Unix extensions info, level 0x200 */
+} __attribute__((packed)) FILE_SYSTEM_UNIX_INFO; /* Unix extension level 0x200*/
 
 /* Version numbers for CIFS UNIX major and minor. */
 #define CIFS_UNIX_MAJOR_VERSION 1
@@ -1885,16 +2066,23 @@ typedef struct {
 #define CIFS_UNIX_POSIX_PATHNAMES_CAP   0x00000010 /* Allow POSIX path chars  */
 #define CIFS_UNIX_POSIX_PATH_OPS_CAP    0x00000020 /* Allow new POSIX path based
 						      calls including posix open
-						      and posix unlink */ 
+						      and posix unlink */
+#define CIFS_UNIX_LARGE_READ_CAP        0x00000040 /* support reads >128K (up
+						      to 0xFFFF00 */
+#define CIFS_UNIX_LARGE_WRITE_CAP       0x00000080
+#define CIFS_UNIX_TRANSPORT_ENCRYPTION_CAP 0x00000100 /* can do SPNEGO crypt */
+#define CIFS_UNIX_TRANSPORT_ENCRYPTION_MANDATORY_CAP  0x00000200 /* must do  */
+#define CIFS_UNIX_PROXY_CAP             0x00000400 /* Proxy cap: 0xACE ioctl and
+						      QFS PROXY call */
 #ifdef CONFIG_CIFS_POSIX
 /* Can not set pathnames cap yet until we send new posix create SMB since
    otherwise server can treat such handles opened with older ntcreatex
    (by a new client which knows how to send posix path ops)
    as non-posix handles (can affect write behavior with byte range locks.
    We can add back in POSIX_PATH_OPS cap when Posix Create/Mkdir finished */
-/* #define CIFS_UNIX_CAP_MASK              0x0000003b */
-#define CIFS_UNIX_CAP_MASK              0x0000001b 
-#else 
+/* #define CIFS_UNIX_CAP_MASK              0x000000fb */
+#define CIFS_UNIX_CAP_MASK              0x000000db
+#else
 #define CIFS_UNIX_CAP_MASK              0x00000013
 #endif /* CONFIG_CIFS_POSIX */
 
@@ -1904,10 +2092,10 @@ typedef struct {
 typedef struct {
 	/* For undefined recommended transfer size return -1 in that field */
 	__le32 OptimalTransferSize;  /* bsize on some os, iosize on other os */
-	__le32 BlockSize; 
+	__le32 BlockSize;
     /* The next three fields are in terms of the block size.
 	(above). If block size is unknown, 4096 would be a
-	reasonable block size for a server to report. 
+	reasonable block size for a server to report.
 	Note that returning the blocks/blocksavail removes need
 	to make a second call (to QFSInfo level 0x103 to get this info.
 	UserBlockAvail is typically less than or equal to BlocksAvail,
@@ -2062,9 +2250,9 @@ struct file_alt_name_info {
 
 struct file_stream_info {
 	__le32 number_of_streams;  /* BB check sizes and verify location */
-	/* followed by info on streams themselves 
+	/* followed by info on streams themselves
 		u64 size;
-		u64 allocation_size 
+		u64 allocation_size
 		stream info */
 };      /* level 0x109 */
 
@@ -2083,7 +2271,7 @@ struct cifs_posix_ace { /* access control entry (ACE) */
 	__u8  cifs_e_tag;
 	__u8  cifs_e_perm;
 	__le64 cifs_uid; /* or gid */
-} __attribute__((packed)); 
+} __attribute__((packed));
 
 struct cifs_posix_acl { /* access conrol list  (ACL) */
 	__le16	version;
@@ -2138,6 +2326,12 @@ typedef struct {
 	/* struct following varies based on requested level */
 } __attribute__((packed)) OPEN_PSX_RSP; /* level 0x209 SetPathInfo data */
 
+#define SMB_POSIX_UNLINK_FILE_TARGET		0
+#define SMB_POSIX_UNLINK_DIRECTORY_TARGET	1
+
+struct unlink_psx_rq { /* level 0x20a SetPathInfo */
+	__le16 type;
+} __attribute__((packed));
 
 struct file_internal_info {
 	__u64  UniqueId; /* inode number */
@@ -2154,7 +2348,7 @@ struct file_attrib_tag {
 
 
 /********************************************************/
-/*  FindFirst/FindNext transact2 data buffer formats    */ 
+/*  FindFirst/FindNext transact2 data buffer formats    */
 /********************************************************/
 
 typedef struct {
@@ -2232,7 +2426,7 @@ typedef struct {
 	__le64 EndOfFile;
 	__le64 AllocationSize;
 	__le32 ExtFileAttributes;
-	__le32 FileNameLength; 
+	__le32 FileNameLength;
 	__le32 EaSize; /* length of the xattrs */
 	__u8   ShortNameLength;
 	__u8   Reserved;
@@ -2259,7 +2453,7 @@ typedef struct {
 struct win_dev {
 	unsigned char type[8]; /* IntxCHR or IntxBLK */
 	__le64 major;
-	__le64 minor;	
+	__le64 minor;
 } __attribute__((packed));
 
 struct gea {
@@ -2291,36 +2485,36 @@ struct fealist {
 struct data_blob {
 	__u8 *data;
 	size_t length;
-	void (*free) (struct data_blob * data_blob);
+	void (*free) (struct data_blob *data_blob);
 } __attribute__((packed));
 
 
 #ifdef CONFIG_CIFS_POSIX
-/* 
+/*
 	For better POSIX semantics from Linux client, (even better
 	than the existing CIFS Unix Extensions) we need updated PDUs for:
-	
+
 	1) PosixCreateX - to set and return the mode, inode#, device info and
 	perhaps add a CreateDevice - to create Pipes and other special .inodes
 	Also note POSIX open flags
-	2) Close - to return the last write time to do cache across close 
+	2) Close - to return the last write time to do cache across close
 		more safely
-	3) FindFirst return unique inode number - what about resume key, two 
+	3) FindFirst return unique inode number - what about resume key, two
 	forms short (matches readdir) and full (enough info to cache inodes)
 	4) Mkdir - set mode
-	
-	And under consideration: 
+
+	And under consideration:
 	5) FindClose2 (return nanosecond timestamp ??)
-	6) Use nanosecond timestamps throughout all time fields if 
+	6) Use nanosecond timestamps throughout all time fields if
 	   corresponding attribute flag is set
 	7) sendfile - handle based copy
 	8) Direct i/o
 	9) Misc fcntls?
-	
+
 	what about fixing 64 bit alignment
-	
+
 	There are also various legacy SMB/CIFS requests used as is
-	
+
 	From existing Lanman and NTLM dialects:
 	--------------------------------------
 	NEGOTIATE
@@ -2341,48 +2535,48 @@ struct data_blob {
 		(BB verify that never need to set allocation size)
 		SMB_SET_FILE_BASIC_INFO2 (setting times - BB can it be done via
 			 Unix ext?)
-	
+
 	COPY (note support for copy across directories) - FUTURE, OPTIONAL
 	setting/getting OS/2 EAs - FUTURE (BB can this handle
 	setting Linux xattrs perfectly)         - OPTIONAL
 	dnotify                                 - FUTURE, OPTIONAL
 	quota                                   - FUTURE, OPTIONAL
-			
-	Note that various requests implemented for NT interop such as 
+
+	Note that various requests implemented for NT interop such as
 		NT_TRANSACT (IOCTL) QueryReparseInfo
 	are unneeded to servers compliant with the CIFS POSIX extensions
-	
+
 	From CIFS Unix Extensions:
 	-------------------------
 	T2 SET_PATH_INFO (SMB_SET_FILE_UNIX_LINK) for symlinks
 	T2 SET_PATH_INFO (SMB_SET_FILE_BASIC_INFO2)
 	T2 QUERY_PATH_INFO (SMB_QUERY_FILE_UNIX_LINK)
-	T2 QUERY_PATH_INFO (SMB_QUERY_FILE_UNIX_BASIC) - BB check for missing inode fields
-					Actually need QUERY_FILE_UNIX_INFO since has inode num
-					BB what about a) blksize/blkbits/blocks
+	T2 QUERY_PATH_INFO (SMB_QUERY_FILE_UNIX_BASIC)	BB check for missing
+							inode fields
+				Actually a need QUERY_FILE_UNIX_INFO
+				since has inode num
+				BB what about a) blksize/blkbits/blocks
 							  b) i_version
 							  c) i_rdev
 							  d) notify mask?
 							  e) generation
 							  f) size_seqcount
 	T2 FIND_FIRST/FIND_NEXT FIND_FILE_UNIX
-	TRANS2_GET_DFS_REFERRAL			  - OPTIONAL but recommended
+	TRANS2_GET_DFS_REFERRAL		      - OPTIONAL but recommended
 	T2_QFS_INFO QueryDevice/AttributeInfo - OPTIONAL
-	
-	
  */
 
 /* xsymlink is a symlink format (used by MacOS) that can be used
-   to save symlink info in a regular file when 
+   to save symlink info in a regular file when
    mounted to operating systems that do not
    support the cifs Unix extensions or EAs (for xattr
    based symlinks).  For such a file to be recognized
-   as containing symlink data: 
+   as containing symlink data:
 
-   1) file size must be 1067, 
+   1) file size must be 1067,
    2) signature must begin file data,
    3) length field must be set to ASCII representation
-	of a number which is less than or equal to 1024, 
+	of a number which is less than or equal to 1024,
    4) md5 must match that of the path data */
 
 struct xsymlink {
@@ -2393,10 +2587,10 @@ struct xsymlink {
 	char length[4];
 	char cr1;         /* \n */
 /* md5 of valid subset of path ie path[0] through path[length-1] */
-	__u8 md5[32];    
+	__u8 md5[32];
 	char cr2;        /* \n */
 /* if room left, then end with \n then 0x20s by convention but not required */
-	char path[1024];  
+	char path[1024];
 } __attribute__((packed));
 
 typedef struct file_xattr_info {
@@ -2405,7 +2599,8 @@ typedef struct file_xattr_info {
 	__u32 xattr_value_len;
 	char  xattr_name[0];
 	/* followed by xattr_value[xattr_value_len], no pad */
-} __attribute__((packed)) FILE_XATTR_INFO; /* extended attribute, info level 0x205 */
+} __attribute__((packed)) FILE_XATTR_INFO; /* extended attribute info
+					      level 0x205 */
 
 
 /* flags for chattr command */
@@ -2431,8 +2626,9 @@ typedef struct file_xattr_info {
 typedef struct file_chattr_info {
 	__le64	mask; /* list of all possible attribute bits */
 	__le64	mode; /* list of actual attribute bits on this inode */
-} __attribute__((packed)) FILE_CHATTR_INFO;  /* ext attributes (chattr, chflags) level 0x206 */
+} __attribute__((packed)) FILE_CHATTR_INFO;  /* ext attributes
+						(chattr, chflags) level 0x206 */
 
-#endif 
+#endif
 
 #endif				/* _CIFSPDU_H */

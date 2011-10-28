@@ -30,6 +30,7 @@
 #define CIFS_MOUNT_CIFS_ACL     0x200 /* send ACL requests to non-POSIX srv   */
 #define CIFS_MOUNT_OVERR_UID    0x400 /* override uid returned from server    */
 #define CIFS_MOUNT_OVERR_GID    0x800 /* override gid returned from server    */
+#define CIFS_MOUNT_DYNPERM	0x1000 /* allow in-memory only mode setting */
 
 struct cifs_sb_info {
 	struct cifsTconInfo *tcon;	/* primary mount */
@@ -43,6 +44,9 @@ struct cifs_sb_info {
 	mode_t	mnt_dir_mode;
 	int     mnt_cifs_flags;
 	int	prepathlen;
-	char *  prepath;
+	char   *prepath; /* relative path under the share to mount to */
+#ifdef CONFIG_CIFS_DFS_UPCALL
+	char   *mountdata; /* mount options received at mount time */
+#endif
 };
 #endif				/* _CIFS_FS_SB_H */

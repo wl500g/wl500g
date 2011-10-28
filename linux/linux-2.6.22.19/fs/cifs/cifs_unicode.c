@@ -32,7 +32,7 @@
  *
  */
 int
-cifs_strfromUCS_le(char *to, const __le16 * from,
+cifs_strfromUCS_le(char *to, const __le16 *from,
 		   int len, const struct nls_table *codepage)
 {
 	int i;
@@ -61,12 +61,12 @@ cifs_strfromUCS_le(char *to, const __le16 * from,
  *
  */
 int
-cifs_strtoUCS(__le16 * to, const char *from, int len,
+cifs_strtoUCS(__le16 *to, const char *from, int len,
 	      const struct nls_table *codepage)
 {
 	int charlen;
 	int i;
-	wchar_t * wchar_to = (wchar_t *)to; /* needed to quiet sparse */
+	wchar_t *wchar_to = (wchar_t *)to; /* needed to quiet sparse */
 
 	for (i = 0; len && *from; i++, from += charlen, len -= charlen) {
 

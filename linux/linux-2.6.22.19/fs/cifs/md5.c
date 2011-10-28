@@ -15,9 +15,9 @@
  * will fill a supplied 16-byte array with the digest.
  */
 
-/* This code slightly modified to fit into Samba by 
-   abartlet@samba.org Jun 2001 
-   and to fit the cifs vfs by 
+/* This code slightly modified to fit into Samba by
+   abartlet@samba.org Jun 2001
+   and to fit the cifs vfs by
    Steve French sfrench@us.ibm.com */
 
 #include <linux/string.h>
@@ -106,7 +106,7 @@ MD5Update(struct MD5Context *ctx, unsigned char const *buf, unsigned len)
 }
 
 /*
- * Final wrapup - pad to 64-byte boundary with the bit pattern 
+ * Final wrapup - pad to 64-byte boundary with the bit pattern
  * 1 0* (64-bit count of bits processed, MSB-first)
  */
 void
@@ -161,7 +161,7 @@ MD5Final(unsigned char digest[16], struct MD5Context *ctx)
 
 /* This is the central step in the MD5 algorithm. */
 #define MD5STEP(f, w, x, y, z, data, s) \
-	( w += f(x, y, z) + data,  w = w<<s | w>>(32-s),  w += x )
+	(w += f(x, y, z) + data,  w = w<<s | w>>(32-s),  w += x)
 
 /*
  * The core of the MD5 algorithm, this alters an existing MD5 hash to
@@ -276,8 +276,8 @@ hmac_md5_init_rfc2104(unsigned char *key, int key_len,
 	}
 
 	/* start out by storing key in pads */
-	memset(ctx->k_ipad, 0, sizeof (ctx->k_ipad));
-	memset(ctx->k_opad, 0, sizeof (ctx->k_opad));
+	memset(ctx->k_ipad, 0, sizeof(ctx->k_ipad));
+	memset(ctx->k_opad, 0, sizeof(ctx->k_opad));
 	memcpy(ctx->k_ipad, key, key_len);
 	memcpy(ctx->k_opad, key, key_len);
 
@@ -302,13 +302,12 @@ hmac_md5_init_limK_to_64(const unsigned char *key, int key_len,
 	int i;
 
 	/* if key is longer than 64 bytes truncate it */
-	if (key_len > 64) {
+	if (key_len > 64)
 		key_len = 64;
-	}
 
 	/* start out by storing key in pads */
-	memset(ctx->k_ipad, 0, sizeof (ctx->k_ipad));
-	memset(ctx->k_opad, 0, sizeof (ctx->k_opad));
+	memset(ctx->k_ipad, 0, sizeof(ctx->k_ipad));
+	memset(ctx->k_opad, 0, sizeof(ctx->k_opad));
 	memcpy(ctx->k_ipad, key, key_len);
 	memcpy(ctx->k_opad, key, key_len);
 
@@ -359,9 +358,9 @@ hmac_md5(unsigned char key[16], unsigned char *data, int data_len,
 {
 	struct HMACMD5Context ctx;
 	hmac_md5_init_limK_to_64(key, 16, &ctx);
-	if (data_len != 0) {
+	if (data_len != 0)
 		hmac_md5_update(data, data_len, &ctx);
-	}
+
 	hmac_md5_final(digest, &ctx);
 }
 #endif
