@@ -1888,9 +1888,9 @@ diff --git a/fs/cifs/file.c b/fs/cifs/file.c
 -	cFYI(1, ("commit write for page %p up to position %lld for %d",
 -		 page, position, to));
 -	spin_lock(&inode->i_lock);
--	if (position > inode->i_size) {
+-	if (position > inode->i_size)
 -		i_size_write(inode, position);
--	}
+-
 -	spin_unlock(&inode->i_lock);
  	if (!PageUptodate(page)) {
 -		position =  ((loff_t)page->index << PAGE_CACHE_SHIFT) + offset;
