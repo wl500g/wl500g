@@ -837,29 +837,32 @@ p910nd-install:
 
 samba/source/Makefile: samba/source/Makefile.in
 	cd samba/source && \
-	    CPPFLAGS="-D_GNU_SOURCE -DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" CFLAGS="-Os $(EXTRACFLAGS)" \
+	    CPPFLAGS="-DNDEBUG -DSHMEM_SIZE=524288 -Dfcntl=fcntl64" \
+	    CFLAGS="-Os $(EXTRACFLAGS)" \
 	    ac_cv_sizeof_int=4 ac_cv_sizeof_long=4 ac_cv_sizeof_short=2 \
+	    samba_cv_have_longlong=yes ac_cv_func_memcmp_clean=yes \
+	    fu_cv_sys_stat_statvfs64=yes \
+	    samba_cv_HAVE_INO64_T=yes samba_cv_HAVE_OFF64_T=yes \
+	    samba_cv_SIZEOF_INO_T=yes samba_cv_SIZEOF_OFF_T=yes \
 	    samba_cv_FTRUNCATE_NEEDS_ROOT=no samba_cv_HAVE_BROKEN_FCNTL64_LOCKS=no \
 	    samba_cv_HAVE_BROKEN_GETGROUPS=no samba_cv_HAVE_BROKEN_READDIR=no \
 	    samba_cv_HAVE_FCNTL_LOCK=yes samba_cv_HAVE_FNMATCH=yes \
 	    samba_cv_HAVE_FTRUNCATE_EXTEND=yes samba_cv_HAVE_IFACE_AIX=no \
 	    samba_cv_HAVE_IFACE_IFCONF=yes samba_cv_HAVE_IFACE_IFREQ=yes \
-	    samba_cv_HAVE_INO64_T=yes samba_cv_HAVE_IRIX_SPECIFIC_CAPABILITIES=no \
-	    samba_cv_HAVE_OFF64_T=yes samba_cv_HAVE_ROOT=yes \
+	    samba_cv_HAVE_IRIX_SPECIFIC_CAPABILITIES=no samba_cv_HAVE_ROOT=yes \
 	    samba_cv_HAVE_SECURE_MKSTEMP=yes samba_cv_HAVE_SHARED_MMAP=yes \
 	    samba_cv_HAVE_STRUCT_FLOCK64=yes samba_cv_HAVE_SYSV_IPC=no \
 	    samba_cv_HAVE_TRUNCATED_SALT=no samba_cv_HAVE_UNION_SEMUN=no \
 	    samba_cv_HAVE_UNSIGNED_CHAR=yes samba_cv_NEED_SGI_SEMUN_HACK=no \
-	    samba_cv_REPLACE_INET_NTOA=no samba_cv_SIZEOF_INO_T=4 \
-	    samba_cv_SIZEOF_OFF_T=4 samba_cv_SYSCONF_SC_NGROUPS_MAX=yes \
+	    samba_cv_REPLACE_INET_NTOA=no samba_cv_SYSCONF_SC_NGROUPS_MAX=yes \
 	    samba_cv_USE_SETRESUID=no samba_cv_USE_SETREUID=yes \
 	    samba_cv_USE_SETEUID=yes samba_cv_USE_SETUIDX=no \
-	    samba_cv_have_longlong=yes samba_cv_have_setresgid=no \
-	    samba_cv_have_setresuid=no samba_cv_HAVE_GETTIMEOFDAY_TZ=yes \
+	    samba_cv_have_setresgid=no samba_cv_have_setresuid=no \
+	    samba_cv_HAVE_GETTIMEOFDAY_TZ=yes samba_cv_LINUX_LFS_SUPPORT=yes \
 	 $(CONFIGURE) --prefix=/usr --localstatedir=/var/log --libdir=/etc \
 	    --with-privatedir=/etc --with-lockdir=/var/lock --with-syslog
 
-samba: samba/source/Makefile
+samba: samba/source/Makefile samba/source/bin/smbd.shared samba/source/bin/nmbd.shared
 	$(MAKE) -C samba/source shared
 
 samba-install:
