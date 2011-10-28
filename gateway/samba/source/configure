@@ -1380,7 +1380,15 @@ fi
 # Tests needed for glibc 2.1 large file support.
 # 
 	*linux*)
-		echo "$ac_t""disabling large file support for glibc2.1 on Linux" 1>&6     
+		echo $ac_n "checking for LFS support""... $ac_c" 1>&6
+echo "configure:1380: checking for LFS support" >&5
+		if test x$samba_cv_LINUX_LFS_SUPPORT = xyes ; then
+          GLIBC_LFS_SUPPORT=yes
+          CPPFLAGS="-D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE $CPPFLAGS"
+        else
+          GLIBC_LFS_SUPPORT=no
+		fi
+      echo "$ac_t""$GLIBC_LFS_SUPPORT" 1>&6
 		;;
     *hurd*)
         echo $ac_n "checking for LFS support""... $ac_c" 1>&6
@@ -8678,6 +8686,7 @@ echo $ac_n "checking for test routines""... $ac_c" 1>&6
 echo "configure:8679: checking for test routines" >&5
 if test "$cross_compiling" = yes; then
   echo "configure: warning: cannot run when cross-compiling" 1>&2
+  echo "$ac_t""no" 1>&6
 else
   cat > conftest.$ac_ext <<EOF
 #line 8684 "configure"
@@ -10668,7 +10677,7 @@ fi
 # If we don't have all of these then disable large
 # file support.
 #
-echo "checking if large file support can be enabled"
+echo $ac_n "checking if large file support can be enabled""... $ac_c"
 cat > conftest.$ac_ext <<EOF
 #line 10674 "configure"
 #include "confdefs.h"
