@@ -1,0 +1,32 @@
+From ca976c53de0c33160083d36f70bd18d7970f6969
+From: Roel Kluin
+Date: Tue, 22 Sep 2009 16:43:28 -0700
+Subject: [PATCH] smbfs: read buffer overflow
+
+This function uses signed integers for the unix_date and local variables -
+if a negative number is supplied and the leap-year condition is not met,
+month will be 0, leading to a read of day_n[-1]
+
+Signed-off-by: Roel Kluin <roel.kluin@gmail.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ fs/smbfs/proc.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/fs/smbfs/proc.c b/fs/smbfs/proc.c
+index 9468168..71c29b6 100644
+--- a/fs/smbfs/proc.c
++++ b/fs/smbfs/proc.c
+@@ -509,7 +509,7 @@ date_unix2dos(struct smb_sb_info *server,
+ 		month = 2;
+ 	} else {
+ 		nl_day = (year & 3) || day <= 59 ? day : day - 1;
+-		for (month = 0; month < 12; month++)
++		for (month = 1; month < 12; month++)
+ 			if (day_n[month] > nl_day)
+ 				break;
+ 	}
+-- 
+1.7.6.2
