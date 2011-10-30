@@ -2325,6 +2325,7 @@ BCMINITFN(si_pmu_ilp_clock)(si_t *sih, osl_t *osh)
 	return ilpcycles_per_sec;
 }
 
+#ifdef BCMDBUS
 /* SDIO Pad drive strength to select value mappings */
 typedef struct {
 	uint8 strength;			/* Pad Drive Strength in mA */
@@ -2416,6 +2417,7 @@ BCMINITFN(si_sdiod_drive_strength_init)(si_t *sih, osl_t *osh, uint32 drivestren
 	/* Return to original core */
 	si_restore_core(sih, origidx, intr_val);
 }
+#endif /* BCMDBUS */
 
 /* initialize PMU */
 void
@@ -3290,6 +3292,7 @@ si_pmu_radio_enable(si_t *sih, bool enable)
 	}
 }
 
+#if defined(WLBTWUSB) || defined (USBAP)
 /* Wait for a particular clock level to be on the backplane */
 uint32 si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 delay)
 {
@@ -3311,3 +3314,4 @@ uint32 si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 
 
 	return (R_REG(osh, &cc->pmustatus) & clk);
 }
+#endif /* defined(WLBTWUSB) || defined (USBAP) */

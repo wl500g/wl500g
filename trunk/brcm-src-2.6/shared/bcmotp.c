@@ -47,7 +47,7 @@
 #define OTP_MSG_VAL	0x0002
 #define OTP_DBG_VAL	0x0004
 
-uint32 otp_msg_level = OTP_ERR_VAL;
+static uint32 otp_msg_level = OTP_ERR_VAL;
 
 #if defined(BCMDBG) || defined(BCMDBG_ERR)
 #define OTP_ERR(args)	do {if (otp_msg_level & OTP_ERR_VAL) printf args;} while (0)
