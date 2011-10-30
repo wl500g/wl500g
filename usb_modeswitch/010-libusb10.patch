@@ -165,6 +165,15 @@ diff -uBp usb-modeswitch-1.2.0/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  
  int DefaultVendor=0, DefaultProduct=0, TargetVendor=0, TargetProduct=-1, TargetClass=0;
  int MessageEndpoint=0, ResponseEndpoint=0, ReleaseDelay=0;
+@@ -344,6 +473,8 @@ int main(int argc, char **argv)
+ {
+ 	int numDefaults=0, specialMode=0, sonySuccess=0;
+ 	int currentConfig=0, defaultClass=0, interfaceClass=0;
++	struct libusb_device_descriptor descriptor;
++	struct libusb_config_descriptor *config;
+ 
+ 	/* Make sure we have empty strings even if not set by config */
+ 	TargetProductList[0] = '\0';
 @@ -398,14 +527,11 @@ int main(int argc, char **argv)
  			printf("Note: target parameter missing; success check limited\n");
  
@@ -195,28 +204,26 @@ diff -uBp usb-modeswitch-1.2.0/usb_modeswitch.c usb_modeswitch/usb_modeswitch.c
  	} else {
  		SHOW_PROGRESS(output," No default device found. Is it connected? Bye.\n\n");
  		exit(0);
-@@ -448,8 +574,13 @@ int main(int argc, char **argv)
+@@ -448,8 +574,10 @@ int main(int argc, char **argv)
  	}
  
  	/* Get class of default device/interface */
 -	defaultClass = dev->descriptor.bDeviceClass;
 -	interfaceClass = get_interface0_class(dev, currentConfig);
-+	struct libusb_device_descriptor descriptor;
 +	libusb_get_device_descriptor(dev, &descriptor);
 +	defaultClass = descriptor.bDeviceClass;
-+	struct libusb_config_descriptor *config;
 +	libusb_get_config_descriptor(dev, 0, &config);
 +	interfaceClass = config->interface[0].altsetting[0].bInterfaceClass;
-+	libusb_free_config_descriptor(config);
  	if (interfaceClass == -1) {
  		fprintf(stderr, "Error: getting the interface class failed. Aborting.\n\n");
  		exit(1);
-@@ -465,7 +596,7 @@ int main(int argc, char **argv)
+@@ -465,7 +596,8 @@ int main(int argc, char **argv)
  		}
  
  	if (Interface == -1)
 -		Interface = dev->config[0].interface[0].altsetting[0].bInterfaceNumber;
 +		Interface = config->interface[0].altsetting[0].bInterfaceNumber;
++	libusb_free_config_descriptor(config);
  	SHOW_PROGRESS(output,"Using first interface: 0x%02x\n", Interface);
  
  	/* Check or get endpoints */
