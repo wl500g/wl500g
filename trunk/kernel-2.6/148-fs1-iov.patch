@@ -55,6 +55,7 @@ mm: buffered write iterator
  460bcf57b128ce1c0dd553d905fedc097f9955c6 Fix nobh_truncate_page() to not pass stack garbage to get_block()
  54566b2c1594c2326a645a3551f9d989f7ba3c5e fs: symlink write_begin allocation context fix
  c8236db9cd7aa492dcfcdcca702638e704abed49 mm: mark page accessed before we write_end()
+ 39be79c16f2b8eb07dd0d4e965cddfe39cc0534a vfs: iov_iter: have iov_iter_advance decrement nr_segs appropriately
 
 ---
  Documentation/filesystems/Locking |   17 
@@ -118,12 +119,12 @@ mm: buffered write iterator
  include/linux/buffer_head.h       |   25 +
  include/linux/fs.h                |   74 +++-
  include/linux/pagemap.h           |   14 
- mm/filemap.c                      |  516 +++++++++++++++++-----------
+ mm/filemap.c                      |  519 +++++++++++++++++-----------
  mm/filemap.h                      |  103 -----
  mm/filemap_xip.c                  |   17 
  mm/readahead.c                    |   24 -
  mm/shmem.c                        |   34 +
- 66 files changed, 2370 insertions(+), 1566 deletions(-)
+ 66 files changed, 2373 insertions(+), 1566 deletions(-)
 
 diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
 --- a/Documentation/filesystems/Locking
@@ -5946,7 +5947,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
  			const struct iovec *iov, size_t base, size_t bytes)
  {
  	size_t copied = 0, left = 0;
-@@ -1738,6 +1701,126 @@ __filemap_copy_from_user_iovec_inatomic(
+@@ -1738,6 +1701,129 @@ __filemap_copy_from_user_iovec_inatomic(
  }
  
  /*
@@ -6015,6 +6016,7 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 +	} else {
 +		const struct iovec *iov = i->iov;
 +		size_t base = i->iov_offset;
++		unsigned long nr_segs = i->nr_segs;
 +
 +		/*
 +		 * The !iov->iov_len check ensures we skip over unlikely
@@ -6030,11 +6032,13 @@ diff --git a/mm/filemap.c b/mm/filemap.c
 +			base += copy;
 +			if (iov->iov_len == base) {
 +				iov++;
++				nr_segs--;
 +				base = 0;
 +			}
 +		}
 +		i->iov = iov;
 +		i->iov_offset = base;
++		i->nr_segs = nr_segs;
 +	}
 +}
 +EXPORT_SYMBOL(iov_iter_advance);
