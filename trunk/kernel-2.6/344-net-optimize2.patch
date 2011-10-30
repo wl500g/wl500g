@@ -10,6 +10,7 @@
  70978182d431e0348e6ef711d0f962d12c03bc46 net: timestamp cloned packet in dev_queue_xmit_nit
  71d9dec24dce548bf699815c976cf063ad9257e2 net: increase skb->users instead of skb_clone()
  6e583ce5242f32e925dcb198f7123256d0798370 net: eliminate refcounting in backlog queue
+ b0691c8ee7c28a72748ff32e91b165ec12ae4de6 net: Unlock sock before calling sk_free()
 
 ---
  include/net/dst.h            |    6 +++-
@@ -17,6 +18,7 @@
  net/bluetooth/af_bluetooth.c |    5 +--
  net/core/datagram.c          |    5 +--
  net/core/dev.c               |   56 +++++++++++++++++++++++++++++--------------
+ net/core/sock.c              |    1 
  net/ipv4/af_inet.c           |    7 +----
  net/ipv4/arp.c               |    5 +--
  net/ipv4/icmp.c              |    8 +++---
@@ -28,7 +30,7 @@
  net/sched/sch_netem.c        |    9 ++++++
  net/sctp/socket.c            |    5 +--
  net/unix/af_unix.c           |    5 +--
- 16 files changed, 110 insertions(+), 84 deletions(-)
+ 17 files changed, 111 insertions(+), 84 deletions(-)
 
 diff --git a/include/net/dst.h b/include/net/dst.h
 --- a/include/net/dst.h
@@ -256,6 +258,17 @@ diff --git a/net/core/dev.c b/net/core/dev.c
  		netdev_wait_allrefs(dev);
  
  		/* paranoia */
+diff --git a/net/core/sock.c b/net/core/sock.c
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -1257,6 +1257,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
+ 			/* It is still raw copy of parent, so invalidate
+ 			 * destructor and make plain sk_free() */
+ 			newsk->sk_destruct = NULL;
++			bh_unlock_sock(newsk);
+ 			sk_free(newsk);
+ 			newsk = NULL;
+ 			goto out;
 diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
 --- a/net/ipv4/af_inet.c
 +++ b/net/ipv4/af_inet.c
