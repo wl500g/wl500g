@@ -657,6 +657,7 @@ BCMROMFN(bcmstrstr)(char *haystack, char *needle)
 	return (NULL);
 }
 
+#ifdef REMOVE
 char*
 BCMROMFN(bcmstrcat)(char *dest, const char *src)
 {
@@ -684,6 +685,7 @@ BCMROMFN(bcmstrncat)(char *dest, const char *src, uint size)
 
 	return (dest);
 }
+#endif /* REMOVE */
 
 /* parse a xx:xx:xx:xx:xx:xx format ethernet address */
 int

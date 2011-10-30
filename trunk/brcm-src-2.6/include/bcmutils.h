@@ -195,13 +195,14 @@ extern uint pktsetprio(void *pkt, bool update_vtag);
 extern int BCMROMFN(bcm_atoi)(char *s);
 extern ulong BCMROMFN(bcm_strtoul)(char *cp, char **endp, uint base);
 extern char *BCMROMFN(bcmstrstr)(char *haystack, char *needle);
+#if 0
 extern char *BCMROMFN(bcmstrcat)(char *dest, const char *src);
 extern char *BCMROMFN(bcmstrncat)(char *dest, const char *src, uint size);
-extern ulong wchar2ascii(char *abuf, ushort *wbuf, ushort wbuflen, ulong abuflen);
 char* bcmstrtok(char **string, const char *delimiters, char *tokdelim);
 int bcmstricmp(const char *s1, const char *s2);
 int bcmstrnicmp(const char* s1, const char* s2, int cnt);
-
+#endif
+extern ulong wchar2ascii(char *abuf, ushort *wbuf, ushort wbuflen, ulong abuflen);
 
 /* ethernet address */
 extern char *bcm_ether_ntoa(const struct ether_addr *ea, char *buf);
