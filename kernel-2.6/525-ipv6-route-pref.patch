@@ -1,0 +1,75 @@
+From dd3abc4ef52597ec8268274222574b2700ba3ded
+From: YOSHIFUJI Hideaki
+Date: Wed, 2 Jul 2008 18:30:18 +0900
+Subject: [PATCH] ipv6 route: Prefer outgoing interface with source address assigned.
+
+Outgoing interface is selected by the route decision if unspecified.
+Let's prefer routes via interface(s) with the address assigned if we
+have multiple routes with same cost.
+With help from Naohiro Ooiwa <nooiwa@miraclelinux.com>.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+---
+ net/ipv6/route.c |   20 ++++++++++++++++----
+ 1 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index dbad96c..5d6c166 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -237,15 +237,20 @@ static inline int rt6_need_strict(struct in6_addr *daddr)
+  */
+ 
+ static __inline__ struct rt6_info *rt6_device_match(struct rt6_info *rt,
++						    struct in6_addr *saddr,
+ 						    int oif,
+ 						    int strict)
+ {
+ 	struct rt6_info *local = NULL;
+ 	struct rt6_info *sprt;
+ 
+-	if (oif) {
+-		for (sprt = rt; sprt; sprt = sprt->u.dst.rt6_next) {
+-			struct net_device *dev = sprt->rt6i_dev;
++	if (!oif && ipv6_addr_any(saddr))
++		goto out;
++
++	for (sprt = rt; sprt; sprt = sprt->u.dst.rt6_next) {
++		struct net_device *dev = sprt->rt6i_dev;
++
++		if (oif) {
+ 			if (dev->ifindex == oif)
+ 				return sprt;
+ 			if (dev->flags & IFF_LOOPBACK) {
+@@ -259,14 +264,20 @@ static inline struct rt6_info *rt6_device_match(
+ 				}
+ 				local = sprt;
+ 			}
++		} else {
++			if (ipv6_chk_addr(saddr, dev, strict))
++				return sprt;
+ 		}
++	}
+ 
++	if (oif) {
+ 		if (local)
+ 			return local;
+ 
+ 		if (strict)
+ 			return &ip6_null_entry;
+ 	}
++out:
+ 	return rt;
+ }
+ 
+@@ -539,7 +551,7 @@ static struct rt6_info *ip6_pol_route_lookup(
+ 	fn = fib6_lookup(&table->tb6_root, &fl->fl6_dst, &fl->fl6_src);
+ restart:
+ 	rt = fn->leaf;
+-	rt = rt6_device_match(rt, fl->oif, flags);
++	rt = rt6_device_match(rt, &fl->fl6_src, fl->oif, flags);
+ 	BACKTRACK(&fl->fl6_src);
+ out:
+ 	dst_use(&rt->u.dst, jiffies);
+-- 
+1.7.6.2
