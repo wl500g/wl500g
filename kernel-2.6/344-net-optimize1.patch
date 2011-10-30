@@ -9,19 +9,9 @@ Subject: [PATCH] net: minor backports from kernel 2.6 upstream
  e1e992e52faa588667e1378a2573b4b8e3fa6670 [NET_SCHED] protect action config/dump from irqs
  4878809f711981a602cc562eb47994fc81ea0155 [NET]: Fix two issues wrt. SO_BINDTODEVICE
  72e09ad107e78d69ff4d3b97a69f0aad2b77280f ipv6: avoid high order allocations
+ b0691c8ee7c28a72748ff32e91b165ec12ae4de6 net: Unlock sock before calling sk_free()
 
 ---
- net/bridge/br_device.c  |    4 -
- net/bridge/br_forward.c |   21 ++-------
- net/bridge/br_input.c   |   48 +++++++++------------
- net/bridge/br_private.h |    8 ---
- net/core/sock.c         |  106 ++++++++++++++++++++++++++----------------------
- net/ipv4/tcp_output.c   |    2 
- net/ipv6/mcast.c        |    5 +-
- net/sched/act_api.c     |    8 +--
- net/sched/act_police.c  |    4 -
- net/socket.c            |    1 
- 10 files changed, 101 insertions(+), 106 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
 index 34fce6b..058ca7b 100644
