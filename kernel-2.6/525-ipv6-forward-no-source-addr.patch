@@ -1,0 +1,29 @@
+From f81b2e7d8cf8c6a52b7a5224c3b89cee5aeb6811
+From: YOSHIFUJI Hideaki
+Date: Wed, 25 Jun 2008 16:55:26 +0900
+Subject: [PATCH] ipv6: Do not forward packets with the unspecified source address.
+
+RFC4291 2.5.2.
+
+Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+
+---
+ net/ipv6/ip6_output.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index fd7cd1b..871bdec 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -498,7 +498,8 @@ int ip6_forward(struct sk_buff *skb)
+ 		int addrtype = ipv6_addr_type(&hdr->saddr);
+ 
+ 		/* This check is security critical. */
+-		if (addrtype & (IPV6_ADDR_MULTICAST|IPV6_ADDR_LOOPBACK))
++		if (addrtype == IPV6_ADDR_ANY ||
++		    addrtype & (IPV6_ADDR_MULTICAST | IPV6_ADDR_LOOPBACK))
+ 			goto error;
+ 		if (addrtype & IPV6_ADDR_LINKLOCAL) {
+ 			icmpv6_send(skb, ICMPV6_DEST_UNREACH,
+-- 
+1.7.6.2
