@@ -54,7 +54,6 @@ CONFIG_EMF=y
 #
 # Asus stuff
 #
-# CONFIG_PPTP is not set
 CONFIG_ACCEL_PPTP=y
 CONFIG_PPPOERELAY=y
 # CONFIG_EZIPUPDATE is not set

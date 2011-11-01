@@ -247,10 +247,6 @@ endmenu
 
 menu "Asus stuff"
 
-config CONFIG_PPTP
-	bool "PPTP client"
-	default n
-
 config CONFIG_ACCEL_PPTP
 	bool "Accelerated PPTP driver"
 	default y

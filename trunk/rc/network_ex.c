@@ -68,9 +68,6 @@ int start_pppd(char *prefix)
        	       	
        	if (nvram_match(strcat_r(prefix, "proto", tmp), "pptp")) {
 #ifdef __CONFIG_ACCEL_PPTP__
-#ifdef __CONFIG_PPTP__
-	    if (!nvram_match(strcat_r(prefix, "pptp_kernel", tmp), "0"))
-#endif
 	    {
 		fprintf(fp, "plugin pptp.so\n");
 		fprintf(fp, "pptp_server %s\n", 
@@ -78,19 +75,6 @@ int start_pppd(char *prefix)
    			nvram_safe_get("wan_heartbeat_x") : 
    			nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
  	    }
-#ifdef __CONFIG_PPTP__
-	    else
-#endif
-#endif
-#ifdef __CONFIG_PPTP__
-	    {
-		fprintf(fp, "connect true\n");    
-		fprintf(fp, "sync pty '/usr/sbin/pptp --idle-wait 0 %s --nolaunchpppd --nobuffer --sync'\n", 
-   			nvram_invmatch("wan_heartbeat_x", "") ?
-   			nvram_safe_get("wan_heartbeat_x") : 
-   			nvram_safe_get(strcat_r(prefix, "pppoe_gateway", tmp))); 
-		fprintf(fp, "lock\n");
-	    }
 #endif
 	    /* see KB Q189595 -- historyless & mtu */
 	    fprintf(fp, "nomppe-stateful %s mtu 1400\n",
