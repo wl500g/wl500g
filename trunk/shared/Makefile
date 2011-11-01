@@ -29,10 +29,6 @@ ifeq ($(CONFIG_BCMWL5),y)
 OBJS += wlif_utils.o UdpLib.o
 endif
 
-ifeq ($(CONFIG_SENTRY5),y)
-include $(TOP)/shared/Makefiles5.mk
-endif
-
 all: libshared.so
 
 defaults.o: defaults.c flash.default

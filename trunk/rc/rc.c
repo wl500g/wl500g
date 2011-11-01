@@ -469,17 +469,6 @@ restore_defaults(void)
 	};
 
 
-#ifdef CONFIG_SENTRY5
-#include "rcs5.h"
-#else
-#define RC1_START() 
-#define RC1_STOP()  
-#define RC7_START()
-#define RC7_STOP()
-#define LINUX_OVERRIDES() 
-#define EXTRA_RESTORE_DEFAULTS() 
-#endif
-
 	struct nvram_tuple *linux_overrides;
 	struct nvram_tuple *t, *u;
 	int restore_defaults, i;
@@ -553,9 +542,6 @@ canned_config:
 			linux_overrides = vlan;
 		else
 			linux_overrides = generic;
-
-		/* override the above linux_overrides with a different table */
-		LINUX_OVERRIDES();
 	}
 
 	if (router_model == MDL_WL500GX)
@@ -588,7 +574,6 @@ canned_config:
 
 	/* Commit values */
 	if (restore_defaults) {
-		EXTRA_RESTORE_DEFAULTS();
 		/* default value of vlan */
 		nvram_commit();		
 		cprintf("done\n");
@@ -1080,7 +1065,7 @@ main(int argc, char **argv)
 			if (step>=2)
 				set_wan0_vars();
 			if (step>=3)
-				RC1_START();
+				start_vlan();
 			if (step>=4)
 				start_lan();
 		}
