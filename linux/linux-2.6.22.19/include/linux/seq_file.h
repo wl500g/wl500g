@@ -42,7 +42,7 @@ int seq_putc(struct seq_file *m, char c);
 int seq_puts(struct seq_file *m, const char *s);
 
 int seq_printf(struct seq_file *, const char *, ...)
-	__attribute__ ((format (printf,2,3)));
+	__printf(2, 3);
 
 int seq_path(struct seq_file *, const struct path *, const char *);
 

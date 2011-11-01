@@ -20,9 +20,9 @@
 #include <linux/types.h>
 
 extern void panic(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 extern int printk(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 extern void schedule(void);
 extern int in_aton(char *str);
 extern int open_gdb_chan(void);

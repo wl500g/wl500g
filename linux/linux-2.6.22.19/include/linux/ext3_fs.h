@@ -936,12 +936,12 @@ extern int ext3_group_extend(struct super_block *sb,
 
 /* super.c */
 extern void ext3_error (struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void __ext3_std_error (struct super_block *, const char *, int);
 extern void ext3_abort (struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void ext3_warning (struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void ext3_update_dynamic_rev (struct super_block *sb);
 
 #define ext3_std_error(sb, errno)				\

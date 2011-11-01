@@ -38,7 +38,7 @@ extern u32 pmtmr_ioport;
 #endif
 extern int nohpet;
 
-extern void early_printk(const char *fmt, ...) __attribute__((format(printf,1,2)));
+extern void early_printk(const char *fmt, ...) __printf(1, 2);
 
 extern void early_identify_cpu(struct cpuinfo_x86 *c);
 

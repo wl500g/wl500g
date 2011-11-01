@@ -436,7 +436,7 @@ extern int __must_check device_reprobe(struct device *dev);
  */
 extern struct device *device_create(struct class *cls, struct device *parent,
 				    dev_t devt, const char *fmt, ...)
-				    __attribute__((format(printf,4,5)));
+				    __printf(4, 5);
 extern void device_destroy(struct class *cls, dev_t devt);
 
 /*
@@ -475,7 +475,7 @@ extern const char *dev_driver_string(const struct device *dev);
 #define dev_dbg(dev, format, arg...)		\
 	dev_printk(KERN_DEBUG , dev , format , ## arg)
 #else
-static inline int __attribute__ ((format (printf, 2, 3)))
+static inline int __printf(2, 3)
 dev_dbg(const struct device * dev, const char * fmt, ...)
 {
 	return 0;

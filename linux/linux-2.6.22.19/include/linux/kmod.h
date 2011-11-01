@@ -28,7 +28,7 @@
 #ifdef CONFIG_KMOD
 /* modprobe exit status on success, -ve on error.  Return value
  * usually useless though. */
-extern int request_module(const char * name, ...) __attribute__ ((format (printf, 1, 2)));
+extern int request_module(const char * name, ...) __printf(1, 2);
 #else
 static inline int request_module(const char * name, ...) { return -ENOSYS; }
 #endif

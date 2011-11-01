@@ -780,7 +780,7 @@ svc_register(struct svc_serv *serv, int proto, unsigned short port)
  * Printk the given error with the address of the client that caused it.
  */
 static int
-__attribute__ ((format (printf, 2, 3)))
+__printf(2, 3)
 svc_printk(struct svc_rqst *rqstp, const char *fmt, ...)
 {
 	va_list args;

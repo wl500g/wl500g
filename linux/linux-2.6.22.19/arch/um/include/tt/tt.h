@@ -20,7 +20,7 @@ extern int do_proc_op(void *t, int proc_id);
 extern int tracer(int (*init_proc)(void *), void *sp);
 extern void attach_process(int pid);
 extern void tracer_panic(char *format, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 extern void set_init_pid(int pid);
 extern int set_user_mode(void *task);
 extern void set_tracing(void *t, int tracing);

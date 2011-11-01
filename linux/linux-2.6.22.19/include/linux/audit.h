@@ -496,12 +496,12 @@ extern int audit_signals;
 				/* Public API */
 extern void		    audit_log(struct audit_context *ctx, gfp_t gfp_mask,
 				      int type, const char *fmt, ...)
-				      __attribute__((format(printf,4,5)));
+				      __printf(4, 5);
 
 extern struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask, int type);
 extern void		    audit_log_format(struct audit_buffer *ab,
 					     const char *fmt, ...)
-			    __attribute__((format(printf,2,3)));
+			    __printf(2, 3);
 extern void		    audit_log_end(struct audit_buffer *ab);
 extern void		    audit_log_hex(struct audit_buffer *ab,
 					  const unsigned char *buf,

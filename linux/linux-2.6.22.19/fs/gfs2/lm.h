@@ -18,7 +18,7 @@ int gfs2_lm_mount(struct gfs2_sbd *sdp, int silent);
 void gfs2_lm_others_may_mount(struct gfs2_sbd *sdp);
 void gfs2_lm_unmount(struct gfs2_sbd *sdp);
 int gfs2_lm_withdraw(struct gfs2_sbd *sdp, char *fmt, ...)
-				__attribute__ ((format(printf, 2, 3)));
+				__printf(2, 3);
 int gfs2_lm_get_lock(struct gfs2_sbd *sdp, struct lm_lockname *name,
 		     void **lockp);
 void gfs2_lm_put_lock(struct gfs2_sbd *sdp, void *lock);

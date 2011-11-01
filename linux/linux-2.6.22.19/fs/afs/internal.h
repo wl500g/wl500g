@@ -727,7 +727,7 @@ extern unsigned afs_debug;
 	printk("[%x%-6.6s] "FMT"\n", smp_processor_id(), current->comm ,##__VA_ARGS__)
 
 /* make sure we maintain the format strings, even when debugging is disabled */
-static inline __attribute__((format(printf,1,2)))
+static inline __printf(1, 2)
 void _dbprintk(const char *fmt, ...)
 {
 }

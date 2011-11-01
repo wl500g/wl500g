@@ -330,11 +330,11 @@ void release_and_free_resource(struct resource *res);
 
 #ifdef CONFIG_SND_VERBOSE_PRINTK
 void snd_verbose_printk(const char *file, int line, const char *format, ...)
-     __attribute__ ((format (printf, 3, 4)));
+     __printf(3, 4);
 #endif
 #if defined(CONFIG_SND_DEBUG) && defined(CONFIG_SND_VERBOSE_PRINTK)
 void snd_verbose_printd(const char *file, int line, const char *format, ...)
-     __attribute__ ((format (printf, 3, 4)));
+     __printf(3, 4);
 #endif
 
 /* --- */

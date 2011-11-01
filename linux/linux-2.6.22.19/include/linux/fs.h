@@ -2063,7 +2063,7 @@ static const struct file_operations __fops = {				\
 	.write	 = simple_attr_write,					\
 };
 
-static inline void __attribute__((format(printf, 1, 2)))
+static inline void __printf(1, 2)
 __simple_attr_check_format(const char *fmt, ...)
 {
 	/* don't do anything, just let the compiler check the arguments; */

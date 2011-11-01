@@ -63,7 +63,7 @@ struct {
  * FIXME: causes an extra copy
  */
 static void printl(const char *fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 
 static void printl(const char *fmt, ...)
 {

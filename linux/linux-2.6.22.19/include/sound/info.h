@@ -104,7 +104,7 @@ extern struct snd_info_entry *snd_oss_root;
 #define snd_oss_root NULL
 #endif
 
-int snd_iprintf(struct snd_info_buffer * buffer, char *fmt,...) __attribute__ ((format (printf, 2, 3)));
+int snd_iprintf(struct snd_info_buffer * buffer, char *fmt,...) __printf(2, 3);
 int snd_info_init(void);
 int snd_info_done(void);
 

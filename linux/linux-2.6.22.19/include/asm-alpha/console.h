@@ -63,7 +63,7 @@ extern int srm_fixup(unsigned long new_callback_addr,
 		     unsigned long new_hwrpb_addr);
 extern long srm_puts(const char *, long);
 extern long srm_printk(const char *, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 
 struct crb_struct;
 struct hwrpb_struct;

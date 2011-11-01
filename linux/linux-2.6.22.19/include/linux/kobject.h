@@ -60,7 +60,7 @@ struct kobject {
 };
 
 extern int kobject_set_name(struct kobject *, const char *, ...)
-	__attribute__((format(printf,2,3)));
+	__printf(2, 3);
 
 static inline const char * kobject_name(const struct kobject * kobj)
 {
@@ -262,7 +262,7 @@ int kobject_uevent_env(struct kobject *kobj, enum kobject_action action,
 int add_uevent_var(char **envp, int num_envp, int *cur_index,
 			char *buffer, int buffer_size, int *cur_len,
 			const char *format, ...)
-	__attribute__((format (printf, 7, 8)));
+	__printf(7, 8);
 #else
 static inline int kobject_uevent(struct kobject *kobj, enum kobject_action action)
 { return 0; }

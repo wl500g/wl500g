@@ -162,19 +162,19 @@ extern long simple_strtol(const char *,char **,unsigned int);
 extern unsigned long long simple_strtoull(const char *,char **,unsigned int);
 extern long long simple_strtoll(const char *,char **,unsigned int);
 extern int sprintf(char * buf, const char * fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__printf(2, 3);
 extern int vsprintf(char *buf, const char *, va_list)
-	__attribute__ ((format (printf, 2, 0)));
+	__printf(2, 0);
 extern int snprintf(char * buf, size_t size, const char * fmt, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
-	__attribute__ ((format (printf, 3, 0)));
+	__printf(3, 0);
 extern int scnprintf(char * buf, size_t size, const char * fmt, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern int vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
-	__attribute__ ((format (printf, 3, 0)));
+	__printf(3, 0);
 extern char *kasprintf(gfp_t gfp, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__printf(2, 3);
 extern char *kvasprintf(gfp_t gfp, const char *fmt, va_list args);
 
 extern int sscanf(const char *, const char *, ...)
@@ -196,9 +196,9 @@ extern void dump_thread(struct pt_regs *regs, struct user *dump);
 
 #ifdef CONFIG_PRINTK
 asmlinkage int vprintk(const char *fmt, va_list args)
-	__attribute__ ((format (printf, 1, 0)));
+	__printf(1, 0);
 asmlinkage int printk(const char * fmt, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 
 /*
  * Print a one-time message (analogous to WARN_ONCE() et al):
@@ -214,10 +214,10 @@ asmlinkage int printk(const char * fmt, ...)
 
 #else
 static inline int vprintk(const char *s, va_list args)
-	__attribute__ ((format (printf, 1, 0)));
+	__printf(1, 0);
 static inline int vprintk(const char *s, va_list args) { return 0; }
 static inline int printk(const char *s, ...)
-	__attribute__ ((format (printf, 1, 2)));
+	__printf(1, 2);
 static inline int printk(const char *s, ...) { return 0; }
 
 /* No effect, but we still get type checking even in the !PRINTK case: */

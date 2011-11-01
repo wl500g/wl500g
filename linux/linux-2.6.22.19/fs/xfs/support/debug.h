@@ -28,9 +28,9 @@
 #define CE_PANIC        0               /* panic        */
 
 extern void icmn_err(int, char *, va_list)
-	__attribute__ ((format (printf, 2, 0)));
+	__printf(2, 0);
 extern void cmn_err(int, char *, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__printf(2, 3);
 extern void assfail(char *expr, char *f, int l);
 
 #define ASSERT_ALWAYS(expr)	\

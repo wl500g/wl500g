@@ -1609,17 +1609,17 @@ extern int ext4_group_extend(struct super_block *sb,
 
 /* super.c */
 extern void ext4_error(struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void __ext4_std_error(struct super_block *, const char *, int);
 extern void ext4_abort(struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void ext4_warning(struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void ext4_msg(struct super_block *, const char *, const char *, ...)
-	__attribute__ ((format (printf, 3, 4)));
+	__printf(3, 4);
 extern void ext4_grp_locked_error(struct super_block *, ext4_group_t,
 				const char *, const char *, ...)
-	__attribute__ ((format (printf, 4, 5)));
+	__printf(4, 5);
 extern void ext4_update_dynamic_rev(struct super_block *sb);
 extern int ext4_update_compat_feature(handle_t *handle, struct super_block *sb,
 					__u32 compat);

@@ -81,7 +81,7 @@ static inline void gameport_register_port(struct gameport *gameport)
 void gameport_unregister_port(struct gameport *gameport);
 
 void gameport_set_phys(struct gameport *gameport, const char *fmt, ...)
-	__attribute__ ((format (printf, 2, 3)));
+	__printf(2, 3);
 
 #else
 

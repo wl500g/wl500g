@@ -15,7 +15,7 @@
 #include <linux/key-type.h>
 #include <linux/key-ui.h>
 
-static inline __attribute__((format(printf, 1, 2)))
+static inline __printf(1, 2)
 void no_printk(const char *fmt, ...)
 {
 }
