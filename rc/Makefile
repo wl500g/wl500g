@@ -43,10 +43,6 @@ ifeq ($(CONFIG_UPNP),y)
 LDFLAGS += -L$(TOP)/netconf -lnetconf
 endif
 
-ifeq ($(CONFIG_SENTRY5),y)
-include $(TOP)/rc/Makefiles5.mk
-endif
-
 vpath %.c $(SRCBASE)/rts/src
 
 all: rc

@@ -201,7 +201,6 @@ config_loopback(void)
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
 }
 
-#ifndef CONFIG_SENTRY5
 /* configure/start vlan interface(s) based on nvram settings */
 int
 start_vlan(void)
@@ -291,7 +290,6 @@ stop_vlan(void)
 
 	return 0;
 }
-#endif
 
 #ifdef __CONFIG_IPV6__
 int

@@ -554,19 +554,3 @@ config EXTRACFLAGS
        Specify the extra C compiler flags (if necessary).
 
 endmenu
-
-menu "Internal Options"
-
-config CONFIG_SENTRY5
-       bool "Sentry5 Features Enable"
-       default y
-       help
-       Answer Y for the Sentry5 Features compilation enable.
-
-config CONFIG_ROBO
-       bool "Robo switch configuration"
-       default y
-       help
-       Answer Y for the user mode Robo switch configuration utility.
-
-endmenu
