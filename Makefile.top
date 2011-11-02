@@ -143,7 +143,6 @@ obj-$(CONFIG_UTILS) += utils
 obj-$(CONFIG_ETC) += etc
 
 # Added by Joey for ASUS application
-obj-$(CONFIG_PPTP) += pptp
 obj-$(CONFIG_ACCEL_PPTP) += accel-pptp
 obj-$(CONFIG_PPPOERELAY) += rp-pppoe
 obj-$(CONFIG_EZIPUPDATE) += ez-ipupdate
@@ -488,7 +487,7 @@ MANPAGES-y := busybox/docs/BusyBox.1 \
 	    dropbear/dbclient.1 dropbear/dropbear.8 dropbear/dropbearkey.8 \
 	    igmpproxy/doc/igmpproxy.8 igmpproxy/doc/igmpproxy.conf.5 \
 	    iptables/iptables.8 iptables/iptables-restore.8 iptables/iptables-save.8 \
-	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 pptp/pptp.8 \
+	    p910nd/p910nd.8 ppp/chat/chat.8 ppp/pppd/pppd.8 \
 	    ucd-snmp/man/snmpd.1 ucd-snmp/man/snmpd.conf.5 \
 	    vsftpd/vsftpd.8 vsftpd/vsftpd.conf.5
 
@@ -750,10 +749,6 @@ miniupnpd-clean:
 	$(MAKE) -C miniupnpd -f Makefile.linux clean
 
 wlconf: nvram shared
-
-pptp-install: pptp
-	install -D pptp/pptp $(INSTALLDIR)/pptp/usr/sbin/pptp
-	$(STRIP) $(INSTALLDIR)/pptp/usr/sbin/pptp
 
 ppp/Makefile: ppp/linux/Makefile.top
 	cd ppp && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
