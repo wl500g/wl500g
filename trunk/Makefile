@@ -38,7 +38,6 @@ MINIUPNPD=miniupnpd-1.6
 PPP=ppp-2.4.5
 RP-PPPOE=rp-pppoe-3.10
 ACCEL-PPTP=accel-pptp-git-20100829
-PPTP=pptp-1.7.1
 LZMA=lzma457
 NFSUTILS=nfs-utils-1.1.6
 PORTMAP=portmap_6
@@ -86,7 +85,7 @@ all: prep custom
 	@true
 
 custom:	$(TOP)/.config loader busybox dropbear dnsmasq p910nd samba iproute2 iptables \
-	ppp pptp rp-l2tp rp-pppoe accel-pptp xl2tpd \
+	ppp rp-l2tp rp-pppoe accel-pptp xl2tpd \
 	nfs-utils portmap radvd quagga ucd-snmp igmpproxy vsftpd udpxy \
 	bpalogin bridge ez-ipupdate inadyn httpd libjpeg lib LPRng \
 	misc netconf nvram others rc mjpg-streamer udev hotplug2 \
@@ -405,17 +404,6 @@ $(TOP)/igmpproxy: igmpproxy/$(IGMPPROXY).tar.gz
 	mv $(TOP)/$(IGMPPROXY) $@ && touch $@
 
 igmpproxy: $(TOP)/igmpproxy
-	@true
-
-pptp_Patches := $(call patches_list,pptp)
-
-$(TOP)/pptp: pptp/$(PPTP).tar.gz
-	@rm -rf $(TOP)/$(PPTP) $@
-	tar -xzf $^ -C $(TOP)
-	$(PATCHER) -Z $(TOP)/$(PPTP) $(pptp_Patches)
-	mv $(TOP)/$(PPTP) $@ && touch $@
-
-pptp: $(TOP)/pptp
 	@true
 
 udpxy_Patches := $(call patches_list,udpxy)
