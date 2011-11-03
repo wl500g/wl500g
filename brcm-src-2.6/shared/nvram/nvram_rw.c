@@ -333,8 +333,7 @@ BCMINITFN(_nvram_realloc)(struct nvram_tuple *t, const char *name, const char *v
 void
 BCMINITFN(_nvram_free)(struct nvram_tuple *t)
 {
-	if (t)
-		MFREE(NULL, t, sizeof(struct nvram_tuple) + strlen(t->name) + 1 +
+	MFREE(NULL, t, sizeof(struct nvram_tuple) + strlen(t->name) + 1 +
 		      strlen(t->value) + 1);
 }
 

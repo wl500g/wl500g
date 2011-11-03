@@ -141,8 +141,6 @@ pcicore_deinit(void *pch)
 {
 	pcicore_info_t *pi = (pcicore_info_t *)pch;
 
-	if (pi == NULL)
-		return;
 	MFREE(pi->osh, pi, sizeof(pcicore_info_t));
 }
 

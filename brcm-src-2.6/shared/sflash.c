@@ -569,7 +569,6 @@ sflash_commit(si_t *sih, chipcregs_t *cc, uint offset, uint len, const uchar *bu
 
 	ret = len;
 done:
-	if (block)
-		MFREE(osh, block, blocksize);
+	MFREE(osh, block, blocksize);
 	return ret;
 }
