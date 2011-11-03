@@ -15,6 +15,19 @@
 #ifndef _bcm_robo_h_
 #define _bcm_robo_h_
 
+/* MII access registers */
+#define PSEUDO_PHYAD	0x1E	/* MII Pseudo PHY address */
+#define REG_MII_CTRL    0x00    /* 53115 MII control register */
+#define REG_MII_PAGE	0x10	/* MII Page register */
+#define REG_MII_ADDR	0x11	/* MII Address register */
+#define REG_MII_DATA0	0x18	/* MII Data register 0 */
+#define REG_MII_DATA1	0x19	/* MII Data register 1 */
+#define REG_MII_DATA2	0x1a	/* MII Data register 2 */
+#define REG_MII_DATA3	0x1b	/* MII Data register 3 */
+#define REG_MII_BRCM_TEST	0x1f	/* Broadcom test register */
+#define REG_MII_AUX_STATUS2	0x1b	/* Auxiliary status 2 register */
+#define REG_MII_AUTO_PWRDOWN	0x1C	/* 53115 Auto power down register */
+
 #define	DEVID5325	0x25	/* 5325 (Not really but we fake it) */
 #define	DEVID5395	0x95	/* 5395 */
 #define	DEVID5397	0x97	/* 5397 */
@@ -74,7 +87,7 @@ struct robo_info_s {
 	miird_f	miird;
 	miiwr_f	miiwr;
 
-	uint16	prev_status;		/* link status of switch ports */
+//	uint16	prev_status;		/* link status of switch ports */
 	uint32	pwrsave_mode_manual; 	/* bitmap of ports in manual power save */
 	uint32	pwrsave_mode_auto; 	/* bitmap of ports in auto power save mode */
 	uint8	pwrsave_phys; 		/* Phys that can be put into power save mode */
