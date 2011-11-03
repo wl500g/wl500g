@@ -291,7 +291,7 @@ usage(char *av0)
 		"\tphywr [<phyaddr>] <reg> <val>\n"
 		"\trobord <page> <reg>\n"
 		"\trobowr <page> <reg> <val>\n"
-		"\tswitch_mode <phy> <mode> (mode 0, 1, 2, 3)\n"
+		"\tswitch_mode <phy> [<mode>] (mode 0, 1, 2, 3)\n"
 		,		
 		av0);
 	exit(1);
