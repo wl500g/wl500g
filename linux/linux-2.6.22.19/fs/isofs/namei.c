@@ -111,6 +111,13 @@ isofs_find_entry(struct inode *dir, struct dentry *dentry,
 
 		dlen = de->name_len[0];
 		dpnt = de->name;
+		/* Basic sanity check, whether name doesn't exceed dir entry */
+		if (de_len < dlen + sizeof(struct iso_directory_record)) {
+			printk(KERN_NOTICE "iso9660: Corrupted directory entry"
+			       " in block %lu of inode %lu\n", block,
+			       dir->i_ino);
+			return 0;
+		}
 
 		if (sbi->s_rock &&
 		    ((i = get_rock_ridge_filename(de, tmpname, dir)))) {
@@ -135,9 +142,9 @@ isofs_find_entry(struct inode *dir, struct dentry *dentry,
 		 */
 		match = 0;
 		if (dlen > 0 &&
-			(sbi->s_hide =='n' ||
+			(!sbi->s_hide ||
 				(!(de->flags[-sbi->s_high_sierra] & 1))) &&
-			(sbi->s_showassoc =='y' ||
+			(sbi->s_showassoc ||
 				(!(de->flags[-sbi->s_high_sierra] & 4)))) {
 			match = (isofs_cmp(dentry, dpnt, dlen) == 0);
 		}

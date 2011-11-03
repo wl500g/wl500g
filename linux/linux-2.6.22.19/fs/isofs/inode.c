@@ -21,6 +21,7 @@
 #include <linux/statfs.h>
 #include <linux/cdrom.h>
 #include <linux/parser.h>
+#include <linux/mpage.h>
 
 #include "isofs.h"
 #include "zisofs.h"
@@ -136,20 +137,24 @@ static struct dentry_operations isofs_dentry_ops[] = {
 };
 
 struct iso9660_options{
-	char map;
-	char rock;
-	char joliet;
-	char cruft;
-	char hide;
-	char showassoc;
-	char nocompress;
+	unsigned int rock:1;
+	unsigned int joliet:1;
+	unsigned int cruft:1;
+	unsigned int hide:1;
+	unsigned int showassoc:1;
+	unsigned int nocompress:1;
+	unsigned int overriderockperm:1;
+	unsigned int uid_set:1;
+	unsigned int gid_set:1;
+	unsigned int utf8:1;
+	unsigned char map;
 	unsigned char check;
 	unsigned int blocksize;
-	mode_t mode;
+	mode_t fmode;
+	mode_t dmode;
 	gid_t gid;
 	uid_t uid;
 	char *iocharset;
-	unsigned char utf8;
         /* LVE */
         s32 session;
         s32 sbsector;
@@ -197,7 +202,7 @@ isofs_hashi_common(struct dentry *dentry, struct qstr *qstr, int ms)
 	hash = init_name_hash();
 	while (len--) {
 		c = tolower(*name++);
-		hash = partial_name_hash(tolower(c), hash);
+		hash = partial_name_hash(c, hash);
 	}
 	qstr->hash = end_name_hash(hash);
 
@@ -306,7 +311,7 @@ enum {
 	Opt_block, Opt_check_r, Opt_check_s, Opt_cruft, Opt_gid, Opt_ignore,
 	Opt_iocharset, Opt_map_a, Opt_map_n, Opt_map_o, Opt_mode, Opt_nojoliet,
 	Opt_norock, Opt_sb, Opt_session, Opt_uid, Opt_unhide, Opt_utf8, Opt_err,
-	Opt_nocompress, Opt_hide, Opt_showassoc,
+	Opt_nocompress, Opt_hide, Opt_showassoc, Opt_dmode, Opt_overriderockperm,
 };
 
 static match_table_t tokens = {
@@ -333,6 +338,8 @@ static match_table_t tokens = {
 	{Opt_uid, "uid=%u"},
 	{Opt_gid, "gid=%u"},
 	{Opt_mode, "mode=%u"},
+	{Opt_dmode, "dmode=%u"},
+	{Opt_overriderockperm, "overriderockperm"},
 	{Opt_block, "block=%u"},
 	{Opt_ignore, "conv=binary"},
 	{Opt_ignore, "conv=b"},
@@ -352,22 +359,22 @@ static int parse_options(char *options, struct iso9660_options *popt)
 	int option;
 
 	popt->map = 'n';
-	popt->rock = 'y';
-	popt->joliet = 'y';
-	popt->cruft = 'n';
-	popt->hide = 'n';
-	popt->showassoc = 'n';
+	popt->rock = 1;
+	popt->joliet = 1;
+	popt->cruft = 0;
+	popt->hide = 0;
+	popt->showassoc = 0;
 	popt->check = 'u';		/* unset */
 	popt->nocompress = 0;
 	popt->blocksize = 1024;
-	popt->mode = S_IRUGO | S_IXUGO; /* r-x for all.  The disc could
-					   be shared with DOS machines so
-					   virtually anything could be
-					   a valid executable. */
+	popt->fmode = popt->dmode = ISOFS_INVALID_MODE;
+	popt->uid_set = 0;
+	popt->gid_set = 0;
 	popt->gid = 0;
 	popt->uid = 0;
 	popt->iocharset = NULL;
 	popt->utf8 = 0;
+	popt->overriderockperm = 0;
 	popt->session=-1;
 	popt->sbsector=-1;
 	if (!options)
@@ -384,20 +391,20 @@ static int parse_options(char *options, struct iso9660_options *popt)
 		token = match_token(p, tokens, args);
 		switch (token) {
 		case Opt_norock:
-			popt->rock = 'n';
+			popt->rock = 0;
 			break;
 		case Opt_nojoliet:
-			popt->joliet = 'n';
+			popt->joliet = 0;
 			break;
 		case Opt_hide:
-			popt->hide = 'y';
+			popt->hide = 1;
 			break;
 		case Opt_unhide:
 		case Opt_showassoc:
-			popt->showassoc = 'y';
+			popt->showassoc = 1;
 			break;
 		case Opt_cruft:
-			popt->cruft = 'y';
+			popt->cruft = 1;
 			break;
 		case Opt_utf8:
 			popt->utf8 = 1;
@@ -441,16 +448,26 @@ static int parse_options(char *options, struct iso9660_options *popt)
 			if (match_int(&args[0], &option))
 				return 0;
 			popt->uid = option;
+			popt->uid_set = 1;
 			break;
 		case Opt_gid:
 			if (match_int(&args[0], &option))
 				return 0;
 			popt->gid = option;
+			popt->gid_set = 1;
 			break;
 		case Opt_mode:
 			if (match_int(&args[0], &option))
 				return 0;
-			popt->mode = option;
+			popt->fmode = option;
+			break;
+		case Opt_dmode:
+			if (match_int(&args[0], &option))
+				return 0;
+			popt->dmode = option;
+			break;
+		case Opt_overriderockperm:
+			popt->overriderockperm = 1;
 			break;
 		case Opt_block:
 			if (match_int(&args[0], &option))
@@ -609,7 +626,7 @@ static int isofs_fill_super(struct super_block *s, void *data, int silent)
 		else if (isonum_711 (vdp->type) == ISO_VD_SUPPLEMENTARY) {
 		    sec = (struct iso_supplementary_descriptor *)vdp;
 		    if (sec->escape[0] == 0x25 && sec->escape[1] == 0x2f) {
-			if (opt.joliet == 'y') {
+			if (opt.joliet) {
 			    if (sec->escape[2] == 0x40) {
 				joliet_level = 1;
 			    } else if (sec->escape[2] == 0x43) {
@@ -633,7 +650,7 @@ static int isofs_fill_super(struct super_block *s, void *data, int silent)
 		        goto out_freebh;
 		
 		    sbi->s_high_sierra = 1;
-		    opt.rock = 'n';
+		    opt.rock = 0;
 		    h_pri = (struct hs_primary_descriptor *)vdp;
 		    goto root_found;
 		}
@@ -656,7 +673,7 @@ static int isofs_fill_super(struct super_block *s, void *data, int silent)
 
 root_found:
 
-	if (joliet_level && (pri == NULL || opt.rock == 'n')) {
+	if (joliet_level && (pri == NULL || !opt.rock)) {
 	    /* This is the case of Joliet with the norock mount flag.
 	     * A disc with both Joliet and Rock Ridge is handled later
 	     */
@@ -701,7 +718,12 @@ root_found:
 	  }
 
 	s->s_magic = ISOFS_SUPER_MAGIC;
-	s->s_maxbytes = 0xffffffff; /* We can handle files up to 4 GB */
+
+	/*
+	 * With multi-extent files, file size is only limited by the maximum
+	 * size of a file system, which is 8 TB.
+	 */
+	s->s_maxbytes = 0x80000000000LL;
 
 	/* The CDROM is read-only, has no nodes (devices) on it, and since
 	   all of the files appear to be owned by root, we really do not want
@@ -784,21 +806,31 @@ root_found:
 	s->s_op = &isofs_sops;
 	s->s_export_op = &isofs_export_ops;
 	sbi->s_mapping = opt.map;
-	sbi->s_rock = (opt.rock == 'y' ? 2 : 0);
+	sbi->s_rock = (opt.rock ? 2 : 0);
 	sbi->s_rock_offset = -1; /* initial offset, will guess until SP is found*/
 	sbi->s_cruft = opt.cruft;
 	sbi->s_hide = opt.hide;
 	sbi->s_showassoc = opt.showassoc;
 	sbi->s_uid = opt.uid;
 	sbi->s_gid = opt.gid;
+	sbi->s_uid_set = opt.uid_set;
+	sbi->s_gid_set = opt.gid_set;
 	sbi->s_utf8 = opt.utf8;
 	sbi->s_nocompress = opt.nocompress;
+	sbi->s_overriderockperm = opt.overriderockperm;
 	/*
 	 * It would be incredibly stupid to allow people to mark every file
 	 * on the disk as suid, so we merely allow them to set the default
 	 * permissions.
 	 */
-	sbi->s_mode = opt.mode & 0777;
+	if (opt.fmode != ISOFS_INVALID_MODE)
+		sbi->s_fmode = opt.fmode & 0777;
+	else
+		sbi->s_fmode = ISOFS_INVALID_MODE;
+	if (opt.dmode != ISOFS_INVALID_MODE)
+		sbi->s_dmode = opt.dmode & 0777;
+	else
+		sbi->s_dmode = ISOFS_INVALID_MODE;
 
 	/*
 	 * Read the root inode, which _may_ result in changing
@@ -840,6 +872,15 @@ root_found:
 		goto out_no_root;
 	if (!inode->i_op)
 		goto out_bad_root;
+
+	/* Make sure the root inode is a directory */
+	if (!S_ISDIR(inode->i_mode)) {
+		printk(KERN_WARNING
+			"isofs_fill_super: root inode is not a directory. "
+			"Corrupted media?\n");
+		goto out_iput;
+	}
+
 	/* get the root dentry */
 	s->s_root = d_alloc_root(inode);
 	if (!(s->s_root))
@@ -898,6 +939,7 @@ out_freesbi:
 static int isofs_statfs (struct dentry *dentry, struct kstatfs *buf)
 {
 	struct super_block *sb = dentry->d_sb;
+	u64 id = huge_encode_dev(sb->s_bdev->bd_dev);
 
 	buf->f_type = ISOFS_SUPER_MAGIC;
 	buf->f_bsize = sb->s_blocksize;
@@ -907,6 +949,8 @@ static int isofs_statfs (struct dentry *dentry, struct kstatfs *buf)
 	buf->f_bavail = 0;
 	buf->f_files = ISOFS_SB(sb)->s_ninodes;
 	buf->f_ffree = 0;
+	buf->f_fsid.val[0] = (u32)id;
+	buf->f_fsid.val[1] = (u32)(id >> 32);
 	buf->f_namelen = NAME_MAX;
 	return 0;
 }
@@ -916,26 +960,24 @@ static int isofs_statfs (struct dentry *dentry, struct kstatfs *buf)
  * or getblk() if they are not.  Returns the number of blocks inserted
  * (0 == error.)
  */
-int isofs_get_blocks(struct inode *inode, sector_t iblock_s,
+int isofs_get_blocks(struct inode *inode, sector_t iblock,
 		     struct buffer_head **bh, unsigned long nblocks)
 {
-	unsigned long b_off;
+	unsigned long b_off = iblock;
 	unsigned offset, sect_size;
 	unsigned int firstext;
 	unsigned long nextblk, nextoff;
-	long iblock = (long)iblock_s;
 	int section, rv;
 	struct iso_inode_info *ei = ISOFS_I(inode);
 
 	lock_kernel();
 
 	rv = 0;
-	if (iblock < 0 || iblock != iblock_s) {
-		printk("isofs_get_blocks: block number too large\n");
+	if (iblock != b_off) {
+		printk(KERN_DEBUG "%s: block number too large\n", __func__);
 		goto abort;
 	}
 
-	b_off = iblock;
 	
 	offset    = 0;
 	firstext  = ei->i_first_extent;
@@ -953,8 +995,9 @@ int isofs_get_blocks(struct inode *inode, sector_t iblock_s,
 		 * I/O errors.
 		 */
 		if (b_off > ((inode->i_size + PAGE_CACHE_SIZE - 1) >> ISOFS_BUFFER_BITS(inode))) {
-			printk("isofs_get_blocks: block >= EOF (%ld, %ld)\n",
-			       iblock, (unsigned long) inode->i_size);
+			printk(KERN_DEBUG "%s: block >= EOF (%lu, %llu)\n",
+				__func__, b_off,
+				(unsigned long long)inode->i_size);
 			goto abort;
 		}
 		
@@ -977,9 +1020,9 @@ int isofs_get_blocks(struct inode *inode, sector_t iblock_s,
 
 			if (++section > 100) {
 				printk("isofs_get_blocks: More than 100 file sections ?!?, aborting...\n");
-				printk("isofs_get_blocks: block=%ld firstext=%u sect_size=%u "
-				       "nextblk=%lu nextoff=%lu\n",
-				       iblock, firstext, (unsigned) sect_size,
+				printk(KERN_DEBUG "%s: block=%lu firstext=%u sect_size=%u "
+					"nextblk=%lu nextoff=%lu\n", __func__,
+					b_off, firstext, (unsigned) sect_size,
 				       nextblk, nextoff);
 				goto abort;
 			}
@@ -1040,7 +1083,13 @@ struct buffer_head *isofs_bread(struct inode *inode, sector_t block)
 
 static int isofs_readpage(struct file *file, struct page *page)
 {
-	return block_read_full_page(page,isofs_get_block);
+	return mpage_readpage(page, isofs_get_block);
+}
+
+static int isofs_readpages(struct file *file, struct address_space *mapping,
+			struct list_head *pages, unsigned nr_pages)
+{
+	return mpage_readpages(mapping, pages, nr_pages, isofs_get_block);
 }
 
 static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
@@ -1050,21 +1099,10 @@ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
 
 static const struct address_space_operations isofs_aops = {
 	.readpage = isofs_readpage,
+	.readpages = isofs_readpages,
 	.sync_page = block_sync_page,
 	.bmap = _isofs_bmap
 };
-
-static inline void test_and_set_uid(uid_t *p, uid_t value)
-{
-	if (value)
-		*p = value;
-}
-
-static inline void test_and_set_gid(gid_t *p, gid_t value)
-{
-        if (value)
-                *p = value;
-}
 
 static int isofs_read_level3_size(struct inode *inode)
 {
@@ -1219,17 +1257,27 @@ static void isofs_read_inode(struct inode *inode)
 	ei->i_file_format = isofs_file_normal;
 
 	if (de->flags[-high_sierra] & 2) {
-		inode->i_mode = S_IRUGO | S_IXUGO | S_IFDIR;
+		if (sbi->s_dmode != ISOFS_INVALID_MODE)
+			inode->i_mode = S_IFDIR | sbi->s_dmode;
+		else
+			inode->i_mode = S_IFDIR | S_IRUGO | S_IXUGO;
 		inode->i_nlink = 1; /* Set to 1.  We know there are 2, but
 				       the find utility tries to optimize
 				       if it is 2, and it screws up.  It is
 				       easier to give 1 which tells find to
 				       do it the hard way. */
 	} else {
- 		/* Everybody gets to read the file. */
-		inode->i_mode = sbi->s_mode;
+		if (sbi->s_fmode != ISOFS_INVALID_MODE) {
+			inode->i_mode = S_IFREG | sbi->s_fmode;
+		} else {
+			/*
+			 * Set default permissions: r-x for all.  The disc
+			 * could be shared with DOS machines so virtually
+			 * anything could be a valid executable.
+			 */
+			inode->i_mode = S_IFREG | S_IRUGO | S_IXUGO;
+		}
 		inode->i_nlink = 1;
-	        inode->i_mode |= S_IFREG;
 	}
 	inode->i_uid = sbi->s_uid;
 	inode->i_gid = sbi->s_gid;
@@ -1254,7 +1302,7 @@ static void isofs_read_inode(struct inode *inode)
 	 * this CDROM was mounted with the cruft option.
 	 */
 
-	if (sbi->s_cruft == 'y')
+	if (sbi->s_cruft)
 		inode->i_size &= 0x00ffffff;
 
 	if (de->interleave[0]) {
@@ -1299,9 +1347,18 @@ static void isofs_read_inode(struct inode *inode)
 	if (!high_sierra) {
 		parse_rock_ridge_inode(de, inode);
 		/* if we want uid/gid set, override the rock ridge setting */
-		test_and_set_uid(&inode->i_uid, sbi->s_uid);
-		test_and_set_gid(&inode->i_gid, sbi->s_gid);
+		if (sbi->s_uid_set)
+			inode->i_uid = sbi->s_uid;
+		if (sbi->s_gid_set)
+			inode->i_gid = sbi->s_gid;
 	}
+	/* Now set final access rights if overriding rock ridge setting */
+	if (S_ISDIR(inode->i_mode) && sbi->s_overriderockperm &&
+	    sbi->s_dmode != ISOFS_INVALID_MODE)
+		inode->i_mode = S_IFDIR | sbi->s_dmode;
+	if (S_ISREG(inode->i_mode) && sbi->s_overriderockperm &&
+	    sbi->s_fmode != ISOFS_INVALID_MODE)
+		inode->i_mode = S_IFREG | sbi->s_fmode;
 
 	/* Install the inode operations vector */
 	if (S_ISREG(inode->i_mode)) {
