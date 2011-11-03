@@ -1105,8 +1105,7 @@ ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
 #endif /* BCMNVRAMW */
 	}
 
-	if (cis)
-		MFREE(osh, cis, OTP_SZ_MAX);
+	MFREE(osh, cis, OTP_SZ_MAX);
 
 	return (rc);
 }
@@ -1623,8 +1622,7 @@ hndotp_nvread(void *oh, char *data, uint *len)
 	*len = offset;
 
 out:
-	if (rawotp)
-		MFREE(si_osh(oi->sih), rawotp, lim);
+	MFREE(si_osh(oi->sih), rawotp, lim);
 	si_setcoreidx(oi->sih, idx);
 
 	return rc;

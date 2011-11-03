@@ -679,7 +679,8 @@ osl_mfree(osl_t *osh, void *addr, uint size)
 {
 	if (osh) {
 		ASSERT(osh->magic == OS_HANDLE_MAGIC);
-		atomic_sub(size, &osh->malloced);
+		if (!unlikely(ZERO_OR_NULL_PTR(addr)))
+			atomic_sub(size, &osh->malloced);
 	}
 	kfree(addr);
 }
@@ -753,6 +754,9 @@ osl_debug_mfree(osl_t *osh, void *addr, uint size, int line, char* file)
 	unsigned long flags;
 
 	ASSERT(osh == NULL || osh->magic == OS_HANDLE_MAGIC);
+
+	if (unlikely(ZERO_OR_NULL_PTR(addr)))
+        return;
 
 	if (p->size == 0) {
 		printk("osl_debug_mfree: double free on addr %p size %d at line %d file %s\n",
