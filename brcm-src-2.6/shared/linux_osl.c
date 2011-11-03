@@ -163,10 +163,8 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 {
 	osl_t *osh;
 
-	osh = kmalloc(sizeof(osl_t), GFP_ATOMIC);
+	osh = kzalloc(sizeof(osl_t), GFP_ATOMIC);
 	ASSERT(osh);
-
-	bzero(osh, sizeof(osl_t));
 
 	/* Check that error map has the right number of entries in it */
 	ASSERT(ABS(BCME_LAST) == (ARRAYSIZE(linuxbcmerrormap) - 1));
@@ -301,9 +299,8 @@ osl_ctfpool_replenish(osl_t *osh, uint thresh)
 int32
 osl_ctfpool_init(osl_t *osh, uint numobj, uint size)
 {
-	osh->ctfpool = kmalloc(sizeof(ctfpool_t), GFP_ATOMIC);
+	osh->ctfpool = kzalloc(sizeof(ctfpool_t), GFP_ATOMIC);
 	ASSERT(osh->ctfpool);
-	bzero(osh->ctfpool, sizeof(ctfpool_t));
 
 	osh->ctfpool->max_obj = numobj;
 	osh->ctfpool->obj_size = size;
