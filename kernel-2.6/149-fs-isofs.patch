@@ -1,0 +1,54 @@
+From 3069083cc8def2ffad8520f0f24c6f95f140aac5
+From: Namjae Jeon
+Date: Wed, 2 Nov 2011 13:38:00 -0700
+Subject: [PATCH] isofs: add readpages support
+
+Use mpage_readpages() instead of multiple calls to isofs_readpage() to
+reduce the CPU utilization and make performance higher.
+
+Signed-off-by: Namjae Jeon <linkinjeon@gmail.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Jan Kara <jack@suse.cz>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
+
+---
+ fs/isofs/inode.c |   10 +++++++++-
+ 1 files changed, 9 insertions(+), 1 deletions(-)
+
+diff --git a/fs/isofs/inode.c b/fs/isofs/inode.c
+--- a/fs/isofs/inode.c
++++ b/fs/isofs/inode.c
+@@ -20,6 +20,7 @@
+ #include <linux/statfs.h>
+ #include <linux/cdrom.h>
+ #include <linux/parser.h>
++#include <linux/mpage.h>
+ 
+ #include "isofs.h"
+ #include "zisofs.h"
+@@ -1148,7 +1149,13 @@ struct buffer_head *isofs_bread(struct inode *inode, sector_t block)
+ 
+ static int isofs_readpage(struct file *file, struct page *page)
+ {
+-	return block_read_full_page(page,isofs_get_block);
++	return mpage_readpage(page, isofs_get_block);
++}
++
++static int isofs_readpages(struct file *file, struct address_space *mapping,
++			struct list_head *pages, unsigned nr_pages)
++{
++	return mpage_readpages(mapping, pages, nr_pages, isofs_get_block);
+ }
+ 
+ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
+@@ -1158,6 +1165,7 @@ static sector_t _isofs_bmap(struct address_space *mapping, sector_t block)
+ 
+ static const struct address_space_operations isofs_aops = {
+ 	.readpage = isofs_readpage,
++	.readpages = isofs_readpages,
+ 	.sync_page = block_sync_page,
+ 	.bmap = _isofs_bmap
+ };
+-- 
+1.7.6.2
