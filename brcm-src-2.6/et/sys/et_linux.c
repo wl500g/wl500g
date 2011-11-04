@@ -60,14 +60,15 @@
 #include <et_dbg.h>
 #include <hndsoc.h>
 #include <bcmgmacrxh.h>
-#include <etc.h>
+#include "etc.h"
+#include "et_export.h"
 #ifdef HNDCTF
 #include <ctf/hndctf.h>
 #endif /* HNDCTF */
 
 MODULE_LICENSE("Proprietary");
 
-typedef struct et_info {
+struct et_info {
 	etc_info_t	*etc;		/* pointer to common os-independent data */
 	struct net_device *dev;		/* backpoint to device */
 	struct pci_dev *pdev;		/* backpoint to pci_dev */
@@ -86,7 +87,7 @@ typedef struct et_info {
 	struct tasklet_struct tasklet;	/* dpc tasklet */
 #endif /* NAPI_POLL */
 	bool resched;			/* dpc was rescheduled */
-} et_info_t;
+};
 
 static int et_found = 0;
 static et_info_t *et_list = NULL;
@@ -105,15 +106,6 @@ static et_info_t *et_list = NULL;
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 4, 5)
 #error Linux version must be newer than 2.4.5
 #endif	/* LINUX_VERSION_CODE <= KERNEL_VERSION(2, 4, 5) */
-
-/* prototypes called by etc.c */
-void et_init(et_info_t *et, uint options);
-void et_reset(et_info_t *et);
-void et_link_up(et_info_t *et);
-void et_link_down(et_info_t *et);
-void et_up(et_info_t *et);
-void et_down(et_info_t *et, int reset);
-void et_dump(et_info_t *et, struct bcmstrbuf *b);
 
 /* local prototypes */
 static void et_free(et_info_t *et);
@@ -218,7 +210,7 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	}
 #else
 	if (!(dev = (struct net_device *) MALLOC(osh, sizeof(struct net_device)))) {
-		ET_ERROR(("et%d: et_probe: out of memory, malloced %d bytes\n", unit,
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
 		          MALLOCED(osh)));
 		osl_detach(osh);
 		return -ENOMEM;
@@ -235,7 +227,7 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	/* allocate private info */
 	if ((et = (et_info_t *)MALLOC(osh, sizeof(et_info_t))) == NULL) {
-		ET_ERROR(("et%d: et_probe: out of memory, malloced %d bytes\n", unit,
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
 		          MALLOCED(osh)));
 		MFREE(osh, dev, sizeof(et_info_t));
 		osl_detach(osh);
@@ -680,7 +672,7 @@ et_reset(et_info_t *et)
 	et->resched = 0;
 }
 
-void
+int
 et_up(et_info_t *et)
 {
 	etc_info_t *etc;
@@ -688,7 +680,7 @@ et_up(et_info_t *et)
 	etc = et->etc;
 
 	if (etc->up)
-		return;
+		return 0;
 
 	ET_TRACE(("et%d: et_up\n", etc->unit));
 
@@ -699,6 +691,7 @@ et_up(et_info_t *et)
 	add_timer(&et->timer);
 
 	netif_start_queue(et->dev);
+	return 0;
 }
 
 void
@@ -958,7 +951,7 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		break;
 	default:
 		ET_LOCK(et);
-		error = etc_ioctl(et->etc, cmd - SIOCSETCUP, buf) ? -EINVAL : 0;
+		error = etc_ioctl(et->etc, cmd - SIOCSETCUP, buf);
 		ET_UNLOCK(et);
 		break;
 	}
@@ -1478,7 +1471,7 @@ et_link_down(et_info_t *et)
  * Find the et associated with the same chip as <et>
  * and coreunit matching <coreunit>.
  */
-void *
+et_info_t *
 et_phyfind(et_info_t *et, uint coreunit)
 {
 	et_info_t *tmp;
@@ -1489,17 +1482,17 @@ et_phyfind(et_info_t *et, uint coreunit)
 
 	/* walk the list et's */
 	for (tmp = et_list; tmp; tmp = tmp->next) {
-		if (et->etc == NULL)
-			continue;
 		if (tmp->pdev == NULL)
 			continue;
 		if (tmp->pdev->bus->number != bus)
 			continue;
+		if (tmp->etc == NULL)
+			continue;
+		if (tmp->etc->coreunit != coreunit)
+			continue;
 		if (tmp->etc->nicmode)
 			if (PCI_SLOT(tmp->pdev->devfn) != slot)
 				continue;
-		if (tmp->etc->coreunit != coreunit)
-			continue;
 		break;
 	}
 	return (tmp);
