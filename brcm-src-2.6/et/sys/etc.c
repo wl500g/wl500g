@@ -245,10 +245,9 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 				}
 
 				/* get power save mode of the phy */
-				error = robo_power_save_mode_get(robo, vecarg[0]);
-				if (error != -1) {
-					vecarg[1] = error;
-					error = 0;
+				vecarg[1] = robo_power_save_mode_get(robo, vecarg[0]);
+				if (vecarg[1] == -1) {
+					error = vecarg[1];
 				}
 			}
 			break;
@@ -260,7 +259,6 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 
 				bzero((char *)&etc->txframe, size + sizeof(etc->rxbadlen));
 				(*etc->chops->dumpmib)(etc->ch, NULL, TRUE);
-				error = 0;
 			}
 			break;
 #endif /* BCMDBG */
