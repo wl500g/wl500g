@@ -15,19 +15,21 @@
 #ifndef _et_export_h_
 #define _et_export_h_
 
+typedef struct et_info et_info_t;
+
 /* misc callbacks */
-extern void et_init(void *et, uint options);
-extern void et_reset(void *et);
-extern void et_link_up(void *et);
-extern void et_link_down(void *et);
-extern int et_up(void *et);
-extern int et_down(void *et, int reset);
-extern void et_dump(void *et, struct bcmstrbuf *b);
-extern void et_intrson(void *et);
+void et_init(et_info_t *et, uint options);
+void et_reset(et_info_t *et);
+void et_link_up(et_info_t *et);
+void et_link_down(et_info_t *et);
+int et_up(et_info_t *et);
+void et_down(et_info_t *et, int reset);
+void et_dump(et_info_t *et, struct bcmstrbuf *b);
+void et_intrson(et_info_t *et);
 
 /* for BCM5222 dual-phy shared mdio contortion */
-extern void *et_phyfind(void *et, uint coreunit);
-extern uint16 et_phyrd(void *et, uint phyaddr, uint reg);
-extern void et_phywr(void *et, uint reg, uint phyaddr, uint16 val);
+et_info_t *et_phyfind(et_info_t *et, uint coreunit);
+uint16 et_phyrd(et_info_t *et, uint phyaddr, uint reg);
+void et_phywr(et_info_t *et, uint reg, uint phyaddr, uint16 val);
 
 #endif	/* _et_export_h_ */

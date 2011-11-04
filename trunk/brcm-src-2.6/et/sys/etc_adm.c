@@ -43,7 +43,8 @@ adm_attach(si_t *sih, char *vars)
 
 	/* Allocate private data */
 	if (!(adm = MALLOC(si_osh(sih), sizeof(adm_info_t)))) {
-		ET_ERROR(("adm_attach: out of memory, malloc %d bytes", MALLOCED(si_osh(sih))));
+		ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
+				 MALLOCED(si_osh(sih))));
 		return NULL;
 	}
 	bzero((char *) adm, sizeof(adm_info_t));
