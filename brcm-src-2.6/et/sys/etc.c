@@ -216,29 +216,29 @@ etc_down(etc_info_t *etc, int reset)
 	return (callback);
 }
 
-/* common iovar handler. return 0=ok, -1=error */
+/* common iovar(ETCVAR) handler. return 0 - ok, <0 - error */
 int
 etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 {
-	int error;
+	int error = 0;
 #ifdef ETROBO
-	int i;
 	uint *vecarg;
 	robo_info_t *robo = etc->robo;
 #endif
 
-	error = 0;
-	ET_TRACE(("et%d: etc_iovar: cmd 0x%x\n", etc->unit, cmd));
+	ET_TRACE(("et%d: %s: cmd 0x%x\n", etc->unit, __func__, cmd));
 
 	switch (cmd) {
 #ifdef ETROBO
 		case IOV_ET_POWER_SAVE_MODE:
 			vecarg = (uint *)arg;
-			if (set)
+			if (set) {
 				error = robo_power_save_mode_set(robo, vecarg[1], vecarg[0]);
-			else {
+			} else {
 				/* get power save mode of all the phys */
 				if (vecarg[0] == MAX_NO_PHYS) {
+					int i;
+
 					for (i = 0; i < MAX_NO_PHYS; i++)
 						vecarg[i] = robo_power_save_mode_get(robo, i);
 					break;
@@ -266,25 +266,52 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 #endif /* BCMDBG */
 
 		default:
-			error = -1;
+			error = -ENOENT;
 	}
 
 	return (error);
 }
 
-/* common ioctl handler.  return: 0=ok, -1=error */
+static inline int etc_phyrd(etc_info_t *etc, uint phyaddr, uint reg)
+{
+	int ret;
+
+	reg &= 0xffff;
+	ret = (*etc->chops->phyrd)(etc->ch, phyaddr, reg);
+	ET_TRACE(("etc_ioctl: ETCPHYRD of phy 0x%x, reg 0x%x => 0x%x\n",
+			 phyaddr, reg, ret));
+	return ret;
+}
+
+static int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
+{
+	if (phyaddr >= MAXEPHY)
+		return -EINVAL;
+
+	reg &= 0xffff;
+	ET_TRACE(("etc_ioctl: ETCPHYWR to phy 0x%x, reg 0x%x <= 0x%x\n",
+			 phyaddr, reg, val));
+	(*etc->chops->phywr)(etc->ch, phyaddr, reg, val);
+	return 0;
+}
+
+/* common ioctl handler.  return: 0=ok, -1=error
+ * called with locked "et"
+ */
 int
 etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 {
-	int error;
+	int error = 0;
 	int val;
-	int *vec = (int*)arg;
+	int *vec = (int *)arg;
+	uint page, reg;
+#ifdef ETROBO
+	robo_info_t *robo = (robo_info_t *)etc->robo;
+#endif
 
-	error = 0;
+	val = arg ? *(int *)arg : 0;
 
-	val = arg ? *(int*)arg : 0;
-
-	ET_TRACE(("et%d: etc_ioctl: cmd 0x%x\n", etc->unit, cmd));
+	ET_TRACE(("et%d: %s: cmd 0x%x\n", etc->unit, __func__, cmd));
 
 	switch (cmd) {
 	case ETCUP:
@@ -325,29 +352,36 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 		break;
 
 	case ETCSPEED:
-		if (val == ET_1000FULL) {
-			etc->speed = 1000;
-			etc->duplex = 1;
-		} else if (val == ET_1000HALF) {
-			etc->speed = 1000;
-			etc->duplex = 0;
-		} else if (val == ET_100FULL) {
-			etc->speed = 100;
-			etc->duplex = 1;
-		} else if (val == ET_100HALF) {
-			etc->speed = 100;
-			etc->duplex = 0;
-		} else if (val == ET_10FULL) {
-			etc->speed = 10;
-			etc->duplex = 1;
-		} else if (val == ET_10HALF) {
-			etc->speed = 10;
-			etc->duplex = 0;
-		} else if (val == ET_AUTO)
-			;
-		else
-			return -EINVAL;
-
+		switch (val) {
+			case ET_1000FULL:
+				etc->speed = 1000;
+				etc->duplex = 1;
+				break;
+			case ET_1000HALF:
+				etc->speed = 1000;
+				etc->duplex = 0;
+				break;
+			case ET_100FULL:
+				etc->speed = 100;
+				etc->duplex = 1;
+				break;
+			case ET_100HALF:
+				etc->speed = 100;
+				etc->duplex = 0;
+				break;
+			case ET_10FULL:
+				etc->speed = 10;
+				etc->duplex = 1;
+				break;
+			case ET_10HALF:
+				etc->speed = 10;
+				etc->duplex = 0;
+				break;
+			case ET_AUTO:
+				break;
+			default:
+				return -EINVAL;
+		}
 		etc->forcespeed = val;
 
 		/* explicitly reset the phy */
@@ -368,75 +402,55 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 		break;
 
 	case ETCPHYRD:
-		if (vec) {
-			vec[1] = (*etc->chops->phyrd)(etc->ch, etc->phyaddr, vec[0]);
-			ET_TRACE(("etc_ioctl: ETCPHYRD of reg 0x%x => 0x%x\n", vec[0], vec[1]));
-		}
+		if (!vec)
+			return -EINVAL;
+
+		vec[1] = etc_phyrd(etc, etc->phyaddr, vec[0]);
 		break;
 
 	case ETCPHYRD2:
-		if (vec) {
-			uint phyaddr, reg;
-			phyaddr = vec[0] >> 16;
-			if (phyaddr < MAXEPHY) {
-				reg = vec[0] & 0xffff;
-				vec[1] = (*etc->chops->phyrd)(etc->ch, phyaddr, reg);
-				ET_TRACE(("etc_ioctl: ETCPHYRD2 of phy 0x%x, reg 0x%x => 0x%x\n",
-				          phyaddr, reg, vec[1]));
-			}
-		}
+		if (!vec)
+			return -EINVAL;
+
+		vec[1] = etc_phyrd(etc, vec[0] >> 16, vec[0]);
 		break;
 
 	case ETCPHYWR:
-		if (vec) {
-			ET_TRACE(("etc_ioctl: ETCPHYWR to reg 0x%x <= 0x%x\n", vec[0], vec[1]));
-			(*etc->chops->phywr)(etc->ch, etc->phyaddr, vec[0], (uint16)vec[1]);
-		}
+		if (!vec)
+			return -EINVAL;
+
+		error = etc_phywr(etc, etc->phyaddr, vec[0], (uint16 )vec[1]);
 		break;
 
 	case ETCPHYWR2:
-		if (vec) {
-			uint phyaddr, reg;
-			phyaddr = vec[0] >> 16;
-			if (phyaddr < MAXEPHY) {
-				reg = vec[0] & 0xffff;
-				(*etc->chops->phywr)(etc->ch, phyaddr, reg, (uint16)vec[1]);
-				ET_TRACE(("etc_ioctl: ETCPHYWR2 to phy 0x%x, reg 0x%x <= 0x%x\n",
-				          phyaddr, reg, vec[1]));
-			}
-		}
+		if (!vec)
+			return -EINVAL;
+
+		error = etc_phywr(etc, vec[0] >> 16, vec[0], (uint16 )vec[1]);
 		break;
 
 #ifdef ETROBO
 	case ETCROBORD:
-		if (etc->robo && vec) {
-			uint page, reg;
-			uint16 val;
-			robo_info_t *robo = (robo_info_t *)etc->robo;
+		if (!robo || !vec)
+			return -EINVAL;
 
-			page = vec[0] >> 16;
-			reg = vec[0] & 0xffff;
-			val = -1;
-			robo->ops->read_reg(etc->robo, page, reg, &val, 2);
-			vec[1] = val;
-			ET_TRACE(("etc_ioctl: ETCROBORD of page 0x%x, reg 0x%x => 0x%x\n",
-			          page, reg, val));
-		}
+		page = vec[0] >> 16;
+		reg = vec[0] & 0xffff;
+		vec[1] = -1;
+		robo->ops->read_reg(robo, page, reg, &vec[1], 2);
+		ET_TRACE(("%s: ETCROBORD of page 0x%x, reg 0x%x => 0x%x\n", __func__,
+		          page, reg, vec[1]));
 		break;
 
 	case ETCROBOWR:
-		if (etc->robo && vec) {
-			uint page, reg;
-			uint16 val;
-			robo_info_t *robo = (robo_info_t *)etc->robo;
+		if (!robo || !vec)
+			return -EINVAL;
 
-			page = vec[0] >> 16;
-			reg = vec[0] & 0xffff;
-			val = vec[1];
-			robo->ops->write_reg(etc->robo, page, vec[0], &val, 2);
-			ET_TRACE(("etc_ioctl: ETCROBOWR to page 0x%x, reg 0x%x <= 0x%x\n",
-			          page, reg, val));
-		}
+		page = vec[0] >> 16;
+		reg = vec[0] & 0xffff;
+		robo->ops->write_reg(robo, page, reg, &vec[1], 2);
+		ET_TRACE(("%s: ETCROBOWR to page 0x%x, reg 0x%x <= 0x%x\n", __func__,
+		          page, reg, vec[1]));
 		break;
 #endif /* ETROBO */
 

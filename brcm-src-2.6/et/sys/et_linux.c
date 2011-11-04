@@ -852,29 +852,28 @@ et_ethtool(et_info_t *et, struct ethtool_cmd *ecmd)
 static int
 et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
-	et_info_t *et;
+	et_info_t *et = ET_INFO(dev);
 	int error;
-	char *buf;
-	int size, ethtoolcmd;
-	bool get = 0, set;
-	et_var_t *var = NULL;
+	char *buf1, buf[sizeof(et_var_t)];
+	int size;
+	u32 ethtoolcmd;
+	bool get = FALSE, set = TRUE;
+	const et_var_t *var = (et_var_t *)buf;
 	void *buffer = NULL;
 
-	et = ET_INFO(dev);
-
-	ET_TRACE(("et%d: et_ioctl: cmd 0x%x\n", et->etc->unit, cmd));
+	ET_TRACE(("et%d: %s: cmd 0x%x\n", et->etc->unit, __func__, cmd));
 
 	switch (cmd) {
 #ifdef SIOCETHTOOL
 	case SIOCETHTOOL:
-		if (copy_from_user(&ethtoolcmd, ifr->ifr_data, sizeof(uint32)))
-			return (-EFAULT);
+		if (get_user(ethtoolcmd, (u32 __user *)ifr->ifr_data))
+			return -EFAULT;
 
 		if (ethtoolcmd == ETHTOOL_GDRVINFO)
 			size = sizeof(struct ethtool_drvinfo);
 		else
 			size = sizeof(struct ethtool_cmd);
-		get = TRUE; set = TRUE;
+		get = TRUE;
 		break;
 #endif /* SIOCETHTOOL */
 	case SIOCGETCDUMP:
@@ -885,50 +884,53 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case SIOCGETCPHYRD2:
 	case SIOCGETCROBORD:
 		size = sizeof(int) * 2;
-		get = TRUE; set = TRUE;
+		get = TRUE;
 		break;
 	case SIOCSETCPHYWR:
 	case SIOCSETCPHYWR2:
 	case SIOCSETCROBOWR:
 		size = sizeof(int) * 2;
-		get = FALSE; set = TRUE;
 		break;
 	case SIOCSETGETVAR:
 		size = sizeof(et_var_t);
-		set = TRUE;
 		break;
 	default:
 		size = sizeof(int);
-		get = FALSE; set = TRUE;
 		break;
 	}
 
-	if ((buf = MALLOC(et->osh, size)) == NULL) {
-		ET_ERROR(("et: et_ioctl: out of memory, malloced %d bytes\n", MALLOCED(et->osh)));
-		return (-ENOMEM);
+	if (size > sizeof(buf)) {
+		/* we need to allocate large buffer: SIOCETHTOOL, SIOCGETCDUMP */
+		if (!(buffer = (void *)MALLOC(et->osh, size))) {
+			ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
+					MALLOCED(et->osh)));
+			return (-ENOMEM);
+		}
+		buf1 = buffer;
+	} else {
+		/* small buffer on stack is enough */
+		buf1 = buf;
 	}
 
-	if (set && copy_from_user(buf, ifr->ifr_data, size)) {
-		MFREE(et->osh, buf, size);
+	if (set && copy_from_user(buf1, ifr->ifr_data, size)) {
+		MFREE(et->osh, buffer, size);
 		return (-EFAULT);
 	}
 
 	if (cmd == SIOCSETGETVAR) {
-		var = (et_var_t *)buf;
 		if (var->buf) {
 			if (!var->set)
 				get = TRUE;
 
-			if (!(buffer = (void *) MALLOC(et->osh, var->len))) {
-				ET_ERROR(("et: et_ioctl: out of memory, malloced %d bytes\n",
+			size = var->len;
+			if (!(buffer = (void *)MALLOC(et->osh, size))) {
+				ET_ERROR(("%s: out of memory, malloced %d bytes\n", __func__,
 					MALLOCED(et->osh)));
-				MFREE(et->osh, buf, size);
 				return (-ENOMEM);
 			}
 
-			if (copy_from_user(buffer, var->buf, var->len)) {
-				MFREE(et->osh, buffer, var->len);
-				MFREE(et->osh, buf, size);
+			if (copy_from_user(buffer, var->buf, size)) {
+				MFREE(et->osh, buffer, size);
 				return (-EFAULT);
 			}
 		}
@@ -937,7 +939,7 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	switch (cmd) {
 #ifdef SIOCETHTOOL
 	case SIOCETHTOOL:
-		error = et_ethtool(et, (struct ethtool_cmd *)buf);
+		error = et_ethtool(et, (struct ethtool_cmd *)buf1);
 		break;
 #endif /* SIOCETHTOOL */
 	case SIOCSETGETVAR:
@@ -945,21 +947,21 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		error = etc_iovar(et->etc, var->cmd, var->set, buffer);
 		ET_UNLOCK(et);
 		if (!error && get)
-			error = copy_to_user(var->buf, buffer, var->len);
-		if (buffer)
-			MFREE(et->osh, buffer, var->len);
+			error = copy_to_user(var->buf, buffer, size);
+		goto out;
 		break;
 	default:
 		ET_LOCK(et);
-		error = etc_ioctl(et->etc, cmd - SIOCSETCUP, buf);
+		error = etc_ioctl(et->etc, cmd - SIOCDEVPRIVATE, buf1);
 		ET_UNLOCK(et);
 		break;
 	}
 
 	if (!error && get)
-		error = copy_to_user(ifr->ifr_data, buf, size);
+		error = copy_to_user(ifr->ifr_data, buf1, size);
 
-	MFREE(et->osh, buf, size);
+ out:
+	MFREE(et->osh, buffer, size);
 
 	return (error);
 }
