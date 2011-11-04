@@ -1,0 +1,71 @@
+mount: Updates from upstream
+
+ f85554c26525ec2ddc860ccb1aadc05e7a3825f6 mount: free commented /etc/filesystems lines when we read it
+ b5ebe5fdb3a520114fc4f956687e2c51f3b81429 mount: handle list of comma-separated fs types in -t option
+
+function                                             old     new   delta
+singlemount                                         1172    1224     +52
+packed_usage                                       11740   11750     +10
+.rodata                                            67715   67725     +10
+------------------------------------------------------------------------------
+(add/remove: 0/0 grow/shrink: 3/0 up/down: 72/0)               Total: 72 bytes
+
+---
+
+diff --git a/util-linux/mount.c b/util-linux/mount.c
+--- a/util-linux/mount.c
++++ b/util-linux/mount.c
+@@ -38,7 +38,7 @@
+ //usage:	)
+ //usage:     "\n	-r		Read-only mount"
+ //usage:     "\n	-w		Read-write mount (default)"
+-//usage:     "\n	-t FSTYPE	Filesystem type"
++//usage:     "\n	-t FSTYPE[,...]	Filesystem type(s)"
+ //usage:     "\n	-O OPT		Mount only filesystems with option OPT (-a only)"
+ //usage:     "\n-o OPT:"
+ //usage:	IF_FEATURE_MOUNT_LOOP(
+@@ -521,12 +521,13 @@ static llist_t *get_block_backed_filesys
+ 
+ 		while ((buf = xmalloc_fgetline(f)) != NULL) {
+ 			if (strncmp(buf, "nodev", 5) == 0 && isspace(buf[5]))
+-				continue;
++				goto next;
+ 			fs = skip_whitespace(buf);
+ 			if (*fs == '#' || *fs == '*' || !*fs)
+-				continue;
++				goto next;
+ 
+ 			llist_add_to_end(&list, xstrdup(fs));
++ next:
+ 			free(buf);
+ 		}
+ 		if (ENABLE_FEATURE_CLEAN_UP) fclose(f);
+@@ -1825,7 +1826,16 @@ static int singlemount(struct mntent *mp
+ 	// If we know the fstype (or don't need to), jump straight
+ 	// to the actual mount.
+ 	if (mp->mnt_type || (vfsflags & (MS_REMOUNT | MS_BIND | MS_MOVE))) {
+-		rc = mount_it_now(mp, vfsflags, filteropts);
++		char *next;
++		for (;;) {
++			next = mp->mnt_type ? strchr(mp->mnt_type, ',') : NULL;
++			if (next)
++				*next = '\0';
++			rc = mount_it_now(mp, vfsflags, filteropts);
++			if (rc == 0 || !next)
++				break;
++			mp->mnt_type = next + 1;
++		}
+ 	} else {
+ 		// Loop through filesystem types until mount succeeds
+ 		// or we run out
+@@ -1842,7 +1852,7 @@ static int singlemount(struct mntent *mp
+ 		for (fl = fslist; fl; fl = fl->link) {
+ 			mp->mnt_type = fl->data;
+ 			rc = mount_it_now(mp, vfsflags, filteropts);
+-			if (!rc)
++			if (rc == 0)
+ 				break;
+ 		}
+ 	}
+--
+cgit v0.9.0.1-2-gef13
