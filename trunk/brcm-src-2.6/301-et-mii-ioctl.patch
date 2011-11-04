@@ -1,3 +1,36 @@
+diff -uBp a/et/sys/etc.c b/et/sys/etc.c
+--- a/et/sys/etc.c	2011-11-03 21:49:52.000000000 +0400
++++ b/et/sys/etc.c	2011-11-03 21:49:52.000000000 +0400
+@@ -283,7 +283,7 @@ static inline int etc_phyrd(etc_info_t *
+ 	return ret;
+ }
+ 
+-static int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
++int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
+ {
+ 	if (phyaddr >= MAXEPHY)
+ 		return -EINVAL;
+@@ -292,6 +292,10 @@ static int etc_phywr(etc_info_t *etc, ui
+ 	ET_TRACE(("etc_ioctl: ETCPHYWR to phy 0x%x, reg 0x%x <= 0x%x\n",
+ 			 phyaddr, reg, val));
+ 	(*etc->chops->phywr)(etc->ch, phyaddr, reg, val);
++#ifdef ETROBO
++	if (etc->robo && phyaddr == EPHY_NOREG && reg == REG_MII_PAGE)
++		((robo_info_t *)etc->robo)->page = -1;
++#endif
+ 	return 0;
+ }
+ 
+diff -uBp a/et/sys/etc.h b/et/sys/etc.h
+--- a/et/sys/etc.h	2011-10-23 17:08:51.000000000 +0400
++++ b/et/sys/etc.h	2011-11-03 21:10:35.000000000 +0400
+@@ -252,5 +252,6 @@ extern uint etc_totlen(etc_info_t *etc,
+ #ifdef ETROBO
+ extern void *etc_bcm53115_war(etc_info_t *etc, void *p);
+ #endif /* ETROBO */
++int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val);
+ 
+ #endif	/* _etc_h_ */
 diff -uBp a/et/sys/et_linux.c b/et/sys/et_linux.c
 --- a/et/sys/et_linux.c	2011-11-03 22:52:34.000000000 +0400
 +++ b/et/sys/et_linux.c	2011-11-03 22:45:12.000000000 +0400
@@ -11,13 +44,13 @@ diff -uBp a/et/sys/et_linux.c b/et/sys/et_linux.c
  
 @@ -860,6 +871,7 @@ et_ioctl(struct net_device *dev, struct
  	bool get = FALSE, set = TRUE;
- 	et_var_t *var = (et_var_t *)buf;
+ 	const et_var_t *var = (et_var_t *)buf;
  	void *buffer = NULL;
 +	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
  
  	ET_TRACE(("et%d: %s: cmd 0x%x\n", et->etc->unit, __func__, cmd));
  
-@@ -894,6 +906,15 @@ et_ioctl(struct net_device *dev, struct
+@@ -894,6 +906,17 @@ et_ioctl(struct net_device *dev, struct
  	case SIOCSETGETVAR:
  		size = sizeof(et_var_t);
  		break;
@@ -28,8 +61,10 @@ diff -uBp a/et/sys/et_linux.c b/et/sys/et_linux.c
 +		data->val_out = (*et->etc->chops->phyrd)(et->etc->ch, data->phy_id, data->reg_num);
 +		return 0;
 +	case SIOCSMIIREG:
-+		(*et->etc->chops->phywr)(et->etc->ch, data->phy_id, data->reg_num, data->val_in);
-+		return 0;
++		ET_LOCK(et);
++		error = etc_phywr(et->etc, data->phy_id, data->reg_num, data->val_in);
++		ET_UNLOCK(et);
++		return error;
  	default:
  		size = sizeof(int);
  		break;
