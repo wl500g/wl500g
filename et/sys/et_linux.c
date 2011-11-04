@@ -35,6 +35,7 @@
 #include <linux/sockios.h>
 #ifdef SIOCETHTOOL
 #include <linux/ethtool.h>
+#include <linux/mii.h>
 #endif /* SIOCETHTOOL */
 #include <linux/ip.h>
 
@@ -838,6 +839,7 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	bool get = FALSE, set = TRUE;
 	const et_var_t *var = (et_var_t *)buf;
 	void *buffer = NULL;
+	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
 
 	ET_TRACE(("et%d: %s: cmd 0x%x\n", et->etc->unit, __func__, cmd));
 
@@ -872,6 +874,17 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	case SIOCSETGETVAR:
 		size = sizeof(et_var_t);
 		break;
+	case SIOCGMIIPHY:
+		data->phy_id = et->etc->phyaddr;
+		/* fall-through */
+	case SIOCGMIIREG:
+		data->val_out = (*et->etc->chops->phyrd)(et->etc->ch, data->phy_id, data->reg_num);
+		return 0;
+	case SIOCSMIIREG:
+		ET_LOCK(et);
+		error = etc_phywr(et->etc, data->phy_id, data->reg_num, data->val_in);
+		ET_UNLOCK(et);
+		return error;
 	default:
 		size = sizeof(int);
 		break;

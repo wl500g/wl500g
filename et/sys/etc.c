@@ -281,7 +281,7 @@ static inline int etc_phyrd(etc_info_t *etc, uint phyaddr, uint reg)
 	return ret;
 }
 
-static int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
+int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
 {
 	if (phyaddr >= MAXEPHY)
 		return -EINVAL;
@@ -290,6 +290,10 @@ static int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val)
 	ET_TRACE(("etc_ioctl: ETCPHYWR to phy 0x%x, reg 0x%x <= 0x%x\n",
 			 phyaddr, reg, val));
 	(*etc->chops->phywr)(etc->ch, phyaddr, reg, val);
+#ifdef ETROBO
+	if (etc->robo && phyaddr == EPHY_NOREG && reg == REG_MII_PAGE)
+		((robo_info_t *)etc->robo)->page = -1;
+#endif
 	return 0;
 }
 

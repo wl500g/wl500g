@@ -252,5 +252,6 @@ extern uint etc_totlen(etc_info_t *etc, void *p);
 #ifdef ETROBO
 extern void *etc_bcm53115_war(etc_info_t *etc, void *p);
 #endif /* ETROBO */
+int etc_phywr(etc_info_t *etc, uint phyaddr, uint reg, uint16 val);
 
 #endif	/* _etc_h_ */
