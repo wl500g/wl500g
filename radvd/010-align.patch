@@ -1,0 +1,305 @@
+diff -urBp radvd.old/gram.y radvd/gram.y
+--- radvd.old/gram.y	2011-10-06 14:52:20.000000000 +0400
++++ radvd/gram.y	2011-11-06 18:31:53.000000000 +0400
+@@ -391,7 +391,7 @@ prefixdef	: prefixhead optional_prefixpl
+ 					}
+ 					else
+ 					{
+-						*((uint16_t *)(prefix->Prefix.s6_addr)) = htons(0x2002);
++						*((uint16_t *)(prefix->Prefix.s6_addr16)) = htons(0x2002);
+ 						memcpy( prefix->Prefix.s6_addr + 2, &dst, sizeof( dst ) );
+ 					}
+ 				}
+@@ -414,7 +414,7 @@ prefixdef	: prefixhead optional_prefixpl
+ 						flog(LOG_ERR, "getifaddrs failed: %s", strerror(errno));
+ 
+ 					for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+-						struct sockaddr_in6 *s6 = 0;
++						struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+ 						struct sockaddr_in6 *mask = (struct sockaddr_in6 *)ifa->ifa_netmask;
+ 						struct in6_addr base6prefix;
+ 						char buf[INET6_ADDRSTRLEN];
+@@ -426,8 +426,6 @@ prefixdef	: prefixhead optional_prefixpl
+ 						if (ifa->ifa_addr->sa_family != AF_INET6)
+ 							continue;
+ 
+-						s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+-
+ 						if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+ 							continue;
+ 
+@@ -500,8 +498,6 @@ prefixhead	: T_PREFIX IPV6ADDR '/' NUMBE
+ 					if (ifa->ifa_addr->sa_family != AF_INET6)
+ 						continue;
+ 
+-					s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+-
+ 					if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+ 						continue;
+ 
+diff -urBp radvd.old/includes.h radvd/includes.h
+--- radvd.old/includes.h	2011-10-06 14:52:20.000000000 +0400
++++ radvd/includes.h	2011-11-06 18:18:31.000000000 +0400
+@@ -22,6 +22,7 @@
+ #include <stdio.h>
+ #include <stdarg.h>
+ #include <stdlib.h>
++#include <stddef.h>
+ #include <time.h>
+ #include <syslog.h>
+ #include <unistd.h>
+diff -urBp radvd.old/process.c radvd/process.c
+--- radvd.old/process.c	2011-10-06 19:32:36.000000000 +0400
++++ radvd/process.c	2011-11-06 19:18:16.000000000 +0400
+@@ -27,7 +27,7 @@ static int  addr_match(struct in6_addr *
+ 
+ void
+ process(struct Interface *ifacel, unsigned char *msg, int len,
+-	struct sockaddr_in6 *addr, struct in6_pktinfo *pkt_info, int hoplimit)
++	struct sockaddr_in6 *addr, int ipi6_ifindex, int hoplimit)
+ {
+ 	struct Interface *iface;
+ 	struct icmp6_hdr *icmph;
+@@ -35,12 +35,6 @@ process(struct Interface *ifacel, unsign
+ 
+ 	print_addr(&addr->sin6_addr, addr_str);
+ 
+-	if ( ! pkt_info )
+-	{
+-		flog(LOG_WARNING, "received packet with no pkt_info from %s!", addr_str );
+-		return;
+-	}
+-
+ 	/*
+ 	 * can this happen?
+ 	 */
+@@ -95,13 +89,13 @@ process(struct Interface *ifacel, unsign
+ 		return;
+ 	}
+ 
+-	dlog(LOG_DEBUG, 4, "if_index %u", pkt_info->ipi6_ifindex);
++	dlog(LOG_DEBUG, 4, "if_index %u", ipi6_ifindex);
+ 
+ 	/* get iface by received if_index */
+ 
+ 	for (iface = ifacel; iface; iface=iface->next)
+ 	{
+-		if (iface->if_index == pkt_info->ipi6_ifindex)
++		if (iface->if_index == ipi6_ifindex)
+ 		{
+ 			break;
+ 		}
+@@ -110,7 +104,7 @@ process(struct Interface *ifacel, unsign
+ 	if (iface == NULL)
+ 	{
+ 		dlog(LOG_DEBUG, 2, "received packet from unknown interface: %d",
+-			pkt_info->ipi6_ifindex);
++			ipi6_ifindex);
+ 		return;
+ 	}
+ 
+diff -urBp radvd.old/radvd.c radvd/radvd.c
+--- radvd.old/radvd.c	2011-11-06 18:45:09.000000000 +0400
++++ radvd/radvd.c	2011-11-06 19:14:57.000000000 +0400
+@@ -416,15 +416,14 @@ void main_loop(void)
+ 				flog(LOG_WARNING, "socket error on fds[0].fd");
+ 			}
+ 			else if (fds[0].revents & POLLIN) {
+-				int len, hoplimit;
++				int len, hoplimit, ipi6_index;
+ 				struct sockaddr_in6 rcv_addr;
+-				struct in6_pktinfo *pkt_info = NULL;
+ 				unsigned char msg[MSG_SIZE_RECV];
+ 
+-				len = recv_rs_ra(msg, &rcv_addr, &pkt_info, &hoplimit);
++				len = recv_rs_ra(msg, &rcv_addr, &ipi6_index, &hoplimit);
+ 				if (len > 0) {
+ 					process(IfaceList, msg, len,
+-						&rcv_addr, pkt_info, hoplimit);
++						&rcv_addr, ipi6_index, hoplimit);
+ 				}
+ 			}
+ #ifdef HAVE_NETLINK
+diff -urBp radvd.old/radvd.h radvd/radvd.h
+--- radvd.old/radvd.h	2011-11-06 18:45:09.000000000 +0400
++++ radvd/radvd.h	2011-11-06 19:27:03.000000000 +0400
+@@ -177,6 +177,16 @@ struct HomeAgentInfo {
+ 	uint16_t		lifetime;
+ };
+ 
++/* NB: unaligned parameter should be a pointer, aligned one -
++ * a lvalue. This makes it more likely to not swap them by mistake
++ */
++#if defined(i386) || defined(__x86_64__) || defined(__powerpc__)
++# define move_from_unaligned_int(v, intp) ((v) = *(int *)(intp))
++#else
++/* performs reasonably well (gcc usually inlines memcpy here) */
++# define move_from_unaligned_int(v, intp) (memcpy(&(v), (intp), sizeof(int)))
++#endif
++
+ 
+ /* gram.y */
+ int yyparse(void);
+@@ -227,10 +238,10 @@ int send_ra_forall(struct Interface *ifa
+ 
+ /* process.c */
+ void process(struct Interface *, unsigned char *, int,
+-	struct sockaddr_in6 *, struct in6_pktinfo *, int);
++	struct sockaddr_in6 *, int, int);
+ 
+ /* recv.c */
+-int recv_rs_ra(unsigned char *, struct sockaddr_in6 *, struct in6_pktinfo **, int *);
++int recv_rs_ra(unsigned char *, struct sockaddr_in6 *, int *, int *);
+ 
+ /* util.c */
+ void mdelay(double);
+diff -urBp radvd.old/radvdump.c radvd/radvdump.c
+--- radvd.old/radvdump.c	2011-10-06 19:32:36.000000000 +0400
++++ radvd/radvdump.c	2011-11-06 19:16:55.000000000 +0400
+@@ -43,10 +43,9 @@ int
+ main(int argc, char *argv[])
+ {
+ 	unsigned char msg[MSG_SIZE_RECV];
+-	int c, len, hoplimit;
++	int c, len, hoplimit, ipi6_ifindex;
+ 	int edefs = 0;
+ 	struct sockaddr_in6 rcv_addr;
+-        struct in6_pktinfo *pkt_info = NULL;
+ #ifdef HAVE_GETOPT_LONG
+ 	int opt_idx;
+ #endif
+@@ -99,7 +98,7 @@ main(int argc, char *argv[])
+ 
+ 	for(;;)
+ 	{
+-	        len = recv_rs_ra(msg, &rcv_addr, &pkt_info, &hoplimit);
++	        len = recv_rs_ra(msg, &rcv_addr, &ipi6_ifindex, &hoplimit);
+    	     	if (len > 0)
+        	 	{
+ 			struct icmp6_hdr *icmph;
+@@ -128,14 +127,14 @@ main(int argc, char *argv[])
+ 				exit(1);
+ 			}
+ 
+-			dlog(LOG_DEBUG, 4, "receiver if_index: %u", pkt_info->ipi6_ifindex);
++			dlog(LOG_DEBUG, 4, "receiver if_index: %u", ipi6_ifindex);
+ 
+ 			if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
+ 			{
+ 				/* not yet */
+ 			}
+ 			else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
+-				print_ff(msg, len, &rcv_addr, hoplimit, (unsigned int)pkt_info->ipi6_ifindex, edefs);
++				print_ff(msg, len, &rcv_addr, hoplimit, (unsigned int)ipi6_ifindex, edefs);
+         	}
+ 		else if (len == 0)
+        	 	{
+diff -urBp radvd.old/recv.c radvd/recv.c
+--- radvd.old/recv.c	2011-10-06 14:52:20.000000000 +0400
++++ radvd/recv.c	2011-11-06 19:35:02.000000000 +0400
+@@ -20,14 +20,14 @@
+ 
+ int
+ recv_rs_ra(unsigned char *msg, struct sockaddr_in6 *addr,
+-                 struct in6_pktinfo **pkt_info, int *hoplimit)
++                 int *ipi6_ifindex, int *hoplimit)
+ {
+ 	struct msghdr mhdr;
+ 	struct cmsghdr *cmsg;
+ 	struct iovec iov;
+ 	static unsigned char *chdr = NULL;
+ 	static unsigned int chdrlen = 0;
+-	int len;
++	int len, t;
+ 	fd_set rfds;
+ 
+ 	if( ! chdr )
+@@ -73,43 +73,44 @@ recv_rs_ra(unsigned char *msg, struct so
+ 	}
+ 
+ 	*hoplimit = 255;
++	*ipi6_ifindex = 0;
+ 
+         for (cmsg = CMSG_FIRSTHDR(&mhdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&mhdr, cmsg))
+ 	{
+           if (cmsg->cmsg_level != IPPROTO_IPV6)
+           	continue;
+ 
++          t = -1;
+           switch(cmsg->cmsg_type)
+           {
+ #ifdef IPV6_HOPLIMIT
+               case IPV6_HOPLIMIT:
+-                if ((cmsg->cmsg_len == CMSG_LEN(sizeof(int))) &&
+-                    (*(int *)CMSG_DATA(cmsg) >= 0) &&
+-                    (*(int *)CMSG_DATA(cmsg) < 256))
+-                {
+-                  *hoplimit = *(int *)CMSG_DATA(cmsg);
+-                }
+-                else
+-                {
+-                  flog(LOG_ERR, "received a bogus IPV6_HOPLIMIT from the kernel! len=%d, data=%d",
+-                  	cmsg->cmsg_len, *(int *)CMSG_DATA(cmsg));
+-                  return (-1);
+-                }
+-                break;
++                if (cmsg->cmsg_len == CMSG_LEN(sizeof(int)))
++				{
++					move_from_unaligned_int(t, CMSG_DATA(cmsg));
++					if (t >= 0 && t < 256)
++					{
++						*hoplimit = t;
++						break;
++					}
++				}
++                flog(LOG_ERR, "received a bogus IPV6_HOPLIMIT! len=%d, data=%d",
++                  	cmsg->cmsg_len, t);
++                return (-1);
+ #endif /* IPV6_HOPLIMIT */
+               case IPV6_PKTINFO:
+-                if ((cmsg->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo))) &&
+-                    ((struct in6_pktinfo *)CMSG_DATA(cmsg))->ipi6_ifindex)
+-                {
+-                  *pkt_info = (struct in6_pktinfo *)CMSG_DATA(cmsg);
+-                }
+-                else
++                if (cmsg->cmsg_len == CMSG_LEN(sizeof(struct in6_pktinfo)))
+                 {
+-                  flog(LOG_ERR, "received a bogus IPV6_PKTINFO from the kernel! len=%d, index=%d",
+-                  	cmsg->cmsg_len, ((struct in6_pktinfo *)CMSG_DATA(cmsg))->ipi6_ifindex);
+-                  return (-1);
++					move_from_unaligned_int(t, (char*)CMSG_DATA(cmsg) + offsetof(struct in6_pktinfo, ipi6_ifindex));
++					if (t > 0)
++					{
++						*ipi6_ifindex = t;
++						break;
++					}
+                 }
+-                break;
++                flog(LOG_ERR, "received a bogus IPV6_PKTINFO! len=%d, index=%d",
++                  	cmsg->cmsg_len, t);
++                return (-1);
+           }
+ 	}
+ 
+diff -urBp radvd.old/send.c radvd/send.c
+--- radvd.old/send.c	2011-10-06 19:43:41.000000000 +0400
++++ radvd/send.c	2011-11-06 19:27:54.000000000 +0400
+@@ -114,7 +114,7 @@ static void cease_adv_pfx_msg(const char
+ int
+ send_ra(struct Interface *iface, struct in6_addr *dest)
+ {
+-	uint8_t all_hosts_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
++	struct in6_addr all_hosts_addr = {{{0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1}}};
+ 	struct sockaddr_in6 addr;
+ 	struct in6_pktinfo *pkt_info;
+ 	struct msghdr mhdr;
+@@ -167,7 +167,7 @@ send_ra(struct Interface *iface, struct
+ 
+ 	if (dest == NULL)
+ 	{
+-		dest = (struct in6_addr *)all_hosts_addr;
++		dest = (struct in6_addr *)&all_hosts_addr;
+ 		gettimeofday(&iface->last_multicast, NULL);
+ 	}
+ 
