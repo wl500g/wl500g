@@ -1,25 +1,15 @@
-From 9c133c469d38043d5aadaa03f2fb840d88d1cf4f
-From: Alan Stern
-Date: Thu, 6 Nov 2008 08:42:48 +0100
-Subject: [PATCH] Add round_jiffies_up and related routines
+timer: Updates from upstream
 
-This patch (as1158b) adds round_jiffies_up() and friends.  These
-routines work like the analogous round_jiffies() functions, except
-that they will never round down.
-
-The new routines will be useful for timeouts where we don't care
-exactly when the timer expires, provided it doesn't expire too soon.
-
-Signed-off-by: Alan Stern <stern@rowland.harvard.edu>
-Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
+ kernel.org commits
+ 9c133c469d38043d5aadaa03f2fb840d88d1cf4f Add round_jiffies_up and related routines
+ 4841158b26e28e1476eed84c7347c18f11317750 timer: Avoid reading uninitialized data
 
 ---
- include/linux/timer.h |    5 ++
- kernel/timer.c        |  129 +++++++++++++++++++++++++++++++++++++-----------
- 2 files changed, 104 insertions(+), 30 deletions(-)
+ include/linux/timer.h |    5 +
+ kernel/timer.c        |  131 ++++++++++++++++++++++++++++++++++++++------------
+ 2 files changed, 105 insertions(+), 31 deletions(-)
 
 diff --git a/include/linux/timer.h b/include/linux/timer.h
-index d4ba792..daf9685 100644
 --- a/include/linux/timer.h
 +++ b/include/linux/timer.h
 @@ -186,4 +186,9 @@ unsigned long __round_jiffies_relative(unsigned long j, int cpu);
@@ -33,7 +23,6 @@ index d4ba792..daf9685 100644
 +
  #endif
 diff --git a/kernel/timer.c b/kernel/timer.c
-index 56becf3..dbd50fa 100644
 --- a/kernel/timer.c
 +++ b/kernel/timer.c
 @@ -112,27 +112,8 @@ timer_set_base(struct timer_list *timer, struct tvec_base *new_base)
@@ -208,6 +197,14 @@ index 56becf3..dbd50fa 100644
  
  static inline void set_running_timer(struct tvec_base *base,
  					struct timer_list *timer)
+@@ -714,7 +714,7 @@ int mod_timer(struct timer_list *timer, unsigned long expires)
+ 	 * networking code - if the timer is re-modified
+ 	 * to be the same thing then just return:
+ 	 */
+-	if (timer->expires == expires && timer_pending(timer))
++	if (timer_pending(timer) && timer->expires == expires)
+ 		return 1;
+ 
+ 	return __mod_timer(timer, expires, false, TIMER_NOT_PINNED);
 -- 
 1.7.6.2
-
