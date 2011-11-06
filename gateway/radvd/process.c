@@ -27,19 +27,13 @@ static int  addr_match(struct in6_addr *a1, struct in6_addr *a2,
 
 void
 process(struct Interface *ifacel, unsigned char *msg, int len,
-	struct sockaddr_in6 *addr, struct in6_pktinfo *pkt_info, int hoplimit)
+	struct sockaddr_in6 *addr, int ipi6_ifindex, int hoplimit)
 {
 	struct Interface *iface;
 	struct icmp6_hdr *icmph;
 	char addr_str[INET6_ADDRSTRLEN];
 
 	print_addr(&addr->sin6_addr, addr_str);
-
-	if ( ! pkt_info )
-	{
-		flog(LOG_WARNING, "received packet with no pkt_info from %s!", addr_str );
-		return;
-	}
 
 	/*
 	 * can this happen?
@@ -95,13 +89,13 @@ process(struct Interface *ifacel, unsigned char *msg, int len,
 		return;
 	}
 
-	dlog(LOG_DEBUG, 4, "if_index %u", pkt_info->ipi6_ifindex);
+	dlog(LOG_DEBUG, 4, "if_index %u", ipi6_ifindex);
 
 	/* get iface by received if_index */
 
 	for (iface = ifacel; iface; iface=iface->next)
 	{
-		if (iface->if_index == pkt_info->ipi6_ifindex)
+		if (iface->if_index == ipi6_ifindex)
 		{
 			break;
 		}
@@ -110,7 +104,7 @@ process(struct Interface *ifacel, unsigned char *msg, int len,
 	if (iface == NULL)
 	{
 		dlog(LOG_DEBUG, 2, "received packet from unknown interface: %d",
-			pkt_info->ipi6_ifindex);
+			ipi6_ifindex);
 		return;
 	}
 

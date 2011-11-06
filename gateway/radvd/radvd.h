@@ -177,6 +177,16 @@ struct HomeAgentInfo {
 	uint16_t		lifetime;
 };
 
+/* NB: unaligned parameter should be a pointer, aligned one -
+ * a lvalue. This makes it more likely to not swap them by mistake
+ */
+#if defined(i386) || defined(__x86_64__) || defined(__powerpc__)
+# define move_from_unaligned_int(v, intp) ((v) = *(int *)(intp))
+#else
+/* performs reasonably well (gcc usually inlines memcpy here) */
+# define move_from_unaligned_int(v, intp) (memcpy(&(v), (intp), sizeof(int)))
+#endif
+
 
 /* gram.y */
 int yyparse(void);
@@ -225,10 +235,10 @@ int send_ra_forall(struct Interface *iface, struct in6_addr *dest);
 
 /* process.c */
 void process(struct Interface *, unsigned char *, int,
-	struct sockaddr_in6 *, struct in6_pktinfo *, int);
+	struct sockaddr_in6 *, int, int);
 
 /* recv.c */
-int recv_rs_ra(unsigned char *, struct sockaddr_in6 *, struct in6_pktinfo **, int *);
+int recv_rs_ra(unsigned char *, struct sockaddr_in6 *, int *, int *);
 
 /* util.c */
 void mdelay(double);

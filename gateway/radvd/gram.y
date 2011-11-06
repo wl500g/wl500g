@@ -391,7 +391,7 @@ prefixdef	: prefixhead optional_prefixplist ';'
 					}
 					else
 					{
-						*((uint16_t *)(prefix->Prefix.s6_addr)) = htons(0x2002);
+						*((uint16_t *)(prefix->Prefix.s6_addr16)) = htons(0x2002);
 						memcpy( prefix->Prefix.s6_addr + 2, &dst, sizeof( dst ) );
 					}
 				}
@@ -414,7 +414,7 @@ prefixdef	: prefixhead optional_prefixplist ';'
 						flog(LOG_ERR, "getifaddrs failed: %s", strerror(errno));
 
 					for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-						struct sockaddr_in6 *s6 = 0;
+						struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)ifa->ifa_addr;
 						struct sockaddr_in6 *mask = (struct sockaddr_in6 *)ifa->ifa_netmask;
 						struct in6_addr base6prefix;
 						char buf[INET6_ADDRSTRLEN];
@@ -425,8 +425,6 @@ prefixdef	: prefixhead optional_prefixplist ';'
 
 						if (ifa->ifa_addr->sa_family != AF_INET6)
 							continue;
-
-						s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
 
 						if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
 							continue;
@@ -499,8 +497,6 @@ prefixhead	: T_PREFIX IPV6ADDR '/' NUMBER
 
 					if (ifa->ifa_addr->sa_family != AF_INET6)
 						continue;
-
-					s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
 
 					if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
 						continue;

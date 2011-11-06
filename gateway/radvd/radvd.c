@@ -416,15 +416,14 @@ void main_loop(void)
 				flog(LOG_WARNING, "socket error on fds[0].fd");
 			}
 			else if (fds[0].revents & POLLIN) {
-				int len, hoplimit;
+				int len, hoplimit, ipi6_index;
 				struct sockaddr_in6 rcv_addr;
-				struct in6_pktinfo *pkt_info = NULL;
 				unsigned char msg[MSG_SIZE_RECV];
 
-				len = recv_rs_ra(msg, &rcv_addr, &pkt_info, &hoplimit);
+				len = recv_rs_ra(msg, &rcv_addr, &ipi6_index, &hoplimit);
 				if (len > 0) {
 					process(IfaceList, msg, len,
-						&rcv_addr, pkt_info, hoplimit);
+						&rcv_addr, ipi6_index, hoplimit);
 				}
 			}
 #ifdef HAVE_NETLINK

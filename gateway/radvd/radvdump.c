@@ -43,10 +43,9 @@ int
 main(int argc, char *argv[])
 {
 	unsigned char msg[MSG_SIZE_RECV];
-	int c, len, hoplimit;
+	int c, len, hoplimit, ipi6_ifindex;
 	int edefs = 0;
 	struct sockaddr_in6 rcv_addr;
-        struct in6_pktinfo *pkt_info = NULL;
 #ifdef HAVE_GETOPT_LONG
 	int opt_idx;
 #endif
@@ -99,7 +98,7 @@ main(int argc, char *argv[])
 
 	for(;;)
 	{
-	        len = recv_rs_ra(msg, &rcv_addr, &pkt_info, &hoplimit);
+	        len = recv_rs_ra(msg, &rcv_addr, &ipi6_ifindex, &hoplimit);
    	     	if (len > 0)
        	 	{
 			struct icmp6_hdr *icmph;
@@ -128,14 +127,14 @@ main(int argc, char *argv[])
 				exit(1);
 			}
 
-			dlog(LOG_DEBUG, 4, "receiver if_index: %u", pkt_info->ipi6_ifindex);
+			dlog(LOG_DEBUG, 4, "receiver if_index: %u", ipi6_ifindex);
 
 			if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
 			{
 				/* not yet */
 			}
 			else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
-				print_ff(msg, len, &rcv_addr, hoplimit, (unsigned int)pkt_info->ipi6_ifindex, edefs);
+				print_ff(msg, len, &rcv_addr, hoplimit, (unsigned int)ipi6_ifindex, edefs);
         	}
 		else if (len == 0)
        	 	{

@@ -114,7 +114,7 @@ static void cease_adv_pfx_msg(const char *if_name, struct in6_addr *pfx, const i
 int
 send_ra(struct Interface *iface, struct in6_addr *dest)
 {
-	uint8_t all_hosts_addr[] = {0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1};
+	struct in6_addr all_hosts_addr = {{{0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,1}}};
 	struct sockaddr_in6 addr;
 	struct in6_pktinfo *pkt_info;
 	struct msghdr mhdr;
@@ -167,7 +167,7 @@ send_ra(struct Interface *iface, struct in6_addr *dest)
 
 	if (dest == NULL)
 	{
-		dest = (struct in6_addr *)all_hosts_addr;
+		dest = (struct in6_addr *)&all_hosts_addr;
 		gettimeofday(&iface->last_multicast, NULL);
 	}
 
