@@ -284,10 +284,12 @@ start_upnp(void)
 	if (!nvram_invmatch("upnp_enable", "0") || nvram_match("router_disable", "1"))
 		return 0;
 
-#ifndef __CONFIG_MINIUPNPD__
+#ifdef __CONFIG_MINIUPNPD__
+	ret = killall_s("miniupnpd", SIGUSR1);
+#else
 	ret = killall_s("upnp", SIGUSR1);
-	if (ret != 0)
 #endif
+	if (ret != 0)
 	{
 		snprintf(prefix, sizeof(prefix), "wan%d_", wan_primary_ifunit());
 		wan_proto = nvram_safe_get(strcat_r(prefix, "proto", var));
@@ -372,9 +374,9 @@ stop_upnp(void)
 
 	if (nvram_invmatch("upnp_enable", "0"))
 #ifdef __CONFIG_MINIUPNPD__
-		ret = killall("miniupnpd");
+		ret = killall_w("miniupnpd", 0, 1);
 #else
-		ret = killall("upnp");
+		ret = killall_w("upnp", 0, 1);
 #endif
 
 	dprintf("done\n");

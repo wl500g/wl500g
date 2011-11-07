@@ -1402,7 +1402,7 @@ wan_up(char *wan_ifname)
 	update_wan_status(1);
 	start_firewall_ex(wan_ifname, nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)), "br0", nvram_safe_get("lan_ipaddr"));
 	start_ddns(0);
-	stop_upnp();
+	//stop_upnp();
 	start_upnp();
 #endif
 	
