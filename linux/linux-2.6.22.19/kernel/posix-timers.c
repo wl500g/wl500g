@@ -1020,7 +1020,7 @@ static int common_nsleep_restart(struct restart_block *restart_block)
 long
 clock_nanosleep_restart(struct restart_block *restart_block)
 {
-	clockid_t which_clock = restart_block->arg0;
+	clockid_t which_clock = restart_block->nanosleep.index;
 
 	return CLOCK_DISPATCH(which_clock, nsleep_restart,
 			      (restart_block));
