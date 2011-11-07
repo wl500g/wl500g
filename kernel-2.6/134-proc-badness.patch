@@ -8,7 +8,6 @@ kernel.org commit b95c35e76b29ba812e5dabdd91592e25ec640e93
  1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index a5fa1fd..3983852 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -307,12 +307,13 @@ static int proc_pid_schedstat(struct task_struct *task, char *buffer)

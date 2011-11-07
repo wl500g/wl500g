@@ -11,7 +11,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index 718879b..bc9a4bb 100644
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
 @@ -348,8 +348,9 @@ static int pppoe_device_event(struct notifier_block *this,

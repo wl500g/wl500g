@@ -39,7 +39,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
-index 0ec9bd0..850c737 100644
 --- a/net/ipv4/tcp_cong.c
 +++ b/net/ipv4/tcp_cong.c
 @@ -196,10 +196,10 @@ void tcp_get_allowed_congestion_control(char *buf, size_t maxlen)

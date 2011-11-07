@@ -17,7 +17,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b7d02c5..311c30f 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -2836,7 +2836,7 @@ static void tcp_mtup_probe_failed(struct sock *sk)

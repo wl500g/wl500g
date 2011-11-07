@@ -19,7 +19,6 @@ a598f6aebea2481531b0757ed90cfb0d8cf1d8f5 bridge: relay bridge multicast pkgs if 
  4 files changed, 18 insertions(+), 12 deletions(-)
 
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 2327564..0256ed0 100644
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
 @@ -136,7 +136,7 @@ void br_fdb_cleanup(unsigned long _data)
@@ -32,7 +31,6 @@ index 2327564..0256ed0 100644
  		}
  	}
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index af417d9..972c9b7 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
 @@ -127,21 +127,27 @@ struct sk_buff *br_handle_frame(struct net_bridge_port *p, struct sk_buff *skb)
@@ -72,7 +70,6 @@ index af417d9..972c9b7 100644
  	case BR_STATE_FORWARDING:
  		rhook = rcu_dereference(br_should_route_hook);
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 5fef9d6..280c72f 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
 @@ -529,9 +529,6 @@ static unsigned int br_nf_pre_routing(unsigned int hook, struct sk_buff **pskb,
@@ -86,7 +83,6 @@ index 5fef9d6..280c72f 100644
  		goto out;
  
 diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index 2e8b293..5b161e2 100644
 --- a/net/bridge/br_stp.c
 +++ b/net/bridge/br_stp.c
 @@ -298,6 +298,9 @@ void br_topology_change_detection(struct net_bridge *br)

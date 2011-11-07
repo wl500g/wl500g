@@ -15,7 +15,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 3 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 788851c..c096a42 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1754,6 +1754,9 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)

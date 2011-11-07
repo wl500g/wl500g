@@ -36,7 +36,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 26 insertions(+), 11 deletions(-)
 
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 0329ff2..1f10229 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
 @@ -457,9 +457,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
@@ -98,7 +97,6 @@ index 0329ff2..1f10229 100644
  
  slow_path:
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 27460aa..dd15606 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -614,7 +614,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))

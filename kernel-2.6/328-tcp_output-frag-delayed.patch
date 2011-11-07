@@ -34,7 +34,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index debf235..e399bde 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -1836,7 +1836,7 @@ int tcp_retransmit_skb(struct sock *sk, struct sk_buff *skb)

@@ -22,7 +22,6 @@ Subject: [PATCH] [IPV6] MROUTE: Support multicast forwarding (backport from 2.6.
  create mode 100644 net/ipv6/ip6mr.c
 
 diff --git a/include/linux/Kbuild b/include/linux/Kbuild
-index fda3627..6bd18e3 100644
 --- a/include/linux/Kbuild
 +++ b/include/linux/Kbuild
 @@ -264,6 +264,7 @@ unifdef-y += mempolicy.h
@@ -34,7 +33,6 @@ index fda3627..6bd18e3 100644
  unifdef-y += msg.h
  unifdef-y += nbd.h
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index fdf37bb..5ac1c51 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -181,6 +181,9 @@ struct ipv6_devconf {
@@ -65,7 +63,6 @@ index fdf37bb..5ac1c51 100644
  #define IP6CB(skb)	((struct inet6_skb_parm*)((skb)->cb))
 diff --git a/include/linux/mroute6.h b/include/linux/mroute6.h
 new file mode 100644
-index 0000000..e798959
 --- /dev/null
 +++ b/include/linux/mroute6.h
 @@ -0,0 +1,228 @@
@@ -329,7 +326,6 @@ diff --git /dev/null b/include/linux/pim.h
 +extern int pim_rcv_v1(struct sk_buff *);
 +#endif
 diff --git a/net/ipv6/Kconfig b/net/ipv6/Kconfig
-index 8e5d54f..eafd467 100644
 --- a/net/ipv6/Kconfig
 +++ b/net/ipv6/Kconfig
 @@ -207,3 +207,17 @@ config IPV6_SUBTREES
@@ -351,7 +347,6 @@ index 8e5d54f..eafd467 100644
 +	  If unsure, say N.
 +
 diff --git a/net/ipv6/Makefile b/net/ipv6/Makefile
-index bb33309..7dd0ce9 100644
 --- a/net/ipv6/Makefile
 +++ b/net/ipv6/Makefile
 @@ -10,6 +10,8 @@ ipv6-objs :=	af_inet6.o anycast.o ip6_output.o ip6_input.o addrconf.o \
@@ -364,7 +359,6 @@ index bb33309..7dd0ce9 100644
  	xfrm6_output.o
  ipv6-$(CONFIG_NETFILTER) += netfilter.o
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e27fe79..b1b6106 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -3520,6 +3520,9 @@ static inline void ipv6_store_devconf(struct ipv6_devconf *cnf,
@@ -395,7 +389,6 @@ index e27fe79..b1b6106 100644
  			.ctl_name	=	CTL_UNNUMBERED,
  			.procname	=	"disable_ipv6",
 diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-index b1a7755..164bef4 100644
 --- a/net/ipv6/af_inet6.c
 +++ b/net/ipv6/af_inet6.c
 @@ -64,6 +64,9 @@
@@ -419,7 +412,6 @@ index b1a7755..164bef4 100644
  	if (err)
  		goto ndisc_fail;
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 487b09c..4188d59 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
 @@ -29,6 +29,7 @@
@@ -542,7 +534,6 @@ index 487b09c..4188d59 100644
  	return 0;
  }
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index bfbe852..bd98a72 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -55,6 +55,7 @@
@@ -567,7 +558,6 @@ index bfbe852..bd98a72 100644
  			/* Do not check for IFF_ALLMULTI; multicast routing
 diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
 new file mode 100644
-index 0000000..4a499d3
 --- /dev/null
 +++ b/net/ipv6/ip6mr.c
 @@ -0,0 +1,1641 @@
@@ -2213,7 +2203,6 @@ index 0000000..4a499d3
 +}
 +
 diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index f329029..aa2f0b0 100644
 --- a/net/ipv6/ipv6_sockglue.c
 +++ b/net/ipv6/ipv6_sockglue.c
 @@ -33,6 +33,7 @@
@@ -2245,7 +2234,6 @@ index f329029..aa2f0b0 100644
  		return -EFAULT;
  	switch (optname) {
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index a1fd757..dd87621 100644
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
 @@ -52,6 +52,7 @@
@@ -2278,7 +2266,6 @@ index a1fd757..dd87621 100644
  }
  
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 2f8ef5b..09042b9 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -36,6 +36,7 @@

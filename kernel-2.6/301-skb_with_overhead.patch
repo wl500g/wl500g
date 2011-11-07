@@ -24,7 +24,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index f93f22b..369f60a 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -41,8 +41,7 @@

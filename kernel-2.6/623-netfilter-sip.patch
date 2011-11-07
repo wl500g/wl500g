@@ -9,7 +9,6 @@ Subject: [PATCH] SIP conntrack fixes from 2.6.23/24
  2 files changed, 38 insertions(+), 38 deletions(-)
 
 diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
-index fac97cf..443829f 100644
 --- a/net/ipv4/netfilter/nf_nat_sip.c
 +++ b/net/ipv4/netfilter/nf_nat_sip.c
 @@ -26,12 +26,6 @@ MODULE_AUTHOR("Christian Hentschel <chentschel@arnet.com.ar>");
@@ -108,7 +107,6 @@ index fac97cf..443829f 100644
  	exp->saved_ip = exp->tuple.dst.u3.ip;
  	exp->tuple.dst.u3.ip = newip;
 diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
-index 1b5c6c1..fcd12c0 100644
 --- a/net/netfilter/nf_conntrack_sip.c
 +++ b/net/netfilter/nf_conntrack_sip.c
 @@ -198,10 +198,10 @@ int ct_sip_lnlen(const char *line, const char *limit)

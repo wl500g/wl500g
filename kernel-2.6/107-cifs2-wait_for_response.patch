@@ -40,7 +40,6 @@ Signed-off-by: Steve French <sfrench@us.ibm.com>
  1 files changed, 2 insertions(+), 5 deletions(-)
 
 diff --git a/fs/cifs/transport.c b/fs/cifs/transport.c
-index cd4ed65..4d076be 100644
 --- a/fs/cifs/transport.c
 +++ b/fs/cifs/transport.c
 @@ -410,11 +410,8 @@ static int wait_for_response(struct cifsSesInfo *ses,

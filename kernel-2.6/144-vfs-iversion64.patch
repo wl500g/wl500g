@@ -24,7 +24,6 @@ Signed-off-by: Kalpak Shah <kalpak@clusterfs.com>
  4 files changed, 33 insertions(+), 6 deletions(-)
 
 diff --git a/fs/afs/dir.c b/fs/afs/dir.c
-index 33fe39a..0cc3597 100644
 --- a/fs/afs/dir.c
 +++ b/fs/afs/dir.c
 @@ -546,11 +546,11 @@ static struct dentry *afs_lookup(struct inode *dir, struct dentry *dentry,
@@ -55,7 +54,6 @@ index 33fe39a..0cc3597 100644
  			set_bit(AFS_VNODE_DELETED, &vnode->flags);
  			spin_unlock(&vnode->lock);
 diff --git a/fs/afs/inode.c b/fs/afs/inode.c
-index d196840..84750c8 100644
 --- a/fs/afs/inode.c
 +++ b/fs/afs/inode.c
 @@ -301,7 +301,8 @@ int afs_getattr(struct vfsmount *mnt, struct dentry *dentry,
@@ -69,7 +67,6 @@ index d196840..84750c8 100644
  	generic_fillattr(inode, stat);
  	return 0;
 diff --git a/fs/inode.c b/fs/inode.c
-index ed35383..b48324a 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
 @@ -1276,6 +1293,11 @@ void file_update_time(struct file *file)
@@ -85,7 +82,6 @@ index ed35383..b48324a 100644
  		mark_inode_dirty_sync(inode);
  }
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 21398a5..9608839 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -124,6 +124,7 @@ extern int dir_notify_enable;

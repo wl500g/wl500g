@@ -31,7 +31,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 14 insertions(+), 0 deletions(-)
 
 diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index 7c622af..649d174 100644
 --- a/net/sctp/sm_statefuns.c
 +++ b/net/sctp/sm_statefuns.c
 @@ -3413,6 +3413,7 @@ sctp_disposition_t sctp_sf_eat_fwd_tsn(const struct sctp_endpoint *ep,

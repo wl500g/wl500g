@@ -19,7 +19,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 5 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 4310cc4..d041c68 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -2753,6 +2753,11 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,

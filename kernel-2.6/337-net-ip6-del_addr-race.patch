@@ -40,7 +40,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 147588f..ff61a5c 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -749,12 +749,12 @@ static void ipv6_del_addr(struct inet6_ifaddr *ifp)

@@ -83,7 +83,6 @@ a89182c76e54134081cfec6409df06731c5cb98f Fix VM_FAULT flags conversion for huget
  63 files changed, 981 insertions(+), 1079 deletions(-)
 
 diff --git a/Documentation/feature-removal-schedule.txt b/Documentation/feature-removal-schedule.txt
-index 018a01b..907c418 100644
 --- a/Documentation/feature-removal-schedule.txt
 +++ b/Documentation/feature-removal-schedule.txt
 @@ -146,6 +146,15 @@ Who:	Arjan van de Ven <arjan@linux.intel.com>
@@ -103,7 +102,6 @@ index 018a01b..907c418 100644
  When:	September 2007
  Why:	The interrupt related SA_* flags are replaced by IRQF_* to move them
 diff --git a/Documentation/filesystems/Locking b/Documentation/filesystems/Locking
-index d866551..75696ba 100644
 --- a/Documentation/filesystems/Locking
 +++ b/Documentation/filesystems/Locking
 @@ -510,12 +510,14 @@ More details about quota locking can be found in fs/dquot.c.
@@ -122,7 +120,6 @@ index d866551..75696ba 100644
  
  ================================================================================
 diff --git a/arch/alpha/mm/fault.c b/arch/alpha/mm/fault.c
-index f586279..a0e18da 100644
 --- a/arch/alpha/mm/fault.c
 +++ b/arch/alpha/mm/fault.c
 @@ -148,21 +148,17 @@ do_page_fault(unsigned long address, unsigned long mmcsr,
@@ -157,7 +154,6 @@ index f586279..a0e18da 100644
  
  	/* Something tried to access memory that isn't in our memory map.
 diff --git a/arch/arm/mm/fault.c b/arch/arm/mm/fault.c
-index 75d4914..846cce4 100644
 --- a/arch/arm/mm/fault.c
 +++ b/arch/arm/mm/fault.c
 @@ -145,8 +145,8 @@ void do_bad_area(unsigned long addr, unsigned int fsr, struct pt_regs *regs)
@@ -252,7 +248,6 @@ index 75d4914..846cce4 100644
  
  	__do_user_fault(tsk, addr, fsr, sig, code, regs);
 diff --git a/arch/arm26/mm/fault.c b/arch/arm26/mm/fault.c
-index 93c0cee..dec638a 100644
 --- a/arch/arm26/mm/fault.c
 +++ b/arch/arm26/mm/fault.c
 @@ -170,20 +170,20 @@ good_area:
@@ -305,7 +300,6 @@ index 93c0cee..dec638a 100644
  	/*
  	 * If we are in kernel mode at this point, we
 diff --git a/arch/avr32/mm/fault.c b/arch/avr32/mm/fault.c
-index 4b24952..ae2d2c5 100644
 --- a/arch/avr32/mm/fault.c
 +++ b/arch/avr32/mm/fault.c
 @@ -64,6 +64,7 @@ asmlinkage void do_page_fault(unsigned long ecr, struct pt_regs *regs)
@@ -348,7 +342,6 @@ index 4b24952..ae2d2c5 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/cris/mm/fault.c b/arch/cris/mm/fault.c
-index c73e91f..8672ab7 100644
 --- a/arch/cris/mm/fault.c
 +++ b/arch/cris/mm/fault.c
 @@ -179,6 +179,7 @@ do_page_fault(unsigned long address, struct pt_regs *regs,
@@ -390,7 +383,6 @@ index c73e91f..8672ab7 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/frv/mm/fault.c b/arch/frv/mm/fault.c
-index 3f12296..6798fa0 100644
 --- a/arch/frv/mm/fault.c
 +++ b/arch/frv/mm/fault.c
 @@ -40,6 +40,7 @@ asmlinkage void do_page_fault(int datammu, unsigned long esr0, unsigned long ear
@@ -432,7 +424,6 @@ index 3f12296..6798fa0 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/i386/mm/fault.c b/arch/i386/mm/fault.c
-index 27ba2fd..bcf2237 100644
 --- a/arch/i386/mm/fault.c
 +++ b/arch/i386/mm/fault.c
 @@ -304,6 +304,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
@@ -475,7 +466,6 @@ index 27ba2fd..bcf2237 100644
  	/*
  	 * Did it hit the DOS screen memory VA from vm86 mode?
 diff --git a/arch/ia64/mm/fault.c b/arch/ia64/mm/fault.c
-index b87f785..73ccb60 100644
 --- a/arch/ia64/mm/fault.c
 +++ b/arch/ia64/mm/fault.c
 @@ -80,6 +80,7 @@ ia64_do_page_fault (unsigned long address, unsigned long isr, struct pt_regs *re
@@ -526,7 +516,6 @@ index b87f785..73ccb60 100644
  	return;
  
 diff --git a/arch/m32r/mm/fault.c b/arch/m32r/mm/fault.c
-index f3935ba..676a1c4 100644
 --- a/arch/m32r/mm/fault.c
 +++ b/arch/m32r/mm/fault.c
 @@ -80,6 +80,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code,
@@ -569,7 +558,6 @@ index f3935ba..676a1c4 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/m68k/mm/fault.c b/arch/m68k/mm/fault.c
-index 2adbeb1..578b48f 100644
 --- a/arch/m68k/mm/fault.c
 +++ b/arch/m68k/mm/fault.c
 @@ -159,18 +159,17 @@ good_area:
@@ -602,7 +590,6 @@ index 2adbeb1..578b48f 100644
  	up_read(&mm->mmap_sem);
  	return 0;
 diff --git a/arch/mips/mm/fault.c b/arch/mips/mm/fault.c
-index 7ebea33..521771b 100644
 --- a/arch/mips/mm/fault.c
 +++ b/arch/mips/mm/fault.c
 @@ -39,6 +39,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long write,
@@ -645,7 +632,6 @@ index 7ebea33..521771b 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/parisc/mm/fault.c b/arch/parisc/mm/fault.c
-index f6f6755..7899ab8 100644
 --- a/arch/parisc/mm/fault.c
 +++ b/arch/parisc/mm/fault.c
 @@ -147,6 +147,7 @@ void do_page_fault(struct pt_regs *regs, unsigned long code,
@@ -692,7 +678,6 @@ index f6f6755..7899ab8 100644
  	return;
  
 diff --git a/arch/powerpc/mm/fault.c b/arch/powerpc/mm/fault.c
-index 115b25f..304407e 100644
 --- a/arch/powerpc/mm/fault.c
 +++ b/arch/powerpc/mm/fault.c
 @@ -145,7 +145,7 @@ int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
@@ -738,7 +723,6 @@ index 115b25f..304407e 100644
  	return 0;
  
 diff --git a/arch/powerpc/platforms/cell/spufs/fault.c b/arch/powerpc/platforms/cell/spufs/fault.c
-index 0f75c07..93d248d 100644
 --- a/arch/powerpc/platforms/cell/spufs/fault.c
 +++ b/arch/powerpc/platforms/cell/spufs/fault.c
 @@ -38,6 +38,7 @@ static int spu_handle_mm_fault(struct mm_struct *mm, unsigned long ea, unsigned
@@ -786,7 +770,6 @@ index 0f75c07..93d248d 100644
  	return ret;
  
 diff --git a/arch/ppc/mm/fault.c b/arch/ppc/mm/fault.c
-index 465f451..b98244e 100644
 --- a/arch/ppc/mm/fault.c
 +++ b/arch/ppc/mm/fault.c
 @@ -96,6 +96,7 @@ int do_page_fault(struct pt_regs *regs, unsigned long address,
@@ -829,7 +812,6 @@ index 465f451..b98244e 100644
  	up_read(&mm->mmap_sem);
  	/*
 diff --git a/arch/s390/lib/uaccess_pt.c b/arch/s390/lib/uaccess_pt.c
-index 6318167..60604b2 100644
 --- a/arch/s390/lib/uaccess_pt.c
 +++ b/arch/s390/lib/uaccess_pt.c
 @@ -20,6 +20,7 @@ static int __handle_fault(struct mm_struct *mm, unsigned long address,
@@ -872,7 +854,6 @@ index 6318167..60604b2 100644
  out:
  	up_read(&mm->mmap_sem);
 diff --git a/arch/s390/mm/fault.c b/arch/s390/mm/fault.c
-index d855cdb..5405519 100644
 --- a/arch/s390/mm/fault.c
 +++ b/arch/s390/mm/fault.c
 @@ -307,6 +307,7 @@ do_exception(struct pt_regs *regs, unsigned long error_code, int write)
@@ -922,7 +903,6 @@ index d855cdb..5405519 100644
          up_read(&mm->mmap_sem);
  	/*
 diff --git a/arch/sh/mm/fault.c b/arch/sh/mm/fault.c
-index c878faa..f8e9cc2 100644
 --- a/arch/sh/mm/fault.c
 +++ b/arch/sh/mm/fault.c
 @@ -34,6 +34,7 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
@@ -965,7 +945,6 @@ index c878faa..f8e9cc2 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/arch/sh64/mm/fault.c b/arch/sh64/mm/fault.c
-index 3cd93ba..0d069d8 100644
 --- a/arch/sh64/mm/fault.c
 +++ b/arch/sh64/mm/fault.c
 @@ -127,6 +127,7 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long writeaccess,
@@ -1008,7 +987,6 @@ index 3cd93ba..0d069d8 100644
  	   now from the newly-setup PTE, to avoid having to fault again right
  	   away on the same instruction. */
 diff --git a/arch/sparc/mm/fault.c b/arch/sparc/mm/fault.c
-index c348336..50747fe 100644
 --- a/arch/sparc/mm/fault.c
 +++ b/arch/sparc/mm/fault.c
 @@ -226,6 +226,7 @@ asmlinkage void do_sparc_fault(struct pt_regs *regs, int text_fault, int write,
@@ -1050,7 +1028,6 @@ index c348336..50747fe 100644
  	return;
  
 diff --git a/arch/sparc64/mm/fault.c b/arch/sparc64/mm/fault.c
-index e2cb991..9f7740e 100644
 --- a/arch/sparc64/mm/fault.c
 +++ b/arch/sparc64/mm/fault.c
 @@ -275,7 +275,7 @@ asmlinkage void __kprobes do_sparc64_fault(struct pt_regs *regs)
@@ -1094,7 +1071,6 @@ index e2cb991..9f7740e 100644
  	up_read(&mm->mmap_sem);
  
 diff --git a/arch/um/kernel/trap.c b/arch/um/kernel/trap.c
-index abab90c..3850d53 100644
 --- a/arch/um/kernel/trap.c
 +++ b/arch/um/kernel/trap.c
 @@ -76,23 +76,24 @@ good_area:
@@ -1137,7 +1113,6 @@ index abab90c..3850d53 100644
  		pud = pud_offset(pgd, address);
  		pmd = pmd_offset(pud, address);
 diff --git a/arch/x86_64/mm/fault.c b/arch/x86_64/mm/fault.c
-index 635e58d..84f1172 100644
 --- a/arch/x86_64/mm/fault.c
 +++ b/arch/x86_64/mm/fault.c
 @@ -317,7 +317,7 @@ asmlinkage void __kprobes do_page_fault(struct pt_regs *regs,
@@ -1181,7 +1156,6 @@ index 635e58d..84f1172 100644
  	return;
  
 diff --git a/arch/xtensa/mm/fault.c b/arch/xtensa/mm/fault.c
-index 3dc6f2f..1600406 100644
 --- a/arch/xtensa/mm/fault.c
 +++ b/arch/xtensa/mm/fault.c
 @@ -41,6 +41,7 @@ void do_page_fault(struct pt_regs *regs)
@@ -1224,7 +1198,6 @@ index 3dc6f2f..1600406 100644
  	up_read(&mm->mmap_sem);
  	return;
 diff --git a/fs/buffer.c b/fs/buffer.c
-index b138fea..1fe268c 100644
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
 @@ -982,7 +982,7 @@ grow_dev_page(struct block_device *bdev, sector_t block,
@@ -1237,7 +1210,6 @@ index b138fea..1fe268c 100644
  		return NULL;
  
 diff --git a/fs/gfs2/ops_address.c b/fs/gfs2/ops_address.c
-index 30c1562..f7eacc4 100644
 --- a/fs/gfs2/ops_address.c
 +++ b/fs/gfs2/ops_address.c
 @@ -250,7 +250,7 @@ static int gfs2_readpage(struct file *file, struct page *page)
@@ -1250,7 +1222,6 @@ index 30c1562..f7eacc4 100644
  		}
  		gfs2_holder_init(ip->i_gl, LM_ST_SHARED, GL_ATIME|LM_FLAG_TRY_1CB, &gh);
 diff --git a/fs/gfs2/ops_vm.c b/fs/gfs2/ops_vm.c
-index aa0dbd2..8f27b8d 100644
 --- a/fs/gfs2/ops_vm.c
 +++ b/fs/gfs2/ops_vm.c
 @@ -27,13 +27,12 @@
@@ -1363,7 +1334,6 @@ index aa0dbd2..8f27b8d 100644
  };
  
 diff --git a/fs/inode.c b/fs/inode.c
-index 9a012cc..47b87b0 100644
 --- a/fs/inode.c
 +++ b/fs/inode.c
 @@ -145,7 +145,7 @@ static struct inode *alloc_inode(struct super_block *sb)
@@ -1391,7 +1361,6 @@ index 9a012cc..47b87b0 100644
  struct inode *new_inode(struct super_block *sb)
  {
 diff --git a/fs/ncpfs/mmap.c b/fs/ncpfs/mmap.c
-index f87de97..f6bf182 100644
 --- a/fs/ncpfs/mmap.c
 +++ b/fs/ncpfs/mmap.c
 @@ -24,29 +24,36 @@
@@ -1479,7 +1448,6 @@ index f87de97..f6bf182 100644
  
  
 diff --git a/fs/ocfs2/aops.c b/fs/ocfs2/aops.c
-index 3175288..a7063b6 100644
 --- a/fs/ocfs2/aops.c
 +++ b/fs/ocfs2/aops.c
 @@ -232,7 +232,7 @@ static int ocfs2_readpage(struct file *file, struct page *page)
@@ -1492,7 +1460,6 @@ index 3175288..a7063b6 100644
  	 *
  	 * XXX sys_readahead() seems to get that wrong?
 diff --git a/fs/ocfs2/mmap.c b/fs/ocfs2/mmap.c
-index af01158..e1321f0 100644
 --- a/fs/ocfs2/mmap.c
 +++ b/fs/ocfs2/mmap.c
 @@ -42,16 +42,12 @@
@@ -1559,7 +1526,6 @@ index af01158..e1321f0 100644
  }
  
 diff --git a/fs/ramfs/inode.c b/fs/ramfs/inode.c
-index d40d22b..ef2b46d 100644
 --- a/fs/ramfs/inode.c
 +++ b/fs/ramfs/inode.c
 @@ -60,6 +60,7 @@ struct inode *ramfs_get_inode(struct super_block *sb, int mode, dev_t dev)
@@ -1571,7 +1537,6 @@ index d40d22b..ef2b46d 100644
  		switch (mode & S_IFMT) {
  		default:
 diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
-index 8c43cd2..af9207d 100644
 --- a/fs/xfs/linux-2.6/xfs_file.c
 +++ b/fs/xfs/linux-2.6/xfs_file.c
 @@ -221,19 +221,18 @@ xfs_file_fsync(
@@ -1628,7 +1593,6 @@ index 8c43cd2..af9207d 100644
  	.mprotect	= xfs_vm_mprotect,
  #endif
 diff --git a/include/asm-alpha/page.h b/include/asm-alpha/page.h
-index d2bed3c..bae7f05 100644
 --- a/include/asm-alpha/page.h
 +++ b/include/asm-alpha/page.h
 @@ -17,7 +17,8 @@
@@ -1642,7 +1606,6 @@ index d2bed3c..bae7f05 100644
  
  extern void copy_page(void * _to, void * _from);
 diff --git a/include/asm-cris/page.h b/include/asm-cris/page.h
-index 9f13c32..0648e31 100644
 --- a/include/asm-cris/page.h
 +++ b/include/asm-cris/page.h
 @@ -20,7 +20,8 @@
@@ -1656,7 +1619,6 @@ index 9f13c32..0648e31 100644
  
  /*
 diff --git a/include/asm-h8300/page.h b/include/asm-h8300/page.h
-index 3b4f290..c8cc81a 100644
 --- a/include/asm-h8300/page.h
 +++ b/include/asm-h8300/page.h
 @@ -22,7 +22,8 @@
@@ -1670,7 +1632,6 @@ index 3b4f290..c8cc81a 100644
  
  /*
 diff --git a/include/asm-i386/page.h b/include/asm-i386/page.h
-index 818ac8b..99cf5d3 100644
 --- a/include/asm-i386/page.h
 +++ b/include/asm-i386/page.h
 @@ -34,7 +34,8 @@
@@ -1684,7 +1645,6 @@ index 818ac8b..99cf5d3 100644
  
  /*
 diff --git a/include/asm-ia64/page.h b/include/asm-ia64/page.h
-index 485759b..d634546 100644
 --- a/include/asm-ia64/page.h
 +++ b/include/asm-ia64/page.h
 @@ -87,12 +87,13 @@ do {						\
@@ -1708,7 +1668,6 @@ index 485759b..d634546 100644
  
  #define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
 diff --git a/include/asm-m32r/page.h b/include/asm-m32r/page.h
-index 6f6ecf7..04fd183 100644
 --- a/include/asm-m32r/page.h
 +++ b/include/asm-m32r/page.h
 @@ -15,7 +15,8 @@ extern void copy_page(void *to, void *from);
@@ -1722,7 +1681,6 @@ index 6f6ecf7..04fd183 100644
  
  /*
 diff --git a/include/asm-m68knommu/page.h b/include/asm-m68knommu/page.h
-index 2a1b8bd..9efa0a9 100644
 --- a/include/asm-m68knommu/page.h
 +++ b/include/asm-m68knommu/page.h
 @@ -22,7 +22,8 @@
@@ -1736,7 +1694,6 @@ index 2a1b8bd..9efa0a9 100644
  
  /*
 diff --git a/include/asm-s390/page.h b/include/asm-s390/page.h
-index 05ea6f1..f326451 100644
 --- a/include/asm-s390/page.h
 +++ b/include/asm-s390/page.h
 @@ -64,7 +64,8 @@ static inline void copy_page(void *to, void *from)
@@ -1750,7 +1707,6 @@ index 05ea6f1..f326451 100644
  
  /*
 diff --git a/include/asm-x86_64/page.h b/include/asm-x86_64/page.h
-index e327c83..88adf1a 100644
 --- a/include/asm-x86_64/page.h
 +++ b/include/asm-x86_64/page.h
 @@ -48,7 +48,8 @@ void copy_page(void *, void *);
@@ -1764,7 +1720,6 @@ index e327c83..88adf1a 100644
  /*
   * These are used to make use of C type-checking..
 diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index 0d2ef0b..e5882fe 100644
 --- a/include/linux/gfp.h
 +++ b/include/linux/gfp.h
 @@ -30,6 +30,9 @@ struct vm_area_struct;
@@ -1812,7 +1767,6 @@ index 0d2ef0b..e5882fe 100644
  #ifdef CONFIG_NUMA
  #define GFP_THISNODE	(__GFP_THISNODE | __GFP_NOWARN | __GFP_NORETRY)
 diff --git a/include/linux/highmem.h b/include/linux/highmem.h
-index 98e2cce..12c5e4e 100644
 --- a/include/linux/highmem.h
 +++ b/include/linux/highmem.h
 @@ -73,10 +73,27 @@ static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
@@ -1883,7 +1837,6 @@ index 98e2cce..12c5e4e 100644
  {
  	void *kaddr = kmap_atomic(page, KM_USER0);
 diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 0bfdd63..867cab6 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -170,6 +170,8 @@ extern unsigned int kobjsize(const void *objp);
@@ -2012,7 +1965,6 @@ index 0bfdd63..867cab6 100644
  /* mm/page-writeback.c */
  int write_one_page(struct page *page, int wait);
 diff --git a/ipc/shm.c b/ipc/shm.c
-index 3bdcb9a..bcd03cd 100644
 --- a/ipc/shm.c
 +++ b/ipc/shm.c
 @@ -226,13 +226,12 @@ static void shm_close(struct vm_area_struct *vma)
@@ -2049,7 +2001,6 @@ index 3bdcb9a..bcd03cd 100644
  	.set_policy = shm_set_policy,
  	.get_policy = shm_get_policy,
 diff --git a/kernel/futex.c b/kernel/futex.c
-index 305588a..251a1d5 100644
 --- a/kernel/futex.c
 +++ b/kernel/futex.c
 @@ -310,15 +310,20 @@ static int futex_handle_fault(unsigned long address,
@@ -2082,7 +2033,6 @@ index 305588a..251a1d5 100644
  	}
  	if (!fshared)
 diff --git a/mm/filemap.c b/mm/filemap.c
-index 41cd639..eb36159 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -866,13 +866,11 @@ void do_generic_mapping_read(struct address_space *mapping,
@@ -2597,7 +2547,6 @@ index 41cd639..eb36159 100644
  }
  
 diff --git a/mm/filemap_xip.c b/mm/filemap_xip.c
-index 65ffc32..53ee6a2 100644
 --- a/mm/filemap_xip.c
 +++ b/mm/filemap_xip.c
 @@ -205,62 +205,58 @@ __xip_unmap (struct address_space * mapping,
@@ -2690,7 +2639,6 @@ index 65ffc32..53ee6a2 100644
  }
  EXPORT_SYMBOL_GPL(xip_file_mmap);
 diff --git a/mm/fremap.c b/mm/fremap.c
-index 4e3f53d..5f50d73 100644
 --- a/mm/fremap.c
 +++ b/mm/fremap.c
 @@ -20,13 +20,14 @@
@@ -2912,7 +2860,6 @@ index 4e3f53d..5f50d73 100644
  		up_read(&mm->mmap_sem);
  	else
 diff --git a/mm/hugetlb.c b/mm/hugetlb.c
-index 5fb38f1..59caedc 100644
 --- a/mm/hugetlb.c
 +++ b/mm/hugetlb.c
 @@ -299,15 +299,14 @@ unsigned long hugetlb_total_pages(void)
@@ -2980,7 +2927,6 @@ index 5fb38f1..59caedc 100644
  
  			remainder = 0;
 diff --git a/mm/memory.c b/mm/memory.c
-index 80c27b2..719c96e 100644
 --- a/mm/memory.c
 +++ b/mm/memory.c
 @@ -1051,43 +1051,51 @@ int get_user_pages(struct task_struct *tsk, struct mm_struct *mm,
@@ -3584,7 +3530,6 @@ index 80c27b2..719c96e 100644
  			len, write, 0, NULL, NULL);
  	if (ret < 0)
 diff --git a/mm/mempolicy.c b/mm/mempolicy.c
-index d76e8eb..c0397de 100644
 --- a/mm/mempolicy.c
 +++ b/mm/mempolicy.c
 @@ -594,7 +594,7 @@ static void migrate_page_add(struct page *page, struct list_head *pagelist,
@@ -3607,7 +3552,6 @@ index d76e8eb..c0397de 100644
  #else
  
 diff --git a/mm/migrate.c b/mm/migrate.c
-index 2ab23e5..db18d55 100644
 --- a/mm/migrate.c
 +++ b/mm/migrate.c
 @@ -758,7 +758,8 @@ static struct page *new_page_node(struct page *p, unsigned long private,
@@ -3621,7 +3565,6 @@ index 2ab23e5..db18d55 100644
  
  /*
 diff --git a/mm/mmap.c b/mm/mmap.c
-index 33fb671..4d699e0 100644
 --- a/mm/mmap.c
 +++ b/mm/mmap.c
 @@ -1150,12 +1150,8 @@ out:
@@ -3640,7 +3583,6 @@ index 33fb671..4d699e0 100644
  
  unmap_and_free_vma:
 diff --git a/mm/nommu.c b/mm/nommu.c
-index 2b16b00..caf8d6d 100644
 --- a/mm/nommu.c
 +++ b/mm/nommu.c
 @@ -1336,11 +1336,10 @@ int in_gate_area_no_task(unsigned long addr)
@@ -3658,7 +3600,6 @@ index 2b16b00..caf8d6d 100644
  
  /*
 diff --git a/mm/page-writeback.c b/mm/page-writeback.c
-index 26bfdfd..5b0ccb8 100644
 --- a/mm/page-writeback.c
 +++ b/mm/page-writeback.c
 @@ -921,6 +921,8 @@ int clear_page_dirty_for_io(struct page *page)
@@ -3696,7 +3637,6 @@ index 26bfdfd..5b0ccb8 100644
  			dec_zone_page_state(page, NR_FILE_DIRTY);
  			return 1;
 diff --git a/mm/rmap.c b/mm/rmap.c
-index 61e4925..fede5c7 100644
 --- a/mm/rmap.c
 +++ b/mm/rmap.c
 @@ -621,8 +621,10 @@ void page_remove_rmap(struct page *page, struct vm_area_struct *vma)
@@ -3712,7 +3652,6 @@ index 61e4925..fede5c7 100644
  				print_symbol (KERN_EMERG "  vma->vm_file->f_op->mmap = %s\n", (unsigned long)vma->vm_file->f_op->mmap);
  			BUG();
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 1d53a0f..5593fed 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -82,6 +82,7 @@ enum sgp_type {
@@ -3880,7 +3819,6 @@ index 1d53a0f..5593fed 100644
  	.set_policy     = shmem_set_policy,
  	.get_policy     = shmem_get_policy,
 diff --git a/mm/swap_state.c b/mm/swap_state.c
-index 5f7cf2a..75ef89d 100644
 --- a/mm/swap_state.c
 +++ b/mm/swap_state.c
 @@ -334,7 +334,8 @@ struct page *read_swap_cache_async(swp_entry_t entry,
@@ -3894,7 +3832,6 @@ index 5f7cf2a..75ef89d 100644
  				break;		/* Out of memory */
  		}
 diff --git a/mm/truncate.c b/mm/truncate.c
-index 4fbe1a2..b53b328 100644
 --- a/mm/truncate.c
 +++ b/mm/truncate.c
 @@ -82,7 +82,7 @@ EXPORT_SYMBOL(cancel_dirty_page);

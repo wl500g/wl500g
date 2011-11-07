@@ -8,7 +8,6 @@ Subject: [PATCH] fat: optimize count free clusters (significant speed-up, port f
  1 files changed, 28 insertions(+), 0 deletions(-)
 
 diff --git a/fs/fat/fatent.c b/fs/fat/fatent.c
-index ab171ea..36717c5 100644
 --- a/fs/fat/fatent.c
 +++ b/fs/fat/fatent.c
 @@ -583,21 +583,49 @@ error:

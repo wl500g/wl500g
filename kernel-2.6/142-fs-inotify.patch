@@ -78,7 +78,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/fs/inotify.c b/fs/inotify.c
-index dae3f28..331f2e8 100644
 --- a/fs/inotify.c
 +++ b/fs/inotify.c
 @@ -156,7 +156,7 @@ static int inotify_handle_get_wd(struct inotify_handle *ih,

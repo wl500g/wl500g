@@ -46,7 +46,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
 
 diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index c91476c..dff3192 100644
 --- a/include/linux/rtnetlink.h
 +++ b/include/linux/rtnetlink.h
 @@ -351,6 +351,8 @@ enum
@@ -81,7 +80,6 @@ diff -uBp a/include/net/dst.h b/include/net/dst.h
  dst_allfrag(const struct dst_entry *dst)
  {
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 1b94b9b..646dbe3 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -41,6 +41,7 @@
@@ -120,7 +118,6 @@ index 1b94b9b..646dbe3 100644
  		}
  		return 1;
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9785df3..1ee7212 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -616,13 +626,13 @@ static void tcp_rtt_estimator(struct sock *sk, const __u32 mrtt)

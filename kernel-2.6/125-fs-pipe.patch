@@ -60,7 +60,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 30 insertions(+), 11 deletions(-)
 
 diff --git a/fs/pipe.c b/fs/pipe.c
-index 52c4151..ae17d02 100644
 --- a/fs/pipe.c
 +++ b/fs/pipe.c
 @@ -777,36 +777,55 @@ pipe_rdwr_release(struct inode *inode, struct file *filp)

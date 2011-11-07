@@ -16,7 +16,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index b4c38bc..d853f6b 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -1582,6 +1582,12 @@ static inline void clear_tsk_need_resched(struct task_struct *tsk)

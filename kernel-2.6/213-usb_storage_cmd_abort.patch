@@ -7,7 +7,6 @@ kernel.org commit 580da34847488b404218d1d7f53b156f245f5555
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index 6011301..d52005d 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
 @@ -387,7 +387,6 @@ int usb_sg_init (

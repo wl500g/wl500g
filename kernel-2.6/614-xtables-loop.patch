@@ -24,7 +24,6 @@ Signed-off-by: Patrick McHardy <kaber@trash.net>
  3 files changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index 4b35dba..4f454ce 100644
 --- a/net/ipv4/netfilter/arp_tables.c
 +++ b/net/ipv4/netfilter/arp_tables.c
 @@ -388,7 +388,9 @@ static int mark_source_chains(struct xt_table_info *newinfo,
@@ -39,7 +38,6 @@ index 4b35dba..4f454ce 100644
  						"negative verdict (%i)\n",
  								t->verdict);
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 41c59e3..82ee7c9 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
 @@ -488,7 +488,9 @@ mark_source_chains(struct xt_table_info *newinfo,
@@ -54,7 +52,6 @@ index 41c59e3..82ee7c9 100644
  						"negative verdict (%i)\n",
  								t->verdict);
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index e59662b..e89cfa3 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
 @@ -517,7 +517,9 @@ mark_source_chains(struct xt_table_info *newinfo,

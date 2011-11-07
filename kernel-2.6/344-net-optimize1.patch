@@ -24,7 +24,6 @@ Subject: [PATCH] net: minor backports from kernel 2.6 upstream
  10 files changed, 101 insertions(+), 106 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 34fce6b..058ca7b 100644
 --- a/net/bridge/br_device.c
 +++ b/net/bridge/br_device.c
 @@ -41,11 +41,11 @@ int br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -42,7 +41,6 @@ index 34fce6b..058ca7b 100644
  	return 0;
  }
 diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
-index ada7f49..bdd7c35 100644
 --- a/net/bridge/br_forward.c
 +++ b/net/bridge/br_forward.c
 @@ -100,24 +100,13 @@ void br_forward(const struct net_bridge_port *to, struct sk_buff *skb)
@@ -90,7 +88,6 @@ index ada7f49..bdd7c35 100644
 +	br_flood(br, skb, __br_forward);
  }
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 2adbbe4..af417d9 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
 @@ -43,7 +43,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
@@ -164,7 +161,6 @@ index 2adbbe4..af417d9 100644
  out:
  	return 0;
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 9450ef9..19548b7 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
 @@ -172,12 +172,8 @@ extern int br_dev_queue_push_xmit(struct sk_buff *skb);
@@ -183,7 +179,6 @@ index 9450ef9..19548b7 100644
  /* br_if.c */
  extern void br_port_carrier_check(struct net_bridge_port *p);
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 082fb1c..507814e 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
 @@ -347,6 +347,61 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
@@ -314,7 +309,6 @@ index 082fb1c..507814e 100644
  		ret = -EINVAL;
  		if (optlen == sizeof(struct sock_fprog)) {
 diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index fa05ba2..d533431 100644
 --- a/net/ipv4/tcp_output.c
 +++ b/net/ipv4/tcp_output.c
 @@ -246,7 +246,7 @@ static u16 tcp_select_window(struct sock *sk)
@@ -327,7 +321,6 @@ index fa05ba2..d533431 100644
  	tp->rcv_wnd = new_win;
  	tp->rcv_wup = tp->rcv_nxt;
 diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 59f1881..ab1622d 100644
 --- a/net/ipv6/mcast.c
 +++ b/net/ipv6/mcast.c
 @@ -1356,7 +1356,10 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
@@ -346,7 +339,6 @@ index 59f1881..ab1622d 100644
 1.7.2.3
 
 diff --git a/net/sched/act_api.c b/net/sched/act_api.c
-index 711dd26..3a78306 100644
 --- a/net/sched/act_api.c
 +++ b/net/sched/act_api.c
 @@ -80,7 +80,7 @@ static int tcf_dump_walker(struct sk_buff *skb, struct netlink_callback *cb,
@@ -384,7 +376,6 @@ index 711dd26..3a78306 100644
  	return p;
  }
 diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 6cb8c79..9fffee6 100644
 --- a/net/sched/act_police.c
 +++ b/net/sched/act_police.c
 @@ -68,7 +68,7 @@ static int tcf_act_police_walker(struct sk_buff *skb, struct netlink_callback *c
@@ -406,7 +397,6 @@ index 6cb8c79..9fffee6 100644
  		cb->args[0] += n_i;
  	return n_i;
 diff --git a/net/socket.c b/net/socket.c
-index 95a1421..4b42929 100644
 --- a/net/socket.c
 +++ b/net/socket.c
 @@ -2247,6 +2247,7 @@ int kernel_accept(struct socket *sock, struct socket **newsock, int flags)

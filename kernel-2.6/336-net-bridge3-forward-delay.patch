@@ -14,7 +14,6 @@ ef647f1300d69adb8223d970554d59d7e244db6d bridge: Eliminate unnecessary forward d
  3 files changed, 20 insertions(+), 9 deletions(-)
 
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 91bf29b..2327564 100644
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
 @@ -395,7 +395,7 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
@@ -27,7 +26,6 @@ index 91bf29b..2327564 100644
  		} else {
  			/* fastpath: update of existing entry */
 diff --git a/net/bridge/br_stp.c b/net/bridge/br_stp.c
-index e38034a..2e8b293 100644
 --- a/net/bridge/br_stp.c
 +++ b/net/bridge/br_stp.c
 @@ -369,14 +369,25 @@ static void br_make_blocking(struct net_bridge_port *p)
@@ -64,7 +62,6 @@ index e38034a..2e8b293 100644
  
  /* called under bridge lock */
 diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 1059ba3..f15550a 100644
 --- a/net/bridge/br_stp_if.c
 +++ b/net/bridge/br_stp_if.c
 @@ -132,7 +132,7 @@ static void br_stp_start(struct net_bridge *br)

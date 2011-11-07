@@ -121,7 +121,6 @@ diff --git a/Documentation/networking/ipv6.txt b/Documentation/networking/ipv6.t
 +		No IPv6 addresses will be added to interfaces.
 +
 diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
-index 648bd1f..fdf37bb 100644
 --- a/include/linux/ipv6.h
 +++ b/include/linux/ipv6.h
 @@ -144,6 +144,7 @@ struct ipv6hdr {
@@ -159,7 +158,6 @@ index 648bd1f..fdf37bb 100644
  };
  
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 6d614c0..3ce8e32 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -175,6 +175,7 @@ struct ipv6_devconf ipv6_devconf __read_mostly = {
@@ -522,7 +520,6 @@ diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
  	sock_unregister(PF_INET6);
  	/* Disallow any further netlink messages */
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 30a5cb1..487b09c 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
 @@ -72,10 +72,10 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
@@ -548,7 +545,6 @@ index 30a5cb1..487b09c 100644
  }
  
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 83017b4..c3a1002 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -147,6 +147,13 @@ static inline int ip6_skb_dst_mtu(struct sk_buff *skb)

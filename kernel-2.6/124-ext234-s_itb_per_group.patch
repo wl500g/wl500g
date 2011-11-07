@@ -9,7 +9,6 @@ Subject: [PATCH] ext2/3: minor fix from 2.6.23
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/ext2/super.c b/fs/ext2/super.c
-index f992f34..e8f64c0 100644
 --- a/fs/ext2/super.c
 +++ b/fs/ext2/super.c
 @@ -595,7 +595,7 @@ static int ext2_check_descriptors (struct super_block * sb)
@@ -22,7 +21,6 @@ index f992f34..e8f64c0 100644
  		{
  			ext2_error (sb, "ext2_check_descriptors",
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
-index 8c17c28..b2e3c26 100644
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
 @@ -1211,7 +1211,7 @@ static int ext3_check_descriptors (struct super_block * sb)

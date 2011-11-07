@@ -13,7 +13,6 @@ Signed-off-by: Patrick McHardy <kaber@trash.net>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index e78afe7..c25068e 100644
 --- a/include/net/netfilter/nf_conntrack_core.h
 +++ b/include/net/netfilter/nf_conntrack_core.h
 @@ -59,7 +59,7 @@ static inline int nf_conntrack_confirm(struct sk_buff *skb)

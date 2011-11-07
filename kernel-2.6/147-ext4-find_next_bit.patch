@@ -23,7 +23,6 @@ Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
  8 files changed, 61 insertions(+)
 
 diff --git a/include/asm-arm/bitops.h b/include/asm-arm/bitops.h
-index 47a6b08..5c60bfc 100644
 --- a/include/asm-arm/bitops.h
 +++ b/include/asm-arm/bitops.h
 @@ -310,6 +310,8 @@ static inline int constant_fls(int x)
@@ -36,7 +35,6 @@ index 47a6b08..5c60bfc 100644
  /*
   * Minix is defined to use little-endian byte ordering.
 diff --git a/include/asm-generic/bitops/ext2-non-atomic.h b/include/asm-generic/bitops/ext2-non-atomic.h
-index 1697404..63cf822 100644
 --- a/include/asm-generic/bitops/ext2-non-atomic.h
 +++ b/include/asm-generic/bitops/ext2-non-atomic.h
 @@ -14,5 +14,7 @@
@@ -48,7 +46,6 @@ index 1697404..63cf822 100644
  
  #endif /* _ASM_GENERIC_BITOPS_EXT2_NON_ATOMIC_H_ */
 diff --git a/include/asm-generic/bitops/le.h b/include/asm-generic/bitops/le.h
-index b9c7e5d..80e3bf1 100644
 --- a/include/asm-generic/bitops/le.h
 +++ b/include/asm-generic/bitops/le.h
 @@ -20,6 +20,8 @@
@@ -70,7 +67,6 @@ index b9c7e5d..80e3bf1 100644
  #else
  #error "Please fix <asm/byteorder.h>"
 diff --git a/include/asm-m68k/bitops.h b/include/asm-m68k/bitops.h
-index 2976b5d..83d1f28 100644
 --- a/include/asm-m68k/bitops.h
 +++ b/include/asm-m68k/bitops.h
 @@ -410,6 +410,8 @@ static inline int ext2_find_next_zero_bit(const void *vaddr, unsigned size,
@@ -83,7 +79,6 @@ index 2976b5d..83d1f28 100644
  #endif /* __KERNEL__ */
  
 diff --git a/include/asm-m68knommu/bitops.h b/include/asm-m68knommu/bitops.h
-index f8dfb7b..f43afe1 100644
 --- a/include/asm-m68knommu/bitops.h
 +++ b/include/asm-m68knommu/bitops.h
 @@ -294,6 +294,8 @@ found_middle:
@@ -96,7 +91,6 @@ index f8dfb7b..f43afe1 100644
  
  #endif /* __KERNEL__ */
 diff --git a/include/asm-powerpc/bitops.h b/include/asm-powerpc/bitops.h
-index 733b4af..220d9a7 100644
 --- a/include/asm-powerpc/bitops.h
 +++ b/include/asm-powerpc/bitops.h
 @@ -359,6 +359,8 @@ static __inline__ int test_le_bit(unsigned long nr,
@@ -118,7 +112,6 @@ index 733b4af..220d9a7 100644
  
  #define minix_test_and_set_bit(nr,addr) \
 diff --git a/include/asm-s390/bitops.h b/include/asm-s390/bitops.h
-index 34d9a63..dba6fec 100644
 --- a/include/asm-s390/bitops.h
 +++ b/include/asm-s390/bitops.h
 @@ -772,6 +772,8 @@ static inline int sched_find_first_bit(unsigned long *b)
@@ -131,7 +124,6 @@ index 34d9a63..dba6fec 100644
  #ifndef __s390x__
  
 diff --git a/lib/find_next_bit.c b/lib/find_next_bit.c
-index bda0d71..78ccd73 100644
 --- a/lib/find_next_bit.c
 +++ b/lib/find_next_bit.c
 @@ -178,4 +178,47 @@ found_middle_swap:

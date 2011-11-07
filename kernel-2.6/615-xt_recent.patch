@@ -31,7 +31,6 @@ kernel.org commits
  create mode 100644 net/netfilter/xt_recent.c
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index e09f50c..6868400 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -7,9 +7,12 @@
@@ -63,7 +62,6 @@ index e09f50c..6868400 100644
  #ifdef CONFIG_NETFILTER
  
 diff --git a/include/linux/netfilter/Kbuild b/include/linux/netfilter/Kbuild
-index ab57cb7..b59a9c1 100644
 --- a/include/linux/netfilter/Kbuild
 +++ b/include/linux/netfilter/Kbuild
 @@ -26,6 +26,7 @@ header-y += xt_NFLOG.h
@@ -76,7 +74,6 @@ index ab57cb7..b59a9c1 100644
  header-y += xt_statistic.h
 diff --git a/include/linux/netfilter/xt_recent.h b/include/linux/netfilter/xt_recent.h
 new file mode 100644
-index 0000000..f574e0c
 --- /dev/null
 +++ b/include/linux/netfilter/xt_recent.h
 @@ -0,0 +1,33 @@
@@ -114,7 +111,6 @@ index 0000000..f574e0c
 +
 +#endif /* _LINUX_NETFILTER_XT_RECENT_H */
 diff --git a/include/linux/netfilter_ipv4/ipt_recent.h b/include/linux/netfilter_ipv4/ipt_recent.h
-index 6508a45..ca34213 100644
 --- a/include/linux/netfilter_ipv4/ipt_recent.h
 +++ b/include/linux/netfilter_ipv4/ipt_recent.h
 @@ -1,27 +1,24 @@
@@ -160,7 +156,6 @@ index 6508a45..ca34213 100644
 +
  #endif /*_IPT_RECENT_H*/
 diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 8c95dcd..33a7a94 100644
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
 @@ -72,18 +72,6 @@
@@ -183,7 +178,6 @@ index 8c95dcd..33a7a94 100644
  	tristate "ECN match support"
  	depends on IP_NF_IPTABLES
 diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 4a44d00..4910400 100644
 --- a/net/ipv4/netfilter/Makefile
 +++ b/net/ipv4/netfilter/Makefile
 @@ -49,7 +49,6 @@ obj-$(CONFIG_IP_NF_MATCH_IPRANGE) += ipt_iprange.o
@@ -196,7 +190,6 @@ index 4a44d00..4910400 100644
  obj-$(CONFIG_IP_NF_MATCH_TTL) += ipt_ttl.o
 diff --git a/net/ipv4/netfilter/ipt_recent.c b/net/ipv4/netfilter/ipt_recent.c
 deleted file mode 100644
-index 2554a6d..0000000
 --- a/net/ipv4/netfilter/ipt_recent.c
 +++ /dev/null
 @@ -1,507 +0,0 @@
@@ -708,7 +701,6 @@ index 2554a6d..0000000
 -module_init(ipt_recent_init);
 -module_exit(ipt_recent_exit);
 diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 8c3b7d2..5f9cfef 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
 @@ -598,6 +598,23 @@ config NETFILTER_XT_MATCH_REALM
@@ -736,7 +728,6 @@ index 8c3b7d2..5f9cfef 100644
  	tristate  '"sctp" protocol match support (EXPERIMENTAL)'
  	depends on NETFILTER_XTABLES && EXPERIMENTAL
 diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index cf772c7..df5aa0b 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
 @@ -69,6 +69,7 @@ obj-$(CONFIG_NETFILTER_XT_MATCH_POLICY) += xt_policy.o
@@ -749,7 +740,6 @@ index cf772c7..df5aa0b 100644
  obj-$(CONFIG_NETFILTER_XT_MATCH_LAYER7) += xt_layer7.o
 diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
 new file mode 100644
-index 0000000..32792b2
 --- /dev/null
 +++ b/net/netfilter/xt_recent.c
 @@ -0,0 +1,731 @@

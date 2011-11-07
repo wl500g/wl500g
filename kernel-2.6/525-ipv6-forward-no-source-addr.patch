@@ -12,7 +12,6 @@ Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index fd7cd1b..871bdec 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -498,7 +498,8 @@ int ip6_forward(struct sk_buff *skb)

@@ -48,7 +48,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  4 files changed, 23 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/gfp.h b/include/linux/gfp.h
-index 12a90a1..da8aa87 100644
 --- a/include/linux/gfp.h
 +++ b/include/linux/gfp.h
 @@ -53,13 +53,6 @@ struct vm_area_struct;
@@ -86,7 +85,6 @@ index 12a90a1..da8aa87 100644
  /* Flag - indicates that the buffer will be suitable for DMA.  Ignored on some
     platforms, used as appropriate on others */
 diff --git a/mm/slab.c b/mm/slab.c
-index 368a47d..8fb56ae 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -2746,9 +2746,9 @@ static int cache_grow(struct kmem_cache *cachep,
@@ -120,7 +118,6 @@ index 368a47d..8fb56ae 100644
  retry:
  	/*
 diff --git a/mm/slub.c b/mm/slub.c
-index 968ce37..19d3202 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -1088,9 +1088,10 @@ static struct page *new_slab(struct kmem_cache *s, gfp_t flags, int node)
@@ -137,7 +134,6 @@ index 968ce37..19d3202 100644
  		goto out;
  
 diff --git a/mm/vmalloc.c b/mm/vmalloc.c
-index 3cee76a..2e01af3 100644
 --- a/mm/vmalloc.c
 +++ b/mm/vmalloc.c
 @@ -190,7 +190,8 @@ static struct vm_struct *__get_vm_area_node(unsigned long size, unsigned long fl

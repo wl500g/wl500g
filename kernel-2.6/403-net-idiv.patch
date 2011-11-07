@@ -19,7 +19,6 @@ Avoid an integer divides
  7 files changed, 23 insertions(+), 21 deletions(-)
 
 diff --git a/include/linux/if_vlan.h b/include/linux/if_vlan.h
-index 487dd0f..030cc5f 100644
 --- a/include/linux/if_vlan.h
 +++ b/include/linux/if_vlan.h
 @@ -81,14 +81,16 @@ struct vlan_group {
@@ -42,7 +41,6 @@ index 487dd0f..030cc5f 100644
  {
  	struct net_device **array;
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 6d0d566..6916742 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -773,7 +773,7 @@ struct io_context;			/* See blkdev.h */
@@ -55,7 +53,6 @@ index 6d0d566..6916742 100644
  	int ngroups;
  	atomic_t usage;
 diff --git a/kernel/sys.c b/kernel/sys.c
-index 28e8364..218c332 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -1650,16 +1650,16 @@ static int groups_to_user(gid_t __user *grouplist,
@@ -103,7 +100,6 @@ index 28e8364..218c332 100644
  	}
  	return 0;
 diff --git a/lib/extable.c b/lib/extable.c
-index 463f456..179c087 100644
 --- a/lib/extable.c
 +++ b/lib/extable.c
 @@ -57,10 +57,10 @@ search_extable(const struct exception_table_entry *first,
@@ -121,7 +117,6 @@ index 463f456..179c087 100644
  		if (mid->insn < value)
  			first = mid + 1;
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index cbed335..c2dfaf6 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -845,14 +845,14 @@ static int rt_garbage_collect(void)
@@ -142,7 +137,6 @@ index cbed335..c2dfaf6 100644
  	}
  
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 344a32c..955e005 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -242,8 +242,8 @@ static int __tcp_grow_window(const struct sock *sk, const struct sk_buff *skb)
@@ -157,7 +151,6 @@ index 344a32c..955e005 100644
  	while (tp->rcv_ssthresh <= window) {
  		if (truesize <= skb->len)
 diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
-index 16b1b2d..6345276 100644
 --- a/net/ipv4/tcp_timer.c
 +++ b/net/ipv4/tcp_timer.c
 @@ -135,7 +135,7 @@ static int tcp_write_timeout(struct sock *sk)

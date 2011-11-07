@@ -100,7 +100,6 @@ Signed-off-by: J. Bruce Fields <bfields@citi.umich.edu>
  1 files changed, 0 insertions(+), 6 deletions(-)
 
 diff --git a/fs/nfsd/nfsfh.c b/fs/nfsd/nfsfh.c
-index 9f1ca17..8847f3f 100644
 --- a/fs/nfsd/nfsfh.c
 +++ b/fs/nfsd/nfsfh.c
 @@ -24,9 +24,6 @@

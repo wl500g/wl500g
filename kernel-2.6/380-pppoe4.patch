@@ -36,7 +36,6 @@ d6301d3dd1c287b32132dda15272a50c11e92a14 net: Increase default NET_SKB_PAD to 32
  5 files changed, 93 insertions(+), 102 deletions(-)
 
 diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 3580e88..a1f4df7 100644
 --- a/drivers/net/ppp_generic.c
 +++ b/drivers/net/ppp_generic.c
 @@ -904,17 +904,9 @@ ppp_start_xmit(struct sk_buff *skb, struct net_device *dev)
@@ -61,7 +60,6 @@ index 3580e88..a1f4df7 100644
  	proto = npindex_to_proto[npi];
  	pp[0] = proto >> 8;
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index 70d6cd0..f6b135c 100644
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
 @@ -102,7 +102,7 @@ static inline int cmp_2_addr(struct pppoe_addr *a, struct pppoe_addr *b)
@@ -319,7 +317,6 @@ index 70d6cd0..f6b135c 100644
  			po = item_hash_table[hash];
  			if (po)
 diff --git a/include/linux/if_pppox.h b/include/linux/if_pppox.h
-index b9b7d5f..f92682c 100644
 --- a/include/linux/if_pppox.h
 +++ b/include/linux/if_pppox.h
 @@ -53,7 +53,7 @@
@@ -363,7 +360,6 @@ index b9b7d5f..f92682c 100644
  #define pppoe_dev	proto.pppoe.dev
  #define pppoe_ifindex	proto.pppoe.ifindex
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 0ee83ac..cc25e3b 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -1164,7 +1164,7 @@ static inline int skb_network_offset(const struct sk_buff *skb)
@@ -448,7 +444,6 @@ index 0ee83ac..cc25e3b 100644
  
  /**
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 424d407..5fef9d6 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
 @@ -200,7 +200,7 @@ int nf_bridge_copy_header(struct sk_buff *skb)

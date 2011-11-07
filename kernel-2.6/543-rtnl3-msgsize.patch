@@ -25,7 +25,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 5 insertions(+), 4 deletions(-)
 
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index 8121268..841c287 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
 @@ -347,16 +347,17 @@ static size_t rtnl_link_get_size(const struct net_device *dev)

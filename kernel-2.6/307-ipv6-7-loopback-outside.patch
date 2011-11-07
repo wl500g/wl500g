@@ -15,7 +15,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 15 insertions(+), 0 deletions(-)
 
 diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index e0a612b..f422f72 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
 @@ -367,6 +367,12 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
@@ -32,7 +31,6 @@ index e0a612b..f422f72 100644
  {
  	return ((a->s6_addr32[0] | a->s6_addr32[1] |
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 4e5c861..17eb48b 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
 @@ -102,6 +102,15 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt

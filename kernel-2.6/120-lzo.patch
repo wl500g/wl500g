@@ -15,7 +15,6 @@ Subject: [PATCH] Added kernel lzo compression module (from 2.6.23)
 
 diff --git a/include/linux/lzo.h b/include/linux/lzo.h
 new file mode 100644
-index 0000000..582d8b7
 --- /dev/null
 +++ b/include/linux/lzo.h
 @@ -0,0 +1,44 @@
@@ -64,7 +63,6 @@ index 0000000..582d8b7
 +
 +#endif
 diff --git a/lib/Kconfig b/lib/Kconfig
-index 2e7ae6b..3eb29d5 100644
 --- a/lib/Kconfig
 +++ b/lib/Kconfig
 @@ -64,6 +64,12 @@ config ZLIB_INFLATE
@@ -81,7 +79,6 @@ index 2e7ae6b..3eb29d5 100644
  # Generic allocator support is selected if needed
  #
 diff --git a/lib/Makefile b/lib/Makefile
-index c8c8e20..d1b366b 100644
 --- a/lib/Makefile
 +++ b/lib/Makefile
 @@ -49,6 +49,8 @@ obj-$(CONFIG_GENERIC_ALLOCATOR) += genalloc.o
@@ -95,7 +92,6 @@ index c8c8e20..d1b366b 100644
  obj-$(CONFIG_TEXTSEARCH_KMP) += ts_kmp.o
 diff --git a/lib/lzo/Makefile b/lib/lzo/Makefile
 new file mode 100644
-index 0000000..e764116
 --- /dev/null
 +++ b/lib/lzo/Makefile
 @@ -0,0 +1,5 @@
@@ -106,7 +102,6 @@ index 0000000..e764116
 +obj-$(CONFIG_LZO_DECOMPRESS) += lzo_decompress.o
 diff --git a/lib/lzo/lzo1x_compress.c b/lib/lzo/lzo1x_compress.c
 new file mode 100644
-index 0000000..a604099
 --- /dev/null
 +++ b/lib/lzo/lzo1x_compress.c
 @@ -0,0 +1,226 @@
@@ -338,7 +333,6 @@ index 0000000..a604099
 +
 diff --git a/lib/lzo/lzo1x_decompress.c b/lib/lzo/lzo1x_decompress.c
 new file mode 100644
-index 0000000..77f0f9b
 --- /dev/null
 +++ b/lib/lzo/lzo1x_decompress.c
 @@ -0,0 +1,254 @@
@@ -598,7 +592,6 @@ index 0000000..77f0f9b
 +
 diff --git a/lib/lzo/lzodefs.h b/lib/lzo/lzodefs.h
 new file mode 100644
-index 0000000..b6d482c
 --- /dev/null
 +++ b/lib/lzo/lzodefs.h
 @@ -0,0 +1,43 @@

@@ -19,7 +19,6 @@ Signed-off-by: Patrick McHardy <kaber@trash.net>
  1 files changed, 1 insertions(+), 11 deletions(-)
 
 diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
-index f389f60..855505d 100644
 --- a/net/ipv4/netfilter/ipt_MASQUERADE.c
 +++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
 @@ -27,9 +27,6 @@ MODULE_LICENSE("GPL");

@@ -12,7 +12,6 @@ Subject: [PATCH] [IGMP]: Optimize igmp_rcv
  1 files changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 25696dc..5beb728 100644
 --- a/net/ipv4/igmp.c
 +++ b/net/ipv4/igmp.c
 @@ -934,17 +934,16 @@ static void igmp_heard_query(struct in_device *in_dev, struct sk_buff *skb,

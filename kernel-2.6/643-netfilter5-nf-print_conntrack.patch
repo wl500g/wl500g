@@ -20,7 +20,6 @@ c71e9167081a6a0d2a076cda674b696b89bb31c2
  10 files changed, 2 insertions(+), 65 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack_l3proto.h b/include/net/netfilter/nf_conntrack_l3proto.h
-index 96a58d8..35b4afd 100644
 --- a/include/net/netfilter/nf_conntrack_l3proto.h
 +++ b/include/net/netfilter/nf_conntrack_l3proto.h
 @@ -42,9 +42,6 @@ struct nf_conntrack_l3proto
@@ -34,7 +33,6 @@ index 96a58d8..35b4afd 100644
  	int (*packet)(struct nf_conn *conntrack,
  		      const struct sk_buff *skb,
 diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index f7454e6..5dacddd 100644
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 @@ -67,12 +67,6 @@ static int ipv4_print_tuple(struct seq_file *s,
@@ -59,7 +57,6 @@ index f7454e6..5dacddd 100644
  	.get_features	 = ipv4_get_features,
  #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
-index 344cb9c..554bd20 100644
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4_compat.c
 @@ -125,10 +125,7 @@ static int ct_seq_show(struct seq_file *s, void *v)
@@ -75,7 +72,6 @@ index 344cb9c..554bd20 100644
  
  	if (print_tuple(s, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
 diff --git a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
-index 474b4ce..78b7d15 100644
 --- a/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
 +++ b/net/ipv4/netfilter/nf_conntrack_proto_icmp.c
 @@ -79,13 +79,6 @@ static int icmp_print_tuple(struct seq_file *s,
@@ -101,7 +97,6 @@ index 474b4ce..78b7d15 100644
  	.new			= icmp_new,
  	.error			= icmp_error,
 diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
-index 1b1797f..acbc64a 100644
 --- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
 @@ -65,12 +65,6 @@ static int ipv6_print_tuple(struct seq_file *s,
@@ -126,7 +121,6 @@ index 1b1797f..acbc64a 100644
  #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
  	.tuple_to_nfattr	= ipv6_tuple_to_nfattr,
 diff --git a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
-index 0bc19e2..482319e 100644
 --- a/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
 +++ b/net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c
 @@ -91,13 +91,6 @@ static int icmpv6_print_tuple(struct seq_file *s,
@@ -152,7 +146,6 @@ index 0bc19e2..482319e 100644
  	.new			= icmpv6_new,
  	.error			= icmpv6_error,
 diff --git a/net/netfilter/nf_conntrack_l3proto_generic.c b/net/netfilter/nf_conntrack_l3proto_generic.c
-index cbd96f3..a793a85 100644
 --- a/net/netfilter/nf_conntrack_l3proto_generic.c
 +++ b/net/netfilter/nf_conntrack_l3proto_generic.c
 @@ -61,12 +61,6 @@ static int generic_print_tuple(struct seq_file *s,
@@ -177,7 +170,6 @@ index cbd96f3..a793a85 100644
  	.get_features	 = generic_get_features,
  };
 diff --git a/net/netfilter/nf_conntrack_proto_generic.c b/net/netfilter/nf_conntrack_proto_generic.c
-index 6faf1be..398b1df 100644
 --- a/net/netfilter/nf_conntrack_proto_generic.c
 +++ b/net/netfilter/nf_conntrack_proto_generic.c
 @@ -40,13 +40,6 @@ static int generic_print_tuple(struct seq_file *s,
@@ -203,7 +195,6 @@ index 6faf1be..398b1df 100644
  	.new			= new,
  #ifdef CONFIG_SYSCTL
 diff --git a/net/netfilter/nf_conntrack_proto_udp.c b/net/netfilter/nf_conntrack_proto_udp.c
-index 4ff3f25..52a48a0 100644
 --- a/net/netfilter/nf_conntrack_proto_udp.c
 +++ b/net/netfilter/nf_conntrack_proto_udp.c
 @@ -60,13 +60,6 @@ static int udp_print_tuple(struct seq_file *s,
@@ -237,7 +228,6 @@ index 4ff3f25..52a48a0 100644
  	.new			= udp_new,
  	.error			= udp_error,
 diff --git a/net/netfilter/nf_conntrack_standalone.c b/net/netfilter/nf_conntrack_standalone.c
-index 58dd97c..a713550 100644
 --- a/net/netfilter/nf_conntrack_standalone.c
 +++ b/net/netfilter/nf_conntrack_standalone.c
 @@ -146,10 +146,7 @@ static int ct_seq_show(struct seq_file *s, void *v)

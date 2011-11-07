@@ -25,7 +25,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 8 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 6ecb5e6..20083e0 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -329,7 +329,7 @@ static inline int rt6_check_dev(struct rt6_info *rt, int oif)

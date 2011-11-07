@@ -15,7 +15,6 @@ Subject: [PATCH] USB: backports of new quirks and device IDs from upstream 2.6 k
  7 files changed, 286 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/usb/core/config.c b/drivers/usb/core/config.c
-index 1ece5f6..cd177e2 100644
 --- a/drivers/usb/core/config.c
 +++ b/drivers/usb/core/config.c
 @@ -1,5 +1,6 @@
@@ -64,7 +63,6 @@ index 1ece5f6..cd177e2 100644
  		if (result < 0) {
  			++cfgno;
 diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
-index 1b47c8c..2f67cec 100644
 --- a/drivers/usb/core/quirks.c
 +++ b/drivers/usb/core/quirks.c
 @@ -30,20 +30,30 @@
@@ -128,7 +126,6 @@ index 1b47c8c..2f67cec 100644
  };
  
 diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
-index b7e6b3d..a2c9ebe 100644
 --- a/drivers/usb/serial/ftdi_sio.c
 +++ b/drivers/usb/serial/ftdi_sio.c
 @@ -46,7 +46,7 @@
@@ -403,7 +400,6 @@ index b7e6b3d..a2c9ebe 100644
 +module_param(ndi_latency_timer, int, S_IRUGO | S_IWUSR);
 +MODULE_PARM_DESC(ndi_latency_timer, "NDI device latency timer override");
 diff --git a/drivers/usb/serial/ftdi_sio.h b/drivers/usb/serial/ftdi_sio.h
-index d9d9bcf..6544cbd 100644
 --- a/drivers/usb/serial/ftdi_sio.h
 +++ b/drivers/usb/serial/ftdi_sio.h
 @@ -80,6 +80,9 @@
@@ -624,7 +620,6 @@ index d9d9bcf..6544cbd 100644
   *   bRequest:       FTDI_E2_READ
   *   wValue:         0
 diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
-index 569a16f..e8e1319 100644
 --- a/drivers/usb/serial/option.c
 +++ b/drivers/usb/serial/option.c
 @@ -236,6 +236,7 @@ static int  option_send_setup(struct usb_serial_port *port);
@@ -644,7 +639,6 @@ index 569a16f..e8e1319 100644
  	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5700_MINICARD) },		/* Dell Wireless 5700 Mobile Broadband CDMA/EVDO Mini-Card == Novatel Expedite EV620 CDMA/EV-DO */
  	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5500_MINICARD) },		/* Dell Wireless 5500 Mobile Broadband HSDPA Mini-Card == Novatel Expedite EU740 HSDPA/3G */
 diff --git a/drivers/usb/serial/sierra.c b/drivers/usb/serial/sierra.c
-index cf39a56..753f31e 100755
 --- a/drivers/usb/serial/sierra.c
 +++ b/drivers/usb/serial/sierra.c
 @@ -246,7 +246,9 @@ static struct usb_device_id id_table [] = {
@@ -668,7 +662,6 @@ index cf39a56..753f31e 100755
  		.driver_info = (kernel_ulong_t)&tru_inst_info
  	},
 diff --git a/include/linux/usb/quirks.h b/include/linux/usb/quirks.h
-index d3215b7..4a98379 100644
 --- a/include/linux/usb/quirks.h
 +++ b/include/linux/usb/quirks.h
 @@ -18,3 +18,7 @@

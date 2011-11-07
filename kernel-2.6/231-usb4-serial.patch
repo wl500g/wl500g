@@ -12,7 +12,6 @@ Subject: [PATCH] Kernel 2.6 USB: continue backport of USB driver (USB serial)
  5 files changed, 120 insertions(+), 57 deletions(-)
 
 diff --git a/drivers/usb/serial/bus.c b/drivers/usb/serial/bus.c
-index a47a24f..0b14aea 100644
 --- a/drivers/usb/serial/bus.c
 +++ b/drivers/usb/serial/bus.c
 @@ -36,6 +36,16 @@ static int usb_serial_device_match (struct device *dev, struct device_driver *dr
@@ -53,7 +52,6 @@ index a47a24f..0b14aea 100644
  	if (driver->port_remove) {
  		if (!try_module_get(driver->driver.owner)) {
 diff --git a/drivers/usb/serial/io_ti.c b/drivers/usb/serial/io_ti.c
-index c44d6f8..679983e 100644
 --- a/drivers/usb/serial/io_ti.c
 +++ b/drivers/usb/serial/io_ti.c
 @@ -1978,7 +1978,7 @@ static int edge_open (struct usb_serial_port *port, struct file * filp)
@@ -123,7 +121,6 @@ index c44d6f8..679983e 100644
  	dbg("%s - port %d", __FUNCTION__, port->number);
  
 diff --git a/drivers/usb/serial/pl2303.c b/drivers/usb/serial/pl2303.c
-index 91cc24b..31f5e24 100644
 --- a/drivers/usb/serial/pl2303.c
 +++ b/drivers/usb/serial/pl2303.c
 @@ -90,6 +90,7 @@ static struct usb_device_id id_table [] = {
@@ -135,7 +132,6 @@ index 91cc24b..31f5e24 100644
  	{ USB_DEVICE(SUPERIAL_VENDOR_ID, SUPERIAL_PRODUCT_ID) },
  	{ USB_DEVICE(HP_VENDOR_ID, HP_LD220_PRODUCT_ID) },
 diff --git a/drivers/usb/serial/pl2303.h b/drivers/usb/serial/pl2303.h
-index 2047de5..f555f9d 100644
 --- a/drivers/usb/serial/pl2303.h
 +++ b/drivers/usb/serial/pl2303.h
 @@ -111,6 +111,10 @@
@@ -150,7 +146,6 @@ index 2047de5..f555f9d 100644
  #define YCCABLE_VENDOR_ID	0x05ad
  #define YCCABLE_PRODUCT_ID	0x0fba
 diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
-index 33c29c9..fea731d 100644
 --- a/drivers/usb/serial/usb-serial.c
 +++ b/drivers/usb/serial/usb-serial.c
 @@ -135,22 +135,10 @@ static void destroy_serial(struct kref *kref)

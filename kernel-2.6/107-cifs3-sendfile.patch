@@ -35,7 +35,6 @@ Signed-off-by: Steve French <sfrench@us.ibm.com>
  1 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/fs/cifs/connect.c b/fs/cifs/connect.c
-index 9bb5c87..fc44d31 100644
 --- a/fs/cifs/connect.c
 +++ b/fs/cifs/connect.c
 @@ -2129,10 +2129,10 @@ try_mount_again:

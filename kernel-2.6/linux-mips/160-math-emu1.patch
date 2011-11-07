@@ -13,7 +13,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 9 insertions(+), 10 deletions(-)
 
 diff --git a/arch/mips/math-emu/cp1emu.c b/arch/mips/math-emu/cp1emu.c
-index d7f05b0..17419e11 100644
 --- a/arch/mips/math-emu/cp1emu.c
 +++ b/arch/mips/math-emu/cp1emu.c
 @@ -205,7 +205,7 @@ static int isBranchInstr(mips_instruction * i)

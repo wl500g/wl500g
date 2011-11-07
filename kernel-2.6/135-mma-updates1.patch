@@ -24,7 +24,6 @@ ce36394269ccd9d1d286d6192ba09fa6894365e9 mmap: fix petty bug in anonymous shared
  8 files changed, 49 insertions(+), 21 deletions(-)
 
 diff --git a/include/linux/writeback.h b/include/linux/writeback.h
-index 4ef4d22..b4af6bc 100644
 --- a/include/linux/writeback.h
 +++ b/include/linux/writeback.h
 @@ -127,7 +127,7 @@ int sync_page_range(struct inode *inode, struct address_space *mapping,
@@ -37,7 +36,6 @@ index 4ef4d22..b4af6bc 100644
  
  /* pdflush.c */
 diff --git a/mm/filemap.c b/mm/filemap.c
-index eb36159..09eae85 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -620,26 +620,27 @@ struct page *find_lock_page(struct address_space *mapping,
@@ -73,7 +71,6 @@ index eb36159..09eae85 100644
  }
  EXPORT_SYMBOL(find_lock_page);
 diff --git a/mm/madvise.c b/mm/madvise.c
-index 60542d0..93ee375 100644
 --- a/mm/madvise.c
 +++ b/mm/madvise.c
 @@ -287,9 +287,11 @@ asmlinkage long sys_madvise(unsigned long start, size_t len_in, int behavior)
@@ -99,7 +96,6 @@ index 60542d0..93ee375 100644
  	else
  		up_read(&current->mm->mmap_sem);
 diff --git a/mm/memory.c b/mm/memory.c
-index feb3042..6a9b21e 100644
 --- a/mm/memory.c
 +++ b/mm/memory.c
 @@ -1643,6 +1643,7 @@ static int do_wp_page(struct mm_struct *mm, struct vm_area_struct *vma,
@@ -154,7 +150,6 @@ index feb3042..6a9b21e 100644
  	}
  
 diff --git a/mm/mempool.c b/mm/mempool.c
-index cc1ca86..3e8f1fe 100644
 --- a/mm/mempool.c
 +++ b/mm/mempool.c
 @@ -263,6 +263,9 @@ void mempool_free(void *element, mempool_t *pool)
@@ -229,7 +224,6 @@ diff --git a/mm/page-writeback.c b/mm/page-writeback.c
  }
  
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index d6bb02b..e51d51c 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -3376,6 +3376,21 @@ void *__init alloc_large_system_hash(const char *tablename,

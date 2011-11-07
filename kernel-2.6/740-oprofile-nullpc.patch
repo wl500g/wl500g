@@ -24,7 +24,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  3 files changed, 12 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/oprofile/cpu_buffer.c b/drivers/oprofile/cpu_buffer.c
-index a83c3db..c93d3d2 100644
 --- a/drivers/oprofile/cpu_buffer.c
 +++ b/drivers/oprofile/cpu_buffer.c
 @@ -64,6 +64,8 @@ int alloc_cpu_buffers(void)
@@ -49,7 +48,6 @@ index a83c3db..c93d3d2 100644
  		cpu_buf->sample_lost_overflow++;
  		return 0;
 diff --git a/drivers/oprofile/cpu_buffer.h b/drivers/oprofile/cpu_buffer.h
-index 49900d9..c66c025 100644
 --- a/drivers/oprofile/cpu_buffer.h
 +++ b/drivers/oprofile/cpu_buffer.h
 @@ -42,6 +42,7 @@ struct oprofile_cpu_buffer {
@@ -61,7 +59,6 @@ index 49900d9..c66c025 100644
  	struct delayed_work work;
  } ____cacheline_aligned;
 diff --git a/drivers/oprofile/oprofile_stats.c b/drivers/oprofile/oprofile_stats.c
-index f0acb66..d1f6d77 100644
 --- a/drivers/oprofile/oprofile_stats.c
 +++ b/drivers/oprofile/oprofile_stats.c
 @@ -26,6 +26,8 @@ void oprofile_reset_stats(void)

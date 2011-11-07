@@ -7,7 +7,6 @@
  2 files changed, 3 insertions(+), 6 deletions(-)
 
 diff --git a/Documentation/networking/operstates.txt b/Documentation/networking/operstates.txt
-index c9074f9..1a77a3c 100644
 --- a/Documentation/networking/operstates.txt
 +++ b/Documentation/networking/operstates.txt
 @@ -38,9 +38,6 @@ ifinfomsg::if_flags & IFF_LOWER_UP:
@@ -21,7 +20,6 @@ index c9074f9..1a77a3c 100644
  
  contains RFC2863 state of the interface in numeric representation:
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 11560e3..a09bf65 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -2711,7 +2711,7 @@ static int dev_ifsioc_locked(struct net *net, struct ifreq *ifr, unsigned int cm

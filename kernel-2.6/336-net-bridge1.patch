@@ -13,7 +13,6 @@ df1c0b8468b34628ed12b103804a4576cd9af8bb (Stephen Hemminger)
  3 files changed, 33 insertions(+), 2 deletions(-)
 
 diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
-index 3fc6972..91bf29b 100644
 --- a/net/bridge/br_fdb.c
 +++ b/net/bridge/br_fdb.c
 @@ -384,6 +384,11 @@ void br_fdb_update(struct net_bridge *br, struct net_bridge_port *source,
@@ -29,7 +28,6 @@ index 3fc6972..91bf29b 100644
  	if (likely(fdb)) {
  		/* attempt to update an entry for a local interface */
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index fb2c7cc..2adbbe4 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
 @@ -101,9 +101,8 @@ static int br_handle_local_finish(struct sk_buff *skb)
@@ -44,7 +42,6 @@ index fb2c7cc..2adbbe4 100644
  }
  
 diff --git a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
-index 3ee2022..424d407 100644
 --- a/net/bridge/br_netfilter.c
 +++ b/net/bridge/br_netfilter.c
 @@ -142,6 +142,23 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)

@@ -23,7 +23,6 @@ Signed-off-by: J. Bruce Fields <bfields@redhat.com>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/fs/nfsd/vfs.c b/fs/nfsd/vfs.c
-index fda3be2..30c73f8 100644
 --- a/fs/nfsd/vfs.c
 +++ b/fs/nfsd/vfs.c
 @@ -808,7 +808,7 @@ nfsd_get_raparms(dev_t dev, ino_t ino)

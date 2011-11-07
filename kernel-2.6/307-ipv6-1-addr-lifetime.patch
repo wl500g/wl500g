@@ -172,7 +172,6 @@ diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
  				valid -= tval;
  		}
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index b45a7c0..b7a4a87 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -1106,7 +1106,9 @@ int ip6_route_add(struct fib6_config *cfg)

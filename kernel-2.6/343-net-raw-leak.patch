@@ -30,7 +30,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 18 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index fead049..e7e091d 100644
 --- a/net/ipv4/raw.c
 +++ b/net/ipv4/raw.c
 @@ -608,6 +608,14 @@ static void raw_close(struct sock *sk, long timeout)
@@ -57,7 +56,6 @@ index fead049..e7e091d 100644
  	.disconnect	   = udp_disconnect,
  	.ioctl		   = raw_ioctl,
 diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 603df76..8fee9a1 100644
 --- a/net/ipv6/raw.c
 +++ b/net/ipv6/raw.c
 @@ -1164,6 +1164,14 @@ static void rawv6_close(struct sock *sk, long timeout)

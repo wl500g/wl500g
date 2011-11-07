@@ -39,7 +39,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  3 files changed, 1 insertions(+), 17 deletions(-)
 
 diff --git a/fs/nfs/write.c b/fs/nfs/write.c
-index e2bb66c..82d7ee9 100644
 --- a/fs/nfs/write.c
 +++ b/fs/nfs/write.c
 @@ -242,10 +242,8 @@ static void nfs_end_page_writeback(struct page *page)
@@ -55,7 +54,6 @@ index e2bb66c..82d7ee9 100644
  
  /*
 diff --git a/include/linux/backing-dev.h b/include/linux/backing-dev.h
-index 7011d625..210933c 100644
 --- a/include/linux/backing-dev.h
 +++ b/include/linux/backing-dev.h
 @@ -93,7 +93,6 @@ static inline int bdi_rw_congested(struct backing_dev_info *bdi)
@@ -67,7 +65,6 @@ index 7011d625..210933c 100644
  #define bdi_cap_writeback_dirty(bdi) \
  	(!((bdi)->capabilities & BDI_CAP_NO_WRITEBACK))
 diff --git a/mm/backing-dev.c b/mm/backing-dev.c
-index f50a281..841901a 100644
 --- a/mm/backing-dev.c
 +++ b/mm/backing-dev.c
 @@ -54,16 +54,3 @@ long congestion_wait(int rw, long timeout)

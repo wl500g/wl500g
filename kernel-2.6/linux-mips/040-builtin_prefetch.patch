@@ -22,7 +22,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 3 insertions(+), 9 deletions(-)
 
 diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
-index ab38791..5d33b72 100644
 --- a/include/asm-mips/processor.h
 +++ b/include/asm-mips/processor.h
 @@ -344,16 +344,10 @@ unsigned long get_wchan(struct task_struct *p);

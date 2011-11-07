@@ -18,7 +18,6 @@ TomatoUSB commit 2f944d3e8af1
  10 files changed, 460 insertions(+), 584 deletions(-)
 
 diff --git a/drivers/media/video/pwc/Kconfig b/drivers/media/video/pwc/Kconfig
-index 7298cf2..8da42e4 100644
 --- a/drivers/media/video/pwc/Kconfig
 +++ b/drivers/media/video/pwc/Kconfig
 @@ -1,6 +1,6 @@
@@ -44,7 +43,6 @@ index 7298cf2..8da42e4 100644
 +
 +	  If you are in doubt, say Y.
 diff --git a/drivers/media/video/pwc/philips.txt b/drivers/media/video/pwc/philips.txt
-index f9f3584..d38dd79 100644
 --- a/drivers/media/video/pwc/philips.txt
 +++ b/drivers/media/video/pwc/philips.txt
 @@ -33,7 +33,7 @@ a lot of extra information, a FAQ, and the binary plugin 'PWCX'. This plugin
@@ -57,7 +55,6 @@ index f9f3584..d38dd79 100644
  
  You can build this code either into your kernel, or as a module. I recommend
 diff --git a/drivers/media/video/pwc/pwc-ctrl.c b/drivers/media/video/pwc/pwc-ctrl.c
-index 338ced7..6b8fbdd 100644
 --- a/drivers/media/video/pwc/pwc-ctrl.c
 +++ b/drivers/media/video/pwc/pwc-ctrl.c
 @@ -41,7 +41,6 @@
@@ -788,7 +785,6 @@ index 338ced7..6b8fbdd 100644
  	{
  		ARG_DEF(struct pwc_table_init_buffer, table);
 diff --git a/drivers/media/video/pwc/pwc-dec23.c b/drivers/media/video/pwc/pwc-dec23.c
-index 9e2d91f..0c801b8 100644
 --- a/drivers/media/video/pwc/pwc-dec23.c
 +++ b/drivers/media/video/pwc/pwc-dec23.c
 @@ -30,6 +30,7 @@
@@ -800,7 +796,6 @@ index 9e2d91f..0c801b8 100644
  /*
   * USE_LOOKUP_TABLE_TO_CLAMP
 diff --git a/drivers/media/video/pwc/pwc-if.c b/drivers/media/video/pwc/pwc-if.c
-index 5227978..7e46961 100644
 --- a/drivers/media/video/pwc/pwc-if.c
 +++ b/drivers/media/video/pwc/pwc-if.c
 @@ -53,6 +53,7 @@
@@ -1621,7 +1616,6 @@ index 5227978..7e46961 100644
  					/* There's a serial number as well */
  					int k;
 diff --git a/drivers/media/video/pwc/pwc-ioctl.h b/drivers/media/video/pwc/pwc-ioctl.h
-index cec6602..8c0cae7 100644
 --- a/drivers/media/video/pwc/pwc-ioctl.h
 +++ b/drivers/media/video/pwc/pwc-ioctl.h
 @@ -54,7 +54,6 @@
@@ -1633,7 +1627,6 @@ index cec6602..8c0cae7 100644
  #define PSZ_SQCIF	0x00
  #define PSZ_QSIF	0x01
 diff --git a/drivers/media/video/pwc/pwc-misc.c b/drivers/media/video/pwc/pwc-misc.c
-index 589c687..6af5bb5 100644
 --- a/drivers/media/video/pwc/pwc-misc.c
 +++ b/drivers/media/video/pwc/pwc-misc.c
 @@ -47,7 +47,7 @@ int pwc_decode_size(struct pwc_device *pdev, int width, int height)
@@ -1655,7 +1648,6 @@ index 589c687..6af5bb5 100644
  	pdev->view_max.size = pdev->view_max.x * pdev->view_max.y;
  	/* length of image, in YUV format; always allocate enough memory. */
 diff --git a/drivers/media/video/pwc/pwc-uncompress.c b/drivers/media/video/pwc/pwc-uncompress.c
-index 5d82028..3b73f29 100644
 --- a/drivers/media/video/pwc/pwc-uncompress.c
 +++ b/drivers/media/video/pwc/pwc-uncompress.c
 @@ -54,7 +54,7 @@ int pwc_decompress(struct pwc_device *pdev)
@@ -1668,7 +1660,6 @@ index 5d82028..3b73f29 100644
  		struct pwc_raw_frame *raw_frame = image;
  		raw_frame->type = cpu_to_le16(pdev->type);
 diff --git a/drivers/media/video/pwc/pwc-v4l.c b/drivers/media/video/pwc/pwc-v4l.c
-index 32fbe1a..7061a03 100644
 --- a/drivers/media/video/pwc/pwc-v4l.c
 +++ b/drivers/media/video/pwc/pwc-v4l.c
 @@ -30,7 +30,6 @@
@@ -2093,7 +2084,6 @@ index 32fbe1a..7061a03 100644
  			else
  				buf->bytesused = pdev->view.size;
 diff --git a/drivers/media/video/pwc/pwc.h b/drivers/media/video/pwc/pwc.h
-index 40d3447..36a9c83 100644
 --- a/drivers/media/video/pwc/pwc.h
 +++ b/drivers/media/video/pwc/pwc.h
 @@ -29,12 +29,17 @@

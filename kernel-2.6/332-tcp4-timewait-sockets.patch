@@ -47,7 +47,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv4/inet_timewait_sock.c b/net/ipv4/inet_timewait_sock.c
-index 61283f9..13f0781 100644
 --- a/net/ipv4/inet_timewait_sock.c
 +++ b/net/ipv4/inet_timewait_sock.c
 @@ -218,8 +218,8 @@ void inet_twdr_hangman(unsigned long data)

@@ -17,7 +17,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 43 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 64d0af6..9b2756f 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -326,6 +326,43 @@ void tcp_enter_memory_pressure(struct sock *sk)

@@ -138,7 +138,6 @@ Subject: [PATCH] define global BIT* macros
  126 files changed, 431 insertions(+), 386 deletions(-)
 
 diff --git a/Documentation/input/input-programming.txt b/Documentation/input/input-programming.txt
-index d9d5230..4d932dc 100644
 --- a/Documentation/input/input-programming.txt
 +++ b/Documentation/input/input-programming.txt
 @@ -42,8 +42,8 @@ static int __init button_init(void)
@@ -174,7 +173,6 @@ index d9d5230..4d932dc 100644
  1.5 The id* and name fields
  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 diff --git a/arch/ppc/platforms/chestnut.c b/arch/ppc/platforms/chestnut.c
-index a764ae7..248bfdd 100644
 --- a/arch/ppc/platforms/chestnut.c
 +++ b/arch/ppc/platforms/chestnut.c
 @@ -48,7 +48,6 @@ extern void gen550_progress(char *, unsigned short);
@@ -186,7 +184,6 @@ index a764ae7..248bfdd 100644
  				BIT(MV64x60_CPU2DEV_1_WIN) | \
  				BIT(MV64x60_CPU2DEV_2_WIN) | \
 diff --git a/drivers/acpi/button.c b/drivers/acpi/button.c
-index cb4110b..6b7195a 100644
 --- a/drivers/acpi/button.c
 +++ b/drivers/acpi/button.c
 @@ -424,18 +424,18 @@ static int acpi_button_add(struct acpi_device *device)
@@ -212,7 +209,6 @@ index cb4110b..6b7195a 100644
  		break;
  	}
 diff --git a/drivers/char/keyboard.c b/drivers/char/keyboard.c
-index 1b09450..1d5a8b9 100644
 --- a/drivers/char/keyboard.c
 +++ b/drivers/char/keyboard.c
 @@ -125,7 +125,7 @@ int shift_state = 0;
@@ -240,7 +236,6 @@ index 1b09450..1d5a8b9 100644
  
  	{ },    /* Terminating entry */
 diff --git a/drivers/char/sonypi.c b/drivers/char/sonypi.c
-index 3ef593a..03a595f 100644
 --- a/drivers/char/sonypi.c
 +++ b/drivers/char/sonypi.c
 @@ -1220,9 +1220,9 @@ static int __devinit sonypi_create_input_devices(void)
@@ -266,7 +261,6 @@ index 3ef593a..03a595f 100644
  		if (sonypi_inputkeys[i].inputev)
  			set_bit(sonypi_inputkeys[i].inputev, key_dev->keybit);
 diff --git a/drivers/firmware/dcdbas.h b/drivers/firmware/dcdbas.h
-index 58a8518..f39f486 100644
 --- a/drivers/firmware/dcdbas.h
 +++ b/drivers/firmware/dcdbas.h
 @@ -17,7 +17,6 @@
@@ -278,7 +272,6 @@ index 58a8518..f39f486 100644
  #include <linux/types.h>
  
 diff --git a/drivers/hid/usbhid/usbkbd.c b/drivers/hid/usbhid/usbkbd.c
-index b76b02f..775a1ef 100644
 --- a/drivers/hid/usbhid/usbkbd.c
 +++ b/drivers/hid/usbhid/usbkbd.c
 @@ -274,8 +274,11 @@ static int usb_kbd_probe(struct usb_interface *iface,
@@ -296,7 +289,6 @@ index b76b02f..775a1ef 100644
  	for (i = 0; i < 255; i++)
  		set_bit(usb_kbd_keycode[i], input_dev->keybit);
 diff --git a/drivers/hid/usbhid/usbmouse.c b/drivers/hid/usbhid/usbmouse.c
-index 5345c73..f8ad691 100644
 --- a/drivers/hid/usbhid/usbmouse.c
 +++ b/drivers/hid/usbhid/usbmouse.c
 @@ -173,11 +173,13 @@ static int usb_mouse_probe(struct usb_interface *intf, const struct usb_device_i
@@ -319,7 +311,6 @@ index 5345c73..f8ad691 100644
  	input_set_drvdata(input_dev, mouse);
  
 diff --git a/drivers/hwmon/applesmc.c b/drivers/hwmon/applesmc.c
-index fd1281f..55397a1 100644
 --- a/drivers/hwmon/applesmc.c
 +++ b/drivers/hwmon/applesmc.c
 @@ -1109,7 +1109,7 @@ static int applesmc_create_accelerometer(void)
@@ -332,7 +323,6 @@ index fd1281f..55397a1 100644
  	applesmc_idev->close = applesmc_idev_close;
  	input_set_abs_params(applesmc_idev, ABS_X,
 diff --git a/drivers/hwmon/hdaps.c b/drivers/hwmon/hdaps.c
-index e0cf5e6..c1af708 100644
 --- a/drivers/hwmon/hdaps.c
 +++ b/drivers/hwmon/hdaps.c
 @@ -575,7 +575,7 @@ static int __init hdaps_init(void)
@@ -345,7 +335,6 @@ index e0cf5e6..c1af708 100644
  			-256, 256, HDAPS_INPUT_FUZZ, HDAPS_INPUT_FLAT);
  	input_set_abs_params(hdaps_idev, ABS_Y,
 diff --git a/drivers/input/evdev.c b/drivers/input/evdev.c
-index be6b93c..38a979f 100644
 --- a/drivers/input/evdev.c
 +++ b/drivers/input/evdev.c
 @@ -326,7 +326,7 @@ static unsigned int evdev_poll(struct file *file, poll_table *wait)
@@ -396,7 +385,6 @@ index be6b93c..38a979f 100644
  	if (len > maxlen)
  		len = maxlen;
 diff --git a/drivers/input/input.c b/drivers/input/input.c
-index ccd8aba..d5af43d 100644
 --- a/drivers/input/input.c
 +++ b/drivers/input/input.c
 @@ -380,10 +380,10 @@ static int input_default_setkeycode(struct input_dev *dev,
@@ -440,7 +428,6 @@ index ccd8aba..d5af43d 100644
  			break;
  
 diff --git a/drivers/input/joydev.c b/drivers/input/joydev.c
-index 10e3b7b..abc2de3 100644
 --- a/drivers/input/joydev.c
 +++ b/drivers/input/joydev.c
 @@ -604,8 +604,8 @@ static void joydev_disconnect(struct input_handle *handle)
@@ -480,7 +467,6 @@ index 10e3b7b..abc2de3 100644
  	{ }	/* Terminating entry */
  };
 diff --git a/drivers/input/joystick/a3d.c b/drivers/input/joystick/a3d.c
-index ff701ab..52ba16f 100644
 --- a/drivers/input/joystick/a3d.c
 +++ b/drivers/input/joystick/a3d.c
 @@ -326,14 +326,19 @@ static int a3d_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -526,7 +512,6 @@ index ff701ab..52ba16f 100644
  		a3d_read(a3d, data);
  
 diff --git a/drivers/input/joystick/adi.c b/drivers/input/joystick/adi.c
-index 28140c4..d1ca8a1 100644
 --- a/drivers/input/joystick/adi.c
 +++ b/drivers/input/joystick/adi.c
 @@ -431,7 +431,7 @@ static int adi_init_input(struct adi *adi, struct adi_port *port, int half)
@@ -539,7 +524,6 @@ index 28140c4..d1ca8a1 100644
  	for (i = 0; i < adi->axes10 + adi->axes8 + (adi->hats + (adi->pad != -1)) * 2; i++)
  		set_bit(adi->abs[i], input_dev->absbit);
 diff --git a/drivers/input/joystick/amijoy.c b/drivers/input/joystick/amijoy.c
-index b0f5541..5cf9f36 100644
 --- a/drivers/input/joystick/amijoy.c
 +++ b/drivers/input/joystick/amijoy.c
 @@ -137,9 +137,10 @@ static int __init amijoy_init(void)
@@ -557,7 +541,6 @@ index b0f5541..5cf9f36 100644
  			amijoy_dev[i]->absmin[ABS_X + j] = -1;
  			amijoy_dev[i]->absmax[ABS_X + j] = 1;
 diff --git a/drivers/input/joystick/analog.c b/drivers/input/joystick/analog.c
-index bdd157c..1573988 100644
 --- a/drivers/input/joystick/analog.c
 +++ b/drivers/input/joystick/analog.c
 @@ -456,7 +456,7 @@ static int analog_init_device(struct analog_port *port, struct analog *analog, i
@@ -570,7 +553,6 @@ index bdd157c..1573988 100644
  	for (i = j = 0; i < 4; i++)
  		if (analog->mask & (1 << i)) {
 diff --git a/drivers/input/joystick/cobra.c b/drivers/input/joystick/cobra.c
-index d3352a8..55646a6 100644
 --- a/drivers/input/joystick/cobra.c
 +++ b/drivers/input/joystick/cobra.c
 @@ -218,7 +218,7 @@ static int cobra_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -583,7 +565,6 @@ index d3352a8..55646a6 100644
  		input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
  		for (j = 0; cobra_btn[j]; j++)
 diff --git a/drivers/input/joystick/db9.c b/drivers/input/joystick/db9.c
-index b069ee1..27fc475 100644
 --- a/drivers/input/joystick/db9.c
 +++ b/drivers/input/joystick/db9.c
 @@ -631,7 +631,7 @@ static struct db9 __init *db9_probe(int parport, int mode)
@@ -596,7 +577,6 @@ index b069ee1..27fc475 100644
  			set_bit(db9_mode->buttons[j], input_dev->keybit);
  		for (j = 0; j < db9_mode->n_axis; j++) {
 diff --git a/drivers/input/joystick/gamecon.c b/drivers/input/joystick/gamecon.c
-index 1a452e0..df2a9d0 100644
 --- a/drivers/input/joystick/gamecon.c
 +++ b/drivers/input/joystick/gamecon.c
 @@ -653,12 +653,12 @@ static int __init gc_setup_pad(struct gc *gc, int idx, int pad_type)
@@ -615,7 +595,6 @@ index 1a452e0..df2a9d0 100644
  	gc->pads[0] |= gc_status_bit[idx];
  	gc->pads[pad_type] |= gc_status_bit[idx];
 diff --git a/drivers/input/joystick/gf2k.c b/drivers/input/joystick/gf2k.c
-index d514aeb..1f6302c 100644
 --- a/drivers/input/joystick/gf2k.c
 +++ b/drivers/input/joystick/gf2k.c
 @@ -315,7 +315,7 @@ static int gf2k_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -628,7 +607,6 @@ index d514aeb..1f6302c 100644
  	for (i = 0; i < gf2k_axes[gf2k->id]; i++)
  		set_bit(gf2k_abs[i], input_dev->absbit);
 diff --git a/drivers/input/joystick/grip.c b/drivers/input/joystick/grip.c
-index 73eb5ab..fd3853a 100644
 --- a/drivers/input/joystick/grip.c
 +++ b/drivers/input/joystick/grip.c
 @@ -370,7 +370,7 @@ static int grip_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -641,7 +619,6 @@ index 73eb5ab..fd3853a 100644
  		for (j = 0; (t = grip_abs[grip->mode[i]][j]) >= 0; j++) {
  
 diff --git a/drivers/input/joystick/grip_mp.c b/drivers/input/joystick/grip_mp.c
-index 555319e..6ba9bc2 100644
 --- a/drivers/input/joystick/grip_mp.c
 +++ b/drivers/input/joystick/grip_mp.c
 @@ -606,7 +606,7 @@ static int register_slot(int slot, struct grip_mp *grip)
@@ -654,7 +631,6 @@ index 555319e..6ba9bc2 100644
  	for (j = 0; (t = grip_abs[port->mode][j]) >= 0; j++)
  		input_set_abs_params(input_dev, t, -1, 1, 0, 0);
 diff --git a/drivers/input/joystick/guillemot.c b/drivers/input/joystick/guillemot.c
-index d4e8073..aa6bfb3 100644
 --- a/drivers/input/joystick/guillemot.c
 +++ b/drivers/input/joystick/guillemot.c
 @@ -238,7 +238,7 @@ static int guillemot_connect(struct gameport *gameport, struct gameport_driver *
@@ -667,7 +643,6 @@ index d4e8073..aa6bfb3 100644
  	for (i = 0; (t = guillemot->type->abs[i]) >= 0; i++)
  		input_set_abs_params(input_dev, t, 0, 255, 0, 0);
 diff --git a/drivers/input/joystick/iforce/iforce-main.c b/drivers/input/joystick/iforce/iforce-main.c
-index 682244b..6f826b3 100644
 --- a/drivers/input/joystick/iforce/iforce-main.c
 +++ b/drivers/input/joystick/iforce/iforce-main.c
 @@ -389,7 +389,8 @@ int iforce_init_device(struct iforce *iforce)
@@ -681,7 +656,6 @@ index 682244b..6f826b3 100644
  	for (i = 0; iforce->type->btn[i] >= 0; i++)
  		set_bit(iforce->type->btn[i], input_dev->keybit);
 diff --git a/drivers/input/joystick/iforce/iforce.h b/drivers/input/joystick/iforce/iforce.h
-index 40a853a..a964a7c 100644
 --- a/drivers/input/joystick/iforce/iforce.h
 +++ b/drivers/input/joystick/iforce/iforce.h
 @@ -62,13 +62,13 @@
@@ -701,7 +675,6 @@ index 40a853a..a964a7c 100644
  
  #define FF_CMD_EFFECT		0x010e
 diff --git a/drivers/input/joystick/interact.c b/drivers/input/joystick/interact.c
-index 1aec1e9..bc8ea95 100644
 --- a/drivers/input/joystick/interact.c
 +++ b/drivers/input/joystick/interact.c
 @@ -269,7 +269,7 @@ static int interact_connect(struct gameport *gameport, struct gameport_driver *d
@@ -714,7 +687,6 @@ index 1aec1e9..bc8ea95 100644
  	for (i = 0; (t = interact_type[interact->type].abs[i]) >= 0; i++) {
  		set_bit(t, input_dev->absbit);
 diff --git a/drivers/input/joystick/magellan.c b/drivers/input/joystick/magellan.c
-index b35604e..54e6769 100644
 --- a/drivers/input/joystick/magellan.c
 +++ b/drivers/input/joystick/magellan.c
 @@ -170,7 +170,7 @@ static int magellan_connect(struct serio *serio, struct serio_driver *drv)
@@ -727,7 +699,6 @@ index b35604e..54e6769 100644
  	for (i = 0; i < 9; i++)
  		set_bit(magellan_buttons[i], input_dev->keybit);
 diff --git a/drivers/input/joystick/sidewinder.c b/drivers/input/joystick/sidewinder.c
-index 2adf73f..7b4865f 100644
 --- a/drivers/input/joystick/sidewinder.c
 +++ b/drivers/input/joystick/sidewinder.c
 @@ -758,7 +758,7 @@ static int sw_connect(struct gameport *gameport, struct gameport_driver *drv)
@@ -740,7 +711,6 @@ index 2adf73f..7b4865f 100644
  		for (j = 0; (bits = sw_bit[sw->type][j]); j++) {
  			code = sw_abs[sw->type][j];
 diff --git a/drivers/input/joystick/spaceball.c b/drivers/input/joystick/spaceball.c
-index abb7c4c..d4087fd 100644
 --- a/drivers/input/joystick/spaceball.c
 +++ b/drivers/input/joystick/spaceball.c
 @@ -228,18 +228,23 @@ static int spaceball_connect(struct serio *serio, struct serio_driver *drv)
@@ -774,7 +744,6 @@ index abb7c4c..d4087fd 100644
  
  	for (i = 0; i < 3; i++) {
 diff --git a/drivers/input/joystick/spaceorb.c b/drivers/input/joystick/spaceorb.c
-index c4937f1..f7ce400 100644
 --- a/drivers/input/joystick/spaceorb.c
 +++ b/drivers/input/joystick/spaceorb.c
 @@ -185,7 +185,7 @@ static int spaceorb_connect(struct serio *serio, struct serio_driver *drv)
@@ -787,7 +756,6 @@ index c4937f1..f7ce400 100644
  	for (i = 0; i < 6; i++)
  		set_bit(spaceorb_buttons[i], input_dev->keybit);
 diff --git a/drivers/input/joystick/stinger.c b/drivers/input/joystick/stinger.c
-index 8581ee9..baa10b2 100644
 --- a/drivers/input/joystick/stinger.c
 +++ b/drivers/input/joystick/stinger.c
 @@ -156,10 +156,11 @@ static int stinger_connect(struct serio *serio, struct serio_driver *drv)
@@ -807,7 +775,6 @@ index 8581ee9..baa10b2 100644
  	input_set_abs_params(input_dev, ABS_Y, -64, 64, 0, 4);
  
 diff --git a/drivers/input/joystick/tmdc.c b/drivers/input/joystick/tmdc.c
-index 3b36ee0..0feeb8a 100644
 --- a/drivers/input/joystick/tmdc.c
 +++ b/drivers/input/joystick/tmdc.c
 @@ -333,7 +333,7 @@ static int tmdc_setup_port(struct tmdc *tmdc, int idx, unsigned char *data)
@@ -820,7 +787,6 @@ index 3b36ee0..0feeb8a 100644
  	for (i = 0; i < port->absc && i < TMDC_ABS; i++)
  		if (port->abs[i] >= 0)
 diff --git a/drivers/input/joystick/turbografx.c b/drivers/input/joystick/turbografx.c
-index 8381c6f..bbebd4e 100644
 --- a/drivers/input/joystick/turbografx.c
 +++ b/drivers/input/joystick/turbografx.c
 @@ -229,7 +229,7 @@ static struct tgfx __init *tgfx_probe(int parport, int *n_buttons, int n_devs)
@@ -833,7 +799,6 @@ index 8381c6f..bbebd4e 100644
  		input_set_abs_params(input_dev, ABS_Y, -1, 1, 0, 0);
  
 diff --git a/drivers/input/joystick/twidjoy.c b/drivers/input/joystick/twidjoy.c
-index c91504e..1085c84 100644
 --- a/drivers/input/joystick/twidjoy.c
 +++ b/drivers/input/joystick/twidjoy.c
 @@ -207,7 +207,7 @@ static int twidjoy_connect(struct serio *serio, struct serio_driver *drv)
@@ -846,7 +811,6 @@ index c91504e..1085c84 100644
  	input_set_abs_params(input_dev, ABS_Y, -50, 50, 4, 4);
  
 diff --git a/drivers/input/joystick/warrior.c b/drivers/input/joystick/warrior.c
-index 4e85f72..e928b6e 100644
 --- a/drivers/input/joystick/warrior.c
 +++ b/drivers/input/joystick/warrior.c
 @@ -162,9 +162,11 @@ static int warrior_connect(struct serio *serio, struct serio_driver *drv)
@@ -865,7 +829,6 @@ index 4e85f72..e928b6e 100644
  	input_set_abs_params(input_dev, ABS_Y, -64, 64, 0, 8);
  	input_set_abs_params(input_dev, ABS_THROTTLE, -112, 112, 0, 0);
 diff --git a/drivers/input/joystick/xpad.c b/drivers/input/joystick/xpad.c
-index 8c8cd95..6843508 100644
 --- a/drivers/input/joystick/xpad.c
 +++ b/drivers/input/joystick/xpad.c
 @@ -351,7 +351,7 @@ static int xpad_probe(struct usb_interface *intf, const struct usb_device_id *id
@@ -878,7 +841,6 @@ index 8c8cd95..6843508 100644
  	/* set up buttons */
  	for (i = 0; xpad_btn[i] >= 0; i++)
 diff --git a/drivers/input/keyboard/aaed2000_kbd.c b/drivers/input/keyboard/aaed2000_kbd.c
-index 63d6ead..72abc19 100644
 --- a/drivers/input/keyboard/aaed2000_kbd.c
 +++ b/drivers/input/keyboard/aaed2000_kbd.c
 @@ -125,7 +125,7 @@ static int __devinit aaedkbd_probe(struct platform_device *pdev)
@@ -891,7 +853,6 @@ index 63d6ead..72abc19 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(aaedkbd_keycode);
 diff --git a/drivers/input/keyboard/amikbd.c b/drivers/input/keyboard/amikbd.c
-index c67e84e..81bf756 100644
 --- a/drivers/input/keyboard/amikbd.c
 +++ b/drivers/input/keyboard/amikbd.c
 @@ -209,7 +209,7 @@ static int __init amikbd_init(void)
@@ -904,7 +865,6 @@ index c67e84e..81bf756 100644
  	for (i = 0; i < 0x78; i++)
  		set_bit(i, amikbd_dev->keybit);
 diff --git a/drivers/input/keyboard/atakbd.c b/drivers/input/keyboard/atakbd.c
-index ded1d6a..2f571ef 100644
 --- a/drivers/input/keyboard/atakbd.c
 +++ b/drivers/input/keyboard/atakbd.c
 @@ -105,7 +105,7 @@ static int __init atakbd_init(void)
@@ -917,7 +877,6 @@ index ded1d6a..2f571ef 100644
  	atakbd_dev->keycodesize = sizeof(unsigned char);
  	atakbd_dev->keycodemax = ARRAY_SIZE(atakbd_keycode);
 diff --git a/drivers/input/keyboard/atkbd.c b/drivers/input/keyboard/atkbd.c
-index 9950fcb..e9f0c28 100644
 --- a/drivers/input/keyboard/atkbd.c
 +++ b/drivers/input/keyboard/atkbd.c
 @@ -900,27 +900,32 @@ static void atkbd_set_device_attrs(struct atkbd *atkbd)
@@ -962,7 +921,6 @@ index 9950fcb..e9f0c28 100644
  	}
  
 diff --git a/drivers/input/keyboard/corgikbd.c b/drivers/input/keyboard/corgikbd.c
-index 6578bff..790fed3 100644
 --- a/drivers/input/keyboard/corgikbd.c
 +++ b/drivers/input/keyboard/corgikbd.c
 @@ -325,7 +325,8 @@ static int __init corgikbd_probe(struct platform_device *pdev)
@@ -976,7 +934,6 @@ index 6578bff..790fed3 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(corgikbd_keycode);
 diff --git a/drivers/input/keyboard/gpio_keys.c b/drivers/input/keyboard/gpio_keys.c
-index 7392122..7874cb2 100644
 --- a/drivers/input/keyboard/gpio_keys.c
 +++ b/drivers/input/keyboard/gpio_keys.c
 @@ -62,7 +62,7 @@ static int __devinit gpio_keys_probe(struct platform_device *pdev)
@@ -989,7 +946,6 @@ index 7392122..7874cb2 100644
  	input->name = pdev->name;
  	input->phys = "gpio-keys/input0";
 diff --git a/drivers/input/keyboard/hil_kbd.c b/drivers/input/keyboard/hil_kbd.c
-index cdd254f..adbf29f 100644
 --- a/drivers/input/keyboard/hil_kbd.c
 +++ b/drivers/input/keyboard/hil_kbd.c
 @@ -323,8 +323,9 @@ static int hil_kbd_connect(struct serio *serio, struct serio_driver *drv)
@@ -1005,7 +961,6 @@ index cdd254f..adbf29f 100644
  	kbd->dev->keycodesize	= sizeof(hil_kbd_set1[0]);
  	kbd->dev->keycode	= hil_kbd_set1;
 diff --git a/drivers/input/keyboard/hilkbd.c b/drivers/input/keyboard/hilkbd.c
-index 499b697..50d80ec 100644
 --- a/drivers/input/keyboard/hilkbd.c
 +++ b/drivers/input/keyboard/hilkbd.c
 @@ -266,8 +266,9 @@ hil_keyb_init(void)
@@ -1021,7 +976,6 @@ index 499b697..50d80ec 100644
  	hil_dev.dev->keycodesize= sizeof(hphilkeyb_keycode[0]);
  	hil_dev.dev->keycode	= hphilkeyb_keycode;
 diff --git a/drivers/input/keyboard/locomokbd.c b/drivers/input/keyboard/locomokbd.c
-index 7a41b27..5a0ca18 100644
 --- a/drivers/input/keyboard/locomokbd.c
 +++ b/drivers/input/keyboard/locomokbd.c
 @@ -233,7 +233,7 @@ static int locomokbd_probe(struct locomo_dev *dev)
@@ -1034,7 +988,6 @@ index 7a41b27..5a0ca18 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(locomokbd_keycode);
 diff --git a/drivers/input/keyboard/newtonkbd.c b/drivers/input/keyboard/newtonkbd.c
-index b97a41e..48d1cab 100644
 --- a/drivers/input/keyboard/newtonkbd.c
 +++ b/drivers/input/keyboard/newtonkbd.c
 @@ -106,7 +106,7 @@ static int nkbd_connect(struct serio *serio, struct serio_driver *drv)
@@ -1047,7 +1000,6 @@ index b97a41e..48d1cab 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(nkbd_keycode);
 diff --git a/drivers/input/keyboard/pxa27x_keyboard.c b/drivers/input/keyboard/pxa27x_keyboard.c
-index f9e82c9..eb10c27 100644
 --- a/drivers/input/keyboard/pxa27x_keyboard.c
 +++ b/drivers/input/keyboard/pxa27x_keyboard.c
 @@ -171,8 +171,9 @@ static int __devinit pxakbd_probe(struct platform_device *pdev)
@@ -1063,7 +1015,6 @@ index f9e82c9..eb10c27 100644
  		for (col = 0; col < pdata->nr_cols; col++) {
  			int code = pdata->keycodes[row][col];
 diff --git a/drivers/input/keyboard/spitzkbd.c b/drivers/input/keyboard/spitzkbd.c
-index 41b8038..410d78a 100644
 --- a/drivers/input/keyboard/spitzkbd.c
 +++ b/drivers/input/keyboard/spitzkbd.c
 @@ -381,7 +381,8 @@ static int __init spitzkbd_probe(struct platform_device *dev)
@@ -1077,7 +1028,6 @@ index 41b8038..410d78a 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(spitzkbd_keycode);
 diff --git a/drivers/input/keyboard/stowaway.c b/drivers/input/keyboard/stowaway.c
-index b44b068..7437219 100644
 --- a/drivers/input/keyboard/stowaway.c
 +++ b/drivers/input/keyboard/stowaway.c
 @@ -110,7 +110,7 @@ static int skbd_connect(struct serio *serio, struct serio_driver *drv)
@@ -1090,7 +1040,6 @@ index b44b068..7437219 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(skbd_keycode);
 diff --git a/drivers/input/keyboard/sunkbd.c b/drivers/input/keyboard/sunkbd.c
-index 1d4e396..be0f5d1 100644
 --- a/drivers/input/keyboard/sunkbd.c
 +++ b/drivers/input/keyboard/sunkbd.c
 @@ -277,9 +277,11 @@ static int sunkbd_connect(struct serio *serio, struct serio_driver *drv)
@@ -1109,7 +1058,6 @@ index 1d4e396..be0f5d1 100644
  	input_dev->keycode = sunkbd->keycode;
  	input_dev->keycodesize = sizeof(unsigned char);
 diff --git a/drivers/input/keyboard/xtkbd.c b/drivers/input/keyboard/xtkbd.c
-index f3a56eb..152a2c0 100644
 --- a/drivers/input/keyboard/xtkbd.c
 +++ b/drivers/input/keyboard/xtkbd.c
 @@ -110,7 +110,7 @@ static int xtkbd_connect(struct serio *serio, struct serio_driver *drv)
@@ -1122,7 +1070,6 @@ index f3a56eb..152a2c0 100644
  	input_dev->keycodesize = sizeof(unsigned char);
  	input_dev->keycodemax = ARRAY_SIZE(xtkbd_keycode);
 diff --git a/drivers/input/misc/ati_remote.c b/drivers/input/misc/ati_remote.c
-index 471aab2..3a79374 100644
 --- a/drivers/input/misc/ati_remote.c
 +++ b/drivers/input/misc/ati_remote.c
 @@ -662,10 +662,10 @@ static void ati_remote_input_init(struct ati_remote *ati_remote)
@@ -1141,7 +1088,6 @@ index 471aab2..3a79374 100644
  		if (ati_remote_tbl[i].type == EV_KEY)
  			set_bit(ati_remote_tbl[i].code, idev->keybit);
 diff --git a/drivers/input/misc/ati_remote2.c b/drivers/input/misc/ati_remote2.c
-index 1031543..f2709b8 100644
 --- a/drivers/input/misc/ati_remote2.c
 +++ b/drivers/input/misc/ati_remote2.c
 @@ -346,9 +346,10 @@ static int ati_remote2_input_init(struct ati_remote2 *ar2)
@@ -1159,7 +1105,6 @@ index 1031543..f2709b8 100644
  		set_bit(ati_remote2_key_table[i].key_code, idev->keybit);
  
 diff --git a/drivers/input/misc/atlas_btns.c b/drivers/input/misc/atlas_btns.c
-index 0acc3a1..6b77a38 100644
 --- a/drivers/input/misc/atlas_btns.c
 +++ b/drivers/input/misc/atlas_btns.c
 @@ -82,7 +82,7 @@ static int atlas_acpi_button_add(struct acpi_device *device)
@@ -1172,7 +1117,6 @@ index 0acc3a1..6b77a38 100644
  	set_bit(KEY_F1, input_dev->keybit);
  	set_bit(KEY_F2, input_dev->keybit);
 diff --git a/drivers/input/misc/cobalt_btns.c b/drivers/input/misc/cobalt_btns.c
-index 064b079..1aef97e 100644
 --- a/drivers/input/misc/cobalt_btns.c
 +++ b/drivers/input/misc/cobalt_btns.c
 @@ -104,7 +104,7 @@ static int __devinit cobalt_buttons_probe(struct platform_device *pdev)
@@ -1185,7 +1129,6 @@ index 064b079..1aef97e 100644
  		set_bit(buttons_map[i].keycode, input->keybit);
  		buttons_map[i].count = 0;
 diff --git a/drivers/input/misc/ixp4xx-beeper.c b/drivers/input/misc/ixp4xx-beeper.c
-index e759944..d2ade74 100644
 --- a/drivers/input/misc/ixp4xx-beeper.c
 +++ b/drivers/input/misc/ixp4xx-beeper.c
 @@ -109,8 +109,8 @@ static int __devinit ixp4xx_spkr_probe(struct platform_device *dev)
@@ -1200,7 +1143,6 @@ index e759944..d2ade74 100644
  
  	err = request_irq(IRQ_IXP4XX_TIMER2, &ixp4xx_spkr_interrupt,
 diff --git a/drivers/input/misc/keyspan_remote.c b/drivers/input/misc/keyspan_remote.c
-index 1bffc9f..fd74347 100644
 --- a/drivers/input/misc/keyspan_remote.c
 +++ b/drivers/input/misc/keyspan_remote.c
 @@ -497,7 +497,7 @@ static int keyspan_probe(struct usb_interface *interface, const struct usb_devic
@@ -1213,7 +1155,6 @@ index 1bffc9f..fd74347 100644
  		if (keyspan_key_table[i] != KEY_RESERVED)
  			set_bit(keyspan_key_table[i], input_dev->keybit);
 diff --git a/drivers/input/misc/m68kspkr.c b/drivers/input/misc/m68kspkr.c
-index e9f26e7..0c64d9b 100644
 --- a/drivers/input/misc/m68kspkr.c
 +++ b/drivers/input/misc/m68kspkr.c
 @@ -65,8 +65,8 @@ static int __devinit m68kspkr_probe(struct platform_device *dev)
@@ -1228,7 +1169,6 @@ index e9f26e7..0c64d9b 100644
  
  	err = input_register_device(input_dev);
 diff --git a/drivers/input/misc/pcspkr.c b/drivers/input/misc/pcspkr.c
-index 31989dc..ca3a3f0 100644
 --- a/drivers/input/misc/pcspkr.c
 +++ b/drivers/input/misc/pcspkr.c
 @@ -80,8 +80,8 @@ static int __devinit pcspkr_probe(struct platform_device *dev)
@@ -1243,7 +1183,6 @@ index 31989dc..ca3a3f0 100644
  
  	err = input_register_device(pcspkr_dev);
 diff --git a/drivers/input/misc/powermate.c b/drivers/input/misc/powermate.c
-index 448a470..7a7b8c7 100644
 --- a/drivers/input/misc/powermate.c
 +++ b/drivers/input/misc/powermate.c
 @@ -363,10 +363,11 @@ static int powermate_probe(struct usb_interface *intf, const struct usb_device_i
@@ -1263,7 +1202,6 @@ index 448a470..7a7b8c7 100644
  	/* get a handle to the interrupt data pipe */
  	pipe = usb_rcvintpipe(udev, endpoint->bEndpointAddress);
 diff --git a/drivers/input/misc/sparcspkr.c b/drivers/input/misc/sparcspkr.c
-index e36ec1d..a3637d8 100644
 --- a/drivers/input/misc/sparcspkr.c
 +++ b/drivers/input/misc/sparcspkr.c
 @@ -115,8 +115,8 @@ static int __devinit sparcspkr_probe(struct device *dev)
@@ -1278,7 +1216,6 @@ index e36ec1d..a3637d8 100644
  	input_dev->event = state->event;
  
 diff --git a/drivers/input/misc/yealink.c b/drivers/input/misc/yealink.c
-index ab15880..46279ef 100644
 --- a/drivers/input/misc/yealink.c
 +++ b/drivers/input/misc/yealink.c
 @@ -945,7 +945,7 @@ static int usb_probe(struct usb_interface *intf, const struct usb_device_id *id)
@@ -1291,7 +1228,6 @@ index ab15880..46279ef 100644
  		int k = map_p1k_to_key(i);
  		if (k >= 0) {
 diff --git a/drivers/input/mouse/alps.c b/drivers/input/mouse/alps.c
-index 2c5f11a..ac5b273 100644
 --- a/drivers/input/mouse/alps.c
 +++ b/drivers/input/mouse/alps.c
 @@ -453,24 +453,25 @@ int alps_init(struct psmouse *psmouse)
@@ -1344,7 +1280,6 @@ index 2c5f11a..ac5b273 100644
  	if (input_register_device(priv->dev2))
  		goto init_fail;
 diff --git a/drivers/input/mouse/amimouse.c b/drivers/input/mouse/amimouse.c
-index 239a0e1..a185ac7 100644
 --- a/drivers/input/mouse/amimouse.c
 +++ b/drivers/input/mouse/amimouse.c
 @@ -111,9 +111,10 @@ static int __init amimouse_init(void)
@@ -1362,7 +1297,6 @@ index 239a0e1..a185ac7 100644
  	amimouse_dev->close = amimouse_close;
  
 diff --git a/drivers/input/mouse/atarimouse.c b/drivers/input/mouse/atarimouse.c
-index 43ab656..bcf88d2 100644
 --- a/drivers/input/mouse/atarimouse.c
 +++ b/drivers/input/mouse/atarimouse.c
 @@ -139,9 +139,10 @@ static int __init atamouse_init(void)
@@ -1380,7 +1314,6 @@ index 43ab656..bcf88d2 100644
  	atamouse_dev->close = atamouse_close;
  
 diff --git a/drivers/input/mouse/hil_ptr.c b/drivers/input/mouse/hil_ptr.c
-index 449bf4d..27f88fb 100644
 --- a/drivers/input/mouse/hil_ptr.c
 +++ b/drivers/input/mouse/hil_ptr.c
 @@ -298,12 +298,12 @@ static int hil_ptr_connect(struct serio *serio, struct serio_driver *driver)
@@ -1408,7 +1341,6 @@ index 449bf4d..27f88fb 100644
  	naxsets = HIL_IDD_NUM_AXSETS(*idd);
  	ptr->naxes = HIL_IDD_NUM_AXES_PER_SET(*idd);
 diff --git a/drivers/input/mouse/inport.c b/drivers/input/mouse/inport.c
-index 79b624f..655a392 100644
 --- a/drivers/input/mouse/inport.c
 +++ b/drivers/input/mouse/inport.c
 @@ -163,9 +163,10 @@ static int __init inport_init(void)
@@ -1426,7 +1358,6 @@ index 79b624f..655a392 100644
  	inport_dev->open  = inport_open;
  	inport_dev->close = inport_close;
 diff --git a/drivers/input/mouse/lifebook.c b/drivers/input/mouse/lifebook.c
-index 91109b4..f3b61af 100644
 --- a/drivers/input/mouse/lifebook.c
 +++ b/drivers/input/mouse/lifebook.c
 @@ -262,9 +262,10 @@ static int lifebook_create_relative_device(struct psmouse *psmouse)
@@ -1456,7 +1387,6 @@ index 91109b4..f3b61af 100644
  	input_set_abs_params(dev1, ABS_Y, 0, max_coord, 0, 0);
  
 diff --git a/drivers/input/mouse/logibm.c b/drivers/input/mouse/logibm.c
-index 26c3b2e..b23a4f3 100644
 --- a/drivers/input/mouse/logibm.c
 +++ b/drivers/input/mouse/logibm.c
 @@ -156,9 +156,10 @@ static int __init logibm_init(void)
@@ -1474,7 +1404,6 @@ index 26c3b2e..b23a4f3 100644
  	logibm_dev->open  = logibm_open;
  	logibm_dev->close = logibm_close;
 diff --git a/drivers/input/mouse/pc110pad.c b/drivers/input/mouse/pc110pad.c
-index 05d992e..8991ab0 100644
 --- a/drivers/input/mouse/pc110pad.c
 +++ b/drivers/input/mouse/pc110pad.c
 @@ -144,9 +144,9 @@ static int __init pc110pad_init(void)
@@ -1491,7 +1420,6 @@ index 05d992e..8991ab0 100644
  	pc110pad_dev->absmax[ABS_X] = 0x1ff;
  	pc110pad_dev->absmax[ABS_Y] = 0x0ff;
 diff --git a/drivers/input/mouse/psmouse-base.c b/drivers/input/mouse/psmouse-base.c
-index f15f695..3757081 100644
 --- a/drivers/input/mouse/psmouse-base.c
 +++ b/drivers/input/mouse/psmouse-base.c
 @@ -1085,9 +1085,10 @@ static int psmouse_switch_protocol(struct psmouse *psmouse, const struct psmouse
@@ -1509,7 +1437,6 @@ index f15f695..3757081 100644
  	psmouse->set_rate = psmouse_set_rate;
  	psmouse->set_resolution = psmouse_set_resolution;
 diff --git a/drivers/input/mouse/rpcmouse.c b/drivers/input/mouse/rpcmouse.c
-index 355efd0..18a4863 100644
 --- a/drivers/input/mouse/rpcmouse.c
 +++ b/drivers/input/mouse/rpcmouse.c
 @@ -78,9 +78,10 @@ static int __init rpcmouse_init(void)
@@ -1527,7 +1454,6 @@ index 355efd0..18a4863 100644
  	rpcmouse_lastx = (short) iomd_readl(IOMD_MOUSEX);
  	rpcmouse_lasty = (short) iomd_readl(IOMD_MOUSEY);
 diff --git a/drivers/input/mouse/sermouse.c b/drivers/input/mouse/sermouse.c
-index 77b8ee2..ed917bf 100644
 --- a/drivers/input/mouse/sermouse.c
 +++ b/drivers/input/mouse/sermouse.c
 @@ -268,9 +268,10 @@ static int sermouse_connect(struct serio *serio, struct serio_driver *drv)
@@ -1545,7 +1471,6 @@ index 77b8ee2..ed917bf 100644
  	if (c & 0x01) set_bit(BTN_MIDDLE, input_dev->keybit);
  	if (c & 0x02) set_bit(BTN_SIDE, input_dev->keybit);
 diff --git a/drivers/input/mouse/touchkit_ps2.c b/drivers/input/mouse/touchkit_ps2.c
-index 7b977fd..3fadb2a 100644
 --- a/drivers/input/mouse/touchkit_ps2.c
 +++ b/drivers/input/mouse/touchkit_ps2.c
 @@ -85,7 +85,7 @@ int touchkit_ps2_detect(struct psmouse *psmouse, int set_properties)
@@ -1558,7 +1483,6 @@ index 7b977fd..3fadb2a 100644
  		input_set_abs_params(dev, ABS_X, 0, TOUCHKIT_MAX_XC, 0, 0);
  		input_set_abs_params(dev, ABS_Y, 0, TOUCHKIT_MAX_YC, 0, 0);
 diff --git a/drivers/input/mousedev.c b/drivers/input/mousedev.c
-index 3f4866d..d82d083 100644
 --- a/drivers/input/mousedev.c
 +++ b/drivers/input/mousedev.c
 @@ -776,26 +776,29 @@ static void mousedev_disconnect(struct input_handle *handle)
@@ -1603,7 +1527,6 @@ index 3f4866d..d82d083 100644
  
  	{ },	/* Terminating entry */
 diff --git a/drivers/input/tablet/acecad.c b/drivers/input/tablet/acecad.c
-index dd23104..b973d0e 100644
 --- a/drivers/input/tablet/acecad.c
 +++ b/drivers/input/tablet/acecad.c
 @@ -192,10 +192,14 @@ static int usb_acecad_probe(struct usb_interface *intf, const struct usb_device_
@@ -1626,7 +1549,6 @@ index dd23104..b973d0e 100644
  	switch (id->driver_info) {
  		case 0:
 diff --git a/drivers/input/tablet/gtco.c b/drivers/input/tablet/gtco.c
-index b2ca10f..d2c6da2 100644
 --- a/drivers/input/tablet/gtco.c
 +++ b/drivers/input/tablet/gtco.c
 @@ -573,10 +573,12 @@ static void gtco_setup_caps(struct input_dev *inputdev)
@@ -1645,7 +1567,6 @@ index b2ca10f..d2c6da2 100644
  	/* Absolute values based on HID report info */
  	input_set_abs_params(inputdev, ABS_X, device->min_X, device->max_X,
 diff --git a/drivers/input/tablet/kbtab.c b/drivers/input/tablet/kbtab.c
-index 91e6d00..1182fc1 100644
 --- a/drivers/input/tablet/kbtab.c
 +++ b/drivers/input/tablet/kbtab.c
 @@ -153,10 +153,13 @@ static int kbtab_probe(struct usb_interface *intf, const struct usb_device_id *i
@@ -1667,7 +1588,6 @@ index 91e6d00..1182fc1 100644
  	input_set_abs_params(input_dev, ABS_Y, 0, 0x1750, 4, 0);
  	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 0xff, 0, 0);
 diff --git a/drivers/input/tablet/wacom_sys.c b/drivers/input/tablet/wacom_sys.c
-index 83bddef..a741277 100644
 --- a/drivers/input/tablet/wacom_sys.c
 +++ b/drivers/input/tablet/wacom_sys.c
 @@ -140,42 +140,51 @@ static void wacom_close(struct input_dev *dev)
@@ -1773,7 +1693,6 @@ index 83bddef..a741277 100644
  	wacom_init_input_dev(input_dev, wacom_wac);
  
 diff --git a/drivers/input/touchscreen/ads7846.c b/drivers/input/touchscreen/ads7846.c
-index 1c9069c..20dc793 100644
 --- a/drivers/input/touchscreen/ads7846.c
 +++ b/drivers/input/touchscreen/ads7846.c
 @@ -902,8 +902,8 @@ static int __devinit ads7846_probe(struct spi_device *spi)
@@ -1788,7 +1707,6 @@ index 1c9069c..20dc793 100644
  			pdata->x_min ? : 0,
  			pdata->x_max ? : MAX_12BIT,
 diff --git a/drivers/input/touchscreen/corgi_ts.c b/drivers/input/touchscreen/corgi_ts.c
-index e6a31d1..b1b2e07 100644
 --- a/drivers/input/touchscreen/corgi_ts.c
 +++ b/drivers/input/touchscreen/corgi_ts.c
 @@ -302,8 +302,8 @@ static int __init corgits_probe(struct platform_device *pdev)
@@ -1803,7 +1721,6 @@ index e6a31d1..b1b2e07 100644
  	input_set_abs_params(input_dev, ABS_Y, Y_AXIS_MIN, Y_AXIS_MAX, 0, 0);
  	input_set_abs_params(input_dev, ABS_PRESSURE, PRESSURE_MIN, PRESSURE_MAX, 0, 0);
 diff --git a/drivers/input/touchscreen/elo.c b/drivers/input/touchscreen/elo.c
-index 557d781..d20689c 100644
 --- a/drivers/input/touchscreen/elo.c
 +++ b/drivers/input/touchscreen/elo.c
 @@ -320,8 +320,8 @@ static int elo_connect(struct serio *serio, struct serio_driver *drv)
@@ -1818,7 +1735,6 @@ index 557d781..d20689c 100644
  	serio_set_drvdata(serio, elo);
  	err = serio_open(serio, drv);
 diff --git a/drivers/input/touchscreen/gunze.c b/drivers/input/touchscreen/gunze.c
-index 39d6026..a48a158 100644
 --- a/drivers/input/touchscreen/gunze.c
 +++ b/drivers/input/touchscreen/gunze.c
 @@ -137,8 +137,8 @@ static int gunze_connect(struct serio *serio, struct serio_driver *drv)
@@ -1833,7 +1749,6 @@ index 39d6026..a48a158 100644
  	input_set_abs_params(input_dev, ABS_Y, 24, 1000, 0, 0);
  
 diff --git a/drivers/input/touchscreen/h3600_ts_input.c b/drivers/input/touchscreen/h3600_ts_input.c
-index 09ed780..2ae6c60 100644
 --- a/drivers/input/touchscreen/h3600_ts_input.c
 +++ b/drivers/input/touchscreen/h3600_ts_input.c
 @@ -373,8 +373,9 @@ static int h3600ts_connect(struct serio *serio, struct serio_driver *drv)
@@ -1849,7 +1764,6 @@ index 09ed780..2ae6c60 100644
  	input_set_abs_params(input_dev, ABS_Y, 35, 1024, 0, 0);
  
 diff --git a/drivers/input/touchscreen/hp680_ts_input.c b/drivers/input/touchscreen/hp680_ts_input.c
-index 1a15475..c38d4e0 100644
 --- a/drivers/input/touchscreen/hp680_ts_input.c
 +++ b/drivers/input/touchscreen/hp680_ts_input.c
 @@ -81,8 +81,8 @@ static int __init hp680_ts_init(void)
@@ -1864,7 +1778,6 @@ index 1a15475..c38d4e0 100644
  	input_set_abs_params(hp680_ts_dev, ABS_X,
  		HP680_TS_ABS_X_MIN, HP680_TS_ABS_X_MAX, 0, 0);
 diff --git a/drivers/input/touchscreen/mk712.c b/drivers/input/touchscreen/mk712.c
-index 44140fe..80a6588 100644
 --- a/drivers/input/touchscreen/mk712.c
 +++ b/drivers/input/touchscreen/mk712.c
 @@ -186,8 +186,8 @@ static int __init mk712_init(void)
@@ -1879,7 +1792,6 @@ index 44140fe..80a6588 100644
  	input_set_abs_params(mk712_dev, ABS_Y, 0, 0xfff, 88, 0);
  
 diff --git a/drivers/input/touchscreen/mtouch.c b/drivers/input/touchscreen/mtouch.c
-index 4ec3b1f..9077228 100644
 --- a/drivers/input/touchscreen/mtouch.c
 +++ b/drivers/input/touchscreen/mtouch.c
 @@ -151,8 +151,8 @@ static int mtouch_connect(struct serio *serio, struct serio_driver *drv)
@@ -1894,7 +1806,6 @@ index 4ec3b1f..9077228 100644
  	input_set_abs_params(mtouch->dev, ABS_Y, MTOUCH_MIN_YC, MTOUCH_MAX_YC, 0, 0);
  
 diff --git a/drivers/input/touchscreen/penmount.c b/drivers/input/touchscreen/penmount.c
-index f2c0d3c..c7f9ceb 100644
 --- a/drivers/input/touchscreen/penmount.c
 +++ b/drivers/input/touchscreen/penmount.c
 @@ -113,8 +113,8 @@ static int pm_connect(struct serio *serio, struct serio_driver *drv)
@@ -1909,7 +1820,6 @@ index f2c0d3c..c7f9ceb 100644
          input_set_abs_params(pm->dev, ABS_Y, 0, 0x3ff, 0, 0);
  
 diff --git a/drivers/input/touchscreen/touchright.c b/drivers/input/touchscreen/touchright.c
-index 3def7bb..3a5c142 100644
 --- a/drivers/input/touchscreen/touchright.c
 +++ b/drivers/input/touchscreen/touchright.c
 @@ -125,8 +125,8 @@ static int tr_connect(struct serio *serio, struct serio_driver *drv)
@@ -1924,7 +1834,6 @@ index 3def7bb..3a5c142 100644
  	input_set_abs_params(tr->dev, ABS_Y, TR_MIN_YC, TR_MAX_YC, 0, 0);
  
 diff --git a/drivers/input/touchscreen/touchwin.c b/drivers/input/touchscreen/touchwin.c
-index ac4bdcf..763a656 100644
 --- a/drivers/input/touchscreen/touchwin.c
 +++ b/drivers/input/touchscreen/touchwin.c
 @@ -132,8 +132,8 @@ static int tw_connect(struct serio *serio, struct serio_driver *drv)
@@ -1939,7 +1848,6 @@ index ac4bdcf..763a656 100644
  	input_set_abs_params(tw->dev, ABS_Y, TW_MIN_YC, TW_MAX_YC, 0, 0);
  
 diff --git a/drivers/input/touchscreen/ucb1400_ts.c b/drivers/input/touchscreen/ucb1400_ts.c
-index f0cbcdb..7d84c2c 100644
 --- a/drivers/input/touchscreen/ucb1400_ts.c
 +++ b/drivers/input/touchscreen/ucb1400_ts.c
 @@ -518,7 +518,7 @@ static int ucb1400_ts_probe(struct device *dev)
@@ -1952,7 +1860,6 @@ index f0cbcdb..7d84c2c 100644
  	ucb1400_adc_enable(ucb);
  	x_res = ucb1400_ts_read_xres(ucb);
 diff --git a/drivers/input/touchscreen/usbtouchscreen.c b/drivers/input/touchscreen/usbtouchscreen.c
-index e3f2285..53a2513 100644
 --- a/drivers/input/touchscreen/usbtouchscreen.c
 +++ b/drivers/input/touchscreen/usbtouchscreen.c
 @@ -746,8 +746,8 @@ static int usbtouch_probe(struct usb_interface *intf,
@@ -1967,7 +1874,6 @@ index e3f2285..53a2513 100644
  	input_set_abs_params(input_dev, ABS_Y, type->min_yc, type->max_yc, 0, 0);
  	if (type->max_press)
 diff --git a/drivers/macintosh/adbhid.c b/drivers/macintosh/adbhid.c
-index b46817f..6c7ed87 100644
 --- a/drivers/macintosh/adbhid.c
 +++ b/drivers/macintosh/adbhid.c
 @@ -754,8 +754,10 @@ adbhid_input_register(int id, int default_id, int original_handler_id,
@@ -2017,7 +1923,6 @@ index b46817f..6c7ed87 100644
  			set_bit(KEY_VOLUMEUP, input_dev->keybit);
  			set_bit(KEY_VOLUMEDOWN, input_dev->keybit);
 diff --git a/drivers/macintosh/mac_hid.c b/drivers/macintosh/mac_hid.c
-index 76c1e8e..1fee8d0 100644
 --- a/drivers/macintosh/mac_hid.c
 +++ b/drivers/macintosh/mac_hid.c
 @@ -116,9 +116,10 @@ static int emumousebtn_input_register(void)
@@ -2035,7 +1940,6 @@ index 76c1e8e..1fee8d0 100644
  	ret = input_register_device(emumousebtn);
  	if (ret)
 diff --git a/drivers/media/dvb/cinergyT2/cinergyT2.c b/drivers/media/dvb/cinergyT2/cinergyT2.c
-index b40af48..ba2bbbf 100644
 --- a/drivers/media/dvb/cinergyT2/cinergyT2.c
 +++ b/drivers/media/dvb/cinergyT2/cinergyT2.c
 @@ -820,7 +820,7 @@ static int cinergyt2_register_rc(struct cinergyt2 *cinergyt2)
@@ -2048,7 +1952,6 @@ index b40af48..ba2bbbf 100644
  		set_bit(rc_keys[i + 2], input_dev->keybit);
  	input_dev->keycodesize = 0;
 diff --git a/drivers/media/dvb/dvb-usb/dvb-usb-remote.c b/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
-index 9200a30..6675f14 100644
 --- a/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
 +++ b/drivers/media/dvb/dvb-usb/dvb-usb-remote.c
 @@ -106,7 +106,7 @@ int dvb_usb_remote_init(struct dvb_usb_device *d)
@@ -2061,7 +1964,6 @@ index 9200a30..6675f14 100644
  	input_dev->phys = d->rc_phys;
  	usb_to_input_id(d->udev, &input_dev->id);
 diff --git a/drivers/media/dvb/ttusb-dec/ttusb_dec.c b/drivers/media/dvb/ttusb-dec/ttusb_dec.c
-index 78c98b0..b132211 100644
 --- a/drivers/media/dvb/ttusb-dec/ttusb_dec.c
 +++ b/drivers/media/dvb/ttusb-dec/ttusb_dec.c
 @@ -1199,7 +1199,7 @@ static int ttusb_init_rc( struct ttusb_dec *dec)
@@ -2074,7 +1976,6 @@ index 78c98b0..b132211 100644
  	input_dev->keycodemax = 0x1a;
  	input_dev->keycode = rc_keys;
 diff --git a/drivers/media/video/usbvideo/konicawc.c b/drivers/media/video/usbvideo/konicawc.c
-index abe2146..20f5bcc 100644
 --- a/drivers/media/video/usbvideo/konicawc.c
 +++ b/drivers/media/video/usbvideo/konicawc.c
 @@ -238,8 +238,8 @@ static void konicawc_register_input(struct konicawc *cam, struct usb_device *dev
@@ -2089,7 +1990,6 @@ index abe2146..20f5bcc 100644
  	input_dev->private = cam;
  
 diff --git a/drivers/media/video/usbvideo/quickcam_messenger.c b/drivers/media/video/usbvideo/quickcam_messenger.c
-index ec0ff22..d95fc7b 100644
 --- a/drivers/media/video/usbvideo/quickcam_messenger.c
 +++ b/drivers/media/video/usbvideo/quickcam_messenger.c
 @@ -102,8 +102,8 @@ static void qcm_register_input(struct qcm *cam, struct usb_device *dev)
@@ -2104,7 +2004,6 @@ index ec0ff22..d95fc7b 100644
  	input_dev->private = cam;
  
 diff --git a/drivers/misc/ibmasm/remote.c b/drivers/misc/ibmasm/remote.c
-index a40fda6..a7a22e4 100644
 --- a/drivers/misc/ibmasm/remote.c
 +++ b/drivers/misc/ibmasm/remote.c
 @@ -228,9 +228,9 @@ int ibmasm_init_remote_input_dev(struct service_processor *sp)
@@ -2130,7 +2029,6 @@ index a40fda6..a7a22e4 100644
  
  	for (i = 0; i < XLATE_SIZE; i++) {
 diff --git a/drivers/misc/sony-laptop.c b/drivers/misc/sony-laptop.c
-index 6d2d64f..deda486 100644
 --- a/drivers/misc/sony-laptop.c
 +++ b/drivers/misc/sony-laptop.c
 @@ -319,9 +319,9 @@ static int sony_laptop_setup_input(void)
@@ -2147,7 +2045,6 @@ index 6d2d64f..deda486 100644
  	error = input_register_device(jog_dev);
  	if (error)
 diff --git a/drivers/net/eth16i.c b/drivers/net/eth16i.c
-index 04abf59..f613dae 100644
 --- a/drivers/net/eth16i.c
 +++ b/drivers/net/eth16i.c
 @@ -170,7 +170,6 @@ static char *version =
@@ -2159,7 +2056,6 @@ index 04abf59..f613dae 100644
  #define BITCLR(ioaddr, bnum)   ((outb(((inb(ioaddr)) & (~(bnum))), ioaddr)))
  
 diff --git a/drivers/net/meth.h b/drivers/net/meth.h
-index ea3b8fc..a78dc1c 100644
 --- a/drivers/net/meth.h
 +++ b/drivers/net/meth.h
 @@ -28,9 +28,6 @@
@@ -2173,7 +2069,6 @@ index ea3b8fc..a78dc1c 100644
     see Nick's great comments to #defines below (or docs, if
     you are lucky enough toget hold of them :)*/
 diff --git a/drivers/net/wireless/hostap/hostap_common.h b/drivers/net/wireless/hostap/hostap_common.h
-index b31e6a0..1f8a21c 100644
 --- a/drivers/net/wireless/hostap/hostap_common.h
 +++ b/drivers/net/wireless/hostap/hostap_common.h
 @@ -4,12 +4,9 @@
@@ -2190,7 +2085,6 @@ index b31e6a0..1f8a21c 100644
  
  /* Information Element IDs */
 diff --git a/drivers/scsi/FlashPoint.c b/drivers/scsi/FlashPoint.c
-index a7f916c..cf549ff 100644
 --- a/drivers/scsi/FlashPoint.c
 +++ b/drivers/scsi/FlashPoint.c
 @@ -25,7 +25,6 @@
@@ -2202,7 +2096,6 @@ index a7f916c..cf549ff 100644
  
  struct sccb;
 diff --git a/drivers/scsi/nsp32.h b/drivers/scsi/nsp32.h
-index a976e81..6715ecb 100644
 --- a/drivers/scsi/nsp32.h
 +++ b/drivers/scsi/nsp32.h
 @@ -69,11 +69,6 @@ typedef u32 u32_le;
@@ -2218,7 +2111,6 @@ index a976e81..6715ecb 100644
   */
  #ifndef TRUE
 diff --git a/drivers/scsi/pcmcia/nsp_cs.h b/drivers/scsi/pcmcia/nsp_cs.h
-index 9102cbd..0a3e2d1 100644
 --- a/drivers/scsi/pcmcia/nsp_cs.h
 +++ b/drivers/scsi/pcmcia/nsp_cs.h
 @@ -26,7 +26,6 @@
@@ -2230,7 +2122,6 @@ index 9102cbd..0a3e2d1 100644
  /* SCSI initiator must be ID 7 */
  #define NSP_INITIATOR_ID  7
 diff --git a/drivers/video/pnx4008/sdum.h b/drivers/video/pnx4008/sdum.h
-index e8c5dcd..189c3d6 100644
 --- a/drivers/video/pnx4008/sdum.h
 +++ b/drivers/video/pnx4008/sdum.h
 @@ -77,9 +77,6 @@
@@ -2244,7 +2135,6 @@ index e8c5dcd..189c3d6 100644
  	int channelnr;
  	u32 *dirty;
 diff --git a/fs/select.c b/fs/select.c
-index 59be401..77b9f52 100644
 --- a/fs/select.c
 +++ b/fs/select.c
 @@ -179,7 +179,6 @@ get_max:
@@ -2256,7 +2146,6 @@ index 59be401..77b9f52 100644
  #define ISSET(i,m)	(((i)&*(m)) != 0)
  #define SET(i,m)	(*(m) |= (i))
 diff --git a/include/asm-arm/arch-ixp4xx/io.h b/include/asm-arm/arch-ixp4xx/io.h
-index c72f9d7..eeeea90 100644
 --- a/include/asm-arm/arch-ixp4xx/io.h
 +++ b/include/asm-arm/arch-ixp4xx/io.h
 @@ -17,9 +17,6 @@
@@ -2270,7 +2159,6 @@ index c72f9d7..eeeea90 100644
  extern int ixp4xx_pci_write(u32 addr, u32 cmd, u32 data);
  
 diff --git a/include/asm-generic/bitops/atomic.h b/include/asm-generic/bitops/atomic.h
-index cd8a964..4657f3e 100644
 --- a/include/asm-generic/bitops/atomic.h
 +++ b/include/asm-generic/bitops/atomic.h
 @@ -3,9 +3,6 @@
@@ -2350,7 +2238,6 @@ index cd8a964..4657f3e 100644
  	unsigned long flags;
  
 diff --git a/include/asm-generic/bitops/non-atomic.h b/include/asm-generic/bitops/non-atomic.h
-index 46a825c..697cc2b 100644
 --- a/include/asm-generic/bitops/non-atomic.h
 +++ b/include/asm-generic/bitops/non-atomic.h
 @@ -3,9 +3,6 @@
@@ -2438,7 +2325,6 @@ index 46a825c..697cc2b 100644
  
  #endif /* _ASM_GENERIC_BITOPS_NON_ATOMIC_H_ */
 diff --git a/include/asm-mips/ip32/crime.h b/include/asm-mips/ip32/crime.h
-index a13702f..7c36b0e 100644
 --- a/include/asm-mips/ip32/crime.h
 +++ b/include/asm-mips/ip32/crime.h
 @@ -17,9 +17,6 @@
@@ -2452,7 +2338,6 @@ index a13702f..7c36b0e 100644
  	volatile unsigned long id;
  #define CRIME_ID_MASK			0xff
 diff --git a/include/asm-mips/ip32/mace.h b/include/asm-mips/ip32/mace.h
-index 990082c..d08d7c6 100644
 --- a/include/asm-mips/ip32/mace.h
 +++ b/include/asm-mips/ip32/mace.h
 @@ -17,9 +17,6 @@
@@ -2466,7 +2351,6 @@ index 990082c..d08d7c6 100644
   * PCI interface
   */
 diff --git a/include/linux/bitops.h b/include/linux/bitops.h
-index 638165f..8b5ecf8 100644
 --- a/include/linux/bitops.h
 +++ b/include/linux/bitops.h
 @@ -2,6 +2,14 @@
@@ -2485,7 +2369,6 @@ index 638165f..8b5ecf8 100644
   * Include this here because some architectures need generic_ffs/fls in
   * scope
 diff --git a/include/linux/input.h b/include/linux/input.h
-index d8521c7..76a3bf6 100644
 --- a/include/linux/input.h
 +++ b/include/linux/input.h
 @@ -98,6 +98,7 @@ struct input_absinfo {
@@ -2630,7 +2513,6 @@ index d8521c7..76a3bf6 100644
  	struct mutex mutex;
  
 diff --git a/include/linux/types.h b/include/linux/types.h
-index eb2f6f3..3b9fc76 100644
 --- a/include/linux/types.h
 +++ b/include/linux/types.h
 @@ -11,12 +11,9 @@
@@ -2647,7 +2529,6 @@ index eb2f6f3..3b9fc76 100644
  
  #include <linux/posix_types.h>
 diff --git a/include/linux/uinput.h b/include/linux/uinput.h
-index a6c1e8e..15ddd44 100644
 --- a/include/linux/uinput.h
 +++ b/include/linux/uinput.h
 @@ -162,10 +162,6 @@ struct uinput_ff_erase {
@@ -2662,7 +2543,6 @@ index a6c1e8e..15ddd44 100644
  struct uinput_user_dev {
  	char name[UINPUT_MAX_NAME_SIZE];
 diff --git a/include/video/sstfb.h b/include/video/sstfb.h
-index baa163f..b52f073 100644
 --- a/include/video/sstfb.h
 +++ b/include/video/sstfb.h
 @@ -68,7 +68,6 @@
@@ -2674,7 +2554,6 @@ index baa163f..b52f073 100644
  
  /*
 diff --git a/include/video/tdfx.h b/include/video/tdfx.h
-index c1cc94b..e98deed 100644
 --- a/include/video/tdfx.h
 +++ b/include/video/tdfx.h
 @@ -79,8 +79,6 @@
@@ -2687,7 +2566,6 @@ index c1cc94b..e98deed 100644
  #define TDFX_ROP_COPY        0xcc     // src
  #define TDFX_ROP_INVERT      0x55     // NOT dst
 diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index 450eb02..99f80a7 100644
 --- a/net/bluetooth/hidp/core.c
 +++ b/net/bluetooth/hidp/core.c
 @@ -656,11 +656,13 @@ static inline void hidp_setup_input(struct hidp_session *session, struct hidp_co
@@ -2710,7 +2588,6 @@ index 450eb02..99f80a7 100644
  
  	input->dev.parent = hidp_get_device(session);
 diff --git a/net/mac80211/ieee80211_i.h b/net/mac80211/ieee80211_i.h
-index 3c2ac74..38b11e1 100644
 --- a/net/mac80211/ieee80211_i.h
 +++ b/net/mac80211/ieee80211_i.h
 @@ -32,8 +32,6 @@
@@ -2723,7 +2600,6 @@ index 3c2ac74..38b11e1 100644
  
  /* Maximum number of broadcast/multicast frames to buffer when some of the
 diff --git a/net/rfkill/rfkill-input.c b/net/rfkill/rfkill-input.c
-index 230e35c..a1c1e47 100644
 --- a/net/rfkill/rfkill-input.c
 +++ b/net/rfkill/rfkill-input.c
 @@ -140,13 +140,13 @@ static void rfkill_disconnect(struct input_handle *handle)
@@ -2745,7 +2621,6 @@ index 230e35c..a1c1e47 100644
  	{ }
  };
 diff --git a/sound/ppc/beep.c b/sound/ppc/beep.c
-index 5f38f67..04aa53b 100644
 --- a/sound/ppc/beep.c
 +++ b/sound/ppc/beep.c
 @@ -236,8 +236,8 @@ int __init snd_pmac_attach_beep(struct snd_pmac *chip)
@@ -2760,7 +2635,6 @@ index 5f38f67..04aa53b 100644
  	input_dev->private = chip;
  	input_dev->cdev.dev = &chip->pdev->dev;
 diff --git a/sound/usb/caiaq/caiaq-input.c b/sound/usb/caiaq/caiaq-input.c
-index 3acd12d..b75b234 100644
 --- a/sound/usb/caiaq/caiaq-input.c
 +++ b/sound/usb/caiaq/caiaq-input.c
 @@ -191,8 +191,9 @@ int snd_usb_caiaq_input_init(struct snd_usb_caiaqdev *dev)

@@ -19,7 +19,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 16 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/usb/host/ehci-hub.c b/drivers/usb/host/ehci-hub.c
-index f4d301b..1f87228 100644
 --- a/drivers/usb/host/ehci-hub.c
 +++ b/drivers/usb/host/ehci-hub.c
 @@ -556,9 +556,24 @@ static int ehci_hub_control (

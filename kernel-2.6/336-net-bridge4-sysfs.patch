@@ -14,7 +14,6 @@ af38f2989572704a846a5577b5ab3b1e2885cbfb net: Fix bridgeing sysfs handling of rt
  2 files changed, 19 insertions(+), 10 deletions(-)
 
 diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 33c6c4a..be152fd 100644
 --- a/net/bridge/br_sysfs_br.c
 +++ b/net/bridge/br_sysfs_br.c
 @@ -147,20 +147,28 @@ static ssize_t show_stp_state(struct device *d,
@@ -56,7 +55,6 @@ index 33c6c4a..be152fd 100644
  static DEVICE_ATTR(stp_state, S_IRUGO | S_IWUSR, show_stp_state,
  		   store_stp_state);
 diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index 2da2292..cb6d782 100644
 --- a/net/bridge/br_sysfs_if.c
 +++ b/net/bridge/br_sysfs_if.c
 @@ -190,7 +190,8 @@ static ssize_t brport_store(struct kobject * kobj,

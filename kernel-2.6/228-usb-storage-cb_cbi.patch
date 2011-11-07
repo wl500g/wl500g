@@ -17,7 +17,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  3 files changed, 10 insertions(+), 55 deletions(-)
 
 diff --git a/drivers/usb/storage/transport.c b/drivers/usb/storage/transport.c
-index f584e72..9cc30af 100644
 --- a/drivers/usb/storage/transport.c
 +++ b/drivers/usb/storage/transport.c
 @@ -756,10 +756,10 @@ void usb_stor_stop_transport(struct us_data *us)
@@ -107,7 +106,6 @@ index f584e72..9cc30af 100644
   */
  
 diff --git a/drivers/usb/storage/transport.h b/drivers/usb/storage/transport.h
-index e70b881..242ff5e 100644
 --- a/drivers/usb/storage/transport.h
 +++ b/drivers/usb/storage/transport.h
 @@ -113,8 +113,6 @@ struct bulk_cs_wrap {
@@ -120,7 +118,6 @@ index e70b881..242ff5e 100644
  extern int usb_stor_CB_reset(struct us_data*);
  
 diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
-index 099e07c..cdd009f 100644
 --- a/drivers/usb/storage/usb.c
 +++ b/drivers/usb/storage/usb.c
 @@ -591,7 +591,7 @@ static int get_transport(struct us_data *us)

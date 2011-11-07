@@ -24,7 +24,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 8 insertions(+), 6 deletions(-)
 
 diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 1ba42bd..44b4c87 100644
 --- a/net/ipv6/ndisc.c
 +++ b/net/ipv6/ndisc.c
 @@ -1024,10 +1024,6 @@ static void ndisc_router_discovery(struct sk_buff *skb)

@@ -19,7 +19,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 94 insertions(+), 13 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index 40801e7..b7d9408 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -200,4 +200,6 @@ static __always_inline void *kmalloc_node(size_t size, gfp_t flags, int node)
@@ -30,7 +29,6 @@ index 40801e7..b7d9408 100644
 +
  #endif /* _LINUX_SLUB_DEF_H */
 diff --git a/mm/slub.c b/mm/slub.c
-index 3655ad3..903dabd 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -3076,6 +3076,19 @@ void *__kmalloc_node_track_caller(size_t size, gfp_t gfpflags,

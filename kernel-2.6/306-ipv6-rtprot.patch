@@ -9,7 +9,6 @@ ipv6: protocol for address routes
  2 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index e2d3b758..7b6a584 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
 @@ -1688,6 +1688,7 @@ addrconf_prefix_route(struct in6_addr *pfx, int plen, struct net_device *dev,
@@ -21,7 +20,6 @@ index e2d3b758..7b6a584 100644
  
  	ipv6_addr_copy(&cfg.fc_dst, pfx);
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 1394ddb..032a5ec 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -137,6 +137,7 @@ static struct rt6_info ip6_null_entry_template = {

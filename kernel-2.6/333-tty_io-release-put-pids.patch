@@ -17,7 +17,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
-index a42c466..6da962c 100644
 --- a/drivers/char/tty_io.c
 +++ b/drivers/char/tty_io.c
 @@ -1423,6 +1423,8 @@ static void release_one_tty(struct work_struct *work)

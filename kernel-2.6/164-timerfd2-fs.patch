@@ -23,7 +23,6 @@ Subject: [PATCH] fs: sanitize anon_inode_getfd(), timerfd_create() flags
  7 files changed, 66 insertions(+), 84 deletions(-)
 
 diff --git a/fs/anon_inodes.c b/fs/anon_inodes.c
-index 40fe3a3..29e8c65 100644
 --- a/fs/anon_inodes.c
 +++ b/fs/anon_inodes.c
 @@ -57,26 +57,22 @@ static struct dentry_operations anon_inodefs_dentry_operations = {
@@ -124,7 +123,6 @@ index 40fe3a3..29e8c65 100644
  	put_filp(file);
  	return error;
 diff --git a/fs/eventfd.c b/fs/eventfd.c
-index 2ce19c0..62e8b14 100644
 --- a/fs/eventfd.c
 +++ b/fs/eventfd.c
 @@ -199,10 +199,8 @@ struct file *eventfd_fget(int fd)
@@ -157,7 +155,6 @@ index 2ce19c0..62e8b14 100644
  }
  
 diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index 0b73cd4..48ed39d 100644
 --- a/fs/eventpoll.c
 +++ b/fs/eventpoll.c
 @@ -1075,8 +1075,6 @@ asmlinkage long sys_epoll_create(int size)
@@ -208,7 +205,6 @@ index 0b73cd4..48ed39d 100644
  
  /*
 diff --git a/fs/signalfd.c b/fs/signalfd.c
-index 34c5b64..a59f1fa 100644
 --- a/fs/signalfd.c
 +++ b/fs/signalfd.c
 @@ -201,15 +201,12 @@ static const struct file_operations signalfd_fops = {
@@ -257,7 +253,6 @@ index 34c5b64..a59f1fa 100644
  }
 -
 diff --git a/fs/timerfd.c b/fs/timerfd.c
-index 5400524..5825ad4 100644
 --- a/fs/timerfd.c
 +++ b/fs/timerfd.c
 @@ -181,15 +181,12 @@ static struct file *timerfd_fget(int fd)
@@ -307,7 +302,6 @@ index 5400524..5825ad4 100644
  		return -EINVAL;
  
 diff --git a/include/linux/anon_inodes.h b/include/linux/anon_inodes.h
-index b2e1ba3..e0a0cdc 100644
 --- a/include/linux/anon_inodes.h
 +++ b/include/linux/anon_inodes.h
 @@ -8,9 +8,8 @@
@@ -323,7 +317,6 @@ index b2e1ba3..e0a0cdc 100644
  #endif /* _LINUX_ANON_INODES_H */
  
 diff --git a/include/linux/timerfd.h b/include/linux/timerfd.h
-index cf2b10d..2d07929 100644
 --- a/include/linux/timerfd.h
 +++ b/include/linux/timerfd.h
 @@ -8,10 +8,24 @@

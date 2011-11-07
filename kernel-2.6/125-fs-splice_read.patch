@@ -64,7 +64,6 @@ Subject: [PATCH] Use splice in the sendfile() implementation - backport from 2.6
  56 files changed, 969 insertions(+), 524 deletions(-)
 
 diff --git a/Documentation/DocBook/kernel-api.tmpl b/Documentation/DocBook/kernel-api.tmpl
-index 38f88b6..8c5698a 100644
 --- a/Documentation/DocBook/kernel-api.tmpl
 +++ b/Documentation/DocBook/kernel-api.tmpl
 @@ -643,4 +643,15 @@ X!Idrivers/video/console/fonts.c
@@ -84,7 +83,6 @@ index 38f88b6..8c5698a 100644
 +
  </book>
 diff --git a/drivers/block/loop.c b/drivers/block/loop.c
-index 0ed5470..4503290 100644
 --- a/drivers/block/loop.c
 +++ b/drivers/block/loop.c
 @@ -74,6 +74,7 @@
@@ -207,7 +205,6 @@ index 0ed5470..4503290 100644
  		if (aops->prepare_write && aops->commit_write)
  			lo_flags |= LO_FLAGS_USE_AOPS;
 diff --git a/drivers/char/mem.c b/drivers/char/mem.c
-index cc9a9d0..d2e4cfd 100644
 --- a/drivers/char/mem.c
 +++ b/drivers/char/mem.c
 @@ -24,7 +24,7 @@
@@ -220,7 +217,6 @@ index cc9a9d0..d2e4cfd 100644
  
  #include <asm/uaccess.h>
 diff --git a/fs/adfs/file.c b/fs/adfs/file.c
-index f544a28..36e381c 100644
 --- a/fs/adfs/file.c
 +++ b/fs/adfs/file.c
 @@ -33,7 +33,7 @@ const struct file_operations adfs_file_operations = {
@@ -233,7 +229,6 @@ index f544a28..36e381c 100644
  
  const struct inode_operations adfs_file_inode_operations = {
 diff --git a/fs/affs/file.c b/fs/affs/file.c
-index c879690..c314a35 100644
 --- a/fs/affs/file.c
 +++ b/fs/affs/file.c
 @@ -35,7 +35,7 @@ const struct file_operations affs_file_operations = {
@@ -246,7 +241,6 @@ index c879690..c314a35 100644
  
  const struct inode_operations affs_file_inode_operations = {
 diff --git a/fs/afs/file.c b/fs/afs/file.c
-index 9c0e721..aede7eb 100644
 --- a/fs/afs/file.c
 +++ b/fs/afs/file.c
 @@ -32,7 +32,7 @@ const struct file_operations afs_file_operations = {
@@ -259,7 +253,6 @@ index 9c0e721..aede7eb 100644
  };
  
 diff --git a/fs/bad_inode.c b/fs/bad_inode.c
-index 329ee47..521ff7c 100644
 --- a/fs/bad_inode.c
 +++ b/fs/bad_inode.c
 @@ -114,12 +114,6 @@ static int bad_file_lock(struct file *file, int cmd, struct file_lock *fl)
@@ -284,7 +277,6 @@ index 329ee47..521ff7c 100644
  	.get_unmapped_area = bad_file_get_unmapped_area,
  	.check_flags	= bad_file_check_flags,
 diff --git a/fs/bfs/file.c b/fs/bfs/file.c
-index ef4d1fa..24310e9 100644
 --- a/fs/bfs/file.c
 +++ b/fs/bfs/file.c
 @@ -24,7 +24,7 @@ const struct file_operations bfs_file_operations = {
@@ -297,7 +289,6 @@ index ef4d1fa..24310e9 100644
  
  static int bfs_move_block(unsigned long from, unsigned long to, struct super_block *sb)
 diff --git a/fs/block_dev.c b/fs/block_dev.c
-index ea1480a..b3e9bfa 100644
 --- a/fs/block_dev.c
 +++ b/fs/block_dev.c
 @@ -1346,7 +1346,6 @@ const struct file_operations def_blk_fops = {
@@ -309,7 +300,6 @@ index ea1480a..b3e9bfa 100644
  	.splice_write	= generic_file_splice_write,
  };
 diff --git a/fs/cifs/cifsfs.c b/fs/cifs/cifsfs.c
-index 7c04752..8b0cbf4 100644
 --- a/fs/cifs/cifsfs.c
 +++ b/fs/cifs/cifsfs.c
 @@ -616,7 +616,7 @@ const struct file_operations cifs_file_ops = {
@@ -349,7 +339,6 @@ index 7c04752..8b0cbf4 100644
  	.ioctl  = cifs_ioctl,
  #endif /* CONFIG_CIFS_POSIX */
 diff --git a/fs/coda/file.c b/fs/coda/file.c
-index 5ef2b60..99dbe86 100644
 --- a/fs/coda/file.c
 +++ b/fs/coda/file.c
 @@ -47,8 +47,9 @@ coda_file_read(struct file *coda_file, char __user *buf, size_t count, loff_t *p
@@ -386,7 +375,6 @@ index 5ef2b60..99dbe86 100644
  };
  
 diff --git a/fs/ecryptfs/file.c b/fs/ecryptfs/file.c
-index 59288d8..94f456f 100644
 --- a/fs/ecryptfs/file.c
 +++ b/fs/ecryptfs/file.c
 @@ -338,16 +338,17 @@ static int ecryptfs_fasync(int fd, struct file *file, int flag)
@@ -431,7 +419,6 @@ index 59288d8..94f456f 100644
  
  static int
 diff --git a/fs/ext2/file.c b/fs/ext2/file.c
-index 2f79eff..21c6830 100644
 --- a/fs/ext2/file.c
 +++ b/fs/ext2/file.c
 @@ -56,7 +56,6 @@ const struct file_operations ext2_file_operations = {
@@ -451,7 +438,6 @@ index 2f79eff..21c6830 100644
  #endif
  
 diff --git a/fs/ext3/file.c b/fs/ext3/file.c
-index 1e6f138..acc4913 100644
 --- a/fs/ext3/file.c
 +++ b/fs/ext3/file.c
 @@ -120,7 +120,6 @@ const struct file_operations ext3_file_operations = {
@@ -463,7 +449,6 @@ index 1e6f138..acc4913 100644
  	.splice_write	= generic_file_splice_write,
  };
 diff --git a/fs/ext4/file.c b/fs/ext4/file.c
-index 3c6c1fd..d4c8186 100644
 --- a/fs/ext4/file.c
 +++ b/fs/ext4/file.c
 @@ -120,7 +120,6 @@ const struct file_operations ext4_file_operations = {
@@ -475,7 +460,6 @@ index 3c6c1fd..d4c8186 100644
  	.splice_write	= generic_file_splice_write,
  };
 diff --git a/fs/fat/file.c b/fs/fat/file.c
-index b5687e1..964a343 100644
 --- a/fs/fat/file.c
 +++ b/fs/fat/file.c
 @@ -133,7 +133,7 @@ const struct file_operations fat_file_operations = {
@@ -488,7 +472,6 @@ index b5687e1..964a343 100644
  
  static int fat_cont_expand(struct inode *inode, loff_t size)
 diff --git a/fs/fuse/file.c b/fs/fuse/file.c
-index adf7995..f79de7c 100644
 --- a/fs/fuse/file.c
 +++ b/fs/fuse/file.c
 @@ -802,7 +802,7 @@ static const struct file_operations fuse_file_operations = {
@@ -510,7 +493,6 @@ index adf7995..f79de7c 100644
  
  static const struct address_space_operations fuse_file_aops  = {
 diff --git a/fs/gfs2/ops_file.c b/fs/gfs2/ops_file.c
-index 064df88..7dc3be1 100644
 --- a/fs/gfs2/ops_file.c
 +++ b/fs/gfs2/ops_file.c
 @@ -635,7 +635,6 @@ const struct file_operations gfs2_file_fops = {
@@ -522,7 +504,6 @@ index 064df88..7dc3be1 100644
  	.splice_read	= generic_file_splice_read,
  	.splice_write	= generic_file_splice_write,
 diff --git a/fs/hfs/inode.c b/fs/hfs/inode.c
-index 9a934db..bc835f2 100644
 --- a/fs/hfs/inode.c
 +++ b/fs/hfs/inode.c
 @@ -607,7 +607,7 @@ static const struct file_operations hfs_file_operations = {
@@ -535,7 +516,6 @@ index 9a934db..bc835f2 100644
  	.open		= hfs_file_open,
  	.release	= hfs_file_release,
 diff --git a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
-index 45dab5d..409ce54 100644
 --- a/fs/hfsplus/inode.c
 +++ b/fs/hfsplus/inode.c
 @@ -288,7 +288,7 @@ static const struct file_operations hfsplus_file_operations = {
@@ -548,7 +528,6 @@ index 45dab5d..409ce54 100644
  	.open		= hfsplus_file_open,
  	.release	= hfsplus_file_release,
 diff --git a/fs/hostfs/hostfs_kern.c b/fs/hostfs/hostfs_kern.c
-index 8286491..c778620 100644
 --- a/fs/hostfs/hostfs_kern.c
 +++ b/fs/hostfs/hostfs_kern.c
 @@ -390,7 +390,7 @@ int hostfs_fsync(struct file *file, struct dentry *dentry, int datasync)
@@ -561,7 +540,6 @@ index 8286491..c778620 100644
  	.aio_write	= generic_file_aio_write,
  	.write		= do_sync_write,
 diff --git a/fs/hpfs/file.c b/fs/hpfs/file.c
-index b4eafc0..5b53e5c 100644
 --- a/fs/hpfs/file.c
 +++ b/fs/hpfs/file.c
 @@ -129,7 +129,7 @@ const struct file_operations hpfs_file_ops =
@@ -574,7 +552,6 @@ index b4eafc0..5b53e5c 100644
  
  const struct inode_operations hpfs_file_iops =
 diff --git a/fs/jffs2/file.c b/fs/jffs2/file.c
-index 9987127..c253019 100644
 --- a/fs/jffs2/file.c
 +++ b/fs/jffs2/file.c
 @@ -47,7 +47,7 @@ const struct file_operations jffs2_file_operations =
@@ -587,7 +564,6 @@ index 9987127..c253019 100644
  
  /* jffs2_file_inode_operations */
 diff --git a/fs/jfs/file.c b/fs/jfs/file.c
-index f7f8eff..87eb936 100644
 --- a/fs/jfs/file.c
 +++ b/fs/jfs/file.c
 @@ -108,7 +108,6 @@ const struct file_operations jfs_file_operations = {
@@ -599,7 +575,6 @@ index f7f8eff..87eb936 100644
  	.splice_write	= generic_file_splice_write,
  	.fsync		= jfs_fsync,
 diff --git a/fs/minix/file.c b/fs/minix/file.c
-index f92baa1..17765f6 100644
 --- a/fs/minix/file.c
 +++ b/fs/minix/file.c
 @@ -23,7 +23,7 @@ const struct file_operations minix_file_operations = {
@@ -612,7 +587,6 @@ index f92baa1..17765f6 100644
  
  const struct inode_operations minix_file_inode_operations = {
 diff --git a/fs/nfs/file.c b/fs/nfs/file.c
-index 9eb8eb4..8689b73 100644
 --- a/fs/nfs/file.c
 +++ b/fs/nfs/file.c
 @@ -41,7 +41,9 @@ static int nfs_file_open(struct inode *, struct file *);
@@ -662,7 +636,6 @@ index 9eb8eb4..8689b73 100644
  }
  
 diff --git a/fs/nfsd/vfs.c b/fs/nfsd/vfs.c
-index 9a68061..5f73b7d 100644
 --- a/fs/nfsd/vfs.c
 +++ b/fs/nfsd/vfs.c
 @@ -23,7 +23,7 @@
@@ -755,7 +728,6 @@ index 9a68061..5f73b7d 100644
  		oldfs = get_fs();
  		set_fs(KERNEL_DS);
 diff --git a/fs/ntfs/file.c b/fs/ntfs/file.c
-index 7ed5639..ffcc504 100644
 --- a/fs/ntfs/file.c
 +++ b/fs/ntfs/file.c
 @@ -2276,7 +2276,7 @@ const struct file_operations ntfs_file_ops = {
@@ -768,7 +740,6 @@ index 7ed5639..ffcc504 100644
  						    the ntfs partition.  We do
  						    not need to care about the
 diff --git a/fs/ocfs2/file.c b/fs/ocfs2/file.c
-index e0cd750..96aaf74 100644
 --- a/fs/ocfs2/file.c
 +++ b/fs/ocfs2/file.c
 @@ -31,7 +31,7 @@
@@ -825,7 +796,6 @@ index e0cd750..96aaf74 100644
  	.fsync		= ocfs2_sync_file,
  	.release	= ocfs2_file_release,
 diff --git a/fs/pipe.c b/fs/pipe.c
-index 3a89592..d007830 100644
 --- a/fs/pipe.c
 +++ b/fs/pipe.c
 @@ -164,6 +164,20 @@ static void anon_pipe_buf_release(struct pipe_inode_info *pipe,
@@ -957,7 +927,6 @@ index 3a89592..d007830 100644
  				goto out;
  
 diff --git a/fs/qnx4/file.c b/fs/qnx4/file.c
-index 4464998..867f42b 100644
 --- a/fs/qnx4/file.c
 +++ b/fs/qnx4/file.c
 @@ -25,7 +25,7 @@ const struct file_operations qnx4_file_operations =
@@ -970,7 +939,6 @@ index 4464998..867f42b 100644
  	.write		= do_sync_write,
  	.aio_write	= generic_file_aio_write,
 diff --git a/fs/ramfs/file-mmu.c b/fs/ramfs/file-mmu.c
-index 2f14774..97bdc0b 100644
 --- a/fs/ramfs/file-mmu.c
 +++ b/fs/ramfs/file-mmu.c
 @@ -41,7 +41,7 @@ const struct file_operations ramfs_file_operations = {
@@ -983,7 +951,6 @@ index 2f14774..97bdc0b 100644
  };
  
 diff --git a/fs/ramfs/file-nommu.c b/fs/ramfs/file-nommu.c
-index 5d258c4..cad2b7a 100644
 --- a/fs/ramfs/file-nommu.c
 +++ b/fs/ramfs/file-nommu.c
 @@ -42,7 +42,7 @@ const struct file_operations ramfs_file_operations = {
@@ -996,7 +963,6 @@ index 5d258c4..cad2b7a 100644
  };
  
 diff --git a/fs/read_write.c b/fs/read_write.c
-index 4d03008..507ddff 100644
 --- a/fs/read_write.c
 +++ b/fs/read_write.c
 @@ -15,6 +15,7 @@
@@ -1055,7 +1021,6 @@ index 4d03008..507ddff 100644
  	if (retval > 0) {
  		add_rchar(current, retval);
 diff --git a/fs/reiserfs/file.c b/fs/reiserfs/file.c
-index 9e451a6..30eebfb 100644
 --- a/fs/reiserfs/file.c
 +++ b/fs/reiserfs/file.c
 @@ -1531,7 +1531,6 @@ const struct file_operations reiserfs_file_operations = {
@@ -1067,7 +1032,6 @@ index 9e451a6..30eebfb 100644
  	.aio_write = generic_file_aio_write,
  	.splice_read = generic_file_splice_read,
 diff --git a/fs/smbfs/file.c b/fs/smbfs/file.c
-index aea3f8a..c5d78a7 100644
 --- a/fs/smbfs/file.c
 +++ b/fs/smbfs/file.c
 @@ -262,8 +262,9 @@ out:
@@ -1101,7 +1065,6 @@ index aea3f8a..c5d78a7 100644
  
  const struct inode_operations smb_file_inode_operations =
 diff --git a/fs/splice.c b/fs/splice.c
-index dbbe267..b033261 100644
 --- a/fs/splice.c
 +++ b/fs/splice.c
 @@ -20,7 +20,7 @@
@@ -2061,7 +2024,6 @@ index dbbe267..b033261 100644
  	}
  
 diff --git a/fs/sysv/file.c b/fs/sysv/file.c
-index 0732ddb..589be21 100644
 --- a/fs/sysv/file.c
 +++ b/fs/sysv/file.c
 @@ -27,7 +27,7 @@ const struct file_operations sysv_file_operations = {
@@ -2074,7 +2036,6 @@ index 0732ddb..589be21 100644
  
  const struct inode_operations sysv_file_inode_operations = {
 diff --git a/fs/udf/file.c b/fs/udf/file.c
-index 51b5764..df070be 100644
 --- a/fs/udf/file.c
 +++ b/fs/udf/file.c
 @@ -261,7 +261,7 @@ const struct file_operations udf_file_operations = {
@@ -2087,7 +2048,6 @@ index 51b5764..df070be 100644
  
  const struct inode_operations udf_file_inode_operations = {
 diff --git a/fs/ufs/file.c b/fs/ufs/file.c
-index 1e09632..6705d74 100644
 --- a/fs/ufs/file.c
 +++ b/fs/ufs/file.c
 @@ -60,5 +60,5 @@ const struct file_operations ufs_file_operations = {
@@ -2098,7 +2058,6 @@ index 1e09632..6705d74 100644
 +	.splice_read	= generic_file_splice_read,
  };
 diff --git a/fs/xfs/linux-2.6/xfs_file.c b/fs/xfs/linux-2.6/xfs_file.c
-index cb51dc9..8c43cd2 100644
 --- a/fs/xfs/linux-2.6/xfs_file.c
 +++ b/fs/xfs/linux-2.6/xfs_file.c
 @@ -124,30 +124,6 @@ xfs_file_aio_write_invis(
@@ -2149,7 +2108,6 @@ index cb51dc9..8c43cd2 100644
  	.splice_write	= xfs_file_splice_write_invis,
  	.unlocked_ioctl	= xfs_file_ioctl_invis,
 diff --git a/fs/xfs/linux-2.6/xfs_linux.h b/fs/xfs/linux-2.6/xfs_linux.h
-index 715adad..af24a45 100644
 --- a/fs/xfs/linux-2.6/xfs_linux.h
 +++ b/fs/xfs/linux-2.6/xfs_linux.h
 @@ -101,7 +101,6 @@
@@ -2161,7 +2119,6 @@ index 715adad..af24a45 100644
  #ifdef CONFIG_SMP
  #define HAVE_PERCPU_SB	/* per cpu superblock counters are a 2.6 feature */
 diff --git a/fs/xfs/linux-2.6/xfs_lrw.c b/fs/xfs/linux-2.6/xfs_lrw.c
-index ed90403..765ec16 100644
 --- a/fs/xfs/linux-2.6/xfs_lrw.c
 +++ b/fs/xfs/linux-2.6/xfs_lrw.c
 @@ -287,50 +287,6 @@ xfs_read(
@@ -2216,7 +2173,6 @@ index ed90403..765ec16 100644
  	bhv_desc_t		*bdp,
  	struct file		*infilp,
 diff --git a/fs/xfs/linux-2.6/xfs_lrw.h b/fs/xfs/linux-2.6/xfs_lrw.h
-index 7ac51b1..7c60a1e 100644
 --- a/fs/xfs/linux-2.6/xfs_lrw.h
 +++ b/fs/xfs/linux-2.6/xfs_lrw.h
 @@ -90,9 +90,6 @@ extern ssize_t xfs_read(struct bhv_desc *, struct kiocb *,
@@ -2230,7 +2186,6 @@ index 7ac51b1..7c60a1e 100644
  				struct pipe_inode_info *, size_t, int, int,
  				struct cred *);
 diff --git a/fs/xfs/linux-2.6/xfs_vnode.h b/fs/xfs/linux-2.6/xfs_vnode.h
-index d1b2d01..013048a 100644
 --- a/fs/xfs/linux-2.6/xfs_vnode.h
 +++ b/fs/xfs/linux-2.6/xfs_vnode.h
 @@ -139,9 +139,6 @@ typedef ssize_t (*vop_read_t)(bhv_desc_t *, struct kiocb *,
@@ -2261,7 +2216,6 @@ index d1b2d01..013048a 100644
  		VOP(vop_splice_read, vp)(VNHEAD(vp),f,o,pipe,cnt,fl,iofl,cr)
  #define bhv_vop_splice_write(vp,f,o,pipe,cnt,fl,iofl,cr)		\
 diff --git a/fs/xfs/xfs_vnodeops.c b/fs/xfs/xfs_vnodeops.c
-index de17aed..70bc82f 100644
 --- a/fs/xfs/xfs_vnodeops.c
 +++ b/fs/xfs/xfs_vnodeops.c
 @@ -4680,9 +4680,6 @@ bhv_vnodeops_t xfs_vnodeops = {
@@ -2275,7 +2229,6 @@ index de17aed..70bc82f 100644
  	.vop_splice_read	= xfs_splice_read,
  	.vop_splice_write	= xfs_splice_write,
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 6a41f4c..fbe31de 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -1105,7 +1105,7 @@ struct file_operations {
@@ -2306,7 +2259,6 @@ index 6a41f4c..fbe31de 100644
  extern ssize_t xip_file_write(struct file *filp, const char __user *buf,
  			      size_t len, loff_t *ppos);
 diff --git a/include/linux/pipe_fs_i.h b/include/linux/pipe_fs_i.h
-index c8884f9..8e41202 100644
 --- a/include/linux/pipe_fs_i.h
 +++ b/include/linux/pipe_fs_i.h
 @@ -9,13 +9,39 @@
@@ -2469,7 +2421,6 @@ index c8884f9..8e41202 100644
  #endif
 diff --git a/include/linux/splice.h b/include/linux/splice.h
 new file mode 100644
-index 0000000..528dcb9
 --- /dev/null
 +++ b/include/linux/splice.h
 @@ -0,0 +1,74 @@
@@ -2548,7 +2499,6 @@ index 0000000..528dcb9
 +
 +#endif
 diff --git a/include/linux/sunrpc/svc.h b/include/linux/sunrpc/svc.h
-index 4a7ae8a..129d50f 100644
 --- a/include/linux/sunrpc/svc.h
 +++ b/include/linux/sunrpc/svc.h
 @@ -253,7 +253,7 @@ struct svc_rqst {
@@ -2561,7 +2511,6 @@ index 4a7ae8a..129d50f 100644
  						 * cache pages */
  	wait_queue_head_t	rq_wait;	/* synchronization */
 diff --git a/kernel/relay.c b/kernel/relay.c
-index 24db7e8..9e62f5c 100644
 --- a/kernel/relay.c
 +++ b/kernel/relay.c
 @@ -21,6 +21,7 @@
@@ -2811,7 +2760,6 @@ index 24db7e8..9e62f5c 100644
  EXPORT_SYMBOL_GPL(relay_file_operations);
  
 diff --git a/mm/filemap.c b/mm/filemap.c
-index d1d9814..c6ebd9f 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -1245,26 +1245,6 @@ int file_send_actor(read_descriptor_t * desc, struct page *page, unsigned long o
@@ -2842,7 +2790,6 @@ index d1d9814..c6ebd9f 100644
  do_readahead(struct address_space *mapping, struct file *filp,
  	     unsigned long index, unsigned long nr)
 diff --git a/mm/filemap_xip.c b/mm/filemap_xip.c
-index fa360e5..65ffc32 100644
 --- a/mm/filemap_xip.c
 +++ b/mm/filemap_xip.c
 @@ -159,28 +159,6 @@ xip_file_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
@@ -2875,7 +2822,6 @@ index fa360e5..65ffc32 100644
   * __xip_unmap is invoked from xip_unmap and
   * xip_write
 diff --git a/mm/shmem.c b/mm/shmem.c
-index d1c65fb..1d53a0f 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -1115,9 +1115,9 @@ static int shmem_getpage(struct inode *inode, unsigned long idx,
@@ -2957,7 +2903,6 @@ index d1c65fb..1d53a0f 100644
  };
  
 diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-index 805e725..74b99d0 100644
 --- a/net/sunrpc/auth_gss/svcauth_gss.c
 +++ b/net/sunrpc/auth_gss/svcauth_gss.c
 @@ -854,7 +854,7 @@ unwrap_priv_data(struct svc_rqst *rqstp, struct xdr_buf *buf, u32 seq, struct gs
@@ -2970,7 +2915,6 @@ index 805e725..74b99d0 100644
  	priv_len = svc_getnl(&buf->head[0]);
  	if (rqstp->rq_deferred) {
 diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index e673ef9..55ea6df 100644
 --- a/net/sunrpc/svc.c
 +++ b/net/sunrpc/svc.c
 @@ -814,7 +814,7 @@ svc_process(struct svc_rqst *rqstp)

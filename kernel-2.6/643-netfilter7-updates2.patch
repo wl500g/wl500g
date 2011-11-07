@@ -21,7 +21,6 @@ Date: Sun, 23 Jan 2011 23:25:24 -0500
  7 files changed, 29 insertions(+), 32 deletions(-)
 
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index a459fce..27c5887 100644
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
 @@ -526,17 +526,18 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -98,7 +97,6 @@ index a459fce..27c5887 100644
  		inside->icmp.checksum =
  			csum_fold(skb_checksum(*pskb, hdrlen,
 diff --git a/net/ipv4/netfilter/nf_nat_proto_gre.c b/net/ipv4/netfilter/nf_nat_proto_gre.c
-index f046fa3..ba04633 100644
 --- a/net/ipv4/netfilter/nf_nat_proto_gre.c
 +++ b/net/ipv4/netfilter/nf_nat_proto_gre.c
 @@ -93,9 +93,9 @@ gre_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -114,7 +112,6 @@ index f046fa3..ba04633 100644
  	}
  
 diff --git a/net/ipv4/netfilter/nf_nat_proto_icmp.c b/net/ipv4/netfilter/nf_nat_proto_icmp.c
-index f71ef9b..2286cf6 100644
 --- a/net/ipv4/netfilter/nf_nat_proto_icmp.c
 +++ b/net/ipv4/netfilter/nf_nat_proto_icmp.c
 @@ -42,10 +42,10 @@ icmp_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -131,7 +128,6 @@ index f71ef9b..2286cf6 100644
  	}
  	return 0;
 diff --git a/net/ipv4/netfilter/nf_nat_proto_tcp.c b/net/ipv4/netfilter/nf_nat_proto_tcp.c
-index 123c959..aefedb6 100644
 --- a/net/ipv4/netfilter/nf_nat_proto_tcp.c
 +++ b/net/ipv4/netfilter/nf_nat_proto_tcp.c
 @@ -79,9 +79,9 @@ tcp_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -147,7 +143,6 @@ index 123c959..aefedb6 100644
  	}
  	return 0;
 diff --git a/net/ipv4/netfilter/nf_nat_proto_udp.c b/net/ipv4/netfilter/nf_nat_proto_udp.c
-index 1c4c70e..f951cd3 100644
 --- a/net/ipv4/netfilter/nf_nat_proto_udp.c
 +++ b/net/ipv4/netfilter/nf_nat_proto_udp.c
 @@ -77,9 +77,9 @@ udp_unique_tuple(struct nf_conntrack_tuple *tuple,
@@ -163,7 +158,6 @@ index 1c4c70e..f951cd3 100644
  	}
  	return 0;
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index df3eedb..4c0ad9b 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
 @@ -65,8 +65,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_max);
@@ -199,7 +193,6 @@ index df3eedb..4c0ad9b 100644
  
  	/* We don't want any race condition at early drop stage */
 diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index d3a9e60..6c9cbb6 100644
 --- a/net/netfilter/nf_conntrack_netlink.c
 +++ b/net/netfilter/nf_conntrack_netlink.c
 @@ -772,7 +772,8 @@ ctnetlink_get_conntrack(struct sock *ctnl, struct sk_buff *skb,

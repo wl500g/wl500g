@@ -11,7 +11,6 @@ http://git.kernel.org/?p=linux/kernel/git/stable/linux-2.6.32.y.git;a=commitdiff
  1 file changed, 9 insertions(+), 7 deletions(-)
 
 diff --git a/fs/open.c b/fs/open.c
-index be6a457..080f7e5 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -255,24 +255,26 @@ static long do_sys_truncate(const char __user * path, loff_t length)

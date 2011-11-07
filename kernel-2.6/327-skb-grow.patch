@@ -10,7 +10,6 @@ kernel.org commits
  1 files changed, 11 insertions(+), 6 deletions(-)
 
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 11ff182..a1ef577 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -582,7 +582,7 @@ new_segment:

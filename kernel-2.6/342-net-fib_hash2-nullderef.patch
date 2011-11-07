@@ -21,7 +21,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 76b9c68..8d58d85 100644
 --- a/net/ipv4/fib_hash.c
 +++ b/net/ipv4/fib_hash.c
 @@ -372,7 +372,8 @@ static struct fib_node *fib_find_node(struct fn_zone *fz, __be32 key)

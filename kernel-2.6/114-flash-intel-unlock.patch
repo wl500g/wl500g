@@ -14,7 +14,6 @@ Ref: http://svn.dd-wrt.com:8000/dd-wrt/changeset/15236
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/drivers/mtd/chips/cfi_cmdset_0001.c b/drivers/mtd/chips/cfi_cmdset_0001.c
-index ff5cfa4..be2e842 100644
 --- a/drivers/mtd/chips/cfi_cmdset_0001.c
 +++ b/drivers/mtd/chips/cfi_cmdset_0001.c
 @@ -1906,7 +1906,7 @@ static int __xipram do_xxlock_oneblock(struct map_info *map, struct flchip *chip

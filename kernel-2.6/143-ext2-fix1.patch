@@ -14,7 +14,6 @@ Subject: [PATCH] Ext2: fixes from 2.6 tree
  7 files changed, 261 insertions(+), 95 deletions(-)
 
 diff --git a/fs/ext2/balloc.c b/fs/ext2/balloc.c
-index 538c221..557d1f4 100644
 --- a/fs/ext2/balloc.c
 +++ b/fs/ext2/balloc.c
 @@ -69,9 +69,53 @@ struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
@@ -181,7 +180,6 @@ index 538c221..557d1f4 100644
  	performed_allocation = 1;
  
 diff --git a/fs/ext2/dir.c b/fs/ext2/dir.c
-index 2bf49d7..7899e1b 100644
 --- a/fs/ext2/dir.c
 +++ b/fs/ext2/dir.c
 @@ -26,6 +26,24 @@
@@ -469,7 +467,6 @@ index 2bf49d7..7899e1b 100644
  		kaddr = page_address(page);
  		de = (ext2_dirent *)kaddr;
 diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
-index baa8deb..21f9462 100644
 --- a/fs/ext2/ext2.h
 +++ b/fs/ext2/ext2.h
 @@ -175,3 +175,10 @@ extern const struct inode_operations ext2_special_inode_operations;
@@ -484,7 +481,6 @@ index baa8deb..21f9462 100644
 +		le32_to_cpu(EXT2_SB(sb)->s_es->s_first_data_block);
 +}
 diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
-index baea2a1..781c06b 100644
 --- a/fs/ext2/inode.c
 +++ b/fs/ext2/inode.c
 @@ -254,13 +254,13 @@ no_block:
@@ -615,7 +611,6 @@ index baea2a1..781c06b 100644
  
  int ext2_get_block(struct inode *inode, sector_t iblock, struct buffer_head *bh_result, int create)
 diff --git a/fs/ext2/super.c b/fs/ext2/super.c
-index e8f64c0..e263a81 100644
 --- a/fs/ext2/super.c
 +++ b/fs/ext2/super.c
 @@ -560,14 +560,15 @@ static int ext2_check_descriptors (struct super_block * sb)
@@ -763,7 +758,6 @@ index e8f64c0..e263a81 100644
  	es->s_free_inodes_count = cpu_to_le32(ext2_count_free_inodes(sb));
  	es->s_wtime = cpu_to_le32(get_seconds());
 diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
-index 3e8683d..d7602f4 100644
 --- a/fs/ext2/xattr.c
 +++ b/fs/ext2/xattr.c
 @@ -660,10 +660,8 @@ ext2_xattr_set2(struct inode *inode, struct buffer_head *old_bh,
@@ -780,7 +774,6 @@ index 3e8683d..d7602f4 100644
  			if (error)
  				goto cleanup;
 diff --git a/include/linux/ext2_fs.h b/include/linux/ext2_fs.h
-index c77c3bb..84cec2a 100644
 --- a/include/linux/ext2_fs.h
 +++ b/include/linux/ext2_fs.h
 @@ -561,12 +561,6 @@ enum {

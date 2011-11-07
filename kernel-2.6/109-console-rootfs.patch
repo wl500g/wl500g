@@ -34,7 +34,6 @@ init: Open /dev/console from rootfs
  2 files changed, 6 insertions(+), 9 deletions(-)
 
 diff --git a/init/do_mounts_initrd.c b/init/do_mounts_initrd.c
-index 614241b..2b10853 100644
 --- a/init/do_mounts_initrd.c
 +++ b/init/do_mounts_initrd.c
 @@ -30,11 +30,7 @@ static int __init do_linuxrc(void * shell)
@@ -50,7 +49,6 @@ index 614241b..2b10853 100644
  }
  
 diff --git a/init/main.c b/init/main.c
-index 4cb47a1..106e02d 100644
 --- a/init/main.c
 +++ b/init/main.c
 @@ -806,11 +806,6 @@ static noinline int init_post(void)

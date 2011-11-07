@@ -52,7 +52,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  create mode 100644 include/linux/key-type.h
 
 diff --git a/Documentation/keys-request-key.txt b/Documentation/keys-request-key.txt
-index c1f64fd..266955d 100644
 --- a/Documentation/keys-request-key.txt
 +++ b/Documentation/keys-request-key.txt
 @@ -20,6 +20,19 @@ or:
@@ -95,7 +94,6 @@ index c1f64fd..266955d 100644
  The userspace interface links the key to a keyring associated with the process
  to prevent the key from going away, and returns the serial number of the key to
 diff --git a/Documentation/keys.txt b/Documentation/keys.txt
-index 81d9aa0..8883058 100644
 --- a/Documentation/keys.txt
 +++ b/Documentation/keys.txt
 @@ -4,7 +4,7 @@
@@ -231,7 +229,6 @@ index 81d9aa0..8883058 100644
  
  ============================
 diff --git a/Documentation/networking/rxrpc.txt b/Documentation/networking/rxrpc.txt
-index cae231b..c36b64b 100644
 --- a/Documentation/networking/rxrpc.txt
 +++ b/Documentation/networking/rxrpc.txt
 @@ -857,3 +857,10 @@ The kernel interface functions are as follows:
@@ -246,7 +243,6 @@ index cae231b..c36b64b 100644
 +     This is used to allocate a null RxRPC key that can be used to indicate
 +     anonymous security for a particular domain.
 diff --git a/fs/afs/cell.c b/fs/afs/cell.c
-index 175a567..7895e84 100644
 --- a/fs/afs/cell.c
 +++ b/fs/afs/cell.c
 @@ -33,6 +33,7 @@ static struct afs_cell *afs_cell_root;
@@ -284,7 +280,6 @@ index 175a567..7895e84 100644
  	_debug("anon key %p{%x}",
  	       cell->anonymous_key, key_serial(cell->anonymous_key));
 diff --git a/include/keys/rxrpc-type.h b/include/keys/rxrpc-type.h
-index e2ee73a..4ea429b 100644
 --- a/include/keys/rxrpc-type.h
 +++ b/include/keys/rxrpc-type.h
 @@ -19,4 +19,6 @@
@@ -296,7 +291,6 @@ index e2ee73a..4ea429b 100644
  #endif /* _KEYS_USER_TYPE_H */
 diff --git a/include/linux/key-type.h b/include/linux/key-type.h
 new file mode 100644
-index 0000000..65833d4
 --- /dev/null
 +++ b/include/linux/key-type.h
 @@ -0,0 +1,112 @@
@@ -413,7 +407,6 @@ index 0000000..65833d4
 +#endif /* CONFIG_KEYS */
 +#endif /* _LINUX_KEY_TYPE_H */
 diff --git a/include/linux/key.h b/include/linux/key.h
-index a9220e7..fcdbd5e 100644
 --- a/include/linux/key.h
 +++ b/include/linux/key.h
 @@ -1,6 +1,6 @@
@@ -549,7 +542,6 @@ index a9220e7..fcdbd5e 100644
  
  /*
 diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 2c57df9..4f6fbb4 100644
 --- a/net/rxrpc/af_rxrpc.c
 +++ b/net/rxrpc/af_rxrpc.c
 @@ -14,6 +14,7 @@
@@ -561,7 +553,6 @@ index 2c57df9..4f6fbb4 100644
  #include <net/af_rxrpc.h>
  #include "ar-internal.h"
 diff --git a/net/rxrpc/ar-key.c b/net/rxrpc/ar-key.c
-index 7e049ff..9a8ff68 100644
 --- a/net/rxrpc/ar-key.c
 +++ b/net/rxrpc/ar-key.c
 @@ -15,7 +15,7 @@
@@ -616,7 +607,6 @@ index 7e049ff..9a8ff68 100644
 +}
 +EXPORT_SYMBOL(rxrpc_get_null_key);
 diff --git a/security/keys/internal.h b/security/keys/internal.h
-index 1bb416f..d36d693 100644
 --- a/security/keys/internal.h
 +++ b/security/keys/internal.h
 @@ -1,6 +1,6 @@
@@ -692,7 +682,6 @@ index 1bb416f..d36d693 100644
  };
  
 diff --git a/security/keys/key.c b/security/keys/key.c
-index 700400d..7c11ec3 100644
 --- a/security/keys/key.c
 +++ b/security/keys/key.c
 @@ -1,6 +1,6 @@
@@ -793,7 +782,6 @@ index 700400d..7c11ec3 100644
  
  	up_write(&key->sem);
 diff --git a/security/keys/process_keys.c b/security/keys/process_keys.c
-index b6f8680..2a0eb94 100644
 --- a/security/keys/process_keys.c
 +++ b/security/keys/process_keys.c
 @@ -26,7 +26,7 @@ static DEFINE_MUTEX(key_session_mutex);
@@ -827,7 +815,6 @@ index b6f8680..2a0eb94 100644
  		if (ret < 0)
  			goto invalid_key;
 diff --git a/security/keys/request_key.c b/security/keys/request_key.c
-index f573ac1..e375c10 100644
 --- a/security/keys/request_key.c
 +++ b/security/keys/request_key.c
 @@ -1,6 +1,6 @@
@@ -1524,7 +1511,6 @@ index f573ac1..e375c10 100644
 +}
 +EXPORT_SYMBOL(request_key_async_with_auxdata);
 diff --git a/security/keys/request_key_auth.c b/security/keys/request_key_auth.c
-index cbf58a9..510f7be 100644
 --- a/security/keys/request_key_auth.c
 +++ b/security/keys/request_key_auth.c
 @@ -127,6 +127,7 @@ static void request_key_auth_destroy(struct key *key)

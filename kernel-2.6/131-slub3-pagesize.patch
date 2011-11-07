@@ -27,7 +27,6 @@ Signed-off-by: Christoph Lameter <clameter@sgi.com>
  2 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index 98be113..57deecc 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -111,7 +111,7 @@ struct kmem_cache {
@@ -58,7 +57,6 @@ index 98be113..57deecc 100644
  
  		if (!s)
 diff --git a/mm/slub.c b/mm/slub.c
-index 644fd0a..4b3895c 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2117,11 +2117,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);

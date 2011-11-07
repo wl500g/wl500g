@@ -26,7 +26,6 @@ Cc: Rene Scharfe <rene.scharfe@lsrfire.ath.cx>
  3 files changed, 30 insertions(+), 40 deletions(-)
 
 diff --git a/include/linux/string.h b/include/linux/string.h
-index 7f2eb6a..ee5e9cc 100644
 --- a/include/linux/string.h
 +++ b/include/linux/string.h
 @@ -105,6 +105,7 @@ extern void * memchr(const void *,int,__kernel_size_t);
@@ -38,7 +37,6 @@ index 7f2eb6a..ee5e9cc 100644
  
  #ifdef __cplusplus
 diff --git a/mm/util.c b/mm/util.c
-index 78f3783..bf340d8 100644
 --- a/mm/util.c
 +++ b/mm/util.c
 @@ -6,7 +6,6 @@
@@ -89,7 +87,6 @@ index 78f3783..bf340d8 100644
   * @n: Maximum number of bytes to copy, including the trailing NUL.
   */
 diff --git a/net/irda/irias_object.c b/net/irda/irias_object.c
-index 4adaae2..cf30245 100644
 --- a/net/irda/irias_object.c
 +++ b/net/irda/irias_object.c
 @@ -36,39 +36,6 @@ hashbin_t *irias_objects;

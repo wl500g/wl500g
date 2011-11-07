@@ -56,7 +56,6 @@ diff --git a/fs/libfs.c b/fs/libfs.c
  EXPORT_SYMBOL(dcache_dir_lseek);
  EXPORT_SYMBOL(dcache_dir_open);
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index d883aa1..ede84fa 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -2345,6 +2345,8 @@ extern void simple_release_fs(struct vfsmount **mount, int *count);

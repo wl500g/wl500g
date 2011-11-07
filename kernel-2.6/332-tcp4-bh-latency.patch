@@ -26,7 +26,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 5 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 354721d..3f5f742 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
 @@ -2045,10 +2045,7 @@ static void *established_get_first(struct seq_file *seq)

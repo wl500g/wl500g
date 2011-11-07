@@ -10,7 +10,6 @@ Subject: [PATCH] ext2/ext3: statfs speed up, backport from 2.6.23
  3 files changed, 31 insertions(+), 16 deletions(-)
 
 diff --git a/fs/ext2/super.c b/fs/ext2/super.c
-index 5de5061..b2efd90 100644
 --- a/fs/ext2/super.c
 +++ b/fs/ext2/super.c
 @@ -1099,15 +1099,18 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf)
@@ -62,7 +61,6 @@ index 5de5061..b2efd90 100644
  	fsid = le64_to_cpup((void *)es->s_uuid) ^
  	       le64_to_cpup((void *)es->s_uuid + sizeof(u64));
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
-index f1b3a56..8c17c28 100644
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
 @@ -2408,19 +2408,19 @@ static int ext3_statfs (struct dentry * dentry, struct kstatfs * buf)
@@ -120,7 +118,6 @@ index f1b3a56..8c17c28 100644
  	fsid = le64_to_cpup((void *)es->s_uuid) ^
  	       le64_to_cpup((void *)es->s_uuid + sizeof(u64));
 diff --git a/include/linux/ext3_fs_sb.h b/include/linux/ext3_fs_sb.h
-index f61309c..d3c0835 100644
 --- a/include/linux/ext3_fs_sb.h
 +++ b/include/linux/ext3_fs_sb.h
 @@ -38,6 +38,8 @@ struct ext3_sb_info {

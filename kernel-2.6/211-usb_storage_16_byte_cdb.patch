@@ -8,7 +8,6 @@ kernel.org commit 17f060224fb9f435c6f9306b7b61419d038def13  (from 2.6.25)
  1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/usb/storage/usb.c b/drivers/usb/storage/usb.c
-index 092176f..97371d8 100644
 --- a/drivers/usb/storage/usb.c
 +++ b/drivers/usb/storage/usb.c
 @@ -965,6 +965,10 @@ static int storage_probe(struct usb_interface *intf,

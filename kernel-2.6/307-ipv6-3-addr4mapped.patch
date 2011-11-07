@@ -16,7 +16,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  5 files changed, 12 insertions(+), 6 deletions(-)
 
 diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 9059e0e..9573c8d 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
 @@ -377,6 +377,12 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
@@ -33,7 +32,6 @@ index 9059e0e..9573c8d 100644
   * find the first different bit between two addresses
   * length of address must be a multiple of 32bits
 diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
-index 6b038aa..74254fc 100644
 --- a/net/ipv6/ipv6_sockglue.c
 +++ b/net/ipv6/ipv6_sockglue.c
 @@ -249,7 +249,7 @@ static int do_ipv6_setsockopt(struct sock *sk, int level, int optname,
@@ -46,7 +44,6 @@ index 6b038aa..74254fc 100644
  				break;
  			}
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 3e06799..a07b59c 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
 @@ -697,7 +697,7 @@ static int tcp_v6_parse_md5_keys (struct sock *sk, char __user *optval,
@@ -68,7 +65,6 @@ index 3e06799..a07b59c 100644
  					 newkey, cmd.tcpm_keylen);
  	}
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index c347f3e..82ff26d 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
 @@ -612,7 +612,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
@@ -81,7 +77,6 @@ index c347f3e..82ff26d 100644
  			sin.sin_family = AF_INET;
  			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
 diff --git a/net/sctp/ipv6.c b/net/sctp/ipv6.c
-index 670fd27..ec29b97 100644
 --- a/net/sctp/ipv6.c
 +++ b/net/sctp/ipv6.c
 @@ -493,7 +493,7 @@ static int sctp_v6_cmp_addr(const union sctp_addr *addr1,

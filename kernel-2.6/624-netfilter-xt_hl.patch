@@ -29,7 +29,6 @@ Subject: [PATCH] netfilter: Combine ipt_ttl and ip6t_hl, ipt_TTL and ip6t_HL sou
  create mode 100644 net/netfilter/xt_hl.c
 
 diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index 63495f3..5317694 100644
 --- a/net/ipv4/netfilter/Kconfig
 +++ b/net/ipv4/netfilter/Kconfig
 @@ -102,15 +102,6 @@ config IP_NF_MATCH_AH
@@ -70,7 +69,6 @@ index 63495f3..5317694 100644
  	tristate "CLUSTERIP target support (EXPERIMENTAL)"
  	depends on IP_NF_MANGLE && EXPERIMENTAL
 diff --git a/net/ipv4/netfilter/Makefile b/net/ipv4/netfilter/Makefile
-index 2d0d469..434b170 100644
 --- a/net/ipv4/netfilter/Makefile
 +++ b/net/ipv4/netfilter/Makefile
 @@ -52,7 +52,6 @@ obj-$(CONFIG_IP_NF_MATCH_U32) += ipt_u32.o
@@ -91,7 +89,6 @@ index 2d0d469..434b170 100644
  obj-$(CONFIG_IP_NF_ARPTABLES) += arp_tables.o
 diff --git a/net/ipv4/netfilter/ipt_TTL.c b/net/ipv4/netfilter/ipt_TTL.c
 deleted file mode 100644
-index a991ec7..0000000
 --- a/net/ipv4/netfilter/ipt_TTL.c
 +++ /dev/null
 @@ -1,104 +0,0 @@
@@ -201,7 +198,6 @@ index a991ec7..0000000
 -module_exit(ipt_ttl_fini);
 diff --git a/net/ipv4/netfilter/ipt_ttl.c b/net/ipv4/netfilter/ipt_ttl.c
 deleted file mode 100644
-index ab02d9e..0000000
 --- a/net/ipv4/netfilter/ipt_ttl.c
 +++ /dev/null
 @@ -1,70 +0,0 @@
@@ -276,7 +272,6 @@ index ab02d9e..0000000
 -module_init(ipt_ttl_init);
 -module_exit(ipt_ttl_fini);
 diff --git a/net/ipv6/netfilter/Kconfig b/net/ipv6/netfilter/Kconfig
-index 88fed25..2a5b23e 100644
 --- a/net/ipv6/netfilter/Kconfig
 +++ b/net/ipv6/netfilter/Kconfig
 @@ -80,15 +80,6 @@ config IP6_NF_MATCH_FRAG
@@ -319,7 +314,6 @@ index 88fed25..2a5b23e 100644
  	tristate  'raw table support (required for TRACE)'
  	depends on IP6_NF_IPTABLES
 diff --git a/net/ipv6/netfilter/Makefile b/net/ipv6/netfilter/Makefile
-index ac22e3f..e18983c 100644
 --- a/net/ipv6/netfilter/Makefile
 +++ b/net/ipv6/netfilter/Makefile
 @@ -14,11 +14,9 @@ obj-$(CONFIG_IP6_NF_MATCH_OWNER) += ip6t_owner.o
@@ -336,7 +330,6 @@ index ac22e3f..e18983c 100644
  obj-$(CONFIG_IP6_NF_MATCH_MH) += ip6t_mh.o
 diff --git a/net/ipv6/netfilter/ip6t_HL.c b/net/ipv6/netfilter/ip6t_HL.c
 deleted file mode 100644
-index 4115a57..0000000
 --- a/net/ipv6/netfilter/ip6t_HL.c
 +++ /dev/null
 @@ -1,103 +0,0 @@
@@ -445,7 +438,6 @@ index 4115a57..0000000
 -module_exit(ip6t_hl_fini);
 diff --git a/net/ipv6/netfilter/ip6t_hl.c b/net/ipv6/netfilter/ip6t_hl.c
 deleted file mode 100644
-index d606c0e..0000000
 --- a/net/ipv6/netfilter/ip6t_hl.c
 +++ /dev/null
 @@ -1,71 +0,0 @@
@@ -521,7 +513,6 @@ index d606c0e..0000000
 -module_init(ip6t_hl_init);
 -module_exit(ip6t_hl_fini);
 diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-index 6f62edd..11b3602 100644
 --- a/net/netfilter/Kconfig
 +++ b/net/netfilter/Kconfig
 @@ -304,6 +304,20 @@ config NETFILTER_XT_TARGET_DSCP
@@ -561,7 +552,6 @@ index 6f62edd..11b3602 100644
  	tristate '"mark" match support'
  	depends on NETFILTER_XTABLES
 diff --git a/net/netfilter/Makefile b/net/netfilter/Makefile
-index 14d6b56..48dd803 100644
 --- a/net/netfilter/Makefile
 +++ b/net/netfilter/Makefile
 @@ -41,6 +41,7 @@ obj-$(CONFIG_NETFILTER_XTABLES) += x_tables.o xt_tcpudp.o
@@ -582,7 +572,6 @@ index 14d6b56..48dd803 100644
  obj-$(CONFIG_NETFILTER_XT_MATCH_MAC) += xt_mac.o
 diff --git a/net/netfilter/xt_HL.c b/net/netfilter/xt_HL.c
 new file mode 100644
-index 0000000..bbfa1cd
 --- /dev/null
 +++ b/net/netfilter/xt_HL.c
 @@ -0,0 +1,185 @@
@@ -773,7 +762,6 @@ index 0000000..bbfa1cd
 +MODULE_ALIAS("ip6t_HL");
 diff --git a/net/netfilter/xt_hl.c b/net/netfilter/xt_hl.c
 new file mode 100644
-index 0000000..f339856
 --- /dev/null
 +++ b/net/netfilter/xt_hl.c
 @@ -0,0 +1,114 @@

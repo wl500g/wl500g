@@ -13,7 +13,6 @@ Subject: [PATCH] bitmap: fix end condition in bitmap_find_free_region, test for 
  2 files changed, 29 insertions(+), 25 deletions(-)
 
 diff --git a/include/linux/bitmap.h b/include/linux/bitmap.h
-index 64b4641..46bdb86 100644
 --- a/include/linux/bitmap.h
 +++ b/include/linux/bitmap.h
 @@ -6,6 +6,7 @@
@@ -174,7 +173,6 @@ index 64b4641..46bdb86 100644
  	else
  		__bitmap_shift_left(dst, src, n, nbits);
 diff --git a/lib/bitmap.c b/lib/bitmap.c
-index 26ebafa..549696f 100644
 --- a/lib/bitmap.c
 +++ b/lib/bitmap.c
 @@ -786,15 +786,15 @@ done:

@@ -14,7 +14,6 @@ db1a75bdcc1766dc7e1fae9201ae287dcbcb6c66 netfilter: xt_TCPMSS: collapse tcpmss_r
  1 files changed, 60 insertions(+), 16 deletions(-)
 
 diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
-index fe7b3d8..1b57e7b 100644
 --- a/net/netfilter/xt_TCPMSS.c
 +++ b/net/netfilter/xt_TCPMSS.c
 @@ -13,7 +13,11 @@

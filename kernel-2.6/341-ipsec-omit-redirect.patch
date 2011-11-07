@@ -32,7 +32,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 4 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv4/ip_forward.c b/net/ipv4/ip_forward.c
-index 8c95cf0..afbf938 100644
 --- a/net/ipv4/ip_forward.c
 +++ b/net/ipv4/ip_forward.c
 @@ -105,7 +105,7 @@ int ip_forward(struct sk_buff *skb)
@@ -45,7 +44,6 @@ index 8c95cf0..afbf938 100644
  
  	skb->priority = rt_tos2priority(iph->tos);
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 26de3c0..e46d468 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -441,8 +441,10 @@ int ip6_forward(struct sk_buff *skb)

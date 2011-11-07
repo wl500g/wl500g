@@ -48,7 +48,6 @@ b3de7559afbb7a8a35b4be975a6adf6c5e3cdca0 tcp: fix TSO FACK loss marking in tcp_m
  1 file changed, 25 insertions(+), 6 deletions(-)
 
 diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 5573202..7d09587 100644
 --- a/net/ipv4/tcp_input.c
 +++ b/net/ipv4/tcp_input.c
 @@ -1752,7 +1752,9 @@ static void tcp_mark_head_lost(struct sock *sk, int packets)

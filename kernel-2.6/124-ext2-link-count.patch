@@ -23,7 +23,6 @@ Signed-off-by: Jan Kara <jack@suse.cz>
  1 files changed, 2 insertions(+), 7 deletions(-)
 
 diff --git a/fs/ext2/namei.c b/fs/ext2/namei.c
-index 2e1d834..adb9185 100644
 --- a/fs/ext2/namei.c
 +++ b/fs/ext2/namei.c
 @@ -344,7 +344,6 @@ static int ext2_rename (struct inode * old_dir, struct dentry * old_dentry,

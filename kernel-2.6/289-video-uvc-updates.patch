@@ -10,7 +10,6 @@ UVC driver updates from upstream
  3 files changed, 25 insertions(+)
 
 diff --git a/drivers/media/video/uvc/uvc_ctrl.c b/drivers/media/video/uvc/uvc_ctrl.c
-index 0dc2a9f..a4db26f 100644
 --- a/drivers/media/video/uvc/uvc_ctrl.c
 +++ b/drivers/media/video/uvc/uvc_ctrl.c
 @@ -1221,6 +1221,23 @@ int uvc_ctrl_set(struct uvc_video_chain *chain,
@@ -38,7 +37,6 @@ index 0dc2a9f..a4db26f 100644
  
  	default:
 diff --git a/drivers/media/video/uvc/uvc_driver.c b/drivers/media/video/uvc/uvc_driver.c
-index 6459b8c..61e5137 100644
 --- a/drivers/media/video/uvc/uvc_driver.c
 +++ b/drivers/media/video/uvc/uvc_driver.c
 @@ -103,6 +103,11 @@ static struct uvc_format_desc uvc_fmts[] = {
@@ -54,7 +52,6 @@ index 6459b8c..61e5137 100644
  
  /* ------------------------------------------------------------------------
 diff --git a/drivers/media/video/uvc/uvcvideo.h b/drivers/media/video/uvc/uvcvideo.h
-index 18d7667..cd58ea8 100644
 --- a/drivers/media/video/uvc/uvcvideo.h
 +++ b/drivers/media/video/uvc/uvcvideo.h
 @@ -176,6 +176,9 @@ struct uvc_xu_control_query {

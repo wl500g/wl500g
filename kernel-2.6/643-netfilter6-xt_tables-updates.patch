@@ -57,7 +57,6 @@ e12f8e29a8526172b7715881503bae636d60bdd8 netfilter: vmalloc_node cleanup
  24 files changed, 489 insertions(+), 376 deletions(-)
 
 diff --git a/include/linux/netfilter/x_tables.h b/include/linux/netfilter/x_tables.h
-index 7e733a6..acfa700 100644
 --- a/include/linux/netfilter/x_tables.h
 +++ b/include/linux/netfilter/x_tables.h
 @@ -126,6 +126,49 @@ struct xt_counters_info
@@ -233,7 +232,6 @@ index 7e733a6..acfa700 100644
  #include <net/compat.h>
  
 diff --git a/include/linux/netfilter/xt_limit.h b/include/linux/netfilter/xt_limit.h
-index b3ce653..fda222c 100644
 --- a/include/linux/netfilter/xt_limit.h
 +++ b/include/linux/netfilter/xt_limit.h
 @@ -4,6 +4,8 @@
@@ -261,7 +259,6 @@ index b3ce653..fda222c 100644
  };
  #endif /*_XT_RATE_H*/
 diff --git a/include/linux/netfilter/xt_quota.h b/include/linux/netfilter/xt_quota.h
-index acd7fd7..8dc89df 100644
 --- a/include/linux/netfilter/xt_quota.h
 +++ b/include/linux/netfilter/xt_quota.h
 @@ -6,11 +6,15 @@ enum xt_quota_flags {
@@ -282,7 +279,6 @@ index acd7fd7..8dc89df 100644
  
  #endif /* _XT_QUOTA_H */
 diff --git a/include/linux/netfilter/xt_statistic.h b/include/linux/netfilter/xt_statistic.h
-index c344e99..8f521ab 100644
 --- a/include/linux/netfilter/xt_statistic.h
 +++ b/include/linux/netfilter/xt_statistic.h
 @@ -13,6 +13,8 @@ enum xt_statistic_flags {
@@ -308,7 +304,6 @@ index c344e99..8f521ab 100644
  
  #endif /* _XT_STATISTIC_H */
 diff --git a/include/linux/netfilter_arp/arp_tables.h b/include/linux/netfilter_arp/arp_tables.h
-index 584cd1b..a7f2bd0 100644
 --- a/include/linux/netfilter_arp/arp_tables.h
 +++ b/include/linux/netfilter_arp/arp_tables.h
 @@ -217,21 +217,8 @@ static __inline__ struct arpt_entry_target *arpt_get_target(struct arpt_entry *e
@@ -336,7 +331,6 @@ index 584cd1b..a7f2bd0 100644
  /*
   *	Main firewall chains definitions and global var's definitions.
 diff --git a/include/linux/netfilter_ipv4/ip_tables.h b/include/linux/netfilter_ipv4/ip_tables.h
-index bebd85f..be38a61 100644
 --- a/include/linux/netfilter_ipv4/ip_tables.h
 +++ b/include/linux/netfilter_ipv4/ip_tables.h
 @@ -230,60 +230,17 @@ ipt_get_target(struct ipt_entry *e)
@@ -407,7 +401,6 @@ index bebd85f..be38a61 100644
  /*
   *	Main firewall chains definitions and global var's definitions.
 diff --git a/include/linux/netfilter_ipv6/ip6_tables.h b/include/linux/netfilter_ipv6/ip6_tables.h
-index 4686f83..e33cce5 100644
 --- a/include/linux/netfilter_ipv6/ip6_tables.h
 +++ b/include/linux/netfilter_ipv6/ip6_tables.h
 @@ -283,40 +283,12 @@ ip6t_get_target(struct ip6t_entry *e)
@@ -456,7 +449,6 @@ index 4686f83..e33cce5 100644
  /*
   *	Main firewall chains definitions and global var's definitions.
 diff --git a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
-index cae4121..ba55da3 100644
 --- a/net/ipv4/netfilter/arp_tables.c
 +++ b/net/ipv4/netfilter/arp_tables.c
 @@ -71,6 +71,28 @@ static inline int arp_devaddr_compare(const struct arpt_devaddr_info *ap,
@@ -848,7 +840,6 @@ index cae4121..ba55da3 100644
  	void *loc_cpu_entry;
  
 diff --git a/net/ipv4/netfilter/arptable_filter.c b/net/ipv4/netfilter/arptable_filter.c
-index 75c0230..f638cfd 100644
 --- a/net/ipv4/netfilter/arptable_filter.c
 +++ b/net/ipv4/netfilter/arptable_filter.c
 @@ -48,8 +48,6 @@ static struct
@@ -861,7 +852,6 @@ index 75c0230..f638cfd 100644
  	.af		= NF_ARP,
  };
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index cba8795..71f4dab 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
 @@ -78,25 +78,6 @@ ipt_cone_target(struct sk_buff **pskb, unsigned int hooknum,
@@ -1148,7 +1138,6 @@ index cba8795..71f4dab 100644
  	void *loc_cpu_entry;
  
 diff --git a/net/ipv4/netfilter/iptable_filter.c b/net/ipv4/netfilter/iptable_filter.c
-index 4f51c1d..b90df97 100644
 --- a/net/ipv4/netfilter/iptable_filter.c
 +++ b/net/ipv4/netfilter/iptable_filter.c
 @@ -54,7 +54,6 @@ static struct
@@ -1160,7 +1149,6 @@ index 4f51c1d..b90df97 100644
  	.af		= AF_INET,
  };
 diff --git a/net/ipv4/netfilter/iptable_mangle.c b/net/ipv4/netfilter/iptable_mangle.c
-index 902446f..3d4dee2 100644
 --- a/net/ipv4/netfilter/iptable_mangle.c
 +++ b/net/ipv4/netfilter/iptable_mangle.c
 @@ -67,7 +67,6 @@ static struct
@@ -1172,7 +1160,6 @@ index 902446f..3d4dee2 100644
  	.af		= AF_INET,
  };
 diff --git a/net/ipv4/netfilter/iptable_raw.c b/net/ipv4/netfilter/iptable_raw.c
-index d6e5033..538189d 100644
 --- a/net/ipv4/netfilter/iptable_raw.c
 +++ b/net/ipv4/netfilter/iptable_raw.c
 @@ -39,7 +39,6 @@ static struct
@@ -1184,7 +1171,6 @@ index d6e5033..538189d 100644
  	.af = AF_INET,
  };
 diff --git a/net/ipv4/netfilter/nf_nat_rule.c b/net/ipv4/netfilter/nf_nat_rule.c
-index 6740736..76e81c4 100644
 --- a/net/ipv4/netfilter/nf_nat_rule.c
 +++ b/net/ipv4/netfilter/nf_nat_rule.c
 @@ -65,7 +65,6 @@ static struct
@@ -1196,7 +1182,6 @@ index 6740736..76e81c4 100644
  	.af		= AF_INET,
  };
 diff --git a/net/ipv6/netfilter/ip6_tables.c b/net/ipv6/netfilter/ip6_tables.c
-index 9aa6240..7aa84f9 100644
 --- a/net/ipv6/netfilter/ip6_tables.c
 +++ b/net/ipv6/netfilter/ip6_tables.c
 @@ -104,7 +104,6 @@ ip6_packet_match(const struct sk_buff *skb,
@@ -1431,7 +1416,6 @@ index 9aa6240..7aa84f9 100644
  	void *loc_cpu_entry;
  
 diff --git a/net/ipv6/netfilter/ip6table_filter.c b/net/ipv6/netfilter/ip6table_filter.c
-index 7e32e2a..939cb11 100644
 --- a/net/ipv6/netfilter/ip6table_filter.c
 +++ b/net/ipv6/netfilter/ip6table_filter.c
 @@ -52,7 +52,6 @@ static struct
@@ -1443,7 +1427,6 @@ index 7e32e2a..939cb11 100644
  	.af		= AF_INET6,
  };
 diff --git a/net/ipv6/netfilter/ip6table_mangle.c b/net/ipv6/netfilter/ip6table_mangle.c
-index f2d2649..85d5f44 100644
 --- a/net/ipv6/netfilter/ip6table_mangle.c
 +++ b/net/ipv6/netfilter/ip6table_mangle.c
 @@ -66,7 +66,6 @@ static struct
@@ -1455,7 +1438,6 @@ index f2d2649..85d5f44 100644
  	.af		= AF_INET6,
  };
 diff --git a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
-index 0acda45..03477a8 100644
 --- a/net/ipv6/netfilter/ip6table_raw.c
 +++ b/net/ipv6/netfilter/ip6table_raw.c
 @@ -44,7 +44,6 @@ static struct
@@ -1572,7 +1554,6 @@ diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
  	xt = kmalloc(sizeof(struct xt_af) * NPROTO, GFP_KERNEL);
  	if (!xt)
 diff --git a/net/netfilter/xt_hashlimit.c b/net/netfilter/xt_hashlimit.c
-index 90f1523..ae503e7 100644
 --- a/net/netfilter/xt_hashlimit.c
 +++ b/net/netfilter/xt_hashlimit.c
 @@ -449,8 +449,8 @@ hashlimit_match(const struct sk_buff *skb,
@@ -1596,7 +1577,6 @@ index 90f1523..ae503e7 100644
  }
  
 diff --git a/net/netfilter/xt_limit.c b/net/netfilter/xt_limit.c
-index 571a72a..766e7a1 100644
 --- a/net/netfilter/xt_limit.c
 +++ b/net/netfilter/xt_limit.c
 @@ -14,9 +14,14 @@
@@ -1700,7 +1680,6 @@ index 571a72a..766e7a1 100644
  		.me		= THIS_MODULE,
  	},
 diff --git a/net/netfilter/xt_physdev.c b/net/netfilter/xt_physdev.c
-index 35a0fe2..370c49a 100644
 --- a/net/netfilter/xt_physdev.c
 +++ b/net/netfilter/xt_physdev.c
 @@ -23,6 +23,7 @@ MODULE_DESCRIPTION("iptables bridge physical device match module");
@@ -1754,7 +1733,6 @@ index 35a0fe2..370c49a 100644
  
  static int
 diff --git a/net/netfilter/xt_quota.c b/net/netfilter/xt_quota.c
-index bfdde06..b2e225a 100644
 --- a/net/netfilter/xt_quota.c
 +++ b/net/netfilter/xt_quota.c
 @@ -9,8 +9,13 @@
@@ -1837,7 +1815,6 @@ index bfdde06..b2e225a 100644
  		.me		= THIS_MODULE
  	},
 diff --git a/net/netfilter/xt_statistic.c b/net/netfilter/xt_statistic.c
-index 091a9f8..3abfa70 100644
 --- a/net/netfilter/xt_statistic.c
 +++ b/net/netfilter/xt_statistic.c
 @@ -16,9 +16,13 @@

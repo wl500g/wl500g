@@ -49,7 +49,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 209 insertions(+), 51 deletions(-)
 
 diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 151f5d7..69b43db 100644
 --- a/include/linux/filter.h
 +++ b/include/linux/filter.h
 @@ -91,6 +91,54 @@ struct sock_fprog {	/* Required for SO_ATTACH_FILTER. */
@@ -108,7 +107,6 @@ index 151f5d7..69b43db 100644
  #define BPF_MAXINSNS 4096
  #endif
 diff --git a/net/core/filter.c b/net/core/filter.c
-index da69fb7..52b051f 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
 @@ -128,87 +128,87 @@ unsigned int sk_run_filter(struct sk_buff *skb, struct sock_filter *filter, int

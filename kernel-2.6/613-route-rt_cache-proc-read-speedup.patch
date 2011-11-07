@@ -14,7 +14,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 10 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index cca921e..71598f6 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -282,6 +282,8 @@ static struct rtable *rt_cache_get_first(struct seq_file *seq)

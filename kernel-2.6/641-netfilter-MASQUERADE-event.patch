@@ -13,7 +13,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 2 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
-index d80fee8..313b3fc 100644
 --- a/net/ipv4/netfilter/ipt_MASQUERADE.c
 +++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
 @@ -139,18 +139,8 @@ static int masq_inet_event(struct notifier_block *this,

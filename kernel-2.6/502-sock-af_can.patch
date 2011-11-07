@@ -20,7 +20,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  6 files changed, 11 insertions(+), 4 deletions(-)
 
 diff --git a/include/linux/if.h b/include/linux/if.h
-index 32bf419..186070d 100644
 --- a/include/linux/if.h
 +++ b/include/linux/if.h
 @@ -50,7 +50,9 @@
@@ -35,7 +34,6 @@ index 32bf419..186070d 100644
  
  /* Private (from user) interface flags (netdevice->priv_flags). */
 diff --git a/include/linux/if_arp.h b/include/linux/if_arp.h
-index ed7b93c..296e8e8 100644
 --- a/include/linux/if_arp.h
 +++ b/include/linux/if_arp.h
 @@ -52,6 +52,7 @@
@@ -47,7 +45,6 @@ index ed7b93c..296e8e8 100644
  #define ARPHRD_CISCO	513		/* Cisco HDLC	 		*/
  #define ARPHRD_HDLC	ARPHRD_CISCO
 diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 5f92977..cc002cb 100644
 --- a/include/linux/if_ether.h
 +++ b/include/linux/if_ether.h
 @@ -90,6 +90,7 @@
@@ -59,7 +56,6 @@ index 5f92977..cc002cb 100644
  #define ETH_P_TR_802_2	0x0011		/* 802.2 frames 		*/
  #define ETH_P_MOBITEX	0x0015		/* Mobitex (kaz@cafe.net)	*/
 diff --git a/include/linux/socket.h b/include/linux/socket.h
-index c22ef1c..eb5bdd5 100644
 --- a/include/linux/socket.h
 +++ b/include/linux/socket.h
 @@ -185,6 +185,7 @@ struct ucred {
@@ -79,7 +75,6 @@ index c22ef1c..eb5bdd5 100644
  #define PF_BLUETOOTH	AF_BLUETOOTH
  #define PF_IUCV		AF_IUCV
 diff --git a/include/linux/tty.h b/include/linux/tty.h
-index defd2ab..402de89 100644
 --- a/include/linux/tty.h
 +++ b/include/linux/tty.h
 @@ -23,7 +23,7 @@
@@ -100,7 +95,6 @@ index defd2ab..402de89 100644
  /*
   * This character is the same as _POSIX_VDISABLE: it cannot be used as
 diff --git a/net/core/sock.c b/net/core/sock.c
-index 98b243a..c9305a8 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
 @@ -154,7 +154,7 @@ static const char *af_family_key_strings[AF_MAX+1] = {

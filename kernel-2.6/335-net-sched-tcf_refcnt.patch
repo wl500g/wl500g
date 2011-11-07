@@ -10,7 +10,6 @@ backport of kernel.org commit c3bc7cff8fddb6ff9715be8bfc3d911378c4d69d
  1 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/include/net/act_api.h b/include/net/act_api.h
-index 8b06c2f..406d433 100644
 --- a/include/net/act_api.h
 +++ b/include/net/act_api.h
 @@ -146,9 +146,13 @@ tcf_police_release(struct tcf_police *p, int bind)

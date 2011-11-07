@@ -12,7 +12,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 3 insertions(+), 1 deletions(-)
 
 diff --git a/arch/mips/kernel/head.S b/arch/mips/kernel/head.S
-index e46782b..bf164a5 100644
 --- a/arch/mips/kernel/head.S
 +++ b/arch/mips/kernel/head.S
 @@ -149,7 +149,7 @@ EXPORT(_stext)

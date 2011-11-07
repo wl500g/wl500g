@@ -34,7 +34,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/include/asm-mips/bitops.h b/include/asm-mips/bitops.h
-index 6427247..9a7274b 100644
 --- a/include/asm-mips/bitops.h
 +++ b/include/asm-mips/bitops.h
 @@ -82,7 +82,7 @@ static inline void set_bit(unsigned long nr, volatile unsigned long *addr)

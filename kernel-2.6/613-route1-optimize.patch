@@ -12,7 +12,6 @@ e88ff22a7ed88b499a0235a2b69425efdb300ef5
  1 files changed, 48 insertions(+), 49 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index d2e2e1c..9d4b02a 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -254,16 +254,14 @@ static DEFINE_PER_CPU(struct rt_cache_stat, rt_cache_stat);

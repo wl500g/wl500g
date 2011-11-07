@@ -13,7 +13,6 @@ Subject: [PATCH] neigh: convert garbage collection from softirq to workqueue
  2 files changed, 56 insertions(+), 61 deletions(-)
 
 diff --git a/include/net/neighbour.h b/include/net/neighbour.h
-index a4f2618..fdb9251 100644
 --- a/include/net/neighbour.h
 +++ b/include/net/neighbour.h
 @@ -24,6 +24,7 @@
@@ -42,7 +41,6 @@ index a4f2618..fdb9251 100644
  #ifdef CONFIG_PROC_FS
  	struct proc_dir_entry	*pde;
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 9df26a0..dedccd4 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
 @@ -104,6 +104,14 @@ static int neigh_blackhole(struct sk_buff *skb)

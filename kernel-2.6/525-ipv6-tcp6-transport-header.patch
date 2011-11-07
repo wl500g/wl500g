@@ -27,7 +27,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 65aecf2..3aae0f2 100644
 --- a/net/ipv6/tcp_ipv6.c
 +++ b/net/ipv6/tcp_ipv6.c
 @@ -1003,6 +1003,7 @@ static void tcp_v6_send_reset(struct sk_buff *skb, u32 seq, u32 ack, u32 win,

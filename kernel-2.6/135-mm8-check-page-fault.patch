@@ -25,7 +25,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/mm/memory.c b/mm/memory.c
-index 4bf0b6d..6dd1cd8 100644
 --- a/mm/memory.c
 +++ b/mm/memory.c
 @@ -392,6 +392,7 @@ struct page *vm_normal_page(struct vm_area_struct *vma, unsigned long addr, pte_

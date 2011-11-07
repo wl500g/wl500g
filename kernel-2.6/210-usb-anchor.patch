@@ -10,7 +10,6 @@ Subject: [PATCH] USB: introduce usb_anchor
  3 files changed, 122 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/usb/core/hcd.c b/drivers/usb/core/hcd.c
-index 8969e42..68efae7 100644
 --- a/drivers/usb/core/hcd.c
 +++ b/drivers/usb/core/hcd.c
 @@ -1408,6 +1408,8 @@ void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb)
@@ -23,7 +22,6 @@ index 8969e42..68efae7 100644
  	urb->complete (urb);
  	atomic_dec (&urb->use_count);
 diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
-index 94ea972..7c771c6 100644
 --- a/drivers/usb/core/urb.c
 +++ b/drivers/usb/core/urb.c
 @@ -4,6 +4,7 @@
@@ -160,7 +158,6 @@ index 94ea972..7c771c6 100644
  EXPORT_SYMBOL(usb_kill_urb);
 -
 diff --git a/include/linux/usb.h b/include/linux/usb.h
-index 94bd38a..9028370 100644
 --- a/include/linux/usb.h
 +++ b/include/linux/usb.h
 @@ -958,11 +958,26 @@ struct usb_iso_packet_descriptor {
