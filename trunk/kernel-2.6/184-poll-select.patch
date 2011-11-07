@@ -1,0 +1,1295 @@
+fs: poll/select updates from upstream
+
+ kernel.org commits
+ 252e5725cfb55a89e54888317856903fef9d5031 do_sys_poll: simplify playing with on-stack data
+ 9bf084f70ffde6521d113593b89461a5bd2a303b do_poll: return -EINTR when signalled
+ 3075d9da0b4ccc88959db30de80ebd11d2dde175 Use ERESTART_RESTARTBLOCK if poll() is interrupted by a signal
+ be5dad20a55e054a35dac7f6f5f184dc72b379b4 select: add a poll specific struct to the restart_block union
+ 3751f9f29bcbc19bd10e92254a273486f150c245 posix-timers: Cleanup restart_block usage
+ df0cc0539b4127bd02f64de2c335b4af1fdb3845 select: add a timespec_add_safe() function
+ b773ad40aca5bd755ba886620842f16e8fef6d75 select: add poll_select_set_timeout() and poll_select_copy_remaining() helpers
+ 8ff3e8e85fa6c312051134b3953e397feb639f51 select: switch select() and poll() over to hrtimers
+ 90d6e24a3686325edea7748b966e138c9923017d hrtimer: make select() and poll() use the hrtimer range feature
+ 4ce105d30e08fb8a1783c55a0e48aa3fa200c455 hrtimer: incorporate feedback from Peter Zijlstra
+ 96d2ab484e7a9bafdab44b8c7d1ef5944319b18c hrtimer: fix signed/unsigned bug in slack estimator
+ 62568510b8e2679cbc331d7de10ea9ba81ae8b3d select: Fix timeouts in sys_pselect7
+ 4d36a9e65d4966b433b2f3424d9457468bc80e00 select: deal with math overflow from borderline valid userland data
+ 5ae87e79ecb5baa65e9cf48be874098fafad0668 poll/select: avoid arithmetic overflow in __estimate_accuracy()
+ 95aac7b1cd224f568fb83937044cd303ff11b029 epoll: make epoll_wait() use the hrtimer range feature
+ 0781b909b5586f4db720b5d1838b78f9d8e42f14 epoll: epoll_wait() should not use timespec_add_ns()
+
+---
+ fs/compat.c                 |  188 ++++++---------
+ fs/eventpoll.c              |   43 ++-
+ fs/select.c                 |  520 ++++++++++++++++++++++++--------------------
+ include/linux/poll.h        |    8 
+ include/linux/thread_info.h |    8 
+ include/linux/time.h        |    4 
+ kernel/posix-cpu-timers.c   |   38 +--
+ kernel/posix-timers.c       |    2 
+ kernel/time.c               |   18 +
+ 9 files changed, 445 insertions(+), 384 deletions(-)
+
+diff --git a/fs/compat.c b/fs/compat.c
+--- a/fs/compat.c
++++ b/fs/compat.c
+@@ -1460,6 +1460,57 @@ out_ret:
+ 
+ #define __COMPAT_NFDBITS       (8 * sizeof(compat_ulong_t))
+ 
++static int poll_select_copy_remaining(struct timespec *end_time, void __user *p,
++				      int timeval, int ret)
++{
++	struct timespec ts;
++
++	if (!p)
++		return ret;
++
++	if (current->personality & STICKY_TIMEOUTS)
++		goto sticky;
++
++	/* No update for zero timeout */
++	if (!end_time->tv_sec && !end_time->tv_nsec)
++		return ret;
++
++	ktime_get_ts(&ts);
++	ts = timespec_sub(*end_time, ts);
++	if (ts.tv_sec < 0)
++		ts.tv_sec = ts.tv_nsec = 0;
++
++	if (timeval) {
++		struct compat_timeval rtv;
++
++		rtv.tv_sec = ts.tv_sec;
++		rtv.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
++
++		if (!copy_to_user(p, &rtv, sizeof(rtv)))
++			return ret;
++	} else {
++		struct compat_timespec rts;
++
++		rts.tv_sec = ts.tv_sec;
++		rts.tv_nsec = ts.tv_nsec;
++
++		if (!copy_to_user(p, &rts, sizeof(rts)))
++			return ret;
++	}
++	/*
++	 * If an application puts its timeval in read-only memory, we
++	 * don't want the Linux-specific update to the timeval to
++	 * cause a fault after the select has completed
++	 * successfully. However, because we're not updating the
++	 * timeval, we can't restart the system call.
++	 */
++
++sticky:
++	if (ret == -ERESTARTNOHAND)
++		ret = -EINTR;
++	return ret;
++}
++
+ /*
+  * Ooo, nasty.  We need here to frob 32-bit unsigned longs to
+  * 64-bit unsigned longs.
+@@ -1541,7 +1592,8 @@ int compat_set_fd_set(unsigned long nr,
+ 	((unsigned long) (MAX_SCHEDULE_TIMEOUT / HZ)-1)
+ 
+ int compat_core_sys_select(int n, compat_ulong_t __user *inp,
+-	compat_ulong_t __user *outp, compat_ulong_t __user *exp, s64 *timeout)
++	compat_ulong_t __user *outp, compat_ulong_t __user *exp,
++	struct timespec *end_time)
+ {
+ 	fd_set_bits fds;
+ 	void *bits;
+@@ -1588,7 +1640,7 @@ int compat_core_sys_select(int n, compat
+ 	zero_fd_set(n, fds.res_out);
+ 	zero_fd_set(n, fds.res_ex);
+ 
+-	ret = do_select(n, &fds, timeout);
++	ret = do_select(n, &fds, end_time);
+ 
+ 	if (ret < 0)
+ 		goto out;
+@@ -1614,7 +1666,7 @@ asmlinkage long compat_sys_select(int n,
+ 	compat_ulong_t __user *outp, compat_ulong_t __user *exp,
+ 	struct compat_timeval __user *tvp)
+ {
+-	s64 timeout = -1;
++	struct timespec end_time, *to = NULL;
+ 	struct compat_timeval tv;
+ 	int ret;
+ 
+@@ -1622,43 +1674,15 @@ asmlinkage long compat_sys_select(int n,
+ 		if (copy_from_user(&tv, tvp, sizeof(tv)))
+ 			return -EFAULT;
+ 
+-		if (tv.tv_sec < 0 || tv.tv_usec < 0)
++		to = &end_time;
++		if (poll_select_set_timeout(to,
++				tv.tv_sec + (tv.tv_usec / USEC_PER_SEC),
++				(tv.tv_usec % USEC_PER_SEC) * NSEC_PER_USEC))
+ 			return -EINVAL;
+-
+-		/* Cast to u64 to make GCC stop complaining */
+-		if ((u64)tv.tv_sec >= (u64)MAX_INT64_SECONDS)
+-			timeout = -1;	/* infinite */
+-		else {
+-			timeout = DIV_ROUND_UP(tv.tv_usec, 1000000/HZ);
+-			timeout += tv.tv_sec * HZ;
+-		}
+ 	}
+ 
+-	ret = compat_core_sys_select(n, inp, outp, exp, &timeout);
+-
+-	if (tvp) {
+-		struct compat_timeval rtv;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-		rtv.tv_usec = jiffies_to_usecs(do_div((*(u64*)&timeout), HZ));
+-		rtv.tv_sec = timeout;
+-		if (compat_timeval_compare(&rtv, &tv) >= 0)
+-			rtv = tv;
+-		if (copy_to_user(tvp, &rtv, sizeof(rtv))) {
+-sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = compat_core_sys_select(n, inp, outp, exp, to);
++	ret = poll_select_copy_remaining(&end_time, tvp, 1, ret);
+ 
+ 	return ret;
+ }
+@@ -1671,15 +1695,16 @@ asmlinkage long compat_sys_pselect7(int
+ {
+ 	compat_sigset_t ss32;
+ 	sigset_t ksigmask, sigsaved;
+-	s64 timeout = MAX_SCHEDULE_TIMEOUT;
+ 	struct compat_timespec ts;
++	struct timespec end_time, *to = NULL;
+ 	int ret;
+ 
+ 	if (tsp) {
+ 		if (copy_from_user(&ts, tsp, sizeof(ts)))
+ 			return -EFAULT;
+ 
+-		if (ts.tv_sec < 0 || ts.tv_nsec < 0)
++		to = &end_time;
++		if (poll_select_set_timeout(to, ts.tv_sec, ts.tv_nsec))
+ 			return -EINVAL;
+ 	}
+ 
+@@ -1694,51 +1719,8 @@ asmlinkage long compat_sys_pselect7(int
+ 		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
+ 	}
+ 
+-	do {
+-		if (tsp) {
+-			if ((unsigned long)ts.tv_sec < MAX_SELECT_SECONDS) {
+-				timeout = DIV_ROUND_UP(ts.tv_nsec, 1000000000/HZ);
+-				timeout += ts.tv_sec * (unsigned long)HZ;
+-				ts.tv_sec = 0;
+-				ts.tv_nsec = 0;
+-			} else {
+-				ts.tv_sec -= MAX_SELECT_SECONDS;
+-				timeout = MAX_SELECT_SECONDS * HZ;
+-			}
+-		}
+-
+-		ret = compat_core_sys_select(n, inp, outp, exp, &timeout);
+-
+-	} while (!ret && !timeout && tsp && (ts.tv_sec || ts.tv_nsec));
+-
+-	if (tsp) {
+-		struct compat_timespec rts;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-
+-		rts.tv_sec = timeout / HZ;
+-		rts.tv_nsec = (timeout % HZ) * (NSEC_PER_SEC/HZ);
+-		if (rts.tv_nsec >= NSEC_PER_SEC) {
+-			rts.tv_sec++;
+-			rts.tv_nsec -= NSEC_PER_SEC;
+-		}
+-		if (compat_timespec_compare(&rts, &ts) >= 0)
+-			rts = ts;
+-		if (copy_to_user(tsp, &rts, sizeof(rts))) {
+-sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = compat_core_sys_select(n, inp, outp, exp, to);
++	ret = poll_select_copy_remaining(&end_time, tsp, 0, ret);
+ 
+ 	if (ret == -ERESTARTNOHAND) {
+ 		/*
+@@ -1783,18 +1765,16 @@ asmlinkage long compat_sys_ppoll(struct
+ 	compat_sigset_t ss32;
+ 	sigset_t ksigmask, sigsaved;
+ 	struct compat_timespec ts;
+-	s64 timeout = -1;
++	struct timespec end_time, *to = NULL;
+ 	int ret;
+ 
+ 	if (tsp) {
+ 		if (copy_from_user(&ts, tsp, sizeof(ts)))
+ 			return -EFAULT;
+ 
+-		/* We assume that ts.tv_sec is always lower than
+-		   the number of seconds that can be expressed in
+-		   an s64. Otherwise the compiler bitches at us */
+-		timeout = DIV_ROUND_UP(ts.tv_nsec, 1000000000/HZ);
+-		timeout += ts.tv_sec * HZ;
++		to = &end_time;
++		if (poll_select_set_timeout(to, ts.tv_sec, ts.tv_nsec))
++			return -EINVAL;
+ 	}
+ 
+ 	if (sigmask) {
+@@ -1808,7 +1788,7 @@ asmlinkage long compat_sys_ppoll(struct
+ 		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
+ 	}
+ 
+-	ret = do_sys_poll(ufds, nfds, &timeout);
++	ret = do_sys_poll(ufds, nfds, to);
+ 
+ 	/* We can restart this syscall, usually */
+ 	if (ret == -EINTR) {
+@@ -1826,31 +1806,7 @@ asmlinkage long compat_sys_ppoll(struct
+ 	} else if (sigmask)
+ 		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
+ 
+-	if (tsp && timeout >= 0) {
+-		struct compat_timespec rts;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-		/* Yes, we know it's actually an s64, but it's also positive. */
+-		rts.tv_nsec = jiffies_to_usecs(do_div((*(u64*)&timeout), HZ)) *
+-					1000;
+-		rts.tv_sec = timeout;
+-		if (compat_timespec_compare(&rts, &ts) >= 0)
+-			rts = ts;
+-		if (copy_to_user(tsp, &rts, sizeof(rts))) {
+-sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND && timeout >= 0)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = poll_select_copy_remaining(&end_time, tsp, 0, ret);
+ 
+ 	return ret;
+ }
+diff --git a/fs/eventpoll.c b/fs/eventpoll.c
+--- a/fs/eventpoll.c
++++ b/fs/eventpoll.c
+@@ -95,9 +95,6 @@
+ /* Maximum number of poll wake up nests we are allowing */
+ #define EP_MAX_POLLWAKE_NESTS 4
+ 
+-/* Maximum msec timeout value storeable in a long int */
+-#define EP_MAX_MSTIMEO min(1000ULL * MAX_SCHEDULE_TIMEOUT / HZ, (LONG_MAX - 999ULL) / HZ)
+-
+ #define EP_MAX_EVENTS (INT_MAX / sizeof(struct epoll_event))
+ 
+ #define EP_UNACTIVE_PTR ((void *) -1L)
+@@ -995,21 +992,35 @@ errxit:
+ 	return eventcnt == 0 ? error: eventcnt;
+ }
+ 
++static inline struct timespec ep_set_mstimeout(long ms)
++{
++	struct timespec now, ts = {
++		.tv_sec = ms / MSEC_PER_SEC,
++		.tv_nsec = NSEC_PER_MSEC * (ms % MSEC_PER_SEC),
++	};
++
++	ktime_get_ts(&now);
++	return timespec_add_safe(now, ts);
++}
++
+ static int ep_poll(struct eventpoll *ep, struct epoll_event __user *events,
+ 		   int maxevents, long timeout)
+ {
+-	int res, eavail;
++	int res, eavail, timed_out = 0;
+ 	unsigned long flags;
+-	long jtimeout;
++	long slack;
+ 	wait_queue_t wait;
++	ktime_t expires, *to = NULL;
+ 
+-	/*
+-	 * Calculate the timeout by checking for the "infinite" value ( -1 )
+-	 * and the overflow condition. The passed timeout is in milliseconds,
+-	 * that why (t * HZ) / 1000.
+-	 */
+-	jtimeout = (timeout < 0 || timeout >= EP_MAX_MSTIMEO) ?
+-		MAX_SCHEDULE_TIMEOUT : (timeout * HZ + 999) / 1000;
++	if (timeout > 0) {
++		struct timespec end_time = ep_set_mstimeout(timeout);
++
++		slack = select_estimate_accuracy(&end_time);
++		to = &expires;
++		*to = timespec_to_ktime(end_time);
++	} else if (timeout == 0) {
++		timed_out = 1;
++	}
+ 
+ retry:
+ 	spin_lock_irqsave(&ep->lock, flags);
+@@ -1032,7 +1043,7 @@ retry:
+ 			 * to TASK_INTERRUPTIBLE before doing the checks.
+ 			 */
+ 			set_current_state(TASK_INTERRUPTIBLE);
+-			if (!list_empty(&ep->rdllist) || !jtimeout)
++			if (!list_empty(&ep->rdllist) || timed_out)
+ 				break;
+ 			if (signal_pending(current)) {
+ 				res = -EINTR;
+@@ -1040,7 +1051,9 @@ retry:
+ 			}
+ 
+ 			spin_unlock_irqrestore(&ep->lock, flags);
+-			jtimeout = schedule_timeout(jtimeout);
++			if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
++				timed_out = 1;
++
+ 			spin_lock_irqsave(&ep->lock, flags);
+ 		}
+ 		__remove_wait_queue(&ep->wq, &wait);
+@@ -1059,7 +1072,7 @@ retry:
+ 	 * more luck.
+ 	 */
+ 	if (!res && eavail &&
+-	    !(res = ep_send_events(ep, events, maxevents)) && jtimeout)
++	    !(res = ep_send_events(ep, events, maxevents)) && !timed_out)
+ 		goto retry;
+ 
+ 	return res;
+diff --git a/fs/select.c b/fs/select.c
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -23,11 +23,72 @@
+ #include <linux/file.h>
+ #include <linux/fs.h>
+ #include <linux/rcupdate.h>
++#include <linux/hrtimer.h>
+ 
+ #include <asm/uaccess.h>
+ 
+ #define DEFAULT_POLLMASK (POLLIN | POLLOUT | POLLRDNORM | POLLWRNORM)
+ 
++
++/*
++ * Estimate expected accuracy in ns from a timeval.
++ *
++ * After quite a bit of churning around, we've settled on
++ * a simple thing of taking 0.1% of the timeout as the
++ * slack, with a cap of 100 msec.
++ * "nice" tasks get a 0.5% slack instead.
++ *
++ * Consider this comment an open invitation to come up with even
++ * better solutions..
++ */
++
++#define MAX_SLACK	(100 * NSEC_PER_MSEC)
++
++static long __estimate_accuracy(struct timespec *tv)
++{
++	long slack;
++	int divfactor = 1000;
++
++	if (tv->tv_sec < 0)
++		return 0;
++
++	if (task_nice(current) > 0)
++		divfactor = divfactor / 5;
++
++	if (tv->tv_sec > MAX_SLACK / (NSEC_PER_SEC/divfactor))
++		return MAX_SLACK;
++
++	slack = tv->tv_nsec / divfactor;
++	slack += tv->tv_sec * (NSEC_PER_SEC/divfactor);
++
++	if (slack > MAX_SLACK)
++		return MAX_SLACK;
++
++	return slack;
++}
++
++long select_estimate_accuracy(struct timespec *tv)
++{
++	unsigned long ret;
++	struct timespec now;
++
++	/*
++	 * Realtime tasks get a slack of 0 for obvious reasons.
++	 */
++
++	if (rt_task(current))
++		return 0;
++
++	ktime_get_ts(&now);
++	now = timespec_sub(*tv, now);
++	ret = __estimate_accuracy(&now);
++	if (ret < 50000)	/* current->timer_slack_ns, 50 usec default slack */
++		return 50000;
++	return ret;
++}
++
++
++
+ struct poll_table_page {
+ 	struct poll_table_page * next;
+ 	struct poll_table_entry * entry;
+@@ -131,6 +192,79 @@ static void __pollwait(struct file *filp
+ 	add_wait_queue(wait_address, &entry->wait);
+ }
+ 
++/**
++ * poll_select_set_timeout - helper function to setup the timeout value
++ * @to:		pointer to timespec variable for the final timeout
++ * @sec:	seconds (from user space)
++ * @nsec:	nanoseconds (from user space)
++ *
++ * Note, we do not use a timespec for the user space value here, That
++ * way we can use the function for timeval and compat interfaces as well.
++ *
++ * Returns -EINVAL if sec/nsec are not normalized. Otherwise 0.
++ */
++int poll_select_set_timeout(struct timespec *to, long sec, long nsec)
++{
++	struct timespec ts = {.tv_sec = sec, .tv_nsec = nsec};
++
++	if (!timespec_valid(&ts))
++		return -EINVAL;
++
++	/* Optimize for the zero timeout value here */
++	if (!sec && !nsec) {
++		to->tv_sec = to->tv_nsec = 0;
++	} else {
++		ktime_get_ts(to);
++		*to = timespec_add_safe(*to, ts);
++	}
++	return 0;
++}
++
++static int poll_select_copy_remaining(struct timespec *end_time, void __user *p,
++				      int timeval, int ret)
++{
++	struct timespec rts;
++	struct timeval rtv;
++
++	if (!p)
++		return ret;
++
++	if (current->personality & STICKY_TIMEOUTS)
++		goto sticky;
++
++	/* No update for zero timeout */
++	if (!end_time->tv_sec && !end_time->tv_nsec)
++		return ret;
++
++	ktime_get_ts(&rts);
++	rts = timespec_sub(*end_time, rts);
++	if (rts.tv_sec < 0)
++		rts.tv_sec = rts.tv_nsec = 0;
++
++	if (timeval) {
++		rtv.tv_sec = rts.tv_sec;
++		rtv.tv_usec = rts.tv_nsec / NSEC_PER_USEC;
++
++		if (!copy_to_user(p, &rtv, sizeof(rtv)))
++			return ret;
++
++	} else if (!copy_to_user(p, &rts, sizeof(rts)))
++		return ret;
++
++	/*
++	 * If an application puts its timeval in read-only memory, we
++	 * don't want the Linux-specific update to the timeval to
++	 * cause a fault after the select has completed
++	 * successfully. However, because we're not updating the
++	 * timeval, we can't restart the system call.
++	 */
++
++sticky:
++	if (ret == -ERESTARTNOHAND)
++		ret = -EINTR;
++	return ret;
++}
++
+ #define FDS_IN(fds, n)		(fds->in + n)
+ #define FDS_OUT(fds, n)		(fds->out + n)
+ #define FDS_EX(fds, n)		(fds->ex + n)
+@@ -187,11 +321,13 @@ get_max:
+ #define POLLOUT_SET (POLLWRBAND | POLLWRNORM | POLLOUT | POLLERR)
+ #define POLLEX_SET (POLLPRI)
+ 
+-int do_select(int n, fd_set_bits *fds, s64 *timeout)
++int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+ {
++	ktime_t expire, *to = NULL;
+ 	struct poll_wqueues table;
+ 	poll_table *wait;
+-	int retval, i;
++	int retval, i, timed_out = 0;
++	unsigned long slack = 0;
+ 
+ 	rcu_read_lock();
+ 	retval = max_select_fd(n, fds);
+@@ -203,12 +339,17 @@ int do_select(int n, fd_set_bits *fds, s
+ 
+ 	poll_initwait(&table);
+ 	wait = &table.pt;
+-	if (!*timeout)
++	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
+ 		wait = NULL;
++		timed_out = 1;
++	}
++
++	if (end_time && !timed_out)
++		slack = select_estimate_accuracy(end_time);
++
+ 	retval = 0;
+ 	for (;;) {
+ 		unsigned long *rinp, *routp, *rexp, *inp, *outp, *exp;
+-		long __timeout;
+ 
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 
+@@ -264,27 +405,25 @@ int do_select(int n, fd_set_bits *fds, s
+ 				*rexp = res_ex;
+ 		}
+ 		wait = NULL;
+-		if (retval || !*timeout || signal_pending(current))
++		if (retval || timed_out || signal_pending(current))
+ 			break;
+ 		if(table.error) {
+ 			retval = table.error;
+ 			break;
+ 		}
+ 
+-		if (*timeout < 0) {
+-			/* Wait indefinitely */
+-			__timeout = MAX_SCHEDULE_TIMEOUT;
+-		} else if (unlikely(*timeout >= (s64)MAX_SCHEDULE_TIMEOUT - 1)) {
+-			/* Wait for longer than MAX_SCHEDULE_TIMEOUT. Do it in a loop */
+-			__timeout = MAX_SCHEDULE_TIMEOUT - 1;
+-			*timeout -= __timeout;
+-		} else {
+-			__timeout = *timeout;
+-			*timeout = 0;
+-		}
+-		__timeout = schedule_timeout(__timeout);
+-		if (*timeout >= 0)
+-			*timeout += __timeout;
++		/*
++		 * If this is the first loop and we have a timeout
++		 * given, then we convert to ktime_t and set the to
++		 * pointer to the expiry value.
++		 */
++		if (end_time && !to) {
++			expire = timespec_to_ktime(*end_time);
++			to = &expire;
++		}
++
++		if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
++			timed_out = 1;
+ 	}
+ 	__set_current_state(TASK_RUNNING);
+ 
+@@ -305,7 +444,7 @@ int do_select(int n, fd_set_bits *fds, s
+ 	((unsigned long) (MAX_SCHEDULE_TIMEOUT / HZ)-1)
+ 
+ static int core_sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+-			   fd_set __user *exp, s64 *timeout)
++			   fd_set __user *exp, struct timespec *end_time)
+ {
+ 	fd_set_bits fds;
+ 	void *bits;
+@@ -356,7 +495,7 @@ static int core_sys_select(int n, fd_set
+ 	zero_fd_set(n, fds.res_out);
+ 	zero_fd_set(n, fds.res_ex);
+ 
+-	ret = do_select(n, &fds, timeout);
++	ret = do_select(n, &fds, end_time);
+ 
+ 	if (ret < 0)
+ 		goto out;
+@@ -382,7 +521,7 @@ out_nofds:
+ asmlinkage long sys_select(int n, fd_set __user *inp, fd_set __user *outp,
+ 			fd_set __user *exp, struct timeval __user *tvp)
+ {
+-	s64 timeout = -1;
++	struct timespec end_time, *to = NULL;
+ 	struct timeval tv;
+ 	int ret;
+ 
+@@ -390,43 +529,15 @@ asmlinkage long sys_select(int n, fd_set
+ 		if (copy_from_user(&tv, tvp, sizeof(tv)))
+ 			return -EFAULT;
+ 
+-		if (tv.tv_sec < 0 || tv.tv_usec < 0)
++		to = &end_time;
++		if (poll_select_set_timeout(to,
++				tv.tv_sec + (tv.tv_usec / USEC_PER_SEC),
++				(tv.tv_usec % USEC_PER_SEC) * NSEC_PER_USEC))
+ 			return -EINVAL;
+-
+-		/* Cast to u64 to make GCC stop complaining */
+-		if ((u64)tv.tv_sec >= (u64)MAX_INT64_SECONDS)
+-			timeout = -1;	/* infinite */
+-		else {
+-			timeout = DIV_ROUND_UP(tv.tv_usec, USEC_PER_SEC/HZ);
+-			timeout += tv.tv_sec * HZ;
+-		}
+ 	}
+ 
+-	ret = core_sys_select(n, inp, outp, exp, &timeout);
+-
+-	if (tvp) {
+-		struct timeval rtv;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-		rtv.tv_usec = jiffies_to_usecs(do_div((*(u64*)&timeout), HZ));
+-		rtv.tv_sec = timeout;
+-		if (timeval_compare(&rtv, &tv) >= 0)
+-			rtv = tv;
+-		if (copy_to_user(tvp, &rtv, sizeof(rtv))) {
+-sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = core_sys_select(n, inp, outp, exp, to);
++	ret = poll_select_copy_remaining(&end_time, tvp, 1, ret);
+ 
+ 	return ret;
+ }
+@@ -436,25 +547,17 @@ asmlinkage long sys_pselect7(int n, fd_s
+ 		fd_set __user *exp, struct timespec __user *tsp,
+ 		const sigset_t __user *sigmask, size_t sigsetsize)
+ {
+-	s64 timeout = MAX_SCHEDULE_TIMEOUT;
+ 	sigset_t ksigmask, sigsaved;
+-	struct timespec ts;
++	struct timespec ts, end_time, *to = NULL;
+ 	int ret;
+ 
+ 	if (tsp) {
+ 		if (copy_from_user(&ts, tsp, sizeof(ts)))
+ 			return -EFAULT;
+ 
+-		if (ts.tv_sec < 0 || ts.tv_nsec < 0)
++		to = &end_time;
++		if (poll_select_set_timeout(to, ts.tv_sec, ts.tv_nsec))
+ 			return -EINVAL;
+-
+-		/* Cast to u64 to make GCC stop complaining */
+-		if ((u64)ts.tv_sec >= (u64)MAX_INT64_SECONDS)
+-			timeout = -1;	/* infinite */
+-		else {
+-			timeout = DIV_ROUND_UP(ts.tv_nsec, NSEC_PER_SEC/HZ);
+-			timeout += ts.tv_sec * HZ;
+-		}
+ 	}
+ 
+ 	if (sigmask) {
+@@ -468,32 +571,8 @@ asmlinkage long sys_pselect7(int n, fd_s
+ 		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
+ 	}
+ 
+-	ret = core_sys_select(n, inp, outp, exp, &timeout);
+-
+-	if (tsp) {
+-		struct timespec rts;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-		rts.tv_nsec = jiffies_to_usecs(do_div((*(u64*)&timeout), HZ)) *
+-						1000;
+-		rts.tv_sec = timeout;
+-		if (timespec_compare(&rts, &ts) >= 0)
+-			rts = ts;
+-		if (copy_to_user(tsp, &rts, sizeof(rts))) {
+-sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = core_sys_select(n, inp, outp, exp, to);
++	ret = poll_select_copy_remaining(&end_time, tsp, 0, ret);
+ 
+ 	if (ret == -ERESTARTNOHAND) {
+ 		/*
+@@ -579,18 +658,24 @@ static inline unsigned int do_pollfd(str
+ }
+ 
+ static int do_poll(unsigned int nfds,  struct poll_list *list,
+-		   struct poll_wqueues *wait, s64 *timeout)
++		   struct poll_wqueues *wait, struct timespec *end_time)
+ {
+-	int count = 0;
+ 	poll_table* pt = &wait->pt;
++	ktime_t expire, *to = NULL;
++	int timed_out = 0, count = 0;
++	unsigned long slack = 0;
+ 
+ 	/* Optimise the no-wait case */
+-	if (!(*timeout))
++	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
+ 		pt = NULL;
+- 
++		timed_out = 1;
++	}
++
++	if (end_time && !timed_out)
++		slack = select_estimate_accuracy(end_time);
++
+ 	for (;;) {
+ 		struct poll_list *walk;
+-		long __timeout;
+ 
+ 		set_current_state(TASK_INTERRUPTIBLE);
+ 		for (walk = list; walk != NULL; walk = walk->next) {
+@@ -617,30 +702,26 @@ static int do_poll(unsigned int nfds,  s
+ 		 * a poll_table to them on the next loop iteration.
+ 		 */
+ 		pt = NULL;
+-		if (count || !*timeout || signal_pending(current))
+-			break;
+-		count = wait->error;
+-		if (count)
++		if (!count) {
++			count = wait->error;
++			if (signal_pending(current))
++				count = -EINTR;
++		}
++		if (count || timed_out)
+ 			break;
+ 
+-		if (*timeout < 0) {
+-			/* Wait indefinitely */
+-			__timeout = MAX_SCHEDULE_TIMEOUT;
+-		} else if (unlikely(*timeout >= (s64)MAX_SCHEDULE_TIMEOUT-1)) {
+-			/*
+-			 * Wait for longer than MAX_SCHEDULE_TIMEOUT. Do it in
+-			 * a loop
+-			 */
+-			__timeout = MAX_SCHEDULE_TIMEOUT - 1;
+-			*timeout -= __timeout;
+-		} else {
+-			__timeout = *timeout;
+-			*timeout = 0;
+-		}
+-
+-		__timeout = schedule_timeout(__timeout);
+-		if (*timeout >= 0)
+-			*timeout += __timeout;
++		/*
++		 * If this is the first loop and we have a timeout
++		 * given, then we convert to ktime_t and set the to
++		 * pointer to the expiry value.
++		 */
++		if (end_time && !to) {
++			expire = timespec_to_ktime(*end_time);
++			to = &expire;
++		}
++
++		if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
++			timed_out = 1;
+ 	}
+ 	__set_current_state(TASK_RUNNING);
+ 	return count;
+@@ -649,111 +730,125 @@ static int do_poll(unsigned int nfds,  s
+ #define N_STACK_PPS ((sizeof(stack_pps) - sizeof(struct poll_list))  / \
+ 			sizeof(struct pollfd))
+ 
+-int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds, s64 *timeout)
++int do_sys_poll(struct pollfd __user *ufds, unsigned int nfds,
++		struct timespec *end_time)
+ {
+ 	struct poll_wqueues table;
+- 	int fdcount, err;
+- 	unsigned int i;
+-	struct poll_list *head;
+- 	struct poll_list *walk;
++ 	int err = -EFAULT, fdcount, len, size;
+ 	/* Allocate small arguments on the stack to save memory and be
+ 	   faster - use long to make sure the buffer is aligned properly
+ 	   on 64 bit archs to avoid unaligned access */
+ 	long stack_pps[POLL_STACK_ALLOC/sizeof(long)];
+-	struct poll_list *stack_pp = NULL;
++	struct poll_list *const head = (struct poll_list *)stack_pps;
++ 	struct poll_list *walk = head;
++ 	unsigned long todo = nfds;
+ 
+-	/* Do a sanity check on nfds ... */
+ 	if (nfds > current->signal->rlim[RLIMIT_NOFILE].rlim_cur)
+ 		return -EINVAL;
+ 
+-	poll_initwait(&table);
++	len = min_t(unsigned int, nfds, N_STACK_PPS);
++	for (;;) {
++		walk->next = NULL;
++		walk->len = len;
++		if (!len)
++			break;
+ 
+-	head = NULL;
+-	walk = NULL;
+-	i = nfds;
+-	err = -ENOMEM;
+-	while(i!=0) {
+-		struct poll_list *pp;
+-		int num, size;
+-		if (stack_pp == NULL)
+-			num = N_STACK_PPS;
+-		else
+-			num = POLLFD_PER_PAGE;
+-		if (num > i)
+-			num = i;
+-		size = sizeof(struct poll_list) + sizeof(struct pollfd)*num;
+-		if (!stack_pp)
+-			stack_pp = pp = (struct poll_list *)stack_pps;
+-		else {
+-			pp = kmalloc(size, GFP_KERNEL);
+-			if (!pp)
+-				goto out_fds;
+-		}
+-		pp->next=NULL;
+-		pp->len = num;
+-		if (head == NULL)
+-			head = pp;
+-		else
+-			walk->next = pp;
+-
+-		walk = pp;
+-		if (copy_from_user(pp->entries, ufds + nfds-i, 
+-				sizeof(struct pollfd)*num)) {
+-			err = -EFAULT;
++		if (copy_from_user(walk->entries, ufds + nfds-todo,
++					sizeof(struct pollfd) * walk->len))
++			goto out_fds;
++
++		todo -= walk->len;
++		if (!todo)
++			break;
++
++		len = min(todo, POLLFD_PER_PAGE);
++		size = sizeof(struct poll_list) + sizeof(struct pollfd) * len;
++		walk = walk->next = kmalloc(size, GFP_KERNEL);
++		if (!walk) {
++			err = -ENOMEM;
+ 			goto out_fds;
+ 		}
+-		i -= pp->len;
+ 	}
+ 
+-	fdcount = do_poll(nfds, head, &table, timeout);
++	poll_initwait(&table);
++	fdcount = do_poll(nfds, head, &table, end_time);
++	poll_freewait(&table);
+ 
+-	/* OK, now copy the revents fields back to user space. */
+-	walk = head;
+-	err = -EFAULT;
+-	while(walk != NULL) {
++	for (walk = head; walk; walk = walk->next) {
+ 		struct pollfd *fds = walk->entries;
+ 		int j;
+ 
+-		for (j=0; j < walk->len; j++, ufds++) {
+-			if(__put_user(fds[j].revents, &ufds->revents))
++		for (j = 0; j < walk->len; j++, ufds++)
++			if (__put_user(fds[j].revents, &ufds->revents))
+ 				goto out_fds;
+-		}
+-		walk = walk->next;
+   	}
++
+ 	err = fdcount;
+-	if (!fdcount && signal_pending(current))
+-		err = -EINTR;
+ out_fds:
+-	walk = head;
+-	while(walk!=NULL) {
+-		struct poll_list *pp = walk->next;
+-		if (walk != stack_pp)
+-			kfree(walk);
+-		walk = pp;
++	walk = head->next;
++	while (walk) {
++		struct poll_list *pos = walk;
++		walk = walk->next;
++		kfree(pos);
+ 	}
+-	poll_freewait(&table);
++
+ 	return err;
+ }
+ 
++static long do_restart_poll(struct restart_block *restart_block)
++{
++	struct pollfd __user *ufds = restart_block->poll.ufds;
++	int nfds = restart_block->poll.nfds;
++	struct timespec *to = NULL, end_time;
++	int ret;
++
++	if (restart_block->poll.has_timeout) {
++		end_time.tv_sec = restart_block->poll.tv_sec;
++		end_time.tv_nsec = restart_block->poll.tv_nsec;
++		to = &end_time;
++	}
++
++	ret = do_sys_poll(ufds, nfds, to);
++
++	if (ret == -EINTR) {
++		restart_block->fn = do_restart_poll;
++		ret = -ERESTART_RESTARTBLOCK;
++	}
++	return ret;
++}
++
+ asmlinkage long sys_poll(struct pollfd __user *ufds, unsigned int nfds,
+ 			long timeout_msecs)
+ {
+-	s64 timeout_jiffies;
++	struct timespec end_time, *to = NULL;
++	int ret;
+ 
+-	if (timeout_msecs > 0) {
+-#if HZ > 1000
+-		/* We can only overflow if HZ > 1000 */
+-		if (timeout_msecs / 1000 > (s64)0x7fffffffffffffffULL / (s64)HZ)
+-			timeout_jiffies = -1;
+-		else
+-#endif
+-			timeout_jiffies = msecs_to_jiffies(timeout_msecs);
+-	} else {
+-		/* Infinite (< 0) or no (0) timeout */
+-		timeout_jiffies = timeout_msecs;
++	if (timeout_msecs >= 0) {
++		to = &end_time;
++		poll_select_set_timeout(to, timeout_msecs / MSEC_PER_SEC,
++			NSEC_PER_MSEC * (timeout_msecs % MSEC_PER_SEC));
+ 	}
+ 
+-	return do_sys_poll(ufds, nfds, &timeout_jiffies);
++	ret = do_sys_poll(ufds, nfds, to);
++
++	if (ret == -EINTR) {
++		struct restart_block *restart_block;
++
++		restart_block = &current_thread_info()->restart_block;
++		restart_block->fn = do_restart_poll;
++		restart_block->poll.ufds = ufds;
++		restart_block->poll.nfds = nfds;
++
++		if (timeout_msecs >= 0) {
++			restart_block->poll.tv_sec = end_time.tv_sec;
++			restart_block->poll.tv_nsec = end_time.tv_nsec;
++			restart_block->poll.has_timeout = 1;
++		} else
++			restart_block->poll.has_timeout = 0;
++
++		ret = -ERESTART_RESTARTBLOCK;
++	}
++	return ret;
+ }
+ 
+ #ifdef TIF_RESTORE_SIGMASK
+@@ -762,21 +857,16 @@ asmlinkage long sys_ppoll(struct pollfd
+ 	size_t sigsetsize)
+ {
+ 	sigset_t ksigmask, sigsaved;
+-	struct timespec ts;
+-	s64 timeout = -1;
++	struct timespec ts, end_time, *to = NULL;
+ 	int ret;
+ 
+ 	if (tsp) {
+ 		if (copy_from_user(&ts, tsp, sizeof(ts)))
+ 			return -EFAULT;
+ 
+-		/* Cast to u64 to make GCC stop complaining */
+-		if ((u64)ts.tv_sec >= (u64)MAX_INT64_SECONDS)
+-			timeout = -1;	/* infinite */
+-		else {
+-			timeout = DIV_ROUND_UP(ts.tv_nsec, NSEC_PER_SEC/HZ);
+-			timeout += ts.tv_sec * HZ;
+-		}
++		to = &end_time;
++		if (poll_select_set_timeout(to, ts.tv_sec, ts.tv_nsec))
++			return -EINVAL;
+ 	}
+ 
+ 	if (sigmask) {
+@@ -790,7 +880,7 @@ asmlinkage long sys_ppoll(struct pollfd
+ 		sigprocmask(SIG_SETMASK, &ksigmask, &sigsaved);
+ 	}
+ 
+-	ret = do_sys_poll(ufds, nfds, &timeout);
++	ret = do_sys_poll(ufds, nfds, to);
+ 
+ 	/* We can restart this syscall, usually */
+ 	if (ret == -EINTR) {
+@@ -808,31 +898,7 @@ asmlinkage long sys_ppoll(struct pollfd
+ 	} else if (sigmask)
+ 		sigprocmask(SIG_SETMASK, &sigsaved, NULL);
+ 
+-	if (tsp && timeout >= 0) {
+-		struct timespec rts;
+-
+-		if (current->personality & STICKY_TIMEOUTS)
+-			goto sticky;
+-		/* Yes, we know it's actually an s64, but it's also positive. */
+-		rts.tv_nsec = jiffies_to_usecs(do_div((*(u64*)&timeout), HZ)) *
+-						1000;
+-		rts.tv_sec = timeout;
+-		if (timespec_compare(&rts, &ts) >= 0)
+-			rts = ts;
+-		if (copy_to_user(tsp, &rts, sizeof(rts))) {
+-		sticky:
+-			/*
+-			 * If an application puts its timeval in read-only
+-			 * memory, we don't want the Linux-specific update to
+-			 * the timeval to cause a fault after the select has
+-			 * completed successfully. However, because we're not
+-			 * updating the timeval, we can't restart the system
+-			 * call.
+-			 */
+-			if (ret == -ERESTARTNOHAND && timeout >= 0)
+-				ret = -EINTR;
+-		}
+-	}
++	ret = poll_select_copy_remaining(&end_time, tsp, 0, ret);
+ 
+ 	return ret;
+ }
+diff --git a/include/linux/poll.h b/include/linux/poll.h
+--- a/include/linux/poll.h
++++ b/include/linux/poll.h
+@@ -62,6 +62,8 @@ struct poll_wqueues {
+ 
+ extern void poll_initwait(struct poll_wqueues *pwq);
+ extern void poll_freewait(struct poll_wqueues *pwq);
++extern long select_estimate_accuracy(struct timespec *tv);
++
+ 
+ /*
+  * Scaleable version of the fd_set.
+@@ -112,9 +114,11 @@ void zero_fd_set(unsigned long nr, unsig
+ 
+ #define MAX_INT64_SECONDS (((s64)(~((u64)0)>>1)/HZ)-1)
+ 
+-extern int do_select(int n, fd_set_bits *fds, s64 *timeout);
++extern int do_select(int n, fd_set_bits *fds, struct timespec *end_time);
+ extern int do_sys_poll(struct pollfd __user * ufds, unsigned int nfds,
+-		       s64 *timeout);
++		       struct timespec *end_time);
++
++extern int poll_select_set_timeout(struct timespec *to, long sec, long nsec);
+ 
+ #endif /* KERNEL */
+ 
+diff --git a/include/linux/thread_info.h b/include/linux/thread_info.h
+--- a/include/linux/thread_info.h
++++ b/include/linux/thread_info.h
+@@ -37,6 +37,14 @@ struct restart_block {
+ #endif
+ 			u64 expires;
+ 		} nanosleep;
++		/* For poll */
++		struct {
++			struct pollfd __user *ufds;
++			int nfds;
++			int has_timeout;
++			unsigned long tv_sec;
++			unsigned long tv_nsec;
++		} poll;
+ 	};
+ };
+ 
+diff --git a/include/linux/time.h b/include/linux/time.h
+--- a/include/linux/time.h
++++ b/include/linux/time.h
+@@ -41,6 +41,8 @@ struct timezone {
+ #define NSEC_PER_SEC	1000000000L
+ #define FSEC_PER_SEC	1000000000000000L
+ 
++#define TIME_T_MAX	(time_t)((1UL << ((sizeof(time_t) << 3) - 1)) - 1)
++
+ static inline int timespec_equal(struct timespec *a, struct timespec *b)
+ {
+ 	return (a->tv_sec == b->tv_sec) && (a->tv_nsec == b->tv_nsec);
+@@ -74,6 +76,8 @@ extern unsigned long mktime(const unsign
+ 			    const unsigned int min, const unsigned int sec);
+ 
+ extern void set_normalized_timespec(struct timespec *ts, time_t sec, long nsec);
++extern struct timespec timespec_add_safe(const struct timespec lhs,
++					 const struct timespec rhs);
+ 
+ /*
+  * sub = lhs - rhs, in normalized form
+diff --git a/kernel/posix-cpu-timers.c b/kernel/posix-cpu-timers.c
+--- a/kernel/posix-cpu-timers.c
++++ b/kernel/posix-cpu-timers.c
+@@ -1483,7 +1483,7 @@ int posix_cpu_nsleep(const clockid_t whi
+ 		     struct timespec *rqtp, struct timespec __user *rmtp)
+ {
+ 	struct restart_block *restart_block =
+-	    &current_thread_info()->restart_block;
++		&current_thread_info()->restart_block;
+ 	struct itimerspec it;
+ 	int error;
+ 
+@@ -1499,50 +1499,42 @@ int posix_cpu_nsleep(const clockid_t whi
+ 
+ 	if (error == -ERESTART_RESTARTBLOCK) {
+ 
+-	       	if (flags & TIMER_ABSTIME)
++		if (flags & TIMER_ABSTIME)
+ 			return -ERESTARTNOHAND;
+ 		/*
+-	 	 * Report back to the user the time still remaining.
+-	 	 */
+-		if (rmtp != NULL && copy_to_user(rmtp, &it.it_value, sizeof *rmtp))
++		 * Report back to the user the time still remaining.
++		 */
++		if (rmtp && copy_to_user(rmtp, &it.it_value, sizeof *rmtp))
+ 			return -EFAULT;
+ 
+ 		restart_block->fn = posix_cpu_nsleep_restart;
+-		restart_block->arg0 = which_clock;
+-		restart_block->arg1 = (unsigned long) rmtp;
+-		restart_block->arg2 = rqtp->tv_sec;
+-		restart_block->arg3 = rqtp->tv_nsec;
++		restart_block->nanosleep.index = which_clock;
++		restart_block->nanosleep.rmtp = rmtp;
++		restart_block->nanosleep.expires = timespec_to_ns(rqtp);
+ 	}
+ 	return error;
+ }
+ 
+ long posix_cpu_nsleep_restart(struct restart_block *restart_block)
+ {
+-	clockid_t which_clock = restart_block->arg0;
+-	struct timespec __user *rmtp;
++	clockid_t which_clock = restart_block->nanosleep.index;
+ 	struct timespec t;
+ 	struct itimerspec it;
+ 	int error;
+ 
+-	rmtp = (struct timespec __user *) restart_block->arg1;
+-	t.tv_sec = restart_block->arg2;
+-	t.tv_nsec = restart_block->arg3;
++	t = ns_to_timespec(restart_block->nanosleep.expires);
+ 
+-	restart_block->fn = do_no_restart_syscall;
+ 	error = do_cpu_nanosleep(which_clock, TIMER_ABSTIME, &t, &it);
+ 
+ 	if (error == -ERESTART_RESTARTBLOCK) {
++		struct timespec __user *rmtp = restart_block->nanosleep.rmtp;
+ 		/*
+-	 	 * Report back to the user the time still remaining.
+-	 	 */
+-		if (rmtp != NULL && copy_to_user(rmtp, &it.it_value, sizeof *rmtp))
++		 * Report back to the user the time still remaining.
++		 */
++		if (rmtp && copy_to_user(rmtp, &it.it_value, sizeof *rmtp))
+ 			return -EFAULT;
+ 
+-		restart_block->fn = posix_cpu_nsleep_restart;
+-		restart_block->arg0 = which_clock;
+-		restart_block->arg1 = (unsigned long) rmtp;
+-		restart_block->arg2 = t.tv_sec;
+-		restart_block->arg3 = t.tv_nsec;
++		restart_block->nanosleep.expires = timespec_to_ns(&t);
+ 	}
+ 	return error;
+ 
+diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
+--- a/kernel/posix-timers.c
++++ b/kernel/posix-timers.c
+@@ -1020,7 +1020,7 @@ static int common_nsleep_restart(struct
+ long
+ clock_nanosleep_restart(struct restart_block *restart_block)
+ {
+-	clockid_t which_clock = restart_block->arg0;
++	clockid_t which_clock = restart_block->nanosleep.index;
+ 
+ 	return CLOCK_DISPATCH(which_clock, nsleep_restart,
+ 			      (restart_block));
+diff --git a/kernel/time.c b/kernel/time.c
+--- a/kernel/time.c
++++ b/kernel/time.c
+@@ -757,3 +757,21 @@ EXPORT_SYMBOL(get_jiffies_64);
+ #endif
+ 
+ EXPORT_SYMBOL(jiffies);
++
++/*
++ * Add two timespec values and do a safety check for overflow.
++ * It's assumed that both values are valid (>= 0)
++ */
++struct timespec timespec_add_safe(const struct timespec lhs,
++				  const struct timespec rhs)
++{
++	struct timespec res;
++
++	set_normalized_timespec(&res, lhs.tv_sec + rhs.tv_sec,
++				lhs.tv_nsec + rhs.tv_nsec);
++
++	if (res.tv_sec < lhs.tv_sec || res.tv_sec < rhs.tv_sec)
++		res.tv_sec = TIME_T_MAX;
++
++	return res;
++}
+-- 
