@@ -22,7 +22,6 @@ b2722b1c3a893ec6021508da15b32282ec79f4da ip_fragment: also adjust skb->truesize 
  7 files changed, 19 insertions(+), 26 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index e732387..9032390 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -377,13 +377,6 @@ extern void	      skb_over_panic(struct sk_buff *skb, int len,
@@ -40,7 +39,6 @@ index e732387..9032390 100644
  extern int skb_append_datato_frags(struct sock *sk, struct sk_buff *skb,
  			int getfrag(void *from, char *to, int offset,
 diff --git a/include/net/sock.h b/include/net/sock.h
-index 8a71ab3..01d32ce 100644
 --- a/include/net/sock.h
 +++ b/include/net/sock.h
 @@ -462,7 +462,6 @@ static inline void sk_stream_set_owner_r(struct sk_buff *skb, struct sock *sk)
@@ -52,7 +50,6 @@ index 8a71ab3..01d32ce 100644
  	sk->sk_wmem_queued   -= skb->truesize;
  	sk->sk_forward_alloc += skb->truesize;
 diff --git a/kernel/audit.c b/kernel/audit.c
-index d13276d..5b83ce4 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
 @@ -1039,13 +1039,17 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
@@ -77,7 +74,6 @@ index d13276d..5b83ce4 100644
  
  /*
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index b44df1e..569f7f6 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -149,14 +149,6 @@ void skb_under_panic(struct sk_buff *skb, int sz, void *here)
@@ -96,7 +92,6 @@ index b44df1e..569f7f6 100644
   *	'private' fields and also do memory statistics to find all the
   *	[BEEP] leaks.
 diff --git a/net/core/stream.c b/net/core/stream.c
-index 755bacb..553fcd0 100644
 --- a/net/core/stream.c
 +++ b/net/core/stream.c
 @@ -176,7 +176,6 @@ void sk_stream_rfree(struct sk_buff *skb)
@@ -108,7 +103,6 @@ index 755bacb..553fcd0 100644
  	sk->sk_forward_alloc += skb->truesize;
  }
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 463e976..0329ff2 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
 @@ -459,6 +459,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
@@ -165,7 +159,6 @@ index 463e976..0329ff2 100644
  		size -= len;
  	}
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index c3a1002..bfbe852 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -612,6 +612,7 @@ static int ip6_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))

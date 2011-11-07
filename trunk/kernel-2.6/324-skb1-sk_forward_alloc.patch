@@ -22,7 +22,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  5 files changed, 18 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 6aebfce..bcdd660 100644
 --- a/include/linux/skbuff.h
 +++ b/include/linux/skbuff.h
 @@ -1757,6 +1757,8 @@ extern int	       skb_copy_datagram_const_iovec(const struct sk_buff *from,
@@ -35,7 +34,6 @@ index 6aebfce..bcdd660 100644
  					 unsigned int flags);
  extern __wsum	       skb_checksum(const struct sk_buff *skb, int offset,
 diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 1c6cf3a..4ade301 100644
 --- a/net/core/datagram.c
 +++ b/net/core/datagram.c
 @@ -224,6 +224,15 @@ void skb_free_datagram(struct sock *sk, struct sk_buff *skb)
@@ -61,7 +59,6 @@ index 1c6cf3a..4ade301 100644
 -EXPORT_SYMBOL(skb_free_datagram);
  EXPORT_SYMBOL(skb_recv_datagram);
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d0d436d..0fa9f70 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -999,7 +999,7 @@ try_again:
@@ -74,7 +71,6 @@ index d0d436d..0fa9f70 100644
  	return err;
  
 diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 3a60f12..cf538ed 100644
 --- a/net/ipv6/udp.c
 +++ b/net/ipv6/udp.c
 @@ -288,7 +288,7 @@ try_again:
@@ -87,7 +83,6 @@ index 3a60f12..cf538ed 100644
  	return err;
  
 diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index ccc5e83..1c246a4 100644
 --- a/net/sunrpc/svcsock.c
 +++ b/net/sunrpc/svcsock.c
 @@ -111,7 +111,7 @@ static void svc_release_skb(struct svc_rqst *rqstp)

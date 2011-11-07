@@ -13,7 +13,6 @@ Subject: [PATCH] [NET]: rtnl_unlock cleanups, fix netdev_run_todo dead-lock
  2 files changed, 9 insertions(+), 28 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index c10c25e..b7db6b0 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -3045,14 +3045,11 @@ static int dev_new_index(void)
@@ -82,7 +81,6 @@ index c10c25e..b7db6b0 100644
  
  static struct net_device_stats *internal_stats(struct net_device *dev)
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index f7c4731..d9cbfc9 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
 @@ -73,9 +73,7 @@ void __rtnl_unlock(void)

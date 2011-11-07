@@ -17,7 +17,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
 ---
 
 diff --git a/mm/slab.c b/mm/slab.c
-index a6a2fcf..a453383 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -929,7 +929,7 @@ static void next_reap_node(void)

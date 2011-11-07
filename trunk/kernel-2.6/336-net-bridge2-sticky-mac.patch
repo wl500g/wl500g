@@ -35,7 +35,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  3 files changed, 8 insertions(+), 2 deletions(-)
 
 diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index a6ffc6c..d9449df 100644
 --- a/net/bridge/br_device.c
 +++ b/net/bridge/br_device.c
 @@ -87,6 +87,7 @@ static int br_set_mac_address(struct net_device *dev, void *p)
@@ -57,7 +56,6 @@ index a6ffc6c..d9449df 100644
  
  	dev->do_ioctl = br_dev_ioctl;
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index 83ff586..8593c9f 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
 @@ -92,6 +92,8 @@ struct net_bridge
@@ -70,7 +68,6 @@ index 83ff586..8593c9f 100644
  	/* STP */
  	bridge_id			designated_root;
 diff --git a/net/bridge/br_stp_if.c b/net/bridge/br_stp_if.c
-index 1a4e5c3..9a52ac5 100644
 --- a/net/bridge/br_stp_if.c
 +++ b/net/bridge/br_stp_if.c
 @@ -214,6 +214,10 @@ void br_stp_recalculate_bridge_id(struct net_bridge *br)

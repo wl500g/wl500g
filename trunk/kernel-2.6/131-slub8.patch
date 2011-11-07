@@ -13,7 +13,6 @@ Signed-off-by: Christoph Lameter <clameter@sgi.com>
  1 files changed, 0 insertions(+), 2 deletions(-)
 
 diff --git a/mm/slub.c b/mm/slub.c
-index 10d5469..db8026b 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -1486,7 +1486,6 @@ load_freelist:

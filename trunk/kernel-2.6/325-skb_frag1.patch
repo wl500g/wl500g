@@ -25,7 +25,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index ca1ccdf..798e2c6 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -2001,10 +2001,10 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,

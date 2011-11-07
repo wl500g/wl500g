@@ -42,7 +42,6 @@ diff --git a/fs/nfsd/nfssvc.c b/fs/nfsd/nfssvc.c
  	case NFSD_SET:
  		nfsd_versions[vers] = nfsd_version[vers];
 diff --git a/net/sunrpc/svc.c b/net/sunrpc/svc.c
-index 55ea6df..a4a6bf7 100644
 --- a/net/sunrpc/svc.c
 +++ b/net/sunrpc/svc.c
 @@ -777,6 +777,30 @@ svc_register(struct svc_serv *serv, int proto, unsigned short port)

@@ -36,7 +36,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 39 insertions(+), 64 deletions(-)
 
 diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
-index 244a624..1466644 100644
 --- a/net/ipv4/ipmr.c
 +++ b/net/ipv4/ipmr.c
 @@ -1482,29 +1482,13 @@ dont_forward:

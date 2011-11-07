@@ -26,7 +26,6 @@ If needed, corresponding changes to the drivers must be backported as well.
  5 files changed, 218 insertions(+), 123 deletions(-)
 
 diff --git a/block/elevator.c b/block/elevator.c
-index ce866eb..2ba489e 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -754,15 +754,8 @@ struct request *elv_next_request(request_queue_t *q)
@@ -47,7 +46,6 @@ index ce866eb..2ba489e 100644
  			printk(KERN_ERR "%s: bad return=%d\n", __FUNCTION__,
  								ret);
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
-index 907098c..739bd1e 100644
 --- a/block/ll_rw_blk.c
 +++ b/block/ll_rw_blk.c
 @@ -359,7 +359,6 @@ unsigned blk_ordered_req_seq(struct request *rq)
@@ -391,7 +389,6 @@ index 907098c..739bd1e 100644
  void blk_rq_bio_prep(request_queue_t *q, struct request *rq, struct bio *bio)
  {
 diff --git a/drivers/scsi/ide-scsi.c b/drivers/scsi/ide-scsi.c
-index bb90df8..d3c600b 100644
 --- a/drivers/scsi/ide-scsi.c
 +++ b/drivers/scsi/ide-scsi.c
 @@ -1037,8 +1037,8 @@ static int idescsi_eh_reset (struct scsi_cmnd *cmd)
@@ -417,7 +414,6 @@ index bb90df8..d3c600b 100644
  
  	HWGROUP(drive)->rq = NULL;
 diff --git a/drivers/scsi/scsi_lib.c b/drivers/scsi/scsi_lib.c
-index b1bca9f..9180c33 100644
 --- a/drivers/scsi/scsi_lib.c
 +++ b/drivers/scsi/scsi_lib.c
 @@ -647,7 +647,7 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
@@ -530,7 +526,6 @@ index b1bca9f..9180c33 100644
  EXPORT_SYMBOL(scsi_io_completion);
  
 diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
-index 6cd8a48..83133f0 100644
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
 @@ -543,6 +543,8 @@ enum {

@@ -14,7 +14,6 @@ USB: fix testing the wrong variable in fs_create_by_name() (fa7fe7af146a7b613e36
  3 files changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
-index b2fc2b1..33f0a1e 100644
 --- a/drivers/usb/core/generic.c
 +++ b/drivers/usb/core/generic.c
 @@ -120,7 +120,7 @@ static int choose_configuration(struct usb_device *udev)
@@ -27,7 +26,6 @@ index b2fc2b1..33f0a1e 100644
  			best = c;
  			break;
 diff --git a/drivers/usb/core/inode.c b/drivers/usb/core/inode.c
-index cd4f111..fda34d2 100644
 --- a/drivers/usb/core/inode.c
 +++ b/drivers/usb/core/inode.c
 @@ -480,13 +480,13 @@ static int fs_create_by_name (const char *name, mode_t mode,
@@ -47,7 +45,6 @@ index cd4f111..fda34d2 100644
  
  	return error;
 diff --git a/drivers/usb/host/ohci-hub.c b/drivers/usb/host/ohci-hub.c
-index e3db913..d1fe223 100644
 --- a/drivers/usb/host/ohci-hub.c
 +++ b/drivers/usb/host/ohci-hub.c
 @@ -605,7 +605,7 @@ static int ohci_hub_control (

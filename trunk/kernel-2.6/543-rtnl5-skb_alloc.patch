@@ -14,7 +14,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 50f6bc1..e0e77e2 100644
 --- a/net/ipv4/igmp.c
 +++ b/net/ipv4/igmp.c
 @@ -300,6 +300,8 @@ igmp_scount(struct ip_mc_list *pmc, int type, int gdeleted, int sdeleted)

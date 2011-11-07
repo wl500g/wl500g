@@ -18,7 +18,6 @@ ramdisk: Updates from upstream
  delete mode 100644 drivers/block/rd.c
 
 diff --git a/MAINTAINERS b/MAINTAINERS
-index a7e6ef3..29f4f4d 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
 @@ -3254,6 +3254,11 @@ W:	http://rt2x00.serialmonkey.com/
@@ -34,7 +33,6 @@ index a7e6ef3..29f4f4d 100644
  P:	Matt Mackall
  M:	mpm@selenic.com
 diff --git a/drivers/block/Kconfig b/drivers/block/Kconfig
-index 64e5148..8be67cd 100644
 --- a/drivers/block/Kconfig
 +++ b/drivers/block/Kconfig
 @@ -322,7 +322,7 @@ config BLK_DEV_UB
@@ -64,7 +62,6 @@ index 64e5148..8be67cd 100644
  	tristate "Packet writing on CD/DVD media"
  	depends on !UML
 diff --git a/drivers/block/Makefile b/drivers/block/Makefile
-index 7691505..01c9724 100644
 --- a/drivers/block/Makefile
 +++ b/drivers/block/Makefile
 @@ -11,7 +11,7 @@ obj-$(CONFIG_AMIGA_FLOPPY)	+= amiflop.o
@@ -1180,7 +1177,6 @@ deleted file mode 100644
 -
 -MODULE_LICENSE("GPL");
 diff --git a/fs/buffer.c b/fs/buffer.c
-index 826baf4..11b002e 100644
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
 @@ -1436,6 +1436,7 @@ void invalidate_bh_lrus(void)

@@ -18,7 +18,6 @@ Subject: [PATCH] hfsplus: backports from 2.6.32
  11 files changed, 277 insertions(+), 83 deletions(-)
 
 diff --git a/fs/hfsplus/bitmap.c b/fs/hfsplus/bitmap.c
-index d128a25..ea30afc 100644
 --- a/fs/hfsplus/bitmap.c
 +++ b/fs/hfsplus/bitmap.c
 @@ -32,6 +32,10 @@ int hfsplus_block_allocate(struct super_block *sb, u32 size, u32 offset, u32 *ma
@@ -55,7 +54,6 @@ index d128a25..ea30afc 100644
  		curr = pptr;
  		end = pptr + PAGE_CACHE_BITS / 32;
 diff --git a/fs/hfsplus/btree.c b/fs/hfsplus/btree.c
-index 90ebab7..050d29c 100644
 --- a/fs/hfsplus/btree.c
 +++ b/fs/hfsplus/btree.c
 @@ -62,8 +62,10 @@ struct hfs_btree *hfs_btree_open(struct super_block *sb, u32 id)
@@ -71,7 +69,6 @@ index 90ebab7..050d29c 100644
  		printk(KERN_ERR "hfs: unknown B*Tree requested\n");
  		goto fail_page;
 diff --git a/fs/hfsplus/catalog.c b/fs/hfsplus/catalog.c
-index ba117c4..f6874ac 100644
 --- a/fs/hfsplus/catalog.c
 +++ b/fs/hfsplus/catalog.c
 @@ -168,6 +168,11 @@ int hfsplus_find_cat(struct super_block *sb, u32 cnid,
@@ -87,7 +84,6 @@ index ba117c4..f6874ac 100644
  				 &tmp.thread.nodeName);
  	return hfs_brec_find(fd);
 diff --git a/fs/hfsplus/dir.c b/fs/hfsplus/dir.c
-index 80b5682..078684f 100644
 --- a/fs/hfsplus/dir.c
 +++ b/fs/hfsplus/dir.c
 @@ -36,6 +36,8 @@ static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
@@ -132,7 +128,6 @@ index 80b5682..078684f 100644
  	mark_inode_dirty(inode);
  
 diff --git a/fs/hfsplus/extents.c b/fs/hfsplus/extents.c
-index 1a74800..4eb2c76 100644
 --- a/fs/hfsplus/extents.c
 +++ b/fs/hfsplus/extents.c
 @@ -199,16 +199,19 @@ int hfsplus_get_block(struct inode *inode, sector_t iblock,
@@ -195,7 +190,6 @@ index 1a74800..4eb2c76 100644
  	HFSPLUS_I(inode).alloc_blocks = blk_cnt;
  out:
 diff --git a/fs/hfsplus/hfsplus_fs.h b/fs/hfsplus/hfsplus_fs.h
-index 3915635..01e4200 100644
 --- a/fs/hfsplus/hfsplus_fs.h
 +++ b/fs/hfsplus/hfsplus_fs.h
 @@ -11,6 +11,7 @@
@@ -248,7 +242,6 @@ index 3915635..01e4200 100644
  /* wrapper.c */
  int hfsplus_read_wrapper(struct super_block *);
 diff --git a/fs/hfsplus/inode.c b/fs/hfsplus/inode.c
-index 409ce54..731f9cc 100644
 --- a/fs/hfsplus/inode.c
 +++ b/fs/hfsplus/inode.c
 @@ -61,6 +61,8 @@ static int hfsplus_releasepage(struct page *page, gfp_t mask)
@@ -321,7 +314,6 @@ index 409ce54..731f9cc 100644
  	HFSPLUS_I(inode).flags = 0;
  	memset(HFSPLUS_I(inode).first_extents, 0, sizeof(hfsplus_extent_rec));
 diff --git a/fs/hfsplus/options.c b/fs/hfsplus/options.c
-index dc64fac..9997cbf 100644
 --- a/fs/hfsplus/options.c
 +++ b/fs/hfsplus/options.c
 @@ -132,7 +132,8 @@ int hfsplus_parse_options(char *input, struct hfsplus_sb_info *sbi)
@@ -335,7 +327,6 @@ index dc64fac..9997cbf 100644
  				printk(KERN_ERR "hfs: unable to load nls mapping \"%s\"\n", p);
  				kfree(p);
 diff --git a/fs/hfsplus/super.c b/fs/hfsplus/super.c
-index 0166f9e..33954f4 100644
 --- a/fs/hfsplus/super.c
 +++ b/fs/hfsplus/super.c
 @@ -27,7 +27,7 @@ static void hfsplus_read_inode(struct inode *inode)
@@ -429,7 +420,6 @@ index 0166f9e..33954f4 100644
  	str.len = sizeof(HFSP_HIDDENDIR_NAME) - 1;
  	str.name = HFSP_HIDDENDIR_NAME;
 diff --git a/fs/hfsplus/unicode.c b/fs/hfsplus/unicode.c
-index 689c8bd..628ccf6 100644
 --- a/fs/hfsplus/unicode.c
 +++ b/fs/hfsplus/unicode.c
 @@ -239,61 +239,202 @@ out:
@@ -681,7 +671,6 @@ index 689c8bd..628ccf6 100644
 +	return 0;
 +}
 diff --git a/fs/hfsplus/wrapper.c b/fs/hfsplus/wrapper.c
-index 72cab78..766b755 100644
 --- a/fs/hfsplus/wrapper.c
 +++ b/fs/hfsplus/wrapper.c
 @@ -99,6 +99,10 @@ int hfsplus_read_wrapper(struct super_block *sb)

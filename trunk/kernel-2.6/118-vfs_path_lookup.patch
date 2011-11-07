@@ -9,7 +9,6 @@ Subject: [PATCH] fs: introduce vfs_path_lookup
  2 files changed, 34 insertions(+), 0 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 8e209ce..1e5ff02 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1172,6 +1172,37 @@ int fastcall path_lookup(const char *name, unsigned int flags,
@@ -59,7 +58,6 @@ index 8e209ce..1e5ff02 100644
  EXPORT_SYMBOL(path_walk);
  EXPORT_SYMBOL(permission);
 diff --git a/include/linux/namei.h b/include/linux/namei.h
-index b7dd249..2e21af0 100644
 --- a/include/linux/namei.h
 +++ b/include/linux/namei.h
 @@ -69,6 +69,8 @@ extern int FASTCALL(__user_walk_fd(int dfd, const char __user *, unsigned, struc

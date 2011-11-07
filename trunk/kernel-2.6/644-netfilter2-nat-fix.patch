@@ -17,7 +17,6 @@ f9dd09c7f7199685601d75882447a6598be8a3e0 netfilter: nf_nat: fix NAT issue in 2.6
  6 files changed, 79 insertions(+), 60 deletions(-)
 
 diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index af07d67..a926879 100644
 --- a/include/net/netfilter/nf_conntrack.h
 +++ b/include/net/netfilter/nf_conntrack.h
 @@ -252,11 +252,9 @@ static inline void nf_ct_refresh(struct nf_conn *ct,
@@ -36,7 +35,6 @@ index af07d67..a926879 100644
  /* Call me when a conntrack is destroyed. */
  extern void (*nf_conntrack_destroyed)(struct nf_conn *conntrack);
 diff --git a/include/net/netfilter/nf_nat_helper.h b/include/net/netfilter/nf_nat_helper.h
-index ec98ecf..20e4d8a 100644
 --- a/include/net/netfilter/nf_nat_helper.h
 +++ b/include/net/netfilter/nf_nat_helper.h
 @@ -29,4 +29,8 @@ extern int nf_nat_seq_adjust(struct sk_buff **pskb,
@@ -49,7 +47,6 @@ index ec98ecf..20e4d8a 100644
 +			     u32 seq);
  #endif
 diff --git a/net/ipv4/netfilter/nf_nat_core.c b/net/ipv4/netfilter/nf_nat_core.c
-index 27c5887..f49369c 100644
 --- a/net/ipv4/netfilter/nf_nat_core.c
 +++ b/net/ipv4/netfilter/nf_nat_core.c
 @@ -894,6 +894,9 @@ static int __init nf_nat_init(void)
@@ -71,7 +68,6 @@ index 27c5887..f49369c 100644
  	vfree(bysource);
  	nf_ct_l3proto_put(l3proto);
 diff --git a/net/ipv4/netfilter/nf_nat_helper.c b/net/ipv4/netfilter/nf_nat_helper.c
-index 15b6e5c..cebb945 100644
 --- a/net/ipv4/netfilter/nf_nat_helper.c
 +++ b/net/ipv4/netfilter/nf_nat_helper.c
 @@ -76,6 +76,28 @@ adjust_tcp_sequence(u32 seq,
@@ -159,7 +155,6 @@ index 15b6e5c..cebb945 100644
  EXPORT_SYMBOL(nf_nat_seq_adjust);
  
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index cbe5d14..09f6d52 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
 @@ -1370,6 +1370,11 @@ int set_hashsize(const char *val, struct kernel_param *kp)
@@ -185,7 +180,6 @@ index cbe5d14..09f6d52 100644
  	    - to never be deleted, not in any hashes */
  	atomic_set(&nf_conntrack_untracked.ct_general.use, 1);
 diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 61be2b1..faaabc9 100644
 --- a/net/netfilter/nf_conntrack_proto_tcp.c
 +++ b/net/netfilter/nf_conntrack_proto_tcp.c
 @@ -503,7 +503,23 @@ static void tcp_sack(const struct sk_buff *skb, unsigned int dataoff,

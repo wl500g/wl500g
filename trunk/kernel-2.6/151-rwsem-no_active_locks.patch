@@ -24,7 +24,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 3 insertions(+), 2 deletions(-)
 
 diff --git a/lib/rwsem.c b/lib/rwsem.c
-index 3e3365e..ceba8e2 100644
 --- a/lib/rwsem.c
 +++ b/lib/rwsem.c
 @@ -136,9 +136,10 @@ __rwsem_do_wake(struct rw_semaphore *sem, int downgrading)

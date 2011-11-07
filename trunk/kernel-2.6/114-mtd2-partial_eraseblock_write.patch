@@ -8,7 +8,6 @@ OpenWRT's 222-partial_eraseblock_write.patch
  2 files changed, 84 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/mtd/mtdpart.c b/drivers/mtd/mtdpart.c
-index a08712a..21608fc 100644
 --- a/drivers/mtd/mtdpart.c
 +++ b/drivers/mtd/mtdpart.c
 @@ -20,6 +20,9 @@

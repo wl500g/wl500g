@@ -25,7 +25,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 9 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ppp_generic.c b/drivers/net/ppp_generic.c
-index 9bf2a6b..965adb6 100644
 --- a/drivers/net/ppp_generic.c
 +++ b/drivers/net/ppp_generic.c
 @@ -1944,8 +1944,15 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)

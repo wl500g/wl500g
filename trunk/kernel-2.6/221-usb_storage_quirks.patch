@@ -15,7 +15,6 @@ and unusual_devs.h from 2.6.32
  4 files changed, 258 insertions(+), 48 deletions(-)
 
 diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
-index 918bb8e..8b6664d 100644
 --- a/drivers/usb/storage/scsiglue.c
 +++ b/drivers/usb/storage/scsiglue.c
 @@ -114,9 +114,15 @@ static int slave_configure(struct scsi_device *sdev)
@@ -38,7 +37,6 @@ index 918bb8e..8b6664d 100644
  	/* We can't put these settings in slave_alloc() because that gets
  	 * called before the device type is known.  Consequently these
 diff --git a/drivers/usb/storage/transport.c b/drivers/usb/storage/transport.c
-index 3853b7c..1ee7875 100644
 --- a/drivers/usb/storage/transport.c
 +++ b/drivers/usb/storage/transport.c
 @@ -932,17 +932,6 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
@@ -60,7 +58,6 @@ index 3853b7c..1ee7875 100644
  	 * Some devices don't like GetMaxLUN.  They may STALL the control
  	 * pipe, they may return a zero-length result, they may do nothing at
 diff --git a/drivers/usb/storage/unusual_devs.h b/drivers/usb/storage/unusual_devs.h
-index 1382e55..f6043a1 100644
 --- a/drivers/usb/storage/unusual_devs.h
 +++ b/drivers/usb/storage/unusual_devs.h
 @@ -1,8 +1,6 @@
@@ -565,7 +562,6 @@ index 1382e55..f6043a1 100644
  USUAL_DEV(US_SC_RBC, US_PR_CB, USB_US_TYPE_STOR),
  USUAL_DEV(US_SC_8020, US_PR_CB, USB_US_TYPE_STOR),
 diff --git a/include/linux/usb_usual.h b/include/linux/usb_usual.h
-index 1b792b9..a417b09 100644
 --- a/include/linux/usb_usual.h
 +++ b/include/linux/usb_usual.h
 @@ -48,7 +48,10 @@

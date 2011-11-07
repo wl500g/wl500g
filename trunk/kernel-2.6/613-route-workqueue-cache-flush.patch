@@ -12,7 +12,6 @@ beb659bd8c9f2ccc8195779383f71088f936bf6e
  1 files changed, 64 insertions(+), 29 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a64857b..016faf4 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -132,13 +132,14 @@ static int ip_rt_mtu_expires		= 10 * 60 * HZ;

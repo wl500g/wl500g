@@ -11,7 +11,6 @@ Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-index 7a36878..4f99bb8 100644
 --- a/net/8021q/vlan_dev.c
 +++ b/net/8021q/vlan_dev.c
 @@ -462,7 +462,8 @@ int vlan_dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)

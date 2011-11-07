@@ -16,7 +16,6 @@ Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
  3 files changed, 29 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/lockdep.h b/include/linux/lockdep.h
-index 9dc46db..f6279f6 100644
 --- a/include/linux/lockdep.h
 +++ b/include/linux/lockdep.h
 @@ -253,6 +253,13 @@ extern void lockdep_init_map(struct lockdep_map *lock, const char *name,
@@ -34,7 +33,6 @@ index 9dc46db..f6279f6 100644
   * special initialization of locks so that the validator gets the scope
   * of dependencies wrong: they are either too broad (they need a class-split)
 diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-index fe17d7d..76c1a53 100644
 --- a/include/linux/rcupdate.h
 +++ b/include/linux/rcupdate.h
 @@ -41,6 +41,7 @@
@@ -94,7 +92,6 @@ index fe17d7d..76c1a53 100644
  		local_bh_enable(); \
  	} while(0)
 diff --git a/kernel/rcupdate.c b/kernel/rcupdate.c
-index 2c2dd84..130214f 100644
 --- a/kernel/rcupdate.c
 +++ b/kernel/rcupdate.c
 @@ -49,6 +49,14 @@

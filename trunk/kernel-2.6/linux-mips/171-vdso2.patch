@@ -31,7 +31,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  5 files changed, 43 insertions(+), 135 deletions(-)
 
 diff --git a/include/asm-mips/abi.h b/include/asm-mips/abi.h
-index 1dd74fb..9252d9b 100644
 --- a/include/asm-mips/abi.h
 +++ b/include/asm-mips/abi.h
 @@ -13,12 +13,14 @@
@@ -52,7 +51,6 @@ index 1dd74fb..9252d9b 100644
  };
  
 diff --git a/arch/mips/kernel/signal-common.h b/arch/mips/kernel/signal-common.h
-index 6c8e8c4..10263b4 100644
 --- a/arch/mips/kernel/signal-common.h
 +++ b/arch/mips/kernel/signal-common.h
 @@ -26,11 +26,6 @@
@@ -68,7 +66,6 @@ index 6c8e8c4..10263b4 100644
  extern int fpcsr_pending(unsigned int __user *fpcsr);
  
 diff --git a/arch/mips/kernel/signal.c b/arch/mips/kernel/signal.c
-index d0c68b5..2099d5a 100644
 --- a/arch/mips/kernel/signal.c
 +++ b/arch/mips/kernel/signal.c
 @@ -32,6 +32,7 @@
@@ -257,7 +254,6 @@ index d0c68b5..2099d5a 100644
  	spin_lock_irq(&current->sighand->siglock);
  	sigorsets(&current->blocked,&current->blocked,&ka->sa.sa_mask);
 diff --git a/arch/mips/kernel/signal32.c b/arch/mips/kernel/signal32.c
-index 03abaf0..a0ed0e0 100644
 --- a/arch/mips/kernel/signal32.c
 +++ b/arch/mips/kernel/signal32.c
 @@ -32,6 +32,7 @@
@@ -399,7 +395,6 @@ index 03abaf0..a0ed0e0 100644
  };
  
 diff --git a/arch/mips/kernel/signal_n32.c b/arch/mips/kernel/signal_n32.c
-index bb277e8..2c5df81 100644
 --- a/arch/mips/kernel/signal_n32.c
 +++ b/arch/mips/kernel/signal_n32.c
 @@ -39,13 +39,13 @@

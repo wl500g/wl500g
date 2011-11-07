@@ -31,7 +31,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  7 files changed, 26 insertions(+), 16 deletions(-)
 
 diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 655094d..1692dd6 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -1042,7 +1042,7 @@ static inline void vma_nonlinear_insert(struct vm_area_struct *vma,
@@ -44,7 +43,6 @@ index 655094d..1692dd6 100644
  	unsigned long end, pgoff_t pgoff, struct vm_area_struct *insert);
  extern struct vm_area_struct *vma_merge(struct mm_struct *,
 diff --git a/include/linux/security.h b/include/linux/security.h
-index c11dc8a..1a15526 100644
 --- a/include/linux/security.h
 +++ b/include/linux/security.h
 @@ -54,7 +54,7 @@ extern int cap_inode_removexattr(struct dentry *dentry, char *name);
@@ -105,7 +103,6 @@ index c11dc8a..1a15526 100644
  
  static inline int security_bprm_alloc (struct linux_binprm *bprm)
 diff --git a/mm/mmap.c b/mm/mmap.c
-index b653721..0d40e66 100644
 --- a/mm/mmap.c
 +++ b/mm/mmap.c
 @@ -93,7 +93,7 @@ atomic_t vm_committed_space = ATOMIC_INIT(0);
@@ -136,7 +133,6 @@ index b653721..0d40e66 100644
  	vma_link(mm, vma, prev, rb_link, rb_parent);
  	return 0;
 diff --git a/mm/nommu.c b/mm/nommu.c
-index 9eef6a39..8ed0cb4 100644
 --- a/mm/nommu.c
 +++ b/mm/nommu.c
 @@ -1270,7 +1270,7 @@ EXPORT_SYMBOL(get_unmapped_area);
@@ -149,7 +145,6 @@ index 9eef6a39..8ed0cb4 100644
  	unsigned long free, allowed;
  
 diff --git a/security/commoncap.c b/security/commoncap.c
-index 338606e..7520361 100644
 --- a/security/commoncap.c
 +++ b/security/commoncap.c
 @@ -315,13 +315,13 @@ int cap_syslog (int type)
@@ -169,7 +164,6 @@ index 338606e..7520361 100644
  
  EXPORT_SYMBOL(cap_capable);
 diff --git a/security/dummy.c b/security/dummy.c
-index 19d813d..853ec22 100644
 --- a/security/dummy.c
 +++ b/security/dummy.c
 @@ -108,13 +108,13 @@ static int dummy_settime(struct timespec *ts, struct timezone *tz)
@@ -189,7 +183,6 @@ index 19d813d..853ec22 100644
  
  static int dummy_bprm_alloc_security (struct linux_binprm *bprm)
 diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 6237933..d8bc417 100644
 --- a/security/selinux/hooks.c
 +++ b/security/selinux/hooks.c
 @@ -1584,7 +1584,7 @@ static int selinux_syslog(int type)

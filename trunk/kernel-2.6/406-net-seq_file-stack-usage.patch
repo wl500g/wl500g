@@ -19,7 +19,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  5 files changed, 52 insertions(+), 45 deletions(-)
 
 diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 02088de..2e2fc33 100644
 --- a/net/ipv4/fib_hash.c
 +++ b/net/ipv4/fib_hash.c
 @@ -1003,7 +1003,7 @@ static unsigned fib_flag_trans(int type, __be32 mask, struct fib_info *fi)
@@ -59,7 +58,6 @@ index 02088de..2e2fc33 100644
  	return 0;
  }
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index ea294ff..4b02d14 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
 @@ -2596,7 +2596,6 @@ static int fib_route_seq_show(struct seq
@@ -111,7 +109,6 @@ index ea294ff..4b02d14 100644
  	}
  
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 780e948..ce25a13 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -367,10 +367,10 @@ static int rt_cache_seq_show(struct seq_file *seq, void *v)
@@ -141,7 +138,6 @@ index 780e948..ce25a13 100644
  	return 0;
  }
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 7766151..0e9bc12 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
 @@ -2255,13 +2255,13 @@ void tcp_proc_unregister(struct net *net, struct tcp_seq_afinfo *afinfo)
@@ -247,7 +243,6 @@ index 7766151..0e9bc12 100644
  	return 0;
  }
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index b053ac7..1f535e3 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -1619,7 +1619,8 @@ void udp_proc_unregister(struct net *net, struct udp_seq_afinfo *afinfo)

@@ -15,7 +15,6 @@ Signed-off-by: Patrick McHardy <kaber@trash.net>
  1 files changed, 21 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/netfilter/ip_tables.c b/net/ipv4/netfilter/ip_tables.c
-index 08cde5b..e5294ae 100644
 --- a/net/ipv4/netfilter/ip_tables.c
 +++ b/net/ipv4/netfilter/ip_tables.c
 @@ -74,6 +74,25 @@ do {								\

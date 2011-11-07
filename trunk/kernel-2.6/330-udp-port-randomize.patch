@@ -15,7 +15,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  3 files changed, 47 insertions(+), 42 deletions(-)
 
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index 69d4bd1..a581b54 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -113,9 +113,8 @@ DEFINE_SNMP_STAT(struct udp_mib, udp_statistics) __read_mostly;
@@ -151,7 +150,6 @@ index 69d4bd1..a581b54 100644
  
  int ipv4_rcv_saddr_equal(const struct sock *sk1, const struct sock *sk2)
 diff --git a/net/ipv4/udp_impl.h b/net/ipv4/udp_impl.h
-index 820a477..6c55828 100644
 --- a/net/ipv4/udp_impl.h
 +++ b/net/ipv4/udp_impl.h
 @@ -9,7 +9,7 @@ extern int  	__udp4_lib_rcv(struct sk_buff *, struct hlist_head [], int );
@@ -164,7 +162,6 @@ index 820a477..6c55828 100644
  extern int	ipv4_rcv_saddr_equal(const struct sock *, const struct sock *);
  
 diff --git a/net/ipv4/udplite.c b/net/ipv4/udplite.c
-index f34fd68..9497720 100644
 --- a/net/ipv4/udplite.c
 +++ b/net/ipv4/udplite.c
 @@ -16,12 +16,11 @@

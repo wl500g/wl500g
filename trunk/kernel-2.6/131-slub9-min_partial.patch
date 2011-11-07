@@ -15,7 +15,6 @@ Subject: [PATCH] slub: add min_partial sysfs tunable
  2 files changed, 43 insertions(+), 6 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index e34c303..08ec34b 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -43,6 +43,7 @@ struct kmem_cache {
@@ -27,7 +26,6 @@ index e34c303..08ec34b 100644
  	struct list_head list;	/* List of slab caches */
  	struct kobject kobj;	/* For sysfs */
 diff --git a/mm/slub.c b/mm/slub.c
-index 599bfcf..2cddb9a 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -1231,7 +1231,7 @@ static struct page *get_any_partial(struct kmem_cache *s, gfp_t flags)

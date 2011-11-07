@@ -28,7 +28,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 209989c..870b518 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -204,7 +204,7 @@ static struct dst_ops ipv4_dst_ops = {

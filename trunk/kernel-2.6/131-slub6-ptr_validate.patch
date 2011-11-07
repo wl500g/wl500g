@@ -14,7 +14,6 @@ d3e06e2b15590b70ea73733fc4612e4741ff46e0
  4 files changed, 27 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/slab.h b/include/linux/slab.h
-index f31c8c8..1df3c71 100644
 --- a/include/linux/slab.h
 +++ b/include/linux/slab.h
 @@ -60,6 +60,7 @@ int kmem_cache_shrink(struct kmem_cache *);
@@ -26,7 +25,6 @@ index f31c8c8..1df3c71 100644
  
  /*
 diff --git a/mm/slab.c b/mm/slab.c
-index fd942ac..37559a2 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -3601,21 +3601,10 @@ EXPORT_SYMBOL(kmem_cache_alloc);
@@ -53,7 +51,6 @@ index fd942ac..37559a2 100644
  	page = virt_to_page(ptr);
  	if (unlikely(!PageSlab(page)))
 diff --git a/mm/slub.c b/mm/slub.c
-index 479c5b7..c2ef23b 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2061,6 +2061,9 @@ int kmem_ptr_validate(struct kmem_cache *s, const void *object)
@@ -67,7 +64,6 @@ index 479c5b7..c2ef23b 100644
  
  	if (!page || s != page->slab)
 diff --git a/mm/util.c b/mm/util.c
-index ab522d7..7645e38 100644
 --- a/mm/util.c
 +++ b/mm/util.c
 @@ -1,4 +1,5 @@

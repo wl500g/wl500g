@@ -20,7 +20,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 11 deletions(-)
 
 diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index 5317102..c390082 100644
 --- a/net/sched/cls_u32.c
 +++ b/net/sched/cls_u32.c
 @@ -613,17 +613,7 @@ static int u32_change(struct tcf_proto *tp, unsigned long base, u32 handle,

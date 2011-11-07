@@ -28,7 +28,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index f1d27f6..283c0a2 100644
 --- a/net/ipv4/igmp.c
 +++ b/net/ipv4/igmp.c
 @@ -1718,7 +1718,7 @@ static int ip_mc_add_src(struct in_device *in_dev, __be32 *pmca, int sfmode,

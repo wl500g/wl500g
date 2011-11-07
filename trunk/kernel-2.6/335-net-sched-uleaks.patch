@@ -19,7 +19,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  4 files changed, 41 insertions(+), 34 deletions(-)
 
 diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
-index 7517f37..f746dad 100644
 --- a/net/sched/act_gact.c
 +++ b/net/sched/act_gact.c
 @@ -157,21 +157,24 @@ static int tcf_gact(struct sk_buff *skb, struct tc_action *a, struct tcf_result
@@ -57,7 +56,6 @@ index 7517f37..f746dad 100644
  	}
  #endif
 diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index de21c92..fd28eb2 100644
 --- a/net/sched/act_mirred.c
 +++ b/net/sched/act_mirred.c
 @@ -209,15 +209,16 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
@@ -85,7 +83,6 @@ index de21c92..fd28eb2 100644
  	t.install = jiffies_to_clock_t(jiffies - m->tcf_tm.install);
  	t.lastuse = jiffies_to_clock_t(jiffies - m->tcf_tm.lastuse);
 diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index 616f465..6cb8c79 100644
 --- a/net/sched/act_police.c
 +++ b/net/sched/act_police.c
 @@ -328,14 +328,15 @@ tcf_act_police_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
@@ -132,7 +129,6 @@ index 616f465..6cb8c79 100644
  		opt.rate = police->tcfp_R_tab->rate;
  	else
 diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index 36e1eda..30d6e15 100644
 --- a/net/sched/act_simple.c
 +++ b/net/sched/act_simple.c
 @@ -158,13 +158,14 @@ static inline int tcf_simp_dump(struct sk_buff *skb, struct tc_action *a,

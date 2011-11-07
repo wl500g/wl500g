@@ -19,7 +19,6 @@ ec8d540969da9a70790e9028d57b5b577dd7aa77
  3 files changed, 36 insertions(+), 28 deletions(-)
 
 diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index 6ec5f41..9d4868f 100644
 --- a/net/netfilter/nf_conntrack_core.c
 +++ b/net/netfilter/nf_conntrack_core.c
 @@ -735,13 +735,12 @@ __nf_conntrack_alloc(const struct nf_conntrack_tuple *orig,
@@ -125,7 +124,6 @@ index 6ec5f41..9d4868f 100644
  					  sizeof(struct nf_conn));
  	if (ret < 0) {
 diff --git a/net/netfilter/nf_conntrack_proto_tcp.c b/net/netfilter/nf_conntrack_proto_tcp.c
-index 617d7f1..aa87891 100644
 --- a/net/netfilter/nf_conntrack_proto_tcp.c
 +++ b/net/netfilter/nf_conntrack_proto_tcp.c
 @@ -357,12 +357,13 @@ static unsigned int get_conntrack_index(const struct tcphdr *tcph)
@@ -190,7 +188,6 @@ index 617d7f1..aa87891 100644
  		conntrack->proto.tcp.last_index = index;
  		conntrack->proto.tcp.last_dir = dir;
 diff --git a/net/netfilter/xt_tcpudp.c b/net/netfilter/xt_tcpudp.c
-index 46414b5..25b12d3 100644
 --- a/net/netfilter/xt_tcpudp.c
 +++ b/net/netfilter/xt_tcpudp.c
 @@ -191,7 +191,7 @@ udp_checkentry(const char *tablename,

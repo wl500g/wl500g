@@ -24,7 +24,6 @@ Signed-off-by: Jens Axboe <jens.axboe@oracle.com>
  2 files changed, 4 insertions(+), 6 deletions(-)
 
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
-index a8a1810..56f2646 100644
 --- a/block/ll_rw_blk.c
 +++ b/block/ll_rw_blk.c
 @@ -791,7 +791,6 @@ static int __blk_free_tags(struct blk_queue_tag *bqt)
@@ -74,7 +73,6 @@ index a8a1810..56f2646 100644
  
  		if (rq->tag == -1) {
 diff --git a/include/linux/blkdev.h b/include/linux/blkdev.h
-index bbf906a..8396db2 100644
 --- a/include/linux/blkdev.h
 +++ b/include/linux/blkdev.h
 @@ -341,7 +341,6 @@ enum blk_queue_state {

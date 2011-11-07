@@ -21,7 +21,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  12 files changed, 12 insertions(+), 12 deletions(-)
 
 diff --git a/net/ipv4/tcp_bic.c b/net/ipv4/tcp_bic.c
-index 3b53fd1..6187eb4 100644
 --- a/net/ipv4/tcp_bic.c
 +++ b/net/ipv4/tcp_bic.c
 @@ -209,7 +209,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt)
@@ -34,7 +33,6 @@ index 3b53fd1..6187eb4 100644
  	.ssthresh	= bictcp_recalc_ssthresh,
  	.cong_avoid	= bictcp_cong_avoid,
 diff --git a/net/ipv4/tcp_cubic.c b/net/ipv4/tcp_cubic.c
-index 71d5f2f..62f775c 100644
 --- a/net/ipv4/tcp_cubic.c
 +++ b/net/ipv4/tcp_cubic.c
 @@ -405,7 +405,7 @@ static void bictcp_acked(struct sock *sk, u32 cnt, s32 rtt_us)
@@ -47,7 +45,6 @@ index 71d5f2f..62f775c 100644
  	.ssthresh	= bictcp_recalc_ssthresh,
  	.cong_avoid	= bictcp_cong_avoid,
 diff --git a/net/ipv4/tcp_highspeed.c b/net/ipv4/tcp_highspeed.c
-index 8b6caaf..30f27f6 100644
 --- a/net/ipv4/tcp_highspeed.c
 +++ b/net/ipv4/tcp_highspeed.c
 @@ -158,7 +158,7 @@ static u32 hstcp_ssthresh(struct sock *sk)
@@ -60,7 +57,6 @@ index 8b6caaf..30f27f6 100644
  	.ssthresh	= hstcp_ssthresh,
  	.cong_avoid	= hstcp_cong_avoid,
 diff --git a/net/ipv4/tcp_htcp.c b/net/ipv4/tcp_htcp.c
-index 7c94a49..c1a8175 100644
 --- a/net/ipv4/tcp_htcp.c
 +++ b/net/ipv4/tcp_htcp.c
 @@ -284,7 +284,7 @@ static void htcp_state(struct sock *sk, u8 new_state)
@@ -73,7 +69,6 @@ index 7c94a49..c1a8175 100644
  	.ssthresh	= htcp_recalc_ssthresh,
  	.cong_avoid	= htcp_cong_avoid,
 diff --git a/net/ipv4/tcp_hybla.c b/net/ipv4/tcp_hybla.c
-index 377bc93..fe3ecf4 100644
 --- a/net/ipv4/tcp_hybla.c
 +++ b/net/ipv4/tcp_hybla.c
 @@ -162,7 +162,7 @@ static void hybla_cong_avoid(struct sock *sk, u32 ack, u32 in_flight)
@@ -86,7 +81,6 @@ index 377bc93..fe3ecf4 100644
  	.ssthresh	= tcp_reno_ssthresh,
  	.min_cwnd	= tcp_reno_min_cwnd,
 diff --git a/net/ipv4/tcp_illinois.c b/net/ipv4/tcp_illinois.c
-index 00ca688..813b43a 100644
 --- a/net/ipv4/tcp_illinois.c
 +++ b/net/ipv4/tcp_illinois.c
 @@ -322,7 +322,7 @@ static void tcp_illinois_info(struct sock *sk, u32 ext,
@@ -99,7 +93,6 @@ index 00ca688..813b43a 100644
  	.init		= tcp_illinois_init,
  	.ssthresh	= tcp_illinois_ssthresh,
 diff --git a/net/ipv4/tcp_lp.c b/net/ipv4/tcp_lp.c
-index de87037..656d431 100644
 --- a/net/ipv4/tcp_lp.c
 +++ b/net/ipv4/tcp_lp.c
 @@ -313,7 +313,7 @@ static void tcp_lp_pkts_acked(struct sock *sk, u32 num_acked, s32 rtt_us)
@@ -112,7 +105,6 @@ index de87037..656d431 100644
  	.init = tcp_lp_init,
  	.ssthresh = tcp_reno_ssthresh,
 diff --git a/net/ipv4/tcp_scalable.c b/net/ipv4/tcp_scalable.c
-index a765137..8ce55b8 100644
 --- a/net/ipv4/tcp_scalable.c
 +++ b/net/ipv4/tcp_scalable.c
 @@ -35,7 +35,7 @@ static u32 tcp_scalable_ssthresh(struct sock *sk)
@@ -125,7 +117,6 @@ index a765137..8ce55b8 100644
  	.cong_avoid	= tcp_scalable_cong_avoid,
  	.min_cwnd	= tcp_reno_min_cwnd,
 diff --git a/net/ipv4/tcp_vegas.c b/net/ipv4/tcp_vegas.c
-index c6743ee..80fa2bf 100644
 --- a/net/ipv4/tcp_vegas.c
 +++ b/net/ipv4/tcp_vegas.c
 @@ -304,7 +304,7 @@ void tcp_vegas_get_info(struct sock *sk, u32 ext, struct sk_buff *skb)
@@ -138,7 +129,6 @@ index c6743ee..80fa2bf 100644
  	.init		= tcp_vegas_init,
  	.ssthresh	= tcp_reno_ssthresh,
 diff --git a/net/ipv4/tcp_veno.c b/net/ipv4/tcp_veno.c
-index 38bc0b5..ac43cd7 100644
 --- a/net/ipv4/tcp_veno.c
 +++ b/net/ipv4/tcp_veno.c
 @@ -201,7 +201,7 @@ static u32 tcp_veno_ssthresh(struct sock *sk)
@@ -151,7 +141,6 @@ index 38bc0b5..ac43cd7 100644
  	.init		= tcp_veno_init,
  	.ssthresh	= tcp_veno_ssthresh,
 diff --git a/net/ipv4/tcp_westwood.c b/net/ipv4/tcp_westwood.c
-index a534dda..1b91bf4 100644
 --- a/net/ipv4/tcp_westwood.c
 +++ b/net/ipv4/tcp_westwood.c
 @@ -272,7 +272,7 @@ static void tcp_westwood_info(struct sock *sk, u32 ext,
@@ -164,7 +153,6 @@ index a534dda..1b91bf4 100644
  	.ssthresh	= tcp_reno_ssthresh,
  	.cong_avoid	= tcp_reno_cong_avoid,
 diff --git a/net/ipv4/tcp_yeah.c b/net/ipv4/tcp_yeah.c
-index a0f2403..dc7f431 100644
 --- a/net/ipv4/tcp_yeah.c
 +++ b/net/ipv4/tcp_yeah.c
 @@ -225,7 +225,7 @@ static u32 tcp_yeah_ssthresh(struct sock *sk) {

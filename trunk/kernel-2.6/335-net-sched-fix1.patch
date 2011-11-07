@@ -92,7 +92,6 @@ diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
  	return 0;
  }
 diff --git a/net/sched/sch_ingress.c b/net/sched/sch_ingress.c
-index f8b9f1c..dabb881 100644
 --- a/net/sched/sch_ingress.c
 +++ b/net/sched/sch_ingress.c
 @@ -165,9 +165,8 @@ static int ingress_enqueue(struct sk_buff *skb,struct Qdisc *sch)
@@ -107,7 +106,6 @@ index f8b9f1c..dabb881 100644
  			break;
  	}
 diff --git a/net/sched/sch_prio.c b/net/sched/sch_prio.c
-index 6d7542c..81df215 100644
 --- a/net/sched/sch_prio.c
 +++ b/net/sched/sch_prio.c
 @@ -52,9 +52,11 @@ prio_classify(struct sk_buff *skb, struct Qdisc *sch, int *qerr)

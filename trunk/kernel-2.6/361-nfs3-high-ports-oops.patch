@@ -25,7 +25,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/fs/nfsd/nfsfh.c b/fs/nfsd/nfsfh.c
-index 1eb771d..3e6b3f4 100644
 --- a/fs/nfsd/nfsfh.c
 +++ b/fs/nfsd/nfsfh.c
 @@ -232,6 +232,7 @@ fh_verify(struct svc_rqst *rqstp, struct svc_fh *fhp, int type, int access)

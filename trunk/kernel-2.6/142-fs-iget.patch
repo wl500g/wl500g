@@ -19,7 +19,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  3 files changed, 28 insertions(+), 5 deletions(-)
 
 diff --git a/Documentation/filesystems/porting b/Documentation/filesystems/porting
-index 0f33c77..fbd3815 100644
 --- a/Documentation/filesystems/porting
 +++ b/Documentation/filesystems/porting
 @@ -184,11 +184,19 @@ just takes the superblock and inode number as arguments and does the
@@ -48,7 +47,6 @@ index 0f33c77..fbd3815 100644
  ---
  [recommended]
 diff --git a/fs/bad_inode.c b/fs/bad_inode.c
-index 521ff7c..f1c2ea8 100644
 --- a/fs/bad_inode.c
 +++ b/fs/bad_inode.c
 @@ -359,3 +359,17 @@ int is_bad_inode(struct inode *inode)
@@ -70,7 +68,6 @@ index 521ff7c..f1c2ea8 100644
 +}
 +EXPORT_SYMBOL(iget_failed);
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index 2925f70..d202600 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -1780,6 +1780,7 @@ static inline struct inode *iget(struct super_block *sb, unsigned long ino)

@@ -24,7 +24,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 2 insertions(+), 1 deletions(-)
 
 diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
-index 2794b60..d6e9599 100644
 --- a/net/ipv6/mip6.c
 +++ b/net/ipv6/mip6.c
 @@ -346,9 +346,10 @@ static const struct xfrm_type mip6_destopt_type =

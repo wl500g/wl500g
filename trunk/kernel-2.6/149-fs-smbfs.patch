@@ -16,7 +16,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/fs/smbfs/proc.c b/fs/smbfs/proc.c
-index 9468168..71c29b6 100644
 --- a/fs/smbfs/proc.c
 +++ b/fs/smbfs/proc.c
 @@ -509,7 +509,7 @@ date_unix2dos(struct smb_sb_info *server,

@@ -16,7 +16,6 @@ aebb6a849cfe7d89bcacaaecc20a480dfc1180e7 textsearch: fix Boyer-Moore text search
  5 files changed, 61 insertions(+), 29 deletions(-)
 
 diff --git a/include/linux/textsearch.h b/include/linux/textsearch.h
-index 6f371f2..6c34cf2 100644
 --- a/include/linux/textsearch.h
 +++ b/include/linux/textsearch.h
 @@ -10,10 +10,8 @@
@@ -70,7 +69,6 @@ index 6f371f2..6c34cf2 100644
  }
  
 diff --git a/lib/textsearch.c b/lib/textsearch.c
-index be8bda3..b451fcc 100644
 --- a/lib/textsearch.c
 +++ b/lib/textsearch.c
 @@ -54,10 +54,13 @@
@@ -194,7 +192,6 @@ diff --git a/lib/ts_bm.c b/lib/ts_bm.c
  	return conf;
  }
 diff --git a/lib/ts_fsm.c b/lib/ts_fsm.c
-index af575b6..5696a35 100644
 --- a/lib/ts_fsm.c
 +++ b/lib/ts_fsm.c
 @@ -257,7 +257,7 @@ found_match:
@@ -225,7 +222,6 @@ index af575b6..5696a35 100644
  	fsm->ntokens = ntokens;
  	memcpy(fsm->tokens, pattern, len);
 diff --git a/lib/ts_kmp.c b/lib/ts_kmp.c
-index 3ced628..632f783 100644
 --- a/lib/ts_kmp.c
 +++ b/lib/ts_kmp.c
 @@ -33,6 +33,7 @@

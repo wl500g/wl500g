@@ -8,7 +8,6 @@ Subject: [PATCH] Printer kernel driver: support multiple procfs entries
  1 files changed, 99 insertions(+), 63 deletions(-)
 
 diff --git a/drivers/usb/class/usblp.c b/drivers/usb/class/usblp.c
-index 0cd791b..6b46ed9 100644
 --- a/drivers/usb/class/usblp.c
 +++ b/drivers/usb/class/usblp.c
 @@ -46,6 +46,7 @@

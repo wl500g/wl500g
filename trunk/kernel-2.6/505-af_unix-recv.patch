@@ -29,7 +29,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 13 insertions(+), 4 deletions(-)
 
 diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index dd419d2..437a99e 100644
 --- a/net/unix/af_unix.c
 +++ b/net/unix/af_unix.c
 @@ -1724,7 +1724,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,

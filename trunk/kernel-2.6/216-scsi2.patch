@@ -12,7 +12,6 @@ junk the unnecessary page allocation.
  1 files changed, 3 insertions(+), 23 deletions(-)
 
 diff --git a/drivers/scsi/scsi_error.c b/drivers/scsi/scsi_error.c
-index e8350c5..9adb64a 100644
 --- a/drivers/scsi/scsi_error.c
 +++ b/drivers/scsi/scsi_error.c
 @@ -18,12 +18,12 @@

@@ -30,7 +30,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  2 files changed, 17 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/usb/core/file.c b/drivers/usb/core/file.c
-index f06f5db..1e6ccef 100644
 --- a/drivers/usb/core/file.c
 +++ b/drivers/usb/core/file.c
 @@ -144,9 +144,9 @@ void usb_major_cleanup(void)
@@ -106,7 +105,6 @@ index f06f5db..1e6ccef 100644
  }
  EXPORT_SYMBOL_GPL(usb_register_dev);
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index 844683e..9f0ce7d 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
 @@ -1709,6 +1709,7 @@ free_interfaces:

@@ -27,7 +27,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  5 files changed, 15 insertions(+), 10 deletions(-)
 
 diff --git a/include/net/ip.h b/include/net/ip.h
-index bc026ec..ddef10c 100644
 --- a/include/net/ip.h
 +++ b/include/net/ip.h
 @@ -110,7 +110,7 @@ extern int		ip_append_data(struct sock *sk,
@@ -40,7 +39,6 @@ index bc026ec..ddef10c 100644
  extern int		ip_generic_getfrag(void *from, char *to, int offset, int len, int odd, struct sk_buff *skb);
  extern ssize_t		ip_append_page(struct sock *sk, struct page *page,
 diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 21e497e..7b88be9 100644
 --- a/net/ipv4/icmp.c
 +++ b/net/ipv4/icmp.c
 @@ -321,7 +321,7 @@ static int icmp_glue_bits(void *from, char *to, int offset, int len, int odd,
@@ -71,7 +69,6 @@ index 21e497e..7b88be9 100644
  	ip_rt_put(rt);
  out_unlock:
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 46d7be2..5516825 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
 @@ -778,7 +778,7 @@ int ip_append_data(struct sock *sk,
@@ -114,7 +111,6 @@ index 46d7be2..5516825 100644
  		if (arg->csumoffset >= 0)
  			*((__sum16 *)skb_transport_header(skb) +
 diff --git a/net/ipv4/raw.c b/net/ipv4/raw.c
-index 998fcff..dff8bc4 100644
 --- a/net/ipv4/raw.c
 +++ b/net/ipv4/raw.c
 @@ -572,7 +572,7 @@ back_from_confirm:
@@ -127,7 +123,6 @@ index 998fcff..dff8bc4 100644
  			ip_flush_pending_frames(sk);
  		else if (!(msg->msg_flags & MSG_MORE))
 diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index da869ce..5491144 100644
 --- a/net/ipv4/udp.c
 +++ b/net/ipv4/udp.c
 @@ -719,7 +719,7 @@ do_append_data:

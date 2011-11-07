@@ -10,7 +10,6 @@ Subject: [PATCH] slub: fixes from upstream, allow page allocation fallback
  3 files changed, 151 insertions(+), 70 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index 143f58b..a5d495e 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -38,6 +38,7 @@ struct kmem_cache {
@@ -53,7 +52,6 @@ index 143f58b..a5d495e 100644
  		if (!(flags & SLUB_DMA)) {
  			struct kmem_cache *s = kmalloc_slab(size);
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 38e8166..d6bb02b 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -668,7 +668,18 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
@@ -87,7 +85,6 @@ index 38e8166..d6bb02b 100644
  		goto restart;
  	}
 diff --git a/mm/slub.c b/mm/slub.c
-index 21443ce..479c5b7 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -177,7 +177,7 @@ static inline void ClearSlabDebug(struct page *page)

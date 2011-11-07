@@ -18,7 +18,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 48 insertions(+), 44 deletions(-)
 
 diff --git a/include/linux/completion.h b/include/linux/completion.h
-index 57faa60..02ef883 100644
 --- a/include/linux/completion.h
 +++ b/include/linux/completion.h
 @@ -49,6 +49,8 @@ extern unsigned long wait_for_completion_timeout(struct completion *x,
@@ -31,7 +30,6 @@ index 57faa60..02ef883 100644
  extern void FASTCALL(complete(struct completion *));
  extern void FASTCALL(complete_all(struct completion *));
 diff --git a/kernel/sched.c b/kernel/sched.c
-index d601fb0..95e6ad3 100644
 --- a/kernel/sched.c
 +++ b/kernel/sched.c
 @@ -4669,6 +4669,52 @@ int __sched wait_for_completion_killable(struct completion *x)

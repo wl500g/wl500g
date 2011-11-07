@@ -10,7 +10,6 @@ Subject: [PATCH] USB: don't register endpoints for interfaces that are going awa
  3 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index 1d710f3..a58af86 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
 @@ -1070,6 +1070,7 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
@@ -22,7 +21,6 @@ index 1d710f3..a58af86 100644
  			device_del (&interface->dev);
  		}
 diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
-index 2ab222b..aa25fb3 100644
 --- a/drivers/usb/core/sysfs.c
 +++ b/drivers/usb/core/sysfs.c
 @@ -685,6 +685,9 @@ int usb_create_sysfs_intf_files(struct usb_interface *intf)
@@ -36,7 +34,6 @@ index 2ab222b..aa25fb3 100644
  	if (retval)
  		return retval;
 diff --git a/include/linux/usb.h b/include/linux/usb.h
-index 4f33a58..df67719 100644
 --- a/include/linux/usb.h
 +++ b/include/linux/usb.h
 @@ -105,6 +105,7 @@ enum usb_interface_condition {

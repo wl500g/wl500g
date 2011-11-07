@@ -20,7 +20,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 10 insertions(+), 11 deletions(-)
 
 diff --git a/net/core/dev.c b/net/core/dev.c
-index 39aba48..38b03da 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -1362,22 +1362,21 @@ int skb_checksum_help(struct sk_buff *skb)

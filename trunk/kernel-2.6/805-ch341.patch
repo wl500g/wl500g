@@ -9,7 +9,6 @@ USB: Driver for CH341 USB-serial adaptor (backport from 2.6.38.2)
  create mode 100644 drivers/usb/serial/ch341.c
 
 diff --git a/Documentation/usb/usb-serial.txt b/Documentation/usb/usb-serial.txt
-index 5b635ae..4e0b62b 100644
 --- a/Documentation/usb/usb-serial.txt
 +++ b/Documentation/usb/usb-serial.txt
 @@ -428,6 +428,17 @@ Options supported:
@@ -31,7 +30,6 @@ index 5b635ae..4e0b62b 100644
  
    If your device is not one of the above listed devices, compatible with
 diff --git a/drivers/usb/serial/Kconfig b/drivers/usb/serial/Kconfig
-index 43d6db6..99fefed 100644
 --- a/drivers/usb/serial/Kconfig
 +++ b/drivers/usb/serial/Kconfig
 @@ -92,6 +92,16 @@ config USB_SERIAL_BELKIN
@@ -52,7 +50,6 @@ index 43d6db6..99fefed 100644
  	tristate "USB ConnectTech WhiteHEAT Serial Driver"
  	depends on USB_SERIAL
 diff --git a/drivers/usb/serial/Makefile b/drivers/usb/serial/Makefile
-index 07a976e..d6fb384 100644
 --- a/drivers/usb/serial/Makefile
 +++ b/drivers/usb/serial/Makefile
 @@ -15,6 +15,7 @@ obj-$(CONFIG_USB_SERIAL_AIRCABLE)		+= aircable.o
@@ -65,7 +62,6 @@ index 07a976e..d6fb384 100644
  obj-$(CONFIG_USB_SERIAL_CYPRESS_M8)		+= cypress_m8.o
 diff --git a/drivers/usb/serial/ch341.c b/drivers/usb/serial/ch341.c
 new file mode 100644
-index 0000000..eb68106
 --- /dev/null
 +++ b/drivers/usb/serial/ch341.c
 @@ -0,0 +1,666 @@

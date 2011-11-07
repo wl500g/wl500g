@@ -8,7 +8,6 @@
  2 files changed, 4 insertions(+), 7 deletions(-)
 
 diff --git a/arch/mips/kernel/vmlinux.lds.S b/arch/mips/kernel/vmlinux.lds.S
-index afb119f..58738c8 100644
 --- a/arch/mips/kernel/vmlinux.lds.S
 +++ b/arch/mips/kernel/vmlinux.lds.S
 @@ -82,7 +82,7 @@ SECTIONS
@@ -21,7 +20,6 @@ index afb119f..58738c8 100644
  
    _edata =  .;			/* End of data section */
 diff --git a/arch/mips/mm/tlbex.c b/arch/mips/mm/tlbex.c
-index 325bc73..21bcf08 100644
 --- a/arch/mips/mm/tlbex.c
 +++ b/arch/mips/mm/tlbex.c
 @@ -1391,18 +1391,15 @@ static void __init build_r4000_tlb_refill_handler(void)

@@ -13,7 +13,6 @@ Subject: [PATCH] Kernel 2.6 USB: tty changes needed for USB serial backport
  6 files changed, 54 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
-index 90d61e1..f3e8e82 100644
 --- a/drivers/char/tty_ioctl.c
 +++ b/drivers/char/tty_ioctl.c
 @@ -243,7 +243,8 @@ EXPORT_SYMBOL(tty_termios_input_baud_rate);
@@ -62,7 +61,6 @@ index 90d61e1..f3e8e82 100644
  			return 0;
  
 diff --git a/drivers/serial/serial_core.c b/drivers/serial/serial_core.c
-index 326020f..c90be86 100644
 --- a/drivers/serial/serial_core.c
 +++ b/drivers/serial/serial_core.c
 @@ -1871,6 +1871,7 @@ uart_set_options(struct uart_port *port, struct console *co,
@@ -83,7 +81,6 @@ index 326020f..c90be86 100644
  
  	return 0;
 diff --git a/include/asm-generic/termios.h b/include/asm-generic/termios.h
-index 3769e6b..7d39ecc 100644
 --- a/include/asm-generic/termios.h
 +++ b/include/asm-generic/termios.h
 @@ -61,8 +61,16 @@ static inline int kernel_termios_to_user_termio(struct termio __user *termio,
@@ -104,7 +101,6 @@ index 3769e6b..7d39ecc 100644
  #endif	/* __ARCH_TERMIO_GETPUT */
  
 diff --git a/include/asm-mips/ioctls.h b/include/asm-mips/ioctls.h
-index 92f6c36..5097cbf 100644
 --- a/include/asm-mips/ioctls.h
 +++ b/include/asm-mips/ioctls.h
 @@ -77,6 +77,10 @@
@@ -119,7 +115,6 @@ index 92f6c36..5097cbf 100644
  #define TIOCSPTLCK	_IOW('T',0x31, int)  /* Lock/unlock Pty */
  
 diff --git a/include/asm-mips/termbits.h b/include/asm-mips/termbits.h
-index 0bbe07b..c83c684 100644
 --- a/include/asm-mips/termbits.h
 +++ b/include/asm-mips/termbits.h
 @@ -30,6 +30,17 @@ struct termios {
@@ -163,7 +158,6 @@ index 0bbe07b..c83c684 100644
  /* c_lflag bits */
  #define ISIG	0000001		/* Enable signals.  */
 diff --git a/include/asm-mips/termios.h b/include/asm-mips/termios.h
-index b15881b..8f77f77 100644
 --- a/include/asm-mips/termios.h
 +++ b/include/asm-mips/termios.h
 @@ -148,12 +148,24 @@ static inline int kernel_termios_to_user_termio(struct termio __user *termio,

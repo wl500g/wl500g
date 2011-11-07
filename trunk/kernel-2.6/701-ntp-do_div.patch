@@ -17,7 +17,6 @@ Signed-off-by: Thomas Gleixner <tglx@linutronix.de>
  1 files changed, 7 insertions(+), 5 deletions(-)
 
 diff --git a/kernel/time/ntp.c b/kernel/time/ntp.c
-index c88b591..d4bca92 100644
 --- a/kernel/time/ntp.c
 +++ b/kernel/time/ntp.c
 @@ -342,14 +342,16 @@ int do_adjtimex(struct timex *txc)

@@ -59,7 +59,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/include/asm-mips/io.h b/include/asm-mips/io.h
-index c98bf51..5b017f2 100644
 --- a/include/asm-mips/io.h
 +++ b/include/asm-mips/io.h
 @@ -329,10 +329,14 @@ static inline void pfx##write##bwlq(type val,				\

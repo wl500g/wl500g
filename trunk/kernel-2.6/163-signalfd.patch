@@ -19,7 +19,6 @@ b8fceee17a310f189188599a8fa5e9beaff57eb0 [PATCH] signalfd simplification
  8 files changed, 39 insertions(+), 220 deletions(-)
 
 diff --git a/fs/exec.c b/fs/exec.c
-index 4b2e77f..7ad8d16 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -50,7 +50,6 @@
@@ -54,7 +53,6 @@ index 4b2e77f..7ad8d16 100644
  		/*
  		 * Now that we nuked the rest of the thread group,
 diff --git a/fs/signalfd.c b/fs/signalfd.c
-index afbe171..34c5b64 100644
 --- a/fs/signalfd.c
 +++ b/fs/signalfd.c
 @@ -11,8 +11,10 @@
@@ -362,7 +360,6 @@ index afbe171..34c5b64 100644
  }
  
 diff --git a/include/linux/init_task.h b/include/linux/init_task.h
-index 276ccaa..076f7c6 100644
 --- a/include/linux/init_task.h
 +++ b/include/linux/init_task.h
 @@ -84,7 +84,7 @@ extern struct nsproxy init_nsproxy;
@@ -375,7 +372,6 @@ index 276ccaa..076f7c6 100644
  
  extern struct group_info init_groups;
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index c772ba9..6d0d566 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
 @@ -392,7 +392,7 @@ struct sighand_struct {
@@ -388,7 +384,6 @@ index c772ba9..6d0d566 100644
  
  struct pacct_struct {
 diff --git a/include/linux/signalfd.h b/include/linux/signalfd.h
-index 5104294..4c9ff09 100644
 --- a/include/linux/signalfd.h
 +++ b/include/linux/signalfd.h
 @@ -45,49 +45,17 @@ struct signalfd_siginfo {
@@ -446,7 +441,6 @@ index 5104294..4c9ff09 100644
  #endif /* CONFIG_SIGNALFD */
  
 diff --git a/kernel/exit.c b/kernel/exit.c
-index 7a04ea6..5b7e29b 100644
 --- a/kernel/exit.c
 +++ b/kernel/exit.c
 @@ -24,7 +24,6 @@
@@ -473,7 +467,6 @@ index 7a04ea6..5b7e29b 100644
  	if (atomic_dec_and_test(&sig->count))
  		posix_cpu_timers_exit_group(tsk);
 diff --git a/kernel/fork.c b/kernel/fork.c
-index 987df16..5eb1685 100644
 --- a/kernel/fork.c
 +++ b/kernel/fork.c
 @@ -1433,7 +1433,7 @@ static void sighand_ctor(void *data, struct kmem_cache *cachep,
@@ -486,7 +479,6 @@ index 987df16..5eb1685 100644
  
  void __init proc_caches_init(void)
 diff --git a/kernel/signal.c b/kernel/signal.c
-index 1f02e6d..3b29540 100644
 --- a/kernel/signal.c
 +++ b/kernel/signal.c
 @@ -368,8 +368,7 @@ int dequeue_signal(struct task_struct *tsk, sigset_t *mask, siginfo_t *info)

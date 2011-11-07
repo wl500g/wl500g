@@ -33,7 +33,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 23 insertions(+), 14 deletions(-)
 
 diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 499522f..a15b2f1 100644
 --- a/net/ipv4/fib_hash.c
 +++ b/net/ipv4/fib_hash.c
 @@ -51,6 +51,7 @@ struct fib_node {
@@ -137,7 +136,6 @@ index 499522f..a15b2f1 100644
  
  	tb = kmalloc(sizeof(struct fib_table) + sizeof(struct fn_hash),
 diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
-index 26ee66d..2c1623d 100644
 --- a/net/ipv4/fib_lookup.h
 +++ b/net/ipv4/fib_lookup.h
 @@ -7,12 +7,14 @@

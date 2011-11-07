@@ -34,7 +34,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index df948b0..93bfd95 100644
 --- a/net/ipv4/route.c
 +++ b/net/ipv4/route.c
 @@ -2649,8 +2649,12 @@ static int ip_route_output_slow(struct net *net, struct rtable **rp,

@@ -8,7 +8,6 @@ Subject: [PATCH] Kernel (Ext3): log journal recovery start
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
-index 6e30629..f1b3a56 100644
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
 @@ -1709,6 +1709,8 @@ static int ext3_fill_super (struct super_block *sb, void *data, int silent)

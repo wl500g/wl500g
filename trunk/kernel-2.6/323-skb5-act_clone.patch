@@ -8,7 +8,6 @@
  2 files changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index 1b8e351..9d23d30 100644
 --- a/include/net/sch_generic.h
 +++ b/include/net/sch_generic.h
 @@ -302,4 +302,18 @@ drop:
@@ -31,7 +30,6 @@ index 1b8e351..9d23d30 100644
 +
  #endif
 diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index fd28eb2..70706e7 100644
 --- a/net/sched/act_mirred.c
 +++ b/net/sched/act_mirred.c
 @@ -177,7 +177,7 @@ bad_mirred:

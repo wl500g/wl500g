@@ -11,7 +11,6 @@ Date: Mon, 19 Apr 2010 12:34:03 -0400
  4 files changed, 60 insertions(+), 26 deletions(-)
 
 diff --git a/include/linux/slab.h b/include/linux/slab.h
-index 1df3c71..6fe526f 100644
 --- a/include/linux/slab.h
 +++ b/include/linux/slab.h
 @@ -253,7 +253,7 @@ extern void *__kmalloc_node_track_caller(size_t, gfp_t, int, void *);
@@ -24,7 +23,6 @@ index 1df3c71..6fe526f 100644
  /*
   * Shortcuts
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index a5d495e..e34c303 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -86,10 +86,12 @@ static inline int kmalloc_index(size_t size)
@@ -41,7 +39,6 @@ index a5d495e..e34c303 100644
  	if (size <=         16) return 4;
  	if (size <=         32) return 5;
 diff --git a/mm/slab.c b/mm/slab.c
-index 37559a2..eda3ac6 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -879,6 +879,7 @@ static void __slab_error(const char *function, struct kmem_cache *cachep,
@@ -141,7 +138,6 @@ index 37559a2..eda3ac6 100644
  
  	if (likely(ac->avail < ac->limit)) {
 diff --git a/mm/slub.c b/mm/slub.c
-index c2ef23b..25f47c8 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -245,9 +245,12 @@ static int sysfs_slab_add(struct kmem_cache *);

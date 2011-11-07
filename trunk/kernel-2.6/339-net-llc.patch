@@ -60,7 +60,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  7 files changed, 107 insertions(+), 47 deletions(-)
 
 diff --git a/include/net/llc_pdu.h b/include/net/llc_pdu.h
-index 4a8f58b..75b8e29 100644
 --- a/include/net/llc_pdu.h
 +++ b/include/net/llc_pdu.h
 @@ -381,7 +381,7 @@ static inline void llc_pdu_init_as_xid_cmd(struct sk_buff *skb,
@@ -82,7 +81,6 @@ index 4a8f58b..75b8e29 100644
  
  /* LLC Type 2 FRMR response information field format */
 diff --git a/include/net/llc_sap.h b/include/net/llc_sap.h
-index 2c56dbe..ed25bec 100644
 --- a/include/net/llc_sap.h
 +++ b/include/net/llc_sap.h
 @@ -1,5 +1,8 @@

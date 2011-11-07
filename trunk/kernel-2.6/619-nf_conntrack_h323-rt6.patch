@@ -20,7 +20,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  4 files changed, 27 insertions(+), 7 deletions(-)
 
 diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index f42e436..9bfc7d4 100644
 --- a/include/linux/netfilter.h
 +++ b/include/linux/netfilter.h
 @@ -298,10 +298,12 @@ extern void nf_invalidate_cache(int pf);
@@ -37,7 +36,6 @@ index f42e436..9bfc7d4 100644
  				     struct nf_info *info);
  	int		(*reroute)(struct sk_buff *skb,
 diff --git a/net/ipv4/netfilter.c b/net/ipv4/netfilter.c
-index d902246..599d448 100644
 --- a/net/ipv4/netfilter.c
 +++ b/net/ipv4/netfilter.c
 @@ -182,9 +182,15 @@ __sum16 nf_ip_checksum(struct sk_buff *skb, unsigned int hook,
@@ -57,7 +55,6 @@ index d902246..599d448 100644
  	.reroute	= nf_ip_reroute,
  	.route_key_size	= sizeof(struct ip_rt_info),
 diff --git a/net/ipv6/netfilter.c b/net/ipv6/netfilter.c
-index 175e19f..281f732 100644
 --- a/net/ipv6/netfilter.c
 +++ b/net/ipv6/netfilter.c
 @@ -81,6 +81,12 @@ static int nf_ip6_reroute(struct sk_buff *skb, const struct nf_info *info)
@@ -82,7 +79,6 @@ index 175e19f..281f732 100644
  	.reroute	= nf_ip6_reroute,
  	.route_key_size	= sizeof(struct ip6_rt_info),
 diff --git a/net/netfilter/nf_conntrack_h323_main.c b/net/netfilter/nf_conntrack_h323_main.c
-index f23fd95..c550257 100644
 --- a/net/netfilter/nf_conntrack_h323_main.c
 +++ b/net/netfilter/nf_conntrack_h323_main.c
 @@ -708,9 +708,15 @@ static int callforward_do_filter(union nf_conntrack_address *src,

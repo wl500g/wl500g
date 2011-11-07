@@ -17,7 +17,6 @@ Subject: [PATCH] [NET/IPv4/netfilter]: patches from upstream
  4 files changed, 16 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/loopback.c b/drivers/net/loopback.c
-index 6ba6ed2..5106c23 100644
 --- a/drivers/net/loopback.c
 +++ b/drivers/net/loopback.c
 @@ -229,7 +229,12 @@ struct net_device loopback_dev = {
@@ -35,7 +34,6 @@ index 6ba6ed2..5106c23 100644
  
  module_init(loopback_init);
 diff --git a/include/net/netfilter/nf_conntrack_core.h b/include/net/netfilter/nf_conntrack_core.h
-index 0d48275..a42cc07 100644
 --- a/include/net/netfilter/nf_conntrack_core.h
 +++ b/include/net/netfilter/nf_conntrack_core.h
 @@ -67,7 +67,8 @@ static inline int nf_conntrack_confirm(struct sk_buff **pskb)
@@ -49,7 +47,6 @@ index 0d48275..a42cc07 100644
  	return ret;
  }
 diff --git a/net/core/dev.c b/net/core/dev.c
-index d631f17..c10c25e 100644
 --- a/net/core/dev.c
 +++ b/net/core/dev.c
 @@ -1950,7 +1950,6 @@ static int process_backlog(struct net_device *backlog_dev, int *budget)
@@ -70,7 +67,6 @@ index d631f17..c10c25e 100644
  
  	}
 diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 34ea454..463e976 100644
 --- a/net/ipv4/ip_output.c
 +++ b/net/ipv4/ip_output.c
 @@ -732,23 +732,15 @@ static inline int ip_ufo_append_data(struct sock *sk,

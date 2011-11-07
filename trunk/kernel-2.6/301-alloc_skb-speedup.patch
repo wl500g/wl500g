@@ -30,7 +30,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 11 insertions(+), 17 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 8b9c109..a9b0e1f 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -157,12 +157,14 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,

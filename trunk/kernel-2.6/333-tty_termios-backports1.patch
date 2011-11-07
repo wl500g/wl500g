@@ -44,7 +44,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 75 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
-index 3ee73cf..745d552 100644
 --- a/drivers/char/tty_ioctl.c
 +++ b/drivers/char/tty_ioctl.c
 @@ -221,8 +221,6 @@ speed_t tty_termios_input_baud_rate(struct ktermios *termios)
@@ -216,7 +215,6 @@ index 3ee73cf..745d552 100644
  }
  
 diff --git a/include/linux/tty.h b/include/linux/tty.h
-index 274b40f..56164d7 100644
 --- a/include/linux/tty.h
 +++ b/include/linux/tty.h
 @@ -316,6 +316,9 @@ extern void tty_flip_buffer_push(struct tty_struct *tty);

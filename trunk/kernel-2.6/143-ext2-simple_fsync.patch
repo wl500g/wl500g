@@ -19,7 +19,6 @@ Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
  delete mode 100644 fs/ext2/fsync.c
 
 diff --git a/fs/ext2/Makefile b/fs/ext2/Makefile
-index e0b2b43..f42af45 100644
 --- a/fs/ext2/Makefile
 +++ b/fs/ext2/Makefile
 @@ -4,7 +4,7 @@
@@ -32,7 +31,6 @@ index e0b2b43..f42af45 100644
  
  ext2-$(CONFIG_EXT2_FS_XATTR)	 += xattr.o xattr_user.o xattr_trusted.o
 diff --git a/fs/ext2/dir.c b/fs/ext2/dir.c
-index 2999d72..0035004 100644
 --- a/fs/ext2/dir.c
 +++ b/fs/ext2/dir.c
 @@ -720,5 +720,5 @@ const struct file_operations ext2_dir_operations = {
@@ -43,7 +41,6 @@ index 2999d72..0035004 100644
 +	.fsync		= simple_fsync,
  };
 diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
-index 3203042..b2bbf45 100644
 --- a/fs/ext2/ext2.h
 +++ b/fs/ext2/ext2.h
 @@ -113,9 +113,6 @@ extern int ext2_empty_dir (struct inode *);
@@ -57,7 +54,6 @@ index 3203042..b2bbf45 100644
  extern struct inode * ext2_new_inode (struct inode *, int);
  extern void ext2_free_inode (struct inode *);
 diff --git a/fs/ext2/file.c b/fs/ext2/file.c
-index 45ed071..2b9e47d 100644
 --- a/fs/ext2/file.c
 +++ b/fs/ext2/file.c
 @@ -55,7 +55,7 @@ const struct file_operations ext2_file_operations = {
@@ -80,7 +76,6 @@ index 45ed071..2b9e47d 100644
  
 diff --git a/fs/ext2/fsync.c b/fs/ext2/fsync.c
 deleted file mode 100644
-index fc66c93..0000000
 --- a/fs/ext2/fsync.c
 +++ /dev/null
 @@ -1,50 +0,0 @@
@@ -135,7 +130,6 @@ index fc66c93..0000000
 -	return ret;
 -}
 diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
-index acf6788..29ed682 100644
 --- a/fs/ext2/inode.c
 +++ b/fs/ext2/inode.c
 @@ -41,8 +41,6 @@ MODULE_AUTHOR("Remy Card and others");

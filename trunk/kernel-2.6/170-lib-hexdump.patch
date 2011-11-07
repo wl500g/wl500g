@@ -8,7 +8,6 @@ lib: hexdump updates from upstream
 ---
 
 diff --git a/arch/sh/kernel/kgdb_stub.c b/arch/sh/kernel/kgdb_stub.c
-index d453c3a..832641b 100644
 --- a/arch/sh/kernel/kgdb_stub.c
 +++ b/arch/sh/kernel/kgdb_stub.c
 @@ -330,14 +330,6 @@ static char *ebin_to_mem(const char *buf, char *mem, int count)
@@ -27,7 +26,6 @@ index d453c3a..832641b 100644
  static void get_packet(char *buffer, int buflen)
  {
 diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index 4d46e29..792bf0a 100644
 --- a/include/linux/kernel.h
 +++ b/include/linux/kernel.h
 @@ -223,10 +223,20 @@ extern void print_hex_dump(const char *level, const char *prefix_str,

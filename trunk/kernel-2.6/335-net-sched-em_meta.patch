@@ -19,7 +19,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/net/sched/em_meta.c b/net/sched/em_meta.c
-index 2a7e648..d417ec8 100644
 --- a/net/sched/em_meta.c
 +++ b/net/sched/em_meta.c
 @@ -735,11 +735,13 @@ static int em_meta_match(struct sk_buff *skb, struct tcf_ematch *m,

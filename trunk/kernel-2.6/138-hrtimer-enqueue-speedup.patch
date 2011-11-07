@@ -15,7 +15,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 6 insertions(+), 4 deletions(-)
 
 diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
-index 065a897..eb1ddeb 100644
 --- a/kernel/hrtimer.c
 +++ b/kernel/hrtimer.c
 @@ -686,6 +686,7 @@ static void enqueue_hrtimer(struct hrtimer *timer,

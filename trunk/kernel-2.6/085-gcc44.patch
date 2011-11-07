@@ -11,7 +11,6 @@ gcc 4.4 fixes from upstream
  4 files changed, 48 insertions(+), 17 deletions(-)
 
 diff --git a/fs/reiserfs/do_balan.c b/fs/reiserfs/do_balan.c
-index 4beb964..128d3f7 100644
 --- a/fs/reiserfs/do_balan.c
 +++ b/fs/reiserfs/do_balan.c
 @@ -1270,9 +1270,8 @@ static int balance_leaf(struct tree_balance *tb, struct item_head *ih,	/* item h
@@ -27,7 +26,6 @@ index 4beb964..128d3f7 100644
  
  						int entry_count;
 diff --git a/fs/reiserfs/lbalance.c b/fs/reiserfs/lbalance.c
-index 381750a..03d85cb 100644
 --- a/fs/reiserfs/lbalance.c
 +++ b/fs/reiserfs/lbalance.c
 @@ -390,7 +390,8 @@ static void leaf_item_bottle(struct buffer_info *dest_bi,
@@ -75,7 +73,6 @@ diff --git a/include/linux/compiler-gcc.h b/include/linux/compiler-gcc.h
  #define inline		inline		__attribute__((always_inline))
  #define __inline__	__inline__	__attribute__((always_inline))
 diff --git a/include/linux/reiserfs_fs.h b/include/linux/reiserfs_fs.h
-index 2245c78..dd31e7b 100644
 --- a/include/linux/reiserfs_fs.h
 +++ b/include/linux/reiserfs_fs.h
 @@ -660,23 +660,54 @@ static inline void set_le_key_k_type(int version, struct reiserfs_key *key,

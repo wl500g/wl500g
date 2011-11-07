@@ -15,7 +15,6 @@ Signed-off-by: Patrick McHardy <kaber@trash.net>
  2 files changed, 14 insertions(+), 23 deletions(-)
 
 diff --git a/net/netfilter/xt_connlimit.c b/net/netfilter/xt_connlimit.c
-index 38f03f7..8103bef 100644
 --- a/net/netfilter/xt_connlimit.c
 +++ b/net/netfilter/xt_connlimit.c
 @@ -40,15 +40,11 @@ struct xt_connlimit_data {
@@ -60,7 +59,6 @@ index 38f03f7..8103bef 100644
  		printk(KERN_WARNING "cannot load conntrack support for "
  		       "address family %u\n", match->family);
 diff --git a/net/netfilter/xt_recent.c b/net/netfilter/xt_recent.c
-index fc70a49..768d01f 100644
 --- a/net/netfilter/xt_recent.c
 +++ b/net/netfilter/xt_recent.c
 @@ -90,25 +90,17 @@ static struct proc_dir_entry *recent_proc_dir;

@@ -20,7 +20,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/fs/nfs/dir.c b/fs/nfs/dir.c
-index be46f26..db3ad84 100644
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
 @@ -837,6 +837,8 @@ out_zap_parent:

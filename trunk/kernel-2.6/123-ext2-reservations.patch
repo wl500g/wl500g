@@ -17,7 +17,6 @@ Subject: [PATCH] ext2: cross-port of the ext3 reservations code from 2.6.24 (imp
  10 files changed, 1554 insertions(+), 485 deletions(-)
 
 diff --git a/fs/ext2/balloc.c b/fs/ext2/balloc.c
-index baf71dd..538c221 100644
 --- a/fs/ext2/balloc.c
 +++ b/fs/ext2/balloc.c
 @@ -94,41 +94,6 @@ error_out:
@@ -1439,7 +1438,6 @@ index baf71dd..538c221 100644
  
  #ifdef EXT2FS_DEBUG
 diff --git a/fs/ext2/ext2.h b/fs/ext2/ext2.h
-index 9fd0ec5..baa8deb 100644
 --- a/fs/ext2/ext2.h
 +++ b/fs/ext2/ext2.h
 @@ -33,22 +33,9 @@ struct ext2_inode_info {
@@ -1516,7 +1514,6 @@ index 9fd0ec5..baa8deb 100644
  extern void ext2_truncate (struct inode *);
  extern int ext2_setattr (struct dentry *, struct iattr *);
 diff --git a/fs/ext2/file.c b/fs/ext2/file.c
-index 566d4e2..2f79eff 100644
 --- a/fs/ext2/file.c
 +++ b/fs/ext2/file.c
 @@ -30,8 +30,11 @@
@@ -1534,7 +1531,6 @@ index 566d4e2..2f79eff 100644
  }
  
 diff --git a/fs/ext2/ialloc.c b/fs/ext2/ialloc.c
-index 2cb545b..86a2f3b 100644
 --- a/fs/ext2/ialloc.c
 +++ b/fs/ext2/ialloc.c
 @@ -589,11 +589,8 @@ got:
@@ -1551,7 +1547,6 @@ index 2cb545b..86a2f3b 100644
  	ei->i_state = EXT2_STATE_NEW;
  	ext2_set_inode_flags(inode);
 diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
-index 0079b2c..baea2a1 100644
 --- a/fs/ext2/inode.c
 +++ b/fs/ext2/inode.c
 @@ -54,19 +54,6 @@ static inline int ext2_inode_is_fast_symlink(struct inode *inode)
@@ -2250,7 +2245,6 @@ index 0079b2c..baea2a1 100644
  	ei->i_dir_start_lookup = 0;
  
 diff --git a/fs/ext2/ioctl.c b/fs/ext2/ioctl.c
-index e85c482..0c0914c 100644
 --- a/fs/ext2/ioctl.c
 +++ b/fs/ext2/ioctl.c
 @@ -22,6 +22,7 @@ int ext2_ioctl (struct inode * inode, struct file * filp, unsigned int cmd,
@@ -2313,7 +2307,6 @@ index e85c482..0c0914c 100644
  		return -ENOTTY;
  	}
 diff --git a/fs/ext2/super.c b/fs/ext2/super.c
-index b2efd90..f992f34 100644
 --- a/fs/ext2/super.c
 +++ b/fs/ext2/super.c
 @@ -147,6 +147,7 @@ static struct inode *ext2_alloc_inode(struct super_block *sb)
@@ -2442,7 +2435,6 @@ index b2efd90..f992f34 100644
  		if (offset || tocopy != EXT2_BLOCK_SIZE(sb))
  			bh = sb_bread(sb, tmp_bh.b_blocknr);
 diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
-index 247efd0..3e8683d 100644
 --- a/fs/ext2/xattr.c
 +++ b/fs/ext2/xattr.c
 @@ -664,8 +664,7 @@ ext2_xattr_set2(struct inode *inode, struct buffer_head *old_bh,
@@ -2456,7 +2448,6 @@ index 247efd0..3e8683d 100644
  				goto cleanup;
  			ea_idebug(inode, "creating block %d", block);
 diff --git a/include/linux/ext2_fs.h b/include/linux/ext2_fs.h
-index 153d755..c77c3bb 100644
 --- a/include/linux/ext2_fs.h
 +++ b/include/linux/ext2_fs.h
 @@ -29,11 +29,12 @@
@@ -2510,7 +2501,6 @@ index 153d755..c77c3bb 100644
 +
  #endif	/* _LINUX_EXT2_FS_H */
 diff --git a/include/linux/ext2_fs_sb.h b/include/linux/ext2_fs_sb.h
-index 2bfcbb0..b29f346 100644
 --- a/include/linux/ext2_fs_sb.h
 +++ b/include/linux/ext2_fs_sb.h
 @@ -18,6 +18,52 @@

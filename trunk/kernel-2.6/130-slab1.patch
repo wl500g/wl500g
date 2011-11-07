@@ -19,7 +19,6 @@ Subject: [PATCH] Various slab/slub/slob allocator patches from 2.6 upstream
  14 files changed, 813 insertions(+), 533 deletions(-)
 
 diff --git a/include/linux/cache.h b/include/linux/cache.h
-index 4552504..97e2488 100644
 --- a/include/linux/cache.h
 +++ b/include/linux/cache.h
 @@ -60,4 +60,8 @@
@@ -32,7 +31,6 @@ index 4552504..97e2488 100644
 +
  #endif /* __LINUX_CACHE_H */
 diff --git a/include/linux/slab.h b/include/linux/slab.h
-index cebcd38..f31c8c8 100644
 --- a/include/linux/slab.h
 +++ b/include/linux/slab.h
 @@ -33,6 +33,19 @@ typedef struct kmem_cache kmem_cache_t __deprecated;
@@ -275,7 +273,6 @@ index cebcd38..f31c8c8 100644
  #endif	/* _LINUX_SLAB_H */
 -
 diff --git a/include/linux/slab_def.h b/include/linux/slab_def.h
-index 8d81a60..e249581 100644
 --- a/include/linux/slab_def.h
 +++ b/include/linux/slab_def.h
 @@ -25,16 +25,23 @@ struct cache_sizes {
@@ -357,7 +354,6 @@ index 8d81a60..e249581 100644
  			extern void __you_cannot_kmalloc_that_much(void);
 diff --git a/include/linux/slob_def.h b/include/linux/slob_def.h
 new file mode 100644
-index 0000000..59a3fa4
 --- /dev/null
 +++ b/include/linux/slob_def.h
 @@ -0,0 +1,36 @@
@@ -398,7 +394,6 @@ index 0000000..59a3fa4
 +
 +#endif /* __LINUX_SLOB_DEF_H */
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index 6207a3d..0c7773c 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -159,17 +159,8 @@ static inline struct kmem_cache *kmalloc_slab(size_t size)
@@ -446,7 +441,6 @@ index 6207a3d..0c7773c 100644
  static inline void *kmalloc_node(size_t size, gfp_t flags, int node)
  {
 diff --git a/init/Kconfig b/init/Kconfig
-index 5f8dba9..e21af66 100644
 --- a/init/Kconfig
 +++ b/init/Kconfig
 @@ -577,14 +577,12 @@ config SLUB
@@ -469,7 +463,6 @@ index 5f8dba9..e21af66 100644
  endchoice
  
 diff --git a/mm/bootmem.c b/mm/bootmem.c
-index 83844b9..94f695a 100644
 --- a/mm/bootmem.c
 +++ b/mm/bootmem.c
 @@ -91,6 +91,7 @@ static unsigned long __init init_bootmem_core(pg_data_t *pgdat,
@@ -481,7 +474,6 @@ index 83844b9..94f695a 100644
  	bdata->node_boot_start = PFN_PHYS(start);
  	bdata->node_low_pfn = end;
 diff --git a/mm/internal.h b/mm/internal.h
-index a3110c0..d75e0da 100644
 --- a/mm/internal.h
 +++ b/mm/internal.h
 @@ -37,4 +37,42 @@ static inline void __put_page(struct page *page)
@@ -528,7 +520,6 @@ index a3110c0..d75e0da 100644
 +
  #endif
 diff --git a/mm/page_alloc.c b/mm/page_alloc.c
-index 14ea682..38e8166 100644
 --- a/mm/page_alloc.c
 +++ b/mm/page_alloc.c
 @@ -2764,6 +2764,8 @@ void __init add_active_range(unsigned int nid, unsigned long start_pfn,
@@ -541,7 +532,6 @@ index 14ea682..38e8166 100644
  	for (i = 0; i < nr_nodemap_entries; i++) {
  		if (early_node_map[i].nid != nid)
 diff --git a/mm/slab.c b/mm/slab.c
-index 7bd06ea..fd942ac 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -139,10 +139,6 @@
@@ -925,7 +915,6 @@ index 7bd06ea..fd942ac 100644
  }
 +EXPORT_SYMBOL(ksize);
 diff --git a/mm/slob.c b/mm/slob.c
-index 71976c5..f8b1205 100644
 --- a/mm/slob.c
 +++ b/mm/slob.c
 @@ -3,57 +3,176 @@
@@ -1740,7 +1729,6 @@ index 71976c5..f8b1205 100644
 +	slob_ready = 1;
  }
 diff --git a/mm/slub.c b/mm/slub.c
-index 648f2c7..a81db8d 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -9,6 +9,7 @@
@@ -2086,7 +2074,6 @@ index 648f2c7..a81db8d 100644
  struct saved_alias {
  	struct kmem_cache *s;
 diff --git a/mm/sparse.c b/mm/sparse.c
-index fdc1454..32c3982 100644
 --- a/mm/sparse.c
 +++ b/mm/sparse.c
 @@ -9,6 +9,7 @@
@@ -2148,7 +2135,6 @@ index fdc1454..32c3982 100644
  		if (nid != early_pfn_to_nid(pfn))
  			continue;
 diff --git a/mm/util.c b/mm/util.c
-index ace2aea..ab522d7 100644
 --- a/mm/util.c
 +++ b/mm/util.c
 @@ -2,23 +2,10 @@

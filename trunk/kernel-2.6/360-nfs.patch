@@ -63,7 +63,6 @@ Date: Wed, 24 Mar 2010 22:35:53 -0400
  57 files changed, 3299 insertions(+), 1800 deletions(-)
 
 diff --git a/fs/lockd/host.c b/fs/lockd/host.c
-index 96070bf..572601e 100644
 --- a/fs/lockd/host.c
 +++ b/fs/lockd/host.c
 @@ -44,9 +44,8 @@ static struct nsm_handle *	nsm_find(const struct sockaddr_in *sin,
@@ -172,7 +171,6 @@ index 96070bf..572601e 100644
  			.servername	= host->h_name,
  			.program	= &nlm_program,
 diff --git a/fs/lockd/mon.c b/fs/lockd/mon.c
-index 2102e2d..3353ed8 100644
 --- a/fs/lockd/mon.c
 +++ b/fs/lockd/mon.c
 @@ -61,6 +61,7 @@ nsm_mon_unmon(struct nsm_handle *nsm, u32 proc, struct nsm_res *res)
@@ -192,7 +190,6 @@ index 2102e2d..3353ed8 100644
  
  	return rpc_create(&args);
 diff --git a/fs/lockd/svc.c b/fs/lockd/svc.c
-index 126b1bf..2680932 100644
 --- a/fs/lockd/svc.c
 +++ b/fs/lockd/svc.c
 @@ -123,9 +123,6 @@ lockd(struct svc_rqst *rqstp)
@@ -216,7 +213,6 @@ index 126b1bf..2680932 100644
  	unlock_kernel();
  	module_put_and_exit(0);
 diff --git a/fs/nfs/Makefile b/fs/nfs/Makefile
-index f4580b4..b55cb23 100644
 --- a/fs/nfs/Makefile
 +++ b/fs/nfs/Makefile
 @@ -6,8 +6,8 @@ obj-$(CONFIG_NFS_FS) += nfs.o
@@ -231,7 +227,6 @@ index f4580b4..b55cb23 100644
  nfs-$(CONFIG_NFS_V3_ACL)	+= nfs3acl.o
  nfs-$(CONFIG_NFS_V4)	+= nfs4proc.o nfs4xdr.o nfs4state.o nfs4renewd.o \
 diff --git a/fs/nfs/client.c b/fs/nfs/client.c
-index b6fd8a7..61c6dd2 100644
 --- a/fs/nfs/client.c
 +++ b/fs/nfs/client.c
 @@ -102,19 +102,10 @@ static struct nfs_client *nfs_alloc_client(const char *hostname,
@@ -302,7 +297,6 @@ index b6fd8a7..61c6dd2 100644
  	kfree(clp);
  
 diff --git a/fs/nfs/delegation.c b/fs/nfs/delegation.c
-index 7f37d1b..20ac403 100644
 --- a/fs/nfs/delegation.c
 +++ b/fs/nfs/delegation.c
 @@ -27,6 +27,13 @@ static void nfs_free_delegation(struct nfs_delegation *delegation)
@@ -661,7 +655,6 @@ index 7f37d1b..20ac403 100644
 +	return ret;
  }
 diff --git a/fs/nfs/delegation.h b/fs/nfs/delegation.h
-index 2cfd4b2..5874ce7 100644
 --- a/fs/nfs/delegation.h
 +++ b/fs/nfs/delegation.h
 @@ -22,11 +22,12 @@ struct nfs_delegation {
@@ -717,7 +710,6 @@ index 2cfd4b2..5874ce7 100644
  static inline int nfs_have_delegation(struct inode *inode, int flags)
  {
 diff --git a/fs/nfs/dir.c b/fs/nfs/dir.c
-index db1d6b9..00bb25b 100644
 --- a/fs/nfs/dir.c
 +++ b/fs/nfs/dir.c
 @@ -1245,7 +1245,7 @@ static int nfs_create(struct inode *dir, struct dentry *dentry, int mode,
@@ -757,7 +749,6 @@ index db1d6b9..00bb25b 100644
  		goto restart;
  	}
 diff --git a/fs/nfs/direct.c b/fs/nfs/direct.c
-index 00eee87..a5c82b6 100644
 --- a/fs/nfs/direct.c
 +++ b/fs/nfs/direct.c
 @@ -266,7 +266,7 @@ static const struct rpc_call_ops nfs_read_direct_ops = {
@@ -845,7 +836,6 @@ index 00eee87..a5c82b6 100644
  	retval = generic_write_checks(file, &pos, &count, 0);
  	if (retval)
 diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-index 2219b6c..3d9fccf 100644
 --- a/fs/nfs/inode.c
 +++ b/fs/nfs/inode.c
 @@ -461,14 +461,14 @@ static struct nfs_open_context *alloc_nfs_open_context(struct vfsmount *mnt, str
@@ -973,7 +963,6 @@ index 2219b6c..3d9fccf 100644
  	nfsi->npages = 0;
  	nfs4_init_once(nfsi);
 diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
-index ad2b40d..76cf55d 100644
 --- a/fs/nfs/internal.h
 +++ b/fs/nfs/internal.h
 @@ -183,9 +183,9 @@ unsigned long nfs_block_bits(unsigned long bsize, unsigned char *nrbitsp)
@@ -989,7 +978,6 @@ index ad2b40d..76cf55d 100644
  }
  
 diff --git a/fs/nfs/mount_clnt.c b/fs/nfs/mount_clnt.c
-index ca5a266..8afd9f7 100644
 --- a/fs/nfs/mount_clnt.c
 +++ b/fs/nfs/mount_clnt.c
 @@ -1,7 +1,5 @@
@@ -1248,7 +1236,6 @@ index ca5a266..8afd9f7 100644
  	.number		= NFS_MNT_PROGRAM,
  	.nrvers		= ARRAY_SIZE(mnt_version),
 diff --git a/fs/nfs/nfs2xdr.c b/fs/nfs/nfs2xdr.c
-index cd3ca7b..7fcc78f 100644
 --- a/fs/nfs/nfs2xdr.c
 +++ b/fs/nfs/nfs2xdr.c
 @@ -223,7 +223,7 @@ nfs_xdr_diropargs(struct rpc_rqst *req, __be32 *p, struct nfs_diropargs *args)
@@ -1279,7 +1266,6 @@ index cd3ca7b..7fcc78f 100644
  
  	p = xdr_encode_fhandle(p, args->fh);
 diff --git a/fs/nfs/nfs3proc.c b/fs/nfs/nfs3proc.c
-index 45268d6..814d886 100644
 --- a/fs/nfs/nfs3proc.c
 +++ b/fs/nfs/nfs3proc.c
 @@ -335,9 +335,7 @@ again:
@@ -1294,7 +1280,6 @@ index 45268d6..814d886 100644
  	}
  	if (status != 0)
 diff --git a/fs/nfs/nfs3xdr.c b/fs/nfs/nfs3xdr.c
-index b51df8e..b4647a2 100644
 --- a/fs/nfs/nfs3xdr.c
 +++ b/fs/nfs/nfs3xdr.c
 @@ -319,7 +319,7 @@ nfs3_xdr_accessargs(struct rpc_rqst *req, __be32 *p, struct nfs3_accessargs *arg
@@ -1334,7 +1319,6 @@ index b51df8e..b4647a2 100644
  
  	p = xdr_encode_fhandle(p, args->fh);
 diff --git a/fs/nfs/nfs4_fs.h b/fs/nfs/nfs4_fs.h
-index cf3a17e..6c028e7 100644
 --- a/fs/nfs/nfs4_fs.h
 +++ b/fs/nfs/nfs4_fs.h
 @@ -70,19 +70,26 @@ static inline void nfs_confirm_seqid(struct nfs_seqid_counter *seqid, int status
@@ -1443,7 +1427,6 @@ index cf3a17e..6c028e7 100644
  #endif /* CONFIG_NFS_V4 */
  #endif /* __LINUX_FS_NFS_NFS4_FS.H */
 diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
-index 648e0ac..fee2da8 100644
 --- a/fs/nfs/nfs4proc.c
 +++ b/fs/nfs/nfs4proc.c
 @@ -65,6 +65,7 @@ static int nfs4_async_handle_error(struct rpc_task *, const struct nfs_server *)
@@ -2779,7 +2762,6 @@ index 648e0ac..fee2da8 100644
  	nfs_increment_lock_seqid(data->rpc_status, data->arg.lock_seqid);
  out:
 diff --git a/fs/nfs/nfs4state.c b/fs/nfs/nfs4state.c
-index 8ed79d5..28551ae 100644
 --- a/fs/nfs/nfs4state.c
 +++ b/fs/nfs/nfs4state.c
 @@ -38,12 +38,14 @@
@@ -3296,7 +3278,6 @@ index 8ed79d5..28551ae 100644
  		if (status < 0) {
  			if (status == -NFS4ERR_NO_GRACE) {
 diff --git a/fs/nfs/nfs4xdr.c b/fs/nfs/nfs4xdr.c
-index 8003c91..c087384 100644
 --- a/fs/nfs/nfs4xdr.c
 +++ b/fs/nfs/nfs4xdr.c
 @@ -68,9 +68,10 @@ static int nfs4_stat_to_errno(int);
@@ -3590,7 +3571,6 @@ index 8003c91..c087384 100644
  xdr_error:
  	dprintk("%s: Bitmap too large! Length = %u\n", __FUNCTION__, bmlen);
 diff --git a/fs/nfs/nfsroot.c b/fs/nfs/nfsroot.c
-index 49d1008..3490322 100644
 --- a/fs/nfs/nfsroot.c
 +++ b/fs/nfs/nfsroot.c
 @@ -428,7 +428,7 @@ static int __init root_nfs_getport(int program, int version, int proto)
@@ -3613,7 +3593,6 @@ index 49d1008..3490322 100644
  		printk(KERN_ERR "Root-NFS: Server returned error %d "
  				"while mounting %s\n", status, nfs_path);
 diff --git a/fs/nfs/pagelist.c b/fs/nfs/pagelist.c
-index c5bb51a..f56dae5 100644
 --- a/fs/nfs/pagelist.c
 +++ b/fs/nfs/pagelist.c
 @@ -85,9 +85,8 @@ nfs_create_request(struct nfs_open_context *ctx, struct inode *inode,
@@ -3765,7 +3744,6 @@ index c5bb51a..f56dae5 100644
  out:
  	return res;
 diff --git a/fs/nfs/read.c b/fs/nfs/read.c
-index 7bd7cb9..6ae2e58 100644
 --- a/fs/nfs/read.c
 +++ b/fs/nfs/read.c
 @@ -145,8 +145,8 @@ static void nfs_readpage_release(struct nfs_page *req)
@@ -3861,7 +3839,6 @@ index 7bd7cb9..6ae2e58 100644
  
  int nfs_readpages(struct file *filp, struct address_space *mapping,
 diff --git a/fs/nfs/super.c b/fs/nfs/super.c
-index 6a5bd0d..0fa0276 100644
 --- a/fs/nfs/super.c
 +++ b/fs/nfs/super.c
 @@ -45,6 +45,7 @@
@@ -5266,7 +5243,6 @@ index 6a5bd0d..0fa0276 100644
  		error = PTR_ERR(s);
  		goto out_err_nosb;
 diff --git a/fs/nfs/write.c b/fs/nfs/write.c
-index 380a7ae..44874d4 100644
 --- a/fs/nfs/write.c
 +++ b/fs/nfs/write.c
 @@ -117,19 +117,19 @@ static struct nfs_page *nfs_page_find_request_locked(struct page *page)
@@ -5747,7 +5723,6 @@ index 380a7ae..44874d4 100644
  out_raced:
  	return !TestSetPageDirty(page);
 diff --git a/fs/nfsd/nfs4callback.c b/fs/nfsd/nfs4callback.c
-index 864090e..5443c52 100644
 --- a/fs/nfsd/nfs4callback.c
 +++ b/fs/nfsd/nfs4callback.c
 @@ -394,7 +394,6 @@ nfsd4_probe_callback(struct nfs4_client *clp)
@@ -5804,7 +5779,6 @@ index 864090e..5443c52 100644
  out_err:
  	cb->cb_client = NULL;
 diff --git a/fs/nfsd/nfs4state.c b/fs/nfsd/nfs4state.c
-index 3cc8ce4..8c52913 100644
 --- a/fs/nfsd/nfs4state.c
 +++ b/fs/nfsd/nfs4state.c
 @@ -378,7 +378,6 @@ shutdown_callback_client(struct nfs4_client *clp)
@@ -5816,7 +5790,6 @@ index 3cc8ce4..8c52913 100644
  }
  
 diff --git a/include/linux/lockd/lockd.h b/include/linux/lockd/lockd.h
-index 05707e2..e2d1ce3 100644
 --- a/include/linux/lockd/lockd.h
 +++ b/include/linux/lockd/lockd.h
 @@ -39,6 +39,7 @@
@@ -5828,7 +5801,6 @@ index 05707e2..e2d1ce3 100644
  	char *			h_name;		/* remote hostname */
  	u32			h_version;	/* interface version */
 diff --git a/include/linux/nfs4.h b/include/linux/nfs4.h
-index 7e7f33a..8726491 100644
 --- a/include/linux/nfs4.h
 +++ b/include/linux/nfs4.h
 @@ -15,6 +15,7 @@
@@ -5840,7 +5812,6 @@ index 7e7f33a..8726491 100644
  #define NFS4_STATEID_SIZE	16
  #define NFS4_FHSIZE		128
 diff --git a/include/linux/nfs4_mount.h b/include/linux/nfs4_mount.h
-index 26b4c83..a0dcf66 100644
 --- a/include/linux/nfs4_mount.h
 +++ b/include/linux/nfs4_mount.h
 @@ -65,6 +65,7 @@ struct nfs4_mount_data {
@@ -5853,7 +5824,6 @@ index 26b4c83..a0dcf66 100644
  
  #endif
 diff --git a/include/linux/nfs_fs.h b/include/linux/nfs_fs.h
-index 0543439..c098ae1 100644
 --- a/include/linux/nfs_fs.h
 +++ b/include/linux/nfs_fs.h
 @@ -30,7 +30,9 @@
@@ -5937,7 +5907,6 @@ index 0543439..c098ae1 100644
  
  #ifdef __KERNEL__
 diff --git a/include/linux/nfs_fs_sb.h b/include/linux/nfs_fs_sb.h
-index 52b4378..0cac49b 100644
 --- a/include/linux/nfs_fs_sb.h
 +++ b/include/linux/nfs_fs_sb.h
 @@ -16,7 +16,6 @@ struct nfs_client {
@@ -5970,7 +5939,6 @@ index 52b4378..0cac49b 100644
  
  	unsigned long		cl_lease_time;
 diff --git a/include/linux/nfs_mount.h b/include/linux/nfs_mount.h
-index cc8b9c5..a3ade89 100644
 --- a/include/linux/nfs_mount.h
 +++ b/include/linux/nfs_mount.h
 @@ -37,7 +37,7 @@ struct nfs_mount_data {
@@ -5991,7 +5959,6 @@ index cc8b9c5..a3ade89 100644
  
  #endif
 diff --git a/include/linux/nfs_page.h b/include/linux/nfs_page.h
-index bd193af..78e6079 100644
 --- a/include/linux/nfs_page.h
 +++ b/include/linux/nfs_page.h
 @@ -16,12 +16,13 @@
@@ -6089,7 +6056,6 @@ index bd193af..78e6079 100644
  
  static inline struct nfs_page *
 diff --git a/include/linux/nfs_xdr.h b/include/linux/nfs_xdr.h
-index 10c26ed..38d7768 100644
 --- a/include/linux/nfs_xdr.h
 +++ b/include/linux/nfs_xdr.h
 @@ -119,7 +119,7 @@ struct nfs_openargs {
@@ -6119,7 +6085,6 @@ index 10c26ed..38d7768 100644
  
  struct nfs_lock_args {
 diff --git a/include/linux/sunrpc/auth.h b/include/linux/sunrpc/auth.h
-index 534cdc7..7a69ca3 100644
 --- a/include/linux/sunrpc/auth.h
 +++ b/include/linux/sunrpc/auth.h
 @@ -16,6 +16,7 @@
@@ -6228,7 +6193,6 @@ index 534cdc7..7a69ca3 100644
  static inline
  struct rpc_cred *	get_rpccred(struct rpc_cred *cred)
 diff --git a/include/linux/sunrpc/auth_gss.h b/include/linux/sunrpc/auth_gss.h
-index 2db2fbf..67658e1 100644
 --- a/include/linux/sunrpc/auth_gss.h
 +++ b/include/linux/sunrpc/auth_gss.h
 @@ -75,6 +75,7 @@ struct gss_cl_ctx {
@@ -6252,7 +6216,6 @@ index 2db2fbf..67658e1 100644
  #endif /* _LINUX_SUNRPC_AUTH_GSS_H */
  
 diff --git a/include/linux/sunrpc/clnt.h b/include/linux/sunrpc/clnt.h
-index 6661142..c0d9d14 100644
 --- a/include/linux/sunrpc/clnt.h
 +++ b/include/linux/sunrpc/clnt.h
 @@ -24,8 +24,10 @@ struct rpc_inode;
@@ -6339,7 +6302,6 @@ index 6661142..c0d9d14 100644
  #endif /* __KERNEL__ */
  #endif /* _LINUX_SUNRPC_CLNT_H */
 diff --git a/include/linux/sunrpc/gss_api.h b/include/linux/sunrpc/gss_api.h
-index 5eca9e4..bbac101 100644
 --- a/include/linux/sunrpc/gss_api.h
 +++ b/include/linux/sunrpc/gss_api.h
 @@ -77,7 +77,7 @@ struct gss_api_mech {
@@ -6352,7 +6314,6 @@ index 5eca9e4..bbac101 100644
  	int			gm_pf_num;
  	struct pf_desc *	gm_pfs;
 diff --git a/include/linux/sunrpc/rpc_pipe_fs.h b/include/linux/sunrpc/rpc_pipe_fs.h
-index ad29376..51b977a 100644
 --- a/include/linux/sunrpc/rpc_pipe_fs.h
 +++ b/include/linux/sunrpc/rpc_pipe_fs.h
 @@ -23,9 +23,11 @@ struct rpc_inode {
@@ -6368,7 +6329,6 @@ index ad29376..51b977a 100644
  #define RPC_PIPE_WAIT_FOR_OPEN	1
  	int flags;
 diff --git a/include/linux/sunrpc/sched.h b/include/linux/sunrpc/sched.h
-index 2047fb2..8ea077d 100644
 --- a/include/linux/sunrpc/sched.h
 +++ b/include/linux/sunrpc/sched.h
 @@ -98,7 +98,6 @@ struct rpc_task {
@@ -6392,7 +6352,6 @@ index 2047fb2..8ea077d 100644
  
  struct rpc_call_ops {
 diff --git a/include/linux/sunrpc/svcsock.h b/include/linux/sunrpc/svcsock.h
-index e21dd93..a53e0fa 100644
 --- a/include/linux/sunrpc/svcsock.h
 +++ b/include/linux/sunrpc/svcsock.h
 @@ -59,6 +59,7 @@ struct svc_sock {
@@ -6404,7 +6363,6 @@ index e21dd93..a53e0fa 100644
  	int			sk_remotelen;	/* length of address */
  };
 diff --git a/include/linux/sunrpc/xprt.h b/include/linux/sunrpc/xprt.h
-index 34f7590..d11cedd 100644
 --- a/include/linux/sunrpc/xprt.h
 +++ b/include/linux/sunrpc/xprt.h
 @@ -17,6 +17,8 @@
@@ -6452,7 +6410,6 @@ index 34f7590..d11cedd 100644
  void			cleanup_socket_xprt(void);
  
 diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index ea37edd..c2e333c 100644
 --- a/kernel/auditsc.c
 +++ b/kernel/auditsc.c
 @@ -1500,6 +1500,7 @@ add_names:
@@ -6464,7 +6421,6 @@ index ea37edd..c2e333c 100644
  /**
   * auditsc_get_stamp - get local copies of audit_context values
 diff --git a/net/sunrpc/auth.c b/net/sunrpc/auth.c
-index 9527f2b..74baf87 100644
 --- a/net/sunrpc/auth.c
 +++ b/net/sunrpc/auth.c
 @@ -18,12 +18,16 @@
@@ -7036,7 +6992,6 @@ index 9527f2b..74baf87 100644
 +		remove_shrinker(rpc_cred_shrinker);
  }
 diff --git a/net/sunrpc/auth_gss/auth_gss.c b/net/sunrpc/auth_gss/auth_gss.c
-index 4e4ccc5..17d460f 100644
 --- a/net/sunrpc/auth_gss/auth_gss.c
 +++ b/net/sunrpc/auth_gss/auth_gss.c
 @@ -54,9 +54,10 @@
@@ -7739,7 +7694,6 @@ index 4e4ccc5..17d460f 100644
  	.upcall		= gss_pipe_upcall,
  	.downcall	= gss_pipe_downcall,
 diff --git a/net/sunrpc/auth_gss/gss_krb5_mech.c b/net/sunrpc/auth_gss/gss_krb5_mech.c
-index 7b19432..71b9dae 100644
 --- a/net/sunrpc/auth_gss/gss_krb5_mech.c
 +++ b/net/sunrpc/auth_gss/gss_krb5_mech.c
 @@ -201,7 +201,7 @@ gss_delete_sec_context_kerberos(void *internal_ctx) {
@@ -7752,7 +7706,6 @@ index 7b19432..71b9dae 100644
  	.gss_get_mic		= gss_get_mic_kerberos,
  	.gss_verify_mic		= gss_verify_mic_kerberos,
 diff --git a/net/sunrpc/auth_gss/gss_spkm3_mech.c b/net/sunrpc/auth_gss/gss_spkm3_mech.c
-index 7e15aa6..577d590 100644
 --- a/net/sunrpc/auth_gss/gss_spkm3_mech.c
 +++ b/net/sunrpc/auth_gss/gss_spkm3_mech.c
 @@ -202,7 +202,7 @@ gss_get_mic_spkm3(struct gss_ctx	*ctx,
@@ -7765,7 +7718,6 @@ index 7e15aa6..577d590 100644
  	.gss_get_mic		= gss_get_mic_spkm3,
  	.gss_verify_mic		= gss_verify_mic_spkm3,
 diff --git a/net/sunrpc/auth_null.c b/net/sunrpc/auth_null.c
-index 3df9fcc..537d0e8 100644
 --- a/net/sunrpc/auth_null.c
 +++ b/net/sunrpc/auth_null.c
 @@ -76,7 +76,7 @@ nul_marshal(struct rpc_task *task, __be32 *p)
@@ -7809,7 +7761,6 @@ index 3df9fcc..537d0e8 100644
  	.cr_magic	= RPCAUTH_CRED_MAGIC,
  #endif
 diff --git a/net/sunrpc/auth_unix.c b/net/sunrpc/auth_unix.c
-index 4e7733a..5ed91e5 100644
 --- a/net/sunrpc/auth_unix.c
 +++ b/net/sunrpc/auth_unix.c
 @@ -20,11 +20,6 @@ struct unx_cred {
@@ -7967,7 +7918,6 @@ index 4e7733a..5ed91e5 100644
  	.crdestroy	= unx_destroy_cred,
  	.crmatch	= unx_match,
 diff --git a/net/sunrpc/clnt.c b/net/sunrpc/clnt.c
-index d8fbee4..5d3fe7b 100644
 --- a/net/sunrpc/clnt.c
 +++ b/net/sunrpc/clnt.c
 @@ -44,6 +44,12 @@
@@ -8565,7 +8515,6 @@ index d8fbee4..5d3fe7b 100644
 +}
 +#endif
 diff --git a/net/sunrpc/rpc_pipe.c b/net/sunrpc/rpc_pipe.c
-index 5887457..22e25b5 100644
 --- a/net/sunrpc/rpc_pipe.c
 +++ b/net/sunrpc/rpc_pipe.c
 @@ -14,7 +14,7 @@
@@ -8789,7 +8738,6 @@ index 5887457..22e25b5 100644
  	rpci->pipelen = 0;
  	init_waitqueue_head(&rpci->waitq);
 diff --git a/net/sunrpc/rpcb_clnt.c b/net/sunrpc/rpcb_clnt.c
-index 6c7aa8a..d1740db 100644
 --- a/net/sunrpc/rpcb_clnt.c
 +++ b/net/sunrpc/rpcb_clnt.c
 @@ -12,6 +12,8 @@
@@ -8969,7 +8917,6 @@ index 6c7aa8a..d1740db 100644
  	}
  	rpc_put_task(child);
 diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
-index 944d753..2ac43c4 100644
 --- a/net/sunrpc/sched.c
 +++ b/net/sunrpc/sched.c
 @@ -25,7 +25,6 @@
@@ -9318,7 +9265,6 @@ index 944d753..2ac43c4 100644
  rpc_destroy_mempool(void)
  {
 diff --git a/net/sunrpc/sunrpc_syms.c b/net/sunrpc/sunrpc_syms.c
-index 73075de..384c4ad 100644
 --- a/net/sunrpc/sunrpc_syms.c
 +++ b/net/sunrpc/sunrpc_syms.c
 @@ -28,15 +28,11 @@ EXPORT_SYMBOL(rpc_init_task);
@@ -9363,7 +9309,6 @@ index 73075de..384c4ad 100644
  	unregister_rpc_pipefs();
  	rpc_destroy_mempool();
 diff --git a/net/sunrpc/svcsock.c b/net/sunrpc/svcsock.c
-index 80a0091..5829329 100644
 --- a/net/sunrpc/svcsock.c
 +++ b/net/sunrpc/svcsock.c
 @@ -644,6 +644,7 @@ svc_recvfrom(struct svc_rqst *rqstp, struct kvec *iov, int nr, int buflen)
@@ -9408,7 +9353,6 @@ index 80a0091..5829329 100644
  	svc_sock_received(newsvsk);
  
 diff --git a/net/sunrpc/xprt.c b/net/sunrpc/xprt.c
-index 5b05b73..c8c2edc 100644
 --- a/net/sunrpc/xprt.c
 +++ b/net/sunrpc/xprt.c
 @@ -127,7 +127,7 @@ static void xprt_clear_locked(struct rpc_xprt *xprt)
@@ -9464,7 +9408,6 @@ index 5b05b73..c8c2edc 100644
  	}
  	if (IS_ERR(xprt)) {
 diff --git a/net/sunrpc/xprtsock.c b/net/sunrpc/xprtsock.c
-index cc33c58..4ae7eed 100644
 --- a/net/sunrpc/xprtsock.c
 +++ b/net/sunrpc/xprtsock.c
 @@ -235,6 +235,7 @@ struct sock_xprt {

@@ -40,7 +40,6 @@ Signed-off-by: Inaky Perez-Gonzalez <inaky@linux.intel.com>
 Cc: Alan Stern <stern@rowland.harvard.edu>
 
 diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
-index 3d7793d..9a8919a 100644
 --- a/drivers/usb/core/driver.c
 +++ b/drivers/usb/core/driver.c
 @@ -184,6 +184,20 @@ static int usb_unbind_device(struct device *dev)
@@ -91,7 +90,6 @@ index 3d7793d..9a8919a 100644
  	driver = to_usb_driver(intf->dev.driver);
  
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 9b3f16b..6515a76 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -3513,3 +3513,46 @@ int usb_reset_device(struct usb_device *udev)
@@ -142,7 +140,6 @@ index 9b3f16b..6515a76 100644
 +}
 +EXPORT_SYMBOL_GPL(usb_queue_reset_device);
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index 8877385..0cc383e 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
 @@ -1440,6 +1440,46 @@ static struct usb_interface_assoc_descriptor *find_iad(struct usb_device *dev,
@@ -201,7 +198,6 @@ index 8877385..0cc383e 100644
  		mark_quiesced(intf);
  		sprintf(&intf->dev.bus_id[0], "%d-%s:%d.%d",
 diff --git a/include/linux/usb.h b/include/linux/usb.h
-index 8fa973b..370d611 100644
 --- a/include/linux/usb.h
 +++ b/include/linux/usb.h
 @@ -119,6 +119,11 @@ enum usb_interface_condition {

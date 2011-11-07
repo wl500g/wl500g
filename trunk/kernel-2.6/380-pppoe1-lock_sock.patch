@@ -14,7 +14,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 1 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/pppoe.c b/drivers/net/pppoe.c
-index f75aeaa..35a7385 100644
 --- a/drivers/net/pppoe.c
 +++ b/drivers/net/pppoe.c
 @@ -774,6 +774,7 @@ static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock,

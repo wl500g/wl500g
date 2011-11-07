@@ -25,7 +25,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 9149fc2..e7c8506 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
 @@ -149,7 +149,7 @@ out:
@@ -38,7 +37,6 @@ index 9149fc2..e7c8506 100644
  	struct inet6_protocol *ipprot;
  	struct sock *raw_sk;
 diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index 011082e..13565df 100644
 --- a/net/ipv6/ip6_output.c
 +++ b/net/ipv6/ip6_output.c
 @@ -70,7 +70,7 @@ static __inline__ void ipv6_select_ident(struct sk_buff *skb, struct frag_hdr *f

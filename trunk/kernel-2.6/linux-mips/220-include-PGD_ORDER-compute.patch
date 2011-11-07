@@ -10,7 +10,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 2 insertions(+), 8 deletions(-)
 
 diff --git a/include/asm-mips/pgtable-32.h b/include/asm-mips/pgtable-32.h
-index ff29485..59c865d 100644
 --- a/include/asm-mips/pgtable-32.h
 +++ b/include/asm-mips/pgtable-32.h
 @@ -51,17 +51,11 @@ extern int add_temporary_entry(unsigned long entrylo0, unsigned long entrylo1,

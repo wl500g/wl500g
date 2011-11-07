@@ -9,7 +9,6 @@
  2 files changed, 121 insertions(+), 40 deletions(-)
 
 diff --git a/include/linux/netfilter/xt_CONNMARK.h b/include/linux/netfilter/xt_CONNMARK.h
-index 9f74468..4e58ba4 100644
 --- a/include/linux/netfilter/xt_CONNMARK.h
 +++ b/include/linux/netfilter/xt_CONNMARK.h
 @@ -22,4 +22,9 @@ struct xt_connmark_target_info {

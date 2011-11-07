@@ -26,7 +26,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 4 insertions(+), 1 deletions(-)
 
 diff --git a/kernel/printk.c b/kernel/printk.c
-index 4961410..7ce9a8c 100644
 --- a/kernel/printk.c
 +++ b/kernel/printk.c
 @@ -985,12 +985,15 @@ void register_console(struct console *console)

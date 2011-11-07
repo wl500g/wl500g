@@ -12,7 +12,6 @@ adeab1afb7de89555c69aab5ca21300c14af6369 NET: Fix locking issues in PPP, 6pack, 
  2 files changed, 16 insertions(+), 10 deletions(-)
 
 diff --git a/drivers/net/ppp_async.c b/drivers/net/ppp_async.c
-index 39cea35..bdab090 100644
 --- a/drivers/net/ppp_async.c
 +++ b/drivers/net/ppp_async.c
 @@ -132,13 +132,15 @@ static DEFINE_RWLOCK(disc_data_lock);
@@ -52,7 +51,6 @@ index 39cea35..bdab090 100644
  
  	/*
 diff --git a/drivers/net/ppp_synctty.c b/drivers/net/ppp_synctty.c
-index 5918fab..b5a5121 100644
 --- a/drivers/net/ppp_synctty.c
 +++ b/drivers/net/ppp_synctty.c
 @@ -182,13 +182,15 @@ static DEFINE_RWLOCK(disc_data_lock);

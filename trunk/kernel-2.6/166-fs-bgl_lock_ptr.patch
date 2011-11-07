@@ -24,7 +24,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  3 files changed, 17 insertions(+), 2 deletions(-)
 
 diff --git a/include/linux/blockgroup_lock.h b/include/linux/blockgroup_lock.h
-index 8607312..e44b88b 100644
 --- a/include/linux/blockgroup_lock.h
 +++ b/include/linux/blockgroup_lock.h
 @@ -53,7 +53,10 @@ static inline void bgl_lock_init(struct blockgroup_lock *bgl)
@@ -41,7 +40,6 @@ index 8607312..e44b88b 100644
  
  #endif
 diff --git a/include/linux/ext2_fs_sb.h b/include/linux/ext2_fs_sb.h
-index f273415..dc541f3 100644
 --- a/include/linux/ext2_fs_sb.h
 +++ b/include/linux/ext2_fs_sb.h
 @@ -108,4 +108,10 @@ struct ext2_sb_info {
@@ -56,7 +54,6 @@ index f273415..dc541f3 100644
 +
  #endif	/* _LINUX_EXT2_FS_SB */
 diff --git a/include/linux/ext3_fs_sb.h b/include/linux/ext3_fs_sb.h
-index b65f028..e024e38 100644
 --- a/include/linux/ext3_fs_sb.h
 +++ b/include/linux/ext3_fs_sb.h
 @@ -83,4 +83,10 @@ struct ext3_sb_info {

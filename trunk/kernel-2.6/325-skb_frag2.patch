@@ -60,7 +60,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 798e2c6..9b3e793 100644
 --- a/net/core/skbuff.c
 +++ b/net/core/skbuff.c
 @@ -2039,13 +2039,13 @@ next_skb:

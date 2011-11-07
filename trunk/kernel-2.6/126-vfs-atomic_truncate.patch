@@ -23,7 +23,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/fs/namei.c b/fs/namei.c
-index 464eecc..1e5c716 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -1659,8 +1659,10 @@ int may_open(struct nameidata *nd, int acc_mode, int flag)
@@ -40,7 +39,6 @@ index 464eecc..1e5c716 100644
  		put_write_access(inode);
  		if (error)
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index e3fc5db..6a4d170 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -330,6 +330,7 @@ typedef void (dio_iodone_t)(struct kiocb *iocb, loff_t offset,

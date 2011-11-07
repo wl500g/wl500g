@@ -29,7 +29,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  12 files changed, 30 insertions(+), 38 deletions(-)
 
 diff --git a/block/as-iosched.c b/block/as-iosched.c
-index 109e91b..3e316dd 100644
 --- a/block/as-iosched.c
 +++ b/block/as-iosched.c
 @@ -1322,10 +1322,9 @@ static void *as_init_queue(request_queue_t *q)
@@ -45,7 +44,6 @@ index 109e91b..3e316dd 100644
  	ad->q = q; /* Identify what queue the data belongs to */
  
 diff --git a/block/cfq-iosched.c b/block/cfq-iosched.c
-index e0aa4da..9755a3c 100644
 --- a/block/cfq-iosched.c
 +++ b/block/cfq-iosched.c
 @@ -1251,9 +1251,9 @@ cfq_alloc_io_context(struct cfq_data *cfqd, gfp_t gfp_mask)
@@ -99,7 +97,6 @@ index e0aa4da..9755a3c 100644
  	INIT_LIST_HEAD(&cfqd->cic_list);
  
 diff --git a/block/deadline-iosched.c b/block/deadline-iosched.c
-index 6d673e9..87ca02a 100644
 --- a/block/deadline-iosched.c
 +++ b/block/deadline-iosched.c
 @@ -360,10 +360,9 @@ static void *deadline_init_queue(request_queue_t *q)
@@ -115,7 +112,6 @@ index 6d673e9..87ca02a 100644
  	INIT_LIST_HEAD(&dd->fifo_list[READ]);
  	INIT_LIST_HEAD(&dd->fifo_list[WRITE]);
 diff --git a/block/elevator.c b/block/elevator.c
-index 4769a25..d265963 100644
 --- a/block/elevator.c
 +++ b/block/elevator.c
 @@ -177,11 +177,10 @@ static elevator_t *elevator_alloc(request_queue_t *q, struct elevator_type *e)
@@ -132,7 +128,6 @@ index 4769a25..d265963 100644
  	eq->elevator_type = e;
  	kobject_init(&eq->kobj);
 diff --git a/block/genhd.c b/block/genhd.c
-index 863a8c0..b321cad 100644
 --- a/block/genhd.c
 +++ b/block/genhd.c
 @@ -726,21 +726,21 @@ struct gendisk *alloc_disk_node(int minors, int node_id)
@@ -162,7 +157,6 @@ index 863a8c0..b321cad 100644
  		disk->minors = minors;
  		kobj_set_kset_s(disk,block_subsys);
 diff --git a/block/ll_rw_blk.c b/block/ll_rw_blk.c
-index 11e4235..d7cadf3 100644
 --- a/block/ll_rw_blk.c
 +++ b/block/ll_rw_blk.c
 @@ -1829,11 +1829,11 @@ request_queue_t *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
@@ -180,7 +174,6 @@ index 11e4235..d7cadf3 100644
  
  	snprintf(q->kobj.name, KOBJ_NAME_LEN, "%s", "queue");
 diff --git a/drivers/ide/ide-probe.c b/drivers/ide/ide-probe.c
-index cc58013..5a4c5ea 100644
 --- a/drivers/ide/ide-probe.c
 +++ b/drivers/ide/ide-probe.c
 @@ -1073,14 +1073,14 @@ static int init_irq (ide_hwif_t *hwif)
@@ -201,7 +194,6 @@ index cc58013..5a4c5ea 100644
  		hwgroup->rq       = NULL;
  		hwgroup->handler  = NULL;
 diff --git a/kernel/timer.c b/kernel/timer.c
-index 1258371..b7792fb 100644
 --- a/kernel/timer.c
 +++ b/kernel/timer.c
 @@ -1221,7 +1221,8 @@ static int __devinit init_timers_cpu(int cpu)
@@ -223,7 +215,6 @@ index 1258371..b7792fb 100644
  		} else {
  			/*
 diff --git a/lib/genalloc.c b/lib/genalloc.c
-index eb7c2ba..f6d276d 100644
 --- a/lib/genalloc.c
 +++ b/lib/genalloc.c
 @@ -54,11 +54,10 @@ int gen_pool_add(struct gen_pool *pool, unsigned long addr, size_t size,
@@ -240,7 +231,6 @@ index eb7c2ba..f6d276d 100644
  	chunk->start_addr = addr;
  	chunk->end_addr = addr + size;
 diff --git a/mm/allocpercpu.c b/mm/allocpercpu.c
-index b2486cf..00b0262 100644
 --- a/mm/allocpercpu.c
 +++ b/mm/allocpercpu.c
 @@ -53,12 +53,9 @@ void *percpu_populate(void *__pdata, size_t size, gfp_t gfp, int cpu)
@@ -260,7 +250,6 @@ index b2486cf..00b0262 100644
  	return pdata->ptrs[cpu];
  }
 diff --git a/mm/mempool.c b/mm/mempool.c
-index 3e8f1fe..02d5ec3 100644
 --- a/mm/mempool.c
 +++ b/mm/mempool.c
 @@ -62,10 +62,9 @@ mempool_t *mempool_create_node(int min_nr, mempool_alloc_t *alloc_fn,
@@ -276,7 +265,6 @@ index 3e8f1fe..02d5ec3 100644
  					GFP_KERNEL, node_id);
  	if (!pool->elements) {
 diff --git a/mm/vmalloc.c b/mm/vmalloc.c
-index ddf8714..8e05a11 100644
 --- a/mm/vmalloc.c
 +++ b/mm/vmalloc.c
 @@ -432,11 +432,12 @@ void *__vmalloc_area_node(struct vm_struct *area, gfp_t gfp_mask,

@@ -38,7 +38,6 @@ Signed-off-by: Ingo Molnar <mingo@elte.hu>
  1 file changed, 11 insertions(+), 38 deletions(-)
 
 diff --git a/kernel/softirq.c b/kernel/softirq.c
-index 8677534..2cf2502 100644
 --- a/kernel/softirq.c
 +++ b/kernel/softirq.c
 @@ -131,23 +131,17 @@ void _local_bh_enable(void)

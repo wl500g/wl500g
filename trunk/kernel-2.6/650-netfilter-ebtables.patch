@@ -21,7 +21,6 @@ Subject: [PATCH] netfilter: ebtables: add IPv6 support, fix ebtable targets retu
 
 diff --git a/include/linux/netfilter_bridge/ebt_ip6.h b/include/linux/netfilter_bridge/ebt_ip6.h
 new file mode 100644
-index 0000000..2273c3a
 --- /dev/null
 +++ b/include/linux/netfilter_bridge/ebt_ip6.h
 @@ -0,0 +1,40 @@
@@ -66,7 +65,6 @@ index 0000000..2273c3a
 +
 +#endif
 diff --git a/include/linux/netfilter_bridge/ebt_log.h b/include/linux/netfilter_bridge/ebt_log.h
-index 96e231a..b76e653 100644
 --- a/include/linux/netfilter_bridge/ebt_log.h
 +++ b/include/linux/netfilter_bridge/ebt_log.h
 @@ -4,7 +4,8 @@
@@ -80,7 +78,6 @@ index 96e231a..b76e653 100644
  #define EBT_LOG_WATCHER "log"
  
 diff --git a/net/bridge/netfilter/Kconfig b/net/bridge/netfilter/Kconfig
-index b84fc60..55d0974 100644
 --- a/net/bridge/netfilter/Kconfig
 +++ b/net/bridge/netfilter/Kconfig
 @@ -83,6 +83,15 @@ config BRIDGE_EBT_IP
@@ -100,7 +97,6 @@ index b84fc60..55d0974 100644
  	tristate "ebt: limit match support"
  	depends on BRIDGE_NF_EBTABLES
 diff --git a/net/bridge/netfilter/Makefile b/net/bridge/netfilter/Makefile
-index 905087e..0d8fb54 100644
 --- a/net/bridge/netfilter/Makefile
 +++ b/net/bridge/netfilter/Makefile
 @@ -14,6 +14,7 @@ obj-$(CONFIG_BRIDGE_EBT_802_3) += ebt_802_3.o
@@ -113,7 +109,6 @@ index 905087e..0d8fb54 100644
  obj-$(CONFIG_BRIDGE_EBT_PKTTYPE) += ebt_pkttype.o
 diff --git a/net/bridge/netfilter/ebt_ip6.c b/net/bridge/netfilter/ebt_ip6.c
 new file mode 100644
-index 0000000..0a94eac
 --- /dev/null
 +++ b/net/bridge/netfilter/ebt_ip6.c
 @@ -0,0 +1,144 @@
@@ -262,7 +257,6 @@ index 0000000..0a94eac
 +MODULE_DESCRIPTION("Ebtables: IPv6 protocol packet match");
 +MODULE_LICENSE("GPL");
 diff --git a/net/bridge/netfilter/ebt_log.c b/net/bridge/netfilter/ebt_log.c
-index 984e9c6..82807cf 100644
 --- a/net/bridge/netfilter/ebt_log.c
 +++ b/net/bridge/netfilter/ebt_log.c
 @@ -18,6 +18,9 @@

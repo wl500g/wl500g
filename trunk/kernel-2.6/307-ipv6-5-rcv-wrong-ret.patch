@@ -18,7 +18,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/net/ipv6/ip6_input.c b/net/ipv6/ip6_input.c
-index 6d6a427..2d9cbaa 100644
 --- a/net/ipv6/ip6_input.c
 +++ b/net/ipv6/ip6_input.c
 @@ -63,7 +63,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt

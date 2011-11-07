@@ -51,7 +51,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  4 files changed, 5 insertions(+), 5 deletions(-)
 
 diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
-index c2c3491..fd4b6dd 100644
 --- a/fs/ext3/dir.c
 +++ b/fs/ext3/dir.c
 @@ -210,7 +210,7 @@ revalidate:
@@ -64,7 +63,6 @@ index c2c3491..fd4b6dd 100644
  				error = filldir(dirent, de->name,
  						de->name_len,
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 78fdfea..ea115d4 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -2586,7 +2586,7 @@ static int proc_task_readdir(struct file * filp, void * dirent, filldir_t filldi
@@ -86,7 +84,6 @@ index 78fdfea..ea115d4 100644
  			break;
  		}
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index bb89a5d..30aca33 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -792,7 +792,7 @@ struct file {
@@ -99,7 +96,6 @@ index bb89a5d..30aca33 100644
  	void			*f_security;
  #endif
 diff --git a/include/linux/seq_file.h b/include/linux/seq_file.h
-index 8bf1e05..ebbc02b 100644
 --- a/include/linux/seq_file.h
 +++ b/include/linux/seq_file.h
 @@ -18,7 +18,7 @@ struct seq_file {

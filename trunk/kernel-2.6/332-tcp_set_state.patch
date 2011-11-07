@@ -57,7 +57,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 36 insertions(+), 34 deletions(-)
 
 diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 48081ad..306580c 100644
 --- a/include/net/tcp.h
 +++ b/include/net/tcp.h
 @@ -926,40 +926,7 @@ static const char *statename[]={
@@ -103,7 +102,6 @@ index 48081ad..306580c 100644
  extern void tcp_done(struct sock *sk);
  
 diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 34085e3..a0d373b 100644
 --- a/net/ipv4/tcp.c
 +++ b/net/ipv4/tcp.c
 @@ -1652,6 +1652,41 @@ recv_urg:

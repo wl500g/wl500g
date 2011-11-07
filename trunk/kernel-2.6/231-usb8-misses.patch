@@ -12,7 +12,6 @@ Subject: [PATCH] Kernel 2.6 USB: backport of USB driver: a few missed and recent
  5 files changed, 23 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/usb/core/devices.c b/drivers/usb/core/devices.c
-index 15ec826..de6ef84 100644
 --- a/drivers/usb/core/devices.c
 +++ b/drivers/usb/core/devices.c
 @@ -493,7 +493,7 @@ static ssize_t usb_device_dump(char __user **buffer, size_t *nbytes, loff_t *ski
@@ -25,7 +24,6 @@ index 15ec826..de6ef84 100644
  		
  	if (usbdev->parent && usbdev->parent->devnum != -1)
 diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
-index 2708889..b3107df 100644
 --- a/drivers/usb/core/driver.c
 +++ b/drivers/usb/core/driver.c
 @@ -1679,8 +1679,8 @@ static int usb_resume(struct device *dev)
@@ -40,7 +38,6 @@ index 2708889..b3107df 100644
  }
  
 diff --git a/drivers/usb/core/endpoint.c b/drivers/usb/core/endpoint.c
-index ce6767a..e2790fd 100644
 --- a/drivers/usb/core/endpoint.c
 +++ b/drivers/usb/core/endpoint.c
 @@ -203,7 +203,7 @@ int usb_create_ep_files(struct device *parent,
@@ -53,7 +50,6 @@ index ce6767a..e2790fd 100644
  	return retval;
  }
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 8a3b9ed..950475e 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -2504,13 +2504,16 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
@@ -77,7 +73,6 @@ index 8a3b9ed..950475e 100644
  		ep0_reinit(udev);
  	}
 diff --git a/drivers/usb/core/message.c b/drivers/usb/core/message.c
-index 224e2b0..02e7ca4 100644
 --- a/drivers/usb/core/message.c
 +++ b/drivers/usb/core/message.c
 @@ -877,11 +877,11 @@ char *usb_cache_string(struct usb_device *udev, int index)

@@ -16,7 +16,6 @@ kernel.org commit 8ab22b9abb5c55413802e4adc9aa6223324547c3
  7 files changed, 91 insertions(+), 24 deletions(-)
 
 diff --git a/fs/buffer.c b/fs/buffer.c
-index 6588155..b138fea 100644
 --- a/fs/buffer.c
 +++ b/fs/buffer.c
 @@ -1894,6 +1894,52 @@ static int __block_commit_write(struct inode *inode, struct page *page,
@@ -73,7 +72,6 @@ index 6588155..b138fea 100644
   * get_block functionality. This is most of the block device filesystems.
   * Reads the page asynchronously --- the unlock_buffer() and
 diff --git a/fs/ext2/inode.c b/fs/ext2/inode.c
-index 781c06b..73d72a3 100644
 --- a/fs/ext2/inode.c
 +++ b/fs/ext2/inode.c
 @@ -798,6 +798,7 @@ const struct address_space_operations ext2_aops = {
@@ -85,7 +83,6 @@ index 781c06b..73d72a3 100644
  
  const struct address_space_operations ext2_aops_xip = {
 diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
-index a0ed258..84bd831 100644
 --- a/fs/ext3/inode.c
 +++ b/fs/ext3/inode.c
 @@ -1711,6 +1711,7 @@ static const struct address_space_operations ext3_ordered_aops = {
@@ -113,7 +110,6 @@ index a0ed258..84bd831 100644
  
  void ext3_set_aops(struct inode *inode)
 diff --git a/fs/ext4/inode.c b/fs/ext4/inode.c
-index 8416fa2..ef9dce5 100644
 --- a/fs/ext4/inode.c
 +++ b/fs/ext4/inode.c
 @@ -1712,6 +1712,7 @@ static const struct address_space_operations ext4_ordered_aops = {
@@ -141,7 +137,6 @@ index 8416fa2..ef9dce5 100644
  
  void ext4_set_aops(struct inode *inode)
 diff --git a/include/linux/buffer_head.h b/include/linux/buffer_head.h
-index 53ffcb2..6f673c3 100644
 --- a/include/linux/buffer_head.h
 +++ b/include/linux/buffer_head.h
 @@ -205,6 +205,8 @@ void block_invalidatepage(struct page *page, unsigned long offset);
@@ -154,7 +149,6 @@ index 53ffcb2..6f673c3 100644
  int cont_prepare_write(struct page*, unsigned, unsigned, get_block_t*,
  				loff_t *);
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index fbe31de..7a4559d 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -261,7 +261,6 @@ extern int dir_notify_enable;
@@ -232,7 +226,6 @@ index fbe31de..7a4559d 100644
   * the kernel supports the unlocked_ioctl and compat_ioctl
   * fields in struct file_operations. */
 diff --git a/mm/filemap.c b/mm/filemap.c
-index c6ebd9f..b652dba 100644
 --- a/mm/filemap.c
 +++ b/mm/filemap.c
 @@ -917,8 +917,17 @@ find_page:

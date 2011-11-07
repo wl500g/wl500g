@@ -39,7 +39,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 14 insertions(+), 5 deletions(-)
 
 diff --git a/include/linux/rwsem-spinlock.h b/include/linux/rwsem-spinlock.h
-index 6c3c0f6..bdfcc25 100644
 --- a/include/linux/rwsem-spinlock.h
 +++ b/include/linux/rwsem-spinlock.h
 @@ -68,11 +68,7 @@ extern int __down_write_trylock(struct rw_semaphore *sem);
@@ -56,7 +55,6 @@ index 6c3c0f6..bdfcc25 100644
  #endif /* __KERNEL__ */
  #endif /* _LINUX_RWSEM_SPINLOCK_H */
 diff --git a/lib/rwsem-spinlock.c b/lib/rwsem-spinlock.c
-index 39a7411..ccf95bf 100644
 --- a/lib/rwsem-spinlock.c
 +++ b/lib/rwsem-spinlock.c
 @@ -17,6 +17,19 @@ struct rwsem_waiter {

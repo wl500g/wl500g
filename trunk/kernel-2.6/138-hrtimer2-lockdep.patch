@@ -15,7 +15,6 @@ kernel.org commits
  4 files changed, 8 insertions(+), 56 deletions(-)
 
 diff --git a/include/linux/hrtimer.h b/include/linux/hrtimer.h
-index 684f9b6..06928a7 100644
 --- a/include/linux/hrtimer.h
 +++ b/include/linux/hrtimer.h
 @@ -176,7 +176,6 @@ struct hrtimer_clock_base {
@@ -35,7 +34,6 @@ index 684f9b6..06928a7 100644
  #ifdef CONFIG_HIGH_RES_TIMERS
  	ktime_t				expires_next;
 diff --git a/include/linux/spinlock.h b/include/linux/spinlock.h
-index a946176..61fef37 100644
 --- a/include/linux/spinlock.h
 +++ b/include/linux/spinlock.h
 @@ -283,43 +283,6 @@ do {						\
@@ -83,7 +81,6 @@ index a946176..61fef37 100644
   * (asm-mips/atomic.h needs above definitions)
   */
 diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
-index 03006da..173387f 100644
 --- a/kernel/hrtimer.c
 +++ b/kernel/hrtimer.c
 @@ -1357,7 +1357,6 @@ static void __devinit init_hrtimers_cpu(int cpu)
@@ -116,7 +113,6 @@ index 03006da..173387f 100644
  	put_cpu_var(hrtimer_bases);
  }
 diff --git a/kernel/timer.c b/kernel/timer.c
-index 1a69705..e690533 100644
 --- a/kernel/timer.c
 +++ b/kernel/timer.c
 @@ -1186,13 +1186,6 @@ asmlinkage long sys_sysinfo(struct sysinfo __user *info)

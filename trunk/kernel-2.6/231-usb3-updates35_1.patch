@@ -37,7 +37,6 @@ c0ad7291aae3f76920bdddbc517e20b8d4338ec2 USB: uhci: rm repeatedly evaluation for
  20 files changed, 206 insertions(+), 162 deletions(-)
 
 diff --git a/drivers/usb/core/driver.c b/drivers/usb/core/driver.c
-index 8078f96..8c4c6dd 100644
 --- a/drivers/usb/core/driver.c
 +++ b/drivers/usb/core/driver.c
 @@ -1667,17 +1667,14 @@ static int usb_resume(struct device *dev)
@@ -61,7 +60,6 @@ index 8078f96..8c4c6dd 100644
 +#endif
  };
 diff --git a/drivers/usb/core/endpoint.c b/drivers/usb/core/endpoint.c
-index d9befe4..ce6767a 100644
 --- a/drivers/usb/core/endpoint.c
 +++ b/drivers/usb/core/endpoint.c
 @@ -95,16 +95,21 @@ static ssize_t show_ep_interval(struct device *dev,
@@ -89,7 +87,6 @@ index d9befe4..ce6767a 100644
  		if (ep->udev->speed == USB_SPEED_HIGH)
  			interval = 1 << (ep->desc->bInterval - 1);
 diff --git a/drivers/usb/core/generic.c b/drivers/usb/core/generic.c
-index cff2ec2..058bc57 100644
 --- a/drivers/usb/core/generic.c
 +++ b/drivers/usb/core/generic.c
 @@ -105,8 +105,10 @@ int usb_choose_configuration(struct usb_device *udev)
@@ -105,7 +102,6 @@ index cff2ec2..058bc57 100644
  			continue;
  #else
 diff --git a/drivers/usb/core/hcd-pci.c b/drivers/usb/core/hcd-pci.c
-index a4301dc..2eccfd6 100644
 --- a/drivers/usb/core/hcd-pci.c
 +++ b/drivers/usb/core/hcd-pci.c
 @@ -173,6 +173,14 @@ void usb_hcd_pci_remove(struct pci_dev *dev)
@@ -124,7 +120,6 @@ index a4301dc..2eccfd6 100644
  	if (hcd->driver->flags & HCD_MEMORY) {
  		iounmap(hcd->regs);
 diff --git a/drivers/usb/core/hcd.c b/drivers/usb/core/hcd.c
-index b1ab1c3..50a9413 100644
 --- a/drivers/usb/core/hcd.c
 +++ b/drivers/usb/core/hcd.c
 @@ -573,7 +573,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
@@ -206,7 +201,6 @@ index b1ab1c3..50a9413 100644
  	hcd_buffer_destroy(hcd);
  }
 diff --git a/drivers/usb/core/hcd.h b/drivers/usb/core/hcd.h
-index 4bc85f6..0813d79 100644
 --- a/drivers/usb/core/hcd.h
 +++ b/drivers/usb/core/hcd.h
 @@ -89,6 +89,7 @@ struct usb_hcd {
@@ -218,7 +212,6 @@ index 4bc85f6..0813d79 100644
  	/* The next flag is a stopgap, to be removed when all the HCDs
  	 * support the new root-hub polling mechanism. */
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index 5f01531..1187794 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -19,6 +19,7 @@
@@ -251,7 +244,6 @@ index 5f01531..1187794 100644
  		 * violate the voltage drop budget.  if the new child has
  		 * a "powered" LED, users should notice we didn't enable it
 diff --git a/drivers/usb/core/quirks.c b/drivers/usb/core/quirks.c
-index 2f67cec..70c0193 100644
 --- a/drivers/usb/core/quirks.c
 +++ b/drivers/usb/core/quirks.c
 @@ -38,6 +38,9 @@ static const struct usb_device_id usb_quirk_list[] = {
@@ -265,7 +257,6 @@ index 2f67cec..70c0193 100644
  	{ USB_DEVICE(0x0471, 0x0155), .driver_info = USB_QUIRK_RESET_RESUME },
  
 diff --git a/drivers/usb/core/urb.c b/drivers/usb/core/urb.c
-index c79942d..107f5df 100644
 --- a/drivers/usb/core/urb.c
 +++ b/drivers/usb/core/urb.c
 @@ -137,6 +137,16 @@ void usb_anchor_urb(struct urb *urb, struct usb_anchor *anchor)
@@ -362,7 +353,6 @@ index c79942d..107f5df 100644
  	spin_unlock_irqrestore(&anchor->lock, flags);
  }
 diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
-index fbda484..5585cab 100644
 --- a/drivers/usb/host/Kconfig
 +++ b/drivers/usb/host/Kconfig
 @@ -42,8 +42,9 @@ config USB_EHCI_ROOT_HUB_TT
@@ -392,7 +382,6 @@ index fbda484..5585cab 100644
  config USB_EHCI_BIG_ENDIAN_MMIO
  	bool
 diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
-index b162436..b7e6fe0 100644
 --- a/drivers/usb/host/ehci-hcd.c
 +++ b/drivers/usb/host/ehci-hcd.c
 @@ -80,7 +80,13 @@ static const char	hcd_name [] = "ehci_hcd";
@@ -411,7 +400,6 @@ index b162436..b7e6fe0 100644
  #define EHCI_IAA_MSECS		10		/* arbitrary */
  #define EHCI_IO_JIFFIES		(HZ/10)		/* io watchdog > irq_thresh */
 diff --git a/drivers/usb/host/ehci-pci.c b/drivers/usb/host/ehci-pci.c
-index cb40770..91917d6 100644
 --- a/drivers/usb/host/ehci-pci.c
 +++ b/drivers/usb/host/ehci-pci.c
 @@ -132,6 +132,7 @@ static int ehci_pci_setup(struct usb_hcd *hcd)
@@ -423,7 +411,6 @@ index cb40770..91917d6 100644
  			ehci->broken_periodic = 1;
  			ehci_info(ehci, "using broken periodic workaround\n");
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
-index 4d4e78a..ab9e3f0 100644
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
 @@ -1075,15 +1075,6 @@ iso_stream_put(struct ehci_hcd *ehci, struct ehci_iso_stream *stream)
@@ -754,7 +741,6 @@ index 4d4e78a..ab9e3f0 100644
  	}
  }
 diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
-index 0937c33..30cd891 100644
 --- a/drivers/usb/host/ehci.h
 +++ b/drivers/usb/host/ehci.h
 @@ -135,6 +135,7 @@ struct ehci_hcd {			/* one per controller */
@@ -782,7 +768,6 @@ index 0937c33..30cd891 100644
  	__hc32			splits;
  
 diff --git a/drivers/usb/host/uhci-debug.c b/drivers/usb/host/uhci-debug.c
-index e52b954..3101a8a 100644
 --- a/drivers/usb/host/uhci-debug.c
 +++ b/drivers/usb/host/uhci-debug.c
 @@ -16,7 +16,6 @@
@@ -810,7 +795,6 @@ index e52b954..3101a8a 100644
  #endif	/* CONFIG_DEBUG_FS */
  
 diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
-index 1fd453b..2726ef8 100644
 --- a/drivers/usb/host/uhci-hcd.c
 +++ b/drivers/usb/host/uhci-hcd.c
 @@ -589,7 +589,7 @@ static int uhci_start(struct usb_hcd *hcd)
@@ -877,7 +861,6 @@ index 1fd453b..2726ef8 100644
  	del_timer_sync(&uhci->fsbr_timer);
  	release_uhci(uhci);
 diff --git a/drivers/usb/host/uhci-q.c b/drivers/usb/host/uhci-q.c
-index e170e65..c07e5e7 100644
 --- a/drivers/usb/host/uhci-q.c
 +++ b/drivers/usb/host/uhci-q.c
 @@ -264,7 +264,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci_hcd *uhci,
@@ -916,7 +899,6 @@ index e170e65..c07e5e7 100644
  
  	/* The queue hasn't advanced; check for timeout */
 diff --git a/drivers/usb/serial/ftdi_sio.c b/drivers/usb/serial/ftdi_sio.c
-index a2c9ebe..1ca539e 100644
 --- a/drivers/usb/serial/ftdi_sio.c
 +++ b/drivers/usb/serial/ftdi_sio.c
 @@ -153,6 +153,9 @@ static struct usb_device_id id_table_combined [] = {
@@ -938,7 +920,6 @@ index a2c9ebe..1ca539e 100644
  	{ }					/* Terminating entry */
  };
 diff --git a/drivers/usb/serial/ftdi_sio.h b/drivers/usb/serial/ftdi_sio.h
-index 6544cbd..3798bc2 100644
 --- a/drivers/usb/serial/ftdi_sio.h
 +++ b/drivers/usb/serial/ftdi_sio.h
 @@ -384,6 +384,11 @@
@@ -967,7 +948,6 @@ index 6544cbd..3798bc2 100644
   *   bRequest:       FTDI_E2_READ
   *   wValue:         0
 diff --git a/include/linux/usb/quirks.h b/include/linux/usb/quirks.h
-index 4a98379..2454e79 100644
 --- a/include/linux/usb/quirks.h
 +++ b/include/linux/usb/quirks.h
 @@ -22,3 +22,7 @@

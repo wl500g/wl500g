@@ -23,7 +23,6 @@ diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
  			break;
  		}
 diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 3dfbc21..44aef1c 100644
 --- a/net/ipv4/tcp_ipv4.c
 +++ b/net/ipv4/tcp_ipv4.c
 @@ -1364,6 +1364,10 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,

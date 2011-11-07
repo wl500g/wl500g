@@ -31,7 +31,6 @@ Signed-off-by: Jan Kara <jack@suse.cz>
  3 files changed, 31 insertions(+), 12 deletions(-)
 
 diff --git a/fs/ext2/dir.c b/fs/ext2/dir.c
-index 2709b34..47cda41 100644
 --- a/fs/ext2/dir.c
 +++ b/fs/ext2/dir.c
 @@ -28,21 +28,30 @@
@@ -87,7 +86,6 @@ index 2709b34..47cda41 100644
  	}
  	if (offs != limit)
 diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
-index e2e72c3..34f0a07 100644
 --- a/fs/ext3/dir.c
 +++ b/fs/ext3/dir.c
 @@ -69,25 +69,26 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
@@ -125,7 +123,6 @@ index e2e72c3..34f0a07 100644
  }
  
 diff --git a/include/linux/ext3_fs.h b/include/linux/ext3_fs.h
-index a443965..65990ef 100644
 --- a/include/linux/ext3_fs.h
 +++ b/include/linux/ext3_fs.h
 @@ -724,21 +724,30 @@ struct ext3_dir_entry_2 {

@@ -31,7 +31,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 47 insertions(+), 12 deletions(-)
 
 diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 4bf613c..45dce2b 100644
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
 @@ -1476,8 +1476,8 @@ extern int 		__dev_addr_delete(struct dev_addr_list **list, int *count, void *ad

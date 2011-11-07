@@ -22,7 +22,6 @@ eecc545856c8a0f27783a440d25f4ceaa1f95ce8 netfilter: add missing xt_log.h file
  create mode 100644 include/net/netfilter/xt_log.h
 
 diff --git a/include/linux/netfilter_ipv4/ipt_LOG.h b/include/linux/netfilter_ipv4/ipt_LOG.h
-index 90fa652..dcdbadf 100644
 --- a/include/linux/netfilter_ipv4/ipt_LOG.h
 +++ b/include/linux/netfilter_ipv4/ipt_LOG.h
 @@ -7,7 +7,8 @@
@@ -36,7 +35,6 @@ index 90fa652..dcdbadf 100644
  struct ipt_log_info {
  	unsigned char level;
 diff --git a/include/linux/netfilter_ipv6/ip6t_LOG.h b/include/linux/netfilter_ipv6/ip6t_LOG.h
-index 0d0119b..9dd5579 100644
 --- a/include/linux/netfilter_ipv6/ip6t_LOG.h
 +++ b/include/linux/netfilter_ipv6/ip6t_LOG.h
 @@ -7,7 +7,8 @@
@@ -51,7 +49,6 @@ index 0d0119b..9dd5579 100644
  	unsigned char level;
 diff --git a/include/net/netfilter/xt_log.h b/include/net/netfilter/xt_log.h
 new file mode 100644
-index 0000000..0dfb34a
 --- /dev/null
 +++ b/include/net/netfilter/xt_log.h
 @@ -0,0 +1,54 @@
@@ -110,7 +107,6 @@ index 0000000..0dfb34a
 +}
 +
 diff --git a/net/ipv4/netfilter/ipt_LOG.c b/net/ipv4/netfilter/ipt_LOG.c
-index 361be2b..970fe61 100644
 --- a/net/ipv4/netfilter/ipt_LOG.c
 +++ b/net/ipv4/netfilter/ipt_LOG.c
 @@ -13,6 +13,7 @@
@@ -572,7 +568,6 @@ index 361be2b..970fe61 100644
  
  static unsigned int
 diff --git a/net/ipv6/netfilter/ip6t_LOG.c b/net/ipv6/netfilter/ip6t_LOG.c
-index a7a2517..4e54be8 100644
 --- a/net/ipv6/netfilter/ip6t_LOG.c
 +++ b/net/ipv6/netfilter/ip6t_LOG.c
 @@ -23,9 +23,10 @@

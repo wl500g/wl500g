@@ -24,7 +24,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/socket.c b/net/socket.c
-index 8211578..e1f9a0b 100644
 --- a/net/socket.c
 +++ b/net/socket.c
 @@ -688,7 +688,7 @@ static ssize_t sock_sendpage(struct file *file, struct page *page,

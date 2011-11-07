@@ -11,7 +11,6 @@ e1c234685c50807e10a3e7873e6e006976a4d8e8
  2 files changed, 113 insertions(+), 62 deletions(-)
 
 diff --git a/drivers/scsi/scsi_error.c b/drivers/scsi/scsi_error.c
-index 9adb64a..3e033b0 100644
 --- a/drivers/scsi/scsi_error.c
 +++ b/drivers/scsi/scsi_error.c
 @@ -23,7 +23,6 @@
@@ -225,7 +224,6 @@ index 9adb64a..3e033b0 100644
  
  /**
 diff --git a/include/scsi/scsi_eh.h b/include/scsi/scsi_eh.h
-index c5c0f67..d21b891 100644
 --- a/include/scsi/scsi_eh.h
 +++ b/include/scsi/scsi_eh.h
 @@ -1,7 +1,9 @@

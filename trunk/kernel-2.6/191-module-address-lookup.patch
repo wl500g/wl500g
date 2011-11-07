@@ -32,7 +32,6 @@ ffb4ba76a25ab6c9deeec33e4f58395586ca747c [module] Don't let gcc inline load_modu
  14 files changed, 100 insertions(+), 97 deletions(-)
 
 diff --git a/arch/parisc/kernel/unwind.c b/arch/parisc/kernel/unwind.c
-index 3221677..cf780cb 100644
 --- a/arch/parisc/kernel/unwind.c
 +++ b/arch/parisc/kernel/unwind.c
 @@ -242,7 +242,7 @@ static void unwind_frame_regs(struct unwind_frame_info *info)
@@ -45,7 +44,6 @@ index 3221677..cf780cb 100644
  
  			kallsyms_lookup(info->ip, NULL, NULL, &modname,
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index 3983852..5d64c42 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -279,7 +279,7 @@ static int proc_pid_auxv(struct task_struct *task, char *buffer)
@@ -58,7 +56,6 @@ index 3983852..5d64c42 100644
  	wchan = get_wchan(task);
  
 diff --git a/include/asm-generic/sections.h b/include/asm-generic/sections.h
-index 962cad7..8feeae1 100644
 --- a/include/asm-generic/sections.h
 +++ b/include/asm-generic/sections.h
 @@ -8,8 +8,6 @@ extern char _data[], _sdata[], _edata[];
@@ -71,7 +68,6 @@ index 962cad7..8feeae1 100644
  extern char __per_cpu_start[], __per_cpu_end[];
  extern char __kprobes_text_start[], __kprobes_text_end[];
 diff --git a/include/asm-powerpc/kprobes.h b/include/asm-powerpc/kprobes.h
-index b0e40ff..9537fda 100644
 --- a/include/asm-powerpc/kprobes.h
 +++ b/include/asm-powerpc/kprobes.h
 @@ -65,10 +65,10 @@ typedef unsigned int kprobe_opcode_t;
@@ -88,7 +84,6 @@ index b0e40ff..9537fda 100644
  	}								\
  }
 diff --git a/include/linux/kallsyms.h b/include/linux/kallsyms.h
-index 5f06527..f73de6f 100644
 --- a/include/linux/kallsyms.h
 +++ b/include/linux/kallsyms.h
 @@ -7,9 +7,9 @@
@@ -105,7 +100,6 @@ index 5f06527..f73de6f 100644
  #ifdef CONFIG_KALLSYMS
  /* Lookup the address for a symbol. Returns 0 if not found. */
 diff --git a/include/linux/module.h b/include/linux/module.h
-index e6e0f86..31d2a59 100644
 --- a/include/linux/module.h
 +++ b/include/linux/module.h
 @@ -190,7 +190,7 @@ void *__symbol_get_gpl(const char *symbol);
@@ -151,7 +145,6 @@ index e6e0f86..31d2a59 100644
  	return NULL;
  }
 diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
-index fed5441..1623f6c 100644
 --- a/kernel/kallsyms.c
 +++ b/kernel/kallsyms.c
 @@ -48,14 +48,6 @@ static inline int is_kernel_inittext(unsigned long addr)
@@ -297,7 +290,6 @@ index fed5441..1623f6c 100644
  };
  
 diff --git a/kernel/lockdep.c b/kernel/lockdep.c
-index 072cf25..dead746 100644
 --- a/kernel/lockdep.c
 +++ b/kernel/lockdep.c
 @@ -379,7 +379,7 @@ get_usage_chars(struct lock_class *class, char *c1, char *c2, char *c3, char *c4
@@ -319,7 +311,6 @@ index 072cf25..dead746 100644
  	name = lock->name;
  	if (!name)
 diff --git a/kernel/module.c b/kernel/module.c
-index 6b25d3a..df2d83e 100644
 --- a/kernel/module.c
 +++ b/kernel/module.c
 @@ -1558,7 +1558,7 @@ static inline void add_kallsyms(struct module *mod,
@@ -483,7 +474,6 @@ index 6b25d3a..df2d83e 100644
  }
  #endif /* CONFIG_KALLSYMS */
 diff --git a/kernel/time/timer_list.c b/kernel/time/timer_list.c
-index 7ea87d9..fdb2e03 100644
 --- a/kernel/time/timer_list.c
 +++ b/kernel/time/timer_list.c
 @@ -38,7 +38,7 @@ DECLARE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases);
@@ -496,7 +486,6 @@ index 7ea87d9..fdb2e03 100644
  	if (lookup_symbol_name((unsigned long)sym, symname) < 0)
  		SEQ_printf(m, "<%p>", sym);
 diff --git a/kernel/time/timer_stats.c b/kernel/time/timer_stats.c
-index 5717cfb..591669f 100644
 --- a/kernel/time/timer_stats.c
 +++ b/kernel/time/timer_stats.c
 @@ -266,7 +266,7 @@ void timer_stats_update_stats(void *timer, pid_t pid, void *startf,
@@ -509,7 +498,6 @@ index 5717cfb..591669f 100644
  	if (lookup_symbol_name(addr, symname) < 0)
  		seq_printf(m, "<%p>", (void *)addr);
 diff --git a/mm/slab.c b/mm/slab.c
-index 8ab07e8..eb6a5a2 100644
 --- a/mm/slab.c
 +++ b/mm/slab.c
 @@ -4364,7 +4364,7 @@ static void show_symbol(struct seq_file *m, unsigned long address)
@@ -522,7 +510,6 @@ index 8ab07e8..eb6a5a2 100644
  	if (lookup_symbol_attrs(address, &size, &offset, modname, name) == 0) {
  		seq_printf(m, "%s+%#lx/%#lx", name, offset, size);
 diff --git a/mm/slub.c b/mm/slub.c
-index 2cddb9a..4090ad4 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -3129,7 +3129,7 @@ static int list_locations(struct kmem_cache *s, char *buf,
@@ -535,7 +522,6 @@ index 2cddb9a..4090ad4 100644
  		n += sprintf(buf + n, "%7ld ", l->count);
  
 diff --git a/scripts/kallsyms.c b/scripts/kallsyms.c
-index 8b809b2..4451991 100644
 --- a/scripts/kallsyms.c
 +++ b/scripts/kallsyms.c
 @@ -31,7 +31,7 @@

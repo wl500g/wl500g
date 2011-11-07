@@ -8,7 +8,6 @@ Subject: [PATCH] USB: add devpath sysfs attribute
  1 files changed, 11 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/usb/core/sysfs.c b/drivers/usb/core/sysfs.c
-index be37c86..8dd8cd0 100644
 --- a/drivers/usb/core/sysfs.c
 +++ b/drivers/usb/core/sysfs.c
 @@ -138,6 +138,16 @@ show_devnum(struct device *dev, struct device_attribute *attr, char *buf)

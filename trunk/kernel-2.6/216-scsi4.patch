@@ -15,7 +15,6 @@ Subject: [PATCH] [SCSI] sd: patches from upstream
  2 files changed, 64 insertions(+), 50 deletions(-)
 
 diff --git a/drivers/scsi/sd.c b/drivers/scsi/sd.c
-index 6bf1cd5..86141ee 100644
 --- a/drivers/scsi/sd.c
 +++ b/drivers/scsi/sd.c
 @@ -1080,23 +1080,19 @@ sd_spinup_disk(struct scsi_disk *sdkp)
@@ -218,7 +217,6 @@ index 6bf1cd5..86141ee 100644
  
  	gd->driverfs_dev = &sdp->sdev_gendev;
 diff --git a/include/scsi/sd.h b/include/scsi/sd.h
-index 0818115..83745ba 100644
 --- a/include/scsi/sd.h
 +++ b/include/scsi/sd.h
 @@ -50,6 +50,7 @@ struct scsi_disk {

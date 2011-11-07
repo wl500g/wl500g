@@ -30,7 +30,6 @@ Date: Fri, 2 Apr 2010 02:43:51 -0400
  23 files changed, 479 insertions(+), 369 deletions(-)
 
 diff --git a/fs/ext2/xattr.c b/fs/ext2/xattr.c
-index d7602f4..6e2144c 100644
 --- a/fs/ext2/xattr.c
 +++ b/fs/ext2/xattr.c
 @@ -833,7 +833,7 @@ ext2_xattr_cache_insert(struct buffer_head *bh)
@@ -43,7 +42,6 @@ index d7602f4..6e2144c 100644
  		return -ENOMEM;
  	error = mb_cache_entry_insert(ce, bh->b_bdev, bh->b_blocknr, &hash);
 diff --git a/fs/ext3/acl.c b/fs/ext3/acl.c
-index 1e5038d..5b65d87 100644
 --- a/fs/ext3/acl.c
 +++ b/fs/ext3/acl.c
 @@ -37,7 +37,7 @@ ext3_acl_from_disk(const void *value, size_t size)
@@ -83,7 +81,6 @@ index 1e5038d..5b65d87 100644
  		if (!clone)
  			goto cleanup;
 diff --git a/fs/ext3/balloc.c b/fs/ext3/balloc.c
-index ca8aee6..bc8551d 100644
 --- a/fs/ext3/balloc.c
 +++ b/fs/ext3/balloc.c
 @@ -80,13 +80,57 @@ struct ext3_group_desc * ext3_get_group_desc(struct super_block * sb,
@@ -272,7 +269,6 @@ index ca8aee6..bc8551d 100644
  	percpu_counter_sub(&sbi->s_freeblocks_counter, num);
  
 diff --git a/fs/ext3/dir.c b/fs/ext3/dir.c
-index 8528698..3d32861 100644
 --- a/fs/ext3/dir.c
 +++ b/fs/ext3/dir.c
 @@ -69,7 +69,7 @@ int ext3_check_dir_entry (const char * function, struct inode * dir,
@@ -429,7 +425,6 @@ index 8528698..3d32861 100644
  				filp->f_pos = EXT3_HTREE_EOF;
  				break;
 diff --git a/fs/ext3/ialloc.c b/fs/ext3/ialloc.c
-index e45dbd6..bae348a 100644
 --- a/fs/ext3/ialloc.c
 +++ b/fs/ext3/ialloc.c
 @@ -164,11 +164,9 @@ void ext3_free_inode (handle_t *handle, struct inode * inode)
@@ -461,7 +456,6 @@ index e45dbd6..bae348a 100644
  	spin_unlock(sb_bgl_lock(sbi, group));
  	BUFFER_TRACE(bh2, "call ext3_journal_dirty_metadata");
 diff --git a/fs/ext3/inode.c b/fs/ext3/inode.c
-index 2a85dde..a0ed258 100644
 --- a/fs/ext3/inode.c
 +++ b/fs/ext3/inode.c
 @@ -820,7 +820,7 @@ int ext3_get_blocks_handle(handle_t *handle, struct inode *inode,
@@ -684,7 +678,6 @@ index 2a85dde..a0ed258 100644
  
  	journal_lock_updates(journal);
 diff --git a/fs/ext3/namei.c b/fs/ext3/namei.c
-index e54eb5f..80083d7 100644
 --- a/fs/ext3/namei.c
 +++ b/fs/ext3/namei.c
 @@ -57,10 +57,15 @@ static struct buffer_head *ext3_append(handle_t *handle,
@@ -1004,7 +997,6 @@ index e54eb5f..80083d7 100644
  		ext3_journal_dirty_metadata(handle, new_bh);
  		brelse(new_bh);
 diff --git a/fs/ext3/resize.c b/fs/ext3/resize.c
-index 2c97e09..b6fd324 100644
 --- a/fs/ext3/resize.c
 +++ b/fs/ext3/resize.c
 @@ -212,10 +212,10 @@ static int setup_new_group_blocks(struct super_block *sb,
@@ -1101,7 +1093,6 @@ index 2c97e09..b6fd324 100644
  		goto exit_put;
  	}
 diff --git a/fs/ext3/super.c b/fs/ext3/super.c
-index b2e3c26..7054ca2 100644
 --- a/fs/ext3/super.c
 +++ b/fs/ext3/super.c
 @@ -35,6 +35,7 @@
@@ -1361,7 +1352,6 @@ index b2e3c26..7054ca2 100644
  		i_size_write(inode, off+len-towrite);
  		EXT3_I(inode)->i_disksize = inode->i_size;
 diff --git a/fs/ext3/xattr.c b/fs/ext3/xattr.c
-index f58cbb2..84119af 100644
 --- a/fs/ext3/xattr.c
 +++ b/fs/ext3/xattr.c
 @@ -492,8 +492,7 @@ ext3_xattr_release_block(handle_t *handle, struct inode *inode,
@@ -1429,7 +1419,6 @@ index f58cbb2..84119af 100644
  		ea_bdebug(bh, "out of memory");
  		return;
 diff --git a/fs/ext3/xattr_security.c b/fs/ext3/xattr_security.c
-index 821efaf..37b8109 100644
 --- a/fs/ext3/xattr_security.c
 +++ b/fs/ext3/xattr_security.c
 @@ -15,7 +15,7 @@ static size_t
@@ -1442,7 +1431,6 @@ index 821efaf..37b8109 100644
  
  
 diff --git a/fs/ext3/xattr_trusted.c b/fs/ext3/xattr_trusted.c
-index 0327497..c7c41a4 100644
 --- a/fs/ext3/xattr_trusted.c
 +++ b/fs/ext3/xattr_trusted.c
 @@ -13,13 +13,11 @@
@@ -1461,7 +1449,6 @@ index 0327497..c7c41a4 100644
  
  	if (!capable(CAP_SYS_ADMIN))
 diff --git a/fs/ext3/xattr_user.c b/fs/ext3/xattr_user.c
-index 1abd8f9..430fe63 100644
 --- a/fs/ext3/xattr_user.c
 +++ b/fs/ext3/xattr_user.c
 @@ -12,13 +12,11 @@
@@ -1480,7 +1467,6 @@ index 1abd8f9..430fe63 100644
  
  	if (!test_opt(inode->i_sb, XATTR_USER))
 diff --git a/fs/jbd/commit.c b/fs/jbd/commit.c
-index a003d50..d0a2c16 100644
 --- a/fs/jbd/commit.c
 +++ b/fs/jbd/commit.c
 @@ -131,6 +131,8 @@ static int journal_write_commit_record(journal_t *journal,
@@ -1599,7 +1585,6 @@ index a003d50..d0a2c16 100644
  		}
  
 diff --git a/fs/jbd/journal.c b/fs/jbd/journal.c
-index 46fe743..3e1a628 100644
 --- a/fs/jbd/journal.c
 +++ b/fs/jbd/journal.c
 @@ -83,7 +83,6 @@ EXPORT_SYMBOL(journal_force_commit);
@@ -1761,7 +1746,6 @@ index 46fe743..3e1a628 100644
  
  static int __init journal_init(void)
 diff --git a/fs/jbd/recovery.c b/fs/jbd/recovery.c
-index 2a5f4b8..1226ae7 100644
 --- a/fs/jbd/recovery.c
 +++ b/fs/jbd/recovery.c
 @@ -478,7 +478,7 @@ static int do_one_pass(journal_t *journal,
@@ -1774,7 +1758,6 @@ index 2a5f4b8..1226ae7 100644
  					}
  
 diff --git a/fs/jbd/revoke.c b/fs/jbd/revoke.c
-index 824e3b7..8db2fa2 100644
 --- a/fs/jbd/revoke.c
 +++ b/fs/jbd/revoke.c
 @@ -68,6 +68,7 @@
@@ -1804,7 +1787,6 @@ index 824e3b7..8db2fa2 100644
  	journal->j_revoke->hash_size = hash_size;
  
 diff --git a/fs/jbd/transaction.c b/fs/jbd/transaction.c
-index 772b653..603dfe4 100644
 --- a/fs/jbd/transaction.c
 +++ b/fs/jbd/transaction.c
 @@ -96,13 +96,12 @@ static int start_this_handle(journal_t *journal, handle_t *handle)
@@ -1985,7 +1967,6 @@ index 772b653..603dfe4 100644
  
  	if (was_dirty)
 diff --git a/fs/jbd2/revoke.c b/fs/jbd2/revoke.c
-index 9246e76..28cac04 100644
 --- a/fs/jbd2/revoke.c
 +++ b/fs/jbd2/revoke.c
 @@ -68,6 +68,7 @@
@@ -2015,7 +1996,6 @@ index 9246e76..28cac04 100644
  	journal->j_revoke->hash_size = hash_size;
  
 diff --git a/fs/mbcache.c b/fs/mbcache.c
-index deeb9dc..3b1844f 100644
 --- a/fs/mbcache.c
 +++ b/fs/mbcache.c
 @@ -396,13 +396,13 @@ mb_cache_destroy(struct mb_cache *cache)
@@ -2036,7 +2016,6 @@ index deeb9dc..3b1844f 100644
  		INIT_LIST_HEAD(&ce->e_block_list);
  		ce->e_cache = cache;
 diff --git a/include/linux/ext3_fs.h b/include/linux/ext3_fs.h
-index ece49a8..d9e378d 100644
 --- a/include/linux/ext3_fs.h
 +++ b/include/linux/ext3_fs.h
 @@ -76,8 +76,8 @@
@@ -2078,7 +2057,6 @@ index ece49a8..d9e378d 100644
   * Hash Tree Directory indexing
   * (c) Daniel Phillips, 2001
 diff --git a/include/linux/jbd.h b/include/linux/jbd.h
-index 4527375..45435c7 100644
 --- a/include/linux/jbd.h
 +++ b/include/linux/jbd.h
 @@ -71,14 +71,15 @@ extern int journal_enable_debug;
@@ -2106,7 +2084,6 @@ index 4527375..45435c7 100644
  #define JFS_MIN_JOURNAL_BLOCKS 1024
  
 diff --git a/include/linux/mbcache.h b/include/linux/mbcache.h
-index 99e044b..a09b84e 100644
 --- a/include/linux/mbcache.h
 +++ b/include/linux/mbcache.h
 @@ -34,7 +34,7 @@ void mb_cache_destroy(struct mb_cache *);

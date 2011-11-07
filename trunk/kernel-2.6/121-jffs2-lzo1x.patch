@@ -13,7 +13,6 @@ Subject: [PATCH] Add LZO1X compression support to jffs2, from 2.6.24
  6 files changed, 129 insertions(+), 1 deletions(-)
 
 diff --git a/fs/Kconfig b/fs/Kconfig
-index a71a97f..66e433a 100644
 --- a/fs/Kconfig
 +++ b/fs/Kconfig
 @@ -1306,6 +1306,17 @@ config JFFS2_ZLIB
@@ -35,7 +34,6 @@ index a71a97f..66e433a 100644
  	bool "JFFS2 RTIME compression support" if JFFS2_COMPRESSION_OPTIONS
  	depends on JFFS2_FS
 diff --git a/fs/jffs2/Makefile b/fs/jffs2/Makefile
-index c32b241..60e5d49 100644
 --- a/fs/jffs2/Makefile
 +++ b/fs/jffs2/Makefile
 @@ -17,4 +17,5 @@ jffs2-$(CONFIG_JFFS2_FS_POSIX_ACL)	+= acl.o
@@ -45,7 +43,6 @@ index c32b241..60e5d49 100644
 +jffs2-$(CONFIG_JFFS2_LZO)	+= compr_lzo.o
  jffs2-$(CONFIG_JFFS2_SUMMARY)   += summary.o
 diff --git a/fs/jffs2/compr.c b/fs/jffs2/compr.c
-index 485d065..3489988 100644
 --- a/fs/jffs2/compr.c
 +++ b/fs/jffs2/compr.c
 @@ -285,6 +285,9 @@ int __init jffs2_compressors_init(void)
@@ -69,7 +66,6 @@ index 485d065..3489988 100644
          jffs2_dynrubin_exit();
          jffs2_rubinmips_exit();
 diff --git a/fs/jffs2/compr.h b/fs/jffs2/compr.h
-index 68cc701..9091804 100644
 --- a/fs/jffs2/compr.h
 +++ b/fs/jffs2/compr.h
 @@ -27,9 +27,10 @@
@@ -86,7 +82,6 @@ index 68cc701..9091804 100644
  #define JFFS2_DYNRUBIN_DISABLED  /*        for decompression */
 diff --git a/fs/jffs2/compr_lzo.c b/fs/jffs2/compr_lzo.c
 new file mode 100644
-index 0000000..fe9450a
 --- /dev/null
 +++ b/fs/jffs2/compr_lzo.c
 @@ -0,0 +1,108 @@
@@ -199,7 +194,6 @@ index 0000000..fe9450a
 +	free_workspace();
 +}
 diff --git a/include/linux/jffs2.h b/include/linux/jffs2.h
-index 840631f..6b563ca 100644
 --- a/include/linux/jffs2.h
 +++ b/include/linux/jffs2.h
 @@ -46,6 +46,7 @@

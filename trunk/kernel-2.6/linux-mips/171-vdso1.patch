@@ -51,7 +51,6 @@ diff --git a/include/asm-mips/a.out.h b/include/asm-mips/a.out.h
 -
  #endif /* _ASM_A_OUT_H */
 diff --git a/include/asm-mips/elf.h b/include/asm-mips/elf.h
-index 1184f6e..ea77a42 100644
 --- a/include/asm-mips/elf.h
 +++ b/include/asm-mips/elf.h
 @@ -368,4 +368,8 @@ extern const char *__elf_platform;
@@ -64,7 +63,6 @@ index 1184f6e..ea77a42 100644
 +				       int uses_interp);
  #endif /* _ASM_ELF_H */
 diff --git a/include/asm-mips/mmu.h b/include/asm-mips/mmu.h
-index 4063edd..c436138 100644
 --- a/include/asm-mips/mmu.h
 +++ b/include/asm-mips/mmu.h
 @@ -1,6 +1,9 @@
@@ -79,7 +77,6 @@ index 4063edd..c436138 100644
  
  #endif /* __ASM_MMU_H */
 diff --git a/include/asm-mips/mmu_context.h b/include/asm-mips/mmu_context.h
-index 145bb81..d959273 100644
 --- a/include/asm-mips/mmu_context.h
 +++ b/include/asm-mips/mmu_context.h
 @@ -104,7 +104,7 @@ extern unsigned long smtc_asid_mask;
@@ -92,7 +89,6 @@ index 145bb81..d959273 100644
  #define asid_cache(cpu)		(cpu_data[cpu].asid_cache)
  
 diff --git a/include/asm-mips/processor.h b/include/asm-mips/processor.h
-index 087a888..ab38791 100644
 --- a/include/asm-mips/processor.h
 +++ b/include/asm-mips/processor.h
 @@ -33,12 +33,19 @@ extern void (*cpu_wait)(void);
@@ -127,7 +123,6 @@ index 087a888..ab38791 100644
   * This decides where the kernel will search for a free chunk of vm
 diff --git a/include/asm-mips/vdso.h b/include/asm-mips/vdso.h
 new file mode 100644
-index 0000000..cca56aa
 --- /dev/null
 +++ b/include/asm-mips/vdso.h
 @@ -0,0 +1,29 @@
@@ -161,7 +156,6 @@ index 0000000..cca56aa
 +
 +#endif /* __ASM_VDSO_H */
 diff --git a/arch/mips/kernel/Makefile b/arch/mips/kernel/Makefile
-index ef20957..7a6ac50 100644
 --- a/arch/mips/kernel/Makefile
 +++ b/arch/mips/kernel/Makefile
 @@ -6,7 +6,7 @@ extra-y		:= head.o init_task.o vmlinux.lds
@@ -174,7 +168,6 @@ index ef20957..7a6ac50 100644
  binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
  			   irix5sys.o sysirix.o
 diff --git a/arch/mips/kernel/syscall.c b/arch/mips/kernel/syscall.c
-index 9587abc..dd81b0f 100644
 --- a/arch/mips/kernel/syscall.c
 +++ b/arch/mips/kernel/syscall.c
 @@ -79,7 +79,11 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
@@ -192,7 +185,6 @@ index 9587abc..dd81b0f 100644
  		return -ENOMEM;
 diff --git a/arch/mips/kernel/vdso.c b/arch/mips/kernel/vdso.c
 new file mode 100644
-index 0000000..b773c11
 --- /dev/null
 +++ b/arch/mips/kernel/vdso.c
 @@ -0,0 +1,110 @@

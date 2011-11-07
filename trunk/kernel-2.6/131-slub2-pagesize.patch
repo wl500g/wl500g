@@ -43,7 +43,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 62 insertions(+), 58 deletions(-)
 
 diff --git a/include/linux/slub_def.h b/include/linux/slub_def.h
-index 7496207..3b361b2 100644
 --- a/include/linux/slub_def.h
 +++ b/include/linux/slub_def.h
 @@ -72,7 +72,7 @@ struct kmem_cache {
@@ -162,7 +161,6 @@ index 7496207..3b361b2 100644
  #endif
  
 diff --git a/mm/slub.c b/mm/slub.c
-index 0eab12b..edeb942 100644
 --- a/mm/slub.c
 +++ b/mm/slub.c
 @@ -2127,11 +2127,11 @@ EXPORT_SYMBOL(kmem_cache_destroy);

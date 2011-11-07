@@ -8,7 +8,6 @@ Subject: [PATCH] Newer Samsung flash support
  1 files changed, 23 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/mtd/chips/cfi_cmdset_0002.c b/drivers/mtd/chips/cfi_cmdset_0002.c
-index 1f64458..4afbb51 100644
 --- a/drivers/mtd/chips/cfi_cmdset_0002.c
 +++ b/drivers/mtd/chips/cfi_cmdset_0002.c
 @@ -47,6 +47,7 @@

@@ -13,7 +13,6 @@ Subject: [PATCH] crc32: major optimization and cleanup
  2 files changed, 92 insertions(+), 104 deletions(-)
 
 diff --git a/lib/crc32.c b/lib/crc32.c
-index bfc3331..2211a4b 100644
 --- a/lib/crc32.c
 +++ b/lib/crc32.c
 @@ -30,11 +30,15 @@
@@ -201,7 +200,6 @@ index bfc3331..2211a4b 100644
  	while (len--) {
  		crc ^= *p++ << 24;
 diff --git a/lib/gen_crc32table.c b/lib/gen_crc32table.c
-index bea5d97..85d0e41 100644
 --- a/lib/gen_crc32table.c
 +++ b/lib/gen_crc32table.c
 @@ -7,8 +7,8 @@

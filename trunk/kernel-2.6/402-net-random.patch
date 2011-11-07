@@ -21,7 +21,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/char/random.c b/drivers/char/random.c
-index 1756b1f..5fee056 100644
 --- a/drivers/char/random.c
 +++ b/drivers/char/random.c
 @@ -1494,7 +1494,7 @@ __u32 secure_tcpv6_sequence_number(__be32 *saddr, __be32 *daddr,

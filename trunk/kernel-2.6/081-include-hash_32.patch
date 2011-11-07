@@ -18,7 +18,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 27 insertions(+), 15 deletions(-)
 
 diff --git a/include/linux/hash.h b/include/linux/hash.h
-index acf17bb..06d25c1 100644
 --- a/include/linux/hash.h
 +++ b/include/linux/hash.h
 @@ -1,6 +1,6 @@

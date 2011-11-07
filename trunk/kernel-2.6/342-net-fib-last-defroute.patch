@@ -16,7 +16,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  3 files changed, 18 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index 690fb4d..d70b9b4 100644
 --- a/include/net/ip_fib.h
 +++ b/include/net/ip_fib.h
 @@ -141,6 +141,7 @@ struct fib_table {
@@ -28,7 +27,6 @@ index 690fb4d..d70b9b4 100644
  	int		(*tb_insert)(struct fib_table *, struct fib_config *);
  	int		(*tb_delete)(struct fib_table *, struct fib_config *);
 diff --git a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
-index 86087d4..9d54041 100644
 --- a/net/ipv4/fib_hash.c
 +++ b/net/ipv4/fib_hash.c
 @@ -271,8 +271,6 @@ out:
@@ -118,7 +116,6 @@ diff --git a/net/ipv4/fib_lookup.h b/net/ipv4/fib_lookup.h
 +
  #endif /* _FIB_LOOKUP_H */
 diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
-index c7c5c6c..9126eea 100644
 --- a/net/ipv4/fib_trie.c
 +++ b/net/ipv4/fib_trie.c
 @@ -1771,8 +1771,6 @@ static int fn_trie_flush(struct fib_tabl

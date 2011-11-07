@@ -16,7 +16,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  2 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/arch/mips/lib/uncached.c b/arch/mips/lib/uncached.c
-index 58d14f4..27b012d 100644
 --- a/arch/mips/lib/uncached.c
 +++ b/arch/mips/lib/uncached.c
 @@ -46,9 +46,9 @@ unsigned long __init run_uncached(void *func)
@@ -46,7 +45,6 @@ index 58d14f4..27b012d 100644
  #endif
  	else {
 diff --git a/include/asm-mips/addrspace.h b/include/asm-mips/addrspace.h
-index 0bb7a93..569f80a 100644
 --- a/include/asm-mips/addrspace.h
 +++ b/include/asm-mips/addrspace.h
 @@ -127,7 +127,7 @@

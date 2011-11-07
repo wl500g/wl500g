@@ -31,7 +31,6 @@ diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
  				 gfp_t priority);
  extern struct sk_buff *skb_copy(const struct sk_buff *skb,
 diff --git a/include/net/ip.h b/include/net/ip.h
-index 3af3ed9..875c5ed 100644
 --- a/include/net/ip.h
 +++ b/include/net/ip.h
 @@ -332,7 +332,7 @@ enum ip_defrag_users
@@ -343,7 +342,6 @@ diff --git a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
  
  void __init ipfrag_init(void)
 diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
-index 41d8964..8f75e43 100644
 --- a/net/ipv4/ip_input.c
 +++ b/net/ipv4/ip_input.c
 @@ -172,8 +172,7 @@ int ip_call_ra_chain(struct sk_buff *skb)
@@ -367,7 +365,6 @@ index 41d8964..8f75e43 100644
  	}
  
 diff --git a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
-index fbca2a2..3487337 100644
 --- a/net/ipv4/ipvs/ip_vs_core.c
 +++ b/net/ipv4/ipvs/ip_vs_core.c
 @@ -541,13 +541,14 @@ __sum16 ip_vs_checksum_complete(struct sk_buff *skb, int offset)
@@ -431,7 +428,6 @@ index fbca2a2..3487337 100644
  
  	iph = ip_hdr(skb);
 diff --git a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
-index 2fcb924..48fdd9e 100644
 --- a/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 +++ b/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c
 @@ -63,19 +63,20 @@ static int ipv4_print_conntrack(struct seq_file *s,
@@ -477,7 +473,6 @@ index 2fcb924..48fdd9e 100644
  	}
  	return NF_ACCEPT;
 diff --git a/net/ipv6/reassembly.c b/net/ipv6/reassembly.c
-index 31601c9..fa1055b 100644
 --- a/net/ipv6/reassembly.c
 +++ b/net/ipv6/reassembly.c
 @@ -42,6 +42,7 @@

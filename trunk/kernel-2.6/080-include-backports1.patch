@@ -18,7 +18,6 @@ Needed for the following backports of ext3 fixes.
 
 diff --git a/fs/ocfs2/cluster/endian.h b/fs/ocfs2/cluster/endian.h
 deleted file mode 100644
-index 2df9082..0000000
 --- a/fs/ocfs2/cluster/endian.h
 +++ /dev/null
 @@ -1,30 +0,0 @@
@@ -53,7 +52,6 @@ index 2df9082..0000000
 -
 -#endif /* OCFS2_CLUSTER_ENDIAN_H */
 diff --git a/fs/ocfs2/cluster/nodemanager.c b/fs/ocfs2/cluster/nodemanager.c
-index 9f5ad0f..816dc5e 100644
 --- a/fs/ocfs2/cluster/nodemanager.c
 +++ b/fs/ocfs2/cluster/nodemanager.c
 @@ -24,7 +24,6 @@
@@ -65,7 +63,6 @@ index 9f5ad0f..816dc5e 100644
  #include "nodemanager.h"
  #include "heartbeat.h"
 diff --git a/fs/ocfs2/dlm/dlmast.c b/fs/ocfs2/dlm/dlmast.c
-index 2fd8bde..644bee5 100644
 --- a/fs/ocfs2/dlm/dlmast.c
 +++ b/fs/ocfs2/dlm/dlmast.c
 @@ -43,7 +43,6 @@
@@ -78,7 +75,6 @@ index 2fd8bde..644bee5 100644
  #include "dlmcommon.h"
 diff --git a/fs/ocfs2/endian.h b/fs/ocfs2/endian.h
 deleted file mode 100644
-index f226b22..0000000
 --- a/fs/ocfs2/endian.h
 +++ /dev/null
 @@ -1,45 +0,0 @@
@@ -128,7 +124,6 @@ index f226b22..0000000
 -
 -#endif /* OCFS2_ENDIAN_H */
 diff --git a/fs/ocfs2/ocfs2.h b/fs/ocfs2/ocfs2.h
-index a860633..b367a33 100644
 --- a/fs/ocfs2/ocfs2.h
 +++ b/fs/ocfs2/ocfs2.h
 @@ -43,7 +43,6 @@
@@ -140,7 +135,6 @@ index a860633..b367a33 100644
  
  /* Most user visible OCFS2 inodes will have very few pieces of
 diff --git a/include/linux/byteorder/generic.h b/include/linux/byteorder/generic.h
-index 3dc715b..d377155 100644
 --- a/include/linux/byteorder/generic.h
 +++ b/include/linux/byteorder/generic.h
 @@ -146,6 +146,36 @@

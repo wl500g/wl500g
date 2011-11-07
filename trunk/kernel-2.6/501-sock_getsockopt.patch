@@ -20,7 +20,6 @@ Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
  1 files changed, 1 insertions(+), 1 deletions(-)
 
 diff --git a/net/core/sock.c b/net/core/sock.c
-index b1b2f22..d9fa31b 100644
 --- a/net/core/sock.c
 +++ b/net/core/sock.c
 @@ -674,6 +674,8 @@ int sock_getsockopt(struct socket *sock, int level, int optname,

@@ -20,7 +20,6 @@ Subject: [PATCH] O_CLOEXEC file descriptor flag backport
  13 files changed, 59 insertions(+), 33 deletions(-)
 
 diff --git a/fs/fcntl.c b/fs/fcntl.c
-index 0dd0b36..7b426e6 100644
 --- a/fs/fcntl.c
 +++ b/fs/fcntl.c
 @@ -110,7 +110,7 @@ out:
@@ -65,7 +64,6 @@ index 0dd0b36..7b426e6 100644
  	case F_GETFD:
  		err = get_close_on_exec(fd) ? FD_CLOEXEC : 0;
 diff --git a/fs/open.c b/fs/open.c
-index 0d515d1..be6a457 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -855,7 +855,7 @@ EXPORT_SYMBOL(dentry_open);
@@ -111,7 +109,6 @@ index 0d515d1..be6a457 100644
  			struct file *f = do_filp_open(dfd, tmp, flags, mode);
  			if (IS_ERR(f)) {
 diff --git a/include/asm-alpha/fcntl.h b/include/asm-alpha/fcntl.h
-index 87f2cf4..25da001 100644
 --- a/include/asm-alpha/fcntl.h
 +++ b/include/asm-alpha/fcntl.h
 @@ -16,6 +16,7 @@
@@ -123,7 +120,6 @@ index 87f2cf4..25da001 100644
  #define F_GETLK		7
  #define F_SETLK		8
 diff --git a/include/asm-generic/fcntl.h b/include/asm-generic/fcntl.h
-index c154b9d..b847741 100644
 --- a/include/asm-generic/fcntl.h
 +++ b/include/asm-generic/fcntl.h
 @@ -48,6 +48,9 @@
@@ -137,7 +133,6 @@ index c154b9d..b847741 100644
  #define O_NDELAY	O_NONBLOCK
  #endif
 diff --git a/include/asm-parisc/fcntl.h b/include/asm-parisc/fcntl.h
-index 317851f..1e1c824 100644
 --- a/include/asm-parisc/fcntl.h
 +++ b/include/asm-parisc/fcntl.h
 @@ -3,21 +3,22 @@
@@ -178,7 +173,6 @@ index 317851f..1e1c824 100644
  #define F_GETLK64	8
  #define F_SETLK64	9
 diff --git a/include/asm-sparc/fcntl.h b/include/asm-sparc/fcntl.h
-index 5db60b5..7bbdfc7 100644
 --- a/include/asm-sparc/fcntl.h
 +++ b/include/asm-sparc/fcntl.h
 @@ -16,6 +16,7 @@
@@ -197,7 +191,6 @@ index 5db60b5..7bbdfc7 100644
  
  #endif
 diff --git a/include/asm-sparc64/fcntl.h b/include/asm-sparc64/fcntl.h
-index b2aecf0..111f6b3 100644
 --- a/include/asm-sparc64/fcntl.h
 +++ b/include/asm-sparc64/fcntl.h
 @@ -16,7 +16,7 @@
@@ -210,7 +203,6 @@ index b2aecf0..111f6b3 100644
  #define F_GETOWN	5	/*  for sockets. */
  #define F_SETOWN	6	/*  for sockets. */
 diff --git a/include/linux/fcntl.h b/include/linux/fcntl.h
-index 40b9326..8603740 100644
 --- a/include/linux/fcntl.h
 +++ b/include/linux/fcntl.h
 @@ -3,12 +3,17 @@
@@ -237,7 +229,6 @@ index 40b9326..8603740 100644
  /*
   * Request nofications on a directory.
 diff --git a/include/linux/file.h b/include/linux/file.h
-index a59001e..0114fbc 100644
 --- a/include/linux/file.h
 +++ b/include/linux/file.h
 @@ -73,6 +73,7 @@ extern struct file * FASTCALL(fget_light(unsigned int fd, int *fput_needed));
@@ -249,7 +240,6 @@ index a59001e..0114fbc 100644
  struct kmem_cache;
  
 diff --git a/include/linux/socket.h b/include/linux/socket.h
-index fe195c9..f852e1a 100644
 --- a/include/linux/socket.h
 +++ b/include/linux/socket.h
 @@ -253,6 +253,9 @@ struct ucred {
@@ -263,7 +253,6 @@ index fe195c9..f852e1a 100644
  #define MSG_CMSG_COMPAT	0x80000000	/* This message needs 32 bit fixups */
  #else
 diff --git a/net/compat.c b/net/compat.c
-index 9a0f5f2..d74d821 100644
 --- a/net/compat.c
 +++ b/net/compat.c
 @@ -276,7 +276,8 @@ void scm_detach_fds_compat(struct msghdr *kmsg, struct scm_cookie *scm)
@@ -277,7 +266,6 @@ index 9a0f5f2..d74d821 100644
  			break;
  		new_fd = err;
 diff --git a/net/core/scm.c b/net/core/scm.c
-index 292ad8d..44c4ec2 100644
 --- a/net/core/scm.c
 +++ b/net/core/scm.c
 @@ -228,7 +228,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
@@ -291,7 +279,6 @@ index 292ad8d..44c4ec2 100644
  			break;
  		new_fd = err;
 diff --git a/net/socket.c b/net/socket.c
-index e1f9a0b..8842265 100644
 --- a/net/socket.c
 +++ b/net/socket.c
 @@ -1939,9 +1939,7 @@ asmlinkage long sys_recvmsg(int fd, struct msghdr __user *msg,

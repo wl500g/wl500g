@@ -23,7 +23,6 @@ ac36552a52a6ec8563ac0a109e2a0935673f4abb scsi_lib: remove unused variable
  2 files changed, 135 insertions(+), 81 deletions(-)
 
 diff --git a/drivers/scsi/scsi_error.c b/drivers/scsi/scsi_error.c
-index 3e033b0..8f18cd0 100644
 --- a/drivers/scsi/scsi_error.c
 +++ b/drivers/scsi/scsi_error.c
 @@ -331,6 +331,9 @@ static int scsi_check_sense(struct scsi_cmnd *scmd)
@@ -37,7 +36,6 @@ index 3e033b0..8f18cd0 100644
  	case NOT_READY:
  	case UNIT_ATTENTION:
 diff --git a/drivers/scsi/scsi_lib.c b/drivers/scsi/scsi_lib.c
-index 9180c33..57eaa13 100644
 --- a/drivers/scsi/scsi_lib.c
 +++ b/drivers/scsi/scsi_lib.c
 @@ -89,26 +89,19 @@ static void scsi_unprep_request(struct request *req)

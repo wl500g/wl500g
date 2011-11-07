@@ -13,7 +13,6 @@ This fixes mmc driver broken after local 216-scsi5.patch
  2 files changed, 7 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/mmc/card/block.c b/drivers/mmc/card/block.c
-index 148eac3..4842368 100644
 --- a/drivers/mmc/card/block.c
 +++ b/drivers/mmc/card/block.c
 @@ -325,15 +325,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
@@ -66,7 +65,6 @@ index 148eac3..4842368 100644
  
  	return 0;
 diff --git a/drivers/mmc/card/queue.c b/drivers/mmc/card/queue.c
-index dd97bc7..d8d98bd 100644
 --- a/drivers/mmc/card/queue.c
 +++ b/drivers/mmc/card/queue.c
 @@ -94,8 +94,8 @@ static void mmc_request(request_queue_t *q)

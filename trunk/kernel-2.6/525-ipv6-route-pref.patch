@@ -14,7 +14,6 @@ Signed-off-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
  1 files changed, 16 insertions(+), 4 deletions(-)
 
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index dbad96c..5d6c166 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -237,15 +237,20 @@ static inline int rt6_need_strict(struct in6_addr *daddr)

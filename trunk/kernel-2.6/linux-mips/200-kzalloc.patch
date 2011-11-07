@@ -11,7 +11,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/include/asm-mips/thread_info.h b/include/asm-mips/thread_info.h
-index 9676e7d..9a51dfa 100644
 --- a/include/asm-mips/thread_info.h
 +++ b/include/asm-mips/thread_info.h
 @@ -87,9 +87,8 @@ register struct thread_info *__current_thread_info __asm__("$28");

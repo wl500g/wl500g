@@ -15,7 +15,6 @@ Subject: [PATCH] TTY/termios: backports from upstream 2.6 kernel
  8 files changed, 376 insertions(+), 287 deletions(-)
 
 diff --git a/drivers/char/n_hdlc.c b/drivers/char/n_hdlc.c
-index 337a87f..37f7d34 100644
 --- a/drivers/char/n_hdlc.c
 +++ b/drivers/char/n_hdlc.c
 @@ -780,13 +780,14 @@ static unsigned int n_hdlc_tty_poll(struct tty_struct *tty, struct file *filp,
@@ -46,7 +45,6 @@ index 337a87f..37f7d34 100644
  	else
  		list->head = buf;
 diff --git a/drivers/char/n_tty.c b/drivers/char/n_tty.c
-index 154f422..371631f 100644
 --- a/drivers/char/n_tty.c
 +++ b/drivers/char/n_tty.c
 @@ -1538,7 +1538,8 @@ static unsigned int normal_poll(struct tty_struct * tty, struct file * file, pol
@@ -60,7 +58,6 @@ index 154f422..371631f 100644
  		mask |= POLLOUT | POLLWRNORM;
  	return mask;
 diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
-index 6bea12e..66443b1 100644
 --- a/drivers/char/tty_io.c
 +++ b/drivers/char/tty_io.c
 @@ -90,7 +90,6 @@
@@ -323,7 +320,6 @@ index 6bea12e..66443b1 100644
  {
  	tty_class = class_create(THIS_MODULE, "tty");
 diff --git a/drivers/char/tty_ioctl.c b/drivers/char/tty_ioctl.c
-index f3e8e82..e78befc 100644
 --- a/drivers/char/tty_ioctl.c
 +++ b/drivers/char/tty_ioctl.c
 @@ -50,39 +50,23 @@
@@ -1133,7 +1129,6 @@ diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
  	dev_t device = MKDEV(driver->major, driver->minor_start+number);
  	struct dentry *dentry;
 diff --git a/include/linux/devpts_fs.h b/include/linux/devpts_fs.h
-index b672ddc..154769c 100644
 --- a/include/linux/devpts_fs.h
 +++ b/include/linux/devpts_fs.h
 @@ -17,6 +17,8 @@
@@ -1155,7 +1150,6 @@ index b672ddc..154769c 100644
  static inline struct tty_struct *devpts_get_tty(int number) { return NULL; }
  static inline void devpts_pty_kill(int number) { }
 diff --git a/include/linux/tty.h b/include/linux/tty.h
-index 90eec87..bfe8e6a 100644
 --- a/include/linux/tty.h
 +++ b/include/linux/tty.h
 @@ -74,7 +74,6 @@ struct tty_buffer {
@@ -1190,7 +1184,6 @@ index 90eec87..bfe8e6a 100644
  extern struct tty_ldisc tty_ldisc_N_TTY;
  
 diff --git a/include/linux/vt_kern.h b/include/linux/vt_kern.h
-index d961635..4303bcb 100644
 --- a/include/linux/vt_kern.h
 +++ b/include/linux/vt_kern.h
 @@ -75,6 +75,7 @@ int con_copy_unimap(struct vc_data *dst_vc, struct vc_data *src_vc);

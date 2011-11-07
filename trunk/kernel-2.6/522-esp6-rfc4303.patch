@@ -15,7 +15,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  1 files changed, 6 insertions(+), 0 deletions(-)
 
 diff --git a/net/ipv6/esp6.c b/net/ipv6/esp6.c
-index 7db66f1..4440532 100644
 --- a/net/ipv6/esp6.c
 +++ b/net/ipv6/esp6.c
 @@ -230,6 +230,12 @@ static int esp6_input(struct xfrm_state *x, struct sk_buff *skb)

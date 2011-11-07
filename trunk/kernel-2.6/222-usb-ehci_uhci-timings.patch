@@ -10,7 +10,6 @@ From: Alan Stern <stern@xxxxxx>
  6 files changed, 48 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/usb/core/hub.c b/drivers/usb/core/hub.c
-index a87b97b..ed0f907 100644
 --- a/drivers/usb/core/hub.c
 +++ b/drivers/usb/core/hub.c
 @@ -2666,6 +2666,9 @@ static void hub_events(void)
@@ -24,7 +23,6 @@ index a87b97b..ed0f907 100644
  							children[i-1]);
  					if (ret < 0)
 diff --git a/drivers/usb/host/ehci-hcd.c b/drivers/usb/host/ehci-hcd.c
-index ed49cec..ef188d9 100644
 --- a/drivers/usb/host/ehci-hcd.c
 +++ b/drivers/usb/host/ehci-hcd.c
 @@ -679,9 +679,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
@@ -41,7 +39,6 @@ index ed49cec..ef188d9 100644
  			mod_timer(&hcd->rh_timer, ehci->reset_done[i]);
  		}
 diff --git a/drivers/usb/host/ehci-hub.c b/drivers/usb/host/ehci-hub.c
-index 0dcb416..3956770 100644
 --- a/drivers/usb/host/ehci-hub.c
 +++ b/drivers/usb/host/ehci-hub.c
 @@ -124,9 +124,26 @@ static int ehci_bus_suspend (struct usb_hcd *hcd)
@@ -81,7 +78,6 @@ index 0dcb416..3956770 100644
  		u32 __iomem	*reg = &ehci->regs->port_status [port];
  		u32		t1 = ehci_readl(ehci, reg) & ~PORT_RWC_BITS;
 diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
-index 76c555a..7f10519 100644
 --- a/drivers/usb/host/uhci-hcd.c
 +++ b/drivers/usb/host/uhci-hcd.c
 @@ -718,7 +718,20 @@ static int uhci_rh_suspend(struct usb_hcd *hcd)
@@ -107,7 +103,6 @@ index 76c555a..7f10519 100644
  	spin_unlock_irq(&uhci->lock);
  	return rc;
 diff --git a/drivers/usb/host/uhci-hub.c b/drivers/usb/host/uhci-hub.c
-index 8e4427a..d91b839 100644
 --- a/drivers/usb/host/uhci-hub.c
 +++ b/drivers/usb/host/uhci-hub.c
 @@ -167,7 +167,7 @@ static void uhci_check_ports(struct uhci_hcd *uhci)

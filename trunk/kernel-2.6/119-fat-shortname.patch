@@ -8,7 +8,6 @@ kernel.org commit 30d1872d9eb3663b4cf7bdebcbf5cd465674cced
  1 files changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/fs/vfat/namei.c b/fs/vfat/namei.c
-index eefb6a7..7be47eb 100644
 --- a/fs/vfat/namei.c
 +++ b/fs/vfat/namei.c
 @@ -280,7 +280,7 @@ static int vfat_create_shortname(struct inode *dir, struct nls_table *nls,

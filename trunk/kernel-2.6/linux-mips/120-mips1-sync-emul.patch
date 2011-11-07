@@ -41,7 +41,6 @@ Signed-off-by: Ralf Baechle <ralf@linux-mips.org>
  1 files changed, 86 insertions(+), 78 deletions(-)
 
 diff --git a/arch/mips/kernel/traps.c b/arch/mips/kernel/traps.c
-index 9c0c478..bbf01b8 100644
 --- a/arch/mips/kernel/traps.c
 +++ b/arch/mips/kernel/traps.c
 @@ -9,9 +9,10 @@

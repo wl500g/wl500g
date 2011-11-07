@@ -15,7 +15,6 @@ c06d4dcf5034ee2289a921b9b2c547f3fed2d878
  5 files changed, 8 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/usb/core/hcd-pci.c b/drivers/usb/core/hcd-pci.c
-index 5cf6d5f..3fb9af8 100644
 --- a/drivers/usb/core/hcd-pci.c
 +++ b/drivers/usb/core/hcd-pci.c
 @@ -125,7 +125,7 @@ int usb_hcd_pci_probe (struct pci_dev *dev, const struct pci_device_id *id)
@@ -28,7 +27,6 @@ index 5cf6d5f..3fb9af8 100644
  		goto err4;
  	return retval;
 diff --git a/drivers/usb/host/ehci-fsl.c b/drivers/usb/host/ehci-fsl.c
-index b7b7bfb..430821c 100644
 --- a/drivers/usb/host/ehci-fsl.c
 +++ b/drivers/usb/host/ehci-fsl.c
 @@ -122,7 +122,7 @@ int usb_hcd_fsl_probe(const struct hc_driver *driver,
@@ -41,7 +39,6 @@ index b7b7bfb..430821c 100644
  		goto err4;
  	return retval;
 diff --git a/drivers/usb/host/ehci.h b/drivers/usb/host/ehci.h
-index 951d69f..b307fe4 100644
 --- a/drivers/usb/host/ehci.h
 +++ b/drivers/usb/host/ehci.h
 @@ -534,8 +534,8 @@ struct ehci_iso_stream {
@@ -55,7 +52,6 @@ index 951d69f..b307fe4 100644
  	u16			maxp;
  	u16			raw_mask;
 diff --git a/drivers/usb/host/ohci-ppc-of.c b/drivers/usb/host/ohci-ppc-of.c
-index c43b66a..9695283 100644
 --- a/drivers/usb/host/ohci-ppc-of.c
 +++ b/drivers/usb/host/ohci-ppc-of.c
 @@ -139,7 +139,7 @@ ohci_hcd_ppc_of_probe(struct of_device *op, const struct of_device_id *match)
@@ -68,7 +64,6 @@ index c43b66a..9695283 100644
  		return 0;
  
 diff --git a/drivers/usb/host/uhci-hcd.c b/drivers/usb/host/uhci-hcd.c
-index 7f10519..690013e 100644
 --- a/drivers/usb/host/uhci-hcd.c
 +++ b/drivers/usb/host/uhci-hcd.c
 @@ -378,7 +378,6 @@ static irqreturn_t uhci_irq(struct usb_hcd *hcd)

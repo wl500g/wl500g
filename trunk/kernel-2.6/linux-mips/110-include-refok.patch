@@ -15,7 +15,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  1 files changed, 2 insertions(+), 0 deletions(-)
 
 diff --git a/include/linux/init.h b/include/linux/init.h
-index f8d9d0b..9b7a2ba 100644
 --- a/include/linux/init.h
 +++ b/include/linux/init.h
 @@ -67,8 +67,10 @@

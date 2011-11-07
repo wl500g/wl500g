@@ -15,7 +15,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  3 files changed, 1 insertions(+), 4 deletions(-)
 
 diff --git a/include/asm-i386/pgtable.h b/include/asm-i386/pgtable.h
-index 0efa806..01734e0 100644
 --- a/include/asm-i386/pgtable.h
 +++ b/include/asm-i386/pgtable.h
 @@ -79,7 +79,7 @@ void paging_init(void);
@@ -28,7 +27,6 @@ index 0efa806..01734e0 100644
  #ifdef CONFIG_HIGHMEM
  # define VMALLOC_END	(PKMAP_BASE-2*PAGE_SIZE)
 diff --git a/include/linux/mm.h b/include/linux/mm.h
-index 1c12074..bbd427e 100644
 --- a/include/linux/mm.h
 +++ b/include/linux/mm.h
 @@ -27,7 +27,6 @@ extern unsigned long max_mapnr;
@@ -40,7 +38,6 @@ index 1c12074..bbd427e 100644
  
  #ifdef CONFIG_SYSCTL
 diff --git a/mm/memory.c b/mm/memory.c
-index cfddcd2..b3d73bb 100644
 --- a/mm/memory.c
 +++ b/mm/memory.c
 @@ -78,11 +78,9 @@ unsigned long num_physpages;

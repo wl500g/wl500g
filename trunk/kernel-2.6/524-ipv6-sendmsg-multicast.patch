@@ -26,7 +26,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  2 files changed, 49 insertions(+), 7 deletions(-)
 
 diff --git a/include/net/ndisc.h b/include/net/ndisc.h
-index ce532f2..1459ed3 100644
 --- a/include/net/ndisc.h
 +++ b/include/net/ndisc.h
 @@ -155,9 +155,9 @@ static inline struct neighbour * ndisc_get_neigh(struct net_device *dev, const s
@@ -42,7 +41,6 @@ index ce532f2..1459ed3 100644
  
  
 diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index 18c486c..76f06b9 100644
 --- a/net/ipv6/route.c
 +++ b/net/ipv6/route.c
 @@ -627,6 +627,9 @@ static struct rt6_info *rt6_alloc_cow(struct rt6_info *ort, struct in6_addr *dad

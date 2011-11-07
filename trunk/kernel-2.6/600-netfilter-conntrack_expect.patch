@@ -13,7 +13,6 @@ df43b4e7ca46952756b2fc039ed80469b1bff62d [NETFILTER]: nf_conntrack_ftp: use nf_c
  2 files changed, 9 insertions(+), 40 deletions(-)
 
 diff --git a/net/netfilter/nf_conntrack_expect.c b/net/netfilter/nf_conntrack_expect.c
-index 504fb6c..46f60fd 100644
 --- a/net/netfilter/nf_conntrack_expect.c
 +++ b/net/netfilter/nf_conntrack_expect.c
 @@ -174,17 +174,10 @@ static inline int expect_matches(const struct nf_conntrack_expect *a,
@@ -38,7 +37,6 @@ index 504fb6c..46f60fd 100644
  	write_unlock_bh(&nf_conntrack_lock);
  }
 diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 82db2aa..8e52812 100644
 --- a/net/netfilter/nf_conntrack_ftp.c
 +++ b/net/netfilter/nf_conntrack_ftp.c
 @@ -364,6 +364,7 @@ static int help(struct sk_buff **pskb,

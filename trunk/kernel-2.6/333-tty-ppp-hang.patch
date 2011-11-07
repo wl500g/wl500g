@@ -11,7 +11,6 @@ Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
  2 files changed, 22 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/char/tty_ldisc.c b/drivers/char/tty_ldisc.c
-index f307f13..7a84b40 100644
 --- a/drivers/char/tty_io.c
 +++ b/drivers/char/tty_io.c
 @@ -853,8 +853,7 @@ struct tty_ldisc *tty_ldisc_ref_wait(str
@@ -87,7 +86,6 @@ index f307f13..7a84b40 100644
  
  	/*
 diff --git a/include/linux/tty.h b/include/linux/tty.h
-index f881697..bbbeaef 100644
 --- a/include/linux/tty.h
 +++ b/include/linux/tty.h
 @@ -301,6 +301,7 @@ struct tty_struct {

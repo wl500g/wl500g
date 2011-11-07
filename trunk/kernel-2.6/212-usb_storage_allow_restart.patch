@@ -7,7 +7,6 @@ from 2.6.25, kernel.org commit f09e495df27d80ae77005ddb2e93df18ec24d04a
  1 files changed, 4 insertions(+), 0 deletions(-)
 
 diff --git a/drivers/usb/storage/scsiglue.c b/drivers/usb/storage/scsiglue.c
-index 8b6664d..76cedbb 100644
 --- a/drivers/usb/storage/scsiglue.c
 +++ b/drivers/usb/storage/scsiglue.c
 @@ -183,6 +183,10 @@ static int slave_configure(struct scsi_device *sdev)
