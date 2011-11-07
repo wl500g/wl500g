@@ -333,6 +333,7 @@ start_upnp(void)
 		fprintf(fp, "# automagically generated\n"
 			"ext_ifname=%s\n"
 			"listening_ip=%s/%s\n"
+			"listening_ip=127.0.0.1/8\n"
 			"port=0\n"
 			"enable_upnp=%s\n"
 			"enable_natpmp=%s\n"
